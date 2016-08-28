@@ -1,5 +1,5 @@
 /* Language independent return value optimizations
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,8 +21,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
 #include "tree-ssa-alias.h"
@@ -55,7 +70,7 @@ along with GCC; see the file COPYING3.  If not see
    This is basically a generic equivalent to the C++ front-end's
    Named Return Value optimization.  */
 
-struct nrv_data
+struct nrv_data_t
 {
   /* This is the temporary (a VAR_DECL) which appears in all of
      this function's RETURN_EXPR statements.  */
@@ -84,7 +99,7 @@ static tree
 finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  struct nrv_data *dp = (struct nrv_data *) wi->info;
+  struct nrv_data_t *dp = (struct nrv_data_t *) wi->info;
 
   /* No need to walk into types.  */
   if (TYPE_P (*tp))
@@ -120,7 +135,6 @@ const pass_data pass_data_nrv =
   GIMPLE_PASS, /* type */
   "nrv", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_NRV, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -151,7 +165,7 @@ pass_nrv::execute (function *fun)
   tree found = NULL;
   basic_block bb;
   gimple_stmt_iterator gsi;
-  struct nrv_data data;
+  struct nrv_data_t data;
 
   /* If this function does not return an aggregate type in memory, then
      there is nothing to do.  */
@@ -181,12 +195,12 @@ pass_nrv::execute (function *fun)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree ret_val;
 
-	  if (gimple_code (stmt) == GIMPLE_RETURN)
+	  if (greturn *return_stmt = dyn_cast <greturn *> (stmt))
 	    {
 	      /* In a function with an aggregate return value, the
 		 gimplifier has changed all non-empty RETURN_EXPRs to
 		 return the RESULT_DECL.  */
-	      ret_val = gimple_return_retval (stmt);
+	      ret_val = gimple_return_retval (return_stmt);
 	      if (ret_val)
 		gcc_assert (ret_val == result);
 	    }
@@ -217,8 +231,7 @@ pass_nrv::execute (function *fun)
 		 same type and alignment as the function's result.  */
 	      if (TREE_CODE (found) != VAR_DECL
 		  || TREE_THIS_VOLATILE (found)
-		  || DECL_CONTEXT (found) != current_function_decl
-		  || TREE_STATIC (found)
+		  || !auto_var_in_fn_p (found, current_function_decl)
 		  || TREE_ADDRESSABLE (found)
 		  || DECL_ALIGN (found) > DECL_ALIGN (result)
 		  || !useless_type_conversion_p (result_type,
@@ -317,7 +330,7 @@ make_pass_nrv (gcc::context *ctxt)
    DEST is available if it is not clobbered or used by the call.  */
 
 static bool
-dest_safe_for_nrv_p (gimple call)
+dest_safe_for_nrv_p (gcall *call)
 {
   tree dest = gimple_call_lhs (call);
 
@@ -354,7 +367,6 @@ const pass_data pass_data_return_slot =
   GIMPLE_PASS, /* type */
   "retslot", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
@@ -385,10 +397,11 @@ pass_return_slot::execute (function *fun)
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gcall *stmt;
 	  bool slot_opt_p;
 
-	  if (is_gimple_call (stmt)
+	  stmt = dyn_cast <gcall *> (gsi_stmt (gsi));
+	  if (stmt
 	      && gimple_call_lhs (stmt)
 	      && !gimple_call_return_slot_opt_p (stmt)
 	      && aggregate_value_p (TREE_TYPE (gimple_call_lhs (stmt)),

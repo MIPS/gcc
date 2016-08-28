@@ -48,6 +48,8 @@ typedef unsigned int uintptr __attribute__ ((mode (pointer)));
 typedef intptr		intgo; // Go's int
 typedef uintptr		uintgo; // Go's uint
 
+typedef uintptr		uintreg;
+
 /* Defined types.  */
 
 typedef	uint8			bool;
@@ -190,7 +192,6 @@ struct	Location
 
 struct	G
 {
-	void*	closure;	// Closure value.
 	Defer*	defer;
 	Panic*	panic;
 	void*	exception;	// current exception being thrown
@@ -213,6 +214,7 @@ struct	G
 	bool	ispanic;
 	bool	issystem;	// do not output in stack dump
 	bool	isbackground;	// ignore in deadlock detector
+	bool	paniconfault;	// panic (instead of crash) on unexpected fault address
 	M*	m;		// for debuggers, but offset not hard-coded
 	M*	lockedm;
 	int32	sig;
@@ -248,6 +250,7 @@ struct	M
 	int32	throwing;
 	int32	gcing;
 	int32	locks;
+	int32	softfloat;
 	int32	dying;
 	int32	profilehz;
 	int32	helpgc;
@@ -269,15 +272,11 @@ struct	M
 	uint32	waitsemacount;
 	uint32	waitsemalock;
 	GCStats	gcstats;
-	bool	racecall;
 	bool	needextram;
 	bool	dropextram;	// for gccgo: drop after call is done.
+	uint8	traceback;
 	bool	(*waitunlockf)(G*, void*);
 	void*	waitlock;
-
-	uintptr	settype_buf[1024];
-	uintptr	settype_bufsize;
-
 	uintptr	end[];
 };
 
@@ -337,6 +336,7 @@ enum
 	SigDefault = 1<<4,	// if the signal isn't explicitly requested, don't monitor it
 	SigHandling = 1<<5,	// our signal handler is registered
 	SigIgnored = 1<<6,	// the signal was ignored before we registered for it
+	SigGoExit = 1<<7,	// cause all runtime procs to exit (only used on Plan 9).
 };
 
 // Layout of in-memory per-function information prepared by linker
@@ -348,6 +348,16 @@ struct	Func
 	String	name;
 	uintptr	entry;	// entry pc
 };
+
+#ifdef GOOS_nacl
+enum {
+   NaCl = 1,
+};
+#else
+enum {
+   NaCl = 0,
+};
+#endif
 
 #ifdef GOOS_windows
 enum {
@@ -382,9 +392,11 @@ struct	Timers
 
 // Package time knows the layout of this structure.
 // If this struct changes, adjust ../time/sleep.go:/runtimeTimer.
+// For GOOS=nacl, package syscall knows the layout of this structure.
+// If this struct changes, adjust ../syscall/net_nacl.go:/runtimeTimer.
 struct	Timer
 {
-	int32	i;	// heap index
+	intgo	i;	// heap index
 
 	// Timer wakes up at when, and then at when+period, ... (period > 0 only)
 	// each time calling f(now, arg) in the timer goroutine, so f must be
@@ -393,6 +405,7 @@ struct	Timer
 	int64	period;
 	FuncVal	*fv;
 	Eface	arg;
+	uintptr	seq;
 };
 
 // Lock-free stack node.
@@ -438,11 +451,13 @@ struct DebugVars
 	int32	allocfreetrace;
 	int32	efence;
 	int32	gctrace;
+	int32	gcdead;
 	int32	scheddetail;
 	int32	schedtrace;
 };
 
 extern bool runtime_precisestack;
+extern bool runtime_copystack;
 
 /*
  * defined macros
@@ -452,7 +467,7 @@ extern bool runtime_precisestack;
 #define	nelem(x)	(sizeof(x)/sizeof((x)[0]))
 #define	nil		((void*)0)
 #define USED(v)		((void) v)
-#define	ROUND(x, n)	(((x)+(n)-1)&~((n)-1)) /* all-caps to mark as macro: it evaluates n twice */
+#define	ROUND(x, n)	(((x)+(n)-1)&~(uintptr)((n)-1)) /* all-caps to mark as macro: it evaluates n twice */
 
 byte*	runtime_startup_random_data;
 uint32	runtime_startup_random_data_len;
@@ -487,20 +502,20 @@ extern	uint32	runtime_panicking;
 extern	int8*	runtime_goos;
 extern	int32	runtime_ncpu;
 extern 	void	(*runtime_sysargs)(int32, uint8**);
+extern	uint32	runtime_Hchansize;
 extern	DebugVars	runtime_debug;
+extern	uintptr	runtime_maxstacksize;
 
 /*
  * common functions and data
  */
 #define runtime_strcmp(s1, s2) __builtin_strcmp((s1), (s2))
+#define runtime_strncmp(s1, s2, n) __builtin_strncmp((s1), (s2), (n))
 #define runtime_strstr(s1, s2) __builtin_strstr((s1), (s2))
 intgo	runtime_findnull(const byte*);
 intgo	runtime_findnullw(const uint16*);
 void	runtime_dump(byte*, int32);
 
-/*
- * very low level c-called
- */
 void	runtime_gogo(G*);
 struct __go_func_type;
 void	runtime_args(int32, byte**);
@@ -510,8 +525,10 @@ void	runtime_goenvs(void);
 void	runtime_goenvs_unix(void);
 void	runtime_throw(const char*) __attribute__ ((noreturn));
 void	runtime_panicstring(const char*) __attribute__ ((noreturn));
+bool	runtime_canpanic(G*);
 void	runtime_prints(const char*);
 void	runtime_printf(const char*, ...);
+int32	runtime_snprintf(byte*, int32, const char*, ...);
 #define runtime_mcmp(a, b, s) __builtin_memcmp((a), (b), (s))
 #define runtime_memmove(a, b, s) __builtin_memmove((a), (b), (s))
 void*	runtime_mal(uintptr);
@@ -551,6 +568,7 @@ int32	runtime_gcount(void);
 void	runtime_mcall(void(*)(G*));
 uint32	runtime_fastrand1(void);
 int32	runtime_timediv(int64, int32, int32*);
+int32	runtime_round2(int32 x); // round x up to a power of 2.
 
 // atomic operations
 #define runtime_cas(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
@@ -588,8 +606,9 @@ void	runtime_exitsyscall(void) __asm__ (GOSYM_PREFIX "syscall.Exitsyscall");
 G*	__go_go(void (*pfn)(void*), void*);
 void	siginit(void);
 bool	__go_sigsend(int32 sig);
-int32	runtime_callers(int32, Location*, int32);
-int64	runtime_nanotime(void);
+int32	runtime_callers(int32, Location*, int32, bool keep_callers);
+int64	runtime_nanotime(void);	// monotonic time
+int64	runtime_unixnanotime(void); // real time, can skip
 void	runtime_dopanic(int32) __attribute__ ((noreturn));
 void	runtime_startpanic(void);
 void	runtime_freezetheworld(void);
@@ -610,11 +629,18 @@ int32	runtime_netpollopen(uintptr, PollDesc*);
 int32   runtime_netpollclose(uintptr);
 void	runtime_netpollready(G**, PollDesc*, int32);
 uintptr	runtime_netpollfd(PollDesc*);
-void	runtime_netpollarm(uintptr, int32);
+void	runtime_netpollarm(PollDesc*, int32);
+void**	runtime_netpolluser(PollDesc*);
+bool	runtime_netpollclosing(PollDesc*);
+void	runtime_netpolllock(PollDesc*);
+void	runtime_netpollunlock(PollDesc*);
 void	runtime_crash(void);
 void	runtime_parsedebugvars(void);
 void	_rt0_go(void);
 void*	runtime_funcdata(Func*, int32);
+int32	runtime_setmaxthreads(int32);
+G*	runtime_timejump(void);
+void	runtime_iterate_finq(void (*callback)(FuncVal*, void*, const FuncType*, const PtrType*));
 
 void	runtime_stoptheworld(void);
 void	runtime_starttheworld(void);
@@ -689,7 +715,8 @@ LFNode*	runtime_lfstackpop(uint64 *head);
  */
 ParFor*	runtime_parforalloc(uint32 nthrmax);
 void	runtime_parforsetup(ParFor *desc, uint32 nthr, uint32 n, void *ctx, bool wait, void (*body)(ParFor*, uint32));
-void	runtime_parfordo(ParFor *desc) __asm__ (GOSYM_PREFIX "runtime.parfordo");
+void	runtime_parfordo(ParFor *desc);
+void	runtime_parforiters(ParFor*, uintptr, uintptr*, uintptr*);
 
 /*
  * low level C-called
@@ -758,8 +785,6 @@ void	runtime_printany(Eface)
      __asm__ (GOSYM_PREFIX "runtime.Printany");
 void	runtime_newTypeAssertionError(const String*, const String*, const String*, const String*, Eface*)
      __asm__ (GOSYM_PREFIX "runtime.NewTypeAssertionError");
-void	runtime_newErrorString(String, Eface*)
-     __asm__ (GOSYM_PREFIX "runtime.NewErrorString");
 void	runtime_newErrorCString(const char*, Eface*)
      __asm__ (GOSYM_PREFIX "runtime.NewErrorCString");
 
@@ -773,6 +798,7 @@ void	runtime_procyield(uint32);
 void	runtime_osyield(void);
 void	runtime_lockOSThread(void);
 void	runtime_unlockOSThread(void);
+bool	runtime_lockedOSThread(void);
 
 bool	runtime_showframe(String, bool);
 void	runtime_printcreatedby(G*);
@@ -783,7 +809,7 @@ uintptr	runtime_memlimit(void);
 
 enum
 {
-	UseSpanType = 0,
+	UseSpanType = 1,
 };
 
 #define runtime_setitimer setitimer
@@ -817,10 +843,16 @@ int32 getproccount(void);
 
 #define PREFETCH(p) __builtin_prefetch(p)
 
-void	__go_set_closure(void*);
-void*	__go_get_closure(void);
-
 bool	runtime_gcwaiting(void);
 void	runtime_badsignal(int);
 Defer*	runtime_newdefer(void);
 void	runtime_freedefer(Defer*);
+
+struct time_now_ret
+{
+  int64_t sec;
+  int32_t nsec;
+};
+
+struct time_now_ret now() __asm__ (GOSYM_PREFIX "time.now")
+  __attribute__ ((no_split_stack));

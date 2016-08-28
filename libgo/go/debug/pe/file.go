@@ -18,8 +18,9 @@ import (
 // A File represents an open PE file.
 type File struct {
 	FileHeader
-	Sections []*Section
-	Symbols  []*Symbol
+	OptionalHeader interface{} // of type *OptionalHeader32 or *OptionalHeader64
+	Sections       []*Section
+	Symbols        []*Symbol
 
 	closer io.Closer
 }
@@ -123,6 +124,11 @@ func (f *File) Close() error {
 	return err
 }
 
+var (
+	sizeofOptionalHeader32 = uint16(binary.Size(OptionalHeader32{}))
+	sizeofOptionalHeader64 = uint16(binary.Size(OptionalHeader64{}))
+)
+
 // NewFile creates a new File for accessing a PE binary in an underlying reader.
 func NewFile(r io.ReaderAt) (*File, error) {
 	f := new(File)
@@ -196,10 +202,33 @@ func NewFile(r io.ReaderAt) (*File, error) {
 		}
 	}
 
-	// Process sections.
+	// Read optional header.
 	sr.Seek(base, os.SEEK_SET)
-	binary.Read(sr, binary.LittleEndian, &f.FileHeader)
-	sr.Seek(int64(f.FileHeader.SizeOfOptionalHeader), os.SEEK_CUR) //Skip OptionalHeader
+	if err := binary.Read(sr, binary.LittleEndian, &f.FileHeader); err != nil {
+		return nil, err
+	}
+	var oh32 OptionalHeader32
+	var oh64 OptionalHeader64
+	switch f.FileHeader.SizeOfOptionalHeader {
+	case sizeofOptionalHeader32:
+		if err := binary.Read(sr, binary.LittleEndian, &oh32); err != nil {
+			return nil, err
+		}
+		if oh32.Magic != 0x10b { // PE32
+			return nil, fmt.Errorf("pe32 optional header has unexpected Magic of 0x%x", oh32.Magic)
+		}
+		f.OptionalHeader = &oh32
+	case sizeofOptionalHeader64:
+		if err := binary.Read(sr, binary.LittleEndian, &oh64); err != nil {
+			return nil, err
+		}
+		if oh64.Magic != 0x20b { // PE32+
+			return nil, fmt.Errorf("pe32+ optional header has unexpected Magic of 0x%x", oh64.Magic)
+		}
+		f.OptionalHeader = &oh64
+	}
+
+	// Process sections.
 	f.Sections = make([]*Section, f.FileHeader.NumberOfSections)
 	for i := 0; i < int(f.FileHeader.NumberOfSections); i++ {
 		sh := new(SectionHeader32)

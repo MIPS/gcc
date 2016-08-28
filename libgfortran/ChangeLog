@@ -1,393 +1,137 @@
-2014-06-17  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	* libgfortran.h (xmallocarray): New prototype.
-	* runtime/memory.c (xmallocarray): New function.
-	(xcalloc): Check for nonzero separately instead of multiplying.
-	* generated/*.c: Regenerated.
-	* intrinsics/cshift0.c (cshift0): Call xmallocarray instead of
-	xmalloc.
-	* intrinsics/eoshift0.c (eoshift0): Likewise.
-	* intrinsics/eoshift2.c (eoshift2): Likewise.
-	* intrinsics/pack_generic.c (pack_internal): Likewise.
-	(pack_s_internal): Likewise.
-	* intrinsics/reshape_generic.c (reshape_internal): Likewise.
-	* intrinsics/spread_generic.c (spread_internal): Likewise.
-	(spread_internal_scalar): Likewise.
-	* intrinsics/string_intrinsics_inc.c (string_trim): Likewise.
-	(string_minmax): Likewise.
-	* intrinsics/transpose_generic.c (transpose_internal): Likewise.
-	* intrinsics/unpack_generic.c (unpack_internal): Likewise.
-	* io/list_read.c (nml_touch_nodes): Don't cast xmalloc return value.
-	* io/transfer.c (st_set_nml_var): Call xmallocarray instead of
-	xmalloc.
-	* io/unit.c (get_internal_unit): Likewise.
-	(filename_from_unit): Don't cast xmalloc return value.
-	* io/write.c (nml_write_obj): Likewise, formatting.
-	* m4/bessel.m4 (bessel_jn_r'rtype_kind`): Call xmallocarray
-	instead of xmalloc.
-	(besse_yn_r'rtype_kind`): Likewise.
-	* m4/cshift1.m4 (cshift1): Likewise.
-	* m4/eoshift1.m4 (eoshift1): Likewise.
-	* m4/eoshift3.m4 (eoshift3): Likewise.
-	* m4/iforeach.m4: Likewise.
-	* m4/ifunction.m4: Likewise.
-	* m4/ifunction_logical.m4 (name`'rtype_qual`_'atype_code):
-	Likewise.
-	* m4/in_pack.m4 (internal_pack_'rtype_ccode`): Likewise.
-	* m4/matmul.m4 (matmul_'rtype_code`): Likewise.
-	* m4/matmull.m4 (matmul_'rtype_code`): Likewise.
-	* m4/pack.m4 (pack_'rtype_code`): Likewise.
-	* m4/reshape.m4 (reshape_'rtype_ccode`): Likewise.
-	* m4/shape.m4 (shape_'rtype_kind`): Likewise.
-	* m4/spread.m4 (spread_'rtype_code`): Likewise.
-	(spread_scalar_'rtype_code`): Likewise.
-	* m4/transpose.m4 (transpose_'rtype_code`): Likewise.
-	* m4/unpack.m4 (unpack0_'rtype_code`): Likewise.
-	(unpack1_'rtype_code`): Likewise.
-	* runtime/convert_char.c (convert_char1_to_char4): Likewise.
-	(convert_char4_to_char1): Simplify.
-	* runtime/environ.c (init_unformatted): Call xmallocarray instead
-	of xmalloc.
-	* runtime/in_pack_generic.c (internal_pack): Likewise.
-
-2014-06-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
-
-	PR libfortran/60468
-	* configure.ac: Include <math.h> when checking for fp_except_t
-	and fp_rnd_t types.
-	* configure: Regenerate.
-
-2014-06-08  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/56981
-	* io/unix.h (struct stream_vtable): Add new member function,
-	markeor.
-	(smarkeor): New inline function.
-	(flush_if_unbuffered): Remove prototype.
-	* io/unix.c (raw_markeor): New function.
-	(raw_vtable): Initialize markeor member.
-	(buf_markeor): New function.
-	(buf_vtable): Initialize markeor member.
-	(mem_vtable): Likewise.
-	(mem4_vtable): Likewise.
-	(flush_if_unbuffered): Remove function.
-	* io/transfer.c (next_record): Call smarkeor instead of
-	flush_if_unbuffered.
-
-2014-05-27  Uros Bizjak  <ubizjak@gmail.com>
-
-	* intrinsics/getcwd.c: Include stdlib.h.
-
-2014-05-26  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	* libgfortran.h (xrealloc): New prototype.
-	* runtime/memory.c (xrealloc): New function.
-	* io/fbuf.c (fbuf_alloc): Use xrealloc.
-	* io/list_read.c (push_char_default): Likewise.
-	(push_char4): Likewise.
-
-2014-05-26  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/61310
-	* intrinsics/ctime.c (strctime): Rename to gf_ctime, use snprintf
-	instead of strftime.
-	(fdate): Use gf_ctime.
-	(fdate_sub): Likewise.
-	(ctime): Likewise.
-	(ctime_sub): Likewise.
-
-2014-05-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-
-	PR libgfortran/55117
-	* io/list_read.c (extended_look_ahead): New helper function to
-	scan the namelist name and look for matches with the new '+'
-	extended type parent indicator.  (str_comp_extended): New
-	helper function to compare the namelist name with the varname
-	namelist. (find_nml_name): Use the new helper functions to match
-	the extended type varnames.
-
-2014-05-23  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/61173
-	* io/list_read.c (eat_spaces): If the next character pointed to
-	is a space, don't seek, must be at the end.
-
-2014-05-23  Hans-Peter Nilsson  <hp@axis.com>
-
-	* configure.ac [with_newlib] (HAVE_STRNLEN, HAVE_STRNDUP): Define.
-	* configure: Regenerate.
-
-2014-05-23  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/60324
-	* runtime/string.c: Include stdlib.h.
-
-2014-05-22  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/60324
-	* config.h.in: Regenerated.
-	* configure: Regenerated.
-	* configure.ac (AC_CHECK_FUNCS_ONCE): Check for strnlen and
-	strndup.
-	* libgfortran.h (fc_strdup): New prototype.
-	* runtime/string.c (strnlen): New fallback function.
-	(strndup): New fallback function.
-	(fc_strdup): New function.
-	* io/close.c (st_close): Use fc_strdup.
-	* io/open.c (new_unit): Likewise.
-	(already_open): Likewise.
-	* io/unit.c (filename_from_unit): Likewise.
-	* io/unix.c (unpack_filename): Remove function.
-	(regular_file): Rename to regular_file2, add path argument.
-	(regular_file): New function calling regular_file2.
-	(compare_file_filename): Use fc_strdup.
-	(find_file): Likewise.
-	(delete_file): Likewise.
-	(file_exists): Likewise.
-	(file_size): Likewise.
-	(inquire_sequential): Likewise.
-	(inquire_direct): Likewise.
-	(inquire_formatted): Likewise.
-	(inquire_access): Likewise.
-	* io/unix.h (unpack_filename): Remove prototype.
-	* runtime/main.c (please_free_exe_path_when_done): Change type to
-	bool.
-	(store_exe_path): Use malloced buffer, grow as needed.
-
-2014-05-17  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/52539
-	* io/io.h (gfc_unit): New function pointers *next_char_fn_ptr
-	and *push_char_fn_ptr.
-	*io/list_read.c (next_char): Create macro with this name to call
-	the new function pointer. Split the original next_char function
-	into three new functions. (next_char_default, next_char_internal,
-	next_char_utf8): New functions. (push_char): Create macro with
-	this name to call new function pointer. Split the original
-	push_char into three new functions. (push_char_default,
-	push_char_internal, push_char4): New functions. (set_workers):
-	New function to initilize the function pointers depending on the
-	type of IO to be performed. (list_formatted_read_scalar): Use
-	set_workers function. (finish_list_read): Likewise.
-	(namelist_read): Likewise.
-	(nml_get_obj_data): Use push_char_default.
-
-2014-05-16  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/61187
-	* io/unix.c (raw_close): Check if s->fd is -1.
-	(fd_to_stream): Check return value of fstat(), handle error.
-
-2014-05-12  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	PR libfortran/61035
-	* intrinsics/getcwd.c (getcwd_i4_sub): Avoid potentially large
-	stack allocation, avoid extra copying in the common case.
-
-2014-05-12  Janne Blomqvist  <jb@gcc.gnu.org>
-
-	* configure.ac (AM_CFLAGS): Use -std=gnu11.
-	(CFLAGS): Likewise.
-	* configure: Regenerated.
-
-2014-05-11  Tobias Burnus  <burnus@net-b.de>
-
-	* caf/libcaf.h (_gfortran_caf_num_images): Change type of
-	second argument to int.
-	* caf/mpi.c (_gfortran_caf_num_images): Ditto.
-	* caf/single.c (_gfortran_caf_num_images): Ditto.
-
-2014-05-08  Tobias Burnus  <burnus@net-b.de>
-
-	* caf/libcaf.h (caf_vector_t, _gfortran_caf_co_sum,
-	_gfortran_caf_co_min, _gfortran_caf_co_max): Declare
-	* caf/single.c
-
-2014-05-06  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/61049
-	* io/list_read.c (list_formatted_read_scalar): Use eat_separator
-	and delete extraneous code.
-
-2014-04-30  Tobias Burnus  <burnus@net-b.de>
-
-	* caf/libcaf.h (_gfortran_caf_this_image, _gfortran_caf_num_images):
-	New prototypes.
-	(_gfortran_caf_init): Change prototype.
-	(mpi_token_t): New typedef.
-	(TOKEN): New define.
-	* caf/mpi.c (_gfortran_caf_this_image, _gfortran_caf_num_images):
-	New functions.
-	(_gfortran_caf_init): Update.
-	(_gfortran_caf_finalize, _gfortran_caf_register,
-	_gfortran_caf_deregister): Use mpi_token_t.
-	* caf/single.c (_gfortran_caf_this_image, _gfortran_caf_num_images):
-	New functions.
-	(_gfortran_caf_init): Update.
-	(_gfortran_caf_finalize, _gfortran_caf_register,
-	_gfortran_caf_deregister): Use mpi_token_t, simplify.
-
-2014-04-26  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/52539
-	* io/list_read.c: Add uchar typedef. (push_char4): New function
-	to save kind=4 character. (next_char_utf8): New function to read
-	a single UTF-8 encoded character value. (read_chracter): Update
-	to use the new functions for reading UTF-8 strings.
-	(list_formatted_read_scalar): Update to handle list directed
-	reads of UTF-8 strings. (nml_read_obj): Likewise update for
-	UTF-8 strings in namelists.
-	* io/write.c (nml_write_obj): Add kind=4 character support for
-	namelist writes.
-
-2014-04-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
-
-	* configure.ac: Quote usage of ac_cv_func_clock_gettime in if test.
-	* configure: Regenerate.
-
-2014-04-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
-
-	* config/fpu-387.h [__sun__ && __svr4__]: Remove SSE execution
-	check.
-
-2014-04-11  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/60810
-	io/unit.c (is_trim_ok): If internal unit is array, do not trim.
-
-2014-03-21  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/60148
-	* io/transfer.c (data_transfer_init): If std= was specified, set
-	delim status to DELIM_NONE of no other was specified.
-
-2014-03-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
-
-	* configure.ac: Check for presence of fcntl.
-	* configure: Regenerate.
-	* config.h.in: Regenerate.
-	* io/unix.c (set_close_on_exec): Check for HAVE_FCNTL.
-
-2014-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/48600
-	* io/list_read.c (list_formatted_read_scalar): Do not use
-	eat_separator. Explicitly set the comma and end-of-line flags.
-	Check for END condition from finish_separator.
-
-2014-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/58324
-	* io/list_read.c (finish_list_read): Read one character to check
-	for the end of the file.  If it is the end, then issue the file
-	end error message.  If not, use eat_line to reach the end
-	without giving error.  The next attempt to read will then
-	issue the error as described above.
-
-2014-03-12  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/38199
-	* io/read.c (read_decimal): Quickly skip spaces to avoid calls
-	to next_char.
-	* io/unit.c (is_trim_ok): New helper function to check various
-	conditions to see if its OK to trim the internal unit string.
-	(get_internal_unit): Use LEN_TRIM to shorten selected internal
-	unit strings for optimizing READ. Enable this optimization for
-	formatted READ.
-	* io/list_read.c (finish_list_read): Don't call eat_line for
-	internal units.
-
-2014-03-08  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/38199
-	* io/list_read.c (next_char): Mark unlikely error checks.
-	(eat_spaces): For character array reading, skip ahead over
-	spaces rather than call next_char multiple times.
-
-2014-03-08  Tobias Burnus  <burnus@net-b.de>
-
-	* libgfortran.h (unlikely, likely): Add usage comment.
-
-2014-03-08  Dominique d'Humieres  <dominiq@lps.ens.fr>
-
-	PR libgfortran/60128
-	* io/write_float.def (output_float): Remove unused variable
-	nzero_real. Replace a double space with a single one.
-	(determine_en_precision): Fix wrong handling of the EN format.
-
-2014-03-03  Jerry DeLisle  <jvdelisle@gcc.gnu>
-
-	PR libfortran/60148
-	* io/inquire.c (inquire_via_unit): In the case of
-	DELIM_UNSPECIFIED set inquire return string to "NONE".
-	* io/list_read.c (read_character): In the case of DELIM_NONE and
-	namelists, complete the character read using the namelist
-	variable length.
-	* io/open.c (new_unit): Don't set delim status to none if not
-	specified so that DELIM_UNSPECIFIED can be used later.
-	* io/transfer.c (data_transfer_init): For namelist I/O, if the
-	unit delim status is unspecified set the current status to quote.
-	Otherwise, set current status to the unit status.
-	* io/unit.c (get_internel_unit, init_unit): Remember to set
-	flags_delim initially to DELIM_UNSPECIFIED so defaults come out
-	correctly.
-	* io/write.c (write_character): Add a new function argument
-	"mode" to signify that raw output is to be used vs output with
-	delimiters. If the mode is set to DELIM (1) proceed with
-	delimiters. (list_formatted_write_scalar): Write the separator
-	only if a delimiter was previously specified. Update the call to
-	write_character with the mode argument given.
-	(namelist_write_newline): Use the mode argument. (nml_write_obj):
-	Use the mode argument. Remove use of tmp_delim. Write the
-	semi-colon or comma correctly only when needed with using
-	delimiters. Cleanup whitespace.
-	(namelist_write): If delim is not specified in namelist I/O,
-	default	to using quotes. Get rid of the tmp_delim variable and
-	use the new mode argument in write_character.
-
-2014-02-21  Tobias Burnus  <burnus@net-b.de>
-
-	PR fortran/60286
-	* libgfortran/io/inquire.c (yes, no): New static const char vars.
-	(inquire_via_unit): Use them. Use OPEN mode instead of using
-	POSIX's access to query about write=, read= and readwrite=.
-
-2014-01-20  Jerry DeLisle  <jvdelisle@gcc.gnu>
-	    Dominique d'Humieres  <dominiq@lps.ens.fr>
-
-	* io/write_float.def (output_float): Remove inadvertent test
-	code from previous patch.
-
-2014-01-19  Jerry DeLisle  <jvdelisle@gcc.gnu>
-	    Dominique d'Humieres  <dominiq@lps.ens.fr>
-
-	PR libfortran/59771
-	PR libfortran/59774
-	PR libfortran/59836
-	* io/write_float.def (output_float): Fix wrong handling of the
-	Fw.0 format.
-	(output_float_FMT_G_): Fixes rounding issues with -m32.
-
-2014-01-11  Jerry DeLisle  <jvdelisle@gcc.gnu>
-	    Dominique d'Humieres  <dominiq@lps.ens.fr>
-	    Steven G. Kargl  <kargl@gcc.gnu.org>
-
-	PR libfortran/59700
-	PR libfortran/59764
-	* io/io.h (struct st_parameter_dt): Assign expanded_read flag to
-	unused bit. Define new variable line_buffer_pos.
-	* io/list_read.c (free_saved, next_char, l_push_char,
-	read_logical, read_real): Replace use of item_count with
-	line_buffer_pos for line_buffer look ahead.
-	(read_logical, read_integer, parse_real, read_real, check_type):
-	Adjust location of free_line to after generating error messages
-	to retain the correct item count for the message.
-
-2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
-
-	Update copyright years
+2015-04-21 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65234
+	* io/format.c (parse_format_list): Set the seen_dd flag in all
+	cases where a data descriptor has been seen.
+
+2015-04-21 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/56743
+	* io/list_read.c (CASE_SEPARATORS): Add case for '!'.
+	(is_separator): Add condition for '!'.
+	(eat_separator): Use notify_std to warn or errord if '!' is
+	encountered before a proper separator.
+
+2015-04-14 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65089
+	* io/format.h (free_format): New function to free memory
+	allocated for building format error messages.
+	* io/format.c (format_error): Add checks before freeing memory
+	to avoid potential segfaults and free formatting data when
+	needed on error conditions. Always allocate and NULL terminate
+	the string.
+	* io/transfer.c (st_read_done, st_write_done): Use new
+	free_format function to clean up memory allocations when done.
+
+2015-03-28 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65596
+	* io/transfer.c (data_transfer_init): If in namelist mode and
+	delimiter is not specified, set it to DELIM_QUOTE, independent
+	of -std.
+	* io/unit.c (init_units): Set flags.delim to the correct
+	initial value of DELIM_UNSPECIFIED.
+
+2015-03-25 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65541
+	* io/write.c (nml_write_obj): Convert '+' to '%' before emitting
+	object names in namelists.
+
+2015-03-22 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/59513
+	* io/transfer.c (data_transfer_init): Do not error for
+	-std=legacy.
+
+2015-03-16 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/64432
+	* intrinsics/system_clock.c (system_clock4, system_clock8):
+	Cleanup some whitespace.
+
+2015-03-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* caf/single.c (caf_runtime_error): Revert 2014-11-28 changes.
+	* runtime/minimal.c (STRERR_MAXSZ): Don't define.
+	(runtime_error_at, sys_abort): Bring more in line with the
+	non-LIBGFOR_MINIMAL code.
+	(runtime_warning_at, internal_error): New functions.
+
+2015-03-11  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/65200
+	* io/open.c (new_unit): Use gf_strerror rather than hardcoding
+	error messages for different errno values.
+	* io/unix.c (regular_file2): Handle EPERM in addition to EACCES.
+
+2015-03-10  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_sync_memory): New prototype.
+	* caf/single.c (_gfortran_caf_sync_memory): Implement.
+	(_gfortran_caf_sync_all, _gfortran_caf_sync_image): Add
+	__asm__ __volatile___ ("":::"memory").
+
+2015-02-10 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/57822
+	* io/write_float.def (output_float): Apply fix of previous patch
+	to correctly calculate the exponent number of digits and take
+	care of wide character output.
+
+2015-02-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/57822
+	* io/write_float.def (output_float): If doing g0 editing and
+	exponent is zero, do not emit exponent.
+
+2015-02-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/60956
+	* io/fbuf.c (fbuf_flush_list): New function that only flushes
+	if current fbuf position exceeds a limit.
+	* io/fbuf.h: Declare the new function.
+	* io/io.h (enum unit_mode): Add two new modes.
+	* io/list_read.c (list_formatted_read_scalar): Call new function.
+	* io/write.c: Include fbuf.h. (list_formatted_write_scalar):
+	Call new function.
+
+2015-01-24  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/64770
+	* io/unit.c (filename_from_unit): Check that u->filename != NULL
+	before calling strdup.
+
+2015-01-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/61933
+	* io/inquire.c (inquire_via_unit): Set existing to true for
+	any negative unit that is currently connected and any positive
+	units within range of KIND=4 value.  The unit value for any out
+	of range case that may occur if the user is using a KIND=8 will
+	have been set to -2 which is reserved and can never be opened,
+	and therefore the unit does not exist.
+
+2015-01-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/61933
+	* io/inquire.c (inquire_via_unit): Set existing to true if a
+	gfc_unit stucture was found for the given unit number.
+	* runtime/error.c (translate_error): Add case for
+	LIBERROR_INQUIRE_INTERNAL_UNIT.
+
+2015-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-01-02  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/single.c (_gfortran_caf_co_reduce): New function.
+	* caf/libcaf.h (_gfortran_caf_co_reduce): New prototype.
 ^L
-Copyright (C) 2013-2014 Free Software Foundation, Inc.
+Copyright (C) 2015 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

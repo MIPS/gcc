@@ -1,6 +1,6 @@
 /* Insert USEs in instructions that require mode switching.
    This should probably be merged into mode-switching.c .
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
    Contributed by Embecosm on behalf of Adapteva, Inc.
 
 This file is part of GCC.
@@ -24,6 +24,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "emit-rtl.h"
 #include "tree-pass.h"
@@ -31,6 +37,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "tm_p.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "df.h"
 
 #ifndef TARGET_INSERT_MODE_SWITCH_USE
@@ -43,13 +58,13 @@ insert_uses (void)
   static const int num_modes[] = NUM_MODES_FOR_MODE_SWITCHING;
 #define N_ENTITIES ARRAY_SIZE (num_modes)
   int e;
-  void (*target_insert_mode_switch_use) (rtx insn, int, int)
+  void (*target_insert_mode_switch_use) (rtx_insn *insn, int, int)
     = TARGET_INSERT_MODE_SWITCH_USE;
 
   for (e = N_ENTITIES - 1; e >= 0; e--)
     {
       int no_mode = num_modes[e];
-      rtx insn;
+      rtx_insn *insn;
       int mode;
 
       if (!OPTIMIZE_MODE_SWITCHING (e))
@@ -78,7 +93,6 @@ const pass_data pass_data_mode_switch_use =
   RTL_PASS, /* type */
   "mode_switch_use", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

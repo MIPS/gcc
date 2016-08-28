@@ -1,8 +1,26 @@
 /* config.in.  Generated from configure.ac by autoheader.  */
 
+/* Define if this compiler should be built as the offload target compiler. */
+#ifndef USED_FOR_TARGET
+#undef ACCEL_COMPILER
+#endif
+
+
 /* Define if building universal (internal helper macro) */
 #ifndef USED_FOR_TARGET
 #undef AC_APPLE_UNIVERSAL_BUILD
+#endif
+
+
+/* Define to the assembler option to enable compressed debug sections. */
+#ifndef USED_FOR_TARGET
+#undef AS_COMPRESS_DEBUG_OPTION
+#endif
+
+
+/* Define to the assembler option to disable compressed debug sections. */
+#ifndef USED_FOR_TARGET
+#undef AS_NO_COMPRESS_DEBUG_OPTION
 #endif
 
 
@@ -36,6 +54,12 @@
    __cxa_atexit in libc. */
 #ifndef USED_FOR_TARGET
 #undef DEFAULT_USE_CXA_ATEXIT
+#endif
+
+
+/* The default for -fdiagnostics-color option */
+#ifndef USED_FOR_TARGET
+#undef DIAGNOSTICS_COLOR_DEFAULT
 #endif
 
 
@@ -132,6 +156,12 @@
 #endif
 
 
+/* Define this to enable support for offloading. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_OFFLOADING
+#endif
+
+
 /* Define to enable plugin support. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_PLUGIN
@@ -217,9 +247,28 @@
 #endif
 
 
+/* Define if your avr assembler supports --mlink-relax option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_AVR_MLINK_RELAX_OPTION
+#endif
+
+
+/* Define if your avr assembler supports -mrmw option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_AVR_MRMW_OPTION
+#endif
+
+
 /* Define if your assembler supports cmpb. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_CMPB
+#endif
+
+
+/* Define to the level of your assembler's compressed debug section support.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_COMPRESS_DEBUG
 #endif
 
 
@@ -238,6 +287,12 @@
 /* Define if your assembler supports DFP instructions. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_DFP
+#endif
+
+
+/* Define if your assembler supports .module. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_DOT_MODULE
 #endif
 
 
@@ -909,6 +964,34 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'strtol', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STRTOL
+#endif
+
+
+/* Define to 1 if we found a declaration for 'strtoll', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STRTOLL
+#endif
+
+
+/* Define to 1 if we found a declaration for 'strtoul', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STRTOUL
+#endif
+
+
+/* Define to 1 if we found a declaration for 'strtoull', otherwise define to
+   0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STRTOULL
+#endif
+
+
 /* Define to 1 if we found a declaration for 'strverscmp', otherwise define to
    0. */
 #ifndef USED_FOR_TARGET
@@ -1024,6 +1107,12 @@
 /* Define to 1 if you have the `fread_unlocked' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_FREAD_UNLOCKED
+#endif
+
+
+/* Define to 1 if you have the <ftw.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_FTW_H
 #endif
 
 
@@ -1224,6 +1313,12 @@
 #endif
 
 
+/* Define if isl_schedule_constraints_compute_schedule exists. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE
+#endif
+
+
 /* Define to 1 if you have the `kill' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_KILL
@@ -1271,6 +1366,12 @@
    */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_CLEARCAP
+#endif
+
+
+/* Define to the level of your linker's compressed debug section support. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_COMPRESS_DEBUG
 #endif
 
 
@@ -1325,6 +1426,12 @@
 /* Define if your linker supports -pie option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_PIE
+#endif
+
+
+/* Define 0/1 if your linker supports -pie option with copy reloc. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_PIE_COPYRELOC
 #endif
 
 
@@ -1440,6 +1547,12 @@
 /* Define to 1 if you have the `nl_langinfo' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_NL_LANGINFO
+#endif
+
+
+/* Define to 1 if you have the `popen' function. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_POPEN
 #endif
 
 
@@ -1669,9 +1782,9 @@
 #endif
 
 
-/* Define if cloog is in use. */
+/* Define if isl is in use. */
 #ifndef USED_FOR_TARGET
-#undef HAVE_cloog
+#undef HAVE_isl
 #endif
 
 
@@ -1696,6 +1809,12 @@
 /* Define to the linker option to ignore unused dependencies. */
 #ifndef USED_FOR_TARGET
 #undef LD_AS_NEEDED_OPTION
+#endif
+
+
+/* Define to the linker option to enable compressed debug sections. */
+#ifndef USED_FOR_TARGET
+#undef LD_COMPRESS_DEBUG_OPTION
 #endif
 
 
@@ -1740,6 +1859,12 @@
 /* Define if host mkdir takes a single argument. */
 #ifndef USED_FOR_TARGET
 #undef MKDIR_TAKES_ONE_ARG
+#endif
+
+
+/* Define to hold the list of target names suitable for offloading. */
+#ifndef USED_FOR_TARGET
+#undef OFFLOAD_TARGETS
 #endif
 
 
@@ -1841,6 +1966,18 @@
 
 /* Define if your target C library provides the `dl_iterate_phdr' function. */
 #undef TARGET_DL_ITERATE_PHDR
+
+/* GNU C Library major version number used on the target, or 0. */
+#ifndef USED_FOR_TARGET
+#undef TARGET_GLIBC_MAJOR
+#endif
+
+
+/* GNU C Library minor version number used on the target, or 0. */
+#ifndef USED_FOR_TARGET
+#undef TARGET_GLIBC_MINOR
+#endif
+
 
 /* Define if your target C library provides stack protector support */
 #ifndef USED_FOR_TARGET

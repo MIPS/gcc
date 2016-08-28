@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995-2014 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
 This file is part of GCC.
@@ -23,6 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "stringpool.h"
@@ -396,12 +405,9 @@ get_tinfo_decl (tree type)
 
   if (variably_modified_type_p (type, /*fn=*/NULL_TREE))
     {
-      if (array_of_runtime_bound_p (type))
-	error ("typeid of array of runtime bound");
-      else
-	error ("cannot create type information for type %qT because "
-	       "it involves types of variable size",
-	       type);
+      error ("cannot create type information for type %qT because "
+	     "it involves types of variable size",
+	     type);
       return error_mark_node;
     }
 
@@ -608,10 +614,6 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	  errstr = _("source is of incomplete class type");
 	  goto fail;
 	}
-
-      /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
-      expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
-				   LOOKUP_NORMAL, NULL_TREE, complain);
     }
 
   /* The dynamic_cast operator shall not cast away constness.  */
@@ -630,6 +632,11 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
     if (binfo)
       return build_static_cast (type, expr, complain);
   }
+
+  /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
+  if (tc == REFERENCE_TYPE)
+    expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
+				 LOOKUP_NORMAL, NULL_TREE, complain);
 
   /* Otherwise *exprtype must be a polymorphic class (have a vtbl).  */
   if (TYPE_POLYMORPHIC_P (TREE_TYPE (exprtype)))
@@ -701,10 +708,12 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
 	  td2 = get_tinfo_decl (target_type);
-	  mark_used (td2);
+	  if (!mark_used (td2, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  td2 = cp_build_addr_expr (td2, complain);
 	  td3 = get_tinfo_decl (static_type);
-	  mark_used (td3);
+	  if (!mark_used (td3, complain) && !(complain & tf_error))
+	    return error_mark_node;
 	  td3 = cp_build_addr_expr (td3, complain);
 
 	  /* Determine how T and V are related.  */
@@ -1519,7 +1528,6 @@ emit_support_tinfos (void)
     &integer_type_node, &unsigned_type_node,
     &long_integer_type_node, &long_unsigned_type_node,
     &long_long_integer_type_node, &long_long_unsigned_type_node,
-    &int128_integer_type_node, &int128_unsigned_type_node,
     &float_type_node, &double_type_node, &long_double_type_node,
     &dfloat32_type_node, &dfloat64_type_node, &dfloat128_type_node,
     &nullptr_type_node,
@@ -1541,6 +1549,14 @@ emit_support_tinfos (void)
   doing_runtime = 1;
   for (ix = 0; fundamentals[ix]; ix++)
     emit_support_tinfo_1 (*fundamentals[ix]);
+  for (ix = 0; ix < NUM_INT_N_ENTS; ix ++)
+    if (int_n_enabled_p[ix])
+      {
+	emit_support_tinfo_1 (int_n_trees[ix].signed_type);
+	emit_support_tinfo_1 (int_n_trees[ix].unsigned_type);
+      }
+  for (tree t = registered_builtin_types; t; t = TREE_CHAIN (t))
+    emit_support_tinfo_1 (TREE_VALUE (t));
 }
 
 /* Finish a type info decl. DECL_PTR is a pointer to an unemitted

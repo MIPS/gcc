@@ -1,5 +1,5 @@
 /* Separate lexical analyzer for GNU C++.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -26,6 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "input.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "cp-tree.h"
@@ -192,6 +201,15 @@ init_reswords (void)
       ridpointers [(int) c_common_reswords[i].rid] = id;
       if (! (c_common_reswords[i].disable & mask))
 	C_IS_RESERVED_WORD (id) = 1;
+    }
+
+  for (i = 0; i < NUM_INT_N_ENTS; i++)
+    {
+      char name[50];
+      sprintf (name, "__int%d", int_n_data[i].bitsize);
+      id = get_identifier (name);
+      C_SET_RID_CODE (id, RID_FIRST_INT_N + i);
+      C_IS_RESERVED_WORD (id) = 1;
     }
 }
 

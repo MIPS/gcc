@@ -67,7 +67,7 @@ const (
 //	   along with the non-.. element that precedes it.
 //	4. Eliminate .. elements that begin a rooted path:
 //	   that is, replace "/.." by "/" at the beginning of a path,
-//         assuming Separator is '/'.
+//	   assuming Separator is '/'.
 //
 // The returned path ends in a slash only if it represents a root directory,
 // such as "/" on Unix or `C:\` on Windows.
@@ -231,6 +231,10 @@ func EvalSymlinks(path string) (string, error) {
 // working directory to turn it into an absolute path.  The absolute
 // path name for a given file is not guaranteed to be unique.
 func Abs(path string) (string, error) {
+	return abs(path)
+}
+
+func unixAbs(path string) (string, error) {
 	if IsAbs(path) {
 		return Clean(path), nil
 	}
@@ -448,13 +452,6 @@ func Dir(path string) string {
 		i--
 	}
 	dir := Clean(path[len(vol) : i+1])
-	last := len(dir) - 1
-	if last > 0 && os.IsPathSeparator(dir[last]) {
-		dir = dir[:last]
-	}
-	if dir == "" {
-		dir = "."
-	}
 	return vol + dir
 }
 

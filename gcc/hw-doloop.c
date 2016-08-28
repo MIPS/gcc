@@ -1,6 +1,6 @@
 /* Code to analyze doloop loops in order for targets to perform late
    optimizations converting doloops to other forms of hardware loops.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,9 +24,36 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "flags.h"
-#include "expr.h"
+#include "symtab.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
 #include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "statistics.h"
+#include "double-int.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "alias.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
+#include "expr.h"
 #include "regs.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
 #include "basic-block.h"
 #include "tm_p.h"
 #include "df.h"
@@ -94,7 +121,7 @@ scan_loop (hwloop_info loop)
 
   for (ix = 0; loop->blocks.iterate (ix, &bb); ix++)
     {
-      rtx insn;
+      rtx_insn *insn;
       edge e;
       edge_iterator ei;
 
@@ -232,7 +259,7 @@ add_forwarder_blocks (hwloop_info loop)
    the expected use; targets that call into this code usually replace the
    loop counter with a different special register.  */
 static void
-discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
+discover_loop (hwloop_info loop, basic_block tail_bb, rtx_insn *tail_insn, rtx reg)
 {
   bool found_tail;
   unsigned dwork = 0;
@@ -242,7 +269,7 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
   loop->loop_end = tail_insn;
   loop->iter_reg = reg;
   vec_alloc (loop->incoming, 2);
-  loop->start_label = JUMP_LABEL (tail_insn);
+  loop->start_label = as_a <rtx_insn *> (JUMP_LABEL (tail_insn));
 
   if (EDGE_COUNT (tail_bb->succs) != 2)
     {
@@ -359,8 +386,9 @@ discover_loops (bitmap_obstack *loop_stack, struct hw_doloop_hooks *hooks)
      structure and add the head block to the work list. */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx tail = BB_END (bb);
-      rtx insn, reg;
+      rtx_insn *tail = BB_END (bb);
+      rtx_insn *insn;
+      rtx reg;
 
       while (tail && NOTE_P (tail) && tail != BB_HEAD (bb))
 	tail = PREV_INSN (tail);
@@ -378,7 +406,7 @@ discover_loops (bitmap_obstack *loop_stack, struct hw_doloop_hooks *hooks)
 
       /* There's a degenerate case we can handle - an empty loop consisting
 	 of only a back branch.  Handle that by deleting the branch.  */
-      insn = JUMP_LABEL (tail);
+      insn = JUMP_LABEL_AS_INSN (tail);
       while (insn && !NONDEBUG_INSN_P (insn))
 	insn = NEXT_INSN (insn);
       if (insn == tail)

@@ -357,6 +357,28 @@ func TestScanSelectedMask(t *testing.T) {
 	testScanSelectedMode(t, ScanComments, Comment)
 }
 
+func TestScanCustomIdent(t *testing.T) {
+	const src = "faab12345 a12b123 a12 3b"
+	s := new(Scanner).Init(strings.NewReader(src))
+	// ident = ( 'a' | 'b' ) { digit } .
+	// digit = '0' .. '3' .
+	// with a maximum length of 4
+	s.IsIdentRune = func(ch rune, i int) bool {
+		return i == 0 && (ch == 'a' || ch == 'b') || 0 < i && i < 4 && '0' <= ch && ch <= '3'
+	}
+	checkTok(t, s, 1, s.Scan(), 'f', "f")
+	checkTok(t, s, 1, s.Scan(), Ident, "a")
+	checkTok(t, s, 1, s.Scan(), Ident, "a")
+	checkTok(t, s, 1, s.Scan(), Ident, "b123")
+	checkTok(t, s, 1, s.Scan(), Int, "45")
+	checkTok(t, s, 1, s.Scan(), Ident, "a12")
+	checkTok(t, s, 1, s.Scan(), Ident, "b123")
+	checkTok(t, s, 1, s.Scan(), Ident, "a12")
+	checkTok(t, s, 1, s.Scan(), Int, "3")
+	checkTok(t, s, 1, s.Scan(), Ident, "b")
+	checkTok(t, s, 1, s.Scan(), EOF, "")
+}
+
 func TestScanNext(t *testing.T) {
 	const BOM = '\uFEFF'
 	BOMs := string(BOM)
@@ -460,6 +482,33 @@ func TestError(t *testing.T) {
 	testError(t, `"abc`+"\n", "1:5", "literal not terminated", String)
 	testError(t, "`abc\n", "2:1", "literal not terminated", String)
 	testError(t, `/*/`, "1:4", "comment not terminated", EOF)
+}
+
+// An errReader returns (0, err) where err is not io.EOF.
+type errReader struct{}
+
+func (errReader) Read(b []byte) (int, error) {
+	return 0, io.ErrNoProgress // some error that is not io.EOF
+}
+
+func TestIOError(t *testing.T) {
+	s := new(Scanner).Init(errReader{})
+	errorCalled := false
+	s.Error = func(s *Scanner, msg string) {
+		if !errorCalled {
+			if want := io.ErrNoProgress.Error(); msg != want {
+				t.Errorf("msg = %q, want %q", msg, want)
+			}
+			errorCalled = true
+		}
+	}
+	tok := s.Scan()
+	if tok != EOF {
+		t.Errorf("tok = %s, want EOF", TokenString(tok))
+	}
+	if !errorCalled {
+		t.Errorf("error handler not called")
+	}
 }
 
 func checkPos(t *testing.T, got, want Position) {

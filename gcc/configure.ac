@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997-2014 Free Software Foundation, Inc.
+# Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -37,6 +37,10 @@ AC_CANONICAL_TARGET
 
 # Determine the noncanonical target name, for directory use.
 ACX_NONCANONICAL_TARGET
+
+# Used for constructing correct paths for offload compilers.
+real_target_noncanonical=${target_noncanonical}
+accel_dir_suffix=
 
 # Determine the target- and build-specific subdirectories
 GCC_TOPLEV_SUBDIRS
@@ -883,6 +887,40 @@ AC_ARG_ENABLE(languages,
 esac],
 [enable_languages=c])
 
+if test x"$enable_as_accelerator_for" != x; then
+  AC_DEFINE(ACCEL_COMPILER, 1,
+    [Define if this compiler should be built as the offload target compiler.])
+  enable_as_accelerator=yes
+  case "${target}" in
+    *-intelmicemul-*)
+      # In this case we expect offload compiler to be built as native, so we
+      # need to rename the driver to avoid clashes with host's drivers.
+      program_transform_name="s&^&${target}-&" ;;
+  esac
+  sedscript="s#${target_noncanonical}#${enable_as_accelerator_for}-accel-${target_noncanonical}#"
+  program_transform_name=`echo $program_transform_name | sed $sedscript`
+  accel_dir_suffix=/accel/${target_noncanonical}
+  real_target_noncanonical=${enable_as_accelerator_for}
+fi
+AC_SUBST(enable_as_accelerator)
+AC_SUBST(real_target_noncanonical)
+AC_SUBST(accel_dir_suffix)
+
+for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
+  tgt=`echo $tgt | sed 's/=.*//'`
+  if test x"$offload_targets" = x; then
+    offload_targets=$tgt
+  else
+    offload_targets="$offload_targets:$tgt"
+  fi
+done
+AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
+  [Define to hold the list of target names suitable for offloading.])
+if test x"$offload_targets" != x; then
+  AC_DEFINE(ENABLE_OFFLOADING, 1,
+    [Define this to enable support for offloading.])
+fi
+
 AC_ARG_WITH(multilib-list,
 [AS_HELP_STRING([--with-multilib-list], [select multilibs (AArch64, SH and x86-64 only)])],
 :,
@@ -971,6 +1009,10 @@ else
   AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
 fi
 
+# The jit documentation looks better if built with sphinx, but can be
+# built with texinfo if sphinx is not available.
+# Set "doc_build_sys" to "sphinx" or "texinfo" accordingly.
+AC_CHECK_PROG(doc_build_sys, sphinx-build, sphinx, texinfo)
 
 # --------------------
 # Checks for C headers
@@ -986,7 +1028,7 @@ ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_HEADER_TIOCGWINSZ
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
-		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
+		 fcntl.h ftw.h unistd.h sys/file.h sys/time.h sys/mman.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
 		 direct.h malloc.h langinfo.h ldfcn.h locale.h wchar.h)
 
@@ -1113,7 +1155,7 @@ define(gcc_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(times clock kill getrlimit setrlimit atoll atoq \
-	sysconf strsignal getrusage nl_langinfo \
+	popen sysconf strsignal getrusage nl_langinfo \
 	gettimeofday mbstowcs wcswidth mmap setlocale \
 	gcc_UNLOCKED_FUNCS madvise)
 
@@ -1171,6 +1213,7 @@ saved_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -I${srcdir} -I${srcdir}/../include $GMPINC"
 gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
 	stpcpy strnlen strsignal strstr strverscmp \
+	strtol strtoul strtoll strtoull \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free basename getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
@@ -1924,6 +1967,22 @@ elif test "x$TARGET_SYSTEM_ROOT" != x; then
         SYSTEM_HEADER_DIR=$build_system_header_dir 
 fi
 
+if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
+  if test "x$with_headers" != x; then
+    target_header_dir=$with_headers
+  elif test "x$with_sysroot" = x; then
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
+  elif test "x$with_build_sysroot" != "x"; then
+    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
+  elif test "x$with_sysroot" = xyes; then
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
+  else
+    target_header_dir="${with_sysroot}${native_system_header_dir}"
+  fi
+else
+  target_header_dir=${native_system_header_dir}
+fi
+
 # If this is a cross-compiler that does not
 # have its own set of headers then define
 # inhibit_libc
@@ -1935,7 +1994,7 @@ fi
 : ${inhibit_libc=false}
 if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
        test x$with_newlib = xyes ; } &&
-     { test "x$with_headers" = x || test "x$with_headers" = xno ; } ; then
+     { test "x$with_headers" = xno || test ! -f "$target_header_dir/stdio.h"; } ; then
        inhibit_libc=true
 fi
 AC_SUBST(inhibit_libc)
@@ -2082,6 +2141,7 @@ AC_ARG_ENABLE(ld,
    ;;
  esac])
 
+install_gold_as_default=no
 AC_ARG_ENABLE(gold,
 [[  --enable-gold[=ARG]     build gold [ARG={default,yes,no}]]],
 [case "${enableval}" in
@@ -2098,8 +2158,7 @@ AC_ARG_ENABLE(gold,
  *)
    AC_MSG_ERROR([invalid --enable-gold argument])
    ;;
- esac],
-[install_gold_as_default=no])
+ esac])
 
 # Identify the linker which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the linker
@@ -2787,9 +2846,6 @@ else
  if test $gcc_cv_as_comdat_group_percent = yes; then
    gcc_cv_as_comdat_group_group=no
  else
-   if test -z "${gcc_cv_as_comdat_group_group+set}"; then
-     gcc_cv_as_comdat_group_group=no
-   fi
    case "${target}" in
      # Sun as uses a completely different syntax.
      *-*-solaris2*)
@@ -2816,6 +2872,9 @@ else
          ,, [$conftest_s])
        ;;
    esac
+   if test -z "${gcc_cv_as_comdat_group_group+set}"; then
+     gcc_cv_as_comdat_group_group=no
+   fi
  fi
 fi
 if test x"$ld_is_gold" = xyes; then
@@ -3510,6 +3569,29 @@ case "$target" in
         done
       fi
     fi
+    # Enable default workaround for AArch64 Cortex-A53 erratum 835769.
+    AC_ARG_ENABLE(fix-cortex-a53-835769,
+    [
+AS_HELP_STRING([--enable-fix-cortex-a53-835769],
+        [enable workaround for AArch64 Cortex-A53 erratum 835769 by default])
+AS_HELP_STRING([--disable-fix-cortex-a53-835769],
+        [disable workaround for AArch64 Cortex-A53 erratum 835769 by default])
+    ],
+      [
+        case $enableval in
+          yes)
+            tm_defines="${tm_defines} TARGET_FIX_ERR_A53_835769_DEFAULT=1"
+            ;;
+          no)
+            ;;
+          *)
+            AC_MSG_ERROR(['$enableval' is an invalid value for --enable-fix-cortex-a53-835769.\
+  Valid choices are 'yes' and 'no'.])
+            ;;
+
+        esac
+      ],
+    [])
     ;;
 
   # All TARGET_ABI_OSF targets.
@@ -3539,6 +3621,18 @@ case "$target" in
 	jsr	$26, ($27), a	!lituse_jsrdirect!1],,
     [AC_DEFINE(HAVE_AS_JSRDIRECT_RELOCS, 1,
   [Define if your assembler supports the lituse_jsrdirect relocation.])])
+    ;;
+
+  avr-*-*)
+    gcc_GAS_CHECK_FEATURE([--mlink-relax option], gcc_cv_as_avr_mlink_relax,,
+      [--mlink-relax], [.text],,
+      [AC_DEFINE(HAVE_AS_AVR_MLINK_RELAX_OPTION, 1,
+		[Define if your avr assembler supports --mlink-relax option.])])
+
+    gcc_GAS_CHECK_FEATURE([-mrmw option], gcc_cv_as_avr_mrmw,,
+      [-mrmw], [.text],,
+      [AC_DEFINE(HAVE_AS_AVR_MRMW_OPTION, 1,
+		[Define if your avr assembler supports -mrmw option.])])
     ;;
 
   cris-*-*)
@@ -3760,17 +3854,18 @@ foo:	nop
 	      ;;
 	  esac
 	fi
-	# Test if the assembler supports the section flag 'e' for specifying
-	# an excluded section.
-	gcc_GAS_CHECK_FEATURE([.section with e], gcc_cv_as_section_has_e,
-	  [2,22,51],,
-[.section foo1,"e"
-.byte 0,0,0,0])
-	AC_DEFINE_UNQUOTED(HAVE_GAS_SECTION_EXCLUDE,
-	  [`if test $gcc_cv_as_section_has_e = yes; then echo 1; else echo 0; fi`],
-          [Define if your assembler supports specifying the section flag e.])
 	;;
     esac
+
+    # Test if the assembler supports the section flag 'e' for specifying
+    # an excluded section.
+    gcc_GAS_CHECK_FEATURE([.section with e], gcc_cv_as_section_has_e,
+      [2,22,51], [--fatal-warnings],
+[.section foo1,"e"
+.byte 0,0,0,0])
+    AC_DEFINE_UNQUOTED(HAVE_GAS_SECTION_EXCLUDE,
+      [`if test $gcc_cv_as_section_has_e = yes; then echo 1; else echo 0; fi`],
+      [Define if your assembler supports specifying the section flag e.])
 
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
        gcc_cv_as_ix86_filds,,,
@@ -4197,6 +4292,18 @@ LCF0:
       [AC_DEFINE(HAVE_AS_GNU_ATTRIBUTE, 1,
 	  [Define if your assembler supports .gnu_attribute.])])
 
+    gcc_GAS_CHECK_FEATURE([.module support],
+      gcc_cv_as_mips_dot_module,,[-32],
+      [.module mips2
+       .module fp=xx],,
+      [AC_DEFINE(HAVE_AS_DOT_MODULE, 1,
+	  [Define if your assembler supports .module.])])
+    if test x$gcc_cv_as_mips_dot_module = xno \
+       && test x$with_fp_32 != x; then
+      AC_MSG_ERROR(
+	[Requesting --with-fp-32= requires assembler support for .module.])
+    fi
+
     gcc_GAS_CHECK_FEATURE([.micromips support],
       gcc_cv_as_micromips_support,,[--fatal-warnings],
       [.set micromips],,
@@ -4347,7 +4454,7 @@ esac
 case "$cpu_type" in
   aarch64 | alpha | arm | avr | bfin | cris | i386 | m32c | m68k | microblaze \
   | mips | nios2 | pa | rs6000 | score | sparc | spu | tilegx | tilepro \
-  | xstormy16 | xtensa)
+  | visium | xstormy16 | xtensa)
     insn="nop"
     ;;
   ia64 | s390)
@@ -4406,6 +4513,30 @@ if test x"$insn" != x; then
 [Define if your assembler supports the --debug-prefix-map option.])])
 fi
 
+gcc_GAS_CHECK_FEATURE([compressed debug sections],
+  gcc_cv_as_compress_debug,,[--compress-debug-sections],,
+  [# gas compiled without zlib cannot compress debug sections and warns
+   # about it, but still exits successfully.  So check for this, too.
+   if $gcc_cv_as --compress-debug-sections -o conftest.o conftest.s 2>&1 | grep -i warning > /dev/null
+   then
+     gcc_cv_as_compress_debug=0
+   elif $gcc_cv_as --compress-debug-sections -o conftest.o conftest.s > /dev/null 2>&1
+   then
+     gcc_cv_as_compress_debug=1
+     gcc_cv_as_compress_debug_option="--compress-debug-sections"
+     gcc_cv_as_no_compress_debug_option="--nocompress-debug-sections"
+   else
+     gcc_cv_as_compress_debug=0
+   # FIXME: Future gas versions will support ELF gABI style via
+   # --compress-debug-sections[=type].
+   fi])
+AC_DEFINE_UNQUOTED(HAVE_AS_COMPRESS_DEBUG, $gcc_cv_as_compress_debug,
+[Define to the level of your assembler's compressed debug section support.])
+AC_DEFINE_UNQUOTED(AS_COMPRESS_DEBUG_OPTION, "$gcc_cv_as_compress_debug_option",
+[Define to the assembler option to enable compressed debug sections.])
+AC_DEFINE_UNQUOTED(AS_NO_COMPRESS_DEBUG_OPTION, "$gcc_cv_as_no_compress_debug_option",
+[Define to the assembler option to disable compressed debug sections.])
+
 gcc_GAS_CHECK_FEATURE([.lcomm with alignment], gcc_cv_as_lcomm_with_alignment,
  ,,
 [.lcomm bar,4,16],,
@@ -4417,22 +4548,6 @@ if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "NONE"; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
 [Define to PREFIX/include if cpp should also search that directory.])
-fi
-
-if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
-  if test "x$with_headers" != x; then
-    target_header_dir=$with_headers
-  elif test "x$with_sysroot" = x; then
-    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
-  elif test "x$with_build_sysroot" != "x"; then
-    target_header_dir="${with_build_sysroot}${native_system_header_dir}"
-  elif test "x$with_sysroot" = xyes; then
-    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
-  else
-    target_header_dir="${with_sysroot}${native_system_header_dir}"
-  fi
-else
-  target_header_dir=${native_system_header_dir}
 fi
 
 # Determine the version of glibc, if any, used on the target.
@@ -4455,6 +4570,10 @@ glibc_version_minor=0
   glibc_version_minor=`echo "$glibc_version_minor_define" | sed -e 's/.*__GLIBC_MINOR__[ 	]*//'`
 fi]])
 AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MAJOR], [$glibc_version_major],
+[GNU C Library major version number used on the target, or 0.])
+AC_DEFINE_UNQUOTED([TARGET_GLIBC_MINOR], [$glibc_version_minor],
+[GNU C Library minor version number used on the target, or 0.])
 
 AC_ARG_ENABLE(gnu-unique-object,
  [AS_HELP_STRING([--enable-gnu-unique-object],
@@ -4586,6 +4705,54 @@ if test x"$gcc_cv_ld_pie" = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_ld_pie)
 
+AC_MSG_CHECKING(linker PIE support with copy reloc)
+gcc_cv_ld_pie_copyreloc=no
+if test $gcc_cv_ld_pie = yes ; then
+  if test $in_tree_ld = yes ; then
+    if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 25 -o "$gcc_cv_gld_major_version" -gt 2; then
+      gcc_cv_ld_pie_copyreloc=yes
+    fi
+  elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x ; then
+    # Check if linker supports -pie option with copy reloc
+    case "$target" in
+    i?86-*-linux* | x86_64-*-linux*)
+      cat > conftest1.s <<EOF
+	.globl	a_glob
+	.data
+	.type	a_glob, @object
+	.size	a_glob, 4
+a_glob:
+	.long	2
+EOF
+      cat > conftest2.s <<EOF
+	.text
+	.globl	main
+	.type	main, @function
+main:
+	movl	%eax, a_glob(%rip)
+	.size	main, .-main
+	.globl	ptr
+	.section	.data.rel,"aw",@progbits
+	.type	ptr, @object
+ptr:
+	.quad	a_glob
+EOF
+      if $gcc_cv_as --64 -o conftest1.o conftest1.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -shared -melf_x86_64 -o conftest1.so conftest1.o > /dev/null 2>&1 \
+         && $gcc_cv_as --64 -o conftest2.o conftest2.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -pie -melf_x86_64 -o conftest conftest2.o conftest1.so > /dev/null 2>&1; then
+        gcc_cv_ld_pie_copyreloc=yes
+      fi
+      rm -f conftest conftest1.so conftest1.o conftest2.o conftest1.s conftest2.s
+      ;;
+    esac
+  fi
+fi
+AC_DEFINE_UNQUOTED(HAVE_LD_PIE_COPYRELOC,
+  [`if test x"$gcc_cv_ld_pie_copyreloc" = xyes; then echo 1; else echo 0; fi`],
+  [Define 0/1 if your linker supports -pie option with copy reloc.])
+AC_MSG_RESULT($gcc_cv_ld_pie_copyreloc)
+
 AC_MSG_CHECKING(linker EH-compatible garbage collection of sections)
 gcc_cv_ld_eh_gc_sections=no
 if test $in_tree_ld = yes ; then
@@ -4711,6 +4878,60 @@ if test x$gcc_cv_ld_eh_gc_sections_bug = xyes; then
    sections support when .text.startup.foo like sections are used.])
 fi
 AC_MSG_RESULT($gcc_cv_ld_eh_gc_sections_bug)
+
+AC_MSG_CHECKING(linker for compressed debug sections)
+# gold/gld support compressed debug sections since binutils 2.19/2.21
+if test $in_tree_ld = yes ; then
+  gcc_cv_ld_compress_debug=0
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 19 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes && test $ld_is_gold = yes; then
+    gcc_cv_ld_compress_debug=2
+    gcc_cv_ld_compress_debug_option="--compress-debug-sections"
+  elif test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 21 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+    gcc_cv_ld_compress_debug=1
+  fi
+elif echo "$ld_ver" | grep GNU > /dev/null; then
+  gcc_cv_ld_compress_debug=1
+  if test 0"$ld_date" -lt 20050308; then
+    if test -n "$ld_date"; then
+      # If there was date string, but was earlier than 2005-03-08, fail
+      gcc_cv_ld_compress_debug=0
+    elif test "$ld_vers_major" -lt 2; then
+      gcc_cv_ld_compress_debug=0
+    elif test "$ld_vers_major" -eq 2 -a "$ld_vers_minor" -lt 21; then
+      gcc_cv_ld_compress_debug=0
+    fi
+  fi
+  if test $ld_is_gold = yes; then
+    gcc_cv_ld_compress_debug=2
+    gcc_cv_ld_compress_debug_option="--compress-debug-sections"
+  fi
+else
+changequote(,)dnl
+  case "${target}" in
+    *-*-solaris2*)
+      # Introduced in Solaris 11.2.
+      if $gcc_cv_ld --help 2>&1 | grep -- '-z compress-sections' > /dev/null; then
+        gcc_cv_ld_compress_debug=3
+        gcc_cv_ld_compress_debug_option="-z compress-sections"
+      else
+        gcc_cv_ld_compress_debug=0
+      fi
+      ;;
+    *)
+      # Assume linkers other than GNU ld don't support compessed debug
+      # sections.
+      gcc_cv_ld_compress_debug=0
+      ;;
+  esac
+changequote([,])dnl
+fi
+AC_DEFINE_UNQUOTED(HAVE_LD_COMPRESS_DEBUG, $gcc_cv_ld_compress_debug,
+[Define to the level of your linker's compressed debug section support.])
+AC_DEFINE_UNQUOTED(LD_COMPRESS_DEBUG_OPTION, "$gcc_cv_ld_compress_debug_option",
+[Define to the linker option to enable compressed debug sections.])
+AC_MSG_RESULT($gcc_cv_ld_compress_debug)
 
 # --------
 # UNSORTED
@@ -5436,112 +5657,35 @@ AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
 AC_ARG_VAR(ISLLIBS,[How to link ISL])
 AC_ARG_VAR(ISLINC,[How to find ISL include files])
-
-AC_ARG_VAR(CLOOGLIBS,[How to link CLOOG])
-AC_ARG_VAR(CLOOGINC,[How to find CLOOG include files])
-if test "x${CLOOGLIBS}" != "x" ; then 
-   AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
+if test "x${ISLLIBS}" != "x" ; then 
+   AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
 fi
 
-# Check for plugin support
-AC_ARG_ENABLE(plugin,
-[AS_HELP_STRING([--enable-plugin], [enable plugin support])],
-enable_plugin=$enableval,
-enable_plugin=yes; default_plugin=yes)
-
-pluginlibs=
-
-case "${host}" in
-  *-*-darwin*)
-    if test x$build = x$host; then
-      export_sym_check="nm${exeext} -g"
-    elif test x$host = x$target; then
-      export_sym_check="$gcc_cv_nm -g"
-    else
-      export_sym_check=
-    fi
-  ;;
-  *)
-    if test x$build = x$host; then
-      export_sym_check="objdump${exeext} -T"
-    elif test x$host = x$target; then
-      export_sym_check="$gcc_cv_objdump -T"
-    else
-      export_sym_check=
-    fi
-  ;;
-esac
-
-if test x"$enable_plugin" = x"yes"; then
-
-  AC_MSG_CHECKING([for exported symbols])
-  if test "x$export_sym_check" != x; then
-    echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
-    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest$ac_exeext > /dev/null 2>&1
-    if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
-      : # No need to use a flag
-      AC_MSG_RESULT([yes])
-    else
-      AC_MSG_RESULT([yes])
-      AC_MSG_CHECKING([for -rdynamic])
-      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest$ac_exeext > /dev/null 2>&1
-      if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
-        plugin_rdynamic=yes
-        pluginlibs="-rdynamic"
-      else
-        plugin_rdynamic=no
-        enable_plugin=no
-      fi
-      AC_MSG_RESULT([$plugin_rdynamic])
-    fi
-  else
-    AC_MSG_RESULT([unable to check])
-  fi
-
-  # Check -ldl
-  saved_LIBS="$LIBS"
-  AC_SEARCH_LIBS([dlopen], [dl])
-  if test x"$ac_cv_search_dlopen" = x"-ldl"; then
-    pluginlibs="$pluginlibs -ldl"
-  fi
-  LIBS="$saved_LIBS"
-
-  # Check that we can build shared objects with -fPIC -shared
-  saved_LDFLAGS="$LDFLAGS"
+# Check whether isl_schedule_constraints_compute_schedule is available;
+# it's new in ISL-0.13.
+if test "x${ISLLIBS}" != "x" ; then
   saved_CFLAGS="$CFLAGS"
-  case "${host}" in
-    *-*-darwin*)
-      CFLAGS=`echo $CFLAGS | sed s/-mdynamic-no-pic//g`
-      CFLAGS="$CFLAGS -fPIC"
-      LDFLAGS="$LDFLAGS -shared -undefined dynamic_lookup"
-    ;;
-    *)
-      CFLAGS="$CFLAGS -fPIC"
-      LDFLAGS="$LDFLAGS -fPIC -shared"
-    ;;
-  esac
-  AC_MSG_CHECKING([for -fPIC -shared])
-  AC_TRY_LINK(
-    [extern int X;],[return X == 0;],
-    [AC_MSG_RESULT([yes]); have_pic_shared=yes],
-    [AC_MSG_RESULT([no]); have_pic_shared=no])
-  if test x"$have_pic_shared" != x"yes" -o x"$ac_cv_search_dlopen" = x"no"; then
-    pluginlibs=
-    enable_plugin=no
-  fi
-  LDFLAGS="$saved_LDFLAGS"
+  CFLAGS="$CFLAGS $ISLINC"
+  saved_LIBS="$LIBS"
+  LIBS="$LIBS $ISLLIBS $GMPLIBS"
+
+  AC_MSG_CHECKING([Checking for isl_schedule_constraints_compute_schedule])
+  AC_TRY_LINK([#include <isl/schedule.h>],
+              [isl_schedule_constraints_compute_schedule (NULL);],
+              [ac_has_isl_schedule_constraints_compute_schedule=yes],
+              [ac_has_isl_schedule_constraints_compute_schedule=no])
+  AC_MSG_RESULT($ac_has_isl_schedule_constraints_compute_schedule)
+
+  LIBS="$saved_LIBS"
   CFLAGS="$saved_CFLAGS"
 
-  # If plugin support had been requested but not available, fail.
-  if test x"$enable_plugin" = x"no" ; then
-    if test x"$default_plugin" != x"yes"; then
-      AC_MSG_ERROR([
-Building GCC with plugin support requires a host that supports
--fPIC, -shared, -ldl and -rdynamic.])
-    fi
+  if test x"$ac_has_isl_schedule_constraints_compute_schedule" = x"yes"; then
+     AC_DEFINE(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE, 1,
+               [Define if isl_schedule_constraints_compute_schedule exists.])
   fi
 fi
 
+GCC_ENABLE_PLUGINS
 AC_SUBST(pluginlibs)
 AC_SUBST(enable_plugin)
 if test x"$enable_plugin" = x"yes"; then
@@ -5592,6 +5736,40 @@ if test x"${LINKER_HASH_STYLE}" != x; then
   AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
                                          [The linker hash style])
 fi
+
+# Specify what should be the default of -fdiagnostics-color option.
+AC_ARG_WITH([diagnostics-color],
+[AC_HELP_STRING([--with-diagnostics-color={never,auto,auto-if-env,always}],
+                [specify the default of -fdiagnostics-color option
+                 auto-if-env stands for -fdiagnostics-color=auto if
+                 GCC_COLOR environment variable is present and
+                 -fdiagnostics-color=never otherwise])],
+[case x"$withval" in
+   xnever)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_NO
+     ;;
+   xauto)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_AUTO
+     ;;
+   xauto-if-env)
+     DIAGNOSTICS_COLOR_DEFAULT=-1
+     ;;
+   xalways)
+     DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_YES
+     ;;
+   *)
+     AC_MSG_ERROR([$withval is an invalid option to --with-diagnostics-color])
+     ;;
+ esac],
+[DIAGNOSTICS_COLOR_DEFAULT=DIAGNOSTICS_COLOR_AUTO])
+AC_DEFINE_UNQUOTED(DIAGNOSTICS_COLOR_DEFAULT, $DIAGNOSTICS_COLOR_DEFAULT,
+		   [The default for -fdiagnostics-color option])
+
+# Generate gcc-driver-name.h containing GCC_DRIVER_NAME for the benefit
+# of jit/jit-playback.c.
+cat > gcc-driver-name.h <<EOF
+#define GCC_DRIVER_NAME "${target_noncanonical}-gcc-${gcc_BASEVER}${exeext}"
+EOF
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

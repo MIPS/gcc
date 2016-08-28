@@ -1,5 +1,5 @@
 /* Functions to determine/estimate number of iterations of a loop.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,14 +21,41 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "calls.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "rtl.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "intl.h"
-#include "pointer-set.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
@@ -49,7 +76,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
 #include "params.h"
-#include "flags.h"
 #include "diagnostic-core.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
@@ -147,7 +173,7 @@ determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
     {
       edge e = loop_preheader_edge (loop);
       signop sgn = TYPE_SIGN (type);
-      gimple_stmt_iterator gsi;
+      gphi_iterator gsi;
 
       /* Either for VAR itself...  */
       rtype = get_range_info (var, &minv, &maxv);
@@ -155,7 +181,7 @@ determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
 	 PHI argument from the loop preheader edge.  */
       for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gphi *phi = gsi.phi ();
 	  wide_int minc, maxc;
 	  if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var
 	      && (get_range_info (gimple_phi_result (phi), &minc, &maxc)
@@ -1537,10 +1563,11 @@ simplify_replace_tree (tree expr, tree old, tree new_tree)
 }
 
 /* Expand definitions of ssa names in EXPR as long as they are simple
-   enough, and return the new expression.  */
+   enough, and return the new expression.  If STOP is specified, stop
+   expanding if EXPR equals to it.  */
 
 tree
-expand_simple_operations (tree expr)
+expand_simple_operations (tree expr, tree stop)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, ee, e1;
@@ -1560,7 +1587,7 @@ expand_simple_operations (tree expr)
       for (i = 0; i < n; i++)
 	{
 	  e = TREE_OPERAND (expr, i);
-	  ee = expand_simple_operations (e);
+	  ee = expand_simple_operations (e, stop);
 	  if (e == ee)
 	    continue;
 
@@ -1579,7 +1606,8 @@ expand_simple_operations (tree expr)
       return ret;
     }
 
-  if (TREE_CODE (expr) != SSA_NAME)
+  /* Stop if it's not ssa name or the one we don't want to expand.  */
+  if (TREE_CODE (expr) != SSA_NAME || expr == stop)
     return expr;
 
   stmt = SSA_NAME_DEF_STMT (expr);
@@ -1599,7 +1627,7 @@ expand_simple_operations (tree expr)
 	  && src->loop_father != dest->loop_father)
 	return expr;
 
-      return expand_simple_operations (e);
+      return expand_simple_operations (e, stop);
     }
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return expr;
@@ -1619,7 +1647,7 @@ expand_simple_operations (tree expr)
 	return e;
 
       if (code == SSA_NAME)
-	return expand_simple_operations (e);
+	return expand_simple_operations (e, stop);
 
       return expr;
     }
@@ -1628,18 +1656,22 @@ expand_simple_operations (tree expr)
     {
     CASE_CONVERT:
       /* Casts are simple.  */
-      ee = expand_simple_operations (e);
+      ee = expand_simple_operations (e, stop);
       return fold_build1 (code, TREE_TYPE (expr), ee);
 
     case PLUS_EXPR:
     case MINUS_EXPR:
+      if (ANY_INTEGRAL_TYPE_P (TREE_TYPE (expr))
+	  && TYPE_OVERFLOW_TRAPS (TREE_TYPE (expr)))
+	return expr;
+      /* Fallthru.  */
     case POINTER_PLUS_EXPR:
       /* And increments and decrements by a constant are simple.  */
       e1 = gimple_assign_rhs2 (stmt);
       if (!is_gimple_min_invariant (e1))
 	return expr;
 
-      ee = expand_simple_operations (e);
+      ee = expand_simple_operations (e, stop);
       return fold_build2 (code, TREE_TYPE (expr), ee, e1);
 
     default:
@@ -1919,7 +1951,8 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 			   struct tree_niter_desc *niter,
 			   bool warn, bool every_iteration)
 {
-  gimple stmt;
+  gimple last;
+  gcond *stmt;
   tree type;
   tree op0, op1;
   enum tree_code code;
@@ -1932,8 +1965,11 @@ number_of_iterations_exit (struct loop *loop, edge exit,
     return false;
 
   niter->assumptions = boolean_false_node;
-  stmt = last_stmt (exit->src);
-  if (!stmt || gimple_code (stmt) != GIMPLE_COND)
+  last = last_stmt (exit->src);
+  if (!last)
+    return false;
+  stmt = dyn_cast <gcond *> (last);
+  if (!stmt)
     return false;
 
   /* We want the condition for staying inside loop.  */
@@ -2152,7 +2188,7 @@ finite_loop_p (struct loop *loop)
    result by a chain of operations such that all but exactly one of their
    operands are constants.  */
 
-static gimple
+static gphi *
 chain_of_csts_start (struct loop *loop, tree x)
 {
   gimple stmt = SSA_NAME_DEF_STMT (x);
@@ -2167,7 +2203,7 @@ chain_of_csts_start (struct loop *loop, tree x)
   if (gimple_code (stmt) == GIMPLE_PHI)
     {
       if (bb == loop->header)
-	return stmt;
+	return as_a <gphi *> (stmt);
 
       return NULL;
     }
@@ -2200,10 +2236,10 @@ chain_of_csts_start (struct loop *loop, tree x)
 
    If such phi node exists, it is returned, otherwise NULL is returned.  */
 
-static gimple
+static gphi *
 get_base_for (struct loop *loop, tree x)
 {
-  gimple phi;
+  gphi *phi;
   tree init, next;
 
   if (is_gimple_min_invariant (x))
@@ -2294,7 +2330,8 @@ loop_niter_by_eval (struct loop *loop, edge exit)
 {
   tree acnd;
   tree op[2], val[2], next[2], aval[2];
-  gimple phi, cond;
+  gphi *phi;
+  gimple cond;
   unsigned i, j;
   enum tree_code cmp;
 
@@ -2719,6 +2756,7 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
 {
   tree niter_bound, extreme, delta;
   tree type = TREE_TYPE (base), unsigned_type;
+  tree orig_base = base;
 
   if (TREE_CODE (step) != INTEGER_CST || integer_zerop (step))
     return;
@@ -2742,16 +2780,30 @@ record_nonwrapping_iv (struct loop *loop, tree base, tree step, gimple stmt,
 
   if (tree_int_cst_sign_bit (step))
     {
+      wide_int min, max;
       extreme = fold_convert (unsigned_type, low);
-      if (TREE_CODE (base) != INTEGER_CST)
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (high) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && wi::gts_p (high, max))
+	base = wide_int_to_tree (unsigned_type, max);
+      else if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, high);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, base, extreme);
       step = fold_build1 (NEGATE_EXPR, unsigned_type, step);
     }
   else
     {
+      wide_int min, max;
       extreme = fold_convert (unsigned_type, high);
-      if (TREE_CODE (base) != INTEGER_CST)
+      if (TREE_CODE (orig_base) == SSA_NAME
+	  && TREE_CODE (low) == INTEGER_CST
+	  && INTEGRAL_TYPE_P (TREE_TYPE (orig_base))
+	  && get_range_info (orig_base, &min, &max) == VR_RANGE
+	  && wi::gts_p (min, low))
+	base = wide_int_to_tree (unsigned_type, min);
+      else if (TREE_CODE (base) != INTEGER_CST)
 	base = fold_convert (unsigned_type, low);
       delta = fold_build2 (MINUS_EXPR, unsigned_type, extreme, base);
     }
@@ -3107,14 +3159,12 @@ bound_index (vec<widest_int> bounds, const widest_int &bound)
 static void
 discover_iteration_bound_by_body_walk (struct loop *loop)
 {
-  pointer_map_t *bb_bounds;
   struct nb_iter_bound *elt;
   vec<widest_int> bounds = vNULL;
   vec<vec<basic_block> > queues = vNULL;
   vec<basic_block> queue = vNULL;
   ptrdiff_t queue_index;
   ptrdiff_t latch_index = 0;
-  pointer_map_t *block_priority;
 
   /* Discover what bounds may interest us.  */
   for (elt = loop->bounds; elt; elt = elt->next)
@@ -3149,7 +3199,7 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
   /* For every basic block record the lowest bound that is guaranteed to
      terminate the loop.  */
 
-  bb_bounds = pointer_map_create ();
+  hash_map<basic_block, ptrdiff_t> bb_bounds;
   for (elt = loop->bounds; elt; elt = elt->next)
     {
       widest_int bound = elt->bound;
@@ -3165,17 +3215,15 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
 	  || wi::ltu_p (bound, loop->nb_iterations_upper_bound))
 	{
 	  ptrdiff_t index = bound_index (bounds, bound);
-	  void **entry = pointer_map_contains (bb_bounds,
-					       gimple_bb (elt->stmt));
+	  ptrdiff_t *entry = bb_bounds.get (gimple_bb (elt->stmt));
 	  if (!entry)
-	    *pointer_map_insert (bb_bounds,
-				 gimple_bb (elt->stmt)) = (void *)index;
+	    bb_bounds.put (gimple_bb (elt->stmt), index);
 	  else if ((ptrdiff_t)*entry > index)
-	    *entry = (void *)index;
+	    *entry = index;
 	}
     }
 
-  block_priority = pointer_map_create ();
+  hash_map<basic_block, ptrdiff_t> block_priority;
 
   /* Perform shortest path discovery loop->header ... loop->latch.
 
@@ -3198,7 +3246,7 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
   queues.safe_grow_cleared (queue_index + 1);
   queue.safe_push (loop->header);
   queues[queue_index] = queue;
-  *pointer_map_insert (block_priority, loop->header) = (void *)queue_index;
+  block_priority.put (loop->header, queue_index);
 
   for (; queue_index >= 0; queue_index--)
     {
@@ -3208,7 +3256,6 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
 	    {
 	      basic_block bb;
 	      ptrdiff_t bound_index = queue_index;
-	      void **entry;
               edge e;
               edge_iterator ei;
 
@@ -3216,20 +3263,19 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
 	      bb = queue.pop ();
 
 	      /* OK, we later inserted the BB with lower priority, skip it.  */
-	      if ((ptrdiff_t)*pointer_map_contains (block_priority, bb) > queue_index)
+	      if (*block_priority.get (bb) > queue_index)
 		continue;
 
 	      /* See if we can improve the bound.  */
-	      entry = pointer_map_contains (bb_bounds, bb);
-	      if (entry && (ptrdiff_t)*entry < bound_index)
-		bound_index = (ptrdiff_t)*entry;
+	      ptrdiff_t *entry = bb_bounds.get (bb);
+	      if (entry && *entry < bound_index)
+		bound_index = *entry;
 
 	      /* Insert succesors into the queue, watch for latch edge
 		 and record greatest index we saw.  */
 	      FOR_EACH_EDGE (e, ei, bb->succs)
 		{
 		  bool insert = false;
-		  void **entry;
 
 		  if (loop_exit_edge_p (loop, e))
 		    continue;
@@ -3237,15 +3283,15 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
 		  if (e == loop_latch_edge (loop)
 		      && latch_index < bound_index)
 		    latch_index = bound_index;
-		  else if (!(entry = pointer_map_contains (block_priority, e->dest)))
+		  else if (!(entry = block_priority.get (e->dest)))
 		    {
 		      insert = true;
-		      *pointer_map_insert (block_priority, e->dest) = (void *)bound_index;
+		      block_priority.put (e->dest, bound_index);
 		    }
-		  else if ((ptrdiff_t)*entry < bound_index)
+		  else if (*entry < bound_index)
 		    {
 		      insert = true;
-		      *entry = (void *)bound_index;
+		      *entry = bound_index;
 		    }
 		    
 		  if (insert)
@@ -3270,8 +3316,6 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
 
   queues.release ();
   bounds.release ();
-  pointer_map_destroy (bb_bounds);
-  pointer_map_destroy (block_priority);
 }
 
 /* See if every path cross the loop goes through a statement that is known
@@ -3281,7 +3325,7 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
 static void
 maybe_lower_iteration_bound (struct loop *loop)
 {
-  pointer_set_t *not_executed_last_iteration = NULL;
+  hash_set<gimple> *not_executed_last_iteration = NULL;
   struct nb_iter_bound *elt;
   bool found_exit = false;
   vec<basic_block> queue = vNULL;
@@ -3300,8 +3344,8 @@ maybe_lower_iteration_bound (struct loop *loop)
 	  && wi::ltu_p (elt->bound, loop->nb_iterations_upper_bound))
 	{
 	  if (!not_executed_last_iteration)
-	    not_executed_last_iteration = pointer_set_create ();
-	  pointer_set_insert (not_executed_last_iteration, elt->stmt);
+	    not_executed_last_iteration = new hash_set<gimple>;
+	  not_executed_last_iteration->add (elt->stmt);
 	}
     }
   if (!not_executed_last_iteration)
@@ -3327,7 +3371,7 @@ maybe_lower_iteration_bound (struct loop *loop)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
-	  if (pointer_set_contains (not_executed_last_iteration, stmt))
+	  if (not_executed_last_iteration->contains (stmt))
 	    {
 	      stmt_found = true;
 	      break;
@@ -3374,9 +3418,10 @@ maybe_lower_iteration_bound (struct loop *loop)
       record_niter_bound (loop, loop->nb_iterations_upper_bound - 1,
 			  false, true);
     }
+
   BITMAP_FREE (visited);
   queue.release ();
-  pointer_set_destroy (not_executed_last_iteration);
+  delete not_executed_last_iteration;
 }
 
 /* Records estimates on numbers of iterations of LOOP.  If USE_UNDEFINED_P

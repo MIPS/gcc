@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -104,6 +104,13 @@ package Errout is
    --        messages. Warning messages are only suppressed for case 1, and
    --        when they come from other than the main extended unit.
 
+   --    7.  If an error or warning references an internal name, and we have
+   --        already placed an error (not warning) message at that location,
+   --        then we assume this is cascaded junk and delete the message.
+
+   --  This normal suppression action may be overridden in cases 2-5 (but not
+   --  in case 1 or 7 by setting All_Errors mode, or by setting the special
+   --  unconditional message insertion character (!) as described below.
    --  This normal suppression action may be overridden in cases 2-5 (but
    --  not in case 1) by setting All_Errors mode, or by setting the special
    --  unconditional message insertion character (!) as described below.
@@ -132,12 +139,18 @@ package Errout is
    --      casing mode. Note: if a unit name ending with %b or %s is passed
    --      for this kind of insertion, this suffix is simply stripped. Use a
    --      unit name insertion ($) to process the suffix.
+   --
+   --      Note: the special names _xxx (xxx = Pre/Post/Invariant) are changed
+   --      to insert the string xxx'Class into the message.
 
    --    Insertion character %% (Double percent: insert literal name)
    --      The character sequence %% acts as described above for %, except
    --      that the name is simply obtained with Get_Name_String and is not
    --      decoded or cased, it is inserted literally from the names table.
    --      A trailing %b or %s is not treated specially.
+   --
+   --      Note: the special names _xxx (xxx = Pre/Post/Invariant) are changed
+   --      to insert the string xxx'Class into the message.
 
    --    Insertion character $ (Dollar: insert unit name from Names table)
    --      The character $ is treated similarly to %, except that the name is
@@ -174,6 +187,9 @@ package Errout is
    --      Error_Msg_Qual_Level is non-zero, then the reference will include
    --      up to the given number of levels of qualification, using the scope
    --      chain.
+   --
+   --      Note: the special names _xxx (xxx = Pre/Post/Invariant) are changed
+   --      to insert the string xxx'Class into the message.
 
    --    Insertion character # (Pound: insert line number reference)
    --      The character # is replaced by the string indicating the source
@@ -413,67 +429,12 @@ package Errout is
    --      are continuations that are not printed using the -gnatj switch they
    --      will also have this prefix.
 
-   ----------------------------------------
-   -- Specialization of Messages for VMS --
-   ----------------------------------------
-
-   --  Some messages mention gcc-style switch names. When using an OpenVMS
-   --  host, such switch names must be converted to their corresponding VMS
-   --  qualifer. The following table controls this translation. In each case
-   --  the original message must contain the string "-xxx switch", where xxx
-   --  is the Gname? entry from below, and this string will be replaced by
-   --  "/yyy qualifier", where yyy is the corresponding Vname? entry.
-
-   Gname1 : aliased constant String := "fno-strict-aliasing";
-   Vname1 : aliased constant String := "OPTIMIZE=NO_STRICT_ALIASING";
-
-   Gname2 : aliased constant String := "gnatX";
-   Vname2 : aliased constant String := "EXTENSIONS_ALLOWED";
-
-   Gname3 : aliased constant String := "gnatW";
-   Vname3 : aliased constant String := "WIDE_CHARACTER_ENCODING";
-
-   Gname4 : aliased constant String := "gnatf";
-   Vname4 : aliased constant String := "REPORT_ERRORS=FULL";
-
-   Gname5 : aliased constant String := "gnat05";
-   Vname5 : aliased constant String := "05";
-
-   Gname6 : aliased constant String := "gnat2005";
-   Vname6 : aliased constant String := "2005";
-
-   Gname7 : aliased constant String := "gnat12";
-   Vname7 : aliased constant String := "12";
-
-   Gname8 : aliased constant String := "gnat2012";
-   Vname8 : aliased constant String := "2012";
-
-   Gname9 : aliased constant String := "gnateinn";
-   Vname9 : aliased constant String := "MAX_INSTANTIATIONS=nn";
-
-   type Cstring_Ptr is access constant String;
-
-   Gnames : array (Nat range <>) of Cstring_Ptr :=
-              (Gname1'Access,
-               Gname2'Access,
-               Gname3'Access,
-               Gname4'Access,
-               Gname5'Access,
-               Gname6'Access,
-               Gname7'Access,
-               Gname8'Access,
-               Gname9'Access);
-
-   Vnames : array (Nat range <>) of Cstring_Ptr :=
-              (Vname1'Access,
-               Vname2'Access,
-               Vname3'Access,
-               Vname4'Access,
-               Vname5'Access,
-               Vname6'Access,
-               Vname7'Access,
-               Vname8'Access,
-               Vname9'Access);
+   --    Insertion sequence "low: " or "medium: " or "high: " (check message)
+   --      This appears only at the start of the message (and not any of its
+   --      continuations, if any), and indicates that the message is a check
+   --      message. The message will be output with this prefix. Check
+   --      messages are not fatal (so are like info messages in that respect)
+   --      and are not controlled by pragma Warnings.
 
    -----------------------------------------------------
    -- Global Values Used for Error Message Insertions --
@@ -836,7 +797,7 @@ package Errout is
    procedure Remove_Warning_Messages (N : Node_Id);
    --  Remove any warning messages corresponding to the Sloc of N or any
    --  of its descendent nodes. No effect if no such warnings. Note that
-   --  style messages (identified by the fact that they start with "(style)"
+   --  style messages (identified by the fact that they start with "(style)")
    --  are not removed by this call. Basically the idea behind this procedure
    --  is to remove warnings about execution conditions from known dead code.
 
@@ -903,9 +864,10 @@ package Errout is
    --  run-time mode or no run-time mode (as appropriate). In the former case,
    --  the name of the library is output if available.
 
-   procedure Error_Msg_PT (Typ : Node_Id; Subp : Node_Id);
-   --  Posts an error on the protected type declaration Typ indicating wrong
-   --  mode of the first formal of protected type primitive Subp.
+   procedure Error_Msg_PT (E : Entity_Id; Iface_Prim : Entity_Id);
+   --  Posts an error on protected type entry or subprogram E (referencing its
+   --  overridden interface primitive Iface_Prim) indicating wrong mode of the
+   --  first formal (RM 9.4(11.9/3)).
 
    procedure Error_Msg_Ada_2012_Feature (Feature : String; Loc : Source_Ptr);
    --  If not operating in Ada 2012 mode, posts errors complaining that Feature
@@ -930,28 +892,34 @@ package Errout is
 
    procedure SPARK_Msg_N (Msg : String; N : Node_Or_Entity_Id);
    pragma Inline (SPARK_Msg_N);
-   --  Same as Error_Msg_N, but the error is reported only when SPARK_Mode is
-   --  "on". The routine is inlined because it acts as a simple wrapper.
+   --  Same as Error_Msg_N, but the error is suppressed if SPARK_Mode is Off.
+   --  The routine is inlined because it acts as a simple wrapper.
 
    procedure SPARK_Msg_NE
      (Msg : String;
       N   : Node_Or_Entity_Id;
       E   : Node_Or_Entity_Id);
    pragma Inline (SPARK_Msg_NE);
-   --  Same as Error_Msg_NE, but the error is reported only when SPARK_Mode is
-   --  "on". The routine is inlined because it acts as a simple wrapper.
+   --  Same as Error_Msg_NE, but the error is suppressed if SPARK_Mode is Off.
+   --  The routine is inlined because it acts as a simple wrapper.
 
-   ------------------------------------
-   -- Utility Interface for Back End --
-   ------------------------------------
+   ------------------------------------------
+   -- Utility Interface for Casing Control --
+   ------------------------------------------
 
-   --  The following subprograms can be used by the back end for the purposes
-   --  of concocting error messages that are not output via Errout, e.g. the
-   --  messages generated by the gcc back end.
+   procedure Adjust_Name_Case (Loc : Source_Ptr);
+   --  Given a name stored in Name_Buffer (1 .. Name_Len), set proper casing.
+   --  Loc is an associated source position, if we can find a match between
+   --  the name in Name_Buffer and the name at that source location, we copy
+   --  the casing from the source, otherwise we set appropriate default casing.
 
    procedure Set_Identifier_Casing
      (Identifier_Name : System.Address;
       File_Name       : System.Address);
+   --  This subprogram can be used by the back end for the purposes of
+   --  concocting error messages that are not output via Errout, e.g.
+   --  the messages generated by the gcc back end.
+   --
    --  The identifier is a null terminated string that represents the name of
    --  an identifier appearing in the source program. File_Name is a null
    --  terminated string giving the corresponding file name for the identifier

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -42,6 +42,7 @@ with Snames;   use Snames;
 with Stringt;  use Stringt;
 with Targparm; use Targparm;
 with Uintp;    use Uintp;
+with Widechar; use Widechar;
 
 package body Erroutc is
 
@@ -140,10 +141,16 @@ package body Erroutc is
             if Errors.Table (D).Warn or else Errors.Table (D).Style then
                Warnings_Detected := Warnings_Detected - 1;
 
-               if Errors.Table (D).Warn_Err then
-                  Warnings_Treated_As_Errors :=
-                    Warnings_Treated_As_Errors + 1;
+               if Errors.Table (D).Info then
+                  Info_Messages := Info_Messages - 1;
                end if;
+
+               --  Note: we do not need to decrement Warnings_Treated_As_Errors
+               --  because this only gets incremented if we actually output the
+               --  message, which we won't do if we are deleting it here!
+
+            elsif Errors.Table (D).Check then
+               Check_Messages := Check_Messages - 1;
 
             else
                Total_Errors_Detected := Total_Errors_Detected - 1;
@@ -232,7 +239,7 @@ package body Erroutc is
    function Compilation_Errors return Boolean is
    begin
       return Total_Errors_Detected /= 0
-        or else (Warnings_Detected /= 0
+        or else (Warnings_Detected - Info_Messages /= 0
                   and then Warning_Mode = Treat_As_Error)
         or else Warnings_Treated_As_Errors /= 0;
    end Compilation_Errors;
@@ -445,32 +452,75 @@ package body Erroutc is
            and then Errors.Table (T).Line = Errors.Table (E).Line
            and then Errors.Table (T).Sfile = Errors.Table (E).Sfile
          loop
-            --  Loop to output blanks till current flag position
+            declare
+               Src : Source_Buffer_Ptr
+                       renames Source_Text (Errors.Table (T).Sfile);
 
-            while P < Errors.Table (T).Sptr loop
-               if Source_Text (Errors.Table (T).Sfile) (P) = ASCII.HT then
-                  Write_Char (ASCII.HT);
-               else
-                  Write_Char (' ');
+            begin
+               --  Loop to output blanks till current flag position
+
+               while P < Errors.Table (T).Sptr loop
+
+                  --  Horizontal tab case, just echo the tab
+
+                  if Src (P) = ASCII.HT then
+                     Write_Char (ASCII.HT);
+                     P := P + 1;
+
+                  --  Deal with wide character case, but don't include brackets
+                  --  notation in this circuit, since we know that this will
+                  --  display unencoded (no one encodes brackets notation).
+
+                  elsif Src (P) /= '['
+                    and then Is_Start_Of_Wide_Char (Src, P)
+                  then
+                     Skip_Wide (Src, P);
+                     Write_Char (' ');
+
+                  --  Normal non-wide character case (or bracket)
+
+                  else
+                     P := P + 1;
+                     Write_Char (' ');
+                  end if;
+               end loop;
+
+               --  Output flag (unless already output, this happens if more
+               --  than one error message occurs at the same flag position).
+
+               if P = Errors.Table (T).Sptr then
+                  if (Flag_Num = 1 and then not Mult_Flags)
+                    or else Flag_Num > 9
+                  then
+                     Write_Char ('|');
+                  else
+                     Write_Char
+                       (Character'Val (Character'Pos ('0') + Flag_Num));
+                  end if;
+
+                  --  Skip past the corresponding source text character
+
+                  --  Horizontal tab case, we output a flag at the tab position
+                  --  so now we output a tab to match up with the text.
+
+                  if Src (P) = ASCII.HT then
+                     Write_Char (ASCII.HT);
+                     P := P + 1;
+
+                  --  Skip wide character other than left bracket
+
+                  elsif Src (P) /= '['
+                    and then Is_Start_Of_Wide_Char (Src, P)
+                  then
+                     Skip_Wide (Src, P);
+
+                  --  Skip normal non-wide character case (or bracket)
+
+                  else
+                     P := P + 1;
+                  end if;
                end if;
-
-               P := P + 1;
-            end loop;
-
-            --  Output flag (unless already output, this happens if more
-            --  than one error message occurs at the same flag position).
-
-            if P = Errors.Table (T).Sptr then
-               if (Flag_Num = 1 and then not Mult_Flags)
-                 or else Flag_Num > 9
-               then
-                  Write_Char ('|');
-               else
-                  Write_Char (Character'Val (Character'Pos ('0') + Flag_Num));
-               end if;
-
-               P := P + 1;
-            end if;
+            end;
 
             Set_Next_Non_Deleted_Msg (T);
             Flag_Num := Flag_Num + 1;
@@ -610,6 +660,11 @@ package body Erroutc is
          elsif Errors.Table (E).Style then
             null;
 
+            --  No prefix needed for check message, severity is there already
+
+         elsif Errors.Table (E).Check then
+            null;
+
             --  All other cases, add "error: " if unique error tag set
 
          elsif Opt.Unique_Error_Tag then
@@ -722,6 +777,15 @@ package body Erroutc is
       Is_Info_Msg :=
         Msg'Length > 6 and then Msg (Msg'First .. Msg'First + 5) = "info: ";
 
+      --  Check check message
+
+      Is_Check_Msg :=
+        (Msg'Length > 8 and then Msg (Msg'First .. Msg'First + 7) = "medium: ")
+        or else
+          (Msg'Length > 6 and then Msg (Msg'First .. Msg'First + 5) = "high: ")
+        or else
+          (Msg'Length > 5 and then Msg (Msg'First .. Msg'First + 4) = "low: ");
+
       --  Loop through message looking for relevant insertion sequences
 
       J := Msg'First;
@@ -790,7 +854,7 @@ package body Erroutc is
          end if;
       end loop;
 
-      if Is_Warning_Msg or Is_Style_Msg then
+      if Is_Warning_Msg or Is_Style_Msg or Is_Check_Msg then
          Is_Serious_Error := False;
       end if;
    end Prescan_Message;
@@ -1284,9 +1348,7 @@ package body Erroutc is
 
    procedure Set_Msg_Name_Buffer is
    begin
-      for J in 1 .. Name_Len loop
-         Set_Msg_Char (Name_Buffer (J));
-      end loop;
+      Set_Msg_Str (Name_Buffer (1 .. Name_Len));
    end Set_Msg_Name_Buffer;
 
    -------------------
@@ -1306,9 +1368,42 @@ package body Erroutc is
 
    procedure Set_Msg_Str (Text : String) is
    begin
-      for J in Text'Range loop
-         Set_Msg_Char (Text (J));
-      end loop;
+      --  Do replacement for special x'Class aspect names
+
+      if Text = "_Pre" then
+         Set_Msg_Str ("Pre'Class");
+
+      elsif Text = "_Post" then
+         Set_Msg_Str ("Post'Class");
+
+      elsif Text = "_Type_Invariant" then
+         Set_Msg_Str ("Type_Invariant'Class");
+
+      elsif Text = "_pre" then
+         Set_Msg_Str ("pre'class");
+
+      elsif Text = "_post" then
+         Set_Msg_Str ("post'class");
+
+      elsif Text = "_type_invariant" then
+         Set_Msg_Str ("type_invariant'class");
+
+      elsif Text = "_PRE" then
+         Set_Msg_Str ("PRE'CLASS");
+
+      elsif Text = "_POST" then
+         Set_Msg_Str ("POST'CLASS");
+
+      elsif Text = "_TYPE_INVARIANT" then
+         Set_Msg_Str ("TYPE_INVARIANT'CLASS");
+
+      --  Normal case with no replacement
+
+      else
+         for J in Text'Range loop
+            Set_Msg_Char (Text (J));
+         end loop;
+      end if;
    end Set_Msg_Str;
 
    ------------------------------
@@ -1494,10 +1589,11 @@ package body Erroutc is
                elsif not SWE.Used
 
                  --  Do not issue this warning for -Wxxx messages since the
-                 --  back-end doesn't report the information.
+                 --  back-end doesn't report the information. Note that there
+                 --  is always an asterisk at the start of every message.
 
                  and then not
-                   (SWE.Msg'Length > 2 and then SWE.Msg (1 .. 2) = "-W")
+                   (SWE.Msg'Length > 3 and then SWE.Msg (2 .. 3) = "-W")
                then
                   Eproc.all
                     ("?W?no warning suppressed by this pragma", SWE.Start);

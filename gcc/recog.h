@@ -1,5 +1,5 @@
 /* Declarations for interface to insn recognizer and insn-output.c.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -89,18 +89,18 @@ extern int asm_operand_ok (rtx, const char *, const char **);
 extern bool validate_change (rtx, rtx *, rtx, bool);
 extern bool validate_unshare_change (rtx, rtx *, rtx, bool);
 extern bool canonicalize_change_group (rtx insn, rtx x);
-extern int insn_invalid_p (rtx, bool);
+extern int insn_invalid_p (rtx_insn *, bool);
 extern int verify_changes (int);
 extern void confirm_change_group (void);
 extern int apply_change_group (void);
 extern int num_validated_changes (void);
 extern void cancel_changes (int);
-extern int constrain_operands (int);
-extern int constrain_operands_cached (int);
-extern int memory_address_addr_space_p (enum machine_mode, rtx, addr_space_t);
+extern int constrain_operands (int, alternative_mask);
+extern int constrain_operands_cached (rtx_insn *, int);
+extern int memory_address_addr_space_p (machine_mode, rtx, addr_space_t);
 #define memory_address_p(mode,addr) \
 	memory_address_addr_space_p ((mode), (addr), ADDR_SPACE_GENERIC)
-extern int strict_memory_address_addr_space_p (enum machine_mode, rtx,
+extern int strict_memory_address_addr_space_p (machine_mode, rtx,
 					       addr_space_t);
 #define strict_memory_address_p(mode,addr) \
 	strict_memory_address_addr_space_p ((mode), (addr), ADDR_SPACE_GENERIC)
@@ -112,14 +112,12 @@ extern void validate_replace_rtx_group (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
 extern bool validate_simplify_insn (rtx insn);
 extern int num_changes_pending (void);
-#ifdef HAVE_cc0
 extern int next_insn_tests_no_inequality (rtx);
-#endif
-extern bool reg_fits_class_p (const_rtx, reg_class_t, int, enum machine_mode);
+extern bool reg_fits_class_p (const_rtx, reg_class_t, int, machine_mode);
 
 extern int offsettable_memref_p (rtx);
 extern int offsettable_nonstrict_memref_p (rtx);
-extern int offsettable_address_addr_space_p (int, enum machine_mode, rtx,
+extern int offsettable_address_addr_space_p (int, machine_mode, rtx,
 					     addr_space_t);
 #define offsettable_address_p(strict,mode,addr) \
 	offsettable_address_addr_space_p ((strict), (mode), (addr), \
@@ -128,14 +126,15 @@ extern bool mode_dependent_address_p (rtx, addr_space_t);
 
 extern int recog (rtx, rtx, int *);
 #ifndef GENERATOR_FILE
-static inline int recog_memoized (rtx insn);
+static inline int recog_memoized (rtx_insn *insn);
 #endif
 extern void add_clobbers (rtx, int);
 extern int added_clobbers_hard_reg_p (int);
-extern void insn_extract (rtx);
-extern void extract_insn (rtx);
-extern void extract_constrain_insn_cached (rtx);
-extern void extract_insn_cached (rtx);
+extern void insn_extract (rtx_insn *);
+extern void extract_insn (rtx_insn *);
+extern void extract_constrain_insn (rtx_insn *insn);
+extern void extract_constrain_insn_cached (rtx_insn *);
+extern void extract_insn_cached (rtx_insn *);
 extern void preprocess_constraints (int, int, const char **,
 				    operand_alternative *);
 extern const operand_alternative *preprocess_insn_constraints (int);
@@ -145,12 +144,12 @@ extern int peep2_regno_dead_p (int, int);
 extern int peep2_reg_dead_p (int, rtx);
 #ifdef CLEAR_HARD_REG_SET
 extern rtx peep2_find_free_register (int, int, const char *,
-				     enum machine_mode, HARD_REG_SET *);
+				     machine_mode, HARD_REG_SET *);
 #endif
 extern rtx peephole2_insns (rtx, rtx, int *);
 
-extern int store_data_bypass_p (rtx, rtx);
-extern int if_test_bypass_p (rtx, rtx);
+extern int store_data_bypass_p (rtx_insn *, rtx_insn *);
+extern int if_test_bypass_p (rtx_insn *, rtx_insn *);
 
 #ifndef GENERATOR_FILE
 /* Try recognizing the instruction INSN,
@@ -163,7 +162,7 @@ extern int if_test_bypass_p (rtx, rtx);
    through this one.  */
 
 static inline int
-recog_memoized (rtx insn)
+recog_memoized (rtx_insn *insn)
 {
   if (INSN_CODE (insn) < 0)
     INSN_CODE (insn) = recog (PATTERN (insn), insn, 0);
@@ -214,7 +213,7 @@ struct recog_data_d
   char is_operator[MAX_RECOG_OPERANDS];
 
   /* Gives the mode of operand N.  */
-  enum machine_mode operand_mode[MAX_RECOG_OPERANDS];
+  machine_mode operand_mode[MAX_RECOG_OPERANDS];
 
   /* Gives the type (in, out, inout) for operand N.  */
   enum op_type operand_type[MAX_RECOG_OPERANDS];
@@ -249,12 +248,6 @@ struct recog_data_d
   /* True if insn is ASM_OPERANDS.  */
   bool is_asm;
 
-  /* Specifies whether an insn alternative is enabled using the `enabled'
-     attribute in the insn pattern definition.  For back ends not using
-     the `enabled' attribute the bits are always set to 1 in expand_insn.
-     Bits beyond the last alternative are also set to 1.  */
-  alternative_mask enabled_alternatives;
-
   /* In case we are caching, hold insn data was generated for.  */
   rtx insn;
 };
@@ -278,8 +271,8 @@ which_op_alt ()
 /* A table defined in insn-output.c that give information about
    each insn-code value.  */
 
-typedef int (*insn_operand_predicate_fn) (rtx, enum machine_mode);
-typedef const char * (*insn_output_fn) (rtx *, rtx);
+typedef int (*insn_operand_predicate_fn) (rtx, machine_mode);
+typedef const char * (*insn_output_fn) (rtx *, rtx_insn *);
 
 struct insn_gen_fn
 {
@@ -388,10 +381,19 @@ extern int peep2_current_count;
 #ifndef GENERATOR_FILE
 #include "insn-codes.h"
 
+/* An enum of boolean attributes that may only depend on the current
+   subtarget, not on things like operands or compiler phase.  */
+enum bool_attr {
+  BA_ENABLED,
+  BA_PREFERRED_FOR_SPEED,
+  BA_PREFERRED_FOR_SIZE,
+  BA_LAST = BA_PREFERRED_FOR_SIZE
+};
+
 /* Target-dependent globals.  */
 struct target_recog {
   bool x_initialized;
-  alternative_mask x_enabled_alternatives[LAST_INSN_CODE];
+  alternative_mask x_bool_attr_masks[LAST_INSN_CODE][BA_LAST + 1];
   operand_alternative *x_op_alt[LAST_INSN_CODE];
 };
 
@@ -402,7 +404,10 @@ extern struct target_recog *this_target_recog;
 #define this_target_recog (&default_target_recog)
 #endif
 
-alternative_mask get_enabled_alternatives (rtx);
+alternative_mask get_enabled_alternatives (rtx_insn *);
+alternative_mask get_preferred_alternatives (rtx_insn *);
+alternative_mask get_preferred_alternatives (rtx_insn *, basic_block);
+bool check_bool_attrs (rtx_insn *);
 
 void recog_init ();
 #endif

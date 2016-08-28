@@ -1,5 +1,5 @@
 /* Dynamic testing for abstract is-a relationships.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Lawrence Crowl.
 
 This file is part of GCC.
@@ -45,6 +45,14 @@ TYPE as_a <TYPE> (pointer)
     You can just assume that it is such a node.
 
       do_something_with (as_a <cgraph_node *> *ptr);
+
+TYPE safe_as_a <TYPE> (pointer)
+
+    Like as_a <TYPE> (pointer), but where pointer could be NULL.  This
+    adds a check against NULL where the regular is_a_helper hook for TYPE
+    assumes non-NULL.
+
+      do_something_with (safe_as_a <cgraph_node *> *ptr);
 
 TYPE dyn_cast <TYPE> (pointer)
 
@@ -183,6 +191,22 @@ as_a (U *p)
 {
   gcc_checking_assert (is_a <T> (p));
   return is_a_helper <T>::cast (p);
+}
+
+/* Similar to as_a<>, but where the pointer can be NULL, even if
+   is_a_helper<T> doesn't check for NULL.  */
+
+template <typename T, typename U>
+inline T
+safe_as_a (U *p)
+{
+  if (p)
+    {
+      gcc_checking_assert (is_a <T> (p));
+      return is_a_helper <T>::cast (p);
+    }
+  else
+    return NULL;
 }
 
 /* A generic checked conversion from a base type U to a derived type T.  See

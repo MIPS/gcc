@@ -1,5 +1,5 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2015 Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -31,6 +31,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "flags.h"
 #include "obstack.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "df.h"
 #include "target.h"
@@ -38,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "domwalk.h"
 #include "emit-rtl.h"
+#include "rtl-iter.h"
 
 
 /* This pass does simple forward propagation and simplification when an
@@ -218,7 +231,7 @@ single_def_use_dom_walker::before_dom_children (basic_block bb)
   int bb_index = bb->index;
   struct df_md_bb_info *md_bb_info = df_md_get_bb_info (bb_index);
   struct df_lr_bb_info *lr_bb_info = df_lr_get_bb_info (bb_index);
-  rtx insn;
+  rtx_insn *insn;
 
   bitmap_copy (local_md, &md_bb_info->in);
   bitmap_copy (local_lr, &lr_bb_info->in);
@@ -381,7 +394,7 @@ canonicalize_address (rtx x)
    for a memory access in the given MODE.  */
 
 static bool
-should_replace_address (rtx old_rtx, rtx new_rtx, enum machine_mode mode,
+should_replace_address (rtx old_rtx, rtx new_rtx, machine_mode mode,
 			addr_space_t as, bool speed)
 {
   int gain;
@@ -451,8 +464,8 @@ propagate_rtx_1 (rtx *px, rtx old_rtx, rtx new_rtx, int flags)
 {
   rtx x = *px, tem = NULL_RTX, op0, op1, op2;
   enum rtx_code code = GET_CODE (x);
-  enum machine_mode mode = GET_MODE (x);
-  enum machine_mode op_mode;
+  machine_mode mode = GET_MODE (x);
+  machine_mode op_mode;
   bool can_appear = (flags & PR_CAN_APPEAR) != 0;
   bool valid_ops = true;
 
@@ -623,14 +636,16 @@ propagate_rtx_1 (rtx *px, rtx old_rtx, rtx new_rtx, int flags)
 }
 
 
-/* for_each_rtx traversal function that returns 1 if BODY points to
-   a non-constant mem.  */
+/* Return true if X constains a non-constant mem.  */
 
-static int
-varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
+static bool
+varying_mem_p (const_rtx x)
 {
-  rtx x = *body;
-  return MEM_P (x) && !MEM_READONLY_P (x);
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, NONCONST)
+    if (MEM_P (*iter) && !MEM_READONLY_P (*iter))
+      return true;
+  return false;
 }
 
 
@@ -643,7 +658,7 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
    Otherwise, we accept simplifications that have a lower or equal cost.  */
 
 static rtx
-propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx,
+propagate_rtx (rtx x, machine_mode mode, rtx old_rtx, rtx new_rtx,
 	       bool speed)
 {
   rtx tem;
@@ -661,7 +676,7 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx,
 	  && (GET_MODE_SIZE (mode)
 	      <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (new_rtx))))))
     flags |= PR_CAN_APPEAR;
-  if (!for_each_rtx (&new_rtx, varying_mem_p, NULL))
+  if (!varying_mem_p (new_rtx))
     flags |= PR_HANDLE_MEM;
 
   if (speed)
@@ -692,9 +707,9 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx,
    between FROM to (but not including) TO.  */
 
 static bool
-local_ref_killed_between_p (df_ref ref, rtx from, rtx to)
+local_ref_killed_between_p (df_ref ref, rtx_insn *from, rtx_insn *to)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = from; insn != to; insn = NEXT_INSN (insn))
     {
@@ -719,7 +734,7 @@ local_ref_killed_between_p (df_ref ref, rtx from, rtx to)
      we check if the definition is killed after DEF_INSN or before
      TARGET_INSN insn, in their respective basic blocks.  */
 static bool
-use_killed_between (df_ref use, rtx def_insn, rtx target_insn)
+use_killed_between (df_ref use, rtx_insn *def_insn, rtx_insn *target_insn)
 {
   basic_block def_bb = BLOCK_FOR_INSN (def_insn);
   basic_block target_bb = BLOCK_FOR_INSN (target_insn);
@@ -783,12 +798,12 @@ use_killed_between (df_ref use, rtx def_insn, rtx target_insn)
    would require full computation of available expressions;
    we check only restricted conditions, see use_killed_between.  */
 static bool
-all_uses_available_at (rtx def_insn, rtx target_insn)
+all_uses_available_at (rtx_insn *def_insn, rtx_insn *target_insn)
 {
   df_ref use;
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
   rtx def_set = single_set (def_insn);
-  rtx next;
+  rtx_insn *next;
 
   gcc_assert (def_set);
 
@@ -869,7 +884,7 @@ register_active_defs (df_ref use)
    I'm not doing this yet, though.  */
 
 static void
-update_df_init (rtx def_insn, rtx insn)
+update_df_init (rtx_insn *def_insn, rtx_insn *insn)
 {
 #ifdef ENABLE_CHECKING
   sparseset_clear (active_defs_check);
@@ -906,7 +921,7 @@ update_uses (df_ref use)
    uses if NOTES_ONLY is true.  */
 
 static void
-update_df (rtx insn, rtx note)
+update_df (rtx_insn *insn, rtx note)
 {
   struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
 
@@ -933,9 +948,10 @@ update_df (rtx insn, rtx note)
    performed.  */
 
 static bool
-try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_equal)
+try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx_insn *def_insn,
+		  bool set_reg_equal)
 {
-  rtx insn = DF_REF_INSN (use);
+  rtx_insn *insn = DF_REF_INSN (use);
   rtx set = single_set (insn);
   rtx note = NULL_RTX;
   bool speed = optimize_bb_for_speed_p (BLOCK_FOR_INSN (insn));
@@ -1016,7 +1032,7 @@ try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_
    load from memory.  */
 
 static bool
-free_load_extend (rtx src, rtx insn)
+free_load_extend (rtx src, rtx_insn *insn)
 {
   rtx reg;
   df_ref def, use;
@@ -1057,13 +1073,14 @@ free_load_extend (rtx src, rtx insn)
 /* If USE is a subreg, see if it can be replaced by a pseudo.  */
 
 static bool
-forward_propagate_subreg (df_ref use, rtx def_insn, rtx def_set)
+forward_propagate_subreg (df_ref use, rtx_insn *def_insn, rtx def_set)
 {
   rtx use_reg = DF_REF_REG (use);
-  rtx use_insn, src;
+  rtx_insn *use_insn;
+  rtx src;
 
   /* Only consider subregs... */
-  enum machine_mode use_mode = GET_MODE (use_reg);
+  machine_mode use_mode = GET_MODE (use_reg);
   if (GET_CODE (use_reg) != SUBREG
       || !REG_P (SET_DEST (def_set)))
     return false;
@@ -1127,9 +1144,10 @@ forward_propagate_subreg (df_ref use, rtx def_insn, rtx def_set)
 /* Try to replace USE with SRC (defined in DEF_INSN) in __asm.  */
 
 static bool
-forward_propagate_asm (df_ref use, rtx def_insn, rtx def_set, rtx reg)
+forward_propagate_asm (df_ref use, rtx_insn *def_insn, rtx def_set, rtx reg)
 {
-  rtx use_insn = DF_REF_INSN (use), src, use_pat, asm_operands, new_rtx, *loc;
+  rtx_insn *use_insn = DF_REF_INSN (use);
+  rtx src, use_pat, asm_operands, new_rtx, *loc;
   int speed_p, i;
   df_ref uses;
 
@@ -1204,13 +1222,13 @@ forward_propagate_asm (df_ref use, rtx def_insn, rtx def_set, rtx reg)
    result.  */
 
 static bool
-forward_propagate_and_simplify (df_ref use, rtx def_insn, rtx def_set)
+forward_propagate_and_simplify (df_ref use, rtx_insn *def_insn, rtx def_set)
 {
-  rtx use_insn = DF_REF_INSN (use);
+  rtx_insn *use_insn = DF_REF_INSN (use);
   rtx use_set = single_set (use_insn);
   rtx src, reg, new_rtx, *loc;
   bool set_reg_equal;
-  enum machine_mode mode;
+  machine_mode mode;
   int asm_use = -1;
 
   if (INSN_CODE (use_insn) < 0)
@@ -1329,7 +1347,8 @@ static bool
 forward_propagate_into (df_ref use)
 {
   df_ref def;
-  rtx def_insn, def_set, use_insn;
+  rtx_insn *def_insn, *use_insn;
+  rtx def_set;
   rtx parent;
 
   if (DF_REF_FLAGS (use) & DF_REF_READ_WRITE)
@@ -1470,7 +1489,6 @@ const pass_data pass_data_rtl_fwprop =
   RTL_PASS, /* type */
   "fwprop1", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_FWPROP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -1535,7 +1553,6 @@ const pass_data pass_data_rtl_fwprop_addr =
   RTL_PASS, /* type */
   "fwprop2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_FWPROP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

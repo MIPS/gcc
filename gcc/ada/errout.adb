@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,7 +37,6 @@ with Einfo;    use Einfo;
 with Erroutc;  use Erroutc;
 with Fname;    use Fname;
 with Gnatvsn;  use Gnatvsn;
-with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Opt;      use Opt;
 with Nlists;   use Nlists;
@@ -156,11 +155,12 @@ package body Errout is
    --  variables Msg_Buffer are set on return Msglen.
 
    procedure Set_Posted (N : Node_Id);
-   --  Sets the Error_Posted flag on the given node, and all its parents
-   --  that are subexpressions and then on the parent non-subexpression
-   --  construct that contains the original expression (this reduces the
-   --  number of cascaded messages). Note that this call only has an effect
-   --  for a serious error. For a non-serious error, it has no effect.
+   --  Sets the Error_Posted flag on the given node, and all its parents that
+   --  are subexpressions and then on the parent non-subexpression construct
+   --  that contains the original expression. If that parent is a named
+   --  association, the flag is further propagated to its parent. This is done
+   --  in order to guard against cascaded errors. Note that this call has an
+   --  effect for a serious error only.
 
    procedure Set_Qualification (N : Nat; E : Entity_Id);
    --  Outputs up to N levels of qualification for the given entity. For
@@ -188,14 +188,6 @@ package body Errout is
    --  The global variable Class_Flag is set to True if the resulting entity
    --  should have 'Class appended to its name (see Add_Class procedure), and
    --  is otherwise unchanged.
-
-   procedure VMS_Convert;
-   --  This procedure has no effect if called when the host is not OpenVMS. If
-   --  the host is indeed OpenVMS, then the error message stored in Msg_Buffer
-   --  is scanned for appearances of switch names which need converting to
-   --  corresponding VMS qualifier names. See Gnames/Vnames table in Errout
-   --  spec for precise definition of the conversion that is performed by this
-   --  routine in OpenVMS mode.
 
    function Warn_Insertion return String;
    --  This is called for warning messages only (so Warning_Msg_Char is set)
@@ -269,8 +261,12 @@ package body Errout is
                M.Deleted := True;
                Warnings_Detected := Warnings_Detected - 1;
 
+               if M.Info then
+                  Info_Messages := Info_Messages - 1;
+               end if;
+
                if M.Warn_Err then
-                  Warnings_Treated_As_Errors := Warnings_Treated_As_Errors + 1;
+                  Warnings_Treated_As_Errors := Warnings_Treated_As_Errors - 1;
                end if;
             end if;
 
@@ -312,11 +308,13 @@ package body Errout is
       end if;
 
       --  If we already have messages, and we are trying to place a message at
-      --  No_Location or in package Standard, then just ignore the attempt
-      --  since we assume that what is happening is some cascaded junk. Note
-      --  that this is safe in the sense that proceeding will surely bomb.
+      --  No_Location, then just ignore the attempt since we assume that what
+      --  is happening is some cascaded junk. Note that this is safe in the
+      --  sense that proceeding will surely bomb. We will also bomb if the flag
+      --  location is No_Location and we don't have any messages so far, but
+      --  that is a real bug and a legitimate bomb, so we go ahead.
 
-      if Flag_Location < First_Source_Ptr
+      if Flag_Location = No_Location
         and then Total_Errors_Detected > 0
       then
          return;
@@ -682,14 +680,22 @@ package body Errout is
    -- Error_Msg_PT --
    ------------------
 
-   procedure Error_Msg_PT (Typ : Node_Id; Subp : Node_Id) is
+   procedure Error_Msg_PT (E : Entity_Id; Iface_Prim : Entity_Id) is
    begin
-      Error_Msg_NE
-        ("first formal of & must be of mode `OUT`, `IN OUT` or " &
-         "access-to-variable", Typ, Subp);
       Error_Msg_N
-        ("\in order to be overridden by protected procedure or entry " &
-         "(RM 9.4(11.9/2))", Typ);
+        ("illegal overriding of subprogram inherited from interface", E);
+
+      Error_Msg_Sloc := Sloc (Iface_Prim);
+
+      if Ekind (E) = E_Function then
+         Error_Msg_N
+           ("\first formal of & declared # must be of mode `IN` "
+            & "or access-to-constant", E);
+      else
+         Error_Msg_N
+           ("\first formal of & declared # must be of mode `OUT`, `IN OUT` "
+            & "or access-to-variable", E);
+      end if;
    end Error_Msg_PT;
 
    -----------------
@@ -754,12 +760,23 @@ package body Errout is
          end if;
 
          --  Set the fatal error flag in the unit table unless we are in
-         --  Try_Semantics mode. This stops the semantics from being performed
+         --  Try_Semantics mode (in which case we set ignored mode if not
+         --  currently set. This stops the semantics from being performed
          --  if we find a serious error. This is skipped if we are currently
          --  dealing with the configuration pragma file.
 
-         if not Try_Semantics and then Current_Source_Unit /= No_Unit then
-            Set_Fatal_Error (Get_Source_Unit (Sptr));
+         if Current_Source_Unit /= No_Unit then
+            declare
+               U : constant Unit_Number_Type := Get_Source_Unit (Sptr);
+            begin
+               if Try_Semantics then
+                  if Fatal_Error (U) = None then
+                     Set_Fatal_Error (U, Error_Ignored);
+                  end if;
+               else
+                  Set_Fatal_Error (U, Error_Detected);
+               end if;
+            end;
          end if;
       end Handle_Serious_Error;
 
@@ -986,6 +1003,7 @@ package body Errout is
           Col      => Get_Column_Number (Sptr),
           Warn     => Is_Warning_Msg,
           Info     => Is_Info_Msg,
+          Check    => Is_Check_Msg,
           Warn_Err => False, -- reset below
           Warn_Chr => Warning_Msg_Char,
           Style    => Is_Style_Msg,
@@ -1140,12 +1158,30 @@ package body Errout is
       if Errors.Table (Cur_Msg).Warn or else Errors.Table (Cur_Msg).Style then
          Warnings_Detected := Warnings_Detected + 1;
 
+         if Errors.Table (Cur_Msg).Info then
+            Info_Messages := Info_Messages + 1;
+         end if;
+
+      elsif Errors.Table (Cur_Msg).Check then
+         Check_Messages := Check_Messages + 1;
+
       else
          Total_Errors_Detected := Total_Errors_Detected + 1;
 
          if Errors.Table (Cur_Msg).Serious then
             Serious_Errors_Detected := Serious_Errors_Detected + 1;
             Handle_Serious_Error;
+
+         --  If not serious error, set Fatal_Error to indicate ignored error
+
+         else
+            declare
+               U : constant Unit_Number_Type := Get_Source_Unit (Sptr);
+            begin
+               if Fatal_Error (U) = None then
+                  Set_Fatal_Error (U, Error_Ignored);
+               end if;
+            end;
          end if;
       end if;
 
@@ -1348,8 +1384,12 @@ package body Errout is
             Errors.Table (E).Deleted := True;
             Warnings_Detected := Warnings_Detected - 1;
 
+            if Errors.Table (E).Info then
+               Info_Messages := Info_Messages - 1;
+            end if;
+
             if Errors.Table (E).Warn_Err then
-               Warnings_Treated_As_Errors := Warnings_Treated_As_Errors + 1;
+               Warnings_Treated_As_Errors := Warnings_Treated_As_Errors - 1;
             end if;
          end if;
       end Delete_Warning;
@@ -1574,6 +1614,7 @@ package body Errout is
       Total_Errors_Detected := 0;
       Warnings_Treated_As_Errors := 0;
       Warnings_Detected := 0;
+      Info_Messages := 0;
       Warnings_As_Errors_Count := 0;
       Cur_Msg := No_Error_Msg;
       List_Pragmas.Init;
@@ -1664,8 +1705,7 @@ package body Errout is
       begin
          --  Extra blank line if error messages or source listing were output
 
-         if Total_Errors_Detected + Warnings_Detected > 0
-           or else Full_List
+         if Total_Errors_Detected + Warnings_Detected > 0 or else Full_List
          then
             Write_Eol;
          end if;
@@ -1674,13 +1714,8 @@ package body Errout is
          --  This normally goes to Standard_Output. The exception is when brief
          --  mode is not set, verbose mode (or full list mode) is set, and
          --  there are errors. In this case we send the message to standard
-         --  error to make sure that *something* appears on standard error in
-         --  an error situation.
-
-         --  Formerly, only the "# errors" suffix was sent to stderr, whereas
-         --  "# lines:" appeared on stdout. This caused problems on VMS when
-         --  the stdout buffer was flushed, giving an extra line feed after
-         --  the prefix.
+         --  error to make sure that *something* appears on standard error
+         --  in an error situation.
 
          if Total_Errors_Detected + Warnings_Detected /= 0
            and then not Brief_Output
@@ -1715,12 +1750,12 @@ package body Errout is
             Write_Str (" errors");
          end if;
 
-         if Warnings_Detected /= 0 then
+         if Warnings_Detected - Info_Messages /= 0 then
             Write_Str (", ");
             Write_Int (Warnings_Detected);
             Write_Str (" warning");
 
-            if Warnings_Detected /= 1 then
+            if Warnings_Detected - Info_Messages /= 1 then
                Write_Char ('s');
             end if;
 
@@ -1737,6 +1772,16 @@ package body Errout is
                Write_Str (" (");
                Write_Int (Warnings_Treated_As_Errors);
                Write_Str (" treated as errors)");
+            end if;
+         end if;
+
+         if Info_Messages /= 0 then
+            Write_Str (", ");
+            Write_Int (Info_Messages);
+            Write_Str (" info message");
+
+            if Info_Messages > 1 then
+               Write_Char ('s');
             end if;
          end if;
 
@@ -1760,9 +1805,11 @@ package body Errout is
             Write_Name (Full_File_Name (Sfile));
 
             if not Debug_Flag_7 then
-               Write_Str (" (source file time stamp: ");
+               Write_Eol;
+               Write_Str ("Source file time stamp: ");
                Write_Time_Stamp (Sfile);
-               Write_Char (')');
+               Write_Eol;
+               Write_Str ("Compiled at: " & Compilation_Time);
             end if;
 
             Write_Eol;
@@ -1944,8 +1991,8 @@ package body Errout is
 
                         Err_Flag :=
                           E /= No_Error_Msg
-                          and then Errors.Table (E).Line = N
-                          and then Errors.Table (E).Sfile = Sfile;
+                            and then Errors.Table (E).Line = N
+                            and then Errors.Table (E).Sfile = Sfile;
 
                         Output_Source_Line (N, Sfile, Err_Flag);
 
@@ -2038,8 +2085,9 @@ package body Errout is
       Write_Max_Errors;
 
       if Warning_Mode = Treat_As_Error then
-         Total_Errors_Detected := Total_Errors_Detected + Warnings_Detected;
-         Warnings_Detected := 0;
+         Total_Errors_Detected :=
+           Total_Errors_Detected + Warnings_Detected - Info_Messages;
+         Warnings_Detected := Info_Messages;
       end if;
    end Output_Messages;
 
@@ -2211,6 +2259,11 @@ package body Errout is
                and then not Errors.Table (E).Uncond
             then
                Warnings_Detected := Warnings_Detected - 1;
+
+               if Errors.Table (E).Info then
+                  Info_Messages := Info_Messages - 1;
+               end if;
+
                return True;
 
             --  No removal required
@@ -2301,6 +2354,67 @@ package body Errout is
       end if;
    end Remove_Warning_Messages;
 
+   ----------------------
+   -- Adjust_Name_Case --
+   ----------------------
+
+   procedure Adjust_Name_Case (Loc : Source_Ptr) is
+   begin
+      --  We have an all lower case name from Namet, and now we want to set
+      --  the appropriate case. If possible we copy the actual casing from
+      --  the source. If not we use standard identifier casing.
+
+      declare
+         Src_Ind : constant Source_File_Index := Get_Source_File_Index (Loc);
+         Sbuffer : Source_Buffer_Ptr;
+         Ref_Ptr : Integer;
+         Src_Ptr : Source_Ptr;
+
+      begin
+         Ref_Ptr := 1;
+         Src_Ptr := Loc;
+
+         --  For standard locations, always use mixed case
+
+         if Loc <= No_Location then
+            Set_Casing (Mixed_Case);
+
+         else
+            --  Determine if the reference we are dealing with corresponds to
+            --  text at the point of the error reference. This will often be
+            --  the case for simple identifier references, and is the case
+            --  where we can copy the casing from the source.
+
+            Sbuffer := Source_Text (Src_Ind);
+
+            while Ref_Ptr <= Name_Len loop
+               exit when
+                 Fold_Lower (Sbuffer (Src_Ptr)) /=
+                   Fold_Lower (Name_Buffer (Ref_Ptr));
+               Ref_Ptr := Ref_Ptr + 1;
+               Src_Ptr := Src_Ptr + 1;
+            end loop;
+
+            --  If we get through the loop without a mismatch, then output the
+            --  name the way it is cased in the source program
+
+            if Ref_Ptr > Name_Len then
+               Src_Ptr := Loc;
+
+               for J in 1 .. Name_Len loop
+                  Name_Buffer (J) := Sbuffer (Src_Ptr);
+                  Src_Ptr := Src_Ptr + 1;
+               end loop;
+
+            --  Otherwise set the casing using the default identifier casing
+
+            else
+               Set_Casing (Identifier_Casing (Src_Ind), Mixed_Case);
+            end if;
+         end if;
+      end;
+   end Adjust_Name_Case;
+
    ---------------------------
    -- Set_Identifier_Casing --
    ---------------------------
@@ -2328,9 +2442,7 @@ package body Errout is
       --  Loop through file names to find matching one. This is a bit slow, but
       --  we only do it in error situations so it is not so terrible. Note that
       --  if the loop does not exit, then the desired case will be left set to
-      --  Mixed_Case, this can happen if the name was not in canonical form,
-      --  and gets canonicalized on VMS. Possibly we could fix this by
-      --  unconditionally canonicalizing these names ???
+      --  Mixed_Case, this can happen if the name was not in canonical form.
 
       for J in 1 .. Last_Source_File loop
          Get_Name_String (Full_Debug_Name (J));
@@ -2645,6 +2757,7 @@ package body Errout is
    ------------------
 
    procedure Set_Msg_Node (Node : Node_Id) is
+      Loc : Source_Ptr;
       Ent : Entity_Id;
       Nam : Name_Id;
 
@@ -2677,25 +2790,39 @@ package body Errout is
 
       if Nkind (Node) = N_Pragma then
          Nam := Pragma_Name (Node);
+         Loc := Sloc (Node);
 
-      --  The other cases have Chars fields, and we want to test for possible
-      --  internal names, which generally represent something gone wrong. An
-      --  exception is the case of internal type names, where we try to find a
-      --  reasonable external representation for the external name
+      --  The other cases have Chars fields
+
+      --  First deal with internal names, which generally represent something
+      --  gone wrong. First attempt: if this is a rewritten node that rewrites
+      --  something with a Chars field that is not an internal name, use that.
+
+      elsif Is_Internal_Name (Chars (Node))
+        and then Nkind (Original_Node (Node)) in N_Has_Chars
+        and then not Is_Internal_Name (Chars (Original_Node (Node)))
+      then
+         Nam := Chars (Original_Node (Node));
+         Loc := Sloc (Original_Node (Node));
+
+      --  Another shot for internal names, in the case of internal type names,
+      --  we try to find a reasonable representation for the external name.
 
       elsif Is_Internal_Name (Chars (Node))
         and then
           ((Is_Entity_Name (Node)
-                          and then Present (Entity (Node))
-                          and then Is_Type (Entity (Node)))
-              or else
-           (Nkind (Node) = N_Defining_Identifier and then Is_Type (Node)))
+             and then Present (Entity (Node))
+             and then Is_Type (Entity (Node)))
+            or else
+             (Nkind (Node) = N_Defining_Identifier and then Is_Type (Node)))
       then
          if Nkind (Node) = N_Identifier then
             Ent := Entity (Node);
          else
             Ent := Node;
          end if;
+
+         Loc := Sloc (Ent);
 
          --  If the type is the designated type of an access_to_subprogram,
          --  then there is no name to provide in the call.
@@ -2710,10 +2837,12 @@ package body Errout is
             Nam := Chars (Ent);
          end if;
 
-      --  If not internal name, just use name in Chars field
+      --  If not internal name, or if we could not find a reasonable possible
+      --  substitution for the internal name, just use name in Chars field.
 
       else
          Nam := Chars (Node);
+         Loc := Sloc (Node);
       end if;
 
       --  At this stage, the name to output is in Nam
@@ -2721,7 +2850,7 @@ package body Errout is
       Get_Unqualified_Decoded_Name_String (Nam);
 
       --  Remove trailing upper case letters from the name (useful for
-      --  dealing with some cases of internal names.
+      --  dealing with some cases of internal names).
 
       while Name_Len > 1 and then Name_Buffer (Name_Len) in 'A' .. 'Z' loop
          Name_Len := Name_Len  - 1;
@@ -2737,63 +2866,15 @@ package body Errout is
          Kill_Message := True;
       end if;
 
-      --  Now we have to set the proper case. If we have a source location
-      --  then do a check to see if the name in the source is the same name
-      --  as the name in the Names table, except for possible differences
-      --  in case, which is the case when we can copy from the source.
+      --  If we still have an internal name, kill the message (will only
+      --  work if we already had errors!)
 
-      declare
-         Src_Loc : constant Source_Ptr := Sloc (Node);
-         Sbuffer : Source_Buffer_Ptr;
-         Ref_Ptr : Integer;
-         Src_Ptr : Source_Ptr;
+      if Is_Internal_Name then
+         Kill_Message := True;
+      end if;
+      --  Remaining step is to adjust casing and possibly add 'Class
 
-      begin
-         Ref_Ptr := 1;
-         Src_Ptr := Src_Loc;
-
-         --  For standard locations, always use mixed case
-
-         if Src_Loc <= No_Location
-           or else Sloc (Node) <= No_Location
-         then
-            Set_Casing (Mixed_Case);
-
-         else
-            --  Determine if the reference we are dealing with corresponds to
-            --  text at the point of the error reference. This will often be
-            --  the case for simple identifier references, and is the case
-            --  where we can copy the spelling from the source.
-
-            Sbuffer := Source_Text (Get_Source_File_Index (Src_Loc));
-
-            while Ref_Ptr <= Name_Len loop
-               exit when
-                 Fold_Lower (Sbuffer (Src_Ptr)) /=
-                 Fold_Lower (Name_Buffer (Ref_Ptr));
-               Ref_Ptr := Ref_Ptr + 1;
-               Src_Ptr := Src_Ptr + 1;
-            end loop;
-
-            --  If we get through the loop without a mismatch, then output the
-            --  name the way it is spelled in the source program
-
-            if Ref_Ptr > Name_Len then
-               Src_Ptr := Src_Loc;
-
-               for J in 1 .. Name_Len loop
-                  Name_Buffer (J) := Sbuffer (Src_Ptr);
-                  Src_Ptr := Src_Ptr + 1;
-               end loop;
-
-            --  Otherwise set the casing using the default identifier casing
-
-            else
-               Set_Casing (Identifier_Casing (Flag_Source), Mixed_Case);
-            end if;
-         end if;
-      end;
-
+      Adjust_Name_Case (Loc);
       Set_Msg_Name_Buffer;
       Add_Class;
    end Set_Msg_Node;
@@ -2977,8 +3058,6 @@ package body Errout is
                Set_Msg_Char (C);
          end case;
       end loop;
-
-      VMS_Convert;
    end Set_Msg_Text;
 
    ----------------
@@ -3006,6 +3085,15 @@ package body Errout is
             Set_Error_Posted (P);
             exit when Nkind (P) not in N_Subexpr;
          end loop;
+
+         if Nkind_In (P, N_Pragma_Argument_Association,
+                         N_Component_Association,
+                         N_Discriminant_Association,
+                         N_Generic_Association,
+                         N_Parameter_Association)
+         then
+            Set_Error_Posted (Parent (P));
+         end if;
 
          --  A special check, if we just posted an error on an attribute
          --  definition clause, then also set the entity involved as posted.
@@ -3116,7 +3204,7 @@ package body Errout is
 
    procedure SPARK_Msg_N (Msg : String; N : Node_Or_Entity_Id) is
    begin
-      if SPARK_Mode = On then
+      if SPARK_Mode /= Off then
          Error_Msg_N (Msg, N);
       end if;
    end SPARK_Msg_N;
@@ -3131,7 +3219,7 @@ package body Errout is
       E   : Node_Or_Entity_Id)
    is
    begin
-      if SPARK_Mode = On then
+      if SPARK_Mode /= Off then
          Error_Msg_NE (Msg, N, E);
       end if;
    end SPARK_Msg_NE;
@@ -3279,55 +3367,6 @@ package body Errout is
          Set_Msg_Char ('"');
       end if;
    end Unwind_Internal_Type;
-
-   -----------------
-   -- VMS_Convert --
-   -----------------
-
-   procedure VMS_Convert is
-      P : Natural;
-      L : Natural;
-      N : Natural;
-
-   begin
-      if not OpenVMS then
-         return;
-      end if;
-
-      P := Msg_Buffer'First;
-      loop
-         if P >= Msglen then
-            return;
-         end if;
-
-         if Msg_Buffer (P) = '-' then
-            for G in Gnames'Range loop
-               L := Gnames (G)'Length;
-
-               --  See if we have "-ggg switch", where ggg is Gnames entry
-
-               if P + L + 7 <= Msglen
-                 and then Msg_Buffer (P + 1 .. P + L) = Gnames (G).all
-                 and then Msg_Buffer (P + L + 1 .. P + L + 7) = " switch"
-               then
-                  --  Replace by "/vvv qualifier", where vvv is Vnames entry
-
-                  N := Vnames (G)'Length;
-                  Msg_Buffer (P + N + 11 .. Msglen + N - L + 3) :=
-                    Msg_Buffer (P + L + 8 .. Msglen);
-                  Msg_Buffer (P) := '/';
-                  Msg_Buffer (P + 1 .. P + N) := Vnames (G).all;
-                  Msg_Buffer (P + N + 1 .. P + N + 10) := " qualifier";
-                  P := P + N + 10;
-                  Msglen := Msglen + N - L + 3;
-                  exit;
-               end if;
-            end loop;
-         end if;
-
-         P := P + 1;
-      end loop;
-   end VMS_Convert;
 
    --------------------
    -- Warn_Insertion --

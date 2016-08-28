@@ -1,6 +1,6 @@
 ## Linker script for GNU versioning (GNU ld 2.13.91+ only.)
 ##
-## Copyright (C) 2002-2014 Free Software Foundation, Inc.
+## Copyright (C) 2002-2015 Free Software Foundation, Inc.
 ##
 ## This file is part of the GNU ISO C++ Library.  This library is free
 ## software; you can redistribute it and/or modify it under the
@@ -24,9 +24,11 @@ GLIBCXX_3.4 {
     # Names inside the 'extern' block are demangled names.
     extern "C++"
     {
-#     std::[A-Z]*;
-#     std::a[e-z]*;
-      std::ad[a-np-z]*;
+      std::[A-Z]*;
+      std::a[a-c]*;
+      std::ad[a-n]*;
+      std::ad[p-z]*;
+      std::a[e-z]*;
 #     std::ba[a-r]*;
       std::basic_[a-e]*;
       std::basic_f[a-h]*;
@@ -37,21 +39,24 @@ GLIBCXX_3.4 {
       std::basic_[g-h]*;
       std::basic_i[a-e]*;
 #     std::basic_ifstream;
-      std::basic_i[g-r]*;
+#     std::basic_ios;
+#     std::basic_iostream;
       std::basic_istr[a-d]*;
 #     std::basic_istream;
-      std::basic_istr[f-z]*;
+#     std::basic_istringstream;
       std::basic_i[t-z]*;
       std::basic_[j-n]*;
+      std::basic_o[a-e]*;
 #     std::basic_ofstream;
 #     std::basic_o[g-z]*;
-      std::basic_o[a-eg-r]*;
-      std::basic_ostr[a-df-z]*;
+      std::basic_o[g-r]*;
+      std::basic_ostr[a-d]*;
+#     std::basic_ostringstream;
       std::basic_[p-r]*;
 #     std::basic_streambuf
 #     std::basic_string
 #     std::basic_stringbuf
-      std::basic_stringstream*;
+#     std::basic_stringstream;
       std::basic_[t-z]*;
       std::ba[t-z]*;
       std::b[b-z]*;
@@ -59,45 +64,38 @@ GLIBCXX_3.4 {
 #     std::char_traits;
 #     std::c[i-z]*;
       std::c[i-n]*;
+#     std::codecvt;
+#     std::codecvt_byname;
+#     std::collate;
+#     std::collate_byname;
 #     std::condition_variable;
-#     std::co[^n]*;
-      std::cout;
-#     std::codecvt*;
-      std::collate*;
-      std::c[p-sv-z]*;
+      std::co[^dln]*;
+      std::c[p-s]*;
       std::cu[^r]*;
 #     std::current_exception
+      std::c[v-z]*;
 #     std::[d-g]*;
-      std::d[a-df-np-z]*;
-      std::domain_error::d*;
+      std::d[a-d]*;
+      std::d[f-n]*;
+#     std::domain_error::d*;
 #     std::domain_error::~d*;
-      std::e[a-m]*;
+      std::d[p-z]*;
+      std::e[a-q]*;
       std::error[^_]*;
-#     std::e[s-z];
+      std::e[s-z]*;
       std::gslice*;
       std::h[^a]*;
       std::i[a-m]*;
-      std::invalid_argument::i*;
+#     std::invalid_argument::i*;
 #     std::invalid_argument::~i*;
 #     std::ios_base::[A-Ha-z]*;
       std::ios_base::[A-Ha-e]*;
       std::ios_base::failbit;
-      std::ios_base::failure*;
+#     std::ios_base::failure*;
       std::ios_base::fixed;
-      std::ios_base::float;
       std::ios_base::floatfield;
       std::ios_base::goodbit;
-#     std::ios_base::[h-z]*;
-      std::ios_base::[h-otu]*;
-      std::ios_base::register_callback*;
-      std::ios_base::right;
-      std::ios_base::scientific;
-      std::ios_base::showbase;
-      std::ios_base::showpoint;
-      std::ios_base::showpos;
-      std::ios_base::skipws;
-      std::ios_base::sync_with_stdio*;
-      std::ios_base::xalloc*;
+      std::ios_base::[h-z]*;
       std::ios_base::_M_grow_words*;
       std::ios_base::_M_init*;
       std::ios_base::Init::[A-Za-z]*;
@@ -105,47 +103,64 @@ GLIBCXX_3.4 {
       std::i[p-r]*;
 #     std::istream
 #     std::istreambuf_iterator
-      std::istringstream*;
+#     std::istringstream*;
       std::istrstream*;
-#     std::i[t-z]*;
+      std::i[t-z]*;
       std::[A-Zj-k]*;
-      std::length_error::l*;
+#     std::length_error::l*;
 #     std::length_error::~l*;
-      std::logic_error*;
       std::locale::[A-Za-e]*;
-      std::locale::facet::[A-Zg-z]*;
+      std::locale::facet::[A-Za-z]*;
       std::locale::facet::_S_get_c_locale*;
       std::locale::facet::_S_clone_c_locale*;
       std::locale::facet::_S_create_c_locale*;
       std::locale::facet::_S_destroy_c_locale*;
       std::locale::[A-Zg-h]*;
-#     std::locale::id::[A-Za-z]*;
+      std::locale::id::[A-Za-z]*;
       std::locale::id::_M_id*;
-      std::locale::[A-Zj-z]*;
+      std::locale::[A-Zj-m]*;
+#     std::locale::name();
+      std::locale::none*;
+      std::locale::numeric*;
+      std::locale::[A-Zo-z]*;
       std::locale::_[A-Ha-z]*;
       std::locale::_Impl::[A-Za-z]*;
 #     std::locale::_Impl::_M_[A-Za-z]*;
       std::locale::_[J-Ra-z]*;
       std::locale::_S_normalize_category*;
       std::locale::_[T-Za-z]*;
-#     std::messages*;
-#     std::money*;
-#     std::n[^aue]*;
+#     std::logic_error::l*;
+      std::logic_error::what*;
+#     std::logic_error::~l*;
+#     std::[A-Zm-r]*;
+#     std::[A-Zm]*;
+      std::[A-Z]*;
+      std::messages[^_]*;
+#     std::messages_byname*;
+      std::money_*;
+      std::moneypunct[^_]*;
+#     std::moneypunct_byname*;
+#     std::n[^u]*;
+      std::n[^aueo]*;
       std::nothrow;
-#     std::nu[^m]*;
-#     std::num[^e]*;
-      std::numpunct*;
+      std::nu[^m]*;
+      std::num[^ep]*;
+      std::numpunct[^_]*;
+#     std::numpunct_byname*;
       std::ostrstream*;
-      std::out_of_range::o*;
+#     std::out_of_range::o*;
 #     std::out_of_range::~o*;
-      std::overflow_error::o*;
+#     std::overflow_error::o*;
 #     std::overflow_error::~o*;
 #     std::[p-q]*;
-      std::r[^ae]*;
-      std::range_error::r*;
+      std::r[^aeu]*;
+#     std::range_error::r*;
 #     std::range_error::~r*;
 #     std::re[^t]*;
 #     std::rethrow_exception
+#     std::runtime_error::r*
+      std::runtime_error::what*;
+#     std::runtime_error::~r*;
       std::set_new_handler*;
       std::set_terminate*;
       std::set_unexpected*;
@@ -154,16 +169,18 @@ GLIBCXX_3.4 {
       std::strstreambuf*;
 #     std::t[a-q]*;
       std::t[a-g]*;
-      std::th[a-hj-qs-z]*;
+      std::th[a-h]*;
+      std::th[j-q]*;
+      std::th[s-z]*;
 #     std::t[i-n]*;
       std::tr1::h[^a]*;
-#     std::t[s-z]*;
+      std::t[s-z]*;
 #     std::[A-Zu-z]*;
-      std::underflow_error::u*;
+#     std::underflow_error::u*;
 #     std::underflow_error::~u*;
       std::uncaught_exception*;
       std::unexpected*;
-      std::[A-Zw-z]*;
+      std::[A-Zv-z]*;
       std::_List_node_base::hook*;
       std::_List_node_base::swap*;
       std::_List_node_base::unhook*;
@@ -177,7 +194,7 @@ GLIBCXX_3.4 {
       std::__num_base::_S_atoms_out;
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
-      std::__timepunct_cache*
+      std::__timepunct_cache*;
 #     __gnu_debug::_Error_formatter*
     };
 
@@ -185,11 +202,6 @@ GLIBCXX_3.4 {
     # are used in many of the regex patterns to compensate for minor differences
     # among the standard integer types and sizes on different platforms and
     # under different modes of 64-bit architecture (ILP64, LLP64, etc.)
-
-    # std::allocator
-    _ZNSaI[cw]EC[12]Ev;
-    _ZNSaI[cw]ED*;
-    _ZNSaI[cw]EC[12]ERKS_;
 
     # std::string
     # 'y' here and below represents 'unsigned long long'
@@ -208,7 +220,7 @@ GLIBCXX_3.4 {
     _ZNSs[67][j-z]*E[PRcjmvy]*;
     _ZNSs7[a-z]*EES2_[NPRjmy]*;
     _ZNSs7[a-z]*EES2_S[12]*;
-    _ZNSs12_Alloc_hiderC[12]EP*;
+    _ZNSs12_Alloc_hiderC*;
     _ZNSs12_M_leak_hardEv;
     _ZNSs12_S_constructE[jmy]cRKSaIcE;
     _ZNSs12_S_empty_repEv;
@@ -248,10 +260,7 @@ GLIBCXX_3.4 {
     _ZNKSs8_M_check*;
     _ZNKSs8_M_limit*;
     _ZNKSs9_M_ibeginEv;
-#   _ZStplIcSt11char_traitsIcESaIcEESbIT_T0_T1_E*;
-    _ZStplIcSt11char_traitsIcESaIcEESbIT_T0_T1_ES*;
-    _ZStplIcSt11char_traitsIcESaIcEESbIT_T0_T1_EPKS*;
-    _ZStplIcSt11char_traitsIcESaIcEESbIT_T0_T1_ERKS6_S8_;
+    _ZStplIcSt11char_traitsIcESaIcEESbIT_T0_T1_E*;
     _ZNKSs7compare*;
     _ZNKSs5c_strEv;
     _ZNKSs8capacityEv;
@@ -272,8 +281,7 @@ GLIBCXX_3.4 {
     _ZNSbIwSt11char_traitsIwESaIwEE[67][j-z]*E[PRwjmvy]*;
     _ZNSbIwSt11char_traitsIwESaIwEE7[a-z]*EES6_[NPRjmy]*;
     _ZNSbIwSt11char_traitsIwESaIwEE7[a-z]*EES6_S[56]*;
-#   _ZNSbIwSt11char_traitsIwESaIwEE12_Alloc_hiderC*;
-    _ZNSbIwSt11char_traitsIwESaIwEE12_Alloc_hiderC[12]EP*;
+    _ZNSbIwSt11char_traitsIwESaIwEE12_Alloc_hiderC*;
     _ZNSbIwSt11char_traitsIwESaIwEE12_M_leak_hardEv;
     _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructE[jmy]wRKS1_;
     _ZNSbIwSt11char_traitsIwESaIwEE12_S_empty_repEv;
@@ -322,12 +330,14 @@ GLIBCXX_3.4 {
     # std::basic_streambuf
     _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE[CD]*;
     _ZNKSt15basic_streambufI[cw]St11char_traitsI[cw]EE[0-9]*;
-    _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE[0-9][a-z][^t]*;
+    _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE4set[gp]*;
+    _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE4sync*;
+    _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE[5-9][a-z][^t]*;
     _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE[0-9][0-9][a-z][^t]*;
     _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EEaSERKS2_;
 
     # std::basic_stringbuf
-    _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EEC*;
+    _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EEC[12]E[RS]*;
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EED[^2]*;
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE[0-9][a-r]*;
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE[0-9]seek*;
@@ -341,12 +351,48 @@ GLIBCXX_3.4 {
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE[0-9]_M_[q-z]*;
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE[0-9][0-9]_M_[a-z]*;
 
-    # std::basic_iostream constructors, destructors
-    _ZNSdC*;
+    # std::basic_istringstream
+    _ZNSt19basic_istringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EEC[12]E[RS]*;
+    _ZNSt19basic_istringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EED*;
+    _ZNSt19basic_istringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EE3str*;
+    _ZNKSt19basic_istringstreamI*;
+
+    # std::basic_ostringstream
+    _ZNSt19basic_ostringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EEC[12]E[RS]*;
+    _ZNSt19basic_ostringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EED*;
+    _ZNSt19basic_ostringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EE3str*;
+    _ZNKSt19basic_ostringstreamI*;
+
+    # std::basic_stringstream
+    _ZNSt18basic_stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EEC[12]E[RS]*;
+    _ZNSt18basic_stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EED*;
+    _ZNSt18basic_stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EE3str*;
+    _ZNKSt18basic_stringstreamI*;
+
+    # std::basic_iostream constructors (except move), destructors
+    _ZNSdC[12]Ev;
+    _ZNSdC[12]EP*;
     _ZNSdD*;
+    _ZNSt14basic_iostreamIwSt11char_traitsIwEEC[12]Ev;
+    _ZNSt14basic_iostreamIwSt11char_traitsIwEEC[12]EP*;
+    _ZNSt14basic_iostreamIwSt11char_traitsIwEED*;
+
+    # std::basic_ios constructors, destructors
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EEC*;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EED*;
+
+    # std::basic_ios members (except move, swap, set_rdbuf)
+    _ZNKSt9basic_iosI[cw]St11char_traitsI[cw]EEcvPvEv;
+    _ZNKSt9basic_iosI[cw]St11char_traitsI[cw]EEntEv*;
+    _ZNKSt9basic_iosI[cw]St11char_traitsI[cw]EE[0-9]*;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE1[015]*;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE3tie*;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE4fill*;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE4init*;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE[578][a-z]*;
 
     # std::basic_filebuf
-    _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EEC*;
+    _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EEC[12]Ev;
     _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EED*;
     _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EE0*;
     _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EE13*;
@@ -388,45 +434,59 @@ GLIBCXX_3.4 {
     _ZNKSt14basic_ofstreamI[cw]St11char_traitsI[cw]EE5rdbufEv;
 
     # std::basic_istream<char>
-    _ZNSiC*;
+    _ZNSiC[12]Ev;
+    _ZNSiC[12]EP*;
     _ZNSiD*;
-    _ZNKSi[0-9][a-z]*;
-    _ZNSi[0-9][a-h]*;
-    _ZNSi[0-9][j-z]*;
+    _ZNKSi6sentry*;
+    _ZNKSi6gcount*;
+    _ZNSi3get*;
+    _ZNSi4peek*;
+    _ZNSi4read*;
+    _ZNSi4sync*;
+    _ZNSi7getline*;
+    _ZNSi[5-9][j-z]*;
     # 'x' here and below matches 'long long' where it
     # is used for signed sizetypes on LLP64 platforms.
     _ZNSi6ignoreE[ilx][ilx];
     _ZNSirsE*[^g];
 
     # std::basic_istream<wchar_t>
-    _ZNSt13basic_istreamIwSt11char_traitsIwEEC*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEEC[12]Ev;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEEC[12]EP*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEED*;
     _ZNKSt13basic_istreamIwSt11char_traitsIwEE[0-9][a-z]*;
-    _ZNSt13basic_istreamIwSt11char_traitsIwEE[0-9][a-h]*;
-    _ZNSt13basic_istreamIwSt11char_traitsIwEE[0-9][j-z]*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEE3get*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEE4peek*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEE4read*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEE4sync*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEE[5-9][j-z]*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEE6ignoreE[ilx][ijlmx];
+    _ZNSt13basic_istreamIwSt11char_traitsIwEE7getline*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEErsE*[^g];
 
     # std::istream operators and extractors
-    _ZSt7getlineI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istream*;
+    _ZSt7getlineI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istreamIT_T0_ES7_RSbI*;
     _ZSt2wsI[cw]St11char_traitsI[cw]EE*;
     _ZStrsI[cw]St11char_traitsI[cw]EERSt13basic_istream*;
-    _ZStrsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istream*;
+    _ZStrsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istreamIT_T0_ES7_RSbI*;
     _ZStrsISt11char_traitsI[cw]EERSt13basic_istream*;
     _ZStrsId[cw]St11char_traitsI[cw]EERSt13basic_istream*;
     _ZStrsIe[cw]St11char_traitsI[cw]EERSt13basic_istream*;
     _ZStrsIf[cw]St11char_traitsI[cw]EERSt13basic_istream*;
 
     # std::basic_ostream<char>
-    _ZNSoC*;
+    _ZNSoC[12]Ev;
+    _ZNSoC[12]EP*;
     _ZNSoD*;
     _ZNKSo6sentrycvbEv;
     _ZNSo8_M_writeEPKc[ilx];
-    _ZNSo[0-9][a-z]*;
+    _ZNSo3put*;
+    _ZNSo[5-9][a-z]*;
     _ZNSolsE*[^g];
 
     # std::basic_ostream<wchar_t>
-    _ZNSt13basic_ostreamIwSt11char_traitsIwEEC*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEEC[12]Ev;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEEC[12]EP*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEED*;
     _ZNKSt13basic_ostreamIwSt11char_traitsIwEE[0-9][a-z]*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE3putEw;
@@ -442,7 +502,7 @@ GLIBCXX_3.4 {
     _ZSt4end[ls]I[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
     _ZSt5flushI[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
     _ZStlsI[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
-    _ZStlsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_ostream*;
+    _ZStlsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_ostreamIT_T0_ES7_RKSbI*;
     _ZStlsISt11char_traitsI[cw]EERSt13basic_ostream*;
     _ZStlsId[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
     _ZStlsIe[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
@@ -450,6 +510,9 @@ GLIBCXX_3.4 {
 
     # std::locale destructors
     _ZNSt6localeD*;
+
+    # std::locale::name() returning old std::string
+    _ZNKSt6locale4nameEv;
 
     # std::locale::facet destructors
     _ZNSt6locale5facetD*;
@@ -462,6 +525,11 @@ GLIBCXX_3.4 {
     _ZNSt8ios_baseD*;
     _ZNSt8ios_base4InitD*;
 
+    # std::ios_base::failure constructors, destructors, virtual function
+    _ZNSt8ios_base7failureC*;
+    _ZNSt8ios_base7failureD*;
+    _ZNKSt8ios_base7failure4whatEv;
+
     # bool std::has_facet
     _ZSt9has_facetIS*;
 
@@ -469,49 +537,62 @@ GLIBCXX_3.4 {
     _ZSt9use_facetIS*;
 
     # std::codecvt
-    _ZNSt14codecvt_byname*;
-    _ZNKSt7codecvtI[cw]c11*;
-    _ZNSt7codecvtI[cw]c11*;
+    _ZNSt7codecvtI[cw]*;
+    _ZNKSt7codecvtI[cw]*;
 
-    # std::ctype_base
-    _ZNSt10ctype_base[56]*;
+    # std::codecvt_byname
+    _ZNSt14codecvt_bynameI[cw]c11__mbstate_tEC[12]EPKc[jmy];
+    _ZNSt14codecvt_bynameI[cw]c11__mbstate_tED*;
+
+    # std::collate
+    _ZNSt7collateI[cw]*;
+    _ZNKSt7collateI[cw]*;
+
+    # std::collate_byname
+    _ZNSt14collate_bynameI[cw]EC[12]EPKc[jmy];
+    _ZNSt14collate_bynameI[cw]ED*;
 
     # std::ctype
-    _ZNKSt5ctypeIcE8do_widen*;
+    _ZNKSt5ctypeIcE8*;
     _ZNKSt5ctypeIcE9*;
     _ZNKSt5ctypeIcE10*;
     _ZNKSt5ctypeIw*;
     _ZNSt5ctypeI[cw]*;
 
+    # std::ctype_base
+    _ZNSt10ctype_base[56][ac-z]*;
+
     # std::ctype_byname
-    _ZNSt12ctype_bynameI[cw]*;
+    _ZNSt12ctype_bynameI[cw]EC[12]EPKc?*;
+    _ZNSt12ctype_bynameI[cw]ED*;
 
     # std::num_get
-    _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE1[46]*;
-    _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE[236CD]*;
-    _ZNSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+    _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE[2-9]*;
+    _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE14_M_extract_intI*;
+    _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE16_M_extract_floatI*;
 
     # std::num_put
-    _ZNKSt7num_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
-    _ZNSt7num_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+    _ZNKSt7num_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE[2-9]*;
+    _ZNKSt7num_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE1[234]*;
+    _ZNKSt7num_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE15_M_insert_floatI*;
 
-    # std::money_base
-    _ZNSt10money_base8*;
-    _ZNSt10money_base18*;
-    _ZNSt10money_base20*;
+    # std::numpunct_byname
+    _ZNSt15numpunct_bynameI[cw]EC[12]EPKc[jmy];
+    _ZNSt15numpunct_bynameI[cw]ED*;
 
     # std::money_get
-    _ZNSt9money_get*;
-    _ZNKSt9money_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+    _ZNKSt9money_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE[2-9]*;
+    _ZNKSt9money_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE10_M_extractILb[01]EEES3_S3_S3_RSt8ios_baseRSt12_Ios_IostateRSs;
 
     # std::money_put
-    _ZNSt9money_put*;
-    _ZNKSt9money_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+    _ZNKSt9money_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE[1-8]*;
+    _ZNKSt9money_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE9_M_insertILb[01]EEES3_S3_RSt8ios_basecRKSs;
+    _ZNKSt9money_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE9_M_insertILb[01]EEES3_S3_RSt8ios_basewRKSbIwS2_SaIwEE;
 
-    # std::moneypunct
-    _ZNKSt10moneypunct*;
-    _ZNSt10moneypunct*;
-    _ZNSt17moneypunct*;
+    # std::moneypunct_byname
+    _ZNSt17moneypunct_bynameI[cw]Lb[01]EEC[12]EPKc[jmy];
+    _ZNSt17moneypunct_bynameI[cw]Lb[01]EED*;
+    _ZNSt17moneypunct_bynameI[cw]Lb[01]EE4intlE;
 
     # std::time_get
     _ZNSt8time_get*;
@@ -520,19 +601,16 @@ GLIBCXX_3.4 {
     _ZNKSt8time_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE21*;
 
     # std::time_get_byname
-    _ZNSt15time_get_byname*;
+    _ZNSt15time_get_bynameI[cw]*EEEC[12]EPKc[jmy];
+    _ZNSt15time_get_bynameI[cw]*EEED[012]Ev;
 
     # std::time_put
     _ZNSt8time_put*;
     _ZNKSt8time_put*;
 
     # std::time_put_byname
-    _ZNSt15time_put_byname*;
-
-    # std::messages
-    _ZNKSt8messages*;
-    _ZNSt8messages*;
-    _ZNSt15messages_byname*;
+    _ZNSt15time_put_bynameI[cw]*EC[12]EPKc?*;
+    _ZNSt15time_put_bynameI[cw]*ED[012]Ev;
 
     # std::numeric_limits
     _ZNSt21__numeric_limits_base[5-9]*;
@@ -540,8 +618,7 @@ GLIBCXX_3.4 {
     _ZNSt21__numeric_limits_base1[0-7]mi*;
     _ZNSt21__numeric_limits_base1[0-7]max_e*;
 
-    _ZNSt14numeric_limitsI[a-m]E[5-9][a-hj-z]*;
-    _ZNSt14numeric_limitsI[a-m]E[5-9]is_*;
+    _ZNSt14numeric_limitsI[a-m]E[5-9]*;
     _ZNSt14numeric_limitsI[p-z]E[5-9]*;
     _ZNSt14numeric_limitsI[a-m]E1[0-7][hirt]*;
     _ZNSt14numeric_limitsI[p-z]E1[0-7][hirt]*;
@@ -550,11 +627,9 @@ GLIBCXX_3.4 {
     _ZNSt14numeric_limitsI[a-m]E1[0-7]max_e*;
     _ZNSt14numeric_limitsI[p-z]E1[0-7]max_e*;
 
-    # std::valarray
-    _ZNSt8valarrayI[jmy]ED*;
-    _ZNSt8valarrayI[jmy]EC*;
-    _ZNSt8valarrayI[jmy]EixE[jmy];
-    _ZNKSt8valarrayI[jmy]E4sizeEv;
+    # std::messages_byname
+    _ZNSt15messages_bynameI[cw]EC[12]EPKc[jmy];
+    _ZNSt15messages_bynameI[cw]ED*;
 
     # std::_Rb_tree
     _ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base;
@@ -611,7 +686,7 @@ GLIBCXX_3.4 {
     _ZNK11__gnu_debug19_Safe_iterator_base14_M_can_compareERKS0_;
 
     # __gnu_debug::_Error_formatter
-    _ZNK11__gnu_debug16_Error_formatter10_M_messageENS*;
+    _ZNK11__gnu_debug16_Error_formatter10_M_message*;
     _ZNK11__gnu_debug16_Error_formatter10_Parameter*;
     _ZNK11__gnu_debug16_Error_formatter13_M_print_word*;
     _ZNK11__gnu_debug16_Error_formatter15_M_print_string*;
@@ -657,14 +732,25 @@ GLIBCXX_3.4 {
     _ZTVNSt8ios_base7failureE;
     _ZTVNSt6locale5facetE;
     _ZTVS[a-z];
-    _ZTVSt[0-9][A-Za-z]*;
+    _ZTVSt[0-6][A-Za-z]*;
+    _ZTVSt7[A-Zab]*;
+    _ZTVSt7codecvtI[cw]c*;
+    _ZTVSt7collateI[cw]E;
+    _ZTVSt7[d-z]*;
+    _ZTVSt[89][A-Za-z]*;
 #   _ZTVSt[0-9][0-9][A-Za-z]*;
     _ZTVSt[0-9][0-9][A-Z]*;
 #   _ZTVSt[0-9][0-9][a-d]*;
     _ZTVSt[0-9][0-9]a*;
     _ZTVSt10bad_typeid;
     _ZTVSt13bad_exception;
-    _ZTVSt[0-9][0-9]basic*;
+#   _ZTVSt[0-9][0-9]basic*;
+    _ZTVSt1[34]basic*;
+    _ZTVSt15basic_streambufI*;
+    _ZTVSt15basic_stringbufI*;
+    _ZTVSt18basic_stringstreamI*;
+    _ZTVSt19basic_istringstreamI*;
+    _ZTVSt19basic_ostringstreamI*;
     _ZTVSt[0-9][0-9][c-d]*;
     _ZTVSt[0-9][0-9][g-k]*;
     _ZTVSt11logic_error;
@@ -686,18 +772,39 @@ GLIBCXX_3.4 {
     # VTT structure
     _ZTTS[a-z];
     _ZTTSt[0-9][A-Za-z]*;
-    _ZTTSt[0-9][0-9][A-Za-z]*;
+#   _ZTTSt[0-9][0-9][A-Za-z]*;
+    _ZTTSt1[0-4]*;
+    _ZTTSt15a*;
+    _ZTTSt15basic_streambufI*;
+    _ZTTSt15basic_stringbufI*;
+    _ZTTSt15[c-z]*;
+    _ZTTSt1[67]*;
+    _ZTTSt18basic_stringstreamI*;
+    _ZTTSt19basic_istringstreamI*;
+    _ZTTSt19basic_ostringstreamI*;
+    _ZTTSt[2-9]*;
 
     # typeinfo structure
     _ZTIS[a-z];
-    _ZTISt[0-9][A-Za-z]*;
+    _ZTISt[0-6][A-Za-z]*;
+    _ZTISt7[A-Zab]*;
+    _ZTISt7codecvtI[cw]c*;
+    _ZTISt7collateI[cw]E;
+    _ZTISt7[d-z]*;
+    _ZTISt[89][A-Za-z]*;
 #   _ZTISt[0-9][0-9][A-Za-z]*;
     _ZTISt[0-9][0-9][A-Z]*;
 #   _ZTISt[0-9][0-9][a-d]*;
     _ZTISt[0-9][0-9]a*;
     _ZTISt10bad_typeid;
     _ZTISt13bad_exception;
-    _ZTISt[0-9][0-9]basic*;
+#   _ZTISt[0-9][0-9]basic*;
+    _ZTISt1[34]basic*;
+    _ZTISt15basic_streambufI*;
+    _ZTISt15basic_stringbufI*;
+    _ZTISt18basic_stringstreamI*;
+    _ZTISt19basic_istringstreamI*;
+    _ZTISt19basic_ostringstreamI*;
     _ZTISt[0-9][0-9][c-d]*;
     _ZTISt[0-9][0-9][g-k]*;
     _ZTISt11logic_error;
@@ -715,9 +822,9 @@ GLIBCXX_3.4 {
     _ZTISt10__num_base;
     _ZTISt21__ctype_abstract_baseI[cw]E;
     _ZTISt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
-#   _ZTISt16__numpunct_cacheI[cw]E;
-#   _ZTISt17__timepunct_cacheI[cw]E;
-#   _ZTISt18__moneypunct_cacheI[cw]Lb?EE;
+#    _ZTISt16__numpunct_cacheI[cw]E;
+#    _ZTISt17__timepunct_cacheI[cw]E;
+#    _ZTISt18__moneypunct_cacheI[cw]Lb?EE;
     _ZTINSt8ios_base7failureE;
     _ZTINSt6locale5facetE;
     _ZTIN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
@@ -727,14 +834,25 @@ GLIBCXX_3.4 {
     _ZTSNSt8ios_base7failureE;
     _ZTSNSt6locale5facetE;
     _ZTSS[a-z];
-    _ZTSSt[0-9][A-Za-z]*;
+    _ZTSSt[0-6][A-Za-z]*;
+    _ZTSSt7[A-Zab]*;
+    _ZTSSt7codecvtI[cw]c*;
+    _ZTSSt7collateI[cw]E;
+    _ZTSSt7[d-z]*;
+    _ZTSSt[89][A-Za-z]*;
 #   _ZTSSt[0-9][0-9][A-Za-z]*;
     _ZTSSt[0-9][0-9][A-Z]*;
 #   _ZTSSt[0-9][0-9][a-d]*;
     _ZTSSt[0-9][0-9]a*;
     _ZTSSt10bad_typeid;
     _ZTSSt13bad_exception;
-    _ZTSSt[0-9][0-9]basic*;
+#   _ZTSSt[0-9][0-9]basic*;
+    _ZTSSt1[34]basic*;
+    _ZTSSt15basic_stringbufI*;
+    _ZTSSt15basic_streambufI*;
+    _ZTSSt18basic_stringstreamI*;
+    _ZTSSt19basic_istringstreamI*;
+    _ZTSSt19basic_ostringstreamI*;
     _ZTSSt[0-9][0-9][c-d]*;
     _ZTSSt[0-9][0-9][g-k]*;
     _ZTSSt11logic_error;
@@ -756,14 +874,6 @@ GLIBCXX_3.4 {
     _ZTSN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
     _ZTSN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
-    # std::type_info
-    _ZNKSt9type_info1*;
-    _ZNSt9type_infoD*;
-
-    # std::exception
-    _ZNKSt9exception4whatEv;
-    _ZNSt9exceptionD*;
-
     # std::bad_alloc::~bad_alloc, std::bad_cast::~bad_cast,
     # std::bad_typeid::~bad_typeid, std::bad_exception::~bad_exception
     _ZNSt9bad_allocD*;
@@ -771,9 +881,34 @@ GLIBCXX_3.4 {
     _ZNSt10bad_typeidD*;
     _ZNSt13bad_exceptionD*;
 
-    # function-scope static objects require a guard variable.
-    _ZGVNSt[^1]*;
-    _ZGVNSt1[^7]*;
+    # function-scope static objects requires a guard variable.
+    _ZGVNSt[2-6]*;
+    _ZGVNSt7collateI[cw]*;
+    _ZGVNSt7num_getI[cw]*;
+    _ZGVNSt7num_putI[cw]*;
+    _ZGVNSt8messagesI[cw]*;
+    _ZGVNSt8numpunctI[cw]*;
+    _ZGVNSt8time_getI[cw]*;
+    _ZGVNSt8time_putI[cw]*;
+    _ZGVNSt9money_getI[cw]*;
+    _ZGVNSt9money_putI[cw]*;
+    _ZGVNSt1[^07]*;
+    _ZGVNSt10moneypunctI[cw]Lb[01]*;
+
+    # exception constructors taking std::string
+    _ZNSt11logic_errorC[12]ERKSs;
+    _ZNSt13runtime_errorC[12]ERKSs;
+    _ZNSt11range_errorC[12]ERKSs;
+    _ZNSt12domain_errorC[12]ERKSs;
+    _ZNSt12length_errorC[12]ERKSs;
+    _ZNSt12out_of_rangeC[12]ERKSs;
+    _ZNSt14overflow_errorC[12]ERKSs;
+    _ZNSt15underflow_errorC[12]ERKSs;
+    _ZNSt16invalid_argumentC[12]ERKSs;
+
+    # complete, deleting and base destructors
+    _ZNSt11logic_errorD[012]Ev;
+    _ZNSt13runtime_errorD[012]Ev;
 
     # complete and deleting destructors where base destructors should not
     # be exported.
@@ -786,10 +921,42 @@ GLIBCXX_3.4 {
     _ZNSt16invalid_argumentD[01]Ev;
 
     # virtual function thunks
-    _ZThn8_NS*;
-    _ZThn16_NS*;
-    _ZTv0_n12_NS*;
-    _ZTv0_n24_NS*;
+#   _ZThn8_NS*;
+    _ZThn8_NS[dio]*;
+    _ZThn8_NSt1[0-9]a*;
+    _ZThn8_NSt1[34]basic*;
+    _ZThn8_NSt18basic_stringstreamI*;
+    _ZThn8_NSt19basic_[io]stringstreamI*;
+    _ZThn8_NSt1[0-9][c-z]*;
+    _ZThn8_NSt[2-9][a-z0-9]*;
+#   _ZThn16_NS*;
+    _ZThn16_NS[dio]*;
+    _ZThn16_NSt1[0-9]a*;
+    _ZThn16_NSt1[34]basic*;
+    _ZThn16_NSt18basic_stringstreamI*;
+    _ZThn16_NSt19basic_[io]stringstreamI*;
+    _ZThn16_NSt1[0-9][c-z]*;
+    _ZThn16_NSt[2-9][a-z0-9]*;
+#   _ZTv0_n12_NS*;
+    _ZTv0_n12_NS[dio]*;
+    _ZTv0_n12_NSt1[0-9]a*;
+    _ZTv0_n12_NSt1[34]basic*;
+    _ZTv0_n12_NSt15basic_streambufI*;
+    _ZTv0_n12_NSt15basic_stringbufI*;
+    _ZTv0_n12_NSt18basic_stringstreamI*;
+    _ZTv0_n12_NSt19basic_[io]stringstreamI*;
+    _ZTv0_n12_NSt1[0-9][c-z]*;
+    _ZTv0_n12_NSt[2-9][a-z0-9]*;
+#   _ZTv0_n24_NS*;
+    _ZTv0_n24_NS[dio]*;
+    _ZTv0_n24_NSt1[0-9]a*;
+    _ZTv0_n24_NSt1[34]basic*;
+    _ZTv0_n24_NSt15basic_streambufI*;
+    _ZTv0_n24_NSt15basic_stringbufI*;
+    _ZTv0_n24_NSt18basic_stringstreamI*;
+    _ZTv0_n24_NSt19basic_[io]stringstreamI*;
+    _ZTv0_n24_NSt1[0-9][c-z]*;
+    _ZTv0_n24_NSt[2-9][a-z0-9]*;
 
     # stub functions from libmath
     sinf;
@@ -1027,7 +1194,7 @@ GLIBCXX_3.4.10 {
     _ZNKSt4hashISsEclESs;
     _ZNKSt4hashIeEclEe;
 
-    _ZSt17__verify_grouping*;
+    _ZSt17__verify_groupingPKc[jmy]RKSs;
 
     _ZNSt8__detail12__prime_listE;
     _ZNSt3tr18__detail12__prime_listE;
@@ -1045,9 +1212,8 @@ GLIBCXX_3.4.10 {
     _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE6stosscEv;
 
     _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE4syncEv;
-    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE[5679]*;
-    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE8overflow*;
-    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEC[12]*;
+    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EE[5-9]*;
+    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEC[12]EP*;
     _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EED[^2]*;
 
 } GLIBCXX_3.4.9;
@@ -1208,14 +1374,8 @@ GLIBCXX_3.4.14 {
     _ZNKSbIwSt11char_traitsIwESaIwEE5crendEv;
 
     # string|wstring ::_S_construct<> and ::_S_construct_aux_2 helpers
-    # _ZNSs12_S_constructI*;
-    _ZNSs12_S_constructIPcEES0_T_S1_RKSaIcESt20forward_iterator_tag;
-    _ZNSs12_S_constructIPKcEEPcT_S3_RKSaIcESt20forward_iterator_tag;
-    _ZNSs12_S_constructIN9__gnu_cxx17__normal_iteratorIPcSsEEEES2_T_S4_RKSaIcESt*;
-    # _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructI*;
-    _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructIPKwEEPwT_S7_RKS1_St*;
-    _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructIPwEES4_T_S5_RKS1_St*;
-    _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructIN9__gnu_cxx17__normal_iteratorIPwS2_EEEES6_T_S8_RKS1_St*;
+    _ZNSs12_S_constructI*;
+    _ZNSbIwSt11char_traitsIwESaIwEE12_S_constructI*;
     _ZNSs18_S_construct_aux_2*;
     _ZNSbIwSt11char_traitsIwESaIwEE18_S_construct_aux_2*;
 
@@ -1390,9 +1550,14 @@ GLIBCXX_3.4.18 {
     # Names inside the 'extern' block are demangled names.
     extern "C++"
     {
-      std::random_device::*;
       std::__detail::_Prime_rehash_policy::*;
     };
+
+    _ZNSt13random_device14_M_init_pretr1ERKSs;
+    _ZNSt13random_device16_M_getval_pretr1Ev;
+    _ZNSt13random_device7_M_finiEv;
+    _ZNSt13random_device7_M_initERKSs;
+    _ZNSt13random_device9_M_getvalEv;
 
     # std::this_thread::__sleep_for
     _ZNSt11this_thread11__sleep_for*;
@@ -1436,6 +1601,263 @@ GLIBCXX_3.4.21 {
     # std::regex_error::regex_error(std::regex_constants::error_type)
     _ZNSt11regex_errorC2ENSt15regex_constants10error_typeE;
 
+    # void std::thread::_M_start_thread(__shared_base_type, void(*)())
+    _ZNSt6thread15_M_start_threadESt10shared_ptrINS_10_Impl_baseEEPFvvE;
+
+    # Move/swap functions for iostreams
+    _ZNSt8ios_base7_M_swapERS_;
+    _ZNSt8ios_base7_M_moveERS_;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE4moveE[OR]S2_;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE4swapERS2_;
+    _ZNSt9basic_iosI[cw]St11char_traitsI[cw]EE9set_rdbuf*;
+    _ZNSt15basic_streambufI[cw]St11char_traitsI[cw]EE4swapERS2_;
+    _ZNS[dio]4swapERS[dio];
+    _ZNS[dio]aSEOS[dio];
+    _ZNS[dio]C[12]EOS[dio];
+    _ZNSt13basic_[io]streamIwSt11char_traitsIwEE4swapERS2_;
+    _ZNSt13basic_[io]streamIwSt11char_traitsIwEEaSEOS2_;
+    _ZNSt13basic_[io]streamIwSt11char_traitsIwEEC[12]EOS2_;
+    _ZNSt14basic_iostreamIwSt11char_traitsIwEE4swapERS2_;
+    _ZNSt14basic_iostreamIwSt11char_traitsIwEEaSEOS2_;
+    _ZNSt14basic_iostreamIwSt11char_traitsIwEEC[12]EOS2_;
+    _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EE4swapERS2_;
+    _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EEaSEOS2_;
+    _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EEC[12]EOS2_;
+    _ZNSt13basic_fstreamI[cw]St11char_traitsI[cw]EE4swapERS2_;
+    _ZNSt13basic_fstreamI[cw]St11char_traitsI[cw]EEaSEOS2_;
+    _ZNSt13basic_fstreamI[cw]St11char_traitsI[cw]EEC[12]EOS2_;
+    _ZNSt14basic_[io]fstreamI[cw]St11char_traitsI[cw]EE4swapERS2_;
+    _ZNSt14basic_[io]fstreamI[cw]St11char_traitsI[cw]EEaSEOS2_;
+    _ZNSt14basic_[io]fstreamI[cw]St11char_traitsI[cw]EEC[12]EOS2_;
+    _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE4swapERS3_;
+    _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EEaSEOS3_;
+    _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EEC[12]EOS3_;
+    _ZNSt18basic_stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EE4swapERS3_;
+    _ZNSt18basic_stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EEaSEOS3_;
+    _ZNSt18basic_stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EEC[12]EOS3_;
+    _ZNSt19basic_[io]stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EE4swapERS3_;
+    _ZNSt19basic_[io]stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EEaSEOS3_;
+    _ZNSt19basic_[io]stringstreamI[cw]St11char_traitsI[cw]ESaI[cw]EEC[12]EOS3_;
+    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEaSEOS3_;
+    _ZN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEC[12]EOS3_;
+
+    # basic_ostream<C,T>::basic_ostream(basic_iostream<C,T>&)
+    _ZNSoC[12]ERSd;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEEC[12]ERSt14basic_iostreamIwS1_E;
+
+    # std::basic_ios::operator bool() const
+    _ZNKSt9basic_iosI[cw]St11char_traitsI[cw]EEcvbEv;
+
+    # C++11 version of std::ios_base::failure
+    _ZNKSt8ios_base7failureB5cxx114whatEv;
+    _ZNSt8ios_base7failureB5cxx11C[12]ERKSs;
+    _ZNSt8ios_base7failureB5cxx11C[12]EPKcRKSt10error_code;
+    _ZNSt8ios_base7failureB5cxx11C[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt8ios_base7failureB5cxx11C[12]ERKSsB5cxx11RKSt10error_code;
+    _ZNSt8ios_base7failureB5cxx11D[012]Ev;
+    _ZTINSt8ios_base7failureB5cxx11E;
+    _ZTSNSt8ios_base7failureB5cxx11E;
+    _ZTVNSt8ios_base7failureB5cxx11E;
+    _ZSt17iostream_categoryv;
+
+    # std::ctype_base::blank
+    _ZNSt10ctype_base5blankE;
+
+    # std::_Sp_locker::*
+    _ZNSt10_Sp_locker[CD]*;
+
+    # std::notify_all_at_thread_exit
+    _ZSt25notify_all_at_thread_exitRSt18condition_variableSt11unique_lockISt5mutexE;
+    # std::__future_base::_State_baseV2::_Make_ready::_M_set()
+    _ZNSt13__future_base13_State_baseV211_Make_ready6_M_setEv;
+
+    # ABI-tagged std::basic_string
+    _ZNSt7__cxx1112basic_string*;
+    _ZNKSt7__cxx1112basic_string*;
+
+    # operator+ for ABI-tagged std::basic_string
+    _ZStplI[cw]St11char_traitsI[cw]ESaI[cw]EENSt7__cxx1112basic_stringIT_T0_T1_EE*;
+
+    # ABI-tagged stringstreams
+    _ZNSt7__cxx1115basic_stringbuf*;
+    _ZNSt7__cxx1118basic_stringstream*;
+    _ZNSt7__cxx1119basic_istringstream*;
+    _ZNSt7__cxx1119basic_ostringstream*;
+    _ZNKSt7__cxx1115basic_stringbuf*;
+    _ZNKSt7__cxx1118basic_stringstream*;
+    _ZNKSt7__cxx1119basic_istringstream*;
+    _ZNKSt7__cxx1119basic_ostringstream*;
+    _ZT[ISTV]NSt7__cxx1115basic_stringbuf*;
+    _ZT[ISTV]NSt7__cxx1118basic_stringstream*;
+    _ZT[ISTV]NSt7__cxx1119basic_istringstream*;
+    _ZT[ISTV]NSt7__cxx1119basic_ostringstream*;
+    _ZThn8_NSt7__cxx1118basic_stringstream*;
+    _ZThn16_NSt7__cxx1118basic_stringstream*;
+    _ZTv0_n12_NSt7__cxx1115basic_stringbuf*;
+    _ZTv0_n12_NSt7__cxx1118basic_stringstream*;
+    _ZTv0_n12_NSt7__cxx1119basic_istringstream*;
+    _ZTv0_n12_NSt7__cxx1119basic_ostringstream*;
+    _ZTv0_n24_NSt7__cxx1115basic_stringbuf*;
+    _ZTv0_n24_NSt7__cxx1118basic_stringstream*;
+    _ZTv0_n24_NSt7__cxx1119basic_istringstream*;
+    _ZTv0_n24_NSt7__cxx1119basic_ostringstream*;
+
+    # I/O functions for ABI-tagged basic_string
+    _ZSt7getlineI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_string*;
+    _ZStlsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_ostreamIT_T0_ES7_RKNSt7__cxx1112basic_string*;
+    _ZStrsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istreamIT_T0_ES7_RNSt7__cxx1112basic_string*;
+
+    # fstream functions taking ABI-tagged std::string
+    _ZNSt13basic_filebufI[cw]St11char_traitsI[cw]EE4openERKNSt7__cxx1112basic_string*;
+    _ZNSt13basic_fstreamI[cw]St11char_traitsI[cw]EEC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt13basic_fstreamI[cw]St11char_traitsI[cw]EE4openERKNSt7__cxx1112basic_string*;
+    _ZNSt14basic_[io]fstreamI[cw]St11char_traitsI[cw]EEC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt14basic_[io]fstreamI[cw]St11char_traitsI[cw]EE4openERKNSt7__cxx1112basic_string*;
+
+    # std::locale::name() returning new std::string
+    _ZNKSt6locale4nameB5cxx11Ev;
+
+    # ABI-tagged locale facets
+    _ZT[ISTV]NSt7__cxx117collateI[cw]*;
+    _ZT[ISTV]NSt7__cxx1114collate_bynameI[cw]*;
+    _ZT[ISTV]NSt7__cxx118messagesI[cw]*;
+    _ZT[ISTV]NSt7__cxx1115messages_bynameI[cw]*;
+    _ZT[ISTV]NSt7__cxx119money_getI[cw]*;
+    _ZT[ISTV]NSt7__cxx119money_putI[cw]*;
+    _ZT[ISTV]NSt7__cxx1110moneypunctI[cw]Lb[01]*;
+    _ZT[ISTV]NSt7__cxx1117moneypunct_bynameI[cw]Lb[01]*;
+    _ZT[ISTV]NSt7__cxx118numpunctI[cw]*;
+    _ZT[ISTV]NSt7__cxx1115numpunct_bynameI[cw]*;
+    _ZT[ISTV]NSt7__cxx118time_getI[cw]*;
+    _ZT[ISTV]NSt7__cxx1115time_get_bynameI[cw]*;
+
+    # guard vars for new facet::id globals
+    _ZGVNSt7__cxx117collateI[cw]*;
+    _ZGVNSt7__cxx118messagesI[cw]*;
+    _ZGVNSt7__cxx1110moneypunctI[cw]Lb[01]*;
+    _ZGVNSt7__cxx119money_getI[cw]*;
+    _ZGVNSt7__cxx119money_putI[cw]*;
+    _ZGVNSt7__cxx118numpunctI[cw]*;
+    _ZGVNSt7__cxx118time_getI[cw]*;
+
+    _ZNSt7__cxx117collateI*;
+    _ZNSt7__cxx1114collate_bynameI*;
+    _ZNSt7__cxx118messagesI*;
+    _ZNSt7__cxx1115messages_bynameI*;
+    _ZNSt7__cxx119money_getI*;
+    _ZNSt7__cxx119money_putI*;
+    _ZNSt7__cxx1110moneypunctI*;
+    _ZNSt7__cxx1117moneypunct_bynameI*;
+    _ZNSt7__cxx118numpunctI*;
+    _ZNSt7__cxx1115numpunct_bynameI*;
+    _ZNSt7__cxx118time_getI*;
+    _ZNSt7__cxx1115time_get_bynameI*;
+
+    _ZNKSt7__cxx117collateI*;
+    _ZNKSt7__cxx118messagesI*;
+    _ZNKSt7__cxx119money_getI*;
+    _ZNKSt7__cxx119money_putI*;
+    _ZNKSt7__cxx1110moneypunctI*;
+    _ZNKSt7__cxx118numpunctI*;
+    _ZNKSt7__cxx118time_getI*;
+
+    _ZSt9has_facetINSt7__cxx117collate*;
+    _ZSt9has_facetINSt7__cxx118messages*;
+    _ZSt9has_facetINSt7__cxx119money_get*;
+    _ZSt9has_facetINSt7__cxx119money_put*;
+    _ZSt9has_facetINSt7__cxx1110moneypunct*;
+    _ZSt9has_facetINSt7__cxx118numpunct*;
+    _ZSt9has_facetINSt7__cxx118time_get*;
+    _ZSt9use_facetINSt7__cxx117collate*;
+    _ZSt9use_facetINSt7__cxx118messages*;
+    _ZSt9use_facetINSt7__cxx119money_get*;
+    _ZSt9use_facetINSt7__cxx119money_put*;
+    _ZSt9use_facetINSt7__cxx1110moneypunct*;
+    _ZSt9use_facetINSt7__cxx118numpunct*;
+    _ZSt9use_facetINSt7__cxx118time_get*;
+
+    _ZSt17__verify_groupingPKc[jmy]RKNSt7__cxx1112basic_string*;
+
+    _ZNSt3_V214error_category*;
+    _ZNKSt3_V214error_category*;
+    _ZTVNSt3_V214error_categoryE;
+    _ZTINSt3_V214error_categoryE;
+    _ZNSt3_V215system_categoryEv;
+    _ZNSt3_V216generic_categoryEv;
+
+    # New exception constructors
+    _ZNSt11logic_errorC[12]EPKc;
+    _ZNSt11logic_errorC[12]ERKS_;
+    _ZNSt11logic_erroraSERKS_;
+    _ZNSt11logic_errorC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt11range_errorC[12]EPKc;
+    _ZNSt11range_errorC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt12domain_errorC[12]EPKc;
+    _ZNSt12domain_errorC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt12length_errorC[12]EPKc;
+    _ZNSt12length_errorC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt12out_of_rangeC[12]EPKc;
+    _ZNSt12out_of_rangeC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt13runtime_errorC[12]EPKc;
+    _ZNSt13runtime_errorC[12]ERKS_;
+    _ZNSt13runtime_erroraSERKS_;
+    _ZNSt13runtime_errorC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt14overflow_errorC[12]EPKc;
+    _ZNSt14overflow_errorC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt15underflow_errorC[12]EPKc;
+    _ZNSt15underflow_errorC[12]ERKNSt7__cxx1112basic_string*;
+    _ZNSt16invalid_argumentC[12]EPKc;
+    _ZNSt16invalid_argumentC[12]ERKNSt7__cxx1112basic_string*;
+
+    _ZNSt13random_device14_M_init_pretr1ERKNSt7__cxx1112basic_string*;
+    _ZNSt13random_device7_M_initERKNSt7__cxx1112basic_string*;
+
+    _ZNKSt3tr14hashINSt7__cxx1112basic_string*;
+
+    # std::time_get::get
+    _ZNKSt8time_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE3getES3_S3_RSt8ios_baseRSt12_Ios_IostateP2tmPK[cw]SC_;
+    _ZNKSt8time_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE6do_getES3_S3_RSt8ios_baseRSt12_Ios_IostateP2tmcc;
+
+    # codecvt<char16_t, char, mbstate_t>, codecvt<char32_t, char, mbstate_t>
+    _ZNKSt7codecvtID[is]c11__mbstate_t*;
+    _ZNSt7codecvtID[is]c11__mbstate_t*;
+    _ZT[ISV]St7codecvtID[is]c11__mbstate_tE;
+
+    extern "C++"
+    {
+      std::__atomic_futex_unsigned_base*;
+    };
+
+    # codecvt_utf8 etc.
+    _ZNKSt19__codecvt_utf8_base*;
+    _ZNSt19__codecvt_utf8_base*;
+    _ZT[ISV]St19__codecvt_utf8_base*;
+    _ZNKSt20__codecvt_utf16_base*;
+    _ZNSt20__codecvt_utf16_base*;
+    _ZT[ISV]St20__codecvt_utf16_base*;
+    _ZNKSt25__codecvt_utf8_utf16_base*;
+    _ZNSt25__codecvt_utf8_utf16_base*;
+    _ZT[ISV]St25__codecvt_utf8_utf16_base*;
+
+    # new string ctors for _byname facets
+    _ZNSt12ctype_bynameI[cw]EC[1-5]ERKSs[jmy];
+    _ZNSt14codecvt_bynameI[cw]c11__mbstate_tEC[1-5]ERKSs[jmy];
+    _ZNSt15messages_bynameI[cw]EC[1-5]ERKSs[jmy];
+    _ZNSt15numpunct_bynameI[cw]EC[1-5]ERKSs[jmy];
+    _ZNSt15time_get_bynameI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEEC[1-5]ERKSs[jmy];
+    _ZNSt15time_put_bynameI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEEC[1-5]ERKSs[jmy];
+    _ZNSt17moneypunct_bynameI[cw]Lb0EEC[1-5]ERKSs[jmy];
+    _ZNSt17moneypunct_bynameI[cw]Lb1EEC[1-5]ERKSs[jmy];
+
+    _ZNSt12ctype_bynameI[cw]EC[1-5]ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE[jmy];
+    _ZNSt14codecvt_bynameI[cw]c11__mbstate_tEC[1-5]ERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE[jmy];
+    _ZNSt15time_put_bynameI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEEC[1-5]ERKNSt7__cxx1112basic_stringIcS2_SaIcEEE[jmy];
+    _ZNSt7__cxx1115messages_bynameI[cw]EC[1-5]ERKNS_12basic_stringIcSt11char_traitsIcESaIcEEE[jmy];
+    _ZNSt7__cxx1115numpunct_bynameI[cw]EC[1-5]ERKNS_12basic_stringIcSt11char_traitsIcESaIcEEE[jmy];
+    _ZNSt7__cxx1115time_get_bynameI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEEC[1-5]ERKNS_12basic_stringIcS3_SaIcEEE[jmy];
+    _ZNSt7__cxx1117moneypunct_bynameI[cw]Lb0EEC[1-5]ERKNS_12basic_stringIcSt11char_traitsIcESaIcEEE[jmy];
+    _ZNSt7__cxx1117moneypunct_bynameI[cw]Lb1EEC[1-5]ERKNS_12basic_stringIcSt11char_traitsIcESaIcEEE[jmy];
+
 } GLIBCXX_3.4.20;
 
 
@@ -1478,21 +1900,20 @@ CXXABI_1.3 {
     __gxx_personality_seh0;
     __dynamic_cast;
 
-    # *_type_info classes, destructors
-    _ZN10__cxxabiv117__array_type_infoD*;
-    _ZN10__cxxabiv117__class_type_infoD*;
-    _ZN10__cxxabiv116__enum_type_infoD*;
-    _ZN10__cxxabiv120__function_type_infoD*;
-    _ZN10__cxxabiv123__fundamental_type_infoD*;
-    _ZN10__cxxabiv117__pbase_type_infoD*;
-    _ZN10__cxxabiv129__pointer_to_member_type_infoD*;
-    _ZN10__cxxabiv119__pointer_type_infoD*;
-    _ZN10__cxxabiv120__si_class_type_infoD*;
-    _ZN10__cxxabiv121__vmi_class_type_infoD*;
+    # *_type_info classes, ctor and dtor
+    _ZN10__cxxabiv117__array_type_info*;
+    _ZN10__cxxabiv117__class_type_info*;
+    _ZN10__cxxabiv116__enum_type_info*;
+    _ZN10__cxxabiv120__function_type_info*;
+    _ZN10__cxxabiv123__fundamental_type_info*;
+    _ZN10__cxxabiv117__pbase_type_info*;
+    _ZN10__cxxabiv129__pointer_to_member_type_info*;
+    _ZN10__cxxabiv119__pointer_type_info*;
+    _ZN10__cxxabiv120__si_class_type_info*;
+    _ZN10__cxxabiv121__vmi_class_type_info*;
 
     # *_type_info classes, member functions
-    _ZNK10__cxxabiv117__class_type_info1[012]*;
-    _ZNK10__cxxabiv117__class_type_info2*;
+    _ZNK10__cxxabiv117__class_type_info*;
     _ZNK10__cxxabiv120__function_type_info*;
     _ZNK10__cxxabiv117__pbase_type_info*;
     _ZNK10__cxxabiv129__pointer_to_member_type_info*;
@@ -1641,14 +2062,10 @@ CXXABI_1.3.7 {
 
 CXXABI_1.3.8 {
     __cxa_throw_bad_array_new_length;
-    _ZT[VSI]St20bad_array_new_length;
-    _ZNSt20bad_array_new_lengthD*;
-    _ZNKSt20bad_array_new_length4whatEv;
+    _Z*St20bad_array_new_length*;
 
     __cxa_throw_bad_array_length;
-    _ZT[VSI]St16bad_array_length;
-    _ZNSt16bad_array_lengthD*;
-    _ZNKSt16bad_array_length4whatEv;
+    _Z*St16bad_array_length*;
 
     # Virtual table verification stub functions.
     _Z17__VLTRegisterPair*;
@@ -1667,6 +2084,11 @@ CXXABI_1.3.9 {
     _ZTS[no];
     _ZTSP[no];
     _ZTSPK[no];
+
+    # operator delete(void*, std::size_t)
+    _ZdlPv[jmy];
+    # operator delete[](void*, std::size_t)
+    _ZdaPv[jmy];
 
 } CXXABI_1.3.8;
 

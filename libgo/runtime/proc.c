@@ -18,7 +18,6 @@
 #include "arch.h"
 #include "defs.h"
 #include "malloc.h"
-#include "race.h"
 #include "go-type.h"
 #include "go-defer.h"
 
@@ -51,7 +50,7 @@ extern void __splitstack_block_signals_context (void *context[10], int *,
 #if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK)
 # define StackMin PTHREAD_STACK_MIN
 #else
-# define StackMin 2 * 1024 * 1024
+# define StackMin ((sizeof(char *) < 8) ? 2 * 1024 * 1024 : 4 * 1024 * 1024)
 #endif
 
 uintptr runtime_stacks_sys;
@@ -127,6 +126,30 @@ fixcontext(ucontext_t* c)
 	c->uc_mcontext._mc_tlsbase = tlsbase;
 }
 
+# elif defined(__sparc__)
+
+static inline void
+initcontext(void)
+{
+}
+
+static inline void
+fixcontext(ucontext_t *c)
+{
+	/* ??? Using 
+	     register unsigned long thread __asm__("%g7");
+	     c->uc_mcontext.gregs[REG_G7] = thread;
+	   results in
+	     error: variable ‘thread’ might be clobbered by \
+		‘longjmp’ or ‘vfork’ [-Werror=clobbered]
+	   which ought to be false, as %g7 is a fixed register.  */
+
+	if (sizeof (c->uc_mcontext.gregs[REG_G7]) == 8)
+		asm ("stx %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
+	else
+		asm ("st %%g7, %0" : "=m"(c->uc_mcontext.gregs[REG_G7]));
+}
+
 # else
 
 #  error unknown case for SETCONTEXT_CLOBBERS_TLS
@@ -167,15 +190,11 @@ runtime_setmg(M* mp, G* gp)
 	g = gp;
 }
 
-// The static TLS size.  See runtime_newm.
-static int tlssize;
-
 // Start a new thread.
 static void
 runtime_newosproc(M *mp)
 {
 	pthread_attr_t attr;
-	size_t stacksize;
 	sigset_t clear, old;
 	pthread_t tid;
 	int ret;
@@ -184,19 +203,6 @@ runtime_newosproc(M *mp)
 		runtime_throw("pthread_attr_init");
 	if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0)
 		runtime_throw("pthread_attr_setdetachstate");
-
-	stacksize = PTHREAD_STACK_MIN;
-
-	// With glibc before version 2.16 the static TLS size is taken
-	// out of the stack size, and we get an error or a crash if
-	// there is not enough stack space left.  Add it back in if we
-	// can, in case the program uses a lot of TLS space.  FIXME:
-	// This can be disabled in glibc 2.16 and later, if the bug is
-	// indeed fixed then.
-	stacksize += tlssize;
-
-	if(pthread_attr_setstacksize(&attr, stacksize) != 0)
-		runtime_throw("pthread_attr_setstacksize");
 
 	// Block signals during pthread_create so that the new thread
 	// starts with signals disabled.  It will enable them in minit.
@@ -305,43 +311,6 @@ runtime_mcall(void (*pfn)(G*))
 		runtime_throw("runtime: mcall function returned");
 	}
 }
-
-#ifdef HAVE_DL_ITERATE_PHDR
-
-// Called via dl_iterate_phdr.
-
-static int
-addtls(struct dl_phdr_info* info, size_t size __attribute__ ((unused)), void *data)
-{
-	size_t *total = (size_t *)data;
-	unsigned int i;
-
-	for(i = 0; i < info->dlpi_phnum; ++i) {
-		if(info->dlpi_phdr[i].p_type == PT_TLS)
-			*total += info->dlpi_phdr[i].p_memsz;
-	}
-	return 0;
-}
-
-// Set the total TLS size.
-
-static void
-inittlssize()
-{
-	size_t total = 0;
-
-	dl_iterate_phdr(addtls, (void *)&total);
-	tlssize = total;
-}
-
-#else
-
-static void
-inittlssize()
-{
-}
-
-#endif
 
 // Goroutine scheduler
 // The scheduler's job is to distribute ready-to-run goroutines over worker threads.
@@ -481,11 +450,11 @@ runtime_schedinit(void)
 	g->m = m;
 
 	initcontext();
-	inittlssize();
 
 	runtime_sched.maxmcount = 10000;
 	runtime_precisestack = 0;
 
+	// runtime_symtabinit();
 	runtime_mallocinit();
 	mcommoninit(m);
 	
@@ -494,6 +463,10 @@ runtime_schedinit(void)
 	// in a fault during a garbage collection, it will not
 	// need to allocated memory.
 	runtime_newErrorCString(0, &i);
+	
+	// Initialize the cached gotraceback value, since
+	// gotraceback calls getenv, which mallocs on Plan 9.
+	runtime_gotraceback(nil);
 
 	runtime_goargs();
 	runtime_goenvs();
@@ -512,9 +485,6 @@ runtime_schedinit(void)
 
 	// Can not enable GC until all roots are registered.
 	// mstats.enablegc = 1;
-
-	// if(raceenabled)
-	//	g->racectx = runtime_raceinit();
 }
 
 extern void main_init(void) __asm__ (GOSYM_PREFIX "__go_init_main");
@@ -526,6 +496,15 @@ initDone(void *arg __attribute__ ((unused))) {
 };
 
 // The main goroutine.
+// Note: C frames in general are not copyable during stack growth, for two reasons:
+//   1) We don't know where in a frame to find pointers to other stack locations.
+//   2) There's no guarantee that globals or heap values do not point into the frame.
+//
+// The C frame for runtime.main is copyable, because:
+//   1) There are no pointers to other stack locations in the frame
+//      (d.fn points at a global, d.link is nil, d.argp is -1).
+//   2) The only pointer into this frame is from the defer chain,
+//      which is explicitly handled during stack copying.
 void
 runtime_main(void* dummy __attribute__((unused)))
 {
@@ -569,8 +548,6 @@ runtime_main(void* dummy __attribute__((unused)))
 	mstats.enablegc = 1;
 
 	main_main();
-	if(raceenabled)
-		runtime_racefini();
 
 	// Make racy client program work: if panicking on
 	// another goroutine at the same time as main returns,
@@ -742,7 +719,7 @@ gtraceback(G* gp)
 	traceback = gp->traceback;
 	gp->traceback = nil;
 	traceback->c = runtime_callers(1, traceback->locbuf,
-		sizeof traceback->locbuf / sizeof traceback->locbuf[0]);
+		sizeof traceback->locbuf / sizeof traceback->locbuf[0], false);
 	runtime_gogo(traceback->gp);
 }
 
@@ -752,7 +729,7 @@ mcommoninit(M *mp)
 	// If there is no mcache runtime_callers() will crash,
 	// and we are most likely in sysmon thread so the stack is senseless anyway.
 	if(m->mcache)
-		runtime_callers(1, mp->createstack, nelem(mp->createstack));
+		runtime_callers(1, mp->createstack, nelem(mp->createstack), false);
 
 	mp->fastrand = 0x49f6428aUL + mp->id + runtime_cputicks();
 
@@ -1094,6 +1071,22 @@ runtime_allocm(P *p, int32 stacksize, byte** ret_g0_stack, size_t* ret_g0_stacks
 	return mp;
 }
 
+static G*
+allocg(void)
+{
+	G *gp;
+	// static Type *gtype;
+	
+	// if(gtype == nil) {
+	// 	Eface e;
+	// 	runtime_gc_g_ptr(&e);
+	// 	gtype = ((PtrType*)e.__type_descriptor)->__element_type;
+	// }
+	// gp = runtime_cnew(gtype);
+	gp = runtime_malloc(sizeof(G));
+	return gp;
+}
+
 static M* lockextra(bool nilokay);
 static void unlockextra(M*);
 
@@ -1175,6 +1168,7 @@ runtime_needm(void)
 	__splitstack_getcontext(&g->stack_context[0]);
 #else
 	g->gcinitial_sp = &mp;
+	g->gcstack = nil;
 	g->gcstack_size = 0;
 	g->gcnext_sp = &mp;
 #endif
@@ -1276,6 +1270,8 @@ runtime_dropm(void)
 	runtime_setmg(nil, nil);
 
 	mp->curg->status = Gdead;
+	mp->curg->gcstack = nil;
+	mp->curg->gcnext_sp = nil;
 
 	mnext = lockextra(true);
 	mp->schedlink = mnext;
@@ -1587,6 +1583,8 @@ top:
 		gcstopm();
 		goto top;
 	}
+	if(runtime_fingwait && runtime_fingwake && (gp = runtime_wakefing()) != nil)
+		runtime_ready(gp);
 	// local runq
 	gp = runqget(m->p);
 	if(gp)
@@ -1783,6 +1781,8 @@ top:
 void
 runtime_park(bool(*unlockf)(G*, void*), void *lock, const char *reason)
 {
+	if(g->status != Grunning)
+		runtime_throw("bad g status");
 	m->waitlock = lock;
 	m->waitunlockf = unlockf;
 	g->waitreason = reason;
@@ -1834,6 +1834,8 @@ park0(G *gp)
 void
 runtime_gosched(void)
 {
+	if(g->status != Grunning)
+		runtime_throw("bad g status");
 	runtime_mcall(runtime_gosched0);
 }
 
@@ -1858,11 +1860,12 @@ runtime_gosched0(G *gp)
 // Need to mark it as nosplit, because it runs with sp > stackbase (as runtime_lessstack).
 // Since it does not return it does not matter.  But if it is preempted
 // at the split stack check, GC will complain about inconsistent sp.
+void runtime_goexit(void) __attribute__ ((noinline));
 void
 runtime_goexit(void)
 {
-	if(raceenabled)
-		runtime_racegoend();
+	if(g->status != Grunning)
+		runtime_throw("bad g status");
 	runtime_mcall(goexit0);
 }
 
@@ -1874,6 +1877,13 @@ goexit0(G *gp)
 	gp->entry = nil;
 	gp->m = nil;
 	gp->lockedm = nil;
+	gp->paniconfault = 0;
+	gp->defer = nil; // should be true already but just in case.
+	gp->panic = nil; // non-nil for Goexit during panic. points at stack-allocated data.
+	gp->writenbuf = 0;
+	gp->writebuf = nil;
+	gp->waitreason = nil;
+	gp->param = nil;
 	m->curg = nil;
 	m->lockedg = nil;
 	if(m->locked & ~LockExternal) {
@@ -2122,8 +2132,8 @@ syscall_runtime_BeforeFork(void)
 {
 	// Fork can hang if preempted with signals frequently enough (see issue 5517).
 	// Ensure that we stay on the same M where we disable profiling.
-	m->locks++;
-	if(m->profilehz != 0)
+	runtime_m()->locks++;
+	if(runtime_m()->profilehz != 0)
 		runtime_resetcpuprofiler(0);
 }
 
@@ -2138,7 +2148,7 @@ syscall_runtime_AfterFork(void)
 	hz = runtime_sched.profilehz;
 	if(hz != 0)
 		runtime_resetcpuprofiler(hz);
-	m->locks--;
+	runtime_m()->locks--;
 }
 
 // Allocate a new g, with a stack big enough for stacksize bytes.
@@ -2147,7 +2157,7 @@ runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 {
 	G *newg;
 
-	newg = runtime_malloc(sizeof(G));
+	newg = allocg();
 	if(stacksize >= 0) {
 #if USING_SPLIT_STACK
 		int dont_block_signals = 0;
@@ -2204,6 +2214,10 @@ __go_go(void (*fn)(void*), void* arg)
 	P *p;
 
 //runtime_printf("newproc1 %p %p narg=%d nret=%d\n", fn->fn, argp, narg, nret);
+	if(fn == nil) {
+		m->throwing = -1;  // do not dump full stacks
+		runtime_throw("go of nil func value");
+	}
 	m->locks++;  // disable preemption because it can be holding p in a local var
 
 	p = m->p;
@@ -2456,26 +2470,6 @@ runtime_lockedOSThread(void)
 	return g->lockedm != nil && m->lockedg != nil;
 }
 
-// for testing of callbacks
-
-_Bool runtime_golockedOSThread(void)
-  __asm__ (GOSYM_PREFIX "runtime.golockedOSThread");
-
-_Bool
-runtime_golockedOSThread(void)
-{
-	return runtime_lockedOSThread();
-}
-
-intgo runtime_NumGoroutine (void)
-  __asm__ (GOSYM_PREFIX "runtime.NumGoroutine");
-
-intgo
-runtime_NumGoroutine()
-{
-	return runtime_gcount();
-}
-
 int32
 runtime_gcount(void)
 {
@@ -2530,13 +2524,13 @@ runtime_sigprof()
 	if(mp == nil)
 		return;
 
+	// Profiling runs concurrently with GC, so it must not allocate.
+	mp->mallocing++;
+
 	traceback = true;
 
 	if(mp->mcache == nil)
 		traceback = false;
-
-	// Profiling runs concurrently with GC, so it must not allocate.
-	mp->mallocing++;
 
 	runtime_lock(&prof);
 	if(prof.fn == nil) {
@@ -2555,7 +2549,7 @@ runtime_sigprof()
 	}
 
 	if(traceback) {
-		n = runtime_callers(0, prof.locbuf, nelem(prof.locbuf));
+		n = runtime_callers(0, prof.locbuf, nelem(prof.locbuf), false);
 		for(i = 0; i < n; i++)
 			prof.pcbuf[i] = prof.locbuf[i].pc;
 	}
@@ -2785,7 +2779,7 @@ checkdead(void)
 	}
 	runtime_unlock(&allglock);
 	if(grunning == 0)  // possible if main goroutine calls runtime_Goexit()
-		runtime_exit(0);
+		runtime_throw("no goroutines (main called runtime.Goexit) - deadlock!");
 	m->throwing = -1;  // do not dump full stacks
 	runtime_throw("all goroutines are asleep - deadlock!");
 }
@@ -3321,13 +3315,10 @@ runtime_testSchedLocalQueueSteal(void)
 	}
 }
 
-intgo runtime_debug_setMaxThreads(intgo)
-     __asm__(GOSYM_PREFIX "runtime_debug.setMaxThreads");
-
-intgo
-runtime_debug_setMaxThreads(intgo in)
+int32
+runtime_setmaxthreads(int32 in)
 {
-	intgo out;
+	int32 out;
 
 	runtime_lock(&runtime_sched);
 	out = runtime_sched.maxmcount;
@@ -3343,57 +3334,10 @@ runtime_proc_scan(struct Workbuf** wbufp, void (*enqueue1)(struct Workbuf**, Obj
 	enqueue1(wbufp, (Obj){(byte*)&runtime_sched, sizeof runtime_sched, 0});
 }
 
-// When a function calls a closure, it passes the closure value to
-// __go_set_closure immediately before the function call.  When a
-// function uses a closure, it calls __go_get_closure immediately on
-// function entry.  This is a hack, but it will work on any system.
-// It would be better to use the static chain register when there is
-// one.  It is also worth considering expanding these functions
-// directly in the compiler.
-
-void
-__go_set_closure(void* v)
-{
-	g->closure = v;
-}
-
-void *
-__go_get_closure(void)
-{
-	return g->closure;
-}
-
 // Return whether we are waiting for a GC.  This gc toolchain uses
 // preemption instead.
 bool
 runtime_gcwaiting(void)
 {
 	return runtime_sched.gcwaiting;
-}
-
-// func runtime_procPin() int
-
-intgo sync_runtime_procPin(void)
-  __asm__(GOSYM_PREFIX "sync.runtime_procPin");
-
-intgo
-sync_runtime_procPin()
-{
-	M *mp;
-
-	mp = m;
-	// Disable preemption.
-	mp->locks++;
-	return mp->p->id;
-}
-
-// func runtime_procUnpin()
-
-void sync_runtime_procUnpin(void)
-  __asm__ (GOSYM_PREFIX "sync.runtime_procUnpin");
-
-void
-sync_runtime_procUnpin(void)
-{
-	m->locks--;
 }

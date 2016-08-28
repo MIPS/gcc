@@ -1,5 +1,5 @@
 /* Language-level data type conversion for GNU C++.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -28,6 +28,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "flags.h"
@@ -36,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "decl.h"
 #include "target.h"
-#include "wide-int.h"
 
 static tree cp_convert_to_pointer (tree, tree, tsubst_flags_t);
 static tree convert_to_pointer_force (tree, tree, tsubst_flags_t);
@@ -595,8 +603,20 @@ ignore_overflows (tree expr, tree orig)
 tree
 cp_fold_convert (tree type, tree expr)
 {
-  tree conv = fold_convert (type, expr);
-  conv = ignore_overflows (conv, expr);
+  tree conv;
+  if (TREE_TYPE (expr) == type)
+    conv = expr;
+  else if (TREE_CODE (expr) == PTRMEM_CST)
+    {
+      /* Avoid wrapping a PTRMEM_CST in NOP_EXPR.  */
+      conv = copy_node (expr);
+      TREE_TYPE (conv) = type;
+    }
+  else
+    {
+      conv = fold_convert (type, expr);
+      conv = ignore_overflows (conv, expr);
+    }
   return conv;
 }
 
@@ -675,9 +695,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
     }
 
   /* FIXME remove when moving to c_fully_fold model.  */
-  /* FIXME do we still need this test?  */
-  if (!CLASS_TYPE_P (type))
-    e = integral_constant_value (e);
+  e = scalar_constant_value (e);
   if (error_operand_p (e))
     return error_mark_node;
 
@@ -1658,8 +1676,9 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 		    {
 		      error ("ambiguous default type conversion from %qT",
 			     basetype);
-		      error ("  candidate conversions include %qD and %qD",
-			     winner, cand);
+		      inform (input_location,
+			      "  candidate conversions include %qD and %qD",
+			      winner, cand);
 		    }
 		  return error_mark_node;
 		}

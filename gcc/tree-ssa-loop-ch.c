@@ -1,5 +1,5 @@
 /* Loop header copying on trees.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,8 +21,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "tm_p.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -37,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-inline.h"
 #include "flags.h"
+#include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
 
 /* Duplicates headers of loops if they are small enough, so that the statements
@@ -138,13 +155,12 @@ const pass_data pass_data_ch =
   GIMPLE_PASS, /* type */
   "ch", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_CH, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_cleanup_cfg, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_ch : public gimple_opt_pass
@@ -169,6 +185,7 @@ pass_ch::execute (function *fun)
   basic_block *bbs, *copied_bbs;
   unsigned n_bbs;
   unsigned bbs_size;
+  bool changed = false;
 
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS
 		       | LOOPS_HAVE_SIMPLE_LATCHES);
@@ -276,6 +293,8 @@ pass_ch::execute (function *fun)
 	 are not now, since there was the loop exit condition.  */
       split_edge (loop_preheader_edge (loop));
       split_edge (loop_latch_edge (loop));
+
+      changed = true;
     }
 
   update_ssa (TODO_update_ssa);
@@ -283,7 +302,7 @@ pass_ch::execute (function *fun)
   free (copied_bbs);
 
   loop_optimizer_finalize ();
-  return 0;
+  return changed ? TODO_cleanup_cfg : 0;
 }
 
 } // anon namespace

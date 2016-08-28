@@ -1,5 +1,5 @@
 /* Initialization of uninitialized regs.
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,13 +21,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "regs.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
-#include "flags.h"
 #include "df.h"
 
 /* Check all of the uses of pseudo variables.  If any use that is MUST
@@ -61,7 +87,7 @@ initialize_uninitialized_regs (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn;
+      rtx_insn *insn;
       bitmap lr = DF_LR_IN (bb);
       bitmap ur = DF_LIVE_IN (bb);
       bitmap_clear (already_genned);
@@ -80,6 +106,11 @@ initialize_uninitialized_regs (void)
 	      if (regno < FIRST_PSEUDO_REGISTER)
 		continue;
 
+	      /* Ignore pseudo PIC register.  */
+	      if (pic_offset_table_rtx
+		  && regno == REGNO (pic_offset_table_rtx))
+		continue;
+
 	      /* Do not generate multiple moves for the same regno.
 		 This is common for sequences of subreg operations.
 		 They would be deleted during combine but there is no
@@ -94,7 +125,7 @@ initialize_uninitialized_regs (void)
 	      if (bitmap_bit_p (lr, regno)
 		  && (!bitmap_bit_p (ur, regno)))
 		{
-		  rtx move_insn;
+		  rtx_insn *move_insn;
 		  rtx reg = DF_REF_REAL_REG (use);
 
 		  bitmap_set_bit (already_genned, regno);
@@ -131,7 +162,6 @@ const pass_data pass_data_initialize_regs =
   RTL_PASS, /* type */
   "init-regs", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

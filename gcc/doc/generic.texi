@@ -1,4 +1,4 @@
-@c Copyright (C) 2004-2014 Free Software Foundation, Inc.
+@c Copyright (C) 2004-2015 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -53,6 +53,7 @@ seems inelegant.
 @node Deficiencies
 @section Deficiencies
 
+@c The spelling of "incomplet" and "incorrekt" below is intentional.
 There are many places in which this document is incomplet and incorrekt.
 It is, as of yet, only @emph{preliminary} documentation.
 
@@ -1702,6 +1703,7 @@ a value from @code{enum annot_expr_kind}.
 @tindex VEC_PACK_TRUNC_EXPR
 @tindex VEC_PACK_SAT_EXPR
 @tindex VEC_PACK_FIX_TRUNC_EXPR
+@tindex SAD_EXPR
 
 @table @code
 @item VEC_LSHIFT_EXPR
@@ -1782,6 +1784,15 @@ value, it is taken from the second operand. It should never evaluate to
 any other value currently, but optimizations should not rely on that
 property. In contrast with a @code{COND_EXPR}, all operands are always
 evaluated.
+
+@item SAD_EXPR
+This node represents the Sum of Absolute Differences operation.  The three
+operands must be vectors of integral types.  The first and second operand
+must have the same type.  The size of the vector element of the third
+operand must be at lease twice of the size of the vector element of the
+first and second one.  The SAD is calculated between the first and second
+operands, added to the third operand, and returned.
+
 @end table
 
 
@@ -1808,6 +1819,7 @@ There are also several varieties of complex statements.
 * Jumps::
 * Cleanups::
 * OpenMP::
+* OpenACC::
 @end menu
 
 @node Basic Statements
@@ -2082,8 +2094,8 @@ variables.
 
 @item OMP_FOR
 
-Represents @code{#pragma omp for [clause1 @dots{} clauseN]}.  It
-has 5 operands:
+Represents @code{#pragma omp for [clause1 @dots{} clauseN]}.  It has
+six operands:
 
 Operand @code{OMP_FOR_BODY} contains the loop body.
 
@@ -2173,10 +2185,9 @@ building code (@code{omp-low.c}).
 @item OMP_CONTINUE
 
 Similarly, this instruction does not represent an OpenMP
-directive, it is used by @code{OMP_FOR} and
+directive, it is used by @code{OMP_FOR} (and similar codes) as well as
 @code{OMP_SECTIONS} to mark the place where the code needs to
-loop to the next iteration (in the case of @code{OMP_FOR}) or
-the next section (in the case of @code{OMP_SECTIONS}).
+loop to the next iteration, or the next section, respectively.
 
 In some cases, @code{OMP_CONTINUE} is placed right before
 @code{OMP_RETURN}.  But if there are cleanups that need to
@@ -2219,6 +2230,67 @@ of variables are restricted to exactly one, accessed with
 same clause @code{C} need to be represented as multiple @code{C} clauses
 chained together.  This facilitates adding new clauses during
 compilation.
+
+@end table
+
+@node OpenACC
+@subsection OpenACC
+@tindex OACC_CACHE
+@tindex OACC_DATA
+@tindex OACC_DECLARE
+@tindex OACC_ENTER_DATA
+@tindex OACC_EXIT_DATA
+@tindex OACC_HOST_DATA
+@tindex OACC_KERNELS
+@tindex OACC_LOOP
+@tindex OACC_PARALLEL
+@tindex OACC_UPDATE
+
+All the statements starting with @code{OACC_} represent directives and
+clauses used by the OpenACC API @w{@uref{http://www.openacc.org/}}.
+
+@table @code
+@item OACC_CACHE
+
+Represents @code{#pragma acc cache (var @dots{})}.
+
+@item OACC_DATA
+
+Represents @code{#pragma acc data [clause1 @dots{} clauseN]}.
+
+@item OACC_DECLARE
+
+Represents @code{#pragma acc declare [clause1 @dots{} clauseN]}.
+
+@item OACC_ENTER_DATA
+
+Represents @code{#pragma acc enter data [clause1 @dots{} clauseN]}.
+
+@item OACC_EXIT_DATA
+
+Represents @code{#pragma acc exit data [clause1 @dots{} clauseN]}.
+
+@item OACC_HOST_DATA
+
+Represents @code{#pragma acc host_data [clause1 @dots{} clauseN]}.
+
+@item OACC_KERNELS
+
+Represents @code{#pragma acc kernels [clause1 @dots{} clauseN]}.
+
+@item OACC_LOOP
+
+Represents @code{#pragma acc loop [clause1 @dots{} clauseN]}.
+
+See the description of the @code{OMP_FOR} code.
+
+@item OACC_PARALLEL
+
+Represents @code{#pragma acc parallel [clause1 @dots{} clauseN]}.
+
+@item OACC_UPDATE
+
+Represents @code{#pragma acc update [clause1 @dots{} clauseN]}.
 
 @end table
 

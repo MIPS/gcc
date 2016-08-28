@@ -1,5 +1,5 @@
 /* Subroutines used for macro/preprocessor support on the ia-32.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -171,6 +181,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__silvermont");
       def_or_undef (parse_in, "__silvermont__");
       break;
+    case PROCESSOR_KNL:
+      def_or_undef (parse_in, "__knl");
+      def_or_undef (parse_in, "__knl__");
+      break;
     /* use PROCESSOR_max to not set/unset the arch macro.  */
     case PROCESSOR_max:
       break;
@@ -277,6 +291,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__tune_slm__");
       def_or_undef (parse_in, "__tune_silvermont__");
       break;
+    case PROCESSOR_KNL:
+      def_or_undef (parse_in, "__tune_knl__");
+      break;
     case PROCESSOR_INTEL:
     case PROCESSOR_GENERIC:
       break;
@@ -345,6 +362,16 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__AVX512CD__");
   if (isa_flag & OPTION_MASK_ISA_AVX512PF)
     def_or_undef (parse_in, "__AVX512PF__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512DQ)
+    def_or_undef (parse_in, "__AVX512DQ__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512BW)
+    def_or_undef (parse_in, "__AVX512BW__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VL)
+    def_or_undef (parse_in, "__AVX512VL__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512VBMI)
+    def_or_undef (parse_in, "__AVX512VBMI__");
+  if (isa_flag & OPTION_MASK_ISA_AVX512IFMA)
+    def_or_undef (parse_in, "__AVX512IFMA__");
   if (isa_flag & OPTION_MASK_ISA_FMA)
     def_or_undef (parse_in, "__FMA__");
   if (isa_flag & OPTION_MASK_ISA_RTM)
@@ -399,6 +426,12 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__XSAVEC__");
   if (isa_flag & OPTION_MASK_ISA_XSAVES)
     def_or_undef (parse_in, "__XSAVES__");
+  if (isa_flag & OPTION_MASK_ISA_MPX)
+    def_or_undef (parse_in, "__MPX__");
+  if (isa_flag & OPTION_MASK_ISA_PCOMMIT)
+    def_or_undef (parse_in, "__PCOMMIT__");
+  if (isa_flag & OPTION_MASK_ISA_CLWB)
+    def_or_undef (parse_in, "__CLWB__");
 }
 
 

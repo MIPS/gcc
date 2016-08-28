@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,7 +29,17 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "rtl.h"
 #include "hard-reg-set.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tm_p.h"
@@ -37,17 +47,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "function.h"
 #include "insn-config.h"
+#include "hashtab.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
 #include "libfuncs.h"
 #include "recog.h"
-#include "machmode.h"
 #include "diagnostic-core.h"
 #include "output.h"
 #include "langhooks.h"
 #include "predict.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "target.h"
-#include "pointer-set.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -127,7 +147,7 @@ label_rtx (tree label)
 
   if (!DECL_RTL_SET_P (label))
     {
-      rtx r = gen_label_rtx ();
+      rtx_code_label *r = gen_label_rtx ();
       SET_DECL_RTL (label, r);
       if (FORCED_LABEL (label) || DECL_NONLOCAL (label))
 	LABEL_PRESERVE_P (r) = 1;
@@ -141,12 +161,12 @@ label_rtx (tree label)
 rtx
 force_label_rtx (tree label)
 {
-  rtx ref = label_rtx (label);
+  rtx_insn *ref = as_a <rtx_insn *> (label_rtx (label));
   tree function = decl_function_context (label);
 
   gcc_assert (function);
 
-  forced_labels = gen_rtx_EXPR_LIST (VOIDmode, ref, forced_labels);
+  forced_labels = gen_rtx_INSN_LIST (VOIDmode, ref, forced_labels);
   return ref;
 }
 
@@ -176,7 +196,7 @@ emit_jump (rtx label)
 void
 expand_label (tree label)
 {
-  rtx label_r = label_rtx (label);
+  rtx_insn *label_r = as_a <rtx_insn *> (label_rtx (label));
 
   do_pending_stack_adjust ();
   emit_label (label_r);
@@ -187,12 +207,12 @@ expand_label (tree label)
     {
       expand_builtin_setjmp_receiver (NULL);
       nonlocal_goto_handler_labels
-	= gen_rtx_EXPR_LIST (VOIDmode, label_r,
+	= gen_rtx_INSN_LIST (VOIDmode, label_r,
 			     nonlocal_goto_handler_labels);
     }
 
   if (FORCED_LABEL (label))
-    forced_labels = gen_rtx_EXPR_LIST (VOIDmode, label_r, forced_labels);
+    forced_labels = gen_rtx_INSN_LIST (VOIDmode, label_r, forced_labels);
 
   if (DECL_NONLOCAL (label) || FORCED_LABEL (label))
     maybe_set_first_label_num (label_r);
@@ -287,6 +307,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 	break;
 
       case '?':  case '!':  case '*':  case '&':  case '#':
+      case '$':  case '^':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':
       case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
@@ -321,13 +342,7 @@ parse_output_constraint (const char **constraint_p, int operand_num,
 	else if (insn_extra_memory_constraint (cn))
 	  *allows_mem = true;
 	else
-	  {
-	    /* Otherwise we can't assume anything about the nature of
-	       the constraint except that it isn't purely registers.
-	       Treat it like "g" and hope for the best.  */
-	    *allows_reg = true;
-	    *allows_mem = true;
-	  }
+	  insn_extra_constraint_allows_reg_mem (cn, allows_reg, allows_mem);
 	break;
       }
 
@@ -377,6 +392,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
 
       case '<':  case '>':
       case '?':  case '!':  case '*':  case '#':
+      case '$':  case '^':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':
       case 'I':  case 'J':  case 'K':  case 'L':  case 'M':
@@ -443,13 +459,7 @@ parse_input_constraint (const char **constraint_p, int input_num,
 	else if (insn_extra_memory_constraint (cn))
 	  *allows_mem = true;
 	else
-	  {
-	    /* Otherwise we can't assume anything about the nature of
-	       the constraint except that it isn't purely registers.
-	       Treat it like "g" and hope for the best.  */
-	    *allows_reg = true;
-	    *allows_mem = true;
-	  }
+	  insn_extra_constraint_allows_reg_mem (cn, allows_reg, allows_mem);
 	break;
       }
 
@@ -710,7 +720,7 @@ expand_naked_return (void)
 /* Generate code to jump to LABEL if OP0 and OP1 are equal in mode MODE. PROB
    is the probability of jumping to LABEL.  */
 static void
-do_jump_if_equal (enum machine_mode mode, rtx op0, rtx op1, rtx label,
+do_jump_if_equal (machine_mode mode, rtx op0, rtx op1, rtx label,
 		  int unsignedp, int prob)
 {
   gcc_assert (prob <= REG_BR_PROB_BASE);
@@ -881,7 +891,7 @@ emit_case_decision_tree (tree index_expr, tree index_type,
       && ! have_insn_for (COMPARE, GET_MODE (index)))
     {
       int unsignedp = TYPE_UNSIGNED (index_type);
-      enum machine_mode wider_mode;
+      machine_mode wider_mode;
       for (wider_mode = GET_MODE (index); wider_mode != VOIDmode;
 	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
 	if (have_insn_for (COMPARE, wider_mode))
@@ -971,7 +981,7 @@ emit_case_dispatch_table (tree index_expr, tree index_type,
   struct case_node *n;
   rtx *labelvec;
   rtx fallback_label = label_rtx (case_list->code_label);
-  rtx table_label = gen_label_rtx ();
+  rtx_code_label *table_label = gen_label_rtx ();
   bool has_gaps = false;
   edge default_edge = stmt_bb ? EDGE_SUCC (stmt_bb, 0) : NULL;
   int default_prob = default_edge ? default_edge->probability : 0;
@@ -1106,7 +1116,7 @@ reset_out_edges_aux (basic_block bb)
    STMT. Record this information in the aux field of the edge.  */
 
 static inline void
-compute_cases_per_edge (gimple stmt)
+compute_cases_per_edge (gswitch *stmt)
 {
   basic_block bb = gimple_bb (stmt);
   reset_out_edges_aux (bb);
@@ -1128,7 +1138,7 @@ compute_cases_per_edge (gimple stmt)
    Generate the code to test it and jump to the right place.  */
 
 void
-expand_case (gimple stmt)
+expand_case (gswitch *stmt)
 {
   tree minval = NULL_TREE, maxval = NULL_TREE, range = NULL_TREE;
   rtx default_label = NULL_RTX;
@@ -1183,7 +1193,7 @@ expand_case (gimple stmt)
      how to expand this switch().  */
   uniq = 0;
   count = 0;
-  struct pointer_set_t *seen_labels = pointer_set_create ();
+  hash_set<tree> seen_labels;
   compute_cases_per_edge (stmt);
 
   for (i = ncases - 1; i >= 1; --i)
@@ -1203,7 +1213,7 @@ expand_case (gimple stmt)
 
       /* If we have not seen this label yet, then increase the
 	 number of unique case node targets seen.  */
-      if (!pointer_set_insert (seen_labels, lab))
+      if (!seen_labels.add (lab))
 	uniq++;
 
       /* The bounds on the case range, LOW and HIGH, have to be converted
@@ -1231,7 +1241,6 @@ expand_case (gimple stmt)
           case_edge->probability / (intptr_t)(case_edge->aux),
           case_node_pool);
     }
-  pointer_set_destroy (seen_labels);
   reset_out_edges_aux (bb);
 
   /* cleanup_tree_cfg removes all SWITCH_EXPR with a single
@@ -1240,7 +1249,7 @@ expand_case (gimple stmt)
      type, so we should never get a zero here.  */
   gcc_assert (count > 0);
 
-  rtx before_case = get_last_insn ();
+  rtx_insn *before_case = get_last_insn ();
 
   /* Decide how to expand this switch.
      The two options at this point are a dispatch table (casesi or
@@ -1279,12 +1288,12 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
 			    vec<tree> dispatch_table)
 {
   tree index_type = integer_type_node;
-  enum machine_mode index_mode = TYPE_MODE (index_type);
+  machine_mode index_mode = TYPE_MODE (index_type);
 
   int ncases = dispatch_table.length ();
 
   do_pending_stack_adjust ();
-  rtx before_case = get_last_insn ();
+  rtx_insn *before_case = get_last_insn ();
 
   /* Expand as a decrement-chain if there are 5 or fewer dispatch
      labels.  This covers more than 98% of the cases in libjava,
@@ -1332,7 +1341,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
       tree minval = build_int_cst (index_type, 0);
       tree maxval = CASE_LOW (dispatch_table.last ());
       tree range = maxval;
-      rtx default_label = gen_label_rtx ();
+      rtx_code_label *default_label = gen_label_rtx ();
 
       for (int i = ncases - 1; i >= 0; --i)
 	{
@@ -1590,8 +1599,8 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
   int unsignedp = TYPE_UNSIGNED (index_type);
   int probability;
   int prob = node->prob, subtree_prob = node->subtree_prob;
-  enum machine_mode mode = GET_MODE (index);
-  enum machine_mode imode = TYPE_MODE (index_type);
+  machine_mode mode = GET_MODE (index);
+  machine_mode imode = TYPE_MODE (index_type);
 
   /* Handle indices detected as constant during RTL expansion.  */
   if (mode == VOIDmode)
@@ -1701,7 +1710,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      tree test_label
 		= build_decl (curr_insn_location (),
-			      LABEL_DECL, NULL_TREE, NULL_TREE);
+			      LABEL_DECL, NULL_TREE, void_type_node);
 
               /* The default label could be reached either through the right
                  subtree or the left subtree. Divide the probability
@@ -1860,7 +1869,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 		 Branch to a label where we will handle it later.  */
 
 	      test_label = build_decl (curr_insn_location (),
-				       LABEL_DECL, NULL_TREE, NULL_TREE);
+				       LABEL_DECL, NULL_TREE, void_type_node);
               probability = conditional_probability (
                   node->right->subtree_prob + default_prob/2,
                   subtree_prob + default_prob);

@@ -492,6 +492,26 @@ func syncDecl(p *parser) {
 	}
 }
 
+// safePos returns a valid file position for a given position: If pos
+// is valid to begin with, safePos returns pos. If pos is out-of-range,
+// safePos returns the EOF position.
+//
+// This is hack to work around "artificial" end positions in the AST which
+// are computed by adding 1 to (presumably valid) token positions. If the
+// token positions are invalid due to parse errors, the resulting end position
+// may be past the file's EOF position, which would lead to panics if used
+// later on.
+//
+func (p *parser) safePos(pos token.Pos) (res token.Pos) {
+	defer func() {
+		if recover() != nil {
+			res = token.Pos(p.file.Base() + p.file.Size()) // EOF position
+		}
+	}()
+	_ = p.file.Offset(pos) // trigger a panic if position is out-of-range
+	return pos
+}
+
 // ----------------------------------------------------------------------------
 // Identifiers
 
@@ -621,6 +641,7 @@ func (p *parser) parseArrayType() ast.Expr {
 	}
 
 	lbrack := p.expect(token.LBRACK)
+	p.exprLev++
 	var len ast.Expr
 	// always permit ellipsis for more fault-tolerant parsing
 	if p.tok == token.ELLIPSIS {
@@ -629,6 +650,7 @@ func (p *parser) parseArrayType() ast.Expr {
 	} else if p.tok != token.RBRACK {
 		len = p.parseRhs()
 	}
+	p.exprLev--
 	p.expect(token.RBRACK)
 	elt := p.parseType()
 
@@ -679,7 +701,7 @@ func (p *parser) parseFieldDecl(scope *ast.Scope) *ast.Field {
 		if n := len(list); n > 1 || !isTypeName(deref(typ)) {
 			pos := typ.Pos()
 			p.errorExpected(pos, "anonymous field")
-			typ = &ast.BadExpr{From: pos, To: list[n-1].End()}
+			typ = &ast.BadExpr{From: pos, To: p.safePos(list[n-1].End())}
 		}
 	}
 
@@ -803,9 +825,10 @@ func (p *parser) parseParameterList(scope *ast.Scope, ellipsisOk bool) (params [
 		// parameter or result variable is the function body.
 		p.declare(field, nil, scope, ast.Var, idents...)
 		p.resolve(typ)
-		if p.tok == token.COMMA {
-			p.next()
+		if !p.atComma("parameter list") {
+			return
 		}
+		p.next()
 		for p.tok != token.RPAREN && p.tok != token.EOF {
 			idents := p.parseIdentList()
 			typ := p.parseVarType(ellipsisOk)
@@ -820,15 +843,15 @@ func (p *parser) parseParameterList(scope *ast.Scope, ellipsisOk bool) (params [
 			}
 			p.next()
 		}
-	} else {
-		// Type { "," Type } (anonymous parameters)
-		params = make([]*ast.Field, len(list))
-		for i, typ := range list {
-			p.resolve(typ)
-			params[i] = &ast.Field{Type: typ}
-		}
+		return
 	}
 
+	// Type { "," Type } (anonymous parameters)
+	params = make([]*ast.Field, len(list))
+	for i, typ := range list {
+		p.resolve(typ)
+		params[i] = &ast.Field{Type: typ}
+	}
 	return
 }
 
@@ -1337,7 +1360,7 @@ func (p *parser) checkExpr(x ast.Expr) ast.Expr {
 	default:
 		// all other nodes are not proper expressions
 		p.errorExpected(x.Pos(), "expression")
-		x = &ast.BadExpr{From: x.Pos(), To: x.End()}
+		x = &ast.BadExpr{From: x.Pos(), To: p.safePos(x.End())}
 	}
 	return x
 }
@@ -1400,7 +1423,7 @@ func (p *parser) checkExprOrType(x ast.Expr) ast.Expr {
 	case *ast.ArrayType:
 		if len, isEllipsis := t.Len.(*ast.Ellipsis); isEllipsis {
 			p.error(len.Pos(), "expected array length, found '...'")
-			x = &ast.BadExpr{From: x.Pos(), To: x.End()}
+			x = &ast.BadExpr{From: x.Pos(), To: p.safePos(x.End())}
 		}
 	}
 
@@ -1686,14 +1709,14 @@ func (p *parser) parseSimpleStmt(mode int) (ast.Stmt, bool) {
 	return &ast.ExprStmt{X: x[0]}, false
 }
 
-func (p *parser) parseCallExpr() *ast.CallExpr {
+func (p *parser) parseCallExpr(callType string) *ast.CallExpr {
 	x := p.parseRhsOrType() // could be a conversion: (some type)(x)
 	if call, isCall := x.(*ast.CallExpr); isCall {
 		return call
 	}
 	if _, isBad := x.(*ast.BadExpr); !isBad {
 		// only report error if it's a new one
-		p.errorExpected(x.Pos(), "function/method call")
+		p.error(p.safePos(x.End()), fmt.Sprintf("function must be invoked in %s statement", callType))
 	}
 	return nil
 }
@@ -1704,7 +1727,7 @@ func (p *parser) parseGoStmt() ast.Stmt {
 	}
 
 	pos := p.expect(token.GO)
-	call := p.parseCallExpr()
+	call := p.parseCallExpr("go")
 	p.expectSemi()
 	if call == nil {
 		return &ast.BadStmt{From: pos, To: pos + 2} // len("go")
@@ -1719,7 +1742,7 @@ func (p *parser) parseDeferStmt() ast.Stmt {
 	}
 
 	pos := p.expect(token.DEFER)
-	call := p.parseCallExpr()
+	call := p.parseCallExpr("defer")
 	p.expectSemi()
 	if call == nil {
 		return &ast.BadStmt{From: pos, To: pos + 5} // len("defer")
@@ -1770,7 +1793,7 @@ func (p *parser) makeExpr(s ast.Stmt, kind string) ast.Expr {
 		return p.checkExpr(es.X)
 	}
 	p.error(s.Pos(), fmt.Sprintf("expected %s, found simple statement (missing parentheses around composite literal?)", kind))
-	return &ast.BadExpr{From: s.Pos(), To: s.End()}
+	return &ast.BadExpr{From: s.Pos(), To: p.safePos(s.End())}
 }
 
 func (p *parser) parseIfStmt() *ast.IfStmt {
@@ -2021,7 +2044,16 @@ func (p *parser) parseForStmt() ast.Stmt {
 		prevLev := p.exprLev
 		p.exprLev = -1
 		if p.tok != token.SEMICOLON {
-			s2, isRange = p.parseSimpleStmt(rangeOk)
+			if p.tok == token.RANGE {
+				// "for range x" (nil lhs in assignment)
+				pos := p.pos
+				p.next()
+				y := []ast.Expr{&ast.UnaryExpr{OpPos: pos, Op: token.RANGE, X: p.parseRhs()}}
+				s2 = &ast.AssignStmt{Rhs: y}
+				isRange = true
+			} else {
+				s2, isRange = p.parseSimpleStmt(rangeOk)
+			}
 		}
 		if !isRange && p.tok == token.SEMICOLON {
 			p.next()
@@ -2046,13 +2078,15 @@ func (p *parser) parseForStmt() ast.Stmt {
 		// check lhs
 		var key, value ast.Expr
 		switch len(as.Lhs) {
-		case 2:
-			key, value = as.Lhs[0], as.Lhs[1]
+		case 0:
+			// nothing to do
 		case 1:
 			key = as.Lhs[0]
+		case 2:
+			key, value = as.Lhs[0], as.Lhs[1]
 		default:
-			p.errorExpected(as.Lhs[0].Pos(), "1 or 2 expressions")
-			return &ast.BadStmt{From: pos, To: body.End()}
+			p.errorExpected(as.Lhs[len(as.Lhs)-1].Pos(), "at most 2 expressions")
+			return &ast.BadStmt{From: pos, To: p.safePos(body.End())}
 		}
 		// parseSimpleStmt returned a right-hand side that
 		// is a single unary expression of the form "range x"
@@ -2276,36 +2310,6 @@ func (p *parser) parseGenDecl(keyword token.Token, f parseSpecFunction) *ast.Gen
 	}
 }
 
-func (p *parser) parseReceiver(scope *ast.Scope) *ast.FieldList {
-	if p.trace {
-		defer un(trace(p, "Receiver"))
-	}
-
-	par := p.parseParameters(scope, false)
-
-	// must have exactly one receiver
-	if par.NumFields() != 1 {
-		p.errorExpected(par.Opening, "exactly one receiver")
-		par.List = []*ast.Field{{Type: &ast.BadExpr{From: par.Opening, To: par.Closing + 1}}}
-		return par
-	}
-
-	// recv type must be of the form ["*"] identifier
-	recv := par.List[0]
-	base := deref(recv.Type)
-	if _, isIdent := base.(*ast.Ident); !isIdent {
-		if _, isBad := base.(*ast.BadExpr); !isBad {
-			// only report error if it's a new one
-			p.errorExpected(base.Pos(), "(unqualified) identifier")
-		}
-		par.List = []*ast.Field{
-			{Type: &ast.BadExpr{From: recv.Pos(), To: recv.End()}},
-		}
-	}
-
-	return par
-}
-
 func (p *parser) parseFuncDecl() *ast.FuncDecl {
 	if p.trace {
 		defer un(trace(p, "FunctionDecl"))
@@ -2317,7 +2321,7 @@ func (p *parser) parseFuncDecl() *ast.FuncDecl {
 
 	var recv *ast.FieldList
 	if p.tok == token.LPAREN {
-		recv = p.parseReceiver(scope)
+		recv = p.parseParameters(scope, false)
 	}
 
 	ident := p.parseIdent()

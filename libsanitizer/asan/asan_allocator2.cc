@@ -19,6 +19,7 @@
 #include "asan_report.h"
 #include "asan_stack.h"
 #include "asan_thread.h"
+#include "sanitizer_common/sanitizer_allocator_interface.h"
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_internal_defs.h"
 #include "sanitizer_common/sanitizer_list.h"
@@ -165,23 +166,6 @@ struct AsanChunk: ChunkBase {
     }
     return reinterpret_cast<void*>(Beg() - RZLog2Size(rz_log));
   }
-  // If we don't use stack depot, we store the alloc/free stack traces
-  // in the chunk itself.
-  u32 *AllocStackBeg() {
-    return (u32*)(Beg() - RZLog2Size(rz_log));
-  }
-  uptr AllocStackSize() {
-    CHECK_LE(RZLog2Size(rz_log), kChunkHeaderSize);
-    return (RZLog2Size(rz_log) - kChunkHeaderSize) / sizeof(u32);
-  }
-  u32 *FreeStackBeg() {
-    return (u32*)(Beg() + kChunkHeader2Size);
-  }
-  uptr FreeStackSize() {
-    if (user_requested_size < kChunkHeader2Size) return 0;
-    uptr available = RoundUpTo(user_requested_size, SHADOW_GRANULARITY);
-    return (available - kChunkHeader2Size) / sizeof(u32);
-  }
   bool AddrIsInside(uptr addr, bool locked_version = false) {
     return (addr >= Beg()) && (addr < Beg() + UsedSize(locked_version));
   }
@@ -196,20 +180,19 @@ uptr AsanChunkView::UsedSize() { return chunk_->UsedSize(); }
 uptr AsanChunkView::AllocTid() { return chunk_->alloc_tid; }
 uptr AsanChunkView::FreeTid() { return chunk_->free_tid; }
 
-static void GetStackTraceFromId(u32 id, StackTrace *stack) {
+static StackTrace GetStackTraceFromId(u32 id) {
   CHECK(id);
-  uptr size = 0;
-  const uptr *trace = StackDepotGet(id, &size);
-  CHECK(trace);
-  stack->CopyFrom(trace, size);
+  StackTrace res = StackDepotGet(id);
+  CHECK(res.trace);
+  return res;
 }
 
-void AsanChunkView::GetAllocStack(StackTrace *stack) {
-  GetStackTraceFromId(chunk_->alloc_context_id, stack);
+StackTrace AsanChunkView::GetAllocStack() {
+  return GetStackTraceFromId(chunk_->alloc_context_id);
 }
 
-void AsanChunkView::GetFreeStack(StackTrace *stack) {
-  GetStackTraceFromId(chunk_->free_context_id, stack);
+StackTrace AsanChunkView::GetFreeStack() {
+  return GetStackTraceFromId(chunk_->free_context_id);
 }
 
 struct QuarantineCallback;
@@ -277,7 +260,7 @@ void ReInitializeAllocator() {
   quarantine.Init((uptr)flags()->quarantine_size, kMaxThreadLocalQuarantine);
 }
 
-static void *Allocate(uptr size, uptr alignment, StackTrace *stack,
+static void *Allocate(uptr size, uptr alignment, BufferedStackTrace *stack,
                       AllocType alloc_type, bool can_fill) {
   if (UNLIKELY(!asan_inited))
     AsanInitFromRtl();
@@ -369,7 +352,7 @@ static void *Allocate(uptr size, uptr alignment, StackTrace *stack,
     meta[1] = chunk_beg;
   }
 
-  m->alloc_context_id = StackDepotPut(stack->trace, stack->size);
+  m->alloc_context_id = StackDepotPut(*stack);
 
   uptr size_rounded_down_to_granularity = RoundDownTo(size, SHADOW_GRANULARITY);
   // Unpoison the bulk of the memory region.
@@ -405,15 +388,16 @@ static void *Allocate(uptr size, uptr alignment, StackTrace *stack,
   return res;
 }
 
-static void ReportInvalidFree(void *ptr, u8 chunk_state, StackTrace *stack) {
+static void ReportInvalidFree(void *ptr, u8 chunk_state,
+                              BufferedStackTrace *stack) {
   if (chunk_state == CHUNK_QUARANTINE)
     ReportDoubleFree((uptr)ptr, stack);
   else
     ReportFreeNotMalloced((uptr)ptr, stack);
 }
 
-static void AtomicallySetQuarantineFlag(AsanChunk *m,
-                                        void *ptr, StackTrace *stack) {
+static void AtomicallySetQuarantineFlag(AsanChunk *m, void *ptr,
+                                        BufferedStackTrace *stack) {
   u8 old_chunk_state = CHUNK_ALLOCATED;
   // Flip the chunk_state atomically to avoid race on double-free.
   if (!atomic_compare_exchange_strong((atomic_uint8_t*)m, &old_chunk_state,
@@ -424,8 +408,8 @@ static void AtomicallySetQuarantineFlag(AsanChunk *m,
 
 // Expects the chunk to already be marked as quarantined by using
 // AtomicallySetQuarantineFlag.
-static void QuarantineChunk(AsanChunk *m, void *ptr,
-                            StackTrace *stack, AllocType alloc_type) {
+static void QuarantineChunk(AsanChunk *m, void *ptr, BufferedStackTrace *stack,
+                            AllocType alloc_type) {
   CHECK_EQ(m->chunk_state, CHUNK_QUARANTINE);
 
   if (m->alloc_type != alloc_type && flags()->alloc_dealloc_mismatch)
@@ -437,7 +421,7 @@ static void QuarantineChunk(AsanChunk *m, void *ptr,
     CHECK_EQ(m->free_tid, kInvalidTid);
   AsanThread *t = GetCurrentThread();
   m->free_tid = t ? t->tid() : 0;
-  m->free_context_id = StackDepotPut(stack->trace, stack->size);
+  m->free_context_id = StackDepotPut(*stack);
   // Poison the region.
   PoisonShadow(m->Beg(),
                RoundUpTo(m->UsedSize(), SHADOW_GRANULARITY),
@@ -461,19 +445,25 @@ static void QuarantineChunk(AsanChunk *m, void *ptr,
   }
 }
 
-static void Deallocate(void *ptr, StackTrace *stack, AllocType alloc_type) {
+static void Deallocate(void *ptr, uptr delete_size, BufferedStackTrace *stack,
+                       AllocType alloc_type) {
   uptr p = reinterpret_cast<uptr>(ptr);
   if (p == 0) return;
 
   uptr chunk_beg = p - kChunkHeaderSize;
   AsanChunk *m = reinterpret_cast<AsanChunk *>(chunk_beg);
+  if (delete_size && flags()->new_delete_type_mismatch &&
+      delete_size != m->UsedSize()) {
+    ReportNewDeleteSizeMismatch(p, delete_size, stack);
+  }
   ASAN_FREE_HOOK(ptr);
   // Must mark the chunk as quarantined before any changes to its metadata.
   AtomicallySetQuarantineFlag(m, ptr, stack);
   QuarantineChunk(m, ptr, stack, alloc_type);
 }
 
-static void *Reallocate(void *old_ptr, uptr new_size, StackTrace *stack) {
+static void *Reallocate(void *old_ptr, uptr new_size,
+                        BufferedStackTrace *stack) {
   CHECK(old_ptr && new_size);
   uptr p = reinterpret_cast<uptr>(old_ptr);
   uptr chunk_beg = p - kChunkHeaderSize;
@@ -493,7 +483,7 @@ static void *Reallocate(void *old_ptr, uptr new_size, StackTrace *stack) {
     // If realloc() races with free(), we may start copying freed memory.
     // However, we will report racy double-free later anyway.
     REAL(memcpy)(new_ptr, old_ptr, memcpy_size);
-    Deallocate(old_ptr, stack, FROM_MALLOC);
+    Deallocate(old_ptr, 0, stack, FROM_MALLOC);
   }
   return new_ptr;
 }
@@ -586,20 +576,25 @@ void PrintInternalAllocatorStats() {
   allocator.PrintStats();
 }
 
-void *asan_memalign(uptr alignment, uptr size, StackTrace *stack,
+void *asan_memalign(uptr alignment, uptr size, BufferedStackTrace *stack,
                     AllocType alloc_type) {
   return Allocate(size, alignment, stack, alloc_type, true);
 }
 
-void asan_free(void *ptr, StackTrace *stack, AllocType alloc_type) {
-  Deallocate(ptr, stack, alloc_type);
+void asan_free(void *ptr, BufferedStackTrace *stack, AllocType alloc_type) {
+  Deallocate(ptr, 0, stack, alloc_type);
 }
 
-void *asan_malloc(uptr size, StackTrace *stack) {
+void asan_sized_free(void *ptr, uptr size, BufferedStackTrace *stack,
+                     AllocType alloc_type) {
+  Deallocate(ptr, size, stack, alloc_type);
+}
+
+void *asan_malloc(uptr size, BufferedStackTrace *stack) {
   return Allocate(size, 8, stack, FROM_MALLOC, true);
 }
 
-void *asan_calloc(uptr nmemb, uptr size, StackTrace *stack) {
+void *asan_calloc(uptr nmemb, uptr size, BufferedStackTrace *stack) {
   if (CallocShouldReturnNullDueToOverflow(size, nmemb))
     return AllocatorReturnNull();
   void *ptr = Allocate(nmemb * size, 8, stack, FROM_MALLOC, false);
@@ -610,21 +605,21 @@ void *asan_calloc(uptr nmemb, uptr size, StackTrace *stack) {
   return ptr;
 }
 
-void *asan_realloc(void *p, uptr size, StackTrace *stack) {
+void *asan_realloc(void *p, uptr size, BufferedStackTrace *stack) {
   if (p == 0)
     return Allocate(size, 8, stack, FROM_MALLOC, true);
   if (size == 0) {
-    Deallocate(p, stack, FROM_MALLOC);
+    Deallocate(p, 0, stack, FROM_MALLOC);
     return 0;
   }
   return Reallocate(p, size, stack);
 }
 
-void *asan_valloc(uptr size, StackTrace *stack) {
+void *asan_valloc(uptr size, BufferedStackTrace *stack) {
   return Allocate(size, GetPageSizeCached(), stack, FROM_MALLOC, true);
 }
 
-void *asan_pvalloc(uptr size, StackTrace *stack) {
+void *asan_pvalloc(uptr size, BufferedStackTrace *stack) {
   uptr PageSize = GetPageSizeCached();
   size = RoundUpTo(size, PageSize);
   if (size == 0) {
@@ -635,7 +630,7 @@ void *asan_pvalloc(uptr size, StackTrace *stack) {
 }
 
 int asan_posix_memalign(void **memptr, uptr alignment, uptr size,
-                        StackTrace *stack) {
+                        BufferedStackTrace *stack) {
   void *ptr = Allocate(size, alignment, stack, FROM_MALLOC, true);
   CHECK(IsAligned((uptr)ptr, alignment));
   *memptr = ptr;
@@ -758,23 +753,23 @@ using namespace __asan;  // NOLINT
 
 // ASan allocator doesn't reserve extra bytes, so normally we would
 // just return "size". We don't want to expose our redzone sizes, etc here.
-uptr __asan_get_estimated_allocated_size(uptr size) {
+uptr __sanitizer_get_estimated_allocated_size(uptr size) {
   return size;
 }
 
-int __asan_get_ownership(const void *p) {
+int __sanitizer_get_ownership(const void *p) {
   uptr ptr = reinterpret_cast<uptr>(p);
   return (AllocationSize(ptr) > 0);
 }
 
-uptr __asan_get_allocated_size(const void *p) {
+uptr __sanitizer_get_allocated_size(const void *p) {
   if (p == 0) return 0;
   uptr ptr = reinterpret_cast<uptr>(p);
   uptr allocated_size = AllocationSize(ptr);
   // Die if p is not malloced or if it is already freed.
   if (allocated_size == 0) {
     GET_STACK_TRACE_FATAL_HERE;
-    ReportAsanGetAllocatedSizeNotOwned(ptr, &stack);
+    ReportSanitizerGetAllocatedSizeNotOwned(ptr, &stack);
   }
   return allocated_size;
 }
@@ -783,12 +778,12 @@ uptr __asan_get_allocated_size(const void *p) {
 // Provide default (no-op) implementation of malloc hooks.
 extern "C" {
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
-void __asan_malloc_hook(void *ptr, uptr size) {
+void __sanitizer_malloc_hook(void *ptr, uptr size) {
   (void)ptr;
   (void)size;
 }
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
-void __asan_free_hook(void *ptr) {
+void __sanitizer_free_hook(void *ptr) {
   (void)ptr;
 }
 }  // extern "C"

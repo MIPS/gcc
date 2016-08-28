@@ -1,5 +1,5 @@
 /* Header file for any pass which requires SSA routines.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,7 +35,7 @@ typedef vec<edge_var_map, va_heap, vl_embed> edge_var_map_vector;
 extern void redirect_edge_var_map_add (edge, tree, tree, source_location);
 extern void redirect_edge_var_map_clear (edge);
 extern void redirect_edge_var_map_dup (edge, edge);
-extern edge_var_map_vector *redirect_edge_var_map_vector (edge);
+extern vec<edge_var_map> *redirect_edge_var_map_vector (edge);
 extern void redirect_edge_var_map_destroy (void);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
@@ -51,7 +51,7 @@ extern void delete_tree_ssa (void);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern tree tree_ssa_strip_useless_type_conversions (tree);
 
-extern bool ssa_undefined_value_p (tree);
+extern bool ssa_undefined_value_p (tree, bool = true);
 extern void execute_update_addresses_taken (void);
 
 /* Given an edge_var_map V, return the PHI arg definition.  */

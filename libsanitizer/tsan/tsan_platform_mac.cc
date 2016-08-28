@@ -45,7 +45,7 @@ uptr GetShadowMemoryConsumption() {
 void FlushShadowMemory() {
 }
 
-void WriteMemoryProfile(char *buf, uptr buf_size) {
+void WriteMemoryProfile(char *buf, uptr buf_size, uptr nthread, uptr nlive) {
 }
 
 uptr GetRSS() {
@@ -54,39 +54,25 @@ uptr GetRSS() {
 
 #ifndef TSAN_GO
 void InitializeShadowMemory() {
-  uptr shadow = (uptr)MmapFixedNoReserve(kLinuxShadowBeg,
-    kLinuxShadowEnd - kLinuxShadowBeg);
-  if (shadow != kLinuxShadowBeg) {
+  uptr shadow = (uptr)MmapFixedNoReserve(kShadowBeg,
+    kShadowEnd - kShadowBeg);
+  if (shadow != kShadowBeg) {
     Printf("FATAL: ThreadSanitizer can not mmap the shadow memory\n");
     Printf("FATAL: Make sure to compile with -fPIE and "
            "to link with -pie.\n");
     Die();
   }
-  DPrintf("kLinuxShadow %zx-%zx (%zuGB)\n",
-      kLinuxShadowBeg, kLinuxShadowEnd,
-      (kLinuxShadowEnd - kLinuxShadowBeg) >> 30);
-  DPrintf("kLinuxAppMem %zx-%zx (%zuGB)\n",
-      kLinuxAppMemBeg, kLinuxAppMemEnd,
-      (kLinuxAppMemEnd - kLinuxAppMemBeg) >> 30);
+  DPrintf("kShadow %zx-%zx (%zuGB)\n",
+      kShadowBeg, kShadowEnd,
+      (kShadowEnd - kShadowBeg) >> 30);
+  DPrintf("kAppMem %zx-%zx (%zuGB)\n",
+      kAppMemBeg, kAppMemEnd,
+      (kAppMemEnd - kAppMemBeg) >> 30);
 }
 #endif
 
-const char *InitializePlatform() {
-  void *p = 0;
-  if (sizeof(p) == 8) {
-    // Disable core dumps, dumping of 16TB usually takes a bit long.
-    // The following magic is to prevent clang from replacing it with memset.
-    volatile rlimit lim;
-    lim.rlim_cur = 0;
-    lim.rlim_max = 0;
-    setrlimit(RLIMIT_CORE, (rlimit*)&lim);
-  }
-
-  return GetEnv(kTsanOptionsEnv);
-}
-
-void FinalizePlatform() {
-  fflush(0);
+void InitializePlatform() {
+  DisableCoreDumperIfNecessary();
 }
 
 #ifndef TSAN_GO

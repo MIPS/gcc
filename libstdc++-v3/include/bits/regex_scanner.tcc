@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -83,7 +83,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       else if (_M_state == _S_state_in_brace)
 	_M_scan_in_brace();
       else
-	_GLIBCXX_DEBUG_ASSERT(false);
+	{
+	  _GLIBCXX_DEBUG_ASSERT(false);
+	}
     }
 
   // Differences between styles:

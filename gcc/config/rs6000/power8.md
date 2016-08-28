@@ -1,5 +1,5 @@
 ;; Scheduling description for IBM POWER8 processor.
-;; Copyright (C) 2013-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2015 Free Software Foundation, Inc.
 ;;
 ;; Contributed by Pat Haugen (pthaugen@us.ibm.com).
 
@@ -168,8 +168,8 @@
 
 ; FX Unit
 (define_insn_reservation "power8-1cyc" 1
-  (and (ior (eq_attr "type" "integer,insert,trap,exts,isel")
-	    (and (eq_attr "type" "add,logical,shift")
+  (and (ior (eq_attr "type" "integer,insert,trap,isel")
+	    (and (eq_attr "type" "add,logical,shift,exts")
 		 (eq_attr "dot" "no")))
        (eq_attr "cpu" "power8"))
   "DU_any_power8,FXU_power8")
@@ -212,12 +212,10 @@
        (eq_attr "cpu" "power8"))
   "DU_any_power8,FXU_power8")
 
-; compare : rldicl./exts./etc
-; shift with dot : rlwinm./slwi./rlwnm./slw./etc
+; exts/shift with dot : rldicl./exts./rlwinm./slwi./rlwnm./slw./etc
 (define_insn_reservation "power8-compare" 2
-  (and (ior (eq_attr "type" "compare")
-	    (and (eq_attr "type" "shift")
-		 (eq_attr "dot" "yes")))
+  (and (eq_attr "type" "shift,exts")
+       (eq_attr "dot" "yes")
        (eq_attr "cpu" "power8"))
   "DU_cracked_power8,FXU_power8,FXU_power8")
 

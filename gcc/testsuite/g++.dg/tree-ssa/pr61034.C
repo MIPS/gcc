@@ -5,6 +5,8 @@
 
 inline void* operator new(__SIZE_TYPE__ n){ return __builtin_malloc(n); }
 inline void operator delete(void *p) { __builtin_free(p); }
+// C++14 sized deallocation function
+inline void operator delete(void *p, __SIZE_TYPE__) { __builtin_free(p); }
 struct O {
     double num;
     int count;
@@ -40,6 +42,6 @@ bool f(I a, I b, I c, I d) {
 // This works only if everything is inlined into 'f'.
 
 // { dg-final { scan-tree-dump-times ";; Function" 1 "fre2" } }
-// { dg-final { scan-tree-dump-times "free" 19 "fre2" } }
+// { dg-final { scan-tree-dump-times "free" 18 "fre2" } }
 // { dg-final { scan-tree-dump-times "unreachable" 11 "fre2" } }
 // { dg-final { cleanup-tree-dump "fre2" } }

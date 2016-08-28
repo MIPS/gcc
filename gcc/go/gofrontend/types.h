@@ -8,6 +8,7 @@
 #define GO_TYPES_H
 
 #include "go-linemap.h"
+#include "escape.h"
 
 class Gogo;
 class Package;
@@ -81,7 +82,31 @@ static const int RUNTIME_TYPE_KIND_STRING = 24;
 static const int RUNTIME_TYPE_KIND_STRUCT = 25;
 static const int RUNTIME_TYPE_KIND_UNSAFE_POINTER = 26;
 
+static const int RUNTIME_TYPE_KIND_DIRECT_IFACE = (1 << 5);
+static const int RUNTIME_TYPE_KIND_GC_PROG = (1 << 6);
 static const int RUNTIME_TYPE_KIND_NO_POINTERS = (1 << 7);
+
+// GC instruction opcodes.  These must match the values in libgo/runtime/mgc0.h.
+enum GC_Opcode
+{
+  GC_END = 0,     // End of object, loop or subroutine.
+  GC_PTR,         // A typed pointer.
+  GC_APTR,        // Pointer to an arbitrary object.
+  GC_ARRAY_START, // Start an array with a fixed length.
+  GC_ARRAY_NEXT,  // The next element of an array.
+  GC_CALL,        // Call a subroutine.
+  GC_CHAN_PTR,    // Go channel.
+  GC_STRING,      // Go string.
+  GC_EFACE,       // interface{}.
+  GC_IFACE,       // interface{...}.
+  GC_SLICE,       // Go slice.
+  GC_REGION,      // A region/part of the current object.
+
+  GC_NUM_INSTR    // Number of instruction opcodes
+};
+
+// The GC Stack Capacity must match the value in libgo/runtime/mgc0.h.
+static const int GC_STACK_CAPACITY = 8;
 
 // To build the complete list of methods for a named type we need to
 // gather all methods from anonymous fields.  Those methods may
@@ -362,6 +387,10 @@ class Methods
   find(const std::string& name) const
   { return this->methods_.find(name); }
 
+  bool
+  empty() const
+  { return this->methods_.empty(); }
+
  private:
   Method_map methods_;
 };
@@ -590,13 +619,6 @@ class Type
   // *REASON.
   static bool
   are_convertible(const Type* lhs, const Type* rhs, std::string* reason);
-
-  // Whether this type has any hidden fields which are not visible in
-  // the current compilation, such as a field whose name begins with a
-  // lower case letter in a struct imported from a different package.
-  // WITHIN is not NULL if we are looking at fields in a named type.
-  bool
-  has_hidden_fields(const Named_type* within, std::string* reason) const;
 
   // Return true if values of this type can be compared using an
   // identity function which gets nothing but a pointer to the value
@@ -895,6 +917,10 @@ class Type
   Bexpression*
   type_descriptor_pointer(Gogo* gogo, Location);
 
+  // Build the Garbage Collection symbol for this type.  Return a pointer to it.
+  Bexpression*
+  gc_symbol_pointer(Gogo* gogo);
+
   // Return the type reflection string for this type.
   std::string
   reflection(Gogo*) const;
@@ -909,18 +935,18 @@ class Type
   // in bytes and return true.  Otherwise, return false.  This queries
   // the backend.
   bool
-  backend_type_size(Gogo*, unsigned long* psize);
+  backend_type_size(Gogo*, int64_t* psize);
 
   // If the alignment of the type can be determined, set *PALIGN to
   // the alignment in bytes and return true.  Otherwise, return false.
   bool
-  backend_type_align(Gogo*, unsigned long* palign);
+  backend_type_align(Gogo*, int64_t* palign);
 
   // If the alignment of a struct field of this type can be
   // determined, set *PALIGN to the alignment in bytes and return
   // true.  Otherwise, return false.
   bool
-  backend_type_field_align(Gogo*, unsigned long* palign);
+  backend_type_field_align(Gogo*, int64_t* palign);
 
   // Whether the backend size is known.
   bool
@@ -980,6 +1006,9 @@ class Type
   do_type_descriptor(Gogo*, Named_type* name) = 0;
 
   virtual void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int) = 0;
+
+  virtual void
   do_reflection(Gogo*, std::string*) const = 0;
 
   virtual void
@@ -1033,6 +1062,22 @@ class Type
   Expression*
   type_descriptor_constructor(Gogo*, int runtime_type_kind, Named_type*,
 			      const Methods*, bool only_value_methods);
+
+  // Generate the GC symbol for this TYPE.  VALS is the data so far in this
+  // symbol; extra values will be appended in do_gc_symbol.  OFFSET is the
+  // offset into the symbol where the GC data is located.  STACK_SIZE is the
+  // size of the GC stack when dealing with array types.
+  static void
+  gc_symbol(Gogo*, Type* type, Expression_list** vals, Expression** offset,
+	    int stack_size);
+
+  // Build a composite literal for the GC symbol of this type.
+  Expression*
+  gc_symbol_constructor(Gogo*);
+
+  // Advance the OFFSET of the GC symbol by the size of this type.
+  void
+  advance_gc_offset(Expression** offset);
 
   // For the benefit of child class reflection string generation.
   void
@@ -1105,6 +1150,16 @@ class Type
   void
   make_type_descriptor_var(Gogo*);
 
+  // Map unnamed types to type descriptor decls.
+  typedef Unordered_map_hash(const Type*, Bvariable*, Type_hash_identical,
+			     Type_identical) GC_symbol_vars;
+
+  static GC_symbol_vars gc_symbol_vars;
+
+  // Build the GC symbol for this type.
+  void
+  make_gc_symbol_var(Gogo*);
+
   // Return the name of the type descriptor variable.  If NAME is not
   // NULL, it is the name to use.
   std::string
@@ -1152,24 +1207,24 @@ class Type
   add_methods_for_type(const Type* type, const Method::Field_indexes*,
 		       unsigned int depth, bool, bool,
 		       std::vector<const Named_type*>*,
-		       Methods**);
+		       Methods*);
 
   static void
   add_local_methods_for_type(const Named_type* type,
 			     const Method::Field_indexes*,
-			     unsigned int depth, bool, bool, Methods**);
+			     unsigned int depth, bool, bool, Methods*);
 
   static void
   add_embedded_methods_for_type(const Type* type,
 				const Method::Field_indexes*,
 				unsigned int depth, bool, bool,
 				std::vector<const Named_type*>*,
-				Methods**);
+				Methods*);
 
   static void
   add_interface_methods_for_type(const Type* type,
 				 const Method::Field_indexes*,
-				 unsigned int depth, Methods**);
+				 unsigned int depth, Methods*);
 
   // Build stub methods for a type.
   static void
@@ -1232,6 +1287,9 @@ class Type
   // The type descriptor for this type.  This starts out as NULL and
   // is filled in as needed.
   Bvariable* type_descriptor_var_;
+  // The GC symbol for this type.  This starts out as NULL and
+  // is filled in as needed.
+  Bvariable* gc_symbol_var_;
 };
 
 // Type hash table operations.
@@ -1486,6 +1544,10 @@ protected:
   do_reflection(Gogo*, std::string*) const;
 
   void
+  do_gc_symbol(Gogo*, Expression_list**, Expression** offset, int)
+  { this->advance_gc_offset(offset); }
+
+  void
   do_mangled_name(Gogo*, std::string*) const;
 
  private:
@@ -1563,6 +1625,10 @@ class Float_type : public Type
   do_reflection(Gogo*, std::string*) const;
 
   void
+  do_gc_symbol(Gogo*, Expression_list**, Expression** offset, int)
+  { this->advance_gc_offset(offset); }
+
+  void
   do_mangled_name(Gogo*, std::string*) const;
 
  private:
@@ -1632,6 +1698,10 @@ class Complex_type : public Type
   do_reflection(Gogo*, std::string*) const;
 
   void
+  do_gc_symbol(Gogo*, Expression_list**, Expression** offset, int)
+  { this->advance_gc_offset(offset); }
+
+  void
   do_mangled_name(Gogo*, std::string*) const;
 
  private:
@@ -1681,6 +1751,9 @@ class String_type : public Type
   do_reflection(Gogo*, std::string*) const;
 
   void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
+
+  void
   do_mangled_name(Gogo*, std::string* ret) const;
 
  private:
@@ -1698,13 +1771,23 @@ class Function_type : public Type
     : Type(TYPE_FUNCTION),
       receiver_(receiver), parameters_(parameters), results_(results),
       location_(location), is_varargs_(false), is_builtin_(false),
-      fnbtype_(NULL)
+      has_escape_info_(false), fnbtype_(NULL), parameter_escape_states_(NULL)
   { }
 
   // Get the receiver.
   const Typed_identifier*
   receiver() const
   { return this->receiver_; }
+
+  // Get the escape state of the receiver.
+  const Node::Escapement_lattice&
+  receiver_escape_state() const
+  { return this->receiver_escape_state_; }
+
+  // Set the escape state of the receiver.
+  void
+  set_receiver_escape_state(const Node::Escapement_lattice& e)
+  { this->receiver_escape_state_ = e; }
 
   // Get the return names and types.
   const Typed_identifier_list*
@@ -1716,6 +1799,16 @@ class Function_type : public Type
   parameters() const
   { return this->parameters_; }
 
+  // Get the escape states associated with each parameter.
+  const Node::Escape_states*
+  parameter_escape_states() const
+  { return this->parameter_escape_states_; }
+
+  // Set the escape states of the parameters.
+  void
+  set_parameter_escape_states(Node::Escape_states* states)
+  { this->parameter_escape_states_ = states; }
+
   // Whether this is a varargs function.
   bool
   is_varargs() const
@@ -1725,6 +1818,11 @@ class Function_type : public Type
   bool
   is_builtin() const
   { return this->is_builtin_; }
+
+  // Whether this contains escape information.
+  bool
+  has_escape_info() const
+  { return this->has_escape_info_; }
 
   // The location where this type was defined.
   Location
@@ -1755,6 +1853,11 @@ class Function_type : public Type
   void
   set_is_builtin()
   { this->is_builtin_ = true; }
+
+  // Record that this has escape information.
+  void
+  set_has_escape_info()
+  { this->has_escape_info_ = true; }
 
   // Import a function type.
   static Function_type*
@@ -1816,6 +1919,9 @@ class Function_type : public Type
   do_reflection(Gogo*, std::string*) const;
 
   void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
+
+  void
   do_mangled_name(Gogo*, std::string*) const;
 
   void
@@ -1864,9 +1970,16 @@ class Function_type : public Type
   // Whether this is a special builtin function which can not simply
   // be called.  This is used for len, cap, etc.
   bool is_builtin_;
+  // Whether escape information for the receiver and parameters has been
+  // recorded.
+  bool has_escape_info_;
   // The backend representation of this type for backend function
   // declarations and definitions.
   Btype* fnbtype_;
+  // The escape state of the receiver.
+  Node::Escapement_lattice receiver_escape_state_;
+  // The escape states of each parameter.
+  Node::Escape_states* parameter_escape_states_;
 };
 
 // The type of a function's backend representation.
@@ -1930,6 +2043,9 @@ class Pointer_type : public Type
 
   void
   do_reflection(Gogo*, std::string*) const;
+
+  void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
 
   void
   do_mangled_name(Gogo*, std::string*) const;
@@ -2132,12 +2248,6 @@ class Struct_type : public Type
   bool
   is_identical(const Struct_type* t, bool errors_are_identical) const;
 
-  // Whether this struct type has any hidden fields.  This returns
-  // true if any fields have hidden names, or if any non-pointer
-  // anonymous fields have types with hidden fields.
-  bool
-  struct_has_hidden_fields(const Named_type* within, std::string*) const;
-
   // Return whether NAME is a local field which is not exported.  This
   // is only used for better error reporting.
   bool
@@ -2183,7 +2293,7 @@ class Struct_type : public Type
   // determined, set *POFFSET to the offset in bytes and return true.
   // Otherwise, return false.
   bool
-  backend_field_offset(Gogo*, unsigned int index, unsigned int* poffset);
+  backend_field_offset(Gogo*, unsigned int index, int64_t* poffset);
 
   // Finish the backend representation of all the fields.
   void
@@ -2228,6 +2338,9 @@ class Struct_type : public Type
 
   void
   do_reflection(Gogo*, std::string*) const;
+
+  void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
 
   void
   do_mangled_name(Gogo*, std::string*) const;
@@ -2279,7 +2392,8 @@ class Array_type : public Type
  public:
   Array_type(Type* element_type, Expression* length)
     : Type(TYPE_ARRAY),
-      element_type_(element_type), length_(length), blength_(NULL)
+      element_type_(element_type), length_(length), blength_(NULL),
+      issued_length_error_(false)
   { }
 
   // Return the element type.
@@ -2295,11 +2409,6 @@ class Array_type : public Type
   // Whether this type is identical with T.
   bool
   is_identical(const Array_type* t, bool errors_are_identical) const;
-
-  // Whether this type has any hidden fields.
-  bool
-  array_has_hidden_fields(const Named_type* within, std::string* reason) const
-  { return this->element_type_->has_hidden_fields(within, reason); }
 
   // Return an expression for the pointer to the values in an array.
   Expression*
@@ -2372,6 +2481,9 @@ class Array_type : public Type
   do_reflection(Gogo*, std::string*) const;
 
   void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
+
+  void
   do_mangled_name(Gogo*, std::string*) const;
 
   void
@@ -2387,6 +2499,12 @@ class Array_type : public Type
   Expression*
   slice_type_descriptor(Gogo*, Named_type*);
 
+  void
+  slice_gc_symbol(Gogo*, Expression_list**, Expression**, int);
+
+  void
+  array_gc_symbol(Gogo*, Expression_list**, Expression**, int);
+
   // The type of elements of the array.
   Type* element_type_;
   // The number of elements.  This may be NULL.
@@ -2394,6 +2512,9 @@ class Array_type : public Type
   // The backend representation of the length.
   // We only want to compute this once.
   Bexpression* blength_;
+  // Whether or not an invalid length error has been issued for this type,
+  // to avoid knock-on errors.
+  mutable bool issued_length_error_;
 };
 
 // The type of a map.
@@ -2462,6 +2583,9 @@ class Map_type : public Type
 
   void
   do_reflection(Gogo*, std::string*) const;
+
+  void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
 
   void
   do_mangled_name(Gogo*, std::string*) const;
@@ -2548,6 +2672,9 @@ class Channel_type : public Type
 
   void
   do_reflection(Gogo*, std::string*) const;
+
+  void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
 
   void
   do_mangled_name(Gogo*, std::string*) const;
@@ -2681,6 +2808,9 @@ class Interface_type : public Type
 
   void
   do_reflection(Gogo*, std::string*) const;
+
+  void
+  do_gc_symbol(Gogo*, Expression_list**, Expression**, int);
 
   void
   do_mangled_name(Gogo*, std::string*) const;
@@ -2832,6 +2962,11 @@ class Named_type : public Type
   bool
   is_alias() const;
 
+  // Whether this named type is valid.  A recursive named type is invalid.
+  bool
+  is_valid() const
+  { return !this->is_error_; }
+
   // Whether this is a circular type: a pointer or function type that
   // refers to itself, which is not possible in C.
   bool
@@ -2912,10 +3047,6 @@ class Named_type : public Type
   Expression*
   interface_method_table(Interface_type* interface, bool is_pointer);
 
-  // Whether this type has any hidden fields.
-  bool
-  named_type_has_hidden_fields(std::string* reason) const;
-
   // Note that a type must be converted to the backend representation
   // before we convert this type.
   void
@@ -2966,6 +3097,10 @@ class Named_type : public Type
 
   void
   do_reflection(Gogo*, std::string*) const;
+
+  void
+  do_gc_symbol(Gogo* gogo, Expression_list** vals, Expression** offset,
+	       int stack);
 
   void
   do_mangled_name(Gogo*, std::string* ret) const;
@@ -3031,10 +3166,10 @@ class Named_type : public Type
   bool is_circular_;
   // Whether this type has been verified.
   bool is_verified_;
-  // In a recursive operation such as has_hidden_fields, this flag is
-  // used to prevent infinite recursion when a type refers to itself.
-  // This is mutable because it is always reset to false when the
-  // function exits.
+  // In a recursive operation such as has_pointer, this flag is used
+  // to prevent infinite recursion when a type refers to itself.  This
+  // is mutable because it is always reset to false when the function
+  // exits.
   mutable bool seen_;
   // Like seen_, but used only by do_compare_is_identity.
   bool seen_in_compare_is_identity_;
@@ -3110,6 +3245,11 @@ class Forward_declaration_type : public Type
 
   void
   do_reflection(Gogo*, std::string*) const;
+
+  void
+  do_gc_symbol(Gogo* gogo, Expression_list** vals, Expression** offset,
+	       int stack_size)
+  { Type::gc_symbol(gogo, this->real_type(), vals, offset, stack_size); }
 
   void
   do_mangled_name(Gogo*, std::string* ret) const;

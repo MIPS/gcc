@@ -29,8 +29,12 @@
 -- <http://www.gnu.org/licenses/>.                                          --
 ------------------------------------------------------------------------------
 
+--  This is an optimized version of Indefinite_Holders using copy-on-write.
+--  It is used on platforms that support atomic built-ins.
+
 private with Ada.Finalization;
 private with Ada.Streams;
+
 private with System.Atomic_Counters;
 
 generic
@@ -64,7 +68,7 @@ package Ada.Containers.Indefinite_Holders is
      (Container : Holder;
       Process   : not null access procedure (Element : Element_Type));
    procedure Update_Element
-     (Container : Holder;
+     (Container : in out Holder;
       Process   : not null access procedure (Element : in out Element_Type));
 
    type Constant_Reference_Type
@@ -97,6 +101,7 @@ private
    use Ada.Streams;
 
    type Element_Access is access all Element_Type;
+   type Holder_Access is access all Holder;
 
    type Shared_Holder is record
       Counter : System.Atomic_Counters.Atomic_Counter;
@@ -129,9 +134,8 @@ private
    overriding procedure Adjust (Container : in out Holder);
    overriding procedure Finalize (Container : in out Holder);
 
-   type Reference_Control_Type is new Controlled with
-   record
-      Container : Shared_Holder_Access;
+   type Reference_Control_Type is new Controlled with record
+      Container : Holder_Access;
    end record;
 
    overriding procedure Adjust (Control : in out Reference_Control_Type);

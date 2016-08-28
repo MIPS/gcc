@@ -1,5 +1,5 @@
 ;; Machine description for SPARC chip for GCC
-;;  Copyright (C) 1987-2014 Free Software Foundation, Inc.
+;;  Copyright (C) 1987-2015 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -221,6 +221,7 @@
    hypersparc,
    leon,
    leon3,
+   leon3v7,
    sparclite,
    f930,
    f934,
@@ -2370,14 +2371,14 @@
 #if HOST_BITS_PER_WIDE_INT == 32
       gcc_unreachable ();
 #else
-      enum machine_mode mode = GET_MODE (operands[1]);
+      machine_mode mode = GET_MODE (operands[1]);
       rtx tem = simplify_subreg (DImode, operands[1], mode, 0);
       emit_insn (gen_movdi (operands[0], tem));
 #endif
     }
   else
     {
-      enum machine_mode mode = GET_MODE (operands[1]);
+      machine_mode mode = GET_MODE (operands[1]);
       rtx hi = simplify_subreg (SImode, operands[1], mode, 0);
       rtx lo = simplify_subreg (SImode, operands[1], mode, 4);
 

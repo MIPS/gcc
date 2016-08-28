@@ -1,5 +1,5 @@
 /* Chains of recurrences.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -26,9 +26,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "tree-pretty-print.h"
 #include "cfgloop.h"
+#include "predict.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "gimple-expr.h"
 #include "tree-ssa-loop-ivopts.h"
@@ -59,8 +78,8 @@ chrec_fold_poly_cst (enum tree_code code,
   gcc_assert (poly);
   gcc_assert (cst);
   gcc_assert (TREE_CODE (poly) == POLYNOMIAL_CHREC);
-  gcc_assert (!is_not_constant_evolution (cst));
-  gcc_assert (type == chrec_type (poly));
+  gcc_checking_assert (!is_not_constant_evolution (cst));
+  gcc_checking_assert (useless_type_conversion_p (type, chrec_type (poly)));
 
   switch (code)
     {
@@ -105,10 +124,11 @@ chrec_fold_plus_poly_poly (enum tree_code code,
   gcc_assert (TREE_CODE (poly0) == POLYNOMIAL_CHREC);
   gcc_assert (TREE_CODE (poly1) == POLYNOMIAL_CHREC);
   if (POINTER_TYPE_P (chrec_type (poly0)))
-    gcc_assert (ptrofftype_p (chrec_type (poly1)));
+    gcc_checking_assert (ptrofftype_p (chrec_type (poly1))
+			 && useless_type_conversion_p (type, chrec_type (poly0)));
   else
-    gcc_assert (chrec_type (poly0) == chrec_type (poly1));
-  gcc_assert (type == chrec_type (poly0));
+    gcc_checking_assert (useless_type_conversion_p (type, chrec_type (poly0))
+			 && useless_type_conversion_p (type, chrec_type (poly1)));
 
   /*
     {a, +, b}_1 + {c, +, d}_2  ->  {{a, +, b}_1 + c, +, d}_2,
@@ -189,8 +209,8 @@ chrec_fold_multiply_poly_poly (tree type,
   gcc_assert (poly1);
   gcc_assert (TREE_CODE (poly0) == POLYNOMIAL_CHREC);
   gcc_assert (TREE_CODE (poly1) == POLYNOMIAL_CHREC);
-  gcc_assert (chrec_type (poly0) == chrec_type (poly1));
-  gcc_assert (type == chrec_type (poly0));
+  gcc_checking_assert (useless_type_conversion_p (type, chrec_type (poly0))
+		       && useless_type_conversion_p (type, chrec_type (poly1)));
 
   /* {a, +, b}_1 * {c, +, d}_2  ->  {c*{a, +, b}_1, +, d}_2,
      {a, +, b}_2 * {c, +, d}_1  ->  {a*{c, +, d}_1, +, b}_2,
@@ -1333,7 +1353,7 @@ chrec_convert_1 (tree type, tree chrec, gimple at_stmt,
     return chrec;
 
   ct = chrec_type (chrec);
-  if (ct == type)
+  if (useless_type_conversion_p (type, ct))
     return chrec;
 
   if (!evolution_function_is_affine_p (chrec))

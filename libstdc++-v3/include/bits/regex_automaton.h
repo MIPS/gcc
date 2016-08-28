@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,6 +27,11 @@
  *  This is an internal header file, included by other library headers.
  *  Do not attempt to use it directly. @headername{regex}
  */
+
+// This macro defines the maximal state number a NFA can have.
+#ifndef _GLIBCXX_REGEX_STATE_LIMIT
+#define _GLIBCXX_REGEX_STATE_LIMIT 100000
+#endif
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -155,7 +160,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef _State<_TraitsT>				_StateT;
       typedef _Matcher<typename _TraitsT::char_type>	_MatcherT;
 
-      using _NFA_base::_NFA_base;
+      _NFA(const typename _TraitsT::locale_type& __loc, _FlagT __flags)
+      : _NFA_base(__flags)
+      { _M_traits.imbue(__loc); }
 
       // for performance reasons _NFA objects should only be moved not copied
       _NFA(const _NFA&) = delete;
@@ -254,6 +261,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _M_insert_state(_StateT __s)
       {
 	this->push_back(std::move(__s));
+	if (this->size() > _GLIBCXX_REGEX_STATE_LIMIT)
+	  __throw_regex_error(regex_constants::error_space);
 	return this->size()-1;
       }
 
@@ -265,6 +274,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       std::ostream&
       _M_dot(std::ostream& __ostr) const;
 #endif
+    public:
+      _TraitsT                  _M_traits;
     };
 
   /// Describes a sequence of one or more %_State, its current start

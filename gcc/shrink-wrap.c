@@ -1,5 +1,5 @@
 /* Shrink-wrapping related optimizations.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,22 +24,43 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl-error.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "flags.h"
 #include "except.h"
+#include "hard-reg-set.h"
 #include "function.h"
+#include "hashtab.h"
+#include "rtl.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "stmt.h"
 #include "expr.h"
+#include "insn-codes.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "regs.h"
-#include "hard-reg-set.h"
-#include "insn-config.h"
 #include "recog.h"
 #include "output.h"
-#include "hashtab.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "target.h"
@@ -48,11 +69,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "tree-pass.h"
 #include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "basic-block.h"
 #include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
 #include "shrink-wrap.h"
 #include "regcprop.h"
+#include "rtl-iter.h"
 
 #ifdef HAVE_simple_return
 
@@ -61,7 +87,7 @@ along with GCC; see the file COPYING3.  If not see
    prologue.  SET_UP_BY_PROLOGUE is the set of registers we expect the
    prologue to set up for the function.  */
 bool
-requires_stack_frame_p (rtx insn, HARD_REG_SET prologue_used,
+requires_stack_frame_p (rtx_insn *insn, HARD_REG_SET prologue_used,
 			HARD_REG_SET set_up_by_prologue)
 {
   df_ref def, use;
@@ -162,36 +188,115 @@ live_edge_for_reg (basic_block bb, int regno, int end_regno)
    is splitted or not.  */
 
 static bool
-move_insn_for_shrink_wrap (basic_block bb, rtx insn,
+move_insn_for_shrink_wrap (basic_block bb, rtx_insn *insn,
 			   const HARD_REG_SET uses,
 			   const HARD_REG_SET defs,
 			   bool *split_p)
 {
   rtx set, src, dest;
   bitmap live_out, live_in, bb_uses, bb_defs;
-  unsigned int i, dregno, end_dregno, sregno, end_sregno;
+  unsigned int i, dregno, end_dregno;
+  unsigned int sregno = FIRST_PSEUDO_REGISTER;
+  unsigned int end_sregno = FIRST_PSEUDO_REGISTER;
   basic_block next_block;
   edge live_edge;
 
-  /* Look for a simple register copy.  */
-  set = single_set (insn);
-  if (!set)
+  /* Look for a simple register assignment.  We don't use single_set here
+     because we can't deal with any CLOBBERs, USEs, or REG_UNUSED secondary
+     destinations.  */
+  if (!INSN_P (insn))
+    return false;
+  set = PATTERN (insn);
+  if (GET_CODE (set) != SET)
     return false;
   src = SET_SRC (set);
   dest = SET_DEST (set);
-  if (!REG_P (dest) || !REG_P (src)
-      /* STACK or FRAME related adjustment might be part of prologue.
-	 So keep them in the entry block.  */
+
+  /* For the destination, we want only a register.  Also disallow STACK
+     or FRAME related adjustments.  They are likely part of the prologue,
+     so keep them in the entry block.  */
+  if (!REG_P (dest)
       || dest == stack_pointer_rtx
       || dest == frame_pointer_rtx
       || dest == hard_frame_pointer_rtx)
     return false;
 
+  /* For the source, we want one of:
+      (1) A (non-overlapping) register
+      (2) A constant,
+      (3) An expression involving no more than one register.
+
+     That last point comes from the code following, which was originally
+     written to handle only register move operations, and still only handles
+     a single source register when checking for overlaps.  Happily, the
+     same checks can be applied to expressions like (plus reg const).  */
+
+  if (CONSTANT_P (src))
+    ;
+  else if (!REG_P (src))
+    {
+      rtx src_inner = NULL_RTX;
+
+      if (can_throw_internal (insn))
+	return false;
+
+      subrtx_var_iterator::array_type array;
+      FOR_EACH_SUBRTX_VAR (iter, array, src, ALL)
+	{
+	  rtx x = *iter;
+	  switch (GET_RTX_CLASS (GET_CODE (x)))
+	    {
+	    case RTX_CONST_OBJ:
+	    case RTX_COMPARE:
+	    case RTX_COMM_COMPARE:
+	    case RTX_BIN_ARITH:
+	    case RTX_COMM_ARITH:
+	    case RTX_UNARY:
+	    case RTX_TERNARY:
+	      /* Constant or expression.  Continue.  */
+	      break;
+
+	    case RTX_OBJ:
+	    case RTX_EXTRA:
+	      switch (GET_CODE (x))
+		{
+		case UNSPEC:
+		case SUBREG:
+		case STRICT_LOW_PART:
+		case PC:
+		case LO_SUM:
+		  /* Ok.  Continue.  */
+		  break;
+
+		case REG:
+		  /* Fail if we see a second inner register.  */
+		  if (src_inner != NULL)
+		    return false;
+		  src_inner = x;
+		  break;
+
+		default:
+		  return false;
+		}
+	      break;
+
+	    default:
+	      return false;
+	    }
+	}
+
+      if (src_inner != NULL)
+	src = src_inner;
+    }
+
   /* Make sure that the source register isn't defined later in BB.  */
-  sregno = REGNO (src);
-  end_sregno = END_REGNO (src);
-  if (overlaps_hard_reg_set_p (defs, GET_MODE (src), sregno))
-    return false;
+  if (REG_P (src))
+    {
+      sregno = REGNO (src);
+      end_sregno = END_REGNO (src);
+      if (overlaps_hard_reg_set_p (defs, GET_MODE (src), sregno))
+	return false;
+    }
 
   /* Make sure that the destination register isn't referenced later in BB.  */
   dregno = REGNO (dest);
@@ -217,16 +322,21 @@ move_insn_for_shrink_wrap (basic_block bb, rtx insn,
       if (!df_live)
 	return false;
 
+      basic_block old_dest = live_edge->dest;
       next_block = split_edge (live_edge);
 
       /* We create a new basic block.  Call df_grow_bb_info to make sure
 	 all data structures are allocated.  */
       df_grow_bb_info (df_live);
-      bitmap_copy (df_get_live_in (next_block), df_get_live_out (bb));
+
+      bitmap_and (df_get_live_in (next_block), df_get_live_out (bb),
+		  df_get_live_in (old_dest));
       df_set_bb_dirty (next_block);
 
       /* We should not split more than once for a function.  */
-      gcc_assert (!(*split_p));
+      if (*split_p)
+	return false;
+
       *split_p = true;
     }
 
@@ -331,7 +441,8 @@ move_insn_for_shrink_wrap (basic_block bb, rtx insn,
 void
 prepare_shrink_wrap (basic_block entry_block)
 {
-  rtx insn, curr, x;
+  rtx_insn *insn, *curr;
+  rtx x;
   HARD_REG_SET uses, defs;
   df_ref def, use;
   bool split_p = false;
@@ -373,12 +484,12 @@ prepare_shrink_wrap (basic_block entry_block)
 /* Create a copy of BB instructions and insert at BEFORE.  Redirect
    preds of BB to COPY_BB if they don't appear in NEED_PROLOGUE.  */
 void
-dup_block_and_redirect (basic_block bb, basic_block copy_bb, rtx before,
+dup_block_and_redirect (basic_block bb, basic_block copy_bb, rtx_insn *before,
 			bitmap_head *need_prologue)
 {
   edge_iterator ei;
   edge e;
-  rtx insn = BB_END (bb);
+  rtx_insn *insn = BB_END (bb);
 
   /* We know BB has a single successor, so there is no need to copy a
      simple jump at the end of BB.  */
@@ -427,13 +538,13 @@ dup_block_and_redirect (basic_block bb, basic_block copy_bb, rtx before,
 
 void
 try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
-		     bitmap_head *bb_flags, rtx prologue_seq)
+		     bitmap_head *bb_flags, rtx_insn *prologue_seq)
 {
   edge e;
   edge_iterator ei;
   bool nonempty_prologue = false;
   unsigned max_grow_size;
-  rtx seq;
+  rtx_insn *seq;
 
   for (seq = prologue_seq; seq; seq = NEXT_INSN (seq))
     if (!NOTE_P (seq) || NOTE_KIND (seq) != NOTE_INSN_PROLOGUE_END)
@@ -448,7 +559,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
     {
       HARD_REG_SET prologue_clobbered, prologue_used, live_on_edge;
       struct hard_reg_set_container set_up_by_prologue;
-      rtx p_insn;
+      rtx_insn *p_insn;
       vec<basic_block> vec;
       basic_block bb;
       bitmap_head bb_antic_flags;
@@ -494,7 +605,8 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
       if (frame_pointer_needed)
 	add_to_hard_reg_set (&set_up_by_prologue.set, Pmode,
 			     HARD_FRAME_POINTER_REGNUM);
-      if (pic_offset_table_rtx)
+      if (pic_offset_table_rtx 
+	  && (unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
 	add_to_hard_reg_set (&set_up_by_prologue.set, Pmode,
 			     PIC_OFFSET_TABLE_REGNUM);
       if (crtl->drap_reg)
@@ -513,7 +625,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 
       FOR_EACH_BB_FN (bb, cfun)
 	{
-	  rtx insn;
+	  rtx_insn *insn;
 	  unsigned size = 0;
 
 	  FOR_BB_INSNS (bb, insn)
@@ -707,7 +819,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 	    FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	      {
 		basic_block copy_bb, tbb;
-		rtx insert_point;
+		rtx_insn *insert_point;
 		int eflags;
 
 		if (!bitmap_clear_bit (&bb_tail, bb->index))
@@ -724,7 +836,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 		if (e)
 		  {
                     /* Make sure we insert after any barriers.  */
-                    rtx end = get_last_bb_insn (e->src);
+                    rtx_insn *end = get_last_bb_insn (e->src);
                     copy_bb = create_basic_block (NEXT_INSN (end),
                                                   NULL_RTX, e->src);
 		    BB_COPY_PARTITION (copy_bb, e->src);
@@ -789,7 +901,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 edge
 get_unconverted_simple_return (edge exit_fallthru_edge, bitmap_head bb_flags,
 			       vec<edge> *unconverted_simple_returns,
-			       rtx *returnjump)
+			       rtx_insn **returnjump)
 {
   if (optimize)
     {
@@ -830,7 +942,7 @@ get_unconverted_simple_return (edge exit_fallthru_edge, bitmap_head bb_flags,
 
 void
 convert_to_simple_return (edge entry_edge, edge orig_entry_edge,
-			  bitmap_head bb_flags, rtx returnjump,
+			  bitmap_head bb_flags, rtx_insn *returnjump,
 			  vec<edge> unconverted_simple_returns)
 {
   edge e;
@@ -902,7 +1014,7 @@ convert_to_simple_return (edge entry_edge, edge orig_entry_edge,
 	  else if (*pdest_bb == NULL)
 	    {
 	      basic_block bb;
-	      rtx start;
+	      rtx_insn *start;
 
 	      bb = create_basic_block (NULL, NULL, exit_pred);
 	      BB_COPY_PARTITION (bb, e->src);

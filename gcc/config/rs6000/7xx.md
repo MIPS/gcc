@@ -1,5 +1,5 @@
 ;; Scheduling description for Motorola PowerPC 750 and PowerPC 7400 processors.
-;;   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+;;   Copyright (C) 2003-2015 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 
@@ -61,8 +61,8 @@
   "ppc750_du,lsu_7xx")
 
 (define_insn_reservation "ppc750-integer" 1
-  (and (ior (eq_attr "type" "integer,insert,trap,cntlz,exts,isel")
-	    (and (eq_attr "type" "add,logical,shift")
+  (and (ior (eq_attr "type" "integer,insert,trap,cntlz,isel")
+	    (and (eq_attr "type" "add,logical,shift,exts")
 		 (eq_attr "dot" "no")))
        (eq_attr "cpu" "ppc750,ppc7400"))
   "ppc750_du,iu1_7xx|iu2_7xx")
@@ -101,8 +101,8 @@
   "ppc750_du,iu1_7xx*19")
 
 (define_insn_reservation "ppc750-compare" 2
-  (and (ior (eq_attr "type" "cmp,compare")
-	    (and (eq_attr "type" "add,logical,shift")
+  (and (ior (eq_attr "type" "cmp")
+	    (and (eq_attr "type" "add,logical,shift,exts")
 		 (eq_attr "dot" "yes")))
        (eq_attr "cpu" "ppc750,ppc7400"))
   "ppc750_du,(iu1_7xx|iu2_7xx)")

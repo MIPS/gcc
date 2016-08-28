@@ -1,5 +1,5 @@
 ;; Scheduling description for IBM POWER6 processor.
-;;   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+;;   Copyright (C) 2006-2015 Free Software Foundation, Inc.
 ;;   Contributed by Peter Steinmetz (steinmtz@us.ibm.com)
 ;;
 ;; This file is part of GCC.
@@ -235,6 +235,7 @@
 
 (define_insn_reservation "power6-exts" 1
   (and (eq_attr "type" "exts")
+       (eq_attr "dot" "no")
        (eq_attr "cpu" "power6"))
   "FXU_power6")
 
@@ -333,7 +334,8 @@
   "FXU_power6")
 
 (define_insn_reservation "power6-compare" 1
-  (and (eq_attr "type" "compare")
+  (and (eq_attr "type" "exts")
+       (eq_attr "dot" "yes")
        (eq_attr "cpu" "power6"))
   "FXU_power6")
 

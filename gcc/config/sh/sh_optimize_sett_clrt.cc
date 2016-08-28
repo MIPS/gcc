@@ -1,5 +1,5 @@
 /* An SH specific RTL pass that tries to optimize clrt and sett insns.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "machmode.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "df.h"
 #include "rtl.h"
@@ -88,9 +103,9 @@ private:
   struct ccreg_value
   {
     // The insn at which the ccreg value was determined.
-    // Might be NULL_RTX if e.g. an unknown value is recorded for an
+    // Might be NULL if e.g. an unknown value is recorded for an
     // empty basic block.
-    rtx insn;
+    rtx_insn *insn;
 
     // The basic block where the insn was discovered.
     basic_block bb;
@@ -111,14 +126,14 @@ private:
   // Given a start insn and its basic block, recursively determine all
   // possible ccreg values in all basic block paths that can lead to the
   // start insn.
-  void find_last_ccreg_values (rtx start_insn, basic_block bb,
+  bool find_last_ccreg_values (rtx_insn *start_insn, basic_block bb,
 			       std::vector<ccreg_value>& values_out,
 			       std::vector<basic_block>& prev_visited_bb) const;
 
   // Given a cbranch insn, its basic block and another basic block, determine
   // the value to which the ccreg will be set after jumping/falling through to
   // the specified target basic block.
-  bool sh_cbranch_ccreg_value (rtx cbranch_insn,
+  bool sh_cbranch_ccreg_value (rtx_insn *cbranch_insn,
 			       basic_block cbranch_insn_bb,
 			       basic_block branch_target_bb) const;
 
@@ -138,7 +153,6 @@ const pass_data sh_optimize_sett_clrt::default_pass_data =
   RTL_PASS,		// type
   "",			// name (overwritten by the constructor)
   OPTGROUP_NONE,	// optinfo_flags
-  true,			// has_execute
   TV_OPTIMIZE,		// tv_id
   0,			// properties_required
   0,			// properties_provided
@@ -206,7 +220,7 @@ sh_optimize_sett_clrt::execute (function* fun)
   // be optimized.
   basic_block bb;
   FOR_EACH_BB_REVERSE_FN (bb, fun)
-    for (rtx next_i, i = NEXT_INSN (BB_HEAD (bb));
+    for (rtx_insn *next_i, *i = NEXT_INSN (BB_HEAD (bb));
 	 i != NULL_RTX && i != BB_END (bb); i = next_i)
       {
 	next_i = NEXT_INSN (i);
@@ -225,8 +239,8 @@ sh_optimize_sett_clrt::execute (function* fun)
 
 	    ccreg_values.clear ();
 	    visited_bbs.clear ();
-	    find_last_ccreg_values (PREV_INSN (i), bb, ccreg_values,
-				    visited_bbs);
+	    bool ok = find_last_ccreg_values (PREV_INSN (i), bb, ccreg_values,
+					      visited_bbs);
 
 	    log_msg ("number of ccreg values collected: %u\n",
 		     (unsigned int)ccreg_values.size ());
@@ -234,7 +248,7 @@ sh_optimize_sett_clrt::execute (function* fun)
 	    // If all the collected values are equal and are equal to the
 	    // constant value of the setcc insn, the setcc insn can be
 	    // removed.
-	    if (all_ccreg_values_equal (ccreg_values)
+	    if (ok && all_ccreg_values_equal (ccreg_values)
 		&& rtx_equal_p (ccreg_values.front ().value, setcc_val))
 	      {
 		log_msg ("all values are ");
@@ -277,7 +291,7 @@ sh_optimize_sett_clrt::const_setcc_value (rtx pat) const
 
 bool
 sh_optimize_sett_clrt
-::sh_cbranch_ccreg_value (rtx cbranch_insn, basic_block cbranch_insn_bb,
+::sh_cbranch_ccreg_value (rtx_insn *cbranch_insn, basic_block cbranch_insn_bb,
 			  basic_block branch_target_bb) const
 {
   rtx pc_set_rtx = pc_set (cbranch_insn);
@@ -308,9 +322,9 @@ sh_optimize_sett_clrt
     gcc_unreachable ();
 }
 
-void
+bool
 sh_optimize_sett_clrt
-::find_last_ccreg_values (rtx start_insn, basic_block bb,
+::find_last_ccreg_values (rtx_insn *start_insn, basic_block bb,
 			  std::vector<ccreg_value>& values_out,
 			  std::vector<basic_block>& prev_visited_bb) const
 {
@@ -323,7 +337,7 @@ sh_optimize_sett_clrt
     log_msg ("(prev visited [bb %d])", prev_visited_bb.back ()->index);
   log_msg ("\n");
 
-  for (rtx i = start_insn; i != NULL_RTX && i != PREV_INSN (BB_HEAD (bb));
+  for (rtx_insn *i = start_insn; i != NULL && i != PREV_INSN (BB_HEAD (bb));
        i = PREV_INSN (i))
     {
       if (!INSN_P (i))
@@ -347,7 +361,7 @@ sh_optimize_sett_clrt
 	  log_msg ("\n");
 
 	  values_out.push_back (v);
-	  return;
+	  return true;
 	}
 
       if (any_condjump_p (i) && onlyjump_p (i) && !prev_visited_bb.empty ())
@@ -371,7 +385,7 @@ sh_optimize_sett_clrt
 	  log_msg ("\n");
 
 	  values_out.push_back (v);
-	  return;
+	  return true;
 	}
     }
 
@@ -392,10 +406,14 @@ sh_optimize_sett_clrt
       for (edge_iterator ei = ei_start (bb->preds); !ei_end_p (ei);
 	   ei_next (&ei))
 	{
+	  if (ei_edge (ei)->flags & EDGE_COMPLEX)
+	    log_return (false, "aborting due to complex edge\n");
+
 	  basic_block pred_bb = ei_edge (ei)->src;
 	  pred_bb_count += 1;
-	  find_last_ccreg_values (BB_END (pred_bb), pred_bb, values_out,
-				  prev_visited_bb);
+	  if (!find_last_ccreg_values (BB_END (pred_bb), pred_bb, values_out,
+				       prev_visited_bb))
+	    return false;
 	}
 
       prev_visited_bb.pop_back ();
@@ -418,6 +436,8 @@ sh_optimize_sett_clrt
 
     values_out.push_back (v);
   }
+
+  return true;
 }
 
 bool

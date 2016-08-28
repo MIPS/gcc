@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    It contains routines to handle Array Notation expression
    handling routines in the C++ Compiler.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
                   Intel Corporation
 
@@ -53,6 +53,16 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
@@ -250,7 +260,10 @@ expand_sec_reduce_builtin (tree an_builtin_fn, tree *new_var)
   if (!find_rank (location, an_builtin_fn, an_builtin_fn, true, &rank))
       return error_mark_node;
   if (rank == 0)
-    return an_builtin_fn;
+    {
+      error_at (location, "Invalid builtin arguments");
+      return error_mark_node;
+    }
   else if (rank > 1 
 	   && (an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MAX_IND
 	       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND))
@@ -604,7 +617,7 @@ expand_an_in_modify_expr (location_t location, tree lhs,
     
   if (lhs_rank == 0 && rhs_rank != 0)
     {
-      error_at (location, "%qD cannot be scalar when %qD is not", lhs, rhs);
+      error_at (location, "%qE cannot be scalar when %qE is not", lhs, rhs);
       return error_mark_node;
     }
   if (lhs_rank != 0 && rhs_rank != 0 && lhs_rank != rhs_rank)
@@ -1145,13 +1158,13 @@ expand_array_notation_exprs (tree t)
     case PARM_DECL:
     case NON_LVALUE_EXPR:
     case NOP_EXPR:
-    case INIT_EXPR:
     case ADDR_EXPR:
     case ARRAY_REF:
     case BIT_FIELD_REF:
     case VECTOR_CST:
     case COMPLEX_CST:
       return t;
+    case INIT_EXPR:
     case MODIFY_EXPR:
       if (contains_array_notation_expr (t))
 	t = expand_an_in_modify_expr (loc, TREE_OPERAND (t, 0), NOP_EXPR, 
@@ -1173,13 +1186,24 @@ expand_array_notation_exprs (tree t)
 	return t;
       }
     case DECL_EXPR:
-      {
-	tree x = DECL_EXPR_DECL (t);
-	if (t && TREE_CODE (x) != FUNCTION_DECL)
+      if (contains_array_notation_expr (t))
+	{
+	  tree x = DECL_EXPR_DECL (t);
 	  if (DECL_INITIAL (x))
-	    t = expand_unary_array_notation_exprs (t);
+	    {
+	      location_t loc = DECL_SOURCE_LOCATION (x);
+	      tree lhs = x;
+	      tree rhs = DECL_INITIAL (x);
+	      DECL_INITIAL (x) = NULL;
+	      tree new_modify_expr = build_modify_expr (loc, lhs,
+							TREE_TYPE (lhs),
+							NOP_EXPR,
+							loc, rhs,
+							TREE_TYPE(rhs));
+	      t = expand_array_notation_exprs (new_modify_expr);
+	    }
+	}
       return t;
-      }
     case STATEMENT_LIST:
       {
 	tree_stmt_iterator i;
@@ -1390,7 +1414,10 @@ build_array_notation_ref (location_t loc, tree array, tree start, tree length,
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == POINTER_TYPE)
     TREE_TYPE (array_ntn_expr) = TREE_TYPE (type);
   else
-    gcc_unreachable ();
+    {
+      error_at (loc, "base of array section must be pointer or array type");
+      return error_mark_node;
+    }
 
   SET_EXPR_LOCATION (array_ntn_expr, loc);
   return array_ntn_expr;

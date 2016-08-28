@@ -1,5 +1,5 @@
 ;; Machine description of the Synopsys DesignWare ARC cpu for GNU C compiler
-;; Copyright (C) 1994-2014 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2015 Free Software Foundation, Inc.
 
 ;; Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
 ;; behalf of Synopsys Inc.
@@ -952,8 +952,7 @@
 	 last.  Otherwise, load it first.  Note that we cannot have
 	 auto-increment in that case since the address register is known to be
 	 dead.  */
-      if (refers_to_regno_p (REGNO (operands[0]), REGNO (operands[0]) + 1,
-			     operands [1], 0))
+      if (refers_to_regno_p (REGNO (operands[0]), operands[1]))
 	return \"ld%V1 %R0,%R1\;ld%V1 %0,%1\";
       else switch (GET_CODE (XEXP(operands[1], 0)))
 	{
@@ -4293,7 +4292,8 @@
 
   /* Keep this message in sync with the one in arc.c:arc_expand_builtin,
      because *.md files do not get scanned by exgettext.  */
-  fatal_error (\"operand to trap_s should be an unsigned 6-bit value\");
+  fatal_error (input_location,
+	       \"operand to trap_s should be an unsigned 6-bit value\");
 }
   [(set_attr "length" "2")
   (set_attr "type" "misc")])
@@ -4771,7 +4771,7 @@
    (use (match_operand 4 "const_int_operand" "C_0,X,X"))]
   ""
 {
-  rtx scan;
+  rtx_insn *scan;
   int len, size = 0;
   int n_insns = 0;
   rtx loop_start = operands[4];
@@ -4812,8 +4812,8 @@
     {
       if (!INSN_P (scan))
 	continue;
-      if (GET_CODE (PATTERN (scan)) == SEQUENCE)
-	scan = XVECEXP (PATTERN (scan), 0, 0);
+      if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (PATTERN (scan)))
+	scan = seq->insn (0);
       if (JUMP_P (scan))
 	{
 	  if (recog_memoized (scan) != CODE_FOR_doloop_end_i)
@@ -4821,7 +4821,7 @@
 	      n_insns += 2;
 	      if (simplejump_p (scan))
 		{
-		  scan = XEXP (SET_SRC (PATTERN (scan)), 0);
+		  scan = as_a <rtx_insn *> (XEXP (SET_SRC (PATTERN (scan)), 0));
 		  continue;
 		}
 	      if (JUMP_LABEL (scan)

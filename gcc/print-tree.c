@@ -1,5 +1,5 @@
 /* Prints out tree in human readable form - GCC
-   Copyright (C) 1990-2014 Free Software Foundation, Inc.
+   Copyright (C) 1990-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,6 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "real.h"
+#include "fixed-value.h"
 #include "tree.h"
 #include "varasm.h"
 #include "print-rtl.h"
@@ -31,6 +42,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h" /* FIXME */
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-dump.h"
@@ -183,7 +201,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 {
   int hash;
   struct bucket *b;
-  enum machine_mode mode;
+  machine_mode mode;
   enum tree_code_class tclass;
   int len;
   int i;
@@ -362,7 +380,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    fputs (" unsigned", file);
 	  if (DECL_IGNORED_P (node))
 	    fputs (" ignored", file);
-	  if (DECL_ABSTRACT (node))
+	  if (DECL_ABSTRACT_P (node))
 	    fputs (" abstract", file);
 	  if (DECL_EXTERNAL (node))
 	    fputs (" external", file);
@@ -418,24 +436,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fputs (" common", file);
       if (code == VAR_DECL && DECL_THREAD_LOCAL_P (node))
 	{
-	  enum tls_model kind = DECL_TLS_MODEL (node);
-	  switch (kind)
-	    {
-	      case TLS_MODEL_GLOBAL_DYNAMIC:
-		fputs (" tls-global-dynamic", file);
-		break;
-	      case TLS_MODEL_LOCAL_DYNAMIC:
-		fputs (" tls-local-dynamic", file);
-		break;
-	      case TLS_MODEL_INITIAL_EXEC:
-		fputs (" tls-initial-exec", file);
-		break;
-	      case TLS_MODEL_LOCAL_EXEC:
-		fputs (" tls-local-exec", file);
-		break;
-	      default:
-		gcc_unreachable ();
-	    }
+	  fputs (" ", file);
+	  fputs (tls_model_names[DECL_TLS_MODEL (node)], file);
 	}
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
@@ -530,7 +532,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	}
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_NON_COMMON))
 	{
-	  print_node (file, "arguments", DECL_ARGUMENT_FLD (node), indent + 4);
 	  print_node (file, "result", DECL_RESULT_FLD (node), indent + 4);
 	}
 
@@ -556,6 +557,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       else if (code == FUNCTION_DECL
 	       && DECL_STRUCT_FUNCTION (node) != 0)
 	{
+	  print_node (file, "arguments", DECL_ARGUMENTS (node), indent + 4);
 	  indent_to (file, indent + 4);
 	  dump_addr (file, "struct-function ", DECL_STRUCT_FUNCTION (node));
 	}

@@ -1,6 +1,6 @@
 // <chrono> -*- C++ -*-
 
-// Copyright (C) 2008-2014 Free Software Foundation, Inc.
+// Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -782,6 +782,8 @@ _GLIBCXX_END_NAMESPACE_VERSION
 
 #if __cplusplus > 201103L
 
+#define __cpp_lib_chrono_udls 201304
+
   inline namespace literals
   {
   inline namespace chrono_literals
@@ -791,7 +793,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
       struct _Checked_integral_constant
       : integral_constant<_Rep, static_cast<_Rep>(_Val)>
       {
-	static_assert(_Checked_integral_constant::value > 0
+	static_assert(_Checked_integral_constant::value >= 0
 		      && _Checked_integral_constant::value == _Val,
 		      "literal value cannot be represented by duration type");
       };
@@ -863,6 +865,15 @@ _GLIBCXX_END_NAMESPACE_VERSION
 
   } // inline namespace chrono_literals
   } // inline namespace literals
+
+  namespace chrono
+  {
+  _GLIBCXX_BEGIN_NAMESPACE_VERSION
+
+  using namespace literals::chrono_literals;
+
+  _GLIBCXX_END_NAMESPACE_VERSION
+  } // namespace chrono
 
 #endif // __cplusplus > 201103L
 

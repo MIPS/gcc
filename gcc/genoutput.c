@@ -1,5 +1,5 @@
 /* Generate code from to output assembler insns as recognized from rtl.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -126,7 +126,7 @@ struct operand_data
   int index;
   const char *predicate;
   const char *constraint;
-  enum machine_mode mode;
+  machine_mode mode;
   unsigned char n_alternatives;
   char address_p;
   char strict_low;
@@ -209,7 +209,7 @@ struct constraint_data
 
 /* All machine-independent constraint characters (except digits) that
    are handled outside the define*_constraint mechanism.  */
-static const char indep_constraints[] = ",=+%*?!#&g";
+static const char indep_constraints[] = ",=+%*?!^$#&g";
 
 static struct constraint_data *
 constraints_by_letter_table[1 << CHAR_BIT];
@@ -229,18 +229,36 @@ output_prologue (void)
   printf ("#include \"tm.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"ggc.h\"\n");
+  printf ("#include \"hash-set.h\"\n");
+  printf ("#include \"machmode.h\"\n");
+  printf ("#include \"vec.h\"\n");
+  printf ("#include \"double-int.h\"\n");
+  printf ("#include \"input.h\"\n");
+  printf ("#include \"alias.h\"\n");
+  printf ("#include \"symtab.h\"\n");
+  printf ("#include \"wide-int.h\"\n");
+  printf ("#include \"inchash.h\"\n");
   printf ("#include \"tree.h\"\n");
   printf ("#include \"varasm.h\"\n");
   printf ("#include \"stor-layout.h\"\n");
   printf ("#include \"calls.h\"\n");
   printf ("#include \"rtl.h\"\n");
+  printf ("#include \"hashtab.h\"\n");
+  printf ("#include \"hard-reg-set.h\"\n");
+  printf ("#include \"function.h\"\n");
+  printf ("#include \"statistics.h\"\n");
+  printf ("#include \"real.h\"\n");
+  printf ("#include \"fixed-value.h\"\n");
+  printf ("#include \"insn-config.h\"\n");
+  printf ("#include \"expmed.h\"\n");
+  printf ("#include \"dojump.h\"\n");
+  printf ("#include \"explow.h\"\n");
+  printf ("#include \"emit-rtl.h\"\n");
+  printf ("#include \"stmt.h\"\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"insn-codes.h\"\n");
   printf ("#include \"tm_p.h\"\n");
-  printf ("#include \"function.h\"\n");
   printf ("#include \"regs.h\"\n");
-  printf ("#include \"hard-reg-set.h\"\n");
-  printf ("#include \"insn-config.h\"\n\n");
   printf ("#include \"conditions.h\"\n");
   printf ("#include \"insn-attr.h\"\n\n");
   printf ("#include \"recog.h\"\n\n");
@@ -248,6 +266,7 @@ output_prologue (void)
   printf ("#include \"output.h\"\n");
   printf ("#include \"target.h\"\n");
   printf ("#include \"tm-constrs.h\"\n");
+  printf ("#include \"predict.h\"\n");
 }
 
 static void
@@ -643,7 +662,7 @@ process_template (struct data *d, const char *template_code)
       d->output_format = INSN_OUTPUT_FORMAT_FUNCTION;
 
       puts ("\nstatic const char *");
-      printf ("output_%d (rtx *operands ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED)\n",
+      printf ("output_%d (rtx *operands ATTRIBUTE_UNUSED, rtx_insn *insn ATTRIBUTE_UNUSED)\n",
 	      d->code_number);
       puts ("{");
       print_md_ptr_loc (template_code);
@@ -672,7 +691,7 @@ process_template (struct data *d, const char *template_code)
 	  d->output_format = INSN_OUTPUT_FORMAT_FUNCTION;
 	  puts ("\nstatic const char *");
 	  printf ("output_%d (rtx *operands ATTRIBUTE_UNUSED, "
-		  "rtx insn ATTRIBUTE_UNUSED)\n", d->code_number);
+		  "rtx_insn *insn ATTRIBUTE_UNUSED)\n", d->code_number);
 	  puts ("{");
 	  puts ("  switch (which_alternative)\n    {");
 	}
@@ -769,6 +788,7 @@ validate_insn_alternatives (struct data *d)
 	char c;
 	int which_alternative = 0;
 	int alternative_count_unsure = 0;
+	bool seen_write = false;
 
 	for (p = d->operand[start].constraint; (c = *p); p += len)
 	  {
@@ -777,6 +797,18 @@ validate_insn_alternatives (struct data *d)
 	      error_with_line (d->lineno,
 			       "character '%c' can only be used at the"
 			       " beginning of a constraint string", c);
+
+	    if (c == '=' || c == '+')
+	      seen_write = true;
+
+	    /* Earlyclobber operands must always be marked write-only
+	       or read/write.  */
+	    if (!seen_write && c == '&')
+	      error_with_line (d->lineno,
+			       "earlyclobber operands may not be"
+			       " read-only in alternative %d",
+			       which_alternative);
+
 	    if (ISSPACE (c) || strchr (indep_constraints, c))
 	      len = 1;
 	    else if (ISDIGIT (c))

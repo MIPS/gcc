@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997-2014 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -61,26 +61,26 @@ struct loc
 
 struct bitmap_desc_hasher : typed_noop_remove <bitmap_descriptor_d>
 {
-  typedef bitmap_descriptor_d value_type;
-  typedef loc compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  typedef bitmap_descriptor_d *value_type;
+  typedef loc *compare_type;
+  static inline hashval_t hash (const bitmap_descriptor_d *);
+  static inline bool equal (const bitmap_descriptor_d *, const loc *);
 };
 
 inline hashval_t
-bitmap_desc_hasher::hash (const value_type *d)
+bitmap_desc_hasher::hash (const bitmap_descriptor_d *d)
 {
   return htab_hash_pointer (d->file) + d->line;
 }
 
 inline bool
-bitmap_desc_hasher::equal (const value_type *d, const compare_type *l)
+bitmap_desc_hasher::equal (const bitmap_descriptor_d *d, const loc *l)
 {
   return d->file == l->file && d->function == l->function && d->line == l->line;
 }
 
 /* Hashtable mapping bitmap names to descriptors.  */
-static hash_table <bitmap_desc_hasher> bitmap_desc_hash;
+static hash_table<bitmap_desc_hasher> *bitmap_desc_hash;
 
 /* For given file and line, return descriptor, create new if needed.  */
 static bitmap_descriptor
@@ -93,12 +93,13 @@ get_bitmap_descriptor (const char *file, int line, const char *function)
   loc.function = function;
   loc.line = line;
 
-  if (!bitmap_desc_hash.is_created ())
-    bitmap_desc_hash.create (10);
+  if (!bitmap_desc_hash)
+    bitmap_desc_hash = new hash_table<bitmap_desc_hasher> (10);
 
-  slot = bitmap_desc_hash.find_slot_with_hash (&loc,
-					       htab_hash_pointer (file) + line,
-					       INSERT);
+  slot
+    = bitmap_desc_hash->find_slot_with_hash (&loc,
+					     htab_hash_pointer (file) + line,
+					     INSERT);
   if (*slot)
     return *slot;
 
@@ -1594,6 +1595,8 @@ bitmap_ior (bitmap dst, const_bitmap a, const_bitmap b)
   if (dst_elt)
     {
       changed = true;
+      /* Ensure that dst->current is valid.  */
+      dst->current = dst->first;
       bitmap_elt_clear_from (dst, dst_elt);
     }
   gcc_checking_assert (!dst->current == !dst->first);
@@ -1950,6 +1953,8 @@ bitmap_ior_and_compl (bitmap dst, const_bitmap a, const_bitmap b, const_bitmap k
   if (dst_elt)
     {
       changed = true;
+      /* Ensure that dst->current is valid.  */
+      dst->current = dst->first;
       bitmap_elt_clear_from (dst, dst_elt);
     }
   gcc_checking_assert (!dst->current == !dst->first);
@@ -2142,7 +2147,7 @@ bitmap_print (FILE *file, const_bitmap head, const char *prefix,
 
 
 /* Used to accumulate statistics about bitmap sizes.  */
-struct output_info
+struct bitmap_output_info
 {
   uint64_t size;
   uint64_t count;
@@ -2151,7 +2156,7 @@ struct output_info
 /* Called via hash_table::traverse.  Output bitmap descriptor pointed out by
    SLOT and update statistics.  */
 int
-print_statistics (bitmap_descriptor_d **slot, output_info *i)
+print_statistics (bitmap_descriptor_d **slot, bitmap_output_info *i)
 {
   bitmap_descriptor d = *slot;
   char s[4096];
@@ -2180,12 +2185,12 @@ print_statistics (bitmap_descriptor_d **slot, output_info *i)
 void
 dump_bitmap_statistics (void)
 {
-  struct output_info info;
+  struct bitmap_output_info info;
 
   if (! GATHER_STATISTICS)
     return;
 
-  if (!bitmap_desc_hash.is_created ())
+  if (!bitmap_desc_hash)
     return;
 
   fprintf (stderr,
@@ -2196,7 +2201,7 @@ dump_bitmap_statistics (void)
   fprintf (stderr, "---------------------------------------------------------------------------------\n");
   info.count = 0;
   info.size = 0;
-  bitmap_desc_hash.traverse <output_info *, print_statistics> (&info);
+  bitmap_desc_hash->traverse <bitmap_output_info *, print_statistics> (&info);
   fprintf (stderr, "---------------------------------------------------------------------------------\n");
   fprintf (stderr,
 	   "%-41s %9"PRId64" %15"PRId64"\n",

@@ -8,6 +8,7 @@
 package build
 
 import (
+	"runtime"
 	"sort"
 	"testing"
 )
@@ -278,12 +279,12 @@ var pkgDeps = map[string][]string{
 	// Random byte, number generation.
 	// This would be part of core crypto except that it imports
 	// math/big, which imports fmt.
-	"crypto/rand": {"L4", "CRYPTO", "OS", "math/big", "syscall"},
+	"crypto/rand": {"L4", "CRYPTO", "OS", "math/big", "syscall", "internal/syscall"},
 
 	// Mathematical crypto: dependencies on fmt (L4) and math/big.
 	// We could avoid some of the fmt, but math/big imports fmt anyway.
 	"crypto/dsa":      {"L4", "CRYPTO", "math/big"},
-	"crypto/ecdsa":    {"L4", "CRYPTO", "crypto/elliptic", "math/big"},
+	"crypto/ecdsa":    {"L4", "CRYPTO", "crypto/elliptic", "math/big", "encoding/asn1"},
 	"crypto/elliptic": {"L4", "CRYPTO", "math/big"},
 	"crypto/rsa":      {"L4", "CRYPTO", "crypto/rand", "math/big"},
 
@@ -317,6 +318,7 @@ var pkgDeps = map[string][]string{
 	"net/http": {
 		"L4", "NET", "OS",
 		"compress/gzip", "crypto/tls", "mime/multipart", "runtime/debug",
+		"net/http/internal",
 	},
 
 	// HTTP-using packages.
@@ -324,9 +326,9 @@ var pkgDeps = map[string][]string{
 	"net/http/cgi":      {"L4", "NET", "OS", "crypto/tls", "net/http", "regexp"},
 	"net/http/fcgi":     {"L4", "NET", "OS", "net/http", "net/http/cgi"},
 	"net/http/httptest": {"L4", "NET", "OS", "crypto/tls", "flag", "net/http"},
-	"net/http/httputil": {"L4", "NET", "OS", "net/http"},
+	"net/http/httputil": {"L4", "NET", "OS", "net/http", "net/http/internal"},
 	"net/http/pprof":    {"L4", "OS", "html/template", "net/http", "runtime/pprof"},
-	"net/rpc":           {"L4", "NET", "encoding/gob", "net/http", "text/template"},
+	"net/rpc":           {"L4", "NET", "encoding/gob", "html/template", "net/http"},
 	"net/rpc/jsonrpc":   {"L4", "NET", "encoding/json", "net/rpc"},
 }
 
@@ -359,7 +361,7 @@ func allowed(pkg string) map[string]bool {
 }
 
 var bools = []bool{false, true}
-var geese = []string{"darwin", "dragonfly", "freebsd", "linux", "netbsd", "openbsd", "plan9", "solaris", "windows"}
+var geese = []string{"android", "darwin", "dragonfly", "freebsd", "linux", "nacl", "netbsd", "openbsd", "plan9", "solaris", "windows"}
 var goarches = []string{"386", "amd64", "arm", "arm64"}
 
 type osPkg struct {
@@ -374,6 +376,11 @@ var allowedErrors = map[osPkg]bool{
 }
 
 func TestDependencies(t *testing.T) {
+	if runtime.GOOS == "nacl" {
+		// NaCl tests run in a limited file system and we do not
+		// provide access to every source file.
+		t.Skip("skipping on NaCl")
+	}
 	var all []string
 
 	for k := range pkgDeps {
@@ -385,6 +392,9 @@ func TestDependencies(t *testing.T) {
 	test := func(mustImport bool) {
 		for _, pkg := range all {
 			if isMacro(pkg) {
+				continue
+			}
+			if pkg == "runtime/cgo" && !ctxt.CgoEnabled {
 				continue
 			}
 			p, err := ctxt.Import(pkg, "", 0)

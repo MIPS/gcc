@@ -1,6 +1,6 @@
 `/* Implementation of the BESSEL_JN and BESSEL_YN transformational
    function using a recurrence algorithm.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Contributed by Tobias Burnus <burnus@net-b.de>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -163,7 +163,7 @@ bessel_yn_r'rtype_kind` ('rtype` * const restrict ret, int n1, int n2,
 
   x2rev = GFC_REAL_'rtype_kind`_LITERAL(2.)/x;
 
-  for (i = 2; i <= n1+n2; i++)
+  for (i = 2; i <= n2 - n1; i++)
     {
 #if defined('rtype_name`_INFINITY)
       if (unlikely (last2 == -'rtype_name`_INFINITY))

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for Xilinx MicroBlaze.
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2015 Free Software Foundation, Inc.
 
    Contributed by Michael Eager <eager@eagercon.com>.
 
@@ -690,6 +690,12 @@ do {									\
 #define ASM_DECLARE_FUNCTION_NAME(STREAM,NAME,DECL)                     \
 {                                                                       \
 }
+
+#undef TARGET_ASM_CONSTRUCTOR
+#define TARGET_ASM_CONSTRUCTOR microblaze_elf_asm_constructor
+
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR microblaze_elf_asm_destructor
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)			\
   sprintf ((LABEL), "*%s%s%ld", (LOCAL_LABEL_PREFIX), (PREFIX), (long)(NUM))

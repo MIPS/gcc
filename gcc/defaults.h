@@ -1,5 +1,5 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
 This file is part of GCC.
@@ -377,6 +377,21 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 #endif
 
+/* Provide defaults for stuff that may not be defined when using
+   sjlj exceptions.  */
+#ifndef EH_RETURN_DATA_REGNO
+#define EH_RETURN_DATA_REGNO(N) INVALID_REGNUM
+#endif
+
+/* Offset between the eh handler address and entry in eh tables.  */
+#ifndef RETURN_ADDR_OFFSET
+#define RETURN_ADDR_OFFSET 0
+#endif
+
+#ifndef MASK_RETURN_ADDR
+#define MASK_RETURN_ADDR NULL_RTX
+#endif
+
 /* If we have named section and we support weak symbols, then use the
    .jcr section for recording java classes which need to be registered
    at program start-up time.  */
@@ -438,6 +453,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define DWARF_FRAME_REGNUM(REG) DBX_REGISTER_NUMBER (REG)
 #endif
 
+/* The mapping from dwarf CFA reg number to internal dwarf reg numbers.  */
+#ifndef DWARF_REG_TO_UNWIND_COLUMN
+#define DWARF_REG_TO_UNWIND_COLUMN(REGNO) (REGNO)
+#endif
+
 /* Map register numbers held in the call frame info that gcc has
    collected using DWARF_FRAME_REGNUM to those that should be output in
    .debug_frame and .eh_frame.  */
@@ -451,7 +471,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    Dwarf 2 addresses need to be larger than the architecture's
    pointers.  */
 #ifndef DWARF2_ADDR_SIZE
-#define DWARF2_ADDR_SIZE (POINTER_SIZE / BITS_PER_UNIT)
+#define DWARF2_ADDR_SIZE ((POINTER_SIZE + BITS_PER_UNIT - 1) / BITS_PER_UNIT)
 #endif
 
 /* The size in bytes of a DWARF field indicating an offset or length
@@ -751,6 +771,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifndef POINTER_SIZE
 #define POINTER_SIZE BITS_PER_WORD
 #endif
+#ifndef POINTER_SIZE_UNITS
+#define POINTER_SIZE_UNITS ((POINTER_SIZE + BITS_PER_UNIT - 1) / BITS_PER_UNIT)
+#endif
+
 
 #ifndef PIC_OFFSET_TABLE_REGNUM
 #define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
@@ -922,14 +946,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define PREFERRED_DEBUGGING_TYPE NO_DEBUG
 #endif
 
-#ifndef LARGEST_EXPONENT_IS_NORMAL
-#define LARGEST_EXPONENT_IS_NORMAL(SIZE) 0
-#endif
-
-#ifndef ROUND_TOWARDS_ZERO
-#define ROUND_TOWARDS_ZERO 0
-#endif
-
 #ifndef FLOAT_LIB_COMPARE_RETURNS_BOOL
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
 #endif
@@ -1010,6 +1026,15 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define MOVE_MAX_PIECES   MOVE_MAX
 #endif
 
+/* STORE_MAX_PIECES is the number of bytes at a time that we can
+   store efficiently.  Due to internal GCC limitations, this is
+   MOVE_MAX_PIECES limited by the number of bytes GCC can represent
+   for an immediate constant.  */
+
+#ifndef STORE_MAX_PIECES
+#define STORE_MAX_PIECES  MIN (MOVE_MAX_PIECES, 2 * sizeof (HOST_WIDE_INT))
+#endif
+
 #ifndef MAX_MOVE_MAX
 #define MAX_MOVE_MAX MOVE_MAX
 #endif
@@ -1083,6 +1108,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #ifndef FRAME_GROWS_DOWNWARD
 #define FRAME_GROWS_DOWNWARD 0
+#endif
+
+#ifndef RETURN_ADDR_IN_PREVIOUS_FRAME
+#define RETURN_ADDR_IN_PREVIOUS_FRAME 0
 #endif
 
 /* On most machines, the CFA coincides with the first incoming parm.  */
@@ -1170,6 +1199,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #ifndef DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 1
+#endif
+
+#ifndef INSN_SETS_ARE_DELAYED
+#define INSN_SETS_ARE_DELAYED(INSN) false
+#endif
+
+#ifndef INSN_REFERENCES_ARE_DELAYED
+#define INSN_REFERENCES_ARE_DELAYED(INSN) false
 #endif
 
 #ifdef GCC_INSN_FLAGS_H

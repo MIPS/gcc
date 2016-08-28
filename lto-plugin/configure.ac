@@ -27,6 +27,23 @@ if test "x$have_static_libgcc" = xyes; then
 fi
 AC_SUBST(ac_lto_plugin_ldflags)
 
+if test x"$host_subdir" = x.; then
+   gcc_build_dir=../gcc
+else
+   gcc_build_dir=../../$host_subdir/gcc
+fi
+AC_SUBST(gcc_build_dir)
+
+# Used for constructing correct paths for offload compilers.
+accel_dir_suffix=
+real_target_noncanonical=${target_noncanonical}
+if test x"$enable_as_accelerator_for" != x; then
+  accel_dir_suffix=/accel/${target_noncanonical}
+  real_target_noncanonical=${enable_as_accelerator_for}
+fi
+AC_SUBST(accel_dir_suffix)
+AC_SUBST(real_target_noncanonical)
+
 AM_PROG_LIBTOOL
 ACX_LT_HOST_FLAGS
 AC_SUBST(target_noncanonical)

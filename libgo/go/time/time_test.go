@@ -535,7 +535,7 @@ var durationTests = []struct {
 }{
 	{"0", 0},
 	{"1ns", 1 * Nanosecond},
-	{"1.1us", 1100 * Nanosecond},
+	{"1.1µs", 1100 * Nanosecond},
 	{"2.2ms", 2200 * Microsecond},
 	{"3.3s", 3300 * Millisecond},
 	{"4m5s", 4*Minute + 5*Second},
@@ -842,6 +842,7 @@ var parseDurationTests = []struct {
 	{"-.", false, 0},
 	{".s", false, 0},
 	{"+.s", false, 0},
+	{"3000000h", false, 0}, // overflow
 }
 
 func TestParseDuration(t *testing.T) {

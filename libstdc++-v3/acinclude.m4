@@ -1221,7 +1221,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
         ac_has_nanosleep=yes
         ac_has_sched_yield=yes
         ;;
-      freebsd*|netbsd*)
+      freebsd*|netbsd*|dragonfly*)
         ac_has_clock_monotonic=yes
         ac_has_clock_realtime=yes
         ac_has_nanosleep=yes
@@ -1777,7 +1777,7 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 	      <tr1/cinttypes> in namespace std::tr1.])
   fi
 
-  # Check for the existence of whcar_t <inttypes.h> functions (NB: doesn't
+  # Check for the existence of wchar_t <inttypes.h> functions (NB: doesn't
   # make sense if the glibcxx_cv_c99_stdint_tr1 check fails, per C99, 7.8/1).
   ac_c99_inttypes_wchar_t_tr1=no;
   if test x"$glibcxx_cv_c99_stdint_tr1" = x"yes"; then
@@ -2320,8 +2320,17 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
   AC_MSG_CHECKING([for vtable verify support])
   AC_MSG_RESULT([$enable_vtable_verify])
 
+  vtv_cygmin=no
   if test $enable_vtable_verify = yes; then
-    VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+    case ${target_os} in
+      cygwin*|mingw32*)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-lvtv,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        vtv_cygmin=yes
+        ;;
+      *)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        ;;
+    esac
     VTV_PCH_CXXFLAGS="-fvtable-verify=std"
     VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"		
   else
@@ -2333,6 +2342,7 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
   AC_SUBST(VTV_CXXFLAGS)
   AC_SUBST(VTV_PCH_CXXFLAGS)
   AC_SUBST(VTV_CXXLINKFLAGS)
+  AM_CONDITIONAL(VTV_CYGMIN, test x$vtv_cygmin = xyes)
   GLIBCXX_CONDITIONAL(ENABLE_VTABLE_VERIFY, test $enable_vtable_verify = yes)
 ])
 
@@ -3553,6 +3563,13 @@ AC_DEFUN([GLIBCXX_CHECK_GTHREADS], [
   if test x"$ac_has_gthreads" = x"yes"; then
     AC_DEFINE(_GLIBCXX_HAS_GTHREADS, 1,
 	      [Define if gthreads library is available.])
+
+    # Also check for pthread_rwlock_t for std::shared_timed_mutex in C++14
+    AC_CHECK_TYPE([pthread_rwlock_t],
+            [AC_DEFINE([_GLIBCXX_USE_PTHREAD_RWLOCK_T], 1,
+            [Define if POSIX read/write locks are available in <gthr.h>.])],
+            [],
+            [#include "gthr.h"])
   fi
 
   CXXFLAGS="$ac_save_CXXFLAGS"
@@ -3806,7 +3823,7 @@ dnl Check to see if sys/sdt.h exists and that it is suitable for use.
 dnl Some versions of sdt.h were not compatible with C++11.
 dnl
 AC_DEFUN([GLIBCXX_CHECK_SDT_H], [
-  AC_MSG_RESULT([for suitable sys/sdt.h])
+  AC_MSG_CHECKING([for suitable sys/sdt.h])
   # Note that this test has to be run with the C language.
   # Otherwise, sdt.h will try to include some headers from
   # libstdc++ itself.
@@ -3830,6 +3847,62 @@ AC_DEFUN([GLIBCXX_CHECK_SDT_H], [
   fi
   AC_MSG_RESULT($glibcxx_cv_sys_sdt_h)
 ])
+
+dnl
+dnl Control whether the library should define symbols for old and new ABIs.
+dnl This affects definitions of strings, stringstreams and locale facets.
+dnl
+dnl --disable-libstdcxx-dual-abi will use old ABI for all types.
+dnl
+dnl Defines:
+dnl  _GLIBCXX_USE_DUAL_ABI (always defined, either to 1 or 0)
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_DUAL_ABI], [
+  GLIBCXX_ENABLE(libstdcxx-dual-abi,$1,,[support two versions of std::string])
+  if test x$enable_symvers = xgnu-versioned-namespace; then
+    # gnu-versioned-namespace is incompatible with the dual ABI.
+    enable_libstdcxx_dual_abi="no"
+  fi
+  if test x"$enable_libstdcxx_dual_abi" != xyes; then
+    AC_MSG_NOTICE([dual ABI is disabled])
+    default_libstdcxx_abi="c++98"
+  fi
+  GLIBCXX_CONDITIONAL(ENABLE_DUAL_ABI, test $enable_libstdcxx_dual_abi = yes)
+])
+
+dnl
+dnl Check to see which ABI should be enabled by default.
+dnl
+dnl --with-default-libstdcxx-abi={c++98,c++11}
+dnl
+dnl Defines:
+dnl  _GLIBCXX_USE_CXX11_ABI (always defined, either to 1 or 0)
+dnl
+AC_DEFUN([GLIBCXX_DEFAULT_ABI], [
+  if test x$enable_libstdcxx_dual_abi = xyes; then
+  AC_MSG_CHECKING([for default std::string ABI to use])
+  AC_ARG_WITH([default-libstdcxx-abi],
+    AS_HELP_STRING([--with-default-libstdcxx-abi],
+                   [set the std::string ABI to use by default]),
+    [case "$withval" in
+      c++98|gnu++98|c++03|gnu++03)  default_libstdcxx_abi="c++98" ;;
+      c++1?|gnu++1?)  default_libstdcxx_abi="c++11" ;;
+      *)  AC_MSG_ERROR([Invalid argument for --with-default-libstdcxx-abi]) ;;
+     esac],
+    [default_libstdcxx_abi="c++11"])
+  AC_MSG_RESULT(${default_libstdcxx_abi})
+  fi
+  if test $default_libstdcxx_abi = "c++11"; then
+    glibcxx_cxx11_abi=1
+    glibcxx_cxx98_abi=0
+  else
+    glibcxx_cxx11_abi=0
+    glibcxx_cxx98_abi=1
+  fi
+  AC_SUBST(glibcxx_cxx98_abi)
+  GLIBCXX_CONDITIONAL(ENABLE_CXX11_ABI, test $glibcxx_cxx11_abi = 1)
+])
+
 
 # Macros from the top-level gcc directory.
 m4_include([../config/gc++filt.m4])

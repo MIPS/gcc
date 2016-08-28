@@ -1,5 +1,5 @@
 /* Vector API for GNU compiler.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2015 Free Software Foundation, Inc.
    Contributed by Nathan Sidwell <nathan@codesourcery.com>
    Re-implemented in C++ by Diego Novillo <dnovillo@google.com>
 
@@ -1574,7 +1574,10 @@ vec<T, va_heap, vl_ptr>::safe_grow (unsigned len MEM_STAT_DECL)
   unsigned oldlen = length ();
   gcc_checking_assert (oldlen <= len);
   reserve_exact (len - oldlen PASS_MEM_STAT);
-  m_vec->quick_grow (len);
+  if (m_vec)
+    m_vec->quick_grow (len);
+  else
+    gcc_checking_assert (len == 0);
 }
 
 

@@ -1,5 +1,5 @@
 /* Mode switching cleanup pass for the EPIPHANY cpu.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
    Contributed by Embecosm on behalf of Adapteva, Inc.
 
 This file is part of GCC.
@@ -27,6 +27,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "vec.h"
 #include "sbitmap.h"
+#include "predict.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "df.h"
 #include "rtl.h"
@@ -34,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "emit-rtl.h"
 #include "recog.h"
-#include "function.h"
 #include "insn-attr-common.h"
 #include "tree-pass.h"
 
@@ -45,7 +56,6 @@ const pass_data pass_data_resolve_sw_modes =
   RTL_PASS, /* type */
   "resolve_sw_modes", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_MODE_SWITCH, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -78,7 +88,8 @@ unsigned
 pass_resolve_sw_modes::execute (function *fun)
 {
   basic_block bb;
-  rtx insn, src;
+  rtx_insn *insn;
+  rtx src;
   vec<basic_block> todo;
   sbitmap pushed;
   bool need_commit = false;
@@ -156,7 +167,7 @@ pass_resolve_sw_modes::execute (function *fun)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  basic_block succ = e->dest;
-	  rtx seq;
+	  rtx_insn *seq;
 
 	  if (!REGNO_REG_SET_P (DF_LIVE_IN (succ), jilted_reg))
 	    continue;
@@ -170,7 +181,7 @@ pass_resolve_sw_modes::execute (function *fun)
 	    }
 	  start_sequence ();
 	  emit_set_fp_mode (EPIPHANY_MSW_ENTITY_ROUND_UNKNOWN,
-			    jilted_mode, NULL);
+			    jilted_mode, FP_MODE_NONE, NULL);
 	  seq = get_insns ();
 	  end_sequence ();
 	  need_commit = true;

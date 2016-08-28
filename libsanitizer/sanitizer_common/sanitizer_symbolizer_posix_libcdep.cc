@@ -253,7 +253,7 @@ class SymbolizerProcess : public ExternalSymbolizerInterface {
       internal_close(outfd[1]);
       internal_close(infd[0]);
       internal_close(infd[1]);
-      for (int fd = getdtablesize(); fd > 2; fd--)
+      for (int fd = sysconf(_SC_OPEN_MAX); fd > 2; fd--)
         internal_close(fd);
       ExecuteWithDefaultArgs(path_);
       internal__exit(1);
@@ -339,12 +339,19 @@ class LLVMSymbolizerProcess : public SymbolizerProcess {
     const char* const kSymbolizerArch = "--default-arch=x86_64";
 #elif defined(__i386__)
     const char* const kSymbolizerArch = "--default-arch=i386";
-#elif defined(__powerpc64__)
+#elif defined(__powerpc64__) && defined(__BIG_ENDIAN__)
     const char* const kSymbolizerArch = "--default-arch=powerpc64";
+#elif defined(__powerpc64__) && defined(__LITTLE_ENDIAN__)
+    const char* const kSymbolizerArch = "--default-arch=powerpc64le";
 #else
     const char* const kSymbolizerArch = "--default-arch=unknown";
 #endif
-    execl(path_to_binary, path_to_binary, kSymbolizerArch, (char *)0);
+
+    const char *const inline_flag = common_flags()->symbolize_inline_frames
+                                        ? "--inlining=true"
+                                        : "--inlining=false";
+    execl(path_to_binary, path_to_binary, inline_flag, kSymbolizerArch,
+          (char *)0);
   }
 };
 
@@ -580,14 +587,13 @@ class POSIXSymbolizer : public Symbolizer {
       return false;
     const char *module_name = module->full_name();
     uptr module_offset = addr - module->base_address();
-    internal_memset(info, 0, sizeof(*info));
-    info->address = addr;
+    info->Clear();
     info->module = internal_strdup(module_name);
     info->module_offset = module_offset;
     // First, try to use libbacktrace symbolizer (if it's available).
     if (libbacktrace_symbolizer_ != 0) {
       mu_.CheckLocked();
-      if (libbacktrace_symbolizer_->SymbolizeData(info))
+      if (libbacktrace_symbolizer_->SymbolizeData(addr, info))
         return true;
     }
     const char *str = SendCommand(true, module_name, module_offset);
@@ -714,7 +720,7 @@ class POSIXSymbolizer : public Symbolizer {
   LibbacktraceSymbolizer *libbacktrace_symbolizer_;   // Leaked.
 };
 
-Symbolizer *Symbolizer::PlatformInit(const char *path_to_external) {
+Symbolizer *Symbolizer::PlatformInit() {
   if (!common_flags()->symbolize) {
     return new(symbolizer_allocator_) POSIXSymbolizer(0, 0, 0);
   }
@@ -727,6 +733,7 @@ Symbolizer *Symbolizer::PlatformInit(const char *path_to_external) {
     libbacktrace_symbolizer =
         LibbacktraceSymbolizer::get(&symbolizer_allocator_);
     if (!libbacktrace_symbolizer) {
+      const char *path_to_external = common_flags()->external_symbolizer_path;
       if (path_to_external && path_to_external[0] == '\0') {
         // External symbolizer is explicitly disabled. Do nothing.
       } else {

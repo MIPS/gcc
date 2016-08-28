@@ -28,7 +28,7 @@ namespace __asan {
 void AsanThreadContext::OnCreated(void *arg) {
   CreateThreadContextArgs *args = static_cast<CreateThreadContextArgs*>(arg);
   if (args->stack)
-    stack_id = StackDepotPut(args->stack->trace, args->stack->size);
+    stack_id = StackDepotPut(*args->stack);
   thread = args->thread;
   thread->set_context(this);
 }
@@ -139,7 +139,10 @@ FakeStack *AsanThread::AsyncSignalSafeLazyInitFakeStack() {
 }
 
 void AsanThread::Init() {
+  fake_stack_ = 0;  // Will be initialized lazily if needed.
+  CHECK_EQ(this->stack_size(), 0U);
   SetThreadStackAndTls();
+  CHECK_GT(this->stack_size(), 0U);
   CHECK(AddrIsInMem(stack_bottom_));
   CHECK(AddrIsInMem(stack_top_ - 1));
   ClearShadowForThreadStackAndTLS();
@@ -147,7 +150,6 @@ void AsanThread::Init() {
   VReport(1, "T%d: stack [%p,%p) size 0x%zx; local=%p\n", tid(),
           (void *)stack_bottom_, (void *)stack_top_, stack_top_ - stack_bottom_,
           &local);
-  fake_stack_ = 0;  // Will be initialized lazily if needed.
   AsanPlatformThreadInit();
 }
 
@@ -194,17 +196,18 @@ void AsanThread::ClearShadowForThreadStackAndTLS() {
     PoisonShadow(tls_begin_, tls_end_ - tls_begin_, 0);
 }
 
-const char *AsanThread::GetFrameNameByAddr(uptr addr, uptr *offset,
-                                           uptr *frame_pc) {
+bool AsanThread::GetStackFrameAccessByAddr(uptr addr,
+                                           StackFrameAccess *access) {
   uptr bottom = 0;
   if (AddrIsInStack(addr)) {
     bottom = stack_bottom();
   } else if (has_fake_stack()) {
     bottom = fake_stack()->AddrIsInFakeStack(addr);
     CHECK(bottom);
-    *offset = addr - bottom;
-    *frame_pc = ((uptr*)bottom)[2];
-    return  (const char *)((uptr*)bottom)[1];
+    access->offset = addr - bottom;
+    access->frame_pc = ((uptr*)bottom)[2];
+    access->frame_descr = (const char *)((uptr*)bottom)[1];
+    return true;
   }
   uptr aligned_addr = addr & ~(SANITIZER_WORDSIZE/8 - 1);  // align addr.
   u8 *shadow_ptr = (u8*)MemToShadow(aligned_addr);
@@ -221,15 +224,15 @@ const char *AsanThread::GetFrameNameByAddr(uptr addr, uptr *offset,
   }
 
   if (shadow_ptr < shadow_bottom) {
-    *offset = 0;
-    return "UNKNOWN";
+    return false;
   }
 
   uptr* ptr = (uptr*)SHADOW_TO_MEM((uptr)(shadow_ptr + 1));
   CHECK(ptr[0] == kCurrentStackFrameMagic);
-  *offset = addr - (uptr)ptr;
-  *frame_pc = ptr[2];
-  return (const char*)ptr[1];
+  access->offset = addr - (uptr)ptr;
+  access->frame_pc = ptr[2];
+  access->frame_descr = (const char*)ptr[1];
+  return true;
 }
 
 static bool ThreadStackContainsAddress(ThreadContextBase *tctx_base,

@@ -1,5 +1,5 @@
 /* Fold a constant sub-tree into a single node for C-compiler
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 extern int folding_initializer;
 
 /* Convert between trees and native memory representation.  */
-extern int native_encode_expr (const_tree, unsigned char *, int);
+extern int native_encode_expr (const_tree, unsigned char *, int, int off = -1);
 extern tree native_interpret_expr (tree, const unsigned char *, int);
 
 /* Fold constants as much as possible in an expression.
@@ -144,7 +144,7 @@ extern tree combine_comparisons (location_t, enum tree_code, enum tree_code,
 extern void debug_fold_checksum (const_tree);
 extern bool may_negate_without_overflow_p (const_tree);
 #define round_up(T,N) round_up_loc (UNKNOWN_LOCATION, T, N)
-extern tree round_up_loc (location_t, tree, int);
+extern tree round_up_loc (location_t, tree, unsigned int);
 #define round_down(T,N) round_down_loc (UNKNOWN_LOCATION, T, N)
 extern tree round_down_loc (location_t, tree, int);
 extern tree size_int_kind (HOST_WIDE_INT, enum size_type_kind);
@@ -167,5 +167,26 @@ extern tree make_range_step (location_t, enum tree_code, tree, tree, tree,
 extern tree build_range_check (location_t, tree, tree, int, tree, tree);
 extern bool merge_ranges (int *, tree *, tree *, int, tree, tree, int,
 			  tree, tree);
+extern tree sign_bit_p (tree, const_tree);
+extern tree exact_inverse (tree, tree);
+extern tree const_unop (enum tree_code, tree, tree);
+extern tree const_binop (enum tree_code, tree, tree, tree);
 
+/* Return OFF converted to a pointer offset type suitable as offset for
+   POINTER_PLUS_EXPR.  Use location LOC for this conversion.  */
+extern tree convert_to_ptrofftype_loc (location_t loc, tree off);
+
+#define convert_to_ptrofftype(t) convert_to_ptrofftype_loc (UNKNOWN_LOCATION, t)
+
+/* Build and fold a POINTER_PLUS_EXPR at LOC offsetting PTR by OFF.  */
+extern tree fold_build_pointer_plus_loc (location_t loc, tree ptr, tree off);
+
+#define fold_build_pointer_plus(p,o) \
+	fold_build_pointer_plus_loc (UNKNOWN_LOCATION, p, o)
+
+/* Build and fold a POINTER_PLUS_EXPR at LOC offsetting PTR by OFF.  */
+extern tree fold_build_pointer_plus_hwi_loc (location_t loc, tree ptr, HOST_WIDE_INT off);
+
+#define fold_build_pointer_plus_hwi(p,o) \
+	fold_build_pointer_plus_hwi_loc (UNKNOWN_LOCATION, p, o)
 #endif // GCC_FOLD_CONST_H

@@ -157,11 +157,8 @@ Expression::convert_for_assignment(Gogo* gogo, Type* lhs_type,
   else if (lhs_type->is_slice_type() && rhs_type->is_nil_type())
     {
       // Assigning nil to a slice.
-      mpz_t zval;
-      mpz_init_set_ui(zval, 0UL);
-      Expression* zero = Expression::make_integer(&zval, NULL, location);
-      mpz_clear(zval);
       Expression* nil = Expression::make_nil(location);
+      Expression* zero = Expression::make_integer_ul(0, NULL, location);
       return Expression::make_slice_value(lhs_type, nil, zero, zero, location);
     }
   else if (rhs_type->is_nil_type())
@@ -184,8 +181,10 @@ Expression::convert_for_assignment(Gogo* gogo, Type* lhs_type,
       // represented as non-zero-sized.
       // TODO(cmang): This check is for a GCC-specific issue, and should be
       // removed from the frontend.  FIXME.
-      size_t lhs_size = gogo->backend()->type_size(lhs_type->get_backend(gogo));
-      size_t rhs_size = gogo->backend()->type_size(rhs_type->get_backend(gogo));
+      int64_t lhs_size =
+	gogo->backend()->type_size(lhs_type->get_backend(gogo));
+      int64_t rhs_size =
+	gogo->backend()->type_size(rhs_type->get_backend(gogo));
       if (rhs_size == 0 || lhs_size == 0)
 	return rhs;
 
@@ -305,6 +304,9 @@ Expression::convert_interface_to_interface(Type *lhs_type, Expression* rhs,
                                            bool for_type_guard,
                                            Location location)
 {
+  if (Type::are_identical(lhs_type, rhs->type(), false, NULL))
+    return rhs;
+
   Interface_type* lhs_interface_type = lhs_type->interface_type();
   bool lhs_is_empty = lhs_interface_type->is_empty();
 
@@ -315,6 +317,9 @@ Expression::convert_interface_to_interface(Type *lhs_type, Expression* rhs,
   // also appear in the left hand side interface, then we don't need
   // to do a runtime check, although we still need to build a new
   // method table.
+
+  // We are going to evaluate RHS multiple times.
+  go_assert(rhs->is_variable());
 
   // Get the type descriptor for the right hand side.  This will be
   // NULL for a nil interface.
@@ -358,6 +363,9 @@ Expression*
 Expression::convert_interface_to_type(Type *lhs_type, Expression* rhs,
                                       Location location)
 {
+  // We are going to evaluate RHS multiple times.
+  go_assert(rhs->is_variable());
+
   // Call a function to check that the type is valid.  The function
   // will panic with an appropriate runtime type error if the type is
   // not valid.
@@ -439,16 +447,14 @@ Expression::backend_numeric_constant_expression(Translate_context* context,
     }
   else if (type->complex_type() != NULL)
     {
-      mpfr_t real;
-      mpfr_t imag;
-      if (!val->to_complex(&real, &imag))
+      mpc_t cval;
+      if (!val->to_complex(&cval))
         {
           go_assert(saw_errors());
           return gogo->backend()->error_expression();
         }
-      ret = gogo->backend()->complex_constant_expression(btype, real, imag);
-      mpfr_clear(real);
-      mpfr_clear(imag);
+      ret = gogo->backend()->complex_constant_expression(btype, cval);
+      mpc_clear(cval);
     }
   else
     go_unreachable();
@@ -491,11 +497,7 @@ Expression::check_bounds(Expression* val, Location loc)
   Expression* index_overflows = Expression::make_boolean(false, loc);
   if (!val_is_unsigned)
     {
-      mpz_t zval;
-      mpz_init_set_ui(zval, 0UL);
-      Expression* zero = Expression::make_integer(&zval, val_type, loc);
-      mpz_clear(zval);
-
+      Expression* zero = Expression::make_integer_ul(0, val_type, loc);
       negative_index = Expression::make_binary(OPERATOR_LT, val, zero, loc);
     }
 
@@ -512,7 +514,7 @@ Expression::check_bounds(Expression* val, Location loc)
       mpz_init(maxval);
       mpz_mul_2exp(maxval, one, bound_type_size - 1);
       mpz_sub_ui(maxval, maxval, 1);
-      Expression* max = Expression::make_integer(&maxval, val_type, loc);
+      Expression* max = Expression::make_integer_z(&maxval, val_type, loc);
       mpz_clear(one);
       mpz_clear(maxval);
 
@@ -1824,8 +1826,8 @@ class Integer_expression : public Expression
       return Expression::make_character(&this->val_, this->type_,
 					this->location());
     else
-      return Expression::make_integer(&this->val_, this->type_,
-				      this->location());
+      return Expression::make_integer_z(&this->val_, this->type_,
+					this->location());
   }
 
   void
@@ -2023,10 +2025,13 @@ Integer_expression::do_import(Import* imp)
 		   imag_str.c_str());
 	  return Expression::make_error(imp->location());
 	}
-      Expression* ret = Expression::make_complex(&real, &imag, NULL,
-						 imp->location());
+      mpc_t cval;
+      mpc_init2(cval, mpc_precision);
+      mpc_set_fr_fr(cval, real, imag, MPC_RNDNN);
       mpfr_clear(real);
       mpfr_clear(imag);
+      Expression* ret = Expression::make_complex(&cval, NULL, imp->location());
+      mpc_clear(cval);
       return ret;
     }
   else if (num.find('.') == std::string::npos
@@ -2047,7 +2052,7 @@ Integer_expression::do_import(Import* imp)
       if (is_character_constant)
 	ret = Expression::make_character(&val, NULL, imp->location());
       else
-	ret = Expression::make_integer(&val, NULL, imp->location());
+	ret = Expression::make_integer_z(&val, NULL, imp->location());
       mpz_clear(val);
       return ret;
     }
@@ -2077,12 +2082,78 @@ Integer_expression::do_dump_expression(Ast_dump_context* ast_dump_context) const
     ast_dump_context->ostream() << '\'';
 }
 
-// Build a new integer value.
+// Build a new integer value from a multi-precision integer.
 
 Expression*
-Expression::make_integer(const mpz_t* val, Type* type, Location location)
+Expression::make_integer_z(const mpz_t* val, Type* type, Location location)
 {
   return new Integer_expression(val, type, false, location);
+}
+
+// Build a new integer value from an unsigned long.
+
+Expression*
+Expression::make_integer_ul(unsigned long val, Type *type, Location location)
+{
+  mpz_t zval;
+  mpz_init_set_ui(zval, val);
+  Expression* ret = Expression::make_integer_z(&zval, type, location);
+  mpz_clear(zval);
+  return ret;
+}
+
+// Build a new integer value from a signed long.
+
+Expression*
+Expression::make_integer_sl(long val, Type *type, Location location)
+{
+  mpz_t zval;
+  mpz_init_set_si(zval, val);
+  Expression* ret = Expression::make_integer_z(&zval, type, location);
+  mpz_clear(zval);
+  return ret;
+}
+
+// Store an int64_t in an uninitialized mpz_t.
+
+static void
+set_mpz_from_int64(mpz_t* zval, int64_t val)
+{
+  if (val >= 0)
+    {
+      unsigned long ul = static_cast<unsigned long>(val);
+      if (static_cast<int64_t>(ul) == val)
+	{
+	  mpz_init_set_ui(*zval, ul);
+	  return;
+	}
+    }
+  uint64_t uv;
+  if (val >= 0)
+    uv = static_cast<uint64_t>(val);
+  else
+    uv = static_cast<uint64_t>(- val);
+  unsigned long ul = uv & 0xffffffffUL;
+  mpz_init_set_ui(*zval, ul);
+  mpz_t hval;
+  mpz_init_set_ui(hval, static_cast<unsigned long>(uv >> 32));
+  mpz_mul_2exp(hval, hval, 32);
+  mpz_add(*zval, *zval, hval);
+  mpz_clear(hval);
+  if (val < 0)
+    mpz_neg(*zval, *zval);
+}
+
+// Build a new integer value from an int64_t.
+
+Expression*
+Expression::make_integer_int64(int64_t val, Type* type, Location location)
+{
+  mpz_t zval;
+  set_mpz_from_int64(&zval, val);
+  Expression* ret = Expression::make_integer_z(&zval, type, location);
+  mpz_clear(zval);
+  return ret;
 }
 
 // Build a new character constant value.
@@ -2280,23 +2351,21 @@ Expression::make_float(const mpfr_t* val, Type* type, Location location)
 class Complex_expression : public Expression
 {
  public:
-  Complex_expression(const mpfr_t* real, const mpfr_t* imag, Type* type,
-		     Location location)
+  Complex_expression(const mpc_t* val, Type* type, Location location)
     : Expression(EXPRESSION_COMPLEX, location),
       type_(type)
   {
-    mpfr_init_set(this->real_, *real, GMP_RNDN);
-    mpfr_init_set(this->imag_, *imag, GMP_RNDN);
+    mpc_init2(this->val_, mpc_precision);
+    mpc_set(this->val_, *val, MPC_RNDNN);
   }
 
-  // Write REAL/IMAG to string dump.
+  // Write VAL to string dump.
   static void
-  export_complex(String_dump* exp, const mpfr_t real, const mpfr_t val);
+  export_complex(String_dump* exp, const mpc_t val);
 
   // Write REAL/IMAG to dump context.
   static void
-  dump_complex(Ast_dump_context* ast_dump_context, 
-	       const mpfr_t real, const mpfr_t val);
+  dump_complex(Ast_dump_context* ast_dump_context, const mpc_t val);
   
  protected:
   bool
@@ -2310,7 +2379,7 @@ class Complex_expression : public Expression
   bool
   do_numeric_constant_value(Numeric_constant* nc) const
   {
-    nc->set_complex(this->type_, this->real_, this->imag_);
+    nc->set_complex(this->type_, this->val_);
     return true;
   }
 
@@ -2326,7 +2395,7 @@ class Complex_expression : public Expression
   Expression*
   do_copy()
   {
-    return Expression::make_complex(&this->real_, &this->imag_, this->type_,
+    return Expression::make_complex(&this->val_, this->type_,
 				    this->location());
   }
 
@@ -2340,10 +2409,8 @@ class Complex_expression : public Expression
   do_dump_expression(Ast_dump_context*) const;
   
  private:
-  // The real part.
-  mpfr_t real_;
-  // The imaginary part;
-  mpfr_t imag_;
+  // The complex value.
+  mpc_t val_;
   // The type if known.
   Type* type_;
 };
@@ -2383,7 +2450,7 @@ Complex_expression::do_check_types(Gogo*)
   if (type == NULL)
     return;
   Numeric_constant nc;
-  nc.set_complex(NULL, this->real_, this->imag_);
+  nc.set_complex(NULL, this->val_);
   if (!nc.set_type(this->type_, true, this->location()))
     this->set_is_error();
 }
@@ -2415,23 +2482,22 @@ Complex_expression::do_get_backend(Translate_context* context)
     }
 
   Numeric_constant nc;
-  nc.set_complex(resolved_type, this->real_, this->imag_);
+  nc.set_complex(resolved_type, this->val_);
   return Expression::backend_numeric_constant_expression(context, &nc);
 }
 
 // Write REAL/IMAG to export data.
 
 void
-Complex_expression::export_complex(String_dump* exp, const mpfr_t real,
-				   const mpfr_t imag)
+Complex_expression::export_complex(String_dump* exp, const mpc_t val)
 {
-  if (!mpfr_zero_p(real))
+  if (!mpfr_zero_p(mpc_realref(val)))
     {
-      Float_expression::export_float(exp, real);
-      if (mpfr_sgn(imag) > 0)
+      Float_expression::export_float(exp, mpc_realref(val));
+      if (mpfr_sgn(mpc_imagref(val)) >= 0)
 	exp->write_c_string("+");
     }
-  Float_expression::export_float(exp, imag);
+  Float_expression::export_float(exp, mpc_imagref(val));
   exp->write_c_string("i");
 }
 
@@ -2440,7 +2506,7 @@ Complex_expression::export_complex(String_dump* exp, const mpfr_t real,
 void
 Complex_expression::do_export(Export* exp) const
 {
-  Complex_expression::export_complex(exp, this->real_, this->imag_);
+  Complex_expression::export_complex(exp, this->val_);
   // A trailing space lets us reliably identify the end of the number.
   exp->write_c_string(" ");
 }
@@ -2450,18 +2516,15 @@ Complex_expression::do_export(Export* exp) const
 void
 Complex_expression::do_dump_expression(Ast_dump_context* ast_dump_context) const
 {
-  Complex_expression::export_complex(ast_dump_context,
-                                      this->real_,
-                                      this->imag_);
+  Complex_expression::export_complex(ast_dump_context, this->val_);
 }
 
 // Make a complex expression.
 
 Expression*
-Expression::make_complex(const mpfr_t* real, const mpfr_t* imag, Type* type,
-			 Location location)
+Expression::make_complex(const mpc_t* val, Type* type, Location location)
 {
-  return new Complex_expression(real, imag, type, location);
+  return new Complex_expression(val, type, location);
 }
 
 // Find a named object in an expression.
@@ -2593,12 +2656,7 @@ Const_expression::do_lower(Gogo* gogo, Named_object*,
 		   "iota is only defined in const declarations");
 	  iota_value = 0;
 	}
-      mpz_t val;
-      mpz_init_set_ui(val, static_cast<unsigned long>(iota_value));
-      Expression* ret = Expression::make_integer(&val, NULL,
-						 this->location());
-      mpz_clear(val);
-      return ret;
+      return Expression::make_integer_ul(iota_value, NULL, this->location());
     }
 
   // Make sure that the constant itself has been lowered.
@@ -2959,100 +3017,7 @@ Expression::make_iota()
   return &iota_expression;
 }
 
-// A type conversion expression.
-
-class Type_conversion_expression : public Expression
-{
- public:
-  Type_conversion_expression(Type* type, Expression* expr,
-			     Location location)
-    : Expression(EXPRESSION_CONVERSION, location),
-      type_(type), expr_(expr), may_convert_function_types_(false)
-  { }
-
-  // Return the type to which we are converting.
-  Type*
-  type() const
-  { return this->type_; }
-
-  // Return the expression which we are converting.
-  Expression*
-  expr() const
-  { return this->expr_; }
-
-  // Permit converting from one function type to another.  This is
-  // used internally for method expressions.
-  void
-  set_may_convert_function_types()
-  {
-    this->may_convert_function_types_ = true;
-  }
-
-  // Import a type conversion expression.
-  static Expression*
-  do_import(Import*);
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  Expression*
-  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  bool
-  do_is_constant() const;
-
-  bool
-  do_is_immutable() const;
-
-  bool
-  do_numeric_constant_value(Numeric_constant*) const;
-
-  bool
-  do_string_constant_value(std::string*) const;
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*)
-  {
-    Type_context subcontext(this->type_, false);
-    this->expr_->determine_type(&subcontext);
-  }
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return new Type_conversion_expression(this->type_, this->expr_->copy(),
-					  this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_export(Export*) const;
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The type to convert to.
-  Type* type_;
-  // The expression to convert.
-  Expression* expr_;
-  // True if this is permitted to convert function types.  This is
-  // used internally for method expressions.
-  bool may_convert_function_types_;
-};
+// Class Type_conversion_expression.
 
 // Traversal.
 
@@ -3105,13 +3070,10 @@ Type_conversion_expression::do_lower(Gogo*, Named_object*,
 		       p != s.end();
 		       p++)
 		    {
-		      mpz_t val;
-		      mpz_init_set_ui(val, static_cast<unsigned char>(*p));
-		      Expression* v = Expression::make_integer(&val,
-							       element_type,
-							       location);
-		      vals->push_back(v);
-		      mpz_clear(val);
+		      unsigned char c = static_cast<unsigned char>(*p);
+		      vals->push_back(Expression::make_integer_ul(c,
+								  element_type,
+								  location));
 		    }
 		}
 	      else
@@ -3129,13 +3091,9 @@ Type_conversion_expression::do_lower(Gogo*, Named_object*,
 			  adv = 1;
 			}
 		      p += adv;
-		      mpz_t val;
-		      mpz_init_set_ui(val, c);
-		      Expression* v = Expression::make_integer(&val,
-							       element_type,
-							       location);
-		      vals->push_back(v);
-		      mpz_clear(val);
+		      vals->push_back(Expression::make_integer_ul(c,
+								  element_type,
+								  location));
 		    }
 		}
 
@@ -3157,8 +3115,7 @@ Type_conversion_expression::do_flatten(Gogo*, Named_object*,
 {
   if (((this->type()->is_string_type()
         && this->expr_->type()->is_slice_type())
-       || (this->type()->interface_type() != NULL
-           && this->expr_->type()->interface_type() != NULL))
+       || this->expr_->type()->interface_type() != NULL)
       && !this->expr_->is_variable())
     {
       Temporary_statement* temp =
@@ -3248,6 +3205,15 @@ Type_conversion_expression::do_string_constant_value(std::string* val) const
   // FIXME: Could handle conversion from const []int here.
 
   return false;
+}
+
+// Determine the resulting type of the conversion.
+
+void
+Type_conversion_expression::do_determine_type(const Type_context*)
+{
+  Type_context subcontext(this->type_, false);
+  this->expr_->determine_type(&subcontext);
 }
 
 // Check that types are convertible.
@@ -3440,6 +3406,9 @@ class Unsafe_type_conversion_expression : public Expression
   int
   do_traverse(Traverse* traverse);
 
+  bool
+  do_is_immutable() const;
+
   Type*
   do_type()
   { return this->type_; }
@@ -3478,6 +3447,27 @@ Unsafe_type_conversion_expression::do_traverse(Traverse* traverse)
       || Type::traverse(this->type_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
   return TRAVERSE_CONTINUE;
+}
+
+// Return whether an unsafe type conversion is immutable.
+
+bool
+Unsafe_type_conversion_expression::do_is_immutable() const
+{
+  Type* type = this->type_;
+  Type* expr_type = this->expr_->type();
+
+  if (type->interface_type() != NULL
+      || expr_type->interface_type() != NULL)
+    return false;
+
+  if (!this->expr_->is_immutable())
+    return false;
+
+  if (Type::are_convertible(type, expr_type, NULL))
+    return true;
+
+  return type->is_basic_type() && expr_type->is_basic_type();
 }
 
 // Convert to backend representation.
@@ -3529,7 +3519,8 @@ Unsafe_type_conversion_expression::do_get_backend(Translate_context* context)
               || et->function_type() != NULL
               || et->points_to() != NULL
               || et->map_type() != NULL
-              || et->channel_type() != NULL);
+              || et->channel_type() != NULL
+	      || et->is_nil_type());
   else
     go_unreachable();
 
@@ -3620,6 +3611,16 @@ Unary_expression::do_lower(Gogo*, Named_object*, Statement_inserter*, int)
       return Expression::make_error(this->location());
     }
 
+  // Check for an invalid pointer dereference.  We need to do this
+  // here because Unary_expression::do_type will return an error type
+  // in this case.  That can cause code to appear erroneous, and
+  // therefore disappear at lowering time, without any error message.
+  if (op == OPERATOR_MULT && expr->type()->points_to() == NULL)
+    {
+      this->report_error(_("expected pointer"));
+      return Expression::make_error(this->location());
+    }
+
   if (op == OPERATOR_PLUS || op == OPERATOR_MINUS || op == OPERATOR_XOR)
     {
       Numeric_constant nc;
@@ -3653,7 +3654,7 @@ Unary_expression::do_flatten(Gogo* gogo, Named_object*,
       if (!ptype->is_void_type())
         {
           Btype* pbtype = ptype->get_backend(gogo);
-          size_t s = gogo->backend()->type_size(pbtype);
+          int64_t s = gogo->backend()->type_size(pbtype);
           if (s >= 4096 || this->issue_nil_check_)
             {
               Temporary_statement* temp =
@@ -3663,6 +3664,19 @@ Unary_expression::do_flatten(Gogo* gogo, Named_object*,
                   Expression::make_temporary_reference(temp, location);
             }
         }
+    }
+
+  if (this->op_ == OPERATOR_AND)
+    {
+      if (this->expr_->var_expression() != NULL)
+	{
+	  Named_object* var = this->expr_->var_expression()->named_object();
+	  if (var->is_variable())
+	    this->escapes_ = var->var_value()->escapes();
+	  if (var->is_result_variable())
+	    this->escapes_ = var->result_var_value()->escapes();
+	}
+      this->expr_->address_taken(this->escapes_);
     }
 
   if (this->create_temp_ && !this->expr_->is_variable())
@@ -3735,18 +3749,14 @@ Unary_expression::eval_constant(Operator op, const Numeric_constant* unc,
 	}
       else if (unc->is_complex())
 	{
-	  mpfr_t ureal, uimag;
-	  unc->get_complex(&ureal, &uimag);
-	  mpfr_t real, imag;
-	  mpfr_init(real);
-	  mpfr_init(imag);
-	  mpfr_neg(real, ureal, GMP_RNDN);
-	  mpfr_neg(imag, uimag, GMP_RNDN);
-	  nc->set_complex(unc->type(), real, imag);
-	  mpfr_clear(ureal);
-	  mpfr_clear(uimag);
-	  mpfr_clear(real);
-	  mpfr_clear(imag);
+	  mpc_t uval;
+	  unc->get_complex(&uval);
+	  mpc_t val;
+	  mpc_init2(val, mpc_precision);
+	  mpc_neg(val, uval, MPC_RNDNN);
+	  nc->set_complex(unc->type(), val);
+	  mpc_clear(uval);
+	  mpc_clear(val);
 	  return true;
 	}
       else
@@ -3989,10 +3999,7 @@ Unary_expression::do_check_types(Gogo*)
 	    }
 	}
       else
-        {
-          this->expr_->address_taken(this->escapes_);
-          this->expr_->issue_nil_check();
-        }
+	this->expr_->issue_nil_check();
       break;
 
     case OPERATOR_MULT:
@@ -4105,8 +4112,11 @@ Unary_expression::do_get_backend(Translate_context* context)
 			      && !context->is_const());
 	    }
 	  Bvariable* implicit =
-	    gogo->backend()->implicit_variable(buf, btype, bexpr, copy_to_heap,
+	    gogo->backend()->implicit_variable(buf, btype, true, copy_to_heap,
 					       false, 0);
+	  gogo->backend()->implicit_variable_set_init(implicit, buf, btype,
+						      true, copy_to_heap, false,
+						      bexpr);
 	  bexpr = gogo->backend()->var_expression(implicit, loc);
 	}
       else if ((this->expr_->is_composite_literal()
@@ -4142,7 +4152,7 @@ Unary_expression::do_get_backend(Translate_context* context)
         Btype* pbtype = ptype->get_backend(gogo);
         if (!ptype->is_void_type())
 	  {
-            size_t s = gogo->backend()->type_size(pbtype);
+            int64_t s = gogo->backend()->type_size(pbtype);
 	    if (s >= 4096 || this->issue_nil_check_)
 	      {
                 go_assert(this->expr_->is_variable());
@@ -4463,14 +4473,13 @@ Binary_expression::compare_complex(const Numeric_constant* left_nc,
 				   const Numeric_constant* right_nc,
 				   int* cmp)
 {
-  mpfr_t left_real, left_imag;
-  if (!left_nc->to_complex(&left_real, &left_imag))
+  mpc_t left_val;
+  if (!left_nc->to_complex(&left_val))
     return false;
-  mpfr_t right_real, right_imag;
-  if (!right_nc->to_complex(&right_real, &right_imag))
+  mpc_t right_val;
+  if (!right_nc->to_complex(&right_val))
     {
-      mpfr_clear(left_real);
-      mpfr_clear(left_imag);
+      mpc_clear(left_val);
       return false;
     }
 
@@ -4480,19 +4489,16 @@ Binary_expression::compare_complex(const Numeric_constant* left_nc,
   if (!type->is_abstract() && type->complex_type() != NULL)
     {
       int bits = type->complex_type()->bits();
-      mpfr_prec_round(left_real, bits / 2, GMP_RNDN);
-      mpfr_prec_round(left_imag, bits / 2, GMP_RNDN);
-      mpfr_prec_round(right_real, bits / 2, GMP_RNDN);
-      mpfr_prec_round(right_imag, bits / 2, GMP_RNDN);
+      mpfr_prec_round(mpc_realref(left_val), bits / 2, GMP_RNDN);
+      mpfr_prec_round(mpc_imagref(left_val), bits / 2, GMP_RNDN);
+      mpfr_prec_round(mpc_realref(right_val), bits / 2, GMP_RNDN);
+      mpfr_prec_round(mpc_imagref(right_val), bits / 2, GMP_RNDN);
     }
 
-  *cmp = (mpfr_cmp(left_real, right_real) != 0
-	  || mpfr_cmp(left_imag, right_imag) != 0);
+  *cmp = mpc_cmp(left_val, right_val) != 0;
 
-  mpfr_clear(left_real);
-  mpfr_clear(left_imag);
-  mpfr_clear(right_real);
-  mpfr_clear(right_imag);
+  mpc_clear(left_val);
+  mpc_clear(right_val);
 
   return true;
 }
@@ -4763,31 +4769,27 @@ Binary_expression::eval_complex(Operator op, const Numeric_constant* left_nc,
 				const Numeric_constant* right_nc,
 				Location location, Numeric_constant* nc)
 {
-  mpfr_t left_real, left_imag;
-  if (!left_nc->to_complex(&left_real, &left_imag))
+  mpc_t left_val;
+  if (!left_nc->to_complex(&left_val))
     return false;
-  mpfr_t right_real, right_imag;
-  if (!right_nc->to_complex(&right_real, &right_imag))
+  mpc_t right_val;
+  if (!right_nc->to_complex(&right_val))
     {
-      mpfr_clear(left_real);
-      mpfr_clear(left_imag);
+      mpc_clear(left_val);
       return false;
     }
 
-  mpfr_t real, imag;
-  mpfr_init(real);
-  mpfr_init(imag);
+  mpc_t val;
+  mpc_init2(val, mpc_precision);
 
   bool ret = true;
   switch (op)
     {
     case OPERATOR_PLUS:
-      mpfr_add(real, left_real, right_real, GMP_RNDN);
-      mpfr_add(imag, left_imag, right_imag, GMP_RNDN);
+      mpc_add(val, left_val, right_val, MPC_RNDNN);
       break;
     case OPERATOR_MINUS:
-      mpfr_sub(real, left_real, right_real, GMP_RNDN);
-      mpfr_sub(imag, left_imag, right_imag, GMP_RNDN);
+      mpc_sub(val, left_val, right_val, MPC_RNDNN);
       break;
     case OPERATOR_OR:
     case OPERATOR_XOR:
@@ -4796,310 +4798,30 @@ Binary_expression::eval_complex(Operator op, const Numeric_constant* left_nc,
     case OPERATOR_MOD:
     case OPERATOR_LSHIFT:
     case OPERATOR_RSHIFT:
-      mpfr_set_ui(real, 0, GMP_RNDN);
-      mpfr_set_ui(imag, 0, GMP_RNDN);
+      mpc_set_ui(val, 0, MPC_RNDNN);
       ret = false;
       break;
     case OPERATOR_MULT:
-      {
-	// You might think that multiplying two complex numbers would
-	// be simple, and you would be right, until you start to think
-	// about getting the right answer for infinity.  If one
-	// operand here is infinity and the other is anything other
-	// than zero or NaN, then we are going to wind up subtracting
-	// two infinity values.  That will give us a NaN, but the
-	// correct answer is infinity.
-
-	mpfr_t lrrr;
-	mpfr_init(lrrr);
-	mpfr_mul(lrrr, left_real, right_real, GMP_RNDN);
-
-	mpfr_t lrri;
-	mpfr_init(lrri);
-	mpfr_mul(lrri, left_real, right_imag, GMP_RNDN);
-
-	mpfr_t lirr;
-	mpfr_init(lirr);
-	mpfr_mul(lirr, left_imag, right_real, GMP_RNDN);
-
-	mpfr_t liri;
-	mpfr_init(liri);
-	mpfr_mul(liri, left_imag, right_imag, GMP_RNDN);
-
-	mpfr_sub(real, lrrr, liri, GMP_RNDN);
-	mpfr_add(imag, lrri, lirr, GMP_RNDN);
-
-	// If we get NaN on both sides, check whether it should really
-	// be infinity.  The rule is that if either side of the
-	// complex number is infinity, then the whole value is
-	// infinity, even if the other side is NaN.  So the only case
-	// we have to fix is the one in which both sides are NaN.
-	if (mpfr_nan_p(real) && mpfr_nan_p(imag)
-	    && (!mpfr_nan_p(left_real) || !mpfr_nan_p(left_imag))
-	    && (!mpfr_nan_p(right_real) || !mpfr_nan_p(right_imag)))
-	  {
-	    bool is_infinity = false;
-
-	    mpfr_t lr;
-	    mpfr_t li;
-	    mpfr_init_set(lr, left_real, GMP_RNDN);
-	    mpfr_init_set(li, left_imag, GMP_RNDN);
-
-	    mpfr_t rr;
-	    mpfr_t ri;
-	    mpfr_init_set(rr, right_real, GMP_RNDN);
-	    mpfr_init_set(ri, right_imag, GMP_RNDN);
-
-	    // If the left side is infinity, then the result is
-	    // infinity.
-	    if (mpfr_inf_p(lr) || mpfr_inf_p(li))
-	      {
-		mpfr_set_ui(lr, mpfr_inf_p(lr) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(lr, lr, left_real, GMP_RNDN);
-		mpfr_set_ui(li, mpfr_inf_p(li) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(li, li, left_imag, GMP_RNDN);
-		if (mpfr_nan_p(rr))
-		  {
-		    mpfr_set_ui(rr, 0, GMP_RNDN);
-		    mpfr_copysign(rr, rr, right_real, GMP_RNDN);
-		  }
-		if (mpfr_nan_p(ri))
-		  {
-		    mpfr_set_ui(ri, 0, GMP_RNDN);
-		    mpfr_copysign(ri, ri, right_imag, GMP_RNDN);
-		  }
-		is_infinity = true;
-	      }
-
-	    // If the right side is infinity, then the result is
-	    // infinity.
-	    if (mpfr_inf_p(rr) || mpfr_inf_p(ri))
-	      {
-		mpfr_set_ui(rr, mpfr_inf_p(rr) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(rr, rr, right_real, GMP_RNDN);
-		mpfr_set_ui(ri, mpfr_inf_p(ri) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(ri, ri, right_imag, GMP_RNDN);
-		if (mpfr_nan_p(lr))
-		  {
-		    mpfr_set_ui(lr, 0, GMP_RNDN);
-		    mpfr_copysign(lr, lr, left_real, GMP_RNDN);
-		  }
-		if (mpfr_nan_p(li))
-		  {
-		    mpfr_set_ui(li, 0, GMP_RNDN);
-		    mpfr_copysign(li, li, left_imag, GMP_RNDN);
-		  }
-		is_infinity = true;
-	      }
-
-	    // If we got an overflow in the intermediate computations,
-	    // then the result is infinity.
-	    if (!is_infinity
-		&& (mpfr_inf_p(lrrr) || mpfr_inf_p(lrri)
-		    || mpfr_inf_p(lirr) || mpfr_inf_p(liri)))
-	      {
-		if (mpfr_nan_p(lr))
-		  {
-		    mpfr_set_ui(lr, 0, GMP_RNDN);
-		    mpfr_copysign(lr, lr, left_real, GMP_RNDN);
-		  }
-		if (mpfr_nan_p(li))
-		  {
-		    mpfr_set_ui(li, 0, GMP_RNDN);
-		    mpfr_copysign(li, li, left_imag, GMP_RNDN);
-		  }
-		if (mpfr_nan_p(rr))
-		  {
-		    mpfr_set_ui(rr, 0, GMP_RNDN);
-		    mpfr_copysign(rr, rr, right_real, GMP_RNDN);
-		  }
-		if (mpfr_nan_p(ri))
-		  {
-		    mpfr_set_ui(ri, 0, GMP_RNDN);
-		    mpfr_copysign(ri, ri, right_imag, GMP_RNDN);
-		  }
-		is_infinity = true;
-	      }
-
-	    if (is_infinity)
-	      {
-		mpfr_mul(lrrr, lr, rr, GMP_RNDN);
-		mpfr_mul(lrri, lr, ri, GMP_RNDN);
-		mpfr_mul(lirr, li, rr, GMP_RNDN);
-		mpfr_mul(liri, li, ri, GMP_RNDN);
-		mpfr_sub(real, lrrr, liri, GMP_RNDN);
-		mpfr_add(imag, lrri, lirr, GMP_RNDN);
-		mpfr_set_inf(real, mpfr_sgn(real));
-		mpfr_set_inf(imag, mpfr_sgn(imag));
-	      }
-
-	    mpfr_clear(lr);
-	    mpfr_clear(li);
-	    mpfr_clear(rr);
-	    mpfr_clear(ri);
-	  }
-
-	mpfr_clear(lrrr);
-	mpfr_clear(lrri);
-	mpfr_clear(lirr);
-	mpfr_clear(liri);				  
-      }
+      mpc_mul(val, left_val, right_val, MPC_RNDNN);
       break;
     case OPERATOR_DIV:
-      {
-	// For complex division we want to avoid having an
-	// intermediate overflow turn the whole result in a NaN.  We
-	// scale the values to try to avoid this.
-
-	if (mpfr_zero_p(right_real) && mpfr_zero_p(right_imag))
-	  {
-	    error_at(location, "division by zero");
-	    mpfr_set_ui(real, 0, GMP_RNDN);
-	    mpfr_set_ui(imag, 0, GMP_RNDN);
-	    break;
-	  }
-
-	mpfr_t rra;
-	mpfr_t ria;
-	mpfr_init(rra);
-	mpfr_init(ria);
-	mpfr_abs(rra, right_real, GMP_RNDN);
-	mpfr_abs(ria, right_imag, GMP_RNDN);
-	mpfr_t t;
-	mpfr_init(t);
-	mpfr_max(t, rra, ria, GMP_RNDN);
-
-	mpfr_t rr;
-	mpfr_t ri;
-	mpfr_init_set(rr, right_real, GMP_RNDN);
-	mpfr_init_set(ri, right_imag, GMP_RNDN);
-	long ilogbw = 0;
-	if (!mpfr_inf_p(t) && !mpfr_nan_p(t) && !mpfr_zero_p(t))
-	  {
-	    ilogbw = mpfr_get_exp(t);
-	    mpfr_mul_2si(rr, rr, - ilogbw, GMP_RNDN);
-	    mpfr_mul_2si(ri, ri, - ilogbw, GMP_RNDN);
-	  }
-
-	mpfr_t denom;
-	mpfr_init(denom);
-	mpfr_mul(denom, rr, rr, GMP_RNDN);
-	mpfr_mul(t, ri, ri, GMP_RNDN);
-	mpfr_add(denom, denom, t, GMP_RNDN);
-
-	mpfr_mul(real, left_real, rr, GMP_RNDN);
-	mpfr_mul(t, left_imag, ri, GMP_RNDN);
-	mpfr_add(real, real, t, GMP_RNDN);
-	mpfr_div(real, real, denom, GMP_RNDN);
-	mpfr_mul_2si(real, real, - ilogbw, GMP_RNDN);
-
-	mpfr_mul(imag, left_imag, rr, GMP_RNDN);
-	mpfr_mul(t, left_real, ri, GMP_RNDN);
-	mpfr_sub(imag, imag, t, GMP_RNDN);
-	mpfr_div(imag, imag, denom, GMP_RNDN);
-	mpfr_mul_2si(imag, imag, - ilogbw, GMP_RNDN);
-
-	// If we wind up with NaN on both sides, check whether we
-	// should really have infinity.  The rule is that if either
-	// side of the complex number is infinity, then the whole
-	// value is infinity, even if the other side is NaN.  So the
-	// only case we have to fix is the one in which both sides are
-	// NaN.
-	if (mpfr_nan_p(real) && mpfr_nan_p(imag)
-	    && (!mpfr_nan_p(left_real) || !mpfr_nan_p(left_imag))
-	    && (!mpfr_nan_p(right_real) || !mpfr_nan_p(right_imag)))
-	  {
-	    if (mpfr_zero_p(denom))
-	      {
-		mpfr_set_inf(real, mpfr_sgn(rr));
-		mpfr_mul(real, real, left_real, GMP_RNDN);
-		mpfr_set_inf(imag, mpfr_sgn(rr));
-		mpfr_mul(imag, imag, left_imag, GMP_RNDN);
-	      }
-	    else if ((mpfr_inf_p(left_real) || mpfr_inf_p(left_imag))
-		     && mpfr_number_p(rr) && mpfr_number_p(ri))
-	      {
-		mpfr_set_ui(t, mpfr_inf_p(left_real) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(t, t, left_real, GMP_RNDN);
-
-		mpfr_t t2;
-		mpfr_init_set_ui(t2, mpfr_inf_p(left_imag) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(t2, t2, left_imag, GMP_RNDN);
-
-		mpfr_t t3;
-		mpfr_init(t3);
-		mpfr_mul(t3, t, rr, GMP_RNDN);
-
-		mpfr_t t4;
-		mpfr_init(t4);
-		mpfr_mul(t4, t2, ri, GMP_RNDN);
-
-		mpfr_add(t3, t3, t4, GMP_RNDN);
-		mpfr_set_inf(real, mpfr_sgn(t3));
-
-		mpfr_mul(t3, t2, rr, GMP_RNDN);
-		mpfr_mul(t4, t, ri, GMP_RNDN);
-		mpfr_sub(t3, t3, t4, GMP_RNDN);
-		mpfr_set_inf(imag, mpfr_sgn(t3));
-
-		mpfr_clear(t2);
-		mpfr_clear(t3);
-		mpfr_clear(t4);
-	      }
-	    else if ((mpfr_inf_p(right_real) || mpfr_inf_p(right_imag))
-		     && mpfr_number_p(left_real) && mpfr_number_p(left_imag))
-	      {
-		mpfr_set_ui(t, mpfr_inf_p(rr) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(t, t, rr, GMP_RNDN);
-
-		mpfr_t t2;
-		mpfr_init_set_ui(t2, mpfr_inf_p(ri) ? 1 : 0, GMP_RNDN);
-		mpfr_copysign(t2, t2, ri, GMP_RNDN);
-
-		mpfr_t t3;
-		mpfr_init(t3);
-		mpfr_mul(t3, left_real, t, GMP_RNDN);
-
-		mpfr_t t4;
-		mpfr_init(t4);
-		mpfr_mul(t4, left_imag, t2, GMP_RNDN);
-
-		mpfr_add(t3, t3, t4, GMP_RNDN);
-		mpfr_set_ui(real, 0, GMP_RNDN);
-		mpfr_mul(real, real, t3, GMP_RNDN);
-
-		mpfr_mul(t3, left_imag, t, GMP_RNDN);
-		mpfr_mul(t4, left_real, t2, GMP_RNDN);
-		mpfr_sub(t3, t3, t4, GMP_RNDN);
-		mpfr_set_ui(imag, 0, GMP_RNDN);
-		mpfr_mul(imag, imag, t3, GMP_RNDN);
-
-		mpfr_clear(t2);
-		mpfr_clear(t3);
-		mpfr_clear(t4);
-	      }
-	  }
-
-	mpfr_clear(denom);
-	mpfr_clear(rr);
-	mpfr_clear(ri);
-	mpfr_clear(t);
-	mpfr_clear(rra);
-	mpfr_clear(ria);
-      }
+      if (mpc_cmp_si(right_val, 0) == 0)
+	{
+	  error_at(location, "division by zero");
+	  mpc_set_ui(val, 0, MPC_RNDNN);
+	  break;
+	}
+      mpc_div(val, left_val, right_val, MPC_RNDNN);
       break;
     default:
       go_unreachable();
     }
 
-  mpfr_clear(left_real);
-  mpfr_clear(left_imag);
-  mpfr_clear(right_real);
-  mpfr_clear(right_imag);
+  mpc_clear(left_val);
+  mpc_clear(right_val);
 
-  nc->set_complex(NULL, real, imag);
-  mpfr_clear(real);
-  mpfr_clear(imag);
+  nc->set_complex(NULL, val);
+  mpc_clear(val);
 
   return ret;
 }
@@ -5177,10 +4899,13 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
   // Lower struct, array, and some interface comparisons.
   if (op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ)
     {
-      if (left->type()->struct_type() != NULL)
+      if (left->type()->struct_type() != NULL
+	  && right->type()->struct_type() != NULL)
 	return this->lower_struct_comparison(gogo, inserter);
       else if (left->type()->array_type() != NULL
-	       && !left->type()->is_slice_type())
+	       && !left->type()->is_slice_type()
+	       && right->type()->array_type() != NULL
+	       && !right->type()->is_slice_type())
 	return this->lower_array_comparison(gogo, inserter);
       else if ((left->type()->interface_type() != NULL
                 && right->type()->interface_type() == NULL)
@@ -5379,12 +5104,7 @@ Binary_expression::lower_compare_to_memcmp(Gogo*, Statement_inserter* inserter)
 					       TYPE_INFO_SIZE);
 
   Expression* call = Runtime::make_call(Runtime::MEMCMP, loc, 3, a1, a2, len);
-
-  mpz_t zval;
-  mpz_init_set_ui(zval, 0);
-  Expression* zero = Expression::make_integer(&zval, NULL, loc);
-  mpz_clear(zval);
-
+  Expression* zero = Expression::make_integer_ul(0, NULL, loc);
   return Expression::make_binary(this->op_, call, zero, loc);
 }
 
@@ -5392,6 +5112,9 @@ Expression*
 Binary_expression::do_flatten(Gogo* gogo, Named_object*,
                               Statement_inserter* inserter)
 {
+  if (this->classification() == EXPRESSION_ERROR)
+    return this;
+
   Location loc = this->location();
   Temporary_statement* temp;
   if (this->left_->type()->is_string_type()
@@ -5570,15 +5293,6 @@ Binary_expression::do_determine_type(const Type_context* context)
     {
       // In a comparison, the context does not determine the types of
       // the operands.
-      subcontext.type = NULL;
-    }
-
-  if (this->op_ == OPERATOR_ANDAND || this->op_ == OPERATOR_OROR)
-    {
-      // For a logical operation, the context does not determine the
-      // types of the operands.  The operands must be some boolean
-      // type but if the context has a boolean type they do not
-      // inherit it.  See http://golang.org/issue/3924.
       subcontext.type = NULL;
     }
 
@@ -5843,10 +5557,9 @@ Binary_expression::do_check_types(Gogo*)
 		  if (mpz_sgn(val) < 0)
 		    {
 		      this->report_error(_("negative shift count"));
-		      mpz_set_ui(val, 0);
 		      Location rloc = this->right_->location();
-		      this->right_ = Expression::make_integer(&val, right_type,
-							      rloc);
+		      this->right_ = Expression::make_integer_ul(0, right_type,
+								 rloc);
 		    }
 		  mpz_clear(val);
 		}
@@ -6303,10 +6016,7 @@ Expression::comparison(Translate_context* context, Type* result_type,
   Type* left_type = left->type();
   Type* right_type = right->type();
 
-  mpz_t zval;
-  mpz_init_set_ui(zval, 0UL);
-  Expression* zexpr = Expression::make_integer(&zval, NULL, location);
-  mpz_clear(zval);
+  Expression* zexpr = Expression::make_integer_ul(0, NULL, location);
 
   if (left_type->is_string_type() && right_type->is_string_type())
     {
@@ -6576,12 +6286,15 @@ Bound_method_expression::create_thunk(Gogo* gogo, const Method* method,
 
   Function_type* new_fntype = orig_fntype->copy_with_names();
 
-  Named_object* new_no = gogo->start_function(Gogo::thunk_name(), new_fntype,
+  std::string thunk_name = Gogo::thunk_name();
+  Named_object* new_no = gogo->start_function(thunk_name, new_fntype,
 					      false, loc);
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
-  Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
+  cvar->set_is_closure();
+  Named_object* cp = Named_object::make_variable("$closure" + thunk_name,
+						 NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
   gogo->start_block(loc);
@@ -6824,13 +6537,7 @@ class Builtin_call_expression : public Call_expression
   do_check_types(Gogo*);
 
   Expression*
-  do_copy()
-  {
-    return new Builtin_call_expression(this->gogo_, this->fn()->copy(),
-				       this->args()->copy(),
-				       this->is_varargs(),
-				       this->location());
-  }
+  do_copy();
 
   Bexpression*
   do_get_backend(Translate_context*);
@@ -6899,6 +6606,8 @@ class Builtin_call_expression : public Call_expression
   // Used to stop endless loops when the length of an array uses len
   // or cap of the array itself.
   mutable bool seen_;
+  // Whether the argument is set for calls to BUILTIN_RECOVER.
+  bool recover_arg_is_set_;
 };
 
 Builtin_call_expression::Builtin_call_expression(Gogo* gogo,
@@ -6907,7 +6616,8 @@ Builtin_call_expression::Builtin_call_expression(Gogo* gogo,
 						 bool is_varargs,
 						 Location location)
   : Call_expression(fn, args, is_varargs, location),
-    gogo_(gogo), code_(BUILTIN_INVALID), seen_(false)
+    gogo_(gogo), code_(BUILTIN_INVALID), seen_(false),
+    recover_arg_is_set_(false)
 {
   Func_expression* fnexp = this->fn()->func_expression();
   go_assert(fnexp != NULL);
@@ -6973,6 +6683,7 @@ Builtin_call_expression::do_set_recover_arg(Expression* arg)
   Expression_list* new_args = new Expression_list();
   new_args->push_back(arg);
   this->set_args(new_args);
+  this->recover_arg_is_set_ = true;
 }
 
 // Lower a builtin call expression.  This turns new and make into
@@ -7142,26 +6853,53 @@ Expression*
 Builtin_call_expression::do_flatten(Gogo*, Named_object*,
                                     Statement_inserter* inserter)
 {
-  if (this->code_ == BUILTIN_APPEND
-      || this->code_ == BUILTIN_COPY)
+  Location loc = this->location();
+
+  switch (this->code_)
     {
-      Location loc = this->location();
-      Type* at = this->args()->front()->type();
-      for (Expression_list::iterator pa = this->args()->begin();
-           pa != this->args()->end();
-           ++pa)
-        {
-          if ((*pa)->is_nil_expression())
-            *pa = Expression::make_slice_composite_literal(at, NULL, loc);
-          if (!(*pa)->is_variable())
-            {
-              Temporary_statement* temp =
+    default:
+      break;
+
+    case BUILTIN_APPEND:
+    case BUILTIN_COPY:
+      {
+	Type* at = this->args()->front()->type();
+	for (Expression_list::iterator pa = this->args()->begin();
+	     pa != this->args()->end();
+	     ++pa)
+	  {
+	    if ((*pa)->is_nil_expression())
+	      {
+		Expression* nil = Expression::make_nil(loc);
+		Expression* zero = Expression::make_integer_ul(0, NULL, loc);
+		*pa = Expression::make_slice_value(at, nil, zero, zero, loc);
+	      }
+	    if (!(*pa)->is_variable())
+	      {
+		Temporary_statement* temp =
                   Statement::make_temporary(NULL, *pa, loc);
-              inserter->insert(temp);
-              *pa = Expression::make_temporary_reference(temp, loc);
-            }
-        }
+		inserter->insert(temp);
+		*pa = Expression::make_temporary_reference(temp, loc);
+	      }
+	  }
+      }
+      break;
+
+    case BUILTIN_PANIC:
+      for (Expression_list::iterator pa = this->args()->begin();
+	   pa != this->args()->end();
+	   ++pa)
+	{
+	  if (!(*pa)->is_variable() && (*pa)->type()->interface_type() != NULL)
+	    {
+	      Temporary_statement* temp =
+		Statement::make_temporary(NULL, *pa, loc);
+	      inserter->insert(temp);
+	      *pa = Expression::make_temporary_reference(temp, loc);
+	    }
+	}
     }
+
   return this;
 }
 
@@ -7220,11 +6958,7 @@ Builtin_call_expression::lower_make()
 	  this->report_error(_("length required when allocating a slice"));
 	  return Expression::make_error(this->location());
 	}
-
-      mpz_t zval;
-      mpz_init_set_ui(zval, 0);
-      len_arg = Expression::make_integer(&zval, NULL, loc);
-      mpz_clear(zval);
+      len_arg = Expression::make_integer_ul(0, NULL, loc);
     }
   else
     {
@@ -7365,9 +7099,9 @@ Builtin_call_expression::check_int_value(Expression* e, bool is_length)
 }
 
 // Return the type of the real or imag functions, given the type of
-// the argument.  We need to map complex to float, complex64 to
-// float32, and complex128 to float64, so it has to be done by name.
-// This returns NULL if it can't figure out the type.
+// the argument.  We need to map complex64 to float32 and complex128
+// to float64, so it has to be done by name.  This returns NULL if it
+// can't figure out the type.
 
 Type*
 Builtin_call_expression::real_imag_type(Type* arg_type)
@@ -7599,7 +7333,7 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       if (this->seen_)
         return false;
 
-      unsigned long ret;
+      int64_t ret;
       if (this->code_ == BUILTIN_SIZEOF)
 	{
           this->seen_ = true;
@@ -7627,7 +7361,10 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       else
 	go_unreachable();
 
-      nc->set_unsigned_long(Type::lookup_integer_type("uintptr"), ret);
+      mpz_t zval;
+      set_mpz_from_int64(&zval, ret);
+      nc->set_int(Type::lookup_integer_type("uintptr"), zval);
+      mpz_clear(zval);
       return true;
     }
   else if (this->code_ == BUILTIN_OFFSETOF)
@@ -7641,7 +7378,7 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       if (this->seen_)
         return false;
 
-      unsigned int total_offset = 0;
+      int64_t total_offset = 0;
       while (true)
         {
           Expression* struct_expr = farg->expr();
@@ -7650,7 +7387,7 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
             return false;
           if (st->named_type() != NULL)
             st->named_type()->convert(this->gogo_);
-          unsigned int offset;
+          int64_t offset;
           this->seen_ = true;
           bool ok = st->struct_type()->backend_field_offset(this->gogo_,
 							    farg->field_index(),
@@ -7667,8 +7404,10 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
             }
           break;
         }
-      nc->set_unsigned_long(Type::lookup_integer_type("uintptr"),
-			    static_cast<unsigned long>(total_offset));
+      mpz_t zval;
+      set_mpz_from_int64(&zval, total_offset);
+      nc->set_int(Type::lookup_integer_type("uintptr"), zval);
+      mpz_clear(zval);
       return true;
     }
   else if (this->code_ == BUILTIN_REAL || this->code_ == BUILTIN_IMAG)
@@ -7681,16 +7420,16 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       if (!arg->numeric_constant_value(&argnc))
 	return false;
 
-      mpfr_t real;
-      mpfr_t imag;
-      if (!argnc.to_complex(&real, &imag))
+      mpc_t val;
+      if (!argnc.to_complex(&val))
 	return false;
 
       Type* type = Builtin_call_expression::real_imag_type(argnc.type());
       if (this->code_ == BUILTIN_REAL)
-	nc->set_float(type, real);
+	nc->set_float(type, mpc_realref(val));
       else
-	nc->set_float(type, imag);
+	nc->set_float(type, mpc_imagref(val));
+      mpc_clear(val);
       return true;
     }
   else if (this->code_ == BUILTIN_COMPLEX)
@@ -7727,11 +7466,16 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
       if (arg_type == NULL || arg_type->is_abstract())
 	arg_type = inc.type();
 
-      Type* type = Builtin_call_expression::complex_type(arg_type);
-      nc->set_complex(type, r, i);
-
+      mpc_t val;
+      mpc_init2(val, mpc_precision);
+      mpc_set_fr_fr(val, r, i, MPC_RNDNN);
       mpfr_clear(r);
       mpfr_clear(i);
+
+      Type* type = Builtin_call_expression::complex_type(arg_type);
+      nc->set_complex(type, val);
+
+      mpc_clear(val);
 
       return true;
     }
@@ -8112,7 +7856,9 @@ Builtin_call_expression::do_check_types(Gogo*)
       break;
 
     case BUILTIN_RECOVER:
-      if (this->args() != NULL && !this->args()->empty())
+      if (this->args() != NULL
+	  && !this->args()->empty()
+	  && !this->recover_arg_is_set_)
 	this->report_error(_("too many arguments"));
       break;
 
@@ -8141,7 +7887,10 @@ Builtin_call_expression::do_check_types(Gogo*)
 	Type* arg1_type = args->front()->type();
 	Type* arg2_type = args->back()->type();
 	if (arg1_type->is_error() || arg2_type->is_error())
-	  break;
+	  {
+	    this->set_is_error();
+	    break;
+	  }
 
 	Type* e1;
 	if (arg1_type->is_slice_type())
@@ -8183,7 +7932,10 @@ Builtin_call_expression::do_check_types(Gogo*)
 	  }
 	if (args->front()->type()->is_error()
 	    || args->back()->type()->is_error())
-	  break;
+	  {
+	    this->set_is_error();
+	    break;
+	  }
 
 	Array_type* at = args->front()->type()->array_type();
 	Type* e = at->element_type();
@@ -8249,6 +8001,22 @@ Builtin_call_expression::do_check_types(Gogo*)
     default:
       go_unreachable();
     }
+}
+
+Expression*
+Builtin_call_expression::do_copy()
+{
+  Call_expression* bce =
+    new Builtin_call_expression(this->gogo_, this->fn()->copy(),
+				(this->args() == NULL
+				 ? NULL
+				 : this->args()->copy()),
+				this->is_varargs(),
+				this->location());
+
+  if (this->varargs_are_lowered())
+    bce->set_varargs_are_lowered();
+  return bce;
 }
 
 // Return the backend representation for a builtin function.
@@ -8503,7 +8271,7 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
         mpz_t ival;
         nc.get_int(&ival);
         Expression* int_cst =
-            Expression::make_integer(&ival, uintptr_type, location);
+            Expression::make_integer_z(&ival, uintptr_type, location);
         mpz_clear(ival);
         return int_cst->get_backend(context);
       }
@@ -8546,13 +8314,10 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 
 	Type* element_type = at->element_type();
 	Btype* element_btype = element_type->get_backend(gogo);
-
-        mpz_t size;
-        size_t element_size = gogo->backend()->type_size(element_btype);
-        mpz_init_set_ui(size, element_size);
-        Expression* size_expr = Expression::make_integer(&size, length->type(), location);
-        mpz_clear(size);
-
+	int64_t element_size = gogo->backend()->type_size(element_btype);
+	Expression* size_expr = Expression::make_integer_int64(element_size,
+							       length->type(),
+							       location);
         Expression* bytecount =
             Expression::make_binary(OPERATOR_MULT, size_expr, length, location);
         Expression* copy = Runtime::make_call(Runtime::COPY, location, 3,
@@ -8575,7 +8340,7 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
         go_assert(arg2->is_variable());
 	Expression* arg2_val;
 	Expression* arg2_len;
-        mpz_t size;
+	int64_t size;
 	if (arg2->type()->is_string_type()
 	    && element_type->integer_type() != NULL
 	    && element_type->integer_type()->is_byte())
@@ -8584,19 +8349,17 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 						    location);
 	    arg2_len = Expression::make_string_info(arg2, STRING_INFO_LENGTH,
 						    location);
-            mpz_init_set_ui(size, 1UL);
+	    size = 1;
 	  }
 	else
 	  {
 	    arg2_val = at->get_value_pointer(gogo, arg2);
 	    arg2_len = at->get_length(gogo, arg2);
 	    Btype* element_btype = element_type->get_backend(gogo);
-            size_t element_size = gogo->backend()->type_size(element_btype);
-            mpz_init_set_ui(size, element_size);
+	    size = gogo->backend()->type_size(element_btype);
 	  }
         Expression* element_size =
-            Expression::make_integer(&size, NULL, location);
-        mpz_clear(size);
+	  Expression::make_integer_int64(size, NULL, location);
 
         Expression* append = Runtime::make_call(Runtime::APPEND, location, 4,
                                                 arg1, arg2_val, arg2_len,
@@ -8663,11 +8426,10 @@ Builtin_call_expression::do_export(Export* exp) const
     }
   else if (nc.is_complex())
     {
-      mpfr_t real;
-      mpfr_t imag;
-      Complex_expression::export_complex(exp, real, imag);
-      mpfr_clear(real);
-      mpfr_clear(imag);
+      mpc_t cval;
+      nc.get_complex(&cval);
+      Complex_expression::export_complex(exp, cval);
+      mpc_clear(cval);
     }
   else
     go_unreachable();
@@ -8802,6 +8564,18 @@ Call_expression::do_lower(Gogo* gogo, Named_object* function,
               || fntype->is_builtin()))
 	{
 	  Call_expression* call = this->args_->front()->call_expression();
+	  call->set_is_multi_value_arg();
+	  if (this->is_varargs_)
+	    {
+	      // It is not clear which result of a multiple result call
+	      // the ellipsis operator should be applied to.  If we unpack the
+	      // the call into its individual results here, the ellipsis will be
+	      // applied to the last result.
+	      error_at(call->location(),
+		       _("multiple-value argument in single-value context"));
+	      return Expression::make_error(call->location());
+	    }
+
 	  Expression_list* args = new Expression_list;
 	  for (size_t i = 0; i < rc; ++i)
 	    args->push_back(Expression::make_call_result(call, i));
@@ -9003,8 +8777,64 @@ Call_expression::lower_varargs(Gogo* gogo, Named_object* function,
 // Flatten a call with multiple results into a temporary.
 
 Expression*
-Call_expression::do_flatten(Gogo*, Named_object*, Statement_inserter* inserter)
+Call_expression::do_flatten(Gogo* gogo, Named_object*,
+			    Statement_inserter* inserter)
 {
+  if (this->classification() == EXPRESSION_ERROR)
+    return this;
+
+  if (this->is_flattened_)
+    return this;
+  this->is_flattened_ = true;
+
+  // Add temporary variables for all arguments that require type
+  // conversion.
+  Function_type* fntype = this->get_function_type();
+  if (fntype == NULL)
+    {
+      go_assert(saw_errors());
+      return this;
+    }
+  if (this->args_ != NULL && !this->args_->empty()
+      && fntype->parameters() != NULL && !fntype->parameters()->empty())
+    {
+      bool is_interface_method =
+	this->fn_->interface_field_reference_expression() != NULL;
+
+      Expression_list *args = new Expression_list();
+      Typed_identifier_list::const_iterator pp = fntype->parameters()->begin();
+      Expression_list::const_iterator pa = this->args_->begin();
+      if (!is_interface_method && fntype->is_method())
+	{
+	  // The receiver argument.
+	  args->push_back(*pa);
+	  ++pa;
+	}
+      for (; pa != this->args_->end(); ++pa, ++pp)
+	{
+	  go_assert(pp != fntype->parameters()->end());
+	  if (Type::are_identical(pp->type(), (*pa)->type(), true, NULL))
+	    args->push_back(*pa);
+	  else
+	    {
+	      Location loc = (*pa)->location();
+	      Expression* arg = *pa;
+	      if (!arg->is_variable())
+		{
+		  Temporary_statement *temp =
+		    Statement::make_temporary(NULL, arg, loc);
+		  inserter->insert(temp);
+		  arg = Expression::make_temporary_reference(temp, loc);
+		}
+	      arg = Expression::convert_for_assignment(gogo, pp->type(), arg,
+						       loc);
+	      args->push_back(arg);
+	    }
+	}
+      delete this->args_;
+      this->args_ = args;
+    }
+
   size_t rc = this->result_count();
   if (rc > 1 && this->call_temp_ == NULL)
     {
@@ -9063,6 +8893,15 @@ Call_expression::result(size_t i) const
       return NULL;
     }
   return (*this->results_)[i];
+}
+
+// Set the number of results expected from a call expression.
+
+void
+Call_expression::set_expected_result_count(size_t count)
+{
+  go_assert(this->expected_result_count_ == 0);
+  this->expected_result_count_ = count;
 }
 
 // Return whether this is a call to the predeclared function recover.
@@ -9213,13 +9052,7 @@ Call_expression::check_argument_type(int i, const Type* parameter_type,
 				     bool issued_error)
 {
   std::string reason;
-  bool ok;
-  if (this->are_hidden_fields_ok_)
-    ok = Type::are_assignable_hidden_ok(parameter_type, argument_type,
-					&reason);
-  else
-    ok = Type::are_assignable(parameter_type, argument_type, &reason);
-  if (!ok)
+  if (!Type::are_assignable(parameter_type, argument_type, &reason))
     {
       if (!issued_error)
 	{
@@ -9252,19 +9085,26 @@ Call_expression::do_check_types(Gogo*)
       return;
     }
 
+  if (this->expected_result_count_ != 0
+      && this->expected_result_count_ != this->result_count())
+    {
+      if (this->issue_error())
+	this->report_error(_("function result count mismatch"));
+      this->set_is_error();
+      return;
+    }
+
   bool is_method = fntype->is_method();
   if (is_method)
     {
       go_assert(this->args_ != NULL && !this->args_->empty());
       Type* rtype = fntype->receiver()->type();
       Expression* first_arg = this->args_->front();
-      // The language permits copying hidden fields for a method
-      // receiver.  We dereference the values since receivers are
-      // always passed as pointers.
+      // We dereference the values since receivers are always passed
+      // as pointers.
       std::string reason;
-      if (!Type::are_assignable_hidden_ok(rtype->deref(),
-					  first_arg->type()->deref(),
-					  &reason))
+      if (!Type::are_assignable(rtype->deref(), first_arg->type()->deref(),
+				&reason))
 	{
 	  if (reason.empty())
 	    this->report_error(_("incompatible type for receiver"));
@@ -9302,6 +9142,20 @@ Call_expression::do_check_types(Gogo*)
       if (!is_method || this->args_->size() > 1)
 	this->report_error(_("too many arguments"));
     }
+  else if (this->args_->size() == 1
+	   && this->args_->front()->call_expression() != NULL
+	   && this->args_->front()->call_expression()->result_count() > 1)
+    {
+      // This is F(G()) when G returns more than one result.  If the
+      // results can be matched to parameters, it would have been
+      // lowered in do_lower.  If we get here we know there is a
+      // mismatch.
+      if (this->args_->front()->call_expression()->result_count()
+	  < parameters->size())
+	this->report_error(_("not enough arguments"));
+      else
+	this->report_error(_("too many arguments"));
+    }
   else
     {
       int i = 0;
@@ -9323,6 +9177,21 @@ Call_expression::do_check_types(Gogo*)
       if (pa != this->args_->end())
 	this->report_error(_("too many arguments"));
     }
+}
+
+Expression*
+Call_expression::do_copy()
+{
+  Call_expression* call =
+    Expression::make_call(this->fn_->copy(),
+			  (this->args_ == NULL
+			   ? NULL
+			   : this->args_->copy()),
+			  this->is_varargs_, this->location());
+
+  if (this->varargs_are_lowered_)
+    call->set_varargs_are_lowered();
+  return call;
 }
 
 // Return whether we have to use a temporary variable to ensure that
@@ -9456,19 +9325,11 @@ Call_expression::do_get_backend(Translate_context* context)
       fn_args[0] = first_arg->get_backend(context);
     }
 
-  if (!has_closure_arg)
-    go_assert(closure == NULL);
+  Bexpression* bclosure = NULL;
+  if (has_closure_arg)
+    bclosure = closure->get_backend(context);
   else
-    {
-      // Pass the closure argument by calling the function function
-      // __go_set_closure.  In the order_evaluations pass we have
-      // ensured that if any parameters contain call expressions, they
-      // will have been moved out to temporary variables.
-      go_assert(closure != NULL);
-      Expression* set_closure =
-          Runtime::make_call(Runtime::SET_CLOSURE, location, 1, closure);
-      fn = Expression::make_compound(set_closure, fn, location);
-    }
+    go_assert(closure == NULL);
 
   Bexpression* bfn = fn->get_backend(context);
 
@@ -9484,7 +9345,8 @@ Call_expression::do_get_backend(Translate_context* context)
       bfn = gogo->backend()->convert_expression(bft, bfn, location);
     }
 
-  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args, location);
+  Bexpression* call = gogo->backend()->call_expression(bfn, fn_args,
+						       bclosure, location);
 
   if (this->results_ != NULL)
     {
@@ -9573,52 +9435,7 @@ Expression::make_call(Expression* fn, Expression_list* args, bool is_varargs,
   return new Call_expression(fn, args, is_varargs, location);
 }
 
-// A single result from a call which returns multiple results.
-
-class Call_result_expression : public Expression
-{
- public:
-  Call_result_expression(Call_expression* call, unsigned int index)
-    : Expression(EXPRESSION_CALL_RESULT, call->location()),
-      call_(call), index_(index)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return new Call_result_expression(this->call_->call_expression(),
-				      this->index_);
-  }
-
-  bool
-  do_must_eval_in_order() const
-  { return true; }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The underlying call expression.
-  Expression* call_;
-  // Which result we want.
-  unsigned int index_;
-};
+// Class Call_result_expression.
 
 // Traverse a call result.
 
@@ -9779,7 +9596,10 @@ Index_expression::do_lower(Gogo*, Named_object*, Statement_inserter*, int)
 
   Type* type = left->type();
   if (type->is_error())
-    return Expression::make_error(location);
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(location);
+    }
   else if (left->is_type_expression())
     {
       error_at(location, "attempt to index type expression");
@@ -9878,85 +9698,7 @@ Expression::make_index(Expression* left, Expression* start, Expression* end,
   return new Index_expression(left, start, end, cap, location);
 }
 
-// An array index.  This is used for both indexing and slicing.
-
-class Array_index_expression : public Expression
-{
- public:
-  Array_index_expression(Expression* array, Expression* start,
-			 Expression* end, Expression* cap, Location location)
-    : Expression(EXPRESSION_ARRAY_INDEX, location),
-      array_(array), start_(start), end_(end), cap_(cap), type_(NULL)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_array_index(this->array_->copy(),
-					this->start_->copy(),
-					(this->end_ == NULL
-					 ? NULL
-					 : this->end_->copy()),
-					(this->cap_ == NULL
-					 ? NULL
-					 : this->cap_->copy()),
-					this->location());
-  }
-
-  bool
-  do_must_eval_subexpressions_in_order(int* skip) const
-  {
-    *skip = 1;
-    return true;
-  }
-
-  bool
-  do_is_addressable() const;
-
-  void
-  do_address_taken(bool escapes)
-  { this->array_->address_taken(escapes); }
-
-  void
-  do_issue_nil_check()
-  { this->array_->issue_nil_check(); }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-  
- private:
-  // The array we are getting a value from.
-  Expression* array_;
-  // The start or only index.
-  Expression* start_;
-  // The end index of a slice.  This may be NULL for a simple array
-  // index, or it may be a nil expression for the length of the array.
-  Expression* end_;
-  // The capacity argument of a slice.  This may be NULL for an array index or
-  // slice.
-  Expression* cap_;
-  // The type of the expression.
-  Type* type_;
-};
+// Class Array_index_expression.
 
 // Array index traversal.
 
@@ -10218,7 +9960,8 @@ Array_index_expression::do_get_backend(Translate_context* context)
   Location loc = this->location();
   Gogo* gogo = context->gogo();
 
-  Btype* int_btype = Type::lookup_integer_type("int")->get_backend(gogo);
+  Type* int_type = Type::lookup_integer_type("int");
+  Btype* int_btype = int_type->get_backend(gogo);
 
   // We need to convert the length and capacity to the Go "int" type here
   // because the length of a fixed-length array could be of type "uintptr"
@@ -10258,6 +10001,13 @@ Array_index_expression::do_get_backend(Translate_context* context)
 		 ? RUNTIME_ERROR_SLICE_INDEX_OUT_OF_BOUNDS
 		 : RUNTIME_ERROR_SLICE_SLICE_OUT_OF_BOUNDS));
   Bexpression* crash = gogo->runtime_error(code, loc)->get_backend(context);
+
+  if (this->start_->type()->integer_type() == NULL
+      && !Type::are_convertible(int_type, this->start_->type(), NULL))
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
 
   Bexpression* bad_index =
     Expression::check_bounds(this->start_, loc)->get_backend(context);
@@ -10644,12 +10394,7 @@ String_index_expression::do_get_backend(Translate_context* context)
 
   Expression* end = NULL;
   if (this->end_->is_nil_expression())
-    {
-      mpz_t neg_one;
-      mpz_init_set_si(neg_one, -1);
-      end = Expression::make_integer(&neg_one, int_type, loc);
-      mpz_clear(neg_one);
-    }
+    end = Expression::make_integer_sl(-1, int_type, loc);
   else
     {
       Expression* bounds_check = Expression::check_bounds(this->end_, loc);
@@ -10716,21 +10461,31 @@ Map_index_expression::do_traverse(Traverse* traverse)
 // recomputation.
 
 Expression*
-Map_index_expression::do_flatten(Gogo*, Named_object*,
+Map_index_expression::do_flatten(Gogo* gogo, Named_object*,
 				 Statement_inserter* inserter)
 {
+  Location loc = this->location();
   Map_type* mt = this->get_map_type();
-  if (this->index_->type() != mt->key_type())
-    this->index_ = Expression::make_cast(mt->key_type(), this->index_,
-                                         this->location());
+  if (!Type::are_identical(mt->key_type(), this->index_->type(), false, NULL))
+    {
+      if (this->index_->type()->interface_type() != NULL
+	  && !this->index_->is_variable())
+	{
+	  Temporary_statement* temp =
+	    Statement::make_temporary(NULL, this->index_, loc);
+	  inserter->insert(temp);
+	  this->index_ = Expression::make_temporary_reference(temp, loc);
+	}
+      this->index_ = Expression::convert_for_assignment(gogo, mt->key_type(),
+							this->index_, loc);
+    }
 
   if (!this->index_->is_variable())
     {
       Temporary_statement* temp = Statement::make_temporary(NULL, this->index_,
-                                                            this->location());
+                                                            loc);
       inserter->insert(temp);
-      this->index_ = Expression::make_temporary_reference(temp,
-                                                          this->location());
+      this->index_ = Expression::make_temporary_reference(temp, loc);
     }
 
   if (this->value_pointer_ == NULL)
@@ -10738,11 +10493,9 @@ Map_index_expression::do_flatten(Gogo*, Named_object*,
   if (!this->value_pointer_->is_variable())
     {
       Temporary_statement* temp =
-          Statement::make_temporary(NULL, this->value_pointer_,
-                                    this->location());
+	Statement::make_temporary(NULL, this->value_pointer_, loc);
       inserter->insert(temp);
-      this->value_pointer_ =
-          Expression::make_temporary_reference(temp, this->location());
+      this->value_pointer_ = Expression::make_temporary_reference(temp, loc);
     }
 
   return this;
@@ -10929,6 +10682,10 @@ Field_reference_expression::do_lower(Gogo* gogo, Named_object* function,
   if (field->tag().find("go:\"track\"") == std::string::npos)
     return this;
 
+  // References from functions generated by the compiler don't count.
+  if (function != NULL && function->func_value()->is_type_specific_function())
+    return this;
+
   // We have found a reference to a tracked field.  Build a call to
   // the runtime function __go_fieldtrack with a string that describes
   // the field.  FIXME: We should only call this once per referenced
@@ -10958,10 +10715,7 @@ Field_reference_expression::do_lower(Gogo* gogo, Named_object* function,
   // string, it won't garbage collect the bytes.  So we use a
   // [...]byte.
 
-  mpz_t val;
-  mpz_init_set_ui(val, s.length());
-  Expression* length_expr = Expression::make_integer(&val, NULL, loc);
-  mpz_clear(val);
+  Expression* length_expr = Expression::make_integer_ul(s.length(), NULL, loc);
 
   Type* byte_type = gogo->lookup_global("byte")->type_value();
   Type* array_type = Type::make_array_type(byte_type, length_expr);
@@ -10969,10 +10723,8 @@ Field_reference_expression::do_lower(Gogo* gogo, Named_object* function,
   Expression_list* bytes = new Expression_list();
   for (std::string::const_iterator p = s.begin(); p != s.end(); p++)
     {
-      mpz_init_set_ui(val, *p);
-      Expression* byte = Expression::make_integer(&val, NULL, loc);
-      mpz_clear(val);
-      bytes->push_back(byte);
+      unsigned char c = static_cast<unsigned char>(*p);
+      bytes->push_back(Expression::make_integer_ul(c, NULL, loc));
     }
 
   Expression* e = Expression::make_composite_literal(array_type, 0, false,
@@ -10990,6 +10742,7 @@ Field_reference_expression::do_lower(Gogo* gogo, Named_object* function,
   e = Expression::make_unary(OPERATOR_AND, e, loc);
 
   Expression* call = Runtime::make_call(Runtime::FIELDTRACK, loc, 1, e);
+  gogo->lower_expression(function, inserter, &call);
   inserter->insert(Statement::make_statement(call, false));
 
   // Put this function, and the global variable we just created, into
@@ -11110,9 +10863,8 @@ Interface_field_reference_expression::do_traverse(Traverse* traverse)
 // interface.  So introduce a temporary variable if necessary.
 
 Expression*
-Interface_field_reference_expression::do_lower(Gogo*, Named_object*,
-					       Statement_inserter* inserter,
-					       int)
+Interface_field_reference_expression::do_flatten(Gogo*, Named_object*,
+						 Statement_inserter* inserter)
 {
   if (!this->expr_->is_variable())
     {
@@ -11242,12 +10994,15 @@ Interface_field_reference_expression::create_thunk(Gogo* gogo,
 
   Function_type* new_fntype = orig_fntype->copy_with_names();
 
-  Named_object* new_no = gogo->start_function(Gogo::thunk_name(), new_fntype,
+  std::string thunk_name = Gogo::thunk_name();
+  Named_object* new_no = gogo->start_function(thunk_name, new_fntype,
 					      false, loc);
 
   Variable* cvar = new Variable(closure_type, NULL, false, false, false, loc);
   cvar->set_is_used();
-  Named_object* cp = Named_object::make_variable("$closure", NULL, cvar);
+  cvar->set_is_closure();
+  Named_object* cp = Named_object::make_variable("$closure" + thunk_name,
+						 NULL, cvar);
   new_no->func_value()->set_closure_var(cp);
 
   gogo->start_block(loc);
@@ -11647,43 +11402,45 @@ Expression::make_selector(Expression* left, const std::string& name,
   return new Selector_expression(left, name, location);
 }
 
-// Implement the builtin function new.
+// Class Allocation_expression.
 
-class Allocation_expression : public Expression
+int
+Allocation_expression::do_traverse(Traverse* traverse)
 {
- public:
-  Allocation_expression(Type* type, Location location)
-    : Expression(EXPRESSION_ALLOCATION, location),
-      type_(type)
-  { }
+  return Type::traverse(this->type_, traverse);
+}
 
- protected:
-  int
-  do_traverse(Traverse* traverse)
-  { return Type::traverse(this->type_, traverse); }
+Type*
+Allocation_expression::do_type()
+{
+  return Type::make_pointer_type(this->type_);
+}
 
-  Type*
-  do_type()
-  { return Type::make_pointer_type(this->type_); }
+// Make a copy of an allocation expression.
 
-  void
-  do_determine_type(const Type_context*)
-  { }
+Expression*
+Allocation_expression::do_copy()
+{
+  Allocation_expression* alloc =
+    new Allocation_expression(this->type_, this->location());
+  if (this->allocate_on_stack_)
+    alloc->set_allocate_on_stack();
+  return alloc;
+}
 
-  Expression*
-  do_copy()
-  { return new Allocation_expression(this->type_, this->location()); }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-  
- private:
-  // The type we are allocating.
-  Type* type_;
-};
+Expression*
+Allocation_expression::do_flatten(Gogo*, Named_object*,
+				  Statement_inserter* inserter)
+{
+  if (this->allocate_on_stack_)
+    {
+      this->stack_temp_ = Statement::make_temporary(this->type_, NULL,
+						    this->location());
+      this->stack_temp_->set_is_address_taken();
+      inserter->insert(this->stack_temp_);
+    }
+  return this;
+}
 
 // Return the backend representation for an allocation expression.
 
@@ -11692,6 +11449,15 @@ Allocation_expression::do_get_backend(Translate_context* context)
 {
   Gogo* gogo = context->gogo();
   Location loc = this->location();
+
+  if (this->stack_temp_ != NULL)
+    {
+      Expression* ref =
+	Expression::make_temporary_reference(this->stack_temp_, loc);
+      ref = Expression::make_unary(OPERATOR_AND, ref, loc);
+      return ref->get_backend(context);
+    }
+
   Bexpression* space = 
     gogo->allocate_memory(this->type_, loc)->get_backend(context);
   Btype* pbtype = gogo->backend()->pointer_type(this->type_->get_backend(gogo));
@@ -11717,74 +11483,7 @@ Expression::make_allocation(Type* type, Location location)
   return new Allocation_expression(type, location);
 }
 
-// Construct a struct.
-
-class Struct_construction_expression : public Expression
-{
- public:
-  Struct_construction_expression(Type* type, Expression_list* vals,
-				 Location location)
-    : Expression(EXPRESSION_STRUCT_CONSTRUCTION, location),
-      type_(type), vals_(vals), traverse_order_(NULL)
-  { }
-
-  // Set the traversal order, used to ensure that we implement the
-  // order of evaluation rules.  Takes ownership of the argument.
-  void
-  set_traverse_order(std::vector<int>* traverse_order)
-  { this->traverse_order_ = traverse_order; }
-
-  // Return whether this is a constant initializer.
-  bool
-  is_constant_struct() const;
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  bool
-  do_is_immutable() const;
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    Struct_construction_expression* ret =
-      new Struct_construction_expression(this->type_, this->vals_->copy(),
-					 this->location());
-    if (this->traverse_order_ != NULL)
-      ret->set_traverse_order(this->traverse_order_);
-    return ret;
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_export(Export*) const;
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The type of the struct to construct.
-  Type* type_;
-  // The list of values, in order of the fields in the struct.  A NULL
-  // entry means that the field should be zero-initialized.
-  Expression_list* vals_;
-  // If not NULL, the order in which to traverse vals_.  This is used
-  // so that we implement the order of evaluation rules correctly.
-  std::vector<int>* traverse_order_;
-};
+// Class Struct_construction_expression.
 
 // Traversal.
 
@@ -11940,6 +11639,39 @@ Struct_construction_expression::do_check_types(Gogo*)
   go_assert(pv == this->vals_->end());
 }
 
+// Flatten a struct construction expression.  Store the values into
+// temporaries in case they need interface conversion.
+
+Expression*
+Struct_construction_expression::do_flatten(Gogo*, Named_object*,
+					   Statement_inserter* inserter)
+{
+  if (this->vals_ == NULL)
+    return this;
+
+  // If this is a constant struct, we don't need temporaries.
+  if (this->is_constant_struct())
+    return this;
+
+  Location loc = this->location();
+  for (Expression_list::iterator pv = this->vals_->begin();
+       pv != this->vals_->end();
+       ++pv)
+    {
+      if (*pv != NULL)
+	{
+	  if (!(*pv)->is_variable())
+	    {
+	      Temporary_statement* temp =
+		Statement::make_temporary(NULL, *pv, loc);
+	      inserter->insert(temp);
+	      *pv = Expression::make_temporary_reference(temp, loc);
+	    }
+	}
+    }
+  return this;
+}
+
 // Return the backend representation for constructing a struct.
 
 Bexpression*
@@ -12018,77 +11750,7 @@ Expression::make_struct_composite_literal(Type* type, Expression_list* vals,
   return new Struct_construction_expression(type, vals, location);
 }
 
-// Construct an array.  This class is not used directly; instead we
-// use the child classes, Fixed_array_construction_expression and
-// Slice_construction_expression.
-
-class Array_construction_expression : public Expression
-{
- protected:
-  Array_construction_expression(Expression_classification classification,
-				Type* type,
-				const std::vector<unsigned long>* indexes,
-				Expression_list* vals, Location location)
-    : Expression(classification, location),
-      type_(type), indexes_(indexes), vals_(vals)
-  { go_assert(indexes == NULL || indexes->size() == vals->size()); }
-
- public:
-  // Return whether this is a constant initializer.
-  bool
-  is_constant_array() const;
-
-  // Return the number of elements.
-  size_t
-  element_count() const
-  { return this->vals_ == NULL ? 0 : this->vals_->size(); }
-
-protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  bool
-  do_is_immutable() const;
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  void
-  do_export(Export*) const;
-
-  // The indexes.
-  const std::vector<unsigned long>*
-  indexes()
-  { return this->indexes_; }
-
-  // The list of values.
-  Expression_list*
-  vals()
-  { return this->vals_; }
-
-  // Get the backend constructor for the array values.
-  Bexpression*
-  get_constructor(Translate_context* context, Btype* btype);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The type of the array to construct.
-  Type* type_;
-  // The list of indexes into the array, one for each value.  This may
-  // be NULL, in which case the indexes start at zero and increment.
-  const std::vector<unsigned long>* indexes_;
-  // The list of values.  This may be NULL if there are no values.
-  Expression_list* vals_;
-};
+// Class Array_construction_expression.
 
 // Traversal.
 
@@ -12186,6 +11848,39 @@ Array_construction_expression::do_check_types(Gogo*)
 	  this->set_is_error();
 	}
     }
+}
+
+// Flatten an array construction expression.  Store the values into
+// temporaries in case they need interface conversion.
+
+Expression*
+Array_construction_expression::do_flatten(Gogo*, Named_object*,
+					   Statement_inserter* inserter)
+{
+  if (this->vals_ == NULL)
+    return this;
+
+  // If this is a constant array, we don't need temporaries.
+  if (this->is_constant_array())
+    return this;
+
+  Location loc = this->location();
+  for (Expression_list::iterator pv = this->vals_->begin();
+       pv != this->vals_->end();
+       ++pv)
+    {
+      if (*pv != NULL)
+	{
+	  if (!(*pv)->is_variable())
+	    {
+	      Temporary_statement* temp =
+		Statement::make_temporary(NULL, *pv, loc);
+	      inserter->insert(temp);
+	      *pv = Expression::make_temporary_reference(temp, loc);
+	    }
+	}
+    }
+  return this;
 }
 
 // Get a constructor expression for the array values.
@@ -12311,34 +12006,14 @@ Array_construction_expression::do_dump_expression(
 
 }
 
-// Construct a fixed array.
+// Class Fixed_array_construction_expression.
 
-class Fixed_array_construction_expression :
-  public Array_construction_expression
-{
- public:
-  Fixed_array_construction_expression(Type* type,
-				      const std::vector<unsigned long>* indexes,
-				      Expression_list* vals, Location location)
-    : Array_construction_expression(EXPRESSION_FIXED_ARRAY_CONSTRUCTION,
-				    type, indexes, vals, location)
-  { go_assert(type->array_type() != NULL && !type->is_slice_type()); }
-
- protected:
-  Expression*
-  do_copy()
-  {
-    return new Fixed_array_construction_expression(this->type(),
-						   this->indexes(),
-						   (this->vals() == NULL
-						    ? NULL
-						    : this->vals()->copy()),
-						   this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-};
+Fixed_array_construction_expression::Fixed_array_construction_expression(
+    Type* type, const std::vector<unsigned long>* indexes,
+    Expression_list* vals, Location location)
+  : Array_construction_expression(EXPRESSION_FIXED_ARRAY_CONSTRUCTION,
+				  type, indexes, vals, location)
+{ go_assert(type->array_type() != NULL && !type->is_slice_type()); }
 
 // Return the backend representation for constructing a fixed array.
 
@@ -12358,39 +12033,47 @@ Expression::make_array_composite_literal(Type* type, Expression_list* vals,
   return new Fixed_array_construction_expression(type, NULL, vals, location);
 }
 
-// Construct a slice.
+// Class Slice_construction_expression.
 
-class Slice_construction_expression : public Array_construction_expression
+Slice_construction_expression::Slice_construction_expression(
+  Type* type, const std::vector<unsigned long>* indexes,
+  Expression_list* vals, Location location)
+  : Array_construction_expression(EXPRESSION_SLICE_CONSTRUCTION,
+				  type, indexes, vals, location),
+    valtype_(NULL)
 {
- public:
-  Slice_construction_expression(Type* type,
-				const std::vector<unsigned long>* indexes,
-				Expression_list* vals, Location location)
-    : Array_construction_expression(EXPRESSION_SLICE_CONSTRUCTION,
-				    type, indexes, vals, location),
-      valtype_(NULL)
-  { go_assert(type->is_slice_type()); }
+  go_assert(type->is_slice_type());
 
- protected:
-  // Note that taking the address of a slice literal is invalid.
+  unsigned long lenval;
+  Expression* length;
+  if (vals == NULL || vals->empty())
+    lenval = 0;
+  else
+    {
+      if (this->indexes() == NULL)
+	lenval = vals->size();
+      else
+	lenval = indexes->back() + 1;
+    }
+  Type* int_type = Type::lookup_integer_type("int");
+  length = Expression::make_integer_ul(lenval, int_type, location);
+  Type* element_type = type->array_type()->element_type();
+  this->valtype_ = Type::make_array_type(element_type, length);
+}
 
-  Expression*
-  do_copy()
-  {
-    return new Slice_construction_expression(this->type(), this->indexes(),
-					     (this->vals() == NULL
-					      ? NULL
-					      : this->vals()->copy()),
-					     this->location());
-  }
 
-  Bexpression*
-  do_get_backend(Translate_context*);
+// Traversal.
 
- private:
-  // The type of the values in this slice.
-  Type* valtype_;
-};
+int
+Slice_construction_expression::do_traverse(Traverse* traverse)
+{
+  if (this->Array_construction_expression::do_traverse(traverse)
+      == TRAVERSE_EXIT)
+    return TRAVERSE_EXIT;
+  if (Type::traverse(this->valtype_, traverse) == TRAVERSE_EXIT)
+    return TRAVERSE_EXIT;
+  return TRAVERSE_CONTINUE;
+}
 
 // Return the backend representation for constructing a slice.
 
@@ -12406,24 +12089,7 @@ Slice_construction_expression::do_get_backend(Translate_context* context)
 
   Location loc = this->location();
   Type* element_type = array_type->element_type();
-  if (this->valtype_ == NULL)
-    {
-      mpz_t lenval;
-      Expression* length;
-      if (this->vals() == NULL || this->vals()->empty())
-        mpz_init_set_ui(lenval, 0);
-      else
-        {
-          if (this->indexes() == NULL)
-            mpz_init_set_ui(lenval, this->vals()->size());
-          else
-            mpz_init_set_ui(lenval, this->indexes()->back() + 1);
-        }
-      Type* int_type = Type::lookup_integer_type("int");
-      length = Expression::make_integer(&lenval, int_type, loc);
-      mpz_clear(lenval);
-      this->valtype_ = Type::make_array_type(element_type, length);
-    }
+  go_assert(this->valtype_ != NULL);
 
   Expression_list* vals = this->vals();
   if (this->vals() == NULL || this->vals()->empty())
@@ -12476,60 +12142,7 @@ Expression::make_slice_composite_literal(Type* type, Expression_list* vals,
   return new Slice_construction_expression(type, NULL, vals, location);
 }
 
-// Construct a map.
-
-class Map_construction_expression : public Expression
-{
- public:
-  Map_construction_expression(Type* type, Expression_list* vals,
-			      Location location)
-    : Expression(EXPRESSION_MAP_CONSTRUCTION, location),
-      type_(type), vals_(vals), element_type_(NULL), constructor_temp_(NULL)
-  { go_assert(vals == NULL || vals->size() % 2 == 0); }
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return new Map_construction_expression(this->type_, this->vals_->copy(),
-					   this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_export(Export*) const;
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-  
- private:
-  // The type of the map to construct.
-  Type* type_;
-  // The list of values.
-  Expression_list* vals_;
-  // The type of the key-value pair struct for each map element.
-  Struct_type* element_type_;
-  // A temporary reference to the variable storing the constructor initializer.
-  Temporary_statement* constructor_temp_;
-};
+// Class Map_construction_expression.
 
 // Traversal.
 
@@ -12572,12 +12185,26 @@ Map_construction_expression::do_flatten(Gogo* gogo, Named_object*,
            ++pv, ++i)
         {
           Expression_list* key_value_pair = new Expression_list();
-          Expression* key =
-              Expression::convert_for_assignment(gogo, key_type, *pv, loc);
+          Expression* key = *pv;
+	  if (key->type()->interface_type() != NULL && !key->is_variable())
+	    {
+	      Temporary_statement* temp =
+		Statement::make_temporary(NULL, key, loc);
+	      inserter->insert(temp);
+	      key = Expression::make_temporary_reference(temp, loc);
+	    }
+	  key = Expression::convert_for_assignment(gogo, key_type, key, loc);
 
           ++pv;
-          Expression* val =
-              Expression::convert_for_assignment(gogo, val_type, *pv, loc);
+          Expression* val = *pv;
+	  if (val->type()->interface_type() != NULL && !val->is_variable())
+	    {
+	      Temporary_statement* temp =
+		Statement::make_temporary(NULL, val, loc);
+	      inserter->insert(temp);
+	      val = Expression::make_temporary_reference(temp, loc);
+	    }
+	  val = Expression::convert_for_assignment(gogo, val_type, val, loc);
 
           key_value_pair->push_back(key);
           key_value_pair->push_back(val);
@@ -12586,11 +12213,7 @@ Map_construction_expression::do_flatten(Gogo* gogo, Named_object*,
                                                         key_value_pair, loc));
         }
 
-      mpz_t lenval;
-      mpz_init_set_ui(lenval, i);
-      Expression* element_count = Expression::make_integer(&lenval, NULL, loc);
-      mpz_clear(lenval);
-
+      Expression* element_count = Expression::make_integer_ul(i, NULL, loc);
       Type* ctor_type =
           Type::make_array_type(this->element_type_, element_count);
       Expression* constructor =
@@ -12695,10 +12318,7 @@ Map_construction_expression::do_get_backend(Translate_context* context)
   Expression* descriptor = Expression::make_map_descriptor(mt, loc);
 
   Type* uintptr_t = Type::lookup_integer_type("uintptr");
-  mpz_t countval;
-  mpz_init_set_ui(countval, i);
-  Expression* count = Expression::make_integer(&countval, uintptr_t, loc);
-  mpz_clear(countval);
+  Expression* count = Expression::make_integer_ul(i, uintptr_t, loc);
 
   Expression* entry_size =
       Expression::make_type_info(this->element_type_, TYPE_INFO_SIZE);
@@ -12950,7 +12570,8 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 	       pf != st->fields()->end();
 	       ++pf)
 	    {
-	      if (Gogo::is_hidden_name(pf->field_name()))
+	      if (Gogo::is_hidden_name(pf->field_name())
+		  || pf->is_embedded_builtin(gogo))
 		error_at(this->location(),
 			 "assignment of unexported field %qs in %qs literal",
 			 Gogo::message_name(pf->field_name()).c_str(),
@@ -12990,6 +12611,16 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 	{
 	case EXPRESSION_UNKNOWN_REFERENCE:
 	  name = name_expr->unknown_expression()->name();
+	  if (type->named_type() != NULL)
+	    {
+	      // If the named object found for this field name comes from a
+	      // different package than the struct it is a part of, do not count
+	      // this incorrect lookup as a usage of the object's package.
+	      no = name_expr->unknown_expression()->named_object();
+	      if (no->package() != NULL
+		  && no->package() != type->named_type()->named_object()->package())
+		no->package()->forget_usage(name_expr);
+	    }
 	  break;
 
 	case EXPRESSION_CONST_REFERENCE:
@@ -13117,7 +12748,8 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 
       if (type->named_type() != NULL
 	  && type->named_type()->named_object()->package() != NULL
-	  && Gogo::is_hidden_name(sf->field_name()))
+	  && (Gogo::is_hidden_name(sf->field_name())
+	      || sf->is_embedded_builtin(gogo)))
 	error_at(name_expr->location(),
 		 "assignment of unexported field %qs in %qs literal",
 		 Gogo::message_name(sf->field_name()).c_str(),
@@ -13327,10 +12959,7 @@ Composite_literal_expression::make_array(
 	    }
 	}
 
-      mpz_t vlen;
-      mpz_init_set_ui(vlen, size);
-      Expression* elen = Expression::make_integer(&vlen, NULL, location);
-      mpz_clear(vlen);
+      Expression* elen = Expression::make_integer_ul(size, NULL, location);
       at = Type::make_array_type(at->element_type(), elen);
       type = at;
     }
@@ -13623,53 +13252,11 @@ Expression::make_type_guard(Expression* expr, Type* type,
 
 // Class Heap_expression.
 
-// When you take the address of an escaping expression, it is allocated
-// on the heap.  This class implements that.
+// Return the type of the expression stored on the heap.
 
-class Heap_expression : public Expression
-{
- public:
-  Heap_expression(Expression* expr, Location location)
-    : Expression(EXPRESSION_HEAP, location),
-      expr_(expr)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse* traverse)
-  { return Expression::traverse(&this->expr_, traverse); }
-
-  Type*
-  do_type()
-  { return Type::make_pointer_type(this->expr_->type()); }
-
-  void
-  do_determine_type(const Type_context*)
-  { this->expr_->determine_type_no_context(); }
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_heap_expression(this->expr_->copy(),
-                                            this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  // We only export global objects, and the parser does not generate
-  // this in global scope.
-  void
-  do_export(Export*) const
-  { go_unreachable(); }
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The expression which is being put on the heap.
-  Expression* expr_;
-};
+Type*
+Heap_expression::do_type()
+{ return Type::make_pointer_type(this->expr_->type()); }
 
 // Return the backend representation for allocating an expression on the heap.
 
@@ -13840,6 +13427,9 @@ class Type_descriptor_expression : public Expression
   { }
 
  protected:
+  int
+  do_traverse(Traverse*);
+
   Type*
   do_type()
   { return Type::make_type_descriptor_ptr_type(); }
@@ -13871,6 +13461,14 @@ class Type_descriptor_expression : public Expression
   Type* type_;
 };
 
+int
+Type_descriptor_expression::do_traverse(Traverse* traverse)
+{
+  if (Type::traverse(this->type_, traverse) == TRAVERSE_EXIT)
+    return TRAVERSE_EXIT;
+  return TRAVERSE_CONTINUE;
+}
+
 // Dump ast representation for a type descriptor expression.
 
 void
@@ -13886,6 +13484,65 @@ Expression*
 Expression::make_type_descriptor(Type* type, Location location)
 {
   return new Type_descriptor_expression(type, location);
+}
+
+// An expression which evaluates to a pointer to the Garbage Collection symbol
+// of a type.
+
+class GC_symbol_expression : public Expression
+{
+ public:
+  GC_symbol_expression(Type* type)
+    : Expression(EXPRESSION_GC_SYMBOL, Linemap::predeclared_location()),
+      type_(type)
+  {}
+
+ protected:
+  Type*
+  do_type()
+  { return Type::lookup_integer_type("uintptr"); }
+
+  bool
+  do_is_immutable() const
+  { return true; }
+
+  void
+  do_determine_type(const Type_context*)
+  { }
+
+  Expression*
+  do_copy()
+  { return this; }
+
+  Bexpression*
+  do_get_backend(Translate_context* context)
+  { return this->type_->gc_symbol_pointer(context->gogo()); }
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  // The type which this gc symbol describes.
+  Type* type_;
+};
+
+// Dump ast representation for a gc symbol expression.
+
+void
+GC_symbol_expression::do_dump_expression(
+    Ast_dump_context* ast_dump_context) const
+{
+  ast_dump_context->ostream() << "gcdata(";
+  ast_dump_context->dump_type(this->type_);
+  ast_dump_context->ostream() << ")";
+}
+
+// Make a gc symbol expression.
+
+Expression*
+Expression::make_gc_symbol(Type* type)
+{
+  return new GC_symbol_expression(type);
 }
 
 // An expression which evaluates to some characteristic of a type.
@@ -13956,7 +13613,7 @@ Type_info_expression::do_get_backend(Translate_context* context)
 {
   Btype* btype = this->type_->get_backend(context->gogo());
   Gogo* gogo = context->gogo();
-  size_t val;
+  int64_t val;
   switch (this->type_info_)
     {
     case TYPE_INFO_SIZE:
@@ -13971,13 +13628,9 @@ Type_info_expression::do_get_backend(Translate_context* context)
     default:
       go_unreachable();
     }
-  mpz_t cst;
-  mpz_init_set_ui(cst, val);
-  Btype* int_btype = this->type()->get_backend(gogo);
-  Bexpression* ret =
-    gogo->backend()->integer_constant_expression(int_btype, cst);
-  mpz_clear(cst);
-  return ret;
+  Expression* e = Expression::make_integer_int64(val, this->type(),
+						 this->location());
+  return e->get_backend(context);
 }
 
 // Dump ast representation for a type info expression.
@@ -14165,7 +13818,8 @@ class Slice_value_expression : public Expression
 int
 Slice_value_expression::do_traverse(Traverse* traverse)
 {
-  if (Expression::traverse(&this->valptr_, traverse) == TRAVERSE_EXIT
+  if (Type::traverse(this->type_, traverse) == TRAVERSE_EXIT
+      || Expression::traverse(&this->valptr_, traverse) == TRAVERSE_EXIT
       || Expression::traverse(&this->len_, traverse) == TRAVERSE_EXIT
       || Expression::traverse(&this->cap_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
@@ -14707,13 +14361,11 @@ Struct_field_offset_expression::do_get_backend(Translate_context* context)
   Gogo* gogo = context->gogo();
   Btype* btype = this->type_->get_backend(gogo);
 
-  size_t offset = gogo->backend()->type_field_offset(btype, i);
-  mpz_t offsetval;
-  mpz_init_set_ui(offsetval, offset);
+  int64_t offset = gogo->backend()->type_field_offset(btype, i);
   Type* uptr_type = Type::lookup_integer_type("uintptr");
-  Expression* ret = Expression::make_integer(&offsetval, uptr_type,
-					     Linemap::predeclared_location());
-  mpz_clear(offsetval);
+  Expression* ret =
+    Expression::make_integer_int64(offset, uptr_type,
+				   Linemap::predeclared_location());
   return ret->get_backend(context);
 }
 
@@ -14842,48 +14494,7 @@ Expression::make_label_addr(Label* label, Location location)
   return new Label_addr_expression(label, location);
 }
 
-// Conditional expressions.
-
-class Conditional_expression : public Expression
-{
- public:
-  Conditional_expression(Expression* cond, Expression* then_expr,
-                         Expression* else_expr, Location location)
-      : Expression(EXPRESSION_CONDITIONAL, location),
-        cond_(cond), then_(then_expr), else_(else_expr)
-  {}
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  Expression*
-  do_copy()
-  {
-    return new Conditional_expression(this->cond_->copy(), this->then_->copy(),
-                                      this->else_->copy(), this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The condition to be checked.
-  Expression* cond_;
-  // The expression to execute if the condition is true.
-  Expression* then_;
-  // The expression to execute if the condition is false.
-  Expression* else_;
-};
+// Class Conditional_expression.
 
 // Traversal.
 
@@ -14962,44 +14573,7 @@ Expression::make_conditional(Expression* cond, Expression* then,
   return new Conditional_expression(cond, then, else_expr, location);
 }
 
-// Compound expressions.
-
-class Compound_expression : public Expression
-{
- public:
-  Compound_expression(Expression* init, Expression* expr, Location location)
-      : Expression(EXPRESSION_COMPOUND, location), init_(init), expr_(expr)
-  {}
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  Expression*
-  do_copy()
-  {
-    return new Compound_expression(this->init_->copy(), this->expr_->copy(),
-                                   this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context* context);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The expression that is evaluated first and discarded.
-  Expression* init_;
-  // The expression that is evaluated and returned.
-  Expression* expr_;
-};
+// Class Compound_expression.
 
 // Traversal.
 
@@ -15174,10 +14748,8 @@ Numeric_constant::Numeric_constant(const Numeric_constant& a)
       mpfr_init_set(this->u_.float_val, a.u_.float_val, GMP_RNDN);
       break;
     case NC_COMPLEX:
-      mpfr_init_set(this->u_.complex_val.real, a.u_.complex_val.real,
-		    GMP_RNDN);
-      mpfr_init_set(this->u_.complex_val.imag, a.u_.complex_val.imag,
-		    GMP_RNDN);
+      mpc_init2(this->u_.complex_val, mpc_precision);
+      mpc_set(this->u_.complex_val, a.u_.complex_val, MPC_RNDNN);
       break;
     default:
       go_unreachable();
@@ -15204,10 +14776,8 @@ Numeric_constant::operator=(const Numeric_constant& a)
       mpfr_init_set(this->u_.float_val, a.u_.float_val, GMP_RNDN);
       break;
     case NC_COMPLEX:
-      mpfr_init_set(this->u_.complex_val.real, a.u_.complex_val.real,
-		    GMP_RNDN);
-      mpfr_init_set(this->u_.complex_val.imag, a.u_.complex_val.imag,
-		    GMP_RNDN);
+      mpc_init2(this->u_.complex_val, mpc_precision);
+      mpc_set(this->u_.complex_val, a.u_.complex_val, MPC_RNDNN);
       break;
     default:
       go_unreachable();
@@ -15232,8 +14802,7 @@ Numeric_constant::clear()
       mpfr_clear(this->u_.float_val);
       break;
     case NC_COMPLEX:
-      mpfr_clear(this->u_.complex_val.real);
-      mpfr_clear(this->u_.complex_val.imag);
+      mpc_clear(this->u_.complex_val);
       break;
     default:
       go_unreachable();
@@ -15294,13 +14863,13 @@ Numeric_constant::set_float(Type* type, const mpfr_t val)
 // Set to a complex value.
 
 void
-Numeric_constant::set_complex(Type* type, const mpfr_t real, const mpfr_t imag)
+Numeric_constant::set_complex(Type* type, const mpc_t val)
 {
   this->clear();
   this->classification_ = NC_COMPLEX;
   this->type_ = type;
-  mpfr_init_set(this->u_.complex_val.real, real, GMP_RNDN);
-  mpfr_init_set(this->u_.complex_val.imag, imag, GMP_RNDN);
+  mpc_init2(this->u_.complex_val, mpc_precision);
+  mpc_set(this->u_.complex_val, val, MPC_RNDNN);
 }
 
 // Get an int value.
@@ -15333,11 +14902,11 @@ Numeric_constant::get_float(mpfr_t* val) const
 // Get a complex value.
 
 void
-Numeric_constant::get_complex(mpfr_t* real, mpfr_t* imag) const
+Numeric_constant::get_complex(mpc_t* val) const
 {
   go_assert(this->is_complex());
-  mpfr_init_set(*real, this->u_.complex_val.real, GMP_RNDN);
-  mpfr_init_set(*imag, this->u_.complex_val.imag, GMP_RNDN);
+  mpc_init2(*val, mpc_precision);
+  mpc_set(*val, this->u_.complex_val, MPC_RNDNN);
 }
 
 // Express value as unsigned long if possible.
@@ -15353,9 +14922,10 @@ Numeric_constant::to_unsigned_long(unsigned long* val) const
     case NC_FLOAT:
       return this->mpfr_to_unsigned_long(this->u_.float_val, val);
     case NC_COMPLEX:
-      if (!mpfr_zero_p(this->u_.complex_val.imag))
+      if (!mpfr_zero_p(mpc_imagref(this->u_.complex_val)))
 	return NC_UL_NOTINT;
-      return this->mpfr_to_unsigned_long(this->u_.complex_val.real, val);
+      return this->mpfr_to_unsigned_long(mpc_realref(this->u_.complex_val),
+					 val);
     default:
       go_unreachable();
     }
@@ -15410,11 +14980,11 @@ Numeric_constant::to_int(mpz_t* val) const
       mpfr_get_z(*val, this->u_.float_val, GMP_RNDN);
       return true;
     case NC_COMPLEX:
-      if (!mpfr_zero_p(this->u_.complex_val.imag)
-	  || !mpfr_integer_p(this->u_.complex_val.real))
+      if (!mpfr_zero_p(mpc_imagref(this->u_.complex_val))
+	  || !mpfr_integer_p(mpc_realref(this->u_.complex_val)))
 	return false;
       mpz_init(*val);
-      mpfr_get_z(*val, this->u_.complex_val.real, GMP_RNDN);
+      mpfr_get_z(*val, mpc_realref(this->u_.complex_val), GMP_RNDN);
       return true;
     default:
       go_unreachable();
@@ -15436,9 +15006,9 @@ Numeric_constant::to_float(mpfr_t* val) const
       mpfr_init_set(*val, this->u_.float_val, GMP_RNDN);
       return true;
     case NC_COMPLEX:
-      if (!mpfr_zero_p(this->u_.complex_val.imag))
+      if (!mpfr_zero_p(mpc_imagref(this->u_.complex_val)))
 	return false;
-      mpfr_init_set(*val, this->u_.complex_val.real, GMP_RNDN);
+      mpfr_init_set(*val, mpc_realref(this->u_.complex_val), GMP_RNDN);
       return true;
     default:
       go_unreachable();
@@ -15448,22 +15018,20 @@ Numeric_constant::to_float(mpfr_t* val) const
 // Convert value to complex.
 
 bool
-Numeric_constant::to_complex(mpfr_t* vr, mpfr_t* vi) const
+Numeric_constant::to_complex(mpc_t* val) const
 {
+  mpc_init2(*val, mpc_precision);
   switch (this->classification_)
     {
     case NC_INT:
     case NC_RUNE:
-      mpfr_init_set_z(*vr, this->u_.int_val, GMP_RNDN);
-      mpfr_init_set_ui(*vi, 0, GMP_RNDN);
+      mpc_set_z(*val, this->u_.int_val, MPC_RNDNN);
       return true;
     case NC_FLOAT:
-      mpfr_init_set(*vr, this->u_.float_val, GMP_RNDN);
-      mpfr_init_set_ui(*vi, 0, GMP_RNDN);
+      mpc_set_fr(*val, this->u_.float_val, MPC_RNDNN);
       return true;
     case NC_COMPLEX:
-      mpfr_init_set(*vr, this->u_.complex_val.real, GMP_RNDN);
-      mpfr_init_set(*vi, this->u_.complex_val.imag, GMP_RNDN);
+      mpc_set(*val, this->u_.complex_val, MPC_RNDNN);
       return true;
     default:
       go_unreachable();
@@ -15500,7 +15068,7 @@ bool
 Numeric_constant::set_type(Type* type, bool issue_error, Location loc)
 {
   bool ret;
-  if (type == NULL)
+  if (type == NULL || type->is_error())
     ret = true;
   else if (type->integer_type() != NULL)
     ret = this->check_int_type(type->integer_type(), issue_error, loc);
@@ -15541,15 +15109,15 @@ Numeric_constant::check_int_type(Integer_type* type, bool issue_error,
       break;
 
     case NC_COMPLEX:
-      if (!mpfr_integer_p(this->u_.complex_val.real)
-	  || !mpfr_zero_p(this->u_.complex_val.imag))
+      if (!mpfr_integer_p(mpc_realref(this->u_.complex_val))
+	  || !mpfr_zero_p(mpc_imagref(this->u_.complex_val)))
 	{
 	  if (issue_error)
 	    error_at(location, "complex constant truncated to integer");
 	  return false;
 	}
       mpz_init(val);
-      mpfr_get_z(val, this->u_.complex_val.real, GMP_RNDN);
+      mpfr_get_z(val, mpc_realref(this->u_.complex_val), GMP_RNDN);
       break;
 
     default:
@@ -15608,13 +15176,13 @@ Numeric_constant::check_float_type(Float_type* type, bool issue_error,
       break;
 
     case NC_COMPLEX:
-      if (!mpfr_zero_p(this->u_.complex_val.imag))
+      if (!mpfr_zero_p(mpc_imagref(this->u_.complex_val)))
 	{
 	  if (issue_error)
 	    error_at(location, "complex constant truncated to float");
 	  return false;
 	}
-      mpfr_init_set(val, this->u_.complex_val.real, GMP_RNDN);
+      mpfr_init_set(val, mpc_realref(this->u_.complex_val), GMP_RNDN);
       break;
 
     default:
@@ -15701,24 +15269,21 @@ Numeric_constant::check_complex_type(Complex_type* type, bool issue_error,
       go_unreachable();
     }
 
-  mpfr_t real;
-  mpfr_t imag;
+  mpc_t val;
+  mpc_init2(val, mpc_precision);
   switch (this->classification_)
     {
     case NC_INT:
     case NC_RUNE:
-      mpfr_init_set_z(real, this->u_.int_val, GMP_RNDN);
-      mpfr_init_set_ui(imag, 0, GMP_RNDN);
+      mpc_set_z(val, this->u_.int_val, MPC_RNDNN);
       break;
 
     case NC_FLOAT:
-      mpfr_init_set(real, this->u_.float_val, GMP_RNDN);
-      mpfr_init_set_ui(imag, 0, GMP_RNDN);
+      mpc_set_fr(val, this->u_.float_val, MPC_RNDNN);
       break;
 
     case NC_COMPLEX:
-      mpfr_init_set(real, this->u_.complex_val.real, GMP_RNDN);
-      mpfr_init_set(imag, this->u_.complex_val.imag, GMP_RNDN);
+      mpc_set(val, this->u_.complex_val, MPC_RNDNN);
       break;
 
     default:
@@ -15726,20 +15291,20 @@ Numeric_constant::check_complex_type(Complex_type* type, bool issue_error,
     }
 
   bool ret = true;
-  if (!mpfr_nan_p(real)
-      && !mpfr_inf_p(real)
-      && !mpfr_zero_p(real)
-      && mpfr_get_exp(real) > max_exp)
+  if (!mpfr_nan_p(mpc_realref(val))
+      && !mpfr_inf_p(mpc_realref(val))
+      && !mpfr_zero_p(mpc_realref(val))
+      && mpfr_get_exp(mpc_realref(val)) > max_exp)
     {
       if (issue_error)
 	error_at(location, "complex real part overflow");
       ret = false;
     }
 
-  if (!mpfr_nan_p(imag)
-      && !mpfr_inf_p(imag)
-      && !mpfr_zero_p(imag)
-      && mpfr_get_exp(imag) > max_exp)
+  if (!mpfr_nan_p(mpc_imagref(val))
+      && !mpfr_inf_p(mpc_imagref(val))
+      && !mpfr_zero_p(mpc_imagref(val))
+      && mpfr_get_exp(mpc_imagref(val)) > max_exp)
     {
       if (issue_error)
 	error_at(location, "complex imaginary part overflow");
@@ -15749,30 +15314,26 @@ Numeric_constant::check_complex_type(Complex_type* type, bool issue_error,
   if (ret)
     {
       // Round the constant to the desired type.
-      mpfr_t t;
-      mpfr_init(t);
+      mpc_t t;
       switch (type->bits())
 	{
 	case 64:
-	  mpfr_set_prec(t, 24);
+	  mpc_init2(t, 24);
 	  break;
 	case 128:
-	  mpfr_set_prec(t, 53);
+	  mpc_init2(t, 53);
 	  break;
 	default:
 	  go_unreachable();
 	}
-      mpfr_set(t, real, GMP_RNDN);
-      mpfr_set(real, t, GMP_RNDN);
-      mpfr_set(t, imag, GMP_RNDN);
-      mpfr_set(imag, t, GMP_RNDN);
-      mpfr_clear(t);
+      mpc_set(t, val, MPC_RNDNN);
+      mpc_set(val, t, MPC_RNDNN);
+      mpc_clear(t);
 
-      this->set_complex(type, real, imag);
+      this->set_complex(type, val);
     }
 
-  mpfr_clear(real);
-  mpfr_clear(imag);
+  mpc_clear(val);
 
   return ret;
 }
@@ -15785,15 +15346,13 @@ Numeric_constant::expression(Location loc) const
   switch (this->classification_)
     {
     case NC_INT:
-      return Expression::make_integer(&this->u_.int_val, this->type_, loc);
+      return Expression::make_integer_z(&this->u_.int_val, this->type_, loc);
     case NC_RUNE:
       return Expression::make_character(&this->u_.int_val, this->type_, loc);
     case NC_FLOAT:
       return Expression::make_float(&this->u_.float_val, this->type_, loc);
     case NC_COMPLEX:
-      return Expression::make_complex(&this->u_.complex_val.real,
-				      &this->u_.complex_val.imag,
-				      this->type_, loc);
+      return Expression::make_complex(&this->u_.complex_val, this->type_, loc);
     default:
       go_unreachable();
     }

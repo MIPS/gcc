@@ -1,5 +1,5 @@
 /* Code sinking for trees
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2015 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
@@ -22,8 +22,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfganal.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
@@ -37,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "hashtab.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
 #include "tree-pass.h"
@@ -85,7 +101,7 @@ static struct
    we return NULL.  */
 
 static basic_block
-find_bb_for_arg (gimple phi, tree def)
+find_bb_for_arg (gphi *phi, tree def)
 {
   size_t i;
   bool foundone = false;
@@ -149,11 +165,11 @@ nearest_common_dominator_of_uses (def_operand_p def_p, bool *debug_stmts)
       gimple usestmt = USE_STMT (use_p);
       basic_block useblock;
 
-      if (gimple_code (usestmt) == GIMPLE_PHI)
+      if (gphi *phi = dyn_cast <gphi *> (usestmt))
 	{
 	  int idx = PHI_ARG_INDEX_FROM_USE (use_p);
 
-	  useblock = gimple_phi_arg_edge (usestmt, idx)->src;
+	  useblock = gimple_phi_arg_edge (phi, idx)->src;
 	}
       else if (is_gimple_debug (usestmt))
 	{
@@ -374,6 +390,12 @@ statement_sink_location (gimple stmt, basic_block frombb,
 	 nearest to commondom.  */
       if (gimple_vuse (stmt))
 	{
+	  /* Do not sink loads from hard registers.  */
+	  if (gimple_assign_single_p (stmt)
+	      && TREE_CODE (gimple_assign_rhs1 (stmt)) == VAR_DECL
+	      && DECL_HARD_REGISTER (gimple_assign_rhs1 (stmt)))
+	    return false;
+
 	  imm_use_iterator imm_iter;
 	  use_operand_p use_p;
 	  basic_block found = NULL;
@@ -440,7 +462,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
 	}
     }
 
-  sinkbb = find_bb_for_arg (use, DEF_FROM_PTR (def_p));
+  sinkbb = find_bb_for_arg (as_a <gphi *> (use), DEF_FROM_PTR (def_p));
 
   /* This can happen if there are multiple uses in a PHI.  */
   if (!sinkbb)
@@ -593,7 +615,6 @@ const pass_data pass_data_sink_code =
   GIMPLE_PASS, /* type */
   "sink", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SINK, /* tv_id */
   /* PROP_no_crit_edges is ensured by running split_critical_edges in
      pass_data_sink_code::execute ().  */

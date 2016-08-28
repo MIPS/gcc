@@ -1,5 +1,5 @@
 /* GCC backend definitions for the Renesas RX processor.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2015 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -67,6 +67,11 @@
 	builtin_define ("__RX_GCC_ABI__");	\
       else					\
 	builtin_define ("__RX_ABI__");		\
+						\
+      if (rx_allow_string_insns)		\
+	builtin_define ("__RX_ALLOW_STRING_INSNS__"); \
+      else					\
+	builtin_define ("__RX_DISALLOW_STRING_INSNS__");\
     }                                           \
   while (0)
 
@@ -97,6 +102,7 @@
 %{msmall-data-limit*:-msmall-data-limit} \
 %{mrelax:-relax} \
 %{mpid} \
+%{mno-allow-string-insns} \
 %{mint-register=*} \
 %{mgcc-abi:-mgcc-abi} %{!mgcc-abi:-mrx-abi} \
 %{mcpu=*} \
@@ -129,14 +135,6 @@
 #define FLOAT_TYPE_SIZE 		32
 #define DOUBLE_TYPE_SIZE 		(TARGET_64BIT_DOUBLES ? 64 : 32)
 #define LONG_DOUBLE_TYPE_SIZE		DOUBLE_TYPE_SIZE
-
-#ifdef __RX_32BIT_DOUBLES__
-#define LIBGCC2_HAS_DF_MODE		0
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE   32
-#else
-#define LIBGCC2_HAS_DF_MODE		1
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE   64
-#endif
 
 #define DEFAULT_SIGNED_CHAR		0
 
@@ -334,8 +332,8 @@ typedef unsigned int CUMULATIVE_ARGS;
 
 #define HARD_REGNO_NREGS(REGNO, MODE)   CLASS_MAX_NREGS (0, MODE)
 
-#define HARD_REGNO_MODE_OK(REGNO, MODE) 			\
-  REGNO_REG_CLASS (REGNO) == GR_REGS
+#define HARD_REGNO_MODE_OK(REGNO, MODE)				\
+  (REGNO_REG_CLASS (REGNO) == GR_REGS)
 
 #define MODES_TIEABLE_P(MODE1, MODE2)				\
   (   (   GET_MODE_CLASS (MODE1) == MODE_FLOAT			\
@@ -645,7 +643,6 @@ typedef unsigned int CUMULATIVE_ARGS;
 
 #define INCOMING_FRAME_SP_OFFSET		4
 #define ARG_POINTER_CFA_OFFSET(FNDECL)		4
-#define FRAME_POINTER_CFA_OFFSET(FNDECL)	4
 
 #define TARGET_USE_FPU		(! TARGET_NO_USE_FPU)
 

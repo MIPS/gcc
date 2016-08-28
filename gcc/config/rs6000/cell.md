@@ -1,5 +1,5 @@
 ;; Scheduling description for cell processor.
-;; Copyright (C) 2001-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2001-2015 Free Software Foundation, Inc.
 ;; Contributed by Sony Computer Entertainment, Inc.,
 
 
@@ -166,8 +166,8 @@
 
 ;; Integer latency is 2 cycles
 (define_insn_reservation "cell-integer" 2
-  (and (ior (eq_attr "type" "integer,trap,cntlz,exts,isel")
-	    (and (eq_attr "type" "add,logical,shift")
+  (and (ior (eq_attr "type" "integer,trap,cntlz,isel")
+	    (and (eq_attr "type" "add,logical,shift,exts")
 		 (eq_attr "dot" "no"))
 	    (and (eq_attr "type" "insert")
 		 (eq_attr "size" "64")))
@@ -201,17 +201,15 @@
 
 ;; add, addo, sub, subo, alter cr0, rldcli, rlwinm 
 (define_insn_reservation "cell-fast-cmp" 2
-  (and (ior (eq_attr "type" "compare")
-	    (and (eq_attr "type" "add,logical,shift")
-		 (eq_attr "dot" "yes")))
+  (and (eq_attr "type" "add,logical,shift,exts")
+       (eq_attr "dot" "yes")
        (eq_attr "cpu" "cell")
        (eq_attr "cell_micro" "not"))
   "slot01,fxu_cell")
 
 (define_insn_reservation "cell-cmp-microcoded" 9
-  (and (ior (eq_attr "type" "compare")
-	    (and (eq_attr "type" "add,logical,shift")
-		 (eq_attr "dot" "yes")))
+  (and (eq_attr "type" "add,logical,shift,exts")
+       (eq_attr "dot" "yes")
        (eq_attr "cpu" "cell")
        (eq_attr "cell_micro" "always"))
   "slot0+slot1,fxu_cell,fxu_cell*7")

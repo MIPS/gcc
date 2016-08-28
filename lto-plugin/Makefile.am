@@ -5,7 +5,7 @@ AUTOMAKE_OPTIONS = no-dependencies
 
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 target_noncanonical := @target_noncanonical@
-libexecsubdir := $(libexecdir)/gcc/$(target_noncanonical)/$(gcc_version)
+libexecsubdir := $(libexecdir)/gcc/$(real_target_noncanonical)/$(gcc_version)$(accel_dir_suffix)
 
 AM_CPPFLAGS = -I$(top_srcdir)/../include $(DEFS)
 AM_CFLAGS = @ac_lto_plugin_warn_cflags@
@@ -15,7 +15,7 @@ override CFLAGS := $(filter-out -fsanitize=address,$(CFLAGS))
 override LDFLAGS := $(filter-out -fsanitize=address,$(LDFLAGS))
 
 libexecsub_LTLIBRARIES = liblto_plugin.la
-gcc_build_dir = ../$(host_subdir)/gcc
+gcc_build_dir = @gcc_build_dir@
 in_gcc_libs = $(foreach lib, $(libexecsub_LTLIBRARIES), $(gcc_build_dir)/$(lib))
 
 liblto_plugin_la_SOURCES = lto-plugin.c

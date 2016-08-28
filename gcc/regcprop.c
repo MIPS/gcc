@@ -1,5 +1,5 @@
 /* Copy propagation on hard registers for the GNU compiler.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -27,15 +27,24 @@
 #include "regs.h"
 #include "addresses.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "reload.h"
-#include "function.h"
 #include "recog.h"
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "rtl-iter.h"
 
 /* The following code does forward propagation of hard register copies.
    The object is to eliminate as many dependencies as possible, so that
@@ -50,7 +59,7 @@
 struct queued_debug_insn_change
 {
   struct queued_debug_insn_change *next;
-  rtx insn;
+  rtx_insn *insn;
   rtx *loc;
   rtx new_rtx;
 };
@@ -63,7 +72,7 @@ struct queued_debug_insn_change
 
 struct value_data_entry
 {
-  enum machine_mode mode;
+  machine_mode mode;
   unsigned int oldest_regno;
   unsigned int next_regno;
   struct queued_debug_insn_change *debug_insn_changes;
@@ -81,24 +90,23 @@ static bool skip_debug_insn_p;
 
 static void kill_value_one_regno (unsigned, struct value_data *);
 static void kill_value_regno (unsigned, unsigned, struct value_data *);
-static void kill_value (rtx, struct value_data *);
-static void set_value_regno (unsigned, enum machine_mode, struct value_data *);
+static void kill_value (const_rtx, struct value_data *);
+static void set_value_regno (unsigned, machine_mode, struct value_data *);
 static void init_value_data (struct value_data *);
 static void kill_clobbered_value (rtx, const_rtx, void *);
 static void kill_set_value (rtx, const_rtx, void *);
-static int kill_autoinc_value (rtx *, void *);
 static void copy_value (rtx, rtx, struct value_data *);
-static bool mode_change_ok (enum machine_mode, enum machine_mode,
+static bool mode_change_ok (machine_mode, machine_mode,
 			    unsigned int);
-static rtx maybe_mode_change (enum machine_mode, enum machine_mode,
-			      enum machine_mode, unsigned int, unsigned int);
+static rtx maybe_mode_change (machine_mode, machine_mode,
+			      machine_mode, unsigned int, unsigned int);
 static rtx find_oldest_value_reg (enum reg_class, rtx, struct value_data *);
-static bool replace_oldest_value_reg (rtx *, enum reg_class, rtx,
+static bool replace_oldest_value_reg (rtx *, enum reg_class, rtx_insn *,
 				      struct value_data *);
 static bool replace_oldest_value_addr (rtx *, enum reg_class,
-				       enum machine_mode, addr_space_t, rtx,
-				       struct value_data *);
-static bool replace_oldest_value_mem (rtx, rtx, struct value_data *);
+				       machine_mode, addr_space_t,
+				       rtx_insn *, struct value_data *);
+static bool replace_oldest_value_mem (rtx, rtx_insn *, struct value_data *);
 static bool copyprop_hardreg_forward_1 (basic_block, struct value_data *);
 extern void debug_value_data (struct value_data *);
 #ifdef ENABLE_CHECKING
@@ -190,16 +198,13 @@ kill_value_regno (unsigned int regno, unsigned int nregs,
    so that we mind the mode the register is in.  */
 
 static void
-kill_value (rtx x, struct value_data *vd)
+kill_value (const_rtx x, struct value_data *vd)
 {
-  rtx orig_rtx = x;
-
   if (GET_CODE (x) == SUBREG)
     {
-      x = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
-			   GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
-      if (x == NULL_RTX)
-	x = SUBREG_REG (orig_rtx);
+      rtx tmp = simplify_subreg (GET_MODE (x), SUBREG_REG (x),
+				 GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+      x = tmp ? tmp : SUBREG_REG (x);
     }
   if (REG_P (x))
     {
@@ -213,7 +218,7 @@ kill_value (rtx x, struct value_data *vd)
 /* Remember that REGNO is valid in MODE.  */
 
 static void
-set_value_regno (unsigned int regno, enum machine_mode mode,
+set_value_regno (unsigned int regno, machine_mode mode,
 		 struct value_data *vd)
 {
   unsigned int nregs;
@@ -276,25 +281,24 @@ kill_set_value (rtx x, const_rtx set, void *data)
     }
 }
 
-/* Called through for_each_rtx.  Kill any register used as the base of an
-   auto-increment expression, and install that register as the root of its
-   own value list.  */
+/* Kill any register used in X as the base of an auto-increment expression,
+   and install that register as the root of its own value list.  */
 
-static int
-kill_autoinc_value (rtx *px, void *data)
+static void
+kill_autoinc_value (rtx insn, struct value_data *vd)
 {
-  rtx x = *px;
-  struct value_data *const vd = (struct value_data *) data;
-
-  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_AUTOINC)
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, PATTERN (insn), NONCONST)
     {
-      x = XEXP (x, 0);
-      kill_value (x, vd);
-      set_value_regno (REGNO (x), GET_MODE (x), vd);
-      return -1;
+      const_rtx x = *iter;
+      if (GET_RTX_CLASS (GET_CODE (x)) == RTX_AUTOINC)
+	{
+	  x = XEXP (x, 0);
+	  kill_value (x, vd);
+	  set_value_regno (REGNO (x), GET_MODE (x), vd);
+	  iter.skip_subrtxes ();
+	}
     }
-
-  return 0;
 }
 
 /* Assert that SRC has been copied to DEST.  Adjust the data structures
@@ -383,7 +387,7 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
 /* Return true if a mode change from ORIG to NEW is allowed for REGNO.  */
 
 static bool
-mode_change_ok (enum machine_mode orig_mode, enum machine_mode new_mode,
+mode_change_ok (machine_mode orig_mode, machine_mode new_mode,
 		unsigned int regno ATTRIBUTE_UNUSED)
 {
   if (GET_MODE_SIZE (orig_mode) < GET_MODE_SIZE (new_mode))
@@ -402,8 +406,8 @@ mode_change_ok (enum machine_mode orig_mode, enum machine_mode new_mode,
    Return a NEW_MODE rtx for REGNO if that's OK, otherwise return NULL_RTX.  */
 
 static rtx
-maybe_mode_change (enum machine_mode orig_mode, enum machine_mode copy_mode,
-		   enum machine_mode new_mode, unsigned int regno,
+maybe_mode_change (machine_mode orig_mode, machine_mode copy_mode,
+		   machine_mode new_mode, unsigned int regno,
 		   unsigned int copy_regno ATTRIBUTE_UNUSED)
 {
   if (GET_MODE_SIZE (copy_mode) < GET_MODE_SIZE (orig_mode)
@@ -440,7 +444,7 @@ static rtx
 find_oldest_value_reg (enum reg_class cl, rtx reg, struct value_data *vd)
 {
   unsigned int regno = REGNO (reg);
-  enum machine_mode mode = GET_MODE (reg);
+  machine_mode mode = GET_MODE (reg);
   unsigned int i;
 
   /* If we are accessing REG in some mode other that what we set it in,
@@ -459,7 +463,7 @@ find_oldest_value_reg (enum reg_class cl, rtx reg, struct value_data *vd)
 
   for (i = vd->e[regno].oldest_regno; i != regno; i = vd->e[i].next_regno)
     {
-      enum machine_mode oldmode = vd->e[i].mode;
+      machine_mode oldmode = vd->e[i].mode;
       rtx new_rtx;
 
       if (!in_hard_reg_set_p (reg_class_contents[cl], mode, i))
@@ -482,7 +486,7 @@ find_oldest_value_reg (enum reg_class cl, rtx reg, struct value_data *vd)
    in register class CL.  Return true if successfully replaced.  */
 
 static bool
-replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx insn,
+replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx_insn *insn,
 			  struct value_data *vd)
 {
   rtx new_rtx = find_oldest_value_reg (cl, *loc, vd);
@@ -522,8 +526,8 @@ replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx insn,
 
 static bool
 replace_oldest_value_addr (rtx *loc, enum reg_class cl,
-			   enum machine_mode mode, addr_space_t as,
-			   rtx insn, struct value_data *vd)
+			   machine_mode mode, addr_space_t as,
+			   rtx_insn *insn, struct value_data *vd)
 {
   rtx x = *loc;
   RTX_CODE code = GET_CODE (x);
@@ -669,7 +673,7 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 /* Similar to replace_oldest_value_reg, but X contains a memory.  */
 
 static bool
-replace_oldest_value_mem (rtx x, rtx insn, struct value_data *vd)
+replace_oldest_value_mem (rtx x, rtx_insn *insn, struct value_data *vd)
 {
   enum reg_class cl;
 
@@ -690,7 +694,7 @@ static void
 apply_debug_insn_changes (struct value_data *vd, unsigned int regno)
 {
   struct queued_debug_insn_change *change;
-  rtx last_insn = vd->e[regno].debug_insn_changes->insn;
+  rtx_insn *last_insn = vd->e[regno].debug_insn_changes->insn;
 
   for (change = vd->e[regno].debug_insn_changes;
        change;
@@ -706,33 +710,48 @@ apply_debug_insn_changes (struct value_data *vd, unsigned int regno)
   apply_change_group ();
 }
 
-/* Called via for_each_rtx, for all used registers in a real
-   insn apply DEBUG_INSN changes that change registers to the
-   used register.  */
-
-static int
-cprop_find_used_regs_1 (rtx *loc, void *data)
-{
-  if (REG_P (*loc))
-    {
-      struct value_data *vd = (struct value_data *) data;
-      if (vd->e[REGNO (*loc)].debug_insn_changes)
-	{
-	  apply_debug_insn_changes (vd, REGNO (*loc));
-	  free_debug_insn_changes (vd, REGNO (*loc));
-	}
-    }
-  return 0;
-}
-
 /* Called via note_uses, for all used registers in a real insn
    apply DEBUG_INSN changes that change registers to the used
    registers.  */
 
 static void
-cprop_find_used_regs (rtx *loc, void *vd)
+cprop_find_used_regs (rtx *loc, void *data)
 {
-  for_each_rtx (loc, cprop_find_used_regs_1, vd);
+  struct value_data *const vd = (struct value_data *) data;
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, *loc, NONCONST)
+    {
+      const_rtx x = *iter;
+      if (REG_P (x))
+	{
+	  unsigned int regno = REGNO (x);
+	  if (vd->e[regno].debug_insn_changes)
+	    {
+	      apply_debug_insn_changes (vd, regno);
+	      free_debug_insn_changes (vd, regno);
+	    }
+	}
+    }
+}
+
+/* Apply clobbers of INSN in PATTERN and C_I_F_U to value_data VD.  */
+
+static void
+kill_clobbered_values (rtx_insn *insn, struct value_data *vd)
+{
+  note_stores (PATTERN (insn), kill_clobbered_value, vd);
+
+  if (CALL_P (insn))
+    {
+      rtx exp;
+
+      for (exp = CALL_INSN_FUNCTION_USAGE (insn); exp; exp = XEXP (exp, 1))
+	{
+	  rtx x = XEXP (exp, 0);
+	  if (GET_CODE (x) == CLOBBER)
+	    kill_value (SET_DEST (x), vd);
+	}
+    }
 }
 
 /* Perform the forward copy propagation on basic block BB.  */
@@ -741,7 +760,7 @@ static bool
 copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 {
   bool anything_changed = false;
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
     {
@@ -771,9 +790,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	}
 
       set = single_set (insn);
-      extract_insn (insn);
-      if (! constrain_operands (1))
-	fatal_insn_not_found (insn);
+      extract_constrain_insn (insn);
       preprocess_constraints (insn);
       const operand_alternative *op_alt = which_op_alt ();
       n_ops = recog_data.n_operands;
@@ -803,11 +820,11 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
       /* Within asms, a clobber cannot overlap inputs or outputs.
 	 I wouldn't think this were true for regular insns, but
 	 scan_rtx treats them like that...  */
-      note_stores (PATTERN (insn), kill_clobbered_value, vd);
+      kill_clobbered_values (insn, vd);
 
       /* Kill all auto-incremented values.  */
       /* ??? REG_INC is useless, since stack pushes aren't done that way.  */
-      for_each_rtx (&PATTERN (insn), kill_autoinc_value, vd);
+      kill_autoinc_value (insn, vd);
 
       /* Kill all early-clobbered operands.  */
       for (i = 0; i < n_ops; i++)
@@ -837,7 +854,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	{
 	  rtx src = SET_SRC (set);
 	  unsigned int regno = REGNO (src);
-	  enum machine_mode mode = GET_MODE (src);
+	  machine_mode mode = GET_MODE (src);
 	  unsigned int i;
 	  rtx new_rtx;
 
@@ -874,9 +891,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		}
 	      /* We need to re-extract as validate_change clobbers
 		 recog_data.  */
-	      extract_insn (insn);
-	      if (! constrain_operands (1))
-		fatal_insn_not_found (insn);
+	      extract_constrain_insn (insn);
 	      preprocess_constraints (insn);
 	    }
 
@@ -902,9 +917,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		    }
 		  /* We need to re-extract as validate_change clobbers
 		     recog_data.  */
-		  extract_insn (insn);
-		  if (! constrain_operands (1))
-		    fatal_insn_not_found (insn);
+		  extract_constrain_insn (insn);
 		  preprocess_constraints (insn);
 		}
 	    }
@@ -1009,6 +1022,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	  unsigned int set_nregs = 0;
 	  unsigned int regno;
 	  rtx exp;
+	  HARD_REG_SET regs_invalidated_by_this_call;
 
 	  for (exp = CALL_INSN_FUNCTION_USAGE (insn); exp; exp = XEXP (exp, 1))
 	    {
@@ -1027,8 +1041,11 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		}
 	    }
 
+	  get_call_reg_set_usage (insn,
+				  &regs_invalidated_by_this_call,
+				  regs_invalidated_by_call);
 	  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-	    if ((TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
+	    if ((TEST_HARD_REG_BIT (regs_invalidated_by_this_call, regno)
 		 || HARD_REGNO_CALL_PART_CLOBBERED (regno, vd->e[regno].mode))
 		&& (regno < set_regno || regno >= set_regno + set_nregs))
 	      kill_value_regno (regno, 1, vd);
@@ -1038,15 +1055,24 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	     but instead among CLOBBERs on the CALL_INSN, we could wrongly
 	     assume the value in it is still live.  */
 	  if (ksvd.ignore_set_reg)
-	    note_stores (PATTERN (insn), kill_clobbered_value, vd);
+	    kill_clobbered_values (insn, vd);
 	}
 
-      /* Notice stores.  */
-      note_stores (PATTERN (insn), kill_set_value, &ksvd);
+      bool copy_p = (set
+		     && REG_P (SET_DEST (set))
+		     && REG_P (SET_SRC (set)));
+      bool noop_p = (copy_p
+		     && rtx_equal_p (SET_DEST (set), SET_SRC (set)));
 
-      /* Notice copies.  */
-      if (set && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set)))
-	copy_value (SET_DEST (set), SET_SRC (set), vd);
+      if (!noop_p)
+	{
+	  /* Notice stores.  */
+	  note_stores (PATTERN (insn), kill_set_value, &ksvd);
+
+	  /* Notice copies.  */
+	  if (copy_p)
+	    copy_value (SET_DEST (set), SET_SRC (set), vd);
+	}
 
       if (insn == BB_END (bb))
 	break;
@@ -1186,7 +1212,6 @@ const pass_data pass_data_cprop_hardreg =
   RTL_PASS, /* type */
   "cprop_hardreg", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_CPROP_REGISTERS, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

@@ -34,8 +34,6 @@ with Ada.Exceptions;           use Ada.Exceptions;
 with Ada.Finalization;
 with Ada.Unchecked_Conversion;
 
-with Interfaces.C.Strings;
-
 with GNAT.Sockets.Thin_Common; use GNAT.Sockets.Thin_Common;
 with GNAT.Sockets.Thin;        use GNAT.Sockets.Thin;
 
@@ -174,8 +172,7 @@ package body GNAT.Sockets is
    --  Conversion function
 
    function Value (S : System.Address) return String;
-   --  Same as Interfaces.C.Strings.Value but taking a System.Address (on VMS,
-   --  chars_ptr is a 32-bit pointer, and here we need a 64-bit version).
+   --  Same as Interfaces.C.Strings.Value but taking a System.Address
 
    function To_Timeval (Val : Timeval_Duration) return Timeval;
    --  Separate Val in seconds and microseconds
@@ -979,11 +976,17 @@ package body GNAT.Sockets is
          Raise_Host_Error (Integer (Err));
       end if;
 
-      return H : constant Host_Entry_Type :=
-                   To_Host_Entry (Res'Unchecked_Access)
-      do
-         Netdb_Unlock;
-      end return;
+      begin
+         return H : constant Host_Entry_Type :=
+                      To_Host_Entry (Res'Unchecked_Access)
+         do
+            Netdb_Unlock;
+         end return;
+      exception
+         when others =>
+            Netdb_Unlock;
+            raise;
+      end;
    end Get_Host_By_Address;
 
    ----------------------
@@ -1412,7 +1415,6 @@ package body GNAT.Sockets is
 
    function Inet_Addr (Image : String) return Inet_Addr_Type is
       use Interfaces.C;
-      use Interfaces.C.Strings;
 
       Img    : aliased char_array := To_C (Image);
       Addr   : aliased C.int;
@@ -1710,7 +1712,6 @@ package body GNAT.Sockets is
    ------------------------
 
    procedure Raise_Socket_Error (Error : Integer) is
-      use type C.Strings.chars_ptr;
    begin
       raise Socket_Error with
         Err_Code_Image (Error) & Socket_Error_Message (Error);
@@ -2421,14 +2422,17 @@ package body GNAT.Sockets is
 
    function To_Host_Entry (E : Hostent_Access) return Host_Entry_Type is
       use type C.size_t;
-      use C.Strings;
 
       Aliases_Count, Addresses_Count : Natural;
 
       --  H_Length is not used because it is currently only ever set to 4, as
-      --  H_Addrtype is always AF_INET.
+      --  we only handle the case of H_Addrtype being AF_INET.
 
    begin
+      if Hostent_H_Addrtype (E) /= SOSC.AF_INET then
+         Raise_Socket_Error (SOSC.EPFNOSUPPORT);
+      end if;
+
       Aliases_Count := 0;
       while Hostent_H_Alias (E, C.int (Aliases_Count)) /= Null_Address loop
          Aliases_Count := Aliases_Count + 1;
@@ -2549,7 +2553,6 @@ package body GNAT.Sockets is
    ----------------------
 
    function To_Service_Entry (E : Servent_Access) return Service_Entry_Type is
-      use C.Strings;
       use type C.size_t;
 
       Aliases_Count : Natural;

@@ -1,5 +1,5 @@
 /* Printing operations with very long integers.
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -62,7 +62,8 @@ print_decs (const wide_int_ref &wi, char *buf)
       || (wi.get_len () == 1))
     {
       if (wi::neg_p (wi))
-      	sprintf (buf, "-" HOST_WIDE_INT_PRINT_UNSIGNED, -wi.to_shwi ());
+      	sprintf (buf, "-" HOST_WIDE_INT_PRINT_UNSIGNED,
+		 -(unsigned HOST_WIDE_INT) wi.to_shwi ());
       else
 	sprintf (buf, HOST_WIDE_INT_PRINT_DEC, wi.to_shwi ());
     }

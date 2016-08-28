@@ -6,6 +6,7 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 DEFS = -D_GNU_SOURCE -D_DEBUG -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS 
 AM_CXXFLAGS = -Wall -W -Wno-unused-parameter -Wwrite-strings -pedantic -Wno-long-long  -fPIC -fno-builtin -fno-exceptions -fno-rtti -fomit-frame-pointer -funwind-tables -fvisibility=hidden -Wno-variadic-macros
 AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
+AM_CXXFLAGS += -std=gnu++11
 ACLOCAL_AMFLAGS = -I m4
 
 toolexeclib_LTLIBRARIES = libtsan.la
@@ -32,16 +33,19 @@ tsan_files = \
 	tsan_rtl_mutex.cc \
 	tsan_rtl_report.cc \
 	tsan_rtl_thread.cc \
+	tsan_stack_trace.cc \
 	tsan_stat.cc \
 	tsan_suppressions.cc \
 	tsan_symbolize.cc \
-	tsan_sync.cc \
-	tsan_rtl_amd64.S
+	tsan_sync.cc 
 
-libtsan_la_SOURCES = $(tsan_files) 
-libtsan_la_LIBADD = $(top_builddir)/sanitizer_common/libsanitizer_common.la $(top_builddir)/interception/libinterception.la
+libtsan_la_SOURCES = $(tsan_files)
+EXTRA_libtsan_la_SOURCES = tsan_rtl_amd64.S
+libtsan_la_LIBADD = $(top_builddir)/sanitizer_common/libsanitizer_common.la $(top_builddir)/interception/libinterception.la $(TSAN_TARGET_DEPENDENT_OBJECTS)
+libtsan_la_DEPENDENCIES = $(top_builddir)/sanitizer_common/libsanitizer_common.la $(top_builddir)/interception/libinterception.la $(TSAN_TARGET_DEPENDENT_OBJECTS)
 if LIBBACKTRACE_SUPPORTED
 libtsan_la_LIBADD += $(top_builddir)/libbacktrace/libsanitizer_libbacktrace.la
+libtsan_la_DEPENDENCIES +=$(top_builddir)/libbacktrace/libsanitizer_libbacktrace.la
 endif
 libtsan_la_LIBADD += $(LIBSTDCXX_RAW_CXX_LDFLAGS)
 libtsan_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(link_libtsan)

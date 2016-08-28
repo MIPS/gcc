@@ -1,6 +1,6 @@
 /* Print GENERIC declaration (functions, variables, types) trees coming from
    the C and C++ front-ends as well as macros in Ada syntax.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2015 Free Software Foundation, Inc.
    Adapted from tree-pretty-print.c by Arnaud Charlet  <charlet@adacore.com>
 
 This file is part of GCC.
@@ -23,7 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "dumpfile.h"
 #include "c-ada-spec.h"
 #include "cpplib.h"
@@ -636,8 +647,9 @@ dump_ada_nodes (pretty_printer *pp, const char *source_file)
   comments = cpp_get_comments (parse_in);
 
   /* Sort the comments table by sloc.  */
-  qsort (comments->entries, comments->count, sizeof (cpp_comment),
-	 compare_comment);
+  if (comments->count > 1)
+    qsort (comments->entries, comments->count, sizeof (cpp_comment),
+	   compare_comment);
 
   /* Interleave comments and declarations in line number order.  */
   i = j = 0;
@@ -949,7 +961,7 @@ is_tagged_type (const_tree type)
     return false;
 
   for (tmp = TYPE_METHODS (type); tmp; tmp = TREE_CHAIN (tmp))
-    if (DECL_VINDEX (tmp))
+    if (TREE_CODE (tmp) == FUNCTION_DECL && DECL_VINDEX (tmp))
       return true;
 
   return false;
@@ -1378,7 +1390,7 @@ dump_ada_double_name (pretty_printer *buffer, tree t1, tree t2, const char *s)
 
   pp_underscore (buffer);
 
-  if (DECL_NAME (t1))
+  if (DECL_NAME (t2))
     pp_ada_tree_identifier (buffer, DECL_NAME (t2), t2, false);
   else
     {
@@ -1718,10 +1730,15 @@ dump_template_types (pretty_printer *buffer, tree types, int spc)
 static int
 dump_ada_template (pretty_printer *buffer, tree t, int spc)
 {
-  /* DECL_VINDEX is DECL_TEMPLATE_INSTANTIATIONS in this context.  */
-  tree inst = DECL_VINDEX (t);
-  /* DECL_RESULT_FLD is DECL_TEMPLATE_RESULT in this context.  */
-  tree result = DECL_RESULT_FLD (t);
+  /* DECL_SIZE_UNIT is DECL_TEMPLATE_INSTANTIATIONS in this context.  */
+  tree inst = DECL_SIZE_UNIT (t);
+  /* This emulates DECL_TEMPLATE_RESULT in this context.  */
+  struct tree_template_decl {
+    struct tree_decl_common common;
+    tree arguments;
+    tree result;
+  };
+  tree result = ((struct tree_template_decl *) t)->result;
   int num_inst = 0;
 
   /* Don't look at template declarations declaring something coming from
@@ -1738,7 +1755,7 @@ dump_ada_template (pretty_printer *buffer, tree t, int spc)
       if (TREE_VEC_LENGTH (types) == 0)
 	break;
 
-      if (!TYPE_P (instance) || !TYPE_METHODS (instance))
+      if (!RECORD_OR_UNION_TYPE_P (instance) || !TYPE_METHODS (instance))
 	break;
 
       num_inst++;
@@ -2524,18 +2541,9 @@ static void
 print_destructor (pretty_printer *buffer, tree t)
 {
   tree decl_name = DECL_NAME (DECL_ORIGIN (t));
-  const char *s = IDENTIFIER_POINTER (decl_name);
 
-  if (*s == '_')
-    {
-      for (s += 2; *s != ' '; s++)
-	pp_character (buffer, *s);
-    }
-  else
-    {
-      pp_string (buffer, "Delete_");
-      pp_ada_tree_identifier (buffer, decl_name, t, false);
-    }
+  pp_string (buffer, "Delete_");
+  pp_ada_tree_identifier (buffer, decl_name, t, false);
 }
 
 /* Return the name of type T.  */

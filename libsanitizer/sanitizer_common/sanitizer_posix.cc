@@ -76,15 +76,17 @@ static uptr GetKernelAreaSize() {
 
 uptr GetMaxVirtualAddress() {
 #if SANITIZER_WORDSIZE == 64
-# if defined(__powerpc64__)
+# if defined(__powerpc64__) || defined(__aarch64__)
   // On PowerPC64 we have two different address space layouts: 44- and 46-bit.
   // We somehow need to figure out which one we are using now and choose
   // one of 0x00000fffffffffffUL and 0x00003fffffffffffUL.
   // Note that with 'ulimit -s unlimited' the stack is moved away from the top
   // of the address space, so simply checking the stack address is not enough.
-  return (1ULL << 44) - 1;  // 0x00000fffffffffffUL
-# elif defined(__aarch64__)
-  return (1ULL << 39) - 1;
+  // This should (does) work for both PowerPC64 Endian modes.
+  // Similarly, aarch64 has multiple address space layouts: 39, 42 and 47-bit.
+  return (1ULL << (MostSignificantSetBitIndex(GET_CURRENT_FRAME()) + 1)) - 1;
+# elif defined(__mips64)
+  return (1ULL << 40) - 1;
 # else
   return (1ULL << 47) - 1;  // 0x00007fffffffffffUL;
 # endif
@@ -204,6 +206,17 @@ void *MapFileToMemory(const char *file_name, uptr *buff_size) {
   return internal_iserror(map) ? 0 : (void *)map;
 }
 
+void *MapWritableFileToMemory(void *addr, uptr size, uptr fd, uptr offset) {
+  uptr flags = MAP_SHARED;
+  if (addr) flags |= MAP_FIXED;
+  uptr p = internal_mmap(addr, size, PROT_READ | PROT_WRITE, flags, fd, offset);
+  if (internal_iserror(p)) {
+    Printf("could not map writable file (%zd, %zu, %zu): %zd\n", fd, offset,
+           size, p);
+    return 0;
+  }
+  return (void *)p;
+}
 
 static inline bool IntervalsAreSeparate(uptr start1, uptr end1,
                                         uptr start2, uptr end2) {

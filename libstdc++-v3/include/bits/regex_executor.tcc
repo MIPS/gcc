@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2013-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,17 +39,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     bool _Executor<_BiIter, _Alloc, _TraitsT, __dfs_mode>::
     _M_search()
     {
+      if (_M_search_from_first())
+	return true;
       if (_M_flags & regex_constants::match_continuous)
-	return _M_search_from_first();
-      auto __cur = _M_begin;
-      do
+	return false;
+      _M_flags |= regex_constants::match_prev_avail;
+      while (_M_begin != _M_end)
 	{
-	  _M_current = __cur;
-	  if (_M_main(_Match_mode::_Prefix))
+	  ++_M_begin;
+	  if (_M_search_from_first())
 	    return true;
 	}
-      // Continue when __cur == _M_end
-      while (__cur++ != _M_end);
       return false;
     }
 
@@ -82,6 +82,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _M_main_dispatch(_Match_mode __match_mode, __dfs)
     {
       _M_has_sol = false;
+      *_M_states._M_get_sol_pos() = _BiIter();
       _M_cur_results = _M_results;
       _M_dfs(__match_mode, _M_states._M_start);
       return _M_has_sol;
@@ -136,6 +137,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
       if (__match_mode == _Match_mode::_Exact)
 	__ret = _M_has_sol;
+      _M_states._M_match_queue.clear();
       return __ret;
     }
 
@@ -272,7 +274,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    _M_dfs(__match_mode, __state._M_next);
 	  break;
 	case _S_opcode_word_boundary:
-	  if (_M_word_boundary(__state) == !__state._M_neg)
+	  if (_M_word_boundary() == !__state._M_neg)
 	    _M_dfs(__match_mode, __state._M_next);
 	  break;
 	// Here __state._M_alt offers a single start node for a sub-NFA.
@@ -282,9 +284,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    _M_dfs(__match_mode, __state._M_next);
 	  break;
 	case _S_opcode_match:
+	  if (_M_current == _M_end)
+	    break;
 	  if (__dfs_mode)
 	    {
-	      if (_M_current != _M_end && __state._M_matches(*_M_current))
+	      if (__state._M_matches(*_M_current))
 		{
 		  ++_M_current;
 		  _M_dfs(__match_mode, __state._M_next);
@@ -310,9 +314,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		 __last != _M_end && __tmp != __submatch.second;
 		 ++__tmp)
 	      ++__last;
-	    if (_M_re._M_traits.transform(__submatch.first,
-						__submatch.second)
-		== _M_re._M_traits.transform(_M_current, __last))
+	    if (_M_re._M_automaton->_M_traits.transform(__submatch.first,
+							__submatch.second)
+		== _M_re._M_automaton->_M_traits.transform(_M_current, __last))
 	      {
 		if (__last != _M_current)
 		  {
@@ -338,7 +342,29 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		  && (_M_flags & regex_constants::match_not_null))
 		_M_has_sol = false;
 	      if (_M_has_sol)
-		_M_results = _M_cur_results;
+		{
+		  if (_M_nfa._M_flags & regex_constants::ECMAScript)
+		    _M_results = _M_cur_results;
+		  else // POSIX
+		    {
+		      _GLIBCXX_DEBUG_ASSERT(_M_states._M_get_sol_pos());
+		      // Here's POSIX's logic: match the longest one. However
+		      // we never know which one (lhs or rhs of "|") is longer
+		      // unless we try both of them and compare the results.
+		      // The member variable _M_sol_pos records the end
+		      // position of the last successful match. It's better
+		      // to be larger, because POSIX regex is always greedy.
+		      // TODO: This could be slow.
+		      if (*_M_states._M_get_sol_pos() == _BiIter()
+			  || std::distance(_M_begin,
+					   *_M_states._M_get_sol_pos())
+			     < std::distance(_M_begin, _M_current))
+			{
+			  *_M_states._M_get_sol_pos() = _M_current;
+			  _M_results = _M_cur_results;
+			}
+		    }
+		}
 	    }
 	  else
 	    {
@@ -354,9 +380,25 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    }
 	  break;
 	case _S_opcode_alternative:
-	  _M_dfs(__match_mode, __state._M_alt);
-	  if (!__dfs_mode || !_M_has_sol)
-	    _M_dfs(__match_mode, __state._M_next);
+	  if (_M_nfa._M_flags & regex_constants::ECMAScript)
+	    {
+	      // TODO: Let BFS support ECMAScript's alternative operation.
+	      _GLIBCXX_DEBUG_ASSERT(__dfs_mode);
+	      _M_dfs(__match_mode, __state._M_alt);
+	      // Pick lhs if it matches. Only try rhs if it doesn't.
+	      if (!_M_has_sol)
+		_M_dfs(__match_mode, __state._M_next);
+	    }
+	  else
+	    {
+	      // Try both and compare the result.
+	      // See "case _S_opcode_accept:" handling above.
+	      _M_dfs(__match_mode, __state._M_alt);
+	      auto __has_sol = _M_has_sol;
+	      _M_has_sol = false;
+	      _M_dfs(__match_mode, __state._M_next);
+	      _M_has_sol |= __has_sol;
+	    }
 	  break;
 	default:
 	  _GLIBCXX_DEBUG_ASSERT(false);
@@ -367,25 +409,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _BiIter, typename _Alloc, typename _TraitsT,
 	   bool __dfs_mode>
     bool _Executor<_BiIter, _Alloc, _TraitsT, __dfs_mode>::
-    _M_word_boundary(_State<_TraitsT> __state) const
+    _M_word_boundary() const
     {
-      // By definition.
-      bool __ans = false;
-      auto __pre = _M_current;
-      --__pre;
-      if (!(_M_at_begin() && _M_at_end()))
+      bool __left_is_word = false;
+      if (_M_current != _M_begin
+	  || (_M_flags & regex_constants::match_prev_avail))
 	{
-	  if (_M_at_begin())
-	    __ans = _M_is_word(*_M_current)
-	      && !(_M_flags & regex_constants::match_not_bow);
-	  else if (_M_at_end())
-	    __ans = _M_is_word(*__pre)
-	      && !(_M_flags & regex_constants::match_not_eow);
-	  else
-	    __ans = _M_is_word(*_M_current)
-	      != _M_is_word(*__pre);
+	  auto __prev = _M_current;
+	  if (_M_is_word(*std::prev(__prev)))
+	    __left_is_word = true;
 	}
-      return __ans;
+      bool __right_is_word =
+        _M_current != _M_end && _M_is_word(*_M_current);
+
+      if (__left_is_word == __right_is_word)
+	return false;
+      if (__left_is_word && !(_M_flags & regex_constants::match_not_eow))
+	return true;
+      if (__right_is_word && !(_M_flags & regex_constants::match_not_bow))
+	return true;
+      return false;
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

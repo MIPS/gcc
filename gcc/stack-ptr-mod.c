@@ -1,5 +1,5 @@
 /* Discover if the stack pointer is modified in a function.
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,13 +21,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "regs.h"
+#include "hashtab.h"
+#include "hard-reg-set.h"
+#include "function.h"
+#include "flags.h"
+#include "statistics.h"
+#include "real.h"
+#include "fixed-value.h"
+#include "insn-config.h"
+#include "expmed.h"
+#include "dojump.h"
+#include "explow.h"
+#include "calls.h"
+#include "emit-rtl.h"
+#include "varasm.h"
+#include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
+#include "predict.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
-#include "flags.h"
 #include "output.h"
 #include "df.h"
 
@@ -59,7 +85,6 @@ const pass_data pass_data_stack_ptr_mod =
   RTL_PASS, /* type */
   "*stack_ptr_mod", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -84,7 +109,7 @@ unsigned int
 pass_stack_ptr_mod::execute (function *fun)
 {
   basic_block bb;
-  rtx insn;
+  rtx_insn *insn;
 
   /* Assume that the stack pointer is unchanging if alloca hasn't
      been used.  */

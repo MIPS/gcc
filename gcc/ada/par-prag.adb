@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -52,6 +52,11 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
    -----------------------
    -- Local Subprograms --
    -----------------------
+
+   procedure Add_List_Pragma_Entry (PT : List_Pragma_Type; Loc : Source_Ptr);
+   --  Make a new entry in the List_Pragmas table if this entry is not already
+   --  in the table (it will always be the last one if there is a duplication
+   --  resulting from the use of Save/Restore_Scan_State).
 
    function Arg1 return Node_Id;
    function Arg2 return Node_Id;
@@ -106,6 +111,19 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
    --
    --  Note that we don't need to do full error checking for badly formed cases
    --  of restrictions, since these will be caught during semantic analysis.
+
+   ---------------------------
+   -- Add_List_Pragma_Entry --
+   ---------------------------
+
+   procedure Add_List_Pragma_Entry (PT : List_Pragma_Type; Loc : Source_Ptr) is
+   begin
+      if List_Pragmas.Last < List_Pragmas.First
+        or else (List_Pragmas.Table (List_Pragmas.Last)) /= ((PT, Loc))
+      then
+         List_Pragmas.Append ((PT, Loc));
+      end if;
+   end Add_List_Pragma_Entry;
 
    ----------
    -- Arg1 --
@@ -413,8 +431,8 @@ begin
 
       --  pragma List (Off | On)
 
-      --  The processing for pragma List must be done at parse time,
-      --  since a listing can be generated in parse only mode.
+      --  The processing for pragma List must be done at parse time, since a
+      --  listing can be generated in parse only mode.
 
       when Pragma_List =>
          Check_Arg_Count (1);
@@ -425,16 +443,12 @@ begin
          --  in the List (Off) case, the pragma will print even in a region
          --  of code with listing turned off (this is required).
 
-         List_Pragmas.Increment_Last;
-         List_Pragmas.Table (List_Pragmas.Last) :=
-           (Ptyp => List_On, Ploc => Sloc (Pragma_Node));
+         Add_List_Pragma_Entry (List_On, Sloc (Pragma_Node));
 
          --  Now generate the list off entry for pragma List (Off)
 
          if Chars (Expression (Arg1)) = Name_Off then
-            List_Pragmas.Increment_Last;
-            List_Pragmas.Table (List_Pragmas.Last) :=
-              (Ptyp => List_Off, Ploc => Semi);
+            Add_List_Pragma_Entry (List_Off, Semi);
          end if;
 
       ----------------
@@ -448,8 +462,7 @@ begin
 
       when Pragma_Page =>
          Check_Arg_Count (0);
-         List_Pragmas.Increment_Last;
-         List_Pragmas.Table (List_Pragmas.Last) := (Page, Semi);
+         Add_List_Pragma_Entry (Page, Semi);
 
       ------------------
       -- Restrictions --
@@ -1034,10 +1047,20 @@ begin
       -- Warnings (GNAT) --
       ---------------------
 
-      --  pragma Warnings (On | Off [,REASON]);
-      --  pragma Warnings (On | Off, LOCAL_NAME [,REASON]);
-      --  pragma Warnings (static_string_EXPRESSION [,REASON]);
-      --  pragma Warnings (On | Off, static_string_EXPRESSION [,REASON]);
+      --  pragma Warnings ([TOOL_NAME,] DETAILS [, REASON]);
+
+      --  DETAILS ::= On | Off
+      --  DETAILS ::= On | Off, local_NAME
+      --  DETAILS ::= static_string_EXPRESSION
+      --  DETAILS ::= On | Off, static_string_EXPRESSION
+
+      --  TOOL_NAME ::= GNAT | GNATProve
+
+      --  REASON ::= Reason => STRING_LITERAL {& STRING_LITERAL}
+
+      --  Note: If the first argument matches an allowed tool name, it is
+      --  always considered to be a tool name, even if there is a string
+      --  variable of that name.
 
       --  The one argument ON/OFF case is processed by the parser, since it may
       --  control parser warnings as well as semantic warnings, and in any case
@@ -1045,50 +1068,136 @@ begin
       --  set well before any semantic analysis is performed. Note that we
       --  ignore this pragma if debug flag -gnatd.i is set.
 
-      --  Also note that the "one argument" case may have two arguments if the
-      --  second one is a reason argument.
+      --  Also note that the "one argument" case may have two or three
+      --  arguments if the first one is a tool name, and/or the last one is a
+      --  reason argument.
 
-      when Pragma_Warnings =>
+      when Pragma_Warnings => Warnings : declare
+         function First_Arg_Is_Matching_Tool_Name return Boolean;
+         --  Returns True if the first argument is a tool name matching the
+         --  current tool being run.
+
+         function Last_Arg return Node_Id;
+         --  Returns the last argument
+
+         function Last_Arg_Is_Reason return Boolean;
+         --  Returns True if the last argument is a reason argument
+
+         function Get_Reason return String_Id;
+         --  Analyzes Reason argument and returns corresponding String_Id
+         --  value, or null if there is no Reason argument, or if the
+         --  argument is not of the required form.
+
+         -------------------------------------
+         -- First_Arg_Is_Matching_Tool_Name --
+         -------------------------------------
+
+         function First_Arg_Is_Matching_Tool_Name return Boolean is
+         begin
+            return Nkind (Arg1) = N_Identifier
+
+              --  Return True if the tool name is GNAT, and we're not in
+              --  GNATprove or CodePeer or ASIS mode...
+
+              and then ((Chars (Arg1) = Name_Gnat
+                          and then not
+                            (CodePeer_Mode or GNATprove_Mode or ASIS_Mode))
+
+              --  or if the tool name is GNATprove, and we're in GNATprove
+              --  mode.
+
+                        or else
+                        (Chars (Arg1) = Name_Gnatprove
+                          and then GNATprove_Mode));
+         end First_Arg_Is_Matching_Tool_Name;
+
+         ----------------
+         -- Get_Reason --
+         ----------------
+
+         function Get_Reason return String_Id is
+            Arg : constant Node_Id := Last_Arg;
+         begin
+            if Last_Arg_Is_Reason then
+               Start_String;
+               Get_Reason_String (Expression (Arg));
+               return End_String;
+            else
+               return Null_String_Id;
+            end if;
+         end Get_Reason;
+
+         --------------
+         -- Last_Arg --
+         --------------
+
+         function Last_Arg return Node_Id is
+               Last_Arg : Node_Id;
+
+         begin
+            if Arg_Count = 1 then
+               Last_Arg := Arg1;
+            elsif Arg_Count = 2 then
+               Last_Arg := Arg2;
+            elsif Arg_Count = 3 then
+               Last_Arg := Arg3;
+            elsif Arg_Count = 4 then
+               Last_Arg := Next (Arg3);
+
+            --  Illegal case, error issued in semantic analysis
+
+            else
+               Last_Arg := Empty;
+            end if;
+
+            return Last_Arg;
+         end Last_Arg;
+
+         ------------------------
+         -- Last_Arg_Is_Reason --
+         ------------------------
+
+         function Last_Arg_Is_Reason return Boolean is
+            Arg : constant Node_Id := Last_Arg;
+         begin
+            return Nkind (Arg) in N_Has_Chars
+              and then Chars (Arg) = Name_Reason;
+         end Last_Arg_Is_Reason;
+
+         The_Arg : Node_Id;  --  On/Off argument
+         Argx    : Node_Id;
+
+      --  Start of processing for Warnings
+
+      begin
          if not Debug_Flag_Dot_I
            and then (Arg_Count = 1
-                      or else (Arg_Count = 2
-                                and then Chars (Arg2) = Name_Reason))
+                       or else (Arg_Count = 2
+                                  and then (First_Arg_Is_Matching_Tool_Name
+                                              or else
+                                            Last_Arg_Is_Reason))
+                       or else (Arg_Count = 3
+                                  and then First_Arg_Is_Matching_Tool_Name
+                                  and then Last_Arg_Is_Reason))
          then
-            Check_No_Identifier (Arg1);
+            if First_Arg_Is_Matching_Tool_Name then
+               The_Arg := Arg2;
+            else
+               The_Arg := Arg1;
+            end if;
 
-            declare
-               Argx : constant Node_Id := Expression (Arg1);
+            Check_No_Identifier (The_Arg);
+            Argx := Expression (The_Arg);
 
-               function Get_Reason return String_Id;
-               --  Analyzes Reason argument and returns corresponding String_Id
-               --  value, or null if there is no Reason argument, or if the
-               --  argument is not of the required form.
-
-               ----------------
-               -- Get_Reason --
-               ----------------
-
-               function Get_Reason return String_Id is
-               begin
-                  if Arg_Count = 1 then
-                     return Null_String_Id;
-                  else
-                     Start_String;
-                     Get_Reason_String (Expression (Arg2));
-                     return End_String;
-                  end if;
-               end Get_Reason;
-
-            begin
-               if Nkind (Argx) = N_Identifier then
-                  if Chars (Argx) = Name_On then
-                     Set_Warnings_Mode_On (Pragma_Sloc);
-                  elsif Chars (Argx) = Name_Off then
-                     Set_Warnings_Mode_Off (Pragma_Sloc, Get_Reason);
-                  end if;
+            if Nkind (Argx) = N_Identifier then
+               if Chars (Argx) = Name_On then
+                  Set_Warnings_Mode_On (Pragma_Sloc);
+               elsif Chars (Argx) = Name_Off then
+                  Set_Warnings_Mode_Off (Pragma_Sloc, Get_Reason);
                end if;
-            end;
+            end if;
          end if;
+      end Warnings;
 
       -----------------------------
       -- Wide_Character_Encoding --
@@ -1151,7 +1260,6 @@ begin
            Pragma_Assertion_Policy               |
            Pragma_Assume                         |
            Pragma_Assume_No_Invalid_Values       |
-           Pragma_AST_Entry                      |
            Pragma_All_Calls_Remote               |
            Pragma_Allow_Integer_Address          |
            Pragma_Annotate                       |
@@ -1187,6 +1295,8 @@ begin
            Pragma_Debug_Policy                   |
            Pragma_Depends                        |
            Pragma_Detect_Blocking                |
+           Pragma_Default_Initial_Condition      |
+           Pragma_Default_Scalar_Storage_Order   |
            Pragma_Default_Storage_Pool           |
            Pragma_Disable_Atomic_Synchronization |
            Pragma_Discard_Names                  |
@@ -1200,26 +1310,25 @@ begin
            Pragma_Elaboration_Checks             |
            Pragma_Enable_Atomic_Synchronization  |
            Pragma_Export                         |
-           Pragma_Export_Exception               |
            Pragma_Export_Function                |
            Pragma_Export_Object                  |
            Pragma_Export_Procedure               |
            Pragma_Export_Value                   |
            Pragma_Export_Valued_Procedure        |
            Pragma_Extend_System                  |
+           Pragma_Extensions_Visible             |
            Pragma_External                       |
            Pragma_External_Name_Casing           |
            Pragma_Favor_Top_Level                |
            Pragma_Fast_Math                      |
            Pragma_Finalize_Storage_Only          |
-           Pragma_Float_Representation           |
+           Pragma_Ghost                          |
            Pragma_Global                         |
            Pragma_Ident                          |
            Pragma_Implementation_Defined         |
            Pragma_Implemented                    |
            Pragma_Implicit_Packing               |
            Pragma_Import                         |
-           Pragma_Import_Exception               |
            Pragma_Import_Function                |
            Pragma_Import_Object                  |
            Pragma_Import_Procedure               |
@@ -1251,7 +1360,6 @@ begin
            Pragma_Linker_Section                 |
            Pragma_Lock_Free                      |
            Pragma_Locking_Policy                 |
-           Pragma_Long_Float                     |
            Pragma_Loop_Invariant                 |
            Pragma_Loop_Optimize                  |
            Pragma_Loop_Variant                   |
@@ -1260,10 +1368,12 @@ begin
            Pragma_Main_Storage                   |
            Pragma_Memory_Size                    |
            Pragma_No_Body                        |
+           Pragma_No_Elaboration_Code_All        |
            Pragma_No_Inline                      |
            Pragma_No_Return                      |
            Pragma_No_Run_Time                    |
            Pragma_No_Strict_Aliasing             |
+           Pragma_No_Tagged_Streams              |
            Pragma_Normalize_Scalars              |
            Pragma_Obsolescent                    |
            Pragma_Ordered                        |
@@ -1277,6 +1387,7 @@ begin
            Pragma_Passive                        |
            Pragma_Preelaborable_Initialization   |
            Pragma_Polling                        |
+           Pragma_Prefix_Exception_Messages      |
            Pragma_Persistent_BSS                 |
            Pragma_Post                           |
            Pragma_Postcondition                  |
@@ -1336,6 +1447,7 @@ begin
            Pragma_Type_Invariant                 |
            Pragma_Type_Invariant_Class           |
            Pragma_Unchecked_Union                |
+           Pragma_Unevaluated_Use_Of_Old         |
            Pragma_Unimplemented_Unit             |
            Pragma_Universal_Aliasing             |
            Pragma_Universal_Data                 |

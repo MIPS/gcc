@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995-2014 Free Software Foundation, Inc.
+   Copyright (C) 1995-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +26,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "output.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "flags.h"
@@ -37,9 +47,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "target.h"
 #include "except.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "vec.h"
+#include "predict.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
+#include "cfgrtl.h"
+#include "cfganal.h"
+#include "lcm.h"
+#include "cfgbuild.h"
+#include "cfgcleanup.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -48,6 +67,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "is-a.h"
 #include "gimple.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
 #include "lto-section-names.h"
 #include "builtins.h"
@@ -66,9 +89,8 @@ along with GCC; see the file COPYING3.  If not see
 /* Handle a "shared" attribute;
    arguments as in struct attribute_spec.handler.  */
 tree
-ix86_handle_shared_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+ix86_handle_shared_attribute (tree *node, tree name, tree, int,
+			      bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != VAR_DECL)
     {
@@ -83,9 +105,7 @@ ix86_handle_shared_attribute (tree *node, tree name,
 /* Handle a "selectany" attribute;
    arguments as in struct attribute_spec.handler.  */
 tree
-ix86_handle_selectany_attribute (tree *node, tree name,
-			         tree args ATTRIBUTE_UNUSED,
-			         int flags ATTRIBUTE_UNUSED,
+ix86_handle_selectany_attribute (tree *node, tree name, tree, int,
 				 bool *no_add_attrs)
 {
   /* The attribute applies only to objects that are initialized and have
@@ -264,8 +284,7 @@ i386_pe_maybe_mangle_decl_assembler_name (tree decl, tree id)
    user-specified visibility attributes.  */
 
 void
-i386_pe_assemble_visibility (tree decl,
-			     int vis ATTRIBUTE_UNUSED)
+i386_pe_assemble_visibility (tree decl, int)
 {
   if (!decl
       || !lookup_attribute ("visibility", DECL_ATTRIBUTES (decl)))
@@ -292,7 +311,7 @@ i386_pe_mangle_decl_assembler_name (tree decl, tree id)
    a file stream.  */
 
 tree
-i386_pe_mangle_assembler_name (const char *name ATTRIBUTE_UNUSED)
+i386_pe_mangle_assembler_name (const char *name)
 {
   const char *skipped = name + (*name == '*' ? 1 : 0);
   const char *stripped = targetm.strip_name_encoding (skipped);
@@ -467,21 +486,14 @@ i386_pe_reloc_rw_mask (void)
 #define SECTION_PE_SHARED	SECTION_MACH_DEP
 
 unsigned int
-i386_pe_section_type_flags (tree decl, const char *name, int reloc)
+i386_pe_section_type_flags (tree decl, const char *, int reloc)
 {
-  static hash_table <pointer_hash <unsigned int> > htab;
   unsigned int flags;
-  unsigned int **slot;
 
   /* Ignore RELOC, if we are allowed to put relocated
      const data into read-only section.  */
   if (!flag_writable_rel_rdata)
     reloc = 0;
-  /* The names we put in the hashtable will always be the unique
-     versions given to us by the stringtable, so we can just use
-     their addresses as the keys.  */
-  if (!htab.is_created ())
-    htab.create (31);
 
   if (decl && TREE_CODE (decl) == FUNCTION_DECL)
     flags = SECTION_CODE;
@@ -498,19 +510,6 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
 
   if (decl && DECL_P (decl) && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
-
-  /* See if we already have an entry for this section.  */
-  slot = htab.find_slot ((const unsigned int *)name, INSERT);
-  if (!*slot)
-    {
-      *slot = (unsigned int *) xmalloc (sizeof (unsigned int));
-      **slot = flags;
-    }
-  else
-    {
-      if (decl && **slot != flags)
-	error ("%q+D causes a section type conflict", decl);
-    }
 
   return flags;
 }
@@ -580,7 +579,7 @@ i386_pe_asm_named_section (const char *name, unsigned int flags,
 void
 i386_pe_asm_output_aligned_decl_common (FILE *stream, tree decl,
 					const char *name, HOST_WIDE_INT size,
-					HOST_WIDE_INT align ATTRIBUTE_UNUSED)
+					HOST_WIDE_INT align)
 {
   HOST_WIDE_INT rounded;
 
@@ -739,15 +738,15 @@ i386_pe_record_stub (const char *name)
 
 struct wrapped_symbol_hasher : typed_noop_remove <char>
 {
-  typedef char value_type;
-  typedef char compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef char *value_type;
+  typedef char *compare_type;
+  static inline hashval_t hash (const char *);
+  static inline bool equal (const char *, const char *);
+  static inline void remove (char *);
 };
 
 inline hashval_t
-wrapped_symbol_hasher::hash (const value_type *v)
+wrapped_symbol_hasher::hash (const char *v)
 {
   return htab_hash_string (v);
 }
@@ -755,7 +754,7 @@ wrapped_symbol_hasher::hash (const value_type *v)
 /*  Hash table equality helper function.  */
 
 inline bool
-wrapped_symbol_hasher::equal (const value_type *x, const compare_type *y)
+wrapped_symbol_hasher::equal (const char *x, const char *y)
 {
   return !strcmp (x, y);
 }
@@ -771,7 +770,7 @@ static const char *
 i386_find_on_wrapper_list (const char *target)
 {
   static char first_time = 1;
-  static hash_table <wrapped_symbol_hasher> wrappers;
+  static hash_table<wrapped_symbol_hasher> *wrappers;
 
   if (first_time)
     {
@@ -784,7 +783,7 @@ i386_find_on_wrapper_list (const char *target)
       char *bufptr;
       /* Breaks up the char array into separated strings
          strings and enter them into the hash table.  */
-      wrappers.create (8);
+      wrappers = new hash_table<wrapped_symbol_hasher> (8);
       for (bufptr = wrapper_list_buffer; *bufptr; ++bufptr)
 	{
 	  char *found = NULL;
@@ -797,12 +796,12 @@ i386_find_on_wrapper_list (const char *target)
 	  if (*bufptr)
 	    *bufptr = 0;
 	  if (found)
-	    *wrappers.find_slot (found, INSERT) = found;
+	    *wrappers->find_slot (found, INSERT) = found;
 	}
       first_time = 0;
     }
 
-  return wrappers.find (target);
+  return wrappers->find (target);
 }
 
 #endif /* CXX_WRAP_SPEC_LIST */
@@ -1174,7 +1173,7 @@ seh_frame_related_expr (FILE *f, struct seh_frame_state *seh, rtx pat)
    required for unwind of this insn.  */
 
 void
-i386_pe_seh_unwind_emit (FILE *asm_out_file, rtx insn)
+i386_pe_seh_unwind_emit (FILE *asm_out_file, rtx_insn *insn)
 {
   rtx note, pat;
   bool handled_one = false;
@@ -1296,8 +1295,7 @@ i386_pe_start_function (FILE *f, const char *name, tree decl)
 }
 
 void
-i386_pe_end_function (FILE *f, const char *name ATTRIBUTE_UNUSED,
-		      tree decl ATTRIBUTE_UNUSED)
+i386_pe_end_function (FILE *f, const char *, tree)
 {
   i386_pe_seh_fini (f);
 }

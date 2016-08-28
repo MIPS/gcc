@@ -64,6 +64,10 @@ extern "C" {
   void __sanitizer_cov_init();
   // Record and dump coverage info.
   void __sanitizer_cov_dump();
+  // Open <name>.sancov.packed in the coverage directory and return the file
+  // descriptor. Returns -1 on failure, or if coverage dumping is disabled.
+  // This is intended for use by sandboxing code.
+  intptr_t __sanitizer_maybe_open_cov_file(const char *name);
 
   // Annotate the current state of a contiguous container, such as
   // std::vector, std::string or similar.
@@ -99,7 +103,7 @@ extern "C" {
                                                  const void *end,
                                                  const void *old_mid,
                                                  const void *new_mid);
-  // Returns true if the contiguous container [beg, end) ir properly poisoned
+  // Returns true if the contiguous container [beg, end) is properly poisoned
   // (e.g. with __sanitizer_annotate_contiguous_container), i.e. if
   //  - [beg, mid) is addressable,
   //  - [mid, end) is unaddressable.

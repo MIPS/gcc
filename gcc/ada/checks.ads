@@ -40,6 +40,7 @@ with Namet;  use Namet;
 with Table;
 with Types;  use Types;
 with Uintp;  use Uintp;
+with Urealp; use Urealp;
 
 package Checks is
 
@@ -50,9 +51,11 @@ package Checks is
    function Access_Checks_Suppressed          (E : Entity_Id) return Boolean;
    function Accessibility_Checks_Suppressed   (E : Entity_Id) return Boolean;
    function Alignment_Checks_Suppressed       (E : Entity_Id) return Boolean;
+   function Allocation_Checks_Suppressed      (E : Entity_Id) return Boolean;
    function Atomic_Synchronization_Disabled   (E : Entity_Id) return Boolean;
    function Discriminant_Checks_Suppressed    (E : Entity_Id) return Boolean;
    function Division_Checks_Suppressed        (E : Entity_Id) return Boolean;
+   function Duplicated_Tag_Checks_Suppressed  (E : Entity_Id) return Boolean;
    function Elaboration_Checks_Suppressed     (E : Entity_Id) return Boolean;
    function Index_Checks_Suppressed           (E : Entity_Id) return Boolean;
    function Length_Checks_Suppressed          (E : Entity_Id) return Boolean;
@@ -142,8 +145,19 @@ package Checks is
    --  Sets Do_Overflow_Check flag in node N, and handles possible local raise.
    --  Always call this routine rather than calling Set_Do_Overflow_Check to
    --  set an explicit value of True, to ensure handling the local raise case.
-   --  Note that this call has no effect for MOD, REM, and unary "+" for which
-   --  overflow is never possible in any case.
+   --  Note that for discrete types, this call has no effect for MOD, REM, and
+   --  unary "+" for which overflow is never possible in any case.
+   --
+   --  Note: for the discrete-type case, it is legitimate to call this routine
+   --  on an unanalyzed node where the Etype field is not set. However, for the
+   --  floating-point case, Etype must be set (to a floating-point type).
+   --
+   --  For floating-point, we set the flag if we have automatic overflow checks
+   --  on the target, or if Check_Float_Overflow mode is set. For the floating-
+   --  point case, we ignore all the unary operators ("+", "-", and abs) since
+   --  none of these can result in overflow. If there are no overflow checks on
+   --  the target, and Check_Float_Overflow mode is not set, then the call has
+   --  no effect, since in such cases we want to generate NaN's and infinities.
 
    procedure Activate_Range_Check (N : Node_Id);
    pragma Inline (Activate_Range_Check);
@@ -228,7 +242,7 @@ package Checks is
    --  flags Do_Division_Check or Do_Overflow_Check is set, then this routine
    --  ensures that the appropriate checks are made. Note that overflow can
    --  occur in the signed case for the case of the largest negative number
-   --  divided by minus one.
+   --  divided by minus one. This procedure only applies to Integer types.
 
    procedure Apply_Parameter_Aliasing_Checks
      (Call : Node_Id;
@@ -243,8 +257,7 @@ package Checks is
 
    procedure Apply_Predicate_Check (N : Node_Id; Typ : Entity_Id);
    --  N is an expression to which a predicate check may need to be applied
-   --  for Typ, if Typ has a predicate function. The check is applied only
-   --  if the type of N does not match Typ.
+   --  for Typ, if Typ has a predicate function.
 
    procedure Apply_Type_Conversion_Checks (N : Node_Id);
    --  N is an N_Type_Conversion node. A type conversion actually involves
@@ -300,6 +313,20 @@ package Checks is
    --  assume that values are in range of their subtypes. If it is set to True,
    --  then this assumption is valid, if False, then processing is done using
    --  base types to allow invalid values.
+
+   procedure Determine_Range_R
+     (N            : Node_Id;
+      OK           : out Boolean;
+      Lo           : out Ureal;
+      Hi           : out Ureal;
+      Assume_Valid : Boolean := False);
+   --  Similar to Determine_Range, but for a node N of floating-point type. OK
+   --  is True on return only for IEEE floating-point types and only if we do
+   --  not have to worry about extended precision (i.e. on the x86, we must be
+   --  using -msse2 -mfpmath=sse). At the current time, this is used only in
+   --  GNATprove, though we could consider using it more generally in future.
+   --  For that to happen, the possibility of arguments of infinite or NaN
+   --  value should be taken into account, which is not the case currently.
 
    procedure Install_Null_Excluding_Check (N : Node_Id);
    --  Determines whether an access node requires a runtime access check and
@@ -658,12 +685,19 @@ package Checks is
    --  The Reason parameter is the exception code to be used for the exception
    --  if raised.
    --
-   --  Note on the relation of this routine to the Do_Range_Check flag. Mostly
-   --  for historical reasons, we often set the Do_Range_Check flag and then
-   --  later we call Generate_Range_Check if this flag is set. Most probably we
-   --  could eliminate this intermediate setting of the flag (historically the
-   --  back end dealt with range checks, using this flag to indicate if a check
-   --  was required, then we moved checks into the front end).
+   --  Note: if the expander is not active, or if we are in GNATprove mode,
+   --  then we do not generate explicit range code. Instead we just turn the
+   --  Do_Range_Check flag on, since in these cases that's what we want to see
+   --  in the tree (GNATprove in particular depends on this flag being set). If
+   --  we generate the actual range check, then we make sure the flag is off,
+   --  since the code we generate takes complete care of the check.
+   --
+   --  Historical note: We used to just pass on the Do_Range_Check flag to the
+   --  back end to generate the check, but now in code-generation mode we never
+   --  have this flag set, since the front end takes care of the check. The
+   --  normal processing flow now is that the analyzer typically turns on the
+   --  Do_Range_Check flag, and if it is set, this routine is called, which
+   --  turns the flag off in code-generation mode.
 
    procedure Generate_Index_Checks (N : Node_Id);
    --  This procedure is called to generate index checks on the subscripts for
@@ -815,7 +849,12 @@ package Checks is
    --  13.9.1(9-11)) such assignments are not permitted to result in erroneous
    --  behavior in the case of invalid subscript values.
 
-   procedure Ensure_Valid (Expr : Node_Id; Holes_OK : Boolean := False);
+   procedure Ensure_Valid
+     (Expr          : Node_Id;
+      Holes_OK      : Boolean   := False;
+      Related_Id    : Entity_Id := Empty;
+      Is_Low_Bound  : Boolean   := False;
+      Is_High_Bound : Boolean   := False);
    --  Ensure that Expr represents a valid value of its type. If this type
    --  is not a scalar type, then the call has no effect, since validity
    --  is only an issue for scalar types. The effect of this call is to
@@ -831,6 +870,13 @@ package Checks is
    --  will make a separate check for this case anyway). If Holes_OK is False,
    --  then this case is checked, and code is inserted to ensure that Expr is
    --  valid, raising Constraint_Error if the value is not valid.
+   --
+   --  Related_Id denotes the entity of the context where Expr appears. Flags
+   --  Is_Low_Bound and Is_High_Bound specify whether the expression to check
+   --  is the low or the high bound of a range. These three optional arguments
+   --  signal Remove_Side_Effects to create an external symbol of the form
+   --  Chars (Related_Id)_FIRST/_LAST. For suggested use of these parameters
+   --  see the warning in the body of Sem_Ch3.Process_Range_Expr_In_Decl.
 
    function Expr_Known_Valid (Expr : Node_Id) return Boolean;
    --  This function tests it the value of Expr is known to be valid in the
@@ -842,10 +888,21 @@ package Checks is
    --  it can be determined that the value is Valid. Otherwise False is
    --  returned.
 
-   procedure Insert_Valid_Check (Expr : Node_Id);
-   --  Inserts code that will check for the value of Expr being valid, in
-   --  the sense of the 'Valid attribute returning True. Constraint_Error
-   --  will be raised if the value is not valid.
+   procedure Insert_Valid_Check
+     (Expr          : Node_Id;
+      Related_Id    : Entity_Id := Empty;
+      Is_Low_Bound  : Boolean   := False;
+      Is_High_Bound : Boolean   := False);
+   --  Inserts code that will check for the value of Expr being valid, in the
+   --  sense of the 'Valid attribute returning True. Constraint_Error will be
+   --  raised if the value is not valid.
+   --
+   --  Related_Id denotes the entity of the context where Expr appears. Flags
+   --  Is_Low_Bound and Is_High_Bound specify whether the expression to check
+   --  is the low or the high bound of a range. These three optional arguments
+   --  signal Remove_Side_Effects to create an external symbol of the form
+   --  Chars (Related_Id)_FIRST/_LAST. For suggested use of these parameters
+   --  see the warning in the body of Sem_Ch3.Process_Range_Expr_In_Decl.
 
    procedure Null_Exclusion_Static_Checks (N : Node_Id);
    --  Ada 2005 (AI-231): Check bad usages of the null-exclusion issue
@@ -855,9 +912,12 @@ package Checks is
    --  conditionally (on the right side of And Then/Or Else. This call
    --  removes only embedded checks (Do_Range_Check, Do_Overflow_Check).
 
-   procedure Validity_Check_Range (N : Node_Id);
-   --  If N is an N_Range node, then Ensure_Valid is called on its bounds,
-   --  if validity checking of operands is enabled.
+   procedure Validity_Check_Range
+     (N          : Node_Id;
+      Related_Id : Entity_Id := Empty);
+   --  If N is an N_Range node, then Ensure_Valid is called on its bounds, if
+   --  validity checking of operands is enabled. Related_Id denotes the entity
+   --  of the context where N appears.
 
    -----------------------------
    -- Handling of Check Names --

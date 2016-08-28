@@ -31,6 +31,8 @@ with System; use type System.Address;
 
 package body Ada.Containers.Bounded_Doubly_Linked_Lists is
 
+   pragma Annotate (CodePeer, Skip_Analysis);
+
    -----------------------
    -- Local Subprograms --
    -----------------------
@@ -228,6 +230,24 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
    end Append;
 
    ------------
+   -- Adjust --
+   ------------
+
+   procedure Adjust (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            C : List renames Control.Container.all;
+            B : Natural renames C.Busy;
+            L : Natural renames C.Lock;
+         begin
+            B := B + 1;
+            L := L + 1;
+         end;
+      end if;
+   end Adjust;
+
+   ------------
    -- Assign --
    ------------
 
@@ -324,8 +344,16 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
 
          declare
             N : Node_Type renames Container.Nodes (Position.Node);
+            B : Natural renames Position.Container.Busy;
+            L : Natural renames Position.Container.Lock;
          begin
-            return (Element => N.Element'Access);
+            return R : constant Constant_Reference_Type :=
+              (Element => N.Element'Access,
+               Control => (Controlled with Container'Unrestricted_Access))
+            do
+               B := B + 1;
+               L := L + 1;
+            end return;
          end;
       end if;
    end Constant_Reference;
@@ -542,6 +570,22 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
          begin
             B := B - 1;
          end;
+      end if;
+   end Finalize;
+
+   procedure Finalize (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            C : List renames Control.Container.all;
+            B : Natural renames C.Busy;
+            L : Natural renames C.Lock;
+         begin
+            B := B - 1;
+            L := L - 1;
+         end;
+
+         Control.Container := null;
       end if;
    end Finalize;
 
@@ -1672,8 +1716,16 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
 
          declare
             N : Node_Type renames Container.Nodes (Position.Node);
+            B : Natural   renames Container.Busy;
+            L : Natural   renames Container.Lock;
          begin
-            return (Element => N.Element'Access);
+            return R : constant Reference_Type :=
+               (Element => N.Element'Access,
+                Control => (Controlled with Container'Unrestricted_Access))
+            do
+               B := B + 1;
+               L := L + 1;
+            end return;
          end;
       end if;
    end Reference;

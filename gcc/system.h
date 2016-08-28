@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -194,6 +194,13 @@ extern int fprintf_unlocked (FILE *, const char *, ...);
 #undef fread_unlocked
 #undef fwrite_unlocked
 
+/* Include <string> before "safe-ctype.h" to avoid GCC poisoning
+   the ctype macros through safe-ctype.h */
+
+#ifdef __cplusplus
+# include <string>
+#endif
+
 /* There are an extraordinary number of issues with <ctype.h>.
    The last straw is that it varies with the locale.  Use libiberty's
    replacement instead.  */
@@ -208,7 +215,9 @@ extern int errno;
 #endif
 
 #ifdef __cplusplus
+# include <algorithm>
 # include <cstring>
+# include <utility>
 #endif
 
 /* Some of glibc's string inlines cause warnings.  Plus we'd rather
@@ -846,7 +855,10 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	CAN_DEBUG_WITHOUT_FP UNLIKELY_EXECUTED_TEXT_SECTION_NAME	\
 	HOT_TEXT_SECTION_NAME LEGITIMATE_CONSTANT_P ALWAYS_STRIP_DOTDOT	\
 	OUTPUT_ADDR_CONST_EXTRA SMALL_REGISTER_CLASSES ASM_OUTPUT_IDENT	\
-	ASM_BYTE_OP MEMBER_TYPE_FORCES_BLK
+	ASM_BYTE_OP MEMBER_TYPE_FORCES_BLK LIBGCC2_HAS_SF_MODE		\
+	LIBGCC2_HAS_DF_MODE LIBGCC2_HAS_XF_MODE LIBGCC2_HAS_TF_MODE	\
+	CLEAR_BY_PIECES_P MOVE_BY_PIECES_P SET_BY_PIECES_P		\
+	STORE_BY_PIECES_P
 
 /* Target macros only used for code built for the target, that have
    moved to libgcc-tm.h or have never been present elsewhere.  */
@@ -933,7 +945,10 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	CONST_DOUBLE_OK_FOR_LETTER_P EXTRA_CONSTRAINT			   \
 	REG_CLASS_FROM_CONSTRAINT REG_CLASS_FOR_CONSTRAINT		   \
 	EXTRA_CONSTRAINT_STR EXTRA_MEMORY_CONSTRAINT			   \
-	EXTRA_ADDRESS_CONSTRAINT CONST_DOUBLE_OK_FOR_CONSTRAINT_P
+	EXTRA_ADDRESS_CONSTRAINT CONST_DOUBLE_OK_FOR_CONSTRAINT_P	   \
+	CALLER_SAVE_PROFITABLE LARGEST_EXPONENT_IS_NORMAL		   \
+	ROUND_TOWARDS_ZERO SF_SIZE DF_SIZE XF_SIZE TF_SIZE LIBGCC2_TF_CEXT \
+	LIBGCC2_LONG_DOUBLE_TYPE_SIZE
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
@@ -1033,6 +1048,7 @@ helper_const_non_const_cast (const char *p)
 #define CONST_CAST(TYPE,X) CONST_CAST2 (TYPE, const TYPE, (X))
 #define CONST_CAST_TREE(X) CONST_CAST (union tree_node *, (X))
 #define CONST_CAST_RTX(X) CONST_CAST (struct rtx_def *, (X))
+#define CONST_CAST_RTX_INSN(X) CONST_CAST (struct rtx_insn *, (X))
 #define CONST_CAST_BB(X) CONST_CAST (struct basic_block_def *, (X))
 #define CONST_CAST_GIMPLE(X) CONST_CAST (struct gimple_statement_base *, (X))
 

@@ -9,6 +9,7 @@
 
 #include <gmp.h>
 #include <mpfr.h>
+#include <mpc.h>
 
 #include "operator.h"
 
@@ -215,22 +216,22 @@ class Backend
   is_circular_pointer_type(Btype*) = 0;
 
   // Return the size of a type.
-  virtual size_t
+  virtual int64_t
   type_size(Btype*) = 0;
 
   // Return the alignment of a type.
-  virtual size_t
+  virtual int64_t
   type_alignment(Btype*) = 0;
 
   // Return the alignment of a struct field of this type.  This is
   // normally the same as type_alignment, but not always.
-  virtual size_t
+  virtual int64_t
   type_field_alignment(Btype*) = 0;
 
   // Return the offset of field INDEX in a struct type.  INDEX is the
   // entry in the FIELDS std::vector parameter of struct_type or
   // set_placeholder_struct_type.
-  virtual size_t
+  virtual int64_t
   type_field_offset(Btype*, size_t index) = 0;
 
   // Expressions.
@@ -277,9 +278,9 @@ class Backend
   virtual Bexpression*
   float_constant_expression(Btype* btype, mpfr_t val) = 0;
 
-  // Return an expression for the complex value REAL/IMAG in BTYPE.
+  // Return an expression for the complex value VAL in BTYPE.
   virtual Bexpression*
-  complex_constant_expression(Btype* btype, mpfr_t real, mpfr_t imag) = 0;
+  complex_constant_expression(Btype* btype, mpc_t val) = 0;
 
   // Return an expression for the string value VAL.
   virtual Bexpression*
@@ -374,7 +375,7 @@ class Backend
   // Create an expression for a call to FN with ARGS.
   virtual Bexpression*
   call_expression(Bexpression* fn, const std::vector<Bexpression*>& args,
-                  Location) = 0;
+		  Bexpression* static_chain, Location) = 0;
 
   // Statements.
 
@@ -528,6 +529,11 @@ class Backend
 		     Btype* type, bool is_address_taken,
 		     Location location) = 0;
 
+  // Create a static chain parameter.  This is the closure parameter.
+  virtual Bvariable*
+  static_chain_variable(Bfunction* function, const std::string& name,
+		        Btype* type, Location location) = 0;
+
   // Create a temporary variable.  A temporary variable has no name,
   // just a type.  We pass in FUNCTION and BLOCK in case they are
   // needed.  If INIT is not NULL, the variable should be initialized
@@ -545,23 +551,54 @@ class Backend
 		     Bstatement** pstatement) = 0;
 
   // Create an implicit variable that is compiler-defined.  This is
-  // used when generating GC root variables, when storing the values
-  // of a slice constructor, and for the zero value of types.  NAME is
-  // the name of the variable, either gc# for GC roots or C# for slice
-  // initializers.  TYPE is the type of the implicit variable with an
-  // initial value INIT.  IS_CONSTANT is true if the implicit variable
-  // should be treated like it is immutable.  For slice initializers,
-  // if the values must be copied to the heap, the variable
-  // IS_CONSTANT.  IS_COMMON is true if the implicit variable should
+  // used when generating GC data and roots, when storing the values
+  // of a slice constructor, and for the zero value of types.  This returns a
+  // Bvariable because it corresponds to an initialized variable in C.
+  //
+  // NAME is the name to use for the initialized variable this will create.
+  //
+  // TYPE is the type of the implicit variable. 
+  //
+  // IS_HIDDEN will be true if the descriptor should only be visible
+  // within the current object.
+  //
+  // IS_CONSTANT is true if the implicit variable should be treated like it is
+  // immutable.  For slice initializers, if the values must be copied to the
+  // heap, the variable IS_CONSTANT.
+  //
+  // IS_COMMON is true if the implicit variable should
   // be treated as a common variable (multiple definitions with
   // different sizes permitted in different object files, all merged
   // into the largest definition at link time); this will be true for
-  // the zero value.  If IS_COMMON is true, INIT will be NULL, and the
-  // variable should be initialized to all zeros.  If ALIGNMENT is not
-  // zero, it is the desired alignment of the variable.
+  // the zero value.  IS_HIDDEN and IS_COMMON will never both be true.
+  //
+  // If ALIGNMENT is not zero, it is the desired alignment of the variable.
   virtual Bvariable*
-  implicit_variable(const std::string& name, Btype* type, Bexpression* init,
-		    bool is_constant, bool is_common, size_t alignment) = 0;
+  implicit_variable(const std::string& name, Btype* type, bool is_hidden,
+		    bool is_constant, bool is_common, int64_t alignment) = 0;
+
+
+  // Set the initial value of a variable created by implicit_variable.
+  // This must be called even if there is no initializer, i.e., INIT is NULL.
+  // The NAME, TYPE, IS_HIDDEN, IS_CONSTANT, and IS_COMMON parameters are
+  // the same ones passed to implicit_variable.  INIT will be a composite
+  // literal of type TYPE.  It will not contain any function calls or anything
+  // else that can not be put into a read-only data section.
+  // It may contain the address of variables created by implicit_variable.
+  //
+  // If IS_COMMON is true, INIT will be NULL, and the
+  // variable should be initialized to all zeros.
+  virtual void
+  implicit_variable_set_init(Bvariable*, const std::string& name, Btype* type,
+			     bool is_hidden, bool is_constant, bool is_common,
+			     Bexpression* init) = 0;
+
+  // Create a reference to a named implicit variable defined in some other
+  // package.  This will be a variable created by a call to implicit_variable
+  // with the same NAME and TYPE and with IS_COMMON passed as false.  This
+  // corresponds to an extern global variable in C.
+  virtual Bvariable*
+  implicit_variable_reference(const std::string& name, Btype* type) = 0;
 
   // Create a named immutable initialized data structure.  This is
   // used for type descriptors, map descriptors, and function

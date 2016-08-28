@@ -22,6 +22,7 @@ import (
 	"net"
 	"os/exec"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -395,7 +396,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 		}
 
 		if cert.SignatureAlgorithm != test.sigAlgo {
-			t.Errorf("%s: SignatureAlgorithm wasn't copied from template. Got %s, want %s", test.name, cert.SignatureAlgorithm, test.sigAlgo)
+			t.Errorf("%s: SignatureAlgorithm wasn't copied from template. Got %v, want %v", test.name, cert.SignatureAlgorithm, test.sigAlgo)
 		}
 
 		if !reflect.DeepEqual(cert.ExtKeyUsage, testExtKeyUsage) {
@@ -706,6 +707,17 @@ func TestParseDERCRL(t *testing.T) {
 	// Can't check the signature here without a package cycle.
 }
 
+func TestCRLWithoutExpiry(t *testing.T) {
+	derBytes := fromBase64("MIHYMIGZMAkGByqGSM44BAMwEjEQMA4GA1UEAxMHQ2FybERTUxcNOTkwODI3MDcwMDAwWjBpMBMCAgDIFw05OTA4MjIwNzAwMDBaMBMCAgDJFw05OTA4MjIwNzAwMDBaMBMCAgDTFw05OTA4MjIwNzAwMDBaMBMCAgDSFw05OTA4MjIwNzAwMDBaMBMCAgDUFw05OTA4MjQwNzAwMDBaMAkGByqGSM44BAMDLwAwLAIUfmVSdjP+NHMX0feW+aDU2G1cfT0CFAJ6W7fVWxjBz4fvftok8yqDnDWh")
+	certList, err := ParseDERCRL(derBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !certList.TBSCertList.NextUpdate.IsZero() {
+		t.Errorf("NextUpdate is not the zero value")
+	}
+}
+
 func TestParsePEMCRL(t *testing.T) {
 	pemBytes := fromBase64(pemCRLBase64)
 	certList, err := ParseCRL(pemBytes)
@@ -728,6 +740,11 @@ func TestParsePEMCRL(t *testing.T) {
 
 func TestImports(t *testing.T) {
 	t.Skip("gccgo does not have a go command")
+	switch runtime.GOOS {
+	case "android", "nacl":
+		t.Skipf("skipping on %s", runtime.GOOS)
+	}
+
 	if err := exec.Command("go", "run", "x509_test_import.go").Run(); err != nil {
 		t.Errorf("failed to run x509_test_import.go: %s", err)
 	}
@@ -846,7 +863,7 @@ func TestCertificateRequestOverrides(t *testing.T) {
 		// An explicit extension should override the DNSNames from the
 		// template.
 		ExtraExtensions: []pkix.Extension{
-			pkix.Extension{
+			{
 				Id:    oidExtensionSubjectAltName,
 				Value: sanContents,
 			},
@@ -864,11 +881,11 @@ func TestCertificateRequestOverrides(t *testing.T) {
 	// with two extension attributes.
 
 	template.Attributes = []pkix.AttributeTypeAndValueSET{
-		pkix.AttributeTypeAndValueSET{
+		{
 			Type: oidExtensionRequest,
 			Value: [][]pkix.AttributeTypeAndValue{
-				[]pkix.AttributeTypeAndValue{
-					pkix.AttributeTypeAndValue{
+				{
+					{
 						Type:  oidExtensionAuthorityInfoAccess,
 						Value: []byte("foo"),
 					},
@@ -934,6 +951,69 @@ func TestParseCertificateRequest(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("basic constraints extension not found in CSR")
+	}
+}
+
+func TestMaxPathLen(t *testing.T) {
+	block, _ := pem.Decode([]byte(pemPrivateKey))
+	rsaPriv, err := ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("Failed to parse private key: %s", err)
+	}
+
+	template := &Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "Σ Acme Co",
+		},
+		NotBefore: time.Unix(1000, 0),
+		NotAfter:  time.Unix(100000, 0),
+
+		BasicConstraintsValid: true,
+		IsCA: true,
+	}
+
+	serialiseAndParse := func(template *Certificate) *Certificate {
+		derBytes, err := CreateCertificate(rand.Reader, template, template, &rsaPriv.PublicKey, rsaPriv)
+		if err != nil {
+			t.Fatalf("failed to create certificate: %s", err)
+			return nil
+		}
+
+		cert, err := ParseCertificate(derBytes)
+		if err != nil {
+			t.Fatalf("failed to parse certificate: %s", err)
+			return nil
+		}
+
+		return cert
+	}
+
+	cert1 := serialiseAndParse(template)
+	if m := cert1.MaxPathLen; m != -1 {
+		t.Errorf("Omitting MaxPathLen didn't turn into -1, got %d", m)
+	}
+	if cert1.MaxPathLenZero {
+		t.Errorf("Omitting MaxPathLen resulted in MaxPathLenZero")
+	}
+
+	template.MaxPathLen = 1
+	cert2 := serialiseAndParse(template)
+	if m := cert2.MaxPathLen; m != 1 {
+		t.Errorf("Setting MaxPathLen didn't work. Got %d but set 1", m)
+	}
+	if cert2.MaxPathLenZero {
+		t.Errorf("Setting MaxPathLen resulted in MaxPathLenZero")
+	}
+
+	template.MaxPathLen = 0
+	template.MaxPathLenZero = true
+	cert3 := serialiseAndParse(template)
+	if m := cert3.MaxPathLen; m != 0 {
+		t.Errorf("Setting MaxPathLenZero didn't work, got %d", m)
+	}
+	if !cert3.MaxPathLenZero {
+		t.Errorf("Setting MaxPathLen to zero didn't result in MaxPathLenZero")
 	}
 }
 

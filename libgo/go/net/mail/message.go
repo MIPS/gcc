@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 var debug = debugT(false)
@@ -363,7 +364,7 @@ func (p *addrParser) consumePhrase() (phrase string, err error) {
 	// Ignore any error if we got at least one word.
 	if err != nil && len(words) == 0 {
 		debug.Printf("consumePhrase: hit err: %v", err)
-		return "", errors.New("mail: missing word in phrase")
+		return "", fmt.Errorf("mail: missing word in phrase: %v", err)
 	}
 	phrase = strings.Join(words, " ")
 	return phrase, nil
@@ -442,11 +443,11 @@ func (p *addrParser) len() int {
 func decodeRFC2047Word(s string) (string, error) {
 	fields := strings.Split(s, "?")
 	if len(fields) != 5 || fields[0] != "=" || fields[4] != "=" {
-		return "", errors.New("mail: address not RFC 2047 encoded")
+		return "", errors.New("address not RFC 2047 encoded")
 	}
 	charset, enc := strings.ToLower(fields[1]), strings.ToLower(fields[2])
-	if charset != "iso-8859-1" && charset != "utf-8" {
-		return "", fmt.Errorf("mail: charset not supported: %q", charset)
+	if charset != "us-ascii" && charset != "iso-8859-1" && charset != "utf-8" {
+		return "", fmt.Errorf("charset not supported: %q", charset)
 	}
 
 	in := bytes.NewBufferString(fields[3])
@@ -457,7 +458,7 @@ func decodeRFC2047Word(s string) (string, error) {
 	case "q":
 		r = qDecoder{r: in}
 	default:
-		return "", fmt.Errorf("mail: RFC 2047 encoding not supported: %q", enc)
+		return "", fmt.Errorf("RFC 2047 encoding not supported: %q", enc)
 	}
 
 	dec, err := ioutil.ReadAll(r)
@@ -466,6 +467,16 @@ func decodeRFC2047Word(s string) (string, error) {
 	}
 
 	switch charset {
+	case "us-ascii":
+		b := new(bytes.Buffer)
+		for _, c := range dec {
+			if c >= 0x80 {
+				b.WriteRune(unicode.ReplacementChar)
+			} else {
+				b.WriteRune(rune(c))
+			}
+		}
+		return b.String(), nil
 	case "iso-8859-1":
 		b := new(bytes.Buffer)
 		for _, c := range dec {

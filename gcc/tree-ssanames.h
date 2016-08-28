@@ -1,5 +1,5 @@
 /* SSA name expresssons routines
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -57,7 +57,6 @@ struct GTY ((variable_size)) range_info_def {
 
 
 #define SSANAMES(fun) (fun)->gimple_df->ssa_names
-#define MODIFIED_NORETURN_CALLS(fun) (fun)->gimple_df->modified_noreturn_calls
 #define DEFAULT_DEFS(fun) (fun)->gimple_df->default_defs
 
 #define num_ssa_names (vec_safe_length (cfun->gimple_df->ssa_names))
@@ -103,7 +102,7 @@ extern void replace_ssa_name_symbol (tree, tree);
    in function cfun.  */
 
 static inline tree
-make_ssa_name (tree var, gimple stmt)
+make_ssa_name (tree var, gimple stmt = NULL)
 {
   return make_ssa_name_fn (cfun, var, stmt);
 }
@@ -112,7 +111,7 @@ make_ssa_name (tree var, gimple stmt)
    statement STMT in function cfun.  */
 
 static inline tree
-copy_ssa_name (tree var, gimple stmt)
+copy_ssa_name (tree var, gimple stmt = NULL)
 {
   return copy_ssa_name_fn (cfun, var, stmt);
 }

@@ -1,5 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999-2014 Free Software Foundation, Inc.
+   Copyright (C) 1999-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -30,9 +39,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc-internal.h"
 #include "timevar.h"
 #include "params.h"
+#include "hash-map.h"
+#include "is-a.h"
+#include "plugin-api.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cfgloop.h"
 #include "plugin.h"
+#include "basic-block.h"
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -378,7 +399,7 @@ struct free_object
 #endif
 
 /* The rest of the global variables.  */
-static struct globals
+static struct ggc_globals
 {
   /* The Nth element in this array is a page with objects of size 2^N.
      If there are any pages with free objects, they will be at the
@@ -499,6 +520,10 @@ static struct globals
     unsigned long long total_overhead_per_order[NUM_ORDERS];
   } stats;
 } G;
+
+/* True if a gc is currently taking place.  */
+
+static bool in_gc = false;
 
 /* The size in bytes required to maintain a bitmap for the objects
    on a page-entry.  */
@@ -1574,6 +1599,9 @@ ggc_get_size (const void *p)
 void
 ggc_free (void *p)
 {
+  if (in_gc)
+    return;
+
   page_entry *pe = lookup_page_table_entry (p);
   size_t order = pe->order;
   size_t size = OBJECT_SIZE (order);
@@ -1690,7 +1718,12 @@ compute_inverse (unsigned order)
 void
 init_ggc (void)
 {
+  static bool init_p = false;
   unsigned order;
+
+  if (init_p)
+    return;
+  init_p = true;
 
   G.pagesize = getpagesize ();
   G.lg_pagesize = exact_log2 (G.pagesize);
@@ -2139,7 +2172,6 @@ ggc_collect (void)
     MAX (G.allocated_last_gc, (size_t)PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
 
   float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
-
   if (G.allocated < allocated_last_gc + min_expand && !ggc_force_collect)
     return;
 
@@ -2162,6 +2194,7 @@ ggc_collect (void)
 
   invoke_plugin_callbacks (PLUGIN_GGC_START, NULL);
 
+  in_gc = true;
   clear_marks ();
   ggc_mark_roots ();
   ggc_handle_finalizers ();
@@ -2173,6 +2206,7 @@ ggc_collect (void)
   validate_free_objects ();
   sweep_pages ();
 
+  in_gc = false;
   G.allocated_last_gc = G.allocated;
 
   invoke_plugin_callbacks (PLUGIN_GGC_END, NULL);
@@ -2415,7 +2449,7 @@ ggc_pch_write_object (struct ggc_pch_data *d,
     }
 
   if (fwrite (x, size, 1, f) != 1)
-    fatal_error ("can%'t write PCH file: %m");
+    fatal_error (input_location, "can%'t write PCH file: %m");
 
   /* If SIZE is not the same as OBJECT_SIZE(order), then we need to pad the
      object out to OBJECT_SIZE(order).  This happens for strings.  */
@@ -2431,13 +2465,13 @@ ggc_pch_write_object (struct ggc_pch_data *d,
       if (padding <= sizeof (emptyBytes))
         {
           if (fwrite (emptyBytes, 1, padding, f) != padding)
-            fatal_error ("can%'t write PCH file");
+            fatal_error (input_location, "can%'t write PCH file");
         }
       else
         {
           /* Larger than our buffer?  Just default to fseek.  */
           if (fseek (f, padding, SEEK_CUR) != 0)
-            fatal_error ("can%'t write PCH file");
+            fatal_error (input_location, "can%'t write PCH file");
         }
     }
 
@@ -2446,14 +2480,14 @@ ggc_pch_write_object (struct ggc_pch_data *d,
       && fseek (f, ROUND_UP_VALUE (d->d.totals[order] * OBJECT_SIZE (order),
 				   G.pagesize),
 		SEEK_CUR) != 0)
-    fatal_error ("can%'t write PCH file: %m");
+    fatal_error (input_location, "can%'t write PCH file: %m");
 }
 
 void
 ggc_pch_finish (struct ggc_pch_data *d, FILE *f)
 {
   if (fwrite (&d->d, sizeof (d->d), 1, f) != 1)
-    fatal_error ("can%'t write PCH file: %m");
+    fatal_error (input_location, "can%'t write PCH file: %m");
   free (d);
 }
 
@@ -2543,7 +2577,7 @@ ggc_pch_read (FILE *f, void *addr)
   /* Allocate the appropriate page-table entries for the pages read from
      the PCH file.  */
   if (fread (&d, sizeof (d), 1, f) != 1)
-    fatal_error ("can%'t read PCH file: %m");
+    fatal_error (input_location, "can%'t read PCH file: %m");
 
   for (i = 0; i < NUM_ORDERS; i++)
     {

@@ -1,4 +1,4 @@
-// Copyright (C) 2014 Free Software Foundation, Inc.
+// Copyright (C) 2014-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,7 +25,8 @@ void test01()
 {
   bool test __attribute__((unused)) = true;
 
-  typedef __gnu_test::uneq_allocator<std::pair<const int, int>> alloc_type;
+  typedef __gnu_test::propagating_allocator<std::pair<const int, int>,
+					    false> alloc_type;
   typedef __gnu_debug::unordered_multimap<int, int, std::hash<int>,
 					  std::equal_to<int>,
 					  alloc_type> test_type;

@@ -1,5 +1,5 @@
 /* Printing of RTL in "slim", mnemonic like form.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2015 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -28,7 +28,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"	/* FIXME: To dump INSN_VAR_LOCATION_DECL.  */
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "dumpfile.h"	/* for the TDF_* flags */
 #include "pretty-print.h"
@@ -468,7 +487,7 @@ print_value (pretty_printer *pp, const_rtx x, int verbose)
       pp_printf (pp, "`%s'", XSTR (x, 0));
       break;
     case LABEL_REF:
-      pp_printf (pp, "L%d", INSN_UID (XEXP (x, 0)));
+      pp_printf (pp, "L%d", INSN_UID (LABEL_REF_LABEL (x)));
       break;
     case CONST:
     case HIGH:
@@ -578,8 +597,9 @@ print_pattern (pretty_printer *pp, const_rtx x, int verbose)
       break;
     case SEQUENCE:
       {
+	const rtx_sequence *seq = as_a <const rtx_sequence *> (x);
 	pp_string (pp, "sequence{");
-	if (INSN_P (XVECEXP (x, 0, 0)))
+	if (INSN_P (seq->element (0)))
 	  {
 	    /* Print the sequence insns indented.  */
 	    const char * save_print_rtx_head = print_rtx_head;
@@ -591,16 +611,16 @@ print_pattern (pretty_printer *pp, const_rtx x, int verbose)
 		      sizeof (indented_print_rtx_head),
 		      "%s     ", print_rtx_head);
 	    print_rtx_head = indented_print_rtx_head;
-	    for (int i = 0; i < XVECLEN (x, 0); i++)
-	      print_insn_with_notes (pp, XVECEXP (x, 0, i));
+	    for (int i = 0; i < seq->len (); i++)
+	      print_insn_with_notes (pp, seq->insn (i));
 	    pp_printf (pp, "%s      ", save_print_rtx_head);
 	    print_rtx_head = save_print_rtx_head;
 	  }
 	else
 	  {
-	    for (int i = 0; i < XVECLEN (x, 0); i++)
+	    for (int i = 0; i < seq->len (); i++)
 	      {
-		print_pattern (pp, XVECEXP (x, 0, i), verbose);
+		print_pattern (pp, seq->element (i), verbose);
 		pp_semicolon (pp);
 	      }
 	  }
@@ -611,9 +631,18 @@ print_pattern (pretty_printer *pp, const_rtx x, int verbose)
       pp_printf (pp, "asm {%s}", XSTR (x, 0));
       break;
     case ADDR_VEC:
-      /* Fall through.  */
+      for (int i = 0; i < XVECLEN (x, 0); i++)
+	{
+	  print_value (pp, XVECEXP (x, 0, i), verbose);
+	  pp_semicolon (pp);
+	}
+      break;
     case ADDR_DIFF_VEC:
-      print_value (pp, XEXP (x, 0), verbose);
+      for (int i = 0; i < XVECLEN (x, 1); i++)
+	{
+	  print_value (pp, XVECEXP (x, 1, i), verbose);
+	  pp_semicolon (pp);
+	}
       break;
     case TRAP_IF:
       pp_string (pp, "trap_if ");
@@ -806,14 +835,14 @@ dump_insn_slim (FILE *f, const_rtx x)
    If COUNT < 0 it will stop only at LAST or NULL rtx.  */
 
 void
-dump_rtl_slim (FILE *f, const_rtx first, const_rtx last,
+dump_rtl_slim (FILE *f, const rtx_insn *first, const rtx_insn *last,
 	       int count, int flags ATTRIBUTE_UNUSED)
 {
-  const_rtx insn, tail;
+  const rtx_insn *insn, *tail;
   pretty_printer rtl_slim_pp;
   rtl_slim_pp.buffer->stream = f;
 
-  tail = last ? NEXT_INSN (last) : NULL_RTX;
+  tail = last ? NEXT_INSN (last) : NULL;
   for (insn = first;
        (insn != NULL) && (insn != tail) && (count != 0);
        insn = NEXT_INSN (insn))
@@ -832,7 +861,7 @@ dump_rtl_slim (FILE *f, const_rtx first, const_rtx last,
 void
 rtl_dump_bb_for_graph (pretty_printer *pp, basic_block bb)
 {
-  rtx insn;
+  rtx_insn *insn;
   bool first = true;
 
   /* TODO: inter-bb stuff.  */
@@ -872,9 +901,11 @@ debug_insn_slim (const_rtx x)
 }
 
 /* Same as above, but using dump_rtl_slim.  */
-extern void debug_rtl_slim (FILE *, const_rtx, const_rtx, int, int);
+extern void debug_rtl_slim (FILE *, const rtx_insn *, const rtx_insn *,
+			    int, int);
 DEBUG_FUNCTION void
-debug_rtl_slim (const_rtx first, const_rtx last, int count, int flags)
+debug_rtl_slim (const rtx_insn *first, const rtx_insn *last, int count,
+		int flags)
 {
   dump_rtl_slim (stderr, first, last, count, flags);
 }

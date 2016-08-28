@@ -41,12 +41,14 @@ var roundUpTests = []struct {
 	{0, 1},
 	{1, 1},
 	{2, 2},
+	{3, 3},
 	{5, 5},
 	{9, 10},
 	{999, 1000},
 	{1000, 1000},
 	{1400, 2000},
 	{1700, 2000},
+	{2700, 3000},
 	{4999, 5000},
 	{5000, 5000},
 	{5001, 10000},
@@ -88,7 +90,6 @@ func TestRunParallelFail(t *testing.T) {
 			// w/o crashing/deadlocking the whole benchmark.
 			b.Log("log")
 			b.Error("error")
-			b.Fatal("fatal")
 		})
 	})
 }

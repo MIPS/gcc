@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2015 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist input contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -53,12 +53,12 @@ typedef unsigned char uchar;
                       case '5': case '6': case '7': case '8': case '9'
 
 #define CASE_SEPARATORS  case ' ': case ',': case '/': case '\n': case '\t': \
-                         case '\r': case ';'
+                         case '\r': case ';': case '!'
 
 /* This macro assumes that we're operating on a variable.  */
 
 #define is_separator(c) (c == '/' ||  c == ',' || c == '\n' || c == ' ' \
-                         || c == '\t' || c == '\r' || c == ';')
+                         || c == '\t' || c == '\r' || c == ';' || c == '!')
 
 /* Maximum repeat count.  Less than ten times the maximum signed int32.  */
 
@@ -273,7 +273,7 @@ next_char_internal (st_parameter_dt *dtp)
   /* Get the next character and handle end-of-record conditions.  */
 
   if (dtp->common.unit) /* Check for kind=4 internal unit.  */
-   length = sread (dtp->u.p.current_unit->s, &c, sizeof (gfc_char4_t));
+   length = sread (dtp->u.p.current_unit->s, &c, 1);
   else
    {
      char cc;
@@ -387,50 +387,39 @@ eat_spaces (st_parameter_dt *dtp)
   int c;
 
   /* If internal character array IO, peak ahead and seek past spaces.
-     This is an optimazation to eliminate numerous calls to
-     next character unique to character arrays with large character
-     lengths (PR38199). */
-  if (is_array_io (dtp))
+     This is an optimization unique to character arrays with large
+     character lengths (PR38199).  This code eliminates numerous calls
+     to next_character.  */
+  if (is_array_io (dtp) && (dtp->u.p.last_char == EOF - 1))
     {
       gfc_offset offset = stell (dtp->u.p.current_unit->s);
-      gfc_offset limit = offset + dtp->u.p.current_unit->bytes_left;
+      gfc_offset i;
 
       if (dtp->common.unit) /* kind=4 */
 	{
-	  gfc_char4_t cc;
-	  limit *= (sizeof (gfc_char4_t));
-	  do
+	  for (i = 0; i < dtp->u.p.current_unit->bytes_left; i++)
 	    {
-	      cc = dtp->internal_unit[offset];
-	      offset += (sizeof (gfc_char4_t));
-	      dtp->u.p.current_unit->bytes_left--;
+	      if (dtp->internal_unit[(offset + i) * sizeof (gfc_char4_t)]
+		  != (gfc_char4_t)' ')
+	        break;
 	    }
-	  while (offset < limit && cc == (gfc_char4_t)' ');
-	  /* Back up, seek ahead, and fall through to complete the
-	     process so that END conditions are handled correctly.  */
-	  dtp->u.p.current_unit->bytes_left++;
-
-	  cc = dtp->internal_unit[offset];
-	  if (cc != (gfc_char4_t)' ')
-	    sseek (dtp->u.p.current_unit->s,
-		   offset-(sizeof (gfc_char4_t)), SEEK_SET);
 	}
       else
 	{
-	  do
+	  for (i = 0; i < dtp->u.p.current_unit->bytes_left; i++)
 	    {
-	      c = dtp->internal_unit[offset++];
-	      dtp->u.p.current_unit->bytes_left--;
+	      if (dtp->internal_unit[offset + i] != ' ')
+	        break;
 	    }
-	  while (offset < limit && c == ' ');
-	  /* Back up, seek ahead, and fall through to complete the
-	     process so that END conditions are handled correctly.  */
-	  dtp->u.p.current_unit->bytes_left++;
+	}
 
-	  if (dtp->internal_unit[offset] != ' ')
-	    sseek (dtp->u.p.current_unit->s, offset - 1, SEEK_SET);
+      if (i != 0)
+	{
+	  sseek (dtp->u.p.current_unit->s, offset + i, SEEK_SET);
+	  dtp->u.p.current_unit->bytes_left -= i;
 	}
     }
+
   /* Now skip spaces, EOF and EOL are handled in next_char.  */
   do
     c = next_char (dtp);
@@ -534,6 +523,9 @@ eat_separator (st_parameter_dt *dtp)
     case '!':
       if (dtp->u.p.namelist_mode)
 	{			/* Eat a namelist comment.  */
+	  notify_std (&dtp->common, GFC_STD_GNU,
+		      "'!' in namelist is not a valid separator,"
+		      " try inserting a space");
 	  err = eat_line (dtp);
 	  if (err)
 	    return err;
@@ -2221,6 +2213,7 @@ cleanup:
       free_line (dtp);
       hit_eof (dtp);
     }
+  fbuf_flush_list (dtp->u.p.current_unit, LIST_READING);
   return err;
 }
 
@@ -3125,16 +3118,27 @@ get_name:
 
   if (component_flag)
     {
+#define EXT_STACK_SZ 100
+      char ext_stack[EXT_STACK_SZ];
+      char *ext_name;
       size_t var_len = strlen (root_nl->var_name);
       size_t saved_len
 	= dtp->u.p.saved_string ? strlen (dtp->u.p.saved_string) : 0;
-      char ext_name[var_len + saved_len + 1];
+      size_t ext_size = var_len + saved_len + 1;
+
+      if (ext_size > EXT_STACK_SZ)
+	ext_name = xmalloc (ext_size);
+      else
+	ext_name = ext_stack;
 
       memcpy (ext_name, root_nl->var_name, var_len);
       if (dtp->u.p.saved_string)
 	memcpy (ext_name + var_len, dtp->u.p.saved_string, saved_len);
       ext_name[var_len + saved_len] = '\0';
       nl = find_nml_node (dtp, ext_name);
+
+      if (ext_size > EXT_STACK_SZ)
+	free (ext_name);
     }
   else
     nl = find_nml_node (dtp, dtp->u.p.saved_string);

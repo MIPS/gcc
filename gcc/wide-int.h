@@ -1,5 +1,5 @@
 /* Operations with very long integers.  -*- C++ -*-
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -216,8 +216,6 @@ along with GCC; see the file COPYING3.  If not see
    the same result as X + X; the precision of the shift amount Y
    can be arbitrarily different from X.  */
 
-
-#include <utility>
 #include "system.h"
 #include "hwint.h"
 #include "signop.h"
@@ -282,9 +280,9 @@ along with GCC; see the file COPYING3.  If not see
     wi::int_traits <WI_UNARY_RESULT (T)>::get_binary_result (X, X); \
   HOST_WIDE_INT *VAL = RESULT.write_val ()
 
-template <typename T> struct generic_wide_int;
+template <typename T> class generic_wide_int;
 template <int N> struct fixed_wide_int_storage;
-struct wide_int_storage;
+class wide_int_storage;
 
 /* An N-bit integer.  Until we can use typedef templates, use this instead.  */
 #define FIXED_WIDE_INT(N) \
@@ -2129,7 +2127,7 @@ template <typename T1, typename T2>
 inline WI_BINARY_RESULT (T1, T2)
 wi::smin (const T1 &x, const T2 &y)
 {
-  return min (x, y, SIGNED);
+  return wi::min (x, y, SIGNED);
 }
 
 /* Return the minimum of X and Y, treating both as unsigned values.  */
@@ -2137,7 +2135,7 @@ template <typename T1, typename T2>
 inline WI_BINARY_RESULT (T1, T2)
 wi::umin (const T1 &x, const T2 &y)
 {
-  return min (x, y, UNSIGNED);
+  return wi::min (x, y, UNSIGNED);
 }
 
 /* Return the maxinum of X and Y, treating them both as having
@@ -2160,7 +2158,7 @@ template <typename T1, typename T2>
 inline WI_BINARY_RESULT (T1, T2)
 wi::smax (const T1 &x, const T2 &y)
 {
-  return max (x, y, SIGNED);
+  return wi::max (x, y, SIGNED);
 }
 
 /* Return the maximum of X and Y, treating both as unsigned values.  */
@@ -2168,7 +2166,7 @@ template <typename T1, typename T2>
 inline WI_BINARY_RESULT (T1, T2)
 wi::umax (const T1 &x, const T2 &y)
 {
-  return max (x, y, UNSIGNED);
+  return wi::max (x, y, UNSIGNED);
 }
 
 /* Return X & Y.  */
@@ -2618,8 +2616,8 @@ wi::div_round (const T1 &x, const T2 &y, signop sgn, bool *overflow)
     {
       if (sgn == SIGNED)
 	{
-	  if (wi::ges_p (wi::abs (remainder),
-			 wi::lrshift (wi::abs (y), 1)))
+	  WI_BINARY_RESULT (T1, T2) abs_remainder = wi::abs (remainder);
+	  if (wi::geu_p (abs_remainder, wi::sub (wi::abs (y), abs_remainder)))
 	    {
 	      if (wi::neg_p (x, sgn) != wi::neg_p (y, sgn))
 		return quotient - 1;
@@ -2629,7 +2627,7 @@ wi::div_round (const T1 &x, const T2 &y, signop sgn, bool *overflow)
 	}
       else
 	{
-	  if (wi::geu_p (remainder, wi::lrshift (y, 1)))
+	  if (wi::geu_p (remainder, wi::sub (y, remainder)))
 	    return quotient + 1;
 	}
     }
@@ -2786,8 +2784,8 @@ wi::mod_round (const T1 &x, const T2 &y, signop sgn, bool *overflow)
     {
       if (sgn == SIGNED)
 	{
-	  if (wi::ges_p (wi::abs (remainder),
-			 wi::lrshift (wi::abs (y), 1)))
+	  WI_BINARY_RESULT (T1, T2) abs_remainder = wi::abs (remainder);
+	  if (wi::geu_p (abs_remainder, wi::sub (wi::abs (y), abs_remainder)))
 	    {
 	      if (wi::neg_p (x, sgn) != wi::neg_p (y, sgn))
 		return remainder + y;
@@ -2797,7 +2795,7 @@ wi::mod_round (const T1 &x, const T2 &y, signop sgn, bool *overflow)
 	}
       else
 	{
-	  if (wi::geu_p (remainder, wi::lrshift (y, 1)))
+	  if (wi::geu_p (remainder, wi::sub (y, remainder)))
 	    return remainder - y;
 	}
     }

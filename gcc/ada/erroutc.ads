@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -67,6 +67,10 @@ package Erroutc is
    --  Set True to indicate that the current message starts with the characters
    --  "info: " and is to be treated as an information message. This string
    --  will be prepended to the message and all its continuations.
+
+   Is_Check_Msg : Boolean := False;
+   --  Set True to indicate that the current message starts with one of
+   --  "high: ", "medium: ", "low: " and is to be treated as a check message.
 
    Warning_Msg_Char : Character;
    --  Warning character, valid only if Is_Warning_Msg is True
@@ -207,6 +211,9 @@ package Erroutc is
 
       Info : Boolean;
       --  True if info message
+
+      Check : Boolean;
+      --  True if check message
 
       Warn_Err : Boolean;
       --  True if this is a warning message which is to be treated as an error
@@ -520,7 +527,8 @@ package Erroutc is
    procedure Set_Msg_Str (Text : String);
    --  Add a sequence of characters to the current message. This routine does
    --  not check for special insertion characters (they are just treated as
-   --  text characters if they occur).
+   --  text characters if they occur). It does perform the transformation of
+   --  the special strings _xxx (xxx = Pre/Post/Type_Invariant) to xxx'Class.
 
    procedure Set_Next_Non_Deleted_Msg (E : in out Error_Msg_Id);
    --  Given a message id, move to next message id, but skip any deleted

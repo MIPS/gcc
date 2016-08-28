@@ -1,5 +1,5 @@
 /* Help friends in C++.
-   Copyright (C) 1997-2014 Free Software Foundation, Inc.
+   Copyright (C) 1997-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -426,6 +435,10 @@ do_friend (tree ctype, tree declarator, tree decl,
 
   /* Every decl that gets here is a friend of something.  */
   DECL_FRIEND_P (decl) = 1;
+
+  if (DECL_OVERRIDE_P (decl) || DECL_FINAL_P (decl))
+    error ("friend declaration %qD may not have virt-specifiers",
+	   decl);
 
   /* Unfortunately, we have to handle attributes here.  Normally we would
      handle them in start_decl_1, but since this is a friend decl start_decl_1

@@ -1,5 +1,5 @@
 /* Vectorizer
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2015 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -59,9 +59,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
+#include "symtab.h"
+#include "wide-int.h"
+#include "inchash.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "tree-pretty-print.h"
+#include "predict.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -71,6 +87,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "gimple-ssa.h"
+#include "hash-map.h"
+#include "plugin-api.h"
+#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
@@ -82,6 +101,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "dbgcnt.h"
 #include "gimple-fold.h"
+#include "tree-scalar-evolution.h"
+
 
 /* Loop or bb location.  */
 source_location vect_location;
@@ -97,20 +118,20 @@ struct simduid_to_vf : typed_free_remove<simduid_to_vf>
   int vf;
 
   /* hash_table support.  */
-  typedef simduid_to_vf value_type;
-  typedef simduid_to_vf compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef simduid_to_vf *value_type;
+  typedef simduid_to_vf *compare_type;
+  static inline hashval_t hash (const simduid_to_vf *);
+  static inline int equal (const simduid_to_vf *, const simduid_to_vf *);
 };
 
 inline hashval_t
-simduid_to_vf::hash (const value_type *p)
+simduid_to_vf::hash (const simduid_to_vf *p)
 {
   return p->simduid;
 }
 
 inline int
-simduid_to_vf::equal (const value_type *p1, const value_type *p2)
+simduid_to_vf::equal (const simduid_to_vf *p1, const simduid_to_vf *p2)
 {
   return p1->simduid == p2->simduid;
 }
@@ -133,20 +154,22 @@ struct simd_array_to_simduid : typed_free_remove<simd_array_to_simduid>
   unsigned int simduid;
 
   /* hash_table support.  */
-  typedef simd_array_to_simduid value_type;
-  typedef simd_array_to_simduid compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline int equal (const value_type *, const compare_type *);
+  typedef simd_array_to_simduid *value_type;
+  typedef simd_array_to_simduid *compare_type;
+  static inline hashval_t hash (const simd_array_to_simduid *);
+  static inline int equal (const simd_array_to_simduid *,
+			   const simd_array_to_simduid *);
 };
 
 inline hashval_t
-simd_array_to_simduid::hash (const value_type *p)
+simd_array_to_simduid::hash (const simd_array_to_simduid *p)
 {
   return DECL_UID (p->decl);
 }
 
 inline int
-simd_array_to_simduid::equal (const value_type *p1, const value_type *p2)
+simd_array_to_simduid::equal (const simd_array_to_simduid *p1,
+			      const simd_array_to_simduid *p2)
 {
   return p1->decl == p2->decl;
 }
@@ -155,7 +178,7 @@ simd_array_to_simduid::equal (const value_type *p1, const value_type *p2)
    into their corresponding constants.  */
 
 static void
-adjust_simduid_builtins (hash_table <simduid_to_vf> &htab)
+adjust_simduid_builtins (hash_table<simduid_to_vf> **htab)
 {
   basic_block bb;
 
@@ -187,8 +210,8 @@ adjust_simduid_builtins (hash_table <simduid_to_vf> &htab)
 	  gcc_assert (TREE_CODE (arg) == SSA_NAME);
 	  simduid_to_vf *p = NULL, data;
 	  data.simduid = DECL_UID (SSA_NAME_VAR (arg));
-	  if (htab.is_created ())
-	    p = htab.find (&data);
+	  if (*htab)
+	    p = (*htab)->find (&data);
 	  if (p)
 	    vf = p->vf;
 	  switch (ifn)
@@ -214,7 +237,7 @@ adjust_simduid_builtins (hash_table <simduid_to_vf> &htab)
 
 struct note_simd_array_uses_struct
 {
-  hash_table <simd_array_to_simduid> *htab;
+  hash_table<simd_array_to_simduid> **htab;
   unsigned int simduid;
 };
 
@@ -234,11 +257,11 @@ note_simd_array_uses_cb (tree *tp, int *walk_subtrees, void *data)
 	   && DECL_CONTEXT (*tp) == current_function_decl)
     {
       simd_array_to_simduid data;
-      if (!ns->htab->is_created ())
-	ns->htab->create (15);
+      if (!*ns->htab)
+	*ns->htab = new hash_table<simd_array_to_simduid> (15);
       data.decl = *tp;
       data.simduid = ns->simduid;
-      simd_array_to_simduid **slot = ns->htab->find_slot (&data, INSERT);
+      simd_array_to_simduid **slot = (*ns->htab)->find_slot (&data, INSERT);
       if (*slot == NULL)
 	{
 	  simd_array_to_simduid *p = XNEW (simd_array_to_simduid);
@@ -256,7 +279,7 @@ note_simd_array_uses_cb (tree *tp, int *walk_subtrees, void *data)
    simduid.  */
 
 static void
-note_simd_array_uses (hash_table <simd_array_to_simduid> *htab)
+note_simd_array_uses (hash_table<simd_array_to_simduid> **htab)
 {
   basic_block bb;
   gimple_stmt_iterator gsi;
@@ -387,8 +410,8 @@ vectorize_loops (void)
   unsigned int num_vectorized_loops = 0;
   unsigned int vect_loops_num;
   struct loop *loop;
-  hash_table <simduid_to_vf> simduid_to_vf_htab;
-  hash_table <simd_array_to_simduid> simd_array_to_simduid_htab;
+  hash_table<simduid_to_vf> *simduid_to_vf_htab = NULL;
+  hash_table<simd_array_to_simduid> *simd_array_to_simduid_htab = NULL;
   bool any_ifcvt_loops = false;
   unsigned ret = 0;
 
@@ -398,7 +421,7 @@ vectorize_loops (void)
   if (vect_loops_num <= 1)
     {
       if (cfun->has_simduid_loops)
-	adjust_simduid_builtins (simduid_to_vf_htab);
+	adjust_simduid_builtins (&simduid_to_vf_htab);
       return 0;
     }
 
@@ -482,11 +505,11 @@ vectorize_loops (void)
 	if (loop->simduid)
 	  {
 	    simduid_to_vf *simduid_to_vf_data = XNEW (simduid_to_vf);
-	    if (!simduid_to_vf_htab.is_created ())
-	      simduid_to_vf_htab.create (15);
+	    if (!simduid_to_vf_htab)
+	      simduid_to_vf_htab = new hash_table<simduid_to_vf> (15);
 	    simduid_to_vf_data->simduid = DECL_UID (loop->simduid);
 	    simduid_to_vf_data->vf = loop_vinfo->vectorization_factor;
-	    *simduid_to_vf_htab.find_slot (simduid_to_vf_data, INSERT)
+	    *simduid_to_vf_htab->find_slot (simduid_to_vf_data, INSERT)
 	      = simduid_to_vf_data;
 	  }
 
@@ -539,24 +562,24 @@ vectorize_loops (void)
 
   /* Fold IFN_GOMP_SIMD_{VF,LANE,LAST_LANE} builtins.  */
   if (cfun->has_simduid_loops)
-    adjust_simduid_builtins (simduid_to_vf_htab);
+    adjust_simduid_builtins (&simduid_to_vf_htab);
 
   /* Shrink any "omp array simd" temporary arrays to the
      actual vectorization factors.  */
-  if (simd_array_to_simduid_htab.is_created ())
+  if (simd_array_to_simduid_htab)
     {
-      for (hash_table <simd_array_to_simduid>::iterator iter
-	   = simd_array_to_simduid_htab.begin ();
-	   iter != simd_array_to_simduid_htab.end (); ++iter)
-	if ((*iter).simduid != -1U)
+      for (hash_table<simd_array_to_simduid>::iterator iter
+	   = simd_array_to_simduid_htab->begin ();
+	   iter != simd_array_to_simduid_htab->end (); ++iter)
+	if ((*iter)->simduid != -1U)
 	  {
-	    tree decl = (*iter).decl;
+	    tree decl = (*iter)->decl;
 	    int vf = 1;
-	    if (simduid_to_vf_htab.is_created ())
+	    if (simduid_to_vf_htab)
 	      {
 		simduid_to_vf *p = NULL, data;
-		data.simduid = (*iter).simduid;
-		p = simduid_to_vf_htab.find (&data);
+		data.simduid = (*iter)->simduid;
+		p = simduid_to_vf_htab->find (&data);
 		if (p)
 		  vf = p->vf;
 	      }
@@ -566,10 +589,10 @@ vectorize_loops (void)
 	    relayout_decl (decl);
 	  }
 
-      simd_array_to_simduid_htab.dispose ();
+      delete simd_array_to_simduid_htab;
     }
-  if (simduid_to_vf_htab.is_created ())
-    simduid_to_vf_htab.dispose ();
+    delete simduid_to_vf_htab;
+    simduid_to_vf_htab = NULL;
 
   if (num_vectorized_loops > 0)
     {
@@ -593,7 +616,6 @@ const pass_data pass_data_slp_vectorize =
   GIMPLE_PASS, /* type */
   "slp", /* name */
   OPTGROUP_LOOP | OPTGROUP_VEC, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SLP_VECTORIZATION, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -610,6 +632,7 @@ public:
   {}
 
   /* opt_pass methods: */
+  opt_pass * clone () { return new pass_slp_vectorize (m_ctxt); }
   virtual bool gate (function *) { return flag_tree_slp_vectorize != 0; }
   virtual unsigned int execute (function *);
 
@@ -619,6 +642,13 @@ unsigned int
 pass_slp_vectorize::execute (function *fun)
 {
   basic_block bb;
+
+  bool in_loop_pipeline = scev_initialized_p ();
+  if (!in_loop_pipeline)
+    {
+      loop_optimizer_init (LOOPS_NORMAL);
+      scev_initialize ();
+    }
 
   init_stmt_vec_info_vec ();
 
@@ -639,6 +669,13 @@ pass_slp_vectorize::execute (function *fun)
     }
 
   free_stmt_vec_info_vec ();
+
+  if (!in_loop_pipeline)
+    {
+      scev_finalize ();
+      loop_optimizer_finalize ();
+    }
+
   return 0;
 }
 
@@ -684,14 +721,7 @@ increase_alignment (void)
 
       if (vect_can_force_dr_alignment_p (decl, alignment))
         {
-          DECL_ALIGN (decl) = TYPE_ALIGN (vectype);
-          DECL_USER_ALIGN (decl) = 1;
-	  if (TREE_STATIC (decl))
-	    {
-	      tree target = symtab_alias_ultimate_target (symtab_get_node (decl))->decl;
-              DECL_ALIGN (target) = TYPE_ALIGN (vectype);
-              DECL_USER_ALIGN (target) = 1;
-	    }
+	  vnode->increase_alignment (TYPE_ALIGN (vectype));
           dump_printf (MSG_NOTE, "Increasing alignment of decl: ");
           dump_generic_expr (MSG_NOTE, TDF_SLIM, decl);
           dump_printf (MSG_NOTE, "\n");
@@ -708,7 +738,6 @@ const pass_data pass_data_ipa_increase_alignment =
   SIMPLE_IPA_PASS, /* type */
   "increase_alignment", /* name */
   OPTGROUP_LOOP | OPTGROUP_VEC, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_OPT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

@@ -1,5 +1,5 @@
 /* String pool for GCC.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,8 +30,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "ggc.h"
 #include "ggc-internal.h"
-#include "tree.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "vec.h"
+#include "double-int.h"
+#include "input.h"
+#include "alias.h"
 #include "symtab.h"
+#include "options.h"
+#include "wide-int.h"
+#include "inchash.h"
+#include "tree.h"
 #include "cpplib.h"
 
 /* The "" allocated string.  */
@@ -61,6 +70,11 @@ stringpool_ggc_alloc (size_t x)
 void
 init_stringpool (void)
 {
+  /* Clean up if we're called more than once.
+     (We can't make this idempotent since identifiers contain state) */
+  if (ident_hash)
+    ht_destroy (ident_hash);
+
   /* Create with 16K (2^14) entries.  */
   ident_hash = ht_create (14);
   ident_hash->alloc_node = alloc_node;

@@ -1,5 +1,5 @@
 /* Natural loop functions
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2015 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,14 +24,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "wide-int.h"
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
+#include "cfgloopmanip.h"
 
 /* Structure to hold decision about unrolling/peeling.  */
 enum lpt_dec
 {
   LPT_NONE,
-  LPT_PEEL_COMPLETELY,
-  LPT_PEEL_SIMPLE,
   LPT_UNROLL_CONSTANT,
   LPT_UNROLL_RUNTIME,
   LPT_UNROLL_STUPID
@@ -76,7 +82,7 @@ struct GTY ((chain_next ("%h.next"))) nb_iter_bound {
 
 /* Description of the loop exit.  */
 
-struct GTY (()) loop_exit {
+struct GTY ((for_user)) loop_exit {
   /* The exit edge.  */
   edge e;
 
@@ -86,6 +92,15 @@ struct GTY (()) loop_exit {
 
   /* Next element in the list of loops from that E exits.  */
   struct loop_exit *next_e;
+};
+
+struct loop_exit_hasher : ggc_hasher<loop_exit *>
+{
+  typedef edge compare_type;
+
+  static hashval_t hash (loop_exit *);
+  static bool equal (loop_exit *, edge);
+  static void remove (loop_exit *);
 };
 
 typedef struct loop *loop_p;
@@ -193,6 +208,12 @@ struct GTY ((chain_next ("%h.next"))) loop {
 
   /* Number of iteration analysis data for RTL.  */
   struct niter_desc *simple_loop_desc;
+
+  /* For sanity checking during loop fixup we record here the former
+     loop header for loops marked for removal.  Note that this prevents
+     the basic-block from being collected but its index can still be
+     reused.  */
+  basic_block former_header;
 };
 
 /* Flags for state of loop structure.  */
@@ -223,7 +244,7 @@ struct GTY (()) loops {
   /* Maps edges to the list of their descriptions as loop exits.  Edges
      whose sources or destinations have loop_father == NULL (which may
      happen during the cfg manipulations) should not appear in EXITS.  */
-  htab_t GTY((param_is (struct loop_exit))) exits;
+  hash_table<loop_exit_hasher> *GTY(()) exits;
 
   /* Pointer to root of loop hierarchy tree.  */
   struct loop *tree_root;
@@ -251,8 +272,6 @@ void rescan_loop_exit (edge, bool, bool);
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
 extern void flow_loop_tree_node_remove (struct loop *);
-extern void place_new_loop (struct function *, struct loop *);
-extern void add_loop (struct loop *, struct loop *);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const_basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
@@ -290,15 +309,6 @@ extern void remove_bb_from_loops (basic_block);
 extern void cancel_loop_tree (struct loop *);
 extern void delete_loop (struct loop *);
 
-enum
-{
-  CP_SIMPLE_PREHEADERS = 1,
-  CP_FALLTHRU_PREHEADERS = 2
-};
-
-basic_block create_preheader (struct loop *, int);
-extern void create_preheaders (int);
-extern void force_single_succ_latches (void);
 
 extern void verify_loop_structure (void);
 
@@ -308,34 +318,7 @@ gcov_type expected_loop_iterations_unbounded (const struct loop *);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
 
-
-/* Loop manipulation.  */
-extern bool can_duplicate_loop_p (const struct loop *loop);
-
-#define DLTHE_FLAG_UPDATE_FREQ	1	/* Update frequencies in
-					   duplicate_loop_to_header_edge.  */
-#define DLTHE_RECORD_COPY_NUMBER 2	/* Record copy number in the aux
-					   field of newly create BB.  */
-#define DLTHE_FLAG_COMPLETTE_PEEL 4	/* Update frequencies expecting
-					   a complete peeling.  */
-
-extern edge create_empty_if_region_on_edge (edge, tree);
-extern struct loop *create_empty_loop_on_edge (edge, tree, tree, tree, tree,
-					       tree *, tree *, struct loop *);
-extern struct loop * duplicate_loop (struct loop *, struct loop *);
-extern void copy_loop_info (struct loop *loop, struct loop *target);
-extern void duplicate_subloops (struct loop *, struct loop *);
-extern bool duplicate_loop_to_header_edge (struct loop *, edge,
-					   unsigned, sbitmap, edge,
- 					   vec<edge> *, int);
-extern struct loop *loopify (edge, edge,
-			     basic_block, edge, edge, bool,
-			     unsigned, unsigned);
-struct loop * loop_version (struct loop *, void *,
-			    basic_block *, unsigned, unsigned, unsigned, bool);
-extern bool remove_path (edge);
-extern void unloop (struct loop *, bool *, bitmap);
-extern void scale_loop_frequencies (struct loop *, int, int);
+void mark_loop_for_removal (loop_p);
 
 /* Induction variable analysis.  */
 
@@ -372,10 +355,10 @@ struct rtx_iv
   rtx delta, mult;
 
   /* The mode it is extended to.  */
-  enum machine_mode extend_mode;
+  machine_mode extend_mode;
 
   /* The mode the variable iterates in.  */
-  enum machine_mode mode;
+  machine_mode mode;
 
   /* Whether the first iteration needs to be handled specially.  */
   unsigned first_special : 1;
@@ -416,18 +399,19 @@ struct GTY(()) niter_desc
   bool signed_p;
 
   /* The mode in that niter_expr should be computed.  */
-  enum machine_mode mode;
+  machine_mode mode;
 
   /* The number of iterations of the loop.  */
   rtx niter_expr;
 };
 
 extern void iv_analysis_loop_init (struct loop *);
-extern bool iv_analyze (rtx, rtx, struct rtx_iv *);
-extern bool iv_analyze_result (rtx, rtx, struct rtx_iv *);
-extern bool iv_analyze_expr (rtx, rtx, enum machine_mode, struct rtx_iv *);
+extern bool iv_analyze (rtx_insn *, rtx, struct rtx_iv *);
+extern bool iv_analyze_result (rtx_insn *, rtx, struct rtx_iv *);
+extern bool iv_analyze_expr (rtx_insn *, rtx, machine_mode,
+			     struct rtx_iv *);
 extern rtx get_iv_value (struct rtx_iv *, rtx);
-extern bool biv_p (rtx, rtx);
+extern bool biv_p (rtx_insn *, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_analysis_done (void);
 
@@ -713,15 +697,12 @@ extern void loop_optimizer_finalize (void);
 /* Optimization passes.  */
 enum
 {
-  UAP_PEEL = 1,		/* Enables loop peeling.  */
-  UAP_UNROLL = 2,	/* Enables unrolling of loops if it seems profitable.  */
-  UAP_UNROLL_ALL = 4	/* Enables unrolling of all loops.  */
+  UAP_UNROLL = 1,	/* Enables unrolling of loops if it seems profitable.  */
+  UAP_UNROLL_ALL = 2	/* Enables unrolling of all loops.  */
 };
 
-extern void unroll_and_peel_loops (int);
 extern void doloop_optimize_loops (void);
 extern void move_loop_invariants (void);
-extern void scale_loop_profile (struct loop *loop, int scale, gcov_type iteration_bound);
 extern vec<basic_block> get_loop_hot_path (const struct loop *loop);
 
 /* Returns the outermost loop of the loop nest that contains LOOP.*/

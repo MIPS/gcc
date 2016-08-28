@@ -1,5 +1,5 @@
 /* Generate code from machine description to compute values of attributes.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -4027,9 +4027,9 @@ write_attr_get (FILE *outf, struct attr_desc *attr)
   /* If the attribute name starts with a star, the remainder is the name of
      the subroutine to use, instead of `get_attr_...'.  */
   if (attr->name[0] == '*')
-    fprintf (outf, "%s (rtx insn ATTRIBUTE_UNUSED)\n", &attr->name[1]);
+    fprintf (outf, "%s (rtx_insn *insn ATTRIBUTE_UNUSED)\n", &attr->name[1]);
   else if (attr->is_const == 0)
-    fprintf (outf, "get_attr_%s (rtx insn ATTRIBUTE_UNUSED)\n", attr->name);
+    fprintf (outf, "get_attr_%s (rtx_insn *insn ATTRIBUTE_UNUSED)\n", attr->name);
   else
     {
       fprintf (outf, "get_attr_%s (void)\n", attr->name);
@@ -4453,11 +4453,11 @@ write_eligible_delay (FILE *outf, const char *kind)
   /* Write function prelude.  */
 
   fprintf (outf, "int\n");
-  fprintf (outf, "eligible_for_%s (rtx delay_insn ATTRIBUTE_UNUSED, int slot, \n"
-		 "		   rtx candidate_insn, int flags ATTRIBUTE_UNUSED)\n",
+  fprintf (outf, "eligible_for_%s (rtx_insn *delay_insn ATTRIBUTE_UNUSED, int slot, \n"
+		 "		   rtx_insn *candidate_insn, int flags ATTRIBUTE_UNUSED)\n",
 	   kind);
   fprintf (outf, "{\n");
-  fprintf (outf, "  rtx insn;\n");
+  fprintf (outf, "  rtx_insn *insn;\n");
   fprintf (outf, "\n");
   fprintf (outf, "  gcc_assert (slot < %d);\n", max_slots);
   fprintf (outf, "\n");
@@ -4691,7 +4691,7 @@ write_const_num_delay_slots (FILE *outf)
 
   if (attr)
     {
-      fprintf (outf, "int\nconst_num_delay_slots (rtx insn)\n");
+      fprintf (outf, "int\nconst_num_delay_slots (rtx_insn *insn)\n");
       fprintf (outf, "{\n");
       fprintf (outf, "  switch (recog_memoized (insn))\n");
       fprintf (outf, "    {\n");
@@ -4766,6 +4766,7 @@ struct bypass_list
 
 static struct bypass_list *all_bypasses;
 static size_t n_bypasses;
+static size_t n_bypassed;
 
 static void
 gen_bypass_1 (const char *s, size_t len)
@@ -4811,12 +4812,18 @@ process_bypasses (void)
   struct bypass_list *b;
   struct insn_reserv *r;
 
+  n_bypassed = 0;
+
   /* The reservation list is likely to be much longer than the bypass
      list.  */
   for (r = all_insn_reservs; r; r = r->next)
     for (b = all_bypasses; b; b = b->next)
       if (fnmatch (b->pattern, r->name, 0) == 0)
-	r->bypassed = true;
+        {
+          n_bypassed++;
+          r->bypassed = true;
+          break;
+        }
 }
 
 /* Check that attribute NAME is used in define_insn_reservation condition
@@ -4915,7 +4922,7 @@ make_automaton_attrs (void)
 	    continue;
 	  gcc_assert (GET_CODE (val->value) == CONST_STRING);
 	  fprintf (dfa_file,
-		   "extern int internal_dfa_insn_code_%s (rtx);\n",
+		   "extern int internal_dfa_insn_code_%s (rtx_insn *);\n",
 		   XSTR (val->value, 0));
 	}
       fprintf (dfa_file, "\n");
@@ -4927,7 +4934,7 @@ make_automaton_attrs (void)
 	    continue;
 	  gcc_assert (GET_CODE (val->value) == CONST_STRING);
 	  fprintf (latency_file,
-		   "extern int insn_default_latency_%s (rtx);\n",
+		   "extern int insn_default_latency_%s (rtx_insn *);\n",
 		   XSTR (val->value, 0));
 	}
       fprintf (latency_file, "\n");
@@ -4939,13 +4946,13 @@ make_automaton_attrs (void)
 	    continue;
 	  gcc_assert (GET_CODE (val->value) == CONST_STRING);
 	  fprintf (attr_file,
-		   "extern int internal_dfa_insn_code_%s (rtx);\n"
-		   "extern int insn_default_latency_%s (rtx);\n",
+		   "extern int internal_dfa_insn_code_%s (rtx_insn *);\n"
+		   "extern int insn_default_latency_%s (rtx_insn *);\n",
 		   XSTR (val->value, 0), XSTR (val->value, 0));
 	}
       fprintf (attr_file, "\n");
-      fprintf (attr_file, "int (*internal_dfa_insn_code) (rtx);\n");
-      fprintf (attr_file, "int (*insn_default_latency) (rtx);\n");
+      fprintf (attr_file, "int (*internal_dfa_insn_code) (rtx_insn *);\n");
+      fprintf (attr_file, "int (*insn_default_latency) (rtx_insn *);\n");
       fprintf (attr_file, "\n");
       fprintf (attr_file, "void\n");
       fprintf (attr_file, "init_sched_attrs (void)\n");
@@ -5075,7 +5082,7 @@ make_automaton_attrs (void)
       process_bypasses ();
 
       byps_exp = rtx_alloc (COND);
-      XVEC (byps_exp, 0) = rtvec_alloc (n_bypasses * 2);
+      XVEC (byps_exp, 0) = rtvec_alloc (n_bypassed * 2);
       XEXP (byps_exp, 1) = make_numeric_value (0);
       for (decl = all_insn_reservs, i = 0;
 	   decl;
@@ -5101,6 +5108,16 @@ write_header (FILE *outf)
   fprintf (outf, "#include \"system.h\"\n");
   fprintf (outf, "#include \"coretypes.h\"\n");
   fprintf (outf, "#include \"tm.h\"\n");
+  fprintf (outf, "#include \"hash-set.h\"\n");
+  fprintf (outf, "#include \"machmode.h\"\n");
+  fprintf (outf, "#include \"vec.h\"\n");
+  fprintf (outf, "#include \"double-int.h\"\n");
+  fprintf (outf, "#include \"input.h\"\n");
+  fprintf (outf, "#include \"alias.h\"\n");
+  fprintf (outf, "#include \"symtab.h\"\n");
+  fprintf (outf, "#include \"options.h\"\n");
+  fprintf (outf, "#include \"wide-int.h\"\n");
+  fprintf (outf, "#include \"inchash.h\"\n");
   fprintf (outf, "#include \"tree.h\"\n");
   fprintf (outf, "#include \"varasm.h\"\n");
   fprintf (outf, "#include \"stor-layout.h\"\n");
@@ -5116,6 +5133,7 @@ write_header (FILE *outf)
   fprintf (outf, "#include \"toplev.h\"\n");
   fprintf (outf, "#include \"flags.h\"\n");
   fprintf (outf, "#include \"function.h\"\n");
+  fprintf (outf, "#include \"predict.h\"\n");
   fprintf (outf, "\n");
   fprintf (outf, "#define operands recog_data.operand\n\n");
 }

@@ -295,7 +295,7 @@ using namespace __asan;  // NOLINT
 // The caller retains control of the allocated context.
 extern "C"
 asan_block_context_t *alloc_asan_context(void *ctxt, dispatch_function_t func,
-                                         StackTrace *stack) {
+                                         BufferedStackTrace *stack) {
   asan_block_context_t *asan_ctxt =
       (asan_block_context_t*) asan_malloc(sizeof(asan_block_context_t), stack);
   asan_ctxt->block = ctxt;
@@ -372,32 +372,44 @@ void dispatch_source_set_event_handler(dispatch_source_t ds, void(^work)(void));
     work(); \
   }
 
+// Forces the compiler to generate a frame pointer in the function.
+#define ENABLE_FRAME_POINTER                                       \
+  do {                                                             \
+    volatile uptr enable_fp;                                       \
+    enable_fp = GET_CURRENT_FRAME();                               \
+  } while (0)
+
 INTERCEPTOR(void, dispatch_async,
             dispatch_queue_t dq, void(^work)(void)) {
+  ENABLE_FRAME_POINTER;
   GET_ASAN_BLOCK(work);
   REAL(dispatch_async)(dq, asan_block);
 }
 
 INTERCEPTOR(void, dispatch_group_async,
             dispatch_group_t dg, dispatch_queue_t dq, void(^work)(void)) {
+  ENABLE_FRAME_POINTER;
   GET_ASAN_BLOCK(work);
   REAL(dispatch_group_async)(dg, dq, asan_block);
 }
 
 INTERCEPTOR(void, dispatch_after,
             dispatch_time_t when, dispatch_queue_t queue, void(^work)(void)) {
+  ENABLE_FRAME_POINTER;
   GET_ASAN_BLOCK(work);
   REAL(dispatch_after)(when, queue, asan_block);
 }
 
 INTERCEPTOR(void, dispatch_source_set_cancel_handler,
             dispatch_source_t ds, void(^work)(void)) {
+  ENABLE_FRAME_POINTER;
   GET_ASAN_BLOCK(work);
   REAL(dispatch_source_set_cancel_handler)(ds, asan_block);
 }
 
 INTERCEPTOR(void, dispatch_source_set_event_handler,
             dispatch_source_t ds, void(^work)(void)) {
+  ENABLE_FRAME_POINTER;
   GET_ASAN_BLOCK(work);
   REAL(dispatch_source_set_event_handler)(ds, asan_block);
 }

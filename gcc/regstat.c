@@ -1,5 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck (zadeck@naturalbridge.com).
 
 This file is part of GCC.
@@ -29,6 +29,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "except.h"
 #include "hard-reg-set.h"
+#include "predict.h"
+#include "vec.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "machmode.h"
+#include "input.h"
+#include "function.h"
+#include "dominance.h"
+#include "cfg.h"
 #include "basic-block.h"
 #include "timevar.h"
 #include "df.h"
@@ -121,7 +130,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		       int *local_live_last_luid)
 {
   basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
-  rtx insn;
+  rtx_insn *insn;
   df_ref def, use;
   int luid = 0;
   bitmap_iterator bi;
@@ -429,7 +438,7 @@ static void
 regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
 {
   basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
-  rtx insn;
+  rtx_insn *insn;
   df_ref def, use;
 
   bitmap_copy (live, df_get_live_out (bb));

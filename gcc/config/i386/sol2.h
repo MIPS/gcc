@@ -1,5 +1,5 @@
 /* Target definitions for GCC for Intel 80386 running Solaris 2
-   Copyright (C) 1993-2014 Free Software Foundation, Inc.
+   Copyright (C) 1993-2015 Free Software Foundation, Inc.
    Contributed by Fred Fish (fnf@cygnus.com).
 
 This file is part of GCC.
@@ -236,9 +236,3 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef USE_GLD
 #define USE_HIDDEN_LINKONCE 0
 #endif
-
-/* Put all *tf routines in libgcc.  */
-#undef LIBGCC2_HAS_TF_MODE
-#define LIBGCC2_HAS_TF_MODE 1
-#define LIBGCC2_TF_CEXT q
-#define TF_SIZE 113
