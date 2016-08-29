@@ -403,7 +403,7 @@ compare_components (gfc_component *cmp1, gfc_component *cmp2,
   if (   (d1 && (d1->attr.flavor == FL_STRUCT || d1->attr.flavor == FL_UNION)
           && ISUPPER (cmp1->name[1]))
       || (d2 && (d2->attr.flavor == FL_STRUCT || d2->attr.flavor == FL_UNION)
-          && ISUPPER (cmp1->name[1])))
+          && ISUPPER (cmp2->name[1])))
     anonymous = true;
 
   if (!anonymous && strcmp (cmp1->name, cmp2->name) != 0)
@@ -2146,7 +2146,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
     {
       if (where)
 	gfc_error ("Type mismatch in argument %qs at %L; passed %s to %s",
-		   formal->name, &actual->where, gfc_typename (&actual->ts),
+		   formal->name, where, gfc_typename (&actual->ts),
 		   gfc_typename (&formal->ts));
       return 0;
     }

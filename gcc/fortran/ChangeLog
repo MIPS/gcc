@@ -1,3 +1,52 @@
+2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/77380
+	* dependency.c (gfc_check_dependency): Do not assert with
+	-fcoarray=lib.
+
+2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/77372
+	simplify.c (simplify_ieee_selected_real_kind): Check for NULL pointers.
+
+2016-08-25  Steven g. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77351
+	* frontend-passes.c (remove_trim,combine_array_constructor): Check for
+	NULL pointer.
+
+2016-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77358
+	* resolve.c (resolve_fl_procedure): Use the correct gfc_charlen
+	for deferred character length module procedures.
+
+2016-08-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* decl.c (gfc_match_structure_decl): Make gfc_structure_id static.
+
+2016-08-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* interface.c (compare_components): Fix typo in name check conditional.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Bud Davis  <jmdavis@link.com>
+
+	PR fortran/60774
+	* parse.c (next_free,next_fixed): Issue error for statement label
+	without a statement.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/61318
+	* interface.c (compare_parameter): Use better locus for error message.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77260
+	* gcc/fortran/trans-decl.c (generate_local_decl): Suppress warning
+	for unused variable if symbol is entry point.
+
 2016-08-19  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/32187

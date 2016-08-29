@@ -1,3 +1,434 @@
+2016-08-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/77324
+	* config/sparc/sparc.c (sparc_legitimate_address_p): Accept special
+	HIGH+LO construct during reload.
+
+2016-08-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/70955
+	* config/i386/i386.c (ix86_build_builtin_va_list_64): Tag type with
+	'sysv_abi va_list' attribute.
+	(ix86_build_builtin_va_list): Tag type with 'ms_abi va_list' attribute.
+	(ix86_canonical_va_list_type): Handle 'sysv_abi/ms_abi va_list'
+	attributes.
+
+2016-08-27  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* emit-rtl.h (struct rtl_data): Make stack_slot_list a vector.
+	* emit-rtl.c (unshare_all_rtl_1): Adjust.
+	(unshare_all_rtl_again): Likewise.
+	* function.c (assign_stack_local_1): Likewise.
+	(assign_stack_temp_for_type): Likewise.
+
+2016-08-27  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* cfgbuild.c (make_edges): Adjust.
+	* cfgrtl.c (can_delete_label_p): Likewise.
+	* dwarf2cfi.c (create_trace_edges): Likewise.
+	* except.c (sjlj_emit_dispatch_table): Likewise.
+	* function.h (struct expr_status): make x_forced_labels a vector.
+	* jump.c (rebuild_jump_labels_1): Adjust.
+	* reload1.c (set_initial_label_offsets): Likewise.
+	* stmt.c (force_label_rtx): Likewise.
+	(expand_label): Likewise.
+
+2016-08-27  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* haifa-sched.c (fix_recovery_deps): Make ready_list a vector.
+
+2016-08-27  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/71077
+	PR tree-optimization/68542
+	* fold-const.c (fold_relational_const): Fix folding of
+	VECTOR_CST comparisons that have a scalar boolean result type.
+	(selftest::test_vector_folding): New static function.
+	(selftest::fold_const_c_tests): Call it.
+
+2016-08-27  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (SPU Built-in Functions): Remove stale
+	references to material formerly at IBM and Sony.
+
+2016-08-26  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/77349
+	* config/rs6000/xcoff.h (DWARF_OFFSET_SIZE): Define as PTR_SIZE.
+
+2016-08-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c
+	(selftest::test_fixit_consolidation): New function.
+	(selftest::diagnostic_show_locus_c_tests): Call it.
+	* gcc-rich-location.h (gcc_rich_location): Eliminate unused
+	constructor based on source_range.
+
+2016-08-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-color.c (color_dict): Add "fixit-insert" and
+	"fixit-delete".
+	(parse_gcc_colors): Update description of default GCC_COLORS.
+	* diagnostic-show-locus.c (colorizer::set_fixit_hint): Delete.
+	(colorizer::set_fixit_insert): New method.
+	(colorizer::set_fixit_delete): New method.
+	(colorizer::get_color_by_name): New method.
+	(colorizer::STATE_FIXIT_INSERT): New constant.
+	(colorizer::STATE_FIXIT_DELETE): New constant.
+	(class colorizer): Drop "_cs" suffix from fields.  Delete "_ce"
+	fields in favor of new field "m_stop_color".  Add fields
+	"m_fixit_insert" and "m_fixit_delete".
+	(colorizer::colorizer): Update for above changes.  Replace
+	colorize_start calls with calls to get_color_by_name.
+	(colorizer::begin_state): Handle STATE_FIXIT_INSERT and
+	STATE_FIXIT_DELETE.  Update for field renamings.
+	(colorizer::finish_state): Simplify by using m_stop_color,
+	rather than multiple identical "*_ce" fields.
+	(colorizer::get_color_by_name): New method.
+	(layout::print_any_fixits): Print insertions and replacements
+	using the "fixit-insert" color, and deletions using the
+	"fixit-delete" color.
+	* doc/invoke.texi (-fdiagnostics-color): Update description of
+	default GCC_COLORS, and of the supported capabilities.
+
+2016-08-26  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/xtensa/xtensa.c (xtensa_expand_prologue): Update
+	current_function_static_stack_size variable with the static
+	stack frame size of the current function when
+	flag_stack_usage_info is enabled.
+
+2016-08-26  Nathan Sidwell  <nathan@acm.org>
+
+	* ipa-inline-analysis.c (inline_write_summary): Remove unnecessary
+	assignment inside if condition.
+
+2016-08-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69047
+	* tree-ssa.c (maybe_rewrite_mem_ref_base): Handle general bitfield
+	extracts similar to what FRE does.
+	(non_rewritable_mem_ref_base): Likewise.
+
+2016-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/i386.c (ix86_libgcc_floating_mode_supported_p)
+	(TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P): Remove.
+	* config/i386/i386elf.h (IX86_MAYBE_NO_LIBGCC_TFMODE): Likewise.
+	* config/i386/lynx.h (IX86_MAYBE_NO_LIBGCC_TFMODE): Likewise.
+	* config/i386/netbsd-elf.h (IX86_MAYBE_NO_LIBGCC_TFMODE):
+	Likewise.
+	* config/i386/netbsd64.h (IX86_MAYBE_NO_LIBGCC_TFMODE): Likewise.
+	* config/i386/nto.h (IX86_MAYBE_NO_LIBGCC_TFMODE): Likewise.
+	* config/i386/openbsd.h (IX86_MAYBE_NO_LIBGCC_TFMODE): Likewise.
+	* config/i386/rtemself.h (IX86_NO_LIBGCC_TFMODE): Likewise.
+	* config/i386/vxworks.h (IX86_MAYBE_NO_LIBGCC_TFMODE): Likewise.
+
+2016-08-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70473
+	* config/arm/cortex-a8-neon.md (cortex_a8_vfp_muld): Reduce
+	reservation duration to 15 cycles.
+	(cortex_a8_vfp_macs): Likewise.
+	(cortex_a8_vfp_macd): Likewise.
+	(cortex_a8_vfp_divs): Likewise.
+	(cortex_a8_vfp_divd): Likewise.
+
+2016-08-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (arm_sets_movw_movt_fusible_p): New function.
+	(aarch_macro_fusion_pair_p): Use above to avoid early return.
+
+2016-08-26  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+	    Martin Jambhor  <mjambor@suse.cz>
+
+	* common.opt: New option -fipa-bit-cp.
+	* doc/invoke.texi: Document -fipa-bit-cp.
+	* opts.c (default_options_table): Add entry for -fipa-bit-cp.
+	(enable_fdo_optimizations): Check for flag_ipa_bit_cp.
+	* tree-ssa-ccp.h: New header file.
+	* tree-ssa-ccp.c: Include tree-ssa-ccp.h
+	(bit_value_binop_1): Change to bit_value_binop_1 and export it.
+	Replace all occurences of tree parameter by two new params: signop, int.
+	(bit_value_unop_1): Change to bit_value_unop and export it.
+	Replace all occurences of tree parameter by two new params: signop,
+	int.
+	(bit_value_binop): Change call from bit_value_binop_1 to
+	bit_value_binop.
+	(bit_value_assume_aligned): Likewise.
+	(bit_value_unop): Change call from bit_value_unop_1 to bit_value_unop.
+	(do_ssa_ccp): Pass nonzero_p || flag_ipa_cp_bit instead of nonzero_p
+	to ccp_finalize.
+	(ccp_finalize): Skip processing if val->mask == 0.
+	* ipa-cp.c: Include tree-ssa-ccp.h
+	(ipcp_bits_lattice): New class.
+	(ipcp_param_lattice (bits_lattice): New member.
+	(print_all_lattices): Call ipcp_bits_lattice::print.
+	(set_all_contains_variable): Call ipcp_bits_lattice::set_to_bottom. 
+	(initialize_node_lattices): Likewise.
+	(propagate_bits_accross_jump_function): New function.
+	(propagate_constants_accross_call): Call
+	propagate_bits_accross_jump_function.
+	(ipcp_propagate_stage): Store parameter types when in_lto_p is true.
+	(ipcp_store_bits_results): New function.
+	(ipcp_driver): Call ipcp_store_bits_results.
+	* ipa-prop.h (ipa_bits): New struct.
+	(ipa_jump_func): Add new member bits of type ipa_bits.
+	(ipa_param_descriptor): Change decl to decl_or_type.
+	(ipa_get_param): Change decl to decl_or_type and assert on
+	PARM_DECL.
+	(ipa_get_type): New function.
+	(ipcp_transformation_summary): New member bits.
+	* ipa-prop.c (ipa_get_param_decl_index_1): s/decl/decl_or_type.
+	(ipa_populate_param_decls): Likewise.
+	(ipa_dump_param): Likewise.
+	(ipa_print_node_jump_functions_for_edge): Pretty-print ipa_bits jump
+	function.
+	(ipa_set_jf_unknown): Set ipa_bits::known to false.
+	(ipa_compute_jump_functions_for_edge): Compute jump function for bits
+	propagation.
+	(ipa_node_params_t::duplicate): Copy src->bits into dst->bits.
+	(ipa_write_jump_function): Add streaming for ipa_bits.
+	(ipa_read_jump_function): Add support for reading streamed ipa_bits.
+	(write_ipcp_transformation_info): Add streaming for ipa_bits
+	summary for ltrans.
+	(read_ipcp_transfomration_info): Add support for reading streamed ipa_bits.
+	(ipcp_update_bits): New function.
+	(ipcp_transform_function): Call ipcp_update_bits.
+
+2016-08-25  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/mips/linux.h (MUSL_DYNAMIC_LINKER32): Update.
+	(MUSL_DYNAMIC_LINKER64, MUSL_DYNAMIC_LINKERN32): Update.
+
+2016-08-25  David Edelsohn  <dje.gcc@gmail.com>
+
+	* multiple_target.c (pass_data_dispatcher_calls): Fix typo.
+
+2016-08-25  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (gen_remaining_tmpl_value_param_die_attributes):
+	Only add locations in late dwarf.
+	(gen_scheduled_generic_parms_dies): Do not set early dwarf here.
+	(dwarf2out_early_finish): But do it here.
+
+2016-08-24  Michael Collison <michael.collison@linaro.org>
+	    Michael Collison <michael.collison@arm.com>
+
+	* config/arm/arm-modes.def: Add new condition code mode CC_V
+	to represent the overflow bit.
+	* config/arm/arm.c (maybe_get_arm_condition_code):
+	Add support for CC_Vmode.
+	(arm_gen_unlikely_cbranch): New function to generate common
+	rtl conditional branches for overflow patterns.
+	* config/arm/arm-protos.h: Add prototype for
+	arm_gen_unlikely_cbranch.
+	* config/arm/arm.md (addv<mode>4, add<mode>3_compareV,
+	addsi3_compareV_upper): New patterns to support signed
+	builtin overflow add operations.
+	(uaddv<mode>4, add<mode>3_compareC, addsi3_compareV_upper):
+	New patterns to support unsigned builtin add overflow operations.
+	(subv<mode>4, sub<mode>3_compare1): New patterns to support signed
+	builtin overflow subtract operations,
+	(usubv<mode>4): New patterns to support unsigned builtin subtract
+	overflow operations.
+	(negvsi3, negvdi3, negdi2_compare, negsi2_carryin_compare): New patterns
+	to support builtin overflow negate operations.
+
+2016-08-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Revert
+	2016-08-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* explow.c (get_dynamic_stack_size): Take known alignment of stack
+	pointer + STACK_DYNAMIC_OFFSET into account when calculating the size
+	needed.
+
+2016-08-24  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* doc/fragments.texi (MULTILIB_REUSE): Mention that only options in
+	MULTILIB_OPTIONS should be used.  Small wording fixes.
+	* genmultilib: Memorize set of all option combinations in
+	combination_space.  Detect if RHS of MULTILIB_REUSE uses an option not
+	found in MULTILIB_OPTIONS by checking if option set is listed in
+	combination_space.  Output new and existing error message to stderr.
+
+2016-08-24  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/t-aprofile (MULTILIB_MATCHES): Add mapping for
+	-mcpu=cortex-a7, -mfpu=neon-fp16, -mfpu=fpv5-d16 and -mfpu=fp-armv8.
+	Fix typo in -mfpu=vfpv3-d16-fp16 mapping.
+	(MULTILIB_REUSE): Remove reuse rules for option set including
+	-mfpu=fp-armv8 and -mfpu=vfpv4
+
+2016-08-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/arm/t-rtems: Add vfp multilib.
+
+2016-08-23  Ian Lance Taylor  <iant@golang.org>
+
+	* config/s390/s390.c (s390_asm_file_start): Call
+	default_file_start.
+
+2016-08-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Set
+	initialization of all 0's to the 0 constant, instead of directly
+	generating XOR.  Add support for V4SImode vector initialization on
+	64-bit systems with direct move, and rework the ISA 3.0 V4SImode
+	initialization.  Change variables used in V4SFmode vector
+	intialization.  For V4SFmode vector splat on ISA 3.0, make sure
+	any memory addresses are in index form.  Add support for using
+	VSPLTH/VSPLTB to initialize vector short and vector char vectors
+	with all of the same element.
+	(regno_or_subregno): New helper function to return a register
+	number for either REG or SUBREG.
+	(rs6000_adjust_vec_address): Do not generate ADDI <reg>,R0,<num>.
+	Use regno_or_subregno where possible.
+	(rs6000_split_v4si_init_di_reg): New helper function to build up a
+	DImode value from two SImode values in order to generate V4SImode
+	vector initialization on 64-bit systems with direct move.
+	(rs6000_split_v4si_init): Split up the insns for a V4SImode vector
+	initialization.
+	(rtx_is_swappable_p): V4SImode vector initialization insn is not
+	swappable.
+	* config/rs6000/rs6000-protos.h (rs6000_split_v4si_init): Add
+	declaration.
+	* config/rs6000/vsx.md (VSX_SPLAT_I): New mode iterators and
+	attributes to initialize V8HImode and V16QImode vectors with the
+	same element.
+	(VSX_SPLAT_COUNT): Likewise.
+	(VSX_SPLAT_SUFFIX): Likewise.
+	(UNSPEC_VSX_VEC_INIT): New unspec.
+	(vsx_concat_v2sf): Eliminate using 'preferred' register classes.
+	Allow SFmode values to come from Altivec registers.
+	(vsx_init_v4si): New insn/split for V4SImode vector initialization
+	on 64-bit systems with direct move.
+	(vsx_splat_<mode>, VSX_W iterator): Rework V4SImode and V4SFmode
+	vector initializations, to allow V4SImode vector initializations
+	on 64-bit systems with direct move.
+	(vsx_splat_v4si): Likewise.
+	(vsx_splat_v4si_di): Likewise.
+	(vsx_splat_v4sf): Likewise.
+	(vsx_splat_v4sf_internal): Likewise.
+	(vsx_xxspltw_<mode>, VSX_W iterator): Eliminate using 'preferred'
+	register classes.
+	(vsx_xxspltw_<mode>_direct, VSX_W iterator): Likewise.
+	(vsx_vsplt<VSX_SPLAT_SUFFIX>_di): New insns to support
+	initializing V8HImode and V16QImode vectors with the same
+	element.
+	* config/rs6000/rs6000.h (TARGET_DIRECT_MOVE_64BIT): Disallow
+	optimization if -maltivec=be.
+
+2016-08-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/arm/arm.md (arm_movqi_insn): Swap predicable_short_it
+	attribute for alternatives 3 and 4.
+
+2016-08-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.c (selftest::assert_str_contains): New function.
+	(selftest::test_assertions): Verify ASSERT_STR_CONTAINS.
+	* selftest.h (selftest::assert_str_contains): New decl.
+	(ASSERT_STR_CONTAINS): New macro.
+
+2016-08-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77286
+	* tree-vect-loop.c (vect_analyze_loop_form_1): Do not modify
+	the CFG here.
+	(vect_transform_loop): Split exit edges of loop and scalar
+	loop if required and at the appropriate time.
+
+2016-08-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* explow.c (get_dynamic_stack_size): Take known alignment of stack
+	pointer + STACK_DYNAMIC_OFFSET into account when calculating the size
+	needed.
+	Correct a typo in a comment.
+
+2016-08-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("*andc_split"): New splitter for and with
+	complement.
+
+2016-08-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/27336
+	* tree-vrp.c (infer_value_range): Handle stmts that can throw
+	by looking for a non-EH edge.
+	(process_assert_insertions_for): Likewise.
+
+2016-08-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77305
+	* statistics.c (statistics_counter_event): Robustify against
+	NULL current_pass.
+
+2016-08-23  Venkataramanan Kumar
+
+	* config/i386/i386.c (processor_alias_table): Enable PTA_PRFCHW
+	for targets amdfam10 and barcelona.
+
+2016-08-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*zero_extendsidi2): Add (*r,*k) alternative.
+	(zero_extend<mode>di2): Ditto.
+	(*zero_extend<mode>si2): Ditto.
+	(*zero_extendqihi2): Ditto.
+
+2016-08-22  Joseph Myers  <joseph@codesourcery.com>
+
+	PR middle-end/77269
+	* builtins.c (fold_builtin_classify): Use builtin_decl_explicit
+	(BUILT_IN_SIGNBIT) to expand __builtin_isinf_sign.
+
+2016-08-22  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* print-tree.c (print_node) [VECTOR_CST]: Coalesce the output of
+	identical consecutive elements.
+	[SSA_NAME]: Print the name's def stmt on its own line.  When printing
+	the node's def stmt, avoid printing an unwanted trailing newline by
+	replacing the call to print_gimple_stmt() with its inlined body and
+	adjusting it to not set pp_needs_newline and to call pp_flush()
+	instead of pp_newline_and_flush().
+
+2016-08-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* tree.h (CASE_FLT_FN_FLOATN_NX, float16_type_node)
+	(float32_type_node, float64_type_node, float32x_type_node)
+	(float128x_type_node): New macros.
+	* builtin-types.def (BT_FLOAT16, BT_FLOAT32, BT_FLOAT64)
+	(BT_FLOAT128, BT_FLOAT32X, BT_FLOAT64X, BT_FLOAT128X)
+	(BT_FN_FLOAT16, BT_FN_FLOAT32, BT_FN_FLOAT64, BT_FN_FLOAT128)
+	(BT_FN_FLOAT32X, BT_FN_FLOAT64X, BT_FN_FLOAT128X)
+	(BT_FN_FLOAT16_FLOAT16, BT_FN_FLOAT32_FLOAT32)
+	(BT_FN_FLOAT64_FLOAT64, BT_FN_FLOAT128_FLOAT128)
+	(BT_FN_FLOAT32X_FLOAT32X, BT_FN_FLOAT64X_FLOAT64X)
+	(BT_FN_FLOAT128X_FLOAT128X, BT_FN_FLOAT16_CONST_STRING)
+	(BT_FN_FLOAT32_CONST_STRING, BT_FN_FLOAT64_CONST_STRING)
+	(BT_FN_FLOAT128_CONST_STRING, BT_FN_FLOAT32X_CONST_STRING)
+	(BT_FN_FLOAT64X_CONST_STRING, BT_FN_FLOAT128X_CONST_STRING)
+	(BT_FN_FLOAT16_FLOAT16_FLOAT16, BT_FN_FLOAT32_FLOAT32_FLOAT32)
+	(BT_FN_FLOAT64_FLOAT64_FLOAT64, BT_FN_FLOAT128_FLOAT128_FLOAT128)
+	(BT_FN_FLOAT32X_FLOAT32X_FLOAT32X)
+	(BT_FN_FLOAT64X_FLOAT64X_FLOAT64X)
+	(BT_FN_FLOAT128X_FLOAT128X_FLOAT128X): New type definitions.
+	* builtins.def (DEF_GCC_FLOATN_NX_BUILTINS): New macro.
+	(copysign, fabs, huge_val, inf, nan, nans): Use it.
+	* builtins.c (expand_builtin): Use CASE_FLT_FN_FLOATN_NX for fabs
+	and copysign.
+	(fold_builtin_0): Use CASE_FLT_FN_FLOATN_NX for inf and huge_val.
+	(fold_builtin_1): Use CASE_FLT_FN_FLOATN_NX for fabs.
+	* doc/extend.texi (Other Builtins): Document these built-in
+	functions.
+	* fold-const-call.c (fold_const_call): Use CASE_FLT_FN_FLOATN_NX
+	for nan and nans.
+
+2016-08-22  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Binaries): www.opencsw.org now uses https.
+
 2016-08-22  Richard Biener  <rguenther@suse.de>
 
 	* tree-ssa-forwprop.c (pass_forwprop::execute): Use RPO order.

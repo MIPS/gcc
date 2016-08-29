@@ -366,6 +366,9 @@
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2059" target="_top">2059</a>:
 	<span class="emphasis"><em>C++0x ambiguity problem with map::erase</em></span>
     </span></dt><dd><p>Add additional overloads.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2062" target="_top">2062</a>:
+	<span class="emphasis"><em>2062. Effect contradictions w/o no-throw guarantee of <code class="code">std::function</code> swaps</em></span>
+    </span></dt><dd><p>Add <code class="code">noexcept</code> to swap functions.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2063" target="_top">2063</a>:
 	<span class="emphasis"><em>Contradictory requirements for string move assignment</em></span>
     </span></dt><dd><p>Respect propagation trait for move assignment.
@@ -387,6 +390,9 @@
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2118" target="_top">2118</a>:
 	<span class="emphasis"><em><code class="code">unique_ptr</code> for array does not support cv qualification conversion of actual argument</em></span>
     </span></dt><dd><p>Adjust constraints to allow safe conversions.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2127" target="_top">2127</a>:
+	<span class="emphasis"><em>Move-construction with <code class="code">raw_storage_iterator</code></em></span>
+    </span></dt><dd><p>Add assignment operator taking an rvalue.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2132" target="_top">2132</a>:
 	<span class="emphasis"><em><code class="code">std::function</code> ambiguity</em></span>
     </span></dt><dd><p>Constrain the constructor to only accept callable types.
@@ -472,6 +478,10 @@
        <span class="emphasis"><em><code class="code">allocator_traits::max_size()</code> default behavior is incorrect
        </em></span>
     </span></dt><dd><p>Divide by the object type.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2583" target="_top">2583</a>:
+       <span class="emphasis"><em>There is no way to supply an allocator for <code class="code"> basic_string(str, pos)</code>
+       </em></span>
+    </span></dt><dd><p>Add new constructor
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2684" target="_top">2684</a>:
        <span class="emphasis"><em><code class="code">priority_queue</code> lacking comparator typedef
        </em></span>
