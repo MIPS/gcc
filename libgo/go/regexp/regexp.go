@@ -7,9 +7,9 @@
 // The syntax of the regular expressions accepted is the same
 // general syntax used by Perl, Python, and other languages.
 // More precisely, it is the syntax accepted by RE2 and described at
-// http://code.google.com/p/re2/wiki/Syntax, except for \C.
+// https://golang.org/s/re2syntax, except for \C.
 // For an overview of the syntax, run
-//   godoc regexp/syntax
+//   go doc regexp/syntax
 //
 // The regexp implementation provided by this package is
 // guaranteed to run in time linear in the size of the input.
@@ -83,7 +83,7 @@ type Regexp struct {
 	// read-only after Compile
 	expr           string         // as passed to Compile
 	prog           *syntax.Prog   // compiled program
-	onepass        *onePassProg   // onpass program or nil
+	onepass        *onePassProg   // onepass program or nil
 	prefix         string         // required prefix in unanchored matches
 	prefixBytes    []byte         // prefix, as a []byte
 	prefixComplete bool           // prefix is the entire regexp
@@ -138,35 +138,29 @@ type instr struct {
 	left   *instr     // iAlt, other branch
 }
 
-func (i *instr) print() {
-	switch i.kind {
-	case iStart:
-		print("start")
-	case iEnd:
-		print("end")
-	case iBOT:
-		print("bot")
-	case iEOT:
-		print("eot")
-	case iChar:
-		print("char ", string(i.char))
-	case iCharClass:
-		i.cclass.print()
-	case iAny:
-		print("any")
-	case iNotNL:
-		print("notnl")
-	case iBra:
-		if i.braNum&1 == 0 {
-			print("bra", i.braNum/2)
-		} else {
-			print("ebra", i.braNum/2)
-		}
-	case iAlt:
-		print("alt(", i.left.index, ")")
-	case iNop:
-		print("nop")
-	}
+// Copy returns a new Regexp object copied from re.
+//
+// When using a Regexp in multiple goroutines, giving each goroutine
+// its own copy helps to avoid lock contention.
+func (re *Regexp) Copy() *Regexp {
+	r := *re
+	r.mu = sync.Mutex{}
+	r.machine = nil
+	return &r
+}
+
+// Compile parses a regular expression and returns, if successful,
+// a Regexp object that can be used to match against text.
+//
+// When matching against text, the regexp returns a match that
+// begins as early as possible in the input (leftmost), and among those
+// it chooses the one that a backtracking search would have found first.
+// This so-called leftmost-first matching is the same semantics
+// that Perl, Python, and other implementations use, although this
+// package implements it without the expense of backtracking.
+// For POSIX leftmost-longest matching, see CompilePOSIX.
+func Compile(expr string) (*Regexp, error) {
+	return compile(expr, syntax.Perl, false)
 }
 
 // Regexp is the representation of a compiled regular expression.
@@ -846,6 +840,10 @@ func (re *Regexp) replaceAll(bsrc []byte, src string, nmatch int, repl func(dst 
 	} else {
 		endPos = len(src)
 	}
+	if nmatch > re.prog.NumCap {
+		nmatch = re.prog.NumCap
+	}
+
 	for searchPos <= endPos {
 		a := re.doExecute(nil, bsrc, src, searchPos, nmatch)
 		if len(a) == 0 {

@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2010-2015 Free Software Foundation, Inc.
+// Copyright (C) 2010-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -1693,7 +1693,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       const_reference
       operator[](size_type __sub) const
       {
-	_GLIBCXX_DEBUG_ASSERT( ready() );
+	__glibcxx_assert( ready() );
 	return __sub < size()
 	       ? _Base_type::operator[](__sub)
 	       : _M_unmatched_sub();
@@ -1710,7 +1710,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       const_reference
       prefix() const
       {
-	_GLIBCXX_DEBUG_ASSERT( ready() );
+	__glibcxx_assert( ready() );
 	return !empty() ? _M_prefix() : _M_unmatched_sub();
       }
 
@@ -1725,7 +1725,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       const_reference
       suffix() const
       {
-	_GLIBCXX_DEBUG_ASSERT( ready() );
+	__glibcxx_assert( ready() );
 	return !empty() ? _M_suffix() : _M_unmatched_sub();
       }
 

@@ -41,17 +41,11 @@ toolexeclib_LTLIBRARIES = libgfortran.la
 toolexeclib_DATA = libgfortran.spec
 libgfortran_la_LINK = $(LINK) $(libgfortran_la_LDFLAGS)
 libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
-	$(LTLDFLAGS) $(LIBQUADLIB) -lm $(extra_ldflags_libgfortran) \
+	$(LTLDFLAGS) $(LIBQUADLIB) ../libbacktrace/libbacktrace.la \
+	-lm $(extra_ldflags_libgfortran) \
 	$(version_arg) -Wc,-shared-libgcc
 libgfortran_la_DEPENDENCIES = ISO_Fortran_binding.h $(version_dep) libgfortran.spec \
 	$(LIBQUADLIB_DEP)
-
-myexeclib_LTLIBRARIES = libgfortranbegin.la
-myexeclibdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)$(MULTISUBDIR)
-libgfortranbegin_la_SOURCES = fmain.c
-libgfortranbegin_la_LDFLAGS = -static
-libgfortranbegin_la_DEPENDENCIES = ISO_Fortran_binding.h libgfortran.h
-libgfortranbegin_la_LINK = $(LINK) $(libgfortranbegin_la_LDFLAGS)
 
 cafexeclib_LTLIBRARIES = libcaf_single.la
 cafexeclibdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)$(MULTISUBDIR)
@@ -71,7 +65,10 @@ AM_CPPFLAGS = -iquote$(srcdir)/io -I$(srcdir)/$(MULTISRCTOP)../gcc \
 	      -I$(srcdir)/$(MULTISRCTOP)../gcc/config $(LIBQUADINCLUDE) \
 	      -I$(MULTIBUILDTOP)../../$(host_subdir)/gcc \
 	      -I$(srcdir)/$(MULTISRCTOP)../libgcc \
-	      -I$(MULTIBUILDTOP)../libgcc
+	      -I$(MULTIBUILDTOP)../libgcc \
+	      -I$(srcdir)/$(MULTISRCTOP)../libbacktrace \
+	      -I$(MULTIBUILDTOP)../libbacktrace \
+	      -I../libbacktrace
 
 # Fortran rules for complex multiplication and division
 AM_CFLAGS += -fcx-fortran-rules
@@ -492,6 +489,8 @@ $(srcdir)/generated/transpose_c10.c \
 $(srcdir)/generated/transpose_c16.c
 
 i_shape_c= \
+$(srcdir)/generated/shape_i1.c \
+$(srcdir)/generated/shape_i2.c \
 $(srcdir)/generated/shape_i4.c \
 $(srcdir)/generated/shape_i8.c \
 $(srcdir)/generated/shape_i16.c

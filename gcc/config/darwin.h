@@ -1,5 +1,5 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -177,7 +177,7 @@ extern GTY(()) int darwin_ms_struct;
     %{o*}%{!o:-o a.out} \
     %{!nostdlib:%{!nostartfiles:%S}} \
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} \
-    %{fopenacc|fopenmp|ftree-parallelize-loops=*: \
+    %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1): \
       %{static|static-libgcc|static-libstdc++|static-libgfortran: libgomp.a%s; : -lgomp } } \
     %{fgnu-tm: \
       %{static|static-libgcc|static-libstdc++|static-libgfortran: libitm.a%s; : -litm } } \
@@ -207,14 +207,23 @@ extern GTY(()) int darwin_ms_struct;
 #undef  LINK_GCC_C_SEQUENCE_SPEC
 #define LINK_GCC_C_SEQUENCE_SPEC "%G %L"
 
-#ifdef TARGET_SYSTEM_ROOT
-#define LINK_SYSROOT_SPEC \
-  "%{isysroot*:-syslibroot %*;:-syslibroot " TARGET_SYSTEM_ROOT "}"
-#else
-#define LINK_SYSROOT_SPEC "%{isysroot*:-syslibroot %*}"
-#endif
+/* ld64 supports a sysroot, it just has a different name and there's no easy
+   way to check for it at config time.  */
+#undef HAVE_LD_SYSROOT
+#define HAVE_LD_SYSROOT 1
+/* It seems the only (working) way to get a space after %R is to append a
+   dangling '/'.  */
+#define SYSROOT_SPEC "%{!isysroot*:-syslibroot %R/ }"
 
-#define PIE_SPEC "%{fpie|pie|fPIE:}"
+/* Do the same as clang, for now, and insert the sysroot for ld when an
+   isysroot is specified.  */
+#define LINK_SYSROOT_SPEC "%{isysroot*:-syslibroot %*}"
+
+/* Suppress the addition of extra prefix paths when a sysroot is in use.  */
+#define STANDARD_STARTFILE_PREFIX_1 ""
+#define STANDARD_STARTFILE_PREFIX_2 ""
+
+#define DARWIN_PIE_SPEC "%{fpie|pie|fPIE:}"
 
 /* Please keep the random linker options in alphabetical order (modulo
    'Z' and 'no' prefixes). Note that options taking arguments may appear
@@ -271,7 +280,6 @@ extern GTY(()) int darwin_ms_struct;
    %{headerpad_max_install_names} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
-   %{!mmacosx-version-min=*:-macosx_version_min %(darwin_minversion)} \
    %{mmacosx-version-min=*:-macosx_version_min %*} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
@@ -280,7 +288,7 @@ extern GTY(()) int darwin_ms_struct;
      %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
      %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
-   " PIE_SPEC " \
+   " DARWIN_PIE_SPEC " \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
    %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
@@ -370,8 +378,7 @@ extern GTY(()) int darwin_ms_struct;
 
 #define DARWIN_EXTRA_SPECS						\
   { "darwin_crt1", DARWIN_CRT1_SPEC },					\
-  { "darwin_dylib1", DARWIN_DYLIB1_SPEC },				\
-  { "darwin_minversion", DARWIN_MINVERSION_SPEC },
+  { "darwin_dylib1", DARWIN_DYLIB1_SPEC },
 
 #define DARWIN_DYLIB1_SPEC						\
   "%:version-compare(!> 10.5 mmacosx-version-min= -ldylib1.o)		\
@@ -393,12 +400,13 @@ extern GTY(()) int darwin_ms_struct;
 
 #define ASM_DEBUG_SPEC  "%{g*:%{!g0:%{!gdwarf*:--gstabs}}}"
 
-/* We still allow output of STABS.  */
-
+/* We still allow output of STABS if the assembler supports it.  */
+#ifdef HAVE_AS_STABS_DIRECTIVE
 #define DBX_DEBUGGING_INFO 1
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#endif
 
 #define DWARF2_DEBUGGING_INFO 1
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define DEBUG_FRAME_SECTION	"__DWARF,__debug_frame,regular,debug"
 #define DEBUG_INFO_SECTION	"__DWARF,__debug_info,regular,debug"
@@ -532,7 +540,7 @@ extern GTY(()) int darwin_ms_struct;
 #define TARGET_ASM_LTO_END darwin_asm_lto_end
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space "HOST_WIDE_INT_PRINT_UNSIGNED"\n", SIZE)
+  fprintf (FILE, "\t.space " HOST_WIDE_INT_PRINT_UNSIGNED"\n", SIZE)
 
 /* Give ObjC methods pretty symbol names.  */
 
@@ -916,7 +924,9 @@ extern void darwin_driver_init (unsigned int *,struct cl_decoded_option **);
 #define SUPPORTS_INIT_PRIORITY 0
 
 /* When building cross-compilers (and native crosses) we shall default to 
-   providing an osx-version-min of this unless overridden by the User.  */
-#define DEF_MIN_OSX_VERSION "10.4"
+   providing an osx-version-min of this unless overridden by the User.
+   10.5 is the only version that fully supports all our archs so that's the
+   fall-back default.  */
+#define DEF_MIN_OSX_VERSION "10.5"
 
 #endif /* CONFIG_DARWIN_H */

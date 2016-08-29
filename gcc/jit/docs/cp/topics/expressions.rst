@@ -1,4 +1,4 @@
-.. Copyright (C) 2014-2015 Free Software Foundation, Inc.
+.. Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Originally contributed by David Malcolm <dmalcolm@redhat.com>
 
    This is free software: you can redistribute it and/or modify it
@@ -535,7 +535,7 @@ If you don't need to specify the location, this can also be expressed using
 an overloaded operator:
 
 .. function:: gccjit::lvalue \
-              gccjit::rvalue::operator* ();
+              gccjit::rvalue::operator* ()
 
    .. code-block:: c++
 

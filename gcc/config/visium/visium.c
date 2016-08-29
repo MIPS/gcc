@@ -1,5 +1,5 @@
 /* Output routines for Visium.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by C.Nettleton, J.P.Parkes and P.Garbett.
 
    This file is part of GCC.
@@ -21,64 +21,76 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "input.h"
-#include "statistics.h"
-#include "vec.h"
-#include "double-int.h"
-#include "real.h"
-#include "fixed-value.h"
+#include "backend.h"
+#include "target.h"
+#include "rtl.h"
+#include "tree.h"
+#include "gimple-expr.h"
+#include "df.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "diagnostic-core.h"
 #include "alias.h"
 #include "flags.h"
-#include "symtab.h"
-#include "tree-core.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "fold-const.h"
-#include "tree-check.h"
-#include "tree.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "rtl.h"
-#include "regs.h"
-#include "hard-reg-set.h"
-#include "insn-config.h"
-#include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
-#include "function.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "recog.h"
-#include "diagnostic-core.h"
-#include "tm_p.h"
-#include "ggc.h"
-#include "optabs.h"
-#include "target.h"
-#include "target-def.h"
-#include "common/common-target.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "gimple-expr.h"
 #include "gimplify.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "tm-constrs.h"
-#include "df.h"
 #include "params.h"
-#include "errors.h"
 #include "tree-pass.h"
 #include "context.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
+
+/* Enumeration of indexes into machine_libfunc_table.  */
+enum machine_libfunc_index
+{
+  MLTI_long_int_memcpy,
+  MLTI_wrd_memcpy,
+  MLTI_byt_memcpy,
+
+  MLTI_long_int_memset,
+  MLTI_wrd_memset,
+  MLTI_byt_memset,
+
+  MLTI_set_trampoline_parity,
+
+  MLTI_MAX
+};
+
+struct GTY(()) machine_libfuncs
+{
+  rtx table[MLTI_MAX];
+};
+
+/* The table of Visium-specific libfuncs.  */
+static GTY(()) struct machine_libfuncs visium_libfuncs;
+
+#define vlt visium_libfuncs.table
+
+/* Accessor macros for visium_libfuncs.  */
+#define long_int_memcpy_libfunc		(vlt[MLTI_long_int_memcpy])
+#define wrd_memcpy_libfunc		(vlt[MLTI_wrd_memcpy])
+#define byt_memcpy_libfunc		(vlt[MLTI_byt_memcpy])
+#define long_int_memset_libfunc		(vlt[MLTI_long_int_memset])
+#define wrd_memset_libfunc		(vlt[MLTI_wrd_memset])
+#define byt_memset_libfunc		(vlt[MLTI_byt_memset])
+#define set_trampoline_parity_libfunc	(vlt[MLTI_set_trampoline_parity])
 
 /* Machine specific function data. */
 struct GTY (()) machine_function
@@ -122,7 +134,6 @@ int visium_indent_opcode = 0;
    given how unlikely it is to have a long branch in a leaf function.  */
 static unsigned int long_branch_regnum = 31;
 
-static void visium_output_address (FILE *, enum machine_mode, rtx);
 static tree visium_handle_interrupt_attr (tree *, tree, tree, int, bool *);
 static inline bool current_function_saves_fp (void);
 static inline bool current_function_saves_lr (void);
@@ -172,11 +183,17 @@ static bool visium_frame_pointer_required (void);
 
 static tree visium_build_builtin_va_list (void);
 
-static tree visium_md_asm_clobbers (tree, tree, tree);
+static rtx_insn *visium_md_asm_adjust (vec<rtx> &, vec<rtx> &,
+				       vec<const char *> &,
+				       vec<rtx> &, HARD_REG_SET &);
 
 static bool visium_legitimate_constant_p (enum machine_mode, rtx);
 
 static bool visium_legitimate_address_p (enum machine_mode, rtx, bool);
+
+static bool visium_print_operand_punct_valid_p (unsigned char);
+static void visium_print_operand (FILE *, rtx, int);
+static void visium_print_operand_address (FILE *, machine_mode, rtx);
 
 static void visium_conditional_register_usage (void);
 
@@ -201,9 +218,11 @@ static int visium_register_move_cost (enum machine_mode, reg_class_t,
 
 static int visium_memory_move_cost (enum machine_mode, reg_class_t, bool);
 
-static bool visium_rtx_costs (rtx, int, int, int, int *, bool);
+static bool visium_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 
 static void visium_option_override (void);
+
+static void visium_init_libfuncs (void);
 
 static unsigned int visium_reorg (void);
 
@@ -247,6 +266,13 @@ static unsigned int visium_reorg (void);
 
 #undef  TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P visium_legitimate_address_p
+
+#undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
+#define TARGET_PRINT_OPERAND_PUNCT_VALID_P visium_print_operand_punct_valid_p
+#undef TARGET_PRINT_OPERAND
+#define TARGET_PRINT_OPERAND visium_print_operand
+#undef TARGET_PRINT_OPERAND_ADDRESS
+#define TARGET_PRINT_OPERAND_ADDRESS visium_print_operand_address
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE visium_attribute_table
@@ -293,14 +319,17 @@ static unsigned int visium_reorg (void);
 #undef  TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE visium_option_override
 
+#undef  TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS visium_init_libfuncs
+
 #undef  TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE visium_conditional_register_usage
 
 #undef  TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT visium_trampoline_init
 
-#undef TARGET_MD_ASM_CLOBBERS
-#define TARGET_MD_ASM_CLOBBERS visium_md_asm_clobbers
+#undef TARGET_MD_ASM_ADJUST
+#define TARGET_MD_ASM_ADJUST visium_md_asm_adjust
 
 #undef TARGET_FLAGS_REGNUM
 #define TARGET_FLAGS_REGNUM FLAGS_REGNUM
@@ -431,6 +460,23 @@ visium_option_override (void)
       PASS_POS_INSERT_AFTER		/* po_op */
     };
   register_pass (&insert_pass_visium_reorg);
+}
+
+/* Register the Visium-specific libfuncs with the middle-end.  */
+
+static void
+visium_init_libfuncs (void)
+{
+  if (!TARGET_BMI)
+    long_int_memcpy_libfunc = init_one_libfunc ("__long_int_memcpy");
+  wrd_memcpy_libfunc = init_one_libfunc ("__wrd_memcpy");
+  byt_memcpy_libfunc = init_one_libfunc ("__byt_memcpy");
+
+  long_int_memset_libfunc = init_one_libfunc ("__long_int_memset");
+  wrd_memset_libfunc = init_one_libfunc ("__wrd_memset");
+  byt_memset_libfunc = init_one_libfunc ("__byt_memset");
+
+  set_trampoline_parity_libfunc = init_one_libfunc ("__set_trampoline_parity");
 }
 
 /* Return the number of instructions that can issue on the same cycle.  */
@@ -720,13 +766,14 @@ visium_conditional_register_usage (void)
    an asm   We do this for the FLAGS to maintain source compatibility with
    the original cc0-based compiler.  */
 
-static tree
-visium_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
-			tree inputs ATTRIBUTE_UNUSED,
-			tree clobbers)
+static rtx_insn *
+visium_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
+		      vec<const char *> &/*constraints*/,
+		      vec<rtx> &clobbers, HARD_REG_SET &clobbered_regs)
 {
-  const char *flags = reg_names[FLAGS_REGNUM];
-  return tree_cons (NULL_TREE, build_string (strlen (flags), flags), clobbers);
+  clobbers.safe_push (gen_rtx_REG (CCmode, FLAGS_REGNUM));
+  SET_HARD_REG_BIT (clobbered_regs, FLAGS_REGNUM);
+  return NULL;
 }
 
 /* Return true if X is a legitimate constant for a MODE immediate operand.
@@ -1358,7 +1405,7 @@ visium_setup_incoming_varargs (cumulative_args_t pcum_v,
   local_args_so_far.p = &local_copy;
   locargs = get_cumulative_args (pcum_v);
 
-#ifdef ENABLE_CHECKING
+#if CHECKING_P
   local_args_so_far.magic = CUMULATIVE_ARGS_MAGIC;
 #endif
 
@@ -1897,11 +1944,11 @@ visium_memory_move_cost (enum machine_mode mode,
 /* Return the relative costs of expression X.  */
 
 static bool
-visium_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
+visium_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
 		  int opno ATTRIBUTE_UNUSED, int *total,
 		  bool speed ATTRIBUTE_UNUSED)
 {
-  enum machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
 
   switch (code)
     {
@@ -2052,9 +2099,7 @@ visium_expand_copysign (rtx *operands, enum machine_mode mode)
       if (op0 != CONST0_RTX (mode))
 	{
 	  long l;
-	  REAL_VALUE_TYPE rv;
-	  REAL_VALUE_FROM_CONST_DOUBLE (rv, op0);
-	  REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op0), l);
 	  op0 = force_reg (SImode, GEN_INT (trunc_int_for_mode (l, SImode)));
 	}
     }
@@ -2076,7 +2121,7 @@ visium_expand_copysign (rtx *operands, enum machine_mode mode)
     x = force_reg (SImode, gen_rtx_IOR (SImode, op0, op1));
 
   /* And move the result to the destination.  */
-  emit_insn (gen_rtx_SET (VOIDmode, dest, gen_lowpart (SFmode, x)));
+  emit_insn (gen_rtx_SET (dest, gen_lowpart (SFmode, x)));
 }
 
 /* Expand a cstore of OPERANDS in MODE for EQ/NE/LTU/GTU/GEU/LEU.  We generate
@@ -2138,7 +2183,7 @@ visium_expand_int_cstore (rtx *operands, enum machine_mode mode)
       emit_insn (gen_add3_insn (op0, tmp, const1_rtx));
     }
   else
-    emit_insn (gen_rtx_SET (VOIDmode, op0, sltu));
+    emit_insn (gen_rtx_SET (op0, sltu));
 }
 
 /* Expand a cstore of OPERANDS in MODE for LT/GT/UNGE/UNLE.  We generate the
@@ -2186,7 +2231,7 @@ visium_expand_fp_cstore (rtx *operands,
       emit_insn (gen_add3_insn (op0, tmp, const1_rtx));
     }
   else
-    emit_insn (gen_rtx_SET (VOIDmode, op0, slt));
+    emit_insn (gen_rtx_SET (op0, slt));
 }
 
 /* Split a compare-and-store with CODE, operands OP2 and OP3, combined with
@@ -2204,7 +2249,7 @@ visium_split_cstore (enum rtx_code op_code, rtx op0, rtx op1,
 
   rtx flags = gen_rtx_REG (cc_mode, FLAGS_REGNUM);
   rtx x = gen_rtx_COMPARE (cc_mode, op2, op3);
-  x = gen_rtx_SET (VOIDmode, flags, x);
+  x = gen_rtx_SET (flags, x);
   emit_insn (x);
 
   x = gen_rtx_fmt_ee (code, SImode, flags, const0_rtx);
@@ -2224,7 +2269,7 @@ visium_split_cstore (enum rtx_code op_code, rtx op0, rtx op1,
     }
 
   rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
-  XVECEXP (pat, 0, 0) = gen_rtx_SET (VOIDmode, op0, x);
+  XVECEXP (pat, 0, 0) = gen_rtx_SET (op0, x);
   flags = gen_rtx_REG (CCmode, FLAGS_REGNUM);
   XVECEXP (pat, 0, 1) = gen_rtx_CLOBBER (VOIDmode, flags);
   emit_insn (pat);
@@ -2238,7 +2283,6 @@ visium_split_cstore (enum rtx_code op_code, rtx op0, rtx op1,
 static void
 expand_block_move_4 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__long_int_memcpy");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 4;
 
@@ -2253,8 +2297,7 @@ expand_block_move_4 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 
       insn = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (8));
       XVECEXP (insn, 0, 0)
-	= gen_rtx_SET (VOIDmode,
-		       replace_equiv_address_nv (dst, regno_reg_rtx[1]),
+	= gen_rtx_SET (replace_equiv_address_nv (dst, regno_reg_rtx[1]),
 		       replace_equiv_address_nv (src, regno_reg_rtx[2]));
       XVECEXP (insn, 0, 1) = gen_rtx_USE (VOIDmode, regno_reg_rtx[3]);
       for (i = 1; i <= 6; i++)
@@ -2263,8 +2306,9 @@ expand_block_move_4 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
       emit_insn (insn);
     }
   else
-    emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode, src_reg,
-		       Pmode,
+    emit_library_call (long_int_memcpy_libfunc, LCT_NORMAL, VOIDmode, 3,
+		       dst_reg, Pmode,
+		       src_reg, Pmode,
 		       convert_to_mode (TYPE_MODE (sizetype),
 					GEN_INT (bytes >> 2),
 				        TYPE_UNSIGNED (sizetype)),
@@ -2295,12 +2339,12 @@ expand_block_move_4 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 static void
 expand_block_move_2 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__wrd_memcpy");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 2;
 
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode, src_reg,
-		     Pmode,
+  emit_library_call (wrd_memcpy_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
+		     src_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      GEN_INT (bytes >> 1),
 				      TYPE_UNSIGNED (sizetype)),
@@ -2322,9 +2366,8 @@ expand_block_move_2 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 static void
 expand_block_move_1 (rtx dst_reg, rtx src_reg, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__byt_memcpy");
-
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (byt_memcpy_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     src_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      bytes_rtx,
@@ -2338,12 +2381,12 @@ expand_block_move_1 (rtx dst_reg, rtx src_reg, rtx bytes_rtx)
 static void
 expand_block_set_4 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__long_int_memset");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 4;
 
   value_rtx = convert_to_mode (Pmode, value_rtx, 1);
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (long_int_memset_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     value_rtx, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      GEN_INT (bytes >> 2),
@@ -2384,12 +2427,12 @@ expand_block_set_4 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 static void
 expand_block_set_2 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__wrd_memset");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 2;
 
   value_rtx = convert_to_mode (Pmode, value_rtx, 1);
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (wrd_memset_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     value_rtx, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      GEN_INT (bytes >> 1),
@@ -2411,10 +2454,9 @@ expand_block_set_2 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 static void
 expand_block_set_1 (rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__byt_memset");
-
   value_rtx = convert_to_mode (Pmode, value_rtx, 1);
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (byt_memset_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     value_rtx, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      bytes_rtx,
@@ -2565,8 +2607,8 @@ visium_trampoline_init (rtx m_tramp, tree fndecl, rtx static_chain)
 					     GEN_INT (0xffff), NULL_RTX),
 				 0x04940000));
 
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__set_trampoline_parity"),
-		     LCT_NORMAL, VOIDmode, 1, addr, SImode);
+  emit_library_call (set_trampoline_parity_libfunc, LCT_NORMAL, VOIDmode, 1,
+		     addr, SImode);
 }
 
 /* Return true if the current function must have and use a frame pointer.  */
@@ -2764,13 +2806,13 @@ visium_split_cbranch (enum rtx_code code, rtx op0, rtx op1, rtx label)
   rtx flags = gen_rtx_REG (cc_mode, FLAGS_REGNUM);
 
   rtx x = gen_rtx_COMPARE (cc_mode, op0, op1);
-  x = gen_rtx_SET (VOIDmode, flags, x);
+  x = gen_rtx_SET (flags, x);
   emit_insn (x);
 
   x = gen_rtx_fmt_ee (code, VOIDmode, flags, const0_rtx);
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, x, gen_rtx_LABEL_REF (Pmode, label),
 			    pc_rtx);
-  x = gen_rtx_SET (VOIDmode, pc_rtx, x);
+  x = gen_rtx_SET (pc_rtx, x);
   emit_jump_insn (x);
 
   visium_flags_exposed = true;
@@ -3061,12 +3103,19 @@ output_cbranch (rtx label, enum rtx_code code, enum machine_mode cc_mode,
   return output_branch (label, cond, insn);
 }
 
-/* Helper function for PRINT_OPERAND (STREAM, X, CODE).  Output to stdio
-   stream FILE the assembler syntax for an instruction operand OP subject
-   to the modifier LETTER.  */
+/* Implement TARGET_PRINT_OPERAND_PUNCT_VALID_P.  */
 
-void
-print_operand (FILE *file, rtx op, int letter)
+static bool
+visium_print_operand_punct_valid_p (unsigned char code)
+{
+  return code == '#';
+}
+
+/* Implement TARGET_PRINT_OPERAND.  Output to stdio stream FILE the assembler
+   syntax for an instruction operand OP subject to the modifier LETTER.  */
+
+static void
+visium_print_operand (FILE *file, rtx op, int letter)
 {
   switch (letter)
     {
@@ -3127,7 +3176,7 @@ print_operand (FILE *file, rtx op, int letter)
       break;
 
     case MEM:
-      visium_output_address (file, GET_MODE (op), XEXP (op, 0));
+      visium_print_operand_address (file, GET_MODE (op), XEXP (op, 0));
       break;
 
     case CONST_INT:
@@ -3139,7 +3188,7 @@ print_operand (FILE *file, rtx op, int letter)
       break;
 
     case HIGH:
-      print_operand (file, XEXP (op, 1), letter);
+      visium_print_operand (file, XEXP (op, 1), letter);
       break;
 
     default:
@@ -3147,11 +3196,12 @@ print_operand (FILE *file, rtx op, int letter)
     }
 }
 
-/* Output to stdio stream FILE the assembler syntax for an instruction operand
-   that is a memory reference in MODE and whose address is ADDR.  */
+/* Implement TARGET_PRINT_OPERAND_ADDRESS.  Output to stdio stream FILE the
+   assembler syntax for an instruction operand that is a memory reference
+   whose address is ADDR.  */
 
 static void
-visium_output_address (FILE *file, enum machine_mode mode, rtx addr)
+visium_print_operand_address (FILE *file, enum machine_mode mode, rtx addr)
 {
   switch (GET_CODE (addr))
     {
@@ -3226,16 +3276,6 @@ visium_output_address (FILE *file, enum machine_mode mode, rtx addr)
       fatal_insn ("illegal operand address (4)", addr);
       break;
     }
-}
-
-/* Helper function for PRINT_OPERAND_ADDRESS (STREAM, X).  Output to stdio
-   stream FILE the assembler syntax for an instruction operand that is a
-   memory reference whose address is ADDR.  */
-
-void
-print_operand_address (FILE *file, rtx addr)
-{
-  visium_output_address (file, QImode, addr);
 }
 
 /* The Visium stack frames look like:
@@ -3600,7 +3640,7 @@ visium_save_regs (int alloc, int offset, int low_regno, int high_regno)
 		  {
 		    insn = emit_frame_insn (gen_movdi (mem, tmp));
 		    add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-				  gen_rtx_SET (VOIDmode, mem, reg));
+				  gen_rtx_SET (mem, reg));
 		  }
 	      }
 	      break;
@@ -3617,7 +3657,7 @@ visium_save_regs (int alloc, int offset, int low_regno, int high_regno)
 		emit_insn (gen_movsi (tmp, reg));
 		insn = emit_frame_insn (gen_movsi (mem, tmp));
 		add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			      gen_rtx_SET (VOIDmode, mem, reg));
+			      gen_rtx_SET (mem, reg));
 	      }
 	      break;
 
@@ -3633,7 +3673,7 @@ visium_save_regs (int alloc, int offset, int low_regno, int high_regno)
 		emit_insn (gen_movsf (tmp, reg));
 		insn = emit_frame_insn (gen_movsf (mem, tmp));
 		add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			      gen_rtx_SET (VOIDmode, mem, reg));
+			      gen_rtx_SET (mem, reg));
 	      }
 	      break;
 
@@ -3711,7 +3751,7 @@ visium_expand_prologue (void)
 						    stack_pointer_rtx,
 						    tmp));
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+			gen_rtx_SET (stack_pointer_rtx,
 				     gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 						   GEN_INT (-alloc_size))));
 	}
@@ -3899,7 +3939,7 @@ visium_restore_regs (int dealloc, int offset, int high_regno, int low_regno)
   /* Deallocate the stack space.  */
   rtx insn = emit_frame_insn (gen_stack_pop (GEN_INT (dealloc)));
   add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		gen_rtx_SET (stack_pointer_rtx,
 			     gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 					   GEN_INT (dealloc))));
   visium_add_queued_cfa_restore_notes (insn);
@@ -3952,7 +3992,7 @@ visium_expand_epilogue (void)
 
       rtx insn = emit_frame_insn (gen_movsi (hard_frame_pointer_rtx, src));
       add_reg_note (insn, REG_CFA_ADJUST_CFA,
-		    gen_rtx_SET (VOIDmode, stack_pointer_rtx, 
+		    gen_rtx_SET (stack_pointer_rtx,
 				 hard_frame_pointer_rtx));
       visium_add_cfa_restore_note (hard_frame_pointer_rtx);
     }
@@ -4004,7 +4044,7 @@ visium_expand_epilogue (void)
       else
 	insn = emit_frame_insn (gen_stack_pop (GEN_INT (pop_size)));
       add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-		    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		    gen_rtx_SET (stack_pointer_rtx,
 				 gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 					       GEN_INT (pop_size))));
       visium_add_queued_cfa_restore_notes (insn);

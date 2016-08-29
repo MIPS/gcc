@@ -1,5 +1,5 @@
 /* General Solaris system support.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
 
 This file is part of GCC.
@@ -21,27 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
+#include "tm_p.h"
 #include "stringpool.h"
+#include "diagnostic-core.h"
 #include "varasm.h"
 #include "output.h"
-#include "tm.h"
-#include "rtl.h"
-#include "target.h"
-#include "tm_p.h"
-#include "diagnostic-core.h"
-#include "ggc.h"
-#include "hash-table.h"
 
 tree solaris_pending_aligns, solaris_pending_inits, solaris_pending_finis;
 
@@ -155,8 +142,11 @@ solaris_assemble_visibility (tree decl, int vis ATTRIBUTE_UNUSED)
   };
 
   const char *name, *type;
+  tree id = DECL_ASSEMBLER_NAME (decl);
 
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  while (IDENTIFIER_TRANSPARENT_ALIAS (id))
+    id = TREE_CHAIN (id);
+  name = IDENTIFIER_POINTER (id);
   type = visibility_types[vis];
 
   fprintf (asm_out_file, "\t.%s\t", type);
@@ -181,10 +171,8 @@ typedef struct comdat_entry
 
 /* Helpers for maintaining solaris_comdat_htab.  */
 
-struct comdat_entry_hasher : typed_noop_remove <comdat_entry>
+struct comdat_entry_hasher : nofree_ptr_hash <comdat_entry>
 {
-  typedef comdat_entry *value_type;
-  typedef comdat_entry *compare_type;
   static inline hashval_t hash (const comdat_entry *);
   static inline bool equal (const comdat_entry *, const comdat_entry *);
   static inline void remove (comdat_entry *);

@@ -1,5 +1,5 @@
 /* Implementation of Fortran 2003 Polymorphism.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by Paul Richard Thomas <pault@gcc.gnu.org>
    and Janus Weil <janus@gcc.gnu.org>
 
@@ -843,7 +843,11 @@ has_finalizer_component (gfc_symbol *derived)
 	  && c->ts.u.derived->f2k_derived->finalizers)
 	return true;
 
+      /* Stop infinite recursion through this function by inhibiting
+	 calls when the derived type and that of the component are
+	 the same.  */
       if (c->ts.type == BT_DERIVED
+	  && !gfc_compare_derived_types (derived, c->ts.u.derived)
 	  && !c->attr.pointer && !c->attr.allocatable
 	  && has_finalizer_component (c->ts.u.derived))
 	return true;
@@ -1599,6 +1603,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   final->ts.type = BT_INTEGER;
   final->ts.kind = 4;
   final->attr.artificial = 1;
+  final->attr.always_explicit = 1;
   final->attr.if_source = expr_null_wrapper ? IFSRC_IFBODY : IFSRC_DECL;
   if (ns->proc_name->attr.flavor == FL_MODULE)
     final->module = ns->proc_name->name;
@@ -2511,10 +2516,8 @@ find_intrinsic_vtab (gfc_typespec *ts)
 
       sprintf (name, "__vtab_%s", tname);
 
-      /* Look for the vtab symbol in various namespaces.  */
-      gfc_find_symbol (name, gfc_current_ns, 0, &vtab);
-      if (vtab == NULL)
-	gfc_find_symbol (name, ns, 0, &vtab);
+      /* Look for the vtab symbol in the top-level namespace only.  */
+      gfc_find_symbol (name, ns, 0, &vtab);
 
       if (vtab == NULL)
 	{

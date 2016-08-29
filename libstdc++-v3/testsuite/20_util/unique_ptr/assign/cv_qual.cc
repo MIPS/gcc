@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++11" }
 // { dg-do compile }
 
-// Copyright (C) 2012-2015 Free Software Foundation, Inc.
+// Copyright (C) 2012-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -82,8 +82,10 @@ struct deleter
 void
 test04()
 {
-  // Allow conversions from user-defined pointer-like types
+  // Disallow conversions from incompatible deleter
   std::unique_ptr<B[], deleter<A_pointer>> p;
   std::unique_ptr<A[], deleter<A*>> upA;
-  upA = std::move(p);
+  upA = std::move(p);  // { dg-error "no match" }
+  // { dg-error "no type" "" { target *-*-* } 537 }
+  // { dg-error "no matching function" "" { target *-*-* } 614 }
 }

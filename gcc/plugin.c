@@ -1,5 +1,5 @@
 /* Support for GCC plugin mechanism.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,24 +23,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
-#include "diagnostic-core.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
 #include "options.h"
-#include "flags.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
 #include "tree-pass.h"
+#include "diagnostic-core.h"
+#include "flags.h"
 #include "intl.h"
 #include "plugin.h"
-#include "ggc.h"
 
 #ifdef ENABLE_PLUGIN
 #include "plugin-version.h"
@@ -64,10 +52,8 @@ const char **plugin_event_name = plugin_event_name_init;
 
 /* Event hashtable helpers.  */
 
-struct event_hasher : typed_noop_remove <const char *>
+struct event_hasher : nofree_ptr_hash <const char *>
 {
-  typedef const char **value_type;
-  typedef const char **compare_type;
   static inline hashval_t hash (const char **);
   static inline bool equal (const char **, const char **);
 };
@@ -441,6 +427,8 @@ register_callback (const char *plugin_name,
 	    return;
 	  }
       /* Fall through.  */
+      case PLUGIN_START_PARSE_FUNCTION:
+      case PLUGIN_FINISH_PARSE_FUNCTION:
       case PLUGIN_FINISH_TYPE:
       case PLUGIN_FINISH_DECL:
       case PLUGIN_START_UNIT:
@@ -519,6 +507,8 @@ invoke_plugin_callbacks_full (int event, void *gcc_data)
 	gcc_assert (event >= PLUGIN_EVENT_FIRST_DYNAMIC);
 	gcc_assert (event < event_last);
       /* Fall through.  */
+      case PLUGIN_START_PARSE_FUNCTION:
+      case PLUGIN_FINISH_PARSE_FUNCTION:
       case PLUGIN_FINISH_TYPE:
       case PLUGIN_FINISH_DECL:
       case PLUGIN_START_UNIT:

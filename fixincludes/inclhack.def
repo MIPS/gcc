@@ -597,6 +597,56 @@ fix = {
 };
 
 /*
+ *  On AIX some headers are not properly guarded by 'extern "C"'.
+ */
+fix = {
+  hackname  = aix_externc;
+  mach      = "*-*-aix*";
+  files     = ctype.h;
+  files     = fcntl.h;
+  files     = langinfo.h;
+  files     = ldfcn.h;
+  files     = sys/localedef.h;
+  files     = sys/times.h;
+  bypass    = "extern \"C\"";
+  c_fix     = wrap;
+  c_fix_arg = "#ifdef __cplusplus\n"
+              "extern \"C\" {\n"
+              "#endif\n";
+  c_fix_arg = "#ifdef __cplusplus\n"
+              "}\n"
+              "#endif\n";
+  test_text = "extern int __n_pthreads;\n";
+};
+
+/*
+ *  On AIX sys/socket.h assumes C++.
+ */
+fix = {
+  hackname  = aix_externcpp1;
+  mach      = "*-*-aix*";
+  files     = "sys/socket.h";
+  select    = "#ifdef __cplusplus";
+  c_fix     = format;
+  c_fix_arg = "#ifdef __cplusplus\n"
+              "extern \"C++\" {";
+  test_text = "#ifdef __cplusplus";
+
+};
+
+fix = {
+  hackname  = aix_externcpp2;
+  mach      = "*-*-aix*";
+  files     = "sys/socket.h";
+  select    = "#else  /\\* __cplusplus \\*/";
+  c_fix     = format;
+  c_fix_arg = "} /* extern \"C++\" */\n"
+              "#else  /* __cplusplus */";
+  test_text = "#else  /* __cplusplus */";
+
+};
+
+/*
  *  malloc.h on AIX6 uses XLC++ specific builtin syntax
  */
 fix = {
@@ -842,10 +892,32 @@ fix = {
 };
 
 /*
+ * stdio.h on AIX defines ferror, clearerr and feof as C++ inline, which
+   produces wrong code with G++.
+ */
+fix = {
+    hackname  = aix_stdio_inline;
+    mach      = "*-*-aix*";
+    files     = stdio.h;
+    select    = "#ifdef __cplusplus\\\n"
+                "}\\\n\\\n"
+                "#ifdef ferror\\\n";
+    c_fix     = format;
+    c_fix_arg = "#ifdef __cplusplus\n"
+                "}\n"
+                "#endif\n\n"
+                "#if (defined(__cplusplus) && defined(__IBMCPP__))\n"
+                "#ifdef ferror\n";
+    test_text = "#ifdef __cplusplus\n}\n\n#ifdef ferror";
+};
+
+
+/*
  * stdlib.h on AIX 4.3 declares strtof() with a non-const first argument.
  */
 fix = {
     hackname  = aix_strtof_const;
+    mach      = "*-*-aix*";
     files     = stdlib.h;
     select    = "((extern[ \t]+)?float[ \t]+strtof)\\(char \\*, char \\*\\*\\);";
     c_fix     = format;
@@ -859,6 +931,7 @@ fix = {
  */
 fix = {
     hackname  = aix_sysmachine;
+    mach      = "*-*-aix*";
     files     = sys/machine.h;
     select    = "\\\\ +\n";
     c_fix     = format;
@@ -873,6 +946,7 @@ fix = {
  */
 fix = {
     hackname  = aix_syswait_2;
+    mach      = "*-*-aix*";
     files     = sys/wait.h;
     select    = '\? (\(\(\(\(unsigned[^)]*\)[^)]*\) >> [^)]*\) \& 0xff\) : -1)';
     c_fix     = format;
@@ -889,6 +963,7 @@ fix = {
  */
 fix = {
     hackname  = aix_volatile;
+    mach      = "*-*-aix*";
     files     = sys/signal.h;
     select    = "typedef volatile int sig_atomic_t";
     c_fix     = format;
@@ -2195,6 +2270,20 @@ fix = {
 
     test_text = 'extern int vsnprintf(char *, _hpux_size_t, const char *,'
                                      ' __va__list);';
+};
+
+/*
+ *  Fix missing const in hpux vsscanf declaration
+ */
+fix = {
+    hackname = hpux_vsscanf;
+    mach    = "*-*-hpux*";
+    files   = stdio.h;
+    select  = '(extern int vsscanf\()char';
+    c_fix   = format;
+    c_fix_arg = "%1const char";
+
+    test_text = 'extern int vsscanf(char *, const char *, __va_list);';
 };
 
 /*

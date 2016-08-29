@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -21,36 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "dumpfile.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
+#include "backend.h"
 #include "rtl.h"
-#include "predict.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa.h"
+#include "cfghooks.h"
 #include "timevar.h"
-#include "diagnostic-core.h"
-#include "cfgloop.h"
 #include "pretty-print.h"
+#include "diagnostic-core.h"
+#include "dumpfile.h"
+#include "cfganal.h"
+#include "tree-ssa.h"
+#include "cfgloop.h"
 
 /* A pointer to one of the hooks containers.  */
 static struct cfg_hooks *cfg_hooks;
@@ -330,7 +310,7 @@ dump_bb_for_graph (pretty_printer *pp, basic_block bb)
     internal_error ("%s does not support dump_bb_for_graph",
 		    cfg_hooks->name);
   if (bb->count)
-    pp_printf (pp, "COUNT:" "%"PRId64, bb->count);
+    pp_printf (pp, "COUNT:" "%" PRId64, bb->count);
   pp_printf (pp, " FREQ:%i |", bb->frequency);
   pp_write_text_to_stream (pp);
   if (!(dump_flags & TDF_SLIM))
@@ -428,7 +408,20 @@ void
 remove_edge (edge e)
 {
   if (current_loops != NULL)
-    rescan_loop_exit (e, false, true);
+    {
+      rescan_loop_exit (e, false, true);
+
+      /* Removal of an edge inside an irreducible region or which leads
+	 to an irreducible region can turn the region into a natural loop.
+	 In that case, ask for the loop structure fixups.
+
+	 FIXME: Note that LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS is not always
+	 set, so always ask for fixups when removing an edge in that case.  */
+      if (!loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
+	  || (e->flags & EDGE_IRREDUCIBLE_LOOP)
+	  || (e->dest->flags & BB_IRREDUCIBLE_LOOP))
+	loops_state_set (LOOPS_NEED_FIXUP);
+    }
 
   /* This is probably not needed, but it doesn't hurt.  */
   /* FIXME: This should be called via a remove_edge hook.  */
@@ -551,7 +544,7 @@ split_block_1 (basic_block bb, void *i)
 }
 
 edge
-split_block (basic_block bb, gimple i)
+split_block (basic_block bb, gimple *i)
 {
   return split_block_1 (bb, i);
 }

@@ -32,6 +32,7 @@ class Temporary_reference_expression;
 class Set_and_use_temporary_expression;
 class String_expression;
 class Type_conversion_expression;
+class Unsafe_type_conversion_expression;
 class Unary_expression;
 class Binary_expression;
 class Call_expression;
@@ -46,6 +47,7 @@ class Bound_method_expression;
 class Field_reference_expression;
 class Interface_field_reference_expression;
 class Allocation_expression;
+class Composite_literal_expression;
 class Struct_construction_expression;
 class Array_construction_expression;
 class Fixed_array_construction_expression;
@@ -571,6 +573,15 @@ class Expression
   conversion_expression()
   { return this->convert<Type_conversion_expression, EXPRESSION_CONVERSION>(); }
 
+  // If this is an unsafe conversion expression, return the
+  // Unsafe_type_conversion_expression structure.  Otherwise, return NULL.
+  Unsafe_type_conversion_expression*
+  unsafe_conversion_expression()
+  {
+    return this->convert<Unsafe_type_conversion_expression,
+			 EXPRESSION_UNSAFE_CONVERSION>();
+  }
+
   // Return whether this is the expression nil.
   bool
   is_nil_expression() const
@@ -680,6 +691,15 @@ class Expression
   Allocation_expression*
   allocation_expression()
   { return this->convert<Allocation_expression, EXPRESSION_ALLOCATION>(); }
+
+  // If this is a general composite literal, return the
+  // Composite_literal_expression structure.  Otherwise, return NULL.
+  Composite_literal_expression*
+  complit()
+  {
+    return this->convert<Composite_literal_expression,
+			 EXPRESSION_COMPOSITE_LITERAL>();
+  }
 
   // If this is a struct composite literal, return the
   // Struct_construction_expression structure.  Otherwise, return NULL.
@@ -1505,6 +1525,57 @@ class Type_conversion_expression : public Expression
   bool may_convert_function_types_;
 };
 
+// An unsafe type conversion, used to pass values to builtin functions.
+
+class Unsafe_type_conversion_expression : public Expression
+{
+ public:
+  Unsafe_type_conversion_expression(Type* type, Expression* expr,
+				    Location location)
+    : Expression(EXPRESSION_UNSAFE_CONVERSION, location),
+      type_(type), expr_(expr)
+  { }
+
+  Expression*
+  expr() const
+  { return this->expr_; }
+
+ protected:
+  int
+  do_traverse(Traverse* traverse);
+
+  bool
+  do_is_immutable() const;
+
+  Type*
+  do_type()
+  { return this->type_; }
+
+  void
+  do_determine_type(const Type_context*)
+  { this->expr_->determine_type_no_context(); }
+
+  Expression*
+  do_copy()
+  {
+    return new Unsafe_type_conversion_expression(this->type_,
+						 this->expr_->copy(),
+						 this->location());
+  }
+
+  Bexpression*
+  do_get_backend(Translate_context*);
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  // The type to convert to.
+  Type* type_;
+  // The expression to convert.
+  Expression* expr_;
+};
+
 // A Unary expression.
 
 class Unary_expression : public Expression
@@ -1897,6 +1968,11 @@ class Call_expression : public Expression
   bool
   issue_error();
 
+  // Whether or not this call contains errors, either in the call or the
+  // arguments to the call.
+  bool
+  is_erroneous_call();
+
   // Whether this call returns multiple results that are used as an
   // multi-valued argument.
   bool
@@ -2023,6 +2099,10 @@ class Call_result_expression : public Expression
   Expression*
   call() const
   { return this->call_; }
+
+  unsigned int
+  index() const
+  { return this->index_; }
 
  protected:
   int
@@ -2786,7 +2866,7 @@ class Allocation_expression : public Expression
  public:
   Allocation_expression(Type* type, Location location)
     : Expression(EXPRESSION_ALLOCATION, location),
-      type_(type), allocate_on_stack_(false), stack_temp_(NULL)
+      type_(type), allocate_on_stack_(false)
   { }
 
   void
@@ -2807,9 +2887,6 @@ class Allocation_expression : public Expression
   Expression*
   do_copy();
 
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
   Bexpression*
   do_get_backend(Translate_context*);
 
@@ -2821,9 +2898,87 @@ class Allocation_expression : public Expression
   Type* type_;
   // Whether or not this is a stack allocation.
   bool allocate_on_stack_;
-  // If this memory is stack allocated, it will use the address of STACK_TEMP.
-  // Otherwise, STACK_TEMP is NULL.
-  Temporary_statement* stack_temp_;
+};
+
+// A general composite literal.  This is lowered to a type specific
+// version.
+
+class Composite_literal_expression : public Parser_expression
+{
+ public:
+  Composite_literal_expression(Type* type, int depth, bool has_keys,
+			       Expression_list* vals, bool all_are_names,
+			       Location location)
+    : Parser_expression(EXPRESSION_COMPOSITE_LITERAL, location),
+      type_(type), depth_(depth), vals_(vals), has_keys_(has_keys),
+      all_are_names_(all_are_names), key_path_(std::vector<bool>(depth))
+  {}
+
+
+  // Mark the DEPTH entry of KEY_PATH as containing a key.
+  void
+  update_key_path(size_t depth)
+  {
+    go_assert(depth < this->key_path_.size());
+    this->key_path_[depth] = true;
+  }
+
+ protected:
+  int
+  do_traverse(Traverse* traverse);
+
+  Expression*
+  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
+
+  Expression*
+  do_copy()
+  {
+    Composite_literal_expression *ret =
+      new Composite_literal_expression(this->type_, this->depth_,
+				       this->has_keys_,
+				       (this->vals_ == NULL
+					? NULL
+					: this->vals_->copy()),
+				       this->all_are_names_,
+				       this->location());
+    ret->key_path_ = this->key_path_;
+    return ret;
+  }
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  Expression*
+  lower_struct(Gogo*, Type*);
+
+  Expression*
+  lower_array(Type*);
+
+  Expression*
+  make_array(Type*, const std::vector<unsigned long>*, Expression_list*);
+
+  Expression*
+  lower_map(Gogo*, Named_object*, Statement_inserter*, Type*);
+
+  // The type of the composite literal.
+  Type* type_;
+  // The depth within a list of composite literals within a composite
+  // literal, when the type is omitted.
+  int depth_;
+  // The values to put in the composite literal.
+  Expression_list* vals_;
+  // If this is true, then VALS_ is a list of pairs: a key and a
+  // value.  In an array initializer, a missing key will be NULL.
+  bool has_keys_;
+  // If this is true, then HAS_KEYS_ is true, and every key is a
+  // simple identifier.
+  bool all_are_names_;
+  // A complement to DEPTH that indicates for each level starting from 0 to
+  // DEPTH-1 whether or not this composite literal is nested inside of key or
+  // a value.  This is used to decide which type to use when given a map literal
+  // with omitted key types.
+  std::vector<bool> key_path_;
 };
 
 // Construct a struct.
@@ -3396,6 +3551,11 @@ class Numeric_constant
   void
   set_complex(Type*, const mpc_t);
 
+  // Mark numeric constant as invalid.
+  void
+  set_invalid()
+  { this->classification_ = NC_INVALID; }
+
   // Classifiers.
   bool
   is_int() const
@@ -3412,6 +3572,10 @@ class Numeric_constant
   bool
   is_complex() const
   { return this->classification_ == Numeric_constant::NC_COMPLEX; }
+
+  bool
+  is_invalid() const
+  { return this->classification_ == Numeric_constant::NC_INVALID; }
 
   // Value retrievers.  These will initialize the values as well as
   // set them.  GET_INT is only valid if IS_INT returns true, and
@@ -3490,7 +3654,7 @@ class Numeric_constant
   mpfr_to_unsigned_long(const mpfr_t fval, unsigned long *val) const;
 
   bool
-  check_int_type(Integer_type*, bool, Location) const;
+  check_int_type(Integer_type*, bool, Location);
 
   bool
   check_float_type(Float_type*, bool, Location);

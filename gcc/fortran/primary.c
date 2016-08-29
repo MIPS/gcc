@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -736,6 +736,58 @@ done:
       gfc_internal_error ("gfc_range_check() returned bad value");
     }
 
+  /* Warn about trailing digits which suggest the user added too many
+     trailing digits, which may cause the appearance of higher pecision
+     than the kind kan support.
+
+     This is done by replacing the rightmost non-zero digit with zero
+     and comparing with the original value.  If these are equal, we
+     assume the user supplied more digits than intended (or forgot to
+     convert to the correct kind).
+  */
+
+  if (warn_conversion_extra)
+    {
+      mpfr_t r;
+      char *c, *p;
+      bool did_break;
+
+      c = strchr (buffer, 'e');
+      if (c == NULL)
+	c = buffer + strlen(buffer);
+
+      did_break = false;
+      for (p = c - 1; p >= buffer; p--)
+	{
+	  if (*p == '.')
+	    continue;
+
+	  if (*p != '0')
+	    {
+	      *p = '0';
+	      did_break = true;
+	      break;
+	    }
+	}
+
+      if (did_break)
+	{
+	  mpfr_init (r);
+	  mpfr_set_str (r, buffer, 10, GFC_RND_MODE);
+	  if (negate)
+	    mpfr_neg (r, r, GFC_RND_MODE);
+
+	  mpfr_sub (r, r, e->value.real, GFC_RND_MODE);
+
+	  if (mpfr_cmp_ui (r, 0) == 0)
+	    gfc_warning (OPT_Wconversion_extra, "Non-significant digits "
+			 "in %qs number at %C, maybe incorrect KIND",
+			 gfc_typename (&e->ts));
+
+	  mpfr_clear (r);
+	}
+    }
+
   *result = e;
   return MATCH_YES;
 
@@ -748,7 +800,7 @@ cleanup:
 /* Match a substring reference.  */
 
 static match
-match_substring (gfc_charlen *cl, int init, gfc_ref **result)
+match_substring (gfc_charlen *cl, int init, gfc_ref **result, bool deferred)
 {
   gfc_expr *start, *end;
   locus old_loc;
@@ -800,7 +852,7 @@ match_substring (gfc_charlen *cl, int init, gfc_ref **result)
     }
 
   /* Optimize away the (:) reference.  */
-  if (start == NULL && end == NULL)
+  if (start == NULL && end == NULL && !deferred)
     ref = NULL;
   else
     {
@@ -1098,7 +1150,7 @@ got_delim:
   if (ret != -1)
     gfc_internal_error ("match_string_constant(): Delimiter not found");
 
-  if (match_substring (NULL, 0, &e->ref) != MATCH_NO)
+  if (match_substring (NULL, 0, &e->ref, false) != MATCH_NO)
     e->expr_type = EXPR_SUBSTRING;
 
   *result = e;
@@ -1202,6 +1254,9 @@ match_sym_complex_part (gfc_expr **result)
       return MATCH_ERROR;
     }
 
+  if (!sym->value)
+    goto error;
+
   if (!gfc_numeric_ts (&sym->value->ts))
     {
       gfc_error ("Numeric PARAMETER required in complex constant at %C");
@@ -1274,8 +1329,7 @@ static match
 match_complex_constant (gfc_expr **result)
 {
   gfc_expr *e, *real, *imag;
-  gfc_error_buf old_error_1;
-  output_buffer old_error;
+  gfc_error_buffer old_error;
   gfc_typespec target;
   locus old_loc;
   int kind;
@@ -1288,18 +1342,18 @@ match_complex_constant (gfc_expr **result)
   if (m != MATCH_YES)
     return m;
 
-  gfc_push_error (&old_error, &old_error_1);
+  gfc_push_error (&old_error);
 
   m = match_complex_part (&real);
   if (m == MATCH_NO)
     {
-      gfc_free_error (&old_error, &old_error_1);
+      gfc_free_error (&old_error);
       goto cleanup;
     }
 
   if (gfc_match_char (',') == MATCH_NO)
     {
-      gfc_pop_error (&old_error, &old_error_1);
+      gfc_pop_error (&old_error);
       m = MATCH_NO;
       goto cleanup;
     }
@@ -1311,10 +1365,10 @@ match_complex_constant (gfc_expr **result)
 
   if (m == MATCH_ERROR)
     {
-      gfc_free_error (&old_error, &old_error_1);
+      gfc_free_error (&old_error);
       goto cleanup;
     }
-  gfc_pop_error (&old_error, &old_error_1);
+  gfc_pop_error (&old_error);
 
   m = match_complex_part (&imag);
   if (m == MATCH_NO)
@@ -1498,6 +1552,12 @@ match_actual_arg (gfc_expr **result)
 
 	  sym = symtree->n.sym;
 	  gfc_set_sym_referenced (sym);
+	  if (sym->attr.flavor == FL_NAMELIST)
+	    {
+	      gfc_error ("Namelist '%s' can not be an argument at %L",
+	      sym->name, &where);
+	      break;
+	    }
 	  if (sym->attr.flavor != FL_PROCEDURE
 	      && sym->attr.flavor != FL_UNKNOWN)
 	    break;
@@ -1860,7 +1920,8 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
   if (sym->assoc && gfc_peek_ascii_char () == '('
       && !(sym->assoc->dangling && sym->assoc->st
 	   && sym->assoc->st->n.sym
-	   && sym->assoc->st->n.sym->attr.dimension == 0))
+	   && sym->assoc->st->n.sym->attr.dimension == 0)
+      && sym->ts.type != BT_CLASS)
     sym->attr.dimension = 1;
 
   if ((equiv_flag && gfc_peek_ascii_char () == '(')
@@ -2078,7 +2139,8 @@ check_substring:
 
   if (primary->ts.type == BT_CHARACTER)
     {
-      switch (match_substring (primary->ts.u.cl, equiv_flag, &substring))
+      bool def = primary->ts.deferred == 1;
+      switch (match_substring (primary->ts.u.cl, equiv_flag, &substring, def))
 	{
 	case MATCH_YES:
 	  if (tail == NULL)
@@ -2138,7 +2200,7 @@ check_substring:
 symbol_attribute
 gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 {
-  int dimension, codimension, pointer, allocatable, target, n;
+  int dimension, codimension, pointer, allocatable, target;
   symbol_attribute attr;
   gfc_ref *ref;
   gfc_symbol *sym;
@@ -2197,22 +2259,9 @@ gfc_variable_attr (gfc_expr *expr, gfc_typespec *ts)
 	  case AR_UNKNOWN:
 	    /* If any of start, end or stride is not integer, there will
 	       already have been an error issued.  */
-	    for (n = 0; n < ref->u.ar.as->rank; n++)
-	      {
-		int errors;
-		gfc_get_errors (NULL, &errors);
-		if (((ref->u.ar.start[n]
-		      && ref->u.ar.start[n]->ts.type == BT_UNKNOWN)
-		     ||
-		     (ref->u.ar.end[n]
-		      && ref->u.ar.end[n]->ts.type == BT_UNKNOWN)
-		     ||
-		     (ref->u.ar.stride[n]
-		      && ref->u.ar.stride[n]->ts.type == BT_UNKNOWN))
-		    && errors > 0)
-		  break;
-	      }
-	    if (n == ref->u.ar.as->rank)
+	    int errors;
+	    gfc_get_errors (NULL, &errors);
+	    if (errors == 0)
 	      gfc_internal_error ("gfc_variable_attr(): Bad array reference");
 	  }
 
@@ -2642,7 +2691,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   gfc_expr *e;
   gfc_symtree *symtree;
 
-  gfc_get_sym_tree (sym->name, NULL, &symtree, false);   /* Can't fail */
+  gfc_get_ha_sym_tree (sym->name, &symtree);
 
   e = gfc_get_expr ();
   e->symtree = symtree;
@@ -2653,21 +2702,27 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   e->value.function.esym = sym;
   e->symtree->n.sym->attr.generic = 1;
 
-   m = gfc_match_actual_arglist (0, &e->value.function.actual);
-   if (m != MATCH_YES)
-     {
-       gfc_free_expr (e);
-       return m;
-     }
+  m = gfc_match_actual_arglist (0, &e->value.function.actual);
+  if (m != MATCH_YES)
+    {
+      gfc_free_expr (e);
+      return m;
+    }
 
-   if (!gfc_convert_to_structure_constructor (e, sym, NULL, NULL, false))
-     {
-       gfc_free_expr (e);
-       return MATCH_ERROR;
-     }
+  if (!gfc_convert_to_structure_constructor (e, sym, NULL, NULL, false))
+    {
+      gfc_free_expr (e);
+      return MATCH_ERROR;
+    }
 
-   *result = e;
-   return MATCH_YES;
+  /* If a structure constructor is in a DATA statement, then each entity
+     in the structure constructor must be a constant.  Try to reduce the
+     expression here.  */
+  if (gfc_in_match_data ())
+    gfc_reduce_init_expr (e);
+ 
+  *result = e;
+  return MATCH_YES;
 }
 
 
@@ -2909,7 +2964,8 @@ gfc_match_rvalue (gfc_expr **result)
 
       st = gfc_enclosing_unit (NULL);
 
-      if (st != NULL && st->state == COMP_FUNCTION
+      if (st != NULL
+	  && st->state == COMP_FUNCTION
 	  && st->sym == sym
 	  && !sym->attr.recursive)
 	{
@@ -3091,7 +3147,7 @@ gfc_match_rvalue (gfc_expr **result)
 	     that we're not sure is a variable yet.  */
 
 	  if ((implicit_char || sym->ts.type == BT_CHARACTER)
-	      && match_substring (sym->ts.u.cl, 0, &e->ref) == MATCH_YES)
+	      && match_substring (sym->ts.u.cl, 0, &e->ref, false) == MATCH_YES)
 	    {
 
 	      e->expr_type = EXPR_VARIABLE;
@@ -3169,6 +3225,10 @@ gfc_match_rvalue (gfc_expr **result)
       m = gfc_match_actual_arglist (0, &e->value.function.actual);
       break;
 
+    case FL_NAMELIST:
+      m = MATCH_ERROR;
+      break;
+
     default:
       gfc_error ("Symbol at %C is not appropriate for an expression");
       return MATCH_ERROR;
@@ -3213,6 +3273,7 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
      of keywords, such as 'end', being turned into variables by
      failed matching to assignments for, e.g., END INTERFACE.  */
   if (gfc_current_state () == COMP_MODULE
+      || gfc_current_state () == COMP_SUBMODULE
       || gfc_current_state () == COMP_INTERFACE
       || gfc_current_state () == COMP_CONTAINS)
     host_flag = 0;

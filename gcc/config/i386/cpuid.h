@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2015 Free Software Foundation, Inc.
+ * Copyright (C) 2007-2016 Free Software Foundation, Inc.
  *
  * This file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -57,12 +57,16 @@
 #define bit_LWP 	(1 << 15)
 #define bit_FMA4        (1 << 16)
 #define bit_TBM         (1 << 21)
+#define bit_MWAITX      (1 << 29)
 
 /* %edx */
 #define bit_MMXEXT	(1 << 22)
 #define bit_LM		(1 << 29)
 #define bit_3DNOWP	(1 << 30)
 #define bit_3DNOW	(1 << 31)
+
+/* %ebx.  */
+#define bit_CLZERO	(1 << 0)
 
 /* Extended Features (%eax == 7) */
 /* %ebx */
@@ -91,6 +95,8 @@
 /* %ecx */
 #define bit_PREFETCHWT1	  (1 << 0)
 #define bit_AVX512VBMI	(1 << 1)
+#define bit_PKU	(1 << 3)
+#define bit_OSPKE	(1 << 4)
 
 /* XFEATURE_ENABLED_MASK register bits (%eax == 13, %ecx == 0) */
 #define bit_BNDREGS     (1 << 3)

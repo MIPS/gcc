@@ -1,5 +1,5 @@
 /* SImode div/mod functions for the GCC support library for the Renesas RL78 processors.
-   Copyright (C) 2012-2015 Free Software Foundation, Inc.
+   Copyright (C) 2012-2016 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -688,9 +688,14 @@ __generic_simod:
 	or	a, denB3	; not x
 	cmpw	ax, #0
 	bnz	$den_not_zero\which
+	.if \need_result
+	movw	quotL, #0
+	movw	quotH, #0
+	.else
 	movw	numL, #0
 	movw	numH, #0
-	ret
+	.endif
+	br	$!main_loop_done_himode\which
 
 den_not_zero\which:
 	.if \need_result

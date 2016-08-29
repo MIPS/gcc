@@ -23,4 +23,3 @@ program bug
 end program bug
 
 ! { dg-final { scan-tree-dump-times "iszs = \\(integer\\(kind=2\\)\\) a.dim.0..extent;" 1 "original" } }
-! { dg-final { cleanup-tree-dump "original" } }

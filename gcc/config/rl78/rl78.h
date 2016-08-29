@@ -1,5 +1,5 @@
 /* GCC backend definitions for the Renesas RL78 processor.
-   Copyright (C) 2011-2015 Free Software Foundation, Inc.
+   Copyright (C) 2011-2016 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -144,7 +144,7 @@
 #define POINTERS_EXTEND_UNSIGNED	1
 #define FUNCTION_MODE 			HImode
 #define CASE_VECTOR_MODE		Pmode
-#define WORD_REGISTER_OPERATIONS	0
+#define WORD_REGISTER_OPERATIONS	1
 #define HAS_LONG_COND_BRANCH		0
 #define HAS_LONG_UNCOND_BRANCH		0
 

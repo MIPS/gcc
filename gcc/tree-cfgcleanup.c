@@ -1,5 +1,5 @@
 /* CFG cleanup for trees.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,66 +20,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "rtl.h"
 #include "tree.h"
+#include "gimple.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
+#include "ssa.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
-#include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "diagnostic-core.h"
-#include "flags.h"
-#include "langhooks.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
-#include "hashtab.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
-#include "tree-pass.h"
-#include "except.h"
 #include "cfgloop.h"
-#include "tree-ssa-propagate.h"
 #include "tree-scalar-evolution.h"
+#include "gimple-match.h"
+#include "gimple-fold.h"
+
 
 /* The set of blocks in that at least one of the following changes happened:
    -- the statement at the end of the block was changed
@@ -115,29 +78,43 @@ remove_fallthru_edge (vec<edge, va_gc> *ev)
    at block BB.  */
 
 static bool
-cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
+cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi,
+			    bool first_p)
 {
   edge taken_edge;
   bool retval = false;
-  gimple stmt = gsi_stmt (gsi);
-  tree val;
+  gimple *stmt = gsi_stmt (gsi);
 
   if (!single_succ_p (bb))
     {
       edge e;
       edge_iterator ei;
       bool warned;
-      location_t loc;
+      tree val = NULL_TREE;
 
       fold_defer_overflow_warnings ();
-      loc = gimple_location (stmt);
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_COND:
-	  val = fold_binary_loc (loc, gimple_cond_code (stmt),
-				 boolean_type_node,
-			         gimple_cond_lhs (stmt),
+	  /* During a first iteration on the CFG only remove trivially
+	     dead edges but mark other conditions for re-evaluation.  */
+	  if (first_p)
+	    {
+	      val = const_binop (gimple_cond_code (stmt), boolean_type_node,
+				 gimple_cond_lhs (stmt),
 				 gimple_cond_rhs (stmt));
+	      if (! val)
+		bitmap_set_bit (cfgcleanup_altered_bbs, bb->index);
+	    }
+	  else
+	    {
+	      code_helper rcode;
+	      tree ops[3] = {};
+	      if (gimple_simplify (stmt, &rcode, ops, NULL, no_follow_ssa_edges,
+				   no_follow_ssa_edges)
+		  && rcode == INTEGER_CST)
+		val = ops[0];
+	    }
 	  break;
 
 	case GIMPLE_SWITCH:
@@ -145,7 +122,7 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
 	  break;
 
 	default:
-	  val = NULL_TREE;
+	  ;
 	}
       taken_edge = find_taken_edge (bb, val);
       if (!taken_edge)
@@ -194,7 +171,7 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
    to updated gimple_call_flags.  */
 
 static void
-cleanup_call_ctrl_altering_flag (gimple bb_end)
+cleanup_call_ctrl_altering_flag (gimple *bb_end)
 {
   if (!is_gimple_call (bb_end)
       || !gimple_call_ctrl_altering_p (bb_end))
@@ -211,17 +188,17 @@ cleanup_call_ctrl_altering_flag (gimple bb_end)
    true if anything changes.  */
 
 static bool
-cleanup_control_flow_bb (basic_block bb)
+cleanup_control_flow_bb (basic_block bb, bool first_p)
 {
   gimple_stmt_iterator gsi;
   bool retval = false;
-  gimple stmt;
+  gimple *stmt;
 
   /* If the last statement of the block could throw and now cannot,
      we need to prune cfg.  */
   retval |= gimple_purge_dead_eh_edges (bb);
 
-  gsi = gsi_last_bb (bb);
+  gsi = gsi_last_nondebug_bb (bb);
   if (gsi_end_p (gsi))
     return retval;
 
@@ -232,7 +209,10 @@ cleanup_control_flow_bb (basic_block bb)
 
   if (gimple_code (stmt) == GIMPLE_COND
       || gimple_code (stmt) == GIMPLE_SWITCH)
-    retval |= cleanup_control_expr_graph (bb, gsi);
+    {
+      gcc_checking_assert (gsi_stmt (gsi_last_bb (bb)) == stmt);
+      retval |= cleanup_control_expr_graph (bb, gsi, first_p);
+    }
   else if (gimple_code (stmt) == GIMPLE_GOTO
 	   && TREE_CODE (gimple_goto_dest (stmt)) == ADDR_EXPR
 	   && (TREE_CODE (TREE_OPERAND (gimple_goto_dest (stmt), 0))
@@ -245,6 +225,7 @@ cleanup_control_flow_bb (basic_block bb)
       edge_iterator ei;
       basic_block target_block;
 
+      gcc_checking_assert (gsi_stmt (gsi_last_bb (bb)) == stmt);
       /* First look at all the outgoing edges.  Delete any outgoing
 	 edges which do not go to the right block.  For the one
 	 edge which goes to the right block, fix up its flags.  */
@@ -277,9 +258,15 @@ cleanup_control_flow_bb (basic_block bb)
   /* Check for indirect calls that have been turned into
      noreturn calls.  */
   else if (is_gimple_call (stmt)
-           && gimple_call_noreturn_p (stmt)
-           && remove_fallthru_edge (bb->succs))
-    retval = true;
+	   && gimple_call_noreturn_p (stmt))
+    {
+      /* If there are debug stmts after the noreturn call, remove them
+	 now, they should be all unreachable anyway.  */
+      for (gsi_next (&gsi); !gsi_end_p (gsi); )
+	gsi_remove (&gsi, true);
+      if (remove_fallthru_edge (bb->succs))
+	retval = true;
+    }
 
   return retval;
 }
@@ -332,7 +319,7 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
      anything else means this is not a forwarder block.  */
   for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
+      gimple *stmt = gsi_stmt (gsi);
 
       switch (gimple_code (stmt))
 	{
@@ -420,7 +407,7 @@ remove_forwarder_block (basic_block bb)
 {
   edge succ = single_succ_edge (bb), e, s;
   basic_block dest = succ->dest;
-  gimple label;
+  gimple *label;
   edge_iterator ei;
   gimple_stmt_iterator gsi, gsi_to;
   bool can_move_debug_stmts;
@@ -539,7 +526,7 @@ remove_forwarder_block (basic_block bb)
       gsi_to = gsi_after_labels (dest);
       for (gsi = gsi_after_labels (bb); !gsi_end_p (gsi); )
 	{
-	  gimple debug = gsi_stmt (gsi);
+	  gimple *debug = gsi_stmt (gsi);
 	  if (!is_gimple_debug (debug))
 	    break;
 	  gsi_remove (&gsi, false);
@@ -584,7 +571,7 @@ remove_forwarder_block (basic_block bb)
    Return true if cleanup-cfg needs to run.  */
 
 bool
-fixup_noreturn_call (gimple stmt)
+fixup_noreturn_call (gimple *stmt)
 {
   basic_block bb = gimple_bb (stmt);
   bool changed = false;
@@ -612,9 +599,13 @@ fixup_noreturn_call (gimple stmt)
 	}
     }
 
-  /* If there is an LHS, remove it.  */
+  /* If there is an LHS, remove it, but only if its type has fixed size.
+     The LHS will need to be recreated during RTL expansion and creating
+     temporaries of variable-sized types is not supported.  Also don't
+     do this with TREE_ADDRESSABLE types, as assign_temp will abort.  */
   tree lhs = gimple_call_lhs (stmt);
-  if (lhs)
+  if (lhs && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST
+      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))
     {
       gimple_call_set_lhs (stmt, NULL_TREE);
 
@@ -647,8 +638,6 @@ fixup_noreturn_call (gimple stmt)
 static bool
 cleanup_tree_cfg_bb (basic_block bb)
 {
-  bool retval = cleanup_control_flow_bb (bb);
-
   if (tree_forwarder_block_p (bb, false)
       && remove_forwarder_block (bb))
     return true;
@@ -673,7 +662,7 @@ cleanup_tree_cfg_bb (basic_block bb)
 	}
     }
 
-  return retval;
+  return false;
 }
 
 /* Iterate the cfg cleanups, while anything changes.  */
@@ -693,8 +682,26 @@ cleanup_tree_cfg_1 (void)
      recording of edge to CASE_LABEL_EXPR.  */
   start_recording_case_labels ();
 
-  /* Start by iterating over all basic blocks.  We cannot use FOR_EACH_BB_FN,
+  /* We cannot use FOR_EACH_BB_FN for the BB iterations below
      since the basic blocks may get removed.  */
+
+  /* Start by iterating over all basic blocks looking for edge removal
+     opportunities.  Do this first because incoming SSA form may be
+     invalid and we want to avoid performing SSA related tasks such
+     as propgating out a PHI node during BB merging in that state.  */
+  n = last_basic_block_for_fn (cfun);
+  for (i = NUM_FIXED_BLOCKS; i < n; i++)
+    {
+      bb = BASIC_BLOCK_FOR_FN (cfun, i);
+      if (bb)
+	retval |= cleanup_control_flow_bb (bb, true);
+    }
+
+  /* After doing the above SSA form should be valid (or an update SSA
+     should be required).  */
+
+  /* Continue by iterating over all basic blocks looking for BB merging
+     opportunities.  */
   n = last_basic_block_for_fn (cfun);
   for (i = NUM_FIXED_BLOCKS; i < n; i++)
     {
@@ -715,6 +722,7 @@ cleanup_tree_cfg_1 (void)
       if (!bb)
 	continue;
 
+      retval |= cleanup_control_flow_bb (bb, false);
       retval |= cleanup_tree_cfg_bb (bb);
     }
 
@@ -746,9 +754,7 @@ cleanup_tree_cfg_noloop (void)
     }
   else
     {
-#ifdef ENABLE_CHECKING
-      verify_dominators (CDI_DOMINATORS);
-#endif
+      checking_verify_dominators (CDI_DOMINATORS);
       changed = false;
     }
 
@@ -757,9 +763,7 @@ cleanup_tree_cfg_noloop (void)
   gcc_assert (dom_info_available_p (CDI_DOMINATORS));
   compact_blocks ();
 
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
+  checking_verify_flow_info ();
 
   timevar_pop (TV_TREE_CLEANUP_CFG);
 
@@ -794,9 +798,7 @@ repair_loop_structures (void)
 
   BITMAP_FREE (changed_bbs);
 
-#ifdef ENABLE_CHECKING
-  verify_loop_structure ();
-#endif
+  checking_verify_loop_structure ();
   scev_reset ();
 
   timevar_pop (TV_REPAIR_LOOPS);
@@ -824,7 +826,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 {
   edge succ = single_succ_edge (bb);
   basic_block dest = succ->dest;
-  gimple label;
+  gimple *label;
   basic_block dombb, domdest, dom;
 
   /* We check for infinite loops already in tree_forwarder_block_p.
@@ -1045,7 +1047,7 @@ pass_merge_phi::execute (function *fun)
 	      gphi *phi = gsi.phi ();
 	      tree result = gimple_phi_result (phi);
 	      use_operand_p imm_use;
-	      gimple use_stmt;
+	      gimple *use_stmt;
 
 	      /* If the PHI's result is never used, then we can just
 		 ignore it.  */

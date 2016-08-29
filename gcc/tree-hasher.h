@@ -1,5 +1,5 @@
 /* Hash Table Helper for Trees
-   Copyright (C) 2012-2015 Free Software Foundation, Inc.
+   Copyright (C) 2012-2016 Free Software Foundation, Inc.
    Contributed by Lawrence Crowl <crowl@google.com>
 
 This file is part of GCC.
@@ -20,8 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_TREE_HASHER_H
 #define GCC_TREE_HASHER_H 1
-
-#include "hash-table.h"
 
 struct int_tree_map {
   unsigned int uid;

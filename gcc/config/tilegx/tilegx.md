@@ -1,5 +1,5 @@
 ;; Machine description for Tilera TILE-Gx chip for GCC.
-;; Copyright (C) 2011-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
 ;; Contributed by Walter Lee (walt@tilera.com)
 ;;
 ;; This file is part of GCC.
@@ -904,7 +904,7 @@
 ;; Addresses
 ;;
 
-;; The next three patterns are used to to materialize a position
+;; The next three patterns are used to materialize a position
 ;; independent address by adding the difference of two labels to a base
 ;; label in the text segment, assuming that the difference fits in 32
 ;; signed bits.
@@ -964,7 +964,7 @@
   "%1 = . + 8\n\tlnk\t%0"
   [(set_attr "type" "Y1")])
 
-;; The next three patterns are used to to materialize a position
+;; The next three patterns are used to materialize a position
 ;; independent address by adding the difference of two labels to a
 ;; base label in the text segment, assuming that the difference fits
 ;; in 32 signed bits.
@@ -997,7 +997,7 @@
   "flag_pic"
   "add<x>\t%0, %r1, %r2")
 
-;; The next three patterns are used to to materialize a position
+;; The next three patterns are used to materialize a position
 ;; independent 64-bit address by adding the difference of two labels to
 ;; a base label in the text segment, without any limitation on the size
 ;; of the difference.
@@ -1799,13 +1799,16 @@
 
 (define_expand "clzsi2"
   [(set (match_dup 2)
-        (ashift:DI (match_operand:SI 1 "reg_or_0_operand" "")
+	(zero_extend:DI (match_operand:SI 1 "reg_or_0_operand" "")))
+   (set (match_dup 2)
+	(ashift:DI (match_dup 2)
                    (const_int 32)))
-   (set (subreg:DI (match_operand:SI 0 "register_operand" "") 0)
-	(clz:DI (match_dup 2)))]
+   (set (match_dup 2)
+	(clz:DI (match_dup 2)))
+   (set (match_operand:SI 0 "register_operand" "")
+	(subreg:SI (match_dup 2) 0))]
    ""
    {
-     operands[1] = simplify_gen_subreg (DImode, operands[1], SImode, 0);
      operands[2] = gen_reg_rtx (DImode);
    })
 
@@ -2444,7 +2447,7 @@
      emit_move_insn (s0, gen_rtx_PLUS (mode, s0, GEN_INT (-1)));
      bcomp = gen_rtx_NE(mode, s0, const0_rtx);
      loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands [1]);
-     emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+     emit_jump_insn (gen_rtx_SET (pc_rtx,
                                   gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
                                                         loc_ref, pc_rtx)));
      DONE;
@@ -2670,7 +2673,7 @@
 {
   int i;
 
-  emit_call_insn (GEN_CALL (operands[0], const0_rtx, NULL, const0_rtx));
+  emit_call_insn (gen_call (operands[0], const0_rtx));
 
   for (i = 0; i < XVECLEN (operands[2], 0); i++)
     {
@@ -5533,7 +5536,7 @@
   rtx ssp_addr = gen_rtx_PLUS (Pmode, tp, GEN_INT (TARGET_THREAD_SSP_OFFSET));
   rtx ssp = gen_reg_rtx (Pmode);
   
-  emit_insn (gen_rtx_SET (VOIDmode, ssp, ssp_addr));
+  emit_insn (gen_rtx_SET (ssp, ssp_addr));
 
   operands[1] = gen_rtx_MEM (Pmode, ssp);
 #endif
@@ -5580,7 +5583,7 @@
   rtx ssp_addr = gen_rtx_PLUS (Pmode, tp, GEN_INT (TARGET_THREAD_SSP_OFFSET));
   rtx ssp = gen_reg_rtx (Pmode);
   
-  emit_insn (gen_rtx_SET (VOIDmode, ssp, ssp_addr));
+  emit_insn (gen_rtx_SET (ssp, ssp_addr));
 
   operands[1] = gen_rtx_MEM (Pmode, ssp);
 #endif
@@ -5598,7 +5601,7 @@
 
   loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands[2]);
 
-  emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
+  emit_jump_insn (gen_rtx_SET (pc_rtx,
 			       gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
 						     loc_ref, pc_rtx)));
 

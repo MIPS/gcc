@@ -112,4 +112,3 @@ end program main
 !
 ! { dg-final { scan-tree-dump-times "sub_opt \\(.integer.kind=4. .. caf.base_addr, caf.token, 0\\)" 1 "original" } }
 !
-! { dg-final { cleanup-tree-dump "original" } }

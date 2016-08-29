@@ -1,5 +1,5 @@
 /* Pass computing data for optimizing stdarg functions.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -21,47 +21,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
-#include "fold-const.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "langhooks.h"
-#include "gimple-pretty-print.h"
+#include "backend.h"
 #include "target.h"
-#include "bitmap.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
+#include "tree.h"
 #include "gimple.h"
+#include "tree-pass.h"
+#include "ssa.h"
+#include "gimple-pretty-print.h"
+#include "fold-const.h"
+#include "langhooks.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
 #include "gimplify.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "sbitmap.h"
 #include "tree-cfg.h"
-#include "tree-pass.h"
 #include "tree-stdarg.h"
+#include "tree-chkp.h"
 
 /* A simple pass that attempts to optimize stdarg functions on architectures
    that need to save register arguments to stack on entry to stdarg functions.
@@ -145,7 +120,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 		      bool gpr_p)
 {
   tree lhs, orig_lhs;
-  gimple stmt;
+  gimple *stmt;
   unsigned HOST_WIDE_INT ret = 0, val, counter_val;
   unsigned int max_size;
 
@@ -591,7 +566,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
       for (gimple_stmt_iterator i = gsi_start_bb (bb); !gsi_end_p (i);
 	   gsi_next (&i))
 	{
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 	  tree use;
 	  ssa_op_iter iter;
 
@@ -715,7 +690,7 @@ optimize_va_list_gpr_fpr_size (function *fun)
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 	  tree callee, ap;
 
 	  if (!is_gimple_call (stmt))
@@ -888,7 +863,7 @@ optimize_va_list_gpr_fpr_size (function *fun)
 	   !gsi_end_p (i) && !va_list_escapes;
 	   gsi_next (&i))
 	{
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 
 	  /* Don't look at __builtin_va_{start,end}, they are ok.  */
 	  if (is_gimple_call (stmt))
@@ -1022,7 +997,7 @@ finish:
 /* Return true if STMT is IFN_VA_ARG.  */
 
 static bool
-gimple_call_ifn_va_arg_p (gimple stmt)
+gimple_call_ifn_va_arg_p (gimple *stmt)
 {
   return (is_gimple_call (stmt)
 	  && gimple_call_internal_p (stmt)
@@ -1037,12 +1012,13 @@ expand_ifn_va_arg_1 (function *fun)
   bool modified = false;
   basic_block bb;
   gimple_stmt_iterator i;
+  location_t saved_location;
 
   FOR_EACH_BB_FN (bb, fun)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
       {
-	gimple stmt = gsi_stmt (i);
-	tree ap, expr, lhs, type;
+	gimple *stmt = gsi_stmt (i);
+	tree ap, aptype, expr, lhs, type;
 	gimple_seq pre = NULL, post = NULL;
 
 	if (!gimple_call_ifn_va_arg_p (stmt))
@@ -1052,24 +1028,40 @@ expand_ifn_va_arg_1 (function *fun)
 
 	type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 1)));
 	ap = gimple_call_arg (stmt, 0);
-	ap = build_fold_indirect_ref (ap);
+	aptype = TREE_TYPE (gimple_call_arg (stmt, 2));
+	gcc_assert (POINTER_TYPE_P (aptype));
+
+	/* Balanced out the &ap, usually added by build_va_arg.  */
+	ap = build2 (MEM_REF, TREE_TYPE (aptype), ap,
+		     build_int_cst (aptype, 0));
 
 	push_gimplify_context (false);
+	saved_location = input_location;
+	input_location = gimple_location (stmt);
 
-	expr = gimplify_va_arg_internal (ap, type, gimple_location (stmt),
-					 &pre, &post);
+	/* Make it easier for the backends by protecting the valist argument
+	   from multiple evaluations.  */
+	gimplify_expr (&ap, &pre, &post, is_gimple_min_lval, fb_lvalue);
+
+	expr = targetm.gimplify_va_arg_expr (ap, type, &pre, &post);
 
 	lhs = gimple_call_lhs (stmt);
 	if (lhs != NULL_TREE)
 	  {
+	    unsigned int nargs = gimple_call_num_args (stmt);
 	    gcc_assert (useless_type_conversion_p (TREE_TYPE (lhs), type));
 
-	    if (gimple_call_num_args (stmt) == 3)
+	    /* We replace call with a new expr.  This may require
+	       corresponding bndret call fixup.  */
+	    if (chkp_function_instrumented_p (fun->decl))
+	      chkp_fixup_inlined_call (lhs, expr);
+
+	    if (nargs == 4)
 	      {
 		/* We've transported the size of with WITH_SIZE_EXPR here as
-		   the 3rd argument of the internal fn call.  Now reinstate
+		   the last argument of the internal fn call.  Now reinstate
 		   it.  */
-		tree size = gimple_call_arg (stmt, 2);
+		tree size = gimple_call_arg (stmt, nargs - 1);
 		expr = build2 (WITH_SIZE_EXPR, TREE_TYPE (expr), expr, size);
 	      }
 
@@ -1078,7 +1070,10 @@ expand_ifn_va_arg_1 (function *fun)
 	       types.  */
 	    gimplify_assign (lhs, expr, &pre);
 	  }
+	else
+	  gimplify_expr (&expr, &pre, &post, is_gimple_lvalue, fb_lvalue);
 
+	input_location = saved_location;
 	pop_gimplify_context (NULL);
 
 	gimple_seq_add_seq (&pre, post);
@@ -1091,6 +1086,8 @@ expand_ifn_va_arg_1 (function *fun)
 
 	/* Remove the IFN_VA_ARG gimple_call.  It's the last stmt in the
 	   bb.  */
+	unlink_stmt_vdef (stmt);
+	release_ssa_name_fn (fun, gimple_vdef (stmt));
 	gsi_remove (&i, true);
 	gcc_assert (gsi_end_p (i));
 
@@ -1116,13 +1113,14 @@ expand_ifn_va_arg (function *fun)
   if ((fun->curr_properties & PROP_gimple_lva) == 0)
     expand_ifn_va_arg_1 (fun);
 
-#if ENABLE_CHECKING
-  basic_block bb;
-  gimple_stmt_iterator i;
-  FOR_EACH_BB_FN (bb, fun)
-    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
-      gcc_assert (!gimple_call_ifn_va_arg_p (gsi_stmt (i)));
-#endif
+  if (flag_checking)
+    {
+      basic_block bb;
+      gimple_stmt_iterator i;
+      FOR_EACH_BB_FN (bb, fun)
+	for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+	  gcc_assert (!gimple_call_ifn_va_arg_p (gsi_stmt (i)));
+    }
 }
 
 namespace {

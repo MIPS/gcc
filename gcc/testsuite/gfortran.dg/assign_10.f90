@@ -25,4 +25,3 @@ end
 !
 ! { dg-final { scan-tree-dump-times "parm" 30 "original" } }
 ! { dg-final { scan-tree-dump-times "atmp" 26 "original" } }
-! { dg-final { cleanup-tree-dump "original" } }

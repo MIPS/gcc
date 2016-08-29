@@ -1,5 +1,5 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -24,40 +24,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"		/* For INTMAX_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE,
-			   INT64_TYPE, INT_LEAST8_TYPE, INT_LEAST16_TYPE,
-			   INT_LEAST32_TYPE, INT_LEAST64_TYPE, INT_FAST8_TYPE,
-			   INT_FAST16_TYPE, INT_FAST32_TYPE, INT_FAST64_TYPE,
-			   BOOL_TYPE_SIZE, BITS_PER_UNIT, POINTER_SIZE,
-			   INT_TYPE_SIZE, CHAR_TYPE_SIZE, SHORT_TYPE_SIZE,
-			   LONG_TYPE_SIZE, LONG_LONG_TYPE_SIZE,
-			   FLOAT_TYPE_SIZE, DOUBLE_TYPE_SIZE and
-			   LONG_DOUBLE_TYPE_SIZE.  */
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "real.h"
+#include "target.h"
 #include "tree.h"
+#include "gfortran.h"
+#include "trans.h"
+#include "stringpool.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "stringpool.h"
 #include "langhooks.h"	/* For iso-c-bindings.def.  */
-#include "target.h"
-#include "ggc.h"
-#include "gfortran.h"
-#include "diagnostic-core.h"  /* For fatal_error.  */
 #include "toplev.h"	/* For rest_of_decl_compilation.  */
-#include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
 #include "trans-array.h"
-#include "flags.h"
 #include "dwarf2out.h"	/* For struct array_descr_info.  */
 
 
@@ -438,10 +416,10 @@ gfc_init_kinds (void)
       /* Only let float, double, long double and __float128 go through.
 	 Runtime support for others is not provided, so they would be
 	 useless.  */
-	if (!targetm.libgcc_floating_mode_supported_p ((machine_mode)
+      if (!targetm.libgcc_floating_mode_supported_p ((machine_mode)
 						       mode))
-	  continue;
-	if (mode != TYPE_MODE (float_type_node)
+	continue;
+      if (mode != TYPE_MODE (float_type_node)
 	    && (mode != TYPE_MODE (double_type_node))
 	    && (mode != TYPE_MODE (long_double_type_node))
 #if defined(HAVE_TFmode) && defined(ENABLE_LIBQUADMATH_SUPPORT)
@@ -587,7 +565,7 @@ gfc_init_kinds (void)
 	gfc_fatal_error ("REAL(KIND=4) is not available for "
 			 "%<-freal-8-real-4%> option");
 
-	gfc_default_double_kind = 4;
+      gfc_default_double_kind = 4;
     }
   else if (flag_real8_kind == 10 )
     {
@@ -595,7 +573,7 @@ gfc_init_kinds (void)
 	gfc_fatal_error ("REAL(KIND=10) is not available for "
 			 "%<-freal-8-real-10%> option");
 
-	gfc_default_double_kind = 10;
+      gfc_default_double_kind = 10;
     }
   else if (flag_real8_kind == 16 )
     {
@@ -603,7 +581,7 @@ gfc_init_kinds (void)
 	gfc_fatal_error ("REAL(KIND=10) is not available for "
 			 "%<-freal-8-real-16%> option");
 
-	gfc_default_double_kind = 16;
+      gfc_default_double_kind = 16;
     }
   else if (saw_r4 && saw_r8)
     gfc_default_double_kind = 8;
@@ -1056,6 +1034,8 @@ gfc_get_character_type (int kind, gfc_charlen * cl)
   tree len;
 
   len = (cl == NULL) ? NULL_TREE : cl->backend_decl;
+  if (len && POINTER_TYPE_P (TREE_TYPE (len)))
+    len = build_fold_indirect_ref (len);
 
   return gfc_get_character_type_len (kind, len);
 }
@@ -1281,25 +1261,35 @@ gfc_get_element_type (tree type)
 int
 gfc_is_nodesc_array (gfc_symbol * sym)
 {
-  gcc_assert (sym->attr.dimension || sym->attr.codimension);
+  symbol_attribute *array_attr;
+  gfc_array_spec *as;
+  bool is_classarray = IS_CLASS_ARRAY (sym);
+
+  array_attr = is_classarray ? &CLASS_DATA (sym)->attr : &sym->attr;
+  as = is_classarray ? CLASS_DATA (sym)->as : sym->as;
+
+  gcc_assert (array_attr->dimension || array_attr->codimension);
 
   /* We only want local arrays.  */
-  if (sym->attr.pointer || sym->attr.allocatable)
+  if ((sym->ts.type != BT_CLASS && sym->attr.pointer)
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->attr.class_pointer)
+      || array_attr->allocatable)
     return 0;
 
   /* We want a descriptor for associate-name arrays that do not have an
-     explicitly known shape already.  */
-  if (sym->assoc && sym->as->type != AS_EXPLICIT)
+	 explicitly known shape already.  */
+  if (sym->assoc && as->type != AS_EXPLICIT)
     return 0;
 
+  /* The dummy is stored in sym and not in the component.  */
   if (sym->attr.dummy)
-    return sym->as->type != AS_ASSUMED_SHAPE
-	   && sym->as->type != AS_ASSUMED_RANK;
+    return as->type != AS_ASSUMED_SHAPE
+	&& as->type != AS_ASSUMED_RANK;
 
   if (sym->attr.result || sym->attr.function)
     return 0;
 
-  gcc_assert (sym->as->type == AS_EXPLICIT || sym->as->cp_was_assumed);
+  gcc_assert (as->type == AS_EXPLICIT || as->cp_was_assumed);
 
   return 1;
 }
@@ -1439,8 +1429,7 @@ gfc_get_dtype (gfc_typespec *ts)
 	type = ts->u.derived
 	       && ts->u.derived->intmod_sym_id == ISOCBINDING_PTR
 	       ? GFC_TYPE_CFUNPTR : GFC_TYPE_CPTR;
-	type = GFC_TYPE_STRUCT;
-      if (ts->u.derived->attr.sequence || ts->u.derived->attr.is_bind_c)
+      else if (ts->u.derived->attr.sequence || ts->u.derived->attr.is_bind_c)
 	type = GFC_TYPE_STRUCT;
       else
         type = GFC_TYPE_OTHER;
@@ -2343,12 +2332,19 @@ gfc_get_derived_type (gfc_symbol * derived)
   gfc_component *c;
   gfc_dt_list *dt;
   gfc_namespace *ns;
+  tree tmp;
 
   if (derived->attr.unlimited_polymorphic
       || (flag_coarray == GFC_FCOARRAY_LIB
 	  && derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
-	  && derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE))
+	  && (derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE
+	      || derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)))
     return ptr_type_node;
+
+  if (flag_coarray != GFC_FCOARRAY_LIB
+      && derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
+      && derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)
+    return gfc_get_int_type (gfc_default_integer_kind);
 
   if (derived && derived->attr.flavor == FL_PROCEDURE
       && derived->attr.generic)
@@ -2494,8 +2490,19 @@ gfc_get_derived_type (gfc_symbol * derived)
      node as DECL_CONTEXT of each FIELD_DECL.  */
   for (c = derived->components; c; c = c->next)
     {
-      if (c->attr.proc_pointer)
+      /* Prevent infinite recursion, when the procedure pointer type is
+	 the same as derived, by forcing the procedure pointer component to
+	 be built as if the explicit interface does not exist.  */
+      if (c->attr.proc_pointer
+	  && ((c->ts.type != BT_DERIVED && c->ts.type != BT_CLASS)
+	       || (c->ts.u.derived
+		   && !gfc_compare_derived_types (derived, c->ts.u.derived))))
 	field_type = gfc_get_ppc_type (c);
+      else if (c->attr.proc_pointer && derived->backend_decl)
+	{
+	  tmp = build_function_type_list (derived->backend_decl, NULL_TREE);
+	  field_type = build_pointer_type (tmp);
+	}
       else if (c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
         field_type = c->ts.u.derived->backend_decl;
       else

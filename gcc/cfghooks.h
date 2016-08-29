@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGHOOKS_H
 #define GCC_CFGHOOKS_H
 
-/* Only basic-block.h includes this.  */
+#include "predict.h"
 
 /* Structure to gather statistic about profile consistency, per pass.
    An array of this structure, indexed by pass static number, is allocated
@@ -186,6 +186,18 @@ struct cfg_hooks
 };
 
 extern void verify_flow_info (void);
+
+/* Check control flow invariants, if internal consistency checks are
+   enabled.  */
+
+static inline void
+checking_verify_flow_info (void)
+{
+  /* TODO: Add a separate option for -fchecking=cfg.  */
+  if (flag_checking)
+    verify_flow_info ();
+}
+
 extern void dump_bb (FILE *, basic_block, int, int);
 extern void dump_bb_for_graph (pretty_printer *, basic_block);
 extern void dump_flow_info (FILE *, int);
@@ -197,7 +209,7 @@ extern bool can_remove_branch_p (const_edge);
 extern void remove_branch (edge);
 extern void remove_edge (edge);
 extern edge split_block (basic_block, rtx);
-extern edge split_block (basic_block, gimple);
+extern edge split_block (basic_block, gimple *);
 extern edge split_block_after_labels (basic_block);
 extern bool move_block_after (basic_block, basic_block);
 extern void delete_basic_block (basic_block);

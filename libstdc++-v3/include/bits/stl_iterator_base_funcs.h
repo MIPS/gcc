@@ -1,6 +1,6 @@
 // Functions used by iterators -*- C++ -*-
 
-// Copyright (C) 2001-2015 Free Software Foundation, Inc.
+// Copyright (C) 2001-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -62,7 +62,7 @@
 #pragma GCC system_header
 
 #include <bits/concept_check.h>
-#include <debug/debug.h>
+#include <debug/assertions.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -145,7 +145,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
-      _GLIBCXX_DEBUG_ASSERT(__n >= 0);
+      __glibcxx_assert(__n >= 0);
       while (__n--)
 	++__i;
     }
@@ -205,6 +205,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     next(_ForwardIterator __x, typename
 	 iterator_traits<_ForwardIterator>::difference_type __n = 1)
     {
+      // concept requirements
+      __glibcxx_function_requires(_ForwardIteratorConcept<
+				  _ForwardIterator>)
       std::advance(__x, __n);
       return __x;
     }
@@ -214,6 +217,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     prev(_BidirectionalIterator __x, typename
 	 iterator_traits<_BidirectionalIterator>::difference_type __n = 1) 
     {
+      // concept requirements
+      __glibcxx_function_requires(_BidirectionalIteratorConcept<
+				  _BidirectionalIterator>)
       std::advance(__x, -__n);
       return __x;
     }

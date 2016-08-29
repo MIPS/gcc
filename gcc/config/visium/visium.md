@@ -1,5 +1,5 @@
 ;; Machine description for Visium.
-;; Copyright (C) 2002-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2016 Free Software Foundation, Inc.
 ;; Contributed by C.Nettleton, J.P.Parkes and P.Garbett.
 
 ;; This file is part of GCC.
@@ -687,10 +687,8 @@
   [(set (match_dup 2) (match_dup 3))]
 {
   long l;
-  REAL_VALUE_TYPE rv;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (rv, operands[1]);
-  REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (operands[1]), l);
 
   operands[2] = operand_subword (operands[0], 0, 0, SFmode);
   operands[3] = GEN_INT (trunc_int_for_mode (l, SImode));
@@ -2375,7 +2373,7 @@
 {
   int i;
 
-  emit_call_insn (GEN_CALL (operands[0], const0_rtx, NULL, const0_rtx));
+  emit_call_insn (gen_call (operands[0], const0_rtx, NULL));
 
   for (i = 0; i < XVECLEN (operands[2], 0); i++)
     {

@@ -1,4 +1,4 @@
-.. Copyright (C) 2014-2015 Free Software Foundation, Inc.
+.. Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Originally contributed by David Malcolm <dmalcolm@redhat.com>
 
    This is free software: you can redistribute it and/or modify it
@@ -46,6 +46,7 @@ The C++ class hierarchy within the ``gccjit`` namespace looks like this::
       +- rvalue
           +- lvalue
              +- param
+      +- case_
 
 The :class:`gccjit::object` base class has the following operations:
 

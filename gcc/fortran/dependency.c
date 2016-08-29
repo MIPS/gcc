@@ -1,5 +1,5 @@
 /* Dependency analysis
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of GCC.
@@ -36,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 enum range {LHS, RHS, MID};
 
 /* Dependency types.  These must be in reverse order of priority.  */
-typedef enum
+enum gfc_dependency
 {
   GFC_DEP_ERROR,
   GFC_DEP_EQUAL,	/* Identical Ranges.  */
@@ -44,8 +44,7 @@ typedef enum
   GFC_DEP_BACKWARD,	/* e.g. a(2:4) = a(1:3).  */
   GFC_DEP_OVERLAP,	/* May overlap in some other way.  */
   GFC_DEP_NODEP		/* Distinct ranges.  */
-}
-gfc_dependency;
+};
 
 /* Macros */
 #define IS_ARRAY_EXPLICIT(as) ((as->type == AS_EXPLICIT ? 1 : 0))
@@ -956,7 +955,7 @@ gfc_check_argument_var_dependency (gfc_expr *var, sym_intent intent,
 		     If a dependency is found in the case
 		     elemental == ELEM_CHECK_VARIABLE, we will generate
 		     a temporary, so we don't need to bother the user.  */
-		  gfc_warning_1 ("INTENT(%s) actual argument at %L might "
+		  gfc_warning (0, "INTENT(%s) actual argument at %L might "
 			       "interfere with actual argument at %L.",
 		   	       intent == INTENT_OUT ? "OUT" : "INOUT",
 		   	       &var->where, &expr->where);

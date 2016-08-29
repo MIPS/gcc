@@ -74,4 +74,3 @@ end subroutine testAlloc5
 ! { dg-final { scan-tree-dump-times "yyy.dim.4..lower_bound = .*ooo;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "yyy.dim.4..extent"          0 "original" } }
 
-! { dg-final { cleanup-tree-dump "original" } }

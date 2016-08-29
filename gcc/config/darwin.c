@@ -1,5 +1,5 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -21,75 +21,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "regs.h"
-#include "hard-reg-set.h"
-#include "insn-config.h"
-#include "conditions.h"
-#include "insn-flags.h"
-#include "output.h"
-#include "insn-attr.h"
-#include "flags.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
-#include "tree.h"
-#include "fold-const.h"
-#include "stringpool.h"
-#include "varasm.h"
-#include "stor-layout.h"
-#include "hashtab.h"
-#include "function.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
-#include "expr.h"
-#include "reload.h"
-#include "ggc.h"
-#include "langhooks.h"
+#include "backend.h"
 #include "target.h"
-#include "tm_p.h"
-#include "diagnostic-core.h"
-#include "toplev.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
-#include "debug.h"
-#include "obstack.h"
-#include "hash-table.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
+#include "rtl.h"
+#include "tree.h"
 #include "gimple.h"
-#include "gimplify.h"
-#include "hash-map.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
+#include "cfghooks.h"
+#include "df.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
+#include "output.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "explow.h"
+#include "expr.h"
+#include "langhooks.h"
+#include "toplev.h"
 #include "lto-section-names.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
@@ -149,8 +100,7 @@ int generating_for_darwin_version ;
 section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 /* While we transition to using in-tests instead of ifdef'd code.  */
-#ifndef HAVE_lo_sum
-#define HAVE_lo_sum 0
+#if !HAVE_lo_sum
 #define gen_macho_high(a,b) (a)
 #define gen_macho_low(a,b,c) (a)
 #endif
@@ -489,11 +439,11 @@ typedef struct GTY ((for_user)) machopic_indirection
   /* True iff this entry is for a stub (as opposed to a non-lazy
      pointer).  */
   bool stub_p;
-  /* True iff this stub or pointer pointer has been referenced.  */
+  /* True iff this stub or pointer has been referenced.  */
   bool used;
 } machopic_indirection;
 
-struct indirection_hasher : ggc_hasher<machopic_indirection *>
+struct indirection_hasher : ggc_ptr_hash<machopic_indirection>
 {
   typedef const char *compare_type;
   static hashval_t hash (machopic_indirection *);
@@ -687,10 +637,10 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 
 	  gcc_assert (reg);
 
-	  emit_insn (gen_rtx_SET (Pmode, hi_sum_reg,
+	  emit_insn (gen_rtx_SET (hi_sum_reg,
 			      gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
 				       gen_rtx_HIGH (Pmode, offset))));
-	  emit_insn (gen_rtx_SET (Pmode, reg,
+	  emit_insn (gen_rtx_SET (reg,
 				  gen_rtx_LO_SUM (Pmode, hi_sum_reg,
 						  copy_rtx (offset))));
 
@@ -700,11 +650,9 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	    {
 	  gcc_assert (reg);
 
-	  emit_insn (gen_rtx_SET (VOIDmode, reg,
-				  gen_rtx_HIGH (Pmode, offset)));
-	  emit_insn (gen_rtx_SET (VOIDmode, reg,
-				  gen_rtx_LO_SUM (Pmode, reg,
-						  copy_rtx (offset))));
+	  emit_insn (gen_rtx_SET (reg, gen_rtx_HIGH (Pmode, offset)));
+	  emit_insn (gen_rtx_SET (reg, gen_rtx_LO_SUM (Pmode, reg,
+						       copy_rtx (offset))));
 	  emit_use (pic_offset_table_rtx);
 
 	  orig = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, reg);
@@ -725,7 +673,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
           && reg 
           && MACHO_DYNAMIC_NO_PIC_P)
 	{
-	    emit_insn (gen_rtx_SET (Pmode, reg, ptr_ref));
+	    emit_insn (gen_rtx_SET (reg, ptr_ref));
 	    ptr_ref = reg;
 	}
 
@@ -874,7 +822,7 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 	      mem = gen_const_mem (GET_MODE (orig),
 				   gen_rtx_LO_SUM (Pmode, temp_reg,
 						   copy_rtx (asym)));
-	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+	      emit_insn (gen_rtx_SET (reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other
 		 platforms that can use dynamic-no-pic  */
@@ -901,24 +849,24 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 	      if (! MACHO_DYNAMIC_NO_PIC_P)
 		sum = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, sum);
 
-	      emit_insn (gen_rtx_SET (Pmode, hi_sum_reg, sum));
+	      emit_insn (gen_rtx_SET (hi_sum_reg, sum));
 
 	      mem = gen_const_mem (GET_MODE (orig),
 				  gen_rtx_LO_SUM (Pmode,
 						  hi_sum_reg,
 						  copy_rtx (offset)));
-	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+	      insn = emit_insn (gen_rtx_SET (reg, mem));
 	      set_unique_reg_note (insn, REG_EQUAL, pic_ref);
 
 	      pic_ref = reg;
 #else
 	      emit_use (gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM));
 
-	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+	      emit_insn (gen_rtx_SET (reg,
 				      gen_rtx_HIGH (Pmode,
 						    gen_rtx_CONST (Pmode,
 								   offset))));
-	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+	      emit_insn (gen_rtx_SET (reg,
 				  gen_rtx_LO_SUM (Pmode, reg,
 					   gen_rtx_CONST (Pmode,
 						   	  copy_rtx (offset)))));
@@ -969,22 +917,21 @@ machopic_legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 
 	      hi_sum_reg = reg;
 
-	      emit_insn (gen_rtx_SET (Pmode, hi_sum_reg,
+	      emit_insn (gen_rtx_SET (hi_sum_reg,
 				      (MACHO_DYNAMIC_NO_PIC_P)
 				      ? gen_rtx_HIGH (Pmode, offset)
 				      : gen_rtx_PLUS (Pmode,
 						      pic_offset_table_rtx,
 						      gen_rtx_HIGH (Pmode,
 								    offset))));
-	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+	      emit_insn (gen_rtx_SET (reg,
 				      gen_rtx_LO_SUM (Pmode,
 						      hi_sum_reg,
 						      copy_rtx (offset))));
 	      pic_ref = reg;
 #else
-	      emit_insn (gen_rtx_SET (VOIDmode, reg,
-				      gen_rtx_HIGH (Pmode, offset)));
-	      emit_insn (gen_rtx_SET (VOIDmode, reg,
+	      emit_insn (gen_rtx_SET (reg, gen_rtx_HIGH (Pmode, offset)));
+	      emit_insn (gen_rtx_SET (reg,
 				      gen_rtx_LO_SUM (Pmode, reg,
 						      copy_rtx (offset))));
 	      pic_ref = gen_rtx_PLUS (Pmode,
@@ -1259,6 +1206,11 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 void
 darwin_mark_decl_preserved (const char *name)
 {
+  /* Actually we shouldn't mark any local symbol this way, but for now
+     this only happens with ObjC meta-data.  */
+  if (darwin_label_is_anonymous_local_objc_name (name))
+    return;
+
   fprintf (asm_out_file, "\t.no_dead_strip ");
   assemble_name (asm_out_file, name);
   fputc ('\n', asm_out_file);
@@ -2254,7 +2206,7 @@ fprintf (file, "# dadon: %s %s (%llu, %u) local %d weak %d"
 
       ASM_OUTPUT_LABEL (file, xname);
       size = 1;
-      fprintf (file, "\t.space\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+      fprintf (file, "\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
 
       /* Check that we've correctly picked up the zero-sized item and placed it
          properly.  */
@@ -2395,7 +2347,7 @@ darwin_emit_local_bss (FILE *fp, tree decl, const char *name,
 	fprintf (fp, "\t.align\t%u\n", l2align);
 
       assemble_name (fp, name);        
-      fprintf (fp, ":\n\t.space\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+      fprintf (fp, ":\n\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
     }
   else 
     {
@@ -2416,10 +2368,10 @@ darwin_emit_local_bss (FILE *fp, tree decl, const char *name,
 	size = 1;
 
       if (l2align)
-	fprintf (fp, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
+	fprintf (fp, "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",
 		 size, (unsigned) l2align);
       else
-	fprintf (fp, ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	fprintf (fp, "," HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
     }
 
   (*targetm.encode_section_info) (decl, DECL_RTL (decl), false);
@@ -2567,7 +2519,7 @@ fprintf (fp, "# albss: %s (%lld,%d) ro %d cst %d stat %d com %d"
 	fprintf (fp, "\t.align\t%u\n", l2align);
 
       assemble_name (fp, name);
-      fprintf (fp, ":\n\t.space\t"HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+      fprintf (fp, ":\n\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
     }
   else 
     {
@@ -2588,9 +2540,9 @@ fprintf (fp, "# albss: %s (%lld,%d) ro %d cst %d stat %d com %d"
 	size = 1;
 
       if (l2align)
-	fprintf (fp, ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", size, l2align);
+	fprintf (fp, "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n", size, l2align);
       else
-	fprintf (fp, ","HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
+	fprintf (fp, "," HOST_WIDE_INT_PRINT_UNSIGNED"\n", size);
     }
   (* targetm.encode_section_info) (decl, DECL_RTL (decl), false);
 }
@@ -3045,23 +2997,23 @@ darwin_asm_output_anchor (rtx symbol)
 	   SYMBOL_REF_BLOCK_OFFSET (symbol));
 }
 
-/* Disable section anchoring on any section containing a zero-sized 
+/* Disable section anchoring on any section containing a zero-sized
    object.  */
 bool
 darwin_use_anchors_for_symbol_p (const_rtx symbol)
 {
-  if (DARWIN_SECTION_ANCHORS && flag_section_anchors) 
+  if (DARWIN_SECTION_ANCHORS && flag_section_anchors)
     {
       section *sect;
       /* If the section contains a zero-sized object it's ineligible.  */
       sect = SYMBOL_REF_BLOCK (symbol)->sect;
       /* This should have the effect of disabling anchors for vars that follow
-         any zero-sized one, in a given section.  */     
+         any zero-sized one, in a given section.  */
       if (sect->common.flags & SECTION_NO_ANCHOR)
 	return false;
 
-        /* Also check the normal reasons for suppressing.  */
-        return default_use_anchors_for_symbol_p (symbol);
+      /* Also check the normal reasons for suppressing.  */
+      return default_use_anchors_for_symbol_p (symbol);
     }
   else
     return false;
@@ -3290,7 +3242,7 @@ typedef struct GTY ((for_user)) cfstring_descriptor {
   tree constructor;
 } cfstring_descriptor;
 
-struct cfstring_hasher : ggc_hasher<cfstring_descriptor *>
+struct cfstring_hasher : ggc_ptr_hash<cfstring_descriptor>
 {
   static hashval_t hash (cfstring_descriptor *);
   static bool equal (cfstring_descriptor *, cfstring_descriptor *);

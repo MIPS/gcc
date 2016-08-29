@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC, for SPARC running Solaris 2
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@netcom.com).
    Additional changes by David V. Henkel-Wallace (gumby@cygnus.com).
 
@@ -280,6 +280,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #define SUBTARGET_CPU_EXTRA_SPECS
 
+#define ENDFILE_ARCH_SPEC ""
+
 
 
 /* Register the Solaris-specific #pragma directives.  */
@@ -359,7 +361,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	switch_to_section (bss_section);				\
       fprintf ((FILE), "%s", COMMON_ASM_OP);				\
       assemble_name ((FILE), (NAME));					\
-      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+      fprintf ((FILE), "," HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
 	       (SIZE), (ALIGN) / BITS_PER_UNIT);			\
     }									\
   while (0)

@@ -197,7 +197,7 @@ struct	G
 	void*	exception;	// current exception being thrown
 	bool	is_foreign;	// whether current exception from other language
 	void	*gcstack;	// if status==Gsyscall, gcstack = stackbase to use during gc
-	uintptr	gcstack_size;
+	size_t	gcstack_size;
 	void*	gcnext_segment;
 	void*	gcnext_sp;
 	void*	gcinitial_sp;
@@ -326,6 +326,7 @@ struct	SigTab
 {
 	int32	sig;
 	int32	flags;
+	void*   fwdsig;
 };
 enum
 {
@@ -335,8 +336,7 @@ enum
 	SigPanic = 1<<3,	// if the signal is from the kernel, panic
 	SigDefault = 1<<4,	// if the signal isn't explicitly requested, don't monitor it
 	SigHandling = 1<<5,	// our signal handler is registered
-	SigIgnored = 1<<6,	// the signal was ignored before we registered for it
-	SigGoExit = 1<<7,	// cause all runtime procs to exit (only used on Plan 9).
+	SigGoExit = 1<<6,	// cause all runtime procs to exit (only used on Plan 9).
 };
 
 // Layout of in-memory per-function information prepared by linker
@@ -418,17 +418,15 @@ struct LFNode
 // Parallel for descriptor.
 struct ParFor
 {
-	void (*body)(ParFor*, uint32);	// executed for each element
+	const FuncVal *body;		// executed for each element
 	uint32 done;			// number of idle threads
 	uint32 nthr;			// total number of threads
 	uint32 nthrmax;			// maximum number of threads
 	uint32 thrseq;			// thread id sequencer
 	uint32 cnt;			// iteration space [0, cnt)
-	void *ctx;			// arbitrary user context
 	bool wait;			// if true, wait while all threads finish processing,
 					// otherwise parfor may return while other threads are still working
 	ParForThread *thr;		// array of thread descriptors
-	uint32 pad;			// to align ParForThread.pos for 64-bit atomic operations
 	// stats
 	uint64 nsteal;
 	uint64 nstealcnt;
@@ -449,11 +447,22 @@ struct CgoMal
 struct DebugVars
 {
 	int32	allocfreetrace;
+	int32   cgocheck;
 	int32	efence;
+	int32   gccheckmark;
+	int32   gcpacertrace;
+	int32   gcshrinkstackoff;
+	int32   gcstackbarrieroff;
+	int32   gcstackbarrierall;
+	int32   gcstoptheworld;
 	int32	gctrace;
 	int32	gcdead;
+	int32   invalidptr;
+	int32   sbrk;
+	int32   scavenge;
 	int32	scheddetail;
 	int32	schedtrace;
+	int32   wbshadow;
 };
 
 extern bool runtime_precisestack;
@@ -506,6 +515,9 @@ extern	uint32	runtime_Hchansize;
 extern	DebugVars	runtime_debug;
 extern	uintptr	runtime_maxstacksize;
 
+extern	bool	runtime_isstarted;
+extern	bool	runtime_isarchive;
+
 /*
  * common functions and data
  */
@@ -535,9 +547,10 @@ void*	runtime_mal(uintptr);
 String	runtime_gostring(const byte*);
 String	runtime_gostringnocopy(const byte*);
 void	runtime_schedinit(void);
-void	runtime_initsig(void);
+void	runtime_initsig(bool);
 void	runtime_sigenable(uint32 sig);
 void	runtime_sigdisable(uint32 sig);
+void	runtime_sigignore(uint32 sig);
 int32	runtime_gotraceback(bool *crash);
 void	runtime_goroutineheader(G*);
 void	runtime_printtrace(Location*, int32, bool);
@@ -546,8 +559,8 @@ void	runtime_printtrace(Location*, int32, bool);
 #define runtime_write(d, v, n) write((d), (v), (n))
 #define runtime_close(d) close(d)
 void	runtime_ready(G*);
-const byte*	runtime_getenv(const char*);
-int32	runtime_atoi(const byte*);
+String	runtime_getenv(const char*);
+int32	runtime_atoi(const byte*, intgo);
 void*	runtime_mstart(void*);
 G*	runtime_malg(int32, byte**, size_t*);
 void	runtime_mpreinit(M*);
@@ -709,12 +722,11 @@ LFNode*	runtime_lfstackpop(uint64 *head);
  * Parallel for over [0, n).
  * body() is executed for each iteration.
  * nthr - total number of worker threads.
- * ctx - arbitrary user context.
  * if wait=true, threads return from parfor() when all work is done;
  * otherwise, threads can return while other threads are still finishing processing.
  */
 ParFor*	runtime_parforalloc(uint32 nthrmax);
-void	runtime_parforsetup(ParFor *desc, uint32 nthr, uint32 n, void *ctx, bool wait, void (*body)(ParFor*, uint32));
+void	runtime_parforsetup(ParFor *desc, uint32 nthr, uint32 n, bool wait, const FuncVal *body);
 void	runtime_parfordo(ParFor *desc);
 void	runtime_parforiters(ParFor*, uintptr, uintptr*, uintptr*);
 
@@ -856,3 +868,10 @@ struct time_now_ret
 
 struct time_now_ret now() __asm__ (GOSYM_PREFIX "time.now")
   __attribute__ ((no_split_stack));
+
+extern void _cgo_wait_runtime_init_done (void);
+extern void _cgo_notify_runtime_init_done (void);
+extern _Bool runtime_iscgo;
+extern _Bool runtime_cgoHasExtraM;
+extern Hchan *runtime_main_init_done;
+extern uintptr __go_end __attribute__ ((weak));

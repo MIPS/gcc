@@ -21,4 +21,3 @@ end
 ! { dg-final { scan-tree-dump-times "parm.\[0-9\]+.base_addr = \\(void .\\) &\\(.yyy.\[0-9\]+\\)\\\[D.\[0-9\]+ \\* 4\\\];" 1 "original" } }
 
 ! { dg-final { scan-tree-dump-times "D.\[0-9\]+ = parm.\[0-9\]+.base_addr;\[^;]+ptr\[1-4\] = D.\[0-9\]+;" 4 "original" } }
-! { dg-final { cleanup-tree-dump "original" } }

@@ -1,7 +1,7 @@
 ! { dg-do compile } 
 ! { dg-additional-options "-fcoarray=single" }
-
-! TODO: These cases must fail
+!
+! PR fortran/63861
 
 module test
 contains
@@ -18,7 +18,7 @@ contains
     !$acc end parallel
     !$acc host_data use_device (a)
     !$acc end host_data
-    !$acc parallel loop reduction(+:a)
+    !$acc parallel loop reduction(+:a) ! { dg-error "Array 'a' is not permitted in reduction" }
     do i = 1,5
     enddo
     !$acc end parallel loop
@@ -32,4 +32,3 @@ contains
     !$acc update self (a)
   end subroutine oacc1
 end module test
-! { dg-prune-output "ACC cache unimplemented" }

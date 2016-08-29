@@ -1,5 +1,5 @@
 /* Allocation for dataflow support routines.
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -377,31 +377,12 @@ are write-only operations.
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "rtl.h"
-#include "tm_p.h"
-#include "insn-config.h"
-#include "recog.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "vec.h"
-#include "machmode.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "regs.h"
-#include "alloc-pool.h"
-#include "flags.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
-#include "sbitmap.h"
-#include "bitmap.h"
 #include "df.h"
+#include "emit-rtl.h"
+#include "cfganal.h"
 #include "tree-pass.h"
-#include "params.h"
 #include "cfgloop.h"
 
 static void *df_get_bb_info (struct dataflow *, unsigned int);
@@ -694,10 +675,8 @@ df_finish_pass (bool verify ATTRIBUTE_UNUSED)
 #endif
 #endif
 
-#ifdef ENABLE_CHECKING
-  if (verify)
+  if (flag_checking && verify)
     df->changeable_flags |= DF_VERIFY_SCHEDULED;
-#endif
 }
 
 
@@ -1047,10 +1026,7 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
       bitmap_iterator bi;
       unsigned int index;
 
-      /* Swap pending and worklist. */
-      bitmap temp = worklist;
-      worklist = pending;
-      pending = temp;
+      std::swap (pending, worklist);
 
       EXECUTE_IF_SET_IN_BITMAP (worklist, 0, index, bi)
 	{
@@ -1288,12 +1264,14 @@ df_analyze (void)
   for (i = 0; i < df->n_blocks; i++)
     bitmap_set_bit (current_all_blocks, df->postorder[i]);
 
-#ifdef ENABLE_CHECKING
-  /* Verify that POSTORDER_INVERTED only contains blocks reachable from
-     the ENTRY block.  */
-  for (i = 0; i < df->n_blocks_inverted; i++)
-    gcc_assert (bitmap_bit_p (current_all_blocks, df->postorder_inverted[i]));
-#endif
+  if (flag_checking)
+    {
+      /* Verify that POSTORDER_INVERTED only contains blocks reachable from
+	 the ENTRY block.  */
+      for (i = 0; i < df->n_blocks_inverted; i++)
+	gcc_assert (bitmap_bit_p (current_all_blocks,
+				  df->postorder_inverted[i]));
+    }
 
   /* Make sure that we have pruned any unreachable blocks from these
      sets.  */

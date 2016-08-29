@@ -1,7 +1,7 @@
 // { dg-do run }
 // { dg-options "-g -O0" }
 
-// Copyright (C) 2014-2015 Free Software Foundation, Inc.
+// Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,6 +17,9 @@
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
+
+// List xmethods only recognize the non cxx11 std::list for now.
+#define _GLIBCXX_USE_CXX11_ABI 0
 
 #include <list>
 
@@ -35,6 +38,10 @@ main ()
 // { dg-final { note-test l1.front() 123 } }
 // { dg-final { note-test l1.back() 789 } }
 
+// { dg-final { whatis-test l1.empty() bool } }
+// { dg-final { whatis-test l1.size() std::size_t } }
+// { dg-final { whatis-test l1.front() int } }
+// { dg-final { whatis-test l1.back() int } }
 
   return 0;  // Mark SPOT
 }

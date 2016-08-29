@@ -1,5 +1,5 @@
 /* Sets (bit vectors) of hard registers, and operations on them.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC
 
@@ -19,8 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_HARD_REG_SET_H
 #define GCC_HARD_REG_SET_H
-
-#include "hash-table.h"
 
 /* Define the type of a set of hard registers.  */
 
@@ -618,9 +616,8 @@ extern char global_regs[FIRST_PSEUDO_REGISTER];
 struct simplifiable_subreg;
 struct subreg_shape;
 
-struct simplifiable_subregs_hasher : typed_noop_remove <simplifiable_subreg>
+struct simplifiable_subregs_hasher : nofree_ptr_hash <simplifiable_subreg>
 {
-  typedef simplifiable_subreg *value_type;
   typedef const subreg_shape *compare_type;
 
   static inline hashval_t hash (const simplifiable_subreg *);

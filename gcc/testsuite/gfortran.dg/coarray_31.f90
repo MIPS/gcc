@@ -19,4 +19,3 @@ end
 ! { dg-final { scan-tree-dump "a.y.x.base_addr = D.\[0-9\]+.y.x.base_addr;" "original" } }
 ! { dg-final { scan-tree-dump "a.y.z._data.base_addr = D.\[0-9\]+.y.z._data.base_addr;" "original" } }
 ! { dg-final { scan-tree-dump "a.y.d._data.base_addr = D.\[0-9\]+.y.d._data.base_addr;" "original" } }
-! { dg-final { cleanup-tree-dump "original" } }
