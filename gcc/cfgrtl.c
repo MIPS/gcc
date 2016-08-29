@@ -115,7 +115,8 @@ can_delete_label_p (const rtx_code_label *label)
   return (!LABEL_PRESERVE_P (label)
 	  /* User declared labels must be preserved.  */
 	  && LABEL_NAME (label) == 0
-	  && !in_insn_list_p (forced_labels, label));
+	  && !vec_safe_contains<rtx_insn *> (forced_labels,
+					     const_cast<rtx_code_label *> (label)));
 }
 
 /* Delete INSN by patching it out.  */
@@ -215,9 +216,10 @@ delete_insn (rtx uncast_insn)
     }
 }
 
-/* Like delete_insn but also purge dead edges from BB.  */
+/* Like delete_insn but also purge dead edges from BB.
+   Return true if any edges are eliminated.  */
 
-void
+bool
 delete_insn_and_edges (rtx_insn *insn)
 {
   bool purge = false;
@@ -228,7 +230,8 @@ delete_insn_and_edges (rtx_insn *insn)
     purge = true;
   delete_insn (insn);
   if (purge)
-    purge_dead_edges (BLOCK_FOR_INSN (insn));
+    return purge_dead_edges (BLOCK_FOR_INSN (insn));
+  return false;
 }
 
 /* Unlink a chain of insns between START and FINISH, leaving notes
@@ -572,8 +575,10 @@ contains_no_active_insn_p (const_basic_block bb)
 {
   rtx_insn *insn;
 
-  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun) || bb == ENTRY_BLOCK_PTR_FOR_FN (cfun)
-      || !single_succ_p (bb))
+  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
+      || bb == ENTRY_BLOCK_PTR_FOR_FN (cfun)
+      || !single_succ_p (bb)
+      || (single_succ_edge (bb)->flags & EDGE_FAKE) != 0)
     return false;
 
   for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
@@ -4268,11 +4273,10 @@ cfg_layout_initialize (unsigned int flags)
 void
 break_superblocks (void)
 {
-  sbitmap superblocks;
   bool need = false;
   basic_block bb;
 
-  superblocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  auto_sbitmap superblocks (last_basic_block_for_fn (cfun));
   bitmap_clear (superblocks);
 
   FOR_EACH_BB_FN (bb, cfun)
@@ -4288,8 +4292,6 @@ break_superblocks (void)
       rebuild_jump_labels (get_insns ());
       find_many_sub_basic_blocks (superblocks);
     }
-
-  free (superblocks);
 }
 
 /* Finalize the changes: reorder insn list according to the sequence specified

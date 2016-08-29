@@ -93,6 +93,7 @@ along with GCC; see the file COPYING3.  If not see
    block for each merged equivalence list.  */
 
 #include "config.h"
+#define INCLUDE_MAP
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -100,9 +101,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "trans.h"
 #include "stringpool.h"
-
-#include <map>
-
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -438,7 +436,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
       TREE_STATIC (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
       if (!com->is_bind_c)
-	DECL_ALIGN (decl) = BIGGEST_ALIGNMENT;
+	SET_DECL_ALIGN (decl, BIGGEST_ALIGNMENT);
       else
         {
 	  /* Do not set the alignment for bind(c) common blocks to
@@ -449,7 +447,7 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
 	  tree field = NULL_TREE;
 	  field = TYPE_FIELDS (TREE_TYPE (decl));
 	  if (DECL_CHAIN (field) == NULL_TREE)
-	    DECL_ALIGN (decl) = TYPE_ALIGN (TREE_TYPE (field));
+	    SET_DECL_ALIGN (decl, TYPE_ALIGN (TREE_TYPE (field)));
 	}
       DECL_USER_ALIGN (decl) = 0;
       GFC_DECL_COMMON_OR_EQUIV (decl) = 1;
@@ -534,10 +532,15 @@ get_init_field (segment_info *head, tree union_type, tree *field_init,
   memset (chk, '\0', (size_t)length);
   for (s = head; s; s = s->next)
     if (s->sym->value)
-      gfc_merge_initializers (s->sym->ts, s->sym->value,
+      {
+	locus *loc = NULL;
+	if (s->sym->ns->equiv && s->sym->ns->equiv->eq)
+	  loc = &s->sym->ns->equiv->eq->expr->where;
+	gfc_merge_initializers (s->sym->ts, s->sym->value, loc,
 			      &data[s->offset],
 			      &chk[s->offset],
 			     (size_t)s->length);
+      }
   
   for (i = 0; i < length; i++)
     CONSTRUCTOR_APPEND_ELT (v, NULL, build_int_cst (type, data[i]));

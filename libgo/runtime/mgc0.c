@@ -1947,7 +1947,11 @@ dumpspan(uint32 idx)
 	runtime_printf("\n");
 }
 
-static pthread_mutex_t gcsema = PTHREAD_MUTEX_INITIALIZER;
+// A debugging function to dump the contents of memory
+void
+runtime_memorydump(void)
+{
+	uint32 spanidx;
 
 	for(spanidx=0; spanidx<runtime_mheap.nspan; spanidx++) {
 		dumpspan(spanidx);
@@ -2188,12 +2192,10 @@ runtime_gc(int32 force)
 		m = runtime_m();
 	}
 
-	t1 = runtime_nanotime();
-	mstats.numgc++;
-	mstats.pause_ns += t1 - t0;
-	if(mstats.debuggc)
-		runtime_printf("pause %llu\n", (unsigned long long)t1-t0);
-	pthread_mutex_unlock(&gcsema);
+	// all done
+	m->gcing = 0;
+	m->locks++;
+	runtime_semrelease(&runtime_worldsema);
 	runtime_starttheworld();
 	m->locks--;
 

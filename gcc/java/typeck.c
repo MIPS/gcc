@@ -305,7 +305,7 @@ build_java_array_type (tree element_type, HOST_WIDE_INT length)
 		      FIELD_DECL, get_identifier ("data"), atype);
   DECL_CONTEXT (arfld) = t;
   DECL_CHAIN (fld) = arfld;
-  DECL_ALIGN (arfld) = TYPE_ALIGN (element_type);
+  SET_DECL_ALIGN (arfld, TYPE_ALIGN (element_type));
 
   /* We could layout_class, but that loads java.lang.Object prematurely.
    * This is called by the parser, and it is a bad idea to do load_class
@@ -341,7 +341,7 @@ promote_type (tree type)
 	    return promoted_byte_type_node;
 	  return int_type_node;
 	}
-      /* ... else fall through ... */
+      /* fall through */
     default:
       return type;
     }

@@ -1141,7 +1141,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 						   SUBREG_BYTE (in),
 						   GET_MODE (in)),
 			      REGNO (SUBREG_REG (in)));
-      else if (GET_CODE (SUBREG_REG (in)) == SYMBOL_REF)
+      else if (CONSTANT_P (SUBREG_REG (in))
+               || GET_CODE (SUBREG_REG (in)) == PLUS)
 	subreg_in_class = find_valid_class_1 (inmode,
 					      GET_MODE (SUBREG_REG (in)),
 					      rclass);
@@ -3960,7 +3961,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 	       there will be no reload needed at all.  */
 	    if (plus == NULL_RTX
 		&& subreg == NULL_RTX
-		&& alternative_allows_const_pool_ref (this_address_reloaded == 0
+		&& alternative_allows_const_pool_ref (this_address_reloaded != 1
 						      ? substed_operand[i]
 						      : NULL,
 						      recog_data.constraints[i],
@@ -4605,8 +4606,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 /* Return true if alternative number ALTNUM in constraint-string
    CONSTRAINT is guaranteed to accept a reloaded constant-pool reference.
-   MEM gives the reference if it didn't need any reloads, otherwise it
-   is null.  */
+   MEM gives the reference if its address hasn't been fully reloaded,
+   otherwise it is NULL.  */
 
 static bool
 alternative_allows_const_pool_ref (rtx mem ATTRIBUTE_UNUSED,
@@ -6750,7 +6751,7 @@ find_equiv_reg (rtx goal, rtx_insn *insn, enum reg_class rclass, int other,
       if (NONJUMP_INSN_P (p)
 	  /* If we don't want spill regs ...  */
 	  && (! (reload_reg_p != 0
-		 && reload_reg_p != (short *) (HOST_WIDE_INT) 1)
+		 && reload_reg_p != (short *) HOST_WIDE_INT_1)
 	      /* ... then ignore insns introduced by reload; they aren't
 		 useful and can cause results in reload_as_needed to be
 		 different from what they were when calculating the need for
@@ -6883,7 +6884,7 @@ find_equiv_reg (rtx goal, rtx_insn *insn, enum reg_class rclass, int other,
      (Now that insns introduced by reload are ignored above,
      this case shouldn't happen, but I'm not positive.)  */
 
-  if (reload_reg_p != 0 && reload_reg_p != (short *) (HOST_WIDE_INT) 1)
+  if (reload_reg_p != 0 && reload_reg_p != (short *) HOST_WIDE_INT_1)
     {
       int i;
       for (i = 0; i < valuenregs; ++i)

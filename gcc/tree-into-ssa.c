@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "domwalk.h"
+#include "statistics.h"
 
 #define PERCENT(x,y) ((float)(x) * 100.0 / (float)(y))
 
@@ -666,6 +667,8 @@ mark_def_sites (basic_block bb, gimple *stmt, bitmap kills)
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
     {
       tree sym = USE_FROM_PTR (use_p);
+      if (TREE_CODE (sym) == SSA_NAME)
+	continue;
       gcc_checking_assert (DECL_P (sym));
       if (!bitmap_bit_p (kills, DECL_UID (sym)))
 	set_livein_block (sym, bb);
@@ -676,6 +679,8 @@ mark_def_sites (basic_block bb, gimple *stmt, bitmap kills)
      each def to the set of killed symbols.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
+      if (TREE_CODE (def) == SSA_NAME)
+	continue;
       gcc_checking_assert (DECL_P (def));
       set_def_block (def, bb, false);
       bitmap_set_bit (kills, DECL_UID (def));
@@ -1310,6 +1315,8 @@ rewrite_stmt (gimple_stmt_iterator *si)
 	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	  {
 	    tree var = USE_FROM_PTR (use_p);
+	    if (TREE_CODE (var) == SSA_NAME)
+	      continue;
 	    gcc_checking_assert (DECL_P (var));
 	    SET_USE (use_p, get_reaching_def (var));
 	  }
@@ -1323,6 +1330,8 @@ rewrite_stmt (gimple_stmt_iterator *si)
 	tree name;
 	tree tracked_var;
 
+	if (TREE_CODE (var) == SSA_NAME)
+	  continue;
 	gcc_checking_assert (DECL_P (var));
 
 	if (gimple_clobber_p (stmt)
@@ -2588,6 +2597,11 @@ prepare_use_sites_for (tree name, bool insert_phi_p)
   use_operand_p use_p;
   imm_use_iterator iter;
 
+  /* If we rename virtual operands do not update them.  */
+  if (virtual_operand_p (name)
+      && cfun->gimple_df->rename_vops)
+    return;
+
   FOR_EACH_IMM_USE_FAST (use_p, iter, name)
     {
       gimple *stmt = USE_STMT (use_p);
@@ -2622,6 +2636,11 @@ prepare_def_site_for (tree name, bool insert_phi_p)
   gcc_checking_assert (names_to_release == NULL
 		       || !bitmap_bit_p (names_to_release,
 					 SSA_NAME_VERSION (name)));
+
+  /* If we rename virtual operands do not update them.  */
+  if (virtual_operand_p (name)
+      && cfun->gimple_df->rename_vops)
+    return;
 
   stmt = SSA_NAME_DEF_STMT (name);
   bb = gimple_bb (stmt);
@@ -3230,6 +3249,8 @@ update_ssa (unsigned update_flags)
      OLD_SSA_NAMES.  */
   if (bitmap_first_set_bit (new_ssa_names) >= 0)
     {
+      statistics_counter_event (cfun, "Incremental SSA update", 1);
+
       prepare_names_to_update (insert_phi_p);
 
       /* If all the names in NEW_SSA_NAMES had been marked for
@@ -3243,6 +3264,8 @@ update_ssa (unsigned update_flags)
   /* Next, determine the block at which to start the renaming process.  */
   if (cfun->gimple_df->ssa_renaming_needed)
     {
+      statistics_counter_event (cfun, "Symbol to SSA rewrite", 1);
+
       /* If we rename bare symbols initialize the mapping to
          auxiliar info we need to keep track of.  */
       var_infos = new hash_table<var_info_hasher> (47);
@@ -3314,12 +3337,11 @@ update_ssa (unsigned update_flags)
 	     will grow while we are traversing it (but it will not
 	     gain any new members).  Copy OLD_SSA_NAMES to a temporary
 	     for traversal.  */
-	  sbitmap tmp = sbitmap_alloc (SBITMAP_SIZE (old_ssa_names));
+	  auto_sbitmap tmp (SBITMAP_SIZE (old_ssa_names));
 	  bitmap_copy (tmp, old_ssa_names);
 	  EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, sbi)
 	    insert_updated_phi_nodes_for (ssa_name (i), dfs, blocks_to_update,
 	                                  update_flags);
-	  sbitmap_free (tmp);
 	}
 
       symbols_to_rename.qsort (insert_updated_phi_nodes_compare_uids);

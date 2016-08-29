@@ -911,6 +911,48 @@ fix = {
     test_text = "#ifdef __cplusplus\n}\n\n#ifdef ferror";
 };
 
+/*
+ * stdlib.h on AIX uses #define on malloc and friends.
+ */
+fix = {
+    hackname  = aix_stdlib_malloc;
+    mach      = "*-*-aix*";
+    files     = stdlib.h;
+    select    = "#define[ \t]+malloc[ \t]+__linux_malloc";
+    c_fix     = format;
+    c_fix_arg = "extern void *malloc(size_t) __asm__(\"__linux_malloc\");";
+    test_text = "#define malloc __linux_malloc";
+};
+
+fix = {
+    hackname  = aix_stdlib_realloc;
+    mach      = "*-*-aix*";
+    files     = stdlib.h;
+    select    = "#define[ \t]+realloc[ \t]+__linux_realloc";
+    c_fix     = format;
+    c_fix_arg = "extern void *realloc(void *, size_t) __asm__(\"__linux_realloc\");";
+    test_text = "#define realloc __linux_realloc";
+};
+
+fix = {
+    hackname  = aix_stdlib_calloc;
+    mach      = "*-*-aix*";
+    files     = stdlib.h;
+    select    = "#define[ \t]+calloc[ \t]+__linux_calloc";
+    c_fix     = format;
+    c_fix_arg = "extern void *calloc(size_t, size_t) __asm__(\"__linux_calloc\");";
+    test_text = "#define calloc __linux_calloc";
+};
+
+fix = {
+    hackname  = aix_stdlib_valloc;
+    mach      = "*-*-aix*";
+    files     = stdlib.h;
+    select    = "#define[ \t]+valloc[ \t]+__linux_valloc";
+    c_fix     = format;
+    c_fix_arg = "extern void *valloc(size_t) __asm__(\"__linux_valloc\");";
+    test_text = "#define valloc __linux_valloc";
+};
 
 /*
  * stdlib.h on AIX 4.3 declares strtof() with a non-const first argument.
@@ -1350,6 +1392,21 @@ fix = {
   c_fix_arg = "((__GNUC__ >= 4) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))";
   test_text = "#if defined(__GNUC__) && (__GNUC__ >= 3) && "
   	      "(__GNUC_MINOR__ >= 1)\n";
+};
+
+/*
+ *  Before Mac OS X 10.8 <i386/setjmp.h> doesn't mark longjump noreturn.
+ */
+fix = {
+    hackname  = darwin_longjmp_noreturn;
+    mach      = "*-*-darwin*";
+    files     = "i386/setjmp.h";
+    bypass    = "__dead2";
+    select    = "(.*longjmp\\(.*jmp_buf.*[^)]+\\));";
+    c_fix     = format;
+    c_fix_arg = "%1 __attribute__ ((__noreturn__));";
+
+    test_text = "void siglongjmp(sigjmp_buf, int);";
 };
 
 /*
@@ -2582,6 +2639,21 @@ fix = {
     test-text = "#  define       UINT_FAST64_MAX        ULLONG_MAX\n"
 		"#  define       UINT_LEAST64_MAX        ULLONG_MAX\n";
 	_EOFix_;
+};
+
+/*
+ *  Add noreturn attribute to longjmp declarations in hpux <setjmp.h>
+ */
+fix = {
+    hackname = hpux_longjmp;
+    mach     = "*-hp-hpux*";
+    files    = setjmp.h;
+    select   = "^[ \t]*extern[ \t]+void.*longjmp[ \t]+__\\(\\(.*int\\)\\)";
+
+    c_fix     = format;
+    c_fix_arg = "%0 __attribute__ ((__noreturn__))";
+
+    test_text = 'extern void	longjmp __((jmp_buf, int));';
 };
 
 /*

@@ -316,7 +316,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   if (TREE_USED (node))
     fputs (" used", file);
   if (TREE_NOTHROW (node))
-    fputs (TYPE_P (node) ? " align-ok" : " nothrow", file);
+    fputs (" nothrow", file);
   if (TREE_PUBLIC (node))
     fputs (" public", file);
   if (TREE_PRIVATE (node))
@@ -324,7 +324,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   if (TREE_PROTECTED (node))
     fputs (" protected", file);
   if (TREE_STATIC (node))
-    fputs (" static", file);
+    fputs (code == CALL_EXPR ? " must-tail-call" : " static", file);
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
   if (TREE_VISITED (node))
@@ -601,6 +601,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fputs (" type_5", file);
       if (TYPE_LANG_FLAG_6 (node))
 	fputs (" type_6", file);
+      if (TYPE_LANG_FLAG_7 (node))
+	fputs (" type_7", file);
 
       mode = TYPE_MODE (node);
       fprintf (file, " %s", GET_MODE_NAME (mode));
@@ -768,8 +770,18 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
 	      {
-		sprintf (buf, "elt%u: ", i);
+		unsigned j;
+		/* Coalesce the output of identical consecutive elements.  */
+		for (j = i + 1; j < VECTOR_CST_NELTS (node); j++)
+		  if (VECTOR_CST_ELT (node, j) != VECTOR_CST_ELT (node, i))
+		    break;
+		j--;
+		if (i == j)
+		  sprintf (buf, "elt%u: ", i);
+		else
+		  sprintf (buf, "elt%u...elt%u: ", i, j);
 		print_node (file, buf, VECTOR_CST_ELT (node, i), indent + 4);
+		i = j;
 	      }
 	  }
 	  break;
@@ -867,8 +879,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case SSA_NAME:
 	  print_node_brief (file, "var", SSA_NAME_VAR (node), indent + 4);
+	  indent_to (file, indent + 4);
 	  fprintf (file, "def_stmt ");
-	  print_gimple_stmt (file, SSA_NAME_DEF_STMT (node), indent + 4, 0);
+	  {
+	    pretty_printer buffer;
+	    buffer.buffer->stream = file;
+	    pp_gimple_stmt_1 (&buffer, SSA_NAME_DEF_STMT (node), indent + 4, 0);
+	    pp_flush (&buffer);
+	  }
 
 	  indent_to (file, indent + 4);
 	  fprintf (file, "version %u", SSA_NAME_VERSION (node));

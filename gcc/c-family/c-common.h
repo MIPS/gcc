@@ -102,6 +102,20 @@ enum rid
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,      RID_BUILTIN_COMPLEX,	     RID_BUILTIN_SHUFFLE,
   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
+
+  /* TS 18661-3 keywords, in the same sequence as the TI_* values.  */
+  RID_FLOAT16,
+  RID_FLOATN_NX_FIRST = RID_FLOAT16,
+  RID_FLOAT32,
+  RID_FLOAT64,
+  RID_FLOAT128,
+  RID_FLOAT32X,
+  RID_FLOAT64X,
+  RID_FLOAT128X,
+#define CASE_RID_FLOATN_NX						\
+  case RID_FLOAT16: case RID_FLOAT32: case RID_FLOAT64: case RID_FLOAT128: \
+  case RID_FLOAT32X: case RID_FLOAT64X: case RID_FLOAT128X
+
   RID_FRACT, RID_ACCUM, RID_AUTO_TYPE, RID_BUILTIN_CALL_WITH_STATIC_CHAIN,
 
   /* C11 */
@@ -788,8 +802,10 @@ extern void check_function_arguments_recurse (void (*)
 					       unsigned HOST_WIDE_INT),
 					      void *, tree,
 					      unsigned HOST_WIDE_INT);
-extern bool check_builtin_function_arguments (tree, int, tree *);
+extern bool check_builtin_function_arguments (location_t, vec<location_t>,
+					      tree, int, tree *);
 extern void check_function_format (tree, int, tree *);
+extern tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
 extern bool attribute_takes_identifier_p (const_tree);
@@ -831,7 +847,8 @@ extern void overflow_warning (location_t, tree);
 extern bool warn_if_unused_value (const_tree, location_t);
 extern void warn_logical_operator (location_t, enum tree_code, tree,
 				   enum tree_code, tree, enum tree_code, tree);
-extern void warn_logical_not_parentheses (location_t, enum tree_code, tree);
+extern void warn_logical_not_parentheses (location_t, enum tree_code, tree,
+					  tree);
 extern void warn_tautological_cmp (location_t, enum tree_code, tree, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
@@ -848,6 +865,7 @@ extern bool keyword_is_type_qualifier (enum rid);
 extern bool keyword_is_decl_specifier (enum rid);
 extern bool cxx_fundamental_alignment_p (unsigned);
 extern bool pointer_to_zero_sized_aggr_p (tree);
+extern bool diagnose_mismatched_attributes (tree, tree);
 
 #define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, false, 1)
 #define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, false, 1)
@@ -902,6 +920,7 @@ extern void c_parse_file (void);
 extern void c_parse_final_cleanups (void);
 
 extern void warn_for_omitted_condop (location_t, tree);
+extern void warn_for_memset (location_t, tree, tree, int);
 
 /* These macros provide convenient access to the various _STMT nodes.  */
 
@@ -985,6 +1004,18 @@ extern tree finish_label_address_expr (tree, location_t);
 extern tree lookup_label (tree);
 extern tree lookup_name (tree);
 extern bool lvalue_p (const_tree);
+
+enum lookup_name_fuzzy_kind {
+  /* Names of types.  */
+  FUZZY_LOOKUP_TYPENAME,
+
+  /* Names of function decls.  */
+  FUZZY_LOOKUP_FUNCTION_NAME,
+
+  /* Any name.  */
+  FUZZY_LOOKUP_NAME
+};
+extern const char *lookup_name_fuzzy (tree, enum lookup_name_fuzzy_kind);
 
 extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
@@ -1083,6 +1114,53 @@ extern vec<tree, va_gc> *make_tree_vector_copy (const vec<tree, va_gc> *);
 /* Used for communication between c_common_type_for_mode and
    c_register_builtin_type.  */
 extern GTY(()) tree registered_builtin_types;
+
+/* Read SOURCE_DATE_EPOCH from environment to have a deterministic
+   timestamp to replace embedded current dates to get reproducible
+   results.  Returns -1 if SOURCE_DATE_EPOCH is not defined.  */
+extern time_t cb_get_source_date_epoch (cpp_reader *pfile);
+
+/* The value (as a unix timestamp) corresponds to date
+   "Dec 31 9999 23:59:59 UTC", which is the latest date that __DATE__ and
+   __TIME__ can store.  */
+#define MAX_SOURCE_DATE_EPOCH HOST_WIDE_INT_C (253402300799)
+
+/* Callback for libcpp for offering spelling suggestions for misspelled
+   directives.  */
+extern const char *cb_get_suggestion (cpp_reader *, const char *,
+				      const char *const *);
+
+extern GTY(()) string_concat_db *g_string_concat_db;
+
+/* libcpp can calculate location information about a range of characters
+   within a string literal, but doing so is non-trivial.
+
+   This class encapsulates such a source location, so that it can be
+   passed around (e.g. within c-format.c).  It is effectively a deferred
+   call into libcpp.  If needed by a diagnostic, the actual source_range
+   can be calculated by calling the get_range method.  */
+
+class substring_loc
+{
+ public:
+  substring_loc (location_t fmt_string_loc, tree string_type,
+		 int caret_idx, int start_idx, int end_idx)
+  : m_fmt_string_loc (fmt_string_loc), m_string_type (string_type),
+    m_caret_idx (caret_idx), m_start_idx (start_idx), m_end_idx (end_idx) {}
+
+  void set_caret_index (int caret_idx) { m_caret_idx = caret_idx; }
+
+  const char *get_location (location_t *out_loc) const;
+
+  location_t get_fmt_string_loc () const { return m_fmt_string_loc; }
+
+ private:
+  location_t m_fmt_string_loc;
+  tree m_string_type;
+  int m_caret_idx;
+  int m_start_idx;
+  int m_end_idx;
+};
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
@@ -1259,6 +1337,15 @@ enum c_omp_clause_split
   C_OMP_CLAUSE_SPLIT_TASKLOOP = C_OMP_CLAUSE_SPLIT_FOR
 };
 
+enum c_omp_region_type
+{
+  C_ORT_OMP			= 1 << 0,
+  C_ORT_CILK			= 1 << 1,
+  C_ORT_ACC			= 1 << 2,
+  C_ORT_DECLARE_SIMD		= 1 << 3,
+  C_ORT_OMP_DECLARE_SIMD	= C_ORT_OMP | C_ORT_DECLARE_SIMD
+};
+
 extern tree c_finish_omp_master (location_t, tree);
 extern tree c_finish_omp_taskgroup (location_t, tree);
 extern tree c_finish_omp_critical (location_t, tree, tree, tree);
@@ -1276,7 +1363,7 @@ extern bool c_omp_check_loop_iv (tree, tree, walk_tree_lh);
 extern bool c_omp_check_loop_iv_exprs (location_t, tree, tree, tree, tree,
 				       walk_tree_lh);
 extern tree c_finish_oacc_wait (location_t, tree, tree);
-extern tree c_oacc_split_loop_clauses (tree, tree *);
+extern tree c_oacc_split_loop_clauses (tree, tree *, bool);
 extern void c_omp_split_clauses (location_t, enum tree_code, omp_clause_mask,
 				 tree, tree *);
 extern tree c_omp_declare_simd_clauses_to_numbers (tree, tree);
@@ -1355,7 +1442,7 @@ extern tree build_userdef_literal (tree suffix_id, tree value,
 				   enum overflow_type overflow,
 				   tree num_string);
 
-extern bool convert_vector_to_pointer_for_subscript (location_t, tree *, tree);
+extern bool convert_vector_to_array_for_subscript (location_t, tree *, tree);
 
 /* Possibe cases of scalar_to_vector conversion.  */
 enum stv_conv {
@@ -1369,7 +1456,6 @@ extern enum stv_conv scalar_to_vector (location_t loc, enum tree_code code,
 				       tree op0, tree op1, bool);
 
 /* In c-cilkplus.c  */
-extern tree c_finish_cilk_clauses (tree);
 extern tree c_validate_cilk_plus_loop (tree *, int *, void *);
 extern bool c_check_cilk_loop (location_t, tree);
 
@@ -1466,5 +1552,15 @@ extern bool check_no_cilk (tree, const char *, const char *,
 extern bool reject_gcc_builtin (const_tree, location_t = UNKNOWN_LOCATION);
 extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
 extern bool valid_array_size_p (location_t, tree, tree);
+
+extern bool cilk_ignorable_spawn_rhs_op (tree);
+extern bool cilk_recognize_spawn (tree, tree *);
+
+#if CHECKING_P
+namespace selftest {
+  extern void c_format_c_tests (void);
+  extern void run_c_tests (void);
+} // namespace selftest
+#endif /* #if CHECKING_P */
 
 #endif /* ! GCC_C_COMMON_H */

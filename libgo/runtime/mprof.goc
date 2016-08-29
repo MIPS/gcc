@@ -178,12 +178,6 @@ runtime_MProf_GC(void)
 	runtime_unlock(&proflock);
 }
 
-void
-runtime_Mprof_Init()
-{
-	runtime_initlock(&proflock);
-}
-
 // Called by malloc to record a profiled block.
 void
 runtime_MProf_Malloc(void *p, uintptr size)

@@ -69,6 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-cfg.h"
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
@@ -204,6 +205,10 @@ adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
 	  gcc_assert (TREE_CODE (arg) == SSA_NAME);
 	  simduid_to_vf *p = NULL, data;
 	  data.simduid = DECL_UID (SSA_NAME_VAR (arg));
+	  /* Need to nullify loop safelen field since it's value is not
+	     valid after transformation.  */
+	  if (bb->loop_father && bb->loop_father->safelen > 0)
+	    bb->loop_father->safelen = 0;
 	  if (htab)
 	    {
 	      p = htab->find (&data);
@@ -364,6 +369,20 @@ vect_destroy_datarefs (vec_info *vinfo)
   free_data_refs (vinfo->datarefs);
 }
 
+/* A helper function to free scev and LOOP niter information, as well as
+   clear loop constraint LOOP_C_FINITE.  */
+
+void
+vect_free_loop_info_assumptions (struct loop *loop)
+{
+  scev_reset_htab ();
+  /* We need to explicitly reset upper bound information since they are
+     used even after free_numbers_of_iterations_estimates_loop.  */
+  loop->any_upper_bound = false;
+  loop->any_likely_upper_bound = false;
+  free_numbers_of_iterations_estimates_loop (loop);
+  loop_constraint_clear (loop, LOOP_C_FINITE);
+}
 
 /* Return whether STMT is inside the region we try to vectorize.  */
 
@@ -533,7 +552,14 @@ vectorize_loops (void)
 	loop->aux = loop_vinfo;
 
 	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
-	  continue;
+	  {
+	    /* Free existing information if loop is analyzed with some
+	       assumptions.  */
+	    if (loop_constraint_set_p (loop, LOOP_C_FINITE))
+	      vect_free_loop_info_assumptions (loop);
+
+	    continue;
+	  }
 
         if (!dbg_cnt (vect_loop))
 	  {
@@ -541,6 +567,11 @@ vectorize_loops (void)
 	       debug counter.  Set any_ifcvt_loops to visit
 	       them at finalization.  */
 	    any_ifcvt_loops = true;
+	    /* Free existing information if loop is analyzed with some
+	       assumptions.  */
+	    if (loop_constraint_set_p (loop, LOOP_C_FINITE))
+	      vect_free_loop_info_assumptions (loop);
+
 	    break;
 	  }
 
@@ -794,38 +825,142 @@ make_pass_slp_vectorize (gcc::context *ctxt)
      This should involve global alignment analysis and in the future also
      array padding.  */
 
+static unsigned get_vec_alignment_for_type (tree);
+static hash_map<tree, unsigned> *type_align_map;
+
+/* Return alignment of array's vector type corresponding to scalar type.
+   0 if no vector type exists.  */
+static unsigned
+get_vec_alignment_for_array_type (tree type) 
+{
+  gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
+
+  tree vectype = get_vectype_for_scalar_type (strip_array_types (type));
+  if (!vectype
+      || !TYPE_SIZE (type)
+      || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+      || tree_int_cst_lt (TYPE_SIZE (type), TYPE_SIZE (vectype)))
+    return 0;
+
+  return TYPE_ALIGN (vectype);
+}
+
+/* Return alignment of field having maximum alignment of vector type
+   corresponding to it's scalar type. For now, we only consider fields whose
+   offset is a multiple of it's vector alignment.
+   0 if no suitable field is found.  */
+static unsigned
+get_vec_alignment_for_record_type (tree type) 
+{
+  gcc_assert (TREE_CODE (type) == RECORD_TYPE);
+
+  unsigned max_align = 0, alignment;
+  HOST_WIDE_INT offset;
+  tree offset_tree;
+
+  if (TYPE_PACKED (type))
+    return 0;
+
+  unsigned *slot = type_align_map->get (type);
+  if (slot)
+    return *slot;
+
+  for (tree field = first_field (type);
+       field != NULL_TREE;
+       field = DECL_CHAIN (field))
+    {
+      /* Skip if not FIELD_DECL or if alignment is set by user.  */ 
+      if (TREE_CODE (field) != FIELD_DECL
+	  || DECL_USER_ALIGN (field)
+	  || DECL_ARTIFICIAL (field))
+	continue;
+
+      /* We don't need to process the type further if offset is variable,
+	 since the offsets of remaining members will also be variable.  */
+      if (TREE_CODE (DECL_FIELD_OFFSET (field)) != INTEGER_CST
+	  || TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) != INTEGER_CST)
+	break;
+
+      /* Similarly stop processing the type if offset_tree
+	 does not fit in unsigned HOST_WIDE_INT.  */
+      offset_tree = bit_position (field);
+      if (!tree_fits_uhwi_p (offset_tree))
+	break;
+
+      offset = tree_to_uhwi (offset_tree); 
+      alignment = get_vec_alignment_for_type (TREE_TYPE (field));
+
+      /* Get maximum alignment of vectorized field/array among those members
+	 whose offset is multiple of the vector alignment.  */ 
+      if (alignment
+	  && (offset % alignment == 0)
+	  && (alignment > max_align))
+	max_align = alignment;
+    }
+
+  type_align_map->put (type, max_align);
+  return max_align;
+}
+
+/* Return alignment of vector type corresponding to decl's scalar type
+   or 0 if it doesn't exist or the vector alignment is lesser than
+   decl's alignment.  */
+static unsigned
+get_vec_alignment_for_type (tree type)
+{
+  if (type == NULL_TREE)
+    return 0;
+
+  gcc_assert (TYPE_P (type));
+
+  static unsigned alignment = 0;
+  switch (TREE_CODE (type))
+    {
+      case ARRAY_TYPE:
+	alignment = get_vec_alignment_for_array_type (type);
+	break;
+      case RECORD_TYPE:
+	alignment = get_vec_alignment_for_record_type (type);
+	break;
+      default:
+	alignment = 0;
+	break;
+    }
+
+  return (alignment > TYPE_ALIGN (type)) ? alignment : 0;
+}
+
+/* Entry point to increase_alignment pass.  */
 static unsigned int
 increase_alignment (void)
 {
   varpool_node *vnode;
 
   vect_location = UNKNOWN_LOCATION;
+  type_align_map = new hash_map<tree, unsigned>;
 
   /* Increase the alignment of all global arrays for vectorization.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
     {
-      tree vectype, decl = vnode->decl;
-      tree t;
+      tree decl = vnode->decl;
       unsigned int alignment;
 
-      t = TREE_TYPE (decl);
-      if (TREE_CODE (t) != ARRAY_TYPE)
-        continue;
-      vectype = get_vectype_for_scalar_type (strip_array_types (t));
-      if (!vectype)
-        continue;
-      alignment = TYPE_ALIGN (vectype);
-      if (DECL_ALIGN (decl) >= alignment)
-        continue;
+      if ((decl_in_symtab_p (decl)
+	  && !symtab_node::get (decl)->can_increase_alignment_p ())
+	  || DECL_USER_ALIGN (decl) || DECL_ARTIFICIAL (decl))
+	continue;
 
-      if (vect_can_force_dr_alignment_p (decl, alignment))
+      alignment = get_vec_alignment_for_type (TREE_TYPE (decl));
+      if (alignment && vect_can_force_dr_alignment_p (decl, alignment))
         {
-	  vnode->increase_alignment (TYPE_ALIGN (vectype));
+	  vnode->increase_alignment (alignment);
           dump_printf (MSG_NOTE, "Increasing alignment of decl: ");
           dump_generic_expr (MSG_NOTE, TDF_SLIM, decl);
           dump_printf (MSG_NOTE, "\n");
         }
     }
+
+  delete type_align_map;
   return 0;
 }
 

@@ -594,6 +594,12 @@ struct cpp_callbacks
 
   /* Callback that can change a user builtin into normal macro.  */
   bool (*user_builtin_macro) (cpp_reader *, cpp_hashnode *);
+
+  /* Callback to parse SOURCE_DATE_EPOCH from environment.  */
+  time_t (*get_source_date_epoch) (cpp_reader *);
+
+  /* Callback for providing suggestions for misspelled directives.  */
+  const char *(*get_suggestion) (cpp_reader *, const char *, const char *const *);
 };
 
 #ifdef VMS
@@ -740,6 +746,51 @@ struct GTY(()) cpp_hashnode {
   union _cpp_hashnode_value GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
 };
 
+/* A class for iterating through the source locations within a
+   string token (before escapes are interpreted, and before
+   concatenation).  */
+
+class cpp_string_location_reader {
+ public:
+  cpp_string_location_reader (source_location src_loc,
+			      line_maps *line_table);
+
+  source_range get_next ();
+
+ private:
+  source_location m_loc;
+  int m_offset_per_column;
+  line_maps *m_line_table;
+};
+
+/* A class for storing the source ranges of all of the characters within
+   a string literal, after escapes are interpreted, and after
+   concatenation.
+
+   This is not GTY-marked, as instances are intended to be temporary.  */
+
+class cpp_substring_ranges
+{
+ public:
+  cpp_substring_ranges ();
+  ~cpp_substring_ranges ();
+
+  int get_num_ranges () const { return m_num_ranges; }
+  source_range get_range (int idx) const
+  {
+    linemap_assert (idx < m_num_ranges);
+    return m_ranges[idx];
+  }
+
+  void add_range (source_range range);
+  void add_n_ranges (int num, cpp_string_location_reader &loc_reader);
+
+ private:
+  source_range *m_ranges;
+  int m_num_ranges;
+  int m_alloc_ranges;
+};
+
 /* Call this first to get a handle to pass to other functions.
 
    If you want cpplib to manage its own hashtable, pass in a NULL
@@ -826,6 +877,12 @@ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
 				  cpp_string *, enum cpp_ttype);
+extern const char *cpp_interpret_string_ranges (cpp_reader *pfile,
+						const cpp_string *from,
+						cpp_string_location_reader *,
+						size_t count,
+						cpp_substring_ranges *out,
+						enum cpp_ttype type);
 extern bool cpp_interpret_string_notranslate (cpp_reader *,
 					      const cpp_string *, size_t,
 					      cpp_string *, enum cpp_ttype);
@@ -877,7 +934,7 @@ struct cpp_num
 #define CPP_N_FLOATING	0x0002
 
 #define CPP_N_WIDTH	0x00F0
-#define CPP_N_SMALL	0x0010	/* int, float, shrot _Fract/Accum  */
+#define CPP_N_SMALL	0x0010	/* int, float, short _Fract/Accum  */
 #define CPP_N_MEDIUM	0x0020	/* long, double, long _Fract/_Accum.  */
 #define CPP_N_LARGE	0x0040	/* long long, long double,
 				   long long _Fract/Accum.  */
@@ -899,8 +956,15 @@ struct cpp_num
 
 #define CPP_N_FRACT	0x100000 /* Fract types.  */
 #define CPP_N_ACCUM	0x200000 /* Accum types.  */
+#define CPP_N_FLOATN	0x400000 /* _FloatN types.  */
+#define CPP_N_FLOATNX	0x800000 /* _FloatNx types.  */
 
 #define CPP_N_USERDEF	0x1000000 /* C++0x user-defined literal.  */
+
+#define CPP_N_WIDTH_FLOATN_NX	0xF0000000 /* _FloatN / _FloatNx value
+					      of N, divided by 16.  */
+#define CPP_FLOATN_SHIFT	24
+#define CPP_FLOATN_MAX	0xF0
 
 /* Classify a CPP_NUMBER token.  The return value is a combination of
    the flags from the above sets.  */
@@ -989,7 +1053,8 @@ extern bool cpp_warning_syshdr (cpp_reader *, int, const char *msgid, ...)
 extern bool cpp_errno (cpp_reader *, int, const char *msgid);
 /* Similarly, but with "FILENAME: " instead of "MSGID: ", where
    the filename is not localized.  */
-extern bool cpp_errno_filename (cpp_reader *, int, const char *filename);
+extern bool cpp_errno_filename (cpp_reader *, int, const char *filename,
+				source_location loc);
 
 /* Same as cpp_error, except additionally specifies a position as a
    (translation unit) physical line and physical column.  If the line is
@@ -1006,6 +1071,15 @@ extern bool cpp_pedwarning_with_line (cpp_reader *, int, source_location,
 extern bool cpp_warning_with_line_syshdr (cpp_reader *, int, source_location,
                                           unsigned, const char *msgid, ...)
   ATTRIBUTE_PRINTF_5;
+
+extern bool cpp_error_at (cpp_reader * pfile, int level,
+			  source_location src_loc, const char *msgid, ...)
+  ATTRIBUTE_PRINTF_4;
+
+extern bool cpp_error_at_richloc (cpp_reader * pfile, int level,
+				  rich_location *richloc, const char *msgid,
+				  ...)
+  ATTRIBUTE_PRINTF_4;
 
 /* In lex.c */
 extern int cpp_ideq (const cpp_token *, const char *);

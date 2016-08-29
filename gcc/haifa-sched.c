@@ -1483,28 +1483,9 @@ dep_cost_1 (dep_t link, dw_t dw)
 	}
 
 
-      if (targetm.sched.adjust_cost_2)
-	cost = targetm.sched.adjust_cost_2 (used, (int) dep_type, insn, cost,
-					    dw);
-      else if (targetm.sched.adjust_cost != NULL)
-	{
-	  /* This variable is used for backward compatibility with the
-	     targets.  */
-	  rtx_insn_list *dep_cost_rtx_link =
-	    alloc_INSN_LIST (NULL_RTX, NULL);
-
-	  /* Make it self-cycled, so that if some tries to walk over this
-	     incomplete list he/she will be caught in an endless loop.  */
-	  XEXP (dep_cost_rtx_link, 1) = dep_cost_rtx_link;
-
-	  /* Targets use only REG_NOTE_KIND of the link.  */
-	  PUT_REG_NOTE_KIND (dep_cost_rtx_link, DEP_TYPE (link));
-
-	  cost = targetm.sched.adjust_cost (used, dep_cost_rtx_link,
-					    insn, cost);
-
-	  free_INSN_LIST_node (dep_cost_rtx_link);
-	}
+      if (targetm.sched.adjust_cost)
+	cost = targetm.sched.adjust_cost (used, (int) dep_type, insn, cost,
+					  dw);
 
       if (cost < 0)
 	cost = 0;
@@ -7416,20 +7397,16 @@ haifa_sched_init (void)
   /* Initialize luids, dependency caches, target and h_i_d for the
      whole function.  */
   {
-    bb_vec_t bbs;
-    bbs.create (n_basic_blocks_for_fn (cfun));
-    basic_block bb;
-
     sched_init_bbs ();
 
+    auto_vec<basic_block> bbs (n_basic_blocks_for_fn (cfun));
+    basic_block bb;
     FOR_EACH_BB_FN (bb, cfun)
       bbs.quick_push (bb);
     sched_init_luids (bbs);
     sched_deps_init (true);
     sched_extend_target ();
     haifa_init_h_i_d (bbs);
-
-    bbs.release ();
   }
 
   sched_init_only_bb = haifa_init_only_bb;
@@ -7995,8 +7972,7 @@ add_to_speculative_block (rtx_insn *insn)
   ds_t ts;
   sd_iterator_def sd_it;
   dep_t dep;
-  rtx_insn_list *twins = NULL;
-  rtx_vec_t priorities_roots;
+  auto_vec<rtx_insn *, 10> twins;
 
   ts = TODO_SPEC (insn);
   gcc_assert (!(ts & ~BE_IN_SPEC));
@@ -8029,7 +8005,7 @@ add_to_speculative_block (rtx_insn *insn)
 	sd_iterator_next (&sd_it);
     }
 
-  priorities_roots.create (0);
+  auto_vec<rtx_insn *> priorities_roots;
   clear_priorities (insn, &priorities_roots);
 
   while (1)
@@ -8065,7 +8041,7 @@ add_to_speculative_block (rtx_insn *insn)
         fprintf (spec_info->dump, ";;\t\tGenerated twin insn : %d/rec%d\n",
                  INSN_UID (twin), rec->index);
 
-      twins = alloc_INSN_LIST (twin, twins);
+      twins.safe_push (twin);
 
       /* Add dependences between TWIN and all appropriate
 	 instructions from REC.  */
@@ -8104,27 +8080,17 @@ add_to_speculative_block (rtx_insn *insn)
 
   /* We couldn't have added the dependencies between INSN and TWINS earlier
      because that would make TWINS appear in the INSN_BACK_DEPS (INSN).  */
-  while (twins)
+  unsigned int i;
+  rtx_insn *twin;
+  FOR_EACH_VEC_ELT_REVERSE (twins, i, twin)
     {
-      rtx_insn *twin;
-      rtx_insn_list *next_node;
+      dep_def _new_dep, *new_dep = &_new_dep;
 
-      twin = twins->insn ();
-
-      {
-	dep_def _new_dep, *new_dep = &_new_dep;
-
-	init_dep (new_dep, insn, twin, REG_DEP_OUTPUT);
-	sd_add_dep (new_dep, false);
-      }
-
-      next_node = twins->next ();
-      free_INSN_LIST_node (twins);
-      twins = next_node;
+      init_dep (new_dep, insn, twin, REG_DEP_OUTPUT);
+      sd_add_dep (new_dep, false);
     }
 
   calc_priorities (priorities_roots);
-  priorities_roots.release ();
 }
 
 /* Extends and fills with zeros (only the new part) array pointed to by P.  */
@@ -8620,11 +8586,10 @@ create_check_block_twin (rtx_insn *insn, bool mutate_p)
     /* Fix priorities.  If MUTATE_P is nonzero, this is not necessary,
        because it'll be done later in add_to_speculative_block.  */
     {
-      rtx_vec_t priorities_roots = rtx_vec_t ();
+      auto_vec<rtx_insn *> priorities_roots;
 
       clear_priorities (twin, &priorities_roots);
       calc_priorities (priorities_roots);
-      priorities_roots.release ();
     }
 }
 
@@ -8635,9 +8600,8 @@ static void
 fix_recovery_deps (basic_block rec)
 {
   rtx_insn *note, *insn, *jump;
-  rtx_insn_list *ready_list = 0;
+  auto_vec<rtx_insn *, 10> ready_list;
   bitmap_head in_ready;
-  rtx_insn_list *link;
 
   bitmap_initialize (&in_ready, 0);
 
@@ -8663,7 +8627,7 @@ fix_recovery_deps (basic_block rec)
 	      sd_delete_dep (sd_it);
 
 	      if (bitmap_set_bit (&in_ready, INSN_LUID (consumer)))
-		ready_list = alloc_INSN_LIST (consumer, ready_list);
+		ready_list.safe_push (consumer);
 	    }
 	  else
 	    {
@@ -8680,9 +8644,10 @@ fix_recovery_deps (basic_block rec)
   bitmap_clear (&in_ready);
 
   /* Try to add instructions to the ready or queue list.  */
-  for (link = ready_list; link; link = link->next ())
-    try_ready (link->insn ());
-  free_INSN_LIST_list (&ready_list);
+  unsigned int i;
+  rtx_insn *temp;
+  FOR_EACH_VEC_ELT_REVERSE (ready_list, i, temp)
+    try_ready (temp);
 
   /* Fixing jump's dependences.  */
   insn = BB_HEAD (rec);

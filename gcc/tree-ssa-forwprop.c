@@ -2099,13 +2099,43 @@ pass_forwprop::execute (function *fun)
   lattice.create (num_ssa_names);
   lattice.quick_grow_cleared (num_ssa_names);
   int *postorder = XNEWVEC (int, n_basic_blocks_for_fn (fun));
-  int postorder_num = inverted_post_order_compute (postorder);
+  int postorder_num = pre_and_rev_post_order_compute_fn (cfun, NULL,
+							 postorder, false);
   auto_vec<gimple *, 4> to_fixup;
   to_purge = BITMAP_ALLOC (NULL);
   for (int i = 0; i < postorder_num; ++i)
     {
       gimple_stmt_iterator gsi;
       basic_block bb = BASIC_BLOCK_FOR_FN (fun, postorder[i]);
+
+      /* Propagate into PHIs and record degenerate ones in the lattice.  */
+      for (gphi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+	   gsi_next (&si))
+	{
+	  gphi *phi = si.phi ();
+	  tree res = gimple_phi_result (phi);
+	  if (virtual_operand_p (res))
+	    continue;
+
+	  use_operand_p use_p;
+	  ssa_op_iter it;
+	  tree first = NULL_TREE;
+	  bool all_same = true;
+	  FOR_EACH_PHI_ARG (use_p, phi, it, SSA_OP_USE)
+	    {
+	      tree use = USE_FROM_PTR (use_p);
+	      tree tem = fwprop_ssa_val (use);
+	      if (! first)
+		first = tem;
+	      else if (! operand_equal_p (first, tem, 0))
+		all_same = false;
+	      if (tem != use
+		  && may_propagate_copy (use, tem))
+		propagate_value (use_p, tem);
+	    }
+	  if (all_same)
+	    fwprop_set_lattice_val (res, first);
+	}
 
       /* Apply forward propagation to all stmts in the basic-block.
 	 Note we update GSI within the loop as necessary.  */

@@ -11,7 +11,7 @@ AC_INIT(package-unused, version-unused,, libgo)
 AC_CONFIG_SRCDIR(Makefile.am)
 AC_CONFIG_HEADER(config.h)
 
-libtool_VERSION=9:0:0
+libtool_VERSION=10:0:0
 AC_SUBST(libtool_VERSION)
 
 AM_ENABLE_MULTILIB(, ..)
@@ -172,6 +172,7 @@ AM_CONDITIONAL(LIBGO_IS_OPENBSD, test $is_openbsd = yes)
 AM_CONDITIONAL(LIBGO_IS_DRAGONFLY, test $is_dragonfly = yes)
 AM_CONDITIONAL(LIBGO_IS_RTEMS, test $is_rtems = yes)
 AM_CONDITIONAL(LIBGO_IS_SOLARIS, test $is_solaris = yes)
+AM_CONDITIONAL(LIBGO_IS_BSD, test $is_darwin = yes -o $is_dragonfly = yes -o $is_freebsd = yes -o $is_netbsd = yes -o $is_openbsd = yes)
 AC_SUBST(GOOS)
 
 dnl Test whether we need to use DejaGNU or whether we can use the
@@ -190,6 +191,7 @@ is_386=no
 is_alpha=no
 is_arm=no
 is_arm64=no
+is_ia64=no
 is_m68k=no
 mips_abi=unknown
 is_ppc=no
@@ -227,6 +229,10 @@ changequote([,])dnl
     else
       GOARCH=amd64
     fi
+    ;;
+  ia64-*-*)
+    is_ia64=yes
+    GOARCH=ia64
     ;;
   m68k*-*-*)
     is_m68k=yes
@@ -310,6 +316,7 @@ AM_CONDITIONAL(LIBGO_IS_386, test $is_386 = yes)
 AM_CONDITIONAL(LIBGO_IS_ALPHA, test $is_alpha = yes)
 AM_CONDITIONAL(LIBGO_IS_ARM, test $is_arm = yes)
 AM_CONDITIONAL(LIBGO_IS_ARM64, test $is_arm64 = yes)
+AM_CONDITIONAL(LIBGO_IS_IA64, test $is_ia64 = yes)
 AM_CONDITIONAL(LIBGO_IS_M68K, test $is_m68k = yes)
 AM_CONDITIONAL(LIBGO_IS_MIPS, test $mips_abi != unknown)
 AM_CONDITIONAL(LIBGO_IS_MIPSO32, test $mips_abi = o32)
@@ -484,15 +491,15 @@ AC_SUBST(NET_LIBS)
 
 dnl Test whether the compiler supports the -pthread option.
 AC_CACHE_CHECK([whether -pthread is supported],
-[ac_cv_libgo_pthread_supported],
+[libgo_cv_lib_pthread],
 [CFLAGS_hold=$CFLAGS
 CFLAGS="$CFLAGS -pthread"
 AC_COMPILE_IFELSE([[int i;]],
-[ac_cv_libgo_pthread_supported=yes],
-[ac_cv_libgo_pthread_supported=no])
+[libgo_cv_lib_pthread=yes],
+[libgo_cv_lib_pthread=no])
 CFLAGS=$CFLAGS_hold])
 PTHREAD_CFLAGS=
-if test "$ac_cv_libgo_pthread_supported" = yes; then
+if test "$libgo_cv_lib_pthread" = yes; then
   PTHREAD_CFLAGS=-pthread
 fi
 AC_SUBST(PTHREAD_CFLAGS)

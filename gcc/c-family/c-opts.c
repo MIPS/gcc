@@ -164,7 +164,7 @@ static void
 c_diagnostic_finalizer (diagnostic_context *context,
 			diagnostic_info *diagnostic)
 {
-  diagnostic_show_locus (context, diagnostic);
+  diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
   /* By default print macro expansion contexts in the diagnostic
      finalizer -- for tokens resulting from macro expansion.  */
   virt_loc_aware_diagnostic_finalizer (context, diagnostic);
@@ -215,6 +215,9 @@ c_common_init_options (unsigned int decoded_options_count,
 {
   unsigned int i;
   struct cpp_callbacks *cb;
+
+  g_string_concat_db
+    = new (ggc_alloc <string_concat_db> ()) string_concat_db ();
 
   parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
 				ident_hash, line_table);
@@ -436,7 +439,7 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffreestanding:
       value = !value;
-      /* Fall through....  */
+      /* Fall through.  */
     case OPT_fhosted:
       flag_hosted = value;
       flag_no_builtin = !value;
@@ -887,15 +890,15 @@ c_common_post_options (const char **pfilename)
     }
   else if (flag_abi_compat_version == -1)
     {
-      /* Generate compatibility aliases for ABI v8 (5.1) by default. */
+      /* Generate compatibility aliases for ABI v10 (6.1) by default. */
       flag_abi_compat_version
-	= (flag_abi_version == 0 ? 8 : 0);
+	= (flag_abi_version == 0 ? 10 : 0);
     }
 
   /* Change flag_abi_version to be the actual current ABI level for the
      benefit of c_cpp_builtins.  */
   if (flag_abi_version == 0)
-    flag_abi_version = 10;
+    flag_abi_version = 11;
 
   if (cxx_dialect >= cxx11)
     {
@@ -909,6 +912,12 @@ c_common_post_options (const char **pfilename)
     }
   else if (warn_narrowing == -1)
     warn_narrowing = 0;
+
+  /* C++17 has stricter evaluation order requirements; let's use some of them
+     for earlier C++ as well, so chaining works as expected.  */
+  if (c_dialect_cxx ()
+      && flag_strong_eval_order == -1)
+    flag_strong_eval_order = (cxx_dialect >= cxx1z ? 2 : 1);
 
   /* Global sized deallocation is new in C++14.  */
   if (flag_sized_deallocation == -1)

@@ -111,6 +111,14 @@
 # endif
 #endif
 
+#ifndef _GLIBCXX17_CONSTEXPR
+# if __cplusplus > 201402L
+#  define _GLIBCXX17_CONSTEXPR constexpr
+# else
+#  define _GLIBCXX17_CONSTEXPR
+# endif
+#endif
+
 // Macro for noexcept, to support in mixed 03/0x mode.
 #ifndef _GLIBCXX_NOEXCEPT
 # if __cplusplus >= 201103L
@@ -414,7 +422,7 @@ namespace std
 
 // Debug Mode implies checking assertions.
 #ifdef _GLIBCXX_DEBUG
-# define _GLIBCXX_ASSERTIONS
+# define _GLIBCXX_ASSERTIONS 1
 #endif
 
 // Disable std::string explicit instantiation declarations in order to assert.
@@ -532,6 +540,13 @@ namespace std
 #define _GLIBCXX_TXN_SAFE_DYN
 #endif
 
+#if __cplusplus > 201402L
+// In C++17 mathematical special functions are in namespace std.
+# define _GLIBCXX_USE_STD_SPEC_FUNCS 1
+#elif __cplusplus >= 201103L && __STDCPP_WANT_MATH_SPEC_FUNCS__ != 0
+// For C++11 and C++14 they are in namespace std when requested.
+# define _GLIBCXX_USE_STD_SPEC_FUNCS 1
+#endif
 
 // The remainder of the prewritten config is automatic; all the
 // user hooks are listed above.

@@ -15,7 +15,8 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-std=gnu++11 -lstdc++fs" }
+// { dg-options "-lstdc++fs" }
+// { dg-do run { target c++11 } }
 // { dg-require-filesystem-ts "" }
 
 #include <experimental/filesystem>
@@ -59,8 +60,28 @@ test01()
   VERIFY( !ec );
 }
 
+void
+test02()
+{
+#if __cpp_exceptions
+  bool test __attribute__((unused)) = false;
+
+  fs::path p = "rel", base = __gnu_test::nonexistent_path();
+  fs::path e1, e2;
+  try {
+    canonical(p, base);
+  } catch (const fs::filesystem_error& e) {
+    e1 = e.path1();
+    e2 = e.path2();
+  }
+  VERIFY( e1 == p );
+  VERIFY( e2 == base );
+#endif
+}
+
 int
 main()
 {
   test01();
+  test02();
 }

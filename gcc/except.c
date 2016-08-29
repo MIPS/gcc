@@ -130,6 +130,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "explow.h"
 #include "stmt.h"
 #include "expr.h"
+#include "calls.h"
 #include "libfuncs.h"
 #include "except.h"
 #include "output.h"
@@ -300,7 +301,7 @@ init_eh (void)
 #ifdef DONT_USE_BUILTIN_SETJMP
       /* We don't know what the alignment requirements of the
 	 runtime's jmp_buf has.  Overestimate.  */
-      DECL_ALIGN (f_jbuf) = BIGGEST_ALIGNMENT;
+      SET_DECL_ALIGN (f_jbuf, BIGGEST_ALIGNMENT);
       DECL_USER_ALIGN (f_jbuf) = 1;
 #endif
       DECL_FIELD_CONTEXT (f_jbuf) = sjlj_fc_type_node;
@@ -633,12 +634,10 @@ eh_region
 eh_region_outermost (struct function *ifun, eh_region region_a,
 		     eh_region region_b)
 {
-  sbitmap b_outer;
-
   gcc_assert (ifun->eh->region_array);
   gcc_assert (ifun->eh->region_tree);
 
-  b_outer = sbitmap_alloc (ifun->eh->region_array->length ());
+  auto_sbitmap b_outer (ifun->eh->region_array->length ());
   bitmap_clear (b_outer);
 
   do
@@ -656,7 +655,6 @@ eh_region_outermost (struct function *ifun, eh_region region_a,
     }
   while (region_a);
 
-  sbitmap_free (b_outer);
   return region_a;
 }
 
@@ -1173,20 +1171,22 @@ sjlj_emit_function_enter (rtx_code_label *dispatch_label)
 
   if (dispatch_label)
     {
+      rtx addr = plus_constant (Pmode, XEXP (fc, 0), sjlj_fc_jbuf_ofs);
+
 #ifdef DONT_USE_BUILTIN_SETJMP
-      rtx x;
-      x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_RETURNS_TWICE,
-				   TYPE_MODE (integer_type_node), 1,
-				   plus_constant (Pmode, XEXP (fc, 0),
-						  sjlj_fc_jbuf_ofs), Pmode);
+      addr = copy_addr_to_reg (addr);
+      addr = convert_memory_address (ptr_mode, addr);
+      tree addr_tree = make_tree (ptr_type_node, addr);
+
+      tree fn = builtin_decl_implicit (BUILT_IN_SETJMP);
+      tree call_expr = build_call_expr (fn, 1, addr_tree);
+      rtx x = expand_call (call_expr, NULL_RTX, false);
 
       emit_cmp_and_jump_insns (x, const0_rtx, NE, 0,
 			       TYPE_MODE (integer_type_node), 0,
 			       dispatch_label, REG_BR_PROB_BASE / 100);
 #else
-      expand_builtin_setjmp_setup (plus_constant (Pmode, XEXP (fc, 0),
-						  sjlj_fc_jbuf_ofs),
-				   dispatch_label);
+      expand_builtin_setjmp_setup (addr, dispatch_label);
 #endif
     }
 
@@ -1278,8 +1278,7 @@ sjlj_emit_dispatch_table (rtx_code_label *dispatch_label, int num_dispatch)
      label on the nonlocal_goto_label list.  Since we're modeling these
      CFG edges more exactly, we can use the forced_labels list instead.  */
   LABEL_PRESERVE_P (dispatch_label) = 1;
-  forced_labels
-    = gen_rtx_INSN_LIST (VOIDmode, dispatch_label, forced_labels);
+  vec_safe_push<rtx_insn *> (forced_labels, dispatch_label);
 #endif
 
   /* Load up exc_ptr and filter values from the function context.  */

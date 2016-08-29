@@ -81,11 +81,14 @@ struct die_struct;
 /* The function does not lead to calls within current function unit.  */
 #define ECF_LEAF		  (1 << 10)
 
+/* Nonzero if this call returns its first argument.  */
+#define ECF_RET1		  (1 << 11)
+
 /* Nonzero if this call does not affect transactions.  */
-#define ECF_TM_PURE		  (1 << 11)
+#define ECF_TM_PURE		  (1 << 12)
 
 /* Nonzero if this call is into the transaction runtime library.  */
-#define ECF_TM_BUILTIN		  (1 << 12)
+#define ECF_TM_BUILTIN		  (1 << 13)
 
 /* Call argument flags.  */
 /* Nonzero if the argument is not dereferenced recursively, thus only
@@ -312,9 +315,6 @@ enum omp_clause_code {
   /* Internal structure to hold OpenACC cache directive's variable-list.
      #pragma acc cache (variable-list).  */
   OMP_CLAUSE__CACHE_,
-
-  /* OpenACC clause: device_resident (variable_list).  */
-  OMP_CLAUSE_DEVICE_RESIDENT,
 
   /* OpenACC clause: gang [(gang-argument-list)].
      Where
@@ -558,9 +558,43 @@ enum tree_index {
   TI_COMPLEX_DOUBLE_TYPE,
   TI_COMPLEX_LONG_DOUBLE_TYPE,
 
+  TI_COMPLEX_FLOAT16_TYPE,
+  TI_COMPLEX_FLOATN_NX_TYPE_FIRST = TI_COMPLEX_FLOAT16_TYPE,
+  TI_COMPLEX_FLOAT32_TYPE,
+  TI_COMPLEX_FLOAT64_TYPE,
+  TI_COMPLEX_FLOAT128_TYPE,
+  TI_COMPLEX_FLOAT32X_TYPE,
+  TI_COMPLEX_FLOAT64X_TYPE,
+  TI_COMPLEX_FLOAT128X_TYPE,
+
   TI_FLOAT_TYPE,
   TI_DOUBLE_TYPE,
   TI_LONG_DOUBLE_TYPE,
+
+  /* The _FloatN and _FloatNx types must be consecutive, and in the
+     same sequence as the corresponding complex types, which must also
+     be consecutive; _FloatN must come before _FloatNx; the order must
+     also be the same as in the floatn_nx_types array and the RID_*
+     values in c-common.h.  This is so that iterations over these
+     types work as intended.  */
+  TI_FLOAT16_TYPE,
+  TI_FLOATN_TYPE_FIRST = TI_FLOAT16_TYPE,
+  TI_FLOATN_NX_TYPE_FIRST = TI_FLOAT16_TYPE,
+  TI_FLOAT32_TYPE,
+  TI_FLOAT64_TYPE,
+  TI_FLOAT128_TYPE,
+  TI_FLOATN_TYPE_LAST = TI_FLOAT128_TYPE,
+#define NUM_FLOATN_TYPES (TI_FLOATN_TYPE_LAST - TI_FLOATN_TYPE_FIRST + 1)
+  TI_FLOAT32X_TYPE,
+  TI_FLOATNX_TYPE_FIRST = TI_FLOAT32X_TYPE,
+  TI_FLOAT64X_TYPE,
+  TI_FLOAT128X_TYPE,
+  TI_FLOATNX_TYPE_LAST = TI_FLOAT128X_TYPE,
+  TI_FLOATN_NX_TYPE_LAST = TI_FLOAT128X_TYPE,
+#define NUM_FLOATNX_TYPES (TI_FLOATNX_TYPE_LAST - TI_FLOATNX_TYPE_FIRST + 1)
+#define NUM_FLOATN_NX_TYPES (TI_FLOATN_NX_TYPE_LAST		\
+			     - TI_FLOATN_NX_TYPE_FIRST		\
+			     + 1)
 
   TI_FLOAT_PTR_TYPE,
   TI_DOUBLE_PTR_TYPE,
@@ -765,7 +799,11 @@ enum operand_equal_flag {
   OEP_ONLY_CONST = 1,
   OEP_PURE_SAME = 2,
   OEP_MATCH_SIDE_EFFECTS = 4,
-  OEP_ADDRESS_OF = 8
+  OEP_ADDRESS_OF = 8,
+  /* Internal within operand_equal_p:  */
+  OEP_NO_HASH_CHECK = 16,
+  /* Internal within inchash::add_expr:  */
+  OEP_HASH_CHECK = 32
 };
 
 /* Enum and arrays used for tree allocation stats.
@@ -994,6 +1032,9 @@ struct GTY(()) tree_base {
        SSA_NAME_ANTI_RANGE_P in
 	   SSA_NAME
 
+       MUST_TAIL_CALL in
+	   CALL_EXPR
+
    public_flag:
 
        TREE_OVERFLOW in
@@ -1146,9 +1187,6 @@ struct GTY(()) tree_base {
        TREE_NOTHROW in
            CALL_EXPR
            FUNCTION_DECL
-
-       TYPE_ALIGN_OK in
-           all types
 
        TREE_THIS_NOTRAP in
           INDIRECT_REF, MEM_REF, TARGET_MEM_REF, ARRAY_REF, ARRAY_RANGE_REF
@@ -1440,8 +1478,15 @@ struct GTY(()) tree_type_common {
   unsigned lang_flag_4 : 1;
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
+  unsigned lang_flag_7 : 1;
 
-  unsigned int align;
+  /* TYPE_ALIGN in log2; this has to be large enough to hold values
+     of the maximum of BIGGEST_ALIGNMENT and MAX_OFILE_ALIGNMENT,
+     the latter being usually the larger.  For ELF it is 8<<28,
+     so we need to store the value 32 (not 31, as we need the zero
+     as well), hence six bits.  */
+  unsigned align : 6;
+  unsigned spare : 25;
   alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;
@@ -1542,12 +1587,12 @@ struct GTY(()) tree_decl_common {
   unsigned decl_nonshareable_flag : 1;
 
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
-  unsigned int off_align : 8;
-
-  /* 24 bits unused.  */
+  unsigned int off_align : 6;
 
   /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
-  unsigned int align;
+  unsigned int align : 6;
+
+  /* 20 bits unused.  */
 
   /* UID for points-to sets, stable over copying from inlining.  */
   unsigned int pt_uid;
@@ -1948,6 +1993,16 @@ struct GTY(()) builtin_info_type {
   unsigned declared_p : 1;
 };
 
+/* Information about a _FloatN or _FloatNx type that may be
+   supported.  */
+struct floatn_type_info {
+  /* The number N in the type name.  */
+  int n;
+  /* Whether it is an extended type _FloatNx (true) or an interchange
+     type (false).  */
+  bool extended;
+};
+
 
 /*---------------------------------------------------------------------------
                                 Global variables
@@ -2011,5 +2066,8 @@ extern GTY(()) tree current_function_decl;
 
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
 extern GTY(()) const char * current_function_func_begin_label;
+
+/* Information about the _FloatN and _FloatNx types.  */
+extern const floatn_type_info floatn_nx_types[NUM_FLOATN_NX_TYPES];
 
 #endif  // GCC_TREE_CORE_H

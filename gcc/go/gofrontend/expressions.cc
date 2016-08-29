@@ -252,7 +252,9 @@ Expression::convert_type_to_interface(Type* lhs_type, Expression* rhs,
   else
     {
       // We are assigning a non-pointer value to the interface; the
-      // interface gets a copy of the value in the heap.
+      // interface gets a copy of the value in the heap if it escapes.
+      // TODO(cmang): Associate escape state state of RHS with newly
+      // created OBJ.
       obj = Expression::make_heap_expression(rhs, location);
     }
 
@@ -729,6 +731,13 @@ Var_expression::do_address_taken(bool escapes)
       else
 	go_unreachable();
     }
+
+  if (this->variable_->is_variable()
+      && this->variable_->var_value()->is_in_heap())
+    {
+      Node::make_node(this)->set_encoding(Node::ESCAPE_HEAP);
+      Node::make_node(this->variable_)->set_encoding(Node::ESCAPE_HEAP);
+    }
 }
 
 // Get the backend representation for a reference to a variable.
@@ -780,6 +789,78 @@ Expression::make_var_reference(Named_object* var, Location location)
   // FIXME: Creating a new object for each reference to a variable is
   // wasteful.
   return new Var_expression(var, location);
+}
+
+// Class Enclosed_var_expression.
+
+int
+Enclosed_var_expression::do_traverse(Traverse*)
+{
+  return TRAVERSE_CONTINUE;
+}
+
+// Lower the reference to the enclosed variable.
+
+Expression*
+Enclosed_var_expression::do_lower(Gogo* gogo, Named_object* function,
+				  Statement_inserter* inserter, int)
+{
+  gogo->lower_expression(function, inserter, &this->reference_);
+  return this;
+}
+
+// Flatten the reference to the enclosed variable.
+
+Expression*
+Enclosed_var_expression::do_flatten(Gogo* gogo, Named_object* function,
+				    Statement_inserter* inserter)
+{
+  gogo->flatten_expression(function, inserter, &this->reference_);
+  return this;
+}
+
+void
+Enclosed_var_expression::do_address_taken(bool escapes)
+{
+  if (!escapes)
+    {
+      if (this->variable_->is_variable())
+	this->variable_->var_value()->set_non_escaping_address_taken();
+      else if (this->variable_->is_result_variable())
+	this->variable_->result_var_value()->set_non_escaping_address_taken();
+      else
+	go_unreachable();
+    }
+  else
+    {
+      if (this->variable_->is_variable())
+	this->variable_->var_value()->set_address_taken();
+      else if (this->variable_->is_result_variable())
+	this->variable_->result_var_value()->set_address_taken();
+      else
+	go_unreachable();
+    }
+
+  if (this->variable_->is_variable()
+      && this->variable_->var_value()->is_in_heap())
+    Node::make_node(this->variable_)->set_encoding(Node::ESCAPE_HEAP);
+}
+
+// Ast dump for enclosed variable expression.
+
+void
+Enclosed_var_expression::do_dump_expression(Ast_dump_context* adc) const
+{
+  adc->ostream() << this->variable_->name();
+}
+
+// Make a reference to a variable within an enclosing function.
+
+Expression*
+Expression::make_enclosing_var_reference(Expression* reference,
+					 Named_object* var, Location location)
+{
+  return new Enclosed_var_expression(reference, var, location);
 }
 
 // Class Temporary_reference_expression.
@@ -1141,7 +1222,13 @@ Expression*
 Expression::make_func_reference(Named_object* function, Expression* closure,
 				Location location)
 {
-  return new Func_expression(function, closure, location);
+  Func_expression* fe = new Func_expression(function, closure, location);
+
+  // Detect references to builtin functions and set the runtime code if
+  // appropriate.
+  if (function->is_function_declaration())
+    fe->set_runtime_code(Runtime::name_to_code(function->name()));
+  return fe;
 }
 
 // Class Func_descriptor_expression.
@@ -3695,9 +3782,18 @@ Unary_expression::do_flatten(Gogo* gogo, Named_object*,
       // value does not escape.  If this->escapes_ is true, we may be
       // able to set it to false if taking the address of a variable
       // that does not escape.
-      if (this->escapes_ && this->expr_->var_expression() != NULL)
+      Node* n = Node::make_node(this);
+      if ((n->encoding() & ESCAPE_MASK) == int(Node::ESCAPE_NONE))
+	this->escapes_ = false;
+
+      Named_object* var = NULL;
+      if (this->expr_->var_expression() != NULL)
+	var = this->expr_->var_expression()->named_object();
+      else if (this->expr_->enclosed_var_expression() != NULL)
+	var = this->expr_->enclosed_var_expression()->variable();
+
+      if (this->escapes_ && var != NULL)
 	{
-	  Named_object* var = this->expr_->var_expression()->named_object();
 	  if (var->is_variable())
 	    this->escapes_ = var->var_value()->escapes();
 	  if (var->is_result_variable())
@@ -5671,6 +5767,7 @@ Binary_expression::do_get_backend(Translate_context* context)
     case OPERATOR_DIV:
       if (left_type->float_type() != NULL || left_type->complex_type() != NULL)
         break;
+      // Fall through.
     case OPERATOR_MOD:
       is_idiv_op = true;
       break;
@@ -10306,66 +10403,7 @@ Expression::make_array_index(Expression* array, Expression* start,
   return new Array_index_expression(array, start, end, cap, location);
 }
 
-// A string index.  This is used for both indexing and slicing.
-
-class String_index_expression : public Expression
-{
- public:
-  String_index_expression(Expression* string, Expression* start,
-			  Expression* end, Location location)
-    : Expression(EXPRESSION_STRING_INDEX, location),
-      string_(string), start_(start), end_(end)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_string_index(this->string_->copy(),
-					 this->start_->copy(),
-					 (this->end_ == NULL
-					  ? NULL
-					  : this->end_->copy()),
-					 this->location());
-  }
-
-  bool
-  do_must_eval_subexpressions_in_order(int* skip) const
-  {
-    *skip = 1;
-    return true;
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The string we are getting a value from.
-  Expression* string_;
-  // The start or only index.
-  Expression* start_;
-  // The end index of a slice.  This may be NULL for a single index,
-  // or it may be a nil expression for the length of the string.
-  Expression* end_;
-};
+// Class String_index_expression.
 
 // String index traversal.
 
@@ -11401,7 +11439,8 @@ Expression*
 Selector_expression::lower_method_expression(Gogo* gogo)
 {
   Location location = this->location();
-  Type* type = this->left_->type();
+  Type* left_type = this->left_->type();
+  Type* type = left_type;
   const std::string& name(this->name_);
 
   bool is_pointer;
@@ -11431,7 +11470,8 @@ Selector_expression::lower_method_expression(Gogo* gogo)
 	imethod = it->find_method(name);
     }
 
-  if (method == NULL && imethod == NULL)
+  if ((method == NULL && imethod == NULL) 
+      || (left_type->named_type() != NULL && left_type->points_to() != NULL))
     {
       if (!is_ambiguous)
 	error_at(location, "type %<%s%s%> has no method %<%s%>",
@@ -11448,7 +11488,7 @@ Selector_expression::lower_method_expression(Gogo* gogo)
 
   if (method != NULL && !is_pointer && !method->is_value_method())
     {
-      error_at(location, "method requires pointer (use %<(*%s).%s)%>",
+      error_at(location, "method requires pointer (use %<(*%s).%s%>)",
 	       nt->message_name().c_str(),
 	       Gogo::message_name(name).c_str());
       return Expression::make_error(location);
@@ -11643,7 +11683,9 @@ Allocation_expression::do_get_backend(Translate_context* context)
   Gogo* gogo = context->gogo();
   Location loc = this->location();
 
-  if (this->allocate_on_stack_)
+  Node* n = Node::make_node(this);
+  if (this->allocate_on_stack_
+      || (n->encoding() & ESCAPE_MASK) == int(Node::ESCAPE_NONE))
     {
       int64_t size;
       bool ok = this->type_->backend_type_size(gogo, &size);
@@ -12329,7 +12371,15 @@ Slice_construction_expression::do_get_backend(Translate_context* context)
       space->unary_expression()->set_is_slice_init();
     }
   else
-    space = Expression::make_heap_expression(array_val, loc);
+    {
+      space = Expression::make_heap_expression(array_val, loc);
+      Node* n = Node::make_node(this);
+      if ((n->encoding() & ESCAPE_MASK) == int(Node::ESCAPE_NONE))
+	{
+	  n = Node::make_node(space);
+	  n->set_encoding(Node::ESCAPE_NONE);
+	}
+    }
 
   // Build a constructor for the slice.
 
@@ -12808,53 +12858,12 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 	  no = name_expr->var_expression()->named_object();
 	  break;
 
-	case EXPRESSION_FUNC_REFERENCE:
-	  no = name_expr->func_expression()->named_object();
+	case EXPRESSION_ENCLOSED_VAR_REFERENCE:
+	  no = name_expr->enclosed_var_expression()->variable();
 	  break;
 
-	case EXPRESSION_UNARY:
-	  // If there is a local variable around with the same name as
-	  // the field, and this occurs in the closure, then the
-	  // parser may turn the field reference into an indirection
-	  // through the closure.  FIXME: This is a mess.
-	  {
-	    bad_key = true;
-	    Unary_expression* ue = static_cast<Unary_expression*>(name_expr);
-	    if (ue->op() == OPERATOR_MULT)
-	      {
-		Field_reference_expression* fre =
-		  ue->operand()->field_reference_expression();
-		if (fre != NULL)
-		  {
-		    Struct_type* st =
-		      fre->expr()->type()->deref()->struct_type();
-		    if (st != NULL)
-		      {
-			const Struct_field* sf = st->field(fre->field_index());
-			name = sf->field_name();
-
-			// See below.  FIXME.
-			if (!Gogo::is_hidden_name(name)
-			    && name[0] >= 'a'
-			    && name[0] <= 'z')
-			  {
-			    if (gogo->lookup_global(name.c_str()) != NULL)
-			      name = gogo->pack_hidden_name(name, false);
-			  }
-
-			char buf[20];
-			snprintf(buf, sizeof buf, "%u", fre->field_index());
-			size_t buflen = strlen(buf);
-			if (name.compare(name.length() - buflen, buflen, buf)
-			    == 0)
-			  {
-			    name = name.substr(0, name.length() - buflen);
-			    bad_key = false;
-			  }
-		      }
-		  }
-	      }
-	  }
+	case EXPRESSION_FUNC_REFERENCE:
+	  no = name_expr->func_expression()->named_object();
 	  break;
 
 	default:
@@ -13295,6 +13304,7 @@ Expression::is_variable() const
     case EXPRESSION_VAR_REFERENCE:
     case EXPRESSION_TEMPORARY_REFERENCE:
     case EXPRESSION_SET_AND_USE_TEMPORARY:
+    case EXPRESSION_ENCLOSED_VAR_REFERENCE:
       return true;
     default:
       return false;
@@ -13442,8 +13452,12 @@ Heap_expression::do_get_backend(Translate_context* context)
   Location loc = this->location();
   Gogo* gogo = context->gogo();
   Btype* btype = this->type()->get_backend(gogo);
-  Bexpression* space = Expression::make_allocation(this->expr_->type(),
-						   loc)->get_backend(context);
+
+  Expression* alloc = Expression::make_allocation(this->expr_->type(), loc);
+  Node* n = Node::make_node(this);
+  if ((n->encoding() & ESCAPE_MASK) == int(Node::ESCAPE_NONE))
+    alloc->allocation_expression()->set_allocate_on_stack();
+  Bexpression* space = alloc->get_backend(context);
 
   Bstatement* decl;
   Named_object* fn = context->function();
@@ -14103,16 +14117,27 @@ Interface_info_expression::do_type()
     {
     case INTERFACE_INFO_METHODS:
       {
+        typedef Unordered_map(Interface_type*, Type*) Hashtable;
+        static Hashtable result_types;
+
+        Interface_type* itype = this->iface_->type()->interface_type();
+
+        Hashtable::const_iterator p = result_types.find(itype);
+        if (p != result_types.end())
+          return p->second;
+
         Type* pdt = Type::make_type_descriptor_ptr_type();
-        if (this->iface_->type()->interface_type()->is_empty())
-          return pdt;
+        if (itype->is_empty())
+          {
+            result_types[itype] = pdt;
+            return pdt;
+          }
 
         Location loc = this->location();
         Struct_field_list* sfl = new Struct_field_list();
         sfl->push_back(
             Struct_field(Typed_identifier("__type_descriptor", pdt, loc)));
 
-        Interface_type* itype = this->iface_->type()->interface_type();
         for (Typed_identifier_list::const_iterator p = itype->methods()->begin();
              p != itype->methods()->end();
              ++p)
@@ -14145,7 +14170,9 @@ Interface_info_expression::do_type()
             sfl->push_back(Struct_field(Typed_identifier(fname, mft, loc)));
           }
 
-        return Type::make_pointer_type(Type::make_struct_type(sfl, loc));
+        Pointer_type *pt = Type::make_pointer_type(Type::make_struct_type(sfl, loc));
+        result_types[itype] = pt;
+        return pt;
       }
     case INTERFACE_INFO_OBJECT:
       return Type::make_pointer_type(Type::make_void_type());

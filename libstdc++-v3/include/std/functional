@@ -56,6 +56,7 @@
 #include <type_traits>
 #include <bits/functexcept.h>
 #include <bits/functional_hash.h>
+#include <bits/invoke.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -184,82 +185,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : _Weak_result_type_impl<typename remove_cv<_Functor>::type>
     { };
 
-  template<typename _Tp, typename _Up = typename decay<_Tp>::type>
-    struct _Unwrap
-    {
-      using type = _Tp&&;
-
-      // Equivalent to std::forward<_Tp>
-      static constexpr _Tp&&
-      _S_fwd(_Tp& __t) noexcept { return static_cast<_Tp&&>(__t); }
-    };
-
-  template<typename _Tp, typename _Up>
-    struct _Unwrap<_Tp, reference_wrapper<_Up>>
-    {
-      using type = _Up&;
-
-      // Get an lvalue-reference from a reference_wrapper.
-      static _Up&
-      _S_fwd(const _Tp& __t) noexcept { __t.get(); }
-    };
-
-  // Used by __invoke_impl instead of std::forward<_Tp> so that a
-  // reference_wrapper is converted to an lvalue-reference.
-  template<typename _Tp>
-    inline typename _Unwrap<_Tp>::type
-    __invfwd(typename remove_reference<_Tp>::type& __t) noexcept
-    { return _Unwrap<_Tp>::_S_fwd(__t); }
-
-  template<typename _Res, typename _Fn, typename... _Args>
-    inline _Res
-    __invoke_impl(__invoke_other, _Fn&& __f, _Args&&... __args)
-    noexcept(noexcept(std::forward<_Fn>(__f)(std::forward<_Args>(__args)...)))
-    { return std::forward<_Fn>(__f)(std::forward<_Args>(__args)...); }
-
-  template<typename _Res, typename _MemFun, typename _Tp, typename... _Args>
-    inline _Res
-    __invoke_impl(__invoke_memfun_ref, _MemFun&& __f, _Tp&& __t,
-		  _Args&&... __args)
-    noexcept(noexcept(
-	  (__invfwd<_Tp>(__t).*__f)(std::forward<_Args>(__args)...)))
-    { return (__invfwd<_Tp>(__t).*__f)(std::forward<_Args>(__args)...); }
-
-  template<typename _Res, typename _MemFun, typename _Tp, typename... _Args>
-    inline _Res
-    __invoke_impl(__invoke_memfun_deref, _MemFun&& __f, _Tp&& __t,
-		  _Args&&... __args)
-    noexcept(noexcept(
-	  ((*std::forward<_Tp>(__t)).*__f)(std::forward<_Args>(__args)...)))
-    {
-      return ((*std::forward<_Tp>(__t)).*__f)(std::forward<_Args>(__args)...);
-    }
-
-  template<typename _Res, typename _MemFun, typename _Tp, typename... _Args>
-    inline _Res
-    __invoke_impl(__invoke_memobj_ref, _MemFun&& __f, _Tp&& __t)
-    noexcept(noexcept(__invfwd<_Tp>(__t).*__f))
-    { return __invfwd<_Tp>(__t).*__f; }
-
-  template<typename _Res, typename _MemFun, typename _Tp, typename... _Args>
-    inline _Res
-    __invoke_impl(__invoke_memobj_deref, _MemFun&& __f, _Tp&& __t,
-		  _Args&&... __args)
-    noexcept(noexcept((*std::forward<_Tp>(__t)).*__f))
-    { return (*std::forward<_Tp>(__t)).*__f; }
-
-  /// Invoke a callable object.
-  template<typename _Callable, typename... _Args>
-    inline typename result_of<_Callable&&(_Args&&...)>::type
-    __invoke(_Callable&& __fn, _Args&&... __args)
-    {
-      using __result_of = result_of<_Callable&&(_Args&&...)>;
-      using __type = typename __result_of::type;
-      using __tag = typename __result_of::__invoke_type;
-      return std::__invoke_impl<__type>(__tag{}, std::forward<_Callable>(__fn),
-					std::forward<_Args>(__args)...);
-    }
-
 #if __cplusplus > 201402L
 # define __cpp_lib_invoke 201411
 
@@ -267,6 +192,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Callable, typename... _Args>
     inline result_of_t<_Callable&&(_Args&&...)>
     invoke(_Callable&& __fn, _Args&&... __args)
+    noexcept(is_nothrow_callable_v<_Callable(_Args&&...)>)
     {
       return std::__invoke(std::forward<_Callable>(__fn),
 			   std::forward<_Args>(__args)...);
@@ -682,6 +608,13 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     : public integral_constant<int, 0>
     { };
 
+#if __cplusplus > 201402L
+  template <typename _Tp> constexpr bool is_bind_expression_v
+    = is_bind_expression<_Tp>::value;
+  template <typename _Tp> constexpr int is_placeholder_v
+    = is_placeholder<_Tp>::value;
+#endif // C++17
+
   /** @brief The type of placeholder objects defined by libstdc++.
    *  @ingroup binders
    */
@@ -751,10 +684,10 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
 
   // Like tuple_element_t but SFINAE-friendly.
- template<std::size_t __i, typename _Tuple>
-   using _Safe_tuple_element_t
-     = typename enable_if<(__i < tuple_size<_Tuple>::value),
-			  tuple_element<__i, _Tuple>>::type::type;
+  template<std::size_t __i, typename _Tuple>
+    using _Safe_tuple_element_t
+      = typename enable_if<(__i < tuple_size<_Tuple>::value),
+			   tuple_element<__i, _Tuple>>::type::type;
 
   /**
    *  Maps an argument to bind() into an actual argument to the bound
@@ -927,7 +860,6 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     class _Bind<_Functor(_Bound_args...)>
     : public _Weak_result_type<_Functor>
     {
-      typedef _Bind __self_type;
       typedef typename _Build_index_tuple<sizeof...(_Bound_args)>::__type
 	_Bound_indexes;
 
@@ -1052,7 +984,6 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
   template<typename _Result, typename _Functor, typename... _Bound_args>
     class _Bind_result<_Result, _Functor(_Bound_args...)>
     {
-      typedef _Bind_result __self_type;
       typedef typename _Build_index_tuple<sizeof...(_Bound_args)>::__type
 	_Bound_indexes;
 
@@ -1504,33 +1435,6 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     : __is_location_invariant<_Tp>
     { };
 
-  // Converts a reference to a function object into a callable
-  // function object.
-  template<typename _Functor>
-    inline _Functor&
-    __callable_functor(_Functor& __f)
-    { return __f; }
-
-  template<typename _Member, typename _Class>
-    inline _Mem_fn<_Member _Class::*>
-    __callable_functor(_Member _Class::* &__p)
-    { return std::mem_fn(__p); }
-
-  template<typename _Member, typename _Class>
-    inline _Mem_fn<_Member _Class::*>
-    __callable_functor(_Member _Class::* const &__p)
-    { return std::mem_fn(__p); }
-
-  template<typename _Member, typename _Class>
-    inline _Mem_fn<_Member _Class::*>
-    __callable_functor(_Member _Class::* volatile &__p)
-    { return std::mem_fn(__p); }
-
-  template<typename _Member, typename _Class>
-    inline _Mem_fn<_Member _Class::*>
-    __callable_functor(_Member _Class::* const volatile &__p)
-    { return std::mem_fn(__p); }
-
   template<typename _Signature>
     class function;
 
@@ -1568,7 +1472,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 	static void
 	_M_clone(_Any_data& __dest, const _Any_data& __source, true_type)
 	{
-	  new (__dest._M_access()) _Functor(__source._M_access<_Functor>());
+	  ::new (__dest._M_access()) _Functor(__source._M_access<_Functor>());
 	}
 
 	// Clone a function object that is not location-invariant or
@@ -1649,7 +1553,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       private:
 	static void
 	_M_init_functor(_Any_data& __functor, _Functor&& __f, true_type)
-	{ new (__functor._M_access()) _Functor(std::move(__f)); }
+	{ ::new (__functor._M_access()) _Functor(std::move(__f)); }
 
 	static void
 	_M_init_functor(_Any_data& __functor, _Functor&& __f, false_type)
@@ -1752,8 +1656,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       static _Res
       _M_invoke(const _Any_data& __functor, _ArgTypes&&... __args)
       {
-	return std::__callable_functor(**_Base::_M_get_pointer(__functor))(
-	      std::forward<_ArgTypes>(__args)...);
+	return std::__invoke(**_Base::_M_get_pointer(__functor),
+			     std::forward<_ArgTypes>(__args)...);
       }
     };
 
@@ -1767,8 +1671,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       static void
       _M_invoke(const _Any_data& __functor, _ArgTypes&&... __args)
       {
-	std::__callable_functor(**_Base::_M_get_pointer(__functor))(
-	    std::forward<_ArgTypes>(__args)...);
+	std::__invoke(**_Base::_M_get_pointer(__functor),
+		      std::forward<_ArgTypes>(__args)...);
       }
     };
 
@@ -1784,8 +1688,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       static _Res
       _M_invoke(const _Any_data& __functor, _ArgTypes&&... __args)
       {
-	return std::mem_fn(_Base::_M_get_pointer(__functor)->__value)(
-	    std::forward<_ArgTypes>(__args)...);
+	return std::__invoke(_Base::_M_get_pointer(__functor)->__value,
+			     std::forward<_ArgTypes>(__args)...);
       }
     };
 
@@ -1824,8 +1728,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       static void
       _M_invoke(const _Any_data& __functor, _ArgTypes&&... __args)
       {
-	std::mem_fn(_Base::_M_get_pointer(__functor)->__value)(
-	    std::forward<_ArgTypes>(__args)...);
+	std::__invoke(_Base::_M_get_pointer(__functor)->__value,
+		      std::forward<_ArgTypes>(__args)...);
       }
     };
 
@@ -1847,7 +1751,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       typedef _Res _Signature_type(_ArgTypes...);
 
       template<typename _Func,
-	       typename _Res2 = typename result_of<_Func(_ArgTypes...)>::type>
+	       typename _Res2 = typename result_of<_Func&(_ArgTypes...)>::type>
 	struct _Callable : __check_func_return_type<_Res2, _Res> { };
 
       // Used so the return type convertibility checks aren't done when
@@ -1899,8 +1803,6 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 	__x.swap(*this);
       }
 
-      // TODO: needs allocator_arg_t
-
       /**
        *  @brief Builds a %function that targets a copy of the incoming
        *  function object.
@@ -1908,7 +1810,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
        *  type @c T1, @c T2, ..., @c TN and returns a value convertible
        *  to @c Res.
        *
-       *  The newly-created %function object will target a copy of 
+       *  The newly-created %function object will target a copy of
        *  @a __f. If @a __f is @c reference_wrapper<F>, then this function
        *  object will contain a reference to the function object @c
        *  __f.get(). If @a __f is a NULL function pointer or NULL
@@ -2020,23 +1922,12 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
        *  Swap the targets of @c this function object and @a __f. This
        *  function will not throw an %exception.
        */
-      void swap(function& __x)
+      void swap(function& __x) noexcept
       {
 	std::swap(_M_functor, __x._M_functor);
 	std::swap(_M_manager, __x._M_manager);
 	std::swap(_M_invoker, __x._M_invoker);
       }
-
-      // TODO: needs allocator_arg_t
-      /*
-      template<typename _Functor, typename _Alloc>
-	void
-	assign(_Functor&& __f, const _Alloc& __a)
-	{
-	  function(allocator_arg, __a,
-		   std::forward<_Functor>(__f)).swap(*this);
-	}
-      */
 
       // [3.7.2.3] function capacity
 
@@ -2233,10 +2124,80 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
    *
    *  This function will not throw an %exception.
    */
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 2062. Effect contradictions w/o no-throw guarantee of std::function swaps
   template<typename _Res, typename... _Args>
     inline void
-    swap(function<_Res(_Args...)>& __x, function<_Res(_Args...)>& __y)
+    swap(function<_Res(_Args...)>& __x, function<_Res(_Args...)>& __y) noexcept
     { __x.swap(__y); }
+
+
+#if __cplusplus > 201402L
+
+#define __cpp_lib_not_fn 201603
+
+    /// Generalized negator.
+  template<typename _Fn>
+    class _Not_fn
+    {
+    public:
+      template<typename _Fn2>
+	explicit
+	_Not_fn(_Fn2&& __fn)
+	: _M_fn(std::forward<_Fn2>(__fn)) { }
+
+      _Not_fn(const _Not_fn& __fn) = default;
+      _Not_fn(_Not_fn&& __fn) = default;
+      ~_Not_fn() = default;
+
+      template<typename... _Args>
+	auto
+	operator()(_Args&&... __args) &
+	noexcept(is_nothrow_callable_v<_Fn&(_Args&&...)>)
+	-> decltype(!std::declval<result_of_t<_Fn&(_Args&&...)>>())
+	{ return !std::__invoke(_M_fn, std::forward<_Args>(__args)...); }
+
+      template<typename... _Args>
+	auto
+	operator()(_Args&&... __args) const &
+	noexcept(is_nothrow_callable_v<const _Fn&(_Args&&...)>)
+	-> decltype(!std::declval<result_of_t<const _Fn&(_Args&&...)>>())
+	{ return !std::__invoke(_M_fn, std::forward<_Args>(__args)...); }
+
+      template<typename... _Args>
+	auto
+	operator()(_Args&&... __args) &&
+	noexcept(is_nothrow_callable_v<_Fn&&(_Args&&...)>)
+	-> decltype(!std::declval<result_of_t<_Fn&&(_Args&&...)>>())
+	{
+	  return !std::__invoke(std::move(_M_fn),
+				std::forward<_Args>(__args)...);
+	}
+
+      template<typename... _Args>
+	auto
+	operator()(_Args&&... __args) const &&
+	noexcept(is_nothrow_callable_v<const _Fn&&(_Args&&...)>)
+	-> decltype(!std::declval<result_of_t<const _Fn&&(_Args&&...)>>())
+	{
+	  return !std::__invoke(std::move(_M_fn),
+				std::forward<_Args>(__args)...);
+	}
+
+    private:
+      _Fn _M_fn;
+    };
+
+  /// [func.not_fn] Function template not_fn
+  template<typename _Fn>
+    inline auto
+    not_fn(_Fn&& __fn)
+    noexcept(std::is_nothrow_constructible<std::decay_t<_Fn>, _Fn&&>::value)
+    {
+      return _Not_fn<std::decay_t<_Fn>>{std::forward<_Fn>(__fn)};
+    }
+
+#endif
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std

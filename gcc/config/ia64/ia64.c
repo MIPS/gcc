@@ -240,7 +240,7 @@ static void ia64_print_operand_address (FILE *, machine_mode, rtx);
 static bool ia64_print_operand_punct_valid_p (unsigned char code);
 
 static int ia64_issue_rate (void);
-static int ia64_adjust_cost_2 (rtx_insn *, int, rtx_insn *, int, dw_t);
+static int ia64_adjust_cost (rtx_insn *, int, rtx_insn *, int, dw_t);
 static void ia64_sched_init (FILE *, int, int);
 static void ia64_sched_init_global (FILE *, int, int);
 static void ia64_sched_finish_global (FILE *, int);
@@ -323,6 +323,7 @@ static void ia64_trampoline_init (rtx, tree, rtx);
 static void ia64_override_options_after_change (void);
 static bool ia64_member_type_forces_blk (const_tree, machine_mode);
 
+static tree ia64_fold_builtin (tree, int, tree *, bool);
 static tree ia64_builtin_decl (unsigned, bool);
 
 static reg_class_t ia64_preferred_reload_class (rtx, reg_class_t);
@@ -372,6 +373,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS ia64_init_builtins
 
+#undef TARGET_FOLD_BUILTIN
+#define TARGET_FOLD_BUILTIN ia64_fold_builtin
+
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ia64_expand_builtin
 
@@ -415,8 +419,8 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P  ia64_in_small_data_p
 
-#undef TARGET_SCHED_ADJUST_COST_2
-#define TARGET_SCHED_ADJUST_COST_2 ia64_adjust_cost_2
+#undef TARGET_SCHED_ADJUST_COST
+#define TARGET_SCHED_ADJUST_COST ia64_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE ia64_issue_rate
 #undef TARGET_SCHED_VARIABLE_ISSUE
@@ -6558,6 +6562,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	    case USE:
 	    case CALL:
 	    case ASM_OPERANDS:
+	    case ASM_INPUT:
 	      need_barrier |= rtx_needs_barrier (pat, flags, pred);
 	      break;
 
@@ -7185,8 +7190,8 @@ ia64_single_set (rtx_insn *insn)
    Return the new cost of a dependency of type DEP_TYPE or INSN on DEP_INSN.
    COST is the current cost, DW is dependency weakness.  */
 static int
-ia64_adjust_cost_2 (rtx_insn *insn, int dep_type1, rtx_insn *dep_insn,
-		    int cost, dw_t dw)
+ia64_adjust_cost (rtx_insn *insn, int dep_type1, rtx_insn *dep_insn,
+		  int cost, dw_t dw)
 {
   enum reg_note dep_type = (enum reg_note) dep_type1;
   enum attr_itanium_class dep_class;
@@ -10324,6 +10329,8 @@ enum ia64_builtins
   IA64_BUILTIN_FLUSHRS,
   IA64_BUILTIN_INFQ,
   IA64_BUILTIN_HUGE_VALQ,
+  IA64_BUILTIN_NANQ,
+  IA64_BUILTIN_NANSQ,
   IA64_BUILTIN_max
 };
 
@@ -10343,23 +10350,30 @@ ia64_init_builtins (void)
   (*lang_hooks.types.register_builtin_type) (fpreg_type, "__fpreg");
 
   /* The __float80 type.  */
-  float80_type = make_node (REAL_TYPE);
-  TYPE_PRECISION (float80_type) = 80;
-  layout_type (float80_type);
+  if (float64x_type_node != NULL_TREE
+      && TYPE_MODE (float64x_type_node) == XFmode)
+    float80_type = float64x_type_node;
+  else
+    {
+      float80_type = make_node (REAL_TYPE);
+      TYPE_PRECISION (float80_type) = 80;
+      layout_type (float80_type);
+    }
   (*lang_hooks.types.register_builtin_type) (float80_type, "__float80");
 
   /* The __float128 type.  */
   if (!TARGET_HPUX)
     {
       tree ftype;
-      tree float128_type = make_node (REAL_TYPE);
+      tree const_string_type
+	= build_pointer_type (build_qualified_type
+			      (char_type_node, TYPE_QUAL_CONST));
 
-      TYPE_PRECISION (float128_type) = 128;
-      layout_type (float128_type);
-      (*lang_hooks.types.register_builtin_type) (float128_type, "__float128");
+      (*lang_hooks.types.register_builtin_type) (float128_type_node,
+						 "__float128");
 
       /* TFmode support builtins.  */
-      ftype = build_function_type_list (float128_type, NULL_TREE);
+      ftype = build_function_type_list (float128_type_node, NULL_TREE);
       decl = add_builtin_function ("__builtin_infq", ftype,
 				   IA64_BUILTIN_INFQ, BUILT_IN_MD,
 				   NULL, NULL_TREE);
@@ -10370,8 +10384,23 @@ ia64_init_builtins (void)
 				   NULL, NULL_TREE);
       ia64_builtins[IA64_BUILTIN_HUGE_VALQ] = decl;
 
-      ftype = build_function_type_list (float128_type,
-					float128_type,
+      ftype = build_function_type_list (float128_type_node,
+					const_string_type,
+					NULL_TREE);
+      decl = add_builtin_function ("__builtin_nanq", ftype,
+				   IA64_BUILTIN_NANQ, BUILT_IN_MD,
+				   "nanq", NULL_TREE);
+      TREE_READONLY (decl) = 1;
+      ia64_builtins[IA64_BUILTIN_NANQ] = decl;
+
+      decl = add_builtin_function ("__builtin_nansq", ftype,
+				   IA64_BUILTIN_NANSQ, BUILT_IN_MD,
+				   "nansq", NULL_TREE);
+      TREE_READONLY (decl) = 1;
+      ia64_builtins[IA64_BUILTIN_NANSQ] = decl;
+
+      ftype = build_function_type_list (float128_type_node,
+					float128_type_node,
 					NULL_TREE);
       decl = add_builtin_function ("__builtin_fabsq", ftype,
 				   IA64_BUILTIN_FABSQ, BUILT_IN_MD,
@@ -10379,9 +10408,9 @@ ia64_init_builtins (void)
       TREE_READONLY (decl) = 1;
       ia64_builtins[IA64_BUILTIN_FABSQ] = decl;
 
-      ftype = build_function_type_list (float128_type,
-					float128_type,
-					float128_type,
+      ftype = build_function_type_list (float128_type_node,
+					float128_type_node,
+					float128_type_node,
 					NULL_TREE);
       decl = add_builtin_function ("__builtin_copysignq", ftype,
 				   IA64_BUILTIN_COPYSIGNQ, BUILT_IN_MD,
@@ -10426,6 +10455,41 @@ ia64_init_builtins (void)
     }
 }
 
+static tree
+ia64_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
+		   tree *args, bool ignore ATTRIBUTE_UNUSED)
+{
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    {
+      enum ia64_builtins fn_code = (enum ia64_builtins)
+				   DECL_FUNCTION_CODE (fndecl);
+      switch (fn_code)
+	{
+	case IA64_BUILTIN_NANQ:
+	case IA64_BUILTIN_NANSQ:
+	  {
+	    tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	    const char *str = c_getstr (*args);
+	    int quiet = fn_code == IA64_BUILTIN_NANQ;
+	    REAL_VALUE_TYPE real;
+
+	    if (str && real_nan (&real, str, quiet, TYPE_MODE (type)))
+	      return build_real (type, real);
+	    return NULL_TREE;
+	  }
+
+	default:
+	  break;
+	}
+    }
+
+#ifdef SUBTARGET_FOLD_BUILTIN
+  return SUBTARGET_FOLD_BUILTIN (fndecl, n_args, args, ignore);
+#endif
+
+  return NULL_TREE;
+}
+
 rtx
 ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		     machine_mode mode ATTRIBUTE_UNUSED,
@@ -10468,6 +10532,8 @@ ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	return target;
       }
 
+    case IA64_BUILTIN_NANQ:
+    case IA64_BUILTIN_NANSQ:
     case IA64_BUILTIN_FABSQ:
     case IA64_BUILTIN_COPYSIGNQ:
       return expand_call (exp, target, ignore);
@@ -10624,8 +10690,6 @@ ia64_vms_init_libfuncs (void)
   set_optab_libfunc (smod_optab, DImode, "OTS$REM_L");
   set_optab_libfunc (umod_optab, SImode, "OTS$REM_UI");
   set_optab_libfunc (umod_optab, DImode, "OTS$REM_UL");
-  abort_libfunc = init_one_libfunc ("decc$abort");
-  memcmp_libfunc = init_one_libfunc ("decc$memcmp");
 #ifdef MEM_LIBFUNCS_INIT
   MEM_LIBFUNCS_INIT;
 #endif

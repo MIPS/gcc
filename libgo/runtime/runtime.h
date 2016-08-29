@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <ucontext.h>
 
 #ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
@@ -150,8 +151,10 @@ enum
  */
 struct	Lock
 {
-	uint32 key;
-	sem_t sem;
+	// Futex-based impl treats it as uint32 key,
+	// while sema-based impl as M* waitm.
+	// Used to be a union, but unions break precise GC.
+	uintptr	key;
 };
 struct	Note
 {
@@ -665,10 +668,8 @@ extern uint32 runtime_worldsema;
  * but on the contention path they sleep in the kernel.
  * a zeroed Lock is unlocked (no need to initialize each lock).
  */
-void	runtime_initlock(Lock*);
 void	runtime_lock(Lock*);
 void	runtime_unlock(Lock*);
-void	runtime_destroylock(Lock*);
 
 /*
  * sleep and wakeup on one-time events.
@@ -737,19 +738,7 @@ void	runtime_parforiters(ParFor*, uintptr, uintptr*, uintptr*);
 #define runtime_munmap munmap
 #define runtime_madvise madvise
 #define runtime_memclr(buf, size) __builtin_memset((buf), 0, (size))
-#define runtime_strcmp(s1, s2) __builtin_strcmp((s1), (s2))
-#define runtime_getenv(s) getenv(s)
-#define runtime_atoi(s) atoi(s)
-#define runtime_mcmp(a, b, s) __builtin_memcmp((a), (b), (s))
-#define runtime_memmove(a, b, s) __builtin_memmove((a), (b), (s))
-MCache*	runtime_allocmcache(void);
-void	free(void *v);
-struct __go_func_type;
-void	runtime_addfinalizer(void*, void(*fn)(void*), const struct __go_func_type *);
-void	runtime_walkfintab(void (*fn)(void*), void (*scan)(byte *, int64));
-#define runtime_mmap mmap
-#define runtime_munmap(p, s) munmap((p), (s))
-#define runtime_cas(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
+#define runtime_getcallerpc(p) __builtin_return_address(0)
 
 #ifdef __rtems__
 void __wrap_rtems_task_variable_add(void **);
@@ -846,7 +835,7 @@ extern uintptr runtime_stacks_sys;
 
 struct backtrace_state;
 extern struct backtrace_state *__go_get_backtrace_state(void);
-extern _Bool __go_file_line(uintptr, String*, String*, intgo *);
+extern _Bool __go_file_line(uintptr, int, String*, String*, intgo *);
 extern byte* runtime_progname();
 extern void runtime_main(void*);
 extern uint32 runtime_in_callers;

@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "toplev.h"
 #include "gimplify.h"
+#include "cp-cilkplus.h"
 
 /* Constructor for a lambda expression.  */
 
@@ -77,6 +78,10 @@ build_lambda_object (tree lambda_expr)
 	  expr = error_mark_node;
 	  goto out;
 	}
+
+      if (TREE_CODE (val) == TREE_LIST)
+	val = build_x_compound_expr_from_list (val, ELK_INIT,
+					       tf_warning_or_error);
 
       if (DECL_P (val))
 	mark_used (val);
@@ -129,7 +134,7 @@ begin_lambda_type (tree lambda)
 
   {
     /* Unique name.  This is just like an unnamed class, but we cannot use
-       make_anon_name because of certain checks against TYPE_ANONYMOUS_P.  */
+       make_anon_name because of certain checks against TYPE_UNNAMED_P.  */
     tree name;
     name = make_lambda_name ();
 
@@ -148,6 +153,11 @@ begin_lambda_type (tree lambda)
   /* Cross-reference the expression and the type.  */
   LAMBDA_EXPR_CLOSURE (lambda) = type;
   CLASSTYPE_LAMBDA_EXPR (type) = lambda;
+
+  /* In C++17, assume the closure is literal; we'll clear the flag later if
+     necessary.  */
+  if (cxx_dialect >= cxx1z)
+    CLASSTYPE_LITERAL_P (type) = true;
 
   /* Clear base types.  */
   xref_basetypes (type, /*bases=*/NULL_TREE);
@@ -448,7 +458,9 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
       variadic = true;
     }
 
-  if (TREE_CODE (initializer) == TREE_LIST)
+  if (TREE_CODE (initializer) == TREE_LIST
+      /* A pack expansion might end up with multiple elements.  */
+      && !PACK_EXPANSION_P (TREE_VALUE (initializer)))
     initializer = build_x_compound_expr_from_list (initializer, ELK_INIT,
 						   tf_warning_or_error);
   type = TREE_TYPE (initializer);
@@ -485,10 +497,12 @@ add_capture (tree lambda, tree id, tree orig_init, bool by_reference_p,
   else
     {
       type = lambda_capture_field_type (initializer, explicit_init_p);
+      if (type == error_mark_node)
+	return error_mark_node;
       if (by_reference_p)
 	{
 	  type = build_reference_type (type);
-	  if (!dependent_type_p (type) && !real_lvalue_p (initializer))
+	  if (!dependent_type_p (type) && !lvalue_p (initializer))
 	    error ("cannot capture %qE by reference", initializer);
 	}
       else
@@ -871,8 +885,10 @@ maybe_add_lambda_conv_op (tree type)
   bool nested = (cfun != NULL);
   bool nested_def = decl_function_context (TYPE_MAIN_DECL (type));
   tree callop = lambda_function (type);
+  tree lam = CLASSTYPE_LAMBDA_EXPR (type);
 
-  if (LAMBDA_EXPR_CAPTURE_LIST (CLASSTYPE_LAMBDA_EXPR (type)) != NULL_TREE)
+  if (LAMBDA_EXPR_CAPTURE_LIST (lam) != NULL_TREE
+      || LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lam) != CPLD_NONE)
     return;
 
   if (processing_template_decl)
@@ -901,6 +917,8 @@ maybe_add_lambda_conv_op (tree type)
   tree optype = TREE_TYPE (callop);
   tree fn_result = TREE_TYPE (optype);
 
+  tree thisarg = build_nop (TREE_TYPE (DECL_ARGUMENTS (callop)),
+			    null_pointer_node);
   if (generic_lambda_p)
     {
       /* Prepare the dependent member call for the static member function
@@ -908,7 +926,8 @@ maybe_add_lambda_conv_op (tree type)
 	 return expression for a deduced return call op to allow for simple
 	 implementation of the conversion operator.  */
 
-      tree instance = build_nop (type, null_pointer_node);
+      tree instance = cp_build_indirect_ref (thisarg, RO_NULL,
+					     tf_warning_or_error);
       tree objfn = build_min (COMPONENT_REF, NULL_TREE,
 			      instance, DECL_NAME (callop), NULL_TREE);
       int nargs = list_length (DECL_ARGUMENTS (callop)) - 1;
@@ -920,9 +939,7 @@ maybe_add_lambda_conv_op (tree type)
   else
     {
       direct_argvec = make_tree_vector ();
-      direct_argvec->quick_push (build1 (NOP_EXPR,
-					 TREE_TYPE (DECL_ARGUMENTS (callop)),
-					 null_pointer_node));
+      direct_argvec->quick_push (thisarg);
     }
 
   /* Copy CALLOP's argument list (as per 'copy_list') as FN_ARGS in order to
@@ -992,6 +1009,7 @@ maybe_add_lambda_conv_op (tree type)
 			 direct_argvec->address ());
 
   CALL_FROM_THUNK_P (call) = 1;
+  SET_EXPR_LOCATION (call, UNKNOWN_LOCATION);
 
   tree stattype = build_function_type (fn_result, FUNCTION_ARG_CHAIN (callop));
   stattype = (cp_build_type_attribute_variant
@@ -1006,7 +1024,7 @@ maybe_add_lambda_conv_op (tree type)
   tree convfn = build_lang_decl (FUNCTION_DECL, name, fntype);
   tree fn = convfn;
   DECL_SOURCE_LOCATION (fn) = DECL_SOURCE_LOCATION (callop);
-  DECL_ALIGN (fn) = MINIMUM_METHOD_BOUNDARY;
+  SET_DECL_ALIGN (fn, MINIMUM_METHOD_BOUNDARY);
   SET_OVERLOADED_OPERATOR_CODE (fn, TYPE_EXPR);
   grokclassfn (type, fn, NO_SPECIAL);
   set_linkage_according_to_type (type, fn);
@@ -1127,6 +1145,18 @@ maybe_add_lambda_conv_op (tree type)
     pop_function_context ();
   else
     --function_depth;
+}
+
+/* True if FN is the static function "_FUN" that gets returned from the lambda
+   conversion operator.  */
+
+bool
+lambda_static_thunk_p (tree fn)
+{
+  return (fn && TREE_CODE (fn) == FUNCTION_DECL
+	  && DECL_ARTIFICIAL (fn)
+	  && DECL_STATIC_FUNCTION_P (fn)
+	  && LAMBDA_TYPE_P (CP_DECL_CONTEXT (fn)));
 }
 
 /* Returns true iff VAL is a lambda-related declaration which should

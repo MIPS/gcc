@@ -201,6 +201,14 @@ struct diagnostic_context
      source code (to avoid e.g. colorizing just the first character in
      a token, which would look strange).  */
   bool colorize_source_p;
+
+  /* Usable by plugins; if true, print a debugging ruler above the
+     source output.  */
+  bool show_ruler_p;
+
+  /* If true, print fixits in machine-parseable form after the
+     rest of the diagnostic.  */
+  bool parseable_fixits_p;
 };
 
 static inline void
@@ -226,12 +234,6 @@ diagnostic_inhibit_notes (diagnostic_context * context)
 
 /* Same as output_prefixing_rule.  Works on 'diagnostic_context *'.  */
 #define diagnostic_prefixing_rule(DC) ((DC)->printer->wrapping.rule)
-
-/* Maximum characters per line in automatic line wrapping mode.
-   Zero means don't wrap lines.  */
-#define diagnostic_line_cutoff(DC) ((DC)->printer->wrapping.line_cutoff)
-
-#define diagnostic_flush_buffer(DC) pp_flush ((DC)->printer)
 
 /* True if the last module or file in which a diagnostic was reported is
    different from the current one.  */
@@ -282,7 +284,9 @@ extern void diagnostic_initialize (diagnostic_context *, int);
 extern void diagnostic_color_init (diagnostic_context *, int value = -1);
 extern void diagnostic_finish (diagnostic_context *);
 extern void diagnostic_report_current_module (diagnostic_context *, location_t);
-extern void diagnostic_show_locus (diagnostic_context *, const diagnostic_info *);
+extern void diagnostic_show_locus (diagnostic_context *,
+				   rich_location *richloc,
+				   diagnostic_t diagnostic_kind);
 
 /* Force diagnostics controlled by OPTIDX to be kind KIND.  */
 extern diagnostic_t diagnostic_classify_diagnostic (diagnostic_context *,

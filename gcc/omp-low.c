@@ -241,6 +241,7 @@ struct oacc_loop
   tree routine;  /* Pseudo-loop enclosing a routine.  */
 
   unsigned mask;   /* Partitioning mask.  */
+  unsigned inner;  /* Partitioning of inner loops.  */
   unsigned flags;  /* Partitioning flags.  */
   unsigned ifns;   /* Contained loop abstraction functions.  */
   tree chunk_size; /* Chunk size.  */
@@ -1445,12 +1446,12 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx,
   DECL_ABSTRACT_ORIGIN (field) = var;
   if (type == TREE_TYPE (var))
     {
-      DECL_ALIGN (field) = DECL_ALIGN (var);
+      SET_DECL_ALIGN (field, DECL_ALIGN (var));
       DECL_USER_ALIGN (field) = DECL_USER_ALIGN (var);
       TREE_THIS_VOLATILE (field) = TREE_THIS_VOLATILE (var);
     }
   else
-    DECL_ALIGN (field) = TYPE_ALIGN (type);
+    SET_DECL_ALIGN (field, TYPE_ALIGN (type));
 
   if ((mask & 3) == 3)
     {
@@ -1460,7 +1461,7 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx,
 	  sfield = build_decl (DECL_SOURCE_LOCATION (var),
 			       FIELD_DECL, DECL_NAME (var), type);
 	  DECL_ABSTRACT_ORIGIN (sfield) = var;
-	  DECL_ALIGN (sfield) = DECL_ALIGN (field);
+	  SET_DECL_ALIGN (sfield, DECL_ALIGN (field));
 	  DECL_USER_ALIGN (sfield) = DECL_USER_ALIGN (field);
 	  TREE_THIS_VOLATILE (sfield) = TREE_THIS_VOLATILE (field);
 	  insert_field_into_struct (ctx->srecord_type, sfield);
@@ -2153,7 +2154,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 		  tree field
 		    = build_decl (OMP_CLAUSE_LOCATION (c),
 				  FIELD_DECL, NULL_TREE, ptr_type_node);
-		  DECL_ALIGN (field) = TYPE_ALIGN (ptr_type_node);
+		  SET_DECL_ALIGN (field, TYPE_ALIGN (ptr_type_node));
 		  insert_field_into_struct (ctx->record_type, field);
 		  splay_tree_insert (ctx->field_map, (splay_tree_key) decl,
 				     (splay_tree_value) field);
@@ -2186,7 +2187,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
@@ -2199,11 +2199,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	    install_var_local (decl, ctx);
 	  break;
 
-	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__CACHE_:
-	  sorry ("Clause not supported yet");
-	  break;
-
 	default:
 	  gcc_unreachable ();
 	}
@@ -2360,18 +2357,14 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE__GRIDDIM_:
 	  break;
 
-	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__CACHE_:
-	  sorry ("Clause not supported yet");
-	  break;
-
 	default:
 	  gcc_unreachable ();
 	}
@@ -2479,6 +2472,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   DECL_EXTERNAL (decl) = 0;
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = make_node (BLOCK);
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (decl)) = decl;
   if (cgraph_node::get (current_function_decl)->offloadable)
     cgraph_node::get_create (decl)->offloadable = 1;
   else
@@ -2569,6 +2563,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
      it afterward.  */
   push_struct_function (decl);
   cfun->function_end_locus = gimple_location (ctx->stmt);
+  init_tree_ssa (cfun);
   pop_cfun ();
 }
 
@@ -2804,18 +2799,18 @@ finish_taskreg_scan (omp_context *ctx)
 	    TREE_TYPE (field) = build_pointer_type (TREE_TYPE (decl));
 	    TREE_THIS_VOLATILE (field) = 0;
 	    DECL_USER_ALIGN (field) = 0;
-	    DECL_ALIGN (field) = TYPE_ALIGN (TREE_TYPE (field));
+	    SET_DECL_ALIGN (field, TYPE_ALIGN (TREE_TYPE (field)));
 	    if (TYPE_ALIGN (ctx->record_type) < DECL_ALIGN (field))
-	      TYPE_ALIGN (ctx->record_type) = DECL_ALIGN (field);
+	      SET_TYPE_ALIGN (ctx->record_type, DECL_ALIGN (field));
 	    if (ctx->srecord_type)
 	      {
 		tree sfield = lookup_sfield (decl, ctx);
 		TREE_TYPE (sfield) = TREE_TYPE (field);
 		TREE_THIS_VOLATILE (sfield) = 0;
 		DECL_USER_ALIGN (sfield) = 0;
-		DECL_ALIGN (sfield) = DECL_ALIGN (field);
+		SET_DECL_ALIGN (sfield, DECL_ALIGN (field));
 		if (TYPE_ALIGN (ctx->srecord_type) < DECL_ALIGN (sfield))
-		  TYPE_ALIGN (ctx->srecord_type) = DECL_ALIGN (sfield);
+		  SET_TYPE_ALIGN (ctx->srecord_type, DECL_ALIGN (sfield));
 	      }
 	  }
     }
@@ -4481,8 +4476,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  if (new_var == NULL_TREE)
 		    new_var = maybe_lookup_decl_in_outer_ctx (var, ctx);
 		  x = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
-		  x = build_call_expr_loc (clause_loc, x, 2, new_var,
-					   omp_clause_aligned_alignment (c));
+		  tree alarg = omp_clause_aligned_alignment (c);
+		  alarg = fold_convert_loc (clause_loc, size_type_node, alarg);
+		  x = build_call_expr_loc (clause_loc, x, 2, new_var, alarg);
 		  x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
 		  x = build2 (MODIFY_EXPR, TREE_TYPE (new_var), new_var, x);
 		  gimplify_and_add (x, ilist);
@@ -4495,8 +4491,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  t = maybe_lookup_decl_in_outer_ctx (var, ctx);
 		  t = build_fold_addr_expr_loc (clause_loc, t);
 		  t2 = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
-		  t = build_call_expr_loc (clause_loc, t2, 2, t,
-					   omp_clause_aligned_alignment (c));
+		  tree alarg = omp_clause_aligned_alignment (c);
+		  alarg = fold_convert_loc (clause_loc, size_type_node, alarg);
+		  t = build_call_expr_loc (clause_loc, t2, 2, t, alarg);
 		  t = fold_convert_loc (clause_loc, ptype, t);
 		  x = create_tmp_var (ptype);
 		  t = build2 (MODIFY_EXPR, ptype, x, t);
@@ -5458,7 +5455,15 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 	      new_var = lookup_decl (var, ctx->outer);
 	    }
 	  else
-	    new_var = lookup_decl (var, ctx);
+	    {
+	      new_var = lookup_decl (var, ctx);
+	      /* Avoid uninitialized warnings for lastprivate and
+		 for linear iterators.  */
+	      if (predicate
+		  && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+		      || OMP_CLAUSE_LINEAR_NO_COPYIN (c)))
+		TREE_NO_WARNING (new_var) = 1;
+	    }
 
 	  if (simduid && DECL_HAS_VALUE_EXPR_P (new_var))
 	    {
@@ -5655,10 +5660,19 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 		outgoing = var;
 		incoming = omp_reduction_init_op (loc, rcode, type);
 	      }
-	    else if (ctx->outer)
-	      incoming = outgoing = lookup_decl (orig, ctx->outer);
 	    else
-	      incoming = outgoing = orig;
+	      {
+		/* Try to look at enclosing contexts for reduction var,
+		   use original if no mapping found.  */
+		tree t = NULL_TREE;
+		omp_context *c = ctx->outer;
+		while (c && !t)
+		  {
+		    t = maybe_lookup_decl (orig, c);
+		    c = c->outer;
+		  }
+		incoming = outgoing = (t ? t : orig);
+	      }
 	      
 	  has_outer_reduction:;
 	  }
@@ -6401,12 +6415,10 @@ lower_oacc_head_tail (location_t loc, tree clauses,
   gimple_seq_add_stmt (head, gimple_build_assign (ddvar, integer_zero_node));
 
   unsigned count = lower_oacc_head_mark (loc, ddvar, clauses, head, ctx);
-  if (!count)
-    lower_oacc_loop_marker (loc, ddvar, false, integer_zero_node, tail);
-  
   tree fork_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK);
   tree join_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN);
 
+  gcc_assert (count);
   for (unsigned done = 1; count; count--, done++)
     {
       gimple_seq fork_seq = NULL;
@@ -13356,9 +13368,15 @@ expand_omp_target (struct omp_region *region)
       make_edge (else_bb, new_bb, EDGE_FALLTHRU);
 
       device = tmp_var;
+      gsi = gsi_last_bb (new_bb);
+    }
+  else
+    {
+      gsi = gsi_last_bb (new_bb);
+      device = force_gimple_operand_gsi (&gsi, device, true, NULL_TREE,
+					 true, GSI_SAME_STMT);
     }
 
-  gsi = gsi_last_bb (new_bb);
   t = gimple_omp_target_data_arg (entry_stmt);
   if (t == NULL)
     {
@@ -13670,9 +13688,11 @@ grid_expand_target_grid_body (struct omp_region *target)
   BLOCK_ABSTRACT_ORIGIN (fniniblock) = tgtblock;
   BLOCK_SOURCE_LOCATION (fniniblock) = BLOCK_SOURCE_LOCATION (tgtblock);
   BLOCK_SOURCE_END_LOCATION (fniniblock) = BLOCK_SOURCE_END_LOCATION (tgtblock);
+  BLOCK_SUPERCONTEXT (fniniblock) = kern_fndecl;
   DECL_INITIAL (kern_fndecl) = fniniblock;
   push_struct_function (kern_fndecl);
   cfun->function_end_locus = gimple_location (tgt_stmt);
+  init_tree_ssa (cfun);
   pop_cfun ();
 
   tree old_parm_decl = DECL_ARGUMENTS (kern_fndecl);
@@ -13680,6 +13700,9 @@ grid_expand_target_grid_body (struct omp_region *target)
   tree new_parm_decl = copy_node (DECL_ARGUMENTS (kern_fndecl));
   DECL_CONTEXT (new_parm_decl) = kern_fndecl;
   DECL_ARGUMENTS (kern_fndecl) = new_parm_decl;
+  gcc_assert (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (kern_fndecl))));
+  DECL_RESULT (kern_fndecl) = copy_node (DECL_RESULT (kern_fndecl));
+  DECL_CONTEXT (DECL_RESULT (kern_fndecl)) = kern_fndecl;
   struct function *kern_cfun = DECL_STRUCT_FUNCTION (kern_fndecl);
   kern_cfun->curr_properties = cfun->curr_properties;
 
@@ -16206,6 +16229,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    case GOMP_MAP_ALWAYS_FROM:
 		    case GOMP_MAP_ALWAYS_TOFROM:
 		    case GOMP_MAP_RELEASE:
+		    case GOMP_MAP_FORCE_TO:
+		    case GOMP_MAP_FORCE_FROM:
+		    case GOMP_MAP_FORCE_TOFROM:
+		    case GOMP_MAP_FORCE_PRESENT:
 		      tkind_zero = GOMP_MAP_ZERO_LEN_ARRAY_SECTION;
 		      break;
 		    case GOMP_MAP_DELETE:
@@ -18486,8 +18513,8 @@ omp_finish_file (void)
 						    num_vars * 2);
       tree funcs_decl_type = build_array_type_nelts (pointer_sized_int_node,
 						     num_funcs);
-      TYPE_ALIGN (vars_decl_type) = TYPE_ALIGN (pointer_sized_int_node);
-      TYPE_ALIGN (funcs_decl_type) = TYPE_ALIGN (pointer_sized_int_node);
+      SET_TYPE_ALIGN (vars_decl_type, TYPE_ALIGN (pointer_sized_int_node));
+      SET_TYPE_ALIGN (funcs_decl_type, TYPE_ALIGN (pointer_sized_int_node));
       tree ctor_v = build_constructor (vars_decl_type, v_v);
       tree ctor_f = build_constructor (funcs_decl_type, v_f);
       TREE_CONSTANT (ctor_v) = TREE_CONSTANT (ctor_f) = 1;
@@ -18503,8 +18530,8 @@ omp_finish_file (void)
 	 otherwise a joint table in a binary will contain padding between
 	 tables from multiple object files.  */
       DECL_USER_ALIGN (funcs_decl) = DECL_USER_ALIGN (vars_decl) = 1;
-      DECL_ALIGN (funcs_decl) = TYPE_ALIGN (funcs_decl_type);
-      DECL_ALIGN (vars_decl) = TYPE_ALIGN (vars_decl_type);
+      SET_DECL_ALIGN (funcs_decl, TYPE_ALIGN (funcs_decl_type));
+      SET_DECL_ALIGN (vars_decl, TYPE_ALIGN (vars_decl_type));
       DECL_INITIAL (funcs_decl) = ctor_f;
       DECL_INITIAL (vars_decl) = ctor_v;
       set_decl_section_name (funcs_decl, OFFLOAD_FUNC_TABLE_SECTION_NAME);
@@ -18921,7 +18948,7 @@ new_oacc_loop_raw (oacc_loop *parent, location_t loc)
   memset (loop->tails, 0, sizeof (loop->tails));
   loop->routine = NULL_TREE;
 
-  loop->mask = loop->flags = 0;
+  loop->mask = loop->flags = loop->inner = 0;
   loop->ifns = 0;
   loop->chunk_size = 0;
   loop->head_end = NULL;
@@ -19330,10 +19357,8 @@ oacc_loop_process (oacc_loop *loop)
 
       oacc_loop_xform_loop (loop->head_end, loop->ifns, mask_arg, chunk_arg);
 
-      for (ix = 0; ix != GOMP_DIM_MAX && loop->heads[ix]; ix++)
+      for (ix = 0; ix != GOMP_DIM_MAX && mask; ix++)
 	{
-	  gcc_assert (mask);
-
 	  while (!(GOMP_DIM_MASK (dim) & mask))
 	    dim++;
 
@@ -19449,8 +19474,11 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
   mask_all |= this_mask;
   
   if (loop->child)
-    mask_all |= oacc_loop_fixed_partitions (loop->child,
-					    outer_mask | this_mask);
+    {
+      loop->inner = oacc_loop_fixed_partitions (loop->child,
+						outer_mask | this_mask); 
+      mask_all |= loop->inner;
+    }
 
   if (loop->sibling)
     mask_all |= oacc_loop_fixed_partitions (loop->sibling, outer_mask);
@@ -19466,7 +19494,7 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 static unsigned
 oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
 {
-  unsigned inner_mask = 0;
+  bool assign = (loop->flags & OLF_AUTO) && (loop->flags & OLF_INDEPENDENT);
   bool noisy = true;
 
 #ifdef ACCEL_COMPILER
@@ -19475,16 +19503,33 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
   noisy = false;
 #endif
 
-  if (loop->child)
-    inner_mask |= oacc_loop_auto_partitions (loop->child,
-					     outer_mask | loop->mask);
-
-  if ((loop->flags & OLF_AUTO) && (loop->flags & OLF_INDEPENDENT))
+  if (assign && outer_mask < GOMP_DIM_MASK (GOMP_DIM_MAX - 1))
     {
+      /* Allocate the outermost loop at the outermost available
+	 level.  */
+      unsigned this_mask = outer_mask + 1;
+
+      if (!(this_mask & loop->inner))
+	loop->mask = this_mask;
+    }
+
+  if (loop->child)
+    {
+      unsigned child_mask = outer_mask | loop->mask;
+
+      if (loop->mask || assign)
+	child_mask |= GOMP_DIM_MASK (GOMP_DIM_MAX);
+
+      loop->inner = oacc_loop_auto_partitions (loop->child, child_mask);
+    }
+
+  if (assign && !loop->mask)
+    {
+      /* Allocate the loop at the innermost available level.  */
       unsigned this_mask = 0;
       
       /* Determine the outermost partitioning used within this loop. */
-      this_mask = inner_mask | GOMP_DIM_MASK (GOMP_DIM_MAX);
+      this_mask = loop->inner | GOMP_DIM_MASK (GOMP_DIM_MAX);
       this_mask = (this_mask & -this_mask);
 
       /* Pick the partitioning just inside that one.  */
@@ -19497,17 +19542,20 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
 	warning_at (loop->loc, 0,
 		    "insufficient partitioning available to parallelize loop");
 
-      if (dump_file)
-	fprintf (dump_file, "Auto loop %s:%d assigned %d\n",
-		 LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc),
-		 this_mask);
-
       loop->mask = this_mask;
     }
-  inner_mask |= loop->mask;
+
+  if (assign && dump_file)
+    fprintf (dump_file, "Auto loop %s:%d assigned %d\n",
+	     LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc),
+	     loop->mask);
+
+  unsigned inner_mask = 0;
   
   if (loop->sibling)
     inner_mask |= oacc_loop_auto_partitions (loop->sibling, outer_mask);
+  
+  inner_mask |= loop->inner | loop->mask;
 
   return inner_mask;
 }

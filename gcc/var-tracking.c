@@ -926,7 +926,7 @@ struct adjust_mem_data
   bool store;
   machine_mode mem_mode;
   HOST_WIDE_INT stack_adjust;
-  rtx_expr_list *side_effects;
+  auto_vec<rtx> side_effects;
 };
 
 /* Helper for adjust_mems.  Return true if X is suitable for
@@ -1056,6 +1056,7 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
 					 ? GET_MODE_SIZE (amd->mem_mode)
 					 : -GET_MODE_SIZE (amd->mem_mode),
 					 GET_MODE (loc)));
+      /* FALLTHRU */
     case POST_INC:
     case POST_DEC:
       if (addr == loc)
@@ -1072,12 +1073,11 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
       amd->store = false;
       tem = simplify_replace_fn_rtx (tem, old_rtx, adjust_mems, data);
       amd->store = store_save;
-      amd->side_effects = alloc_EXPR_LIST (0,
-					   gen_rtx_SET (XEXP (loc, 0), tem),
-					   amd->side_effects);
+      amd->side_effects.safe_push (gen_rtx_SET (XEXP (loc, 0), tem));
       return addr;
     case PRE_MODIFY:
       addr = XEXP (loc, 1);
+      /* FALLTHRU */
     case POST_MODIFY:
       if (addr == loc)
 	addr = XEXP (loc, 0);
@@ -1088,9 +1088,7 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
       tem = simplify_replace_fn_rtx (XEXP (loc, 1), old_rtx,
 				     adjust_mems, data);
       amd->store = store_save;
-      amd->side_effects = alloc_EXPR_LIST (0,
-					   gen_rtx_SET (XEXP (loc, 0), tem),
-					   amd->side_effects);
+      amd->side_effects.safe_push (gen_rtx_SET (XEXP (loc, 0), tem));
       return addr;
     case SUBREG:
       /* First try without delegitimization of whole MEMs and
@@ -1184,7 +1182,6 @@ adjust_mem_stores (rtx loc, const_rtx expr, void *data)
 static void
 adjust_insn (basic_block bb, rtx_insn *insn)
 {
-  struct adjust_mem_data amd;
   rtx set;
 
 #ifdef HAVE_window_save
@@ -1213,9 +1210,9 @@ adjust_insn (basic_block bb, rtx_insn *insn)
     }
 #endif
 
+  adjust_mem_data amd;
   amd.mem_mode = VOIDmode;
   amd.stack_adjust = -VTI (bb)->out.stack_adjust;
-  amd.side_effects = NULL;
 
   amd.store = true;
   note_stores (PATTERN (insn), adjust_mem_stores, &amd);
@@ -1281,10 +1278,10 @@ adjust_insn (basic_block bb, rtx_insn *insn)
 	validate_change (NULL_RTX, &SET_SRC (set), XEXP (note, 0), true);
     }
 
-  if (amd.side_effects)
+  if (!amd.side_effects.is_empty ())
     {
-      rtx *pat, new_pat, s;
-      int i, oldn, newn;
+      rtx *pat, new_pat;
+      int i, oldn;
 
       pat = &PATTERN (insn);
       if (GET_CODE (*pat) == COND_EXEC)
@@ -1293,17 +1290,18 @@ adjust_insn (basic_block bb, rtx_insn *insn)
 	oldn = XVECLEN (*pat, 0);
       else
 	oldn = 1;
-      for (s = amd.side_effects, newn = 0; s; newn++)
-	s = XEXP (s, 1);
+      unsigned int newn = amd.side_effects.length ();
       new_pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (oldn + newn));
       if (GET_CODE (*pat) == PARALLEL)
 	for (i = 0; i < oldn; i++)
 	  XVECEXP (new_pat, 0, i) = XVECEXP (*pat, 0, i);
       else
 	XVECEXP (new_pat, 0, 0) = *pat;
-      for (s = amd.side_effects, i = oldn; i < oldn + newn; i++, s = XEXP (s, 1))
-	XVECEXP (new_pat, 0, i) = XEXP (s, 0);
-      free_EXPR_LIST_list (&amd.side_effects);
+
+      rtx effect;
+      unsigned int j;
+      FOR_EACH_VEC_ELT_REVERSE (amd.side_effects, j, effect)
+	XVECEXP (new_pat, 0, j + oldn) = effect;
       validate_change (NULL_RTX, pat, new_pat, true);
     }
 }
@@ -3152,7 +3150,7 @@ set_dv_changed (decl_or_value dv, bool newv)
     case ONEPART_DEXPR:
       if (newv)
 	NO_LOC_P (DECL_RTL_KNOWN_SET (dv_as_decl (dv))) = false;
-      /* Fall through...  */
+      /* Fall through.  */
 
     default:
       DECL_CHANGED (dv_as_decl (dv)) = newv;
@@ -6335,11 +6333,10 @@ prepare_call_arguments (basic_block bb, rtx_insn *insn)
 		struct adjust_mem_data amd;
 		amd.mem_mode = VOIDmode;
 		amd.stack_adjust = -VTI (bb)->out.stack_adjust;
-		amd.side_effects = NULL;
 		amd.store = true;
 		mem = simplify_replace_fn_rtx (mem, NULL_RTX, adjust_mems,
 					       &amd);
-		gcc_assert (amd.side_effects == NULL_RTX);
+		gcc_assert (amd.side_effects.is_empty ());
 	      }
 	    val = cselib_lookup (mem, GET_MODE (mem), 0, VOIDmode);
 	    if (val && cselib_preserved_value_p (val))
@@ -7001,7 +6998,7 @@ vt_find_locations (void)
 {
   bb_heap_t *worklist = new bb_heap_t (LONG_MIN);
   bb_heap_t *pending = new bb_heap_t (LONG_MIN);
-  sbitmap visited, in_worklist, in_pending;
+  sbitmap in_worklist, in_pending;
   basic_block bb;
   edge e;
   int *bb_order;
@@ -7021,7 +7018,7 @@ vt_find_locations (void)
     bb_order[rc_order[i]] = i;
   free (rc_order);
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  auto_sbitmap visited (last_basic_block_for_fn (cfun));
   in_worklist = sbitmap_alloc (last_basic_block_for_fn (cfun));
   in_pending = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (in_worklist);
@@ -7190,7 +7187,6 @@ vt_find_locations (void)
   free (bb_order);
   delete worklist;
   delete pending;
-  sbitmap_free (visited);
   sbitmap_free (in_worklist);
   sbitmap_free (in_pending);
 

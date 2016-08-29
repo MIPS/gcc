@@ -431,9 +431,10 @@ chkp_gimple_call_builtin_p (gimple *call,
 			    enum built_in_function code)
 {
   tree fndecl;
-  if (is_gimple_call (call)
+  if (gimple_call_builtin_p (call, BUILT_IN_MD)
       && (fndecl = targetm.builtin_chkp_function (code))
-      && gimple_call_fndecl (call) == fndecl)
+      && (DECL_FUNCTION_CODE (gimple_call_fndecl (call))
+	  == DECL_FUNCTION_CODE (fndecl)))
     return true;
   return false;
 }
@@ -1853,7 +1854,9 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   /* If function decl is available then use it for
      formal arguments list.  Otherwise use function type.  */
-  if (fndecl && DECL_ARGUMENTS (fndecl))
+  if (fndecl
+      && DECL_ARGUMENTS (fndecl)
+      && gimple_call_fntype (call) == TREE_TYPE (fndecl))
     first_formal_arg = DECL_ARGUMENTS (fndecl);
   else
     {
@@ -1929,7 +1932,16 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     {
       tree new_decl = chkp_maybe_create_clone (fndecl)->decl;
       gimple_call_set_fndecl (new_call, new_decl);
-      gimple_call_set_fntype (new_call, TREE_TYPE (new_decl));
+      /* In case of a type cast we should modify used function
+	 type instead of using type of new fndecl.  */
+      if (gimple_call_fntype (call) != TREE_TYPE (fndecl))
+	{
+	  tree type = gimple_call_fntype (call);
+	  type = chkp_copy_function_type_adding_bounds (type);
+	  gimple_call_set_fntype (new_call, type);
+	}
+      else
+	gimple_call_set_fntype (new_call, TREE_TYPE (new_decl));
     }
   /* For indirect call we should fix function pointer type if
      pass some bounds.  */
@@ -2315,8 +2327,7 @@ chkp_retbnd_call_by_val (tree val)
   imm_use_iterator use_iter;
   use_operand_p use_p;
   FOR_EACH_IMM_USE_FAST (use_p, use_iter, val)
-    if (gimple_code (USE_STMT (use_p)) == GIMPLE_CALL
-	&& gimple_call_fndecl (USE_STMT (use_p)) == chkp_ret_bnd_fndecl)
+    if (chkp_gimple_call_builtin_p (USE_STMT (use_p), BUILT_IN_CHKP_BNDRET))
       return as_a <gcall *> (USE_STMT (use_p));
 
   return NULL;
@@ -3646,6 +3657,7 @@ chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
       break;
 
     case ADDR_EXPR:
+    case WITH_SIZE_EXPR:
       bounds = chkp_make_addressed_object_bounds (TREE_OPERAND (ptr_src, 0), iter);
       break;
 
@@ -4083,9 +4095,9 @@ chkp_copy_bounds_for_assign (gimple *assign, struct cgraph_edge *edge)
 	  struct cgraph_node *callee = cgraph_node::get_create (fndecl);
 	  struct cgraph_edge *new_edge;
 
-	  gcc_assert (fndecl == chkp_bndstx_fndecl
-		      || fndecl == chkp_bndldx_fndecl
-		      || fndecl == chkp_ret_bnd_fndecl);
+	  gcc_assert (chkp_gimple_call_builtin_p (stmt, BUILT_IN_CHKP_BNDSTX)
+		      || chkp_gimple_call_builtin_p (stmt, BUILT_IN_CHKP_BNDLDX)
+		      || chkp_gimple_call_builtin_p (stmt, BUILT_IN_CHKP_BNDRET));
 
 	  new_edge = edge->caller->create_edge (callee,
 						as_a <gcall *> (stmt),

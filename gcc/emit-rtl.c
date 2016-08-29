@@ -1156,7 +1156,11 @@ set_reg_attrs_from_value (rtx reg, rtx x)
     {
 #if defined(POINTERS_EXTEND_UNSIGNED)
       if (((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
-	   || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+	   || (GET_CODE (x) == ZERO_EXTEND && ! POINTERS_EXTEND_UNSIGNED)
+	   || (paradoxical_subreg_p (x)
+	       && ! (SUBREG_PROMOTED_VAR_P (x)
+		     && SUBREG_CHECK_PROMOTED_SIGN (x,
+						    POINTERS_EXTEND_UNSIGNED))))
 	  && !targetm.have_ptr_extend ())
 	can_be_reg_pointer = false;
 #endif
@@ -1355,7 +1359,7 @@ get_first_label_num (void)
    Fix this now so that array indices work later.  */
 
 void
-maybe_set_first_label_num (rtx x)
+maybe_set_first_label_num (rtx_code_label *x)
 {
   if (CODE_LABEL_NUMBER (x) < first_label_num)
     first_label_num = CODE_LABEL_NUMBER (x);
@@ -1813,9 +1817,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	 able to simply always use TYPE_ALIGN?  */
     }
 
-  /* We can set the alignment from the type if we are making an object,
-     this is an INDIRECT_REF, or if TYPE_ALIGN_OK.  */
-  if (objectp || TREE_CODE (t) == INDIRECT_REF || TYPE_ALIGN_OK (type))
+  /* We can set the alignment from the type if we are making an object or if
+     this is an INDIRECT_REF.  */
+  if (objectp || TREE_CODE (t) == INDIRECT_REF)
     attrs.align = MAX (attrs.align, TYPE_ALIGN (type));
 
   /* If the size is known, we can set that.  */
@@ -2622,8 +2626,10 @@ unshare_all_rtl_1 (rtx_insn *insn)
      This special care is necessary when the stack slot MEM does not
      actually appear in the insn chain.  If it does appear, its address
      is unshared from all else at that point.  */
-  stack_slot_list = safe_as_a <rtx_expr_list *> (
-		      copy_rtx_if_shared (stack_slot_list));
+  unsigned int i;
+  rtx temp;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    (*stack_slot_list)[i] = copy_rtx_if_shared (temp);
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared
@@ -2652,7 +2658,10 @@ unshare_all_rtl_again (rtx_insn *insn)
   for (decl = DECL_ARGUMENTS (cfun->decl); decl; decl = DECL_CHAIN (decl))
     set_used_flags (DECL_RTL (decl));
 
-  reset_used_flags (stack_slot_list);
+  rtx temp;
+  unsigned int i;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    reset_used_flags (temp);
 
   unshare_all_rtl_1 (insn);
 }

@@ -264,8 +264,8 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 	{
 	   fprintf (dump_file, "pow2:%" PRId64
 		    " nonpow2:%" PRId64,
-		    (int64_t) hist->hvalue.counters[0],
-		    (int64_t) hist->hvalue.counters[1]);
+		    (int64_t) hist->hvalue.counters[1],
+		    (int64_t) hist->hvalue.counters[0]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -645,6 +645,12 @@ gimple_value_profile_transformations (void)
   basic_block bb;
   gimple_stmt_iterator gsi;
   bool changed = false;
+
+  /* Autofdo does its own transformations for indirect calls,
+     and otherwise does not support value profiling.  */
+  if (flag_auto_profile)
+    return false;
+
   FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -1944,7 +1950,8 @@ gimple_divmod_values_to_profile (gimple *stmt, histogram_values *values)
       /* For mod, check whether it is not often a noop (or replaceable by
 	 a few subtractions).  */
       if (gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR
-	  && TYPE_UNSIGNED (type))
+	  && TYPE_UNSIGNED (type)
+	  && TREE_CODE (divisor) == SSA_NAME)
 	{
           tree val;
           /* Check for a special case where the divisor is power of 2.  */

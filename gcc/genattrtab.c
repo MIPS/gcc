@@ -888,6 +888,7 @@ check_attr_test (file_location loc, rtx exp, attr_desc *attr)
 	  ATTR_IND_SIMPLIFIED_P (exp) = 1;
 	  break;
 	}
+      /* FALLTHRU */
     default:
       fatal_at (loc, "invalid operator `%s' in definition of attribute"
 		" `%s'", GET_RTX_NAME (GET_CODE (exp)), attr->name);
@@ -3416,7 +3417,10 @@ find_attrs_to_cache (rtx exp, bool create)
 
 /* Given a piece of RTX, print a C expression to test its truth value to OUTF.
    We use AND and IOR both for logical and bit-wise operations, so
-   interpret them as logical unless they are inside a comparison expression.  */
+   interpret them as logical unless they are inside a comparison expression.
+
+   An outermost pair of parentheses is emitted around this C expression unless
+   EMIT_PARENS is false.  */
 
 /* Interpret AND/IOR as bit-wise operations instead of logical.  */
 #define FLG_BITWISE		1
@@ -3432,16 +3436,16 @@ find_attrs_to_cache (rtx exp, bool create)
 #define FLG_OUTSIDE_AND		8
 
 static unsigned int
-write_test_expr (FILE *outf, rtx exp, unsigned int attrs_cached, int flags)
+write_test_expr (FILE *outf, rtx exp, unsigned int attrs_cached, int flags,
+		 bool emit_parens = true)
 {
   int comparison_operator = 0;
   RTX_CODE code;
   struct attr_desc *attr;
 
-  /* In order not to worry about operator precedence, surround our part of
-     the expression with parentheses.  */
+  if (emit_parens)
+    fprintf (outf, "(");
 
-  fprintf (outf, "(");
   code = GET_CODE (exp);
   switch (code)
     {
@@ -3455,6 +3459,7 @@ write_test_expr (FILE *outf, rtx exp, unsigned int attrs_cached, int flags)
     case GE: case GT:
     case LE: case LT:
       comparison_operator = FLG_BITWISE;
+      /* FALLTHRU */
 
     case PLUS:   case MINUS:  case MULT:     case DIV:      case MOD:
     case AND:    case IOR:    case XOR:
@@ -3575,8 +3580,18 @@ write_test_expr (FILE *outf, rtx exp, unsigned int attrs_cached, int flags)
 	      || GET_CODE (XEXP (exp, 1)) == EQ_ATTR
 	      || (GET_CODE (XEXP (exp, 1)) == NOT
 		  && GET_CODE (XEXP (XEXP (exp, 1), 0)) == EQ_ATTR)))
-	attrs_cached
-	  = write_test_expr (outf, XEXP (exp, 1), attrs_cached, flags);
+	{
+	  bool need_parens = true;
+
+	  /* No need to emit parentheses around the right-hand operand if we are
+	     continuing a chain of && or || (or & or |).  */
+	  if (GET_CODE (XEXP (exp, 1)) == code)
+	    need_parens = false;
+
+	  attrs_cached
+	    = write_test_expr (outf, XEXP (exp, 1), attrs_cached, flags,
+			       need_parens);
+	}
       else
 	write_test_expr (outf, XEXP (exp, 1), attrs_cached,
 			 flags | comparison_operator);
@@ -3794,7 +3809,9 @@ write_test_expr (FILE *outf, rtx exp, unsigned int attrs_cached, int flags)
 	     GET_RTX_NAME (code));
     }
 
-  fprintf (outf, ")");
+  if (emit_parens)
+    fprintf (outf, ")");
+
   return attrs_cached;
 }
 
@@ -5182,7 +5199,7 @@ handle_arg (const char *arg)
 }
 
 int
-main (int argc, char **argv)
+main (int argc, const char **argv)
 {
   struct attr_desc *attr;
   struct insn_def *id;

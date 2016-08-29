@@ -1293,7 +1293,8 @@ get_pseudo_ti_index (tree type)
 	  ix = TK_CLASS_TYPE;
 	  break;
 	}
-      else if (!BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
+      else if (!TYPE_BINFO (type)
+	       || !BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
 	{
 	  ix = TK_CLASS_TYPE;
 	  break;
@@ -1603,7 +1604,7 @@ emit_tinfo_decl (tree decl)
       /* Avoid targets optionally bumping up the alignment to improve
 	 vector instruction accesses, tinfo are never accessed this way.  */
 #ifdef DATA_ABI_ALIGNMENT
-      DECL_ALIGN (decl) = DATA_ABI_ALIGNMENT (decl, TYPE_ALIGN (TREE_TYPE (decl)));
+      SET_DECL_ALIGN (decl, DATA_ABI_ALIGNMENT (decl, TYPE_ALIGN (TREE_TYPE (decl))));
       DECL_USER_ALIGN (decl) = true;
 #endif
       return true;

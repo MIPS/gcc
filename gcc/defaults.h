@@ -491,14 +491,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    your target, you should override these values by defining the
    appropriate symbols in your tm.h file.  */
 
-#if BITS_PER_UNIT == 8
-#define LOG2_BITS_PER_UNIT 3
-#elif BITS_PER_UNIT == 16
-#define LOG2_BITS_PER_UNIT 4
-#else
-#error Unknown BITS_PER_UNIT
-#endif
-
 #ifndef BITS_PER_WORD
 #define BITS_PER_WORD (BITS_PER_UNIT * UNITS_PER_WORD)
 #endif
@@ -1037,6 +1029,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #ifndef STORE_MAX_PIECES
 #define STORE_MAX_PIECES  MIN (MOVE_MAX_PIECES, 2 * sizeof (HOST_WIDE_INT))
+#endif
+
+/* Likewise for block comparisons.  */
+#ifndef COMPARE_MAX_PIECES
+#define COMPARE_MAX_PIECES  MOVE_MAX_PIECES
 #endif
 
 #ifndef MAX_MOVE_MAX

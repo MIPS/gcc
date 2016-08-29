@@ -18,7 +18,6 @@
 #include "runtime.h"
 #include "import.h"
 #include "export.h"
-#include "escape.h"
 #include "backend.h"
 #include "gogo.h"
 
@@ -33,6 +32,7 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
     file_block_names_(),
     imports_(),
     imported_unsafe_(false),
+    current_file_imported_unsafe_(false),
     packages_(),
     init_functions_(),
     var_deps_(),
@@ -156,19 +156,11 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
   Function_type* new_type = Type::make_function_type(NULL, NULL, NULL, loc);
   new_type->set_is_varargs();
   new_type->set_is_builtin();
-  Node::Escape_states* new_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_NONE);
-  new_type->set_parameter_escape_states(new_escapes);
-  new_type->set_has_escape_info();
   this->globals_->add_function_declaration("new", NULL, new_type, loc);
 
   Function_type* make_type = Type::make_function_type(NULL, NULL, NULL, loc);
   make_type->set_is_varargs();
   make_type->set_is_builtin();
-  Node::Escape_states* make_escapes =
-    new Node::Escape_states(2, Node::ESCAPE_NONE);
-  make_type->set_parameter_escape_states(make_escapes);
-  make_type->set_has_escape_info();
   this->globals_->add_function_declaration("make", NULL, make_type, loc);
 
   Typed_identifier_list* len_result = new Typed_identifier_list();
@@ -176,10 +168,6 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
   Function_type* len_type = Type::make_function_type(NULL, NULL, len_result,
 						     loc);
   len_type->set_is_builtin();
-  Node::Escape_states* len_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_NONE);
-  len_type->set_parameter_escape_states(len_escapes);
-  len_type->set_has_escape_info();
   this->globals_->add_function_declaration("len", NULL, len_type, loc);
 
   Typed_identifier_list* cap_result = new Typed_identifier_list();
@@ -187,26 +175,16 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
   Function_type* cap_type = Type::make_function_type(NULL, NULL, len_result,
 						     loc);
   cap_type->set_is_builtin();
-  Node::Escape_states* cap_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_NONE);
-  cap_type->set_parameter_escape_states(cap_escapes);
-  cap_type->set_has_escape_info();
   this->globals_->add_function_declaration("cap", NULL, cap_type, loc);
 
   Function_type* print_type = Type::make_function_type(NULL, NULL, NULL, loc);
   print_type->set_is_varargs();
   print_type->set_is_builtin();
-  Node::Escape_states* print_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_NONE);
-  print_type->set_parameter_escape_states(print_escapes);
-  print_type->set_has_escape_info();
   this->globals_->add_function_declaration("print", NULL, print_type, loc);
 
   print_type = Type::make_function_type(NULL, NULL, NULL, loc);
   print_type->set_is_varargs();
   print_type->set_is_builtin();
-  print_type->set_parameter_escape_states(print_escapes);
-  print_type->set_has_escape_info();
   this->globals_->add_function_declaration("println", NULL, print_type, loc);
 
   Type *empty = Type::make_empty_interface_type(loc);
@@ -215,10 +193,6 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
   Function_type *panic_type = Type::make_function_type(NULL, panic_parms,
 						       NULL, loc);
   panic_type->set_is_builtin();
-  Node::Escape_states* panic_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_ARG);
-  panic_type->set_parameter_escape_states(panic_escapes);
-  panic_type->set_has_escape_info();
   this->globals_->add_function_declaration("panic", NULL, panic_type, loc);
 
   Typed_identifier_list* recover_result = new Typed_identifier_list();
@@ -232,10 +206,6 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
   Function_type* close_type = Type::make_function_type(NULL, NULL, NULL, loc);
   close_type->set_is_varargs();
   close_type->set_is_builtin();
-  Node::Escape_states* close_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_NONE);
-  close_type->set_parameter_escape_states(close_escapes);
-  close_type->set_has_escape_info();
   this->globals_->add_function_declaration("close", NULL, close_type, loc);
 
   Typed_identifier_list* copy_result = new Typed_identifier_list();
@@ -244,56 +214,31 @@ Gogo::Gogo(Backend* backend, Linemap* linemap, int, int pointer_size)
 						      copy_result, loc);
   copy_type->set_is_varargs();
   copy_type->set_is_builtin();
-  Node::Escape_states* copy_escapes =
-    new Node::Escape_states(2, Node::ESCAPE_NONE);
-  copy_type->set_parameter_escape_states(copy_escapes);
-  copy_type->set_has_escape_info();
   this->globals_->add_function_declaration("copy", NULL, copy_type, loc);
 
   Function_type* append_type = Type::make_function_type(NULL, NULL, NULL, loc);
   append_type->set_is_varargs();
   append_type->set_is_builtin();
-  Node::Escape_states* append_escapes = new Node::Escape_states;
-  append_escapes->push_back(Node::ESCAPE_ARG);
-  append_escapes->push_back(Node::ESCAPE_NONE);
-  append_type->set_parameter_escape_states(append_escapes);
-  append_type->set_has_escape_info();
   this->globals_->add_function_declaration("append", NULL, append_type, loc);
 
   Function_type* complex_type = Type::make_function_type(NULL, NULL, NULL, loc);
   complex_type->set_is_varargs();
   complex_type->set_is_builtin();
-  Node::Escape_states* complex_escapes =
-    new Node::Escape_states(2, Node::ESCAPE_NONE);
-  complex_type->set_parameter_escape_states(complex_escapes);
-  complex_type->set_has_escape_info();
   this->globals_->add_function_declaration("complex", NULL, complex_type, loc);
 
   Function_type* real_type = Type::make_function_type(NULL, NULL, NULL, loc);
   real_type->set_is_varargs();
   real_type->set_is_builtin();
-  Node::Escape_states* real_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_NONE);
-  real_type->set_parameter_escape_states(real_escapes);
-  real_type->set_has_escape_info();
   this->globals_->add_function_declaration("real", NULL, real_type, loc);
 
   Function_type* imag_type = Type::make_function_type(NULL, NULL, NULL, loc);
   imag_type->set_is_varargs();
   imag_type->set_is_builtin();
-  Node::Escape_states* imag_escapes =
-    new Node::Escape_states(1, Node::ESCAPE_NONE);
-  imag_type->set_parameter_escape_states(imag_escapes);
-  imag_type->set_has_escape_info();
   this->globals_->add_function_declaration("imag", NULL, imag_type, loc);
 
   Function_type* delete_type = Type::make_function_type(NULL, NULL, NULL, loc);
   delete_type->set_is_varargs();
   delete_type->set_is_builtin();
-  Node::Escape_states* delete_escapes =
-    new Node::Escape_states(2, Node::ESCAPE_NONE);
-  delete_type->set_parameter_escape_states(delete_escapes);
-  delete_type->set_has_escape_info();
   this->globals_->add_function_declaration("delete", NULL, delete_type, loc);
 }
 
@@ -505,6 +450,7 @@ Gogo::import_package(const std::string& filename,
   if (filename == "unsafe")
     {
       this->import_unsafe(local_name, is_local_name_exported, location);
+      this->current_file_imported_unsafe_ = true;
       return;
     }
 
@@ -567,40 +513,49 @@ Gogo::import_package(const std::string& filename,
   delete stream;
 }
 
+Import_init *
+Gogo::lookup_init(const std::string& init_name)
+{
+  Import_init tmp("", init_name, -1);
+  Import_init_set::iterator it = this->imported_init_fns_.find(&tmp);
+  return (it != this->imported_init_fns_.end()) ? *it : NULL;
+}
+
 // Add an import control function for an imported package to the list.
 
 void
 Gogo::add_import_init_fn(const std::string& package_name,
 			 const std::string& init_name, int prio)
 {
-  for (std::set<Import_init>::const_iterator p =
+  for (Import_init_set::iterator p =
 	 this->imported_init_fns_.begin();
        p != this->imported_init_fns_.end();
        ++p)
     {
-      if (p->init_name() == init_name)
+      Import_init *ii = (*p);
+      if (ii->init_name() == init_name)
 	{
 	  // If a test of package P1, built as part of package P1,
 	  // imports package P2, and P2 imports P1 (perhaps
 	  // indirectly), then we will see the same import name with
 	  // different import priorities.  That is OK, so don't give
 	  // an error about it.
-	  if (p->package_name() != package_name)
+	  if (ii->package_name() != package_name)
 	    {
 	      error("duplicate package initialization name %qs",
 		    Gogo::message_name(init_name).c_str());
-	      inform(UNKNOWN_LOCATION, "used by package %qs at priority %d",
-		     Gogo::message_name(p->package_name()).c_str(),
-		     p->priority());
-	      inform(UNKNOWN_LOCATION, " and by package %qs at priority %d",
-		     Gogo::message_name(package_name).c_str(), prio);
+	      inform(UNKNOWN_LOCATION, "used by package %qs",
+		     Gogo::message_name(ii->package_name()).c_str());
+	      inform(UNKNOWN_LOCATION, " and by package %qs",
+		     Gogo::message_name(package_name).c_str());
 	    }
-	  return;
+          ii->set_priority(prio);
+          return;
 	}
     }
 
-  this->imported_init_fns_.insert(Import_init(package_name, init_name,
-					      prio));
+  Import_init* nii = new Import_init(package_name, init_name, prio);
+  this->imported_init_fns_.insert(nii);
 }
 
 // Return whether we are at the global binding level.
@@ -635,6 +590,62 @@ Gogo::current_bindings() const
     return this->globals_;
 }
 
+void
+Gogo::update_init_priority(Import_init* ii,
+                           std::set<const Import_init *>* visited)
+{
+  visited->insert(ii);
+  int succ_prior = -1;
+
+  for (std::set<std::string>::const_iterator pci =
+           ii->precursors().begin();
+       pci != ii->precursors().end();
+       ++pci)
+    {
+      Import_init* succ = this->lookup_init(*pci);
+      if (visited->find(succ) == visited->end())
+        update_init_priority(succ, visited);
+      succ_prior = std::max(succ_prior, succ->priority());
+    }
+  if (ii->priority() <= succ_prior)
+    ii->set_priority(succ_prior + 1);
+}
+
+void
+Gogo::recompute_init_priorities()
+{
+  std::set<Import_init *> nonroots;
+
+  for (Import_init_set::const_iterator p =
+           this->imported_init_fns_.begin();
+       p != this->imported_init_fns_.end();
+       ++p)
+    {
+      const Import_init *ii = *p;
+      for (std::set<std::string>::const_iterator pci =
+               ii->precursors().begin();
+           pci != ii->precursors().end();
+           ++pci)
+        {
+          Import_init* ii = this->lookup_init(*pci);
+          nonroots.insert(ii);
+        }
+    }
+
+  // Recursively update priorities starting at roots.
+  std::set<const Import_init*> visited;
+  for (Import_init_set::iterator p =
+           this->imported_init_fns_.begin();
+       p != this->imported_init_fns_.end();
+       ++p)
+    {
+      Import_init* ii = *p;
+      if (nonroots.find(ii) != nonroots.end())
+        continue;
+      update_init_priority(ii, &visited);
+    }
+}
+
 // Add statements to INIT_STMTS which run the initialization
 // functions for imported packages.  This is only used for the "main"
 // package.
@@ -652,23 +663,27 @@ Gogo::init_imports(std::vector<Bstatement*>& init_stmts)
       Type::make_function_type(NULL, NULL, NULL, unknown_loc);
   Btype* fntype = func_type->get_backend_fntype(this);
 
+  // Recompute init priorities based on a walk of the init graph.
+  recompute_init_priorities();
+
   // We must call them in increasing priority order.
-  std::vector<Import_init> v;
-  for (std::set<Import_init>::const_iterator p =
+  std::vector<const Import_init*> v;
+  for (Import_init_set::const_iterator p =
 	 this->imported_init_fns_.begin();
        p != this->imported_init_fns_.end();
        ++p)
     v.push_back(*p);
-  std::sort(v.begin(), v.end());
+  std::sort(v.begin(), v.end(), priority_compare);
 
   // We build calls to the init functions, which take no arguments.
   std::vector<Bexpression*> empty_args;
-  for (std::vector<Import_init>::const_iterator p = v.begin();
+  for (std::vector<const Import_init*>::const_iterator p = v.begin();
        p != v.end();
        ++p)
     {
-      std::string user_name = p->package_name() + ".init";
-      const std::string& init_name(p->init_name());
+      const Import_init* ii = *p;
+      std::string user_name = ii->package_name() + ".init";
+      const std::string& init_name(ii->init_name());
 
       Bfunction* pfunc = this->backend()->function(fntype, user_name, init_name,
                                                    true, true, true, false,
@@ -1889,74 +1904,6 @@ Gogo::add_label_reference(const std::string& label_name,
 				   issue_goto_errors);
 }
 
-// Add a function to the call graph.
-
-Node*
-Gogo::add_call_node(Named_object* function)
-{
-  Node* call = this->lookup_call_node(function);
-  if (call == NULL)
-    {
-      call = Node::make_call(function);
-      this->call_graph_.insert(call);
-      this->named_call_nodes_[function] = call;
-    }
-  return call;
-}
-
-// Find the call node that represents FUNCTION.  Return NULL if it does not
-// exist.
-
-Node*
-Gogo::lookup_call_node(Named_object* function) const
-{
-  Named_escape_nodes::const_iterator p = this->named_call_nodes_.find(function);
-  if (p == this->named_call_nodes_.end())
-    return NULL;
-  return p->second;
-}
-
-// Add a connection node for OBJECT.
-
-Node*
-Gogo::add_connection_node(Named_object* object)
-{
-  Node* connection = this->lookup_connection_node(object);
-  if (connection == NULL)
-    {
-      connection = Node::make_connection(object, Node::ESCAPE_NONE);
-
-      // Each global variable is a part of the global connection graph.
-      if (object->is_variable()
-	  && object->var_value()->is_global())
-	{
-	  connection->connection_node()->set_escape_state(Node::ESCAPE_GLOBAL);
-	  this->global_connections_.insert(connection);
-	}
-
-      // Each function declaration or definition is the root of its own
-      // connection graph.  This means closures will have their own
-      // connection graph that objects in the enclosing function might
-      // refer to.
-      if (object->is_function() || object->is_function_declaration())
-	this->connection_roots_.insert(connection);
-      this->named_connection_nodes_[object] = connection;
-    }
-  return connection;
-}
-
-// Find the connection node for OBJECT.  Return NULL if it does not exist.
-
-Node*
-Gogo::lookup_connection_node(Named_object* object) const
-{
-  Named_escape_nodes::const_iterator p =
-    this->named_connection_nodes_.find(object);
-  if (p == this->named_connection_nodes_.end())
-    return NULL;
-  return p->second;
-}
-
 // Return the current binding state.
 
 Bindings_snapshot*
@@ -2122,6 +2069,29 @@ Gogo::add_dot_import_object(Named_object* no)
     }
 
   this->current_bindings()->add_named_object(no);
+}
+
+// Add a linkname.  This implements the go:linkname compiler directive.
+// We only support this for functions and function declarations.
+
+void
+Gogo::add_linkname(const std::string& go_name, bool is_exported,
+		   const std::string& ext_name, Location loc)
+{
+  Named_object* no =
+    this->package_->bindings()->lookup(this->pack_hidden_name(go_name,
+							      is_exported));
+  if (no == NULL)
+    error_at(loc, "%s is not defined", go_name.c_str());
+  else if (no->is_function())
+    no->func_value()->set_asm_name(ext_name);
+  else if (no->is_function_declaration())
+    no->func_declaration_value()->set_asm_name(ext_name);
+  else
+    error_at(loc,
+	     ("%s is not a function; "
+	      "//go:linkname is only supported for functions"),
+	     go_name.c_str());
 }
 
 // Mark all local variables used.  This is used when some types of
@@ -2307,6 +2277,8 @@ Gogo::clear_file_scope()
         }
       package->clear_used();
     }
+
+  this->current_file_imported_unsafe_ = false;
 }
 
 // Queue up a type specific function for later writing.  These are
@@ -4423,21 +4395,6 @@ Gogo::check_return_statements()
   this->traverse(&traverse);
 }
 
-// Work out the package priority.  It is one more than the maximum
-// priority of an imported package.
-
-int
-Gogo::package_priority() const
-{
-  int priority = 0;
-  for (Packages::const_iterator p = this->packages_.begin();
-       p != this->packages_.end();
-       ++p)
-    if (p->second->priority() > priority)
-      priority = p->second->priority();
-  return priority + 1;
-}
-
 // Export identifiers as requested.
 
 void
@@ -4465,7 +4422,6 @@ Gogo::do_exports()
   exp.export_globals(this->package_name(),
 		     prefix,
 		     pkgpath,
-		     this->package_priority(),
 		     this->packages_,
 		     this->imports_,
 		     (this->need_init_fn_ && !this->is_main_package()
@@ -4563,7 +4519,7 @@ Function::Function(Function_type* type, Named_object* enclosing, Block* block,
   : type_(type), enclosing_(enclosing), results_(NULL),
     closure_var_(NULL), block_(block), location_(location), labels_(),
     local_type_count_(0), descriptor_(NULL), fndecl_(NULL), defer_stack_(NULL),
-    is_sink_(false), results_are_named_(false), nointerface_(false),
+    pragmas_(0), is_sink_(false), results_are_named_(false),
     is_unnamed_type_stub_method_(false), calls_recover_(false),
     is_recover_thunk_(false), has_recover_thunk_(false),
     calls_defer_retaddr_(false), is_type_specific_function_(false),
@@ -4633,6 +4589,24 @@ Function::update_result_variables()
        p != this->results_->end();
        ++p)
     (*p)->result_var_value()->set_function(this);
+}
+
+// Whether this method should not be included in the type descriptor.
+
+bool
+Function::nointerface() const
+{
+  go_assert(this->is_method());
+  return (this->pragmas_ & GOPRAGMA_NOINTERFACE) != 0;
+}
+
+// Record that this method should not be included in the type
+// descriptor.
+
+void
+Function::set_nointerface()
+{
+  this->pragmas_ |= GOPRAGMA_NOINTERFACE;
 }
 
 // Return the closure variable, creating it if necessary.
@@ -4918,13 +4892,7 @@ Function::export_func_with_type(Export* exp, const std::string& name,
       exp->write_c_string("(");
       const Typed_identifier* receiver = fntype->receiver();
       exp->write_name(receiver->name());
-
-      if (fntype->has_escape_info())
-        {
-          exp->write_c_string(" ");
-          exp->write_escape(fntype->receiver_escape_state());
-        }
-
+      exp->write_escape(receiver->note());
       exp->write_c_string(" ");
       exp->write_type(receiver->type());
       exp->write_c_string(") ");
@@ -4948,13 +4916,7 @@ Function::export_func_with_type(Export* exp, const std::string& name,
 	  else
 	    exp->write_c_string(", ");
 	  exp->write_name(p->name());
-
-	  if (fntype->has_escape_info())
-	    {
-	      exp->write_c_string(" ");
-	      exp->write_escape(fntype->parameter_escape_states()->at(i));
-	    }
-
+	  exp->write_escape(p->note());
 	  exp->write_c_string(" ");
 	  if (!is_varargs || p + 1 != parameters->end())
 	    exp->write_type(p->type());
@@ -4988,6 +4950,7 @@ Function::export_func_with_type(Export* exp, const std::string& name,
 	      else
 		exp->write_c_string(", ");
 	      exp->write_name(p->name());
+	      exp->write_escape(p->note());
 	      exp->write_c_string(" ");
 	      exp->write_type(p->type());
 	    }
@@ -5002,59 +4965,39 @@ Function::export_func_with_type(Export* exp, const std::string& name,
 void
 Function::import_func(Import* imp, std::string* pname,
 		      Typed_identifier** preceiver,
-		      Node::Escapement_lattice* rcvr_escape,
 		      Typed_identifier_list** pparameters,
-		      Node::Escape_states** pparam_escapes,
 		      Typed_identifier_list** presults,
-		      bool* is_varargs, bool* has_escape_info)
+		      bool* is_varargs)
 {
-  *has_escape_info = false;
-
   imp->require_c_string("func ");
 
   *preceiver = NULL;
-  *rcvr_escape = Node::ESCAPE_NONE;
   if (imp->peek_char() == '(')
     {
       imp->require_c_string("(");
       std::string name = imp->read_name();
-
-      if (imp->match_c_string(" <escape")){
-	*has_escape_info = true;
-	imp->require_c_string(" ");
-	*rcvr_escape = imp->read_escape_info();
-      }
-
+      std::string escape_note = imp->read_escape();
       imp->require_c_string(" ");
       Type* rtype = imp->read_type();
       *preceiver = new Typed_identifier(name, rtype, imp->location());
+      (*preceiver)->set_note(escape_note);
       imp->require_c_string(") ");
     }
 
   *pname = imp->read_identifier();
 
   Typed_identifier_list* parameters;
-  Node::Escape_states* param_escapes;
   *is_varargs = false;
   imp->require_c_string(" (");
   if (imp->peek_char() == ')')
-    {
-      parameters = NULL;
-      param_escapes = NULL;
-    }
+    parameters = NULL;
   else
     {
       parameters = new Typed_identifier_list();
-      param_escapes = new Node::Escape_states();
       while (true)
 	{
 	  std::string name = imp->read_name();
-	  if (imp->match_c_string(" <escape")){
-	    *has_escape_info = true;
-	    imp->require_c_string(" ");
-	    param_escapes->push_back(imp->read_escape_info());
-	  }
-
+	  std::string escape_note = imp->read_escape();
 	  imp->require_c_string(" ");
 
 	  if (imp->match_c_string("..."))
@@ -5066,8 +5009,9 @@ Function::import_func(Import* imp, std::string* pname,
 	  Type* ptype = imp->read_type();
 	  if (*is_varargs)
 	    ptype = Type::make_array_type(ptype, NULL);
-	  parameters->push_back(Typed_identifier(name, ptype,
-						 imp->location()));
+	  Typed_identifier t = Typed_identifier(name, ptype, imp->location());
+	  t.set_note(escape_note);
+	  parameters->push_back(t);
 	  if (imp->peek_char() != ',')
 	    break;
 	  go_assert(!*is_varargs);
@@ -5076,7 +5020,6 @@ Function::import_func(Import* imp, std::string* pname,
     }
   imp->require_c_string(")");
   *pparameters = parameters;
-  *pparam_escapes = param_escapes;
 
   Typed_identifier_list* results;
   if (imp->peek_char() != ' ')
@@ -5096,10 +5039,13 @@ Function::import_func(Import* imp, std::string* pname,
 	  while (true)
 	    {
 	      std::string name = imp->read_name();
+	      std::string note = imp->read_escape();
 	      imp->require_c_string(" ");
 	      Type* rtype = imp->read_type();
-	      results->push_back(Typed_identifier(name, rtype,
-						  imp->location()));
+	      Typed_identifier t = Typed_identifier(name, rtype,
+						    imp->location());
+	      t.set_note(note);
+	      results->push_back(t);
 	      if (imp->peek_char() != ',')
 		break;
 	      imp->require_c_string(", ");
@@ -5168,6 +5114,12 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no)
             }
         }
 
+      if (!this->asm_name_.empty())
+	{
+	  asm_name = this->asm_name_;
+	  is_visible = true;
+	}
+
       // If a function calls the predeclared recover function, we
       // can't inline it, because recover behaves differently in a
       // function passed directly to defer.  If this is a recover
@@ -5184,17 +5136,26 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no)
       if (this->calls_defer_retaddr_)
 	is_inlinable = false;
 
+      // Check the //go:noinline compiler directive.
+      if ((this->pragmas_ & GOPRAGMA_NOINLINE) != 0)
+	is_inlinable = false;
+
       // If this is a thunk created to call a function which calls
       // the predeclared recover function, we need to disable
       // stack splitting for the thunk.
       bool disable_split_stack = this->is_recover_thunk_;
+
+      // Check the //go:nosplit compiler directive.
+      if ((this->pragmas_ & GOPRAGMA_NOSPLIT) != 0)
+	disable_split_stack = true;
 
       // This should go into a unique section if that has been
       // requested elsewhere, or if this is a nointerface function.
       // We want to put a nointerface function into a unique section
       // because there is a good chance that the linker garbage
       // collection can discard it.
-      bool in_unique_section = this->in_unique_section_ || this->nointerface_;
+      bool in_unique_section = (this->in_unique_section_
+				|| (this->is_method() && this->nointerface()));
 
       Btype* functype = this->type_->get_backend_fntype(gogo);
       this->fndecl_ =
@@ -7687,11 +7648,10 @@ Unnamed_label::get_goto(Translate_context* context, Location location)
 Package::Package(const std::string& pkgpath,
 		 const std::string& pkgpath_symbol, Location location)
   : pkgpath_(pkgpath), pkgpath_symbol_(pkgpath_symbol),
-    package_name_(), bindings_(new Bindings(NULL)), priority_(0),
+    package_name_(), bindings_(new Bindings(NULL)),
     location_(location)
 {
   go_assert(!pkgpath.empty());
-  
 }
 
 // Set the package name.
@@ -7730,16 +7690,6 @@ Package::set_pkgpath_symbol(const std::string& pkgpath_symbol)
     this->pkgpath_symbol_ = pkgpath_symbol;
   else
     go_assert(this->pkgpath_symbol_ == pkgpath_symbol);
-}
-
-// Set the priority.  We may see multiple priorities for an imported
-// package; we want to use the largest one.
-
-void
-Package::set_priority(int priority)
-{
-  if (priority > this->priority_)
-    this->priority_ = priority;
 }
 
 // Note that symbol from this package was and qualified by ALIAS.

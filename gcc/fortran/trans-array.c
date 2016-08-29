@@ -1307,6 +1307,18 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post, gfc_ss * ss,
   gfc_conv_descriptor_elem_len_set (pre, desc, elem_len);
   gfc_conv_descriptor_version_set (pre, desc);
   gfc_conv_descriptor_rank_set (pre, desc, total_dim);
+
+  /* Emit a DECL_EXPR for the variable sized array type in
+     GFC_TYPE_ARRAY_DATAPTR_TYPE so the gimplification of its type
+     sizes works correctly.  */
+  tree arraytype = TREE_TYPE (GFC_TYPE_ARRAY_DATAPTR_TYPE (type));
+  if (! TYPE_NAME (arraytype))
+    TYPE_NAME (arraytype) = build_decl (UNKNOWN_LOCATION, TYPE_DECL,
+					NULL_TREE, arraytype);
+  gfc_add_expr_to_block (pre, build1 (DECL_EXPR,
+				      arraytype, TYPE_NAME (arraytype)));
+
+  /* Fill in the array dtype.  */
   tmp = gfc_conv_descriptor_dtype (desc);
   gfc_add_modify (pre, tmp, gfc_get_dtype (ts));
   gfc_conv_descriptor_attr_set (pre, desc, GFC_ATTRIBUTE_ALLOCATABLE);
@@ -2436,7 +2448,8 @@ trans_array_constructor (gfc_ss * ss, locus * where)
 
   /* Do bounds-checking here and in gfc_trans_array_ctor_element only if no
      typespec was given for the array constructor.  */
-  typespec_chararray_ctor = (expr->ts.u.cl
+  typespec_chararray_ctor = (expr->ts.type == BT_CHARACTER
+			     && expr->ts.u.cl
 			     && expr->ts.u.cl->length_from_typespec);
 
   if ((gfc_option.rtcheck & GFC_RTCHECK_BOUNDS)
@@ -3581,7 +3594,7 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_expr *expr,
 	  if (ref->type == REF_ARRAY && &ref->u.ar == ar)
 	    break;
 	  if (ref->type == REF_COMPONENT)
-	    len += 1 + strlen (ref->u.c.component->name);
+	    len += 2 + strlen (ref->u.c.component->name);
 	}
 
       var_name = XALLOCAVEC (char, len);
@@ -4293,6 +4306,7 @@ done:
 	      continue;
 	    }
 
+	  /* FALLTHRU */
 	case GFC_SS_CONSTRUCTOR:
 	case GFC_SS_FUNCTION:
 	  for (n = 0; n < ss->dimen; n++)
@@ -5652,12 +5666,19 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
   if (ref->u.ar.type == AR_FULL && expr3 != NULL)
     {
+      gfc_ref *old_ref = ref;
       /* F08:C633: Array shape from expr3.  */
       ref = expr3->ref;
 
       /* Find the last reference in the chain.  */
       if (!retrieve_last_ref (&ref, &prev_ref))
-	return false;
+	{
+	  if (expr3->expr_type == EXPR_FUNCTION
+	      && gfc_expr_attr (expr3).dimension)
+	    ref = old_ref;
+	  else
+	    return false;
+	}
       alloc_w_e3_arr_spec = true;
     }
 
@@ -5776,7 +5797,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 			  build_int_cst (TREE_TYPE (status), 0));
       gfc_add_expr_to_block (&se->pre,
 		 fold_build3_loc (input_location, COND_EXPR, void_type_node,
-				  gfc_likely (cond, PRED_FORTRAN_FAIL_ALLOC),
+				  cond,
 				  set_descriptor,
 				  build_empty_stmt (input_location)));
     }
@@ -6327,7 +6348,12 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
       return;
     }
 
+  loc.nextc = NULL;
   gfc_save_backend_locus (&loc);
+  /* loc.nextc is not set by save_backend_locus but the location routines
+     depend on it.  */
+  if (loc.nextc == NULL)
+    loc.nextc = loc.lb->line;
   gfc_set_backend_locus (&sym->declared_at);
 
   /* Descriptor type.  */
@@ -6610,7 +6636,12 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc,
       stmtCleanup = gfc_finish_block (&cleanup);
 
       /* Only do the cleanup if the array was repacked.  */
-      tmp = build_fold_indirect_ref_loc (input_location, dumdesc);
+      if (is_classarray)
+	/* For a class array the dummy array descriptor is in the _class
+	   component.  */
+	tmp = gfc_class_data_get (dumdesc);
+      else
+	tmp = build_fold_indirect_ref_loc (input_location, dumdesc);
       tmp = gfc_conv_descriptor_data_get (tmp);
       tmp = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
 			     tmp, tmpdesc);

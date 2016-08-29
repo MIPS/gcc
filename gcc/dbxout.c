@@ -2485,7 +2485,7 @@ dbxout_expand_expr (tree expr)
 	rtx x;
 
 	tem = get_inner_reference (expr, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &reversep, &volatilep, true);
+				   &unsignedp, &reversep, &volatilep);
 
 	x = dbxout_expand_expr (tem);
 	if (x == NULL || !MEM_P (x))
@@ -2867,7 +2867,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	 disguised VAR_DECLs like Out parameters in Ada.  */
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case RESULT_DECL:
     case VAR_DECL:

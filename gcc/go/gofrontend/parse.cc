@@ -1305,10 +1305,10 @@ Parse::declaration()
 {
   const Token* token = this->peek_token();
 
-  bool saw_nointerface = this->lex_->get_and_clear_nointerface();
-  if (saw_nointerface && !token->is_keyword(KEYWORD_FUNC))
+  unsigned int pragmas = this->lex_->get_and_clear_pragmas();
+  if (pragmas != 0 && !token->is_keyword(KEYWORD_FUNC))
     warning_at(token->location(), 0,
-	       "ignoring magic //go:nointerface comment before non-method");
+	       "ignoring magic comment before non-function");
 
   if (token->is_keyword(KEYWORD_CONST))
     this->const_decl();
@@ -1317,7 +1317,7 @@ Parse::declaration()
   else if (token->is_keyword(KEYWORD_VAR))
     this->var_decl();
   else if (token->is_keyword(KEYWORD_FUNC))
-    this->function_decl(saw_nointerface);
+    this->function_decl(pragmas);
   else
     {
       error_at(this->location(), "expected declaration");
@@ -2106,6 +2106,8 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 
   std::set<std::string> uniq_idents;
   uniq_idents.insert(name);
+  std::string dup_name;
+  Location dup_loc;
 
   // We've seen one identifier.  If we see a comma now, this could be
   // "a, *p = 1, 2".
@@ -2145,8 +2147,10 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 	  id = this->gogo_->pack_hidden_name(id, is_id_exported);
 	  ins = uniq_idents.insert(id);
 	  if (!ins.second && !Gogo::is_sink_name(id))
-	    error_at(id_location, "multiple assignments to %s",
-		     Gogo::message_name(id).c_str());
+	    {
+	      dup_name = Gogo::message_name(id);
+	      dup_loc = id_location;
+	    }
 	  til.push_back(Typed_identifier(id, NULL, location));
 	}
 
@@ -2181,6 +2185,9 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 
   go_assert(this->peek_token()->is_op(OPERATOR_COLONEQ));
   const Token* token = this->advance_token();
+
+  if (!dup_name.empty())
+    error_at(dup_loc, "multiple assignments to %s", dup_name.c_str());
 
   if (p_range_clause != NULL && token->is_keyword(KEYWORD_RANGE))
     {
@@ -2229,13 +2236,12 @@ Parse::simple_var_decl_or_assignment(const std::string& name,
 //                    __asm__ "(" string_lit ")" .
 // This extension means a function whose real name is the identifier
 // inside the asm.  This extension will be removed at some future
-// date.  It has been replaced with //extern comments.
-
-// SAW_NOINTERFACE is true if we saw a magic //go:nointerface comment,
-// which means that we omit the method from the type descriptor.
+// date.  It has been replaced with //extern or //go:linkname comments.
+//
+// PRAGMAS is a bitset of magic comments.
 
 void
-Parse::function_decl(bool saw_nointerface)
+Parse::function_decl(unsigned int pragmas)
 {
   go_assert(this->peek_token()->is_keyword(KEYWORD_FUNC));
   Location location = this->location();
@@ -2249,12 +2255,6 @@ Parse::function_decl(bool saw_nointerface)
       expected_receiver = true;
       rec = this->receiver();
       token = this->peek_token();
-    }
-  else if (saw_nointerface)
-    {
-      warning_at(location, 0,
-		 "ignoring magic //go:nointerface comment before non-method");
-      saw_nointerface = false;
     }
 
   if (!token->is_identifier())
@@ -2313,7 +2313,69 @@ Parse::function_decl(bool saw_nointerface)
 						     semi_loc));
     }
 
-  if (!this->peek_token()->is_op(OPERATOR_LCURLY))
+  static struct {
+    unsigned int bit;
+    const char* name;
+    bool decl_ok;
+    bool func_ok;
+    bool method_ok;
+  } pragma_check[] =
+      {
+	{ GOPRAGMA_NOINTERFACE, "nointerface", false, false, true },
+	{ GOPRAGMA_NOESCAPE, "noescape", true, false, false },
+	{ GOPRAGMA_NORACE, "norace", false, true, true },
+	{ GOPRAGMA_NOSPLIT, "nosplit", false, true, true },
+	{ GOPRAGMA_NOINLINE, "noinline", false, true, true },
+	{ GOPRAGMA_SYSTEMSTACK, "systemstack", false, true, true },
+	{ GOPRAGMA_NOWRITEBARRIER, "nowritebarrier", false, true, true },
+	{ GOPRAGMA_NOWRITEBARRIERREC, "nowritebarrierrec", false, true, true },
+	{ GOPRAGMA_CGOUNSAFEARGS, "cgo_unsafe_args", false, true, true },
+	{ GOPRAGMA_UINTPTRESCAPES, "uintptrescapes", true, true, true },
+      };
+
+  bool is_decl = !this->peek_token()->is_op(OPERATOR_LCURLY);
+  if (pragmas != 0)
+    {
+      for (size_t i = 0;
+	   i < sizeof(pragma_check) / sizeof(pragma_check[0]);
+	   ++i)
+	{
+	  if ((pragmas & pragma_check[i].bit) == 0)
+	    continue;
+
+	  if (is_decl)
+	    {
+	      if (pragma_check[i].decl_ok)
+		continue;
+	      warning_at(location, 0,
+			 ("ignoring magic //go:%s comment "
+			  "before declaration"),
+			 pragma_check[i].name);
+	    }
+	  else if (rec == NULL)
+	    {
+	      if (pragma_check[i].func_ok)
+		continue;
+	      warning_at(location, 0,
+			 ("ignoring magic //go:%s comment "
+			  "before function definition"),
+			 pragma_check[i].name);
+	    }
+	  else
+	    {
+	      if (pragma_check[i].method_ok)
+		continue;
+	      warning_at(location, 0,
+			 ("ignoring magic //go:%s comment "
+			  "before method definition"),
+			 pragma_check[i].name);
+	    }
+
+	  pragmas &= ~ pragma_check[i].bit;
+	}
+    }
+
+  if (is_decl)
     {
       if (named_object == NULL)
 	{
@@ -2346,10 +2408,8 @@ Parse::function_decl(bool saw_nointerface)
 	    }
 	}
 
-      if (saw_nointerface)
-	warning_at(location, 0,
-		   ("ignoring magic //go:nointerface comment "
-		    "before declaration"));
+      if (pragmas != 0 && named_object->is_function_declaration())
+	named_object->func_declaration_value()->set_pragmas(pragmas);
     }
   else
     {
@@ -2365,10 +2425,11 @@ Parse::function_decl(bool saw_nointerface)
       named_object = this->gogo_->start_function(name, fntype, true, location);
       Location end_loc = this->block();
       this->gogo_->finish_function(end_loc);
-      if (saw_nointerface
+
+      if (pragmas != 0
 	  && !this->is_erroneous_function_
 	  && named_object->is_function())
-	named_object->func_value()->set_nointerface();
+	named_object->func_value()->set_pragmas(pragmas);
       this->is_erroneous_function_ = hold_is_erroneous_function;
     }
 }
@@ -2658,7 +2719,7 @@ Parse::enclosing_var_reference(Named_object* in_function, Named_object* var,
 						   ins.first->index(),
 						   location);
   e = Expression::make_unary(OPERATOR_MULT, e, location);
-  return e;
+  return Expression::make_enclosing_var_reference(e, var, location);
 }
 
 // CompositeLit  = LiteralType LiteralValue .
@@ -5791,24 +5852,10 @@ Parse::verify_not_sink(Expression* expr)
 
   // If this can not be a sink, and it is a variable, then we are
   // using the variable, not just assigning to it.
-  Var_expression* ve = expr->var_expression();
-  if (ve != NULL)
-    this->mark_var_used(ve->named_object());
-  else if (expr->deref()->field_reference_expression() != NULL
-	   && this->gogo_->current_function() != NULL)
-    {
-      // We could be looking at a variable referenced from a closure.
-      // If so, we need to get the enclosed variable and mark it as used.
-      Function* this_function = this->gogo_->current_function()->func_value();
-      Named_object* closure = this_function->closure_var();
-      if (closure != NULL)
-	{
-	  unsigned int var_index =
-	    expr->deref()->field_reference_expression()->field_index();
-	  this->mark_var_used(this_function->enclosing_var(var_index - 1));
-	}
-    }
-
+  if (expr->var_expression() != NULL)
+    this->mark_var_used(expr->var_expression()->named_object());
+  else if (expr->enclosed_var_expression() != NULL)
+    this->mark_var_used(expr->enclosed_var_expression()->variable());
   return expr;
 }
 

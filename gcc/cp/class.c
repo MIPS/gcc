@@ -139,7 +139,7 @@ static int count_fields (tree);
 static int add_fields_to_record_type (tree, struct sorted_fields_type*, int);
 static void insert_into_classtype_sorted_fields (tree, tree, int);
 static bool check_bitfield_decl (tree);
-static void check_field_decl (tree, tree, int *, int *, int *);
+static bool check_field_decl (tree, tree, int *, int *);
 static void check_field_decls (tree, tree *, int *, int *);
 static tree *build_base_field (record_layout_info, tree, splay_tree, tree *);
 static void build_base_fields (record_layout_info, splay_tree, tree *);
@@ -214,6 +214,7 @@ static bool base_derived_from (tree, tree);
 static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
 static tree end_of_base (tree);
 static tree get_vcall_index (tree, tree);
+static bool type_maybe_constexpr_default_constructor (tree);
 
 /* Variables shared between class.c and call.c.  */
 
@@ -346,7 +347,7 @@ build_base_path (enum tree_code code,
 
   if (!want_pointer)
     {
-      rvalue = !real_lvalue_p (expr);
+      rvalue = !lvalue_p (expr);
       /* This must happen before the call to save_expr.  */
       expr = cp_build_addr_expr (expr, complain);
     }
@@ -800,7 +801,7 @@ build_vtable (tree class_type, tree name, tree vtable_type)
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_VIRTUAL_P (decl) = 1;
-  DECL_ALIGN (decl) = TARGET_VTABLE_ENTRY_ALIGN;
+  SET_DECL_ALIGN (decl, TARGET_VTABLE_ENTRY_ALIGN);
   DECL_USER_ALIGN (decl) = true;
   DECL_VTABLE_OR_VTT_P (decl) = 1;
   set_linkage_according_to_type (class_type, decl);
@@ -1560,20 +1561,20 @@ mark_abi_tags (tree t, bool val)
 
 /* Check that T has all the ABI tags that subobject SUBOB has, or
    warn if not.  If T is a (variable or function) declaration, also
-   add any missing tags.  */
+   return any missing tags, and add them to T if JUST_CHECKING is false.  */
 
-static void
-check_abi_tags (tree t, tree subob)
+static tree
+check_abi_tags (tree t, tree subob, bool just_checking = false)
 {
   bool inherit = DECL_P (t);
 
   if (!inherit && !warn_abi_tag)
-    return;
+    return NULL_TREE;
 
   tree decl = TYPE_P (t) ? TYPE_NAME (t) : t;
   if (!TREE_PUBLIC (decl))
     /* No need to worry about things local to this TU.  */
-    return;
+    return NULL_TREE;
 
   mark_abi_tags (t, true);
 
@@ -1584,7 +1585,15 @@ check_abi_tags (tree t, tree subob)
 
   cp_walk_tree_without_duplicates (&subtype, find_abi_tags_r, &data);
 
-  if (inherit && data.tags)
+  if (!(inherit && data.tags))
+    /* We don't need to do anything with data.tags.  */;
+  else if (just_checking)
+    for (tree t = data.tags; t; t = TREE_CHAIN (t))
+      {
+	tree id = get_identifier (TREE_STRING_POINTER (TREE_VALUE (t)));
+	IDENTIFIER_MARKED (id) = false;
+      }
+  else
     {
       tree attr = lookup_attribute ("abi_tag", DECL_ATTRIBUTES (t));
       if (attr)
@@ -1596,6 +1605,8 @@ check_abi_tags (tree t, tree subob)
     }
 
   mark_abi_tags (t, false);
+
+  return data.tags;
 }
 
 /* Check that DECL has all the ABI tags that are used in parts of its type
@@ -1604,20 +1615,31 @@ check_abi_tags (tree t, tree subob)
 void
 check_abi_tags (tree decl)
 {
-  tree t;
-  if (abi_version_at_least (10)
-      && DECL_LANG_SPECIFIC (decl)
-      && DECL_USE_TEMPLATE (decl)
-      && (t = DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (decl)),
-	  t != decl))
-    /* Make sure that our template has the appropriate tags, since
-       write_unqualified_name looks for them there.  */
-    check_abi_tags (t);
   if (VAR_P (decl))
     check_abi_tags (decl, TREE_TYPE (decl));
   else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && !DECL_CONV_FN_P (decl)
 	   && !mangle_return_type_p (decl))
     check_abi_tags (decl, TREE_TYPE (TREE_TYPE (decl)));
+}
+
+/* Return any ABI tags that are used in parts of the type of DECL
+   that are not reflected in its mangled name.  This function is only
+   used in backward-compatible mangling for ABI <11.  */
+
+tree
+missing_abi_tags (tree decl)
+{
+  if (VAR_P (decl))
+    return check_abi_tags (decl, TREE_TYPE (decl), true);
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   /* Don't check DECL_CONV_FN_P here like we do in check_abi_tags, so
+	      that we can use this function for setting need_abi_warning
+	      regardless of the current flag_abi_version.  */
+	   && !mangle_return_type_p (decl))
+    return check_abi_tags (decl, TREE_TYPE (TREE_TYPE (decl)), true);
+  else
+    return NULL_TREE;
 }
 
 void
@@ -2034,7 +2056,7 @@ fixup_attribute_variants (tree t)
 	valign = MAX (valign, TYPE_ALIGN (variants));
       else
 	TYPE_USER_ALIGN (variants) = user_align;
-      TYPE_ALIGN (variants) = valign;
+      SET_TYPE_ALIGN (variants, valign);
       if (may_alias)
 	fixup_may_alias (variants);
     }
@@ -3076,11 +3098,11 @@ finish_struct_anon_r (tree field, bool complain)
 	 the TYPE_DECL that we create implicitly.  You're
 	 allowed to put one anonymous union inside another,
 	 though, so we explicitly tolerate that.  We use
-	 TYPE_ANONYMOUS_P rather than ANON_AGGR_TYPE_P so that
+	 TYPE_UNNAMED_P rather than ANON_AGGR_TYPE_P so that
 	 we also allow unnamed types used for defining fields.  */
       if (DECL_ARTIFICIAL (elt)
 	  && (!DECL_IMPLICIT_TYPEDEF_P (elt)
-	      || TYPE_ANONYMOUS_P (TREE_TYPE (elt))))
+	      || TYPE_UNNAMED_P (TREE_TYPE (elt))))
 	continue;
 
       if (TREE_CODE (elt) != FIELD_DECL)
@@ -3346,7 +3368,11 @@ add_implicitly_declared_members (tree t, tree* access_decls,
       CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
       if (cxx_dialect >= cxx11)
 	TYPE_HAS_CONSTEXPR_CTOR (t)
-	  = type_has_constexpr_default_constructor (t);
+	  /* Don't force the declaration to get a hard answer; if the
+	     definition would have made the class non-literal, it will still be
+	     non-literal because of the base or member in question, and that
+	     gives a better diagnostic.  */
+	  = type_maybe_constexpr_default_constructor (t);
     }
 
   /* [class.ctor]
@@ -3536,14 +3562,14 @@ check_bitfield_decl (tree field)
    enclosing type T.  Issue any appropriate messages and set appropriate
    flags.  */
 
-static void
+static bool
 check_field_decl (tree field,
 		  tree t,
 		  int* cant_have_const_ctor,
-		  int* no_const_asn_ref,
-		  int* any_default_members)
+		  int* no_const_asn_ref)
 {
   tree type = strip_array_types (TREE_TYPE (field));
+  bool any_default_members = false;
 
   /* In C++98 an anonymous union cannot contain any fields which would change
      the settings of CANT_HAVE_CONST_CTOR and friends.  */
@@ -3553,12 +3579,12 @@ check_field_decl (tree field,
      structs.  So, we recurse through their fields here.  */
   else if (ANON_AGGR_TYPE_P (type))
     {
-      tree fields;
-
-      for (fields = TYPE_FIELDS (type); fields; fields = DECL_CHAIN (fields))
+      for (tree fields = TYPE_FIELDS (type); fields;
+	   fields = DECL_CHAIN (fields))
 	if (TREE_CODE (fields) == FIELD_DECL && !DECL_C_BIT_FIELD (field))
-	  check_field_decl (fields, t, cant_have_const_ctor,
-			    no_const_asn_ref, any_default_members);
+	  any_default_members |= check_field_decl (fields, t,
+						   cant_have_const_ctor,
+						   no_const_asn_ref);
     }
   /* Check members with class type for constructors, destructors,
      etc.  */
@@ -3615,13 +3641,11 @@ check_field_decl (tree field,
   check_abi_tags (t, field);
 
   if (DECL_INITIAL (field) != NULL_TREE)
-    {
-      /* `build_class_init_list' does not recognize
-	 non-FIELD_DECLs.  */
-      if (TREE_CODE (t) == UNION_TYPE && *any_default_members != 0)
-	error ("multiple fields in union %qT initialized", t);
-      *any_default_members = 1;
-    }
+    /* `build_class_init_list' does not recognize
+       non-FIELD_DECLs.  */
+    any_default_members = true;
+
+  return any_default_members;
 }
 
 /* Check the data members (both static and non-static), class-scoped
@@ -3657,7 +3681,7 @@ check_field_decls (tree t, tree *access_decls,
   tree *field;
   tree *next;
   bool has_pointers;
-  int any_default_members;
+  bool any_default_members;
   int cant_pack = 0;
   int field_access = -1;
 
@@ -3667,7 +3691,7 @@ check_field_decls (tree t, tree *access_decls,
   has_pointers = false;
   /* Assume none of the members of this class have default
      initializations.  */
-  any_default_members = 0;
+  any_default_members = false;
 
   for (field = &TYPE_FIELDS (t); *field; field = next)
     {
@@ -3862,11 +3886,16 @@ check_field_decls (tree t, tree *access_decls,
 
       /* We set DECL_C_BIT_FIELD in grokbitfield.
 	 If the type and width are valid, we'll also set DECL_BIT_FIELD.  */
-      if (! DECL_C_BIT_FIELD (x) || ! check_bitfield_decl (x))
-	check_field_decl (x, t,
-			  cant_have_const_ctor_p,
-			  no_const_asn_ref_p,
-			  &any_default_members);
+      if ((! DECL_C_BIT_FIELD (x) || ! check_bitfield_decl (x))
+	  && check_field_decl (x, t,
+			       cant_have_const_ctor_p,
+			       no_const_asn_ref_p))
+	{
+	  if (any_default_members
+	      && TREE_CODE (t) == UNION_TYPE)
+	    error ("multiple fields in union %qT initialized", t);
+	  any_default_members = true;
+	}
 
       /* Now that we've removed bit-field widths from DECL_INITIAL,
 	 anything left in DECL_INITIAL is an NSDMI that makes the class
@@ -4167,7 +4196,8 @@ walk_subobject_offsets (tree type,
       /* Avoid recursing into objects that are not interesting.  */
       if (!CLASS_TYPE_P (element_type)
 	  || !CLASSTYPE_CONTAINS_EMPTY_CLASS_P (element_type)
-	  || !domain)
+	  || !domain
+	  || integer_minus_onep (TYPE_MAX_VALUE (domain)))
 	return 0;
 
       /* Step through each of the elements in the array.  */
@@ -4479,7 +4509,7 @@ build_base_field (record_layout_info rli, tree binfo,
 	{
 	  DECL_SIZE (decl) = CLASSTYPE_SIZE (basetype);
 	  DECL_SIZE_UNIT (decl) = CLASSTYPE_SIZE_UNIT (basetype);
-	  DECL_ALIGN (decl) = CLASSTYPE_ALIGN (basetype);
+	  SET_DECL_ALIGN (decl, CLASSTYPE_ALIGN (basetype));
 	  DECL_USER_ALIGN (decl) = CLASSTYPE_USER_ALIGN (basetype);
 	  DECL_MODE (decl) = TYPE_MODE (basetype);
 	  DECL_FIELD_IS_BASE (decl) = 1;
@@ -5103,8 +5133,17 @@ set_method_tm_attributes (tree t)
     }
 }
 
-/* Returns true iff class T has a user-defined constructor other than
-   the default constructor.  */
+/* Returns true if FN is a default constructor.  */
+
+bool
+default_ctor_p (tree fn)
+{
+  return (DECL_CONSTRUCTOR_P (fn)
+	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)));
+}
+
+/* Returns true iff class T has a user-defined constructor that can be called
+   with more than zero arguments.  */
 
 bool
 type_has_user_nondefault_constructor (tree t)
@@ -5133,31 +5172,23 @@ type_has_user_nondefault_constructor (tree t)
 tree
 in_class_defaulted_default_constructor (tree t)
 {
-  tree fns, args;
-
   if (!TYPE_HAS_USER_CONSTRUCTOR (t))
     return NULL_TREE;
 
-  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+  for (tree fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
     {
       tree fn = OVL_CURRENT (fns);
 
-      if (DECL_DEFAULTED_IN_CLASS_P (fn))
-	{
-	  args = FUNCTION_FIRST_USER_PARMTYPE (fn);
-	  while (args && TREE_PURPOSE (args))
-	    args = TREE_CHAIN (args);
-	  if (!args || args == void_list_node)
-	    return fn;
-	}
+      if (DECL_DEFAULTED_IN_CLASS_P (fn)
+	  && default_ctor_p (fn))
+	return fn;
     }
 
   return NULL_TREE;
 }
 
 /* Returns true iff FN is a user-provided function, i.e. user-declared
-   and not defaulted at its first declaration; or explicit, private,
-   protected, or non-const.  */
+   and not defaulted at its first declaration.  */
 
 bool
 user_provided_p (tree fn)
@@ -5239,8 +5270,8 @@ type_has_non_user_provided_default_constructor (tree t)
     {
       tree fn = OVL_CURRENT (fns);
       if (TREE_CODE (fn) == FUNCTION_DECL
-	  && !user_provided_p (fn)
-	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)))
+	  && default_ctor_p (fn)
+	  && !user_provided_p (fn))
 	return true;
     }
 
@@ -5348,14 +5379,26 @@ type_has_constexpr_default_constructor (tree t)
     {
       if (!TYPE_HAS_COMPLEX_DFLT (t))
 	return trivial_default_constructor_is_constexpr (t);
-      /* Assume it's constexpr to avoid unnecessary instantiation; if the
-	 definition would have made the class non-literal, it will still be
-	 non-literal because of the base or member in question, and that
-	 gives a better diagnostic.  */
-      return true;
+      /* Non-trivial, we need to check subobject constructors.  */
+      lazily_declare_fn (sfk_constructor, t);
     }
   fns = locate_ctor (t);
   return (fns && DECL_DECLARED_CONSTEXPR_P (fns));
+}
+
+/* Returns true iff class T has a constexpr default constructor or has an
+   implicitly declared default constructor that we can't tell if it's constexpr
+   without forcing a lazy declaration (which might cause undesired
+   instantiations).  */
+
+bool
+type_maybe_constexpr_default_constructor (tree t)
+{
+  if (CLASS_TYPE_P (t) && CLASSTYPE_LAZY_DEFAULT_CTOR (t)
+      && TYPE_HAS_COMPLEX_DFLT (t))
+    /* Assume it's constexpr.  */
+    return true;
+  return type_has_constexpr_default_constructor (t);
 }
 
 /* Returns true iff class TYPE has a virtual destructor.  */
@@ -5638,7 +5681,7 @@ finalize_literal_type_property (tree t)
 	  && !DECL_CONSTRUCTOR_P (fn))
 	{
 	  DECL_DECLARED_CONSTEXPR_P (fn) = false;
-	  if (!DECL_GENERATED_P (fn))
+	  if (!DECL_GENERATED_P (fn) && !LAMBDA_TYPE_P (t))
 	    {
 	      error ("enclosing class of constexpr non-static member "
 		     "function %q+#D is not a literal type", fn);
@@ -6387,7 +6430,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	    }
 
 	  DECL_SIZE (field) = TYPE_SIZE (integer_type);
-	  DECL_ALIGN (field) = TYPE_ALIGN (integer_type);
+	  SET_DECL_ALIGN (field, TYPE_ALIGN (integer_type));
 	  DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (integer_type);
 	  layout_nonempty_base_or_field (rli, field, NULL_TREE,
 					 empty_base_offsets);
@@ -6522,7 +6565,7 @@ layout_class_type (tree t, tree *virtuals_p)
 		      size_binop (MULT_EXPR,
 				  fold_convert (bitsizetype, eoc),
 				  bitsize_int (BITS_PER_UNIT)));
-      TYPE_ALIGN (base_t) = rli->record_align;
+      SET_TYPE_ALIGN (base_t, rli->record_align);
       TYPE_USER_ALIGN (base_t) = TYPE_USER_ALIGN (t);
 
       /* Copy the fields from T.  */
@@ -6697,7 +6740,7 @@ find_flexarrays (tree t, flexmems_t *fmem)
       tree fldtype = TREE_TYPE (fld);
       if (TREE_CODE (fld) != TYPE_DECL
 	  && RECORD_OR_UNION_TYPE_P (fldtype)
-	  && TYPE_ANONYMOUS_P (fldtype))
+	  && TYPE_UNNAMED_P (fldtype))
 	{
 	  /* Members of anonymous structs and unions are treated as if
 	     they were members of the containing class.  Descend into
@@ -6777,7 +6820,7 @@ diagnose_flexarrays (tree t, const flexmems_t *fmem)
 {
   /* Members of anonymous structs and unions are considered to be members
      of the containing struct or union.  */
-  if (TYPE_ANONYMOUS_P (t) || !fmem->array)
+  if (TYPE_UNNAMED_P (t) || !fmem->array)
     return;
 
   const char *msg = 0;
@@ -7371,7 +7414,7 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 	    *nonnull = 1;
 	  return TREE_TYPE (TREE_TYPE (instance));
 	}
-      /* fall through...  */
+      /* fall through.  */
     case TARGET_EXPR:
     case PARM_DECL:
     case RESULT_DECL:

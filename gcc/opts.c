@@ -500,10 +500,12 @@ static const struct default_options default_options_table[] =
       REORDER_BLOCKS_ALGORITHM_STC },
     { OPT_LEVELS_2_PLUS, OPT_freorder_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fcode_hoisting, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_pre, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_switch_conversion, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_cp, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_cp_alignment, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fipa_bit_cp, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fdevirtualize, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fdevirtualize_speculatively, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_sra, NULL, 1 },
@@ -535,6 +537,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
     { OPT_LEVELS_3_PLUS, OPT_fipa_cp_clone, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_fpeel_loops, NULL, 1 },
 
     /* -Ofast adds optimizations to -O3.  */
     { OPT_LEVELS_FAST, OPT_ffast_math, NULL, 1 },
@@ -1420,6 +1423,9 @@ enable_fdo_optimizations (struct gcc_options *opts,
   if (!opts_set->x_flag_ipa_cp_alignment
       && value && opts->x_flag_ipa_cp)
     opts->x_flag_ipa_cp_alignment = value;
+  if (!opts_set->x_flag_ipa_bit_cp
+      && value && opts->x_flag_ipa_cp)
+    opts->x_flag_ipa_bit_cp = value;
   if (!opts_set->x_flag_predictive_commoning)
     opts->x_flag_predictive_commoning = value;
   if (!opts_set->x_flag_unswitch_loops)
@@ -1595,7 +1601,7 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT__help_:
       {
-	const char * a = arg;
+	const char *a = arg;
 	unsigned int include_flags = 0;
 	/* Note - by default we include undocumented options when listing
 	   specific classes.  If you only want to see documented options
@@ -1612,11 +1618,11 @@ common_handle_option (struct gcc_options *opts,
 	   arg = [^]{word}[,{arg}]
 	   word = {optimizers|target|warnings|undocumented|
 		   params|common|<language>}  */
-	while (* a != 0)
+	while (*a != 0)
 	  {
 	    static const struct
 	    {
-	      const char * string;
+	      const char *string;
 	      unsigned int flag;
 	    }
 	    specifics[] =
@@ -1631,19 +1637,24 @@ common_handle_option (struct gcc_options *opts,
 	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };
-	    unsigned int * pflags;
-	    const char * comma;
+	    unsigned int *pflags;
+	    const char *comma;
 	    unsigned int lang_flag, specific_flag;
 	    unsigned int len;
 	    unsigned int i;
 
-	    if (* a == '^')
+	    if (*a == '^')
 	      {
-		++ a;
-		pflags = & exclude_flags;
+		++a;
+		if (*a == '\0')
+		  {
+		    error_at (loc, "missing argument to %qs", "--help=^");
+		    break;
+		  }
+		pflags = &exclude_flags;
 	      }
 	    else
-	      pflags = & include_flags;
+	      pflags = &include_flags;
 
 	    comma = strchr (a, ',');
 	    if (comma == NULL)
@@ -1680,7 +1691,7 @@ common_handle_option (struct gcc_options *opts,
 	    if (specific_flag != 0)
 	      {
 		if (lang_flag == 0)
-		  * pflags |= specific_flag;
+		  *pflags |= specific_flag;
 		else
 		  {
 		    /* The option's argument matches both the start of a
@@ -1689,7 +1700,7 @@ common_handle_option (struct gcc_options *opts,
 		       specified "--help=c", but otherwise we have to issue
 		       a warning.  */
 		    if (strncasecmp (a, "c", len) == 0)
-		      * pflags |= lang_flag;
+		      *pflags |= lang_flag;
 		    else
 		      warning_at (loc, 0,
 				  "--help argument %q.*s is ambiguous, "
@@ -1698,7 +1709,7 @@ common_handle_option (struct gcc_options *opts,
 		  }
 	      }
 	    else if (lang_flag != 0)
-	      * pflags |= lang_flag;
+	      *pflags |= lang_flag;
 	    else
 	      warning_at (loc, 0,
 			  "unrecognized argument to --help= option: %q.*s",
@@ -1865,6 +1876,10 @@ common_handle_option (struct gcc_options *opts,
       diagnostic_color_init (dc, value);
       break;
 
+    case OPT_fdiagnostics_parseable_fixits:
+      dc->parseable_fixits_p = value;
+      break;
+
     case OPT_fdiagnostics_show_option:
       dc->show_option_requested = value;
       break;
@@ -1969,6 +1984,7 @@ common_handle_option (struct gcc_options *opts,
       opts->x_flag_profile_use = true;
       value = true;
       /* No break here - do -fprofile-use processing. */
+      /* FALLTHRU */
     case OPT_fprofile_use:
       enable_fdo_optimizations (opts, opts_set, value);
       if (!opts_set->x_flag_profile_reorder_functions)
@@ -1985,6 +2001,7 @@ common_handle_option (struct gcc_options *opts,
       opts->x_flag_auto_profile = true;
       value = true;
       /* No break here - do -fauto-profile processing. */
+      /* FALLTHRU */
     case OPT_fauto_profile:
       enable_fdo_optimizations (opts, opts_set, value);
       if (!opts_set->x_flag_profile_correction)
@@ -1998,6 +2015,7 @@ common_handle_option (struct gcc_options *opts,
       opts->x_profile_data_prefix = xstrdup (arg);
       value = true;
       /* No break here - do -fprofile-generate processing. */
+      /* FALLTHRU */
     case OPT_fprofile_generate:
       if (!opts_set->x_profile_arc_flag)
 	opts->x_profile_arc_flag = value;
@@ -2218,7 +2236,14 @@ handle_param (struct gcc_options *opts, struct gcc_options *opts_set,
 
       enum compiler_param index;
       if (!find_param (arg, &index))
-	error_at (loc, "invalid --param name %qs", arg);
+	{
+	  const char *suggestion = find_param_fuzzy (arg);
+	  if (suggestion)
+	    error_at (loc, "invalid --param name %qs; did you mean %qs?",
+		      arg, suggestion);
+	  else
+	    error_at (loc, "invalid --param name %qs", arg);
+	}
       else
 	{
 	  if (!param_string_value_p (index, equal + 1, &value))

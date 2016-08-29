@@ -154,6 +154,19 @@ struct GTY(()) ipa_alignment
   unsigned misalign;
 };
 
+/* Information about zero/non-zero bits.  */
+struct GTY(()) ipa_bits
+{
+  /* The propagated value.  */
+  widest_int value;
+  /* Mask corresponding to the value.
+     Similar to ccp_lattice_t, if xth bit of mask is 0,
+     implies xth bit of value is constant.  */
+  widest_int mask;
+  /* True if jump function is known.  */
+  bool known;
+};
+
 /* A jump function for a callsite represents the values passed as actual
    arguments of the callsite. See enum jump_func_type for the various
    types of jump functions supported.  */
@@ -165,6 +178,9 @@ struct GTY (()) ipa_jump_func
 
   /* Information about alignment of pointers. */
   struct ipa_alignment alignment;
+
+  /* Information about zero/non-zero bits.  */
+  struct ipa_bits bits;
 
   enum jump_func_type type;
   /* Represents a value of a jump function.  pass_through is used only in jump
@@ -283,8 +299,11 @@ ipa_get_jf_ancestor_type_preserved (struct ipa_jump_func *jfunc)
 
 struct ipa_param_descriptor
 {
-  /* PARAM_DECL of this parameter.  */
-  tree decl;
+  /* In analysis and modification phase, this is the PARAM_DECL of this
+     parameter, in IPA LTO phase, this is the type of the the described
+     parameter or NULL if not known.  Do not read this field directly but
+     through ipa_get_param and ipa_get_type as appropriate.  */
+  tree decl_or_type;
   /* If all uses of the parameter are described by ipa-prop structures, this
      says how many there are.  If any use could not be described by means of
      ipa-prop structures, this is IPA_UNDESCRIBED_USE.  */
@@ -402,13 +421,31 @@ ipa_get_param_count (struct ipa_node_params *info)
 
 /* Return the declaration of Ith formal parameter of the function corresponding
    to INFO.  Note there is no setter function as this array is built just once
-   using ipa_initialize_node_params. */
+   using ipa_initialize_node_params.  This function should not be called in
+   WPA.  */
 
 static inline tree
 ipa_get_param (struct ipa_node_params *info, int i)
 {
   gcc_checking_assert (!flag_wpa);
-  return info->descriptors[i].decl;
+  tree t = info->descriptors[i].decl_or_type;
+  gcc_checking_assert (TREE_CODE (t) == PARM_DECL);
+  return t;
+}
+
+/* Return the type of Ith formal parameter of the function corresponding
+   to INFO if it is known or NULL if not.  */
+
+static inline tree
+ipa_get_type (struct ipa_node_params *info, int i)
+{
+  tree t = info->descriptors[i].decl_or_type;
+  if (!t)
+    return NULL;
+  if (TYPE_P (t))
+    return t;
+  gcc_checking_assert (TREE_CODE (t) == PARM_DECL);
+  return TREE_TYPE (t);
 }
 
 /* Return the move cost of Ith formal parameter of the function corresponding
@@ -482,6 +519,8 @@ struct GTY(()) ipcp_transformation_summary
   ipa_agg_replacement_value *agg_values;
   /* Alignment information for pointers.  */
   vec<ipa_alignment, va_gc> *alignments;
+  /* Known bits information.  */
+  vec<ipa_bits, va_gc> *bits;
 };
 
 void ipa_set_node_agg_value_chain (struct cgraph_node *node,
@@ -636,11 +675,14 @@ tree ipa_impossible_devirt_target (struct cgraph_edge *, tree);
 void ipa_analyze_node (struct cgraph_node *);
 
 /* Aggregate jump function related functions.  */
-tree ipa_find_agg_cst_for_param (struct ipa_agg_jump_function *, HOST_WIDE_INT,
-				 bool);
-bool ipa_load_from_parm_agg (struct ipa_func_body_info *,
-			     vec<ipa_param_descriptor>, gimple *, tree, int *,
-			     HOST_WIDE_INT *, HOST_WIDE_INT *, bool *);
+tree ipa_find_agg_cst_for_param (struct ipa_agg_jump_function *agg, tree scalar,
+				 HOST_WIDE_INT offset, bool by_ref,
+				 bool *from_global_constant = NULL);
+bool ipa_load_from_parm_agg (struct ipa_func_body_info *fbi,
+			     vec<ipa_param_descriptor> descriptors,
+			     gimple *stmt, tree op, int *index_p,
+			     HOST_WIDE_INT *offset_p, HOST_WIDE_INT *size_p,
+			     bool *by_ref, bool *guaranteed_unmodified = NULL);
 
 /* Debugging interface.  */
 void ipa_print_node_params (FILE *, struct cgraph_node *node);

@@ -87,7 +87,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "xcoffout.h"		/* Needed for external data declarations. */
 #endif
 
-#include <new>
+#include "selftest.h"
 
 static void general_init (const char *, bool);
 static void do_compile ();
@@ -561,14 +561,14 @@ compile_file (void)
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE,
 				      "__gnu_lto_v1",
-				      (unsigned HOST_WIDE_INT) 1, 8);
+				      HOST_WIDE_INT_1U, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
       ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_v1",
-				 (unsigned HOST_WIDE_INT) 1, 8);
+				 HOST_WIDE_INT_1U, 8);
 #else
       ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_v1",
-			 (unsigned HOST_WIDE_INT) 1,
-			 (unsigned HOST_WIDE_INT) 1);
+			 HOST_WIDE_INT_1U,
+			 HOST_WIDE_INT_1U);
 #endif
     }
 
@@ -578,14 +578,14 @@ compile_file (void)
     {
 #if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
       ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, NULL_TREE, "__gnu_lto_slim",
-				      (unsigned HOST_WIDE_INT) 1, 8);
+				      HOST_WIDE_INT_1U, 8);
 #elif defined ASM_OUTPUT_ALIGNED_COMMON
       ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, "__gnu_lto_slim",
-				 (unsigned HOST_WIDE_INT) 1, 8);
+				 HOST_WIDE_INT_1U, 8);
 #else
       ASM_OUTPUT_COMMON (asm_out_file, "__gnu_lto_slim",
-			 (unsigned HOST_WIDE_INT) 1,
-			 (unsigned HOST_WIDE_INT) 1);
+			 HOST_WIDE_INT_1U,
+			 HOST_WIDE_INT_1U);
 #endif
     }
 
@@ -731,7 +731,7 @@ print_to_asm_out_file (print_switch_type type, const char * text)
     case SWITCH_TYPE_DESCRIPTIVE:
       if (ASM_COMMENT_START[0] == 0)
 	prepend_sep = false;
-      /* Drop through.  */
+      /* FALLTHRU */
     case SWITCH_TYPE_PASSED:
     case SWITCH_TYPE_ENABLED:
       if (prepend_sep)
@@ -761,7 +761,7 @@ print_to_stderr (print_switch_type type, const char * text)
     case SWITCH_TYPE_PASSED:
     case SWITCH_TYPE_ENABLED:
       fputc (' ', stderr);
-      /* Drop through.  */
+      /* FALLTHRU */
 
     case SWITCH_TYPE_DESCRIPTIVE:
       fputs (text, stderr);
@@ -1276,6 +1276,15 @@ process_options (void)
 		    "Address Sanitizer");
 	  flag_check_pointer_bounds = 0;
 	}
+
+      if (flag_sanitize & SANITIZE_BOUNDS)
+	{
+	  error_at (UNKNOWN_LOCATION,
+		    "-fcheck-pointer-bounds is not supported with "
+		    "-fsanitize=bounds");
+	  flag_check_pointer_bounds = 0;
+	}
+
     }
 
   /* One region RA really helps to decrease the code size.  */
@@ -1298,10 +1307,10 @@ process_options (void)
 
   /* web and rename-registers help when run after loop unrolling.  */
   if (flag_web == AUTODETECT_VALUE)
-    flag_web = flag_unroll_loops || flag_peel_loops;
+    flag_web = flag_unroll_loops;
 
   if (flag_rename_registers == AUTODETECT_VALUE)
-    flag_rename_registers = flag_unroll_loops || flag_peel_loops;
+    flag_rename_registers = flag_unroll_loops;
 
   if (flag_non_call_exceptions)
     flag_asynchronous_unwind_tables = 1;
@@ -1620,7 +1629,8 @@ backend_init_target (void)
   init_alias_target ();
 
   /* Depends on HARD_FRAME_POINTER_REGNUM.  */
-  init_reload ();
+  if (!ira_use_lra_p)
+    init_reload ();
 
   /* Depends on the enabled attribute.  */
   recog_init ();
@@ -1884,6 +1894,7 @@ finalize (bool no_backend)
   if (flag_gen_aux_info)
     {
       fclose (aux_info_file);
+      aux_info_file = NULL;
       if (seen_error ())
 	unlink (aux_info_file_name);
     }
@@ -1898,10 +1909,14 @@ finalize (bool no_backend)
 	fatal_error (input_location, "error writing to %s: %m", asm_file_name);
       if (fclose (asm_out_file) != 0)
 	fatal_error (input_location, "error closing %s: %m", asm_file_name);
+      asm_out_file = NULL;
     }
 
   if (stack_usage_file)
-    fclose (stack_usage_file);
+    {
+      fclose (stack_usage_file);
+      stack_usage_file = NULL;
+    }
 
   if (!no_backend)
     {
@@ -2032,6 +2047,32 @@ toplev::start_timevars ()
   timevar_start (TV_TOTAL);
 }
 
+/* Handle -fself-test.   */
+
+void
+toplev::run_self_tests ()
+{
+  if (no_backend)
+    {
+      error_at (UNKNOWN_LOCATION, "self-tests incompatible with -E");
+      return;
+    }
+#if CHECKING_P
+  /* Reset some state.  */
+  input_location = UNKNOWN_LOCATION;
+  bitmap_obstack_initialize (NULL);
+
+  /* Run the tests; any failures will lead to an abort of the process.
+     Use "make selftests-gdb" to run under the debugger.  */
+  ::selftest::run_tests ();
+
+  /* Cleanup.  */
+  bitmap_obstack_release (NULL);
+#else
+  inform (UNKNOWN_LOCATION, "self-tests are not enabled in this build");
+#endif /* #if CHECKING_P */
+}
+
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
    Exit code is FATAL_EXIT_CODE if can't open files or if there were
    any errors, or SUCCESS_EXIT_CODE if compilation succeeded.
@@ -2098,6 +2139,9 @@ toplev::main (int argc, char **argv)
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
+
+  if (flag_self_test)
+    run_self_tests ();
 
   /* Invoke registered plugin callbacks if any.  Some plugins could
      emit some diagnostics here.  */

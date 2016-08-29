@@ -31,8 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ubsan.h"
 #include "internal-fn.h"
 
-#include <new>                    // For placement-new.
-
 #define pp_separate_with_comma(PP) pp_cxx_separate_with (PP, ',')
 #define pp_separate_with_semicolon(PP) pp_cxx_separate_with (PP, ';')
 
@@ -452,7 +450,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 		     ? DECL_ORIGINAL_TYPE (t) : TREE_TYPE (t), flags);
 	  break;
 	}
-      /* Else fall through.  */
+      /* Fall through.  */
 
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
@@ -681,9 +679,9 @@ dump_aggr_type (cxx_pretty_printer *pp, tree t, int flags)
   if (name == 0 || anon_aggrname_p (name))
     {
       if (flags & TFF_CLASS_KEY_OR_ENUM)
-	pp_string (pp, M_("<anonymous>"));
+	pp_string (pp, M_("<unnamed>"));
       else
-	pp_printf (pp, M_("<anonymous %s>"), variety);
+	pp_printf (pp, M_("<unnamed %s>"), variety);
     }
   else if (LAMBDA_TYPE_P (t))
     {
@@ -963,7 +961,12 @@ dump_simple_decl (cxx_pretty_printer *pp, tree t, tree type, int flags)
     {
       if (VAR_P (t)
 	  && DECL_DECLARED_CONSTEXPR_P (t))
-	pp_cxx_ws_string (pp, "constexpr");
+            {
+              if (DECL_DECLARED_CONCEPT_P (t))
+                pp_cxx_ws_string (pp, "concept");
+              else
+		pp_cxx_ws_string (pp, "constexpr");
+            }
       dump_type_prefix (pp, type, flags & ~TFF_UNQUALIFIED_NAME);
       pp_maybe_space (pp);
     }
@@ -1062,7 +1065,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	  dump_type (pp, DECL_CONTEXT (t), flags);
 	  break;
 	}
-      /* Else fall through.  */
+      /* Fall through.  */
     case FIELD_DECL:
     case PARM_DECL:
       dump_simple_decl (pp, t, TREE_TYPE (t), flags);
@@ -1336,16 +1339,19 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 	  if (TEMPLATE_TYPE_PARAMETER_PACK (TREE_TYPE (t)))
 	    pp_cxx_ws_string (pp, "...");
 	}
+
+      /* Only print the requirements if we're also printing
+         the template header.  */
+      if (flag_concepts)
+	if (tree ci = get_constraints (t))
+	  if (check_constraint_info (ci))
+	    if (tree reqs = CI_TEMPLATE_REQS (ci))
+	      {
+		pp_cxx_requires_clause (pp, reqs);
+		pp_cxx_whitespace (pp);
+	      }
     }
 
-  if (flag_concepts)
-    if (tree ci = get_constraints (t))
-      if (check_constraint_info (ci))
-        if (tree reqs = CI_TEMPLATE_REQS (ci))
-	  {
-	    pp_cxx_requires_clause (pp, reqs);
-	    pp_cxx_whitespace (pp);
-	  }
 
   if (DECL_CLASS_TEMPLATE_P (t))
     dump_type (pp, TREE_TYPE (t),
@@ -1488,6 +1494,7 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
   int show_return = flags & TFF_RETURN_TYPE || flags & TFF_DECL_SPECIFIERS;
   int do_outer_scope = ! (flags & TFF_UNQUALIFIED_NAME);
   tree exceptions;
+  bool constexpr_p;
 
   flags &= ~(TFF_UNQUALIFIED_NAME | TFF_TEMPLATE_NAME);
   if (TREE_CODE (t) == TEMPLATE_DECL)
@@ -1497,8 +1504,12 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
      emitting an error about incompatible specifications.  */
   exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (t));
 
+  /* Likewise for the constexpr specifier, in case t is a specialization.  */
+  constexpr_p = DECL_DECLARED_CONSTEXPR_P (t);
+
   /* Pretty print template instantiations only.  */
   if (DECL_USE_TEMPLATE (t) && DECL_TEMPLATE_INFO (t)
+      && !(flags & TFF_NO_TEMPLATE_BINDINGS)
       && flag_pretty_templates)
     {
       tree tmpl;
@@ -1531,8 +1542,13 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
       else if (DECL_VIRTUAL_P (t))
 	pp_cxx_ws_string (pp, "virtual");
 
-      if (DECL_DECLARED_CONSTEXPR_P (t))
-	pp_cxx_ws_string (pp, "constexpr");
+      if (constexpr_p)
+        {
+          if (DECL_DECLARED_CONCEPT_P (t))
+            pp_cxx_ws_string (pp, "concept");
+          else
+	    pp_cxx_ws_string (pp, "constexpr");
+	}
     }
 
   /* Print the return type?  */
@@ -1730,7 +1746,7 @@ dump_function_name (cxx_pretty_printer *pp, tree t, int flags)
     {
       if (LAMBDA_TYPE_P (DECL_CONTEXT (t)))
 	name = get_identifier ("<lambda>");
-      else if (TYPE_ANONYMOUS_P (DECL_CONTEXT (t)))
+      else if (TYPE_UNNAMED_P (DECL_CONTEXT (t)))
 	name = get_identifier ("<constructor>");
       else
 	name = constructor_name (DECL_CONTEXT (t));
@@ -1974,6 +1990,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case IDENTIFIER_NODE:
       dump_decl (pp, t, ((flags & ~(TFF_DECL_SPECIFIERS|TFF_RETURN_TYPE
                                     |TFF_TEMPLATE_HEADER))
+			 | TFF_NO_TEMPLATE_BINDINGS
                          | TFF_NO_FUNCTION_ARGUMENTS));
       break;
 
@@ -2663,6 +2680,10 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case EXPR_PACK_EXPANSION:
+    case UNARY_LEFT_FOLD_EXPR:
+    case UNARY_RIGHT_FOLD_EXPR:
+    case BINARY_LEFT_FOLD_EXPR:
+    case BINARY_RIGHT_FOLD_EXPR:
     case TYPEID_EXPR:
     case MEMBER_REF:
     case DOTSTAR_EXPR:
@@ -2735,6 +2756,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case PRED_CONSTR:
+    case CHECK_CONSTR:
     case EXPR_CONSTR:
     case TYPE_CONSTR:
     case ICONV_CONSTR:

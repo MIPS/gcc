@@ -1,4 +1,4 @@
-// { dg-options " -std=gnu++11 " }
+// { dg-do run { target c++11 } }
 
 // Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
@@ -32,7 +32,7 @@ test01()
   int i = 0;
   void* ptr = &i;
   auto space = sizeof(i);
-  auto p2 = std::align(alignof(i), space, ptr, space);
+  auto p2 = std::align(alignof(int), space, ptr, space);
   VERIFY( ptr == &i );
   VERIFY( p2 == &i );
   VERIFY(space == sizeof(i));

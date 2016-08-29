@@ -1,5 +1,4 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
+// { dg-do compile { target c++11 } }
 
 // Copyright (C) 2013-2016 Free Software Foundation, Inc.
 //
@@ -25,5 +24,5 @@
 void test01()
 {
   std::shared_ptr<void> p((void*)nullptr);   // { dg-error "here" }
-  // { dg-error "incomplete" "" { target *-*-* } 888 }
+  // { dg-error "incomplete" "" { target *-*-* } 892 }
 }

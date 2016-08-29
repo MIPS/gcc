@@ -15,7 +15,8 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-std=gnu++11 -lstdc++fs" }
+// { dg-options "-lstdc++fs" }
+// { dg-do run { target c++11 } }
 // { dg-require-filesystem-ts "" }
 
 #include <experimental/filesystem>
@@ -65,7 +66,8 @@ test01()
   VERIFY( b );
   VERIFY( is_directory(p/"./d4/../d5") );
 
-  remove_all(p, ec);
+  std::uintmax_t count = remove_all(p, ec);
+  VERIFY( count == 6 );
 }
 
 int

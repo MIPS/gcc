@@ -1,6 +1,6 @@
 // { dg-require-atomic-builtins "" }
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
+// { dg-options "-Wno-pedantic" }
+// { dg-do compile { target c++11 } }
 
 // Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
@@ -27,4 +27,4 @@ struct X {
   char stuff[0]; // GNU extension, type has zero size
 };
 
-std::atomic<X> a;  // { dg-error "not supported" "" { target *-*-* } 181 }
+std::atomic<X> a;  // { dg-error "not supported" "" { target *-*-* } 190 }

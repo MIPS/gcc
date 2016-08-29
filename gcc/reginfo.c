@@ -449,6 +449,7 @@ init_reg_sets_1 (void)
     }
 
   COPY_HARD_REG_SET (call_fixed_reg_set, fixed_reg_set);
+  COPY_HARD_REG_SET (fixed_nonglobal_reg_set, fixed_reg_set);
 
   /* Preserve global registers if called more than once.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1148,7 +1149,7 @@ reg_scan_mark_refs (rtx x, rtx_insn *insn)
       if (REG_P (dest) && !REG_ATTRS (dest))
 	set_reg_attrs_from_value (dest, SET_SRC (x));
 
-      /* ... fall through ...  */
+      /* fall through */
 
     default:
       {

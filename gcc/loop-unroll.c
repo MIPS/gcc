@@ -396,7 +396,7 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
      of iterations.  */
   if (desc->niter < 2 * nunroll
       || ((get_estimated_loop_iterations (loop, &iterations)
-	   || get_max_loop_iterations (loop, &iterations))
+	   || get_likely_max_loop_iterations (loop, &iterations))
 	  && wi::ltu_p (iterations, 2 * nunroll)))
     {
       if (dump_file)
@@ -461,7 +461,6 @@ unroll_loop_constant_iterations (struct loop *loop)
 {
   unsigned HOST_WIDE_INT niter;
   unsigned exit_mod;
-  sbitmap wont_exit;
   unsigned i;
   edge e;
   unsigned max_unroll = loop->lpt_decision.times;
@@ -477,7 +476,7 @@ unroll_loop_constant_iterations (struct loop *loop)
 
   exit_mod = niter % (max_unroll + 1);
 
-  wont_exit = sbitmap_alloc (max_unroll + 1);
+  auto_sbitmap wont_exit (max_unroll + 1);
   bitmap_ones (wont_exit);
 
   auto_vec<edge> remove_edges;
@@ -523,6 +522,11 @@ unroll_loop_constant_iterations (struct loop *loop)
 	    loop->nb_iterations_estimate -= exit_mod;
 	  else
 	    loop->any_estimate = false;
+	  if (loop->any_likely_upper_bound
+	      && wi::leu_p (exit_mod, loop->nb_iterations_likely_upper_bound))
+	    loop->nb_iterations_likely_upper_bound -= exit_mod;
+	  else
+	    loop->any_likely_upper_bound = false;
 	}
 
       bitmap_set_bit (wont_exit, 1);
@@ -566,6 +570,11 @@ unroll_loop_constant_iterations (struct loop *loop)
 	    loop->nb_iterations_estimate -= exit_mod + 1;
 	  else
 	    loop->any_estimate = false;
+	  if (loop->any_likely_upper_bound
+	      && wi::leu_p (exit_mod + 1, loop->nb_iterations_likely_upper_bound))
+	    loop->nb_iterations_likely_upper_bound -= exit_mod + 1;
+	  else
+	    loop->any_likely_upper_bound = false;
 	  desc->noloop_assumptions = NULL_RTX;
 
 	  bitmap_set_bit (wont_exit, 0);
@@ -594,8 +603,6 @@ unroll_loop_constant_iterations (struct loop *loop)
       free_opt_info (opt_info);
     }
 
-  free (wont_exit);
-
   if (exit_at_end)
     {
       basic_block exit_block = get_bb_copy (desc->in_edge->src);
@@ -619,6 +626,9 @@ unroll_loop_constant_iterations (struct loop *loop)
   if (loop->any_estimate)
     loop->nb_iterations_estimate
       = wi::udiv_trunc (loop->nb_iterations_estimate, max_unroll + 1);
+  if (loop->any_likely_upper_bound)
+    loop->nb_iterations_likely_upper_bound
+      = wi::udiv_trunc (loop->nb_iterations_likely_upper_bound, max_unroll + 1);
   desc->niter_expr = GEN_INT (desc->niter);
 
   /* Remove the edges.  */
@@ -693,7 +703,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 
   /* Check whether the loop rolls.  */
   if ((get_estimated_loop_iterations (loop, &iterations)
-       || get_max_loop_iterations (loop, &iterations))
+       || get_likely_max_loop_iterations (loop, &iterations))
       && wi::ltu_p (iterations, 2 * nunroll))
     {
       if (dump_file)
@@ -848,7 +858,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   rtx_insn *init_code, *branch_code;
   unsigned i, j, p;
   basic_block preheader, *body, swtch, ezc_swtch;
-  sbitmap wont_exit;
   int may_exit_copy;
   unsigned n_peel;
   edge e;
@@ -923,7 +932,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   auto_vec<edge> remove_edges;
 
-  wont_exit = sbitmap_alloc (max_unroll + 2);
+  auto_sbitmap wont_exit (max_unroll + 2);
 
   /* Peel the first copy of loop body (almost always we must leave exit test
      here; the only exception is when we have extra zero check and the number
@@ -1022,8 +1031,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
       free_opt_info (opt_info);
     }
 
-  free (wont_exit);
-
   if (exit_at_end)
     {
       basic_block exit_block = get_bb_copy (desc->in_edge->src);
@@ -1059,6 +1066,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
   if (loop->any_estimate)
     loop->nb_iterations_estimate
       = wi::udiv_trunc (loop->nb_iterations_estimate, max_unroll + 1);
+  if (loop->any_likely_upper_bound)
+    loop->nb_iterations_likely_upper_bound
+      = wi::udiv_trunc (loop->nb_iterations_likely_upper_bound, max_unroll + 1);
   if (exit_at_end)
     {
       desc->niter_expr =
@@ -1070,6 +1080,11 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	--loop->nb_iterations_estimate;
       else
 	loop->any_estimate = false;
+      if (loop->any_likely_upper_bound
+	  && loop->nb_iterations_likely_upper_bound != 0)
+	--loop->nb_iterations_likely_upper_bound;
+      else
+	loop->any_likely_upper_bound = false;
     }
 
   if (dump_file)
@@ -1141,7 +1156,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
 
   /* Check whether the loop rolls.  */
   if ((get_estimated_loop_iterations (loop, &iterations)
-       || get_max_loop_iterations (loop, &iterations))
+       || get_likely_max_loop_iterations (loop, &iterations))
       && wi::ltu_p (iterations, 2 * nunroll))
     {
       if (dump_file)
@@ -1180,7 +1195,6 @@ decide_unroll_stupid (struct loop *loop, int flags)
 static void
 unroll_loop_stupid (struct loop *loop)
 {
-  sbitmap wont_exit;
   unsigned nunroll = loop->lpt_decision.times;
   struct niter_desc *desc = get_simple_loop_desc (loop);
   struct opt_info *opt_info = NULL;
@@ -1190,8 +1204,7 @@ unroll_loop_stupid (struct loop *loop)
       || flag_variable_expansion_in_unroller)
     opt_info = analyze_insns_in_loop (loop);
 
-
-  wont_exit = sbitmap_alloc (nunroll + 1);
+  auto_sbitmap wont_exit (nunroll + 1);
   bitmap_clear (wont_exit);
   opt_info_start_duplication (opt_info);
 
@@ -1209,8 +1222,6 @@ unroll_loop_stupid (struct loop *loop)
       apply_opt_in_copies (opt_info, nunroll, true, true);
       free_opt_info (opt_info);
     }
-
-  free (wont_exit);
 
   if (desc->simple_p)
     {

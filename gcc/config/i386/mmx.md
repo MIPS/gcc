@@ -296,10 +296,6 @@
    (set_attr "prefix_extra" "1")
    (set_attr "mode" "V2SF")])
 
-;; ??? For !flag_finite_math_only, the representation with SMIN/SMAX
-;; isn't really correct, as those rtl operators aren't defined when
-;; applied to NaNs.  Hopefully the optimizers won't get too smart on us.
-
 (define_expand "mmx_<code>v2sf3"
   [(set (match_operand:V2SF 0 "register_operand")
         (smaxmin:V2SF
@@ -307,30 +303,47 @@
 	  (match_operand:V2SF 2 "nonimmediate_operand")))]
   "TARGET_3DNOW"
 {
-  if (!flag_finite_math_only)
-    operands[1] = force_reg (V2SFmode, operands[1]);
-  ix86_fixup_binary_operands_no_copy (<CODE>, V2SFmode, operands);
+  if (!flag_finite_math_only || flag_signed_zeros)
+    {
+      operands[1] = force_reg (V2SFmode, operands[1]);
+      emit_insn (gen_mmx_ieee_<maxmin_float>v2sf3
+		 (operands[0], operands[1], operands[2]));
+      DONE;
+    }
+  else
+    ix86_fixup_binary_operands_no_copy (<CODE>, V2SFmode, operands);
 })
 
-(define_insn "*mmx_<code>v2sf3_finite"
+;; These versions of the min/max patterns are intentionally ignorant of
+;; their behavior wrt -0.0 and NaN (via the commutative operand mark).
+;; Since both the tree-level MAX_EXPR and the rtl-level SMAX operator
+;; are undefined in this condition, we're certain this is correct.
+
+(define_insn "*mmx_<code>v2sf3"
   [(set (match_operand:V2SF 0 "register_operand" "=y")
         (smaxmin:V2SF
 	  (match_operand:V2SF 1 "nonimmediate_operand" "%0")
 	  (match_operand:V2SF 2 "nonimmediate_operand" "ym")))]
-  "TARGET_3DNOW && flag_finite_math_only
-   && ix86_binary_operator_ok (<CODE>, V2SFmode, operands)"
+  "TARGET_3DNOW && ix86_binary_operator_ok (<CODE>, V2SFmode, operands)"
   "pf<maxmin_float>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxadd")
    (set_attr "prefix_extra" "1")
    (set_attr "mode" "V2SF")])
 
-(define_insn "*mmx_<code>v2sf3"
+;; These versions of the min/max patterns implement exactly the operations
+;;   min = (op1 < op2 ? op1 : op2)
+;;   max = (!(op1 < op2) ? op1 : op2)
+;; Their operands are not commutative, and thus they may be used in the
+;; presence of -0.0 and NaN.
+
+(define_insn "mmx_ieee_<ieee_maxmin>v2sf3"
   [(set (match_operand:V2SF 0 "register_operand" "=y")
-        (smaxmin:V2SF
-	  (match_operand:V2SF 1 "register_operand" "0")
-	  (match_operand:V2SF 2 "nonimmediate_operand" "ym")))]
+        (unspec:V2SF
+	  [(match_operand:V2SF 1 "register_operand" "0")
+	   (match_operand:V2SF 2 "nonimmediate_operand" "ym")]
+	  IEEE_MAXMIN))]
   "TARGET_3DNOW"
-  "pf<maxmin_float>\t{%2, %0|%0, %2}"
+  "pf<ieee_maxmin>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxadd")
    (set_attr "prefix_extra" "1")
    (set_attr "mode" "V2SF")])
@@ -590,12 +603,7 @@
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (match_dup 1))]
-{
-  if (REG_P (operands[1]))
-    operands[1] = gen_rtx_REG (SFmode, REGNO (operands[1]));
-  else
-    operands[1] = adjust_address (operands[1], SFmode, 0);
-})
+  "operands[1] = gen_lowpart (SFmode, operands[1]);")
 
 ;; Avoid combining registers from different units in a single alternative,
 ;; see comment above inline_secondary_memory_needed function in i386.c
@@ -615,8 +623,14 @@
    #"
   [(set_attr "isa" "*,sse3,noavx,*,*,*,*")
    (set_attr "type" "mmxcvt,sse,sseshuf1,mmxmov,ssemov,fmov,imov")
-   (set_attr "length_immediate" "*,*,1,*,*,*,*")
-   (set_attr "prefix_rep" "*,1,*,*,*,*,*")
+   (set (attr "length_immediate")
+     (if_then_else (eq_attr "alternative" "2")
+		   (const_string "1")
+		   (const_string "*")))
+   (set (attr "prefix_rep")
+     (if_then_else (eq_attr "alternative" "1")
+		   (const_string "1")
+		   (const_string "*")))
    (set_attr "prefix" "orig,maybe_vex,orig,orig,orig,orig,orig")
    (set_attr "mode" "DI,V4SF,V4SF,SF,SF,SF,SF")])
 
@@ -1283,12 +1297,7 @@
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (match_dup 1))]
-{
-  if (REG_P (operands[1]))
-    operands[1] = gen_rtx_REG (SImode, REGNO (operands[1]));
-  else
-    operands[1] = adjust_address (operands[1], SImode, 0);
-})
+  "operands[1] = gen_lowpart (SImode, operands[1]);")
 
 ;; Avoid combining registers from different units in a single alternative,
 ;; see comment above inline_secondary_memory_needed function in i386.c
@@ -1307,7 +1316,10 @@
    #"
   [(set_attr "isa" "*,sse2,noavx,*,*,*")
    (set_attr "type" "mmxcvt,sseshuf1,sseshuf1,mmxmov,ssemov,imov")
-   (set_attr "length_immediate" "*,1,1,*,*,*")
+   (set (attr "length_immediate")
+     (if_then_else (eq_attr "alternative" "1,2")
+		   (const_string "1")
+		   (const_string "*")))
    (set_attr "prefix" "orig,maybe_vex,orig,orig,orig,orig")
    (set_attr "mode" "DI,TI,V4SF,SI,SI,SI")])
 

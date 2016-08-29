@@ -344,7 +344,7 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
     {
       basic_block dest;
       /* Protect loop headers.  */
-      if (bb->loop_father->header == bb)
+      if (bb_loop_header_p (bb))
 	return false;
 
       dest = EDGE_SUCC (bb, 0)->dest;
@@ -602,10 +602,14 @@ fixup_noreturn_call (gimple *stmt)
   /* If there is an LHS, remove it, but only if its type has fixed size.
      The LHS will need to be recreated during RTL expansion and creating
      temporaries of variable-sized types is not supported.  Also don't
-     do this with TREE_ADDRESSABLE types, as assign_temp will abort.  */
+     do this with TREE_ADDRESSABLE types, as assign_temp will abort.
+     Drop LHS regardless of TREE_ADDRESSABLE, if the function call
+     has been changed into a call that does not return a value, like
+     __builtin_unreachable or __cxa_pure_virtual.  */
   tree lhs = gimple_call_lhs (stmt);
-  if (lhs && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST
-      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))
+  if (lhs
+      && (should_remove_lhs_p (lhs)
+	  || VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (stmt)))))
     {
       gimple_call_set_lhs (stmt, NULL_TREE);
 
@@ -642,24 +646,25 @@ cleanup_tree_cfg_bb (basic_block bb)
       && remove_forwarder_block (bb))
     return true;
 
+  /* If there is a merge opportunity with the predecessor
+     do nothing now but wait until we process the predecessor.
+     This happens when we visit BBs in a non-optimal order and
+     avoids quadratic behavior with adjusting stmts BB pointer.  */
+  if (single_pred_p (bb)
+      && can_merge_blocks_p (single_pred (bb), bb))
+    /* But make sure we _do_ visit it.  When we remove unreachable paths
+       ending in a backedge we fail to mark the destinations predecessors
+       as changed.  */
+    bitmap_set_bit (cfgcleanup_altered_bbs, single_pred (bb)->index);
+
   /* Merging the blocks may create new opportunities for folding
      conditional branches (due to the elimination of single-valued PHI
      nodes).  */
-  if (single_succ_p (bb)
-      && can_merge_blocks_p (bb, single_succ (bb)))
+  else if (single_succ_p (bb)
+	   && can_merge_blocks_p (bb, single_succ (bb)))
     {
-      /* If there is a merge opportunity with the predecessor
-         do nothing now but wait until we process the predecessor.
-	 This happens when we visit BBs in a non-optimal order and
-	 avoids quadratic behavior with adjusting stmts BB pointer.  */
-      if (single_pred_p (bb)
-	  && can_merge_blocks_p (single_pred (bb), bb))
-	;
-      else
-	{
-	  merge_blocks (bb, single_succ (bb));
-	  return true;
-	}
+      merge_blocks (bb, single_succ (bb));
+      return true;
     }
 
   return false;

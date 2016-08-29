@@ -72,6 +72,11 @@ type_check (gfc_expr *e, int n, bt type)
 static bool
 numeric_check (gfc_expr *e, int n)
 {
+  /* Users sometime use a subroutine designator as an actual argument to
+     an intrinsic subprogram that expects an argument with a numeric type.  */
+  if (e->symtree && e->symtree->n.sym->attr.subroutine)
+    goto error;
+
   if (gfc_numeric_ts (&e->ts))
     return true;
 
@@ -86,7 +91,9 @@ numeric_check (gfc_expr *e, int n)
       return true;
     }
 
-  gfc_error ("%qs argument of %qs intrinsic at %L must be a numeric type",
+error:
+
+  gfc_error ("%qs argument of %qs intrinsic at %L must have a numeric type",
 	     gfc_current_intrinsic_arg[n]->name, gfc_current_intrinsic,
 	     &e->where);
 
@@ -2592,7 +2599,7 @@ gfc_check_kill_sub (gfc_expr *pid, gfc_expr *sig, gfc_expr *status)
 bool
 gfc_check_kind (gfc_expr *x)
 {
-  if (x->ts.type == BT_DERIVED || x->ts.type == BT_CLASS)
+  if (gfc_bt_struct (x->ts.type) || x->ts.type == BT_CLASS)
     {
       gfc_error ("%qs argument of %qs intrinsic at %L must be of "
 		 "intrinsic type", gfc_current_intrinsic_arg[0]->name,
@@ -3820,7 +3827,7 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
       if (!type_check (order, 3, BT_INTEGER))
 	return false;
 
-      if (order->expr_type == EXPR_ARRAY)
+      if (order->expr_type == EXPR_ARRAY && gfc_is_constant_expr (order))
 	{
 	  int i, order_size, dim, perm[GFC_MAX_DIMENSIONS];
 	  gfc_expr *e;
@@ -4278,7 +4285,7 @@ is_c_interoperable (gfc_expr *expr, const char **msg, bool c_loc, bool c_f_ptr)
       }
 
     if (expr->ts.u.cl && expr->ts.u.cl->length
-	&& !gfc_simplify_expr (expr, 0))
+	&& !gfc_simplify_expr (expr->ts.u.cl->length, 0))
       gfc_internal_error ("is_c_interoperable(): gfc_simplify_expr failed");
 
     if (!c_loc && expr->ts.u.cl
@@ -5520,16 +5527,14 @@ gfc_check_random_number (gfc_expr *harvest)
 bool
 gfc_check_random_seed (gfc_expr *size, gfc_expr *put, gfc_expr *get)
 {
-  unsigned int nargs = 0, kiss_size;
+  unsigned int nargs = 0, seed_size;
   locus *where = NULL;
   mpz_t put_size, get_size;
-  bool have_gfc_real_16; /* Try and mimic HAVE_GFC_REAL_16 in libgfortran.  */
 
-  have_gfc_real_16 = gfc_validate_kind (BT_REAL, 16, true) != -1;
-
-  /* Keep the number of bytes in sync with kiss_size in
-     libgfortran/intrinsics/random.c.  */
-  kiss_size = (have_gfc_real_16 ? 48 : 32) / gfc_default_integer_kind;
+  /* Keep the number of bytes in sync with master_state in
+     libgfortran/intrinsics/random.c. +1 due to the integer p which is
+     part of the state too.  */
+  seed_size = 128 / gfc_default_integer_kind + 1;
 
   if (size != NULL)
     {
@@ -5572,11 +5577,11 @@ gfc_check_random_seed (gfc_expr *size, gfc_expr *put, gfc_expr *get)
 	return false;
 
       if (gfc_array_size (put, &put_size)
-	  && mpz_get_ui (put_size) < kiss_size)
+	  && mpz_get_ui (put_size) < seed_size)
 	gfc_error ("Size of %qs argument of %qs intrinsic at %L "
 		   "too small (%i/%i)",
 		   gfc_current_intrinsic_arg[1]->name, gfc_current_intrinsic,
-		   where, (int) mpz_get_ui (put_size), kiss_size);
+		   where, (int) mpz_get_ui (put_size), seed_size);
     }
 
   if (get != NULL)
@@ -5604,11 +5609,11 @@ gfc_check_random_seed (gfc_expr *size, gfc_expr *put, gfc_expr *get)
 	return false;
 
        if (gfc_array_size (get, &get_size)
- 	  && mpz_get_ui (get_size) < kiss_size)
+	   && mpz_get_ui (get_size) < seed_size)
 	gfc_error ("Size of %qs argument of %qs intrinsic at %L "
 		   "too small (%i/%i)",
 		   gfc_current_intrinsic_arg[2]->name, gfc_current_intrinsic,
-		   where, (int) mpz_get_ui (get_size), kiss_size);
+		   where, (int) mpz_get_ui (get_size), seed_size);
     }
 
   /* RANDOM_SEED may not have more than one non-optional argument.  */

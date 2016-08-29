@@ -3696,7 +3696,7 @@ changequote([,])dnl
 fi
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:22:0
+libtool_VERSION=6:23:0
 
 # Everything parsed; figure out what files and settings to use.
 case $enable_symvers in
@@ -4373,7 +4373,7 @@ dnl
       gnu* | linux* | solaris*)
         GCC_TRY_COMPILE_OR_LINK(
           [#include <sys/sendfile.h>],
-          [sendfile(1, 2, (off_t*)NULL, sizeof 1);],
+          [sendfile(1, 2, (off_t*)0, sizeof 1);],
           [glibcxx_cv_sendfile=yes],
           [glibcxx_cv_sendfile=no])
         ;;
@@ -4383,7 +4383,7 @@ dnl
     esac
   ])
   if test $glibcxx_cv_sendfile = yes; then
-    AC_DEFINE(_GLIBCXX_USE_SENDFILE, 1, [Define if sendfile is available in <sys/stat.h>.])
+    AC_DEFINE(_GLIBCXX_USE_SENDFILE, 1, [Define if sendfile is available in <sys/sendfile.h>.])
   fi
   AC_MSG_RESULT($glibcxx_cv_sendfile)
 dnl

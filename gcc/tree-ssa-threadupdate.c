@@ -1531,10 +1531,8 @@ thread_block_1 (basic_block bb, bool noloop_only, bool joiners)
 	     threading path that crosses loop boundaries.  We do not try
 	     and thread this elsewhere, so just cancel the jump threading
 	     request by clearing the AUX field now.  */
-	  if ((bb->loop_father != e2->src->loop_father
-	       && !loop_exit_edge_p (e2->src->loop_father, e2))
-	      || (e2->src->loop_father != e2->dest->loop_father
-		  && !loop_exit_edge_p (e2->src->loop_father, e2)))
+	  if (bb->loop_father != e2->src->loop_father
+	      && !loop_exit_edge_p (e2->src->loop_father, e2))
 	    {
 	      /* Since this case is not handled by our special code
 		 to thread through a loop header, we must explicitly
@@ -2298,11 +2296,11 @@ duplicate_thread_path (edge entry, edge exit,
 	}
 
       /* Special case the last block on the path: make sure that it does not
-	 jump back on the copied path.  */
+	 jump back on the copied path, including back to itself.  */
       if (i + 1 == n_region)
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (bb_in_bbs (e->dest, region_copy, n_region - 1))
+	    if (bb_in_bbs (e->dest, region_copy, n_region))
 	      {
 		basic_block orig = get_bb_original (e->dest);
 		if (orig)
