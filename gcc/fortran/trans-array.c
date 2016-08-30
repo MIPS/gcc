@@ -5317,8 +5317,7 @@ gfc_conv_descriptor_cosize (tree desc, int rank, int corank)
 /*GCC ARRAYS*/
 
 static tree
-gfc_array_init_size (tree descriptor, gfc_typespec *ts,
-		     int rank, int corank, tree * poffset,
+gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
 		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
@@ -5349,7 +5348,7 @@ gfc_array_init_size (tree descriptor, gfc_typespec *ts,
   /* Set the rank and dtype.  */
   gfc_conv_descriptor_rank_set (descriptor_block, descriptor, rank);
   tmp = gfc_conv_descriptor_dtype (descriptor);
-  gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (ts));
+  gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (&expr->ts));
 
   if (expr3_elem_size != NULL_TREE)
     tmp = expr3_elem_size;
@@ -5372,9 +5371,9 @@ gfc_array_init_size (tree descriptor, gfc_typespec *ts,
 	  tmp = TYPE_SIZE_UNIT (tmp);
 	}
     }
-  else if (ts->type != BT_UNKNOWN && ts->type != BT_CHARACTER)
+  else if (expr->ts.type != BT_UNKNOWN && expr->ts.type != BT_CHARACTER)
     /* FIXME: Properly handle characters.  See PR 57456.  */
-    tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (ts));
+    tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (&expr->ts));
   else
     tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
 
@@ -5716,7 +5715,6 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
   gfc_init_block (&set_descriptor_block);
   size = gfc_array_init_size (se->expr,
-			      expr->ts,
 			      alloc_w_e3_arr_spec ? expr->rank
 						  : ref->u.ar.as->rank,
 			      coarray ? ref->u.ar.as->corank : 0,

@@ -67,15 +67,17 @@ tree
 gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr,
 			       gfc_typespec *ts)
 {
-  tree desc, type;
+  tree desc, type, dtype;
   int desc_attr;
 
-  type = get_scalar_to_descriptor_type (scalar, attr);
-  desc = gfc_create_var (type, "desc");
+  dtype = get_scalar_to_descriptor_type (scalar, attr);
+  desc = gfc_create_var (dtype, "desc");
   DECL_ARTIFICIAL (desc) = 1;
 
   if (!POINTER_TYPE_P (TREE_TYPE (scalar)))
     scalar = gfc_build_addr_expr (NULL_TREE, scalar);
+
+  type = TREE_TYPE (build_fold_indirect_ref_loc (input_location, scalar));
 
   gfc_add_modify (&se->pre, gfc_conv_descriptor_dtype (desc),
 		  gfc_get_dtype (ts));
@@ -797,6 +799,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
     }
   else
     {
+      gfc_typespec *ts = &class_ts.u.derived->components->ts;
       ss = gfc_walk_expr (e);
       if (ss == gfc_ss_terminator)
 	{
@@ -806,7 +809,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 	      && class_ts.u.derived->components->as->type == AS_ASSUMED_RANK)
 	    {
 	      tmp = gfc_conv_scalar_to_descriptor (parmse, parmse->expr,
-						   gfc_expr_attr (e));
+						   gfc_expr_attr (e), ts);
 	      tmp = fold_build1_loc (input_location, VIEW_CONVERT_EXPR,
 				     TREE_TYPE (ctree), tmp);
 	    }
@@ -2365,7 +2368,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
      On the other hand, if the context is a UNION or a MAP (a
      RECORD_TYPE within a UNION_TYPE) always use the given FIELD_DECL.  */
 
-  if (context != TREE_TYPE (decl) 
+  if (context != TREE_TYPE (decl)
       && !(   TREE_CODE (TREE_TYPE (field)) == UNION_TYPE /* Field is union */
            || TREE_CODE (context) == UNION_TYPE))         /* Field is map */
     {
@@ -6236,7 +6239,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	      se->expr = gfc_evaluate_now (se->expr, &se->pre);
 	      tmp = gfc_class_data_get (se->expr);
 	      tmp = gfc_conv_scalar_to_descriptor (se, tmp,
-			CLASS_DATA (expr->value.function.esym->result)->attr);
+			CLASS_DATA (expr->value.function.esym->result)->attr,
+			&expr->ts);
 	    }
 
 	  final_fndecl = gfc_class_vtab_final_get (se->expr);
@@ -7472,7 +7476,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       val = gfc_conv_initializer (c->expr, &expr->ts,
                                   TREE_TYPE (cm->backend_decl),
                                   cm->attr.dimension, cm->attr.pointer,
-                                  cm->attr.proc_pointer);
+                                  cm->attr.proc_pointer, expr->rank);
       val = unshare_expr_without_location (val);
 
       /* Append it to the constructor list.  */
@@ -8085,6 +8089,9 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	      /* Copy data pointer.  */
 	      data = gfc_conv_descriptor_data_get (rse.expr);
 	      gfc_conv_descriptor_data_set (&block, desc, data);
+
+	      /* Set the new rank.  */
+	      gfc_conv_descriptor_rank_set (&block, desc, expr1->rank);
 
 	      /* Copy offset but adjust it such that it would correspond
 		 to a lbound of zero.  */

@@ -1152,10 +1152,12 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
 					   argse.string_length);
 	  else
 	    res_var = gfc_create_var (type, "caf_res");
-	  dst_var = gfc_conv_scalar_to_descriptor (&argse, res_var, attr);
+	  dst_var = gfc_conv_scalar_to_descriptor (&argse, res_var, attr,
+						   &array_expr->ts);
 	  dst_var = gfc_build_addr_expr (NULL_TREE, dst_var);
 	}
-      argse.expr = gfc_conv_scalar_to_descriptor (&argse, argse.expr, attr);
+      argse.expr = gfc_conv_scalar_to_descriptor (&argse, argse.expr, attr,
+						  &array_expr->ts);
       argse.expr = gfc_build_addr_expr (NULL_TREE, argse.expr);
     }
   else
@@ -1178,9 +1180,7 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
       /* Using gfc_conv_expr_descriptor, we only get the descriptor, but that
          has the wrong type if component references are done.  */
       gfc_add_modify (&argse.pre, gfc_conv_descriptor_dtype (argse.expr),
-                      gfc_get_dtype_rank_type (has_vector ? ar2.dimen
-							  : array_expr->rank,
-					       type));
+                      gfc_get_dtype (&array_expr->ts));
       if (has_vector)
 	{
 	  vec = conv_caf_vector_subscript (&argse.pre, argse.expr, &ar2);
@@ -1200,6 +1200,7 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
 	      }
 	  gfc_trans_create_temp_array (&argse.pre, &argse.post, se->ss, type,
 				       NULL_TREE, false, true, false,
+				       &array_expr->ts, NULL_TREE,
 				       &array_expr->where);
 	  res_var = se->ss->info->data.array.descriptor;
 	  dst_var = gfc_build_addr_expr (NULL_TREE, res_var);
@@ -1276,7 +1277,8 @@ conv_caf_send (gfc_code *code) {
       gfc_clear_attr (&attr);
       gfc_conv_expr (&lhs_se, lhs_expr);
       lhs_type = TREE_TYPE (lhs_se.expr);
-      lhs_se.expr = gfc_conv_scalar_to_descriptor (&lhs_se, lhs_se.expr, attr);
+      lhs_se.expr = gfc_conv_scalar_to_descriptor (&lhs_se, lhs_se.expr, attr,
+						   &lhs_expr->ts);
       lhs_se.expr = gfc_build_addr_expr (NULL_TREE, lhs_se.expr);
     }
   else
@@ -1302,9 +1304,7 @@ conv_caf_send (gfc_code *code) {
       lhs_type = gfc_typenode_for_spec (&lhs_expr->ts);
       tmp = build_fold_indirect_ref_loc (input_location, lhs_se.expr);
       gfc_add_modify (&lhs_se.pre, gfc_conv_descriptor_dtype (tmp),
-                      gfc_get_dtype_rank_type (has_vector ? ar2.dimen
-							  : lhs_expr->rank,
-		      lhs_type));
+                      gfc_get_dtype (&lhs_expr->ts));
       if (has_vector)
 	{
 	  vec = conv_caf_vector_subscript (&block, lhs_se.expr, &ar2);
@@ -1349,7 +1349,8 @@ conv_caf_send (gfc_code *code) {
       gfc_conv_expr (&rhs_se, rhs_expr);
       if (!gfc_is_coindexed (rhs_expr) && rhs_expr->ts.type != BT_CHARACTER)
 	 rhs_se.expr = fold_convert (lhs_type , rhs_se.expr);
-      rhs_se.expr = gfc_conv_scalar_to_descriptor (&rhs_se, rhs_se.expr, attr);
+      rhs_se.expr = gfc_conv_scalar_to_descriptor (&rhs_se, rhs_se.expr, attr,
+						   &rhs_expr->ts);
       rhs_se.expr = gfc_build_addr_expr (NULL_TREE, rhs_se.expr);
     }
   else
@@ -1358,7 +1359,6 @@ conv_caf_send (gfc_code *code) {
          vector bounds separately.  */
       gfc_array_ref *ar, ar2;
       bool has_vector = false;
-      tree tmp2;
 
       if (gfc_is_coindexed (rhs_expr) && gfc_has_vector_subscript (rhs_expr))
 	{
@@ -1374,11 +1374,8 @@ conv_caf_send (gfc_code *code) {
       /* Using gfc_conv_expr_descriptor, we only get the descriptor, but that
          has the wrong type if component references are done.  */
       tmp = build_fold_indirect_ref_loc (input_location, rhs_se.expr);
-      tmp2 = gfc_typenode_for_spec (&rhs_expr->ts);
       gfc_add_modify (&rhs_se.pre, gfc_conv_descriptor_dtype (tmp),
-                      gfc_get_dtype_rank_type (has_vector ? ar2.dimen
-							  : rhs_expr->rank,
-		      tmp2));
+                      gfc_get_dtype (&rhs_expr->ts));
       if (has_vector)
 	{
 	  rhs_vec = conv_caf_vector_subscript (&block, rhs_se.expr, &ar2);
@@ -6029,10 +6026,7 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
 	    ? GFC_DECL_SAVED_DESCRIPTOR (tmp) : tmp;
       if (POINTER_TYPE_P (TREE_TYPE (tmp)))
 	tmp = build_fold_indirect_ref_loc (input_location, tmp);
-      tmp = fold_convert (size_type_node, gfc_conv_descriptor_dtype (tmp));
-      tmp = fold_build2_loc (input_location, RSHIFT_EXPR, TREE_TYPE (tmp), tmp,
-			     build_int_cst (TREE_TYPE (tmp),
-					    GFC_DTYPE_SIZE_SHIFT));
+      tmp = gfc_conv_descriptor_elem_len_get (tmp);
       byte_size = fold_convert (gfc_array_index_type, tmp);
     }
   else if (arg->ts.type == BT_CLASS)

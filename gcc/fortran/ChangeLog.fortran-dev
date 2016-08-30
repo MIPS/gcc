@@ -1,3 +1,27 @@
+2016-08-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-array.c (gfc_array_init_size): Remove argument 'ts'.
+	Use the 'expr' typespec instead.
+	(gfc_array_allocate): Remove the typespec argument in the call
+	to gfc_array_init_size.
+	* trans-expr.c (gfc_conv_scalar_to_descriptor): Use the type
+	of the scalar to get the element size, rather than that of
+	the descriptor.
+	(gfc_conv_intrinsic_to_class): Provide the typespec for the
+	call to gfc_conv_scalar_to_descriptor.
+	(gfc_conv_component_ref): Whitespace.
+	(gfc_conv_procedure_call): Provide the typespec as above.
+	(gfc_conv_structure): Provide rank for call to
+	gfc_conv_initializer.
+	(gfc_trans_pointer_assignment): Update the rank field in the
+	case of rank remap.
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get): Provide the
+	typespec for the calls to gfc_conv_scalar_to_descriptor. Change
+	call to gfc_get_dtype_rank_type into gfc_get_dtype. Provide
+	extra arguments for call to gfc_trans_create_temp_array.
+	(conv_caf_send): As previous and eliminate 'tmp2'.
+	(gfc_conv_intrinsic_sizeof): Use the elem_len field.
+
 2014-06-14  Paul Thomas  <pault@gcc.gnu.org>
 
 	* trans-array.c (gfc_conv_array_parameter): Assign 'old_desc'
