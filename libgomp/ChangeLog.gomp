@@ -1,3 +1,7 @@
+2016-08-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/assumed-size.f90: New test.
+
 2016-08-30  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/loop-auto-1.c: Set gang

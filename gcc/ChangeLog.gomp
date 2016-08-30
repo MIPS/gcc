@@ -1,3 +1,8 @@
+2016-08-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (lower_omp_target): Handle NULL-sized types for
+	assumed-sized arrays.
+
 2016-08-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (PTX_GANG_DEFAULT): Set to zero.
