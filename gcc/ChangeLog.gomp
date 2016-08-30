@@ -1,3 +1,7 @@
+2016-08-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (PTX_GANG_DEFAULT): Set to zero.
+
 2016-08-26  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* ipa-inline-analysis.c (inline_write_summary): Only dump callee

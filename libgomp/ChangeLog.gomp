@@ -1,5 +1,11 @@
 2016-08-30  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/loop-auto-1.c: Set gang
+	dimension.
+	* testsuite/libgomp.oacc-fortran/nested-function-1.f90: Likewise.
+
+2016-08-30  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* plugin/plugin-nvptx.c (nvptx_exec): Interrogate board attributes
 	to determine default geometry.
 

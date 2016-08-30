@@ -2,6 +2,8 @@
    not optimized away at -O0, and then confuses the target assembler.
    { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
 
+/* { dg-additional-options "-fopenacc-dim=32" } */
+
 #include <stdio.h>
 #include <openacc.h>
 
@@ -151,8 +153,7 @@ int gang_1 (int *ary, int size)
 {
   clear (ary, size);
   
-#pragma acc parallel num_gangs (32) num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)
-  /* { dg-warning "region is vector partitioned but does not contain vector partitioned code" "vector" { target *-*-* } 154 } */
+#pragma acc parallel num_gangs (32) num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)/* { dg-warning "region is vector partitioned but does not contain vector partitioned code" "vector" { target *-*-* } } */
   {
 #pragma acc loop auto
     for (int jx = 0; jx <  size  / 64; jx++)

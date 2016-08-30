@@ -1,6 +1,7 @@
 ! Exercise nested function decomposition, gcc/tree-nested.c.
 
 ! { dg-do run }
+! { dg-additional-options "-fopenacc-dim=32" }
 
 program collapse2
   call test1
