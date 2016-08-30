@@ -1,3 +1,8 @@
+2017-07-03  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* trans-openmp.c (gfc_omp_finish_clause): Disable "implicit
+	mapping of assumed size array" error.
+
 2016-08-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR fortran/72715

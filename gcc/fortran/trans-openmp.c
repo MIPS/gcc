@@ -1048,6 +1048,11 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 
   tree decl = OMP_CLAUSE_DECL (c);
 
+  /* This conflicts with the OpenACC changes done to support assumed-size
+     arrays that are implicitly mapped after enter data directive (see
+     libgomp.oacc-fortran/assumed-size.f90) -- doesn't the same apply to
+     OpenMP, too?  */
+#if 0
   /* Assumed-size arrays can't be mapped implicitly, they have to be
      mapped explicitly using array sections.  */
   if (TREE_CODE (decl) == PARM_DECL
@@ -1061,6 +1066,7 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 		"implicit mapping of assumed size array %qD", decl);
       return;
     }
+#endif
 
   tree c2 = NULL_TREE, c3 = NULL_TREE, c4 = NULL_TREE;
   if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FORCE_DEVICEPTR)

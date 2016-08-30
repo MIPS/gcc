@@ -3,7 +3,8 @@
 
 subroutine pr78866(x)
   integer :: x(*)
-!$omp target		! { dg-error "implicit mapping of assumed size array" }
+! Regarding the XFAIL, see gcc/fortran/trans-openmp.c:gfc_omp_finish_clause.
+!$omp target		! { dg-error "implicit mapping of assumed size array" "" { xfail *-*-* } }
   x(1) = 1
 !$omp end target
 end

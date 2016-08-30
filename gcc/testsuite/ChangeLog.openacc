@@ -1,3 +1,7 @@
+2017-07-03  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.dg/gomp/pr78866-2.f90: Add XFAIL.
+
 2016-08-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR fortran/72715
