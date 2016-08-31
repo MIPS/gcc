@@ -1669,7 +1669,8 @@ struct mips_cpu_info {
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY 32
+#define FUNCTION_BOUNDARY ((mips_base_compression_flags & MASK_MICROMIPS) \
+			   && mips_isa_rev >= 7 ? 16 : 32)
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
