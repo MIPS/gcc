@@ -27,6 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "errors.h"
 #include "gensupport.h"
+#undef KELVIN_DEBUG
+#ifdef KELVIN_DEBUG
+#include "print-rtl.h"
+#endif
 
 static void
 gen_insn (md_rtx_info *info)
@@ -72,6 +76,16 @@ enum insn_code {\n\
 
   md_rtx_info info;
   while (read_md_rtx (&info))
+#ifdef KELVIN_DEBUG
+    {
+      fprintf (stderr, "Reading machine description, name is: %s\n",
+	       XSTR (info.def, 0));
+      fprintf (stderr, "The C string definition is: %s\n",
+	       XSTR (info.def, 2));
+      /*
+      print_rtl (stderr, info.def);
+      */
+#endif
     switch (GET_CODE (info.def))
       {
       case DEFINE_INSN:
@@ -82,7 +96,9 @@ enum insn_code {\n\
       default:
 	break;
     }
-
+#ifdef KELVIN_DEBUG
+    }
+#endif
   printf ("\n};\n\
 \n\
 const unsigned int NUM_INSN_CODES = %d;\n\

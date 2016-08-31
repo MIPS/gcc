@@ -3144,6 +3144,10 @@ c_build_function_call_vec (location_t loc, vec<location_t> arg_loc,
 	 handle all the type checking.  The result is a complete expression
 	 that implements this function call.  */
       tree tem = resolve_overloaded_builtin (loc, function, params);
+#ifdef KELVIN_DEBUG
+      fprintf (stderr, "back from resolve_overloaded_builtin (), "
+	       "tem is%s NULL\n", tem? " not": "");
+#endif
       if (tem)
 	return tem;
     }

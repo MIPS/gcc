@@ -666,6 +666,13 @@
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "operands[4] = CONST0_RTX (<MODE>mode);")
 
+;; kelvin is puzzling over this, because it apears to be invoked with
+;;   4 operands (see rs6000-c.c, ALTIVEC_BUILTIN_VCMPEQUB_P).
+;;   However, here, we are "pretending" to have only three operands.
+;;   So far, nobody understands what's happening here. 
+;;  In some sense, it doesn't really matter.  I can proceed, maybe, to
+;;   match this pattern with a new insn, or peephole optimization.
+
 ;; Expansions that compare vectors producing a vector result and a predicate,
 ;; setting CR6 to indicate a combined status
 (define_expand "vector_eq_<mode>_p"

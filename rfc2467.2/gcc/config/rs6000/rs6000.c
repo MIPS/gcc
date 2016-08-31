@@ -79,6 +79,10 @@
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
 #endif
+#define KELVIN_DEBUG
+#ifdef KELVIN_DEBUG
+#include "print-tree.h"
+#endif
 
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
@@ -13848,6 +13852,10 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
   machine_mode mode1 = insn_data[icode].operand[2].mode;
   int cr6_form_int;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "made it to altivec_expand_predicate_builtin, icode: %d\n",
+	   icode);
+#endif
   if (TREE_CODE (cr6_form) != INTEGER_CST)
     {
       error ("argument 1 of __builtin_altivec_predicate must be a constant");
@@ -13855,6 +13863,10 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
     }
   else
     cr6_form_int = TREE_INT_CST_LOW (cr6_form);
+
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "cr6_form_int is %d\n", cr6_form_int);
+#endif
 
   gcc_assert (mode0 == mode1);
 
@@ -13874,7 +13886,18 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
 
   scratch = gen_reg_rtx (mode0);
 
+  /* Kelvin says it looks like we generate the code as specified for 
+   * in the corresponding define_expand (or define_insn), except maybe
+   * it is "special" that I am leaving the result in a scratch
+   * register.
+   *
+   * I need to look at other uses of GEN_FCN
+   */
   pat = GEN_FCN (icode) (scratch, op0, op1);
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "emitting the vector instruction into scratch register\n");
+  debug_rtx (pat);
+#endif
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -13887,6 +13910,27 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
      If you think this is disgusting, look at the specs for the
      AltiVec predicates.  */
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "and emitting the check for condition flag\n");
+
+  fprintf (stderr, "for case 0:\n");
+  debug_rtx (gen_cr6_test_for_zero (target)); break;
+
+  fprintf (stderr, "for case 1:\n");
+  debug_rtx (gen_cr6_test_for_zero_reverse (target)); break;
+
+  fprintf (stderr, "for case 2:\n");
+  debug_rtx (gen_cr6_test_for_lt (target)); break;
+
+  fprintf (stderr, "for case 3:\n");
+  debug_rtx (gen_cr6_test_for_lt_reverse (target)); break;
+#endif
+  /* Kelvin thinks all of this code is entirely special case.  If it's
+   * present in the corresponding define_insn or define_expand, it
+   * seems to be ignored.  Need to investigate.
+   *
+   * Next up: where are the implementations of these functions?
+   */
   switch (cr6_form_int)
     {
     case 0:
@@ -14530,6 +14574,11 @@ static rtx
 cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
 		    rtx target)
 {
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "made it to cpu_expand_builtin with fcode: %d, exp: ",
+	   fcode);
+  debug_tree (exp);
+#endif
   /* __builtin_cpu_init () is a nop, so expand to nothing.  */
   if (fcode == RS6000_BUILTIN_CPU_INIT)
     return const0_rtx;
@@ -15099,6 +15148,10 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   enum rs6000_builtins fcode
     = (enum rs6000_builtins) DECL_FUNCTION_CODE (fndecl);
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "made it to altivec_expand_builtin, exp is: ");
+  debug_tree (exp);
+#endif
   if (rs6000_overloaded_builtin_p (fcode))
     {
       *expandedp = true;
@@ -15121,6 +15174,9 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     return target;
 
   *expandedp = true;
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, " doing the expansion, fcode is: %d\n", fcode);
+#endif
 
   switch (fcode)
     {
@@ -15315,17 +15371,27 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       /* Fall through.  */
     }
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, " none of the first cases matched\n");
+#endif
+
   /* Expand abs* operations.  */
   d = bdesc_abs;
   for (i = 0; i < ARRAY_SIZE (bdesc_abs); i++, d++)
     if (d->code == fcode)
       return altivec_expand_abs_builtin (d->icode, exp, target);
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, " trying to expand an altivec predicate\n");
+#endif
   /* Expand the AltiVec predicates.  */
   d = bdesc_altivec_preds;
   for (i = 0; i < ARRAY_SIZE (bdesc_altivec_preds); i++, d++)
     if (d->code == fcode)
       return altivec_expand_predicate_builtin (d->icode, exp, target);
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, " but didn't fine an altivec predicate\n");
+#endif
 
   /* LV* are funky.  We initialized them differently.  */
   switch (fcode)
@@ -16016,6 +16082,10 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   HOST_WIDE_INT mask = rs6000_builtin_info[uns_fcode].mask;
   bool func_valid_p = ((rs6000_builtin_mask & mask) == mask);
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "made it to rs6000_expand_builtin, exp is: ");
+  debug_tree (exp);
+#endif
   if (TARGET_DEBUG_BUILTIN)
     {
       enum insn_code icode = rs6000_builtin_info[uns_fcode].icode;
