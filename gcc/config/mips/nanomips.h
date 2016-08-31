@@ -194,6 +194,7 @@ along with GCC; see the file COPYING3.  If not see
 %{msym32} %{mno-sym32} \
 %{mtune=*}" \
 FP_ASM_SPEC "\
+%{mbalc-stubs} %{mno-balc-stubs} %{!mno-balc-stubs: %{Os: -mbalc-stubs}} \
 %(subtarget_asm_spec)"
 
 #undef LINK_SPEC
