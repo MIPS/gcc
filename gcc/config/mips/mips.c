@@ -21975,8 +21975,13 @@ mips_set_compression_mode (unsigned int compression_mode)
       /* Switch to microMIPS or the standard encoding.  */
 
       if (TARGET_MICROMIPS)
-	/* Avoid branch likely.  */
-	target_flags &= ~MASK_BRANCHLIKELY;
+	{
+	  /* Avoid branch likely.  */
+	  target_flags &= ~MASK_BRANCHLIKELY;
+
+	  /* Don't move loop invariants.  */
+	  flag_move_loop_invariants = 0;
+	}
 
       /* Provide default values for align_* for 64-bit targets.  */
       if (TARGET_64BIT)
