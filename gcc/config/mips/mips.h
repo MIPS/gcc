@@ -940,6 +940,7 @@ struct mips_cpu_info {
   "%{mips32r6: %{!mno-nanomips: -mnanomips} \
 	       %{!mcheck-zero-division: -mno-check-zero-division} \
 	       %{!mno-explicit-relocs: -mexplicit-relocs} \
+	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
 	       %{!-fuse-ld=*: -fuse-ld=gold}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
@@ -1700,7 +1701,8 @@ FP_ASM_SPEC "\
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY 32
+#define FUNCTION_BOUNDARY ((mips_base_compression_flags & MASK_NANOMIPS) \
+			   ? 16 : 32)
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -2460,7 +2462,7 @@ enum reg_class
    the stack pointer which is good as they are likely to be accessed
    frequently. We can also arrange for normal stack usage to place
    scalars last so that they too are close to the stack pointer */
-#define FRAME_GROWS_DOWNWARD ((TARGET_MIPS16			    \
+#define FRAME_GROWS_DOWNWARD (((TARGET_MIPS16 || TARGET_NANOMIPS)  \
 			       && TARGET_FRAME_GROWS_DOWNWARDS)     \
 			      || flag_stack_protect)
 
