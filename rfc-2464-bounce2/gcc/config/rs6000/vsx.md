@@ -2851,7 +2851,7 @@
 	 UNSPEC_VSX_SXEXPDP))]
   "TARGET_P9_VECTOR && TARGET_64BIT"
   "xsxexpdp %0,%x1"
-  [(set_attr "type" "vecsimple")])
+  [(set_attr "type" "integer")])
 
 ;; VSX Scalar Extract Significand Double-Precision
 (define_insn "xsxsigdp"
@@ -2860,7 +2860,7 @@
 	 UNSPEC_VSX_SXSIGDP))]
   "TARGET_P9_VECTOR && TARGET_64BIT"
   "xsxsigdp %0,%x1"
-  [(set_attr "type" "vecsimple")])
+  [(set_attr "type" "integer")])
 
 ;; VSX Scalar Insert Exponent Double-Precision
 (define_insn "xsiexpdp"
@@ -2959,7 +2959,7 @@
 	 UNSPEC_VSX_VXEXP))]
   "TARGET_P9_VECTOR"
   "xvxexp<VSs> %x0,%x1"
-  [(set_attr "type" "fpsimple")])
+  [(set_attr "type" "vecsimple")])
 
 ;; VSX Vector Extract Significand Double and Single Precision
 (define_insn "xvxsig<VSs>"
@@ -2969,7 +2969,7 @@
 	 UNSPEC_VSX_VXSIG))]
   "TARGET_P9_VECTOR"
   "xvxsig<VSs> %x0,%x1"
-  [(set_attr "type" "fpsimple")])
+  [(set_attr "type" "vecsimple")])
 
 ;; VSX Vector Insert Exponent Double and Single Precision
 (define_insn "xviexp<VSs>"
