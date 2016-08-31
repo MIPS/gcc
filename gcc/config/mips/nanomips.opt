@@ -25,3 +25,7 @@ Generate 32-bit code.
 m64
 Target RejectNegative Var(nanomips_abi, ABI_P64)
 Generate 64-bit code.
+
+mbalc-stubs
+Target Report
+Enable/disable out-of-range call optimization through trampoline stubs.

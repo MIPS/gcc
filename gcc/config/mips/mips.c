@@ -22638,9 +22638,14 @@ mips_set_compression_mode (unsigned int compression_mode)
     {
       /* Switch to microMIPS or the standard encoding.  */
 
-      if (TARGET_MICROMIPS)
-	/* Avoid branch likely.  */
-	target_flags &= ~MASK_BRANCHLIKELY;
+      if (TARGET_MICROMIPS || TARGET_NANOMIPS)
+	{
+	  /* Avoid branch likely.  */
+	  target_flags &= ~MASK_BRANCHLIKELY;
+
+	  /* Don't move loop invariants.  */
+	  flag_move_loop_invariants = 0;
+	}
 
       /* Provide default values for align_* for 64-bit targets.  */
       if (TARGET_64BIT)
@@ -22653,10 +22658,25 @@ mips_set_compression_mode (unsigned int compression_mode)
 	    align_functions = 8;
 	}
 
-      targetm.min_anchor_offset = -32768;
-      targetm.max_anchor_offset = 32767;
+      if (TARGET_NANOMIPS)
+	{
+	  /* Disable shrink-wrap when optimizing for size as it tends to
+	     generate multiple return paths.  */
+	  if (optimize_size)
+	    flag_shrink_wrap = 0;
 
-      targetm.const_anchor = 0x8000;
+	  targetm.min_anchor_offset = 0;
+	  targetm.max_anchor_offset = 4095;
+
+	  targetm.const_anchor = 0x100;
+	}
+      else
+	{
+	  targetm.min_anchor_offset = -32768;
+	  targetm.max_anchor_offset = 32767;
+
+	  targetm.const_anchor = 0x8000;
+	}
     }
 
   /* (Re)initialize MIPS target internals for new ISA.  */
@@ -23111,7 +23131,8 @@ class pass_shrink_mips_offsets : public rtl_opt_pass
   /* opt_pass methods: */
   virtual bool gate (function *)
    {
-      return TARGET_MIPS16 && TARGET_SHRINK_OFFSETS;
+      return (TARGET_MIPS16 || TARGET_MICROMIPS
+	      || TARGET_NANOMIPS) && TARGET_SHRINK_OFFSETS;
    }
   virtual unsigned int execute (function *);
   }; // class pass_shrink_mips_offsets
