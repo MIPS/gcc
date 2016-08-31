@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "md5.h"
 #include "case-cfn-macros.h"
 #include "stringpool.h"
+#include "tree-vrp.h"
 #include "tree-ssanames.h"
 #include "selftest.h"
 
@@ -1300,7 +1301,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
 	    return do_mpc_arg2 (arg1, arg2, type,
                                 /* do_nonfinite= */ folding_initializer,
 				mpc_div);
-	  /* Fallthru ... */
+	  /* Fallthru. */
 	case TRUNC_DIV_EXPR:
 	case CEIL_DIV_EXPR:
 	case FLOOR_DIV_EXPR:
@@ -3696,7 +3697,7 @@ fold_truth_not_expr (location_t loc, tree arg)
       if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	return build1_loc (loc, TRUTH_NOT_EXPR, type, arg);
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case FLOAT_EXPR:
       loc1 = expr_location_or (TREE_OPERAND (arg, 0), loc);
@@ -5101,6 +5102,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       case UNLT_EXPR:
 	if (flag_trapping_math)
 	  break;
+	/* FALLTHRU */
       case LE_EXPR:
       case LT_EXPR:
 	if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
@@ -10323,6 +10325,7 @@ fold_binary_loc (location_t loc,
       /* If first arg is constant zero, return it.  */
       if (integer_zerop (arg0))
 	return fold_convert_loc (loc, type, arg0);
+      /* FALLTHRU */
     case TRUTH_AND_EXPR:
       /* If either arg is constant true, drop it.  */
       if (TREE_CODE (arg0) == INTEGER_CST && ! integer_zerop (arg0))
@@ -10378,6 +10381,7 @@ fold_binary_loc (location_t loc,
       /* If first arg is constant true, return it.  */
       if (TREE_CODE (arg0) == INTEGER_CST && ! integer_zerop (arg0))
 	return fold_convert_loc (loc, type, arg0);
+      /* FALLTHRU */
     case TRUTH_OR_EXPR:
       /* If either arg is constant zero, drop it.  */
       if (TREE_CODE (arg0) == INTEGER_CST && integer_zerop (arg0))
@@ -11222,7 +11226,7 @@ contains_label_1 (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case GOTO_EXPR:
       *walk_subtrees = 0;
 
-      /* ... fall through ...  */
+      /* fall through */
 
     default:
       return NULL_TREE;
@@ -12602,7 +12606,7 @@ multiple_of_p (tree type, const_tree top, const_tree bottom)
 	      < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (top, 0)))))
 	return 0;
 
-      /* .. fall through ...  */
+      /* fall through */
 
     case SAVE_EXPR:
       return multiple_of_p (type, TREE_OPERAND (top, 0), bottom);
@@ -12657,7 +12661,7 @@ multiple_of_p (tree type, const_tree top, const_tree bottom)
 	    return 1;
 	}
 
-      /* .. fall through ...  */
+      /* fall through */
 
     default:
       return 0;
@@ -13894,7 +13898,6 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
       if (!VECTOR_TYPE_P (type))
 	{
 	  /* Have vector comparison with scalar boolean result.  */
-	  bool result = true;
 	  gcc_assert ((code == EQ_EXPR || code == NE_EXPR)
 		      && VECTOR_CST_NELTS (op0) == VECTOR_CST_NELTS (op1));
 	  for (unsigned i = 0; i < VECTOR_CST_NELTS (op0); i++)
@@ -13902,11 +13905,12 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 	      tree elem0 = VECTOR_CST_ELT (op0, i);
 	      tree elem1 = VECTOR_CST_ELT (op1, i);
 	      tree tmp = fold_relational_const (code, type, elem0, elem1);
-	      result &= integer_onep (tmp);
+	      if (tmp == NULL_TREE)
+		return NULL_TREE;
+	      if (integer_zerop (tmp))
+		return constant_boolean_node (false, type);
 	    }
-	  if (code == NE_EXPR)
-	    result = !result;
-	  return constant_boolean_node (result, type);
+	  return constant_boolean_node (true, type);
 	}
       unsigned count = VECTOR_CST_NELTS (op0);
       tree *elts =  XALLOCAVEC (tree, count);
@@ -14514,12 +14518,32 @@ test_arithmetic_folding ()
 				   x);
 }
 
+/* Verify that various binary operations on vectors are folded
+   correctly.  */
+
+static void
+test_vector_folding ()
+{
+  tree inner_type = integer_type_node;
+  tree type = build_vector_type (inner_type, 4);
+  tree zero = build_zero_cst (type);
+  tree one = build_one_cst (type);
+
+  /* Verify equality tests that return a scalar boolean result.  */
+  tree res_type = boolean_type_node;
+  ASSERT_FALSE (integer_nonzerop (fold_build2 (EQ_EXPR, res_type, zero, one)));
+  ASSERT_TRUE (integer_nonzerop (fold_build2 (EQ_EXPR, res_type, zero, zero)));
+  ASSERT_TRUE (integer_nonzerop (fold_build2 (NE_EXPR, res_type, zero, one)));
+  ASSERT_FALSE (integer_nonzerop (fold_build2 (NE_EXPR, res_type, one, one)));
+}
+
 /* Run all of the selftests within this file.  */
 
 void
 fold_const_c_tests ()
 {
   test_arithmetic_folding ();
+  test_vector_folding ();
 }
 
 } // namespace selftest

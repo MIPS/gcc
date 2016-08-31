@@ -2328,7 +2328,7 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
 
       x = LABEL_REF_LABEL (x);
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case CODE_LABEL:
       /* If we know nothing about this label, set the desired offsets.  Note
@@ -2375,7 +2375,7 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
     case JUMP_INSN:
       set_label_offsets (PATTERN (insn), insn, initial_p);
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case INSN:
     case CALL_INSN:
@@ -2690,7 +2690,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 			       ep->previous_offset * INTVAL (XEXP (x, 1)));
 	    }
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case CALL:
     case COMPARE:
@@ -2737,7 +2737,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 	    }
 	}
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case INSN_LIST:
     case INT_LIST:
@@ -3888,9 +3888,10 @@ set_initial_label_offsets (void)
 {
   memset (offsets_known_at, 0, num_labels);
 
-  for (rtx_insn_list *x = forced_labels; x; x = x->next ())
-    if (x->insn ())
-      set_label_offsets (x->insn (), NULL, 1);
+  unsigned int i;
+  rtx_insn *insn;
+  FOR_EACH_VEC_SAFE_ELT (forced_labels, i, insn)
+    set_label_offsets (insn, NULL, 1);
 
   for (rtx_insn_list *x = nonlocal_goto_handler_labels; x; x = x->next ())
     if (x->insn ())
@@ -5499,7 +5500,7 @@ reload_reg_reaches_end_p (unsigned int regno, int reloadnum)
 
       opnum = reload_n_operands;
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case RELOAD_FOR_OUTPUT:
     case RELOAD_FOR_OUTPUT_ADDRESS:

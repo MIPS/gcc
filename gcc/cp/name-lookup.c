@@ -4446,7 +4446,7 @@ suggest_alternatives_for (location_t location, tree name)
       if (fuzzy_name)
 	{
 	  gcc_rich_location richloc (location);
-	  richloc.add_fixit_misspelled_id (location, fuzzy_name);
+	  richloc.add_fixit_replace (fuzzy_name);
 	  inform_at_rich_loc (&richloc, "suggested alternative: %qs",
 			      fuzzy_name);
 	}
@@ -5659,6 +5659,7 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (type))
 	return arg_assoc_type (k, TYPE_PTRMEMFUNC_FN_TYPE (type));
+      /* FALLTHRU */
     case UNION_TYPE:
       return arg_assoc_class (k, type);
     case POINTER_TYPE:

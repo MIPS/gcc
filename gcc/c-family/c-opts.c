@@ -164,7 +164,7 @@ static void
 c_diagnostic_finalizer (diagnostic_context *context,
 			diagnostic_info *diagnostic)
 {
-  diagnostic_show_locus (context, diagnostic);
+  diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
   /* By default print macro expansion contexts in the diagnostic
      finalizer -- for tokens resulting from macro expansion.  */
   virt_loc_aware_diagnostic_finalizer (context, diagnostic);
@@ -439,7 +439,7 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffreestanding:
       value = !value;
-      /* Fall through....  */
+      /* Fall through.  */
     case OPT_fhosted:
       flag_hosted = value;
       flag_no_builtin = !value;

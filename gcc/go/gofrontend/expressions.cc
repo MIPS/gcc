@@ -5767,6 +5767,7 @@ Binary_expression::do_get_backend(Translate_context* context)
     case OPERATOR_DIV:
       if (left_type->float_type() != NULL || left_type->complex_type() != NULL)
         break;
+      // Fall through.
     case OPERATOR_MOD:
       is_idiv_op = true;
       break;
@@ -11438,7 +11439,8 @@ Expression*
 Selector_expression::lower_method_expression(Gogo* gogo)
 {
   Location location = this->location();
-  Type* type = this->left_->type();
+  Type* left_type = this->left_->type();
+  Type* type = left_type;
   const std::string& name(this->name_);
 
   bool is_pointer;
@@ -11468,7 +11470,8 @@ Selector_expression::lower_method_expression(Gogo* gogo)
 	imethod = it->find_method(name);
     }
 
-  if (method == NULL && imethod == NULL)
+  if ((method == NULL && imethod == NULL) 
+      || (left_type->named_type() != NULL && left_type->points_to() != NULL))
     {
       if (!is_ambiguous)
 	error_at(location, "type %<%s%s%> has no method %<%s%>",

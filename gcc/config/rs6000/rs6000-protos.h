@@ -65,6 +65,7 @@ extern void rs6000_expand_vector_set (rtx, rtx, int);
 extern void rs6000_expand_vector_extract (rtx, rtx, rtx);
 extern void rs6000_split_vec_extract_var (rtx, rtx, rtx, rtx, rtx);
 extern rtx rs6000_adjust_vec_address (rtx, rtx, rtx, rtx, machine_mode);
+extern void rs6000_split_v4si_init (rtx []);
 extern bool altivec_expand_vec_perm_const (rtx op[4]);
 extern void altivec_expand_vec_perm_le (rtx op[4]);
 extern bool rs6000_expand_vec_perm_const (rtx op[4]);
@@ -218,6 +219,7 @@ extern void rs6000_sibcall_aix (rtx, rtx, rtx, rtx);
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
+extern const char *rs6000_overloaded_builtin_name (enum rs6000_builtins);
 extern HOST_WIDE_INT rs6000_builtin_mask_calculate (void);
 extern void rs6000_asm_output_dwarf_pcrel (FILE *file, int size,
 					   const char *label);

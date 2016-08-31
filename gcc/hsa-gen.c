@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "stringpool.h"
+#include "tree-vrp.h"
 #include "tree-ssanames.h"
 #include "tree-dfa.h"
 #include "ssa-iterators.h"
@@ -4519,7 +4520,7 @@ get_address_from_value (tree val, hsa_bb *hbb)
     case INTEGER_CST:
       if (tree_fits_shwi_p (val))
 	return new hsa_op_address (NULL, NULL, tree_to_shwi (val));
-      /* Otherwise fall-through */
+      /* fall-through */
 
     default:
       HSA_SORRY_ATV (EXPR_LOCATION (val),

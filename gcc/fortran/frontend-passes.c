@@ -616,6 +616,7 @@ create_var (gfc_expr * e, const char *vname)
   gfc_code *n;
   gfc_namespace *ns;
   int i;
+  bool deferred;
 
   if (e->expr_type == EXPR_CONSTANT || is_fe_temp (e))
     return gfc_copy_expr (e);
@@ -666,6 +667,7 @@ create_var (gfc_expr * e, const char *vname)
 	}
     }
 
+  deferred = 0;
   if (e->ts.type == BT_CHARACTER && e->rank == 0)
     {
       gfc_expr *length;
@@ -675,7 +677,10 @@ create_var (gfc_expr * e, const char *vname)
       if (length)
 	symbol->ts.u.cl->length = length;
       else
-	symbol->attr.allocatable = 1;
+	{
+	  symbol->attr.allocatable = 1;
+	  deferred = 1;
+	}
     }
 
   symbol->attr.flavor = FL_VARIABLE;
@@ -687,6 +692,7 @@ create_var (gfc_expr * e, const char *vname)
   result = gfc_get_expr ();
   result->expr_type = EXPR_VARIABLE;
   result->ts = e->ts;
+  result->ts.deferred = deferred;
   result->rank = e->rank;
   result->shape = gfc_copy_shape (e->shape, e->rank);
   result->symtree = symtree;
@@ -1131,6 +1137,8 @@ remove_trim (gfc_expr *rhs)
   bool ret;
 
   ret = false;
+  if (!rhs)
+    return ret;
 
   /* Check for a // b // trim(c).  Looping is probably not
      necessary because the parser usually generates
@@ -1267,6 +1275,9 @@ combine_array_constructor (gfc_expr *e)
 
   op1 = e->value.op.op1;
   op2 = e->value.op.op2;
+
+  if (!op1 || !op2)
+    return false;
 
   if (op1->expr_type == EXPR_ARRAY && op2->rank == 0)
     scalar_first = false;

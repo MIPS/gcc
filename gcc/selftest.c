@@ -87,5 +87,115 @@ selftest::assert_streq (const location &loc,
 	 desc_expected, desc_actual, val_expected, val_actual);
 }
 
+/* Implementation detail of ASSERT_STR_CONTAINS.
+   Use strstr to determine if val_needle is is within val_haystack.
+   ::selftest::pass if it is found.
+   ::selftest::fail if it is not found.  */
+
+void
+selftest::assert_str_contains (const location &loc,
+			       const char *desc_haystack,
+			       const char *desc_needle,
+			       const char *val_haystack,
+			       const char *val_needle)
+{
+  /* If val_haystack is NULL, fail with a custom error message.  */
+  if (val_haystack == NULL)
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=NULL",
+	 desc_haystack, desc_needle);
+
+  /* If val_needle is NULL, fail with a custom error message.  */
+  if (val_needle == NULL)
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=\"%s\" needle=NULL",
+	 desc_haystack, desc_needle, val_haystack);
+
+  const char *test = strstr (val_haystack, val_needle);
+  if (test)
+    ::selftest::pass (loc, "ASSERT_STR_CONTAINS");
+  else
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=\"%s\" needle=\"%s\"",
+	 desc_haystack, desc_needle, val_haystack, val_needle);
+}
+
+/* Constructor.  Generate a name for the file.  */
+
+selftest::named_temp_file::named_temp_file (const char *suffix)
+{
+  m_filename = make_temp_file (suffix);
+  ASSERT_NE (m_filename, NULL);
+}
+
+/* Destructor.  Delete the tempfile.  */
+
+selftest::named_temp_file::~named_temp_file ()
+{
+  unlink (m_filename);
+  diagnostics_file_cache_forcibly_evict_file (m_filename);
+  free (m_filename);
+}
+
+/* Constructor.  Create a tempfile using SUFFIX, and write CONTENT to
+   it.  Abort if anything goes wrong, using LOC as the effective
+   location in the problem report.  */
+
+selftest::temp_source_file::temp_source_file (const location &loc,
+					      const char *suffix,
+					      const char *content)
+: named_temp_file (suffix)
+{
+  FILE *out = fopen (get_filename (), "w");
+  if (!out)
+    ::selftest::fail_formatted (loc, "unable to open tempfile: %s",
+				get_filename ());
+  fprintf (out, "%s", content);
+  fclose (out);
+}
+
+/* Selftests for the selftest system itself.  */
+
+namespace selftest {
+
+/* Sanity-check the ASSERT_ macros with various passing cases.  */
+
+static void
+test_assertions ()
+{
+  ASSERT_TRUE (true);
+  ASSERT_FALSE (false);
+  ASSERT_EQ (1, 1);
+  ASSERT_EQ_AT (SELFTEST_LOCATION, 1, 1);
+  ASSERT_NE (1, 2);
+  ASSERT_STREQ ("test", "test");
+  ASSERT_STREQ_AT (SELFTEST_LOCATION, "test", "test");
+  ASSERT_STR_CONTAINS ("foo bar baz", "bar");
+}
+
+/* Verify named_temp_file.  */
+
+static void
+test_named_temp_file ()
+{
+  named_temp_file t (".txt");
+  FILE *f = fopen (t.get_filename (), "w");
+  if (!f)
+    selftest::fail_formatted (SELFTEST_LOCATION,
+			      "unable to open %s for writing",
+			      t.get_filename ());
+  fclose (f);
+}
+
+/* Run all of the selftests within this file.  */
+
+void
+selftest_c_tests ()
+{
+  test_assertions ();
+  test_named_temp_file ();
+}
+
+} // namespace selftest
 
 #endif /* #if CHECKING_P */

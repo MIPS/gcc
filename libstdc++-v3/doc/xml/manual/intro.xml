@@ -850,6 +850,12 @@ requirements of the license of GCC.
     <listitem><para>Add additional overloads.
     </para></listitem></varlistentry>
 
+    <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2062">2062</link>:
+	<emphasis>2062. Effect contradictions w/o no-throw guarantee of <code>std::function</code> swaps</emphasis>
+    </term>
+    <listitem><para>Add <code>noexcept</code> to swap functions.
+    </para></listitem></varlistentry>
+
     <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2063">2063</link>:
 	<emphasis>Contradictory requirements for string move assignment</emphasis>
     </term>
@@ -890,6 +896,12 @@ requirements of the license of GCC.
 	<emphasis><code>unique_ptr</code> for array does not support cv qualification conversion of actual argument</emphasis>
     </term>
     <listitem><para>Adjust constraints to allow safe conversions.
+    </para></listitem></varlistentry>
+
+    <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2127">2127</link>:
+	<emphasis>Move-construction with <code>raw_storage_iterator</code></emphasis>
+    </term>
+    <listitem><para>Add assignment operator taking an rvalue.
     </para></listitem></varlistentry>
 
     <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2132">2132</link>:
@@ -1050,6 +1062,13 @@ requirements of the license of GCC.
        </emphasis>
     </term>
     <listitem><para>Divide by the object type.
+    </para></listitem></varlistentry>
+
+    <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2583">2583</link>:
+       <emphasis>There is no way to supply an allocator for <code> basic_string(str, pos)</code>
+       </emphasis>
+    </term>
+    <listitem><para>Add new constructor
     </para></listitem></varlistentry>
 
     <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2684">2684</link>:

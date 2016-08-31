@@ -251,15 +251,14 @@ avoid_constant_pool_reference (rtx x)
       /* If we're accessing the constant in a different mode than it was
          originally stored, attempt to fix that up via subreg simplifications.
          If that fails we have no choice but to return the original memory.  */
-      if ((offset != 0 || cmode != GET_MODE (x))
-	  && offset >= 0 && offset < GET_MODE_SIZE (cmode))
+      if (offset == 0 && cmode == GET_MODE (x))
+	return c;
+      else if (offset >= 0 && offset < GET_MODE_SIZE (cmode))
         {
           rtx tem = simplify_subreg (GET_MODE (x), c, cmode, offset);
           if (tem && CONSTANT_P (tem))
             return tem;
         }
-      else
-        return c;
     }
 
   return x;
@@ -6256,7 +6255,7 @@ simplify_rtx (const_rtx x)
       if (swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
 	return simplify_gen_binary (code, mode, XEXP (x, 1), XEXP (x, 0));
 
-      /* Fall through....  */
+      /* Fall through.  */
 
     case RTX_BIN_ARITH:
       return simplify_binary_operation (code, mode, XEXP (x, 0), XEXP (x, 1));

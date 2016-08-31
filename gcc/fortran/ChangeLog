@@ -1,3 +1,216 @@
+2016-08-31  Paul Thomas  <pault@gcc.gnu.org>
+	Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+
+	* decl.c (access_attr_decl): Include case INTERFACE_DTIO as
+	appropriate.
+	* gfortran.h : Add INTRINSIC_FORMATTED and
+	INTRINSIC_UNFORMATTED to gfc_intrinsic_op. Add INTERFACE_DTIO
+	to interface type. Add new enum 'dtio_codes'. Add bitfield
+	'has_dtio_procs' to symbol_attr. Add prototypes
+	'gfc_check_dtio_interfaces' and 'gfc_find_specific_dtio_proc'.
+	* interface.c (dtio_op): New function.
+	(gfc_match_generic_spec): Match generic DTIO interfaces.
+	(gfc_match_interface): Treat DTIO interfaces in the same way as
+	(gfc_current_interface_head): Add INTERFACE_DTIO appropriately.
+	(check_dtio_arg_TKR_intent): New function.
+	(check_dtio_interface1): New function.
+	(gfc_check_dtio_interfaces): New function.
+	(gfc_find_specific_dtio_proc): New function.
+	* io.c : Add FMT_DT to format_token.
+	(format_lex): Handle DTIO formatting.
+	* match.c (gfc_op2string): Add DTIO operators.
+	* resolve.c (derived_inaccessible): Ignore pointer components
+	to enclosing derived type.
+	(resolve_transfer): Resolve transfers that involve DTIO.
+	procedures. Find the specific subroutine for the transfer and
+	use its existence to over-ride some of the constraints on
+	derived types. If the transfer is recursive, require that the
+	subroutine be so qualified.
+	(dtio_procs_present): New function.
+	(resolve_fl_namelist): Remove inhibition of polymorphic objects
+	in namelists if DTIO read and write subroutines exist. Likewise
+	for derived types.
+	(resolve_types): Invoke 'gfc_verify_dtio_procedures'.
+	* symbol.c : Set 'dtio_procs' using 'minit'.
+	* trans-decl.c (gfc_finish_var_decl): If a derived-type/class
+	object is associated with DTIO procedures, make it TREE_STATIC.
+	* trans-expr.c (gfc_get_vptr_from_expr): If the expression
+	drills down to a PARM_DECL, extract the vptr correctly.
+	(gfc_conv_derived_to_class): Check 'info' in the test for
+	'useflags'. If the se expression exists and is a pointer, use
+	it as the class _data.
+	* trans-io.c : Add IOCALL_X_DERIVED to iocall and the function
+	prototype. Likewise for IOCALL_SET_NML_DTIO_VAL.
+	(set_parameter_tree): Renamed from 'set_parameter_const', now
+	returns void and has new tree argument. Calls modified to match
+	new interface.
+	(transfer_namelist_element): Transfer DTIO procedure pointer
+	and vpointer using the new function IOCALL_SET_NML_DTIO_VAL.
+	(get_dtio_proc): New function.
+	(transfer_expr): Add new argument for the vptr field of class
+	objects. Add the code to call the specific DTIO proc, convert
+	derived types to class and call IOCALL_X_DERIVED.
+	(trans_transfer): Add BT_CLASS to structures for treatment by
+	the scalarizer. Obtain the vptr for the dynamic type, both for
+	scalar and array transfer.
+
+2016-08-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.texi: Fix typo in STRUCTURE documentation.
+
+2016-08-29  Fritz Reese  <fritzoreese@gmail.com>
+
+	Fix, reorganize, and clarify comparisons of anonymous types/components.
+
+	PR fortran/77327
+	* interface.c (is_anonymous_component, is_anonymous_dt): New functions.
+	* interface.c (compare_components, gfc_compare_derived_types): Use new
+	functions.
+
+2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/77380
+	* dependency.c (gfc_check_dependency): Do not assert with
+	-fcoarray=lib.
+
+2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/77372
+	simplify.c (simplify_ieee_selected_real_kind): Check for NULL pointers.
+
+2016-08-25  Steven g. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77351
+	* frontend-passes.c (remove_trim,combine_array_constructor): Check for
+	NULL pointer.
+
+2016-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77358
+	* resolve.c (resolve_fl_procedure): Use the correct gfc_charlen
+	for deferred character length module procedures.
+
+2016-08-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* decl.c (gfc_match_structure_decl): Make gfc_structure_id static.
+
+2016-08-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* interface.c (compare_components): Fix typo in name check conditional.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Bud Davis  <jmdavis@link.com>
+
+	PR fortran/60774
+	* parse.c (next_free,next_fixed): Issue error for statement label
+	without a statement.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/61318
+	* interface.c (compare_parameter): Use better locus for error message.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77260
+	* gcc/fortran/trans-decl.c (generate_local_decl): Suppress warning
+	for unused variable if symbol is entry point.
+
+2016-08-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32187
+	* trans-types.h (float128_type_node): Rename to
+	gfc_float128_type_node.
+	(complex_float128_type_node): Rename to
+	gfc_complex_float128_type_node.
+	* iso-c-binding.def, trans-intrinsic.c, trans-types.c: All users
+	changed.
+
+2016-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/71014
+	* resolve.c (gfc_resolve): For ns->construct_entities don't save, clear
+	and restore omp state around the resolving.
+
+	PR fortran/69281
+	* trans-openmp.c (gfc_trans_omp_parallel, gfc_trans_omp_task,
+	gfc_trans_omp_target): Wrap gfc_trans_omp_code result in an extra
+	BIND_EXPR with its own forced BLOCK.
+
+2016-08-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        * intrinsics.texi (RANDOM_NUMBER): Remove reference to
+        init_random_seed in example.
+        (RANDOM_SEED): Remove warning to not set all seed values to 0.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* error.c (gfc_diagnostic_starter): Update for change to
+	diagnostic_show_locus.
+
+2016-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/67496
+	* trans-array.c (trans_array_constructor): Load
+	expr->ts.u.cl->length_from_typespec only if expr->ts.type is
+	BT_CHARACTER.
+
+2016-08-15  Fritz Reese  <fritzoreese@gmail.com>
+
+	* lang.opt, invoke.texi: New flag -finit-derived.
+	* gfortran.h (gfc_build_default_init_expr, gfc_apply_init,
+	gfc_generate_initializer): New prototypes.
+	* expr.c (gfc_build_default_init_expr, gfc_apply_init,
+	component_initializer, gfc_generate_initializer): New functions.
+	* expr.c (gfc_default_initializer): Wrap gfc_generate_initializer.
+	* decl.c (build_struct): Move common code to gfc_apply_init.
+	* resolve.c (can_generate_init): New function.
+	* resolve.c (build_default_init_expr): Wrap gfc_build_default_init_expr.
+	* resolve.c (apply_default_init, resolve_fl_variable_derived): Use
+	gfc_generate_initializer.
+	* trans-decl.c (gfc_generate_function_code): Use
+	gfc_generate_initializer.
+
+2016-08-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* frontend-passes.c (create_var):  Set ts.deferred for
+	deferred-length character variables.
+	* dump-parse-tree.c (show_typespec):  Also dump
+	is_c_interop, is_iso_c and deferred flags.
+
+2016-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/71906
+	* trans-decl.c (gfc_get_symbol_decl): Call gfc_finish_var_decl
+	for decl's character length before gfc_finish_var_decl on the
+	decl itself.
+
+2016-08-14  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR fortran/70598
+	* openmp.c (resolve_omp_clauses): Adjust use_device clause
+	handling to only allow pointers and arrays.
+
+2016-08-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* decl.c (match_attr_spec): Add FALLTHRU.
+	* primary.c (match_arg_list_function): Likewise.
+	* resolve.c (resolve_operator): Adjust fall through comment.
+	(fixup_charlen): Add FALLTHRU.
+	(resolve_allocate_expr): Adjust fall through comment.
+	* trans-array.c (gfc_conv_ss_startstride): Add FALLTHRU.
+	* trans-intrinsic.c (gfc_conv_intrinsic_len): Adjust fall through
+	comment.
+
+2016-08-11  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* check.c (gfc_check_random_seed): Use new seed size in check.
+	* intrinsic.texi (RANDOM_NUMBER): Updated documentation.
+	(RANDOM_SEED): Likewise.
+
 2016-08-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/72716

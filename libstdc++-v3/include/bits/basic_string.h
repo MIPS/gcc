@@ -417,16 +417,31 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 		    _Alloc_traits::_S_select_on_copy(__str._M_get_allocator()))
       { _M_construct(__str._M_data(), __str._M_data() + __str.length()); }
 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 2583. no way to supply an allocator for basic_string(str, pos)
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.
        *  @param  __pos  Index of first character to copy from.
-       *  @param  __n  Number of characters to copy (default remainder).
+       *  @param  __a  Allocator to use.
        */
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // 2402. [this constructor] shouldn't use Allocator()
       basic_string(const basic_string& __str, size_type __pos,
-		   size_type __n = npos)
+		   const _Alloc& __a = _Alloc())
+      : _M_dataplus(_M_local_data(), __a)
+      {
+	const _CharT* __start = __str._M_data()
+	  + __str._M_check(__pos, "basic_string::basic_string");
+	_M_construct(__start, __start + __str._M_limit(__pos, npos));
+      }
+
+      /**
+       *  @brief  Construct string as copy of a substring.
+       *  @param  __str  Source string.
+       *  @param  __pos  Index of first character to copy from.
+       *  @param  __n  Number of characters to copy.
+       */
+      basic_string(const basic_string& __str, size_type __pos,
+		   size_type __n)
       : _M_dataplus(_M_local_data())
       {
 	const _CharT* __start = __str._M_data()
@@ -438,7 +453,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.
        *  @param  __pos  Index of first character to copy from.
-       *  @param  __n  Number of characters to copy (default remainder).
+       *  @param  __n  Number of characters to copy.
        *  @param  __a  Allocator to use.
        */
       basic_string(const basic_string& __str, size_type __pos,
@@ -709,7 +724,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @brief  Set value to string constructed from a string_view.
        *  @param  __sv  A string_view.
        */
-      basic_string& operator=(__sv_type __sv)
+      basic_string&
+      operator=(__sv_type __sv)
       {	return this->assign(__sv); }
 
       /**
@@ -1217,8 +1233,15 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __sv  The string_view to be appended.
        *  @return  Reference to this string.
        */
-      basic_string& append(__sv_type __sv)
+      basic_string&
+      append(__sv_type __sv)
       { return this->append(__sv.data(), __sv.size()); }
+
+      template<typename _Tp, typename _Res>
+	using _If_sv = enable_if_t<
+	  __and_<is_convertible<const _Tp&, __sv_type>,
+		 __not_<is_convertible<const _Tp&, const _CharT*>>>::value,
+	  _Res>;
 
       /**
        *  @brief  Append a range of characters from a string_view.
@@ -1227,13 +1250,15 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __n   The number of characters to append from the string_view.
        *  @return  Reference to this string.
        */
-      basic_string& append(__sv_type __sv,
-			   size_type __pos, size_type __n = npos)
-      {
-	return _M_append(__sv.data()
-			 + __sv._M_check(__pos, "basic_string::append"),
-			 __sv._M_limit(__pos, __n));
-      }
+      template <typename _Tp>
+	_If_sv<_Tp, basic_string&>
+	append(const _Tp& __svt, size_type __pos, size_type __n = npos)
+	{
+	  __sv_type __sv = __svt;
+	  return _M_append(__sv.data()
+			   + __sv._M_check(__pos, "basic_string::append"),
+			   __sv._M_limit(__pos, __n));
+	}
 #endif // C++17
 
       /**
@@ -1382,7 +1407,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __sv  The source string_view.
        *  @return  Reference to this string.
        */
-      basic_string& assign(__sv_type __sv)
+      basic_string&
+      assign(__sv_type __sv)
       {	return this->assign(__sv.data(), __sv.size()); }
 
       /**
@@ -1392,14 +1418,15 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __n  The number of characters to assign.
        *  @return  Reference to this string.
        */
-      basic_string&
-      assign(__sv_type __sv,
-	     size_type __pos, size_type __n = npos)
-      {
-	return _M_replace(size_type(0), this->size(), __sv.data()
-			  + __sv._M_check(__pos, "basic_string::assign"),
-			  __sv._M_limit(__pos, __n));
-      }
+      template <typename _Tp>
+	_If_sv<_Tp, basic_string&>
+	assign(const _Tp& __svt, size_type __pos, size_type __n = npos)
+	{
+	  __sv_type __sv = __svt;
+	  return _M_replace(size_type(0), this->size(), __sv.data()
+			    + __sv._M_check(__pos, "basic_string::assign"),
+			    __sv._M_limit(__pos, __n));
+	}
 #endif // C++17
 
 #if __cplusplus >= 201103L
@@ -1639,8 +1666,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __sv   The string_view to insert.
        *  @return  Reference to this string.
       */
-      basic_string& insert(size_type __pos,
-			   __sv_type __sv)
+      basic_string&
+      insert(size_type __pos, __sv_type __sv)
       {	return this->insert(__pos, __sv.data(), __sv.size()); }
 
       /**
@@ -1652,13 +1679,16 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __n    The number of characters to insert.
        *  @return  Reference to this string.
       */
-      basic_string& insert(size_type __pos1, __sv_type __sv,
-			   size_type __pos2, size_type __n = npos)
-      {
-	return this->replace(__pos1, size_type(0), __sv.data()
-			     + __sv._M_check(__pos2, "basic_string::insert"),
-			     __sv._M_limit(__pos2, __n));
-      }
+      template <typename _Tp>
+	_If_sv<_Tp, basic_string&>
+	insert(size_type __pos1, const _Tp& __svt,
+	       size_type __pos2, size_type __n = npos)
+	{
+	  __sv_type __sv = __svt;
+	  return this->replace(__pos1, size_type(0), __sv.data()
+			       + __sv._M_check(__pos2, "basic_string::insert"),
+			       __sv._M_limit(__pos2, __n));
+	}
 #endif // C++17
 
       /**
@@ -2058,8 +2088,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __sv  The string_view to insert.
        *  @return  Reference to this string.
       */
-      basic_string& replace(size_type __pos, size_type __n,
-			    __sv_type __sv)
+      basic_string&
+      replace(size_type __pos, size_type __n, __sv_type __sv)
       {	return this->replace(__pos, __n, __sv.data(), __sv.size()); }
 
       /**
@@ -2071,14 +2101,16 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __n2    The number of characters to insert.
        *  @return  Reference to this string.
       */
-      basic_string& replace(size_type __pos1, size_type __n1,
-			    __sv_type __sv,
-			    size_type __pos2, size_type __n2 = npos)
-      {
-	return this->replace(__pos1, __n1, __sv.data()
-			     + __sv._M_check(__pos2, "basic_string::replace"),
-			     __sv._M_limit(__pos2, __n2));
-      }
+      template <typename _Tp>
+	_If_sv<_Tp, basic_string&>
+	replace(size_type __pos1, size_type __n1, const _Tp& __svt,
+		size_type __pos2, size_type __n2 = npos)
+	{
+	  __sv_type __sv = __svt;
+	  return this->replace(__pos1, __n1, __sv.data()
+			       + __sv._M_check(__pos2, "basic_string::replace"),
+			       __sv._M_limit(__pos2, __n2));
+	}
 
       /**
        *  @brief  Replace range of characters with string_view.
@@ -2089,8 +2121,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __sv    The string_view to insert from.
        *  @return  Reference to this string.
       */
-      basic_string& replace(const_iterator __i1, const_iterator __i2,
-			    __sv_type __sv)
+      basic_string&
+      replace(const_iterator __i1, const_iterator __i2, __sv_type __sv)
       {	return this->replace(__i1 - begin(), __i2 - __i1, __sv); }
 #endif // C++17
 
@@ -2225,8 +2257,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @return  Index of start of first occurrence.
       */
       size_type
-      find(__sv_type __sv,
-	    size_type __pos = 0) const noexcept
+      find(__sv_type __sv, size_type __pos = 0) const noexcept
       {	return this->find(__sv.data(), __pos, __sv.size()); }
 #endif // C++17
 
@@ -2283,8 +2314,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @return  Index of start of last occurrence.
       */
       size_type
-      rfind (__sv_type __sv,
-	     size_type __pos = npos) const noexcept
+      rfind(__sv_type __sv, size_type __pos = npos) const noexcept
       {	return this->rfind(__sv.data(), __pos, __sv.size()); }
 #endif // C++17
 
@@ -2705,11 +2735,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @return  Integer < 0, 0, or > 0.
        */
       int
-      compare(size_type __pos, size_type __n,
-	      __sv_type __sv) const
-      {
-	return __sv_type(*this).substr(__pos, __n).compare(__sv);
-      }
+      compare(size_type __pos, size_type __n, __sv_type __sv) const
+      { return __sv_type(*this).substr(__pos, __n).compare(__sv); }
 
       /**
        *  @brief  Compare to a string_view.
@@ -2720,13 +2747,15 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @param __n2  The number of characters to compare.
        *  @return  Integer < 0, 0, or > 0.
        */
-      int compare(size_type __pos1, size_type __n1,
-		  __sv_type __sv,
-		  size_type __pos2, size_type __n2 = npos) const
-      {
-	return __sv_type(*this)
-	  .substr(__pos1, __n1).compare(__sv.substr(__pos2, __n2));
-      }
+      template <typename _Tp>
+	_If_sv<_Tp, int>
+	compare(size_type __pos1, size_type __n1, const _Tp& __svt,
+		size_type __pos2, size_type __n2 = npos) const
+	{
+	  __sv_type __sv = __svt;
+	  return __sv_type(*this)
+	    .substr(__pos1, __n1).compare(__sv.substr(__pos2, __n2));
+	}
 #endif // C++17
 
       /**
@@ -3291,14 +3320,26 @@ _GLIBCXX_END_NAMESPACE_CXX11
        *  @param  __str  Source string.
        */
       basic_string(const basic_string& __str);
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 2583. no way to supply an allocator for basic_string(str, pos)
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.
        *  @param  __pos  Index of first character to copy from.
-       *  @param  __n  Number of characters to copy (default remainder).
+       *  @param  __a  Allocator to use.
        */
       basic_string(const basic_string& __str, size_type __pos,
-		   size_type __n = npos);
+		   const _Alloc& __a = _Alloc());
+
+      /**
+       *  @brief  Construct string as copy of a substring.
+       *  @param  __str  Source string.
+       *  @param  __pos  Index of first character to copy from.
+       *  @param  __n  Number of characters to copy.
+       */
+      basic_string(const basic_string& __str, size_type __pos,
+		   size_type __n);
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.

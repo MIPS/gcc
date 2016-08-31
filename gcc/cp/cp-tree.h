@@ -145,6 +145,7 @@ operator == (const cp_expr &lhs, tree rhs)
       WILDCARD_PACK_P (in WILDCARD_DECL)
       BLOCK_OUTER_CURLY_BRACE_P (in BLOCK)
       FOLD_EXPR_MODOP_P (*_FOLD_EXPR)
+      IF_STMT_CONSTEXPR_P (IF_STMT)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -4530,6 +4531,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define THEN_CLAUSE(NODE)	TREE_OPERAND (IF_STMT_CHECK (NODE), 1)
 #define ELSE_CLAUSE(NODE)	TREE_OPERAND (IF_STMT_CHECK (NODE), 2)
 #define IF_SCOPE(NODE)		TREE_OPERAND (IF_STMT_CHECK (NODE), 3)
+#define IF_STMT_CONSTEXPR_P(NODE) TREE_LANG_FLAG_0 (IF_STMT_CHECK (NODE))
 
 /* WHILE_STMT accessors. These give access to the condition of the
    while statement and the body of the while statement, respectively.  */
@@ -5664,6 +5666,7 @@ extern void determine_key_method		(tree);
 extern void check_for_override			(tree, tree);
 extern void push_class_stack			(void);
 extern void pop_class_stack			(void);
+extern bool default_ctor_p			(tree);
 extern bool type_has_user_nondefault_constructor (tree);
 extern tree in_class_defaulted_default_constructor (tree);
 extern bool user_provided_p			(tree);
@@ -6303,7 +6306,7 @@ extern void add_decl_expr			(tree);
 extern tree maybe_cleanup_point_expr_void	(tree);
 extern tree finish_expr_stmt			(tree);
 extern tree begin_if_stmt			(void);
-extern void finish_if_stmt_cond			(tree, tree);
+extern tree finish_if_stmt_cond			(tree, tree);
 extern tree finish_then_clause			(tree);
 extern void begin_else_clause			(tree);
 extern void finish_else_clause			(tree);
@@ -6799,7 +6802,7 @@ extern tree mangle_typeinfo_string_for_type	(tree);
 extern tree mangle_vtbl_for_type		(tree);
 extern tree mangle_vtt_for_type			(tree);
 extern tree mangle_ctor_vtbl_for_type		(tree, tree);
-extern tree mangle_thunk			(tree, int, tree, tree);
+extern tree mangle_thunk			(tree, int, tree, tree, tree);
 extern tree mangle_conv_op_name_for_type	(tree);
 extern tree mangle_guard_variable		(tree);
 extern tree mangle_tls_init_fn			(tree);

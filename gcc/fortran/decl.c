@@ -1910,53 +1910,7 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
     }
   *as = NULL;
 
-  /* Should this ever get more complicated, combine with similar section
-     in add_init_expr_to_sym into a separate function.  */
-  if (c->ts.type == BT_CHARACTER && !c->attr.pointer && c->initializer
-      && c->ts.u.cl
-      && c->ts.u.cl->length && c->ts.u.cl->length->expr_type == EXPR_CONSTANT)
-    {
-      int len;
-
-      gcc_assert (c->ts.u.cl && c->ts.u.cl->length);
-      gcc_assert (c->ts.u.cl->length->expr_type == EXPR_CONSTANT);
-      gcc_assert (c->ts.u.cl->length->ts.type == BT_INTEGER);
-
-      len = mpz_get_si (c->ts.u.cl->length->value.integer);
-
-      if (c->initializer->expr_type == EXPR_CONSTANT)
-	gfc_set_constant_character_len (len, c->initializer, -1);
-      else if (c->initializer
-		&& c->initializer->ts.u.cl
-		&& mpz_cmp (c->ts.u.cl->length->value.integer,
-			    c->initializer->ts.u.cl->length->value.integer))
-	{
-	  gfc_constructor *ctor;
-	  ctor = gfc_constructor_first (c->initializer->value.constructor);
-
-	  if (ctor)
-	    {
-	      int first_len;
-	      bool has_ts = (c->initializer->ts.u.cl
-			     && c->initializer->ts.u.cl->length_from_typespec);
-
-	      /* Remember the length of the first element for checking
-		 that all elements *in the constructor* have the same
-		 length.  This need not be the length of the LHS!  */
-	      gcc_assert (ctor->expr->expr_type == EXPR_CONSTANT);
-	      gcc_assert (ctor->expr->ts.type == BT_CHARACTER);
-	      first_len = ctor->expr->value.character.length;
-
-	      for ( ; ctor; ctor = gfc_constructor_next (ctor))
-		if (ctor->expr->expr_type == EXPR_CONSTANT)
-		{
-		  gfc_set_constant_character_len (len, ctor->expr,
-						  has_ts ? -1 : first_len);
-		  ctor->expr->ts.u.cl->length = gfc_copy_expr (c->ts.u.cl->length);
-		}
-	    }
-	}
-    }
+  gfc_apply_init (&c->ts, &c->attr, c->initializer);
 
   /* Check array components.  */
   if (!c->attr.dimension)
@@ -3927,6 +3881,7 @@ match_attr_spec (void)
 		      d = DECL_CODIMENSION;
 		      break;
 		    }
+		  /* FALLTHRU */
 		case 'n':
 		  if (match_string_p ("tiguous"))
 		    {
@@ -7514,6 +7469,7 @@ access_attr_decl (gfc_statement st)
 	  goto syntax;
 
 	case INTERFACE_GENERIC:
+	case INTERFACE_DTIO:
 	  if (gfc_get_symbol (name, NULL, &sym))
 	    goto done;
 
@@ -8518,7 +8474,7 @@ match
 gfc_match_structure_decl (void)
 {
     /* Counter used to give unique internal names to anonymous structures.  */
-    int gfc_structure_id = 0;
+    static unsigned int gfc_structure_id = 0;
     char name[GFC_MAX_SYMBOL_LEN + 1];
     gfc_symbol *sym;
     match m;
@@ -9423,6 +9379,7 @@ gfc_match_generic (void)
   switch (op_type)
     {
     case INTERFACE_GENERIC:
+    case INTERFACE_DTIO:
       snprintf (bind_name, sizeof (bind_name), "%s", name);
       break;
 
@@ -9458,6 +9415,7 @@ gfc_match_generic (void)
 
   switch (op_type)
     {
+    case INTERFACE_DTIO:
     case INTERFACE_USER_OP:
     case INTERFACE_GENERIC:
       {
@@ -9512,6 +9470,7 @@ gfc_match_generic (void)
 
       switch (op_type)
 	{
+	case INTERFACE_DTIO:
 	case INTERFACE_GENERIC:
 	case INTERFACE_USER_OP:
 	  {
