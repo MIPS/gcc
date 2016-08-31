@@ -2265,6 +2265,49 @@ nvptx_reorg_subreg (void)
     }
 }
 
+/* UNIFIED is a cond_uni insn.  Find the branch insn it affects, and
+   mark that as unified.  We expect to be in a single block.  */
+
+static void
+nvptx_propagate_unified (rtx_insn *unified)
+{
+  rtx_insn *probe = unified;
+  rtx cond_reg = SET_DEST (PATTERN (unified));
+  rtx pat;
+
+  /* Find the comparison.  (We could skip this and simply scan to he
+     blocks' terminating branch, if we didn't care for self
+     checking.)  */
+  for (;;)
+    {
+      probe = NEXT_INSN (probe);
+      pat = PATTERN (probe);
+
+      if (GET_CODE (pat) == SET
+	  && GET_RTX_CLASS (GET_CODE (SET_SRC (pat))) == RTX_COMPARE
+	  && XEXP (SET_SRC (pat), 0) == cond_reg)
+	break;
+      gcc_assert (NONJUMP_INSN_P (probe));
+    }
+  rtx pred_reg = SET_DEST (pat);
+
+  /* Find the branch.  */
+  do
+    probe = NEXT_INSN (probe);
+  while (!JUMP_P (probe));
+
+  pat = PATTERN (probe);
+  rtx itec = XEXP (SET_SRC (pat), 0);
+  gcc_assert (XEXP (itec, 0) == pred_reg);
+
+  /* Mark the branch's condition as unified.  */
+  rtx unspec = gen_rtx_UNSPEC (BImode, gen_rtvec (1, pred_reg),
+			       UNSPEC_BR_UNIFIED);
+  bool ok = validate_change (probe, &XEXP (itec, 0), unspec, false);
+
+  gcc_assert (ok);
+}
+
 /* Loop structure of the function.  The entire function is described as
    a NULL loop.  */
 
@@ -2366,6 +2409,9 @@ nvptx_split_blocks (bb_insn_map_t *map)
 	    continue;
 	  switch (recog_memoized (insn))
 	    {
+	    case CODE_FOR_cond_uni:
+	      nvptx_propagate_unified (insn);
+	      /* FALLTHROUGH */
 	    default:
 	      seen_insn = true;
 	      continue;
@@ -4072,6 +4118,21 @@ nvptx_expand_cmp_swap (tree exp, rtx target,
   return target;
 }
 
+/* Expander for the compare unified builtin.  */
+
+static rtx
+nvptx_expand_cond_uni (tree exp, rtx target, machine_mode mode, int ignore)
+{
+  if (ignore)
+    return target;
+  
+  rtx src = expand_expr (CALL_EXPR_ARG (exp, 0),
+			 NULL_RTX, mode, EXPAND_NORMAL);
+
+  emit_insn (gen_cond_uni (target, src));
+
+  return target;
+}
 
 /* Codes for all the NVPTX builtins.  */
 enum nvptx_builtins
@@ -4081,6 +4142,7 @@ enum nvptx_builtins
   NVPTX_BUILTIN_WORKER_ADDR,
   NVPTX_BUILTIN_CMP_SWAP,
   NVPTX_BUILTIN_CMP_SWAPLL,
+  NVPTX_BUILTIN_COND_UNI,
   NVPTX_BUILTIN_MAX
 };
 
@@ -4118,6 +4180,7 @@ nvptx_init_builtins (void)
        (PTRVOID, ST, UINT, UINT, NULL_TREE));
   DEF (CMP_SWAP, "cmp_swap", (UINT, PTRVOID, UINT, UINT, NULL_TREE));
   DEF (CMP_SWAPLL, "cmp_swapll", (LLUINT, PTRVOID, LLUINT, LLUINT, NULL_TREE));
+  DEF (COND_UNI, "cond_uni", (integer_type_node, integer_type_node, NULL_TREE));
 
 #undef DEF
 #undef ST
@@ -4149,6 +4212,9 @@ nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
     case NVPTX_BUILTIN_CMP_SWAP:
     case NVPTX_BUILTIN_CMP_SWAPLL:
       return nvptx_expand_cmp_swap (exp, target, mode, ignore);
+
+    case NVPTX_BUILTIN_COND_UNI:
+      return nvptx_expand_cond_uni (exp, target, mode, ignore);
 
     default: gcc_unreachable ();
     }
@@ -4303,7 +4369,7 @@ nvptx_get_worker_red_addr (tree type, tree offset)
 
 static void
 nvptx_generate_vector_shuffle (location_t loc,
-			       tree dest_var, tree var, unsigned shift,
+			       tree dest_var, tree var, tree bits,
 			       gimple_seq *seq)
 {
   unsigned fn = NVPTX_BUILTIN_SHUFFLE;
@@ -4326,7 +4392,6 @@ nvptx_generate_vector_shuffle (location_t loc,
     }
   
   tree call = nvptx_builtin_decl (fn, true);
-  tree bits = build_int_cst (unsigned_type_node, shift);
   tree kind = build_int_cst (unsigned_type_node, SHUFFLE_DOWN);
   tree expr;
 
@@ -4598,6 +4663,109 @@ nvptx_reduction_update (location_t loc, gimple_stmt_iterator *gsi,
     return nvptx_lockfull_update (loc, gsi, ptr, var, op);
 }
 
+/* Emit a vector-level reduction loop.  OLD_VAR is the incoming
+   variable to reduce (valid in each vector), OP is the reduction
+   operator.  Return the reduced value (an SSA var).
+
+   The code we generate looks like:
+      unsigned old_shift = DIM_SIZE(VECTOR);
+      do 
+	{
+	  shift = PHI (old_shift, new_shift);
+	  var = PHI (old_var, new_var);
+	  new_shift = shift >> 1;
+	  other_var = VSHUFFLE (var, new_shift);
+	  new_var = var OP other_var;
+	  cond_var = builtin_cond_uni (new_shift);
+	}
+	while (cond_var > 1);
+
+  The builtin_cond_ini expands to a cond_uni instruction, which is
+  processed in nvpts_split_blocks to mark the loop's terminating
+  branch instruction.  */
+
+static tree
+nvptx_vector_reduction (location_t loc, gimple_stmt_iterator *gsi,
+			tree old_var, tree_code op)
+{
+  tree var_type = TREE_TYPE (old_var);
+
+  /*  Emit old_shift = DIM_SIZE(VECTOR) */
+  tree old_shift = make_ssa_name (integer_type_node);
+  tree dim = build_int_cst (integer_type_node, GOMP_DIM_VECTOR);
+  gcall *call = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, dim);
+  gimple_set_lhs (call, old_shift);
+  gimple_set_location (call, loc);
+  gsi_insert_before (gsi, call, GSI_SAME_STMT);
+
+  /* Split the block just after the init stmts.  */
+  basic_block pre_bb = gsi_bb (*gsi);
+  edge pre_edge = split_block (pre_bb, call);
+  basic_block loop_bb = pre_edge->dest;
+  pre_bb = pre_edge->src;
+  /* Reset the iterator.  */
+  *gsi = gsi_for_stmt (gsi_stmt (*gsi));
+
+  tree shift = make_ssa_name (integer_type_node);
+  tree new_shift = make_ssa_name (integer_type_node);
+  tree var = make_ssa_name (var_type);
+  tree other_var = make_ssa_name (var_type);
+  tree new_var = make_ssa_name (var_type);
+  
+  /* Build and insert the loop body.  */
+  gimple_seq loop_seq = NULL;
+
+  /* new_shift = shift >> 1 */
+  tree shift_expr = fold_build2 (RSHIFT_EXPR, integer_type_node,
+				 shift, integer_one_node);
+  gimplify_assign (new_shift, shift_expr, &loop_seq);
+
+  /* other_var = shuffle (var, shift) */
+  nvptx_generate_vector_shuffle (loc, other_var, var, new_shift, &loop_seq);
+  /* new_var = var  OP other_var */
+  tree red_expr = fold_build2 (op, var_type, var, other_var);
+  gimplify_assign (new_var, red_expr, &loop_seq);
+
+  /* Mark the iterator variable as unified.  */
+  tree cond_var = make_ssa_name (integer_type_node);
+  tree uni_fn = nvptx_builtin_decl (NVPTX_BUILTIN_COND_UNI, true);
+  tree uni_expr = build_call_expr_loc (loc, uni_fn, 1, new_shift);
+  gimplify_assign (cond_var,  uni_expr, &loop_seq);
+
+  gcond *cond = gimple_build_cond (LE_EXPR, cond_var, integer_one_node,
+				   NULL_TREE, NULL_TREE);
+  gimple_seq_add_stmt (&loop_seq, cond);
+  
+  gsi_insert_seq_before (gsi, loop_seq, GSI_SAME_STMT);
+
+  /* Split the block just after the loop stmts.  */
+  edge post_edge = split_block (loop_bb, cond);
+  basic_block post_bb = post_edge->dest;
+  loop_bb = post_edge->src;
+  *gsi = gsi_for_stmt (gsi_stmt (*gsi));
+
+  /* Create the loop.  */
+  post_edge->flags ^= EDGE_TRUE_VALUE | EDGE_FALLTHRU;
+  edge loop_edge = make_edge (loop_bb, loop_bb, EDGE_FALSE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, loop_bb, pre_bb);
+  set_immediate_dominator (CDI_DOMINATORS, post_bb, loop_bb);
+
+  gphi *shift_phi = create_phi_node (shift, loop_bb);
+  add_phi_arg (shift_phi, old_shift, pre_edge, loc);
+  add_phi_arg (shift_phi, new_shift, loop_edge, loc);
+
+  gphi *var_phi = create_phi_node (var, loop_bb);
+  add_phi_arg (var_phi, old_var, pre_edge, loc);
+  add_phi_arg (var_phi, new_var, loop_edge, loc);
+
+  loop *loop = alloc_loop ();
+  loop->header = loop_bb;
+  loop->latch = loop_bb;
+  add_loop (loop, loop_bb->loop_father);
+
+  return new_var;
+}
+
 /* NVPTX implementation of GOACC_REDUCTION_SETUP.  */
 
 static void
@@ -4740,22 +4908,7 @@ nvptx_goacc_reduction_fini (gcall *call)
   push_gimplify_context (true);
 
   if (level == GOMP_DIM_VECTOR)
-    {
-      /* Emit binary shuffle tree.  TODO. Emit this as an actual loop,
-	 but that requires a method of emitting a unified jump at the
-	 gimple level.  */
-      for (int shfl = PTX_VECTOR_LENGTH / 2; shfl > 0; shfl = shfl >> 1)
-	{
-	  tree other_var = make_ssa_name (TREE_TYPE (var));
-	  nvptx_generate_vector_shuffle (gimple_location (call),
-					 other_var, var, shfl, &seq);
-
-	  r = make_ssa_name (TREE_TYPE (var));
-	  gimplify_assign (r, fold_build2 (op, TREE_TYPE (var),
-					   var, other_var), &seq);
-	  var = r;
-	}
-    }
+    r = nvptx_vector_reduction (gimple_location (call), &gsi, var, op);
   else
     {
       tree accum = NULL_TREE;

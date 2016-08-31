@@ -1,3 +1,16 @@
+2016-08-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (cond_uni): New pattern.
+	* config/nvptx/nvptx.c (nvptx_propagate_unified): New.
+	(nvptx_split_blocks): Call it for cond_uni insn.
+	(nvptx_expand_cond_uni): New.
+	(enum nvptx_builtins): Add NVPTX_BUILTIN_COND_UNI.
+	(nvptx_init_builtins): Initialize it.
+	(nvptx_generate_vector_shuffle): Change integral SHIFT operand to
+	tree BITS operand.
+	(nvptx_vector_reduction): New.
+	(nvptx_goacc_reduction_fini): Call it for vector.
+
 2016-08-30  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (lower_omp_target): Handle NULL-sized types for
