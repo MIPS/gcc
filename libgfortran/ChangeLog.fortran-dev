@@ -1,3 +1,9 @@
+2016-08-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	* caf/single.c (_gfortran_caf_get, _gfortran_caf_send): Update
+	for new descriptor ABI.
+	(CFI_is_contiguous): Handle negative strides.
+
 2013-05-02  Tobias Burnus  <burnus@net-b.de>
 
 	* runtime/iso_ts29113.c (CFI_establish, CFI_select_part):

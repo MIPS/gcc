@@ -600,8 +600,8 @@ _gfortran_caf_get (caf_token_t token, size_t offset,
   size_t i, k, size;
   int j;
   int rank = GFC_DESCRIPTOR_RANK (dest);
-  size_t src_size = GFC_DESCRIPTOR_SIZE (src);
-  size_t dst_size = GFC_DESCRIPTOR_SIZE (dest);
+  size_t src_size = GFC_DESCRIPTOR_ELEM_LEN (src);
+  size_t dst_size = GFC_DESCRIPTOR_ELEM_LEN (dest);
 
   if (stat)
     *stat = 0;
@@ -639,7 +639,7 @@ _gfortran_caf_get (caf_token_t token, size_t offset,
   size = 1;
   for (j = 0; j < rank; j++)
     {
-      ptrdiff_t dimextent = dest->dim[j]._ubound - dest->dim[j].lower_bound + 1;
+      ptrdiff_t dimextent = GFC_DESCRIPTOR_EXTENT(dest, j);
       if (dimextent < 0)
 	dimextent = 0;
       size *= dimextent;
@@ -661,16 +661,17 @@ _gfortran_caf_get (caf_token_t token, size_t offset,
 	  ptrdiff_t extent = 1;
 	  for (j = 0; j < GFC_DESCRIPTOR_RANK (src)-1; j++)
 	    {
+	      ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(src, j);
 	      array_offset_sr += ((i / (extent*stride))
-				  % (src->dim[j]._ubound
-				    - src->dim[j].lower_bound + 1))
-				 * src->dim[j]._stride;
-	      extent = (src->dim[j]._ubound - src->dim[j].lower_bound + 1);
-	      stride = src->dim[j]._stride;
+				  % stride_j)
+				 * GFC_DESCRIPTOR_STRIDE(src, j);
+	      extent = GFC_DESCRIPTOR_EXTENT(src, j);
+	      stride = stride_j;
 	    }
-	  array_offset_sr += (i / extent) * src->dim[rank-1]._stride;
+	  array_offset_sr += (i / extent) * GFC_DESCRIPTOR_STRIDE(src,
+								  rank -1 );
 	  void *sr = (void *)((char *) TOKEN (token) + offset
-			  + array_offset_sr*GFC_DESCRIPTOR_SIZE (src));
+			  + array_offset_sr*GFC_DESCRIPTOR_ELEM_LEN (src));
           memcpy ((void *) ((char *) tmp + array_offset_dst), sr, src_size);
           array_offset_dst += src_size;
 	}
@@ -683,16 +684,17 @@ _gfortran_caf_get (caf_token_t token, size_t offset,
 	  ptrdiff_t extent = 1;
 	  for (j = 0; j < rank-1; j++)
 	    {
+	      ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(dest, j);
 	      array_offset_dst += ((i / (extent*stride))
-				   % (dest->dim[j]._ubound
-				      - dest->dim[j].lower_bound + 1))
-				  * dest->dim[j]._stride;
-	      extent = (dest->dim[j]._ubound - dest->dim[j].lower_bound + 1);
-	      stride = dest->dim[j]._stride;
+				  % stride_j)
+				 * GFC_DESCRIPTOR_STRIDE(dest, j);
+	      extent = GFC_DESCRIPTOR_EXTENT(dest, j);
+	      stride = stride_j;
 	    }
-	  array_offset_dst += (i / extent) * dest->dim[rank-1]._stride;
+	  array_offset_dst += (i / extent) * GFC_DESCRIPTOR_STRIDE(dest,
+								   rank -1 );
 	  void *dst = dest->base_addr
-		      + array_offset_dst*GFC_DESCRIPTOR_SIZE (dest);
+		      + array_offset_dst*GFC_DESCRIPTOR_ELEM_LEN (dest);
           void *sr = tmp + array_offset_sr;
 
 	  if (GFC_DESCRIPTOR_TYPE (dest) == GFC_DESCRIPTOR_TYPE (src)
@@ -731,31 +733,33 @@ _gfortran_caf_get (caf_token_t token, size_t offset,
       ptrdiff_t extent = 1;
       for (j = 0; j < rank-1; j++)
 	{
+	  ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(dest, j);
 	  array_offset_dst += ((i / (extent*stride))
-			       % (dest->dim[j]._ubound
-				  - dest->dim[j].lower_bound + 1))
-			      * dest->dim[j]._stride;
-	  extent = (dest->dim[j]._ubound - dest->dim[j].lower_bound + 1);
-          stride = dest->dim[j]._stride;
+			       % stride_j)
+			      * GFC_DESCRIPTOR_STRIDE(dest, j);
+	  extent = GFC_DESCRIPTOR_EXTENT(dest, j);
+	  stride = stride_j;
 	}
-      array_offset_dst += (i / extent) * dest->dim[rank-1]._stride;
-      void *dst = dest->base_addr + array_offset_dst*GFC_DESCRIPTOR_SIZE (dest);
+      array_offset_dst += (i / extent) * GFC_DESCRIPTOR_STRIDE(dest,
+							       rank -1 );
+      void *dst = dest->base_addr + array_offset_dst*GFC_DESCRIPTOR_ELEM_LEN (dest);
 
       ptrdiff_t array_offset_sr = 0;
       stride = 1;
       extent = 1;
       for (j = 0; j < GFC_DESCRIPTOR_RANK (src)-1; j++)
 	{
+	  ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(src, j);
 	  array_offset_sr += ((i / (extent*stride))
-			       % (src->dim[j]._ubound
-				  - src->dim[j].lower_bound + 1))
-			      * src->dim[j]._stride;
-	  extent = (src->dim[j]._ubound - src->dim[j].lower_bound + 1);
-	  stride = src->dim[j]._stride;
+			       % stride_j)
+			      * GFC_DESCRIPTOR_STRIDE(src, j);
+	  extent = GFC_DESCRIPTOR_EXTENT(src, j);
+	  stride = stride_j;
 	}
-      array_offset_sr += (i / extent) * src->dim[rank-1]._stride;
+      array_offset_sr += (i / extent) * GFC_DESCRIPTOR_STRIDE(src,
+							      rank -1 );
       void *sr = (void *)((char *) TOKEN (token) + offset
-			  + array_offset_sr*GFC_DESCRIPTOR_SIZE (src));
+			  + array_offset_sr*GFC_DESCRIPTOR_ELEM_LEN (src));
 
       if (GFC_DESCRIPTOR_TYPE (dest) == GFC_DESCRIPTOR_TYPE (src)
 	  && dst_kind == src_kind)
@@ -793,8 +797,8 @@ _gfortran_caf_send (caf_token_t token, size_t offset,
   size_t i, k, size;
   int j;
   int rank = GFC_DESCRIPTOR_RANK (dest);
-  size_t src_size = GFC_DESCRIPTOR_SIZE (src);
-  size_t dst_size = GFC_DESCRIPTOR_SIZE (dest);
+  size_t src_size = GFC_DESCRIPTOR_ELEM_LEN (src);
+  size_t dst_size = GFC_DESCRIPTOR_ELEM_LEN (dest);
 
   if (stat)
     *stat = 0;
@@ -832,7 +836,7 @@ _gfortran_caf_send (caf_token_t token, size_t offset,
   size = 1;
   for (j = 0; j < rank; j++)
     {
-      ptrdiff_t dimextent = dest->dim[j]._ubound - dest->dim[j].lower_bound + 1;
+      ptrdiff_t dimextent = GFC_DESCRIPTOR_EXTENT(dest, j);
       if (dimextent < 0)
 	dimextent = 0;
       size *= dimextent;
@@ -862,16 +866,17 @@ _gfortran_caf_send (caf_token_t token, size_t offset,
 	      ptrdiff_t extent = 1;
 	      for (j = 0; j < GFC_DESCRIPTOR_RANK (src)-1; j++)
 		{
+		  ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(src, j);
 		  array_offset_sr += ((i / (extent*stride))
-				      % (src->dim[j]._ubound
-					 - src->dim[j].lower_bound + 1))
-				     * src->dim[j]._stride;
-		  extent = (src->dim[j]._ubound - src->dim[j].lower_bound + 1);
-		  stride = src->dim[j]._stride;
+				      % stride_j)
+				     * GFC_DESCRIPTOR_STRIDE(src, j);
+		  extent = GFC_DESCRIPTOR_EXTENT(src, j);
+		  stride = stride_j;
 		}
-	      array_offset_sr += (i / extent) * src->dim[rank-1]._stride;
+	      array_offset_sr += (i / extent) * GFC_DESCRIPTOR_STRIDE(src,
+								      rank -1 );
 	      void *sr = (void *) ((char *) src->base_addr
-				   + array_offset_sr*GFC_DESCRIPTOR_SIZE (src));
+				   + array_offset_sr*GFC_DESCRIPTOR_ELEM_LEN (src));
 	      memcpy ((void *) ((char *) tmp + array_offset_dst), sr, src_size);
 	      array_offset_dst += src_size;
 	    }
@@ -885,16 +890,17 @@ _gfortran_caf_send (caf_token_t token, size_t offset,
 	  ptrdiff_t extent = 1;
 	  for (j = 0; j < rank-1; j++)
 	    {
+	      ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(dest, j);
 	      array_offset_dst += ((i / (extent*stride))
-				   % (dest->dim[j]._ubound
-				      - dest->dim[j].lower_bound + 1))
-				  * dest->dim[j]._stride;
-	  extent = (dest->dim[j]._ubound - dest->dim[j].lower_bound + 1);
-          stride = dest->dim[j]._stride;
+				   % stride_j)
+				  * GFC_DESCRIPTOR_STRIDE(dest, j);
+	      extent = GFC_DESCRIPTOR_EXTENT(dest, j);
+	      stride = stride_j;
 	    }
-	  array_offset_dst += (i / extent) * dest->dim[rank-1]._stride;
+	  array_offset_dst += (i / extent) * GFC_DESCRIPTOR_STRIDE(dest,
+								   rank -1 );
 	  void *dst = (void *)((char *) TOKEN (token) + offset
-		      + array_offset_dst*GFC_DESCRIPTOR_SIZE (dest));
+		      + array_offset_dst*GFC_DESCRIPTOR_ELEM_LEN (dest));
           void *sr = tmp + array_offset_sr;
 	  if (GFC_DESCRIPTOR_TYPE (dest) == GFC_DESCRIPTOR_TYPE (src)
 	      && dst_kind == src_kind)
@@ -933,16 +939,17 @@ _gfortran_caf_send (caf_token_t token, size_t offset,
       ptrdiff_t extent = 1;
       for (j = 0; j < rank-1; j++)
 	{
+	  ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(dest, j);
 	  array_offset_dst += ((i / (extent*stride))
-			       % (dest->dim[j]._ubound
-				  - dest->dim[j].lower_bound + 1))
-			      * dest->dim[j]._stride;
-	  extent = (dest->dim[j]._ubound - dest->dim[j].lower_bound + 1);
-          stride = dest->dim[j]._stride;
+			       % stride_j)
+			      * GFC_DESCRIPTOR_STRIDE(dest, j);
+	  extent = GFC_DESCRIPTOR_EXTENT(dest, j);
+	  stride = stride_j;
 	}
-      array_offset_dst += (i / extent) * dest->dim[rank-1]._stride;
+      array_offset_dst += (i / extent) * GFC_DESCRIPTOR_STRIDE(dest,
+							       rank -1 );
       void *dst = (void *)((char *) TOKEN (token) + offset
-			   + array_offset_dst*GFC_DESCRIPTOR_SIZE (dest));
+			   + array_offset_dst*GFC_DESCRIPTOR_ELEM_LEN (dest));
       void *sr;
       if (GFC_DESCRIPTOR_RANK (src) != 0)
 	{
@@ -951,16 +958,17 @@ _gfortran_caf_send (caf_token_t token, size_t offset,
 	  extent = 1;
 	  for (j = 0; j < GFC_DESCRIPTOR_RANK (src)-1; j++)
 	    {
+	      ptrdiff_t stride_j = GFC_DESCRIPTOR_STRIDE(src, j);
 	      array_offset_sr += ((i / (extent*stride))
-				  % (src->dim[j]._ubound
-				     - src->dim[j].lower_bound + 1))
-				 * src->dim[j]._stride;
-	      extent = (src->dim[j]._ubound - src->dim[j].lower_bound + 1);
-	      stride = src->dim[j]._stride;
+				  % stride_j)
+				 * GFC_DESCRIPTOR_STRIDE(src, j);
+	      extent = GFC_DESCRIPTOR_EXTENT(src, j);
+	      stride = stride_j;
 	    }
-	  array_offset_sr += (i / extent) * src->dim[rank-1]._stride;
+	  array_offset_sr += (i / extent) * GFC_DESCRIPTOR_STRIDE(src,
+								  rank -1 );
 	  sr = (void *)((char *) src->base_addr
-			+ array_offset_sr*GFC_DESCRIPTOR_SIZE (src));
+			+ array_offset_sr*GFC_DESCRIPTOR_ELEM_LEN (src));
 	}
       else
 	sr = src->base_addr;
