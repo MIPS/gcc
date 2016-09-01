@@ -3171,7 +3171,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser, tree id,
       if (suggestion)
 	{
 	  gcc_rich_location richloc (location);
-	  richloc.add_fixit_misspelled_id (location, suggestion);
+	  richloc.add_fixit_replace (suggestion);
 	  error_at_rich_loc (&richloc,
 			     "%qE does not name a type; did you mean %qs?",
 			     id, suggestion);
@@ -26342,8 +26342,10 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
 	    global source location is still on the token before the
 	    '>>', so we need to say explicitly where we want it.  */
 	  cp_token *token = cp_lexer_peek_token (parser->lexer);
-	  error_at (token->location, "%<>>%> should be %<> >%> "
-		    "within a nested template argument list");
+	  gcc_rich_location richloc (token->location);
+	  richloc.add_fixit_replace ("> >");
+	  error_at_rich_loc (&richloc, "%<>>%> should be %<> >%> "
+			     "within a nested template argument list");
 
 	  token->type = CPP_GREATER;
 	}

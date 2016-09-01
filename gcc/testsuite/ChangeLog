@@ -1,3 +1,89 @@
+2016-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77352
+	* gfortran.dg/gomp/pr77352.f90: New test.
+
+	PR fortran/77374
+	* gfortran.dg/gomp/pr77374.f08: New test.
+
+2016-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/73714
+	* gcc.dg/tree-ssa/pr73714.c: New test.
+
+2016-08-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/77393
+	* gfortran.dg/fmt_f0_2.f90: New test.
+
+2016-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.target/i386/pr59539-2.c: Adapt options.
+	* gcc.target/i386/avx512f-vmovdqu32-1.c: Relax expected asm.
+
+2016-08-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77418
+	* gfortran.dg/dtio_5.f90: Remove the non-standard deallocation
+	of the associate entity and replace with a pointer to the
+	intended item on the stack.
+
+2016-08-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48298
+	* gfortran.dg/dtio_1.f90: New test.
+	* gfortran.dg/dtio_2.f90: New test.
+	* gfortran.dg/dtio_3.f90: New test.
+	* gfortran.dg/dtio_4.f90: New test.
+	* gfortran.dg/dtio_5.f90: New test.
+	* gfortran.dg/dtio_6.f90: New test.
+	* gfortran.dg/dtio_7.f90: New test.
+	* gfortran.dg/dtio_8.f90: New test.
+	* gfortran.dg/dtio_9.f90: New test.
+	* gfortran.dg/dtio_10.f90: New test.
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-show-locus-bw.c
+	(test_many_nested_locations): New function.
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Handle "test_many_nested_locations".
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* g++.dg/template/double-greater-than-fixit.C: New test case.
+
+2016-08-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt57.ad[sb]: New test.
+	* gnat.dg/opt57_pkg.ads: New helper.
+
+2016-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69047
+	* gcc.dg/pr69047.c: Fix byte-order check.
+
+2016-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72866
+	* gcc.dg/vect/pr72866.c: New test.
+
+	PR debug/77363
+	* g++.dg/debug/dwarf2/pr77363.C: New test.
+
+	PR middle-end/77377
+	* gcc.target/i386/pr77377.c: New test.
+
+	PR debug/77389
+	* g++.dg/debug/dwarf2/template-params-12f.C: Pass -gno-strict-dwarf
+	in dg-options.
+
+2016-08-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/pr77372.f90: Moved to ...
+	* gfortran.dg/ieee/pr77372.f90: here.
+
 2016-08-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vec-init-4.c: New runtime tests for various

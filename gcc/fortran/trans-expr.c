@@ -446,9 +446,17 @@ gfc_get_vptr_from_expr (tree expr)
 	  else
 	    type = NULL_TREE;
 	}
-      if (TREE_CODE (tmp) == VAR_DECL)
+      if (TREE_CODE (tmp) == VAR_DECL
+	  || TREE_CODE (tmp) == PARM_DECL)
 	break;
     }
+
+  if (POINTER_TYPE_P (TREE_TYPE (tmp)))
+    tmp = build_fold_indirect_ref_loc (input_location, tmp);
+
+  if (GFC_CLASS_TYPE_P (TREE_TYPE (tmp)))
+    return gfc_class_vptr_get (tmp);
+
   return NULL_TREE;
 }
 
@@ -541,7 +549,14 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
   if (optional)
     cond_optional = gfc_conv_expr_present (e->symtree->n.sym);
 
-  if (parmse->ss && parmse->ss->info->useflags)
+  if (parmse->expr && POINTER_TYPE_P (TREE_TYPE (parmse->expr)))
+    {
+      /* If there is a ready made pointer to a derived type, use it
+	 rather than evaluating the expression again.  */
+      tmp = fold_convert (TREE_TYPE (ctree), parmse->expr);
+      gfc_add_modify (&parmse->pre, ctree, tmp);
+    }
+  else if (parmse->ss && parmse->ss->info && parmse->ss->info->useflags)
     {
       /* For an array reference in an elemental procedure call we need
 	 to retain the ss to provide the scalarized array reference.  */
@@ -552,7 +567,6 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
 			  cond_optional, tmp,
 			  fold_convert (TREE_TYPE (tmp), null_pointer_node));
       gfc_add_modify (&parmse->pre, ctree, tmp);
-
     }
   else
     {

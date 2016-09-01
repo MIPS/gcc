@@ -1,3 +1,193 @@
+2016-08-31  Ilya Verbin  <iverbin@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Fix detection of
+	AVX512IFMA.
+
+2016-08-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c (class layout): Add field m_fixit_hints.
+	(layout_range::intersects_line_p): New method.
+	(test_range_contains_point_for_single_point): Rename to...
+	(test_layout_range_for_single_point): ...this, and add testing
+	for layout_range::intersects_line_p.
+	(test_range_contains_point_for_single_line): Rename to...
+	(test_layout_range_for_single_line): ...this,  and add testing
+	for layout_range::intersects_line_p.
+	(test_range_contains_point_for_multiple_lines): Rename to...
+	(test_layout_range_for_multiple_lines): ...this,  and add testing
+	for layout_range::intersects_line_p.
+	(layout::layout): Populate m_fixit_hints.
+	(layout::get_expanded_location): Handle the case of a line-span
+	for a fix-it hint.
+	(layout::validate_fixit_hint_p): New method.
+	(get_line_span_for_fixit_hint): New function.
+	(layout::calculate_line_spans): Add spans for fixit-hints.
+	(layout::should_print_annotation_line_p): New method.
+	(layout::print_any_fixits): Drop param "richloc", instead using
+	validated fixits in m_fixit_hints.  Add "const" to hint pointers.
+	(diagnostic_show_locus): Avoid printing blank annotation lines.
+	(selftest::test_diagnostic_context::test_diagnostic_context):
+	Initialize show_column and start_span.
+	(selftest::test_diagnostic_context::start_span_cb): New static
+	function.
+	(selftest::test_diagnostic_show_locus_fixit_lines): New function.
+	(selftest::diagnostic_show_locus_c_tests): Update for function
+	renamings.  Call test_diagnostic_show_locus_fixit_lines.
+
+2016-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/73714
+	* match.pd (a * (1 << b)): Revert change from 2016-05-23.
+
+2016-08-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.c: Move "namespace selftest {" to top of file,
+	removing explicit "selftest::" qualifiers throughout.
+
+2016-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	* config/i386/avx512fintrin.h (__m512_u, __m512i_u, __m512d_u):
+	New types.
+	(_mm512_loadu_pd, _mm512_storeu_pd, _mm512_loadu_ps,
+	_mm512_storeu_ps, _mm512_loadu_si512, _mm512_storeu_si512):
+	Replace builtin with vector extension.
+	* config/i386/avxintrin.h (__m256_u, __m256i_u, __m256d_u):
+	New types.
+	(_mm256_loadu_pd, _mm256_storeu_pd, _mm256_loadu_ps,
+	_mm256_storeu_ps, _mm256_loadu_si256, _mm256_storeu_si256):
+	Replace builtin with vector extension.
+	* config/i386/emmintrin.h (__m128i_u, __m128d_u): New types.
+	(_mm_loadu_pd, _mm_storeu_pd, _mm_loadu_si128, _mm_storeu_si128):
+	Replace builtin with vector extension.
+	* config/i386/xmmintrin.h (__m128_u): New type.
+	(_mm_loadu_ps, _mm_storeu_ps): Replace builtin with vector extension.
+	(_mm_load_ps, _mm_store_ps): Simplify.
+
+2016-08-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (thumb1_size_rtx_costs) <SET>: Add missing guard.
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c (colorizer::begin_state): Support more
+	than 3 ranges per diagnostic by alternating between color 1 and
+	color 2.
+	(layout::layout): Replace use of rich_location::MAX_RANGES
+	with richloc->get_num_locations ().
+	(layout::calculate_line_spans): Replace use of
+	rich_location::MAX_RANGES with m_layout_ranges.length ().
+	(layout::print_annotation_line): Handle arbitrary numbers of
+	ranges in caret-printing by defaulting to '^'.
+	(selftest::test_one_liner_many_fixits): New function.
+	(test_diagnostic_show_locus_one_liner): Call it.
+	* diagnostic.c (diagnostic_initialize): Update for renaming
+	of rich_location::MAX_RANGES to
+	rich_location::STATICALLY_ALLOCATED_RANGES.
+	* diagnostic.h (struct diagnostic_context): Likewise.
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.c (selftest::named_temp_file::named_temp_file): New
+	ctor.
+	(selftest::temp_source_file::~temp_source_file): Move to...
+	(selftest::named_temp_file::~named_temp_file): ...here.
+	(selftest::test_named_temp_file): New function.
+	(selftest::selftest_c_tests): Call test_named_temp_file.
+	* selftest.h (class named_temp_file): New class.
+	(class temp_source_file): Convert to a subclass of named_temp_file.
+
+2016-08-30  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Do not emit
+	USEs of LR_REGNO in returns and sibcalls.
+	(rs6000_output_mi_thunk): Similar.
+	(rs6000_sibcall_aix): Similar.
+	* config/rs6000/rs6000.md (sibcall, sibcall_value, sibcall_local32,
+	sibcall_local64, sibcall_value_local32, sibcall_value_local64,
+	sibcall_nonlocal_sysv<mode>, sibcall_value_nonlocal_sysv<mode>):
+	Remove the USE of LR_REGNO from the patterns as well.  Delete an
+	obsolete comment.
+	(return_internal_<mode>): Delete.
+
+2016-08-30  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc/config/aarch64/aarch64-simd.md
+	(aarch64_ld2<mode>_dreg_le): New.
+	(aarch64_ld2<mode>_dreg_be): New.
+	(aarch64_ld2<mode>_dreg): Removed.
+	(aarch64_ld3<mode>_dreg_le): New.
+	(aarch64_ld3<mode>_dreg_be): New.
+	(aarch64_ld3<mode>_dreg): Removed.
+	(aarch64_ld4<mode>_dreg_le): New.
+	(aarch64_ld4<mode>_dreg_be): New.
+	(aarch64_ld4<mode>_dreg): Removed.
+	(aarch64_ld<VSTRUCT:nregs><VDC:mode>): Wrapper around _le, _be.
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c (test_one_liner_fixit_insert): Remove
+	redundant location param.
+	(test_one_liner_fixit_remove): Likewise.
+	(test_one_liner_fixit_replace): Likewise.
+	(test_one_liner_fixit_replace_equal_secondary_range): Likewise.
+	* gcc-rich-location.c
+	(gcc_rich_location::add_fixit_misspelled_id): Eliminate call to
+	get_range_from_loc.  Drop overload taking a const char *.
+	* gcc-rich-location.h
+	(gcc_rich_location::add_fixit_misspelled_id): Drop overload taking
+	a const char *.
+
+2016-08-30  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/linux.c (linux_libc_has_function): Return true on musl.
+
+2016-08-30  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config.gcc (*-*-*musl*): Disable gnu-indirect-function.
+
+2016-08-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* postreload-gcse.c (bb_has_well_behaved_predecessors): Tweak criterion
+	used for abnormal egdes.
+
+2016-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72866
+	* tree-vect-patterns.c (search_type_for_mask): Turn into
+	a small wrapper, move all code to ...
+	(search_type_for_mask_1): ... this new function.  Add caching
+	and adjust recursive calls.
+
+	PR debug/77363
+	* dwarf2out.c (modified_type_die): Use lookup_type_die (type)
+	instead of lookup_type_die (type_main_variant (type)) even for array
+	types.
+
+	PR middle-end/77377
+	* simplify-rtx.c (avoid_constant_pool_reference): For out of bounds
+	constant pool reference return x instead of c.
+
+2016-08-29  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.h (CALL_REALLY_USED_REGISTERS): Do not
+	include MQ.
+
+2016-08-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c
+	(selftest::test_make_location_nonpure_range_endpoints): Fix
+	header comment.
+
+2016-08-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c
+	(selftest::test_one_liner_fixit_validation_adhoc_locations): New
+	function.
+	(selftest::test_diagnostic_show_locus_one_liner): Call it.
+	* input.c (get_pure_location): Move to libcpp/line-map.c.
+	* input.h (get_pure_location): Convert decl to an inline function
+	calling implementation in libcpp.
+
 2016-08-29  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/77403

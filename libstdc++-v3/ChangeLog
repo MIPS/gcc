@@ -1,3 +1,55 @@
+2016-08-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr.h (_Assignable): New alias template.
+	(shared_ptr::operator=(const shared_ptr<_Tp1>&))
+	(shared_ptr::operator=(shared_ptr<_Tp1>&&))
+	(shared_ptr::operator=(unique_ptr<_Tp1>&&)): Constrain with
+	_Assignable.
+	* include/bits/shared_ptr_base.h (_Assignable): New alias template.
+	(__shared_ptr::operator=(const __shared_ptr<_Tp1>&))
+	(__shared_ptr::operator=(__shared_ptr<_Tp1>&&))
+	(__shared_ptr::operator=(unique_ptr<_Tp1>&&)): Constrain with
+	_Assignable.
+	(__shared_ptr::reset(_Tp1*), __shared_ptr::reset(_Tp1*, _Deleter))
+	(__shared_ptr::reset(_Tp1*, _Deleter, _Alloc)): Constrain with
+	_Convertible.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Change dg-error to
+	match on any line.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/sfinae.cc: New test.
+	* testsuite/20_util/shared_ptr/assign/shared_ptr_neg.cc: Update
+	expected errors. Remove unnecessary code.
+	* testsuite/20_util/shared_ptr/modifiers/reset_sfinae.cc: New test.
+
+	* include/bits/stl_tree.h (_Rb_tree::operator=(_Rb_tree&&)): Move
+	comparison object.
+	* testsuite/23_containers/set/move_comparison.cc: New test.
+
+	* testsuite/20_util/enable_shared_from_this/members/weak_from_this.cc:
+	New test.
+
+2016-08-30  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/77395
+	* include/std/type_traits (is_constructible): Forward-declare...
+	(__is_base_to_derived_ref): ...and use here.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust.
+	* testsuite/20_util/is_constructible/77395.cc: New.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Adjust.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/tuple/77395.cc: New.
+
+2016-08-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/22_locale/time_get/get/char/2.cc: Move dg-do run
+	directive above dg-require-namedlocale directive.
+	* testsuite/22_locale/time_get/get/wchar_t/2.cc: Ditto.
+	* testsuite/27_io/manipulators/extended/get_time/char/2.cc: Ditto.
+	* testsuite/27_io/manipulators/extended/get_time/wchar_t/2.cc: Ditto.
+	* testsuite/27_io/manipulators/extended/put_time/char/2.cc: Ditto.
+	* testsuite/27_io/manipulators/extended/put_time/wchar_t/2.cc: Ditto.
+
 2016-08-27  Tim Shen  <timshen@google.com>
 
 	PR libstdc++/77356
