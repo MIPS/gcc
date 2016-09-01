@@ -1,3 +1,15 @@
+2016-09-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2016-07-14  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.h (TARGET_HAVE_LDACQ): Enable for ARMv8-M Mainline.
+	(TARGET_HAVE_LDACQD): New macro.
+	* config/arm/sync.md (atomic_loaddi): Use TARGET_HAVE_LDACQD rather
+	than TARGET_HAVE_LDACQ.
+	(arm_load_acquire_exclusivedi): Likewise.
+	(arm_store_release_exclusivedi): Likewise.
+
 2016-07-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
