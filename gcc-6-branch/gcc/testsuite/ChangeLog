@@ -1,3 +1,168 @@
+2016-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77352
+	* gfortran.dg/gomp/pr77352.f90: New test.
+
+	PR fortran/77374
+	* gfortran.dg/gomp/pr77374.f08: New test.
+
+	2016-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72866
+	* gcc.dg/vect/pr72866.c: New test.
+
+	PR debug/77363
+	* g++.dg/debug/dwarf2/pr77363.C: New test.
+
+	PR middle-end/77377
+	* gcc.target/i386/pr77377.c: New test.
+
+	2016-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/72744
+	* gfortran.dg/gomp/pr72744.f90: New test.
+
+	PR fortran/69281
+	* gfortran.dg/gomp/pr69281.f90: New test.
+
+	2016-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77259
+	* g++.dg/ipa/devirt-52.C: New test.
+
+	2016-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/71910
+	* g++.dg/gomp/pr71910.C: New test.
+
+2016-08-31  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	Backport from mainline
+	2016-08-27  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/71077
+	* gcc.target/i386/pr71077.c: New test.
+
+2016-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77403
+	* gcc.target/i386/pr77403.c: New test.
+
+2016-08-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/ipa/iinline-attr.c: XFAIL on Visium.
+
+2016-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77270
+	* gcc.dg/tree-ssa/loop-28.c: Also compile on 32bit x86 targets.
+	(dg-options): Use -march=amdfam10 instead of -march=athlon.
+	* gcc.dg/tree-ssa/update-unroll-1.c: Ditto.
+	* gcc.dg/tree-ssa/prefetch-3.c: Ditto.
+	* gcc.dg/tree-ssa/prefetch-4.c: Ditto.
+	* gcc.dg/tree-ssa/prefetch-5.c: Ditto.
+	* gcc.dg/tree-ssa/prefetch-6.c: Ditto.  Do not require sse2
+	effective target.  Remove scan-assembler-times directives.
+	* gcc.dg/tree-ssa/prefetch-7.c: Ditto.
+	* gcc.dg/tree-ssa/prefetch-8.c: Ditto.
+	* gcc.dg/tree-ssa/prefetch-9.c: Ditto.
+
+2016-08-28  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2016-08-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/70955
+	* gcc.dg/pr70955.c: New test.
+	* gcc.dg/lto/pr70955_0.c: Same.
+	* gcc.dg/lto/pr70955_1.c: Same.
+
+2016-08-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-08-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/72863
+	* gcc.target/powerpc/pr72863.c: New test.
+
+2016-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/77358
+	* gfortran.dg/submodule_17.f08: New test.
+
+2016-08-24  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-08-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/76490
+	* gfortran.fortran-torture/compile/pr76490.f90: New testcase.
+	* gcc.dg/pr52904.c: XFAIL.
+
+2016-08-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-08-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/76783
+	* gcc.dg/pr76783.c: New testcase.
+	* gcc.dg/tree-ssa/pr69270-2.c: Adjust.
+
+	2016-08-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/72851
+	* gcc.dg/torture/pr72851.c: New testcase.
+
+2016-08-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/72867
+	* gcc.target/i386/pr72867.c: Add -msse to dg-options.
+
+	Backport from mainline
+	2016-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/72867
+	* gcc.target/i386/pr72867.c: New test.
+
+2016-08-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-07-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/71700
+	* gcc.c-torture/execute/pr71700.c: New test.
+
+2016-08-22  Release Manager
+
+	* GCC 6.2.0 released.
+
+2016-08-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62171
+	* gcc.dg/vect/pr62171.c: Remove default vector testsuite flags.
+
+2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline
+	2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR middle-end/70895
+	* gfortran.dg/goacc/loop-tree-1.f90: Add gimple scan-tree-dump test.
+	* c-c++-common/goacc/reduction-1.c: Likewise.
+	* c-c++-common/goacc/reduction-2.c: Likewise.
+	* c-c++-common/goacc/reduction-3.c: Likewise.
+	* c-c++-common/goacc/reduction-4.c: Likewise.
+
 2016-08-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR testsuite/77034
@@ -129,8 +294,8 @@
 
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
-        PR ipa/71981
-        * gcc.dg/ipa/pr71981.c: New test.
+	PR ipa/71981
+	* gcc.dg/ipa/pr71981.c: New test.
 
 2016-08-09  Richard Biener  <rguenther@suse.de>
 
@@ -255,8 +420,8 @@
 
 2016-07-20  Martin Jambor  <mjambor@suse.cz>
 
-        PR fortran/71688
-        gfortran.dg/pr71688.f90: New test.
+	PR fortran/71688
+	* gfortran.dg/pr71688.f90: New test.
 
 2016-07-19  Jakub Jelinek  <jakub@redhat.com>
 
@@ -397,7 +562,7 @@
 	2016-07-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
 
 	PR tree-optimization/71518
-        * gcc.dg/pr71518.c: New test.
+	* gcc.dg/pr71518.c: New test.
 
 2016-07-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
 

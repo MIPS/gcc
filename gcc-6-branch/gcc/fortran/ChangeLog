@@ -1,3 +1,43 @@
+2016-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77352
+	* trans-openmp.c (gfc_trans_omp_parallel_workshare): Always add a
+	BIND_EXPR with BLOCK around what gfc_trans_omp_workshare returns.
+
+	PR fortran/77374
+	* parse.c (parse_omp_oacc_atomic): Copy over cp->ext.omp_atomic
+	to cp->block->ext.omp_atomic.
+	* resolve.c (gfc_resolve_blocks): Assert block with one or two
+	EXEC_ASSIGNs for EXEC_*_ATOMIC.
+	* openmp.c (resolve_omp_atomic): Don't assert one or two
+	EXEC_ASSIGNs, instead return quietly for EXEC_NOPs and otherwise
+	error unexpected statements.
+
+	2016-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/71014
+	* resolve.c (gfc_resolve): For ns->construct_entities don't save, clear
+	and restore omp state around the resolving.
+
+	PR fortran/69281
+	* trans-openmp.c (gfc_trans_omp_parallel, gfc_trans_omp_task,
+	gfc_trans_omp_target): Wrap gfc_trans_omp_code result in an extra
+	BIND_EXPR with its own forced BLOCK.
+
+2016-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/77358
+	* resolve.c (resolve_fl_procedure): Use the correct gfc_charlen
+	for deferred character length module procedures.
+
+2016-08-22  Release Manager
+
+	* GCC 6.2.0 released.
+
 2016-08-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	Backport from trunk

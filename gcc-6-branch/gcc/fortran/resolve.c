@@ -9431,6 +9431,24 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_WAIT:
 	  break;
 
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OACC_ATOMIC:
+	  {
+	    gfc_omp_atomic_op aop
+	      = (gfc_omp_atomic_op) (b->ext.omp_atomic & GFC_OMP_ATOMIC_MASK);
+
+	    /* Verify this before calling gfc_resolve_code, which might
+	       change it.  */
+	    gcc_assert (b->next && b->next->op == EXEC_ASSIGN);
+	    gcc_assert (((aop != GFC_OMP_ATOMIC_CAPTURE)
+			 && b->next->next == NULL)
+			|| ((aop == GFC_OMP_ATOMIC_CAPTURE)
+			    && b->next->next != NULL
+			    && b->next->next->op == EXEC_ASSIGN
+			    && b->next->next->next == NULL));
+	  }
+	  break;
+
 	case EXEC_OACC_PARALLEL_LOOP:
 	case EXEC_OACC_PARALLEL:
 	case EXEC_OACC_KERNELS_LOOP:
@@ -9443,9 +9461,7 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OACC_CACHE:
 	case EXEC_OACC_ENTER_DATA:
 	case EXEC_OACC_EXIT_DATA:
-	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_ROUTINE:
-	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DISTRIBUTE:
 	case EXEC_OMP_DISTRIBUTE_PARALLEL_DO:
@@ -11960,6 +11976,13 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	 symbol instead of 'sym'.  */
       iface = sym->ts.interface;
       sym->ts.interface = NULL;
+
+      /* Make sure that the result uses the correct charlen for deferred
+	 length results.  */
+      if (iface && sym->result
+	  && iface->ts.type == BT_CHARACTER
+	  && iface->ts.deferred)
+	sym->result->ts.u.cl = iface->ts.u.cl;
 
       if (iface == NULL)
 	goto check_formal;
@@ -15660,7 +15683,8 @@ gfc_resolve (gfc_namespace *ns)
   /* As gfc_resolve can be called during resolution of an OpenMP construct
      body, we should clear any state associated to it, so that say NS's
      DO loops are not interpreted as OpenMP loops.  */
-  gfc_omp_save_and_clear_state (&old_omp_state);
+  if (!ns->construct_entities)
+    gfc_omp_save_and_clear_state (&old_omp_state);
 
   resolve_types (ns);
   component_assignment_level = 0;
@@ -15672,5 +15696,6 @@ gfc_resolve (gfc_namespace *ns)
 
   gfc_run_passes (ns);
 
-  gfc_omp_restore_state (&old_omp_state);
+  if (!ns->construct_entities)
+    gfc_omp_restore_state (&old_omp_state);
 }

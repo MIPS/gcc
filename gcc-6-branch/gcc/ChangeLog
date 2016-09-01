@@ -1,3 +1,257 @@
+2016-09-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72866
+	* tree-vect-patterns.c (search_type_for_mask): Turn into
+	a small wrapper, move all code to ...
+	(search_type_for_mask_1): ... this new function.  Add caching
+	and adjust recursive calls.
+
+	PR debug/77363
+	* dwarf2out.c (modified_type_die): Use lookup_type_die (type)
+	instead of lookup_type_die (type_main_variant (type)) even for array
+	types.
+
+	PR middle-end/77377
+	* simplify-rtx.c (avoid_constant_pool_reference): For out of bounds
+	constant pool reference return x instead of c.
+
+	2016-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/t-i386 (i386-c.o): Don't depend on
+	i386-builtin-types.inc.
+	(i386.o): Depend on i386-builtin-types.inc.
+
+	2016-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77259
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children): If
+	turning a call into __builtin_unreachable-like noreturn call, adjust
+	gimple_call_set_fntype.
+	* tree-cfgcleanup.c (fixup_noreturn_call): Remove lhs also if
+	gimple_call_fntype has void return type.
+
+	2016-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/71910
+	* tree-cfg.c (execute_fixup_cfg): Add node variable, use it.  Before inlining,
+	add cgraph edge for the added __builtin_unreachable call.
+
+2016-09-01  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (SPU Built-in Functions): Remove stale
+	references to material formerly at IBM and Sony.
+
+2016-09-01  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/77281
+	* config/arm/arm.c (neon_valid_immediate): Delete declaration.
+	Use const_vec_duplicate to check for duplicated elements.
+
+2016-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/i386/i386.c (ix86_option_override_internal): Also disable the
+	STV pass if -mstackrealign is enabled.
+
+2016-08-31  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	Backport from mainline
+	2016-08-27  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/71077
+	PR tree-optimization/68542
+	* fold-const.c (fold_relational_const): Fix folding of
+	VECTOR_CST comparisons that have a scalar boolean result type.
+
+2016-08-31  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Binaries): www.opencsw.org now uses https.
+
+2016-08-31  Jakub Sejdak  <jakub.sejdak@phoesys.com>
+
+	* config.gcc: Add support for arm*-*-phoenix* targets.
+	* config/arm/t-phoenix: New.
+	* config/phoenix.h: New.
+
+2016-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77403
+	* config/i386/sse.md (vec_set_lo_<mode><mask_name>): Fix assembler
+	template for intel asm dialect.
+	(vec_set_hi_<mode><mask_name>): Ditto.
+
+2016-08-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* Makefile.in (gcov-iov.h): Add dummy recipe.
+
+2016-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-23  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	* config/i386/i386.c (processor_alias_table): Enable PTA_PRFCHW
+	for targets amdfam10 and barcelona.
+
+	Backport from mainline
+	2016-08-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77270
+	* config/i386/i386.md (prefetch): When TARGET_PRFCHW or
+	TARGET_PREFETCHWT1 are disabled, emit 3dNOW! write prefetches for
+	non-SSE2 athlons only, otherwise prefer SSE prefetches.
+
+	Backport from mainline
+	2016-08-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77270
+	* config/i386/i386.c (ix86_option_override_internal): Remove
+	PTA_PRFCHW from entries that also have PTA_3DNOW flag.
+	Enable SSE prefetch also for TARGET_PREFETCHWT1.
+	Do not try to enable TARGET_PRFCHW ISA flag here.
+	* config/i386/i386.md (prefetch): Enable also for TARGET_3DNOW.
+	Rewrite expander function body.
+	(*prefetch_3dnow): Enable for TARGET_3DNOW and TARGET_PREFETCHWT1.
+
+2016-08-28  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2016-08-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/70955
+	* config/i386/i386.c (ix86_build_builtin_va_list_64): Tag type with
+	'sysv_abi va_list' attribute.
+	(ix86_build_builtin_va_list): Tag type with 'ms_abi va_list' attribute.
+	(ix86_canonical_va_list_type): Handle 'sysv_abi/ms_abi va_list'
+	attributes.
+
+2016-08-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-08-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/72863
+	* vsx.md (vsx_load_<mode>): For P8LE, emit swaps at expand time.
+	(vsx_store_<mode>): Likewise.
+
+2016-08-24  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-08-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/76490
+	* tree-vrp.c (update_value_range): Preserve overflow infinities
+	when intersecting with ranges from get_range_info.
+	(operand_less_p): Handle overflow infinities correctly.
+	(value_range_constant_singleton): Use vrp_operand_equal_p
+	to handle overflow max/min correctly.
+	(vrp_valueize): Likewise.
+	(union_ranges): Likewise.
+	(intersect_ranges): Likewise.
+
+2016-08-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/arm/t-rtems: Add vfp multilib.
+
+2016-08-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-08-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/76783
+	* tree-ssa-propagate.c (ssa_prop_init): Use RPO order.  Clear
+	BB visited flags at start.
+
+	2016-08-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/72851
+	* tree-ssa-propagate.c: Include cfganal.h.  Rewrite block and stmt
+	worklists to use bitmaps indexed in execution order.
+	(executable_blocks, cfg_blocks_num, cfg_blocks_tail, cfg_blocks_head,
+	bb_in_list, interesting_ssa_edges, varying_ssa_edges): Remove.
+	(cfg_blocks): Make a bitmap.
+	(bb_to_cfg_order, cfg_order_to_bb, ssa_edge_worklist, uid_to_stmt):
+	New globals.
+	(cfg_blocks_empty_p): Adjust.
+	(cfg_blocks_add): Likewise.
+	(cfg_blocks_get): Likewise.
+	(add_ssa_edge): Likewise.
+	(add_control_edge): Likewise.
+	(simulate_stmt): Likewise.
+	(process_ssa_edge_worklist): Likewise.
+	(simulate_block): Likewise.
+	(ssa_prop_init): Compute PRE order and stmt UIDs.
+	(ssa_prop_fini): Adjust.
+	(ssa_propagate): Adjust.
+
+2016-08-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/72867
+	* config/i386/sse.md (<code><mode>3<mask_name><round_saeonly_name>):
+	Emit ieee_<ieee_maxmin><mode>3<mask_name><round_saeonly_name>
+	for !flag_finite_math_only or flag_signed_zeros.
+	(*<code><mode>3<mask_name><round_saeonly_name>): Rename from
+	*<code><mode>3_finite<mask_name><round_saeonly_name>.  Do not
+	depend on flag_finite_math_only.
+	(ieee_<ieee_maxmin><mode>3<mask_name><round_saeonly_name>):
+	New insn pattern.
+	(*<code><mode>3<mask_name><round_saeonly_name>): Remove.
+	(*ieee_smin<mode>3): Ditto.
+	(*ieee_smax<mode>3): Ditto.
+	* config/i386/mmx.md (mmx_<code>v2sf3): Emit
+	mmx_ieee_<ieee_maxmin>v2sf3 for !flag_finite_math_only or
+	flag_signed_zeros.
+	(*mmx_<code>v2sf3): Rename from *mmx_<code>v2sf3_finite.  Do not
+	depend on flag_finite_math_only.
+	(mmx_ieee_<ieee_maxmin>v2sf3): New insn pattern.
+	(*mmx_<code>v2sf3): Remove.
+	* config/i386/subst.md (round_saeonly_mask_arg3): New subst attribute.
+	* config/i386/i386.c (ix86_expand_sse_fp_mimnax): Check
+	flag_signed_zeros instead of !flag_unsafe_math_optimizations.
+
+2016-08-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-07-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/71700
+	* expr.c (store_constructor): Mask sign-extended bits when widening
+	sub-word constructor element at the start of a word.
+
+2016-08-22  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Set to 6.2.1.
+
+2016-08-22  Release Manager
+
+	* GCC 6.2.0 released.
+
+2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline
+	2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR middle-end/70895
+	* gimplify.c (omp_add_variable): Adjust/add variable mapping on
+	enclosing parallel construct for reduction variables on OpenACC loop
+	directives.
+
+2016-08-18  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2016-06-17  DJ Delorie  <dj@redhat.com>
+
+	PR target/71338
+	* config/rl78/rl78-expand.c (umulqihi3): Enable for G10.
+	* config/rl78/rl78-virtual.c (umulhi3_shift_virt): Likewise.
+	(umulqihi3_virt): Likewise.
+	* config/rl78/rl78-real.c (umulhi3_shift_real): Likewise.
+	(umulqihi3_real): Likewise.
+
 2016-08-16  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* doc/install.texi (*-*-solaris2*): Adjust latest change.
@@ -179,9 +433,9 @@
 
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
-        PR ipa/71981
-        * ipa-polymorphic-call.c (get_dynamic_type): Bail out gracefully
-        if instance is a MEM_REF.
+	PR ipa/71981
+	* ipa-polymorphic-call.c (get_dynamic_type): Bail out gracefully
+	if instance is a MEM_REF.
 
 2016-08-09  Richard Biener  <rguenther@suse.de>
 
