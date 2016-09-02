@@ -24,6 +24,66 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Friend data structures are described in cp-tree.h.  */
 
+
+/* Scopes (functions, classes, or templates) in the TREE_VALUE of
+   GLOBAL_FRIEND_LIST are regarded as friends of every class.  This is
+   mainly used by libcc1, to enable GDB's code snippets to access
+   private members without disabling access control in general, which
+   could cause different template overload resolution results when
+   accessibility matters (e.g. tests for an accessible member).  */
+
+static tree global_friend_list;
+
+/* Add SCOPE to GLOBAL_FRIEND_LIST.  The same scope may be added
+   multiple times, so that matching removals cancel out.  */
+
+void
+add_to_global_friend_list (tree scope)
+{
+  global_friend_list = tree_cons (NULL_TREE, scope, global_friend_list);
+}
+
+/* Search for SCOPE in the global friend list, and return a pointer to
+   the first tree cons that matches.  The pointer can be used to
+   modify the list.
+
+   A match means the TREE_VALUE is SCOPE or, if an EXACT match is not
+   required, a template that has SCOPE as a specialization.  */
+
+static inline tree *
+find_in_global_friend_list (tree scope, bool exact)
+{
+  for (tree *p = &global_friend_list;
+       *p; p = &TREE_CHAIN (*p))
+    if (TREE_VALUE (*p) == scope
+	|| (!exact
+	    && is_specialization_of_friend (TREE_VALUE (*p), scope)))
+      return p;
+
+  return NULL;
+}
+
+/* Remove one occurrence of SCOPE from the global friend list.
+   There must be at least one such occurrence.  */
+
+void
+remove_from_global_friend_list (tree scope)
+{
+  tree *p = find_in_global_friend_list (scope, true);
+
+  gcc_assert (p);
+
+  *p = TREE_CHAIN (*p);
+}
+
+/* Return TRUE if SCOPE is in the global friend list.  */
+
+bool
+is_global_friend (tree scope)
+{
+  return !!find_in_global_friend_list (scope, false);
+}
+
 /* Returns nonzero if SUPPLICANT is a friend of TYPE.  */
 
 int
@@ -35,6 +95,9 @@ is_friend (tree type, tree supplicant)
 
   if (supplicant == NULL_TREE || type == NULL_TREE)
     return 0;
+
+  if (is_global_friend (supplicant))
+    return 1;
 
   declp = DECL_P (supplicant);
 

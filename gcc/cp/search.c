@@ -782,6 +782,9 @@ friend_accessible_p (tree scope, tree decl, tree type, tree otype)
   if (!scope)
     return 0;
 
+  if (is_global_friend (scope))
+    return 1;
+
   /* Is SCOPE itself a suitable P?  */
   if (TYPE_P (scope) && protected_accessible_p (decl, scope, type, otype))
     return 1;

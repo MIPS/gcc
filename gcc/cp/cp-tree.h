@@ -331,6 +331,7 @@ struct GTY(()) lang_identifier {
   cxx_binding *bindings;
   tree class_template_info;
   tree label_value;
+  bool oracle_looked_up;
 };
 
 /* Return a typed pointer version of T if it designates a
@@ -1539,6 +1540,7 @@ struct GTY(()) language_function {
   (operator_name_info[(int) (CODE)].identifier)
 #define ansi_assopname(CODE) \
   (assignment_operator_name_info[(int) (CODE)].identifier)
+extern tree ansi_litopname(const char *);
 
 /* TRUE if a tree code represents a statement.  */
 extern bool statement_code_p[MAX_TREE_CODES];
@@ -5951,6 +5953,9 @@ extern int is_friend				(tree, tree);
 extern void make_friend_class			(tree, tree, bool);
 extern void add_friend				(tree, tree, bool);
 extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, bool);
+extern void add_to_global_friend_list		(tree);
+extern void remove_from_global_friend_list	(tree);
+extern bool is_global_friend			(tree);
 
 /* in init.c */
 extern tree expand_member_init			(tree);
@@ -6848,6 +6853,27 @@ extern void clear_fold_cache			(void);
 extern void suggest_alternatives_for            (location_t, tree);
 extern tree strip_using_decl                    (tree);
 
+/* Tell the binding oracle what kind of binding we are looking for.  */
+
+enum cp_oracle_request
+{
+  CP_ORACLE_SYMBOL,
+  CP_ORACLE_TAG,
+  CP_ORACLE_LABEL
+};
+
+/* If this is non-NULL, then it is a "binding oracle" which can lazily
+   create bindings when needed by the C compiler.  The oracle is told
+   the name and type of the binding to create.  It can call pushdecl
+   or the like to ensure the binding is visible; or do nothing,
+   leaving the binding untouched.  c-decl.c takes note of when the
+   oracle has been called and will not call it again if it fails to
+   create a given binding.  */
+
+typedef void cp_binding_oracle_function (enum cp_oracle_request, tree identifier);
+
+extern cp_binding_oracle_function *cp_binding_oracle;
+
 /* in constraint.cc */
 extern void init_constraint_processing          ();
 extern bool constraint_p                        (tree);
@@ -6912,6 +6938,9 @@ extern void diagnose_constraints                (location_t, tree, tree);
 /* in logic.cc */
 extern tree decompose_conclusions               (tree);
 extern bool subsumes                            (tree, tree);
+
+/* In class.c */
+extern void cp_finish_injected_record_type (tree);
 
 /* in vtable-class-hierarchy.c */
 extern void vtv_compute_class_hierarchy_transitive_closure (void);
