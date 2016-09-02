@@ -3387,7 +3387,7 @@ static void gen_label_die (tree, dw_die_ref);
 static void gen_lexical_block_die (tree, dw_die_ref);
 static void gen_inlined_subroutine_die (tree, dw_die_ref);
 static void gen_field_die (tree, struct vlr_context *, dw_die_ref);
-static void gen_ptr_to_mbr_type_die (tree, dw_die_ref);
+static void gen_ptr_to_mbr_type_die (tree, dw_die_ref, tree, tree);
 static dw_die_ref gen_compile_unit_die (const char *);
 static void gen_inheritance_die (tree, tree, tree, dw_die_ref);
 static void gen_member_die (tree, dw_die_ref);
@@ -20626,6 +20626,24 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  add_AT_flag (subr_die, DW_AT_declaration, 1);
 
+	  /* If this is a method with a ref-qualifier, generate the
+	     corresponding attribute.  */
+	  int rqual = lang_hooks.types.get_ref_qualifier (TREE_TYPE (decl));
+	  if (rqual && (dwarf_version >= 5 || !dwarf_strict))
+	    switch (rqual)
+	      {
+	      case 1:
+		add_AT_flag (subr_die, DW_AT_reference, 1);
+		break;
+
+	      case 2:
+		add_AT_flag (subr_die, DW_AT_rvalue_reference, 1);
+		break;
+
+	      default:
+		gcc_unreachable ();
+	      }
+
 	  /* If this is an explicit function declaration then generate
 	     a DW_AT_explicit attribute.  */
 	  if (lang_hooks.decls.function_decl_explicit_p (decl)
@@ -21844,10 +21862,13 @@ gen_reference_type_die (tree type, dw_die_ref context_die)
 }
 #endif
 
-/* Generate a DIE for a pointer to a member type.  */
+/* Generate a DIE for a pointer to a member type.  TYPE can be an
+   OFFSET_TYPE, for a pointer to data member, or a RECORD_TYPE, for a
+   pointer to member function.  */
 
 static void
-gen_ptr_to_mbr_type_die (tree type, dw_die_ref context_die)
+gen_ptr_to_mbr_type_die (tree type, dw_die_ref context_die,
+			 tree class_type, tree member_type)
 {
   dw_die_ref ptr_die
     = new_die (DW_TAG_ptr_to_member_type,
@@ -21855,9 +21876,15 @@ gen_ptr_to_mbr_type_die (tree type, dw_die_ref context_die)
 
   equate_type_number_to_die (type, ptr_die);
   add_AT_die_ref (ptr_die, DW_AT_containing_type,
-		  lookup_type_die (TYPE_OFFSET_BASETYPE (type)));
-  add_type_attribute (ptr_die, TREE_TYPE (type), TYPE_UNQUALIFIED, false,
+		  lookup_type_die (class_type));
+  add_type_attribute (ptr_die, member_type, TYPE_UNQUALIFIED, false,
 		      context_die);
+
+  if (TREE_CODE (type) == OFFSET_TYPE)
+    {
+      dw_loc_descr_ref op = new_loc_descr (DW_OP_plus, 0, 0);
+      add_AT_loc (ptr_die, DW_AT_use_location, op);
+    }
 }
 
 static char *producer_string;
@@ -22765,6 +22792,25 @@ gen_subroutine_type_die (tree type, dw_die_ref context_die)
 
   if (get_AT (subr_die, DW_AT_name))
     add_pubtype (type, subr_die);
+
+  /* If this is a C++ method or function type with a ref-qualifier,
+     generate the corresponding attribute.  */
+  int rqual = lang_hooks.types.get_ref_qualifier (type);
+
+  if (rqual && (dwarf_version >= 5 || !dwarf_strict))
+    switch (rqual)
+      {
+      case 1:
+	add_AT_flag (subr_die, DW_AT_reference, 1);
+	break;
+
+      case 2:
+	add_AT_flag (subr_die, DW_AT_rvalue_reference, 1);
+	break;
+
+      default:
+	gcc_unreachable ();
+      }
 }
 
 /* Generate a DIE for a type definition.  */
@@ -22989,10 +23035,13 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
   /* We are going to output a DIE to represent the unqualified version
      of this type (i.e. without any const or volatile qualifiers) so
      get the main variant (i.e. the unqualified version) of this type
-     now.  (Vectors and arrays are special because the debugging info is in the
-     cloned type itself).  */
+     now.  (Vectors and arrays are special because the debugging info
+     is in the cloned type itself; method types are special because
+     they are never cv-qualified, but they can be ref-qualified, and
+     we don't want to drop these qualifiers from the method type).  */
   if (TREE_CODE (type) != VECTOR_TYPE
-      && TREE_CODE (type) != ARRAY_TYPE)
+      && TREE_CODE (type) != ARRAY_TYPE
+      && TREE_CODE (type) != METHOD_TYPE)
     type = type_main_variant (type);
 
   /* If this is an array type with hidden descriptor, handle it first.  */
@@ -23058,7 +23107,8 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
       /* Now output a DIE to represent this pointer-to-data-member type
 	 itself.  */
-      gen_ptr_to_mbr_type_die (type, context_die);
+      gen_ptr_to_mbr_type_die (type, context_die,
+			       TYPE_OFFSET_BASETYPE (type), TREE_TYPE (type));
       break;
 
     case FUNCTION_TYPE:
@@ -23080,8 +23130,25 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
       gen_array_type_die (type, context_die);
       break;
 
-    case ENUMERAL_TYPE:
     case RECORD_TYPE:
+      {
+	tree class_type = lang_hooks.types.get_ptrmemfn_type (type, 0);
+	if (class_type != NULL_TREE)
+	  {
+	    gen_type_die_with_usage (class_type, context_die,
+				     DINFO_USAGE_IND_USE);
+
+	    tree memfn_type = lang_hooks.types.get_ptrmemfn_type (type, 1);
+	    gen_type_die_with_usage (memfn_type, context_die,
+				     DINFO_USAGE_IND_USE);
+
+	    gen_ptr_to_mbr_type_die (type, context_die,
+				     class_type, memfn_type);
+	    return;
+	  }
+      }
+      /* Fall through.  */
+    case ENUMERAL_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
       gen_tagged_type_die (type, context_die, usage);

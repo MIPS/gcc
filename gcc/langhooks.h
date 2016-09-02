@@ -160,6 +160,16 @@ struct lang_hooks_for_types
      for the debugger about scale factor, etc.  */
   bool (*get_fixed_point_type_info) (const_tree,
 				     struct fixed_point_type_info *);
+
+  /* Return 0 if TYPE is NOT a C++ method or function type with a
+     ref-qualifier, 1 if the ref-qualifier is '&', and 2 if it is
+     '&&'.  */
+  int (*get_ref_qualifier) (const_tree);
+
+  /* Return NULL if TYPE is NOT a C++ pointer to member function type.
+     Otherwise, return the class type when the selector is 0, or the
+     member function type when the selector is 1.  */
+  tree (*get_ptrmemfn_type) (const_tree, int);
 };
 
 /* Language hooks related to decls and the symbol table.  */

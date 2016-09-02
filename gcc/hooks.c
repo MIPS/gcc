@@ -458,6 +458,14 @@ hook_tree_const_tree_null (const_tree t ATTRIBUTE_UNUSED)
   return NULL;
 }
 
+/* Generic hook that takes a const_tree and an int, and returns NULL_TREE.  */
+tree
+hook_tree_const_tree_int_null (const_tree t ATTRIBUTE_UNUSED,
+			       int i ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
 /* Generic hook that takes a rtx_insn * and an int and returns a bool.  */
 
 bool

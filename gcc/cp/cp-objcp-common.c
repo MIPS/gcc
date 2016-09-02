@@ -130,6 +130,43 @@ cxx_types_compatible_p (tree x, tree y)
   return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
 
+/* Return 0 if TYPE is NOT a C++ method or function type with a
+   ref-qualifier, 1 if the ref-qualifier is '&', and 2 if it is
+   '&&'.  */
+
+int
+cp_get_ref_qualifier (const_tree type)
+{
+  if ((TREE_CODE (type) == METHOD_TYPE || TREE_CODE (type) == FUNCTION_TYPE)
+      && FUNCTION_REF_QUALIFIED (type))
+    return FUNCTION_RVALUE_QUALIFIED (type) ? 2 : 1;
+  else
+    return 0;
+}
+
+/* Return NULL if TYPE is NOT a C++ pointer to member function type.
+   Otherwise, return the class type when the selector is 0, or the
+   member function type when the selector is 1.  */
+
+tree
+cp_get_ptrmemfn_type (const_tree type, int selector)
+{
+  if (!TYPE_PTRMEMFUNC_P (type))
+    return NULL_TREE;
+
+  switch (selector)
+    {
+    case 0:
+      return TYPE_PTRMEMFUNC_OBJECT_TYPE (type);
+
+    case 1:
+      return TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (type));
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Return true if DECL is explicit member function.  */
 
 bool
