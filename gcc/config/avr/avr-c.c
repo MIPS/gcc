@@ -19,6 +19,8 @@
 
 /* Not included in avr.c since this requires C front end.  */
 
+#define TARGET_C_FILE 1
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"

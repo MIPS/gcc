@@ -21,6 +21,8 @@
 /* Note this file is auto-generated from gen-mul-tables.cc.
    Make any required changes there.  */
 
+#define TARGET_C_FILE 1
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
