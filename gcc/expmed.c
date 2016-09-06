@@ -205,7 +205,7 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
   if (SCALAR_INT_MODE_P (mode))
     {
       for (mode_from = MIN_MODE_INT; mode_from <= MAX_MODE_INT;
-	   mode_from = (machine_mode)(mode_from + 1))
+	   mode_from = (machine_mode_enum) (mode_from + 1))
 	init_expmed_one_conv (all, mode, mode_from, speed);
     }
   if (GET_MODE_CLASS (mode) == MODE_INT)
@@ -266,17 +266,17 @@ init_expmed (void)
       set_zero_cost (speed, set_src_cost (const0_rtx, mode, speed));
 
       for (mode = MIN_MODE_INT; mode <= MAX_MODE_INT;
-	   mode = (machine_mode)(mode + 1))
+	   mode = (machine_mode_enum) (mode + 1))
 	init_expmed_one_mode (&all, mode, speed);
 
       if (MIN_MODE_PARTIAL_INT != VOIDmode)
 	for (mode = MIN_MODE_PARTIAL_INT; mode <= MAX_MODE_PARTIAL_INT;
-	     mode = (machine_mode)(mode + 1))
+	     mode = (machine_mode_enum) (mode + 1))
 	  init_expmed_one_mode (&all, mode, speed);
 
       if (MIN_MODE_VECTOR_INT != VOIDmode)
 	for (mode = MIN_MODE_VECTOR_INT; mode <= MAX_MODE_VECTOR_INT;
-	     mode = (machine_mode)(mode + 1))
+	     mode = (machine_mode_enum) (mode + 1))
 	  init_expmed_one_mode (&all, mode, speed);
     }
 
@@ -363,9 +363,9 @@ check_reverse_float_storage_order_support (void)
    useful if X is a CONST_INT.  */
 
 rtx
-flip_storage_order (enum machine_mode mode, rtx x)
+flip_storage_order (machine_mode mode, rtx x)
 {
-  enum machine_mode int_mode;
+  machine_mode int_mode;
   rtx result;
 
   if (mode == QImode)

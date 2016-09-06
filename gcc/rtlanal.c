@@ -2322,7 +2322,7 @@ void
 add_int_reg_note (rtx_insn *insn, enum reg_note kind, int datum)
 {
   gcc_checking_assert (int_reg_note_p (kind));
-  REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode) kind,
+  REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode_enum) kind,
 				       datum, REG_NOTES (insn));
 }
 
@@ -2344,7 +2344,8 @@ duplicate_reg_note (rtx note)
   reg_note kind = REG_NOTE_KIND (note);
 
   if (GET_CODE (note) == INT_LIST)
-    return gen_rtx_INT_LIST ((machine_mode) kind, XINT (note, 0), NULL_RTX);
+    return gen_rtx_INT_LIST ((machine_mode_enum) kind, XINT (note, 0),
+			     NULL_RTX);
   else if (GET_CODE (note) == EXPR_LIST)
     return alloc_reg_note (kind, copy_insn_1 (XEXP (note, 0)), NULL_RTX);
   else

@@ -450,7 +450,7 @@ init_reload (void)
 
       for (int mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	if (!double_reg_address_ok[mode]
-	    && memory_address_p ((enum machine_mode)mode, tem))
+	    && memory_address_p ((machine_mode_enum) mode, tem))
 	  double_reg_address_ok[mode] = 1;
     }
 

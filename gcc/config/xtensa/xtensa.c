@@ -2187,7 +2187,7 @@ xtensa_option_override (void)
   /* Set up array giving whether a given register can hold a given mode.  */
   for (mode = VOIDmode;
        mode != MAX_MACHINE_MODE;
-       mode = (machine_mode) ((int) mode + 1))
+       mode = (machine_mode_enum) ((int) mode + 1))
     {
       int size = GET_MODE_SIZE (mode);
       enum mode_class mclass = GET_MODE_CLASS (mode);
@@ -2323,7 +2323,8 @@ print_operand (FILE *file, rtx x, int letter)
       if (GET_CODE (x) == MEM
 	  && (GET_MODE (x) == DFmode || GET_MODE (x) == DImode))
 	{
-	  x = adjust_address (x, GET_MODE (x) == DFmode ? SFmode : SImode, 4);
+	  x = adjust_address (x, GET_MODE (x) == DFmode ? E_SFmode : E_SImode,
+			      4);
 	  output_address (GET_MODE (x), XEXP (x, 0));
 	}
       else

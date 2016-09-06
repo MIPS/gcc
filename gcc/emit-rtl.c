@@ -5850,7 +5850,7 @@ init_emit_regs (void)
 
   for (i = 0; i < (int) MAX_MACHINE_MODE; i++)
     {
-      mode = (machine_mode) i;
+      mode = (machine_mode_enum) i;
       attrs = ggc_cleared_alloc<mem_attrs> ();
       attrs->align = BITS_PER_UNIT;
       attrs->addrspace = ADDR_SPACE_GENERIC;
@@ -5978,7 +5978,7 @@ init_emit_once (void)
 
       for (mode = MIN_MODE_PARTIAL_INT;
 	   mode <= MAX_MODE_PARTIAL_INT;
-	   mode = (machine_mode)((int)(mode) + 1))
+	   mode = (machine_mode_enum) ((int) mode + 1))
 	const_tiny_rtx[i][(int) mode] = GEN_INT (i);
     }
 
@@ -5991,7 +5991,7 @@ init_emit_once (void)
 
   for (mode = MIN_MODE_PARTIAL_INT;
        mode <= MAX_MODE_PARTIAL_INT;
-       mode = (machine_mode)((int)(mode) + 1))
+       mode = (machine_mode_enum) ((int) mode + 1))
     const_tiny_rtx[3][(int) mode] = constm1_rtx;
       
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_COMPLEX_INT);
@@ -6124,7 +6124,7 @@ init_emit_once (void)
     }
 
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)
-    if (GET_MODE_CLASS ((machine_mode) i) == MODE_CC)
+    if (GET_MODE_CLASS ((machine_mode_enum) i) == MODE_CC)
       const_tiny_rtx[0][i] = const0_rtx;
 
   const_tiny_rtx[0][(int) BImode] = const0_rtx;

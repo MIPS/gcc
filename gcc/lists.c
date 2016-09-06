@@ -137,7 +137,7 @@ alloc_EXPR_LIST (int kind, rtx val, rtx next)
       PUT_REG_NOTE_KIND (r, kind);
     }
   else
-    r = gen_rtx_EXPR_LIST ((machine_mode) kind, val, next);
+    r = gen_rtx_EXPR_LIST ((machine_mode_enum) kind, val, next);
 
   return r;
 }

@@ -596,7 +596,7 @@ static struct lra_operand_data debug_operand_data =
   {
     NULL, /* alternative  */
     0, /* early_clobber_alts */
-    VOIDmode, /* We are not interesting in the operand mode.  */
+    E_VOIDmode, /* We are not interesting in the operand mode.  */
     OP_IN,
     0, 0, 0, 0
   };
@@ -2294,7 +2294,7 @@ setup_reg_spill_flag (void)
     for (cl = 0; cl < (int) LIM_REG_CLASSES; cl++)
       for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	if (targetm.spill_class ((enum reg_class) cl,
-				 (machine_mode) mode) != NO_REGS)
+				 (machine_mode_enum) mode) != NO_REGS)
 	  {
 	    lra_reg_spill_p = true;
 	    return;

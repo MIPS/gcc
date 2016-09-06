@@ -199,7 +199,7 @@ union rtunion
   const char *rt_str;
   rtx rt_rtx;
   rtvec rt_rtvec;
-  machine_mode rt_type;
+  machine_mode_enum rt_type;
   addr_diff_vec_flags rt_addr_diff_vec_flags;
   struct cselib_val *rt_cselib;
   tree rt_tree;
@@ -302,7 +302,7 @@ struct GTY((desc("0"), tag("0"),
   ENUM_BITFIELD(rtx_code) code: 16;
 
   /* The kind of value the expression has.  */
-  ENUM_BITFIELD(machine_mode) mode : 8;
+  machine_mode_enum mode : 8;
 
   /* 1 in a MEM if we should keep the alias set for this mem unchanged
      when we access a component.
@@ -698,7 +698,7 @@ class GTY(()) rtx_note : public rtx_insn
 #define GET_CODE(RTX)	    ((enum rtx_code) (RTX)->code)
 #define PUT_CODE(RTX, CODE) ((RTX)->code = (CODE))
 
-#define GET_MODE(RTX)		((machine_mode) (RTX)->mode)
+#define GET_MODE(RTX)		(machine_mode ((RTX)->mode))
 #define PUT_MODE_RAW(RTX, MODE)	((RTX)->mode = (MODE))
 
 /* RTL vector.  These appear inside RTX's when there is a need
@@ -1548,9 +1548,9 @@ enum reg_note
 };
 
 /* Define macros to extract and insert the reg-note kind in an EXPR_LIST.  */
-#define REG_NOTE_KIND(LINK) ((enum reg_note) GET_MODE (LINK))
+#define REG_NOTE_KIND(LINK) ((enum reg_note) (LINK)->mode)
 #define PUT_REG_NOTE_KIND(LINK, KIND) \
-  PUT_MODE_RAW (LINK, (machine_mode) (KIND))
+  PUT_MODE_RAW (LINK, (machine_mode_enum) KIND)
 
 /* Names for REG_NOTE's in EXPR_LIST insn's.  */
 

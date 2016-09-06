@@ -740,9 +740,9 @@ validate_pattern (rtx pattern, md_rtx_info *info, rtx set, int set_code)
     case VEC_SELECT:
       if (GET_MODE (pattern) != VOIDmode)
 	{
-	  enum machine_mode mode = GET_MODE (pattern);
-	  enum machine_mode imode = GET_MODE (XEXP (pattern, 0));
-	  enum machine_mode emode
+	  machine_mode mode = GET_MODE (pattern);
+	  machine_mode imode = GET_MODE (XEXP (pattern, 0));
+	  machine_mode emode
 	    = VECTOR_MODE_P (mode) ? GET_MODE_INNER (mode) : mode;
 	  if (GET_CODE (XEXP (pattern, 1)) == PARALLEL)
 	    {
@@ -4086,7 +4086,8 @@ match_pattern_2 (state *s, md_rtx_info *info, position *pos, rtx pattern)
 		   and DImode register_operands, as described above.  */
 		machine_mode mode = GET_MODE (e->pattern);
 		if (pred && safe_predicate_mode (pred, mode))
-		  s = add_decision (s, rtx_test::mode (e->pos), mode, true);
+		  s = add_decision (s, rtx_test::mode (e->pos),
+				    (machine_mode_enum) mode, true);
 
 		/* Assign to operands[] first, so that the rtx usually doesn't
 		   need to be live across the call to the predicate.
@@ -4110,7 +4111,7 @@ match_pattern_2 (state *s, md_rtx_info *info, position *pos, rtx pattern)
 
 	default:
 	  s = add_decision (s, rtx_test::mode (e->pos),
-			    GET_MODE (e->pattern), false);
+			    (machine_mode_enum) GET_MODE (e->pattern), false);
 	  break;
 	}
     }
@@ -4489,7 +4490,7 @@ print_parameter_value (const parameter &param)
 	break;
 
       case parameter::MODE:
-	printf ("%smode", GET_MODE_NAME ((machine_mode) param.value));
+	printf ("E_%smode", GET_MODE_NAME ((machine_mode_enum) param.value));
 	break;
 
       case parameter::INT:

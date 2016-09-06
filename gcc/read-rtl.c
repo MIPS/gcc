@@ -152,7 +152,7 @@ find_mode (const char *name)
 static void
 apply_mode_iterator (void *loc, int mode)
 {
-  PUT_MODE ((rtx) loc, (machine_mode) mode);
+  PUT_MODE ((rtx) loc, (machine_mode_enum) mode);
 }
 
 /* In compact dumps, the code of insns is prefixed with "c", giving "cinsn",
@@ -1304,7 +1304,7 @@ rtx_reader::read_rtx_code (const char *code_name)
 	{
 	  read_name (&name);
 	  PUT_MODE_RAW (return_rtx,
-			(machine_mode)parse_reg_note_name (name.string));
+			(machine_mode_enum) parse_reg_note_name (name.string));
 	}
       else
 	unread_char (ch);

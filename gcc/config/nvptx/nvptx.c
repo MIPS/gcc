@@ -717,7 +717,7 @@ write_return_type (std::stringstream &s, bool for_proto, tree type)
 	 optimization-level specific, so no caller can make use of
 	 this data, but more importantly for us, we must ensure it
 	 doesn't change the PTX prototype.  */
-      mode = (machine_mode) cfun->machine->return_mode;
+      mode = (machine_mode_enum) cfun->machine->return_mode;
 
       if (mode == VOIDmode)
 	return return_in_mem;
@@ -1420,7 +1420,7 @@ nvptx_output_set_softstack (unsigned src_regno)
 const char *
 nvptx_output_return (void)
 {
-  machine_mode mode = (machine_mode)cfun->machine->return_mode;
+  machine_mode mode = (machine_mode_enum) cfun->machine->return_mode;
 
   if (mode != VOIDmode)
     fprintf (asm_out_file, "\tst.param%s\t[%s_out], %s;\n",

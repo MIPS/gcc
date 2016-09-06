@@ -1497,7 +1497,7 @@ struct GTY(()) tree_type_common {
   unsigned restrict_flag : 1;
   unsigned contains_placeholder_bits : 2;
 
-  ENUM_BITFIELD(machine_mode) mode : 8;
+  machine_mode_enum mode : 8;
 
   unsigned string_flag : 1;
   unsigned lang_flag_0 : 1;
@@ -1575,7 +1575,7 @@ struct GTY(()) tree_decl_common {
   struct tree_decl_minimal common;
   tree size;
 
-  ENUM_BITFIELD(machine_mode) mode : 8;
+  machine_mode_enum mode : 8;
 
   unsigned nonlocal_flag : 1;
   unsigned virtual_flag : 1;

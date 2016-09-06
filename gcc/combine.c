@@ -213,7 +213,7 @@ struct reg_stat_type {
 
   unsigned HOST_WIDE_INT	last_set_nonzero_bits;
   char				last_set_sign_bit_copies;
-  ENUM_BITFIELD(machine_mode)	last_set_mode : 8;
+  machine_mode_enum		last_set_mode : 8;
 
   /* Set nonzero if references to register n in expressions should not be
      used.  last_set_invalid is set nonzero when this register is being
@@ -248,7 +248,7 @@ struct reg_stat_type {
      truncation if we know that value already contains a truncated
      value.  */
 
-  ENUM_BITFIELD(machine_mode)	truncated_to_mode : 8;
+  machine_mode_enum		truncated_to_mode : 8;
 };
 
 
@@ -390,7 +390,12 @@ struct undo
 {
   struct undo *next;
   enum undo_kind kind;
-  union { rtx r; int i; machine_mode m; struct insn_link *l; } old_contents;
+  union {
+    rtx r;
+    int i;
+    machine_mode_enum m;
+    struct insn_link *l;
+  } old_contents;
   union { rtx *r; int *i; struct insn_link **l; } where;
 };
 
@@ -6582,7 +6587,7 @@ simplify_if_then_else (rtx x)
       && (i = exact_log2 (UINTVAL (true_rtx) & GET_MODE_MASK (mode))) >= 0)
     {
       rtx val = XEXP (cond, 0);
-      enum machine_mode val_mode = GET_MODE (val);
+      machine_mode val_mode = GET_MODE (val);
       if (val_mode == mode)
         return val;
       else if (GET_MODE_PRECISION (val_mode) < GET_MODE_PRECISION (mode))

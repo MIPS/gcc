@@ -974,7 +974,7 @@ inline __attribute__((__always_inline__))\n\
 extern __inline__ __attribute__((__always_inline__, __gnu_inline__))\n\
 #endif\n\
 unsigned short\n\
-mode_size_inline (machine_mode mode)\n\
+mode_size_inline (machine_mode_enum mode)\n\
 {\n\
   extern %sunsigned short mode_size[NUM_MACHINE_MODES];\n\
   gcc_assert (mode >= 0 && mode < NUM_MACHINE_MODES);\n\
@@ -1005,7 +1005,7 @@ inline __attribute__((__always_inline__))\n\
 extern __inline__ __attribute__((__always_inline__, __gnu_inline__))\n\
 #endif\n\
 unsigned char\n\
-mode_nunits_inline (machine_mode mode)\n\
+mode_nunits_inline (machine_mode_enum mode)\n\
 {\n\
   extern const unsigned char mode_nunits[NUM_MACHINE_MODES];\n\
   gcc_assert (mode >= 0 && mode < NUM_MACHINE_MODES);\n\
@@ -1035,7 +1035,7 @@ inline __attribute__((__always_inline__))\n\
 extern __inline__ __attribute__((__always_inline__, __gnu_inline__))\n\
 #endif\n\
 unsigned char\n\
-mode_inner_inline (machine_mode mode)\n\
+mode_inner_inline (machine_mode_enum mode)\n\
 {\n\
   extern const unsigned char mode_inner[NUM_MACHINE_MODES];\n\
   gcc_assert (mode >= 0 && mode < NUM_MACHINE_MODES);\n\
@@ -1067,7 +1067,7 @@ inline __attribute__((__always_inline__))\n\
 extern __inline__ __attribute__((__always_inline__, __gnu_inline__))\n\
 #endif\n\
 unsigned char\n\
-mode_unit_size_inline (machine_mode mode)\n\
+mode_unit_size_inline (machine_mode_enum mode)\n\
 {\n\
   extern CONST_MODE_UNIT_SIZE unsigned char mode_unit_size[NUM_MACHINE_MODES];\
 \n\
@@ -1105,7 +1105,7 @@ inline __attribute__((__always_inline__))\n\
 extern __inline__ __attribute__((__always_inline__, __gnu_inline__))\n\
 #endif\n\
 unsigned short\n\
-mode_unit_precision_inline (machine_mode mode)\n\
+mode_unit_precision_inline (machine_mode_enum mode)\n\
 {\n\
   extern const unsigned short mode_unit_precision[NUM_MACHINE_MODES];\n\
   gcc_assert (mode >= 0 && mode < NUM_MACHINE_MODES);\n\
@@ -1146,7 +1146,7 @@ emit_insn_modes_h (void)
 #ifndef GCC_INSN_MODES_H\n\
 #define GCC_INSN_MODES_H\n\
 \n\
-enum machine_mode\n{");
+enum machine_mode_enum\n{");
 
   for (c = 0; c < MAX_MODE_CLASS; c++)
     for (m = modes[c]; m; m = m->next)
@@ -1155,8 +1155,12 @@ enum machine_mode\n{");
 	printf ("%*s/* %s:%d */\n", 27 - count_, "",
 		 trim_filename (m->file), m->line);
 	printf ("#define HAVE_%smode\n", m->name);
+	printf ("#ifdef USE_ENUM_MODES\n");
+	printf ("#define %smode E_%smode\n", m->name, m->name);
+	printf ("#else\n");
 	printf ("#define %smode (machine_mode (E_%smode))\n",
 		m->name, m->name);
+	printf ("#endif\n");
       }
 
   puts ("  MAX_MACHINE_MODE,\n");
