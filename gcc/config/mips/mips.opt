@@ -537,3 +537,6 @@ Target Undocumented Joined UInteger Var(mips16e2_ze_policy) Init(0)
 
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
+
+mlra-equiv
+Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
