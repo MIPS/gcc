@@ -1002,6 +1002,12 @@ IS_ADHOC_LOC (source_location loc)
 bool
 pure_location_p (line_maps *set, source_location loc);
 
+/* Given location LOC within SET, strip away any packed range information
+   or ad-hoc information.  */
+
+extern source_location get_pure_location (line_maps *set,
+					  source_location loc);
+
 /* Combine LOC and BLOCK, giving a combined adhoc location.  */
 
 inline source_location
@@ -1282,9 +1288,130 @@ struct location_range
   bool m_show_caret_p;
 };
 
+/* A partially-embedded vec for use within rich_location for storing
+   ranges and fix-it hints.
+
+   Elements [0..NUM_EMBEDDED) are allocated within m_embed, after
+   that they are within the dynamically-allocated m_extra.
+
+   This allows for static allocation in the common case, whilst
+   supporting the rarer case of an arbitrary number of elements.
+
+   Dynamic allocation is not performed unless it's needed.  */
+
+template <typename T, int NUM_EMBEDDED>
+class semi_embedded_vec
+{
+ public:
+  semi_embedded_vec ();
+  ~semi_embedded_vec ();
+
+  unsigned int count () const { return m_num; }
+  T& operator[] (int idx);
+  const T& operator[] (int idx) const;
+
+  void push (const T&);
+  void truncate (int len);
+
+ private:
+  int m_num;
+  T m_embedded[NUM_EMBEDDED];
+  int m_alloc;
+  T *m_extra;
+};
+
+/* Constructor for semi_embedded_vec.  In particular, no dynamic allocation
+   is done.  */
+
+template <typename T, int NUM_EMBEDDED>
+semi_embedded_vec<T, NUM_EMBEDDED>::semi_embedded_vec ()
+: m_num (0), m_alloc (0), m_extra (NULL)
+{
+}
+
+/* semi_embedded_vec's dtor.  Release any dynamically-allocated memory.  */
+
+template <typename T, int NUM_EMBEDDED>
+semi_embedded_vec<T, NUM_EMBEDDED>::~semi_embedded_vec ()
+{
+  XDELETEVEC (m_extra);
+}
+
+/* Look up element IDX, mutably.  */
+
+template <typename T, int NUM_EMBEDDED>
+T&
+semi_embedded_vec<T, NUM_EMBEDDED>::operator[] (int idx)
+{
+  linemap_assert (idx < m_num);
+  if (idx < NUM_EMBEDDED)
+    return m_embedded[idx];
+  else
+    {
+      linemap_assert (m_extra != NULL);
+      return m_extra[idx - NUM_EMBEDDED];
+    }
+}
+
+/* Look up element IDX (const).  */
+
+template <typename T, int NUM_EMBEDDED>
+const T&
+semi_embedded_vec<T, NUM_EMBEDDED>::operator[] (int idx) const
+{
+  linemap_assert (idx < m_num);
+  if (idx < NUM_EMBEDDED)
+    return m_embedded[idx];
+  else
+    {
+      linemap_assert (m_extra != NULL);
+      return m_extra[idx - NUM_EMBEDDED];
+    }
+}
+
+/* Append VALUE to the end of the semi_embedded_vec.  */
+
+template <typename T, int NUM_EMBEDDED>
+void
+semi_embedded_vec<T, NUM_EMBEDDED>::push (const T& value)
+{
+  int idx = m_num++;
+  if (idx < NUM_EMBEDDED)
+    m_embedded[idx] = value;
+  else
+    {
+      /* Offset "idx" to be an index within m_extra.  */
+      idx -= NUM_EMBEDDED;
+      if (NULL == m_extra)
+	{
+	  linemap_assert (m_alloc == 0);
+	  m_alloc = 16;
+	  m_extra = XNEWVEC (T, m_alloc);
+	}
+      else if (idx >= m_alloc)
+	{
+	  linemap_assert (m_alloc > 0);
+	  m_alloc *= 2;
+	  m_extra = XRESIZEVEC (T, m_extra, m_alloc);
+	}
+      linemap_assert (m_extra);
+      linemap_assert (idx < m_alloc);
+      m_extra[idx] = value;
+    }
+}
+
+/* Truncate to length LEN.  No deallocation is performed.  */
+
+template <typename T, int NUM_EMBEDDED>
+void
+semi_embedded_vec<T, NUM_EMBEDDED>::truncate (int len)
+{
+  linemap_assert (len <= m_num);
+  m_num = len;
+}
+
 class fixit_hint;
   class fixit_insert;
-  class fixit_remove;
   class fixit_replace;
 
 /* A "rich" source code location, for use when printing diagnostics.
@@ -1381,13 +1508,10 @@ class rich_location
   set_range (line_maps *set, unsigned int idx, source_location loc,
 	     bool show_caret_p);
 
-  unsigned int get_num_locations () const { return m_num_ranges; }
+  unsigned int get_num_locations () const { return m_ranges.count (); }
 
-  location_range *get_range (unsigned int idx)
-  {
-    linemap_assert (idx < m_num_ranges);
-    return &m_ranges[idx];
-  }
+  const location_range *get_range (unsigned int idx) const;
+  location_range *get_range (unsigned int idx);
 
   expanded_location get_expanded_location (unsigned int idx);
 
@@ -1395,40 +1519,75 @@ class rich_location
   override_column (int column);
 
   /* Fix-it hints.  */
+
+  /* Methods for adding insertion fix-it hints.  */
+
+  /* Suggest inserting NEW_CONTENT at the primary range's caret.  */
+  void
+  add_fixit_insert (const char *new_content);
+
+  /* Suggest inserting NEW_CONTENT at WHERE.  */
   void
   add_fixit_insert (source_location where,
 		    const char *new_content);
 
+  /* Methods for adding removal fix-it hints.  */
+
+  /* Suggest removing the content covered by range 0.  */
+  void
+  add_fixit_remove ();
+
+  /* Suggest removing the content covered between the start and finish
+     of WHERE.  */
+  void
+  add_fixit_remove (source_location where);
+
+  /* Suggest removing the content covered by SRC_RANGE.  */
   void
   add_fixit_remove (source_range src_range);
 
+  /* Methods for adding "replace" fix-it hints.  */
+
+  /* Suggest replacing the content covered by range 0 with NEW_CONTENT.  */
+  void
+  add_fixit_replace (const char *new_content);
+
+  /* Suggest replacing the content between the start and finish of
+     WHERE with NEW_CONTENT.  */
+  void
+  add_fixit_replace (source_location where,
+		     const char *new_content);
+
+  /* Suggest replacing the content covered by SRC_RANGE with
+     NEW_CONTENT.  */
   void
   add_fixit_replace (source_range src_range,
 		     const char *new_content);
 
-  unsigned int get_num_fixit_hints () const { return m_num_fixit_hints; }
+  unsigned int get_num_fixit_hints () const { return m_fixit_hints.count (); }
   fixit_hint *get_fixit_hint (int idx) const { return m_fixit_hints[idx]; }
   fixit_hint *get_last_fixit_hint () const;
+  bool seen_impossible_fixit_p () const { return m_seen_impossible_fixit; }
 
 private:
   bool reject_impossible_fixit (source_location where);
+  void add_fixit (fixit_hint *hint);
 
 public:
-  static const int MAX_RANGES = 3;
-  static const int MAX_FIXIT_HINTS = 2;
+  static const int STATICALLY_ALLOCATED_RANGES = 3;
 
 protected:
   line_maps *m_line_table;
-  unsigned int m_num_ranges;
-  location_range m_ranges[MAX_RANGES];
+  semi_embedded_vec <location_range, STATICALLY_ALLOCATED_RANGES> m_ranges;
 
   int m_column_override;
 
   bool m_have_expanded_location;
   expanded_location m_expanded_location;
 
-  unsigned int m_num_fixit_hints;
-  fixit_hint *m_fixit_hints[MAX_FIXIT_HINTS];
+  static const int MAX_STATIC_FIXIT_HINTS = 2;
+  semi_embedded_vec <fixit_hint *, MAX_STATIC_FIXIT_HINTS> m_fixit_hints;
+
   bool m_seen_impossible_fixit;
 };
 
@@ -1440,7 +1599,7 @@ public:
   virtual ~fixit_hint () {}
 
   virtual enum kind get_kind () const = 0;
-  virtual bool affects_line_p (const char *file, int line) = 0;
+  virtual bool affects_line_p (const char *file, int line) const = 0;
   virtual source_location get_start_loc () const = 0;
   virtual bool maybe_get_end_loc (source_location *out) const = 0;
   /* Vfunc for consolidating successor fixits.  */
@@ -1456,7 +1615,7 @@ class fixit_insert : public fixit_hint
 		const char *new_content);
   ~fixit_insert ();
   enum kind get_kind () const { return INSERT; }
-  bool affects_line_p (const char *file, int line);
+  bool affects_line_p (const char *file, int line) const;
   source_location get_start_loc () const { return m_where; }
   bool maybe_get_end_loc (source_location *) const { return false; }
   bool maybe_append_replace (line_maps *set,
@@ -1481,7 +1640,7 @@ class fixit_replace : public fixit_hint
   ~fixit_replace ();
 
   enum kind get_kind () const { return REPLACE; }
-  bool affects_line_p (const char *file, int line);
+  bool affects_line_p (const char *file, int line) const;
   source_location get_start_loc () const { return m_src_range.m_start; }
   bool maybe_get_end_loc (source_location *out) const
   {

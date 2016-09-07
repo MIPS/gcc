@@ -5346,7 +5346,8 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	     flexibility, split it into separate input and output
  	     operands.  */
 	  tree input;
-	  char buf[10];
+	  /* Buffer big enough to format a 32-bit UINT_MAX into.  */
+	  char buf[11];
 
 	  /* Turn the in/out constraint into an output constraint.  */
 	  char *p = xstrdup (constraint);
@@ -5356,7 +5357,7 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	  /* And add a matching input constraint.  */
 	  if (allows_reg)
 	    {
-	      sprintf (buf, "%d", i);
+	      sprintf (buf, "%u", i);
 
 	      /* If there are multiple alternatives in the constraint,
 		 handle each of them individually.  Those that allow register
@@ -7910,7 +7911,15 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   if (private_debug)
     code = OMP_CLAUSE_PRIVATE;
   else if (flags & GOVD_MAP)
-    code = OMP_CLAUSE_MAP;
+    {
+      code = OMP_CLAUSE_MAP;
+      if ((gimplify_omp_ctxp->region_type & ORT_ACC) == 0
+	  && TYPE_ATOMIC (strip_array_types (TREE_TYPE (decl))))
+	{
+	  error ("%<_Atomic%> %qD in implicit %<map%> clause", decl);
+	  return 0;
+	}
+    }
   else if (flags & GOVD_SHARED)
     {
       if (is_global_var (decl))
@@ -7934,7 +7943,17 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   else if (flags & GOVD_PRIVATE)
     code = OMP_CLAUSE_PRIVATE;
   else if (flags & GOVD_FIRSTPRIVATE)
-    code = OMP_CLAUSE_FIRSTPRIVATE;
+    {
+      code = OMP_CLAUSE_FIRSTPRIVATE;
+      if ((gimplify_omp_ctxp->region_type & ORT_TARGET)
+	  && (gimplify_omp_ctxp->region_type & ORT_ACC) == 0
+	  && TYPE_ATOMIC (strip_array_types (TREE_TYPE (decl))))
+	{
+	  error ("%<_Atomic%> %qD in implicit %<firstprivate%> clause on "
+		 "%<target%> construct", decl);
+	  return 0;
+	}
+    }
   else if (flags & GOVD_LASTPRIVATE)
     code = OMP_CLAUSE_LASTPRIVATE;
   else if (flags & GOVD_ALIGNED)
@@ -8089,9 +8108,21 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 
       switch (OMP_CLAUSE_CODE (c))
 	{
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	  if ((ctx->region_type & ORT_TARGET)
+	      && (ctx->region_type & ORT_ACC) == 0
+	      && TYPE_ATOMIC (strip_array_types
+					(TREE_TYPE (OMP_CLAUSE_DECL (c)))))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<_Atomic%> %qD in %<firstprivate%> clause on "
+			"%<target%> construct", OMP_CLAUSE_DECL (c));
+	      remove = true;
+	      break;
+	    }
+	  /* FALLTHRU */
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
-	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_LINEAR:
 	  decl = OMP_CLAUSE_DECL (c);
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
@@ -11959,12 +11990,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p,
   if (have_va_type == error_mark_node)
     return GS_ERROR;
   have_va_type = targetm.canonical_va_list_type (have_va_type);
-
-  if (have_va_type == NULL_TREE)
-    {
-      error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
-      return GS_ERROR;
-    }
+  gcc_assert (have_va_type != NULL_TREE);
 
   /* Generate a diagnostic for requesting data of a type that cannot
      be passed through `...' due to type promotion at the call site.  */

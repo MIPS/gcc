@@ -1509,7 +1509,8 @@ warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
 
 /* Warn about logical not used on the left hand side operand of a comparison.
    This function assumes that the LHS is inside of TRUTH_NOT_EXPR.
-   Do not warn if RHS is of a boolean type.  */
+   Do not warn if RHS is of a boolean type, a logical operator, or
+   a comparison.  */
 
 void
 warn_logical_not_parentheses (location_t location, enum tree_code code,
@@ -1517,7 +1518,8 @@ warn_logical_not_parentheses (location_t location, enum tree_code code,
 {
   if (TREE_CODE_CLASS (code) != tcc_comparison
       || TREE_TYPE (rhs) == NULL_TREE
-      || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE)
+      || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE
+      || truth_value_p (TREE_CODE (rhs)))
     return;
 
   /* Don't warn for !x == 0 or !y != 0, those are equivalent to
@@ -5913,16 +5915,19 @@ build_va_arg (location_t loc, tree expr, tree type)
 {
   tree va_type = TREE_TYPE (expr);
   tree canon_va_type = (va_type == error_mark_node
-			? NULL_TREE
+			? error_mark_node
 			: targetm.canonical_va_list_type (va_type));
 
   if (va_type == error_mark_node
       || canon_va_type == NULL_TREE)
     {
+      if (canon_va_type == NULL_TREE)
+	error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
+
       /* Let's handle things neutrallly, if expr:
 	 - has undeclared type, or
 	 - is not an va_list type.  */
-      return build_va_arg_1 (loc, type, expr);
+      return build_va_arg_1 (loc, type, error_mark_node);
     }
 
   if (TREE_CODE (canon_va_type) != ARRAY_TYPE)
@@ -6020,7 +6025,10 @@ build_va_arg (location_t loc, tree expr, tree type)
     {
       /* Case 2b: va_list is pointer to array elem type.  */
       gcc_assert (POINTER_TYPE_P (va_type));
-      gcc_assert (TREE_TYPE (va_type) == TREE_TYPE (canon_va_type));
+
+      /* Comparison as in std_canonical_va_list_type.  */
+      gcc_assert (TYPE_MAIN_VARIANT (TREE_TYPE (va_type))
+		  == TYPE_MAIN_VARIANT (TREE_TYPE (canon_va_type)));
 
       /* Don't take the address.  We've already got '&ap'.  */
       ;
@@ -11660,7 +11668,7 @@ resolve_overloaded_builtin (location_t loc, tree function,
 	/* Handle these 4 together so that they can fall through to the next
 	   case if the call is transformed to an _N variant.  */
         switch (orig_code)
-	{
+	  {
 	  case BUILT_IN_ATOMIC_EXCHANGE:
 	    {
 	      if (resolve_overloaded_atomic_exchange (loc, function, params,
@@ -11701,17 +11709,15 @@ resolve_overloaded_builtin (location_t loc, tree function,
 	    }
 	  default:
 	    gcc_unreachable ();
-	}
-	/* Fallthrough to the normal processing.  */
+	  }
       }
+      /* FALLTHRU */
     case BUILT_IN_ATOMIC_EXCHANGE_N:
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
     case BUILT_IN_ATOMIC_LOAD_N:
     case BUILT_IN_ATOMIC_STORE_N:
-      {
-	fetch_op = false;
-	/* Fallthrough to further processing.  */
-      }
+      fetch_op = false;
+      /* FALLTHRU */
     case BUILT_IN_ATOMIC_ADD_FETCH_N:
     case BUILT_IN_ATOMIC_SUB_FETCH_N:
     case BUILT_IN_ATOMIC_AND_FETCH_N:
@@ -11724,10 +11730,8 @@ resolve_overloaded_builtin (location_t loc, tree function,
     case BUILT_IN_ATOMIC_FETCH_NAND_N:
     case BUILT_IN_ATOMIC_FETCH_XOR_N:
     case BUILT_IN_ATOMIC_FETCH_OR_N:
-      {
-        orig_format = false;
-	/* Fallthru for parameter processing.  */
-      }
+      orig_format = false;
+      /* FALLTHRU */
     case BUILT_IN_SYNC_FETCH_AND_ADD_N:
     case BUILT_IN_SYNC_FETCH_AND_SUB_N:
     case BUILT_IN_SYNC_FETCH_AND_OR_N:

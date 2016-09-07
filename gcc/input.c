@@ -95,6 +95,11 @@ struct fcache
      before the line map has seen the end of the file.  */
   size_t total_lines;
 
+  /* Could this file be missing a trailing newline on its final line?
+     Initially true (to cope with empty files), set to true/false
+     as each line is read.  */
+  bool missing_trailing_newline;
+
   /* This is a record of the beginning and end of the lines we've seen
      while reading the file.  This is useful to avoid walking the data
      from the beginning when we are asked to read a line that is
@@ -280,6 +285,7 @@ diagnostics_file_cache_forcibly_evict_file (const char *file_path)
   r->line_record.truncate (0);
   r->use_count = 0;
   r->total_lines = 0;
+  r->missing_trailing_newline = true;
 }
 
 /* Return the file cache that has been less used, recently, or the
@@ -348,6 +354,7 @@ add_file_to_cache_tab (const char *file_path)
      add_file_to_cache_tab is called.  */
   r->use_count = ++highest_use_count;
   r->total_lines = total_lines_num (file_path);
+  r->missing_trailing_newline = true;
 
   return r;
 }
@@ -372,7 +379,7 @@ lookup_or_add_file_to_cache_tab (const char *file_path)
 fcache::fcache ()
 : use_count (0), file_path (NULL), fp (NULL), data (0),
   size (0), nb_read (0), line_start_idx (0), line_num (0),
-  total_lines (0)
+  total_lines (0), missing_trailing_newline (true)
 {
   line_record.create (0);
 }
@@ -507,16 +514,24 @@ get_next_line (fcache *c, char **line, ssize_t *line_len)
 	    }
 	}
       if (line_end == NULL)
-	/* We've loadded all the file into the cache and still no
-	   '\n'.  Let's say the line ends up at one byte passed the
-	   end of the file.  This is to stay consistent with the case
-	   of when the line ends up with a '\n' and line_end points to
-	   that terminal '\n'.  That consistency is useful below in
-	   the len calculation.  */
-	line_end = c->data + c->nb_read ;
+	{
+	  /* We've loadded all the file into the cache and still no
+	     '\n'.  Let's say the line ends up at one byte passed the
+	     end of the file.  This is to stay consistent with the case
+	     of when the line ends up with a '\n' and line_end points to
+	     that terminal '\n'.  That consistency is useful below in
+	     the len calculation.  */
+	  line_end = c->data + c->nb_read ;
+	  c->missing_trailing_newline = true;
+	}
+      else
+	c->missing_trailing_newline = false;
     }
   else
-    next_line_start = line_end + 1;
+    {
+      next_line_start = line_end + 1;
+      c->missing_trailing_newline = false;
+    }
 
   if (ferror (c->fp))
     return -1;
@@ -751,6 +766,20 @@ location_get_source_line (const char *file_path, int line,
   return read ? buffer : NULL;
 }
 
+/* Determine if FILE_PATH missing a trailing newline on its final line.
+   Only valid to call once all of the file has been loaded, by
+   requesting a line number beyond the end of the file.  */
+
+bool
+location_missing_trailing_newline (const char *file_path)
+{
+  fcache *c = lookup_or_add_file_to_cache_tab (file_path);
+  if (c == NULL)
+    return false;
+
+  return c->missing_trailing_newline;
+}
+
 /* Test if the location originates from the spelling location of a
    builtin-tokens.  That is, return TRUE if LOC is a (possibly
    virtual) location of a built-in token that appears in the expansion
@@ -838,28 +867,6 @@ expansion_point_location (source_location location)
 				   LRK_MACRO_EXPANSION_POINT, NULL);
 }
 
-/* Given location LOC, strip away any packed range information
-   or ad-hoc information.  */
-
-location_t
-get_pure_location (location_t loc)
-{
-  if (IS_ADHOC_LOC (loc))
-    loc
-      = line_table->location_adhoc_data_map.data[loc & MAX_SOURCE_LOCATION].locus;
-
-  if (loc >= LINEMAPS_MACRO_LOWEST_LOCATION (line_table))
-    return loc;
-
-  if (loc < RESERVED_LOCATION_COUNT)
-    return loc;
-
-  const line_map *map = linemap_lookup (line_table, loc);
-  const line_map_ordinary *ordmap = linemap_check_ordinary (map);
-
-  return loc & ~((1 << ordmap->m_range_bits) - 1);
-}
-
 /* Construct a location with caret at CARET, ranging from START to
    finish e.g.
 
@@ -879,8 +886,8 @@ make_location (location_t caret, location_t start, location_t finish)
 {
   location_t pure_loc = get_pure_location (caret);
   source_range src_range;
-  src_range.m_start = start;
-  src_range.m_finish = finish;
+  src_range.m_start = get_start (start);
+  src_range.m_finish = get_finish (finish);
   location_t combined_loc = COMBINE_LOCATION_DATA (line_table,
 						   pure_loc,
 						   src_range,
@@ -1739,6 +1746,67 @@ test_builtins ()
 {
   assert_loceq (_("<built-in>"), 0, 0, BUILTINS_LOCATION);
   ASSERT_PRED1 (is_location_from_builtin_token, BUILTINS_LOCATION);
+}
+
+/* Regression test for make_location.
+   Ensure that we use pure locations for the start/finish of the range,
+   rather than storing a packed or ad-hoc range as the start/finish.  */
+
+static void
+test_make_location_nonpure_range_endpoints (const line_table_case &case_)
+{
+  /* Issue seen with testsuite/c-c++-common/Wlogical-not-parentheses-2.c
+     with C++ frontend.
+     ....................0000000001111111111222.
+     ....................1234567890123456789012.  */
+  const char *content = "     r += !aaa == bbb;\n";
+  temp_source_file tmp (SELFTEST_LOCATION, ".C", content);
+  line_table_test ltt (case_);
+  linemap_add (line_table, LC_ENTER, false, tmp.get_filename (), 1);
+
+  const location_t c11 = linemap_position_for_column (line_table, 11);
+  const location_t c12 = linemap_position_for_column (line_table, 12);
+  const location_t c13 = linemap_position_for_column (line_table, 13);
+  const location_t c14 = linemap_position_for_column (line_table, 14);
+  const location_t c21 = linemap_position_for_column (line_table, 21);
+
+  if (c21 > LINE_MAP_MAX_LOCATION_WITH_COLS)
+    return;
+
+  /* Use column 13 for the caret location, arbitrarily, to verify that we
+     handle start != caret.  */
+  const location_t aaa = make_location (c13, c12, c14);
+  ASSERT_EQ (c13, get_pure_location (aaa));
+  ASSERT_EQ (c12, get_start (aaa));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_start (aaa)));
+  ASSERT_EQ (c14, get_finish (aaa));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_finish (aaa)));
+
+  /* Make a location using a location with a range as the start-point.  */
+  const location_t not_aaa = make_location (c11, aaa, c14);
+  ASSERT_EQ (c11, get_pure_location (not_aaa));
+  /* It should use the start location of the range, not store the range
+     itself.  */
+  ASSERT_EQ (c12, get_start (not_aaa));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_start (not_aaa)));
+  ASSERT_EQ (c14, get_finish (not_aaa));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_finish (not_aaa)));
+
+  /* Similarly, make a location with a range as the end-point.  */
+  const location_t aaa_eq_bbb = make_location (c12, c12, c21);
+  ASSERT_EQ (c12, get_pure_location (aaa_eq_bbb));
+  ASSERT_EQ (c12, get_start (aaa_eq_bbb));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_start (aaa_eq_bbb)));
+  ASSERT_EQ (c21, get_finish (aaa_eq_bbb));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_finish (aaa_eq_bbb)));
+  const location_t not_aaa_eq_bbb = make_location (c11, c12, aaa_eq_bbb);
+  /* It should use the finish location of the range, not store the range
+     itself.  */
+  ASSERT_EQ (c11, get_pure_location (not_aaa_eq_bbb));
+  ASSERT_EQ (c12, get_start (not_aaa_eq_bbb));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_start (not_aaa_eq_bbb)));
+  ASSERT_EQ (c21, get_finish (not_aaa_eq_bbb));
+  ASSERT_FALSE (IS_ADHOC_LOC (get_finish (not_aaa_eq_bbb)));
 }
 
 /* Verify reading of input files (e.g. for caret-based diagnostics).  */
@@ -3187,6 +3255,7 @@ input_c_tests ()
   test_should_have_column_data_p ();
   test_unknown_location ();
   test_builtins ();
+  for_each_line_table_case (test_make_location_nonpure_range_endpoints);
 
   for_each_line_table_case (test_accessing_ordinary_linemaps);
   for_each_line_table_case (test_lexer);

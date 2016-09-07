@@ -1,3 +1,78 @@
+2016-09-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (rich_location::seen_impossible_fixit_p): New
+	accessor.
+
+2016-08-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (class fixit_remove): Remove stray decl.
+	(fixit_hint::affects_line_p): Make const.
+	(fixit_insert::affects_line_p): Likewise.
+	(fixit_replace::affects_line_p): Likewise.
+	* line-map.c (fixit_insert::affects_line_p): Likewise.
+	(fixit_replace::affects_line_p): Likewise.
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (class semi_embedded_vec): New class.
+	(semi_embedded_vec<T, NUM_EMBEDDED>::semi_embedded_vec): New ctor.
+	(semi_embedded_vec<T, NUM_EMBEDDED>::~semi_embedded_vec): New
+	dtor.
+	(semi_embedded_vec<T, NUM_EMBEDDED>::operator[]): New methods.
+	(semi_embedded_vec<T, NUM_EMBEDDED>::push): New method.
+	(semi_embedded_vec<T, NUM_EMBEDDED>::truncate): New method.
+	(rich_location::get_num_locations): Reimplement in terms of
+	m_ranges.
+	(rich_location::get_range): Make non-inline.
+	(rich_location::get_num_fixit_hints): Reimplement in terms of
+	m_fixit_hints.
+	(rich_location::add_fixit): New function.
+	(rich_location::MAX_RANGES): Rename to...
+	(rich_location::STATICALLY_ALLOCATED_RANGES): ...this.
+	(rich_location::MAX_FIXIT_HINTS): Rename to...
+	(rich_location::STATICALLY_ALLOCATED_RANGES): ...this, and make
+	private.
+	(rich_location::m_num_ranges): Eliminate in favor of...
+	(rich_location::m_ranges): ...this, converting from a fixed-size
+	array to a semi_embedded_vec.
+	(rich_location::m_num_fixit_hints): Eliminate in favor of...
+	(rich_location::m_fixit_hints): ...this, converting from a
+	fixed-size array to a semi_embedded_vec.
+	* line-map.c (rich_location::rich_location): Update for above
+	changes.
+	(rich_location::~rich_location): Likewise.
+	(rich_location::get_loc): Likewise.
+	(rich_location::get_range): New methods.
+	(rich_location::add_range): Update for above changes.
+	(rich_location::set_range): Likewise.
+	(rich_location::add_fixit_insert): Likewise.
+	(rich_location::add_fixit_replace): Likewise.
+	(rich_location::get_last_fixit_hint): Likewise.
+	(rich_location::reject_impossible_fixit): Likewise.
+	(rich_location::add_fixit): New method.
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (rich_location::add_fixit_insert): Add
+	comments.  Add overload omitting the source_location param.
+	(rich_location::add_fixit_remove): Add comments.  Add overloads
+	omitting the range, and accepting a source_location.
+	(rich_location::add_fixit_replace): Likewise.
+	* line-map.c (rich_location::add_fixit_insert): Add comments.  Add
+	overload omitting the source_location param.
+	(rich_location::add_fixit_remove): Add comments.  Add overloads
+	omitting the range, and accepting a source_location.
+	(rich_location::add_fixit_replace): Likewise.
+
+2016-08-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (get_pure_location): New decl.
+	* line-map.c (get_pure_location): Move here, from gcc/input.c, adding
+	a line_maps * param.
+	(rich_location::add_fixit_insert): Call get_pure_location on "where".
+	(rich_location::add_fixit_replace): Call get_pure_location on the
+	end-points.
+
 2016-08-26  David Malcolm  <dmalcolm@redhat.com>
 
 	* include/line-map.h (rich_location): Eliminate unimplemented

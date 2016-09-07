@@ -1,3 +1,216 @@
+2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77391
+	* gfortran.dg/pr77391.f90: New test.
+
+2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77460
+	* gfortran.dg/pr77460.f90: New test.
+
+2016-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65467
+	* gcc.dg/gomp/_Atomic-4.c: Require vect_simd_clones effective target.
+
+2016-09-02  Kirill Yukhin  <kirill.yukhin@gmaile.com>
+
+	* gcc.target/i386/avx512f-klogic-2.c: Fix operand calculation order.
+
+2016-09-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-show-locus-generate-patch.c: New
+	test case.
+	* gcc.dg/plugin/plugin.exp (plugin_test_list): Add
+	diagnostic-test-show-locus-generate-patch.c to the sources
+	for diagnostic_plugin_test_show_locus.c.
+
+2016-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65467
+	* gcc.dg/gomp/_Atomic-1.c: New test.
+	* gcc.dg/gomp/_Atomic-2.c: New test.
+	* gcc.dg/gomp/_Atomic-3.c: New test.
+	* gcc.dg/gomp/_Atomic-4.c: New test.
+	* gcc.dg/gomp/_Atomic-5.c: New test.
+
+	PR sanitizer/77396
+	* g++.dg/asan/pr77396.C: New test.
+
+2016-09-01  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/71831
+	* gcc.dg/builtin-object-size-16.c: New test.
+	* gcc.dg/builtin-object-size-17.c: New test.
+
+2016-09-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/77393
+	* gfortran.dg/fmt_f0_2.f90: Update tests for available kinds.
+
+2016-09-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/float128-builtin.c, gcc.dg/torture/float128-floath.c,
+	gcc.dg/torture/float128-ieee-nan.c, gcc.dg/torture/float128-tg-2.c,
+	gcc.dg/torture/float128-tg.c, gcc.dg/torture/float128x-builtin.c,
+	gcc.dg/torture/float128x-floath.c, gcc.dg/torture/float128x-nan.c,
+	gcc.dg/torture/float128x-tg-2.c, gcc.dg/torture/float128x-tg.c,
+	gcc.dg/torture/float16-builtin.c, gcc.dg/torture/float16-floath.c,
+	gcc.dg/torture/float16-nan.c, gcc.dg/torture/float16-tg-2.c,
+	gcc.dg/torture/float16-tg.c, gcc.dg/torture/float32-builtin.c,
+	gcc.dg/torture/float32-floath.c, gcc.dg/torture/float32-nan.c,
+	gcc.dg/torture/float32-tg-2.c, gcc.dg/torture/float32-tg.c,
+	gcc.dg/torture/float32x-builtin.c, gcc.dg/torture/float32x-floath.c,
+	gcc.dg/torture/float32x-nan.c, gcc.dg/torture/float32x-tg-2.c,
+	gcc.dg/torture/float32x-tg.c, gcc.dg/torture/float64-builtin.c,
+	gcc.dg/torture/float64-floath.c, gcc.dg/torture/float64-nan.c,
+	gcc.dg/torture/float64-tg-2.c, gcc.dg/torture/float64-tg.c,
+	gcc.dg/torture/float64x-builtin.c, gcc.dg/torture/float64x-floath.c,
+	gcc.dg/torture/float64x-nan.c, gcc.dg/torture/float64x-tg-2.c,
+	gcc.dg/torture/float64x-tg.c: Use dg-add-options ieee.
+
+2016-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt58.adb: New test.
+	* gnat.dg/opt58_pkg.ads: New helper.
+
+2016-09-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77436
+	* gcc.dg/torture/pr77436.c: New testcase.
+
+2016-09-01  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/pr64252.c: Require int32plus.
+	* gcc.dg/pr66299-1.c: Likewise.
+	* gcc.dg/pr66299-2.c: Likewise.
+	* gcc.dg/torture/20131115-1.c: Skip for avr.
+
+2016-09-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ands_3.c: New test.
+
+2016-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77352
+	* gfortran.dg/gomp/pr77352.f90: New test.
+
+	PR fortran/77374
+	* gfortran.dg/gomp/pr77374.f08: New test.
+
+2016-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/73714
+	* gcc.dg/tree-ssa/pr73714.c: New test.
+
+2016-08-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/77393
+	* gfortran.dg/fmt_f0_2.f90: New test.
+
+2016-08-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.target/i386/pr59539-2.c: Adapt options.
+	* gcc.target/i386/avx512f-vmovdqu32-1.c: Relax expected asm.
+
+2016-08-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77418
+	* gfortran.dg/dtio_5.f90: Remove the non-standard deallocation
+	of the associate entity and replace with a pointer to the
+	intended item on the stack.
+
+2016-08-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48298
+	* gfortran.dg/dtio_1.f90: New test.
+	* gfortran.dg/dtio_2.f90: New test.
+	* gfortran.dg/dtio_3.f90: New test.
+	* gfortran.dg/dtio_4.f90: New test.
+	* gfortran.dg/dtio_5.f90: New test.
+	* gfortran.dg/dtio_6.f90: New test.
+	* gfortran.dg/dtio_7.f90: New test.
+	* gfortran.dg/dtio_8.f90: New test.
+	* gfortran.dg/dtio_9.f90: New test.
+	* gfortran.dg/dtio_10.f90: New test.
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-show-locus-bw.c
+	(test_many_nested_locations): New function.
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Handle "test_many_nested_locations".
+
+2016-08-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* g++.dg/template/double-greater-than-fixit.C: New test case.
+
+2016-08-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt57.ad[sb]: New test.
+	* gnat.dg/opt57_pkg.ads: New helper.
+
+2016-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69047
+	* gcc.dg/pr69047.c: Fix byte-order check.
+
+2016-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72866
+	* gcc.dg/vect/pr72866.c: New test.
+
+	PR debug/77363
+	* g++.dg/debug/dwarf2/pr77363.C: New test.
+
+	PR middle-end/77377
+	* gcc.target/i386/pr77377.c: New test.
+
+	PR debug/77389
+	* g++.dg/debug/dwarf2/template-params-12f.C: Pass -gno-strict-dwarf
+	in dg-options.
+
+2016-08-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/pr77372.f90: Moved to ...
+	* gfortran.dg/ieee/pr77372.f90: here.
+
+2016-08-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-init-4.c: New runtime tests for various
+	vector short/char initializations.
+	* gcc.target/powerpc/vec-init-5.c: Likewise.
+	* gcc.target/powerpc/vec-init-6.c: New compile time test for
+	vector initialization optimizations.
+	* gcc.target/powerpc/vec-init-7.c: Likewise.
+	* gcc.target/powerpc/vec-init-8.c: New runtime tests for various
+	vector float/double initializations.
+	* gcc.target/powerpc/vec-init-9.c: Likewise.
+
+2016-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77403
+	* gcc.target/i386/pr77403.c: New test.
+
+2016-08-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77292
+	* c-c++-common/Wlogical-not-parentheses-1.c: New test.
+
+2016-08-29  Tom de Vries  <tom@codesourcery.com>
+
+	PR c/77398
+	* g++.dg/ext/va-arg1.C: Add error check for illegal first argument.
+
+2016-08-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/ipa/iinline-attr.c: XFAIL on Visium.
+
+2016-08-29  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_structure_13.f90: New testcase.
+
 2016-08-29  Janne Blomqvist  <jb@gcc.gnu.org>
 
 	PR fortran/77261
@@ -324,10 +537,10 @@
 
 2016-08-19  Janne Blomqvist  <jb@gcc.gnu.org>
 
-        * gfortran.dg/random_4.f90: Initialize seed before using, handle
-        the last special seed value.
-        * gfortran.dg/random_7.f90: Use size for last array member instead
-        of hardcoded value.
+	* gfortran.dg/random_4.f90: Initialize seed before using, handle
+	the last special seed value.
+	* gfortran.dg/random_7.f90: Use size for last array member instead
+	of hardcoded value.
 
 2016-08-19  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
@@ -931,7 +1144,7 @@
 	* gcc.dg/tree-ssa/vrp105.c: New test.
 	* gcc.dg/tree-ssa/vrp106.c: New test.
 
-2016-08-05 Martin Sebor  <msebor@redhat.com>
+2016-08-05  Martin Sebor  <msebor@redhat.com>
 
 	* g++.dg/cpp0x/constexpr-cast.C: Avoid assuming (void*)1 is spelled
 	1ul in diagnostics.  Remove hyphen from "constant-expression."
@@ -1165,7 +1378,7 @@
 	PR fortran/68566
 	* gfortran.dg/pr68566.f90: new test.
 
-2016-07-30 Martin Sebor  <msebor@redhat.com>
+2016-07-30  Martin Sebor  <msebor@redhat.com>
 
 	PR c++/60760
 	PR c++/71091
@@ -1513,7 +1726,7 @@
 	* gfortran.dg/c_sizeof_6.f90: here.  Test for error.
 	* gfortran.dg/pr71935.f90: New test.
 
-2016-07-22 Martin Sebor  <msebor@redhat.com>
+2016-07-22  Martin Sebor  <msebor@redhat.com>
 
 	PR c++/71675
 	* g++.dg/ext/atomic-3.C: New test.
@@ -3166,7 +3379,7 @@
 	PR target/71103
 	* gcc.target/avr/torture/pr71103-2.c: New test.
 
-2016-06-19 Martin Sebor  <msebor@redhat.com>
+2016-06-19  Martin Sebor  <msebor@redhat.com>
 
 	PR c/69507
 	* gcc.dg/alignof.c: New test.

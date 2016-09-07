@@ -1542,6 +1542,7 @@ OBJS = \
 	tree-vectorizer.o \
 	tree-vrp.o \
 	tree.o \
+	typed-splay-tree.o \
 	valtrack.o \
 	value-prof.o \
 	var-tracking.o \
@@ -1560,6 +1561,7 @@ OBJS = \
 # Objects in libcommon.a, potentially used by all host binaries and with
 # no target dependencies.
 OBJS-libcommon = diagnostic.o diagnostic-color.o diagnostic-show-locus.o \
+	edit-context.o \
 	pretty-print.o intl.o \
 	vec.o input.o version.o hash-table.o ggc-none.o memory-block.o \
 	selftest.o
@@ -2775,7 +2777,7 @@ build/gcov-iov$(build_exeext): build/gcov-iov.o
 	+$(LINKER_FOR_BUILD) $(BUILD_LINKERFLAGS) $(BUILD_LDFLAGS) \
 		build/gcov-iov.o -o $@
 
-gcov-iov.h: s-iov
+gcov-iov.h: s-iov; @true
 s-iov: build/gcov-iov$(build_exeext) $(BASEVER) $(DEVPHASE)
 	build/gcov-iov$(build_exeext) '$(BASEVER_c)' '$(DEVPHASE_c)' \
 	    > tmp-gcov-iov.h

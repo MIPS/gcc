@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "backtrace.h"
 #include "diagnostic.h"
 #include "diagnostic-color.h"
+#include "edit-context.h"
 #include "selftest.h"
 
 #ifdef HAVE_TERMIOS_H
@@ -147,7 +148,7 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
     context->classify_diagnostic[i] = DK_UNSPECIFIED;
   context->show_caret = false;
   diagnostic_set_caret_max_width (context, pp_line_cutoff (context->printer));
-  for (i = 0; i < rich_location::MAX_RANGES; i++)
+  for (i = 0; i < rich_location::STATICALLY_ALLOCATED_RANGES; i++)
     context->caret_chars[i] = '^';
   context->show_option_requested = false;
   context->abort_on_error = false;
@@ -174,6 +175,7 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
   context->colorize_source_p = false;
   context->show_ruler_p = false;
   context->parseable_fixits_p = false;
+  context->edit_context_ptr = NULL;
 }
 
 /* Maybe initialize the color support. We require clients to do this
@@ -235,6 +237,12 @@ diagnostic_finish (diagnostic_context *context)
   context->printer->~pretty_printer ();
   XDELETE (context->printer);
   context->printer = NULL;
+
+  if (context->edit_context_ptr)
+    {
+      delete context->edit_context_ptr;
+      context->edit_context_ptr = NULL;
+    }
 }
 
 /* Initialize DIAGNOSTIC, where the message MSG has already been
@@ -942,6 +950,9 @@ diagnostic_report_diagnostic (diagnostic_context *context,
   diagnostic_action_after_output (context, diagnostic->kind);
   diagnostic->message.format_spec = saved_format_spec;
   diagnostic->x_data = NULL;
+
+  if (context->edit_context_ptr)
+    context->edit_context_ptr->add_fixits (diagnostic->richloc);
 
   context->lock--;
 

@@ -311,6 +311,28 @@ pure_location_p (line_maps *set, source_location loc)
   return true;
 }
 
+/* Given location LOC within SET, strip away any packed range information
+   or ad-hoc information.  */
+
+source_location
+get_pure_location (line_maps *set, source_location loc)
+{
+  if (IS_ADHOC_LOC (loc))
+    loc
+      = set->location_adhoc_data_map.data[loc & MAX_SOURCE_LOCATION].locus;
+
+  if (loc >= LINEMAPS_MACRO_LOWEST_LOCATION (set))
+    return loc;
+
+  if (loc < RESERVED_LOCATION_COUNT)
+    return loc;
+
+  const line_map *map = linemap_lookup (set, loc);
+  const line_map_ordinary *ordmap = linemap_check_ordinary (map);
+
+  return loc & ~((1 << ordmap->m_range_bits) - 1);
+}
+
 /* Finalize the location_adhoc_data structure.  */
 void
 location_adhoc_data_fini (struct line_maps *set)
@@ -1961,10 +1983,10 @@ source_range::intersects_line_p (const char *file, int line) const
 
 rich_location::rich_location (line_maps *set, source_location loc) :
   m_line_table (set),
-  m_num_ranges (0),
+  m_ranges (),
   m_column_override (0),
   m_have_expanded_location (false),
-  m_num_fixit_hints (0),
+  m_fixit_hints (),
   m_seen_impossible_fixit (false)
 {
   add_range (loc, true);
@@ -1974,8 +1996,8 @@ rich_location::rich_location (line_maps *set, source_location loc) :
 
 rich_location::~rich_location ()
 {
-  for (unsigned int i = 0; i < m_num_fixit_hints; i++)
-    delete m_fixit_hints[i];
+  for (unsigned int i = 0; i < m_fixit_hints.count (); i++)
+    delete get_fixit_hint (i);
 }
 
 /* Get location IDX within this rich_location.  */
@@ -1983,8 +2005,24 @@ rich_location::~rich_location ()
 source_location
 rich_location::get_loc (unsigned int idx) const
 {
-  linemap_assert (idx < m_num_ranges);
-  return m_ranges[idx].m_loc;
+  const location_range *locrange = get_range (idx);
+  return locrange->m_loc;
+}
+
+/* Get range IDX within this rich_location.  */
+
+const location_range *
+rich_location::get_range (unsigned int idx) const
+{
+  return &m_ranges[idx];
+}
+
+/* Mutable access to range IDX within this rich_location.  */
+
+location_range *
+rich_location::get_range (unsigned int idx)
+{
+  return &m_ranges[idx];
 }
 
 /* Expand location IDX within this rich_location.  */
@@ -2027,11 +2065,10 @@ rich_location::override_column (int column)
 void
 rich_location::add_range (source_location loc, bool show_caret_p)
 {
-  linemap_assert (m_num_ranges < MAX_RANGES);
-
-  location_range *range = &m_ranges[m_num_ranges++];
-  range->m_loc = loc;
-  range->m_show_caret_p = show_caret_p;
+  location_range range;
+  range.m_loc = loc;
+  range.m_show_caret_p = show_caret_p;
+  m_ranges.push (range);
 }
 
 /* Add or overwrite the location given by IDX, setting its location to LOC,
@@ -2051,23 +2088,33 @@ void
 rich_location::set_range (line_maps * /*set*/, unsigned int idx,
 			  source_location loc, bool show_caret_p)
 {
-  linemap_assert (idx < MAX_RANGES);
-
   /* We can either overwrite an existing range, or add one exactly
      on the end of the array.  */
-  linemap_assert (idx <= m_num_ranges);
+  linemap_assert (idx <= m_ranges.count ());
 
-  location_range *locrange = &m_ranges[idx];
-  locrange->m_loc = loc;
-  locrange->m_show_caret_p = show_caret_p;
-
-  /* Are we adding a range onto the end?  */
-  if (idx == m_num_ranges)
-    m_num_ranges = idx + 1;
+  if (idx == m_ranges.count ())
+    add_range (loc,  show_caret_p);
+  else
+    {
+      location_range *locrange = get_range (idx);
+      locrange->m_loc = loc;
+      locrange->m_show_caret_p = show_caret_p;
+    }
 
   if (idx == 0)
     /* Mark any cached value here as dirty.  */
     m_have_expanded_location = false;
+}
+
+/* Methods for adding insertion fix-it hints.  */
+
+/* Add a fixit-hint, suggesting insertion of NEW_CONTENT
+   at the primary range's caret location.  */
+
+void
+rich_location::add_fixit_insert (const char *new_content)
+{
+  add_fixit_insert (get_loc (), new_content);
 }
 
 /* Add a fixit-hint, suggesting insertion of NEW_CONTENT
@@ -2077,12 +2124,32 @@ void
 rich_location::add_fixit_insert (source_location where,
 				 const char *new_content)
 {
+  where = get_pure_location (m_line_table, where);
+
   if (reject_impossible_fixit (where))
     return;
+  add_fixit (new fixit_insert (where, new_content));
+}
 
-  linemap_assert (m_num_fixit_hints < MAX_FIXIT_HINTS);
-  m_fixit_hints[m_num_fixit_hints++]
-    = new fixit_insert (where, new_content);
+/* Methods for adding removal fix-it hints.  */
+
+/* Add a fixit-hint, suggesting removal of the content covered
+   by range 0.  */
+
+void
+rich_location::add_fixit_remove ()
+{
+  add_fixit_remove (get_loc ());
+}
+
+/* Add a fixit-hint, suggesting removal of the content between
+   the start and finish of WHERE.  */
+
+void
+rich_location::add_fixit_remove (source_location where)
+{
+  source_range range = get_range_from_loc (m_line_table, where);
+  add_fixit_remove (range);
 }
 
 /* Add a fixit-hint, suggesting removal of the content at
@@ -2132,6 +2199,28 @@ column_before_p (line_maps *set, source_location a, source_location b)
   return column_b == column_a + 1;
 }
 
+/* Add a fixit-hint, suggesting replacement of the content covered
+   by range 0 with NEW_CONTENT.  */
+
+void
+rich_location::add_fixit_replace (const char *new_content)
+{
+  add_fixit_replace (get_loc (), new_content);
+}
+
+/* Methods for adding "replace" fix-it hints.  */
+
+/* Add a fixit-hint, suggesting replacement of the content between
+   the start and finish of WHERE with NEW_CONTENT.  */
+
+void
+rich_location::add_fixit_replace (source_location where,
+				  const char *new_content)
+{
+  source_range range = get_range_from_loc (m_line_table, where);
+  add_fixit_replace (range, new_content);
+}
+
 /* Add a fixit-hint, suggesting replacement of the content at
    SRC_RANGE with NEW_CONTENT.  */
 
@@ -2139,7 +2228,8 @@ void
 rich_location::add_fixit_replace (source_range src_range,
 				  const char *new_content)
 {
-  linemap_assert (m_num_fixit_hints < MAX_FIXIT_HINTS);
+  src_range.m_start = get_pure_location (m_line_table, src_range.m_start);
+  src_range.m_finish = get_pure_location (m_line_table, src_range.m_finish);
 
   if (reject_impossible_fixit (src_range.m_start))
     return;
@@ -2148,14 +2238,11 @@ rich_location::add_fixit_replace (source_range src_range,
 
   /* Consolidate neighboring fixits.  */
   fixit_hint *prev = get_last_fixit_hint ();
-  if (m_num_fixit_hints > 0)
-    {
-      if (prev->maybe_append_replace (m_line_table, src_range, new_content))
-	return;
-    }
+  if (prev)
+    if (prev->maybe_append_replace (m_line_table, src_range, new_content))
+      return;
 
-  m_fixit_hints[m_num_fixit_hints++]
-    = new fixit_replace (src_range, new_content);
+  add_fixit (new fixit_replace (src_range, new_content));
 }
 
 /* Get the last fix-it hint within this rich_location, or NULL if none.  */
@@ -2163,8 +2250,8 @@ rich_location::add_fixit_replace (source_range src_range,
 fixit_hint *
 rich_location::get_last_fixit_hint () const
 {
-  if (m_num_fixit_hints > 0)
-    return m_fixit_hints[m_num_fixit_hints - 1];
+  if (m_fixit_hints.count () > 0)
+    return get_fixit_hint (m_fixit_hints.count () - 1);
   else
     return NULL;
 }
@@ -2194,11 +2281,19 @@ rich_location::reject_impossible_fixit (source_location where)
   m_seen_impossible_fixit = true;
 
   /* Purge the rich_location of any fix-its that were already added. */
-  for (unsigned int i = 0; i < m_num_fixit_hints; i++)
-    delete m_fixit_hints[i];
-  m_num_fixit_hints = 0;
+  for (unsigned int i = 0; i < m_fixit_hints.count (); i++)
+    delete get_fixit_hint (i);
+  m_fixit_hints.truncate (0);
 
   return true;
+}
+
+/* Add HINT to the fix-it hints in this rich_location.  */
+
+void
+rich_location::add_fixit (fixit_hint *hint)
+{
+  m_fixit_hints.push (hint);
 }
 
 /* class fixit_insert.  */
@@ -2219,7 +2314,7 @@ fixit_insert::~fixit_insert ()
 /* Implementation of fixit_hint::affects_line_p for fixit_insert.  */
 
 bool
-fixit_insert::affects_line_p (const char *file, int line)
+fixit_insert::affects_line_p (const char *file, int line) const
 {
   expanded_location exploc
     = linemap_client_expand_location_to_spelling_point (m_where);
@@ -2256,7 +2351,7 @@ fixit_replace::~fixit_replace ()
 /* Implementation of fixit_hint::affects_line_p for fixit_replace.  */
 
 bool
-fixit_replace::affects_line_p (const char *file, int line)
+fixit_replace::affects_line_p (const char *file, int line) const
 {
   return m_src_range.intersects_line_p (file, line);
 }

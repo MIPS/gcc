@@ -56,12 +56,13 @@ extern void pass (const location &loc, const char *msg);
 
 /* Report the failed outcome of some aspect of the test and abort.  */
 
-extern void fail (const location &loc, const char *msg);
+extern void fail (const location &loc, const char *msg)
+  ATTRIBUTE_NORETURN;
 
 /* As "fail", but using printf-style formatted output.  */
 
 extern void fail_formatted (const location &loc, const char *fmt, ...)
- ATTRIBUTE_PRINTF_2;
+  ATTRIBUTE_PRINTF_2 ATTRIBUTE_NORETURN;
 
 /* Implementation detail of ASSERT_STREQ.  */
 
@@ -77,20 +78,30 @@ extern void assert_str_contains (const location &loc,
 				 const char *val_haystack,
 				 const char *val_needle);
 
-/* A class for writing out a temporary sourcefile for use in selftests
-   of input handling.  */
+/* A named temporary file for use in selftests.
+   Usable for writing out files, and as the base class for
+   temp_source_file.
+   The file is unlinked in the destructor.  */
 
-class temp_source_file
+class named_temp_file
 {
  public:
-  temp_source_file (const location &loc, const char *suffix,
-		    const char *content);
-  ~temp_source_file ();
-
+  named_temp_file (const char *suffix);
+  ~named_temp_file ();
   const char *get_filename () const { return m_filename; }
 
  private:
   char *m_filename;
+};
+
+/* A class for writing out a temporary sourcefile for use in selftests
+   of input handling.  */
+
+class temp_source_file : public named_temp_file
+{
+ public:
+  temp_source_file (const location &loc, const char *suffix,
+		    const char *content);
 };
 
 /* Various selftests involving location-handling require constructing a
@@ -140,6 +151,7 @@ for_each_line_table_case (void (*testcase) (const line_table_case &));
 extern void bitmap_c_tests ();
 extern void diagnostic_c_tests ();
 extern void diagnostic_show_locus_c_tests ();
+extern void edit_context_c_tests ();
 extern void et_forest_c_tests ();
 extern void fold_const_c_tests ();
 extern void fibonacci_heap_c_tests ();
@@ -155,6 +167,7 @@ extern void selftest_c_tests ();
 extern void spellcheck_c_tests ();
 extern void spellcheck_tree_c_tests ();
 extern void sreal_c_tests ();
+extern void typed_splay_tree_c_tests ();
 extern void tree_c_tests ();
 extern void tree_cfg_c_tests ();
 extern void vec_c_tests ();

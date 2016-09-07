@@ -62,6 +62,8 @@ typedef void (*diagnostic_start_span_fn) (diagnostic_context *,
 
 typedef diagnostic_starter_fn diagnostic_finalizer_fn;
 
+class edit_context;
+
 /* This data structure bundles altogether any information relevant to
    the context of a diagnostic message.  */
 struct diagnostic_context
@@ -109,7 +111,7 @@ struct diagnostic_context
   int caret_max_width;
 
   /* Character used for caret diagnostics.  */
-  char caret_chars[rich_location::MAX_RANGES];
+  char caret_chars[rich_location::STATICALLY_ALLOCATED_RANGES];
 
   /* True if we should print the command line option which controls
      each diagnostic, if known.  */
@@ -209,6 +211,10 @@ struct diagnostic_context
   /* If true, print fixits in machine-parseable form after the
      rest of the diagnostic.  */
   bool parseable_fixits_p;
+
+  /* If non-NULL, an edit_context to which fix-it hints should be
+     applied, for generating patches.  */
+  edit_context *edit_context_ptr;
 };
 
 static inline void
