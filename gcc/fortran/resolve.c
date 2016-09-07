@@ -9519,6 +9519,24 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_WAIT:
 	  break;
 
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OACC_ATOMIC:
+	  {
+	    gfc_omp_atomic_op aop
+	      = (gfc_omp_atomic_op) (b->ext.omp_atomic & GFC_OMP_ATOMIC_MASK);
+
+	    /* Verify this before calling gfc_resolve_code, which might
+	       change it.  */
+	    gcc_assert (b->next && b->next->op == EXEC_ASSIGN);
+	    gcc_assert (((aop != GFC_OMP_ATOMIC_CAPTURE)
+			 && b->next->next == NULL)
+			|| ((aop == GFC_OMP_ATOMIC_CAPTURE)
+			    && b->next->next != NULL
+			    && b->next->next->op == EXEC_ASSIGN
+			    && b->next->next->next == NULL));
+	  }
+	  break;
+
 	case EXEC_OACC_PARALLEL_LOOP:
 	case EXEC_OACC_PARALLEL:
 	case EXEC_OACC_KERNELS_LOOP:
@@ -9531,9 +9549,7 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OACC_CACHE:
 	case EXEC_OACC_ENTER_DATA:
 	case EXEC_OACC_EXIT_DATA:
-	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_ROUTINE:
-	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DISTRIBUTE:
 	case EXEC_OMP_DISTRIBUTE_PARALLEL_DO:
@@ -11472,6 +11488,27 @@ resolve_fl_variable_derived (gfc_symbol *sym, int no_init_flag)
 }
 
 
+/* F2008, C402 (R401):  A colon shall not be used as a type-param-value
+   except in the declaration of an entity or component that has the POINTER
+   or ALLOCATABLE attribute.  */
+
+static bool
+deferred_requirements (gfc_symbol *sym)
+{
+  if (sym->ts.deferred
+      && !(sym->attr.pointer
+	   || sym->attr.allocatable
+	   || sym->attr.omp_udr_artificial_var))
+    {
+      gfc_error ("Entity %qs at %L has a deferred type parameter and "
+		 "requires either the POINTER or ALLOCATABLE attribute",
+		 sym->name, &sym->declared_at);
+      return false;
+    }
+  return true;
+}
+
+
 /* Resolve symbols with flavor variable.  */
 
 static bool
@@ -11511,17 +11548,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
     }
 
   /* Constraints on deferred type parameter.  */
-  if (sym->ts.deferred
-      && !(sym->attr.pointer
-	   || sym->attr.allocatable
-	   || sym->attr.omp_udr_artificial_var))
-    {
-      gfc_error ("Entity %qs at %L has a deferred type parameter and "
-		 "requires either the pointer or allocatable attribute",
-		     sym->name, &sym->declared_at);
-      specification_expr = saved_specification_expr;
-      return false;
-    }
+  if (!deferred_requirements (sym))
+    return false;
 
   if (sym->ts.type == BT_CHARACTER)
     {
@@ -13665,6 +13693,10 @@ resolve_fl_parameter (gfc_symbol *sym)
 		 "or of deferred shape", sym->name, &sym->declared_at);
       return false;
     }
+
+  /* Constraints on deferred type parameter.  */
+  if (!deferred_requirements (sym))
+    return false;
 
   /* Make sure a parameter that has been implicitly typed still
      matches the implicit type, since PARAMETER statements can precede

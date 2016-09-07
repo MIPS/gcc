@@ -1,3 +1,48 @@
+2016-09-05  Tim Shen  <timshen@google.com>
+
+	* include/std/variant: include bits/move.h for std::addressof.
+
+2016-09-05  Mikhail Strelnikov  <mikhail.strelnikov@gmail.com>
+
+	* include/std/variant (_Variant_storage::_M_storage()): Use std::addressof
+	instead of operator& to take address.
+
+2016-09-02  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* acinclude.m4 (GLIBCXX_CONFIGURE_TESTSUITE): Check for presence of
+	setrlimit on both native and cross targets.
+	* configure: Regenerate.
+
+2016-08-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr.h (_Assignable): New alias template.
+	(shared_ptr::operator=(const shared_ptr<_Tp1>&))
+	(shared_ptr::operator=(shared_ptr<_Tp1>&&))
+	(shared_ptr::operator=(unique_ptr<_Tp1>&&)): Constrain with
+	_Assignable.
+	* include/bits/shared_ptr_base.h (_Assignable): New alias template.
+	(__shared_ptr::operator=(const __shared_ptr<_Tp1>&))
+	(__shared_ptr::operator=(__shared_ptr<_Tp1>&&))
+	(__shared_ptr::operator=(unique_ptr<_Tp1>&&)): Constrain with
+	_Assignable.
+	(__shared_ptr::reset(_Tp1*), __shared_ptr::reset(_Tp1*, _Deleter))
+	(__shared_ptr::reset(_Tp1*, _Deleter, _Alloc)): Constrain with
+	_Convertible.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Change dg-error to
+	match on any line.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/sfinae.cc: New test.
+	* testsuite/20_util/shared_ptr/assign/shared_ptr_neg.cc: Update
+	expected errors. Remove unnecessary code.
+	* testsuite/20_util/shared_ptr/modifiers/reset_sfinae.cc: New test.
+
+	* include/bits/stl_tree.h (_Rb_tree::operator=(_Rb_tree&&)): Move
+	comparison object.
+	* testsuite/23_containers/set/move_comparison.cc: New test.
+
+	* testsuite/20_util/enable_shared_from_this/members/weak_from_this.cc:
+	New test.
+
 2016-08-30  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	PR libstdc++/77395
