@@ -645,3 +645,6 @@ Enum(mips_return_setting) String(optimal) Value(MIPS_RETURN_OPTIMAL)
 
 EnumValue
 Enum(mips_return_setting) String(always) Value(MIPS_RETURN_ALWAYS)
+
+mlra-equiv
+Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
