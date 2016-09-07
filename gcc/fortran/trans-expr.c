@@ -77,7 +77,7 @@ gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr,
   if (!POINTER_TYPE_P (TREE_TYPE (scalar)))
     scalar = gfc_build_addr_expr (NULL_TREE, scalar);
 
-  type = TREE_TYPE (gfc_typenode_for_spec (ts));
+  type = gfc_typenode_for_spec (ts);
 
   if (type == NULL_TREE)
     elem_len = build_int_cst (size_type_node, 0);
@@ -819,6 +819,8 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
   else
     {
       gfc_typespec *ts = &class_ts.u.derived->components->ts;
+      if (class_ts.u.derived->attr.unlimited_polymorphic)
+	ts = &e->ts;
       ss = gfc_walk_expr (e);
       if (ss == gfc_ss_terminator)
 	{

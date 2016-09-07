@@ -7388,6 +7388,7 @@ conv_isocbinding_subroutine (gfc_code *code)
   sm = gfc_create_var (gfc_array_index_type, "sm");
   offset = gfc_create_var (gfc_array_index_type, "offset");
   tmp = size_in_bytes (gfc_get_element_type (TREE_TYPE (desc)));
+  gfc_conv_descriptor_elem_len_set (&block, desc, tmp);
   gfc_add_modify (&block, sm, fold_convert (TREE_TYPE (sm), tmp));
   gfc_add_modify (&block, offset, gfc_index_zero_node);
 

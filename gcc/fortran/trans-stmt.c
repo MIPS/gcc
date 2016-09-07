@@ -1621,11 +1621,26 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 
       if (unlimited)
 	{
-	  /* Recover the dtype, which has been overwritten by the
-	     assignment from an unlimited polymorphic object.  */
-	  tmp = gfc_conv_descriptor_dtype (sym->backend_decl);
-	  gfc_add_modify (&se.pre, tmp,
-			  gfc_get_dtype (&sym->ts));
+	  /* Generate the dtype, element length and stride measures, which
+	     have been overwritten by the assignment from an unlimited
+	     polymorphic object.  */
+	  tree tdesc;
+	  tdesc = gfc_build_null_descriptor (TREE_TYPE (sym->backend_decl),
+					     e->rank, GFC_ATTRIBUTE_OTHER,
+					     &sym->ts);
+	  tmp = gfc_conv_descriptor_dtype (tdesc);
+	  gfc_add_modify (&se.pre,
+			  gfc_conv_descriptor_dtype (sym->backend_decl), tmp);
+
+	  tmp = gfc_conv_descriptor_elem_len_get (tdesc);
+	  gfc_conv_descriptor_elem_len_set (&se.pre, sym->backend_decl, tmp);
+
+	  for (n = 0; n < e->rank; n++)
+	    {
+	      gfc_conv_descriptor_sm_get (tdesc, gfc_rank_cst[n]);
+	      gfc_conv_descriptor_sm_set (&se.pre, sym->backend_decl,
+					  gfc_rank_cst[n], tmp);
+	    }
 	}
 
       gfc_add_init_cleanup (block, gfc_finish_block (&se.pre),

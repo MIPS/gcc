@@ -1,5 +1,18 @@
 2016-09-07  Paul Thomas  <pault@gcc.gnu.org>
 
+	* trans-expr.c (gfc_conv_scalar_to_descriptor): Correct error
+	in setting 'type'.
+	(gfc_conv_intrinsic_to_class): Use the expression typespec for
+	unlimited polymorphic classes.
+	* trans-intrinsic.c (conv_isocbinding_subroutine): Set the elem
+	len field of the descriptor.
+	* trans-stmt.c (trans_associate_var): Build a null descriptor
+	for the associate name, if the target is unlimited polymorphic,
+	and copy the dtype, element length and stride measures to the
+	associate name.
+
+2016-09-07  Paul Thomas  <pault@gcc.gnu.org>
+
 	* trans-array.c (gfc_build_null_descriptor): Set the element
 	length to zero for deferred types.
 	(gfc_trans_static_array_pointer): Initialize deferred string
