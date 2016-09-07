@@ -1,8 +1,34 @@
+2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77391
+	* resolve.c (deferred_requirements): New function to check F2008:C402.
+	(resolve_fl_variable,resolve_fl_parameter): Use it.
+ 
+2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77460
+	* simplify.c (simplify_transformation_to_scalar):  On error, result
+	may be NULL, simply return.
+
+2016-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77352
+	* trans-openmp.c (gfc_trans_omp_parallel_workshare): Always add a
+	BIND_EXPR with BLOCK around what gfc_trans_omp_workshare returns.
+
+	PR fortran/77374
+	* parse.c (parse_omp_oacc_atomic): Copy over cp->ext.omp_atomic
+	to cp->block->ext.omp_atomic.
+	* resolve.c (gfc_resolve_blocks): Assert block with one or two
+	EXEC_ASSIGNs for EXEC_*_ATOMIC.
+	* openmp.c (resolve_omp_atomic): Don't assert one or two
+	EXEC_ASSIGNs, instead return quietly for EXEC_NOPs and otherwise
+	error unexpected statements.
+
 2016-08-31  Paul Thomas  <pault@gcc.gnu.org>
-	Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/48298
-
 	* decl.c (access_attr_decl): Include case INTERFACE_DTIO as
 	appropriate.
 	* gfortran.h : Add INTRINSIC_FORMATTED and
@@ -69,13 +95,13 @@
 	* interface.c (compare_components, gfc_compare_derived_types): Use new
 	functions.
 
-2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-08-27  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77380
 	* dependency.c (gfc_check_dependency): Do not assert with
 	-fcoarray=lib.
 
-2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-08-27  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77372
 	simplify.c (simplify_ieee_selected_real_kind): Check for NULL pointers.
@@ -245,7 +271,7 @@
 	* intrinsic.c (add_function, add_subroutine): New B/I/J/K intrinsic
 	variants.
 
-2016-07-30  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/41922
 	* target-memory.c (expr_to_char): Pass in locus and use it in error
@@ -369,7 +395,7 @@
 	a static one.
 
 2016-07-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-	    Marco Restelli <mrestelli@gmail.com>
+	    Marco Restelli  <mrestelli@gmail.com>
 
 	PR fortran/62125
 	* symbol.c (select_type_insert_tmp): Recursively call self to take care
@@ -924,7 +950,7 @@
 	* dump-parse-tree.c (show_code_node):  Print association
 	list of a block if present.  Handle EXEC_END_BLOCK.
 
-2016-02-28  Harald Anlauf <anlauf@gmx.de>
+2016-02-28  Harald Anlauf  <anlauf@gmx.de>
 	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/56007
@@ -1110,7 +1136,7 @@
 	* frontend-passes.c (matmul_lhs_realloc):  Add
 	forgotten break statement.
 
-2016-01-24  Dominique d'Humieres <dominiq@lps.ens.fr>
+2016-01-24  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR fortran/68283
 	* primary.c (gfc_variable_attr): revert revision r221955,

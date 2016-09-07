@@ -1,3 +1,42 @@
+2016-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/65467
+	* c-parser.c (c_parser_declspecs): Don't sorry about _Atomic if
+	flag_openmp.
+	(c_parser_omp_variable_list): Use convert_lvalue_to_rvalue
+	instead of mark_exp_read on low_bound/length expression.
+	(c_parser_omp_clause_num_gangs, c_parser_omp_clause_num_threads,
+	c_parser_omp_clause_num_tasks, c_parser_omp_clause_grainsize,
+	c_parser_omp_clause_priority, c_parser_omp_clause_hint,
+	c_parser_omp_clause_num_workers, c_parser_oacc_shape_clause,
+	c_parser_oacc_clause_tile, c_parser_omp_clause_schedule,
+	c_parser_omp_clause_vector_length, c_parser_omp_clause_num_teams,
+	c_parser_omp_clause_thread_limit, c_parser_omp_clause_aligned,
+	c_parser_omp_clause_linear, c_parser_omp_clause_safelen,
+	c_parser_omp_clause_simdlen, c_parser_omp_clause_device,
+	c_parser_omp_clause_dist_schedule): Use convert_lvalue_to_rvalue
+	instead of mark_expr_read.
+	(c_parser_omp_declare_reduction): Reject _Atomic qualified types.
+	* c-objc-common.h (LANG_HOOKS_OMP_CLAUSE_COPY_CTOR,
+	LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP): Redefine.
+	* c-tree.h (c_omp_clause_copy_ctor): New prototype.
+	* c-typeck.c (handle_omp_array_sections_1): Diagnose _Atomic qualified
+	array section bases outside of depend clause, for depend clause
+	use convert_lvalue_to_rvalue on the base.
+	(c_finish_omp_clauses): Reject _Atomic qualified vars in reduction,
+	linear, aligned, map, to and from clauses.
+	(c_omp_clause_copy_ctor): New function.
+
+2016-09-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* c-typeck.c (composite_type): Add FALLTHRU comment.
+
+2016-08-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_declaration_or_fndef): Add trailing space
+	to the insertion fixits for "struct", "union", and "enum".
+
 2016-08-30  David Malcolm  <dmalcolm@redhat.com>
 
 	* c-decl.c (implicit_decl_warning): Use add_fixit_replace
@@ -239,7 +278,7 @@
 	* c-typeck.c (build_conditional_expr): Return error_mark_node if
 	c_common_type returns error_mark_node.
 
-2016-06-19 Martin Sebor  <msebor@redhat.com>
+2016-06-19  Martin Sebor  <msebor@redhat.com>
 
 	PR c/69507
 	* c-parser.c (c_parser_alignof_expression): Avoid diagnosing
@@ -1988,7 +2027,7 @@
 	* c-typeck.c (build_array_ref): Pass loc down to
 	warn_array_subscript_with_type_char.
 
-2014-12-20  Martin Uecker <uecker@eecs.berkeley.edu>
+2014-12-20  Martin Uecker  <uecker@eecs.berkeley.edu>
 
 	* c-typeck.c: New behavious for pointers to arrays with qualifiers
         (common-pointer-type): For pointers to arrays take qualifiers from
@@ -2310,7 +2349,7 @@
 	Likewise.
 	(c_parser_postfix_expression) <case RID_C99_FUNCTION_NAME>: Likewise.
 
-2014-08-10 Marek Polacek  <polacek@redhat.com>
+2014-08-10  Marek Polacek  <polacek@redhat.com>
 
 	PR c/51849
 	* c-decl.c (build_array_declarator): Remove check for !flag_isoc99.
@@ -2397,7 +2436,7 @@
 	function parameter.
 
 2014-07-02  Jan Hubicka  <hubicka@ucw.cz>
-	    Chen Gang <gang.chen.5i5j@gmail.com>
+	    Chen Gang  <gang.chen.5i5j@gmail.com>
 
 	* c-decl.c (duplicate_decls): CLear DECL_STRUCT_FUNCTION before
 	releasing symbol.
