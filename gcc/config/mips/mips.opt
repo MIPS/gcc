@@ -527,3 +527,6 @@ Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
 
 mforbidden-slots
 Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
+mlra-equiv
+Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
