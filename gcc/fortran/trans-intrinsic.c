@@ -5284,7 +5284,8 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
   if (prim_arg->expr->ts.type == BT_CLASS)
     {
       gfc_se parmse;
-      gfc_expr *class_expr = gfc_find_and_cut_at_last_class_ref (prim_arg->expr);
+      gfc_expr *class_expr =
+			    gfc_find_and_cut_at_last_class_ref (prim_arg->expr);
 
       gfc_init_se (&parmse, NULL);
       parmse.data_not_needed = 1;
