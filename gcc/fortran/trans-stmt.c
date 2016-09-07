@@ -5435,7 +5435,10 @@ gfc_trans_allocate (gfc_code * code)
 	  if (code->expr3->rank != 0
 	      && ((!attr.allocatable && !attr.pointer)
 		  || (code->expr3->expr_type == EXPR_FUNCTION
-		      && code->expr3->ts.type != BT_CLASS)))
+		      && (code->expr3->ts.type != BT_CLASS
+			  || (code->expr3->value.function.isym
+			      && code->expr3->value.function.isym
+							 ->transformational)))))
 	    gfc_conv_expr_descriptor (&se, code->expr3);
 	  else
 	    gfc_conv_expr_reference (&se, code->expr3);
@@ -5551,6 +5554,7 @@ gfc_trans_allocate (gfc_code * code)
 	  else
 	    {
 	      rhs = gfc_find_and_cut_at_last_class_ref (code->expr3);
+
 	      gfc_add_vptr_component (rhs);
 	      gfc_init_se (&se, NULL);
 	      se.want_pointer = 1;
