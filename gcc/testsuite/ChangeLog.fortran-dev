@@ -1,3 +1,15 @@
+2016-09-07  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	PR fortran/48298
+	* gfortran.dg/assumed_rank_12.f90: Correct tree scan.
+	* gfortran.dg/assumed_type_2.f90: Correct tree scans.
+	* gfortran.dg/coarray_lib_comm_1.f90: Likewise.
+	* gfortran.dg/coarray_lib_this_image_2.f90: Likewise.
+	* gfortran.dg/coarray_lock_7.f90: Likewise.
+	* gfortran.dg/coarray_stat_function.f90: Likewise.
+	* gfortran.dg/no_arg_check_2.f90: Likewise.
+	* gfortran.dg/pr32921.f: Likewise.
+
 2016-09-07  Paul Thomas  <pault@gcc.gnu.org>
 
 	* gfortran.dg/array_section_2.f90: Remove invocation of cleanup

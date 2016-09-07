@@ -40,6 +40,6 @@ contains
   
 end program function_stat
 
-! { dg-final { scan-tree-dump-times "_gfortran_caf_get \\\(caf_token.0, \\\(integer\\\(kind=\[48\]\\\)\\\) desc.\[0-9\]+.data - \\\(integer\\\(kind=\[48\]\\\)\\\) me, 4, &desc.\[0-9\]+, 0B, &desc.\[0-9\]+, 4, 4, 0, &stat\\\);" 1 "original" } }
-! { dg-final { scan-tree-dump-times "_gfortran_caf_get \\\(caf_token.0, \\\(integer\\\(kind=\[48\]\\\)\\\) desc.\[0-9\]+.data - \\\(integer\\\(kind=\[48\]\\\)\\\) me, 1, &desc.\[0-9\]+, 0B, &desc.\[0-9\]+, 4, 4, 0, &stat2\\\);" 1 "original" } }
-! { dg-final { scan-tree-dump-times "_gfortran_caf_get \\\(caf_token.0, \\\(integer\\\(kind=\[48\]\\\)\\\) desc.\[0-9\]+.data - \\\(integer\\\(kind=\[48\]\\\)\\\) me, 3, &desc.\[0-9\]+, 0B, &desc.\[0-9\]+, 4, 4, 0, &stat\\\);" 1 "original" } }
+! { dg-final { scan-tree-dump-times "_gfortran_caf_get \\\(caf_token.0, \\\(integer\\\(kind=\[48\]\\\)\\\) desc.\[0-9\]+.base_addr - \\\(integer\\\(kind=\[48\]\\\)\\\) me, 4, &desc.\[0-9\]+, 0B, &desc.\[0-9\]+, 4, 4, 0, &stat\\\);" 1 "original" } }
+! { dg-final { scan-tree-dump-times "_gfortran_caf_get \\\(caf_token.0, \\\(integer\\\(kind=\[48\]\\\)\\\) desc.\[0-9\]+.base_addr - \\\(integer\\\(kind=\[48\]\\\)\\\) me, 1, &desc.\[0-9\]+, 0B, &desc.\[0-9\]+, 4, 4, 0, &stat2\\\);" 1 "original" } }
+! { dg-final { scan-tree-dump-times "_gfortran_caf_get \\\(caf_token.0, \\\(integer\\\(kind=\[48\]\\\)\\\) desc.\[0-9\]+.base_addr - \\\(integer\\\(kind=\[48\]\\\)\\\) me, 3, &desc.\[0-9\]+, 0B, &desc.\[0-9\]+, 4, 4, 0, &stat\\\);" 1 "original" } }

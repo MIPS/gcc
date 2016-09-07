@@ -46,5 +46,4 @@
       RETURN
       END
 
-! { dg-final { scan-tree-dump-times "sm" 4 "lim1" } }
-! { dg-final { scan-tree-dump-times "stride" 4 "lim2" } }
+! { dg-final { scan-tree-dump-times "sm" 4 "lim2" } }

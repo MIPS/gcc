@@ -132,28 +132,12 @@ end
 ! { dg-final { scan-tree-dump-times "sub_scalar .&array_int.1.," 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_scalar .&scalar_t1," 1 "original" } }
 
-<<<<<<< .working
 ! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(real.kind=4..0:. . restrict\\) array_real_alloc.base_addr" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(character.kind=1..0:..1:1. .\\) array_char_ptr.base_addr" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(struct t2.0:. . restrict\\) array_t2_alloc.base_addr" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(struct t3.0:. .\\) array_t3_ptr.base_addr" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_scalar .\\(struct t1 .\\) array_class_t1_alloc._data.base_addr" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .\\(struct t1 .\\) array_class_t1_ptr._data.base_addr" 1 "original" } }a
-||||||| .merge-left.r222315
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(real.kind=4..0:. . restrict\\) array_real_alloc.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(character.kind=1..0:..1:1. .\\) array_char_ptr.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(struct t2.0:. . restrict\\) array_t2_alloc.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(struct t3.0:. .\\) array_t3_ptr.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .\\(struct t1 .\\) array_class_t1_alloc._data.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .\\(struct t1 .\\) array_class_t1_ptr._data.dat" 1 "original" } }a
-=======
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(real.kind=4..0:. . restrict\\) array_real_alloc.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(character.kind=1..0:..1:1. .\\) array_char_ptr.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(struct t2.0:. . restrict\\) array_t2_alloc.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .&\\(.\\(struct t3.0:. .\\) array_t3_ptr.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .\\(struct t1 .\\) array_class_t1_alloc._data.data" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_scalar .\\(struct t1 .\\) \\(array_class_t1_ptr._data.dat" 1 "original" } }
->>>>>>> .merge-right.r235035
+! { dg-final { scan-tree-dump-times "sub_scalar .\\(struct t1 .\\) \\(array_class_t1_ptr._data.base_addr" 1 "original" } }
 
 ! { dg-final { scan-tree-dump-times "sub_array_assumed \\(D" 3 "original" } }
 ! { dg-final { scan-tree-dump-times " = _gfortran_internal_pack \\(&parm" 1 "original" } }
