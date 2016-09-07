@@ -6383,7 +6383,7 @@ s390_expand_vec_compare_cc (rtx target, enum rtx_code code,
 	default: gcc_unreachable ();
 	}
       scratch_mode = mode_for_vector (
-		       int_mode_for_mode (GET_MODE_INNER (GET_MODE (cmp1))),
+		       *int_mode_for_mode (GET_MODE_INNER (GET_MODE (cmp1))),
 		       GET_MODE_NUNITS (GET_MODE (cmp1)));
       gcc_assert (scratch_mode != BLKmode);
 
@@ -6491,8 +6491,9 @@ s390_expand_vcond (rtx target, rtx then, rtx els,
 
   /* We always use an integral type vector to hold the comparison
      result.  */
-  result_mode = mode_for_vector (int_mode_for_mode (GET_MODE_INNER (cmp_mode)),
-				 GET_MODE_NUNITS (cmp_mode));
+  result_mode
+    = mode_for_vector (*int_mode_for_mode (GET_MODE_INNER (cmp_mode)),
+		       GET_MODE_NUNITS (cmp_mode));
   result_target = gen_reg_rtx (result_mode);
 
   /* We allow vector immediates as comparison operands that

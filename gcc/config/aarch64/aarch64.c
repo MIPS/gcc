@@ -7993,7 +7993,7 @@ aarch64_emit_approx_sqrt (rtx dst, rtx src, bool recp)
     }
 
   machine_mode mmsk
-    = mode_for_vector (int_mode_for_mode (GET_MODE_INNER (mode)),
+    = mode_for_vector (*int_mode_for_mode (GET_MODE_INNER (mode)),
 		       GET_MODE_NUNITS (mode));
   if (!recp)
     {
