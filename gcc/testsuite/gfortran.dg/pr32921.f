@@ -45,12 +45,6 @@
 
       RETURN
       END
-<<<<<<< .working
+
 ! { dg-final { scan-tree-dump-times "sm" 4 "lim1" } }
-! { dg-final { cleanup-tree-dump "lim1" } }
-||||||| .merge-left.r222315
-! { dg-final { scan-tree-dump-times "stride" 4 "lim1" } }
-! { dg-final { cleanup-tree-dump "lim1" } }
-=======
 ! { dg-final { scan-tree-dump-times "stride" 4 "lim2" } }
->>>>>>> .merge-right.r235035

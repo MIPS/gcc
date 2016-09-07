@@ -1305,7 +1305,7 @@ GFORTRAN_1.9 {
     CFI_section;
     CFI_select_part;
     CFI_setpointer;
-} GFORTRAN_1.8; 
+} GFORTRAN_1.8;
 
 F2C_1.0 {
   global:

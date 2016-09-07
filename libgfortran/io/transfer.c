@@ -4038,7 +4038,8 @@ st_wait (st_parameter_wait *wtp __attribute__((unused)))
 
 static void
 set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
-	     int kind, size_t elem_len, int rank, int type,
+	     GFC_INTEGER_4 kind, gfc_charlen_type elem_len,
+	     GFC_INTEGER_4 rank, GFC_INTEGER_4 dtype,
 	     void *dtio_sub, void *vtable)
 {
   namelist_info *t1 = NULL;
@@ -4055,7 +4056,7 @@ set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
   memcpy (nml->var_name, var_name, var_name_len);
   nml->var_name[var_name_len] = '\0';
 
-  nml->type = (bt) type;
+  nml->type = (bt) dtype;
   nml->kind = kind;
   nml->size = (index_type) elem_len;
   nml->string_length = nml->type == BT_CHARACTER
@@ -4090,34 +4091,37 @@ set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
 }
 
 extern void st_set_nml_var (st_parameter_dt *dtp, void *, char *,
-			    GFC_INTEGER_4, gfc_charlen_type, GFC_INTEGER_4);
+			    GFC_INTEGER_4, gfc_charlen_type,
+			    GFC_INTEGER_4, GFC_INTEGER_4);
 export_proto(st_set_nml_var);
 
 void
 st_set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
-		GFC_INTEGER_4 len, gfc_charlen_type string_length,
-		GFC_INTEGER_4 dtype)
+		GFC_INTEGER_4 kind, gfc_charlen_type elem_len,
+		GFC_INTEGER_4 rank, GFC_INTEGER_4 dtype)
 {
-  set_nml_var (dtp, var_addr, var_name, len, string_length,
-	       dtype, NULL, NULL);
+  set_nml_var (dtp, var_addr, var_name, kind, elem_len,
+	       rank, dtype, NULL, NULL);
 }
 
 
 /* Essentially the same as previous but carrying the dtio procedure
    and the vtable as additional arguments.  */
 extern void st_set_nml_dtio_var (st_parameter_dt *dtp, void *, char *,
-				 GFC_INTEGER_4, gfc_charlen_type, GFC_INTEGER_4,
+				 GFC_INTEGER_4, gfc_charlen_type,
+				 GFC_INTEGER_4, GFC_INTEGER_4,
 				 void *, void *);
 export_proto(st_set_nml_dtio_var);
 
 
 void
 st_set_nml_dtio_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
-		     GFC_INTEGER_4 len, gfc_charlen_type string_length,
-		     GFC_INTEGER_4 dtype, void *dtio_sub, void *vtable)
+		     GFC_INTEGER_4 kind, gfc_charlen_type elem_len,
+		     GFC_INTEGER_4 rank, GFC_INTEGER_4 dtype,
+		     void *dtio_sub, void *vtable)
 {
-  set_nml_var (dtp, var_addr, var_name, len, string_length,
-	       dtype, dtio_sub, vtable);
+  set_nml_var (dtp, var_addr, var_name, kind, elem_len,
+	       rank, dtype, dtio_sub, vtable);
 }
 
 /* Store the dimensional information for the namelist object.  */

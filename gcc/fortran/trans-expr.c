@@ -67,7 +67,7 @@ tree
 gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr,
 			       gfc_typespec *ts)
 {
-  tree desc, type, dtype;
+  tree desc, type, dtype, elem_len;
   int desc_attr;
 
   dtype = get_scalar_to_descriptor_type (scalar, attr);
@@ -77,12 +77,17 @@ gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr,
   if (!POINTER_TYPE_P (TREE_TYPE (scalar)))
     scalar = gfc_build_addr_expr (NULL_TREE, scalar);
 
-  type = TREE_TYPE (build_fold_indirect_ref_loc (input_location, scalar));
+  type = TREE_TYPE (gfc_typenode_for_spec (ts));
+
+  if (type == NULL_TREE)
+    elem_len = build_int_cst (size_type_node, 0);
+  else
+    elem_len = TYPE_SIZE_UNIT (type);
 
   gfc_add_modify (&se->pre, gfc_conv_descriptor_dtype (desc),
 		  gfc_get_dtype (ts));
   gfc_conv_descriptor_data_set (&se->pre, desc, scalar);
-  gfc_conv_descriptor_elem_len_set (&se->pre, desc, TYPE_SIZE_UNIT (type));
+  gfc_conv_descriptor_elem_len_set (&se->pre, desc, elem_len);
   gfc_conv_descriptor_version_set (&se->pre, desc);
   gfc_conv_descriptor_rank_set (&se->pre, desc, 0);
 
@@ -8088,7 +8093,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 		 converted in rse and now have to build the correct LHS
 		 descriptor for it.  */
 
-	      tree dtype, data;
+	      tree dtype, data, elem_len;
 	      tree offs, stride;
 	      tree lbound, ubound;
 
@@ -8103,6 +8108,10 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	      /* Copy data pointer.  */
 	      data = gfc_conv_descriptor_data_get (rse.expr);
 	      gfc_conv_descriptor_data_set (&block, desc, data);
+
+	      /* Copy element size.  */
+	      elem_len = gfc_conv_descriptor_elem_len_get (rse.expr);
+	      gfc_conv_descriptor_elem_len_set (&block, desc, elem_len);
 
 	      /* Set the new rank.  */
 	      gfc_conv_descriptor_rank_set (&block, desc, expr1->rank);

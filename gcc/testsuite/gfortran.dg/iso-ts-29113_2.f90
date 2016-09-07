@@ -155,4 +155,3 @@ end subroutine test
 ! { dg-final { scan-tree-dump-times "foo \\(&x_ext, -1\\);" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "foo \\(&x_class._data, -1\\);" 1 "original" } }
 
-! { dg-final { cleanup-tree-dump "original" } }

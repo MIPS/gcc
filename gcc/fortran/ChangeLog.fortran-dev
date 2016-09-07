@@ -1,3 +1,19 @@
+2016-09-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-array.c (gfc_build_null_descriptor): Set the element
+	length to zero for deferred types.
+	(gfc_trans_static_array_pointer): Initialize deferred string
+	length to zero.
+	(gfc_array_init_size): Restore chunk for calculating the ubound
+	of array constructor sources.
+	* trans-expr.c (gfc_conv_scalar_to_descriptor): If the type is
+	NULL_TREE, set the element length to zero.
+	(gfc_trans_pointer_assignment): Copy the element length.
+	trans-io.c (gfc_build_io_library_fndecls): Update arguments for
+	namelist transfers.
+	(transfer_namelist_element): Calculate element length and
+	update arguments to transfer calls.
+
 2016-08-30  Paul Thomas  <pault@gcc.gnu.org>
 
 	* trans-array.c (gfc_array_init_size): Remove argument 'ts'.

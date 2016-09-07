@@ -472,14 +472,14 @@ gfc_build_io_library_fndecls (void)
   iocall[IOCALL_SET_NML_VAL] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("st_set_nml_var")), ".w.R",
 	void_type_node, 7, dt_parm_type, pvoid_type_node, pvoid_type_node,
-	gfc_int4_type_node, gfc_charlen_type_node, integer_type_node,
+	gfc_int4_type_node, gfc_charlen_type_node, gfc_int4_type_node,
 	gfc_int4_type_node);
 
   iocall[IOCALL_SET_NML_DTIO_VAL] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("st_set_nml_dtio_var")), ".w.R",
-	void_type_node, 8, dt_parm_type, pvoid_type_node, pvoid_type_node,
+	void_type_node, 9, dt_parm_type, pvoid_type_node, pvoid_type_node,
 	gfc_int4_type_node, gfc_charlen_type_node, gfc_int4_type_node,
-	pvoid_type_node, pvoid_type_node);
+	gfc_int4_type_node, pvoid_type_node, pvoid_type_node);
 
   iocall[IOCALL_SET_NML_VAL_DIM] = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("st_set_nml_var_dim")), ".w",
@@ -1625,11 +1625,12 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
   tree dt = NULL;
   tree string;
   tree tmp;
+  tree elem_len;
   tree dt_parm_addr;
   tree decl = NULL_TREE;
   tree gfc_int4_type_node = gfc_get_int_type (4);
-  tree dtio_proc = null_pointer_node;
-  tree vtable = null_pointer_node;
+  tree dtio_proc = NULL_TREE;
+  tree vtable = NULL_TREE;
   int n_dim;
   int rank = 0;
 
@@ -1668,6 +1669,8 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
       tmp = TYPE_SIZE_UNIT (tmp);
     }
 
+  elem_len = tmp;
+
   /* Build up the arguments for the transfer call.
      The call for the scalar part transfers:
      (address, name, kind, elem_len, type)  */
@@ -1697,23 +1700,33 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
     }
 
   if (ts->type == BT_CHARACTER)
-    tmp = ts->u.cl->backend_decl;
+    {
+      elem_len = ts->u.cl->backend_decl;
+      tmp = build_int_cst (gfc_charlen_type_node, ts->kind);
+      elem_len = fold_build2_loc (input_location, MULT_EXPR,
+				  gfc_charlen_type_node,
+				  elem_len, tmp);
+      gfc_evaluate_now (elem_len, block);
+    }
   else
-    tmp = build_int_cst (gfc_charlen_type_node, 0);
+    elem_len = fold_convert (gfc_charlen_type_node, elem_len);
+
 
   if (dtio_proc == NULL_TREE)
     tmp = build_call_expr_loc (input_location,
 			   iocall[IOCALL_SET_NML_VAL], 7,
 			   dt_parm_addr, addr_expr, string,
 			   build_int_cst (gfc_int4_type_node, ts->kind),
-			   tmp, build_int_cst (integer_type_node, rank),
-                           build_int_cst (integer_type_node, ts->type));
+			   elem_len,
+			   build_int_cst (gfc_int4_type_node, rank),
+                           build_int_cst (gfc_int4_type_node, ts->type));
   else
     tmp = build_call_expr_loc (input_location,
-			   iocall[IOCALL_SET_NML_DTIO_VAL], 10,
+			   iocall[IOCALL_SET_NML_DTIO_VAL], 9,
 			   dt_parm_addr, addr_expr, string,
 			   build_int_cst (gfc_int4_type_node, ts->kind),
-			   tmp, build_int_cst (integer_type_node, rank),
+			   elem_len,
+			   build_int_cst (gfc_int4_type_node, rank),
                            build_int_cst (integer_type_node, ts->type),
 			   dtio_proc, vtable);
   gfc_add_expr_to_block (block, tmp);
@@ -1734,7 +1747,7 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
     }
 
   if (gfc_bt_struct (ts->type) && ts->u.derived->components
-      && dtio_proc == null_pointer_node)
+      && dtio_proc == NULL_TREE)
     {
       gfc_component *cmp;
 

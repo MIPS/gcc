@@ -577,6 +577,7 @@ gfc_build_null_descriptor (tree desc_type, int rank, int attr,
 {
   tree field;
   tree tmp;
+  tree elem_len;
   vec<constructor_elt, va_gc> *init = NULL;
 
   gcc_assert (GFC_DESCRIPTOR_TYPE_P (desc_type));
@@ -588,8 +589,11 @@ gfc_build_null_descriptor (tree desc_type, int rank, int attr,
 
   /* Set elem_len. */
   tmp = gfc_advance_chain (field, ELEM_LEN_FIELD);
-  CONSTRUCTOR_APPEND_ELT (init, tmp,
-			  TYPE_SIZE_UNIT (gfc_get_element_type (desc_type)));
+  if (ts->deferred)
+    elem_len = build_int_cst (integer_type_node, 0);
+  else
+    elem_len = TYPE_SIZE_UNIT (gfc_get_element_type (desc_type));
+  CONSTRUCTOR_APPEND_ELT (init, tmp, elem_len);
 
   /* Set version to 1. */
   tmp = gfc_advance_chain (field, VERSION_FIELD);
@@ -929,6 +933,11 @@ gfc_trans_static_array_pointer (gfc_symbol * sym)
   type = TREE_TYPE (sym->backend_decl);
   DECL_INITIAL (sym->backend_decl)
 	= gfc_build_null_descriptor (type, sym->as->rank, attr, &sym->ts);
+
+  if (sym->ts.type == BT_CHARACTER && sym->ts.deferred
+      && sym->ts.u.cl->backend_decl)
+    DECL_INITIAL (sym->ts.u.cl->backend_decl) =
+				build_int_cst (gfc_charlen_type_node, 0);
 }
 
 
@@ -5435,9 +5444,40 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 
       /* Set extent.  */
       gfc_init_se (&se, NULL);
-      gcc_assert (ubound);
-      gfc_conv_expr_type (&se, ubound, gfc_array_index_type);
-      gfc_add_block_to_block (pblock, &se.pre);
+      if (expr3_desc != NULL_TREE)
+	{
+	  if (e3_is_array_constr)
+	    {
+	      /* The lbound of a constant array [] starts at zero, but when
+	       allocating it, the standard expects the array to start at
+	       one.  Therefore fix the upper bound to be
+	       (desc.ubound - desc.lbound)+ 1.  */
+	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
+				     gfc_array_index_type,
+				     gfc_conv_descriptor_ubound_get (
+				       expr3_desc, gfc_rank_cst[n]),
+				     gfc_conv_descriptor_lbound_get (
+				       expr3_desc, gfc_rank_cst[n]));
+	      tmp = fold_build2_loc (input_location, PLUS_EXPR,
+				     gfc_array_index_type, tmp,
+				     gfc_index_one_node);
+	      se.expr = gfc_evaluate_now (tmp, pblock);
+	    }
+	  else
+	    se.expr = gfc_conv_descriptor_ubound_get (expr3_desc,
+						      gfc_rank_cst[n]);
+	}
+      else
+	{
+	  gcc_assert (ubound);
+	  gfc_conv_expr_type (&se, ubound, gfc_array_index_type);
+	  gfc_add_block_to_block (pblock, &se.pre);
+	  if (ubound->expr_type == EXPR_FUNCTION)
+	    se.expr = gfc_evaluate_now (se.expr, pblock);
+	}
+
+      gfc_conv_descriptor_ubound_set (descriptor_block, descriptor,
+				      gfc_rank_cst[n], se.expr);
       conv_ubound = se.expr;
 
       tmp = fold_build2_loc (input_location, MINUS_EXPR, gfc_array_index_type,

@@ -15,10 +15,4 @@ program test
    allocate(a(n), temp(n))
    temp(1:size(a)) = a
 end program
-<<<<<<< .working
-||||||| .merge-left.r222315
 ! { dg-final { scan-tree-dump-times "MAX_EXPR\[^\n\t\]+ubound\[^\n\t\]+lbound" 1 "original" } }
-! { dg-final { cleanup-tree-dump "original" } }
-=======
-! { dg-final { scan-tree-dump-times "MAX_EXPR\[^\n\t\]+ubound\[^\n\t\]+lbound" 1 "original" } }
->>>>>>> .merge-right.r235035
