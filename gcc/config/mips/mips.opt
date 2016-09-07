@@ -545,3 +545,6 @@ Target Undocumented Var(TARGET_USE_COPYW_BY_PIECES) Init(1)
 
 mmips16-ze-policy=
 Target Undocumented Joined UInteger Var(mips16e2_ze_policy) Init(0)
+
+mlra-equiv
+Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
