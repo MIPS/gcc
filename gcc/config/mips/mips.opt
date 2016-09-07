@@ -535,3 +535,6 @@ Allow inlining even if the compression flags differ between caller and callee.
 
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
+
+mlra-equiv
+Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)

@@ -880,7 +880,7 @@ remove_reg_equal_offset_note (rtx_insn *insn, rtx what)
   for (link_loc = &REG_NOTES (insn);
        (link = *link_loc) != NULL_RTX;
        link_loc = &XEXP (link, 1))
-    if (REG_NOTE_KIND (link) == REG_EQUAL
+    if ((REG_NOTE_KIND (link) == REG_EQUAL || REG_NOTE_KIND (link) == REG_EQUIV)
 	&& GET_CODE (XEXP (link, 0)) == PLUS
 	&& XEXP (XEXP (link, 0), 0) == what
 	&& CONST_INT_P (XEXP (XEXP (link, 0), 1)))
@@ -918,7 +918,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx orig_operand[MAX_RECOG_OPERANDS];
   struct lra_elim_table *ep;
-  rtx plus_src, plus_cst_src;
+  rtx plus_src, plus_src_reg, plus_src_cst;
   lra_insn_recog_data_t id;
   struct lra_static_insn_data *static_id;
 
@@ -1006,7 +1006,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
   /* We allow one special case which happens to work on all machines we
      currently support: a single set with the source or a REG_EQUAL
      note being a PLUS of an eliminable register and a constant.  */
-  plus_src = plus_cst_src = 0;
+  plus_src = plus_src_reg = plus_src_cst = 0;
   if (old_set && REG_P (SET_DEST (old_set)))
     {
       if (GET_CODE (SET_SRC (old_set)) == PLUS)
@@ -1014,24 +1014,59 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
       /* First see if the source is of the form (plus (...) CST).  */
       if (plus_src
 	  && CONST_INT_P (XEXP (plus_src, 1)))
-	plus_cst_src = plus_src;
+	{
+	  plus_src_reg = XEXP (plus_src, 0);
+	  plus_src_cst = XEXP (plus_src, 1);
+	}
+      /* Next look for an equivalent value for the 2nd operand of the
+	 plus.  */
+      if (TARGET_LRA_EQUIV && plus_src && !plus_src_reg
+	  && REG_P (XEXP (plus_src, 1))
+	  && ira_reg_equiv[REGNO(XEXP (plus_src, 1))].defined_p
+	  && ira_reg_equiv[REGNO(XEXP (plus_src, 1))].constant != NULL_RTX
+	  && CONST_INT_P (ira_reg_equiv[REGNO(XEXP (plus_src, 1))].constant))
+	{
+	  plus_src_reg = XEXP (plus_src, 0);
+	  plus_src_cst = ira_reg_equiv[REGNO(XEXP (plus_src, 1))].constant;
+	}
+      /* Finally, look for an equivalent value for the (plus (...) (...)).  */
+      if (TARGET_LRA_EQUIV && plus_src && !plus_src_reg
+	  && ira_reg_equiv[REGNO(SET_DEST (old_set))].defined_p
+	  && ira_reg_equiv[REGNO(SET_DEST (old_set))].invariant != NULL_RTX)
+	{
+	  rtx invariant = ira_reg_equiv[REGNO(SET_DEST (old_set))].invariant;
+	  if (GET_CODE (invariant) == PLUS
+	      && CONST_INT_P (XEXP (invariant, 1)))
+	    {
+	      plus_src_reg = XEXP (invariant, 0);
+	      plus_src_cst = XEXP (invariant, 1);
+	      /* Remove the equivalence as we must not use it on the next
+		 iteration.  */
+	      ira_reg_equiv[REGNO(SET_DEST (old_set))].defined_p = false;
+	      ira_reg_equiv[REGNO(SET_DEST (old_set))].invariant = NULL_RTX;
+	    }
+	}
+
       /* Check that the first operand of the PLUS is a hard reg or
 	 the lowpart subreg of one.  */
-      if (plus_cst_src)
+      if (plus_src_reg)
 	{
-	  rtx reg = XEXP (plus_cst_src, 0);
+	  rtx reg = plus_src_reg;
 
 	  if (GET_CODE (reg) == SUBREG && subreg_lowpart_p (reg))
 	    reg = SUBREG_REG (reg);
 
 	  if (!REG_P (reg) || REGNO (reg) >= FIRST_PSEUDO_REGISTER)
-	    plus_cst_src = 0;
+	    {
+	      plus_src_reg = 0;
+	      plus_src_cst = 0;
+	    }
 	}
     }
-  if (plus_cst_src)
+  if (plus_src_reg)
     {
-      rtx reg = XEXP (plus_cst_src, 0);
-      HOST_WIDE_INT offset = INTVAL (XEXP (plus_cst_src, 1));
+      rtx reg = plus_src_reg;
+      HOST_WIDE_INT offset = INTVAL (plus_src_cst);
 
       if (GET_CODE (reg) == SUBREG)
 	reg = SUBREG_REG (reg);
@@ -1051,11 +1086,11 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		  else
 		    offset += update_sp_offset;
 		}
-	      offset = trunc_int_for_mode (offset, GET_MODE (plus_cst_src));
+	      offset = trunc_int_for_mode (offset, GET_MODE (plus_src_reg));
 	    }
 
-	  if (GET_CODE (XEXP (plus_cst_src, 0)) == SUBREG)
-	    to_rtx = gen_lowpart (GET_MODE (XEXP (plus_cst_src, 0)), to_rtx);
+	  if (GET_CODE (plus_src_reg) == SUBREG)
+	    to_rtx = gen_lowpart (GET_MODE (plus_src_reg), to_rtx);
 	  /* If we have a nonzero offset, and the source is already a
 	     simple REG, the following transformation would increase
 	     the cost of the insn by replacing a simple REG with (plus
@@ -1063,6 +1098,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 	     before.  */
 	  if (offset == 0 || plus_src)
 	    {
+	      bool eliminate_regs_p = false;
 	      rtx new_src = plus_constant (GET_MODE (to_rtx), to_rtx, offset);
 
 	      old_set = single_set (insn);
@@ -1079,12 +1115,21 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		  rtx new_pat = gen_rtx_SET (SET_DEST (old_set), new_src);
 
 		  if (! validate_change (insn, &PATTERN (insn), new_pat, 0))
-		    SET_SRC (old_set) = new_src;
+		    {
+		      if (! replace_p)
+			SET_SRC (old_set) = new_src;
+		      else
+			/* Fall back to register based offset.  We need to
+			   eliminate eliminable registers.  */
+			eliminate_regs_p = true;
+		    }
 		}
 	      lra_update_insn_recog_data (insn);
+
 	      /* This can't have an effect on elimination offsets, so skip
 		 right to the end.  */
-	      return;
+	      if (! eliminate_regs_p)
+		return;
 	    }
 	}
     }
