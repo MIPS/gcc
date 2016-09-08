@@ -238,6 +238,7 @@ struct mips_cpu_info {
 				       && mips_abi == ABI_32)
 #define ISA_HAS_SAVE_RESTORE	(GENERATE_MIPS16E_SAVE_RESTORE \
 				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_SAVE_RESTORE))
+#define ISA_HAS_SAVEF_RESTOREF	(TARGET_MICROMIPS_R7 && TARGET_ADD_SAVEF_RESTOREF)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
