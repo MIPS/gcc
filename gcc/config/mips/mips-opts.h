@@ -60,4 +60,11 @@ enum mips_cb_setting {
   MIPS_CB_OPTIMAL,
   MIPS_CB_ALWAYS
 };
+
+/* Enumerates the setting of the -mopt-return= option.  */
+enum mips_return_setting {
+  MIPS_RETURN_NEVER,
+  MIPS_RETURN_OPTIMAL,
+  MIPS_RETURN_ALWAYS
+};
 #endif

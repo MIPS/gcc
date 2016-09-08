@@ -558,6 +558,9 @@ Target Undocumented Var(TARGET_REPLACE_ADDIUSP) Init(0)
 madd-save-restore
 Target Undocumented Var(TARGET_ADD_SAVE_RESTORE) Init(0)
 
+madd-savef-restoref
+Target Undocumented Var(TARGET_ADD_SAVEF_RESTOREF) Init(0)
+
 madd-restorejrc
 Target Undocumented Var(TARGET_ADD_RESTORE_JRC) Init(0)
 
@@ -647,3 +650,20 @@ Target Undocumented Var(TARGET_OPTIMIZE_MULTIPLE_REFS) Init(0)
 
 mlra-equiv
 Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
+
+mopt-return=
+Target RejectNegative JoinedOrMissing Var(mips_return) Report Enum(mips_return_setting) Init(MIPS_RETURN_OPTIMAL)
+Specify the RESTORE[16].JRC policy when converting jumps to returns.
+
+Enum
+Name(mips_return_setting) Type(enum mips_return_setting)
+Policies available for use with -mopt-returns=:
+
+EnumValue
+Enum(mips_return_setting) String(never) Value(MIPS_RETURN_NEVER)
+
+EnumValue
+Enum(mips_return_setting) String(optimal) Value(MIPS_RETURN_OPTIMAL)
+
+EnumValue
+Enum(mips_return_setting) String(always) Value(MIPS_RETURN_ALWAYS)
