@@ -9064,11 +9064,12 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	 instead.  */
       if (reduce_bit_field && TYPE_UNSIGNED (type))
 	{
+	  int_mode = SCALAR_INT_TYPE_MODE (type);
 	  wide_int mask = wi::mask (TYPE_PRECISION (type),
-				    false, GET_MODE_PRECISION (mode));
+				    false, GET_MODE_PRECISION (int_mode));
 
-	  temp = expand_binop (mode, xor_optab, op0,
-			       immed_wide_int_const (mask, mode),
+	  temp = expand_binop (int_mode, xor_optab, op0,
+			       immed_wide_int_const (mask, int_mode),
 			       target, 1, OPTAB_LIB_WIDEN);
 	}
       else
@@ -9169,7 +9170,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    if (is_gimple_assign (def)
 		&& gimple_assign_rhs_code (def) == NOP_EXPR)
 	      {
-		machine_mode rmode = TYPE_MODE
+		scalar_int_mode rmode = SCALAR_INT_TYPE_MODE
 		  (TREE_TYPE (gimple_assign_rhs1 (def)));
 
 		if (GET_MODE_SIZE (rmode) < GET_MODE_SIZE (int_mode)
@@ -9935,15 +9936,16 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       return decl_rtl;
 
     case INTEGER_CST:
-      /* Given that TYPE_PRECISION (type) is not always equal to
-         GET_MODE_PRECISION (TYPE_MODE (type)), we need to extend from
-         the former to the latter according to the signedness of the
-         type. */
-      temp = immed_wide_int_const (wi::to_wide
-				   (exp,
-				    GET_MODE_PRECISION (TYPE_MODE (type))),
-				   TYPE_MODE (type));
-      return temp;
+      {
+	/* Given that TYPE_PRECISION (type) is not always equal to
+	   GET_MODE_PRECISION (TYPE_MODE (type)), we need to extend from
+	   the former to the latter according to the signedness of the
+	   type.  */
+	scalar_int_mode mode = SCALAR_INT_TYPE_MODE (type);
+	temp = immed_wide_int_const
+	  (wi::to_wide (exp, GET_MODE_PRECISION (mode)), mode);
+	return temp;
+      }
 
     case VECTOR_CST:
       {
@@ -10402,7 +10404,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		if (DECL_BIT_FIELD (field))
 		  {
 		    HOST_WIDE_INT bitsize = TREE_INT_CST_LOW (DECL_SIZE (field));
-		    machine_mode imode = TYPE_MODE (TREE_TYPE (field));
+		    scalar_int_mode imode
+		      = SCALAR_INT_TYPE_MODE (TREE_TYPE (field));
 
 		    if (TYPE_UNSIGNED (TREE_TYPE (field)))
 		      {
@@ -11531,10 +11534,10 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
   if (! targetm.have_casesi ())
     return 0;
 
-  /* Convert the index to SImode.  */
-  if (GET_MODE_BITSIZE (TYPE_MODE (index_type)) > GET_MODE_BITSIZE (index_mode))
+  /* The index must be some form of integer.  Convert it to SImode.  */
+  scalar_int_mode omode = SCALAR_INT_TYPE_MODE (index_type);
+  if (GET_MODE_BITSIZE (omode) > GET_MODE_BITSIZE (index_mode))
     {
-      machine_mode omode = TYPE_MODE (index_type);
       rtx rangertx = expand_normal (range);
 
       /* We must handle the endpoints in the original mode.  */
@@ -11551,7 +11554,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
     }
   else
     {
-      if (TYPE_MODE (index_type) != index_mode)
+      if (omode != index_mode)
 	{
 	  index_type = lang_hooks.types.type_for_mode (index_mode, 0);
 	  index_expr = fold_convert (index_type, index_expr);
