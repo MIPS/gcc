@@ -269,6 +269,10 @@
 ;; Iterator for ISA 3.0 vector extract/insert of integer vectors
 (define_mode_iterator VSX_EXTRACT_I [V16QI V8HI V4SI])
 
+(define_mode_attr VSX_EXTRACT_WIDTH [(V16QI "b")
+		  		     (V8HI "h")
+				     (V4SI "w")])
+				    
 ;; Mode attribute to give the correct predicate for ISA 3.0 vector extract and
 ;; insert to validate the operand number.
 (define_mode_attr VSX_EXTRACT_PREDICATE [(V16QI "const_0_to_15_operand")
@@ -325,24 +329,6 @@
    UNSPEC_VSX_VTSTDC
    UNSPEC_LXVL
    UNSPEC_STXVL
-   UNSPEC_VCMPNEB
-   UNSPEC_VCMPNEB_AT
-   UNSPEC_VCMPNEB_AF
-   UNSPEC_VCMPNEZB
-   UNSPEC_VCMPNEZB_AT
-   UNSPEC_VCMPNEZB_AF
-   UNSPEC_VCMPNEH
-   UNSPEC_VCMPNEH_AT
-   UNSPEC_VCMPNEH_AF
-   UNSPEC_VCMPNEZH
-   UNSPEC_VCMPNEZH_AT
-   UNSPEC_VCMPNEZH_AF
-   UNSPEC_VCMPNEW
-   UNSPEC_VCMPNEW_AT
-   UNSPEC_VCMPNEW_AF
-   UNSPEC_VCMPNEZW
-   UNSPEC_VCMPNEZW_AT
-   UNSPEC_VCMPNEZW_AF
    UNSPEC_VCLZLSBB
    UNSPEC_VCTZLSBB
    UNSPEC_VEXTUBLX
@@ -351,6 +337,12 @@
    UNSPEC_VEXTUHRX
    UNSPEC_VEXTUWLX
    UNSPEC_VEXTUWRX
+   UNSPEC_VCMPNEB
+   UNSPEC_VCMPNEZB
+   UNSPEC_VCMPNEH
+   UNSPEC_VCMPNEZH
+   UNSPEC_VCMPNEW
+   UNSPEC_VCMPNEZW
   ])
 
 ;; VSX moves
@@ -3280,6 +3272,153 @@
   "sldi %2,%2\;stxvl %x0,%1,%2"
   [(set_attr "length" "8")
    (set_attr "type" "vecstore")])
+
+
+;; kelvin is fixing these patterns to use the style of previous
+;;   implementations of "altivec predicates" 
+;; kelvin now looking to trace the expansion and matching of the
+;;   vec_all_ne and vec_any_eqz instructions.
+
+;; kelvin suspects the existing code may be incorrect.  scrutinize my
+;; current understanding.
+;;
+;; In altivec.h
+;;  vec_all_ne(a,b) expands into __builtin_vec_vcmpeq_p (CR6_EQ, a, b)
+;;    (kelvin thinks this needs to expand into __builtin_vec_vmpne_p (...)
+;;
+;;  which expands (@ vector.md) as follows:
+;;  (define_expand "vector_eq_<mode>_p"
+;;    [(parallel
+;;      [(set (reg:CC 74)
+;;	      (unspec:CC [(eq:CC (match_operand:VEC_A 1 "vlogical_operand" "")
+;;			         (match_operand:VEC_A 2 "vlogical_operand" ""))]
+;;		         UNSPEC_PREDICATE))
+;;       (set (match_operand:VEC_A 0 "vlogical_operand" "")
+;;	      (eq:VEC_A (match_dup 1)
+;;		        (match_dup 2)))])]
+;;    "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
+;;    "")
+;;   (NOTE: I need to change the condition above)
+;;    where(define_mode_iterator VEC_A [V16QI V8HI V4SI V2DI V4SF V2DF])
+;;
+;; The expansion above is not complete because some special magic
+;; takes place during the expansion, as implemented in rs6000.c,
+;; altivec_expand_predicate_builtin().  Since the first argument to
+;; the invocation of __builtin_vec_vcmpeq_p is CR6_EQ, In particular,
+;; we emit the following additional code
+;;   (set (reg:SI 162)  <-- the target register
+;;        (eq:SI (reg:CC 74 6)
+;;               (const_int 0 [0])))
+;;	    
+;; And this is eventually matched by (@vsx.md):
+;;
+;;  (define_insn "*vsx_eq_<mode>_p"
+;;   [(set (reg:CC 74)
+;;	   (unspec:CC
+;; 	    [(eq:CC (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,?<VSa>")
+;;		    (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,?<VSa>"))]
+;;  	    UNSPEC_PREDICATE))
+;;   (set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?<VSa>")
+;;	(eq:VSX_F (match_dup 1)
+;;		  (match_dup 2)))]
+;;  "VECTOR_UNIT_VSX_P (<MODE>mode)"
+;;  "xvcmpeq<VSs>. %x0,%x1,%x2"
+;;  [(set_attr "type" "<VStype_simple>")])
+;;
+;;   This instruction sets CR6, bit 0 to true if all entries compared equal.
+;;   It sets CR6, bits 1 and 3 to 0.
+;;   It sets CR6, bit 2 to true if all entries compared not-equal.
+;;   Note that condition register bits are labeled as: 0 (negative
+;;   (lt)), 1 (positive (gt)), 2 (zero (eq)), 3 (summary overflow
+;;   (so)).
+;;
+;;   In vernacular of implementation:
+;;     eq flag set means all entries not equal
+;;     eq flag reversed means any entry equal
+;;     lt flag set means all entries equal
+;;     lt flag reversed means any entry not equal
+;;
+;; Since the above pattern only matches fp and dp floats, we need
+;; another pattern to integers.  We find the following in altivec.md:
+;;  (define_insn "*altivec_vcmpequ<VI_char>_p"
+;;    [(set (reg:CC 74)
+;;	    (unspec:CC [(eq:CC (match_operand:VI2 1 "register_operand" "v")
+;;			       (match_operand:VI2 2 "register_operand" "v"))]
+;;		       UNSPEC_PREDICATE))
+;;     (set (match_operand:VI2 0 "register_operand" "=v")
+;;	    (eq:VI2 (match_dup 1)
+;;		    (match_dup 2)))]
+;;      "<VI_unit>"
+;;    "vcmpequ<VI_char>. %0,%1,%2"
+;;    [(set_attr "type" "veccmpfx")])
+;;    
+;;   where (define_mode_iterator VI2 [V4SI V8HI V16QI V2DI]) and
+;;    (define_mode_attr VI_char [(V2DI "d") (V4SI "w") (V8HI "h") (V16QI "b")])
+;;
+;;   This instruction sets CR6, bit 0 to true if all entries compared equal.
+;;   It sets CR6, bits 1 and 3 to 0.
+;;   It sets CR6, bit 2 to true if all entries compared not-equal.
+;;   So this is the same behavior as seen above.
+;;
+;;  What about my new instruction: vcmpneb. (and friends)?
+;;  This sets CR6, bit 0 to true if all entries compared not equal
+;;  This sets CR6, bits 1 and 3 to 0.
+;;  This sets CR6, bit 2 to true if al entries compared equal
+;;
+;;   Note that condition register bits are labeled as: 0 (negative
+;;   (lt)), 1 (positive (gt)), 2 (zero (eq)), 3 (summary overflow
+;;   (so)).
+;;
+;;   In vernacular of implementation:
+;;     eq flag set means all entries equal
+;;     eq flag reversed means any entry not equal
+;;     lt flag set means all entries not equal
+;;     lt flag reversed means any entry equal
+;;
+;;  Here's the tricky equivalence.  
+;;   
+;;    [(set (reg:CC 74)
+;;	    (unspec:CC [(eq:CC (match_operand:VI2 1 "register_operand" "v")
+;;			       (match_operand:VI2 2 "register_operand" "v"))]
+;;	     UNSPEC_PREDICATE))
+;;     (set (match_operand:VI2 0 "register_operand" "=v")
+;;	    (eq:VSX_EXTRACT_I (match_dup 1)
+;;			      (match_dup 2)))]
+;;     (set (match_operand:SI 3 "register_operand" "r")
+;;	    (eq:SI (reg:CC 74 6)
+;;		   (const_int 0 [0])))
+;;
+;;  This means all entries not equal.  Another way to say this is:
+;;  
+;;    [(set (reg:CC 74)
+;;	    (unspec:CC [(ne:CC (match_operand:VI2 1 "register_operand" "v")
+;;			       (match_operand:VI2 2 "register_operand" "v"))]
+;;	     UNSPEC_PREDICATE))
+;;     (set (match_operand:VI2 0 "register_operand" "=v")
+;;	    (ne:VSX_EXTRACT_I (match_dup 1)
+;;			      (match_dup 2)))]
+;;     (set (match_operand:SI 3 "register_operand" "r")
+;;	    (lt:SI (reg:CC 74 6)
+;;		   (const_int 0 [0])))
+;;
+;;  But this equivalence only works if operand 0 is dead, or if the
+;;  outer scope really prefers to complement the contents of operand 0
+
+
+;; Compare vectors producing a vector result and a predicate, setting CR6 to
+;; indicate a combined status
+(define_insn "*vsx_neq_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC
+	 [(ne:CC (match_operand:VSX_EXTRACT_I 1 "altivec_register_operand" "v")
+		  (match_operand:VSX_EXTRACT_I 2 "altivec_register_operand" "v"))]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:VSX_EXTRACT_I 0 "altivec_register_operand" "=v")
+	(ne:VSX_EXTRACT_I (match_dup 1)
+		          (match_dup 2)))]
+  "TARGET_P9_VECTOR"
+  "vcmpne<VSX_EXTRACT_WIDTH>. %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
 
 ;; Vector Compare Not Equal Byte
 (define_insn "vcmpneb"

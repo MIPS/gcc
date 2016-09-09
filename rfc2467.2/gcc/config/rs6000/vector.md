@@ -725,6 +725,10 @@
 
 ;; AltiVec/VSX predicates.
 
+;; This expansion is triggered during expansion of predicate built-in
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
+;; altivec_expand_predicate_builtin() function when the value of the 
+;; integer constant first argument equals zero (aka __CR6_EQ in altivec.h).
 (define_expand "cr6_test_for_zero"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(eq:SI (reg:CC 74)
@@ -732,6 +736,10 @@
   "TARGET_ALTIVEC || TARGET_VSX"
   "")
 
+;; This expansion is triggered during expansion of predicate built-in
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
+;; altivec_expand_predicate_builtin() function when the value of the 
+;; integer constant first argument equals one (aka __CR6_EQ_REV in altivec.h).
 (define_expand "cr6_test_for_zero_reverse"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(eq:SI (reg:CC 74)
@@ -742,6 +750,10 @@
   "TARGET_ALTIVEC || TARGET_VSX"
   "")
 
+;; This expansion is triggered during expansion of predicate built-in
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
+;; altivec_expand_predicate_builtin() function when the value of the 
+;; integer constant first argument equals two (aka __CR6_LT in altivec.h).
 (define_expand "cr6_test_for_lt"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(lt:SI (reg:CC 74)
@@ -749,6 +761,11 @@
   "TARGET_ALTIVEC || TARGET_VSX"
   "")
 
+;; This expansion is triggered during expansion of predicate built-in
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
+;; altivec_expand_predicate_builtin() function when the value of the 
+;; integer constant first argument equals three 
+;; (aka __CR6_LT_REV in altivec.h).
 (define_expand "cr6_test_for_lt_reverse"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(lt:SI (reg:CC 74)

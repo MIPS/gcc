@@ -137,6 +137,29 @@
 		     | RS6000_BTC_DST),					\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
+/* All builtins defined with the RS6000_BUILTIN_P macro expect three
+ * arguments, the first of which is an integer constant that clarifies
+ * the implementation's use of CR6 flags.  The integer constant
+ * argument may have three values: __CR6_EQ (0) means the predicate is
+ * considered true if the equality-test flag of the CR6 condition
+ * register is true following execution of the code identified by the
+ * ICODE pattern, __CR_EQ_REV (1) means the predicate is considered
+ * true if the equality-test flag is false, __CR6_LT (2) means the
+ * predicate is considered true if the less-than-test flag is true, and
+ * __CR6_LT_REV (3) means the predicate is considered true if the
+ * less-than-test flag is false.  For all builtins defined by this
+ * macro, the pattern selected by ICODE expects three operands, a
+ * target and two inputs and is presumed to overwrite the flags of
+ * condition register CR6 as a side effect of computings a result into
+ * the target register.  However, the built-in invocation provides
+ * four operands, a target, an integer constant mode, and two inputs.
+ * The second and third operands of the built-in function's invocation
+ * are automatically mapped into operands 1 and 2 of the pattern
+ * identifed by the ICODE argument and additional code is emitted,
+ * depending on the value of the constant integer first argument.
+ * This special processing happens within the implementation of
+ * altivec_expand_predicate_builtin(), which is defined within
+ * rs6000.c.  */
 #define BU_ALTIVEC_P(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_P (ALTIVEC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_altivec_" NAME,		/* NAME */	\
@@ -203,6 +226,7 @@
 		     | RS6000_BTC_DST),					\
 		    CODE_FOR_nothing)			/* ICODE */
 
+/* See the comment on BU_ALTIVEC_P.  */
 #define BU_ALTIVEC_OVERLOAD_P(ENUM, NAME)				\
   RS6000_BUILTIN_P (ALTIVEC_BUILTIN_VEC_ ## ENUM,	/* ENUM */	\
 		    "__builtin_vec_" NAME,		/* NAME */	\
@@ -252,6 +276,7 @@
 		     | RS6000_BTC_ABS),					\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
+/* See the comment on BU_ALTIVEC_P.  */
 #define BU_VSX_P(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_P (VSX_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_vsx_" NAME,		/* NAME */	\
@@ -338,6 +363,7 @@
 		     | RS6000_BTC_TERNARY),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
+/* See the comment on BU_ALTIVEC_P.  */
 #define BU_P8V_AV_P(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_P (P8V_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_altivec_" NAME,		/* NAME */	\
@@ -781,6 +807,7 @@
 		     | RS6000_BTC_TERNARY),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
+/* See the comment on BU_ALTIVEC_P.  */
 #define BU_P9V_AV_P(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_P (P9V_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_altivec_" NAME,		/* NAME */	\
@@ -1897,30 +1924,6 @@ BU_P9V_OVERLOAD_2 (VIESP,	"insert_exp_sp")
 BU_P9V_VSX_2 (LXVL,	"lxvl",		CONST,	lxvl)
 BU_P9V_VSX_2 (STXVL,	"stxvl",	CONST,	stxvl)
 
-BU_P9V_AV_2 (VCMPNEB,	"vcmpneb",		CONST,	vcmpneb)
-BU_P9V_AV_2 (VCMPNEB_AT, "vcmpb_all_ne",	CONST,	vcmpneb_at)
-BU_P9V_AV_2 (VCMPNEB_NAF, "vcmpb_any_eq",	CONST,	vcmpneb_naf)
-
-BU_P9V_AV_2 (VCMPNEH,	"vcmpneh",		CONST,	vcmpneh)
-BU_P9V_AV_2 (VCMPNEH_AT, "vcmph_all_ne",	CONST,	vcmpneh_at)
-BU_P9V_AV_2 (VCMPNEH_NAF, "vcmph_any_eq",	CONST,	vcmpneh_naf)
-
-BU_P9V_AV_2 (VCMPNEW,	"vcmpnew",		CONST,	vcmpnew)
-BU_P9V_AV_2 (VCMPNEW_AT, "vcmpw_all_ne",	CONST,	vcmpnew_at)
-BU_P9V_AV_2 (VCMPNEW_NAF, "vcmpw_any_eq",	CONST,	vcmpnew_naf)
-
-BU_P9V_AV_2 (VCMPNEZB,	"vcmpnezb",		CONST,	vcmpnezb)
-BU_P9V_AV_2 (VCMPNEZB_AT, "vcmpzb_all_ne",	CONST,	vcmpnezb_at)
-BU_P9V_AV_2 (VCMPNEZB_NAF, "vcmpb_any_eqz",	CONST,	vcmpnezb_naf)
-
-BU_P9V_AV_2 (VCMPNEZH,	"vcmpnezh",		CONST,	vcmpnezh)
-BU_P9V_AV_2 (VCMPNEZH_AT, "vcmpzh_all_ne",	CONST,	vcmpnezh_at)
-BU_P9V_AV_2 (VCMPNEZH_NAF, "vcmph_any_eqz",	CONST,	vcmpnezh_naf)
-
-BU_P9V_AV_2 (VCMPNEZW,	"vcmpnezw",		CONST,	vcmpnezw)
-BU_P9V_AV_2 (VCMPNEZW_AT, "vcmpzw_all_ne",	CONST,	vcmpnezw_at)
-BU_P9V_AV_2 (VCMPNEZW_NAF, "vcmpw_any_eqz",	CONST,	vcmpnezw_naf)
-
 BU_P9V_AV_2 (VEXTUBLX, "vextublx",		CONST,	vextublx)
 BU_P9V_AV_2 (VEXTUBRX, "vextubrx",		CONST,	vextubrx)
 BU_P9V_AV_2 (VEXTUHLX, "vextuhlx",		CONST,	vextuhlx)
@@ -1932,24 +1935,37 @@ BU_P9V_AV_2 (VEXTUWRX, "vextuwrx",		CONST,	vextuwrx)
 BU_P9V_AV_1 (VCLZLSBB, "vclzlsbb",		CONST,	vclzlsbb)
 BU_P9V_AV_1 (VCTZLSBB, "vctzlsbb",		CONST,	vctzlsbb)
 
+/* Built-in support for Power9 "VSU option" string operations includes
+ * new awareness of the "vector compare not equal" (vcmpneb, vcmpneb.,
+ * vcmpneh, vcmpneh., vcmpnew, vcmpnew.) and "vector compare
+ * not equal or zero" (vcmpnezb, vcmpnezb., vcmpnezh, vcmpnezh.,
+ * vcmpnezw, vcmpnezw.) instructions.  For consistency with existing
+ * infrastructure, This new awareness is integrated in the style of
+ * earlier implementations of the __builtin_vec_cmpne and
+ * __builtin_vec_cmpeq_p functions. */
+
+BU_P9V_AV_2 (CMPNEB,	"vcmpneb",		CONST,	vcmpneb)
+BU_P9V_AV_2 (CMPNEH,	"vcmpneh",		CONST,	vcmpneh)
+BU_P9V_AV_2 (CMPNEW,	"vcmpnew",		CONST,	vcmpnew)
+
+BU_P9V_AV_2 (CMPNEZB,	"vcmpnezb",		CONST,	vcmpnezb)
+BU_P9V_AV_2 (CMPNEZH,	"vcmpnezh",		CONST,	vcmpnezh)
+BU_P9V_AV_2 (CMPNEZW,	"vcmpnezw",		CONST,	vcmpnezw)
+
 /* ISA 3.0 Vector scalar overloaded 2 argument functions */
 BU_P9V_OVERLOAD_2 (LXVL,	"lxvl")
 BU_P9V_OVERLOAD_2 (STXVL,	"stxvl")
 
-BU_P9V_OVERLOAD_2 (VCMPNE,	"vcmpne")
-BU_P9V_OVERLOAD_2 (VCMPNEZ,	"vcmpnez")
-BU_P9V_OVERLOAD_2 (VCMPNE_AT,	"vcmp_all_ne")
-BU_P9V_OVERLOAD_2 (VCMPNEZ_AT,	"vcmp_all_nez")
-BU_P9V_OVERLOAD_2 (VCMPNE_NAF,	"vcmp_any_eq")
-BU_P9V_OVERLOAD_2 (VCMPNEZ_NAF,	"vcmp_any_eqz")
-
 BU_P9V_OVERLOAD_2 (VEXTULX,	"vextulx")
 BU_P9V_OVERLOAD_2 (VEXTURX,	"vexturx")
+
+/* Overloaded CMPNE support was implemented prior to Power 9, 
+ * so is not mentioned here.  */
+BU_P9V_OVERLOAD_2 (CMPNEZ,	"vcmpnez")
 
 /* ISA 3.0 Vector scalar overloaded 1 argument functions */
 BU_P9V_OVERLOAD_1 (VCLZLSBB,	"vclzlsbb")
 BU_P9V_OVERLOAD_1 (VCTZLSBB,	"vctzlsbb")
-
 
 /* 2 argument extended divide functions added in ISA 2.06.  */
 BU_P7_MISC_2 (DIVWE,		"divwe",	CONST,	dive_si)

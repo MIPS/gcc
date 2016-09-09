@@ -79,7 +79,7 @@
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
 #endif
-#define KELVIN_DEBUG
+#undef KELVIN_DEBUG
 #ifdef KELVIN_DEBUG
 #include "print-tree.h"
 #endif
@@ -13914,16 +13914,16 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
   fprintf (stderr, "and emitting the check for condition flag\n");
 
   fprintf (stderr, "for case 0:\n");
-  debug_rtx (gen_cr6_test_for_zero (target)); break;
+  debug_rtx (gen_cr6_test_for_zero (target));
 
   fprintf (stderr, "for case 1:\n");
-  debug_rtx (gen_cr6_test_for_zero_reverse (target)); break;
+  debug_rtx (gen_cr6_test_for_zero_reverse (target));
 
   fprintf (stderr, "for case 2:\n");
-  debug_rtx (gen_cr6_test_for_lt (target)); break;
+  debug_rtx (gen_cr6_test_for_lt (target));
 
   fprintf (stderr, "for case 3:\n");
-  debug_rtx (gen_cr6_test_for_lt_reverse (target)); break;
+  debug_rtx (gen_cr6_test_for_lt_reverse (target));
 #endif
   /* Kelvin thinks all of this code is entirely special case.  If it's
    * present in the corresponding define_insn or define_expand, it

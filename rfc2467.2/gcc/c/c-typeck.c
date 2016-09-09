@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "spellcheck-tree.h"
 #include "gcc-rich-location.h"
+#undef KELVIN_DEBUG
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */

@@ -32,7 +32,7 @@
 #include "langhooks.h"
 #include "c/c-tree.h"
 
-#define KELVIN_DEBUG
+#undef KELVIN_DEBUG
 #ifdef KELVIN_DEBUG
 #include "print-tree.h"
 #endif
@@ -4457,178 +4457,55 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   /* at an appropriate future time, add support for the
      RS6000_BTI_Float16 (exact name to be determined) type here */
 
-  { P9V_BUILTIN_VEC_VCMPNE, P9V_BUILTIN_VCMPNEB,
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEB,
+    RS6000_BTI_bool_V16QI, RS6000_BTI_bool_V16QI,
+    RS6000_BTI_bool_V16QI, 0 },
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEB,
     RS6000_BTI_bool_V16QI, RS6000_BTI_V16QI,
     RS6000_BTI_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE, P9V_BUILTIN_VCMPNEB,
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEB,
     RS6000_BTI_bool_V16QI, RS6000_BTI_unsigned_V16QI,
     RS6000_BTI_unsigned_V16QI, 0 },
 
-  { P9V_BUILTIN_VEC_VCMPNE, P9V_BUILTIN_VCMPNEH,
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEH,
+    RS6000_BTI_bool_V8HI, RS6000_BTI_bool_V8HI,
+    RS6000_BTI_bool_V8HI, 0 },
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEH,
     RS6000_BTI_bool_V8HI, RS6000_BTI_V8HI,
     RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE, P9V_BUILTIN_VCMPNEH,
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEH,
     RS6000_BTI_bool_V8HI, RS6000_BTI_unsigned_V8HI,
     RS6000_BTI_unsigned_V8HI, 0 },
 
-  { P9V_BUILTIN_VEC_VCMPNE, P9V_BUILTIN_VCMPNEW,
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEW,
+    RS6000_BTI_bool_V4SI, RS6000_BTI_bool_V4SI,
+    RS6000_BTI_bool_V4SI, 0 },
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEW,
     RS6000_BTI_bool_V4SI, RS6000_BTI_V4SI,
     RS6000_BTI_V4SI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE, P9V_BUILTIN_VCMPNEW,
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEW,
     RS6000_BTI_bool_V4SI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
 
-  { P9V_BUILTIN_VEC_VCMPNEZ, P9V_BUILTIN_VCMPNEZB,
+  { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZB,
     RS6000_BTI_bool_V16QI, RS6000_BTI_V16QI,
     RS6000_BTI_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ, P9V_BUILTIN_VCMPNEZB,
+  { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZB,
     RS6000_BTI_bool_V16QI, RS6000_BTI_unsigned_V16QI,
     RS6000_BTI_unsigned_V16QI, 0 },
 
-  { P9V_BUILTIN_VEC_VCMPNEZ, P9V_BUILTIN_VCMPNEZH,
+  { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZH,
     RS6000_BTI_bool_V8HI, RS6000_BTI_V8HI,
     RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ, P9V_BUILTIN_VCMPNEZH,
+  { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZH,
     RS6000_BTI_bool_V8HI, RS6000_BTI_unsigned_V8HI,
     RS6000_BTI_unsigned_V8HI, 0 },
 
-  { P9V_BUILTIN_VEC_VCMPNEZ, P9V_BUILTIN_VCMPNEZW,
+  { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZW,
     RS6000_BTI_bool_V4SI, RS6000_BTI_V4SI,
     RS6000_BTI_V4SI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ, P9V_BUILTIN_VCMPNEZW,
+  { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZW,
     RS6000_BTI_bool_V4SI, RS6000_BTI_unsigned_V4SI,
-    RS6000_BTI_unsigned_V4SI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEB_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
-    RS6000_BTI_bool_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEB_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_V16QI,
-    RS6000_BTI_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEB_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
-    RS6000_BTI_unsigned_V16QI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
-    RS6000_BTI_bool_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_V8HI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V8HI,
-    RS6000_BTI_unsigned_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_pixel_V8HI,
-    RS6000_BTI_pixel_V8HI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEW_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
-    RS6000_BTI_bool_V4SI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEW_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_V4SI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_AT, P9V_BUILTIN_VCMPNEW_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
-    RS6000_BTI_unsigned_V4SI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZB_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
-    RS6000_BTI_bool_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZB_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_V16QI,
-    RS6000_BTI_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZB_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
-    RS6000_BTI_unsigned_V16QI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
-    RS6000_BTI_bool_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_V8HI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V8HI,
-    RS6000_BTI_unsigned_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZH_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_pixel_V8HI,
-    RS6000_BTI_pixel_V8HI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZW_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
-    RS6000_BTI_bool_V4SI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZW_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_V4SI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_AT, P9V_BUILTIN_VCMPNEZW_AT,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
-    RS6000_BTI_unsigned_V4SI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEB_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
-    RS6000_BTI_bool_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEB_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_V16QI,
-    RS6000_BTI_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEB_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
-    RS6000_BTI_unsigned_V16QI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
-    RS6000_BTI_bool_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_V8HI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V8HI,
-    RS6000_BTI_unsigned_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_pixel_V8HI,
-    RS6000_BTI_pixel_V8HI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEW_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
-    RS6000_BTI_bool_V4SI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEW_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_V4SI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNE_NAF, P9V_BUILTIN_VCMPNEW_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
-    RS6000_BTI_unsigned_V4SI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZB_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
-    RS6000_BTI_bool_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZB_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_V16QI,
-    RS6000_BTI_V16QI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZB_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
-    RS6000_BTI_unsigned_V16QI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
-    RS6000_BTI_bool_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_V8HI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V8HI,
-    RS6000_BTI_unsigned_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZH_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_pixel_V8HI,
-    RS6000_BTI_pixel_V8HI, 0 },
-
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZW_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
-    RS6000_BTI_bool_V4SI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZW_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_V4SI,
-    RS6000_BTI_V8HI, 0 },
-  { P9V_BUILTIN_VEC_VCMPNEZ_NAF, P9V_BUILTIN_VCMPNEZW_NAF,
-    RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
 
   { P9V_BUILTIN_VEC_VCLZLSBB, P9V_BUILTIN_VCLZLSBB, 
@@ -5118,10 +4995,12 @@ altivec_build_resolved_builtin (tree *args, int n,
   return fold_convert (ret_type, call);
 }
 
+#ifdef KELVIN_DEBUG
 void kelvin_breakpoint()
 {
   fprintf (stderr, "made it to kelvin_breakpoint\n");
 }
+#endif
 
 /* Implementation of the resolve_overloaded_builtin target hook, to
    support Altivec's overloaded builtins.  */
@@ -5139,8 +5018,9 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   const struct altivec_builtin_types *desc;
   unsigned int n;
 
+#ifdef KELVIN_DEBUG
   kelvin_breakpoint();
-
+#endif
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
 
@@ -5210,10 +5090,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	}
     }
 
-  /* kelvin is debugging here, and puzzled.  I did a search but this 
-   * code did not turn up.  the problem is I'm looking for the
-   * predicate version of this function. */
-  if (fcode == ALTIVEC_BUILTIN_VEC_CMPNE)
+  if (fcode == ALTIVEC_BUILTIN_VEC_CMPNE) 
     {
       /* vec_cmpne needs to be special cased because there are no instructions
 	 for it (prior to power 9).  */
@@ -5228,47 +5105,62 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       tree arg1 = (*arglist)[1];
       tree arg1_type = TREE_TYPE (arg1);
 
-      /* Both arguments must be vectors and the types must match.  */
-      if (arg0_type != arg1_type)
-	goto bad;
-      if (TREE_CODE (arg0_type) != VECTOR_TYPE)
-	goto bad;
-
-      switch (TYPE_MODE (TREE_TYPE (arg0_type)))
+      /* Power9 instructions provide the most efficient implementation of
+       * ALTIVEC_BUILTIN_VEC_CMPNE If the argument types are V16QI, V8HI,
+       * or V4SI.  However, the Power9 instructions do not support
+       * RS6000_BTI_V4SF, RS6000_BTI_V2DF, RS6000_BTI_bool_V2DI,
+       * RS6000_BTI_unsigned_V2DI, or RS6000_BTI_V2DI types.  */
+      if (!TARGET_P9_VECTOR 
+	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == DImode)
+	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == TImode)
+	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == SFmode)
+	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == DFmode))
 	{
-	  /* vec_cmpneq (va, vb) == vec_nor (vec_cmpeq (va, vb),
-					     vec_cmpeq (va, vb)).  */
-	  /* Note:  vec_nand also works but opt changes vec_nand's to vec_nor's
-	     anyway.  */
-	  case QImode:
-	  case HImode:
-	  case SImode:
-	  case DImode:
-	  case TImode:
- 	  case SFmode:
-	  case DFmode:
-	   {
-	      /* call = vec_cmpeq (va, vb)
-		 result = vec_nor (call, call).  */
-	      vec<tree, va_gc> *params = make_tree_vector ();
-	      vec_safe_push (params, arg0);
-	      vec_safe_push (params, arg1);
-	      tree call = altivec_resolve_overloaded_builtin
-		(loc, rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_CMPEQ], params);
- 	      /* Use save_expr to ensure that operands used more than once
-		 that may have side effects (like calls) are only evaluated
-		 once.  */
-	      call = save_expr (call);
-	      params = make_tree_vector ();
-	      vec_safe_push (params, call);
-	      vec_safe_push (params, call);
-	      return altivec_resolve_overloaded_builtin
-		(loc, rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_NOR], params);
-	    }
-	  /* Other types are errors.  */
-	  default:
+	  /* Both arguments must be vectors and the types must match.  */
+	  if (arg0_type != arg1_type)
 	    goto bad;
+	  if (TREE_CODE (arg0_type) != VECTOR_TYPE)
+	    goto bad;
+	  
+	  
+	  switch (TYPE_MODE (TREE_TYPE (arg0_type)))
+	    {
+	      /* vec_cmpneq (va, vb) == vec_nor (vec_cmpeq (va, vb),
+		 vec_cmpeq (va, vb)).  */
+	      /* Note:  vec_nand also works but opt changes vec_nand's 
+		 to vec_nor's anyway.  */
+	    case QImode:
+	    case HImode:
+	    case SImode:
+	    case DImode:
+	    case TImode:
+	    case SFmode:
+	    case DFmode:
+	      {
+		/* call = vec_cmpeq (va, vb)
+		   result = vec_nor (call, call).  */
+		vec<tree, va_gc> *params = make_tree_vector ();
+		vec_safe_push (params, arg0);
+		vec_safe_push (params, arg1);
+		tree call = altivec_resolve_overloaded_builtin
+		  (loc, rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_CMPEQ], 
+		   params);
+		/* Use save_expr to ensure that operands used more than once
+		   that may have side effects (like calls) are only evaluated
+		   once.  */
+		call = save_expr (call);
+		params = make_tree_vector ();
+		vec_safe_push (params, call);
+		vec_safe_push (params, call);
+		return altivec_resolve_overloaded_builtin
+		  (loc, rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_NOR], params);
+	      }
+	      /* Other types are errors.  */
+	    default:
+	      goto bad;
+	    }
 	}
+      /* else, fall through and process the Power9 alternative below */
     }
 
   if (fcode == ALTIVEC_BUILTIN_VEC_ADDE)
@@ -5995,12 +5887,22 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
 #ifdef KELVIN_DEBUG
     fprintf (stderr, "3: find desc, code is %d\n", desc->code);
+    fprintf (stderr, " ALTIVEC_BUILTIN_VEC_CMPNE is %d\n",
+	     ALTIVEC_BUILTIN_VEC_CMPNE);
+    fprintf (stderr, " P9V_BUILTIN_CMPNEB is %d\n", P9V_BUILTIN_CMPNEB);
+    fprintf (stderr, " P9V_BUILTIN_CMPNEH is %d\n", P9V_BUILTIN_CMPNEH);
+    fprintf (stderr, " P9V_BUILTIN_CMPNEW is %d\n", P9V_BUILTIN_CMPNEW);
+    fprintf (stderr, " RS6000_BTI_bool_V16qi is %d\n", RS6000_BTI_bool_V16QI);
 #endif
 
     /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
        the opX fields.  */
     for (; desc->code == fcode; desc++)
       {
+#ifdef KELVIN_DEBUG
+	fprintf (stderr, "consider match against op1: %d, op2: %d, opt3: %d\n",
+		 desc->op1, desc->op2, desc->op3);
+#endif
 	if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
 	     || rs6000_builtin_type_compatible (types[0], desc->op1))
 	    && (desc->op2 == RS6000_BTI_NOT_OPAQUE
@@ -6008,6 +5910,12 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    && (desc->op3 == RS6000_BTI_NOT_OPAQUE
 		|| rs6000_builtin_type_compatible (types[2], desc->op3)))
 	  {
+#ifdef KELVIN_DEBUG
+	    fprintf (stderr, "found type match, decls[%d] is 0x%lx\n",
+		     desc->overloaded_code, 
+                     ((unsigned long int) 
+                      rs6000_builtin_decls[desc->overloaded_code]));
+#endif
 	    if (rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
 	      return altivec_build_resolved_builtin (args, n, desc);
 	    else
