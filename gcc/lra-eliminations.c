@@ -1098,6 +1098,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 	     before.  */
 	  if (offset == 0 || plus_src)
 	    {
+	      bool eliminate_regs_p = false;
 	      rtx new_src = plus_constant (GET_MODE (to_rtx), to_rtx, offset);
 
 	      old_set = single_set (insn);
@@ -1114,12 +1115,21 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		  rtx new_pat = gen_rtx_SET (SET_DEST (old_set), new_src);
 
 		  if (! validate_change (insn, &PATTERN (insn), new_pat, 0))
-		    SET_SRC (old_set) = new_src;
+		    {
+		      if (! replace_p)
+			SET_SRC (old_set) = new_src;
+		      else
+			/* Fall back to register based offset.  We need to
+			   eliminate eliminable registers.  */
+			eliminate_regs_p = true;
+		    }
 		}
 	      lra_update_insn_recog_data (insn);
+
 	      /* This can't have an effect on elimination offsets, so skip
 		 right to the end.  */
-	      return;
+	      if (! eliminate_regs_p)
+		return;
 	    }
 	}
     }
