@@ -8982,6 +8982,7 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   tree alloc_expr;
   tree size1;
   tree size2;
+  tree elem_len;
   tree array1;
   tree cond_null;
   tree cond;
@@ -9178,6 +9179,48 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   size1 = gfc_index_one_node;
   offset = gfc_index_zero_node;
 
+  /* Get the new lhs size in bytes.  */
+  if (expr1->ts.type == BT_CHARACTER && expr1->ts.deferred)
+    {
+      if (expr2->ts.deferred)
+	{
+	  if (TREE_CODE (expr2->ts.u.cl->backend_decl) == VAR_DECL)
+	    tmp = expr2->ts.u.cl->backend_decl;
+	  else
+	    tmp = rss->info->string_length;
+	}
+      else
+	{
+	  tmp = expr2->ts.u.cl->backend_decl;
+	  if (!tmp && expr2->expr_type == EXPR_OP
+	      && expr2->value.op.op == INTRINSIC_CONCAT)
+	    {
+	      tmp = concat_str_length (expr2);
+	      expr2->ts.u.cl->backend_decl = gfc_evaluate_now (tmp, &fblock);
+	    }
+	  tmp = fold_convert (TREE_TYPE (expr1->ts.u.cl->backend_decl), tmp);
+	}
+
+      if (expr1->ts.u.cl->backend_decl
+	  && TREE_CODE (expr1->ts.u.cl->backend_decl) == VAR_DECL)
+	gfc_add_modify (&fblock, expr1->ts.u.cl->backend_decl, tmp);
+      else
+	gfc_add_modify (&fblock, lss->info->string_length, tmp);
+    }
+  else if (expr1->ts.type == BT_CHARACTER && expr1->ts.u.cl->backend_decl)
+    {
+      tmp = TYPE_SIZE_UNIT (TREE_TYPE (gfc_typenode_for_spec (&expr1->ts)));
+      tmp = fold_build2_loc (input_location, MULT_EXPR,
+			     gfc_array_index_type, tmp,
+			     expr1->ts.u.cl->backend_decl);
+    }
+  else
+    tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (&expr1->ts));
+
+  elem_len = fold_convert (gfc_array_index_type, tmp);
+
+  gfc_conv_descriptor_elem_len_set (&fblock, desc, elem_len);
+
   for (n = 0; n < expr2->rank; n++)
     {
       lbound = gfc_index_one_node;
@@ -9236,47 +9279,9 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
 	gfc_add_modify (&fblock, linfo->delta[dim], tmp);
     }
 
-  /* Get the new lhs size in bytes.  */
-  if (expr1->ts.type == BT_CHARACTER && expr1->ts.deferred)
-    {
-      if (expr2->ts.deferred)
-	{
-	  if (TREE_CODE (expr2->ts.u.cl->backend_decl) == VAR_DECL)
-	    tmp = expr2->ts.u.cl->backend_decl;
-	  else
-	    tmp = rss->info->string_length;
-	}
-      else
-	{
-	  tmp = expr2->ts.u.cl->backend_decl;
-	  if (!tmp && expr2->expr_type == EXPR_OP
-	      && expr2->value.op.op == INTRINSIC_CONCAT)
-	    {
-	      tmp = concat_str_length (expr2);
-	      expr2->ts.u.cl->backend_decl = gfc_evaluate_now (tmp, &fblock);
-	    }
-	  tmp = fold_convert (TREE_TYPE (expr1->ts.u.cl->backend_decl), tmp);
-	}
-
-      if (expr1->ts.u.cl->backend_decl
-	  && TREE_CODE (expr1->ts.u.cl->backend_decl) == VAR_DECL)
-	gfc_add_modify (&fblock, expr1->ts.u.cl->backend_decl, tmp);
-      else
-	gfc_add_modify (&fblock, lss->info->string_length, tmp);
-    }
-  else if (expr1->ts.type == BT_CHARACTER && expr1->ts.u.cl->backend_decl)
-    {
-      tmp = TYPE_SIZE_UNIT (TREE_TYPE (gfc_typenode_for_spec (&expr1->ts)));
-      tmp = fold_build2_loc (input_location, MULT_EXPR,
-			     gfc_array_index_type, tmp,
-			     expr1->ts.u.cl->backend_decl);
-    }
-  else
-    tmp = TYPE_SIZE_UNIT (gfc_typenode_for_spec (&expr1->ts));
-  tmp = fold_convert (gfc_array_index_type, tmp);
   size2 = fold_build2_loc (input_location, MULT_EXPR,
 			   gfc_array_index_type,
-			   tmp, size2);
+			   elem_len, size2);
   size2 = fold_convert (size_type_node, size2);
   size2 = fold_build2_loc (input_location, MAX_EXPR, size_type_node,
 			   size2, size_one_node);

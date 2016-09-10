@@ -1,3 +1,13 @@
+2016-09-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-array.c (gfc_alloc_allocatable_for_assignment): Put
+	calculation of element length before setting of extent and sm
+	so that the element length field is set, ready for this.
+	* trans-intrinsic.c (conv_isocbinding_subroutine): Set the elem
+	len field of the descriptor.
+	* trans-stmt.c (gfc_conv_intrinsic_size): The one that is
+	subtracted from arg_2 has to be an integer_type.
+
 2016-09-07  Paul Thomas  <pault@gcc.gnu.org>
 
 	* trans-expr.c (gfc_conv_scalar_to_descriptor): Correct error

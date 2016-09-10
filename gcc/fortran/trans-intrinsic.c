@@ -5929,7 +5929,7 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr, bool shape)
       tree tmp2 = fold_build2_loc (input_location, MINUS_EXPR,
 				   integer_type_node,
 				   fold_convert (integer_type_node, arg2_var),
-				   gfc_index_one_node);
+				   build_int_cst (integer_type_node, 1));
       tmp = fold_build3_loc (input_location, COND_EXPR, integer_type_node,
 			     present, tmp2, tmp);
     }
