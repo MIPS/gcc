@@ -1,3 +1,198 @@
+2016-09-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/77426
+	* expmed.c (synth_mult): Delete duplicate mode check.
+
+2016-09-10  Tom de Vries  <tom@codesourcery.com>
+
+	PR C/71602
+	* builtins.c (std_canonical_va_list_type): Strictly return non-null for
+	va_list type only.
+	* config/i386/i386.c (ix86_canonical_va_list_type): Same.
+	* gimplify.c (gimplify_va_arg_expr): Handle &va_list.
+
+2016-09-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR rtl-optimization/77289
+	* lra-constraints.c (get_final_hard_regno): Add support for non hard
+	register numbers.  Remove support for subregs.
+	(get_hard_regno): Use SUBREG_P.  Don't call get_final_hard_regno().
+	(get_reg_class): Delete removed get_final_hard_regno() argument.
+	(uses_hard_regs_p): Call get_final_hard_regno().
+
+2016-09-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c/77520
+	PR c/77521
+	* pretty-print.c (pp_quoted_string): New function.
+	(pp_format): Call it for %c and %s directives.
+
+2016-09-10  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* doc/tm.texi.in (INITIAL_FRAME_POINTER_OFFSET): Remove.
+	(ELIMINABLE_REGS, TARGET_CAN_ELIMINATE,
+	INITIAL_ELIMINATION_OFFSET) : Update documentation.
+	* target.def (frame_pointer_required, can_eliminate): Likewise.
+	* doc/tm.texi: Regenerated.
+	* builtins.c (expand_builtin_setjmp_receiver): Remove #ifdef
+	ELIMINABLE_REGS.
+	* df-scan.c (df_hard_reg_init): Likewise.
+	* ira.c (ira_setup_eliminable_regset): Likewise.
+	* lra-eliminations.c (reg_eliminate_1, (update_reg_eliminate,
+	init_elim_table): Likewise.
+	* reload1.c (reg_eliminate_1, verify_initial_elim_offsets,
+	set_initial_elim_offsets, update_eliminables,
+	init_elim_table): Likewise.
+	* rtlanal.c (get_initial_register_offset): Likewise.
+	* config/ft32/ft32.h (INITIAL_FRAME_POINTER_OFFSET): Remove.
+	* config/m32r/m32r.h (INITIAL_FRAME_POINTER_OFFSET): Likewise.
+	* config/moxie/moxie.h (INITIAL_FRAME_POINTER_OFFSET): Likewise.
+	* config/vax/vax.h (INITIAL_FRAME_POINTER_OFFSET): Likewise.
+	* config/fr30/fr30.h: Fix comment.
+	* config/frv/frv.c: Likewise.
+	* config/frv/frv.h: Likewise.
+	* config/ft32/ft32.h: Likewise.
+	* config/visium/visium.h: Likewise.
+	* config/pa/pa64-linux.h: Likewise.
+	* config/v850/v850.h: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/ia64/ia64.h: Likewise.
+	* config/moxie/moxie.h: Likewise.
+	* config/m32r/m32r.h: Likewise.
+
+2016-09-10  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	PR target/77267
+	* config.in: Regenerate.
+	* config/i386/linux-common.h (MPX_LD_AS_NEEDED_GUARD_PUSH):
+	New macro.
+	(MPX_LD_AS_NEEDED_GUARD_PUSH): Ditto.
+	(LIBMPXWRAPPERS_SPEC): Remove "--no-whole-archive" from
+	static-libmpxwrappers case.
+	(LIBMPX_SPEC): Add guards with MPX_LD_AS_NEEDED_GUARD_PUSH and
+	MPX_LD_AS_NEEDED_GUARD_POP.
+	* configure: Regenerate.
+	* configure.ac (HAVE_LD_PUSHPOPSTATE_SUPPORT): New variable.
+	defined if linker support "--push-state"/"--pop-state".
+
+2016-09-09  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* doc/cpp.texi (__*_WIDTH__): Small wording fixes.
+
+2016-09-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/cpp.texi (__SCHAR_WIDTH__, __SHRT_WIDTH__, __INT_WIDTH__)
+	(__LONG_WIDTH__, __LONG_LONG_WIDTH__, __PTRDIFF_WIDTH__)
+	(__SIG_ATOMIC_WIDTH__, __SIZE_WIDTH__, __WCHAR_WIDTH__)
+	(__WINT_WIDTH__, __INT_LEAST8_WIDTH__, __INT_LEAST16_WIDTH__)
+	(__INT_LEAST32_WIDTH__, __INT_LEAST64_WIDTH__)
+	(__INT_FAST8_WIDTH__, __INT_FAST16_WIDTH__, __INT_FAST32_WIDTH__)
+	(__INT_FAST64_WIDTH__, __INTPTR_WIDTH__, __INTMAX_WIDTH__):
+	Document.
+	* ginclude/stdint-gcc.h [__STDC_WANT_IEC_60559_BFP_EXT__]: Define
+	width macros from TS 18661-1.
+	* glimits.h [__STDC_WANT_IEC_60559_BFP_EXT__]: Likewise.
+
+2016-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77516
+	* omp-low.c (lower_rec_simd_input_clauses): Use max_vf for non-positive
+	OMP_CLAUSE_SAFELEN_EXPR.
+
+2016-09-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (OBJS): Add substring-locations.o.
+	* langhooks-def.h (class substring_loc): New forward decl.
+	(lhd_get_substring_location): New decl.
+	(LANG_HOOKS_GET_SUBSTRING_LOCATION): New macro.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_GET_SUBSTRING_LOCATION.
+	* langhooks.c (lhd_get_substring_location): New function.
+	* langhooks.h (class substring_loc): New forward decl.
+	(struct lang_hooks): Add field get_substring_location.
+	* substring-locations.c: New file, taking definition of
+	format_warning_va and format_warning_at_substring from
+	c-family/c-format.c, making them non-static.
+	* substring-locations.h (class substring_loc): Move class here
+	from c-family/c-common.h.  Add and rewrite comments.
+	(format_warning_va): New decl.
+	(format_warning_at_substring): New decl.
+	(get_source_location_for_substring): Add comment.
+
+2016-09-07  Eric Gallager  <egall@gwmail.gwu.edu>
+
+	* config/i386/i386.c: Add 'U' suffix to processor feature bits
+	to avoid -Wnarrowing warning.
+	* config/i386/x86-tune.def: Likewise for DEF_TUNE selector bitmasks.
+	* opts.c: Likewise for SANITIZER_OPT bitmasks.
+
+2016-09-07  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_legitimize_address):
+	Avoid use of base_offset if offset already in range.
+
+2016-09-07  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh-protos.h (struct sh_atomic_model,
+	selected_atomic_model, TARGET_ATOMIC_ANY, TARGET_ATOMIC_STRICT,
+	TARGET_ATOMIC_SOFT_GUSA, TARGET_ATOMIC_HARD_LLCS,
+	TARGET_ATOMIC_SOFT_TCB, TARGET_ATOMIC_SOFT_IMASK): Move to...
+	* config/sh/sh.h (struct sh_atomic_model,
+	selected_atomic_model, TARGET_ATOMIC_ANY, TARGET_ATOMIC_STRICT,
+	TARGET_ATOMIC_SOFT_GUSA, TARGET_ATOMIC_HARD_LLCS,
+	TARGET_ATOMIC_SOFT_TCB, TARGET_ATOMIC_SOFT_IMASK): ...here.
+	Guard with __cplusplus.
+
+2016-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69255
+	* config/i386/i386.c (ix86_expand_builtin): For builtin with
+	unsupported or unknown ISA, use expand_call.
+
+2016-09-06  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/77378
+	PR gcov-profile/77466
+	* tree-profile.c (tree_profiling): Detect whether target can use
+	-fprofile-update=atomic.
+
+2016-09-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77479
+	* tree-vrp.c (update_value_range): Extend overflow handling to
+	VARYING.
+
+2016-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77476
+	* config/i386/i386.md (isa): Add x64_avx512bw.
+	(*zero_extendsidi2): For alternative 11 use x64_avx512bw isa.
+	(kmov_isa): New mode attr.
+	(zero_extend<mode>di2): Use <kmov_isa> isa for the last alternative.
+	(*zero_extend<mode>si2): Likewise.
+	(*zero_extendqihi2): Use avx512dq isa for the last alternative.
+
+2016-09-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (SPU Options): nops -> NOPs.
+	(x86 Options): Ditto.
+
+2016-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77475
+	* toplev.c (process_options): Temporarily set input_location
+	to UNKNOWN_LOCATION around targetm.target_option.override () call.
+
+2016-09-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/77452
+	* explow.c (plus_constant) <case MEM>: Extract scalar constant from
+	inner-mode reference to a CONST_VECTOR constant in the constant pool.
+
+2016-09-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77423
+	* doc/invoke.texi: Update -Wlogical-not-parentheses documentation.
+
 2016-09-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR other/77421
@@ -200,7 +395,7 @@
 	(define_insn "*return_and_restore_fpregs_aix_<mode>_r1"): Ditto.
 
 2016-09-01  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-	    Michael Meissner <meissner@linux.vnet.ibm.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/72827
 	* config/rs6000/rs6000.c (rs6000_legitimize_address): Avoid
@@ -675,8 +870,8 @@
 	(gen_scheduled_generic_parms_dies): Do not set early dwarf here.
 	(dwarf2out_early_finish): But do it here.
 
-2016-08-24  Michael Collison <michael.collison@linaro.org>
-	    Michael Collison <michael.collison@arm.com>
+2016-08-24  Michael Collison  <michael.collison@linaro.org>
+	    Michael Collison  <michael.collison@arm.com>
 
 	* config/arm/arm-modes.def: Add new condition code mode CC_V
 	to represent the overflow bit.
@@ -1231,8 +1426,8 @@
 	When doing auto-parallelizing also prevent use of PHIs that
 	carry dependences across loop backedges.
 
-2016-08-18  Tamar Christina  <tamar.christina@arm.com>
-	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+2016-08-18  Tamar Christina  <tamar.christina@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	* varasm.c (default_use_anchors_for_symbol_p): Reject too large decls.
 
@@ -1276,7 +1471,7 @@
 	when find_reloads_toplev returns address_reloaded==-1.
 	(alternative_allows_const_pool_ref): Update comment.
 
-2015-08-17  Alan Hayward <alan.hayward@arm.com>
+2015-08-17  Alan Hayward  <alan.hayward@arm.com>
 
 	PR tree-optimization/71752
 	* tree-vect-loop.c (vectorizable_reduction): Keep SLP operand ordering.
@@ -1774,7 +1969,7 @@
 	the currently executable edges have fixed ranges.  Always
 	go through update_value_range.
 
-2016-08-12  Alexandre Oliva <aoliva@redhat.com>
+2016-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR debug/63240
 	* langhooks-def.h
@@ -2756,7 +2951,7 @@
 	fix_debug_reg_uses after changing source register mode to
 	V1TImode if source register is undefined.
 
-2015-08-01  Alan Hayward <alan.hayward@arm.com>
+2015-08-01  Alan Hayward  <alan.hayward@arm.com>
 
 	PR tree-optimization/71818
 	* tree-vect-loop-manip.c (vect_can_advance_ivs_p): Don't advance IVs
@@ -3138,7 +3333,7 @@
 	choosing a better vector mode to do the extraction from.
 
 2016-07-26  Richard Biener  <rguenther@suse.de>
-	    Prathamesh Kulkarni <prathamesh.kulkarni@linaro.org>
+	    Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
 	PR middle-end/70920
 	* match.pd ((intptr)x eq/ne CST to x eq/ne (typeof x) CST): New
@@ -6277,7 +6472,7 @@
 	* tree-ssa-loop-ivopts.c (determine_group_iv_cost_address): Compute
 	cost for all uses in group.
 
-2016-06-17 Bin Cheng  <bin.cheng@arm.com>
+2016-06-17  Bin Cheng  <bin.cheng@arm.com>
 
 	* tree-vect-loop.c (vect_create_epilog_for_reduction): Only
 	insert gimple seq if it's not empty.
@@ -9763,7 +9958,7 @@
 	builtin __SANITIZE_THREAD__ macros for fsanitize=thread switch.
 	* doc/cpp.texi: Document new macros.
 
-2016-05-19 Bin Cheng  <bin.cheng@arm.com>
+2016-05-19  Bin Cheng  <bin.cheng@arm.com>
 
 	PR tree-optimization/69848
 	* tree-vect-loop.c (vectorizable_reduction): Don't factor
@@ -9992,7 +10187,7 @@
 	cleanup_cfg with CLEANUP_EXPENSIVE after shrink-wrapping instead
 	of before.  Add a comment.
 
-2016-05-18 Bin Cheng  <bin.cheng@arm.com>
+2016-05-18  Bin Cheng  <bin.cheng@arm.com>
 
 	* tree-ssa-loop-ivopts.c (get_computation_cost_at): Check invariant
 	expression pointer, not pointer to the pointer.
@@ -15195,7 +15390,7 @@
 	(possible_polymorphic_call_target_p): Fix formatting.
 
 2016-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-	    Jakub Jelinek <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/70457
 	* tree-inline.c (estimate_num_insn): Use gimple_call_builtin_p
@@ -16369,7 +16564,7 @@
 	* config/aarch64/aarch64.opt (aarch64_fix_a53_err843419): Save.
 
 2016-03-10  Alan Lawrence  <alan.lawrence@arm.com>
-	Jakub Jelinek <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	* common.opt (funconstrained-commons, flag_unconstrained_commons): New.
 	* tree.c (array_at_struct_end_p): Do not limit to size of decl for
@@ -18909,7 +19104,7 @@
 	* wide-int.cc (canonize_uhwi): New function.
 	(wi::divmod_internal): Use it.
 
-2016-02-02  James Norris  <jnorris@codesourcery.com
+2016-02-02  James Norris  <jnorris@codesourcery.com>
 
 	* gimplify.c (omp_notice_variable): Add usage check.
 

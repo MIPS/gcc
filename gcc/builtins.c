@@ -862,7 +862,6 @@ expand_builtin_setjmp_receiver (rtx receiver_label)
 
   if (!HARD_FRAME_POINTER_IS_ARG_POINTER && fixed_regs[ARG_POINTER_REGNUM])
     {
-#ifdef ELIMINABLE_REGS
       /* If the argument pointer can be eliminated in favor of the
 	 frame pointer, we don't need to restore it.  We assume here
 	 that if such an elimination is present, it can always be used.
@@ -877,7 +876,6 @@ expand_builtin_setjmp_receiver (rtx receiver_label)
 	  break;
 
       if (i == ARRAY_SIZE (elim_regs))
-#endif
 	{
 	  /* Now restore our arg pointer from the address at which it
 	     was saved in our stack frame.  */
@@ -4089,10 +4087,6 @@ std_canonical_va_list_type (tree type)
 {
   tree wtype, htype;
 
-  if (INDIRECT_REF_P (type))
-    type = TREE_TYPE (type);
-  else if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE (type)))
-    type = TREE_TYPE (type);
   wtype = va_list_type_node;
   htype = type;
   /* Treat structure va_list types.  */

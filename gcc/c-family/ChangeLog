@@ -1,3 +1,68 @@
+2016-09-10  Tom de Vries  <tom@codesourcery.com>
+
+	PR C/71602
+	* c-common.c (build_va_arg): Handle more strict
+	targetm.canonical_va_list_type.  Replace first argument type error with
+	assert.
+
+2016-09-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c/77520
+	PR c/77521
+	* c-format.c (argument_parser::find_format_char_info): Use %qc
+	format directive unconditionally.
+
+2016-09-09  Jason Merrill  <jason@redhat.com>
+
+	Implement C++17 new of over-aligned types.
+	* c.opt: Add -faligned-new and -Waligned-new.
+	* c-common.c (max_align_t_align): Split out from...
+	(cxx_fundamental_alignment_p): ...here.
+	* c-common.h: Declare it.
+	* c-cppbuiltin.c (c_cpp_builtins): Handle aligned new.
+
+2016-09-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (builtin_define_type_width): New function.
+	(builtin_define_stdint_macros, c_cpp_builtins): Define type width
+	macros.
+
+2016-09-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (get_cpp_ttype_from_string_type): Handle being passed
+	a POINTER_TYPE.
+	(substring_loc::get_location): Move to substring-locations.c,
+	keeping implementation as...
+	(c_get_substring_location): New function, from the above, reworked
+	to use accessors rather than member lookup.
+	* c-common.h (class substring_loc): Move to substring-locations.h,
+	replacing with a forward decl.
+	(c_get_substring_location): New decl.
+	* c-format.c: Include "substring-locations.h".
+	(format_warning_va): Move to substring-locations.c.
+	(format_warning_at_substring): Likewise.
+
+2016-09-06 Martin Sebor  <msebor@redhat.com>
+
+	PR c/77336
+	* c-format.c (check_function_format): Avoid issuing warnings for
+	functions unless they call format functions with non-constant
+	format strings.
+
+2016-09-06  Richard Biener  <rguenther@suse.de>
+
+	PR c/77450
+	* c-common.c (c_common_mark_addressable_vec): Handle
+	COMPOUND_LITERAL_EXPR.
+
+2016-09-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77423
+	* c-common.c (bool_promoted_to_int_p): New function.
+	(expr_has_boolean_operands_p): New function.
+	(warn_logical_not_parentheses): Return if expr_has_boolean_operands_p.
+	(maybe_warn_bool_compare): Use bool_promoted_to_int_p.
+
 2016-09-04  Tom de Vries  <tom@codesourcery.com>
 
 	revert:
@@ -1030,7 +1095,7 @@
 	* c-common.c (valid_array_size_p): New function.
 	* c-common.h (valid_array_size_p): Declare.
 
-2015-11-11  Dominique d'Humieres <dominiq@lps.ens.fr>
+2015-11-11  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR bootstrap/68271
 	* c-pragma.c (c_register_pragma_1): Update the gcc_assert to 256.
@@ -1139,7 +1204,7 @@
 	* c-omp.c (c_omp_split_clauses): Remove conditional compilation. Use
 	flag_checking.
 
-2015-11-03  Bernd Schmidt <bschmidt@redhat.com>
+2015-11-03  Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR c++-common/67882
 	* c-common.h (fold_offsetof_1): Add argument.
@@ -2193,14 +2258,14 @@
 	PRAGMA_OACC_CLAUSE_VECTOR_LENGTH, PRAGMA_OACC_CLAUSE_WAIT,
 	PRAGMA_OACC_CLAUSE_WORKER.
 
-2015-01-14  Marcos Diaz <marcos.diaz@tallertechnologies.com>
+2015-01-14  Marcos Diaz  <marcos.diaz@tallertechnologies.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): New cpp define __SSP_EXPLICIT__
 	for the new option fstack-protector_explicit.
 	* c-common.c (c_common_attribute_table): Add stack_protect attribute.
 	(handle_stack_protect_attribute): New function.
 
-2015-01-13  Martin Uecker <uecker@eecs.berkeley.edu>
+2015-01-13  Martin Uecker  <uecker@eecs.berkeley.edu>
 
 	* c.opt: New option -Warray-bounds=.
 
@@ -2288,7 +2353,7 @@
 	* c-cppbuiltin.c (__cpp_sized_deallocation): Uncomment and move macro.
 	Control macro with flag_sized_deallocation.
 
-2014-12-20  Martin Uecker <uecker@eecs.berkeley.edu>
+2014-12-20  Martin Uecker  <uecker@eecs.berkeley.edu>
 
 	* c.opt (Wdiscarded-array-qualifiers): New option.
 
@@ -3442,7 +3507,7 @@
 	(print_destructor): Retrieve the origin of the destructor.
 	(print_ada_declaration): Revamp handling of constructors/destructors.
 
-2013-12-23  Stuart Hastings <stuart@apple.com>
+2013-12-23  Stuart Hastings  <stuart@apple.com>
 	    Bill Maddox  <maddox@google.com>
 	    Jason Merrill  <jason@redhat.com>
 
@@ -4689,11 +4754,11 @@
 	* c-pch.c (c_common_read_pch): Rebuild the location_adhoc_data
 	map when read in the pch.
 
-2012-09-18 Arnaud Charlet  <charlet@adacore.com>
+2012-09-18  Arnaud Charlet  <charlet@adacore.com>
 
 	* c-ada-spec.c: Style fixes.
 
-2012-09-18 Thomas Quinot  <quinot@adacore.com>
+2012-09-18  Thomas Quinot  <quinot@adacore.com>
 
 	* c.opt (-fada-spec-parent): Define new command line switch.
 	* c-ada-spec.c (get_ada_package): When -fada-spec-parent
@@ -5416,7 +5481,7 @@
 	(keyword_is_function_specifier): Handle RID_NORETURN.
 	* c-common.h (RID_NORETURN): New.
 
-2011-08-10  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
+2011-08-10  Artjoms Sinkarovs  <artyom.shinakroff@gmail.com>
 
 	* c-common.c (unsafe_conversion_p): New function. Check if it is
 	unsafe to convert an expression to the type.
@@ -5784,7 +5849,7 @@
 
 	* c-ada-spec.c (dump_ada_template): Skip non-class instances.
 
-2011-03-17  Kai Tietz
+2011-03-17  Kai Tietz  <ktietz@redhat.com>
 
 	PR target/12171
 	* c-pretty-print.c (pp_c_specifier_qualifier_list):
@@ -6177,8 +6242,8 @@
 	* c-common.h (objc_maybe_printable_name): New.
 	* stub-objc.c (objc_maybe_printable_name): New.
 
-2010-10-22  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
-	Andrew Pinski <pinskia@gmail.com>
+2010-10-22  Artjoms Sinkarovs  <artyom.shinakroff@gmail.com>
+	    Andrew Pinski  <pinskia@gmail.com>
 
 	* c-common.h (c_common_mark_addressable_vec): Declare.
 	* c-common.c (c_common_mark_addressable_vec): New function.
@@ -6224,7 +6289,7 @@
 
 	Merge from 'apple/trunk' branch on FSF servers.
 
-	2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
+	2005-11-08  Fariborz Jahanian  <fjahanian@apple.com>
 
 	Radar 4330422
 	* c-common.h (objc_non_volatilized_type): New declaration
@@ -6234,7 +6299,7 @@
 
 	Merge from 'apple/trunk' branch on FSF servers.
 
-	2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
+	2006-03-27 Fariborz Jahanian  <fjahanian@apple.com>
 
 	Radar 4133425
 	* c-common.h (objc_diagnose_private_ivar): New decl.
@@ -6259,7 +6324,7 @@
 2010-10-14  Iain Sandoe  <iains@gcc.gnu.org>
 
 	merge from FSF apple 'trunk' branch.
-	2006 Fariborz Jahanian <fjahanian@apple.com>
+	2006 Fariborz Jahanian  <fjahanian@apple.com>
 
 	Radars 4436866, 4505126, 4506903, 4517826
 	* c-common.c (c_common_resword): Define @property and its attributes.
@@ -6276,7 +6341,7 @@
 2010-10-13  Iain Sandoe  <iains@gcc.gnu.org>
 
 	merge from FSF apple 'trunk' branch.
-	2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
+	2006-04-26 Fariborz Jahanian  <fjahanian@apple.com>
 
 	Radar 3803157 (method attributes)
 	* c-common.c (handle_deprecated_attribute): Recognize
@@ -6329,7 +6394,7 @@
 	and @required keywords.
 
 	merge from FSF 'apple/trunk' branch.
-	2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
+	2006-01-30  Fariborz Jahanian  <fjahanian@apple.com>
 
 	Radar 4386773
 	* c-common.h (RID_AT_OPTIONAL, RID_AT_REQUIRED): Two new
@@ -6356,7 +6421,7 @@
 
 	Merge from 'apple/trunk' branch on FSF servers.
 
-	2005-10-04  Fariborz Jahanian <fjahanian@apple.com>
+	2005-10-04  Fariborz Jahanian  <fjahanian@apple.com>
 
 	Radar 4281748
 	* c-common.h (objc_check_global_decl): New declaration.
@@ -6413,7 +6478,7 @@
 
 	Merge from 'apple/trunk' branch on FSF servers.
 
-	2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
+	2005-12-15  Fariborz Jahanian  <fjahanian@apple.com>
 
 	Radar 4229905
 	* c-common.h (objc_have_common_type): New declaration.

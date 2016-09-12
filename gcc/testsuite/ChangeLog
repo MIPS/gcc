@@ -1,3 +1,184 @@
+2016-09-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/pr77507.f90: Move to ...
+	* gfortran.dg/ieee/pr77507.f90: here.
+
+2016-08-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/61159
+	* compile/pr61159.c: New testcase
+
+2016-08-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64316
+	* gcc.dg/ipa/pr63416.c: New testcase.
+
+2016-09-10  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77532
+	* gfortran.dg/dtio_11.f90: new test.
+
+2016-09-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77507
+	* gfortran.dg/c_assoc_2.f03: Update error message for revision 240050
+	* gfortran.dg/c_assoc_4.f90: Ditto.
+
+2016-09-10  Tom de Vries  <tom@codesourcery.com>
+
+	PR C/71602
+	* c-c++-common/va-arg-va-list-type.c: New test.
+
+2016-09-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR rtl-optimization/77289
+	* gcc.target/powerpc/pr77289.c: New test.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* module.c (load_equiv): If the current namespace has a list of
+	equivalence statements, initialize duplicate to false and then
+	look for duplicates; otherwise, initialize it to true.
+
+2016-09-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c/77520
+	PR c/77521
+	* gcc.dg/pr77520.c: New test.
+	* gcc.dg/pr77521.c: New test.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* gfortran.dg/pr77420.f90: New test.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77506
+	* gfortran.dg/pr77506.f90: New test.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77507
+	* gfortran.dg/pr77507.f90: New test.
+
+2016-09-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/limits-width-1.c, gcc.dg/stdint-width-1.c: New tests.
+
+2016-09-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Louis Krupp      <lkrupp@gcc.gnu.org>
+
+	PR fortran/69514
+	* gfortran.dg/pr69514_1.f90: New test.
+	* gfortran.dg/pr69514_2.f90: New test.
+
+2016-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77500
+	* gfortran.dg/gomp/pr77500.f90: New test.
+
+	PR fortran/77516
+	* gfortran.dg/gomp/pr77516.f90: New test.
+
+2016-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77475
+	* gcc.target/aarch64/arch-diagnostics-1.c: Expect error on line 0.
+	* gcc.target/aarch64/arch-diagnostics-2.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-1.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-2.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-3.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-4.c: Likewise.
+
+2016-09-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic_plugin_test_string_literals.c: Include
+	"substring-locations.h".
+
+2016-09-07  Richard Biener  <rguenther@suse.de>
+
+	PR c/77450
+	* c-c++-common/vector-subscript-8.c: Move ..
+	* gcc.dg/pr77450.c: ... here.
+
+2016-09-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/77393
+	* gfortran.dg/fmt_f0_2.f90: Update test.
+	* gfortran.dg/fmt_f0_3.f90: New test.
+
+2016-09-07  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR debug/77389
+	* g++.dg/debug/dwarf2/template-params-12g.C: Pass -gno-strict-dwarf
+	in dg-options.
+
+	PR debug/57519
+	* g++.dg/debug/dwarf2/imported-decl-2.C: Likewise.
+
+2016-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69255
+	* gcc.target/i386/pr69255-1.c: New test.
+	* gcc.target/i386/pr69255-2.c: New test.
+	* gcc.target/i386/pr69255-3.c: New test.
+
+2016-09-06  Martin Sebor  <msebor@redhat.com>
+
+	PR c/77336
+	* gcc.dg/format/miss-7.c: New test.
+
+2016-09-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gfortran.dg/c_by_val_1.f: Correct the call to c_to_c and c_to_c8.
+
+2016-09-06  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/77378
+	PR gcov-profile/77466
+	* gcc.dg/profile-update-warning.c: New test.
+
+2016-09-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77479
+	* gcc.dg/torture/pr77479.c: New testcase.
+
+2016-09-06  Richard Biener  <rguenther@suse.de>
+
+	PR c/77450
+	* c-c++-common/vector-subscript-7.c: Adjust.
+	* c-c++-common/vector-subscript-8.c: New testcase.
+
+2016-09-06  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/Wno-frame-address.c: Skip for avr-*-*.
+
+2016-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77476
+	* gcc.target/i386/avx512f-pr77476.c: New test.
+	* gcc.target/i386/avx512bw-pr77476.c: New test.
+	* gcc.target/i386/avx512dq-pr77476.c: New test.
+
+	* lib/target-supports.exp (check_effective_target_vect_simd_clones):
+	Update comment to mention also avx512f.
+
+	PR sanitizer/77396
+	* g++.dg/asan/pr77396-2.C: New test.
+
+2016-09-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/77452
+	* gcc.target/i386/pr77452.c: New test.
+
+2016-09-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77423
+	* c-c++-common/Wlogical-not-parentheses-3.c: New test.
+
 2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77391
@@ -229,12 +410,12 @@
 	PR tree-optimization/71077
 	* gcc.target/i386/pr71077.c: New test.
 
-2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-08-27  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77380
 	* gfortran.dg/pr77380.f90: New test.
 
-2016-08-27  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-08-27  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77372
 	gfortran.dg/pr77372.f90: New test.
@@ -288,8 +469,8 @@
 	PR fortran/77358
 	* gfortran.dg/submodule_17.f08: New test.
 
-2016-08-24  Michael Collison <michael.collison@linaro.org>
-	    Michael Collison <michael.collison@arm.com>
+2016-08-24  Michael Collison  <michael.collison@linaro.org>
+	    Michael Collison  <michael.collison@arm.com>
 
 	* gcc.target/arm/builtin_saddl.c: New testcase.
 	* gcc.target/arm/builtin_saddll.c: New testcase.
@@ -595,7 +776,7 @@
 	PR fortran/67496
 	* gfortran.dg/pr67496.f90: New test.
 
-2015-08-17  Alan Hayward <alan.hayward@arm.com>
+2015-08-17  Alan Hayward  <alan.hayward@arm.com>
 
 	PR tree-optimization/71752
 	* gcc.dg/vect/pr71752.c: New.
@@ -823,7 +1004,7 @@
 	PR tree-optimization/72851
 	* gcc.dg/torture/pr72851.c: New testcase.
 
-2016-08-12  Alexandre Oliva <aoliva@redhat.com>
+2016-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR debug/63240
 	* g++.dg/debug/dwarf2/defaulted-member-function-1.C: New.
@@ -1338,7 +1519,7 @@
 	PR target/72748
 	* gcc.target/i386/pr72748.c: New test.
 
-2015-08-01  Alan Hayward <alan.hayward@arm.com>
+2015-08-01  Alan Hayward  <alan.hayward@arm.com>
 
 	PR tree-optimization/71818
 	* gcc.dg/vect/pr71818.c: New
@@ -1366,7 +1547,7 @@
 	* lib/target-supports.exp (check_effective_target_c): Fix indentation.
 	(check_effective_target_c++): Likewise. Also match for libstdc++.
 
-2016-07-30  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/41922
 	* gfortran.dg/equiv_constraint_5.f90: Adjust the error message.
@@ -1694,7 +1875,7 @@
 	EFFECTIVE_TARGETS list.  Return the number of supported targets.
 
 2016-07-26  Richard Biener  <rguenther@suse.de>
-	    Prathamesh Kulkarni <prathamesh.kulkarni@linaro.org>
+	    Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
 	PR middle-end/70920
 	* gcc.dg/pr70920-1.c: New test-case.
@@ -1963,7 +2144,7 @@
 	* g++.dg/cpp0x/nullptr35.C (caught): Fix typo.
 
 2016-07-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-	    Marco Restelli <mrestelli@gmail.com>
+	    Marco Restelli  <mrestelli@gmail.com>
 
 	PR fortran/62125
 	* gfortran.dg/pr62125.f90: New test.
@@ -2409,7 +2590,7 @@
 	* gcc.target/i386/mpx/mpx-check.h: Check XGETBV output
 	if kernel supports MPX.
 
-2016-07-05  Kito Cheng <kito.cheng@gmail.com>
+2016-07-05  Kito Cheng  <kito.cheng@gmail.com>
 
 	* gcc.c-torture/compile/pr69102.c: Require fpic support.
 
@@ -6538,7 +6719,7 @@
 	PR tree-optimization/70780
 	* gcc.dg/torture/pr70780.c: New testcase.
 
-2016-04-25  Michael Collison <michael.collison@arm.com>
+2016-04-25  Michael Collison  <michael.collison@arm.com>
 
 	* gcc.target/arm/neon-vaddws16.c: New test.
 	* gcc.target/arm/neon-vaddws32.c: New test.
@@ -7250,7 +7431,7 @@
 	* g++.dg/ipa/devirt-51.C: New testcase.
 
 2016-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-	    Jakub Jelinek <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/70457
 	* gcc.dg/torture/pr70457.c: New.
@@ -7480,7 +7661,7 @@
 	PR tree-optimization/59124
 	* gcc.dg/Warray-bounds-19.c: New test.
 
-2016-03-29  Zachary T Welch <zwelch@codesourcery.com>
+2016-03-29  Zachary T Welch  <zwelch@codesourcery.com>
 
 	* lib/prune.exp (escape_regex_chars): New.
 	(prune_file_path): Update to quote metcharacters for regexp.

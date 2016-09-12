@@ -1,8 +1,18 @@
-2016-09-01 Martin Sebor  <msebor@redhat.com>
+2016-09-11  Ian Lance Taylor  <iant@golang.org>
 
-	* gofrontend/expressions.cc: Increase buffer size to guarantee
-	it fits the output of the formatted function regardless of its
-	arguments.
+	* go-gcc.cc (Gcc_backend::Gcc_backend): Add builtin versions of
+	ctz, ctzll, bswap32, bswap64.
+
+2016-09-10  Ian Lance Taylor  <iant@golang.org>
+
+	* go-backend.c (go_trampoline_info): Remove.
+	* go-c.h (go_trampoline_info): Don't declare.
+
+2016-09-09  Than McIntosh  <thanm@google.com>
+
+	* go-sha1.cc: New file.
+	* Make-lang.in (GO_OBJS): Add go/go-sha1.o.
+	(CFLAGS-go/go-sha1.o): New variable.
 
 2016-08-29  Ian Lance Taylor  <iant@google.com>
 
