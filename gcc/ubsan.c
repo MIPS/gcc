@@ -1289,9 +1289,8 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
 
   /* If this is not a signed operation, don't instrument anything here.
      Also punt on bit-fields.  */
-  if (!INTEGRAL_TYPE_P (lhsinner)
-      || TYPE_OVERFLOW_WRAPS (lhsinner)
-      || GET_MODE_BITSIZE (TYPE_MODE (lhsinner)) != TYPE_PRECISION (lhsinner))
+  if (!full_integral_type_p (lhsinner)
+      || TYPE_OVERFLOW_WRAPS (lhsinner))
     return;
 
   switch (code)
