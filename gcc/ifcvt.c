@@ -3195,7 +3195,7 @@ noce_convert_multiple_sets (struct noce_if_info *if_info)
 	{
 	  machine_mode src_mode = GET_MODE (new_val);
 	  machine_mode dst_mode = GET_MODE (temp);
-	  if (GET_MODE_SIZE (src_mode) <= GET_MODE_SIZE (dst_mode))
+	  if (!partial_subreg_p (dst_mode, src_mode))
 	    {
 	      end_sequence ();
 	      return FALSE;
@@ -3206,7 +3206,7 @@ noce_convert_multiple_sets (struct noce_if_info *if_info)
 	{
 	  machine_mode src_mode = GET_MODE (old_val);
 	  machine_mode dst_mode = GET_MODE (temp);
-	  if (GET_MODE_SIZE (src_mode) <= GET_MODE_SIZE (dst_mode))
+	  if (!partial_subreg_p (dst_mode, src_mode))
 	    {
 	      end_sequence ();
 	      return FALSE;
