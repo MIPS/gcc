@@ -10977,7 +10977,7 @@ aarch64_simd_container_mode (machine_mode mode, unsigned width)
 
 /* Return 128-bit container as the preferred SIMD mode for MODE.  */
 static machine_mode
-aarch64_preferred_simd_mode (machine_mode mode)
+aarch64_preferred_simd_mode (scalar_mode mode)
 {
   return aarch64_simd_container_mode (mode, 128);
 }
@@ -14736,7 +14736,7 @@ aarch64_libgcc_floating_mode_supported_p (scalar_float_mode mode)
    if MODE is HFmode, and punt to the generic implementation otherwise.  */
 
 static bool
-aarch64_scalar_mode_supported_p (machine_mode mode)
+aarch64_scalar_mode_supported_p (scalar_mode mode)
 {
   return (mode == HFmode
 	  ? true
