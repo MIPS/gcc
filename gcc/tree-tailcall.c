@@ -281,9 +281,7 @@ process_assignment (gassign *stmt, gimple_stmt_iterator call, tree *m,
 	  /* Even if the type modes are the same, if the precision of the
 	     type is smaller than mode's precision,
 	     reduce_to_bit_field_precision would generate additional code.  */
-	  if (INTEGRAL_TYPE_P (TREE_TYPE (dest))
-	      && (GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (dest)))
-		  > TYPE_PRECISION (TREE_TYPE (dest))))
+	  if (partial_integral_type_p (TREE_TYPE (dest)))
 	    return false;
 	}
 
