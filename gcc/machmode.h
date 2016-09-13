@@ -648,6 +648,49 @@ extern const unsigned char mode_complex[NUM_MACHINE_MODES];
 #define GET_MODE_COMPLEX_MODE(MODE) \
   (machine_mode ((machine_mode_enum) mode_complex[MODE]))
 
+/* Represents a machine mode that must have a fixed size.  The main
+   use of this class is to represent the modes of objects that always
+   have static storage duration, such as constant pool entries.
+   (No current target supports the concept of variable-size static data.)  */
+class fixed_size_mode
+{
+public:
+  ALWAYS_INLINE fixed_size_mode () {}
+  ALWAYS_INLINE fixed_size_mode (const scalar_mode &m) : m_mode (m) {}
+  ALWAYS_INLINE fixed_size_mode (const scalar_int_mode &m) : m_mode (m) {}
+  ALWAYS_INLINE fixed_size_mode (const scalar_float_mode &m) : m_mode (m) {}
+  ALWAYS_INLINE fixed_size_mode (const scalar_mode_pod &m) : m_mode (m) {}
+  ALWAYS_INLINE fixed_size_mode (const scalar_int_mode_pod &m) : m_mode (m) {}
+  ALWAYS_INLINE fixed_size_mode (const complex_mode &m) : m_mode (m) {}
+  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+
+  static bool includes_p (machine_mode_enum);
+  static fixed_size_mode from_int (int i);
+
+PROTECT_ENUM_CONVERSION:
+  ALWAYS_INLINE fixed_size_mode (machine_mode_enum m) : m_mode (m) {}
+
+protected:
+  machine_mode_enum m_mode;
+};
+
+/* Return true if MODE has a fixed size.  */
+
+inline bool
+fixed_size_mode::includes_p (machine_mode_enum)
+{
+  return true;
+}
+
+/* Return M as a fixed_size_mode.  This function should only be used by
+   utility functions; general code should use as_a<T> instead.  */
+
+ALWAYS_INLINE fixed_size_mode
+fixed_size_mode::from_int (int i)
+{
+  return machine_mode_enum (i);
+}
+
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.
    The value is BLKmode if no other mode is found.  */
