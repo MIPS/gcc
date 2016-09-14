@@ -2343,6 +2343,8 @@ enum reg_class
   182,183,184,185,186,187						\
 }
 
+#define ADJUST_REG_ALLOC_ORDER mips_adjust_reg_alloc_order ()
+
 /* True if VALUE is an unsigned 6-bit number.  */
 
 #define UIMM6_OPERAND(VALUE) \
