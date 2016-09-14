@@ -651,3 +651,6 @@ Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
 
 mret-callee-saved
 Target Undocumented Var(TARGET_V0_V1_CALLEE_SAVED) Init(0)
+
+mopt-movep
+Target Undocumented Var(TARGET_OPT_MOVEP) Init(0)

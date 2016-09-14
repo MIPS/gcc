@@ -114,6 +114,8 @@
    (set (match_operand:MOVEP2 2 "register_operand" "")
         (match_operand:MOVEP2 3 "movep_src_operand" ""))]
   "TARGET_MICROMIPS
+   && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
+      operands[3])
    && umips_movep_target_p (operands[0], operands[2])"
   [(parallel [(set (match_dup 0) (match_dup 1))
               (set (match_dup 2) (match_dup 3))])])
@@ -125,6 +127,8 @@
    (set (match_operand:MOVEP2 2 "register_operand")
 	(match_operand:MOVEP2 3 "movep_src_operand"))]
   "TARGET_MICROMIPS
+   && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
+      operands[3])
    && umips_movep_target_p (operands[0], operands[2])"
 {
   if (TARGET_ADD_NEW_MOVEP23)
