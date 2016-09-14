@@ -16376,7 +16376,7 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
 	s += sprintf (s, "%%*");
 
       if (move_balc_p)
-	s += sprintf (s, "move.%s%s%s%s%s\t%%0,%%1,%%%d%s",
+	s += sprintf (s, "move.%s%s%s%s%s\t%%0,%%z1,%%%d%s",
 		      insn_name, and_link, reg, compact, short_delay,
 		      target_opno, nop);
       else
@@ -21946,7 +21946,9 @@ micromips_move_balc_opt ()
 	  if (call_insn != NULL
 	      && GET_CODE (pattern) == SET
 	      && REG_P (SET_DEST (pattern))
-	      && REG_P (SET_SRC (pattern))
+	      && (REG_P (SET_SRC (pattern))
+		  || (CONST_INT_P (SET_SRC (pattern))
+		      && INTVAL (SET_SRC (pattern)) == 0))
 	      && use_map != NONE
 	      && (REGNO (SET_DEST (pattern)) == 4
 		  || (use_map == BOTH && REGNO (SET_DEST (pattern)) == 5)))
@@ -21968,7 +21970,11 @@ micromips_move_balc_opt ()
 	      operands[0] = SET_DEST (pattern);
 	      operands[1] = SET_SRC (pattern);
 
-	      if (umips_move_balc_p (operands))
+	      /* New insn is generated at the call location.  Therefore, don't
+		 generate if move dest is used and/or src is set in between.  */
+	      if (umips_move_balc_p (operands)
+		  && (!reg_set_between_p (operands[1], insn, call_insn)
+			&& !reg_used_between_p (operands[0], insn, call_insn)))
 		{
 		  rtx mov_balc = gen_move_balc (operands);
 
@@ -24408,7 +24414,8 @@ umips_move_balc_p (rtx *operands)
   if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
     return false;
   if (!IN_RANGE (REGNO (operands[1]), 16, 23)
-      && !IN_RANGE (REGNO (operands[1]), 0, 7))
+      && !const_0_operand (operands[1], GET_MODE (operands[1]))
+      && !IN_RANGE (REGNO (operands[1]), 2, 7))
     return false;
   if (!satisfies_constraint_S (operands[2]))
     return false;
