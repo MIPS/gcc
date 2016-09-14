@@ -21821,6 +21821,179 @@ mips16_split_long_branches (void)
   while (something_changed);
 }
 
+/* Helper function to micromips_movep_opt.
+
+   Generates movep instruction RTL from input.  */
+
+static rtx
+gen_movep (rtx dest1, rtx src1, rtx dest2, rtx src2)
+{
+  rtx val = 0;
+  start_sequence ();
+  emit (gen_rtx_PARALLEL (VOIDmode,
+  gen_rtvec (2,
+    gen_rtx_SET (VOIDmode,
+  dest1,
+  src1),
+    gen_rtx_SET (VOIDmode,
+  dest2,
+  src2))));
+  val = get_insns ();
+  end_sequence ();
+  return val;
+}
+
+/* Helper function to micromips_movep_opt.
+
+   Returns TRUE if DEST is a valid movep destination operand.  */
+
+static int
+movep_dest_operand (rtx dest, enum machine_mode mode)
+{
+  return (REG_P (dest) && IN_RANGE (REGNO (dest), 4, 7));
+}
+
+/* Helper function to generate movep insn.
+
+   Return FALSE if any of the src operands is also being written into.
+   TODO: Confirm Undefined Behavior.  */
+
+bool
+umips_movep_no_overlap_p (rtx dest1, rtx dest2, rtx src1, rtx src2)
+{
+  if (REGNO (dest1) == REGNO (src2))
+    return false;
+
+  if (REGNO (dest2) == REGNO (src1))
+    return false;
+
+  return true;
+}
+
+/* Function for TARGET_MACHINE_DEPENDENT_REORG.
+
+   Find opportunities missed by peephole2 for movep
+   and generate RTL instructions accordingly.  */
+
+static void
+micromips_movep_opt ()
+{
+  basic_block bb;
+  rtx insn, prev;
+  int num_src_regs = 4, i, i1, i2, p, m;
+  rtx move[4], use[4];
+  rtx dest1, dest2, src1, src2, reg;
+  int a[4] = {1,1,1,-3}, s[4] = {-3,1,1,1};
+
+  /* FORNOW: Keep seperate from move.balc optimization even both could be
+     done in the same pass.  */
+
+  if (dump_file)
+    fprintf (dump_file, "movep optimization\n");
+
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
+    {
+      for (i = 0; i < num_src_regs; i++)
+	{
+	  move[i] = NULL;
+	  use[i] = NULL;
+	}
+
+      FOR_BB_INSNS_REVERSE_SAFE (bb, insn, prev)
+	{
+	  if (!INSN_P (insn))
+	    continue;
+
+	  rtx pattern = PATTERN (insn);
+
+	  /* Confirm $Arg is being used but not being set.  */
+	  for (i = 0; i < num_src_regs; i++)
+	    {
+	      reg = regno_use_in (i + GP_ARG_FIRST, pattern);
+	      if (CALL_P (insn))
+		{
+		  if (find_regno_fusage (insn, USE, i+GP_ARG_FIRST))
+		    use[i] = insn;
+		  else
+		    move[i] = NULL;
+		}
+	      else if (reg && !reg_set_p (reg, insn))
+		use[i] = insn;
+	    }
+
+	  if (GET_CODE (pattern) == SET)
+	    {
+	      rtx src = SET_SRC (pattern);
+	      rtx dest = SET_DEST (pattern);
+	      if (!(movep_src_operand (src, GET_MODE (src))
+		    && movep_dest_operand (dest, GET_MODE (dest))))
+		continue;
+
+	      i = REGNO (dest) - GP_ARG_FIRST;
+	      move[i] = insn;
+
+	      p = a[i];
+	      m = s[i];
+
+	      /* reg_used_between_p is exclusive of from and to insns.  Our to
+		 and from (move[i] and move[i+-off]) form mov $arg, movep_src
+		 insn.  So if move[j] has $argx as move_src, don't allow such
+		 move at all.  */
+
+	      /* When we are hoping to generate movep here, there should be a
+		 move in i+1 or i-1.  If there is, it MUST be after i in
+		 the flow as we are scanning in the reverse direction.  */
+
+	      if (move[i+p] && (!use[i+p] || (use[i+p] && !reg_used_between_p
+		  (gen_rtx_REG (Pmode, i+p+GP_ARG_FIRST), move[i], move[i+p]))))
+		{
+		  i1 = i;
+		  i2 = i + p;
+		}
+	      else if (move[i-m] && (!use[i-m] || (!reg_used_between_p
+		  (gen_rtx_REG (Pmode, i-m+GP_ARG_FIRST), move[i], move[i-m]))))
+		{
+		  i1 = i - m;
+		  i2 = i;
+		}
+	      else
+		continue;
+
+	      src1 = SET_SRC (PATTERN (move[i1]));
+	      dest1 = SET_DEST (PATTERN (move[i1]));
+	      src2 = SET_SRC (PATTERN (move[i2]));
+	      dest2 = SET_DEST (PATTERN (move[i2]));
+
+	      /* Redundent though fool proof.  */
+	      if (umips_movep_target_p (dest1, dest2)
+		  && movep_src_operand (src1, GET_MODE (src1))
+		  && movep_src_operand (src2, GET_MODE (src2))
+		  && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
+		{
+		  rtx movep = gen_movep (dest1, src1, dest2,
+					 src2);
+
+		  rtx last = emit_insn_after_setloc (movep, insn,
+						     INSN_LOCATION (insn));
+		  if (dump_file)
+		    {
+		      print_rtl_single (dump_file, move[i1]);
+		      print_rtl_single (dump_file, move[i2]);
+		      fprintf (dump_file, "MOVEP INSN\n");
+		      print_rtl_single (dump_file, last);
+		    }
+		  delete_insn (move[i1]);
+		  delete_insn (move[i2]);
+		  move[i1] = NULL;
+		  move[i2] = NULL;
+		  use[i1] = NULL;
+		  use[i2] = NULL;
+		}
+	    }
+	}
+    }
+}
+
 /* Helper function to micromips_move_balc_opt.
 
    Generates move.balc instruction RTL from OPERANDS.  */
@@ -22031,6 +22204,9 @@ mips_reorg (void)
 
   if (flag_frame_header_optimization)
     mips_rest_of_frame_header_opt ();
+
+  if (TARGET_MICROMIPS_R7 && TARGET_OPT_MOVEP)
+    micromips_movep_opt ();
 
   if (TARGET_MICROMIPS_R7 && TARGET_OPT_MOVEBALC)
     micromips_move_balc_opt ();
