@@ -852,6 +852,15 @@
 		     | RS6000_BTC_BINARY),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
+/* See the comment on BU_ALTIVEC_P.  */
+#define BU_P9V_OVERLOAD_P(ENUM, NAME)				\
+  RS6000_BUILTIN_P (P9V_BUILTIN_VEC_ ## ENUM,	/* ENUM */	\
+		    "__builtin_vec_" NAME,		/* NAME */	\
+		    RS6000_BTM_ALTIVEC,			/* MASK */	\
+		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
+		     | RS6000_BTC_PREDICATE),				\
+		    CODE_FOR_nothing)			/* ICODE */
+
 #define BU_P9V_OVERLOAD_1(ENUM, NAME)					\
   RS6000_BUILTIN_1 (P9V_BUILTIN_VEC_ ## ENUM,		/* ENUM */	\
 		    "__builtin_vec_" NAME,		/* NAME */	\
@@ -1944,13 +1953,21 @@ BU_P9V_AV_1 (VCTZLSBB, "vctzlsbb",		CONST,	vctzlsbb)
  * earlier implementations of the __builtin_vec_cmpne and
  * __builtin_vec_cmpeq_p functions. */
 
-BU_P9V_AV_2 (CMPNEB,	"vcmpneb",		CONST,	vcmpneb)
-BU_P9V_AV_2 (CMPNEH,	"vcmpneh",		CONST,	vcmpneh)
-BU_P9V_AV_2 (CMPNEW,	"vcmpnew",		CONST,	vcmpnew)
+BU_P9V_AV_2 (CMPNEB,	"vcmpneb",	CONST,	vcmpneb)
+BU_P9V_AV_2 (CMPNEH,	"vcmpneh",	CONST,	vcmpneh)
+BU_P9V_AV_2 (CMPNEW,	"vcmpnew",	CONST,	vcmpnew)
 
-BU_P9V_AV_2 (CMPNEZB,	"vcmpnezb",		CONST,	vcmpnezb)
-BU_P9V_AV_2 (CMPNEZH,	"vcmpnezh",		CONST,	vcmpnezh)
-BU_P9V_AV_2 (CMPNEZW,	"vcmpnezw",		CONST,	vcmpnezw)
+BU_P9V_AV_P (VCMPNEB_P,	"vcmpneb_p",	CONST,	vector_ne_v16qi_p)
+BU_P9V_AV_P (VCMPNEH_P,	"vcmpneh_p",	CONST,	vector_ne_v8hi_p)
+BU_P9V_AV_P (VCMPNEW_P,	"vcmpnew_p",	CONST,	vector_ne_v4si_p)
+BU_P9V_AV_P (VCMPNED_P,	"vcmpned_p",	CONST,	vector_ne_v2di_p)
+
+BU_P9V_AV_P (VCMPNEFP_P,	"vcmpnefp_p",	CONST,	vector_ne_v4sf_p)
+BU_P9V_AV_P (VCMPNEDP_P,	"vcmpnedp_p",	CONST,	vector_ne_v2df_p)
+
+BU_P9V_AV_2 (CMPNEZB,	"vcmpnezb",	CONST,	vcmpnezb)
+BU_P9V_AV_2 (CMPNEZH,	"vcmpnezh",	CONST,	vcmpnezh)
+BU_P9V_AV_2 (CMPNEZW,	"vcmpnezw",	CONST,	vcmpnezw)
 
 /* ISA 3.0 Vector scalar overloaded 2 argument functions */
 BU_P9V_OVERLOAD_2 (LXVL,	"lxvl")
@@ -1962,6 +1979,8 @@ BU_P9V_OVERLOAD_2 (VEXTURX,	"vexturx")
 /* Overloaded CMPNE support was implemented prior to Power 9, 
  * so is not mentioned here.  */
 BU_P9V_OVERLOAD_2 (CMPNEZ,	"vcmpnez")
+
+BU_P9V_OVERLOAD_P (VCMPNE_P,   "vcmpne_p")
 
 /* ISA 3.0 Vector scalar overloaded 1 argument functions */
 BU_P9V_OVERLOAD_1 (VCLZLSBB,	"vclzlsbb")

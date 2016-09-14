@@ -61,6 +61,9 @@
 ;; Vector modes for 64-bit base types
 (define_mode_iterator VEC_64 [V2DI V2DF])
 
+;; Vector integer modes
+(define_mode_iterator VI [V4SI V8HI V16QI])
+
 ;; Base type from vector mode
 (define_mode_attr VEC_base [(V16QI "QI")
 			    (V8HI  "HI")
@@ -666,13 +669,6 @@
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "operands[4] = CONST0_RTX (<MODE>mode);")
 
-;; kelvin is puzzling over this, because it apears to be invoked with
-;;   4 operands (see rs6000-c.c, ALTIVEC_BUILTIN_VCMPEQUB_P).
-;;   However, here, we are "pretending" to have only three operands.
-;;   So far, nobody understands what's happening here. 
-;;  In some sense, it doesn't really matter.  I can proceed, maybe, to
-;;   match this pattern with a new insn, or peephole optimization.
-
 ;; Expansions that compare vectors producing a vector result and a predicate,
 ;; setting CR6 to indicate a combined status
 (define_expand "vector_eq_<mode>_p"
@@ -686,6 +682,131 @@
 		    (match_dup 2)))])]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
+
+;; This expansion handles the V16QI, V8HI, and V4SI modes in the
+;; implementation of the vec_all_ne and vec_any_eq built-in functions.
+;;
+;; The following vector_ne_<mode>_p expansions are used in the
+;; implementations of vec_all_ne and vec_any_eq on Power9.
+(define_expand "vector_ne_<mode>_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(ne:CC (match_operand:VI 1 "vlogical_operand" "")
+			     (match_operand:VI 2 "vlogical_operand" ""))]
+	   UNSPEC_PREDICATE))
+     (set (match_operand:VI 0 "vlogical_operand" "")
+	  (ne:VI (match_dup 1)
+		    (match_dup 2)))])]
+  "TARGET_P9_VECTOR"
+  "")
+
+;; This expansion handles the V4DI mode in the implementation of the
+;; vec_all_ne and vec_any_eq built-in function.
+;;
+;; Since the "xvcmpne<mode>." instruction does not support DImode,
+;; we'll use a V4SI comparison, which will set the values of the CR6
+;; flags to be the same as if we had performed a DImode comparison.
+;;
+;; Note that the value stored into the scratch
+;; register represented by operand 0 is a V4SI boolean vector
+;; representing the inequality of two V4SI operands. 
+(define_expand "vector_ne_v2di_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(ne:CC (match_operand:V4SI 1 "vlogical_operand" "")
+			     (match_operand:V4SI 2 "vlogical_operand" ""))]
+	   UNSPEC_PREDICATE))
+     (set (match_operand:V4SI 0 "vlogical_operand" "")
+	  (ne:V4SI (match_dup 1)
+		   (match_dup 2)))])]
+  "TARGET_P9_VECTOR"
+  "")
+
+;; This expansion handles the V4SF and V2DF modes in the
+;; implementation of the vec_all_ne and vec_any_eq built-in
+;; functions. 
+(define_expand "vector_ne_<mode>_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(ne:CC (match_operand:VEC_F 1 "vlogical_operand" "")
+			     (match_operand:VEC_F 2 "vlogical_operand" ""))]
+	   UNSPEC_PREDICATE))
+     (set (match_operand:VEC_F 0 "vlogical_operand" "")
+	  (ne:VEC_F (match_dup 1)
+		   (match_dup 2)))])]
+  "TARGET_P9_VECTOR"
+  "")
+
+;;
+;;What are the equivalencies?
+;;
+;; vcmpequb sets CR6.bit[0] if all eq, sets CR6.bit[2] if all ne
+;;  bit[0] is aka lt, bit[2] is aka eq.
+;;  aside: bit[1] is aka gt, 
+;;   bit[3] is aka SO (summary overflow) or FU (floating unordered)
+;;
+;;  vec_all_eq		vcmpeq_p (__CR6_LT, ...)
+;;  vec_all_ne		vcmpeq_p (__CR6_EQ, ...)
+;;  vec_any_eq		vcmpeq_p (__CR6_EQ_REV, ...)
+;;  vec_any_ne		vcmpeq_p (__CR6_LT_REV, ...)
+;;
+;; alternatively, i could do
+;;
+;; vcmpneb. sets lt bit if all ne, sets eq bit if all eq.
+;;
+;;  vec_all_eq		vcmpne_p (__CR6_EQ, ...)
+;;  vec_all_ne		vcmpne_p (__CR6_LT, ...)
+;;  vec_any_eq		vcmpne_p (__CR6_LT_REV, ...)
+;;  vec_any_ne		vcmpne_p (__CR6_EQ_REV, ...)
+;;
+;; but this only works for qi, hi, and si.  for other types (di, sp,
+;; dp), i need to use the original translation.  
+;;
+;; ok.  here's the plan.
+;;
+;; on power9, i'll translate
+;;  vec_all_ne		vcmpne_p (__CR6_LT, ...)
+;;  vec_any_eq		vcmpne_p (__CR6_LT_REV, ...)
+;;  
+;; Then i'll (define_expand differently for DI, SP, and DP.  and i'll
+;; make sure that I have patterns to emit the appropriate insns for
+;; each possible expansion.  
+;;
+;; so i'll ultimately have a pattern that says
+;; (define_expand "vector_neq_<mode>_p"
+;;  [(parallel
+;;     [(set (reg:CC 74)
+;;	     (unspec:CC [(ne:CC (match_operand:VEC_A 1 "vlogical_operand" "")
+;; 			        (match_operand:VEC_A 2 "vlogical_operand" ""))]
+;; 	      UNSPEC_PREDICATE))
+;;      (set (match_operand:VEC_A 0 "vlogical_operand" "")
+;;	     (ne:VEC_A (match_dup 1)
+;;		       (match_dup 2)))])]
+;;
+;;  for dp, we emit xvcmpnedp.
+;;  for sp, we emit xvcmpnesp.
+;;  (but what about di mode?)  don't have it, even though we do have 
+;;   vector compare equal di.
+;;  for ne, i can compare si first.  then
+;;    1010 => 0000
+;;    0101 => 0000
+;;    0011 => 0011
+;;    1100 => 1100
+;;    1111 => 1111
+;;    0000 => 0000
+;;    0001 => 0000
+;;    0100 => 0000
+;;
+;;    test for equality with 11 to map the data contents
+;;
+;;    all_equal for type di is the same as all_equal for si
+;;    all_not_equal for type di is the same as all_not_equal for si
+;;
+;; now the only remaining question is whether it even matters to fix
+;; the equality results.  If i emit the insn to "correctly" compute
+;; the result, but the result isn't needed, won't the optimizer be
+;; "smart enough" to delete that insn?
+;;   
 
 (define_expand "vector_gt_<mode>_p"
   [(parallel

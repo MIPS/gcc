@@ -162,8 +162,6 @@
    UNSPECV_DSS
   ])
 
-;; Vec int modes
-(define_mode_iterator VI [V4SI V8HI V16QI])
 ;; Like VI, but add ISA 2.07 integer vector ops
 (define_mode_iterator VI2 [V4SI V8HI V16QI V2DI])
 ;; Short vec in modes

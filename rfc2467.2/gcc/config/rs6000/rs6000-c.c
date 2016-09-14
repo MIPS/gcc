@@ -3794,7 +3794,6 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_VCMPGT_P, VSX_BUILTIN_XVCMPGTDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
-
   { ALTIVEC_BUILTIN_VEC_VCMPEQ_P, ALTIVEC_BUILTIN_VCMPEQUB_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI, RS6000_BTI_unsigned_V16QI },
   { ALTIVEC_BUILTIN_VEC_VCMPEQ_P, ALTIVEC_BUILTIN_VCMPEQUB_P,
@@ -3857,7 +3856,6 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SF, RS6000_BTI_V4SF },
   { ALTIVEC_BUILTIN_VEC_VCMPEQ_P, VSX_BUILTIN_XVCMPEQDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
-
 
   /* cmpge is the same as cmpgt for all cases except floating point.
      There is further code to deal with this special case in
@@ -4486,6 +4484,127 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEW,
     RS6000_BTI_bool_V4SI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
+
+    /* kelvin to copy this block for VCMPNE_P */
+  /* according to abi document, signatures should be:
+   *  int vec_all_ne (vector bool char, vector bool char);
+   *  int vec_all_ne (vector signed char, vector signed char);
+   *  int vec_all_ne (vector unsigned char, vector unsigned char);
+   *  int vec_all_ne (vector bool int, vector bool int);
+   *  int vec_all_ne (vector signed int, vector signed int);
+   *  int vec_all_ne (vector unsigned int, vector unsigned int);
+   *  int vec_all_ne (vector bool short, vector bool short);
+   *  int vec_all_ne (vector signed short, vector signed short);
+   *  int vec_all_ne (vector unsigned short, vector unsigned short);
+   *
+   * The following will require special trickery on Power9:
+   *  int vec_all_ne (vector bool long long, vector bool long long);
+   *  int vec_all_ne (vector signed long long, vector signed long long);
+   *  int vec_all_ne (vector unsigned long long, vector unsigned long long);
+   *  int vec_all_ne (vector pixel, vector pixel);
+   *  int vec_all_ne (vector float, vector float);
+   *  int vec_all_ne (vector double, vector double);
+   */
+  
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
+    RS6000_BTI_unsigned_V16QI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_bool_V16QI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI },
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
+    RS6000_BTI_V16QI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V16QI,
+    RS6000_BTI_bool_V16QI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V16QI, RS6000_BTI_V16QI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
+    RS6000_BTI_bool_V16QI },
+
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
+    RS6000_BTI_unsigned_V8HI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_bool_V8HI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V8HI, RS6000_BTI_V8HI },
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
+    RS6000_BTI_V8HI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V8HI,
+    RS6000_BTI_bool_V8HI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
+    RS6000_BTI_bool_V8HI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_pixel_V8HI,
+    RS6000_BTI_pixel_V8HI },
+
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
+    RS6000_BTI_unsigned_V4SI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_bool_V4SI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI },
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
+    RS6000_BTI_V4SI }, 
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SI,
+    RS6000_BTI_bool_V4SI }, 
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SI, RS6000_BTI_V4SI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
+    RS6000_BTI_bool_V4SI },
+
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V2DI,
+    RS6000_BTI_unsigned_V2DI }, 
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V2DI,
+      RS6000_BTI_bool_V2DI }, 
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V2DI, 
+    RS6000_BTI_unsigned_V2DI },
+  /* following 2 entries deprecated */
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V2DI,
+    RS6000_BTI_V2DI }, 
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DI,
+    RS6000_BTI_bool_V2DI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DI, RS6000_BTI_V2DI },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V2DI,
+    RS6000_BTI_bool_V2DI },
+
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEFP_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SF, RS6000_BTI_V4SF },
+  { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEDP_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
   { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZB,
     RS6000_BTI_bool_V16QI, RS6000_BTI_V16QI,

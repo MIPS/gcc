@@ -13885,14 +13885,6 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
     op1 = copy_to_mode_reg (mode1, op1);
 
   scratch = gen_reg_rtx (mode0);
-
-  /* Kelvin says it looks like we generate the code as specified for 
-   * in the corresponding define_expand (or define_insn), except maybe
-   * it is "special" that I am leaving the result in a scratch
-   * register.
-   *
-   * I need to look at other uses of GEN_FCN
-   */
   pat = GEN_FCN (icode) (scratch, op0, op1);
 #ifdef KELVIN_DEBUG
   fprintf (stderr, "emitting the vector instruction into scratch register\n");
@@ -13901,27 +13893,27 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
   if (! pat)
     return 0;
   emit_insn (pat);
-
+  
   /* The vec_any* and vec_all* predicates use the same opcodes for two
      different operations, but the bits in CR6 will be different
      depending on what information we want.  So we have to play tricks
      with CR6 to get the right bits out.
-
+     
      If you think this is disgusting, look at the specs for the
      AltiVec predicates.  */
-
+  
 #ifdef KELVIN_DEBUG
   fprintf (stderr, "and emitting the check for condition flag\n");
-
+  
   fprintf (stderr, "for case 0:\n");
   debug_rtx (gen_cr6_test_for_zero (target));
-
+  
   fprintf (stderr, "for case 1:\n");
   debug_rtx (gen_cr6_test_for_zero_reverse (target));
-
+  
   fprintf (stderr, "for case 2:\n");
   debug_rtx (gen_cr6_test_for_lt (target));
-
+  
   fprintf (stderr, "for case 3:\n");
   debug_rtx (gen_cr6_test_for_lt_reverse (target));
 #endif
@@ -13949,7 +13941,6 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
       error ("argument 1 of __builtin_altivec_predicate is out of range");
       break;
     }
-
   return target;
 }
 

@@ -53,6 +53,19 @@
 #define __CR6_LT		2
 #define __CR6_LT_REV		3
 
+/* Enhanced condition register codes for AltiVec predicates.  When
+   support for Power9 instructions was added, it became desirable to
+   change the implementation of certain Altivec predicates so that
+   expansion is done in the traditional way rather than with
+   special-case code inside of rs6000.c.  The use of these enhanced
+   condition register codes enables the more traditional expansion.  */
+#define __CR6_FIRST_ENHANCED_CODE	4
+#define __CR6_EQ_ENHANCED		4
+#define __CR6_EQ_REV_ENHANCED		5
+#define __CR6_LT_ENHANCED		6
+#define __CR6_LT_REV_ENHANCED		7
+
+
 /* Synonyms.  */
 #define vec_vaddcuw vec_addc
 #define vec_vand vec_and
@@ -433,12 +446,15 @@
  
 /* vec_cmpne is already defined elsewhere so don't re-introduce it
  *   here */
-
 #define vec_cmpnez __builtin_vec_vcmpnez
-#define vec_all_ne __builtin_vec_vcmp_all_ne
+
 #define vec_all_nez __builtin_vec_cmp_all_nez
-#define vec_any_eq __builtin_vec_cmp_any_eq
 #define vec_any_eqz __builtin_vec_cmp_any_eqz
+/*
+#define vec_all_ne __builtin_vec_vcmp_all_ne
+#define vec_any_eq __builtin_vec_cmp_any_eq
+
+*/
 
 #define vec_cntlz_lsbb __builtin_vec_vclzlsbb
 #define vec_cnttz_lsbb __builtin_vec_vctzlsbb
@@ -508,12 +524,20 @@ __altivec_unary_pred(vec_any_numeric,
 
 __altivec_scalar_pred(vec_all_eq,
   __builtin_vec_vcmpeq_p (__CR6_LT, a1, a2))
+__altivec_scalar_pred(vec_any_ne,
+  __builtin_vec_vcmpeq_p (__CR6_LT_REV, a1, a2))
+
+#ifdef _ARCH_PWR9
+__altivec_scalar_pred(vec_all_ne,
+  __builtin_vec_vcmpne_p (__CR6_LT, a1, a2))
+__altivec_scalar_pred(vec_any_eq,
+  __builtin_vec_vcmpne_p (__CR6_LT_REV, a1, a2))
+#else
 __altivec_scalar_pred(vec_all_ne,
   __builtin_vec_vcmpeq_p (__CR6_EQ, a1, a2))
 __altivec_scalar_pred(vec_any_eq,
   __builtin_vec_vcmpeq_p (__CR6_EQ_REV, a1, a2))
-__altivec_scalar_pred(vec_any_ne,
-  __builtin_vec_vcmpeq_p (__CR6_LT_REV, a1, a2))
+#endif
 
 __altivec_scalar_pred(vec_all_gt,
   __builtin_vec_vcmpgt_p (__CR6_LT, a1, a2))
@@ -571,9 +595,15 @@ __altivec_scalar_pred(vec_any_nle,
 #define vec_any_numeric(a1) __builtin_vec_vcmpeq_p (__CR6_EQ_REV, (a1), (a1))
 
 #define vec_all_eq(a1, a2) __builtin_vec_vcmpeq_p (__CR6_LT, (a1), (a2))
+#define vec_any_ne(a1, a2) __builtin_vec_vcmpeq_p (__CR6_LT_REV, (a1), (a2))
+
+#ifdef _ARCH_PWR9
+#define vec_all_ne(a1, a2) __builtin_vec_vcmpne_p (__CR6_LT, (a1), (a2))
+#define vec_any_eq(a1, a2) __builtin_vec_vcmpne_p (__CR6_LT_REV, (a1), (a2))
+#else
 #define vec_all_ne(a1, a2) __builtin_vec_vcmpeq_p (__CR6_EQ, (a1), (a2))
 #define vec_any_eq(a1, a2) __builtin_vec_vcmpeq_p (__CR6_EQ_REV, (a1), (a2))
-#define vec_any_ne(a1, a2) __builtin_vec_vcmpeq_p (__CR6_LT_REV, (a1), (a2))
+#endif
 
 #define vec_all_gt(a1, a2) __builtin_vec_vcmpgt_p (__CR6_LT, (a1), (a2))
 #define vec_all_lt(a1, a2) __builtin_vec_vcmpgt_p (__CR6_LT, (a2), (a1))
