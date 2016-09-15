@@ -12502,7 +12502,8 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust,
   else
     {
       if (insn16_p)
-	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "restore16.jrc\t"
+	s = strcpy (buffer, adjust > 0 ? (jrc_p ? (!v0v1_p ? "restore16.jrc\t"
+							   : "sdbbp16 3 # restore16.jrc\t")
 						: (!v0v1_p ? "restore\t"
 							   : "sdbbp32 2 # restore16\t"))
 				       : (!v0v1_p ? "save16\t"
@@ -12545,7 +12546,7 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust,
       && TARGET_RET_IN_ARGS
       && TARGET_V0_V1_CALLEE_SAVED
       && BITSET_P (info.mask, 2))
-    s += sprintf (s, "# %s", reg_names[2]);
+    s += sprintf (s, ",%s", reg_names[2]);
 
   if (ISA_HAS_SAVE_RESTORE
       && TARGET_MICROMIPS_R7
