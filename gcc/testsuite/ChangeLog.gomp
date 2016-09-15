@@ -1,3 +1,8 @@
+2016-09-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/common-block-1.f90: New test.
+	* gfortran.dg/goacc/common-block-2.f90: New test.
+
 2016-09-15  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	Backport from mainline

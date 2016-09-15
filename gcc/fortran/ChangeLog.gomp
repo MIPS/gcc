@@ -1,3 +1,9 @@
+2016-09-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_map_clause): Add new common_blocks argument.
+	Propagate it to gfc_match_omp_variable_list.
+	(gfc_match_omp_clauses): Update calls to gfc_match_omp_map_clauses.
+
 2016-08-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR fortran/72715

@@ -633,10 +633,11 @@ cleanup:
    mapping.  */
 
 static bool
-gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op)
+gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op,
+			  bool common_blocks)
 {
   gfc_omp_namelist **head = NULL;
-  if (gfc_match_omp_variable_list ("", list, false, NULL, &head, true)
+  if (gfc_match_omp_variable_list ("", list, common_blocks, NULL, &head, true)
       == MATCH_YES)
     {
       gfc_omp_namelist *n;
@@ -772,7 +773,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	  if ((mask & OMP_CLAUSE_COPY)
 	      && gfc_match ("copy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_TOFROM))
+					   OMP_MAP_FORCE_TOFROM, openacc))
 	    continue;
 	  if (mask & OMP_CLAUSE_COPYIN)
 	    {
@@ -780,7 +781,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 		{
 		  if (gfc_match ("copyin ( ") == MATCH_YES
 		      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-						   OMP_MAP_FORCE_TO))
+						   OMP_MAP_FORCE_TO, true))
 		    continue;
 		}
 	      else if (gfc_match_omp_variable_list ("copyin (",
@@ -791,7 +792,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	  if ((mask & OMP_CLAUSE_COPYOUT)
 	      && gfc_match ("copyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_FROM))
+					   OMP_MAP_FORCE_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPYPRIVATE)
 	      && gfc_match_omp_variable_list ("copyprivate (",
@@ -801,14 +802,14 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	  if ((mask & OMP_CLAUSE_CREATE)
 	      && gfc_match ("create ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_ALLOC))
+					   OMP_MAP_FORCE_ALLOC, true))
 	    continue;
 	  break;
 	case 'd':
 	  if ((mask & OMP_CLAUSE_DELETE)
 	      && gfc_match ("delete ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_DELETE))
+					   OMP_MAP_DELETE, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEFAULT)
 	      && c->default_sharing == OMP_DEFAULT_UNKNOWN)
@@ -861,12 +862,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	  if ((mask & OMP_CLAUSE_OACC_DEVICE)
 	      && gfc_match ("device ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_TO))
+					   OMP_MAP_FORCE_TO, false))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEVICEPTR)
 	      && gfc_match ("deviceptr ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_DEVICEPTR))
+					   OMP_MAP_FORCE_DEVICEPTR, false))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEVICE_RESIDENT)
 	      && gfc_match_omp_variable_list
@@ -990,7 +991,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	      && gfc_match ("host ( ") == MATCH_YES /* "self" is a synonym for
 						       "host".  */
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_FROM))
+					   OMP_MAP_FORCE_FROM, true))
 	    continue;
 	  break;
 	case 'i':
@@ -1135,47 +1136,47 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPY)
 	      && gfc_match ("pcopy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TOFROM))
+					   OMP_MAP_TOFROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYIN)
 	      && gfc_match ("pcopyin ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TO))
+					   OMP_MAP_TO, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYOUT)
 	      && gfc_match ("pcopyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FROM))
+					   OMP_MAP_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_CREATE)
 	      && gfc_match ("pcreate ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_ALLOC))
+					   OMP_MAP_ALLOC, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT)
 	      && gfc_match ("present ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_PRESENT))
+					   OMP_MAP_FORCE_PRESENT, false))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPY)
 	      && gfc_match ("present_or_copy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TOFROM))
+					   OMP_MAP_TOFROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYIN)
 	      && gfc_match ("present_or_copyin ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_TO))
+					   OMP_MAP_TO, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYOUT)
 	      && gfc_match ("present_or_copyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FROM))
+					   OMP_MAP_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRESENT_OR_CREATE)
 	      && gfc_match ("present_or_create ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_ALLOC))
+					   OMP_MAP_ALLOC, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_PRIVATE)
 	      && gfc_match_omp_variable_list ("private (",
@@ -1355,7 +1356,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	  if ((mask & OMP_CLAUSE_HOST)
 	      && gfc_match ("self ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_FROM))
+					   OMP_MAP_FORCE_FROM, true))
 	    continue;
 	  if ((mask & OMP_CLAUSE_SEQ)
 	      && !c->seq

@@ -1,3 +1,9 @@
+2016-09-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (oacc_default_clause): Privatize fortran common blocks.
+	(omp_notice_variable): Defer the expansion of DECL_VALUE_EXPR for
+	common block decls.
+
 2016-09-15  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	Backport from mainline
