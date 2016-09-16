@@ -1,3 +1,80 @@
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/77594
+	* gcc.target/i386/pr77594.c: New test.
+
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/68260
+	* c-c++-common/tsan/pr68260.c: New test.
+
+	2016-09-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77553
+	* g++.dg/cpp1y/constexpr-77553.C: New test.
+
+	2016-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77500
+	* gfortran.dg/gomp/pr77500.f90: New test.
+
+	PR fortran/77516
+	* gfortran.dg/gomp/pr77516.f90: New test.
+
+	2016-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69255
+	* gcc.target/i386/pr69255-1.c: New test.
+	* gcc.target/i386/pr69255-2.c: New test.
+	* gcc.target/i386/pr69255-3.c: New test.
+
+	2016-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77396
+	* g++.dg/asan/pr77396-2.C: New test.
+
+	2016-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77396
+	* g++.dg/asan/pr77396.C: New test.
+
+2016-09-14  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77539
+	* g++.dg/cpp0x/constexpr-recursion3.C: New.
+	* g++.dg/ubsan/pr63956.C: Adjust error location.
+	* g++.dg/cpp1y/pr77539.C: New.
+
+2016-09-13  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2016-09-13  Jason Merrill  <jason@redhat.com>
+		    Tom de Vries  <tom@codesourcery.com>
+
+	PR c++/77427
+	* g++.dg/pr77427.C: New test.
+
+2016-09-07  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR debug/57519
+	* g++.dg/debug/dwarf2/imported-decl-2.C: Likewise.
+
+2016-09-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-09-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/77452
+	* gcc.target/i386/pr77452.c: New test.
+
+2016-09-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gfortran.dg/c_by_val_1.f: Correct the call to c_to_c and c_to_c8.
+
 2016-09-01  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
