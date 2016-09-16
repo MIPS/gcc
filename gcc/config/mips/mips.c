@@ -12464,6 +12464,8 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust,
   unsigned int i, end;
   char *s;
   bool insn16_p = false;
+  int nregs = 0;
+  bool restore_p = adjust > 0;
 
   /* Parse the pattern.  */
   if (!mips_save_restore_pattern_p (pattern, adjust, &info, fp_p, jrc_p))
@@ -12471,15 +12473,16 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust,
 
   if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7)
     {
-      int n = 0;
       for (i = 0; i < ARRAY_SIZE (umipsr7_s0_s7_regs); i++)
 	if (BITSET_P (info.mask, umipsr7_s0_s7_regs[i]))
-	  n++;
+	  nregs++;
       if (BITSET_P (info.mask, RETURN_ADDR_REGNUM)
-	  && info.size < 120 // u4 << 3 bytes
+	  && info.size <= 120 // u4 << 3 bytes
 	  && !BITSET_P (info.mask, GLOBAL_POINTER_REGNUM)
-	  && ((n >= 0 && !BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
-	      || (n == 8 && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))))
+	  && (!restore_p || (restore_p && jrc_p))
+	  && ((nregs >= 0 && !BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+	      || (nregs == 8 && BITSET_P (info.mask,
+					  HARD_FRAME_POINTER_REGNUM))))
 	insn16_p = true;
     }
 
@@ -12495,27 +12498,31 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust,
   /* Add the mnemonic.  */
   /* FIXME */
   if (GENERATE_MIPS16E_SAVE_RESTORE)
-    s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
+    {
+      s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
+      s += strlen (s);
+    }
   else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
-    s = strcpy (buffer, adjust > 0 ? "sdbbp32 13 # restoref\t"
-				   : "sdbbp32 13 # savef\t");
+    {
+      s = strcpy (buffer, adjust > 0 ? "sdbbp32 13 # restoref\t"
+				     : "sdbbp32 13 # savef\t");
+      s += strlen (s);
+    }
   else
     {
-      if (insn16_p)
-	s = strcpy (buffer, adjust > 0 ? (jrc_p ? (!v0v1_p ? "restore16.jrc\t"
-							   : "sdbbp16 3 # restore16.jrc\t")
-						: (!v0v1_p ? "restore\t"
-							   : "sdbbp32 2 # restore16\t"))
-				       : (!v0v1_p ? "save16\t"
-						  : "sdbbp16 2 # save16\t"));
-      else
-	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "restore.jrc\t"
-						: (!v0v1_p ? "restore\t"
-							   : "sdbbp32 2 # restore\t"))
-				       : (!v0v1_p ? "save\t"
-						  : "sdbbp32 2 # save\t"));
+      int insn_mode = 32;
+
+      if (insn16_p
+	  && ((restore_p && nregs == 0) || nregs > 0))
+	insn_mode = 16;
+
+      s = buffer;
+      if (v0v1_p)
+	s += sprintf (s, "sdbbp%d %d # ", insn_mode, jrc_p ? 3 : 2);
+
+      s += sprintf (s, "%s%d", restore_p ? "restore" : "save", insn_mode);
+      s += sprintf (s, "%s\t", jrc_p ? ".jrc" : "");
     }
-  s += strlen (s);
 
   if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
