@@ -6859,21 +6859,17 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	  rtx op2 = force_reg (SFmode, XVECEXP (vals, 0, 2));
 	  rtx op3 = force_reg (SFmode, XVECEXP (vals, 0, 3));
 
-	  if (TARGET_P8_VECTOR && !BYTES_BIG_ENDIAN)
+	  /* Use VMRGEW if we can instead of doing a permute.  */
+	  if (TARGET_P8_VECTOR)
 	    {
 	      emit_insn (gen_vsx_concat_v2sf (dbl_even, op0, op2));
 	      emit_insn (gen_vsx_concat_v2sf (dbl_odd, op1, op3));
 	      emit_insn (gen_vsx_xvcvdpsp (flt_even, dbl_even));
 	      emit_insn (gen_vsx_xvcvdpsp (flt_odd, dbl_odd));
-	      emit_insn (gen_p8_vmrgew_v4sf_direct (target, flt_odd, flt_even));
-	    }
-	  else if (TARGET_P8_VECTOR)
-	    {
-	      emit_insn (gen_vsx_concat_v2sf (dbl_even, op3, op1));
-	      emit_insn (gen_vsx_concat_v2sf (dbl_odd, op2, op0));
-	      emit_insn (gen_vsx_xvcvdpsp (flt_even, dbl_even));
-	      emit_insn (gen_vsx_xvcvdpsp (flt_odd, dbl_odd));
-	      emit_insn (gen_p8_vmrgew_v4sf_direct (target, flt_even, flt_odd));
+	      if (BYTES_BIG_ENDIAN)
+		emit_insn (gen_p8_vmrgew_v4sf_direct (target, flt_even, flt_odd));
+	      else
+		emit_insn (gen_p8_vmrgew_v4sf_direct (target, flt_odd, flt_even));
 	    }
 	  else
 	    {
