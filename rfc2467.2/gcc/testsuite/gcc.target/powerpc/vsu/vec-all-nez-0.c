@@ -2,7 +2,6 @@
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
 /* { dg-require-effective-target powerpc_p9vector_ok } */
 /* { dg-options "-mcpu=power9" } */
-/* { dg-xfail-if "Bool args not supported for this function" { powerpc*-*-* } } */
 
 #include <altivec.h>
 
@@ -13,5 +12,5 @@ test_all_not_equal_and_not_zero (vector bool char *arg1_p,
   vector bool char arg_1 = *arg1_p;
   vector bool char arg_2 = *arg2_p;
 
-  return vec_all_nez (arg_1, arg_2);	/* { dg-error "invalid parameter combination for Altivec intrinsic __builtin_vec_vcmpnez_p" } */
+  return vec_all_nez (arg_1, arg_2);	/* { dg-error "invalid parameter combination for AltiVec intrinsic __builtin_vec_vcmpnez_p" } */
 }

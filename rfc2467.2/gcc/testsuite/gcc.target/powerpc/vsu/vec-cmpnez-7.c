@@ -2,7 +2,6 @@
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power8" } } */
 /* { dg-require-effective-target powerpc_p9vector_ok } */
 /* { dg-options "-mcpu=power8" } */
-/* { dg-xfail-if "Built-in not available prior to power9" { powerpc*-*-* } } */
 
 #include <altivec.h>
 
