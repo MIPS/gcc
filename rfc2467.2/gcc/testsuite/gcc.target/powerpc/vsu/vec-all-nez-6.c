@@ -15,4 +15,4 @@ test_all_not_equal_and_not_zero (vector unsigned int *arg1_p,
   return vec_all_nez (arg_1, arg_2);
 }
 
-/* { dg-final { scan-assembler "vcmpnew." } } */
+/* { dg-final { scan-assembler "vcmpnezw." } } */

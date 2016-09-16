@@ -14,5 +14,5 @@ store_data (vector double *datap, souble *address,
 {
   vector double data = *datap;
 
-  vec_xst_len (data, address, length); /* {dg-error "Builtin function __builtin_vec_xst requires" } */
+  vec_xst_len (data, address, length); /* { dg-error "Builtin function __builtin_vec_xst requires" } */
 }

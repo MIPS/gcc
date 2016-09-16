@@ -11,5 +11,5 @@
 __vector float
 fetch_data (float *address, size_t length)
 {
-  return vec_xl_len (address, length); /* {dg-error "Builtin function __builtin_vec_xl requires" } */
+  return vec_xl_len (address, length); /* { dg-error "Builtin function __builtin_vec_xl requires" } */
 }

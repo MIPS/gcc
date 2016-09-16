@@ -79,6 +79,7 @@
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
 #endif
+
 #undef KELVIN_DEBUG
 #ifdef KELVIN_DEBUG
 #include "print-tree.h"
@@ -15381,7 +15382,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     if (d->code == fcode)
       return altivec_expand_predicate_builtin (d->icode, exp, target);
 #ifdef KELVIN_DEBUG
-  fprintf (stderr, " but didn't fine an altivec predicate\n");
+  fprintf (stderr, " but didn't find an altivec predicate\n");
 #endif
 
   /* LV* are funky.  We initialized them differently.  */

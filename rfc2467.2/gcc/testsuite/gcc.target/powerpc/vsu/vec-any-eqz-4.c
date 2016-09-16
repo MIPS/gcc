@@ -15,4 +15,4 @@ test_any_equal_or_zero (vector unsigned short *arg1_p,
   return vec_any_eqz (arg_1, arg_2);
 }
 
-/* { dg-final { scan-assembler "vcmpneh." } } */
+/* { dg-final { scan-assembler "vcmpnezh." } } */

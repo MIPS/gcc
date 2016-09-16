@@ -16,5 +16,5 @@ store_data (vector double *datap, souble *address,
 {
   vector double data = *datap;
 
-  vec_xst_len (data, address, length); /* {dg-error "Builtin function __builtin_vec_xst not supported in this configuration" } */
+  vec_xst_len (data, address, length); /* { dg-error "Builtin function __builtin_vec_xst not supported in this configuration" } */
 }

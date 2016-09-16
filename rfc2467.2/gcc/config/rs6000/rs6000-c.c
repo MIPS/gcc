@@ -4606,6 +4606,24 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
+  { P9V_BUILTIN_VEC_VCMPNEZ_P, P9V_BUILTIN_VCMPNEZB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI },
+  { P9V_BUILTIN_VEC_VCMPNEZ_P, P9V_BUILTIN_VCMPNEZB_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V16QI, RS6000_BTI_V16QI },
+
+  { P9V_BUILTIN_VEC_VCMPNEZ_P, P9V_BUILTIN_VCMPNEZH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI },
+  { P9V_BUILTIN_VEC_VCMPNEZ_P, P9V_BUILTIN_VCMPNEZH_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V8HI, RS6000_BTI_V8HI },
+
+  { P9V_BUILTIN_VEC_VCMPNEZ_P, P9V_BUILTIN_VCMPNEZW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI },
+  { P9V_BUILTIN_VEC_VCMPNEZ_P, P9V_BUILTIN_VCMPNEZW_P,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SI, RS6000_BTI_V4SI },
+
   { P9V_BUILTIN_VEC_CMPNEZ, P9V_BUILTIN_CMPNEZB,
     RS6000_BTI_bool_V16QI, RS6000_BTI_V16QI,
     RS6000_BTI_V16QI, 0 },
@@ -5032,7 +5050,7 @@ altivec_build_resolved_builtin (tree *args, int n,
   tree call;
 
 #ifdef KELVIN_DEBUG
-  fprintf (stderr, "altivec_built_resolved_builtin\n");
+  fprintf (stderr, "altivec_build_resolved_builtin\n");
   fprintf (stderr, "n is %d\n", n);
 
   fprintf (stderr, "ALTIVEC_BUILTIN_VEC_VCMPEQ_P is %d\n",
@@ -6006,11 +6024,12 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
 #ifdef KELVIN_DEBUG
     fprintf (stderr, "3: find desc, code is %d\n", desc->code);
-    fprintf (stderr, " ALTIVEC_BUILTIN_VEC_CMPNE is %d\n",
-	     ALTIVEC_BUILTIN_VEC_CMPNE);
-    fprintf (stderr, " P9V_BUILTIN_CMPNEB is %d\n", P9V_BUILTIN_CMPNEB);
-    fprintf (stderr, " P9V_BUILTIN_CMPNEH is %d\n", P9V_BUILTIN_CMPNEH);
-    fprintf (stderr, " P9V_BUILTIN_CMPNEW is %d\n", P9V_BUILTIN_CMPNEW);
+    fprintf (stderr, "  fcode is %d\n", fcode);
+    fprintf (stderr, " ALTIVEC_BUILTIN_VEC_VCMPNEZ_P is %d\n",
+	     P9V_BUILTIN_VEC_VCMPNEZ_P);
+    fprintf (stderr, " P9V_BUILTIN_VCMPNEZB_P is %d\n", P9V_BUILTIN_VCMPNEZB_P);
+    fprintf (stderr, " P9V_BUILTIN_VCMPNEZH_P is %d\n", P9V_BUILTIN_VCMPNEZH_P);
+    fprintf (stderr, " P9V_BUILTIN_VCMPNEZW_P is %d\n", P9V_BUILTIN_VCMPNEZW_P);
     fprintf (stderr, " RS6000_BTI_bool_V16qi is %d\n", RS6000_BTI_bool_V16QI);
 #endif
 

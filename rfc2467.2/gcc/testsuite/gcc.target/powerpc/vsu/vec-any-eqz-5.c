@@ -14,4 +14,4 @@ test_any_equal_or_zero (vector signed int *arg1_p, vector signed int *arg2_p)
   return vec_any_eqz (arg_1, arg_2);
 }
 
-/* { dg-final { scan-assembler "vcmpnew." } } */
+/* { dg-final { scan-assembler "vcmpnezw." } } */

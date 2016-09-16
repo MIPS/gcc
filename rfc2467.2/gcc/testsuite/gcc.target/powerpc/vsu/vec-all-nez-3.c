@@ -15,4 +15,4 @@ test_all_not_equal_and_not_zero (vector signed short *arg1_p,
   return vec_all_nez (arg_1, arg_2);
 }
 
-/* { dg-final { scan-assembler "vcmpneh." } } */
+/* { dg-final { scan-assembler "vcmpnezh." } } */

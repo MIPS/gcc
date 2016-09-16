@@ -83,7 +83,8 @@
 
 ;; constants for unspec
 (define_c_enum "unspec" [UNSPEC_PREDICATE
-			 UNSPEC_REDUC])
+			 UNSPEC_REDUC
+			 UNSPEC_NEZ_P])
 
 ;; Vector reduction code iterators
 (define_code_iterator VEC_reduc [plus smin smax])
@@ -696,7 +697,27 @@
 	   UNSPEC_PREDICATE))
      (set (match_operand:VI 0 "vlogical_operand" "")
 	  (ne:VI (match_dup 1)
-		    (match_dup 2)))])]
+		 (match_dup 2)))])]
+  "TARGET_P9_VECTOR"
+  "")
+
+;; This expansion handles the V16QI, V8HI, and V4SI modes in the
+;; implementation of the vec_all_nez and vec_any_eqz built-in functions.
+;;
+;; The following vector_nez_<mode>_p expansions are used in the
+;; implementations of vec_all_nez and vec_any_eqz on Power9.
+(define_expand "vector_nez_<mode>_p"
+  [(parallel
+    [(set (reg:CC 74)
+	  (unspec:CC [(unspec:VI
+		       [(match_operand:VI 1 "vlogical_operand" "")
+			(match_operand:VI 2 "vlogical_operand" "")]
+		       UNSPEC_NEZ_P)]
+	   UNSPEC_PREDICATE))
+     (set (match_operand:VI 0 "vlogical_operand" "")
+	  (unspec:VI [(match_dup 1)
+		      (match_dup 2)]
+	   UNSPEC_NEZ_P))])]
   "TARGET_P9_VECTOR"
   "")
 

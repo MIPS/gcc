@@ -140,7 +140,7 @@
 /* All builtins defined with the RS6000_BUILTIN_P macro expect three
  * arguments, the first of which is an integer constant that clarifies
  * the implementation's use of CR6 flags.  The integer constant
- * argument may have three values: __CR6_EQ (0) means the predicate is
+ * argument may have four values: __CR6_EQ (0) means the predicate is
  * considered true if the equality-test flag of the CR6 condition
  * register is true following execution of the code identified by the
  * ICODE pattern, __CR_EQ_REV (1) means the predicate is considered
@@ -150,7 +150,7 @@
  * less-than-test flag is false.  For all builtins defined by this
  * macro, the pattern selected by ICODE expects three operands, a
  * target and two inputs and is presumed to overwrite the flags of
- * condition register CR6 as a side effect of computings a result into
+ * condition register CR6 as a side effect of computing a result into
  * the target register.  However, the built-in invocation provides
  * four operands, a target, an integer constant mode, and two inputs.
  * The second and third operands of the built-in function's invocation
@@ -1969,6 +1969,10 @@ BU_P9V_AV_2 (CMPNEZB,	"vcmpnezb",	CONST,	vcmpnezb)
 BU_P9V_AV_2 (CMPNEZH,	"vcmpnezh",	CONST,	vcmpnezh)
 BU_P9V_AV_2 (CMPNEZW,	"vcmpnezw",	CONST,	vcmpnezw)
 
+BU_P9V_AV_P (VCMPNEZB_P,	"vcmpnezb_p",	CONST,	vector_nez_v16qi_p)
+BU_P9V_AV_P (VCMPNEZH_P,	"vcmpnezh_p",	CONST,	vector_nez_v8hi_p)
+BU_P9V_AV_P (VCMPNEZW_P,	"vcmpnezw_p",	CONST,	vector_nez_v4si_p)
+
 /* ISA 3.0 Vector scalar overloaded 2 argument functions */
 BU_P9V_OVERLOAD_2 (LXVL,	"lxvl")
 BU_P9V_OVERLOAD_2 (STXVL,	"stxvl")
@@ -1980,6 +1984,7 @@ BU_P9V_OVERLOAD_2 (VEXTURX,	"vexturx")
  * so is not mentioned here.  */
 BU_P9V_OVERLOAD_2 (CMPNEZ,	"vcmpnez")
 
+BU_P9V_OVERLOAD_P (VCMPNEZ_P,   "vcmpnez_p")
 BU_P9V_OVERLOAD_P (VCMPNE_P,   "vcmpne_p")
 
 /* ISA 3.0 Vector scalar overloaded 1 argument functions */

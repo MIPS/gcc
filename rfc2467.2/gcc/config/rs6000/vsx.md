@@ -1521,34 +1521,51 @@
   [(set_attr "type" "<VStype_simple>")])
 
 ;; Compare vectors producing a vector result and a predicate, setting CR6 to
-;; indicate a combined status.  Unlike the *vsx_eq_<mode>_p pattern above,
-;; this insn matches v16qi, v8hi, and v4si.  It does not match v2df or v4sf.
-;; It also does not match v2di.  (kelvin adding this)
+;; indicate a combined status.  This pattern matches v16qi, v8hi, and
+;; v4si.  It does not match v2df, v4sf, or v2di modes.  We don't
+;; need to handle v2di mode because v2di calls of the builtin-function
+;; are expanded into v4si instruction patterns.
 (define_insn "*vsx_ne_<mode>_p"
   [(set (reg:CC 74)
 	(unspec:CC
-	 [(ne:CC (match_operand:VSX_EXTRACT_I 1 "vsx_register_operand" "v")
-		 (match_operand:VSX_EXTRACT_I 2 "vsx_register_operand" "v"))]
+	 [(ne:CC (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
+		 (match_operand:VSX_EXTRACT_I 2 "gpc_reg_operand" "v"))]
 	 UNSPEC_PREDICATE))
-   (set (match_operand:VSX_EXTRACT_I 0 "vsx_register_operand" "=v")
+   (set (match_operand:VSX_EXTRACT_I 0 "gpc_reg_operand" "=v")
 	(ne:VSX_EXTRACT_I (match_dup 1)
 			  (match_dup 2)))]
   "TARGET_P9_VECTOR"
   "xvcmpne<VSX_EXTRACT_WIDTH>. %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-;; This special pattern handles the v4sf mode.
+;; Handle the v4sf and v4df modes.
 (define_insn "*vsx_ne_<mode>_p"
   [(set (reg:CC 74)
 	(unspec:CC
-	 [(ne:CC (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,?<VSa>")
-		 (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,?<VSa>"))]
+	 [(ne:CC
+	   (match_operand:VSX_F 1 "gpc_reg_operand" "v")
+	   (match_operand:VSX_F 2 "gpc_reg_operand" "v"))]
 	 UNSPEC_PREDICATE))
-   (set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?<VSa>")
+   (set (match_operand:VSX_F 0 "gpc_reg_operand" "=v")
 	(ne:VSX_F (match_dup 1)
 		  (match_dup 2)))]
   "TARGET_P9_VECTOR"
   "xvcmpne<VSs>. %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
+
+(define_insn "*vector_nez_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(unspec:VI
+		     [(match_operand:VI 1 "gpc_reg_operand" "v")
+		      (match_operand:VI 2 "gpc_reg_operand" "v")]
+		     UNSPEC_NEZ_P)]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:VI 0 "gpc_reg_operand" "=v")
+	(unspec:VI [(match_dup 1)
+		    (match_dup 2)]
+	 UNSPEC_NEZ_P))]
+  "TARGET_P9_VECTOR"
+  "vcmpnez<VSX_EXTRACT_WIDTH>. %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*vsx_gt_<mode>_p"
@@ -1576,24 +1593,6 @@
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "xvcmpge<VSs>. %x0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")])
-
-;; kelvin begins here
-(define_insn "*vsx_ne_<mode>_p"
-  [(set (reg:CC 74)
-	(unspec:CC
-	 [(ne:CC (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,?<VSa>")
-		 (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,?<VSa>"))]
-	 UNSPEC_PREDICATE))
-   (set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?<VSa>")
-;; kelvin wants to replace VSX_F[V4SF V2DF] with something more inclusive
-;;
-	(ne:VSX_F (match_dup 1)
-		  (match_dup 2)))]
-  "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "xvcmpne<VSs>. %x0,%x1,%x2"
-  [(set_attr "type" "<VStype_simple>")])
-
-
 
 ;; Vector select
 (define_insn "*vsx_xxsel<mode>"
@@ -3467,52 +3466,6 @@
   "vcmpnezb %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-;; Vector Compare Not Equal or Zero Byte All True
-;;  (Within CR field 6, all true, which means "none of the comparisons
-;;  matched", corresponds to the "gt" flag being set.  All false, which
-;;  means "all of the bytes matched", corresponds to the "eq" flag
-;;  being set.)
-(define_expand "vcmpnezb_at"
-  [(set (reg:CCFP 74)
-	(compare:CCFP
-	 (unspec:SI [(match_operand:V16QI 1 "altivec_register_operand" "v")
-		     (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	  UNSPEC_VCMPNEZB)
-	 (const_int 0)))
-   (set (match_operand:SI 0 "register_operand" "=r")
-	(gt:SI (reg:CCFP 74)
-	       (const_int 0)))]
-  "TARGET_P9_VECTOR")
-
-;; Vector Compare Not Equal or Zero Byte Not All False
-;;   (aka any equal and not zero)
-;;  (Within CR field 6, all true, which means "none of the comparisons
-;;  matched", corresponds to the "gt" flag being set.  All false, which
-;;  means "all of the bytes matched", corresponds to the "eq" flag
-;;  being set.)
-(define_expand "vcmpnezb_naf"
-  [(set (reg:CCFP 74)
-	(compare:CCFP
-	 (unspec:SI [(match_operand:V16QI 1 "altivec_register_operand" "v")
-		     (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	  UNSPEC_VCMPNEZB)
-         (const_int 0)))
-   (set (match_operand:SI 0 "register_operand" "=r")
-	(ne:SI (reg:CCFP 74)
-	       (const_int 0)))]
-  "TARGET_P9_VECTOR")
-
-(define_insn "*vcmpnezb_alltest"
-  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-       (compare:CCFP
-        (unspec:SI [(match_operand:V16QI 1 "altivec_register_operand" "v")
-                    (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VCMPNEZB)
-	(match_operand:SI 3 "zero_constant" "j")))]
-  "TARGET_P9_VECTOR"
-  "vcmpnezb. %0,%1,%2"
-  [(set_attr "type" "fpcompare")])
-
 ;; Vector Compare Not Equal Half Word
 (define_insn "vcmpneh"
   [(set (match_operand:V8HI 0 "altivec_register_operand" "=v")
@@ -3532,53 +3485,6 @@
   "TARGET_P9_VECTOR"
   "vcmpnezh %0,%1,%2"
   [(set_attr "type" "vecsimple")])
-
-;; Vector Compare Not Equal or Zero Half Word All True
-;;  (Within CR field 6, all true, which means "none of the comparisons
-;;  matched", corresponds to the "gt" flag being set.  All false, which
-;;  means "all of the bytes matched", corresponds to the "eq" flag
-;;  being set.)
-(define_expand "vcmpnezh_at"
-  [(set (reg:CCFP 74)
-	(compare:CCFP
-	 (unspec:SI [(match_operand:V8HI 1 "altivec_register_operand" "v")
-		     (match_operand:V8HI 2 "altivec_register_operand" "v")]
-	  UNSPEC_VCMPNEZH)
-	 (const_int 0)))
-   (set (match_operand:SI 0 "register_operand" "=r")
-	(gt:SI (reg:CCFP 74)
-	       (const_int 0)))]
-  "TARGET_P9_VECTOR")
-
-;; Vector Compare Not Equal or Zero Half Word Not All False
-;;    (aka any equal and not zero)
-;;  (Within CR field 6, all true, which means "none of the comparisons
-;;  matched", corresponds to the "gt" flag being set.  All false, which
-;;  means "all of the bytes matched", corresponds to the "eq" flag
-;;  being set.)
-(define_expand "vcmpnezh_naf"
-  [(set (reg:CCFP 74)
-	(compare:CCFP
-	 (unspec:SI
-	  [(match_operand:V8HI 1 "altivec_register_operand" "v")
-	   (match_operand:V8HI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VCMPNEZH)
-	(const_int 0)))
-   (set (match_operand:SI 0 "register_operand" "=r")
-	(ne:SI (reg:CCFP 74)
-	       (const_int 0)))]
-  "TARGET_P9_VECTOR")
-
-(define_insn "*vcmpnezh_alltest"
-  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(compare:CCFP
-	 (unspec:SI [(match_operand:V8HI 1 "altivec_register_operand" "v")
-		     (match_operand:V8HI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VCMPNEZH)
-	(match_operand:SI 3 "zero_constant" "j")))]
-  "TARGET_P9_VECTOR"
-  "vcmpnezh. %0,%1,%2"
-  [(set_attr "type" "fpcompare")])
 
 ;; Vector Compare Not Equal Word
 (define_insn "vcmpnew"
@@ -3600,53 +3506,6 @@
   "TARGET_P9_VECTOR"
   "vcmpnezw %0,%1,%2"
   [(set_attr "type" "vecsimple")])
-
-;; Vector Compare Not Equal or Zero Word All True
-;;  (Within CR field 6, all true, which means "none of the comparisons
-;;  matched", corresponds to the "gt" flag being set.  All false, which
-;;  means "all of the bytes matched", corresponds to the "eq" flag
-;;  being set.)
-(define_expand "vcmpnezw_at"
-  [(set (reg:CCFP 74)
-	(compare:CCFP
-	 (unspec:SI
-	  [(match_operand:V4SI 1 "altivec_register_operand" "v")
-	   (match_operand:V4SI 2 "altivec_register_operand" "v")]
-	  UNSPEC_VCMPNEZW)
-	 (const_int 0)))
-   (set (match_operand:SI 0 "register_operand" "=r")
-	(gt:SI (reg:CCFP 74)
-	       (const_int 0)))]
-  "TARGET_P9_VECTOR")
-
-;; Vector Compare Not Equal or Zero Byte Not All False
-;;    (aka any equal and not zero)
-;;  (Within CR field 6, all true, which means "none of the comparisons
-;;  matched", corresponds to the "gt" flag being set.  All false, which
-;;  means "all of the bytes matched", corresponds to the "eq" flag
-;;  being set.)
-(define_expand "vcmpnezw_naf"
-  [(set (reg:CCFP 74)
-	(compare:CCFP
-	 (unspec:SI [(match_operand:V4SI 1 "altivec_register_operand" "v")
-		     (match_operand:V4SI 2 "altivec_register_operand" "v")]
-	  UNSPEC_VCMPNEZW)
-	 (const_int 0)))
-   (set (match_operand:SI 0 "register_operand" "=r")
-	(ne:SI (reg:CCFP 74)
-	       (const_int 0)))]
-  "TARGET_P9_VECTOR")
-
-(define_insn "*cmpnezw_alltest"
-  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(compare:CCFP
-	 (unspec:SI [(match_operand:V4SI 1 "altivec_register_operand" "v")
-		     (match_operand:V4SI 2 "altivec_register_operand" "v")]
-	  UNSPEC_VCMPNEZW)
-	 (match_operand:SI 3 "zero_constant" "j")))]
-  "TARGET_P9_VECTOR"
-  "vcmpnezw. %0,%1,%2"
-  [(set_attr "type" "fpcompare")])
 
 ;; Vector Count Leading Zero Least-Significant Bits Byte
 (define_insn "vclzlsbb"
