@@ -1103,6 +1103,7 @@ determine_base_object (tree expr)
   switch (code)
     {
     case INTEGER_CST:
+    case POLY_CST:
       return NULL_TREE;
 
     case ADDR_EXPR:
@@ -2167,6 +2168,11 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
       *mul = wi::sext (wi::divmod_trunc (p0, p1, SIGNED, &res), precision);
       return res == 0;
 
+    case POLY_CST:
+      return (TREE_CODE (bot) == POLY_CST
+	      && constant_multiple_p (tree_to_poly_widest_int (top),
+				      tree_to_poly_widest_int (bot), mul));
+
     default:
       return false;
     }
@@ -2967,7 +2973,9 @@ get_loop_invariant_expr (struct ivopts_data *data, tree inv_expr)
 {
   STRIP_NOPS (inv_expr);
 
-  if (TREE_CODE (inv_expr) == INTEGER_CST || TREE_CODE (inv_expr) == SSA_NAME)
+  if (TREE_CODE (inv_expr) == INTEGER_CST
+      || TREE_CODE (inv_expr) == POLY_CST
+      || TREE_CODE (inv_expr) == SSA_NAME)
     return NULL;
 
   /* Don't strip constant part away as we used to.  */
@@ -3064,7 +3072,8 @@ add_candidate_1 (struct ivopts_data *data,
       cand->incremented_at = incremented_at;
       data->vcands.safe_push (cand);
 
-      if (TREE_CODE (step) != INTEGER_CST)
+      if (TREE_CODE (step) != INTEGER_CST
+	  && TREE_CODE (step) != POLY_CST)
 	{
 	  find_inv_vars (data, &step, &cand->inv_vars);
 
@@ -3800,7 +3809,9 @@ get_computation_aff_1 (struct loop *loop, gimple *at, struct iv_use *use,
   if (TYPE_PRECISION (utype) < TYPE_PRECISION (ctype))
     {
       if (cand->orig_iv != NULL && CONVERT_EXPR_P (cbase)
-	  && (CONVERT_EXPR_P (cstep) || TREE_CODE (cstep) == INTEGER_CST))
+	  && (CONVERT_EXPR_P (cstep)
+	      || TREE_CODE (cstep) == INTEGER_CST
+	      || TREE_CODE (cstep) == POLY_CST))
 	{
 	  tree inner_base, inner_step, inner_type;
 	  inner_base = TREE_OPERAND (cbase, 0);
@@ -4058,7 +4069,8 @@ force_expr_to_var_cost (tree expr, bool speed)
 
   if (is_gimple_min_invariant (expr))
     {
-      if (TREE_CODE (expr) == INTEGER_CST)
+      if (TREE_CODE (expr) == INTEGER_CST
+	  || TREE_CODE (expr) == POLY_CST)
 	return comp_cost (integer_cost [speed], 0);
 
       if (TREE_CODE (expr) == ADDR_EXPR)

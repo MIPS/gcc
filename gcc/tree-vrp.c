@@ -1112,6 +1112,22 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
 
   if (!POINTER_TYPE_P (TREE_TYPE (val1)))
     {
+      if (TREE_CODE (val1) != INTEGER_CST
+	  || TREE_CODE (val2) != INTEGER_CST)
+	{
+	  poly_widest_int c1, c2;
+	  if (poly_tree_p (val1, &c1) && poly_tree_p (val2, &c2))
+	    {
+	      if (must_eq (c1, c2))
+		return 0;
+	      if (must_lt (c1, c2))
+		return -1;
+	      if (must_gt (c1, c2))
+		return 1;
+	    }
+	  return -2;
+	}
+
       /* We cannot compare overflowed values.  */
       if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
 	return -2;
