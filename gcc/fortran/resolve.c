@@ -9795,9 +9795,9 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 	  return false;
 	}
       /* See PR 43366.  */
-      gfc_error ("Assignment to an allocatable polymorphic variable at %L "
-		 "is not yet supported", &lhs->where);
-      return false;
+//      gfc_error ("Assignment to an allocatable polymorphic variable at %L "
+//		 "is not yet supported", &lhs->where);
+//      return false;
     }
   else if (lhs->ts.type == BT_CLASS)
     {

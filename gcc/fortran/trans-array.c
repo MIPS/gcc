@@ -3036,50 +3036,56 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
   tree type;
   tree size;
   tree offset;
-  tree decl;
+  tree decl = NULL_TREE;
   tree tmp;
   gfc_expr *expr = se->ss->info->expr;
   gfc_ref *ref;
-  gfc_ref *class_ref;
+  gfc_ref *class_ref = NULL;
   gfc_typespec *ts;
 
-  if (expr == NULL
-      || (expr->ts.type != BT_CLASS
-	  && !gfc_is_alloc_class_array_function (expr)))
-    return false;
-
-  if (expr->symtree && expr->symtree->n.sym->ts.type == BT_CLASS)
-    ts = &expr->symtree->n.sym->ts;
+  if (se->expr && DECL_P (se->expr) && DECL_LANG_SPECIFIC (se->expr)
+      && GFC_DECL_SAVED_DESCRIPTOR (se->expr)
+      && GFC_CLASS_TYPE_P (TREE_TYPE (GFC_DECL_SAVED_DESCRIPTOR (se->expr))))
+    decl = se->expr;
   else
-    ts = NULL;
-  class_ref = NULL;
-
-  for (ref = expr->ref; ref; ref = ref->next)
     {
-      if (ref->type == REF_COMPONENT
-	    && ref->u.c.component->ts.type == BT_CLASS
-	    && ref->next && ref->next->type == REF_COMPONENT
-	    && strcmp (ref->next->u.c.component->name, "_data") == 0
-	    && ref->next->next
-	    && ref->next->next->type == REF_ARRAY
-	    && ref->next->next->u.ar.type != AR_ELEMENT)
+      if (expr == NULL
+	  || (expr->ts.type != BT_CLASS
+	      && !gfc_is_alloc_class_array_function (expr)))
+	return false;
+
+      if (expr->symtree && expr->symtree->n.sym->ts.type == BT_CLASS)
+	ts = &expr->symtree->n.sym->ts;
+      else
+	ts = NULL;
+
+      for (ref = expr->ref; ref; ref = ref->next)
 	{
-	  ts = &ref->u.c.component->ts;
-	  class_ref = ref;
-	  break;
+	  if (ref->type == REF_COMPONENT
+	      && ref->u.c.component->ts.type == BT_CLASS
+	      && ref->next && ref->next->type == REF_COMPONENT
+	      && strcmp (ref->next->u.c.component->name, "_data") == 0
+	      && ref->next->next
+	      && ref->next->next->type == REF_ARRAY
+	      && ref->next->next->u.ar.type != AR_ELEMENT)
+	    {
+	      ts = &ref->u.c.component->ts;
+	      class_ref = ref;
+	      break;
+	    }
 	}
+
+      if (ts == NULL)
+	return false;
     }
 
-  if (ts == NULL)
-    return false;
-
-  if (class_ref == NULL && expr->symtree->n.sym->attr.function
+  if (class_ref == NULL && expr && expr->symtree->n.sym->attr.function
       && expr->symtree->n.sym == expr->symtree->n.sym->result)
     {
       gcc_assert (expr->symtree->n.sym->backend_decl == current_function_decl);
       decl = gfc_get_fake_result_decl (expr->symtree->n.sym, 0);
     }
-  else if (gfc_is_alloc_class_array_function (expr))
+  else if (expr && gfc_is_alloc_class_array_function (expr))
     {
       size = NULL_TREE;
       decl = NULL_TREE;
@@ -3105,7 +3111,8 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
     }
   else if (class_ref == NULL)
     {
-      decl = expr->symtree->n.sym->backend_decl;
+      if (decl == NULL_TREE)
+	decl = expr->symtree->n.sym->backend_decl;
       /* For class arrays the tree containing the class is stored in
 	 GFC_DECL_SAVED_DESCRIPTOR of the sym's backend_decl.
 	 For all others it's sym's backend_decl directly.  */
@@ -3141,10 +3148,11 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
 			    index, size);
   tmp = gfc_build_addr_expr (pvoid_type_node, base);
   tmp = fold_build_pointer_plus_loc (input_location, tmp, offset);
+//  tmp = build1 (PAREN_EXPR, build_pointer_type (type), tmp);
   tmp = fold_convert (build_pointer_type (type), tmp);
 
   /* Return the element in the se expression.  */
-  se->expr = build_fold_indirect_ref_loc (input_location, tmp);
+  se->expr = tmp; //build_fold_indirect_ref_loc (input_location, tmp);
   return true;
 }
 
@@ -7074,6 +7082,26 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 						loop.from, loop.to, 0,
 						GFC_ARRAY_UNKNOWN, false);
 	  parm = gfc_create_var (parmtype, "parm");
+
+	  /* When expression is a class object, then add the class' handle to
+	     the parm_decl.  */
+	  if (expr->ts.type == BT_CLASS && expr->expr_type == EXPR_VARIABLE)
+	    {
+	      gfc_expr *class_expr = gfc_find_and_cut_at_last_class_ref (expr);
+	      gfc_se classse;
+
+	      /* class_expr can be NULL, when no _class ref is in expr.
+		 We must not fix this here with a gfc_fix_class_ref().  */
+	      if (class_expr)
+		{
+		  gfc_init_se (&classse, NULL);
+		  gfc_conv_expr (&classse, class_expr);
+		  gfc_free_expr (class_expr);
+
+		  gfc_allocate_lang_decl (parm);
+		  GFC_DECL_SAVED_DESCRIPTOR (parm) = classse.expr;
+		}
+	    }
 	}
 
       offset = gfc_index_zero_node;
@@ -7234,6 +7262,13 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				 offset)
 	      : base;
 	  gfc_conv_descriptor_offset_set (&loop.pre, parm, tmp);
+	}
+      else if (IS_CLASS_ARRAY (expr) && !se->data_not_needed
+	       && (!rank_remap || se->use_offset)
+	       && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc)))
+	{
+	  gfc_conv_descriptor_offset_set (&loop.pre, parm,
+					  gfc_conv_descriptor_offset_get (desc));
 	}
       else if (onebased && (!rank_remap || se->use_offset)
 	  && expr->symtree

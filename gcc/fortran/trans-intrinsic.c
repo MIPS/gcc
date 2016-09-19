@@ -5281,7 +5281,8 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
   gfc_free_symbol (sym);
 
   /* Retrieve the correct vptr for class objects.  */
-  if (prim_arg->expr->ts.type == BT_CLASS)
+  if (prim_arg->expr->ts.type == BT_CLASS
+      && DECL_P (se->expr))
     {
       gfc_se parmse;
       gfc_expr *class_expr
@@ -5289,7 +5290,7 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
 
       gfc_init_se (&parmse, NULL);
       parmse.data_not_needed = 1;
-      parmse.want_pointer = 1;
+//      parmse.want_pointer = 1;
       gfc_conv_expr (&parmse, class_expr);
       if (!DECL_LANG_SPECIFIC (se->expr))
 	gfc_allocate_lang_decl (se->expr);

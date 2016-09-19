@@ -5806,9 +5806,11 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
   gfc_finish_interface_mapping (&mapping, &se->pre, &se->post);
 
   if (comp)
-    ts = comp->ts;
+    ts = /*comp->ts.type == BT_CLASS ? CLASS_DATA (comp)->ts :*/ comp->ts;
+  else if (sym->ts.type == BT_CLASS)
+    ts = CLASS_DATA (sym)->ts;
   else
-   ts = sym->ts;
+    ts = sym->ts;
 
   if (ts.type == BT_CHARACTER && sym->attr.is_bind_c)
     se->string_length = build_int_cst (gfc_charlen_type_node, 1);
@@ -9466,10 +9468,73 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	gfc_add_block_to_block (&loop.post, &rse.post);
     }
 
-  tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts,
-				 gfc_expr_is_variable (expr2) || scalar_to_array
-				 || expr2->expr_type == EXPR_ARRAY,
-				 !(l_is_temp || init_flag) && dealloc);
+  if (((gfc_is_class_array_ref (expr1, NULL)
+	|| gfc_is_class_scalar_expr (expr1))
+       && !GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr)))
+      || (!init_flag && expr1->ts.type == BT_DERIVED
+	  && !(expr2->ts.type == BT_DERIVED
+	       && expr1->ts.u.derived == expr2->ts.u.derived)))
+    {
+      tree fcn;
+      vec<tree, va_gc> *args = NULL;
+      gfc_expr *vptr_expr;
+      gfc_se classse;
+
+      if (expr2->expr_type != EXPR_VARIABLE && !DECL_P (rse.expr))
+	{
+	  tmp = gfc_create_var (TREE_TYPE (rse.expr), "rhs");
+	  gfc_add_modify (&rse.pre, tmp, rse.expr);
+	  rse.expr = tmp;
+	}
+
+      gfc_init_se (&classse, NULL);
+      /* When lse.expr is an indirect ref of a class data (*(lse._data)), get
+	 the vptr expr by extricating it from the lse.expr.  */
+      if (INDIRECT_REF_P (lse.expr)
+	  && TREE_CODE (TREE_OPERAND (lse.expr, 0)) == COMPONENT_REF
+	  && GFC_CLASS_TYPE_P (TREE_TYPE (TREE_OPERAND (
+					       TREE_OPERAND (lse.expr, 0), 0))))
+	{
+	  vptr_expr = gfc_find_and_cut_at_last_class_ref (expr1);
+	  gfc_add_vptr_component (vptr_expr);
+	}
+      else
+	vptr_expr = gfc_lval_expr_from_sym (gfc_find_vtab (&expr1->ts));
+      classse.want_pointer = 1;
+      gfc_conv_expr (&classse, vptr_expr);
+      fcn = gfc_vptr_copy_get (classse.expr);
+      gfc_free_expr (vptr_expr);
+
+      tmp = GFC_CLASS_TYPE_P (TREE_TYPE (rse.expr))
+	  ? gfc_class_data_get (rse.expr) : rse.expr;
+      if (!POINTER_TYPE_P (TREE_TYPE (tmp))
+	  || (POINTER_TYPE_P (TREE_TYPE (tmp))
+	      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (tmp)))))
+	vec_safe_push (args, gfc_build_addr_expr (NULL_TREE, tmp));
+      else
+	vec_safe_push (args, tmp);
+      tmp = GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr))
+	  ? gfc_class_data_get (lse.expr) : lse.expr;
+      if (!POINTER_TYPE_P (TREE_TYPE (tmp))
+	  || (POINTER_TYPE_P (TREE_TYPE (tmp))
+	      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (tmp)))))
+	vec_safe_push (args, gfc_build_addr_expr (NULL_TREE, tmp));
+      else
+	vec_safe_push (args, tmp);
+
+      /* Add the pre blocks to the body.  */
+      gfc_add_block_to_block (&body, &rse.pre);
+      gfc_add_block_to_block (&body, &lse.pre);
+      tmp = build_call_vec (TREE_TYPE (TREE_TYPE (fcn)), fcn, args);
+      /* Add the post blocks to the body.  */
+      gfc_add_block_to_block (&body, &rse.post);
+      gfc_add_block_to_block (&body, &lse.post);
+    }
+  else
+    tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts,
+				   gfc_expr_is_variable (expr2) || scalar_to_array
+				   || expr2->expr_type == EXPR_ARRAY,
+				   !(l_is_temp || init_flag) && dealloc);
   gfc_add_expr_to_block (&body, tmp);
 
   if (lss == gfc_ss_terminator)
