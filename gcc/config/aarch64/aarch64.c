@@ -712,7 +712,7 @@ static const struct tune_params thunderx_tunings =
   0,	/* max_case_values.  */
   0,	/* cache_line_size.  */
   tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
-  (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
+  (AARCH64_EXTRA_TUNE_SLOW_UNALIGNED_LDPW)	/* tune_flags.  */
 };
 
 static const struct tune_params xgene1_tunings =
@@ -5082,9 +5082,19 @@ aarch64_legitimize_address (rtx x, rtx /* orig_x  */, machine_mode mode)
       /* For offsets aren't a multiple of the access size, the limit is
 	 -256...255.  */
       else if (offset & (GET_MODE_SIZE (mode) - 1))
-	base_offset = (offset + 0x100) & ~0x1ff;
+	{
+	  base_offset = (offset + 0x100) & ~0x1ff;
+
+	  /* BLKmode typically uses LDP of X-registers.  */
+	  if (mode == BLKmode)
+	    base_offset = (offset + 512) & ~0x3ff;
+	}
+      /* Small negative offsets are supported.  */
+      else if (IN_RANGE (offset, -256, 0))
+	base_offset = 0;
+      /* Use 12-bit offset by access size.  */
       else
-	base_offset = offset & ~0xfff;
+	base_offset = offset & (~0xfff * GET_MODE_SIZE (mode));
 
       if (base_offset != 0)
 	{
@@ -13619,6 +13629,15 @@ aarch64_operands_ok_for_ldpstp (rtx *operands, bool load,
   if (MEM_VOLATILE_P (mem_1) || MEM_VOLATILE_P (mem_2))
     return false;
 
+  /* If we have SImode and slow unaligned ldp,
+     check the alignment to be at least 8 byte. */
+  if (mode == SImode
+      && (aarch64_tune_params.extra_tuning_flags
+          & AARCH64_EXTRA_TUNE_SLOW_UNALIGNED_LDPW)
+      && !optimize_size
+      && MEM_ALIGN (mem_1) < 8 * BITS_PER_UNIT)
+    return false;
+
   /* Check if the addresses are in the form of [base+offset].  */
   extract_base_offset_in_addr (mem_1, &base_1, &offset_1);
   if (base_1 == NULL_RTX || offset_1 == NULL_RTX)
@@ -13777,6 +13796,15 @@ aarch64_operands_adjust_ok_for_ldpstp (rtx *operands, bool load,
       if (offval_1 > offval_2 && reg_mentioned_p (reg_4, mem_4))
 	return false;
     }
+
+  /* If we have SImode and slow unaligned ldp,
+     check the alignment to be at least 8 byte. */
+  if (mode == SImode
+      && (aarch64_tune_params.extra_tuning_flags
+          & AARCH64_EXTRA_TUNE_SLOW_UNALIGNED_LDPW)
+      && !optimize_size
+      && MEM_ALIGN (mem_1) < 8 * BITS_PER_UNIT)
+    return false;
 
   if (REG_P (reg_1) && FP_REGNUM_P (REGNO (reg_1)))
     rclass_1 = FP_REGS;
@@ -14159,9 +14187,6 @@ aarch64_optab_supported_p (int op, machine_mode mode1, machine_mode,
 
 #undef TARGET_LIBGCC_CMP_RETURN_MODE
 #define TARGET_LIBGCC_CMP_RETURN_MODE aarch64_libgcc_cmp_return_mode
-
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_true
 
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE aarch64_mangle_type

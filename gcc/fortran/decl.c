@@ -920,9 +920,10 @@ char_len_param_value (gfc_expr **expr, bool *deferred)
 
       t = gfc_reduce_init_expr (e);
 
-      if (!t && (e->ts.type == BT_UNKNOWN
-		 && e->symtree->n.sym->attr.untyped == 1
-		 && e->symtree->n.sym->ns->seen_implicit_none == 1))
+      if (!t && e->ts.type == BT_UNKNOWN
+	  && e->symtree->n.sym->attr.untyped == 1
+	  && (e->symtree->n.sym->ns->seen_implicit_none == 1
+	      || e->symtree->n.sym->ns->parent->seen_implicit_none == 1))
 	{
 	  gfc_free_expr (e);
 	  goto syntax;
@@ -2908,12 +2909,14 @@ done:
 /* Matches a RECORD declaration. */
 
 static match
-match_record_decl (const char *name)
+match_record_decl (char *name)
 {
     locus old_loc;
     old_loc = gfc_current_locus;
+    match m;
 
-    if (gfc_match (" record") == MATCH_YES)
+    m = gfc_match (" record /");
+    if (m == MATCH_YES)
       {
           if (!gfc_option.flag_dec_structure)
             {
@@ -2922,17 +2925,20 @@ match_record_decl (const char *name)
                            "-fdec-structure");
                 return MATCH_ERROR;
             }
-          if (gfc_match (" /%n/", name) != MATCH_YES)
-            {
-                gfc_error ("Structure name expected after RECORD at %C");
-                gfc_current_locus = old_loc;
-                return MATCH_ERROR;
-            }
-          return MATCH_YES;
+          m = gfc_match (" %n/", name);
+          if (m == MATCH_YES)
+            return MATCH_YES;
       }
 
-    gfc_current_locus = old_loc;
+  gfc_current_locus = old_loc;
+  if (gfc_option.flag_dec_structure
+      && (gfc_match (" record% ") == MATCH_YES
+          || gfc_match (" record%t") == MATCH_YES))
+    gfc_error ("Structure name expected after RECORD at %C");
+  if (m == MATCH_NO)
     return MATCH_NO;
+
+  return MATCH_ERROR;
 }
 
 /* Matches a declaration-type-spec (F03:R502).  If successful, sets the ts
@@ -3127,26 +3133,26 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
   else
     {
       /* Match nested STRUCTURE declarations; only valid within another
-         structure declaration.  */
-      m = gfc_match (" structure");
-      if (m == MATCH_ERROR)
-        return MATCH_ERROR;
-      else if (m == MATCH_YES)
-        {
-          if (   gfc_current_state () != COMP_STRUCTURE
-              && gfc_current_state () != COMP_MAP)
-              return MATCH_ERROR;
-
-          m = gfc_match_structure_decl ();
-          if (m == MATCH_YES)
-            {
-              /* gfc_new_block is updated by match_structure_decl.  */
-              ts->type = BT_DERIVED;
-              ts->u.derived = gfc_new_block;
-              return MATCH_YES;
-            }
-          return MATCH_ERROR;
-        }
+	 structure declaration.  */
+      if (gfc_option.flag_dec_structure
+	  && (gfc_current_state () == COMP_STRUCTURE
+	      || gfc_current_state () == COMP_MAP))
+	{
+	  m = gfc_match (" structure");
+	  if (m == MATCH_YES)
+	    {
+	      m = gfc_match_structure_decl ();
+	      if (m == MATCH_YES)
+		{
+		  /* gfc_new_block is updated by match_structure_decl.  */
+		  ts->type = BT_DERIVED;
+		  ts->u.derived = gfc_new_block;
+		  return MATCH_YES;
+		}
+	    }
+	  if (m == MATCH_ERROR)
+	    return MATCH_ERROR;
+	}
 
       /* Match CLASS declarations.  */
       m = gfc_match (" class ( * )");

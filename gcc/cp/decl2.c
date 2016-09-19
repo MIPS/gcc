@@ -3775,7 +3775,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
 				EQ_EXPR,
 				cp_build_unary_op (PREINCREMENT_EXPR,
 						   guard,
-						   /*noconvert=*/1,
+						   /*noconvert=*/true,
 						   tf_warning_or_error),
 				integer_one_node,
 				tf_warning_or_error);
@@ -3785,7 +3785,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
 				EQ_EXPR,
 				cp_build_unary_op (PREDECREMENT_EXPR,
 						   guard,
-						   /*noconvert=*/1,
+						   /*noconvert=*/true,
 						   tf_warning_or_error),
 				integer_zero_node,
 				tf_warning_or_error);
@@ -4488,7 +4488,7 @@ maybe_warn_sized_delete (enum tree_code code)
     {
       tree fn = OVL_CURRENT (ovl);
       /* We're only interested in usual deallocation functions.  */
-      if (!non_placement_deallocation_fn_p (fn))
+      if (!usual_deallocation_fn_p (fn))
 	continue;
       if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
 	unsized = fn;

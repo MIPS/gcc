@@ -1,3 +1,358 @@
+2016-09-19  Jakub Jelinek  <jakub@redhat.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	PR target/77587
+	* gcc.dg/pr77587.c: New test.
+	* gcc.dg/pr77587a.c: New file.
+
+2016-09-19  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray/alloc_comp_4.f90: New test.
+	* gfortran.dg/coarray_38.f90:
+	* gfortran.dg/coarray_alloc_comp_1.f08: New test.
+	* gfortran.dg/coarray_alloc_comp_2.f08: New test.
+	* gfortran.dg/coarray_allocate_7.f08: New test.
+	* gfortran.dg/coarray_allocate_8.f08: New test.
+	* gfortran.dg/coarray_allocate_9.f08: New test.
+	* gfortran.dg/coarray_lib_alloc_1.f90: Adapted scan-tree-dumps to expect
+	new caf_register.
+	* gfortran.dg/coarray_lib_alloc_2.f90: Same.
+	* gfortran.dg/coarray_lib_alloc_3.f90: Same.
+	* gfortran.dg/coarray_lib_comm_1.f90: Adapted scan-tree-dumps to expect
+	get_by_refs.
+	* gfortran.dg/coarray_lib_token_3.f90: Same as for coarray_lib_alloc2.
+	* gfortran.dg/coarray_lock_7.f90: Same.
+	* gfortran.dg/coarray_poly_5.f90: Same.
+	* gfortran.dg/coarray_poly_6.f90: Same.
+	* gfortran.dg/coarray_poly_7.f90: Same.
+	* gfortran.dg/coarray_poly_8.f90: Same.
+	* gfortran.dg/coindexed_1.f90: Changed errors expected.
+
+2016-09-19  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77584
+	* gfortran.dg/dec_structure_15.f90: New testcase.
+
+2016-09-19  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77605
+	* gcc.dg/torture/pr77605.c: New testcase.
+
+2016-09-18  Louis Krupp  <louis.krupp@zoho.com>
+
+	* gfortran.dg/pr68078.f90: XFAIL run on Darwin
+
+2016-09-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	* g++.dg/predict-loop-exit-1.C: Disable early jump threading.
+	* g++.dg/predict-loop-exit-2.C: Disable early jump threading.
+	* g++.dg/predict-loop-exit-3.C: Disable early jump threading.
+	* gcc.dg/tree-ssa/pr69196-1.c: Disable early jump threading.
+	* gcc.dg/tree-ssa/vrp01.c: Disable early jump threading.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2b.c: Disable early jump threading.
+	* gcc.dg/tree-ssa/pr68198.c: Scan ethread dump.
+	* gcc.dg/tree-ssa/ssa-thread-13.c: Scan ethread dump.
+	* gcc.dg/tree-ssa/vrp56.c: Scan ethread dump.
+	* gcc.dg/tree-ssa/vrp92.c: Scan ethread dump.
+	* gcc.dg/uninit-15.c: Swap xfailed and non-xfailed alternative.
+
+2016-09-18  Kirill Yukhin  <kirill.yukhin@gmaile.com>
+
+	* gcc.target/i386/pr68633.c: Fix expected result.
+
+2016-09-17  Louis Krupp  <louis.krupp@gmail.com>
+
+	PR fortran/68078
+	* gfortran.dg/pr68078.f90: New test.
+	* gfortran.dg/set_vm_limit.c: New, called by pr68078.
+
+2016-09-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/77613
+	* gcc.target/powerpc/swaps-p8-25.c: New.
+
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77482
+	* g++.dg/cpp0x/constexpr-77482.C: New test.
+
+	PR c++/77379
+	* g++.dg/abi/abi-tag23.C: Adjust scan-assembler regex for differing
+	thunk offsets.
+	* g++.dg/abi/abi-tag23a.C: Likewise.
+
+	PR c++/77338
+	* g++.dg/cpp0x/decltype-77338.C: New test.
+
+	PR c++/77375
+	* g++.dg/cpp0x/mutable1.C: New test.
+
+2016-09-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77612
+	* gfortran.dg/pr77612.f90: New test.
+
+2016-09-16  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/torture/pr70421.c: Require int32plus.
+
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77475
+	* gcc.target/i386/pr65990.c: Adjust dg-error regexp.
+
+	PR target/77526
+	* gcc.target/i386/pr77526.c: New test.
+
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/77594
+	* gcc.target/i386/pr77594.c: New test.
+
+2016-09-15  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/69963
+	* gfortran.dg/misplaced_implicit_character.f90: New test.
+
+2016-09-15  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/77503
+	* gcc.dg/vect/pr77503.c: New test.
+
+2016-09-15  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77544
+	* c-c++-common/torture/pr77544.c: New testcase.
+
+2016-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77475
+	* gcc.target/i386/pr65990.c: Adjust expected diagnostics.
+	* gcc.dg/march-generic.c: Likewise.
+	* gcc.target/i386/spellcheck-options-1.c: New test.
+	* gcc.target/i386/spellcheck-options-2.c: New test.
+	* gcc.target/i386/spellcheck-options-3.c: New test.
+	* gcc.target/i386/spellcheck-options-4.c: New test.
+
+2016-09-15  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR fortran/72743
+	* gfortran.dg/goacc/pr72743.f90: New test.
+
+2016-09-15  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/fold-reassoc-2.c: Fix dump scan.
+
+2016-09-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77514
+	* gcc.dg/torture/pr77514.c: New testcase.
+
+2016-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77549
+	* g++.dg/lookup/pr77549.C: New test.
+
+2016-09-14  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/gomp/atomic-12.c: Use -Wno-deprecated.
+	* c-c++-common/gomp/atomic-13.c: Likewise.
+	* c-c++-common/gomp/atomic-14.c: Likewise.
+	* g++.dg/cpp1y/lambda-init11.C: Remove invalid code.
+	* g++.dg/cpp1z/bool-increment1.C: New test.
+	* c-c++-common/pr60439.c: Add dg-warning.
+	* g++.dg/expr/bitfield4.C: Likewise.
+	* g++.dg/expr/bitfield5.C: Likewise.
+	* g++.dg/expr/bitfield6.C: Likewise.
+	* g++.dg/expr/bool1.C: Likewise.
+	* g++.dg/expr/bool3.C: Likewise.
+	* g++.dg/expr/lval3.C: Likewise.
+	* g++.dg/expr/lval4.C: Likewise.
+	* g++.old-deja/g++.jason/bool5.C: Likewise.
+	* g++.dg/expr/bitfield3.C: Adjust dg-error.
+	* g++.dg/other/error18.C: Likewise.
+	* g++.dg/gomp/atomic-14.C: Likewise.
+
+2016-09-14  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77539
+	* g++.dg/cpp1y/pr77539.C: New.
+
+2016-09-14  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* g++.dg/cpp0x/lambda/lambda-mangle.C: Move dg-do directive before
+	dg-require.
+	* g++.dg/ext/builtin_alloca.C: Likewise.
+	* g++.dg/template/spec35.C: Likewise.
+	* gcc.dg/builtins-68.c: Likewise.
+	* gcc.misc-tests/gcov-13.c: Likewise.
+	* gcc.misc-tests/gcov-14.c: Likewise.
+
+2016-09-13  Jim MacArthur  <jim.macarthur@codethink.co.uk>
+
+	* gfortran.dg/dec_structure_14.f90: New testcase.
+
+2016-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/68260
+	* c-c++-common/tsan/pr68260.c: New test.
+
+2016-09-13  Joe Seymour  <joe.s@somniumtech.com>
+
+	PR target/70713
+	* gcc.target/msp430/function-attributes-1.c: New test.
+	* gcc.target/msp430/function-attributes-2.c: New test.
+	* gcc.target/msp430/function-attributes-3.c: New test.
+
+2016-09-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp0x/gen-attrs-61.C: New test.
+	* g++.dg/cpp1z/gen-attrs1.C: New test.
+
+	PR tree-optimization/77454
+	* gcc.dg/pr77454.c: New test.
+
+	PR c++/77553
+	* g++.dg/cpp1y/constexpr-77553.C: New test.
+
+2016-09-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Replace rich_location::add_fixit_insert calls
+	with add_fixit_insert_before and add_fixit_insert_after.
+
+2016-09-13  Jason Merrill  <jason@redhat.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	PR c++/77427
+	* g++.dg/pr77427.C: New test.
+
+2016-09-13  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/gcov/gcov-threads-1.C: Use profile_update_atomic
+	effective target.
+	* gcc.dg/tree-prof/val-profiler-threads-1.c: Likewise.
+	* lib/target-supports.exp: Define the new target.
+
+2016-09-12  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.target/aarch64/thunderxloadpair.c: New testcase.
+	* gcc.target/aarch64/thunderxnoloadpair.c: New testcase.
+
+2016-09-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/compat/scalar-by-value-4_x.c: Also test passing of
+	variable arguments.
+	* gcc.dg/compat/scalar-by-value-4_y.c (testva##NAME): New.
+	* gcc.dg/compat/scalar-by-value-4_main.c: Update description comment.
+	* gcc.dg/compat/scalar-return-4_x.c: Also test returning of
+	variable argument.
+	* gcc.dg/compat/scalar-return-4_y.c (testva##NAME): New.
+	* gcc.dg/compat/scalar-return-4_main.c: Update description comment.
+
+2016-09-12  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77496
+	* c-c++-common/warn-ommitted-condop.c: Add more test cases.
+	* g++.dg/ext/pr77496.C: New test.
+	* g++.dg/warn/pr77496.C: New test.
+
+2016-09-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/72858
+	* gcc.dg/format/diagnostic-ranges.c: Update expected suggestions
+	to preserve conversion chars, and to preserve prefix information.
+	* gcc.dg/format/pr72858.c: New test case.
+
+2016-09-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/pr77507.f90: Move to ...
+	* gfortran.dg/ieee/pr77507.f90: here.
+
+2016-08-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/61159
+	* compile/pr61159.c: New testcase
+
+2016-08-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/64316
+	* gcc.dg/ipa/pr63416.c: New testcase.
+
+2016-09-10  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77532
+	* gfortran.dg/dtio_11.f90: new test.
+
+2016-09-10  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77507
+	* gfortran.dg/c_assoc_2.f03: Update error message for revision 240050
+	* gfortran.dg/c_assoc_4.f90: Ditto.
+
+2016-09-10  Tom de Vries  <tom@codesourcery.com>
+
+	PR C/71602
+	* c-c++-common/va-arg-va-list-type.c: New test.
+
+2016-09-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR rtl-optimization/77289
+	* gcc.target/powerpc/pr77289.c: New test.
+
+2016-09-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c/77520
+	PR c/77521
+	* gcc.dg/pr77520.c: New test.
+	* gcc.dg/pr77521.c: New test.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77506
+	* gfortran.dg/pr77506.f90: New test.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77507
+	* gfortran.dg/pr77507.f90: New test.
+
+2016-09-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/limits-width-1.c, gcc.dg/stdint-width-1.c: New tests.
+
+2016-09-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Louis Krupp      <lkrupp@gcc.gnu.org>
+
+	PR fortran/69514
+	* gfortran.dg/pr69514_1.f90: New test.
+	* gfortran.dg/pr69514_2.f90: New test.
+
+2016-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77500
+	* gfortran.dg/gomp/pr77500.f90: New test.
+
+	PR fortran/77516
+	* gfortran.dg/gomp/pr77516.f90: New test.
+
+2016-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77475
+	* gcc.target/aarch64/arch-diagnostics-1.c: Expect error on line 0.
+	* gcc.target/aarch64/arch-diagnostics-2.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-1.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-2.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-3.c: Likewise.
+	* gcc.target/aarch64/cpu-diagnostics-4.c: Likewise.
+
+2016-09-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic_plugin_test_string_literals.c: Include
+	"substring-locations.h".
+
 2016-09-07  Richard Biener  <rguenther@suse.de>
 
 	PR c/77450
