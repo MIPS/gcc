@@ -1,3 +1,9 @@
+2016-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorization_cost):
+	Delete.
+	(rs6000_builtin_vectorization_cost_inner): Likewise.
+
 2016-09-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_builtin_vectorization_cost): Move

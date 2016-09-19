@@ -5158,8 +5158,8 @@ rs6000_builtin_support_vector_misalignment (machine_mode mode,
 
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */
 static int
-rs6000_builtin_vectorization_cost_inner (enum vect_cost_for_stmt type_of_cost,
-					 tree vectype, int misalign)
+rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
+                                   tree vectype, int misalign)
 {
   unsigned elements;
   tree elem_type;
@@ -5287,44 +5287,6 @@ rs6000_builtin_vectorization_cost_inner (enum vect_cost_for_stmt type_of_cost,
       default:
         gcc_unreachable ();
     }
-}
-
-static int
-rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
-				   tree vectype, int misalign)
-{
-  int ret = rs6000_builtin_vectorization_cost_inner (type_of_cost, vectype,
-						     misalign);
-  if (TARGET_DEBUG_COST)
-    {
-      const char *name;
-
-      switch (type_of_cost)
-	{
-	default:			name = "<unknown>";		break;
-	case scalar_stmt:		name = "scalar_stmt";		break;
-	case scalar_load:		name = "scalar_load";		break;
-	case scalar_store:		name = "scalar_store";		break;
-	case vector_stmt:		name = "vector_stmt";		break;
-	case vector_load:		name = "vector_load";		break;
-	case unaligned_load:		name = "unaligned_load";	break;
-	case unaligned_store:		name = "unaligned_store";	break;
-	case vector_store:		name = "vector_store";		break;
-	case vec_to_scalar:		name = "vec_to_scalar";		break;
-	case scalar_to_vec:		name = "scalar_to_vec";		break;
-	case cond_branch_not_taken:	name = "cond_branch_not_taken";	break;
-	case cond_branch_taken:		name = "cond_branch_taken";	break;
-	case vec_perm:			name = "vec_perm";		break;
-	case vec_promote_demote:	name = "vec_promote_demote";	break;
-	case vec_construct:		name = "vec_construct";		break;
-	}
-
-      fprintf (stderr, "rs6000_builtin_vectorization_cost (%s, %s, %d) = %d\n",
-	       name,
-	       (vectype ? GET_MODE_NAME (TYPE_MODE (vectype)) : "<nomode>"),
-	       misalign, ret);
-    }
-  return ret;
 }
 
 /* Implement targetm.vectorize.preferred_simd_mode.  */
