@@ -105,6 +105,7 @@ gfc_run_passes (gfc_namespace *ns)
   doloop_level = 0;
   doloop_warn (ns);
   doloop_list.release ();
+  int w, e;
 
   if (flag_frontend_optimize)
     {
@@ -115,6 +116,10 @@ gfc_run_passes (gfc_namespace *ns)
 
       expr_array.release ();
     }
+
+  gfc_get_errors (&w, &e);
+  if (e > 0)
+   return;
 
   if (flag_realloc_lhs)
     realloc_strings (ns);
@@ -140,7 +145,6 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees,
   gfc_code *co = *c;
   gfc_expr *n;
 
-  *walk_subtrees = 0;
   if (co->op != EXEC_ASSIGN)
     return 0;
 
@@ -154,6 +158,13 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees,
     return 0;
 
   if (!gfc_check_dependency (expr1, expr2, true))
+    return 0;
+
+  /* gfc_check_dependency doesn't always pick up identical expressions.
+     However, eliminating the above sends the compiler into an infinite
+     loop on valid expressions.  Without this check, the gimplifier emits
+     an ICE for a = a, where a is deferred character length.  */
+  if (!gfc_dep_compare_expr (expr1, expr2))
     return 0;
 
   current_code = c;
@@ -624,12 +635,10 @@ create_var (gfc_expr * e)
     {
       gfc_expr *length;
 
+      symbol->ts.u.cl = gfc_new_charlen (ns, NULL);
       length = constant_string_length (e);
       if (length)
-	{
-	  symbol->ts.u.cl = gfc_new_charlen (ns, NULL);
-	  symbol->ts.u.cl->length = length;
-	}
+	symbol->ts.u.cl->length = length;
       else
 	symbol->attr.allocatable = 1;
     }
@@ -701,7 +710,7 @@ cfe_expr_0 (gfc_expr **e, int *walk_subtrees,
 
   /* Don't do this optimization within OMP workshare.  */
 
-  if (in_omp_workshare)
+  if (in_omp_workshare || in_assoc_list)
     {
       *walk_subtrees = 0;
       return 0;
@@ -1209,6 +1218,11 @@ combine_array_constructor (gfc_expr *e)
 
   /* With FORALL, the BLOCKS created by create_var will cause an ICE.  */
   if (forall_level > 0)
+    return false;
+
+  /* Inside an iterator, things can get hairy; we are likely to create
+     an invalid temporary variable.  */
+  if (iterator_level > 0)
     return false;
 
   op1 = e->value.op.op1;

@@ -2204,7 +2204,6 @@ fold_convertible_p (const_tree type, const_tree arg)
 
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
-    case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case VOID_TYPE:
       return TREE_CODE (type) == TREE_CODE (orig);
@@ -12121,11 +12120,15 @@ fold_binary_loc (location_t loc,
 	      || TREE_CODE (arg0) == BIT_IOR_EXPR
 	      || TREE_CODE (arg0) == BIT_XOR_EXPR)
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-	return fold_build2_loc (loc, TREE_CODE (arg0), type,
-			    fold_build2_loc (loc, code, type,
-					 TREE_OPERAND (arg0, 0), arg1),
-			    fold_build2_loc (loc, code, type,
-					 TREE_OPERAND (arg0, 1), arg1));
+	{
+	  tree arg00 = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
+	  tree arg01 = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 1));
+	  return fold_build2_loc (loc, TREE_CODE (arg0), type,
+				  fold_build2_loc (loc, code, type,
+						   arg00, arg1),
+				  fold_build2_loc (loc, code, type,
+						   arg01, arg1));
+	}
 
       /* Two consecutive rotates adding up to the some integer
 	 multiple of the precision of the type can be ignored.  */
@@ -12134,7 +12137,7 @@ fold_binary_loc (location_t loc,
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
 	  && wi::umod_trunc (wi::add (arg1, TREE_OPERAND (arg0, 1)),
 			     prec) == 0)
-	return TREE_OPERAND (arg0, 0);
+	return fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
 
       return NULL_TREE;
 

@@ -1,3 +1,156 @@
+2016-08-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/23_containers/map/77334.cc: Use dg-options for C++11.
+
+	PR libstdc++/77334
+	* include/bits/stl_tree.h (_Rb_tree::_M_move_assign): New functions.
+	(_Rb_tree::operator=(_Rb_tree&&)): Dispatch to _M_move_assign.
+	Include _Compare in noexcept.
+	* testsuite/23_containers/map/77334.cc: New test.
+
+2016-08-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/api.xml: Replace hardcoded links for specific versions with
+	link to docs for all releases.
+	* doc/html/*: Regenerate.
+
+	* include/bits/stl_iterator.h
+	(operator-(reverse_iterator<Iter>, reverse_iterator<Iter>): Constrain
+	for C++11 and later.
+	* testsuite/24_iterators/reverse_iterator/71771.cc: New test.
+
+2016-08-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2016-08-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/functional (function::_Callable): Use lvalue in
+	result_of expression.
+	* testsuite/20_util/function/cons/refqual.cc: New test.
+
+	Backport from mainline
+	2016-07-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71964
+	* include/bits/stl_tree.h (_Rb_tree(_Rb_tree&&)): Move allocator.
+	* testsuite/23_containers/set/allocator/71964.cc: New test.
+
+	Backport from mainline
+	2016-08-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/21_strings/basic_string/allocator/wchar_t/copy.cc:
+	Remove reundant check for _GLIBCXX_USE_WCHAR_T and fix char type.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/copy_assign.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/minimal.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/move.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/move_assign.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/noexcept.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/swap.cc:
+	Likewise.
+
+	Backport from mainline
+	2016-01-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/69243
+	* include/std/functional (_Function_base::_M_not_empty_function):
+	Change overloads for pointers to take arguments by value.
+	* testsuite/20_util/function/cons/57465.cc: Add tests for
+	pointer-to-member cases.
+
+	* doc/xml/manual/status_cxx2011.xml: Change "mainline GCC SVN" to
+	refer to the release series.
+	* doc/xml/manual/status_cxx2014.xml: Likewise.
+	* doc/html/manual/status.xml: Regenerate.
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_filesystem_ts): Improve
+	comments.
+
+2016-08-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Add
+	-fno-lto to additional flags for compiling libtestc++.a objects.
+
+2016-07-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2016-06-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71320
+	* src/filesystem/ops.cc (permissions(const path&, perms, error_code&)):
+	Add or remove permissions according to perms argument.
+	* testsuite/experimental/filesystem/operations/permissions.cc: New
+	test.
+
+2016-07-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2015-10-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/21_strings/basic_string/allocator/char/minimal.cc: Guard
+	explicit instantiation with check for new ABI.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/minimal.cc:
+	Likewise. Use wchar_t as char_type.
+
+	Backport from mainline
+	2015-09-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/58265
+	* doc/xml/manual/intro.xml: Document LWG 2063 and 2064 resolutions.
+	* doc/html/manual/bugs.html: Regenerate.
+	* include/bits/basic_string.h (basic_string): Implement N4258. Add
+	correct exception-specifications and propagate allocators correctly.
+	* include/bits/basic_string.tcc (basic_string::swap): Propagate
+	allocators correctly.
+	* include/debug/string (__gnu_debug::basic_string): Add correct
+	exceptions-specifications and allcoator-extended constructors.
+	* testsuite/21_strings/basic_string/allocator/char/copy.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/copy_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/char/minimal.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/move.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/move_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/char/noexcept.cc: New.
+	* testsuite/21_strings/basic_string/allocator/char/swap.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/copy.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/copy_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/minimal.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/move.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/move_assign.cc:
+	New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/noexcept.cc: New.
+	* testsuite/21_strings/basic_string/allocator/wchar_t/swap.cc: New.
+	* testsuite/util/testsuite_allocator.h (tracker_allocator): Define
+	defaulted assignment operators.
+
+2016-07-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2015-06-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/html/ext/lwg-active.html: Update to R93.
+	* doc/html/ext/lwg-closed.html: Likewise.
+	* doc/html/ext/lwg-defects.html: Likewise.
+	* doc/html/manual/*: Regenerate.
+	* doc/xml/manual/intro.xml: Document status of several DRs.
+
+2016-07-04  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+        2016-07-04  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/71313
+	* src/filesystem/ops.cc (remove_all(const path&, error_code&)):
+	Call remove_all for children of a directory.
+	* testsuite/experimental/filesystem/operations/create_directories.cc:
+	Adjust.
+
 2016-06-03  Release Manager
 
 	* GCC 5.4.0 released.
