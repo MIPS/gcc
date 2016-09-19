@@ -1635,6 +1635,15 @@ Individual elements in a vector constant are accessed with the macro
 where @var{v} is the vector constant and @var{n} is the element
 desired.
 
+@findex const_param
+@item (const_param:@var{m} @var{n})
+Represents a target-specific parameter whose value is a runtime invariant
+but whose value is not known at compile time.  @var{n} is a 0-based identifier
+for the parameter.  If @var{n} + 1 is less than @code{NUM_POLY_INT_COEFFS},
+the parameter is a nonnegative integer that is multiplied by coefficient
+@var{n} + 1 in a @code{poly_int} value.  Other identifiers have no defined
+meaning; the target can use them for any purpose and with any mode.
+
 @findex const_string
 @item (const_string @var{str})
 Represents a constant string with value @var{str}.  Currently this is
