@@ -1,7 +1,8 @@
 
 	.set	nomips16
+#if __mips_isa_rev <= 6
 	.set	nomicromips
-	.set	noreorder
+#endif
 
 	.section	.text.__mips_epi, "ax", @progbits
 	.align	2
@@ -36,8 +37,8 @@ __mips_epi_3:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addu	$sp,$sp,$9
+	jr	$31
 	.end	__mips_epi_9
 	.size	__mips_epi_9, __mips_epi_9-.
 
@@ -57,8 +58,8 @@ __mips_epi_9_ra:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addiu	$sp,$sp,40
+	jr	$31
 	.end	__mips_epi_9_ra
 	.size	__mips_epi_9_ra, __mips_epi_9_ra-.
 
@@ -77,8 +78,8 @@ __mips_epi_8_ra:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addiu	$sp,$sp,36
+	jr	$31
 	.end	__mips_epi_8_ra
 	.size	__mips_epi_8_ra, __mips_epi_8_ra-.
 
@@ -96,8 +97,8 @@ __mips_epi_7_ra:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addiu	$sp,$sp,32
+	jr	$31
 	.end	__mips_epi_7_ra
 	.size	__mips_epi_7_ra, __mips_epi_7_ra-.
 
@@ -114,8 +115,8 @@ __mips_epi_6_ra:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addiu	$sp,$sp,28
+	jr	$31
 	.end	__mips_epi_6_ra
 	.size	__mips_epi_6_ra, __mips_epi_6_ra-.
 
@@ -131,8 +132,8 @@ __mips_epi_5_ra:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addiu	$sp,$sp,24
+	jr	$31
 	.end	__mips_epi_5_ra
 	.size	__mips_epi_5_ra, __mips_epi_5_ra-.
 
@@ -147,8 +148,8 @@ __mips_epi_4_ra:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addiu	$sp,$sp,20
+	jr	$31
 	.end	__mips_epi_4_ra
 	.size	__mips_epi_4_ra, __mips_epi_4_ra-.
 
@@ -162,8 +163,8 @@ __mips_epi_3_ra:
 	lw	$18,8($sp)
 	lw	$17,4($sp)
 	lw	$16,0($sp)
-	jr	$31
 	addiu	$sp,$sp,16
+	jr	$31
 	.end	__mips_epi_3_ra
 	.size	__mips_epi_3_ra, __mips_epi_3_ra-.
 
