@@ -1685,7 +1685,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
       if (tag_exists_p (RECORD_TYPE, name))
 	{
 	  /* This is not C++ with its implicit typedef.  */
-	  richloc.add_fixit_insert ("struct ");
+	  richloc.add_fixit_insert_before ("struct ");
 	  error_at_rich_loc (&richloc,
 			     "unknown type name %qE;"
 			     " use %<struct%> keyword to refer to the type",
@@ -1693,7 +1693,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	}
       else if (tag_exists_p (UNION_TYPE, name))
 	{
-	  richloc.add_fixit_insert ("union ");
+	  richloc.add_fixit_insert_before ("union ");
 	  error_at_rich_loc (&richloc,
 			     "unknown type name %qE;"
 			     " use %<union%> keyword to refer to the type",
@@ -1701,7 +1701,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	}
       else if (tag_exists_p (ENUMERAL_TYPE, name))
 	{
-	  richloc.add_fixit_insert ("enum ");
+	  richloc.add_fixit_insert_before ("enum ");
 	  error_at_rich_loc (&richloc,
 			     "unknown type name %qE;"
 			     " use %<enum%> keyword to refer to the type",
@@ -6425,14 +6425,17 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after,
       tree eptype = NULL_TREE;
 
       middle_loc = c_parser_peek_token (parser)->location;
-      pedwarn (middle_loc, OPT_Wpedantic, 
+      pedwarn (middle_loc, OPT_Wpedantic,
 	       "ISO C forbids omitting the middle term of a ?: expression");
-      warn_for_omitted_condop (middle_loc, cond.value);
       if (TREE_CODE (cond.value) == EXCESS_PRECISION_EXPR)
 	{
 	  eptype = TREE_TYPE (cond.value);
 	  cond.value = TREE_OPERAND (cond.value, 0);
 	}
+      tree e = cond.value;
+      while (TREE_CODE (e) == COMPOUND_EXPR)
+	e = TREE_OPERAND (e, 1);
+      warn_for_omitted_condop (middle_loc, e);
       /* Make sure first operand is calculated only once.  */
       exp1.value = c_save_expr (default_conversion (cond.value));
       if (eptype)
@@ -8475,8 +8478,8 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	  else
 	    {
 	      expr = default_function_array_read_conversion (expr_loc, expr);
-	      expr.value = build_unary_op (op_loc,
-					   POSTINCREMENT_EXPR, expr.value, 0);
+	      expr.value = build_unary_op (op_loc, POSTINCREMENT_EXPR,
+					   expr.value, false);
 	    }
 	  set_c_expr_source_range (&expr, start, finish);
 	  expr.original_code = ERROR_MARK;
@@ -8494,8 +8497,8 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	  else
 	    {
 	      expr = default_function_array_read_conversion (expr_loc, expr);
-	      expr.value = build_unary_op (op_loc,
-					   POSTDECREMENT_EXPR, expr.value, 0);
+	      expr.value = build_unary_op (op_loc, POSTDECREMENT_EXPR,
+					   expr.value, false);
 	    }
 	  set_c_expr_source_range (&expr, start, finish);
 	  expr.original_code = ERROR_MARK;

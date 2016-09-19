@@ -4302,7 +4302,9 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 	{
 	  tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				    OMP_CLAUSE_SAFELEN);
-	  if (c && TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST)
+	  if (c
+	      && (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST
+		  || tree_int_cst_sgn (OMP_CLAUSE_SAFELEN_EXPR (c)) != 1))
 	    max_vf = 1;
 	  else if (c && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
 					  max_vf) == -1)
@@ -19450,7 +19452,7 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
     }
   else
     {
-      unsigned outermost = this_mask & -this_mask;
+      unsigned outermost = least_bit_hwi (this_mask);
 
       if (outermost && outermost <= outer_mask)
 	{
@@ -19531,7 +19533,7 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
       
       /* Determine the outermost partitioning used within this loop. */
       this_mask = loop->inner | GOMP_DIM_MASK (GOMP_DIM_MAX);
-      this_mask = (this_mask & -this_mask);
+      this_mask = least_bit_hwi (this_mask);
 
       /* Pick the partitioning just inside that one.  */
       this_mask >>= 1;
