@@ -2115,9 +2115,10 @@ mips*-mti-elf*)
 mips*-img-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
 	tmake_file="mips/t-mips-multi"
-	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37 MIPS_ABI_DEFAULT=ABI_32"
-	with_arch_32="mips32r6"
-	with_arch_64="mips64r6"
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_32"
+	with_arch_32="mips32r7"
+	with_arch_64="mips64r7"
+	with_micromips="yes"
 	TM_MULTILIB_EXCEPTIONS_CONFIG="*mglibc* *muclibc* *mandroid*"
 	;;
 mips*-sde-elf*)
@@ -3974,7 +3975,7 @@ case "${target}" in
 		;;
 
 	mips*-*-*)
-		supported_defaults="abi arch arch_32 arch_64 float fpu nan fp_32 odd_spreg_32 tune tune_32 tune_64 divide llsc mips-plt synci"
+		supported_defaults="abi arch arch_32 arch_64 micromips float fpu nan fp_32 odd_spreg_32 tune tune_32 tune_64 divide llsc mips-plt synci"
 
 		case ${with_float} in
 		"" | soft | hard)
@@ -4028,6 +4029,16 @@ case "${target}" in
 			;;
 		*)
 			echo "Unknown odd-spreg-32 type used in --with-odd-spreg-32=$with_odd_spreg_32" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_micromips} in
+		"" | yes)
+			# OK
+			;;
+		*)
+			echo "Unknown option used in --with-micromips=$with_abi" 1>&2
 			exit 1
 			;;
 		esac
@@ -4540,7 +4551,7 @@ case ${target} in
 esac
 
 t=
-all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 schedule float mode fpu nan fp_32 odd_spreg_32 divide llsc mips-plt synci tls"
+all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 micromips schedule float mode fpu nan fp_32 odd_spreg_32 divide llsc mips-plt synci tls"
 for option in $all_defaults
 do
 	eval "val=\$with_"`echo $option | sed s/-/_/g`

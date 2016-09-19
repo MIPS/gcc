@@ -876,6 +876,7 @@ struct mips_cpu_info {
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"tune_32", "%{" OPT_ARCH32 ":%{!mtune=*:-mtune=%(VALUE)}}" }, \
   {"tune_64", "%{" OPT_ARCH64 ":%{!mtune=*:-mtune=%(VALUE)}}" }, \
+  {"micromips", "%{!mmicromips:%{!mno-micromips:-mmicromips}}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
   {"fpu", "%{!msoft-float:%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}}" }, \
@@ -917,6 +918,7 @@ struct mips_cpu_info {
 	       %{!mno-new-slti-sltiu: -mnew-slti-sltiu} \
 	       %{!mno-reduce-ldst-offsets: -mreduce-ldst-offsets} \
 	       %{!mno-add-ualw-uasw: -madd-ualw-uasw} \
+	       %{!mcheck-zero-division: -mno-check-zero-division} \
 	       %{!mno-add-new-addiur2: -madd-new-addiur2}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
