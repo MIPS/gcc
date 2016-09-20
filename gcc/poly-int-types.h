@@ -50,4 +50,13 @@ typedef poly_int<NUM_POLY_INT_COEFFS, widest_int> poly_widest_int;
    of bytes in size.  */
 #define bits_to_bytes_round_up(X) force_align_up_and_div (X, BITS_PER_UNIT)
 
+/* Return the number of bits in bit quantity X that do not belong to
+   whole bytes.  This is equivalent to:
+
+       X - bits_to_bytes_round_down (X) * BITS_PER_UNIT
+
+   This is safe because non-constant mode sizes must be a whole number
+   of bytes in size.  */
+#define num_trailing_bits(X) force_get_misalignment (X, BITS_PER_UNIT)
+
 #endif
