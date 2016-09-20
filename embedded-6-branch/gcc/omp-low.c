@@ -4300,7 +4300,9 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 	{
 	  tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				    OMP_CLAUSE_SAFELEN);
-	  if (c && TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST)
+	  if (c
+	      && (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST
+		  || tree_int_cst_sgn (OMP_CLAUSE_SAFELEN_EXPR (c)) != 1))
 	    max_vf = 1;
 	  else if (c && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
 					  max_vf) == -1)
@@ -13352,9 +13354,15 @@ expand_omp_target (struct omp_region *region)
       make_edge (else_bb, new_bb, EDGE_FALLTHRU);
 
       device = tmp_var;
+      gsi = gsi_last_bb (new_bb);
+    }
+  else
+    {
+      gsi = gsi_last_bb (new_bb);
+      device = force_gimple_operand_gsi (&gsi, device, true, NULL_TREE,
+					 true, GSI_SAME_STMT);
     }
 
-  gsi = gsi_last_bb (new_bb);
   t = gimple_omp_target_data_arg (entry_stmt);
   if (t == NULL)
     {
