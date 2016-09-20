@@ -1,3 +1,10 @@
+2016-09-20  Tobias Burnus  <burnus@net-b.de>
+
+	* Makefile.am : Include and use ISO_Fortran_binding.h.
+	* Makefile.am : Regenerate.
+	* generated/shape_i1.c : Regenerate.
+	* generated/shape_i2.c : Regenerate.
+
 2016-09-07  Paul Thomas  <pault@gcc.gnu.org>
 
 	* io/transfer.c (set_nml_var): Update argument list.

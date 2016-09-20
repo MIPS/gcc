@@ -47,12 +47,12 @@ shape_1 (gfc_array_i1 * const restrict ret,
 
   if (ret->base_addr == NULL)
     {
-      GFC_DIMENSION_SET(ret->dim[0], 0, rank - 1, 1);
+      GFC_DIMENSION_SET(ret->dim[0], 0, rank, sizeof (GFC_INTEGER_1));
       ret->offset = 0;
       ret->base_addr = xmallocarray (rank, sizeof (GFC_INTEGER_1));
     }
 
-  stride = GFC_DESCRIPTOR_STRIDE(ret,0);
+  stride = GFC_DESCRIPTOR_STRIDE_TYPEKNOWN(ret,0);
 
   if (GFC_DESCRIPTOR_EXTENT(ret,0) < 1)
     return;

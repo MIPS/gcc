@@ -2,8 +2,8 @@
 # @configure_input@
 
 # Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-# 2003, 2004, 2005, 2006, 2007, 2008, 2009  Free Software Foundation,
-# Inc.
+# 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Free Software
+# Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -112,6 +112,7 @@ target_triplet = @target@
 @LIBGFOR_MINIMAL_FALSE@runtime/convert_char.c \
 @LIBGFOR_MINIMAL_FALSE@runtime/environ.c \
 @LIBGFOR_MINIMAL_FALSE@runtime/error.c \
+@LIBGFOR_MINIMAL_FALSE@runtime/iso_ts29113.c \
 @LIBGFOR_MINIMAL_FALSE@runtime/fpu.c \
 @LIBGFOR_MINIMAL_FALSE@runtime/main.c \
 @LIBGFOR_MINIMAL_FALSE@runtime/pause.c \
@@ -167,9 +168,15 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
 am__installdirs = "$(DESTDIR)$(cafexeclibdir)" \
 	"$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(toolexeclibdir)" \
-	"$(DESTDIR)$(fincludedir)"
+	"$(DESTDIR)$(fincludedir)" "$(DESTDIR)$(libsubincludedir)"
 LTLIBRARIES = $(cafexeclib_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 libcaf_single_la_LIBADD =
 am_libcaf_single_la_OBJECTS = single.lo
@@ -177,8 +184,8 @@ libcaf_single_la_OBJECTS = $(am_libcaf_single_la_OBJECTS)
 libgfortran_la_LIBADD =
 @LIBGFOR_MINIMAL_TRUE@am__objects_1 = minimal.lo
 @LIBGFOR_MINIMAL_FALSE@am__objects_2 = backtrace.lo convert_char.lo \
-@LIBGFOR_MINIMAL_FALSE@	environ.lo error.lo fpu.lo main.lo \
-@LIBGFOR_MINIMAL_FALSE@	pause.lo stop.lo
+@LIBGFOR_MINIMAL_FALSE@	environ.lo error.lo iso_ts29113.lo \
+@LIBGFOR_MINIMAL_FALSE@	fpu.lo main.lo pause.lo stop.lo
 am__objects_3 = bounds.lo compile_options.lo memory.lo string.lo \
 	select.lo $(am__objects_1) $(am__objects_2)
 am__objects_4 = all_l1.lo all_l2.lo all_l4.lo all_l8.lo all_l16.lo
@@ -425,7 +432,7 @@ am__can_run_installinfo = \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
 DATA = $(toolexeclib_DATA)
-HEADERS = $(nodist_finclude_HEADERS)
+HEADERS = $(nodist_finclude_HEADERS) $(nodist_libsubinclude_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 ACLOCAL = @ACLOCAL@
@@ -579,13 +586,13 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I .. -I ../config
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
-libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 @LIBGFOR_USE_SYMVER_FALSE@version_arg = 
 @LIBGFOR_USE_SYMVER_GNU_TRUE@@LIBGFOR_USE_SYMVER_TRUE@version_arg = -Wl,--version-script=$(srcdir)/gfortran.map
 @LIBGFOR_USE_SYMVER_SUN_TRUE@@LIBGFOR_USE_SYMVER_TRUE@version_arg = -Wl,-M,gfortran.map-sun
 @LIBGFOR_USE_SYMVER_FALSE@version_dep = 
 @LIBGFOR_USE_SYMVER_GNU_TRUE@@LIBGFOR_USE_SYMVER_TRUE@version_dep = $(srcdir)/gfortran.map
 @LIBGFOR_USE_SYMVER_SUN_TRUE@@LIBGFOR_USE_SYMVER_TRUE@version_dep = gfortran.map-sun
+libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 nodist_libsubinclude_HEADERS = ISO_Fortran_binding.h
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS)) \
 	    $(lt_host_flags)
@@ -650,7 +657,7 @@ gfor_helper_src = intrinsics/associated.c intrinsics/abort.c \
 @IEEE_SUPPORT_TRUE@ieee/ieee_features.F90
 
 gfor_src = runtime/bounds.c runtime/compile_options.c runtime/memory.c \
-	runtime/string.c runtime/iso_ts29113.c runtime/select.c $(am__append_5) \
+	runtime/string.c runtime/select.c $(am__append_5) \
 	$(am__append_6)
 i_all_c = \
 $(srcdir)/generated/all_l1.c \
@@ -1311,7 +1318,7 @@ all: $(BUILT_SOURCES) config.h
 
 .SUFFIXES:
 .SUFFIXES: .F90 .c .f90 .lo .o .obj
-am--refresh:
+am--refresh: Makefile
 	@:
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
@@ -1347,10 +1354,8 @@ $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 $(am__aclocal_m4_deps):
 
 config.h: stamp-h1
-	@if test ! -f $@; then \
-	  rm -f stamp-h1; \
-	  $(MAKE) $(AM_MAKEFLAGS) stamp-h1; \
-	else :; fi
+	@if test ! -f $@; then rm -f stamp-h1; else :; fi
+	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) stamp-h1; else :; fi
 
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
@@ -1428,9 +1433,9 @@ clean-toolexeclibLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
-libcaf_single.la: $(libcaf_single_la_OBJECTS) $(libcaf_single_la_DEPENDENCIES) 
+libcaf_single.la: $(libcaf_single_la_OBJECTS) $(libcaf_single_la_DEPENDENCIES) $(EXTRA_libcaf_single_la_DEPENDENCIES) 
 	$(libcaf_single_la_LINK) -rpath $(cafexeclibdir) $(libcaf_single_la_OBJECTS) $(libcaf_single_la_LIBADD) $(LIBS)
-libgfortran.la: $(libgfortran_la_OBJECTS) $(libgfortran_la_DEPENDENCIES) 
+libgfortran.la: $(libgfortran_la_OBJECTS) $(libgfortran_la_DEPENDENCIES) $(EXTRA_libgfortran_la_DEPENDENCIES) 
 	$(libgfortran_la_LINK) -rpath $(toolexeclibdir) $(libgfortran_la_OBJECTS) $(libgfortran_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
@@ -5738,21 +5743,7 @@ uninstall-toolexeclibDATA:
 	@$(NORMAL_UNINSTALL)
 	@list='$(toolexeclib_DATA)'; test -n "$(toolexeclibdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(toolexeclibdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(toolexeclibdir)" && rm -f $$files
-install-nodist_libsubincludeHEADERS: $(nodist_libsubinclude_HEADERS)
-	@$(NORMAL_INSTALL)
-	test -z "$(libsubincludedir)" || $(MKDIR_P) "$(DESTDIR)$(libsubincludedir)"
-	@list='$(nodist_libsubinclude_HEADERS)'; test -n "$(libsubincludedir)" || list=; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(libsubincludedir)'"; \
-	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(libsubincludedir)" || exit $$?; \
-	done
+	dir='$(DESTDIR)$(toolexeclibdir)'; $(am__uninstall_files_from_dir)
 install-nodist_fincludeHEADERS: $(nodist_finclude_HEADERS)
 	@$(NORMAL_INSTALL)
 	@list='$(nodist_finclude_HEADERS)'; test -n "$(fincludedir)" || list=; \
@@ -5774,6 +5765,27 @@ uninstall-nodist_fincludeHEADERS:
 	@list='$(nodist_finclude_HEADERS)'; test -n "$(fincludedir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	dir='$(DESTDIR)$(fincludedir)'; $(am__uninstall_files_from_dir)
+install-nodist_libsubincludeHEADERS: $(nodist_libsubinclude_HEADERS)
+	@$(NORMAL_INSTALL)
+	@list='$(nodist_libsubinclude_HEADERS)'; test -n "$(libsubincludedir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(libsubincludedir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(libsubincludedir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(libsubincludedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(libsubincludedir)" || exit $$?; \
+	done
+
+uninstall-nodist_libsubincludeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(nodist_libsubinclude_HEADERS)'; test -n "$(libsubincludedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(libsubincludedir)'; $(am__uninstall_files_from_dir)
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -5831,7 +5843,7 @@ check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-am
 all-am: Makefile $(LTLIBRARIES) all-multi $(DATA) $(HEADERS) config.h
 installdirs:
-	for dir in "$(DESTDIR)$(cafexeclibdir)" "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(fincludedir)"; do \
+	for dir in "$(DESTDIR)$(cafexeclibdir)" "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(fincludedir)" "$(DESTDIR)$(libsubincludedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: $(BUILT_SOURCES)
@@ -5845,10 +5857,15 @@ install-am: all-am
 
 installcheck: installcheck-am
 install-strip:
-	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
-	  install_sh_PROGRAM="$(INSTALL_STRIP_PROGRAM)" INSTALL_STRIP_FLAG=-s \
-	  `test -z '$(STRIP)' || \
-	    echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
+	if test -z '$(STRIP)'; then \
+	  $(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
+	    install_sh_PROGRAM="$(INSTALL_STRIP_PROGRAM)" INSTALL_STRIP_FLAG=-s \
+	      install; \
+	else \
+	  $(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
+	    install_sh_PROGRAM="$(INSTALL_STRIP_PROGRAM)" INSTALL_STRIP_FLAG=-s \
+	    "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'" install; \
+	fi
 mostlyclean-generic:
 
 clean-generic:
@@ -5885,7 +5902,8 @@ info: info-am
 
 info-am:
 
-install-data-am: install-nodist_fincludeHEADERS
+install-data-am: install-nodist_fincludeHEADERS \
+	install-nodist_libsubincludeHEADERS
 
 install-dvi: install-dvi-am
 
@@ -5935,8 +5953,9 @@ ps: ps-am
 ps-am:
 
 uninstall-am: uninstall-cafexeclibLTLIBRARIES \
-	uninstall-nodist_fincludeHEADERS uninstall-toolexeclibDATA \
-	uninstall-toolexeclibLTLIBRARIES
+	uninstall-nodist_fincludeHEADERS \
+	uninstall-nodist_libsubincludeHEADERS \
+	uninstall-toolexeclibDATA uninstall-toolexeclibLTLIBRARIES
 
 .MAKE: all all-multi check clean-multi distclean-multi install \
 	install-am install-multi install-strip maintainer-clean-multi \
@@ -5952,16 +5971,17 @@ uninstall-am: uninstall-cafexeclibLTLIBRARIES \
 	install-dvi install-dvi-am install-exec install-exec-am \
 	install-html install-html-am install-info install-info-am \
 	install-man install-multi install-nodist_fincludeHEADERS \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip install-toolexeclibDATA \
+	install-nodist_libsubincludeHEADERS install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip install-toolexeclibDATA \
 	install-toolexeclibLTLIBRARIES installcheck installcheck-am \
 	installdirs maintainer-clean maintainer-clean-generic \
 	maintainer-clean-multi mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool mostlyclean-multi pdf \
 	pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-cafexeclibLTLIBRARIES \
-	uninstall-nodist_fincludeHEADERS uninstall-toolexeclibDATA \
-	uninstall-toolexeclibLTLIBRARIES
+	uninstall-nodist_fincludeHEADERS \
+	uninstall-nodist_libsubincludeHEADERS \
+	uninstall-toolexeclibDATA uninstall-toolexeclibLTLIBRARIES
 
 @LIBGFOR_USE_SYMVER_SUN_TRUE@@LIBGFOR_USE_SYMVER_TRUE@gfortran.map-sun : $(srcdir)/gfortran.map \
 @LIBGFOR_USE_SYMVER_SUN_TRUE@@LIBGFOR_USE_SYMVER_TRUE@		$(top_srcdir)/../contrib/make_sunver.pl \

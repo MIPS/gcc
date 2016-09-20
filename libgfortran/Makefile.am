@@ -6,8 +6,6 @@ ACLOCAL_AMFLAGS = -I .. -I ../config
 ## May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
-libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
-
 ## Symbol versioning (copied from libssp).
 if LIBGFOR_USE_SYMVER
 if LIBGFOR_USE_SYMVER_GNU
@@ -32,6 +30,7 @@ version_arg =
 version_dep =
 endif
 
+libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 nodist_libsubinclude_HEADERS = ISO_Fortran_binding.h
 
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS)) \
