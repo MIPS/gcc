@@ -9486,7 +9486,7 @@ the pointer points.
 @end smallexample
 
 The object pointed to by the first argument must be of integer or pointer
-type.  It must not be a Boolean type.
+type.  It must not be a boolean type.
 
 @emph{Note:} GCC 4.4 and later implement @code{__sync_fetch_and_nand}
 as @code{*ptr = ~(tmp & value)} instead of @code{*ptr = ~tmp & value}.
@@ -9772,7 +9772,7 @@ they are not scaled by the size of the type to which the pointer points.
 @end smallexample
 
 The object pointed to by the first argument must be of integer or pointer
-type.  It must not be a Boolean type.  All memory orders are valid.
+type.  It must not be a boolean type.  All memory orders are valid.
 
 @end deftypefn
 
@@ -9881,10 +9881,10 @@ together with checking whether the operations overflowed.
 @deftypefn {Built-in Function} bool __builtin_add_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
 @deftypefnx {Built-in Function} bool __builtin_sadd_overflow (int a, int b, int *res)
 @deftypefnx {Built-in Function} bool __builtin_saddl_overflow (long int a, long int b, long int *res)
-@deftypefnx {Built-in Function} bool __builtin_saddll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_saddll_overflow (long long int a, long long int b, long long int *res)
 @deftypefnx {Built-in Function} bool __builtin_uadd_overflow (unsigned int a, unsigned int b, unsigned int *res)
 @deftypefnx {Built-in Function} bool __builtin_uaddl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
-@deftypefnx {Built-in Function} bool __builtin_uaddll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_uaddll_overflow (unsigned long long int a, unsigned long long int b, unsigned long long int *res)
 
 These built-in functions promote the first two operands into infinite precision signed
 type and perform addition on those promoted operands.  The result is then
@@ -9896,7 +9896,7 @@ behavior for all argument values.
 
 The first built-in function allows arbitrary integral types for operands and
 the result type must be pointer to some integral type other than enumerated or
-Boolean type, the rest of the built-in functions have explicit integer types.
+boolean type, the rest of the built-in functions have explicit integer types.
 
 The compiler will attempt to use hardware instructions to implement
 these built-in functions where possible, like conditional jump on overflow
@@ -9907,10 +9907,10 @@ after addition, conditional jump on carry etc.
 @deftypefn {Built-in Function} bool __builtin_sub_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
 @deftypefnx {Built-in Function} bool __builtin_ssub_overflow (int a, int b, int *res)
 @deftypefnx {Built-in Function} bool __builtin_ssubl_overflow (long int a, long int b, long int *res)
-@deftypefnx {Built-in Function} bool __builtin_ssubll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_ssubll_overflow (long long int a, long long int b, long long int *res)
 @deftypefnx {Built-in Function} bool __builtin_usub_overflow (unsigned int a, unsigned int b, unsigned int *res)
 @deftypefnx {Built-in Function} bool __builtin_usubl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
-@deftypefnx {Built-in Function} bool __builtin_usubll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_usubll_overflow (unsigned long long int a, unsigned long long int b, unsigned long long int *res)
 
 These built-in functions are similar to the add overflow checking built-in
 functions above, except they perform subtraction, subtract the second argument
@@ -9921,10 +9921,10 @@ from the first one, instead of addition.
 @deftypefn {Built-in Function} bool __builtin_mul_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
 @deftypefnx {Built-in Function} bool __builtin_smul_overflow (int a, int b, int *res)
 @deftypefnx {Built-in Function} bool __builtin_smull_overflow (long int a, long int b, long int *res)
-@deftypefnx {Built-in Function} bool __builtin_smulll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_smulll_overflow (long long int a, long long int b, long long int *res)
 @deftypefnx {Built-in Function} bool __builtin_umul_overflow (unsigned int a, unsigned int b, unsigned int *res)
 @deftypefnx {Built-in Function} bool __builtin_umull_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
-@deftypefnx {Built-in Function} bool __builtin_umulll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_umulll_overflow (unsigned long long int a, unsigned long long int b, unsigned long long int *res)
 
 These built-in functions are similar to the add overflow checking built-in
 functions above, except they perform multiplication, instead of addition.
@@ -9942,7 +9942,7 @@ These built-in functions are similar to @code{__builtin_add_overflow},
 @code{__builtin_sub_overflow}, or @code{__builtin_mul_overflow}, except that
 they don't store the result of the arithmetic operation anywhere and the
 last argument is not a pointer, but some expression with integral type other
-than enumerated or Boolean type.
+than enumerated or boolean type.
 
 The built-in functions promote the first two operands into infinite precision signed type
 and perform addition on those promoted operands. The result is then
@@ -10030,8 +10030,15 @@ __atomic_store_n(&lockvar, 0, __ATOMIC_RELEASE|__ATOMIC_HLE_RELEASE);
 @findex __builtin___fprintf_chk
 @findex __builtin___vfprintf_chk
 
-GCC implements a limited buffer overflow protection mechanism
-that can prevent some buffer overflow attacks.
+GCC implements a limited buffer overflow protection mechanism that can
+prevent some buffer overflow attacks by determining the sizes of objects
+into which data is about to be written and preventing the writes when
+the size isn't sufficient.  The built-in functions described below yield
+the best results when used together and when optimization is enabled.
+For example, to detect object sizes across function boundaries or to
+follow pointer assignments through non-trivial control flow they rely
+on various optimization passes enabled with @option{-O2}.  However, to
+a limited extent, they can be used without optimization as well.
 
 @deftypefn {Built-in Function} {size_t} __builtin_object_size (void * @var{ptr}, int @var{type})
 is a built-in construct that returns a constant number of bytes from

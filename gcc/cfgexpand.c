@@ -815,16 +815,15 @@ update_alias_info_with_stack_vars (void)
   if (decls_to_partitions)
     {
       unsigned i;
+      tree name;
       hash_set<bitmap> visited;
       bitmap temp = BITMAP_ALLOC (&stack_var_bitmap_obstack);
 
-      for (i = 1; i < num_ssa_names; i++)
+      FOR_EACH_SSA_NAME (i, name, cfun)
 	{
-	  tree name = ssa_name (i);
 	  struct ptr_info_def *pi;
 
-	  if (name
-	      && POINTER_TYPE_P (TREE_TYPE (name))
+	  if (POINTER_TYPE_P (TREE_TYPE (name))
 	      && ((pi = SSA_NAME_PTR_INFO (name)) != NULL))
 	    add_partitioned_vars_to_ptset (&pi->pt, decls_to_partitions,
 					   &visited, temp);
@@ -1009,7 +1008,7 @@ expand_one_stack_var_at (tree decl, rtx base, unsigned base_align,
 	 important, we'll simply use the alignment that is already set.  */
       if (base == virtual_stack_vars_rtx)
 	offset -= frame_phase;
-      align = offset & -offset;
+      align = least_bit_hwi (offset);
       align *= BITS_PER_UNIT;
       if (align == 0 || align > base_align)
 	align = base_align;
@@ -6270,16 +6269,15 @@ pass_expand::execute (function *fun)
 
   /* Now propagate the RTL assignment of each partition to the
      underlying var of each SSA_NAME.  */
-  for (i = 1; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
+  tree name;
 
-      if (!name
-	  /* We might have generated new SSA names in
-	     update_alias_info_with_stack_vars.  They will have a NULL
-	     defining statements, and won't be part of the partitioning,
-	     so ignore those.  */
-	  || !SSA_NAME_DEF_STMT (name))
+  FOR_EACH_SSA_NAME (i, name, cfun)
+    {
+      /* We might have generated new SSA names in
+	 update_alias_info_with_stack_vars.  They will have a NULL
+	 defining statements, and won't be part of the partitioning,
+	 so ignore those.  */
+      if (!SSA_NAME_DEF_STMT (name))
 	continue;
 
       adjust_one_expanded_partition_var (name);
@@ -6288,17 +6286,15 @@ pass_expand::execute (function *fun)
   /* Clean up RTL of variables that straddle across multiple
      partitions, and check that the rtl of any PARM_DECLs that are not
      cleaned up is that of their default defs.  */
-  for (i = 1; i < num_ssa_names; i++)
+  FOR_EACH_SSA_NAME (i, name, cfun)
     {
-      tree name = ssa_name (i);
       int part;
 
-      if (!name
-	  /* We might have generated new SSA names in
-	     update_alias_info_with_stack_vars.  They will have a NULL
-	     defining statements, and won't be part of the partitioning,
-	     so ignore those.  */
-	  || !SSA_NAME_DEF_STMT (name))
+      /* We might have generated new SSA names in
+	 update_alias_info_with_stack_vars.  They will have a NULL
+	 defining statements, and won't be part of the partitioning,
+	 so ignore those.  */
+      if (!SSA_NAME_DEF_STMT (name))
 	continue;
       part = var_to_partition (SA.map, name);
       if (part == NO_PARTITION)

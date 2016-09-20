@@ -1122,6 +1122,9 @@ static enum cpp_ttype
 get_cpp_ttype_from_string_type (tree string_type)
 {
   gcc_assert (string_type);
+  if (TREE_CODE (string_type) == POINTER_TYPE)
+    string_type = TREE_TYPE (string_type);
+
   if (TREE_CODE (string_type) != ARRAY_TYPE)
     return CPP_OTHER;
 
@@ -1148,23 +1151,23 @@ get_cpp_ttype_from_string_type (tree string_type)
 
 GTY(()) string_concat_db *g_string_concat_db;
 
-/* Attempt to determine the source location of the substring.
-   If successful, return NULL and write the source location to *OUT_LOC.
-   Otherwise return an error message.  Error messages are intended
-   for GCC developers (to help debugging) rather than for end-users.  */
+/* Implementation of LANG_HOOKS_GET_SUBSTRING_LOCATION.  */
 
 const char *
-substring_loc::get_location (location_t *out_loc) const
+c_get_substring_location (const substring_loc &substr_loc,
+			  location_t *out_loc)
 {
-  gcc_assert (out_loc);
-
-  enum cpp_ttype tok_type = get_cpp_ttype_from_string_type (m_string_type);
+  enum cpp_ttype tok_type
+    = get_cpp_ttype_from_string_type (substr_loc.get_string_type ());
   if (tok_type == CPP_OTHER)
     return "unrecognized string type";
 
   return get_source_location_for_substring (parse_in, g_string_concat_db,
-					    m_fmt_string_loc, tok_type,
-					    m_caret_idx, m_start_idx, m_end_idx,
+					    substr_loc.get_fmt_string_loc (),
+					    tok_type,
+					    substr_loc.get_caret_idx (),
+					    substr_loc.get_start_idx (),
+					    substr_loc.get_end_idx (),
 					    out_loc);
 }
 
@@ -1479,6 +1482,36 @@ warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
     }
 }
 
+/* Return true iff T is a boolean promoted to int.  */
+
+static bool
+bool_promoted_to_int_p (tree t)
+{
+  return (CONVERT_EXPR_P (t)
+	  && TREE_TYPE (t) == integer_type_node
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == BOOLEAN_TYPE);
+}
+
+/* Return true iff EXPR only contains boolean operands, or comparisons.  */
+
+static bool
+expr_has_boolean_operands_p (tree expr)
+{
+  STRIP_NOPS (expr);
+
+  if (CONVERT_EXPR_P (expr))
+    return bool_promoted_to_int_p (expr);
+  else if (UNARY_CLASS_P (expr))
+    return expr_has_boolean_operands_p (TREE_OPERAND (expr, 0));
+  else if (BINARY_CLASS_P (expr))
+    return (expr_has_boolean_operands_p (TREE_OPERAND (expr, 0))
+	    && expr_has_boolean_operands_p (TREE_OPERAND (expr, 1)));
+  else if (COMPARISON_CLASS_P (expr))
+    return true;
+  else
+    return false;
+}
+
 /* Warn about logical not used on the left hand side operand of a comparison.
    This function assumes that the LHS is inside of TRUTH_NOT_EXPR.
    Do not warn if RHS is of a boolean type, a logical operator, or
@@ -1494,6 +1527,10 @@ warn_logical_not_parentheses (location_t location, enum tree_code code,
       || truth_value_p (TREE_CODE (rhs)))
     return;
 
+  /* Don't warn for expression like !x == ~(bool1 | bool2).  */
+  if (expr_has_boolean_operands_p (rhs))
+    return;
+
   /* Don't warn for !x == 0 or !y != 0, those are equivalent to
      !(x == 0) or !(y != 0).  */
   if ((code == EQ_EXPR || code == NE_EXPR)
@@ -1507,11 +1544,8 @@ warn_logical_not_parentheses (location_t location, enum tree_code code,
     {
       location_t lhs_loc = EXPR_LOCATION (lhs);
       rich_location richloc (line_table, lhs_loc);
-      richloc.add_fixit_insert (lhs_loc, "(");
-      location_t finish = get_finish (lhs_loc);
-      location_t next_loc
-	= linemap_position_for_loc_and_offset (line_table, finish, 1);
-      richloc.add_fixit_insert (next_loc, ")");
+      richloc.add_fixit_insert_before (lhs_loc, "(");
+      richloc.add_fixit_insert_after (lhs_loc, ")");
       inform_at_rich_loc (&richloc, "add parentheses around left hand side "
 			  "expression to silence this warning");
     }
@@ -4565,7 +4599,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	     : truthvalue_false_node;
 
     case FUNCTION_DECL:
-      expr = build_unary_op (location, ADDR_EXPR, expr, 0);
+      expr = build_unary_op (location, ADDR_EXPR, expr, false);
       /* Fall through.  */
 
     case ADDR_EXPR:
@@ -4705,10 +4739,10 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 		? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
 	c_common_truthvalue_conversion
 	       (location,
-		build_unary_op (location, REALPART_EXPR, t, 0)),
+		build_unary_op (location, REALPART_EXPR, t, false)),
 	c_common_truthvalue_conversion
 	       (location,
-		build_unary_op (location, IMAGPART_EXPR, t, 0)),
+		build_unary_op (location, IMAGPART_EXPR, t, false)),
 	       0));
       goto ret;
     }
@@ -5827,14 +5861,10 @@ build_va_arg (location_t loc, tree expr, tree type)
     {
       /* Case 1: Not an array type.  */
 
-      /* Take the address, to get '&ap'.  */
+      /* Take the address, to get '&ap'.  Note that &ap is not a va_list
+	 type.  */
       mark_addressable (expr);
       expr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (expr)), expr);
-
-      /* Verify that &ap is still recognized as having va_list type.  */
-      tree canon_expr_type
-	= targetm.canonical_va_list_type (TREE_TYPE (expr));
-      gcc_assert (canon_expr_type != NULL_TREE);
 
       return build_va_arg_1 (loc, type, expr);
     }
@@ -7803,8 +7833,7 @@ check_user_alignment (const_tree align, bool allow_zero)
   return i;
 }
 
-/* 
-   If in c++-11, check if the c++-11 alignment constraint with respect
+/* If in c++-11, check if the c++-11 alignment constraint with respect
    to fundamental alignment (in [dcl.align]) are satisfied.  If not in
    c++-11 mode, does nothing.
 
@@ -7829,7 +7858,7 @@ check_cxx_fundamental_alignment_constraints (tree node,
 					     int flags)
 {
   bool alignment_too_large_p = false;
-  unsigned requested_alignment = 1U << align_log;
+  unsigned requested_alignment = (1U << align_log) * BITS_PER_UNIT;
   unsigned max_align = 0;
 
   if ((!(flags & ATTR_FLAG_CXX11) && !warn_cxx_compat)
@@ -7839,49 +7868,26 @@ check_cxx_fundamental_alignment_constraints (tree node,
   if (cxx_fundamental_alignment_p (requested_alignment))
     return true;
 
-  if (DECL_P (node))
+  if (VAR_P (node))
     {
-      if (TREE_STATIC (node))
-	{
-	  /* For file scope variables and static members, the target
-	     supports alignments that are at most
-	     MAX_OFILE_ALIGNMENT.  */
-	  if (requested_alignment > (max_align = MAX_OFILE_ALIGNMENT))
-	    alignment_too_large_p = true;
-	}
+      if (TREE_STATIC (node) || DECL_EXTERNAL (node))
+	/* For file scope variables and static members, the target supports
+	   alignments that are at most MAX_OFILE_ALIGNMENT.  */
+	max_align = MAX_OFILE_ALIGNMENT;
       else
-	{
-#ifdef BIGGEST_FIELD_ALIGNMENT
-#define MAX_TARGET_FIELD_ALIGNMENT BIGGEST_FIELD_ALIGNMENT
-#else
-#define MAX_TARGET_FIELD_ALIGNMENT BIGGEST_ALIGNMENT
-#endif
-	  /* For non-static members, the target supports either
-	     alignments that at most either BIGGEST_FIELD_ALIGNMENT
-	     if it is defined or BIGGEST_ALIGNMENT.  */
-	  max_align = MAX_TARGET_FIELD_ALIGNMENT;
-	  if (TREE_CODE (node) == FIELD_DECL
-	      && requested_alignment > (max_align = MAX_TARGET_FIELD_ALIGNMENT))
-	    alignment_too_large_p = true;
-#undef MAX_TARGET_FIELD_ALIGNMENT
-	  /* For stack variables, the target supports at most
-	     MAX_STACK_ALIGNMENT.  */
-	  else if (decl_function_context (node) != NULL
-		   && requested_alignment > (max_align = MAX_STACK_ALIGNMENT))
-	    alignment_too_large_p = true;
-	}
-    }
-  else if (TYPE_P (node))
-    {
-      /* Let's be liberal for types.  */
-      if (requested_alignment > (max_align = BIGGEST_ALIGNMENT))
+	/* For stack variables, the target supports at most
+	   MAX_STACK_ALIGNMENT.  */
+	max_align = MAX_STACK_ALIGNMENT;
+      if (requested_alignment > max_align)
 	alignment_too_large_p = true;
     }
+  /* Let's be liberal for types and fields; don't limit their alignment any
+     more than check_user_alignment already did.  */
 
   if (alignment_too_large_p)
     pedwarn (input_location, OPT_Wattributes,
 	     "requested alignment %d is larger than %d",
-	     requested_alignment, max_align);
+	     requested_alignment / BITS_PER_UNIT, max_align / BITS_PER_UNIT);
 
   return !alignment_too_large_p;
 }
@@ -10569,17 +10575,21 @@ fold_offsetof (tree expr)
   return convert (size_type_node, fold_offsetof_1 (expr));
 }
 
-/* Warn for A ?: C expressions (with B omitted) where A is a boolean 
+/* Warn for A ?: C expressions (with B omitted) where A is a boolean
    expression, because B will always be true. */
 
 void
-warn_for_omitted_condop (location_t location, tree cond) 
-{ 
-  if (truth_value_p (TREE_CODE (cond))) 
-      warning_at (location, OPT_Wparentheses, 
+warn_for_omitted_condop (location_t location, tree cond)
+{
+  /* In C++ template declarations it can happen that the type is dependent
+     and not yet known, thus TREE_TYPE (cond) == NULL_TREE.  */
+  if (truth_value_p (TREE_CODE (cond))
+      || (TREE_TYPE (cond) != NULL_TREE
+	  && TREE_CODE (TREE_TYPE (cond)) == BOOLEAN_TYPE))
+      warning_at (location, OPT_Wparentheses,
 		"the omitted middle operand in ?: will always be %<true%>, "
 		"suggest explicit middle operand");
-} 
+}
 
 /* Give an error for storing into ARG, which is 'const'.  USE indicates
    how ARG was being used.  */
@@ -10874,7 +10884,9 @@ c_common_mark_addressable_vec (tree t)
 {   
   while (handled_component_p (t))
     t = TREE_OPERAND (t, 0);
-  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+  if (!VAR_P (t)
+      && TREE_CODE (t) != PARM_DECL
+      && TREE_CODE (t) != COMPOUND_LITERAL_EXPR)
     return;
   TREE_ADDRESSABLE (t) = 1;
 }
@@ -11547,7 +11559,7 @@ resolve_overloaded_builtin (location_t loc, tree function,
 	/* Handle these 4 together so that they can fall through to the next
 	   case if the call is transformed to an _N variant.  */
         switch (orig_code)
-	{
+	  {
 	  case BUILT_IN_ATOMIC_EXCHANGE:
 	    {
 	      if (resolve_overloaded_atomic_exchange (loc, function, params,
@@ -11588,17 +11600,15 @@ resolve_overloaded_builtin (location_t loc, tree function,
 	    }
 	  default:
 	    gcc_unreachable ();
-	}
-	/* Fallthrough to the normal processing.  */
+	  }
       }
+      /* FALLTHRU */
     case BUILT_IN_ATOMIC_EXCHANGE_N:
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
     case BUILT_IN_ATOMIC_LOAD_N:
     case BUILT_IN_ATOMIC_STORE_N:
-      {
-	fetch_op = false;
-	/* Fallthrough to further processing.  */
-      }
+      fetch_op = false;
+      /* FALLTHRU */
     case BUILT_IN_ATOMIC_ADD_FETCH_N:
     case BUILT_IN_ATOMIC_SUB_FETCH_N:
     case BUILT_IN_ATOMIC_AND_FETCH_N:
@@ -11611,10 +11621,8 @@ resolve_overloaded_builtin (location_t loc, tree function,
     case BUILT_IN_ATOMIC_FETCH_NAND_N:
     case BUILT_IN_ATOMIC_FETCH_XOR_N:
     case BUILT_IN_ATOMIC_FETCH_OR_N:
-      {
-        orig_format = false;
-	/* Fallthru for parameter processing.  */
-      }
+      orig_format = false;
+      /* FALLTHRU */
     case BUILT_IN_SYNC_FETCH_AND_ADD_N:
     case BUILT_IN_SYNC_FETCH_AND_SUB_N:
     case BUILT_IN_SYNC_FETCH_AND_OR_N:
@@ -12265,7 +12273,7 @@ set_underlying_type (tree x)
 {
   if (x == error_mark_node)
     return;
-  if (DECL_IS_BUILTIN (x))
+  if (DECL_IS_BUILTIN (x) && TREE_CODE (TREE_TYPE (x)) != ARRAY_TYPE)
     {
       if (TYPE_NAME (TREE_TYPE (x)) == 0)
 	TYPE_NAME (TREE_TYPE (x)) = x;
@@ -12409,9 +12417,7 @@ maybe_warn_bool_compare (location_t loc, enum tree_code code, tree op0,
 	 don't want to warn here.  */
       tree noncst = TREE_CODE (op0) == INTEGER_CST ? op1 : op0;
       /* Handle booleans promoted to integers.  */
-      if (CONVERT_EXPR_P (noncst)
-	  && TREE_TYPE (noncst) == integer_type_node
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (noncst, 0))) == BOOLEAN_TYPE)
+      if (bool_promoted_to_int_p (noncst))
 	/* Warn.  */;
       else if (TREE_CODE (TREE_TYPE (noncst)) != BOOLEAN_TYPE
 	       && !truth_value_p (TREE_CODE (noncst)))
@@ -12835,6 +12841,19 @@ scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
   return stv_nothing;
 }
 
+/* Return the alignment of std::max_align_t.
+
+   [support.types.layout] The type max_align_t is a POD type whose alignment
+   requirement is at least as great as that of every scalar type, and whose
+   alignment requirement is supported in every context.  */
+
+unsigned
+max_align_t_align ()
+{
+  return MAX (TYPE_ALIGN (long_long_integer_type_node),
+	      TYPE_ALIGN (long_double_type_node));
+}
+
 /* Return true iff ALIGN is an integral constant that is a fundamental
    alignment, as defined by [basic.align] in the c++-11
    specifications.
@@ -12843,14 +12862,12 @@ scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
 
        [A fundamental alignment is represented by an alignment less than or
         equal to the greatest alignment supported by the implementation
-        in all contexts, which is equal to
-        alignof(max_align_t)].  */
+        in all contexts, which is equal to alignof(max_align_t)].  */
 
 bool
-cxx_fundamental_alignment_p  (unsigned align)
+cxx_fundamental_alignment_p (unsigned align)
 {
-  return (align <=  MAX (TYPE_ALIGN (long_long_integer_type_node),
-			 TYPE_ALIGN (long_double_type_node)));
+  return (align <= max_align_t_align ());
 }
 
 /* Return true if T is a pointer to a zero-sized aggregate.  */

@@ -489,6 +489,8 @@ simplify_transformation_to_scalar (gfc_expr *result, gfc_expr *array, gfc_expr *
 	}
 
       result = op (result, gfc_copy_expr (a));
+      if (!result)
+	return result;
     }
 
   return result;
@@ -5125,7 +5127,7 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
 
   if (len ||
       (e->ts.u.cl->length &&
-       mpz_sgn (e->ts.u.cl->length->value.integer)) != 0)
+       mpz_sgn (e->ts.u.cl->length->value.integer) != 0))
     {
       const char *res = gfc_extract_int (n, &ncop);
       gcc_assert (res == NULL);

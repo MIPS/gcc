@@ -190,7 +190,7 @@ in the following sections.
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
 @gccoptlist{-fabi-version=@var{n}  -fno-access-control @gol
--fargs-in-order=@var{n} -fcheck-new @gol
+-faligned-new=@var{n} -fargs-in-order=@var{n} -fcheck-new @gol
 -fconstexpr-depth=@var{n} -fconstexpr-loop-limit=@var{n} @gol
 -ffriend-injection @gol
 -fno-elide-constructors @gol
@@ -248,7 +248,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdiagnostics-show-location=@r{[}once@r{|}every-line@r{]}  @gol
 -fdiagnostics-color=@r{[}auto@r{|}never@r{|}always@r{]}  @gol
 -fno-diagnostics-show-option -fno-diagnostics-show-caret @gol
--fdiagnostics-parseable-fixits}
+-fdiagnostics-parseable-fixits -fdiagnostics-generate-patch}
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
@@ -2237,6 +2237,15 @@ option is used for the warning.
 Turn off all access checking.  This switch is mainly useful for working
 around bugs in the access control code.
 
+@item -faligned-new
+@opindex faligned-new
+Enable support for C++17 @code{new} of types that require more
+alignment than @code{void* ::operator new(std::size_t)} provides.  A
+numeric argument such as @code{-faligned-new=32} can be used to
+specify how much alignment (in bytes) is provided by that function,
+but few users will need to override the default of
+@code{alignof(std::max_align_t)}.
+
 @item -fcheck-new
 @opindex fcheck-new
 Check that the pointer returned by @code{operator new} is non-null
@@ -3343,7 +3352,9 @@ for 88-color and 256-color modes background colors.
 
 The default @env{GCC_COLORS} is
 @smallexample
-error=01;31:warning=01;35:note=01;36:range1=32:range2=34:locus=01:quote=01:fixit-insert=32:fixit-delete=31
+error=01;31:warning=01;35:note=01;36:range1=32:range2=34:locus=01:quote=01:\
+fixit-insert=32:fixit-delete=31:\
+diff-filename=01:diff-hunk=32:diff-delete=31:diff-insert=32
 @end smallexample
 @noindent
 where @samp{01;31} is bold red, @samp{01;35} is bold magenta,
@@ -3391,6 +3402,22 @@ be inserted or replaced.
 @vindex fixit-delete GCC_COLORS @r{capability}
 SGR substring for fix-it hints suggesting text to
 be deleted.
+
+@item diff-filename=
+@vindex diff-filename GCC_COLORS @r{capability}
+SGR substring for filename headers within generated patches.
+
+@item diff-hunk=
+@vindex diff-hunk GCC_COLORS @r{capability}
+SGR substring for the starts of hunks within generated patches.
+
+@item diff-delete=
+@vindex diff-delete GCC_COLORS @r{capability}
+SGR substring for deleted lines within generated patches.
+
+@item diff-insert=
+@vindex diff-insert GCC_COLORS @r{capability}
+SGR substring for inserted lines within generated patches.
 @end table
 
 @item -fno-diagnostics-show-option
@@ -3441,6 +3468,27 @@ newline as ``\n'', double quotes as ``\"'', non-printable characters as octal
 An empty replacement string indicates that the given range is to be removed.
 An empty range (e.g. ``45:3-45:3'') indicates that the string is to
 be inserted at the given position.
+
+@item -fdiagnostics-generate-patch
+@opindex fdiagnostics-generate-patch
+Print fix-it hints to stderr in unified diff format, after any diagnostics
+are printed.  For example:
+
+@smallexample
+--- test.c
++++ test.c
+@@ -42,5 +42,5 @@
+
+ void show_cb(GtkDialog *dlg)
+ @{
+-  gtk_widget_showall(dlg);
++  gtk_widget_show_all(dlg);
+ @}
+
+@end smallexample
+
+The diff may or may not be colorized, following the same rules
+as for diagnostics (see @option{-fdiagnostics-color}).
 
 @end table
 
@@ -5023,6 +5071,18 @@ disables the warnings about non-ISO @code{printf} / @code{scanf} format
 width specifiers @code{I32}, @code{I64}, and @code{I} used on Windows targets,
 which depend on the MS runtime.
 
+@item -Waligned-new
+@opindex Waligned-new
+@opindex Wno-aligned-new
+Warn about a new-expression of a type that requires greater alignment
+than the @code{alignof(std::max_align_t)} but uses an allocation
+function without an explicit alignment parameter. This option is
+enabled by @option{-Wall}.
+
+Normally this only warns about global allocation functions, but
+@option{-Waligned-new=all} also warns about class member allocation
+functions.
+
 @item -Wplacement-new
 @itemx -Wplacement-new=@var{n}
 @opindex Wplacement-new
@@ -5437,8 +5497,8 @@ if (a < 0 && a < 0) @{ @dots{} @}
 @opindex Wlogical-not-parentheses
 @opindex Wno-logical-not-parentheses
 Warn about logical not used on the left hand side operand of a comparison.
-This option does not warn if the RHS operand is of a boolean type.  Its
-purpose is to detect suspicious code like the following:
+This option does not warn if the right operand is considered to be a boolean
+expression.  Its purpose is to detect suspicious code like the following:
 @smallexample
 int a;
 @dots{}
@@ -22807,16 +22867,16 @@ more efficient.  The default behavior is to use atomic updates.
 @item -mdual-nops
 @itemx -mdual-nops=@var{n}
 @opindex mdual-nops
-By default, GCC inserts nops to increase dual issue when it expects
+By default, GCC inserts NOPs to increase dual issue when it expects
 it to increase performance.  @var{n} can be a value from 0 to 10.  A
-smaller @var{n} inserts fewer nops.  10 is the default, 0 is the
+smaller @var{n} inserts fewer NOPs.  10 is the default, 0 is the
 same as @option{-mno-dual-nops}.  Disabled with @option{-Os}.
 
 @item -mhint-max-nops=@var{n}
 @opindex mhint-max-nops
-Maximum number of nops to insert for a branch hint.  A branch hint must
+Maximum number of NOPs to insert for a branch hint.  A branch hint must
 be at least 8 instructions away from the branch it is affecting.  GCC
-inserts up to @var{n} nops to enforce this, otherwise it does not
+inserts up to @var{n} NOPs to enforce this, otherwise it does not
 generate the branch hint.
 
 @item -mhint-max-distance=@var{n}
@@ -24601,7 +24661,7 @@ automatically patching and out calls.
 @itemx -mno-nop-mcount
 @opindex mnop-mcount
 If profiling is active (@option{-pg}), generate the calls to
-the profiling functions as nops. This is useful when they
+the profiling functions as NOPs. This is useful when they
 should be patched in later dynamically. This is likely only
 useful together with @option{-mrecord-mcount}.
 

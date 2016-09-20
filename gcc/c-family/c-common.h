@@ -863,6 +863,7 @@ extern bool keyword_begins_type_specifier (enum rid);
 extern bool keyword_is_storage_class_specifier (enum rid);
 extern bool keyword_is_type_qualifier (enum rid);
 extern bool keyword_is_decl_specifier (enum rid);
+extern unsigned max_align_t_align (void);
 extern bool cxx_fundamental_alignment_p (unsigned);
 extern bool pointer_to_zero_sized_aggr_p (tree);
 extern bool diagnose_mismatched_attributes (tree, tree);
@@ -963,7 +964,7 @@ extern tree build_real_imag_expr (location_t, enum tree_code, tree);
 /* These functions must be defined by each front-end which implements
    a variant of the C language.  They are used in c-common.c.  */
 
-extern tree build_unary_op (location_t, enum tree_code, tree, int);
+extern tree build_unary_op (location_t, enum tree_code, tree, bool);
 extern tree build_binary_op (location_t, enum tree_code, tree, tree, int);
 extern tree perform_integral_promotions (tree);
 
@@ -1132,35 +1133,9 @@ extern const char *cb_get_suggestion (cpp_reader *, const char *,
 
 extern GTY(()) string_concat_db *g_string_concat_db;
 
-/* libcpp can calculate location information about a range of characters
-   within a string literal, but doing so is non-trivial.
-
-   This class encapsulates such a source location, so that it can be
-   passed around (e.g. within c-format.c).  It is effectively a deferred
-   call into libcpp.  If needed by a diagnostic, the actual source_range
-   can be calculated by calling the get_range method.  */
-
-class substring_loc
-{
- public:
-  substring_loc (location_t fmt_string_loc, tree string_type,
-		 int caret_idx, int start_idx, int end_idx)
-  : m_fmt_string_loc (fmt_string_loc), m_string_type (string_type),
-    m_caret_idx (caret_idx), m_start_idx (start_idx), m_end_idx (end_idx) {}
-
-  void set_caret_index (int caret_idx) { m_caret_idx = caret_idx; }
-
-  const char *get_location (location_t *out_loc) const;
-
-  location_t get_fmt_string_loc () const { return m_fmt_string_loc; }
-
- private:
-  location_t m_fmt_string_loc;
-  tree m_string_type;
-  int m_caret_idx;
-  int m_start_idx;
-  int m_end_idx;
-};
+class substring_loc;
+extern const char *c_get_substring_location (const substring_loc &substr_loc,
+					     location_t *out_loc);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

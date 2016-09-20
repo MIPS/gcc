@@ -929,7 +929,7 @@ ipcp_alignment_lattice::meet_with_1 (unsigned new_align, unsigned new_misalign)
   if (misalign != (new_misalign % align))
     {
       int diff = abs ((int) misalign - (int) (new_misalign % align));
-      align = (unsigned) diff & -diff;
+      align = least_bit_hwi (diff);
       if (align)
 	misalign = misalign % align;
       else
@@ -4917,7 +4917,7 @@ ipcp_store_bits_results (void)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Not considering %s for ipa bitwise propagation "
-				"; -fipa-cp-bit: disabled.\n",
+				"; -fipa-bit-cp: disabled.\n",
 				node->name ());
 	  continue;
 	}

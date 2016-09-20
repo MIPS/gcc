@@ -575,7 +575,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 
     default:
       pp_unsupported_tree (pp, t);
-      /* Fall through to error.  */
+      /* Fall through.  */
 
     case ERROR_MARK:
       pp_string (pp, M_("<type error>"));
@@ -959,14 +959,13 @@ dump_simple_decl (cxx_pretty_printer *pp, tree t, tree type, int flags)
 {
   if (flags & TFF_DECL_SPECIFIERS)
     {
-      if (VAR_P (t)
-	  && DECL_DECLARED_CONSTEXPR_P (t))
-            {
-              if (DECL_DECLARED_CONCEPT_P (t))
-                pp_cxx_ws_string (pp, "concept");
-              else
-		pp_cxx_ws_string (pp, "constexpr");
-            }
+      if (VAR_P (t) && DECL_DECLARED_CONSTEXPR_P (t))
+        {
+	  if (DECL_LANG_SPECIFIC (t) && DECL_DECLARED_CONCEPT_P (t))
+	    pp_cxx_ws_string (pp, "concept");
+	  else
+	    pp_cxx_ws_string (pp, "constexpr");
+	}
       dump_type_prefix (pp, type, flags & ~TFF_UNQUALIFIED_NAME);
       pp_maybe_space (pp);
     }
@@ -1276,7 +1275,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 
     default:
       pp_unsupported_tree (pp, t);
-      /* Fall through to error.  */
+      /* Fall through.  */
 
     case ERROR_MARK:
       pp_string (pp, M_("<declaration error>"));
@@ -2777,7 +2776,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	  `report_error_function'.  That could cause an infinite loop.  */
     default:
       pp_unsupported_tree (pp, t);
-      /* fall through to ERROR_MARK...  */
+      /* Fall through.  */
     case ERROR_MARK:
       pp_string (pp, M_("<expression error>"));
       break;
