@@ -4366,22 +4366,24 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	      gfc_set_backend_locus (&sym->declared_at);
 	      gfc_start_block (&init);
 
-	      if (!sym->attr.dummy && descriptor != NULL_TREE)
+	      if (!sym->attr.dummy && sym->ts.type == BT_CLASS
+		  && CLASS_DATA (sym)->as)
 		{
+		  tree cdesc = gfc_class_data_get (sym->backend_decl);
                   tree type = TREE_TYPE (CLASS_DATA (sym)->backend_decl);
-		  gcc_assert (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as);
-		  gfc_conv_descriptor_elem_len_set (&init, descriptor,
+		  gfc_conv_descriptor_elem_len_set (&init, cdesc,
 				  TYPE_SIZE_UNIT (gfc_get_element_type (type)));
-		  gfc_conv_descriptor_version_set (&init, descriptor);
-		  gfc_conv_descriptor_rank_set (&init, descriptor,
+		  gfc_conv_descriptor_version_set (&init, cdesc);
+		  gfc_conv_descriptor_rank_set (&init, cdesc,
 						CLASS_DATA (sym)->as->rank);
-		  tmp = gfc_conv_descriptor_dtype (descriptor);
+		  tmp = gfc_conv_descriptor_dtype (cdesc);
 		  gfc_add_modify (&init, tmp, gfc_get_dtype (&sym->ts));
-		  gfc_conv_descriptor_attr_set (&init, descriptor,
-                                     CLASS_DATA (sym)->attr.allocatable
-                                     ? GFC_ATTRIBUTE_ALLOCATABLE
-                                     : GFC_ATTRIBUTE_POINTER);
+		  gfc_conv_descriptor_attr_set (&init, cdesc,
+						CLASS_DATA (sym)->attr.allocatable
+						? GFC_ATTRIBUTE_ALLOCATABLE
+						: GFC_ATTRIBUTE_POINTER);
 		}
+
 	      if (!sym->attr.pointer)
 		{
 		  /* Nullify and automatic deallocation of allocatable

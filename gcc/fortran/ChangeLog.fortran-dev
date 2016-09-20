@@ -1,3 +1,11 @@
+2016-20-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-array.c (gfc_conv_expr_descriptor): Detect class object
+	with an abstract declared type. Use the type of the data field
+	and the dynamic element length from the symbol backend_decl.
+	* trans-decl.c (gfc_trans_deferred_vars): Initialize the
+	descriptor of allocatable class arrays..
+
 2016-09-10  Paul Thomas  <pault@gcc.gnu.org>
 
 	* trans-array.c (gfc_alloc_allocatable_for_assignment): Put

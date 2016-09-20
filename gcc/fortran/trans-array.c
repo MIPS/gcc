@@ -7017,6 +7017,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
   int full;
   bool subref_array_target = false;
   bool assumed_size = false;
+  bool abstract_class = false;
   gfc_expr *arg, *ss_expr;
 
   if (se->want_coarray)
@@ -7340,7 +7341,19 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	    }
 
       desc = info->descriptor;
-      elem_type = gfc_typenode_for_spec(&expr->ts);
+
+      /* Classes with an abstract declared type present particular problems
+	 because they mess up the 'desc' totally and they have to be detected
+	 to provide the dynamic type elem_len.
+	 TODO extend this to all class expressions.  */
+      abstract_class = gfc_expr_attr (expr).abstract
+		       && expr->expr_type == EXPR_VARIABLE
+		       && expr->symtree->n.sym->ts.type == BT_CLASS;
+
+      if (abstract_class)
+	elem_type = gfc_typenode_for_spec(&CLASS_DATA (expr->symtree->n.sym)->ts);
+      else
+	elem_type = gfc_typenode_for_spec(&expr->ts);
 
       if (se->direct_byref && !se->byref_noassign)
 	{
@@ -7372,6 +7385,18 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       /* Set elem_len, version, rank, dtype and attribute.  */
       if (expr->ts.type == BT_CHARACTER && !is_subref_array (expr))
 	elem_len = size_of_string_in_bytes (expr->ts.kind, se->string_length);
+      else if (abstract_class)
+	{
+	  tmp = expr->symtree->n.sym->backend_decl;
+	  if (DECL_LANG_SPECIFIC (tmp) && GFC_DECL_SAVED_DESCRIPTOR (tmp))
+	    tmp = GFC_DECL_SAVED_DESCRIPTOR (tmp);
+
+	  tmp = gfc_get_vptr_from_expr (tmp);
+	  if (tmp != NULL_TREE)
+	    elem_len = gfc_vptr_size_get (tmp);
+	  else
+	    elem_len = size_in_bytes (gfc_get_element_type (TREE_TYPE (desc)));
+	}
       else
         /* TODO Set this to the size of elem_type rather than the size of the
 	   descriptor elements.  */
