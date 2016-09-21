@@ -6689,6 +6689,11 @@ derived_inaccessible (gfc_symbol *sym)
 
   for (c = sym->components; c; c = c->next)
     {
+	/* Prevent an infinite loop through this function.  */
+	if (c->ts.type == BT_DERIVED && c->attr.pointer
+	    && sym == c->ts.u.derived)
+	  continue;
+
 	if (c->ts.type == BT_DERIVED && derived_inaccessible (c->ts.u.derived))
 	  return 1;
     }
@@ -6923,6 +6928,35 @@ conformable_arrays (gfc_expr *e1, gfc_expr *e2)
   return true;
 }
 
+static void
+cond_init (gfc_code *code, gfc_expr *e, int pointer, gfc_expr *init_e)
+{
+  gfc_code *block;
+  gfc_expr *cond;
+  gfc_code *init_st;
+  gfc_expr *e_to_init = gfc_expr_to_initialize (e);
+
+  cond = pointer
+    ? gfc_build_intrinsic_call (gfc_current_ns, GFC_ISYM_ASSOCIATED,
+	"associated", code->loc, 2, gfc_copy_expr (e_to_init), NULL)
+    : gfc_build_intrinsic_call (gfc_current_ns, GFC_ISYM_ALLOCATED,
+	"allocated", code->loc, 1, gfc_copy_expr (e_to_init));
+
+  init_st = gfc_get_code (EXEC_INIT_ASSIGN);
+  init_st->loc = code->loc;
+  init_st->expr1 = e_to_init;
+  init_st->expr2 = init_e;
+
+  block = gfc_get_code (EXEC_IF);
+  block->loc = code->loc;
+  block->block = gfc_get_code (EXEC_IF);
+  block->block->loc = code->loc;
+  block->block->expr1 = cond;
+  block->block->next = init_st;
+  block->next = code->next;
+
+  code->next = block;
+}
 
 /* Resolve the expression in an ALLOCATE statement, doing the additional
    checks to see whether the expression is OK or not.  The expression must
@@ -7188,14 +7222,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code, bool *array_alloc_wo_spec)
 	ts = ts.u.derived->components->ts;
 
       if (gfc_bt_struct (ts.type) && (init_e = gfc_default_initializer (&ts)))
-	{
-	  gfc_code *init_st = gfc_get_code (EXEC_INIT_ASSIGN);
-	  init_st->loc = code->loc;
-	  init_st->expr1 = gfc_expr_to_initialize (e);
-	  init_st->expr2 = init_e;
-	  init_st->next = code->next;
-	  code->next = init_st;
-	}
+	cond_init (code, e, pointer, init_e);
     }
   else if (code->expr3->mold && code->expr3->ts.type == BT_DERIVED)
     {
@@ -8642,9 +8669,13 @@ static void
 resolve_transfer (gfc_code *code)
 {
   gfc_typespec *ts;
-  gfc_symbol *sym;
+  gfc_symbol *sym, *derived;
   gfc_ref *ref;
   gfc_expr *exp;
+  bool write = false;
+  bool formatted = false;
+  gfc_dt *dt = code->ext.dt;
+  gfc_symbol *dtio_sub = NULL;
 
   exp = code->expr1;
 
@@ -8668,7 +8699,7 @@ resolve_transfer (gfc_code *code)
   /* If we are reading, the variable will be changed.  Note that
      code->ext.dt may be NULL if the TRANSFER is related to
      an INQUIRE statement -- but in this case, we are not reading, either.  */
-  if (code->ext.dt && code->ext.dt->dt_io_kind->value.iokind == M_READ
+  if (dt && dt->dt_io_kind->value.iokind == M_READ
       && !gfc_check_vardef_context (exp, false, false, false,
 				    _("item in READ")))
     return;
@@ -8680,9 +8711,53 @@ resolve_transfer (gfc_code *code)
     if (ref->type == REF_COMPONENT)
       ts = &ref->u.c.component->ts;
 
-  if (ts->type == BT_CLASS)
+  if (dt && dt->dt_io_kind->value.iokind != M_INQUIRE
+      && (ts->type == BT_DERIVED || ts->type == BT_CLASS))
     {
-      /* FIXME: Test for defined input/output.  */
+      if (ts->type == BT_DERIVED)
+	derived = ts->u.derived;
+      else
+	derived = ts->u.derived->components->ts.u.derived;
+
+      if (dt->format_expr)
+	{
+	  char *fmt;
+	  fmt = gfc_widechar_to_char (dt->format_expr->value.character.string,
+				      -1);
+	  if (strtok (fmt, "DT") != NULL)
+	    formatted = true;
+	}
+      else if (dt->format_label == &format_asterisk)
+	{
+	  /* List directed io must call the formatted DTIO procedure.  */
+	  formatted = true;
+	}
+
+      write = dt->dt_io_kind->value.iokind == M_WRITE
+	      || dt->dt_io_kind->value.iokind == M_PRINT;
+      dtio_sub = gfc_find_specific_dtio_proc (derived, write, formatted);
+
+      if (dtio_sub != NULL && exp->expr_type == EXPR_VARIABLE)
+	{
+	  sym = exp->symtree->n.sym->ns->proc_name;
+	  /* Check to see if this is a nested DTIO call, with the
+	     dummy as the io-list object.  */
+	  if (sym && sym == dtio_sub && sym->formal
+	      && sym->formal->sym == exp->symtree->n.sym
+	      && exp->ref == NULL)
+	    {
+	      if (!sym->attr.recursive)
+		{
+		  gfc_error ("DTIO %s procedure at %L must be recursive",
+			     sym->name, &sym->declared_at);
+		  return;
+		}
+	    }
+	}
+    }
+
+  if (ts->type == BT_CLASS && dtio_sub == NULL)
+    {
       gfc_error ("Data transfer element at %L cannot be polymorphic unless "
                 "it is processed by a defined input/output procedure",
                 &code->loc);
@@ -8692,8 +8767,9 @@ resolve_transfer (gfc_code *code)
   if (ts->type == BT_DERIVED)
     {
       /* Check that transferred derived type doesn't contain POINTER
-	 components.  */
-      if (ts->u.derived->attr.pointer_comp)
+	 components unless it is processed by a defined input/output
+	 procedure".  */
+      if (ts->u.derived->attr.pointer_comp && dtio_sub == NULL)
 	{
 	  gfc_error ("Data transfer element at %L cannot have POINTER "
 		     "components unless it is processed by a defined "
@@ -8709,7 +8785,7 @@ resolve_transfer (gfc_code *code)
 	  return;
 	}
 
-      if (ts->u.derived->attr.alloc_comp)
+      if (ts->u.derived->attr.alloc_comp && dtio_sub == NULL)
 	{
 	  gfc_error ("Data transfer element at %L cannot have ALLOCATABLE "
 		     "components unless it is processed by a defined "
@@ -8726,10 +8802,11 @@ resolve_transfer (gfc_code *code)
 			       "cannot have PRIVATE components", &code->loc))
 	    return;
 	}
-      else if (derived_inaccessible (ts->u.derived))
+      else if (derived_inaccessible (ts->u.derived) && dtio_sub == NULL)
 	{
 	  gfc_error ("Data transfer element at %L cannot have "
-		     "PRIVATE components",&code->loc);
+		     "PRIVATE components unless it is processed by "
+		     "a defined input/output procedure", &code->loc);
 	  return;
 	}
     }
@@ -9464,6 +9541,24 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_WAIT:
 	  break;
 
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OACC_ATOMIC:
+	  {
+	    gfc_omp_atomic_op aop
+	      = (gfc_omp_atomic_op) (b->ext.omp_atomic & GFC_OMP_ATOMIC_MASK);
+
+	    /* Verify this before calling gfc_resolve_code, which might
+	       change it.  */
+	    gcc_assert (b->next && b->next->op == EXEC_ASSIGN);
+	    gcc_assert (((aop != GFC_OMP_ATOMIC_CAPTURE)
+			 && b->next->next == NULL)
+			|| ((aop == GFC_OMP_ATOMIC_CAPTURE)
+			    && b->next->next != NULL
+			    && b->next->next->op == EXEC_ASSIGN
+			    && b->next->next->next == NULL));
+	  }
+	  break;
+
 	case EXEC_OACC_PARALLEL_LOOP:
 	case EXEC_OACC_PARALLEL:
 	case EXEC_OACC_KERNELS_LOOP:
@@ -9476,9 +9571,7 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OACC_CACHE:
 	case EXEC_OACC_ENTER_DATA:
 	case EXEC_OACC_EXIT_DATA:
-	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_ROUTINE:
-	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DISTRIBUTE:
 	case EXEC_OMP_DISTRIBUTE_PARALLEL_DO:
@@ -10901,6 +10994,21 @@ resolve_bind_c_derived_types (gfc_symbol *derived_sym)
 }
 
 
+/* Check the interfaces of DTIO procedures associated with derived
+   type 'sym'.  These procedures can either have typebound bindings or
+   can appear in DTIO generic interfaces.  */
+
+static void
+gfc_verify_DTIO_procedures (gfc_symbol *sym)
+{
+  if (!sym || sym->attr.flavor != FL_DERIVED)
+    return;
+
+  gfc_check_dtio_interfaces (sym);
+
+  return;
+}
+
 /* Verify that any binding labels used in a given namespace do not collide
    with the names or binding labels of any global symbols.  Multiple INTERFACE
    for the same procedure are permitted.  */
@@ -11402,6 +11510,27 @@ resolve_fl_variable_derived (gfc_symbol *sym, int no_init_flag)
 }
 
 
+/* F2008, C402 (R401):  A colon shall not be used as a type-param-value
+   except in the declaration of an entity or component that has the POINTER
+   or ALLOCATABLE attribute.  */
+
+static bool
+deferred_requirements (gfc_symbol *sym)
+{
+  if (sym->ts.deferred
+      && !(sym->attr.pointer
+	   || sym->attr.allocatable
+	   || sym->attr.omp_udr_artificial_var))
+    {
+      gfc_error ("Entity %qs at %L has a deferred type parameter and "
+		 "requires either the POINTER or ALLOCATABLE attribute",
+		 sym->name, &sym->declared_at);
+      return false;
+    }
+  return true;
+}
+
+
 /* Resolve symbols with flavor variable.  */
 
 static bool
@@ -11441,17 +11570,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
     }
 
   /* Constraints on deferred type parameter.  */
-  if (sym->ts.deferred
-      && !(sym->attr.pointer
-	   || sym->attr.allocatable
-	   || sym->attr.omp_udr_artificial_var))
-    {
-      gfc_error ("Entity %qs at %L has a deferred type parameter and "
-		 "requires either the pointer or allocatable attribute",
-		     sym->name, &sym->declared_at);
-      specification_expr = saved_specification_expr;
-      return false;
-    }
+  if (!deferred_requirements (sym))
+    return false;
 
   if (sym->ts.type == BT_CHARACTER)
     {
@@ -11883,6 +12003,13 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	 symbol instead of 'sym'.  */
       iface = sym->ts.interface;
       sym->ts.interface = NULL;
+
+      /* Make sure that the result uses the correct charlen for deferred
+	 length results.  */
+      if (iface && sym->result
+	  && iface->ts.type == BT_CHARACTER
+	  && iface->ts.deferred)
+	sym->result->ts.u.cl = iface->ts.u.cl;
 
       if (iface == NULL)
 	goto check_formal;
@@ -13414,11 +13541,31 @@ resolve_fl_derived (gfc_symbol *sym)
 }
 
 
+/* Check for formatted read and write DTIO procedures.  */
+
+static bool
+dtio_procs_present (gfc_symbol *sym)
+{
+  gfc_symbol *derived;
+
+  if (sym->ts.type == BT_CLASS)
+    derived = CLASS_DATA (sym)->ts.u.derived;
+  else if (sym->ts.type == BT_DERIVED)
+    derived = sym->ts.u.derived;
+  else
+    return false;
+
+  return gfc_find_specific_dtio_proc (derived, true, true) != NULL
+	 && gfc_find_specific_dtio_proc (derived, false, true) != NULL;
+}
+
+
 static bool
 resolve_fl_namelist (gfc_symbol *sym)
 {
   gfc_namelist *nl;
   gfc_symbol *nlsym;
+  bool dtio;
 
   for (nl = sym->namelist; nl; nl = nl->next)
     {
@@ -13452,9 +13599,9 @@ resolve_fl_namelist (gfc_symbol *sym)
 			      sym->name, &sym->declared_at))
 	return false;
 
-      /* FIXME: Once UDDTIO is implemented, the following can be
-	 removed.  */
-      if (nl->sym->ts.type == BT_CLASS)
+      dtio = dtio_procs_present (nl->sym);
+
+      if (nl->sym->ts.type == BT_CLASS && !dtio)
 	{
 	  gfc_error ("NAMELIST object %qs in namelist %qs at %L is "
 		     "polymorphic and requires a defined input/output "
@@ -13472,13 +13619,14 @@ resolve_fl_namelist (gfc_symbol *sym)
 			       sym->name, &sym->declared_at))
 	    return false;
 
-	 /* FIXME: Once UDDTIO is implemented, the following can be
-	    removed.  */
-	  gfc_error ("NAMELIST object %qs in namelist %qs at %L has "
-		     "ALLOCATABLE or POINTER components and thus requires "
-		     "a defined input/output procedure", nl->sym->name,
-		     sym->name, &sym->declared_at);
-	  return false;
+	  if (!dtio)
+	    {
+	      gfc_error ("NAMELIST object %qs in namelist %qs at %L has "
+			"ALLOCATABLE or POINTER components and thus requires "
+			"a defined input/output procedure", nl->sym->name,
+			sym->name, &sym->declared_at);
+	      return false;
+	    }
 	}
     }
 
@@ -13496,6 +13644,11 @@ resolve_fl_namelist (gfc_symbol *sym)
 			 nl->sym->name, sym->name, &sym->declared_at);
 	      return false;
 	    }
+
+	  /* If the derived type has specific DTIO procedures for both read and
+	     write then namelist objects with private components are OK.  */
+	  if (dtio_procs_present (nl->sym))
+	    continue;
 
 	  /* Types with private components that came here by USE-association.  */
 	  if (nl->sym->ts.type == BT_DERIVED
@@ -13562,6 +13715,10 @@ resolve_fl_parameter (gfc_symbol *sym)
 		 "or of deferred shape", sym->name, &sym->declared_at);
       return false;
     }
+
+  /* Constraints on deferred type parameter.  */
+  if (!deferred_requirements (sym))
+    return false;
 
   /* Make sure a parameter that has been implicitly typed still
      matches the implicit type, since PARAMETER statements can precede
@@ -15519,6 +15676,8 @@ resolve_types (gfc_namespace *ns)
     warn_unused_fortran_label (ns->st_labels);
 
   gfc_resolve_uops (ns->uop_root);
+
+  gfc_traverse_ns (ns, gfc_verify_DTIO_procedures);
 
   gfc_resolve_omp_declare_simd (ns);
 

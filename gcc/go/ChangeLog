@@ -1,3 +1,29 @@
+2016-09-11  Ian Lance Taylor  <iant@golang.org>
+
+	* go-gcc.cc (Gcc_backend::Gcc_backend): Add builtin versions of
+	ctz, ctzll, bswap32, bswap64.
+
+2016-09-10  Ian Lance Taylor  <iant@golang.org>
+
+	* go-backend.c (go_trampoline_info): Remove.
+	* go-c.h (go_trampoline_info): Don't declare.
+
+2016-09-09  Than McIntosh  <thanm@google.com>
+
+	* go-sha1.cc: New file.
+	* Make-lang.in (GO_OBJS): Add go/go-sha1.o.
+	(CFLAGS-go/go-sha1.o): New variable.
+
+2016-08-29  Ian Lance Taylor  <iant@google.com>
+
+	* lang.opt (fgo-c-header, fgo-compiling-runtime): New options.
+	* go-c.h (struct go_create_gogo_args): Define.
+	(go_create_gogo): Change declaration to take struct pointer.
+	* go-lang.c (go_c_header): New static variable.
+	(go_langhook_init): Update call to go_create_gogo.
+	* gccgo.texi (Invoking gccgo): Document -fgo-c-header and
+	-fgo-compiling-runtime.
+
 2016-08-09  Ian Lance Taylor  <iant@google.com>
 
 	* gccgo.texi (Invoking gccgo): Document -fgo-optimize-allocs and

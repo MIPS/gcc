@@ -70,7 +70,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   public:
     virtual char const* what() const noexcept;
 
-    virtual ~bad_weak_ptr() noexcept;    
+    virtual ~bad_weak_ptr() noexcept;
   };
 
   // Substitute for bad_weak_ptr object in the case of -fno-exceptions.
@@ -108,31 +108,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class _Sp_counted_base
     : public _Mutex_base<_Lp>
     {
-    public:  
+    public:
       _Sp_counted_base() noexcept
       : _M_use_count(1), _M_weak_count(1) { }
-      
+
       virtual
       ~_Sp_counted_base() noexcept
       { }
-  
+
       // Called when _M_use_count drops to zero, to release the resources
       // managed by *this.
       virtual void
       _M_dispose() noexcept = 0;
-      
+
       // Called when _M_weak_count drops to zero.
       virtual void
       _M_destroy() noexcept
       { delete this; }
-      
+
       virtual void*
       _M_get_deleter(const std::type_info&) noexcept = 0;
 
       void
       _M_add_ref_copy()
       { __gnu_cxx::__atomic_add_dispatch(&_M_use_count, 1); }
-  
+
       void
       _M_add_ref_lock();
 
@@ -167,7 +167,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
               }
 	  }
       }
-  
+
       void
       _M_weak_add_ref() noexcept
       { __gnu_cxx::__atomic_add_dispatch(&_M_weak_count, 1); }
@@ -189,7 +189,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    _M_destroy();
 	  }
       }
-  
+
       long
       _M_get_use_count() const noexcept
       {
@@ -198,7 +198,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         return __atomic_load_n(&_M_use_count, __ATOMIC_RELAXED);
       }
 
-    private:  
+    private:
       _Sp_counted_base(_Sp_counted_base const&) = delete;
       _Sp_counted_base& operator=(_Sp_counted_base const&) = delete;
 
@@ -229,7 +229,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     }
 
-  template<> 
+  template<>
     inline void
     _Sp_counted_base<_S_atomic>::
     _M_add_ref_lock()
@@ -241,10 +241,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  if (__count == 0)
 	    __throw_bad_weak_ptr();
 	  // Replace the current counter value with the old value + 1, as
-	  // long as it's not changed meanwhile. 
+	  // long as it's not changed meanwhile.
 	}
       while (!__atomic_compare_exchange_n(&_M_use_count, &__count, __count + 1,
-					  true, __ATOMIC_ACQ_REL, 
+					  true, __ATOMIC_ACQ_REL,
 					  __ATOMIC_RELAXED));
     }
 
@@ -873,6 +873,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	using _Convertible
 	  = typename enable_if<is_convertible<_Ptr, _Tp*>::value>::type;
 
+      template<typename _Ptr>
+	using _Assignable = typename
+	  enable_if<is_convertible<_Ptr, _Tp*>::value, __shared_ptr&>::type;
+
     public:
       typedef _Tp   element_type;
 
@@ -983,7 +987,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       constexpr __shared_ptr(nullptr_t) noexcept : __shared_ptr() { }
 
       template<typename _Tp1>
-	__shared_ptr&
+	_Assignable<_Tp1*>
 	operator=(const __shared_ptr<_Tp1, _Lp>& __r) noexcept
 	{
 	  _M_ptr = __r._M_ptr;
@@ -1009,7 +1013,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
 
       template<class _Tp1>
-	__shared_ptr&
+	_Assignable<_Tp1*>
 	operator=(__shared_ptr<_Tp1, _Lp>&& __r) noexcept
 	{
 	  __shared_ptr(std::move(__r)).swap(*this);
@@ -1017,7 +1021,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
       template<typename _Tp1, typename _Del>
-	__shared_ptr&
+	_Assignable<typename unique_ptr<_Tp1, _Del>::pointer>
 	operator=(std::unique_ptr<_Tp1, _Del>&& __r)
 	{
 	  __shared_ptr(std::move(__r)).swap(*this);
@@ -1029,7 +1033,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { __shared_ptr().swap(*this); }
 
       template<typename _Tp1>
-	void
+	_Convertible<_Tp1*>
 	reset(_Tp1* __p) // _Tp1 must be complete.
 	{
 	  // Catch self-reset errors.
@@ -1038,12 +1042,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
       template<typename _Tp1, typename _Deleter>
-	void
+	_Convertible<_Tp1*>
 	reset(_Tp1* __p, _Deleter __d)
 	{ __shared_ptr(__p, __d).swap(*this); }
 
       template<typename _Tp1, typename _Deleter, typename _Alloc>
-	void
+	_Convertible<_Tp1*>
         reset(_Tp1* __p, _Deleter __d, _Alloc __a)
         { __shared_ptr(__p, __d, std::move(__a)).swap(*this); }
 

@@ -60,6 +60,7 @@
 #include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "stringpool.h"
+#include "tree-vrp.h"
 #include "tree-ssa-operands.h"
 #include "tree-ssanames.h"
 #include "gimplify.h"
@@ -4854,6 +4855,9 @@ nvptx_goacc_reduction (gcall *call)
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE nvptx_attribute_table
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P nvptx_legitimate_address_p

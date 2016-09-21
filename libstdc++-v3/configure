@@ -27972,6 +27972,19 @@ _ACEOF
 fi
 done
 
+  for ac_func in aligned_alloc posix_memalign memalign _aligned_malloc
+do :
+  as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+eval as_val=\$$as_ac_var
+   if test "x$as_val" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
 
   # For iconv support.
 
@@ -79449,8 +79462,7 @@ $as_echo "$ac_cv_x86_rdrand" >&6; }
 
 # This depends on GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE.
 
-  if $GLIBCXX_IS_NATIVE ; then
-    # Do checks for resource limit functions.
+  # Do checks for resource limit functions.
 
   setrlimit_have_headers=yes
   for ac_header in unistd.h sys/time.h sys/resource.h
@@ -79679,6 +79691,7 @@ $as_echo "#define _GLIBCXX_RES_LIMITS 1" >>confdefs.h
 $as_echo "$ac_res_limits" >&6; }
 
 
+  if $GLIBCXX_IS_NATIVE ; then
     # Look for setenv, so that extended locale tests can be performed.
 
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for setenv declaration" >&5

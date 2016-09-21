@@ -694,8 +694,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  i = 0;
 	  FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
 	    {
-	      char temp[10];
-	      sprintf (temp, "arg %d", i);
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+	      char temp[15];
+	      sprintf (temp, "arg %u", i);
 	      print_node (file, temp, arg, indent + 4);
 	      i++;
 	    }
@@ -706,7 +708,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	  for (i = 0; i < len; i++)
 	    {
-	      char temp[10];
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+	      char temp[15];
 
 	      sprintf (temp, "arg %d", i);
 	      print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
@@ -770,8 +774,18 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
 	      {
-		sprintf (buf, "elt%u: ", i);
+		unsigned j;
+		/* Coalesce the output of identical consecutive elements.  */
+		for (j = i + 1; j < VECTOR_CST_NELTS (node); j++)
+		  if (VECTOR_CST_ELT (node, j) != VECTOR_CST_ELT (node, i))
+		    break;
+		j--;
+		if (i == j)
+		  sprintf (buf, "elt%u: ", i);
+		else
+		  sprintf (buf, "elt%u...elt%u: ", i, j);
 		print_node (file, buf, VECTOR_CST_ELT (node, i), indent + 4);
+		i = j;
 	      }
 	  }
 	  break;
@@ -814,7 +828,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  for (i = 0; i < len; i++)
 	    if (TREE_VEC_ELT (node, i))
 	      {
-		char temp[10];
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+		char temp[15];
 		sprintf (temp, "elt %d", i);
 		print_node (file, temp, TREE_VEC_ELT (node, i), indent + 4);
 	      }
@@ -869,8 +885,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case SSA_NAME:
 	  print_node_brief (file, "var", SSA_NAME_VAR (node), indent + 4);
+	  indent_to (file, indent + 4);
 	  fprintf (file, "def_stmt ");
-	  print_gimple_stmt (file, SSA_NAME_DEF_STMT (node), indent + 4, 0);
+	  {
+	    pretty_printer buffer;
+	    buffer.buffer->stream = file;
+	    pp_gimple_stmt_1 (&buffer, SSA_NAME_DEF_STMT (node), indent + 4, 0);
+	    pp_flush (&buffer);
+	  }
 
 	  indent_to (file, indent + 4);
 	  fprintf (file, "version %u", SSA_NAME_VERSION (node));

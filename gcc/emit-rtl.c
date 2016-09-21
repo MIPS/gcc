@@ -1964,7 +1964,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       get_object_alignment_1 (t, &obj_align, &obj_bitpos);
       obj_bitpos = (obj_bitpos - bitpos) & (obj_align - 1);
       if (obj_bitpos != 0)
-	obj_align = (obj_bitpos & -obj_bitpos);
+	obj_align = least_bit_hwi (obj_bitpos);
       attrs.align = MAX (attrs.align, obj_align);
     }
 
@@ -2298,7 +2298,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
      if zero.  */
   if (offset != 0)
     {
-      max_align = (offset & -offset) * BITS_PER_UNIT;
+      max_align = least_bit_hwi (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
@@ -2626,8 +2626,10 @@ unshare_all_rtl_1 (rtx_insn *insn)
      This special care is necessary when the stack slot MEM does not
      actually appear in the insn chain.  If it does appear, its address
      is unshared from all else at that point.  */
-  stack_slot_list = safe_as_a <rtx_expr_list *> (
-		      copy_rtx_if_shared (stack_slot_list));
+  unsigned int i;
+  rtx temp;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    (*stack_slot_list)[i] = copy_rtx_if_shared (temp);
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared
@@ -2656,7 +2658,10 @@ unshare_all_rtl_again (rtx_insn *insn)
   for (decl = DECL_ARGUMENTS (cfun->decl); decl; decl = DECL_CHAIN (decl))
     set_used_flags (DECL_RTL (decl));
 
-  reset_used_flags (stack_slot_list);
+  rtx temp;
+  unsigned int i;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    reset_used_flags (temp);
 
   unshare_all_rtl_1 (insn);
 }

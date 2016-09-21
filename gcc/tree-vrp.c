@@ -744,23 +744,29 @@ update_value_range (const_tree var, value_range *new_vr)
       value_range_type rtype = get_range_info (var, &min, &max);
       if (rtype == VR_RANGE || rtype == VR_ANTI_RANGE)
 	{
-	  value_range nr;
-	  nr.type = rtype;
+	  tree nr_min, nr_max;
 	  /* Range info on SSA names doesn't carry overflow information
 	     so make sure to preserve the overflow bit on the lattice.  */
-	  if (new_vr->type == VR_RANGE
-	      && is_negative_overflow_infinity (new_vr->min)
-	      && wi::eq_p (new_vr->min, min))
-	    nr.min = new_vr->min;
+	  if (rtype == VR_RANGE
+	      && needs_overflow_infinity (TREE_TYPE (var))
+	      && (new_vr->type == VR_VARYING
+		  || (new_vr->type == VR_RANGE
+		      && is_negative_overflow_infinity (new_vr->min)))
+	      && wi::eq_p (vrp_val_min (TREE_TYPE (var)), min))
+	    nr_min = negative_overflow_infinity (TREE_TYPE (var));
 	  else
-	    nr.min = wide_int_to_tree (TREE_TYPE (var), min);
-	  if (new_vr->type == VR_RANGE
-	      && is_positive_overflow_infinity (new_vr->max)
-	      && wi::eq_p (new_vr->max, max))
-	    nr.max = new_vr->max;
+	    nr_min = wide_int_to_tree (TREE_TYPE (var), min);
+	  if (rtype == VR_RANGE
+	      && needs_overflow_infinity (TREE_TYPE (var))
+	      && (new_vr->type == VR_VARYING
+		  || (new_vr->type == VR_RANGE
+		      && is_positive_overflow_infinity (new_vr->max)))
+	      && wi::eq_p (vrp_val_max (TREE_TYPE (var)), max))
+	    nr_max = positive_overflow_infinity (TREE_TYPE (var));
 	  else
-	    nr.max = wide_int_to_tree (TREE_TYPE (var), max);
-	  nr.equiv = NULL;
+	    nr_max = wide_int_to_tree (TREE_TYPE (var), max);
+	  value_range nr = VR_INITIALIZER;
+	  set_and_canonicalize_value_range (&nr, rtype, nr_min, nr_max, NULL);
 	  vrp_intersect_ranges (new_vr, &nr);
 	}
     }
@@ -4782,11 +4788,6 @@ infer_value_range (gimple *stmt, tree op, tree_code *comp_code_p, tree *val_p)
   if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op))
     return false;
 
-  /* Similarly, don't infer anything from statements that may throw
-     exceptions. ??? Relax this requirement?  */
-  if (stmt_could_throw_p (stmt))
-    return false;
-
   /* If STMT is the last statement of a basic block with no normal
      successors, there is no point inferring anything about any of its
      operands.  We would not be able to find a proper insertion point
@@ -4797,7 +4798,7 @@ infer_value_range (gimple *stmt, tree op, tree_code *comp_code_p, tree *val_p)
       edge e;
 
       FOR_EACH_EDGE (e, ei, gimple_bb (stmt)->succs)
-	if (!(e->flags & EDGE_ABNORMAL))
+	if (!(e->flags & (EDGE_ABNORMAL|EDGE_EH)))
 	  break;
       if (e == NULL)
 	return false;
@@ -6370,10 +6371,10 @@ process_assert_insertions_for (tree name, assert_locus *loc)
 
   /* If STMT must be the last statement in BB, we can only insert new
      assertions on the non-abnormal edge out of BB.  Note that since
-     STMT is not control flow, there may only be one non-abnormal edge
+     STMT is not control flow, there may only be one non-abnormal/eh edge
      out of BB.  */
   FOR_EACH_EDGE (e, ei, loc->bb->succs)
-    if (!(e->flags & EDGE_ABNORMAL))
+    if (!(e->flags & (EDGE_ABNORMAL|EDGE_EH)))
       {
 	gsi_insert_on_edge (e, assert_stmt);
 	return true;

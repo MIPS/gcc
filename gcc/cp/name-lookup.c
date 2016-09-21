@@ -4446,7 +4446,7 @@ suggest_alternatives_for (location_t location, tree name)
       if (fuzzy_name)
 	{
 	  gcc_rich_location richloc (location);
-	  richloc.add_fixit_misspelled_id (location, fuzzy_name);
+	  richloc.add_fixit_replace (fuzzy_name);
 	  inform_at_rich_loc (&richloc, "suggested alternative: %qs",
 			      fuzzy_name);
 	}
@@ -4707,19 +4707,29 @@ consider_binding_level (tree name, best_match <tree, tree> &bm,
 
   for (tree t = lvl->names; t; t = TREE_CHAIN (t))
     {
+      tree d = t;
+
+      /* OVERLOADs or decls from using declaration are wrapped into
+	 TREE_LIST.  */
+      if (TREE_CODE (d) == TREE_LIST)
+	{
+	  d = TREE_VALUE (d);
+	  d = OVL_CURRENT (d);
+	}
+
       /* Don't use bindings from implicitly declared functions,
 	 as they were likely misspellings themselves.  */
-      if (TREE_TYPE (t) == error_mark_node)
+      if (TREE_TYPE (d) == error_mark_node)
 	continue;
 
       /* Skip anticipated decls of builtin functions.  */
-      if (TREE_CODE (t) == FUNCTION_DECL
-	  && DECL_BUILT_IN (t)
-	  && DECL_ANTICIPATED (t))
+      if (TREE_CODE (d) == FUNCTION_DECL
+	  && DECL_BUILT_IN (d)
+	  && DECL_ANTICIPATED (d))
 	continue;
 
-      if (DECL_NAME (t))
-	bm.consider (DECL_NAME (t));
+      if (DECL_NAME (d))
+	bm.consider (DECL_NAME (d));
     }
 }
 

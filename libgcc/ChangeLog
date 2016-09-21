@@ -1,3 +1,46 @@
+2016-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcc/71744
+	* unwind-dw2-fde.c (ATOMIC_FDE_FAST_PATH): Define if __register_frame*
+	is not the primary registry and atomics are available.
+	(any_objects_registered): New variable.
+	(__register_frame_info_bases, __register_frame_info_table_bases):
+	Atomically store 1 to any_objects_registered after registering first
+	unwind info.
+	(_Unwind_Find_FDE): Return early if any_objects_registered is 0.
+
+2016-09-09  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/63250
+	*  Makefile.in (lib2funcs): Build _mulhc3 and _divhc3.
+	* libgcc2.h (LIBGCC_HAS_HF_MODE): Conditionally define.
+	(HFtype): Likewise.
+	(HCtype): Likewise.
+	(__divhc3): Likewise.
+	(__mulhc3): Likewise.
+	* libgcc2.c: Support _mulhc3 and _divhc3.
+
+2016-09-07  Joseph Myers  <joseph@codesourcery.com>
+
+	PR libgcc/77519
+	* libgcc2.c (NOTRUNC): Invert settings.
+
+2016-09-06  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/77378
+	PR gcov-profile/77466
+	* libgcov-profiler.c: Use __GCC_HAVE_SYNC_COMPARE_AND_SWAP_{4,8} to
+	conditionaly enable/disable *_atomic functions.
+
+2016-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* config.host (i[34567]86-*-* | x86_64-*-*): Enable TFmode soft-fp
+	where not already enabled.
+
+2016-08-25  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/mips/linux-unwind.h: Use sys/syscall.h.
+
 2016-08-16  Joseph Myers  <joseph@codesourcery.com>
 
 	PR libgcc/77265

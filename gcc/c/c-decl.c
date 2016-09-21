@@ -3096,7 +3096,7 @@ implicit_decl_warning (location_t loc, tree id, tree olddecl)
 	if (hint)
 	  {
 	    gcc_rich_location richloc (loc);
-	    richloc.add_fixit_misspelled_id (loc, hint);
+	    richloc.add_fixit_replace (hint);
 	    warned = pedwarn_at_rich_loc
 	      (&richloc, OPT_Wimplicit_function_declaration,
 	       "implicit declaration of function %qE; did you mean %qs?",
@@ -3109,7 +3109,7 @@ implicit_decl_warning (location_t loc, tree id, tree olddecl)
 	if (hint)
 	  {
 	    gcc_rich_location richloc (loc);
-	    richloc.add_fixit_misspelled_id (loc, hint);
+	    richloc.add_fixit_replace (hint);
 	    warned = warning_at_rich_loc
 	      (&richloc, OPT_Wimplicit_function_declaration,
 	       G_("implicit declaration of function %qE;did you mean %qs?"),
@@ -3437,7 +3437,7 @@ undeclared_variable (location_t loc, tree id)
       if (guessed_id)
 	{
 	  gcc_rich_location richloc (loc);
-	  richloc.add_fixit_misspelled_id (loc, guessed_id);
+	  richloc.add_fixit_replace (guessed_id);
 	  error_at_rich_loc (&richloc,
 			     "%qE undeclared here (not in a function);"
 			     " did you mean %qs?",
@@ -3455,7 +3455,7 @@ undeclared_variable (location_t loc, tree id)
 	  if (guessed_id)
 	    {
 	      gcc_rich_location richloc (loc);
-	      richloc.add_fixit_misspelled_id (loc, guessed_id);
+	      richloc.add_fixit_replace (guessed_id);
 	      error_at_rich_loc
 		(&richloc,
 		 "%qE undeclared (first use in this function);"
@@ -5102,7 +5102,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	  vec<tree, va_gc> *v;
 
 	  /* Build "cleanup(&decl)" for the destructor.  */
-	  cleanup = build_unary_op (input_location, ADDR_EXPR, decl, 0);
+	  cleanup = build_unary_op (input_location, ADDR_EXPR, decl, false);
 	  vec_alloc (v, 1);
 	  v->quick_push (cleanup);
 	  cleanup = c_build_function_call_vec (DECL_SOURCE_LOCATION (decl),
@@ -10190,10 +10190,13 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 			  ("both %<__int%d%> and %<short%> in "
 			   "declaration specifiers"),
 			  int_n_data[specs->int_n_idx].bitsize);
-	      else if (! int_n_enabled_p [specs->int_n_idx])
-		error_at (loc,
-			  "%<__int%d%> is not supported on this target",
-			  int_n_data[specs->int_n_idx].bitsize);
+	      else if (! int_n_enabled_p[specs->int_n_idx])
+		{
+		  specs->typespec_word = cts_int_n;
+		  error_at (loc,
+			    "%<__int%d%> is not supported on this target",
+			    int_n_data[specs->int_n_idx].bitsize);
+		}
 	      else
 		{
 		  specs->typespec_word = cts_int_n;
@@ -10400,12 +10403,15 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 			   ? "x"
 			   : ""));
 	      else if (FLOATN_NX_TYPE_NODE (specs->floatn_nx_idx) == NULL_TREE)
-		error_at (loc,
-			  "%<_Float%d%s%> is not supported on this target",
-			  floatn_nx_types[specs->floatn_nx_idx].n,
-			  (floatn_nx_types[specs->floatn_nx_idx].extended
-			   ? "x"
-			   : ""));
+		{
+		  specs->typespec_word = cts_floatn_nx;
+		  error_at (loc,
+			    "%<_Float%d%s%> is not supported on this target",
+			    floatn_nx_types[specs->floatn_nx_idx].n,
+			    (floatn_nx_types[specs->floatn_nx_idx].extended
+			     ? "x"
+			     : ""));
+		}
 	      else
 		{
 		  specs->typespec_word = cts_floatn_nx;
@@ -10892,9 +10898,12 @@ finish_declspecs (struct c_declspecs *specs)
     case cts_floatn_nx:
       gcc_assert (!specs->long_p && !specs->short_p
 		  && !specs->signed_p && !specs->unsigned_p);
-      specs->type = (specs->complex_p
-		     ? COMPLEX_FLOATN_NX_TYPE_NODE (specs->floatn_nx_idx)
-		     : FLOATN_NX_TYPE_NODE (specs->floatn_nx_idx));
+      if (FLOATN_NX_TYPE_NODE (specs->floatn_nx_idx) == NULL_TREE)
+	specs->type = integer_type_node;
+      else if (specs->complex_p)
+	specs->type = COMPLEX_FLOATN_NX_TYPE_NODE (specs->floatn_nx_idx);
+      else
+	specs->type = FLOATN_NX_TYPE_NODE (specs->floatn_nx_idx);
       break;
     case cts_dfloat32:
     case cts_dfloat64:

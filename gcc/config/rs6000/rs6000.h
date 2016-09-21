@@ -760,13 +760,15 @@ extern int rs6000_vector_align[];
 				 && TARGET_SINGLE_FLOAT			\
 				 && TARGET_DOUBLE_FLOAT)
 
-/* Macro to say whether we can do optimization where we need to do parts of the
-   calculation in 64-bit GPRs and then is transfered to the vector
-   registers.  */
+/* Macro to say whether we can do optimizations where we need to do parts of
+   the calculation in 64-bit GPRs and then is transfered to the vector
+   registers.  Do not allow -maltivec=be for these optimizations, because it
+   adds to the complexity of the code.  */
 #define TARGET_DIRECT_MOVE_64BIT	(TARGET_DIRECT_MOVE		\
 					 && TARGET_P8_VECTOR		\
 					 && TARGET_POWERPC64		\
-					 && TARGET_UPPER_REGS_DI)
+					 && TARGET_UPPER_REGS_DI	\
+					 && (rs6000_altivec_element_order != 2))
 
 /* Whether the various reciprocal divide/square root estimate instructions
    exist, and whether we should automatically generate code for the instruction
@@ -1118,7 +1120,7 @@ enum data_align { align_abi, align_opt, align_both };
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-   1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1,	   \
+   0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1,	   \
    /* AltiVec registers.  */			   \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -1956,7 +1958,7 @@ typedef struct rs6000_args
 #define TRAMPOLINE_SIZE rs6000_trampoline_size ()
 
 /* Definitions for __builtin_return_address and __builtin_frame_address.
-   __builtin_return_address (0) should give link register (65), enable
+   __builtin_return_address (0) should give link register (LR_REGNO), enable
    this.  */
 /* This should be uncommented, so that the link register is used, but
    currently this would result in unmatched insns and spilling fixed

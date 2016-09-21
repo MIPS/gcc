@@ -920,9 +920,10 @@ char_len_param_value (gfc_expr **expr, bool *deferred)
 
       t = gfc_reduce_init_expr (e);
 
-      if (!t && (e->ts.type == BT_UNKNOWN
-		 && e->symtree->n.sym->attr.untyped == 1
-		 && e->symtree->n.sym->ns->seen_implicit_none == 1))
+      if (!t && e->ts.type == BT_UNKNOWN
+	  && e->symtree->n.sym->attr.untyped == 1
+	  && (e->symtree->n.sym->ns->seen_implicit_none == 1
+	      || e->symtree->n.sym->ns->parent->seen_implicit_none == 1))
 	{
 	  gfc_free_expr (e);
 	  goto syntax;
@@ -7469,6 +7470,7 @@ access_attr_decl (gfc_statement st)
 	  goto syntax;
 
 	case INTERFACE_GENERIC:
+	case INTERFACE_DTIO:
 	  if (gfc_get_symbol (name, NULL, &sym))
 	    goto done;
 
@@ -8473,7 +8475,7 @@ match
 gfc_match_structure_decl (void)
 {
     /* Counter used to give unique internal names to anonymous structures.  */
-    int gfc_structure_id = 0;
+    static unsigned int gfc_structure_id = 0;
     char name[GFC_MAX_SYMBOL_LEN + 1];
     gfc_symbol *sym;
     match m;
@@ -9378,6 +9380,7 @@ gfc_match_generic (void)
   switch (op_type)
     {
     case INTERFACE_GENERIC:
+    case INTERFACE_DTIO:
       snprintf (bind_name, sizeof (bind_name), "%s", name);
       break;
 
@@ -9413,6 +9416,7 @@ gfc_match_generic (void)
 
   switch (op_type)
     {
+    case INTERFACE_DTIO:
     case INTERFACE_USER_OP:
     case INTERFACE_GENERIC:
       {
@@ -9467,6 +9471,7 @@ gfc_match_generic (void)
 
       switch (op_type)
 	{
+	case INTERFACE_DTIO:
 	case INTERFACE_GENERIC:
 	case INTERFACE_USER_OP:
 	  {

@@ -2879,7 +2879,24 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
       gimple_seq_discard (forced_stmts);
       return folded;
     }
-
+  /* Likewise if we simplified to sth not queued for insertion.  */
+  bool found = false;
+  gsi = gsi_last (forced_stmts);
+  for (; !gsi_end_p (gsi); gsi_prev (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+      tree forcedname = gimple_get_lhs (stmt);
+      if (forcedname == folded)
+	{
+	  found = true;
+	  break;
+	}
+    }
+  if (! found)
+    {
+      gimple_seq_discard (forced_stmts);
+      return folded;
+    }
   gcc_assert (TREE_CODE (folded) == SSA_NAME);
 
   /* If we have any intermediate expressions to the value sets, add them
@@ -3670,15 +3687,14 @@ compute_avail (void)
   basic_block *worklist;
   size_t sp = 0;
   unsigned i;
+  tree name;
 
   /* We pretend that default definitions are defined in the entry block.
      This includes function arguments and the static chain decl.  */
-  for (i = 1; i < num_ssa_names; ++i)
+  FOR_EACH_SSA_NAME (i, name, cfun)
     {
-      tree name = ssa_name (i);
       pre_expr e;
-      if (!name
-	  || !SSA_NAME_IS_DEFAULT_DEF (name)
+      if (!SSA_NAME_IS_DEFAULT_DEF (name)
 	  || has_zero_uses (name)
 	  || virtual_operand_p (name))
 	continue;

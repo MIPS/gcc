@@ -56,12 +56,13 @@ extern void pass (const location &loc, const char *msg);
 
 /* Report the failed outcome of some aspect of the test and abort.  */
 
-extern void fail (const location &loc, const char *msg);
+extern void fail (const location &loc, const char *msg)
+  ATTRIBUTE_NORETURN;
 
 /* As "fail", but using printf-style formatted output.  */
 
 extern void fail_formatted (const location &loc, const char *fmt, ...)
- ATTRIBUTE_PRINTF_2;
+  ATTRIBUTE_PRINTF_2 ATTRIBUTE_NORETURN;
 
 /* Implementation detail of ASSERT_STREQ.  */
 
@@ -69,20 +70,38 @@ extern void assert_streq (const location &loc,
 			  const char *desc_expected, const char *desc_actual,
 			  const char *val_expected, const char *val_actual);
 
-/* A class for writing out a temporary sourcefile for use in selftests
-   of input handling.  */
+/* Implementation detail of ASSERT_STR_CONTAINS.  */
 
-class temp_source_file
+extern void assert_str_contains (const location &loc,
+				 const char *desc_haystack,
+				 const char *desc_needle,
+				 const char *val_haystack,
+				 const char *val_needle);
+
+/* A named temporary file for use in selftests.
+   Usable for writing out files, and as the base class for
+   temp_source_file.
+   The file is unlinked in the destructor.  */
+
+class named_temp_file
 {
  public:
-  temp_source_file (const location &loc, const char *suffix,
-		    const char *content);
-  ~temp_source_file ();
-
+  named_temp_file (const char *suffix);
+  ~named_temp_file ();
   const char *get_filename () const { return m_filename; }
 
  private:
   char *m_filename;
+};
+
+/* A class for writing out a temporary sourcefile for use in selftests
+   of input handling.  */
+
+class temp_source_file : public named_temp_file
+{
+ public:
+  temp_source_file (const location &loc, const char *suffix,
+		    const char *content);
 };
 
 /* Various selftests involving location-handling require constructing a
@@ -132,6 +151,7 @@ for_each_line_table_case (void (*testcase) (const line_table_case &));
 extern void bitmap_c_tests ();
 extern void diagnostic_c_tests ();
 extern void diagnostic_show_locus_c_tests ();
+extern void edit_context_c_tests ();
 extern void et_forest_c_tests ();
 extern void fold_const_c_tests ();
 extern void fibonacci_heap_c_tests ();
@@ -147,6 +167,7 @@ extern void selftest_c_tests ();
 extern void spellcheck_c_tests ();
 extern void spellcheck_tree_c_tests ();
 extern void sreal_c_tests ();
+extern void typed_splay_tree_c_tests ();
 extern void tree_c_tests ();
 extern void tree_cfg_c_tests ();
 extern void vec_c_tests ();
@@ -247,6 +268,17 @@ extern int num_passes;
   SELFTEST_BEGIN_STMT						    \
   ::selftest::assert_streq ((LOC), #EXPECTED, #ACTUAL,		    \
 			    (EXPECTED), (ACTUAL));		    \
+  SELFTEST_END_STMT
+
+/* Evaluate HAYSTACK and NEEDLE and use strstr to determine if NEEDLE
+   is within HAYSTACK.
+   ::selftest::pass if NEEDLE is found.
+   ::selftest::fail if it is not found.  */
+
+#define ASSERT_STR_CONTAINS(HAYSTACK, NEEDLE)				\
+  SELFTEST_BEGIN_STMT							\
+  ::selftest::assert_str_contains (SELFTEST_LOCATION, #HAYSTACK, #NEEDLE, \
+				   (HAYSTACK), (NEEDLE));		\
   SELFTEST_END_STMT
 
 /* Evaluate PRED1 (VAL1), calling ::selftest::pass if it is true,

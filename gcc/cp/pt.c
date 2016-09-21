@@ -16257,7 +16257,7 @@ tsubst_copy_and_build (tree t,
 
     case FIX_TRUNC_EXPR:
       RETURN (cp_build_unary_op (FIX_TRUNC_EXPR, RECUR (TREE_OPERAND (t, 0)),
-				 0, complain));
+				 false, complain));
 
     case ADDR_EXPR:
       op1 = TREE_OPERAND (t, 0);
@@ -21479,7 +21479,8 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
     if (! static_p)
       for (tmp = TYPE_METHODS (t); tmp; tmp = DECL_CHAIN (tmp))
 	if (TREE_CODE (tmp) == FUNCTION_DECL
-	    && DECL_TEMPLATE_INSTANTIATION (tmp))
+	    && DECL_TEMPLATE_INSTANTIATION (tmp)
+	    && user_provided_p (tmp))
 	  instantiate_class_member (tmp, extern_p);
 
     for (tmp = TYPE_FIELDS (t); tmp; tmp = DECL_CHAIN (tmp))

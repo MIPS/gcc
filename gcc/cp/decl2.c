@@ -3775,7 +3775,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
 				EQ_EXPR,
 				cp_build_unary_op (PREINCREMENT_EXPR,
 						   guard,
-						   /*noconvert=*/1,
+						   /*noconvert=*/true,
 						   tf_warning_or_error),
 				integer_one_node,
 				tf_warning_or_error);
@@ -3785,7 +3785,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
 				EQ_EXPR,
 				cp_build_unary_op (PREDECREMENT_EXPR,
 						   guard,
-						   /*noconvert=*/1,
+						   /*noconvert=*/true,
 						   tf_warning_or_error),
 				integer_zero_node,
 				tf_warning_or_error);
@@ -3861,7 +3861,7 @@ do_static_initialization_or_destruction (tree vars, bool initp)
      in other compilation units, or at least those that haven't been
      initialized yet.  Variables that need dynamic construction in
      the current compilation unit are kept accessible.  */
-  if (flag_sanitize & SANITIZE_ADDRESS)
+  if (initp && (flag_sanitize & SANITIZE_ADDRESS))
     finish_expr_stmt (asan_dynamic_init_call (/*after_p=*/false));
 
   node = vars;
@@ -3914,7 +3914,7 @@ do_static_initialization_or_destruction (tree vars, bool initp)
 
   /* Revert what __asan_before_dynamic_init did by calling
      __asan_after_dynamic_init.  */
-  if (flag_sanitize & SANITIZE_ADDRESS)
+  if (initp && (flag_sanitize & SANITIZE_ADDRESS))
     finish_expr_stmt (asan_dynamic_init_call (/*after_p=*/true));
 
   /* Finish up the init/destruct if-stmt body.  */
@@ -4488,7 +4488,7 @@ maybe_warn_sized_delete (enum tree_code code)
     {
       tree fn = OVL_CURRENT (ovl);
       /* We're only interested in usual deallocation functions.  */
-      if (!non_placement_deallocation_fn_p (fn))
+      if (!usual_deallocation_fn_p (fn))
 	continue;
       if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
 	unsized = fn;

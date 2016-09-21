@@ -638,6 +638,16 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
 		&& sym->attr.codimension && !sym->attr.allocatable)))
     TREE_STATIC (decl) = 1;
 
+  /* If derived-type variables with DTIO procedures are not made static
+     some bits of code referencing them get optimized away.
+     TODO Understand why this is so and fix it.  */
+  if (!sym->attr.use_assoc
+      && ((sym->ts.type == BT_DERIVED
+           && sym->ts.u.derived->attr.has_dtio_procs)
+	  || (sym->ts.type == BT_CLASS
+	      && CLASS_DATA (sym)->ts.u.derived->attr.has_dtio_procs)))
+    TREE_STATIC (decl) = 1;
+
   if (sym->attr.volatile_)
     {
       TREE_THIS_VOLATILE (decl) = 1;
@@ -5316,9 +5326,19 @@ generate_local_decl (gfc_symbol * sym)
 	    }
 	  else if (!sym->attr.use_assoc)
 	    {
-	      gfc_warning (OPT_Wunused_variable,
-			   "Unused variable %qs declared at %L",
-			   sym->name, &sym->declared_at);
+	      /* Corner case: the symbol may be an entry point.  At this point,
+		 it may appear to be an unused variable.  Suppress warning.  */
+	      bool enter = false;
+	      gfc_entry_list *el;
+
+	      for (el = sym->ns->entries; el; el=el->next)
+		if (strcmp(sym->name, el->sym->name) == 0)
+		  enter = true;
+
+	      if (!enter)
+		gfc_warning (OPT_Wunused_variable,
+			     "Unused variable %qs declared at %L",
+			     sym->name, &sym->declared_at);
 	      if (sym->backend_decl != NULL_TREE)
 		TREE_NO_WARNING(sym->backend_decl) = 1;
 	    }

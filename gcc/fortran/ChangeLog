@@ -1,3 +1,217 @@
+2016_09_17  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/68078
+	* resolve.c (resolve_allocate_expr): Check that derived type
+	pointer, object or array has been successfully allocated before
+	initializing.
+
+2016-09-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77612
+	* decl.c (char_len_param_value): Check parent namespace for 
+	seen_implicit_none.
+
+2016-09-15  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/69963
+	* parse.c (reject_statement): Clear charlen pointers in implicit
+	character typespecs before those charlen structures are freed.
+
+2016-09-14  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* simplify.c (gfc_simplify_repeat): Fix a misplaced closing ')'.
+
+2016-09-13  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* module.c (load_equiv):  Revert revision 240063.
+
+2016-09-10  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77532
+	* interface.c (check_dtio_arg_TKR_intent): Return after error.
+	(check_dtio_interface1): Remove asserts, test for NULL and return
+	if found.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* module.c (load_equiv): If the current namespace has a list of
+	equivalence statements, initialize duplicate to false and then
+	look for duplicates; otherwise, initialize it to true.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77506
+	* array.c (gfc_match_array_constructor): CHARACTER(len=*) cannot
+	appear in an array constructor.
+
+2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77507
+	* intrinsic.c (add_functions):  Use correct keyword.
+
+2016-09-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69514
+	* array.c (gfc_match_array_constructor):  If type-spec is present,
+	walk the array constructor performing possible conversions for 
+	numeric types.
+
+2016-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77500
+	* trans-openmp.c (gfc_trans_omp_atomic): For atomic write or
+	swap, don't try to look through GFC_ISYM_CONVERSION.  In other cases,
+	check that value.function.isym is non-NULL before dereferencing it.
+
+2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77391
+	* resolve.c (deferred_requirements): New function to check F2008:C402.
+	(resolve_fl_variable,resolve_fl_parameter): Use it.
+ 
+2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77460
+	* simplify.c (simplify_transformation_to_scalar):  On error, result
+	may be NULL, simply return.
+
+2016-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77352
+	* trans-openmp.c (gfc_trans_omp_parallel_workshare): Always add a
+	BIND_EXPR with BLOCK around what gfc_trans_omp_workshare returns.
+
+	PR fortran/77374
+	* parse.c (parse_omp_oacc_atomic): Copy over cp->ext.omp_atomic
+	to cp->block->ext.omp_atomic.
+	* resolve.c (gfc_resolve_blocks): Assert block with one or two
+	EXEC_ASSIGNs for EXEC_*_ATOMIC.
+	* openmp.c (resolve_omp_atomic): Don't assert one or two
+	EXEC_ASSIGNs, instead return quietly for EXEC_NOPs and otherwise
+	error unexpected statements.
+
+2016-08-31  Paul Thomas  <pault@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+	* decl.c (access_attr_decl): Include case INTERFACE_DTIO as
+	appropriate.
+	* gfortran.h : Add INTRINSIC_FORMATTED and
+	INTRINSIC_UNFORMATTED to gfc_intrinsic_op. Add INTERFACE_DTIO
+	to interface type. Add new enum 'dtio_codes'. Add bitfield
+	'has_dtio_procs' to symbol_attr. Add prototypes
+	'gfc_check_dtio_interfaces' and 'gfc_find_specific_dtio_proc'.
+	* interface.c (dtio_op): New function.
+	(gfc_match_generic_spec): Match generic DTIO interfaces.
+	(gfc_match_interface): Treat DTIO interfaces in the same way as
+	(gfc_current_interface_head): Add INTERFACE_DTIO appropriately.
+	(check_dtio_arg_TKR_intent): New function.
+	(check_dtio_interface1): New function.
+	(gfc_check_dtio_interfaces): New function.
+	(gfc_find_specific_dtio_proc): New function.
+	* io.c : Add FMT_DT to format_token.
+	(format_lex): Handle DTIO formatting.
+	* match.c (gfc_op2string): Add DTIO operators.
+	* resolve.c (derived_inaccessible): Ignore pointer components
+	to enclosing derived type.
+	(resolve_transfer): Resolve transfers that involve DTIO.
+	procedures. Find the specific subroutine for the transfer and
+	use its existence to over-ride some of the constraints on
+	derived types. If the transfer is recursive, require that the
+	subroutine be so qualified.
+	(dtio_procs_present): New function.
+	(resolve_fl_namelist): Remove inhibition of polymorphic objects
+	in namelists if DTIO read and write subroutines exist. Likewise
+	for derived types.
+	(resolve_types): Invoke 'gfc_verify_dtio_procedures'.
+	* symbol.c : Set 'dtio_procs' using 'minit'.
+	* trans-decl.c (gfc_finish_var_decl): If a derived-type/class
+	object is associated with DTIO procedures, make it TREE_STATIC.
+	* trans-expr.c (gfc_get_vptr_from_expr): If the expression
+	drills down to a PARM_DECL, extract the vptr correctly.
+	(gfc_conv_derived_to_class): Check 'info' in the test for
+	'useflags'. If the se expression exists and is a pointer, use
+	it as the class _data.
+	* trans-io.c : Add IOCALL_X_DERIVED to iocall and the function
+	prototype. Likewise for IOCALL_SET_NML_DTIO_VAL.
+	(set_parameter_tree): Renamed from 'set_parameter_const', now
+	returns void and has new tree argument. Calls modified to match
+	new interface.
+	(transfer_namelist_element): Transfer DTIO procedure pointer
+	and vpointer using the new function IOCALL_SET_NML_DTIO_VAL.
+	(get_dtio_proc): New function.
+	(transfer_expr): Add new argument for the vptr field of class
+	objects. Add the code to call the specific DTIO proc, convert
+	derived types to class and call IOCALL_X_DERIVED.
+	(trans_transfer): Add BT_CLASS to structures for treatment by
+	the scalarizer. Obtain the vptr for the dynamic type, both for
+	scalar and array transfer.
+
+2016-08-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.texi: Fix typo in STRUCTURE documentation.
+
+2016-08-29  Fritz Reese  <fritzoreese@gmail.com>
+
+	Fix, reorganize, and clarify comparisons of anonymous types/components.
+
+	PR fortran/77327
+	* interface.c (is_anonymous_component, is_anonymous_dt): New functions.
+	* interface.c (compare_components, gfc_compare_derived_types): Use new
+	functions.
+
+2016-08-27  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77380
+	* dependency.c (gfc_check_dependency): Do not assert with
+	-fcoarray=lib.
+
+2016-08-27  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77372
+	simplify.c (simplify_ieee_selected_real_kind): Check for NULL pointers.
+
+2016-08-25  Steven g. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77351
+	* frontend-passes.c (remove_trim,combine_array_constructor): Check for
+	NULL pointer.
+
+2016-08-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77358
+	* resolve.c (resolve_fl_procedure): Use the correct gfc_charlen
+	for deferred character length module procedures.
+
+2016-08-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* decl.c (gfc_match_structure_decl): Make gfc_structure_id static.
+
+2016-08-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* interface.c (compare_components): Fix typo in name check conditional.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Bud Davis  <jmdavis@link.com>
+
+	PR fortran/60774
+	* parse.c (next_free,next_fixed): Issue error for statement label
+	without a statement.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/61318
+	* interface.c (compare_parameter): Use better locus for error message.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77260
+	* gcc/fortran/trans-decl.c (generate_local_decl): Suppress warning
+	for unused variable if symbol is entry point.
+
 2016-08-19  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/32187
@@ -125,7 +339,7 @@
 	* intrinsic.c (add_function, add_subroutine): New B/I/J/K intrinsic
 	variants.
 
-2016-07-30  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/41922
 	* target-memory.c (expr_to_char): Pass in locus and use it in error
@@ -249,7 +463,7 @@
 	a static one.
 
 2016-07-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
-	    Marco Restelli <mrestelli@gmail.com>
+	    Marco Restelli  <mrestelli@gmail.com>
 
 	PR fortran/62125
 	* symbol.c (select_type_insert_tmp): Recursively call self to take care
@@ -804,7 +1018,7 @@
 	* dump-parse-tree.c (show_code_node):  Print association
 	list of a block if present.  Handle EXEC_END_BLOCK.
 
-2016-02-28  Harald Anlauf <anlauf@gmx.de>
+2016-02-28  Harald Anlauf  <anlauf@gmx.de>
 	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/56007
@@ -990,7 +1204,7 @@
 	* frontend-passes.c (matmul_lhs_realloc):  Add
 	forgotten break statement.
 
-2016-01-24  Dominique d'Humieres <dominiq@lps.ens.fr>
+2016-01-24  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR fortran/68283
 	* primary.c (gfc_variable_attr): revert revision r221955,

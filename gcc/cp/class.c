@@ -1796,6 +1796,8 @@ check_bases (tree t,
       SET_CLASSTYPE_REF_FIELDS_NEED_INIT
 	(t, CLASSTYPE_REF_FIELDS_NEED_INIT (t)
 	 | CLASSTYPE_REF_FIELDS_NEED_INIT (basetype));
+      if (TYPE_HAS_MUTABLE_P (basetype))
+	CLASSTYPE_HAS_MUTABLE (t) = 1;
 
       /*  A standard-layout class is a class that:
 	  ...
@@ -1843,7 +1845,7 @@ check_bases (tree t,
      doesn't define its own, then the current class inherits one.  */
   if (seen_tm_mask && !find_tm_attribute (TYPE_ATTRIBUTES (t)))
     {
-      tree tm_attr = tm_mask_to_attr (seen_tm_mask & -seen_tm_mask);
+      tree tm_attr = tm_mask_to_attr (least_bit_hwi (seen_tm_mask));
       TYPE_ATTRIBUTES (t) = tree_cons (tm_attr, NULL, TYPE_ATTRIBUTES (t));
     }
 }
@@ -5074,7 +5076,7 @@ set_one_vmethod_tm_attributes (tree type, tree fndecl)
      restrictive one.  */
   else if (tm_attr == NULL)
     {
-      apply_tm_attr (fndecl, tm_mask_to_attr (found & -found));
+      apply_tm_attr (fndecl, tm_mask_to_attr (least_bit_hwi (found)));
     }
   /* Otherwise validate that we're not weaker than a function
      that is being overridden.  */
@@ -5133,8 +5135,17 @@ set_method_tm_attributes (tree t)
     }
 }
 
-/* Returns true iff class T has a user-defined constructor other than
-   the default constructor.  */
+/* Returns true if FN is a default constructor.  */
+
+bool
+default_ctor_p (tree fn)
+{
+  return (DECL_CONSTRUCTOR_P (fn)
+	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)));
+}
+
+/* Returns true iff class T has a user-defined constructor that can be called
+   with more than zero arguments.  */
 
 bool
 type_has_user_nondefault_constructor (tree t)
@@ -5163,31 +5174,23 @@ type_has_user_nondefault_constructor (tree t)
 tree
 in_class_defaulted_default_constructor (tree t)
 {
-  tree fns, args;
-
   if (!TYPE_HAS_USER_CONSTRUCTOR (t))
     return NULL_TREE;
 
-  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+  for (tree fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
     {
       tree fn = OVL_CURRENT (fns);
 
-      if (DECL_DEFAULTED_IN_CLASS_P (fn))
-	{
-	  args = FUNCTION_FIRST_USER_PARMTYPE (fn);
-	  while (args && TREE_PURPOSE (args))
-	    args = TREE_CHAIN (args);
-	  if (!args || args == void_list_node)
-	    return fn;
-	}
+      if (DECL_DEFAULTED_IN_CLASS_P (fn)
+	  && default_ctor_p (fn))
+	return fn;
     }
 
   return NULL_TREE;
 }
 
 /* Returns true iff FN is a user-provided function, i.e. user-declared
-   and not defaulted at its first declaration; or explicit, private,
-   protected, or non-const.  */
+   and not defaulted at its first declaration.  */
 
 bool
 user_provided_p (tree fn)
@@ -5269,8 +5272,8 @@ type_has_non_user_provided_default_constructor (tree t)
     {
       tree fn = OVL_CURRENT (fns);
       if (TREE_CODE (fn) == FUNCTION_DECL
-	  && !user_provided_p (fn)
-	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)))
+	  && default_ctor_p (fn)
+	  && !user_provided_p (fn))
 	return true;
     }
 
@@ -8261,7 +8264,12 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t complain)
       return error_mark_node;
     }
 
-  /* There only a few kinds of expressions that may have a type
+  /* If we instantiate a template, and it is a A ?: C expression
+     with omitted B, look through the SAVE_EXPR.  */
+  if (TREE_CODE (rhs) == SAVE_EXPR)
+    rhs = TREE_OPERAND (rhs, 0);
+
+  /* There are only a few kinds of expressions that may have a type
      dependent on overload resolution.  */
   gcc_assert (TREE_CODE (rhs) == ADDR_EXPR
 	      || TREE_CODE (rhs) == COMPONENT_REF
