@@ -35,6 +35,7 @@
 #include "wide-int.h"
 #include "inchash.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"

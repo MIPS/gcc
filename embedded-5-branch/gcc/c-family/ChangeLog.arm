@@ -1,0 +1,3 @@
+2016-09-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* c-common.c: Include memmodel.h.
