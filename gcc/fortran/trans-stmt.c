@@ -5986,8 +5986,9 @@ gfc_trans_allocate (gfc_code * code)
 	  gfc_add_expr_to_block (&block, tmp);
 	}
 
-      /* Set the vptr.  */
-      if (al_vptr != NULL_TREE)
+      /* Set the vptr only when no source= is set.  When source= is set, then
+	 the trans_assignment below will set the vptr.  */
+      if (al_vptr != NULL_TREE && (!code->expr3 || code->expr3->mold))
 	{
 	  if (expr3_vptr != NULL_TREE)
 	    /* The vtab is already known, so just assign it.  */
@@ -6200,7 +6201,7 @@ gfc_trans_allocate (gfc_code * code)
 	      gfc_expr *init_expr = gfc_expr_to_initialize (expr);
 	      gfc_expr *rhs = e3rhs ? e3rhs : gfc_copy_expr (code->expr3);
 	      flag_realloc_lhs = 0;
-	      tmp = gfc_trans_assignment (init_expr, rhs, false, false);
+	      tmp = gfc_trans_assignment (init_expr, rhs, false, false, true);
 	      flag_realloc_lhs = realloc_lhs;
 	      /* Free the expression allocated for init_expr.  */
 	      gfc_free_expr (init_expr);

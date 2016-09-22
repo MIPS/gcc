@@ -9358,14 +9358,96 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
   return false;
 }
 
+
+static tree
+trans_class_assignment (stmtblock_t *block, gfc_expr *lhs, gfc_expr *rhs,
+			gfc_se *lse, gfc_se *rse)
+{
+  tree tmp;
+  tree fcn;
+  vec<tree, va_gc> *args = NULL;
+  gfc_expr *vptr_expr;
+  gfc_se classse;
+  bool set_vptr = false;
+
+  if (rhs->expr_type != EXPR_VARIABLE && !DECL_P (rse->expr))
+    {
+      tmp = gfc_create_var (TREE_TYPE (rse->expr), "rhs");
+      gfc_add_modify (&rse->pre, tmp, rse->expr);
+      rse->expr = tmp;
+    }
+
+  gfc_init_se (&classse, NULL);
+  /* When lse.expr is an indirect ref of a class data (*(lse._data)), get
+     the vptr expr by extricating it from the lse.expr.  */
+//  if (INDIRECT_REF_P (lse->expr)
+//      && TREE_CODE (TREE_OPERAND (lse->expr, 0)) == COMPONENT_REF
+//      && GFC_CLASS_TYPE_P (TREE_TYPE (TREE_OPERAND (
+//					   TREE_OPERAND (lse->expr, 0), 0))))
+//    {
+  vptr_expr = gfc_find_and_cut_at_last_class_ref (lhs);
+  if (vptr_expr != NULL)
+    {
+      gfc_add_vptr_component (vptr_expr);
+      set_vptr = true;
+    }
+  else
+    vptr_expr = gfc_lval_expr_from_sym (gfc_find_vtab (&lhs->ts));
+  classse.want_pointer = 1;
+  gfc_conv_expr (&classse, vptr_expr);
+  gfc_free_expr (vptr_expr);
+  gfc_add_block_to_block (block, &classse.pre);
+  gcc_assert (classse.post.head == NULL_TREE);
+  tmp = classse.expr;
+  /* Set the _vptr where needed.  */
+  if (set_vptr)
+    {
+      vptr_expr = gfc_find_and_cut_at_last_class_ref (rhs);
+      if (vptr_expr != NULL)
+	gfc_add_vptr_component (vptr_expr);
+      else
+	vptr_expr = gfc_lval_expr_from_sym (gfc_find_vtab (&rhs->ts));
+      gfc_init_se (&classse, NULL);
+      classse.want_pointer = 1;
+      gfc_conv_expr (&classse, vptr_expr);
+      gfc_free_expr (vptr_expr);
+      gfc_add_block_to_block (block, &classse.pre);
+      gcc_assert (classse.post.head == NULL_TREE);
+      gfc_add_modify (&lse->pre, tmp, fold_convert (TREE_TYPE (tmp),
+						    classse.expr));
+    }
+  fcn = gfc_vptr_copy_get (tmp);
+
+  tmp = GFC_CLASS_TYPE_P (TREE_TYPE (rse->expr))
+      ? gfc_class_data_get (rse->expr) : rse->expr;
+  if (!POINTER_TYPE_P (TREE_TYPE (tmp))
+      || (POINTER_TYPE_P (TREE_TYPE (tmp))
+	  && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (tmp)))))
+    vec_safe_push (args, gfc_build_addr_expr (NULL_TREE, tmp));
+  else
+    vec_safe_push (args, tmp);
+  tmp = GFC_CLASS_TYPE_P (TREE_TYPE (lse->expr))
+      ? gfc_class_data_get (lse->expr) : lse->expr;
+  if (!POINTER_TYPE_P (TREE_TYPE (tmp))
+      || (POINTER_TYPE_P (TREE_TYPE (tmp))
+	  && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (tmp)))))
+    vec_safe_push (args, gfc_build_addr_expr (NULL_TREE, tmp));
+  else
+    vec_safe_push (args, tmp);
+
+  return build_call_vec (TREE_TYPE (TREE_TYPE (fcn)), fcn, args);
+}
+
 /* Subroutine of gfc_trans_assignment that actually scalarizes the
    assignment.  EXPR1 is the destination/LHS and EXPR2 is the source/RHS.
    init_flag indicates initialization expressions and dealloc that no
-   deallocate prior assignment is needed (if in doubt, set true).  */
+   deallocate prior assignment is needed (if in doubt, set true).
+   When PTR_COPY is set and expr1 is a class type, then use the _vptr-copy
+   routine instead of a pointer assignment.  */
 
 static tree
 gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
-			bool dealloc)
+			bool dealloc, bool ptr_copy)
 {
   gfc_se lse;
   gfc_se rse;
@@ -9583,68 +9665,13 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	gfc_add_block_to_block (&loop.post, &rse.post);
     }
 
-  if (((gfc_is_class_array_ref (expr1, NULL)
-	|| gfc_is_class_scalar_expr (expr1))
-       && !GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr)))
-      || (!init_flag && expr1->ts.type == BT_DERIVED
-	  && !(expr2->ts.type == BT_DERIVED
-	       && expr1->ts.u.derived == expr2->ts.u.derived)))
-    {
-      tree fcn;
-      vec<tree, va_gc> *args = NULL;
-      gfc_expr *vptr_expr;
-      gfc_se classse;
-
-      if (expr2->expr_type != EXPR_VARIABLE && !DECL_P (rse.expr))
-	{
-	  tmp = gfc_create_var (TREE_TYPE (rse.expr), "rhs");
-	  gfc_add_modify (&rse.pre, tmp, rse.expr);
-	  rse.expr = tmp;
-	}
-
-      gfc_init_se (&classse, NULL);
-      /* When lse.expr is an indirect ref of a class data (*(lse._data)), get
-	 the vptr expr by extricating it from the lse.expr.  */
-      if (INDIRECT_REF_P (lse.expr)
-	  && TREE_CODE (TREE_OPERAND (lse.expr, 0)) == COMPONENT_REF
-	  && GFC_CLASS_TYPE_P (TREE_TYPE (TREE_OPERAND (
-					       TREE_OPERAND (lse.expr, 0), 0))))
-	{
-	  vptr_expr = gfc_find_and_cut_at_last_class_ref (expr1);
-	  gfc_add_vptr_component (vptr_expr);
-	}
-      else
-	vptr_expr = gfc_lval_expr_from_sym (gfc_find_vtab (&expr1->ts));
-      classse.want_pointer = 1;
-      gfc_conv_expr (&classse, vptr_expr);
-      fcn = gfc_vptr_copy_get (classse.expr);
-      gfc_free_expr (vptr_expr);
-
-      tmp = GFC_CLASS_TYPE_P (TREE_TYPE (rse.expr))
-	  ? gfc_class_data_get (rse.expr) : rse.expr;
-      if (!POINTER_TYPE_P (TREE_TYPE (tmp))
-	  || (POINTER_TYPE_P (TREE_TYPE (tmp))
-	      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (tmp)))))
-	vec_safe_push (args, gfc_build_addr_expr (NULL_TREE, tmp));
-      else
-	vec_safe_push (args, tmp);
-      tmp = GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr))
-	  ? gfc_class_data_get (lse.expr) : lse.expr;
-      if (!POINTER_TYPE_P (TREE_TYPE (tmp))
-	  || (POINTER_TYPE_P (TREE_TYPE (tmp))
-	      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (tmp)))))
-	vec_safe_push (args, gfc_build_addr_expr (NULL_TREE, tmp));
-      else
-	vec_safe_push (args, tmp);
-
-      /* Add the pre blocks to the body.  */
-      gfc_add_block_to_block (&body, &rse.pre);
-      gfc_add_block_to_block (&body, &lse.pre);
-      tmp = build_call_vec (TREE_TYPE (TREE_TYPE (fcn)), fcn, args);
-      /* Add the post blocks to the body.  */
-      gfc_add_block_to_block (&body, &rse.post);
-      gfc_add_block_to_block (&body, &lse.post);
-    }
+  if ((ptr_copy || !gfc_expr_attr (expr1).pointer)
+      && (((gfc_is_class_array_ref (expr1, NULL)
+	    || gfc_is_class_scalar_expr (expr1))
+	   && !GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr)))
+	  || (gfc_is_class_array_ref (expr2, NULL)
+	      || gfc_is_class_scalar_expr (expr2))))
+    tmp = trans_class_assignment (&block, expr1, expr2, &lse, &rse);
   else if (flag_coarray == GFC_FCOARRAY_LIB
       && lhs_caf_attr.codimension && rhs_caf_attr.codimension
       && lhs_caf_attr.alloc_comp && rhs_caf_attr.alloc_comp)
@@ -9665,7 +9692,13 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 				   || scalar_to_array
 				   || expr2->expr_type == EXPR_ARRAY,
 				   !(l_is_temp || init_flag) && dealloc);
+  /* Add the pre blocks to the body.  */
+  gfc_add_block_to_block (&body, &rse.pre);
+  gfc_add_block_to_block (&body, &lse.pre);
   gfc_add_expr_to_block (&body, tmp);
+  /* Add the post blocks to the body.  */
+  gfc_add_block_to_block (&body, &rse.post);
+  gfc_add_block_to_block (&body, &lse.post);
 
   if (lss == gfc_ss_terminator)
     {
@@ -9780,7 +9813,7 @@ copyable_array_p (gfc_expr * expr)
 
 tree
 gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
-		      bool dealloc)
+		      bool dealloc, bool ptr_copy)
 {
   tree tmp;
 
@@ -9823,7 +9856,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
 
   /* Fallback to the scalarizer to generate explicit loops.  */
-  return gfc_trans_assignment_1 (expr1, expr2, init_flag, dealloc);
+  return gfc_trans_assignment_1 (expr1, expr2, init_flag, dealloc, ptr_copy);
 }
 
 tree

@@ -3152,7 +3152,7 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
   tmp = fold_convert (build_pointer_type (type), tmp);
 
   /* Return the element in the se expression.  */
-  se->expr = tmp; //build_fold_indirect_ref_loc (input_location, tmp);
+  se->expr = build_fold_indirect_ref_loc (input_location, tmp);
   return true;
 }
 
