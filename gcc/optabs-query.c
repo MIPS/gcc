@@ -364,7 +364,7 @@ can_vec_perm_p (machine_mode mode, bool variable, unsigned int nunits,
   if (!VECTOR_MODE_P (mode))
     return false;
 
-  gcc_checking_assert (nunits == GET_MODE_NUNITS (mode));
+  gcc_checking_assert (must_eq (nunits, GET_MODE_NUNITS (mode)));
   if (!variable)
     {
       if (direct_optab_handler (vec_perm_const_optab, mode) != CODE_FOR_nothing
@@ -450,7 +450,12 @@ can_mult_highpart_p (machine_mode mode, bool uns_p)
   if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT)
     return 0;
 
-  nunits = GET_MODE_NUNITS (mode);
+  /* We need a constant number of elements in order to construct
+     the permute mask below.  */
+  /* ??? Maybe we should have specific optabs for these permutations,
+     so that we can use them even for a variable number of units.  */
+  if (!GET_MODE_NUNITS (mode).is_constant (&nunits))
+    return 0;
   sel = XALLOCAVEC (unsigned char, nunits);
 
   op = uns_p ? vec_widen_umult_even_optab : vec_widen_smult_even_optab;

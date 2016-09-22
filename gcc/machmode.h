@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 extern CONST_MODE_SIZE unsigned short mode_size[NUM_MACHINE_MODES];
 extern const unsigned short mode_precision[NUM_MACHINE_MODES];
 extern const unsigned char mode_inner[NUM_MACHINE_MODES];
-extern const unsigned char mode_nunits[NUM_MACHINE_MODES];
+extern const poly_uint16_pod mode_nunits[NUM_MACHINE_MODES];
 extern CONST_MODE_UNIT_SIZE unsigned char mode_unit_size[NUM_MACHINE_MODES];
 extern const unsigned short mode_unit_precision[NUM_MACHINE_MODES];
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
@@ -37,6 +37,14 @@ extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
 #define PROTECT_ENUM_CONVERSION public
 #else
 #define PROTECT_ENUM_CONVERSION protected
+#endif
+
+/* Always treat machine modes as fixed-size while compiling code specific
+   to targets that have no variable-size modes.  */
+#if defined (TARGET_C_FILE) && NUM_POLY_INT_COEFFS == 1
+#define ONLY_FIXED_SIZE_MODES 1
+#else
+#define ONLY_FIXED_SIZE_MODES 0
 #endif
 
 /* Get the name of mode MODE as a string.  */
@@ -262,6 +270,8 @@ opt_mode<T>::exists (U *mode) const
 template<typename T>
 struct pod_mode
 {
+  typedef typename T::measurement_type measurement_type;
+
   machine_mode_enum m_mode;
   ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
   ALWAYS_INLINE operator T () const { return T::from_int (m_mode); }
@@ -317,6 +327,8 @@ is_a (machine_mode_enum m, U *result)
 class scalar_int_mode
 {
 public:
+  typedef unsigned short measurement_type;
+
   ALWAYS_INLINE scalar_int_mode () {}
   ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
 
@@ -351,6 +363,8 @@ scalar_int_mode::from_int (int i)
 class scalar_float_mode
 {
 public:
+  typedef unsigned short measurement_type;
+
   ALWAYS_INLINE scalar_float_mode () {}
   ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
 
@@ -386,6 +400,8 @@ scalar_float_mode::from_int (int i)
 class scalar_mode
 {
 public:
+  typedef unsigned short measurement_type;
+
   ALWAYS_INLINE scalar_mode () {}
   ALWAYS_INLINE scalar_mode (const scalar_int_mode &m) : m_mode (m) {}
   ALWAYS_INLINE scalar_mode (const scalar_float_mode &m) : m_mode (m) {}
@@ -437,6 +453,8 @@ scalar_mode::from_int (int i)
 class complex_mode
 {
 public:
+  typedef unsigned short measurement_type;
+
   ALWAYS_INLINE complex_mode () {}
   ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
 
@@ -471,6 +489,8 @@ complex_mode::from_int (int i)
 class machine_mode
 {
 public:
+  typedef poly_uint16 measurement_type;
+
   ALWAYS_INLINE machine_mode () {}
   template<typename T>
   ALWAYS_INLINE machine_mode (const T &m) : m_mode (m) {}
@@ -559,7 +579,7 @@ mode_to_unit_precision (machine_mode_enum mode)
 
 /* Return the base GET_MODE_NUNITS value for MODE.  */
 
-ALWAYS_INLINE unsigned short
+ALWAYS_INLINE poly_uint16
 mode_to_nunits (machine_mode_enum mode)
 {
 #if GCC_VERSION >= 4001
@@ -616,7 +636,29 @@ extern const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES];
 /* Get the number of units in an object of mode MODE.  This is 2 for
    complex modes and the number of elements for vector modes.  */
 
-#define GET_MODE_NUNITS(MODE) (mode_to_nunits (MODE))
+#if ONLY_FIXED_SIZE_MODES
+#define GET_MODE_NUNITS(MODE) (mode_to_nunits (MODE).coeffs[0])
+#else
+ALWAYS_INLINE poly_uint16
+GET_MODE_NUNITS (machine_mode_enum mode)
+{
+  return mode_to_nunits (mode);
+}
+
+template<typename T>
+ALWAYS_INLINE typename if_poly<typename T::measurement_type>::t
+GET_MODE_NUNITS (const T &mode)
+{
+  return mode_to_nunits (mode);
+}
+
+template<typename T>
+ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::t
+GET_MODE_NUNITS (const T &mode)
+{
+  return mode_to_nunits (mode).coeffs[0];
+}
+#endif
 
 /* Get the next wider natural mode (eg, QI -> HI -> SI -> DI -> TI).  */
 
@@ -655,6 +697,8 @@ extern const unsigned char mode_complex[NUM_MACHINE_MODES];
 class fixed_size_mode
 {
 public:
+  typedef unsigned short measurement_type;
+
   ALWAYS_INLINE fixed_size_mode () {}
   ALWAYS_INLINE fixed_size_mode (const scalar_mode &m) : m_mode (m) {}
   ALWAYS_INLINE fixed_size_mode (const scalar_int_mode &m) : m_mode (m) {}
