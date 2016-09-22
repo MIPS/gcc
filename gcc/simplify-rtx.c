@@ -2318,6 +2318,16 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  if (tem)
 	    return tem;
 	}
+
+      /* (plus (vec_series A B) (vec_duplicate C))
+	 -> (vec_series (A + C) B).  */
+      if (GET_CODE (op0) == VEC_SERIES
+	  && GET_CODE (op1) == VEC_DUPLICATE)
+	{
+	  rtx base = simplify_gen_binary (PLUS, GET_MODE_INNER (mode),
+					  XEXP (op0, 0), XEXP (op1, 0));
+	  return gen_rtx_VEC_SERIES (mode, base, XEXP (op0, 1));
+	}
       break;
 
     case COMPARE:
@@ -3509,6 +3519,9 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
     case SS_DIV:
     case US_DIV:
       /* ??? There are simplifications that can be done.  */
+      return 0;
+
+    case VEC_SERIES:
       return 0;
 
     case VEC_SELECT:

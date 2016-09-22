@@ -2719,6 +2719,12 @@ the same submodes as the input vector mode or the scalar modes, and the
 number of output parts must be an integer multiple of the number of input
 parts.
 
+@findex vec_series
+@item (vec_series:@var{m} @var{x1} @var{x2})
+This operation creates a vector in which element @var{i} is equal to
+@samp{@var{x1} + @var{i}*@var{x2}}.  It is not defined for vector
+floating-point modes.
+
 @end table
 
 @node Conversions
