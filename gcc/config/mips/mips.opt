@@ -123,6 +123,10 @@ mdspr2
 Target Report Var(TARGET_DSPR2)
 Use MIPS-DSP REV 2 instructions.
 
+mdspr3
+Target Report Var(TARGET_DSPR3)
+Use MIPS-DSP Rev 3 instructions
+
 mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
 
@@ -516,3 +520,6 @@ Target Undocumented Var(TARGET_MIPS16_COPY_PEEP) Init(1)
 
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
+
+mforbidden-slots
+Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)

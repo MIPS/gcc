@@ -44,18 +44,28 @@ extern int target_flags_explicit;
 
 /* Masks that affect tuning.
 
-   PTF_AVOID_BRANCHLIKELY
+   PTF_AVOID_BRANCHLIKELY_SPEED
 	Set if it is usually not profitable to use branch-likely instructions
-	for this target, typically because the branches are always predicted
-	taken and so incur a large overhead when not taken.
+	for this target when optimizing code for speed, typically because
+	the branches are always predicted taken and so incur a large overhead
+	when not taken.
+
+   PTF_AVOID_BRANCHLIKELY_SIZE
+	As above but when optimizing for size.
+
+   PTF_AVOID_BRANCHLIKELY_ALWAYS
+	As above but regardless of whether we optimize for speed or size.
 
    PTF_AVOID_IMADD
 	Set if it is usually not profitable to use the integer MADD or MSUB
 	instructions because of the overhead of getting the result out of
 	the HI/LO registers.  */
 
-#define PTF_AVOID_BRANCHLIKELY	0x1
-#define PTF_AVOID_IMADD		0x2
+#define PTF_AVOID_BRANCHLIKELY_SPEED	0x1
+#define PTF_AVOID_BRANCHLIKELY_SIZE	0x2
+#define PTF_AVOID_BRANCHLIKELY_ALWAYS	(PTF_AVOID_BRANCHLIKELY_SPEED | \
+					 PTF_AVOID_BRANCHLIKELY_SIZE)
+#define PTF_AVOID_IMADD			0x4
 
 /* Information about one recognized processor.  Defined here for the
    benefit of TARGET_CPU_CPP_BUILTINS.  */
@@ -88,6 +98,9 @@ struct mips_cpu_info {
 
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
+
+/* True if we are targetting micromips R6 onwards.  */
+#define TARGET_MICROMIPS_R6 (TARGET_MICROMIPS && mips_isa_rev >= 6)
 
 /* True if we are generating position-independent VxWorks RTP code.  */
 #define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
@@ -477,6 +490,11 @@ struct mips_cpu_info {
 	    {								\
 	      builtin_define ("__mips_dspr2");				\
 	      builtin_define ("__mips_dsp_rev=2");			\
+	    }								\
+	  else if (TARGET_DSPR3)					\
+	    {								\
+	      builtin_define ("__mips_dspr3");				\
+	      builtin_define ("__mips_dsp_rev=3");			\
 	    }								\
 	  else								\
 	    builtin_define ("__mips_dsp_rev=1");			\
@@ -882,7 +900,9 @@ struct mips_cpu_info {
        |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mno-mips16e2: \
-     %{march=interaptiv-mr2: -mmips16e2}}"
+     %{march=interaptiv-mr2: -mmips16e2}}" \
+  "%{!mforbidden-slots: \
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
 
 #define DRIVER_SELF_SPECS \
   MIPS_ISA_LEVEL_SPEC,	  \
@@ -924,7 +944,8 @@ struct mips_cpu_info {
 
 #define ISA_HAS_JR		(mips_isa_rev <= 5)
 
-#define ISA_HAS_DELAY_SLOTS	1
+#define ISA_HAS_DELAY_SLOTS	(mips_isa_rev <= 5			\
+				 || !TARGET_MICROMIPS)
 
 #define ISA_HAS_COMPACT_BRANCHES (mips_isa_rev >= 6)
 
@@ -1184,7 +1205,8 @@ struct mips_cpu_info {
 				 && mips_isa_rev >= 2)
 
 /* ISA has lwxs instruction (load w/scaled index address.  */
-#define ISA_HAS_LWXS		((TARGET_SMARTMIPS || TARGET_MICROMIPS) \
+#define ISA_HAS_LWXS		((TARGET_SMARTMIPS \
+				 || (TARGET_MICROMIPS && mips_isa_rev <= 5)) \
 				 && !TARGET_MIPS16)
 
 /* ISA has lbx, lbux, lhx, lhx, lhux, lwx, lwux, or ldx instruction. */
@@ -1352,6 +1374,7 @@ struct mips_cpu_info {
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
+%{mdspr3} %{mno-dspr3} \
 %{mmcu} %{mno-mcu} \
 %{meva} %{mno-eva} \
 %{mvirt} %{mno-virt} \
@@ -1370,10 +1393,11 @@ struct mips_cpu_info {
 %{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
-%{mtune=*}" \
-FP_ASM_SPEC "\
+%{mtune=*} \
+%{mforbidden-slots} \
 %{mmips16e2} \
-%{mmips16-copy:-mmips16cp} \
+%{mmips16-copy:-mmips16cp} "\
+FP_ASM_SPEC "\
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
@@ -3153,9 +3177,8 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
+	.set noreorder\n\
 1:	.cpload $31\n\
 	.set reorder\n\
 	la $25, " USER_LABEL_PREFIX #FUNC "\n\
@@ -3169,9 +3192,8 @@ while (0)
 	.set nomips16\n\
 	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
-1:	.set reorder\n\
-	.cpsetup $31, $2, 1b\n\
+	.set reorder\n\
+1:	.cpsetup $31, $2, 1b\n\
 	la $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
 	.set pop\n\
@@ -3181,11 +3203,9 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	nop\n\
-1:	.set reorder\n\
-	.cpsetup $31, $2, 1b\n\
+	.set reorder\n\
+1:	.cpsetup $31, $2, 1b\n\
 	dla $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
 	.set pop\n\
