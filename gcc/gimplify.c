@@ -6002,6 +6002,16 @@ device_resident_p (tree decl)
   return false;
 }
 
+/* Return true if DECL has an ACC DECLARE attribute.  */
+
+static bool
+is_oacc_declared (tree decl)
+{
+  tree t = TREE_CODE (decl) == MEM_REF ? TREE_OPERAND (decl, 0) : decl;
+  tree declared = lookup_attribute ("oacc declare target", DECL_ATTRIBUTES (t));
+  return declared != NULL_TREE;
+}
+
 /* Determine outer default flags for DECL mentioned in an OMP region
    but not declared in an enclosing clause.
 
@@ -6103,6 +6113,7 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
   const char *rkind;
   bool on_device = false;
   bool is_private = false;
+  bool declared = is_oacc_declared (decl);
   tree type = TREE_TYPE (decl);
 
   if (lang_hooks.decls.omp_privatize_by_reference (decl))
@@ -6137,7 +6148,7 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 
     case ORT_ACC_PARALLEL:
       {
-	if (!is_private && (on_device || AGGREGATE_TYPE_P (type)))
+	if (!is_private && (on_device || AGGREGATE_TYPE_P (type) || declared))
 	  /* Aggregates default to 'present_or_copy'.  */
 	  flags |= GOVD_MAP;
 	else
@@ -6613,6 +6624,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
       case OMP_TARGET_ENTER_DATA:
       case OMP_TARGET_EXIT_DATA:
 	//case OACC_DATA:
+      case OACC_DECLARE:
       case OACC_HOST_DATA:
 	//case OACC_PARALLEL:
 	//case OACC_KERNELS:
@@ -8538,20 +8550,28 @@ gimplify_oacc_declare (tree *expr_p, gimple_seq *pre_p)
 {
   tree expr = *expr_p;
   gomp_target *stmt;
-  tree clauses, t;
+  tree clauses, t, decl;
 
   clauses = OACC_DECLARE_CLAUSES (expr);
 
   gimplify_scan_omp_clauses (&clauses, pre_p, ORT_TARGET_DATA, OACC_DECLARE);
+  gimplify_adjust_omp_clauses (pre_p, NULL, &clauses, OACC_DECLARE);
 
   for (t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
     {
-      tree decl = OMP_CLAUSE_DECL (t);
+      decl = OMP_CLAUSE_DECL (t);
 
       if (TREE_CODE (decl) == MEM_REF)
-	continue;
+	decl = TREE_OPERAND (decl, 0);
 
-      if (TREE_CODE (decl) == VAR_DECL
+      if (VAR_P (decl) && !is_oacc_declared (decl))
+	{
+	  tree attr = get_identifier ("oacc declare target");
+	  DECL_ATTRIBUTES (decl) = tree_cons (attr, NULL_TREE,
+					      DECL_ATTRIBUTES (decl));
+	}
+
+      if (VAR_P (decl)
 	  && !is_global_var (decl)
 	  && DECL_CONTEXT (decl) == current_function_decl)
 	{
@@ -8565,7 +8585,8 @@ gimplify_oacc_declare (tree *expr_p, gimple_seq *pre_p)
 	    }
 	}
 
-      omp_add_variable (gimplify_omp_ctxp, decl, GOVD_SEEN);
+      if (gimplify_omp_ctxp)
+	omp_add_variable (gimplify_omp_ctxp, decl, GOVD_SEEN);
     }
 
   stmt = gimple_build_omp_target (NULL, GF_OMP_TARGET_KIND_OACC_DECLARE,
