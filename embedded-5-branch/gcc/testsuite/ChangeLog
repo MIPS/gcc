@@ -1,3 +1,13 @@
+2016-09-23  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Backport from mainline
+	2016-09-22  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+		    Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/pure-code/ffunction-sections.c: New.
+	* gcc.target/arm/pure-code/no-literal-pool.c: New.
+	* gcc.target/arm/pure-code/pure-code.exp: New.
+
 2016-09-07  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR debug/57519
