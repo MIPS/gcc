@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 int
 main ()
 {
@@ -15,7 +17,7 @@ main ()
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (10, *, i)
+#pragma acc parallel loop tile (10, *, i) // { dg-error "" }
   for (i = 0; i < 100; i++)
     ;
 
@@ -35,35 +37,35 @@ main ()
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (1.1) // { dg-error "'tile' value must be integral" }
+#pragma acc parallel loop tile (1.1) // { dg-error "'tile' argument needs" }
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (-3) // { dg-warning "'tile' value must be positive" }
+#pragma acc parallel loop tile (-3) // { dg-error "'tile' argument needs" }
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (10,-3) // { dg-warning "'tile' value must be positive" }
+#pragma acc parallel loop tile (10,-3) // { dg-error "'tile' argument needs" }
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (-100,10,5) // { dg-warning "'tile' value must be positive" }
+#pragma acc parallel loop tile (-100,10,5) // { dg-error "'tile' argument needs" }
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (1,2.0,true) // { dg-error "" }
+#pragma acc parallel loop tile (1,true)
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (*a, 1)
+#pragma acc parallel loop tile (*a, 1) // { dg-error "" }
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (1, *a, b)
+#pragma acc parallel loop tile (1, b) // { dg-error "" }
   for (i = 0; i < 100; i++)
     ;
 
-#pragma acc parallel loop tile (b, 1, *a)
+#pragma acc parallel loop tile (b, 1) // { dg-error "" }
   for (i = 0; i < 100; i++)
     ;
 
@@ -95,10 +97,10 @@ void par (void)
 	for (j = 1; j < 10; j++)
 	  { }
       }
-#pragma acc loop tile(-2) // { dg-warning "'tile' value must be positive" }
+#pragma acc loop tile(-2)  // { dg-error "'tile' argument needs" }
     for (i = 1; i < 10; i++)
       { }
-#pragma acc loop tile(i)
+#pragma acc loop tile(i)  // { dg-error "" }
     for (i = 1; i < 10; i++)
       { }
 #pragma acc loop tile(2, 2, 1)
@@ -156,24 +158,21 @@ void p3 (void)
       for (j = 1; j < 10; j++)
 	{ }
     }
-#pragma acc parallel loop tile(-2) // { dg-warning "'tile' value must be positive" }
+#pragma acc parallel loop tile(-2)   // { dg-error "'tile' argument needs" }
   for (i = 1; i < 10; i++)
     { }
-#pragma acc parallel loop tile(i)
+#pragma acc parallel loop tile(i)   // { dg-error "" }
   for (i = 1; i < 10; i++)
     { }
 #pragma acc parallel loop tile(2, 2, 1)
   for (i = 1; i < 3; i++)
-    {
-      for (j = 4; j < 6; j++)
-        { }
-    }    
+    for (j = 4; j < 6; j++)
+      for (int k = 1 ; k < 2; k++)
+	;
 #pragma acc parallel loop tile(2, 2)
   for (i = 1; i < 5; i+=2)
-    {
-      for (j = i + 1; j < 7; j++)
-        { }
-    }
+    for (j = i + 1; j < 7; j++)
+      { }
 #pragma acc parallel loop vector tile(*) 
   for (i = 0; i < 10; i++)
     { }
@@ -230,10 +229,10 @@ kern (void)
 	for (j = 0; j < 10; i++)
 	  { }
       }
-#pragma acc loop tile(-2) // { dg-warning "'tile' value must be positive" }
+#pragma acc loop tile(-2) // { dg-error "'tile' argument needs" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(i)
+#pragma acc loop tile(i) // { dg-error "" }
     for (i = 0; i < 10; i++)
       { }
 #pragma acc loop tile(2, 2, 1)
@@ -288,18 +287,17 @@ void k3 (void)
       for (j = 1; j < 10; j++)
 	{ }
     }
-#pragma acc kernels loop tile(-2) // { dg-warning "'tile' value must be positive" }
+#pragma acc kernels loop tile(-2) // { dg-error "'tile' argument needs" }
   for (i = 1; i < 10; i++)
     { }
-#pragma acc kernels loop tile(i)
+#pragma acc kernels loop tile(i) // { dg-error "" }
   for (i = 1; i < 10; i++)
     { }
 #pragma acc kernels loop tile(2, 2, 1)
   for (i = 1; i < 3; i++)
-    {
-      for (j = 4; j < 6; j++)
-	{ }
-    }    
+    for (j = 4; j < 6; j++)
+      for (int k = 1; k < 7; k++)
+	;
 #pragma acc kernels loop tile(2, 2)
   for (i = 1; i < 5; i++)
     {

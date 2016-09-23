@@ -1,3 +1,12 @@
+2016-09-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_clause_tile): Disallow collapse.  Fix
+	parsing.  Parse constant expression. Remove semantic checking.
+	(cp_parser_omp_clause_collapse): Disallow tile.
+	* pt.c (tsubst_omp_clauses): Require integral constant expression
+	for COLLAPSE and TILE.  Remove broken TILE subst.
+	* semantics.c (finish_omp_clauses): Correct TILE semantic check.
+
 2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* parser.c (cp_finalize_oacc_routine): Rework checking if already
