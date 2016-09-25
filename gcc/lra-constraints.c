@@ -1682,7 +1682,7 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
 	  bitmap_set_bit (&lra_subreg_reload_pseudos, REGNO (new_reg));
 
 	  insert_before = (type != OP_OUT
-			   || GET_MODE_SIZE (innermode) > GET_MODE_SIZE (mode));
+			   || df_read_modify_subreg_p (operand));
 	  insert_after = (type != OP_IN);
 	  insert_move_for_subreg (insert_before ? &before : NULL,
 				  insert_after ? &after : NULL,
@@ -4245,9 +4245,7 @@ curr_insn_transform (bool check_only_p)
 		     constraints.  */
 		  if (type == OP_OUT
 		      && (curr_static_id->operand[i].strict_low
-			  || (GET_MODE_SIZE (GET_MODE (reg)) > UNITS_PER_WORD
-			      && (GET_MODE_SIZE (mode)
-				  < GET_MODE_SIZE (GET_MODE (reg))))))
+			  || df_read_modify_subreg_p (*loc)))
 		    type = OP_INOUT;
 		  loc = &SUBREG_REG (*loc);
 		  mode = GET_MODE (*loc);
