@@ -433,6 +433,40 @@ scalar_mode::from_int (int i)
   return machine_mode_enum (i);
 }
 
+/* Represents a machine mode that is known to be a COMPLEX_MODE_P.  */
+class complex_mode
+{
+public:
+  ALWAYS_INLINE complex_mode () {}
+  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+
+  static bool includes_p (machine_mode_enum);
+  static complex_mode from_int (int);
+
+PROTECT_ENUM_CONVERSION:
+  ALWAYS_INLINE complex_mode (machine_mode_enum m) : m_mode (m) {}
+
+protected:
+  machine_mode_enum m_mode;
+};
+
+/* Return true if M is a complex_mode.  */
+
+inline bool
+complex_mode::includes_p (machine_mode_enum m)
+{
+  return COMPLEX_MODE_P (m);
+}
+
+/* Return M as a complex_mode.  This function should only be used by
+   utility functions; general code should use as_a<T> instead.  */
+
+ALWAYS_INLINE complex_mode
+complex_mode::from_int (int i)
+{
+  return machine_mode_enum (i);
+}
+
 /* Represents a general machine mode (scalar or non-scalar).  */
 class machine_mode
 {
@@ -775,6 +809,36 @@ is_float_mode (machine_mode mode, T *float_mode)
   if (GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
       *float_mode = scalar_float_mode::from_int (mode);
+      return true;
+    }
+  return false;
+}
+
+/* Return true if MODE has class MODE_COMPLEX_INT, storing it as
+   a complex_mode in *CMODE if so.  */
+
+template<typename T>
+inline bool
+is_complex_int_mode (machine_mode mode, T *cmode)
+{
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
+    {
+      *cmode = complex_mode::from_int (mode);
+      return true;
+    }
+  return false;
+}
+
+/* Return true if MODE has class MODE_COMPLEX_FLOAT, storing it as
+   a complex_mode in *CMODE if so.  */
+
+template<typename T>
+inline bool
+is_complex_float_mode (machine_mode mode, T *cmode)
+{
+  if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+    {
+      *cmode = complex_mode::from_int (mode);
       return true;
     }
   return false;
