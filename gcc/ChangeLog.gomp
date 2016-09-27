@@ -1,5 +1,15 @@
 2016-09-27  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (struct oacc_loop): Change 'ifns' to vector of call
+	stmts.
+	(new_oacc_loop_raw, finish_oacc_loop): Adjust.
+	(oacc_loop_discover_walk): Append loop abstraction sites to list.
+	(oacc_loop_xform_loop): Delete.
+	(oacc_loop_process): Iterate over call list directly.
+	(execute_oacc_device_lower): Ignore unknown unspecs.
+
+2016-09-27  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* internal-fn.h (IFN_UNIQUE_CODES, IFN_GOACC_LOOP_CODES,
 	IFN_GOACC_REDUCTION_CODES): New.
 	(enum ifn_unique_kind, enum ifn_goacc_loop_kind, enum

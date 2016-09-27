@@ -253,7 +253,7 @@ struct oacc_loop
   unsigned mask;   /* Partitioning mask.  */
   unsigned inner;  /* Partitioning of inner loops.  */
   unsigned flags;  /* Partitioning flags.  */
-  unsigned ifns;   /* Contained loop abstraction functions.  */
+  vec<gcall *> ifns;  /* Contained loop abstraction functions.  */
   tree chunk_size; /* Chunk size.  */
   gcall *head_end; /* Final marker of head sequence.  */
 };
@@ -19341,7 +19341,6 @@ new_oacc_loop_raw (oacc_loop *parent, location_t loc)
   loop->routine = NULL_TREE;
 
   loop->mask = loop->flags = loop->inner = 0;
-  loop->ifns = 0;
   loop->chunk_size = 0;
   loop->head_end = NULL;
 
@@ -19404,7 +19403,7 @@ static oacc_loop *
 finish_oacc_loop (oacc_loop *loop)
 {
   /* If the loop has been collapsed, don't partition it.  */
-  if (!loop->ifns)
+  if (loop->ifns.is_empty ())
     loop->mask = loop->flags = 0;
   return loop->parent;
 }
@@ -19542,9 +19541,9 @@ oacc_loop_discover_walk (oacc_loop *loop, basic_block bb)
 	  break;
 
 	case IFN_GOACC_LOOP:
-	  /* Count the goacc loop abstraction fns, to determine if the
-	     loop was collapsed already.  */
-	  loop->ifns++;
+	  /* Record the abstraction function, so we can manipulate it
+	     later.  */
+	  loop->ifns.safe_push (call);
 	  break;
 
 	case IFN_UNIQUE:
@@ -19685,51 +19684,6 @@ oacc_loop_xform_head_tail (gcall *from, int level)
     }
 }
 
-/* Transform the IFN_GOACC_LOOP internal functions by providing the
-   determined partitioning mask and chunking argument.  END_MARKER
-   points at the end IFN_HEAD_TAIL call intgroducing the loop.  IFNS
-   is the number of IFN_GOACC_LOOP calls for the loop.  MASK_ARG is
-   the replacement partitioning mask and CHUNK_ARG is the replacement
-   chunking arg.  */
-
-static void
-oacc_loop_xform_loop (gcall *end_marker, unsigned ifns,
-		      tree mask_arg, tree chunk_arg)
-{
-  gimple_stmt_iterator gsi = gsi_for_stmt (end_marker);
-  
-  gcc_checking_assert (ifns);
-  for (;;)
-    {
-      for (; !gsi_end_p (gsi); gsi_next (&gsi))
-	{
-	  gimple *stmt = gsi_stmt (gsi);
-
-	  if (!is_gimple_call (stmt))
-	    continue;
-
-	  gcall *call = as_a <gcall *> (stmt);
-      
-	  if (!gimple_call_internal_p (call))
-	    continue;
-
-	  if (gimple_call_internal_fn (call) != IFN_GOACC_LOOP)
-	    continue;
-
-	  *gimple_call_arg_ptr (call, 5) = mask_arg;
-	  *gimple_call_arg_ptr (call, 4) = chunk_arg;
-	  ifns--;
-	  if (!ifns)
-	    return;
-	}
-
-      /* The LOOP_BOUND ifn could be in the single successor
-	 block.  */
-      basic_block bb = single_succ (gsi_bb (gsi));
-      gsi = gsi_start_bb (bb);
-    }
-}
-
 /* Process the discovered OpenACC loops, setting the correct
    partitioning level etc.  */
 
@@ -19742,13 +19696,25 @@ oacc_loop_process (oacc_loop *loop)
   if (loop->mask && !loop->routine)
     {
       int ix;
-      unsigned mask = loop->mask;
-      unsigned dim = GOMP_DIM_GANG;
-      tree mask_arg = build_int_cst (unsigned_type_node, mask);
+      tree mask_arg = build_int_cst (unsigned_type_node, loop->mask);
       tree chunk_arg = loop->chunk_size;
+      gcall *call;
 
-      oacc_loop_xform_loop (loop->head_end, loop->ifns, mask_arg, chunk_arg);
+      for (ix = 0; loop->ifns.iterate (ix, &call); ix++)
+	switch (gimple_call_internal_fn (call))
+	  {
+	  case IFN_GOACC_LOOP:
+	    gcc_assert (gimple_call_arg (call, 5) == integer_zero_node);
+	    *gimple_call_arg_ptr (call, 5) = mask_arg;
+	    *gimple_call_arg_ptr (call, 4) = chunk_arg;
+	    break;
 
+	  default:
+	    gcc_unreachable ();
+	  }
+
+      unsigned dim = GOMP_DIM_GANG;
+      unsigned mask = loop->mask;
       for (ix = 0; ix != GOMP_DIM_MAX && mask; ix++)
 	{
 	  while (!(GOMP_DIM_MASK (dim) & mask))
@@ -20176,7 +20142,7 @@ execute_oacc_device_lower ()
 	      switch (kind)
 		{
 		default:
-		  gcc_unreachable ();
+		  break;
 
 		case IFN_UNIQUE_OACC_FORK:
 		case IFN_UNIQUE_OACC_JOIN:
