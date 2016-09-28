@@ -59,6 +59,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
 
+#undef KELVIN_DEBUG
+
 using namespace gcc;
 
 /* This is used for debugging.  It allows the current pass to printed
@@ -2282,6 +2284,9 @@ execute_one_pass (opt_pass *pass)
 
   bool gate_status;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "execute_one_pass\n");
+#endif
   /* IPA passes are executed on whole program, so cfun should be NULL.
      Other passes need function context set.  */
   if (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS)
@@ -2335,7 +2340,9 @@ execute_one_pass (opt_pass *pass)
   if (flag_checking)
     do_per_function (verify_curr_properties,
 		     (void *)(size_t)pass->properties_required);
-
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "about to call pass_expand::execute ()\n");
+#endif
   /* Do it!  */
   todo_after = pass->execute (cfun);
 
@@ -2419,8 +2426,14 @@ execute_one_pass (opt_pass *pass)
 static void
 execute_pass_list_1 (opt_pass *pass)
 {
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "execute_pass_list_1\n");
+#endif
   do
     {
+#ifdef KELVIN_DEBUG
+      fprintf (stderr, "execute_pass_list_1: another pass\n");
+#endif
       gcc_assert (pass->type == GIMPLE_PASS
 		  || pass->type == RTL_PASS);
 
@@ -2436,6 +2449,18 @@ execute_pass_list_1 (opt_pass *pass)
 void
 execute_pass_list (function *fn, opt_pass *pass)
 {
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "execute_pass_list on function %s\n",
+	   function_name (fn));
+  if (fn->cfg) {
+    fprintf (stderr, "the function has %d blocks:\n", fn->cfg->x_n_basic_blocks);
+    for (int __j = 0; __j < fn->cfg->x_n_basic_blocks; __j++) {  
+      print_loops_bb (stderr, (*fn->cfg->x_basic_block_info)[__j], 2, 3);
+    }
+  }
+  else 
+    fprintf (stderr, "fn->cfg is NULL!\n");
+#endif
   gcc_assert (fn == cfun);
   execute_pass_list_1 (pass);
   if (cfun && fn->cfg)

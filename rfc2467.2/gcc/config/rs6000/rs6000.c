@@ -85,6 +85,7 @@
 #include "print-tree.h"
 #endif
 
+
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
 
@@ -13126,6 +13127,16 @@ def_builtin (const char *name, tree type, enum rs6000_builtins code)
   unsigned classify = rs6000_builtin_info[(int)code].attr;
   const char *attr_string = "";
 
+#ifdef KELVIN_DEBUG
+  /* if we make noise inside this function, the dg test infrastructure
+   * will think there was an error message, and will conclude that 
+   * certain capabilities are UNSUPPORTED.
+   */
+  /*
+  fprintf (stderr, "def_builtin( %s, code = %d)\n  type: ", name, (int) code);
+  debug_tree (type);
+  */
+#endif
   gcc_assert (name != NULL);
   gcc_assert (IN_RANGE ((int)code, 0, (int)RS6000_BUILTIN_COUNT));
 
@@ -13853,10 +13864,6 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
   machine_mode mode1 = insn_data[icode].operand[2].mode;
   int cr6_form_int;
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "made it to altivec_expand_predicate_builtin, icode: %d\n",
-	   icode);
-#endif
   if (TREE_CODE (cr6_form) != INTEGER_CST)
     {
       error ("argument 1 of __builtin_altivec_predicate must be a constant");
@@ -13864,10 +13871,6 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
     }
   else
     cr6_form_int = TREE_INT_CST_LOW (cr6_form);
-
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "cr6_form_int is %d\n", cr6_form_int);
-#endif
 
   gcc_assert (mode0 == mode1);
 
@@ -13887,10 +13890,6 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
 
   scratch = gen_reg_rtx (mode0);
   pat = GEN_FCN (icode) (scratch, op0, op1);
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "emitting the vector instruction into scratch register\n");
-  debug_rtx (pat);
-#endif
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -13902,28 +13901,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
      
      If you think this is disgusting, look at the specs for the
      AltiVec predicates.  */
-  
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "and emitting the check for condition flag\n");
-  
-  fprintf (stderr, "for case 0:\n");
-  debug_rtx (gen_cr6_test_for_zero (target));
-  
-  fprintf (stderr, "for case 1:\n");
-  debug_rtx (gen_cr6_test_for_zero_reverse (target));
-  
-  fprintf (stderr, "for case 2:\n");
-  debug_rtx (gen_cr6_test_for_lt (target));
-  
-  fprintf (stderr, "for case 3:\n");
-  debug_rtx (gen_cr6_test_for_lt_reverse (target));
-#endif
-  /* Kelvin thinks all of this code is entirely special case.  If it's
-   * present in the corresponding define_insn or define_expand, it
-   * seems to be ignored.  Need to investigate.
-   *
-   * Next up: where are the implementations of these functions?
-   */
+
   switch (cr6_form_int)
     {
     case 0:
@@ -14239,6 +14217,51 @@ paired_expand_stv_builtin (enum insn_code icode, tree exp)
   pat = GEN_FCN (icode) (addr, op0);
   if (pat)
     emit_insn (pat);
+  return NULL_RTX;
+}
+
+static rtx
+altivec_expand_stxvl_builtin (enum insn_code icode, tree exp)
+{
+  rtx pat;
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
+  tree arg1 = CALL_EXPR_ARG (exp, 1);
+  tree arg2 = CALL_EXPR_ARG (exp, 2);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
+  rtx op2 = expand_normal (arg2);
+  /*  machine_mode tmode = insn_data[icode].operand[0].mode; */
+  machine_mode mode0 = insn_data[icode].operand[0].mode;
+  machine_mode mode1 = insn_data[icode].operand[1].mode;
+  machine_mode mode2 = insn_data[icode].operand[2].mode;
+
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "altivec_expand_stxvl_builtin (%d)\n", icode);
+  fprintf (stderr, " exp: ");
+  debug_tree (exp);
+#endif
+
+  if (icode == CODE_FOR_nothing)
+    /* Builtin not supported on this processor.  */
+    return NULL_RTX;
+
+  /* If we got invalid arguments bail out before generating bad rtl.  */
+  if (arg0 == error_mark_node
+      || arg1 == error_mark_node
+      || arg2 == error_mark_node)
+    return NULL_RTX;
+
+  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+    op0 = copy_to_mode_reg (mode0, op0);
+  if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
+    op1 = copy_to_mode_reg (mode1, op1);
+  if (! (*insn_data[icode].operand[3].predicate) (op2, mode2))
+    op2 = copy_to_mode_reg (mode2, op2);
+
+  pat = GEN_FCN (icode) (op0, op1, op2);
+  if (pat)
+    emit_insn (pat);
+
   return NULL_RTX;
 }
 
@@ -15214,6 +15237,10 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     case ALTIVEC_BUILTIN_STVRXL:
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrxl, exp);
 
+    case P9V_BUILTIN_STXVL:
+      /* kelvin under construction */
+      return altivec_expand_stxvl_builtin (CODE_FOR_stxvl, exp);
+
     case VSX_BUILTIN_STXVD2X_V1TI:
       return altivec_expand_stv_builtin (CODE_FOR_vsx_store_v1ti, exp);
     case VSX_BUILTIN_STXVD2X_V2DF:
@@ -16052,6 +16079,14 @@ rs6000_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 #endif
 }
 
+
+#ifdef KELVIN_DEBUG
+void kelvin_breakpoint ()
+{
+  fprintf (stderr, "made it to kelvin_breakpoint\n");
+}
+#endif
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -16077,6 +16112,8 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 #ifdef KELVIN_DEBUG
   fprintf (stderr, "made it to rs6000_expand_builtin, exp is: ");
   debug_tree (exp);
+
+  kelvin_breakpoint ();
 #endif
   if (TARGET_DEBUG_BUILTIN)
     {
@@ -16952,6 +16989,12 @@ altivec_init_builtins (void)
     = build_function_type_list (void_type_node,
 				V16QI_type_node, long_integer_type_node,
 				pvoid_type_node, NULL_TREE);
+
+  tree void_ftype_v16qi_pvoid_long
+    = build_function_type_list (void_type_node,
+				V16QI_type_node, pvoid_type_node, 
+				long_integer_type_node, NULL_TREE);
+
   tree void_ftype_v8hi_long_pvoid
     = build_function_type_list (void_type_node,
 				V8HI_type_node, long_integer_type_node,
@@ -17189,6 +17232,21 @@ altivec_init_builtins (void)
   def_builtin ("__builtin_vec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLXL);
   def_builtin ("__builtin_vec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRX);
   def_builtin ("__builtin_vec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRXL);
+
+  /* kelvin under construction: 2 issues;
+   *   How do i get the CODE_FOR_stxvl bound in?
+   *  and
+   *   make sure that there exists the type void_ftype_v16qi_pvoid_long
+   *
+   * Maybe this is why we have a special expand to accompany each
+   * special def_builtin, so that I can keep track of the CODE_for
+   * expansions? 
+   */
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "About to define my new __builtin_altivec_stxvl\n");
+#endif
+  def_builtin ("__builtin_altivec_stxvl", void_ftype_v16qi_pvoid_long, 
+	       P9V_BUILTIN_STXVL);
 
   /* Add the DST variants.  */
   d = bdesc_dst;
@@ -17770,6 +17828,10 @@ rs6000_common_init_builtins (void)
 
       if (rs6000_overloaded_builtin_p (d->code))
 	{
+#ifdef KELVIN_DEBUG
+	  fprintf (stderr, 
+		   "Processing overloaded_builtin, type is, well, opaque\n");
+#endif
 	  if (! (type = opaque_ftype_opaque_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque_opaque
 	      = build_function_type_list (opaque_V4SI_type_node,
@@ -17798,7 +17860,25 @@ rs6000_common_init_builtins (void)
 
 	      continue;
 	    }
+#ifdef KELVIN_DEBUG
+	  fprintf (stderr, "SImode is %d\n", SImode);
+	  fprintf (stderr, "DImode is %d\n", DImode);
+	  fprintf (stderr, "V1TImode is %d\n", V1TImode);
+	  fprintf (stderr, "V16QImode is %d\n", V16QImode);
+	  fprintf (stderr, "QImode is %d\n", QImode);
 
+	  fprintf (stderr, 
+		   "building type for built-in function %s (%d), icode: %d\n",
+		   d->name, d->code, d->icode);
+	  fprintf (stderr, " operand[0].mode: %d\n", 
+		   insn_data[icode].operand[0].mode);
+	  fprintf (stderr, " operand[1].mode: %d\n", 
+		   insn_data[icode].operand[1].mode);
+	  fprintf (stderr, " operand[2].mode: %d\n", 
+		   insn_data[icode].operand[2].mode);
+	  fprintf (stderr, " operand[3].mode: %d\n", 
+		   insn_data[icode].operand[3].mode);
+#endif
 	  type = builtin_function_type (insn_data[icode].operand[0].mode,
 					insn_data[icode].operand[1].mode,
 					insn_data[icode].operand[2].mode,
@@ -17806,6 +17886,27 @@ rs6000_common_init_builtins (void)
 					d->code, d->name);
 	}
 
+#ifdef KELVIN_DEBUG
+      /* first time through, __builtin_vsx_stxvl has modes 53, 10, 10, 53
+       *  aka V16QImode, DImode, DImode, V16QImode
+       *  2 DIModes make sense, because we have an address and a length.
+       *  2 V16QImode might make sense: Operand 0 is V16QImode. (the
+       *    vector to be stored.
+       *  where is operand[3] coming from?
+       *    i think this is simply a "dangling pointer".  The
+       *  define_expand only introduces three types, but calling it a
+       *  ternary operator causes the infrastructure to believe there
+       *  are four types, so we are reaching beyond the end of the
+       *  supplied type array to obtain operand[3].
+       *
+       * As recently revised, __builtin_altivec_stxvl is no longer 
+       * defined from here.  It is special-cased above.
+       */
+      fprintf (stderr, "Defining ternary built-in %s for code %d\n", 
+	       d->name, d->code);
+      fprintf (stderr, "Type is ");
+      debug_tree (type);
+#endif
       def_builtin (d->name, type, d->code);
     }
 

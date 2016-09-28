@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-chkp.h"
 #include "ccmp.h"
 
+#undef KELVIN_DEBUG
 
 /* If this is nonzero, we do not bother generating VOLATILE
    around volatile memory references, and we are willing to
@@ -4916,6 +4917,9 @@ expand_assignment (tree to, tree from, bool nontemporal)
   unsigned int align;
   enum insn_code icode;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_assignment\n");
+#endif
   /* Don't crash if the lhs of the assignment was erroneous.  */
   if (TREE_CODE (to) == ERROR_MARK)
     {
@@ -5365,6 +5369,9 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
   rtx alt_rtl = NULL_RTX;
   location_t loc = curr_insn_location ();
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "store_expr_with_bounds\n");
+#endif
   if (VOID_TYPE_P (TREE_TYPE (exp)))
     {
       /* C++ can generate ?: expressions with a throw expression in one
@@ -8076,6 +8083,9 @@ expand_expr_real (tree exp, rtx target, machine_mode tmode,
 {
   rtx ret;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_expr_real ()\n");
+#endif
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK
       || (TREE_CODE (TREE_TYPE (exp)) == ERROR_MARK))
@@ -8207,6 +8217,9 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 								  type)	  \
 				 : (expr))
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_expr_real_2\n");
+#endif
   type = ops->type;
   mode = TYPE_MODE (type);
   unsignedp = TYPE_UNSIGNED (type);
@@ -9566,6 +9579,9 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
   tree ssa_name = NULL_TREE;
   gimple *g;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_expr_real_1\n");
+#endif
   type = TREE_TYPE (exp);
   mode = TYPE_MODE (type);
   unsignedp = TYPE_UNSIGNED (type);

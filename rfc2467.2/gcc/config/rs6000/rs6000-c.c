@@ -4381,37 +4381,56 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VSCEDPUO, P9V_BUILTIN_VSCEDPUO,
     RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
 
+  /* signed char: vec-xl-len-0.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V16QI, ~RS6000_BTI_INTQI,
     RS6000_BTI_unsigned_long_long, 0 },
+  /* unsigned char: vec-xl-len-1.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V16QI, ~RS6000_BTI_UINTQI,
     RS6000_BTI_unsigned_long_long, 0 },
 
+  /* signed int: vec-xl-len-2.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V4SI, ~RS6000_BTI_INTSI,
     RS6000_BTI_unsigned_long_long, 0 },
+  /* unsigned int: vec-xl-len-3.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V4SI, ~RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_long_long, 0 },
 
+  /* signed __int128: vec_xl-Len-4.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V1TI, ~RS6000_BTI_INTTI,
     RS6000_BTI_unsigned_long_long, 0 },
+  /* unsigned __int128: vec-xl-len-5.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V1TI, ~RS6000_BTI_UINTTI,
     RS6000_BTI_unsigned_long_long, 0 },
 
+  /* signed long long: vec-xl-len-6.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
-    RS6000_BTI_V2DI, ~RS6000_BTI_INTDI,
+    RS6000_BTI_V2DI, ~RS6000_BTI_long_long,
     RS6000_BTI_unsigned_long_long, 0 },
+  /* unsigned long long: vec-xl-len-7.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
-    RS6000_BTI_unsigned_V2DI, ~RS6000_BTI_UINTDI,
+    RS6000_BTI_unsigned_V2DI, ~RS6000_BTI_unsigned_long_long,
     RS6000_BTI_unsigned_long_long, 0 },
 
+  /* signed short: vec-xl-len-8.c passes */
+  { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
+    RS6000_BTI_V8HI, ~RS6000_BTI_INTHI,
+    RS6000_BTI_unsigned_long_long, 0 },
+  /* unsigned short: vec-xl-len-9.c passes */
+  { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
+    RS6000_BTI_unsigned_V8HI, ~RS6000_BTI_UINTHI,
+    RS6000_BTI_unsigned_long_long, 0 },
+
+  /* double: vec-xl-len-10.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V2DF, ~RS6000_BTI_double,
     RS6000_BTI_unsigned_long_long, 0 },
+  /* float: vec-xl-len-11.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V4SF, ~RS6000_BTI_float,
     RS6000_BTI_unsigned_long_long, 0 },
@@ -4419,39 +4438,46 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
      RS6000_BTI_Float16 (exact name to be determined) type here */
 
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_V16QI, ~RS6000_BTI_INTQI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_V16QI, ~RS6000_BTI_INTQI,
+    RS6000_BTI_unsigned_long_long },
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_unsigned_V16QI, ~RS6000_BTI_UINTQI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_unsigned_V16QI, ~RS6000_BTI_UINTQI,
+    RS6000_BTI_unsigned_long_long },
 
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_V4SI, ~RS6000_BTI_INTSI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_V4SI, ~RS6000_BTI_INTSI,
+    RS6000_BTI_unsigned_long_long },
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_unsigned_V4SI, ~RS6000_BTI_UINTSI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_unsigned_V4SI, ~RS6000_BTI_UINTSI,
+    RS6000_BTI_unsigned_long_long },
 
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_V1TI, ~RS6000_BTI_INTTI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_V1TI, ~RS6000_BTI_INTTI,
+    RS6000_BTI_unsigned_long_long },
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_unsigned_V1TI, ~RS6000_BTI_UINTTI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_unsigned_V1TI, ~RS6000_BTI_UINTTI,
+    RS6000_BTI_unsigned_long_long },
 
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_V2DI, ~RS6000_BTI_INTDI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_V2DI, ~RS6000_BTI_long_long,
+    RS6000_BTI_unsigned_long_long },
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_unsigned_V2DI, ~RS6000_BTI_UINTDI,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_unsigned_V2DI, ~RS6000_BTI_unsigned_long_long,
+    RS6000_BTI_unsigned_long_long },
 
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_V2DF, ~RS6000_BTI_double,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_V8HI, ~RS6000_BTI_INTHI,
+    RS6000_BTI_unsigned_long_long },
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
-    RS6000_BTI_V4SF, ~RS6000_BTI_float,
-    RS6000_BTI_unsigned_long_long, 0 },
+    RS6000_BTI_void, RS6000_BTI_unsigned_V8HI, ~RS6000_BTI_UINTHI,
+    RS6000_BTI_unsigned_long_long },
+
+  { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
+    RS6000_BTI_void, RS6000_BTI_V2DF, ~RS6000_BTI_double,
+    RS6000_BTI_unsigned_long_long },
+  { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
+    RS6000_BTI_void, RS6000_BTI_V4SF, ~RS6000_BTI_float,
+    RS6000_BTI_unsigned_long_long },
   /* at an appropriate future time, add support for the
      RS6000_BTI_Float16 (exact name to be determined) type here */
 
@@ -5050,19 +5076,31 @@ altivec_build_resolved_builtin (tree *args, int n,
   tree call;
 
 #ifdef KELVIN_DEBUG
-  fprintf (stderr, "altivec_build_resolved_builtin\n");
-  fprintf (stderr, "n is %d\n", n);
+  /*
+   * so desc represents one variation of the overloaded P9V_BUILTIN_VEC_STXVL
+   * function.  When we look up the "overloaded" code, we see what the 
+   * corresponding define_expand or define_insn is expecting
+   *
+   * So i want to get a better understanding of impl_fndecl.
+   */
+  fprintf (stderr, "altivec_build_resolved_builtin, n is %d\n", n);
 
-  fprintf (stderr, "ALTIVEC_BUILTIN_VEC_VCMPEQ_P is %d\n",
-	   ALTIVEC_BUILTIN_VEC_VCMPEQ_P);
-  fprintf (stderr, "ALTIVEC_BUILTIN_VCMPEQUB_P is %d\n",
-	   ALTIVEC_BUILTIN_VCMPEQUB_P);
+  /* my overloaded_code is 922 */
+  fprintf (stderr, "impl_fndecl is: ");
+  debug_tree (impl_fndecl);
+
+  fprintf (stderr, "P9V_BUILTIN_VEC_STXVL (the generic) is %d\n",
+	   P9V_BUILTIN_VEC_STXVL);
+
+  fprintf (stderr, "P9V_BUILTIN_STXVL (the primitive) is %d\n",
+	   P9V_BUILTIN_STXVL);
 
   fprintf (stderr, "desc->code: %d, desc->overloaded_code: %d\n", 
 	   desc->code, desc->overloaded_code);
   fprintf (stderr, "ret_type: %d\n", desc->ret_type);
   fprintf (stderr, "op1: %d, op2: %d, op3: %d\n", 
 	   desc->op1, desc->op2, desc->op3);
+  /*
   if (n >= 1) {
     fprintf (stderr, "args[0] is: "); debug_tree (args[0]);
   }
@@ -5072,6 +5110,7 @@ altivec_build_resolved_builtin (tree *args, int n,
   if (n >= 3) {
     fprintf (stderr, "args[2] is: "); debug_tree (args[2]);
   }
+  */
 #endif
   int i;
   for (i = 0; i < n; i++)
@@ -5098,6 +5137,17 @@ altivec_build_resolved_builtin (tree *args, int n,
       args[0] = fold_build2 (BIT_XOR_EXPR, TREE_TYPE (args[0]), args[0],
 			     build_int_cst (NULL_TREE, 2));
     }
+
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "fold-converting for %d arguments\n", n);
+  for (int j = 0; j < n; j++) {
+    fprintf (stderr, "\n");
+    fprintf (stderr, "type[%d]: ", j);
+    debug_tree (arg_type[j]);
+    fprintf (stderr, "arg: ");
+    debug_tree (args[j]);
+  }
+#endif
 
   switch (n)
     {
@@ -5132,13 +5182,6 @@ altivec_build_resolved_builtin (tree *args, int n,
   return fold_convert (ret_type, call);
 }
 
-#ifdef KELVIN_DEBUG
-void kelvin_breakpoint()
-{
-  fprintf (stderr, "made it to kelvin_breakpoint\n");
-}
-#endif
-
 /* Implementation of the resolve_overloaded_builtin target hook, to
    support Altivec's overloaded builtins.  */
 
@@ -5156,7 +5199,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   unsigned int n;
 
 #ifdef KELVIN_DEBUG
-  kelvin_breakpoint();
+
+  /* my problem is coming from $GCC_SRC/gcc/c-family/c-common.c,
+   *  resolve_overloaded_builtin (), line 11485, but that function
+   *  is gettings its "tree function" argument passed in from
+   */
+  fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
+	   (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
 #endif
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
@@ -5851,7 +5900,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    continue;
 
 #ifdef KELVIN_DEBUG
-    fprintf (stderr, "1: found desc, code is %d\n", desc->code);
+	  fprintf (stderr, "1: found desc, code is %d\n", desc->code);
 #endif	  
 	  for (; desc->code == fcode; desc++)
 	    if (rs6000_builtin_type_compatible (TREE_TYPE (arg0), desc->op1)
@@ -5951,6 +6000,15 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	}
     }
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "I think I'm through all the special cases, nargs: %d\n",
+	   nargs);
+  /* this all checks out ok
+   * fprintf (stderr, " at top of loop fnargs: ");
+   * debug_tree (fnargs);
+   */
+#endif
+
   for (n = 0;
        !VOID_TYPE_P (TREE_VALUE (fnargs)) && n < nargs;
        fnargs = TREE_CHAIN (fnargs), n++)
@@ -5996,9 +6054,32 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  arg = fold_convert (type, arg);
 	}
 
+#ifdef KELVIN_DEBUG
+      /* this is also checking out ok
+       * fprintf (stderr, "arg[%d]: ", n);
+       * debug_tree (arg);
+       */
+      /* let's not print this for now, because the type information is
+       * already provided in debug_tree (arg) above.
+       *
+      fprintf (stderr, "type is \n");
+      debug_tree (type);
+      */
+#endif
       args[n] = arg;
       types[n] = type;
     }
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Preprocessed all of the arguments: %d\n", n);
+  /*
+   * this fnargs stuff is really not so helpful.  i can't find any 
+   * useful information in it, so i'll remove it.
+   *  fprintf (stderr, "fnargs is ");
+   *  debug_tree (fnargs);
+   */
+  fprintf (stderr, " is it VOID_TYPE? %s\n",
+	   VOID_TYPE_P (TREE_VALUE (fnargs))? "yes": "no");
+#endif
 
   /* If the number of arguments did not match the prototype, return NULL
      and the generic code will issue the appropriate error message.  */
@@ -6025,12 +6106,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 #ifdef KELVIN_DEBUG
     fprintf (stderr, "3: find desc, code is %d\n", desc->code);
     fprintf (stderr, "  fcode is %d\n", fcode);
-    fprintf (stderr, " ALTIVEC_BUILTIN_VEC_VCMPNEZ_P is %d\n",
-	     P9V_BUILTIN_VEC_VCMPNEZ_P);
-    fprintf (stderr, " P9V_BUILTIN_VCMPNEZB_P is %d\n", P9V_BUILTIN_VCMPNEZB_P);
-    fprintf (stderr, " P9V_BUILTIN_VCMPNEZH_P is %d\n", P9V_BUILTIN_VCMPNEZH_P);
-    fprintf (stderr, " P9V_BUILTIN_VCMPNEZW_P is %d\n", P9V_BUILTIN_VCMPNEZW_P);
-    fprintf (stderr, " RS6000_BTI_bool_V16qi is %d\n", RS6000_BTI_bool_V16QI);
+    fprintf (stderr, " P9V_BUILTIN_VEC_STXVL is %d\n",
+	     P9V_BUILTIN_VEC_STXVL);
+    fprintf (stderr, " P9V_BUILTIN_STXVL is %d\n", P9V_BUILTIN_STXVL);
+    fprintf (stderr, " RS6000_BTI_unsigned_long_long is %d\n", 
+             RS6000_BTI_unsigned_long_long);
+    fprintf (stderr, " RS6000_BTI_unsigned_V2DI is %d\n", 
+             RS6000_BTI_unsigned_V2DI);
 #endif
 
     /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
@@ -6040,6 +6122,8 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 #ifdef KELVIN_DEBUG
 	fprintf (stderr, "consider match against op1: %d, op2: %d, opt3: %d\n",
 		 desc->op1, desc->op2, desc->op3);
+	fprintf (stderr, "desc->overloaded_code is %d\n", 
+                 desc->overloaded_code);
 #endif
 	if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
 	     || rs6000_builtin_type_compatible (types[0], desc->op1))
@@ -6053,6 +6137,14 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 		     desc->overloaded_code, 
                      ((unsigned long int) 
                       rs6000_builtin_decls[desc->overloaded_code]));
+
+	    /* I'm having a "problem" with the third argument to desc.
+	     * It seems this argument is already "wrong", because it
+	     * seems the description of argument types is corrupted.
+	     *
+	     * maybe i'm wrong. i just printed out desc->op1, op2, and
+	     * op3 and they are all ok.
+	     */
 #endif
 	    if (rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
 	      return altivec_build_resolved_builtin (args, n, desc);

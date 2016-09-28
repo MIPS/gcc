@@ -431,8 +431,7 @@
 #define vec_xst_len __builtin_vec_stxvl
 #endif
  
-/* vec_cmpne is already defined elsewhere so don't re-introduce it
- *   here */
+/* vec_cmpne is defined elsewhere so don't re-introduce it here */
 #define vec_cmpnez __builtin_vec_vcmpnez
 
 #define vec_cntlz_lsbb __builtin_vec_vclzlsbb

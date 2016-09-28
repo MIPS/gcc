@@ -204,6 +204,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "lto-section-names.h"
 
+#undef KELVIN_DEBUG
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
    may generate new functions that need to be optimized and expanded.  */
@@ -1946,6 +1947,9 @@ cgraph_node::expand (void)
 {
   location_t saved_loc;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "made it to cgraph_node::expand\n");
+#endif
   /* We ought to not compile any inline clones.  */
   gcc_assert (!global.inlined_to);
 
@@ -1982,6 +1986,9 @@ cgraph_node::expand (void)
   /* Signal the start of passes.  */
   invoke_plugin_callbacks (PLUGIN_ALL_PASSES_START, NULL);
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "about to execute execute_pass_list\n");
+#endif
   execute_pass_list (cfun, g->get_passes ()->all_passes);
 
   /* Signal the end of passes.  */
@@ -2051,6 +2058,9 @@ cgraph_node::expand (void)
      points to the dead function body.  */
   remove_callees ();
   remove_all_references ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "returning from cgraph_node::expand\n");
+#endif
 }
 
 /* Node comparer that is responsible for the order that corresponds
@@ -2091,6 +2101,9 @@ expand_all_functions (void)
   int order_pos, new_order_pos = 0;
   int i;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Made it to expand_all_functions()\n");
+#endif
   order_pos = ipa_reverse_postorder (order);
   gcc_assert (order_pos == symtab->cgraph_count);
 
@@ -2107,6 +2120,10 @@ expand_all_functions (void)
     {
       node = order[i];
 
+#ifdef KELVIN_DEBUG
+      fprintf (stderr, "Looking at node %d, node->process is %d\n",
+	       i, node->process);
+#endif
       if (node->process)
 	{
 	  expanded_func_count++;
@@ -2121,6 +2138,9 @@ expand_all_functions (void)
 	  node->expand ();
 	}
     }
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "About to visit bad indentation!()\n");
+#endif
 
     if (dump_file)
       fprintf (dump_file, "Expanded functions with time profile (%s):%u/%u\n",
@@ -2132,6 +2152,9 @@ expand_all_functions (void)
 
   symtab->process_new_functions ();
   free_gimplify_stack ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from free_gimplify_stack()\n");
+#endif
 
   free (order);
 }
@@ -2381,11 +2404,22 @@ symbol_table::output_weakrefs (void)
 void
 symbol_table::compile (void)
 {
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Made it to symbol_table::compile\n");
+#endif
+
   if (seen_error ())
     return;
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Haven't seen_error()\n");
+#endif
 
   symtab_node::checking_verify_symtab_nodes ();
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from checking_verify_symtab_nodes()\n");
+#endif
+  
   timevar_push (TV_CGRAPHOPT);
   if (pre_ipa_mem_report)
     {
@@ -2400,14 +2434,26 @@ symbol_table::compile (void)
   if (!in_lto_p && g->have_offload)
     flag_generate_offload = 1;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Heading off to lto_streamer_hooks_init()\n");
+#endif
+  
   /* If LTO is enabled, initialize the streamer hooks needed by GIMPLE.  */
   if (flag_generate_lto || flag_generate_offload)
     lto_streamer_hooks_init ();
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "And back from streamer_hooks_init with error code: %d\n",
+	   seen_error());
+#endif
   /* Don't run the IPA passes if there was any error or sorry messages.  */
   if (!seen_error ())
     ipa_passes ();
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from ipa_passes()\n");
+#endif
+  
   /* Do nothing else if any IPA pass found errors or if we are just streaming LTO.  */
   if (seen_error ()
       || (!in_lto_p && flag_lto && !flag_fat_lto_objects))
@@ -2429,6 +2475,9 @@ symbol_table::compile (void)
     }
   timevar_pop (TV_CGRAPHOPT);
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "About to assemble functions\n");
+#endif
   /* Output everything.  */
   (*debug_hooks->assembly_start) ();
   if (!quiet_flag)
@@ -2440,6 +2489,9 @@ symbol_table::compile (void)
   bitmap_obstack_release (NULL);
   mark_functions_to_output ();
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from making functions to output()\n");
+#endif
   /* When weakref support is missing, we autmatically translate all
      references to NODE to references to its ultimate alias target.
      The renaming mechanizm uses flag IDENTIFIER_TRANSPARENT_ALIAS and
@@ -2468,6 +2520,10 @@ symbol_table::compile (void)
 
   state = EXPANSION;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "About to do output in order, flag is: %d\n",
+	   flag_toplevel_reorder);
+#endif
   if (!flag_toplevel_reorder)
     output_in_order (false);
   else
@@ -2478,10 +2534,16 @@ symbol_table::compile (void)
       expand_all_functions ();
       output_variables ();
     }
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Heading to process_new_functions ()\n");
+#endif
 
   process_new_functions ();
   state = FINISHED;
   output_weakrefs ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from output_weakrefs ()\n");
+#endif
 
   if (dump_file)
     {
@@ -2491,6 +2553,9 @@ symbol_table::compile (void)
   if (!flag_checking)
     return;
   symtab_node::verify_symtab_nodes ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from symtab_node::verify_symtab_nodes ()\n");
+#endif
   /* Double check that all inline clones are gone and that all
      function bodies have been released from memory.  */
   if (!seen_error ())
@@ -2517,6 +2582,9 @@ void
 symbol_table::finalize_compilation_unit (void)
 {
   timevar_push (TV_CGRAPH);
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Made it to symbol_table::finalize_compilation_unit()\n");
+#endif
 
   /* If we're here there's no current function anymore.  Some frontends
      are lazy in clearing these.  */
@@ -2528,9 +2596,15 @@ symbol_table::finalize_compilation_unit (void)
 
   /* Emit size functions we didn't inline.  */
   finalize_size_functions ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from finalize_size_functions()\n");
+#endif
 
   /* Mark alias targets necessary and emit diagnostics.  */
   handle_alias_pairs ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from handle_alias_pairs()\n");
+#endif
 
   if (!quiet_flag)
     {
@@ -2544,12 +2618,21 @@ symbol_table::finalize_compilation_unit (void)
   /* Gimplify and lower all functions, compute reachability and
      remove unreachable nodes.  */
   analyze_functions (/*first_time=*/true);
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from analyze_functions()\n");
+#endif
 
   /* Mark alias targets necessary and emit diagnostics.  */
   handle_alias_pairs ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from handle_alias_pairs()\n");
+#endif
 
   /* Gimplify and lower thunks.  */
   analyze_functions (/*first_time=*/false);
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from analyze_functions()\n");
+#endif
 
   if (!seen_error ())
     {
@@ -2564,8 +2647,14 @@ symbol_table::finalize_compilation_unit (void)
       (*debug_hooks->early_finish) ();
     }
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Heading off to compile()\n");
+#endif
   /* Finally drive the pass manager.  */
   compile ();
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "Back from compile()\n");
+#endif
 
   timevar_pop (TV_CGRAPH);
 }

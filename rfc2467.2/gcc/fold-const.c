@@ -82,6 +82,8 @@ along with GCC; see the file COPYING3.  If not see
 #define LOAD_EXTEND_OP(M) UNKNOWN
 #endif
 
+#undef KELVIN_DEBUG
+
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
 int folding_initializer = 0;
@@ -2201,6 +2203,16 @@ fold_convertible_p (const_tree type, const_tree arg)
     }
 }
 
+#ifdef KELVIN_DEBUG
+void kelvin_breakpoint3()
+{
+  /* this must be silent.  if i print a message, it will look like
+   * one of the machine configuration tests failed, and that will
+   * cause many of the other tests to be "unsupported".
+   */
+}
+#endif
+
 /* Convert expression ARG to type TYPE.  Used by the middle-end for
    simple conversions in preference to calling the front-end's convert.  */
 
@@ -2244,6 +2256,26 @@ fold_convert_loc (location_t loc, tree type, tree arg)
 	return fold_convert_loc (loc, type,
 				 fold_build1_loc (loc, REALPART_EXPR,
 						  TREE_TYPE (orig), arg));
+#ifdef KELVIN_DEBUG
+      fprintf (stderr, "@ problem site, VECTOR_TYPE: %d\n", VECTOR_TYPE);
+      fprintf (stderr, "  TREE_CODE (orig): %d\n", TREE_CODE (orig));
+      fprintf (stderr, "  TREE_CODE (type): %d\n", TREE_CODE (type));
+
+      if ((TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST) ||
+	  (TREE_CODE (TYPE_SIZE (orig)) != INTEGER_CST))
+	fprintf (stderr, "type or orig type sizes not integer constants\n");
+      else {
+	if (wi::to_widest (TYPE_SIZE (type)) == 
+	    wi::to_widest (TYPE_SIZE (orig)))
+	  fprintf (stderr, "type sizes are equal\n");
+	else if (wi::to_widest (TYPE_SIZE (type)) > 
+		 wi::to_widest (TYPE_SIZE (orig)))
+	  fprintf (stderr, "type_size (type) > type_size (orig)\n");
+	else
+	  fprintf (stderr, "type_size (type) < type_size (orig)\n");
+      }
+      kelvin_breakpoint3 ();
+#endif
       gcc_assert (TREE_CODE (orig) == VECTOR_TYPE
 		  && tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (orig)));
       return fold_build1_loc (loc, VIEW_CONVERT_EXPR, type, arg);

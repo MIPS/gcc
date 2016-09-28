@@ -74,6 +74,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
 
+#undef KELVIN_DEBUG
+
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
    give the same symbol without quotes for an alternative entry point.  You
@@ -2574,6 +2576,9 @@ expand_call_stmt (gcall *stmt)
   bool builtin_p;
   size_t i;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_call_stmt\n");
+#endif
   if (gimple_call_internal_p (stmt))
     {
       expand_internal_call (stmt);
@@ -3553,6 +3558,9 @@ expand_gimple_stmt_1 (gimple *stmt)
 {
   tree op0;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_gimple_stmt_1\n");
+#endif
   set_curr_insn_location (gimple_location (stmt));
 
   switch (gimple_code (stmt))
@@ -3734,6 +3742,9 @@ expand_gimple_stmt (gimple *stmt)
   rtx_insn *last = get_last_insn ();
   int lp_nr;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_gimple_stmt\n");
+#endif
   gcc_assert (cfun);
 
   /* We need to save and restore the current source location so that errors
@@ -3790,6 +3801,9 @@ expand_gimple_tailcall (basic_block bb, gcall *stmt, bool *can_fallthru)
   int probability;
   gcov_type count;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_gimple_tailcall\n");
+#endif
   last2 = last = expand_gimple_stmt (stmt);
 
   for (last = NEXT_INSN (last); last; last = NEXT_INSN (last))
@@ -5438,6 +5452,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   edge e;
   edge_iterator ei;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "expand_gimple_basic_block\n");
+#endif
   if (dump_file)
     fprintf (dump_file, "\n;; Generating RTL for gimple basic block %d\n",
 	     bb->index);
@@ -5614,6 +5631,10 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 
       currently_expanding_gimple_stmt = stmt;
 
+#ifdef KELVIN_DEBUG
+      fprintf (stderr, 
+	       "got to here in expand_gimple_basic_block, but no further\n");
+#endif
       /* Expand this statement, then evaluate the resulting RTL and
 	 fixup the CFG accordingly.  */
       if (gimple_code (stmt) == GIMPLE_COND)

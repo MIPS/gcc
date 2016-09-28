@@ -7273,6 +7273,12 @@ type_num_arguments (const_tree type)
 int
 tree_int_cst_equal (const_tree t1, const_tree t2)
 {
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, 
+	   "tree_int_cst_equal, TREE_CODE (t1): %d, (t2): %d, INTEGER_CST: %d\n",
+	   TREE_CODE (t1), TREE_CODE (t2), INTEGER_CST);
+#endif
+
   if (t1 == t2)
     return 1;
 

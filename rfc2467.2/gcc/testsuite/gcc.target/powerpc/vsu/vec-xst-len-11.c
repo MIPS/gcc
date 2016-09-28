@@ -4,11 +4,11 @@
 /* { dg-require-effective-target powerpc_p9vector_ok } */
 /* { dg-options "-mcpu=power9" } */
 
+#include <stddef.h>
 #include <altivec.h>
 
 void
-store_data (vector double *datap, souble *address, 
-	    size_t length)
+store_data (vector double *datap, double *address, size_t length)
 {
   vector double data = *datap;
 

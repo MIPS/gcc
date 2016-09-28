@@ -3279,6 +3279,43 @@
    (set_attr "type" "vecload")])
 
 ;; Store VSX Vector with Length
+;;  (this takes 3 operands: a vector operand, an address, and a length
+;;  it also takes a target register, which is perhaps ignored?
+;; error says:
+;;   argument 2 is expected to be __vector(4) int,
+;;     but argument is of type signed char *
+;;
+;; from below, op[0] is vector
+;;             op[1] is pointer to memory location holding a v16qi
+;;             op[2] is long long, representing the number of bytes to xfer.
+;; so this error message is puzzling me.
+;; in terms of the type signature in rs6000-c.c (and I'm not sure which
+;; of many possible signature it would be working from), we have:
+;;  target_ VTI_void
+;;  op0: V2DF
+;;  op1: pointer to double
+;;  op2: long long
+;;
+;; there's another instruction that seems to be very similar to my stxvl 
+;; insn, it's known as the dst insn.  It also returns a void result.  And
+;; the overloaded signature description describes three operands (e.g. 
+;; ~RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, RS6000_BTI_INTSI), and
+;; the corresponding define_insn expects three operands, which it
+;; characterizes as (0) a register_operand "b" (a base register), (1)
+;; a register_operand "r" (any register), and (2) an
+;; immediate_operand "i".
+;; 
+;; What is a "base" register?  I'm not sure if this matters.
+;;
+
+;; this pattern is too complicated.  somehow, this is confusing the 
+;; system's automatic recognition of argument types for builtin functions.
+;; when processing this expansion, the infrastructure concludes that this
+;; builtin expects 4 arguments: V16QImode, DImode, DImode, and V16QImode.
+;;
+;; what i desire is for this function to be recognized as requring three
+;; arguments: V16QImode (the vector), DImode (the address), and DImode
+;; (the length).
 (define_expand "stxvl"
   [(set (match_dup 3)
 	(match_operand:DI 2 "register_operand" "r"))
