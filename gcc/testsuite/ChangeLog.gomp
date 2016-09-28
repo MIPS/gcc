@@ -1,3 +1,8 @@
+2016-09-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-c++-common/goacc/tile-2.c: New.
+	* c-c++-common/goacc/tile.c: Fix.
+	
 2016-09-23  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/tile.c: Include stdbool, fix expected errors.

@@ -33660,10 +33660,16 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
   int i, collapse = 1, ordered = 0, count, nbraces = 0;
   vec<tree, va_gc> *for_block = make_tree_vector ();
   auto_vec<tree, 4> orig_inits;
+  bool tiling = false;
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
       collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (cl));
+    else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_TILE)
+      {
+	tiling = true;
+	collapse = list_length (OMP_CLAUSE_TILE_LIST (cl));
+      }
     else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_ORDERED
 	     && OMP_CLAUSE_ORDERED_EXPR (cl))
       {
@@ -33693,7 +33699,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	  pc = &OMP_CLAUSE_CHAIN (*pc);
     }
 
-  gcc_assert (collapse >= 1 && ordered >= 0);
+  gcc_assert (tiling || (collapse >= 1 && ordered >= 0));
   count = ordered ? ordered : collapse;
 
   declv = make_tree_vec (count);
@@ -33712,13 +33718,15 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
       if (code != CILK_FOR
 	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
 	{
-	  cp_parser_error (parser, "for statement expected");
+	  if (!collapse_err)
+	    cp_parser_error (parser, "for statement expected");
 	  return NULL;
 	}
       if (code == CILK_FOR
 	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_CILK_FOR))
 	{
-	  cp_parser_error (parser, "_Cilk_for statement expected");
+	  if (!collapse_err)
+	    cp_parser_error (parser, "_Cilk_for statement expected");
 	  return NULL;
 	}
       loc = cp_lexer_consume_token (parser->lexer)->location;
@@ -33878,7 +33886,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	 nested.  Hopefully the final version clarifies this.
 	 For now handle (multiple) {'s and empty statements.  */
       cp_parser_parse_tentatively (parser);
-      do
+      for (;;)
 	{
 	  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
 	    break;
@@ -33893,14 +33901,13 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	  else
 	    {
 	      loc = cp_lexer_peek_token (parser->lexer)->location;
-	      error_at (loc, "not enough collapsed for loops");
+	      error_at (loc, "not enough for loops to collapse");
 	      collapse_err = true;
 	      cp_parser_abort_tentative_parse (parser);
 	      declv = NULL_TREE;
 	      break;
 	    }
 	}
-      while (1);
 
       if (declv)
 	{

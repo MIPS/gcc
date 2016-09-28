@@ -1,3 +1,10 @@
+2016-09-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_parser_omp_for_loop): Deal with tile clause.  Don't
+	emit a parse error about missing for after already emitting
+	one.  Use more conventional for idiom for unbounded loop.
+	* semantics.c (finish_omp_for): Deal with tile clause.
+
 2016-09-23  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_clause_tile): Disallow collapse.  Fix
