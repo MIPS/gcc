@@ -343,11 +343,11 @@
    (match_operand:VHSDF 2 "register_operand")]
   "TARGET_FLOAT && TARGET_SIMD"
 {
-  rtx v_bitmask = gen_reg_rtx (<V_cmp_result>mode);
+  rtx v_bitmask = gen_reg_rtx (<V_INT_EQUIV>mode);
   int bits = GET_MODE_UNIT_BITSIZE (<MODE>mode) - 1;
 
   emit_move_insn (v_bitmask,
-		  aarch64_simd_gen_const_vector_dup (<V_cmp_result>mode,
+		  aarch64_simd_gen_const_vector_dup (<V_INT_EQUIV>mode,
 						     HOST_WIDE_INT_M1U << bits));
   emit_insn (gen_aarch64_simd_bsl<mode> (operands[0], v_bitmask,
 					 operands[2], operands[1]));
@@ -2241,10 +2241,10 @@
 	(xor:VSDQ_I_DI
 	   (and:VSDQ_I_DI
 	     (xor:VSDQ_I_DI
-	       (match_operand:<V_cmp_result> 3 "register_operand" "w,0,w")
+	       (match_operand:<V_INT_EQUIV> 3 "register_operand" "w,0,w")
 	       (match_operand:VSDQ_I_DI 2 "register_operand" "w,w,0"))
 	     (match_operand:VSDQ_I_DI 1 "register_operand" "0,w,w"))
-	  (match_dup:<V_cmp_result> 3)
+	  (match_dup:<V_INT_EQUIV> 3)
 	))]
   "TARGET_SIMD"
   "@
@@ -2279,7 +2279,7 @@
 
 (define_expand "aarch64_simd_bsl<mode>"
   [(match_operand:VALLDIF 0 "register_operand")
-   (match_operand:<V_cmp_result> 1 "register_operand")
+   (match_operand:<V_INT_EQUIV> 1 "register_operand")
    (match_operand:VALLDIF 2 "register_operand")
    (match_operand:VALLDIF 3 "register_operand")]
  "TARGET_SIMD"
@@ -2288,26 +2288,26 @@
   rtx tmp = operands[0];
   if (FLOAT_MODE_P (<MODE>mode))
     {
-      operands[2] = gen_lowpart (<V_cmp_result>mode, operands[2]);
-      operands[3] = gen_lowpart (<V_cmp_result>mode, operands[3]);
-      tmp = gen_reg_rtx (<V_cmp_result>mode);
+      operands[2] = gen_lowpart (<V_INT_EQUIV>mode, operands[2]);
+      operands[3] = gen_lowpart (<V_INT_EQUIV>mode, operands[3]);
+      tmp = gen_reg_rtx (<V_INT_EQUIV>mode);
     }
-  operands[1] = gen_lowpart (<V_cmp_result>mode, operands[1]);
-  emit_insn (gen_aarch64_simd_bsl<v_cmp_result>_internal (tmp,
-							  operands[1],
-							  operands[2],
-							  operands[3]));
+  operands[1] = gen_lowpart (<V_INT_EQUIV>mode, operands[1]);
+  emit_insn (gen_aarch64_simd_bsl<v_int_equiv>_internal (tmp,
+							 operands[1],
+							 operands[2],
+							 operands[3]));
   if (tmp != operands[0])
     emit_move_insn (operands[0], gen_lowpart (<MODE>mode, tmp));
 
   DONE;
 })
 
-(define_expand "vcond_mask_<mode><v_cmp_result>"
+(define_expand "vcond_mask_<mode><v_int_equiv>"
   [(match_operand:VALLDI 0 "register_operand")
    (match_operand:VALLDI 1 "nonmemory_operand")
    (match_operand:VALLDI 2 "nonmemory_operand")
-   (match_operand:<V_cmp_result> 3 "register_operand")]
+   (match_operand:<V_INT_EQUIV> 3 "register_operand")]
   "TARGET_SIMD"
 {
   /* If we have (a = (P) ? -1 : 0);
@@ -2318,7 +2318,7 @@
   /* Similarly, (a = (P) ? 0 : -1) is just inverting the generated mask.  */
   else if (operands[1] == CONST0_RTX (<MODE>mode)
 	   && operands[2] == CONSTM1_RTX (<MODE>mode))
-    emit_insn (gen_one_cmpl<v_cmp_result>2 (operands[0], operands[3]));
+    emit_insn (gen_one_cmpl<v_int_equiv>2 (operands[0], operands[3]));
   else
     {
       if (!REG_P (operands[1]))
@@ -2400,7 +2400,7 @@
     case NE:
       /* Handle NE as !EQ.  */
       emit_insn (gen_aarch64_cmeq<mode> (mask, operands[2], operands[3]));
-      emit_insn (gen_one_cmpl<v_cmp_result>2 (mask, mask));
+      emit_insn (gen_one_cmpl<v_int_equiv>2 (mask, mask));
       break;
 
     case EQ:
@@ -2414,8 +2414,8 @@
   DONE;
 })
 
-(define_expand "vec_cmp<mode><v_cmp_result>"
-  [(set (match_operand:<V_cmp_result> 0 "register_operand")
+(define_expand "vec_cmp<mode><v_int_equiv>"
+  [(set (match_operand:<V_INT_EQUIV> 0 "register_operand")
 	(match_operator 1 "comparison_operator"
 	    [(match_operand:VDQF 2 "register_operand")
 	     (match_operand:VDQF 3 "nonmemory_operand")]))]
@@ -2423,7 +2423,7 @@
 {
   int use_zero_form = 0;
   enum rtx_code code = GET_CODE (operands[1]);
-  rtx tmp = gen_reg_rtx (<V_cmp_result>mode);
+  rtx tmp = gen_reg_rtx (<V_INT_EQUIV>mode);
 
   rtx (*comparison) (rtx, rtx, rtx) = NULL;
 
@@ -2509,7 +2509,7 @@
 	 a   NE b -> !(a EQ b)  */
       gcc_assert (comparison != NULL);
       emit_insn (comparison (operands[0], operands[2], operands[3]));
-      emit_insn (gen_one_cmpl<v_cmp_result>2 (operands[0], operands[0]));
+      emit_insn (gen_one_cmpl<v_int_equiv>2 (operands[0], operands[0]));
       break;
 
     case LT:
@@ -2534,8 +2534,8 @@
       emit_insn (gen_aarch64_cmgt<mode> (operands[0],
 					 operands[2], operands[3]));
       emit_insn (gen_aarch64_cmgt<mode> (tmp, operands[3], operands[2]));
-      emit_insn (gen_ior<v_cmp_result>3 (operands[0], operands[0], tmp));
-      emit_insn (gen_one_cmpl<v_cmp_result>2 (operands[0], operands[0]));
+      emit_insn (gen_ior<v_int_equiv>3 (operands[0], operands[0], tmp));
+      emit_insn (gen_one_cmpl<v_int_equiv>2 (operands[0], operands[0]));
       break;
 
     case UNORDERED:
@@ -2544,15 +2544,15 @@
       emit_insn (gen_aarch64_cmgt<mode> (tmp, operands[2], operands[3]));
       emit_insn (gen_aarch64_cmge<mode> (operands[0],
 					 operands[3], operands[2]));
-      emit_insn (gen_ior<v_cmp_result>3 (operands[0], operands[0], tmp));
-      emit_insn (gen_one_cmpl<v_cmp_result>2 (operands[0], operands[0]));
+      emit_insn (gen_ior<v_int_equiv>3 (operands[0], operands[0], tmp));
+      emit_insn (gen_one_cmpl<v_int_equiv>2 (operands[0], operands[0]));
       break;
 
     case ORDERED:
       emit_insn (gen_aarch64_cmgt<mode> (tmp, operands[2], operands[3]));
       emit_insn (gen_aarch64_cmge<mode> (operands[0],
 					 operands[3], operands[2]));
-      emit_insn (gen_ior<v_cmp_result>3 (operands[0], operands[0], tmp));
+      emit_insn (gen_ior<v_int_equiv>3 (operands[0], operands[0], tmp));
       break;
 
     default:
@@ -2584,7 +2584,7 @@
 	  (match_operand:VALLDI 2 "nonmemory_operand")))]
   "TARGET_SIMD"
 {
-  rtx mask = gen_reg_rtx (<V_cmp_result>mode);
+  rtx mask = gen_reg_rtx (<V_INT_EQUIV>mode);
   enum rtx_code code = GET_CODE (operands[3]);
 
   /* NE is handled as !EQ in vec_cmp patterns, we can explicitly invert
@@ -2596,10 +2596,10 @@
 				    operands[4], operands[5]);
       std::swap (operands[1], operands[2]);
     }
-  emit_insn (gen_vec_cmp<mode><v_cmp_result> (mask, operands[3],
-					      operands[4], operands[5]));
-  emit_insn (gen_vcond_mask_<mode><v_cmp_result> (operands[0], operands[1],
-						  operands[2], mask));
+  emit_insn (gen_vec_cmp<mode><v_int_equiv> (mask, operands[3],
+					     operands[4], operands[5]));
+  emit_insn (gen_vcond_mask_<mode><v_int_equiv> (operands[0], operands[1],
+						 operands[2], mask));
 
   DONE;
 })
@@ -2614,7 +2614,7 @@
 	  (match_operand:<V_cmp_mixed> 2 "nonmemory_operand")))]
   "TARGET_SIMD"
 {
-  rtx mask = gen_reg_rtx (<V_cmp_result>mode);
+  rtx mask = gen_reg_rtx (<V_INT_EQUIV>mode);
   enum rtx_code code = GET_CODE (operands[3]);
 
   /* NE is handled as !EQ in vec_cmp patterns, we can explicitly invert
@@ -2626,9 +2626,9 @@
 				    operands[4], operands[5]);
       std::swap (operands[1], operands[2]);
     }
-  emit_insn (gen_vec_cmp<mode><v_cmp_result> (mask, operands[3],
-					      operands[4], operands[5]));
-  emit_insn (gen_vcond_mask_<v_cmp_mixed><v_cmp_result> (
+  emit_insn (gen_vec_cmp<mode><v_int_equiv> (mask, operands[3],
+					     operands[4], operands[5]));
+  emit_insn (gen_vcond_mask_<v_cmp_mixed><v_int_equiv> (
 						operands[0], operands[1],
 						operands[2], mask));
 
@@ -2659,8 +2659,8 @@
     }
   emit_insn (gen_vec_cmp<mode><mode> (mask, operands[3],
 				      operands[4], operands[5]));
-  emit_insn (gen_vcond_mask_<mode><v_cmp_result> (operands[0], operands[1],
-						  operands[2], mask));
+  emit_insn (gen_vcond_mask_<mode><v_int_equiv> (operands[0], operands[1],
+						 operands[2], mask));
   DONE;
 })
 
@@ -2674,7 +2674,7 @@
 	  (match_operand:VDQF 2 "nonmemory_operand")))]
   "TARGET_SIMD"
 {
-  rtx mask = gen_reg_rtx (<V_cmp_result>mode);
+  rtx mask = gen_reg_rtx (<V_INT_EQUIV>mode);
   enum rtx_code code = GET_CODE (operands[3]);
 
   /* NE is handled as !EQ in vec_cmp patterns, we can explicitly invert
@@ -2689,8 +2689,8 @@
   emit_insn (gen_vec_cmp<v_cmp_mixed><v_cmp_mixed> (
 						  mask, operands[3],
 						  operands[4], operands[5]));
-  emit_insn (gen_vcond_mask_<mode><v_cmp_result> (operands[0], operands[1],
-						  operands[2], mask));
+  emit_insn (gen_vcond_mask_<mode><v_int_equiv> (operands[0], operands[1],
+						 operands[2], mask));
   DONE;
 })
 
@@ -4157,9 +4157,9 @@
 ;; have different ideas of what should be passed to this pattern.
 
 (define_insn "aarch64_cm<optab><mode>"
-  [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w,w")
-	(neg:<V_cmp_result>
-	  (COMPARISONS:<V_cmp_result>
+  [(set (match_operand:<V_INT_EQUIV> 0 "register_operand" "=w,w")
+	(neg:<V_INT_EQUIV>
+	  (COMPARISONS:<V_INT_EQUIV>
 	    (match_operand:VDQ_I 1 "register_operand" "w,w")
 	    (match_operand:VDQ_I 2 "aarch64_simd_reg_or_zero" "w,ZDz")
 	  )))]
@@ -4222,9 +4222,9 @@
 ;; cm(hs|hi)
 
 (define_insn "aarch64_cm<optab><mode>"
-  [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w")
-	(neg:<V_cmp_result>
-	  (UCOMPARISONS:<V_cmp_result>
+  [(set (match_operand:<V_INT_EQUIV> 0 "register_operand" "=w")
+	(neg:<V_INT_EQUIV>
+	  (UCOMPARISONS:<V_INT_EQUIV>
 	    (match_operand:VDQ_I 1 "register_operand" "w")
 	    (match_operand:VDQ_I 2 "register_operand" "w")
 	  )))]
@@ -4289,14 +4289,14 @@
 ;; plus (eq (and x y) 0) -1.
 
 (define_insn "aarch64_cmtst<mode>"
-  [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w")
-	(plus:<V_cmp_result>
-	  (eq:<V_cmp_result>
+  [(set (match_operand:<V_INT_EQUIV> 0 "register_operand" "=w")
+	(plus:<V_INT_EQUIV>
+	  (eq:<V_INT_EQUIV>
 	    (and:VDQ_I
 	      (match_operand:VDQ_I 1 "register_operand" "w")
 	      (match_operand:VDQ_I 2 "register_operand" "w"))
 	    (match_operand:VDQ_I 3 "aarch64_simd_imm_zero"))
-	  (match_operand:<V_cmp_result> 4 "aarch64_simd_imm_minus_one")))
+	  (match_operand:<V_INT_EQUIV> 4 "aarch64_simd_imm_minus_one")))
   ]
   "TARGET_SIMD"
   "cmtst\t%<v>0<Vmtype>, %<v>1<Vmtype>, %<v>2<Vmtype>"
@@ -4357,9 +4357,9 @@
 ;; fcm(eq|ge|gt|le|lt)
 
 (define_insn "aarch64_cm<optab><mode>"
-  [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w,w")
-	(neg:<V_cmp_result>
-	  (COMPARISONS:<V_cmp_result>
+  [(set (match_operand:<V_INT_EQUIV> 0 "register_operand" "=w,w")
+	(neg:<V_INT_EQUIV>
+	  (COMPARISONS:<V_INT_EQUIV>
 	    (match_operand:VHSDF_HSDF 1 "register_operand" "w,w")
 	    (match_operand:VHSDF_HSDF 2 "aarch64_simd_reg_or_zero" "w,YDz")
 	  )))]
@@ -4375,9 +4375,9 @@
 ;; generating fac(ge|gt).
 
 (define_insn "aarch64_fac<optab><mode>"
-  [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w")
-	(neg:<V_cmp_result>
-	  (FAC_COMPARISONS:<V_cmp_result>
+  [(set (match_operand:<V_INT_EQUIV> 0 "register_operand" "=w")
+	(neg:<V_INT_EQUIV>
+	  (FAC_COMPARISONS:<V_INT_EQUIV>
 	    (abs:VHSDF_HSDF
 	      (match_operand:VHSDF_HSDF 1 "register_operand" "w"))
 	    (abs:VHSDF_HSDF
@@ -5077,7 +5077,7 @@
   [(match_operand:VALL_F16 0 "register_operand")
    (match_operand:VALL_F16 1 "register_operand")
    (match_operand:VALL_F16 2 "register_operand")
-   (match_operand:<V_cmp_result> 3)]
+   (match_operand:<V_INT_EQUIV> 3)]
   "TARGET_SIMD"
 {
   if (aarch64_expand_vec_perm_const (operands[0], operands[1],
