@@ -927,9 +927,8 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
       else
 	size = GET_MODE_BITSIZE (mode);
     }
-  if (size_tree != NULL_TREE
-      && TREE_CODE (size_tree) == INTEGER_CST)
-    size = wi::to_offset (size_tree);
+  if (size_tree && !poly_tree_p (size_tree, &size))
+    size = -1;
 
   /* Initially, maxsize is the same as the accessed element size.
      In the following it will only grow (or become -1).  */
@@ -986,7 +985,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 
 	/* And now the usual component-reference style ops.  */
 	case BIT_FIELD_REF:
-	  offset += wi::to_offset (op->op1);
+	  offset += tree_to_poly_offset_int (op->op1);
 	  break;
 
 	case COMPONENT_REF:
