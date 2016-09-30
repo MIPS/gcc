@@ -425,8 +425,10 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("__RSQRTE__");
   if (TARGET_FRSQRTES)
     builtin_define ("__RSQRTEF__");
-  if (TARGET_FLOAT128)
+  if (TARGET_FLOAT128_KEYWORD)
     builtin_define ("__FLOAT128__");
+  if (TARGET_FLOAT128_TYPE)
+    builtin_define ("__FLOAT128_TYPE__");
   if (TARGET_FLOAT128_HW)
     builtin_define ("__FLOAT128_HARDWARE__");
 

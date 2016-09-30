@@ -1,3 +1,79 @@
+2016-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (POWERPC_MASKS): Split IEEE
+	128-bit floating point support into an internal switch which
+	enables the basic IEEE 128-bit types without exposing the
+	__float128 keyword, and the normal -mfloat128 option which enables
+	the __float128 keyword.  Add -mfloat128-hardware as a PowerPC CPU
+	mask option.
+	* config/rs6000/rs6000.opt (-mfloat128-type): Likewise.
+	(-mfloat128): Likewise.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__FLOAT128__ if the __float128 keyword is supported.  Define
+	__FLOAT128_TYPE__ the underlying types are available.
+	* config/rs6000/linux64.h (TARGET_FLOAT128_ENABLE_TYPE): Define to
+	enable the KFmode type internally on Linux VSX systems, but not on
+	other systems.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print
+	TARGET_FLOAT128_ENABLE_TYPE status.
+	(rs6000_init_hard_regno_mode_ok): Use TARGET_FLOAT128_TYPE instead
+	of TARGET_FLOAT128.
+	(rs6000_builtin_mask_calculate): Likewise.
+	(rs6000_option_override_internal): Rework float128 support.  On
+	64-bit Linux VSX systems, enable -mfloat128-type, which is now the
+	underlying support for IEEE 128-bit floating point.  Only enable
+	the __float128 keyword if the user explicitly used the -mfloat128
+	option.
+	(rs6000_init_builtins): Enable __ibm128 if standard 128-bit
+	floating point support is enabled.  Only enable the __float128
+	keyword if -mfloat128.
+	(rs6000_init_libfuncs): Use TARGET_FLOAT128_TYPE instead of
+	TARGET_FLOAT128.
+	(rs6000_mangle_type): Likewise.
+	(rs6000_complex_function_value): Likewise.
+	(rs6000_scalar_mode_supported_p): Likewise.
+	(rs6000_floatn_mode): Likewise.
+	(rs6000_opt_masks): Add -mfloat128-type and -mfloat128-hardware.
+	* config/rs6000/rs6000.h (TARGET_FLOAT128_ENABLE_TYPE): If this is
+	not set, set it to 0.
+	(FLOAT128_VECTOR_P): Use TARGET_FLOAT128_TYPE instead of
+	TARGET_FLOAT128.
+	(FLOAT128_2REG_P): Likewise.
+	(MASK_FLOAT128): Delete.
+	(MASK_FLOAT128_TYPE): Create.
+	(ALTIVEC_ARG_MAX_RETURN): Use TARGET_FLOAT128_TYPE instead of
+	TARGET_FLOAT128.
+	(RS6000_BTM_FLOAT128): Use MASK_FLOAT128_TYPE instead of
+	MASK_FLOAT128.
+	(TARGET_FLOAT128): Poison old float128 target and masks.
+	(OPTION_MASK_FLOAT128): Likewise.
+	(MASK_FLOAT128): Likewise.
+	* config/rs6000/rs6000.md (FP): Use TARGET_FLOAT128_TYPE instead
+	of TARGET_FLOAT128.  Don't require -mfloat128 for __ibm128.
+	(fix_trunc<mode>di2): Use TARGET_FLOAT128_TYPE instead of
+	TARGET_FLOAT128.
+	(fixuns_trunc<IEEE128:mode><SDI:mode>2): Likewise.
+	(floatdi<mode>2): Likewise.
+	(floatuns<SDI:mode><IEEE128:mode>2): Likewise.
+	(neg<mode>2): Likewise.
+	(abs<mode>2): Likewise.
+	(ieee_128bit_negative_zero): Likewise.
+	(ieee_128bit_vsx_neg<mode>2): Likewise.
+	(ieee_128bit_vsx_neg<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(extendiftf2): Likewise.
+	(extendifkf2): Likewise.
+	(extendtfkf2): Likewise.
+	(trunciftf2): Likewise.
+	(truncifkf2): Likewise.
+	(trunckftf2): Likewise.
+	(trunctfif2): Likewise.
+	(extendkftf2): Likewise.
+	(trunctfkf2): Likewise.
+
 2016-09-29   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 240631
