@@ -7591,8 +7591,16 @@ expand_oacc_collapse_vars (const struct omp_for_data *fd,
 	  plus_type = sizetype;
 	}
 
-      expr = fold_build2 (TRUNC_MOD_EXPR, ivar_type, ivar,
-			  fold_convert (ivar_type, collapse->iters));
+      expr = ivar;
+      if (ix)
+	{
+	  tree mod = fold_convert (ivar_type, collapse->iters);
+	  ivar = fold_build2 (TRUNC_DIV_EXPR, ivar_type, expr, mod);
+	  expr = fold_build2 (TRUNC_MOD_EXPR, ivar_type, expr, mod);
+	  ivar = force_gimple_operand_gsi (gsi, ivar, true, NULL_TREE,
+					   true, GSI_SAME_STMT);
+	}
+      
       expr = fold_build2 (MULT_EXPR, diff_type, fold_convert (diff_type, expr),
 			  collapse->step);
       expr = fold_build2 (plus_code, iter_type, collapse->base,
@@ -7601,14 +7609,6 @@ expand_oacc_collapse_vars (const struct omp_for_data *fd,
 				       true, GSI_SAME_STMT);
       gassign *ass = gimple_build_assign (loop->v, expr);
       gsi_insert_before (gsi, ass, GSI_SAME_STMT);
-
-      if (ix)
-	{
-	  expr = fold_build2 (TRUNC_DIV_EXPR, ivar_type, ivar,
-			      fold_convert (ivar_type, collapse->iters));
-	  ivar = force_gimple_operand_gsi (gsi, expr, true, NULL_TREE,
-					   true, GSI_SAME_STMT);
-	}
     }
 }
 
