@@ -1,6 +1,10 @@
 2016-09-30  Nathan Sidwell  <nathan@codesourcery.com>
 
-	* omp-low.c (expand_oacc_collapse_vars): Avoid DIV for outermost
+	* omp-low.c (oacc_loop_auto_partition): Simplify logic.
+
+2016-09-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (expand_oacc_collapse_vars): Avoid MOD for outermost
 	collaps var.
 
 2016-09-27  Nathan Sidwell  <nathan@codesourcery.com>

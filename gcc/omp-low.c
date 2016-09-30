@@ -19867,15 +19867,19 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
     {
       /* Allocate outermost and non-innermost loops at the outermost
 	 non-innermost available level.  */
-      unsigned this_mask = outer_mask + 1;
+      unsigned this_mask = GOMP_DIM_MASK (GOMP_DIM_GANG);
+      
+      /* Find the first outermost available partition. */
+      while (this_mask <= outer_mask)
+	this_mask <<= 1;
 
-      /* Make sure it's the single outermost available partition.  */
-      while (this_mask != (this_mask & -this_mask))
-	this_mask += this_mask & -this_mask;
+      /* Prohibit the innermost partitioning at the moment.  */
+      this_mask &= GOMP_DIM_MASK (GOMP_DIM_MAX - 1) - 1;
 
-      if (!(this_mask & (loop->inner | GOMP_DIM_MASK (GOMP_DIM_MAX)
-			 | GOMP_DIM_MASK (GOMP_DIM_MAX - 1))))
-	loop->mask = this_mask;
+      /* Don't use any dimension explicitly claimed by an inner loop. */
+      this_mask &= ~loop->inner;
+
+      loop->mask = this_mask;
     }
 
   if (loop->child)
@@ -19897,15 +19901,13 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
 
       /* Pick the partitioning just inside that one.  */
       this_mask >>= 1;
-
       /* And avoid picking one use by an outer loop. */
       this_mask &= ~outer_mask;
 
-      if (!this_mask && !loop->mask && noisy)
+      loop->mask |= this_mask;
+      if (!loop->mask && noisy)
 	warning_at (loop->loc, 0,
 		    "insufficient partitioning available to parallelize loop");
-
-      loop->mask |= this_mask;
     }
 
   if (assign && dump_file)
