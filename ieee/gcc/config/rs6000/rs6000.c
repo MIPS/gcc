@@ -4410,7 +4410,7 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* Enable the default support for IEEE 128-bit floating point on Linux VSX
      sytems, but don't enable the __float128 keyword.  */
-  if (TARGET_VSX && TARGET_FLOAT128_ENABLE_TYPE
+  if (TARGET_VSX && TARGET_FLOAT128_ENABLE_TYPE && TARGET_LONG_DOUBLE_128
       && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_TYPE) == 0))
     rs6000_isa_flags |= OPTION_MASK_FLOAT128_TYPE;
 
