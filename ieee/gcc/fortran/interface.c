@@ -526,6 +526,7 @@ int
 gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
 {
   gfc_component *map1, *map2, *cmp1, *cmp2;
+  gfc_symbol *map1_t, *map2_t;
 
   if (un1->attr.flavor != FL_UNION || un2->attr.flavor != FL_UNION)
     return 0;
@@ -541,16 +542,26 @@ gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
      we compare the maps sequentially. */
   for (;;)
   {
-    cmp1 = map1->ts.u.derived->components;
-    cmp2 = map2->ts.u.derived->components;
+    map1_t = map1->ts.u.derived;
+    map2_t = map2->ts.u.derived;
+
+    cmp1 = map1_t->components;
+    cmp2 = map2_t->components;
+
+    /* Protect against null components.  */
+    if (map1_t->attr.zero_comp != map2_t->attr.zero_comp)
+      return 0;
+
+    if (map1_t->attr.zero_comp)
+      return 1;
+
     for (;;)
     {
       /* No two fields will ever point to the same map type unless they are
          the same component, because one map field is created with its type
          declaration. Therefore don't worry about recursion here. */
       /* TODO: worry about recursion into parent types of the unions? */
-      if (compare_components (cmp1, cmp2,
-            map1->ts.u.derived, map2->ts.u.derived) == 0)
+      if (compare_components (cmp1, cmp2, map1_t, map2_t) == 0)
         return 0;
 
       cmp1 = cmp1->next;
@@ -588,6 +599,10 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
     return 1;
 
   gcc_assert (derived1 && derived2);
+
+  /* Compare UNION types specially.  */
+  if (derived1->attr.flavor == FL_UNION || derived2->attr.flavor == FL_UNION)
+    return gfc_compare_union_types (derived1, derived2);
 
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is

@@ -1,3 +1,39 @@
+2016-09-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/77795
+	* acinclude.m4 (GLIBCXX_CHECK_STDIO_PROTO): Use -std=gnu++11 to check
+	for gets.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* include/c_global/cstdio [!_GLIBCXX_HAVE_GETS] (gets): Only declare
+	for C++98 and C++11.
+	* include/c_std/cstdio [!_GLIBCXX_HAVE_GETS] (gets): Likewise.
+	* testsuite/27_io/headers/cstdio/functions_neg.cc: New test.
+
+	* doc/xml/manual/intro.xml: Document LWG 2192 changes.
+	* doc/html/*: Regenerate.
+	* include/Makefile.am: Add bits/std_abs.h.
+	* include/Makefile.in: Regenerate.
+	* include/bits/std_abs.h: New header defining all required overloads
+	of std::abs in one place (LWG 2294).
+	* include/c_global/cmath (abs(double), abs(float), abs(long double)):
+	Move to bits/std_abs.h.
+	(abs<_Tp>(_Tp)): Remove.
+	* include/c_global/cstdlib (abs(long), abs(long long), abs(__int<N>)):
+	Move to bits/std_abs.h.
+	* testsuite/26_numerics/headers/cmath/dr2192.cc: New test.
+	* testsuite/26_numerics/headers/cmath/dr2192_neg.cc: New test.
+	* testsuite/26_numerics/headers/cstdlib/dr2192.cc: New test.
+	* testsuite/26_numerics/headers/cstdlib/dr2192_neg.cc: New test.
+
+	PR libstdc++/77801
+	* include/experimental/numeric: Include <numeric>.
+	(__abs): Define.
+	(gcd, lcm): Use __abs instead of std::abs.
+	* testsuite/experimental/numeric/77801.cc: New test.
+	* testsuite/experimental/numeric/gcd.cc: Test unsigned inputs.
+	* testsuite/experimental/numeric/lcm.cc: Likewise.
+
 2016-09-29  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	Make optional::reset noexcept, make optional::value

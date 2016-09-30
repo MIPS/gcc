@@ -1,3 +1,69 @@
+2016-09-30  Matthew Wawhab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/fp16-aapcs-3.c: Replace arm_fp16_ok with
+	arm_fp16_alternative_ok as the required effective target.
+	* gcc.target/arm/fp16-aapcs-4.c: Likewise.  Also add
+	-mfp16-format=alternative to the dg-options directive and remove
+	the dg-add-options directive.
+
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77764
+	* gfortran.dg/dec_union_8.f90: New testcase.
+
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77782
+	* gfortran.dg/dec_structure_16.f90: New testcase.
+
+2016-09-30  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_allocate_10.f08: New test.
+	* gfortran.dg/coindexed_1.f90: Above fixes allow execution.
+
+2016-09-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ifcvt_avoid_const_materialization_1.c: New test.
+
+2016-09-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77399
+	* gcc.dg/tree-ssa/forwprop-35.c: New testcase.
+
+2016-09-29  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* c-c++-common/pr27336.c: Make dependency on 
+	-fdelete-null-pointer-checks explicit.
+	* g++.dg/cpp0x/constexpr-array-ptr10.C: Likewise.
+	* g++.dg/cpp0x/constexpr-nullptr-1.C: Likewise.
+	* g++.dg/lto/pr69589_0.C: Add nios2-*-elf to unsupported targets.
+	* gcc.dg/pic-1.c: Require fpic target support.
+	* gcc.dg/pic-2.c: Likewise.
+
+2016-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0001R1 - C++17 removal of register storage class specifier
+	* c-c++-common/Wvarargs-2.c (foo1): Except new warning for C++17.
+	* c-c++-common/vector-subscript-2.c (vf): Expect new error for
+	C++17.
+	* c-c++-common/vector-subscript-5.c (foo): Don't use register
+	keyword if not __SSE2__.
+	* c-c++-common/Wvarargs.c (foo1, foo3): Expect new warnings for
+	C++17.
+	* g++.dg/compat/struct-layout-1_generate.c (iterative_hash): Remove
+	register keywords.
+	* g++.dg/eh/pr29166.C: Add -Wno-register option.
+	* g++.dg/warn/register-parm-1.C (erroneous_warning,
+	no_erroneous_warning): Expect new warnings for C++17.
+	* g++.dg/warn/register-var-2.C (f): Likewise.
+	* g++.dg/parse/register1.C (f): Expect new error for C++17.
+	* g++.dg/parse/linkage2.C (foo): Likewise.
+	* g++.dg/torture/pr36826.C (CoinMin, CoinMax): Avoid register
+	keyword on parameters for C++17.
+	* g++.dg/cpp1z/register1.C: New test.
+	* g++.dg/cpp1z/register2.C: New test.
+	* g++.dg/cpp1z/register3.C: New test.
+
 2016-09-29  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.target/i386/adx-check.h (main): Simplify feature bit tests.
