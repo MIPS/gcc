@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "cfghooks.h"
 #include "cfgloop.h"
@@ -4731,9 +4732,10 @@ ix86_override_options_after_change (void)
 
 /* Override various settings based on options.  If MAIN_ARGS_P, the
    options are from the command line, otherwise they are from
-   attributes.  */
+   attributes.  Return true if there's an error related to march
+   option.  */
 
-static void
+static bool
 ix86_option_override_internal (bool main_args_p,
 			       struct gcc_options *opts,
 			       struct gcc_options *opts_set)
@@ -5262,15 +5264,35 @@ ix86_option_override_internal (bool main_args_p,
   for (i = 0; i < pta_size; i++)
     if (! strcmp (opts->x_ix86_arch_string, processor_alias_table[i].name))
       {
+	if (!strcmp (opts->x_ix86_arch_string, "generic"))
+	  {
+	    error (main_args_p
+		  ? "%<generic%> CPU can be used only for %<-mtune=%> switch"
+		  : "%<generic%> CPU can be used only for "
+		    "%<target(\"tune=\")%> attribute");
+	    return false;
+	  }
+	else if (!strcmp (opts->x_ix86_arch_string, "intel"))
+	  {
+	    error (main_args_p
+		  ? "%<intel%> CPU can be used only for %<-mtune=%> switch"
+		  : "%<intel%> CPU can be used only for "
+		    "%<target(\"tune=\")%> attribute");
+	    return false;
+	  }
+
+	if (TARGET_64BIT_P (opts->x_ix86_isa_flags)
+	    && !(processor_alias_table[i].flags & PTA_64BIT))
+	  {
+	    error ("CPU you selected does not support x86-64 "
+		   "instruction set");
+	    return false;
+	  }
+
 	ix86_schedule = processor_alias_table[i].schedule;
 	ix86_arch = processor_alias_table[i].processor;
 	/* Default cpu tuning to the architecture.  */
 	ix86_tune = ix86_arch;
-
-	if (TARGET_64BIT_P (opts->x_ix86_isa_flags)
-	    && !(processor_alias_table[i].flags & PTA_64BIT))
-	  error ("CPU you selected does not support x86-64 "
-		 "instruction set");
 
 	if (processor_alias_table[i].flags & PTA_MMX
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_MMX))
@@ -5469,17 +5491,7 @@ ix86_option_override_internal (bool main_args_p,
   if (TARGET_X32 && (ix86_isa_flags & OPTION_MASK_ISA_MPX))
     error ("Intel MPX does not support x32");
 
-  if (!strcmp (opts->x_ix86_arch_string, "generic"))
-    error (main_args_p
-	   ? "%<generic%> CPU can be used only for %<-mtune=%> switch"
-	   : "%<generic%> CPU can be used only for "
-	     "%<target(\"tune=\")%> attribute");
-  else if (!strcmp (opts->x_ix86_arch_string, "intel"))
-    error (main_args_p
-	   ? "%<intel%> CPU can be used only for %<-mtune=%> switch"
-	   : "%<intel%> CPU can be used only for "
-	     "%<target(\"tune=\")%> attribute");
-  else if (i == pta_size)
+  if (i == pta_size)
     {
       error (main_args_p
 	     ? "bad value (%qs) for %<-march=%> switch"
@@ -6134,6 +6146,8 @@ ix86_option_override_internal (bool main_args_p,
       ix86_parse_stringop_strategy_string (str, true);
       free (str);
     }
+
+  return true;
 }
 
 /* Implement the TARGET_OPTION_OVERRIDE hook.  */
@@ -6513,6 +6527,8 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("mmx",	OPT_mmmx),
     IX86_ATTR_ISA ("pclmul",	OPT_mpclmul),
     IX86_ATTR_ISA ("popcnt",	OPT_mpopcnt),
+    IX86_ATTR_ISA ("movbe",	OPT_mmovbe),
+    IX86_ATTR_ISA ("crc32",	OPT_mcrc32),
     IX86_ATTR_ISA ("sse",	OPT_msse),
     IX86_ATTR_ISA ("sse2",	OPT_msse2),
     IX86_ATTR_ISA ("sse3",	OPT_msse3),
@@ -6728,6 +6744,15 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
   return ret;
 }
 
+/* Release allocated strings.  */
+static void
+release_options_strings (char **option_strings)
+{
+  /* Free up memory allocated to hold the strings */
+  for (unsigned i = 0; i < IX86_FUNCTION_SPECIFIC_MAX; i++)
+    free (option_strings[i]);
+}
+
 /* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
 
 tree
@@ -6742,7 +6767,6 @@ ix86_valid_target_attribute_tree (tree args,
   int orig_arch_specified = ix86_arch_specified;
   char *option_strings[IX86_FUNCTION_SPECIFIC_MAX] = { NULL, NULL };
   tree t = NULL_TREE;
-  int i;
   struct cl_target_option *def
     = TREE_TARGET_OPTION (target_option_default_node);
   struct gcc_options enum_opts_set;
@@ -6803,7 +6827,12 @@ ix86_valid_target_attribute_tree (tree args,
 	}
 
       /* Do any overrides, such as arch=xxx, or tune=xxx support.  */
-      ix86_option_override_internal (false, opts, opts_set);
+      bool r = ix86_option_override_internal (false, opts, opts_set);
+      if (!r)
+	{
+	  release_options_strings (option_strings);
+	  return error_mark_node;
+	}
 
       /* Add any builtin functions with the new isa if any.  */
       ix86_add_new_builtins (opts->x_ix86_isa_flags);
@@ -6816,9 +6845,7 @@ ix86_valid_target_attribute_tree (tree args,
       opts->x_ix86_tune_string = orig_tune_string;
       opts_set->x_ix86_fpmath = orig_fpmath_set;
 
-      /* Free up memory allocated to hold the strings */
-      for (i = 0; i < IX86_FUNCTION_SPECIFIC_MAX; i++)
-	free (option_strings[i]);
+      release_options_strings (option_strings);
     }
 
   return t;
@@ -17891,6 +17918,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 #ifdef HAVE_AS_IX86_CMOV_SUN_SYNTAX
 	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('.', file);
+	  gcc_fallthrough ();
 #endif
 
 	case 'C':
@@ -21210,9 +21238,9 @@ ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
 	if (ix86_dep_by_shift_count_body (XVECEXP (set_body, 0, i),
 					  use_body))
 	  return true;
+      /* FALLTHROUGH */
     default:
       return false;
-      break;
     }
 
   /* Retrieve shift count of USE_BODY.  */
@@ -21226,9 +21254,9 @@ ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
 	if (ix86_dep_by_shift_count_body (set_body,
 					  XVECEXP (use_body, 0, i)))
 	  return true;
+      /* FALLTHROUGH */
     default:
       return false;
-      break;
     }
 
   if (shift_rtx
@@ -22342,19 +22370,14 @@ ix86_fp_compare_code_to_integer (enum rtx_code code)
     case ORDERED:
     case UNORDERED:
       return code;
-      break;
     case UNEQ:
       return EQ;
-      break;
     case UNLT:
       return LTU;
-      break;
     case UNLE:
       return LEU;
-      break;
     case LTGT:
       return NE;
-      break;
     default:
       return UNKNOWN;
     }
@@ -49473,7 +49496,6 @@ has_dispatch (rtx_insn *insn, int action)
 
       case IS_DISPATCH_ON:
 	return true;
-	break;
 
       case IS_CMP:
 	return is_cmp (insn);
@@ -49554,9 +49576,7 @@ ix86_preferred_simd_mode (machine_mode mode)
 	return V4SFmode;
 
     case DFmode:
-      if (!TARGET_VECTORIZE_DOUBLE)
-	return word_mode;
-      else if (TARGET_AVX512F)
+      if (TARGET_AVX512F)
 	return V8DFmode;
       else if (TARGET_AVX && !TARGET_PREFER_AVX128)
 	return V4DFmode;
@@ -49647,9 +49667,14 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
   int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
 
+  /* Penalize DFmode vector operations for !TARGET_VECTORIZE_DOUBLE.  */
+  if (kind == vector_stmt && !TARGET_VECTORIZE_DOUBLE
+      && vectype && GET_MODE_INNER (TYPE_MODE (vectype)) == DFmode)
+    stmt_cost *= 5;  /* FIXME: The value here is arbitrary.  */
+
   /* Statements in an inner loop relative to the loop being
      vectorized are weighted more heavily.  The value here is
-      arbitrary and could potentially be improved with analysis.  */
+     arbitrary and could potentially be improved with analysis.  */
   if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
     count *= 50;  /* FIXME.  */
 
@@ -49928,7 +49953,6 @@ ix86_simd_clone_usable (struct cgraph_node *node)
       if (!TARGET_AVX)
 	return -1;
       return TARGET_AVX2 ? 1 : 0;
-      break;
     case 'd':
       if (!TARGET_AVX2)
 	return -1;

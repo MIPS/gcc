@@ -774,6 +774,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    computed gotos.  */
 #define FORCED_LABEL(NODE) (LABEL_DECL_CHECK (NODE)->base.side_effects_flag)
 
+/* Whether a case or a user-defined label is allowed to fall through to.
+   This is used to implement -Wimplicit-fallthrough.  */
+#define FALLTHROUGH_LABEL_P(NODE) \
+  (LABEL_DECL_CHECK (NODE)->base.public_flag)
+
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
@@ -4669,69 +4674,6 @@ extern void assign_assembler_name_if_neeeded (tree);
 extern void warn_deprecated_use (tree, tree);
 extern void cache_integer_cst (tree);
 extern const char *combined_fn_name (combined_fn);
-
-/* Return the memory model from a host integer.  */
-static inline enum memmodel
-memmodel_from_int (unsigned HOST_WIDE_INT val)
-{
-  return (enum memmodel) (val & MEMMODEL_MASK);
-}
-
-/* Return the base memory model from a host integer.  */
-static inline enum memmodel
-memmodel_base (unsigned HOST_WIDE_INT val)
-{
-  return (enum memmodel) (val & MEMMODEL_BASE_MASK);
-}
-
-/* Return TRUE if the memory model is RELAXED.  */
-static inline bool
-is_mm_relaxed (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELAXED;
-}
-
-/* Return TRUE if the memory model is CONSUME.  */
-static inline bool
-is_mm_consume (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_CONSUME;
-}
-
-/* Return TRUE if the memory model is ACQUIRE.  */
-static inline bool
-is_mm_acquire (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQUIRE;
-}
-
-/* Return TRUE if the memory model is RELEASE.  */
-static inline bool
-is_mm_release (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELEASE;
-}
-
-/* Return TRUE if the memory model is ACQ_REL.  */
-static inline bool
-is_mm_acq_rel (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQ_REL;
-}
-
-/* Return TRUE if the memory model is SEQ_CST.  */
-static inline bool
-is_mm_seq_cst (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_SEQ_CST;
-}
-
-/* Return TRUE if the memory model is a SYNC variant.  */
-static inline bool
-is_mm_sync (enum memmodel model)
-{
-  return (model & MEMMODEL_SYNC);
-}
 
 /* Compare and hash for any structure which begins with a canonical
    pointer.  Assumes all pointers are interchangeable, which is sort

@@ -1,3 +1,119 @@
+2016-09-29  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* options.c (gfc_post_options): Remove special case for
+	TARGET_FLT_EVAL_METHOD_NON_DEFAULT with -fexcess-precision=standard.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dependency.c (gfc_dep_compare_expr): Remove break after return.
+	* frontend-passes.c (optimize_op): Likewise.
+	* interface.c (gfc_current_interface_head): Likewise.
+	* symbol.c (check_conflict): Likewise.
+	* trans-intrinsic.c (build_fix_expr): Likewise.
+
+	PR fortran/77666
+	* trans-openmp.c (gfc_omp_private_outer_ref): Return true even for
+	references to allocatable arrays.
+
+2016-09-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* trans-common.c:  Handle array elements in equivalence when
+	the lower and upper bounds of array spec are NULL.
+
+2016-09-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48298
+	* interface.c (gfc_find_specific_dtio_proc) : Return NULL if
+	the derived type is broken, as indicated by a flavor other than
+	FL_DERIVED.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* arith.c (eval_intrinsic): Add gcc_fallthrough.
+	* frontend-passes.c (optimize_op): Likewise.
+	(gfc_expr_walker): Likewise.
+	* parse.c (next_fixed): Likewise.
+	* primary.c (match_variable): Likewise.
+	* trans-array.c: Likewise.
+	* trans-expr.c (flatten_array_ctors_without_strlen): Likewise.
+	* trans-io.c (transfer_expr): Likewise.
+
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77429
+	* dependency.c (gfc_check_dependency):  Convert gcc_assert() to
+	a conditional and possible call to  gfc_internal_error().
+
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77694
+	* frontend-passes.c (optimize_binop_array_assignment): Check pointer
+	for NULL.
+
+2016-09-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* lang.opt, invoke.texi, gfortran.texi: New flag -fdec-static.
+	* options.c (set_dec_flags): Set -fdec-static with -fdec.
+	* gfortran.h (symbol_attribute): New attribute automatic.
+	* gfortran.h (gfc_add_automatic): New prototype.
+	* match.h (gfc_match_automatic, gfc_match_static): New functions.
+	* decl.c (gfc_match_automatic, gfc_match_static): Ditto.
+	* symbol.c (gfc_add_automatic): Ditto.
+	* decl.c (match_attr_spec): Match AUTOMATIC and STATIC decls.
+	* parse.c (decode_specification_statement, decode_statement): Ditto.
+	* resolve.c (apply_default_init_local, resolve_fl_variable_derived,
+	resolve_symbol): Support for automatic attribute.
+	* symbol.c (check_conflict, gfc_copy_attr, gfc_is_var_automatic):
+	Ditto.
+	* trans-decl.c (gfc_finish_var_decl): Ditto.
+
+2016-09-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+	* gfortran.h (gfc_dt): Add *udtio.
+	* ioparm.def: Add bit IOPARM_dt_f2003 to align with library use of bit
+	25. Add IOPARM_dt_dtio bit to common flags.
+	* resolve.c (resolve_transfer): Set dt->udtio to expression.
+	* io.c (gfc_match_inquire): Adjust error message for internal
+	unit KIND.
+	* libgfortran.h: Adjust defines for GFC_INTERNAL_UNIT4,
+	GFC_INTERNAL_UNIT, and GFC_INVALID_UNIT.
+	* trans-io.c (build_dt): Set common_unit to reflect the KIND of
+	the internal unit. Set mask bit for presence of dt->udtio.
+
+2016-09-22  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get): Use the old caf-
+	interface where possible.
+
+2016-09-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	* interface.c (check_dtio_interface1): Introduce errors for
+	alternate returns and incorrect numbers of arguments.
+	(gfc_find_specific_dtio_proc): Return cleanly if the derived
+	type either doesn't exist or has no namespace.
+
+2016-09-21  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/66107
+	* decl.c (add_init_expr_to_sym): Catch variable character length
+	in parameter array.
+
+2016-09-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77657
+
+	* interface.c (gfc_find_specific_dtio_proc): Borrow trick from
+	resolve_typebound_generic_call to find dtio procedures that
+	over-ride those in the declared type.
+
+2016-09-20  Marek Polacek  <polacek@redhat.com>
+
+	* trans-intrinsic.c (conv_expr_ref_to_caf_ref): Adjust fall through
+	comment.
+
 2016-09-19  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	PR fortran/71952
@@ -91,7 +207,7 @@
 2016-09-16  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77612
-	* decl.c (char_len_param_value): Check parent namespace for 
+	* decl.c (char_len_param_value): Check parent namespace for
 	seen_implicit_none.
 
 2016-09-15  Louis Krupp  <louis.krupp@zoho.com>
@@ -139,7 +255,7 @@
 
 	PR fortran/69514
 	* array.c (gfc_match_array_constructor):  If type-spec is present,
-	walk the array constructor performing possible conversions for 
+	walk the array constructor performing possible conversions for
 	numeric types.
 
 2016-09-08  Jakub Jelinek  <jakub@redhat.com>
@@ -154,7 +270,7 @@
 	PR fortran/77391
 	* resolve.c (deferred_requirements): New function to check F2008:C402.
 	(resolve_fl_variable,resolve_fl_parameter): Use it.
- 
+
 2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77460

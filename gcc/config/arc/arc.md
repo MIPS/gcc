@@ -3879,7 +3879,7 @@
   ""
   "*
 {
-  rtx diff_vec = PATTERN (next_nonnote_insn (operands[3]));
+  rtx diff_vec = PATTERN (next_nonnote_insn (as_a<rtx_insn *> (operands[3])));
 
   if (GET_CODE (diff_vec) != ADDR_DIFF_VEC)
     {
@@ -3907,10 +3907,12 @@
   [(set_attr "type" "load")
    (set_attr_alternative "iscompact"
      [(cond
-	[(ne (symbol_ref "GET_MODE (PATTERN (next_nonnote_insn (operands[3])))")
+	[(ne (symbol_ref "GET_MODE (PATTERN (next_nonnote_insn
+					       (as_a<rtx_insn *> (operands[3]))))")
 	     (symbol_ref "QImode"))
 	 (const_string "false")
-	 (match_test "!ADDR_DIFF_VEC_FLAGS (PATTERN (next_nonnote_insn (operands[3]))).offset_unsigned")
+	 (match_test "!ADDR_DIFF_VEC_FLAGS (PATTERN (next_nonnote_insn
+						       (as_a<rtx_insn *> (operands[3])))).offset_unsigned")
 	 (const_string "false")]
 	(const_string "true"))
       (const_string "false")
@@ -3946,7 +3948,7 @@
   "TARGET_COMPACT_CASESI"
   "*
 {
-  rtx diff_vec = PATTERN (next_nonnote_insn (operands[1]));
+  rtx diff_vec = PATTERN (next_nonnote_insn (as_a<rtx_insn *> (operands[1])));
   int unalign = arc_get_unalign ();
   rtx xop[3];
   const char *s;
@@ -5120,16 +5122,29 @@
 		  scan = as_a <rtx_insn *> (XEXP (SET_SRC (PATTERN (scan)), 0));
 		  continue;
 		}
-	      if (JUMP_LABEL (scan)
-		  /* JUMP_LABEL might be simple_return instead if an insn.  */
-		  && (!INSN_P (JUMP_LABEL (scan))
-		      || (!next_active_insn (JUMP_LABEL (scan))
-			  || (recog_memoized (next_active_insn (JUMP_LABEL (scan)))
-			      != CODE_FOR_doloop_begin_i)))
-		  && (!next_active_insn (NEXT_INSN (PREV_INSN (scan)))
-		      || (recog_memoized
-			   (next_active_insn (NEXT_INSN (PREV_INSN (scan))))
-			  != CODE_FOR_doloop_begin_i)))
+
+	      rtx lab = JUMP_LABEL (scan);
+	      if (!lab)
+		break;
+
+	      rtx_insn *next_scan
+		= next_active_insn (NEXT_INSN (PREV_INSN (scan)));
+	      if (next_scan
+		  && recog_memoized (next_scan) != CODE_FOR_doloop_begin_i)
+		break;
+
+	      /* JUMP_LABEL might be simple_return instead if an insn.  */
+	      if (!INSN_P (lab))
+		{
+		  n_insns++;
+		  break;
+		}
+
+	      rtx_insn *next_lab = next_active_insn (as_a<rtx_insn *> (lab));
+	      if (next_lab
+		  && recog_memoized (next_lab) != CODE_FOR_doloop_begin_i)
+		break;
+
 		n_insns++;
 	    }
 	  break;
@@ -6174,6 +6189,46 @@
 	      (set (zero_extract:SI (match_dup 0) (match_dup 5) (match_dup 6))
 		   (zero_extract:SI (match_dup 1) (match_dup 5) (match_dup 7)))])
    (match_dup 1)])
+
+(define_insn "*rotrsi3_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"             "=w")
+	(rotatert:SI (match_operand:SI 1 "register_operand" "c")
+		     (const_int 1)))]
+  ""
+  "ror %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "predicable" "no")
+   (set_attr "length" "4")])
+
+(define_insn "*ashlsi2_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"           "=Rcqq,w")
+	(ashift:SI (match_operand:SI 1 "register_operand" "Rcqq,c")
+		   (const_int 1)))]
+  ""
+  "asl%? %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "iscompact" "maybe,false")
+   (set_attr "predicable" "no,no")])
+
+(define_insn "*lshrsi3_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"             "=Rcqq,w")
+	(lshiftrt:SI (match_operand:SI 1 "register_operand" "Rcqq,c")
+		     (const_int 1)))]
+  ""
+  "lsr%? %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "iscompact" "maybe,false")
+   (set_attr "predicable" "no,no")])
+
+(define_insn "*ashrsi3_cnt1"
+  [(set (match_operand:SI 0 "dest_reg_operand"             "=Rcqq,w")
+	(ashiftrt:SI (match_operand:SI 1 "register_operand" "Rcqq,c")
+		     (const_int 1)))]
+  ""
+  "asr%? %0,%1%&"
+  [(set_attr "type" "shift")
+   (set_attr "iscompact" "maybe,false")
+   (set_attr "predicable" "no,no")])
 
 ;; include the arc-FPX instructions
 (include "fpx.md")

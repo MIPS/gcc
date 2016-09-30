@@ -410,19 +410,15 @@ build_fix_expr (stmtblock_t * pblock, tree arg, tree type,
     {
     case RND_FLOOR:
       return build_fixbound_expr (pblock, arg, type, 0);
-      break;
 
     case RND_CEIL:
       return build_fixbound_expr (pblock, arg, type, 1);
-      break;
 
     case RND_ROUND:
       return build_round_expr (arg, type);
-      break;
 
     case RND_TRUNC:
       return fold_build1_loc (input_location, FIX_TRUNC_EXPR, type, arg);
-      break;
 
     default:
       gcc_unreachable ();
@@ -1365,7 +1361,7 @@ conv_expr_ref_to_caf_ref (stmtblock_t *block, gfc_expr *expr)
 		       handling easier.  */
 		    stride = gfc_index_one_node;
 
-		  /* Intentionally fall through.  */
+		  /* Fall through.  */
 		case DIMEN_ELEMENT:
 		  if (ref->u.ar.start[i])
 		    {
@@ -1607,10 +1603,9 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
   else
     stat = null_pointer_node;
 
-  /* Always use the new get_by_ref ().  When no allocatable components are
-     present and the lhs does not reallocation then the "old" get () might
-     suffice.  */
-  if (true) //caf_attr->alloc_comp && !may_realloc)
+  /* Only use the new get_by_ref () where it is necessary.  I.e., when the lhs
+     is reallocatable or the right-hand side has allocatable components.  */
+  if (caf_attr->alloc_comp || may_realloc)
     {
       /* Get using caf_get_by_ref.  */
       caf_reference = conv_expr_ref_to_caf_ref (&se->pre, array_expr);

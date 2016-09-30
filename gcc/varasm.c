@@ -1556,7 +1556,9 @@ assemble_addr_to_section (rtx symbol, section *sec)
 section *
 get_cdtor_priority_section (int priority, bool constructor_p)
 {
-  char buf[16];
+  /* Buffer conservatively large enough for the full range of a 32-bit
+     int plus the text below.  */
+  char buf[18];
 
   /* ??? This only works reliably with the GNU linker.  */
   sprintf (buf, "%s.%.5u",
@@ -2545,7 +2547,7 @@ assemble_name (FILE *file, const char *name)
 rtx
 assemble_static_space (unsigned HOST_WIDE_INT size)
 {
-  char name[12];
+  char name[16];
   const char *namestring;
   rtx x;
 
@@ -4173,7 +4175,7 @@ output_addressed_constants (tree exp)
     case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
       output_addressed_constants (TREE_OPERAND (exp, 1));
-      /* Fall through.  */
+      gcc_fallthrough ();
 
     CASE_CONVERT:
     case VIEW_CONVERT_EXPR:
@@ -6256,6 +6258,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
 			       tree decl)
 {
   char flagchars[11], *f = flagchars;
+  unsigned int numeric_value = 0;
 
   /* If we have already declared this section, we can use an
      abbreviated form to switch back to it -- unless this section is
@@ -6268,31 +6271,38 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
       return;
     }
 
-  if (!(flags & SECTION_DEBUG))
-    *f++ = 'a';
+  /* If we have a machine specific flag, then use the numeric value to pass
+     this on to GAS.  */
+  if (targetm.asm_out.elf_flags_numeric (flags, &numeric_value))
+      snprintf (f, sizeof (flagchars), "0x%08x", numeric_value);
+  else
+    {
+      if (!(flags & SECTION_DEBUG))
+	*f++ = 'a';
 #if defined (HAVE_GAS_SECTION_EXCLUDE) && HAVE_GAS_SECTION_EXCLUDE == 1
-  if (flags & SECTION_EXCLUDE)
-    *f++ = 'e';
+      if (flags & SECTION_EXCLUDE)
+	*f++ = 'e';
 #endif
-  if (flags & SECTION_WRITE)
-    *f++ = 'w';
-  if (flags & SECTION_CODE)
-    *f++ = 'x';
-  if (flags & SECTION_SMALL)
-    *f++ = 's';
-  if (flags & SECTION_MERGE)
-    *f++ = 'M';
-  if (flags & SECTION_STRINGS)
-    *f++ = 'S';
-  if (flags & SECTION_TLS)
-    *f++ = TLS_SECTION_ASM_FLAG;
-  if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
-    *f++ = 'G';
+      if (flags & SECTION_WRITE)
+	*f++ = 'w';
+      if (flags & SECTION_CODE)
+	*f++ = 'x';
+      if (flags & SECTION_SMALL)
+	*f++ = 's';
+      if (flags & SECTION_MERGE)
+	*f++ = 'M';
+      if (flags & SECTION_STRINGS)
+	*f++ = 'S';
+      if (flags & SECTION_TLS)
+	*f++ = TLS_SECTION_ASM_FLAG;
+      if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+	*f++ = 'G';
 #ifdef MACH_DEP_SECTION_ASM_FLAG
-  if (flags & SECTION_MACH_DEP)
-    *f++ = MACH_DEP_SECTION_ASM_FLAG;
+      if (flags & SECTION_MACH_DEP)
+	*f++ = MACH_DEP_SECTION_ASM_FLAG;
 #endif
-  *f = '\0';
+      *f = '\0';
+    }
 
   fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
 
