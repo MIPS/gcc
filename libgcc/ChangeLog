@@ -1,3 +1,40 @@
+2015-09-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/cpuinfo.c (__get_cpuid_output): Remove.
+	(__cpu_indicator_init): Call __get_cpuid, not __get_cpuid_output.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/7970
+	PR gcov-profile/16855
+	PR gcov-profile/44779
+	* libgcov-driver.c (__gcov_init): Do not register a atexit
+	handler.
+	(__gcov_exit): Rename from gcov_exit.
+	* libgcov.h (__gcov_exit): Declare.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/77749
+	* Makefile.in: Remove _gcov_merge_delta.
+	* libgcov-merge.c (void __gcov_merge_delta): Remove.
+	* libgcov-util.c (__gcov_delta_counter_op): Remove.
+	* libgcov.h: Remove declaration of __gcov_merge_delta.
+
+2016-09-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* configure.ac: Do not create links, only substitute the filenames.
+	* configure: Regenerate.
+	* Makefile.in: Assign the substitution results to variables.
+	(LIBGCC_LINKS): Define.
+	(enable-execute-stack.c): New rule.
+	(unwind.h): Likewise.
+	(md-unwind-support.h): Likewise.
+	(sfp-machine.h): Likewise.
+	(gthr-default.h): Likewise.
+	Add $(LIBGCC_LINKS) to the prerequisites of all object files and
+	unwind.h as prerequisite of install-unwind_h-forbuild.
+
 2016-09-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libgcc/71744

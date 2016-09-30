@@ -190,6 +190,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "debug.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
 #include "gimple-pretty-print.h"
 #include "plugin.h"
@@ -1193,8 +1194,15 @@ analyze_functions (bool first_time)
 	     at looking at optimized away DECLs, since
 	     late_global_decl will subsequently be called from the
 	     contents of the now pruned symbol table.  */
-	  if (!decl_function_context (node->decl))
-	    (*debug_hooks->late_global_decl) (node->decl);
+	  if (TREE_CODE (node->decl) == VAR_DECL
+	      && !decl_function_context (node->decl))
+	    {
+	      /* We are reclaiming totally unreachable code and variables
+	         so they effectively appear as readonly.  Show that to
+		 the debug machinery.  */
+	      TREE_READONLY (node->decl) = 1;
+	      (*debug_hooks->late_global_decl) (node->decl);
+	    }
 
 	  node->remove ();
 	  continue;
@@ -2561,7 +2569,7 @@ symbol_table::finalize_compilation_unit (void)
 
       /* Clean up anything that needs cleaning up after initial debug
 	 generation.  */
-      (*debug_hooks->early_finish) ();
+      (*debug_hooks->early_finish) (main_input_filename);
     }
 
   /* Finally drive the pass manager.  */

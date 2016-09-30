@@ -178,9 +178,10 @@ enum gfc_intrinsic_op
   INTRINSIC_EQ_OS, INTRINSIC_NE_OS, INTRINSIC_GT_OS, INTRINSIC_GE_OS,
   INTRINSIC_LT_OS, INTRINSIC_LE_OS,
   INTRINSIC_NOT, INTRINSIC_USER, INTRINSIC_ASSIGN, INTRINSIC_PARENTHESES,
-  /* User defined derived type pseudo operator.  */
-  INTRINSIC_FORMATTED, INTRINSIC_UNFORMATTED,
-  GFC_INTRINSIC_END /* Sentinel */
+  GFC_INTRINSIC_END, /* Sentinel */
+  /* User defined derived type pseudo operators. These are set beyond the
+     sentinel so that they are excluded from module_read and module_write.  */
+  INTRINSIC_FORMATTED, INTRINSIC_UNFORMATTED
 };
 
 /* This macro is the number of intrinsic operators that exist.
@@ -735,7 +736,7 @@ typedef struct
     optional:1, pointer:1, target:1, value:1, volatile_:1, temporary:1,
     dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1,
     implied_index:1, subref_array_pointer:1, proc_pointer:1, asynchronous:1,
-    contiguous:1, fe_temp: 1;
+    contiguous:1, fe_temp: 1, automatic: 1;
 
   /* For CLASS containers, the pointer attribute is sometimes set internally
      even though it was not directly specified.  In this case, keep the
@@ -2331,7 +2332,7 @@ typedef struct
 {
   gfc_expr *io_unit, *format_expr, *rec, *advance, *iostat, *size, *iomsg,
 	   *id, *pos, *asynchronous, *blank, *decimal, *delim, *pad, *round,
-	   *sign, *extra_comma, *dt_io_kind;
+	   *sign, *extra_comma, *dt_io_kind, *udtio;
 
   gfc_symbol *namelist;
   /* A format_label of `format_asterisk' indicates the "*" format */
@@ -2815,6 +2816,7 @@ bool gfc_add_cray_pointee (symbol_attribute *, locus *);
 match gfc_mod_pointee_as (gfc_array_spec *);
 bool gfc_add_protected (symbol_attribute *, const char *, locus *);
 bool gfc_add_result (symbol_attribute *, const char *, locus *);
+bool gfc_add_automatic (symbol_attribute *, const char *, locus *);
 bool gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 bool gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 bool gfc_add_omp_declare_target (symbol_attribute *, const char *, locus *);

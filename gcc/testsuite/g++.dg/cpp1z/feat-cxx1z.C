@@ -356,6 +356,12 @@
 #  error "__cpp_aligned_new != 201606"
 #endif
 
+#ifndef __cpp_capture_star_this
+#  error "__cpp_capture_star_this"
+#elif __cpp_capture_star_this != 201603
+#  error "__cpp_capture_star_this != 201603"
+#endif
+
 #ifdef __has_cpp_attribute
 
 #  if ! __has_cpp_attribute(maybe_unused)
@@ -368,6 +374,12 @@
 #    error "__has_cpp_attribute(nodiscard)"
 #  elif __has_cpp_attribute(nodiscard) != 201603
 #    error "__has_cpp_attribute(nodiscard) != 201603"
+#  endif
+
+#  if ! __has_cpp_attribute(fallthrough)
+#    error "__has_cpp_attribute(fallthrough)"
+#  elif __has_cpp_attribute(fallthrough) != 201603
+#    error "__has_cpp_attribute(fallthrough) != 201603"
 #  endif
 
 #else

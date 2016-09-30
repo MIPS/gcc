@@ -769,7 +769,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case VECTOR_CST:
 	  {
-	    char buf[10];
+	    /* Big enough for 2 UINT_MAX plus the string below.  */
+	    char buf[32];
 	    unsigned i;
 
 	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
@@ -840,7 +841,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  {
 	    unsigned HOST_WIDE_INT cnt;
 	    tree index, value;
-	    len = vec_safe_length (CONSTRUCTOR_ELTS (node));
+	    len = CONSTRUCTOR_NELTS (node);
 	    fprintf (file, " lngt %d", len);
 	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (node),
 				      cnt, index, value)

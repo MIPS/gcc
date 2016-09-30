@@ -1,3 +1,28 @@
+2016-09-27  Than McIntosh  <thanm@google.com>
+
+	* go-linemap.cc (Gcc_linemap::to_string): New method.
+
+2016-09-23  Than McIntosh  <thanm@google.com>
+
+	* go-gcc-diagnostics.cc: New file.
+	* go-location.h (Location): Remove operator source_location.  Add
+	operator==.
+	* go-system.h: #include <sstream>.
+	* Make-lang.in (GO_OBJS): Add go/go-diagnostics.o and
+	go/go-gcc-diagnostics.o.
+	(CFLAGS-go/go-gcc-diagnostics.o): New variable.
+
+2016-09-23  Chris Manghane  <cmang@google.com>
+
+	PR go/77701
+	* go-gcc.cc (Gcc_backend::Gcc_backend): Fix calls to integer_type
+	to pass arguments in the correct order.
+
+2016-09-22  Ian Lance Taylor  <iant@golang.org>
+
+	* go-gcc.cc (Gcc_backend::Gcc_backend): Declare
+	__builtin_frame_address.
+
 2016-09-11  Ian Lance Taylor  <iant@golang.org>
 
 	* go-gcc.cc (Gcc_backend::Gcc_backend): Add builtin versions of

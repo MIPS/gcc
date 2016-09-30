@@ -130,6 +130,10 @@ class UniquePointerPrinter:
         return ('std::unique_ptr<%s> containing %s' % (str(v.type.target()),
                                                        str(v)))
 
+def get_value_from_aligned_membuf(buf, valtype):
+    """Returns the value held in a __gnu_cxx::__aligned_membuf."""
+    return buf['_M_storage'].address.cast(valtype.pointer()).dereference()
+
 def get_value_from_list_node(node):
     """Returns the value held in an _List_node<_Val>"""
     try:
@@ -139,9 +143,8 @@ def get_value_from_list_node(node):
             return node['_M_data']
         elif member == '_M_storage':
             # C++11 implementation, node stores value in __aligned_membuf
-            p = node['_M_storage']['_M_storage'].address
-            p = p.cast(node.type.template_argument(0).pointer())
-            return p.dereference()
+            valtype = node.type.template_argument(0)
+            return get_value_from_aligned_membuf(node['_M_storage'], valtype)
     except:
         pass
     raise ValueError("Unsupported implementation for %s" % str(node.type))
@@ -461,9 +464,8 @@ def get_value_from_Rb_tree_node(node):
             return node['_M_value_field']
         elif member == '_M_storage':
             # C++11 implementation, node stores value in __aligned_membuf
-            p = node['_M_storage']['_M_storage'].address
-            p = p.cast(node.type.template_argument(0).pointer())
-            return p.dereference()
+            valtype = node.type.template_argument(0)
+            return get_value_from_aligned_membuf(node['_M_storage'], valtype)
     except:
         pass
     raise ValueError("Unsupported implementation for %s" % str(node.type))
@@ -879,9 +881,10 @@ class StdForwardListPrinter:
 class SingleObjContainerPrinter(object):
     "Base class for printers of containers of single objects"
 
-    def __init__ (self, val, viz):
+    def __init__ (self, val, viz, hint = None):
         self.contained_value = val
         self.visualizer = viz
+        self.hint = hint
 
     def _recognize(self, type):
         """Return TYPE as a string after applying type printers"""
@@ -916,7 +919,7 @@ class SingleObjContainerPrinter(object):
         # if contained value is a map we want to display in the same way
         if hasattr (self.visualizer, 'children') and hasattr (self.visualizer, 'display_hint'):
             return self.visualizer.display_hint ()
-        return None
+        return self.hint
 
 
 class StdExpAnyPrinter(SingleObjContainerPrinter):
@@ -985,7 +988,6 @@ class StdVariantPrinter(SingleObjContainerPrinter):
 
     def __init__(self, typename, val):
         alternatives = self._template_args(val)
-        self.alts = alternatives
         self.typename = "%s<%s>" % (typename, ', '.join([self._recognize(alt) for alt in alternatives]))
         self.index = val['_M_index']
         if self.index >= len(alternatives):
@@ -994,27 +996,70 @@ class StdVariantPrinter(SingleObjContainerPrinter):
             visualizer = None
         else:
             self.contained_type = alternatives[int(self.index)]
-            addr = val['_M_first']['_M_storage'].address
+            addr = val['_M_union']['_M_first']['_M_storage'].address
             contained_value = addr.cast(self.contained_type.pointer()).dereference()
             visualizer = gdb.default_visualizer(contained_value)
-        super (StdVariantPrinter, self).__init__(contained_value, visualizer)
+        super (StdVariantPrinter, self).__init__(contained_value, visualizer, 'array')
 
-    def _template_args(self, val):
+    @staticmethod
+    def _template_args(val):
         n = 0
-        args = ()
+        args = []
         while True:
             try:
-                args += (val.type.template_argument(n),)
+                args.append(val.type.template_argument(n))
             except:
                 return args
             n += 1
 
     def to_string(self):
         if self.contained_value is None:
-            return "%s [no value]" % self.typename
+            return "%s [no contained value]" % self.typename
         if hasattr(self.visualizer, 'children'):
-            return "%s [alternative %d] %s" % (self.typename, self.index, self.visualizer.to_string())
-        return self.typename
+            return "%s [index %d] containing %s" % (self.typename, self.index, self.visualizer.to_string())
+        return "%s [index %d]" % (self.typename, self.index)
+
+class StdNodeHandlePrinter(SingleObjContainerPrinter):
+    "Print a container node handle"
+
+    def __init__(self, typename, val):
+        self.value_type = val.type.template_argument(1)
+        nodetype = val.type.template_argument(2).template_argument(0)
+        self.is_rb_tree_node = nodetype.name.startswith('std::_Rb_tree_node')
+        self.is_map_node = val.type.template_argument(0) != self.value_type
+        nodeptr = val['_M_ptr']
+        if nodeptr:
+            if self.is_rb_tree_node:
+                contained_value = get_value_from_Rb_tree_node(nodeptr.dereference())
+            else:
+                contained_value = get_value_from_aligned_membuf(nodeptr['_M_storage'],
+                                                                self.value_type)
+            visualizer = gdb.default_visualizer(contained_value)
+        else:
+            contained_value = None
+            visualizer = None
+        optalloc = val['_M_alloc']
+        self.alloc = optalloc['_M_payload'] if optalloc['_M_engaged'] else None
+        super(StdNodeHandlePrinter, self).__init__(contained_value, visualizer,
+                                                   'array')
+
+    def to_string(self):
+
+        desc = 'node handle for '
+        if not self.is_rb_tree_node:
+            desc += 'unordered '
+        if self.is_map_node:
+            desc += 'map';
+        else:
+            desc += 'set';
+
+        if self.contained_value:
+            desc += ' with element'
+            if hasattr(self.visualizer, 'children'):
+                return "%s = %s" % (desc, self.visualizer.to_string())
+            return desc
+        else:
+            return 'empty %s' % desc
 
 class StdExpStringViewPrinter:
     "Print a std::basic_string_view or std::experimental::basic_string_view"
@@ -1262,6 +1307,7 @@ def register_type_printers(obj):
 
     for pfx in ('', 'w'):
         add_one_type_printer(obj, 'basic_string', pfx + 'string')
+        add_one_type_printer(obj, 'basic_string_view', pfx + 'string_view')
         add_one_type_printer(obj, 'basic_ios', pfx + 'ios')
         add_one_type_printer(obj, 'basic_streambuf', pfx + 'streambuf')
         add_one_type_printer(obj, 'basic_istream', pfx + 'istream')
@@ -1295,6 +1341,9 @@ def register_type_printers(obj):
     add_one_type_printer(obj, 'fpos', 'streampos')
     add_one_type_printer(obj, 'basic_string', 'u16string')
     add_one_type_printer(obj, 'basic_string', 'u32string')
+
+    add_one_type_printer(obj, 'basic_string_view', 'u16string_view')
+    add_one_type_printer(obj, 'basic_string_view', 'u32string_view')
 
     for dur in ('nanoseconds', 'microseconds', 'milliseconds',
                 'seconds', 'minutes', 'hours'):
@@ -1353,11 +1402,14 @@ def register_type_printers(obj):
             'unordered_multiset<{1}>')
 
     # strip the "fundamentals_v1" inline namespace from these types
+    add_one_template_type_printer(obj, 'any<T>',
+            'experimental::fundamentals_v\d::any<(.*)>',
+            'experimental::any<\\1>')
     add_one_template_type_printer(obj, 'optional<T>',
-            'experimental::fundamentals_v1::optional<(.*)>',
+            'experimental::fundamentals_v\d::optional<(.*)>',
             'experimental::optional<\\1>')
     add_one_template_type_printer(obj, 'basic_string_view<C>',
-            'experimental::fundamentals_v1::basic_string_view<(.*), std::char_traits<\\1> >',
+            'experimental::fundamentals_v\d::basic_string_view<(.*), std::char_traits<\\1> >',
             'experimental::basic_string_view<\\1>')
 
 def register_libstdcxx_printers (obj):
@@ -1483,6 +1535,8 @@ def build_libstdcxx_dictionary ():
                                   'basic_string_view', StdExpStringViewPrinter)
     libstdcxx_printer.add_version('std::',
                                   'variant', StdVariantPrinter)
+    libstdcxx_printer.add_version('std::',
+                                  '_Node_handle', StdNodeHandlePrinter)
 
     # Extensions.
     libstdcxx_printer.add_version('__gnu_cxx::', 'slist', StdSlistPrinter)
