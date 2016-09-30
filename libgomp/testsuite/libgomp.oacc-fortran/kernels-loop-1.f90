@@ -54,17 +54,6 @@ program loops
 
   call check (a, b, n)
 
-  ! PRESENT_OR_COPY
-
-  !$acc kernels pcopy (a)
-  !$acc loop tile (*)
-  do i = 1, n
-     a(i) = i
-  end do
-  !$acc end kernels
-
-  call check (a, b, n)
-
 end program loops
 
 subroutine check (a, b, n)

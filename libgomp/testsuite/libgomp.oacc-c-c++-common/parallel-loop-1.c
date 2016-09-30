@@ -29,12 +29,10 @@ main ()
       || test_none_auto ()
       || test_none_independent ()
       || test_none_seq ()
-      || test_none_tile ()
       || test_gangs_none ()
       || test_gangs_auto ()
       || test_gangs_independent ()
-      || test_gangs_seq ()
-      || test_gangs_tile ())
+      || test_gangs_seq ())
     abort ();
   return 0;
 }

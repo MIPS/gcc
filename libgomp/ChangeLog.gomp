@@ -1,3 +1,10 @@
+2016-09-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.c: Remove
+	tile test.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.h: Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-1.f90: Likewise.
+
 2016-09-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/declare-vla.c: New test.
