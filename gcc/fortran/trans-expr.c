@@ -9404,7 +9404,8 @@ trans_class_assignment (stmtblock_t *block, gfc_expr *lhs, gfc_expr *rhs,
   if (set_vptr)
     {
       vptr_expr = gfc_find_and_cut_at_last_class_ref (rhs);
-      if (vptr_expr != NULL)
+      if (vptr_expr != NULL && vptr_expr->ref != NULL
+	  && vptr_expr->ref->type == REF_COMPONENT)
 	gfc_add_vptr_component (vptr_expr);
       else
 	vptr_expr = gfc_lval_expr_from_sym (gfc_find_vtab (&rhs->ts));
