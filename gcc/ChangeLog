@@ -1,3 +1,126 @@
+2016-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (<mask_codefor><code><mode>): Add FALLTHRU
+	comments.  Simplify asserts, remove unnecessary conditions.
+	Formatting fixes.
+	(*<code><mode>3): Likewise.
+
+2016-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/invoke.texi (-Wregister): Document.
+
+2016-09-30  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* configure.ac: Split CHECKING_P into CHECKING_P and
+	ENABLE_EXTRA_CHECKING.
+	* configure: Regenerated.
+	* config.in: Adjust commment of CHECKING_P.  Add ENABLE_EXTRA_CHECKING.
+	* common.opt (flag_checking): Use CHECKING_P and ENABLE_EXTRA_CHECKING.
+
+2016-09-30  Prasad Ghangal  <prasad.ghangal@gmail.com>
+
+	PR other/31566
+	* gcc.c (process_command): For @filename handling, output
+	the correct name if the file does not exist.
+
+2016-09-30  Marek Polacek  <polacek@redhat.com>
+
+	* config/aarch64/aarch64-simd.md: Adjust fall through comments.
+	* config/alpha/predicates.md: Likewise.
+
+2016-09-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* ifcvt.c (noce_try_avoid_const_materialization): New function.
+	(noce_process_if_block): Use it.
+
+2016-09-30  Martin Liska  <mliska@suse.cz>
+
+	* doc/invoke.texi: Document asan-use-after-return that
+	it's disabled by default in runtime.
+
+2016-09-30  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (intersect_ranges): If we failed to handle
+	the intersection choose a constant singleton range if available.
+
+2016-09-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77399
+	* tree-ssa-forwprop.c (simplify_vector_constructor): Handle
+	float <-> int conversions.
+
+2016-09-30  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_opt_vars): Revert last change.
+
+2016-09-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Check maximum
+	ext_level before calling CPUID with 0x80000008.
+	Simplify xgetbv checks.
+
+2016-09-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (OBJS): Add print-rtl-function.o.
+	* print-rtl-function.c: New file.
+	* print-rtl.h (print_rtx_function): New decl.
+
+2016-09-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77756
+	* config/i386/cpuid.h (__get_cpuid_count): New.
+	(__get_cpuid): Rename __level to __leaf.
+
+2016-09-29  Marek Polacek  <polacek@redhat.com>
+
+	* genattrtab.c (write_attr_case): Also emit FALLTHRU marker.
+
+2016-09-29  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* builtins.c (expand_builtin_memcmp): don't swap args unless
+	result is only being compared with zero.
+
+2016-09-29  Marek Polacek  <polacek@redhat.com>
+
+	* dwarf2out.c (loc_descriptor): Add fall through comment.
+	(add_const_value_attribute): Likewise.
+
+2016-09-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm.md (*arm_movsi_insn): Replace "t2" arch attribute
+	with "v6t2".  Move "arch" attribute above "pool_range".
+	* config/arm/vfp.md (*arm_movhi_vfp): Replace "t2" arch attribute
+	with "v6t2".
+	(*thumb2_movhi_vfp): Likewise.
+	(*arm_movhi_fp16): Likewise.
+	(*thumb2_movhi_fp16): Likewise.
+	(*arm_movsi_vfp): Remove "arch" attribute.
+	(*thumb2_movsi_vfp): Likewise.
+
+2016-09-29  Martin Liska  <mliska@suse.cz>
+
+	* doc/extend.texi: Remove limitation of Objective C for
+	__attribute__((constructor)) and __attribute__((destructor)).
+
+2016-09-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77768
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Handle stores to readonly memory when removing redundant stores.
+
+2016-09-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77407
+	* match.pd: Add X / abs (X) -> X < 0 ? -1 : 1 and
+	X / -X -> -1 simplifications.
+
+2016-09-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55152
+	* match.pd: Add max(a,-a) -> abs(a) pattern.
+	* tree-ssa-phiopt.c (minmax_replacement): Disable for
+	HONOR_SIGNED_ZEROS types.
+
 2016-09-29  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* defaults.h (TARGET_FLT_EVAL_METHOD_NON_DEFAULT): Remove.
@@ -49,11 +172,6 @@
 	(format_floating, format_string, format_directive,
 	get_destination_size, pass_sprintf_length::handle_gimple_call):
 	Likewise.
-
-2016-09-28  Uros Bizjak  <ubizjak@gmail.com>
-
-	PR target/77756
-	* config/i386/cpuid.h (__get_cpuid): Handle CPUID level >= 7.
 
 2016-09-28  Jakub Jelinek  <jakub@redhat.com>
 
