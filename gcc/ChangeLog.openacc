@@ -1,3 +1,11 @@
+2016-10-02  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR fortran/77371
+	* omp-low.c (lower_omp_target): Avoid reference-type processing
+	on pointers for firstprivate clause.
+	* gimplify.c (gimplify_adjust_omp_clauses): Add 'remove = true'
+	when emitting error on private/firstprivate reductions.
+
 2016-09-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (oacc_default_clause): Privatize fortran common blocks.
