@@ -652,7 +652,7 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 	     }  */
 	while (POINTER_TYPE_P (type))
 	  type = TREE_TYPE (type);
-	if (int_size_in_bytes (type) < 0)
+	if (must_eq (int_size_in_bytes (type), -1))
 	  return false;
 
 	*var = var0;

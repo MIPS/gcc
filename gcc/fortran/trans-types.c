@@ -252,7 +252,8 @@ gfc_get_real_kind_from_width_isofortranenv (int size)
 
   /* Look for a kind with matching storage size.  */
   for (i = 0; gfc_real_kinds[i].kind != 0; i++)
-    if (int_size_in_bytes (gfc_get_real_type (gfc_real_kinds[i].kind)) == size)
+    if (int_size_in_bytes_hwi (gfc_get_real_type (gfc_real_kinds[i].kind))
+	== size)
       {
 	if (gfc_real_kinds[i].digits > digits)
 	  {
@@ -266,7 +267,8 @@ gfc_get_real_kind_from_width_isofortranenv (int size)
 
   /* Look for a kind with larger storage size.  */
   for (i = 0; gfc_real_kinds[i].kind != 0; i++)
-    if (int_size_in_bytes (gfc_get_real_type (gfc_real_kinds[i].kind)) > size)
+    if (int_size_in_bytes_hwi (gfc_get_real_type (gfc_real_kinds[i].kind))
+	> size)
       kind = -2;
 
   return kind;
@@ -3177,7 +3179,7 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
     etype = TREE_TYPE (etype);
 
   /* Can't handle variable sized elements yet.  */
-  if (int_size_in_bytes (etype) <= 0)
+  if (int_size_in_bytes_hwi (etype) <= 0)
     return false;
   /* Nor non-constant lower bounds in assumed shape arrays.  */
   if (GFC_TYPE_ARRAY_AKIND (type) == GFC_ARRAY_ASSUMED_SHAPE

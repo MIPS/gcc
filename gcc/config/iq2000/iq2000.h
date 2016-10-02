@@ -324,7 +324,7 @@ typedef struct iq2000_args
    ? PAD_UPWARD								\
    : (((MODE) == BLKmode						\
        ? ((TYPE) && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST		\
-	  && int_size_in_bytes (TYPE) < (PARM_BOUNDARY / BITS_PER_UNIT))\
+	  && compare_tree_int (TYPE_SIZE (TYPE), PARM_BOUNDARY) < 0)	\
        : (GET_MODE_BITSIZE (MODE) < PARM_BOUNDARY			\
 	  && (GET_MODE_CLASS (MODE) == MODE_INT)))			\
       ? PAD_DOWNWARD : PAD_UPWARD))

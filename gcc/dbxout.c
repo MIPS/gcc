@@ -2001,7 +2001,7 @@ dbxout_type (tree type, int full)
       stabstr_C ('r');
       dbxout_type_index (integer_type_node);
       stabstr_C (';');
-      stabstr_D (int_size_in_bytes (type));
+      stabstr_D (int_size_in_bytes_hwi (type));
       stabstr_S (";0;");
       break;
 
@@ -2009,7 +2009,7 @@ dbxout_type (tree type, int full)
       if (use_gnu_debug_info_extensions)
 	{
 	  stabstr_S ("@s");
-	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
+	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes_hwi (type));
 	  stabstr_S (";-16;");
 	}
       else /* Define as enumeral type (False, True) */
@@ -2024,7 +2024,7 @@ dbxout_type (tree type, int full)
       if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
 	{
 	  stabstr_S ("R3;");
-	  stabstr_D (2 * int_size_in_bytes (TREE_TYPE (type)));
+	  stabstr_D (2 * int_size_in_bytes_hwi (TREE_TYPE (type)));
 	  stabstr_S (";0;");
 	}
       else
@@ -2032,7 +2032,7 @@ dbxout_type (tree type, int full)
 	  /* Output a complex integer type as a structure,
 	     pending some other way to do it.  */
 	  stabstr_C ('s');
-	  stabstr_D (int_size_in_bytes (type));
+	  stabstr_D (int_size_in_bytes_hwi (type));
 
 	  stabstr_S ("real:");
 	  dbxout_type (TREE_TYPE (type), 0);
@@ -2054,7 +2054,7 @@ dbxout_type (tree type, int full)
       if (TYPE_PACKED (type) && use_gnu_debug_info_extensions)
 	{
 	  stabstr_S ("@s");
-	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
+	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes_hwi (type));
 	  stabstr_S (";@S;S");
 	  dbxout_type (TYPE_DOMAIN (type), 0);
 	  break;
@@ -2145,7 +2145,7 @@ dbxout_type (tree type, int full)
 
 	/* Identify record or union, and print its size.  */
 	stabstr_C ((TREE_CODE (type) == RECORD_TYPE) ? 's' : 'u');
-	stabstr_D (int_size_in_bytes (type));
+	stabstr_D (int_size_in_bytes_hwi (type));
 
 	if (binfo)
 	  {

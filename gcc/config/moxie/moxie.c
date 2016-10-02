@@ -54,7 +54,7 @@
 static bool
 moxie_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  const HOST_WIDE_INT size = int_size_in_bytes (type);
+  const HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
   return (size == -1 || size > 2 * UNITS_PER_WORD);
 }
 
@@ -436,7 +436,7 @@ moxie_function_arg (cumulative_args_t cum_v, machine_mode mode,
 
 #define MOXIE_FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((MODE) != BLKmode ? GET_MODE_SIZE (MODE)	\
-   : (unsigned) int_size_in_bytes (TYPE))
+   : (unsigned) int_size_in_bytes_hwi (TYPE))
 
 static void
 moxie_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
@@ -463,7 +463,7 @@ moxie_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
     {
       if (AGGREGATE_TYPE_P (type))
 	return true;
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
     }
   else
     size = GET_MODE_SIZE (mode);
@@ -492,7 +492,7 @@ moxie_arg_partial_bytes (cumulative_args_t cum_v,
     {
       if (AGGREGATE_TYPE_P (type))
 	return 0;
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
     }
   else
     size = GET_MODE_SIZE (mode);
