@@ -819,6 +819,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
      to form DR_BASE_ADDRESS and adds the offset to DR_INIT we have to
      adjust things to make base_alignment valid as the alignment of
      DR_BASE_ADDRESS.  */
+  poly_int64 diff = base_bitpos;
   if (TREE_CODE (base) == MEM_REF)
     {
       /* Note all this only works if DR_BASE_ADDRESS is the same as
@@ -826,15 +827,12 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	 in other offsets.  We need to rework DR to compute the alingment
 	 of DR_BASE_ADDRESS as long as all information is still available.  */
       if (operand_equal_p (TREE_OPERAND (base, 0), base_addr, 0))
-	{
-	  base_bitpos -= mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
-	  base_bitpos &= (base_alignment - 1);
-	}
+	diff -= mem_ref_offset (base).force_shwi () * BITS_PER_UNIT;
       else
-	base_bitpos = BITS_PER_UNIT;
+	diff = TYPE_ALIGN (TREE_TYPE (DR_REF (dr)));
     }
-  if (base_bitpos != 0)
-    base_alignment = base_bitpos & -base_bitpos;
+  if (may_ne (diff, 0))
+    base_alignment = MIN (base_alignment, known_alignment (diff));
   /* Also look at the alignment of the base address DR analysis
      computed.  */
   unsigned int base_addr_alignment = get_pointer_alignment (base_addr);
@@ -3427,8 +3425,8 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 	{
 	  if (off == NULL_TREE)
 	    {
-	      offset_int moff = mem_ref_offset (base);
-	      off = wide_int_to_tree (sizetype, moff);
+	      poly_offset_int moff = mem_ref_offset (base);
+	      off = poly_offset_int_to_tree (sizetype, moff);
 	    }
 	  else
 	    off = size_binop (PLUS_EXPR, off,

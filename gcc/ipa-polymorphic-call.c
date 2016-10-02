@@ -916,11 +916,13 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
 	    {
 	      /* We found dereference of a pointer.  Type of the pointer
 		 and MEM_REF is meaningless, but we can look futher.  */
-	      if (TREE_CODE (base) == MEM_REF)
+	      offset_int mem_offset;
+	      if (TREE_CODE (base) == MEM_REF
+		  && mem_ref_offset (base).is_constant (&mem_offset))
 		{
 		  base_pointer = TREE_OPERAND (base, 0);
 		  offset
-		    += offset2 + mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
+		    += offset2 + mem_offset.to_short_addr () * BITS_PER_UNIT;
 		  outer_type = NULL;
 		}
 	      /* We found base object.  In this case the outer_type
