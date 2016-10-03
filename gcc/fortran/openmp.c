@@ -5183,11 +5183,11 @@ resolve_oacc_loop_blocks (gfc_code *code)
 	  if (el->expr == NULL)
 	    {
 	      /* NULL expressions are used to represent '*' arguments.
-		 Convert those to a -1 expressions.  */
+		 Convert those to a 0 expressions.  */
 	      el->expr = gfc_get_constant_expr (BT_INTEGER,
 						gfc_default_integer_kind,
 						&code->loc);
-	      mpz_set_si (el->expr->value.integer, -1);
+	      mpz_set_si (el->expr->value.integer, 0);
 	    }
 	  else
 	    {

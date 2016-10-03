@@ -1,5 +1,9 @@
 2016-10-03  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* gfortran.dg/goacc/tile-lowering.f95: New test.
+
+2016-10-03  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gfortran.dg/goacc/loop-2.f95: Change expected tile clause
 	warnings to errors.
 	* gfortran.dg/goacc/loop-5.f95: Likewise.

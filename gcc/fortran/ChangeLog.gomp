@@ -1,5 +1,10 @@
 2016-10-03  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* openmp.c (resolve_oacc_loop_blocks): Use integer zero to
+        represent the '*' tile argument.
+
+2016-10-03  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* openmp.c (resolve_oacc_positive_int_expr):Promote the
           warning to an error.
 
