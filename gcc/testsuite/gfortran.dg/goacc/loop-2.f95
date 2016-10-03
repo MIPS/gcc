@@ -143,7 +143,7 @@ program test
       DO j = 1,10
       ENDDO
     ENDDO
-    !$acc loop tile(-1) ! { dg-warning "must be positive" }
+    !$acc loop tile(-1) ! { dg-error "must be positive" }
     do i = 1,10
     enddo
     !$acc loop tile(i) ! { dg-error "constant expression" }
@@ -307,7 +307,7 @@ program test
       DO j = 1,10
       ENDDO
     ENDDO
-    !$acc loop tile(-1) ! { dg-warning "must be positive" }
+    !$acc loop tile(-1) ! { dg-error "must be positive" }
     do i = 1,10
     enddo
     !$acc loop tile(i) ! { dg-error "constant expression" }
@@ -460,7 +460,7 @@ program test
     DO j = 1,10
     ENDDO
   ENDDO
-  !$acc kernels loop tile(-1) ! { dg-warning "must be positive" }
+  !$acc kernels loop tile(-1) ! { dg-error "must be positive" }
   do i = 1,10
   enddo
   !$acc kernels loop tile(i) ! { dg-error "constant expression" }
@@ -612,7 +612,7 @@ program test
     DO j = 1,10
     ENDDO
   ENDDO
-  !$acc parallel loop tile(-1) ! { dg-warning "must be positive" }
+  !$acc parallel loop tile(-1) ! { dg-error "must be positive" }
   do i = 1,10
   enddo
   !$acc parallel loop tile(i) ! { dg-error "constant expression" }
