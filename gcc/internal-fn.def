@@ -175,7 +175,7 @@ DEF_INTERNAL_FN (UNIQUE, ECF_NOTHROW, NULL)
    dimension.  DIM_POS is pure (and not const) so that it isn't
    thought to clobber memory and can be gcse'd within a single
    parallel region, but not across FORK/JOIN boundaries.  They take a
-   single INTEGER_CST argument.  */
+   single INTEGER_CST argument.  This might be overly conservative.  */
 DEF_INTERNAL_FN (GOACC_DIM_SIZE, ECF_CONST | ECF_NOTHROW | ECF_LEAF, ".")
 DEF_INTERNAL_FN (GOACC_DIM_POS, ECF_PURE | ECF_NOTHROW | ECF_LEAF, ".")
 

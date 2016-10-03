@@ -2221,6 +2221,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
@@ -2234,7 +2235,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_BIND:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_NOHOST:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__CACHE_:
 	default:
 	  gcc_unreachable ();
@@ -2395,6 +2395,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__GRIDDIM_:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
@@ -2402,7 +2403,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_BIND:
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_NOHOST:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__CACHE_:
 	default:
 	  gcc_unreachable ();
@@ -11244,11 +11244,7 @@ expand_omp_taskloop_for_inner (struct omp_region *region,
    <exit_bb> [incoming]
      V = B + ((range -/+ 1) / S +/- 1) * S [*]
 
-   [*] Needed if V live at end of loop
-
-   Note: CHUNKING & GWV mask are specified explicitly here.  This is a
-   transition, and will be specified by a more general mechanism shortly.
- */
+   [*] Needed if V live at end of loop.  */
 
 static void
 expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
@@ -11357,7 +11353,6 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
 	  ass = gimple_build_assign (fd->loop.n2, total);
 	  gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
 	}
-      
     }
 
   tree b = fd->loop.n1;
@@ -18906,6 +18901,23 @@ omp_finish_file (void)
     }
 }
 
+/* Call dim_pos (POS == true) or dim_size (POS == false) builtins for
+   axis DIM.  Return a tmp var holding the result.  */
+
+static tree
+oacc_dim_call (bool pos, int dim, gimple_seq *seq)
+{
+  tree arg = build_int_cst (unsigned_type_node, dim);
+  tree size = create_tmp_var (integer_type_node);
+  enum internal_fn fn = pos ? IFN_GOACC_DIM_POS : IFN_GOACC_DIM_SIZE;
+  gimple *call = gimple_build_call_internal (fn, 1, arg);
+
+  gimple_call_set_lhs (call, size);
+  gimple_seq_add_stmt (seq, call);
+
+  return size;
+}
+
 /* Find the number of threads (POS = false), or thread number (POS =
    true) for an OpenACC region partitioned as MASK.  Setup code
    required for the calculation is added to SEQ.  */
@@ -18920,29 +18932,17 @@ oacc_thread_numbers (bool pos, int mask, gimple_seq *seq)
   for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
     if (GOMP_DIM_MASK (ix) & mask)
       {
-	tree arg = build_int_cst (unsigned_type_node, ix);
-
 	if (res)
 	  {
 	    /* We had an outer index, so scale that by the size of
 	       this dimension.  */
-	    tree n = create_tmp_var (integer_type_node);
-	    gimple *call
-	      = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
-	    
-	    gimple_call_set_lhs (call, n);
-	    gimple_seq_add_stmt (seq, call);
+	    tree n = oacc_dim_call (false, ix, seq);
 	    res = fold_build2 (MULT_EXPR, integer_type_node, res, n);
 	  }
 	if (pos)
 	  {
 	    /* Determine index in this dimension.  */
-	    tree id = create_tmp_var (integer_type_node);
-	    gimple *call = gimple_build_call_internal
-	      (IFN_GOACC_DIM_POS, 1, arg);
-
-	    gimple_call_set_lhs (call, id);
-	    gimple_seq_add_stmt (seq, call);
+	    tree id = oacc_dim_call (true, ix, seq);
 	    if (res)
 	      res = fold_build2 (PLUS_EXPR, integer_type_node, res, id);
 	    else
@@ -19829,9 +19829,14 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 	}
     }
 
-  loop->mask = this_mask;
   mask_all |= this_mask;
+  loop->mask = this_mask;
   
+  if (dump_file)
+    fprintf (dump_file, "Loop %s:%d user specified %d\n",
+	     LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc),
+	     loop->mask);
+
   if (loop->child)
     {
       loop->inner = oacc_loop_fixed_partitions (loop->child,

@@ -1,5 +1,15 @@
 2016-10-03  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gimplify.c (gimplify_scan_omp_clauses): No special handling for
+	OMP_CLAUSE_TILE.
+	* omp-low.c (scan_sharing_clauses): Allow OMP_CLAUSE_TILE.
+	(expand_oacc_for): Remove out of date note.  Fix whitespace.
+	(oacc_dim_call): New.
+	(oacc_thread_numbers): Use it.
+	(oacc_loop_fixed_partitions): Dump partitioning.
+	* tree-nested.c (convert_nonlocal_omp_clauses): Allow OMP_CLAUSE_TILE.
+	* internal-fn.def (GOACC_DIM_POS): Comment may be overly conservative.
+
 	* gimple-pretty-print.c (dump_gimple_call_args): Simplify "' "
 	printing.
 

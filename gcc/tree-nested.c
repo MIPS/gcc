@@ -1191,6 +1191,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
@@ -1205,11 +1206,6 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  /* TODO.  */
-	  gcc_unreachable ();
-
-	case OMP_CLAUSE_TILE:
-	  /* OpenACC tile clauses are discarded during gimplification, so we
-	     don't expect to see anything here.  */
 	  gcc_unreachable ();
 
 	case OMP_CLAUSE__CACHE_:
@@ -1894,6 +1890,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
@@ -1908,11 +1905,6 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  /* TODO.  */
-	  gcc_unreachable ();
-
-	case OMP_CLAUSE_TILE:
-	  /* OpenACC tile clauses are discarded during gimplification, so we
-	     don't expect to see anything here.  */
 	  gcc_unreachable ();
 
 	case OMP_CLAUSE__CACHE_:
