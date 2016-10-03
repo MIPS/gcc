@@ -1,3 +1,108 @@
+2016-10-03  François Dumont  <fdumont@gcc.gnu.org>
+
+	* src/c++11/shared_ptr.cc (mask, invalid, get_mutex): Move
+	declaration...
+	* src/c++11/mutex_pool.h: ... here. New.
+	* src/c++11/debug.cc: Use latter.
+
+2016-10-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2017.xml: Update gcd/lcm status.
+	* doc/html/*: Regenerate.
+	* include/experimental/numeric (__abs): Move to <numeric>.
+	(gcd, lcm): Use __detail::gcd and __detail::lcm.
+	* include/std/numeric (__detail::__abs_integral)
+	(__detail::__gcd, __detail::__lcm): Define.
+	(gcd, lcm): Define for C++17.
+	* testsuite/26_numerics/gcd/1.cc: New test.
+	* testsuite/26_numerics/lcm/1.cc: New test.
+	* testsuite/experimental/numeric/gcd.cc: Swap contents with ...
+	* testsuite/experimental/numeric/lcd.cc: ... this.
+
+	PR libstdc++/68323
+	PR libstdc++/77794
+	* config/abi/pre/gnu-versioned-namespace.ver: Add exports for
+	__cxa_thread_atexit and __gnu_cxx::__freeres.
+	* include/Makefile.am: Add <experimental/bits/lfts_config.h>
+	* include/Makefile.in: Regenerate.
+	* include.bits/basic_string.h: Fix nesting of versioned namespaces.
+	* include/bits/c++config: Declare versioned namespaces for literals.
+	* include/bits/regex.h (basic_regex, match_results): Add workarounds
+	for PR c++/59256.
+	* include/bits/uniform_int_dist.h: Fix nesting of versioned namespace.
+	* include/std/chrono: Likewise.
+	* include/std/complex: Likewise.
+	* include/std/string_view: Likewise.
+	* include/std/variant: Likewise. Add workaround for PR c++/59256.
+	* include/experimental/bits/fs_fwd.h: Declare versioned namespace.
+	* include/experimental/bits/lfts_config.h: Declare versioned
+	namespaces.
+	* include/experimental/algorithm: Include
+	<experimental/bits/lfts_config.h>.
+	* include/experimental/any: Likewise.
+	* include/experimental/bits/erase_if.h: Likewise.
+	* include/experimental/chrono: Likewise.
+	* include/experimental/functional: Likewise.
+	* include/experimental/memory_resource: Likewise.
+	* include/experimental/optional: Likewise.
+	* include/experimental/propagate_const: Likewise.
+	* include/experimental/random: Likewise.
+	* include/experimental/ratio: Likewise.
+	* include/experimental/system_error: Likewise.
+	* include/experimental/tuple: Likewise.
+	* include/experimental/type_traits: Likewise.
+	* include/experimental/utility: Likewise.
+	* include/experimental/string_view: Likewise. Fix nesting of
+	versioned namespaces.
+	* include/experimental/bits/string_view.tcc: Reopen inline namespace
+	for non-inline function definitions.
+	* testsuite/17_intro/using_namespace_std_exp_neg.cc: New test.
+	* testsuite/20_util/duration/literals/range.cc: Adjust dg-error line.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: Likewise.
+	* testsuite/experimental/propagate_const/assignment/move_neg.cc:
+	Likewise.
+	* testsuite/experimental/propagate_const/cons/move_neg.cc: Likewise.
+	* testsuite/experimental/propagate_const/requirements2.cc: Likewise.
+	* testsuite/experimental/propagate_const/requirements3.cc: Likewise.
+	* testsuite/experimental/propagate_const/requirements4.cc: Likewise.
+	* testsuite/experimental/propagate_const/requirements5.cc: Likewise.
+	* testsuite/ext/profile/mutex_extensions_neg.cc: Likewise.
+
+	PR libstdc++/77814
+	* include/bits/std_abs.h: Use "C++" language linkage.
+	* testsuite/17_intro/headers/c++2011/linkage.cc: Move <complex.h> to
+	the end. Add <stdalign.h>.
+
+2016-10-03  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/77802
+	* testsuite/20_util/tuple/77802.cc: New.
+
+	Revert:
+	2016-09-21  Ville Voutilainen  <ville.voutilainen@gmail.com>
+	Implement LWG 2729 for tuple.
+	* include/std/tuple (_Tuple_impl(_Tuple_impl&&)):
+	Suppress conditionally.
+	(_Tuple_impl(_Tuple_impl<_Idx, _UHead, _UTails...>&&)): Likewise.
+	(__is_tuple_impl_trait_impl, __is_tuple_impl_trait): New.
+	(_Tuple_impl(const _Head&)): Constrain.
+	(_Tuple_impl(_UHead&&)): Likewise.
+	(_Tuple_impl(_Tuple_impl&&)): Suppress conditionally.
+	(_Tuple_impl(const _Tuple_impl<_Idx, _UHead>&)): Constrain.
+	(_Tuple_impl(_Tuple_impl<_Idx, _UHead>&&)): Likewise.
+	(operator=(const tuple&)): Enable conditionally.
+	(operator=(tuple&&)): Suppress conditionally.
+	(operator=(const tuple<_UElements...>&)): Constrain.
+	(operator=(tuple<_UElements...>&&)): Likewise.
+	(operator=(const tuple&)): Enable conditionally (2-param tuple).
+	(operator=(tuple&&)): Suppress conditionally (2-param tuple).
+	(operator=(const tuple<_U1, _U2>&)): Constrain.
+	(operator=(tuple<_U1, _U2>&&)): Likewise.
+	(operator=(const pair<_U1, _U2>&)): Likewise.
+	(operator=(pair<_U1, _U2>&&)): Likewise.
+	* testsuite/20_util/tuple/element_access/get_neg.cc: Adjust.
+	* testsuite/20_util/tuple/tuple_traits.cc: New.
+
 2016-09-30  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/77795

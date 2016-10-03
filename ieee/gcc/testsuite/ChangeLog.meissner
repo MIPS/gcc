@@ -1,5 +1,9 @@
 2016-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 240734.
+
+2016-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* gcc.target/powerpc/float128-type-1.c: New test to test that the
 	underlying float128 support is eabled on PowerPC 64-bit Linux
 	systems.
