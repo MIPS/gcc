@@ -1,3 +1,27 @@
+2016-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): If long
+	double defaults to IBM extended long double, define __ibm128 as
+	'long double'.  If the __float128 keyword is enabled and long
+	double defaults to IEEE 128-bit floating point, define __float128
+	to be 'long double'.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Move
+	setting long double size and whether long double defaults to IEEE
+	128-bit before the -mfloat128 tests.  Split -mfloat128 into two
+	options: -mfloat128-type to enable the underlying IEEE 128-bit
+	floating point support, and -mfloat128 that enables the __float128
+	and _Float128 keywords.  On PowerPC Linux systems, enable
+	-mfloat128-type by default if VSX is used.
+	(rs6000_init_builtins): Don't create a new type for __ibm128 if
+	long double is IBM extended double and register the __ibm128
+	keyword.  Don't create a new type for __float128 if long double is
+	IEEE 128-bit floating point or if _Float128 is supported.  Only
+	register __float128 if -mfloat128 and the long double type is IBM
+	extended double.
+	(rs6000_floatn_mode): Do not enable the 128-bit floating point
+	type unless the __float128 keyword is enabled.
+
 2016-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 240680.

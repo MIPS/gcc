@@ -4408,9 +4408,29 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  /* Set long double size before the IEEE 128-bit tests.  */
+  if (!global_options_set.x_rs6000_long_double_type_size)
+    {
+      if (main_target_opt != NULL
+	  && (main_target_opt->x_rs6000_long_double_type_size
+	      != RS6000_DEFAULT_LONG_DOUBLE_SIZE))
+	error ("target attribute or pragma changes long double size");
+      else
+	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+    }
+
+  /* Set -mabi=ieeelongdouble on some old targets.  Note, AIX and Darwin
+     explicitly redefine TARGET_IEEEQUAD to 0, so those systems will not
+     pick up this default.  */
+#if !defined (POWERPC_LINUX) && !defined (POWERPC_FREEBSD)
+  if (!global_options_set.x_rs6000_ieeequad)
+    rs6000_ieeequad = 1;
+#endif
+
   /* Enable the default support for IEEE 128-bit floating point on Linux VSX
      sytems, but don't enable the __float128 keyword.  */
-  if (TARGET_VSX && TARGET_FLOAT128_ENABLE_TYPE && TARGET_LONG_DOUBLE_128
+  if (TARGET_VSX && TARGET_LONG_DOUBLE_128
+      && (TARGET_FLOAT128_ENABLE_TYPE || TARGET_IEEEQUAD)
       && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_TYPE) == 0))
     rs6000_isa_flags |= OPTION_MASK_FLOAT128_TYPE;
 
@@ -4552,21 +4572,6 @@ rs6000_option_override_internal (bool global_init_p)
 	    }
 	}
     }
-
-  if (!global_options_set.x_rs6000_long_double_type_size)
-    {
-      if (main_target_opt != NULL
-	  && (main_target_opt->x_rs6000_long_double_type_size
-	      != RS6000_DEFAULT_LONG_DOUBLE_SIZE))
-	error ("target attribute or pragma changes long double size");
-      else
-	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
-    }
-
-#if !defined (POWERPC_LINUX) && !defined (POWERPC_FREEBSD)
-  if (!global_options_set.x_rs6000_ieeequad)
-    rs6000_ieeequad = 1;
-#endif
 
   /* Disable VSX and Altivec silently if the user switched cpus to power7 in a
      target attribute or pragma which automatically enables both options,
@@ -16565,8 +16570,12 @@ rs6000_init_builtins (void)
 
      If we don't support for either 128-bit IBM double double or IEEE 128-bit
      floating point, we need make sure the type is non-zero or else self-test
-     fails during bootstrap.  */
-  if (TARGET_LONG_DOUBLE_128)
+     fails during bootstrap.
+
+     We don't register a built-in type for __ibm128 or __float128 if the type
+     is the same as long double.  Instead we add a #define for __ibm128 or
+     __float128 in rs6000_cpu_cpp_builtins to long double.  */
+  if (TARGET_IEEEQUAD || !TARGET_LONG_DOUBLE_128)
     {
       ibm128_float_type_node = make_node (REAL_TYPE);
       TYPE_PRECISION (ibm128_float_type_node) = 128;
@@ -16579,14 +16588,25 @@ rs6000_init_builtins (void)
   else
     ibm128_float_type_node = long_double_type_node;
 
-  if (TARGET_FLOAT128_TYPE)
+  if (TARGET_FLOAT128_KEYWORD)
     {
       ieee128_float_type_node = float128_type_node;
-
-      if (TARGET_FLOAT128_KEYWORD)
+      if (!FLOAT128_IEEE_P (TFmode))
 	lang_hooks.types.register_builtin_type (ieee128_float_type_node,
 						"__float128");
     }
+
+  else if (TARGET_FLOAT128_TYPE)
+    {
+      ieee128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ibm128_float_type_node) = 128;
+      layout_type (ieee128_float_type_node);
+      SET_TYPE_MODE (ieee128_float_type_node, KFmode);
+
+      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					      "__ieee128");
+    }
+
   else
     ieee128_float_type_node = long_double_type_node;
 
@@ -36905,7 +36925,7 @@ rs6000_floatn_mode (int n, bool extended)
 	  return DFmode;
 
 	case 64:
-	  if (TARGET_FLOAT128_TYPE)
+	  if (TARGET_FLOAT128_KEYWORD)
 	    return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
 	  else
 	    return VOIDmode;
@@ -36929,7 +36949,7 @@ rs6000_floatn_mode (int n, bool extended)
 	  return DFmode;
 
 	case 128:
-	  if (TARGET_FLOAT128_TYPE)
+	  if (TARGET_FLOAT128_KEYWORD)
 	    return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
 	  else
 	    return VOIDmode;
