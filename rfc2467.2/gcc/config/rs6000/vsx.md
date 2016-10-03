@@ -332,10 +332,10 @@
    UNSPEC_VCLZLSBB
    UNSPEC_VCTZLSBB
    UNSPEC_VEXTUBLX
-   UNSPEC_VEXTUBRX
    UNSPEC_VEXTUHLX
-   UNSPEC_VEXTUHRX
    UNSPEC_VEXTUWLX
+   UNSPEC_VEXTUBRX
+   UNSPEC_VEXTUHRX
    UNSPEC_VEXTUWRX
    UNSPEC_VCMPNEB
    UNSPEC_VCMPNEZB
@@ -1519,54 +1519,6 @@
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "xvcmpeq<VSs>. %x0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")])
-
-;; Compare vectors producing a vector result and a predicate, setting CR6 to
-;; indicate a combined status.  This pattern matches v16qi, v8hi, and
-;; v4si.  It does not match v2df, v4sf, or v2di modes.  We don't
-;; need to handle v2di mode because v2di calls of the builtin-function
-;; are expanded into v4si instruction patterns.
-(define_insn "*vsx_ne_<mode>_p"
-  [(set (reg:CC 74)
-	(unspec:CC
-	 [(ne:CC (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
-		 (match_operand:VSX_EXTRACT_I 2 "gpc_reg_operand" "v"))]
-	 UNSPEC_PREDICATE))
-   (set (match_operand:VSX_EXTRACT_I 0 "gpc_reg_operand" "=v")
-	(ne:VSX_EXTRACT_I (match_dup 1)
-			  (match_dup 2)))]
-  "TARGET_P9_VECTOR"
-  "xvcmpne<VSX_EXTRACT_WIDTH>. %0,%1,%2"
-  [(set_attr "type" "vecsimple")])
-
-;; Handle the v4sf and v4df modes.
-(define_insn "*vsx_ne_<mode>_p"
-  [(set (reg:CC 74)
-	(unspec:CC
-	 [(ne:CC
-	   (match_operand:VSX_F 1 "gpc_reg_operand" "v")
-	   (match_operand:VSX_F 2 "gpc_reg_operand" "v"))]
-	 UNSPEC_PREDICATE))
-   (set (match_operand:VSX_F 0 "gpc_reg_operand" "=v")
-	(ne:VSX_F (match_dup 1)
-		  (match_dup 2)))]
-  "TARGET_P9_VECTOR"
-  "xvcmpne<VSs>. %0,%1,%2"
-  [(set_attr "type" "vecsimple")])
-
-(define_insn "*vector_nez_<mode>_p"
-  [(set (reg:CC 74)
-	(unspec:CC [(unspec:VI
-		     [(match_operand:VI 1 "gpc_reg_operand" "v")
-		      (match_operand:VI 2 "gpc_reg_operand" "v")]
-		     UNSPEC_NEZ_P)]
-	 UNSPEC_PREDICATE))
-   (set (match_operand:VI 0 "gpc_reg_operand" "=v")
-	(unspec:VI [(match_dup 1)
-		    (match_dup 2)]
-	 UNSPEC_NEZ_P))]
-  "TARGET_P9_VECTOR"
-  "vcmpnez<VSX_EXTRACT_WIDTH>. %0,%1,%2"
-  [(set_attr "type" "vecsimple")])
 
 (define_insn "*vsx_gt_<mode>_p"
   [(set (reg:CC 74)
@@ -3253,6 +3205,68 @@
 
 ;; ISA 3.0 String Operations (VSU) Support
 
+;; Compare vectors producing a vector result and a predicate, setting CR6 
+;; to indicate a combined status.  This pattern matches v16qi, v8hi, and
+;; v4si modes.  It does not match v2df, v4sf, or v2di modes.  There's no
+;; need to match the v2di mode because that is expanded into v4si.
+(define_insn "*vsx_ne_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC
+	 [(ne:CC (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
+		 (match_operand:VSX_EXTRACT_I 2 "gpc_reg_operand" "v"))]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:VSX_EXTRACT_I 0 "gpc_reg_operand" "=v")
+	(ne:VSX_EXTRACT_I (match_dup 1)
+			  (match_dup 2)))]
+  "TARGET_P9_VECTOR"
+  "xvcmpne<VSX_EXTRACT_WIDTH>. %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
+
+;; Compare vectors producing a vector result and a predicate, setting CR6 
+;; to indicate a combined status, for v4sf operands.
+;;(define_insn "*vsx_ne_v4sf_p"
+;;  [(set (reg:CC 74)
+;;	(unspec:CC [(ne:CC
+;;		     (match_operand:V4SF 1 "vsx_register_operand" "wa")
+;;		     (match_operand:V4SF 2 "vsx_register_operand" "wa"))]
+;;	 UNSPEC_PREDICATE))
+;;   (set (match_operand:V4SI 0 "vsx_register_operand" "=wa")
+;;	(ne:V4SI (match_dup 1)
+;;		 (match_dup 2)))]
+;;  "TARGET_P9_VECTOR"
+;;  "xvcmpnesp. %x0,%x1,%x2"
+;;  [(set_attr "type" "vecsimple")])
+
+;; Compare vectors producing a vector result and a predicate, setting CR6 
+;; to indicate a combined status, for v4sf and v2df operands.
+(define_insn "*vsx_ne_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(ne:CC
+		     (match_operand:VSX_F 1 "vsx_register_operand" "wa")
+		     (match_operand:VSX_F 2 "vsx_register_operand" "wa"))]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:<VSI> 0 "vsx_register_operand" "=wa")
+	(ne:<VSI> (match_dup 1)
+		  (match_dup 2)))]
+  "TARGET_P9_VECTOR"
+  "xvcmpnedp. %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")])
+
+(define_insn "*vector_nez_<mode>_p"
+  [(set (reg:CC 74)
+	(unspec:CC [(unspec:VI
+		     [(match_operand:VI 1 "gpc_reg_operand" "v")
+		      (match_operand:VI 2 "gpc_reg_operand" "v")]
+		     UNSPEC_NEZ_P)]
+	 UNSPEC_PREDICATE))
+   (set (match_operand:VI 0 "gpc_reg_operand" "=v")
+	(unspec:VI [(match_dup 1)
+		    (match_dup 2)]
+	 UNSPEC_NEZ_P))]
+  "TARGET_P9_VECTOR"
+  "vcmpnez<VSX_EXTRACT_WIDTH>. %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
+
 ;; Load VSX Vector with Length
 (define_expand "lxvl"
   [(set (match_dup 3)
@@ -3279,43 +3293,6 @@
    (set_attr "type" "vecload")])
 
 ;; Store VSX Vector with Length
-;;  (this takes 3 operands: a vector operand, an address, and a length
-;;  it also takes a target register, which is perhaps ignored?
-;; error says:
-;;   argument 2 is expected to be __vector(4) int,
-;;     but argument is of type signed char *
-;;
-;; from below, op[0] is vector
-;;             op[1] is pointer to memory location holding a v16qi
-;;             op[2] is long long, representing the number of bytes to xfer.
-;; so this error message is puzzling me.
-;; in terms of the type signature in rs6000-c.c (and I'm not sure which
-;; of many possible signature it would be working from), we have:
-;;  target_ VTI_void
-;;  op0: V2DF
-;;  op1: pointer to double
-;;  op2: long long
-;;
-;; there's another instruction that seems to be very similar to my stxvl 
-;; insn, it's known as the dst insn.  It also returns a void result.  And
-;; the overloaded signature description describes three operands (e.g. 
-;; ~RS6000_BTI_unsigned_V16QI, RS6000_BTI_INTSI, RS6000_BTI_INTSI), and
-;; the corresponding define_insn expects three operands, which it
-;; characterizes as (0) a register_operand "b" (a base register), (1)
-;; a register_operand "r" (any register), and (2) an
-;; immediate_operand "i".
-;; 
-;; What is a "base" register?  I'm not sure if this matters.
-;;
-
-;; this pattern is too complicated.  somehow, this is confusing the 
-;; system's automatic recognition of argument types for builtin functions.
-;; when processing this expansion, the infrastructure concludes that this
-;; builtin expects 4 arguments: V16QImode, DImode, DImode, and V16QImode.
-;;
-;; what i desire is for this function to be recognized as requring three
-;; arguments: V16QImode (the vector), DImode (the address), and DImode
-;; (the length).
 (define_expand "stxvl"
   [(set (match_dup 3)
 	(match_operand:DI 2 "register_operand" "r"))
@@ -3339,148 +3316,6 @@
   "sldi %2,%2\;stxvl %x0,%1,%2"
   [(set_attr "length" "8")
    (set_attr "type" "vecstore")])
-
-
-;; kelvin is fixing these patterns to use the style of previous
-;;   implementations of "altivec predicates" 
-;; kelvin now looking to trace the expansion and matching of the
-;;   vec_all_ne and vec_any_eqz instructions.
-;;
-;;
-;; In altivec.h
-;;  vec_all_ne(a,b) expands into __builtin_vec_vcmpeq_p (CR6_EQ, a, b)
-;;    (kelvin thinks this needs to expand into __builtin_vec_vmpne_p (...)
-;;
-;; See rs6000-builtin.def @ L1085
-;; BU_ALTIVEC_P (VCMPEQFP_P,     "vcmpeqfp_p",     CONST,  vector_eq_v4sf_p)
-;; BU_ALTIVEC_P (VCMPEQUW_P,     "vcmpequw_p",     CONST,  vector_eq_v4si_p)
-;; BU_ALTIVEC_P (VCMPEQUH_P,     "vcmpequh_p",     CONST,  vector_eq_v8hi_p)
-;; BU_ALTIVEC_P (VCMPEQUB_P,     "vcmpequb_p",     CONST,  vector_eq_v16qi_p)
-;; What about long and double?
-;; See rs6000-builtin.def @ L1607
-;; BU_VSX_P (XVCMPEQSP_P,        "xvcmpeqsp_p",    CONST,  vector_eq_v4sf_p)
-;; BU_VSX_P (XVCMPEQDP_P,        "xvcmpeqdp_p",    CONST,  vector_eq_v2df_p)
-;; And see rs6000-builtin.def @L1779
-;; BU_P8V_AV_P (VCMPEQUD_P,        "vcmpequd_p",   CONST,  vector_eq_v2di_p)
-;;
-;;  which expands (@ vector.md) as follows:
-;;  (define_expand "vector_eq_<mode>_p"
-;;    [(parallel
-;;      [(set (reg:CC 74)
-;;	      (unspec:CC [(eq:CC (match_operand:VEC_A 1 "vlogical_operand" "")
-;;			         (match_operand:VEC_A 2 "vlogical_operand" ""))]
-;;		         UNSPEC_PREDICATE))
-;;       (set (match_operand:VEC_A 0 "vlogical_operand" "")
-;;	      (eq:VEC_A (match_dup 1)
-;;		        (match_dup 2)))])]
-;;    "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
-;;    "")
-;;   (NOTE: I need to change the condition above)
-;;    where(define_mode_iterator VEC_A [V16QI V8HI V4SI V2DI V4SF V2DF])
-;;
-;; The expansion above is not complete because some special magic
-;; takes place during the expansion, as implemented in rs6000.c,
-;; altivec_expand_predicate_builtin().  Since the first argument to
-;; the invocation of __builtin_vec_vcmpeq_p is CR6_EQ, In particular,
-;; we emit the following additional code
-;;   (set (reg:SI 162)  <-- the target register
-;;        (eq:SI (reg:CC 74 6)
-;;               (const_int 0 [0])))
-;;	    
-;; And this is eventually matched by (@vsx.md):
-;;
-;;  (define_insn "*vsx_eq_<mode>_p"
-;;   [(set (reg:CC 74)
-;;	   (unspec:CC
-;; 	    [(eq:CC (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,?<VSa>")
-;;		    (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,?<VSa>"))]
-;;  	    UNSPEC_PREDICATE))
-;;   (set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?<VSa>")
-;;	(eq:VSX_F (match_dup 1)
-;;		  (match_dup 2)))]
-;;  "VECTOR_UNIT_VSX_P (<MODE>mode)"
-;;  "xvcmpeq<VSs>. %x0,%x1,%x2"
-;;  [(set_attr "type" "<VStype_simple>")])
-;;
-;;   This instruction sets CR6, bit 0 to true if all entries compared equal.
-;;   It sets CR6, bits 1 and 3 to 0.
-;;   It sets CR6, bit 2 to true if all entries compared not-equal.
-;;   Note that condition register bits are labeled as: 0 (negative
-;;   (lt)), 1 (positive (gt)), 2 (zero (eq)), 3 (summary overflow
-;;   (so)).
-;;
-;;   In vernacular of implementation:
-;;     eq flag set means all entries not equal
-;;     eq flag reversed means any entry equal
-;;     lt flag set means all entries equal
-;;     lt flag reversed means any entry not equal
-;;
-;; Since the above pattern only matches fp and dp floats, we need
-;; another pattern to integers.  We find the following in altivec.md:
-;;  (define_insn "*altivec_vcmpequ<VI_char>_p"
-;;    [(set (reg:CC 74)
-;;	    (unspec:CC [(eq:CC (match_operand:VI2 1 "register_operand" "v")
-;;			       (match_operand:VI2 2 "register_operand" "v"))]
-;;		       UNSPEC_PREDICATE))
-;;     (set (match_operand:VI2 0 "register_operand" "=v")
-;;	    (eq:VI2 (match_dup 1)
-;;		    (match_dup 2)))]
-;;      "<VI_unit>"
-;;    "vcmpequ<VI_char>. %0,%1,%2"
-;;    [(set_attr "type" "veccmpfx")])
-;;    
-;;   where (define_mode_iterator VI2 [V4SI V8HI V16QI V2DI]) and
-;;    (define_mode_attr VI_char [(V2DI "d") (V4SI "w") (V8HI "h") (V16QI "b")])
-;;
-;;   This instruction sets CR6, bit 0 to true if all entries compared equal.
-;;   It sets CR6, bits 1 and 3 to 0.
-;;   It sets CR6, bit 2 to true if all entries compared not-equal.
-;;   So this is the same behavior as seen above.
-;;
-;;  What about my new instruction: vcmpneb. (and friends)?
-;;  This sets CR6, bit 0 to true if all entries compared not equal
-;;  This sets CR6, bits 1 and 3 to 0.
-;;  This sets CR6, bit 2 to true if al entries compared equal
-;;
-;;   Note that condition register bits are labeled as: 0 (negative
-;;   (lt)), 1 (positive (gt)), 2 (zero (eq)), 3 (summary overflow
-;;   (so)).
-;;
-;;   In vernacular of implementation:
-;;     eq flag set means all entries equal
-;;     eq flag reversed means any entry not equal
-;;     lt flag set means all entries not equal
-;;     lt flag reversed means any entry equal
-;;
-;;  Here's the tricky equivalence.  
-;;   
-;;    [(set (reg:CC 74)
-;;	    (unspec:CC [(eq:CC (match_operand:VI2 1 "register_operand" "v")
-;;			       (match_operand:VI2 2 "register_operand" "v"))]
-;;	     UNSPEC_PREDICATE))
-;;     (set (match_operand:VI2 0 "register_operand" "=v")
-;;	    (eq:VSX_EXTRACT_I (match_dup 1)
-;;			      (match_dup 2)))]
-;;     (set (match_operand:SI 3 "register_operand" "r")
-;;	    (eq:SI (reg:CC 74 6)
-;;		   (const_int 0 [0])))
-;;
-;;  This means all entries not equal.  Another way to say this is:
-;;  
-;;    [(set (reg:CC 74)
-;;	    (unspec:CC [(ne:CC (match_operand:VI2 1 "register_operand" "v")
-;;			       (match_operand:VI2 2 "register_operand" "v"))]
-;;	     UNSPEC_PREDICATE))
-;;     (set (match_operand:VI2 0 "register_operand" "=v")
-;;	    (ne:VSX_EXTRACT_I (match_dup 1)
-;;			      (match_dup 2)))]
-;;     (set (match_operand:SI 3 "register_operand" "r")
-;;	    (lt:SI (reg:CC 74 6)
-;;		   (const_int 0 [0])))
-;;
-;;  But this equivalence only works if operand 0 is dead, or if the
-;;  outer scope really prefers to complement the contents of operand 0
-
 
 ;; Vector Compare Not Equal Byte
 (define_insn "vcmpneb"
@@ -3534,6 +3369,18 @@
   "vcmpnew %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
+;; Vector Compare Not Equal Float or Double
+;; VSs is sp or dp
+(define_insn "vcmpne<VSs>"
+  [(set (match_operand:<VSI> 0 "vsx_register_operand" "=wa")
+	(unspec:<VSI>
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+	  (match_operand:VSX_F 2 "vsx_register_operand" "wa")]
+	 UNSPEC_VCMPNEH))]
+  "TARGET_P9_VECTOR"
+  "xvcmpne<VSs> %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")])
+
 ;; Vector Compare Not Equal or Zero Word
 (define_insn "vcmpnezw"
   [(set (match_operand:V4SI 0 "altivec_register_operand" "=v")
@@ -3581,7 +3428,7 @@
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
 	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VEXTUBLX))]
+	 UNSPEC_VEXTUBRX))]
   "TARGET_P9_VECTOR"
   "vextubrx %0,%1,%2"
   [(set_attr "type" "vecsimple")])
@@ -3592,7 +3439,7 @@
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
 	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VEXTUBLX))]
+	 UNSPEC_VEXTUHLX))]
   "TARGET_P9_VECTOR"
   "vextuhlx %0,%1,%2"
   [(set_attr "type" "vecsimple")])
@@ -3603,7 +3450,7 @@
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
 	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VEXTUBLX))]
+	 UNSPEC_VEXTUHRX))]
   "TARGET_P9_VECTOR"
   "vextuhrx %0,%1,%2"
   [(set_attr "type" "vecsimple")])
@@ -3614,7 +3461,7 @@
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
 	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VEXTUBLX))]
+	 UNSPEC_VEXTUWLX))]
   "TARGET_P9_VECTOR"
   "vextuwlx %0,%1,%2"
   [(set_attr "type" "vecsimple")])
@@ -3625,7 +3472,7 @@
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
 	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
-	 UNSPEC_VEXTUBLX))]
+	 UNSPEC_VEXTUWRX))]
   "TARGET_P9_VECTOR"
   "vextuwrx %0,%1,%2"
   [(set_attr "type" "vecsimple")])

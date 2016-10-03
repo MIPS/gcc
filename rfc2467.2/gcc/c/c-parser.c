@@ -59,10 +59,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "context.h"
 #include "gcc-rich-location.h"
-#undef KELVIN_DEBUG
-#ifdef KELVIN_DEBUG
-#include "print-tree.h"
-#endif
 
 /* We need to walk over decls with incomplete struct/union/enum types
    after parsing the whole translation unit.
@@ -8375,12 +8371,6 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	    = c_build_function_call_vec (expr_loc, arg_loc, expr.value,
 					 exprlist, origtypes);
 	  set_c_expr_source_range (&expr, start, finish);
-#ifdef KELVIN_DEBUG
-	  fprintf (stderr, "in c_parser_postfix_expression_after_primary,"
-		   " after c_build_function_call_vec\n");
-	  fprintf (stderr, " expr.value is: ");
-	  debug_tree (expr.value);
-#endif
 	  expr.original_code = ERROR_MARK;
 	  if (TREE_CODE (expr.value) == INTEGER_CST
 	      && TREE_CODE (orig_expr.value) == FUNCTION_DECL

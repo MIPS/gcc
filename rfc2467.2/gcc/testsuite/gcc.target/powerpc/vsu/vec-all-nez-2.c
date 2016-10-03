@@ -6,7 +6,7 @@
 #include <altivec.h>
 
 int
-test_all_not_equal_and_not_zero (vector unsigned char *arg1_p, 
+test_all_not_equal_and_not_zero (vector unsigned char *arg1_p,
 				 vector unsigned char *arg2_p)
 {
   vector unsigned char arg_1 = *arg1_p;

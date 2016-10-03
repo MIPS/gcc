@@ -48,10 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
-#undef KELVIN_DEBUG
-#ifdef KELVIN_DEBUG
-#include "print-tree.h"
-#endif
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -2634,10 +2630,6 @@ expand_call (tree exp, rtx target, int ignore)
   /* The static chain value to use for this call.  */
   rtx static_chain_value;
   /* See if this is "nothrow" function call.  */
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "expand_call (), expr is: ");
-  debug_tree (exp);
-#endif
   if (TREE_NOTHROW (exp))
     flags |= ECF_NOTHROW;
 

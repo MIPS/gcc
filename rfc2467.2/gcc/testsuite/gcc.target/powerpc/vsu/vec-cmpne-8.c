@@ -5,14 +5,13 @@
 
 #include <altivec.h>
 
-int
-test_any_equal_or_zero (vector unsigned int *arg1_p,
-			vector unsigned int *arg2_p)
+vector bool int
+fetch_data (vector float *arg1_p, vector float *arg2_p)
 {
-  vector unsigned int arg_1 = *arg1_p;
-  vector unsigned int arg_2 = *arg2_p;
+  vector float arg_1 = *arg1_p;
+  vector float arg_2 = *arg2_p;
 
-  return vec_any_eqz (arg_1, arg_2);
+  return vec_cmpne (arg_1, arg_2);
 }
 
-/* { dg-final { scan-assembler "vcmpnezw." } } */
+/* { dg-final { scan-assembler "xvcmpnesp" } } */

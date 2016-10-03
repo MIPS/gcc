@@ -77,8 +77,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "hsa.h"
 
-#undef KELVIN_DEBUG
-
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
 #endif
@@ -462,18 +460,12 @@ compile_file (void)
 {
   timevar_start (TV_PHASE_PARSING);
   timevar_push (TV_PARSE_GLOBAL);
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "made it to compile_file, about to call parse_file\n");
-#endif
   /* Parse entire file and generate initial debug information.  */
   lang_hooks.parse_file ();
 
   timevar_pop (TV_PARSE_GLOBAL);
   timevar_stop (TV_PHASE_PARSING);
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "back from parsing\n");
-#endif
   if (flag_dump_locations)
     dump_location_info (stderr);
 
@@ -490,25 +482,13 @@ compile_file (void)
 
   ggc_protect_identifiers = false;
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "preparing to finalize_compilation_unit, in_lto_p is %d\n",
-	   in_lto_p);
-#endif
-
   /* Run the actual compilation process.  */
   if (!in_lto_p)
     {
-#ifdef KELVIN_DEBUG
-      fprintf (stderr, " ... inside the conditional code\n");
-#endif
       timevar_start (TV_PHASE_OPT_GEN);
       symtab->finalize_compilation_unit ();
       timevar_stop (TV_PHASE_OPT_GEN);
     }
-
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "back from finalize_compilation_unit\n");
-#endif
 
   /* Perform any post compilation-proper parser cleanups and
      processing.  This is currently only needed for the C++ parser,

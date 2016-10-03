@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "spellcheck-tree.h"
 #include "gcc-rich-location.h"
-#undef KELVIN_DEBUG
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -3145,10 +3144,6 @@ c_build_function_call_vec (location_t loc, vec<location_t> arg_loc,
 	 handle all the type checking.  The result is a complete expression
 	 that implements this function call.  */
       tree tem = resolve_overloaded_builtin (loc, function, params);
-#ifdef KELVIN_DEBUG
-      fprintf (stderr, "back from resolve_overloaded_builtin (), "
-	       "tem is%s NULL\n", tem? " not": "");
-#endif
       if (tem)
 	return tem;
     }

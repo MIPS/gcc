@@ -66,10 +66,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "case-cfn-macros.h"
 #include "gimple-fold.h"
 
-#undef KELVIN_DEBUG
-#ifdef KELVIN_DEBUG
-#include "print-tree.h"
-#endif
 
 struct target_builtins default_target_builtins;
 #if SWITCHABLE_TARGET
@@ -5800,10 +5796,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "made it to expand_builtin, exp is ");
-  debug_tree (exp);
-#endif
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.expand_builtin (exp, target, subtarget, mode, ignore);

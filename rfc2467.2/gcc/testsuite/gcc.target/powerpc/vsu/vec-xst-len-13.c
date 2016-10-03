@@ -10,10 +10,8 @@
 /* This test only runs on 32-bit configurations, where a compiler
    error should be issued because this built-in function is not
    available on 32-bit configurations. */
-
 void
-store_data (vector double *datap, souble *address, 
-	    size_t length)
+store_data (vector double *datap, souble *address, size_t length)
 {
   vector double data = *datap;
 

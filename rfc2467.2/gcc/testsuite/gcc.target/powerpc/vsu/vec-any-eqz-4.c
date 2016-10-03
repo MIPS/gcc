@@ -6,7 +6,7 @@
 #include <altivec.h>
 
 int
-test_any_equal_or_zero (vector unsigned short *arg1_p, 
+test_any_equal_or_zero (vector unsigned short *arg1_p,
 			vector unsigned short *arg2_p)
 {
   vector unsigned short arg_1 = *arg1_p;

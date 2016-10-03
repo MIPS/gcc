@@ -32,10 +32,7 @@
 #include "langhooks.h"
 #include "c/c-tree.h"
 
-#undef KELVIN_DEBUG
-#ifdef KELVIN_DEBUG
-#include "print-tree.h"
-#endif
+
 
 /* Handle the machine specific pragma longcall.  Its syntax is
 
@@ -3794,6 +3791,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_VCMPGT_P, VSX_BUILTIN_XVCMPGTDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
+
   { ALTIVEC_BUILTIN_VEC_VCMPEQ_P, ALTIVEC_BUILTIN_VCMPEQUB_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI, RS6000_BTI_unsigned_V16QI },
   { ALTIVEC_BUILTIN_VEC_VCMPEQ_P, ALTIVEC_BUILTIN_VCMPEQUB_P,
@@ -3856,6 +3854,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SF, RS6000_BTI_V4SF },
   { ALTIVEC_BUILTIN_VEC_VCMPEQ_P, VSX_BUILTIN_XVCMPEQDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
+
 
   /* cmpge is the same as cmpgt for all cases except floating point.
      There is further code to deal with this special case in
@@ -4381,61 +4380,49 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VSCEDPUO, P9V_BUILTIN_VSCEDPUO,
     RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
 
-  /* signed char: vec-xl-len-0.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V16QI, ~RS6000_BTI_INTQI,
     RS6000_BTI_unsigned_long_long, 0 },
-  /* unsigned char: vec-xl-len-1.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V16QI, ~RS6000_BTI_UINTQI,
     RS6000_BTI_unsigned_long_long, 0 },
 
-  /* signed int: vec-xl-len-2.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V4SI, ~RS6000_BTI_INTSI,
     RS6000_BTI_unsigned_long_long, 0 },
-  /* unsigned int: vec-xl-len-3.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V4SI, ~RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_long_long, 0 },
 
-  /* signed __int128: vec_xl-Len-4.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V1TI, ~RS6000_BTI_INTTI,
     RS6000_BTI_unsigned_long_long, 0 },
-  /* unsigned __int128: vec-xl-len-5.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V1TI, ~RS6000_BTI_UINTTI,
     RS6000_BTI_unsigned_long_long, 0 },
 
-  /* signed long long: vec-xl-len-6.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V2DI, ~RS6000_BTI_long_long,
     RS6000_BTI_unsigned_long_long, 0 },
-  /* unsigned long long: vec-xl-len-7.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V2DI, ~RS6000_BTI_unsigned_long_long,
     RS6000_BTI_unsigned_long_long, 0 },
 
-  /* signed short: vec-xl-len-8.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V8HI, ~RS6000_BTI_INTHI,
     RS6000_BTI_unsigned_long_long, 0 },
-  /* unsigned short: vec-xl-len-9.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_unsigned_V8HI, ~RS6000_BTI_UINTHI,
     RS6000_BTI_unsigned_long_long, 0 },
 
-  /* double: vec-xl-len-10.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V2DF, ~RS6000_BTI_double,
     RS6000_BTI_unsigned_long_long, 0 },
-  /* float: vec-xl-len-11.c passes */
   { P9V_BUILTIN_VEC_LXVL, P9V_BUILTIN_LXVL,
     RS6000_BTI_V4SF, ~RS6000_BTI_float,
     RS6000_BTI_unsigned_long_long, 0 },
-  /* at an appropriate future time, add support for the
-     RS6000_BTI_Float16 (exact name to be determined) type here */
+  /* At an appropriate future time, add support for the
+     RS6000_BTI_Float16 (exact name to be determined) type here.  */
 
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
     RS6000_BTI_void, RS6000_BTI_V16QI, ~RS6000_BTI_INTQI,
@@ -4478,8 +4465,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_STXVL, P9V_BUILTIN_STXVL,
     RS6000_BTI_void, RS6000_BTI_V4SF, ~RS6000_BTI_float,
     RS6000_BTI_unsigned_long_long },
-  /* at an appropriate future time, add support for the
-     RS6000_BTI_Float16 (exact name to be determined) type here */
+  /* At an appropriate future time, add support for the
+     RS6000_BTI_Float16 (exact name to be determined) type here.  */
 
   { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEB,
     RS6000_BTI_bool_V16QI, RS6000_BTI_bool_V16QI,
@@ -4511,28 +4498,12 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_bool_V4SI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
 
-    /* kelvin to copy this block for VCMPNE_P */
-  /* according to abi document, signatures should be:
-   *  int vec_all_ne (vector bool char, vector bool char);
-   *  int vec_all_ne (vector signed char, vector signed char);
-   *  int vec_all_ne (vector unsigned char, vector unsigned char);
-   *  int vec_all_ne (vector bool int, vector bool int);
-   *  int vec_all_ne (vector signed int, vector signed int);
-   *  int vec_all_ne (vector unsigned int, vector unsigned int);
-   *  int vec_all_ne (vector bool short, vector bool short);
-   *  int vec_all_ne (vector signed short, vector signed short);
-   *  int vec_all_ne (vector unsigned short, vector unsigned short);
-   *
-   * The following will require special trickery on Power9:
-   *  int vec_all_ne (vector bool long long, vector bool long long);
-   *  int vec_all_ne (vector signed long long, vector signed long long);
-   *  int vec_all_ne (vector unsigned long long, vector unsigned long long);
-   *  int vec_all_ne (vector pixel, vector pixel);
-   *  int vec_all_ne (vector float, vector float);
-   *  int vec_all_ne (vector double, vector double);
-   */
-  
-  /* following 2 entries deprecated */
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNEF,
+    RS6000_BTI_bool_V4SI, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
+  { ALTIVEC_BUILTIN_VEC_CMPNE, P9V_BUILTIN_CMPNED,
+    RS6000_BTI_bool_V2DI, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
+
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
     RS6000_BTI_unsigned_V16QI },
@@ -4542,7 +4513,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI,
     RS6000_BTI_unsigned_V16QI },
-  /* following 2 entries deprecated */
+
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEB_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
     RS6000_BTI_V16QI },
@@ -4555,7 +4527,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V16QI,
     RS6000_BTI_bool_V16QI },
 
-  /* following 2 entries deprecated */
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
     RS6000_BTI_unsigned_V8HI },
@@ -4567,7 +4539,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V8HI },
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V8HI, RS6000_BTI_V8HI },
-  /* following 2 entries deprecated */
+
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEH_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V8HI,
     RS6000_BTI_V8HI },
@@ -4581,7 +4554,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_pixel_V8HI,
     RS6000_BTI_pixel_V8HI },
 
-  /* following 2 entries deprecated */
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
     RS6000_BTI_unsigned_V4SI },
@@ -4591,7 +4564,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI },
-  /* following 2 entries deprecated */
+
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
     RS6000_BTI_V4SI }, 
@@ -4604,7 +4578,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
     RS6000_BTI_bool_V4SI },
 
-  /* following 2 entries deprecated */
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V2DI,
     RS6000_BTI_unsigned_V2DI }, 
@@ -4614,7 +4588,8 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V2DI, 
     RS6000_BTI_unsigned_V2DI },
-  /* following 2 entries deprecated */
+
+  /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V2DI,
     RS6000_BTI_V2DI }, 
@@ -4671,57 +4646,63 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_bool_V4SI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
 
-  { P9V_BUILTIN_VEC_VCLZLSBB, P9V_BUILTIN_VCLZLSBB, 
+  { P9V_BUILTIN_VEC_VCLZLSBB, P9V_BUILTIN_VCLZLSBB,
     RS6000_BTI_INTSI, RS6000_BTI_V16QI, 0, 0 },
-  { P9V_BUILTIN_VEC_VCLZLSBB, P9V_BUILTIN_VCLZLSBB, 
+  { P9V_BUILTIN_VEC_VCLZLSBB, P9V_BUILTIN_VCLZLSBB,
     RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI, 0, 0 },
 
-  { P9V_BUILTIN_VEC_VCTZLSBB, P9V_BUILTIN_VCTZLSBB, 
+  { P9V_BUILTIN_VEC_VCTZLSBB, P9V_BUILTIN_VCTZLSBB,
     RS6000_BTI_INTSI, RS6000_BTI_V16QI, 0, 0 },
-  { P9V_BUILTIN_VEC_VCTZLSBB, P9V_BUILTIN_VCTZLSBB, 
+  { P9V_BUILTIN_VEC_VCTZLSBB, P9V_BUILTIN_VCTZLSBB,
     RS6000_BTI_INTSI, RS6000_BTI_unsigned_V16QI, 0, 0 },
 
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUBLX,
-    RS6000_BTI_INTQI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_INTQI, RS6000_BTI_UINTSI,
     RS6000_BTI_V16QI, 0 },
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUBLX,
-    RS6000_BTI_UINTQI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_UINTQI, RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_V16QI, 0 },
 
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUHLX,
-    RS6000_BTI_INTHI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_INTHI, RS6000_BTI_UINTSI,
     RS6000_BTI_V8HI, 0 },
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUHLX,
-    RS6000_BTI_UINTHI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_UINTHI, RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_V8HI, 0 },
 
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUWLX,
-    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI,
     RS6000_BTI_V4SI, 0 },
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUWLX,
     RS6000_BTI_UINTSI, RS6000_BTI_UINTSI, 
     RS6000_BTI_unsigned_V4SI, 0 },
+  { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUWLX,
+    RS6000_BTI_float, RS6000_BTI_UINTSI,
+    RS6000_BTI_V4SF, 0 },
 
   { P9V_BUILTIN_VEC_VEXTURX, P9V_BUILTIN_VEXTUBRX,
-    RS6000_BTI_INTQI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_INTQI, RS6000_BTI_UINTSI,
     RS6000_BTI_V16QI, 0 },
   { P9V_BUILTIN_VEC_VEXTURX, P9V_BUILTIN_VEXTUBRX,
-    RS6000_BTI_UINTQI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_UINTQI, RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_V16QI, 0 },
 
   { P9V_BUILTIN_VEC_VEXTURX, P9V_BUILTIN_VEXTUHRX,
-    RS6000_BTI_INTHI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_INTHI, RS6000_BTI_UINTSI,
     RS6000_BTI_V8HI, 0 },
   { P9V_BUILTIN_VEC_VEXTURX, P9V_BUILTIN_VEXTUHRX,
-    RS6000_BTI_UINTHI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_UINTHI, RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_V8HI, 0 },
 
   { P9V_BUILTIN_VEC_VEXTURX, P9V_BUILTIN_VEXTUWRX,
-    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI,
     RS6000_BTI_V4SI, 0 },
   { P9V_BUILTIN_VEC_VEXTURX, P9V_BUILTIN_VEXTUWRX,
-    RS6000_BTI_UINTSI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_UINTSI, RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_V4SI, 0 },
+  { P9V_BUILTIN_VEC_VEXTURX, P9V_BUILTIN_VEXTUWRX,
+    RS6000_BTI_float, RS6000_BTI_UINTSI,
+    RS6000_BTI_V4SF, 0 },
 
   { P8V_BUILTIN_VEC_VGBBD, P8V_BUILTIN_VGBBD,
     RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0, 0 },
@@ -5075,43 +5056,6 @@ altivec_build_resolved_builtin (tree *args, int n,
   tree arg_type[3];
   tree call;
 
-#ifdef KELVIN_DEBUG
-  /*
-   * so desc represents one variation of the overloaded P9V_BUILTIN_VEC_STXVL
-   * function.  When we look up the "overloaded" code, we see what the 
-   * corresponding define_expand or define_insn is expecting
-   *
-   * So i want to get a better understanding of impl_fndecl.
-   */
-  fprintf (stderr, "altivec_build_resolved_builtin, n is %d\n", n);
-
-  /* my overloaded_code is 922 */
-  fprintf (stderr, "impl_fndecl is: ");
-  debug_tree (impl_fndecl);
-
-  fprintf (stderr, "P9V_BUILTIN_VEC_STXVL (the generic) is %d\n",
-	   P9V_BUILTIN_VEC_STXVL);
-
-  fprintf (stderr, "P9V_BUILTIN_STXVL (the primitive) is %d\n",
-	   P9V_BUILTIN_STXVL);
-
-  fprintf (stderr, "desc->code: %d, desc->overloaded_code: %d\n", 
-	   desc->code, desc->overloaded_code);
-  fprintf (stderr, "ret_type: %d\n", desc->ret_type);
-  fprintf (stderr, "op1: %d, op2: %d, op3: %d\n", 
-	   desc->op1, desc->op2, desc->op3);
-  /*
-  if (n >= 1) {
-    fprintf (stderr, "args[0] is: "); debug_tree (args[0]);
-  }
-  if (n >= 2) {
-    fprintf (stderr, "args[1] is: "); debug_tree (args[1]);
-  }
-  if (n >= 3) {
-    fprintf (stderr, "args[2] is: "); debug_tree (args[2]);
-  }
-  */
-#endif
   int i;
   for (i = 0; i < n; i++)
     arg_type[i] = TREE_VALUE (argtypes), argtypes = TREE_CHAIN (argtypes);
@@ -5138,17 +5082,6 @@ altivec_build_resolved_builtin (tree *args, int n,
 			     build_int_cst (NULL_TREE, 2));
     }
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "fold-converting for %d arguments\n", n);
-  for (int j = 0; j < n; j++) {
-    fprintf (stderr, "\n");
-    fprintf (stderr, "type[%d]: ", j);
-    debug_tree (arg_type[j]);
-    fprintf (stderr, "arg: ");
-    debug_tree (args[j]);
-  }
-#endif
-
   switch (n)
     {
     case 0:
@@ -5172,13 +5105,6 @@ altivec_build_resolved_builtin (tree *args, int n,
     default:
       gcc_unreachable ();
     }
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "At bottom of function, call is\n");
-  debug_tree (call);
-  tree result = fold_convert (ret_type, call);
-  fprintf (stderr, "After fold_convert, result is\n");
-  debug_tree (result);
-#endif
   return fold_convert (ret_type, call);
 }
 
@@ -5198,15 +5124,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   const struct altivec_builtin_types *desc;
   unsigned int n;
 
-#ifdef KELVIN_DEBUG
-
-  /* my problem is coming from $GCC_SRC/gcc/c-family/c-common.c,
-   *  resolve_overloaded_builtin (), line 11485, but that function
-   *  is gettings its "tree function" argument passed in from
-   */
-  fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
-	   (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-#endif
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
 
@@ -5276,7 +5193,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	}
     }
 
-  if (fcode == ALTIVEC_BUILTIN_VEC_CMPNE) 
+  if (fcode == ALTIVEC_BUILTIN_VEC_CMPNE)
     {
       /* vec_cmpne needs to be special cased because there are no instructions
 	 for it (prior to power 9).  */
@@ -5292,15 +5209,10 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       tree arg1_type = TREE_TYPE (arg1);
 
       /* Power9 instructions provide the most efficient implementation of
-       * ALTIVEC_BUILTIN_VEC_CMPNE If the argument types are V16QI, V8HI,
-       * or V4SI.  However, the Power9 instructions do not support
-       * RS6000_BTI_V4SF, RS6000_BTI_V2DF, RS6000_BTI_bool_V2DI,
-       * RS6000_BTI_unsigned_V2DI, or RS6000_BTI_V2DI types.  */
+	 ALTIVEC_BUILTIN_VEC_CMPNE if the mode is not DImode or TImode.  */
       if (!TARGET_P9_VECTOR 
 	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == DImode)
-	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == TImode)
-	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == SFmode)
-	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == DFmode))
+	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == TImode))
 	{
 	  /* Both arguments must be vectors and the types must match.  */
 	  if (arg0_type != arg1_type)
@@ -5899,9 +5811,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	       desc->code && desc->code != fcode; desc++)
 	    continue;
 
-#ifdef KELVIN_DEBUG
-	  fprintf (stderr, "1: found desc, code is %d\n", desc->code);
-#endif	  
 	  for (; desc->code == fcode; desc++)
 	    if (rs6000_builtin_type_compatible (TREE_TYPE (arg0), desc->op1)
 		&& (rs6000_builtin_type_compatible (TREE_TYPE (arg1),
@@ -5920,10 +5829,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 		  ret_type = build_pointer_type (ret_type);
 		aligned = build1 (NOP_EXPR, ret_type, aligned);
 		tree ret_val = build_indirect_ref (loc, aligned, RO_NULL);
-#ifdef KELVIN_DEBUG
-		fprintf (stderr, "returning tree\n");
-		debug_tree (ret_val);
-#endif
 		return ret_val;
 	      }
 	}
@@ -5967,9 +5872,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	       desc->code && desc->code != fcode; desc++)
 	    continue;
 
-#ifdef KELVIN_DEBUG
-	  fprintf (stderr, "2: found desc, code is %d\n", desc->code);
-#endif
 	  for (; desc->code == fcode; desc++)
 	    if (rs6000_builtin_type_compatible (TREE_TYPE (arg0), desc->op1)
 		&& rs6000_builtin_type_compatible (TREE_TYPE (arg1), desc->op2)
@@ -5991,23 +5893,10 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 		tree stg = build_indirect_ref (loc, aligned, RO_NULL);
 		tree retval = build2 (MODIFY_EXPR, TREE_TYPE (stg), stg,
 				      convert (TREE_TYPE (stg), arg0));
-#ifdef KELVIN_DEBUG
-		fprintf (stderr, "returning tree\n");
-		debug_tree (retval);
-#endif
 		return retval;
 	      }
 	}
     }
-
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "I think I'm through all the special cases, nargs: %d\n",
-	   nargs);
-  /* this all checks out ok
-   * fprintf (stderr, " at top of loop fnargs: ");
-   * debug_tree (fnargs);
-   */
-#endif
 
   for (n = 0;
        !VOID_TYPE_P (TREE_VALUE (fnargs)) && n < nargs;
@@ -6054,32 +5943,9 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  arg = fold_convert (type, arg);
 	}
 
-#ifdef KELVIN_DEBUG
-      /* this is also checking out ok
-       * fprintf (stderr, "arg[%d]: ", n);
-       * debug_tree (arg);
-       */
-      /* let's not print this for now, because the type information is
-       * already provided in debug_tree (arg) above.
-       *
-      fprintf (stderr, "type is \n");
-      debug_tree (type);
-      */
-#endif
       args[n] = arg;
       types[n] = type;
     }
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "Preprocessed all of the arguments: %d\n", n);
-  /*
-   * this fnargs stuff is really not so helpful.  i can't find any 
-   * useful information in it, so i'll remove it.
-   *  fprintf (stderr, "fnargs is ");
-   *  debug_tree (fnargs);
-   */
-  fprintf (stderr, " is it VOID_TYPE? %s\n",
-	   VOID_TYPE_P (TREE_VALUE (fnargs))? "yes": "no");
-#endif
 
   /* If the number of arguments did not match the prototype, return NULL
      and the generic code will issue the appropriate error message.  */
@@ -6102,29 +5968,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
     for (desc = altivec_overloaded_builtins;
 	 desc->code && desc->code != fcode; desc++)
       continue;
-
-#ifdef KELVIN_DEBUG
-    fprintf (stderr, "3: find desc, code is %d\n", desc->code);
-    fprintf (stderr, "  fcode is %d\n", fcode);
-    fprintf (stderr, " P9V_BUILTIN_VEC_STXVL is %d\n",
-	     P9V_BUILTIN_VEC_STXVL);
-    fprintf (stderr, " P9V_BUILTIN_STXVL is %d\n", P9V_BUILTIN_STXVL);
-    fprintf (stderr, " RS6000_BTI_unsigned_long_long is %d\n", 
-             RS6000_BTI_unsigned_long_long);
-    fprintf (stderr, " RS6000_BTI_unsigned_V2DI is %d\n", 
-             RS6000_BTI_unsigned_V2DI);
-#endif
-
+    
     /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
        the opX fields.  */
     for (; desc->code == fcode; desc++)
       {
-#ifdef KELVIN_DEBUG
-	fprintf (stderr, "consider match against op1: %d, op2: %d, opt3: %d\n",
-		 desc->op1, desc->op2, desc->op3);
-	fprintf (stderr, "desc->overloaded_code is %d\n", 
-                 desc->overloaded_code);
-#endif
 	if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
 	     || rs6000_builtin_type_compatible (types[0], desc->op1))
 	    && (desc->op2 == RS6000_BTI_NOT_OPAQUE
@@ -6132,20 +5980,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    && (desc->op3 == RS6000_BTI_NOT_OPAQUE
 		|| rs6000_builtin_type_compatible (types[2], desc->op3)))
 	  {
-#ifdef KELVIN_DEBUG
-	    fprintf (stderr, "found type match, decls[%d] is 0x%lx\n",
-		     desc->overloaded_code, 
-                     ((unsigned long int) 
-                      rs6000_builtin_decls[desc->overloaded_code]));
-
-	    /* I'm having a "problem" with the third argument to desc.
-	     * It seems this argument is already "wrong", because it
-	     * seems the description of argument types is corrupted.
-	     *
-	     * maybe i'm wrong. i just printed out desc->op1, op2, and
-	     * op3 and they are all ok.
-	     */
-#endif
 	    if (rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
 	      return altivec_build_resolved_builtin (args, n, desc);
 	    else

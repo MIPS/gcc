@@ -80,12 +80,6 @@
 #define TARGET_NO_PROTOTYPE 0
 #endif
 
-#undef KELVIN_DEBUG
-#ifdef KELVIN_DEBUG
-#include "print-tree.h"
-#endif
-
-
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
 
@@ -13127,16 +13121,6 @@ def_builtin (const char *name, tree type, enum rs6000_builtins code)
   unsigned classify = rs6000_builtin_info[(int)code].attr;
   const char *attr_string = "";
 
-#ifdef KELVIN_DEBUG
-  /* if we make noise inside this function, the dg test infrastructure
-   * will think there was an error message, and will conclude that 
-   * certain capabilities are UNSUPPORTED.
-   */
-  /*
-  fprintf (stderr, "def_builtin( %s, code = %d)\n  type: ", name, (int) code);
-  debug_tree (type);
-  */
-#endif
   gcc_assert (name != NULL);
   gcc_assert (IN_RANGE ((int)code, 0, (int)RS6000_BUILTIN_COUNT));
 
@@ -13889,11 +13873,12 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
     op1 = copy_to_mode_reg (mode1, op1);
 
   scratch = gen_reg_rtx (mode0);
+
   pat = GEN_FCN (icode) (scratch, op0, op1);
   if (! pat)
     return 0;
   emit_insn (pat);
-  
+
   /* The vec_any* and vec_all* predicates use the same opcodes for two
      different operations, but the bits in CR6 will be different
      depending on what information we want.  So we have to play tricks
@@ -13920,6 +13905,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
       error ("argument 1 of __builtin_altivec_predicate is out of range");
       break;
     }
+
   return target;
 }
 
@@ -14234,12 +14220,6 @@ altivec_expand_stxvl_builtin (enum insn_code icode, tree exp)
   machine_mode mode0 = insn_data[icode].operand[0].mode;
   machine_mode mode1 = insn_data[icode].operand[1].mode;
   machine_mode mode2 = insn_data[icode].operand[2].mode;
-
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "altivec_expand_stxvl_builtin (%d)\n", icode);
-  fprintf (stderr, " exp: ");
-  debug_tree (exp);
-#endif
 
   if (icode == CODE_FOR_nothing)
     /* Builtin not supported on this processor.  */
@@ -14589,11 +14569,6 @@ static rtx
 cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
 		    rtx target)
 {
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "made it to cpu_expand_builtin with fcode: %d, exp: ",
-	   fcode);
-  debug_tree (exp);
-#endif
   /* __builtin_cpu_init () is a nop, so expand to nothing.  */
   if (fcode == RS6000_BUILTIN_CPU_INIT)
     return const0_rtx;
@@ -15163,10 +15138,6 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   enum rs6000_builtins fcode
     = (enum rs6000_builtins) DECL_FUNCTION_CODE (fndecl);
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "made it to altivec_expand_builtin, exp is: ");
-  debug_tree (exp);
-#endif
   if (rs6000_overloaded_builtin_p (fcode))
     {
       *expandedp = true;
@@ -15189,9 +15160,6 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
     return target;
 
   *expandedp = true;
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, " doing the expansion, fcode is: %d\n", fcode);
-#endif
 
   switch (fcode)
     {
@@ -15238,7 +15206,6 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       return altivec_expand_stv_builtin (CODE_FOR_altivec_stvrxl, exp);
 
     case P9V_BUILTIN_STXVL:
-      /* kelvin under construction */
       return altivec_expand_stxvl_builtin (CODE_FOR_stxvl, exp);
 
     case VSX_BUILTIN_STXVD2X_V1TI:
@@ -15390,27 +15357,17 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
       /* Fall through.  */
     }
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, " none of the first cases matched\n");
-#endif
-
   /* Expand abs* operations.  */
   d = bdesc_abs;
   for (i = 0; i < ARRAY_SIZE (bdesc_abs); i++, d++)
     if (d->code == fcode)
       return altivec_expand_abs_builtin (d->icode, exp, target);
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, " trying to expand an altivec predicate\n");
-#endif
   /* Expand the AltiVec predicates.  */
   d = bdesc_altivec_preds;
   for (i = 0; i < ARRAY_SIZE (bdesc_altivec_preds); i++, d++)
     if (d->code == fcode)
       return altivec_expand_predicate_builtin (d->icode, exp, target);
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, " but didn't find an altivec predicate\n");
-#endif
 
   /* LV* are funky.  We initialized them differently.  */
   switch (fcode)
@@ -16079,14 +16036,6 @@ rs6000_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 #endif
 }
 
-
-#ifdef KELVIN_DEBUG
-void kelvin_breakpoint ()
-{
-  fprintf (stderr, "made it to kelvin_breakpoint\n");
-}
-#endif
-
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -16109,12 +16058,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   HOST_WIDE_INT mask = rs6000_builtin_info[uns_fcode].mask;
   bool func_valid_p = ((rs6000_builtin_mask & mask) == mask);
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "made it to rs6000_expand_builtin, exp is: ");
-  debug_tree (exp);
-
-  kelvin_breakpoint ();
-#endif
   if (TARGET_DEBUG_BUILTIN)
     {
       enum insn_code icode = rs6000_builtin_info[uns_fcode].icode;
@@ -16992,7 +16935,7 @@ altivec_init_builtins (void)
 
   tree void_ftype_v16qi_pvoid_long
     = build_function_type_list (void_type_node,
-				V16QI_type_node, pvoid_type_node, 
+				V16QI_type_node, pvoid_type_node,
 				long_integer_type_node, NULL_TREE);
 
   tree void_ftype_v8hi_long_pvoid
@@ -17233,18 +17176,6 @@ altivec_init_builtins (void)
   def_builtin ("__builtin_vec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRX);
   def_builtin ("__builtin_vec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRXL);
 
-  /* kelvin under construction: 2 issues;
-   *   How do i get the CODE_FOR_stxvl bound in?
-   *  and
-   *   make sure that there exists the type void_ftype_v16qi_pvoid_long
-   *
-   * Maybe this is why we have a special expand to accompany each
-   * special def_builtin, so that I can keep track of the CODE_for
-   * expansions? 
-   */
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "About to define my new __builtin_altivec_stxvl\n");
-#endif
   def_builtin ("__builtin_altivec_stxvl", void_ftype_v16qi_pvoid_long, 
 	       P9V_BUILTIN_STXVL);
 
@@ -17828,10 +17759,6 @@ rs6000_common_init_builtins (void)
 
       if (rs6000_overloaded_builtin_p (d->code))
 	{
-#ifdef KELVIN_DEBUG
-	  fprintf (stderr, 
-		   "Processing overloaded_builtin, type is, well, opaque\n");
-#endif
 	  if (! (type = opaque_ftype_opaque_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque_opaque
 	      = build_function_type_list (opaque_V4SI_type_node,
@@ -17860,25 +17787,6 @@ rs6000_common_init_builtins (void)
 
 	      continue;
 	    }
-#ifdef KELVIN_DEBUG
-	  fprintf (stderr, "SImode is %d\n", SImode);
-	  fprintf (stderr, "DImode is %d\n", DImode);
-	  fprintf (stderr, "V1TImode is %d\n", V1TImode);
-	  fprintf (stderr, "V16QImode is %d\n", V16QImode);
-	  fprintf (stderr, "QImode is %d\n", QImode);
-
-	  fprintf (stderr, 
-		   "building type for built-in function %s (%d), icode: %d\n",
-		   d->name, d->code, d->icode);
-	  fprintf (stderr, " operand[0].mode: %d\n", 
-		   insn_data[icode].operand[0].mode);
-	  fprintf (stderr, " operand[1].mode: %d\n", 
-		   insn_data[icode].operand[1].mode);
-	  fprintf (stderr, " operand[2].mode: %d\n", 
-		   insn_data[icode].operand[2].mode);
-	  fprintf (stderr, " operand[3].mode: %d\n", 
-		   insn_data[icode].operand[3].mode);
-#endif
 	  type = builtin_function_type (insn_data[icode].operand[0].mode,
 					insn_data[icode].operand[1].mode,
 					insn_data[icode].operand[2].mode,
@@ -17886,27 +17794,6 @@ rs6000_common_init_builtins (void)
 					d->code, d->name);
 	}
 
-#ifdef KELVIN_DEBUG
-      /* first time through, __builtin_vsx_stxvl has modes 53, 10, 10, 53
-       *  aka V16QImode, DImode, DImode, V16QImode
-       *  2 DIModes make sense, because we have an address and a length.
-       *  2 V16QImode might make sense: Operand 0 is V16QImode. (the
-       *    vector to be stored.
-       *  where is operand[3] coming from?
-       *    i think this is simply a "dangling pointer".  The
-       *  define_expand only introduces three types, but calling it a
-       *  ternary operator causes the infrastructure to believe there
-       *  are four types, so we are reaching beyond the end of the
-       *  supplied type array to obtain operand[3].
-       *
-       * As recently revised, __builtin_altivec_stxvl is no longer 
-       * defined from here.  It is special-cased above.
-       */
-      fprintf (stderr, "Defining ternary built-in %s for code %d\n", 
-	       d->name, d->code);
-      fprintf (stderr, "Type is ");
-      debug_tree (type);
-#endif
       def_builtin (d->name, type, d->code);
     }
 

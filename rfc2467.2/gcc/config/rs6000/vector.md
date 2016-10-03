@@ -685,10 +685,8 @@
   "")
 
 ;; This expansion handles the V16QI, V8HI, and V4SI modes in the
-;; implementation of the vec_all_ne and vec_any_eq built-in functions.
-;;
-;; The following vector_ne_<mode>_p expansions are used in the
-;; implementations of vec_all_ne and vec_any_eq on Power9.
+;; implementation of the vec_all_ne and vec_any_eq built-in functions
+;; on Power9.
 (define_expand "vector_ne_<mode>_p"
   [(parallel
     [(set (reg:CC 74)
@@ -702,10 +700,8 @@
   "")
 
 ;; This expansion handles the V16QI, V8HI, and V4SI modes in the
-;; implementation of the vec_all_nez and vec_any_eqz built-in functions.
-;;
-;; The following vector_nez_<mode>_p expansions are used in the
-;; implementations of vec_all_nez and vec_any_eqz on Power9.
+;; implementation of the vec_all_nez and vec_any_eqz built-in
+;; functions on Power9.
 (define_expand "vector_nez_<mode>_p"
   [(parallel
     [(set (reg:CC 74)
@@ -722,15 +718,14 @@
   "")
 
 ;; This expansion handles the V4DI mode in the implementation of the
-;; vec_all_ne and vec_any_eq built-in function.
+;; vec_all_ne and vec_any_eq built-in function on Power9.
 ;;
 ;; Since the "xvcmpne<mode>." instruction does not support DImode,
 ;; we'll use a V4SI comparison, which will set the values of the CR6
 ;; flags to be the same as if we had performed a DImode comparison.
-;;
-;; Note that the value stored into the scratch
-;; register represented by operand 0 is a V4SI boolean vector
-;; representing the inequality of two V4SI operands. 
+;; (All of the entries in a V2DI vector are not equal iff all of the
+;; entries in the same vector, interpeted as V4SI are not equal, and
+;; likewise in the test for "any equal".)
 (define_expand "vector_ne_v2di_p"
   [(parallel
     [(set (reg:CC 74)
@@ -743,7 +738,7 @@
   "TARGET_P9_VECTOR"
   "")
 
-;; This expansion handles the V4SF and V2DF modes in the
+;; This expansion handles the V4SF and V2DF modes in the Power9
 ;; implementation of the vec_all_ne and vec_any_eq built-in
 ;; functions. 
 (define_expand "vector_ne_<mode>_p"
@@ -757,77 +752,6 @@
 		   (match_dup 2)))])]
   "TARGET_P9_VECTOR"
   "")
-
-;;
-;;What are the equivalencies?
-;;
-;; vcmpequb sets CR6.bit[0] if all eq, sets CR6.bit[2] if all ne
-;;  bit[0] is aka lt, bit[2] is aka eq.
-;;  aside: bit[1] is aka gt, 
-;;   bit[3] is aka SO (summary overflow) or FU (floating unordered)
-;;
-;;  vec_all_eq		vcmpeq_p (__CR6_LT, ...)
-;;  vec_all_ne		vcmpeq_p (__CR6_EQ, ...)
-;;  vec_any_eq		vcmpeq_p (__CR6_EQ_REV, ...)
-;;  vec_any_ne		vcmpeq_p (__CR6_LT_REV, ...)
-;;
-;; alternatively, i could do
-;;
-;; vcmpneb. sets lt bit if all ne, sets eq bit if all eq.
-;;
-;;  vec_all_eq		vcmpne_p (__CR6_EQ, ...)
-;;  vec_all_ne		vcmpne_p (__CR6_LT, ...)
-;;  vec_any_eq		vcmpne_p (__CR6_LT_REV, ...)
-;;  vec_any_ne		vcmpne_p (__CR6_EQ_REV, ...)
-;;
-;; but this only works for qi, hi, and si.  for other types (di, sp,
-;; dp), i need to use the original translation.  
-;;
-;; ok.  here's the plan.
-;;
-;; on power9, i'll translate
-;;  vec_all_ne		vcmpne_p (__CR6_LT, ...)
-;;  vec_any_eq		vcmpne_p (__CR6_LT_REV, ...)
-;;  
-;; Then i'll (define_expand differently for DI, SP, and DP.  and i'll
-;; make sure that I have patterns to emit the appropriate insns for
-;; each possible expansion.  
-;;
-;; so i'll ultimately have a pattern that says
-;; (define_expand "vector_neq_<mode>_p"
-;;  [(parallel
-;;     [(set (reg:CC 74)
-;;	     (unspec:CC [(ne:CC (match_operand:VEC_A 1 "vlogical_operand" "")
-;; 			        (match_operand:VEC_A 2 "vlogical_operand" ""))]
-;; 	      UNSPEC_PREDICATE))
-;;      (set (match_operand:VEC_A 0 "vlogical_operand" "")
-;;	     (ne:VEC_A (match_dup 1)
-;;		       (match_dup 2)))])]
-;;
-;;  for dp, we emit xvcmpnedp.
-;;  for sp, we emit xvcmpnesp.
-;;  (but what about di mode?)  don't have it, even though we do have 
-;;   vector compare equal di.
-;;  for ne, i can compare si first.  then
-;;    1010 => 0000
-;;    0101 => 0000
-;;    0011 => 0011
-;;    1100 => 1100
-;;    1111 => 1111
-;;    0000 => 0000
-;;    0001 => 0000
-;;    0100 => 0000
-;;
-;;    test for equality with 11 to map the data contents
-;;
-;;    all_equal for type di is the same as all_equal for si
-;;    all_not_equal for type di is the same as all_not_equal for si
-;;
-;; now the only remaining question is whether it even matters to fix
-;; the equality results.  If i emit the insn to "correctly" compute
-;; the result, but the result isn't needed, won't the optimizer be
-;; "smart enough" to delete that insn?
-;;   
 
 (define_expand "vector_gt_<mode>_p"
   [(parallel
@@ -868,8 +792,8 @@
 ;; AltiVec/VSX predicates.
 
 ;; This expansion is triggered during expansion of predicate built-in
-;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
-;; altivec_expand_predicate_builtin() function when the value of the 
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the
+;; altivec_expand_predicate_builtin() function when the value of the
 ;; integer constant first argument equals zero (aka __CR6_EQ in altivec.h).
 (define_expand "cr6_test_for_zero"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -879,8 +803,8 @@
   "")
 
 ;; This expansion is triggered during expansion of predicate built-in
-;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
-;; altivec_expand_predicate_builtin() function when the value of the 
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the
+;; altivec_expand_predicate_builtin() function when the value of the
 ;; integer constant first argument equals one (aka __CR6_EQ_REV in altivec.h).
 (define_expand "cr6_test_for_zero_reverse"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -893,8 +817,8 @@
   "")
 
 ;; This expansion is triggered during expansion of predicate built-in
-;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
-;; altivec_expand_predicate_builtin() function when the value of the 
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the
+;; altivec_expand_predicate_builtin() function when the value of the
 ;; integer constant first argument equals two (aka __CR6_LT in altivec.h).
 (define_expand "cr6_test_for_lt"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -904,9 +828,9 @@
   "")
 
 ;; This expansion is triggered during expansion of predicate built-in
-;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the 
-;; altivec_expand_predicate_builtin() function when the value of the 
-;; integer constant first argument equals three 
+;; functions (built-ins defined with the RS6000_BUILTIN_P macro) by the
+;; altivec_expand_predicate_builtin() function when the value of the
+;; integer constant first argument equals three
 ;; (aka __CR6_LT_REV in altivec.h).
 (define_expand "cr6_test_for_lt_reverse"
   [(set (match_operand:SI 0 "register_operand" "=r")

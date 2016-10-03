@@ -138,28 +138,28 @@
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
 /* All builtins defined with the RS6000_BUILTIN_P macro expect three
- * arguments, the first of which is an integer constant that clarifies
- * the implementation's use of CR6 flags.  The integer constant
- * argument may have four values: __CR6_EQ (0) means the predicate is
- * considered true if the equality-test flag of the CR6 condition
- * register is true following execution of the code identified by the
- * ICODE pattern, __CR_EQ_REV (1) means the predicate is considered
- * true if the equality-test flag is false, __CR6_LT (2) means the
- * predicate is considered true if the less-than-test flag is true, and
- * __CR6_LT_REV (3) means the predicate is considered true if the
- * less-than-test flag is false.  For all builtins defined by this
- * macro, the pattern selected by ICODE expects three operands, a
- * target and two inputs and is presumed to overwrite the flags of
- * condition register CR6 as a side effect of computing a result into
- * the target register.  However, the built-in invocation provides
- * four operands, a target, an integer constant mode, and two inputs.
- * The second and third operands of the built-in function's invocation
- * are automatically mapped into operands 1 and 2 of the pattern
- * identifed by the ICODE argument and additional code is emitted,
- * depending on the value of the constant integer first argument.
- * This special processing happens within the implementation of
- * altivec_expand_predicate_builtin(), which is defined within
- * rs6000.c.  */
+   arguments, the first of which is an integer constant that clarifies
+   the implementation's use of CR6 flags.  The integer constant
+   argument may have four values: __CR6_EQ (0) means the predicate is
+   considered true if the equality-test flag of the CR6 condition
+   register is true following execution of the code identified by the
+   ICODE pattern, __CR_EQ_REV (1) means the predicate is considered
+   true if the equality-test flag is false, __CR6_LT (2) means the
+   predicate is considered true if the less-than-test flag is true, and
+   __CR6_LT_REV (3) means the predicate is considered true if the
+   less-than-test flag is false.  For all builtins defined by this
+   macro, the pattern selected by ICODE expects three operands, a
+   target and two inputs and is presumed to overwrite the flags of
+   condition register CR6 as a side effect of computing a result into
+   the target register.  However, the built-in invocation provides
+   four operands, a target, an integer constant mode, and two inputs.
+   The second and third operands of the built-in function's invocation
+   are automatically mapped into operands 1 and 2 of the pattern
+   identifed by the ICODE argument and additional code is emitted,
+   depending on the value of the constant integer first argument.
+   This special processing happens within the implementation of
+   altivec_expand_predicate_builtin(), which is defined within
+   rs6000.c.  */
 #define BU_ALTIVEC_P(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_P (ALTIVEC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_altivec_" NAME,		/* NAME */	\
@@ -878,8 +878,8 @@
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
 /* See the comment on BU_ALTIVEC_P.  */
-#define BU_P9V_OVERLOAD_P(ENUM, NAME)				\
-  RS6000_BUILTIN_P (P9V_BUILTIN_VEC_ ## ENUM,	/* ENUM */	\
+#define BU_P9V_OVERLOAD_P(ENUM, NAME)					\
+  RS6000_BUILTIN_P (P9V_BUILTIN_VEC_ ## ENUM,		/* ENUM */	\
 		    "__builtin_vec_" NAME,		/* NAME */	\
 		    RS6000_BTM_ALTIVEC,			/* MASK */	\
 		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
@@ -1965,7 +1965,7 @@ BU_P9V_AV_2 (VEXTUWLX, "vextuwlx",		CONST,	vextuwlx)
 BU_P9V_AV_2 (VEXTUWRX, "vextuwrx",		CONST,	vextuwrx)
 
 /* 3 argument vector functions returning void, treated as SPECIAL,
- * added in ISA 3.0 (power9).  */
+   added in ISA 3.0 (power9).  */
 BU_P9V_64BIT_AV_X (STXVL,	"stxvl",	MISC)
 
 /* 1 argument vector functions added in ISA 3.0 (power9). */
@@ -1973,17 +1973,19 @@ BU_P9V_AV_1 (VCLZLSBB, "vclzlsbb",		CONST,	vclzlsbb)
 BU_P9V_AV_1 (VCTZLSBB, "vctzlsbb",		CONST,	vctzlsbb)
 
 /* Built-in support for Power9 "VSU option" string operations includes
- * new awareness of the "vector compare not equal" (vcmpneb, vcmpneb.,
- * vcmpneh, vcmpneh., vcmpnew, vcmpnew.) and "vector compare
- * not equal or zero" (vcmpnezb, vcmpnezb., vcmpnezh, vcmpnezh.,
- * vcmpnezw, vcmpnezw.) instructions.  For consistency with existing
- * infrastructure, This new awareness is integrated in the style of
- * earlier implementations of the __builtin_vec_cmpne and
- * __builtin_vec_cmpeq_p functions. */
+   new awareness of the "vector compare not equal" (vcmpneb, vcmpneb.,
+   vcmpneh, vcmpneh., vcmpnew, vcmpnew.) and "vector compare
+   not equal or zero" (vcmpnezb, vcmpnezb., vcmpnezh, vcmpnezh.,
+   vcmpnezw, vcmpnezw.) instructions.  For consistency with existing
+   infrastructure, this new awareness is integrated in the style of
+   earlier implementations of the __builtin_vec_cmpne and
+   __builtin_vec_cmpeq_p functions. */
 
 BU_P9V_AV_2 (CMPNEB,	"vcmpneb",	CONST,	vcmpneb)
 BU_P9V_AV_2 (CMPNEH,	"vcmpneh",	CONST,	vcmpneh)
 BU_P9V_AV_2 (CMPNEW,	"vcmpnew",	CONST,	vcmpnew)
+BU_P9V_AV_2 (CMPNEF,	"vcmpnef",	CONST,	vcmpnesp)
+BU_P9V_AV_2 (CMPNED,	"vcmpned",	CONST,	vcmpnedp)
 
 BU_P9V_AV_P (VCMPNEB_P,	"vcmpneb_p",	CONST,	vector_ne_v16qi_p)
 BU_P9V_AV_P (VCMPNEH_P,	"vcmpneh_p",	CONST,	vector_ne_v8hi_p)
@@ -2010,8 +2012,8 @@ BU_P9V_OVERLOAD_3 (STXVL,	"stxvl")
 BU_P9V_OVERLOAD_2 (VEXTULX,	"vextulx")
 BU_P9V_OVERLOAD_2 (VEXTURX,	"vexturx")
 
-/* Overloaded CMPNE support was implemented prior to Power 9, 
- * so is not mentioned here.  */
+/* Overloaded CMPNE support was implemented prior to Power 9,
+   so is not mentioned here.  */
 BU_P9V_OVERLOAD_2 (CMPNEZ,	"vcmpnez")
 
 BU_P9V_OVERLOAD_P (VCMPNEZ_P,   "vcmpnez_p")

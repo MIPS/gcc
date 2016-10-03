@@ -8,7 +8,7 @@
 #include <altivec.h>
 
 void
-store_data (vector signed long long *datap, signed long long *address, 
+store_data (vector signed long long *datap, signed long long *address,
 	    size_t length)
 {
   vector signed long long data = *datap;

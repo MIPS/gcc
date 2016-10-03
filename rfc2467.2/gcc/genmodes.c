@@ -29,8 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 enum mode_class { MODE_CLASSES, MAX_MODE_CLASS };
 #undef DEF_MODE_CLASS
 
-#undef KELVIN_DEBUG
-
 /* Text names of mode classes, for output.  */
 #define DEF_MODE_CLASS(M) #M
 static const char *const mode_class_names[MAX_MODE_CLASS] =
@@ -538,10 +536,6 @@ static void
 make_special_mode (enum mode_class cl, const char *name,
 		   const char *file, unsigned int line)
 {
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "make_special_mode (%d, %s, %s, %d)\n",
-	   cl, name, file, line);
-#endif
   new_mode (cl, name, file, line);
 }
 

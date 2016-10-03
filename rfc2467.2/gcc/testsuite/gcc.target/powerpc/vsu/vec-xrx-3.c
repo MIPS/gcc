@@ -3,16 +3,15 @@
 /* { dg-require-effective-target powerpc_p9vector_ok } */
 /* { dg-options "-mcpu=power9" } */
 
+#include <stddef.h>
 #include <altivec.h>
 
-int
-test_any_equal_or_zero (vector unsigned int *arg1_p,
-			vector unsigned int *arg2_p)
+unsigned short
+fetch_data (unsigned int offset, vector unsigned short *datap)
 {
-  vector unsigned int arg_1 = *arg1_p;
-  vector unsigned int arg_2 = *arg2_p;
+  vector unsigned short data = *datap;
 
-  return vec_any_eqz (arg_1, arg_2);
+  return vec_xrx (offset, data);
 }
 
-/* { dg-final { scan-assembler "vcmpnezw." } } */
+/* { dg-final { scan-assembler "vextuhrx" } } */
