@@ -1,3 +1,87 @@
+2016-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Warn for suspicious
+	left shift in boolean context.
+
+2016-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0001R1 - C++17 removal of register storage class specifier
+	* c.opt (Wregister): New warning.
+	* c-opts.c (c_common_post_options): Enable -Wregister by
+	default for C++17.
+
+2016-09-29  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* c-opts.c (c_common_post_options): Remove special case for
+	TARGET_FLT_EVAL_METHOD_NON_DEFAULT with -fexcess-precision=standard
+	in C++.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_capture_star_this for
+	-std=c++1z.
+
+	* c-ada-spec.c (print_ada_declaration): Remove break after return.
+
+2016-09-26  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* c-common.c: Include memmodel.h.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	* c-lex.c (c_common_has_attribute): Handle attribute fallthrough.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* c-common.c (c_common_attribute_table): Add fallthrough attribute.
+	(handle_fallthrough_attribute): New function.
+	(attribute_fallthrough_p): New function.
+	* c-common.h (attribute_fallthrough_p): Declare.
+
+2016-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77490
+	* c.opt (Wbool-operation): New.
+
+2016-09-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Inhibit
+	Wint-in-bool-context warning with from_macro_definition_at.
+	Mention the expression will always evaluate to true.
+
+2016-09-21  Martin Sebor  <msebor@redhat.com>
+
+	PR bootstrap/77676
+	* c.opt (fprintf-return-value): Temporarily initialize to zero
+	to unblock bootstrap failures.
+
+2016-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77651
+	* c.opt (Waligned-new=): Add RejectNegative.
+	(faligned-new=): Likewise.  Spelling fix - change
+	aligned_new_threshhold to aligned_new_threshold.
+	* c-cppbuiltin.c (c_cpp_builtins): Change aligned_new_threshhold
+	to aligned_new_threshold.
+
+2016-09-20  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/49905
+	* c.opt: Add -Wformat-length and -fprintf-return-value.
+
+2016-09-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77434
+	* c.opt (Wint-in-bool-context): New warning.
+	* c-common.c (c_common_truthvalue_conversion): Warn on integer
+	constants in boolean context.
+
+2016-09-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.c (max_align_t_align): Also consider alignment of
+	float128_type_node.
+
 2016-09-15  Jason Merrill  <jason@redhat.com>
 
 	* c-common.c (check_cxx_fundamental_alignment_constraints): Check

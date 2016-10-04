@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "predict.h"
 #include "tm_p.h"
@@ -2586,7 +2587,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
     {
     CASE_FLT_FN (BUILT_IN_IRINT):
       fallback_fn = BUILT_IN_LRINT;
-      /* FALLTHRU */
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_LRINT):
     CASE_FLT_FN (BUILT_IN_LLRINT):
       builtin_optab = lrint_optab;
@@ -2594,7 +2595,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
 
     CASE_FLT_FN (BUILT_IN_IROUND):
       fallback_fn = BUILT_IN_LROUND;
-      /* FALLTHRU */
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_LROUND):
     CASE_FLT_FN (BUILT_IN_LLROUND):
       builtin_optab = lround_optab;
@@ -3706,11 +3707,13 @@ expand_builtin_memcmp (tree exp, rtx target, bool result_eq)
 
   by_pieces_constfn constfn = NULL;
 
-  const char *src_str = c_getstr (arg1);
-  if (src_str == NULL)
-    src_str = c_getstr (arg2);
-  else
-    std::swap (arg1_rtx, arg2_rtx);
+  const char *src_str = c_getstr (arg2);
+  if (result_eq && src_str == NULL)
+    {
+      src_str = c_getstr (arg1);
+      if (src_str != NULL)
+       std::swap (arg1_rtx, arg2_rtx);
+    }
 
   /* If SRC is a string constant and block move would be done
      by pieces, we can avoid loading the string from memory
@@ -5575,8 +5578,10 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
 	 end before anything else has a chance to look at it.  The pointer
 	 parameter at this point is usually cast to a void *, so check for that
 	 and look past the cast.  */
-      if (CONVERT_EXPR_P (arg1) && POINTER_TYPE_P (ttype)
-	  && VOID_TYPE_P (TREE_TYPE (ttype)))
+      if (CONVERT_EXPR_P (arg1)
+	  && POINTER_TYPE_P (ttype)
+	  && VOID_TYPE_P (TREE_TYPE (ttype))
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg1, 0))))
 	arg1 = TREE_OPERAND (arg1, 0);
 
       ttype = TREE_TYPE (arg1);
@@ -5899,6 +5904,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
     CASE_FLT_FN (BUILT_IN_ILOGB):
       if (! flag_unsafe_math_optimizations)
 	break;
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_ISINF):
     CASE_FLT_FN (BUILT_IN_FINITE):
     case BUILT_IN_ISFINITE:

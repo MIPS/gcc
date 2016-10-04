@@ -432,6 +432,22 @@ this section is associated.",
  void, (const char *name, unsigned int flags, tree decl),
  default_no_named_section)
 
+/* Tell assembler what section attributes to assign this elf section
+   declaration, using their numerical value.  */
+DEFHOOK
+(elf_flags_numeric,
+ "This hook can be used to encode ELF section flags for which no letter\n\
+code has been defined in the assembler.  It is called by\n\
+@code{default_asm_named_section} whenever the section flags need to be\n\
+emitted in the assembler output.  If the hook returns true, then the\n\
+numerical value for ELF section flags should be calculated from\n\
+@var{flags} and saved in @var{*num}; the value is printed out instead of the\n\
+normal sequence of letter codes.  If the hook is not defined, or if it\n\
+returns false, then @var{num} is ignored and the traditional letter sequence\n\
+is emitted.",
+ bool, (unsigned int flags, unsigned int *num),
+ hook_bool_uint_uintp_false)
+
 /* Return preferred text (sub)section for function DECL.
    Main purpose of this function is to separate cold, normal and hot
    functions. STARTUP is true when function is known to be used only 
@@ -3353,6 +3369,12 @@ greater than 128 and a multiple of 32.",
  machine_mode, (int n, bool extended),
  default_floatn_mode)
 
+DEFHOOK
+(printf_pointer_format,
+ "Determine the target @code{printf} implementation format string that the most closely corresponds to the @code{%p} format directive.  The object pointed to by the @var{flags} is set to a string consisting of recognized format flags such as the @code{'#'} character.",
+ const char*, (tree, const char **flags),
+ default_printf_pointer_format)
+
 /* Compute cost of moving data from a register of class FROM to one of
    TO, using MODE.  */
 DEFHOOK
@@ -4929,7 +4951,7 @@ DEFHOOK
 (lra_p,
  "A target hook which returns true if we use LRA instead of reload pass.\
   \
-  The default version of this target hook returns always true.  New ports\
+  The default version of this target hook returns true.  New ports\
   should use LRA, and existing ports are encouraged to convert.",
  bool, (void),
  default_lra_p)

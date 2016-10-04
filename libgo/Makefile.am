@@ -396,9 +396,9 @@ rtems_task_variable_add_file =
 endif
 
 if LIBGO_IS_LINUX
-runtime_lock_files = runtime/lock_futex.c runtime/thread-linux.c
+runtime_thread_files = runtime/thread-linux.c
 else
-runtime_lock_files = runtime/lock_sema.c runtime/thread-sema.c
+runtime_thread_files = runtime/thread-sema.c
 endif
 
 if LIBGO_IS_LINUX
@@ -464,22 +464,19 @@ runtime_files = \
 	runtime/go-interface-eface-compare.c \
 	runtime/go-interface-val-compare.c \
 	runtime/go-make-slice.c \
-	runtime/go-map-delete.c \
-	runtime/go-map-index.c \
-	runtime/go-map-len.c \
-	runtime/go-map-range.c \
 	runtime/go-matherr.c \
+	runtime/go-memclr.c \
 	runtime/go-memcmp.c \
+	runtime/go-memequal.c \
+	runtime/go-memmove.c \
 	runtime/go-nanotime.c \
 	runtime/go-now.c \
-	runtime/go-new-map.c \
 	runtime/go-new.c \
 	runtime/go-nosys.c \
 	runtime/go-panic.c \
 	runtime/go-print.c \
 	runtime/go-recover.c \
 	runtime/go-reflect-call.c \
-	runtime/go-reflect-map.c \
 	runtime/go-rune.c \
 	runtime/go-runtime-error.c \
 	runtime/go-setenv.c \
@@ -492,7 +489,6 @@ runtime_files = \
 	runtime/go-traceback.c \
 	runtime/go-type-complex.c \
 	runtime/go-type-eface.c \
-	runtime/go-type-error.c \
 	runtime/go-type-float.c \
 	runtime/go-type-identity.c \
 	runtime/go-type-interface.c \
@@ -506,7 +502,6 @@ runtime_files = \
 	runtime/go-varargs.c \
 	runtime/env_posix.c \
 	runtime/heapdump.c \
-	$(runtime_lock_files) \
 	runtime/mcache.c \
 	runtime/mcentral.c \
 	$(runtime_mem_file) \
@@ -522,6 +517,7 @@ runtime_files = \
 	runtime/runtime.c \
 	runtime/signal_unix.c \
 	runtime/thread.c \
+	$(runtime_thread_files) \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
 	chan.c \
@@ -529,7 +525,6 @@ runtime_files = \
 	go-iface.c \
 	lfstack.c \
 	malloc.c \
-	map.c \
 	mprof.c \
 	netpoll.c \
 	rdebug.c \
@@ -638,12 +633,8 @@ s-version: Makefile
 	$(STAMP) $@
 
 runtime_sysinfo.go: s-runtime_sysinfo; @true
-s-runtime_sysinfo: sysinfo.go
-	rm -f tmp-runtime_sysinfo.go
-	echo 'package runtime' > tmp-runtime_sysinfo.go
-	echo >> tmp-runtime_sysinfo.go
-	grep 'const _sizeof_ucontext_t ' sysinfo.go >> tmp-runtime_sysinfo.go
-	grep 'type _sigset_t ' sysinfo.go >> tmp-runtime_sysinfo.go
+s-runtime_sysinfo: $(srcdir)/mkrsysinfo.sh gen-sysinfo.go
+	$(SHELL) $(srcdir)/mkrsysinfo.sh
 	$(SHELL) $(srcdir)/mvifdiff.sh tmp-runtime_sysinfo.go runtime_sysinfo.go
 	$(STAMP) $@
 
@@ -696,9 +687,26 @@ s-syscall_arch: Makefile
 	$(SHELL) $(srcdir)/mvifdiff.sh syscall_arch.go.tmp syscall_arch.go
 	$(STAMP) $@
 
+SYSINFO_FLAGS = \
+	$(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(OSCFLAGS) -O
+
+gen-sysinfo.go: s-gen-sysinfo; @true
+s-gen-sysinfo: $(srcdir)/sysinfo.c config.h
+	$(CC) $(SYSINFO_FLAGS) -fdump-go-spec=tmp-gen-sysinfo.go -std=gnu99 -S -o sysinfo.s $(srcdir)/sysinfo.c
+	rm -f sysinfo.s
+	$(SHELL) $(srcdir)/mvifdiff.sh tmp-gen-sysinfo.go gen-sysinfo.go
+	$(STAMP) $@
+
+errno.i: s-errno; @true
+s-errno:
+	echo '#include <errno.h>' | $(CC) $(SYSINFO_FLAGS) -x c - -E -dM > tmp-errno.i
+	$(SHELL) $(srcdir)/mvifdiff.sh tmp-errno.i errno.i
+	$(STAMP) $@
+
 sysinfo.go: s-sysinfo; @true
-s-sysinfo: $(srcdir)/mksysinfo.sh config.h
-	CC="$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(OSCFLAGS) -O" $(SHELL) $(srcdir)/mksysinfo.sh
+s-sysinfo: $(srcdir)/mksysinfo.sh gen-sysinfo.go errno.i
+	$(SHELL) $(srcdir)/mksysinfo.sh
 	$(SHELL) $(srcdir)/mvifdiff.sh tmp-sysinfo.go sysinfo.go
 	$(STAMP) $@
 
@@ -1279,6 +1287,7 @@ runtime.inc: s-runtime-inc; @true
 s-runtime-inc: runtime-go.lo
 	$(SHELL) $(srcdir)/mvifdiff.sh runtime.inc.tmp runtime.inc
 	$(STAMP) $@
+runtime_check_GOCFLAGS = -fgo-compiling-runtime
 runtime/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: runtime/check

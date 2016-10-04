@@ -1,3 +1,96 @@
+2016-10-01  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/77663
+	* caf/single.c (caf_internal_error): Fix not terminating va-list.
+	(_gfortran_caf_register): Free memory also when other allocs failed.
+	(_gfortran_caf_get_by_ref): Fixed style.
+	(send_by_ref): Token is now stored at the correct position preventing
+	inaccessible tokens, memory loss and possibly crashes.
+
+2016-09-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/77707
+	io/transfer.c (next_record): Flush before calculating next_record.
+	Correctly calculate.
+
+2016-09-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/48298
+	* io/inquire.c (inquire_via_unit): Adjust error check for the
+	two possible internal unit KINDs.
+	* io/io.h: Adjust defines for is_internal_unit and
+	is_char4_unit. (gfc_unit): Add internal unit data to structure.
+	(get_internal_unit): Change declaration to set_internal_unit.
+	(free_internal_unit): Change name to stash_internal_unit_number.
+	(get_unique_unit_number): Adjust parameter argument.
+	Define IOPARM_DT_HAS_UDTIO. (gfc_saved_unit): New structure.
+	* io/list_read.c (next_char_internal): Use is_char4_unit.
+	* io/open.c (st_open): Adjust call to get_unique_unit_number.
+	* io/transfer.c (write_block): Use is_char4_unit.
+	(data_transfer_init): Update check for unit numbers.
+	(st_read_done): Free the various allocated memories used for the
+	internal units and stash the negative unit number and pointer to unit
+	structure to allow reuse. (st_write_done): Likewise stash the freed
+	unit.
+	* io/unit.c: Create a fixed size buffer of 16 gfc_saved_unit's to use
+	as a stack to save newunit unit numbers and unit structure for reuse.
+	(get_external_unit): Change name to get_gfc_unit to better
+	reflect what it does. (find_unit): Change call to get_gfc_unit.
+	(find_or_create_unit): Likewise. (get_internal_unit): Change
+	name to set_internal_unit. Move internal unit from the dtp
+	structure to the gfc_unit structure so that it can be passed to
+	child I/O statements through the UNIT.
+	(free_internal_unit): Change name to stash_internal_unit_number.
+	Push the common.unit number onto the newunit stack, saving it
+	for possible reuse later. (get_unit): Set the internal unit
+	KIND. Use get_unique_unit_number to get a negative unit number
+	for the internal unit. Use get_gfc_unit to get the unit structure
+	and use set_internal_unit to initialize it.
+	(init_units): Initialize the newunit stack.
+	(get_unique_unit_number): Check the stack for an available unit
+	number and use it. If none there get the next most negative
+	number. (close_units): Free any unit structures pointed to from the save
+	stack.
+
+2016-09-21  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* intrinsics/random.c (getosrandom): Use rand_s() on
+	MinGW-w64. Fix bounds overflow in fallback code.
+
+2016-09-19  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* caf/libcaf.h: Add caf_reference_type.
+	* caf/mpi.c: Adapted signature of caf_register().
+	* caf/single.c (struct caf_single_token): Added to keep the pointer
+	to the memory registered and array descriptor.
+	(caf_internal_error): Added convenience interface.
+	(_gfortran_caf_register): Adapted to work with caf_single_token and
+	return memory in the array descriptor.
+	(_gfortran_caf_deregister): Same.
+	(assign_char1_from_char4): Fixed style.
+	(convert_type): Fixed incorrect conversion.
+	(_gfortran_caf_get): Adapted to work with caf_single_token.
+	(_gfortran_caf_send): Same.
+	(_gfortran_caf_sendget): Same.
+	(copy_data): Added to stop repeating it in all _by_ref functions.
+	(get_for_ref): Recursive getting of coarray data using a chain of
+	references.
+	(_gfortran_caf_get_by_ref): Driver for computing the memory needed for
+	the get and checking properties of the operation.
+	(send_by_ref): Same as get_for_ref but for sending data.
+	(_gfortran_caf_send_by_ref): Same like caf_get_by_ref but for sending.
+	(_gfortran_caf_sendget_by_ref): Uses get_by_ref and send_by_ref to
+	implement sendget for reference chains.
+	(_gfortran_caf_atomic_define): Adapted to work with caf_single_token.
+	(_gfortran_caf_atomic_ref): Likewise.
+	(_gfortran_caf_atomic_cas): Likewise.
+	(_gfortran_caf_atomic_op): Likewise.
+	(_gfortran_caf_event_post): Likewise.
+	(_gfortran_caf_event_wait): Likewise.
+	(_gfortran_caf_event_query): Likewise.
+	(_gfortran_caf_lock): Likewise.
+	(_gfortran_caf_unlock): Likewise.
+
 2016-09-09  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77507

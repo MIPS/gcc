@@ -218,6 +218,11 @@ libgcov-merge-tool.o-warn = -Wno-error
 gimple-match.o-warn = -Wno-unused
 generic-match.o-warn = -Wno-unused
 dfp.o-warn = -Wno-strict-aliasing
+insn-attrtab.o-warn = -Wno-error
+insn-dfatab.o-warn = -Wno-error
+insn-latencytab.o-warn = -Wno-error
+insn-output.o-warn = -Wno-error
+insn-emit.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -1297,6 +1302,7 @@ OBJS = \
 	gimple-ssa-nonnull-compare.o \
 	gimple-ssa-split-paths.o \
 	gimple-ssa-strength-reduction.o \
+	gimple-ssa-sprintf.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
 	gimple-walk.o \
@@ -1400,6 +1406,7 @@ OBJS = \
 	postreload.o \
 	predict.o \
 	print-rtl.o \
+	print-rtl-function.o \
 	print-tree.o \
 	profile.o \
 	real.o \

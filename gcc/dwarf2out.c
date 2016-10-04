@@ -159,6 +159,7 @@ static GTY(()) section *debug_skeleton_abbrev_section;
 static GTY(()) section *debug_aranges_section;
 static GTY(()) section *debug_addr_section;
 static GTY(()) section *debug_macinfo_section;
+static const char *debug_macinfo_section_name;
 static GTY(()) section *debug_line_section;
 static GTY(()) section *debug_skeleton_line_section;
 static GTY(()) section *debug_loc_section;
@@ -265,7 +266,6 @@ static GTY(()) dw_die_ref decltype_auto_die;
 
 /* Forward declarations for functions defined in this file.  */
 
-static char *stripattributes (const char *);
 static void output_call_frame_info (int);
 static void dwarf2out_note_section_used (void);
 
@@ -410,24 +410,6 @@ should_emit_struct_debug (tree type, enum debug_info_usage usage)
   return DUMP_GSTRUCT (type, usage, criterion, generic, false, false);
 }
 
-/* Return a pointer to a copy of the section string name S with all
-   attributes stripped off, and an asterisk prepended (for assemble_name).  */
-
-static inline char *
-stripattributes (const char *s)
-{
-  char *stripped = XNEWVEC (char, strlen (s) + 2);
-  char *p = stripped;
-
-  *p++ = '*';
-
-  while (*s && *s != ',')
-    *p++ = *s++;
-
-  *p = '\0';
-  return stripped;
-}
-
 /* Switch [BACK] to eh_frame_section.  If we don't have an eh_frame_section,
    switch to the data section instead, and write out a synthetic start label
    for collect2 the first time around.  */
@@ -585,7 +567,7 @@ output_fde (dw_fde_ref fde, bool for_eh, bool second,
 {
   const char *begin, *end;
   static unsigned int j;
-  char l1[20], l2[20];
+  char l1[MAX_ARTIFICIAL_LABEL_BYTES], l2[MAX_ARTIFICIAL_LABEL_BYTES];
 
   targetm.asm_out.emit_unwind_label (asm_out_file, fde->decl, for_eh,
 				     /* empty */ 0);
@@ -740,7 +722,8 @@ output_call_frame_info (int for_eh)
   unsigned int i;
   dw_fde_ref fde;
   dw_cfi_ref cfi;
-  char l1[20], l2[20], section_start_label[20];
+  char l1[MAX_ARTIFICIAL_LABEL_BYTES], l2[MAX_ARTIFICIAL_LABEL_BYTES];
+  char section_start_label[MAX_ARTIFICIAL_LABEL_BYTES];
   bool any_lsda_needed = false;
   char augmentation[6];
   int augmentation_size;
@@ -984,7 +967,7 @@ dwarf2out_do_cfi_startproc (bool second)
 
   if (crtl->uses_eh_lsda)
     {
-      char lab[20];
+      char lab[MAX_ARTIFICIAL_LABEL_BYTES];
 
       enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
       ASM_GENERATE_INTERNAL_LABEL (lab, second ? "LLSDAC" : "LLSDA",
@@ -2051,9 +2034,9 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
 	/* Make sure the offset has been computed and that we can encode it as
 	   an operand.  */
 	gcc_assert (die_offset > 0
-		    && die_offset <= (loc->dw_loc_opc == DW_OP_call2)
+		    && die_offset <= (loc->dw_loc_opc == DW_OP_call2
 				     ? 0xffff
-				     : 0xffffffff);
+				     : 0xffffffff));
 	dw2_asm_output_data ((loc->dw_loc_opc == DW_OP_call2) ? 2 : 4,
 			     die_offset, NULL);
       }
@@ -2480,7 +2463,7 @@ build_cfa_aligned_loc (dw_cfa_location *cfa,
 
 static void dwarf2out_init (const char *);
 static void dwarf2out_finish (const char *);
-static void dwarf2out_early_finish (void);
+static void dwarf2out_early_finish (const char *);
 static void dwarf2out_assembly_start (void);
 static void dwarf2out_define (unsigned int, const char *);
 static void dwarf2out_undef (unsigned int, const char *);
@@ -2556,7 +2539,7 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
 {
   dwarf2out_init,
   debug_nothing_charstar,
-  debug_nothing_void,
+  debug_nothing_charstar,
   debug_nothing_void,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
@@ -2705,6 +2688,10 @@ typedef struct GTY((chain_circular ("%h.die_sib"), for_user)) die_struct {
   /* Die is used and must not be pruned as unused.  */
   BOOL_BITFIELD die_perennial_p : 1;
   BOOL_BITFIELD comdat_type_p : 1; /* DIE has a type signature */
+  /* Whether this DIE was removed from the DIE tree, for example via
+     prune_unused_types.  We don't consider those present from the
+     DIE lookup routines.  */
+  BOOL_BITFIELD removed : 1;
   /* Lots of spare bits.  */
 }
 die_node;
@@ -2879,6 +2866,9 @@ static GTY(()) dw_die_ref single_comp_unit_die;
 
 /* A list of type DIEs that have been separated into comdat sections.  */
 static GTY(()) comdat_type_node *comdat_type_list;
+
+/* A list of CU DIEs that have been separated.  */
+static GTY(()) limbo_die_node *cu_die_list;
 
 /* A list of DIEs with a NULL parent waiting to be relocated.  */
 static GTY(()) limbo_die_node *limbo_die_list;
@@ -3514,27 +3504,17 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #ifndef DEBUG_ADDR_SECTION
 #define DEBUG_ADDR_SECTION     ".debug_addr"
 #endif
-#ifndef DEBUG_NORM_MACINFO_SECTION
-#define DEBUG_NORM_MACINFO_SECTION     ".debug_macinfo"
+#ifndef DEBUG_MACINFO_SECTION
+#define DEBUG_MACINFO_SECTION     ".debug_macinfo"
 #endif
 #ifndef DEBUG_DWO_MACINFO_SECTION
 #define DEBUG_DWO_MACINFO_SECTION      ".debug_macinfo.dwo"
-#endif
-#ifndef DEBUG_MACINFO_SECTION
-#define DEBUG_MACINFO_SECTION                                           \
-  (!dwarf_split_debug_info                                              \
-   ? (DEBUG_NORM_MACINFO_SECTION) : (DEBUG_DWO_MACINFO_SECTION))
-#endif
-#ifndef DEBUG_NORM_MACRO_SECTION
-#define DEBUG_NORM_MACRO_SECTION ".debug_macro"
 #endif
 #ifndef DEBUG_DWO_MACRO_SECTION
 #define DEBUG_DWO_MACRO_SECTION        ".debug_macro.dwo"
 #endif
 #ifndef DEBUG_MACRO_SECTION
-#define DEBUG_MACRO_SECTION                                             \
-  (!dwarf_split_debug_info                                              \
-   ? (DEBUG_NORM_MACRO_SECTION) : (DEBUG_DWO_MACRO_SECTION))
+#define DEBUG_MACRO_SECTION	".debug_macro"
 #endif
 #ifndef DEBUG_LINE_SECTION
 #define DEBUG_LINE_SECTION	".debug_line"
@@ -3579,10 +3559,6 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #ifndef TEXT_SECTION_NAME
 #define TEXT_SECTION_NAME	".text"
 #endif
-
-/* Section flags for .debug_macinfo/.debug_macro section.  */
-#define DEBUG_MACRO_SECTION_FLAGS                                       \
-  (dwarf_split_debug_info ? SECTION_DEBUG | SECTION_EXCLUDE : SECTION_DEBUG)
 
 /* Section flags for .debug_str section.  */
 #define DEBUG_STR_SECTION_FLAGS                                 \
@@ -4153,7 +4129,7 @@ AT_string (dw_attr_node *a)
 static void
 set_indirect_string (struct indirect_string_node *node)
 {
-  char label[32];
+  char label[MAX_ARTIFICIAL_LABEL_BYTES];
   /* Already indirect is a no op.  */
   if (node->form == DW_FORM_strp || node->form == DW_FORM_GNU_str_index)
     {
@@ -4892,6 +4868,7 @@ remove_child_with_prev (dw_die_ref child, dw_die_ref prev)
     prev->die_sib = child->die_sib;
   if (child->die_parent->die_child == child)
     child->die_parent->die_child = prev;
+  child->die_sib = NULL;
 }
 
 /* Replace OLD_CHILD with NEW_CHILD.  PREV must have the property that
@@ -4918,6 +4895,7 @@ replace_child (dw_die_ref old_child, dw_die_ref new_child, dw_die_ref prev)
     }
   if (old_child->die_parent->die_child == old_child)
     old_child->die_parent->die_child = new_child;
+  old_child->die_sib = NULL;
 }
 
 /* Move all children from OLD_PARENT to NEW_PARENT.  */
@@ -4948,9 +4926,9 @@ remove_child_TAG (dw_die_ref die, enum dwarf_tag tag)
 	remove_child_with_prev (c, prev);
 	c->die_parent = NULL;
 	/* Might have removed every child.  */
-	if (c == c->die_sib)
+	if (die->die_child == NULL)
 	  return;
-	c = c->die_sib;
+	c = prev->die_sib;
       }
   } while (c != die->die_child);
 }
@@ -5096,7 +5074,13 @@ new_die (enum dwarf_tag tag_value, dw_die_ref parent_die, tree t)
 static inline dw_die_ref
 lookup_type_die (tree type)
 {
-  return TYPE_SYMTAB_DIE (type);
+  dw_die_ref die = TYPE_SYMTAB_DIE (type);
+  if (die && die->removed)
+    {
+      TYPE_SYMTAB_DIE (type) = NULL;
+      return NULL;
+    }
+  return die;
 }
 
 /* Given a TYPE_DIE representing the type TYPE, if TYPE is an
@@ -5161,7 +5145,16 @@ decl_die_hasher::equal (die_node *x, tree y)
 static inline dw_die_ref
 lookup_decl_die (tree decl)
 {
-  return decl_die_table->find_with_hash (decl, DECL_UID (decl));
+  dw_die_ref *die = decl_die_table->find_slot_with_hash (decl, DECL_UID (decl),
+							 NO_INSERT);
+  if (!die)
+    return NULL;
+  if ((*die)->removed)
+    {
+      decl_die_table->clear_slot (die);
+      return NULL;
+    }
+  return *die;
 }
 
 /* Returns a hash value for X (which really is a var_loc_list).  */
@@ -5413,7 +5406,7 @@ add_var_loc_to_decl (tree decl, rtx loc_note, const char *label)
       && NOTE_VAR_LOCATION_LOC (temp->first->loc)
       && GET_CODE (NOTE_VAR_LOCATION_LOC (temp->first->loc))
 	 == GET_CODE (DECL_INCOMING_RTL (decl))
-      && prev_real_insn (temp->first->loc) == NULL_RTX
+      && prev_real_insn (as_a<rtx_insn *> (temp->first->loc)) == NULL_RTX
       && (bitsize != -1
 	  || !rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->first->loc),
 			   NOTE_VAR_LOCATION_LOC (loc_note))
@@ -7084,7 +7077,7 @@ is_template_instantiation (dw_die_ref die)
 static char *
 gen_internal_sym (const char *prefix)
 {
-  char buf[256];
+  char buf[MAX_ARTIFICIAL_LABEL_BYTES];
 
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, label_num++);
   return xstrdup (buf);
@@ -9390,7 +9383,7 @@ output_die (dw_die_ref die)
 
 	case dw_val_class_fde_ref:
 	  {
-	    char l1[20];
+	    char l1[MAX_ARTIFICIAL_LABEL_BYTES];
 
 	    ASM_GENERATE_INTERNAL_LABEL (l1, FDE_LABEL,
 					 a->dw_attr_val.v.val_fde_index * 2);
@@ -10718,7 +10711,8 @@ output_one_line_info_table (dw_line_info_table *table)
 static void
 output_line_info (bool prologue_only)
 {
-  char l1[20], l2[20], p1[20], p2[20];
+  char l1[MAX_ARTIFICIAL_LABEL_BYTES], l2[MAX_ARTIFICIAL_LABEL_BYTES];
+  char p1[MAX_ARTIFICIAL_LABEL_BYTES], p2[MAX_ARTIFICIAL_LABEL_BYTES];
   /* We don't support DWARFv5 line tables yet.  */
   int ver = dwarf_version < 5 ? dwarf_version : 4;
   bool saw_one = false;
@@ -14562,6 +14556,7 @@ loc_descriptor (rtx rtl, machine_mode mode,
     case SYMBOL_REF:
       if (!const_ok_for_output (rtl))
 	break;
+      /* FALLTHROUGH */
     case LABEL_REF:
       if (mode != VOIDmode && GET_MODE_SIZE (mode) == DWARF2_ADDR_SIZE
 	  && (dwarf_version >= 4 || !dwarf_strict))
@@ -17209,6 +17204,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
     case SYMBOL_REF:
       if (!const_ok_for_output (rtl))
 	return false;
+      /* FALLTHROUGH */
     case LABEL_REF:
       if (dwarf_version >= 4 || !dwarf_strict)
 	goto rtl_addr;
@@ -20445,8 +20441,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   int declaration = (current_function_decl != decl
 		     || class_or_namespace_scope_p (context_die));
 
-  premark_used_types (DECL_STRUCT_FUNCTION (decl));
-
   /* Now that the C++ front end lazily declares artificial member fns, we
      might need to retrofit the declaration into its class.  */
   if (!declaration && !origin && !old_die
@@ -21168,6 +21162,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       call_site_count = -1;
       tail_call_site_count = -1;
     }
+
+  /* Mark used types after we have created DIEs for the functions scopes.  */
+  premark_used_types (DECL_STRUCT_FUNCTION (decl));
 }
 
 /* Returns a hash value for X (which really is a die_struct).  */
@@ -23251,9 +23248,16 @@ process_scope_var (tree stmt, tree decl, tree origin, dw_die_ref context_die)
 
   if (TREE_CODE (decl_or_origin) == FUNCTION_DECL)
     die = lookup_decl_die (decl_or_origin);
-  else if (TREE_CODE (decl_or_origin) == TYPE_DECL
-           && TYPE_DECL_IS_STUB (decl_or_origin))
-    die = lookup_type_die (TREE_TYPE (decl_or_origin));
+  else if (TREE_CODE (decl_or_origin) == TYPE_DECL)
+    {
+      if (TYPE_DECL_IS_STUB (decl_or_origin))
+	die = lookup_type_die (TREE_TYPE (decl_or_origin));
+      else
+	die = lookup_decl_die (decl_or_origin);
+      /* Avoid re-creating the DIE late if it was optimized as unused early.  */
+      if (! die && ! early_dwarf)
+	return;
+    }
   else
     die = NULL;
 
@@ -25520,7 +25524,7 @@ output_macinfo (void)
 	  tree comdat_key = get_identifier (ref->info);
 	  /* Terminate the previous .debug_macinfo section.  */
 	  dw2_asm_output_data (1, 0, "End compilation unit");
-	  targetm.asm_out.named_section (DEBUG_MACRO_SECTION,
+	  targetm.asm_out.named_section (debug_macinfo_section_name,
 					 SECTION_DEBUG
 					 | SECTION_LINKONCE,
 					 comdat_key);
@@ -25546,6 +25550,94 @@ output_macinfo (void)
       default:
 	gcc_unreachable ();
       }
+}
+
+/* Initialize the various sections and labels for dwarf output.  */
+
+static void
+init_sections_and_labels (void)
+{
+  if (!dwarf_split_debug_info)
+    {
+      debug_info_section = get_section (DEBUG_INFO_SECTION,
+                                        SECTION_DEBUG, NULL);
+      debug_abbrev_section = get_section (DEBUG_ABBREV_SECTION,
+                                          SECTION_DEBUG, NULL);
+      debug_loc_section = get_section (DEBUG_LOC_SECTION,
+                                       SECTION_DEBUG, NULL);
+      debug_macinfo_section_name
+	= dwarf_strict ? DEBUG_MACINFO_SECTION : DEBUG_MACRO_SECTION;
+      debug_macinfo_section = get_section (debug_macinfo_section_name,
+					   SECTION_DEBUG, NULL);
+    }
+  else
+    {
+      debug_info_section = get_section (DEBUG_DWO_INFO_SECTION,
+                                        SECTION_DEBUG | SECTION_EXCLUDE, NULL);
+      debug_abbrev_section = get_section (DEBUG_DWO_ABBREV_SECTION,
+                                          SECTION_DEBUG | SECTION_EXCLUDE,
+                                          NULL);
+      debug_addr_section = get_section (DEBUG_ADDR_SECTION,
+                                        SECTION_DEBUG, NULL);
+      debug_skeleton_info_section = get_section (DEBUG_INFO_SECTION,
+                                                 SECTION_DEBUG, NULL);
+      debug_skeleton_abbrev_section = get_section (DEBUG_ABBREV_SECTION,
+                                                   SECTION_DEBUG, NULL);
+      ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_abbrev_section_label,
+                                  DEBUG_SKELETON_ABBREV_SECTION_LABEL, 0);
+
+      /* Somewhat confusing detail: The skeleton_[abbrev|info] sections stay in
+         the main .o, but the skeleton_line goes into the split off dwo.  */
+      debug_skeleton_line_section
+        = get_section (DEBUG_DWO_LINE_SECTION,
+		       SECTION_DEBUG | SECTION_EXCLUDE, NULL);
+      ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_line_section_label,
+                                   DEBUG_SKELETON_LINE_SECTION_LABEL, 0);
+      debug_str_offsets_section = get_section (DEBUG_STR_OFFSETS_SECTION,
+                                               SECTION_DEBUG | SECTION_EXCLUDE,
+                                               NULL);
+      ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_info_section_label,
+                                   DEBUG_SKELETON_INFO_SECTION_LABEL, 0);
+      debug_loc_section = get_section (DEBUG_DWO_LOC_SECTION,
+                                       SECTION_DEBUG | SECTION_EXCLUDE, NULL);
+      debug_str_dwo_section = get_section (DEBUG_STR_DWO_SECTION,
+                                           DEBUG_STR_DWO_SECTION_FLAGS, NULL);
+      debug_macinfo_section_name
+	= dwarf_strict ? DEBUG_DWO_MACINFO_SECTION : DEBUG_DWO_MACRO_SECTION;
+      debug_macinfo_section = get_section (debug_macinfo_section_name,
+					   SECTION_DEBUG | SECTION_EXCLUDE,
+					   NULL);
+    }
+  debug_aranges_section = get_section (DEBUG_ARANGES_SECTION,
+				       SECTION_DEBUG, NULL);
+  debug_line_section = get_section (DEBUG_LINE_SECTION,
+				    SECTION_DEBUG, NULL);
+  debug_pubnames_section = get_section (DEBUG_PUBNAMES_SECTION,
+					SECTION_DEBUG, NULL);
+  debug_pubtypes_section = get_section (DEBUG_PUBTYPES_SECTION,
+					SECTION_DEBUG, NULL);
+  debug_str_section = get_section (DEBUG_STR_SECTION,
+				   DEBUG_STR_SECTION_FLAGS, NULL);
+  debug_ranges_section = get_section (DEBUG_RANGES_SECTION,
+				      SECTION_DEBUG, NULL);
+  debug_frame_section = get_section (DEBUG_FRAME_SECTION,
+				     SECTION_DEBUG, NULL);
+
+  ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,
+			       DEBUG_ABBREV_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (debug_info_section_label,
+			       DEBUG_INFO_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (debug_line_section_label,
+			       DEBUG_LINE_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (ranges_section_label,
+			       DEBUG_RANGES_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (debug_addr_section_label,
+                               DEBUG_ADDR_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (macinfo_section_label,
+			       dwarf_strict
+			       ? DEBUG_MACINFO_SECTION_LABEL
+			       : DEBUG_MACRO_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (loc_section_label, DEBUG_LOC_SECTION_LABEL, 0);
 }
 
 /* Set up for Dwarf output at the start of compilation.  */
@@ -25595,102 +25687,8 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 
   vec_alloc (used_rtx_array, 32);
 
-  if (!dwarf_split_debug_info)
-    {
-      debug_info_section = get_section (DEBUG_INFO_SECTION,
-                                        SECTION_DEBUG, NULL);
-      debug_abbrev_section = get_section (DEBUG_ABBREV_SECTION,
-                                          SECTION_DEBUG, NULL);
-      debug_loc_section = get_section (DEBUG_LOC_SECTION,
-                                       SECTION_DEBUG, NULL);
-    }
-  else
-    {
-      debug_info_section = get_section (DEBUG_DWO_INFO_SECTION,
-                                        SECTION_DEBUG | SECTION_EXCLUDE, NULL);
-      debug_abbrev_section = get_section (DEBUG_DWO_ABBREV_SECTION,
-                                          SECTION_DEBUG | SECTION_EXCLUDE,
-                                          NULL);
-      debug_addr_section = get_section (DEBUG_ADDR_SECTION,
-                                        SECTION_DEBUG, NULL);
-      debug_skeleton_info_section = get_section (DEBUG_INFO_SECTION,
-                                                 SECTION_DEBUG, NULL);
-      debug_skeleton_abbrev_section = get_section (DEBUG_ABBREV_SECTION,
-                                                   SECTION_DEBUG, NULL);
-      ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_abbrev_section_label,
-                                  DEBUG_SKELETON_ABBREV_SECTION_LABEL, 0);
-
-      /* Somewhat confusing detail: The skeleton_[abbrev|info] sections stay in
-         the main .o, but the skeleton_line goes into the split off dwo.  */
-      debug_skeleton_line_section
-          = get_section (DEBUG_DWO_LINE_SECTION,
-                         SECTION_DEBUG | SECTION_EXCLUDE, NULL);
-      ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_line_section_label,
-                                   DEBUG_SKELETON_LINE_SECTION_LABEL, 0);
-      debug_str_offsets_section = get_section (DEBUG_STR_OFFSETS_SECTION,
-                                               SECTION_DEBUG | SECTION_EXCLUDE,
-                                               NULL);
-      ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_info_section_label,
-                                   DEBUG_SKELETON_INFO_SECTION_LABEL, 0);
-      debug_loc_section = get_section (DEBUG_DWO_LOC_SECTION,
-                                       SECTION_DEBUG | SECTION_EXCLUDE, NULL);
-      debug_str_dwo_section = get_section (DEBUG_STR_DWO_SECTION,
-                                           DEBUG_STR_DWO_SECTION_FLAGS, NULL);
-    }
-  debug_aranges_section = get_section (DEBUG_ARANGES_SECTION,
-				       SECTION_DEBUG, NULL);
-  debug_macinfo_section = get_section (dwarf_strict
-				       ? DEBUG_MACINFO_SECTION
-				       : DEBUG_MACRO_SECTION,
-                                       DEBUG_MACRO_SECTION_FLAGS, NULL);
-  debug_line_section = get_section (DEBUG_LINE_SECTION,
-				    SECTION_DEBUG, NULL);
-  debug_pubnames_section = get_section (DEBUG_PUBNAMES_SECTION,
-					SECTION_DEBUG, NULL);
-  debug_pubtypes_section = get_section (DEBUG_PUBTYPES_SECTION,
-					SECTION_DEBUG, NULL);
-  debug_str_section = get_section (DEBUG_STR_SECTION,
-				   DEBUG_STR_SECTION_FLAGS, NULL);
-  debug_ranges_section = get_section (DEBUG_RANGES_SECTION,
-				      SECTION_DEBUG, NULL);
-  debug_frame_section = get_section (DEBUG_FRAME_SECTION,
-				     SECTION_DEBUG, NULL);
-
-  ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (abbrev_section_label,
-			       DEBUG_ABBREV_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (text_section_label, TEXT_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (cold_text_section_label,
-			       COLD_TEXT_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (cold_end_label, COLD_END_LABEL, 0);
-
-  ASM_GENERATE_INTERNAL_LABEL (debug_info_section_label,
-			       DEBUG_INFO_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (debug_line_section_label,
-			       DEBUG_LINE_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (ranges_section_label,
-			       DEBUG_RANGES_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (debug_addr_section_label,
-                               DEBUG_ADDR_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (macinfo_section_label,
-			       dwarf_strict
-			       ? DEBUG_MACINFO_SECTION_LABEL
-			       : DEBUG_MACRO_SECTION_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (loc_section_label, DEBUG_LOC_SECTION_LABEL, 0);
-
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
     vec_alloc (macinfo_table, 64);
-
-  switch_to_section (text_section);
-  ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
-#endif
-
-  /* Make sure the line number table for .text always exists.  */
-  text_section_line_info = new_line_info_table ();
-  text_section_line_info->end_label = text_end_label;
-
-#ifdef DWARF2_LINENO_DEBUGGING_INFO
-  cur_line_info_table = text_section_line_info;
 #endif
 
   /* If front-ends already registered a main translation unit but we were not
@@ -25705,6 +25703,25 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 static void
 dwarf2out_assembly_start (void)
 {
+#ifndef DWARF2_LINENO_DEBUGGING_INFO
+  ASM_GENERATE_INTERNAL_LABEL (text_section_label, TEXT_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (cold_text_section_label,
+			       COLD_TEXT_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (cold_end_label, COLD_END_LABEL, 0);
+
+  switch_to_section (text_section);
+  ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
+#endif
+
+  /* Make sure the line number table for .text always exists.  */
+  text_section_line_info = new_line_info_table ();
+  text_section_line_info->end_label = text_end_label;
+
+#ifdef DWARF2_LINENO_DEBUGGING_INFO
+  cur_line_info_table = text_section_line_info;
+#endif
+
   if (HAVE_GAS_CFI_SECTIONS_DIRECTIVE
       && dwarf2out_do_cfi_asm ()
       && (!(flag_unwind_tables || flag_exceptions)
@@ -26193,6 +26210,16 @@ prune_unused_types_update_strings (dw_die_ref die)
       }
 }
 
+/* Mark DIE and its children as removed.  */
+
+static void
+mark_removed (dw_die_ref die)
+{
+  dw_die_ref c;
+  die->removed = true;
+  FOR_EACH_CHILD (die, c, mark_removed (c));
+}
+
 /* Remove from the tree DIE any dies that aren't marked.  */
 
 static void
@@ -26208,8 +26235,8 @@ prune_unused_types_prune (dw_die_ref die)
 
   c = die->die_child;
   do {
-    dw_die_ref prev = c;
-    for (c = c->die_sib; ! c->die_mark; c = c->die_sib)
+    dw_die_ref prev = c, next;
+    for (c = c->die_sib; ! c->die_mark; c = next)
       if (c == die->die_child)
 	{
 	  /* No marked children between 'prev' and the end of the list.  */
@@ -26221,7 +26248,15 @@ prune_unused_types_prune (dw_die_ref die)
 	      prev->die_sib = c->die_sib;
 	      die->die_child = prev;
 	    }
+	  c->die_sib = NULL;
+	  mark_removed (c);
 	  return;
+	}
+      else
+	{
+	  next = c->die_sib;
+	  c->die_sib = NULL;
+	  mark_removed (c);
 	}
 
     if (c != prev->die_sib)
@@ -26467,8 +26502,8 @@ move_marked_base_types (void)
 	  remove_child_with_prev (c, prev);
 	  /* As base types got marked, there must be at least
 	     one node other than DW_TAG_base_type.  */
-	  gcc_assert (c != c->die_sib);
-	  c = c->die_sib;
+	  gcc_assert (die->die_child != NULL);
+	  c = prev->die_sib;
 	}
     }
   while (c != die->die_child);
@@ -27804,7 +27839,7 @@ flush_limbo_die_list (void)
    and generate the DWARF-2 debugging info.  */
 
 static void
-dwarf2out_finish (const char *filename)
+dwarf2out_finish (const char *)
 {
   comdat_type_node *ctnode;
   dw_die_ref main_comp_unit_die;
@@ -27816,33 +27851,7 @@ dwarf2out_finish (const char *filename)
      DIEs generated after early finish.  */
   gcc_assert (deferred_asm_name == NULL);
 
-  /* PCH might result in DW_AT_producer string being restored from the
-     header compilation, so always fill it with empty string initially
-     and overwrite only here.  */
-  dw_attr_node *producer = get_AT (comp_unit_die (), DW_AT_producer);
-  producer_string = gen_producer_string ();
-  producer->dw_attr_val.v.val_str->refcount--;
-  producer->dw_attr_val.v.val_str = find_AT_string (producer_string);
-
   gen_remaining_tmpl_value_param_die_attribute ();
-
-  /* Add the name for the main input file now.  We delayed this from
-     dwarf2out_init to avoid complications with PCH.
-     For LTO produced units use a fixed artificial name to avoid
-     leaking tempfile names into the dwarf.  */
-  if (!in_lto_p)
-    add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
-  else
-    add_name_attribute (comp_unit_die (), "<artificial>");
-  if (!IS_ABSOLUTE_PATH (filename) || targetm.force_at_comp_dir)
-    add_comp_dir_attribute (comp_unit_die ());
-  else if (get_AT (comp_unit_die (), DW_AT_comp_dir) == NULL)
-    {
-      bool p = false;
-      file_table->traverse<bool *, file_table_relative_p> (&p);
-      if (p)
-	add_comp_dir_attribute (comp_unit_die ());
-    }
 
 #if ENABLE_ASSERT_CHECKING
   {
@@ -27853,42 +27862,14 @@ dwarf2out_finish (const char *filename)
   resolve_addr (comp_unit_die ());
   move_marked_base_types ();
 
-  if (flag_eliminate_unused_debug_types)
-    prune_unused_types ();
-
-  /* Generate separate COMDAT sections for type DIEs. */
-  if (use_debug_types)
-    {
-      break_out_comdat_types (comp_unit_die ());
-
-      /* Each new type_unit DIE was added to the limbo die list when created.
-         Since these have all been added to comdat_type_list, clear the
-         limbo die list.  */
-      limbo_die_list = NULL;
-
-      /* For each new comdat type unit, copy declarations for incomplete
-         types to make the new unit self-contained (i.e., no direct
-         references to the main compile unit).  */
-      for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
-        copy_decls_for_unworthy_types (ctnode->root_die);
-      copy_decls_for_unworthy_types (comp_unit_die ());
-
-      /* In the process of copying declarations from one unit to another,
-         we may have left some declarations behind that are no longer
-         referenced.  Prune them.  */
-      prune_unused_types ();
-    }
-
-  /* Generate separate CUs for each of the include files we've seen.
-     They will go into limbo_die_list.  */
-  if (flag_eliminate_dwarf2_dups)
-    break_out_includes (comp_unit_die ());
+  /* Initialize sections and labels used for actual assembler output.  */
+  init_sections_and_labels ();
 
   /* Traverse the DIE's and add sibling attributes to those DIE's that
      have children.  */
   add_sibling_attributes (comp_unit_die ());
   limbo_die_node *node;
-  for (node = limbo_die_list; node; node = node->next)
+  for (node = cu_die_list; node; node = node->next)
     add_sibling_attributes (node->die);
   for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
     add_sibling_attributes (ctnode->root_die);
@@ -27897,7 +27878,15 @@ dwarf2out_finish (const char *filename)
      skeleton compile_unit DIE that remains in the .o, while
      most attributes go in the DWO compile_unit_die.  */
   if (dwarf_split_debug_info)
-    main_comp_unit_die = gen_compile_unit_die (NULL);
+    {
+      limbo_die_node *cu;
+      main_comp_unit_die = gen_compile_unit_die (NULL);
+      cu = limbo_die_list;
+      gcc_assert (cu->die == main_comp_unit_die);
+      limbo_die_list = limbo_die_list->next;
+      cu->next = cu_die_list;
+      cu_die_list = cu;
+    }
   else
     main_comp_unit_die = comp_unit_die ();
 
@@ -28009,7 +27998,7 @@ dwarf2out_finish (const char *filename)
 
   /* Output all of the compilation units.  We put the main one last so that
      the offsets are available to output_pubnames.  */
-  for (node = limbo_die_list; node; node = node->next)
+  for (node = cu_die_list; node; node = node->next)
     output_comp_unit (node->die, 0);
 
   hash_table<comdat_type_hasher> comdat_type_table (100);
@@ -28151,9 +28140,30 @@ dwarf2out_finish (const char *filename)
    has run.  */
 
 static void
-dwarf2out_early_finish (void)
+dwarf2out_early_finish (const char *filename)
 {
   set_early_dwarf s;
+
+  /* PCH might result in DW_AT_producer string being restored from the
+     header compilation, so always fill it with empty string initially
+     and overwrite only here.  */
+  dw_attr_node *producer = get_AT (comp_unit_die (), DW_AT_producer);
+  producer_string = gen_producer_string ();
+  producer->dw_attr_val.v.val_str->refcount--;
+  producer->dw_attr_val.v.val_str = find_AT_string (producer_string);
+
+  /* Add the name for the main input file now.  We delayed this from
+     dwarf2out_init to avoid complications with PCH.  */
+  add_name_attribute (comp_unit_die (), remap_debug_filename (filename));
+  if (!IS_ABSOLUTE_PATH (filename) || targetm.force_at_comp_dir)
+    add_comp_dir_attribute (comp_unit_die ());
+  else if (get_AT (comp_unit_die (), DW_AT_comp_dir) == NULL)
+    {
+      bool p = false;
+      file_table->traverse<bool *, file_table_relative_p> (&p);
+      if (p)
+	add_comp_dir_attribute (comp_unit_die ());
+    }
 
   /* With LTO early dwarf was really finished at compile-time, so make
      sure to adjust the phase after annotating the LTRANS CU DIE.  */
@@ -28189,6 +28199,48 @@ dwarf2out_early_finish (void)
 	}
     }
   deferred_asm_name = NULL;
+
+  if (flag_eliminate_unused_debug_types)
+    prune_unused_types ();
+
+  /* Generate separate COMDAT sections for type DIEs. */
+  if (use_debug_types)
+    {
+      break_out_comdat_types (comp_unit_die ());
+
+      /* Each new type_unit DIE was added to the limbo die list when created.
+         Since these have all been added to comdat_type_list, clear the
+         limbo die list.  */
+      limbo_die_list = NULL;
+
+      /* For each new comdat type unit, copy declarations for incomplete
+         types to make the new unit self-contained (i.e., no direct
+         references to the main compile unit).  */
+      for (comdat_type_node *ctnode = comdat_type_list;
+	   ctnode != NULL; ctnode = ctnode->next)
+        copy_decls_for_unworthy_types (ctnode->root_die);
+      copy_decls_for_unworthy_types (comp_unit_die ());
+
+      /* In the process of copying declarations from one unit to another,
+         we may have left some declarations behind that are no longer
+         referenced.  Prune them.  */
+      prune_unused_types ();
+    }
+
+  /* Generate separate CUs for each of the include files we've seen.
+     They will go into limbo_die_list and from there to cu_die_list.  */
+  if (flag_eliminate_dwarf2_dups)
+    {
+      gcc_assert (limbo_die_list == NULL);
+      break_out_includes (comp_unit_die ());
+      limbo_die_node *cu;
+      while ((cu = limbo_die_list))
+	{
+	  limbo_die_list = cu->next;
+	  cu->next = cu_die_list;
+	  cu_die_list = cu;
+	}
+    }
 
   /* The early debug phase is now finished.  */
   early_dwarf_finished = true;

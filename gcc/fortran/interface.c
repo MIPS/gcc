@@ -115,7 +115,9 @@ fold_unary_intrinsic (gfc_intrinsic_op op)
 }
 
 
-/* Return the operator depending on the DTIO moded string.  */
+/* Return the operator depending on the DTIO moded string.  Note that
+   these are not operators in the normal sense and so have been placed
+   beyond GFC_INTRINSIC_END in gfortran.h:enum gfc_intrinsic_op.  */
 
 static gfc_intrinsic_op
 dtio_op (char* mode)
@@ -524,6 +526,7 @@ int
 gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
 {
   gfc_component *map1, *map2, *cmp1, *cmp2;
+  gfc_symbol *map1_t, *map2_t;
 
   if (un1->attr.flavor != FL_UNION || un2->attr.flavor != FL_UNION)
     return 0;
@@ -539,16 +542,26 @@ gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
      we compare the maps sequentially. */
   for (;;)
   {
-    cmp1 = map1->ts.u.derived->components;
-    cmp2 = map2->ts.u.derived->components;
+    map1_t = map1->ts.u.derived;
+    map2_t = map2->ts.u.derived;
+
+    cmp1 = map1_t->components;
+    cmp2 = map2_t->components;
+
+    /* Protect against null components.  */
+    if (map1_t->attr.zero_comp != map2_t->attr.zero_comp)
+      return 0;
+
+    if (map1_t->attr.zero_comp)
+      return 1;
+
     for (;;)
     {
       /* No two fields will ever point to the same map type unless they are
          the same component, because one map field is created with its type
          declaration. Therefore don't worry about recursion here. */
       /* TODO: worry about recursion into parent types of the unions? */
-      if (compare_components (cmp1, cmp2,
-            map1->ts.u.derived, map2->ts.u.derived) == 0)
+      if (compare_components (cmp1, cmp2, map1_t, map2_t) == 0)
         return 0;
 
       cmp1 = cmp1->next;
@@ -586,6 +599,10 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
     return 1;
 
   gcc_assert (derived1 && derived2);
+
+  /* Compare UNION types specially.  */
+  if (derived1->attr.flavor == FL_UNION || derived2->attr.flavor == FL_UNION)
+    return gfc_compare_union_types (derived1, derived2);
 
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is
@@ -4304,16 +4321,13 @@ gfc_current_interface_head (void)
     {
       case INTERFACE_INTRINSIC_OP:
 	return current_interface.ns->op[current_interface.op];
-	break;
 
       case INTERFACE_GENERIC:
       case INTERFACE_DTIO:
 	return current_interface.sym->generic;
-	break;
 
       case INTERFACE_USER_OP:
 	return current_interface.uop->op;
-	break;
 
       default:
 	gcc_unreachable ();
@@ -4629,7 +4643,7 @@ check_dtio_interface1 (gfc_symbol *derived, gfc_symtree *tb_io_st,
 
       for (intr = tb_io_st->n.sym->generic; intr; intr = intr->next)
 	{
-	  if (intr->sym && intr->sym->formal
+	  if (intr->sym && intr->sym->formal && intr->sym->formal->sym
 	      && ((intr->sym->formal->sym->ts.type == BT_CLASS
 	           && CLASS_DATA (intr->sym->formal->sym)->ts.u.derived
 							     == derived)
@@ -4639,6 +4653,12 @@ check_dtio_interface1 (gfc_symbol *derived, gfc_symtree *tb_io_st,
 	      dtio_sub = intr->sym;
 	      break;
 	    }
+	  else if (intr->sym && intr->sym->formal && !intr->sym->formal->sym)
+	    {
+	      gfc_error ("Alternate return at %L is not permitted in a DTIO "
+			 "procedure", &intr->sym->declared_at);
+	      return;
+	    }
 	}
 
       if (dtio_sub == NULL)
@@ -4647,8 +4667,27 @@ check_dtio_interface1 (gfc_symbol *derived, gfc_symtree *tb_io_st,
 
   gcc_assert (dtio_sub);
   if (!dtio_sub->attr.subroutine)
-    gfc_error ("DTIO procedure %s at %L must be a subroutine",
+    gfc_error ("DTIO procedure '%s' at %L must be a subroutine",
 	       dtio_sub->name, &dtio_sub->declared_at);
+
+  arg_num = 0;
+  for (formal = dtio_sub->formal; formal; formal = formal->next)
+    arg_num++;
+
+  if (arg_num < (formatted ? 6 : 4))
+    {
+      gfc_error ("Too few dummy arguments in DTIO procedure '%s' at %L",
+		 dtio_sub->name, &dtio_sub->declared_at);
+      return;
+    }
+
+  if (arg_num > (formatted ? 6 : 4))
+    {
+      gfc_error ("Too many dummy arguments in DTIO procedure '%s' at %L",
+		 dtio_sub->name, &dtio_sub->declared_at);
+      return;
+    }
+
 
   /* Now go through the formal arglist.  */
   arg_num = 1;
@@ -4657,6 +4696,14 @@ check_dtio_interface1 (gfc_symbol *derived, gfc_symtree *tb_io_st,
       if (!formatted && arg_num == 3)
 	arg_num = 5;
       fsym = formal->sym;
+
+      if (fsym == NULL)
+	{
+	  gfc_error ("Alternate return at %L is not permitted in a DTIO "
+		     "procedure", &dtio_sub->declared_at);
+	  return;
+	}
+
       switch (arg_num)
 	{
 	case(1):			/* DTV  */
@@ -4758,6 +4805,9 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
   gfc_typebound_proc *tb_io_proc, *specific_proc;
   bool t = false;
 
+  if (!derived || derived->attr.flavor != FL_DERIVED)
+    return NULL;
+
   /* Try to find a typebound DTIO binding.  */
   if (formatted == true)
     {
@@ -4792,6 +4842,9 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
 
   if (tb_io_st != NULL)
     {
+      const char *genname;
+      gfc_symtree *st;
+
       tb_io_proc = tb_io_st->n.tb;
       gcc_assert (tb_io_proc != NULL);
       gcc_assert (tb_io_proc->is_generic);
@@ -4800,7 +4853,16 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
       specific_proc = tb_io_proc->u.generic->specific;
       gcc_assert (!specific_proc->is_generic);
 
-      dtio_sub = specific_proc->u.specific->n.sym;
+      /* Go back and make sure that we have the right specific procedure.
+	 Here we most likely have a procedure from the parent type, which
+	 can be overridden in extensions.  */
+      genname = tb_io_proc->u.generic->specific_st->name;
+      st = gfc_find_typebound_proc (derived, NULL, genname,
+				    true, &tb_io_proc->where);
+      if (st)
+	dtio_sub = st->n.tb->u.specific->n.sym;
+      else
+	dtio_sub = specific_proc->u.specific->n.sym;
     }
 
   if (tb_io_st != NULL)
@@ -4811,6 +4873,9 @@ gfc_find_specific_dtio_proc (gfc_symbol *derived, bool write, bool formatted)
   for (extended = derived; extended;
        extended = gfc_get_derived_super_type (extended))
     {
+      if (extended == NULL || extended->ns == NULL)
+	return NULL;
+
       if (formatted == true)
 	{
 	  if (write == true)

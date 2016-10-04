@@ -178,9 +178,10 @@ enum gfc_intrinsic_op
   INTRINSIC_EQ_OS, INTRINSIC_NE_OS, INTRINSIC_GT_OS, INTRINSIC_GE_OS,
   INTRINSIC_LT_OS, INTRINSIC_LE_OS,
   INTRINSIC_NOT, INTRINSIC_USER, INTRINSIC_ASSIGN, INTRINSIC_PARENTHESES,
-  /* User defined derived type pseudo operator.  */
-  INTRINSIC_FORMATTED, INTRINSIC_UNFORMATTED,
-  GFC_INTRINSIC_END /* Sentinel */
+  GFC_INTRINSIC_END, /* Sentinel */
+  /* User defined derived type pseudo operators. These are set beyond the
+     sentinel so that they are excluded from module_read and module_write.  */
+  INTRINSIC_FORMATTED, INTRINSIC_UNFORMATTED
 };
 
 /* This macro is the number of intrinsic operators that exist.
@@ -735,7 +736,7 @@ typedef struct
     optional:1, pointer:1, target:1, value:1, volatile_:1, temporary:1,
     dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1,
     implied_index:1, subref_array_pointer:1, proc_pointer:1, asynchronous:1,
-    contiguous:1, fe_temp: 1;
+    contiguous:1, fe_temp: 1, automatic: 1;
 
   /* For CLASS containers, the pointer attribute is sometimes set internally
      even though it was not directly specified.  In this case, keep the
@@ -1043,6 +1044,8 @@ typedef struct gfc_component
 
   /* Needed for procedure pointer components.  */
   struct gfc_typebound_proc *tb;
+  /* When allocatable/pointer and in a coarray the associated token.  */
+  tree caf_token;
 }
 gfc_component;
 
@@ -2329,7 +2332,7 @@ typedef struct
 {
   gfc_expr *io_unit, *format_expr, *rec, *advance, *iostat, *size, *iomsg,
 	   *id, *pos, *asynchronous, *blank, *decimal, *delim, *pad, *round,
-	   *sign, *extra_comma, *dt_io_kind;
+	   *sign, *extra_comma, *dt_io_kind, *udtio;
 
   gfc_symbol *namelist;
   /* A format_label of `format_asterisk' indicates the "*" format */
@@ -2768,7 +2771,7 @@ int gfc_validate_kind (bt, int, bool);
 int gfc_get_int_kind_from_width_isofortranenv (int size);
 int gfc_get_real_kind_from_width_isofortranenv (int size);
 tree gfc_get_union_type (gfc_symbol *);
-tree gfc_get_derived_type (gfc_symbol * derived);
+tree gfc_get_derived_type (gfc_symbol * derived, bool in_coarray = false);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
 extern int gfc_max_integer_kind;
@@ -2813,6 +2816,7 @@ bool gfc_add_cray_pointee (symbol_attribute *, locus *);
 match gfc_mod_pointee_as (gfc_array_spec *);
 bool gfc_add_protected (symbol_attribute *, const char *, locus *);
 bool gfc_add_result (symbol_attribute *, const char *, locus *);
+bool gfc_add_automatic (symbol_attribute *, const char *, locus *);
 bool gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 bool gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 bool gfc_add_omp_declare_target (symbol_attribute *, const char *, locus *);
@@ -3047,7 +3051,7 @@ int gfc_numeric_ts (gfc_typespec *);
 int gfc_kind_max (gfc_expr *, gfc_expr *);
 
 bool gfc_check_conformance (gfc_expr *, gfc_expr *, const char *, ...) ATTRIBUTE_PRINTF_3;
-bool gfc_check_assign (gfc_expr *, gfc_expr *, int);
+bool gfc_check_assign (gfc_expr *, gfc_expr *, int, bool c = true);
 bool gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
 bool gfc_check_assign_symbol (gfc_symbol *, gfc_component *, gfc_expr *);
 
@@ -3212,6 +3216,7 @@ const char *gfc_dt_upper_string (const char *);
 /* primary.c */
 symbol_attribute gfc_variable_attr (gfc_expr *, gfc_typespec *);
 symbol_attribute gfc_expr_attr (gfc_expr *);
+symbol_attribute gfc_caf_attr (gfc_expr *, bool in_allocate = false);
 match gfc_match_rvalue (gfc_expr **);
 match gfc_match_varspec (gfc_expr*, int, bool, bool);
 int gfc_check_digit (char, int);

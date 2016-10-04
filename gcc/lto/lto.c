@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "stor-layout.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
@@ -3316,7 +3317,7 @@ lto_main (void)
 	    lto_promote_statics_nonwpa ();
 
 	  /* Annotate the CU DIE and mark the early debug phase as finished.  */
-	  debug_hooks->early_finish ();
+	  debug_hooks->early_finish ("<artificial>");
 
 	  /* Let the middle end know that we have read and merged all of
 	     the input files.  */ 

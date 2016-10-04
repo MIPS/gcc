@@ -4132,16 +4132,16 @@ cxx_init_decl_processing (void)
   /* Now, C++.  */
   current_lang_name = lang_name_cplusplus;
 
-  if (aligned_new_threshhold > 1
-      && !pow2p_hwi (aligned_new_threshhold))
+  if (aligned_new_threshold > 1
+      && !pow2p_hwi (aligned_new_threshold))
     {
-      error ("-faligned-new=%d is not a power of two", aligned_new_threshhold);
-      aligned_new_threshhold = 1;
+      error ("-faligned-new=%d is not a power of two", aligned_new_threshold);
+      aligned_new_threshold = 1;
     }
-  if (aligned_new_threshhold == -1)
-    aligned_new_threshhold = (cxx_dialect >= cxx1z) ? 1 : 0;
-  if (aligned_new_threshhold == 1)
-    aligned_new_threshhold = max_align_t_align () / BITS_PER_UNIT;
+  if (aligned_new_threshold == -1)
+    aligned_new_threshold = (cxx_dialect >= cxx1z) ? 1 : 0;
+  if (aligned_new_threshold == 1)
+    aligned_new_threshold = max_align_t_align () / BITS_PER_UNIT;
 
   {
     tree newattrs, extvisattr;
@@ -4210,7 +4210,7 @@ cxx_init_decl_processing (void)
 	push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
       }
 
-    if (aligned_new_threshhold)
+    if (aligned_new_threshold)
       {
 	push_namespace (std_identifier);
 	tree align_id = get_identifier ("align_val_t");
@@ -5581,6 +5581,22 @@ next_initializable_field (tree field)
   return field;
 }
 
+/* Return true for [dcl.init.list] direct-list-initialization from
+   single element of enumeration with a fixed underlying type.  */
+
+bool
+is_direct_enum_init (tree type, tree init)
+{
+  if (cxx_dialect >= cxx1z
+      && TREE_CODE (type) == ENUMERAL_TYPE
+      && ENUM_FIXED_UNDERLYING_TYPE_P (type)
+      && TREE_CODE (init) == CONSTRUCTOR
+      && CONSTRUCTOR_IS_DIRECT_INIT (init)
+      && CONSTRUCTOR_NELTS (init) == 1)
+    return true;
+  return false;
+}
+
 /* Subroutine of reshape_init_array and reshape_init_vector, which does
    the actual work. ELT_TYPE is the element type of the array. MAX_INDEX is an
    INTEGER_CST representing the size of the array minus one (the maximum index),
@@ -5933,7 +5949,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 	 element (as allowed by [dcl.init.string]).  */
       if (!first_initializer_p
 	  && TREE_CODE (str_init) == CONSTRUCTOR
-	  && vec_safe_length (CONSTRUCTOR_ELTS (str_init)) == 1)
+	  && CONSTRUCTOR_NELTS (str_init) == 1)
 	{
 	  str_init = (*CONSTRUCTOR_ELTS (str_init))[0].value;
 	}
@@ -6025,6 +6041,17 @@ reshape_init (tree type, tree init, tsubst_flags_t complain)
      initializer.  */
   if (vec_safe_is_empty (v))
     return init;
+
+  /* Handle [dcl.init.list] direct-list-initialization from
+     single element of enumeration with a fixed underlying type.  */
+  if (is_direct_enum_init (type, init))
+    {
+      tree elt = CONSTRUCTOR_ELT (init, 0)->value;
+      if (check_narrowing (ENUM_UNDERLYING_TYPE (type), elt, complain))
+	return cp_build_c_cast (type, elt, tf_warning_or_error);
+      else
+	return error_mark_node;
+    }
 
   /* Recurse on this CONSTRUCTOR.  */
   d.cur = &(*v)[0];
@@ -6136,7 +6163,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 
   if (init && BRACE_ENCLOSED_INITIALIZER_P (init))
     {
-      int init_len = vec_safe_length (CONSTRUCTOR_ELTS (init));
+      int init_len = CONSTRUCTOR_NELTS (init);
       if (SCALAR_TYPE_P (type))
 	{
 	  if (init_len == 0)
@@ -6683,6 +6710,19 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
   type = TREE_TYPE (decl);
   if (type == error_mark_node)
     return;
+
+  /* Warn about register storage specifiers except when in GNU global
+     or local register variable extension.  */
+  if (VAR_P (decl) && DECL_REGISTER (decl) && asmspec_tree == NULL_TREE)
+    {
+      if (cxx_dialect >= cxx1z)
+	pedwarn (DECL_SOURCE_LOCATION (decl), OPT_Wregister,
+		 "ISO C++1z does not allow %<register%> storage "
+		 "class specifier");
+      else
+	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wregister,
+		    "%<register%> storage class specifier used");
+    }
 
   /* If a name was specified, get the string.  */
   if (at_namespace_scope_p ())
@@ -11607,7 +11647,20 @@ grokdeclarator (const cp_declarator *declarator,
        and in case doing stupid register allocation.  */
 
     if (storage_class == sc_register)
-      DECL_REGISTER (decl) = 1;
+      {
+	DECL_REGISTER (decl) = 1;
+	/* Warn about register storage specifiers on PARM_DECLs.  */
+	if (TREE_CODE (decl) == PARM_DECL)
+	  {
+	    if (cxx_dialect >= cxx1z)
+	      pedwarn (DECL_SOURCE_LOCATION (decl), OPT_Wregister,
+		       "ISO C++1z does not allow %<register%> storage "
+		       "class specifier");
+	    else
+	      warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wregister,
+			  "%<register%> storage class specifier used");
+	  }
+      }
     else if (storage_class == sc_extern)
       DECL_THIS_EXTERN (decl) = 1;
     else if (storage_class == sc_static)

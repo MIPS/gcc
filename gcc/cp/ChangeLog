@@ -1,3 +1,184 @@
+2016-10-03  Marek Polacek  <polacek@redhat.com>
+
+	Core 903
+	* typeck.c (cp_build_binary_op): Pass original operands to
+	null_ptr_cst_p, not those after the default conversions.
+
+2016-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* parser.c (cp_parser_condition): Fix a warning.
+
+2016-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0001R1 - C++17 removal of register storage class specifier
+	* decl.c (cp_finish_decl): Diagnose register storage class
+	on vars except when used in GNU global or local register variable
+	extension.
+	(grokdeclarator): Diagnose register storage class on parameters.
+	* except.c (expand_start_catch_block): Set DECL_REGISTER only
+	after cp_finish_decl call.
+
+2016-09-29  Marek Polacek  <polacek@redhat.com>
+
+	* rtti.c (involves_incomplete_p): Add fall through comment.
+
+2016-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77467
+	* constexpr.c (enum constexpr_switch_state): New.
+	(struct constexpr_ctx): Add css_state field.
+	(label_matches): Add CTX and STMT arguments, remove I and
+	DEFAULT_LABEL.  For CASE_LABEL_EXPR assert ctx->css_state != NULL,
+	handle default labels according to css_state.
+	(cxx_eval_statement_list): Remove statement skipping, label_matches
+	and default_label handling code.
+	(cxx_eval_loop_expr): Exit after first iteration even if
+	switches (jump_target).
+	(cxx_eval_switch_expr): Set up css_state field in ctx, if default
+	label has been seen in the body, but no cases matched, evaluate
+	the body second time.
+	(cxx_eval_constant_expression): Handle stmt skipping and label_matches
+	here.  Handle PREDICT_EXPR.  For MODIFY_EXPR or INIT_EXPR, assert
+	statement is not skipped.  For COND_EXPR during skipping, don't
+	evaluate condition, just the then block and if still skipping at the
+	end also the else block.
+	(cxx_eval_outermost_constant_expr): Adjust constexpr_ctx initializer.
+	(is_sub_constant_expr): Likewise.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0018R3, C++17 lambda capture of *this by value as [=,*this]
+	* parser.c (cp_parser_lambda_introducer): Formatting fix.  Pass
+	true instead of false as by_reference_p to add_capture for 'this'.
+	Parse '*this' simple-capture.
+	* lambda.c (build_capture_proxy): Handle '*this' capture by value.
+	(add_capture): Adjust function comment.  For id == this_identifier,
+	treat by_reference_p as capturing '*this' by reference, i.e. 'this'
+	by value, and !by_reference_p as capturing '*this' by value.
+	(add_default_capture): For implicit 'this' capture, always pass
+	by_reference_p true rather than false.
+
+	PR c++/77722
+	* cp-gimplify.c (cp_ubsan_maybe_instrument_return): Instrument also
+	functions that have just a STATEMENT_LIST instead of BIND_EXPR, or
+	BIND_EXPR with some statement rather than STATEMENT_LIST as body.
+
+2016-09-26  Nathan Sidwell  <nathan@acm.org>
+
+	* init.c (expand_default_init): Fix } indentation.
+	* method.c (process_subob_fn): Simplify control structure to
+	remove gotos.
+	(implicitly_declare_fn): Remove duplicated lambda ctor check.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* parser.c (cp_parser_storage_class_specifier_opt): Add
+	gcc_fallthrough.
+	(cp_parser_skip_to_end_of_template_parameter_list): Likewise.
+	(cp_parser_cache_defarg): Likewise.
+	(cp_parser_omp_for_cond): Likewise.
+	* semantics.c (finish_decltype_type): Likewise.
+	* typeck.c (structural_comptypes): Likewise.
+	(cp_build_binary_op): Likewise.
+	(cp_build_modify_expr): Likewise.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* constexpr.c (cxx_eval_internal_function): Handle IFN_FALLTHROUGH.
+	(potential_constant_expression_1): Likewise.
+	* constraint.cc (function_concept_check_p): Check fn for null.
+	* parser.c (cp_parser_expression_statement): Handle attribute
+	fallthrough.
+	(cp_parser_statement): Likewise.
+	(cp_parser_label_for_labeled_statement): Set FALLTHROUGH_LABEL_P on
+	labels.
+	(cp_parser_std_attribute): Handle fallthrough attribute.
+	(cp_parser_check_std_attribute): Add %< %> quotes.
+	* pt.c (tsubst_copy_and_build): Handle internal functions.
+	(instantiation_dependent_scope_ref_p): Return if the expression is
+	null.
+
+2016-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77490
+	* typeck.c (cp_build_unary_op): Warn about bit not on expressions that
+	have boolean value.
+
+2016-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0138R2, C++17 construction rules for enum class values
+	* cp-tree.h (is_direct_enum_init): Declare.
+	* decl.c (is_direct_enum_init): New function.
+	(reshape_init): Use it.
+	* typeck.c (convert_for_assignment): Likewise.
+
+	* Make-lang.in (check-c++1z): Pass RUNTESTFLAGS down to
+	make check-g++.
+
+	* constexpr.c (call_stack): Remove unnecessary
+	= vNULL initialization of file scope vec.
+
+	* name-lookup.c (store_bindings, store_class_bindings): Don't
+	initialize static local bindings_need_stored to vNULL.
+
+	* typeck2.c (process_init_constructor_record): Use
+	CONSTRUCTOR_NELTS (...) instead of
+	vec_safe_length (CONSTRUCTOR_ELTS (...)).
+	* decl.c (reshape_init_r): Likewise.
+	(check_initializer): Likewise.
+
+2016-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71979
+	* class.c (build_base_path): Allow for lookup_base returning
+	NULL_TREE.
+
+2016-09-21  Jason Merrill  <jason@redhat.com>
+
+	Core 903
+	* call.c (null_ptr_cst_p): Check char_type_p.
+
+2016-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77651
+	* init.c (build_new_1): Don't suggest to use -faligned-new if
+	aligned_new_threshold is non-zero.
+	(type_has_new_extended_alignment): Change aligned_new_threshhold
+	to aligned_new_threshold.
+	* call.c (second_parm_is_size_t, aligned_allocation_fn_p,
+	aligned_deallocation_fn_p, build_op_delete_call): Likewise.
+	* decl.c (cxx_init_decl_processing): Likewise.
+
+2016-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77626
+	* constexpr.c (cxx_fold_indirect_ref): Don't call byte_position on
+	FIELD_DECLs with error_mark_node type.  Remove useless break; after
+	return.
+
+	PR c++/77638
+	* parser.c (cp_parser_template_declaration_after_parameter): For 2
+	argument operator"" template set ok to false for
+	parm == error_mark_node.
+
+	PR c++/77637
+	* parser.c (cp_parser_std_attribute_list): Reject ... without
+	preceding attribute.
+
+2016-09-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77434
+	* cvt.c (cp_convert_and_check): Suppress Wint-in-bool-context here.
+
+2016-09-16  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/77639
+	* parser.c (cp_parser_class_head): When
+	processing_template_parmlist, don't assume that the
+	class-head may start an explicit specialization.
+
 2016-09-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/77482

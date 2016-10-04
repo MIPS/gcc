@@ -228,7 +228,7 @@ unsigned int flag_sanitize
 
 ; What sanitizers should recover from errors
 Variable
-unsigned int flag_sanitize_recover = SANITIZE_UNDEFINED | SANITIZE_NONDEFAULT | SANITIZE_KERNEL_ADDRESS
+unsigned int flag_sanitize_recover = (SANITIZE_UNDEFINED | SANITIZE_NONDEFAULT | SANITIZE_KERNEL_ADDRESS) & ~(SANITIZE_UNREACHABLE | SANITIZE_RETURN)
 
 fsanitize-coverage=trace-pc
 Common Report Var(flag_sanitize_coverage)
@@ -600,6 +600,10 @@ Warn when attempting to free a non-heap object.
 Whsa
 Common Var(warn_hsa) Init(1) Warning
 Warn when a function cannot be expanded to HSAIL.
+
+Wimplicit-fallthrough
+Common Var(warn_implicit_fallthrough) Warning EnabledBy(Wextra)
+Warn when a switch case falls through.
 
 Winline
 Common Var(warn_inline) Warning
@@ -1034,7 +1038,7 @@ Common Var(flag_check_new)
 Check the return value of new in C++.
 
 fchecking
-Common Var(flag_checking) Init(CHECKING_P)
+Common Var(flag_checking) Init(CHECKING_P ? ENABLE_EXTRA_CHECKING ? 2 : 1 : 0)
 Perform internal consistency checkings.
 
 fchecking=
@@ -1604,6 +1608,10 @@ Does nothing. Preserved for backward compatibility.
 fipa-struct-reorg
 Common Ignore
 Does nothing. Preserved for backward compatibility.
+
+fipa-vrp
+Common Report Var(flag_ipa_vrp) Optimization
+Perform IPA Value Range Propagation.
 
 fira-algorithm=
 Common Joined RejectNegative Enum(ira_algorithm) Var(flag_ira_algorithm) Init(IRA_ALGORITHM_CB) Optimization

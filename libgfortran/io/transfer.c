@@ -737,7 +737,7 @@ write_block (st_parameter_dt *dtp, int length)
 
   if (is_internal_unit (dtp))
     {
-      if (dtp->common.unit) /* char4 internel unit.  */
+      if (is_char4_unit(dtp)) /* char4 internel unit.  */
 	{
 	  gfc_char4_t *dest4;
 	  dest4 = mem_alloc_w4 (dtp->u.p.current_unit->s, &length);
@@ -2606,7 +2606,7 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
        st_parameter_open opp;
        unit_convert conv;
 
-      if (dtp->common.unit < 0)
+      if (dtp->common.unit < 0 && !is_internal_unit (dtp))
 	{
 	  close_unit (dtp->u.p.current_unit);
 	  dtp->u.p.current_unit = NULL;
@@ -3720,6 +3720,8 @@ next_record (st_parameter_dt *dtp, int done)
   else
     next_record_w (dtp, done);
 
+  fbuf_flush (dtp->u.p.current_unit, dtp->u.p.mode);
+
   if (!is_stream_io (dtp))
     {
       /* Since we have changed the position, set it to unspecified so
@@ -3733,8 +3735,8 @@ next_record (st_parameter_dt *dtp, int done)
 	  fp = stell (dtp->u.p.current_unit->s);
 	  /* Calculate next record, rounding up partial records.  */
 	  dtp->u.p.current_unit->last_record =
-	    (fp + dtp->u.p.current_unit->recl - 1) /
-	      dtp->u.p.current_unit->recl;
+	    (fp + dtp->u.p.current_unit->recl) /
+	      dtp->u.p.current_unit->recl - 1;
 	}
       else
 	dtp->u.p.current_unit->last_record++;
@@ -3743,7 +3745,6 @@ next_record (st_parameter_dt *dtp, int done)
   if (!done)
     pre_position (dtp);
 
-  fbuf_flush (dtp->u.p.current_unit, dtp->u.p.mode);
   smarkeor (dtp->u.p.current_unit->s);
 }
 
@@ -3943,18 +3944,34 @@ st_read_done (st_parameter_dt *dtp)
 {
   finalize_transfer (dtp);
 
-  if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
-    {
-      free_format_data (dtp->u.p.fmt);
-      free_format (dtp);
-    }
-
   free_ionml (dtp);
 
-  if (dtp->u.p.current_unit != NULL)
-    unlock_unit (dtp->u.p.current_unit);
-
-  free_internal_unit (dtp);
+  /* If this is a parent READ statement we do not need to retain the
+     internal unit structure for child use.  Free it and stash the unit
+     number for reuse.  */
+  if (dtp->u.p.current_unit != NULL
+      && dtp->u.p.current_unit->child_dtio == 0)
+    {
+      if (is_internal_unit (dtp) &&
+	  (dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
+        {
+	  free (dtp->u.p.current_unit->filename);
+	  dtp->u.p.current_unit->filename = NULL;
+	  free_format_hash_table (dtp->u.p.current_unit);
+	  free (dtp->u.p.current_unit->s);
+	  dtp->u.p.current_unit->s = NULL;
+	  if (dtp->u.p.current_unit->ls)
+	    free (dtp->u.p.current_unit->ls);
+	  dtp->u.p.current_unit->ls = NULL;
+	  stash_internal_unit (dtp);
+	}
+      if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
+	{
+	  free_format_data (dtp->u.p.fmt);
+	  free_format (dtp);
+	}
+      unlock_unit (dtp->u.p.current_unit);
+    }
 
   library_end ();
 }
@@ -3977,43 +3994,55 @@ st_write_done (st_parameter_dt *dtp)
 {
   finalize_transfer (dtp);
 
-  /* Deal with endfile conditions associated with sequential files.  */
-
   if (dtp->u.p.current_unit != NULL
-      && dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL
       && dtp->u.p.current_unit->child_dtio == 0)
-    switch (dtp->u.p.current_unit->endfile)
-      {
-      case AT_ENDFILE:		/* Remain at the endfile record.  */
-	break;
-
-      case AFTER_ENDFILE:
-	dtp->u.p.current_unit->endfile = AT_ENDFILE;	/* Just at it now.  */
-	break;
-
-      case NO_ENDFILE:
-	/* Get rid of whatever is after this record.  */
-        if (!is_internal_unit (dtp))
-          unit_truncate (dtp->u.p.current_unit,
-                         stell (dtp->u.p.current_unit->s),
-                         &dtp->common);
-	dtp->u.p.current_unit->endfile = AT_ENDFILE;
-	break;
-      }
-
-  if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
     {
-      free_format_data (dtp->u.p.fmt);
-      free_format (dtp);
+      /* Deal with endfile conditions associated with sequential files.  */
+      if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
+	switch (dtp->u.p.current_unit->endfile)
+	  {
+	  case AT_ENDFILE:		/* Remain at the endfile record.  */
+	    break;
+
+	  case AFTER_ENDFILE:
+	    dtp->u.p.current_unit->endfile = AT_ENDFILE; /* Just at it now.  */
+	    break;
+
+	  case NO_ENDFILE:
+	    /* Get rid of whatever is after this record.  */
+	    if (!is_internal_unit (dtp))
+	      unit_truncate (dtp->u.p.current_unit,
+			     stell (dtp->u.p.current_unit->s),
+			     &dtp->common);
+	    dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	    break;
+	  }
+
+      free_ionml (dtp);
+
+      /* If this is a parent WRITE statement we do not need to retain the
+	 internal unit structure for child use.  Free it and stash the
+	 unit number for reuse.  */
+      if (is_internal_unit (dtp) &&
+	  (dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
+	{
+	  free (dtp->u.p.current_unit->filename);
+	  dtp->u.p.current_unit->filename = NULL;
+	  free_format_hash_table (dtp->u.p.current_unit);
+	  free (dtp->u.p.current_unit->s);
+	  dtp->u.p.current_unit->s = NULL;
+	  if (dtp->u.p.current_unit->ls)
+	    free (dtp->u.p.current_unit->ls);
+	  dtp->u.p.current_unit->ls = NULL;
+	  stash_internal_unit (dtp);
+	}
+      if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
+	{
+	  free_format_data (dtp->u.p.fmt);
+	  free_format (dtp);
+	}
+      unlock_unit (dtp->u.p.current_unit);
     }
-
-  free_ionml (dtp);
-
-  if (dtp->u.p.current_unit != NULL)
-    unlock_unit (dtp->u.p.current_unit);
-
-  free_internal_unit (dtp);
-
   library_end ();
 }
 

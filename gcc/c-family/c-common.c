@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "function.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "c-common.h"
 #include "gimple-expr.h"
 #include "tm_p.h"
@@ -396,6 +397,7 @@ static tree handle_designated_init_attribute (tree *, tree, tree, int, bool *);
 static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *);
 static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
 static tree handle_bnd_instrument (tree *, tree, tree, int, bool *);
+static tree handle_fallthrough_attribute (tree *, tree, tree, int, bool *);
 
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
 static bool nonnull_check_p (tree, unsigned HOST_WIDE_INT);
@@ -847,6 +849,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_bnd_legacy, false },
   { "bnd_instrument",         0, 0, true, false, false,
 			      handle_bnd_instrument, false },
+  { "fallthrough",	      0, 0, false, false, false,
+			      handle_fallthrough_attribute, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -4651,12 +4655,34 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	return c_common_truthvalue_conversion (location,
 					       TREE_OPERAND (expr, 0));
 
+    case LSHIFT_EXPR:
+      warning_at (EXPR_LOCATION (expr), OPT_Wint_in_bool_context,
+		  "<< in boolean context, did you mean '<' ?");
+      break;
+
     case COND_EXPR:
+      if (warn_int_in_bool_context
+	  && !from_macro_definition_at (EXPR_LOCATION (expr)))
+	{
+	  tree val1 = fold_for_warn (TREE_OPERAND (expr, 1));
+	  tree val2 = fold_for_warn (TREE_OPERAND (expr, 2));
+	  if (TREE_CODE (val1) == INTEGER_CST
+	      && TREE_CODE (val2) == INTEGER_CST
+	      && !integer_zerop (val1)
+	      && !integer_zerop (val2)
+	      && (!integer_onep (val1)
+		  || !integer_onep (val2)))
+	    warning_at (EXPR_LOCATION (expr), OPT_Wint_in_bool_context,
+			"?: using integer constants in boolean context, "
+			"the expression will always evaluate to %<true%>");
+	}
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       if (c_dialect_cxx ())
 	{
 	  tree op1 = TREE_OPERAND (expr, 1);
 	  tree op2 = TREE_OPERAND (expr, 2);
+	  int w = warn_int_in_bool_context;
+	  warn_int_in_bool_context = 0;
 	  /* In C++ one of the arms might have void type if it is throw.  */
 	  if (!VOID_TYPE_P (TREE_TYPE (op1)))
 	    op1 = c_common_truthvalue_conversion (location, op1);
@@ -4664,10 +4690,13 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	    op2 = c_common_truthvalue_conversion (location, op2);
 	  expr = fold_build3_loc (location, COND_EXPR, truthvalue_type_node,
 				  TREE_OPERAND (expr, 0), op1, op2);
+	  warn_int_in_bool_context = w;
 	  goto ret;
 	}
       else
 	{
+	  int w = warn_int_in_bool_context;
+	  warn_int_in_bool_context = 0;
 	  /* Folding will happen later for C.  */
 	  expr = build3 (COND_EXPR, truthvalue_type_node,
 			 TREE_OPERAND (expr, 0),
@@ -4675,6 +4704,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 							 TREE_OPERAND (expr, 1)),
 			 c_common_truthvalue_conversion (location,
 							 TREE_OPERAND (expr, 2)));
+	  warn_int_in_bool_context = w;
 	  goto ret;
 	}
 
@@ -9840,6 +9870,45 @@ handle_designated_init_attribute (tree *node, tree name, tree, int,
   return NULL_TREE;
 }
 
+
+/* Handle a "fallthrough" attribute; arguments as in struct
+   attribute_spec.handler.  */
+
+static tree
+handle_fallthrough_attribute (tree *, tree name, tree, int,
+			      bool *no_add_attrs)
+{
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
+
+/* Check whether ATTR is a valid attribute fallthrough.  */
+
+bool
+attribute_fallthrough_p (tree attr)
+{
+  tree t = lookup_attribute ("fallthrough", attr);
+  if (t == NULL_TREE)
+    return false;
+  /* This attribute shall appear at most once in each attribute-list.  */
+  if (lookup_attribute ("fallthrough", TREE_CHAIN (t)))
+    warning (OPT_Wattributes, "%<fallthrough%> attribute specified multiple "
+	     "times");
+  /* No attribute-argument-clause shall be present.  */
+  else if (TREE_VALUE (t) != NULL_TREE)
+    warning (OPT_Wattributes, "%<fallthrough%> attribute specified with "
+	     "a parameter");
+  /* Warn if other attributes are found.  */
+  for (t = attr; t != NULL_TREE; t = TREE_CHAIN (t))
+    {
+      tree name = get_attribute_name (t);
+      if (!is_attribute_p ("fallthrough", name))
+	warning (OPT_Wattributes, "%qE attribute ignored", name);
+    }
+  return true;
+}
+
 
 /* Check for valid arguments being passed to a function with FNTYPE.
    There are NARGS arguments in the array ARGARRAY.  LOC should be used for
@@ -12850,8 +12919,11 @@ scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
 unsigned
 max_align_t_align ()
 {
-  return MAX (TYPE_ALIGN (long_long_integer_type_node),
-	      TYPE_ALIGN (long_double_type_node));
+  unsigned int max_align = MAX (TYPE_ALIGN (long_long_integer_type_node),
+				TYPE_ALIGN (long_double_type_node));
+  if (float128_type_node != NULL_TREE)
+    max_align = MAX (max_align, TYPE_ALIGN (float128_type_node));
+  return max_align;
 }
 
 /* Return true iff ALIGN is an integral constant that is a fundamental

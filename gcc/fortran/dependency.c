@@ -486,7 +486,6 @@ gfc_dep_compare_expr (gfc_expr *e1, gfc_expr *e2)
 
     case EXPR_FUNCTION:
       return gfc_dep_compare_functions (e1, e2, false);
-      break;
 
     default:
       return -2;
@@ -1258,7 +1257,8 @@ gfc_check_dependency (gfc_expr *expr1, gfc_expr *expr2, bool identical)
       && strcmp (expr1->value.function.name, "_F.caf_get") == 0)
     return 0;
 
-  gcc_assert (expr1->expr_type == EXPR_VARIABLE);
+  if (expr1->expr_type != EXPR_VARIABLE)
+    gfc_internal_error ("gfc_check_dependency: expecting an EXPR_VARIABLE");
 
   switch (expr2->expr_type)
     {

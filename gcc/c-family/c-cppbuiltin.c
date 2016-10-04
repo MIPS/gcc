@@ -933,6 +933,7 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_range_based_for=201603");
 	  cpp_define (pfile, "__cpp_constexpr=201603");
 	  cpp_define (pfile, "__cpp_if_constexpr=201606");
+	  cpp_define (pfile, "__cpp_capture_star_this=201603");
 	}
       if (flag_concepts)
 	/* Use a value smaller than the 201507 specified in
@@ -944,11 +945,11 @@ c_cpp_builtins (cpp_reader *pfile)
 	cpp_define (pfile, "__cpp_transactional_memory=210500");
       if (flag_sized_deallocation)
 	cpp_define (pfile, "__cpp_sized_deallocation=201309");
-      if (aligned_new_threshhold)
+      if (aligned_new_threshold)
 	{
 	  cpp_define (pfile, "__cpp_aligned_new=201606");
 	  cpp_define_formatted (pfile, "__STDCPP_DEFAULT_NEW_ALIGNMENT__=%d",
-				aligned_new_threshhold);
+				aligned_new_threshold);
 	}
     }
   /* Note that we define this for C as well, so that we know if

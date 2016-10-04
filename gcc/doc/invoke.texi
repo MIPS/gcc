@@ -213,7 +213,7 @@ in the following sections.
 -Wabi=@var{n}  -Wabi-tag  -Wconversion-null  -Wctor-dtor-privacy @gol
 -Wdelete-non-virtual-dtor -Wliteral-suffix -Wmultiple-inheritance @gol
 -Wnamespaces -Wnarrowing @gol
--Wnoexcept -Wnon-virtual-dtor  -Wreorder @gol
+-Wnoexcept -Wnon-virtual-dtor  -Wreorder -Wregister @gol
 -Weffc++  -Wstrict-null-sentinel -Wtemplates @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
 -Woverloaded-virtual  -Wno-pmf-conversions @gol
@@ -256,8 +256,8 @@ Objective-C and Objective-C++ Dialects}.
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
 -Wno-aggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
--Wno-attributes -Wbool-compare -Wno-builtin-macro-redefined @gol
--Wc90-c99-compat -Wc99-c11-compat @gol
+-Wno-attributes -Wbool-compare -Wbool-operation @gol
+-Wno-builtin-macro-redefined -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion -Wcoverage-mismatch -Wno-cpp -Wdangling-else -Wdate-time @gol
@@ -268,12 +268,14 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-div-by-zero -Wdouble-promotion -Wduplicated-cond @gol
 -Wempty-body  -Wenum-compare -Wno-endif-labels @gol
 -Werror  -Werror=* -Wfatal-errors -Wfloat-equal  -Wformat  -Wformat=2 @gol
--Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
+-Wno-format-contains-nul -Wno-format-extra-args -Wformat-length=@var{n} @gol
+-Wformat-nonliteral @gol
 -Wformat-security  -Wformat-signedness  -Wformat-y2k -Wframe-address @gol
 -Wframe-larger-than=@var{len} -Wno-free-nonheap-object -Wjump-misses-init @gol
 -Wignored-qualifiers  -Wignored-attributes  -Wincompatible-pointer-types @gol
--Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
--Winit-self  -Winline  -Wno-int-conversion @gol
+-Wimplicit  -Wimplicit-fallthrough  -Wimplicit-function-declaration @gol
+-Wimplicit-int @gol
+-Winit-self  -Winline  -Wno-int-conversion  -Wint-in-bool-context @gol
 -Wno-int-to-pointer-cast -Winvalid-memory-model -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len} @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
@@ -379,7 +381,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-sibling-calls @gol
 -fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
--fprefetch-loop-arrays @gol
+-fprefetch-loop-arrays -fprintf-return-value @gol
 -fprofile-correction @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
 -fprofile-reorder-functions @gol
@@ -640,7 +642,8 @@ Objective-C and Objective-C++ Dialects}.
 -mneon-for-64bits @gol
 -mslow-flash-data @gol
 -masm-syntax-unified @gol
--mrestrict-it}
+-mrestrict-it @gol
+-mpure-code}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
@@ -1014,6 +1017,7 @@ See RS/6000 and PowerPC Options.
 -mupper-regs-di -mno-upper-regs-di @gol
 -mupper-regs -mno-upper-regs @gol
 -mfloat128 -mno-float128 -mfloat128-hardware -mno-float128-hardware @gol
+-mgnu-attribute -mno-gnu-attribute @gol
 -mlra -mno-lra}
 
 @emph{RX Options}
@@ -2836,6 +2840,15 @@ case it is possible but unsafe to delete an instance of a derived
 class through a pointer to the class itself or base class.  This
 warning is automatically enabled if @option{-Weffc++} is specified.
 
+@item -Wregister @r{(C++ and Objective-C++ only)}
+@opindex Wregister
+@opindex Wno-register
+Warn on uses of the @code{register} storage class specifier, except
+when it is part of the GNU @ref{Explicit Register Variables} extension.
+The use of the @code{register} keyword as storage class specifier has
+been deprecated in C++11 and removed in C++17.
+Enabled by default with @option{-std=c++1z}.
+
 @item -Wreorder @r{(C++ and Objective-C++ only)}
 @opindex Wreorder
 @opindex Wno-reorder
@@ -3654,12 +3667,14 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 @gccoptlist{-Waddress   @gol
 -Warray-bounds=1 @r{(only with} @option{-O2}@r{)}  @gol
 -Wbool-compare  @gol
+-Wbool-operation  @gol
 -Wc++11-compat  -Wc++14-compat@gol
 -Wchar-subscripts  @gol
 -Wcomment  @gol
 -Wduplicate-decl-specifier @r{(C and Objective-C only)} @gol
 -Wenum-compare @r{(in C/ObjC; this is on by default in C++)} @gol
 -Wformat   @gol
+-Wint-in-bool-context  @gol
 -Wimplicit @r{(C and Objective-C only)} @gol
 -Wimplicit-int @r{(C and Objective-C only)} @gol
 -Wimplicit-function-declaration @r{(C and Objective-C only)} @gol
@@ -3715,6 +3730,7 @@ name is still supported, but the newer name is more descriptive.)
 @gccoptlist{-Wclobbered  @gol
 -Wempty-body  @gol
 -Wignored-qualifiers @gol
+-Wimplicit-fallthrough @gol
 -Wmissing-field-initializers  @gol
 -Wmissing-parameter-type @r{(C only)}  @gol
 -Wold-style-declaration @r{(C only)}  @gol
@@ -3751,8 +3767,8 @@ conditional expression.
 @code{register}.
 
 @item
-(C++ only) A base class is not initialized in a derived class's copy
-constructor.
+(C++ only) A base class is not initialized in the copy constructor
+of a derived class.
 
 @end itemize
 
@@ -3887,6 +3903,88 @@ in the case of @code{scanf} formats, this option suppresses the
 warning if the unused arguments are all pointers, since the Single
 Unix Specification says that such unused arguments are allowed.
 
+@item -Wformat-length
+@itemx -Wformat-length=@var{level}
+@opindex Wformat-length
+@opindex Wno-format-length
+Warn about calls to formatted input/output functions such as @code{sprintf}
+that might overflow the destination buffer, or about bounded functions such
+as @code{snprintf} that might result in output truncation.  When the exact
+number of bytes written by a format directive cannot be determined at
+compile-time it is estimated based on heuristics that depend on the
+@var{level} argument and on optimization.  While enabling optimization
+will in most cases improve the accuracy of the warning, it may also
+result in false positives.
+
+@table @gcctabopt
+@item -Wformat-length
+@item -Wformat-length=1
+@opindex Wformat-length
+@opindex Wno-format-length
+Level @var{1} of @option{-Wformat-length} enabled by @option{-Wformat}
+employs a conservative approach that warns only about calls that most
+likely overflow the buffer or result in output truncation.  At this
+level, numeric arguments to format directives with unknown values are
+assumed to have the value of one, and strings of unknown length to be
+empty.  Numeric arguments that are known to be bounded to a subrange
+of their type, or string arguments whose output is bounded either by
+their directive's precision or by a finite set of string literals, are
+assumed to take on the value within the range that results in the most
+bytes on output.  For example, the call to @code{sprintf} below is
+diagnosed because even with both @var{a} and @var{b} equal to zero,
+the terminating NUL character (@code{'\0'}) appended by the function
+to the destination buffer will be written past its end.  Increasing
+the size of the buffer by a single byte is sufficient to avoid the
+warning, though it may not be sufficient to avoid the overflow.
+
+@smallexample
+void f (int a, int b)
+@{
+  char buf [12];
+  sprintf (buf, "a = %i, b = %i\n", a, b);
+@}
+@end smallexample
+
+@item -Wformat-length=2
+Level @var{2} warns also about calls that might overflow the destination
+buffer or result in truncation given an argument of sufficient length
+or magnitude.  At level @var{2}, unknown numeric arguments are assumed
+to have the minimum representable value for signed types with a precision
+greater than 1, and the maximum representable value otherwise.  Unknown
+string arguments whose length cannot be assumed to be bounded either by
+the directive's precision, or by a finite set of string literals they
+may evaluate to, or the character array they may point to, are assumed
+to be 1 character long.
+
+At level @var{2}, the call in the example above is again diagnosed, but
+this time because with @var{a} equal to a 32-bit @code{INT_MIN} the first
+@code{%i} directive will write some of its digits beyond the end of
+the destination buffer.  To make the call safe regardless of the values
+of the two variables, the size of the destination buffer must be increased
+to at least 34 bytes.  GCC includes the minimum size of the buffer in
+an informational note following the warning.
+
+An alternative to increasing the size of the destination buffer is to
+constrain the range of formatted values.  The maximum length of string
+arguments can be bounded by specifying the precision in the format
+directive.  When numeric arguments of format directives can be assumed
+to be bounded by less than the precision of their type, choosing
+an appropriate length modifier to the format specifier will reduce
+the required buffer size.  For example, if @var{a} and @var{b} in the
+example above can be assumed to be within the precision of
+the @code{short int} type then using either the @code{%hi} format
+directive or casting the argument to @code{short} reduces the maximum
+required size of the buffer to 24 bytes.
+
+@smallexample
+void f (int a, int b)
+@{
+  char buf [23];
+  sprintf (buf, "a = %hi, b = %i\n", a, (short)b);
+@}
+@end smallexample
+@end table
+
 @item -Wno-format-zero-length
 @opindex Wno-format-zero-length
 @opindex Wformat-zero-length
@@ -4000,6 +4098,93 @@ enabled by default and it is made into an error by
 @opindex Wno-implicit
 Same as @option{-Wimplicit-int} and @option{-Wimplicit-function-declaration}.
 This warning is enabled by @option{-Wall}.
+
+@item -Wimplicit-fallthrough
+@opindex Wimplicit-fallthrough
+@opindex Wno-implicit-fallthrough
+Warn when a switch case falls through.  For example:
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    a = 1;
+    break;
+  case 2:
+    a = 2;
+  case 3:
+    a = 3;
+    break;
+  @}
+@end group
+@end smallexample
+
+This warning does not warn when the last statement of a case cannot
+fall through, e.g. when there is a return statement or a call to function
+declared with the noreturn attribute.  @option{-Wimplicit-fallthrough}
+also takes into account control flow statements, such as ifs, and only
+warns when appropriate.  E.g.@:
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    if (i > 3) @{
+      bar (5);
+      break;
+    @} else if (i < 1) @{
+      bar (0);
+    @} else
+      return;
+  default:
+    @dots{}
+  @}
+@end group
+@end smallexample
+
+Since there are occasions where a switch case fall through is desirable,
+GCC provides an attribute, @code{__attribute__ ((fallthrough))}, that is
+to be used along with a null statement to suppress this warning that
+would normally occur:
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    bar (0);
+    __attribute__ ((fallthrough));
+  default:
+    @dots{}
+  @}
+@end group
+@end smallexample
+
+C++17 provides a standard way to suppress the @option{-Wimplicit-fallthrough}
+warning using @code{[[fallthrough]];} instead of the GNU attribute.  In C++11
+or C++14 users can use @code{[[gnu::fallthrough]];}, which is a GNU extension.
+Instead of the these attributes, it is also possible to add a "falls through"
+comment to silence the warning.  GCC accepts a wide range of such comments,
+for example all of "Falls through.", "fallthru", "FALLS-THROUGH" work.  This
+comment needs to consist of two words merely, optionally followed by periods
+or whitespaces.
+
+@smallexample
+@group
+switch (cond)
+  @{
+  case 1:
+    bar (0);
+    /* FALLTHRU */
+  default:
+    @dots{}
+  @}
+@end group
+@end smallexample
+
+This warning is enabled by @option{-Wextra}.
 
 @item -Wignored-qualifiers @r{(C and C++ only)}
 @opindex Wignored-qualifiers
@@ -4759,6 +4944,17 @@ int n = 5;
 @dots{}
 if ((n > 1) == 2) @{ @dots{} @}
 @end smallexample
+This warning is enabled by @option{-Wall}.
+
+@item -Wbool-operation
+@opindex Wno-bool-operation
+@opindex Wbool-operation
+Warn about suspicious operations on expressions of a boolean type.  For
+instance, bitwise negation of a boolean is very likely a bug in the program.
+For C, this warning also warns about incrementing or decrementing a boolean,
+which rarely makes sense.  (In C++, decrementing a boolean is always invalid.
+Incrementing a boolean is invalid in C++1z, and deprecated otherwise.)
+
 This warning is enabled by @option{-Wall}.
 
 @item -Wduplicated-cond
@@ -5836,6 +6032,15 @@ warning about it.
 
 The restrictions on @code{offsetof} may be relaxed in a future version
 of the C++ standard.
+
+@item -Wint-in-bool-context
+@opindex Wint-in-bool-context
+@opindex Wno-int-in-bool-context
+Warn for suspicious use of integer values where boolean values are expected,
+such as conditional expressions (?:) using non-boolean integer constants in
+boolean context, like @code{if (a <= b ? 2 : 3)}.  Or left shifting in
+boolean context, like @code{for (a = 0; 1 << a; a++);}.
+This warning is enabled by @option{-Wall}.
 
 @item -Wno-int-to-pointer-cast
 @opindex Wno-int-to-pointer-cast
@@ -7846,6 +8051,30 @@ dependent on the structure of loops within the source code.
 
 Disabled at level @option{-Os}.
 
+@item -fprintf-return-value
+@opindex fprintf-return-value
+Substitute constants for known return value of formatted output functions
+such as @code{sprintf}, @code{snprintf}, @code{vsprintf}, and @code{vsnprintf}
+(but not @code{printf} of @code{fprintf}).  This transformation allows GCC
+to optimize or even eliminate branches based on the known return value of
+these functions called with arguments that are either constant, or whose
+values are known to be in a range that makes determining the exact return
+value possible.  For example, both the branch and the body of the @code{if}
+statement (but not the call to @code{snprint}) can be optimized away when
+@code{i} is a 32-bit or smaller integer because the return value is guaranteed
+to be at most 8.
+
+@smallexample
+char buf[9];
+if (snprintf (buf, "%08x", i) >= sizeof buf)
+  @dots{}
+@end smallexample
+
+The @option{-fprintf-return-value} option relies on other optimizations
+and yields best results with @option{-O2}.  It works in tandem with the
+@option{-Wformat-length} option.  The @option{-fprintf-return-value}
+option is disabled by default.
+
 @item -fno-peephole
 @itemx -fno-peephole2
 @opindex fno-peephole
@@ -9119,9 +9348,9 @@ increasing the prologue size or complexity of function body to other
 optimizers.
 
 When profile feedback is available (see @option{-fprofile-generate}) the actual
-recursion depth can be guessed from probability that function recurses via a
-given call expression.  This parameter limits inlining only to call expressions
-whose probability exceeds the given threshold (in percents).
+recursion depth can be guessed from the probability that function recurses
+via a given call expression.  This parameter limits inlining only to call
+expressions whose probability exceeds the given threshold (in percents).
 The default value is 10.
 
 @item early-inlining-insns
@@ -9815,6 +10044,10 @@ is enabled by default when using @option{-fsanitize=address} option.
 To disable use-after-return detection use 
 @option{--param asan-use-after-return=0}.
 
+Note: The check is disabled by default at runtime.  To enable the check,
+you should set environment variable @env{ASAN_OPTIONS} to
+@code{detect_stack_use_after_return=1}.
+
 @item asan-instrumentation-with-call-threshold
 If number of memory accesses in function being instrumented
 is greater or equal to this number, use callbacks instead of inline checks.
@@ -10048,6 +10281,7 @@ more details.  The run-time behavior can be influenced using the
 the available options are shown at startup of the instrumented program.  See
 @url{https://github.com/google/sanitizers/wiki/AddressSanitizerFlags#run-time-flags}
 for a list of supported options.
+The option can't be combined with @option{-fsanitize=thread}.
 
 @item -fsanitize=kernel-address
 @opindex fsanitize=kernel-address
@@ -10063,17 +10297,19 @@ details. The run-time behavior can be influenced using the @env{TSAN_OPTIONS}
 environment variable; see
 @url{https://github.com/google/sanitizers/wiki/ThreadSanitizerFlags} for a list of
 supported options.
+The option can't be combined with @option{-fsanitize=address}
+and/or @option{-fsanitize=leak}.
 
 @item -fsanitize=leak
 @opindex fsanitize=leak
 Enable LeakSanitizer, a memory leak detector.
-This option only matters for linking of executables and if neither
-@option{-fsanitize=address} nor @option{-fsanitize=thread} is used.  In that
-case the executable is linked against a library that overrides @code{malloc}
+This option only matters for linking of executables and
+the executable is linked against a library that overrides @code{malloc}
 and other allocator functions.  See
 @uref{https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer} for more
 details.  The run-time behavior can be influenced using the
 @env{LSAN_OPTIONS} environment variable.
+The option can't be combined with @option{-fsanitize=thread}.
 
 @item -fsanitize=undefined
 @opindex fsanitize=undefined
@@ -10247,6 +10483,7 @@ and program then exits with a non-zero exit code.
 Currently this feature only works for @option{-fsanitize=undefined} (and its suboptions
 except for @option{-fsanitize=unreachable} and @option{-fsanitize=return}),
 @option{-fsanitize=float-cast-overflow}, @option{-fsanitize=float-divide-by-zero},
+@option{-fsanitize=bounds-strict},
 @option{-fsanitize=kernel-address} and @option{-fsanitize=address}.
 For these sanitizers error recovery is turned on by default, except @option{-fsanitize=address},
 for which this feature is experimental.
@@ -10263,12 +10500,12 @@ setting the @code{halt_on_error} flag in the corresponding environment variable.
 
 Syntax without explicit @var{opts} parameter is deprecated.  It is equivalent to
 @smallexample
--fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero
+-fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero,bounds-strict
 @end smallexample
 @noindent
 Similarly @option{-fno-sanitize-recover} is equivalent to
 @smallexample
--fno-sanitize-recover=undefined,float-cast-overflow,float-divide-by-zero
+-fno-sanitize-recover=undefined,float-cast-overflow,float-divide-by-zero,bounds-strict
 @end smallexample
 
 @item -fsanitize-undefined-trap-on-error
@@ -12525,6 +12762,11 @@ is made by appending @file{.slp} to the source file name.
 Dump each function after Value Range Propagation (VRP).  The file name
 is made by appending @file{.vrp} to the source file name.
 
+@item early vrp
+@opindex fdump-tree-evrp
+Dump each function after Early Value Range Propagation (EVRP).  The file name
+is made by appending @file{.evrp} to the source file name.
+
 @item oaccdevlow
 @opindex fdump-tree-oaccdevlow
 Dump each function after applying device-specific OpenACC transformations.
@@ -14394,6 +14636,19 @@ extensions.
 @option{-march=armv8-a+crc} enables code generation for the ARMv8-A
 architecture together with the optional CRC32 extensions.
 
+@option{-march=armv8.1-a} enables compiler support for the ARMv8.1-A
+architecture.  This also enables the features provided by
+@option{-march=armv8-a+crc}.
+
+@option{-march=armv8.2-a} enables compiler support for the ARMv8.2-A
+architecture.  This also enables the features provided by
+@option{-march=armv8.1-a}.
+
+@option{-march=armv8.2-a+fp16} enables compiler support for the
+ARMv8.2-A architecture with the optional FP16 instructions extension.
+This also enables the features provided by @option{-march=armv8.1-a}
+and implies @option{-mfp16-format=ieee}.
+
 @option{-march=native} causes the compiler to auto-detect the architecture
 of the build computer.  At present, this feature is only supported on
 GNU/Linux, and not all architectures are recognized.  If the auto-detect
@@ -14736,6 +14991,14 @@ Print CPU tuning information as comment in assembler file.  This is
 an option used only for regression testing of the compiler and not
 intended for ordinary use in compiling code.  This option is disabled
 by default.
+
+@item -mpure-code
+@opindex mpure-code
+Do not allow constant data to be placed in code sections.
+Additionally, when compiling for ELF object format give all text sections the
+ELF processor-specific section attribute @code{SHF_ARM_PURECODE}.  This option
+is only available when generating non-pic code for ARMv7-M targets.
+
 @end table
 
 @node AVR Options
@@ -21063,6 +21326,14 @@ Change the current ABI to use the ELFv2 ABI.
 This is the default ABI for little-endian PowerPC 64-bit Linux.
 Overriding the default ABI requires special system support and is
 likely to fail in spectacular ways.
+
+@item -mgnu-attribute
+@itemx -mno-gnu-attribute
+@opindex mgnu-attribute
+@opindex mno-gnu-attribute
+Emit .gnu_attribute assembly directives to set tag/value pairs in a
+.gnu.attributes section that specify ABI variations in function
+parameters or return values.
 
 @item -mprototype
 @itemx -mno-prototype

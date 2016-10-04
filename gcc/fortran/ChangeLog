@@ -1,3 +1,227 @@
+2016-09-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/66643
+	* io.c (match_dt_unit): Peek check for missing format.
+
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77764
+	* interface.c (gfc_compare_union_types): Null-guard map components.
+
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77782
+	* interface.c (gfc_compare_derived_types): Use gfc_compare_union_types
+	to compare union types.
+
+2016-09-30  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* trans-array.c (gfc_array_allocate): Use the token from coarray's
+	.token member.
+	* trans-intrinsic.c (conv_expr_ref_to_caf_ref): Only generate
+	caf-reference chains from the first coarray references on.
+	* trans-types.c (gfc_get_derived_type): Switch on mandatory .token
+	member generation for allocatable arrays in coarrays in derived types.
+
+2016-09-29  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* options.c (gfc_post_options): Remove special case for
+	TARGET_FLT_EVAL_METHOD_NON_DEFAULT with -fexcess-precision=standard.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dependency.c (gfc_dep_compare_expr): Remove break after return.
+	* frontend-passes.c (optimize_op): Likewise.
+	* interface.c (gfc_current_interface_head): Likewise.
+	* symbol.c (check_conflict): Likewise.
+	* trans-intrinsic.c (build_fix_expr): Likewise.
+
+	PR fortran/77666
+	* trans-openmp.c (gfc_omp_private_outer_ref): Return true even for
+	references to allocatable arrays.
+
+2016-09-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* trans-common.c:  Handle array elements in equivalence when
+	the lower and upper bounds of array spec are NULL.
+
+2016-09-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48298
+	* interface.c (gfc_find_specific_dtio_proc) : Return NULL if
+	the derived type is broken, as indicated by a flavor other than
+	FL_DERIVED.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* arith.c (eval_intrinsic): Add gcc_fallthrough.
+	* frontend-passes.c (optimize_op): Likewise.
+	(gfc_expr_walker): Likewise.
+	* parse.c (next_fixed): Likewise.
+	* primary.c (match_variable): Likewise.
+	* trans-array.c: Likewise.
+	* trans-expr.c (flatten_array_ctors_without_strlen): Likewise.
+	* trans-io.c (transfer_expr): Likewise.
+
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77429
+	* dependency.c (gfc_check_dependency):  Convert gcc_assert() to
+	a conditional and possible call to  gfc_internal_error().
+
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77694
+	* frontend-passes.c (optimize_binop_array_assignment): Check pointer
+	for NULL.
+
+2016-09-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* lang.opt, invoke.texi, gfortran.texi: New flag -fdec-static.
+	* options.c (set_dec_flags): Set -fdec-static with -fdec.
+	* gfortran.h (symbol_attribute): New attribute automatic.
+	* gfortran.h (gfc_add_automatic): New prototype.
+	* match.h (gfc_match_automatic, gfc_match_static): New functions.
+	* decl.c (gfc_match_automatic, gfc_match_static): Ditto.
+	* symbol.c (gfc_add_automatic): Ditto.
+	* decl.c (match_attr_spec): Match AUTOMATIC and STATIC decls.
+	* parse.c (decode_specification_statement, decode_statement): Ditto.
+	* resolve.c (apply_default_init_local, resolve_fl_variable_derived,
+	resolve_symbol): Support for automatic attribute.
+	* symbol.c (check_conflict, gfc_copy_attr, gfc_is_var_automatic):
+	Ditto.
+	* trans-decl.c (gfc_finish_var_decl): Ditto.
+
+2016-09-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+	* gfortran.h (gfc_dt): Add *udtio.
+	* ioparm.def: Add bit IOPARM_dt_f2003 to align with library use of bit
+	25. Add IOPARM_dt_dtio bit to common flags.
+	* resolve.c (resolve_transfer): Set dt->udtio to expression.
+	* io.c (gfc_match_inquire): Adjust error message for internal
+	unit KIND.
+	* libgfortran.h: Adjust defines for GFC_INTERNAL_UNIT4,
+	GFC_INTERNAL_UNIT, and GFC_INVALID_UNIT.
+	* trans-io.c (build_dt): Set common_unit to reflect the KIND of
+	the internal unit. Set mask bit for presence of dt->udtio.
+
+2016-09-22  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get): Use the old caf-
+	interface where possible.
+
+2016-09-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	* interface.c (check_dtio_interface1): Introduce errors for
+	alternate returns and incorrect numbers of arguments.
+	(gfc_find_specific_dtio_proc): Return cleanly if the derived
+	type either doesn't exist or has no namespace.
+
+2016-09-21  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/66107
+	* decl.c (add_init_expr_to_sym): Catch variable character length
+	in parameter array.
+
+2016-09-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77657
+
+	* interface.c (gfc_find_specific_dtio_proc): Borrow trick from
+	resolve_typebound_generic_call to find dtio procedures that
+	over-ride those in the declared type.
+
+2016-09-20  Marek Polacek  <polacek@redhat.com>
+
+	* trans-intrinsic.c (conv_expr_ref_to_caf_ref): Adjust fall through
+	comment.
+
+2016-09-19  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/71952
+	* expr.c (gfc_check_assign): Added flag to control whether datatype
+	conversion is allowed.
+	* gfortran.h: Added caf-token-tree to gfc_component.  Changed
+	prototypes mostly to add whether datatype conversion is allowed.
+	* gfortran.texi: Added documentation for the caf_reference_t and the
+	caf_*_by_ref function.
+	* primary.c (caf_variable_attr): Similar to gfc_variable_attr but
+	focused on the needs of coarrays.
+	(gfc_caf_attr): Same.
+	* resolve.c (resolve_ordinary_assign): Set the conversion allowed
+	flag when not in a coarray.
+	* trans-array.c (gfc_array_init_size): Moved setting of array
+	descriptor's datatype before the alloc, because caf_register needs it.
+	(gfc_array_allocate): Changed notion of whether an array is a coarray.
+	(gfc_array_deallocate): Same.
+	(gfc_alloc_allocatable_for_assignment): Added setting of coarray's
+	array descriptor datatype before the register.  And using deregister/
+	register to mimmick a realloc for coarrays.
+	* trans-decl.c (gfc_build_builtin_function_decls): Corrected signatures
+	of old caf-functions and added signature definitions of the _by_ref
+	ones.
+	(generate_coarray_sym_init): Adapted to new caf_register signature.
+	* trans-expr.c (gfc_conv_scalar_to_descriptor): Make sure a constant
+	is translated to an lvalue expression before use in an array
+	descriptor.
+	(gfc_get_ultimate_alloc_ptr_comps_caf_token): New function.  Get the
+	last allocatable component's coarray token.
+	(gfc_get_tree_for_caf_expr): For top-level object get the coarray
+	token and check for unsupported features.
+	(gfc_get_caf_token_offset): Getting the offset might procude new
+	statements, which now are stored in the pre and post of the current se.
+	(gfc_caf_get_image_index): For this image return a call to
+	caf_this_image.
+	(expr_may_alias_variables): Check that the result is set for testing
+	its properties.
+	(alloc_scalar_allocatable_for_assignment): Added auto allocation of
+	coarray components.
+	(gfc_trans_assignment_1): Rewrite an assign to a coarray object to
+	be a sendget.
+	* trans-intrinsic.c (conv_caf_vector_subscript_elem): Corrected
+	wrong comment.
+	(compute_component_offset): Compute the correct offset a structure
+	member.
+	(conv_expr_ref_to_caf_ref): Convert to a chain of refs into
+	caf_references.
+	(gfc_conv_intrinsic_caf_get): Call caf_get_by_ref instead of caf_get.
+	(conv_caf_send): Call caf_*_by_ref for coarrays that need
+	reallocation.
+	(gfc_conv_intrinsic_function): Adapted to new signuature of the caf
+	drivers.
+	(conv_intrinsic_atomic_op): Add pre and post statements correctly.
+	(conv_intrinsic_atomic_ref): Same.
+	(conv_intrinsic_atomic_cas): Same.
+	(conv_intrinsic_event_query): Same.
+	* trans-stmt.c (gfc_trans_lock_unlock): Same.
+	(gfc_trans_event_post_wait): Same.
+	(gfc_trans_allocate): Support allocation of allocatable coarrays.
+	(gfc_trans_deallocate): And there deallocation.
+	* trans-types.c (gfc_typenode_for_spec): Added flag to control whether
+	a component is part of coarray.  When so, then add space to store a
+	coarray token.
+	(gfc_build_array_type): Same.
+	(gfc_get_array_descriptor_base): Same.
+	(gfc_get_array_type_bounds): Same.
+	(gfc_sym_type): Same.
+	(gfc_get_derived_type): Same.
+	(gfc_get_caf_reference_type): Declare the caf_reference_type.
+	* trans-types.h: Prototype changes only.
+	* trans.c (gfc_allocate_using_lib): Use the updated caf_register
+	signature.
+	(gfc_allocate_allocatable): Same.
+	(gfc_deallocate_with_status): Same.
+	* trans.h: Defined the runtime types for caf_reference_t and the enums.
+
+2016-09-19  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77584
+	* decl.c (match_record_decl, gfc_match_decl_type_spec): Fixes to
+	handling of structure/record from declaration-type-spec.
+
 2016_09_17  Louis Krupp  <louis.krupp@zoho.com>
 
 	PR fortran/68078
@@ -8,7 +232,7 @@
 2016-09-16  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77612
-	* decl.c (char_len_param_value): Check parent namespace for 
+	* decl.c (char_len_param_value): Check parent namespace for
 	seen_implicit_none.
 
 2016-09-15  Louis Krupp  <louis.krupp@zoho.com>
@@ -56,7 +280,7 @@
 
 	PR fortran/69514
 	* array.c (gfc_match_array_constructor):  If type-spec is present,
-	walk the array constructor performing possible conversions for 
+	walk the array constructor performing possible conversions for
 	numeric types.
 
 2016-09-08  Jakub Jelinek  <jakub@redhat.com>
@@ -71,7 +295,7 @@
 	PR fortran/77391
 	* resolve.c (deferred_requirements): New function to check F2008:C402.
 	(resolve_fl_variable,resolve_fl_parameter): Use it.
- 
+
 2016-09-04  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/77460

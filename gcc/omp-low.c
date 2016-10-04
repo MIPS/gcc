@@ -19615,9 +19615,7 @@ dump_oacc_loop_part (FILE *file, gcall *from, int depth,
     {
       gimple *stmt = gsi_stmt (gsi);
 
-      if (is_gimple_call (stmt)
-	  && gimple_call_internal_p (stmt)
-	  && gimple_call_internal_fn (stmt) == IFN_UNIQUE)
+      if (gimple_call_internal_p (stmt, IFN_UNIQUE))
 	{
 	  enum ifn_unique_kind k
 	    = ((enum ifn_unique_kind) TREE_INT_CST_LOW
@@ -19839,10 +19837,8 @@ oacc_loop_xform_head_tail (gcall *from, int level)
   for (gimple_stmt_iterator gsi = gsi_for_stmt (from);;)
     {
       gimple *stmt = gsi_stmt (gsi);
-      
-      if (is_gimple_call (stmt)
-	  && gimple_call_internal_p (stmt)
-	  && gimple_call_internal_fn (stmt) == IFN_UNIQUE)
+
+      if (gimple_call_internal_p (stmt, IFN_UNIQUE))
 	{
 	  enum ifn_unique_kind k
 	    = ((enum ifn_unique_kind)
@@ -19853,9 +19849,7 @@ oacc_loop_xform_head_tail (gcall *from, int level)
 	  else if (k == kind && stmt != from)
 	    break;
 	}
-      else if (is_gimple_call (stmt)
-	       && gimple_call_internal_p (stmt)
-	       && gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION)
+      else if (gimple_call_internal_p (stmt, IFN_GOACC_REDUCTION))
 	*gimple_call_arg_ptr (stmt, 3) = replacement;
 
       gsi_next (&gsi);

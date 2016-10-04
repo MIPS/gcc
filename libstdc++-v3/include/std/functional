@@ -1401,7 +1401,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     void (_Undefined_class::*_M_member_pointer)();
   };
 
-  union _Any_data
+  union [[gnu::may_alias]] _Any_data
   {
     void*       _M_access()       { return &_M_pod_data[0]; }
     const void* _M_access() const { return &_M_pod_data[0]; }
@@ -2206,6 +2206,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     }
 
   // Searchers
+#define __cpp_lib_boyer_moore_searcher 201603
 
   template<typename _ForwardIterator1, typename _BinaryPredicate = equal_to<>>
     class default_searcher

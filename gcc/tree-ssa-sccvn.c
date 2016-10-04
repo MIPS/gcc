@@ -1786,8 +1786,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
   gimple *def_stmt = SSA_NAME_DEF_STMT (vuse);
   tree base = ao_ref_base (ref);
   HOST_WIDE_INT offset, maxsize;
-  static vec<vn_reference_op_s>
-    lhs_ops = vNULL;
+  static vec<vn_reference_op_s> lhs_ops;
   ao_ref lhs_ref;
   bool lhs_ref_ok = false;
 
@@ -3470,6 +3469,10 @@ visit_reference_op_call (tree lhs, gcall *stmt)
     {
       if (vnresult->result_vdef && vdef)
 	changed |= set_ssa_val_to (vdef, vnresult->result_vdef);
+      else if (vdef)
+	/* If the call was discovered to be pure or const reflect
+	   that as far as possible.  */
+	changed |= set_ssa_val_to (vdef, vuse_ssa_val (gimple_vuse (stmt)));
 
       if (!vnresult->result && lhs)
 	vnresult->result = lhs;
@@ -3481,8 +3484,24 @@ visit_reference_op_call (tree lhs, gcall *stmt)
     {
       vn_reference_t vr2;
       vn_reference_s **slot;
+      tree vdef_val = vdef;
       if (vdef)
-	changed |= set_ssa_val_to (vdef, vdef);
+	{
+	  /* If we value numbered an indirect functions function to
+	     one not clobbering memory value number its VDEF to its
+	     VUSE.  */
+	  tree fn = gimple_call_fn (stmt);
+	  if (fn && TREE_CODE (fn) == SSA_NAME)
+	    {
+	      fn = SSA_VAL (fn);
+	      if (TREE_CODE (fn) == ADDR_EXPR
+		  && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
+		  && (flags_from_decl_or_type (TREE_OPERAND (fn, 0))
+		      & (ECF_CONST | ECF_PURE)))
+		vdef_val = vuse_ssa_val (gimple_vuse (stmt));
+	    }
+	  changed |= set_ssa_val_to (vdef, vdef_val);
+	}
       if (lhs)
 	changed |= set_ssa_val_to (lhs, lhs);
       vr2 = current_info->references_pool->allocate ();
@@ -3495,7 +3514,7 @@ visit_reference_op_call (tree lhs, gcall *stmt)
       vr2->set = vr1.set;
       vr2->hashcode = vr1.hashcode;
       vr2->result = lhs;
-      vr2->result_vdef = vdef;
+      vr2->result_vdef = vdef_val;
       slot = current_info->references->find_slot_with_hash (vr2, vr2->hashcode,
 							    INSERT);
       gcc_assert (!*slot);
@@ -3556,7 +3575,7 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
 {
   bool changed = false;
   vn_reference_t vnresult = NULL;
-  tree result, assign;
+  tree assign;
   bool resultsame = false;
   tree vuse = gimple_vuse (stmt);
   tree vdef = gimple_vdef (stmt);
@@ -3580,31 +3599,40 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
      Otherwise, the vdefs for the store are used when inserting into
      the table, since the store generates a new memory state.  */
 
-  result = vn_reference_lookup (lhs, vuse, VN_NOWALK, NULL, false);
-
-  if (result)
+  vn_reference_lookup (lhs, vuse, VN_NOWALK, &vnresult, false);
+  if (vnresult
+      && vnresult->result)
     {
+      tree result = vnresult->result;
       if (TREE_CODE (result) == SSA_NAME)
 	result = SSA_VAL (result);
       resultsame = expressions_equal_p (result, op);
-    }
-
-  if ((!result || !resultsame)
-      /* Only perform the following when being called from PRE
-	 which embeds tail merging.  */
-      && default_vn_walk_kind == VN_WALK)
-    {
-      assign = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, op);
-      vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult, false);
-      if (vnresult)
+      if (resultsame)
 	{
-	  VN_INFO (vdef)->use_processed = true;
-	  return set_ssa_val_to (vdef, vnresult->result_vdef);
+	  /* If the TBAA state isn't compatible for downstream reads
+	     we cannot value-number the VDEFs the same.  */
+	  alias_set_type set = get_alias_set (lhs);
+	  if (vnresult->set != set
+	      && ! alias_set_subset_of (set, vnresult->set))
+	    resultsame = false;
 	}
     }
 
-  if (!result || !resultsame)
+  if (!resultsame)
     {
+      /* Only perform the following when being called from PRE
+	 which embeds tail merging.  */
+      if (default_vn_walk_kind == VN_WALK)
+	{
+	  assign = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, op);
+	  vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult, false);
+	  if (vnresult)
+	    {
+	      VN_INFO (vdef)->use_processed = true;
+	      return set_ssa_val_to (vdef, vnresult->result_vdef);
+	    }
+	}
+
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "No store match\n");
@@ -3617,9 +3645,7 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
       /* Have to set value numbers before insert, since insert is
 	 going to valueize the references in-place.  */
       if (vdef)
-	{
-	  changed |= set_ssa_val_to (vdef, vdef);
-	}
+	changed |= set_ssa_val_to (vdef, vdef);
 
       /* Do not insert structure copies into the tables.  */
       if (is_gimple_min_invariant (op)
@@ -3909,11 +3935,22 @@ visit_use (tree use)
 	    }
 	}
 
+      /* Pick up flags from a devirtualization target.  */
+      tree fn = gimple_call_fn (stmt);
+      int extra_fnflags = 0;
+      if (fn && TREE_CODE (fn) == SSA_NAME)
+	{
+	  fn = SSA_VAL (fn);
+	  if (TREE_CODE (fn) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL)
+	    extra_fnflags = flags_from_decl_or_type (TREE_OPERAND (fn, 0));
+	}
       if (!gimple_call_internal_p (call_stmt)
 	  && (/* Calls to the same function with the same vuse
 		 and the same operands do not necessarily return the same
 		 value, unless they're pure or const.  */
-	      gimple_call_flags (call_stmt) & (ECF_PURE | ECF_CONST)
+	      ((gimple_call_flags (call_stmt) | extra_fnflags)
+	       & (ECF_PURE | ECF_CONST))
 	      /* If calls have a vdef, subsequent calls won't have
 		 the same incoming vuse.  So, if 2 calls with vdef have the
 		 same vuse, we know they're not subsequent.

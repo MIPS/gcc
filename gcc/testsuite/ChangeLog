@@ -1,3 +1,1004 @@
+2016-10-03  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/nullptr37.C: New test.
+
+2016-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/Wint-in-bool-context.c: Update test.
+
+2016-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ext/asm3.C (two): Only use register keyword for C++14 and
+	earlier.
+	* g++.dg/charset/asm2.c (memmove): Likewise.
+	* g++.dg/tls/diag-2.C (foo): Expect -Wregister error for C++17.
+	* g++.dg/tls/diag-4.C (foo): Likewise.
+	* c-c++-common/vector-subscript-2.c (vf): Change dg-error to
+	dg-warning, fix up regex.
+	* g++.old-deja/g++.brendan/warnings4.C: Limit to c++14_down targets.
+	* g++.old-deja/g++.mike/p700.C: Add -Wno-register.
+	* g++.old-deja/g++.mike/net31.C: Likewise.
+	* g++.old-deja/g++.other/regstack.C (foo): Expect -Wregister warning
+	for C++17.
+	* g++.old-deja/g++.jason/enum3.C: Add -Wno-register.
+	* g++.old-deja/g++.eh/ia64-1.C: Likewise.
+
+2016-10-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77798
+	* gfortran.fortran-torture/compile/pr77798.f90: New testcase.
+
+2016-10-01  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/77663
+	* gfortran.dg/coarray_send_by_ref_1.f08: New test.
+
+2016-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/77490
+	* c-c++-common/Wbool-operation-1.c: Add -Wno-psabi to dg-options.
+	Add dg-prune-output directive.
+
+2016-09-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/66643
+	* gfortran.fortran-torture/compile/arrayio.f90: Update test.
+	* gfortran.fortran-torture/compile/write.f90: Update test.
+
+2016-09-30  Matthew Wawhab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/fp16-aapcs-3.c: Replace arm_fp16_ok with
+	arm_fp16_alternative_ok as the required effective target.
+	* gcc.target/arm/fp16-aapcs-4.c: Likewise.  Also add
+	-mfp16-format=alternative to the dg-options directive and remove
+	the dg-add-options directive.
+
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77764
+	* gfortran.dg/dec_union_8.f90: New testcase.
+
+2016-09-30  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77782
+	* gfortran.dg/dec_structure_16.f90: New testcase.
+
+2016-09-30  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_allocate_10.f08: New test.
+	* gfortran.dg/coindexed_1.f90: Above fixes allow execution.
+
+2016-09-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ifcvt_avoid_const_materialization_1.c: New test.
+
+2016-09-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77399
+	* gcc.dg/tree-ssa/forwprop-35.c: New testcase.
+
+2016-09-29  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* c-c++-common/pr27336.c: Make dependency on 
+	-fdelete-null-pointer-checks explicit.
+	* g++.dg/cpp0x/constexpr-array-ptr10.C: Likewise.
+	* g++.dg/cpp0x/constexpr-nullptr-1.C: Likewise.
+	* g++.dg/lto/pr69589_0.C: Add nios2-*-elf to unsupported targets.
+	* gcc.dg/pic-1.c: Require fpic target support.
+	* gcc.dg/pic-2.c: Likewise.
+
+2016-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0001R1 - C++17 removal of register storage class specifier
+	* c-c++-common/Wvarargs-2.c (foo1): Except new warning for C++17.
+	* c-c++-common/vector-subscript-2.c (vf): Expect new error for
+	C++17.
+	* c-c++-common/vector-subscript-5.c (foo): Don't use register
+	keyword if not __SSE2__.
+	* c-c++-common/Wvarargs.c (foo1, foo3): Expect new warnings for
+	C++17.
+	* g++.dg/compat/struct-layout-1_generate.c (iterative_hash): Remove
+	register keywords.
+	* g++.dg/eh/pr29166.C: Add -Wno-register option.
+	* g++.dg/warn/register-parm-1.C (erroneous_warning,
+	no_erroneous_warning): Expect new warnings for C++17.
+	* g++.dg/warn/register-var-2.C (f): Likewise.
+	* g++.dg/parse/register1.C (f): Expect new error for C++17.
+	* g++.dg/parse/linkage2.C (foo): Likewise.
+	* g++.dg/torture/pr36826.C (CoinMin, CoinMax): Avoid register
+	keyword on parameters for C++17.
+	* g++.dg/cpp1z/register1.C: New test.
+	* g++.dg/cpp1z/register2.C: New test.
+	* g++.dg/cpp1z/register3.C: New test.
+
+2016-09-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/adx-check.h (main): Simplify feature bit tests.
+	* gcc.target/i386/avx2-check.h (main): Ditto.
+	* gcc.target/i386/avx512bw-check.h (main): Ditto.
+	* gcc.target/i386/avx512cd-check.h (main): Ditto.
+	* gcc.target/i386/avx512dq-check.h (main): Ditto.
+	* gcc.target/i386/avx512er-check.h (main): Ditto.
+	* gcc.target/i386/avx512f-check.h (main): Ditto.
+	* gcc.target/i386/avx512ifma-check.h (main): Ditto.
+	* gcc.target/i386/avx512vbmi-check.h (main): Ditto.
+	* gcc.target/i386/avx512vl-check.h (main): Ditto.
+
+2016-09-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77756
+	* gcc.target/i386/pr77756.c: New test.
+
+2016-09-29  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/fallthrough2.C: Use the c++14_down target.
+
+2016-09-29  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/fallthrough2.C: Only expect the warning in C++11 and
+	C++14.
+
+2016-09-29  Martin Liska  <mliska@suse.cz>
+
+	* objc/execute/construct1.m: New test.
+
+2016-09-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77768
+	* gcc.dg/torture/pr77768.c: New testcase.
+
+2016-09-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77407
+	* gcc.dg/pr77407.c: New testcase.
+
+2016-09-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55152
+	* gcc.dg/pr55152.c: New testcase.
+	* gcc.dg/tree-ssa/phi-opt-5.c: Adjust.
+
+2016-09-29  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/profile-update-warning.c: Restrict to ia32.
+	(dg-options): Remove -m32.
+
+2016-09-28  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77721
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-6.c: New test.
+
+2016-09-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/77707
+	* gfortran.dg/inquire_17.f90: New test.
+
+2016-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77467
+	* g++.dg/cpp1y/constexpr-77467.C: New test.
+
+2016-09-28  Martin Sebor  <msebor@redhat.com>
+
+	PR c/77762
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c (test_vsnprintf_chk_s):
+	Call __builtin___vsnprintf_chk, not __builtin___snprintf_chk.
+	(test_sprintf_p_const): Adjust line numbers to avoid failures
+	introduced in r240503.
+
+2016-09-28  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77683
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Add test cases.
+
+2016-09-28  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77748
+	* g++.dg/pr77550.C: Avoid undefined behavior.
+
+	* gcc.dg/tree-ssa/pr68198.c: Fix dg-final.
+
+2016-09-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.dg/strlenopt-20.c: Update test.
+	* gcc.dg/strlenopt-21.c: Likewise.
+	* gcc.dg/strlenopt-22.c: Likewise.
+	* gcc.dg/strlenopt-22g.c: Likewise.
+	* gcc.dg/strlenopt-26.c: Likewise.
+	* gcc.dg/strlenopt-5.c: Likewise.
+	* gcc.dg/strlenopt-7.c: Likewise.
+	* gcc.dg/strlenopt-9.c: Likewise.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/feat-cxx1z.C: Add __cpp_capture_star_this test.
+
+	* g++.dg/cpp1z/lambda-this1.C: New test.
+	* g++.dg/cpp1z/lambda-this2.C: New test.
+
+	PR c++/77722
+	* g++.dg/ubsan/return-4.C: New test.
+	* g++.dg/ubsan/return-5.C: New test.
+	* g++.dg/ubsan/return-6.C: New test.
+
+2016-09-27  Jiong Wang  <jiong.wang@arm.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_arm_v8_2a_fp16_scalar_hw): Delete redundant word
+	in function comment.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/46266
+	* lib/gcov.exp: Verify that <built-in>.gcov file is not
+	considered.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77745
+	* g++.dg/torture/pr77745.C: New testcase.
+
+2016-09-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77478
+	* gcc.dg/torture/pr77478.c: New testcase.
+
+2016-09-27  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/7970
+	PR gcov-profile/16855
+	PR gcov-profile/44779
+	* g++.dg/gcov/pr16855.C: New test.
+
+2016-09-27  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Require int32plus.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77666
+	* gfortran.dg/gomp/pr77666.f90: New test.
+
+2016-09-27  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR ipa/77677
+	* gcc.dg/torture/pr77677-2.c: New test.
+
+2016-09-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77420
+	* gfortran.dg/pr77420_1.f90: New test.
+	* gfortran.dg/pr77420_2.f90: Ditto.
+	* gfortran.dg/pr77420_3.f90: New test. Requires ...
+	* gfortran.dg/pr77420_4.f90: this file.
+
+2016-09-26  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/77719
+	* gfortran.dg/pr77719.f90: New test.
+
+2016-09-26  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Adjust regex to accept
+	singular form of byte when quantity is unknown.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp1z/feat-cxx1z.C: Test attribute fallthrough.
+
+2016-09-26  Martin Liska  <mliska@suse.cz>
+
+	* c-c++-common/ubsan/sanitize-recover-1.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-2.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-3.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-4.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-5.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-6.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-7.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-8.c: New test.
+	* c-c++-common/ubsan/sanitize-recover-9.c: New test.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* c-c++-common/Wimplicit-fallthrough-1.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-10.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-11.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-12.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-13.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-14.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-15.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-16.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-17.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-18.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-19.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-20.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-21.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-2.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-3.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-4.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-5.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-6.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-7.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-8.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-9.c: New test.
+	* c-c++-common/attr-fallthrough-1.c: New test.
+	* c-c++-common/attr-fallthrough-2.c: New test.
+	* g++.dg/cpp0x/fallthrough1.C: New test.
+	* g++.dg/cpp0x/fallthrough2.C: New test.
+	* g++.dg/cpp1z/fallthrough1.C: New test.
+	* g++.dg/warn/Wunused-label-1.C: Turn dg-error into dg-warning.
+	* gcc.dg/Wimplicit-fallthrough-1.c: New test.
+	* obj-c++.dg/Wimplicit-fallthrough-1.mm: New test.
+	* objc.dg/Wimplicit-fallthrough-1.m: New test.
+
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77429
+	* gfortran.dg/pr77429.f90: New test.
+
+2016-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77694
+	* gfortran.dg/pr77694.f90: New test.
+
+2016-09-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/51244
+	* gcc.target/sh/pr51244-11.c: Add more detailed expected insn matching.
+
+2016-09-24  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/coarray_lib_comm_1.f90: Really fix test
+	for 32-bit mode.
+
+2016-09-24  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/coarray_lib_comm_1.f90: Fix test
+	for 32-bit mode.
+
+2016-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77490
+	* c-c++-common/Wbool-operation-1.c: New test.
+	* gcc.dg/Wbool-operation-1.c: New test.
+
+2016-09-23  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_static_1.f90: New.
+	* gfortran.dg/dec_static_2.f90: New.
+	* gfortran.dg/dec_static_3.f90: New.
+	* gfortran.dg/dec_static_4.f90: New.
+
+2016-09-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+	* gfortran.dg/negative_unit_check.f90: Update test.
+	* gfortran.dg/dtio_14.f90: New test.
+
+2016-09-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/hotpatch-compile-1.c: Fixed dg-error test.
+	* gcc.target/s390/hotpatch-compile-2.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-3.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-4.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-5.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-6.c: Likewise.
+	* gcc.target/s390/hotpatch-compile-14.c: Likewise.
+
+2016-09-23  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/77713
+	* gcc.dg/tree-ssa/builtin-sprintf.c (test_e_long_double): Avoid
+	assuming long double is bigger than double.
+
+2016-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0138R2, C++17 construction rules for enum class values
+	* g++.dg/cpp1z/direct-enum-init1.C: New test.
+
+2016-09-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/77672
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c (test): Update
+	expected multiline output from first warning to reflect change
+	in r240434.
+
+2016-09-23  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-2.c: Fix xfail pattern.
+
+2016-09-23  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/77411
+	* c-c++-common/ubsan/object-size-9.c: Call __builtin_exit in C++.
+
+2016-09-23  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/gomp/atomic-12.c: Skip for C++1z.
+	* c-c++-common/gomp/atomic-13.c: Likewise.
+	* c-c++-common/gomp/atomic-14.c: Likewise.
+	* c-c++-common/pr60439.c: Remove invalid code.
+	* g++.dg/expr/bitfield4.C: Robustify for C++1z.
+	* g++.dg/expr/bitfield5.C: Likewise.
+	* g++.dg/expr/bitfield6.C: Likewise.
+	* g++.dg/expr/bool1.C: Likewise.
+	* g++.dg/expr/bool3.C: Likewise.
+	* g++.dg/expr/lval3.C: Likewise.
+	* g++.dg/expr/lval4.C: Likewise.
+	* g++.old-deja/g++.jason/bool5.C: Likewise.
+
+2016-09-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/77672
+	* gcc.dg/plugin/diagnostic-test-string-literals-1.c
+	(test_terminator_location): New function.
+
+2016-09-23  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-fre-56.c: New testcase.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/advsimd-intrinsics/advsimd-intrinsics.exp: Enable
+	-march=armv8.2-a+fp16 when supported by the hardware.
+	* gcc.target/aarch64/advsimd-intrinsics/binary_op_float.inc: New.
+	* gcc.target/aarch64/advsimd-intrinsics/binary_op_no64.inc:
+	Add F16 tests, enabled if macro HAS_FLOAT16_VARIANT is defined.  Add
+	semi-colons to a macro invocations.
+	* gcc.target/aarch64/advsimd-intrinsics/cmp_fp_op.inc: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/cmp_op.inc: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/cmp_zero_op.inc: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vabd.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vabs.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vadd.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcage.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcagt.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcale.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcalt.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vceq.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vceqz_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcge.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgez_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcgt.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgtz_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcle.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/vclez_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vclt.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/vcltz_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vcvt.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.  Also fix some white-space.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtX.inc: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvta_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtm_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtp_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vfma.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.  Also fix some long lines and white-space.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vfms.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.  Also fix some long lines and white-space.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vmax.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxnm_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vmin.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/vminnm_1.c: New.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vmul.c: Add F16
+	tests, enabled if macro __ARM_FEATURE_FP16_VECTOR_ARITHMETIC is
+	defined.
+	* gcc.target/aarch64/advsimd-intrinsics/vmul_lane.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vmul_n.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vneg.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vpXXX.inc: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpadd.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpmax.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vpmin.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrecpe.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrecps.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrnd.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndX.inc: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrnda.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndm.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndn.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndp.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vrndx.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vrsqrte.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vrsqrts.c: Likewise.
+	* gcc.target/gcc.target/aarch64/advsimd-intrinsics/vsub.c: Likewise.
+
+2016-09-23  Jiong Wang  <jiong.wang@arm.com>
+	    Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/binary_scalar_op.inc: New.
+	* gcc.target/aarch64/advsimd-intrinsics/unary_scalar_op.inc: New.
+	* gcc.target/aarch64/advsimd-intrinsics/ternary_scalar_op.inc: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vabsh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vaddh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_s32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_u32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_s32_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_u32_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_s32_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_u32_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_s32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_u32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_s32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_u32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_s32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_u32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_s32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_u32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_s32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_u32_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vdivh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmah_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmsh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxnmh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vminnmh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vnegh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndah_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndih_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndmh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndnh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndph_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndxh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vsqrth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vsubh_f16_1.c: New.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/armv8_2-fp16-neon-1.c: New.
+	* gcc.target/arm/armv8_2-fp16-scalar-1.c: New.
+	* gcc.target/arm/armv8_2-fp16-scalar-2.c: New.
+	* gcc.target/arm/attr-fp16-arith-1.c: Add a test of intrinsics
+	support.
+
+2016-09-23  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR ipa/77677
+	* gcc.dg/torture/pr77677.c: New test.
+
+2016-09-23  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_lib_comm_1.f90: Using the old caf-interface
+	here now.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/armv8_2-fp16-arith-1.c: Use arm_v8_2a_fp16_neon
+	options.  Add tests for float16x4_t and float16x8_t.
+
+2016-09-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/risbg-ll-1.c: Ported risbg tests from llvm.
+	* gcc.target/s390/risbg-ll-2.c: Ditto.
+	* gcc.target/s390/risbg-ll-3.c: Ditto.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/armv8_2-fp16-arith-1.c: New.
+	* gcc.target/arm/armv8_2-fp16-conv-1.c: New.
+
+2016-09-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/rXsbg_mode_sXl.c: Adapt expected assembly
+	output to the simplified instructions.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/armv8_2_fp16-move-1.c: New.
+	* gcc.target/arm/fp16-aapcs-1.c: Update expected output.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h
+	(FP16_SUPPORTED): New
+	(expected-hfloat-16x4): Make conditional on __fp16 support.
+	(expected-hfloat-16x8): Likewise.
+	(vdup_n_f16): Disable for non-AArch64 targets.
+	* gcc.target/aarch64/advsimd-intrinsics/vbsl.c: Add __fp16 tests,
+	conditional on FP16_SUPPORTED.
+	* gcc.target/aarch64/advsimd-intrinsics/vdup-vmov.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vdup_lane.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vext.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vrev.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vshuffle.inc: Add support
+	for testing __fp16.
+	* gcc.target/aarch64/advsimd-intrinsics/vtrn.c: Add __fp16 tests,
+	conditional on FP16_SUPPORTED.
+	* gcc.target/aarch64/advsimd-intrinsics/vuzp.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vzip.c: Likewise.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/short-vfp-1.c: New.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/attr-fp16-arith-1.c: New.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* lib/target-supports.exp (add_options_for_arm_v8_2a_fp16_scalar):
+	New.
+	(add_options_for_arm_v8_2a_fp16_neon): New.
+	(check_effective_target_arm_arch_v8_2a_ok): Auto-generate.
+	(add_options_for_arm_arch_v8_2a): Auto-generate.
+	(check_effective_target_arm_arch_v8_2a_multilib): Auto-generate.
+	(check_effective_target_arm_v8_2a_fp16_scalar_ok_nocache): New.
+	(check_effective_target_arm_v8_2a_fp16_scalar_ok): New.
+	(check_effective_target_arm_v8_2a_fp16_neon_ok_nocache): New.
+	(check_effective_target_arm_v8_2a_fp16_neon_ok): New.
+	(check_effective_target_arm_v8_2a_fp16_scalar_hw): New.
+	(check_effective_target_arm_v8_2a_fp16_neon_hw): New.
+
+2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* g++.dg/ext/arm-fp16/arm-fp16-ops-3.C: Use
+	arm_fp16_alternative_ok.
+	* g++.dg/ext/arm-fp16/arm-fp16-ops-4.C: Likewise.
+	* gcc.dg/torture/arm-fp16-int-convert-alt.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/arm-fp16-ops-3.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/arm-fp16-ops-4.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-1.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-10.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-11.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-12.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-2.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-3.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-4.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-5.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-6.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-7.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-8.c: Likewise.
+	* gcc.target/arm/fp16-compile-alt-9.c: Likewise.
+	* gcc.target/arm/fp16-compile-none-1.c: Use arm_fp16_none_ok.
+	* gcc.target/arm/fp16-compile-none-2.c: Likewise.
+	* gcc.target/arm/fp16-rounding-alt-1.c: Use
+	arm_fp16_alternative_ok.
+	* lib/target-supports.exp
+	(check_effective_target_arm_fp16_alternative_ok_nocache): New.
+	(check_effective_target_arm_fp16_alternative_ok): New.
+	(check_effective_target_arm_fp16_none_ok_nocache): New.
+	(check_effective_target_arm_fp16_none_ok): New.
+
+2016-09-23  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/ipa/pr77653.c: Replace adress
+	with address.
+
+2016-09-23  Martin Liska  <mliska@suse.cz>
+
+	* gcc.target/i386/movbe-4.c: New test.
+
+2016-09-23  Martin Liska  <mliska@suse.cz>
+
+	* gcc.target/i386/crc32-5.c: New test.
+
+2016-09-23  Martin Liska  <mliska@suse.cz>
+
+	* gcc.target/i386/pr71652.c: New test.
+	* gcc.target/i386/pr71652-2.c: New test.
+	* gcc.target/i386/pr71652-3.c: New test.
+
+2016-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/gcc-dg.exp (process-message): Support relative line number
+	notation - .+4 or .-1 etc.
+	* gcc.dg/dg-test-1.c: New test.
+
+2016-09-22  Martin Sebor  <msebor@redhat.com>
+
+	PR target/77676
+	* gcc.dg/tree-ssa/builtin-sprintf-1.c: Define and use wint_t.
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: Fix typo.
+	* gcc.dg/tree-ssa/builtin-sprintf-3.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-5.c: New test.
+
+2016-09-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/ifcvt-1.c: Compile also for 64-bit i?86-*-* target.
+	* gcc.dg/ifcvt-2.c: Ditto.
+	* gcc.dg/zero_bits_compound-1.c: Ditto.
+	* gcc.dg/zero_bits_compound-1.c: Ditto.
+	* gcc.dg/pr40550.c: Simplify target selectors.
+	Use dg-additional-options.
+	* gcc.dg/pr47893.c: Ditto.
+	* gcc.dg/pr68435.c: Compile also for i?86-*-* target.  Add -march=i686
+	additional options for 32-bit x86 targets.
+	* gcc.dg/pr70955.c: Move to ...
+	* gcc.target/i386/pr70955.c: ... here.  Simplify target selector.
+
+2016-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61019
+	* g++.dg/cpp0x/pr61019.C: New.
+
+2016-09-22  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/pure-code/ffunction-sections.c: New.
+	* gcc.target/arm/pure-code/no-literal-pool.c: New.
+	* gcc.target/arm/pure-code/pure-code.exp: New.
+
+2016-09-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/debug/dwarf2/const-2b.c: Also compile for x86_64-*-*.
+	Remove SSE effective target requirement.
+
+2016-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71979
+	* g++.dg/cpp0x/pr71979.C: New.
+
+2016-09-22  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* g++.dg/pr77550.C: Use __SIZE_TYPE__.
+
+2016-09-22  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/77653
+	* gcc.dg/ipa/pr77653.c: New test.
+
+2016-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77665
+	* gfortran.dg/gomp/pr77665.f90: New test.
+
+2016-09-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/dtio_11.f90: Correct for changed error messages.
+	* gfortran.dg/dtio_13.f90: New test.
+
+2016-09-21  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/66107
+	* gfortran.dg/pr66107.f90: New test.
+
+2016-09-21  Ian Lance Taylor  <iant@golang.org>
+
+	* go.go-torture/execute/map-1.go: Replace old map deletion syntax
+	with call to builtin delete function.
+
+2016-09-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/float128-tg-3.c, gcc.dg/torture/float128x-tg-3.c,
+	gcc.dg/torture/float16-tg-3.c, gcc.dg/torture/float32-tg-3.c,
+	gcc.dg/torture/float32x-tg-3.c, gcc.dg/torture/float64-tg-3.c,
+	gcc.dg/torture/float64x-tg-3.c, gcc.dg/torture/floatn-tg-3.h: New
+	tests.
+
+2016-09-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.c-torture/unsorted/dump-noaddr.x: Remove debug statements.
+
+2016-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77651
+	* g++.dg/cpp1z/aligned-new6.C: New test.
+
+2016-09-21  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/fp16-aapcs-3.c: New.
+	* gcc.target/arm/fp16-aapcs-4.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp22.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp23.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp24.c: New.
+	* gcc.target/arm/aapcs/aapcs/vfp25.c: New.
+
+2016-09-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/77550
+	* g++.dg/pr77550.C: New test.
+
+2016-09-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/77326
+	* gcc.target/avr/torture/pr77326.c: New test.
+
+2016-09-21  Louis Krupp  <louis.krupp@zoho.com>
+
+	* gfortran.dg/pr68078.f90: Run on x86_64_*_linux* only.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77648
+	* gcc.dg/torture/pr77648-1.c: New testcase.
+	* gcc.dg/torture/pr77648-2.c: Likewise.
+
+2016-09-21  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77621
+	* gcc.dg/pr77621.c: New testcase.
+
+2016-09-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/77657
+	* gfortran.dg/dtio_12.f90: New test.
+
+2016-09-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/pr64130.c: Use __UINT32_TYPE__ instead of int.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR tree-optimization/72835
+	* gcc.dg/tree-ssa/pr72835.c: New test.
+
+2016-09-20  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/49905
+	* gcc.dg/builtin-stringop-chk-1.c: Adjust.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-2.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-2.c: New test.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.dg/guality/pr54519-1.c: Add -fno-ipa-vrp. Else constant
+	arguments/compare will be optimized away.
+	* gcc.dg/torture/ftrapv-1.c: Likewise.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* g++.dg/ipa/pure-const-3.C: Add -fno-ipa-vrp. Else constant arguments
+	will be optimized away.
+	* gcc.dg/ipa/vrp1.c: New test.
+	* gcc.dg/ipa/vrp2.c: New test.
+	* gcc.dg/ipa/vrp3.c: New test.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* g++.dg/tree-ssa/pr31146-2.C: Run with -fno-tree-evrp as evrp also
+	does the same transformation.
+	* g++.dg/warn/pr33738.C: XFAIL as optimization now happens in ccp.
+	* gcc.dg/tree-ssa/evrp1.c: New test.
+	* gcc.dg/tree-ssa/evrp2.c: New test.
+	* gcc.dg/tree-ssa/evrp3.c: New test.
+	* gcc.dg/tree-ssa/pr20657.c: Check for the pattern in evrp dump.
+	* gcc.dg/tree-ssa/pr22117.c: Likewise.
+	* gcc.dg/tree-ssa/pr61839_2.c: Likewise.
+	* gcc.dg/tree-ssa/pr64130.c: Likewise.
+	* gcc.dg/tree-ssa/pr37508.c: Change the pattern to be checked as
+	foling now happens early.
+	* gcc.dg/tree-ssa/vrp04.c: Likewise.
+	* gcc.dg/tree-ssa/vrp06.c: Likewise.
+	* gcc.dg/tree-ssa/vrp16.c: Likewise.
+	* gcc.dg/tree-ssa/vrp25.c: Likewise.
+	* gcc.dg/tree-ssa/vrp67.c: Likewise.
+
+2016-09-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/77621
+	* gcc.target/i386/pr77621.c: New test.
+	* gcc.target/i386/vect-double-2.c: Update scan-tree-dump-times
+	pattern, loop should vectorize with -mtune=atom.
+
+2016-09-20  Maxim Ostapenko  <m.ostapenko@samsung.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/63299
+	* g++.old-deja/g++.jason/init3.C (My_string::~My_string): Use delete[]
+	instead of delete.
+
+2016-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77626
+	* g++.dg/other/pr77626.C: New test.
+
+	PR c++/77638
+	* g++.dg/cpp0x/udlit-tmpl-arg-neg2.C: New test.
+
+	PR c++/77637
+	* g++.dg/cpp0x/gen-attrs-62.C: New test.
+
+	PR middle-end/77624
+	* c-c++-common/pr77624-1.c: New test.
+	* c-c++-common/pr77624-2.c: New test.
+
+2016-09-20  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_allocate_7.f08: Using + instead of fixed number
+	of digits expected.
+
+2016-09-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77646
+	* gcc.dg/torture/pr77646.c: New testcase.
+
+2016-09-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77434
+	* c-c++-common/Wint-in-bool-context.c: New test.
+
+2016-09-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cr-decimal-dig-1.c: New test.
+
+2016-09-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/float128-align.c, gcc.dg/float128x-align.c,
+	gcc.dg/float16-align.c, gcc.dg/float32-align.c,
+	gcc.dg/float32x-align.c, gcc.dg/float64-align.c,
+	gcc.dg/float64x-align.c, gcc.dg/floatn-align.h: New tests.
+
+2016-09-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/77416
+	* gcc.target/powerpc/pr77416.c: New.
+
+2016-09-19  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/77639
+	* g++.dg/template/error-recovery4.C: New test.
+
+2016-09-19  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/vect/pr57558-1.c: Use unsigned int instead of unsigned long.
+
+2016-09-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/gtu_to_ltu_cmp_1.c: New test.
+	* gcc.target/aarch64/gtu_to_ltu_cmp_2.c: New test.
+
+2016-09-19  Jakub Jelinek  <jakub@redhat.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	PR target/77587
+	* gcc.dg/pr77587.c: New test.
+	* gcc.dg/pr77587a.c: New file.
+
+2016-09-19  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray/alloc_comp_4.f90: New test.
+	* gfortran.dg/coarray_38.f90:
+	* gfortran.dg/coarray_alloc_comp_1.f08: New test.
+	* gfortran.dg/coarray_alloc_comp_2.f08: New test.
+	* gfortran.dg/coarray_allocate_7.f08: New test.
+	* gfortran.dg/coarray_allocate_8.f08: New test.
+	* gfortran.dg/coarray_allocate_9.f08: New test.
+	* gfortran.dg/coarray_lib_alloc_1.f90: Adapted scan-tree-dumps to expect
+	new caf_register.
+	* gfortran.dg/coarray_lib_alloc_2.f90: Same.
+	* gfortran.dg/coarray_lib_alloc_3.f90: Same.
+	* gfortran.dg/coarray_lib_comm_1.f90: Adapted scan-tree-dumps to expect
+	get_by_refs.
+	* gfortran.dg/coarray_lib_token_3.f90: Same as for coarray_lib_alloc2.
+	* gfortran.dg/coarray_lock_7.f90: Same.
+	* gfortran.dg/coarray_poly_5.f90: Same.
+	* gfortran.dg/coarray_poly_6.f90: Same.
+	* gfortran.dg/coarray_poly_7.f90: Same.
+	* gfortran.dg/coarray_poly_8.f90: Same.
+	* gfortran.dg/coindexed_1.f90: Changed errors expected.
+
+2016-09-19  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/77584
+	* gfortran.dg/dec_structure_15.f90: New testcase.
+
 2016-09-19  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/77605

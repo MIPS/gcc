@@ -66,7 +66,7 @@ i386 port		Jan Hubicka		<hubicka@ucw.cz>
 i386 port		Uros Bizjak		<ubizjak@gmail.com>
 i386 vector ISA extns	Kirill Yukhin		<kirill.yukhin@gmail.com>
 ia64 port		Jim Wilson		<wilson@tuliptree.org>
-ia64 port		Steve Ellcey		<sellcey@imgtec.com>
+ia64 port		Steve Ellcey		<sellcey@caviumnetworks.com>
 iq2000 port		Nick Clifton		<nickc@redhat.com>
 lm32 port		Sebastien Bourdeauducq	<sebastien@milkymist.org>
 m32c port		DJ Delorie		<dj@redhat.com>
@@ -130,7 +130,7 @@ DJGPP			DJ Delorie		<dj@delorie.com>
 freebsd			Andreas Tobler		<andreast@gcc.gnu.org>
 GNU/Hurd		Thomas Schwinge		<thomas@schwinge.name>
 hpux			John David Anglin	<dave.anglin@bell.net>
-hpux			Steve Ellcey		<sellcey@imgtec.com>
+hpux			Steve Ellcey		<sellcey@caviumnetworks.com>
 solaris			Rainer Orth		<ro@CeBiTec.Uni-Bielefeld.DE>
 netbsd			Jason Thorpe		<thorpej@netbsd.org>
 netbsd			Krister Walfridsson	<krister.walfridsson@gmail.com>
@@ -141,6 +141,7 @@ RTEMS Ports		Sebastian Huber		<sebastian.huber@embedded-brains.de>
 VMS			Douglas Rupp		<douglas.b.rupp@gmail.com>
 VMS			Tristan Gingold		<tgingold@free.fr>
 VxWorks ports		Nathan Sidwell		<nathan@codesourcery.com>
+VxWorks ports		Olivier Hainque		<hainque@adacore.com>
 windows, cygwin, mingw	Kai Tietz		<ktietz70@googlemail.com>
 windows, cygwin, mingw	Dave Korn		<dave.korn.cygwin@gmail.com>
 cygwin, mingw-w64	Jonathan Yong		<10walls@gmail.com>
@@ -154,9 +155,6 @@ Ada front end		Eric Botcazou		<ebotcazou@libertysurf.fr>
 c++			Jason Merrill		<jason@redhat.com>
 c++			Nathan Sidwell		<nathan@codesourcery.com>
 go			Ian Lance Taylor	<ian@airs.com>
-java			Per Bothner		<per@bothner.com>
-java			Andrew Haley		<aph@redhat.com>
-java			Tom Tromey		<tromey@redhat.com>
 objective-c/c++		Mike Stump		<mikestump@comcast.net>
 objective-c/c++		Iain Sandoe		<iain@codesourcery.com>
 
@@ -169,8 +167,6 @@ libcpp			David Malcolm		<dmalcolm@redhat.com>
 fp-bit			Ian Lance Taylor	<ian@airs.com>
 libdecnumber		Ben Elliston		<bje@gnu.org>
 libgcc			Ian Lance Taylor	<ian@airs.com>
-libgcj			Tom Tromey		<tromey@redhat.com>
-libgcj			Bryce McKinlay		<mckinlay@redhat.com>
 libgo			Ian Lance Taylor	<ian@airs.com>
 libgomp			Richard Henderson	<rth@redhat.com>
 libgomp			Jakub Jelinek		<jakub@redhat.com>
@@ -275,6 +271,7 @@ check in changes outside of the parts of the compiler they maintain.
 			Reviewers
 
 aarch64 port		James Greenhalgh	<james.greenhalgh@arm.com>
+arc port		Claudiu Zissulescu	<claziss@synopsys.com>
 arm port		Kyrylo Tkachov		<kyrylo.tkachov@arm.com>
 C front end		Marek Polacek		<polacek@redhat.com>
 dataflow		Paolo Bonzini		<bonzini@gnu.org>
@@ -367,6 +364,7 @@ Dehao Chen					<dehao@google.com>
 Fabien Chêne					<fabien@gcc.gnu.org>
 Bin Cheng					<bin.cheng@arm.com>
 Harshit Chopra					<harshit@google.com>
+Tamar Christina					<tamar.christina@arm.com>
 William Cohen					<wcohen@redhat.com>
 Michael Collison				<michael.collison@arm.com>
 Josh Conner					<jconner@apple.com>
@@ -421,7 +419,8 @@ Laurent Guerby					<laurent@guerby.net>
 Xuepeng Guo					<terry.guo@arm.com>
 Wei Guozhi					<carrot@google.com>
 Mostafa Hagog					<hagog@gcc.gnu.org>
-Olivier Hainque					<hainque@act-europe.fr>
+Olivier Hainque					<hainque@adacore.com>
+Andrew Haley		                        <aph@redhat.com>
 Stuart Hastings					<stuart@apple.com>
 Michael Haubenwallner				<michael.haubenwallner@ssi-schaefer.com>
 Pat Haugen					<pthaugen@us.ibm.com>

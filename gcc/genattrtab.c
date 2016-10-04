@@ -1219,6 +1219,7 @@ make_canonical (file_location loc, struct attr_desc *attr, rtx exp)
 
       exp = newexp;
       /* Fall through to COND case since this is now a COND.  */
+      gcc_fallthrough ();
 
     case COND:
       {
@@ -3615,6 +3616,7 @@ write_test_expr (FILE *outf, rtx exp, unsigned int attrs_cached, int flags,
 	}
 
       /* Otherwise, fall through to normal unary operator.  */
+      gcc_fallthrough ();
 
     /* Unary operators.  */
     case ABS:  case NEG:
@@ -4281,6 +4283,8 @@ write_attr_case (FILE *outf, struct attr_desc *attr, struct attr_value *av,
       fprintf (outf, "    && asm_noperands (PATTERN (insn)) < 0)\n");
       write_indent (outf, indent + 2);
       fprintf (outf, "  fatal_insn_not_found (insn);\n");
+      write_indent (outf, indent + 2);
+      fprintf (outf, "/* FALLTHRU */\n");
     }
 
   if (write_case_lines)
