@@ -1,3 +1,9 @@
+2016-10-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (lower_oacc_head_mark): Don't determine default auto
+	here ...
+	(oacc_loop_fixed_partitions): ... do it here instead.
+
 2016-10-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): No special handling for

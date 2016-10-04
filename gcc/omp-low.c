@@ -6394,14 +6394,13 @@ lower_oacc_head_mark (location_t loc, tree ddvar, tree clauses,
   if (!tgt || is_oacc_parallel (tgt))
     tag |= OLF_INDEPENDENT;
 
-  /* A loop lacking SEQ, GANG, WORKER and/or VECTOR is implicitly AUTO.  */
-  if (!(tag & (((GOMP_DIM_MASK (GOMP_DIM_MAX) - 1) << OLF_DIM_BASE)
-	       | OLF_SEQ)))
-      tag |= OLF_AUTO;
+  /* A loop lacking SEQ, GANG, WORKER and/or VECTOR could be AUTO  */
+  bool maybe_auto = !(tag & (((GOMP_DIM_MASK (GOMP_DIM_MAX) - 1)
+			      << OLF_DIM_BASE) | OLF_SEQ));
 
-  /* Ensure at least one level, or 2 for AUTO partitioning  */
-  if (levels < 1 + ((tag & OLF_AUTO) != 0))
-    levels = 1 + ((tag & OLF_AUTO) != 0);
+  /* Ensure at least one level, or 2 for possible auto partitioning  */
+  if (levels < 1u + maybe_auto)
+    levels = 1u + maybe_auto;
 
   args.quick_push (build_int_cst (integer_type_node, levels));
   args.quick_push (build_int_cst (integer_type_node, tag));
@@ -19759,6 +19758,8 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
       this_mask = ((loop->flags >> OLF_DIM_BASE)
 		   & (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1));
 
+      bool maybe_auto = !seq_par && !this_mask;
+
       if ((this_mask != 0) + auto_par + seq_par > 1)
 	{
 	  if (noisy)
@@ -19766,7 +19767,7 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 		      seq_par
 		      ? "%<seq%> overrides other OpenACC loop specifiers"
 		      : "%<auto%> conflicts with other OpenACC loop specifiers");
-	  auto_par = false;
+	  maybe_auto = false;
 	  loop->flags &= ~OLF_AUTO;
 	  if (seq_par)
 	    {
@@ -19775,8 +19776,11 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 	      this_mask = 0;
 	    }
 	}
-      if (auto_par && (loop->flags & OLF_INDEPENDENT))
-	mask_all |= GOMP_DIM_MASK (GOMP_DIM_MAX);
+      if (maybe_auto && (loop->flags & OLF_INDEPENDENT))
+	{
+	  loop->flags |= OLF_AUTO;
+	  mask_all |= GOMP_DIM_MASK (GOMP_DIM_MAX);
+	}
     }
 
   if (this_mask & outer_mask)
