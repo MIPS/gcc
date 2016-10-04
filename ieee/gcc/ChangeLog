@@ -1,3 +1,78 @@
+2016-10-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* genattrtab.c (make_internal_attr): Supply dummy column number to
+	file_location ctor.
+	(main): Likewise.
+	* genoutput.c (init_insn_for_nothing): Likewise.
+	* gensupport.c (add_define_attr): Likewise.
+	* read-md.c (message_at_1): Print column number.
+	(fatal_with_file_and_line): Likewise.
+	(rtx_reader::read_char): Track column numbers.
+	(rtx_reader::unread_char): Likewise.
+	(rtx_reader::rtx_reader): Initialize m_read_md_colno.
+	(rtx_reader::handle_include): Stash and restore m_read_md_colno.
+	(rtx_reader::handle_file): Initialize m_read_md_colno.
+	(rtx_reader::get_current_location): Supply column number to
+	file_location ctor.
+	* read-md.h (struct file_location): Add field "colno".
+	(file_location::file_location): Likewise.
+	(rtx_reader::get_colno): New accessor.
+	(rtx_reader::m_read_md_colno): New field.
+	(rtx_reader::m_last_line_colno): New field.
+
+2016-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/extend.texi (Java Exceptions): Remove.
+	(java_interface): Remove.
+
+2016-10-04  Doug Gilmore  <doug.gilmore@imgtec.com>
+
+	PR tree-optimization/77808
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Check base_addr
+	and addr are different before copying points-to information.
+
+2016-10-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/x86-tune.def (X86_TUNE_VECTORIZE_DOUBLE): Remove.
+	* config/i386/i386.h (TARGET_VECTORIZE_DOUBLE): Remove.
+	* config/i386/i386.c (ix86_add_stmt_cost): Use TARGET_BONNEL instead
+	of !TARGET_VECTORIZE_DOUBLE when penalizing DFmode vector ops.
+
+2016-10-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77399
+	* tree-ssa-forwprop.c (simplify_vector_constructor): Properly
+	verify the target can convert.
+
+2016-10-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77833
+	* explow.c (plus_constant): Verify the mode of the constant
+	pool offset before calling plus_constant.
+
+2016-10-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77407
+	* match.pd (X / abs (X) -> X < 0 ? -1 : 1): Drop vector
+	type support, mark with :C.
+	(X / -X -> -1): Mark with :C.
+
+2016-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* defaults.h (JCR_SECTION_NAME, TARGET_USE_JCR_SECTION): Remove.
+	* system.h (JCR_SECTION_NAME, TARGET_USE_JCR_SECTION): Poison.
+	* doc/tm.texi.in (TARGET_USE_JCR_SECTION): Remove.
+	* doc/tm.texi: Regenerated.
+	* config/i386/mingw32.h (TARGET_USE_JCR_SECTION): Remove.
+	* config/i386/cygming.h (TARGET_USE_JCR_SECTION): Remove.
+	* config/darwin.h (JCR_SECTION_NAME): Remove.
+	* config/pa/pa64-hpux.h (JCR_SECTION_NAME): Remove.
+	* config/rs6000/aix71.h (TARGET_USE_JCR_SECTION): Remove.
+	* config/rs6000/aix51.h (TARGET_USE_JCR_SECTION): Remove.
+	* config/rs6000/aix52.h (TARGET_USE_JCR_SECTION): Remove.
+	* config/rs6000/aix53.h (TARGET_USE_JCR_SECTION): Remove.
+	* config/rs6000/aix61.h (TARGET_USE_JCR_SECTION): Remove.
+
 2016-10-03  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
 	* ipa-cp.c (propagate_bits_accross_jump_function): Introduce space
