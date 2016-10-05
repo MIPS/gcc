@@ -79,6 +79,12 @@ subroutine parloop
      do j = 1, n
      end do
   end do
+
+  !$acc parallel loop tile(2, 3) collapse (2) ! { dg-error "Incompatible use" }
+  do i = 1, n
+     do j = 1, n
+     end do
+  end do
 end subroutine parloop
 
 subroutine par
@@ -152,6 +158,12 @@ subroutine par
 
   !$acc loop gang worker tile(*)
   do i = 1, n
+  end do
+
+  !$acc loop tile(2, 3) collapse (2) ! { dg-error "Incompatible use" }
+  do i = 1, n
+     do j = 1, n
+     end do
   end do
   !$acc end parallel
 end subroutine par
@@ -227,6 +239,12 @@ subroutine kern
 
   !$acc loop gang worker tile(*)
   do i = 1, n
+  end do
+
+  !$acc loop tile(2, 3) collapse (2) ! { dg-error "Incompatible use" }
+  do i = 1, n
+     do j = 1, n
+     end do
   end do
   !$acc end kernels
 end subroutine kern
@@ -308,6 +326,12 @@ subroutine kernsloop
   end do
 
   !$acc kernels loop tile(a, 1) ! { dg-error "constant expression" }
+  do i = 1, n
+     do j = 1, n
+     end do
+  end do
+
+  !$acc kernels loop tile(2, 3) collapse (2) ! { dg-error "Incompatible use" }
   do i = 1, n
      do j = 1, n
      end do

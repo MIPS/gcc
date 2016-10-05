@@ -3354,6 +3354,16 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   dovar_init *di;
   unsigned ix;
 
+  /* Both collapsed and tiled loops are lowered the same way.  In
+     OpenACC, those clauses are not compatible, so prioritize the tile
+     clause, if present.  */
+  if (clauses->tile_list)
+    {
+      collapse = 0;
+      for (gfc_expr_list *el = clauses->tile_list; el; el = el->next)
+	collapse++;
+    }
+
   if (collapse <= 0)
     collapse = 1;
 

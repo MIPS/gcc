@@ -4092,6 +4092,8 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
     if (omp_clauses->wait_list)
       for (el = omp_clauses->wait_list; el; el = el->next)
 	resolve_oacc_scalar_int_expr (el->expr, "WAIT");
+  if (omp_clauses->collapse && omp_clauses->tile_list)
+    gfc_error ("Incompatible use of TILE and COLLAPSE at %L", &code->loc);
 }
 
 

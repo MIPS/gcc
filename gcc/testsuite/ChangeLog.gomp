@@ -1,3 +1,8 @@
+2016-10-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/tile-1.f90: Update test coverage.
+	* gfortran.dg/goacc/tile-lowering.f95: Likewise.
+
 2016-10-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/tile-lowering.f95: New test.

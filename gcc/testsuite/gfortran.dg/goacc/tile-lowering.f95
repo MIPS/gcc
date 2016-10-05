@@ -82,4 +82,5 @@ end subroutine test
 ! { dg-final { scan-tree-dump-times "tile\\(0, 2, 3\\)" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "tile\\(1, 0, 3\\)" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "tile\\(1, 2, 0\\)" 1 "original" } }
+! { dg-final { scan-tree-dump-times "for \\(" 22 "original" } }
 
