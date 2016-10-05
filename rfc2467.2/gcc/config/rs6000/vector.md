@@ -749,7 +749,7 @@
 	   UNSPEC_PREDICATE))
      (set (match_operand:VEC_F 0 "vlogical_operand" "")
 	  (ne:VEC_F (match_dup 1)
-		   (match_dup 2)))])]
+		    (match_dup 2)))])]
   "TARGET_P9_VECTOR"
   "")
 

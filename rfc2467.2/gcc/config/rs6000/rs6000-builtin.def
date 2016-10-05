@@ -159,7 +159,10 @@
    depending on the value of the constant integer first argument.
    This special processing happens within the implementation of
    altivec_expand_predicate_builtin(), which is defined within
-   rs6000.c.  */
+   rs6000.c.  The implementation of altivec_expand_predicate_builtin()
+   allocates a scratch register having the same mode as operand 0 to hold
+   the result produced by evaluating ICODE.  */
+
 #define BU_ALTIVEC_P(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_P (ALTIVEC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_altivec_" NAME,		/* NAME */	\

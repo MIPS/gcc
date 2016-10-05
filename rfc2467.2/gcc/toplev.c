@@ -460,6 +460,7 @@ compile_file (void)
 {
   timevar_start (TV_PHASE_PARSING);
   timevar_push (TV_PARSE_GLOBAL);
+
   /* Parse entire file and generate initial debug information.  */
   lang_hooks.parse_file ();
 

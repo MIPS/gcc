@@ -2335,6 +2335,7 @@ execute_one_pass (opt_pass *pass)
   if (flag_checking)
     do_per_function (verify_curr_properties,
 		     (void *)(size_t)pass->properties_required);
+
   /* Do it!  */
   todo_after = pass->execute (cfun);
 

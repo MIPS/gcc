@@ -13872,6 +13872,11 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
   if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
+  /* Note that for many of the relevant operations (e.g. cmpne or
+     cmpeq) with float or double operands, it makes most sense for the
+     mode of the allocated scratch register to select a vector of
+     integer.  But the choice to copy the mode of operand 0 was made
+     long ago and there are no plans to change it.  */
   scratch = gen_reg_rtx (mode0);
 
   pat = GEN_FCN (icode) (scratch, op0, op1);
@@ -13883,7 +13888,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
      different operations, but the bits in CR6 will be different
      depending on what information we want.  So we have to play tricks
      with CR6 to get the right bits out.
-     
+
      If you think this is disgusting, look at the specs for the
      AltiVec predicates.  */
 
