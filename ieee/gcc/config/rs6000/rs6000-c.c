@@ -431,13 +431,8 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("__FLOAT128_TYPE__");
   if (TARGET_FLOAT128_HW)
     builtin_define ("__FLOAT128_HARDWARE__");
-  if (TARGET_LONG_DOUBLE_128)
-    {
-      if (FLOAT128_IBM_P (TFmode))
-	builtin_define ("__ibm128=long double");
-      else if (TARGET_FLOAT128_KEYWORD && FLOAT128_IEEE_P (TFmode))
-	builtin_define ("__float128=long double");
-    }
+  if (TARGET_LONG_DOUBLE_128 && FLOAT128_IBM_P (TFmode))
+    builtin_define ("__ibm128=long double");
 
   if (TARGET_EXTRA_BUILTINS && cpp_get_options (pfile)->lang != CLK_ASM)
     {

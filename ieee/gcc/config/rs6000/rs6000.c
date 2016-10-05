@@ -16591,9 +16591,8 @@ rs6000_init_builtins (void)
   if (TARGET_FLOAT128_KEYWORD)
     {
       ieee128_float_type_node = float128_type_node;
-      if (!FLOAT128_IEEE_P (TFmode))
-	lang_hooks.types.register_builtin_type (ieee128_float_type_node,
-						"__float128");
+      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					      "__float128");
     }
 
   else if (TARGET_FLOAT128_TYPE)
@@ -16602,9 +16601,6 @@ rs6000_init_builtins (void)
       TYPE_PRECISION (ibm128_float_type_node) = 128;
       layout_type (ieee128_float_type_node);
       SET_TYPE_MODE (ieee128_float_type_node, KFmode);
-
-      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
-					      "__ieee128");
     }
 
   else
