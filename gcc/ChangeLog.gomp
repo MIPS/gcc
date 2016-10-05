@@ -1,3 +1,31 @@
+2016-10-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.h (OMP_CLAUSE_TILE_ITERVAR, OMP_CLAUSE_TILE_COUNT): New.
+	* tree.c (omp_clause_num_ops): Adjust TILE ops.
+	* internal-fn.def (GOACC_TILE): New.
+	* internal-gn.c (expand_GOACC_TILE): New.
+	* gimplify.c (gomplify_adjust_omp_clauses): Don't delete TILE.
+	(gimplify_omp_for): Deal with TILE.
+	* omp-low.c (struct omp_for_data): Add tiling field.
+	(struct oacc_loop): Add e_mask field.
+	(enum oacc_loop_flags): Add OLF_TILE flag.
+	(extract_omp_for_data): Deal with tiling.
+	(lower_oacc_head_mark): Add OLF_TILE as appropriate, adjust levels
+	calculation.
+	(struct oacc_collaps): Add tile and outer fields.  */
+	(expand_oacc_collaps_init): Add LOC paramter.  Initialize tile
+	element fields.
+	(expand_oacc_collaps_vars): Add INNER parm.  Adjust for tiling.
+	(expand_oacc_for): Insert tile element loop as needed.  Adjust.
+	(oacc_xform_tile): New.
+	(new_oacc_loop_raw): Initialize e_mask.
+	(oacc_loop_discover_walk): Remember GOACC_TILE fns.
+	(oacc_loop_process): Adjust GOACC_LOOP processing.  Deal with
+	GOACC_TILE fns.
+	(oacc_loop_fixed_partitions): Deal with TILE.
+	(oacc_loop_auto_partitions): Likewise.
+	(execite_oacc_device_lower): Process GOACC_TILE fns.
+	
 2016-10-04  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (lower_oacc_head_mark): Don't determine default auto

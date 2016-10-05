@@ -185,6 +185,10 @@ DEF_INTERNAL_FN (GOACC_LOOP, ECF_PURE | ECF_NOTHROW, NULL)
 /* OpenACC reduction abstraction.  See internal-fn.h  for usage.  */
 DEF_INTERNAL_FN (GOACC_REDUCTION, ECF_NOTHROW | ECF_LEAF, NULL)
 
+/* Openacc tile abstraction. Describes the spans of the element loop.
+   GOACC_TILE (num-loops, loop-no, tile-arg, tile-mask, element-mask).  */
+DEF_INTERNAL_FN (GOACC_TILE, ECF_NOTHROW | ECF_LEAF, NULL)
+
 /* Set errno to EDOM, if GCC knows how to do that directly for the
    current target.  */
 DEF_INTERNAL_FN (SET_EDOM, ECF_LEAF | ECF_NOTHROW, NULL)

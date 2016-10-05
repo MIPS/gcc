@@ -8418,14 +8418,8 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	case OMP_CLAUSE_VECTOR:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
-	case OMP_CLAUSE_DEVICE_TYPE:
-	  break;
-
 	case OMP_CLAUSE_TILE:
-	  /* We're not yet making use of the information provided by OpenACC
-	     tile clauses.  Discard these here, to simplify later middle end
-	     processing.  */
-	  remove = true;
+	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
 	case OMP_CLAUSE_BIND:
@@ -8890,10 +8884,23 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 						 (OMP_FOR_INIT (for_stmt))
 					       * 2);
     }
-  int collapse = 1;
-  c = find_omp_clause (OMP_FOR_CLAUSES (for_stmt), OMP_CLAUSE_COLLAPSE);
-  if (c)
-    collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (c));
+  int collapse = 0;
+  /* Find the first of COLLAPSE or TILE.  */
+  for (c = OMP_FOR_CLAUSES (for_stmt); c; c = TREE_CHAIN (c))
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_COLLAPSE)
+      {
+	collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (c));
+	if (collapse == 1)
+	  /* Not really collapsing.  */
+	  collapse = 0;
+	break;
+      }
+    else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TILE)
+      {
+	collapse = list_length (OMP_CLAUSE_TILE_LIST (c));
+	break;
+      }
+
   for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
     {
       t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
@@ -9298,7 +9305,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	  OMP_CLAUSE_LINEAR_STEP (c2) = OMP_CLAUSE_LINEAR_STEP (c);
 	}
 
-      if ((var != decl || collapse > 1) && orig_for_stmt == for_stmt)
+      if ((var != decl || collapse) && orig_for_stmt == for_stmt)
 	{
 	  for (c = OMP_FOR_CLAUSES (for_stmt); c ; c = OMP_CLAUSE_CHAIN (c))
 	    if (((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
@@ -9308,7 +9315,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 		     && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c) == NULL))
 		&& OMP_CLAUSE_DECL (c) == decl)
 	      {
-		if (is_doacross && (collapse == 1 || i >= collapse))
+		if (is_doacross && (!collapse || i >= collapse))
 		  t = var;
 		else
 		  {
