@@ -434,6 +434,12 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
   if (TARGET_LONG_DOUBLE_128 && FLOAT128_IBM_P (TFmode))
     builtin_define ("__ibm128=long double");
 
+  /* We needed to create a keyword if -mfloat128-type was used but not -mfloat,
+     so we used __ieee128.  If -mfloat128 was used, create a #define back to
+     the real keyword in case somebody used it.  */
+  if (TARGET_FLOAT128_KEYWORD)
+    builtin_define ("__ieee128=__float128");
+
   if (TARGET_EXTRA_BUILTINS && cpp_get_options (pfile)->lang != CLK_ASM)
     {
       /* Define the AltiVec syntactic elements.  */
