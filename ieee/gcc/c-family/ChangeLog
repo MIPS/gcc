@@ -1,3 +1,28 @@
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/66343
+	* c-ubsan.c (ubsan_instrument_return): Don't call
+	initialize_sanitizer_builtins here.
+
+2016-10-05  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Warn also for suspicious
+	conditional expression in boolean context when only one arm is
+	non-boolean.
+
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77823
+	* c-ubsan.c (ubsan_instrument_shift): Return NULL_TREE if type0
+	is not integral.
+
+	* c-common.c (c_common_reswords): Update comment for C++11.
+
+2016-10-04  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (make_tree_vector_from_ctor): New.
+	* c-common.h: Declare it.
+
 2016-10-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): Don't define

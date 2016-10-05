@@ -314,6 +314,10 @@ get_ubsan_type_info_for_type (tree type)
     return 0;
 }
 
+/* Counters for internal labels.  ubsan_ids[0] for Lubsan_type,
+   ubsan_ids[1] for Lubsan_data labels.  */
+static GTY(()) unsigned int ubsan_ids[2];
+
 /* Helper routine that returns ADDR_EXPR of a VAR_DECL of a type
    descriptor.  It first looks into the hash table; if not found,
    create the VAR_DECL, put it into the hash table and return the
@@ -461,10 +465,9 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
   TREE_STATIC (str) = 1;
 
   char tmp_name[32];
-  static unsigned int type_var_id_num;
-  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_type", type_var_id_num++);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_type", ubsan_ids[0]++);
   decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (tmp_name),
-			  dtype);
+		     dtype);
   TREE_STATIC (decl) = 1;
   TREE_PUBLIC (decl) = 0;
   DECL_ARTIFICIAL (decl) = 1;
@@ -507,6 +510,10 @@ ubsan_create_data (const char *name, int loccnt, const location_t *ploc, ...)
   vec<tree, va_gc> *saved_args = NULL;
   size_t i = 0;
   int j;
+
+  /* It is possible that PCH zapped table with definitions of sanitizer
+     builtins.  Reinitialize them if needed.  */
+  initialize_sanitizer_builtins ();
 
   /* Firstly, create a pointer to type descriptor type.  */
   tree td_type = ubsan_get_type_descriptor_type ();
@@ -564,8 +571,7 @@ ubsan_create_data (const char *name, int loccnt, const location_t *ploc, ...)
 
   /* Now, fill in the type.  */
   char tmp_name[32];
-  static unsigned int ubsan_var_id_num;
-  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_data", ubsan_var_id_num++);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_data", ubsan_ids[1]++);
   tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (tmp_name),
 			 ret);
   TREE_STATIC (var) = 1;
@@ -1587,7 +1593,6 @@ ubsan_instrument_float_cast (location_t loc, tree type, tree expr)
     {
       location_t *loc_ptr = NULL;
       unsigned num_locations = 0;
-      initialize_sanitizer_builtins ();
       /* Figure out if we can propagate location to ubsan_data and use new
          style handlers in libubsan.  */
       if (ubsan_use_new_style_p (loc))

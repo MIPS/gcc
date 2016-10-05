@@ -1,3 +1,73 @@
+2016-10-05  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (finish_compound_literal): Handle class placeholder.
+
+2016-10-05  Marek Polacek  <polacek@redhat.com>
+
+	Implement P0305R1, Selection statements with initializer.
+	* cp-array-notation.c (create_an_loop): Call finish_init_stmt
+	instead of finish_for_init_stmt.
+	* cp-tree.h (finish_for_init_stmt): Rename to finish_init_stmt.
+	* decl.c (poplevel): Adjust a comment.
+	* init.c (build_vec_init): Call finish_init_stmt instead of
+	finish_for_init_stmt.
+	* name-lookup.c (pushdecl_maybe_friend_1): Adjust a comment.
+	* name-lookup.h (enum scope_kind): Likewise.
+	* parser.c (cp_parser_statement): Update commentary.
+	(cp_parser_init_statement_p): New function.
+	(cp_parser_selection_statement): Parse the optional init-statement.
+	(cp_parser_for): Call finish_init_stmt instead of finish_for_init_stmt.
+	(cp_parser_c_for): Likewise.
+	(cp_convert_range_for): Call finish_init_stmt instead of finish_for_init_stmt.
+	(cp_parser_range_for_member_function): Update commentary.
+	(cp_parser_iteration_statement):
+	(cp_parser_for_init_statement): Rename to cp_parser_init_statement.
+	* pt.c (tsubst_omp_for_iterator): Update commentary.
+	(tsubst_expr): Call finish_init_stmt instead of finish_for_init_stmt.
+	* semantics.c (finish_for_init_stmt): Rename to finish_init_stmt.
+	Update commentary.
+
+2016-10-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77852
+	* pt.c (do_class_deduction): Handle list-initialization.
+	(do_auto_deduction): Call it sooner.
+	(build_deduction_guide): Use tsubst_arg_types.
+	(rewrite_template_parm): Don't copy_type.
+
+	PR c++/77775
+	* constexpr.c (cxx_eval_component_reference): Use name matching
+	for PMFs.
+
+	Implement P0091R2, Template argument deduction for class templates.
+	* parser.c (cp_parser_simple_type_specifier): Parse class placeholder.
+	Use the location of the beginning of the type-specifier.
+	(cp_parser_init_declarator): Parse deduction guide.
+	(cp_parser_diagnose_invalid_type_name): Mention class deduction.
+	(cp_parser_type_id_1): Don't accept class placeholder as template arg.
+	* cp-tree.h (CLASS_PLACEHOLDER_TEMPLATE): New.
+	* decl.c (grokdeclarator): Check for uninitialized auto here.
+	(start_decl_1): Not here.
+	(cp_finish_decl): Or here.  Don't collapse a list when doing
+	class deduction.
+	(grokfndecl): Check deduction guide scope and body.
+	* error.c (dump_decl, dump_function_decl, dump_function_name):
+	Handle deduction guides.
+	* pt.c (make_template_placeholder, do_class_deduction): New.
+	(build_deduction_guide, rewrite_template_parm): New.
+	(dguide_name, dguide_name_p, deduction_guide_p): New.
+	(do_auto_deduction): Call do_class_deduction.
+	(splice_late_return_type, is_auto): Handle class placeholders.
+	(template_parms_level_to_args): Split from template_parms_to_args.
+	(tsubst_template_parms_level): Split from tsubst_template_parms.
+	* typeck2.c (build_functional_cast): Handle class placeholder.
+
+2016-10-04  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/77804
+	* init.c (warn_placement_new_too_small): Avoid assuming an array type
+	has a constant size.
+
 2016-10-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/77791

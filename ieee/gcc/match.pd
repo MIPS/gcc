@@ -452,6 +452,14 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
   (hypots @0 (copysigns @1 @2))
   (hypots @0 @1)))
 
+/* copysign(x, CST) -> [-]abs (x).  */
+(for copysigns (COPYSIGN)
+ (simplify
+  (copysigns @0 REAL_CST@1)
+  (if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (@1)))
+   (negate (abs @0))
+   (abs @0))))
+
 /* copysign(copysign(x, y), z) -> copysign(x, z).  */
 (for copysigns (COPYSIGN)
  (simplify
@@ -1291,6 +1299,13 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
       && (! ANY_INTEGRAL_TYPE_P (type)
 	  || TYPE_OVERFLOW_UNDEFINED (type)))
   (abs @0)))
+/* min(a,-a) -> -abs(a).  */
+(simplify
+ (min:c @0 (negate @0))
+ (if (TREE_CODE (type) != COMPLEX_TYPE
+      && (! ANY_INTEGRAL_TYPE_P (type)
+	  || TYPE_OVERFLOW_UNDEFINED (type)))
+  (negate (abs @0))))
 (simplify
  (min @0 @1)
  (switch
@@ -1766,9 +1781,13 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 
 /* (X /[ex] A) * A -> X.  */
 (simplify
-  (mult (convert? (exact_div @0 @1)) @1)
-  /* Look through a sign-changing conversion.  */
-  (convert @0))
+  (mult (convert1? (exact_div @0 @1)) (convert2? @2))
+  /* We cannot use matching captures here, since in the case of
+     constants we don't see the second conversion.  Look through
+     a sign-changing or widening conversions.  */
+  (if (operand_equal_p (@1, @2, 0)
+       && element_precision (@0) <= element_precision (type))
+   (convert @0)))
 
 /* Canonicalization of binary operations.  */
 

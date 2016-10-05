@@ -1,3 +1,79 @@
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/66343
+	* ubsan.c (ubsan_create_data): Call initialize_sanitizer_builtins here.
+	(ubsan_instrument_float_cast): And not here.
+
+	PR sanitizer/66343
+	* ubsan.c (ubsan_ids): New GTY(()) array.
+	(ubsan_type_descriptor, ubsan_create_data): Use ubsan_ids
+	instead of static local counters.
+
+2016-10-05  Martin Sebor  <msebor@redhat.com>
+
+	PR bootstrap/77819
+	* config/linux.h (TARGET_PRINTF_POINTER_FORMAT): Define macro.
+	* config/linux.c (gnu_libc_printf_pointer_format): Remove.
+	* targhooks.c [DEFAULT_LIBC == LIBC_UCLIBC) && SINGLE_LIBC]
+	(default_printf_pointer_format): Define function.
+	* targhooks.c (linux_printf_pointer_format): Define new function.
+	* targhooks.h (linux_printf_pointer_format): Declare.
+	(gnu_libc_printf_pointer_format): Remove declaration.
+
+2016-10-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* fold-const.c (native_encode_real): Fix logic for selecting offset
+	to write to when BYTES_BIG_ENDIAN.
+
+2016-10-05  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* builtins.c (fold_builtin_strchr): Remove function.
+	(fold_builtin_strrchr): Likewise.
+	(fold_builtin2): Remove strchr, index, strrchr, rindex cases.
+	* gimple-fold.c (target_char_cst_p): New function.
+	(gimple_fold_builtin_strchr) Add more foldings.
+	(gimple_fold_builtin): Add index, strrchr, rindex cases.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77863
+	* genmatch.c (capture_info::walk_c_expr): Diagnose unknown
+	capture ids in c-exprs.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77826
+	* genmatch.c (dt_operand::gen_match_op): Amend operand_equal_p
+	with types_match for GIMPLE code gen to handle type mismatched
+	constants properly.
+	(dt_operand::gen): Adjust.
+	* match.pd ((X /[ex] A) * A -> X): Properly handle converted
+	and constant A.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	* match.pd (copysign(x, CST) -> [-]abs (x)): New pattern.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77842
+	* genmatch.c (parser::parse_c_expr): Handle premature EOF.
+
+2016-10-05  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (dwarf2out_imported_module_or_decl): Move DWARF
+	version check to protect only DW_TAG_imported_module generation.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55152
+	* match.pd (min(a,-a) -> -abs(a)): New pattern.
+
+2016-10-04  Ian Lance Taylor  <iant@golang.org>
+
+	* explow.c (allocate_dynamic_stack_space): Call
+	do_pending_stack_adjust before handling flag_split_stack.
+
 2016-10-04  David Malcolm  <dmalcolm@redhat.com>
 
 	* genattrtab.c (make_internal_attr): Supply dummy column number to

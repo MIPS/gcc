@@ -411,8 +411,8 @@ static int resort_field_decl_cmp (const void *, const void *);
    C --std=c89: D_C99 | D_CXXONLY | D_OBJC | D_CXX_OBJC
    C --std=c99: D_CXXONLY | D_OBJC
    ObjC is like C except that D_OBJC and D_CXX_OBJC are not set
-   C++ --std=c98: D_CONLY | D_CXXOX | D_OBJC
-   C++ --std=c0x: D_CONLY | D_OBJC
+   C++ --std=c++98: D_CONLY | D_CXX11 | D_OBJC
+   C++ --std=c++11: D_CONLY | D_OBJC
    ObjC++ is like C++ except that D_OBJC is not set
 
    If -fno-asm is used, D_ASM is added to the mask.  If
@@ -4675,6 +4675,14 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	    warning_at (EXPR_LOCATION (expr), OPT_Wint_in_bool_context,
 			"?: using integer constants in boolean context, "
 			"the expression will always evaluate to %<true%>");
+	  else if ((TREE_CODE (val1) == INTEGER_CST
+		    && !integer_zerop (val1)
+		    && !integer_onep (val1))
+		   || (TREE_CODE (val2) == INTEGER_CST
+		       && !integer_zerop (val2)
+		       && !integer_onep (val2)))
+	    warning_at (EXPR_LOCATION (expr), OPT_Wint_in_bool_context,
+			"?: using integer constants in boolean context");
 	}
       /* Distribute the conversion into the arms of a COND_EXPR.  */
       if (c_dialect_cxx ())
@@ -12609,6 +12617,18 @@ make_tree_vector_from_list (tree list)
   vec<tree, va_gc> *ret = make_tree_vector ();
   for (; list; list = TREE_CHAIN (list))
     vec_safe_push (ret, TREE_VALUE (list));
+  return ret;
+}
+
+/* Get a new tree vector of the values of a CONSTRUCTOR.  */
+
+vec<tree, va_gc> *
+make_tree_vector_from_ctor (tree ctor)
+{
+  vec<tree,va_gc> *ret = make_tree_vector ();
+  vec_safe_reserve (ret, CONSTRUCTOR_NELTS (ctor));
+  for (unsigned i = 0; i < CONSTRUCTOR_NELTS (ctor); ++i)
+    ret->quick_push (CONSTRUCTOR_ELT (ctor, i)->value);
   return ret;
 }
 
