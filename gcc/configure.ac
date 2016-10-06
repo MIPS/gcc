@@ -3906,6 +3906,18 @@ foo:
       [AC_DEFINE(HAVE_AS_SPARC4, 1,
                 [Define if your assembler supports SPARC4 instructions.])])
 
+    gcc_GAS_CHECK_FEATURE([SPARC5 and VIS 4.0 instructions],
+      gcc_cv_as_sparc_sparc5,,
+      [-xarch=sparc5],
+      [.text
+       .register %g2, #scratch
+       .register %g3, #scratch
+       .align 4
+       subxc %g1, %g2, %g3
+       fpadd8 %f0, %f2, %f4],,
+      [AC_DEFINE(HAVE_AS_SPARC5_VIS4, 1,
+                [Define if your assembler supports SPARC5 and VIS 4.0 instructions.])])
+
     gcc_GAS_CHECK_FEATURE([LEON instructions],
       gcc_cv_as_sparc_leon,,
       [-Aleon],
@@ -4425,7 +4437,7 @@ LCF0:
 	  gcc_cv_as_aix_dwloc, [2,21,0],,
 	  [	.dwsect 0xA0000
 	Lframe..0:
-		.vbyte 4,Lframe..0:
+		.vbyte 4,Lframe..0
 	  ],,
 	  [AC_DEFINE(HAVE_XCOFF_DWARF_EXTRAS, 1,
 	    [Define if your assembler supports AIX debug frame section label reference.])])

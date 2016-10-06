@@ -402,6 +402,13 @@ arm*-*-uclinux*)		# ARM ucLinux
 	unwind_header=config/arm/unwind-arm.h
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
+arm*-*-phoenix*)
+	tmake_file="t-hardfp t-softfp arm/t-arm arm/t-elf arm/t-softfp arm/t-phoenix"
+	tmake_file="${tmake_file} arm/t-bpabi"
+	tm_file="$tm_file arm/bpabi-lib.h"
+	extra_parts="crtbegin.o crtend.o crti.o crtn.o"
+	unwind_header=config/arm/unwind-arm.h
+	;;
 arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
 	tmake_file="${tmake_file} arm/t-arm arm/t-elf t-fixedpoint-gnu-prefix"
 	tm_file="$tm_file arm/bpabi-lib.h"
@@ -931,14 +938,9 @@ mmix-knuth-mmixware)
 mn10300-*-*)
 	tmake_file=t-fdpbit
 	;;
-moxie-*-elf | moxie-*-moxiebox* | moxie-*-uclinux*)
-	tmake_file="moxie/t-moxie t-softfp-sfdf t-softfp-excl t-softfp"
-	extra_parts="$extra_parts crti.o crtn.o crtbegin.o crtend.o"
-	;;
-moxie-*-rtems*)
+moxie-*-elf | moxie-*-moxiebox* | moxie-*-uclinux* | moxie-*-rtems*)
 	tmake_file="$tmake_file moxie/t-moxie t-softfp-sfdf t-softfp-excl t-softfp"
-	# Don't use default.
-	extra_parts=
+	extra_parts="$extra_parts crti.o crtn.o crtbegin.o crtend.o"
 	;;
 msp430*-*-elf)
 	tmake_file="$tm_file t-crtstuff t-fdpbit msp430/t-msp430"

@@ -795,22 +795,21 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 	    {
 	      tree src_base, dest_base, fn;
 	      HOST_WIDE_INT src_offset = 0, dest_offset = 0;
-	      HOST_WIDE_INT size = -1;
-	      HOST_WIDE_INT maxsize = -1;
-	      bool reverse;
+	      HOST_WIDE_INT maxsize;
 
 	      srcvar = TREE_OPERAND (src, 0);
-	      src_base = get_ref_base_and_extent (srcvar, &src_offset,
-						  &size, &maxsize, &reverse);
+	      src_base = get_addr_base_and_unit_offset (srcvar, &src_offset);
+	      if (src_base == NULL)
+		src_base = srcvar;
 	      destvar = TREE_OPERAND (dest, 0);
-	      dest_base = get_ref_base_and_extent (destvar, &dest_offset,
-						   &size, &maxsize, &reverse);
+	      dest_base = get_addr_base_and_unit_offset (destvar,
+							 &dest_offset);
+	      if (dest_base == NULL)
+		dest_base = destvar;
 	      if (tree_fits_uhwi_p (len))
 		maxsize = tree_to_uhwi (len);
 	      else
 		maxsize = -1;
-	      src_offset /= BITS_PER_UNIT;
-	      dest_offset /= BITS_PER_UNIT;
 	      if (SSA_VAR_P (src_base)
 		  && SSA_VAR_P (dest_base))
 		{
@@ -3045,10 +3044,25 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 		}
 	      if (targets.length () == 1)
 		{
-		  gimple_call_set_fndecl (stmt, targets[0]->decl);
+		  tree fndecl = targets[0]->decl;
+		  gimple_call_set_fndecl (stmt, fndecl);
 		  changed = true;
+		  /* If changing the call to __cxa_pure_virtual
+		     or similar noreturn function, adjust gimple_call_fntype
+		     too.  */
+		  if ((gimple_call_flags (stmt) & ECF_NORETURN)
+		      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fndecl)))
+		      && TYPE_ARG_TYPES (TREE_TYPE (fndecl))
+		      && (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fndecl)))
+			  == void_type_node))
+		    gimple_call_set_fntype (stmt, TREE_TYPE (fndecl));
 		  /* If the call becomes noreturn, remove the lhs.  */
-		  if (lhs && (gimple_call_flags (stmt) & ECF_NORETURN))
+		  if (lhs
+		      && (gimple_call_flags (stmt) & ECF_NORETURN)
+		      && (VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (stmt)))
+			  || ((TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs)))
+			       == INTEGER_CST)
+			      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))))
 		    {
 		      if (TREE_CODE (lhs) == SSA_NAME)
 			{
@@ -5373,14 +5387,15 @@ fold_array_ctor_reference (tree type, tree ctor,
   if (domain_type && TYPE_MIN_VALUE (domain_type))
     {
       /* Static constructors for variably sized objects makes no sense.  */
-      gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
+      if (TREE_CODE (TYPE_MIN_VALUE (domain_type)) != INTEGER_CST)
+	return NULL_TREE;
       low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
     }
   else
     low_bound = 0;
   /* Static constructors for variably sized objects makes no sense.  */
-  gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))))
-	      == INTEGER_CST);
+  if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor)))) != INTEGER_CST)
+    return NULL_TREE;
   elt_size = wi::to_offset (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))));
 
   /* We can handle only constantly sized accesses that are known to not

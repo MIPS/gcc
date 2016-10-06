@@ -1647,17 +1647,10 @@ force_paren_expr (tree expr)
       && TREE_CODE (expr) != SCOPE_REF)
     return expr;
 
-  if (TREE_CODE (expr) == COMPONENT_REF)
+  if (TREE_CODE (expr) == COMPONENT_REF
+      || TREE_CODE (expr) == SCOPE_REF)
     REF_PARENTHESIZED_P (expr) = true;
-  else if (type_dependent_expression_p (expr)
-	   /* When processing_template_decl, a SCOPE_REF may actually be
-	      referring to a non-static data member of the current class, in
-	      which case its TREE_TYPE may not be properly cv-qualified (the
-	      cv-qualifiers of the implicit *this object haven't yet been taken
-	      into account) so we have to delay building a static_cast until
-	      instantiation.  */
-	   || (processing_template_decl
-	       && TREE_CODE (expr) == SCOPE_REF))
+  else if (type_dependent_expression_p (expr))
     expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
   else if (VAR_P (expr) && DECL_HARD_REGISTER (expr))
     /* We can't bind a hard register variable to a reference.  */;
@@ -3276,7 +3269,7 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   tree initializer = convert_from_reference (decl);
 
   /* Mark it as used now even if the use is ill-formed.  */
-  if (!mark_used (decl, complain) && !(complain & tf_error))
+  if (!mark_used (decl, complain))
     return error_mark_node;
 
   bool saw_generic_lambda = false;
@@ -3486,6 +3479,12 @@ finish_id_expression (tree id_expression,
 	 was entirely defined.  */
       if (!scope && decl != error_mark_node && identifier_p (id_expression))
 	maybe_note_name_used_in_class (id_expression, decl);
+
+      /* A use in unevaluated operand might not be instantiated appropriately
+	 if tsubst_copy builds a dummy parm, or if we never instantiate a
+	 generic lambda, so mark it now.  */
+      if (processing_template_decl && cp_unevaluated_operand)
+	mark_type_use (decl);
 
       /* Disallow uses of local variables from containing functions, except
 	 within lambda-expressions.  */
@@ -4501,7 +4500,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FROM)
 	  && !type_dependent_expression_p (t))
 	{
-	  if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
+	  if (TREE_CODE (TREE_OPERAND (t, 1)) == FIELD_DECL
+	      && DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"bit-field %qE in %qs clause",
@@ -4510,7 +4510,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	    }
 	  while (TREE_CODE (t) == COMPONENT_REF)
 	    {
-	      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
+	      if (TREE_TYPE (TREE_OPERAND (t, 0))
+		  && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE is a member of a union", t);
@@ -4518,6 +4519,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		}
 	      t = TREE_OPERAND (t, 0);
 	    }
+	  if (REFERENCE_REF_P (t))
+	    t = TREE_OPERAND (t, 0);
 	}
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
@@ -5898,7 +5901,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		type = TREE_TYPE (type);
 	      if (ort == C_ORT_CILK)
 		{
-		  if (!INTEGRAL_TYPE_P (type)
+		  if (OMP_CLAUSE_LINEAR_KIND (c) != OMP_CLAUSE_LINEAR_REF
+		      && !INTEGRAL_TYPE_P (type)
 		      && !SCALAR_FLOAT_TYPE_P (type)
 		      && TREE_CODE (type) != POINTER_TYPE)
 		    {
@@ -5911,7 +5915,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      else
 		{
-		  if (!INTEGRAL_TYPE_P (type)
+		  if (OMP_CLAUSE_LINEAR_KIND (c) != OMP_CLAUSE_LINEAR_REF
+		      && !INTEGRAL_TYPE_P (type)
 		      && TREE_CODE (type) != POINTER_TYPE)
 		    {
 		      error ("linear clause applied to non-integral non-pointer"
@@ -6631,6 +6636,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		    {
 		      while (TREE_CODE (t) == COMPONENT_REF)
 			t = TREE_OPERAND (t, 0);
+		      if (REFERENCE_REF_P (t))
+			t = TREE_OPERAND (t, 0);
 		      if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
 			break;
 		      if (bitmap_bit_p (&map_head, DECL_UID (t)))
@@ -6672,7 +6679,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    {
 	      if (type_dependent_expression_p (t))
 		break;
-	      if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
+	      if (TREE_CODE (TREE_OPERAND (t, 1)) == FIELD_DECL
+		  && DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "bit-field %qE in %qs clause",
@@ -6688,8 +6696,9 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      while (TREE_CODE (t) == COMPONENT_REF)
 		{
-		  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0)))
-		      == UNION_TYPE)
+		  if (TREE_TYPE (TREE_OPERAND (t, 0))
+		      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0)))
+			  == UNION_TYPE))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"%qE is a member of a union", t);
@@ -6700,6 +6709,8 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      if (remove)
 		break;
+	      if (REFERENCE_REF_P (t))
+		t = TREE_OPERAND (t, 0);
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
 		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
@@ -9292,6 +9303,10 @@ apply_deduced_return_type (tree fco, tree return_type)
   if (TREE_TYPE (result) == return_type)
     return;
 
+  if (!processing_template_decl && !VOID_TYPE_P (return_type)
+      && !complete_type_or_else (return_type, NULL_TREE))
+    return;
+
   /* We already have a DECL_RESULT from start_preparsed_function.
      Now we need to redo the work it and allocate_struct_function
      did to reflect the new type.  */
@@ -9307,8 +9322,6 @@ apply_deduced_return_type (tree fco, tree return_type)
 
   if (!processing_template_decl)
     {
-      if (!VOID_TYPE_P (TREE_TYPE (result)))
-	complete_type_or_else (TREE_TYPE (result), NULL_TREE);
       bool aggr = aggregate_value_p (result, fco);
 #ifdef PCC_STATIC_STRUCT_RETURN
       cfun->returns_pcc_struct = aggr;

@@ -2081,6 +2081,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
   unsigned int bii;
   edge e;
   edge_iterator ei;
+  bool was_visited = BB_VISITED (block);
 
   old = ANTIC_OUT = S = NULL;
   BB_VISITED (block) = 1;
@@ -2171,7 +2172,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 
   clean (ANTIC_IN (block));
 
-  if (!bitmap_set_equal (old, ANTIC_IN (block)))
+  if (!was_visited || !bitmap_set_equal (old, ANTIC_IN (block)))
     changed = true;
 
  maybe_dump_sets:
@@ -2349,14 +2350,17 @@ compute_antic (void)
 
   FOR_ALL_BB_FN (block, cfun)
     {
+      BB_VISITED (block) = 0;
+
       FOR_EACH_EDGE (e, ei, block->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
 	    bitmap_set_bit (has_abnormal_preds, block->index);
+
+	    /* We also anticipate nothing.  */
+	    BB_VISITED (block) = 1;
 	    break;
 	  }
-
-      BB_VISITED (block) = 0;
 
       /* While we are here, give empty ANTIC_IN sets to each block.  */
       ANTIC_IN (block) = bitmap_set_new ();
@@ -2892,7 +2896,24 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
       gimple_seq_discard (forced_stmts);
       return folded;
     }
-
+  /* Likewise if we simplified to sth not queued for insertion.  */
+  bool found = false;
+  gsi = gsi_last (forced_stmts);
+  for (; !gsi_end_p (gsi); gsi_prev (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+      tree forcedname = gimple_get_lhs (stmt);
+      if (forcedname == folded)
+	{
+	  found = true;
+	  break;
+	}
+    }
+  if (! found)
+    {
+      gimple_seq_discard (forced_stmts);
+      return folded;
+    }
   gcc_assert (TREE_CODE (folded) == SSA_NAME);
 
   /* If we have any intermediate expressions to the value sets, add them
@@ -4331,6 +4352,15 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 				       lang_hooks.decl_printable_name (fn, 2));
 		    }
 		  gimple_call_set_fndecl (call_stmt, fn);
+		  /* If changing the call to __builtin_unreachable
+		     or similar noreturn function, adjust gimple_call_fntype
+		     too.  */
+		  if (gimple_call_noreturn_p (call_stmt)
+		      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
+		      && TYPE_ARG_TYPES (TREE_TYPE (fn))
+		      && (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fn)))
+			  == void_type_node))
+		    gimple_call_set_fntype (call_stmt, TREE_TYPE (fn));
 		  maybe_remove_unused_call_args (cfun, call_stmt);
 		  gimple_set_modified (stmt, true);
 		}
@@ -4828,6 +4858,9 @@ pass_pre::execute (function *fun)
   todo |= fini_eliminate ();
   loop_optimizer_finalize ();
 
+  /* Restore SSA info before tail-merging as that resets it as well.  */
+  scc_vn_restore_ssa_info ();
+
   /* TODO: tail_merge_optimize may merge all predecessors of a block, in which
      case we can merge the block with the remaining predecessor of the block.
      It should either:
@@ -4901,6 +4934,7 @@ pass_fre::execute (function *fun)
 
   todo |= fini_eliminate ();
 
+  scc_vn_restore_ssa_info ();
   free_scc_vn ();
 
   statistics_counter_event (fun, "Insertions", pre_stats.insertions);
