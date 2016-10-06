@@ -574,3 +574,6 @@ Target Undocumented Var(TARGET_OPT_MOVEP) Init(1)
 
 mmovep-balc
 Target Undocumented Var(TARGET_ADD_MOVEP_BALC) Init(0)
+
+mxlp
+Target Var(TARGET_EXLP) Init(0)
