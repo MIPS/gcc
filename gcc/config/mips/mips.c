@@ -75,6 +75,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "dumpfile.h"
 #include "tm-constrs.h"
+#include "ira-int.h"
+#include "lra-int.h"
+#include "sparseset.h"
 
 /* Definitions used in ready queue reordering for first scheduling pass.  */
 
@@ -25125,6 +25128,1309 @@ mips_rest_of_frame_header_opt (void)
 	mips_frame_header_update_insn (insn);
     }
 }
+
+/* Returns true if given microMIPS++ instruction has 16-bit equivalent.  */
+
+static bool
+mips_insn_has_short_form_r7_p(rtx insn)
+{
+  struct recog_data_d old_recog_data;
+  enum attr_mode mode;
+  bool result = false;
+  rtx pattern;
+
+  if (!INSN_P (insn))
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == USE)
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  old_recog_data = recog_data;
+
+  mode = get_attr_mode (insn);
+
+  pattern = PATTERN (insn);
+
+  /* li16 rd, imm.  */
+  if ((GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && CONST_INT_P (XEXP (pattern, 1))
+      && INTVAL (XEXP (pattern, 1)) != 0
+      && INTVAL (XEXP (pattern, 1)) >= -1
+      && INTVAL (XEXP (pattern, 1)) <= 126))
+    result = true;
+
+  /* lw16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 1))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 1)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
+      && REG_P (XEXP (pattern, 0))
+      && MEM_P (XEXP (pattern, 1))
+      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 60)))
+    result = true;
+
+  /* lwxs rd, rs(rt).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 1))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 1)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
+      && REG_P (XEXP (pattern, 0))
+      && MEM_P (XEXP (pattern, 1))
+      && (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == MULT
+	  && REG_P (XEXP ( XEXP (XEXP (XEXP (pattern, 1), 0), 0),0))
+	  && CONST_INT_P (XEXP ( XEXP (XEXP (XEXP (pattern, 1), 0), 0),1))
+	  && INTVAL (XEXP ( XEXP (XEXP (XEXP (pattern, 1), 0), 0),1)) == 4))
+    result = true;
+
+  /* SYMBOL_REF.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == SYMBOL_REF)
+    result = true;
+
+  /* lwgp16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 1))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 1)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
+      && REG_P (XEXP (pattern, 0))
+      && MEM_P (XEXP (pattern, 1))
+      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
+	      && (REGNO ( (XEXP (XEXP (XEXP (pattern, 1), 0), 0))) == 28)
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 252)))
+    result = true;
+
+  /* lwgp16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 1))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 1)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
+      && REG_P (XEXP (pattern, 0))
+      && MEM_P (XEXP (pattern, 1))
+      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
+	      && (REGNO ( (XEXP (XEXP (XEXP (pattern, 1), 0), 0))) == 29)
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 60)))
+    result = true;
+
+  /* sw16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && ((REG_P (XEXP (XEXP (pattern, 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 60)))
+    result = true;
+
+  /* addu16 rd, rs, rt. & subu16 rd, rs, rt.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && (GET_CODE (XEXP (pattern, 1)) == PLUS
+          || GET_CODE (XEXP (pattern, 1)) == MINUS)
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && REG_P (XEXP (XEXP (pattern, 1), 1)))
+    result = true;
+
+  /* and16/xor16/or16 rd, rs, rt.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && (GET_CODE (XEXP (pattern, 1)) == XOR
+	  || GET_CODE (XEXP (pattern, 1)) == IOR
+	  || GET_CODE (XEXP (pattern, 1)) == AND
+	  || GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND))
+    result = true;
+
+  /* UNSPEC_LOAD_CALL.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == UNSPEC
+      && XINT (XEXP (pattern, 1), 1) == UNSPEC_LOAD_CALL)
+    result = true;
+
+
+  /* addiur2 rd, rs, imm.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == PLUS
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && (INTVAL (XEXP (XEXP (pattern, 1), 1)) & 3) == 0
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 0
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 28)
+    result = true;
+
+  /* andi16 rd, rs, imm.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == AND
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && ((INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 0
+	    && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 15
+	    && INTVAL (XEXP (XEXP (pattern, 1), 1)) != 12
+	    && INTVAL (XEXP (XEXP (pattern, 1), 1)) != 13)
+          || (INTVAL (XEXP (XEXP (pattern, 1), 1)) == 0xff)
+          || (INTVAL (XEXP (XEXP (pattern, 1), 1)) == 0xffff)))
+    result = true;
+
+  /* addiur1sp rd, $29, imm.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == PLUS
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && (REGNO (XEXP (XEXP (pattern, 1), 0)) == FRAME_POINTER_REGNUM
+          || REGNO (XEXP (XEXP (pattern, 1), 0)) == STACK_POINTER_REGNUM)
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && (INTVAL (XEXP (XEXP (pattern, 1), 1)) & 3) == 0
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 0
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 252)
+    result = true;
+
+  /* not rt, rs.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == NOT)
+    result = true;
+
+  /* lb16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == SIGN_EXTEND
+      && MEM_P (XEXP (XEXP (pattern, 1), 0))
+      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == QImode
+      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) <= 3)))
+    result = true;
+
+  /* lbu16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND
+      && MEM_P (XEXP (XEXP (pattern, 1), 0))
+      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == QImode
+      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) <= 3)))
+    result = true;
+
+  /* lh16 rt, offset(base) no sign/zero extend.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && MEM_P (XEXP (pattern, 1))
+      && GET_MODE (XEXP (pattern, 1)) == HImode
+      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 6)))
+    result = true;
+
+  /* lh16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == SIGN_EXTEND
+      && MEM_P (XEXP (XEXP (pattern, 1), 0))
+      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == HImode
+      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) <= 6)))
+    result = true;
+
+  /* lhu16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND
+      && MEM_P (XEXP (XEXP (pattern, 1), 0))
+      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == HImode
+      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) <= 6)))
+    result = true;
+
+  /* sb16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && GET_MODE (XEXP (pattern, 0)) == QImode
+      && (REG_P (XEXP (XEXP (pattern, 0), 0))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 3)))
+    result = true;
+
+  /* sh16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && GET_MODE (XEXP (pattern, 0)) == HImode
+      && (REG_P (XEXP (XEXP (pattern, 0), 0))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 1) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 6)))
+    result = true;
+
+  /* sll16/srl16 rd, rt, sa.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && (GET_CODE (XEXP (pattern, 1)) == ASHIFT
+	  || GET_CODE (XEXP (pattern, 1)) == LSHIFTRT)
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 1
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 8)
+    result = true;
+
+  /* beqzc16/bnezc16 rs, offset.  */
+  if (JUMP_P (insn)
+      && GET_CODE (pattern) == SET
+      && GET_CODE (SET_DEST (pattern)) == PC
+      && GET_CODE (SET_SRC (pattern)) == IF_THEN_ELSE)
+    {
+      /* Check for the right kind of condition.  */
+      rtx cond = XEXP (SET_SRC (pattern), 0);
+      if ((GET_CODE (cond) == EQ || GET_CODE (cond) == NE)
+	  && REG_P (XEXP (cond, 0))
+	  && CONST_INT_P (XEXP (cond, 1))
+	  && (INTVAL (XEXP (cond, 1)) == 0))
+	result = true;
+    }
+
+  /* beqc16/bnec16 rs, offset.  */
+  if (JUMP_P (insn)
+      && GET_CODE (pattern) == SET
+      && GET_CODE (SET_DEST (pattern)) == PC
+      && GET_CODE (SET_SRC (pattern)) == IF_THEN_ELSE)
+    {
+      /* Check for the right kind of condition.  */
+      rtx cond = XEXP (SET_SRC (pattern), 0);
+      if ((GET_CODE (cond) == EQ || GET_CODE (cond) == NE)
+	  && REG_P (XEXP (cond, 0))
+	  && REG_P (XEXP (cond, 1)))
+	result = true;
+    }
+  recog_data = old_recog_data;
+
+  return result;
+}
+
+static bool
+mips_is_store_insn_p(rtx insn)
+{
+  struct recog_data_d old_recog_data;
+  enum attr_mode mode;
+  bool result = false;
+  rtx pattern;
+
+  if (!INSN_P (insn))
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == USE)
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  old_recog_data = recog_data;
+
+  mode = get_attr_mode (insn);
+
+  pattern = PATTERN (insn);
+
+  /* sw16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 0)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 0)) == SFmode))
+      && ((CONST_INT_P (XEXP (pattern, 1))
+	   && INTVAL (XEXP (pattern, 1)) == 0)
+	  || (REG_P (XEXP (pattern, 1))))
+      && MEM_P (XEXP (pattern, 0))
+      && ((REG_P (XEXP (XEXP (pattern, 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 60)))
+    result = true;
+
+  recog_data = old_recog_data;
+  return result;
+}
+
+/* Post ira recolor data and functions.  */
+
+/* Number of instruction categories.  */
+#define INSN_CATEGORIES_NUM 5
+
+/* Maximum number of instruction operands.  */
+#define MAX_OPERAND_NUM 3
+
+/* Short register which can be used in 16bit instructions.  */
+#define RECOLOR_TYPE_SHORT 0
+/* Long register which cannot be used in 16bit instructions.  */
+#define RECOLOR_TYPE_LONG  1
+
+/* Recolor data associated with every allocno.  */
+struct recolor_allocno_data {
+  /* Related allocno.  */
+  int allocno;
+  /* Short or long register.  */
+  int type;
+  /* Rating associated with allocno.  */
+  int rating;
+  /* Number of instructions with this allocno in every category.  */
+  int categories[INSN_CATEGORIES_NUM];
+  /* All instructions that have this allocno as operand.  */
+  vec<rtx> insns;
+  /* True if allocno is move related with some precolored register.  */
+  bool precolored_move_related;
+  /* Register class prefered by register.  */
+  enum reg_class prefered_class;
+  /* Mark allocno as processed to terminate recursion.  */
+  bool processed;
+  /* Mark allocno as recolored to terminate recursion.  */
+  bool recolored;
+  /* Mark allocno as checked to terminate recursion.  */
+  bool checked;
+  /* All pseudo copies.  */
+  vec<int> copies;
+};
+
+/* Pointer to array containing data for all allocnos.  */
+typedef struct recolor_allocno_data *recolor_allocno_data_t;
+
+/* Data about instructions relevant for recoloring.  */
+typedef struct recolor_insn_data
+{
+  /* Number of register operands.  */
+  int reg_num;
+  /* Number of short register operands.  */
+  int short_reg_num;
+  /* Allocnos associated with register operands.  */
+  int allocnos[MAX_OPERAND_NUM];
+} insn_data_t;
+
+
+/* Returns true if given register is short.  */
+
+static bool mips_short_reg_p (int reg_no)
+{
+  return M16_REG_P (reg_no);
+}
+
+/* Returns true if given register is short register that can be used as operand
+   in 16 bit store instruction.  */
+
+static bool mips_short_store_reg_p (int reg_no)
+{
+  return M16STORE_REG_P (reg_no);
+}
+
+/* Coefficients used to calculate allocno rating (defines recoloring
+   priority).   */
+static int recolor_coeffs[INSN_CATEGORIES_NUM] = { 0, -3, 0, 0, -3 };
+
+/* Function type for determining register type.  */
+typedef bool (*regs_func_type) (int);
+
+/* Array with functions for selecting register of given type.  */
+static regs_func_type recolor_regs_func[INSN_CATEGORIES_NUM] =
+  { 0, mips_short_reg_p, 0, 0, mips_short_store_reg_p };
+
+/* Function type for determining instruction category.  */
+typedef bool (*insn_cat_func_type) (rtx, insn_data_t*);
+
+/* Returns true if given instruction is 16 bit microMIPS.  */
+
+static bool mips_short_insn_p (rtx insn, insn_data_t *i_data)
+{
+  if (i_data->short_reg_num == i_data->reg_num
+     && !(mips_is_store_insn_p (insn)
+     && !mips_short_store_reg_p (
+       ALLOCNO_HARD_REGNO (ira_allocnos[i_data->allocnos[0]]))))
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs one more short register to be 16 bit
+   microMIPS.  */
+
+static bool mips_short_1_insn_p (rtx insn ATTRIBUTE_UNUSED, insn_data_t *i_data)
+{
+  if ((i_data->short_reg_num + 1) == i_data->reg_num)
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs two more short registers to be 16 bit
+   microMIPS.  */
+
+static bool mips_short_2_insn_p (rtx insn ATTRIBUTE_UNUSED, insn_data_t *i_data)
+{
+  if ((i_data->short_reg_num + 2) == i_data->reg_num)
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs three short registers to be 16 bit
+   microMIPS.  */
+
+static bool mips_short_3_insn_p (rtx insn ATTRIBUTE_UNUSED, insn_data_t *i_data)
+{
+  if ((i_data->short_reg_num + 3) == i_data->reg_num)
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs one more short register to be 16 bit
+   store microMIPS.  */
+
+static bool mips_short_1_store_insn_p (rtx insn, insn_data_t *i_data)
+{
+  if (!mips_is_store_insn_p (insn)
+      || (i_data->short_reg_num == i_data->reg_num
+	  && mips_short_store_reg_p (
+	    ALLOCNO_HARD_REGNO (ira_allocnos[i_data->allocnos[0]]))))
+    return false;
+
+  return true;
+}
+
+/* Array with functions for classifying instructions.  */
+static insn_cat_func_type recolor_insn_cat_func[INSN_CATEGORIES_NUM] = {
+  mips_short_insn_p,
+  mips_short_1_insn_p,
+  mips_short_2_insn_p,
+  mips_short_3_insn_p,
+  mips_short_1_store_insn_p
+};
+
+/* Array with functions for classifying instructions.  */
+recolor_allocno_data_t recolor_allocnos_data;
+
+static bitmap_head all_spilled_pseudos;
+
+/* Initialization function.  */
+
+static void
+mips_post_ira_recoloring_init (void)
+{
+  int i;
+  int max_regno = max_reg_num ();
+  lra_assignment_iter++;
+
+  recolor_allocnos_data =
+    (recolor_allocno_data_t) ira_allocate (
+      sizeof (struct recolor_allocno_data) * ira_allocnos_num);
+  for (i = 0; i < ira_allocnos_num; i++) {
+    recolor_allocnos_data[i].insns.create (0);
+    recolor_allocnos_data[i].copies.create (0);
+  }
+
+  regno_allocno_class_array = XNEWVEC (enum reg_class, max_regno);
+  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+    regno_allocno_class_array[i] = lra_get_allocno_class (i);
+
+  lra_create_live_ranges (true);
+  init_lives ();
+  create_live_range_start_chains ();
+  init_live_reload_and_inheritance_pseudos ();
+  bitmap_initialize_stat (&all_spilled_pseudos, NULL);
+  setup_live_pseudos_and_spill_after_risky_transforms (&all_spilled_pseudos);
+}
+
+/* Cleanup function.  */
+
+static void
+mips_post_ira_recoloring_finish (void)
+{
+  int i;
+
+  for (i = 0; i < ira_allocnos_num; i++) {
+    recolor_allocnos_data[i].insns.release ();
+    recolor_allocnos_data[i].copies.release ();
+  }
+  lra_final_code_change ();
+  finish_live_reload_and_inheritance_pseudos ();
+  finish_live_range_start_chains ();
+  bitmap_clear (&all_spilled_pseudos);
+  free (regno_allocno_class_array);
+  finish_lives ();
+  ira_free (recolor_allocnos_data);
+  ira_destroy ();
+}
+
+/* Returns allocno associated with given regno.  */
+
+static int
+mips_get_allocno_num_for_regno (int regno)
+{
+  int i;
+  for (i=0; i <  ira_allocnos_num; i++)
+    if (ira_allocnos[i] && ALLOCNO_REGNO (ira_allocnos[i]) == regno)
+      return ALLOCNO_NUM (ira_allocnos[i]);
+
+  return -1;
+}
+
+/* Get recoloring data for given instruction.  */
+
+static int
+mips_get_insn_data (rtx insn, void *res)
+{
+  insn_data_t *i_data = (insn_data_t *)res;
+
+  if (DEBUG_INSN_P (insn) || (TARGET_MICROMIPS_R7
+			      && !mips_insn_has_short_form_r7_p (insn)))
+    return -1;
+
+  extract_insn (insn);
+
+  for (int i=0; i <  recog_data.n_operands; i++)
+    {
+      int regno[2];
+      int reg_count = 0;
+
+      /* Collect registers from instruction operands.  */
+      if (REG_P(recog_data.operand[i]))
+	{
+	  regno[0] = ORIGINAL_REGNO (recog_data.operand[i]);
+	  reg_count++;
+	}
+  	else if (MEM_P(recog_data.operand[i]))
+	{
+	  if (REG_P (XEXP (recog_data.operand[i], 0)))
+	    {
+	      regno[0] = ORIGINAL_REGNO (XEXP (recog_data.operand[i], 0));
+	      reg_count++;
+	    }
+	  else if (GET_CODE (XEXP (recog_data.operand[i], 0)) == PLUS &&
+		   REG_P (XEXP (XEXP (recog_data.operand[i], 0), 0)))
+	    {
+	      regno[0] = ORIGINAL_REGNO (XEXP (XEXP (recog_data.operand[i], 0), 0));
+	      reg_count++;
+	    }
+          else if (GET_CODE (XEXP (recog_data.operand[i], 0)) == PLUS &&
+		   GET_CODE (XEXP (XEXP (recog_data.operand[i], 0), 0)) == MULT &&
+		   REG_P(XEXP (XEXP (recog_data.operand[i], 0), 1)) &&
+		   REG_P(XEXP (XEXP (XEXP (recog_data.operand[i], 0), 0), 0)))
+	    {
+	      regno[0]
+	        = ORIGINAL_REGNO (XEXP (XEXP (recog_data.operand[i], 0), 1));
+	      reg_count++;
+	      regno[1] =
+	        ORIGINAL_REGNO (XEXP (XEXP
+	                        (XEXP (recog_data.operand[i], 0), 0), 0));
+	      reg_count++;
+	    }
+	}
+
+      /* Analyze register operand data.  */
+      for (int j=0; j < reg_count; j++)
+	{
+	  int allocno_num = mips_get_allocno_num_for_regno (regno[j]);
+	  if (allocno_num >= 0)
+	    {
+	      if ( mips_short_reg_p (ALLOCNO_HARD_REGNO (ira_allocnos[allocno_num])))
+		i_data->short_reg_num++;
+	      i_data->allocnos[i_data->reg_num++] = allocno_num;
+	    }
+	}
+    }
+
+  return 0;
+}
+
+
+/* Mark allocnos that are move related with same precolored registers.  */
+
+static void
+mips_update_precolored_move_related (rtx insn)
+{
+  rtx pattern;
+
+  if (!INSN_P (insn))
+    return;
+
+  if (GET_CODE (PATTERN (insn)) == USE)
+    return;
+
+  if (GET_CODE (PATTERN (insn)) == CLOBBER)
+    return;
+
+  pattern = PATTERN (insn);
+
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && REG_P (XEXP (pattern, 1)))
+    {
+      int regno0 = REGNO (XEXP (pattern, 0));
+      int regno1 = REGNO (XEXP (pattern, 1));
+
+      if (regno0 < FIRST_PSEUDO_REGISTER && regno1 >= FIRST_PSEUDO_REGISTER)
+	{
+	  int allocno_num = mips_get_allocno_num_for_regno (regno1);
+	  if (allocno_num >= 0)
+	    recolor_allocnos_data[allocno_num].precolored_move_related = true;
+	}
+
+      if (regno0 >= FIRST_PSEUDO_REGISTER && regno1 < FIRST_PSEUDO_REGISTER)
+	{
+	  int allocno_num = mips_get_allocno_num_for_regno (regno0);
+	  if (allocno_num >= 0)
+	    recolor_allocnos_data[allocno_num].precolored_move_related = true;
+	}
+    }
+}
+
+
+/* Collect all recoloring data for current function.  */
+
+static void
+mips_collect_recolor_data (void)
+{
+  basic_block bb;
+  rtx insn;
+  int i, j;
+  memset (recolor_allocnos_data, 0,
+	  sizeof (struct recolor_allocno_data) * ira_allocnos_num);
+
+  FOR_EACH_BB_FN (bb, cfun)
+    for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
+	 insn = NEXT_INSN (insn))
+      {
+	insn_data_t i_data;
+	memset (&i_data, 0, sizeof (insn_data_t));
+
+	mips_update_precolored_move_related (insn);
+
+	if (mips_get_insn_data (insn, &i_data) >= 0)
+	  {
+	    /* Call corresponding function and increment category counter if
+	       needed.  */
+
+	    for (i = 0; i < INSN_CATEGORIES_NUM; i++)
+	      if (recolor_insn_cat_func[i] (insn, &i_data))
+		/* Update corresponding data in recolor_allocnos_data.  */
+		for (j = 0; j < i_data.reg_num; j++)
+		  recolor_allocnos_data[i_data.allocnos[j]].categories[i]++;
+	    /* Push instruction into instruction list of corresponding
+	       allocnos.  */
+	    for (i = 0; i < i_data.reg_num; i++)
+	      recolor_allocnos_data[i_data.allocnos[i]].insns.safe_push (insn);
+	  }
+      }
+
+  /* Set additional recolor_allocnos_data data.  */
+  for (i=0; i<ira_allocnos_num; i++)
+    {
+      recolor_allocnos_data[i].allocno = i;
+
+      if (!ira_allocnos[i])
+	continue;
+      /* Calculate current allocno type.  */
+      if (mips_short_reg_p (ALLOCNO_HARD_REGNO (ira_allocnos[i])))
+	recolor_allocnos_data[i].type = RECOLOR_TYPE_SHORT;
+      else
+	{
+	  recolor_allocnos_data[i].type = RECOLOR_TYPE_LONG;
+	  recolor_allocnos_data[i].prefered_class
+	    = reg_preferred_class (ALLOCNO_REGNO (ira_allocnos[i]));
+	  /* Calculate allocno rating.  */
+	  for (j=0; j < INSN_CATEGORIES_NUM; j++)
+	    {
+	      int tmp;
+	      tmp = recolor_allocnos_data[i].categories[j] * recolor_coeffs[j];
+	      recolor_allocnos_data[i].rating += tmp;
+	    }
+	}
+    }
+}
+
+/* Returns true if allocnos can not be coalesced (e.g. int and float
+   allocnos).  */
+
+static bool
+mips_recolor_needs_move (enum machine_mode mode1, enum machine_mode mode2)
+{
+  if (GET_MODE_CLASS (mode1) == MODE_INT && GET_MODE_CLASS (mode2) == MODE_INT)
+    return false;
+  return true;
+}
+
+/* Return pointer to corresponding register function for given allocno.  */
+
+static regs_func_type
+mips_get_register_func_for_allocno (recolor_allocno_data_t a_data)
+{
+  regs_func_type res = NULL;
+  int i;
+  int min = 0;
+
+  /* Find minimum value from array.  */
+
+  for (i=0; i < INSN_CATEGORIES_NUM; i++)
+    if (a_data->categories[i] * recolor_coeffs[i] < min)
+      if (recolor_regs_func[i])
+	{
+	  /* New minimum value.  */
+	  min = a_data->categories[i] * recolor_coeffs[i];
+	  res = recolor_regs_func[i];
+	}
+
+  if (res && a_data->categories[INSN_CATEGORIES_NUM - 1])
+    res = recolor_regs_func[INSN_CATEGORIES_NUM - 1];
+
+  return res;
+}
+
+/* Recolor given allocno.  */
+
+static void
+mips_recolor_one_allocno (ira_allocno_t a, int old_reg, int new_reg)
+{
+  ira_copy_t cp, next_cp;
+  ira_allocno_t cp_a;
+  unsigned regno = ALLOCNO_REGNO (a);
+
+  if (recolor_allocnos_data[ALLOCNO_NUM (a)].recolored ||
+      old_reg != ALLOCNO_HARD_REGNO (a))
+    return;
+
+  recolor_allocnos_data[ALLOCNO_NUM (a)].recolored = true;
+  ALLOCNO_HARD_REGNO (a) = new_reg;
+  update_lives (regno, true);
+  lra_setup_reg_renumber (regno, -1, false);
+  assign_hard_regno (new_reg, regno);
+  SET_REGNO (regno_reg_rtx[regno], new_reg);
+
+  for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
+    {
+      if (cp->first == a)
+	{
+	  next_cp = cp->next_first_allocno_copy;
+	  cp_a = cp->second;
+	}
+      else if (cp->second == a)
+	{
+	  next_cp = cp->next_second_allocno_copy;
+	  cp_a = cp->first;
+	}
+      else
+	gcc_unreachable ();
+
+      mips_recolor_one_allocno (cp_a, old_reg, new_reg);
+    }
+}
+
+/* Recolor given allocno and all related allocnos (e.g. colesced,
+   copies,...).  */
+
+static int
+mips_recolor_allocno (ira_allocno_t candidate, int old_reg, int new_reg,
+		      enum machine_mode mode, vec < int> *recolor_allocnos)
+{
+  int allocno_no;
+  int iy;
+
+  if (mips_recolor_needs_move (ALLOCNO_MODE (candidate), mode)
+     || !ALLOCNO_ASSIGNED_P (candidate)
+     || ALLOCNO_HARD_REGNO (candidate) == new_reg
+     || ALLOCNO_HARD_REGNO (candidate) != old_reg)
+    return -1;
+
+  /* Recolor given allocno.  */
+
+  /* Recolor all processed allocnos.  */
+
+  if (recolor_allocnos)
+    for (iy = 0; recolor_allocnos->iterate (iy, &allocno_no); ++iy)
+      mips_recolor_one_allocno (ira_allocnos[allocno_no], old_reg, new_reg);
+  return 0;
+}
+
+/* Compares two allocnos (used for sorting with qsort).  */
+
+static int
+mips_compare_allocno_data (const void *ad1, const void *ad2)
+{
+  int r1 = (*(const recolor_allocno_data_t*)ad1)->rating;
+  int r2 = (*(const recolor_allocno_data_t*)ad2)->rating;
+
+  if ( r1 > r2)
+    return 1;
+  else if (r1 == r2)
+    return 0;
+  else
+    return -1;
+}
+
+/* Returns hard regs set containing all S registers.  */
+
+static void
+mips_get_s_regs (HARD_REG_SET *s_regs)
+{
+  CLEAR_HARD_REG_SET (*s_regs);
+  AND_COMPL_HARD_REG_SET (*s_regs, call_used_reg_set);
+  CLEAR_HARD_REG_BIT (*s_regs, HARD_FRAME_POINTER_REGNUM);
+  CLEAR_HARD_REG_BIT (*s_regs, RETURN_ADDR_REGNUM);
+}
+
+/* Returns hard regs set with all used registers in current function.  */
+
+static void
+mips_get_used_regs (HARD_REG_SET *used_regs)
+{
+  int i;
+  int hard_regno;
+
+  CLEAR_HARD_REG_SET (*used_regs);
+
+  if (!ira_allocnos || ira_allocnos_num <= 0)
+    return;
+
+  /* Get all used hard regs.  */
+  for (i=0; i<ira_allocnos_num; i++)
+    if (ira_allocnos[i] && ALLOCNO_ASSIGNED_P (ira_allocnos[i]))
+      {
+	enum reg_class cover_class = ALLOCNO_CLASS (ira_allocnos[i]);
+	if ((hard_regno = ALLOCNO_HARD_REGNO (ira_allocnos[i])) >= 0
+	     && ira_class_hard_reg_index[cover_class][hard_regno] >= 0)
+	  IOR_HARD_REG_SET (*used_regs,
+			    ira_reg_mode_hard_regset
+			    [hard_regno][ALLOCNO_MODE (ira_allocnos[i])]);
+      }
+}
+
+/* Use S registers sequentially in order to be able to use swm an lwm
+   instructions.  */
+
+static void
+mips_fix_s_reg_usage (void)
+{
+  int i;
+  HARD_REG_SET s_regs;
+  HARD_REG_SET used_s_regs;
+  int recolor[GP_REG_NUM];
+  int reg_counter = 0;
+
+  if (!ira_allocnos || ira_allocnos_num <= 0)
+    return;
+
+  mips_get_used_regs (&used_s_regs);
+
+  /* Get used S regsiters.  */
+  mips_get_s_regs (&s_regs);
+  AND_HARD_REG_SET (used_s_regs, s_regs);
+
+  /* Find registers that should be recolored.  */
+  for (i=0; i<GP_REG_NUM; i++)
+    {
+      if (TEST_HARD_REG_BIT (s_regs, i))
+	{
+	  recolor[i] = reg_counter;
+	  if (TEST_HARD_REG_BIT (s_regs, i))
+	    reg_counter++;
+	}
+      else
+	{
+	  recolor[i] = i;
+	  reg_counter++;
+	}
+    }
+
+  /* Recolor all necessary allocnos.  */
+  for (i=0; i<ira_allocnos_num; i++)
+    {
+      int hard_reg;
+      if (!ira_allocnos[i])
+	continue;
+      hard_reg = ALLOCNO_HARD_REGNO (ira_allocnos[i]);
+
+      if (hard_reg > GP_REG_FIRST && hard_reg <= GP_REG_LAST
+	  && recolor[hard_reg] != hard_reg)
+	mips_recolor_one_allocno (ira_allocnos[i], hard_reg, recolor[hard_reg]);
+    }
+}
+
+#define NO_RECOLOR (-1)
+
+typedef struct coalesce_data *coalesce_data_t;
+
+/* To decrease footprint of ira_allocno structure we store all data
+   needed only for coalescing in the following structure.  */
+struct coalesce_data
+{
+  /* Coalesced allocnos form a cyclic list.  One allocno given by
+     FIRST represents all coalesced allocnos.  The
+     list is chained by NEXT.  */
+  ira_allocno_t first;
+  ira_allocno_t next;
+  int temp;
+};
+
+/* Macro to access the data concerning coalescing.  */
+#define ALLOCNO_COALESCE_DATA(a) ((coalesce_data_t) ALLOCNO_ADD_DATA (a))
+
+/* Calculate all data needed for recoloring. (registers that can be used,
+   whether some of allocnos is alive across function calls, all allocnos that
+   should be recolored).  */
+
+static int
+mips_get_recolor_data_for_allocno (ira_allocno_t allocno,
+				   int *call_crossed_num, int old_reg,
+				   enum machine_mode mode,
+				   vec < int > *recolor_allocnos)
+{
+  ira_copy_t cp, next_cp;
+  ira_allocno_t a;
+
+  /* Check if given allocno is already processed.  */
+  if (recolor_allocnos_data[ALLOCNO_NUM (allocno)].processed
+      || ALLOCNO_HARD_REGNO (allocno) != old_reg)
+    return 0;
+
+  recolor_allocnos_data[ALLOCNO_NUM (allocno)].processed = true;
+
+  if (ALLOCNO_HARD_REGNO (allocno) != old_reg
+     || mips_recolor_needs_move (ALLOCNO_MODE (allocno), mode))
+    return 0;
+
+  if (recolor_allocnos_data[ALLOCNO_NUM (allocno)].precolored_move_related)
+    return NO_RECOLOR;
+
+  /* Get call crossed data.  */
+  *call_crossed_num = ALLOCNO_CALLS_CROSSED_NUM (allocno);
+
+  /* Put allocno in list of processed allocnos.  */
+  recolor_allocnos->safe_push (ALLOCNO_NUM (allocno));
+
+  /* Estimate delta for all allocnos with same regno.  */
+  for (a = ALLOCNO_NEXT_REGNO_ALLOCNO (allocno); a;
+       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
+    {
+      int a_call_crossed_num = 0;
+      int res;
+      if ((res =
+	   mips_get_recolor_data_for_allocno (allocno, &a_call_crossed_num,
+					      old_reg, mode,
+					      recolor_allocnos)) < 0)
+	return res;
+
+      *call_crossed_num += a_call_crossed_num;
+      if (a == allocno)
+	break;
+    }
+
+  for (cp = ALLOCNO_COPIES (allocno); cp != NULL; cp = next_cp)
+    {
+      int a_call_crossed_num = 0;
+      int res;
+
+      if (cp->first == allocno)
+	{
+	  next_cp = cp->next_first_allocno_copy;
+	  a = cp->second;
+	}
+      else if (cp->second == allocno)
+	{
+	  next_cp = cp->next_second_allocno_copy;
+	  a = cp->first;
+	}
+      else
+	gcc_unreachable ();
+
+      if ((res =
+	   mips_get_recolor_data_for_allocno (a, &a_call_crossed_num,
+					      old_reg, mode,
+					      recolor_allocnos)) < 0)
+	return res;
+
+      *call_crossed_num += a_call_crossed_num;
+    }
+
+  return 0;
+}
+
+int
+find_hard_regno_for (int regno, int *cost,
+		     int try_only_hard_regno,bool first_p);
+
+/* Chech whether given hard register is approprite for pseudo.  */
+
+static int
+mips_check_hard_reg (ira_allocno_t allocno,
+			int old_reg, int new_reg)
+{
+  ira_copy_t cp, next_cp;
+  ira_allocno_t a;
+  int new_reg_cost;
+  int new_reg_ok;
+
+  if (recolor_allocnos_data[ALLOCNO_NUM (allocno)].checked)
+    return new_reg;
+
+  if (ALLOCNO_HARD_REGNO (allocno) != old_reg)
+    return -1;
+
+  recolor_allocnos_data[ALLOCNO_NUM (allocno)].checked = true;
+
+  if ((new_reg_ok = find_hard_regno_for (ALLOCNO_REGNO (allocno),
+					 &new_reg_cost, new_reg, false)) < 0)
+    return new_reg_ok;
+
+  for (cp = ALLOCNO_COPIES (allocno); cp != NULL; cp = next_cp)
+    {
+      if (cp->first == allocno)
+	{
+	  next_cp = cp->next_first_allocno_copy;
+	  a = cp->second;
+	}
+      else if (cp->second == allocno)
+	{
+	  next_cp = cp->next_second_allocno_copy;
+	  a = cp->first;
+	}
+      else
+	gcc_unreachable ();
+
+      if (( ALLOCNO_HARD_REGNO (a) == old_reg) &&
+	  (new_reg_ok = mips_check_hard_reg (a, old_reg, new_reg)) < 0)
+	return new_reg_ok;
+    }
+
+  return new_reg;
+}
+
+/* Threshold used to define whether S registers will be used for recoloring.
+   Below this threshold only alreadu used S registers can be used for
+   recoloring.  */
+#define ALLOCNOS_THRESHOLD1 20
+
+/* Threshold used to define whether S registers will be used for recoloring.
+   If number of allocnos is between two thresholds and at least one S register
+   is used - use all S registers for recoloring.  */
+#define ALLOCNOS_THRESHOLD2 40
+
+/* Get available hard registers that can be used for recoloring given
+   allocno.  */
+
+static void
+mips_get_available_hard_regs (HARD_REG_SET *available_hard_regs,
+			      int call_crossed_num)
+{
+  CLEAR_HARD_REG_SET (*available_hard_regs);
+  if (call_crossed_num)
+    {
+      SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+2);
+      SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+3);
+      SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+4);
+      SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+5);
+      SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+6);
+      SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+7);
+    }
+  SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+16);
+  SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+17);
+}
+
+
+static int
+mips_get_free_hard_reg (HARD_REG_SET available_hard_regs, int allocno,
+			int old_reg)
+{
+  unsigned cur_reg;
+  hard_reg_set_iterator hrsi;
+
+  EXECUTE_IF_SET_IN_HARD_REG_SET (available_hard_regs, 0, cur_reg, hrsi)
+    {
+      for (int i=0; i<ira_allocnos_num; i++)
+	recolor_allocnos_data[i].checked = false;
+
+      if (mips_check_hard_reg (ira_allocnos[allocno], old_reg, cur_reg) >=0)
+	return cur_reg;
+    }
+
+  return -1;
+}
+
+/* Returns true if given register can be recolored.  */
+
+static bool
+mips_recolorobale_reg_p (int reg_no)
+{
+  if (reg_no < GP_REG_FIRST || reg_no > GP_REG_LAST
+      || TEST_HARD_REG_BIT (fixed_regs, reg_no)
+      || reg_no == PIC_FUNCTION_ADDR_REGNUM)
+    return false;
+  return true;
+}
+
+/* Threshold for recoloring if not all related allocnos can be recolored.  */
+#define MAX_RECOLOR_ALLOCNO_NUM 1000
+
+/* Entry function for post ira recoloring.  */
+
+void
+mips_post_ira_recoloring (void)
+{
+  int i;
+  recolor_allocno_data_t *recolor_data;
+  bool changed;
+  vec <int> recolor_allocnos;
+
+  /* Do not optimize if there is no sufficient data or number of allocnos is too
+     large.  */
+
+  if (!TARGET_MICROMIPS_R7 || !ira_allocnos || !ira_conflicts_p
+      || ira_allocnos_num > MAX_RECOLOR_ALLOCNO_NUM)
+    return;
+
+  recolor_allocnos.create (0);
+
+  recolor_data = (recolor_allocno_data_t*)
+    ira_allocate (sizeof (recolor_allocno_data_t) * ira_allocnos_num);
+
+  mips_post_ira_recoloring_init ();
+  mips_collect_recolor_data ();
+
+  for (i=0; i<ira_allocnos_num; i++)
+    recolor_data[i] = &recolor_allocnos_data[i];
+
+  do
+    {
+      int i;
+      changed = false;
+      qsort (recolor_data, ira_allocnos_num, sizeof (recolor_allocno_data_t),
+	     mips_compare_allocno_data);
+
+      for (i = 0; i < ira_allocnos_num; i++)
+	{
+	  regs_func_type regs_func;
+	  int new_reg;
+	  ira_allocno_t allocno = ira_allocnos[recolor_data[i]->allocno];
+	  int old_reg;
+	  int j;
+	  int call_crossed_num;
+	  HARD_REG_SET available_regs;
+	  int res;
+
+	  /* Empty vectors at the begining of iteration.  */
+	  recolor_allocnos.truncate (0);
+	  if (!ira_allocnos[recolor_data[i]->allocno]
+	     || recolor_data[i]->rating >= 0
+	     || recolor_data[i]->type == RECOLOR_TYPE_SHORT
+	     || recolor_data[i]->prefered_class != GR_REGS)
+	    continue;
+
+	  /* Get old hard register.  */
+	  old_reg = ALLOCNO_HARD_REGNO (ira_allocnos[recolor_data[i]->allocno]);
+
+	  if (!mips_recolorobale_reg_p (old_reg))
+	    continue;
+
+	  /* Mark all allocnos as not processed.  */
+	  for (j=0; j<ira_allocnos_num; j++)
+	    {
+	      recolor_allocnos_data[j].processed = false;
+	      recolor_allocnos_data[j].recolored = false;
+	      recolor_allocnos_data[j].checked = false;
+	    }
+
+	  /* Get corresponding register function.  */
+	  regs_func = mips_get_register_func_for_allocno (recolor_data[i]);
+
+	  if (!regs_func || !allocno)
+	    continue;
+
+          res = mips_get_recolor_data_for_allocno (allocno, &call_crossed_num,
+						   old_reg,
+						   ALLOCNO_MODE (allocno),
+						   &recolor_allocnos);
+          if (res == NO_RECOLOR)
+	    continue;
+
+	  mips_get_available_hard_regs (&available_regs, call_crossed_num);
+
+	  new_reg = mips_get_free_hard_reg (available_regs,
+	  				    recolor_data[i]->allocno, old_reg);
+
+	  if (new_reg < 0)
+	    continue;
+
+	  /* Register for recoloring founded.  */
+
+	  if (mips_recolor_allocno (ira_allocnos[recolor_data[i]->allocno],
+				    old_reg, new_reg, ALLOCNO_MODE (allocno),
+				    &recolor_allocnos) == -1)
+	    continue;
+	  changed = true;
+	  mips_collect_recolor_data ();
+	  break;
+	}
+    }
+  while (changed);
+
+  recolor_allocnos.release ();
+
+  /* Use S registers sequentially  if not all S registers are used.  */
+  mips_fix_s_reg_usage ();
+  ira_free (recolor_data);
+  mips_post_ira_recoloring_finish ();
+}
+
 
 /* Generate or test for an insn that supports a constant permutation.  */
 
@@ -26628,6 +27934,9 @@ mips_adjust_reg_alloc_order ()
 
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS mips_section_type_flags
+
+#undef TARGET_POST_IRA_PROCESSING
+#define TARGET_POST_IRA_PROCESSING mips_post_ira_recoloring
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

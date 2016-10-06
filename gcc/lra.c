@@ -2424,6 +2424,10 @@ lra (FILE *f)
   restore_scratches ();
   lra_eliminate (true, false);
   lra_final_code_change ();
+
+  if (post_ira_processing_flag)
+    targetm.post_ira_processing ();
+
   lra_in_progress = 0;
   if (live_p)
     lra_clear_live_ranges ();

@@ -5452,7 +5452,8 @@ do_reload (void)
       if (ira_conflicts_p)
 	ira_free (ira_spilled_reg_stack_slots);
 
-      ira_destroy ();
+      if (!post_ira_processing_flag)
+	ira_destroy ();
 
       lra (ira_dump_file);
       /* ???!!! Move it before lra () when we use ira_reg_equiv in

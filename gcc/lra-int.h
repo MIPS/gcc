@@ -515,3 +515,16 @@ extern struct target_lra_int *this_target_lra_int;
 #endif
 
 #define op_alt_data (this_target_lra_int->x_op_alt_data)
+
+/* Functionality needed for recoloring.  */
+extern enum reg_class *regno_allocno_class_array;
+extern void assign_hard_regno (int hard_regno, int regno);
+extern void update_lives (int regno, bool free_p);
+extern void init_lives (void);
+extern void create_live_range_start_chains (void);
+extern void setup_live_pseudos_and_spill_after_risky_transforms
+	      (bitmap spilled_pseudo_bitmap);
+extern void init_live_reload_and_inheritance_pseudos (void);
+extern void finish_live_reload_and_inheritance_pseudos (void);
+extern void finish_live_range_start_chains (void);
+extern void finish_lives (void);

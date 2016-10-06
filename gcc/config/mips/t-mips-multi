@@ -156,15 +156,15 @@ MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EB
 MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EB=!mips-r2-mips16-hard$(is_newlib)/lib
 MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EB/mnan=2008
 MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EB/mnan.2008=!mips-r2-mips16-hard-nan2008$(is_newlib)/lib
-MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EB/msoft-float
-MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EB/msoft-float=!mips-r2-mips16-soft$(is_newlib)/lib
+#MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EB/msoft-float
+#MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EB/msoft-float=!mips-r2-mips16-soft$(is_newlib)/lib
 
 MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EL
 MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EL=!mipsel-r2-mips16-hard$(is_newlib)/lib
 MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EL/mnan=2008
 MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EL/mnan.2008=!mipsel-r2-mips16-hard-nan2008$(is_newlib)/lib
-MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EL/msoft-float
-MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EL/msoft-float=!mipsel-r2-mips16-soft$(is_newlib)/lib
+#MULTILIB_REQUIRED   += mips32r2/mips16/mabi=32/EL/msoft-float
+#MULTILIB_OSDIRNAMES += mips32r2/mips16/mabi.32/EL/msoft-float=!mipsel-r2-mips16-soft$(is_newlib)/lib
 
 # microMIPS32R3 - We will not include any 64 bit microMIPS combinations
 MULTILIB_REQUIRED   += mips32r2/mmicromips/mabi=32/EB/mnan=2008
