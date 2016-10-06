@@ -2990,7 +2990,7 @@ bool
 mips_string_constant_p (rtx x)
 {
   tree decl, exp;
-  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48)
+  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48 || !ISA_HAS_XLP)
     return false;
 
   if (GET_CODE (x) == CONST
@@ -3135,7 +3135,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	     ? 6
 	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
 	       ? 3
-	       : (TARGET_MICROMIPS_R7 && TARGET_LI48)
+	       : (TARGET_MICROMIPS_R7 && TARGET_LI48 && ISA_HAS_XLP)
 		 ? 1
 		 : 2;
 
@@ -6267,7 +6267,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  /* Don't use the X format for the operand itself, because that
 	     will give out-of-range numbers for 64-bit hosts and 32-bit
 	     targets.  */
-	  if (TARGET_MICROMIPS_R7 && TARGET_LI48)
+	  if (TARGET_MICROMIPS_R7 && TARGET_LI48 && ISA_HAS_XLP)
 	    {
 	      if (!LUI_INT (src) && !SMALL_OPERAND_UNSIGNED (INTVAL (src)) && !SMALL_INT (src))
 		return "nop16; sdbbp32 8; # li48\t%0,%1";
@@ -12145,17 +12145,19 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool fp_p,
 	      nregs++;
 	}
 
-      if ((BITSET_P (info.mask, RETURN_ADDR_REGNUM)
-	  && info.size <= 120 // u4 << 3 bytes
-	  && !BITSET_P (info.mask, GLOBAL_POINTER_REGNUM)
-	  && (!restore_p || (restore_p && jrc_p))
-	  && ((nregs >= 0 && !BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
-	      || (nregs == 8 && BITSET_P (info.mask,
-					  HARD_FRAME_POINTER_REGNUM))))
-	  || (!BITSET_P (info.mask, RETURN_ADDR_REGNUM)
+      if (ISA_HAS_XLP
+	  && (BITSET_P (info.mask, RETURN_ADDR_REGNUM)
 	      && info.size <= 120 // u4 << 3 bytes
 	      && !BITSET_P (info.mask, GLOBAL_POINTER_REGNUM)
-	      && restore_p && nregs == 0 && !jrc_p))
+	      && (!restore_p || (restore_p && jrc_p))
+	      && ((nregs >= 0 && !BITSET_P (info.mask,
+					    HARD_FRAME_POINTER_REGNUM))
+		  || (nregs == 8 && BITSET_P (info.mask,
+					      HARD_FRAME_POINTER_REGNUM))))
+	      || (!BITSET_P (info.mask, RETURN_ADDR_REGNUM)
+		  && info.size <= 120 // u4 << 3 bytes
+		  && !BITSET_P (info.mask, GLOBAL_POINTER_REGNUM)
+		  && restore_p && nregs == 0 && !jrc_p))
 	insn16_p = true;
     }
 
@@ -12182,7 +12184,7 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool fp_p,
     }
   else
     {
-      int insn_mode = insn16_p && !v0v1_p ? 16 : 32;
+      int insn_mode = insn16_p && ISA_HAS_XLP ? 16 : 32;
 
       s = buffer;
       if (v0v1_p)
@@ -23168,7 +23170,8 @@ class pass_optimize_multi_refs : public rtl_opt_pass
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS && TARGET_LI48;
+      return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS
+	     && TARGET_LI48 && ISA_HAS_XLP;
     }
 
   virtual unsigned int execute (function *);
@@ -24802,6 +24805,9 @@ umips_movep_target_p (rtx reg1, rtx reg2)
     0x000000c0, /* 6, 7 */
   };
 
+  if (!ISA_HAS_XLP)
+    return false;
+
   if (!REG_P (reg1) || !REG_P (reg2))
     return false;
 
@@ -24837,6 +24843,8 @@ umips_movep_target_p (rtx reg1, rtx reg2)
 bool
 umips_move_balc_p (rtx *operands)
 {
+  if (!ISA_HAS_XLP)
+    return false;
   if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
     return false;
   if (!IN_RANGE (REGNO (operands[1]), 16, 23)
