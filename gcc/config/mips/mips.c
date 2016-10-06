@@ -3098,7 +3098,7 @@ bool
 mips_string_constant_p (rtx x)
 {
   tree decl, exp;
-  if (!TARGET_NANOMIPS || !TARGET_LI48)
+  if (!TARGET_NANOMIPS || !TARGET_LI48 || !ISA_HAS_XLP)
     return false;
 
   if (GET_CODE (x) == CONST
@@ -3243,7 +3243,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	     ? 6
 	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
 	       ? 3
-	       : (TARGET_NANOMIPS && TARGET_LI48)
+	       : (TARGET_NANOMIPS && TARGET_LI48 && ISA_HAS_XLP)
 		 ? 1
 		 : 2;
 
@@ -5099,7 +5099,8 @@ mips_sign_extend_cost (machine_mode mode, rtx op)
     /* A sign extension from SImode to DImode in 64-bit mode is free.  */
     return 0;
 
-  if (ISA_HAS_SEB_SEH || GENERATE_MIPS16E)
+  if ((ISA_HAS_SEB && mode == QImode) || (ISA_HAS_SEH && mode == HImode)
+      || GENERATE_MIPS16E)
     /* We can use SEB or SEH.  */
     return COSTS_N_INSNS (1);
 
@@ -6456,7 +6457,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (symbolic_operand (src, VOIDmode))
 	{
-	  if (mips_string_constant_p (src))
+	  if (mips_string_constant_p (src) && ISA_HAS_XLP)
 	    return "li\t%0,%1 # LI48";
 	  else
 	    {
@@ -11878,8 +11879,8 @@ nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
       && !BITSET_P (mask, RETURN_ADDR_REGNUM))
     return false;
 
-  /* $gp cannot be saved in 16-bit SAVE/RESTORE.  */
-  if (compressed_p
+  /* $gp cannot be saved in non-XLP core and 16-bit SAVE/RESTORE.  */
+  if ((!ISA_HAS_XLP || compressed_p)
       && BITSET_P (mask, GLOBAL_POINTER_REGNUM))
     return false;
 
@@ -23962,7 +23963,8 @@ class pass_optimize_multi_refs : public rtl_opt_pass
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS && TARGET_LI48;
+      return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS
+	     && TARGET_LI48 && ISA_HAS_XLP;
     }
 
   virtual unsigned int execute (function *);
@@ -25632,6 +25634,9 @@ mips_movep_target_p (rtx reg1, rtx reg2)
     0x00000180, /* 7, 8 */
   };
 
+  if (!ISA_HAS_XLP)
+    return false;
+
   if (!REG_P (reg1) || !REG_P (reg2))
     return false;
 
@@ -25660,6 +25665,8 @@ mips_movep_target_p (rtx reg1, rtx reg2)
 bool
 nanomips_move_balc_p (rtx *operands)
 {
+  if (!ISA_HAS_XLP)
+    return false;
   if (GET_MODE (operands[1]) != ptr_mode
       || GET_MODE (operands[0]) != GET_MODE (operands[1]))
     return false;
