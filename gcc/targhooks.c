@@ -1728,4 +1728,10 @@ can_use_doloop_if_innermost (double_int, double_int,
   return loop_depth == 1;
 }
 
+void
+default_post_ira_processing (void)
+{
+  return;
+}
+
 #include "gt-targhooks.h"

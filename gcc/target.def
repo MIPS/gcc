@@ -5170,6 +5170,11 @@ DEFHOOK
  void, (struct hard_reg_set_container *),
  NULL)
 
+DEFHOOK_UNDOC
+(post_ira_processing,
+"Change allocatiom after ira is finished.",
+void, (void), default_post_ira_processing)
+
 /* For targets that have attributes that can affect whether a
    function's return statements need checking.  For instance a 'naked'
    function attribute.  */

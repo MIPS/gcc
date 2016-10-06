@@ -2124,6 +2124,10 @@ foptimize-strlen
 Common Report Var(flag_optimize_strlen) Optimization
 Enable string length optimizations on trees
 
+fpost-ira-processing
+Common Var(post_ira_processing_flag) Optimization
+Do the recoloring before reload
+
 fisolate-erroneous-paths-dereference
 Common Report Var(flag_isolate_erroneous_paths_dereference) Optimization
 Detect paths which trigger erroneous or undefined behaviour due to

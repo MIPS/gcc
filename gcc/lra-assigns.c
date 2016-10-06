@@ -108,7 +108,7 @@ static bool former_reload_pseudo_spill_p;
 
 /* Array containing corresponding values of function
    lra_get_allocno_class.  It is used to speed up the code.  */
-static enum reg_class *regno_allocno_class_array;
+enum reg_class *regno_allocno_class_array;
 
 /* Information about the thread to which a pseudo belongs.  Threads are
    a set of connected reload and inheritance pseudos with the same set of
@@ -264,7 +264,7 @@ static lra_live_range_t *start_point_ranges;
 static struct lra_live_range not_in_chain_mark;
 
 /* Create and set up START_POINT_RANGES.  */
-static void
+void
 create_live_range_start_chains (void)
 {
   int i, max_regno;
@@ -305,7 +305,7 @@ insert_in_live_range_start_chain (int regno)
 }
 
 /* Free START_POINT_RANGES.  */
-static void
+void
 finish_live_range_start_chains (void)
 {
   gcc_assert (start_point_ranges != NULL);
@@ -334,7 +334,7 @@ static sparseset live_range_reload_inheritance_pseudos;
 
 /* Allocate and initialize the data about living pseudos at program
    points.  */
-static void
+void
 init_lives (void)
 {
   int i, max_regno = max_reg_num ();
@@ -352,7 +352,7 @@ init_lives (void)
 }
 
 /* Free the data about living pseudos at program points.  */
-static void
+void
 finish_lives (void)
 {
   sparseset_free (live_range_hard_reg_pseudos);
@@ -369,7 +369,7 @@ finish_lives (void)
    ranges in the start chains when it is assumed to be assigned to a
    hard register because we use the chains of pseudos assigned to hard
    registers during allocation.  */
-static void
+void
 update_lives (int regno, bool free_p)
 {
   int p;
@@ -403,7 +403,7 @@ static bitmap_obstack live_reload_and_inheritance_pseudos_bitmap_obstack;
 
 /* Allocate and initialize data about living reload pseudos at any
    given program point.  */
-static void
+void
 init_live_reload_and_inheritance_pseudos (void)
 {
   int i, p, max_regno = max_reg_num ();
@@ -425,7 +425,7 @@ init_live_reload_and_inheritance_pseudos (void)
 
 /* Finalize data about living reload pseudos at any given program
    point.  */
-static void
+void
 finish_live_reload_and_inheritance_pseudos (void)
 {
   sparseset_free (conflict_reload_and_inheritance_pseudos);
@@ -467,7 +467,7 @@ adjust_hard_regno_cost (int hard_regno, int incr)
 
    If TRY_ONLY_HARD_REGNO >= 0, consider only that hard register,
    otherwise consider all hard registers in REGNO's class.  */
-static int
+int
 find_hard_regno_for (int regno, int *cost, int try_only_hard_regno,
 		     bool first_p)
 {
@@ -1016,7 +1016,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap, bool first_p)
 }
 
 /* Assign HARD_REGNO to REGNO.	*/
-static void
+void
 assign_hard_regno (int hard_regno, int regno)
 {
   int i;
@@ -1043,7 +1043,7 @@ static int *sorted_pseudos;
    first), spill if a conflict is found, and mark the spilled pseudos
    in SPILLED_PSEUDO_BITMAP.  Set up LIVE_HARD_REG_PSEUDOS from
    pseudos, assigned to hard registers.	 */
-static void
+void
 setup_live_pseudos_and_spill_after_risky_transforms (bitmap
 						     spilled_pseudo_bitmap)
 {
@@ -1230,7 +1230,7 @@ find_all_spills_for (int regno)
 }
 
 /* Assign hard registers to reload pseudos and other pseudos.  */
-static void
+void
 assign_by_spills (void)
 {
   int i, n, nfails, iter, regno, hard_regno, cost, restore_regno;
