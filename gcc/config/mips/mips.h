@@ -958,6 +958,9 @@ struct mips_cpu_info {
 				 && Pmode == DImode	\
 				 && !TARGET_SYM32)
 
+/* ISA has instructions that can be excluded for low power from R7 onwards.  */
+#define ISA_HAS_XLP		(mips_isa_rev < 7 || TARGET_EXLP)
+
 /* ISA has instructions for managing 64-bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
 				 || ISA_MIPS4				\
@@ -1144,14 +1147,14 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
-#define ISA_HAS_UALW_UASW	(mips_isa_rev >= 7 && TARGET_ADD_UALW_UASW)
+#define ISA_HAS_UALW_UASW	(mips_isa_rev >= 7 && TARGET_ADD_UALW_UASW && ISA_HAS_XLP)
 
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 
 #define ISA_HAS_IEEE_754_2008	(mips_isa_rev >= 2)
 
 /* ISA has count leading zeroes/ones instruction (not implemented).  */
-#define ISA_HAS_CLZ_CLO		(mips_isa_rev >= 1 && !TARGET_MIPS16)
+#define ISA_HAS_CLZ_CLO		(mips_isa_rev >= 1 && !TARGET_MIPS16 && ISA_HAS_XLP)
 
 /* ISA has three operand multiply instructions that put
    the high part in an accumulator: mulhi or mulhiu.  */
@@ -1198,7 +1201,7 @@ struct mips_cpu_info {
 
 /* ISA has the WSBH (word swap bytes within halfwords) instruction.
    64-bit targets also provide DSBH and DSHD.  */
-#define ISA_HAS_WSBH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_WSBH		(mips_isa_rev >= 2 && !TARGET_MIPS16 && ISA_HAS_XLP)
 
 /* ISA has data prefetch instructions.  This controls use of 'pref'.  */
 #define ISA_HAS_PREFETCH	((ISA_MIPS4				\
@@ -1223,11 +1226,12 @@ struct mips_cpu_info {
 #define ISA_HAS_TRUNC_W		(!ISA_MIPS1)
 
 /* ISA includes the MIPS32r2 seb and seh instructions.  */
-#define ISA_HAS_SEB_SEH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_SEB_SEH		(mips_isa_rev >= 2 && !TARGET_MIPS16 && ISA_HAS_XLP)
 
 /* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
-#define ISA_HAS_EXT_INS		((mips_isa_rev >= 2 && !TARGET_MIPS16) \
-				|| ISA_HAS_MIPS16E2)
+#define ISA_HAS_EXT_INS		(((mips_isa_rev >= 2 && !TARGET_MIPS16) \
+				  || ISA_HAS_MIPS16E2) \
+				 && ISA_HAS_XLP)
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
@@ -1235,53 +1239,54 @@ struct mips_cpu_info {
 
 /* ISA has lhxs, lhuxs, lwxs, lwuxs, ldxs instruction (load)
    w/scaled index address.  */
-#define ISA_HAS_LHXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)
-#define ISA_HAS_LHUXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)
+#define ISA_HAS_LHXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)
+#define ISA_HAS_LHUXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)
 #define ISA_HAS_LWXS		((TARGET_SMARTMIPS \
 				 || (TARGET_MICROMIPS && mips_isa_rev <= 5) \
-				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)) \
+				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)) \
 				 && !TARGET_MIPS16)
-#define ISA_HAS_LWC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS)
-#define ISA_HAS_LWUXS		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)
-#define ISA_HAS_LDXS		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)
-#define ISA_HAS_LDC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS)
+#define ISA_HAS_LWC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS && ISA_HAS_XLP)
+#define ISA_HAS_LWUXS		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)
+#define ISA_HAS_LDXS		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)
+#define ISA_HAS_LDC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS && ISA_HAS_XLP)
 
 /* ISA has shxs, swxs, sdxs instruction (store) w/scaled index address.  */
-#define ISA_HAS_SHXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)
-#define ISA_HAS_SWXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)
-#define ISA_HAS_SWC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS)
-#define ISA_HAS_SDXS		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS)
-#define ISA_HAS_SDC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS)
+#define ISA_HAS_SHXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)
+#define ISA_HAS_SWXS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)
+#define ISA_HAS_SWC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS && ISA_HAS_XLP)
+#define ISA_HAS_SDXS		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_XS && ISA_HAS_XLP)
+#define ISA_HAS_SDC1XS		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1XS && ISA_HAS_XLP)
 
 /* ISA has lbx, lbux, lhx, lhux, lwx, lwux, or ldx instruction. */
-#define ISA_HAS_LBX		(TARGET_OCTEON2 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X))
+#define ISA_HAS_LBX		(TARGET_OCTEON2 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP))
 #define ISA_HAS_LBUX		(ISA_HAS_DSP || TARGET_OCTEON2 \
-				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X))
+				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP))
 #define ISA_HAS_LHX		(ISA_HAS_DSP || TARGET_OCTEON2 \
-				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X))
-#define ISA_HAS_LHUX		(TARGET_OCTEON2 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X))
+				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP))
+#define ISA_HAS_LHUX		(TARGET_OCTEON2 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP))
 #define ISA_HAS_LWX		(ISA_HAS_DSP || TARGET_OCTEON2 \
-				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X))
-#define ISA_HAS_LWC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X)
-#define ISA_HAS_LWUX		((TARGET_OCTEON2 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X)) \
+				 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP))
+#define ISA_HAS_LWC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X && ISA_HAS_XLP)
+#define ISA_HAS_LWUX		((TARGET_OCTEON2 || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP)) \
 				 && TARGET_64BIT)
 #define ISA_HAS_LDX		((ISA_HAS_DSP || TARGET_OCTEON2 \
-				  || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X)) \
+				  || (TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP)) \
 				 && TARGET_64BIT)
-#define ISA_HAS_LDC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X)
+#define ISA_HAS_LDC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X && ISA_HAS_XLP)
 
 /* ISA has sbx, shx, swx, sdx instruction. */
-#define ISA_HAS_SBX		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X)
-#define ISA_HAS_SHX		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X)
-#define ISA_HAS_SWX		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X)
-#define ISA_HAS_SWC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X)
-#define ISA_HAS_SDX		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X)
-#define ISA_HAS_SDC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X)
+#define ISA_HAS_SBX		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP)
+#define ISA_HAS_SHX		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP)
+#define ISA_HAS_SWX		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP)
+#define ISA_HAS_SWC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X && ISA_HAS_XLP)
+#define ISA_HAS_SDX		(TARGET_64BIT && TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_X && ISA_HAS_XLP)
+#define ISA_HAS_SDC1X		(TARGET_MICROMIPS_R7 && TARGET_ADD_LDST_C1X && ISA_HAS_XLP)
 
 #define ISA_HAS_INDEX_LDST	(TARGET_MICROMIPS_R7 \
 				 && (TARGET_ADD_LDST_X || TARGET_ADD_LDST_XS \
 				     || TARGET_ADD_LDST_C1X \
-				     || TARGET_ADD_LDST_C1XS))
+				     || TARGET_ADD_LDST_C1XS) \
+				 && ISA_HAS_XLP)
 
 /* The DSP ASE is available.  */
 #define ISA_HAS_DSP		(TARGET_DSP && !TARGET_MIPS16)
@@ -1440,6 +1445,7 @@ struct mips_cpu_info {
 %{mips3d} %{mno-mips3d:-no-mips3d} \
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
+%{mxlp} %{mno-xlp} \
 %{mdspr2} %{mno-dspr2} \
 %{mmcu} %{mno-mcu} \
 %{meva} %{mno-eva} \
