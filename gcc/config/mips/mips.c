@@ -3222,7 +3222,7 @@ bool
 mips_string_constant_p (rtx x)
 {
   tree decl, exp;
-  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48)
+  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48 || !ISA_HAS_XLP)
     return false;
 
   if (GET_CODE (x) == CONST
@@ -3367,7 +3367,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	     ? 6
 	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
 	       ? 3
-	       : (TARGET_MICROMIPS_R7 && TARGET_LI48)
+	       : (TARGET_MICROMIPS_R7 && TARGET_LI48 && ISA_HAS_XLP)
 		 ? 1
 		 : 2;
 
@@ -6515,7 +6515,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  /* Don't use the X format for the operand itself, because that
 	     will give out-of-range numbers for 64-bit hosts and 32-bit
 	     targets.  */
-	  if (TARGET_MICROMIPS_R7 && TARGET_LI48)
+	  if (TARGET_MICROMIPS_R7 && TARGET_LI48 && ISA_HAS_XLP)
 	    {
 	      if (!LUI_INT (src) && !SMALL_OPERAND_UNSIGNED (INTVAL (src)) && !SMALL_INT (src))
 		return "nop16; sdbbp32 4; # li48\t%0,%1";
@@ -12515,7 +12515,7 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust,
     {
       int insn_mode = 32;
 
-      if (insn16_p
+      if (ISA_HAS_XLP && insn16_p
 	  && ((restore_p && nregs == 0) || nregs > 0))
 	insn_mode = 16;
 
@@ -23333,7 +23333,7 @@ rest_of_handle_optimize_multi_refs (void)
 static bool
 gate_optimize_multi_refs (void)
 {
-  return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS && TARGET_LI48;
+  return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS && TARGET_LI48 && ISA_HAS_XLP;
 }
 
 namespace {
@@ -24642,6 +24642,9 @@ umips_movep_target_p (rtx reg1, rtx reg2)
     0x000000c0, /* 6, 7 */
   };
 
+  if (!ISA_HAS_XLP)
+    return false;
+
   if (!REG_P (reg1) || !REG_P (reg2))
     return false;
 
@@ -24678,7 +24681,7 @@ bool
 umips_move_balc_p (rtx *operands)
 {
   /* FIXME */
-  if (!TARGET_ADD_MOVEBALC)
+  if (!TARGET_ADD_MOVEBALC || !ISA_HAS_XLP)
     return false;
   if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
     return false;
