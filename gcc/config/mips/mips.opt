@@ -593,3 +593,6 @@ Target Undocumented Var(TARGET_ADD_MOVEP_BALC) Init(0)
 
 mret-in-args
 Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
+
+mxlp
+Target Var(TARGET_EXLP) Init(1)
