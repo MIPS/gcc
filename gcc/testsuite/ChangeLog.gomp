@@ -1,3 +1,7 @@
+2016-10-05  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/tile-lowering.f95: Add more coverage.
+
 2016-10-05  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/loop-auto-2.c: New.

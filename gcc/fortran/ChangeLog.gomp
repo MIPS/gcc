@@ -1,3 +1,8 @@
+2016-10-05  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_omp_do): Check do_clauses for the
+        tile clause if it's not present in clauses.
+
 2016-10-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (resolve_omp_clauses): Error on directives
