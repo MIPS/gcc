@@ -610,3 +610,6 @@ Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
 
 mret-callee-saved
 Target Undocumented Var(TARGET_V0_V1_CALLEE_SAVED) Init(0)
+
+mxlp
+Target Var(TARGET_EXLP) Init(1)
