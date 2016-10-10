@@ -1,5 +1,16 @@
 2016-10-10  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (grid_find_ungridifiable_statement): Do not bail out
+	for simd loops.
+	(grid_inner_loop_gridifiable_p): Likewise.
+	(grid_process_grid_body): New function.
+	(grid_eliminate_combined_simd_part): Likewise.
+	(grid_mark_tiling_loops): Use it. Walk body of the loop with
+	grid_process_grid_body.
+	(grid_process_kernel_body_copy): Likewise.
+
+2016-10-10  Martin Jambor  <mjambor@suse.cz>
+
 	* gimple.h (GF_OMP_FOR_GRID_PHONY): Added comment.
 	(GF_OMP_FOR_GRID_INTRA_GROUP): New.
 	(gimple_omp_for_grid_phony): Added checking assert.

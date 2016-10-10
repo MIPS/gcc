@@ -17478,17 +17478,6 @@ grid_find_ungridifiable_statement (gimple_stmt_iterator *gsi,
       *handled_ops_p = true;
       wi->info = stmt;
       return error_mark_node;
-
-    case GIMPLE_OMP_FOR:
-      if ((gimple_omp_for_kind (stmt) & GF_OMP_FOR_SIMD)
-	  && gimple_omp_for_combined_into_p (stmt))
-	{
-	  *handled_ops_p = true;
-	  wi->info = stmt;
-	  return error_mark_node;
-	}
-      break;
-
     default:
       break;
     }
@@ -17614,10 +17603,6 @@ grid_inner_loop_gridifiable_p (gomp_for *gfor, grid_prop *grid)
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, grid->target_loc,
 			       GRID_MISSED_MSG_PREFIX "the inner loop contains "
 			       "call to a noreturn function\n");
-	  else if (gimple_code (bad) == GIMPLE_OMP_FOR)
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, grid->target_loc,
-			     GRID_MISSED_MSG_PREFIX "the inner loop contains "
-			     "a simd construct\n");
 	  else
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, grid->target_loc,
 			     GRID_MISSED_MSG_PREFIX "the inner loop contains "
@@ -18212,6 +18197,113 @@ grid_copy_leading_local_assignments (gimple_seq src, gimple_stmt_iterator *dst,
   return NULL;
 }
 
+/* Statement walker function to make adjustments to statements within the
+   gridifed kernel copy.  */
+
+static tree
+grid_process_grid_body (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+			struct walk_stmt_info *)
+{
+  *handled_ops_p = false;
+  gimple *stmt = gsi_stmt (*gsi);
+  if (gimple_code (stmt) == GIMPLE_OMP_FOR
+      && (gimple_omp_for_kind (stmt) & GF_OMP_FOR_SIMD))
+  {
+    gomp_for *loop = as_a <gomp_for *> (stmt);
+    tree clauses = gimple_omp_for_clauses (loop);
+    tree cl = find_omp_clause (clauses, OMP_CLAUSE_SAFELEN);
+    if (cl)
+      OMP_CLAUSE_SAFELEN_EXPR (cl) = integer_one_node;
+    else
+      {
+	tree c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_SAFELEN);
+	OMP_CLAUSE_SAFELEN_EXPR (c) = integer_one_node;
+	OMP_CLAUSE_CHAIN (c) = clauses;
+	gimple_omp_for_set_clauses (loop, c);
+      }
+  }
+  return NULL_TREE;
+}
+
+/* Given a PARLOOP that is a normal for looping construct but also a part of a
+   combined construct with a simd loop, eliminate the simd loop.  */
+
+static void
+grid_eliminate_combined_simd_part (gomp_for *parloop)
+{
+  struct walk_stmt_info wi;
+
+  memset (&wi, 0, sizeof (wi));
+  wi.val_only = true;
+  enum gf_mask msk = GF_OMP_FOR_SIMD;
+  wi.info = (void *) &msk;
+  walk_gimple_seq (gimple_omp_body (parloop), find_combined_for, NULL, &wi);
+  gimple *stmt = (gimple *) wi.info;
+  /* We expect that the SIMD id the only statement in the parallel loop.  */
+  gcc_assert (stmt
+	      && gimple_code (stmt) == GIMPLE_OMP_FOR
+	      && (gimple_omp_for_kind (stmt) == GF_OMP_FOR_SIMD)
+	      && gimple_omp_for_combined_into_p (stmt)
+	      && !gimple_omp_for_combined_p (stmt));
+  gomp_for *simd = as_a <gomp_for *> (stmt);
+
+  /* Copy over the iteration properties because the body refers to the index in
+     the bottmom-most loop.  */
+  unsigned i, collapse = gimple_omp_for_collapse (parloop);
+  gcc_checking_assert (collapse == gimple_omp_for_collapse (simd));
+  for (i = 0; i < collapse; i++)
+    {
+      gimple_omp_for_set_index (parloop, i, gimple_omp_for_index (simd, i));
+      gimple_omp_for_set_initial (parloop, i, gimple_omp_for_initial (simd, i));
+      gimple_omp_for_set_final (parloop, i, gimple_omp_for_final (simd, i));
+      gimple_omp_for_set_incr (parloop, i, gimple_omp_for_incr (simd, i));
+    }
+
+  tree *tgt= gimple_omp_for_clauses_ptr (parloop);
+  while (*tgt)
+    tgt = &OMP_CLAUSE_CHAIN (*tgt);
+
+  /* Copy over all clauses, except for linaer clauses, which are turned into
+     private clauses, and all other simd-specificl clauses, which are
+     ignored.  */
+  tree *pc = gimple_omp_for_clauses_ptr (simd);
+  while (*pc)
+    {
+      tree c = *pc;
+      switch (TREE_CODE (c))
+	{
+	case OMP_CLAUSE_LINEAR:
+	  {
+	    tree priv = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_PRIVATE);
+	    OMP_CLAUSE_DECL (priv) = OMP_CLAUSE_DECL (c);
+	    OMP_CLAUSE_CHAIN (priv) = NULL;
+	    *tgt = priv;
+	    tgt = &OMP_CLAUSE_CHAIN (priv);
+	    pc = &OMP_CLAUSE_CHAIN (c);
+	    break;
+	  }
+
+	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE_SIMDLEN:
+	case OMP_CLAUSE_ALIGNED:
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  break;
+
+	default:
+	  *pc = OMP_CLAUSE_CHAIN (c);
+	  OMP_CLAUSE_CHAIN (c) = NULL;
+	  *tgt = c;
+	  tgt = &OMP_CLAUSE_CHAIN(c);
+	  break;
+	}
+    }
+
+  /* Finally, throw away the simd and mark the parallel loop as not
+     combined.  */
+  gimple_omp_set_body (parloop, gimple_omp_body (simd));
+  gimple_omp_for_set_combined_p (parloop, false);
+}
+
 /* Statement walker function marking all parallels as grid_phony and loops as
    grid ones representing threads of a particular thread group.  */
 
@@ -18225,6 +18317,14 @@ grid_mark_tiling_loops (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       *handled_ops_p = true;
       gimple_omp_for_set_kind (loop, GF_OMP_FOR_KIND_GRID_LOOP);
       gimple_omp_for_set_grid_intra_group (loop, true);
+      if (gimple_omp_for_combined_p (loop))
+	grid_eliminate_combined_simd_part (loop);
+
+      struct walk_stmt_info body_wi;
+      memset (&body_wi, 0, sizeof (body_wi));
+      walk_gimple_seq_mod (gimple_omp_body_ptr (loop),
+			   grid_process_grid_body, NULL, &body_wi);
+
       gbind *bind = (gbind *) wi_in->info;
       tree c;
       for (c = gimple_omp_for_clauses (loop); c; c = OMP_CLAUSE_CHAIN (c))
@@ -18343,6 +18443,13 @@ grid_process_kernel_body_copy (grid_prop *grid, gimple_seq seq,
       if (prebody)
 	grid_copy_leading_local_assignments (prebody, dst, tgt_bind,
 					     GRID_SEGMENT_PRIVATE, wi);
+
+      if (gimple_omp_for_combined_p (inner_loop))
+	grid_eliminate_combined_simd_part (inner_loop);
+      struct walk_stmt_info body_wi;;
+      memset (&body_wi, 0, sizeof (body_wi));
+      walk_gimple_seq_mod (gimple_omp_body_ptr (inner_loop),
+			   grid_process_grid_body, NULL, &body_wi);
 
       return inner_loop;
     }
