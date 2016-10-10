@@ -5972,7 +5972,15 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
       break;
     default:
       {
-	gen_hsa_insns_for_direct_call (stmt, hbb);
+	tree name_tree = DECL_NAME (fndecl);
+	const char *s = IDENTIFIER_POINTER (name_tree);
+	size_t len = strlen (s);
+	if (len > 4 && (strncmp (s, "__builtin_GOMP_", 15) == 0))
+	  HSA_SORRY_ATV (gimple_location (stmt),
+			 "support for HSA does not implement GOMP function %s",
+			 s);
+	else
+	  gen_hsa_insns_for_direct_call (stmt, hbb);
 	return;
       }
     }

@@ -1,5 +1,10 @@
 2016-10-10  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_call): Fail when encountering a
+	GOMP builtin that we cannot process ourselves.
+
+2016-10-10  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_call): Ignore prefetch builtin.
 
 2016-10-10  Martin Jambor  <mjambor@suse.cz>
