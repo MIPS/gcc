@@ -1,5 +1,28 @@
 2016-10-10  Martin Jambor  <mjambor@suse.cz>
 
+	* gimple.h (GF_OMP_FOR_GRID_PHONY): Added comment.
+	(GF_OMP_FOR_GRID_INTRA_GROUP): New.
+	(gimple_omp_for_grid_phony): Added checking assert.
+	(gimple_omp_for_set_grid_phony): Likewise.
+	(gimple_omp_for_grid_intra_group): New function.
+	(gimple_omp_for_set_grid_intra_group): Likewise.
+	(gimple_omp_for_grid_group_iter): Added checking assert.
+	(gimple_omp_for_set_grid_group_iter): Likewise.
+	* omp-low.c (lower_lastprivate_clauses): Also handle predicates
+	that are not simple comparisons.
+	(grid_lastprivate_predicate): New function.
+	(lower_omp_for_lastprivate): Generate conditions for gridified kernels.
+	(lower_omp_for): Adjust phony predicate call.
+	(grid_parallel_clauses_gridifiable): Allow lastprivate.
+	(grid_inner_loop_gridifiable_p): Likewise.
+	(grid_mark_tiling_loops): Generate copies of lastprivate variables
+	to group variables.
+	(grid_mark_tiling_parallels_and_loops): Create binds for bodies of
+	a parallel statements.
+	(grid_process_kernel_body_copy): Avoid reusing variable name.
+
+2016-10-10  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-builtins.def (BUILT_IN_HSA_GRIDSIZE): New.
 	(BUILT_IN_HSA_CURRENTWORKGROUPSIZE): Likewise.
 	* hsa-gen.c (gen_hsa_insns_for_call): Handle BUILT_IN_HSA_GRIDSIZE.
