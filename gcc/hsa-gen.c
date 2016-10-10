@@ -5386,6 +5386,10 @@ gen_hsa_insn_for_internal_fn_call (gcall *stmt, hsa_bb *hbb)
       gen_hsa_unaryop_for_builtin (BRIG_OPCODE_SQRT, stmt, hbb);
       break;
 
+    case IFN_RSQRT:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NRSQRT, stmt, hbb);
+      break;
+
     case IFN_TRUNC:
       gen_hsa_unaryop_for_builtin (BRIG_OPCODE_TRUNC, stmt, hbb);
       break;

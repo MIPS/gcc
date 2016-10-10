@@ -1,5 +1,9 @@
 2016-10-10  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insn_for_internal_fn_call): Also handle IFN_RSQRT.
+
+2016-10-10  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (grid_find_ungridifiable_statement): Do not bail out
 	for simd loops.
 	(grid_inner_loop_gridifiable_p): Likewise.
