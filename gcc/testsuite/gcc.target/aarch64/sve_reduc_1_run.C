@@ -66,7 +66,34 @@ int main ()
   TEST_REDUC_MAX (resultF, float)
   TEST_REDUC_MAX (resultF, double)
 
-  if (result != 130992)
+  TEST_REDUC_AND (result, int8_t)
+  TEST_REDUC_AND (result, int16_t)
+  TEST_REDUC_AND (result, int32_t)
+  TEST_REDUC_AND (result, int64_t)
+  TEST_REDUC_AND (result, uint8_t)
+  TEST_REDUC_AND (result, uint16_t)
+  TEST_REDUC_AND (result, uint32_t)
+  TEST_REDUC_AND (result, uint64_t)
+
+  TEST_REDUC_IOR (result, int8_t)
+  TEST_REDUC_IOR (result, int16_t)
+  TEST_REDUC_IOR (result, int32_t)
+  TEST_REDUC_IOR (result, int64_t)
+  TEST_REDUC_IOR (result, uint8_t)
+  TEST_REDUC_IOR (result, uint16_t)
+  TEST_REDUC_IOR (result, uint32_t)
+  TEST_REDUC_IOR (result, uint64_t)
+
+  TEST_REDUC_XOR (result, int8_t)
+  TEST_REDUC_XOR (result, int16_t)
+  TEST_REDUC_XOR (result, int32_t)
+  TEST_REDUC_XOR (result, int64_t)
+  TEST_REDUC_XOR (result, uint8_t)
+  TEST_REDUC_XOR (result, uint16_t)
+  TEST_REDUC_XOR (result, uint32_t)
+  TEST_REDUC_XOR (result, uint64_t)
+
+  if (result != 262400)
     {
       fprintf (stderr, "result = %d\n", result);
       abort ();
