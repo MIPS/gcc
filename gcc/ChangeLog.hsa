@@ -1,3 +1,9 @@
+2016-10-10  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-builtins.def (BUILT_IN_HSA_GRIDSIZE): New.
+	(BUILT_IN_HSA_CURRENTWORKGROUPSIZE): Likewise.
+	* hsa-gen.c (gen_hsa_insns_for_call): Handle BUILT_IN_HSA_GRIDSIZE.
+
 2016-08-15  Martin Jambor  <mjambor@suse.cz>
 
 	* ipa-hsa.c (process_hsa_functions): Copy externally visible flag

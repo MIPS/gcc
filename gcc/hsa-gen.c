@@ -5812,6 +5812,12 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_HSA_WORKITEMABSID:
       query_hsa_grid_dim (stmt, BRIG_OPCODE_WORKITEMABSID, hbb);
       break;
+    case BUILT_IN_HSA_GRIDSIZE:
+      query_hsa_grid_dim (stmt, BRIG_OPCODE_GRIDSIZE, hbb);
+      break;
+    case BUILT_IN_HSA_CURRENTWORKGROUPSIZE:
+      query_hsa_grid_dim (stmt, BRIG_OPCODE_CURRENTWORKGROUPSIZE, hbb);
+      break;
 
     case BUILT_IN_GOMP_BARRIER:
       hbb->append_insn (new hsa_insn_br (0, BRIG_OPCODE_BARRIER, BRIG_TYPE_NONE,
