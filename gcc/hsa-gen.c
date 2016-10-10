@@ -3076,6 +3076,23 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
     case NEGATE_EXPR:
       opcode = BRIG_OPCODE_NEG;
       break;
+    case FMA_EXPR:
+      /* There is a native HSA instruction for scalar FMAs but not for vector
+	 ones.  */
+      if (TREE_CODE (TREE_TYPE (lhs)) == VECTOR_TYPE)
+	{
+	  hsa_op_reg *dest
+	    = hsa_cfun->reg_for_gimple_ssa (gimple_assign_lhs (assign));
+	  hsa_op_with_type *op1 = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
+	  hsa_op_with_type *op2 = hsa_reg_or_immed_for_gimple_op (rhs2, hbb);
+	  hsa_op_with_type *op3 = hsa_reg_or_immed_for_gimple_op (rhs3, hbb);
+	  hsa_op_reg *tmp = new hsa_op_reg (dest->m_type);
+	  gen_hsa_binary_operation (BRIG_OPCODE_MUL, tmp, op1, op2, hbb);
+	  gen_hsa_binary_operation (BRIG_OPCODE_ADD, dest, tmp, op3, hbb);
+	  return;
+	}
+      opcode = BRIG_OPCODE_MAD;
+      break;
     case MIN_EXPR:
       opcode = BRIG_OPCODE_MIN;
       break;
@@ -3275,14 +3292,18 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
   switch (rhs_class)
     {
     case GIMPLE_TERNARY_RHS:
-      gcc_unreachable ();
+      {
+	hsa_op_with_type *op3 = hsa_reg_or_immed_for_gimple_op (rhs3, hbb);
+	hsa_insn_basic *insn = new hsa_insn_basic (4, opcode, dest->m_type, dest,
+						   op1, op2, op3);
+	hbb->append_insn (insn);
+      }
       return;
 
-      /* Fall through */
     case GIMPLE_BINARY_RHS:
       gen_hsa_binary_operation (opcode, dest, op1, op2, hbb);
       break;
-      /* Fall through */
+
     case GIMPLE_UNARY_RHS:
       gen_hsa_unary_operation (opcode, dest, op1, hbb);
       break;
