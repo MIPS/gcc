@@ -2227,8 +2227,10 @@ hsa_reg_or_immed_for_gimple_op (tree op, hsa_bb *hbb)
 void
 hsa_build_append_simple_mov (hsa_op_reg *dest, hsa_op_base *src, hsa_bb *hbb)
 {
-  hsa_insn_basic *insn = new hsa_insn_basic (2, BRIG_OPCODE_MOV, dest->m_type,
-					     dest, src);
+  /* Moves of packed data between registers need to adhere to the same type
+     rules like when dealing with memory.  */
+  BrigType16_t tp = mem_type_for_type (dest->m_type);
+  hsa_insn_basic *insn = new hsa_insn_basic (2, BRIG_OPCODE_MOV, tp, dest, src);
   if (hsa_op_reg *sreg = dyn_cast <hsa_op_reg *> (src))
     gcc_assert (hsa_type_bit_size (dest->m_type)
 		== hsa_type_bit_size (sreg->m_type));
