@@ -3444,13 +3444,14 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb)
 static void
 verify_function_arguments (tree decl)
 {
+  tree type = TREE_TYPE (decl);
   if (DECL_STATIC_CHAIN (decl))
     {
       HSA_SORRY_ATV (EXPR_LOCATION (decl),
 		     "HSA does not support nested functions: %D", decl);
       return;
     }
-  else if (!TYPE_ARG_TYPES (TREE_TYPE (decl)))
+  else if (!TYPE_ARG_TYPES (type) || stdarg_p (type))
     {
       HSA_SORRY_ATV (EXPR_LOCATION (decl),
 		     "HSA does not support functions with variadic arguments "
