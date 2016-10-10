@@ -5530,6 +5530,12 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
   if (!gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
     {
       tree function_decl = gimple_call_fndecl (stmt);
+      /* Prefetch pass can create type-mismatching prefetch builtin calls which
+	 fail the gimple_call_builtin_p test above.  Handle them here.  */
+      if (DECL_BUILT_IN_CLASS (function_decl)
+	  && DECL_FUNCTION_CODE (function_decl) == BUILT_IN_PREFETCH)
+	return;
+
       if (function_decl == NULL_TREE)
 	{
 	  HSA_SORRY_AT (gimple_location (stmt),
@@ -5962,6 +5968,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	gen_hsa_alloca (call, hbb);
 	break;
       }
+    case BUILT_IN_PREFETCH:
+      break;
     default:
       {
 	gen_hsa_insns_for_direct_call (stmt, hbb);
