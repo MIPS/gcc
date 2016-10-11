@@ -1,3 +1,59 @@
+2016-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wH): Add new constraints to
+	support -mvsx-small-integer.
+	(wI): Likewise.
+	(wJ): Likewise.
+	(wK): Likewise.
+
+	* config/rs6000/rs6000.opt (-mvsx-small-integer): New switch to
+	allow small integers to go in the floating point registers.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Simplify
+	test, remove test for DImode, since the previous test for
+	reg_addr[mode].scalar_in_vmx_p covers that case (as well as the
+	new code for small integers in VSX registers).
+	(rs6000_debug_reg_global): Print new constraints.
+	(rs6000_setup_reg_addr_masks): Add support for small integers in
+	VSX registers that use REG+REG addressing.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Make sure we are on a ISA 2.07
+	system or above to allow -mvsx-small-integers.
+	(rs6000_secondary_reload_simple_move): Recode VSX tests to add
+	support for small integers in VSX registers, and to make it easier
+	to read.
+	(rs6000_secondary_reload): Use std::swap.
+	(rs6000_preferred_reload_class): Add support for small integers in
+	VSX registers.
+	(rs6000_opt_masks): Add -mvsx-small-integers.
+
+	* config/rs6000/rs6000.h (TARGET_VSX_QI_OR_HImode): New macros to
+	simplify tests for -mvsx-small-integers.
+	(TARGET_VSX_QImode): Likewise.
+	(TARGET_VSX_HImode): Likewise.
+	(TARGET_VSX_SImode): Likewise.
+	(enum r6000_reg_class_enum): Add wH, wI, wJ, and wK constraints.
+
+	* config/rs6000/rs6000.md (f32_sv): Correct STXSIWX instruction
+	spelling.
+	(zero_extendsi<mode>2): Add support for -mvsx-small-integers.  If
+	small integers are allowed in VSX registers, don't use the
+	previous combiner insns to smuggle in small integers to do
+	floating point <=> integer conversions.
+	(extendsi<mode>2): Likewise.
+	(lfiwax): Likewise.
+	(floatsi<mode>2_lfiwax): Likewise.
+	(lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(floatsidf2): Likewise.
+	(floatunssidf2): Likewise.
+	(movsi_internal1): Add support for small integers in VSX
+	registers.  Make constraints and attributes line up so it is
+	easier to match the constraints and attributes.
+
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Document wH,
+	wI, wJ, and wK.
+
 2016-10-07   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 240877
