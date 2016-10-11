@@ -567,7 +567,7 @@ output_fde (dw_fde_ref fde, bool for_eh, bool second,
 {
   const char *begin, *end;
   static unsigned int j;
-  char l1[20], l2[20];
+  char l1[MAX_ARTIFICIAL_LABEL_BYTES], l2[MAX_ARTIFICIAL_LABEL_BYTES];
 
   targetm.asm_out.emit_unwind_label (asm_out_file, fde->decl, for_eh,
 				     /* empty */ 0);
@@ -722,7 +722,8 @@ output_call_frame_info (int for_eh)
   unsigned int i;
   dw_fde_ref fde;
   dw_cfi_ref cfi;
-  char l1[20], l2[20], section_start_label[20];
+  char l1[MAX_ARTIFICIAL_LABEL_BYTES], l2[MAX_ARTIFICIAL_LABEL_BYTES];
+  char section_start_label[MAX_ARTIFICIAL_LABEL_BYTES];
   bool any_lsda_needed = false;
   char augmentation[6];
   int augmentation_size;
@@ -966,7 +967,7 @@ dwarf2out_do_cfi_startproc (bool second)
 
   if (crtl->uses_eh_lsda)
     {
-      char lab[20];
+      char lab[MAX_ARTIFICIAL_LABEL_BYTES];
 
       enc = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
       ASM_GENERATE_INTERNAL_LABEL (lab, second ? "LLSDAC" : "LLSDA",
@@ -3537,12 +3538,11 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
   ((debug_generate_pub_sections == 2) \
    ? ".debug_gnu_pubtypes" : ".debug_pubtypes")
 #endif
-#define DEBUG_NORM_STR_OFFSETS_SECTION ".debug_str_offsets"
-#define DEBUG_DWO_STR_OFFSETS_SECTION ".debug_str_offsets.dwo"
 #ifndef DEBUG_STR_OFFSETS_SECTION
-#define DEBUG_STR_OFFSETS_SECTION                                       \
-  (!dwarf_split_debug_info                                              \
-   ? (DEBUG_NORM_STR_OFFSETS_SECTION) : (DEBUG_DWO_STR_OFFSETS_SECTION))
+#define DEBUG_STR_OFFSETS_SECTION ".debug_str_offsets"
+#endif
+#ifndef DEBUG_DWO_STR_OFFSETS_SECTION
+#define DEBUG_DWO_STR_OFFSETS_SECTION ".debug_str_offsets.dwo"
 #endif
 #ifndef DEBUG_STR_DWO_SECTION
 #define DEBUG_STR_DWO_SECTION   ".debug_str.dwo"
@@ -4128,7 +4128,7 @@ AT_string (dw_attr_node *a)
 static void
 set_indirect_string (struct indirect_string_node *node)
 {
-  char label[32];
+  char label[MAX_ARTIFICIAL_LABEL_BYTES];
   /* Already indirect is a no op.  */
   if (node->form == DW_FORM_strp || node->form == DW_FORM_GNU_str_index)
     {
@@ -5358,8 +5358,7 @@ add_var_loc_to_decl (tree decl, rtx loc_note, const char *label)
   struct var_loc_node *loc = NULL;
   HOST_WIDE_INT bitsize = -1, bitpos = -1;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && DECL_HAS_DEBUG_EXPR_P (decl))
+  if (VAR_P (decl) && DECL_HAS_DEBUG_EXPR_P (decl))
     {
       tree realdecl = DECL_DEBUG_EXPR (decl);
       if (handled_component_p (realdecl)
@@ -5833,6 +5832,41 @@ debug_dwarf (void)
 {
   print_indent = 0;
   print_die (comp_unit_die (), stderr);
+}
+
+/* Verify the DIE tree structure.  */
+
+DEBUG_FUNCTION void
+verify_die (dw_die_ref die)
+{
+  gcc_assert (!die->die_mark);
+  if (die->die_parent == NULL
+      && die->die_sib == NULL)
+    return;
+  /* Verify the die_sib list is cyclic.  */
+  dw_die_ref x = die;
+  do
+    {
+      x->die_mark = 1;
+      x = x->die_sib;
+    }
+  while (x && !x->die_mark);
+  gcc_assert (x == die);
+  x = die;
+  do
+    {
+      /* Verify all dies have the same parent.  */
+      gcc_assert (x->die_parent == die->die_parent);
+      if (x->die_child)
+	{
+	  /* Verify the child has the proper parent and recurse.  */
+	  gcc_assert (x->die_child->die_parent == x);
+	  verify_die (x->die_child);
+	}
+      x->die_mark = 0;
+      x = x->die_sib;
+    }
+  while (x && x->die_mark);
 }
 
 /* Sanity checks on DIEs.  */
@@ -7076,7 +7110,7 @@ is_template_instantiation (dw_die_ref die)
 static char *
 gen_internal_sym (const char *prefix)
 {
-  char buf[256];
+  char buf[MAX_ARTIFICIAL_LABEL_BYTES];
 
   ASM_GENERATE_INTERNAL_LABEL (buf, prefix, label_num++);
   return xstrdup (buf);
@@ -9382,7 +9416,7 @@ output_die (dw_die_ref die)
 
 	case dw_val_class_fde_ref:
 	  {
-	    char l1[20];
+	    char l1[MAX_ARTIFICIAL_LABEL_BYTES];
 
 	    ASM_GENERATE_INTERNAL_LABEL (l1, FDE_LABEL,
 					 a->dw_attr_val.v.val_fde_index * 2);
@@ -10710,16 +10744,18 @@ output_one_line_info_table (dw_line_info_table *table)
 static void
 output_line_info (bool prologue_only)
 {
-  char l1[20], l2[20], p1[20], p2[20];
+  static unsigned int generation;
+  char l1[MAX_ARTIFICIAL_LABEL_BYTES], l2[MAX_ARTIFICIAL_LABEL_BYTES];
+  char p1[MAX_ARTIFICIAL_LABEL_BYTES], p2[MAX_ARTIFICIAL_LABEL_BYTES];
   /* We don't support DWARFv5 line tables yet.  */
   int ver = dwarf_version < 5 ? dwarf_version : 4;
   bool saw_one = false;
   int opc;
 
-  ASM_GENERATE_INTERNAL_LABEL (l1, LINE_NUMBER_BEGIN_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (l2, LINE_NUMBER_END_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (p1, LN_PROLOG_AS_LABEL, 0);
-  ASM_GENERATE_INTERNAL_LABEL (p2, LN_PROLOG_END_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (l1, LINE_NUMBER_BEGIN_LABEL, generation);
+  ASM_GENERATE_INTERNAL_LABEL (l2, LINE_NUMBER_END_LABEL, generation);
+  ASM_GENERATE_INTERNAL_LABEL (p1, LN_PROLOG_AS_LABEL, generation);
+  ASM_GENERATE_INTERNAL_LABEL (p2, LN_PROLOG_END_LABEL, generation++);
 
   if (!XCOFF_DEBUGGING_INFO)
     {
@@ -12383,7 +12419,7 @@ tls_mem_loc_descriptor (rtx mem)
 
   base = get_base_address (MEM_EXPR (mem));
   if (base == NULL
-      || TREE_CODE (base) != VAR_DECL
+      || !VAR_P (base)
       || !DECL_THREAD_LOCAL_P (base))
     return NULL;
 
@@ -14630,7 +14666,7 @@ static bool
 decl_by_reference_p (tree decl)
 {
   return ((TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL
-  	   || TREE_CODE (decl) == VAR_DECL)
+  	   || VAR_P (decl))
 	  && DECL_BY_REFERENCE (decl));
 }
 
@@ -17259,10 +17295,9 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   /* ???  The C++ FE emits debug information for using decls, so
      putting gcc_unreachable here falls over.  See PR31899.  For now
      be conservative.  */
-  else if (!symtab->global_info_ready
-	   && (TREE_CODE (*tp) == VAR_DECL || TREE_CODE (*tp) == FUNCTION_DECL))
+  else if (!symtab->global_info_ready && VAR_OR_FUNCTION_DECL_P (*tp))
     return *tp;
-  else if (TREE_CODE (*tp) == VAR_DECL)
+  else if (VAR_P (*tp))
     {
       varpool_node *node = varpool_node::get (*tp);
       if (!node || !node->definition)
@@ -17470,7 +17505,7 @@ rtl_for_decl_location (tree decl)
 	      || (MEM_P (rtl)
 	          && CONSTANT_P (XEXP (rtl, 0)))
 	      || (REG_P (rtl)
-	          && TREE_CODE (decl) == VAR_DECL
+	          && VAR_P (decl)
 		  && TREE_STATIC (decl))))
 	{
 	  rtl = targetm.delegitimize_address (rtl);
@@ -17552,7 +17587,7 @@ rtl_for_decl_location (tree decl)
 			     plus_constant (addr_mode, XEXP (rtl, 0), offset));
 	}
     }
-  else if (TREE_CODE (decl) == VAR_DECL
+  else if (VAR_P (decl)
 	   && rtl
 	   && MEM_P (rtl)
 	   && GET_MODE (rtl) != TYPE_MODE (TREE_TYPE (decl))
@@ -17577,7 +17612,7 @@ rtl_for_decl_location (tree decl)
   /* A variable with no DECL_RTL but a DECL_INITIAL is a compile-time constant,
      and will have been substituted directly into all expressions that use it.
      C does not have such a concept, but C++ and other languages do.  */
-  if (!rtl && TREE_CODE (decl) == VAR_DECL && DECL_INITIAL (decl))
+  if (!rtl && VAR_P (decl) && DECL_INITIAL (decl))
     rtl = rtl_for_decl_init (DECL_INITIAL (decl), TREE_TYPE (decl));
 
   if (rtl)
@@ -17593,7 +17628,7 @@ rtl_for_decl_location (tree decl)
      in the current CU, resolve_addr will remove the expression referencing
      it.  */
   if (rtl == NULL_RTX
-      && TREE_CODE (decl) == VAR_DECL
+      && VAR_P (decl)
       && !DECL_EXTERNAL (decl)
       && TREE_STATIC (decl)
       && DECL_NAME (decl)
@@ -17627,7 +17662,7 @@ fortran_common (tree decl, HOST_WIDE_INT *value)
      it does not have a value (the offset into the common area), or if it
      is thread local (as opposed to global) then it isn't common, and shouldn't
      be handled as such.  */
-  if (TREE_CODE (decl) != VAR_DECL
+  if (!VAR_P (decl)
       || !TREE_STATIC (decl)
       || !DECL_HAS_VALUE_EXPR_P (decl)
       || !is_fortran ())
@@ -17641,7 +17676,7 @@ fortran_common (tree decl, HOST_WIDE_INT *value)
 			      &unsignedp, &reversep, &volatilep);
 
   if (cvar == NULL_TREE
-      || TREE_CODE (cvar) != VAR_DECL
+      || !VAR_P (cvar)
       || DECL_ARTIFICIAL (cvar)
       || !TREE_PUBLIC (cvar))
     return NULL_TREE;
@@ -17693,7 +17728,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl, bool cache_p)
       || get_AT (die, DW_AT_const_value))
     return true;
 
-  gcc_assert (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL
+  gcc_assert (VAR_P (decl) || TREE_CODE (decl) == PARM_DECL
 	      || TREE_CODE (decl) == RESULT_DECL);
 
   /* Try to get some constant RTL for this decl, and use that as the value of
@@ -17956,10 +17991,8 @@ tree_add_const_value_attribute_for_decl (dw_die_ref var_die, tree decl)
 {
 
   if (!decl
-      || (TREE_CODE (decl) != VAR_DECL
-	  && TREE_CODE (decl) != CONST_DECL)
-      || (TREE_CODE (decl) == VAR_DECL
-	  && !TREE_STATIC (decl)))
+      || (!VAR_P (decl) && TREE_CODE (decl) != CONST_DECL)
+      || (VAR_P (decl) && !TREE_STATIC (decl)))
     return false;
 
   if (TREE_READONLY (decl)
@@ -18301,7 +18334,7 @@ add_scalar_info (dw_die_ref die, enum dwarf_attribute attr, tree value,
 	  && TREE_CODE (TREE_OPERAND (value, 1)) == FIELD_DECL)
 	decl = TREE_OPERAND (value, 1);
 
-      else if (TREE_CODE (value) == VAR_DECL
+      else if (VAR_P (value)
 	       || TREE_CODE (value) == PARM_DECL
 	       || TREE_CODE (value) == RESULT_DECL)
 	decl = value;
@@ -18837,9 +18870,9 @@ static void
 add_linkage_name (dw_die_ref die, tree decl)
 {
   if (debug_info_level > DINFO_LEVEL_NONE
-      && (TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
+      && VAR_OR_FUNCTION_DECL_P (decl)
       && TREE_PUBLIC (decl)
-      && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+      && !(VAR_P (decl) && DECL_REGISTER (decl))
       && die->die_tag != DW_TAG_member)
     add_linkage_name_raw (die, decl);
 }
@@ -20119,7 +20152,7 @@ set_block_abstract_flags (tree stmt, vec<tree> &abstract_vec)
   for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (stmt); i++)
     {
       local_decl = BLOCK_NONLOCALIZED_VAR (stmt, i);
-      if ((TREE_CODE (local_decl) == VAR_DECL && !TREE_STATIC (local_decl))
+      if ((VAR_P (local_decl) && !TREE_STATIC (local_decl))
 	  || TREE_CODE (local_decl) == PARM_DECL)
 	set_decl_abstract_flags (local_decl, abstract_vec);
     }
@@ -21203,7 +21236,7 @@ decl_will_get_specification_p (dw_die_ref old_die, tree decl, bool declaration)
 static inline bool
 local_function_static (tree decl)
 {
-  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+  gcc_assert (VAR_P (decl));
   return TREE_STATIC (decl)
     && DECL_CONTEXT (decl)
     && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL;
@@ -21454,7 +21487,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	  /* Local static vars are shared between all clones/inlines,
 	     so emit DW_AT_location on the abstract DIE if DECL_RTL is
 	     already set.  */
-	  || (TREE_CODE (decl_or_origin) == VAR_DECL
+	  || (VAR_P (decl_or_origin)
 	      && TREE_STATIC (decl_or_origin)
 	      && DECL_RTL_SET_P (decl_or_origin)))
       /* When abstract origin already has DW_AT_location attribute, no need
@@ -23887,8 +23920,7 @@ dwarf2out_late_global_decl (tree decl)
 {
   /* Fill-in any location information we were unable to determine
      on the first pass.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      && !POINTER_BOUNDS_P (decl))
+  if (VAR_P (decl) && !POINTER_BOUNDS_P (decl))
     {
       dw_die_ref die = lookup_decl_die (decl);
 
@@ -24043,13 +24075,15 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
       && !should_emit_struct_debug (context, DINFO_USAGE_DIR_USE))
     return;
 
-  if (!(dwarf_version >= 3 || !dwarf_strict))
-    return;
-
   scope_die = get_context_die (context);
 
   if (child)
     {
+      /* DW_TAG_imported_module was introduced in the DWARFv3 specification, so
+	 there is nothing we can do, here.  */
+      if (dwarf_version < 3 && dwarf_strict)
+	return;
+
       gcc_assert (scope_die->die_child);
       gcc_assert (scope_die->die_child->die_tag == DW_TAG_imported_module);
       gcc_assert (TREE_CODE (decl) != NAMESPACE_DECL);
@@ -25591,7 +25625,7 @@ init_sections_and_labels (void)
 		       SECTION_DEBUG | SECTION_EXCLUDE, NULL);
       ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_line_section_label,
                                    DEBUG_SKELETON_LINE_SECTION_LABEL, 0);
-      debug_str_offsets_section = get_section (DEBUG_STR_OFFSETS_SECTION,
+      debug_str_offsets_section = get_section (DEBUG_DWO_STR_OFFSETS_SECTION,
                                                SECTION_DEBUG | SECTION_EXCLUDE,
                                                NULL);
       ASM_GENERATE_INTERNAL_LABEL (debug_skeleton_info_section_label,
@@ -26645,7 +26679,7 @@ optimize_one_addr_into_implicit_ptr (dw_loc_descr_ref loc)
   if (GET_CODE (rtl) == SYMBOL_REF && SYMBOL_REF_DECL (rtl))
     {
       decl = SYMBOL_REF_DECL (rtl);
-      if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
+      if (VAR_P (decl) && !DECL_EXTERNAL (decl))
 	{
 	  ref = lookup_decl_die (decl);
 	  if (ref && (get_AT (ref, DW_AT_location)
@@ -26807,7 +26841,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 static void
 optimize_location_into_implicit_ptr (dw_die_ref die, tree decl)
 {
-  if (TREE_CODE (decl) != VAR_DECL
+  if (!VAR_P (decl)
       || lookup_decl_die (decl) != die
       || DECL_EXTERNAL (decl)
       || !TREE_STATIC (decl)
@@ -27844,6 +27878,13 @@ dwarf2out_finish (const char *)
 
   /* Flush out any latecomers to the limbo party.  */
   flush_limbo_die_list ();
+
+  if (flag_checking)
+    {
+      verify_die (comp_unit_die ());
+      for (limbo_die_node *node = cu_die_list; node; node = node->next)
+	verify_die (node->die);
+    }
 
   /* We shouldn't have any symbols with delayed asm names for
      DIEs generated after early finish.  */

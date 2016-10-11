@@ -1000,15 +1000,17 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // sfinae types
       template<typename _Res>
-	struct __enable_if_void : enable_if<is_void<_Res>::value, int> { };
+	using __enable_if_void
+	  = typename enable_if<is_void<_Res>{}>::type;
+
       template<typename _Res>
-	struct __disable_if_void : enable_if<!is_void<_Res>::value, int> { };
+	using __disable_if_void
+	  = typename enable_if<!is_void<_Res>{}, _Result>::type;
 
       // Call unqualified
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	_Result
-	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>,
-	    typename __disable_if_void<_Res>::type = 0)
+	__disable_if_void<_Res>
+	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>)
 	{
 	  return _M_f(_Mu<_Bound_args>()
 		      (std::get<_Indexes>(_M_bound_args), __args)...);
@@ -1016,9 +1018,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // Call unqualified, return void
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	void
-	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>,
-	    typename __enable_if_void<_Res>::type = 0)
+	__enable_if_void<_Res>
+	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>)
 	{
 	  _M_f(_Mu<_Bound_args>()
 	       (std::get<_Indexes>(_M_bound_args), __args)...);
@@ -1026,9 +1027,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // Call as const
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	_Result
-	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>,
-	    typename __disable_if_void<_Res>::type = 0) const
+	__disable_if_void<_Res>
+	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>) const
 	{
 	  return _M_f(_Mu<_Bound_args>()
 		      (std::get<_Indexes>(_M_bound_args), __args)...);
@@ -1036,9 +1036,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // Call as const, return void
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	void
-	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>,
-	    typename __enable_if_void<_Res>::type = 0) const
+	__enable_if_void<_Res>
+	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>) const
 	{
 	  _M_f(_Mu<_Bound_args>()
 	       (std::get<_Indexes>(_M_bound_args),  __args)...);
@@ -1046,9 +1045,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // Call as volatile
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	_Result
-	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>,
-	    typename __disable_if_void<_Res>::type = 0) volatile
+	__disable_if_void<_Res>
+	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>) volatile
 	{
 	  return _M_f(_Mu<_Bound_args>()
 		      (__volget<_Indexes>(_M_bound_args), __args)...);
@@ -1056,9 +1054,8 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // Call as volatile, return void
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	void
-	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>,
-	    typename __enable_if_void<_Res>::type = 0) volatile
+	__enable_if_void<_Res>
+	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>) volatile
 	{
 	  _M_f(_Mu<_Bound_args>()
 	       (__volget<_Indexes>(_M_bound_args), __args)...);
@@ -1066,9 +1063,9 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // Call as const volatile
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	_Result
-	__call(tuple<_Args...>&& __args, _Index_tuple<_Indexes...>,
-	    typename __disable_if_void<_Res>::type = 0) const volatile
+	__disable_if_void<_Res>
+	__call(tuple<_Args...>&& __args,
+	       _Index_tuple<_Indexes...>) const volatile
 	{
 	  return _M_f(_Mu<_Bound_args>()
 		      (__volget<_Indexes>(_M_bound_args), __args)...);
@@ -1076,10 +1073,9 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
 
       // Call as const volatile, return void
       template<typename _Res, typename... _Args, std::size_t... _Indexes>
-	void
+	__enable_if_void<_Res>
 	__call(tuple<_Args...>&& __args,
-	       _Index_tuple<_Indexes...>,
-	    typename __enable_if_void<_Res>::type = 0) const volatile
+	       _Index_tuple<_Indexes...>) const volatile
 	{
 	  _M_f(_Mu<_Bound_args>()
 	       (__volget<_Indexes>(_M_bound_args), __args)...);
@@ -2139,19 +2135,14 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     swap(function<_Res(_Args...)>& __x, function<_Res(_Args...)>& __y) noexcept
     { __x.swap(__y); }
 
-
-#if __cplusplus > 201402L
-
-#define __cpp_lib_not_fn 201603
-
-    /// Generalized negator.
+#if __cplusplus >= 201402L
+  /// Generalized negator.
   template<typename _Fn>
     class _Not_fn
     {
     public:
       template<typename _Fn2>
-	explicit
-	_Not_fn(_Fn2&& __fn)
+	_Not_fn(_Fn2&& __fn, int)
 	: _M_fn(std::forward<_Fn2>(__fn)) { }
 
       _Not_fn(const _Not_fn& __fn) = default;
@@ -2161,21 +2152,21 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       template<typename... _Args>
 	auto
 	operator()(_Args&&... __args) &
-	noexcept(is_nothrow_callable_v<_Fn&(_Args&&...)>)
+	noexcept(__is_nothrow_callable<_Fn&(_Args&&...)>::value)
 	-> decltype(!std::declval<result_of_t<_Fn&(_Args&&...)>>())
 	{ return !std::__invoke(_M_fn, std::forward<_Args>(__args)...); }
 
       template<typename... _Args>
 	auto
 	operator()(_Args&&... __args) const &
-	noexcept(is_nothrow_callable_v<const _Fn&(_Args&&...)>)
+	noexcept(__is_nothrow_callable<const _Fn&(_Args&&...)>::value)
 	-> decltype(!std::declval<result_of_t<const _Fn&(_Args&&...)>>())
 	{ return !std::__invoke(_M_fn, std::forward<_Args>(__args)...); }
 
       template<typename... _Args>
 	auto
 	operator()(_Args&&... __args) &&
-	noexcept(is_nothrow_callable_v<_Fn&&(_Args&&...)>)
+	noexcept(__is_nothrow_callable<_Fn&&(_Args&&...)>::value)
 	-> decltype(!std::declval<result_of_t<_Fn&&(_Args&&...)>>())
 	{
 	  return !std::__invoke(std::move(_M_fn),
@@ -2185,7 +2176,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       template<typename... _Args>
 	auto
 	operator()(_Args&&... __args) const &&
-	noexcept(is_nothrow_callable_v<const _Fn&&(_Args&&...)>)
+	noexcept(__is_nothrow_callable<const _Fn&&(_Args&&...)>::value)
 	-> decltype(!std::declval<result_of_t<const _Fn&&(_Args&&...)>>())
 	{
 	  return !std::__invoke(std::move(_M_fn),
@@ -2195,6 +2186,11 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     private:
       _Fn _M_fn;
     };
+#endif // C++14
+
+#if __cplusplus > 201402L
+
+#define __cpp_lib_not_fn 201603
 
   /// [func.not_fn] Function template not_fn
   template<typename _Fn>
@@ -2202,7 +2198,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
     not_fn(_Fn&& __fn)
     noexcept(std::is_nothrow_constructible<std::decay_t<_Fn>, _Fn&&>::value)
     {
-      return _Not_fn<std::decay_t<_Fn>>{std::forward<_Fn>(__fn)};
+      return _Not_fn<std::decay_t<_Fn>>{std::forward<_Fn>(__fn), 0};
     }
 
   // Searchers
@@ -2515,7 +2511,7 @@ _GLIBCXX_MEM_FN_TRAITS(&&, false_type, true_type)
       return std::make_pair(__last, __last);
     }
 
-#endif
+#endif // C++17
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std

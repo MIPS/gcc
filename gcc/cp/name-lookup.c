@@ -1156,7 +1156,7 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
 		   }
 		}
 	      /* Error if redeclaring a local declared in a
-		 for-init-statement or in the condition of an if or
+		 init-statement or in the condition of an if or
 		 switch statement when the new declaration is in the
 		 outermost block of the controlled statement.
 		 Redeclaring a variable from a for or while condition is
@@ -6053,9 +6053,6 @@ pushtag_1 (tree name, tree type, tag_scope scope)
 	  || (b->kind == sk_template_parms
 	      && b->level_chain->kind == sk_class))
 	in_class = 1;
-
-      if (current_lang_name == lang_name_java)
-	TYPE_FOR_JAVA (type) = 1;
 
       tdef = create_implicit_typedef (name, type);
       DECL_CONTEXT (tdef) = FROB_CONTEXT (context);

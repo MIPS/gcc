@@ -114,6 +114,9 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
   tree t, tt = NULL_TREE;
   tree type0 = TREE_TYPE (op0);
   tree type1 = TREE_TYPE (op1);
+  if (!INTEGRAL_TYPE_P (type0))
+    return NULL_TREE;
+
   tree op1_utype = unsigned_type_for (type1);
   HOST_WIDE_INT op0_prec = TYPE_PRECISION (type0);
   tree uprecm1 = build_int_cst (op1_utype, op0_prec - 1);
@@ -126,8 +129,7 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
 
   /* If this is not a signed operation, don't perform overflow checks.
      Also punt on bit-fields.  */
-  if (!INTEGRAL_TYPE_P (type0)
-      || TYPE_OVERFLOW_WRAPS (type0)
+  if (TYPE_OVERFLOW_WRAPS (type0)
       || GET_MODE_BITSIZE (TYPE_MODE (type0)) != TYPE_PRECISION (type0))
     ;
 
@@ -233,9 +235,6 @@ ubsan_instrument_return (location_t loc)
 {
   if (flag_sanitize_undefined_trap_on_error)
     return build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
-  /* It is possible that PCH zapped table with definitions of sanitizer
-     builtins.  Reinitialize them if needed.  */
-  initialize_sanitizer_builtins ();
 
   tree data = ubsan_create_data ("__ubsan_missing_return_data", 1, &loc,
 				 NULL_TREE, NULL_TREE);

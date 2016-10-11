@@ -246,8 +246,7 @@ target_for_debug_bind (tree var)
 	return NULL_TREE;
     }
 
-  if ((TREE_CODE (var) != VAR_DECL
-       || VAR_DECL_IS_VIRTUAL_OPERAND (var))
+  if ((!VAR_P (var) || VAR_DECL_IS_VIRTUAL_OPERAND (var))
       && TREE_CODE (var) != PARM_DECL)
     return NULL_TREE;
 
@@ -551,58 +550,70 @@ release_defs_bitset (bitmap toremove)
      most likely run in slightly superlinear time, rather than the
      pathological quadratic worst case.  */
   while (!bitmap_empty_p (toremove))
-    EXECUTE_IF_SET_IN_BITMAP (toremove, 0, j, bi)
-      {
-	bool remove_now = true;
-	tree var = ssa_name (j);
-	gimple *stmt;
-	imm_use_iterator uit;
+    {
+      unsigned to_remove_bit = -1U;
+      EXECUTE_IF_SET_IN_BITMAP (toremove, 0, j, bi)
+	{
+	  if (to_remove_bit != -1U)
+	    {
+	      bitmap_clear_bit (toremove, to_remove_bit);
+	      to_remove_bit = -1U;
+	    }
 
-	FOR_EACH_IMM_USE_STMT (stmt, uit, var)
-	  {
-	    ssa_op_iter dit;
-	    def_operand_p def_p;
+	  bool remove_now = true;
+	  tree var = ssa_name (j);
+	  gimple *stmt;
+	  imm_use_iterator uit;
 
-	    /* We can't propagate PHI nodes into debug stmts.  */
-	    if (gimple_code (stmt) == GIMPLE_PHI
-		|| is_gimple_debug (stmt))
-	      continue;
+	  FOR_EACH_IMM_USE_STMT (stmt, uit, var)
+	    {
+	      ssa_op_iter dit;
+	      def_operand_p def_p;
 
-	    /* If we find another definition to remove that uses
-	       the one we're looking at, defer the removal of this
-	       one, so that it can be propagated into debug stmts
-	       after the other is.  */
-	    FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, dit, SSA_OP_DEF)
-	      {
-		tree odef = DEF_FROM_PTR (def_p);
+	      /* We can't propagate PHI nodes into debug stmts.  */
+	      if (gimple_code (stmt) == GIMPLE_PHI
+		  || is_gimple_debug (stmt))
+		continue;
 
-		if (bitmap_bit_p (toremove, SSA_NAME_VERSION (odef)))
-		  {
-		    remove_now = false;
-		    break;
-		  }
-	      }
+	      /* If we find another definition to remove that uses
+		 the one we're looking at, defer the removal of this
+		 one, so that it can be propagated into debug stmts
+		 after the other is.  */
+	      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, dit, SSA_OP_DEF)
+		{
+		  tree odef = DEF_FROM_PTR (def_p);
 
-	    if (!remove_now)
-	      BREAK_FROM_IMM_USE_STMT (uit);
-	  }
+		  if (bitmap_bit_p (toremove, SSA_NAME_VERSION (odef)))
+		    {
+		      remove_now = false;
+		      break;
+		    }
+		}
 
-	if (remove_now)
-	  {
-	    gimple *def = SSA_NAME_DEF_STMT (var);
-	    gimple_stmt_iterator gsi = gsi_for_stmt (def);
+	      if (!remove_now)
+		BREAK_FROM_IMM_USE_STMT (uit);
+	    }
 
-	    if (gimple_code (def) == GIMPLE_PHI)
-	      remove_phi_node (&gsi, true);
-	    else
-	      {
-		gsi_remove (&gsi, true);
-		release_defs (def);
-	      }
+	  if (remove_now)
+	    {
+	      gimple *def = SSA_NAME_DEF_STMT (var);
+	      gimple_stmt_iterator gsi = gsi_for_stmt (def);
 
-	    bitmap_clear_bit (toremove, j);
-	  }
-      }
+	      if (gimple_code (def) == GIMPLE_PHI)
+		remove_phi_node (&gsi, true);
+	      else
+		{
+		  gsi_remove (&gsi, true);
+		  release_defs (def);
+		}
+
+	      to_remove_bit = j;
+	    }
+	}
+      if (to_remove_bit != -1U)
+	bitmap_clear_bit (toremove, to_remove_bit);
+    }
+
 }
 
 /* Verify virtual SSA form.  */
@@ -962,7 +973,7 @@ verify_phi_args (gphi *phi, basic_block bb, basic_block *definition_block)
 	  tree base = TREE_OPERAND (op, 0);
 	  while (handled_component_p (base))
 	    base = TREE_OPERAND (base, 0);
-	  if ((TREE_CODE (base) == VAR_DECL
+	  if ((VAR_P (base)
 	       || TREE_CODE (base) == PARM_DECL
 	       || TREE_CODE (base) == RESULT_DECL)
 	      && !TREE_ADDRESSABLE (base))
@@ -1234,7 +1245,7 @@ ssa_undefined_value_p (tree t, bool partial)
   else if (TREE_CODE (var) == RESULT_DECL && DECL_BY_REFERENCE (var))
     return false;
   /* Hard register variables get their initial value from the ether.  */
-  else if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
+  else if (VAR_P (var) && DECL_HARD_REGISTER (var))
     return false;
 
   /* The value is undefined iff its definition statement is empty.  */
@@ -1526,7 +1537,7 @@ maybe_optimize_var (tree var, bitmap addresses_taken, bitmap not_reg_needs,
       && (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
 	  || TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
       && !TREE_THIS_VOLATILE (var)
-      && (TREE_CODE (var) != VAR_DECL || !DECL_HARD_REGISTER (var)))
+      && (!VAR_P (var) || !DECL_HARD_REGISTER (var)))
     {
       DECL_GIMPLE_REG_P (var) = 1;
       bitmap_set_bit (suitable_for_renaming, DECL_UID (var));

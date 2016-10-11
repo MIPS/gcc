@@ -251,7 +251,7 @@ am__objects_6 = go-append.lo go-assert.lo go-assert-interface.lo \
 	go-interface-val-compare.lo go-make-slice.lo go-matherr.lo \
 	go-memclr.lo go-memcmp.lo go-memequal.lo go-memmove.lo \
 	go-nanotime.lo go-now.lo go-new.lo go-nosys.lo go-panic.lo \
-	go-print.lo go-recover.lo go-reflect-call.lo go-rune.lo \
+	go-recover.lo go-reflect-call.lo go-rune.lo \
 	go-runtime-error.lo go-setenv.lo go-signal.lo go-strcmp.lo \
 	go-string-to-byte-array.lo go-string-to-int-array.lo \
 	go-strplus.lo go-strslice.lo go-traceback.lo \
@@ -263,9 +263,9 @@ am__objects_6 = go-append.lo go-assert.lo go-assert-interface.lo \
 	$(am__objects_1) mfixalloc.lo mgc0.lo mheap.lo msize.lo \
 	$(am__objects_2) panic.lo parfor.lo print.lo proc.lo \
 	runtime.lo signal_unix.lo thread.lo $(am__objects_3) yield.lo \
-	$(am__objects_4) chan.lo cpuprof.lo go-iface.lo lfstack.lo \
-	malloc.lo mprof.lo netpoll.lo rdebug.lo reflect.lo runtime1.lo \
-	sema.lo sigqueue.lo string.lo time.lo $(am__objects_5)
+	$(am__objects_4) cpuprof.lo go-iface.lo lfstack.lo malloc.lo \
+	mprof.lo netpoll.lo rdebug.lo reflect.lo runtime1.lo sema.lo \
+	sigqueue.lo string.lo time.lo $(am__objects_5)
 am_libgo_llgo_la_OBJECTS = $(am__objects_6)
 libgo_llgo_la_OBJECTS = $(am_libgo_llgo_la_OBJECTS)
 libgo_llgo_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -875,7 +875,6 @@ runtime_files = \
 	runtime/go-new.c \
 	runtime/go-nosys.c \
 	runtime/go-panic.c \
-	runtime/go-print.c \
 	runtime/go-recover.c \
 	runtime/go-reflect-call.c \
 	runtime/go-rune.c \
@@ -921,7 +920,6 @@ runtime_files = \
 	$(runtime_thread_files) \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
-	chan.c \
 	cpuprof.c \
 	go-iface.c \
 	lfstack.c \
@@ -1557,7 +1555,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/chan.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cpuprof.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env_posix.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getncpu-bsd.Plo@am__quote@
@@ -1602,7 +1599,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/go-nosys.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/go-now.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/go-panic.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/go-print.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/go-recover.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/go-reflect-call.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/go-rune.Plo@am__quote@
@@ -1980,13 +1976,6 @@ go-panic.lo: runtime/go-panic.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='runtime/go-panic.c' object='go-panic.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o go-panic.lo `test -f 'runtime/go-panic.c' || echo '$(srcdir)/'`runtime/go-panic.c
-
-go-print.lo: runtime/go-print.c
-@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT go-print.lo -MD -MP -MF $(DEPDIR)/go-print.Tpo -c -o go-print.lo `test -f 'runtime/go-print.c' || echo '$(srcdir)/'`runtime/go-print.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/go-print.Tpo $(DEPDIR)/go-print.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='runtime/go-print.c' object='go-print.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o go-print.lo `test -f 'runtime/go-print.c' || echo '$(srcdir)/'`runtime/go-print.c
 
 go-recover.lo: runtime/go-recover.c
 @am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT go-recover.lo -MD -MP -MF $(DEPDIR)/go-recover.Tpo -c -o go-recover.lo `test -f 'runtime/go-recover.c' || echo '$(srcdir)/'`runtime/go-recover.c
@@ -3886,8 +3875,13 @@ runtime-go.lo.dep: $(srcdir)/go/runtime/*.go $(extra_go_files_runtime)
 runtime-go.lo:
 	$(BUILDPACKAGE)
 runtime.inc: s-runtime-inc; @true
-s-runtime-inc: runtime-go.lo
-	$(SHELL) $(srcdir)/mvifdiff.sh runtime.inc.tmp runtime.inc
+s-runtime-inc: runtime-go.lo Makefile
+	rm -f runtime.inc.tmp2
+	grep -v "#define _" runtime.inc.tmp > runtime.inc.tmp2
+	for pattern in '_G[a-z]' '_P[a-z]' _Max _Lock _Sig _Trace _MHeap _Num; do \
+	  grep "#define $$pattern" runtime.inc.tmp >> runtime.inc.tmp2; \
+	done
+	$(SHELL) $(srcdir)/mvifdiff.sh runtime.inc.tmp2 runtime.inc
 	$(STAMP) $@
 runtime/check: $(CHECK_DEPS)
 	@$(CHECK)

@@ -1226,8 +1226,6 @@ structural_comptypes (tree t1, tree t2, int strict)
        || TREE_CODE (t1) == METHOD_TYPE)
       && type_memfn_rqual (t1) != type_memfn_rqual (t2))
     return false;
-  if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
-    return false;
 
   /* Allow for two different type nodes which have essentially the same
      definition.  Note that we already checked for equality of the type
@@ -4573,7 +4571,7 @@ cp_build_binary_op (location_t location,
 	      || code1 == COMPLEX_TYPE || code1 == ENUMERAL_TYPE))
 	short_compare = 1;
       else if (((code0 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type0))
-		&& null_ptr_cst_p (op1))
+		&& null_ptr_cst_p (orig_op1))
 	       /* Handle, eg, (void*)0 (c++/43906), and more.  */
 	       || (code0 == POINTER_TYPE
 		   && TYPE_PTR_P (type1) && integer_zerop (op1)))
@@ -4587,7 +4585,7 @@ cp_build_binary_op (location_t location,
 	  warn_for_null_address (location, op0, complain);
 	}
       else if (((code1 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type1))
-		&& null_ptr_cst_p (op0))
+		&& null_ptr_cst_p (orig_op0))
 	       /* Handle, eg, (void*)0 (c++/43906), and more.  */
 	       || (code1 == POINTER_TYPE
 		   && TYPE_PTR_P (type0) && integer_zerop (op0)))
@@ -4604,7 +4602,7 @@ cp_build_binary_op (location_t location,
 	       || (TYPE_PTRDATAMEM_P (type0) && TYPE_PTRDATAMEM_P (type1)))
 	result_type = composite_pointer_type (type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
-      else if (null_ptr_cst_p (op0) && null_ptr_cst_p (op1))
+      else if (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1))
 	/* One of the operands must be of nullptr_t type.  */
         result_type = TREE_TYPE (nullptr_node);
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -4623,7 +4621,7 @@ cp_build_binary_op (location_t location,
           else
             return error_mark_node;
 	}
-      else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (op1))
+      else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (orig_op1))
 	{
 	  if (TARGET_PTRMEMFUNC_VBIT_LOCATION
 	      == ptrmemfunc_vbit_in_delta)
@@ -4664,7 +4662,7 @@ cp_build_binary_op (location_t location,
 	    }
 	  result_type = TREE_TYPE (op0);
 	}
-      else if (TYPE_PTRMEMFUNC_P (type1) && null_ptr_cst_p (op0))
+      else if (TYPE_PTRMEMFUNC_P (type1) && null_ptr_cst_p (orig_op0))
 	return cp_build_binary_op (location, code, op1, op0, complain);
       else if (TYPE_PTRMEMFUNC_P (type0) && TYPE_PTRMEMFUNC_P (type1))
 	{
@@ -4877,21 +4875,21 @@ cp_build_binary_op (location_t location,
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	result_type = composite_pointer_type (type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
-      else if (code0 == POINTER_TYPE && null_ptr_cst_p (op1))
+      else if (code0 == POINTER_TYPE && null_ptr_cst_p (orig_op1))
 	{
 	  result_type = type0;
 	  if (extra_warnings && (complain & tf_warning))
 	    warning (OPT_Wextra,
 		     "ordered comparison of pointer with integer zero");
 	}
-      else if (code1 == POINTER_TYPE && null_ptr_cst_p (op0))
+      else if (code1 == POINTER_TYPE && null_ptr_cst_p (orig_op0))
 	{
 	  result_type = type1;
 	  if (extra_warnings && (complain & tf_warning))
 	    warning (OPT_Wextra,
 		     "ordered comparison of pointer with integer zero");
 	}
-      else if (null_ptr_cst_p (op0) && null_ptr_cst_p (op1))
+      else if (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1))
 	/* One of the operands must be of nullptr_t type.  */
         result_type = TREE_TYPE (nullptr_node);
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -5455,6 +5453,29 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
     }
   if (TREE_CODE (exp) == ADDR_EXPR)
     PTRMEM_OK_P (exp) = ptrmem;
+  return exp;
+}
+
+/* Construct and perhaps optimize a tree representation
+   for __builtin_addressof operation.  ARG specifies the operand.  */
+
+tree
+cp_build_addressof (location_t loc, tree arg, tsubst_flags_t complain)
+{
+  tree orig_expr = arg;
+
+  if (processing_template_decl)
+    {
+      if (type_dependent_expression_p (arg))
+	return build_min_nt_loc (loc, ADDRESSOF_EXPR, arg, NULL_TREE);
+
+      arg = build_non_dependent_expr (arg);
+    }
+
+  tree exp = cp_build_addr_expr_strict (arg, complain);
+
+  if (processing_template_decl && exp != error_mark_node)
+    exp = build_min_non_dep (ADDRESSOF_EXPR, exp, orig_expr, NULL_TREE);
   return exp;
 }
 

@@ -1,3 +1,521 @@
+2016-10-11  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_math.f90: New testsuite.
+
+2016-10-11  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/pr59597.c: Typedef  __INT32_TYPE__ to i32.
+	(main): Declare j as i32 instead of int.
+
+2016-10-11  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR testsuite/PR77710
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-4.c: Use *-*-* as catch-all
+	target triplet instead of *-*-*-*.
+
+2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/unchecked_convert10.adb: New test.
+	* gnat.dg/unchecked_convert11.adb: Likewise.
+	* gnat.dg/unchecked_convert12.adb: Likewise.
+
+2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/cbcond-1.c: New test.
+	* gcc.target/sparc/cbcond-2.c: Likewise.
+	* gcc.target/sparc/movcc-1.c: Likewise.
+	* gcc.target/sparc/movcc-2.c: Likewise.
+	* gcc.target/sparc/setcc-1.c: Adjust.
+	* gcc.target/sparc/setcc-2.c: Likewise.
+	* gcc.target/sparc/setcc-3.c: Likewise.
+	* gcc.target/sparc/setcc-4.c: Likewise.
+	* gcc.target/sparc/setcc-5.c: Likewise.
+	* gcc.target/sparc/setcc-6.c: New test.
+	* gcc.target/sparc/setcc-7.c: Likewise.
+	* gcc.target/sparc/setcc-8.c: Likewise.
+	* gcc.target/sparc/setcc-9.c: Likewise.
+	* gcc.target/sparc/setcc-10.c: Likewise.
+
+2016-10-10  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71947
+	* gcc.dg/tree-ssa/pr71947-1.c: New test.
+	* gcc.dg/tree-ssa/pr71947-2.c: New test.
+	* gcc.dg/tree-ssa/pr71947-3.c: New test.
+	* gcc.dg/tree-ssa/pr71947-4.c: New test.
+	* gcc.dg/tree-ssa/pr71947-5.c: New test.
+	* gcc.dg/tree-ssa/pr71947-6.c: New test.
+
+2016-10-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/77915
+	* gfortran.dg/matmul_11.f90:  New test.
+
+2016-10-10  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/unary_scalar_op.inc: Support FMT64.
+	* gcc.target/aarch64/advsimd-intrinsics/vabdh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcageh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcagth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcaleh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcalth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vceqh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vceqzh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgeh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgezh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcgtzh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcleh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vclezh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vclth_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcltzh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtah_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_s16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_s64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_u16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_f16_u64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_s16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_s64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_u16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_f16_u64_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_n_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvth_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtmh_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtnh_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_s16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_s64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_u16_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vcvtph_u64_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmash_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vminh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulh_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulxh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulxh_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrecpeh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrecpsh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrecpxh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrsqrteh_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrsqrtsh_f16_1.c: New.
+
+2016-10-10  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vdiv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmas_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vfmas_n_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxnmv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmaxv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vminnmv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vminv_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmul_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulx_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulx_lane_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vmulx_n_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vpminmaxnm_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndi_f16_1.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vsqrt_f16_1.c: New.
+
+2016-10-10  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h (FP16_SUPPORTED):
+	Enable AArch64.
+	* gcc.target/aarch64/advsimd-intrinsics/vdup_lane.c: Add support for
+	vdup*_laneq.
+	* gcc.target/aarch64/advsimd-intrinsics/vduph_lane.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vtrn_half.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vuzp_half.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vzip_half.c: New.
+
+2016-10-10  Matthew Wahab  <matthew.wahab@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	* target-supports.exp (add_options_for_arm_v8_2a_fp16_scalar): Mention
+	AArch64 support.
+	(add_options_for_arm_v8_2a_fp16_neon): Likewise.
+	(check_effective_target_arm_v8_2a_fp16_scalar_ok_nocache): Support
+	AArch64 targets.
+	(check_effective_target_arm_v8_2a_fp16_neon_ok_nocache): Support
+	AArch64 targets.
+	(check_effective_target_arm_v8_2a_fp16_scalar_hw): Support AArch64
+	targets.
+	(check_effective_target_arm_v8_2a_fp16_neon_hw): Likewise.
+
+2016-10-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/vfa.ads: New test.
+
+2016-10-10  Eric Botgazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/inline13.ad[sb]: New test.
+	* gnat.dg/inline13_pkg.ad[sb]: New helper.
+
+2016-10-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/biased_subtype.adb: New test.
+
+2016-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77901
+	* gcc.c-torture/compile/pr77901.c: New test.
+
+2016-10-09  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/ipa/propalign-1.c: Adjust scan-ipa-dump.
+	* gcc.dg/ipa/propalign-2.c: Likewise
+	* gcc.dg/ipa/propalign-3.c: Likewise.
+	* gcc.dg/ipa/propalign-4.c: Likewise.
+	* gcc.dg/ipa/propalign-5.c: Likewise.
+
+2016-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/Wimplicit-fallthrough-23.c (foo): Add further tests.
+
+	* c-c++-common/Wimplicit-fallthrough-23.c (foo): Add further tests.
+
+	* c-c++-common/Wimplicit-fallthrough-23.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-24.c: New test.
+
+2016-10-07  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_union_11.f90: New testcase.
+
+2016-10-07  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66443
+	* g++.dg/cpp0x/pr66443-cxx11.C: New.
+	* g++.dg/cpp0x/pr66443-cxx11-2.C: New.
+	* g++.dg/cpp1y/pr66443-cxx14.C: New
+	* g++.dg/cpp1y/pr66443-cxx14-2.C: New.
+	* g++.dg/cpp1y/pr66443-cxx14-3.C: New.
+
+2016-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp0x/addressof1.C: New test.
+	* g++.dg/cpp0x/addressof2.C: New test.
+
+2016-10-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-type-1.c: New test to check that
+	PowerPC 64-bit Linux enables -mfloat128-type by default.
+	* gcc.target/powerpc/float128-type-2.c: Likewise.
+	* gcc.target/powerpc/float128-mix.c: Change error message to
+	reflect that __ibm128 is now #define'ed to be long double.
+
+2016-10-07  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77406
+	* gfortran.dg/pr77406.f90: New test.
+	* gfortran.dg/assumed_type_3.f90: Update error messages.
+	* gfortran.dg/defined_operators_1.f90: Ditto.
+	* gfortran.dg/generic_26.f90: Ditto.
+	* gfortran.dg/generic_7.f90: Ditto.
+	* gfortran.dg/gomp/udr5.f90: Ditto.
+	* gfortran.dg/gomp/udr7.f90: Ditto.
+	* gfortran.dg/interface_1.f90: Ditto.
+	* gfortran.dg/interface_37.f90: Ditto.
+	* gfortran.dg/interface_5.f90: Ditto.
+	* gfortran.dg/interface_6.f90: Ditto.
+	* gfortran.dg/interface_7.f90
+	* gfortran.dg/no_arg_check_3.f90
+	* gfortran.dg/operator_5.f90
+	* gfortran.dg/proc_ptr_comp_20.f90: Ditto.
+
+2016-10-07  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77700
+	* c-c++-common/Wint-in-bool-context.c: Update test.
+
+2016-10-07  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/vrp01.c: Adjust.
+	* gcc.dg/tree-ssa/vrp34.c: Likewise.
+
+2016-10-07  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wimplicit-fallthrough-22.c: New test.
+
+2016-10-07  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c++/69733
+	* c-c++-common/pr69733.c: New test.
+	* gcc.dg/pr69733.c: New test.
+	* gcc.target/i386/pr69733.c: New test.
+
+2016-10-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/77803
+	* g++.dg/warn/Wimplicit-fallthrough-1.C: New test.
+
+2016-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77664
+	* gcc.dg/tree-ssa/pr77664.c: New test.
+	* gcc.dg/pr77664.c: New test.
+
+2016-10-06  Louis Krupp  <louis.krupp@zoho.com>
+
+	* gfortran.dg/pr69955.f90: New test.
+
+2016_10-06  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/57910
+	* gfortran.dg/pr57910.f90: New test.
+
+2016-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/has-unique-obj-representations1.C: New test.
+	* g++.dg/cpp1z/has-unique-obj-representations2.C: New test.
+
+2016-10-06  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR tree-optimization/77862
+	* gcc.dg/pr77862.c: New test.
+
+2016-10-06  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.dg/tree-ssa/evrp4.c: New test.
+
+2016-10-06  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71661
+	* gcc.dg/tree-ssa/pr71661.c: New test.
+
+2016-10-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77855
+	* gcc.dg/torture/pr77855.c: New testcase.
+
+2016-10-06  James Clarke  <jrtc27@jrtc27.com>
+            Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/other/pr77759.C: New test.
+
+2016-10-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77839
+	* gcc.dg/torture/pr77839.c: New testcase.
+
+2016-10-06  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp1z/init-statement9.C: New test.
+
+2016-10-05  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* gcc.target/i386/pcommit-1.c: Deleted.
+	* gcc.target/i386/sse-12.c: Deleted -pcommit option.
+	* gcc.target/i386/sse-13.c: Ditto.
+	* gcc.target/i386/sse-14.c: Ditto.
+	* gcc.target/i386/sse-22.c: Ditto.
+	* gcc.target/i386/sse-23.c: Ditto.
+	* g++.dg/other/i386-2.C: Ditto.
+
+2016-10-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr77833.c: Require int128 effective target.
+
+2016-10-05  Steven G. Kargl  <kargls@gcc.gnu.org>
+
+	PR fortran/58991
+	PR fortran/58992
+	* gfortran.dg/associate_22.f90: New test.
+
+2016-10-05  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_union_9.f90: New testcase.
+	* gfortran.dg/dec_union_10.f90: New testcase.
+
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/66343
+	* gcc.dg/pch/pr66343-3.c: New test.
+	* gcc.dg/pch/pr66343-3.hs: New file.
+
+	PR sanitizer/66343
+	* gcc.dg/pch/pr66343-1.c: New test.
+	* gcc.dg/pch/pr66343-1.hs: New file.
+	* gcc.dg/pch/pr66343-2.c: New test.
+	* gcc.dg/pch/pr66343-2.hs: New file.
+
+2016-10-05  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/Wint-in-bool-context.c: Update test.
+
+2016-10-05  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp1z/init-statement1.C: New test.
+	* g++.dg/cpp1z/init-statement2.C: New test.
+	* g++.dg/cpp1z/init-statement3.C: New test.
+	* g++.dg/cpp1z/init-statement4.C: New test.
+	* g++.dg/cpp1z/init-statement5.C: New test.
+	* g++.dg/cpp1z/init-statement6.C: New test.
+	* g++.dg/cpp1z/init-statement7.C: New test.
+	* g++.dg/cpp1z/init-statement8.C: New test.
+
+2016-10-05  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/67524
+	* gfortran.dg/pr67524.f90: New test.
+
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77823
+	* c-c++-common/ubsan/shift-9.c: New test.
+
+2016-10-05  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/torture/pr69941.c: Use __INT32_TYPE__ instead
+	of int if __SIZEOF_INT__ is less than 4 bytes.
+
+2016-10-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/dtio_15.f90: Fix spaces in dg-do.
+	* gfortran.dg/class_array_20.f03: Likewise.
+	* gfortran.dg/class_array_21.f03: Likewise.
+	* gfortran.dg/finalize_29.f08: Likewise.
+	* gfortran.dg/unlimited_polymorphic_23.f90: Likewise.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77826
+	* gcc.dg/torture/pr77826.c: New testcase.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/fold-copysign-1.c: New testcase.
+
+2016-10-05  Andreas Schwab  <schwab@suse.de>
+
+	* g++.dg/pr49847-2.C: Remove.
+
+2016-10-05  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gnat.dg/debug7.adb, gnat.dg/debug7.ads: New testcase.
+
+2016-10-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55152
+	* gcc.dg/pr55152-2.c: New testcase.
+
+2016-10-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/dtio_15.f90: New test.
+
+2016-10-04  Ian Lance Taylor  <iant@golang.org>
+
+	* gcc.dg/split-7.c: New test.
+
+2016-10-04  Martin Sebor  <msebor@redhat.com>
+
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Cast int argument to
+	%lc directive to wint_t to silence -Wformat warnings on targets
+	where the latter is a distinct type such as long.
+
+2016-10-04  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/77804
+	* g++.dg/warn/Wplacement-new-size-4.C: New test.
+
+2016-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77791
+	* g++.dg/cpp0x/lambda/lambda-77791.C: New test.
+
+	* g++.dg/other/java3.C: Remove.
+	* g++.dg/other/java1.C: Remove.
+	* g++.dg/other/error12.C: Remove.
+	* g++.dg/other/java2.C: Remove.
+	* g++.dg/warn/Wnvdtor.C: Remove.
+	* g++.dg/lookup/java1.C: Remove.
+	* g++.dg/lookup/java2.C: Remove.
+	* g++.dg/ext/pr34829.C: Remove.
+	* g++.dg/ext/java-3.C: Remove.
+	* g++.dg/ext/java-1.C: Remove.
+	* g++.dg/ext/java-2.C: Remove.
+	* g++.old-deja/g++.oliva/dwarf2.C: Remove.
+
+2016-10-04  Doug Gilmore  <doug.gilmore@imgtec.com>
+
+	PR tree-optimization/77808
+	* gcc.dg/tree-ssa/pr77808.c: New testcase.
+
+2016-10-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77399
+	* gcc.dg/tree-ssa/forwprop-35.c: Adjust.
+
+2016-10-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77833
+	* gcc.target/i386/pr77833.c: New testcase.
+
+2016-09-26  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71550
+	PR tree-optimization/71403
+	* gcc.c-torture/execute/pr71550.c: New test.
+
+2016-10-03  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.target/avr/torture/builtins-error.c: Add -ffat-lto-objects
+	option.
+
+2016-10-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Revert
+	2016-09-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ifcvt_avoid_const_materialization_1.c: New test.
+
+2016-10-03  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/cpp0x/nullptr37.C: New test.
+
+2016-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/Wint-in-bool-context.c: Update test.
+
+2016-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ext/asm3.C (two): Only use register keyword for C++14 and
+	earlier.
+	* g++.dg/charset/asm2.c (memmove): Likewise.
+	* g++.dg/tls/diag-2.C (foo): Expect -Wregister error for C++17.
+	* g++.dg/tls/diag-4.C (foo): Likewise.
+	* c-c++-common/vector-subscript-2.c (vf): Change dg-error to
+	dg-warning, fix up regex.
+	* g++.old-deja/g++.brendan/warnings4.C: Limit to c++14_down targets.
+	* g++.old-deja/g++.mike/p700.C: Add -Wno-register.
+	* g++.old-deja/g++.mike/net31.C: Likewise.
+	* g++.old-deja/g++.other/regstack.C (foo): Expect -Wregister warning
+	for C++17.
+	* g++.old-deja/g++.jason/enum3.C: Add -Wno-register.
+	* g++.old-deja/g++.eh/ia64-1.C: Likewise.
+
+2016-10-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/77798
+	* gfortran.fortran-torture/compile/pr77798.f90: New testcase.
+
+2016-10-01  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/77663
+	* gfortran.dg/coarray_send_by_ref_1.f08: New test.
+
 2016-10-01  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/77490
