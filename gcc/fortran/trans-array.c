@@ -3051,7 +3051,8 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
     {
       if (expr == NULL
 	  || (expr->ts.type != BT_CLASS
-	      && !gfc_is_alloc_class_array_function (expr)))
+	      && !gfc_is_alloc_class_array_function (expr)
+	      && !gfc_is_class_array_ref (expr, NULL)))
 	return false;
 
       if (expr->symtree && expr->symtree->n.sym->ts.type == BT_CLASS)
@@ -3148,7 +3149,6 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
 			    index, size);
   tmp = gfc_build_addr_expr (pvoid_type_node, base);
   tmp = fold_build_pointer_plus_loc (input_location, tmp, offset);
-//  tmp = build1 (PAREN_EXPR, build_pointer_type (type), tmp);
   tmp = fold_convert (build_pointer_type (type), tmp);
 
   /* Return the element in the se expression.  */

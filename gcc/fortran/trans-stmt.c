@@ -5955,7 +5955,7 @@ gfc_trans_allocate (gfc_code * code)
 	      al_len_needs_set = false;
 	    }
 	  else if (expr->ts.type == BT_CHARACTER && al_len != NULL_TREE
-		   && code->ext.alloc.ts.u.cl->length)
+	      && code->ext.alloc.ts.u.cl->length)
 	    {
 	      /* Cover the cases where a string length is explicitly
 		 specified by a type spec for deferred length character
@@ -6043,7 +6043,7 @@ gfc_trans_allocate (gfc_code * code)
 		expr3_len = NULL_TREE;
 	    }
 	  else if (code->ext.alloc.ts.type == BT_CHARACTER
-		   && code->ext.alloc.ts.u.cl->length)
+	      && code->ext.alloc.ts.u.cl->length)
 	    {
 	      /* Cover the cases where a string length is explicitly
 		 specified by a type spec for deferred length character
@@ -6073,156 +6073,39 @@ gfc_trans_allocate (gfc_code * code)
       if (code->expr3 && !code->expr3->mold && e3_is != E3_MOLD)
 	{
 	  /* Initialization via SOURCE block (or static default initializer).
-	     Classes need some special handling, so catch them first.  */
-	  if (false /*expr3 != NULL_TREE
-	      && TREE_CODE (expr3) != POINTER_PLUS_EXPR
-	      && code->expr3->ts.type == BT_CLASS
-	      && (expr->ts.type == BT_CLASS
-		  || expr->ts.type == BT_DERIVED)*/)
-	    {
-	      /* copy_class_to_class can be used for class arrays, too.
-		 It just needs to be ensured, that the decl_saved_descriptor
-		 has a way to get to the vptr.  */
-	      tree to;
-	      to = VAR_P (se.expr) ? se.expr : TREE_OPERAND (se.expr, 0);
-	      tmp = gfc_copy_class_to_class (expr3, to,
-					     nelems, upoly_expr);
-	    }
-	  else if (false /*al->expr->ts.type == BT_CLASS*/)
-	    {
-	      gfc_actual_arglist *actual, *last_arg;
-	      gfc_expr *ppc;
-	      gfc_code *ppc_code;
-	      gfc_ref *ref, *dataref;
-	      gfc_expr *rhs = e3rhs ? e3rhs : gfc_copy_expr (code->expr3);
-
-	      /* Do a polymorphic deep copy.  */
-	      actual = gfc_get_actual_arglist ();
-	      actual->expr = gfc_copy_expr (rhs);
-	      if (rhs->ts.type == BT_CLASS)
-		gfc_add_data_component (actual->expr);
-	      last_arg = actual->next = gfc_get_actual_arglist ();
-	      last_arg->expr = gfc_copy_expr (al->expr);
-	      last_arg->expr->ts.type = BT_CLASS;
-	      gfc_add_data_component (last_arg->expr);
-
-	      dataref = NULL;
-	      /* Make sure we go up through the reference chain to
-		 the _data reference, where the arrayspec is found.  */
-	      for (ref = last_arg->expr->ref; ref; ref = ref->next)
-		if (ref->type == REF_COMPONENT
-		    && strcmp (ref->u.c.component->name, "_data") == 0)
-		  dataref = ref;
-
-	      if (dataref && dataref->u.c.component->as)
-		{
-		  gfc_array_spec *as = dataref->u.c.component->as;
-		  gfc_free_ref_list (dataref->next);
-		  dataref->next = NULL;
-		  gfc_add_full_array_ref (last_arg->expr, as);
-		  gfc_resolve_expr (last_arg->expr);
-		  gcc_assert (last_arg->expr->ts.type == BT_CLASS
-			      || last_arg->expr->ts.type == BT_DERIVED);
-		  last_arg->expr->ts.type = BT_CLASS;
-		}
-	      if (rhs->ts.type == BT_CLASS)
-		{
-		  if (rhs->ref)
-		    ppc = gfc_find_and_cut_at_last_class_ref (rhs);
-		  else
-		    ppc = gfc_copy_expr (rhs);
-		  gfc_add_vptr_component (ppc);
-		}
-	      else
-		ppc = gfc_lval_expr_from_sym (gfc_find_vtab (&rhs->ts));
-	      gfc_add_component_ref (ppc, "_copy");
-
-	      ppc_code = gfc_get_code (EXEC_CALL);
-	      ppc_code->resolved_sym = ppc->symtree->n.sym;
-	      ppc_code->loc = al->expr->where;
-	      /* Although '_copy' is set to be elemental in class.c, it is
-		 not staying that way.  Find out why, sometime....  */
-	      ppc_code->resolved_sym->attr.elemental = 1;
-	      ppc_code->ext.actual = actual;
-	      ppc_code->expr1 = ppc;
-	      /* Since '_copy' is elemental, the scalarizer will take care
-		 of arrays in gfc_trans_call.  */
-	      tmp = gfc_trans_call (ppc_code, true, NULL, NULL, false);
-	      /* We need to add the
-		   if (al_len > 0)
-		     al_vptr->copy (expr3_data, al_data, expr3_len, al_len);
-		   else
-		     al_vptr->copy (expr3_data, al_data);
-		 block, because al is unlimited polymorphic or a deferred
-		 length char array, whose copy routine needs the array lengths
-		 as third and fourth arguments.  */
-	      if (al_len && UNLIMITED_POLY (code->expr3))
-		{
-		  tree stdcopy, extcopy;
-		  /* Add al%_len.  */
-		  last_arg->next = gfc_get_actual_arglist ();
-		  last_arg = last_arg->next;
-		  last_arg->expr = gfc_find_and_cut_at_last_class_ref (
-			al->expr);
-		  gfc_add_len_component (last_arg->expr);
-		  /* Add expr3's length.  */
-		  last_arg->next = gfc_get_actual_arglist ();
-		  last_arg = last_arg->next;
-		  if (code->expr3->ts.type == BT_CLASS)
-		    {
-		      last_arg->expr =
-			  gfc_find_and_cut_at_last_class_ref (code->expr3);
-		      gfc_add_len_component (last_arg->expr);
-		    }
-		  else if (code->expr3->ts.type == BT_CHARACTER)
-		    last_arg->expr =
-			gfc_copy_expr (code->expr3->ts.u.cl->length);
-		  else
-		    gcc_unreachable ();
-
-		  stdcopy = tmp;
-		  extcopy = gfc_trans_call (ppc_code, true, NULL, NULL, false);
-
-		  tmp = fold_build2_loc (input_location, GT_EXPR,
-					 boolean_type_node, expr3_len,
-					 integer_zero_node);
-		  tmp = fold_build3_loc (input_location, COND_EXPR,
-					 void_type_node, tmp, extcopy, stdcopy);
-		}
-	      gfc_free_statements (ppc_code);
-	      if (rhs != e3rhs)
-		gfc_free_expr (rhs);
-	    }
-	  else
-	    {
-	      /* Switch off automatic reallocation since we have just
-		 done the ALLOCATE.  */
-	      int realloc_lhs = flag_realloc_lhs;
-	      gfc_expr *init_expr = gfc_expr_to_initialize (expr);
-	      gfc_expr *rhs = e3rhs ? e3rhs : gfc_copy_expr (code->expr3);
-	      flag_realloc_lhs = 0;
-	      tmp = gfc_trans_assignment (init_expr, rhs, false, false, true);
-	      flag_realloc_lhs = realloc_lhs;
-	      /* Free the expression allocated for init_expr.  */
-	      gfc_free_expr (init_expr);
-	      if (rhs != e3rhs)
-		gfc_free_expr (rhs);
-	    }
+	     Switch off automatic reallocation since we have just done the
+	     ALLOCATE.  */
+	  int realloc_lhs = flag_realloc_lhs;
+	  gfc_expr *init_expr = gfc_expr_to_initialize (expr);
+	  gfc_expr *rhs = e3rhs ? e3rhs : gfc_copy_expr (code->expr3);
+	  flag_realloc_lhs = 0;
+	  tmp = gfc_trans_assignment (init_expr, rhs, false, false, true,
+				      false);
+	  flag_realloc_lhs = realloc_lhs;
+	  /* Free the expression allocated for init_expr.  */
+	  gfc_free_expr (init_expr);
+	  if (rhs != e3rhs)
+	    gfc_free_expr (rhs);
 	  gfc_add_expr_to_block (&block, tmp);
 	}
-     else if (code->expr3 && code->expr3->mold
-	      && code->expr3->ts.type == BT_CLASS)
+      else if (code->expr3 && code->expr3->mold
+	       && code->expr3->ts.type == BT_CLASS)
 	{
-	  /* Since the _vptr has already been assigned to the allocate
-	     object, we can use gfc_copy_class_to_class in its
-	     initialization mode.  */
-	  tmp = TREE_OPERAND (se.expr, 0);
-	  tmp = gfc_copy_class_to_class (NULL_TREE, tmp, nelems,
-					 upoly_expr);
+	  gfc_code *ini;
+	  ini = gfc_get_code (EXEC_INIT_ASSIGN);
+	  ini->expr1 = gfc_find_and_cut_at_last_class_ref (expr);
+	  tmp = gfc_trans_class_init_assign (ini);
+	  gfc_free_statements (ini);
+//	  /* Since the _vptr has already been assigned to the allocate
+//	     object, we can use gfc_copy_class_to_class in its
+//	     initialization mode.  */
+//	  tmp = TREE_OPERAND (se.expr, 0);
+//	  tmp = gfc_copy_class_to_class (NULL_TREE, tmp, nelems,
+//					 upoly_expr);
 	  gfc_add_expr_to_block (&block, tmp);
 	}
 
-       gfc_free_expr (expr);
+      gfc_free_expr (expr);
     } // for-loop
 
   if (e3rhs)

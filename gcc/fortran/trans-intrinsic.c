@@ -5978,24 +5978,6 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
   gfc_conv_procedure_call (se, sym, expr->value.function.actual, expr,
 			  append_args);
   gfc_free_symbol (sym);
-
-  /* Retrieve the correct vptr for class objects.  */
-  if (prim_arg->expr->ts.type == BT_CLASS
-      && DECL_P (se->expr))
-    {
-      gfc_se parmse;
-      gfc_expr *class_expr
-			  = gfc_find_and_cut_at_last_class_ref (prim_arg->expr);
-
-      gfc_init_se (&parmse, NULL);
-      parmse.data_not_needed = 1;
-//      parmse.want_pointer = 1;
-      gfc_conv_expr (&parmse, class_expr);
-      if (!DECL_LANG_SPECIFIC (se->expr))
-	gfc_allocate_lang_decl (se->expr);
-      GFC_DECL_SAVED_DESCRIPTOR (se->expr) = parmse.expr;
-      gfc_free_expr (class_expr);
-    }
 }
 
 
