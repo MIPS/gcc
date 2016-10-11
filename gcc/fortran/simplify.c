@@ -1768,11 +1768,13 @@ degrees_f (mpfr_t x, mp_rnd_t rnd_mode)
 static void
 radians_f (mpfr_t x, mp_rnd_t rnd_mode)
 {
-    mpfr_t tmp;
+    mpfr_t tmp, tmp2;
     mpfr_init (tmp);
+    mpfr_init (tmp2);
 
     /* Set x = x % 360 to avoid offsets with large angles.  */
-    mpfr_fmod_d (tmp, x, 360.0, rnd_mode);
+    mpfr_set_d (tmp2, 360.0, rnd_mode);
+    mpfr_fmod (tmp, x, tmp2, rnd_mode);
 
     /* Set x = x * pi.  */
     mpfr_const_pi (tmp, rnd_mode);
@@ -1782,6 +1784,7 @@ radians_f (mpfr_t x, mp_rnd_t rnd_mode)
     mpfr_div_d (x, x, 180.0, rnd_mode);
 
     mpfr_clear (tmp);
+    mpfr_clear (tmp2);
 }
 
 
