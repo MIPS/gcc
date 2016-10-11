@@ -3604,6 +3604,7 @@ Unsafe_type_conversion_expression::do_get_backend(Translate_context* context)
               || et->channel_type() != NULL
               || et->map_type() != NULL
               || et->function_type() != NULL
+	      || et->integer_type() != NULL
               || et->is_nil_type());
   else if (et->is_unsafe_pointer_type())
     go_assert(t->points_to() != NULL);
@@ -6977,7 +6978,7 @@ Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
 	Type* element_type = slice_type->array_type()->element_type();
 	this->lower_varargs(gogo, function, inserter,
 			    Type::make_array_type(element_type, NULL),
-			    2);
+			    2, SLICE_STORAGE_DOES_NOT_ESCAPE);
       }
       break;
 
@@ -7016,6 +7017,26 @@ Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
 				      3, e1, e2, e3);
 	  }
       }
+      break;
+
+    case BUILTIN_PRINT:
+    case BUILTIN_PRINTLN:
+      // Force all the arguments into temporary variables, so that we
+      // don't try to evaluate something while holding the print lock.
+      if (this->args() == NULL)
+	break;
+      for (Expression_list::iterator pa = this->args()->begin();
+	   pa != this->args()->end();
+	   ++pa)
+	{
+	  if (!(*pa)->is_variable())
+	    {
+	      Temporary_statement* temp =
+		Statement::make_temporary(NULL, *pa, loc);
+	      inserter->insert(temp);
+	      *pa = Expression::make_temporary_reference(temp, loc);
+	    }
+	}
       break;
     }
 
@@ -7077,6 +7098,7 @@ Builtin_call_expression::do_flatten(Gogo*, Named_object*,
       break;
 
     case BUILTIN_LEN:
+    case BUILTIN_CAP:
       Expression_list::iterator pa = this->args()->begin();
       if (!(*pa)->is_variable()
 	  && ((*pa)->type()->map_type() != NULL
@@ -7217,10 +7239,7 @@ Builtin_call_expression::lower_make()
 			      Expression::make_nil(loc),
 			      Expression::make_nil(loc));
   else if (is_chan)
-    call = Runtime::make_call((have_big_args
-			       ? Runtime::MAKECHANBIG
-			       : Runtime::MAKECHAN),
-			      loc, 2, type_arg, len_arg);
+    call = Runtime::make_call(Runtime::MAKECHAN, loc, 2, type_arg, len_arg);
   else
     go_unreachable();
 
@@ -8300,7 +8319,31 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		this->seen_ = false;
 	      }
 	    else if (arg_type->channel_type() != NULL)
-              val = Runtime::make_call(Runtime::CHAN_CAP, location, 1, arg);
+	      {
+		// The second field is the capacity.  If the pointer
+		// is nil, the capacity is zero.
+		Type* uintptr_type = Type::lookup_integer_type("uintptr");
+		Type* pint_type = Type::make_pointer_type(int_type);
+		Expression* parg = Expression::make_unsafe_cast(uintptr_type,
+								arg,
+								location);
+		int off = int_type->integer_type()->bits() / 8;
+		Expression* eoff = Expression::make_integer_ul(off,
+							       uintptr_type,
+							       location);
+		parg = Expression::make_binary(OPERATOR_PLUS, parg, eoff,
+					       location);
+		parg = Expression::make_unsafe_cast(pint_type, parg, location);
+		Expression* nil = Expression::make_nil(location);
+		nil = Expression::make_cast(pint_type, nil, location);
+		Expression* cmp = Expression::make_binary(OPERATOR_EQEQ,
+							  arg, nil, location);
+		Expression* zero = Expression::make_integer_ul(0, int_type,
+							       location);
+		Expression* indir = Expression::make_unary(OPERATOR_MULT,
+							   parg, location);
+		val = Expression::make_conditional(cmp, zero, indir, location);
+	      }
 	    else
 	      go_unreachable();
 	  }
@@ -8313,7 +8356,9 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
     case BUILTIN_PRINTLN:
       {
 	const bool is_ln = this->code_ == BUILTIN_PRINTLN;
-        Expression* print_stmts = NULL;
+
+	Expression* print_stmts = Runtime::make_call(Runtime::PRINTLOCK,
+						     location, 0);
 
 	const Expression_list* call_args = this->args();
 	if (call_args != NULL)
@@ -8325,8 +8370,7 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		if (is_ln && p != call_args->begin())
 		  {
                     Expression* print_space =
-                        Runtime::make_call(Runtime::PRINT_SPACE,
-                                           this->location(), 0);
+		      Runtime::make_call(Runtime::PRINTSP, location, 0);
 
                     print_stmts =
                         Expression::make_compound(print_stmts, print_space,
@@ -8337,51 +8381,51 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		Type* type = arg->type();
                 Runtime::Function code;
 		if (type->is_string_type())
-                  code = Runtime::PRINT_STRING;
+                  code = Runtime::PRINTSTRING;
 		else if (type->integer_type() != NULL
 			 && type->integer_type()->is_unsigned())
 		  {
 		    Type* itype = Type::lookup_integer_type("uint64");
 		    arg = Expression::make_cast(itype, arg, location);
-                    code = Runtime::PRINT_UINT64;
+                    code = Runtime::PRINTUINT;
 		  }
 		else if (type->integer_type() != NULL)
 		  {
 		    Type* itype = Type::lookup_integer_type("int64");
 		    arg = Expression::make_cast(itype, arg, location);
-                    code = Runtime::PRINT_INT64;
+                    code = Runtime::PRINTINT;
 		  }
 		else if (type->float_type() != NULL)
 		  {
                     Type* dtype = Type::lookup_float_type("float64");
                     arg = Expression::make_cast(dtype, arg, location);
-                    code = Runtime::PRINT_DOUBLE;
+                    code = Runtime::PRINTFLOAT;
 		  }
 		else if (type->complex_type() != NULL)
 		  {
                     Type* ctype = Type::lookup_complex_type("complex128");
                     arg = Expression::make_cast(ctype, arg, location);
-                    code = Runtime::PRINT_COMPLEX;
+                    code = Runtime::PRINTCOMPLEX;
 		  }
 		else if (type->is_boolean_type())
-                  code = Runtime::PRINT_BOOL;
+                  code = Runtime::PRINTBOOL;
 		else if (type->points_to() != NULL
 			 || type->channel_type() != NULL
 			 || type->map_type() != NULL
 			 || type->function_type() != NULL)
 		  {
                     arg = Expression::make_cast(type, arg, location);
-                    code = Runtime::PRINT_POINTER;
+                    code = Runtime::PRINTPOINTER;
 		  }
 		else if (type->interface_type() != NULL)
 		  {
 		    if (type->interface_type()->is_empty())
-                      code = Runtime::PRINT_EMPTY_INTERFACE;
+                      code = Runtime::PRINTEFACE;
 		    else
-                      code = Runtime::PRINT_INTERFACE;
+                      code = Runtime::PRINTIFACE;
 		  }
 		else if (type->is_slice_type())
-                  code = Runtime::PRINT_SLICE;
+                  code = Runtime::PRINTSLICE;
 		else
 		  {
 		    go_assert(saw_errors());
@@ -8389,30 +8433,22 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 		  }
 
                 Expression* call = Runtime::make_call(code, location, 1, arg);
-                if (print_stmts == NULL)
-                  print_stmts = call;
-                else
-                  print_stmts = Expression::make_compound(print_stmts, call,
-                                                          location);
+		print_stmts = Expression::make_compound(print_stmts, call,
+							location);
 	      }
 	  }
 
 	if (is_ln)
 	  {
             Expression* print_nl =
-                Runtime::make_call(Runtime::PRINT_NL, location, 0);
-            if (print_stmts == NULL)
-              print_stmts = print_nl;
-            else
-              print_stmts = Expression::make_compound(print_stmts, print_nl,
-                                                      location);
+                Runtime::make_call(Runtime::PRINTNL, location, 0);
+	    print_stmts = Expression::make_compound(print_stmts, print_nl,
+						    location);
 	  }
 
-        // There aren't any arguments to the print builtin.  The compiler
-        // issues a warning for this so we should avoid getting the backend
-        // representation for this call.  Instead, perform a no-op.
-        if (print_stmts == NULL)
-          return context->backend()->boolean_constant_expression(false);
+	Expression* unlock = Runtime::make_call(Runtime::PRINTUNLOCK,
+						location, 0);
+	print_stmts = Expression::make_compound(print_stmts, unlock, location);
 
         return print_stmts->get_backend(context);
       }
@@ -8853,7 +8889,7 @@ Call_expression::do_lower(Gogo* gogo, Named_object* function,
       go_assert(parameters != NULL && !parameters->empty());
       Type* varargs_type = parameters->back().type();
       this->lower_varargs(gogo, function, inserter, varargs_type,
-			  parameters->size());
+			  parameters->size(), SLICE_STORAGE_MAY_ESCAPE);
     }
 
   // If this is call to a method, call the method directly passing the
@@ -8958,7 +8994,8 @@ Call_expression::do_lower(Gogo* gogo, Named_object* function,
 void
 Call_expression::lower_varargs(Gogo* gogo, Named_object* function,
 			       Statement_inserter* inserter,
-			       Type* varargs_type, size_t param_count)
+			       Type* varargs_type, size_t param_count,
+                               Slice_storage_escape_disp escape_disp)
 {
   if (this->varargs_are_lowered_)
     return;
@@ -9027,8 +9064,11 @@ Call_expression::lower_varargs(Gogo* gogo, Named_object* function,
 		continue;
 	      vals->push_back(*pa);
 	    }
-	  Expression* val =
+	  Slice_construction_expression* sce =
 	    Expression::make_slice_composite_literal(varargs_type, vals, loc);
+	  if (escape_disp == SLICE_STORAGE_DOES_NOT_ESCAPE)
+	      sce->set_storage_does_not_escape();
+          Expression* val = sce;
 	  gogo->lower_expression(function, inserter, &val);
 	  new_args->push_back(val);
 	}
@@ -12280,7 +12320,7 @@ Array_construction_expression::do_export(Export* exp) const
   exp->write_c_string(")");
 }
 
-// Dump ast representation of an array construction expressin.
+// Dump ast representation of an array construction expression.
 
 void
 Array_construction_expression::do_dump_expression(
@@ -12295,6 +12335,7 @@ Array_construction_expression::do_dump_expression(
     }
   ast_dump_context->ostream() << "]" ;
   ast_dump_context->dump_type(this->type_);
+  this->dump_slice_storage_expression(ast_dump_context);
   ast_dump_context->ostream() << "{" ;
   if (this->indexes_ == NULL)
     ast_dump_context->dump_expression_list(this->vals_);
@@ -12350,7 +12391,8 @@ Slice_construction_expression::Slice_construction_expression(
   Expression_list* vals, Location location)
   : Array_construction_expression(EXPRESSION_SLICE_CONSTRUCTION,
 				  type, indexes, vals, location),
-    valtype_(NULL)
+    valtype_(NULL), array_val_(NULL), slice_storage_(NULL),
+    storage_escapes_(true)
 {
   go_assert(type->is_slice_type());
 
@@ -12371,7 +12413,6 @@ Slice_construction_expression::Slice_construction_expression(
   this->valtype_ = Type::make_array_type(element_type, length);
 }
 
-
 // Traversal.
 
 int
@@ -12382,23 +12423,29 @@ Slice_construction_expression::do_traverse(Traverse* traverse)
     return TRAVERSE_EXIT;
   if (Type::traverse(this->valtype_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
+  if (this->array_val_ != NULL
+      && Expression::traverse(&this->array_val_, traverse) == TRAVERSE_EXIT)
+    return TRAVERSE_EXIT;
+  if (this->slice_storage_ != NULL
+      && Expression::traverse(&this->slice_storage_, traverse) == TRAVERSE_EXIT)
+    return TRAVERSE_EXIT;
   return TRAVERSE_CONTINUE;
 }
 
-// Return the backend representation for constructing a slice.
+// Helper routine to create fixed array value underlying the slice literal.
+// May be called during flattening, or later during do_get_backend().
 
-Bexpression*
-Slice_construction_expression::do_get_backend(Translate_context* context)
+Expression*
+Slice_construction_expression::create_array_val()
 {
   Array_type* array_type = this->type()->array_type();
   if (array_type == NULL)
     {
       go_assert(this->type()->is_error());
-      return context->backend()->error_expression();
+      return NULL;
     }
 
   Location loc = this->location();
-  Type* element_type = array_type->element_type();
   go_assert(this->valtype_ != NULL);
 
   Expression_list* vals = this->vals();
@@ -12408,11 +12455,71 @@ Slice_construction_expression::do_get_backend(Translate_context* context)
       vals = new Expression_list;
       vals->push_back(NULL);
     }
-  Expression* array_val =
-    new Fixed_array_construction_expression(this->valtype_, this->indexes(),
-					    vals, loc);
+  return new Fixed_array_construction_expression(
+      this->valtype_, this->indexes(), vals, loc);
+}
 
-  bool is_constant_initializer = array_val->is_immutable();
+// If we're previous established that the slice storage does not
+// escape, then create a separate array temp val here for it. We
+// need to do this as part of flattening so as to be able to insert
+// the new temp statement.
+
+Expression*
+Slice_construction_expression::do_flatten(Gogo* gogo, Named_object* no,
+                                          Statement_inserter* inserter)
+{
+  if (this->type()->array_type() == NULL)
+    return NULL;
+
+  // Base class flattening first
+  this->Array_construction_expression::do_flatten(gogo, no, inserter);
+
+  // Create an stack-allocated storage temp if storage won't escape
+  if (!this->storage_escapes_)
+    {
+      Location loc = this->location();
+      this->array_val_ = create_array_val();
+      go_assert(this->array_val_);
+      Temporary_statement* temp =
+          Statement::make_temporary(this->valtype_, this->array_val_, loc);
+      inserter->insert(temp);
+      this->slice_storage_ = Expression::make_temporary_reference(temp, loc);
+    }
+  return this;
+}
+
+// When dumping a slice construction expression that has an explicit
+// storeage temp, emit the temp here (if we don't do this the storage
+// temp appears unused in the AST dump).
+
+void
+Slice_construction_expression::
+dump_slice_storage_expression(Ast_dump_context* ast_dump_context) const
+{
+  if (this->slice_storage_ == NULL)
+    return;
+  ast_dump_context->ostream() << "storage=" ;
+  ast_dump_context->dump_expression(this->slice_storage_);
+}
+
+// Return the backend representation for constructing a slice.
+
+Bexpression*
+Slice_construction_expression::do_get_backend(Translate_context* context)
+{
+  if (this->array_val_ == NULL)
+    this->array_val_ = create_array_val();
+  if (this->array_val_ == NULL)
+    {
+      go_assert(this->type()->is_error());
+      return context->backend()->error_expression();
+    }
+
+  Location loc = this->location();
+  Array_type* array_type = this->type()->array_type();
+  Type* element_type = array_type->element_type();
+
+  bool is_constant_initializer = this->array_val_->is_immutable();
 
   // We have to copy the initial values into heap memory if we are in
   // a function or if the values are not constants.  We also have to
@@ -12424,15 +12531,21 @@ Slice_construction_expression::do_get_backend(Translate_context* context)
 			   && !context->is_const()));
 
   Expression* space;
-  if (!copy_to_heap)
+
+  if (this->slice_storage_ != NULL)
+    {
+      go_assert(!this->storage_escapes_);
+      space = Expression::make_unary(OPERATOR_AND, this->slice_storage_, loc);
+    }
+  else if (!copy_to_heap)
     {
       // The initializer will only run once.
-      space = Expression::make_unary(OPERATOR_AND, array_val, loc);
+      space = Expression::make_unary(OPERATOR_AND, this->array_val_, loc);
       space->unary_expression()->set_is_slice_init();
     }
   else
     {
-      space = Expression::make_heap_expression(array_val, loc);
+      space = Expression::make_heap_expression(this->array_val_, loc);
       Node* n = Node::make_node(this);
       if ((n->encoding() & ESCAPE_MASK) == int(Node::ESCAPE_NONE))
 	{
@@ -12442,7 +12555,6 @@ Slice_construction_expression::do_get_backend(Translate_context* context)
     }
 
   // Build a constructor for the slice.
-
   Expression* len = this->valtype_->array_type()->length();
   Expression* slice_val =
     Expression::make_slice_value(this->type(), space, len, len, loc);
@@ -12452,7 +12564,7 @@ Slice_construction_expression::do_get_backend(Translate_context* context)
 // Make a slice composite literal.  This is used by the type
 // descriptor code.
 
-Expression*
+Slice_construction_expression*
 Expression::make_slice_composite_literal(Type* type, Expression_list* vals,
 					 Location location)
 {
@@ -13653,9 +13765,8 @@ Receive_expression::do_get_backend(Translate_context* context)
   Expression* recv_addr =
     Expression::make_temporary_reference(this->temp_receiver_, loc);
   recv_addr = Expression::make_unary(OPERATOR_AND, recv_addr, loc);
-  Expression* recv =
-    Runtime::make_call(Runtime::RECEIVE, loc, 3,
-		       td, this->channel_, recv_addr);
+  Expression* recv = Runtime::make_call(Runtime::CHANRECV1, loc, 3,
+					td, this->channel_, recv_addr);
   return Expression::make_compound(recv, recv_ref, loc)->get_backend(context);
 }
 

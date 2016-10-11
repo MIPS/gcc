@@ -844,7 +844,7 @@ lvalue_required_p (Node_Id gnat_node, tree gnu_type, bool constant,
 		 && Ekind (Entity (gnat_temp)) == E_Enumeration_Literal))
 	  return 1;
 
-      /* fall through */
+      /* ... fall through ... */
 
     case N_Slice:
       /* Only the array expression can require an lvalue.  */
@@ -890,7 +890,7 @@ lvalue_required_p (Node_Id gnat_node, tree gnu_type, bool constant,
 	if (!constant)
 	  return 1;
 
-      /* fall through */
+      /* ... fall through ... */
 
     case N_Type_Conversion:
     case N_Qualified_Expression:
@@ -914,7 +914,7 @@ lvalue_required_p (Node_Id gnat_node, tree gnu_type, bool constant,
 				  get_unpadded_type (Etype (gnat_parent)),
 				  true, false, true);
 
-      /* fall through */
+      /* ... fall through ... */
 
     default:
       return 0;
@@ -1681,7 +1681,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	  break;
 	}
 
-      /* fall through */
+      /* ... fall through ... */
 
     case Attr_Access:
     case Attr_Unchecked_Access:
@@ -1938,7 +1938,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	  break;
 	}
 
-      /* fall through */
+      /* ... fall through ... */
 
     case Attr_Length:
       {
@@ -2393,7 +2393,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       /* We treat Model as identical to Machine.  This is true for at least
 	 IEEE and some other nice floating-point systems.  */
 
-      /* fall through */
+      /* ... fall through ... */
 
     case Attr_Machine:
       /* The trick is to force the compiler to store the result in memory so
@@ -2537,7 +2537,7 @@ Case_Statement_to_gnu (Node_Id gnat_node)
 		  break;
 		}
 
-	      /* fall through */
+	      /* ... fall through ... */
 
 	    case N_Character_Literal:
 	    case N_Integer_Literal:
@@ -4007,7 +4007,7 @@ node_is_atomic (Node_Id gnat_node)
 	  && Has_Atomic_Components (Entity (Prefix (gnat_node))))
 	return true;
 
-      /* fall through */
+      /* ... fall through ... */
 
     case N_Explicit_Dereference:
       return Is_Atomic (Etype (gnat_node));
@@ -4123,7 +4123,7 @@ atomic_access_required_p (Node_Id gnat_node, bool *sync)
       /* Nothing to do if we are the prefix of an attribute, since we do not
 	 want an atomic access for things like 'Size.  */
 
-      /* fall through */
+      /* ... fall through ... */
 
     case N_Reference:
       /* The N_Reference node is like an attribute.  */
@@ -6084,10 +6084,18 @@ gnat_to_gnu (Node_Id gnat_node)
       gnat_temp = Defining_Entity (gnat_node);
       gnu_result = alloc_stmt_list ();
 
-      /* Don't do anything if this renaming is handled by the front end or if
-	 we are just annotating types and this object has a composite or task
-	 type, don't elaborate it.  */
-      if (!Is_Renaming_Of_Object (gnat_temp)
+      /* Don't do anything if this renaming is handled by the front end and it
+	 does not need debug info.  Note that we consider renamings don't need
+	 debug info when optimizing: our way to describe them has a
+	 memory/elaboration footprint.
+
+	 Don't do anything neither if we are just annotating types and this
+	 object has a composite or task type, don't elaborate it.  */
+      if ((!Is_Renaming_Of_Object (gnat_temp)
+	   || (Needs_Debug_Info (gnat_temp)
+	       && !optimize
+	       && can_materialize_object_renaming_p
+		    (Renamed_Object (gnat_temp))))
 	  && ! (type_annotate_only
 		&& (Is_Array_Type (Etype (gnat_temp))
 		    || Is_Record_Type (Etype (gnat_temp))
@@ -6580,7 +6588,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	  break;
 	}
 
-      /* fall through */
+      /* ... fall through ... */
 
     case N_Op_Eq:
     case N_Op_Ne:
@@ -6680,10 +6688,7 @@ gnat_to_gnu (Node_Id gnat_node)
 
 	/* Instead of expanding overflow checks for addition, subtraction
 	   and multiplication itself, the front end will leave this to
-	   the back end when Backend_Overflow_Checks_On_Target is set.
-	   As the back end itself does not know yet how to properly
-	   do overflow checking, do it here.  The goal is to push
-	   the expansions further into the back end over time.  */
+	   the back end when Backend_Overflow_Checks_On_Target is set.  */
 	if (Do_Overflow_Check (gnat_node)
 	    && Backend_Overflow_Checks_On_Target
 	    && (code == PLUS_EXPR || code == MINUS_EXPR || code == MULT_EXPR)
@@ -6747,14 +6752,18 @@ gnat_to_gnu (Node_Id gnat_node)
 	  break;
 	}
 
-      /* fall through */
+      /* ... fall through ... */
 
     case N_Op_Minus:
     case N_Op_Abs:
       gnu_expr = gnat_to_gnu (Right_Opnd (gnat_node));
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
 
+      /* Instead of expanding overflow checks for negation and absolute
+	 value itself, the front end will leave this to the back end
+	 when Backend_Overflow_Checks_On_Target is set.  */
       if (Do_Overflow_Check (gnat_node)
+	  && Backend_Overflow_Checks_On_Target
 	  && !TYPE_UNSIGNED (gnu_result_type)
 	  && !FLOAT_TYPE_P (gnu_result_type))
 	gnu_result
@@ -8344,7 +8353,7 @@ gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
 	    break;
 	  }
 
-      /* fall through */
+      /* ... fall through ... */
 
     default:
       return GS_UNHANDLED;
@@ -8937,8 +8946,9 @@ build_binary_op_trapv (enum tree_code code, tree gnu_type, tree left,
 					lhs, rhs);
       tree tgt = save_expr (call);
       gnu_expr = build1 (REALPART_EXPR, gnu_type, tgt);
-      check
-	= convert (boolean_type_node, build1 (IMAGPART_EXPR, gnu_type, tgt));
+      check = fold_build2 (NE_EXPR, boolean_type_node,
+			   build1 (IMAGPART_EXPR, gnu_type, tgt),
+			   build_int_cst (gnu_type, 0));
       return
 	emit_check (check, gnu_expr, CE_Overflow_Check_Failed, gnat_node);
    }
@@ -9867,7 +9877,7 @@ set_gnu_expr_location_from_node (tree node, Node_Id gnat_node)
       if (EXPR_P (TREE_OPERAND (node, 1)))
 	set_gnu_expr_location_from_node (TREE_OPERAND (node, 1), gnat_node);
 
-      /* fall through */
+      /* ... fall through ... */
 
     default:
       if (!REFERENCE_CLASS_P (node) && !EXPR_HAS_LOCATION (node))

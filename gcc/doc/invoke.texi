@@ -1092,8 +1092,8 @@ See RS/6000 and PowerPC Options.
 -muser-mode  -mno-user-mode @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis @gol
 -mvis2  -mno-vis2  -mvis3  -mno-vis3 @gol
--mcbcond -mno-cbcond @gol
--mfmaf  -mno-fmaf  -mpopc  -mno-popc @gol
+-mcbcond -mno-cbcond  -mfmaf  -mno-fmaf  @gol
+-mpopc  -mno-popc  -msubxc  -mno-subxc@gol
 -mfix-at697f -mfix-ut699}
 
 @emph{SPU Options}
@@ -2325,7 +2325,11 @@ release of G++.
 The C++ standard allows an implementation to omit creating a temporary
 that is only used to initialize another object of the same type.
 Specifying this option disables that optimization, and forces G++ to
-call the copy constructor in all cases.
+call the copy constructor in all cases.  This option also causes G++
+to call trivial member functions which otherwise would be expanded inline.
+
+In C++17, the compiler is required to omit these temporaries, but this
+option still affects trivial member functions.
 
 @item -fno-enforce-eh-specs
 @opindex fno-enforce-eh-specs
@@ -4166,10 +4170,28 @@ C++17 provides a standard way to suppress the @option{-Wimplicit-fallthrough}
 warning using @code{[[fallthrough]];} instead of the GNU attribute.  In C++11
 or C++14 users can use @code{[[gnu::fallthrough]];}, which is a GNU extension.
 Instead of the these attributes, it is also possible to add a "falls through"
-comment to silence the warning.  GCC accepts a wide range of such comments,
-for example all of "Falls through.", "fallthru", "FALLS-THROUGH" work.  This
-comment needs to consist of two words merely, optionally followed by periods
-or whitespaces.
+comment to silence the warning.  The whole body of the C or C++ style comment
+should match one of the following regular expressions:
+
+@itemize @bullet
+
+@item @code{-fallthrough}
+
+@item @code{@@fallthrough@@}
+
+@item @code{lint -fallthrough ?}
+
+@item @code{[ \t.!]*(ELSE,? |INTENTIONAL(LY)? )?FALL(S | |-)?THR(OUGH|U)[ \t.!]*(-[^\n\r]*)?}
+
+@item @code{[ \t.!]*(Else,? |Intentional(ly)? )?Fall((s | |-)[Tt]|t)hr(ough|u)[ \t.!]*(-[^\n\r]*)?}
+
+@item @code{[ \t.!]*([Ee]lse,? |[Ii]ntentional(ly)? )?fall(s | |-)?thr(ough|u)[ \t.!]*(-[^\n\r]*)?}
+
+@end itemize
+
+and the comment needs to be followed after optional whitespace and other comments
+by @code{case} or @code{default} keywords or by a user label that preceeds some
+@code{case} or @code{default} label.
 
 @smallexample
 @group
@@ -6038,7 +6060,8 @@ of the C++ standard.
 @opindex Wno-int-in-bool-context
 Warn for suspicious use of integer values where boolean values are expected,
 such as conditional expressions (?:) using non-boolean integer constants in
-boolean context, like @code{if (a <= b ? 2 : 3)}.
+boolean context, like @code{if (a <= b ? 2 : 3)}.  Or left shifting in
+boolean context, like @code{for (a = 0; 1 << a; a++);}.
 This warning is enabled by @option{-Wall}.
 
 @item -Wno-int-to-pointer-cast
@@ -7656,6 +7679,7 @@ parameters to support better vectorization and string operations.
 
 This flag is enabled by default at @option{-O2} and @option{-Os}.  It
 requires that @option{-fipa-cp} is enabled.
+@option{-fipa-cp-alignment} is obsolete, use @option{-fipa-bit-cp} instead.
 
 @item -fipa-bit-cp
 @opindex -fipa-bit-cp
@@ -14269,8 +14293,8 @@ This is the default for @option{-Os}.
 
 @item -mcompact-casesi
 @opindex mcompact-casesi
-Enable compact casesi pattern.
-This is the default for @option{-Os}.
+Enable compact casesi pattern.  This is the default for @option{-Os},
+and only available for ARCv1 cores.
 
 @item -mno-cond-exec
 @opindex mno-cond-exec
@@ -22917,18 +22941,9 @@ also sets @option{-mvis3}, @option{-mvis2} and @option{-mvis}.
 @itemx -mno-cbcond
 @opindex mcbcond
 @opindex mno-cbcond
-With @option{-mcbcond}, GCC generates code that takes advantage of
-compare-and-branch instructions, as defined in the Sparc Architecture 2011.
-The default is @option{-mcbcond} when targeting a cpu that supports such
-instructions, such as niagara-4 and later.
-
-@item -mpopc
-@itemx -mno-popc
-@opindex mpopc
-@opindex mno-popc
-With @option{-mpopc}, GCC generates code that takes advantage of the UltraSPARC
-population count instruction.  The default is @option{-mpopc}
-when targeting a cpu that supports such instructions, such as Niagara-2 and
+With @option{-mcbcond}, GCC generates code that takes advantage of the UltraSPARC
+Compare-and-Branch-on-Condition instructions.  The default is @option{-mcbcond}
+when targeting a CPU that supports such instructions, such as Niagara-4 and
 later.
 
 @item -mfmaf
@@ -22936,8 +22951,26 @@ later.
 @opindex mfmaf
 @opindex mno-fmaf
 With @option{-mfmaf}, GCC generates code that takes advantage of the UltraSPARC
-Fused Multiply-Add Floating-point extensions.  The default is @option{-mfmaf}
-when targeting a cpu that supports such instructions, such as Niagara-3 and
+Fused Multiply-Add Floating-point instructions.  The default is @option{-mfmaf}
+when targeting a CPU that supports such instructions, such as Niagara-3 and
+later.
+
+@item -mpopc
+@itemx -mno-popc
+@opindex mpopc
+@opindex mno-popc
+With @option{-mpopc}, GCC generates code that takes advantage of the UltraSPARC
+Population Count instruction.  The default is @option{-mpopc}
+when targeting a CPU that supports such an instruction, such as Niagara-2 and
+later.
+
+@item -msubxc
+@itemx -mno-subxc
+@opindex msubxc
+@opindex mno-subxc
+With @option{-msubxc}, GCC generates code that takes advantage of the UltraSPARC
+Subtract-Extended-with-Carry instruction.  The default is @option{-msubxc}
+when targeting a CPU that supports such an instruction, such as Niagara-7 and
 later.
 
 @item -mfix-at697f

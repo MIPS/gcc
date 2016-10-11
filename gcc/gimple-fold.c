@@ -57,6 +57,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 
 
+/* Return true if T is a constant and the value cast to a target char
+   can be represented by a host char.
+   Store the casted char constant in *P if so.  */
+
+static bool
+target_char_cst_p (tree t, char *p)
+{
+  if (!tree_fits_uhwi_p (t) || CHAR_TYPE_SIZE != HOST_BITS_PER_CHAR)
+    return false;
+
+  *p = (char)tree_to_uhwi (t);
+  return true;
+}
+
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
    We can get declarations that are not possible to reference for various
@@ -91,7 +105,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
 
   /* We are concerned only about static/external vars and functions.  */
   if ((!TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
-      || (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != FUNCTION_DECL))
+      || !VAR_OR_FUNCTION_DECL_P (decl))
     return true;
 
   /* Static objects can be referred only if they was not optimized out yet.  */
@@ -112,7 +126,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
      So we are concerned only when DECL comes from initializer of
      external var or var that has been optimized out.  */
   if (!from_decl
-      || TREE_CODE (from_decl) != VAR_DECL
+      || !VAR_P (from_decl)
       || (!DECL_EXTERNAL (from_decl)
 	  && (vnode = varpool_node::get (from_decl)) != NULL
 	  && vnode->definition)
@@ -192,13 +206,12 @@ canonicalize_constructor_val (tree cval, tree from_decl)
       if (!base)
 	return NULL_TREE;
 
-      if ((TREE_CODE (base) == VAR_DECL
-	   || TREE_CODE (base) == FUNCTION_DECL)
+      if (VAR_OR_FUNCTION_DECL_P (base)
 	  && !can_refer_decl_in_current_unit_p (base, from_decl))
 	return NULL_TREE;
       if (TREE_TYPE (base) == error_mark_node)
 	return NULL_TREE;
-      if (TREE_CODE (base) == VAR_DECL)
+      if (VAR_P (base))
 	TREE_ADDRESSABLE (base) = 1;
       else if (TREE_CODE (base) == FUNCTION_DECL)
 	{
@@ -1457,22 +1470,60 @@ gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi,
   return true;
 }
 
-/* Simplify strchr (str, 0) into str + strlen (str).
+/* Fold function call to builtin strchr or strrchr.
+   If both arguments are constant, evaluate and fold the result,
+   otherwise simplify str(r)chr (str, 0) into str + strlen (str).
    In general strlen is significantly faster than strchr
    due to being a simpler operation.  */
 static bool
-gimple_fold_builtin_strchr (gimple_stmt_iterator *gsi)
+gimple_fold_builtin_strchr (gimple_stmt_iterator *gsi, bool is_strrchr)
 {
   gimple *stmt = gsi_stmt (*gsi);
   tree str = gimple_call_arg (stmt, 0);
   tree c = gimple_call_arg (stmt, 1);
   location_t loc = gimple_location (stmt);
+  const char *p;
+  char ch;
 
+  if (!gimple_call_lhs (stmt))
+    return false;
+
+  if ((p = c_getstr (str)) && target_char_cst_p (c, &ch))
+    {
+      const char *p1 = is_strrchr ? strrchr (p, ch) : strchr (p, ch);
+
+      if (p1 == NULL)
+	{
+	  replace_call_with_value (gsi, integer_zero_node);
+	  return true;
+	}
+
+      tree len = build_int_cst (size_type_node, p1 - p);
+      gimple_seq stmts = NULL;
+      gimple *new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+					      POINTER_PLUS_EXPR, str, len);
+      gimple_seq_add_stmt_without_update (&stmts, new_stmt);
+      gsi_replace_with_seq_vops (gsi, stmts);
+      return true;
+    }
+
+  if (!integer_zerop (c))
+    return false;
+
+  /* Transform strrchr (s, 0) to strchr (s, 0) when optimizing for size.  */
   if (optimize_function_for_size_p (cfun))
-    return false;
+    {
+      tree strchr_fn = builtin_decl_implicit (BUILT_IN_STRCHR);
 
-  if (!integer_zerop (c) || !gimple_call_lhs (stmt))
-    return false;
+      if (is_strrchr && strchr_fn)
+	{
+	  gimple *repl = gimple_build_call (strchr_fn, 2, str, c);
+	  replace_call_with_call_and_fold (gsi, repl);
+	  return true;
+	}
+
+      return false;
+    }
 
   tree len;
   tree strlen_fn = builtin_decl_implicit (BUILT_IN_STRLEN);
@@ -2947,11 +2998,12 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
 					 gimple_call_arg (stmt, 1));
     case BUILT_IN_STRNCAT:
       return gimple_fold_builtin_strncat (gsi);
+    case BUILT_IN_INDEX:
     case BUILT_IN_STRCHR:
-      if (gimple_fold_builtin_strchr (gsi))
-	return true;
-      /* Perform additional folding in builtin.c.  */
-      break;
+      return gimple_fold_builtin_strchr (gsi, false);
+    case BUILT_IN_RINDEX:
+    case BUILT_IN_STRRCHR:
+      return gimple_fold_builtin_strchr (gsi, true);
     case BUILT_IN_FPUTS:
       return gimple_fold_builtin_fputs (gsi, gimple_call_arg (stmt, 0),
 					gimple_call_arg (stmt, 1), false);
@@ -6004,8 +6056,7 @@ gimple_get_virt_method_for_vtable (HOST_WIDE_INT token,
     *can_refer = true;
 
   /* First of all double check we have virtual table.  */
-  if (TREE_CODE (v) != VAR_DECL
-      || !DECL_VIRTUAL_P (v))
+  if (!VAR_P (v) || !DECL_VIRTUAL_P (v))
     {
       /* Pass down that we lost track of the target.  */
       if (can_refer)
