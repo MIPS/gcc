@@ -350,7 +350,7 @@ gfc_expr *
 gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
 {
   gfc_expr *base_expr;
-  gfc_ref *ref, *class_ref, *tail, *array_ref;
+  gfc_ref *ref, *class_ref, *tail = NULL, *array_ref;
 
   /* Find the last class reference.  */
   class_ref = NULL;
