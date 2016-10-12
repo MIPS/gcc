@@ -1,3 +1,34 @@
+2016-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_setup_reg_addr_masks): Rework
+	code.  Eliminate TARGET_VSX_{SI,HI,QI,QI_OR_HI}mode.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(floatsi<mode>2_lfiwax): Try to make direct move costs a bit more
+	realistic.
+
+	* config/rs6000/rs6000.h (floatsi<mode>2_lfiwax):
+	(TARGET_VSX_QImode): Try to make direct move costs a bit more
+	realistic.
+
+	* config/rs6000/rs6000.h (TARGET_VSX_QImode): Eliminate
+	TARGET_VSX_{SI,HI,QI,QI_OR_HI}mode.
+	(TARGET_VSX_QImode): Likewise.
+	(TARGET_VSX_HImode): Likewise.
+	(TARGET_VSX_SImode): Likewise.
+
+	* config/rs6000/rs6000.md (zero_extendsi<mode>2): Put back
+	original code.  Add power9 support to support conversions within
+	VSX registers on power9.  Do not build UNSPECs, and just do the
+	int->long conversion directly if -mvsx-small-integer.  Eliminate
+	TARGET_VSX_{SI,HI,QI,QI_OR_HI}mode.
+	(extendsi<mode>2): Likewise.
+	(lfiwax): Likewise.  Likewise.
+	(floatsi<mode>2_lfiwax): Likewise.
+	(floatsidf2): Likewise.
+	(lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(floatunssisf2): Likewise.
+
 2016-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wH): Add new constraints to

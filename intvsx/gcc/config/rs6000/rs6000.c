@@ -2771,14 +2771,16 @@ rs6000_setup_reg_addr_masks (void)
       any_addr_mask = 0;
       for (rc = FIRST_RELOAD_REG_CLASS; rc <= LAST_RELOAD_REG_CLASS; rc++)
 	{
-	  bool vsx_p = (rc == RELOAD_REG_FPR || rc == RELOAD_REG_VMX);
-
 	  addr_mask = 0;
 	  reg = reload_reg_map[rc].reg;
 
 	  /* Can mode values go in the GPR/FPR/Altivec registers?  */
 	  if (reg >= 0 && rs6000_hard_regno_mode_ok_p[m][reg])
 	    {
+	      bool small_int_vsx_p = (small_int_p
+				      && (rc == RELOAD_REG_FPR
+					  || rc == RELOAD_REG_VMX));
+
 	      nregs = rs6000_hard_regno_nregs[m][reg];
 	      addr_mask |= RELOAD_REG_VALID;
 
@@ -2786,7 +2788,7 @@ rs6000_setup_reg_addr_masks (void)
 		 it takes a single register, indicate it can do REG+REG
 		 addressing.  Small integers in VSX registers can only do
 		 REG+REG addressing.  */
-	      if (small_int_p && vsx_p)
+	      if (small_int_vsx_p)
 		addr_mask |= RELOAD_REG_INDEXED;
 	      else if (nregs > 1 || m == BLKmode || complex_p)
 		addr_mask |= RELOAD_REG_MULTIPLE;
@@ -2805,7 +2807,7 @@ rs6000_setup_reg_addr_masks (void)
 		  && !VECTOR_MODE_P (m2)
 		  && !FLOAT128_VECTOR_P (m2)
 		  && !complex_p
-		  && (!small_int_p || !vsx_p)
+		  && !small_int_vsx_p
 		  && (m2 != DFmode || !TARGET_UPPER_REGS_DF)
 		  && (m2 != SFmode || !TARGET_UPPER_REGS_SF)
 		  && !(TARGET_E500_DOUBLE && msize == 8))
@@ -3366,13 +3368,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       if (TARGET_UPPER_REGS_SF)
 	reg_addr[SFmode].scalar_in_vmx_p = true;
 
-      if (TARGET_VSX_SImode)
-	reg_addr[SImode].scalar_in_vmx_p = true;
-
-      if (TARGET_VSX_QI_OR_HImode)
+      if (TARGET_VSX_SMALL_INTEGER)
 	{
-	  reg_addr[QImode].scalar_in_vmx_p = true;
-	  reg_addr[HImode].scalar_in_vmx_p = true;
+	  reg_addr[SImode].scalar_in_vmx_p = true;
+	  if (TARGET_P9_VECTOR)
+	    {
+	      reg_addr[QImode].scalar_in_vmx_p = true;
+	      reg_addr[HImode].scalar_in_vmx_p = true;
+	    }
 	}
     }
 
@@ -35541,8 +35544,40 @@ rs6000_register_move_cost (machine_mode mode,
 	rclass = to;
 
       if (rclass == FLOAT_REGS || rclass == ALTIVEC_REGS || rclass == VSX_REGS)
-	ret = (rs6000_memory_move_cost (mode, rclass, false)
-	       + rs6000_memory_move_cost (mode, GENERAL_REGS, false));
+	{
+	  ret = -1;
+
+	  /* Make direct move a little more expensive than a normal move, but
+	     faster than storing and loading from memory.  SFmode is special
+	     because we have to convert between the scalar format and vector
+	     format.  */
+	  if (TARGET_DIRECT_MOVE)
+	    {
+	      int size = GET_MODE_SIZE (mode);
+	      if (mode == SFmode)
+		ret = 8;
+	      else if (size <= 4)
+		ret = 4;
+	      else if (TARGET_POWERPC64)
+		{
+		  if (size == 8)
+		    ret = 4;
+
+		  else if (size == 16)
+		    {
+		      int fp_nregs = hard_regno_nregs[FIRST_FPR_REGNO][mode];
+		      if (fp_nregs == 1)
+			ret = (TARGET_P9_VECTOR) ? 4 : 8;
+		      else
+			ret = 4 * fp_nregs;
+		    }
+		}
+	    }
+
+	  if (ret == -1)
+	    ret = (rs6000_memory_move_cost (mode, rclass, false)
+		   + rs6000_memory_move_cost (mode, GENERAL_REGS, false));
+	}
 
       /* It's more expensive to move CR_REGS than CR0_REGS because of the
 	 shift.  */
@@ -35567,7 +35602,7 @@ rs6000_register_move_cost (machine_mode mode,
   else if (VECTOR_MEM_VSX_P (mode)
 	   && reg_classes_intersect_p (to, VSX_REGS)
 	   && reg_classes_intersect_p (from, VSX_REGS))
-    ret = 2 * hard_regno_nregs[32][mode];
+    ret = 2 * hard_regno_nregs[FIRST_FPR_REGNO][mode];
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))

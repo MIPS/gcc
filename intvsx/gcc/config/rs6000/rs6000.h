@@ -608,11 +608,6 @@ extern int rs6000_vector_align[];
 #define TARGET_VEXTRACTUB	(TARGET_P9_VECTOR && TARGET_DIRECT_MOVE \
 				 && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
 
-#define TARGET_VSX_QI_OR_HImode	(TARGET_VSX_SMALL_INTEGER && TARGET_P9_VECTOR)
-#define TARGET_VSX_QImode	TARGET_VSX_QI_OR_HImode
-#define TARGET_VSX_HImode	TARGET_VSX_QI_OR_HImode
-#define TARGET_VSX_SImode	TARGET_VSX_SMALL_INTEGER
-
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad
    memory support.  */
