@@ -2019,8 +2019,8 @@ BU_P9V_OVERLOAD_2 (VEXTURX,	"vexturx")
    so is not mentioned here.  */
 BU_P9V_OVERLOAD_2 (CMPNEZ,	"vcmpnez")
 
-BU_P9V_OVERLOAD_P (VCMPNEZ_P,   "vcmpnez_p")
-BU_P9V_OVERLOAD_P (VCMPNE_P,   "vcmpne_p")
+BU_P9V_OVERLOAD_P (VCMPNEZ_P,	"vcmpnez_p")
+BU_P9V_OVERLOAD_P (VCMPNE_P,	"vcmpne_p")
 
 /* ISA 3.0 Vector scalar overloaded 1 argument functions */
 BU_P9V_OVERLOAD_1 (VCLZLSBB,	"vclzlsbb")

@@ -272,7 +272,7 @@
 (define_mode_attr VSX_EXTRACT_WIDTH [(V16QI "b")
 		  		     (V8HI "h")
 				     (V4SI "w")])
-				    
+
 ;; Mode attribute to give the correct predicate for ISA 3.0 vector extract and
 ;; insert to validate the operand number.
 (define_mode_attr VSX_EXTRACT_PREDICATE [(V16QI "const_0_to_15_operand")
@@ -3203,14 +3203,14 @@
   "xvtstdc<VSs> %x0,%x1,%2"
   [(set_attr "type" "vecsimple")])
 
-;; ISA 3.0 String Operations (VSU) Support
+;; ISA 3.0 String Operations Support
 
-;; Compare vectors producing a vector result and a predicate, setting CR6 
+;; Compare vectors producing a vector result and a predicate, setting CR6
 ;; to indicate a combined status.  This pattern matches v16qi, v8hi, and
 ;; v4si modes.  It does not match v2df, v4sf, or v2di modes.  There's no
 ;; need to match the v2di mode because that is expanded into v4si.
 (define_insn "*vsx_ne_<mode>_p"
-  [(set (reg:CC 74)
+  [(set (reg:CC CR6_REGNO)
 	(unspec:CC
 	 [(ne:CC (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
 		 (match_operand:VSX_EXTRACT_I 2 "gpc_reg_operand" "v"))]
@@ -3222,10 +3222,10 @@
   "xvcmpne<VSX_EXTRACT_WIDTH>. %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-;; Compare vectors producing a vector result and a predicate, setting CR6 
+;; Compare vectors producing a vector result and a predicate, setting CR6
 ;; to indicate a combined status, for v4sf and v2df operands.
 (define_insn "*vsx_ne_<mode>_p"
-  [(set (reg:CC 74)
+  [(set (reg:CC CR6_REGNO)
 	(unspec:CC [(ne:CC
 		     (match_operand:VSX_F 1 "vsx_register_operand" "wa")
 		     (match_operand:VSX_F 2 "vsx_register_operand" "wa"))]
@@ -3270,7 +3270,7 @@
   [(set (match_operand:V16QI 0 "vsx_register_operand" "=wa")
 	(unspec:V16QI
 	 [(match_operand:DI 1 "gpc_reg_operand" "b")
-	  (match_operand:DI 2 "register_operand" "r")]
+	  (match_operand:DI 2 "register_operand" "+r")]
 	 UNSPEC_LXVL))]
   "TARGET_P9_VECTOR && TARGET_64BIT"
   "sldi %2,%2, 56\; lxvl %x0,%1,%2"
@@ -3295,7 +3295,7 @@
   [(set (mem:V16QI (match_operand:DI 1 "gpc_reg_operand" "b"))
 	(unspec:V16QI
 	 [(match_operand:V16QI 0 "vsx_register_operand" "wa")
-	  (match_operand:DI 2 "register_operand" "r")]
+	  (match_operand:DI 2 "register_operand" "+r")]
 	 UNSPEC_STXVL))]
   "TARGET_P9_VECTOR && TARGET_64BIT"
   "sldi %2,%2\;stxvl %x0,%1,%2"

@@ -8,9 +8,10 @@
 #include <altivec.h>
 
 void
-store_data (vector unsigned int *datap, unsigned int *address, size_t length)
+store_data (vector signed __int128 *datap, signed __int128 *address,
+	    size_t length)
 {
-  vector unsigned int data = *datap;
+  vector signed __int128 data = *datap;
 
   vec_xst_len (data, address, length);
 }

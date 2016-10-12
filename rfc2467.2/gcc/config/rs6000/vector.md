@@ -689,11 +689,11 @@
 ;; on Power9.
 (define_expand "vector_ne_<mode>_p"
   [(parallel
-    [(set (reg:CC 74)
-	  (unspec:CC [(ne:CC (match_operand:VI 1 "vlogical_operand" "")
-			     (match_operand:VI 2 "vlogical_operand" ""))]
+    [(set (reg:CC CR6_REGNO)
+	  (unspec:CC [(ne:CC (match_operand:VI 1 "vlogical_operand")
+			     (match_operand:VI 2 "vlogical_operand"))]
 	   UNSPEC_PREDICATE))
-     (set (match_operand:VI 0 "vlogical_operand" "")
+     (set (match_operand:VI 0 "vlogical_operand")
 	  (ne:VI (match_dup 1)
 		 (match_dup 2)))])]
   "TARGET_P9_VECTOR"
@@ -704,13 +704,13 @@
 ;; functions on Power9.
 (define_expand "vector_nez_<mode>_p"
   [(parallel
-    [(set (reg:CC 74)
+    [(set (reg:CC CR6_REGNO)
 	  (unspec:CC [(unspec:VI
-		       [(match_operand:VI 1 "vlogical_operand" "")
-			(match_operand:VI 2 "vlogical_operand" "")]
+		       [(match_operand:VI 1 "vlogical_operand")
+			(match_operand:VI 2 "vlogical_operand")]
 		       UNSPEC_NEZ_P)]
 	   UNSPEC_PREDICATE))
-     (set (match_operand:VI 0 "vlogical_operand" "")
+     (set (match_operand:VI 0 "vlogical_operand")
 	  (unspec:VI [(match_dup 1)
 		      (match_dup 2)]
 	   UNSPEC_NEZ_P))])]
@@ -728,11 +728,11 @@
 ;; likewise in the test for "any equal".)
 (define_expand "vector_ne_v2di_p"
   [(parallel
-    [(set (reg:CC 74)
-	  (unspec:CC [(ne:CC (match_operand:V4SI 1 "vlogical_operand" "")
-			     (match_operand:V4SI 2 "vlogical_operand" ""))]
+    [(set (reg:CC CR6_REGNO)
+	  (unspec:CC [(ne:CC (match_operand:V4SI 1 "vlogical_operand")
+			     (match_operand:V4SI 2 "vlogical_operand"))]
 	   UNSPEC_PREDICATE))
-     (set (match_operand:V4SI 0 "vlogical_operand" "")
+     (set (match_operand:V4SI 0 "vlogical_operand")
 	  (ne:V4SI (match_dup 1)
 		   (match_dup 2)))])]
   "TARGET_P9_VECTOR"
@@ -740,14 +740,14 @@
 
 ;; This expansion handles the V4SF and V2DF modes in the Power9
 ;; implementation of the vec_all_ne and vec_any_eq built-in
-;; functions. 
+;; functions.
 (define_expand "vector_ne_<mode>_p"
   [(parallel
     [(set (reg:CC 74)
-	  (unspec:CC [(ne:CC (match_operand:VEC_F 1 "vlogical_operand" "")
-			     (match_operand:VEC_F 2 "vlogical_operand" ""))]
+	  (unspec:CC [(ne:CC (match_operand:VEC_F 1 "vlogical_operand")
+			     (match_operand:VEC_F 2 "vlogical_operand"))]
 	   UNSPEC_PREDICATE))
-     (set (match_operand:VEC_F 0 "vlogical_operand" "")
+     (set (match_operand:VEC_F 0 "vlogical_operand")
 	  (ne:VEC_F (match_dup 1)
 		    (match_dup 2)))])]
   "TARGET_P9_VECTOR"

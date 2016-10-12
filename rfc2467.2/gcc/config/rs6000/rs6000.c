@@ -13873,7 +13873,7 @@ altivec_expand_predicate_builtin (enum insn_code icode, tree exp, rtx target)
     op1 = copy_to_mode_reg (mode1, op1);
 
   /* Note that for many of the relevant operations (e.g. cmpne or
-     cmpeq) with float or double operands, it makes most sense for the
+     cmpeq) with float or double operands, it makes more sense for the
      mode of the allocated scratch register to select a vector of
      integer.  But the choice to copy the mode of operand 0 was made
      long ago and there are no plans to change it.  */
@@ -14221,7 +14221,6 @@ altivec_expand_stxvl_builtin (enum insn_code icode, tree exp)
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
   rtx op2 = expand_normal (arg2);
-  /*  machine_mode tmode = insn_data[icode].operand[0].mode; */
   machine_mode mode0 = insn_data[icode].operand[0].mode;
   machine_mode mode1 = insn_data[icode].operand[1].mode;
   machine_mode mode2 = insn_data[icode].operand[2].mode;
@@ -17181,7 +17180,7 @@ altivec_init_builtins (void)
   def_builtin ("__builtin_vec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRX);
   def_builtin ("__builtin_vec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRXL);
 
-  def_builtin ("__builtin_altivec_stxvl", void_ftype_v16qi_pvoid_long, 
+  def_builtin ("__builtin_altivec_stxvl", void_ftype_v16qi_pvoid_long,
 	       P9V_BUILTIN_STXVL);
 
   /* Add the DST variants.  */
@@ -17792,6 +17791,7 @@ rs6000_common_init_builtins (void)
 
 	      continue;
 	    }
+
 	  type = builtin_function_type (insn_data[icode].operand[0].mode,
 					insn_data[icode].operand[1].mode,
 					insn_data[icode].operand[2].mode,

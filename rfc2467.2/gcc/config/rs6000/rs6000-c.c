@@ -4568,10 +4568,10 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V4SI,
-    RS6000_BTI_V4SI }, 
+    RS6000_BTI_V4SI },
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SI,
-    RS6000_BTI_bool_V4SI }, 
+    RS6000_BTI_bool_V4SI },
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V4SI, RS6000_BTI_V4SI },
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNEW_P,
@@ -4581,18 +4581,18 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V2DI,
-    RS6000_BTI_unsigned_V2DI }, 
+    RS6000_BTI_unsigned_V2DI },
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V2DI,
-      RS6000_BTI_bool_V2DI }, 
+      RS6000_BTI_bool_V2DI },
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
-    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V2DI, 
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_unsigned_V2DI,
     RS6000_BTI_unsigned_V2DI },
 
   /* The following 2 entries have been deprecated.  */
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_bool_V2DI,
-    RS6000_BTI_V2DI }, 
+    RS6000_BTI_V2DI },
   { P9V_BUILTIN_VEC_VCMPNE_P, P9V_BUILTIN_VCMPNED_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DI,
     RS6000_BTI_bool_V2DI },
@@ -4674,7 +4674,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_INTSI, RS6000_BTI_UINTSI,
     RS6000_BTI_V4SI, 0 },
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUWLX,
-    RS6000_BTI_UINTSI, RS6000_BTI_UINTSI, 
+    RS6000_BTI_UINTSI, RS6000_BTI_UINTSI,
     RS6000_BTI_unsigned_V4SI, 0 },
   { P9V_BUILTIN_VEC_VEXTULX, P9V_BUILTIN_VEXTUWLX,
     RS6000_BTI_float, RS6000_BTI_UINTSI,
@@ -5210,7 +5210,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
       /* Power9 instructions provide the most efficient implementation of
 	 ALTIVEC_BUILTIN_VEC_CMPNE if the mode is not DImode or TImode.  */
-      if (!TARGET_P9_VECTOR 
+      if (!TARGET_P9_VECTOR
 	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == DImode)
 	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == TImode))
 	{
@@ -5219,13 +5219,13 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    goto bad;
 	  if (TREE_CODE (arg0_type) != VECTOR_TYPE)
 	    goto bad;
-	  
-	  
+
+
 	  switch (TYPE_MODE (TREE_TYPE (arg0_type)))
 	    {
 	      /* vec_cmpneq (va, vb) == vec_nor (vec_cmpeq (va, vb),
 		 vec_cmpeq (va, vb)).  */
-	      /* Note:  vec_nand also works but opt changes vec_nand's 
+	      /* Note:  vec_nand also works but opt changes vec_nand's
 		 to vec_nor's anyway.  */
 	    case QImode:
 	    case HImode:
@@ -5241,7 +5241,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 		vec_safe_push (params, arg0);
 		vec_safe_push (params, arg1);
 		tree call = altivec_resolve_overloaded_builtin
-		  (loc, rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_CMPEQ], 
+		  (loc, rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_CMPEQ],
 		   params);
 		/* Use save_expr to ensure that operands used more than once
 		   that may have side effects (like calls) are only evaluated

@@ -15025,29 +15025,29 @@ of processors, starting with ISA 3.0 or later
 separately in order to group the descriptions closer to the function
 prototypes:
 @smallexample
-int vec_all_nez (vector signed char, vector signed char)
-int vec_all_nez (vector unsigned char, vector unsigned char)
-int vec_all_nez (vector signed short, vector signed short)
-int vec_all_nez (vector unsigned short, vector unsigned short)
-int vec_all_nez (vector signed int, vector signed int)
-int vec_all_nez (vector unsigned int, vector unsigned int)
+int vec_all_nez (vector signed char, vector signed char);
+int vec_all_nez (vector unsigned char, vector unsigned char);
+int vec_all_nez (vector signed short, vector signed short);
+int vec_all_nez (vector unsigned short, vector unsigned short);
+int vec_all_nez (vector signed int, vector signed int);
+int vec_all_nez (vector unsigned int, vector unsigned int);
 
-int vec_any_eqz (vector signed char, vector signed char)
-int vec_any_eqz (vector unsigned char, vector unsigned char)
-int vec_any_eqz (vector signed short, vector signed short)
-int vec_any_eqz (vector unsigned short, vector unsigned short)
-int vec_any_eqz (vector signed int, vector signed int)
-int vec_any_eqz (vector unsigned int, vector unsigned int)
+int vec_any_eqz (vector signed char, vector signed char);
+int vec_any_eqz (vector unsigned char, vector unsigned char);
+int vec_any_eqz (vector signed short, vector signed short);
+int vec_any_eqz (vector unsigned short, vector unsigned short);
+int vec_any_eqz (vector signed int, vector signed int);
+int vec_any_eqz (vector unsigned int, vector unsigned int);
 
-vector bool char vec_cmpnez (vector signed char arg1, vector signed char arg2)
-vector bool char vec_cmpnez (vector unsigned char arg1, vector unsigned char arg2)
-vector bool short vec_cmpnez (vector signed short arg1, vector signed short arg2)
-vector bool short vec_cmpnez (vector unsigned short arg1, vector unsigned short arg2)
+vector bool char vec_cmpnez (vector signed char arg1, vector signed char arg2);
+vector bool char vec_cmpnez (vector unsigned char arg1, vector unsigned char arg2);
+vector bool short vec_cmpnez (vector signed short arg1, vector signed short arg2);
+vector bool short vec_cmpnez (vector unsigned short arg1, vector unsigned short arg2);
 vector bool int vec_cmpnez (vector signed int arg1, vector signed int arg2);
 vector bool int vec_cmpnez (vector unsigned int, vector unsigned int);
 
 signed int vec_cntlz_lsbb (vector signed char);
-signed int vec_cntlz_lsbb (vector unsigned char)
+signed int vec_cntlz_lsbb (vector unsigned char);
 
 signed int vec_cnttz_lsbb (vector signed char);
 signed int vec_cnttz_lsbb (vector unsigned char);
@@ -15070,7 +15070,7 @@ void vec_xst_len (vector unsigned char data, unsigned char *addr, size_t len);
 void vec_xst_len (vector signed int data, signed int *addr, size_t len);
 void vec_xst_len (vector unsigned int data, unsigned int *addr, size_t len);
 void vec_xst_len (vector unsigned __int128 data, unsigned __int128 *addr, size_t len);
-void vec_xst_len (vector signed long long data, signed long long *addr, size_t len)
+void vec_xst_len (vector signed long long data, signed long long *addr, size_t len);
 void vec_xst_len (vector unsigned long long data, unsigned long long *addr, size_t len);
 void vec_xst_len (vector signed short data, signed short *addr, size_t len);
 void vec_xst_len (vector unsigned short data, unsigned short *addr, size_t len);
@@ -15124,7 +15124,7 @@ function loads a variable length vector from memory.  The
 @code{vec_xst_len} function stores a variable length vector to memory.
 With both the @code{vec_xl_len} and @code{vec_xst_len} functions, the
 @code{addr} argument represents the memory address to or from which
-data will be transferred, and the 
+data will be transferred, and the
 @code{len} argument represents the number of bytes to be
 transferred, as computed by the C expression @code{min((len & 0xff), 16)}.
 If this expression's value is not a multiple of the vector element's
@@ -15134,9 +15134,9 @@ big-endian mode, the data transfer moves bytes 0 to @code{len} - 1 of
 the corresponding vector.  In little-endian mode, the data transfer
 moves bytes 16 - @code{len} to 15 of the corresponding vector.  For the
 load function, any bytes of the result vector that are not loaded from
-memory are set to zero.  
+memory are set to zero.
 The value of the @code{addr} argument need not be aligned on a
-multiple of the vector's element size.  
+multiple of the vector's element size.
 
 The @code{vec_xlx} and @code{vec_xrx} functions extract the single
 element selected by the @code{index} argument from the vector
