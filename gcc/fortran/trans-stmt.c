@@ -6090,17 +6090,12 @@ gfc_trans_allocate (gfc_code * code)
       else if (code->expr3 && code->expr3->mold
 	       && code->expr3->ts.type == BT_CLASS)
 	{
+	  /* Use class_init_assign to initialize expr.  */
 	  gfc_code *ini;
 	  ini = gfc_get_code (EXEC_INIT_ASSIGN);
 	  ini->expr1 = gfc_find_and_cut_at_last_class_ref (expr);
 	  tmp = gfc_trans_class_init_assign (ini);
 	  gfc_free_statements (ini);
-//	  /* Since the _vptr has already been assigned to the allocate
-//	     object, we can use gfc_copy_class_to_class in its
-//	     initialization mode.  */
-//	  tmp = TREE_OPERAND (se.expr, 0);
-//	  tmp = gfc_copy_class_to_class (NULL_TREE, tmp, nelems,
-//					 upoly_expr);
 	  gfc_add_expr_to_block (&block, tmp);
 	}
 
