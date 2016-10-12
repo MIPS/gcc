@@ -110,10 +110,10 @@
 
 ;; For MOVEP.
 (define_peephole2
-  [(set (match_operand:MOVEP1 0 "register_operand" "")
-        (match_operand:MOVEP1 1 "movep_src_operand" ""))
-   (set (match_operand:MOVEP2 2 "register_operand" "")
-        (match_operand:MOVEP2 3 "movep_src_operand" ""))]
+  [(set (match_operand 0 "register_operand" "")
+        (match_operand 1 "movep_src_operand" ""))
+   (set (match_operand 2 "register_operand" "")
+        (match_operand 3 "movep_src_operand" ""))]
   "TARGET_MICROMIPS
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
@@ -122,11 +122,11 @@
               (set (match_dup 2) (match_dup 3))])])
 
 ;; The behavior of the MOVEP insn is undefined if placed in a delay slot.
-(define_insn "*movep<MOVEP1:mode><MOVEP2:mode>"
-  [(parallel [(set (match_operand:MOVEP1 0 "register_operand")
-		   (match_operand:MOVEP1 1 "movep_src_operand"))
-	      (set (match_operand:MOVEP2 2 "register_operand")
-		   (match_operand:MOVEP2 3 "movep_src_operand"))])]
+(define_insn "*movep"
+  [(parallel [(set (match_operand 0 "register_operand")
+		   (match_operand 1 "movep_src_operand"))
+	      (set (match_operand 2 "register_operand")
+		   (match_operand 3 "movep_src_operand"))])]
   "TARGET_MICROMIPS
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
@@ -148,7 +148,6 @@
     }
 }
   [(set_attr "type" "move")
-   (set_attr "mode" "<MODE>")
    (set_attr "can_delay" "no")])
 
 ;; MOVEP reversed, the pair is now a source rather than destination
