@@ -1490,6 +1490,9 @@ msp430_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   return addr;
 }
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
+
 /* Addressing Modes */
 
 #undef  TARGET_LEGITIMATE_ADDRESS_P
@@ -2107,6 +2110,13 @@ msp430_start_function (FILE *file, const char *name, tree decl)
       if (intr_vector != NULL_TREE)
 	{
 	  char buf[101];
+
+	  /* Interrupt vector sections should be unique, but use of weak
+	     functions implies multiple definitions.  */
+	  if (DECL_WEAK (decl))
+	    {
+	      error ("argument to interrupt attribute is unsupported for weak functions");
+	    }
 
 	  intr_vector = TREE_VALUE (intr_vector);
 

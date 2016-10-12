@@ -576,7 +576,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 	  size_t *v;
 	  /* Nested function lowering might introduce LHSs
 	     that are COMPONENT_REFs.  */
-	  if (TREE_CODE (lhs) != VAR_DECL)
+	  if (!VAR_P (lhs))
 	    continue;
 	  if (DECL_RTL_IF_SET (lhs) == pc_rtx
 	      && (v = decl_to_stack_part->get (lhs)))
@@ -815,16 +815,15 @@ update_alias_info_with_stack_vars (void)
   if (decls_to_partitions)
     {
       unsigned i;
+      tree name;
       hash_set<bitmap> visited;
       bitmap temp = BITMAP_ALLOC (&stack_var_bitmap_obstack);
 
-      for (i = 1; i < num_ssa_names; i++)
+      FOR_EACH_SSA_NAME (i, name, cfun)
 	{
-	  tree name = ssa_name (i);
 	  struct ptr_info_def *pi;
 
-	  if (name
-	      && POINTER_TYPE_P (TREE_TYPE (name))
+	  if (POINTER_TYPE_P (TREE_TYPE (name))
 	      && ((pi = SSA_NAME_PTR_INFO (name)) != NULL))
 	    add_partitioned_vars_to_ptset (&pi->pt, decls_to_partitions,
 					   &visited, temp);
@@ -1009,7 +1008,7 @@ expand_one_stack_var_at (tree decl, rtx base, unsigned base_align,
 	 important, we'll simply use the alignment that is already set.  */
       if (base == virtual_stack_vars_rtx)
 	offset -= frame_phase;
-      align = offset & -offset;
+      align = least_bit_hwi (offset);
       align *= BITS_PER_UNIT;
       if (align == 0 || align > base_align)
 	align = base_align;
@@ -1572,7 +1571,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 
   var = SSAVAR (var);
 
-  if (TREE_TYPE (var) != error_mark_node && TREE_CODE (var) == VAR_DECL)
+  if (TREE_TYPE (var) != error_mark_node && VAR_P (var))
     {
       if (is_global_var (var))
 	return 0;
@@ -1609,7 +1608,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 
   if (TREE_CODE (origvar) == SSA_NAME)
     {
-      gcc_assert (TREE_CODE (var) != VAR_DECL
+      gcc_assert (!VAR_P (var)
 		  || (!DECL_EXTERNAL (var)
 		      && !DECL_HAS_VALUE_EXPR_P (var)
 		      && !TREE_STATIC (var)
@@ -1617,7 +1616,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 		      && !DECL_HARD_REGISTER (var)
 		      && really_expand));
     }
-  if (TREE_CODE (var) != VAR_DECL && TREE_CODE (origvar) != SSA_NAME)
+  if (!VAR_P (var) && TREE_CODE (origvar) != SSA_NAME)
     ;
   else if (DECL_EXTERNAL (var))
     ;
@@ -1632,7 +1631,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_error_var (var);
     }
-  else if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
+  else if (VAR_P (var) && DECL_HARD_REGISTER (var))
     {
       if (really_expand)
 	{
@@ -1690,7 +1689,7 @@ expand_used_vars_for_block (tree block, bool toplevel)
   /* Expand all variables at this level.  */
   for (t = BLOCK_VARS (block); t ; t = DECL_CHAIN (t))
     if (TREE_USED (t)
-        && ((TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != RESULT_DECL)
+        && ((!VAR_P (t) && TREE_CODE (t) != RESULT_DECL)
 	    || !DECL_NONSHAREABLE (t)))
       expand_one_var (t, toplevel, true);
 
@@ -1709,7 +1708,7 @@ clear_tree_used (tree block)
 
   for (t = BLOCK_VARS (block); t ; t = DECL_CHAIN (t))
     /* if (!TREE_STATIC (t) && !DECL_EXTERNAL (t)) */
-    if ((TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != RESULT_DECL)
+    if ((!VAR_P (t) && TREE_CODE (t) != RESULT_DECL)
 	|| !DECL_NONSHAREABLE (t))
       TREE_USED (t) = 0;
 
@@ -1985,7 +1984,7 @@ stack_protect_decl_p ()
     if (!is_global_var (var))
       {
 	tree var_type = TREE_TYPE (var);
-	if (TREE_CODE (var) == VAR_DECL
+	if (VAR_P (var)
 	    && (TREE_CODE (var_type) == ARRAY_TYPE
 		|| TREE_ADDRESSABLE (var)
 		|| (RECORD_OR_UNION_TYPE_P (var_type)
@@ -4276,7 +4275,7 @@ expand_debug_expr (tree exp)
       /* This decl was probably optimized away.  */
       if (!op0)
 	{
-	  if (TREE_CODE (exp) != VAR_DECL
+	  if (!VAR_P (exp)
 	      || DECL_EXTERNAL (exp)
 	      || !TREE_STATIC (exp)
 	      || !DECL_NAME (exp)
@@ -4877,7 +4876,7 @@ expand_debug_expr (tree exp)
 	      tree decl
 		= get_ref_base_and_extent (TREE_OPERAND (exp, 0), &bitoffset,
 					   &bitsize, &maxsize, &reverse);
-	      if ((TREE_CODE (decl) == VAR_DECL
+	      if ((VAR_P (decl)
 		   || TREE_CODE (decl) == PARM_DECL
 		   || TREE_CODE (decl) == RESULT_DECL)
 		  && (!TREE_ADDRESSABLE (decl)
@@ -6270,16 +6269,15 @@ pass_expand::execute (function *fun)
 
   /* Now propagate the RTL assignment of each partition to the
      underlying var of each SSA_NAME.  */
-  for (i = 1; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
+  tree name;
 
-      if (!name
-	  /* We might have generated new SSA names in
-	     update_alias_info_with_stack_vars.  They will have a NULL
-	     defining statements, and won't be part of the partitioning,
-	     so ignore those.  */
-	  || !SSA_NAME_DEF_STMT (name))
+  FOR_EACH_SSA_NAME (i, name, cfun)
+    {
+      /* We might have generated new SSA names in
+	 update_alias_info_with_stack_vars.  They will have a NULL
+	 defining statements, and won't be part of the partitioning,
+	 so ignore those.  */
+      if (!SSA_NAME_DEF_STMT (name))
 	continue;
 
       adjust_one_expanded_partition_var (name);
@@ -6288,17 +6286,15 @@ pass_expand::execute (function *fun)
   /* Clean up RTL of variables that straddle across multiple
      partitions, and check that the rtl of any PARM_DECLs that are not
      cleaned up is that of their default defs.  */
-  for (i = 1; i < num_ssa_names; i++)
+  FOR_EACH_SSA_NAME (i, name, cfun)
     {
-      tree name = ssa_name (i);
       int part;
 
-      if (!name
-	  /* We might have generated new SSA names in
-	     update_alias_info_with_stack_vars.  They will have a NULL
-	     defining statements, and won't be part of the partitioning,
-	     so ignore those.  */
-	  || !SSA_NAME_DEF_STMT (name))
+      /* We might have generated new SSA names in
+	 update_alias_info_with_stack_vars.  They will have a NULL
+	 defining statements, and won't be part of the partitioning,
+	 so ignore those.  */
+      if (!SSA_NAME_DEF_STMT (name))
 	continue;
       part = var_to_partition (SA.map, name);
       if (part == NO_PARTITION)

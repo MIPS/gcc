@@ -132,7 +132,7 @@ bits_headers = \
 	${bits_srcdir}/mask_array.h \
 	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
-	${bits_srcdir}/numeric_limits.h \
+	${bits_srcdir}/node_handle.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/parse_numbers.h \
@@ -188,6 +188,7 @@ bits_headers = \
 	${bits_srcdir}/specfun.h \
 	${bits_srcdir}/specfun_util.h \
 	${bits_srcdir}/sstream.tcc \
+	${bits_srcdir}/std_abs.h \
 	${bits_srcdir}/std_mutex.h \
 	${bits_srcdir}/stl_algo.h \
 	${bits_srcdir}/stl_algobase.h \
@@ -725,6 +726,7 @@ experimental_bits_srcdir = ${glibcxx_srcdir}/include/experimental/bits
 experimental_bits_builddir = ./experimental/bits
 experimental_bits_headers = \
 	${experimental_bits_srcdir}/erase_if.h \
+	${experimental_bits_srcdir}/lfts_config.h \
 	${experimental_bits_srcdir}/shared_ptr.h \
 	${experimental_bits_srcdir}/string_view.tcc \
 	${experimental_bits_filesystem_headers}

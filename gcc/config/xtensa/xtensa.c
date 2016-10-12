@@ -264,6 +264,9 @@ static void xtensa_conditional_register_usage (void);
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM xtensa_cannot_force_const_mem
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
+
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	xtensa_legitimate_address_p
 
@@ -2677,6 +2680,9 @@ xtensa_expand_prologue (void)
 
 
   total_size = compute_frame_size (get_frame_size ());
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = total_size;
 
   if (TARGET_WINDOWED_ABI)
     {

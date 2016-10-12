@@ -390,6 +390,9 @@
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2118" target="_top">2118</a>:
 	<span class="emphasis"><em><code class="code">unique_ptr</code> for array does not support cv qualification conversion of actual argument</em></span>
     </span></dt><dd><p>Adjust constraints to allow safe conversions.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2127" target="_top">2127</a>:
+	<span class="emphasis"><em>Move-construction with <code class="code">raw_storage_iterator</code></em></span>
+    </span></dt><dd><p>Add assignment operator taking an rvalue.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2132" target="_top">2132</a>:
 	<span class="emphasis"><em><code class="code">std::function</code> ambiguity</em></span>
     </span></dt><dd><p>Constrain the constructor to only accept callable types.
@@ -408,6 +411,10 @@
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2187" target="_top">2187</a>:
 	<span class="emphasis"><em><code class="code">vector&lt;bool&gt;</code> is missing <code class="code">emplace</code> and <code class="code">emplace_back</code> member functions</em></span>
     </span></dt><dd><p>Add <code class="code">emplace</code> and <code class="code">emplace_back</code> member functions.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2192" target="_top">2192</a>:
+	<span class="emphasis"><em>Validity and return type of <code class="code">std::abs(0u)</code> is unclear</em></span>
+    </span></dt><dd><p>Move all declarations to a common header and remove the
+    generic <code class="code">abs</code> which accepted unsigned arguments.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2196" target="_top">2196</a>:
 	<span class="emphasis"><em>Specification of <code class="code">is_*[copy/move]_[constructible/assignable]</code> unclear for non-referencable types</em></span>
     </span></dt><dd><p>Use the referenceable type concept.
@@ -416,6 +423,10 @@
     </span></dt><dd><p>The <code class="code">tuple_size</code> and <code class="code">tuple_element</code>
     partial specializations are defined in <code class="code">&lt;utility&gt;</code> which
     is included by <code class="code">&lt;array&gt;</code>.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2296" target="_top">2296</a>:
+	<span class="emphasis"><em><code class="code">std::addressof</code> should be constexpr</em></span>
+    </span></dt><dd><p>Use <code class="code">__builtin_addressof</code> and add
+    <code class="code">constexpr</code> to <code class="code">addressof</code> for C++17 and later.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2313" target="_top">2313</a>:
 	<span class="emphasis"><em><code class="code">tuple_size</code> should always derive from <code class="code">integral_constant&lt;size_t, N&gt;</code></em></span>
     </span></dt><dd><p>Update definitions of the partial specializations for const and volatile types.
@@ -475,6 +486,10 @@
        <span class="emphasis"><em><code class="code">allocator_traits::max_size()</code> default behavior is incorrect
        </em></span>
     </span></dt><dd><p>Divide by the object type.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2583" target="_top">2583</a>:
+       <span class="emphasis"><em>There is no way to supply an allocator for <code class="code"> basic_string(str, pos)</code>
+       </em></span>
+    </span></dt><dd><p>Add new constructor
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2684" target="_top">2684</a>:
        <span class="emphasis"><em><code class="code">priority_queue</code> lacking comparator typedef
        </em></span>

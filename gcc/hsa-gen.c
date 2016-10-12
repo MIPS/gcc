@@ -883,12 +883,11 @@ get_symbol_for_decl (tree decl)
 
   gcc_assert (TREE_CODE (decl) == PARM_DECL
 	      || TREE_CODE (decl) == RESULT_DECL
-	      || TREE_CODE (decl) == VAR_DECL);
+	      || VAR_P (decl));
 
   dummy.m_decl = decl;
 
-  bool is_in_global_vars
-    = TREE_CODE (decl) == VAR_DECL && is_global_var (decl);
+  bool is_in_global_vars = VAR_P (decl) && is_global_var (decl);
 
   if (is_in_global_vars)
     slot = hsa_global_variable_symbols->find_slot (&dummy, INSERT);
@@ -925,7 +924,7 @@ get_symbol_for_decl (tree decl)
   else
     {
       hsa_symbol *sym;
-      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      gcc_assert (VAR_P (decl));
       BrigAlignment8_t align = hsa_object_alignment (decl);
 
       if (is_in_global_vars)
@@ -952,7 +951,7 @@ get_symbol_for_decl (tree decl)
 	    align = MAX ((BrigAlignment8_t) BRIG_ALIGNMENT_8, align);
 
 	  /* PARM_DECL and RESULT_DECL should be already in m_local_symbols.  */
-	  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+	  gcc_assert (VAR_P (decl));
 
 	  sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_PRIVATE,
 				BRIG_LINKAGE_FUNCTION);
@@ -1100,8 +1099,7 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 
   /* Verify that all elements of a constructor are constants.  */
   if (TREE_CODE (m_tree_value) == CONSTRUCTOR)
-    for (unsigned i = 0;
-	 i < vec_safe_length (CONSTRUCTOR_ELTS (m_tree_value)); i++)
+    for (unsigned i = 0; i < CONSTRUCTOR_NELTS (m_tree_value); i++)
       {
 	tree v = CONSTRUCTOR_ELT (m_tree_value, i)->value;
 	if (!CONSTANT_CLASS_P (v))
@@ -2207,7 +2205,7 @@ gen_hsa_addr_with_align (tree ref, hsa_bb *hbb, BrigAlignment8_t *output_align)
       unsigned align = hsa_byte_alignment (addr->m_symbol->m_align);
       unsigned misalign = addr->m_imm_offset & (align - 1);
       if (misalign)
-        align = (misalign & -misalign);
+        align = least_bit_hwi (misalign);
       *output_align = hsa_alignment_encoding (BITS_PER_UNIT * align);
     }
   return addr;
@@ -2434,7 +2432,7 @@ hsa_bitmemref_alignment (tree ref)
   BrigAlignment8_t base = hsa_object_alignment (ref);
   if (byte_bits == 0)
     return base;
-  return MIN (base, hsa_alignment_encoding (byte_bits & -byte_bits));
+  return MIN (base, hsa_alignment_encoding (least_bit_hwi (byte_bits)));
 }
 
 /* Generate HSAIL instructions loading something into register DEST.  RHS is
@@ -2845,7 +2843,7 @@ void
 gen_hsa_ctor_assignment (hsa_op_address *addr_lhs, tree rhs, hsa_bb *hbb,
 			 BrigAlignment8_t align)
 {
-  if (vec_safe_length (CONSTRUCTOR_ELTS (rhs)))
+  if (CONSTRUCTOR_NELTS (rhs))
     {
       HSA_SORRY_AT (EXPR_LOCATION (rhs),
 		    "support for HSA does not implement load from constructor");

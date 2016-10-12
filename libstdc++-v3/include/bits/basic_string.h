@@ -417,16 +417,31 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 		    _Alloc_traits::_S_select_on_copy(__str._M_get_allocator()))
       { _M_construct(__str._M_data(), __str._M_data() + __str.length()); }
 
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 2583. no way to supply an allocator for basic_string(str, pos)
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.
        *  @param  __pos  Index of first character to copy from.
-       *  @param  __n  Number of characters to copy (default remainder).
+       *  @param  __a  Allocator to use.
        */
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // 2402. [this constructor] shouldn't use Allocator()
       basic_string(const basic_string& __str, size_type __pos,
-		   size_type __n = npos)
+		   const _Alloc& __a = _Alloc())
+      : _M_dataplus(_M_local_data(), __a)
+      {
+	const _CharT* __start = __str._M_data()
+	  + __str._M_check(__pos, "basic_string::basic_string");
+	_M_construct(__start, __start + __str._M_limit(__pos, npos));
+      }
+
+      /**
+       *  @brief  Construct string as copy of a substring.
+       *  @param  __str  Source string.
+       *  @param  __pos  Index of first character to copy from.
+       *  @param  __n  Number of characters to copy.
+       */
+      basic_string(const basic_string& __str, size_type __pos,
+		   size_type __n)
       : _M_dataplus(_M_local_data())
       {
 	const _CharT* __start = __str._M_data()
@@ -438,7 +453,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.
        *  @param  __pos  Index of first character to copy from.
-       *  @param  __n  Number of characters to copy (default remainder).
+       *  @param  __n  Number of characters to copy.
        *  @param  __a  Allocator to use.
        */
       basic_string(const basic_string& __str, size_type __pos,
@@ -1694,8 +1709,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
       {
-	this->_M_erase(_M_check(__pos, "basic_string::erase"),
-		       _M_limit(__pos, __n));
+	_M_check(__pos, "basic_string::erase");
+	if (__n == npos)
+	  this->_M_set_length(__pos);
+	else if (__n != 0)
+	  this->_M_erase(__pos, _M_limit(__pos, __n));
 	return *this;
       }
 
@@ -1732,7 +1750,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= begin() && __first <= __last
 				 && __last <= end());
         const size_type __pos = __first - begin();
-	this->_M_erase(__pos, __last - __first);
+	if (__last == end())
+	  this->_M_set_length(__pos);
+	else
+	  this->_M_erase(__pos, __last - __first);
 	return iterator(this->_M_data() + __pos);
       }
 
@@ -3305,14 +3326,26 @@ _GLIBCXX_END_NAMESPACE_CXX11
        *  @param  __str  Source string.
        */
       basic_string(const basic_string& __str);
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 2583. no way to supply an allocator for basic_string(str, pos)
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.
        *  @param  __pos  Index of first character to copy from.
-       *  @param  __n  Number of characters to copy (default remainder).
+       *  @param  __a  Allocator to use.
        */
       basic_string(const basic_string& __str, size_type __pos,
-		   size_type __n = npos);
+		   const _Alloc& __a = _Alloc());
+
+      /**
+       *  @brief  Construct string as copy of a substring.
+       *  @param  __str  Source string.
+       *  @param  __pos  Index of first character to copy from.
+       *  @param  __n  Number of characters to copy.
+       */
+      basic_string(const basic_string& __str, size_type __pos,
+		   size_type __n);
       /**
        *  @brief  Construct string as copy of a substring.
        *  @param  __str  Source string.
@@ -3657,10 +3690,24 @@ _GLIBCXX_END_NAMESPACE_CXX11
       /**
        *  Erases the string, making it empty.
        */
+#if _GLIBCXX_FULLY_DYNAMIC_STRING == 0
+      void
+      clear() _GLIBCXX_NOEXCEPT
+      {
+	if (_M_rep()->_M_is_shared())
+	  {
+	    _M_rep()->_M_dispose(this->get_allocator());
+	    _M_data(_S_empty_rep()._M_refdata());
+	  }
+	else
+	  _M_rep()->_M_set_length_and_sharable(0);
+      }
+#else
       // PR 56166: this should not throw.
       void
       clear()
       { _M_mutate(0, this->size(), 0); }
+#endif
 
       /**
        *  Returns true if the %string is empty.  Equivalent to 
@@ -6044,6 +6091,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 #endif
 
+_GLIBCXX_END_NAMESPACE_VERSION
+
 #if __cplusplus > 201103L
 
 #define __cpp_lib_string_udls 201304
@@ -6052,6 +6101,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   {
   inline namespace string_literals
   {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     _GLIBCXX_DEFAULT_ABI_TAG
     inline basic_string<char>
@@ -6077,12 +6127,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { return basic_string<char32_t>{__str, __len}; }
 #endif
 
+_GLIBCXX_END_NAMESPACE_VERSION
   } // inline namespace string_literals
   } // inline namespace literals
 
 #endif // __cplusplus > 201103L
 
-_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif // C++11

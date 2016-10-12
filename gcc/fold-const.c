@@ -837,15 +837,16 @@ split_tree (location_t loc, tree in, tree type, enum tree_code code,
 	  var = negate_expr (var);
 	}
     }
+  else if (TREE_CONSTANT (in))
+    *conp = in;
   else if (TREE_CODE (in) == BIT_NOT_EXPR
 	   && code == PLUS_EXPR)
     {
-      /* -X - 1 is folded to ~X, undo that here.  */
+      /* -X - 1 is folded to ~X, undo that here.  Do _not_ do this
+         when IN is constant.  */
       *minus_litp = build_one_cst (TREE_TYPE (in));
       var = negate_expr (TREE_OPERAND (in, 0));
     }
-  else if (TREE_CONSTANT (in))
-    *conp = in;
   else
     var = in;
 
@@ -2953,8 +2954,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       case CONSTRUCTOR:
 	/* In GIMPLE empty constructors are allowed in initializers of
 	   aggregates.  */
-	return (!vec_safe_length (CONSTRUCTOR_ELTS (arg0))
-		&& !vec_safe_length (CONSTRUCTOR_ELTS (arg1)));
+	return !CONSTRUCTOR_NELTS (arg0) && !CONSTRUCTOR_NELTS (arg1);
       default:
 	break;
       }
@@ -7142,7 +7142,16 @@ native_encode_real (const_tree expr, unsigned char *ptr, int len, int off)
 	    offset += byte % UNITS_PER_WORD;
 	}
       else
-	offset = BYTES_BIG_ENDIAN ? 3 - byte : byte;
+	{
+	  offset = byte;
+	  if (BYTES_BIG_ENDIAN)
+	    {
+	      /* Reverse bytes within each long, or within the entire float
+		 if it's smaller than a long (for HFmode).  */
+	      offset = MIN (3, total_bytes - 1) - offset;
+	      gcc_assert (offset >= 0);
+	    }
+	}
       offset = offset + ((bitpos / BITS_PER_UNIT) & ~3);
       if (offset >= off
 	  && offset - off < len)
@@ -7933,7 +7942,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
       if (TREE_CODE (op0) == ADDR_EXPR)
 	{
 	  tree op00 = TREE_OPERAND (op0, 0);
-	  if ((TREE_CODE (op00) == VAR_DECL
+	  if ((VAR_P (op00)
 	       || TREE_CODE (op00) == PARM_DECL
 	       || TREE_CODE (op00) == RESULT_DECL)
 	      && !TREE_READONLY (op00))
@@ -10005,7 +10014,7 @@ fold_binary_loc (location_t loc,
 	         mode which allows further optimizations.  */
 	      int pop = wi::popcount (warg1);
 	      if (!(pop >= BITS_PER_UNIT
-		    && exact_log2 (pop) != -1
+		    && pow2p_hwi (pop)
 		    && wi::mask (pop, false, warg1.get_precision ()) == warg1))
 		return fold_build2_loc (loc, code, type, op0,
 					wide_int_to_tree (type, masked));
@@ -13898,7 +13907,6 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
       if (!VECTOR_TYPE_P (type))
 	{
 	  /* Have vector comparison with scalar boolean result.  */
-	  bool result = true;
 	  gcc_assert ((code == EQ_EXPR || code == NE_EXPR)
 		      && VECTOR_CST_NELTS (op0) == VECTOR_CST_NELTS (op1));
 	  for (unsigned i = 0; i < VECTOR_CST_NELTS (op0); i++)
@@ -13906,11 +13914,12 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 	      tree elem0 = VECTOR_CST_ELT (op0, i);
 	      tree elem1 = VECTOR_CST_ELT (op1, i);
 	      tree tmp = fold_relational_const (code, type, elem0, elem1);
-	      result &= integer_onep (tmp);
+	      if (tmp == NULL_TREE)
+		return NULL_TREE;
+	      if (integer_zerop (tmp))
+		return constant_boolean_node (false, type);
 	    }
-	  if (code == NE_EXPR)
-	    result = !result;
-	  return constant_boolean_node (result, type);
+	  return constant_boolean_node (true, type);
 	}
       unsigned count = VECTOR_CST_NELTS (op0);
       tree *elts =  XALLOCAVEC (tree, count);
@@ -14251,7 +14260,7 @@ round_up_loc (location_t loc, tree value, unsigned int divisor)
     }
 
   /* If divisor is a power of two, simplify this to bit manipulation.  */
-  if (divisor == (divisor & -divisor))
+  if (pow2_or_zerop (divisor))
     {
       if (TREE_CODE (value) == INTEGER_CST)
 	{
@@ -14314,7 +14323,7 @@ round_down_loc (location_t loc, tree value, int divisor)
     }
 
   /* If divisor is a power of two, simplify this to bit manipulation.  */
-  if (divisor == (divisor & -divisor))
+  if (pow2_or_zerop (divisor))
     {
       tree t;
 
@@ -14518,12 +14527,32 @@ test_arithmetic_folding ()
 				   x);
 }
 
+/* Verify that various binary operations on vectors are folded
+   correctly.  */
+
+static void
+test_vector_folding ()
+{
+  tree inner_type = integer_type_node;
+  tree type = build_vector_type (inner_type, 4);
+  tree zero = build_zero_cst (type);
+  tree one = build_one_cst (type);
+
+  /* Verify equality tests that return a scalar boolean result.  */
+  tree res_type = boolean_type_node;
+  ASSERT_FALSE (integer_nonzerop (fold_build2 (EQ_EXPR, res_type, zero, one)));
+  ASSERT_TRUE (integer_nonzerop (fold_build2 (EQ_EXPR, res_type, zero, zero)));
+  ASSERT_TRUE (integer_nonzerop (fold_build2 (NE_EXPR, res_type, zero, one)));
+  ASSERT_FALSE (integer_nonzerop (fold_build2 (NE_EXPR, res_type, one, one)));
+}
+
 /* Run all of the selftests within this file.  */
 
 void
 fold_const_c_tests ()
 {
   test_arithmetic_folding ();
+  test_vector_folding ();
 }
 
 } // namespace selftest

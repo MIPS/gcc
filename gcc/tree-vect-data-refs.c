@@ -2241,7 +2241,7 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       if (DR_IS_READ (dr)
 	  && (dr_step % type_size) == 0
 	  && groupsize > 0
-	  && exact_log2 (groupsize) != -1)
+	  && pow2p_hwi (groupsize))
 	{
 	  GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = stmt;
 	  GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
@@ -2711,10 +2711,17 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
       data_reference_p dra = datarefs_copy[i];
       stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra));
       stmt_vec_info lastinfo = NULL;
+      if (! STMT_VINFO_VECTORIZABLE (stmtinfo_a))
+	{
+	  ++i;
+	  continue;
+	}
       for (i = i + 1; i < datarefs_copy.length (); ++i)
 	{
 	  data_reference_p drb = datarefs_copy[i];
 	  stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
+	  if (! STMT_VINFO_VECTORIZABLE (stmtinfo_b))
+	    break;
 
 	  /* ???  Imperfect sorting (non-compatible types, non-modulo
 	     accesses, same accesses) can lead to a group to be artificially
@@ -4736,7 +4743,7 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
       else
 	{
 	  /* If length is not equal to 3 then only power of 2 is supported.  */
-	  gcc_assert (exact_log2 (count) != -1);
+	  gcc_assert (pow2p_hwi (count));
 
 	  for (i = 0; i < nelt / 2; i++)
 	    {
@@ -4914,7 +4921,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
   else
     {
       /* If length is not equal to 3 then only power of 2 is supported.  */
-      gcc_assert (exact_log2 (length) != -1);
+      gcc_assert (pow2p_hwi (length));
 
       for (i = 0, n = nelt / 2; i < n; i++)
 	{
@@ -5309,7 +5316,7 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
       else
 	{
 	  /* If length is not equal to 3 then only power of 2 is supported.  */
-	  gcc_assert (exact_log2 (count) != -1);
+	  gcc_assert (pow2p_hwi (count));
 	  for (i = 0; i < nelt; i++)
 	    sel[i] = i * 2;
 	  if (can_vec_perm_p (mode, false, sel))
@@ -5483,7 +5490,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
   else
     {
       /* If length is not equal to 3 then only power of 2 is supported.  */
-      gcc_assert (exact_log2 (length) != -1);
+      gcc_assert (pow2p_hwi (length));
 
       for (i = 0; i < nelt; ++i)
 	sel[i] = i * 2;
@@ -5632,7 +5639,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
   memcpy (result_chain->address (), dr_chain.address (),
 	  length * sizeof (tree));
 
-  if (exact_log2 (length) != -1 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
+  if (pow2p_hwi (length) && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
     {
       unsigned int j, log_length = exact_log2 (length);
       for (i = 0; i < nelt / 2; ++i)
@@ -5880,7 +5887,7 @@ vect_transform_grouped_load (gimple *stmt, vec<tree> dr_chain, int size,
      get chain for loads group using vect_shift_permute_load_chain.  */
   mode = TYPE_MODE (STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt)));
   if (targetm.sched.reassociation_width (VEC_PERM_EXPR, mode) > 1
-      || exact_log2 (size) != -1
+      || pow2p_hwi (size)
       || !vect_shift_permute_load_chain (dr_chain, size, stmt,
 					 gsi, &result_chain))
     vect_permute_load_chain (dr_chain, size, stmt, gsi, &result_chain);
@@ -5970,7 +5977,7 @@ vect_record_grouped_load_vectors (gimple *stmt, vec<tree> result_chain)
 bool
 vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 {
-  if (TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_P (decl))
     return false;
 
   if (decl_in_symtab_p (decl)

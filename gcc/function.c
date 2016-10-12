@@ -499,8 +499,7 @@ assign_stack_local_1 (machine_mode mode, HOST_WIDE_INT size,
   set_mem_align (x, alignment_in_bits);
   MEM_NOTRAP_P (x) = 1;
 
-  stack_slot_list
-    = gen_rtx_EXPR_LIST (VOIDmode, x, stack_slot_list);
+  vec_safe_push (stack_slot_list, x);
 
   if (frame_offset_overflow (frame_offset, current_function_decl))
     frame_offset = 0;
@@ -829,8 +828,7 @@ assign_stack_temp_for_type (machine_mode mode, HOST_WIDE_INT size,
 	      p->type = best_p->type;
 	      insert_slot_to_list (p, &avail_temp_slots);
 
-	      stack_slot_list = gen_rtx_EXPR_LIST (VOIDmode, p->slot,
-						   stack_slot_list);
+	      vec_safe_push (stack_slot_list, p->slot);
 
 	      best_p->size = rounded_size;
 	      best_p->full_size = rounded_size;
@@ -902,7 +900,7 @@ assign_stack_temp_for_type (machine_mode mode, HOST_WIDE_INT size,
 
   /* Create a new MEM rtx to avoid clobbering MEM flags of old slots.  */
   slot = gen_rtx_MEM (mode, XEXP (p->slot, 0));
-  stack_slot_list = gen_rtx_EXPR_LIST (VOIDmode, slot, stack_slot_list);
+  vec_safe_push (stack_slot_list, slot);
 
   /* If we know the alias set for the memory that will be used, use
      it.  If there's no TYPE, then we don't know anything about the
@@ -1828,8 +1826,7 @@ instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  if (TREE_CODE (t) == PARM_DECL && DECL_NAMELESS (t)
 	      && DECL_INCOMING_RTL (t))
 	    instantiate_decl_rtl (DECL_INCOMING_RTL (t));
-	  if ((TREE_CODE (t) == VAR_DECL
-	       || TREE_CODE (t) == RESULT_DECL)
+	  if ((VAR_P (t) || TREE_CODE (t) == RESULT_DECL)
 	      && DECL_HAS_VALUE_EXPR_P (t))
 	    {
 	      tree v = DECL_VALUE_EXPR (t);
@@ -1852,7 +1849,7 @@ instantiate_decls_1 (tree let)
     {
       if (DECL_RTL_SET_P (t))
 	instantiate_decl_rtl (DECL_RTL (t));
-      if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
+      if (VAR_P (t) && DECL_HAS_VALUE_EXPR_P (t))
 	{
 	  tree v = DECL_VALUE_EXPR (t);
 	  walk_tree (&v, instantiate_expr, NULL, NULL);
@@ -2718,7 +2715,7 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
   else if (CONST_INT_P (offset_rtx))
     {
       align = INTVAL (offset_rtx) * BITS_PER_UNIT | boundary;
-      align = align & -align;
+      align = least_bit_hwi (align);
     }
   set_mem_align (stack_parm, align);
 
@@ -4376,7 +4373,7 @@ setjmp_vars_warning (bitmap setjmp_crosses, tree block)
 
   for (decl = BLOCK_VARS (block); decl; decl = DECL_CHAIN (decl))
     {
-      if (TREE_CODE (decl) == VAR_DECL
+      if (VAR_P (decl)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
@@ -6583,7 +6580,7 @@ match_asm_constraints_1 (rtx_insn *insn, rtx *p_sets, int noutputs)
 void
 add_local_decl (struct function *fun, tree d)
 {
-  gcc_assert (TREE_CODE (d) == VAR_DECL);
+  gcc_assert (VAR_P (d));
   vec_safe_push (fun->local_decls, d);
 }
 

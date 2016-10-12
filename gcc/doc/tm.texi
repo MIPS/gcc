@@ -1891,7 +1891,7 @@ This hook may conditionally modify five variables
 @code{fixed_regs}, @code{call_used_regs}, @code{global_regs},
 @code{reg_names}, and @code{reg_class_contents}, to take into account
 any dependence of these register sets on target flags.  The first three
-of these are of type @code{char []} (interpreted as Boolean vectors).
+of these are of type @code{char []} (interpreted as boolean vectors).
 @code{global_regs} is a @code{const char *[]}, and
 @code{reg_class_contents} is a @code{HARD_REG_SET}.  Before the macro is
 called, @code{fixed_regs}, @code{call_used_regs},
@@ -2861,7 +2861,7 @@ A target hook which can change allocno class for given pseudo from
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_LRA_P (void)
-A target hook which returns true if we use LRA instead of reload pass.    The default version of this target hook returns always false, but new  ports should use LRA.
+A target hook which returns true if we use LRA instead of reload pass.    The default version of this target hook returns true.  New ports  should use LRA, and existing ports are encouraged to convert.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_REGISTER_PRIORITY (int)
@@ -3624,7 +3624,7 @@ pointer.
 In certain cases, the compiler does not know how to produce valid code
 without a frame pointer.  The compiler recognizes those cases and
 automatically gives the function a frame pointer regardless of what
-@code{TARGET_FRAME_POINTER_REQUIRED} returns.  You don't need to worry about
+@code{targetm.frame_pointer_required} returns.  You don't need to worry about
 them.
 
 In a function that does not require a frame pointer, the frame pointer
@@ -3634,25 +3634,9 @@ fixed register.  See @code{FIXED_REGISTERS} for more information.
 Default return value is @code{false}.
 @end deftypefn
 
-@findex get_frame_size
-@defmac INITIAL_FRAME_POINTER_OFFSET (@var{depth-var})
-A C statement to store in the variable @var{depth-var} the difference
-between the frame pointer and the stack pointer values immediately after
-the function prologue.  The value would be computed from information
-such as the result of @code{get_frame_size ()} and the tables of
-registers @code{regs_ever_live} and @code{call_used_regs}.
-
-If @code{ELIMINABLE_REGS} is defined, this macro will be not be used and
-need not be defined.  Otherwise, it must be defined even if
-@code{TARGET_FRAME_POINTER_REQUIRED} always returns true; in that
-case, you may set @var{depth-var} to anything.
-@end defmac
-
 @defmac ELIMINABLE_REGS
-If defined, this macro specifies a table of register pairs used to
-eliminate unneeded registers that point into the stack frame.  If it is not
-defined, the only elimination attempted by the compiler is to replace
-references to the frame pointer with references to the stack pointer.
+This macro specifies a table of register pairs used to eliminate
+unneeded registers that point into the stack frame.
 
 The definition of this macro is a list of structure initializations, each
 of which specifies an original and replacement register.
@@ -3676,21 +3660,20 @@ specified first since that is the preferred elimination.
 @end defmac
 
 @deftypefn {Target Hook} bool TARGET_CAN_ELIMINATE (const int @var{from_reg}, const int @var{to_reg})
-This target hook should returns @code{true} if the compiler is allowed to
+This target hook should return @code{true} if the compiler is allowed to
 try to replace register number @var{from_reg} with register number
-@var{to_reg}.  This target hook need only be defined if @code{ELIMINABLE_REGS}
-is defined, and will usually be @code{true}, since most of the cases
-preventing register elimination are things that the compiler already
+@var{to_reg}.  This target hook will usually be @code{true}, since most of the
+cases preventing register elimination are things that the compiler already
 knows about.
 
 Default return value is @code{true}.
 @end deftypefn
 
 @defmac INITIAL_ELIMINATION_OFFSET (@var{from-reg}, @var{to-reg}, @var{offset-var})
-This macro is similar to @code{INITIAL_FRAME_POINTER_OFFSET}.  It
-specifies the initial difference between the specified pair of
-registers.  This macro must be defined if @code{ELIMINABLE_REGS} is
-defined.
+This macro returns the initial difference between the specified pair
+of registers.  The value would be computed from information
+such as the result of @code{get_frame_size ()} and the tables of
+registers @code{df_regs_ever_live_p} and @code{call_used_regs}.
 @end defmac
 
 @node Stack Arguments
@@ -5349,6 +5332,10 @@ In either case, it remains possible to select code-generation for the alternate
 scheme, by means of compiler command line switches.
 @end defmac
 
+@deftypefn {Target Hook} {const char*} TARGET_PRINTF_POINTER_FORMAT (tree, const char **@var{flags})
+Determine the target @code{printf} implementation format string that the most closely corresponds to the @code{%p} format directive.  The object pointed to by the @var{flags} is set to a string consisting of recognized format flags such as the @code{'#'} character.
+@end deftypefn
+
 @node Addressing Modes
 @section Addressing Modes
 @cindex addressing modes
@@ -6034,8 +6021,8 @@ the case of the add on the SPARC discussed above, we have the pattern
 
 @smallexample
 (define_insn ""
-  [(set (reg:CC_NOOV 0)
-        (compare:CC_NOOV
+  [(set (reg:CCNZ 0)
+        (compare:CCNZ
           (plus:SI (match_operand:SI 0 "register_operand" "%r")
                    (match_operand:SI 1 "arith_operand" "rI"))
           (const_int 0)))]
@@ -6044,7 +6031,7 @@ the case of the add on the SPARC discussed above, we have the pattern
 @end smallexample
 
 @noindent
-together with a @code{SELECT_CC_MODE} that returns @code{CC_NOOVmode}
+together with a @code{SELECT_CC_MODE} that returns @code{CCNZmode}
 for comparisons whose argument is a @code{plus}:
 
 @smallexample
@@ -6054,7 +6041,7 @@ for comparisons whose argument is a @code{plus}:
       ? CCFPEmode : CCFPmode)                            \
    : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
        || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
-      ? CC_NOOVmode : CCmode))
+      ? CCNZmode : CCmode))
 @end smallexample
 
 Another reason to use modes is to retain information on which operands
@@ -7579,6 +7566,18 @@ should have attributes as specified by @var{flags}, which is a bit mask
 of the @code{SECTION_*} flags defined in @file{output.h}.  If @var{decl}
 is non-NULL, it is the @code{VAR_DECL} or @code{FUNCTION_DECL} with which
 this section is associated.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_ASM_ELF_FLAGS_NUMERIC (unsigned int @var{flags}, unsigned int *@var{num})
+This hook can be used to encode ELF section flags for which no letter
+code has been defined in the assembler.  It is called by
+@code{default_asm_named_section} whenever the section flags need to be
+emitted in the assembler output.  If the hook returns true, then the
+numerical value for ELF section flags should be calculated from
+@var{flags} and saved in @var{*num}; the value is printed out instead of the
+normal sequence of letter codes.  If the hook is not defined, or if it
+returns false, then @var{num} is ignored and the traditional letter sequence
+is emitted.
 @end deftypefn
 
 @deftypefn {Target Hook} {section *} TARGET_ASM_FUNCTION_SECTION (tree @var{decl}, enum node_frequency @var{freq}, bool @var{startup}, bool @var{exit})
@@ -9735,10 +9734,11 @@ between the two given labels in system defined units, e.g. instruction
 slots on IA64 VMS, using an integer of the given size.
 @end defmac
 
-@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label}, @var{section})
+@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label}, @var{offset}, @var{section})
 A C statement to issue assembly directives that create a
-section-relative reference to the given @var{label}, using an integer of the
-given @var{size}.  The label is known to be defined in the given @var{section}.
+section-relative reference to the given @var{label} plus @var{offset}, using
+an integer of the given @var{size}.  The label is known to be defined in the
+given @var{section}.
 @end defmac
 
 @defmac ASM_OUTPUT_DWARF_PCREL (@var{stream}, @var{size}, @var{label})
@@ -11597,12 +11597,6 @@ This hook is useful when there are target-specific types with special
 conversion rules.
 This is currently used only by the C and C++ front ends.
 @end deftypefn
-
-@defmac TARGET_USE_JCR_SECTION
-This macro determines whether to use the JCR section to register Java
-classes. By default, TARGET_USE_JCR_SECTION is defined to 1 if both
-SUPPORTS_WEAK and TARGET_HAVE_NAMED_SECTIONS are true, else 0.
-@end defmac
 
 @defmac OBJC_JBLEN
 This macro determines the size of the objective C jump buffer for the

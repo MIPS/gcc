@@ -446,7 +446,7 @@ add_define_attr (const char *name)
   XEXP (t1, 2) = rtx_alloc (CONST_STRING);
   XSTR (XEXP (t1, 2), 0) = "yes";
   e->data = t1;
-  e->loc = file_location ("built-in", -1);
+  e->loc = file_location ("built-in", -1, -1);
   e->next = define_attr_queue;
   define_attr_queue = e;
 
@@ -1632,33 +1632,30 @@ duplicate_each_alternative (const char * str, int n_dup)
 static const char *
 alter_output_for_subst_insn (rtx insn, int alt)
 {
-  const char *insn_out, *sp ;
-  char *old_out, *new_out, *cp;
-  int i, j, new_len;
+  const char *insn_out, *old_out;
+  char *new_out, *cp;
+  size_t old_len, new_len;
+  int j;
 
   insn_out = XTMPL (insn, 3);
 
-  if (alt < 2 || *insn_out == '*' || *insn_out != '@')
+  if (alt < 2 || *insn_out != '@')
     return insn_out;
 
-  old_out = XNEWVEC (char, strlen (insn_out)),
-  sp = insn_out;
+  old_out = insn_out + 1;
+  while (ISSPACE (*old_out))
+    old_out++;
+  old_len = strlen (old_out);
 
-  while (ISSPACE (*sp) || *sp == '@')
-    sp++;
-
-  for (i = 0; *sp;)
-    old_out[i++] = *sp++;
-
-  new_len = alt * (i + 1) + 1;
+  new_len = alt * (old_len + 1) + 1;
 
   new_out = XNEWVEC (char, new_len);
   new_out[0] = '@';
 
-  for (j = 0, cp = new_out + 1; j < alt; j++, cp += i + 1)
+  for (j = 0, cp = new_out + 1; j < alt; j++, cp += old_len + 1)
     {
-      memcpy (cp, old_out, i);
-      *(cp+i) = (j == alt - 1) ? '\0' : '\n';
+      memcpy (cp, old_out, old_len);
+      cp[old_len] = (j == alt - 1) ? '\0' : '\n';
     }
 
   return new_out;
@@ -2228,10 +2225,18 @@ process_define_subst (void)
     }
 }
 
-/* A read_md_files callback for reading an rtx.  */
+/* A subclass of rtx_reader which reads .md files and calls process_rtx on
+   the top-level elements.  */
 
-static void
-rtx_handle_directive (file_location loc, const char *rtx_name)
+class gen_reader : public rtx_reader
+{
+ public:
+  gen_reader () : rtx_reader () {}
+  void handle_unknown_directive (file_location, const char *);
+};
+
+void
+gen_reader::handle_unknown_directive (file_location loc, const char *rtx_name)
 {
   auto_vec<rtx, 32> subrtxs;
   if (!read_rtx (rtx_name, &subrtxs))
@@ -2502,7 +2507,7 @@ check_define_attr_duplicates ()
 
 /* The entry point for initializing the reader.  */
 
-bool
+rtx_reader *
 init_rtx_reader_args_cb (int argc, const char **argv,
 			 bool (*parse_opt) (const char *))
 {
@@ -2518,7 +2523,8 @@ init_rtx_reader_args_cb (int argc, const char **argv,
   split_sequence_num = 1;
   peephole2_sequence_num = 1;
 
-  read_md_files (argc, argv, parse_opt, rtx_handle_directive);
+  gen_reader *reader = new gen_reader ();
+  reader->read_md_files (argc, argv, parse_opt);
 
   if (define_attr_queue != NULL)
     check_define_attr_duplicates ();
@@ -2534,12 +2540,18 @@ init_rtx_reader_args_cb (int argc, const char **argv,
   if (define_attr_queue != NULL)
     gen_mnemonic_attr ();
 
-  return !have_error;
+  if (have_error)
+    {
+      delete reader;
+      return NULL;
+    }
+
+  return reader;
 }
 
 /* Programs that don't have their own options can use this entry point
    instead.  */
-bool
+rtx_reader *
 init_rtx_reader_args (int argc, const char **argv)
 {
   return init_rtx_reader_args_cb (argc, argv, 0);

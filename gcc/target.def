@@ -432,6 +432,22 @@ this section is associated.",
  void, (const char *name, unsigned int flags, tree decl),
  default_no_named_section)
 
+/* Tell assembler what section attributes to assign this elf section
+   declaration, using their numerical value.  */
+DEFHOOK
+(elf_flags_numeric,
+ "This hook can be used to encode ELF section flags for which no letter\n\
+code has been defined in the assembler.  It is called by\n\
+@code{default_asm_named_section} whenever the section flags need to be\n\
+emitted in the assembler output.  If the hook returns true, then the\n\
+numerical value for ELF section flags should be calculated from\n\
+@var{flags} and saved in @var{*num}; the value is printed out instead of the\n\
+normal sequence of letter codes.  If the hook is not defined, or if it\n\
+returns false, then @var{num} is ignored and the traditional letter sequence\n\
+is emitted.",
+ bool, (unsigned int flags, unsigned int *num),
+ hook_bool_uint_uintp_false)
+
 /* Return preferred text (sub)section for function DECL.
    Main purpose of this function is to separate cold, normal and hot
    functions. STARTUP is true when function is known to be used only 
@@ -3353,6 +3369,12 @@ greater than 128 and a multiple of 32.",
  machine_mode, (int n, bool extended),
  default_floatn_mode)
 
+DEFHOOK
+(printf_pointer_format,
+ "Determine the target @code{printf} implementation format string that the most closely corresponds to the @code{%p} format directive.  The object pointed to by the @var{flags} is set to a string consisting of recognized format flags such as the @code{'#'} character.",
+ const char*, (tree, const char **flags),
+ default_printf_pointer_format)
+
 /* Compute cost of moving data from a register of class FROM to one of
    TO, using MODE.  */
 DEFHOOK
@@ -4929,8 +4951,8 @@ DEFHOOK
 (lra_p,
  "A target hook which returns true if we use LRA instead of reload pass.\
   \
-  The default version of this target hook returns always false, but new\
-  ports should use LRA.",
+  The default version of this target hook returns true.  New ports\
+  should use LRA, and existing ports are encouraged to convert.",
  bool, (void),
  default_lra_p)
 
@@ -5289,7 +5311,7 @@ five otherwise.  This is best for most machines.",
  unsigned int, (void),
  default_case_values_threshold)
 
-/* Retutn true if a function must have and use a frame pointer.  */
+/* Return true if a function must have and use a frame pointer.  */
 DEFHOOK
 (frame_pointer_required,
  "This target hook should return @code{true} if a function must have and use\n\
@@ -5306,7 +5328,7 @@ pointer.\n\
 In certain cases, the compiler does not know how to produce valid code\n\
 without a frame pointer.  The compiler recognizes those cases and\n\
 automatically gives the function a frame pointer regardless of what\n\
-@code{TARGET_FRAME_POINTER_REQUIRED} returns.  You don't need to worry about\n\
+@code{targetm.frame_pointer_required} returns.  You don't need to worry about\n\
 them.\n\
 \n\
 In a function that does not require a frame pointer, the frame pointer\n\
@@ -5321,11 +5343,10 @@ Default return value is @code{false}.",
    from-reg with register number to-reg.  */
 DEFHOOK
 (can_eliminate,
- "This target hook should returns @code{true} if the compiler is allowed to\n\
+ "This target hook should return @code{true} if the compiler is allowed to\n\
 try to replace register number @var{from_reg} with register number\n\
-@var{to_reg}.  This target hook need only be defined if @code{ELIMINABLE_REGS}\n\
-is defined, and will usually be @code{true}, since most of the cases\n\
-preventing register elimination are things that the compiler already\n\
+@var{to_reg}.  This target hook will usually be @code{true}, since most of the\n\
+cases preventing register elimination are things that the compiler already\n\
 knows about.\n\
 \n\
 Default return value is @code{true}.",
@@ -5341,7 +5362,7 @@ DEFHOOK
 @code{fixed_regs}, @code{call_used_regs}, @code{global_regs},\n\
 @code{reg_names}, and @code{reg_class_contents}, to take into account\n\
 any dependence of these register sets on target flags.  The first three\n\
-of these are of type @code{char []} (interpreted as Boolean vectors).\n\
+of these are of type @code{char []} (interpreted as boolean vectors).\n\
 @code{global_regs} is a @code{const char *[]}, and\n\
 @code{reg_class_contents} is a @code{HARD_REG_SET}.  Before the macro is\n\
 called, @code{fixed_regs}, @code{call_used_regs},\n\

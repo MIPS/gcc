@@ -858,6 +858,17 @@ arc_override_options (void)
   if (arc_size_opt_level == 3)
     optimize_size = 1;
 
+  /* Compact casesi is not a valid option for ARCv2 family.  */
+  if (TARGET_V2
+      && TARGET_COMPACT_CASESI)
+    {
+      warning (0, "compact-casesi is not applicable to ARCv2");
+      TARGET_COMPACT_CASESI = 0;
+    }
+  else if (optimize_size == 1
+	   && !global_options_set.x_TARGET_COMPACT_CASESI)
+    TARGET_COMPACT_CASESI = 1;
+
   if (flag_pic)
     target_flags |= MASK_NO_SDATA_SET;
 
@@ -9243,7 +9254,7 @@ arc_scheduling_not_expected (void)
    long.)  */
 
 int
-arc_label_align (rtx label)
+arc_label_align (rtx_insn *label)
 {
   int loop_align = LOOP_ALIGN (LABEL);
 

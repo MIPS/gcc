@@ -1219,6 +1219,7 @@ make_canonical (file_location loc, struct attr_desc *attr, rtx exp)
 
       exp = newexp;
       /* Fall through to COND case since this is now a COND.  */
+      gcc_fallthrough ();
 
     case COND:
       {
@@ -3615,6 +3616,7 @@ write_test_expr (FILE *outf, rtx exp, unsigned int attrs_cached, int flags,
 	}
 
       /* Otherwise, fall through to normal unary operator.  */
+      gcc_fallthrough ();
 
     /* Unary operators.  */
     case ABS:  case NEG:
@@ -4281,6 +4283,8 @@ write_attr_case (FILE *outf, struct attr_desc *attr, struct attr_value *av,
       fprintf (outf, "    && asm_noperands (PATTERN (insn)) < 0)\n");
       write_indent (outf, indent + 2);
       fprintf (outf, "  fatal_insn_not_found (insn);\n");
+      write_indent (outf, indent + 2);
+      fprintf (outf, "/* FALLTHRU */\n");
     }
 
   if (write_case_lines)
@@ -4655,7 +4659,7 @@ make_internal_attr (const char *name, rtx value, int special)
   attr->is_numeric = 1;
   attr->is_const = 0;
   attr->is_special = (special & ATTR_SPECIAL) != 0;
-  attr->default_val = get_attr_value (file_location ("<internal>", 0),
+  attr->default_val = get_attr_value (file_location ("<internal>", 0, 0),
 				      value, attr, -2);
 }
 
@@ -5277,7 +5281,7 @@ main (int argc, const char **argv)
       md_rtx_info info;
       info.def = rtx_alloc (DEFINE_ASM_ATTRIBUTES);
       XVEC (info.def, 0) = rtvec_alloc (0);
-      info.loc = file_location ("<internal>", 0);
+      info.loc = file_location ("<internal>", 0, 0);
       info.index = -1;
       gen_insn (&info);
     }

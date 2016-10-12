@@ -4452,7 +4452,7 @@ workaround_speculation (void)
 	      || cbranch_predicted_taken_p (insn)))
 	{
 	  rtx_insn *target = JUMP_LABEL_AS_INSN (insn);
-	  rtx label = target;
+	  rtx_insn *label = target;
 	  rtx_insn *next_tgt;
 
 	  cycles_since_jump = 0;
@@ -5804,6 +5804,9 @@ bfin_conditional_register_usage (void)
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY bfin_return_in_memory
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	bfin_legitimate_address_p

@@ -106,12 +106,23 @@ plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
       if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
 	  && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)))
 	{
-	  tem = plus_constant (mode, get_pool_constant (XEXP (x, 0)), c);
-	  tem = force_const_mem (GET_MODE (x), tem);
-	  /* Targets may disallow some constants in the constant pool, thus
-	     force_const_mem may return NULL_RTX.  */
-	  if (tem && memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
-	    return tem;
+	  rtx cst = get_pool_constant (XEXP (x, 0));
+
+	  if (GET_CODE (cst) == CONST_VECTOR
+	      && GET_MODE_INNER (GET_MODE (cst)) == mode)
+	    {
+	      cst = gen_lowpart (mode, cst);
+	      gcc_assert (cst);
+	    }
+	  if (GET_MODE (cst) == VOIDmode || GET_MODE (cst) == mode)
+	    {
+	      tem = plus_constant (mode, cst, c);
+	      tem = force_const_mem (GET_MODE (x), tem);
+	      /* Targets may disallow some constants in the constant pool, thus
+		 force_const_mem may return NULL_RTX.  */
+	      if (tem && memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
+		return tem;
+	    }
 	}
       break;
 
@@ -794,7 +805,6 @@ promote_mode (const_tree type ATTRIBUTE_UNUSED, machine_mode mode,
       PROMOTE_MODE (mode, unsignedp, type);
       *punsignedp = unsignedp;
       return mode;
-      break;
 
 #ifdef POINTERS_EXTEND_UNSIGNED
     case REFERENCE_TYPE:
@@ -802,7 +812,6 @@ promote_mode (const_tree type ATTRIBUTE_UNUSED, machine_mode mode,
       *punsignedp = POINTERS_EXTEND_UNSIGNED;
       return targetm.addr_space.address_mode
 	       (TYPE_ADDR_SPACE (TREE_TYPE (type)));
-      break;
 #endif
 
     default:
@@ -1348,6 +1357,8 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 	current_function_has_unbounded_dynamic_stack_size = 1;
     }
 
+  do_pending_stack_adjust ();
+
   final_label = NULL;
   final_target = NULL_RTX;
 
@@ -1404,8 +1415,6 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 
       emit_label (available_label);
     }
-
-  do_pending_stack_adjust ();
 
  /* We ought to be called always on the toplevel and stack ought to be aligned
     properly.  */

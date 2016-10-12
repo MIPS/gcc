@@ -2133,6 +2133,23 @@ sem_variable::get_hash (void)
   return m_hash;
 }
 
+/* Set all points-to UIDs of aliases pointing to node N as UID.  */
+
+static void
+set_alias_uids (symtab_node *n, int uid)
+{
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (n, ref)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  Setting points-to UID of [%s] as %d\n",
+		 xstrdup_for_dump (ref->referring->asm_name ()), uid);
+
+      SET_DECL_PT_UID (ref->referring->decl, uid);
+      set_alias_uids (ref->referring, uid);
+    }
+}
+
 /* Merges instance with an ALIAS_ITEM, where alias, thunk or redirection can
    be applied.  */
 
@@ -2162,7 +2179,6 @@ sem_variable::merge (sem_item *alias_item)
   varpool_node *alias = alias_var->get_node ();
   bool original_discardable = false;
 
-  bool original_address_matters = original->address_matters_p ();
   bool alias_address_matters = alias->address_matters_p ();
 
   /* See if original is in a section that can be discarded if the main
@@ -2205,13 +2221,11 @@ sem_variable::merge (sem_item *alias_item)
     }
 
   /* We can not merge if address comparsion metters.  */
-  if (original_address_matters && alias_address_matters
-      && flag_merge_constants < 2)
+  if (alias_address_matters && flag_merge_constants < 2)
     {
       if (dump_file)
 	fprintf (dump_file,
-		 "Not unifying; "
-		 "adress of original and alias may be compared.\n\n");
+		 "Not unifying; address of original may be compared.\n\n");
       return false;
     }
 
@@ -2258,12 +2272,11 @@ sem_variable::merge (sem_item *alias_item)
 
       varpool_node::create_alias (alias_var->decl, decl);
       alias->resolve_alias (original);
-      if (DECL_PT_UID_SET_P (original->decl))
-	SET_DECL_PT_UID (alias->decl, DECL_PT_UID (original->decl));
 
       if (dump_file)
-	fprintf (dump_file, "Unified; Variable alias has been created.\n\n");
+	fprintf (dump_file, "Unified; Variable alias has been created.\n");
 
+      set_alias_uids (original, DECL_UID (original->decl));
       return true;
     }
 }

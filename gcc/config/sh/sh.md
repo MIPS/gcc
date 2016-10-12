@@ -7178,7 +7178,8 @@
 		      (label_ref (match_operand 1 "" ""))))
    (use (label_ref (match_operand 2 "" "")))]
   "TARGET_SH2
-   && (! INSN_UID (operands[1]) || prev_real_insn (operands[1]) == insn)"
+   && (! INSN_UID (operands[1])
+       || prev_real_insn (as_a<rtx_insn *> (operands[1])) == insn)"
   "braf	%0%#"
   [(set_attr "needs_delay_slot" "yes")
    (set_attr "type" "jump_ind")])
@@ -8522,6 +8523,24 @@
 }
   [(set_attr "type" "arith") ;; poor approximation
    (set_attr "length" "4")])
+
+(define_insn_and_split "*cset_zero"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(if_then_else:SI (match_operand 1 "treg_set_expr_not_const01")
+			 (match_dup 0) (const_int 0)))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1 && TARGET_ZDCBRANCH && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(set (match_dup 0)
+	(if_then_else:SI (match_dup 1) (match_dup 0) (const_int 0)))]
+{
+  sh_treg_insns ti = sh_split_treg_set_expr (operands[1], curr_insn);
+  if (ti.remove_trailing_nott ())
+    operands[1] = gen_rtx_EQ (SImode, get_t_reg_rtx (), const0_rtx);
+  else
+    operands[1] = gen_rtx_EQ (SImode, get_t_reg_rtx (), const1_rtx);
+})
 
 (define_expand "cstoresf4"
   [(set (match_operand:SI 0 "register_operand")

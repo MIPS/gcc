@@ -211,7 +211,7 @@ rest_of_decl_compilation (tree decl,
       if ((at_end
 	   || !DECL_DEFER_OUTPUT (decl)
 	   || DECL_INITIAL (decl))
-	  && (TREE_CODE (decl) != VAR_DECL || !DECL_HAS_VALUE_EXPR_P (decl))
+	  && (!VAR_P (decl) || !DECL_HAS_VALUE_EXPR_P (decl))
 	  && !DECL_EXTERNAL (decl))
 	{
 	  /* When reading LTO unit, we also read varpool, so do not
@@ -250,7 +250,7 @@ rest_of_decl_compilation (tree decl,
   /* Let cgraph know about the existence of variables.  */
   if (in_lto_p && !at_end)
     ;
-  else if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl)
+  else if (VAR_P (decl) && !DECL_EXTERNAL (decl)
 	   && TREE_STATIC (decl))
     varpool_node::get_create (decl);
 
@@ -311,7 +311,7 @@ rest_of_decl_compilation (tree decl,
 	     called from varpool node removal fails to handle it
 	     properly.  */
 	  || (finalize
-	      && TREE_CODE (decl) == VAR_DECL
+	      && VAR_P (decl)
 	      && TREE_STATIC (decl) && !DECL_EXTERNAL (decl)))
       /* Avoid confusing the debug information machinery when there are
 	 errors.  */
@@ -771,7 +771,9 @@ pass_manager::register_one_dump_file (opt_pass *pass)
 {
   char *dot_name, *flag_name, *glob_name;
   const char *name, *full_name, *prefix;
-  char num[10];
+
+  /* Buffer big enough to format a 32-bit UINT_MAX into.  */
+  char num[11];
   int flags, id;
   int optgroup_flags = OPTGROUP_NONE;
   gcc::dump_manager *dumps = m_ctxt->get_dumps ();
@@ -779,7 +781,7 @@ pass_manager::register_one_dump_file (opt_pass *pass)
   /* See below in next_pass_1.  */
   num[0] = '\0';
   if (pass->static_pass_number != -1)
-    sprintf (num, "%d", ((int) pass->static_pass_number < 0
+    sprintf (num, "%u", ((int) pass->static_pass_number < 0
 			 ? 1 : pass->static_pass_number));
 
   /* The name is both used to identify the pass for the purposes of plugins,
@@ -860,7 +862,7 @@ pass_manager::register_pass_name (opt_pass *pass, const char *name)
 /* Map from pass id to canonicalized pass name.  */
 
 typedef const char *char_ptr;
-static vec<char_ptr> pass_tab = vNULL;
+static vec<char_ptr> pass_tab;
 
 /* Callback function for traversing NAME_TO_PASS_MAP.  */
 
@@ -980,10 +982,8 @@ struct uid_range
 typedef struct uid_range *uid_range_p;
 
 
-static vec<uid_range_p>
-      enabled_pass_uid_range_tab = vNULL;
-static vec<uid_range_p>
-      disabled_pass_uid_range_tab = vNULL;
+static vec<uid_range_p> enabled_pass_uid_range_tab;
+static vec<uid_range_p> disabled_pass_uid_range_tab;
 
 
 /* Parse option string for -fdisable- and -fenable-

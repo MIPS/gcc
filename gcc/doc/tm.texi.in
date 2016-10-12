@@ -3177,25 +3177,9 @@ This is about eliminating the frame pointer and arg pointer.
 
 @hook TARGET_FRAME_POINTER_REQUIRED
 
-@findex get_frame_size
-@defmac INITIAL_FRAME_POINTER_OFFSET (@var{depth-var})
-A C statement to store in the variable @var{depth-var} the difference
-between the frame pointer and the stack pointer values immediately after
-the function prologue.  The value would be computed from information
-such as the result of @code{get_frame_size ()} and the tables of
-registers @code{regs_ever_live} and @code{call_used_regs}.
-
-If @code{ELIMINABLE_REGS} is defined, this macro will be not be used and
-need not be defined.  Otherwise, it must be defined even if
-@code{TARGET_FRAME_POINTER_REQUIRED} always returns true; in that
-case, you may set @var{depth-var} to anything.
-@end defmac
-
 @defmac ELIMINABLE_REGS
-If defined, this macro specifies a table of register pairs used to
-eliminate unneeded registers that point into the stack frame.  If it is not
-defined, the only elimination attempted by the compiler is to replace
-references to the frame pointer with references to the stack pointer.
+This macro specifies a table of register pairs used to eliminate
+unneeded registers that point into the stack frame.
 
 The definition of this macro is a list of structure initializations, each
 of which specifies an original and replacement register.
@@ -3221,10 +3205,10 @@ specified first since that is the preferred elimination.
 @hook TARGET_CAN_ELIMINATE
 
 @defmac INITIAL_ELIMINATION_OFFSET (@var{from-reg}, @var{to-reg}, @var{offset-var})
-This macro is similar to @code{INITIAL_FRAME_POINTER_OFFSET}.  It
-specifies the initial difference between the specified pair of
-registers.  This macro must be defined if @code{ELIMINABLE_REGS} is
-defined.
+This macro returns the initial difference between the specified pair
+of registers.  The value would be computed from information
+such as the result of @code{get_frame_size ()} and the tables of
+registers @code{df_regs_ever_live_p} and @code{call_used_regs}.
 @end defmac
 
 @node Stack Arguments
@@ -4081,6 +4065,8 @@ In either case, it remains possible to select code-generation for the alternate
 scheme, by means of compiler command line switches.
 @end defmac
 
+@hook TARGET_PRINTF_POINTER_FORMAT
+
 @node Addressing Modes
 @section Addressing Modes
 @cindex addressing modes
@@ -4457,8 +4443,8 @@ the case of the add on the SPARC discussed above, we have the pattern
 
 @smallexample
 (define_insn ""
-  [(set (reg:CC_NOOV 0)
-        (compare:CC_NOOV
+  [(set (reg:CCNZ 0)
+        (compare:CCNZ
           (plus:SI (match_operand:SI 0 "register_operand" "%r")
                    (match_operand:SI 1 "arith_operand" "rI"))
           (const_int 0)))]
@@ -4467,7 +4453,7 @@ the case of the add on the SPARC discussed above, we have the pattern
 @end smallexample
 
 @noindent
-together with a @code{SELECT_CC_MODE} that returns @code{CC_NOOVmode}
+together with a @code{SELECT_CC_MODE} that returns @code{CCNZmode}
 for comparisons whose argument is a @code{plus}:
 
 @smallexample
@@ -4477,7 +4463,7 @@ for comparisons whose argument is a @code{plus}:
       ? CCFPEmode : CCFPmode)                            \
    : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS     \
        || GET_CODE (X) == NEG || GET_CODE (x) == ASHIFT) \
-      ? CC_NOOVmode : CCmode))
+      ? CCNZmode : CCmode))
 @end smallexample
 
 Another reason to use modes is to retain information on which operands
@@ -5232,6 +5218,8 @@ of the filename using this macro.
 @end defmac
 
 @hook TARGET_ASM_NAMED_SECTION
+
+@hook TARGET_ASM_ELF_FLAGS_NUMERIC
 
 @hook TARGET_ASM_FUNCTION_SECTION
 
@@ -7075,10 +7063,11 @@ between the two given labels in system defined units, e.g. instruction
 slots on IA64 VMS, using an integer of the given size.
 @end defmac
 
-@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label}, @var{section})
+@defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label}, @var{offset}, @var{section})
 A C statement to issue assembly directives that create a
-section-relative reference to the given @var{label}, using an integer of the
-given @var{size}.  The label is known to be defined in the given @var{section}.
+section-relative reference to the given @var{label} plus @var{offset}, using
+an integer of the given @var{size}.  The label is known to be defined in the
+given @var{section}.
 @end defmac
 
 @defmac ASM_OUTPUT_DWARF_PCREL (@var{stream}, @var{size}, @var{label})
@@ -8196,12 +8185,6 @@ and scanf formatter settings.
 @hook TARGET_PROMOTED_TYPE
 
 @hook TARGET_CONVERT_TO_TYPE
-
-@defmac TARGET_USE_JCR_SECTION
-This macro determines whether to use the JCR section to register Java
-classes. By default, TARGET_USE_JCR_SECTION is defined to 1 if both
-SUPPORTS_WEAK and TARGET_HAVE_NAMED_SECTIONS are true, else 0.
-@end defmac
 
 @defmac OBJC_JBLEN
 This macro determines the size of the objective C jump buffer for the

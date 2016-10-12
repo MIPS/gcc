@@ -23,9 +23,6 @@ package runtime
 // Type aka __go_type_descriptor
 #define kind __code
 #define string __reflection
-#define KindPtr GO_PTR
-#define KindNoPointers GO_NO_POINTERS
-#define kindMask GO_CODE_MASK
 
 // GCCGO SPECIFIC CHANGE
 //
@@ -92,17 +89,17 @@ runtime_mallocgc(uintptr size, uintptr typ, uint32 flag)
 		return &runtime_zerobase;
 	}
 
-	m = runtime_m();
 	g = runtime_g();
+	m = g->m;
 
 	incallback = false;
-	if(m->mcache == nil && g->ncgo > 0) {
+	if(m->mcache == nil && m->ncgo > 0) {
 		// For gccgo this case can occur when a cgo or SWIG function
 		// has an interface return type and the function
 		// returns a non-pointer, so memory allocation occurs
 		// after syscall.Cgocall but before syscall.CgocallDone.
 		// We treat it as a callback.
-		runtime_exitsyscall();
+		runtime_exitsyscall(0);
 		m = runtime_m();
 		incallback = true;
 		flag |= FlagNoInvokeGC;
@@ -165,16 +162,16 @@ runtime_mallocgc(uintptr size, uintptr typ, uint32 flag)
 					tiny = (byte*)ROUND((uintptr)tiny, 4);
 				else if((size&1) == 0)
 					tiny = (byte*)ROUND((uintptr)tiny, 2);
-				size1 = size + (tiny - c->tiny);
+				size1 = size + (tiny - (byte*)c->tiny);
 				if(size1 <= tinysize) {
 					// The object fits into existing tiny block.
 					v = (MLink*)tiny;
-					c->tiny += size1;
+					c->tiny = (byte*)c->tiny + size1;
 					c->tinysize -= size1;
 					m->mallocing = 0;
 					m->locks--;
 					if(incallback)
-						runtime_entersyscall();
+						runtime_entersyscall(0);
 					return v;
 				}
 			}
@@ -259,7 +256,7 @@ runtime_mallocgc(uintptr size, uintptr typ, uint32 flag)
 		runtime_gc(0);
 
 	if(incallback)
-		runtime_entersyscall();
+		runtime_entersyscall(0);
 
 	return v;
 }
@@ -281,7 +278,7 @@ largealloc(uint32 flag, uintptr *sizep)
 	s = runtime_MHeap_Alloc(&runtime_mheap, npages, 0, 1, !(flag & FlagNoZero));
 	if(s == nil)
 		runtime_throw("out of memory");
-	s->limit = (byte*)(s->start<<PageShift) + size;
+	s->limit = (uintptr)((byte*)(s->start<<PageShift) + size);
 	*sizep = npages<<PageShift;
 	v = (void*)(s->start << PageShift);
 	// setup for mark sweep
@@ -475,7 +472,7 @@ runtime_purgecachedstats(MCache *c)
 
 	// Protected by either heap or GC lock.
 	h = &runtime_mheap;
-	mstats.heap_alloc += c->local_cachealloc;
+	mstats.heap_alloc += (intptr)c->local_cachealloc;
 	c->local_cachealloc = 0;
 	mstats.nlookup += c->local_nlookup;
 	c->local_nlookup = 0;
@@ -493,7 +490,7 @@ extern uintptr runtime_sizeof_C_MStats
   __asm__ (GOSYM_PREFIX "runtime.Sizeof_C_MStats");
 
 // Size of the trailing by_size array differs between Go and C,
-// NumSizeClasses was changed, but we can not change Go struct because of backward compatibility.
+// _NumSizeClasses was changed, but we can not change Go struct because of backward compatibility.
 // sizeof_C_MStats is what C thinks about size of Go struct.
 
 // Initialized in mallocinit because it's defined in go/runtime/mem.go.
@@ -511,7 +508,7 @@ runtime_mallocinit(void)
 	uint64 i;
 	bool reserved;
 
-	runtime_sizeof_C_MStats = sizeof(MStats) - (NumSizeClasses - 61) * sizeof(mstats.by_size[0]);
+	runtime_sizeof_C_MStats = sizeof(MStats) - (_NumSizeClasses - 61) * sizeof(mstats.by_size[0]);
 
 	p = nil;
 	p_size = 0;
@@ -893,7 +890,7 @@ runtime_mal(uintptr n)
 }
 
 func new(typ *Type) (ret *uint8) {
-	ret = runtime_mallocgc(typ->__size, (uintptr)typ | TypeInfo_SingleObject, typ->kind&KindNoPointers ? FlagNoScan : 0);
+	ret = runtime_mallocgc(typ->__size, (uintptr)typ | TypeInfo_SingleObject, typ->kind&kindNoPointers ? FlagNoScan : 0);
 }
 
 static void*
@@ -903,7 +900,7 @@ cnew(const Type *typ, intgo n, int32 objtyp)
 		runtime_throw("runtime: invalid objtyp");
 	if(n < 0 || (typ->__size > 0 && (uintptr)n > (MaxMem/typ->__size)))
 		runtime_panicstring("runtime: allocation size out of range");
-	return runtime_mallocgc(typ->__size*n, (uintptr)typ | objtyp, typ->kind&KindNoPointers ? FlagNoScan : 0);
+	return runtime_mallocgc(typ->__size*n, (uintptr)typ | objtyp, typ->kind&kindNoPointers ? FlagNoScan : 0);
 }
 
 // same as runtime_new, but callable from C
@@ -955,7 +952,7 @@ func SetFinalizer(obj Eface, finalizer Eface) {
 	if(!runtime_mlookup(obj.__object, &base, &size, nil) || obj.__object != base) {
 		// As an implementation detail we allow to set finalizers for an inner byte
 		// of an object if it could come from tiny alloc (see mallocgc for details).
-		if(ot->__element_type == nil || (ot->__element_type->kind&KindNoPointers) == 0 || ot->__element_type->__size >= TinySize) {
+		if(ot->__element_type == nil || (ot->__element_type->kind&kindNoPointers) == 0 || ot->__element_type->__size >= TinySize) {
 			runtime_printf("runtime.SetFinalizer: pointer not at beginning of allocated block (%p)\n", obj.__object);
 			goto throw;
 		}

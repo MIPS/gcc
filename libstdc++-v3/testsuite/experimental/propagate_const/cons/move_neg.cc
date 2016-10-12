@@ -1,5 +1,4 @@
-// { dg-options "-std=gnu++14" }
-// { dg-do compile }
+// { dg-do compile { target c++14 } }
 
 // Copyright (C) 2015-2016 Free Software Foundation, Inc.
 //
@@ -26,10 +25,10 @@
 using std::experimental::propagate_const;
 using std::unique_ptr;
 
-// { dg-error "no type" "" { target *-*-* } 117 }
-// { dg-error "no type" "" { target *-*-* } 124 }
-// { dg-error "no type" "" { target *-*-* } 133 }
-// { dg-error "no type" "" { target *-*-* } 142 }
+// { dg-error "no type" "" { target *-*-* } 118 }
+// { dg-error "no type" "" { target *-*-* } 125 }
+// { dg-error "no type" "" { target *-*-* } 134 }
+// { dg-error "no type" "" { target *-*-* } 143 }
 
 int main()
 {

@@ -1120,7 +1120,8 @@ maybe_lookup_field (tree var, omp_context *ctx)
 static bool
 use_pointer_for_field (tree decl, omp_context *shared_ctx)
 {
-  if (AGGREGATE_TYPE_P (TREE_TYPE (decl)))
+  if (AGGREGATE_TYPE_P (TREE_TYPE (decl))
+      || TYPE_ATOMIC (TREE_TYPE (decl)))
     return true;
 
   /* We can only use copy-in/copy-out semantics for shared variables
@@ -4301,7 +4302,9 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 	{
 	  tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				    OMP_CLAUSE_SAFELEN);
-	  if (c && TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST)
+	  if (c
+	      && (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST
+		  || tree_int_cst_sgn (OMP_CLAUSE_SAFELEN_EXPR (c)) != 1))
 	    max_vf = 1;
 	  else if (c && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
 					  max_vf) == -1)
@@ -7103,7 +7106,7 @@ expand_omp_regimplify_p (tree *tp, int *walk_subtrees, void *)
   tree t = *tp;
 
   /* Any variable with DECL_VALUE_EXPR needs to be regimplified.  */
-  if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
+  if (VAR_P (t) && DECL_HAS_VALUE_EXPR_P (t))
     return t;
 
   if (TREE_CODE (t) == ADDR_EXPR)
@@ -7284,9 +7287,7 @@ expand_omp_taskreg (struct omp_region *region)
 	 rather than in containing function's local_decls chain,
 	 which would mean cgraph missed finalizing them.  Do it now.  */
       for (t = BLOCK_VARS (block); t; t = DECL_CHAIN (t))
-	if (TREE_CODE (t) == VAR_DECL
-	    && TREE_STATIC (t)
-	    && !DECL_EXTERNAL (t))
+	if (VAR_P (t) && TREE_STATIC (t) && !DECL_EXTERNAL (t))
 	  varpool_node::finalize_decl (t);
       DECL_SAVED_TREE (child_fn) = NULL;
       /* We'll create a CFG for child_fn, so no gimple body is needed.  */
@@ -13126,9 +13127,7 @@ expand_omp_target (struct omp_region *region)
 	 rather than in containing function's local_decls chain,
 	 which would mean cgraph missed finalizing them.  Do it now.  */
       for (t = BLOCK_VARS (block); t; t = DECL_CHAIN (t))
-	if (TREE_CODE (t) == VAR_DECL
-	    && TREE_STATIC (t)
-	    && !DECL_EXTERNAL (t))
+	if (VAR_P (t) && TREE_STATIC (t) && !DECL_EXTERNAL (t))
 	  varpool_node::finalize_decl (t);
       DECL_SAVED_TREE (child_fn) = NULL;
       /* We'll create a CFG for child_fn, so no gimple body is needed.  */
@@ -16889,7 +16888,7 @@ lower_omp_regimplify_p (tree *tp, int *walk_subtrees,
   tree t = *tp;
 
   /* Any variable with DECL_VALUE_EXPR needs to be regimplified.  */
-  if (TREE_CODE (t) == VAR_DECL && data == NULL && DECL_HAS_VALUE_EXPR_P (t))
+  if (VAR_P (t) && data == NULL && DECL_HAS_VALUE_EXPR_P (t))
     return t;
 
   if (task_shared_vars
@@ -17193,7 +17192,7 @@ grid_reg_assignment_to_local_var_p (gimple *stmt)
   if (!assign)
     return false;
   tree lhs = gimple_assign_lhs (assign);
-  if (TREE_CODE (lhs) != VAR_DECL
+  if (!VAR_P (lhs)
       || !is_gimple_reg_type (TREE_TYPE (lhs))
       || is_global_var (lhs))
     return false;
@@ -17631,7 +17630,7 @@ grid_remap_prebody_decls (tree *tp, int *walk_subtrees, void *data)
   else
     *walk_subtrees = 1;
 
-  if (TREE_CODE (t) == VAR_DECL)
+  if (VAR_P (t))
     {
       struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
       hash_map<tree, tree> *declmap = (hash_map<tree, tree> *) wi->info;
@@ -18446,7 +18445,7 @@ add_decls_addresses_to_decl_constructor (vec<tree, va_gc> *v_decls,
   for (unsigned i = 0; i < len; i++)
     {
       tree it = (*v_decls)[i];
-      bool is_var = TREE_CODE (it) == VAR_DECL;
+      bool is_var = VAR_P (it);
       bool is_link_var
 	= is_var
 #ifdef ACCEL_COMPILER
@@ -19044,9 +19043,7 @@ dump_oacc_loop_part (FILE *file, gcall *from, int depth,
     {
       gimple *stmt = gsi_stmt (gsi);
 
-      if (is_gimple_call (stmt)
-	  && gimple_call_internal_p (stmt)
-	  && gimple_call_internal_fn (stmt) == IFN_UNIQUE)
+      if (gimple_call_internal_p (stmt, IFN_UNIQUE))
 	{
 	  enum ifn_unique_kind k
 	    = ((enum ifn_unique_kind) TREE_INT_CST_LOW
@@ -19268,10 +19265,8 @@ oacc_loop_xform_head_tail (gcall *from, int level)
   for (gimple_stmt_iterator gsi = gsi_for_stmt (from);;)
     {
       gimple *stmt = gsi_stmt (gsi);
-      
-      if (is_gimple_call (stmt)
-	  && gimple_call_internal_p (stmt)
-	  && gimple_call_internal_fn (stmt) == IFN_UNIQUE)
+
+      if (gimple_call_internal_p (stmt, IFN_UNIQUE))
 	{
 	  enum ifn_unique_kind k
 	    = ((enum ifn_unique_kind)
@@ -19282,9 +19277,7 @@ oacc_loop_xform_head_tail (gcall *from, int level)
 	  else if (k == kind && stmt != from)
 	    break;
 	}
-      else if (is_gimple_call (stmt)
-	       && gimple_call_internal_p (stmt)
-	       && gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION)
+      else if (gimple_call_internal_p (stmt, IFN_GOACC_REDUCTION))
 	*gimple_call_arg_ptr (stmt, 3) = replacement;
 
       gsi_next (&gsi);
@@ -19449,7 +19442,7 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
     }
   else
     {
-      unsigned outermost = this_mask & -this_mask;
+      unsigned outermost = least_bit_hwi (this_mask);
 
       if (outermost && outermost <= outer_mask)
 	{
@@ -19530,7 +19523,7 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
       
       /* Determine the outermost partitioning used within this loop. */
       this_mask = loop->inner | GOMP_DIM_MASK (GOMP_DIM_MAX);
-      this_mask = (this_mask & -this_mask);
+      this_mask = least_bit_hwi (this_mask);
 
       /* Pick the partitioning just inside that one.  */
       this_mask >>= 1;
@@ -19923,7 +19916,7 @@ find_link_var_op (tree *tp, int *walk_subtrees, void *)
 {
   tree t = *tp;
 
-  if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t)
+  if (VAR_P (t) && DECL_HAS_VALUE_EXPR_P (t)
       && lookup_attribute ("omp declare target link", DECL_ATTRIBUTES (t)))
     {
       *walk_subtrees = 0;

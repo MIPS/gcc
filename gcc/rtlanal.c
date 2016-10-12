@@ -345,7 +345,6 @@ rtx_varies_p (const_rtx x, bool for_alias)
 static HOST_WIDE_INT
 get_initial_register_offset (int from, int to)
 {
-#ifdef ELIMINABLE_REGS
   static const struct elim_table_t
   {
     const int from;
@@ -448,33 +447,6 @@ get_initial_register_offset (int from, int to)
     return get_initial_register_offset (from, FRAME_POINTER_REGNUM);
   else
     return 0;
-
-#else
-  HOST_WIDE_INT offset;
-
-  if (to == from)
-    return 0;
-
-  if (reload_completed)
-    {
-      INITIAL_FRAME_POINTER_OFFSET (offset);
-    }
-  else
-    {
-      offset = crtl->outgoing_args_size + get_frame_size ();
-#if !STACK_GROWS_DOWNWARD
-      offset = - offset;
-#endif
-    }
-
-  if (to == STACK_POINTER_REGNUM)
-    return offset;
-  else if (from == STACK_POINTER_REGNUM)
-    return - offset;
-  else
-    return 0;
-
-#endif
 }
 
 /* Return nonzero if the use of X+OFFSET as an address in a MEM with SIZE
@@ -1272,7 +1244,6 @@ modified_between_p (const_rtx x, const rtx_insn *start, const rtx_insn *end)
 	if (memory_modified_in_insn_p (x, insn))
 	  return 1;
       return 0;
-      break;
 
     case REG:
       return reg_set_between_p (x, start, end);
@@ -1327,7 +1298,6 @@ modified_in_p (const_rtx x, const_rtx insn)
       if (memory_modified_in_insn_p (x, insn))
 	return 1;
       return 0;
-      break;
 
     case REG:
       return reg_set_p (x, insn);
@@ -4511,8 +4481,8 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	int sign_index = GET_MODE_PRECISION (GET_MODE (x)) - 1;
 	int width0 = floor_log2 (nz0) + 1;
 	int width1 = floor_log2 (nz1) + 1;
-	int low0 = floor_log2 (nz0 & -nz0);
-	int low1 = floor_log2 (nz1 & -nz1);
+	int low0 = ctz_or_zero (nz0);
+	int low1 = ctz_or_zero (nz1);
 	unsigned HOST_WIDE_INT op0_maybe_minusp
 	  = nz0 & (HOST_WIDE_INT_1U << sign_index);
 	unsigned HOST_WIDE_INT op1_maybe_minusp

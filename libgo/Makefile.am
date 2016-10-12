@@ -396,9 +396,9 @@ rtems_task_variable_add_file =
 endif
 
 if LIBGO_IS_LINUX
-runtime_lock_files = runtime/lock_futex.c runtime/thread-linux.c
+runtime_thread_files = runtime/thread-linux.c
 else
-runtime_lock_files = runtime/lock_sema.c runtime/thread-sema.c
+runtime_thread_files = runtime/thread-sema.c
 endif
 
 if LIBGO_IS_LINUX
@@ -464,22 +464,18 @@ runtime_files = \
 	runtime/go-interface-eface-compare.c \
 	runtime/go-interface-val-compare.c \
 	runtime/go-make-slice.c \
-	runtime/go-map-delete.c \
-	runtime/go-map-index.c \
-	runtime/go-map-len.c \
-	runtime/go-map-range.c \
 	runtime/go-matherr.c \
+	runtime/go-memclr.c \
 	runtime/go-memcmp.c \
+	runtime/go-memequal.c \
+	runtime/go-memmove.c \
 	runtime/go-nanotime.c \
 	runtime/go-now.c \
-	runtime/go-new-map.c \
 	runtime/go-new.c \
 	runtime/go-nosys.c \
 	runtime/go-panic.c \
-	runtime/go-print.c \
 	runtime/go-recover.c \
 	runtime/go-reflect-call.c \
-	runtime/go-reflect-map.c \
 	runtime/go-rune.c \
 	runtime/go-runtime-error.c \
 	runtime/go-setenv.c \
@@ -492,7 +488,6 @@ runtime_files = \
 	runtime/go-traceback.c \
 	runtime/go-type-complex.c \
 	runtime/go-type-eface.c \
-	runtime/go-type-error.c \
 	runtime/go-type-float.c \
 	runtime/go-type-identity.c \
 	runtime/go-type-interface.c \
@@ -506,7 +501,6 @@ runtime_files = \
 	runtime/go-varargs.c \
 	runtime/env_posix.c \
 	runtime/heapdump.c \
-	$(runtime_lock_files) \
 	runtime/mcache.c \
 	runtime/mcentral.c \
 	$(runtime_mem_file) \
@@ -522,14 +516,13 @@ runtime_files = \
 	runtime/runtime.c \
 	runtime/signal_unix.c \
 	runtime/thread.c \
+	$(runtime_thread_files) \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
-	chan.c \
 	cpuprof.c \
 	go-iface.c \
 	lfstack.c \
 	malloc.c \
-	map.c \
 	mprof.c \
 	netpoll.c \
 	rdebug.c \
@@ -586,13 +579,61 @@ time.c: $(srcdir)/runtime/time.goc goc2c
 version.go: s-version; @true
 s-version: Makefile
 	rm -f version.go.tmp
-	echo "package runtime" > version.go.tmp
-	echo 'const defaultGoroot = "$(prefix)"' >> version.go.tmp
-	echo 'const theVersion = "'`cat $(srcdir)/VERSION | sed 1q`' '`$(GOC) --version | sed 1q`'"' >> version.go.tmp
-	echo 'const theGoarch = "'$(GOARCH)'"' >> version.go.tmp
-	echo 'const theGoos = "'$(GOOS)'"' >> version.go.tmp
-	echo 'const theGccgoToolDir = "$(libexecsubdir)"' >> version.go.tmp
+	echo "package sys" > version.go.tmp
+	echo 'const DefaultGoroot = "$(prefix)"' >> version.go.tmp
+	echo 'const TheVersion = "'`cat $(srcdir)/VERSION | sed 1q`' '`$(GOC) --version | sed 1q`'"' >> version.go.tmp
+	echo 'const GOARCH = "'$(GOARCH)'"' >> version.go.tmp
+	echo 'const GOOS = "'$(GOOS)'"' >> version.go.tmp
+	echo 'const GccgoToolDir = "$(libexecsubdir)"' >> version.go.tmp
+	echo >> version.go.tmp
+	echo "type ArchFamilyType int" >> version.go.tmp
+	echo >> version.go.tmp
+	echo "const (" >> version.go.tmp
+	echo "	UNKNOWN ArchFamilyType = iota" >> version.go.tmp
+	for a in $(ALLGOARCHFAMILY); do \
+	  echo "	$${a}" >> version.go.tmp; \
+	done
+	echo ")" >> version.go.tmp
+	echo >> version.go.tmp
+	for a in $(ALLGOARCH); do \
+	  f=`echo $${a} | sed -e 's/\(.\).*/\1/' -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`; \
+	  n="$${f}`echo $${a} | sed -e 's/.//'`"; \
+	  if test "$${a}" = "$(GOARCH)"; then \
+	    echo "const Goarch$${n} = 1" >> version.go.tmp; \
+	  else \
+	    echo "const Goarch$${n} = 0" >> version.go.tmp; \
+	  fi; \
+	done
+	echo >> version.go.tmp
+	echo "const (" >> version.go.tmp
+	echo "	ArchFamily = $(GOARCH_FAMILY)" >> version.go.tmp
+	echo "	BigEndian = $(GOARCH_BIGENDIAN)" >> version.go.tmp
+	echo "	CacheLineSize = $(GOARCH_CACHELINESIZE)" >> version.go.tmp
+	echo "	PhysPageSize = $(GOARCH_PHYSPAGESIZE)" >> version.go.tmp
+	echo "	PCQuantum = $(GOARCH_PCQUANTUM)" >> version.go.tmp
+	echo "	Int64Align = $(GOARCH_INT64ALIGN)" >> version.go.tmp
+	echo "	HugePageSize = $(GOARCH_HUGEPAGESIZE)" >> version.go.tmp
+	echo "	MinFrameSize = $(GOARCH_MINFRAMESIZE)" >> version.go.tmp
+	echo ")" >> version.go.tmp
+	echo >> version.go.tmp
+	for a in $(ALLGOOS); do \
+	  f=`echo $${a} | sed -e 's/\(.\).*/\1/' -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`; \
+	  n="$${f}`echo $${a} | sed -e 's/.//'`"; \
+	  if test "$${a}" = "$(GOOS)"; then \
+	    echo "const Goos$${n} = 1" >> version.go.tmp; \
+	  else \
+	    echo "const Goos$${n} = 0" >> version.go.tmp; \
+	  fi; \
+	done
+	echo >> version.go.tmp
+	echo "type Uintreg uintptr" >> version.go.tmp
 	$(SHELL) $(srcdir)/mvifdiff.sh version.go.tmp version.go
+	$(STAMP) $@
+
+runtime_sysinfo.go: s-runtime_sysinfo; @true
+s-runtime_sysinfo: $(srcdir)/mkrsysinfo.sh gen-sysinfo.go
+	$(SHELL) $(srcdir)/mkrsysinfo.sh
+	$(SHELL) $(srcdir)/mvifdiff.sh tmp-runtime_sysinfo.go runtime_sysinfo.go
 	$(STAMP) $@
 
 noinst_DATA = zstdpkglist.go
@@ -644,9 +685,26 @@ s-syscall_arch: Makefile
 	$(SHELL) $(srcdir)/mvifdiff.sh syscall_arch.go.tmp syscall_arch.go
 	$(STAMP) $@
 
+SYSINFO_FLAGS = \
+	$(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(OSCFLAGS) -O
+
+gen-sysinfo.go: s-gen-sysinfo; @true
+s-gen-sysinfo: $(srcdir)/sysinfo.c config.h
+	$(CC) $(SYSINFO_FLAGS) -fdump-go-spec=tmp-gen-sysinfo.go -std=gnu99 -S -o sysinfo.s $(srcdir)/sysinfo.c
+	rm -f sysinfo.s
+	$(SHELL) $(srcdir)/mvifdiff.sh tmp-gen-sysinfo.go gen-sysinfo.go
+	$(STAMP) $@
+
+errno.i: s-errno; @true
+s-errno:
+	echo '#include <errno.h>' | $(CC) $(SYSINFO_FLAGS) -x c - -E -dM > tmp-errno.i
+	$(SHELL) $(srcdir)/mvifdiff.sh tmp-errno.i errno.i
+	$(STAMP) $@
+
 sysinfo.go: s-sysinfo; @true
-s-sysinfo: $(srcdir)/mksysinfo.sh config.h
-	CC="$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(OSCFLAGS) -O" $(SHELL) $(srcdir)/mksysinfo.sh
+s-sysinfo: $(srcdir)/mksysinfo.sh gen-sysinfo.go errno.i
+	$(SHELL) $(srcdir)/mksysinfo.sh
 	$(SHELL) $(srcdir)/mvifdiff.sh tmp-sysinfo.go sysinfo.go
 	$(STAMP) $@
 
@@ -833,6 +891,9 @@ libgo_go_objs = \
 	net/rpc/jsonrpc.lo \
 	runtime/debug.lo \
 	runtime/pprof.lo \
+	runtime/internal/atomic.lo \
+	runtime/internal/atomic_c.lo \
+	runtime/internal/sys.lo \
 	sync/atomic.lo \
 	sync/atomic_c.lo \
 	text/scanner.lo \
@@ -877,6 +938,13 @@ libgolibbegin_a_CFLAGS = $(AM_CFLAGS) -fPIC
 libnetgo_a_SOURCES =
 libnetgo_a_LIBADD = netgo.o
 
+# Make sure runtime.inc is built before compiling any .c file.
+$(libgo_la_OBJECTS): runtime.inc
+$(libgo_llgo_la_OBJECTS): runtime.inc
+$(libgobegin_a_OBJECTS): runtime.inc
+$(libgobegin_llgo_a_OBJECTS): runtime.inc
+$(libgolibbegin_a_OBJECTS): runtime.inc
+
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 
 GOCFLAGS = $(CFLAGS)
@@ -904,7 +972,7 @@ BUILDDEPS = \
 BUILDPACKAGE = \
 	$(MKDIR_P) $(@D); \
 	files=`echo $^ | sed -e 's/[^ ]*\.gox//g' -e 's/[^ ]*\.dep//'`; \
-	$(LTGOCOMPILE) -I . -c -fgo-pkgpath=`echo $@ | sed -e 's/.lo$$//' -e 's/-go$$//'` -o $@ $$files
+	$(LTGOCOMPILE) -I . -c -fgo-pkgpath=`echo $@ | sed -e 's/.lo$$//' -e 's/-go$$//'` $($(subst -,_,$(subst .,_,$(subst /,_,$@)))_GOCFLAGS) -o $@ $$files
 
 # Build deps for netgo.o.
 BUILDNETGODEPS = \
@@ -1006,7 +1074,7 @@ bytes.lo.dep: $(srcdir)/go/bytes/*.go
 	$(BUILDDEPS)
 bytes.lo:
 	$(BUILDPACKAGE)
-bytes/index.lo: go/bytes/indexbyte.c
+bytes/index.lo: go/bytes/indexbyte.c runtime.inc
 	@$(MKDIR_P) bytes
 	$(LTCOMPILE) -c -o bytes/index.lo $(srcdir)/go/bytes/indexbyte.c
 bytes/check: $(CHECK_DEPS)
@@ -1191,7 +1259,7 @@ reflect-go.lo:
 	$(BUILDPACKAGE)
 reflect/check: $(CHECK_DEPS)
 	@$(CHECK)
-reflect/makefunc_ffi_c.lo: go/reflect/makefunc_ffi_c.c
+reflect/makefunc_ffi_c.lo: go/reflect/makefunc_ffi_c.c runtime.inc
 	@$(MKDIR_P) reflect
 	$(LTCOMPILE) -c -o $@ $<
 .PHONY: reflect/check
@@ -1205,13 +1273,24 @@ regexp/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: regexp/check
 
-extra_go_files_runtime = version.go
+extra_go_files_runtime = runtime_sysinfo.go
 
 @go_include@ runtime-go.lo.dep
-runtime-go.lo.dep: $(srcdir)/go/runtime/*.go
+runtime-go.lo.dep: $(srcdir)/go/runtime/*.go $(extra_go_files_runtime)
 	$(BUILDDEPS)
+runtime_go_lo_GOCFLAGS = -fgo-c-header=runtime.inc.tmp -fgo-compiling-runtime
 runtime-go.lo:
 	$(BUILDPACKAGE)
+runtime.inc: s-runtime-inc; @true
+s-runtime-inc: runtime-go.lo Makefile
+	rm -f runtime.inc.tmp2
+	grep -v "#define _" runtime.inc.tmp > runtime.inc.tmp2
+	for pattern in '_G[a-z]' '_P[a-z]' _Max _Lock _Sig _Trace _MHeap _Num; do \
+	  grep "#define $$pattern" runtime.inc.tmp >> runtime.inc.tmp2; \
+	done
+	$(SHELL) $(srcdir)/mvifdiff.sh runtime.inc.tmp2 runtime.inc
+	$(STAMP) $@
+runtime_check_GOCFLAGS = -fgo-compiling-runtime
 runtime/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: runtime/check
@@ -1239,7 +1318,7 @@ strings.lo.dep: $(srcdir)/go/strings/*.go
 	$(BUILDDEPS)
 strings.lo:
 	$(BUILDPACKAGE)
-strings/index.lo: go/strings/indexbyte.c
+strings/index.lo: go/strings/indexbyte.c runtime.inc
 	@$(MKDIR_P) strings
 	$(LTCOMPILE) -c -o strings/index.lo $(srcdir)/go/strings/indexbyte.c
 strings/check: $(CHECK_DEPS)
@@ -2062,7 +2141,7 @@ log/syslog.lo.dep: $(srcdir)/go/log/syslog/*.go
 	$(BUILDDEPS)
 log/syslog.lo:
 	$(BUILDPACKAGE)
-log/syslog/syslog_c.lo: go/log/syslog/syslog_c.c log/syslog.lo
+log/syslog/syslog_c.lo: go/log/syslog/syslog_c.c runtime.inc log/syslog.lo
 	@$(MKDIR_P) log/syslog
 	$(LTCOMPILE) -c -o $@ $(srcdir)/go/log/syslog/syslog_c.c
 log/syslog/check: $(CHECK_DEPS)
@@ -2343,12 +2422,36 @@ runtime/pprof/check: $(CHECK_DEPS)
 # Also use -fno-inline to get better results from the memory profiler.
 runtime_pprof_check_GOCFLAGS = -static-libgo -fno-inline
 
+@go_include@ runtime/internal/atomic.lo.dep
+runtime/internal/atomic.lo.dep: $(srcdir)/go/runtime/internal/atomic/*.go
+	$(BUILDDEPS)
+runtime_internal_atomic_lo_GOCFLAGS = -fgo-compiling-runtime
+runtime/internal/atomic.lo:
+	$(BUILDPACKAGE)
+runtime/internal/atomic_c.lo: go/runtime/internal/atomic/atomic.c runtime.inc runtime/internal/atomic.lo
+	$(LTCOMPILE) -c -o $@ $(srcdir)/go/runtime/internal/atomic/atomic.c
+runtime/internal/atomic/check: $(CHECK_DEPS)
+	@$(CHECK)
+.PHONY: runtime/internal/atomic/check
+
+extra_go_files_runtime_internal_sys = version.go
+
+@go_include@ runtime/internal/sys.lo.dep
+runtime/internal/sys.lo.dep: $(srcdir)/go/runtime/internal/sys/*.go
+	$(BUILDDEPS)
+runtime_internal_sys_lo_GOCFLAGS = -fgo-compiling-runtime
+runtime/internal/sys.lo:
+	$(BUILDPACKAGE)
+runtime/internal/sys/check: $(CHECK_DEPS)
+	@$(CHECK)
+.PHONY: runtime/internal/sys/check
+
 @go_include@ sync/atomic.lo.dep
 sync/atomic.lo.dep: $(srcdir)/go/sync/atomic/*.go
 	$(BUILDDEPS)
 sync/atomic.lo:
 	$(BUILDPACKAGE)
-sync/atomic_c.lo: go/sync/atomic/atomic.c sync/atomic.lo
+sync/atomic_c.lo: go/sync/atomic/atomic.c runtime.inc sync/atomic.lo
 	$(LTCOMPILE) -c -o $@ $(srcdir)/go/sync/atomic/atomic.c
 sync/atomic/check: $(CHECK_DEPS)
 	@$(CHECK)
@@ -2427,17 +2530,17 @@ unicode/utf8/check: $(CHECK_DEPS)
 .PHONY: unicode/utf8/check
 
 @go_include@ syscall.lo.dep
-syscall.lo.dep: $(srcdir)/go/syscall/*.go
+syscall.lo.dep: $(srcdir)/go/syscall/*.go $(extra_go_files_syscall)
 	$(BUILDDEPS)
 syscall.lo:
 	$(BUILDPACKAGE)
-syscall/errno.lo: go/syscall/errno.c
+syscall/errno.lo: go/syscall/errno.c runtime.inc
 	@$(MKDIR_P) syscall
 	$(LTCOMPILE) -c -o $@ $<
-syscall/signame.lo: go/syscall/signame.c
+syscall/signame.lo: go/syscall/signame.c runtime.inc
 	@$(MKDIR_P) syscall
 	$(LTCOMPILE) -c -o $@ $<
-syscall/wait.lo: go/syscall/wait.c
+syscall/wait.lo: go/syscall/wait.c runtime.inc
 	@$(MKDIR_P) syscall
 	$(LTCOMPILE) -c -o $@ $<
 syscall/check: $(CHECK_DEPS)
@@ -2778,6 +2881,10 @@ runtime/debug.gox: runtime/debug.lo
 	$(BUILDGOX)
 runtime/pprof.gox: runtime/pprof.lo
 	$(BUILDGOX)
+runtime/internal/atomic.gox: runtime/internal/atomic.lo
+	$(BUILDGOX)
+runtime/internal/sys.gox: runtime/internal/sys.lo
+	$(BUILDGOX)
 
 sync/atomic.gox: sync/atomic.lo
 	$(BUILDGOX)
@@ -2932,6 +3039,8 @@ TEST_PACKAGES = \
 	path/filepath/check \
 	regexp/syntax/check \
 	runtime/pprof/check \
+	runtime/internal/atomic/check \
+	runtime/internal/sys/check \
 	sync/atomic/check \
 	text/scanner/check \
 	text/tabwriter/check \

@@ -1885,8 +1885,8 @@ find_deriving_biv_for_expr (struct ivopts_data *data, tree expr)
       iv = find_deriving_biv_for_expr (data, e2);
       if (iv)
 	return iv;
+      gcc_fallthrough ();
 
-      /* Fallthru.  */
     CASE_CONVERT:
       /* Casts are simple.  */
       return find_deriving_biv_for_expr (data, e1);
@@ -4383,7 +4383,7 @@ force_expr_to_var_cost (tree expr, bool speed)
 	{
 	  tree obj = TREE_OPERAND (expr, 0);
 
-	  if (TREE_CODE (obj) == VAR_DECL
+	  if (VAR_P (obj)
 	      || TREE_CODE (obj) == PARM_DECL
 	      || TREE_CODE (obj) == RESULT_DECL)
 	    return comp_cost (symbol_cost [speed], 0);
@@ -4530,7 +4530,7 @@ split_address_cost (struct ivopts_data *data,
   if (toffset != 0
       || bitpos % BITS_PER_UNIT != 0
       || reversep
-      || TREE_CODE (core) != VAR_DECL)
+      || !VAR_P (core))
     {
       *symbol_present = false;
       *var_present = true;
@@ -5168,10 +5168,11 @@ cand_value_at (struct loop *loop, struct iv_cand *cand, gimple *at, tree niter,
   aff_tree step, delta, nit;
   struct iv *iv = cand->iv;
   tree type = TREE_TYPE (iv->base);
-  tree steptype = type;
+  tree steptype;
   if (POINTER_TYPE_P (type))
     steptype = sizetype;
-  steptype = unsigned_type_for (type);
+  else
+    steptype = unsigned_type_for (type);
 
   tree_to_aff_combination (iv->step, TREE_TYPE (iv->step), &step);
   aff_combination_convert (&step, steptype);

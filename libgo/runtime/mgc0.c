@@ -56,7 +56,6 @@
 #include "arch.h"
 #include "malloc.h"
 #include "mgc0.h"
-#include "chan.h"
 #include "go-type.h"
 
 // Map gccgo field names to gc field names.
@@ -69,9 +68,6 @@
 typedef struct __go_map Hmap;
 // Type aka __go_type_descriptor
 #define string __reflection
-#define KindPtr GO_PTR
-#define KindNoPointers GO_NO_POINTERS
-#define kindMask GO_CODE_MASK
 // PtrType aka __go_ptr_type
 #define elem __element_type
 
@@ -216,7 +212,7 @@ static void	addstackroots(G *gp, Workbuf **wbufp);
 
 static struct {
 	uint64	full;  // lock-free list of full blocks
-	uint64	empty; // lock-free list of empty blocks
+	uint64	wempty; // lock-free list of empty blocks
 	byte	pad0[CacheLineSize]; // prevents false-sharing between full/empty and nproc/nwait
 	uint32	nproc;
 	int64	tstart;
@@ -321,7 +317,7 @@ markonly(const void *obj)
 	x = k;
 	x -= (uintptr)runtime_mheap.arena_start>>PageShift;
 	s = runtime_mheap.spans[x];
-	if(s == nil || k < s->start || (const byte*)obj >= s->limit || s->state != MSpanInUse)
+	if(s == nil || k < s->start || (uintptr)obj >= s->limit || s->state != MSpanInUse)
 		return false;
 	p = (byte*)((uintptr)s->start<<PageShift);
 	if(s->sizeclass == 0) {
@@ -517,7 +513,7 @@ flushptrbuf(Scanbuf *sbuf)
 		x = k;
 		x -= (uintptr)arena_start>>PageShift;
 		s = runtime_mheap.spans[x];
-		if(s == nil || k < s->start || obj >= s->limit || s->state != MSpanInUse)
+		if(s == nil || k < s->start || (uintptr)obj >= s->limit || s->state != MSpanInUse)
 			continue;
 		p = (byte*)((uintptr)s->start<<PageShift);
 		if(s->sizeclass == 0) {
@@ -651,8 +647,8 @@ static uintptr defaultProg[2] = {PtrSize, GC_DEFAULT_PTR};
 static uintptr chanProg[2] = {0, GC_CHAN};
 
 // Local variables of a program fragment or loop
-typedef struct Frame Frame;
-struct Frame {
+typedef struct GCFrame GCFrame;
+struct GCFrame {
 	uintptr count, elemsize, b;
 	const uintptr *loop_or_ret;
 };
@@ -731,7 +727,7 @@ scanblock(Workbuf *wbuf, bool keepworking)
 	const Type *t, *et;
 	Slice *sliceptr;
 	String *stringptr;
-	Frame *stack_ptr, stack_top, stack[GC_STACK_CAPACITY+4];
+	GCFrame *stack_ptr, stack_top, stack[GC_STACK_CAPACITY+4];
 	BufferList *scanbuffers;
 	Scanbuf sbuf;
 	Eface *eface;
@@ -943,16 +939,16 @@ scanblock(Workbuf *wbuf, bool keepworking)
 			// eface->__object
 			if((byte*)eface->__object >= arena_start && (byte*)eface->__object < arena_used) {
 				if(__go_is_pointer_type(t)) {
-					if((t->__code & KindNoPointers))
+					if((t->__code & kindNoPointers))
 						continue;
 
 					obj = eface->__object;
-					if((t->__code & kindMask) == KindPtr) {
+					if((t->__code & kindMask) == kindPtr) {
 						// Only use type information if it is a pointer-containing type.
 						// This matches the GC programs written by cmd/gc/reflect.c's
 						// dgcsym1 in case TPTR32/case TPTR64. See rationale there.
 						et = ((const PtrType*)t)->elem;
-						if(!(et->__code & KindNoPointers))
+						if(!(et->__code & kindNoPointers))
 							objti = (uintptr)((const PtrType*)t)->elem->__gc;
 					}
 				} else {
@@ -981,16 +977,16 @@ scanblock(Workbuf *wbuf, bool keepworking)
 			if((byte*)iface->__object >= arena_start && (byte*)iface->__object < arena_used) {
 				t = (const Type*)iface->tab[0];
 				if(__go_is_pointer_type(t)) {
-					if((t->__code & KindNoPointers))
+					if((t->__code & kindNoPointers))
 						continue;
 
 					obj = iface->__object;
-					if((t->__code & kindMask) == KindPtr) {
+					if((t->__code & kindMask) == kindPtr) {
 						// Only use type information if it is a pointer-containing type.
 						// This matches the GC programs written by cmd/gc/reflect.c's
 						// dgcsym1 in case TPTR32/case TPTR64. See rationale there.
 						et = ((const PtrType*)t)->elem;
-						if(!(et->__code & KindNoPointers))
+						if(!(et->__code & kindNoPointers))
 							objti = (uintptr)((const PtrType*)t)->elem->__gc;
 					}
 				} else {
@@ -1057,7 +1053,7 @@ scanblock(Workbuf *wbuf, bool keepworking)
 
 			// Stack push.
 			*stack_ptr-- = stack_top;
-			stack_top = (Frame){count, elemsize, i, pc};
+			stack_top = (GCFrame){count, elemsize, i, pc};
 			continue;
 
 		case GC_ARRAY_NEXT:
@@ -1074,7 +1070,7 @@ scanblock(Workbuf *wbuf, bool keepworking)
 		case GC_CALL:
 			// Stack push.
 			*stack_ptr-- = stack_top;
-			stack_top = (Frame){1, 0, stack_top.b + pc[1], pc+3 /*return address*/};
+			stack_top = (GCFrame){1, 0, stack_top.b + pc[1], pc+3 /*return address*/};
 			pc = (const uintptr*)((const byte*)pc + *(const int32*)(pc+2));  // target of the CALL instruction
 			continue;
 
@@ -1101,7 +1097,7 @@ scanblock(Workbuf *wbuf, bool keepworking)
 			}
 			if(markonly(chan)) {
 				chantype = (ChanType*)pc[2];
-				if(!(chantype->elem->__code & KindNoPointers)) {
+				if(!(chantype->elem->__code & kindNoPointers)) {
 					// Start chanProg.
 					chan_ret = pc+3;
 					pc = chanProg+1;
@@ -1114,16 +1110,14 @@ scanblock(Workbuf *wbuf, bool keepworking)
 		case GC_CHAN:
 			// There are no heap pointers in struct Hchan,
 			// so we can ignore the leading sizeof(Hchan) bytes.
-			if(!(chantype->elem->__code & KindNoPointers)) {
-				// Channel's buffer follows Hchan immediately in memory.
-				// Size of buffer (cap(c)) is second int in the chan struct.
-				chancap = ((uintgo*)chan)[1];
-				if(chancap > 0) {
+			if(!(chantype->elem->__code & kindNoPointers)) {
+				chancap = chan->dataqsiz;
+				if(chancap > 0 && markonly(chan->buf)) {
 					// TODO(atom): split into two chunks so that only the
 					// in-use part of the circular buffer is scanned.
 					// (Channel routines zero the unused part, so the current
 					// code does not lead to leaks, it's just a little inefficient.)
-					*sbuf.obj.pos++ = (Obj){(byte*)chan+runtime_Hchansize, chancap*chantype->elem->__size,
+					*sbuf.obj.pos++ = (Obj){chan->buf, chancap*chantype->elem->__size,
 						(uintptr)chantype->elem->__gc | PRECISE | LOOP};
 					if(sbuf.obj.pos == sbuf.obj.end)
 						flushobjbuf(&sbuf);
@@ -1357,7 +1351,7 @@ markroot(ParFor *desc, uint32 i)
 		gp = runtime_allg[i - RootCount];
 		// remember when we've first observed the G blocked
 		// needed only to output in traceback
-		if((gp->status == Gwaiting || gp->status == Gsyscall) && gp->waitsince == 0)
+		if((gp->atomicstatus == _Gwaiting || gp->atomicstatus == _Gsyscall) && gp->waitsince == 0)
 			gp->waitsince = work.tstart;
 		addstackroots(gp, &wbuf);
 		break;
@@ -1377,7 +1371,7 @@ getempty(Workbuf *b)
 {
 	if(b != nil)
 		runtime_lfstackpush(&work.full, &b->node);
-	b = (Workbuf*)runtime_lfstackpop(&work.empty);
+	b = (Workbuf*)runtime_lfstackpop(&work.wempty);
 	if(b == nil) {
 		// Need to allocate.
 		runtime_lock(&work);
@@ -1402,7 +1396,7 @@ putempty(Workbuf *b)
 	if(CollectStats)
 		runtime_xadd64(&gcstats.putempty, 1);
 
-	runtime_lfstackpush(&work.empty, &b->node);
+	runtime_lfstackpush(&work.wempty, &b->node);
 }
 
 // Get a full work buffer off the work.full list, or return nil.
@@ -1416,7 +1410,7 @@ getfull(Workbuf *b)
 		runtime_xadd64(&gcstats.getfull, 1);
 
 	if(b != nil)
-		runtime_lfstackpush(&work.empty, &b->node);
+		runtime_lfstackpush(&work.wempty, &b->node);
 	b = (Workbuf*)runtime_lfstackpop(&work.full);
 	if(b != nil || work.nproc == 1)
 		return b;
@@ -1472,17 +1466,17 @@ handoff(Workbuf *b)
 static void
 addstackroots(G *gp, Workbuf **wbufp)
 {
-	switch(gp->status){
+	switch(gp->atomicstatus){
 	default:
-		runtime_printf("unexpected G.status %d (goroutine %p %D)\n", gp->status, gp, gp->goid);
+		runtime_printf("unexpected G.status %d (goroutine %p %D)\n", gp->atomicstatus, gp, gp->goid);
 		runtime_throw("mark - bad status");
-	case Gdead:
+	case _Gdead:
 		return;
-	case Grunning:
+	case _Grunning:
 		runtime_throw("mark - world not stopped");
-	case Grunnable:
-	case Gsyscall:
-	case Gwaiting:
+	case _Grunnable:
+	case _Gsyscall:
+	case _Gwaiting:
 		break;
 	}
 
@@ -1512,12 +1506,12 @@ addstackroots(G *gp, Workbuf **wbufp)
 		// the system call instead, since that won't change underfoot.
 		if(gp->gcstack != nil) {
 			sp = gp->gcstack;
-			spsize = gp->gcstack_size;
-			next_segment = gp->gcnext_segment;
-			next_sp = gp->gcnext_sp;
-			initial_sp = gp->gcinitial_sp;
+			spsize = gp->gcstacksize;
+			next_segment = gp->gcnextsegment;
+			next_sp = gp->gcnextsp;
+			initial_sp = gp->gcinitialsp;
 		} else {
-			sp = __splitstack_find_context(&gp->stack_context[0],
+			sp = __splitstack_find_context(&gp->stackcontext[0],
 						       &spsize, &next_segment,
 						       &next_sp, &initial_sp);
 		}
@@ -1543,11 +1537,11 @@ addstackroots(G *gp, Workbuf **wbufp)
 	} else {
 		// Scanning another goroutine's stack.
 		// The goroutine is usually asleep (the world is stopped).
-		bottom = (byte*)gp->gcnext_sp;
+		bottom = (byte*)gp->gcnextsp;
 		if(bottom == nil)
 			return;
 	}
-	top = (byte*)gp->gcinitial_sp + gp->gcstack_size;
+	top = (byte*)gp->gcinitialsp + gp->gcstacksize;
 	if(top > bottom)
 		enqueue1(wbufp, (Obj){bottom, top - bottom, 0});
 	else
@@ -2129,7 +2123,7 @@ runtime_gc(int32 force)
 	// The atomic operations are not atomic if the uint64s
 	// are not aligned on uint64 boundaries. This has been
 	// a problem in the past.
-	if((((uintptr)&work.empty) & 7) != 0)
+	if((((uintptr)&work.wempty) & 7) != 0)
 		runtime_throw("runtime: gc work buffer is misaligned");
 	if((((uintptr)&work.full) & 7) != 0)
 		runtime_throw("runtime: gc work buffer is misaligned");
@@ -2186,8 +2180,8 @@ runtime_gc(int32 force)
 		// switch to g0, call gc(&a), then switch back
 		g = runtime_g();
 		g->param = &a;
-		g->status = Gwaiting;
-		g->waitreason = "garbage collection";
+		g->atomicstatus = _Gwaiting;
+		g->waitreason = runtime_gostringnocopy((const byte*)"garbage collection");
 		runtime_mcall(mgc);
 		m = runtime_m();
 	}
@@ -2214,7 +2208,7 @@ mgc(G *gp)
 {
 	gc(gp->param);
 	gp->param = nil;
-	gp->status = Grunning;
+	gp->atomicstatus = _Grunning;
 	runtime_gogo(gp);
 }
 
@@ -2404,7 +2398,7 @@ runtime_ReadMemStats(MStats *stats)
 	runtime_stoptheworld();
 	runtime_updatememstats(nil);
 	// Size of the trailing by_size array differs between Go and C,
-	// NumSizeClasses was changed, but we can not change Go struct because of backward compatibility.
+	// _NumSizeClasses was changed, but we can not change Go struct because of backward compatibility.
 	runtime_memmove(stats, &mstats, runtime_sizeof_C_MStats);
 	m->gcing = 0;
 	m->locks++;
@@ -2522,7 +2516,7 @@ runfinq(void* dummy __attribute__ ((unused)))
 
 				f = &fb->fin[i];
 				fint = ((const Type**)f->ft->__in.array)[0];
-				if((fint->__code & kindMask) == KindPtr) {
+				if((fint->__code & kindMask) == kindPtr) {
 					// direct use of pointer
 					param = &f->arg;
 				} else if(((const InterfaceType*)fint)->__methods.__count == 0) {

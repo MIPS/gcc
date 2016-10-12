@@ -167,7 +167,7 @@ ptr_deref_may_alias_decl_p (tree ptr, tree decl)
        && TREE_CODE (ptr) != ADDR_EXPR
        && TREE_CODE (ptr) != POINTER_PLUS_EXPR)
       || !POINTER_TYPE_P (TREE_TYPE (ptr))
-      || (TREE_CODE (decl) != VAR_DECL
+      || (!VAR_P (decl)
 	  && TREE_CODE (decl) != PARM_DECL
 	  && TREE_CODE (decl) != RESULT_DECL))
     return true;
@@ -338,7 +338,7 @@ ptrs_compare_unequal (tree ptr1, tree ptr2)
       tree tem = get_base_address (TREE_OPERAND (ptr1, 0));
       if (! tem)
 	return false;
-      if (TREE_CODE (tem) == VAR_DECL
+      if (VAR_P (tem)
 	  || TREE_CODE (tem) == PARM_DECL
 	  || TREE_CODE (tem) == RESULT_DECL)
 	obj1 = tem;
@@ -350,7 +350,7 @@ ptrs_compare_unequal (tree ptr1, tree ptr2)
       tree tem = get_base_address (TREE_OPERAND (ptr2, 0));
       if (! tem)
 	return false;
-      if (TREE_CODE (tem) == VAR_DECL
+      if (VAR_P (tem)
 	  || TREE_CODE (tem) == PARM_DECL
 	  || TREE_CODE (tem) == RESULT_DECL)
 	obj2 = tem;
@@ -450,6 +450,7 @@ void
 dump_alias_info (FILE *file)
 {
   unsigned i;
+  tree ptr;
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
   tree var;
@@ -471,13 +472,11 @@ dump_alias_info (FILE *file)
 
   fprintf (file, "\n\nFlow-insensitive points-to information\n\n");
 
-  for (i = 1; i < num_ssa_names; i++)
+  FOR_EACH_SSA_NAME (i, ptr, cfun)
     {
-      tree ptr = ssa_name (i);
       struct ptr_info_def *pi;
 
-      if (ptr == NULL_TREE
-	  || !POINTER_TYPE_P (TREE_TYPE (ptr))
+      if (!POINTER_TYPE_P (TREE_TYPE (ptr))
 	  || SSA_NAME_IN_FREE_LIST (ptr))
 	continue;
 
@@ -1820,9 +1819,7 @@ ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref)
 
   /* Check if base is a global static variable that is not read
      by the function.  */
-  if (callee != NULL_TREE
-      && TREE_CODE (base) == VAR_DECL
-      && TREE_STATIC (base))
+  if (callee != NULL_TREE && VAR_P (base) && TREE_STATIC (base))
     {
       struct cgraph_node *node = cgraph_node::get (callee);
       bitmap not_read;
@@ -2209,9 +2206,7 @@ call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
 
   /* Check if base is a global static variable that is not written
      by the function.  */
-  if (callee != NULL_TREE
-      && TREE_CODE (base) == VAR_DECL
-      && TREE_STATIC (base))
+  if (callee != NULL_TREE && VAR_P (base) && TREE_STATIC (base))
     {
       struct cgraph_node *node = cgraph_node::get (callee);
       bitmap not_written;

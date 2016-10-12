@@ -60,6 +60,7 @@ extensions, accepted by GCC in C90 mode and in C++.
 * Type Attributes::     Specifying attributes of types.
 * Label Attributes::    Specifying attributes on labels.
 * Enumerator Attributes:: Specifying attributes on enumerators.
+* Statement Attributes:: Specifying attributes on statements.
 * Attribute Syntax::    Formal syntax for attributes.
 * Function Prototypes:: Prototype declarations and old-style definitions.
 * C++ Comments::        C++ comments are recognized.
@@ -2261,6 +2262,7 @@ GCC also supports attributes on
 variable declarations (@pxref{Variable Attributes}),
 labels (@pxref{Label Attributes}),
 enumerators (@pxref{Enumerator Attributes}),
+statements (@pxref{Statement Attributes}),
 and types (@pxref{Type Attributes}).
 
 There is some overlap between the purposes of attributes and pragmas
@@ -2505,8 +2507,6 @@ that deallocates the same resource, both functions typically have the
 same priority.  The priorities for constructor and destructor
 functions are the same as those specified for namespace-scope C++
 objects (@pxref{C++ Attributes}).
-
-These attributes are not currently implemented for Objective-C@.
 
 @item deprecated
 @itemx deprecated (@var{msg})
@@ -5481,11 +5481,6 @@ Enable/disable the generation of the CLD before string moves.
 Enable/disable the generation of the @code{sin}, @code{cos}, and
 @code{sqrt} instructions on the 387 floating-point unit.
 
-@item fused-madd
-@itemx no-fused-madd
-@cindex @code{target("fused-madd")} function attribute, x86
-Enable/disable the generation of the fused multiply/add instructions.
-
 @item ieee-fp
 @itemx no-ieee-fp
 @cindex @code{target("ieee-fp")} function attribute, x86
@@ -5563,8 +5558,8 @@ attributes are currently defined generically for variables.
 Other attributes are defined for variables on particular target
 systems.  Other attributes are available for functions
 (@pxref{Function Attributes}), labels (@pxref{Label Attributes}),
-enumerators (@pxref{Enumerator Attributes}), and for types
-(@pxref{Type Attributes}).
+enumerators (@pxref{Enumerator Attributes}), statements
+(@pxref{Statement Attributes}), and for types (@pxref{Type Attributes}).
 Other front ends might define more attributes
 (@pxref{C++ Extensions,,Extensions to the C++ Language}).
 
@@ -6345,7 +6340,8 @@ attributes of types.  Some type attributes apply only to @code{struct}
 and @code{union} types, while others can apply to any type defined
 via a @code{typedef} declaration.  Other attributes are defined for
 functions (@pxref{Function Attributes}), labels (@pxref{Label 
-Attributes}), enumerators (@pxref{Enumerator Attributes}), and for
+Attributes}), enumerators (@pxref{Enumerator Attributes}), 
+statements (@pxref{Statement Attributes}), and for
 variables (@pxref{Variable Attributes}).
 
 The @code{__attribute__} keyword is followed by an attribute specification
@@ -6855,7 +6851,8 @@ GCC allows attributes to be set on C labels.  @xref{Attribute Syntax}, for
 details of the exact syntax for using attributes.  Other attributes are 
 available for functions (@pxref{Function Attributes}), variables 
 (@pxref{Variable Attributes}), enumerators (@pxref{Enumerator Attributes}),
-and for types (@pxref{Type Attributes}).
+statements (@pxref{Statement Attributes}), and for types
+(@pxref{Type Attributes}).
 
 This example uses the @code{cold} label attribute to indicate the 
 @code{ErrorHandling} branch is unlikely to be taken and that the
@@ -6908,8 +6905,8 @@ with computed goto or @code{asm goto}.
 GCC allows attributes to be set on enumerators.  @xref{Attribute Syntax}, for
 details of the exact syntax for using attributes.  Other attributes are
 available for functions (@pxref{Function Attributes}), variables
-(@pxref{Variable Attributes}), labels (@pxref{Label Attributes}),
-and for types (@pxref{Type Attributes}).
+(@pxref{Variable Attributes}), labels (@pxref{Label Attributes}), statements
+(@pxref{Statement Attributes}), and for types (@pxref{Type Attributes}).
 
 This example uses the @code{deprecated} enumerator attribute to indicate the
 @code{oldval} enumerator is deprecated:
@@ -6940,6 +6937,46 @@ do instead.  Note that the warnings only occurs for uses.
 
 @end table
 
+@node Statement Attributes
+@section Statement Attributes
+@cindex Statement Attributes
+
+GCC allows attributes to be set on null statements.  @xref{Attribute Syntax},
+for details of the exact syntax for using attributes.  Other attributes are
+available for functions (@pxref{Function Attributes}), variables
+(@pxref{Variable Attributes}), labels (@pxref{Label Attributes}), enumerators
+(@pxref{Enumerator Attributes}), and for types (@pxref{Type Attributes}).
+
+This example uses the @code{fallthrough} statement attribute to indicate that
+the @option{-Wimplicit-fallthrough} warning should not be emitted:
+
+@smallexample
+switch (cond)
+  @{
+  case 1:
+    bar (1);
+    __attribute__((fallthrough));
+  case 2:
+    @dots{}
+  @}
+@end smallexample
+
+@table @code
+@item fallthrough
+@cindex @code{fallthrough} statement attribute
+The @code{fallthrough} attribute with a null statement serves as a
+fallthrough statement.  It hints to the compiler that a statement
+that falls through to another case label, or user-defined label
+in a switch statement is intentional and thus the
+@option{-Wimplicit-fallthrough} warning must not trigger.  The
+fallthrough attribute may appear at most once in each attribute
+list, and may not be mixed with other attributes.  It can only
+be used in a switch statement (the compiler will issue an error
+otherwise), after a preceding statement and before a logically
+succeeding case label, or user-defined label.
+
+@end table
+
 @node Attribute Syntax
 @section Attribute Syntax
 @cindex attribute syntax
@@ -6967,6 +7004,8 @@ and enumerated types.
 applying to labels.
 @xref{Enumerator Attributes}, for details of the semantics of attributes
 applying to enumerators.
+@xref{Statement Attributes}, for details of the semantics of attributes
+applying to statements.
 
 An @dfn{attribute specifier} is of the form
 @code{__attribute__ ((@var{attribute-list}))}.  An @dfn{attribute list}
@@ -7031,6 +7070,10 @@ The attribute goes after the enumeration constant, before @code{=}, if
 present.  The optional attribute in the enumerator appertains to the
 enumeration constant.  It is not possible to place the attribute after
 the constant expression, if present.
+
+@subsubheading Statement Attributes
+In GNU C, an attribute specifier list may appear as part of a null
+statement.  The attribute goes before the semicolon.
 
 @subsubheading Type Attributes
 
@@ -9486,7 +9529,7 @@ the pointer points.
 @end smallexample
 
 The object pointed to by the first argument must be of integer or pointer
-type.  It must not be a Boolean type.
+type.  It must not be a boolean type.
 
 @emph{Note:} GCC 4.4 and later implement @code{__sync_fetch_and_nand}
 as @code{*ptr = ~(tmp & value)} instead of @code{*ptr = ~tmp & value}.
@@ -9772,7 +9815,7 @@ they are not scaled by the size of the type to which the pointer points.
 @end smallexample
 
 The object pointed to by the first argument must be of integer or pointer
-type.  It must not be a Boolean type.  All memory orders are valid.
+type.  It must not be a boolean type.  All memory orders are valid.
 
 @end deftypefn
 
@@ -9881,10 +9924,10 @@ together with checking whether the operations overflowed.
 @deftypefn {Built-in Function} bool __builtin_add_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
 @deftypefnx {Built-in Function} bool __builtin_sadd_overflow (int a, int b, int *res)
 @deftypefnx {Built-in Function} bool __builtin_saddl_overflow (long int a, long int b, long int *res)
-@deftypefnx {Built-in Function} bool __builtin_saddll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_saddll_overflow (long long int a, long long int b, long long int *res)
 @deftypefnx {Built-in Function} bool __builtin_uadd_overflow (unsigned int a, unsigned int b, unsigned int *res)
 @deftypefnx {Built-in Function} bool __builtin_uaddl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
-@deftypefnx {Built-in Function} bool __builtin_uaddll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_uaddll_overflow (unsigned long long int a, unsigned long long int b, unsigned long long int *res)
 
 These built-in functions promote the first two operands into infinite precision signed
 type and perform addition on those promoted operands.  The result is then
@@ -9896,7 +9939,7 @@ behavior for all argument values.
 
 The first built-in function allows arbitrary integral types for operands and
 the result type must be pointer to some integral type other than enumerated or
-Boolean type, the rest of the built-in functions have explicit integer types.
+boolean type, the rest of the built-in functions have explicit integer types.
 
 The compiler will attempt to use hardware instructions to implement
 these built-in functions where possible, like conditional jump on overflow
@@ -9907,10 +9950,10 @@ after addition, conditional jump on carry etc.
 @deftypefn {Built-in Function} bool __builtin_sub_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
 @deftypefnx {Built-in Function} bool __builtin_ssub_overflow (int a, int b, int *res)
 @deftypefnx {Built-in Function} bool __builtin_ssubl_overflow (long int a, long int b, long int *res)
-@deftypefnx {Built-in Function} bool __builtin_ssubll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_ssubll_overflow (long long int a, long long int b, long long int *res)
 @deftypefnx {Built-in Function} bool __builtin_usub_overflow (unsigned int a, unsigned int b, unsigned int *res)
 @deftypefnx {Built-in Function} bool __builtin_usubl_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
-@deftypefnx {Built-in Function} bool __builtin_usubll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_usubll_overflow (unsigned long long int a, unsigned long long int b, unsigned long long int *res)
 
 These built-in functions are similar to the add overflow checking built-in
 functions above, except they perform subtraction, subtract the second argument
@@ -9921,10 +9964,10 @@ from the first one, instead of addition.
 @deftypefn {Built-in Function} bool __builtin_mul_overflow (@var{type1} a, @var{type2} b, @var{type3} *res)
 @deftypefnx {Built-in Function} bool __builtin_smul_overflow (int a, int b, int *res)
 @deftypefnx {Built-in Function} bool __builtin_smull_overflow (long int a, long int b, long int *res)
-@deftypefnx {Built-in Function} bool __builtin_smulll_overflow (long long int a, long long int b, long int *res)
+@deftypefnx {Built-in Function} bool __builtin_smulll_overflow (long long int a, long long int b, long long int *res)
 @deftypefnx {Built-in Function} bool __builtin_umul_overflow (unsigned int a, unsigned int b, unsigned int *res)
 @deftypefnx {Built-in Function} bool __builtin_umull_overflow (unsigned long int a, unsigned long int b, unsigned long int *res)
-@deftypefnx {Built-in Function} bool __builtin_umulll_overflow (unsigned long long int a, unsigned long long int b, unsigned long int *res)
+@deftypefnx {Built-in Function} bool __builtin_umulll_overflow (unsigned long long int a, unsigned long long int b, unsigned long long int *res)
 
 These built-in functions are similar to the add overflow checking built-in
 functions above, except they perform multiplication, instead of addition.
@@ -9942,7 +9985,7 @@ These built-in functions are similar to @code{__builtin_add_overflow},
 @code{__builtin_sub_overflow}, or @code{__builtin_mul_overflow}, except that
 they don't store the result of the arithmetic operation anywhere and the
 last argument is not a pointer, but some expression with integral type other
-than enumerated or Boolean type.
+than enumerated or boolean type.
 
 The built-in functions promote the first two operands into infinite precision signed type
 and perform addition on those promoted operands. The result is then
@@ -10030,8 +10073,15 @@ __atomic_store_n(&lockvar, 0, __ATOMIC_RELEASE|__ATOMIC_HLE_RELEASE);
 @findex __builtin___fprintf_chk
 @findex __builtin___vfprintf_chk
 
-GCC implements a limited buffer overflow protection mechanism
-that can prevent some buffer overflow attacks.
+GCC implements a limited buffer overflow protection mechanism that can
+prevent some buffer overflow attacks by determining the sizes of objects
+into which data is about to be written and preventing the writes when
+the size isn't sufficient.  The built-in functions described below yield
+the best results when used together and when optimization is enabled.
+For example, to detect object sizes across function boundaries or to
+follow pointer assignments through non-trivial control flow they rely
+on various optimization passes enabled with @option{-O2}.  However, to
+a limited extent, they can be used without optimization as well.
 
 @deftypefn {Built-in Function} {size_t} __builtin_object_size (void * @var{ptr}, int @var{type})
 is a built-in construct that returns a constant number of bytes from
@@ -18600,9 +18650,7 @@ v2si __builtin_vis_fpminu32 (v2si, v2si);
 @subsection SPU Built-in Functions
 
 GCC provides extensions for the SPU processor as described in the
-Sony/Toshiba/IBM SPU Language Extensions Specification, which can be
-found at @uref{http://cell.scei.co.jp/} or
-@uref{http://www.ibm.com/developerworks/power/cell/}.  GCC's
+Sony/Toshiba/IBM SPU Language Extensions Specification.  GCC's
 implementation differs in several ways.
 
 @itemize @bullet
@@ -21344,7 +21392,6 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Namespace Association:: Strong using-directives for namespace association.
 * Type Traits::         Compiler support for type traits.
 * C++ Concepts::        Improved support for generic programming.
-* Java Exceptions::     Tweaking exception handling to work with Java.
 * Deprecated Features:: Things will disappear from G++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
 @end menu
@@ -21889,14 +21936,6 @@ Some_Class  B  __attribute__ ((init_priority (543)));
 Note that the particular values of @var{priority} do not matter; only their
 relative ordering.
 
-@item java_interface
-@cindex @code{java_interface} type attribute
-
-This type attribute informs C++ that the class is a Java interface.  It may
-only be applied to classes declared within an @code{extern "Java"} block.
-Calls to methods declared in this interface are dispatched using GCJ's
-interface table mechanism, instead of regular virtual table dispatch.
-
 @item warn_unused
 @cindex @code{warn_unused} type attribute
 
@@ -22203,41 +22242,6 @@ A binary type trait: true whenever the type arguments are the same.
 
 @end table
 
-
-@node Java Exceptions
-@section Java Exceptions
-
-The Java language uses a slightly different exception handling model
-from C++.  Normally, GNU C++ automatically detects when you are
-writing C++ code that uses Java exceptions, and handle them
-appropriately.  However, if C++ code only needs to execute destructors
-when Java exceptions are thrown through it, GCC guesses incorrectly.
-Sample problematic code is:
-
-@smallexample
-  struct S @{ ~S(); @};
-  extern void bar();    // @r{is written in Java, and may throw exceptions}
-  void foo()
-  @{
-    S s;
-    bar();
-  @}
-@end smallexample
-
-@noindent
-The usual effect of an incorrect guess is a link failure, complaining of
-a missing routine called @samp{__gxx_personality_v0}.
-
-You can inform the compiler that Java exceptions are to be used in a
-translation unit, irrespective of what it might think, by writing
-@samp{@w{#pragma GCC java_exceptions}} at the head of the file.  This
-@samp{#pragma} must appear before any functions that throw or catch
-exceptions, or run destructors when exceptions are thrown through them.
-
-You cannot mix Java and C++ exceptions in the same translation unit.  It
-is believed to be safe to throw a C++ exception from one file through
-another file compiled for the Java exception model, or vice versa, but
-there may be bugs in this area.
 
 @node Deprecated Features
 @section Deprecated Features

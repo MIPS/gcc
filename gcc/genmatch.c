@@ -1562,7 +1562,7 @@ struct dt_operand : public dt_node
 
   void gen (FILE *, int, bool);
   unsigned gen_predicate (FILE *, int, const char *, bool);
-  unsigned gen_match_op (FILE *, int, const char *);
+  unsigned gen_match_op (FILE *, int, const char *, bool);
 
   unsigned gen_gimple_expr (FILE *, int);
   unsigned gen_generic_expr (FILE *, int, const char *);
@@ -2194,8 +2194,10 @@ capture_info::walk_c_expr (c_expr *e)
 	    id = (const char *)n->val.str.text;
 	  else
 	    id = (const char *)CPP_HASHNODE (n->val.node.node)->ident.str;
-	  unsigned where = *e->capture_ids->get(id);
-	  info[info[where].same_as].force_no_side_effects_p = true;
+	  unsigned *where = e->capture_ids->get(id);
+	  if (! where)
+	    fatal_at (n, "unknown capture id '%s'", id);
+	  info[info[*where].same_as].force_no_side_effects_p = true;
 	  if (verbose >= 1
 	      && !gimple)
 	    warning_at (t, "capture escapes");
@@ -2216,11 +2218,12 @@ is_conversion (id_base *op)
 	  || *op == VIEW_CONVERT_EXPR);
 }
 
-/* Get the type to be used for generating operands of OP from the
+/* Get the type to be used for generating operand POS of OP from the
    various sources.  */
 
 static const char *
-get_operand_type (id_base *op, const char *in_type,
+get_operand_type (id_base *op, unsigned pos,
+		  const char *in_type,
 		  const char *expr_type,
 		  const char *other_oprnd_type)
 {
@@ -2235,6 +2238,9 @@ get_operand_type (id_base *op, const char *in_type,
   else if (is_a <operator_id *> (op)
 	   && strcmp (as_a <operator_id *> (op)->tcc, "tcc_comparison") == 0)
     return other_oprnd_type;
+  else if (*op == COND_EXPR
+	   && pos == 0)
+    return "boolean_type_node";
   else
     {
       /* Otherwise all types should match - choose one in order of
@@ -2319,7 +2325,7 @@ expr::gen_transform (FILE *f, int indent, const char *dest, bool gimple,
       char dest[32];
       snprintf (dest, 32, "ops%d[%u]", depth, i);
       const char *optype
-	= get_operand_type (opr, in_type, expr_type,
+	= get_operand_type (opr, i, in_type, expr_type,
 			    i == 0 ? NULL : op0type);
       ops[i]->gen_transform (f, indent, dest, gimple, depth + 1, optype,
 			     cinfo, indexes,
@@ -2585,12 +2591,18 @@ dt_operand::gen_predicate (FILE *f, int indent, const char *opname, bool gimple)
    a capture-match.  */
 
 unsigned
-dt_operand::gen_match_op (FILE *f, int indent, const char *opname)
+dt_operand::gen_match_op (FILE *f, int indent, const char *opname, bool gimple)
 {
   char match_opname[20];
   match_dop->get_name (match_opname);
-  fprintf_indent (f, indent, "if (%s == %s || operand_equal_p (%s, %s, 0))\n",
-		  opname, match_opname, opname, match_opname);
+  if (gimple)
+    fprintf_indent (f, indent, "if (%s == %s || (operand_equal_p (%s, %s, 0) "
+		    "&& types_match (%s, %s)))\n",
+		    opname, match_opname, opname, match_opname,
+		    opname, match_opname);
+  else
+    fprintf_indent (f, indent, "if (%s == %s || operand_equal_p (%s, %s, 0))\n",
+		    opname, match_opname, opname, match_opname);
   fprintf_indent (f, indent + 2, "{\n");
   return 1;
 }
@@ -2987,7 +2999,7 @@ dt_operand::gen (FILE *f, int indent, bool gimple)
   else if (type == DT_TRUE)
     ;
   else if (type == DT_MATCH)
-    n_braces = gen_match_op (f, indent, opname);
+    n_braces = gen_match_op (f, indent, opname, gimple);
   else
     gcc_unreachable ();
 
@@ -3157,7 +3169,7 @@ dt_simplify::gen_1 (FILE *f, int indent, bool gimple, operand *result)
 	      char dest[32];
 	      snprintf (dest, 32, "res_ops[%d]", j);
 	      const char *optype
-		= get_operand_type (opr,
+		= get_operand_type (opr, j,
 				    "type", e->expr_type,
 				    j == 0 ? NULL : "TREE_TYPE (res_ops[0])");
 	      /* We need to expand GENERIC conditions we captured from
@@ -3247,7 +3259,7 @@ dt_simplify::gen_1 (FILE *f, int indent, bool gimple, operand *result)
 		  snprintf (dest, 32, "res_op%d", j);
 		}
 	      const char *optype
-	        = get_operand_type (opr,
+	        = get_operand_type (opr, j,
 				    "type", e->expr_type,
 				    j == 0
 				    ? NULL : "TREE_TYPE (res_op0)");
@@ -4051,7 +4063,8 @@ parser::parse_expr ()
   else if (force_capture)
     {
       unsigned num = capture_ids->elements ();
-      char id[8];
+      /* Big enough for a 32-bit UINT_MAX plus prefix.  */
+      char id[13];
       bool existed;
       sprintf (id, "__%u", num);
       capture_ids->get_or_insert (xstrdup (id), &existed);
@@ -4119,6 +4132,8 @@ parser::parse_c_expr (cpp_ttype start)
       else if (token->type == end
 	       && --opencnt == 0)
 	break;
+      else if (token->type == CPP_EOF)
+	fatal_at (token, "unexpected end of file");
 
       /* This is a lame way of counting the number of statements.  */
       if (token->type == CPP_SEMICOLON)

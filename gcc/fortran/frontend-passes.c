@@ -164,17 +164,32 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
   gfc_expr *expr1, *expr2;
   gfc_code *co = *c;
   gfc_expr *n;
+  gfc_ref *ref;
+  bool found_substr;
 
   if (co->op != EXEC_ASSIGN)
     return 0;
 
   expr1 = co->expr1;
   if (expr1->ts.type != BT_CHARACTER || expr1->rank != 0
-      || !expr1->symtree->n.sym->attr.allocatable)
+      || !gfc_expr_attr(expr1).allocatable
+      || !expr1->ts.deferred)
     return 0;
 
   expr2 = gfc_discard_nops (co->expr2);
   if (expr2->expr_type != EXPR_VARIABLE)
+    return 0;
+
+  found_substr = false;
+  for (ref = expr2->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_SUBSTRING)
+	{
+	  found_substr = true;
+	  break;
+	}
+    }
+  if (!found_substr)
     return 0;
 
   if (!gfc_check_dependency (expr1, expr2, true))
@@ -190,7 +205,7 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
   current_code = c;
   inserted_block = NULL;
   changed_statement = NULL;
-  n = create_var (expr2, "trim");
+  n = create_var (expr2, "realloc_string");
   co->expr2 = n;
   return 0;
 }
@@ -1061,6 +1076,9 @@ optimize_binop_array_assignment (gfc_code *c, gfc_expr **rhs, bool seen_op)
 {
   gfc_expr *e;
 
+  if (!*rhs)
+    return false;
+
   e = *rhs;
   if (e->expr_type == EXPR_OP)
     {
@@ -1137,6 +1155,8 @@ remove_trim (gfc_expr *rhs)
   bool ret;
 
   ret = false;
+  if (!rhs)
+    return ret;
 
   /* Check for a // b // trim(c).  Looping is probably not
      necessary because the parser usually generates
@@ -1273,6 +1293,9 @@ combine_array_constructor (gfc_expr *e)
 
   op1 = e->value.op.op1;
   op2 = e->value.op.op2;
+
+  if (!op1 || !op2)
+    return false;
 
   if (op1->expr_type == EXPR_ARRAY && op2->rank == 0)
     scalar_first = false;
@@ -1458,7 +1481,7 @@ optimize_op (gfc_expr *e)
     case INTRINSIC_LT:
       changed = optimize_comparison (e, op);
 
-      /* Fall through */
+      gcc_fallthrough ();
       /* Look at array constructors.  */
     case INTRINSIC_PLUS:
     case INTRINSIC_MINUS:
@@ -1468,7 +1491,6 @@ optimize_op (gfc_expr *e)
 
     case INTRINSIC_POWER:
       return optimize_power (e);
-      break;
 
     default:
       break;
@@ -2835,6 +2857,11 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
   if (in_where)
     return 0;
 
+  /* The BLOCKS generated for the temporary variables and FORALL don't
+     mix.  */
+  if (forall_level > 0)
+    return 0;
+
   /* For now don't do anything in OpenMP workshare, it confuses
      its translation, which expects only the allowed statements in there.
      We should figure out how to parallelize this eventually.  */
@@ -3326,6 +3353,7 @@ gfc_expr_walker (gfc_expr **e, walk_expr_fn_t exprfn, void *data)
 
 	    /* Fall through to the variable case in order to walk the
 	       reference.  */
+	    gcc_fallthrough ();
 
 	  case EXPR_SUBSTRING:
 	  case EXPR_VARIABLE:

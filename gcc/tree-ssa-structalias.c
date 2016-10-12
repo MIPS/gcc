@@ -385,8 +385,7 @@ new_var_info (tree t, const char *name, bool add_id)
     ret->is_global_var = (is_global_var (t)
 			  /* We have to treat even local register variables
 			     as escape points.  */
-			  || (TREE_CODE (t) == VAR_DECL
-			      && DECL_HARD_REGISTER (t)));
+			  || (VAR_P (t) && DECL_HARD_REGISTER (t)));
   ret->solution = BITMAP_ALLOC (&pta_obstack);
   ret->oldsolution = NULL;
   ret->next = 0;
@@ -2929,8 +2928,7 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
     }
 
   /* For global variables resort to the alias target.  */
-  if (TREE_CODE (t) == VAR_DECL
-      && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+  if (VAR_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
       varpool_node *node = varpool_node::get (t);
       if (node && node->alias && node->analyzed)
@@ -3010,7 +3008,7 @@ process_constraint (constraint_t t)
       process_constraint (new_constraint (tmplhs, rhs));
       process_constraint (new_constraint (lhs, tmplhs));
     }
-  else if (rhs.type == ADDRESSOF && lhs.type == DEREF)
+  else if ((rhs.type != SCALAR || rhs.offset != 0) && lhs.type == DEREF)
     {
       /* Split into tmp = &rhs, *lhs = tmp */
       struct constraint_expr tmplhs;
@@ -3747,11 +3745,28 @@ make_transitive_closure_constraints (varinfo_t vi)
 {
   struct constraint_expr lhs, rhs;
 
-  /* VAR = *VAR;  */
+  /* VAR = *(VAR + UNKNOWN);  */
   lhs.type = SCALAR;
   lhs.var = vi->id;
   lhs.offset = 0;
   rhs.type = DEREF;
+  rhs.var = vi->id;
+  rhs.offset = UNKNOWN_OFFSET;
+  process_constraint (new_constraint (lhs, rhs));
+}
+
+/* Add constraints to that the solution of VI has all subvariables added.  */
+
+static void
+make_any_offset_constraints (varinfo_t vi)
+{
+  struct constraint_expr lhs, rhs;
+
+  /* VAR = VAR + UNKNOWN;  */
+  lhs.type = SCALAR;
+  lhs.var = vi->id;
+  lhs.offset = 0;
+  rhs.type = SCALAR;
   rhs.var = vi->id;
   rhs.offset = UNKNOWN_OFFSET;
   process_constraint (new_constraint (lhs, rhs));
@@ -3902,15 +3917,12 @@ handle_rhs_call (gcall *stmt, vec<ce_s> *results)
 	   && (flags & EAF_NOESCAPE))
 	{
 	  varinfo_t uses = get_call_use_vi (stmt);
+	  varinfo_t tem = new_var_info (NULL_TREE, "callarg", true);
+	  make_constraint_to (tem->id, arg);
+	  make_any_offset_constraints (tem);
 	  if (!(flags & EAF_DIRECT))
-	    {
-	      varinfo_t tem = new_var_info (NULL_TREE, "callarg", true);
-	      make_constraint_to (tem->id, arg);
-	      make_transitive_closure_constraints (tem);
-	      make_copy_constraint (uses, tem->id);
-	    }
-	  else
-	    make_constraint_to (uses->id, arg);
+	    make_transitive_closure_constraints (tem);
+	  make_copy_constraint (uses, tem->id);
 	  returns_uses = true;
 	}
       else if (flags & EAF_NOESCAPE)
@@ -3920,6 +3932,7 @@ handle_rhs_call (gcall *stmt, vec<ce_s> *results)
 	  varinfo_t clobbers = get_call_clobber_vi (stmt);
 	  varinfo_t tem = new_var_info (NULL_TREE, "callarg", true);
 	  make_constraint_to (tem->id, arg);
+	  make_any_offset_constraints (tem);
 	  if (!(flags & EAF_DIRECT))
 	    make_transitive_closure_constraints (tem);
 	  make_copy_constraint (uses, tem->id);
@@ -3945,7 +3958,7 @@ handle_rhs_call (gcall *stmt, vec<ce_s> *results)
   if (returns_uses)
     {
       rhsc.var = get_call_use_vi (stmt)->id;
-      rhsc.offset = 0;
+      rhsc.offset = UNKNOWN_OFFSET;
       rhsc.type = SCALAR;
       results->safe_push (rhsc);
     }
@@ -4048,30 +4061,58 @@ handle_const_call (gcall *stmt, vec<ce_s> *results)
 {
   struct constraint_expr rhsc;
   unsigned int k;
+  bool need_uses = false;
 
   /* Treat nested const functions the same as pure functions as far
      as the static chain is concerned.  */
   if (gimple_call_chain (stmt))
     {
       varinfo_t uses = get_call_use_vi (stmt);
-      make_transitive_closure_constraints (uses);
       make_constraint_to (uses->id, gimple_call_chain (stmt));
+      need_uses = true;
+    }
+
+  /* And if we applied NRV the address of the return slot escapes as well.  */
+  if (gimple_call_return_slot_opt_p (stmt)
+      && gimple_call_lhs (stmt) != NULL_TREE
+      && TREE_ADDRESSABLE (TREE_TYPE (gimple_call_lhs (stmt))))
+    {
+      varinfo_t uses = get_call_use_vi (stmt);
+      auto_vec<ce_s> tmpc;
+      get_constraint_for_address_of (gimple_call_lhs (stmt), &tmpc);
+      make_constraints_to (uses->id, tmpc);
+      need_uses = true;
+    }
+
+  if (need_uses)
+    {
+      varinfo_t uses = get_call_use_vi (stmt);
+      make_any_offset_constraints (uses);
+      make_transitive_closure_constraints (uses);
       rhsc.var = uses->id;
       rhsc.offset = 0;
       rhsc.type = SCALAR;
       results->safe_push (rhsc);
     }
 
-  /* May return arguments.  */
+  /* May return offsetted arguments.  */
+  varinfo_t tem = NULL;
+  if (gimple_call_num_args (stmt) != 0)
+    tem = new_var_info (NULL_TREE, "callarg", true);
   for (k = 0; k < gimple_call_num_args (stmt); ++k)
     {
       tree arg = gimple_call_arg (stmt, k);
       auto_vec<ce_s> argc;
-      unsigned i;
-      struct constraint_expr *argp;
       get_constraint_for_rhs (arg, &argc);
-      FOR_EACH_VEC_ELT (argc, i, argp)
-	results->safe_push (*argp);
+      make_constraints_to (tem->id, argc);
+    }
+  if (tem)
+    {
+      ce_s ce;
+      ce.type = SCALAR;
+      ce.var = tem->id;
+      ce.offset = UNKNOWN_OFFSET;
+      results->safe_push (ce);
     }
 
   /* May return addresses of globals.  */
@@ -4098,6 +4139,7 @@ handle_pure_call (gcall *stmt, vec<ce_s> *results)
       if (!uses)
 	{
 	  uses = get_call_use_vi (stmt);
+	  make_any_offset_constraints (uses);
 	  make_transitive_closure_constraints (uses);
 	}
       make_constraint_to (uses->id, arg);
@@ -4109,9 +4151,26 @@ handle_pure_call (gcall *stmt, vec<ce_s> *results)
       if (!uses)
 	{
 	  uses = get_call_use_vi (stmt);
+	  make_any_offset_constraints (uses);
 	  make_transitive_closure_constraints (uses);
 	}
       make_constraint_to (uses->id, gimple_call_chain (stmt));
+    }
+
+  /* And if we applied NRV the address of the return slot.  */
+  if (gimple_call_return_slot_opt_p (stmt)
+      && gimple_call_lhs (stmt) != NULL_TREE
+      && TREE_ADDRESSABLE (TREE_TYPE (gimple_call_lhs (stmt))))
+    {
+      if (!uses)
+	{
+	  uses = get_call_use_vi (stmt);
+	  make_any_offset_constraints (uses);
+	  make_transitive_closure_constraints (uses);
+	}
+      auto_vec<ce_s> tmpc;
+      get_constraint_for_address_of (gimple_call_lhs (stmt), &tmpc);
+      make_constraints_to (uses->id, tmpc);
     }
 
   /* Pure functions may return call-used and nonlocal memory.  */
@@ -5982,7 +6041,7 @@ create_variable_info_for (tree decl, const char *name, bool add_id)
 
   insert_vi_for_tree (decl, vi);
 
-  if (TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_P (decl))
     return id;
 
   /* Create initial constraints for globals.  */
@@ -6258,7 +6317,7 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
       if (vi->is_restrict_var)
 	pt->vars_contains_restrict = true;
 
-      if (TREE_CODE (vi->decl) == VAR_DECL
+      if (VAR_P (vi->decl)
 	  || TREE_CODE (vi->decl) == PARM_DECL
 	  || TREE_CODE (vi->decl) == RESULT_DECL)
 	{
@@ -7028,7 +7087,6 @@ static void
 compute_points_to_sets (void)
 {
   basic_block bb;
-  unsigned i;
   varinfo_t vi;
 
   timevar_push (TV_TREE_PTA);
@@ -7077,11 +7135,12 @@ compute_points_to_sets (void)
   cfun->gimple_df->escaped.escaped = 0;
 
   /* Compute the points-to sets for pointer SSA_NAMEs.  */
-  for (i = 0; i < num_ssa_names; ++i)
+  unsigned i;
+  tree ptr;
+
+  FOR_EACH_SSA_NAME (i, ptr, cfun)
     {
-      tree ptr = ssa_name (i);
-      if (ptr
-	  && POINTER_TYPE_P (TREE_TYPE (ptr)))
+      if (POINTER_TYPE_P (TREE_TYPE (ptr)))
 	find_what_p_points_to (cfun->decl, ptr);
     }
 
@@ -7229,7 +7288,7 @@ visit_loadstore (gimple *, tree base, tree ref, void *data)
 
   /* For plain decl accesses see whether they are accesses to globals
      and rewrite them to MEM_REFs with { clique, 0 }.  */
-  if (TREE_CODE (base) == VAR_DECL
+  if (VAR_P (base)
       && is_global_var (base)
       /* ???  We can't rewrite a plain decl with the walk_stmt_load_store
 	 ops callback.  */
@@ -7238,7 +7297,7 @@ visit_loadstore (gimple *, tree base, tree ref, void *data)
       tree *basep = &ref;
       while (handled_component_p (*basep))
 	basep = &TREE_OPERAND (*basep, 0);
-      gcc_assert (TREE_CODE (*basep) == VAR_DECL);
+      gcc_assert (VAR_P (*basep));
       tree ptr = build_fold_addr_expr (*basep);
       tree zero = build_int_cst (TREE_TYPE (ptr), 0);
       *basep = build2 (MEM_REF, TREE_TYPE (*basep), ptr, zero);

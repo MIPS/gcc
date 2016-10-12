@@ -5730,7 +5730,7 @@ byte_accesses_mergeable_p (rtx addr1, rtx addr2)
    before I3.  I3 is assumed to be a comparison insn.  */
 
 int
-same_cmp_preceding_p (rtx i3)
+same_cmp_preceding_p (rtx_insn *i3)
 {
   rtx_insn *i1, *i2;
 
@@ -5750,7 +5750,7 @@ same_cmp_preceding_p (rtx i3)
    after I1.  I1 is assumed to be a comparison insn.  */
 
 int
-same_cmp_following_p (rtx i1)
+same_cmp_following_p (rtx_insn *i1)
 {
   rtx_insn *i2, *i3;
 
@@ -6096,6 +6096,9 @@ h8300_trampoline_init (rtx m_tramp, tree fndecl, rtx cxt)
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK h8300_hard_regno_scratch_ok
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	h8300_legitimate_address_p

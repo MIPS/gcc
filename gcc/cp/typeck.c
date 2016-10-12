@@ -1226,8 +1226,6 @@ structural_comptypes (tree t1, tree t2, int strict)
        || TREE_CODE (t1) == METHOD_TYPE)
       && type_memfn_rqual (t1) != type_memfn_rqual (t2))
     return false;
-  if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
-    return false;
 
   /* Allow for two different type nodes which have essentially the same
      definition.  Note that we already checked for equality of the type
@@ -1306,6 +1304,7 @@ structural_comptypes (tree t1, tree t2, int strict)
       if (TYPE_REF_IS_RVALUE (t1) != TYPE_REF_IS_RVALUE (t2))
 	return false;
       /* fall through to checks for pointer types */
+      gcc_fallthrough ();
 
     case POINTER_TYPE:
       if (TYPE_MODE (t1) != TYPE_MODE (t2)
@@ -2208,16 +2207,16 @@ rationalize_conditional_expr (enum tree_code code, tree t,
 						   op1, TREE_CODE (op1),
 						   /*overload=*/NULL,
 						   complain),
-                                cp_build_unary_op (code, op0, 0, complain),
-                                cp_build_unary_op (code, op1, 0, complain),
+                                cp_build_unary_op (code, op0, false, complain),
+                                cp_build_unary_op (code, op1, false, complain),
                                 complain);
     }
 
   return
     build_conditional_expr (loc, TREE_OPERAND (t, 0),
-			    cp_build_unary_op (code, TREE_OPERAND (t, 1), 0,
+			    cp_build_unary_op (code, TREE_OPERAND (t, 1), false,
                                                complain),
-			    cp_build_unary_op (code, TREE_OPERAND (t, 2), 0,
+			    cp_build_unary_op (code, TREE_OPERAND (t, 2), false,
                                                complain),
                             complain);
 }
@@ -4265,6 +4264,7 @@ cp_build_binary_op (location_t location,
 	}
       /* The pointer - int case is just like pointer + int; fall
 	 through.  */
+      gcc_fallthrough ();
     case PLUS_EXPR:
       if ((code0 == POINTER_TYPE || code1 == POINTER_TYPE)
 	  && (code0 == INTEGER_TYPE || code1 == INTEGER_TYPE))
@@ -4571,7 +4571,7 @@ cp_build_binary_op (location_t location,
 	      || code1 == COMPLEX_TYPE || code1 == ENUMERAL_TYPE))
 	short_compare = 1;
       else if (((code0 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type0))
-		&& null_ptr_cst_p (op1))
+		&& null_ptr_cst_p (orig_op1))
 	       /* Handle, eg, (void*)0 (c++/43906), and more.  */
 	       || (code0 == POINTER_TYPE
 		   && TYPE_PTR_P (type1) && integer_zerop (op1)))
@@ -4585,7 +4585,7 @@ cp_build_binary_op (location_t location,
 	  warn_for_null_address (location, op0, complain);
 	}
       else if (((code1 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type1))
-		&& null_ptr_cst_p (op0))
+		&& null_ptr_cst_p (orig_op0))
 	       /* Handle, eg, (void*)0 (c++/43906), and more.  */
 	       || (code1 == POINTER_TYPE
 		   && TYPE_PTR_P (type0) && integer_zerop (op0)))
@@ -4602,7 +4602,7 @@ cp_build_binary_op (location_t location,
 	       || (TYPE_PTRDATAMEM_P (type0) && TYPE_PTRDATAMEM_P (type1)))
 	result_type = composite_pointer_type (type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
-      else if (null_ptr_cst_p (op0) && null_ptr_cst_p (op1))
+      else if (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1))
 	/* One of the operands must be of nullptr_t type.  */
         result_type = TREE_TYPE (nullptr_node);
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -4621,7 +4621,7 @@ cp_build_binary_op (location_t location,
           else
             return error_mark_node;
 	}
-      else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (op1))
+      else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (orig_op1))
 	{
 	  if (TARGET_PTRMEMFUNC_VBIT_LOCATION
 	      == ptrmemfunc_vbit_in_delta)
@@ -4662,7 +4662,7 @@ cp_build_binary_op (location_t location,
 	    }
 	  result_type = TREE_TYPE (op0);
 	}
-      else if (TYPE_PTRMEMFUNC_P (type1) && null_ptr_cst_p (op0))
+      else if (TYPE_PTRMEMFUNC_P (type1) && null_ptr_cst_p (orig_op0))
 	return cp_build_binary_op (location, code, op1, op0, complain);
       else if (TYPE_PTRMEMFUNC_P (type0) && TYPE_PTRMEMFUNC_P (type1))
 	{
@@ -4875,21 +4875,21 @@ cp_build_binary_op (location_t location,
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	result_type = composite_pointer_type (type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
-      else if (code0 == POINTER_TYPE && null_ptr_cst_p (op1))
+      else if (code0 == POINTER_TYPE && null_ptr_cst_p (orig_op1))
 	{
 	  result_type = type0;
 	  if (extra_warnings && (complain & tf_warning))
 	    warning (OPT_Wextra,
 		     "ordered comparison of pointer with integer zero");
 	}
-      else if (code1 == POINTER_TYPE && null_ptr_cst_p (op0))
+      else if (code1 == POINTER_TYPE && null_ptr_cst_p (orig_op0))
 	{
 	  result_type = type1;
 	  if (extra_warnings && (complain & tf_warning))
 	    warning (OPT_Wextra,
 		     "ordered comparison of pointer with integer zero");
 	}
-      else if (null_ptr_cst_p (op0) && null_ptr_cst_p (op1))
+      else if (null_ptr_cst_p (orig_op0) && null_ptr_cst_p (orig_op1))
 	/* One of the operands must be of nullptr_t type.  */
         result_type = TREE_TYPE (nullptr_node);
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -5036,8 +5036,8 @@ cp_build_binary_op (location_t location,
 	  if (first_complex)
 	    {
 	      op0 = save_expr (op0);
-	      real = cp_build_unary_op (REALPART_EXPR, op0, 1, complain);
-	      imag = cp_build_unary_op (IMAGPART_EXPR, op0, 1, complain);
+	      real = cp_build_unary_op (REALPART_EXPR, op0, true, complain);
+	      imag = cp_build_unary_op (IMAGPART_EXPR, op0, true, complain);
 	      switch (code)
 		{
 		case MULT_EXPR:
@@ -5056,8 +5056,8 @@ cp_build_binary_op (location_t location,
 	  else
 	    {
 	      op1 = save_expr (op1);
-	      real = cp_build_unary_op (REALPART_EXPR, op1, 1, complain);
-	      imag = cp_build_unary_op (IMAGPART_EXPR, op1, 1, complain);
+	      real = cp_build_unary_op (REALPART_EXPR, op1, true, complain);
+	      imag = cp_build_unary_op (IMAGPART_EXPR, op1, true, complain);
 	      switch (code)
 		{
 		case MULT_EXPR:
@@ -5456,6 +5456,29 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
   return exp;
 }
 
+/* Construct and perhaps optimize a tree representation
+   for __builtin_addressof operation.  ARG specifies the operand.  */
+
+tree
+cp_build_addressof (location_t loc, tree arg, tsubst_flags_t complain)
+{
+  tree orig_expr = arg;
+
+  if (processing_template_decl)
+    {
+      if (type_dependent_expression_p (arg))
+	return build_min_nt_loc (loc, ADDRESSOF_EXPR, arg, NULL_TREE);
+
+      arg = build_non_dependent_expr (arg);
+    }
+
+  tree exp = cp_build_addr_expr_strict (arg, complain);
+
+  if (processing_template_decl && exp != error_mark_node)
+    exp = build_min_non_dep (ADDRESSOF_EXPR, exp, orig_expr, NULL_TREE);
+  return exp;
+}
+
 /* Like c_common_truthvalue_conversion, but handle pointer-to-member
    constants, where a null value is represented by an INTEGER_CST of
    -1.  */
@@ -5784,15 +5807,15 @@ cp_build_addr_expr_strict (tree arg, tsubst_flags_t complain)
    from aggregates to types we don't yet know we want?  (Or are those
    cases typically errors which should be reported?)
 
-   NOCONVERT nonzero suppresses the default promotions
-   (such as from short to int).  */
+   NOCONVERT suppresses the default promotions (such as from short to int).  */
 
 tree
-cp_build_unary_op (enum tree_code code, tree xarg, int noconvert, 
+cp_build_unary_op (enum tree_code code, tree xarg, bool noconvert,
                    tsubst_flags_t complain)
 {
   /* No default_conversion here.  It causes trouble for ADDR_EXPR.  */
   tree arg = xarg;
+  location_t location = EXPR_LOC_OR_LOC (arg, input_location);
   tree argtype = 0;
   const char *errstring = NULL;
   tree val;
@@ -5854,7 +5877,14 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 						   arg, true)))
 	errstring = _("wrong type argument to bit-complement");
       else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
-	arg = cp_perform_integral_promotions (arg, complain);
+	{
+	  /* Warn if the expression has boolean value.  */
+	  if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE
+	      && warning_at (location, OPT_Wbool_operation,
+			     "%<~%> on an expression of type bool"))
+	    inform (location, "did you mean to use logical not (%<!%>)?");
+	  arg = cp_perform_integral_promotions (arg, complain);
+	}
       break;
 
     case ABS_EXPR:
@@ -5920,9 +5950,9 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	  tree real, imag;
 
 	  arg = cp_stabilize_reference (arg);
-	  real = cp_build_unary_op (REALPART_EXPR, arg, 1, complain);
-	  imag = cp_build_unary_op (IMAGPART_EXPR, arg, 1, complain);
-	  real = cp_build_unary_op (code, real, 1, complain);
+	  real = cp_build_unary_op (REALPART_EXPR, arg, true, complain);
+	  imag = cp_build_unary_op (IMAGPART_EXPR, arg, true, complain);
+	  real = cp_build_unary_op (code, real, true, complain);
 	  if (real == error_mark_node || imag == error_mark_node)
 	    return error_mark_node;
 	  return build2 (COMPLEX_EXPR, TREE_TYPE (arg),
@@ -6030,15 +6060,31 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
                              complain))
 	  return error_mark_node;
 
-	/* Forbid using -- on `bool'.  */
+	/* Forbid using -- or ++ in C++17 on `bool'.  */
 	if (TREE_CODE (declared_type) == BOOLEAN_TYPE)
 	  {
 	    if (code == POSTDECREMENT_EXPR || code == PREDECREMENT_EXPR)
 	      {
                 if (complain & tf_error)
-                  error ("invalid use of Boolean expression as operand "
-                         "to %<operator--%>");
+		  error ("use of an operand of type %qT in %<operator--%> "
+			 "is forbidden", boolean_type_node);
 		return error_mark_node;
+	      }
+	    else
+	      {
+		if (cxx_dialect >= cxx1z)
+		  {
+		    if (complain & tf_error)
+		      error ("use of an operand of type %qT in "
+			     "%<operator++%> is forbidden in C++1z",
+			     boolean_type_node);
+		    return error_mark_node;
+		  }
+		/* Otherwise, [depr.incr.bool] says this is deprecated.  */
+		else if (!in_system_header_at (input_location))
+		  warning (OPT_Wdeprecated, "use of an operand of type %qT "
+			   "in %<operator++%> is deprecated",
+			   boolean_type_node);
 	      }
 	    val = boolean_increment (code, arg);
 	  }
@@ -6076,7 +6122,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 /* Hook for the c-common bits that build a unary op.  */
 tree
 build_unary_op (location_t /*location*/,
-		enum tree_code code, tree xarg, int noconvert)
+		enum tree_code code, tree xarg, bool noconvert)
 {
   return cp_build_unary_op (code, xarg, noconvert, tf_warning_or_error);
 }
@@ -6100,7 +6146,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
   /* Handle (a, b) used as an "lvalue".  */
   if (TREE_CODE (arg) == COMPOUND_EXPR)
     {
-      tree real_result = cp_build_unary_op (code, TREE_OPERAND (arg, 1), 0,
+      tree real_result = cp_build_unary_op (code, TREE_OPERAND (arg, 1), false,
                                             tf_warning_or_error);
       return build2 (COMPOUND_EXPR, TREE_TYPE (real_result),
 		     TREE_OPERAND (arg, 0), real_result);
@@ -6134,7 +6180,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
   if (TREE_CODE (arg) == MODIFY_EXPR
       || TREE_CODE (arg) == INIT_EXPR)
     {
-      tree real_result = cp_build_unary_op (code, TREE_OPERAND (arg, 0), 0,
+      tree real_result = cp_build_unary_op (code, TREE_OPERAND (arg, 0), false,
                                             tf_warning_or_error);
       arg = build2 (COMPOUND_EXPR, TREE_TYPE (real_result),
 		    arg, real_result);
@@ -7531,7 +7577,7 @@ cp_build_modify_expr (location_t loc, tree lhs, enum tree_code modifycode,
 			    TREE_OPERAND (lhs, 1)),
 		    TREE_OPERAND (lhs, 0),
 		    TREE_OPERAND (lhs, 1));
-      /* Fall through.  */
+      gcc_fallthrough ();
 
       /* Handle (a ? b : c) used as an "lvalue".  */
     case COND_EXPR:
@@ -8250,6 +8296,17 @@ convert_for_assignment (tree type, tree rhs,
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
   if (TREE_CODE (rhs) == NON_LVALUE_EXPR)
     rhs = TREE_OPERAND (rhs, 0);
+
+  /* Handle [dcl.init.list] direct-list-initialization from
+     single element of enumeration with a fixed underlying type.  */
+  if (is_direct_enum_init (type, rhs))
+    {
+      tree elt = CONSTRUCTOR_ELT (rhs, 0)->value;
+      if (check_narrowing (ENUM_UNDERLYING_TYPE (type), elt, complain))
+	rhs = cp_build_c_cast (type, elt, complain);
+      else
+	rhs = error_mark_node;
+    }
 
   rhstype = TREE_TYPE (rhs);
   coder = TREE_CODE (rhstype);

@@ -4666,7 +4666,7 @@
 (define_insn "<floatsuffix>float<sseintvecmodelower><mode>2<mask_name><round_name>"
   [(set (match_operand:VF2_AVX512VL 0 "register_operand" "=v")
 	(any_float:VF2_AVX512VL
-	  (match_operand:<sseintvecmode> 1 "nonimmediate_operand" "vm")))]
+	  (match_operand:<sseintvecmode> 1 "nonimmediate_operand" "<round_constraint>")))]
   "TARGET_AVX512DQ"
   "vcvt<floatsuffix>qq2pd\t{<round_mask_op2>%1, %0<mask_operand2>|%0<mask_operand2>, %1<round_mask_op2>}"
   [(set_attr "type" "ssecvt")
@@ -11263,47 +11263,52 @@
   static char buf[64];
   const char *ops;
   const char *tmp;
+  const char *ssesuffix;
 
   switch (get_attr_mode (insn))
     {
     case MODE_XI:
       gcc_assert (TARGET_AVX512F);
+      /* FALLTHRU */
     case MODE_OI:
       gcc_assert (TARGET_AVX2);
+      /* FALLTHRU */
     case MODE_TI:
       gcc_assert (TARGET_SSE2);
+      tmp = "pandn";
       switch (<MODE>mode)
 	{
 	case V64QImode:
 	case V32HImode:
 	  /* There is no vpandnb or vpandnw instruction, nor vpandn for
 	     512-bit vectors. Use vpandnq instead.  */
-	  tmp = "pandnq";
+	  ssesuffix = "q";
 	  break;
 	case V16SImode:
 	case V8DImode:
-	  tmp = "pandn<ssemodesuffix>";
+	  ssesuffix = "<ssemodesuffix>";
 	  break;
 	case V8SImode:
 	case V4DImode:
 	case V4SImode:
 	case V2DImode:
-	  tmp = TARGET_AVX512VL ? "pandn<ssemodesuffix>" : "pandn";
+	  ssesuffix = TARGET_AVX512VL ? "<ssemodesuffix>" : "";
 	  break;
 	default:
-	  tmp = TARGET_AVX512VL ? "pandnq" : "pandn";
-	  break;
+	  ssesuffix = TARGET_AVX512VL ? "q" : "";
 	}
       break;
 
     case MODE_V16SF:
       gcc_assert (TARGET_AVX512F);
+      /* FALLTHRU */
     case MODE_V8SF:
       gcc_assert (TARGET_AVX);
+      /* FALLTHRU */
     case MODE_V4SF:
       gcc_assert (TARGET_SSE);
-
-      tmp = "andnps";
+      tmp = "andn";
+      ssesuffix = "ps";
       break;
 
     default:
@@ -11313,16 +11318,16 @@
   switch (which_alternative)
     {
     case 0:
-      ops = "%s\t{%%2, %%0|%%0, %%2}";
+      ops = "%s%s\t{%%2, %%0|%%0, %%2}";
       break;
     case 1:
-      ops = "v%s\t{%%2, %%1, %%0|%%0, %%1, %%2}";
+      ops = "v%s%s\t{%%2, %%1, %%0|%%0, %%1, %%2}";
       break;
     default:
       gcc_unreachable ();
     }
 
-  snprintf (buf, sizeof (buf), ops, tmp);
+  snprintf (buf, sizeof (buf), ops, tmp, ssesuffix);
   return buf;
 }
   [(set_attr "isa" "noavx,avx")
@@ -11388,63 +11393,65 @@
   static char buf[64];
   const char *ops;
   const char *tmp;
+  const char *ssesuffix;
 
   switch (get_attr_mode (insn))
     {
     case MODE_XI:
       gcc_assert (TARGET_AVX512F);
+      /* FALLTHRU */
     case MODE_OI:
-      gcc_assert (TARGET_AVX2 || TARGET_AVX512VL);
+      gcc_assert (TARGET_AVX2);
+      /* FALLTHRU */
     case MODE_TI:
-      gcc_assert (TARGET_SSE2 || TARGET_AVX512VL);
+      gcc_assert (TARGET_SSE2);
+      tmp = "p<logic>";
       switch (<MODE>mode)
-      {
-        case V16SImode:
-        case V8DImode:
-          if (TARGET_AVX512F)
-          {
-            tmp = "p<logic><ssemodesuffix>";
-            break;
-          }
-        case V8SImode:
-        case V4DImode:
-        case V4SImode:
-        case V2DImode:
-          tmp = TARGET_AVX512VL ? "p<logic><ssemodesuffix>" : "p<logic>";
-          break;
-        default:
-          gcc_unreachable ();
-      }
+	{
+	case V16SImode:
+	case V8DImode:
+	  ssesuffix = "<ssemodesuffix>";
+	  break;
+	case V8SImode:
+	case V4DImode:
+	case V4SImode:
+	case V2DImode:
+	  ssesuffix = TARGET_AVX512VL ? "<ssemodesuffix>" : "";
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
       break;
 
-   case MODE_V8SF:
+    case MODE_V8SF:
       gcc_assert (TARGET_AVX);
-   case MODE_V4SF:
+      /* FALLTHRU */
+    case MODE_V4SF:
       gcc_assert (TARGET_SSE);
-      gcc_assert (!<mask_applied>);
-      tmp = "<logic>ps";
+      tmp = "<logic>";
+      ssesuffix = "ps";
       break;
 
-   default:
+    default:
       gcc_unreachable ();
-   }
+    }
 
   switch (which_alternative)
     {
     case 0:
       if (<mask_applied>)
-        ops = "v%s\t{%%2, %%0, %%0<mask_operand3_1>|%%0<mask_operand3_1>, %%0, %%2}";
+        ops = "v%s%s\t{%%2, %%0, %%0<mask_operand3_1>|%%0<mask_operand3_1>, %%0, %%2}";
       else
-        ops = "%s\t{%%2, %%0|%%0, %%2}";
+        ops = "%s%s\t{%%2, %%0|%%0, %%2}";
       break;
     case 1:
-      ops = "v%s\t{%%2, %%1, %%0<mask_operand3_1>|%%0<mask_operand3_1>, %%1, %%2}";
+      ops = "v%s%s\t{%%2, %%1, %%0<mask_operand3_1>|%%0<mask_operand3_1>, %%1, %%2}";
       break;
     default:
       gcc_unreachable ();
     }
 
-  snprintf (buf, sizeof (buf), ops, tmp);
+  snprintf (buf, sizeof (buf), ops, tmp, ssesuffix);
   return buf;
 }
   [(set_attr "isa" "noavx,avx")
@@ -11489,61 +11496,56 @@
     {
     case MODE_XI:
       gcc_assert (TARGET_AVX512F);
+      /* FALLTHRU */
     case MODE_OI:
-      gcc_assert (TARGET_AVX2 || TARGET_AVX512VL);
+      gcc_assert (TARGET_AVX2);
+      /* FALLTHRU */
     case MODE_TI:
-      gcc_assert (TARGET_SSE2 || TARGET_AVX512VL);
+      gcc_assert (TARGET_SSE2);
+      tmp = "p<logic>";
       switch (<MODE>mode)
-        {
-        case V64QImode:
-        case V32HImode:
-          if (TARGET_AVX512F)
-          {
-            tmp = "p<logic>";
-            ssesuffix = "q";
-            break;
-          }
-        case V32QImode:
-        case V16HImode:
-        case V16QImode:
-        case V8HImode:
-          if (TARGET_AVX512VL || TARGET_AVX2 || TARGET_SSE2)
-          {
-            tmp = "p<logic>";
-            ssesuffix = TARGET_AVX512VL ? "q" : "";
-            break;
-          }
-        default:
-          gcc_unreachable ();
-      }
+	{
+	case V64QImode:
+	case V32HImode:
+	  ssesuffix = "q";
+	  break;
+	case V32QImode:
+	case V16HImode:
+	case V16QImode:
+	case V8HImode:
+	  ssesuffix = TARGET_AVX512VL ? "q" : "";
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
       break;
 
-   case MODE_V8SF:
+    case MODE_V8SF:
       gcc_assert (TARGET_AVX);
-   case MODE_V4SF:
+      /* FALLTHRU */
+    case MODE_V4SF:
       gcc_assert (TARGET_SSE);
-      tmp = "<logic>ps";
-      ssesuffix = "";
+      tmp = "<logic>";
+      ssesuffix = "ps";
       break;
 
-   default:
+    default:
       gcc_unreachable ();
-   }
+    }
 
   switch (which_alternative)
     {
     case 0:
-      ops = "%s\t{%%2, %%0|%%0, %%2}";
-      snprintf (buf, sizeof (buf), ops, tmp);
+      ops = "%s%s\t{%%2, %%0|%%0, %%2}";
       break;
     case 1:
       ops = "v%s%s\t{%%2, %%1, %%0|%%0, %%1, %%2}";
-      snprintf (buf, sizeof (buf), ops, tmp, ssesuffix);
       break;
     default:
       gcc_unreachable ();
     }
 
+  snprintf (buf, sizeof (buf), ops, tmp, ssesuffix);
   return buf;
 }
   [(set_attr "isa" "noavx,avx")
@@ -12334,7 +12336,7 @@
 		       (const_int 12) (const_int 13)
 		       (const_int 14) (const_int 15)]))))]
   "TARGET_AVX512DQ"
-  "vinsert<shuffletype>32x8\t{$0x0, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, $0x0}"
+  "vinsert<shuffletype>32x8\t{$0x0, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, 0x0}"
   [(set_attr "type" "sselog")
    (set_attr "length_immediate" "1")
    (set_attr "prefix" "evex")
@@ -12351,7 +12353,7 @@
 		       (const_int 6) (const_int 7)]))
 	  (match_operand:<ssehalfvecmode> 2 "nonimmediate_operand" "vm")))]
   "TARGET_AVX512DQ"
-  "vinsert<shuffletype>32x8\t{$0x1, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, $0x1}"
+  "vinsert<shuffletype>32x8\t{$0x1, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, 0x1}"
   [(set_attr "type" "sselog")
    (set_attr "length_immediate" "1")
    (set_attr "prefix" "evex")
@@ -12366,7 +12368,7 @@
 	    (parallel [(const_int 4) (const_int 5)
 		       (const_int 6) (const_int 7)]))))]
   "TARGET_AVX512F"
-  "vinsert<shuffletype>64x4\t{$0x0, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, $0x0}"
+  "vinsert<shuffletype>64x4\t{$0x0, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, 0x0}"
   [(set_attr "type" "sselog")
    (set_attr "length_immediate" "1")
    (set_attr "prefix" "evex")

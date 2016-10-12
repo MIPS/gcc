@@ -1852,7 +1852,8 @@ NAME (TYPE x, int m)
 
 #endif
 
-#if ((defined(L_mulsc3) || defined(L_divsc3)) && LIBGCC2_HAS_SF_MODE) \
+#if((defined(L_mulhc3) || defined(L_divhc3)) && LIBGCC2_HAS_HF_MODE) \
+    || ((defined(L_mulsc3) || defined(L_divsc3)) && LIBGCC2_HAS_SF_MODE) \
     || ((defined(L_muldc3) || defined(L_divdc3)) && LIBGCC2_HAS_DF_MODE) \
     || ((defined(L_mulxc3) || defined(L_divxc3)) && LIBGCC2_HAS_XF_MODE) \
     || ((defined(L_multc3) || defined(L_divtc3)) && LIBGCC2_HAS_TF_MODE)
@@ -1861,30 +1862,36 @@ NAME (TYPE x, int m)
 #undef double
 #undef long
 
-#if defined(L_mulsc3) || defined(L_divsc3)
+#if defined(L_mulhc3) || defined(L_divhc3)
+# define MTYPE	HFtype
+# define CTYPE	HCtype
+# define MODE	hc
+# define CEXT	__LIBGCC_HF_FUNC_EXT__
+# define NOTRUNC (!__LIBGCC_HF_EXCESS_PRECISION__)
+#elif defined(L_mulsc3) || defined(L_divsc3)
 # define MTYPE	SFtype
 # define CTYPE	SCtype
 # define MODE	sc
 # define CEXT	__LIBGCC_SF_FUNC_EXT__
-# define NOTRUNC __LIBGCC_SF_EXCESS_PRECISION__
+# define NOTRUNC (!__LIBGCC_SF_EXCESS_PRECISION__)
 #elif defined(L_muldc3) || defined(L_divdc3)
 # define MTYPE	DFtype
 # define CTYPE	DCtype
 # define MODE	dc
 # define CEXT	__LIBGCC_DF_FUNC_EXT__
-# define NOTRUNC __LIBGCC_DF_EXCESS_PRECISION__
+# define NOTRUNC (!__LIBGCC_DF_EXCESS_PRECISION__)
 #elif defined(L_mulxc3) || defined(L_divxc3)
 # define MTYPE	XFtype
 # define CTYPE	XCtype
 # define MODE	xc
 # define CEXT	__LIBGCC_XF_FUNC_EXT__
-# define NOTRUNC __LIBGCC_XF_EXCESS_PRECISION__
+# define NOTRUNC (!__LIBGCC_XF_EXCESS_PRECISION__)
 #elif defined(L_multc3) || defined(L_divtc3)
 # define MTYPE	TFtype
 # define CTYPE	TCtype
 # define MODE	tc
 # define CEXT	__LIBGCC_TF_FUNC_EXT__
-# define NOTRUNC __LIBGCC_TF_EXCESS_PRECISION__
+# define NOTRUNC (!__LIBGCC_TF_EXCESS_PRECISION__)
 #else
 # error
 #endif
@@ -1922,7 +1929,7 @@ extern void *compile_type_assert[sizeof(INFINITY) == sizeof(MTYPE) ? 1 : -1];
 # define TRUNC(x)	__asm__ ("" : "=m"(x) : "m"(x))
 #endif
 
-#if defined(L_mulsc3) || defined(L_muldc3) \
+#if defined(L_mulhc3) || defined(L_mulsc3) || defined(L_muldc3) \
     || defined(L_mulxc3) || defined(L_multc3)
 
 CTYPE
@@ -1992,7 +1999,7 @@ CONCAT3(__mul,MODE,3) (MTYPE a, MTYPE b, MTYPE c, MTYPE d)
 }
 #endif /* complex multiply */
 
-#if defined(L_divsc3) || defined(L_divdc3) \
+#if defined(L_divhc3) || defined(L_divsc3) || defined(L_divdc3) \
     || defined(L_divxc3) || defined(L_divtc3)
 
 CTYPE

@@ -1137,7 +1137,7 @@ place_field (record_layout_info rli, tree field)
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
      it *after* the record is laid out.  */
-  if (TREE_CODE (field) == VAR_DECL)
+  if (VAR_P (field))
     {
       vec_safe_push (rli->pending_statics, field);
       return;
@@ -1169,14 +1169,12 @@ place_field (record_layout_info rli, tree field)
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
   if (! integer_zerop (rli->bitpos))
-    known_align = (tree_to_uhwi (rli->bitpos)
-		   & - tree_to_uhwi (rli->bitpos));
+    known_align = least_bit_hwi (tree_to_uhwi (rli->bitpos));
   else if (integer_zerop (rli->offset))
     known_align = 0;
   else if (tree_fits_uhwi_p (rli->offset))
     known_align = (BITS_PER_UNIT
-		   * (tree_to_uhwi (rli->offset)
-		      & - tree_to_uhwi (rli->offset)));
+		   * least_bit_hwi (tree_to_uhwi (rli->offset)));
   else
     known_align = rli->offset_align;
 
@@ -1479,14 +1477,12 @@ place_field (record_layout_info rli, tree field)
      approximate this by seeing if its position changed), lay out the field
      again; perhaps we can use an integral mode for it now.  */
   if (! integer_zerop (DECL_FIELD_BIT_OFFSET (field)))
-    actual_align = (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
-		    & - tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field)));
+    actual_align = least_bit_hwi (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field)));
   else if (integer_zerop (DECL_FIELD_OFFSET (field)))
     actual_align = MAX (BIGGEST_ALIGNMENT, rli->record_align);
   else if (tree_fits_uhwi_p (DECL_FIELD_OFFSET (field)))
     actual_align = (BITS_PER_UNIT
-		   * (tree_to_uhwi (DECL_FIELD_OFFSET (field))
-		      & - tree_to_uhwi (DECL_FIELD_OFFSET (field))));
+		    * least_bit_hwi (tree_to_uhwi (DECL_FIELD_OFFSET (field))));
   else
     actual_align = DECL_OFFSET_ALIGN (field);
   /* ACTUAL_ALIGN is still the actual alignment *within the record* .

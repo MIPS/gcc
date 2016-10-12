@@ -350,7 +350,8 @@ c_common_has_attribute (cpp_reader *pfile)
 	      else if (is_attribute_p ("deprecated", attr_name))
 		result = 201309;
 	      else if (is_attribute_p ("maybe_unused", attr_name)
-		       || is_attribute_p ("nodiscard", attr_name))
+		       || is_attribute_p ("nodiscard", attr_name)
+		       || is_attribute_p ("fallthrough", attr_name))
 		result = 201603;
 	      if (result)
 		attr_name = NULL_TREE;
@@ -595,9 +596,21 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_MACRO_ARG:
       gcc_unreachable ();
 
-    /* CPP_COMMENT will appear when compiling with -C and should be
-       ignored.  */
-     case CPP_COMMENT:
+    /* CPP_COMMENT will appear when compiling with -C.  Ignore, except
+       when it is a FALLTHROUGH comment, in that case set
+       PREV_FALLTHROUGH flag on the next non-comment token.  */
+    case CPP_COMMENT:
+      if (tok->flags & PREV_FALLTHROUGH)
+	{
+	  do
+	    {
+	      tok = cpp_get_token_with_location (parse_in, loc);
+	      type = tok->type;
+	    }
+	  while (type == CPP_PADDING || type == CPP_COMMENT);
+	  add_flags |= PREV_FALLTHROUGH;
+	  goto retry_after_at;
+	}
        goto retry;
 
     default:

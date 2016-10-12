@@ -15,7 +15,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-std=gnu++14" }
+// { dg-do run { target c++14 } }
 
 #include <experimental/functional>
 #include <testsuite_hooks.h>
@@ -84,6 +84,13 @@ test04()
   VERIFY( not_fn(f)(d) );
 }
 
+void
+test05()
+{
+  auto nf = std::experimental::not_fn([] { return false; });
+  auto copy(nf); // PR libstdc++/70564
+}
+
 int
 main()
 {
@@ -91,4 +98,5 @@ main()
   test02();
   test03();
   test04();
+  test05();
 }

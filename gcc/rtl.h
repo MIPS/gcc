@@ -2834,20 +2834,20 @@ extern void add_function_usage_to (rtx, rtx);
 extern rtx_call_insn *last_call_insn (void);
 extern rtx_insn *previous_insn (rtx_insn *);
 extern rtx_insn *next_insn (rtx_insn *);
-extern rtx_insn *prev_nonnote_insn (rtx);
+extern rtx_insn *prev_nonnote_insn (rtx_insn *);
 extern rtx_insn *prev_nonnote_insn_bb (rtx);
-extern rtx_insn *next_nonnote_insn (rtx);
+extern rtx_insn *next_nonnote_insn (rtx_insn *);
 extern rtx_insn *next_nonnote_insn_bb (rtx_insn *);
-extern rtx_insn *prev_nondebug_insn (rtx);
-extern rtx_insn *next_nondebug_insn (rtx);
-extern rtx_insn *prev_nonnote_nondebug_insn (rtx);
-extern rtx_insn *next_nonnote_nondebug_insn (rtx);
-extern rtx_insn *prev_real_insn (rtx);
+extern rtx_insn *prev_nondebug_insn (rtx_insn *);
+extern rtx_insn *next_nondebug_insn (rtx_insn *);
+extern rtx_insn *prev_nonnote_nondebug_insn (rtx_insn *);
+extern rtx_insn *next_nonnote_nondebug_insn (rtx_insn *);
+extern rtx_insn *prev_real_insn (rtx_insn *);
 extern rtx_insn *next_real_insn (rtx);
-extern rtx_insn *prev_active_insn (rtx);
-extern rtx_insn *next_active_insn (rtx);
-extern int active_insn_p (const_rtx);
-extern rtx_insn *next_cc0_user (rtx);
+extern rtx_insn *prev_active_insn (rtx_insn *);
+extern rtx_insn *next_active_insn (rtx_insn *);
+extern int active_insn_p (const rtx_insn *);
+extern rtx_insn *next_cc0_user (rtx_insn *);
 extern rtx_insn *prev_cc0_setter (rtx_insn *);
 
 /* In emit-rtl.c  */
@@ -3498,9 +3498,9 @@ extern int redirect_jump (rtx_jump_insn *, rtx, int);
 extern void rebuild_jump_labels (rtx_insn *);
 extern void rebuild_jump_labels_chain (rtx_insn *);
 extern rtx reversed_comparison (const_rtx, machine_mode);
-extern enum rtx_code reversed_comparison_code (const_rtx, const_rtx);
+extern enum rtx_code reversed_comparison_code (const_rtx, const rtx_insn *);
 extern enum rtx_code reversed_comparison_code_parts (enum rtx_code, const_rtx,
-						     const_rtx, const_rtx);
+						     const_rtx, const rtx_insn *);
 extern void delete_for_peephole (rtx_insn *, rtx_insn *);
 extern int condjump_in_parallel_p (const rtx_insn *);
 

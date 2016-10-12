@@ -1071,6 +1071,9 @@ rl78_is_legitimate_constant (machine_mode mode ATTRIBUTE_UNUSED, rtx x ATTRIBUTE
   return true;
 }
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
+
 #undef  TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P
 #define TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P	rl78_as_legitimate_address
 
@@ -3150,8 +3153,8 @@ has_constraint (unsigned int opnum, enum constraint_num constraint)
 static void
 rl78_alloc_physical_registers_op2 (rtx_insn * insn)
 {
-  rtx prev;
-  rtx first;
+  rtx_insn *prev;
+  rtx_insn *first;
   bool hl_used;
   int tmp_id;
   rtx saved_op1;
@@ -3329,7 +3332,7 @@ rl78_alloc_physical_registers_cmp (rtx_insn * insn)
   int tmp_id;
   rtx saved_op1;
   rtx_insn *prev = prev_nonnote_nondebug_insn (insn);
-  rtx first;
+  rtx_insn *first;
 
   OP (1) = transcode_memory_rtx (OP (1), DE, insn);
   OP (2) = transcode_memory_rtx (OP (2), HL, insn);
@@ -3420,7 +3423,7 @@ static void
 rl78_alloc_physical_registers_umul (rtx_insn * insn)
 {
   rtx_insn *prev = prev_nonnote_nondebug_insn (insn);
-  rtx first;
+  rtx_insn *first;
   int tmp_id;
   rtx saved_op1;
 
@@ -3790,7 +3793,8 @@ static void
 rl78_calculate_death_notes (void)
 {
   char dead[FIRST_PSEUDO_REGISTER];
-  rtx insn, p, s, d;
+  rtx p, s, d;
+rtx_insn *insn;
   int i;
 
   memset (dead, 0, sizeof (dead));

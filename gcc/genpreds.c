@@ -74,7 +74,7 @@ validate_exp (rtx exp, const char *name, file_location loc)
 	      }
 	  }
       }
-      /* fall through */
+      gcc_fallthrough ();
 
       /* These need no special checking.  */
     case MATCH_OPERAND:
@@ -1204,7 +1204,8 @@ write_tm_constrs_h (void)
 
   printf ("\
 /* Generated automatically by the program '%s'\n\
-   from the machine description file '%s'.  */\n\n", progname, in_fname);
+   from the machine description file '%s'.  */\n\n", progname,
+	  rtx_reader_ptr->get_top_level_filename ());
 
   puts ("\
 #ifndef GCC_TM_CONSTRS_H\n\
@@ -1403,7 +1404,8 @@ write_tm_preds_h (void)
 
   printf ("\
 /* Generated automatically by the program '%s'\n\
-   from the machine description file '%s'.  */\n\n", progname, in_fname);
+   from the machine description file '%s'.  */\n\n", progname,
+	  rtx_reader_ptr->get_top_level_filename ());
 
   puts ("\
 #ifndef GCC_TM_PREDS_H\n\
@@ -1552,7 +1554,8 @@ write_insn_preds_c (void)
 
   printf ("\
 /* Generated automatically by the program '%s'\n\
-   from the machine description file '%s'.  */\n\n", progname, in_fname);
+   from the machine description file '%s'.  */\n\n", progname,
+	  rtx_reader_ptr->get_top_level_filename ());
 
   puts ("\
 #include \"config.h\"\n\
@@ -1577,6 +1580,7 @@ write_insn_preds_c (void)
 #include \"reload.h\"\n\
 #include \"regs.h\"\n\
 #include \"emit-rtl.h\"\n\
+#include \"memmodel.h\"\n\
 #include \"tm-constrs.h\"\n");
 
   FOR_ALL_PREDICATES (p)

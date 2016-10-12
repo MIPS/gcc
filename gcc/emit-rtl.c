@@ -1964,7 +1964,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       get_object_alignment_1 (t, &obj_align, &obj_bitpos);
       obj_bitpos = (obj_bitpos - bitpos) & (obj_align - 1);
       if (obj_bitpos != 0)
-	obj_align = (obj_bitpos & -obj_bitpos);
+	obj_align = least_bit_hwi (obj_bitpos);
       attrs.align = MAX (attrs.align, obj_align);
     }
 
@@ -2298,7 +2298,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
      if zero.  */
   if (offset != 0)
     {
-      max_align = (offset & -offset) * BITS_PER_UNIT;
+      max_align = least_bit_hwi (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
@@ -2626,8 +2626,10 @@ unshare_all_rtl_1 (rtx_insn *insn)
      This special care is necessary when the stack slot MEM does not
      actually appear in the insn chain.  If it does appear, its address
      is unshared from all else at that point.  */
-  stack_slot_list = safe_as_a <rtx_expr_list *> (
-		      copy_rtx_if_shared (stack_slot_list));
+  unsigned int i;
+  rtx temp;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    (*stack_slot_list)[i] = copy_rtx_if_shared (temp);
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared
@@ -2656,7 +2658,10 @@ unshare_all_rtl_again (rtx_insn *insn)
   for (decl = DECL_ARGUMENTS (cfun->decl); decl; decl = DECL_CHAIN (decl))
     set_used_flags (DECL_RTL (decl));
 
-  reset_used_flags (stack_slot_list);
+  rtx temp;
+  unsigned int i;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    reset_used_flags (temp);
 
   unshare_all_rtl_1 (insn);
 }
@@ -3296,9 +3301,8 @@ previous_insn (rtx_insn *insn)
    look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_insn (rtx uncast_insn)
+next_nonnote_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3332,10 +3336,8 @@ next_nonnote_insn_bb (rtx_insn *insn)
    not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_insn (rtx uncast_insn)
+prev_nonnote_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3371,10 +3373,8 @@ prev_nonnote_insn_bb (rtx uncast_insn)
    routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nondebug_insn (rtx uncast_insn)
+next_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3389,10 +3389,8 @@ next_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nondebug_insn (rtx uncast_insn)
+prev_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3407,10 +3405,8 @@ prev_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_nondebug_insn (rtx uncast_insn)
+next_nonnote_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3425,10 +3421,8 @@ next_nonnote_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_nondebug_insn (rtx uncast_insn)
+prev_nonnote_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3463,10 +3457,8 @@ next_real_insn (rtx uncast_insn)
    SEQUENCEs.  */
 
 rtx_insn *
-prev_real_insn (rtx uncast_insn)
+prev_real_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3498,7 +3490,7 @@ last_call_insn (void)
    standalone USE and CLOBBER insn.  */
 
 int
-active_insn_p (const_rtx insn)
+active_insn_p (const rtx_insn *insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
 	  || JUMP_TABLE_DATA_P (insn) /* FIXME */
@@ -3509,10 +3501,8 @@ active_insn_p (const_rtx insn)
 }
 
 rtx_insn *
-next_active_insn (rtx uncast_insn)
+next_active_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3528,10 +3518,8 @@ next_active_insn (rtx uncast_insn)
    standalone USE and CLOBBER insn.  */
 
 rtx_insn *
-prev_active_insn (rtx uncast_insn)
+prev_active_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3552,10 +3540,8 @@ prev_active_insn (rtx uncast_insn)
    Return 0 if we can't find the insn.  */
 
 rtx_insn *
-next_cc0_user (rtx uncast_insn)
+next_cc0_user (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   rtx note = find_reg_note (insn, REG_CC_USER, NULL_RTX);
 
   if (note)

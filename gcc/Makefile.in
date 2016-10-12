@@ -218,6 +218,11 @@ libgcov-merge-tool.o-warn = -Wno-error
 gimple-match.o-warn = -Wno-unused
 generic-match.o-warn = -Wno-unused
 dfp.o-warn = -Wno-strict-aliasing
+insn-attrtab.o-warn = -Wno-error
+insn-dfatab.o-warn = -Wno-error
+insn-latencytab.o-warn = -Wno-error
+insn-output.o-warn = -Wno-error
+insn-emit.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -1182,7 +1187,8 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/c-ppoutput.o c-family/c-pragma.o c-family/c-pretty-print.o \
   c-family/c-semantics.o c-family/c-ada-spec.o \
   c-family/c-cilkplus.o \
-  c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o
+  c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o \
+  c-family/c-warn.o
 
 # Language-independent object files.
 # We put the *-match.o and insn-*.o files first so that a parallel make
@@ -1296,6 +1302,7 @@ OBJS = \
 	gimple-ssa-nonnull-compare.o \
 	gimple-ssa-split-paths.o \
 	gimple-ssa-strength-reduction.o \
+	gimple-ssa-sprintf.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
 	gimple-walk.o \
@@ -1399,6 +1406,7 @@ OBJS = \
 	postreload.o \
 	predict.o \
 	print-rtl.o \
+	print-rtl-function.o \
 	print-tree.o \
 	profile.o \
 	real.o \
@@ -1443,6 +1451,7 @@ OBJS = \
 	store-motion.o \
 	streamer-hooks.o \
 	stringpool.o \
+	substring-locations.o \
 	target-globals.o \
 	targhooks.o \
 	timevar.o \
@@ -1542,6 +1551,7 @@ OBJS = \
 	tree-vectorizer.o \
 	tree-vrp.o \
 	tree.o \
+	typed-splay-tree.o \
 	valtrack.o \
 	value-prof.o \
 	var-tracking.o \
@@ -1560,6 +1570,7 @@ OBJS = \
 # Objects in libcommon.a, potentially used by all host binaries and with
 # no target dependencies.
 OBJS-libcommon = diagnostic.o diagnostic-color.o diagnostic-show-locus.o \
+	edit-context.o \
 	pretty-print.o intl.o \
 	vec.o input.o version.o hash-table.o ggc-none.o memory-block.o \
 	selftest.o
@@ -2148,9 +2159,10 @@ s-bversion: BASE-VER
 
 CFLAGS-toplev.o += -DTARGET_NAME=\"$(target_noncanonical)\"
 
-pass-instances.def: $(srcdir)/passes.def $(srcdir)/gen-pass-instances.awk
+pass-instances.def: $(srcdir)/passes.def $(PASSES_EXTRA) \
+		    $(srcdir)/gen-pass-instances.awk
 	$(AWK) -f $(srcdir)/gen-pass-instances.awk \
-	  $(srcdir)/passes.def > pass-instances.def
+	  $(srcdir)/passes.def $(PASSES_EXTRA) > pass-instances.def
 
 $(out_object_file): $(out_file)
 	$(COMPILE) $<
@@ -2775,7 +2787,7 @@ build/gcov-iov$(build_exeext): build/gcov-iov.o
 	+$(LINKER_FOR_BUILD) $(BUILD_LINKERFLAGS) $(BUILD_LDFLAGS) \
 		build/gcov-iov.o -o $@
 
-gcov-iov.h: s-iov
+gcov-iov.h: s-iov; @true
 s-iov: build/gcov-iov$(build_exeext) $(BASEVER) $(DEVPHASE)
 	build/gcov-iov$(build_exeext) '$(BASEVER_c)' '$(DEVPHASE_c)' \
 	    > tmp-gcov-iov.h

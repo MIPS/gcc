@@ -694,8 +694,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  i = 0;
 	  FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
 	    {
-	      char temp[10];
-	      sprintf (temp, "arg %d", i);
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+	      char temp[15];
+	      sprintf (temp, "arg %u", i);
 	      print_node (file, temp, arg, indent + 4);
 	      i++;
 	    }
@@ -706,7 +708,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	  for (i = 0; i < len; i++)
 	    {
-	      char temp[10];
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+	      char temp[15];
 
 	      sprintf (temp, "arg %d", i);
 	      print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
@@ -765,7 +769,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case VECTOR_CST:
 	  {
-	    char buf[10];
+	    /* Big enough for 2 UINT_MAX plus the string below.  */
+	    char buf[32];
 	    unsigned i;
 
 	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
@@ -824,7 +829,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  for (i = 0; i < len; i++)
 	    if (TREE_VEC_ELT (node, i))
 	      {
-		char temp[10];
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+		char temp[15];
 		sprintf (temp, "elt %d", i);
 		print_node (file, temp, TREE_VEC_ELT (node, i), indent + 4);
 	      }
@@ -834,7 +841,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  {
 	    unsigned HOST_WIDE_INT cnt;
 	    tree index, value;
-	    len = vec_safe_length (CONSTRUCTOR_ELTS (node));
+	    len = CONSTRUCTOR_NELTS (node);
 	    fprintf (file, " lngt %d", len);
 	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (node),
 				      cnt, index, value)

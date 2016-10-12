@@ -27,6 +27,7 @@
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "cfghooks.h"
 #include "df.h"
 #include "tm_p.h"
@@ -214,8 +215,8 @@ static bool arm_return_in_memory (const_tree, const_tree);
 static void arm_unwind_emit (FILE *, rtx_insn *);
 static bool arm_output_ttype (rtx);
 static void arm_asm_emit_except_personality (rtx);
-static void arm_asm_init_sections (void);
 #endif
+static void arm_asm_init_sections (void);
 static rtx arm_dwarf_register_span (rtx);
 
 static tree arm_cxx_guard_type (void);
@@ -299,7 +300,10 @@ static unsigned HOST_WIDE_INT arm_asan_shadow_offset (void);
 static void arm_sched_fusion_priority (rtx_insn *, int, int *, int*);
 static bool arm_can_output_mi_thunk (const_tree, HOST_WIDE_INT, HOST_WIDE_INT,
 				     const_tree);
-
+static section *arm_function_section (tree, enum node_frequency, bool, bool);
+static bool arm_asm_elf_flags_numeric (unsigned int flags, unsigned int *num);
+static unsigned int arm_elf_section_type_flags (tree decl, const char *name,
+						int reloc);
 
 /* Table of machine attributes.  */
 static const struct attribute_spec arm_attribute_table[] =
@@ -354,9 +358,6 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS arm_legitimize_address
-
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_true
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
@@ -587,8 +588,8 @@ static const struct attribute_spec arm_attribute_table[] =
 #define TARGET_ASM_EMIT_EXCEPT_PERSONALITY arm_asm_emit_except_personality
 
 #undef TARGET_ASM_INIT_SECTIONS
-#define TARGET_ASM_INIT_SECTIONS arm_asm_init_sections
 #endif /* ARM_UNWIND_INFO */
+#define TARGET_ASM_INIT_SECTIONS arm_asm_init_sections
 
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN arm_dwarf_register_span
@@ -729,6 +730,15 @@ static const struct attribute_spec arm_attribute_table[] =
 #undef TARGET_SCHED_FUSION_PRIORITY
 #define TARGET_SCHED_FUSION_PRIORITY arm_sched_fusion_priority
 
+#undef  TARGET_ASM_FUNCTION_SECTION
+#define TARGET_ASM_FUNCTION_SECTION arm_function_section
+
+#undef TARGET_ASM_ELF_FLAGS_NUMERIC
+#define TARGET_ASM_ELF_FLAGS_NUMERIC arm_asm_elf_flags_numeric
+
+#undef TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS arm_elf_section_type_flags
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Obstack for minipool constant handling.  */
@@ -813,6 +823,13 @@ int arm_arch8 = 0;
 
 /* Nonzero if this chip supports the ARMv8.1 extensions.  */
 int arm_arch8_1 = 0;
+
+/* Nonzero if this chip supports the ARM Architecture 8.2 extensions.  */
+int arm_arch8_2 = 0;
+
+/* Nonzero if this chip supports the FP16 instructions extension of ARM
+   Architecture 8.2.  */
+int arm_fp16_inst = 0;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 int arm_ld_sched = 0;
@@ -2840,6 +2857,12 @@ arm_option_check_internal (struct gcc_options *opts)
       && ((!(arm_arch7 && !arm_arch_notm) && !arm_arch7em)
 	  || (TARGET_THUMB1_P (flags) || flag_pic || TARGET_NEON)))
     error ("-mslow-flash-data only supports non-pic code on armv7-m targets");
+
+  /* We only support pure-code on Thumb-2 M-profile targets.  */
+  if (target_pure_code
+      && (!arm_arch_thumb2 || arm_arch_notm || flag_pic || TARGET_NEON))
+    error ("-mpure-code only supports non-pic code on armv7-m targets");
+
 }
 
 /* Recompute the global settings depending on target attribute options.  */
@@ -3217,6 +3240,7 @@ arm_option_override (void)
   arm_arch7em = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH7EM);
   arm_arch8 = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH8);
   arm_arch8_1 = ARM_FSET_HAS_CPU2 (insn_flags, FL2_ARCH8_1);
+  arm_arch8_2 = ARM_FSET_HAS_CPU2 (insn_flags, FL2_ARCH8_2);
   arm_arch_thumb1 = ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB);
   arm_arch_thumb2 = ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB2);
   arm_arch_xscale = ARM_FSET_HAS_CPU1 (insn_flags, FL_XSCALE);
@@ -3233,6 +3257,13 @@ arm_option_override (void)
   arm_tune_cortex_a9 = (arm_tune == cortexa9) != 0;
   arm_arch_crc = ARM_FSET_HAS_CPU1 (insn_flags, FL_CRC32);
   arm_m_profile_small_mul = ARM_FSET_HAS_CPU1 (insn_flags, FL_SMALLMUL);
+  arm_fp16_inst = ARM_FSET_HAS_CPU2 (insn_flags, FL2_FP16INST);
+  if (arm_fp16_inst)
+    {
+      if (arm_fp16_format == ARM_FP16_FORMAT_ALTERNATIVE)
+	error ("selected fp16 options are incompatible.");
+      arm_fp16_format = ARM_FP16_FORMAT_IEEE;
+    }
 
   /* V5 code we generate is completely interworking capable, so we turn off
      TARGET_INTERWORK here to avoid many tests later on.  */
@@ -3490,8 +3521,9 @@ arm_option_override (void)
 			 global_options.x_param_values,
 			 global_options_set.x_param_values);
 
-  /* Currently, for slow flash data, we just disable literal pools.  */
-  if (target_slow_flash_data)
+  /* Currently, for slow flash data, we just disable literal pools.  We also
+     disable it for pure-code.  */
+  if (target_slow_flash_data || target_pure_code)
     arm_disable_literal_pool = true;
 
   /* Disable scheduling fusion by default if it's not armv7 processor
@@ -3969,8 +4001,7 @@ const_ok_for_op (HOST_WIDE_INT i, enum rtx_code code)
 	  && ((i & 0xfffff000) == 0
 	      || ((-i) & 0xfffff000) == 0))
 	return 1;
-      /* else fall through.  */
-
+      /* Fall through.  */
     case COMPARE:
     case EQ:
     case NE:
@@ -9097,7 +9128,7 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
 	  || (GET_CODE (XEXP (x, 1)) == MULT
 	      && power_of_two_operand (XEXP (XEXP (x, 1), 1), SImode)))
 	return COSTS_N_INSNS (2);
-      /* On purpose fall through for normal RTX.  */
+      /* Fall through.  */
     case COMPARE:
     case NEG:
     case NOT:
@@ -9127,7 +9158,8 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
       if (satisfies_constraint_J (SET_SRC (x))
 	  || satisfies_constraint_K (SET_SRC (x))
 	     /* Too big an immediate for a 2-byte mov, using MOVT.  */
-	  || (UINTVAL (SET_SRC (x)) >= 256
+	  || (CONST_INT_P (SET_SRC (x))
+	      && UINTVAL (SET_SRC (x)) >= 256
 	      && TARGET_HAVE_MOVT
 	      && satisfies_constraint_j (SET_SRC (x)))
 	     /* thumb1_movdi_insn.  */
@@ -13224,7 +13256,7 @@ coproc_secondary_reload_class (machine_mode mode, rtx x, bool wb)
 {
   if (mode == HFmode)
     {
-      if (!TARGET_NEON_FP16)
+      if (!TARGET_NEON_FP16 && !TARGET_VFP_FP16INST)
 	return GENERAL_REGS;
       if (s_register_operand (x, mode) || neon_vector_mem_operand (x, 2, true))
 	return NO_REGS;
@@ -13338,6 +13370,7 @@ tls_mentioned_p (rtx x)
       if (XINT (x, 1) == UNSPEC_TLS)
 	return 1;
 
+    /* Fall through.  */
     default:
       return 0;
     }
@@ -17535,7 +17568,7 @@ thumb2_reorg (void)
 			 test the global flag here.  */
 		      if (!optimize_size)
 			break;
-		      /* else fall through.  */
+		      /* Fall through.  */
 		    case AND:
 		    case IOR:
 		    case XOR:
@@ -18675,6 +18708,8 @@ output_move_vfp (rtx *operands)
   rtx reg, mem, addr, ops[2];
   int load = REG_P (operands[0]);
   int dp = GET_MODE_SIZE (GET_MODE (operands[0])) == 8;
+  int sp = (!TARGET_VFP_FP16INST
+	    || GET_MODE_SIZE (GET_MODE (operands[0])) == 4);
   int integer_p = GET_MODE_CLASS (GET_MODE (operands[0])) == MODE_INT;
   const char *templ;
   char buff[50];
@@ -18690,6 +18725,7 @@ output_move_vfp (rtx *operands)
   gcc_assert ((mode == HFmode && TARGET_HARD_FLOAT && TARGET_VFP)
 	      || mode == SFmode
 	      || mode == DFmode
+	      || mode == HImode
 	      || mode == SImode
 	      || mode == DImode
               || (TARGET_NEON && VALID_NEON_DREG_MODE (mode)));
@@ -18720,7 +18756,7 @@ output_move_vfp (rtx *operands)
 
   sprintf (buff, templ,
 	   load ? "ld" : "st",
-	   dp ? "64" : "32",
+	   dp ? "64" : sp ? "32" : "16",
 	   dp ? "P" : "",
 	   integer_p ? "\t%@ int" : "");
   output_asm_insn (buff, ops);
@@ -20860,7 +20896,7 @@ any_sibcall_could_use_r3 (void)
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     if (e->flags & EDGE_SIBCALL)
       {
-	rtx call = BB_END (e->src);
+	rtx_insn *call = BB_END (e->src);
 	if (!CALL_P (call))
 	  call = prev_nonnote_nondebug_insn (call);
 	gcc_assert (CALL_P (call) && SIBLING_CALL_P (call));
@@ -22992,6 +23028,8 @@ maybe_get_arm_condition_code (rtx comparison)
 	{
 	case LTU: return ARM_CS;
 	case GEU: return ARM_CC;
+	case NE: return ARM_CS;
+	case EQ: return ARM_CC;
 	default: return ARM_NV;
 	}
 
@@ -23014,6 +23052,14 @@ maybe_get_arm_condition_code (rtx comparison)
 	case LT: return ARM_LT;
 	case GEU: return ARM_CS;
 	case LTU: return ARM_CC;
+	default: return ARM_NV;
+	}
+
+    case CC_Vmode:
+      switch (comp_code)
+	{
+	case NE: return ARM_VS;
+	case EQ: return ARM_VC;
 	default: return ARM_NV;
 	}
 
@@ -23471,6 +23517,10 @@ arm_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
 	return VFP_REGNO_OK_FOR_DOUBLE (regno);
 
       if (mode == HFmode)
+	return VFP_REGNO_OK_FOR_SINGLE (regno);
+
+      /* VFP registers can hold HImode values.  */
+      if (mode == HImode)
 	return VFP_REGNO_OK_FOR_SINGLE (regno);
 
       if (TARGET_NEON)
@@ -27254,16 +27304,23 @@ arm_asm_emit_except_personality (rtx personality)
   output_addr_const (asm_out_file, personality);
   fputc ('\n', asm_out_file);
 }
+#endif /* ARM_UNWIND_INFO */
 
 /* Implement TARGET_ASM_INITIALIZE_SECTIONS.  */
 
 static void
 arm_asm_init_sections (void)
 {
+#if ARM_UNWIND_INFO
   exception_section = get_unnamed_section (0, output_section_asm_op,
 					   "\t.handlerdata");
-}
 #endif /* ARM_UNWIND_INFO */
+
+#ifdef OBJECT_FORMAT_ELF
+  if (target_pure_code)
+    text_section->unnamed.data = "\t.section .text,\"0x20000006\",%progbits";
+#endif
+}
 
 /* Output unwind directives for the start/end of a function.  */
 
@@ -28522,6 +28579,8 @@ arm_evpc_neon_vuzp (struct expand_vec_perm_d *d)
     case V8QImode:  gen = gen_neon_vuzpv8qi_internal;  break;
     case V8HImode:  gen = gen_neon_vuzpv8hi_internal;  break;
     case V4HImode:  gen = gen_neon_vuzpv4hi_internal;  break;
+    case V8HFmode:  gen = gen_neon_vuzpv8hf_internal;  break;
+    case V4HFmode:  gen = gen_neon_vuzpv4hf_internal;  break;
     case V4SImode:  gen = gen_neon_vuzpv4si_internal;  break;
     case V2SImode:  gen = gen_neon_vuzpv2si_internal;  break;
     case V2SFmode:  gen = gen_neon_vuzpv2sf_internal;  break;
@@ -28595,6 +28654,8 @@ arm_evpc_neon_vzip (struct expand_vec_perm_d *d)
     case V8QImode:  gen = gen_neon_vzipv8qi_internal;  break;
     case V8HImode:  gen = gen_neon_vzipv8hi_internal;  break;
     case V4HImode:  gen = gen_neon_vzipv4hi_internal;  break;
+    case V8HFmode:  gen = gen_neon_vzipv8hf_internal;  break;
+    case V4HFmode:  gen = gen_neon_vzipv4hf_internal;  break;
     case V4SImode:  gen = gen_neon_vzipv4si_internal;  break;
     case V2SImode:  gen = gen_neon_vzipv2si_internal;  break;
     case V2SFmode:  gen = gen_neon_vzipv2sf_internal;  break;
@@ -28647,6 +28708,8 @@ arm_evpc_neon_vrev (struct expand_vec_perm_d *d)
 	case V8QImode:  gen = gen_neon_vrev32v8qi;  break;
 	case V8HImode:  gen = gen_neon_vrev64v8hi;  break;
 	case V4HImode:  gen = gen_neon_vrev64v4hi;  break;
+	case V8HFmode:  gen = gen_neon_vrev64v8hf;  break;
+	case V4HFmode:  gen = gen_neon_vrev64v4hf;  break;
 	default:
 	  return false;
 	}
@@ -28730,6 +28793,8 @@ arm_evpc_neon_vtrn (struct expand_vec_perm_d *d)
     case V8QImode:  gen = gen_neon_vtrnv8qi_internal;  break;
     case V8HImode:  gen = gen_neon_vtrnv8hi_internal;  break;
     case V4HImode:  gen = gen_neon_vtrnv4hi_internal;  break;
+    case V8HFmode:  gen = gen_neon_vtrnv8hf_internal;  break;
+    case V4HFmode:  gen = gen_neon_vtrnv4hf_internal;  break;
     case V4SImode:  gen = gen_neon_vtrnv4si_internal;  break;
     case V2SImode:  gen = gen_neon_vtrnv2si_internal;  break;
     case V2SFmode:  gen = gen_neon_vtrnv2sf_internal;  break;
@@ -28805,6 +28870,8 @@ arm_evpc_neon_vext (struct expand_vec_perm_d *d)
     case V8HImode: gen = gen_neon_vextv8hi; break;
     case V2SImode: gen = gen_neon_vextv2si; break;
     case V4SImode: gen = gen_neon_vextv4si; break;
+    case V4HFmode: gen = gen_neon_vextv4hf; break;
+    case V8HFmode: gen = gen_neon_vextv8hf; break;
     case V2SFmode: gen = gen_neon_vextv2sf; break;
     case V4SFmode: gen = gen_neon_vextv4sf; break;
     case V2DImode: gen = gen_neon_vextv2di; break;
@@ -29330,7 +29397,7 @@ arm_validize_comparison (rtx *comparison, rtx * op1, rtx * op2)
 {
   enum rtx_code code = GET_CODE (*comparison);
   int code_int;
-  machine_mode mode = (GET_MODE (*op1) == VOIDmode) 
+  machine_mode mode = (GET_MODE (*op1) == VOIDmode)
     ? GET_MODE (*op2) : GET_MODE (*op1);
 
   gcc_assert (GET_MODE (*op1) != VOIDmode || GET_MODE (*op2) != VOIDmode);
@@ -29358,6 +29425,14 @@ arm_validize_comparison (rtx *comparison, rtx * op1, rtx * op2)
 	*op2 = force_reg (mode, *op2);
       return true;
 
+    case HFmode:
+      if (!TARGET_VFP_FP16INST)
+	break;
+      /* FP16 comparisons are done in SF mode.  */
+      mode = SFmode;
+      *op1 = convert_to_mode (mode, *op1, 1);
+      *op2 = convert_to_mode (mode, *op2, 1);
+      /* Fall through.  */
     case SFmode:
     case DFmode:
       if (!arm_float_compare_operand (*op1, mode))
@@ -29904,11 +29979,57 @@ arm_macro_fusion_p (void)
   return current_tune->fusible_ops != tune_params::FUSE_NOTHING;
 }
 
+/* Return true if the two back-to-back sets PREV_SET, CURR_SET are suitable
+   for MOVW / MOVT macro fusion.  */
+
+static bool
+arm_sets_movw_movt_fusible_p (rtx prev_set, rtx curr_set)
+{
+  /* We are trying to fuse
+     movw imm / movt imm
+    instructions as a group that gets scheduled together.  */
+
+  rtx set_dest = SET_DEST (curr_set);
+
+  if (GET_MODE (set_dest) != SImode)
+    return false;
+
+  /* We are trying to match:
+     prev (movw)  == (set (reg r0) (const_int imm16))
+     curr (movt) == (set (zero_extract (reg r0)
+					(const_int 16)
+					(const_int 16))
+			  (const_int imm16_1))
+     or
+     prev (movw) == (set (reg r1)
+			  (high (symbol_ref ("SYM"))))
+    curr (movt) == (set (reg r0)
+			(lo_sum (reg r1)
+				(symbol_ref ("SYM"))))  */
+
+    if (GET_CODE (set_dest) == ZERO_EXTRACT)
+      {
+	if (CONST_INT_P (SET_SRC (curr_set))
+	    && CONST_INT_P (SET_SRC (prev_set))
+	    && REG_P (XEXP (set_dest, 0))
+	    && REG_P (SET_DEST (prev_set))
+	    && REGNO (XEXP (set_dest, 0)) == REGNO (SET_DEST (prev_set)))
+	  return true;
+
+      }
+    else if (GET_CODE (SET_SRC (curr_set)) == LO_SUM
+	     && REG_P (SET_DEST (curr_set))
+	     && REG_P (SET_DEST (prev_set))
+	     && GET_CODE (SET_SRC (prev_set)) == HIGH
+	     && REGNO (SET_DEST (curr_set)) == REGNO (SET_DEST (prev_set)))
+      return true;
+
+  return false;
+}
 
 static bool
 aarch_macro_fusion_pair_p (rtx_insn* prev, rtx_insn* curr)
 {
-  rtx set_dest;
   rtx prev_set = single_set (prev);
   rtx curr_set = single_set (curr);
 
@@ -29926,45 +30047,10 @@ aarch_macro_fusion_pair_p (rtx_insn* prev, rtx_insn* curr)
       && aarch_crypto_can_dual_issue (prev, curr))
     return true;
 
-  if (current_tune->fusible_ops & tune_params::FUSE_MOVW_MOVT)
-    {
-      /* We are trying to fuse
-	 movw imm / movt imm
-	 instructions as a group that gets scheduled together.  */
+  if (current_tune->fusible_ops & tune_params::FUSE_MOVW_MOVT
+      && arm_sets_movw_movt_fusible_p (prev_set, curr_set))
+    return true;
 
-      set_dest = SET_DEST (curr_set);
-
-      if (GET_MODE (set_dest) != SImode)
-	return false;
-
-      /* We are trying to match:
-	 prev (movw)  == (set (reg r0) (const_int imm16))
-	 curr (movt) == (set (zero_extract (reg r0)
-					  (const_int 16)
-					   (const_int 16))
-			     (const_int imm16_1))
-	 or
-	 prev (movw) == (set (reg r1)
-			      (high (symbol_ref ("SYM"))))
-	 curr (movt) == (set (reg r0)
-			     (lo_sum (reg r1)
-				     (symbol_ref ("SYM"))))  */
-      if (GET_CODE (set_dest) == ZERO_EXTRACT)
-	{
-	  if (CONST_INT_P (SET_SRC (curr_set))
-	      && CONST_INT_P (SET_SRC (prev_set))
-	      && REG_P (XEXP (set_dest, 0))
-	      && REG_P (SET_DEST (prev_set))
-	      && REGNO (XEXP (set_dest, 0)) == REGNO (SET_DEST (prev_set)))
-	    return true;
-	}
-      else if (GET_CODE (SET_SRC (curr_set)) == LO_SUM
-	       && REG_P (SET_DEST (curr_set))
-	       && REG_P (SET_DEST (prev_set))
-	       && GET_CODE (SET_SRC (prev_set)) == HIGH
-	       && REGNO (SET_DEST (curr_set)) == REGNO (SET_DEST (prev_set)))
-	     return true;
-    }
   return false;
 }
 
@@ -30573,6 +30659,132 @@ arm_can_output_mi_thunk (const_tree, HOST_WIDE_INT, HOST_WIDE_INT vcall_offset,
 
   /* Otherwise ok.  */
   return true;
+}
+
+/* Generate RTL for a conditional branch with rtx comparison CODE in
+   mode CC_MODE. The destination of the unlikely conditional branch
+   is LABEL_REF.  */
+
+void
+arm_gen_unlikely_cbranch (enum rtx_code code, machine_mode cc_mode,
+			  rtx label_ref)
+{
+  rtx x;
+  x = gen_rtx_fmt_ee (code, VOIDmode,
+		      gen_rtx_REG (cc_mode, CC_REGNUM),
+		      const0_rtx);
+
+  x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
+			    gen_rtx_LABEL_REF (VOIDmode, label_ref),
+			    pc_rtx);
+  emit_unlikely_jump (gen_rtx_SET (pc_rtx, x));
+}
+
+/* Implement the TARGET_ASM_ELF_FLAGS_NUMERIC hook.
+
+   For pure-code sections there is no letter code for this attribute, so
+   output all the section flags numerically when this is needed.  */
+
+static bool
+arm_asm_elf_flags_numeric (unsigned int flags, unsigned int *num)
+{
+
+  if (flags & SECTION_ARM_PURECODE)
+    {
+      *num = 0x20000000;
+
+      if (!(flags & SECTION_DEBUG))
+	*num |= 0x2;
+      if (flags & SECTION_EXCLUDE)
+	*num |= 0x80000000;
+      if (flags & SECTION_WRITE)
+	*num |= 0x1;
+      if (flags & SECTION_CODE)
+	*num |= 0x4;
+      if (flags & SECTION_MERGE)
+	*num |= 0x10;
+      if (flags & SECTION_STRINGS)
+	*num |= 0x20;
+      if (flags & SECTION_TLS)
+	*num |= 0x400;
+      if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+	*num |= 0x200;
+
+	return true;
+    }
+
+  return false;
+}
+
+/* Implement the TARGET_ASM_FUNCTION_SECTION hook.
+
+   If pure-code is passed as an option, make sure all functions are in
+   sections that have the SHF_ARM_PURECODE attribute.  */
+
+static section *
+arm_function_section (tree decl, enum node_frequency freq,
+		      bool startup, bool exit)
+{
+  const char * section_name;
+  section * sec;
+
+  if (!decl || TREE_CODE (decl) != FUNCTION_DECL)
+    return default_function_section (decl, freq, startup, exit);
+
+  if (!target_pure_code)
+    return default_function_section (decl, freq, startup, exit);
+
+
+  section_name = DECL_SECTION_NAME (decl);
+
+  /* If a function is not in a named section then it falls under the 'default'
+     text section, also known as '.text'.  We can preserve previous behavior as
+     the default text section already has the SHF_ARM_PURECODE section
+     attribute.  */
+  if (!section_name)
+    {
+      section *default_sec = default_function_section (decl, freq, startup,
+						       exit);
+
+      /* If default_sec is not null, then it must be a special section like for
+	 example .text.startup.  We set the pure-code attribute and return the
+	 same section to preserve existing behavior.  */
+      if (default_sec)
+	  default_sec->common.flags |= SECTION_ARM_PURECODE;
+      return default_sec;
+    }
+
+  /* Otherwise look whether a section has already been created with
+     'section_name'.  */
+  sec = get_named_section (decl, section_name, 0);
+  if (!sec)
+    /* If that is not the case passing NULL as the section's name to
+       'get_named_section' will create a section with the declaration's
+       section name.  */
+    sec = get_named_section (decl, NULL, 0);
+
+  /* Set the SHF_ARM_PURECODE attribute.  */
+  sec->common.flags |= SECTION_ARM_PURECODE;
+
+  return sec;
+}
+
+/* Implements the TARGET_SECTION_FLAGS hook.
+
+   If DECL is a function declaration and pure-code is passed as an option
+   then add the SFH_ARM_PURECODE attribute to the section flags.  NAME is the
+   section's name and RELOC indicates whether the declarations initializer may
+   contain runtime relocations.  */
+
+static unsigned int
+arm_elf_section_type_flags (tree decl, const char *name, int reloc)
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL && target_pure_code)
+    flags |= SECTION_ARM_PURECODE;
+
+  return flags;
 }
 
 #include "gt-arm.h"

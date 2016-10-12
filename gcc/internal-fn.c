@@ -244,6 +244,15 @@ expand_TSAN_FUNC_EXIT (internal_fn, gcall *)
   gcc_unreachable ();
 }
 
+/* This should get expanded in the lower pass.  */
+
+static void
+expand_FALLTHROUGH (internal_fn, gcall *call)
+{
+  error_at (gimple_location (call),
+	    "invalid use of attribute %<fallthrough%>");
+}
+
 /* Helper function for expand_addsub_overflow.  Return 1
    if ARG interpreted as signed in its precision is known to be always
    positive or 2 if ARG is known to be always negative, or 3 if ARG may
@@ -1833,7 +1842,10 @@ expand_arith_overflow (enum tree_code code, gimple *stmt)
 	    {
 	    case MINUS_EXPR:
 	      if (integer_zerop (arg0) && !unsr_p)
-		expand_neg_overflow (loc, lhs, arg1, false);
+		{
+		  expand_neg_overflow (loc, lhs, arg1, false);
+		  return;
+		}
 	      /* FALLTHRU */
 	    case PLUS_EXPR:
 	      expand_addsub_overflow (loc, code, lhs, arg0, arg1,

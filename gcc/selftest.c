@@ -24,12 +24,14 @@ along with GCC; see the file COPYING3.  If not see
 
 #if CHECKING_P
 
-int selftest::num_passes;
+namespace selftest {
+
+int num_passes;
 
 /* Record the successful outcome of some aspect of a test.  */
 
 void
-selftest::pass (const location &/*loc*/, const char */*msg*/)
+pass (const location &/*loc*/, const char */*msg*/)
 {
   num_passes++;
 }
@@ -37,7 +39,7 @@ selftest::pass (const location &/*loc*/, const char */*msg*/)
 /* Report the failed outcome of some aspect of a test and abort.  */
 
 void
-selftest::fail (const location &loc, const char *msg)
+fail (const location &loc, const char *msg)
 {
   fprintf (stderr,"%s:%i: %s: FAIL: %s\n", loc.m_file, loc.m_line,
 	   loc.m_function, msg);
@@ -47,7 +49,7 @@ selftest::fail (const location &loc, const char *msg)
 /* As "fail", but using printf-style formatted output.  */
 
 void
-selftest::fail_formatted (const location &loc, const char *fmt, ...)
+fail_formatted (const location &loc, const char *fmt, ...)
 {
   va_list ap;
 
@@ -65,26 +67,23 @@ selftest::fail_formatted (const location &loc, const char *fmt, ...)
    to be non-NULL; fail gracefully if either are NULL.  */
 
 void
-selftest::assert_streq (const location &loc,
-			const char *desc_expected, const char *desc_actual,
-			const char *val_expected, const char *val_actual)
+assert_streq (const location &loc,
+	      const char *desc_expected, const char *desc_actual,
+	      const char *val_expected, const char *val_actual)
 {
   /* If val_expected is NULL, the test is buggy.  Fail gracefully.  */
   if (val_expected == NULL)
-    ::selftest::fail_formatted
-	(loc, "ASSERT_STREQ (%s, %s) expected=NULL",
-	 desc_expected, desc_actual);
+    fail_formatted (loc, "ASSERT_STREQ (%s, %s) expected=NULL",
+		    desc_expected, desc_actual);
   /* If val_actual is NULL, fail with a custom error message.  */
   if (val_actual == NULL)
-    ::selftest::fail_formatted
-	(loc, "ASSERT_STREQ (%s, %s) expected=\"%s\" actual=NULL",
-	 desc_expected, desc_actual, val_expected);
+    fail_formatted (loc, "ASSERT_STREQ (%s, %s) expected=\"%s\" actual=NULL",
+		    desc_expected, desc_actual, val_expected);
   if (0 == strcmp (val_expected, val_actual))
-    ::selftest::pass (loc, "ASSERT_STREQ");
+    pass (loc, "ASSERT_STREQ");
   else
-    ::selftest::fail_formatted
-	(loc, "ASSERT_STREQ (%s, %s) expected=\"%s\" actual=\"%s\"",
-	 desc_expected, desc_actual, val_expected, val_actual);
+    fail_formatted (loc, "ASSERT_STREQ (%s, %s) expected=\"%s\" actual=\"%s\"",
+		    desc_expected, desc_actual, val_expected, val_actual);
 }
 
 /* Implementation detail of ASSERT_STR_CONTAINS.
@@ -93,64 +92,66 @@ selftest::assert_streq (const location &loc,
    ::selftest::fail if it is not found.  */
 
 void
-selftest::assert_str_contains (const location &loc,
-			       const char *desc_haystack,
-			       const char *desc_needle,
-			       const char *val_haystack,
-			       const char *val_needle)
+assert_str_contains (const location &loc,
+		     const char *desc_haystack,
+		     const char *desc_needle,
+		     const char *val_haystack,
+		     const char *val_needle)
 {
   /* If val_haystack is NULL, fail with a custom error message.  */
   if (val_haystack == NULL)
-    ::selftest::fail_formatted
-	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=NULL",
-	 desc_haystack, desc_needle);
+    fail_formatted (loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=NULL",
+		    desc_haystack, desc_needle);
 
   /* If val_needle is NULL, fail with a custom error message.  */
   if (val_needle == NULL)
-    ::selftest::fail_formatted
-	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=\"%s\" needle=NULL",
-	 desc_haystack, desc_needle, val_haystack);
+    fail_formatted (loc,
+		    "ASSERT_STR_CONTAINS (%s, %s) haystack=\"%s\" needle=NULL",
+		    desc_haystack, desc_needle, val_haystack);
 
   const char *test = strstr (val_haystack, val_needle);
   if (test)
-    ::selftest::pass (loc, "ASSERT_STR_CONTAINS");
+    pass (loc, "ASSERT_STR_CONTAINS");
   else
-    ::selftest::fail_formatted
+    fail_formatted
 	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=\"%s\" needle=\"%s\"",
 	 desc_haystack, desc_needle, val_haystack, val_needle);
 }
 
-/* Constructor.  Create a tempfile using SUFFIX, and write CONTENT to
-   it.  Abort if anything goes wrong, using LOC as the effective
-   location in the problem report.  */
+/* Constructor.  Generate a name for the file.  */
 
-selftest::temp_source_file::temp_source_file (const location &loc,
-					      const char *suffix,
-					      const char *content)
+named_temp_file::named_temp_file (const char *suffix)
 {
   m_filename = make_temp_file (suffix);
   ASSERT_NE (m_filename, NULL);
-
-  FILE *out = fopen (m_filename, "w");
-  if (!out)
-    ::selftest::fail_formatted (loc, "unable to open tempfile: %s",
-				m_filename);
-  fprintf (out, "%s", content);
-  fclose (out);
 }
 
 /* Destructor.  Delete the tempfile.  */
 
-selftest::temp_source_file::~temp_source_file ()
+named_temp_file::~named_temp_file ()
 {
   unlink (m_filename);
   diagnostics_file_cache_forcibly_evict_file (m_filename);
   free (m_filename);
 }
 
-/* Selftests for the selftest system itself.  */
+/* Constructor.  Create a tempfile using SUFFIX, and write CONTENT to
+   it.  Abort if anything goes wrong, using LOC as the effective
+   location in the problem report.  */
 
-namespace selftest {
+temp_source_file::temp_source_file (const location &loc,
+				    const char *suffix,
+				    const char *content)
+: named_temp_file (suffix)
+{
+  FILE *out = fopen (get_filename (), "w");
+  if (!out)
+    fail_formatted (loc, "unable to open tempfile: %s", get_filename ());
+  fprintf (out, "%s", content);
+  fclose (out);
+}
+
+/* Selftests for the selftest system itself.  */
 
 /* Sanity-check the ASSERT_ macros with various passing cases.  */
 
@@ -167,12 +168,26 @@ test_assertions ()
   ASSERT_STR_CONTAINS ("foo bar baz", "bar");
 }
 
+/* Verify named_temp_file.  */
+
+static void
+test_named_temp_file ()
+{
+  named_temp_file t (".txt");
+  FILE *f = fopen (t.get_filename (), "w");
+  if (!f)
+    fail_formatted (SELFTEST_LOCATION,
+		    "unable to open %s for writing", t.get_filename ());
+  fclose (f);
+}
+
 /* Run all of the selftests within this file.  */
 
 void
 selftest_c_tests ()
 {
   test_assertions ();
+  test_named_temp_file ();
 }
 
 } // namespace selftest

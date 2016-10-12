@@ -177,8 +177,11 @@ enum gfc_intrinsic_op
   /* .EQ., .NE., .GT., .GE., .LT., .LE. (OS = Old-Style)  */
   INTRINSIC_EQ_OS, INTRINSIC_NE_OS, INTRINSIC_GT_OS, INTRINSIC_GE_OS,
   INTRINSIC_LT_OS, INTRINSIC_LE_OS,
-  INTRINSIC_NOT, INTRINSIC_USER, INTRINSIC_ASSIGN,
-  INTRINSIC_PARENTHESES, GFC_INTRINSIC_END /* Sentinel */
+  INTRINSIC_NOT, INTRINSIC_USER, INTRINSIC_ASSIGN, INTRINSIC_PARENTHESES,
+  GFC_INTRINSIC_END, /* Sentinel */
+  /* User defined derived type pseudo operators. These are set beyond the
+     sentinel so that they are excluded from module_read and module_write.  */
+  INTRINSIC_FORMATTED, INTRINSIC_UNFORMATTED
 };
 
 /* This macro is the number of intrinsic operators that exist.
@@ -261,7 +264,8 @@ enum gfc_statement
 enum interface_type
 {
   INTERFACE_NAMELESS = 1, INTERFACE_GENERIC,
-  INTERFACE_INTRINSIC_OP, INTERFACE_USER_OP, INTERFACE_ABSTRACT
+  INTERFACE_INTRINSIC_OP, INTERFACE_USER_OP, INTERFACE_ABSTRACT,
+  INTERFACE_DTIO
 };
 
 /* Symbol flavors: these are all mutually exclusive.
@@ -312,6 +316,12 @@ extern const mstring intents[];
 extern const mstring access_types[];
 extern const mstring ifsrc_types[];
 extern const mstring save_status[];
+
+/* Strings for DTIO procedure names.  In symbol.c.  */
+extern const mstring dtio_procs[];
+
+enum dtio_codes
+{ DTIO_RF = 0, DTIO_WF, DTIO_RUF, DTIO_WUF };
 
 /* Enumeration of all the generic intrinsic functions.  Used by the
    backend for identification of a function.  */
@@ -380,6 +390,7 @@ enum gfc_isym_id
   GFC_ISYM_CONVERSION,
   GFC_ISYM_COS,
   GFC_ISYM_COSH,
+  GFC_ISYM_COTAN,
   GFC_ISYM_COUNT,
   GFC_ISYM_CPU_TIME,
   GFC_ISYM_CSHIFT,
@@ -726,7 +737,7 @@ typedef struct
     optional:1, pointer:1, target:1, value:1, volatile_:1, temporary:1,
     dummy:1, result:1, assign:1, threadprivate:1, not_always_present:1,
     implied_index:1, subref_array_pointer:1, proc_pointer:1, asynchronous:1,
-    contiguous:1, fe_temp: 1;
+    contiguous:1, fe_temp: 1, automatic: 1;
 
   /* For CLASS containers, the pointer attribute is sometimes set internally
      even though it was not directly specified.  In this case, keep the
@@ -784,7 +795,7 @@ typedef struct
   unsigned implicit_pure:1;
 
   /* This is set for a procedure that contains expressions referencing
-     arrays coming from outside its namespace.  
+     arrays coming from outside its namespace.
      This is used to force the creation of a temporary when the LHS of
      an array assignment may be used by an elemental procedure appearing
      on the RHS.  */
@@ -841,7 +852,8 @@ typedef struct
      entities.  */
   unsigned alloc_comp:1, pointer_comp:1, proc_pointer_comp:1,
 	   private_comp:1, zero_comp:1, coarray_comp:1, lock_comp:1,
-	   event_comp:1, defined_assign_comp:1, unlimited_polymorphic:1;
+	   event_comp:1, defined_assign_comp:1, unlimited_polymorphic:1,
+	   has_dtio_procs:1;
 
   /* This is a temporary selector for SELECT TYPE or an associate
      variable for SELECT_TYPE or ASSOCIATE.  */
@@ -1033,6 +1045,8 @@ typedef struct gfc_component
 
   /* Needed for procedure pointer components.  */
   struct gfc_typebound_proc *tb;
+  /* When allocatable/pointer and in a coarray the associated token.  */
+  tree caf_token;
 }
 gfc_component;
 
@@ -2319,7 +2333,7 @@ typedef struct
 {
   gfc_expr *io_unit, *format_expr, *rec, *advance, *iostat, *size, *iomsg,
 	   *id, *pos, *asynchronous, *blank, *decimal, *delim, *pad, *round,
-	   *sign, *extra_comma, *dt_io_kind;
+	   *sign, *extra_comma, *dt_io_kind, *udtio;
 
   gfc_symbol *namelist;
   /* A format_label of `format_asterisk' indicates the "*" format */
@@ -2758,7 +2772,7 @@ int gfc_validate_kind (bt, int, bool);
 int gfc_get_int_kind_from_width_isofortranenv (int size);
 int gfc_get_real_kind_from_width_isofortranenv (int size);
 tree gfc_get_union_type (gfc_symbol *);
-tree gfc_get_derived_type (gfc_symbol * derived);
+tree gfc_get_derived_type (gfc_symbol * derived, bool in_coarray = false);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
 extern int gfc_max_integer_kind;
@@ -2803,6 +2817,7 @@ bool gfc_add_cray_pointee (symbol_attribute *, locus *);
 match gfc_mod_pointee_as (gfc_array_spec *);
 bool gfc_add_protected (symbol_attribute *, const char *, locus *);
 bool gfc_add_result (symbol_attribute *, const char *, locus *);
+bool gfc_add_automatic (symbol_attribute *, const char *, locus *);
 bool gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 bool gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 bool gfc_add_omp_declare_target (symbol_attribute *, const char *, locus *);
@@ -3037,7 +3052,7 @@ int gfc_numeric_ts (gfc_typespec *);
 int gfc_kind_max (gfc_expr *, gfc_expr *);
 
 bool gfc_check_conformance (gfc_expr *, gfc_expr *, const char *, ...) ATTRIBUTE_PRINTF_3;
-bool gfc_check_assign (gfc_expr *, gfc_expr *, int);
+bool gfc_check_assign (gfc_expr *, gfc_expr *, int, bool c = true);
 bool gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
 bool gfc_check_assign_symbol (gfc_symbol *, gfc_component *, gfc_expr *);
 
@@ -3170,6 +3185,9 @@ bool gfc_check_operator_interface (gfc_symbol*, gfc_intrinsic_op, locus);
 int gfc_has_vector_subscript (gfc_expr*);
 gfc_intrinsic_op gfc_equivalent_op (gfc_intrinsic_op);
 bool gfc_check_typebound_override (gfc_symtree*, gfc_symtree*);
+void gfc_check_dtio_interfaces (gfc_symbol*);
+gfc_symbol* gfc_find_specific_dtio_proc (gfc_symbol*, bool, bool);
+
 
 /* io.c */
 extern gfc_st_label format_asterisk;
@@ -3199,6 +3217,7 @@ const char *gfc_dt_upper_string (const char *);
 /* primary.c */
 symbol_attribute gfc_variable_attr (gfc_expr *, gfc_typespec *);
 symbol_attribute gfc_expr_attr (gfc_expr *);
+symbol_attribute gfc_caf_attr (gfc_expr *, bool in_allocate = false);
 match gfc_match_rvalue (gfc_expr **);
 match gfc_match_varspec (gfc_expr*, int, bool, bool);
 int gfc_check_digit (char, int);

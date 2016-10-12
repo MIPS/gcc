@@ -71,11 +71,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "dwarf2out.h"
 #include "ipa-reference.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
 #include "gcse.h"
 #include "tree-chkp.h"
 #include "omp-low.h"
 #include "hsa.h"
+#include "edit-context.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -348,7 +350,7 @@ wrapup_global_declaration_1 (tree decl)
       && DECL_DEFER_OUTPUT (decl) != 0)
     DECL_DEFER_OUTPUT (decl) = 0;
 
-  if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
+  if (VAR_P (decl) && DECL_SIZE (decl) == 0)
     lang_hooks.finish_incomplete_decl (decl);
 }
 
@@ -359,7 +361,7 @@ bool
 wrapup_global_declaration_2 (tree decl)
 {
   if (TREE_ASM_WRITTEN (decl) || DECL_EXTERNAL (decl)
-      || (TREE_CODE (decl) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (decl)))
+      || (VAR_P (decl) && DECL_HAS_VALUE_EXPR_P (decl)))
     return false;
 
   /* Don't write out static consts, unless we still need them.
@@ -387,7 +389,7 @@ wrapup_global_declaration_2 (tree decl)
      to force a constant to be written if and only if it is
      defined in a main file, as opposed to an include file.  */
 
-  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+  if (VAR_P (decl) && TREE_STATIC (decl))
     {
       varpool_node *node;
       bool needed = true;
@@ -1219,7 +1221,13 @@ process_options (void)
   no_backend = lang_hooks.post_options (&main_input_filename);
 
   /* Some machines may reject certain combinations of options.  */
+  location_t saved_location = input_location;
+  input_location = UNKNOWN_LOCATION;
   targetm.target_option.override ();
+  input_location = saved_location;
+
+  if (flag_diagnostics_generate_patch)
+      global_dc->edit_context_ptr = new edit_context ();
 
   /* Avoid any informative notes in the second run of -fcompare-debug.  */
   if (flag_compare_debug) 
@@ -2146,6 +2154,16 @@ toplev::main (int argc, char **argv)
   /* Invoke registered plugin callbacks if any.  Some plugins could
      emit some diagnostics here.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
+
+  if (flag_diagnostics_generate_patch)
+    {
+      gcc_assert (global_dc->edit_context_ptr);
+
+      pretty_printer (pp);
+      pp_show_color (&pp) = pp_show_color (global_dc->printer);
+      global_dc->edit_context_ptr->print_diff (&pp, true);
+      pp_flush (&pp);
+    }
 
   diagnostic_finish (global_dc);
 

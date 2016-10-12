@@ -700,7 +700,7 @@ predicates used with @code{match_operand} have names that end in
 @samp{_operand}, and those used with @code{match_operator} have names
 that end in @samp{_operator}.
 
-All predicates are Boolean functions (in the mathematical sense) of
+All predicates are boolean functions (in the mathematical sense) of
 two arguments: the RTL expression that is being considered at that
 position in the instruction pattern, and the machine mode that the
 @code{match_operand} or @code{match_operator} specifies.  In this
@@ -2582,8 +2582,8 @@ A status register (@code{rmsr}, @code{$fcc1} to @code{$fcc7}).
 @item MIPS---@file{config/mips/constraints.md}
 @table @code
 @item d
-An address register.  This is equivalent to @code{r} unless
-generating MIPS16 code.
+A general-purpose register.  This is equivalent to @code{r} unless
+generating MIPS16 code, in which case the MIPS16 register set is used.
 
 @item f
 A floating-point register (if available).
@@ -4274,7 +4274,7 @@ constraint.  Docstrings are explained further below.
 @end deffn
 
 Non-register constraints are more like predicates: the constraint
-definition gives a Boolean expression which indicates whether the
+definition gives a boolean expression which indicates whether the
 constraint matches.
 
 @deffn {MD Expression} define_constraint name docstring exp

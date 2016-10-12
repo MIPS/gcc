@@ -93,8 +93,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class shared_ptr : public __shared_ptr<_Tp>
     {
       template<typename _Ptr>
-	using _Convertible
-	  = typename enable_if<is_convertible<_Ptr, _Tp*>::value>::type;
+	using _Convertible = typename
+	  enable_if<is_convertible<_Ptr, _Tp*>::value>::type;
+
+      template<typename _Ptr>
+	using _Assignable = typename
+	  enable_if<is_convertible<_Ptr, _Tp*>::value, shared_ptr&>::type;
 
     public:
 
@@ -276,7 +280,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       shared_ptr& operator=(const shared_ptr&) noexcept = default;
 
       template<typename _Tp1>
-	shared_ptr&
+	_Assignable<_Tp1*>
 	operator=(const shared_ptr<_Tp1>& __r) noexcept
 	{
 	  this->__shared_ptr<_Tp>::operator=(__r);
@@ -301,7 +305,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
 
       template<class _Tp1>
-	shared_ptr&
+	_Assignable<_Tp1*>
 	operator=(shared_ptr<_Tp1>&& __r) noexcept
 	{
 	  this->__shared_ptr<_Tp>::operator=(std::move(__r));
@@ -309,7 +313,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
       template<typename _Tp1, typename _Del>
-	shared_ptr&
+	_Assignable<typename unique_ptr<_Tp1, _Del>::pointer>
 	operator=(std::unique_ptr<_Tp1, _Del>&& __r)
 	{
 	  this->__shared_ptr<_Tp>::operator=(std::move(__r));
@@ -589,11 +593,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #if __cplusplus > 201402L || !defined(__STRICT_ANSI__) // c++1z or gnu++11
 #define __cpp_lib_enable_shared_from_this 201603
       weak_ptr<_Tp>
-      weak_from_this()
+      weak_from_this() noexcept
       { return this->_M_weak_this; }
 
       weak_ptr<const _Tp>
-      weak_from_this() const
+      weak_from_this() const noexcept
       { return this->_M_weak_this; }
 #endif
 

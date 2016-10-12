@@ -231,17 +231,13 @@ static void write_local_name (tree, const tree, const tree);
 static void dump_substitution_candidates (void);
 static tree mangle_decl_string (const tree);
 static int local_class_index (tree);
-static void maybe_check_abi_tags (tree, tree = NULL_TREE);
+static void maybe_check_abi_tags (tree, tree = NULL_TREE, int = 10);
 static bool equal_abi_tags (tree, tree);
 
 /* Control functions.  */
 
 static inline void start_mangling (const tree);
 static tree mangle_special_for_type (const tree, const char *);
-
-/* Foreign language functions.  */
-
-static void write_java_integer_type_codes (const tree);
 
 /* Append a single character to the end of the mangled
    representation.  */
@@ -1740,7 +1736,9 @@ static void
 write_real_cst (const tree value)
 {
   long target_real[4];  /* largest supported float */
-  char buffer[9];       /* eight hex digits in a 32-bit number */
+  /* Buffer for eight hex digits in a 32-bit number but big enough
+     even for 64-bit long to avoid warnings.  */
+  char buffer[17];
   int i, limit, dir;
 
   tree type = TREE_TYPE (value);
@@ -2434,8 +2432,6 @@ write_builtin_type (tree type)
 	write_string ("Ds");
       else if (type == char32_type_node)
 	write_string ("Di");
-      else if (TYPE_FOR_JAVA (type))
-	write_java_integer_type_codes (type);
       else
 	{
 	  size_t itk;
@@ -2490,11 +2486,9 @@ write_builtin_type (tree type)
       break;
 
     case REAL_TYPE:
-      if (type == float_type_node
-	  || type == java_float_type_node)
+      if (type == float_type_node)
 	write_char ('f');
-      else if (type == double_type_node
-	       || type == java_double_type_node)
+      else if (type == double_type_node)
 	write_char ('d');
       else if (type == long_double_type_node)
 	write_char ('e');
@@ -2619,40 +2613,16 @@ write_function_type (const tree type)
 /* Non-terminal <bare-function-type>.  TYPE is a FUNCTION_TYPE or
    METHOD_TYPE.  If INCLUDE_RETURN_TYPE is nonzero, the return value
    is mangled before the parameter types.  If non-NULL, DECL is
-   FUNCTION_DECL for the function whose type is being emitted.
-
-   If DECL is a member of a Java type, then a literal 'J'
-   is output and the return type is mangled as if INCLUDE_RETURN_TYPE
-   were nonzero.
-
-     <bare-function-type> ::= [J]</signature/ type>+  */
+   FUNCTION_DECL for the function whose type is being emitted.  */
 
 static void
 write_bare_function_type (const tree type, const int include_return_type_p,
 			  const tree decl)
 {
-  int java_method_p;
-
   MANGLE_TRACE_TREE ("bare-function-type", type);
 
-  /* Detect Java methods and emit special encoding.  */
-  if (decl != NULL
-      && DECL_FUNCTION_MEMBER_P (decl)
-      && TYPE_FOR_JAVA (DECL_CONTEXT (decl))
-      && !DECL_CONSTRUCTOR_P (decl)
-      && !DECL_DESTRUCTOR_P (decl)
-      && !DECL_CONV_FN_P (decl))
-    {
-      java_method_p = 1;
-      write_char ('J');
-    }
-  else
-    {
-      java_method_p = 0;
-    }
-
   /* Mangle the return type, if requested.  */
-  if (include_return_type_p || java_method_p)
+  if (include_return_type_p)
     write_type (TREE_TYPE (type));
 
   /* Now mangle the types of the arguments.  */
@@ -4024,9 +3994,12 @@ mangle_call_offset (const tree fixed_offset, const tree virtual_offset)
 
 tree
 mangle_thunk (tree fn_decl, const int this_adjusting, tree fixed_offset,
-	      tree virtual_offset)
+	      tree virtual_offset, tree thunk)
 {
   tree result;
+
+  if (abi_version_at_least (11))
+    maybe_check_abi_tags (fn_decl, thunk, 11);
 
   start_mangling (fn_decl);
 
@@ -4142,7 +4115,7 @@ mangle_conv_op_name_for_type (const tree type)
    guard variable for T.  */
 
 static void
-maybe_check_abi_tags (tree t, tree for_decl)
+maybe_check_abi_tags (tree t, tree for_decl, int ver)
 {
   if (DECL_ASSEMBLER_NAME_SET_P (t))
     return;
@@ -4153,9 +4126,14 @@ maybe_check_abi_tags (tree t, tree for_decl)
 
   tree newtags = get_abi_tags (t);
   if (newtags && newtags != oldtags
-      && abi_version_crosses (10))
+      && abi_version_crosses (ver))
     {
-      if (for_decl)
+      if (for_decl && DECL_THUNK_P (for_decl))
+	warning_at (DECL_SOURCE_LOCATION (t), OPT_Wabi,
+		    "the mangled name of a thunk for %qD changes between "
+		    "-fabi-version=%d and -fabi-version=%d",
+		    t, flag_abi_version, warn_abi_version);
+      else if (for_decl)
 	warning_at (DECL_SOURCE_LOCATION (for_decl), OPT_Wabi,
 		    "the mangled name of %qD changes between "
 		    "-fabi-version=%d and -fabi-version=%d",
@@ -4254,30 +4232,6 @@ mangle_ref_init_variable (const tree variable)
   return finish_mangling_get_identifier ();
 }
 
-
-/* Foreign language type mangling section.  */
-
-/* How to write the type codes for the integer Java type.  */
-
-static void
-write_java_integer_type_codes (const tree type)
-{
-  if (type == java_int_type_node)
-    write_char ('i');
-  else if (type == java_short_type_node)
-    write_char ('s');
-  else if (type == java_byte_type_node)
-    write_char ('c');
-  else if (type == java_char_type_node)
-    write_char ('w');
-  else if (type == java_long_type_node)
-    write_char ('x');
-  else if (type == java_boolean_type_node)
-    write_char ('b');
-  else
-    gcc_unreachable ();
-}
-
 /* Given a CLASS_TYPE, such as a record for std::bad_exception this
    function generates a mangled name for the vtable map variable of
    the class type.  For example, if the class type is

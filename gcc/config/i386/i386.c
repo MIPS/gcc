@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "cfghooks.h"
 #include "cfgloop.h"
@@ -2162,45 +2163,45 @@ const struct processor_costs *ix86_tune_cost = &pentium_cost;
 const struct processor_costs *ix86_cost = &pentium_cost;
 
 /* Processor feature/optimization bitmasks.  */
-#define m_386 (1<<PROCESSOR_I386)
-#define m_486 (1<<PROCESSOR_I486)
-#define m_PENT (1<<PROCESSOR_PENTIUM)
-#define m_LAKEMONT (1<<PROCESSOR_LAKEMONT)
-#define m_PPRO (1<<PROCESSOR_PENTIUMPRO)
-#define m_PENT4 (1<<PROCESSOR_PENTIUM4)
-#define m_NOCONA (1<<PROCESSOR_NOCONA)
+#define m_386 (1U<<PROCESSOR_I386)
+#define m_486 (1U<<PROCESSOR_I486)
+#define m_PENT (1U<<PROCESSOR_PENTIUM)
+#define m_LAKEMONT (1U<<PROCESSOR_LAKEMONT)
+#define m_PPRO (1U<<PROCESSOR_PENTIUMPRO)
+#define m_PENT4 (1U<<PROCESSOR_PENTIUM4)
+#define m_NOCONA (1U<<PROCESSOR_NOCONA)
 #define m_P4_NOCONA (m_PENT4 | m_NOCONA)
-#define m_CORE2 (1<<PROCESSOR_CORE2)
-#define m_NEHALEM (1<<PROCESSOR_NEHALEM)
-#define m_SANDYBRIDGE (1<<PROCESSOR_SANDYBRIDGE)
-#define m_HASWELL (1<<PROCESSOR_HASWELL)
+#define m_CORE2 (1U<<PROCESSOR_CORE2)
+#define m_NEHALEM (1U<<PROCESSOR_NEHALEM)
+#define m_SANDYBRIDGE (1U<<PROCESSOR_SANDYBRIDGE)
+#define m_HASWELL (1U<<PROCESSOR_HASWELL)
 #define m_CORE_ALL (m_CORE2 | m_NEHALEM  | m_SANDYBRIDGE | m_HASWELL)
-#define m_BONNELL (1<<PROCESSOR_BONNELL)
-#define m_SILVERMONT (1<<PROCESSOR_SILVERMONT)
-#define m_KNL (1<<PROCESSOR_KNL)
-#define m_SKYLAKE_AVX512 (1<<PROCESSOR_SKYLAKE_AVX512)
-#define m_INTEL (1<<PROCESSOR_INTEL)
+#define m_BONNELL (1U<<PROCESSOR_BONNELL)
+#define m_SILVERMONT (1U<<PROCESSOR_SILVERMONT)
+#define m_KNL (1U<<PROCESSOR_KNL)
+#define m_SKYLAKE_AVX512 (1U<<PROCESSOR_SKYLAKE_AVX512)
+#define m_INTEL (1U<<PROCESSOR_INTEL)
 
-#define m_GEODE (1<<PROCESSOR_GEODE)
-#define m_K6 (1<<PROCESSOR_K6)
+#define m_GEODE (1U<<PROCESSOR_GEODE)
+#define m_K6 (1U<<PROCESSOR_K6)
 #define m_K6_GEODE (m_K6 | m_GEODE)
-#define m_K8 (1<<PROCESSOR_K8)
-#define m_ATHLON (1<<PROCESSOR_ATHLON)
+#define m_K8 (1U<<PROCESSOR_K8)
+#define m_ATHLON (1U<<PROCESSOR_ATHLON)
 #define m_ATHLON_K8 (m_K8 | m_ATHLON)
-#define m_AMDFAM10 (1<<PROCESSOR_AMDFAM10)
-#define m_BDVER1 (1<<PROCESSOR_BDVER1)
-#define m_BDVER2 (1<<PROCESSOR_BDVER2)
-#define m_BDVER3 (1<<PROCESSOR_BDVER3)
-#define m_BDVER4 (1<<PROCESSOR_BDVER4)
-#define m_ZNVER1 (1<<PROCESSOR_ZNVER1)
-#define m_BTVER1 (1<<PROCESSOR_BTVER1)
-#define m_BTVER2 (1<<PROCESSOR_BTVER2)
+#define m_AMDFAM10 (1U<<PROCESSOR_AMDFAM10)
+#define m_BDVER1 (1U<<PROCESSOR_BDVER1)
+#define m_BDVER2 (1U<<PROCESSOR_BDVER2)
+#define m_BDVER3 (1U<<PROCESSOR_BDVER3)
+#define m_BDVER4 (1U<<PROCESSOR_BDVER4)
+#define m_ZNVER1 (1U<<PROCESSOR_ZNVER1)
+#define m_BTVER1 (1U<<PROCESSOR_BTVER1)
+#define m_BTVER2 (1U<<PROCESSOR_BTVER2)
 #define m_BDVER	(m_BDVER1 | m_BDVER2 | m_BDVER3 | m_BDVER4)
 #define m_BTVER (m_BTVER1 | m_BTVER2)
 #define m_AMD_MULTIPLE (m_ATHLON_K8 | m_AMDFAM10 | m_BDVER | m_BTVER \
 			| m_ZNVER1)
 
-#define m_GENERIC (1<<PROCESSOR_GENERIC)
+#define m_GENERIC (1U<<PROCESSOR_GENERIC)
 
 const char* ix86_tune_feature_names[X86_TUNE_LAST] = {
 #undef DEF_TUNE
@@ -4104,13 +4105,15 @@ class pass_stv : public rtl_opt_pass
 {
 public:
   pass_stv (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_stv, ctxt)
+    : rtl_opt_pass (pass_data_stv, ctxt),
+      timode_p (false)
   {}
 
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return TARGET_STV && TARGET_SSE2 && optimize > 1;
+      return (timode_p == !!TARGET_64BIT
+	      && TARGET_STV && TARGET_SSE2 && optimize > 1);
     }
 
   virtual unsigned int execute (function *)
@@ -4118,6 +4121,19 @@ public:
       return convert_scalars_to_vector ();
     }
 
+  opt_pass *clone ()
+    {
+      return new pass_stv (m_ctxt);
+    }
+
+  void set_pass_param (unsigned int n, bool param)
+    {
+      gcc_assert (n == 0);
+      timode_p = param;
+    }
+
+private:
+  bool timode_p;
 }; // class pass_stv
 
 } // anon namespace
@@ -4211,7 +4227,6 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, int ix86_flags,
     { "-mxsaves",	OPTION_MASK_ISA_XSAVES },
     { "-mmpx",          OPTION_MASK_ISA_MPX },
     { "-mclwb",		OPTION_MASK_ISA_CLWB },
-    { "-mpcommit",	OPTION_MASK_ISA_PCOMMIT },
     { "-mmwaitx",	OPTION_MASK_ISA_MWAITX  },
     { "-mclzero",	OPTION_MASK_ISA_CLZERO  },
     { "-mpku",		OPTION_MASK_ISA_PKU  },
@@ -4516,6 +4531,7 @@ ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
   const struct stringop_algs *default_algs;
   stringop_size_range input_ranges[MAX_STRINGOP_ALGS];
   char *curr_range_str, *next_range_str;
+  const char *opt = is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=";
   int i = 0, n = 0;
 
   if (is_memset)
@@ -4537,15 +4553,13 @@ ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
       if (3 != sscanf (curr_range_str, "%20[^:]:%d:%10s",
                        alg_name, &maxs, align))
         {
-          error ("wrong arg %s to option %s", curr_range_str,
-                 is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+	  error ("wrong argument %qs to option %qs", curr_range_str, opt);
           return;
         }
 
       if (n > 0 && (maxs < (input_ranges[n - 1].max + 1) && maxs != -1))
         {
-          error ("size ranges of option %s should be increasing",
-                 is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+	  error ("size ranges of option %qs should be increasing", opt);
           return;
         }
 
@@ -4555,9 +4569,25 @@ ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
 
       if (i == last_alg)
         {
-          error ("wrong stringop strategy name %s specified for option %s",
-                 alg_name,
-                 is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+	  error ("wrong strategy name %qs specified for option %qs",
+		 alg_name, opt);
+
+	  auto_vec <const char *> candidates;
+	  for (i = 0; i < last_alg; i++)
+	    if ((stringop_alg) i != rep_prefix_8_byte || TARGET_64BIT)
+	      candidates.safe_push (stringop_alg_names[i]);
+
+	  char *s;
+	  const char *hint
+	    = candidates_list_and_hint (alg_name, s, candidates);
+	  if (hint)
+	    inform (input_location,
+		    "valid arguments to %qs are: %s; did you mean %qs?",
+		    opt, s, hint);
+	  else
+	    inform (input_location, "valid arguments to %qs are: %s",
+		    opt, s);
+	  XDELETEVEC (s);
           return;
         }
 
@@ -4565,10 +4595,8 @@ ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
 	  && !TARGET_64BIT)
 	{
 	  /* rep; movq isn't available in 32-bit code.  */
-	  error ("stringop strategy name %s specified for option %s "
-		 "not supported for 32-bit code",
-                 alg_name,
-                 is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+	  error ("strategy name %qs specified for option %qs "
+		 "not supported for 32-bit code", alg_name, opt);
 	  return;
 	}
 
@@ -4580,8 +4608,7 @@ ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
         input_ranges[n].noalign = true;
       else
         {
-          error ("unknown alignment %s specified for option %s",
-                 align, is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+	  error ("unknown alignment %qs specified for option %qs", align, opt);
           return;
         }
       n++;
@@ -4592,15 +4619,13 @@ ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
   if (input_ranges[n - 1].max != -1)
     {
       error ("the max value for the last size range should be -1"
-             " for option %s",
-             is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+             " for option %qs", opt);
       return;
     }
 
   if (n > MAX_STRINGOP_ALGS)
     {
-      error ("too many size ranges specified in option %s",
-             is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+      error ("too many size ranges specified in option %qs", opt);
       return;
     }
 
@@ -4721,9 +4746,10 @@ ix86_override_options_after_change (void)
 
 /* Override various settings based on options.  If MAIN_ARGS_P, the
    options are from the command line, otherwise they are from
-   attributes.  */
+   attributes.  Return true if there's an error related to march
+   option.  */
 
-static void
+static bool
 ix86_option_override_internal (bool main_args_p,
 			       struct gcc_options *opts,
 			       struct gcc_options *opts_set)
@@ -4731,9 +4757,6 @@ ix86_option_override_internal (bool main_args_p,
   int i;
   unsigned int ix86_arch_mask;
   const bool ix86_tune_specified = (opts->x_ix86_tune_string != NULL);
-  const char *prefix;
-  const char *suffix;
-  const char *sw;
 
 #define PTA_3DNOW	 	(HOST_WIDE_INT_1 << 0)
 #define PTA_3DNOW_A	 	(HOST_WIDE_INT_1 << 1)
@@ -4791,11 +4814,10 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_AVX512IFMA		(HOST_WIDE_INT_1 << 53)
 #define PTA_AVX512VBMI		(HOST_WIDE_INT_1 << 54)
 #define PTA_CLWB		(HOST_WIDE_INT_1 << 55)
-#define PTA_PCOMMIT		(HOST_WIDE_INT_1 << 56)
-#define PTA_MWAITX		(HOST_WIDE_INT_1 << 57)
-#define PTA_CLZERO		(HOST_WIDE_INT_1 << 58)
-#define PTA_NO_80387		(HOST_WIDE_INT_1 << 59)
-#define PTA_PKU		(HOST_WIDE_INT_1 << 60)
+#define PTA_MWAITX		(HOST_WIDE_INT_1 << 56)
+#define PTA_CLZERO		(HOST_WIDE_INT_1 << 57)
+#define PTA_NO_80387		(HOST_WIDE_INT_1 << 58)
+#define PTA_PKU		(HOST_WIDE_INT_1 << 59)
 
 #define PTA_CORE2 \
   (PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3 \
@@ -4958,10 +4980,10 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_SSE2 | PTA_NO_SAHF | PTA_FXSR},
       {"amdfam10", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
-	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_FXSR | PTA_PRFCHW},
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_PRFCHW | PTA_FXSR},
       {"barcelona", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
-	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_FXSR | PTA_PRFCHW},
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_PRFCHW | PTA_FXSR},
       {"bdver1", PROCESSOR_BDVER1, CPU_BDVER1,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
@@ -5030,21 +5052,6 @@ ix86_option_override_internal (bool main_args_p,
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
-
-  /* Set up prefix/suffix so the error messages refer to either the command
-     line argument, or the attribute(target).  */
-  if (main_args_p)
-    {
-      prefix = "-m";
-      suffix = "";
-      sw = "switch";
-    }
-  else
-    {
-      prefix = "option(\"";
-      suffix = "\")";
-      sw = "attribute";
-    }
 
   /* Turn off both OPTION_MASK_ABI_64 and OPTION_MASK_ABI_X32 if
      TARGET_64BIT_DEFAULT is true and TARGET_64BIT is false.  */
@@ -5118,9 +5125,13 @@ ix86_option_override_internal (bool main_args_p,
 	  opts->x_ix86_tune_string = "generic";
 	}
       else if (!strcmp (opts->x_ix86_tune_string, "x86-64"))
-        warning (OPT_Wdeprecated, "%stune=x86-64%s is deprecated; use "
-                 "%stune=k8%s or %stune=generic%s instead as appropriate",
-                 prefix, suffix, prefix, suffix, prefix, suffix);
+        warning (OPT_Wdeprecated,
+		 main_args_p
+		 ? "%<-mtune=x86-64%> is deprecated; use %<-mtune=k8%> "
+		   "or %<-mtune=generic%> instead as appropriate"
+		 : "%<target(\"tune=x86-64\")%> is deprecated; use "
+		   "%<target(\"tune=k8\")%> or %<target(\"tune=generic\")%> "
+		   "instead as appropriate");
     }
   else
     {
@@ -5266,15 +5277,35 @@ ix86_option_override_internal (bool main_args_p,
   for (i = 0; i < pta_size; i++)
     if (! strcmp (opts->x_ix86_arch_string, processor_alias_table[i].name))
       {
+	if (!strcmp (opts->x_ix86_arch_string, "generic"))
+	  {
+	    error (main_args_p
+		  ? "%<generic%> CPU can be used only for %<-mtune=%> switch"
+		  : "%<generic%> CPU can be used only for "
+		    "%<target(\"tune=\")%> attribute");
+	    return false;
+	  }
+	else if (!strcmp (opts->x_ix86_arch_string, "intel"))
+	  {
+	    error (main_args_p
+		  ? "%<intel%> CPU can be used only for %<-mtune=%> switch"
+		  : "%<intel%> CPU can be used only for "
+		    "%<target(\"tune=\")%> attribute");
+	    return false;
+	  }
+
+	if (TARGET_64BIT_P (opts->x_ix86_isa_flags)
+	    && !(processor_alias_table[i].flags & PTA_64BIT))
+	  {
+	    error ("CPU you selected does not support x86-64 "
+		   "instruction set");
+	    return false;
+	  }
+
 	ix86_schedule = processor_alias_table[i].schedule;
 	ix86_arch = processor_alias_table[i].processor;
 	/* Default cpu tuning to the architecture.  */
 	ix86_tune = ix86_arch;
-
-	if (TARGET_64BIT_P (opts->x_ix86_isa_flags)
-	    && !(processor_alias_table[i].flags & PTA_64BIT))
-	  error ("CPU you selected does not support x86-64 "
-		 "instruction set");
 
 	if (processor_alias_table[i].flags & PTA_MMX
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_MMX))
@@ -5409,9 +5440,6 @@ ix86_option_override_internal (bool main_args_p,
 	if (processor_alias_table[i].flags & PTA_PREFETCHWT1
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_PREFETCHWT1))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PREFETCHWT1;
-	if (processor_alias_table[i].flags & PTA_PCOMMIT
-	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_PCOMMIT))
-	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PCOMMIT;
 	if (processor_alias_table[i].flags & PTA_CLWB
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_CLWB))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_CLWB;
@@ -5473,15 +5501,39 @@ ix86_option_override_internal (bool main_args_p,
   if (TARGET_X32 && (ix86_isa_flags & OPTION_MASK_ISA_MPX))
     error ("Intel MPX does not support x32");
 
-  if (!strcmp (opts->x_ix86_arch_string, "generic"))
-    error ("generic CPU can be used only for %stune=%s %s",
-	   prefix, suffix, sw);
-  else if (!strcmp (opts->x_ix86_arch_string, "intel"))
-    error ("intel CPU can be used only for %stune=%s %s",
-	   prefix, suffix, sw);
-  else if (i == pta_size)
-    error ("bad value (%s) for %sarch=%s %s",
-	   opts->x_ix86_arch_string, prefix, suffix, sw);
+  if (i == pta_size)
+    {
+      error (main_args_p
+	     ? "bad value (%qs) for %<-march=%> switch"
+	     : "bad value (%qs) for %<target(\"arch=\")%> attribute",
+	     opts->x_ix86_arch_string);
+
+      auto_vec <const char *> candidates;
+      for (i = 0; i < pta_size; i++)
+	if (strcmp (processor_alias_table[i].name, "generic")
+	    && strcmp (processor_alias_table[i].name, "intel")
+	    && (!TARGET_64BIT_P (opts->x_ix86_isa_flags)
+		|| (processor_alias_table[i].flags & PTA_64BIT)))
+	  candidates.safe_push (processor_alias_table[i].name);
+
+      char *s;
+      const char *hint
+	= candidates_list_and_hint (opts->x_ix86_arch_string, s, candidates);
+      if (hint)
+	inform (input_location,
+		main_args_p
+		? "valid arguments to %<-march=%> switch are: "
+		  "%s; did you mean %qs?"
+		: "valid arguments to %<target(\"arch=\")%> attribute are: "
+		  "%s; did you mean %qs?", s, hint);
+      else
+	inform (input_location,
+		main_args_p
+		? "valid arguments to %<-march=%> switch are: %s"
+		: "valid arguments to %<target(\"arch=\")%> attribute are: %s",
+		s);
+      XDELETEVEC (s);
+    }
 
   ix86_arch_mask = 1u << ix86_arch;
   for (i = 0; i < X86_ARCH_LAST; ++i)
@@ -5523,8 +5575,36 @@ ix86_option_override_internal (bool main_args_p,
       }
 
   if (ix86_tune_specified && i == pta_size)
-    error ("bad value (%s) for %stune=%s %s",
-	   opts->x_ix86_tune_string, prefix, suffix, sw);
+    {
+      error (main_args_p
+	     ? "bad value (%qs) for %<-mtune=%> switch"
+	     : "bad value (%qs) for %<target(\"tune=\")%> attribute",
+	     opts->x_ix86_tune_string);
+
+      auto_vec <const char *> candidates;
+      for (i = 0; i < pta_size; i++)
+	if (!TARGET_64BIT_P (opts->x_ix86_isa_flags)
+	    || (processor_alias_table[i].flags & PTA_64BIT))
+	  candidates.safe_push (processor_alias_table[i].name);
+
+      char *s;
+      const char *hint
+	= candidates_list_and_hint (opts->x_ix86_tune_string, s, candidates);
+      if (hint)
+	inform (input_location,
+		main_args_p
+		? "valid arguments to %<-mtune=%> switch are: "
+		  "%s; did you mean %qs?"
+		: "valid arguments to %<target(\"tune=\")%> attribute are: "
+		  "%s; did you mean %qs?", s, hint);
+      else
+	inform (input_location,
+		main_args_p
+		? "valid arguments to %<-mtune=%> switch are: %s"
+		: "valid arguments to %<target(\"tune=\")%> attribute are: %s",
+		s);
+      XDELETEVEC (s);
+    }
 
   set_ix86_tune_features (ix86_tune, opts->x_ix86_dump_tunes);
 
@@ -5623,7 +5703,9 @@ ix86_option_override_internal (bool main_args_p,
             & ~opts->x_ix86_isa_flags_explicit);
 
       if (TARGET_RTD_P (opts->x_target_flags))
-	warning (0, "%srtd%s is ignored in 64bit mode", prefix, suffix);
+	warning (0,
+		 main_args_p ? "%<-mrtd%> is ignored in 64bit mode"
+			     : "%<target(\"rtd\")%> is ignored in 64bit mode");
     }
   else
     {
@@ -5744,7 +5826,9 @@ ix86_option_override_internal (bool main_args_p,
   /* Accept -msseregparm only if at least SSE support is enabled.  */
   if (TARGET_SSEREGPARM_P (opts->x_target_flags)
       && ! TARGET_SSE_P (opts->x_ix86_isa_flags))
-    error ("%ssseregparm%s used without SSE enabled", prefix, suffix);
+    error (main_args_p
+	   ? "%<-msseregparm%> used without SSE enabled"
+	   : "%<target(\"sseregparm\")%> used without SSE enabled");
 
   if (opts_set->x_ix86_fpmath)
     {
@@ -5809,8 +5893,12 @@ ix86_option_override_internal (bool main_args_p,
       && !(opts->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
     {
       if (opts_set->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS)
-	warning (0, "stack probing requires %saccumulate-outgoing-args%s "
-		 "for correctness", prefix, suffix);
+	warning (0,
+		 main_args_p
+		 ? "stack probing requires %<-maccumulate-outgoing-args%> "
+		   "for correctness"
+		 : "stack probing requires "
+		   "%<target(\"accumulate-outgoing-args\")%> for correctness");
       opts->x_target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
@@ -5820,8 +5908,11 @@ ix86_option_override_internal (bool main_args_p,
       && !(opts->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
     {
       if (opts_set->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS)
-	warning (0, "fixed ebp register requires %saccumulate-outgoing-args%s",
-		 prefix, suffix);
+	warning (0,
+		 main_args_p
+		 ? "fixed ebp register requires %<-maccumulate-outgoing-args%>"
+		 : "fixed ebp register requires "
+		   "%<target(\"accumulate-outgoing-args\")%>");
       opts->x_target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
@@ -5957,11 +6048,12 @@ ix86_option_override_internal (bool main_args_p,
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
   /* Disable STV if -mpreferred-stack-boundary={2,3} or
-     -mincoming-stack-boundary={2,3} - the needed
+     -mincoming-stack-boundary={2,3} or -mstackrealign - the needed
      stack realignment will be extra cost the pass doesn't take into
      account and the pass can't realign the stack.  */
   if (ix86_preferred_stack_boundary < 128
-      || ix86_incoming_stack_boundary < 128)
+      || ix86_incoming_stack_boundary < 128
+      || opts->x_ix86_force_align_arg_pointer)
     opts->x_target_flags &= ~MASK_STV;
   if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_LOAD_OPTIMAL]
       && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
@@ -6064,6 +6156,8 @@ ix86_option_override_internal (bool main_args_p,
       ix86_parse_stringop_strategy_string (str, true);
       free (str);
     }
+
+  return true;
 }
 
 /* Implement the TARGET_OPTION_OVERRIDE hook.  */
@@ -6071,29 +6165,7 @@ ix86_option_override_internal (bool main_args_p,
 static void
 ix86_option_override (void)
 {
-  opt_pass *pass_insert_vzeroupper = make_pass_insert_vzeroupper (g);
-  struct register_pass_info insert_vzeroupper_info
-    = { pass_insert_vzeroupper, "reload",
-	1, PASS_POS_INSERT_AFTER
-      };
-  opt_pass *pass_stv = make_pass_stv (g);
-  struct register_pass_info stv_info_dimode
-    = { pass_stv, "combine",
-	1, PASS_POS_INSERT_AFTER
-      };
-  /* Run the 64-bit STV pass before the CSE pass so that CONST0_RTX and
-     CONSTM1_RTX generated by the STV pass can be CSEed.  */
-  struct register_pass_info stv_info_timode
-    = { pass_stv, "cse2",
-	1, PASS_POS_INSERT_BEFORE
-      };
-
   ix86_option_override_internal (true, &global_options, &global_options_set);
-
-
-  /* This needs to be done at start up.  It's convenient to do it here.  */
-  register_pass (&insert_vzeroupper_info);
-  register_pass (TARGET_64BIT ? &stv_info_timode : &stv_info_dimode);
 }
 
 /* Implement the TARGET_OFFLOAD_OPTIONS hook.  */
@@ -6443,6 +6515,8 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("mmx",	OPT_mmmx),
     IX86_ATTR_ISA ("pclmul",	OPT_mpclmul),
     IX86_ATTR_ISA ("popcnt",	OPT_mpopcnt),
+    IX86_ATTR_ISA ("movbe",	OPT_mmovbe),
+    IX86_ATTR_ISA ("crc32",	OPT_mcrc32),
     IX86_ATTR_ISA ("sse",	OPT_msse),
     IX86_ATTR_ISA ("sse2",	OPT_msse2),
     IX86_ATTR_ISA ("sse3",	OPT_msse3),
@@ -6473,7 +6547,6 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("avx512vbmi",	OPT_mavx512vbmi),
     IX86_ATTR_ISA ("avx512ifma",	OPT_mavx512ifma),
     IX86_ATTR_ISA ("clwb",	OPT_mclwb),
-    IX86_ATTR_ISA ("pcommit",	OPT_mpcommit),
     IX86_ATTR_ISA ("mwaitx",	OPT_mmwaitx),
     IX86_ATTR_ISA ("clzero",    OPT_mclzero),
     IX86_ATTR_ISA ("pku",	OPT_mpku),
@@ -6658,6 +6731,15 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
   return ret;
 }
 
+/* Release allocated strings.  */
+static void
+release_options_strings (char **option_strings)
+{
+  /* Free up memory allocated to hold the strings */
+  for (unsigned i = 0; i < IX86_FUNCTION_SPECIFIC_MAX; i++)
+    free (option_strings[i]);
+}
+
 /* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
 
 tree
@@ -6672,7 +6754,6 @@ ix86_valid_target_attribute_tree (tree args,
   int orig_arch_specified = ix86_arch_specified;
   char *option_strings[IX86_FUNCTION_SPECIFIC_MAX] = { NULL, NULL };
   tree t = NULL_TREE;
-  int i;
   struct cl_target_option *def
     = TREE_TARGET_OPTION (target_option_default_node);
   struct gcc_options enum_opts_set;
@@ -6733,7 +6814,12 @@ ix86_valid_target_attribute_tree (tree args,
 	}
 
       /* Do any overrides, such as arch=xxx, or tune=xxx support.  */
-      ix86_option_override_internal (false, opts, opts_set);
+      bool r = ix86_option_override_internal (false, opts, opts_set);
+      if (!r)
+	{
+	  release_options_strings (option_strings);
+	  return error_mark_node;
+	}
 
       /* Add any builtin functions with the new isa if any.  */
       ix86_add_new_builtins (opts->x_ix86_isa_flags);
@@ -6746,9 +6832,7 @@ ix86_valid_target_attribute_tree (tree args,
       opts->x_ix86_tune_string = orig_tune_string;
       opts_set->x_ix86_fpmath = orig_fpmath_set;
 
-      /* Free up memory allocated to hold the strings */
-      for (i = 0; i < IX86_FUNCTION_SPECIFIC_MAX; i++)
-	free (option_strings[i]);
+      release_options_strings (option_strings);
     }
 
   return t;
@@ -10548,6 +10632,9 @@ ix86_build_builtin_va_list_64 (void)
 
   layout_type (record);
 
+  TYPE_ATTRIBUTES (record) = tree_cons (get_identifier ("sysv_abi va_list"),
+					NULL_TREE, TYPE_ATTRIBUTES (record));
+
   /* The correct type is an array type of one element.  */
   return build_array_type (record, build_index_type (size_zero_node));
 }
@@ -10560,17 +10647,36 @@ ix86_build_builtin_va_list (void)
 {
   if (TARGET_64BIT)
     {
-      /* Initialize ABI specific va_list builtin types.  */
-      tree sysv_va_list, ms_va_list;
+      /* Initialize ABI specific va_list builtin types.
 
-      sysv_va_list = ix86_build_builtin_va_list_64 ();
-      sysv_va_list_type_node = build_variant_type_copy (sysv_va_list);
+	 In lto1, we can encounter two va_list types:
+	 - one as a result of the type-merge across TUs, and
+	 - the one constructed here.
+	 These two types will not have the same TYPE_MAIN_VARIANT, and therefore
+	 a type identity check in canonical_va_list_type based on
+	 TYPE_MAIN_VARIANT (which we used to have) will not work.
+	 Instead, we tag each va_list_type_node with its unique attribute, and
+	 look for the attribute in the type identity check in
+	 canonical_va_list_type.
+
+	 Tagging sysv_va_list_type_node directly with the attribute is
+	 problematic since it's a array of one record, which will degrade into a
+	 pointer to record when used as parameter (see build_va_arg comments for
+	 an example), dropping the attribute in the process.  So we tag the
+	 record instead.  */
+
+      /* For SYSV_ABI we use an array of one record.  */
+      sysv_va_list_type_node = ix86_build_builtin_va_list_64 ();
 	
       /* For MS_ABI we use plain pointer to argument area.  */
-      ms_va_list = build_pointer_type (char_type_node);
-      ms_va_list_type_node = build_variant_type_copy (ms_va_list);
+      tree char_ptr_type = build_pointer_type (char_type_node);
+      tree attr = tree_cons (get_identifier ("ms_abi va_list"), NULL_TREE,
+			     TYPE_ATTRIBUTES (char_ptr_type));
+      ms_va_list_type_node = build_type_attribute_variant (char_ptr_type, attr);
 
-      return (ix86_abi == MS_ABI) ? ms_va_list : sysv_va_list;
+      return ((ix86_abi == MS_ABI)
+	      ? ms_va_list_type_node
+	      : sysv_va_list_type_node);
     }
   else
     {
@@ -17799,6 +17905,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 #ifdef HAVE_AS_IX86_CMOV_SUN_SYNTAX
 	  if (ASSEMBLER_DIALECT == ASM_ATT)
 	    putc ('.', file);
+	  gcc_fallthrough ();
 #endif
 
 	case 'C':
@@ -21118,9 +21225,9 @@ ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
 	if (ix86_dep_by_shift_count_body (XVECEXP (set_body, 0, i),
 					  use_body))
 	  return true;
+      /* FALLTHROUGH */
     default:
       return false;
-      break;
     }
 
   /* Retrieve shift count of USE_BODY.  */
@@ -21134,9 +21241,9 @@ ix86_dep_by_shift_count_body (const_rtx set_body, const_rtx use_body)
 	if (ix86_dep_by_shift_count_body (set_body,
 					  XVECEXP (use_body, 0, i)))
 	  return true;
+      /* FALLTHROUGH */
     default:
       return false;
-      break;
     }
 
   if (shift_rtx
@@ -22250,19 +22357,14 @@ ix86_fp_compare_code_to_integer (enum rtx_code code)
     case ORDERED:
     case UNORDERED:
       return code;
-      break;
     case UNEQ:
       return EQ;
-      break;
     case UNLT:
       return LTU;
-      break;
     case UNLE:
       return LEU;
-      break;
     case LTGT:
       return NE;
-      break;
     default:
       return UNKNOWN;
     }
@@ -34839,7 +34941,6 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V4DI_FTYPE_V4DI_V4DI_V4DI_INT_UQI:
     case V4SI_FTYPE_V4SI_V4SI_V4SI_INT_UQI:
     case V2DI_FTYPE_V2DI_V2DI_V2DI_INT_UQI:
-       nargs = 5;
       nargs = 5;
       mask_pos = 1;
       nargs_constant = 1;
@@ -36085,7 +36186,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	  error ("%qE needs isa option %s", fndecl, opts);
 	  free (opts);
 	}
-      return const0_rtx;
+      return expand_call (exp, target, ignore);
     }
 
   switch (fcode)
@@ -43284,31 +43385,6 @@ ix86_vector_mode_supported_p (machine_mode mode)
   return false;
 }
 
-/* Implement target hook libgcc_floating_mode_supported_p.  */
-static bool
-ix86_libgcc_floating_mode_supported_p (machine_mode mode)
-{
-  switch (mode)
-    {
-    case SFmode:
-    case DFmode:
-    case XFmode:
-      return true;
-
-    case TFmode:
-#ifdef IX86_NO_LIBGCC_TFMODE
-      return false;
-#elif defined IX86_MAYBE_NO_LIBGCC_TFMODE
-      return TARGET_LONG_DOUBLE_128;
-#else
-      return true;
-#endif
-
-    default:
-      return false;
-    }
-}
-
 /* Target hook for c_mode_for_suffix.  */
 static machine_mode
 ix86_c_mode_for_suffix (char suffix)
@@ -44669,6 +44745,8 @@ static const struct attribute_spec ix86_attribute_table[] =
   /* ms_abi and sysv_abi calling convention function attributes.  */
   { "ms_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true },
   { "sysv_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true },
+  { "ms_abi va_list", 0, 0, false, false, false, NULL, false },
+  { "sysv_abi va_list", 0, 0, false, false, false, NULL, false },
   { "ms_hook_prologue", 0, 0, true, false, false, ix86_handle_fndecl_attribute,
     false },
   { "callee_pop_aggregate_return", 1, 1, false, true, true,
@@ -48563,74 +48641,25 @@ ix86_fn_abi_va_list (tree fndecl)
 static tree
 ix86_canonical_va_list_type (tree type)
 {
-  tree wtype, htype;
-
-  /* Resolve references and pointers to va_list type.  */
-  if (TREE_CODE (type) == MEM_REF)
-    type = TREE_TYPE (type);
-  else if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE(type)))
-    type = TREE_TYPE (type);
-  else if (POINTER_TYPE_P (type) && TREE_CODE (TREE_TYPE (type)) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
-  if (TARGET_64BIT && va_list_type_node != NULL_TREE)
+  if (TARGET_64BIT)
     {
-      wtype = va_list_type_node;
-	  gcc_assert (wtype != NULL_TREE);
-      htype = type;
-      if (TREE_CODE (wtype) == ARRAY_TYPE)
-	{
-	  /* If va_list is an array type, the argument may have decayed
-	     to a pointer type, e.g. by being passed to another function.
-	     In that case, unwrap both types so that we can compare the
-	     underlying records.  */
-	  if (TREE_CODE (htype) == ARRAY_TYPE
-	      || POINTER_TYPE_P (htype))
-	    {
-	      wtype = TREE_TYPE (wtype);
-	      htype = TREE_TYPE (htype);
-	    }
-	}
-      if (TYPE_MAIN_VARIANT (wtype) == TYPE_MAIN_VARIANT (htype))
-	return va_list_type_node;
-      wtype = sysv_va_list_type_node;
-	  gcc_assert (wtype != NULL_TREE);
-      htype = type;
-      if (TREE_CODE (wtype) == ARRAY_TYPE)
-	{
-	  /* If va_list is an array type, the argument may have decayed
-	     to a pointer type, e.g. by being passed to another function.
-	     In that case, unwrap both types so that we can compare the
-	     underlying records.  */
-	  if (TREE_CODE (htype) == ARRAY_TYPE
-	      || POINTER_TYPE_P (htype))
-	    {
-	      wtype = TREE_TYPE (wtype);
-	      htype = TREE_TYPE (htype);
-	    }
-	}
-      if (TYPE_MAIN_VARIANT (wtype) == TYPE_MAIN_VARIANT (htype))
-	return sysv_va_list_type_node;
-      wtype = ms_va_list_type_node;
-	  gcc_assert (wtype != NULL_TREE);
-      htype = type;
-      if (TREE_CODE (wtype) == ARRAY_TYPE)
-	{
-	  /* If va_list is an array type, the argument may have decayed
-	     to a pointer type, e.g. by being passed to another function.
-	     In that case, unwrap both types so that we can compare the
-	     underlying records.  */
-	  if (TREE_CODE (htype) == ARRAY_TYPE
-	      || POINTER_TYPE_P (htype))
-	    {
-	      wtype = TREE_TYPE (wtype);
-	      htype = TREE_TYPE (htype);
-	    }
-	}
-      if (TYPE_MAIN_VARIANT (wtype) == TYPE_MAIN_VARIANT (htype))
+      if (lookup_attribute ("ms_abi va_list", TYPE_ATTRIBUTES (type)))
 	return ms_va_list_type_node;
+
+      if ((TREE_CODE (type) == ARRAY_TYPE
+	   && integer_zerop (array_type_nelts (type)))
+	  || POINTER_TYPE_P (type))
+	{
+	  tree elem_type = TREE_TYPE (type);
+	  if (TREE_CODE (elem_type) == RECORD_TYPE
+	      && lookup_attribute ("sysv_abi va_list",
+				   TYPE_ATTRIBUTES (elem_type)))
+	    return sysv_va_list_type_node;
+	}
+
       return NULL_TREE;
     }
+
   return std_canonical_va_list_type (type);
 }
 
@@ -49454,7 +49483,6 @@ has_dispatch (rtx_insn *insn, int action)
 
       case IS_DISPATCH_ON:
 	return true;
-	break;
 
       case IS_CMP:
 	return is_cmp (insn);
@@ -49535,9 +49563,7 @@ ix86_preferred_simd_mode (machine_mode mode)
 	return V4SFmode;
 
     case DFmode:
-      if (!TARGET_VECTORIZE_DOUBLE)
-	return word_mode;
-      else if (TARGET_AVX512F)
+      if (TARGET_AVX512F)
 	return V8DFmode;
       else if (TARGET_AVX && !TARGET_PREFER_AVX128)
 	return V4DFmode;
@@ -49628,9 +49654,14 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
   int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
 
+  /* Penalize DFmode vector operations for Bonnell.  */
+  if (TARGET_BONNELL && kind == vector_stmt
+      && vectype && GET_MODE_INNER (TYPE_MODE (vectype)) == DFmode)
+    stmt_cost *= 5;  /* FIXME: The value here is arbitrary.  */
+
   /* Statements in an inner loop relative to the loop being
      vectorized are weighted more heavily.  The value here is
-      arbitrary and could potentially be improved with analysis.  */
+     arbitrary and could potentially be improved with analysis.  */
   if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
     count *= 50;  /* FIXME.  */
 
@@ -49639,13 +49670,13 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   /* We need to multiply all vector stmt cost by 1.7 (estimated cost)
      for Silvermont as it has out of order integer pipeline and can execute
      2 scalar instruction per tick, but has in order SIMD pipeline.  */
-  if (TARGET_SILVERMONT || TARGET_INTEL)
-    if (stmt_info && stmt_info->stmt)
-      {
-	tree lhs_op = gimple_get_lhs (stmt_info->stmt);
-	if (lhs_op && TREE_CODE (TREE_TYPE (lhs_op)) == INTEGER_TYPE)
-	  retval = (retval * 17) / 10;
-      }
+  if ((TARGET_SILVERMONT || TARGET_INTEL)
+      && stmt_info && stmt_info->stmt)
+    {
+      tree lhs_op = gimple_get_lhs (stmt_info->stmt);
+      if (lhs_op && TREE_CODE (TREE_TYPE (lhs_op)) == INTEGER_TYPE)
+	retval = (retval * 17) / 10;
+    }
 
   cost[where] += retval;
 
@@ -49909,7 +49940,6 @@ ix86_simd_clone_usable (struct cgraph_node *node)
       if (!TARGET_AVX)
 	return -1;
       return TARGET_AVX2 ? 1 : 0;
-      break;
     case 'd':
       if (!TARGET_AVX2)
 	return -1;
@@ -50568,10 +50598,6 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
 
-#undef TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
-#define TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P \
-  ix86_libgcc_floating_mode_supported_p
-
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ix86_c_mode_for_suffix
 
@@ -50673,9 +50699,6 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
-
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_true
 
 #undef TARGET_REGISTER_PRIORITY
 #define TARGET_REGISTER_PRIORITY ix86_register_priority

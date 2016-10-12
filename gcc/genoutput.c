@@ -231,6 +231,7 @@ output_prologue (void)
   printf ("#include \"diagnostic-core.h\"\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"target.h\"\n");
+  printf ("#include \"memmodel.h\"\n");
   printf ("#include \"tm-constrs.h\"\n");
 }
 
@@ -979,7 +980,7 @@ init_insn_for_nothing (void)
   idata = XCNEW (struct data);
   new (idata) data ();
   idata->name = "*placeholder_for_nothing";
-  idata->loc = file_location ("<internal>", 0);
+  idata->loc = file_location ("<internal>", 0, 0);
   idata_end = &idata->next;
 }
 

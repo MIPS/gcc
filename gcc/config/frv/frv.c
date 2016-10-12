@@ -491,6 +491,9 @@ static bool frv_class_likely_spilled_p 		(reg_class_t);
 #undef  TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD frv_secondary_reload
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
+
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P frv_legitimate_address_p
 
@@ -2076,9 +2079,8 @@ frv_can_eliminate (const int from, const int to)
           : true);
 }
 
-/* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It specifies the
-   initial difference between the specified pair of registers.  This macro must
-   be defined if `ELIMINABLE_REGS' is defined.  */
+/* This function returns the initial difference between the specified
+   pair of registers.  */
 
 /* See frv_stack_info for more details on the frv stack frame.  */
 

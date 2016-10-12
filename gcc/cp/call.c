@@ -146,7 +146,6 @@ static int joust (struct z_candidate *, struct z_candidate *, bool,
 		  tsubst_flags_t);
 static int compare_ics (conversion *, conversion *);
 static tree build_over_call (struct z_candidate *, int, tsubst_flags_t);
-static tree build_java_interface_fn_ref (tree, tree);
 #define convert_like(CONV, EXPR, COMPLAIN)			\
   convert_like_real ((CONV), (EXPR), NULL_TREE, 0, 0,		\
 		     /*issue_conversion_warnings=*/true,	\
@@ -527,6 +526,7 @@ null_ptr_cst_p (tree t)
     {
       /* Core issue 903 says only literal 0 is a null pointer constant.  */
       if (TREE_CODE (type) == INTEGER_TYPE
+	  && !char_type_p (type)
 	  && TREE_CODE (t) == INTEGER_CST
 	  && integer_zerop (t)
 	  && !TREE_OVERFLOW (t))
@@ -1539,15 +1539,20 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
 	gl_kind = clk_rvalueref;
     }
   else if (expr)
-    {
-      gl_kind = lvalue_kind (expr);
-      if (gl_kind & clk_class)
-	/* A class prvalue is not a glvalue.  */
-	gl_kind = clk_none;
-    }
+    gl_kind = lvalue_kind (expr);
+  else if (CLASS_TYPE_P (from)
+	   || TREE_CODE (from) == ARRAY_TYPE)
+    gl_kind = clk_class;
   else
     gl_kind = clk_none;
-  is_lvalue = gl_kind && !(gl_kind & clk_rvalueref);
+
+  /* Don't allow a class prvalue when LOOKUP_NO_TEMP_BIND.  */
+  if ((flags & LOOKUP_NO_TEMP_BIND)
+      && (gl_kind & clk_class))
+    gl_kind = clk_none;
+
+  /* Same mask as real_lvalue_p.  */
+  is_lvalue = gl_kind && !(gl_kind & (clk_rvalueref|clk_class));
 
   tfrom = from;
   if ((gl_kind & clk_bitfield) != 0)
@@ -1569,11 +1574,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
      [8.5.3/5 dcl.init.ref] is changed to also require direct bindings for
      const and rvalue references to rvalues of compatible class type.
      We should also do direct bindings for non-class xvalues.  */
-  if (related_p
-      && (gl_kind
-	  || (!(flags & LOOKUP_NO_TEMP_BIND)
-	      && (CLASS_TYPE_P (from)
-		  || TREE_CODE (from) == ARRAY_TYPE))))
+  if (related_p && gl_kind)
     {
       /* [dcl.init.ref]
 
@@ -2544,7 +2545,6 @@ add_builtin_candidate (struct z_candidate **candidates, enum tree_code code,
 	  type2 = ptrdiff_type_node;
 	  break;
 	}
-      /* XXX Really fallthru?  */
       /* FALLTHRU */
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
@@ -3671,6 +3671,14 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
        creating a garbage BASELINK; constructors can't be inherited.  */
     ctors = lookup_fnfields_slot (totype, complete_ctor_identifier);
 
+  /* FIXME P0135 doesn't say what to do in C++17 about list-initialization from
+     a single element.  For now, let's handle constructors as before and also
+     consider conversion operators from the element.  */
+  if (cxx_dialect >= cxx1z
+      && BRACE_ENCLOSED_INITIALIZER_P (expr)
+      && CONSTRUCTOR_NELTS (expr) == 1)
+    fromtype = TREE_TYPE (CONSTRUCTOR_ELT (expr, 0)->value);
+
   if (MAYBE_CLASS_TYPE_P (fromtype))
     {
       tree to_nonref = non_reference (totype);
@@ -3745,7 +3753,13 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
     }
 
   if (conv_fns)
-    first_arg = expr;
+    {
+      if (BRACE_ENCLOSED_INITIALIZER_P (expr))
+	/* FIXME see above about C++17.  */
+	first_arg = CONSTRUCTOR_ELT (expr, 0)->value;
+      else
+	first_arg = expr;
+    }
 
   for (; conv_fns; conv_fns = TREE_CHAIN (conv_fns))
     {
@@ -4211,13 +4225,14 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
 
 tree
 build_operator_new_call (tree fnname, vec<tree, va_gc> **args,
-			 tree *size, tree *cookie_size, tree size_check,
+			 tree *size, tree *cookie_size,
+			 tree align_arg, tree size_check,
 			 tree *fn, tsubst_flags_t complain)
 {
   tree original_size = *size;
   tree fns;
   struct z_candidate *candidates;
-  struct z_candidate *cand;
+  struct z_candidate *cand = NULL;
   bool any_viable_p;
 
   if (fn)
@@ -4247,9 +4262,20 @@ build_operator_new_call (tree fnname, vec<tree, va_gc> **args,
      we disregard block-scope declarations of "operator new".  */
   fns = lookup_function_nonclass (fnname, *args, /*block_p=*/false);
 
+  if (align_arg)
+    {
+      vec<tree, va_gc>* align_args
+	= vec_copy_and_insert (*args, align_arg, 1);
+      cand = perform_overload_resolution (fns, align_args, &candidates,
+					  &any_viable_p, tf_none);
+      /* If no aligned allocation function matches, try again without the
+	 alignment.  */
+    }
+
   /* Figure out what function is being called.  */
-  cand = perform_overload_resolution (fns, *args, &candidates, &any_viable_p,
-				      complain);
+  if (!cand)
+    cand = perform_overload_resolution (fns, *args, &candidates, &any_viable_p,
+					complain);
 
   /* If no suitable function could be found, issue an error message
      and give up.  */
@@ -4653,8 +4679,11 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
   if (!arg2)
     {
       if (complain & tf_error)
-	pedwarn (loc, OPT_Wpedantic, 
+	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C++ forbids omitting the middle term of a ?: expression");
+
+      if ((complain & tf_warning) && !truth_value_p (TREE_CODE (arg1)))
+	warn_for_omitted_condop (loc, arg1);
 
       /* Make sure that lvalues remain lvalues.  See g++.oliva/ext1.C.  */
       if (lvalue_p (arg1))
@@ -5945,16 +5974,65 @@ static bool
 second_parm_is_size_t (tree fn)
 {
   tree t = FUNCTION_ARG_CHAIN (fn);
-  return (t
-	  && same_type_p (TREE_VALUE (t), size_type_node)
-	  && TREE_CHAIN (t) == void_list_node);
+  if (!t || !same_type_p (TREE_VALUE (t), size_type_node))
+    return false;
+  t = TREE_CHAIN (t);
+  if (t == void_list_node)
+    return true;
+  if (aligned_new_threshold && t
+      && same_type_p (TREE_VALUE (t), align_type_node)
+      && TREE_CHAIN (t) == void_list_node)
+    return true;
+  return false;
+}
+
+/* True if T, an allocation function, has std::align_val_t as its second
+   argument.  */
+
+bool
+aligned_allocation_fn_p (tree t)
+{
+  if (!aligned_new_threshold)
+    return false;
+
+  tree a = FUNCTION_ARG_CHAIN (t);
+  return (a && same_type_p (TREE_VALUE (a), align_type_node));
+}
+
+/* Returns true iff T, an element of an OVERLOAD chain, is a usual deallocation
+   function (3.7.4.2 [basic.stc.dynamic.deallocation]) with a parameter of
+   std::align_val_t.  */
+
+static bool
+aligned_deallocation_fn_p (tree t)
+{
+  if (!aligned_new_threshold)
+    return false;
+
+  /* A template instance is never a usual deallocation function,
+     regardless of its signature.  */
+  if (TREE_CODE (t) == TEMPLATE_DECL
+      || primary_template_instantiation_p (t))
+    return false;
+
+  tree a = FUNCTION_ARG_CHAIN (t);
+  if (same_type_p (TREE_VALUE (a), align_type_node)
+      && TREE_CHAIN (a) == void_list_node)
+    return true;
+  if (!same_type_p (TREE_VALUE (a), size_type_node))
+    return false;
+  a = TREE_CHAIN (a);
+  if (a && same_type_p (TREE_VALUE (a), align_type_node)
+      && TREE_CHAIN (a) == void_list_node)
+    return true;
+  return false;
 }
 
 /* Returns true iff T, an element of an OVERLOAD chain, is a usual
    deallocation function (3.7.4.2 [basic.stc.dynamic.deallocation]).  */
 
 bool
-non_placement_deallocation_fn_p (tree t)
+usual_deallocation_fn_p (tree t)
 {
   /* A template instance is never a usual deallocation function,
      regardless of its signature.  */
@@ -5970,9 +6048,14 @@ non_placement_deallocation_fn_p (tree t)
      of which has type std::size_t (18.2), then this function is a usual
      deallocation function.  */
   bool global = DECL_NAMESPACE_SCOPE_P (t);
-  if (FUNCTION_ARG_CHAIN (t) == void_list_node
+  tree chain = FUNCTION_ARG_CHAIN (t);
+  if (!chain)
+    return false;
+  if (chain == void_list_node
       || ((!global || flag_sized_deallocation)
 	  && second_parm_is_size_t (t)))
+    return true;
+  if (aligned_deallocation_fn_p (t))
     return true;
   return false;
 }
@@ -6076,7 +6159,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 		 t; t = OVL_NEXT (t))
 	      {
 		tree elt = OVL_CURRENT (t);
-		if (non_placement_deallocation_fn_p (elt)
+		if (usual_deallocation_fn_p (elt)
 		    && FUNCTION_ARG_CHAIN (elt) == void_list_node)
 		  goto ok;
 	      }
@@ -6118,51 +6201,62 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	 t; t = OVL_NEXT (t))
       {
 	tree elt = OVL_CURRENT (t);
-	if (non_placement_deallocation_fn_p (elt))
+	if (usual_deallocation_fn_p (elt))
 	  {
-	    fn = elt;
-	    /* "If a class T has a member deallocation function named
-	       operator delete with exactly one parameter, then that
-	       function is a usual (non-placement) deallocation
-	       function. If class T does not declare such an operator
-	       delete but does declare a member deallocation function named
-	       operator delete with exactly two parameters, the second of
-	       which has type std::size_t (18.2), then this function is a
-	       usual deallocation function."
-
-	       So in a class (void*) beats (void*, size_t).  */
-	    if (DECL_CLASS_SCOPE_P (fn))
+	    if (!fn)
 	      {
-		if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
-		  break;
+		fn = elt;
+		continue;
 	      }
-	    /* At global scope (in C++14 and above) the rules are different:
 
-	       If deallocation function lookup finds both a usual
-	       deallocation function with only a pointer parameter and a
-	       usual deallocation function with both a pointer parameter
-	       and a size parameter, the function to be called is selected
-	       as follows:
+	    /* -- If the type has new-extended alignment, a function with a
+	       parameter of type std::align_val_t is preferred; otherwise a
+	       function without such a parameter is preferred. If exactly one
+	       preferred function is found, that function is selected and the
+	       selection process terminates. If more than one preferred
+	       function is found, all non-preferred functions are eliminated
+	       from further consideration.  */
+	    if (aligned_new_threshold)
+	      {
+		bool want_align = type_has_new_extended_alignment (type);
+		bool fn_align = aligned_deallocation_fn_p (fn);
+		bool elt_align = aligned_deallocation_fn_p (elt);
 
-	       * If the type is complete and if, for the second alternative
-	       (delete array) only, the operand is a pointer to a class
-	       type with a non-trivial destructor or a (possibly
-	       multi-dimensional) array thereof, the function with two
-	       parameters is selected.
+		if (elt_align != fn_align)
+		  {
+		    if (want_align == elt_align)
+		      fn = elt;
+		    continue;
+		  }
+	      }
 
-	       * Otherwise, it is unspecified which of the two deallocation
-	       functions is selected. */
+	    /* -- If the deallocation functions have class scope, the one
+	       without a parameter of type std::size_t is selected.  */
+	    bool want_size;
+	    if (DECL_CLASS_SCOPE_P (fn))
+	      want_size = false;
+
+	    /* -- If the type is complete and if, for the second alternative
+	       (delete array) only, the operand is a pointer to a class type
+	       with a non-trivial destructor or a (possibly multi-dimensional)
+	       array thereof, the function with a parameter of type std::size_t
+	       is selected.
+
+	       -- Otherwise, it is unspecified whether a deallocation function
+	       with a parameter of type std::size_t is selected.  */
 	    else
 	      {
-		bool want_size = COMPLETE_TYPE_P (type);
+		want_size = COMPLETE_TYPE_P (type);
 		if (code == VEC_DELETE_EXPR
 		    && !TYPE_VEC_NEW_USES_COOKIE (type))
 		  /* We need a cookie to determine the array size.  */
 		  want_size = false;
-		bool have_size = (FUNCTION_ARG_CHAIN (fn) != void_list_node);
-		if (want_size == have_size)
-		  break;
 	      }
+	    bool fn_size = second_parm_is_size_t (fn);
+	    bool elt_size = second_parm_is_size_t (elt);
+	    gcc_assert (fn_size != elt_size);
+	    if (want_size == elt_size)
+	      fn = elt;
 	  }
       }
 
@@ -6200,8 +6294,13 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  tree ret;
 	  vec<tree, va_gc> *args = make_tree_vector ();
 	  args->quick_push (addr);
-	  if (FUNCTION_ARG_CHAIN (fn) != void_list_node)
+	  if (second_parm_is_size_t (fn))
 	    args->quick_push (size);
+	  if (aligned_deallocation_fn_p (fn))
+	    {
+	      tree al = build_int_cst (align_type_node, TYPE_ALIGN_UNIT (type));
+	      args->quick_push (al);
+	    }
 	  ret = cp_build_function_call_vec (fn, &args, complain);
 	  release_tree_vector (args);
 	  return ret;
@@ -6280,6 +6379,17 @@ build_temp (tree expr, tree type, int flags,
   int savew, savee;
   vec<tree, va_gc> *args;
 
+  *diagnostic_kind = DK_UNSPECIFIED;
+
+  /* If the source is a packed field, calling the copy constructor will require
+     binding the field to the reference parameter to the copy constructor, and
+     we'll end up with an infinite loop.  If we can use a bitwise copy, then
+     do that now.  */
+  if ((lvalue_kind (expr) & clk_packed)
+      && CLASS_TYPE_P (TREE_TYPE (expr))
+      && !type_has_nontrivial_copy_init (TREE_TYPE (expr)))
+    return get_target_expr_sfinae (expr, complain);
+
   savew = warningcount + werrorcount, savee = errorcount;
   args = make_tree_vector_single (expr);
   expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
@@ -6289,8 +6399,6 @@ build_temp (tree expr, tree type, int flags,
     *diagnostic_kind = DK_WARNING;
   else if (errorcount > savee)
     *diagnostic_kind = DK_ERROR;
-  else
-    *diagnostic_kind = DK_UNSPECIFIED;
   return expr;
 }
 
@@ -6464,7 +6572,6 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       {
 	struct z_candidate *cand = convs->cand;
 	tree convfn = cand->fn;
-	unsigned i;
 
 	/* When converting from an init list we consider explicit
 	   constructors, but actually trying to call one is an error.  */
@@ -6510,12 +6617,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
 	expr = mark_rvalue_use (expr);
 
-	/* Set user_conv_p on the argument conversions, so rvalue/base
-	   handling knows not to allow any more UDCs.  */
-	for (i = 0; i < cand->num_convs; ++i)
-	  cand->convs[i]->user_conv_p = true;
-
-	expr = build_over_call (cand, LOOKUP_NORMAL, complain);
+	/* Pass LOOKUP_NO_CONVERSION so rvalue/base handling knows not to allow
+	   any more UDCs.  */
+	expr = build_over_call (cand, LOOKUP_NORMAL|LOOKUP_NO_CONVERSION,
+				complain);
 
 	/* If this is a constructor or a function returning an aggr type,
 	   we need to build up a TARGET_EXPR.  */
@@ -6983,7 +7088,12 @@ build_x_va_arg (source_location loc, tree expr, tree type)
       return convert_from_reference (expr);
     }
 
-  return build_va_arg (loc, expr, type);
+  tree ret = build_va_arg (loc, expr, type);
+  if (CLASS_TYPE_P (type))
+    /* Wrap the VA_ARG_EXPR in a TARGET_EXPR now so other code doesn't need to
+       know how to handle it.  */
+    ret = get_target_expr (ret);
+  return ret;
 }
 
 /* TYPE has been given to va_arg.  Apply the default conversions which
@@ -7610,6 +7720,13 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 		       "  (you can disable this with -fno-deduce-init-list)");
 	    }
 	}
+
+      /* Set user_conv_p on the argument conversions, so rvalue/base handling
+	 knows not to allow any more UDCs.  This needs to happen after we
+	 process cand->warnings.  */
+      if (flags & LOOKUP_NO_CONVERSION)
+	conv->user_conv_p = true;
+
       val = convert_like_with_context (conv, arg, fn, i - is_method,
 				       conversion_warning
 				       ? complain
@@ -7721,6 +7838,14 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       else
 	arg = cp_build_indirect_ref (arg, RO_NULL, complain);
 
+      /* In C++17 we shouldn't be copying a TARGET_EXPR except into a base
+	 subobject.  */
+      if (CHECKING_P && cxx_dialect >= cxx1z)
+	gcc_assert (TREE_CODE (arg) != TARGET_EXPR
+		    || seen_error ()
+		    /* See unsafe_copy_elision_p.  */
+		    || DECL_BASE_CONSTRUCTOR_P (fn));
+
       /* [class.copy]: the copy constructor is implicitly defined even if
 	 the implementation elided its use.  */
       if (!trivial || DECL_DELETED_FN (fn))
@@ -7798,11 +7923,19 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 
       return val;
     }
-  else if (DECL_DESTRUCTOR_P (fn)
-	   && trivial_fn_p (fn)
-	   && !DECL_DELETED_FN (fn))
-    return fold_convert (void_type_node, argarray[0]);
-  /* FIXME handle trivial default constructor, too.  */
+  else if (!DECL_DELETED_FN (fn)
+	   && trivial_fn_p (fn))
+    {
+      if (DECL_DESTRUCTOR_P (fn))
+	return fold_convert (void_type_node, argarray[0]);
+      else if (default_ctor_p (fn))
+	{
+	  if (is_dummy_object (argarray[0]))
+	    return force_target_expr (DECL_CONTEXT (fn), void_node, complain);
+	  else
+	    return cp_build_indirect_ref (argarray[0], RO_NULL, complain);
+	}
+    }
 
   /* For calls to a multi-versioned function, overload resolution
      returns the function with the highest target priority, that is,
@@ -7841,10 +7974,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (TREE_SIDE_EFFECTS (argarray[0]))
 	argarray[0] = save_expr (argarray[0]);
       t = build_pointer_type (TREE_TYPE (fn));
-      if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
-	fn = build_java_interface_fn_ref (fn, argarray[0]);
-      else
-	fn = build_vfn_ref (argarray[0], DECL_VINDEX (fn));
+      fn = build_vfn_ref (argarray[0], DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;
     }
   else
@@ -7951,67 +8081,6 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
   return convert_from_reference (fn);
 }
 
-static GTY(()) tree java_iface_lookup_fn;
-
-/* Make an expression which yields the address of the Java interface
-   method FN.  This is achieved by generating a call to libjava's
-   _Jv_LookupInterfaceMethodIdx().  */
-
-static tree
-build_java_interface_fn_ref (tree fn, tree instance)
-{
-  tree lookup_fn, method, idx;
-  tree klass_ref, iface, iface_ref;
-  int i;
-
-  if (!java_iface_lookup_fn)
-    {
-      tree ftype = build_function_type_list (ptr_type_node,
-					     ptr_type_node, ptr_type_node,
-					     java_int_type_node, NULL_TREE);
-      java_iface_lookup_fn
-	= add_builtin_function ("_Jv_LookupInterfaceMethodIdx", ftype,
-				0, NOT_BUILT_IN, NULL, NULL_TREE);
-    }
-
-  /* Look up the pointer to the runtime java.lang.Class object for `instance'.
-     This is the first entry in the vtable.  */
-  klass_ref = build_vtbl_ref (cp_build_indirect_ref (instance, RO_NULL, 
-                                                     tf_warning_or_error),
-			      integer_zero_node);
-
-  /* Get the java.lang.Class pointer for the interface being called.  */
-  iface = DECL_CONTEXT (fn);
-  iface_ref = lookup_field (iface, get_identifier ("class$"), 0, false);
-  if (!iface_ref || !VAR_P (iface_ref)
-      || DECL_CONTEXT (iface_ref) != iface)
-    {
-      error ("could not find class$ field in java interface type %qT",
-		iface);
-      return error_mark_node;
-    }
-  iface_ref = build_address (iface_ref);
-  iface_ref = convert (build_pointer_type (iface), iface_ref);
-
-  /* Determine the itable index of FN.  */
-  i = 1;
-  for (method = TYPE_METHODS (iface); method; method = DECL_CHAIN (method))
-    {
-      if (!DECL_VIRTUAL_P (method))
-	continue;
-      if (fn == method)
-	break;
-      i++;
-    }
-  idx = build_int_cst (NULL_TREE, i);
-
-  lookup_fn = build1 (ADDR_EXPR,
-		      build_pointer_type (TREE_TYPE (java_iface_lookup_fn)),
-		      java_iface_lookup_fn);
-  return build_call_nary (ptr_type_node, lookup_fn,
-			  3, klass_ref, iface_ref, idx);
-}
-
 /* Returns the value to use for the in-charge parameter when making a
    call to a function with the indicated NAME.
 
@@ -8034,6 +8103,19 @@ in_charge_arg_for_name (tree name)
      above.  */
   gcc_unreachable ();
   return NULL_TREE;
+}
+
+/* We've built up a constructor call RET.  Complain if it delegates to the
+   constructor we're currently compiling.  */
+
+static void
+check_self_delegation (tree ret)
+{
+  if (TREE_CODE (ret) == TARGET_EXPR)
+    ret = TARGET_EXPR_INITIAL (ret);
+  tree fn = cp_get_callee_fndecl (ret);
+  if (fn && DECL_ABSTRACT_ORIGIN (fn) == current_function_decl)
+    error ("constructor delegates to itself");
 }
 
 /* Build a call to a constructor, destructor, or an assignment
@@ -8109,6 +8191,38 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
 
   gcc_assert (instance != NULL_TREE);
 
+  /* In C++17, "If the initializer expression is a prvalue and the
+     cv-unqualified version of the source type is the same class as the class
+     of the destination, the initializer expression is used to initialize the
+     destination object."  Handle that here to avoid doing overload
+     resolution.  */
+  if (cxx_dialect >= cxx1z
+      && args && vec_safe_length (*args) == 1
+      && name == complete_ctor_identifier)
+    {
+      tree arg = (**args)[0];
+
+      /* FIXME P0135 doesn't say how to handle direct initialization from a
+	 type with a suitable conversion operator.  Let's handle it like
+	 copy-initialization, but allowing explict conversions.  */
+      if (!reference_related_p (class_type, TREE_TYPE (arg)))
+	arg = perform_implicit_conversion_flags (class_type, arg,
+						 tf_warning, flags);
+      if (TREE_CODE (arg) == TARGET_EXPR
+	  && (same_type_ignoring_top_level_qualifiers_p
+	      (class_type, TREE_TYPE (arg))))
+	{
+	  if (is_dummy_object (instance))
+	    return arg;
+	  if ((complain & tf_error)
+	      && (flags & LOOKUP_DELEGATING_CONS))
+	    check_self_delegation (arg);
+	  /* Avoid change of behavior on Wunused-var-2.C.  */
+	  mark_lvalue_use (instance);
+	  return build2 (INIT_EXPR, class_type, instance, arg);
+	}
+    }
+
   fns = lookup_fnfields (binfo, name, 1);
 
   /* When making a call to a constructor or destructor for a subobject
@@ -8153,11 +8267,8 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
 
   if ((complain & tf_error)
       && (flags & LOOKUP_DELEGATING_CONS)
-      && name == complete_ctor_identifier 
-      && TREE_CODE (ret) == CALL_EXPR
-      && (DECL_ABSTRACT_ORIGIN (TREE_OPERAND (CALL_EXPR_FN (ret), 0))
-	  == current_function_decl))
-    error ("constructor delegates to itself");
+      && name == complete_ctor_identifier)
+    check_self_delegation (ret);
 
   return ret;
 }
@@ -10144,27 +10255,30 @@ extend_ref_init_temps (tree decl, tree init, vec<tree, va_gc> **cleanups)
     return init;
   if (TREE_CODE (type) == REFERENCE_TYPE)
     init = extend_ref_init_temps_1 (decl, init, cleanups);
-  else if (is_std_init_list (type))
+  else
     {
-      /* The temporary array underlying a std::initializer_list
-	 is handled like a reference temporary.  */
       tree ctor = init;
       if (TREE_CODE (ctor) == TARGET_EXPR)
 	ctor = TARGET_EXPR_INITIAL (ctor);
       if (TREE_CODE (ctor) == CONSTRUCTOR)
 	{
-	  tree array = CONSTRUCTOR_ELT (ctor, 0)->value;
-	  array = extend_ref_init_temps_1 (decl, array, cleanups);
-	  CONSTRUCTOR_ELT (ctor, 0)->value = array;
+	  if (is_std_init_list (type))
+	    {
+	      /* The temporary array underlying a std::initializer_list
+		 is handled like a reference temporary.  */
+	      tree array = CONSTRUCTOR_ELT (ctor, 0)->value;
+	      array = extend_ref_init_temps_1 (decl, array, cleanups);
+	      CONSTRUCTOR_ELT (ctor, 0)->value = array;
+	    }
+	  else
+	    {
+	      unsigned i;
+	      constructor_elt *p;
+	      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (ctor);
+	      FOR_EACH_VEC_SAFE_ELT (elts, i, p)
+		p->value = extend_ref_init_temps (decl, p->value, cleanups);
+	    }
 	}
-    }
-  else if (TREE_CODE (init) == CONSTRUCTOR)
-    {
-      unsigned i;
-      constructor_elt *p;
-      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (init);
-      FOR_EACH_VEC_SAFE_ELT (elts, i, p)
-	p->value = extend_ref_init_temps (decl, p->value, cleanups);
     }
 
   return init;

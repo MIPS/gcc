@@ -785,7 +785,7 @@ by_pieces_ninsns (unsigned HOST_WIDE_INT l, unsigned int align,
 	    case COMPARE_BY_PIECES:
 	      int batch = targetm.compare_by_pieces_branch_ratio (mode);
 	      int batch_ops = 4 * batch - 1;
-	      int full = n_pieces / batch;
+	      unsigned HOST_WIDE_INT full = n_pieces / batch;
 	      n_insns += full * batch_ops;
 	      if (n_pieces % batch != 0)
 		n_insns++;
@@ -5186,7 +5186,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
   if (TREE_CODE (from) == CALL_EXPR && ! aggregate_value_p (from, from)
       && COMPLETE_TYPE_P (TREE_TYPE (from))
       && TREE_CODE (TYPE_SIZE (TREE_TYPE (from))) == INTEGER_CST
-      && ! (((TREE_CODE (to) == VAR_DECL
+      && ! (((VAR_P (to)
 	      || TREE_CODE (to) == PARM_DECL
 	      || TREE_CODE (to) == RESULT_DECL)
 	     && REG_P (DECL_RTL (to)))
@@ -6187,8 +6187,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	   register whose mode size isn't equal to SIZE since
 	   clear_storage can't handle this case.  */
 	else if (size > 0
-		 && (((int)vec_safe_length (CONSTRUCTOR_ELTS (exp))
-		      != fields_length (type))
+		 && (((int) CONSTRUCTOR_NELTS (exp) != fields_length (type))
 		     || mostly_zeros_p (exp))
 		 && (!REG_P (target)
 		     || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
@@ -8422,7 +8421,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 
       if (TREE_CODE (treeop0) == PLUS_EXPR
 	  && TREE_CODE (TREE_OPERAND (treeop0, 1)) == INTEGER_CST
-	  && TREE_CODE (treeop1) == VAR_DECL
+	  && VAR_P (treeop1)
 	  && (DECL_RTL (treeop1) == frame_pointer_rtx
 	      || DECL_RTL (treeop1) == stack_pointer_rtx
 	      || DECL_RTL (treeop1) == arg_pointer_rtx))
@@ -10202,8 +10201,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		 && modifier != EXPAND_MEMORY
 		 && TREE_READONLY (array) && ! TREE_SIDE_EFFECTS (array)
 		 && TREE_CODE (index) == INTEGER_CST
-		 && (TREE_CODE (array) == VAR_DECL
-		     || TREE_CODE (array) == CONST_DECL)
+		 && (VAR_P (array) || TREE_CODE (array) == CONST_DECL)
 		 && (init = ctor_for_folding (array)) != error_mark_node)
 	  {
 	    if (init == NULL_TREE)
@@ -10274,7 +10272,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 					    fold_convert_loc (loc, sizetype,
 							      low_bound));
 
-		if (compare_tree_int (index1, TREE_STRING_LENGTH (init)) < 0)
+		if (tree_fits_uhwi_p (index1)
+		    && compare_tree_int (index1, TREE_STRING_LENGTH (init)) < 0)
 		  {
 		    tree type = TREE_TYPE (TREE_TYPE (init));
 		    machine_mode mode = TYPE_MODE (type);
@@ -11065,7 +11064,7 @@ is_aligning_offset (const_tree offset, const_tree exp)
       || !tree_fits_uhwi_p (TREE_OPERAND (offset, 1))
       || compare_tree_int (TREE_OPERAND (offset, 1),
 			   BIGGEST_ALIGNMENT / BITS_PER_UNIT) <= 0
-      || exact_log2 (tree_to_uhwi (TREE_OPERAND (offset, 1)) + 1) < 0)
+      || !pow2p_hwi (tree_to_uhwi (TREE_OPERAND (offset, 1)) + 1))
     return 0;
 
   /* Look at the first operand of BIT_AND_EXPR and strip any conversion.
@@ -11112,8 +11111,7 @@ string_constant (tree arg, tree *ptr_offset)
 	{
 	  array = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
 	  offset = TREE_OPERAND (TREE_OPERAND (arg, 0), 1);
-	  if (TREE_CODE (array) != STRING_CST
-	      && TREE_CODE (array) != VAR_DECL)
+	  if (TREE_CODE (array) != STRING_CST && !VAR_P (array))
 	    return 0;
 
 	  /* Check if the array has a nonzero lower bound.  */
@@ -11137,8 +11135,7 @@ string_constant (tree arg, tree *ptr_offset)
 	  if (TREE_CODE (array) != ADDR_EXPR)
 	    return 0;
 	  array = TREE_OPERAND (array, 0);
-	  if (TREE_CODE (array) != STRING_CST
-	      && TREE_CODE (array) != VAR_DECL)
+	  if (TREE_CODE (array) != STRING_CST && !VAR_P (array))
 	    return 0;
 	}
       else
@@ -11177,8 +11174,7 @@ string_constant (tree arg, tree *ptr_offset)
       *ptr_offset = fold_convert (sizetype, offset);
       return array;
     }
-  else if (TREE_CODE (array) == VAR_DECL
-	   || TREE_CODE (array) == CONST_DECL)
+  else if (VAR_P (array) || TREE_CODE (array) == CONST_DECL)
     {
       int length;
       tree init = ctor_for_folding (array);

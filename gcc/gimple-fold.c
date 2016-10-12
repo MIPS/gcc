@@ -57,6 +57,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 
 
+/* Return true if T is a constant and the value cast to a target char
+   can be represented by a host char.
+   Store the casted char constant in *P if so.  */
+
+static bool
+target_char_cst_p (tree t, char *p)
+{
+  if (!tree_fits_uhwi_p (t) || CHAR_TYPE_SIZE != HOST_BITS_PER_CHAR)
+    return false;
+
+  *p = (char)tree_to_uhwi (t);
+  return true;
+}
+
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
    We can get declarations that are not possible to reference for various
@@ -91,7 +105,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
 
   /* We are concerned only about static/external vars and functions.  */
   if ((!TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
-      || (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != FUNCTION_DECL))
+      || !VAR_OR_FUNCTION_DECL_P (decl))
     return true;
 
   /* Static objects can be referred only if they was not optimized out yet.  */
@@ -112,7 +126,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
      So we are concerned only when DECL comes from initializer of
      external var or var that has been optimized out.  */
   if (!from_decl
-      || TREE_CODE (from_decl) != VAR_DECL
+      || !VAR_P (from_decl)
       || (!DECL_EXTERNAL (from_decl)
 	  && (vnode = varpool_node::get (from_decl)) != NULL
 	  && vnode->definition)
@@ -192,13 +206,12 @@ canonicalize_constructor_val (tree cval, tree from_decl)
       if (!base)
 	return NULL_TREE;
 
-      if ((TREE_CODE (base) == VAR_DECL
-	   || TREE_CODE (base) == FUNCTION_DECL)
+      if (VAR_OR_FUNCTION_DECL_P (base)
 	  && !can_refer_decl_in_current_unit_p (base, from_decl))
 	return NULL_TREE;
       if (TREE_TYPE (base) == error_mark_node)
 	return NULL_TREE;
-      if (TREE_CODE (base) == VAR_DECL)
+      if (VAR_P (base))
 	TREE_ADDRESSABLE (base) = 1;
       else if (TREE_CODE (base) == FUNCTION_DECL)
 	{
@@ -699,7 +712,7 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 	  && !c_strlen (src, 2))
 	{
 	  unsigned ilen = tree_to_uhwi (len);
-	  if (exact_log2 (ilen) != -1)
+	  if (pow2p_hwi (ilen))
 	    {
 	      tree type = lang_hooks.types.type_for_size (ilen * 8, 1);
 	      if (type
@@ -1159,20 +1172,29 @@ gimple_fold_builtin_memset (gimple_stmt_iterator *gsi, tree c, tree len)
 }
 
 
-/* Return the string length, maximum string length or maximum value of
-   ARG in LENGTH.
-   If ARG is an SSA name variable, follow its use-def chains.  If LENGTH
-   is not NULL and, for TYPE == 0, its value is not equal to the length
-   we determine or if we are unable to determine the length or value,
-   return false.  VISITED is a bitmap of visited variables.
-   TYPE is 0 if string length should be returned, 1 for maximum string
-   length and 2 for maximum value ARG can have.  */
+/* Obtain the minimum and maximum string length or minimum and maximum
+   value of ARG in LENGTH[0] and LENGTH[1], respectively.
+   If ARG is an SSA name variable, follow its use-def chains.  When
+   TYPE == 0, if LENGTH[1] is not equal to the length we determine or
+   if we are unable to determine the length or value, return False.
+   VISITED is a bitmap of visited variables.
+   TYPE is 0 if string length should be obtained, 1 for maximum string
+   length and 2 for maximum value ARG can have.
+   When FUZZY is set and the length of a string cannot be determined,
+   the function instead considers as the maximum possible length the
+   size of a character array it may refer to.  */
 
 static bool
-get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
+get_range_strlen (tree arg, tree length[2], bitmap *visited, int type,
+		  bool fuzzy)
 {
   tree var, val;
   gimple *def_stmt;
+
+  /* The minimum and maximum length.  The MAXLEN pointer stays unchanged
+     but MINLEN may be cleared during the execution of the function.  */
+  tree *minlen = length;
+  tree *const maxlen = length + 1;
 
   if (TREE_CODE (arg) != SSA_NAME)
     {
@@ -1184,8 +1206,8 @@ get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
 	  tree aop0 = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
 	  if (TREE_CODE (aop0) == INDIRECT_REF
 	      && TREE_CODE (TREE_OPERAND (aop0, 0)) == SSA_NAME)
-	    return get_maxval_strlen (TREE_OPERAND (aop0, 0),
-				      length, visited, type);
+	    return get_range_strlen (TREE_OPERAND (aop0, 0),
+				     length, visited, type, fuzzy);
 	}
 
       if (type == 2)
@@ -1197,26 +1219,60 @@ get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
 	}
       else
 	val = c_strlen (arg, 1);
+
+      if (!val && fuzzy)
+	{
+	  if (TREE_CODE (arg) == ADDR_EXPR)
+	    return get_range_strlen (TREE_OPERAND (arg, 0), length,
+				     visited, type, fuzzy);
+
+	  if (TREE_CODE (arg) == COMPONENT_REF
+	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (arg, 1))) == ARRAY_TYPE)
+	    {
+	      /* Use the type of the member array to determine the upper
+		 bound on the length of the array.  This may be overly
+		 optimistic if the array itself isn't NUL-terminated and
+		 the caller relies on the subsequent member to contain
+		 the NUL.  */
+	      arg = TREE_OPERAND (arg, 1);
+	      val = TYPE_SIZE_UNIT (TREE_TYPE (arg));
+	      if (!val || integer_zerop (val))
+		return false;
+	      val = fold_build2 (MINUS_EXPR, TREE_TYPE (val), val,
+				 integer_one_node);
+	      /* Avoid using the array size as the minimum.  */
+	      minlen = NULL;
+	    }
+	}
+
       if (!val)
 	return false;
 
-      if (*length)
+      if (minlen
+	  && (!*minlen
+	      || (type > 0
+		  && TREE_CODE (*minlen) == INTEGER_CST
+		  && TREE_CODE (val) == INTEGER_CST
+		  && tree_int_cst_lt (val, *minlen))))
+	*minlen = val;
+
+      if (*maxlen)
 	{
 	  if (type > 0)
 	    {
-	      if (TREE_CODE (*length) != INTEGER_CST
+	      if (TREE_CODE (*maxlen) != INTEGER_CST
 		  || TREE_CODE (val) != INTEGER_CST)
 		return false;
 
-	      if (tree_int_cst_lt (*length, val))
-		*length = val;
+	      if (tree_int_cst_lt (*maxlen, val))
+		*maxlen = val;
 	      return true;
 	    }
-	  else if (simple_cst_equal (val, *length) != 1)
+	  else if (simple_cst_equal (val, *maxlen) != 1)
 	    return false;
 	}
 
-      *length = val;
+      *maxlen = val;
       return true;
     }
 
@@ -1244,14 +1300,14 @@ get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
             || gimple_assign_unary_nop_p (def_stmt))
           {
             tree rhs = gimple_assign_rhs1 (def_stmt);
-            return get_maxval_strlen (rhs, length, visited, type);
+	    return get_range_strlen (rhs, length, visited, type, fuzzy);
           }
 	else if (gimple_assign_rhs_code (def_stmt) == COND_EXPR)
 	  {
 	    tree op2 = gimple_assign_rhs2 (def_stmt);
 	    tree op3 = gimple_assign_rhs3 (def_stmt);
-	    return get_maxval_strlen (op2, length, visited, type)
-		   && get_maxval_strlen (op3, length, visited, type);
+	    return get_range_strlen (op2, length, visited, type, fuzzy)
+	      && get_range_strlen (op3, length, visited, type, fuzzy);
           }
         return false;
 
@@ -1274,8 +1330,13 @@ get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
             if (arg == gimple_phi_result (def_stmt))
               continue;
 
-            if (!get_maxval_strlen (arg, length, visited, type))
-              return false;
+	    if (!get_range_strlen (arg, length, visited, type, fuzzy))
+	      {
+		if (fuzzy)
+		  *maxlen = build_all_ones_cst (size_type_node);
+		else
+		  return false;
+	      }
           }
         }
         return true;
@@ -1285,17 +1346,40 @@ get_maxval_strlen (tree arg, tree *length, bitmap *visited, int type)
     }
 }
 
+/* Determine the minimum and maximum value or string length that ARG
+   refers to and store each in the first two elements of MINMAXLEN.
+   For expressions that point to strings of unknown lengths that are
+   character arrays, use the upper bound of the array as the maximum
+   length.  For example, given an expression like 'x ? array : "xyz"'
+   and array declared as 'char array[8]', MINMAXLEN[0] will be set
+   to 3 and MINMAXLEN[1] to 7, the longest string that could be
+   stored in array.
+*/
+
+void get_range_strlen (tree arg, tree minmaxlen[2])
+{
+  bitmap visited = NULL;
+
+  minmaxlen[0] = NULL_TREE;
+  minmaxlen[1] = NULL_TREE;
+
+  get_range_strlen (arg, minmaxlen, &visited, 1, true);
+
+  if (visited)
+    BITMAP_FREE (visited);
+}
+
 tree
 get_maxval_strlen (tree arg, int type)
 {
   bitmap visited = NULL;
-  tree len = NULL_TREE;
-  if (!get_maxval_strlen (arg, &len, &visited, type))
-    len = NULL_TREE;
+  tree len[2] = { NULL_TREE, NULL_TREE };
+  if (!get_range_strlen (arg, len, &visited, type, false))
+    len[1] = NULL_TREE;
   if (visited)
     BITMAP_FREE (visited);
 
-  return len;
+  return len[1];
 }
 
 
@@ -1383,6 +1467,93 @@ gimple_fold_builtin_strncpy (gimple_stmt_iterator *gsi,
 				  NULL_TREE, true, GSI_SAME_STMT);
   gimple *repl = gimple_build_call (fn, 3, dest, src, len);
   replace_call_with_call_and_fold (gsi, repl);
+  return true;
+}
+
+/* Fold function call to builtin strchr or strrchr.
+   If both arguments are constant, evaluate and fold the result,
+   otherwise simplify str(r)chr (str, 0) into str + strlen (str).
+   In general strlen is significantly faster than strchr
+   due to being a simpler operation.  */
+static bool
+gimple_fold_builtin_strchr (gimple_stmt_iterator *gsi, bool is_strrchr)
+{
+  gimple *stmt = gsi_stmt (*gsi);
+  tree str = gimple_call_arg (stmt, 0);
+  tree c = gimple_call_arg (stmt, 1);
+  location_t loc = gimple_location (stmt);
+  const char *p;
+  char ch;
+
+  if (!gimple_call_lhs (stmt))
+    return false;
+
+  if ((p = c_getstr (str)) && target_char_cst_p (c, &ch))
+    {
+      const char *p1 = is_strrchr ? strrchr (p, ch) : strchr (p, ch);
+
+      if (p1 == NULL)
+	{
+	  replace_call_with_value (gsi, integer_zero_node);
+	  return true;
+	}
+
+      tree len = build_int_cst (size_type_node, p1 - p);
+      gimple_seq stmts = NULL;
+      gimple *new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+					      POINTER_PLUS_EXPR, str, len);
+      gimple_seq_add_stmt_without_update (&stmts, new_stmt);
+      gsi_replace_with_seq_vops (gsi, stmts);
+      return true;
+    }
+
+  if (!integer_zerop (c))
+    return false;
+
+  /* Transform strrchr (s, 0) to strchr (s, 0) when optimizing for size.  */
+  if (optimize_function_for_size_p (cfun))
+    {
+      tree strchr_fn = builtin_decl_implicit (BUILT_IN_STRCHR);
+
+      if (is_strrchr && strchr_fn)
+	{
+	  gimple *repl = gimple_build_call (strchr_fn, 2, str, c);
+	  replace_call_with_call_and_fold (gsi, repl);
+	  return true;
+	}
+
+      return false;
+    }
+
+  tree len;
+  tree strlen_fn = builtin_decl_implicit (BUILT_IN_STRLEN);
+
+  if (!strlen_fn)
+    return false;
+
+  /* Create newstr = strlen (str).  */
+  gimple_seq stmts = NULL;
+  gimple *new_stmt = gimple_build_call (strlen_fn, 1, str);
+  gimple_set_location (new_stmt, loc);
+  if (gimple_in_ssa_p (cfun))
+    len = make_ssa_name (size_type_node);
+  else
+    len = create_tmp_reg (size_type_node);
+  gimple_call_set_lhs (new_stmt, len);
+  gimple_seq_add_stmt_without_update (&stmts, new_stmt);
+
+  /* Create (str p+ strlen (str)).  */
+  new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+				  POINTER_PLUS_EXPR, str, len);
+  gimple_seq_add_stmt_without_update (&stmts, new_stmt);
+  gsi_replace_with_seq_vops (gsi, stmts);
+  /* gsi now points at the assignment to the lhs, get a
+     stmt iterator to the strlen.
+     ???  We can't use gsi_for_stmt as that doesn't work when the
+     CFG isn't built yet.  */
+  gimple_stmt_iterator gsi2 = *gsi;
+  gsi_prev (&gsi2);
+  fold_stmt (&gsi2);
   return true;
 }
 
@@ -2827,6 +2998,12 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
 					 gimple_call_arg (stmt, 1));
     case BUILT_IN_STRNCAT:
       return gimple_fold_builtin_strncat (gsi);
+    case BUILT_IN_INDEX:
+    case BUILT_IN_STRCHR:
+      return gimple_fold_builtin_strchr (gsi, false);
+    case BUILT_IN_RINDEX:
+    case BUILT_IN_STRRCHR:
+      return gimple_fold_builtin_strchr (gsi, true);
     case BUILT_IN_FPUTS:
       return gimple_fold_builtin_fputs (gsi, gimple_call_arg (stmt, 0),
 					gimple_call_arg (stmt, 1), false);
@@ -5576,14 +5753,15 @@ fold_array_ctor_reference (tree type, tree ctor,
   if (domain_type && TYPE_MIN_VALUE (domain_type))
     {
       /* Static constructors for variably sized objects makes no sense.  */
-      gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
+      if (TREE_CODE (TYPE_MIN_VALUE (domain_type)) != INTEGER_CST)
+	return NULL_TREE;
       low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
     }
   else
     low_bound = 0;
   /* Static constructors for variably sized objects makes no sense.  */
-  gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))))
-	      == INTEGER_CST);
+  if (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor)))) != INTEGER_CST)
+    return NULL_TREE;
   elt_size = wi::to_offset (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))));
 
   /* We can handle only constantly sized accesses that are known to not
@@ -5878,8 +6056,7 @@ gimple_get_virt_method_for_vtable (HOST_WIDE_INT token,
     *can_refer = true;
 
   /* First of all double check we have virtual table.  */
-  if (TREE_CODE (v) != VAR_DECL
-      || !DECL_VIRTUAL_P (v))
+  if (!VAR_P (v) || !DECL_VIRTUAL_P (v))
     {
       /* Pass down that we lost track of the target.  */
       if (can_refer)

@@ -1379,7 +1379,7 @@ process_init_constructor_record (tree type, tree init,
       if (type == error_mark_node)
 	return PICFLAG_ERRONEOUS;
 
-      if (idx < vec_safe_length (CONSTRUCTOR_ELTS (init)))
+      if (idx < CONSTRUCTOR_NELTS (init))
 	{
 	  constructor_elt *ce = &(*CONSTRUCTOR_ELTS (init))[idx];
 	  if (ce->index)
@@ -1476,7 +1476,7 @@ process_init_constructor_record (tree type, tree init,
       CONSTRUCTOR_APPEND_ELT (v, field, next);
     }
 
-  if (idx < vec_safe_length (CONSTRUCTOR_ELTS (init)))
+  if (idx < CONSTRUCTOR_NELTS (init))
     {
       if (complain & tf_error)
 	error ("too many initializers for %qT", type);
@@ -1952,11 +1952,23 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
       return error_mark_node;
     }
 
-  if (type_uses_auto (type))
+  if (tree anode = type_uses_auto (type))
     {
-      if (complain & tf_error)
-	error ("invalid use of %<auto%>");
-      return error_mark_node;
+      if (!CLASS_PLACEHOLDER_TEMPLATE (anode))
+	{
+	  if (complain & tf_error)
+	    error ("invalid use of %qT", anode);
+	  return error_mark_node;
+	}
+      else if (!parms)
+	{
+	  if (complain & tf_error)
+	    error ("cannot deduce template arguments for %qT from ()", anode);
+	  return error_mark_node;
+	}
+      else
+	type = do_auto_deduction (type, parms, anode, complain,
+				  adc_variable_type);
     }
 
   if (processing_template_decl)

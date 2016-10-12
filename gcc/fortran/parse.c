@@ -191,6 +191,7 @@ decode_specification_statement (void)
 	     ST_INTERFACE);
       match ("allocatable", gfc_match_allocatable, ST_ATTR_DECL);
       match ("asynchronous", gfc_match_asynchronous, ST_ATTR_DECL);
+      match ("automatic", gfc_match_automatic, ST_ATTR_DECL);
       break;
 
     case 'b':
@@ -256,6 +257,7 @@ decode_specification_statement (void)
 
     case 's':
       match ("save", gfc_match_save, ST_ATTR_DECL);
+      match ("static", gfc_match_static, ST_ATTR_DECL);
       match ("structure", gfc_match_structure_decl, ST_STRUCTURE_DECL);
       break;
 
@@ -436,6 +438,7 @@ decode_statement (void)
       match ("allocatable", gfc_match_allocatable, ST_ATTR_DECL);
       match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT);
       match ("asynchronous", gfc_match_asynchronous, ST_ATTR_DECL);
+      match ("automatic", gfc_match_automatic, ST_ATTR_DECL);
       break;
 
     case 'b':
@@ -548,6 +551,7 @@ decode_statement (void)
       match ("sequence", gfc_match_eos, ST_SEQUENCE);
       match ("stop", gfc_match_stop, ST_STOP);
       match ("save", gfc_match_save, ST_ATTR_DECL);
+      match ("static", gfc_match_static, ST_ATTR_DECL);
       match ("submodule", gfc_match_submodule, ST_SUBMODULE);
       match ("sync all", gfc_match_sync_all, ST_SYNC_ALL);
       match ("sync images", gfc_match_sync_images, ST_SYNC_IMAGES);
@@ -1257,7 +1261,7 @@ next_fixed (void)
 		  return decode_oacc_directive ();
 		}
 	    }
-	  /* FALLTHROUGH */
+	  gcc_fallthrough ();
 
 	  /* Comments have already been skipped by the time we get
 	     here so don't bother checking for them.  */
@@ -2399,6 +2403,29 @@ accept_statement (gfc_statement st)
 }
 
 
+/* Clear default character types with charlen pointers that are about
+   to become invalid.  */
+
+static void
+clear_default_charlen (gfc_namespace *ns, const gfc_charlen *cl,
+		       const gfc_charlen *end)
+{
+  gfc_typespec *ts;
+
+  for (ts = &ns->default_type[0]; ts < &ns->default_type[GFC_LETTERS]; ts++)
+      if (ts->type == BT_CHARACTER)
+	{
+	  const gfc_charlen *cl2;
+	  for (cl2 = cl; cl2 != end; cl2 = cl2->next)
+	    if (ts->u.cl == cl2)
+	      {
+		ts->u.cl = NULL;
+		ts->type = BT_UNKNOWN;
+		break;
+	      }
+	 }
+}
+
 /* Undo anything tentative that has been built for the current
    statement.  */
 
@@ -2406,6 +2433,8 @@ static void
 reject_statement (void)
 {
   /* Revert to the previous charlen chain.  */
+  clear_default_charlen (gfc_current_ns,
+			 gfc_current_ns->cl_list, gfc_current_ns->old_cl_list);
   gfc_free_charlen (gfc_current_ns->cl_list, gfc_current_ns->old_cl_list);
   gfc_current_ns->cl_list = gfc_current_ns->old_cl_list;
 
@@ -4695,6 +4724,7 @@ parse_omp_oacc_atomic (bool omp_p)
   np = new_level (cp);
   np->op = cp->op;
   np->block = NULL;
+  np->ext.omp_atomic = cp->ext.omp_atomic;
   count = 1 + ((cp->ext.omp_atomic & GFC_OMP_ATOMIC_MASK)
 	       == GFC_OMP_ATOMIC_CAPTURE);
 

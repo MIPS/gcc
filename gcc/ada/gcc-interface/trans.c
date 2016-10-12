@@ -6084,10 +6084,18 @@ gnat_to_gnu (Node_Id gnat_node)
       gnat_temp = Defining_Entity (gnat_node);
       gnu_result = alloc_stmt_list ();
 
-      /* Don't do anything if this renaming is handled by the front end or if
-	 we are just annotating types and this object has a composite or task
-	 type, don't elaborate it.  */
-      if (!Is_Renaming_Of_Object (gnat_temp)
+      /* Don't do anything if this renaming is handled by the front end and it
+	 does not need debug info.  Note that we consider renamings don't need
+	 debug info when optimizing: our way to describe them has a
+	 memory/elaboration footprint.
+
+	 Don't do anything neither if we are just annotating types and this
+	 object has a composite or task type, don't elaborate it.  */
+      if ((!Is_Renaming_Of_Object (gnat_temp)
+	   || (Needs_Debug_Info (gnat_temp)
+	       && !optimize
+	       && can_materialize_object_renaming_p
+		    (Renamed_Object (gnat_temp))))
 	  && ! (type_annotate_only
 		&& (Is_Array_Type (Etype (gnat_temp))
 		    || Is_Record_Type (Etype (gnat_temp))
@@ -6680,10 +6688,7 @@ gnat_to_gnu (Node_Id gnat_node)
 
 	/* Instead of expanding overflow checks for addition, subtraction
 	   and multiplication itself, the front end will leave this to
-	   the back end when Backend_Overflow_Checks_On_Target is set.
-	   As the back end itself does not know yet how to properly
-	   do overflow checking, do it here.  The goal is to push
-	   the expansions further into the back end over time.  */
+	   the back end when Backend_Overflow_Checks_On_Target is set.  */
 	if (Do_Overflow_Check (gnat_node)
 	    && Backend_Overflow_Checks_On_Target
 	    && (code == PLUS_EXPR || code == MINUS_EXPR || code == MULT_EXPR)
@@ -6754,7 +6759,11 @@ gnat_to_gnu (Node_Id gnat_node)
       gnu_expr = gnat_to_gnu (Right_Opnd (gnat_node));
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
 
+      /* Instead of expanding overflow checks for negation and absolute
+	 value itself, the front end will leave this to the back end
+	 when Backend_Overflow_Checks_On_Target is set.  */
       if (Do_Overflow_Check (gnat_node)
+	  && Backend_Overflow_Checks_On_Target
 	  && !TYPE_UNSIGNED (gnu_result_type)
 	  && !FLOAT_TYPE_P (gnu_result_type))
 	gnu_result
@@ -8937,8 +8946,9 @@ build_binary_op_trapv (enum tree_code code, tree gnu_type, tree left,
 					lhs, rhs);
       tree tgt = save_expr (call);
       gnu_expr = build1 (REALPART_EXPR, gnu_type, tgt);
-      check
-	= convert (boolean_type_node, build1 (IMAGPART_EXPR, gnu_type, tgt));
+      check = fold_build2 (NE_EXPR, boolean_type_node,
+			   build1 (IMAGPART_EXPR, gnu_type, tgt),
+			   build_int_cst (gnu_type, 0));
       return
 	emit_check (check, gnu_expr, CE_Overflow_Check_Failed, gnat_node);
    }

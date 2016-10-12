@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "predict.h"
 #include "tm_p.h"
@@ -147,7 +148,6 @@ static tree rewrite_call_expr (location_t, tree, int, tree, int, ...);
 static bool validate_arg (const_tree, enum tree_code code);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_signbit (tree, rtx);
-static tree fold_builtin_strchr (location_t, tree, tree, tree);
 static tree fold_builtin_memchr (location_t, tree, tree, tree, tree);
 static tree fold_builtin_memcmp (location_t, tree, tree, tree);
 static tree fold_builtin_strcmp (location_t, tree, tree);
@@ -167,7 +167,6 @@ static tree fold_builtin_varargs (location_t, tree, tree*, int);
 
 static tree fold_builtin_strpbrk (location_t, tree, tree, tree);
 static tree fold_builtin_strstr (location_t, tree, tree, tree);
-static tree fold_builtin_strrchr (location_t, tree, tree, tree);
 static tree fold_builtin_strspn (location_t, tree, tree);
 static tree fold_builtin_strcspn (location_t, tree, tree);
 
@@ -305,7 +304,7 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
 	{
 	  ptr_bitmask = TREE_INT_CST_LOW (TREE_OPERAND (addr, 1));
 	  ptr_bitmask *= BITS_PER_UNIT;
-	  align = ptr_bitmask & -ptr_bitmask;
+	  align = least_bit_hwi (ptr_bitmask);
 	  addr = TREE_OPERAND (addr, 0);
 	}
 
@@ -325,7 +324,7 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
 	      unsigned HOST_WIDE_INT step = 1;
 	      if (TMR_STEP (exp))
 		step = TREE_INT_CST_LOW (TMR_STEP (exp));
-	      align = MIN (align, (step & -step) * BITS_PER_UNIT);
+	      align = MIN (align, least_bit_hwi (step) * BITS_PER_UNIT);
 	    }
 	  if (TMR_INDEX2 (exp))
 	    align = BITS_PER_UNIT;
@@ -404,7 +403,7 @@ get_object_alignment (tree exp)
      ptr & (align - 1) == bitpos.  */
 
   if (bitpos != 0)
-    align = (bitpos & -bitpos);
+    align = least_bit_hwi (bitpos);
   return align;
 }
 
@@ -502,7 +501,7 @@ get_pointer_alignment (tree exp)
      ptr & (align - 1) == bitpos.  */
 
   if (bitpos != 0)
-    align = (bitpos & -bitpos);
+    align = least_bit_hwi (bitpos);
 
   return align;
 }
@@ -692,7 +691,7 @@ builtin_save_expr (tree exp)
   if (TREE_CODE (exp) == SSA_NAME
       || (TREE_ADDRESSABLE (exp) == 0
 	  && (TREE_CODE (exp) == PARM_DECL
-	      || (TREE_CODE (exp) == VAR_DECL && !TREE_STATIC (exp)))))
+	      || (VAR_P (exp) && !TREE_STATIC (exp)))))
     return exp;
 
   return save_expr (exp);
@@ -862,7 +861,6 @@ expand_builtin_setjmp_receiver (rtx receiver_label)
 
   if (!HARD_FRAME_POINTER_IS_ARG_POINTER && fixed_regs[ARG_POINTER_REGNUM])
     {
-#ifdef ELIMINABLE_REGS
       /* If the argument pointer can be eliminated in favor of the
 	 frame pointer, we don't need to restore it.  We assume here
 	 that if such an elimination is present, it can always be used.
@@ -877,7 +875,6 @@ expand_builtin_setjmp_receiver (rtx receiver_label)
 	  break;
 
       if (i == ARRAY_SIZE (elim_regs))
-#endif
 	{
 	  /* Now restore our arg pointer from the address at which it
 	     was saved in our stack frame.  */
@@ -2588,7 +2585,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
     {
     CASE_FLT_FN (BUILT_IN_IRINT):
       fallback_fn = BUILT_IN_LRINT;
-      /* FALLTHRU */
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_LRINT):
     CASE_FLT_FN (BUILT_IN_LLRINT):
       builtin_optab = lrint_optab;
@@ -2596,7 +2593,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
 
     CASE_FLT_FN (BUILT_IN_IROUND):
       fallback_fn = BUILT_IN_LROUND;
-      /* FALLTHRU */
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_LROUND):
     CASE_FLT_FN (BUILT_IN_LLROUND):
       builtin_optab = lround_optab;
@@ -3708,11 +3705,13 @@ expand_builtin_memcmp (tree exp, rtx target, bool result_eq)
 
   by_pieces_constfn constfn = NULL;
 
-  const char *src_str = c_getstr (arg1);
-  if (src_str == NULL)
-    src_str = c_getstr (arg2);
-  else
-    std::swap (arg1_rtx, arg2_rtx);
+  const char *src_str = c_getstr (arg2);
+  if (result_eq && src_str == NULL)
+    {
+      src_str = c_getstr (arg1);
+      if (src_str != NULL)
+       std::swap (arg1_rtx, arg2_rtx);
+    }
 
   /* If SRC is a string constant and block move would be done
      by pieces, we can avoid loading the string from memory
@@ -4089,16 +4088,10 @@ std_canonical_va_list_type (tree type)
 {
   tree wtype, htype;
 
-  if (INDIRECT_REF_P (type))
-    type = TREE_TYPE (type);
-  else if (POINTER_TYPE_P (type) && POINTER_TYPE_P (TREE_TYPE (type)))
-    type = TREE_TYPE (type);
   wtype = va_list_type_node;
   htype = type;
-  /* Treat structure va_list types.  */
-  if (TREE_CODE (wtype) == RECORD_TYPE && POINTER_TYPE_P (htype))
-    htype = TREE_TYPE (htype);
-  else if (TREE_CODE (wtype) == ARRAY_TYPE)
+
+  if (TREE_CODE (wtype) == ARRAY_TYPE)
     {
       /* If va_list is an array type, the argument may have decayed
 	 to a pointer type, e.g. by being passed to another function.
@@ -5565,7 +5558,7 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
 
       /* Either this argument is null, or it's a fake pointer encoding
          the alignment of the object.  */
-      val = val & -val;
+      val = least_bit_hwi (val);
       val *= BITS_PER_UNIT;
 
       if (val == 0 || mode_align < val)
@@ -5581,8 +5574,10 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
 	 end before anything else has a chance to look at it.  The pointer
 	 parameter at this point is usually cast to a void *, so check for that
 	 and look past the cast.  */
-      if (CONVERT_EXPR_P (arg1) && POINTER_TYPE_P (ttype)
-	  && VOID_TYPE_P (TREE_TYPE (ttype)))
+      if (CONVERT_EXPR_P (arg1)
+	  && POINTER_TYPE_P (ttype)
+	  && VOID_TYPE_P (TREE_TYPE (ttype))
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg1, 0))))
 	arg1 = TREE_OPERAND (arg1, 0);
 
       ttype = TREE_TYPE (arg1);
@@ -5905,6 +5900,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
     CASE_FLT_FN (BUILT_IN_ILOGB):
       if (! flag_unsafe_math_optimizations)
 	break;
+      gcc_fallthrough ();
     CASE_FLT_FN (BUILT_IN_ISINF):
     CASE_FLT_FN (BUILT_IN_FINITE):
     case BUILT_IN_ISFINITE:
@@ -7143,9 +7139,7 @@ fold_builtin_expect (location_t loc, tree arg0, tree arg1, tree arg2)
 	}
       while (TREE_CODE (inner) == COMPONENT_REF
 	     || TREE_CODE (inner) == ARRAY_REF);
-      if ((TREE_CODE (inner) == VAR_DECL
-           || TREE_CODE (inner) == FUNCTION_DECL)
-	  && DECL_WEAK (inner))
+      if (VAR_OR_FUNCTION_DECL_P (inner) && DECL_WEAK (inner))
 	return NULL_TREE;
     }
 
@@ -8395,14 +8389,6 @@ fold_builtin_2 (location_t loc, tree fndecl, tree arg0, tree arg1)
     case BUILT_IN_STRCSPN:
       return fold_builtin_strcspn (loc, arg0, arg1);
 
-    case BUILT_IN_STRCHR:
-    case BUILT_IN_INDEX:
-      return fold_builtin_strchr (loc, arg0, arg1, type);
-
-    case BUILT_IN_STRRCHR:
-    case BUILT_IN_RINDEX:
-      return fold_builtin_strrchr (loc, arg0, arg1, type);
-
     case BUILT_IN_STRCMP:
       return fold_builtin_strcmp (loc, arg0, arg1);
 
@@ -8823,7 +8809,7 @@ readonly_data_expr (tree exp)
      understand).  */
   if (TREE_CODE (exp) == STRING_CST
       || TREE_CODE (exp) == CONSTRUCTOR
-      || (TREE_CODE (exp) == VAR_DECL && TREE_STATIC (exp)))
+      || (VAR_P (exp) && TREE_STATIC (exp)))
     return decl_readonly_section (exp, 0);
   else
     return false;
@@ -8892,124 +8878,6 @@ fold_builtin_strstr (location_t loc, tree s1, tree s2, tree type)
 	 strchr(s1, s2[0]).  */
       return build_call_expr_loc (loc, fn, 2, s1,
 				  build_int_cst (integer_type_node, p2[0]));
-    }
-}
-
-/* Simplify a call to the strchr builtin.  S1 and S2 are the arguments to
-   the call, and TYPE is its return type.
-
-   Return NULL_TREE if no simplification was possible, otherwise return the
-   simplified form of the call as a tree.
-
-   The simplified form may be a constant or other expression which
-   computes the same value, but in a more efficient manner (including
-   calls to other builtin functions).
-
-   The call may contain arguments which need to be evaluated, but
-   which are not useful to determine the result of the call.  In
-   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
-   COMPOUND_EXPR will be an argument which must be evaluated.
-   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
-   COMPOUND_EXPR in the chain will contain the tree for the simplified
-   form of the builtin function call.  */
-
-static tree
-fold_builtin_strchr (location_t loc, tree s1, tree s2, tree type)
-{
-  if (!validate_arg (s1, POINTER_TYPE)
-      || !validate_arg (s2, INTEGER_TYPE))
-    return NULL_TREE;
-  else
-    {
-      const char *p1;
-
-      if (TREE_CODE (s2) != INTEGER_CST)
-	return NULL_TREE;
-
-      p1 = c_getstr (s1);
-      if (p1 != NULL)
-	{
-	  char c;
-	  const char *r;
-	  tree tem;
-
-	  if (target_char_cast (s2, &c))
-	    return NULL_TREE;
-
-	  r = strchr (p1, c);
-
-	  if (r == NULL)
-	    return build_int_cst (TREE_TYPE (s1), 0);
-
-	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build_pointer_plus_hwi_loc (loc, s1, r - p1);
-	  return fold_convert_loc (loc, type, tem);
-	}
-      return NULL_TREE;
-    }
-}
-
-/* Simplify a call to the strrchr builtin.  S1 and S2 are the arguments to
-   the call, and TYPE is its return type.
-
-   Return NULL_TREE if no simplification was possible, otherwise return the
-   simplified form of the call as a tree.
-
-   The simplified form may be a constant or other expression which
-   computes the same value, but in a more efficient manner (including
-   calls to other builtin functions).
-
-   The call may contain arguments which need to be evaluated, but
-   which are not useful to determine the result of the call.  In
-   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
-   COMPOUND_EXPR will be an argument which must be evaluated.
-   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
-   COMPOUND_EXPR in the chain will contain the tree for the simplified
-   form of the builtin function call.  */
-
-static tree
-fold_builtin_strrchr (location_t loc, tree s1, tree s2, tree type)
-{
-  if (!validate_arg (s1, POINTER_TYPE)
-      || !validate_arg (s2, INTEGER_TYPE))
-    return NULL_TREE;
-  else
-    {
-      tree fn;
-      const char *p1;
-
-      if (TREE_CODE (s2) != INTEGER_CST)
-	return NULL_TREE;
-
-      p1 = c_getstr (s1);
-      if (p1 != NULL)
-	{
-	  char c;
-	  const char *r;
-	  tree tem;
-
-	  if (target_char_cast (s2, &c))
-	    return NULL_TREE;
-
-	  r = strrchr (p1, c);
-
-	  if (r == NULL)
-	    return build_int_cst (TREE_TYPE (s1), 0);
-
-	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build_pointer_plus_hwi_loc (loc, s1, r - p1);
-	  return fold_convert_loc (loc, type, tem);
-	}
-
-      if (! integer_zerop (s2))
-	return NULL_TREE;
-
-      fn = builtin_decl_implicit (BUILT_IN_STRCHR);
-      if (!fn)
-	return NULL_TREE;
-
-      /* Transform strrchr(s1, '\0') to strchr(s1, '\0').  */
-      return build_call_expr_loc (loc, fn, 2, s1, s2);
     }
 }
 
@@ -9615,7 +9483,7 @@ fold_builtin_object_size (tree ptr, tree ost)
 
   if (TREE_CODE (ptr) == ADDR_EXPR)
     {
-      bytes = compute_builtin_object_size (ptr, object_size_type);
+      compute_builtin_object_size (ptr, object_size_type, &bytes);
       if (wi::fits_to_tree_p (bytes, size_type_node))
 	return build_int_cstu (size_type_node, bytes);
     }
@@ -9624,9 +9492,8 @@ fold_builtin_object_size (tree ptr, tree ost)
       /* If object size is not known yet, delay folding until
        later.  Maybe subsequent passes will help determining
        it.  */
-      bytes = compute_builtin_object_size (ptr, object_size_type);
-      if (bytes != (unsigned HOST_WIDE_INT) (object_size_type < 2 ? -1 : 0)
-          && wi::fits_to_tree_p (bytes, size_type_node))
+      if (compute_builtin_object_size (ptr, object_size_type, &bytes)
+	  && wi::fits_to_tree_p (bytes, size_type_node))
 	return build_int_cstu (size_type_node, bytes);
     }
 

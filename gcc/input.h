@@ -41,6 +41,7 @@ extern bool is_location_from_builtin_token (source_location);
 extern expanded_location expand_location (source_location);
 extern const char *location_get_source_line (const char *file_path, int line,
 					     int *line_size);
+extern bool location_missing_trailing_newline (const char *file_path);
 extern expanded_location expand_location_to_spelling_point (source_location);
 extern source_location expansion_point_location_if_in_system_header (source_location);
 extern source_location expansion_point_location (source_location);
@@ -60,6 +61,8 @@ extern location_t input_location;
 #define LOCATION_BLOCK(LOC) \
   ((tree) ((IS_ADHOC_LOC (LOC)) ? get_data_from_adhoc_loc (line_table, (LOC)) \
    : NULL))
+#define RESERVED_LOCATION_P(LOC) \
+  (LOCATION_LOCUS (LOC) < RESERVED_LOCATION_COUNT)
 
 /* Return a positive value if LOCATION is the locus of a token that is
    located in a system header, O otherwise. It returns 1 if LOCATION
@@ -76,8 +79,25 @@ extern location_t input_location;
    comes from a macro expansion, O otherwise.  */
 #define from_macro_expansion_at(LOC) \
   ((linemap_location_from_macro_expansion_p (line_table, LOC)))
+/* Return a positive value if LOCATION is the locus of a token that comes from
+   a macro definition, O otherwise.  This differs from from_macro_expansion_at
+   in its treatment of macro arguments, for which this returns false.  */
+#define from_macro_definition_at(LOC) \
+  ((linemap_location_from_macro_definition_p (line_table, LOC)))
 
-extern location_t get_pure_location (location_t loc);
+static inline location_t
+get_pure_location (location_t loc)
+{
+  return get_pure_location (line_table, loc);
+}
+
+/* Get the start of any range encoded within location LOC.  */
+
+static inline location_t
+get_start (location_t loc)
+{
+  return get_range_from_loc (line_table, loc).m_start;
+}
 
 /* Get the endpoint of any range encoded within location LOC.  */
 
