@@ -2540,7 +2540,7 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
   dwarf2out_init,
   debug_nothing_charstar,
   debug_nothing_charstar,
-  debug_nothing_void,
+  dwarf2out_assembly_start,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
@@ -11985,20 +11985,35 @@ int_loc_descriptor (HOST_WIDE_INT i)
 	/* DW_OP_const1u X DW_OP_litY DW_OP_shl takes just 4 bytes,
 	   while DW_OP_const4u is 5 bytes.  */
 	return int_shift_loc_descriptor (i, HOST_BITS_PER_WIDE_INT - clz - 8);
+
+      else if (DWARF2_ADDR_SIZE == 4 && i > 0x7fffffff
+	       && size_of_int_loc_descriptor ((HOST_WIDE_INT) (int32_t) i)
+		  <= 4)
+	{
+	  /* As i >= 2**31, the double cast above will yield a negative number.
+	     Since wrapping is defined in DWARF expressions we can output big
+	     positive integers as small negative ones, regardless of the size
+	     of host wide ints.
+
+	     Here, since the evaluator will handle 32-bit values and since i >=
+	     2**31, we know it's going to be interpreted as a negative literal:
+	     store it this way if we can do better than 5 bytes this way.  */
+	  return int_loc_descriptor ((HOST_WIDE_INT) (int32_t) i);
+	}
       else if (HOST_BITS_PER_WIDE_INT == 32 || i <= 0xffffffff)
 	op = DW_OP_const4u;
+
+      /* Past this point, i >= 0x100000000 and thus DW_OP_constu will take at
+	 least 6 bytes: see if we can do better before falling back to it.  */
       else if (clz + ctz >= HOST_BITS_PER_WIDE_INT - 8
 	       && clz + 8 + 255 >= HOST_BITS_PER_WIDE_INT)
-	/* DW_OP_const1u X DW_OP_const1u Y DW_OP_shl takes just 5 bytes,
-	   while DW_OP_constu of constant >= 0x100000000 takes at least
-	   6 bytes.  */
+	/* DW_OP_const1u X DW_OP_const1u Y DW_OP_shl takes just 5 bytes.  */
 	return int_shift_loc_descriptor (i, HOST_BITS_PER_WIDE_INT - clz - 8);
       else if (clz + ctz >= HOST_BITS_PER_WIDE_INT - 16
 	       && clz + 16 + (size_of_uleb128 (i) > 5 ? 255 : 31)
 		  >= HOST_BITS_PER_WIDE_INT)
 	/* DW_OP_const2u X DW_OP_litY DW_OP_shl takes just 5 bytes,
-	   DW_OP_const2u X DW_OP_const1u Y DW_OP_shl takes 6 bytes,
-	   while DW_OP_constu takes in this case at least 6 bytes.  */
+	   DW_OP_const2u X DW_OP_const1u Y DW_OP_shl takes 6 bytes.  */
 	return int_shift_loc_descriptor (i, HOST_BITS_PER_WIDE_INT - clz - 16);
       else if (clz + ctz >= HOST_BITS_PER_WIDE_INT - 32
 	       && clz + 32 + 31 >= HOST_BITS_PER_WIDE_INT
@@ -12223,6 +12238,10 @@ size_of_int_loc_descriptor (HOST_WIDE_INT i)
 	       && clz + 8 + 31 >= HOST_BITS_PER_WIDE_INT)
 	return size_of_int_shift_loc_descriptor (i, HOST_BITS_PER_WIDE_INT
 						    - clz - 8);
+      else if (DWARF2_ADDR_SIZE == 4 && i > 0x7fffffff
+	       && size_of_int_loc_descriptor ((HOST_WIDE_INT) (int32_t) i)
+		  <= 4)
+	return size_of_int_loc_descriptor ((HOST_WIDE_INT) (int32_t) i);
       else if (HOST_BITS_PER_WIDE_INT == 32 || i <= 0xffffffff)
 	return 5;
       s = size_of_uleb128 ((unsigned HOST_WIDE_INT) i);
@@ -23901,6 +23920,16 @@ dwarf2out_early_global_decl (tree decl)
 	     to emit.  */
 	  if (!DECL_STRUCT_FUNCTION (decl))
 	    goto early_decl_exit;
+
+	  /* For nested functions, emit DIEs for the parents first so that all
+	     nested DIEs are generated at the proper scope in the first
+	     shot.  */
+	  tree context = decl_function_context (decl);
+	  if (context != NULL)
+	    {
+	      current_function_decl = context;
+	      dwarf2out_decl (context);
+	    }
 
 	  current_function_decl = decl;
 	}

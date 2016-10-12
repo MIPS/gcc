@@ -1,3 +1,298 @@
+2016-10-12  Yannick Moy  <moy@adacore.com>
+
+	* einfo.adb, einfo.ads (Partial_Refinement_Constituents): Take
+	into account constituents that are themselves abstract states
+	with full or partial refinement visible.
+	* sem_prag.adb (Find_Encapsulating_State): Move function
+	to library-level, to share between subprograms.
+	(Analyze_Refined_Global_In_Decl_Part): Use
+	Find_Encapsulating_State to get relevant encapsulating state.
+
+2016-10-12  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb: Fix minor typo.
+
+2016-10-12  Yannick Moy  <moy@adacore.com>
+
+	* sem_prag.adb (Analyze_Refined_Depends_In_Decl_Part): Adapt checking
+	for optional refinement of abstract state with partial
+	visible refinement.
+	(Analyze_Refined_Global_In_Decl_Part): Adapt checking for optional
+	refinement of abstract state with partial visible refinement. Implement
+	new rules in SPARK RM 7.2.4 related to optional refinement.
+	Also fix the missing detection of missing items.
+
+2016-10-12  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.adb Add new usage for Elist29 and Node35.
+	(Anonymous_Designated_Type): New routine.
+	(Anonymous_Master): Removed.
+	(Anonymous_Masters): New routine.
+	(Set_Anonymous_Designated_Type): New routine.
+	(Set_Anonymous_Master): Removed.
+	(Set_Anonymous_Masters): New routine.
+	(Write_Field29_Name): Add output for Anonymous_Masters.
+	(Write_Field35_Name): Remove the output for Anonymous_Master. Add
+	output for Anonymous_Designated_Type.
+	* einfo.ads Remove attribute Anonymous_Master along with
+	usage in entities. Add attributes Anonymous_Designated_Type
+	and Anonymous_Masters along with usage in entities.
+	(Anonymous_Designated_Type): New routine along with pragma Inline.
+	(Anonymous_Master): Removed along with pragma Inline.
+	(Anonymous_Masters): New routine along with pragma Inline.
+	(Set_Anonymous_Designated_Type): New routine along with pragma Inline.
+	(Set_Anonymous_Master): Removed along with pragma Inline.
+	(Set_Anonymous_Masters): New routine along with pragma Inline.
+	* exp_ch7.adb (Build_Anonymous_Master): Reuse an anonymous master
+	defined in the same unit if it services the same designated
+	type, otherwise create a new one.
+	(Create_Anonymous_Master): Reimplemented.
+	(Current_Anonymous_Master): New routine.
+	(In_Subtree): Removed.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, case Dynamic_Predicate):
+	Check properly whether there is an explicit assertion policy
+	for predicate checking, even in the presence of a general Ignore
+	assertion policy.
+
+2016-10-12  Steve Baird  <baird@adacore.com>
+
+	* sem.adb (Walk_Library_Items): Cope with ignored ghost units.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* lib-writ.adb (Write_ALI): Removal of unused file entries from
+	dependency list must be performed before the list is sorted,
+	so that the dependency number of other files is properly set-up
+	for use in tools that relate entity information to the unit in
+	which they are declared.
+
+2016-10-12  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_aggr.adb (Initialize_Ctrl_Array_Component):
+	Create a copy of the initialization expression to avoid sharing
+	it between multiple components.
+
+2016-10-12  Yannick Moy  <moy@adacore.com>
+
+	* einfo.adb, einfo.ads (Has_Partial_Visible_Refinement): New flag
+	in abtract states.
+	(Has_Non_Null_Visible_Refinement): Return true for patial refinement.
+	(Partial_Refinement_Constituents): New function returns the full or
+	partial refinement constituents depending on scope.
+	* sem_ch3.adb (Analyze_Declarations): Remove partial visible
+	refinements when exiting the scope of a package spec or body
+	and those partial refinements are not in scope afterwards.
+	* sem_ch7.adb, sem_ch7.ads (Install_Partial_Declarations): Mark
+	abstract states of parent units with partial refinement so that
+	it is visible.
+	* sem_prag.adb (Analyze_Part_Of_In_Decl_Part): Mark enclosing
+	abstract state if any as having partial refinement in that scope.
+	(Analyze_Refined_Global_In_Decl_Part): Check constituent usage
+	based on full or partial refinement depending on scope.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch4.adb (Expand_N_Type_Conversion): If the target type
+	has an invariant aspect, insert invariant call at the proper
+	place in the code rather than rewriting the expression as an
+	expression with actions, to prevent spurious semantic errors on
+	the rewritten conversion when it is the object in a renaming.
+
+2016-10-12  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch5.adb, sem_ch3.adb, exp_ch9.adb, a-tags.adb, sem_prag.adb,
+	sem_ch12.adb, xref_lib.adb, a-strunb-shared.adb, rtsfind.adb,
+	freeze.adb, sem_attr.adb, sem_case.adb, exp_ch4.adb, ghost.adb,
+	exp_ch6.adb, sem_ch4.adb, restrict.adb, s-os_lib.adb: Minor
+	reformatting.
+
+2016-10-12  Justin Squirek  <squirek@adacore.com>
+
+	* sem_ch10.adb (Remove_Limited_With_Clause): Add a check to
+	detect accidental visibility.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch4.adb (Expand_Allocator): If the expression is a qualified
+	expression, add a predicate check after the constraint check.
+	* sem_res.adb (Resolve_Qualified_Expression): If context is an
+	allocator, do not apply predicate check, as it will be done when
+	allocator is expanded.
+
+2016-10-12  Bob Duff  <duff@adacore.com>
+
+	* xref_lib.adb: Use renamings-of-slices to ensure
+	that all references to Tables are properly bounds checked (when
+	checks are turned on).
+	* g-dyntab.ads, g-dyntab.adb: Default-initialize the array
+	components, so we don't get uninitialized pointers in case
+	of Tables containing access types.  Misc cleanup of the code
+	and comments.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute, case 'Type_Key): Implement
+	functionality of attribute, to provide a reasonably unique key
+	for a given type and detect any changes in the semantics of the
+	type or any of its subcomponents from version to version.
+
+2016-10-12  Bob Duff  <duff@adacore.com>
+
+	* sem_case.adb (Check_Choice_Set): Separate
+	checking for duplicates out into a separate pass from checking
+	full coverage, because the check for duplicates does not depend
+	on predicates. Therefore, we shouldn't do it separately for the
+	predicate vs. no-predicate case; we should share code. The code
+	for the predicate case was wrong.
+
+2016-10-12  Jerome Lambourg  <lambourg@adacore.com>
+
+	* init.c: Make sure to call finit on x86_64-vx7 to reinitialize
+	the FPU unit.
+
+2016-10-12  Arnaud Charlet  <charlet@adacore.com>
+
+	* lib-load.adb (Load_Unit): Generate an error message even when
+	Error_Node is null.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* lib-writ.adb (Write_ALI): Disable optimization related to transitive
+	limited_with clauses for now.
+
+2016-10-12  Javier Miranda  <miranda@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute_Old_Result): Generating C
+	code handle 'old located in inlined _postconditions procedures.
+	(Analyze_Attribute [Attribute_Result]): Handle 'result when
+	rewriting the attribute as a reference to the formal parameter
+	_Result of inlined _postconditions procedures.
+
+2016-10-12  Tristan Gingold  <gingold@adacore.com>
+
+	* s-rident.ads (Profile_Info): Remove
+	Max_Protected_Entries restriction from GNAT_Extended_Ravenscar
+	* sem_ch9.adb (Analyze_Protected_Type_Declaration):
+	Not a controlled type on restricted runtimes.
+
+2016-10-12  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_ch3.adb (Derive_Subprogram): Add test
+	for Is_Controlled of Parent_Type when determining whether an
+	inherited subprogram with one of the special names Initialize,
+	Adjust, or Finalize should be derived with its normal name even
+	when inherited as a private operation (which would normally
+	result in the inherited operation having a special "hidden" name).
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Resolve_Call): If a function call returns a
+	limited view of a type replace it with the non-limited view,
+	which must be available when compiling call.  This was already
+	done elsewhere for non-overloaded calls, but needs to be done
+	after resolution if function name is overloaded.
+
+2016-10-12  Javier Miranda  <miranda@adacore.com>
+
+	* a-tags.adb (IW_Membership [private]): new overloaded
+	subprogram that factorizes the code needed to check if a
+	given type implements an interface type.
+	(IW_Membership
+	[public]): invoke the new internal IW_Membership function.
+	(Is_Descendant_At_Same_Level): Fix this routine to implement RM
+	3.9 (12.3/3)
+
+2016-10-12  Tristan Gingold  <gingold@adacore.com>
+
+	* exp_ch9.adb (Expand_N_Delay_Relative_Statement): Add support
+	for a secondary procedure in case of missing Ada.Calendar.Delays
+	* rtsfind.ads (RTU_Id): Add System_Relative_Delays.
+	(RE_Id): Add RO_RD_Delay_For.
+	* rtsfind.adb (Output_Entity_Name): Handle correctly units RO_XX.
+	* s-rident.ads: Remove No_Relative_Delays
+	restriction for GNAT_Extended_Ravenscar.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_elab.adb (Within_Initial_Condition):  When deternining
+	the context of the expression, use the original node if it is
+	a pragma, because Check pragmas are rewritten as conditionals
+	when assertions are not enabled.
+
+2016-10-12  Bob Duff  <duff@adacore.com>
+
+	* spitbol_table.ads, spitbol_table.adb (Adjust, Finalize): Add
+	"overriding".
+
+2016-10-12  Bob Duff  <duff@adacore.com>
+
+	* a-strunb-shared.ads, a-strunb-shared.adb (Finalize):
+	Make sure Finalize is idempotent.
+	(Unreference): Check for
+	Empty_Shared_String, in case the reference count of the empty
+	string wraps around.
+	Also add "not null" in various places that can't be null.
+
+2016-10-12  Jerome Lambourg  <lambourg@adacore.com>
+
+	* init.c: Fix sigtramp with the x86_64-vx7-vxsim target on
+	Windows host.
+
+2016-10-12  Vadim Godunko  <godunko@adacore.com>
+
+	* s-os_lib.ads (Is_Owner_Readable_File): Renamed from
+	Is_Readable_File.
+	(Is_Owner_Writable_File): Renamed from Is_Writable_File.
+	(Is_Readable_File): Renames Is_Read_Accessible_File.
+	(Is_Writable_File): Renames Is_Write_Accessible_File.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Check_Formal_Package_Instance): Skip an internal
+	formal entity without a parent only if the corresponding actual
+	entity has a different kind.
+	* exp_ch9.adb (Build_Class_Wide_Master): If the master is
+	declared locally, insert the renaming declaration after the
+	master declaration, to prevent access before elaboration in gigi.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* contracts.adb (Analyze_Contracts): For a type declaration, analyze
+	an iterable aspect when present.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Check_Formal_Package_Instance): Handle properly
+	an instance of a formal package with defaults, when defaulted
+	parameters include tagged private types and array types.
+
+2016-10-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/64057.
+	* exp_ch5.adb (Is_Non_Local_Array): Return true for every array
+	that is not a component or slice of an entity in the current
+	scope.
+
+2016-10-12  Tristan Gingold  <gingold@adacore.com>
+
+	* restrict.ads, restrict.adb (Restricted_Profile): Adjust
+	comment, use Restricted_Tasking to compare restrictions.
+	* s-rident.ads (Profile_Name): Add Restricted_Tasking and
+	reorder literals.
+	(Profile_Info): Set restrictions for Restricted_Tasking.
+
+2016-10-12  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Analyze_Full_Type_Declaration): Set Ghost status
+	of type before elaborating inherited operations, so that the
+	Ghost status is set properly for them.
+	* ghost.adb (Check_Ghost_Overriding): A ghost subprogram can
+	override an abstract subprogram coming from an interface
+	operation.
+
 2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* system-linux-armeb.ads (Backend_Overflow_Checks): Change to True.

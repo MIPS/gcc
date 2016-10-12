@@ -368,6 +368,7 @@ std_headers = \
 	${std_srcdir}/unordered_set \
 	${std_srcdir}/utility \
 	${std_srcdir}/valarray \
+	${std_srcdir}/variant \
 	${std_srcdir}/vector
 
 bits_srcdir = ${glibcxx_srcdir}/include/bits
@@ -423,7 +424,9 @@ bits_headers = \
 	${bits_srcdir}/mask_array.h \
 	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
+	${bits_srcdir}/std_mutex.h \
 	${bits_srcdir}/node_handle.h \
+	${bits_srcdir}/numeric_limits.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/parse_numbers.h \
@@ -470,6 +473,7 @@ bits_headers = \
 	${bits_srcdir}/sf_owens_t.tcc \
 	${bits_srcdir}/sf_polylog.tcc \
 	${bits_srcdir}/sf_theta.tcc \
+	${bits_srcdir}/sf_trig.tcc \
 	${bits_srcdir}/sf_trigint.tcc \
 	${bits_srcdir}/sf_zeta.tcc \
 	${bits_srcdir}/shared_ptr.h \
@@ -531,6 +535,8 @@ bits_sup_srcdir = ${glibcxx_srcdir}/libsupc++
 bits_sup_headers = \
 	${bits_sup_srcdir}/atomic_lockfree_defines.h \
 	${bits_sup_srcdir}/cxxabi_forced.h \
+	${bits_sup_srcdir}/cxxabi_init_exception.h \
+	${bits_sup_srcdir}/exception.h \
 	${bits_sup_srcdir}/exception_defines.h \
 	${bits_sup_srcdir}/exception_ptr.h \
 	${bits_sup_srcdir}/hash_bytes.h \
@@ -869,6 +875,7 @@ ext_headers = \
 	${ext_srcdir}/pod_char_traits.h \
 	${ext_srcdir}/pointer.h \
 	${ext_srcdir}/polynomial.h \
+	${ext_srcdir}/polynomial.tcc \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
 	${ext_srcdir}/random \

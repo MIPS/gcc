@@ -1,3 +1,180 @@
+2016-10-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (machine_function): Add new fields
+	gpr_is_wrapped_separately and lr_is_wrapped_separately.
+	(TARGET_SHRINK_WRAP_GET_SEPARATE_COMPONENTS,
+	TARGET_SHRINK_WRAP_COMPONENTS_FOR_BB,
+	TARGET_SHRINK_WRAP_DISQUALIFY_COMPONENTS,
+	TARGET_SHRINK_WRAP_EMIT_PROLOGUE_COMPONENTS,
+	TARGET_SHRINK_WRAP_EMIT_EPILOGUE_COMPONENTS,
+	TARGET_SHRINK_WRAP_SET_HANDLED_COMPONENTS): Define.
+	(rs6000_get_separate_components): New function.
+	(rs6000_components_for_bb): New function.
+	(rs6000_disqualify_components): New function.
+	(rs6000_emit_prologue_components): New function.
+	(rs6000_emit_epilogue_components): New function.
+	(rs6000_set_handled_components): New function.
+	(rs6000_emit_prologue): Don't emit LR save if lr_is_wrapped_separately.
+	Don't emit GPR saves if gpr_is_wrapped_separately for that register.
+	(restore_saved_lr): Don't restore LR if lr_is_wrapped_separately.
+	(rs6000_emit_epilogue): Don't emit GPR restores if
+	gpr_is_wrapped_separately for that register.  Don't make a
+	REG_CFA_RESTORE note for registers we did not restore, either.
+
+2016-10-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* function.c (thread_prologue_and_epilogue_insns): Call
+	try_shrink_wrapping_separate.  Compute the prologue_seq afterwards,
+	if it has possibly changed.  Compute the split_prologue_seq and
+	epilogue_seq later, too.
+	* shrink-wrap.c: #include cfgbuild.h and insn-config.h.
+	(dump_components): New function.
+	(struct sw): New struct.
+	(SW): New function.
+	(init_separate_shrink_wrap): New function.
+	(fini_separate_shrink_wrap): New function.
+	(place_prologue_for_one_component): New function.
+	(spread_components): New function.
+	(disqualify_problematic_components): New function.
+	(emit_common_heads_for_components): New function.
+	(emit_common_tails_for_components): New function.
+	(insert_prologue_epilogue_for_components): New function.
+	(try_shrink_wrapping_separate): New function.
+	* shrink-wrap.h: Declare try_shrink_wrapping_separate.
+
+2016-10-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* regrename.c (build_def_use): Invalidate chains that have a
+	REG_CFA_RESTORE on some instruction.
+
+2016-10-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* dce.c (delete_unmarked_insns): Don't delete instructions with
+	a REG_CFA_RESTORE note.
+
+2016-10-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* common.opt (-fshrink-wrap-separate): New flag.
+	* doc/invoke.texi: Document it.
+	* doc/tm.texi.in (Shrink-wrapping separate components): New subsection.
+	* doc/tm.texi: Regenerate.
+	* emit-rtl.h (struct rtl_data): New field shrink_wrapped_separate.
+	* target.def (shrink_wrap): New hook vector.
+	(get_separate_components, components_for_bb, disqualify_components,
+	emit_prologue_components, emit_epilogue_components,
+	set_handled_components): New hooks.
+
+2016-10-12  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_return_in_memory): Warn for
+	vector return by reference only if -Wpsabi.
+	(rs6000_pass_by_reference): Similarly, for argument passing.
+
+2016-10-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* function-tests.c: Include "print-rtl.h".
+	(selftest::test_expansion_to_rtl): Call print_rtx_function on the
+	function, and verify what is dumped.
+	* print-rtl-function.c (print_edge): New function.
+	(begin_any_block): New function.
+	(end_any_block): New function.
+	(can_have_basic_block_p): New function.
+	(print_rtx_function): Track the basic blocks of insns in the
+	chain, wrapping those that are within blocks within "(block)"
+	directives.  Remove the "(cfg)" directive.
+
+2016-10-12  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.c (selftest::read_file): New function.
+	(selftest::test_read_file): New function.
+	(selftest::selftest_c_tests): Call test_read_file.
+	* selftest.h (selftest::read_file): New decl.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR debug/77947
+	* cgraphunit.c (analyze_functions): Preserve cgraph nodes
+	function context.
+
+2016-10-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* lto-streamer.c: Fix LTO_STREAMER_DEBUG build.
+
+	* dwarf2out.c (dwarf2_lineno_debug_hooks): Use
+	dwarf2out_assembly_start.
+
+	* Makefile.in (SELFTEST_FLAGS): Add -nostdinc.
+
+	* Makefile.in (SELFTEST_FLAGS): New variable.
+	(s-selftest, selftest-gdb, selftest-valgrind): Use it.
+
+	* vmsdbgout.c (vmsdbg_debug_hooks): Add filename parameter to
+	early_finish hook.
+
+2016-10-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	* rtl.h (struct rtx_def): Comment how RTX_FLAGS will be
+	dumped in RTL dumps.
+
+2016-10-12  Martin Liska  <mliska@suse.cz>
+
+	* gimple-fold.c (create_tmp_reg_or_ssa_name): New function.
+	(gimple_fold_builtin_memory_op): Use the function.
+	(gimple_fold_builtin_strchr): Likewise.
+	(gimple_fold_builtin_strcat): Likewise.
+	(gimple_build): Likewise.
+
+2016-10-12  Nathan Sidwell  <nathan@acm.org>
+
+	* diagnostic.c (diagnostc_report_diagnostic): Fix formatting.
+
+2016-10-12  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (int_loc_descriptor): Generate opcodes for another
+	equivalent 32-bit constant (modulo 2**32) when that yields
+	smaller instructions.
+	(size_of_int_loc_descriptor): Update accordingly.
+
+2016-10-12  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (dwarf2out_early_global_decl): For nested
+	functions, call dwarf2out_decl on the parent function first.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	* match.pd ((X /[ex] A) * A -> X): Remove unnecessary constraint
+	on the conversion.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-propagate.c
+	(substitute_and_fold_dom_walker::before_dom_children): Do not
+	ignore ASSERT_EXPRs but only preserve them.
+	* tree-vrp.c (remove_range_assertions): Deal with ASSERT_EXPRs
+	that have been propagated into.
+	(vrp_finalize): Enable DCE for substitute_and_fold.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77920
+	* tree-vrp.c (simplify_div_or_mod_using_ranges): Simplify.
+	(simplify_min_or_max_using_ranges): Pass in gsi and use it.
+	(simplify_abs_using_ranges): Likewise.
+	(simplify_conversion_using_ranges): Likewise.
+	(simplify_stmt_using_ranges): Adjust.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77929
+	* tree-ssa-reassoc.c (optimize_range_tests_var_bound): Handle
+	(*ops)[ranges[i].idx]->op != ranges[i].exp case.
+
+2016-10-12  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/77934
+	* config/rs6000/vmx.md (vsx_concat_<mode>): The mtvsrdd instruction
+	needs a base register for arg 1.
+
 2016-10-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* common.opt (Wimplicit-fallthrough) Turn into alias to

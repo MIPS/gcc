@@ -528,7 +528,6 @@ runtime_files = \
 	rdebug.c \
 	reflect.c \
 	runtime1.c \
-	sema.c \
 	sigqueue.c \
 	string.c \
 	time.c \
@@ -736,6 +735,12 @@ s-epoll: Makefile
 	$(SHELL) $(srcdir)/mvifdiff.sh epoll.go.tmp epoll.go
 	$(STAMP) $@
 
+if LIBGO_IS_LINUX
+syscall_lib_clone_lo = syscall/clone_linux.lo
+else
+syscall_lib_clone_lo =
+endif
+
 libgo_go_objs = \
 	bufio.lo \
 	bytes.lo \
@@ -767,6 +772,7 @@ libgo_go_objs = \
 	strings/index.lo \
 	sync.lo \
 	syscall.lo \
+	$(syscall_lib_clone_lo) \
 	syscall/errno.lo \
 	syscall/signame.lo \
 	syscall/wait.lo \
@@ -2534,6 +2540,9 @@ syscall.lo.dep: $(srcdir)/go/syscall/*.go $(extra_go_files_syscall)
 	$(BUILDDEPS)
 syscall.lo:
 	$(BUILDPACKAGE)
+syscall/clone_linux.lo: go/syscall/clone_linux.c runtime.inc
+	@$(MKDIR_P) syscall
+	$(LTCOMPILE) -c -o $@ $<
 syscall/errno.lo: go/syscall/errno.c runtime.inc
 	@$(MKDIR_P) syscall
 	$(LTCOMPILE) -c -o $@ $<
