@@ -8576,6 +8576,14 @@ gfc_is_reallocatable_lhs (gfc_expr *expr)
   if (!expr->ref)
     return false;
 
+  /* An allocatable class variable with no reference.  */
+  if (expr->symtree->n.sym->ts.type == BT_CLASS
+      && CLASS_DATA (expr->symtree->n.sym)->attr.allocatable
+      && expr->ref && expr->ref->type == REF_COMPONENT
+      && strcmp (expr->ref->u.c.component->name, "_data") == 0
+      && expr->ref->next == NULL)
+    return true;
+
   /* An allocatable variable.  */
   if (expr->symtree->n.sym->attr.allocatable
 	&& expr->ref

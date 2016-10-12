@@ -9571,7 +9571,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   tree string_length;
   int n;
   bool maybe_workshare = false;
-  symbol_attribute lhs_caf_attr, rhs_caf_attr;
+  symbol_attribute lhs_caf_attr, rhs_caf_attr, lhs_attr;
 
   /* Assignment of the form lhs = rhs.  */
   gfc_start_block (&block);
@@ -9779,18 +9779,27 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	gfc_add_block_to_block (&loop.post, &rse.post);
     }
 
-  if ((use_vptr_copy || gfc_expr_attr (expr1).pointer)
+  lhs_attr = gfc_expr_attr (expr1);
+  if ((use_vptr_copy || lhs_attr.pointer
+       || (lhs_attr.allocatable && !lhs_attr.dimension))
       && (expr1->ts.type == BT_CLASS
 	  || ((gfc_is_class_array_ref (expr1, NULL)
 	       || gfc_is_class_scalar_expr (expr1))
 	      && !GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr)))
 	  || (gfc_is_class_array_ref (expr2, NULL)
 	      || gfc_is_class_scalar_expr (expr2))))
-    tmp = trans_class_assignment (&block, expr1, expr2, &lse, &rse,
-				  use_vptr_copy);
+    {
+      tmp = trans_class_assignment (&block, expr1, expr2, &lse, &rse,
+				    use_vptr_copy || (lhs_attr.allocatable
+						      && !lhs_attr.dimension));
+      /* Modify the expr1 after the assignment, to allow the realloc below.
+	 Therefore only needed, when realloc_lhs is enabled.  */
+      if (flag_realloc_lhs && !lhs_attr.pointer)
+	gfc_add_data_component (expr1);
+    }
   else if (flag_coarray == GFC_FCOARRAY_LIB
-      && lhs_caf_attr.codimension && rhs_caf_attr.codimension
-      && lhs_caf_attr.alloc_comp && rhs_caf_attr.alloc_comp)
+	   && lhs_caf_attr.codimension && rhs_caf_attr.codimension
+	   && lhs_caf_attr.alloc_comp && rhs_caf_attr.alloc_comp)
     {
       gfc_code code;
       gfc_actual_arglist a1, a2;
@@ -9972,8 +9981,8 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
 
   /* Fallback to the scalarizer to generate explicit loops.  */
-  return gfc_trans_assignment_1 (expr1, expr2, init_flag, dealloc, use_vptr_copy,
-				 may_alias);
+  return gfc_trans_assignment_1 (expr1, expr2, init_flag, dealloc,
+				 use_vptr_copy, may_alias);
 }
 
 tree

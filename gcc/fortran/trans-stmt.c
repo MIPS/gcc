@@ -5558,7 +5558,6 @@ gfc_trans_allocate (gfc_code * code)
 	  else
 	    {
 	      rhs = gfc_find_and_cut_at_last_class_ref (code->expr3);
-
 	      gfc_add_vptr_component (rhs);
 	      gfc_init_se (&se, NULL);
 	      se.want_pointer = 1;
