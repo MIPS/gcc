@@ -685,8 +685,8 @@ is_trig_resolved (gfc_expr *f)
 {
   /* We know we've already resolved the function if we see the lib call
      starting with '__'.  */
-  return f->value.function.name != NULL
-    && 0 == strncmp ("__", f->value.function.name, 2);
+  return (f->value.function.name != NULL
+	  && strncmp ("__", f->value.function.name, 2) == 0);
 }
 
 /* Return a shallow copy of the function expression f.  The original expression
@@ -2687,7 +2687,7 @@ get_radians (gfc_expr *deg)
   /* Set factor = pi / 180.  */
   factor = gfc_get_constant_expr (deg->ts.type, deg->ts.kind, &deg->where);
   mpfr_const_pi (factor->value.real, GFC_RND_MODE);
-  mpfr_div_d (factor->value.real, factor->value.real, 180.0, GFC_RND_MODE);
+  mpfr_div_ui (factor->value.real, factor->value.real, 180, GFC_RND_MODE);
 
   /* Result is rad = (deg % 360) * (pi / 180).  */
   result = gfc_multiply (result, factor);
@@ -2725,7 +2725,7 @@ get_degrees (gfc_expr *rad)
 
   /* Set factor = 180 / pi.  */
   factor = gfc_get_constant_expr (rad->ts.type, rad->ts.kind, &rad->where);
-  mpfr_set_d (factor->value.real, 180.0, GFC_RND_MODE);
+  mpfr_set_ui (factor->value.real, 180, GFC_RND_MODE);
   mpfr_init (tmp);
   mpfr_const_pi (tmp, GFC_RND_MODE);
   mpfr_div (factor->value.real, factor->value.real, tmp, GFC_RND_MODE);
@@ -2744,28 +2744,26 @@ resolve_trig_call (gfc_expr *f, gfc_expr *x)
 {
   switch (f->value.function.isym->id)
     {
-      case GFC_ISYM_ACOS:
-	return gfc_resolve_acos (f, x);
-      case GFC_ISYM_ASIN:
-	return gfc_resolve_asin (f, x);
-      case GFC_ISYM_ATAN:
-	return gfc_resolve_atan (f, x);
-      case GFC_ISYM_ATAN2:
-	/* NB. arg3 is unused for atan2 */
-	return gfc_resolve_atan2 (f, x, NULL);
-      case GFC_ISYM_COS:
-	return gfc_resolve_cos (f, x);
-      case GFC_ISYM_COTAN:
-	return gfc_resolve_cotan (f, x);
-      case GFC_ISYM_SIN:
-	return gfc_resolve_sin (f, x);
-      case GFC_ISYM_TAN:
-	return gfc_resolve_tan (f, x);
-      default:
-	break;
+    case GFC_ISYM_ACOS:
+      return gfc_resolve_acos (f, x);
+    case GFC_ISYM_ASIN:
+      return gfc_resolve_asin (f, x);
+    case GFC_ISYM_ATAN:
+      return gfc_resolve_atan (f, x);
+    case GFC_ISYM_ATAN2:
+      /* NB. arg3 is unused for atan2 */
+      return gfc_resolve_atan2 (f, x, NULL);
+    case GFC_ISYM_COS:
+      return gfc_resolve_cos (f, x);
+    case GFC_ISYM_COTAN:
+      return gfc_resolve_cotan (f, x);
+    case GFC_ISYM_SIN:
+      return gfc_resolve_sin (f, x);
+    case GFC_ISYM_TAN:
+      return gfc_resolve_tan (f, x);
+    default:
+      gcc_unreachable ();
     }
-
-  gcc_unreachable ();
 }
 
 /* Resolve degree trig function as trigd (x) = trig (radians (x)).  */

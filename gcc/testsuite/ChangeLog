@@ -1,3 +1,52 @@
+2016-10-12  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gnat.dg/debug8.adb: New testcase.
+
+2016-10-12  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gnat.dg/debug9.adb: New testcase.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/vrp35.c: Adjust.
+	* gcc.dg/tree-ssa/vrp36.c: Likewise.
+	* gcc.dg/tree-ssa/vrp46.c: Likewise.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77920
+	* gcc.dg/torture/pr77920.c: New testcase.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77929
+	* gcc.c-torture/compile/pr77929.c: New test.
+
+	* c-c++-common/Wimplicit-fallthrough-25.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-26.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-27.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-28.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-29.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-30.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-31.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-32.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-33.c: New test.
+
+2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/setcc-4.c: Adjust.
+	* gcc.target/sparc/setcc-5.c: Likewise.
+	* gcc.target/sparc/setcc-6.c: Likewise.
+	* gcc.target/sparc/setcc-7.c: Likewise.
+	* gcc.target/sparc/setcc-8.c: Likewise.
+	* gcc.target/sparc/setcc-9.c: Likewise.
+	* gcc.target/sparc/setcc-10.c: Delete.
+
+2016-10-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77942
+	* gfortran.dg/pr77942.f90
+
 2016-10-11  Fritz Reese  <fritzoreese@gmail.com>
 
 	* gfortran.dg/dec_math.f90: New testsuite.
