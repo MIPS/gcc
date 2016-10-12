@@ -1,3 +1,106 @@
+2016-10-12  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (int_loc_descriptor): Generate opcodes for another
+	equivalent 32-bit constant (modulo 2**32) when that yields
+	smaller instructions.
+	(size_of_int_loc_descriptor): Update accordingly.
+
+2016-10-12  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (dwarf2out_early_global_decl): For nested
+	functions, call dwarf2out_decl on the parent function first.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	* match.pd ((X /[ex] A) * A -> X): Remove unnecessary constraint
+	on the conversion.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-propagate.c
+	(substitute_and_fold_dom_walker::before_dom_children): Do not
+	ignore ASSERT_EXPRs but only preserve them.
+	* tree-vrp.c (remove_range_assertions): Deal with ASSERT_EXPRs
+	that have been propagated into.
+	(vrp_finalize): Enable DCE for substitute_and_fold.
+
+2016-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77920
+	* tree-vrp.c (simplify_div_or_mod_using_ranges): Simplify.
+	(simplify_min_or_max_using_ranges): Pass in gsi and use it.
+	(simplify_abs_using_ranges): Likewise.
+	(simplify_conversion_using_ranges): Likewise.
+	(simplify_stmt_using_ranges): Adjust.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/77929
+	* tree-ssa-reassoc.c (optimize_range_tests_var_bound): Handle
+	(*ops)[ranges[i].idx]->op != ranges[i].exp case.
+
+2016-10-12  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/77934
+	* config/rs6000/vmx.md (vsx_concat_<mode>): The mtvsrdd instruction
+	needs a base register for arg 1.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* common.opt (Wimplicit-fallthrough) Turn into alias to
+	-Wimplicit-fallthrough=3.  Remove EnabledBy.
+	(Wimplicit-fallthrough=): New option.
+	* gimplify.c (warn_implicit_fallthrough_r): Use
+	OPT_Wimplicit_fallthrough_ instead of OPT_Wimplicit_fallthrough.
+	* doc/invoke.texi (-Wimplicit-fallthrough): Document as alias
+	to -Wimplicit-fallthrough=3.
+	(-Wimplicit-fallthrough=): Document.
+
+2016-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (emit_scc_insn): Remove direct support for EQ
+	and GEU in DImode if TARGET_SUBXC.
+	* config/sparc/sparc.md (seqdi<W:mode>_zero): Remove TARGET_SUBXC.
+	(seqdi<W:mode>_zero_subxc): Delete.
+	(neg_seqdi<W:mode>_zero): Remove TARGET_VIS3.
+	(neg_seqdi<W:mode>_zero_vis3): Delete.
+	(plus_seqdi<W:mode>_zero): Likewise.
+	(minus_seqdi<W:mode>_zero): Likewise.
+	(plus_plus_sltu<W:mode>): Accept only register.
+	(addx<W:mode>): Likewise.
+	(plus_sltu<W:mode>_vis3): Likewise.
+	(plus_plus_sltu<W:mode>_vis3): Likewise.
+	(neg_sgeu<W:mode>_vis3): Delete.
+	(minus_sgeu<W:mode>_vis3): Likewise.
+	(addxc<W:mode>): Accept only registers.
+	(neg_sltu<W:mode>_subxc): Write %%g0 instead of 0.
+	(minus_neg_sltu<W:mode>_subxc): Accept only register.
+	(neg_plus_sltu<W:mode>_subxc): Likewise.
+	(minus_sltu<W:mode>_subxc): Write %%g0 instead of 0.
+	(minus_minus_sltu<W:mode>_subxc): Accept only register.
+	(sgeu<W:mode>_insn_subxc): Delete.
+	(plus_sgeu<W:mode>_subxc): Likewise.
+	(subxc<W:mode>): Accept only register.
+	(scc splitter): Split always GEU again.
+
+2016-10-11  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/77424
+	* tree-ssa-threadupdate.c (thread_through_all_blocks): Remove
+	dead conditionals.  Assert that all e->aux fields are NULL.
+
+2016-10-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl.c (print_rtx): Rename "i" to "idx".  Split out the
+	operand-printing "switch" statement into...
+	(print_rtx_operand_code_0): ...this new function, ...
+	(print_rtx_operand_code_e): ...this new function, ...
+	(print_rtx_operand_codes_E_and_V): ...this new function, ...
+	(print_rtx_operand_code_i): ...this new function, ...
+	(print_rtx_operand_code_r): ...this new function, ...
+	(print_rtx_operand_code_u): ...this new function, ...
+	(print_rtx_operand): ...and this new function.
+
 2016-10-11  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/alpha/alpha-passes.def: New file.

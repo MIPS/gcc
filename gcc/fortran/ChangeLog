@@ -1,3 +1,24 @@
+2016-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* iresolve.c (is_trig_resolved, resolve_trig_call): Formatting fixes.
+	* simplify.c (simplify_trig_call, degrees_f, radians_f,
+	gfc_simplify_atrigd, gfc_simplify_cotan): Likewise.
+
+2016-10-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77942
+	* simplify.c (gfc_simplify_cshift): Check for zero.
+
+2016-10-11  Fritz Reese  <fritzoreese@gmail.com>
+
+	* iresolve.c (get_radians, get_degrees): Fix sloppy commit.
+	* simplify.c (degrees_f, radians_f): Ditto.
+
+2016-10-11  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* simplify.c (radians_f): Fix mpfr_mod.
+	* ireolce.c (get_degrees): Declare tmp.
+
 2016-10-11  Fritz Reese  <fritzoreese@gmail.com>
 
 	* lang.opt: New flag -fdec-math.
