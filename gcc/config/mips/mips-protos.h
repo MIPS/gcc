@@ -321,6 +321,7 @@ extern void mips_output_load_label (rtx);
 extern const char *mips_output_conditional_branch (rtx, rtx *, const char *,
 						   const char *);
 extern const char *mips_output_jump (rtx *, int, int, bool, bool);
+extern const char *micromips_output_movep_balc (rtx *);
 extern const char *mips_output_equal_conditional_branch (rtx, rtx *, bool);
 extern const char *mips_output_order_conditional_branch (rtx, rtx *, bool);
 extern const char *mips_output_sync (void);
