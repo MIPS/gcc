@@ -107,7 +107,7 @@ gfc_se;
 
 /* Denotes different types of coarray.
    Please keep in sync with libgfortran/caf/libcaf.h.  */
-enum gfc_coarray_type
+enum gfc_coarray_regtype
 {
   GFC_CAF_COARRAY_STATIC,
   GFC_CAF_COARRAY_ALLOC,
@@ -115,7 +115,17 @@ enum gfc_coarray_type
   GFC_CAF_LOCK_ALLOC,
   GFC_CAF_CRITICAL,
   GFC_CAF_EVENT_STATIC,
-  GFC_CAF_EVENT_ALLOC
+  GFC_CAF_EVENT_ALLOC,
+  GFC_CAF_COARRAY_ALLOC_REGISTER_ONLY,
+  GFC_CAF_COARRAY_ALLOC_ALLOCATE_ONLY
+};
+
+
+/* Describes the action to take on _caf_deregister. Keep in sync with
+   gcc/fortran/trans.h.  */
+enum gfc_coarray_deregtype {
+  GFC_CAF_COARRAY_DEREGISTER,
+  GFC_CAF_COARRAY_DEALLOCATE_ONLY
 };
 
 
@@ -806,7 +816,7 @@ extern GTY(()) tree gfor_fndecl_co_max;
 extern GTY(()) tree gfor_fndecl_co_min;
 extern GTY(()) tree gfor_fndecl_co_reduce;
 extern GTY(()) tree gfor_fndecl_co_sum;
-
+extern GTY(()) tree gfor_fndecl_caf_is_present;
 
 /* Math functions.  Many other math functions are handled in
    trans-intrinsic.c.  */

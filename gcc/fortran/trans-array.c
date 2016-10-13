@@ -9085,15 +9085,17 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   else
     {
       tmp = build_call_expr_loc (input_location,
-				 gfor_fndecl_caf_deregister,
-				 4, token, null_pointer_node,
-				 null_pointer_node, integer_zero_node);
+				 gfor_fndecl_caf_deregister, 5, token,
+				 build_int_cst (integer_type_node,
+					       GFC_CAF_COARRAY_DEALLOCATE_ONLY),
+				 null_pointer_node, null_pointer_node,
+				 integer_zero_node);
       gfc_add_expr_to_block (&realloc_block, tmp);
       tmp = build_call_expr_loc (input_location,
 				 gfor_fndecl_caf_register,
 				 7, size2,
 				 build_int_cst (integer_type_node,
-						GFC_CAF_COARRAY_ALLOC),
+					   GFC_CAF_COARRAY_ALLOC_ALLOCATE_ONLY),
 				 token, gfc_build_addr_expr (NULL_TREE, desc),
 				 null_pointer_node, null_pointer_node,
 				 integer_zero_node);

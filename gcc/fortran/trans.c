@@ -1394,8 +1394,9 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
 
       token = gfc_build_addr_expr  (NULL_TREE, token);
       tmp = build_call_expr_loc (input_location,
-				 gfor_fndecl_caf_deregister, 4,
-				 token, pstat, errmsg, errlen);
+				 gfor_fndecl_caf_deregister, 5,
+				 token, integer_zero_node, pstat, errmsg,
+				 errlen);
       gfc_add_expr_to_block (&non_null, tmp);
 
       /* It guarantees memory consistency within the same segment */

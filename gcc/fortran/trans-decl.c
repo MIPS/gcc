@@ -159,6 +159,7 @@ tree gfor_fndecl_co_max;
 tree gfor_fndecl_co_min;
 tree gfor_fndecl_co_reduce;
 tree gfor_fndecl_co_sum;
+tree gfor_fndecl_caf_is_present;
 
 
 /* Math functions.  Many other math functions are handled in
@@ -3568,8 +3569,9 @@ gfc_build_builtin_function_decls (void)
 	pint_type, pchar_type_node, integer_type_node);
 
       gfor_fndecl_caf_deregister = gfc_build_library_function_decl_with_spec (
-	get_identifier (PREFIX("caf_deregister")), "WWWR", void_type_node, 4,
-	ppvoid_type_node, pint_type, pchar_type_node, integer_type_node);
+	get_identifier (PREFIX("caf_deregister")), "WRWWR", void_type_node, 5,
+	ppvoid_type_node, integer_type_node, pint_type, pchar_type_node,
+	integer_type_node);
 
       gfor_fndecl_caf_get = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_get")), ".R.RRWRRRW", void_type_node, 10,
@@ -3721,6 +3723,11 @@ gfc_build_builtin_function_decls (void)
 	get_identifier (PREFIX("caf_co_sum")), "W.WW",
 	void_type_node, 5, pvoid_type_node, integer_type_node,
 	pint_type, pchar_type_node, integer_type_node);
+
+      gfor_fndecl_caf_is_present = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_is_present")), "RRR",
+	integer_type_node, 3, pvoid_type_node, integer_type_node,
+	pvoid_type_node);
     }
 
   gfc_build_intrinsic_function_decls ();
