@@ -1,5 +1,5 @@
 ! { dg-do run }
-  
+
   type :: t
     integer :: i
   end type
