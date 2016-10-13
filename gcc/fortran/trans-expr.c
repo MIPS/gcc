@@ -9789,7 +9789,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	  || (gfc_is_class_array_ref (expr2, NULL)
 	      || gfc_is_class_scalar_expr (expr2))))
     {
-      tmp = trans_class_assignment (&block, expr1, expr2, &lse, &rse,
+      tmp = trans_class_assignment (&body, expr1, expr2, &lse, &rse,
 				    use_vptr_copy || (lhs_attr.allocatable
 						      && !lhs_attr.dimension));
       /* Modify the expr1 after the assignment, to allow the realloc below.
