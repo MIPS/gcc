@@ -5,6 +5,8 @@
 	(rs6000_init_hard_regno_mode_ok): Likewise.
 	(floatsi<mode>2_lfiwax): Try to make direct move costs a bit more
 	realistic.
+	(rs6000_hard_regno_mode_ok): Don't allow QImode, HImode in VSX
+	registers until we add the appropriate move code.
 
 	* config/rs6000/rs6000.h (floatsi<mode>2_lfiwax):
 	(TARGET_VSX_QImode): Try to make direct move costs a bit more

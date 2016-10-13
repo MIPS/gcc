@@ -1986,9 +1986,22 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	  && FP_REGNO_P (last_regno))
 	return 1;
 
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD)
-	return 1;
+      if (GET_MODE_CLASS (mode) == MODE_INT)
+	{
+	  if(GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD)
+	    return 1;
+
+	  if (TARGET_VSX_SMALL_INTEGER)
+	    {
+	      if (mode == SImode)
+		return 1;
+
+#if 0
+	      if (TARGET_P9_VECTOR && (mode == QImode || mode == HImode))
+		return 1;
+#endif
+	    }
+	}
 
       if (PAIRED_SIMD_REGNO_P (regno) && TARGET_PAIRED_FLOAT
 	  && PAIRED_VECTOR_MODE (mode))
@@ -3371,11 +3384,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       if (TARGET_VSX_SMALL_INTEGER)
 	{
 	  reg_addr[SImode].scalar_in_vmx_p = true;
+#if 0
 	  if (TARGET_P9_VECTOR)
 	    {
 	      reg_addr[QImode].scalar_in_vmx_p = true;
 	      reg_addr[HImode].scalar_in_vmx_p = true;
 	    }
+#endif
 	}
     }
 
