@@ -22897,6 +22897,70 @@ gen_move_balc (rtx *operands)
 
 }
 
+/* Generate dummy instruction movep.balc.
+   Do it here rather than clobbering mips_output_jump.  */
+
+const char *
+micromips_output_movep_balc (rtx *operands)
+{
+  static char buffer[300];
+  char *s = buffer;
+  const char *nop = "%/";
+
+  if (REGNO (operands[0]) < REGNO (operands[2]))
+    s += sprintf (s, "sdbbp32 6 # movep.balc\t%%0,%%2,%%z1,%%z3,%%4%s", nop);
+  else
+    s += sprintf (s, "sdbbp32 6 # movep.balc\t%%2,%%0,%%z3,%%z1,%%4%s", nop);
+  return buffer;
+}
+
+static rtx
+gen_movep_balc (rtx dest1, rtx src1, rtx dest2, rtx src2, rtx mem, rtx nbytes,
+		rtx retval)
+{
+  rtx val = 0;
+  start_sequence ();
+
+  if (retval != NULL)
+    {
+      emit_call_insn (gen_rtx_PARALLEL (VOIDmode,
+		      gen_rtvec (6,
+				 gen_rtx_SET (retval,
+					      gen_rtx_CALL (VOIDmode,
+						gen_rtx_MEM (SImode,
+							     mem),
+							    nbytes)),
+				  gen_rtx_SET (dest1, src1),
+				  gen_rtx_SET (dest2, src2),
+				  gen_rtx_USE (VOIDmode,
+					       copy_rtx (dest1)),
+				  gen_rtx_USE (VOIDmode,
+					       copy_rtx (dest2)),
+				  gen_hard_reg_clobber (SImode, 31))));
+
+    }
+  else
+    {
+      emit_call_insn (gen_rtx_PARALLEL (VOIDmode,
+		      gen_rtvec (6,
+				 gen_rtx_CALL (VOIDmode,
+				    gen_rtx_MEM (SImode,
+						 mem),
+					       nbytes),
+				 gen_rtx_SET (dest1, src1),
+				 gen_rtx_SET (dest2, src2),
+				 gen_rtx_USE (VOIDmode,
+					      copy_rtx (dest1)),
+				 gen_rtx_USE (VOIDmode,
+					      copy_rtx (dest2)),
+				 gen_hard_reg_clobber (SImode, 31))));
+    }
+
+  val = get_insns ();
+  end_sequence ();
+  return val;
+}
+
 /* Function for TARGET_MACHINE_DEPENDENT_REORG.
 
    Find opportunities missed by peephole2 for move.balc
@@ -23037,6 +23101,64 @@ micromips_move_balc_opt ()
 	      use_map = NONE;
 	      num_set = 0;
 	    }
+
+	  /* Experimental movep.balc instruction.
+	     Generate it here rather than in a separate pass which interferes
+	     with move.balc.  We might lose some opportunities to move.balc.  */
+	  if (TARGET_ADD_MOVEP_BALC
+	      && call_insn
+	      && GET_CODE (pattern) == PARALLEL
+	      && XVECLEN (pattern, 0) == 2
+	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SET
+	      && GET_CODE (XVECEXP (pattern, 0, 1)) == SET)
+	    {
+	      rtx set1 = XVECEXP (pattern, 0, 0);
+	      rtx set2 = XVECEXP (pattern, 0, 1);
+
+	      rtx src1 = SET_SRC (set1);
+	      rtx src2 = SET_SRC (set2);
+	      rtx dest1 = SET_DEST (set1);
+	      rtx dest2 = SET_DEST (set2);
+
+	      if (!umips_movep_target_p (dest1, dest2)
+		  && !movep_or_0_operand (src1, GET_MODE (src1))
+		  && !movep_or_0_operand (src2, GET_MODE (src2)))
+		continue;
+
+	      if (find_reg_fusage (call_insn, USE, dest1)
+		  && find_reg_fusage (call_insn, USE, dest2)
+		  && (!reg_set_between_p (src1, insn, call_insn)
+		      && !reg_used_between_p (dest1, insn, call_insn))
+		  && (!reg_set_between_p (src2, insn, call_insn)
+		      && !reg_used_between_p (dest2, insn, call_insn)))
+		{
+		  rtx x = PATTERN (call_insn);
+		  rtx val = NULL;
+		  rtx call = XVECEXP (x, 0, 0);
+		  if (GET_CODE (call) == SET)
+		    {
+		      val = SET_DEST (call);
+		      call = SET_SRC (call);
+		    }
+		  rtx mem = XEXP (XEXP (call, 0), 0);
+		  rtx nbytes = XEXP (call, 1);
+
+		  rtx new_insn = gen_movep_balc (dest1, src1, dest2, src2, mem,
+						 nbytes, val);
+
+		  if (RTX_FRAME_RELATED_P (call_insn))
+		    RTX_FRAME_RELATED_P (new_insn) = 1;
+		  CALL_INSN_FUNCTION_USAGE (new_insn)
+		    = CALL_INSN_FUNCTION_USAGE (call_insn);
+		  SIBLING_CALL_P (new_insn) = SIBLING_CALL_P (call_insn);
+
+		  rtx last = emit_insn_after_setloc (new_insn, call_insn,
+						     INSN_LOCATION (call_insn));
+		  delete_insn (call_insn);
+		  delete_insn (insn);
+		  call_insn = NULL;
+		}
+	    }
 	}
     }
 }
@@ -23061,7 +23183,7 @@ mips_reorg (void)
   if (TARGET_NANOMIPS && TARGET_OPT_MOVEP)
     micromips_movep_opt ();
 
-  if (TARGET_NANOMIPS && TARGET_OPT_MOVEBALC)
+  if (TARGET_NANOMIPS && (TARGET_OPT_MOVEBALC || TARGET_ADD_MOVEP_BALC))
     micromips_move_balc_opt ();
 }
 

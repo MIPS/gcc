@@ -197,3 +197,48 @@
     return mips_output_jump (operands, 2, -1, true, true);
   }
   [(set_attr "jal" "direct")])
+
+(define_insn "*movep_balc_call_value"
+  [(parallel [(set (match_operand 6 "" "")
+		   (call (mem:SI (match_operand 4 "" ""))
+			 (match_operand 5 "" "")))
+	      (set (match_operand 0 "register_operand")
+		   (match_operand 1 "movep_or_0_operand"))
+	      (set (match_operand 2 "register_operand")
+		   (match_operand 3 "movep_or_0_operand"))
+	      (use (match_dup 0))
+	      (use (match_dup 2))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_NANOMIPS
+   && TARGET_ADD_MOVEP_BALC
+   && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
+      operands[3])
+   && umips_movep_target_p (operands[0], operands[2])"
+  {
+    return micromips_output_movep_balc (operands);
+  }
+  [(set_attr "type" "move")
+   (set_attr "jal" "direct")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*movep_balc_call"
+  [(parallel [(call (mem:SI (match_operand 4 "" ""))
+		    (match_operand 5 "" ""))
+	      (set (match_operand 0 "register_operand")
+		   (match_operand 1 "movep_or_0_operand"))
+	      (set (match_operand 2 "register_operand")
+		   (match_operand 3 "movep_or_0_operand"))
+	      (use (match_dup 0))
+	      (use (match_dup 2))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_NANOMIPS
+   && TARGET_ADD_MOVEP_BALC
+   && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
+      operands[3])
+   && umips_movep_target_p (operands[0], operands[2])"
+  {
+    return micromips_output_movep_balc (operands);
+  }
+  [(set_attr "type" "move")
+   (set_attr "jal" "direct")
+   (set_attr "can_delay" "no")])
