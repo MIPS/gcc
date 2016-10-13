@@ -571,3 +571,6 @@ Target Undocumented Var(TARGET_OPTIMIZE_MULTIPLE_REFS) Init(0)
 
 mopt-movep
 Target Undocumented Var(TARGET_OPT_MOVEP) Init(1)
+
+mmovep-balc
+Target Undocumented Var(TARGET_ADD_MOVEP_BALC) Init(0)
