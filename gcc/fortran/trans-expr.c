@@ -9783,9 +9783,8 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   if ((use_vptr_copy || lhs_attr.pointer
        || (lhs_attr.allocatable && !lhs_attr.dimension))
       && (expr1->ts.type == BT_CLASS
-	  || ((gfc_is_class_array_ref (expr1, NULL)
-	       || gfc_is_class_scalar_expr (expr1))
-	      /*&& !GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr))*/)
+	  || (gfc_is_class_array_ref (expr1, NULL)
+	      || gfc_is_class_scalar_expr (expr1))
 	  || (gfc_is_class_array_ref (expr2, NULL)
 	      || gfc_is_class_scalar_expr (expr2))))
     {
