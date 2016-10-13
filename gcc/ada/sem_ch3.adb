@@ -2178,10 +2178,17 @@ package body Sem_Ch3 is
       --  case, add a proper spec if the body lacks one. The spec is inserted
       --  before Body_Decl and immediately analyzed.
 
+      procedure Remove_Partial_Visible_Refinements (Spec_Id : Entity_Id);
+      --  Spec_Id is the entity of a package that may define abstract states,
+      --  and in the case of a child unit, whose ancestors may define abstract
+      --  states. If the states have partial visible refinement, remove the
+      --  partial visibility of each constituent at the end of the package
+      --  spec and body declarations.
+
       procedure Remove_Visible_Refinements (Spec_Id : Entity_Id);
       --  Spec_Id is the entity of a package that may define abstract states.
       --  If the states have visible refinement, remove the visibility of each
-      --  constituent at the end of the package body declarations.
+      --  constituent at the end of the package body declaration.
 
       -----------------
       -- Adjust_Decl --
@@ -2334,6 +2341,29 @@ package body Sem_Ch3 is
 
          Insert_Before_And_Analyze (Body_Decl, Decl);
       end Handle_Late_Controlled_Primitive;
+
+      ----------------------------------------
+      -- Remove_Partial_Visible_Refinements --
+      ----------------------------------------
+
+      procedure Remove_Partial_Visible_Refinements (Spec_Id : Entity_Id) is
+         State_Elmt : Elmt_Id;
+      begin
+         if Present (Abstract_States (Spec_Id)) then
+            State_Elmt := First_Elmt (Abstract_States (Spec_Id));
+            while Present (State_Elmt) loop
+               Set_Has_Partial_Visible_Refinement (Node (State_Elmt), False);
+               Next_Elmt (State_Elmt);
+            end loop;
+         end if;
+
+         --  For a child unit, also hide the partial state refinement from
+         --  ancestor packages.
+
+         if Is_Child_Unit (Spec_Id) then
+            Remove_Partial_Visible_Refinements (Scope (Spec_Id));
+         end if;
+      end Remove_Partial_Visible_Refinements;
 
       --------------------------------
       -- Remove_Visible_Refinements --
@@ -2576,6 +2606,15 @@ package body Sem_Ch3 is
             --  restore the original state conditions.
 
             Remove_Visible_Refinements (Corresponding_Spec (Context));
+            Remove_Partial_Visible_Refinements (Corresponding_Spec (Context));
+
+         elsif Nkind (Context) = N_Package_Declaration then
+
+            --  Partial state refinements are visible up to the end of the
+            --  package spec declarations. Hide the partial state refinements
+            --  from visibility to restore the original state conditions.
+
+            Remove_Partial_Visible_Refinements (Corresponding_Spec (Context));
          end if;
 
          --  Verify that all abstract states found in any package declared in
@@ -2805,6 +2844,13 @@ package body Sem_Ch3 is
       if not Analyzed (T) then
          Set_Analyzed (T);
 
+         --  A type declared within a Ghost region is automatically Ghost
+         --  (SPARK RM 6.9(2)).
+
+         if Ghost_Mode > None then
+            Set_Is_Ghost_Entity (T);
+         end if;
+
          case Nkind (Def) is
             when N_Access_To_Subprogram_Definition =>
                Access_Subprogram_Declaration (T, Def);
@@ -2885,13 +2931,6 @@ package body Sem_Ch3 is
 
       if Is_Visibly_Controlled (T) then
          Check_SPARK_05_Restriction ("controlled type is not allowed", N);
-      end if;
-
-      --  A type declared within a Ghost region is automatically Ghost
-      --  (SPARK RM 6.9(2)).
-
-      if Ghost_Mode > None then
-         Set_Is_Ghost_Entity (T);
       end if;
 
       --  Some common processing for all types
@@ -14758,9 +14797,10 @@ package body Sem_Ch3 is
         or else Is_Internal (Parent_Subp)
         or else Is_Private_Overriding
         or else Is_Internal_Name (Chars (Parent_Subp))
-        or else Nam_In (Chars (Parent_Subp), Name_Initialize,
-                                             Name_Adjust,
-                                             Name_Finalize)
+        or else (Is_Controlled (Parent_Type)
+                  and then Nam_In (Chars (Parent_Subp), Name_Adjust,
+                                                        Name_Finalize,
+                                                        Name_Initialize))
       then
          Set_Derived_Name;
 

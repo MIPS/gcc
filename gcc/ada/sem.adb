@@ -1767,6 +1767,13 @@ package body Sem is
                pragma Assert (False, "subunit");
                null;
 
+            when N_Null_Statement =>
+
+               --  Do not call Action for an ignored ghost unit
+
+               pragma Assert (Is_Ignored_Ghost_Node (Original_Node (Item)));
+               return;
+
             when others =>
                pragma Assert (False);
                null;
@@ -2090,10 +2097,16 @@ package body Sem is
                         Unit (Library_Unit (Main_CU)));
                   end if;
 
-                  --  It's a spec, process it, and the units it depends on,
-                  --  unless it is a descendant of the main unit.  This can
-                  --  happen when the body of a parent depends on some other
-                  --  descendant.
+               --  It is a spec, process it, and the units it depends on,
+               --  unless it is a descendant of the main unit. This can happen
+               --  when the body of a parent depends on some other descendant.
+
+               when N_Null_Statement =>
+
+                  --  Ignore an ignored ghost unit
+
+                  pragma Assert (Is_Ignored_Ghost_Node (Original_Node (N)));
+                  null;
 
                when others =>
                   Par := Scope (Defining_Entity (Unit (CU)));

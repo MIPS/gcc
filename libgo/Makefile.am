@@ -441,7 +441,6 @@ runtime_files = \
 	runtime/go-append.c \
 	runtime/go-assert.c \
 	runtime/go-assert-interface.c \
-	runtime/go-byte-array-to-string.c \
 	runtime/go-breakpoint.c \
 	runtime/go-caller.c \
 	runtime/go-callers.c \
@@ -458,8 +457,6 @@ runtime_files = \
 	runtime/go-eface-val-compare.c \
 	runtime/go-ffi.c \
 	runtime/go-fieldtrack.c \
-	runtime/go-int-array-to-string.c \
-	runtime/go-int-to-string.c \
 	runtime/go-interface-compare.c \
 	runtime/go-interface-eface-compare.c \
 	runtime/go-interface-val-compare.c \
@@ -476,14 +473,10 @@ runtime_files = \
 	runtime/go-panic.c \
 	runtime/go-recover.c \
 	runtime/go-reflect-call.c \
-	runtime/go-rune.c \
 	runtime/go-runtime-error.c \
 	runtime/go-setenv.c \
 	runtime/go-signal.c \
 	runtime/go-strcmp.c \
-	runtime/go-string-to-byte-array.c \
-	runtime/go-string-to-int-array.c \
-	runtime/go-strplus.c \
 	runtime/go-strslice.c \
 	runtime/go-traceback.c \
 	runtime/go-type-complex.c \
@@ -528,9 +521,7 @@ runtime_files = \
 	rdebug.c \
 	reflect.c \
 	runtime1.c \
-	sema.c \
 	sigqueue.c \
-	string.c \
 	time.c \
 	$(runtime_getncpu_file)
 
@@ -736,6 +727,12 @@ s-epoll: Makefile
 	$(SHELL) $(srcdir)/mvifdiff.sh epoll.go.tmp epoll.go
 	$(STAMP) $@
 
+if LIBGO_IS_LINUX
+syscall_lib_clone_lo = syscall/clone_linux.lo
+else
+syscall_lib_clone_lo =
+endif
+
 libgo_go_objs = \
 	bufio.lo \
 	bytes.lo \
@@ -767,6 +764,7 @@ libgo_go_objs = \
 	strings/index.lo \
 	sync.lo \
 	syscall.lo \
+	$(syscall_lib_clone_lo) \
 	syscall/errno.lo \
 	syscall/signame.lo \
 	syscall/wait.lo \
@@ -2534,6 +2532,9 @@ syscall.lo.dep: $(srcdir)/go/syscall/*.go $(extra_go_files_syscall)
 	$(BUILDDEPS)
 syscall.lo:
 	$(BUILDPACKAGE)
+syscall/clone_linux.lo: go/syscall/clone_linux.c runtime.inc
+	@$(MKDIR_P) syscall
+	$(LTCOMPILE) -c -o $@ $<
 syscall/errno.lo: go/syscall/errno.c runtime.inc
 	@$(MKDIR_P) syscall
 	$(LTCOMPILE) -c -o $@ $<
