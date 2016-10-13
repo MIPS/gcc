@@ -25663,8 +25663,8 @@ struct recolor_allocno_data {
   int rating;
   /* Number of instructions with this allocno in every category.  */
   int categories[INSN_CATEGORIES_NUM];
-  /* All instructions that have this allocno as operand.  */
-  vec<rtx> insns;
+  /* All register instances for this allocno.  */
+  vec<rtx> regs;
   /* True if allocno is move related with some precolored register.  */
   bool precolored_move_related;
   /* Register class prefered by register.  */
@@ -25675,8 +25675,6 @@ struct recolor_allocno_data {
   bool recolored;
   /* Mark allocno as checked to terminate recursion.  */
   bool checked;
-  /* All pseudo copies.  */
-  vec<int> copies;
 };
 
 /* Pointer to array containing data for all allocnos.  */
@@ -25691,6 +25689,8 @@ typedef struct recolor_insn_data
   int short_reg_num;
   /* Allocnos associated with register operands.  */
   int allocnos[MAX_OPERAND_NUM];
+  /* Register operands.  */
+  rtx regs[MAX_OPERAND_NUM];
 } insn_data_t;
 
 
@@ -25809,10 +25809,8 @@ mips_post_ira_recoloring_init (void)
   recolor_allocnos_data =
     (recolor_allocno_data_t) ira_allocate (
       sizeof (struct recolor_allocno_data) * ira_allocnos_num);
-  for (i = 0; i < ira_allocnos_num; i++) {
-    recolor_allocnos_data[i].insns.create (0);
-    recolor_allocnos_data[i].copies.create (0);
-  }
+  for (i = 0; i < ira_allocnos_num; i++)
+    recolor_allocnos_data[i].regs.create (0);
 
   regno_allocno_class_array = XNEWVEC (enum reg_class, max_regno);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
@@ -25833,10 +25831,9 @@ mips_post_ira_recoloring_finish (void)
 {
   int i;
 
-  for (i = 0; i < ira_allocnos_num; i++) {
-    recolor_allocnos_data[i].insns.release ();
-    recolor_allocnos_data[i].copies.release ();
-  }
+  for (i = 0; i < ira_allocnos_num; i++)
+    recolor_allocnos_data[i].regs.release ();
+
   lra_final_code_change ();
   finish_live_reload_and_inheritance_pseudos ();
   finish_live_range_start_chains ();
@@ -25867,8 +25864,8 @@ mips_get_insn_data (rtx insn, void *res)
 {
   insn_data_t *i_data = (insn_data_t *)res;
 
-  if (DEBUG_INSN_P (insn) || (TARGET_MICROMIPS_R7
-			      && !mips_insn_has_short_form_r7_p (insn)))
+  if (!INSN_P (insn)/* || (TARGET_MICROMIPS_R7
+			      && !mips_insn_has_short_form_r7_p (insn))*/)
     return -1;
 
   extract_insn (insn);
@@ -25876,25 +25873,29 @@ mips_get_insn_data (rtx insn, void *res)
   for (int i=0; i <  recog_data.n_operands; i++)
     {
       int regno[2];
+      rtx regs[2];
       int reg_count = 0;
 
       /* Collect registers from instruction operands.  */
       if (REG_P(recog_data.operand[i]))
 	{
 	  regno[0] = ORIGINAL_REGNO (recog_data.operand[i]);
+	  regs[0] = recog_data.operand[i];
 	  reg_count++;
 	}
-  	else if (MEM_P(recog_data.operand[i]))
+      else if (MEM_P(recog_data.operand[i]))
 	{
 	  if (REG_P (XEXP (recog_data.operand[i], 0)))
 	    {
 	      regno[0] = ORIGINAL_REGNO (XEXP (recog_data.operand[i], 0));
+	      regs[0] = XEXP (recog_data.operand[i], 0);
 	      reg_count++;
 	    }
 	  else if (GET_CODE (XEXP (recog_data.operand[i], 0)) == PLUS &&
 		   REG_P (XEXP (XEXP (recog_data.operand[i], 0), 0)))
 	    {
 	      regno[0] = ORIGINAL_REGNO (XEXP (XEXP (recog_data.operand[i], 0), 0));
+	      regs[0] = XEXP (XEXP (recog_data.operand[i], 0), 0);
 	      reg_count++;
 	    }
           else if (GET_CODE (XEXP (recog_data.operand[i], 0)) == PLUS &&
@@ -25904,10 +25905,12 @@ mips_get_insn_data (rtx insn, void *res)
 	    {
 	      regno[0]
 	        = ORIGINAL_REGNO (XEXP (XEXP (recog_data.operand[i], 0), 1));
+	      regs[0] = XEXP (XEXP (recog_data.operand[i], 0), 1);
 	      reg_count++;
 	      regno[1] =
 	        ORIGINAL_REGNO (XEXP (XEXP
 	                        (XEXP (recog_data.operand[i], 0), 0), 0));
+	      regs[1] = XEXP (XEXP (XEXP (recog_data.operand[i], 0), 0), 0);
 	      reg_count++;
 	    }
 	}
@@ -25920,6 +25923,7 @@ mips_get_insn_data (rtx insn, void *res)
 	    {
 	      if ( mips_short_reg_p (ALLOCNO_HARD_REGNO (ira_allocnos[allocno_num])))
 		i_data->short_reg_num++;
+	      i_data->regs[i_data->reg_num] = regs[j];
 	      i_data->allocnos[i_data->reg_num++] = allocno_num;
 	    }
 	}
@@ -25995,16 +25999,18 @@ mips_collect_recolor_data (void)
 	  {
 	    /* Call corresponding function and increment category counter if
 	       needed.  */
+	    if (mips_insn_has_short_form_r7_p (insn))
+	      for (i = 0; i < INSN_CATEGORIES_NUM; i++)
+		if (recolor_insn_cat_func[i] (insn, &i_data))
+		  /* Update corresponding data in recolor_allocnos_data.  */
+		  for (j = 0; j < i_data.reg_num; j++)
+		    recolor_allocnos_data[i_data.allocnos[j]].categories[i]++;
 
-	    for (i = 0; i < INSN_CATEGORIES_NUM; i++)
-	      if (recolor_insn_cat_func[i] (insn, &i_data))
-		/* Update corresponding data in recolor_allocnos_data.  */
-		for (j = 0; j < i_data.reg_num; j++)
-		  recolor_allocnos_data[i_data.allocnos[j]].categories[i]++;
 	    /* Push instruction into instruction list of corresponding
 	       allocnos.  */
 	    for (i = 0; i < i_data.reg_num; i++)
-	      recolor_allocnos_data[i_data.allocnos[i]].insns.safe_push (insn);
+	      recolor_allocnos_data[i_data.allocnos[i]].regs.safe_push
+		(i_data.regs[i]);
 	  }
       }
 
@@ -26079,6 +26085,7 @@ mips_recolor_one_allocno (ira_allocno_t a, int old_reg, int new_reg)
   ira_copy_t cp, next_cp;
   ira_allocno_t cp_a;
   unsigned regno = ALLOCNO_REGNO (a);
+  unsigned iy;
 
   if (recolor_allocnos_data[ALLOCNO_NUM (a)].recolored ||
       old_reg != ALLOCNO_HARD_REGNO (a))
@@ -26087,6 +26094,11 @@ mips_recolor_one_allocno (ira_allocno_t a, int old_reg, int new_reg)
   recolor_allocnos_data[ALLOCNO_NUM (a)].recolored = true;
   ALLOCNO_HARD_REGNO (a) = new_reg;
   assign_hard_regno (new_reg, regno);
+
+  /* Change register number for all registers affected by recoloring.  */
+  for (iy = 0; iy < recolor_allocnos_data[ALLOCNO_NUM (a)].regs.length (); ++iy)
+    if (recolor_allocnos_data[ALLOCNO_NUM (a)].regs[iy])
+      SET_REGNO (recolor_allocnos_data[ALLOCNO_NUM (a)].regs[iy], new_reg);
 
   for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
     {
