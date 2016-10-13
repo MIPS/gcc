@@ -7831,7 +7831,7 @@ trans_get_upoly_len (stmtblock_t *block, gfc_expr *expr)
    statement-list outside of the scalarizer-loop.  When code is generated, that
    depends on the scalarized expression, it is added to RSE.PRE.
    Returns le's _vptr tree and when set the len expressions in to_lenp and
-   from_lenp to form a le%_vptr%_copy(re, le, [from_lenp, to_lenp])
+   from_lenp to form a le%_vptr%_copy (re, le, [from_lenp, to_lenp])
    expression.  */
 
 static tree
@@ -9785,7 +9785,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
       && (expr1->ts.type == BT_CLASS
 	  || ((gfc_is_class_array_ref (expr1, NULL)
 	       || gfc_is_class_scalar_expr (expr1))
-	      && !GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr)))
+	      /*&& !GFC_CLASS_TYPE_P (TREE_TYPE (lse.expr))*/)
 	  || (gfc_is_class_array_ref (expr2, NULL)
 	      || gfc_is_class_scalar_expr (expr2))))
     {

@@ -10738,7 +10738,7 @@ start:
 		&& !(UNLIMITED_POLY (code->expr2)
 		     && code->expr1->ts.type == BT_DERIVED
 		     && (code->expr1->ts.u.derived->attr.sequence
-		         || code->expr1->ts.u.derived->attr.is_bind_c))
+			 || code->expr1->ts.u.derived->attr.is_bind_c))
 		&& !(gfc_expr_attr (code->expr1).proc_pointer
 		     && code->expr2->expr_type == EXPR_VARIABLE
 		     && code->expr2->symtree->n.sym->attr.flavor

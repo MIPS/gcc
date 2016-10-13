@@ -2292,7 +2292,8 @@ trans_array_constructor (gfc_ss * ss, locus * where)
 	type = build_pointer_type (type);
     }
   else
-    type = gfc_typenode_for_spec (&expr->ts);
+    type = gfc_typenode_for_spec (expr->ts.type == BT_CLASS
+				  ? &CLASS_DATA (expr)->ts : &expr->ts);
 
   /* See if the constructor determines the loop bounds.  */
   dynamic = false;
@@ -7111,7 +7112,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	      gfc_se classse;
 
 	      /* class_expr can be NULL, when no _class ref is in expr.
-		 We must not fix this here with a gfc_fix_class_ref().  */
+		 We must not fix this here with a gfc_fix_class_ref ().  */
 	      if (class_expr)
 		{
 		  gfc_init_se (&classse, NULL);
@@ -7288,7 +7289,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	       && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc)))
 	{
 	  gfc_conv_descriptor_offset_set (&loop.pre, parm,
-					  gfc_conv_descriptor_offset_get (desc));
+					 gfc_conv_descriptor_offset_get (desc));
 	}
       else if (onebased && (!rank_remap || se->use_offset)
 	  && expr->symtree
