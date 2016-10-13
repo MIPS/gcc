@@ -26086,10 +26086,7 @@ mips_recolor_one_allocno (ira_allocno_t a, int old_reg, int new_reg)
 
   recolor_allocnos_data[ALLOCNO_NUM (a)].recolored = true;
   ALLOCNO_HARD_REGNO (a) = new_reg;
-  update_lives (regno, true);
-  lra_setup_reg_renumber (regno, -1, false);
   assign_hard_regno (new_reg, regno);
-  SET_REGNO (regno_reg_rtx[regno], new_reg);
 
   for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
     {
@@ -26399,15 +26396,21 @@ mips_check_hard_reg (ira_allocno_t allocno,
    is used - use all S registers for recoloring.  */
 #define ALLOCNOS_THRESHOLD2 40
 
+/* Rating trashold for using s register if they are not used in current
+   function already.  */
+#define S_RATING_TRASHOLD -6
+
 /* Get available hard registers that can be used for recoloring given
    allocno.  */
 
 static void
 mips_get_available_hard_regs (HARD_REG_SET *available_hard_regs,
-			      int call_crossed_num)
+			      int call_crossed_num, ira_allocno_t a)
 {
+  int rating = recolor_allocnos_data[ALLOCNO_NUM (a)].rating;
+
   CLEAR_HARD_REG_SET (*available_hard_regs);
-  if (call_crossed_num)
+  if (!call_crossed_num)
     {
       SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+2);
       SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+3);
@@ -26416,8 +26419,10 @@ mips_get_available_hard_regs (HARD_REG_SET *available_hard_regs,
       SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+6);
       SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+7);
     }
-  SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+16);
-  SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+17);
+  if (df_regs_ever_live_p (GP_REG_FIRST+16) || rating <= S_RATING_TRASHOLD)
+    SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+16);
+  if (df_regs_ever_live_p (GP_REG_FIRST+16) || rating <= S_RATING_TRASHOLD)
+    SET_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST+17);
 }
 
 
@@ -26536,7 +26541,7 @@ mips_post_ira_recoloring (void)
           if (res == NO_RECOLOR)
 	    continue;
 
-	  mips_get_available_hard_regs (&available_regs, call_crossed_num);
+	  mips_get_available_hard_regs (&available_regs, call_crossed_num, allocno);
 
 	  new_reg = mips_get_free_hard_reg (available_regs,
 	  				    recolor_data[i]->allocno, old_reg);
@@ -26557,6 +26562,7 @@ mips_post_ira_recoloring (void)
     }
   while (changed);
 
+  mips_compute_frame_info (true, &cfun->machine->frame);
   recolor_allocnos.release ();
 
   /* Use S registers sequentially  if not all S registers are used.  */
