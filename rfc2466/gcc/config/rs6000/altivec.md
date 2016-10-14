@@ -153,6 +153,10 @@
    UNSPEC_BCDADD
    UNSPEC_BCDSUB
    UNSPEC_BCD_OVERFLOW
+   UNSPEC_CMPRB
+   UNSPEC_CMPRB2
+   UNSPEC_CMPEQB
+   UNSPEC_SETB
 ])
 
 (define_c_enum "unspecv"
@@ -3708,6 +3712,116 @@
   "TARGET_P9_MISC && TARGET_64BIT"
   "darn %0,1"
   [(set_attr "type" "integer")])
+
+;; Predicate: test byte within range.
+;; Return in target register operand 0 a non-zero value iff the byte
+;; held in bits 56:63 of operand 1 is within the inclusive range
+;; bounded below by operand 2's bits 0:7 and above by operand 2's
+;; bits 8:15.
+(define_expand "cmprb_p"
+  [(set (match_dup 3)
+	(unspec:CCFP [(match_operand:SI 1 "gpc_reg_operand" "r")
+		      (match_operand:SI 2 "gpc_reg_operand" "r")]
+	 UNSPEC_CMPRB))
+   (set (match_operand:SI 0 "gpc_reg_operand" "=r")
+        (unspec:SI [(match_dup 3)]
+         UNSPEC_SETB))
+  ]
+  "TARGET_P9_MISC && TARGET_64BIT"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+;; Set bit 1 (the GT bit, 0x2) of CR register operand 0 to 1 iff the
+;; byte found in bits 24:31 of register operand 1 is within the
+;; inclusive range bounded below by operand 2's bits 0:7 and above by
+;; operand 2's bits 8:15.  The other 3 bits of the target CR register
+;; are set to 0.
+(define_insn "*cmprb"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP [(match_operand:SI 1 "gpc_reg_operand" "r")
+		      (match_operand:SI 2 "gpc_reg_operand" "r")]
+	 UNSPEC_CMPRB2))]
+  "TARGET_P9_MISC"
+  "cmprb %0,0,%1,%2"
+  [(set_attr "type" "logical")])
+
+;; Set operand 0 register to non-zero value iff the CR register named
+;; by operand 1 has its GT bit (0x2) or its LT bit (0x1) set.
+(define_insn "*setb"
+   [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
+	 (unspec:SI [(match_operand:CC 1 "cc_reg_operand" "y")]
+	  UNSPEC_SETB))]
+  "TARGET_P9_MISC"
+  "setb %0,%1"
+  [(set_attr "type" "logical")])
+
+;; Predicate: test byte within two ranges.
+;; Return in target register operand 0 a non-zero value iff the byte
+;; held in bits 24:31 of operand 1 is within the inclusive range
+;; bounded below by operand 2's bits 0:7 and above by operand 2's
+;; bits 8:15 or if the byte is within the inclusive range bounded
+;; below by operand 2's bits 16:23 and above by operand 2's bits 24:31.
+(define_expand "cmprb2_p"
+  [(set (match_dup 3)
+	(unspec:CCFP [(match_operand:SI 1 "gpc_reg_operand" "r")
+		      (match_operand:SI 2 "gpc_reg_operand" "r")]
+	 UNSPEC_CMPRB2))
+   (set (match_operand:SI 0 "gpc_reg_operand" "=r")
+        (unspec:SI [(match_dup 3)]
+         UNSPEC_SETB))
+  ]
+  "TARGET_P9_MISC && TARGET_64BIT"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+;; Set bit 1 (the GT bit, 0x2) of CR register operand 0 to 1 iff the
+;; byte found in bits 24:31 of register operand 1 is within the
+;; inclusive range bounded below by operand 2's bits 0:7 and above by
+;; operand 2's bits 8:15 or within the range bounded below by opreand
+;; 2's bits 16:23 and above by operand 2's bits 24:31.  The other 3
+;; bits of the target CR register are set to 0.
+(define_insn "*cmprb2"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP [(match_operand:SI 1 "gpc_reg_operand" "r")
+		      (match_operand:SI 2 "gpc_reg_operand" "r")]
+	 UNSPEC_CMPRB2))]
+  "TARGET_P9_MISC && TARGET_64BIT"
+  "cmprb %0,1,%1,%2"
+  [(set_attr "type" "logical")])
+
+;; Predicate: test byte membership within set of 8 bytes.
+;; Return in target register operand 0 a non-zero value iff the byte
+;; held in bits 24:31 of operand 1 equals at least one of the eight
+;; byte values represented by the 64-bit register supplied as operand
+;; 2.  Note that the 8 byte values held within operand 2 need not be
+;; unique. 
+(define_expand "cmpeqb_p"
+  [(set (match_dup 3)
+	(unspec:CCFP [(match_operand:SI 1 "gpc_reg_operand" "r")
+		      (match_operand:DI 2 "gpc_reg_operand" "r")]
+	 UNSPEC_CMPEQB))
+   (set (match_operand:SI 0 "gpc_reg_operand" "=r")
+        (unspec:SI [(match_dup 3)]
+         UNSPEC_SETB))
+  ]
+  "TARGET_P9_MISC && TARGET_64BIT"
+{
+  operands[3] = gen_reg_rtx (CCFPmode);
+})
+
+;; Set bit 1 (the GT bit, 0x2) of CR register operand 0 to 1 iff the
+;; byte found in bits 24:31 of register operand 1 equals one of the 8
+;; bytes found within register operand 2.
+(define_insn "*cmpeqb"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	 (unspec:CCFP [(match_operand:DI 1 "gpc_reg_operand" "r")
+		       (match_operand:DI 2 "gpc_reg_operand" "r")]
+	  UNSPEC_CMPEQB))]
+  "TARGET_P9_MISC && TARGET_64BIT"
+  "cmpeqb %0,%1,%2"
+  [(set_attr "type" "logical")])
 
 (define_expand "bcd<bcd_add_sub>_<code>"
   [(parallel [(set (reg:CCFP CR6_REGNO)
