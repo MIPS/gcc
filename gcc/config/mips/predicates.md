@@ -295,19 +295,26 @@
 
 (define_predicate "addiur2_operand"
   (and (match_code "const_int")
-	(ior (match_test "INTVAL (op) == -1")
-	     (match_test "INTVAL (op) == 1")
-	     (match_test "INTVAL (op) == 4")
-	     (match_test "INTVAL (op) == 8")
-	     (match_test "INTVAL (op) == 12")
-	     (match_test "INTVAL (op) == 16")
-	     (match_test "INTVAL (op) == 20")
-	     (match_test "INTVAL (op) == 24"))))
+	(ior (and (not (match_test "TARGET_NANOMIPS"))
+		  (ior (match_test "INTVAL (op) == -1")
+		       (match_test "INTVAL (op) == 1")
+		       (match_test "INTVAL (op) == 4")
+		       (match_test "INTVAL (op) == 8")
+		       (match_test "INTVAL (op) == 12")
+		       (match_test "INTVAL (op) == 16")
+		       (match_test "INTVAL (op) == 20")
+		       (match_test "INTVAL (op) == 24")))
+	     (and (match_test "TARGET_NANOMIPS")
+		  (match_test "mips_unsigned_immediate_p (INTVAL (op), 3, 2)")))))
+
 
 (define_predicate "addiusp_operand"
   (and (match_code "const_int")
-       (ior (match_test "(IN_RANGE (INTVAL (op), 2, 257))")
-	    (match_test "(IN_RANGE (INTVAL (op), -258, -3))"))))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "(IN_RANGE (INTVAL (op), 2, 257))")
+		 (match_test "(IN_RANGE (INTVAL (op), -258, -3))"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "(IN_RANGE (INTVAL (op), 0x8, 0x78))")))))
 
 (define_predicate "andi16_operand"
   (and (match_code "const_int")
