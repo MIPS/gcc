@@ -2941,8 +2941,12 @@ _gfortran_caf_is_present (caf_token_t token,
 		      * GFC_DIMENSION_STRIDE (src->dim[i])
 		      * riter->item_size;
 		  break;
-		case CAF_ARR_REF_VECTOR:
 		case CAF_ARR_REF_FULL:
+		  /* A full array ref is allowed on the last reference only.  */
+		  if (riter->next == NULL)
+		    break;
+		  /* else fall through reporting an error.  */
+		case CAF_ARR_REF_VECTOR:
 		case CAF_ARR_REF_RANGE:
 		case CAF_ARR_REF_OPEN_END:
 		case CAF_ARR_REF_OPEN_START:
@@ -2964,8 +2968,12 @@ _gfortran_caf_is_present (caf_token_t token,
 		      * riter->u.a.dim[i].s.stride
 		      * riter->item_size;
 		  break;
-		case CAF_ARR_REF_VECTOR:
 		case CAF_ARR_REF_FULL:
+		  /* A full array ref is allowed on the last reference only.  */
+		  if (riter->next == NULL)
+		    break;
+		  /* else fall through reporting an error.  */
+		case CAF_ARR_REF_VECTOR:
 		case CAF_ARR_REF_RANGE:
 		case CAF_ARR_REF_OPEN_END:
 		case CAF_ARR_REF_OPEN_START:

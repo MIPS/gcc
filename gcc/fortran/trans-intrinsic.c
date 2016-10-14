@@ -7315,6 +7315,42 @@ scalar_transfer:
 }
 
 
+/* Generate a call to caf_is_present.  */
+
+static tree
+trans_caf_is_present (gfc_se *se, gfc_expr *expr)
+{
+  tree caf_reference, caf_decl, token, image_index;
+
+  /* Compile the reference chain.  */
+  caf_reference = conv_expr_ref_to_caf_ref (&se->pre, expr);
+  gcc_assert (caf_reference != NULL_TREE);
+
+  caf_decl = gfc_get_tree_for_caf_expr (expr);
+  if (TREE_CODE (TREE_TYPE (caf_decl)) == REFERENCE_TYPE)
+    caf_decl = build_fold_indirect_ref_loc (input_location, caf_decl);
+  image_index = gfc_caf_get_image_index (&se->pre, expr, caf_decl);
+  gfc_get_caf_token_offset (se, &token, NULL, caf_decl, NULL,
+			    expr);
+
+  return build_call_expr_loc (input_location, gfor_fndecl_caf_is_present,
+			      3, token, image_index, caf_reference);
+}
+
+
+/* Test whether this ref-chain refs this image only.  */
+
+static bool
+caf_this_image_ref (gfc_ref *ref)
+{
+  for ( ; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY && ref->u.ar.codimen)
+      return ref->u.ar.dimen_type[ref->u.ar.dimen] == DIMEN_THIS_IMAGE;
+
+  return false;
+}
+
+
 /* Generate code for the ALLOCATED intrinsic.
    Generate inline code that directly check the address of the argument.  */
 
@@ -7324,6 +7360,7 @@ gfc_conv_allocated (gfc_se *se, gfc_expr *expr)
   gfc_actual_arglist *arg1;
   gfc_se arg1se;
   tree tmp;
+  symbol_attribute caf_attr;
 
   gfc_init_se (&arg1se, NULL);
   arg1 = expr->value.function.actual;
@@ -7339,23 +7376,35 @@ gfc_conv_allocated (gfc_se *se, gfc_expr *expr)
 	gfc_add_data_component (arg1->expr);
     }
 
-  if (arg1->expr->rank == 0)
-    {
-      /* Allocatable scalar.  */
-      arg1se.want_pointer = 1;
-      gfc_conv_expr (&arg1se, arg1->expr);
-      tmp = arg1se.expr;
-    }
+  /* When arg1 references an allocatable component in a coarray, then call
+     the caf-library function caf_is_present ().  */
+  if (flag_coarray == GFC_FCOARRAY_LIB && arg1->expr->expr_type == EXPR_FUNCTION
+      && arg1->expr->value.function.isym
+      && arg1->expr->value.function.isym->id == GFC_ISYM_CAF_GET)
+    caf_attr = gfc_caf_attr (arg1->expr->value.function.actual->expr);
+  if (flag_coarray == GFC_FCOARRAY_LIB && caf_attr.codimension
+      && !caf_this_image_ref (arg1->expr->value.function.actual->expr->ref))
+    tmp = trans_caf_is_present (se, arg1->expr->value.function.actual->expr);
   else
     {
-      /* Allocatable array.  */
-      arg1se.descriptor_only = 1;
-      gfc_conv_expr_descriptor (&arg1se, arg1->expr);
-      tmp = gfc_conv_descriptor_data_get (arg1se.expr);
-    }
+      if (arg1->expr->rank == 0)
+	{
+	  /* Allocatable scalar.  */
+	  arg1se.want_pointer = 1;
+	  gfc_conv_expr (&arg1se, arg1->expr);
+	  tmp = arg1se.expr;
+	}
+      else
+	{
+	  /* Allocatable array.  */
+	  arg1se.descriptor_only = 1;
+	  gfc_conv_expr_descriptor (&arg1se, arg1->expr);
+	  tmp = gfc_conv_descriptor_data_get (arg1se.expr);
+	}
 
-  tmp = fold_build2_loc (input_location, NE_EXPR, boolean_type_node, tmp,
-			 fold_convert (TREE_TYPE (tmp), null_pointer_node));
+      tmp = fold_build2_loc (input_location, NE_EXPR, boolean_type_node, tmp,
+			     fold_convert (TREE_TYPE (tmp), null_pointer_node));
+    }
   se->expr = convert (gfc_typenode_for_spec (&expr->ts), tmp);
 }
 
