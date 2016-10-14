@@ -35559,40 +35559,8 @@ rs6000_register_move_cost (machine_mode mode,
 	rclass = to;
 
       if (rclass == FLOAT_REGS || rclass == ALTIVEC_REGS || rclass == VSX_REGS)
-	{
-	  ret = -1;
-
-	  /* Make direct move a little more expensive than a normal move, but
-	     faster than storing and loading from memory.  SFmode is special
-	     because we have to convert between the scalar format and vector
-	     format.  */
-	  if (TARGET_DIRECT_MOVE)
-	    {
-	      int size = GET_MODE_SIZE (mode);
-	      if (mode == SFmode)
-		ret = 8;
-	      else if (size <= 4)
-		ret = 4;
-	      else if (TARGET_POWERPC64)
-		{
-		  if (size == 8)
-		    ret = 4;
-
-		  else if (size == 16)
-		    {
-		      int fp_nregs = hard_regno_nregs[FIRST_FPR_REGNO][mode];
-		      if (fp_nregs == 1)
-			ret = (TARGET_P9_VECTOR) ? 4 : 8;
-		      else
-			ret = 4 * fp_nregs;
-		    }
-		}
-	    }
-
-	  if (ret == -1)
-	    ret = (rs6000_memory_move_cost (mode, rclass, false)
-		   + rs6000_memory_move_cost (mode, GENERAL_REGS, false));
-	}
+	ret = (rs6000_memory_move_cost (mode, rclass, false)
+	       + rs6000_memory_move_cost (mode, GENERAL_REGS, false));
 
       /* It's more expensive to move CR_REGS than CR0_REGS because of the
 	 shift.  */

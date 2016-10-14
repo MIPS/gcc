@@ -1,3 +1,8 @@
+2016-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_register_move_cost): Undo change
+	to make direct move cost more realistic.
+
 2016-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_setup_reg_addr_masks): Rework
