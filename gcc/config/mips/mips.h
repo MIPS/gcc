@@ -947,6 +947,9 @@ struct mips_cpu_info {
 				 || ISA_MIPS64R5			\
 				 || ISA_MIPS64R6)
 
+/* ISA has JRADDIUP or JRCADDIUSP instruction.  */
+#define ISA_HAS_JRADDIUSP	(TARGET_MICROMIPS && mips_isa_rev < 7)
+
 #define ISA_HAS_JR		(mips_isa_rev <= 5)
 
 #define ISA_HAS_DELAY_SLOTS	(mips_isa_rev <= 5			\

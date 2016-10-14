@@ -14165,7 +14165,7 @@ mips_expand_epilogue (bool sibcall_p)
 	  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, COP0_STATUS_REG_NUM),
 				    gen_rtx_REG (SImode, K1_REG_NUM)));
 	}
-      else if (TARGET_MICROMIPS
+      else if (ISA_HAS_JRADDIUSP
 	       && !crtl->calls_eh_return
 	       && !sibcall_p
 	       && step2 > 0
