@@ -1,3 +1,8 @@
+2016-10-14  Catherine Moore  <clm@codesourcery.com>
+
+	* gcc/config/mips/mips.c (mips_prepare_pch_save): Initialize
+	micromips_globals to zero.
+
 2016-08-09  Matthew Fortune  <matthew.fortune@imgtec.com>
 
 	PR c/65345
