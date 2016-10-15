@@ -2457,9 +2457,14 @@ extract_range_from_binary_expr_1 (value_range *vr,
       signop sign = TYPE_SIGN (expr_type);
       unsigned int prec = TYPE_PRECISION (expr_type);
 
-      if (range_int_cst_p (&vr0)
-	  && range_int_cst_p (&vr1)
-	  && TYPE_OVERFLOW_WRAPS (expr_type))
+      if (!range_int_cst_p (&vr0)
+	  || !range_int_cst_p (&vr1))
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+
+      if (TYPE_OVERFLOW_WRAPS (expr_type))
 	{
 	  typedef FIXED_WIDE_INT (WIDE_INT_MAX_PRECISION * 2) vrp_int;
 	  typedef generic_wide_int
