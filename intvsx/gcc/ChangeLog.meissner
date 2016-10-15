@@ -1,3 +1,53 @@
+2016-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wH): Add constraints for
+	-mvsx-small-integer.
+	(wI): Likewise.
+	(wJ): Likewise.
+	(wK): Likewise.
+
+	* config/rs6000/rs6000.opt (-mvsx-small-integer): New switch to
+	allow small integers in VSX registers.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Remove a
+	redundant test for -mupper-regs-di, since scalar_in_vmx_p already
+	is set in this case.  Add support for -mvsx-small-integer for
+	SImode on ISA 2.07.  Do not yet add support for QImode or HImode
+	in ISA 3.0.
+	(rs6000_debug_reg_global): Print wH, wI, wJ, and wK constraints.
+	(rs6000_setup_reg_addr_masks): Add support for SImode being
+	allowed in VSX registers, and eventually QImode/HImode.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Add checks for the new switch
+	-mvsx-small-integer.
+	(rs6000_secondary_reload_simple_move): Rework somewhat.  Add
+	support for -mvsx-small-integer.
+	(rs6000_secondary_reload): Use std::swap.
+	(rs6000_preferred_reload_class): Add support for SImode, HImode,
+	and QImode in VSX registers.
+	(rs6000_register_move_cost): Use FIRST_FPR_REGNO instead of 32.
+	(rs6000_opt_masks): Add -mvsx-small-integer.
+
+	* config/rs6000/rs6000.h (enum r6000_reg_class_enum): Add wH, wI,
+	wJ, and wK constraints.
+
+	* config/rs6000/rs6000.md (f32_sv): Use correct STXSIWX
+	instruction for SDmode.
+	(zero_extendsi<mode>2): Remove ?, ! from constraints.  Add support
+	for ISA 3.0 XXEXTRACTUW/VEXTSW2D if -mvsx-small-integer.
+	(extendsi<mode>2): Likewise.
+	(lfiwax): For -mvsx-small-integer, generate normal conversions
+	instead of UNSPEC to allow the register allocator to allocate the
+	temporary to VSX registers.
+	(floatsi<mode>2_lfiwax): Likewise.
+	(lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwsx): Likewise.
+	(movsi_internal1): Add spacing to make columns line up.  Add VSX
+	instruction support if -mvsx-small-integer.
+
+	* doc/md.texi (PowerPC constraints): Document wH, wI, wJ, and wK
+	constraints.
+
 2016-10-14   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 241189
