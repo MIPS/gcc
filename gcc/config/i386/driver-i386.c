@@ -517,7 +517,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   /* Check cpuid level of extended features.  */
   __cpuid (0x80000000, ext_level, ebx, ecx, edx);
 
-  if (ext_level > 0x80000000)
+  if (ext_level >= 0x80000001)
     {
       __cpuid (0x80000001, eax, ebx, ecx, edx);
 
@@ -535,7 +535,10 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_3dnowp = edx & bit_3DNOWP;
       has_3dnow = edx & bit_3DNOW;
       has_mwaitx = ecx & bit_MWAITX;
+    }
 
+  if (ext_level >= 0x80000008)
+    {
       __cpuid (0x80000008, eax, ebx, ecx, edx);
       has_clzero = ebx & bit_CLZERO;
     }
@@ -603,7 +606,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       unsigned int name;
 
       /* Detect geode processor by its processor signature.  */
-      if (ext_level > 0x80000001)
+      if (ext_level >= 0x80000002)
 	__cpuid (0x80000002, name, ebx, ecx, edx);
       else
 	name = 0;
@@ -637,33 +640,27 @@ const char *host_detect_local_cpu (int argc, const char **argv)
     }
   else if (vendor == signature_CENTAUR_ebx)
     {
-      if (arch)
+      processor = PROCESSOR_GENERIC;
+
+      switch (family)
 	{
-	  switch (family)
-	    {
-	    case 6:
-	      if (model > 9)
-		/* Use the default detection procedure.  */
-		processor = PROCESSOR_GENERIC;
-	      else if (model == 9)
-		cpu = "c3-2";
-	      else if (model >= 6)
-		cpu = "c3";
-	      else
-		processor = PROCESSOR_GENERIC;
-	      break;
-	    case 5:
-	      if (has_3dnow)
-		cpu = "winchip2";
-	      else if (has_mmx)
-		cpu = "winchip2-c6";
-	      else
-		processor = PROCESSOR_GENERIC;
-	      break;
-	    default:
-	      /* We have no idea.  */
-	      processor = PROCESSOR_GENERIC;
-	    }
+	default:
+	  /* We have no idea.  */
+	  break;
+
+	case 5:
+	  if (has_3dnow || has_mmx)
+	    processor = PROCESSOR_I486;
+	  break;
+
+	case 6:
+	  if (model > 9 || has_longmode)
+	    /* Use the default detection procedure.  */
+	    ;
+	  else if (model == 9)
+	    processor = PROCESSOR_PENTIUMPRO;
+	  else if (model >= 6)
+	    processor = PROCESSOR_I486;
 	}
     }
   else
@@ -694,7 +691,18 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       /* Default.  */
       break;
     case PROCESSOR_I486:
-      cpu = "i486";
+      if (arch && vendor == signature_CENTAUR_ebx)
+	{
+	  if (model >= 6)
+	    cpu = "c3";
+	  else if (has_3dnow)
+	    cpu = "winchip2";
+	  else
+	    /* Assume WinChip C6.  */
+	    cpu = "winchip-c6";
+	}
+      else
+	cpu = "i486";
       break;
     case PROCESSOR_PENTIUM:
       if (arch && has_mmx)
@@ -817,8 +825,13 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 		/* It is Pentium M.  */
 		cpu = "pentium-m";
 	      else if (has_sse)
-		/* It is Pentium III.  */
-		cpu = "pentium3";
+		{
+		  if (vendor == signature_CENTAUR_ebx)
+		    cpu = "c3-2";
+		  else
+		    /* It is Pentium III.  */
+		    cpu = "pentium3";
+		}
 	      else if (has_mmx)
 		/* It is Pentium II.  */
 		cpu = "pentium2";
@@ -902,6 +915,11 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	      else
 		cpu = "prescott";
 	    }
+	  else if (has_longmode)
+	    /* Perhaps some emulator?  Assume x86-64, otherwise gcc
+	       -march=native would be unusable for 64-bit compilations,
+	       as all the CPUs below are 32-bit only.  */
+	    cpu = "x86-64";
 	  else if (has_sse2)
 	    cpu = "pentium4";
 	  else if (has_cmov)

@@ -34,8 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-color.h"
 #include "tree-diagnostic.h" /* tree_diagnostics_defaults */
 
-#include <new> /* For placement-new */
-
 static int suppress_errors = 0;
 
 static bool warnings_not_errors = false;
@@ -1305,9 +1303,14 @@ gfc_error (const char *gmsgid, ...)
 void
 gfc_internal_error (const char *gmsgid, ...)
 {
+  int e, w;
   va_list argp;
   diagnostic_info diagnostic;
   rich_location rich_loc (line_table, UNKNOWN_LOCATION);
+
+  gfc_get_errors (&w, &e);
+  if (e > 0)
+    exit(EXIT_FAILURE);
 
   va_start (argp, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &argp, &rich_loc, DK_ICE);

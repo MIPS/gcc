@@ -791,7 +791,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		     machine_mode mode ATTRIBUTE_UNUSED,
 		     int ignore ATTRIBUTE_UNUSED)
 {
-#define MAX_ARGS 5
+#define MAX_ARGS 6
 
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
@@ -875,6 +875,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   arity = 0;
   FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
+      rtx tmp_rtx;
       const struct insn_operand_data *insn_op;
       unsigned int op_flags = all_op_flags & ((1 << O_SHIFT) - 1);
 
@@ -949,6 +950,20 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	  op[arity] = replace_equiv_address (op[arity],
 					     copy_to_mode_reg (Pmode,
 					       XEXP (op[arity], 0)));
+	}
+      /* Some of the builtins require different modes/types than the
+	 pattern in order to implement a specific API.  Instead of
+	 adding many expanders which do the mode change we do it here.
+	 E.g. s390_vec_add_u128 required to have vector unsigned char
+	 arguments is mapped to addti3.  */
+      else if (insn_op->mode != VOIDmode
+	       && GET_MODE (op[arity]) != VOIDmode
+	       && GET_MODE (op[arity]) != insn_op->mode
+	       && ((tmp_rtx = simplify_gen_subreg (insn_op->mode, op[arity],
+						   GET_MODE (op[arity]), 0))
+		   != NULL_RTX))
+	{
+	  op[arity] = tmp_rtx;
 	}
       else if (GET_MODE (op[arity]) == insn_op->mode
 	       || GET_MODE (op[arity]) == VOIDmode
@@ -6442,11 +6457,17 @@ s390_expand_vec_init (rtx target, rtx vals)
   /* Unfortunately the vec_init expander is not allowed to fail.  So
      we have to implement the fallback ourselves.  */
   for (i = 0; i < n_elts; i++)
-    emit_insn (gen_rtx_SET (target,
-			    gen_rtx_UNSPEC (mode,
-					    gen_rtvec (3, XVECEXP (vals, 0, i),
-						       GEN_INT (i), target),
-					    UNSPEC_VEC_SET)));
+    {
+      rtx elem = XVECEXP (vals, 0, i);
+      if (!general_operand (elem, GET_MODE (elem)))
+	elem = force_reg (inner_mode, elem);
+
+      emit_insn (gen_rtx_SET (target,
+			      gen_rtx_UNSPEC (mode,
+					      gen_rtvec (3, elem,
+							 GEN_INT (i), target),
+					      UNSPEC_VEC_SET)));
+    }
 }
 
 /* Structure to hold the initial parameters for a compare_and_swap operation
@@ -10538,19 +10559,25 @@ s390_restore_gprs_from_fprs (void)
 
   for (i = 6; i < 16; i++)
     {
-      if (FP_REGNO_P (cfun_gpr_save_slot (i)))
-	{
-	  rtx_insn *insn =
-	    emit_move_insn (gen_rtx_REG (DImode, i),
-			    gen_rtx_REG (DImode, cfun_gpr_save_slot (i)));
-	  df_set_regs_ever_live (i, true);
-	  add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (DImode, i));
-	  if (i == STACK_POINTER_REGNUM)
-	    add_reg_note (insn, REG_CFA_DEF_CFA,
-			  plus_constant (Pmode, stack_pointer_rtx,
-					 STACK_POINTER_OFFSET));
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	}
+      rtx_insn *insn;
+
+      if (!FP_REGNO_P (cfun_gpr_save_slot (i)))
+	continue;
+
+      rtx fpr = gen_rtx_REG (DImode, cfun_gpr_save_slot (i));
+
+      if (i == STACK_POINTER_REGNUM)
+	insn = emit_insn (gen_stack_restore_from_fpr (fpr));
+      else
+	insn = emit_move_insn (gen_rtx_REG (DImode, i), fpr);
+
+      df_set_regs_ever_live (i, true);
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (DImode, i));
+      if (i == STACK_POINTER_REGNUM)
+	add_reg_note (insn, REG_CFA_DEF_CFA,
+		      plus_constant (Pmode, stack_pointer_rtx,
+				     STACK_POINTER_OFFSET));
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
 }
 
@@ -12399,17 +12426,13 @@ s390_encode_section_info (tree decl, rtx rtl, int first)
     {
       /* Store the alignment to be able to check if we can use
 	 a larl/load-relative instruction.  We only handle the cases
-	 that can go wrong (i.e. no FUNC_DECLs).  If a symref does
-	 not have any flag we assume it to be correctly aligned.  */
-
-      if (DECL_ALIGN (decl) % 64)
-	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
-
-      if (DECL_ALIGN (decl) % 32)
-	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
-
+	 that can go wrong (i.e. no FUNC_DECLs).  */
       if (DECL_ALIGN (decl) == 0 || DECL_ALIGN (decl) % 16)
 	SYMBOL_FLAG_SET_NOTALIGN2 (XEXP (rtl, 0));
+      else if (DECL_ALIGN (decl) % 32)
+	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
+      else if (DECL_ALIGN (decl) % 64)
+	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
     }
 
   /* Literal pool references don't have a decl so they are handled
@@ -12417,18 +12440,14 @@ s390_encode_section_info (tree decl, rtx rtl, int first)
      entry to decide upon the alignment.  */
   if (MEM_P (rtl)
       && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
-      && TREE_CONSTANT_POOL_ADDRESS_P (XEXP (rtl, 0))
-      && MEM_ALIGN (rtl) != 0
-      && GET_MODE_BITSIZE (GET_MODE (rtl)) != 0)
+      && TREE_CONSTANT_POOL_ADDRESS_P (XEXP (rtl, 0)))
     {
-      if (MEM_ALIGN (rtl) % 64)
-	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
-
-      if (MEM_ALIGN (rtl) % 32)
-	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
-
       if (MEM_ALIGN (rtl) == 0 || MEM_ALIGN (rtl) % 16)
 	SYMBOL_FLAG_SET_NOTALIGN2 (XEXP (rtl, 0));
+      else if (MEM_ALIGN (rtl) % 32)
+	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
+      else if (MEM_ALIGN (rtl) % 64)
+	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
     }
 }
 
@@ -13032,37 +13051,46 @@ s390_optimize_prologue (void)
 
       /* Remove ldgr/lgdr instructions used for saving and restore
 	 GPRs if possible.  */
-      if (TARGET_Z10
-	  && GET_CODE (pat) == SET
-	  && GET_MODE (SET_SRC (pat)) == DImode
-	  && REG_P (SET_SRC (pat))
-	  && REG_P (SET_DEST (pat)))
+      if (TARGET_Z10)
 	{
-	  int src_regno = REGNO (SET_SRC (pat));
-	  int dest_regno = REGNO (SET_DEST (pat));
-	  int gpr_regno;
-	  int fpr_regno;
+	  rtx tmp_pat = pat;
 
-	  if (!((GENERAL_REGNO_P (src_regno) && FP_REGNO_P (dest_regno))
-		|| (FP_REGNO_P (src_regno) && GENERAL_REGNO_P (dest_regno))))
-	    continue;
+	  if (INSN_CODE (insn) == CODE_FOR_stack_restore_from_fpr)
+	    tmp_pat = XVECEXP (pat, 0, 0);
 
-	  gpr_regno = GENERAL_REGNO_P (src_regno) ? src_regno : dest_regno;
-	  fpr_regno = FP_REGNO_P (src_regno) ? src_regno : dest_regno;
-
-	  /* GPR must be call-saved, FPR must be call-clobbered.  */
-	  if (!call_really_used_regs[fpr_regno]
-	      || call_really_used_regs[gpr_regno])
-	    continue;
-
-	  /* It must not happen that what we once saved in an FPR now
-	     needs a stack slot.  */
-	  gcc_assert (cfun_gpr_save_slot (gpr_regno) != SAVE_SLOT_STACK);
-
-	  if (cfun_gpr_save_slot (gpr_regno) == SAVE_SLOT_NONE)
+	  if (GET_CODE (tmp_pat) == SET
+	      && GET_MODE (SET_SRC (tmp_pat)) == DImode
+	      && REG_P (SET_SRC (tmp_pat))
+	      && REG_P (SET_DEST (tmp_pat)))
 	    {
-	      remove_insn (insn);
-	      continue;
+	      int src_regno = REGNO (SET_SRC (tmp_pat));
+	      int dest_regno = REGNO (SET_DEST (tmp_pat));
+	      int gpr_regno;
+	      int fpr_regno;
+
+	      if (!((GENERAL_REGNO_P (src_regno)
+		     && FP_REGNO_P (dest_regno))
+		    || (FP_REGNO_P (src_regno)
+			&& GENERAL_REGNO_P (dest_regno))))
+		continue;
+
+	      gpr_regno = GENERAL_REGNO_P (src_regno) ? src_regno : dest_regno;
+	      fpr_regno = FP_REGNO_P (src_regno) ? src_regno : dest_regno;
+
+	      /* GPR must be call-saved, FPR must be call-clobbered.  */
+	      if (!call_really_used_regs[fpr_regno]
+		  || call_really_used_regs[gpr_regno])
+		continue;
+
+	      /* It must not happen that what we once saved in an FPR now
+		 needs a stack slot.  */
+	      gcc_assert (cfun_gpr_save_slot (gpr_regno) != SAVE_SLOT_STACK);
+
+	      if (cfun_gpr_save_slot (gpr_regno) == SAVE_SLOT_NONE)
+		{
+		  remove_insn (insn);
+		  continue;
+		}
 	    }
 	}
 
