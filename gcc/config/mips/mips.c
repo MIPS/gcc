@@ -24083,8 +24083,8 @@ umips_movep_target_p (rtx reg1, rtx reg2)
  if (TARGET_MICROMIPS_R7)
     {
       for (i = 0; i < ARRAY_SIZE (matchr7); i++)
-	 if (pair == matchr7[i])
-	   return true;
+	if (pair == matchr7[i])
+	  return true;
     }
   else
     for (i = 0; i < ARRAY_SIZE (match); i++)
