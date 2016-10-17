@@ -1296,20 +1296,47 @@ struct mips_cpu_info {
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
 				 && mips_isa_rev >= 2)
 
-/* ISA has lwxs instruction (load w/scaled index address.  */
+/* ISA has lhxs, lhuxs, lwxs, lwuxs, ldxs instruction (load)
+   w/scaled index address.  */
+#define ISA_HAS_LHXS		TARGET_NANOMIPS
+#define ISA_HAS_LHUXS		TARGET_NANOMIPS
 #define ISA_HAS_LWXS		((TARGET_SMARTMIPS \
-				 || (TARGET_MICROMIPS && mips_isa_rev <= 5)) \
+				 || (TARGET_MICROMIPS && mips_isa_rev <= 5) \
+				 || TARGET_NANOMIPS) \
 				 && !TARGET_MIPS16)
+#define ISA_HAS_LWUXS		(TARGET_64BIT && TARGET_NANOMIPS)
+#define ISA_HAS_LDXS		(TARGET_64BIT && TARGET_NANOMIPS)
 
-/* ISA has lbx, lbux, lhx, lhx, lhux, lwx, lwux, or ldx instruction. */
-#define ISA_HAS_LBX		(TARGET_OCTEON2)
-#define ISA_HAS_LBUX		(ISA_HAS_DSP || TARGET_OCTEON2)
-#define ISA_HAS_LHX		(ISA_HAS_DSP || TARGET_OCTEON2)
-#define ISA_HAS_LHUX		(TARGET_OCTEON2)
-#define ISA_HAS_LWX		(ISA_HAS_DSP || TARGET_OCTEON2)
-#define ISA_HAS_LWUX		(TARGET_OCTEON2 && TARGET_64BIT)
-#define ISA_HAS_LDX		((ISA_HAS_DSP || TARGET_OCTEON2) \
+/* ISA has shxs, swxs, sdxs instruction (store) w/scaled index address.  */
+#define ISA_HAS_SHXS		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SWXS		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SDXS		(TARGET_64BIT				  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
+
+/* ISA has lbx, lbux, lhx, lhux, lwx, lwux, or ldx instruction. */
+#define ISA_HAS_LBX		(TARGET_OCTEON2				  \
+				 || TARGET_NANOMIPS)
+#define ISA_HAS_LBUX		(ISA_HAS_DSP || TARGET_OCTEON2		  \
+				 || TARGET_NANOMIPS)
+#define ISA_HAS_LHX		(ISA_HAS_DSP || TARGET_OCTEON2		  \
+				 || TARGET_NANOMIPS)
+#define ISA_HAS_LHUX		(TARGET_OCTEON2	|| TARGET_NANOMIPS)
+#define ISA_HAS_LWX		(ISA_HAS_DSP || TARGET_OCTEON2		  \
+				 || TARGET_NANOMIPS)
+#define ISA_HAS_LWUX		((TARGET_OCTEON2 || TARGET_NANOMIPS) \
 				 && TARGET_64BIT)
+#define ISA_HAS_LDX		((ISA_HAS_DSP || TARGET_OCTEON2		  \
+				  || TARGET_NANOMIPS) \
+				 && TARGET_64BIT)
+
+/* ISA has sbx, shx, swx, sdx instruction. */
+#define ISA_HAS_SBX		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SHX		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SWX		(TARGET_NANOMIPS == NANOMIPS_NMF)
+#define ISA_HAS_SDX		(TARGET_64BIT				  \
+				 && TARGET_NANOMIPS == NANOMIPS_NMF)
+
+#define ISA_HAS_INDEX_LDST	(TARGET_NANOMIPS == NANOMIPS_NMF)
 
 /* The DSP ASE is available.  */
 #define ISA_HAS_DSP		(TARGET_DSP && !TARGET_MIPS16)
@@ -2335,7 +2362,8 @@ enum reg_class
    factor or added to another register (as well as added to a
    displacement).  */
 
-#define INDEX_REG_CLASS NO_REGS
+#define INDEX_REG_CLASS (TARGET_NANOMIPS && ISA_HAS_INDEX_LDST \
+			 ? GR_REGS : NO_REGS)
 
 /* We generally want to put call-clobbered registers ahead of
    call-saved ones.  (IRA expects this.)  */

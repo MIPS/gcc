@@ -210,6 +210,9 @@ extern bool mips_split_symbol (rtx, rtx, machine_mode, rtx *);
 extern rtx mips_unspec_address (rtx, enum mips_symbol_type);
 extern rtx mips_strip_unspec_address (rtx);
 extern void mips_move_integer (rtx, rtx, unsigned HOST_WIDE_INT);
+extern bool mips_legitimate_address_p (enum machine_mode, rtx, bool);
+extern bool mips_index_address_p (rtx, machine_mode);
+extern bool mips_index_scaled_address_p (rtx, machine_mode);
 extern bool mips_legitimize_move (machine_mode, rtx, rtx);
 
 extern rtx mips_subword (rtx, bool);
