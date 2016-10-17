@@ -403,6 +403,10 @@
   (ior (match_operand 0 "const_0_operand")
        (match_operand 0 "movep_src_register")))
 
+;; We don't load into the zero register
+(define_predicate "movep_src_operand_rev"
+  (match_operand 0 "movep_src_register"))
+
 (define_predicate "lo_operand"
   (and (match_code "reg")
        (match_test "REGNO (op) == LO_REGNUM")))
