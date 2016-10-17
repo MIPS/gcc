@@ -7401,13 +7401,14 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
 /* Assign a derived type constructor to a variable.  */
 
 tree
-gfc_trans_structure_assign (tree dest, gfc_expr * expr, bool init)
+gfc_trans_structure_assign (tree dest, gfc_expr * expr, bool init, bool coarray)
 {
   gfc_constructor *c;
   gfc_component *cm;
   stmtblock_t block;
   tree field;
   tree tmp;
+  gfc_se se;
 
   gfc_start_block (&block);
   cm = expr->ts.u.derived->components;
@@ -7416,7 +7417,7 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr, bool init)
       && (expr->ts.u.derived->intmod_sym_id == ISOCBINDING_PTR
           || expr->ts.u.derived->intmod_sym_id == ISOCBINDING_FUNPTR))
     {
-      gfc_se se, lse;
+      gfc_se lse;
 
       gfc_init_se (&se, NULL);
       gfc_init_se (&lse, NULL);
@@ -7428,6 +7429,9 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr, bool init)
       return gfc_finish_block (&block);
     }
 
+  if (coarray)
+    gfc_init_se (&se, NULL);
+
   for (c = gfc_constructor_first (expr->value.constructor);
        c; c = gfc_constructor_next (c), cm = cm->next)
     {
@@ -7435,6 +7439,62 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr, bool init)
       if (!c->expr && !cm->attr.allocatable)
 	continue;
 
+      /* Register the component with the caf-lib before it is initialized.
+	 Register only allocatable components, that are not coarray'ed
+	 components (%comp[*]).  Only register when the constructor is not the
+	 null-expression.  */
+      if (coarray && !cm->attr.codimension && cm->attr.allocatable
+	  && (!c->expr || c->expr->expr_type == EXPR_NULL))
+	{
+	  tree token, desc, size;
+	  symbol_attribute attr;
+	  bool is_array = cm->ts.type == BT_CLASS
+	      ? CLASS_DATA (cm)->attr.dimension : cm->attr.dimension;
+
+	  field = cm->backend_decl;
+	  field = fold_build3_loc (input_location, COMPONENT_REF,
+				   TREE_TYPE (field), dest, field, NULL_TREE);
+	  if (cm->ts.type == BT_CLASS)
+	    field = gfc_class_data_get (field);
+
+	  token = is_array ? gfc_conv_descriptor_token (field)
+			   : fold_build3_loc (input_location, COMPONENT_REF,
+					      TREE_TYPE (cm->caf_token), dest,
+					      cm->caf_token, NULL_TREE);
+
+	  if (is_array)
+	    {
+	      /* The _caf_register routine looks at the rank of the array
+		 descriptor to decide whether the data registered is an array
+		 or not.  */
+	      int rank = cm->ts.type == BT_CLASS ? CLASS_DATA (cm)->as->rank
+						 : cm->as->rank;
+	      /* When the rank is not known just set a positive rank, which
+		 suffices to recognize the data as array.  */
+	      if (rank < 0)
+		rank = 1;
+	      size = integer_zero_node;
+	      desc = field;
+	      gfc_add_modify (&block, gfc_conv_descriptor_dtype (desc),
+			      build_int_cst (gfc_array_index_type, rank));
+	    }
+	  else
+	    {
+	      desc = gfc_conv_scalar_to_descriptor (&se, field, attr);
+	      size = TYPE_SIZE_UNIT (TREE_TYPE (field));
+	    }
+	  gfc_add_block_to_block (&block, &se.pre);
+	  tmp =  build_call_expr_loc (input_location, gfor_fndecl_caf_register,
+				      7, size, build_int_cst (
+					integer_type_node,
+					GFC_CAF_COARRAY_ALLOC_REGISTER_ONLY),
+				      gfc_build_addr_expr (pvoid_type_node,
+							   token),
+				      gfc_build_addr_expr (NULL_TREE, desc),
+				      null_pointer_node, null_pointer_node,
+				      integer_zero_node);
+	  gfc_add_expr_to_block (&block, tmp);
+	}
       field = cm->backend_decl;
       tmp = fold_build3_loc (input_location, COMPONENT_REF, TREE_TYPE (field),
 			     dest, field, NULL_TREE);
@@ -7476,7 +7536,8 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       se->expr = gfc_create_var (type, expr->ts.u.derived->name);
       /* The symtree in expr is NULL, if the code to generate is for
 	 initializing the static members only.  */
-      tmp = gfc_trans_structure_assign (se->expr, expr, expr->symtree != NULL);
+      tmp = gfc_trans_structure_assign (se->expr, expr, expr->symtree != NULL,
+					se->want_coarray);
       gfc_add_expr_to_block (&se->pre, tmp);
       return;
     }
@@ -9672,6 +9733,8 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   l_is_temp = (lss != gfc_ss_terminator && loop.temp_ss != NULL);
 
   /* Translate the expression.  */
+  rse.want_coarray = flag_coarray == GFC_FCOARRAY_LIB && init_flag
+      && lhs_caf_attr.codimension;
   gfc_conv_expr (&rse, expr2);
 
   /* Deal with the case of a scalar class function assigned to a derived type.  */

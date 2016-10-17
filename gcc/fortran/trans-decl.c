@@ -5096,8 +5096,8 @@ generate_coarray_sym_init (gfc_symbol *sym)
 			     build_int_cst (integer_type_node, reg_type),
 			     token, gfc_build_addr_expr (pvoid_type_node, desc),
 			     null_pointer_node, /* stat.  */
-			     null_pointer_node, /* errgmsg, errmsg_len.  */
-			     build_int_cst (integer_type_node, 0));
+			     null_pointer_node, /* errgmsg.  */
+			     integer_zero_node); /* errmsg_len.  */
   gfc_add_expr_to_block (&caf_init_block, tmp);
   gfc_add_modify (&caf_init_block, decl, fold_convert (TREE_TYPE (decl),
 					  gfc_conv_descriptor_data_get (desc)));
