@@ -458,6 +458,6 @@
 
 (define_memory_constraint "ZY"
   "@internal
-   A microMIPS memory operand for use with the LW4X4 insn."
+   A microMIPS memory operand for use with the LW4X4/SW4X4 insn."
   (and (match_code "mem")
-       (match_operand 0 "lw4x4_operand")))
+       (match_operand 0 "lw4x4_sw4x4_operand")))

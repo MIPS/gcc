@@ -6376,6 +6376,14 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      return dbl_p ? retval : retval + 1;
 	    }
 	}
+      if (TARGET_MICROMIPS_R7
+	  && dest_code == MEM
+	  && GET_MODE_SIZE (mode) == 4
+	  && M16_4X4_REG_P (REGNO (src))
+	  && TARGET_ADD_SW4X4
+	  && lw4x4_sw4x4_operand (dest, GET_MODE (dest)))
+	return "sdbbp16 5 # sw4x4\t%z1,%0";
+
       if (dest_code == MEM)
 	switch (GET_MODE_SIZE (mode))
 	  {
