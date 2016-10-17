@@ -5058,21 +5058,20 @@
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "*mov<mode>_internal"
-  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,d")
-	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,n"))]
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,d,kd,ZY")
+	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,n,ZY,kd"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,move")
-   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*,*")
+  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,move,load,store")
+   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*,*,micromips,micromips")
    (set_attr "mode" "SI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "23")
 		    (match_test "!TARGET_MICROMIPS_R7"))
 		  (const_string "no")]
 	      (const_string "yes")))])
-
 
 (define_insn "*mov<mode>_mips16"
   [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m,*d")

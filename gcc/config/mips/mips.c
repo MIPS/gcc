@@ -567,12 +567,12 @@ static mips_one_only_stub *mips16_set_fcsr_stub;
 
 /* Index R is the smallest register class that contains register R.  */
 const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
-  LEA_REGS,        LEA_REGS,        M16_STORE_REGS,  V1_REG,
+  M16_4X4_REGS,    M16_4X4_REGS,    M16_STORE_REGS,  V1_REG,
   M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
-  M16_REGS,        M16_STORE_REGS,  LEA_REGS,        LEA_REGS,
-  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  M16_REGS,        M16_STORE_REGS,  M16_4X4_REGS,    M16_4X4_REGS,
+  M16_4X4_REGS,    M16_4X4_REGS,    M16_4X4_REGS,    M16_4X4_REGS,
   T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
   LEA_REGS,        M16_SP_REGS,     LEA_REGS,        LEA_REGS,
 
@@ -3745,6 +3745,17 @@ m16_based_address_p (rtx x, machine_mode mode,
 	  && offset_predicate (addr.offset, mode));
 }
 
+bool
+m16_4x4_based_address_p (rtx x, machine_mode mode,
+			 insn_operand_predicate_fn offset_predicate)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && M16_4X4_REG_P (REGNO (addr.reg))
+	  && offset_predicate (addr.offset, mode));
+}
 /* Return true if X is a legitimate address that conforms to the requirements
    for a microMIPS LWSP or SWSP insn.  */
 
@@ -6136,6 +6147,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      return dbl_p ? retval : retval + 1;
 	    }
 	}
+
       if (dest_code == MEM)
 	switch (GET_MODE_SIZE (mode))
 	  {
