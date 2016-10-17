@@ -194,6 +194,10 @@ static int *consumer_luid = NULL;
        A natural register + offset address.  The register satisfies
        mips_valid_base_register_p and the offset is a const_arith_operand.
 
+   ADDRESS_REG_REG
+       A natural register + (optionally scaled) index register.  The register
+       satisfies mips_valid_base_register_p and mips_valid_index_register_p.
+
    ADDRESS_LO_SUM
        A LO_SUM rtx.  The first operand is a valid base register and
        the second operand is a symbolic address.
@@ -205,6 +209,7 @@ static int *consumer_luid = NULL;
        A constant symbolic address.  */
 enum mips_address_type {
   ADDRESS_REG,
+  ADDRESS_REG_REG,
   ADDRESS_LO_SUM,
   ADDRESS_CONST_INT,
   ADDRESS_SYMBOLIC
@@ -1826,6 +1831,8 @@ static bool mips_load_store_insn_p (rtx_insn *, rtx *,
 static void mips_load_store_bond_insns ();
 static void mips_frame_barrier (void);
 
+/* Used to track the mode of an address for indexed scaled load/stores.  */
+static machine_mode mips_memref_mode;
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
@@ -3429,6 +3436,22 @@ mips_regno_mode_ok_for_base_p (int regno, machine_mode mode,
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
 
+bool
+mips_regno_ok_for_index_p (int regno, bool strict_p)
+{
+  if (!TARGET_NANOMIPS)
+    return false;
+
+  if (!HARD_REGISTER_NUM_P (regno))
+    {
+      if (!strict_p)
+	return true;
+      regno = reg_renumber[regno];
+    }
+
+  return GP_REG_P (regno);
+}
+
 /* Return true if X is a valid base register for mode MODE.
    STRICT_P is true if REG_OK_STRICT is in effect.  */
 
@@ -3440,6 +3463,18 @@ mips_valid_base_register_p (rtx x, machine_mode mode, bool strict_p)
 
   return (REG_P (x)
 	  && mips_regno_mode_ok_for_base_p (REGNO (x), mode, strict_p));
+}
+
+static bool
+mips_valid_index_register_p (rtx x, bool strict_p)
+{
+  if (!ISA_HAS_INDEX_LDST)
+    return false;
+  if (!strict_p && GET_CODE (x) == SUBREG)
+    x = SUBREG_REG (x);
+
+  return (REG_P (x)
+	  && mips_regno_ok_for_index_p (REGNO (x), strict_p));
 }
 
 /* Return true if, for every base register BASE_REG, (plus BASE_REG X)
@@ -3512,6 +3547,8 @@ static bool
 mips_classify_address (struct mips_address_info *info, rtx x,
 		       machine_mode mode, bool strict_p)
 {
+  rtx op0, op1;
+
   switch (GET_CODE (x))
     {
     case REG:
@@ -3522,11 +3559,40 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       return mips_valid_base_register_p (info->reg, mode, strict_p);
 
     case PLUS:
-      info->type = ADDRESS_REG;
-      info->reg = XEXP (x, 0);
-      info->offset = XEXP (x, 1);
-      return (mips_valid_base_register_p (info->reg, mode, strict_p)
-	      && mips_valid_offset_p (info->offset, mode));
+      op0 = XEXP (x, 0);
+      op1 = XEXP (x, 1);
+      if (mips_valid_base_register_p (op0, mode, strict_p)
+	  && CONST_INT_P (op1)
+	  && mips_valid_offset_p (op1, mode))
+	{
+	  info->type = ADDRESS_REG;
+	  info->reg = op0;
+	  info->offset = op1;
+	  return true;
+	}
+      else if (mips_valid_base_register_p (op0, mode, strict_p)
+	       && ((mips_index_scaled_address_p (x, mode)
+		    && mips_valid_index_register_p (XEXP (op1, 0), strict_p))
+		   || (mips_index_address_p (x, mode)
+		       && mips_valid_index_register_p (op1, strict_p))))
+	{
+	  info->type = ADDRESS_REG_REG;
+	  info->reg = op0;
+	  info->offset = op1;
+	  return true;
+	}
+      else if (mips_valid_base_register_p (op1, mode, strict_p)
+	       && ((mips_index_scaled_address_p (x, mode)
+		    && mips_valid_index_register_p (XEXP (op0, 0), strict_p))
+		   || (mips_index_address_p (x, mode)
+		       && mips_valid_index_register_p (op0, strict_p))))
+	{
+	  info->type = ADDRESS_REG_REG;
+	  info->reg = op1;
+	  info->offset = op0;
+	  return true;
+	}
+      return false;
 
     case LO_SUM:
       info->type = ADDRESS_LO_SUM;
@@ -3568,7 +3634,7 @@ mips_classify_address (struct mips_address_info *info, rtx x,
 
 /* Implement TARGET_LEGITIMATE_ADDRESS_P.  */
 
-static bool
+bool
 mips_legitimate_address_p (machine_mode mode, rtx x, bool strict_p)
 {
   struct mips_address_info addr;
@@ -3588,25 +3654,41 @@ mips_stack_address_p (rtx x, machine_mode mode)
 	  && REGNO (addr.reg) == STACK_POINTER_REGNUM);
 }
 
-/* Return true if ADDR matches the pattern for the LWXS load scaled indexed
-   address instruction.  Note that such addresses are not considered
+/* Return true if ADDR matches the pattern for the load/store scaled indexed
+   address instruction.
+   FIXME -> Note that such addresses are not considered
    legitimate in the TARGET_LEGITIMATE_ADDRESS_P sense, because their use
    is so restricted.  */
 
-static bool
-mips_lwxs_address_p (rtx addr)
+bool
+mips_index_scaled_address_p (rtx addr, machine_mode mode)
 {
-  if (ISA_HAS_LWXS
-      && GET_CODE (addr) == PLUS
-      && REG_P (XEXP (addr, 1)))
-    {
-      rtx offset = XEXP (addr, 0);
-      if (GET_CODE (offset) == MULT
-	  && REG_P (XEXP (offset, 0))
-	  && CONST_INT_P (XEXP (offset, 1))
-	  && INTVAL (XEXP (offset, 1)) == 4)
-	return true;
-    }
+  rtx offset;
+  int shift;
+
+  if (GET_CODE (addr) != PLUS
+      || !REG_P (XEXP (addr, 1)))
+    return false;
+
+  offset = XEXP (addr, 0);
+
+  if (GET_CODE (offset) != MULT
+      || !REG_P (XEXP (offset, 0))
+      || !CONST_INT_P (XEXP (offset, 1)))
+    return false;
+
+  shift = exact_log2 (INTVAL (XEXP (offset, 1)));
+
+  if ((ISA_HAS_LHXS || ISA_HAS_LHUXS || ISA_HAS_SHXS)
+      && shift == 1 && mode == HImode)
+    return true;
+  if ((ISA_HAS_LWXS || ISA_HAS_LWUXS || ISA_HAS_SWXS)
+      && shift == 2 && mode == SImode)
+    return true;
+  if ((ISA_HAS_LDXS || ISA_HAS_SDXS)
+      && shift == 3 && mode == DImode)
+    return true;
+
   return false;
 }
 
@@ -3615,20 +3697,20 @@ mips_lwxs_address_p (rtx addr)
    not considered legitimate in the TARGET_LEGITIMATE_ADDRESS_P
    sense, because their use is so restricted.  */
 
-static bool
-mips_lx_address_p (rtx addr, machine_mode mode)
+bool
+mips_index_address_p (rtx addr, machine_mode mode)
 {
   if (GET_CODE (addr) != PLUS
       || !REG_P (XEXP (addr, 0))
       || !REG_P (XEXP (addr, 1)))
     return false;
-  if (ISA_HAS_LBX && mode == QImode)
+  if ((ISA_HAS_LBX || ISA_HAS_LBUX || ISA_HAS_SBX) && mode == QImode)
     return true;
-  if (ISA_HAS_LHX && mode == HImode)
+  if ((ISA_HAS_LHX || ISA_HAS_LHUX || ISA_HAS_SWX) && mode == HImode)
     return true;
-  if (ISA_HAS_LWX && mode == SImode)
+  if ((ISA_HAS_LWX || ISA_HAS_LWUX || ISA_HAS_LWX) && mode == SImode)
     return true;
-  if (ISA_HAS_LDX && mode == DImode)
+  if ((ISA_HAS_LDX || ISA_HAS_SDX) && mode == DImode)
     return true;
   if (MSA_SUPPORTED_MODE_P (mode))
     return true;
@@ -3686,6 +3768,7 @@ mips_address_insns (rtx x, machine_mode mode, bool might_split_p)
     switch (addr.type)
       {
       case ADDRESS_REG:
+      case ADDRESS_REG_REG:
 	if (msa_p)
 	  {
 	    /* MSA LD.* and ST.* supports 10-bit signed offsets.  */
@@ -5176,8 +5259,8 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  return true;
 	}
       /* Check for a scaled indexed address.  */
-      if (mips_lwxs_address_p (addr)
-	  || mips_lx_address_p (addr, mode))
+      if (mips_index_scaled_address_p (addr, mode)
+	  || mips_index_address_p (addr, mode))
 	{
 	  *total = COSTS_N_INSNS (2);
 	  return true;
@@ -5346,6 +5429,18 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 			+ set_src_cost (XEXP (x, 1), mode, speed));
 	      return true;
 	    }
+	}
+
+      if (TARGET_NANOMIPS
+	  && mips_valid_base_register_p (XEXP (x, 1), mode, false)
+	  && ((mips_index_scaled_address_p (x, mode)
+	       && mips_valid_index_register_p (XEXP (XEXP (x, 0), 0), false))
+	       || (mips_index_address_p (x, mode)
+		   && mips_valid_index_register_p (XEXP (x, 0), false))))
+	{
+	  /* Treat indexed (scaled) addresses as free.  */
+	  *total = 0;
+	  return true;
 	}
 
       /* Double-word operations require three single-word operations and
@@ -6152,13 +6247,23 @@ mips_output_move (rtx insn, rtx dest, rtx src)
       if (dest_code == MEM)
 	switch (GET_MODE_SIZE (mode))
 	  {
-	  case 1: return "sb\t%z1,%0";
-	  case 2: return ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 2)
-			  ? "sh\t%z1,%0"
-			  : "sh\t%z1,%0 # unaligned");
-	  case 4: return ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 4)
-			  ? "sw\t%z1,%0"
-			  : "sw\t%z1,%0 # unaligned");
+	  case 1: return mips_index_address_p (XEXP (dest, 0), mode)
+			 ? "sbx\t%z1,%0"
+			 : "sb\t%z1,%0";
+	  case 2: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
+			 ? "shxs\t%z1,%0"
+			 : mips_index_address_p (XEXP (dest, 0), mode)
+			   ? "shx\t%z1,%0"
+			   : ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 2)
+			      ? "sh\t%z1,%0"
+			      : "sh\t%z1,%0 # unaligned");
+	  case 4: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
+			 ? "swxs\t%z1,%0"
+			 : mips_index_address_p (XEXP (dest, 0), mode)
+			   ? "swx\t%z1,%0"
+			   : ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 4)
+			      ? "sw\t%z1,%0"
+			      : "sw\t%z1,%0 # unaligned");
 	  case 8: return ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 8)
 			  ? "sd\t%z1,%0"
 			  : "sd\t%z1,%0 # unaligned");
@@ -6231,13 +6336,23 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  else
 	    switch (GET_MODE_SIZE (mode))
 	      {
-	      case 1: return "lbu\t%0,%1";
-	      case 2: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 2)
-			      ? "lhu\t%0,%1"
-			      : "lhu\t%0,%1 # unaligned");
-	      case 4: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 4)
-			      ? "lw\t%0,%1"
-			      : "lw\t%0,%1 # unaligned");
+	      case 1: return mips_index_address_p (XEXP (src, 0), mode)
+			     ? "lbux\t%0,%1"
+			     : "lbu\t%0,%1";
+	      case 2: return mips_index_scaled_address_p (XEXP (src, 0), mode)
+			     ? "lhuxs\t%0,%1"
+			     : mips_index_address_p (XEXP (src, 0), mode)
+			       ? "lhux\t%0,%1"
+			       : ((MEM_ALIGN (src) >= BITS_PER_UNIT * 2)
+				  ? "lhu\t%0,%1"
+				  : "lhu\t%0,%1 # unaligned");
+	      case 4: return mips_index_scaled_address_p (XEXP (src, 0), mode)
+			     ? "lwxs\t%0,%1"
+			     : mips_index_address_p (XEXP (src, 0), mode)
+			       ? "lwx\t%0,%1"
+			       : ((MEM_ALIGN (src) >= BITS_PER_UNIT * 4)
+				  ? "lw\t%0,%1"
+				  : "lw\t%0,%1 # unaligned");
 	      case 8: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 8)
 			      ? "ld\t%0,%1"
 			      : "ld\t%0,%1 # unaligned");
@@ -10485,6 +10600,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	  break;
 
 	case MEM:
+	  mips_memref_mode = GET_MODE (op);
 	  if (letter == 'D')
 	    output_address (GET_MODE (op), plus_constant (Pmode,
 							  XEXP (op, 0), 4));
@@ -10520,11 +10636,19 @@ mips_print_operand_address (FILE *file, machine_mode /*mode*/, rtx x)
 {
   struct mips_address_info addr;
 
-  if (mips_classify_address (&addr, x, word_mode, true))
+  if (mips_classify_address (&addr, x, mips_memref_mode, true))
     switch (addr.type)
       {
       case ADDRESS_REG:
 	mips_print_operand (file, addr.offset, 0);
+	fprintf (file, "(%s)", reg_names[REGNO (addr.reg)]);
+	return;
+
+      case ADDRESS_REG_REG:
+	if (REG_P (addr.offset))
+	  mips_print_operand (file, addr.offset, 0);
+	else
+	  mips_print_operand (file, XEXP (addr.offset, 0), 0);
 	fprintf (file, "(%s)", reg_names[REGNO (addr.reg)]);
 	return;
 

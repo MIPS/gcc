@@ -841,6 +841,8 @@
 ;; Likewise the 64-bit truncate-and-shift patterns.
 (define_mode_iterator SUBDI [QI HI SI])
 
+(define_mode_iterator QHSDI [QI HI SI DI])
+
 ;; This mode iterator allows :ANYF to be used wherever a scalar or vector
 ;; floating-point mode is allowed.
 (define_mode_iterator ANYF [(SF "TARGET_HARD_FLOAT")
@@ -3626,7 +3628,12 @@
 	return "ext\t%0,%1,0,16";
       else
 	return "andi\t%0,%1,<SHORT:mask>";
-    case 3: return "l<SHORT:size>u\t%0,%1";
+    case 3: return mips_index_address_p (XEXP (operands[1], 0), <MODE>mode)
+		   ? "l<SHORT:size>ux\t%0,%1"
+		   : mips_index_scaled_address_p (XEXP (operands[1], 0),
+						  <MODE>mode)
+		   ? "l<SHORT:size>uxs\t%0,%1"
+		   : "l<SHORT:size>u\t%0,%1";
     default:
       gcc_unreachable ();
     }
@@ -3677,9 +3684,17 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (zero_extend:HI (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "!TARGET_MIPS16"
-  "@
-   andi\t%0,%1,0x00ff
-   lbu\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0: return "andi\t%0,%1,0x00ff";
+    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
+		   ? "lbux\t%0,%1"
+		   : "lbu\t%0,%1";
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "andi,load")
    (set_attr "mode" "HI")])
 
@@ -3793,9 +3808,16 @@
         (sign_extend:GPR
 	     (match_operand:SHORT 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
-  "@
-   se<SHORT:size>\t%0,%1
-   l<SHORT:size>\t%0,%1"
+{
+  if (which_alternative == 0)
+    return "se<SHORT:size>\t%0,%1";
+  else if (mips_index_address_p (XEXP (operands[1], 0), <MODE>mode))
+    return "l<SHORT:size>x\t%0,%1";
+  else if (mips_index_scaled_address_p (XEXP (operands[1], 0), <MODE>mode))
+    return "l<SHORT:size>xs\t%0,%1";
+  else
+    return "l<SHORT:size>\t%0,%1";
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -3839,9 +3861,17 @@
         (sign_extend:HI
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
-  "@
-   seb\t%0,%1
-   lb\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0: return "seb\t%0,%1";
+    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
+		   ? "lbx\t%0,%1"
+		   : "lb\t%0,%1";
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "SI")])
 
@@ -5077,9 +5107,31 @@
 ;; Per md.texi, we only need to look for a pattern with multiply in the
 ;; address expression, not shift.
 
-(define_insn "*lwxs"
-  [(set (match_operand:IMOVE32 0 "register_operand" "=d")
-	(mem:IMOVE32
+(define_insn "*ldxs"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(mem:DI
+	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LDXS"
+  "ldxs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"DI")])
+
+(define_insn "*sdxs"
+  [(set (mem:DI
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:DI 2 "register_operand" "d"))]
+  "ISA_HAS_SDXS"
+  "sdxs\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"DI")])
+
+(define_insn "*lwxs_<GPR:mode>"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(mem:GPR
 	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
 			  (const_int 4))
 		  (match_operand:P 2 "register_operand" "d"))))]
@@ -5087,6 +5139,62 @@
   "lwxs\t%0,%1(%2)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"SI")])
+
+(define_insn "*lwuxs"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(zero_extend:DI
+	  (mem:SI
+	    (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			    (const_int 4))
+		    (match_operand:P 2 "register_operand" "d")))))]
+  "ISA_HAS_LWUXS"
+  "lwuxs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SI")])
+
+(define_insn "*swxs"
+  [(set	(mem:SI
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 4))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SI 2 "register_operand" "d"))]
+  "ISA_HAS_SWXS"
+  "swxs\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"SI")])
+
+(define_insn "*lh<u>xs_ext<GPR:mode>_<P:mode>"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(any_extend:GPR
+	  (mem:HI
+	    (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			    (const_int 2))
+		    (match_operand:P 2 "register_operand" "d")))))]
+  "ISA_HAS_LH<U>XS"
+  "lh<u>xs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"<GPR:MODE>")])
+
+(define_insn "*shxs"
+  [(set	(mem:HI
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 2))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:HI 2 "register_operand" "d"))]
+  "ISA_HAS_SHXS"
+  "shxs\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"HI")])
+
+(define_insn "*s<QHSDI:size>x"
+  [(set (mem:QHSDI
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:QHSDI 2 "register_operand" "d"))]
+  "ISA_HAS_S<QHSDI:SIZE>X"
+  "s<QHSDI:size>x\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"<MODE>")])
 
 ;; 16-bit Integer moves
 
