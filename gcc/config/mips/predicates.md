@@ -335,9 +335,9 @@
 
 (define_predicate "movep_src_register"
   (and (match_code "reg")
-       (ior (and (not (match_test "TARGET_MICROMIPS_R7")))
+       (ior (and (not (match_test "TARGET_MICROMIPS_R7"))
 		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
-		      (match_test ("IN_RANGE (REGNO (op), 16, 20)")))
+		      (match_test ("IN_RANGE (REGNO (op), 16, 20)"))))
 	    (and (match_test "TARGET_MICROMIPS_R7")
 		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 7)"))
 		      (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))))
