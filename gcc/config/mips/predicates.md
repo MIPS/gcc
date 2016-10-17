@@ -35,7 +35,10 @@
 
 (define_predicate "const_immlsa_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (INTVAL (op), 1, 4)")))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "IN_RANGE (INTVAL (op), 1, 4)"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "IN_RANGE (INTVAL (op), 0, 3)")))))
 
 (define_predicate "const_msa_branch_operand"
   (and (match_code "const_int")
