@@ -6183,6 +6183,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      return dbl_p ? retval : retval + 1;
 	    }
 	}
+
       if (dest_code == MEM)
 	switch (GET_MODE_SIZE (mode))
 	  {

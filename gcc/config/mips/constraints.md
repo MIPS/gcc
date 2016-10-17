@@ -102,7 +102,7 @@
   "A register suitable for use in a sibling call.  This will always be
    @code{$25} for @option{-mabicalls}.")
 
-(define_register_constraint "kd" "M16_4X4_REGS"
+(define_register_constraint "kd" "TARGET_MICROMIPS_R7 ? M16_4X4_REGS : GR_REGS"
   "@internal")
 
 (define_constraint "kf"
@@ -466,6 +466,6 @@
 
 (define_memory_constraint "ZY"
   "@internal
-   A microMIPS memory operand for use with the LW4X4 insn."
+   A microMIPS memory operand for use with the LW4X4/SW4X4 insn."
   (and (match_code "mem")
-       (match_operand 0 "lw4x4_operand")))
+       (match_operand 0 "lw4x4_sw4x4_operand")))
