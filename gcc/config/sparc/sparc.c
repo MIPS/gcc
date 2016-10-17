@@ -883,10 +883,10 @@ mem_ref (rtx x)
 }
 
 /* We use a machine specific pass to enable workarounds for errata.
+
    We need to have the (essentially) final form of the insn stream in order
    to properly detect the various hazards.  Therefore, this machine specific
-   pass runs as late as possible.  The pass is inserted in the pass pipeline
-   at the end of sparc_option_override.  */
+   pass runs as late as possible.  */
 
 static unsigned int
 sparc_do_work_around_errata (void)
@@ -1706,21 +1706,6 @@ sparc_option_override (void)
      pessimizes for double floating-point registers.  */
   if (!global_options_set.x_flag_ira_share_save_slots)
     flag_ira_share_save_slots = 0;
-
-  /* We register a machine specific pass to work around errata, if any.
-     The pass mut be scheduled as late as possible so that we have the
-     (essentially) final form of the insn stream to work on.
-     Registering the pass must be done at start up.  It's convenient to
-     do it here.  */
-  opt_pass *errata_pass = make_pass_work_around_errata (g);
-  struct register_pass_info insert_pass_work_around_errata =
-    {
-      errata_pass,		/* pass */
-      "dbr",			/* reference_pass_name */
-      1,			/* ref_pass_instance_number */
-      PASS_POS_INSERT_AFTER	/* po_op */
-    };
-  register_pass (&insert_pass_work_around_errata);
 }
 
 /* Miscellaneous utilities.  */
@@ -12059,7 +12044,7 @@ sparc_expand_vec_perm_bmask (machine_mode vmode, rtx sel)
     }
 
   /* Always perform the final addition/merge within the bmask insn.  */
-  emit_insn (gen_bmasksi_vis (gen_rtx_REG (SImode, 0), sel, t_1));
+  emit_insn (gen_bmasksi_vis (gen_reg_rtx (SImode), sel, t_1));
 }
 
 /* Implement TARGET_FRAME_POINTER_REQUIRED.  */
@@ -12325,7 +12310,7 @@ vector_init_bshuffle (rtx target, rtx elt, machine_mode mode,
     }
 
   sel = force_reg (SImode, GEN_INT (bmask));
-  emit_insn (gen_bmasksi_vis (gen_rtx_REG (SImode, 0), sel, const0_rtx));
+  emit_insn (gen_bmasksi_vis (gen_reg_rtx (SImode), sel, const0_rtx));
   emit_insn (final_insn);
 }
 
@@ -12381,14 +12366,13 @@ sparc_expand_vector_init (rtx target, rtx vals)
   const machine_mode inner_mode = GET_MODE_INNER (mode);
   const int n_elts = GET_MODE_NUNITS (mode);
   int i, n_var = 0;
-  bool all_same;
+  bool all_same = true;
   rtx mem;
 
-  all_same = true;
   for (i = 0; i < n_elts; i++)
     {
       rtx x = XVECEXP (vals, 0, i);
-      if (!CONSTANT_P (x))
+      if (!(CONST_SCALAR_INT_P (x) || CONST_DOUBLE_P (x) || CONST_FIXED_P (x)))
 	n_var++;
 
       if (i > 0 && !rtx_equal_p (x, XVECEXP (vals, 0, 0)))

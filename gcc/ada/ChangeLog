@@ -1,3 +1,190 @@
+2016-10-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* system-darwin-ppc64.ads (Support_64_Bit_Divides): Delete.
+	* system-linux-armeb.ads (Support_64_Bit_Divides): Likewise.
+	* system-linux-mips.ads (Support_64_Bit_Divides): Likewise.
+	* system-linux-mips64el.ads (Support_64_Bit_Divides): Likewise.
+	* system-linux-mipsel.ads (Support_64_Bit_Divides): Likewise.
+	* system-linux-sparcv9.ads (Support_64_Bit_Divides): Likewise.
+	* system-rtems.ads (Support_64_Bit_Divides): Likewise.
+
+2016-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/misc.c (LANG_HOOKS_CUSTOM_FUNCTION_DESCRIPTORS):Define.
+	* gcc-interface/trans.c (Attribute_to_gnu) <Attr_Access>: Deal with
+	a zero TARGET_CUSTOM_FUNCTION_DESCRIPTORS specially for Code_Address.
+	Otherwise, if TARGET_CUSTOM_FUNCTION_DESCRIPTORS is positive, set
+	FUNC_ADDR_BY_DESCRIPTOR for 'Access/'Unrestricted_Access of nested
+	subprograms if the type can use an internal representation.
+	(call_to_gnu): Likewise, but set CALL_EXPR_BY_DESCRIPTOR on indirect
+	calls if the type can use an internal representation.
+
+2016-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* system-aix.ads (Always_Compatible_Rep): Change to False.
+	* system-aix64.ads (Always_Compatible_Rep): Likewise.
+	* system-hpux-ia64.ads (Always_Compatible_Rep): Likewise.
+	* system-hpux.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-alpha.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-hppa.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-ia64.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-mips.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-mips64el.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-mipsel.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-s390.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-s390x.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-sh4.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-sparc.ads (Always_Compatible_Rep): Likewise.
+	* system-linux-sparcv9.ads (Always_Compatible_Rep): Likewise.
+	* system-rtems.ads (Always_Compatible_Rep): Likewise.
+
+2016-10-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/77968
+	* gcc-interface/utils.c (create_var_decl): Do not clear TREE_READONLY
+	in LTO mode for an external variable.
+	(can_materialize_object_renaming_p): Move up.
+
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc-interface/utils2.c: Include memmodel.h.
+
+2016-10-13  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch6.adb (Analyze_Expression_Function):
+	Remove the aspects of the original expression function has been
+	rewritten into a subprogram declaration or a body. Reinsert the
+	aspects once they have been analyzed.
+
+2016-10-13  Tristan Gingold  <gingold@adacore.com>
+
+	* exp_ch9.adb (Expand_N_Asynchronous_Select): Return immediately
+	on restricted profile.
+
+2016-10-13  Javier Miranda  <miranda@adacore.com>
+
+	* sem_prag.adb (Process_Compile_Time_Warning_Or_Error): Register the
+	pragma for its validation after the backend has been called only if
+	its expression has some occurrence of attributes 'size or 'alignment
+	* table.ads (Release_Threshold): New formal.
+	(Release): Adding documentation of its new functionality.
+	* table.adb (Release): Extend its functionality with a
+	Release_Threshold.
+	* nlists.adb (Next_Node table): Set its Release_Threshold.
+	* atree.adb (Orig_Nodes table): Set its Release_Threshold.
+	* atree.ads (Nodes table): Set its Release_Threshold.
+	(Flags table): Set its Release_Threshold.
+	* alloc.ads (Nodes_Release_Threshold): New constant declaration.
+	(Orig_Nodes_Release_Threshold): New constant declaration.
+	* debug.adb (switch d.9): Left free.
+	* gnat1drv.adb (Post_Compilation_Validation_Checks): Enable
+	validation of pragmas Compile_Time_Error and Compile_Time_Warning.
+
+2016-10-13  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch6.adb (Create_Extra_Formals): Generate
+	an Itype reference for the object extra formal in case the
+	subprogram is called within the same or nested scope.
+
+2016-10-13  Claire Dross  <dross@adacore.com>
+
+	* sem_ch5.adb (Analyze_Iterator_Specification):
+	Also create a renaming in GNATprove mode.
+
+2016-10-13  Ed Schonberg  <schonberg@adacore.com>
+
+	* freeze.adb (Freeze_Fixed_Point_Type): in SPARK mode, the
+	given bounds of the type must be strictly representable, and the
+	range reduction by one delta ("shaving") allowed by the Ada RM,
+	is not applicable in SPARK.
+
+2016-10-13  Javier Miranda  <miranda@adacore.com>
+
+	* debug.adb (switch d.9): Used to temporarily disable the support
+	needed for this enhancement since it causes regressions with
+	large sources.
+	* gnat1drv.adb (Post_Compilation_Validation_Checks): Temporarily
+	leave the validation of pragmas Compile_Time_Warning and
+	Compile_Time_Error under control of -gnatd.9/
+
+2016-10-13  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch10.adb (Entity_Needs_Body): A generic
+	subprogram renaming needs a body if the renamed unit is declared
+	outside the current compilation unit.
+
+2016-10-13  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sinfo.ads, sem_ch12.adb, sem.adb, expander.adb, sem_res.ads,
+	sem_ch4.adb, sem_ch8.adb, s-memory.adb: Minor reformatting.
+
+2016-10-13  Vincent Celier  <celier@adacore.com>
+
+	* gnatcmd.adb: Delete all temporary files when invoked as gnat
+	list -V -P ...
+
+2016-10-13  Ed Falis  <falis@adacore.com>
+
+	* i-vxinco.adb, i-vxinco.ads: New files.
+	* impunit.adb: add i-vxinco.ads.
+	* s-interr-vxworks.adb: add hook for user interrupt connection routine.
+
+2016-10-13  Ed Falis  <falis@adacore.com>
+
+	* s-interr-hwint.adb, s-interr-vxworks.adb: Rename s-interr-hwint.adb
+	to s-interr-vxworks.adb.
+
+2016-10-13  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_ch7.adb, einfo.ads, sem_prag.adb, sem_prag.ads, sem.ads,
+	sem_attr.adb, sem_case.adb, sem_ch13.ads: Minor typo fixes and
+	reformatting.
+
+2016-10-13  Javier Miranda  <miranda@adacore.com>
+
+	* sem_prag.ads (Process_Compile_Time_Warning_Or_Error): New
+	overloaded subprogram that factorizes code executed as part
+	of the regular processing of these pragmas and as part of its
+	validation after invoking the backend.
+	* sem_prag.adb (Process_Compile_Time_Warning_Or_Error): New
+	subprogram.
+	(Process_Compile_Time_Warning_Or_Error): If the
+	condition is known at compile time then invoke the new overloaded
+	subprogram; otherwise register the pragma in a table to validate
+	it after invoking the backend.
+	* sem.ads, sem.adb (Unlock): New subprogram.
+	* sem_attr.adb (Analyze_Attribute [Size]): If we are processing
+	pragmas Compile_Time_Warning and Compile_Time_Errors after the
+	backend has been called then evaluate this attribute if 'Size
+	is known at compile time.
+	* gnat1drv.adb (Post_Compilation_Validation_Checks): Validate
+	compile time warnings and errors.
+	* sem_ch13.ads, sem_ch13.adb (Validate_Compile_Time_Warning_Error):
+	New subprogram.
+	(Validate_Compile_Time_Warning_Errors): New subprogram.
+
+2016-10-13  Yannick Moy  <moy@adacore.com>
+
+	* sem_prag.adb (Analyze_Refined_Depends_In_Decl_Part): Adapt to
+	optional refinement for abstract states with only partial refinement
+	visible.
+
+2016-10-13  Justin Squirek  <squirek@adacore.com>
+
+	* sem_ch13.adb: Minor correction in comment in
+	Analyze_Aspect_Specifications
+	* sem_prag.adb: Minor reformatting.
+
+2016-10-13  Thomas Quinot  <quinot@adacore.com>
+
+	* s-stratt-xdr.adb: Disable compiler unit warnings.
+
+2016-10-13  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Visible_Component): In an instance body, check
+	whether the component may be hidden in a selected component by
+	a homonym that is a primitive operation of the type of the prefix.
+
 2016-10-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/77957
@@ -306,7 +493,7 @@
 	* system-linux-mips64el.ads (Backend_Overflow_Checks): Likewise.
 	* system-linux-mipsel.ads (Backend_Overflow_Checks): Likewise.
 	* system-linux-sparcv9.ads (Backend_Overflow_Checks): Likewise.
-	* system-rtems.ads: Likewise.
+	* system-rtems.ads (Backend_Overflow_Checks): Likewise.
 
 2016-10-11  Andris Pavenis  <andris.pavenis@iki.fi>
 

@@ -1,3 +1,183 @@
+2016-10-17  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/pr71636-1.c: New test-case.
+	* gcc.dg/pr71636-2.c: Likewise.
+
+2016-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/trampoline3.adb: New test.
+	* gnat.dg/trampoline4.adb: Likewise.
+
+2016-10-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/dtio_16.f90: New test.
+
+2016-10-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/bmaskbshuf.c: Rename to...
+	* gcc.target/sparc/bmaskbshuf-1.c: ...this.
+	* gcc.target/sparc/bmaskbshuf-2.c: New test.
+
+2016-10-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/popc.c: Rename to...
+	* gcc.target/sparc/popc-1.c: ...this.
+	* gcc.target/sparc/popc-2.c: New test.
+
+2016-10-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/77972
+	* gfortran.dg/unexpected_eof_4.f90: New test.
+
+2016-10-15  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        PR libfortran/48587
+        * gfortran.dg/negative_unit2.f90: New test.
+
+2016-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/77959
+	* gfortran.dg/pr77959.f90: New test.
+
+	DR 1511 - const volatile variables and ODR
+	* g++.dg/DRs/dr1511-1.C: New test.
+	* g++.dg/DRs/dr1511-2.C: New test.
+
+2016-10-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/debug7.adb (dg-options): Remove -g.
+	* gnat.dg/debug8.adb (dg-options): Add -margs.
+	* gnat.dg/debug9.adb (dg-options): Remove -g and add -margs.
+
+2016-10-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77979
+	* gcc.dg/torture/pr77979.c: New testcase.
+
+2016-10-14  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/tree-ssa/builtins-folding-generic.c: New test.
+	* gcc.dg/tree-ssa/builtins-folding-gimple.c: Likewise.
+	* gcc.dg/tree-ssa/builtins-folding-gimple-ub.c: Likewise.
+
+2016-10-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/pr77937-1.c: Move -O3 to dg-options.
+	Pass -march=amdfam10 for both i?86-?-* and x86_64-*-*.
+	* gcc.dg/torture/pr77937-2.c: Likewise.
+
+2016-10-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/lto15.adb: Adjust.
+	* gnat.dg/lto16.adb: Likewise.
+	* gnat.dg/lto17.adb: Likewise
+	* gnat.dg/lto18.ad[sb]: New test.
+	* gnat.dg/lto18_pkg.ads: New helper.
+	* gnat.dg/lto19.adb: New test.
+	* gnat.dg/lto19_pkg1.ad[sb]: New helper.
+	* gnat.dg/lto19_pkg2.ad[sb]: Likewise.
+	* gnat.dg/lto20.adb: New test.
+	* gnat.dg/lto20_pkg.ad[sb]: New helper.
+
+2016-10-14  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_38.f90: Expect error message.
+
+2016-10-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/spellcheck_1.c: New test.
+	* gcc.target/aarch64/spellcheck_2.c: Likewise.
+	* gcc.target/aarch64/spellcheck_3.c: Likewise.
+	* gcc.target/aarch64/spellcheck_4.c: Likewise.
+	* gcc.target/aarch64/spellcheck_5.c: Likewise.
+	* gcc.target/aarch64/spellcheck_6.c: Likewise.
+
+2016-10-13  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* gcc.target/m68k/stack-limit-1.c: Expect warning on line 0.
+
+2016-10-13  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/77937
+	* gcc.dg/torture/pr77937-1.c: New.
+	* gcc.dg/torture/pr77937-2.c: New.
+
+2016-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/cpp1z/inline-var1.C: New test.
+	* g++.dg/cpp1z/inline-var1a.C: New test.
+	* g++.dg/cpp1z/inline-var1.h: New file.
+	* g++.dg/cpp1z/inline-var2.C: New test.
+	* g++.dg/cpp1z/inline-var3.C: New test.
+	* g++.dg/concepts/decl-diagnose.C (struct X): Expect also error about
+	uninitialized const.
+
+2016-10-13  Sandra Loosemore <sandra@codesourcery.com>
+
+	* gcc.target/arm/scd42-1.c: Skip if -mcpu incompatible with
+	Xscale is specified, not just -march.
+	* gcc.target/arm/scd42-2.c: Fix existing logic to skip if -mcpu
+	is incompatible	with Xscale.
+
+2016-10-13  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71912
+	* g++.dg/ext/flexary4.C: Adjust.
+	* g++.dg/ext/flexary5.C: Same.
+	* g++.dg/ext/flexary9.C: Same.
+	* g++.dg/ext/flexary19.C: New test.
+	* g++.dg/ext/flexary18.C: New test.
+	* g++.dg/torture/pr64312.C: Add a dg-error directive to an ill-formed
+	regression test.
+        * g++.dg/compat/struct-layout-1_generate.c (subfield): Add argument.
+        Avoid generating a flexible array member in an array.
+
+2016-10-13  Martin Sebor  <msebor@redhat.com>
+
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Cast 0 to wint_t
+	to placate -Wformat on targets where the type is not int.
+
+2016-10-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.target/i386/vararg-loc.c: Update for quoting of xloc.file
+	in INSN_LOCATION.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.target/i386/l_fma_float_1.c: Revise test.
+	* gcc.target/i386/l_fma_float_2.c: Ditto.
+	* gcc.target/i386/l_fma_float_3.c: Ditto.
+	* gcc.target/i386/l_fma_float_4.c: Ditto.
+	* gcc.target/i386/l_fma_float_5.c: Ditto.
+	* gcc.target/i386/l_fma_float_6.c: Ditto.
+	* gcc.target/i386/l_fma_double_1.c: Ditto.
+	* gcc.target/i386/l_fma_double_2.c: Ditto.
+	* gcc.target/i386/l_fma_double_3.c: Ditto.
+	* gcc.target/i386/l_fma_double_4.c: Ditto.
+	* gcc.target/i386/l_fma_double_5.c: Ditto.
+	* gcc.target/i386/l_fma_double_6.c: Ditto.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* gfortran.dg/vect/fast-math-mgrid-resid.f: New test string.
+
+2016-10-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/vect/vect-98.c: Refine test case.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap2.c: Increase niters.
+	* gcc.dg/vect/vect-strided-u8-i8-gap2.c: Ditto.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4.c: Ditto.
+
+2016-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/77946
+	* c-c++-common/Wimplicit-fallthrough-34.c: New test.
+
+2016-10-13  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/77943
+	* g++.dg/tree-ssa/pr77943.C: New test.
+
 2016-10-13  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	PR fortran/72832
@@ -1779,6 +1959,12 @@
 	* gcc.target/msp430/function-attributes-1.c: New test.
 	* gcc.target/msp430/function-attributes-2.c: New test.
 	* gcc.target/msp430/function-attributes-3.c: New test.
+
+2015-04-18  Martin Sebor  <msebor@redhat.com>
+
+	* gfortran.dg/pr32627.f03 (strptr): Change size to match the number
+	of non-nul characters.
+	* gfortran.dg/substr_6.f90: Make the NUL character visible on stdout
 
 2016-09-13  Jakub Jelinek  <jakub@redhat.com>
 
