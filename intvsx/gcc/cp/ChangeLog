@@ -1,3 +1,23 @@
+2016-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.h (cp_function_decl_explicit_p,
+	cp_function_decl_deleted_p, cp_function_decl_defaulted): Remove.
+	(cp_decl_dwarf_attribute): Declare.
+	(LANG_HOOKS_FUNCTION_DECL_EXPLICIT_P,
+	LANG_HOOKS_FUNCTION_DECL_DELETED_P,
+	LANG_HOOKS_FUNCTION_DECL_DEFAULTED): Remove.
+	(LANG_HOOKS_DECL_DWARF_ATTRIBUTE): Redefine.
+	* cp-objcp-common.c (cp_function_decl_explicit_p,
+	cp_function_decl_deleted_p, cp_function_decl_defaulted): Remove.
+	(cp_decl_dwarf_attribute): New function.
+
+2016-10-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77945
+	* constexpr.c (maybe_simplify_trivial_copy): New.
+	(cxx_eval_store_expression): Call it.
+	* call.c (build_over_call): Use unsigned char for trivial copy.
+
 2016-10-14  Jason Merrill  <jason@redhat.com>
 
 	Implement P0017R1, C++17 aggregates with bases.

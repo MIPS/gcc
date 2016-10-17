@@ -1,3 +1,8 @@
+2016-10-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 241274.
+	* REVISION: Update subversion id.
+
 2016-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wH): Add constraints for

@@ -1,3 +1,23 @@
+2016-10-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61420
+	PR fortran/78013
+	* resolve.c (resolve_variable): Obtain the typespec for a
+	variable expression, when the variable is a function result
+	that is a procedure pointer.
+
+2016-10-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+	* trans-io.c (transfer_expr): Ignore dtio procedures for inquire
+	with iolength.
+
+2016-10-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/77972
+	* scanner.c (gfc_next_char_literal): If nextc is null do not
+	decrement the pointer and call the diagnostics.
+
 2016-10-14  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	* resolve.c (resolve_symbol): Add unimplemented message for

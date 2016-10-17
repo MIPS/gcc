@@ -515,11 +515,9 @@ runtime_files = \
 	lfstack.c \
 	malloc.c \
 	netpoll.c \
-	rdebug.c \
 	reflect.c \
 	runtime1.c \
 	sigqueue.c \
-	time.c \
 	$(runtime_getncpu_file)
 
 goc2c.$(OBJEXT): runtime/goc2c.c
@@ -3036,6 +3034,7 @@ TEST_PACKAGES = \
 	os/user/check \
 	path/filepath/check \
 	regexp/syntax/check \
+	runtime/debug/check \
 	runtime/pprof/check \
 	runtime/internal/atomic/check \
 	runtime/internal/sys/check \

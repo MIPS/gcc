@@ -1277,7 +1277,6 @@ markroot(ParFor *desc, uint32 i)
 		enqueue1(&wbuf, (Obj){(byte*)&runtime_allp, sizeof runtime_allp, 0});
 		enqueue1(&wbuf, (Obj){(byte*)&work, sizeof work, 0});
 		runtime_proc_scan(&wbuf, enqueue1);
-		runtime_time_scan(&wbuf, enqueue1);
 		runtime_netpoll_scan(&wbuf, enqueue1);
 		break;
 
@@ -2393,14 +2392,16 @@ runtime_debug_readGCStats(Slice *pauses)
 	// pause_ns[(numgc-1)%nelem(pause_ns)], and then backward
 	// from there to go back farther in time. We deliver the times
 	// most recent first (in p[0]).
-	for(i=0; i<n; i++)
+	for(i=0; i<n; i++) {
 		p[i] = pmstats->pause_ns[(pmstats->numgc-1-i)%nelem(pmstats->pause_ns)];
+		p[n+i] = pmstats->pause_end[(pmstats->numgc-1-i)%nelem(pmstats->pause_ns)];
+	}
 
-	p[n] = pmstats->last_gc;
-	p[n+1] = pmstats->numgc;
-	p[n+2] = pmstats->pause_total_ns;
+	p[n+n] = pmstats->last_gc;
+	p[n+n+1] = pmstats->numgc;
+	p[n+n+2] = pmstats->pause_total_ns;
 	runtime_unlock(&runtime_mheap);
-	pauses->__count = n+3;
+	pauses->__count = n+n+3;
 }
 
 int32

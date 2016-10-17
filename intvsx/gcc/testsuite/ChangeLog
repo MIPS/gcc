@@ -1,6 +1,71 @@
-2016-10-14  Nathan Sidwell  <nathan@acm.org>
+2016-10-17  Paul Thomas  <pault@gcc.gnu.org>
 
-	* c-c++-common/fmax-errors.c: Add error with note.
+	PR fortran/61420
+	PR fortran/78013
+	* gfortran.dg/proc_ptr_49.f90: New test.
+
+2016-09-29  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/77308
+	* gcc.target/arm/pr77308.c: New test.
+
+2016-10-17  David Edelsohn  <dje.gcc@gmail.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_floatn_nx_runtime): Return 0 for
+	powerpc*-ibm-aix*.
+
+2016-10-17  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.target/aarch64/aapcs64/test_align-7.c: Use long
+	long instead of long.
+	* gcc.target/aarch64/cinc_common_1.c: Likewise.
+	* gcc.target/aarch64/combine_bfi_1.c: Likewise.
+	* gcc.target/aarch64/fmul_fcvt_1.c: Likewise.
+	* gcc.target/aarch64/mult-synth_4.c: Likewise.
+	* gcc.target/aarch64/pr68102_1.c: Likewise.
+	* gcc.target/aarch64/target_attr_3.c: Likewise.
+
+2016-10-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77988
+	* gcc.dg/torture/pr77988.c: New testcase.
+
+2016-10-17  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/pr71636-1.c: New test-case.
+	* gcc.dg/pr71636-2.c: Likewise.
+
+2016-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/trampoline3.adb: New test.
+	* gnat.dg/trampoline4.adb: Likewise.
+
+2016-10-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/dtio_16.f90: New test.
+
+2016-10-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/bmaskbshuf.c: Rename to...
+	* gcc.target/sparc/bmaskbshuf-1.c: ...this.
+	* gcc.target/sparc/bmaskbshuf-2.c: New test.
+
+2016-10-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/popc.c: Rename to...
+	* gcc.target/sparc/popc-1.c: ...this.
+	* gcc.target/sparc/popc-2.c: New test.
+
+2016-10-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/77972
+	* gfortran.dg/unexpected_eof_4.f90: New test.
+
+2016-10-15  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/48587
+	* gfortran.dg/negative_unit2.f90: New test.
 
 2016-10-14  Jakub Jelinek  <jakub@redhat.com>
 
@@ -836,7 +901,7 @@
 
 2016-09-29  Sandra Loosemore  <sandra@codesourcery.com>
 
-	* c-c++-common/pr27336.c: Make dependency on 
+	* c-c++-common/pr27336.c: Make dependency on
 	-fdelete-null-pointer-checks explicit.
 	* g++.dg/cpp0x/constexpr-array-ptr10.C: Likewise.
 	* g++.dg/cpp0x/constexpr-nullptr-1.C: Likewise.
