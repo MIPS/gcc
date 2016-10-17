@@ -1,3 +1,19 @@
+2016-10-14  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_aggregate_bases
+	and __cpp_deduction_guides.
+
+2016-10-13  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Add __cpp_inline_variables.
+
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* c-cppbuiltin.c: Include memmodel.h.
+	* c-opts.c: Likewise.
+	* c-pragma.c: Likewise.
+	* c-warn.c: Likewise.
+
 2016-10-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* c.opt (Wextra): Add as C/C++/ObjC/ObjC++ option.

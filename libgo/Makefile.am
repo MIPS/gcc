@@ -478,7 +478,6 @@ runtime_files = \
 	runtime/go-signal.c \
 	runtime/go-strcmp.c \
 	runtime/go-strslice.c \
-	runtime/go-traceback.c \
 	runtime/go-type-complex.c \
 	runtime/go-type-eface.c \
 	runtime/go-type-float.c \
@@ -512,17 +511,14 @@ runtime_files = \
 	$(runtime_thread_files) \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
-	cpuprof.c \
 	go-iface.c \
 	lfstack.c \
 	malloc.c \
-	mprof.c \
 	netpoll.c \
 	rdebug.c \
 	reflect.c \
 	runtime1.c \
 	sigqueue.c \
-	time.c \
 	$(runtime_getncpu_file)
 
 goc2c.$(OBJEXT): runtime/goc2c.c
