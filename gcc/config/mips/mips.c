@@ -3575,8 +3575,14 @@ mips_index_scaled_address_p (rtx addr, machine_mode mode)
   if ((ISA_HAS_LWXS || ISA_HAS_LWUXS || ISA_HAS_SWXS)
       && shift == 2 && mode == SImode)
     return true;
+  if ((ISA_HAS_LWC1XS || ISA_HAS_SWC1XS)
+      && shift == 2 && mode == SFmode)
+    return true;
   if ((ISA_HAS_LDXS || ISA_HAS_SDXS)
       && shift == 3 && mode == DImode)
+    return true;
+  if ((ISA_HAS_LDC1XS || ISA_HAS_SDC1XS)
+      && shift == 3 && mode == DFmode)
     return true;
 
   return false;
@@ -3600,7 +3606,11 @@ mips_index_address_p (rtx addr, machine_mode mode)
     return true;
   if ((ISA_HAS_LWX || ISA_HAS_LWUX || ISA_HAS_LWX) && mode == SImode)
     return true;
+  if ((ISA_HAS_LWC1X || ISA_HAS_SWC1X) && mode == SFmode)
+    return true;
   if ((ISA_HAS_LDX || ISA_HAS_SDX) && mode == DImode)
+    return true;
+  if ((ISA_HAS_LDC1X || ISA_HAS_SDC1X) && mode == DFmode)
     return true;
   if (MSA_SUPPORTED_MODE_P (mode))
     return true;
@@ -6288,6 +6298,15 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (msa_p)
 	    return "st.%v1\t%w1,%0";
 
+	  if (TARGET_MICROMIPS_R7
+	      && mips_index_scaled_address_p (XEXP (dest, 0), mode))
+	    return dbl_p ? "sdc1xs\t%1,%0"
+			 : "swc1xs\t%1,%0";
+	  else if (TARGET_MICROMIPS_R7
+		   && mips_index_address_p (XEXP (dest, 0), mode))
+	    return dbl_p ? "sdc1x\t%1,%0"
+			 : "swc1x\t%1,%0";
+
 	  return dbl_p ? "sdc1\t%1,%0" : "swc1\t%1,%0";
 	}
     }
@@ -6297,6 +6316,15 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	{
 	  if (msa_p)
 	    return "ld.%v0\t%w0,%1";
+
+	  if (TARGET_MICROMIPS_R7
+	      && mips_index_scaled_address_p (XEXP (src, 0), mode))
+	    return dbl_p ? "ldc1xs\t%0,%1"
+			 : "lwc1xs\t%0,%1";
+	  else if (TARGET_MICROMIPS_R7
+		   && mips_index_address_p (XEXP (src, 0), mode))
+	    return dbl_p ? "ldc1x\t%0,%1"
+			 : "lwc1x\t%0,%1";
 
 	  return dbl_p ? "ldc1\t%0,%1" : "lwc1\t%0,%1";
 	}
