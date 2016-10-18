@@ -99,6 +99,13 @@
   (ior (match_operand 0 "const_imm10_operand")
        (match_operand 0 "register_operand")))
 
+(define_predicate "set_on_cond_operand"
+  (ior (and (match_test "ISA_HAS_SEQI")
+	    (match_operand 0 "const_uimm12_operand"))
+       (and (not (match_test "ISA_HAS_SEQI"))
+	    (match_operand 0 "const_imm10_operand"))
+       (match_operand 0 "register_operand")))
+
 (define_predicate "aq10b_operand"
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 10, 0)")))
