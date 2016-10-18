@@ -1453,6 +1453,7 @@ struct mips_cpu_info {
 
 /* ISA includes the seq and sne instructions.  */
 #define ISA_HAS_SEQ_SNE		(TARGET_OCTEON && !TARGET_MIPS16)
+#define ISA_HAS_SEQI		TARGET_NANOMIPS
 
 /* ISA includes the pop instruction.  */
 #define ISA_HAS_POP		(TARGET_OCTEON && !TARGET_MIPS16)
