@@ -1,3 +1,14 @@
+2016-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSX_EXTRACT_I2): New iterator for small
+	integer extract that does not include V4SImode.
+	(vsx_extract_<mode>): Allow V4SImode extracts to do stores on ISA
+	2.07, and add support for -mvsx-small-integer.  Split V4SImode
+	extraction from V8HImode and V16QImode.
+	(vsx_extract_<mode>_p9): Likewise.
+	(vsx_extract_si): Likewise.
+	(vsx_extract_<mode>_p8): Likewise.
+
 2016-10-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 241274.
