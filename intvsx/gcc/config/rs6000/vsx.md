@@ -2571,7 +2571,7 @@
   int value;
 
   if (!VECTOR_ELT_ORDER_BIG)
-    element = GEN_INT (GET_MODE_NUNITS (SImode) - 1 - INTVAL (element));
+    element = GEN_INT (GET_MODE_NUNITS (V4SImode) - 1 - INTVAL (element));
 
   /* If the value is in the correct position, we can avoid doing the VSPLT<x>
      instruction.  */
