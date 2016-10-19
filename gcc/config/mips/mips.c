@@ -113,7 +113,9 @@ static int *consumer_luid = NULL;
    to save and restore registers, and to allocate and deallocate the top
    part of the frame.  */
 #define MIPS_MAX_FIRST_STACK_STEP					\
-  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0	\
+  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE			\
+   && !TARGET_NANOMIPS ? 0x7ff0						\
+   : (ISA_HAS_SAVE_RESTORE && TARGET_NANOMIPS) ? 0xff0			\
    : TARGET_MICROMIPS || GENERATE_MIPS16E_SAVE_RESTORE ? 0x7f8		\
    : TARGET_64BIT ? 0x100 : 0x400)
 
@@ -408,7 +410,7 @@ struct mips_integer_op {
 #define MIPS_MAX_INTEGER_OPS 10
 
 /* Information about a MIPS16e SAVE or RESTORE instruction.  */
-struct mips16e_save_restore_info {
+struct mips_save_restore_info {
   /* The number of argument registers saved by a SAVE instruction.
      0 for RESTORE instructions.  */
   unsigned int nargs;
@@ -1775,6 +1777,8 @@ static rtx mips_gen_const_int_vector_shuffle (machine_mode, int);
 static bool mips_load_store_insn_p (rtx_insn *, rtx *,
 				    HOST_WIDE_INT *, bool *);
 static void mips_load_store_bond_insns ();
+static void mips_frame_barrier (void);
+
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
@@ -11300,6 +11304,9 @@ static const unsigned char mips16e_s2_s8_regs[] = {
 static const unsigned char mips16e_a0_a3_regs[] = {
   4, 5, 6, 7
 };
+static const unsigned char nanomips_s0_s7_regs[] = {
+  23, 22, 21, 20, 19, 18, 17, 16
+};
 
 /* A list of the registers that can be saved by the MIPS16e SAVE instruction,
    ordered from the uppermost in memory to the lowest in memory.  */
@@ -11307,12 +11314,18 @@ static const unsigned char mips16e_save_restore_regs[] = {
   31, 30, 23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4
 };
 
+/* A list of the registers that can be saved by the nanoMIPS SAVE instruction,
+   ordered from the uppermost in memory to the lowest in memory.  */
+static const unsigned char nanomips_save_restore_regs[] = {
+  30, 31, 16, 17, 18, 19, 20, 21, 22, 23, 28
+};
+
 /* Return the index of the lowest X in the range [0, SIZE) for which
    bit REGS[X] is set in MASK.  Return SIZE if there is no such X.  */
 
 static unsigned int
-mips16e_find_first_register (unsigned int mask, const unsigned char *regs,
-			     unsigned int size)
+mips_find_first_register (unsigned int mask, const unsigned char *regs,
+			  unsigned int size)
 {
   unsigned int i;
 
@@ -11329,12 +11342,12 @@ mips16e_find_first_register (unsigned int mask, const unsigned char *regs,
    is true for all indexes (X, SIZE).  */
 
 static void
-mips16e_mask_registers (unsigned int *mask_ptr, const unsigned char *regs,
-			unsigned int size, unsigned int *num_regs_ptr)
+mips_mask_registers (unsigned int *mask_ptr, const unsigned char *regs,
+		     unsigned int size, unsigned int *num_regs_ptr)
 {
   unsigned int i;
 
-  i = mips16e_find_first_register (*mask_ptr, regs, size);
+  i = mips_find_first_register (*mask_ptr, regs, size);
   for (i++; i < size; i++)
     if (!BITSET_P (*mask_ptr, regs[i]))
       {
@@ -11431,6 +11444,8 @@ mips16e_collect_argument_saves (void)
   rtx set, dest, src;
   unsigned int nargs, regno;
 
+  gcc_assert (GENERATE_MIPS16E_SAVE_RESTORE);
+
   push_topmost_sequence ();
   nargs = 0;
   memset (reg_values, 0, sizeof (reg_values));
@@ -11473,14 +11488,14 @@ mips16e_collect_argument_saves (void)
    Make the move a load if RESTORE_P, otherwise make it a store.  */
 
 static rtx
-mips16e_save_restore_reg (bool restore_p, bool reg_parm_p,
-			  HOST_WIDE_INT offset, unsigned int regno)
+mips_save_restore_insn_reg (machine_mode mode, bool restore_p, bool reg_parm_p,
+			    HOST_WIDE_INT offset, unsigned int regno)
 {
   rtx reg, mem;
 
-  mem = gen_frame_mem (SImode, plus_constant (Pmode, stack_pointer_rtx,
-					      offset));
-  reg = gen_rtx_REG (SImode, regno);
+  mem = gen_frame_mem (mode, plus_constant (Pmode, stack_pointer_rtx, offset));
+  reg = gen_rtx_REG (mode, regno);
+
   if (restore_p)
     {
       mips_add_cfa_restore (reg);
@@ -11489,6 +11504,63 @@ mips16e_save_restore_reg (bool restore_p, bool reg_parm_p,
   if (reg_parm_p)
     return gen_rtx_SET (mem, reg);
   return mips_frame_set (mem, reg);
+}
+
+/* Check if mask MASK has valid registers for SAVE/RESTORE[.JRC] instructions.
+   Return the number of registers being saved, 0 otherwise.  COMPRESSED_P
+   to check 16-bit version of SAVE/RESTORE.
+
+   It is caller's responsibility check the stack adjustments.  */
+
+static bool
+nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
+			   int *valid_regs)
+{
+  int n, nregs;
+
+  n = nregs = popcount_hwi (mask & 0xd0ff0000);
+
+  /* 16-bit SAVE/RESTORE.JRC always saves $31, optionally $30.  */
+  if (compressed_p && !BITSET_P (mask, RETURN_ADDR_REGNUM))
+    return false;
+
+  /* If we save $fp then we must save $ra.  */
+  if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)
+      && !BITSET_P (mask, RETURN_ADDR_REGNUM))
+    return false;
+
+  /* $gp cannot be saved in the nanoMIPS Subset and 16-bit SAVE/RESTORE.  */
+  if ((TARGET_NANOMIPS != NANOMIPS_NMF || compressed_p)
+      && BITSET_P (mask, GLOBAL_POINTER_REGNUM))
+    return false;
+
+  /* We can adjust the stack only if no registers are being saved.  */
+  if (!compressed_p && n == 0)
+    {
+      if (valid_regs)
+	*valid_regs = n == 0 ? nregs : 0;
+      return true;
+    }
+
+  if (BITSET_P (mask, RETURN_ADDR_REGNUM)) n--;
+  if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)) n--;
+  if (BITSET_P (mask, GLOBAL_POINTER_REGNUM)) n--;
+
+  if (n > (int) ARRAY_SIZE (nanomips_s0_s7_regs))
+    return false;
+
+  /* Walk backwards to check if we save the registers consecutively
+     beginning from $16.  */
+  for (unsigned int i = ARRAY_SIZE (nanomips_s0_s7_regs); i > 0; i--)
+    if (BITSET_P (mask, nanomips_s0_s7_regs[i-1]))
+      n--;
+    else
+      break;
+
+  if (valid_regs)
+    *valid_regs = n == 0 ? nregs : 0;
+
+  return n == 0;
 }
 
 /* Return RTL for a MIPS16e SAVE or RESTORE instruction; RESTORE_P says which.
@@ -11513,24 +11585,32 @@ mips16e_save_restore_reg (bool restore_p, bool reg_parm_p,
    byte offset from the bottom of the allocated stack area.  */
 
 static rtx
-mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
-			    HOST_WIDE_INT *offset_ptr, unsigned int nargs,
-			    HOST_WIDE_INT size)
+mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
+			 HOST_WIDE_INT *offset_ptr, unsigned int nargs,
+			 HOST_WIDE_INT size)
 {
   rtx pattern, set;
   HOST_WIDE_INT offset, top_offset;
   unsigned int i, regno;
   int n;
 
-  gcc_assert (cfun->machine->frame.num_fp == 0);
-
   /* Calculate the number of elements in the PARALLEL.  We need one element
      for the stack adjustment, one for each argument register save, and one
      for each additional register move.  */
-  n = 1 + nargs;
-  for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
-    if (BITSET_P (*mask_ptr, mips16e_save_restore_regs[i]))
-      n++;
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      gcc_assert (cfun->machine->frame.num_fp == 0);
+
+      n = 1 + nargs;
+      for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
+	if (BITSET_P (*mask_ptr, mips16e_save_restore_regs[i]))
+	  n++;
+    }
+  else
+    {
+      if (nanomips_valid_save_restore_p (*mask_ptr, false, &n))
+	n++;
+    }
 
   /* Create the final PARALLEL.  */
   pattern = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
@@ -11538,34 +11618,54 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 
   /* Add the stack pointer adjustment.  */
   set = gen_rtx_SET (stack_pointer_rtx,
-		     plus_constant (Pmode, stack_pointer_rtx,
-				    restore_p ? size : -size));
+		     gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				   GEN_INT (restore_p ? size : -size)));
   RTX_FRAME_RELATED_P (set) = 1;
   XVECEXP (pattern, 0, n++) = set;
 
   /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
   top_offset = restore_p ? size : 0;
 
-  /* Save the arguments.  */
-  for (i = 0; i < nargs; i++)
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
-      offset = top_offset + i * UNITS_PER_WORD;
-      set = mips16e_save_restore_reg (restore_p, true, offset,
-				      GP_ARG_FIRST + i);
-      XVECEXP (pattern, 0, n++) = set;
+      /* Save the arguments.  */
+      for (i = 0; i < nargs; i++)
+	{
+	  offset = top_offset + i * UNITS_PER_WORD;
+	  set = mips_save_restore_insn_reg (SImode, restore_p, true, offset,
+					    GP_ARG_FIRST + i);
+	  XVECEXP (pattern, 0, n++) = set;
+	}
     }
 
   /* Then fill in the other register moves.  */
   offset = top_offset;
-  for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
+      {
+	regno = mips16e_save_restore_regs[i];
+	if (BITSET_P (*mask_ptr, regno))
+	  {
+	    offset -= UNITS_PER_WORD;
+	    set = mips_save_restore_insn_reg (SImode, restore_p, false,
+					      offset, regno);
+	    XVECEXP (pattern, 0, n++) = set;
+	    *mask_ptr &= ~(1 << regno);
+	  }
+      }
+  else
     {
-      regno = mips16e_save_restore_regs[i];
-      if (BITSET_P (*mask_ptr, regno))
+     for (i = 0; i < ARRAY_SIZE (nanomips_save_restore_regs); i++)
 	{
-	  offset -= UNITS_PER_WORD;
-	  set = mips16e_save_restore_reg (restore_p, false, offset, regno);
-	  XVECEXP (pattern, 0, n++) = set;
-	  *mask_ptr &= ~(1 << regno);
+	  regno = nanomips_save_restore_regs[i];
+	  if (BITSET_P (*mask_ptr, regno))
+	    {
+	      offset -= UNITS_PER_WORD;
+	      set = mips_save_restore_insn_reg (Pmode, restore_p, false,
+						offset, regno);
+	      XVECEXP (pattern, 0, n++) = set;
+	      *mask_ptr &= ~(1 << regno);
+	    }
 	}
     }
 
@@ -11579,12 +11679,12 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 
 /* PATTERN is a PARALLEL whose first element adds ADJUST to the stack
    pointer.  Return true if PATTERN matches the kind of instruction
-   generated by mips16e_build_save_restore.  If INFO is nonnull,
+   generated by mips_build_save_restore.  If INFO is nonnull,
    initialize it when returning true.  */
 
 bool
-mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
-				struct mips16e_save_restore_info *info)
+mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
+			     struct mips_save_restore_info *info)
 {
   unsigned int i, nargs, mask, extra;
   HOST_WIDE_INT top_offset, save_offset, offset;
@@ -11611,7 +11711,7 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 
       /* Check that the SET is a load (if restoring) or a store
 	 (if saving).  */
-      mem = adjust > 0 ? SET_SRC (set) : SET_DEST (set);
+      mem = MEM_P (SET_SRC (set)) ? SET_SRC (set) : SET_DEST (set);
       if (!MEM_P (mem))
 	return false;
 
@@ -11622,19 +11722,29 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 	return false;
 
       /* Check that SET's other operand is a register.  */
-      reg = adjust > 0 ? SET_DEST (set) : SET_SRC (set);
+      reg = REG_P (SET_DEST (set)) ? SET_DEST (set) : SET_SRC (set);
       if (!REG_P (reg))
 	return false;
 
       /* Check for argument saves.  */
-      if (offset == top_offset + nargs * UNITS_PER_WORD
+      if (GENERATE_MIPS16E_SAVE_RESTORE
+	  && offset == top_offset + nargs * UNITS_PER_WORD
 	  && REGNO (reg) == GP_ARG_FIRST + nargs)
 	nargs++;
       else if (offset == save_offset)
 	{
-	  while (mips16e_save_restore_regs[i++] != REGNO (reg))
-	    if (i == ARRAY_SIZE (mips16e_save_restore_regs))
-	      return false;
+	  if (GENERATE_MIPS16E_SAVE_RESTORE)
+	    {
+	      while (mips16e_save_restore_regs[i++] != REGNO (reg))
+		if (i == ARRAY_SIZE (mips16e_save_restore_regs))
+		  return false;
+	    }
+	  else
+	    {
+	      while (nanomips_save_restore_regs[i++] != REGNO (reg))
+		if (i == ARRAY_SIZE (nanomips_save_restore_regs))
+		  return false;
+	    }
 
 	  mask |= 1 << REGNO (reg);
 	  save_offset -= UNITS_PER_WORD;
@@ -11645,10 +11755,17 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 
   /* Check that the restrictions on register ranges are met.  */
   extra = 0;
-  mips16e_mask_registers (&mask, mips16e_s2_s8_regs,
-			  ARRAY_SIZE (mips16e_s2_s8_regs), &extra);
-  mips16e_mask_registers (&mask, mips16e_a0_a3_regs,
-			  ARRAY_SIZE (mips16e_a0_a3_regs), &extra);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      mips_mask_registers (&mask, mips16e_s2_s8_regs,
+			      ARRAY_SIZE (mips16e_s2_s8_regs), &extra);
+      mips_mask_registers (&mask, mips16e_a0_a3_regs,
+			      ARRAY_SIZE (mips16e_a0_a3_regs), &extra);
+    }
+  /* Ignore the 16-bit version here.  */
+  else if (!nanomips_valid_save_restore_p (mask, false, NULL))
+    return false;
+
   if (extra != 0)
     return false;
 
@@ -11669,13 +11786,12 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
   return true;
 }
 
-/* Add a MIPS16e SAVE or RESTORE register-range argument to string S
+/* Add a SAVE or RESTORE register-range argument to string S
    for the register range [MIN_REG, MAX_REG].  Return a pointer to
    the null terminator.  */
 
 static char *
-mips16e_add_register_range (char *s, unsigned int min_reg,
-			    unsigned int max_reg)
+mips_add_register_range (char *s, unsigned int min_reg, unsigned int max_reg)
 {
   if (min_reg != max_reg)
     s += sprintf (s, ",%s-%s", reg_names[min_reg], reg_names[max_reg]);
@@ -11684,64 +11800,124 @@ mips16e_add_register_range (char *s, unsigned int min_reg,
   return s;
 }
 
+/* Print the register range for SAVE/RESTORE to string S for the registers in
+   REGS of size SIZE that are set by the mask MASK.  Return the pointer to
+   the string.  */
+
+static char *
+mips_output_register_range (char *s, unsigned int mask,
+			    const unsigned char *regs, unsigned int size)
+{
+  unsigned int i;
+
+  i = mips_find_first_register (mask, regs, size);
+  if (i < size)
+    s = mips_add_register_range (s, regs[size - 1], regs[i]);
+
+  return s;
+}
+
 /* Return the assembly instruction for a MIPS16e SAVE or RESTORE instruction.
-   PATTERN and ADJUST are as for mips16e_save_restore_pattern_p.  */
+   PATTERN and ADJUST are as for mips_save_restore_pattern_p.  */
 
 const char *
-mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
+mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
 {
   static char buffer[300];
 
-  struct mips16e_save_restore_info info;
-  unsigned int i, end;
+  struct mips_save_restore_info info;
+  unsigned int i;
   char *s;
+  rtx set_src = SET_SRC (XVECEXP (pattern, 0,
+				  XVECLEN (pattern, 0) - 1));
+  bool restore_p = MEM_P (set_src)
+		   || (XVECLEN (pattern, 0) <= 2
+		       && GET_CODE (set_src) == PLUS
+		       && INTVAL (XEXP (set_src, 1)) > 0)
+		   ? true : false;
 
   /* Parse the pattern.  */
-  if (!mips16e_save_restore_pattern_p (pattern, adjust, &info))
+  if (!mips_save_restore_pattern_p (pattern, adjust, &info))
     gcc_unreachable ();
 
   /* Add the mnemonic.  */
-  s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
-  s += strlen (s);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      s = strcpy (buffer, restore_p ? "restore\t" : "save\t");
+      s += strlen (s);
+    }
+  else
+    {
+      s = buffer;
+      s += sprintf (s, "%s", restore_p ? "restore" : "save");
+    }
 
-  /* Save the arguments.  */
-  if (info.nargs > 1)
-    s += sprintf (s, "%s-%s,", reg_names[GP_ARG_FIRST],
-		  reg_names[GP_ARG_FIRST + info.nargs - 1]);
-  else if (info.nargs == 1)
-    s += sprintf (s, "%s,", reg_names[GP_ARG_FIRST]);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      /* Save the arguments.  */
+      if (info.nargs > 1)
+	s += sprintf (s, "%s-%s,", reg_names[GP_ARG_FIRST],
+		      reg_names[GP_ARG_FIRST + info.nargs - 1]);
+      else if (info.nargs == 1)
+	s += sprintf (s, "%s,", reg_names[GP_ARG_FIRST]);
+    }
 
   /* Emit the amount of stack space to allocate or deallocate.  */
   s += sprintf (s, "%d", (int) info.size);
 
-  /* Save or restore $16.  */
-  if (BITSET_P (info.mask, 16))
-    s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 16]);
+  /* Save or restore $fp.  */
+  if (TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
 
-  /* Save or restore $17.  */
-  if (BITSET_P (info.mask, 17))
-    s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 17]);
+  /* Save or restore $ra.  */
+  if (TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, RETURN_ADDR_REGNUM))
+    s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
 
-  /* Save or restore registers in the range $s2...$s8, which
-     mips16e_s2_s8_regs lists in decreasing order.  Note that this
-     is a software register range; the hardware registers are not
-     numbered consecutively.  */
-  end = ARRAY_SIZE (mips16e_s2_s8_regs);
-  i = mips16e_find_first_register (info.mask, mips16e_s2_s8_regs, end);
-  if (i < end)
-    s = mips16e_add_register_range (s, mips16e_s2_s8_regs[end - 1],
-				    mips16e_s2_s8_regs[i]);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      /* Save or restore $16.  */
+      if (BITSET_P (info.mask, 16))
+	s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 16]);
 
-  /* Save or restore registers in the range $a0...$a3.  */
-  end = ARRAY_SIZE (mips16e_a0_a3_regs);
-  i = mips16e_find_first_register (info.mask, mips16e_a0_a3_regs, end);
-  if (i < end)
-    s = mips16e_add_register_range (s, mips16e_a0_a3_regs[i],
-				    mips16e_a0_a3_regs[end - 1]);
+      /* Save or restore $17.  */
+      if (BITSET_P (info.mask, 17))
+	s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 17]);
+
+      /* Save or restore registers in the range $s2...$s8, which
+	 mips16e_s2_s8_regs lists in decreasing order.  Note that this
+	 is a software register range; the hardware registers are not
+	 numbered consecutively.  */
+      s = mips_output_register_range (s, info.mask, mips16e_s2_s8_regs,
+				      ARRAY_SIZE (mips16e_s2_s8_regs));
+      /* Save or restore registers in the range $a0...$a3.  */
+      s = mips_output_register_range (s, info.mask, mips16e_a0_a3_regs,
+				      ARRAY_SIZE (mips16e_a0_a3_regs));
+    }
+  else
+    s = mips_output_register_range (s, info.mask, nanomips_s0_s7_regs,
+				    ARRAY_SIZE (nanomips_s0_s7_regs));
+
+  /* Save or restore $30.  */
+  if (!TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
 
   /* Save or restore $31.  */
-  if (BITSET_P (info.mask, RETURN_ADDR_REGNUM))
+  if (!TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, RETURN_ADDR_REGNUM))
     s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
+
+  /* Save or restore $gp.  */
+  if (TARGET_NANOMIPS
+      && ISA_HAS_SAVE_RESTORE
+      && BITSET_P (info.mask, GLOBAL_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[GLOBAL_POINTER_REGNUM]);
 
   return buffer;
 }
@@ -12162,6 +12338,78 @@ mips_save_reg_p (unsigned int regno)
   return false;
 }
 
+/* Returns true is any of the global and local registers is used specified in
+   REGS with NREGS elements for frame FRAME.  Returns false otherwise.  */
+
+static bool
+mips_global_and_local_regs_used_p (const unsigned char *regs,
+				   unsigned int nregs,
+				   struct mips_frame_info *frame)
+{
+  bool global_reg_used = false;
+  bool local_reg_used = false;
+  bool valid_p = true;
+
+  for (unsigned int i = 0 ; i < nregs; i++)
+     {
+       if (global_regs [regs[i]])
+	 global_reg_used = true;
+
+       if (BITSET_P (frame->mask, regs[i]))
+	 local_reg_used = true;
+     }
+
+  if (global_reg_used && local_reg_used)
+    valid_p = false;
+
+  return valid_p;
+}
+
+/* The SAVE and RESTORE instructions have two ranges of registers:
+   $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
+   save all later registers too.  This can cause problems if the user has
+   placed a global value into a register that falls into one of these
+   ranges and the function uses a callee saved register that also in the
+   same range.  In this case the global value could be accidently saved
+   and restored on function entry and exit which means any changes made to
+   its value in the function will be lost.
+
+   mips_safe_to_use_save_restore_p checks for this case, and if it is found
+   it turns off the use of the SAVE/RESTORE instruction in this function.
+
+   This approach is not optimal because it should really just check that
+   the number of the register used for the global value occurs before
+   one of the callee saved registers.  However as the use of forcing global
+   values into a register is small it is fine to use the unoptimal version
+   of the code for the moment.
+
+   Returns true if it's safe to use SAVE/RESTORE. Returns false
+   otherwise.  */
+
+static bool
+mips_safe_to_use_save_restore_p (struct mips_frame_info *frame)
+{
+  bool safe_p = true;
+
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      safe_p &=
+	mips_global_and_local_regs_used_p (mips16e_s2_s8_regs,
+					   ARRAY_SIZE (mips16e_s2_s8_regs),
+					   frame);
+      safe_p &=
+	mips_global_and_local_regs_used_p (mips16e_a0_a3_regs,
+					   ARRAY_SIZE (mips16e_a0_a3_regs),
+					   frame);
+    }
+  else if (ISA_HAS_SAVE_RESTORE && TARGET_NANOMIPS)
+    safe_p &=
+      mips_global_and_local_regs_used_p (nanomips_s0_s7_regs,
+					 ARRAY_SIZE (nanomips_s0_s7_regs),
+					 frame);
+  return safe_p;
+}
+
 /* Populate the current function's mips_frame_info structure.
 
    MIPS stack frames look like:
@@ -12238,8 +12486,6 @@ mips_compute_frame_info (void)
   struct mips_frame_info *frame;
   HOST_WIDE_INT offset, size;
   unsigned int regno, i;
-  int global_reg_used;
-  int local_reg_used;
 
   /* Skip re-computing the frame info after reload completed.  */
   if (reload_completed)
@@ -12351,66 +12597,25 @@ mips_compute_frame_info (void)
 	frame->mask |= 1 << (EH_RETURN_DATA_REGNO (i) - GP_REG_FIRST);
       }
 
-  /* The SAVE and RESTORE instructions have two ranges of registers:
-     $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
-     save all later registers too.  This can cause problems if the user has
-     placed a global value into a register that falls into one of these
-     ranges and the function uses a callee saved register that also in the
-     same range.  In this case the global value could be accidently saved
-     and restored on function entry and exit which means any changes made to
-     its value in the function will be lost.
-
-     The code below checks for this case, and if it is found it turns off
-     the use of the SAVE/RESTORE instruction in this function.
-
-     This approach is not optimal because it should really just check that
-     the number of the register used for the global value occurs before
-     one of the callee saved registers.  However as the use of forcing global
-     values into a register is small it is fine to use the unoptimal version
-     of the code for the moment.  */
-  cfun->machine->safe_to_use_save_restore = true;
-
-  global_reg_used = 0;
-  local_reg_used = 0;
-
-  for (i = 0 ; i < ARRAY_SIZE (mips16e_s2_s8_regs) ; i++)
-     {
-       regno = mips16e_s2_s8_regs[i];
-       if (global_regs [regno])
-	 global_reg_used = 1;
-
-       if (BITSET_P (frame->mask, regno))
-	 local_reg_used = 1;
-     }
-
-  if (global_reg_used && local_reg_used)
-    cfun->machine->safe_to_use_save_restore = false;
-
-  global_reg_used = 0;
-  local_reg_used = 0;
-
-  for (i = 0 ; i < ARRAY_SIZE (mips16e_a0_a3_regs) ; i++)
-     {
-       regno = mips16e_a0_a3_regs[i];
-       if (global_regs [regno])
-	 global_reg_used = 1;
-
-       if (BITSET_P (frame->mask, regno))
-	 local_reg_used = 1;
-     }
-
-  if (global_reg_used && local_reg_used)
-    cfun->machine->safe_to_use_save_restore = false;
+  cfun->machine->safe_to_use_save_restore =
+    mips_safe_to_use_save_restore_p (frame);
 
   /* The MIPS16e SAVE and RESTORE instructions have two ranges of registers:
      $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
      save all later registers too.  */
-  if (GENERATE_MIPS16E_SAVE_RESTORE && cfun->machine->safe_to_use_save_restore)
+  if (GENERATE_MIPS16E_SAVE_RESTORE
+      && cfun->machine->safe_to_use_save_restore)
     {
-      mips16e_mask_registers (&frame->mask, mips16e_s2_s8_regs,
- 			      ARRAY_SIZE (mips16e_s2_s8_regs), &frame->num_gp);
-      mips16e_mask_registers (&frame->mask, mips16e_a0_a3_regs,
- 			      ARRAY_SIZE (mips16e_a0_a3_regs), &frame->num_gp);
+      mips_mask_registers (&frame->mask, mips16e_s2_s8_regs,
+			   ARRAY_SIZE (mips16e_s2_s8_regs), &frame->num_gp);
+      mips_mask_registers (&frame->mask, mips16e_a0_a3_regs,
+			   ARRAY_SIZE (mips16e_a0_a3_regs), &frame->num_gp);
+    }
+  else if (ISA_HAS_SAVE_RESTORE && TARGET_NANOMIPS
+	   && cfun->machine->safe_to_use_save_restore)
+    {
+      mips_mask_registers (&frame->mask, nanomips_s0_s7_regs,
+			   ARRAY_SIZE (nanomips_s0_s7_regs), &frame->num_gp);
     }
 
   /* Move above the GPR save area.  */
@@ -13552,8 +13757,8 @@ mips_expand_prologue (void)
 
 	  /* Build the save instruction.  */
 	  mask = frame->mask;
-	  rtx insn = mips16e_build_save_restore (false, &mask, &offset,
-						 nargs, step1);
+	  rtx insn = mips_build_save_restore (false, &mask, &offset,
+					      nargs, step1);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
  	  size -= step1;
@@ -13993,7 +14198,7 @@ mips_expand_epilogue (bool sibcall_p)
 
       /* Generate the restore instruction.  */
       mask = frame->mask;
-      restore = mips16e_build_save_restore (true, &mask, &offset, 0, step2);
+      restore = mips_build_save_restore (true, &mask, &offset, 0, step2);
 
       /* Restore any other registers manually.  */
       for (regno = GP_REG_FIRST; regno < GP_REG_LAST; regno++)
