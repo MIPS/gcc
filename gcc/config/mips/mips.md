@@ -7248,8 +7248,15 @@
 
 (define_expand "return"
   [(simple_return)]
-  "mips_can_use_return_insn ()"
-  { mips_expand_before_return (); })
+  "mips_can_use_simple_return_insn () || mips_can_use_return_insn ()"
+{
+  mips_expand_before_return ();
+  if (mips_can_use_return_insn ())
+    {
+      mips_expand_return ();
+      DONE;
+    }
+})
 
 (define_expand "simple_return"
   [(simple_return)]
@@ -8131,9 +8138,9 @@
 		      (match_operand:SI 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				   false)"
+				   false, false)"
   { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
-				     false/*fp_p*/); }
+				     false/*fp_p*/, false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
@@ -8147,12 +8154,29 @@
    && GET_CODE (operands[1]) == REG
    && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				   true)"
+				   true, false)"
   { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
-				     true/*fp_p*/); }
+				     true/*fp_p*/, false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
+
+(define_insn "*mips_restore_jrc"
+  [(match_parallel 0 ""
+     [(return)
+      (set (match_operand:SI 1 "register_operand")
+	   (plus:SI (match_dup 1)
+		    (match_operand:SI 2 "const_int_operand")))])]
+  "ISA_HAS_RESTORE_JRC
+   && GET_CODE (operands[1]) == REG
+   && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]),
+				   NULL, false, true)
+   && reload_completed"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
+				     false/*fp_p*/, true/*jrc_p*/); }
+  [(set_attr "type"     "jump")
+   (set_attr "mode"     "none")])
 
 ;; Thread-Local Storage
 
