@@ -341,7 +341,7 @@ extern bool mips_use_ins_ext_p (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 extern const char *mips_output_save_restore (rtx, HOST_WIDE_INT, bool);
 extern bool mips_save_restore_pattern_p (rtx, HOST_WIDE_INT,
 					 struct mips_save_restore_info *,
-					 bool);
+					 bool *, bool);
 
 extern bool mask_low_and_shift_p (machine_mode, rtx, rtx, int);
 extern int mask_low_and_shift_len (machine_mode, rtx, rtx);
