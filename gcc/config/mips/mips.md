@@ -8130,8 +8130,26 @@
 	     (plus:SI (match_dup 1)
 		      (match_operand:SI 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
-   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				   false)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
+				     false/*fp_p*/); }
+  [(set_attr "type" "arith")
+   (set_attr "extended_mips16" "yes")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*mips_savef_restoref"
+  [(match_parallel 0 ""
+       [(set (match_operand:SI 1 "register_operand")
+	     (plus:SI (match_dup 1)
+		      (match_operand:SI 2 "const_int_operand")))])]
+  "ISA_HAS_SAVEF_RESTOREF
+   && GET_CODE (operands[1]) == REG
+   && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				   true)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
+				     true/*fp_p*/); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
