@@ -7708,19 +7708,19 @@
 ;;
 ;;  ....................
 ;;
-;;	MIPS16e Save/Restore
+;;	MIPS Save/Restore
 ;;
 ;;  ....................
 ;;
 
-(define_insn "*mips16e_save_restore"
+(define_insn "*mips_save_restore"
   [(match_parallel 0 ""
-       [(set (match_operand:SI 1 "register_operand")
-	     (plus:SI (match_dup 1)
-		      (match_operand:SI 2 "const_int_operand")))])]
+       [(set (match_operand:P 1 "register_operand")
+	     (plus:P (match_dup 1)
+		     (match_operand:P 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
-   && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
-  { return mips16e_output_save_restore (operands[0], INTVAL (operands[2])); }
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
