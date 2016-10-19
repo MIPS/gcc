@@ -535,3 +535,6 @@ Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
 
 mlra-equiv
 Target Undocumented Var(TARGET_LRA_EQUIV) Init(0)
+
+madd-savef-restoref
+Target Undocumented Var(TARGET_SAVEF_RESTOREF) Init(0)

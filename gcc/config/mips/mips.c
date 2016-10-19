@@ -11320,6 +11320,10 @@ static const unsigned char nanomips_save_restore_regs[] = {
   30, 31, 16, 17, 18, 19, 20, 21, 22, 23, 28
 };
 
+static const unsigned char nanomips_savef_restoref_regs[] = {
+  47/*$fs8*/, 46, 45, 44, 43, 42, 41, 40/*$fs0*/
+};
+
 /* Return the index of the lowest X in the range [0, SIZE) for which
    bit REGS[X] is set in MASK.  Return SIZE if there is no such X.  */
 
@@ -11563,6 +11567,33 @@ nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
   return n == 0;
 }
 
+static int
+mips_valid_savef_restoref_p (unsigned int fmask)
+{
+  int n, nregs = 0;
+
+  for (unsigned int i = 0; i < ARRAY_SIZE (nanomips_savef_restoref_regs); i++)
+    if (BITSET_P (fmask, nanomips_savef_restoref_regs[i] - FP_REG_FIRST))
+      nregs++;
+
+  n = nregs;
+
+  if (n == 0)
+    return false;
+
+  if (n > (int) ARRAY_SIZE (nanomips_savef_restoref_regs))
+    return false;
+
+  for (unsigned int i = ARRAY_SIZE (nanomips_savef_restoref_regs) - n;
+       i < ARRAY_SIZE (nanomips_savef_restoref_regs); i++)
+    if (BITSET_P (fmask, nanomips_savef_restoref_regs[i] - FP_REG_FIRST))
+      n--;
+    else
+      break;
+
+  return n == 0 ? nregs : 0;
+}
+
 /* Return RTL for a MIPS16e SAVE or RESTORE instruction; RESTORE_P says which.
    The instruction must:
 
@@ -11587,7 +11618,7 @@ nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
 static rtx
 mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 			 HOST_WIDE_INT *offset_ptr, unsigned int nargs,
-			 HOST_WIDE_INT size, bool restore_jrc_p)
+			 HOST_WIDE_INT size, bool fp_p, bool restore_jrc_p)
 {
   rtx pattern, set;
   HOST_WIDE_INT offset, top_offset;
@@ -11606,6 +11637,8 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 	if (BITSET_P (*mask_ptr, mips16e_save_restore_regs[i]))
 	  n++;
     }
+  else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
+    n = mips_valid_savef_restoref_p (*mask_ptr);
   else
     {
       if (nanomips_valid_save_restore_p (*mask_ptr, false, &n))
@@ -11622,14 +11655,19 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
     XVECEXP (pattern, 0, n++) = ret_rtx;
 
   /* Add the stack pointer adjustment.  */
-  set = gen_rtx_SET (stack_pointer_rtx,
-		     gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-				   GEN_INT (restore_p ? size : -size)));
-  RTX_FRAME_RELATED_P (set) = 1;
-  XVECEXP (pattern, 0, n++) = set;
+  if (!fp_p)
+    {
+      set = gen_rtx_SET (stack_pointer_rtx,
+			 gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				       GEN_INT (restore_p ? size : -size)));
+      RTX_FRAME_RELATED_P (set) = 1;
+      XVECEXP (pattern, 0, n++) = set;
+    }
 
-  /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
-  top_offset = restore_p ? size : 0;
+  /* Stack offsets in the PARALLEL are relative to the old stack
+     pointer except for save/restore of FPRs as we do not adjust
+     the stack pointer.  */
+  top_offset = restore_p || fp_p ? size : 0;
 
   if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
@@ -11660,18 +11698,34 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
       }
   else
     {
-     for (i = 0; i < ARRAY_SIZE (nanomips_save_restore_regs); i++)
+      if (fp_p)
 	{
-	  regno = nanomips_save_restore_regs[i];
-	  if (BITSET_P (*mask_ptr, regno))
+	  for (i = 0; i < ARRAY_SIZE (nanomips_savef_restoref_regs); i++)
 	    {
-	      offset -= UNITS_PER_WORD;
-	      set = mips_save_restore_insn_reg (Pmode, restore_p, false,
-						offset, regno);
-	      XVECEXP (pattern, 0, n++) = set;
-	      *mask_ptr &= ~(1 << regno);
+	      regno = nanomips_savef_restoref_regs[i];
+	      if (BITSET_P (*mask_ptr, regno - FP_REG_FIRST))
+		{
+		  set = mips_save_restore_insn_reg
+		    (DFmode, restore_p, false, offset, regno);
+		  XVECEXP (pattern, 0, n++) = set;
+		  *mask_ptr &= ~(1 << (regno - FP_REG_FIRST));
+		  offset -= GET_MODE_SIZE (DFmode);
+		}
 	    }
 	}
+      else
+	for (i = 0; i < ARRAY_SIZE (nanomips_save_restore_regs); i++)
+	  {
+	    regno = nanomips_save_restore_regs[i];
+	    if (BITSET_P (*mask_ptr, regno))
+	      {
+		offset -= UNITS_PER_WORD;
+		set = mips_save_restore_insn_reg (Pmode, restore_p, false,
+						  offset, regno);
+		XVECEXP (pattern, 0, n++) = set;
+		*mask_ptr &= ~(1 << regno);
+	      }
+	  }
     }
 
   /* Tell the caller what offset it should use for the remaining registers.  */
@@ -11690,23 +11744,41 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 bool
 mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 			     struct mips_save_restore_info *info,
-			     bool jrc_p)
+			     bool *savef_restoref_p, bool jrc_p)
 {
   unsigned int i, nargs, mask, extra;
   HOST_WIDE_INT top_offset, save_offset, offset;
   rtx set, reg, mem, base;
   int n;
+  bool fp_p = false;
 
-  if (!ISA_HAS_SAVE_RESTORE
+  if (!ISA_HAS_SAVE_RESTORE && !ISA_HAS_SAVEF_RESTOREF
       && !(ISA_HAS_RESTORE_JRC && jrc_p))
     return false;
 
   /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
   top_offset = adjust > 0 ? adjust : 0;
 
+  if (ISA_HAS_SAVEF_RESTOREF && !jrc_p)
+    {
+      set = XVECEXP (pattern, 0, 0);
+      if (GET_CODE (SET_SRC (set)) == MEM
+	  || GET_CODE (SET_DEST (set)) == MEM)
+	{
+	  mem = MEM_P (SET_SRC (set)) ? SET_SRC (set)
+						      : SET_DEST (set);
+	  if (MEM_P (mem)
+	      && (GET_MODE (mem) == SFmode || GET_MODE (mem) == DFmode))
+	    {
+	      fp_p = true;
+	      if (savef_restoref_p)
+		*savef_restoref_p = fp_p;
+	    }
+	}
+    }
 
   /* Interpret all other members of the PARALLEL.  */
-  save_offset = top_offset - UNITS_PER_WORD;
+  save_offset = top_offset - (fp_p ? 0 : UNITS_PER_WORD);
   mask = 0;
   nargs = 0;
   i = 0;
@@ -11714,7 +11786,7 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
   if (jrc_p && GET_CODE (XVECEXP (pattern, 0, 0)) != RETURN)
     return false;
 
-  for (n = jrc_p ? 2 : 1; n < XVECLEN (pattern, 0); n++)
+  for (n = jrc_p ? 2 : 1 - (fp_p ? 1 : 0); n < XVECLEN (pattern, 0); n++)
     {
       /* Check that we have a SET.  */
       set = XVECEXP (pattern, 0, n);
@@ -11725,6 +11797,9 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 	 (if saving).  */
       mem = MEM_P (SET_SRC (set)) ? SET_SRC (set) : SET_DEST (set);
       if (!MEM_P (mem))
+	return false;
+
+      if (!fp_p && !INTEGRAL_MODE_P (GET_MODE (mem)))
 	return false;
 
       /* Check that the address is the sum of the stack pointer and a
@@ -11751,15 +11826,15 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 		if (i == ARRAY_SIZE (mips16e_save_restore_regs))
 		  return false;
 	    }
-	  else
+	  else if (fp_p)
 	    {
-	      while (nanomips_save_restore_regs[i++] != REGNO (reg))
-		if (i == ARRAY_SIZE (nanomips_save_restore_regs))
-		  return false;
+	      while (nanomips_savef_restoref_regs[i++] != REGNO (reg))
+		if (i == ARRAY_SIZE (nanomips_savef_restoref_regs))
+		 return false;
 	    }
 
 	  mask |= 1 << REGNO (reg);
-	  save_offset -= UNITS_PER_WORD;
+	  save_offset -= fp_p ? UNITS_PER_HWFPVALUE : UNITS_PER_WORD;
 	}
       else
 	return false;
@@ -11774,6 +11849,9 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
       mips_mask_registers (&mask, mips16e_a0_a3_regs,
 			      ARRAY_SIZE (mips16e_a0_a3_regs), &extra);
     }
+  else if (fp_p)
+    mips_mask_registers (&mask, nanomips_savef_restoref_regs,
+			    ARRAY_SIZE (nanomips_savef_restoref_regs), &extra);
   /* Ignore the 16-bit version here.  */
   else if (!nanomips_valid_save_restore_p (mask, false, NULL))
     return false;
@@ -11847,15 +11925,22 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 		       && GET_CODE (set_src) == PLUS
 		       && INTVAL (XEXP (set_src, 1)) > 0)
 		   ? true : false;
+  bool fp_p = false;
 
   /* Parse the pattern.  */
-  if (!mips_save_restore_pattern_p (pattern, adjust, &info, jrc_p))
+  if (!mips_save_restore_pattern_p (pattern, adjust, &info, &fp_p, jrc_p))
     gcc_unreachable ();
 
   /* Add the mnemonic.  */
   if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
       s = strcpy (buffer, restore_p ? "restore\t" : "save\t");
+      s += strlen (s);
+    }
+  else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
+    {
+      s = strcpy (buffer, restore_p ? "sdbbp32 13 # restoref\t"
+				    : "sdbbp32 13 # savef\t");
       s += strlen (s);
     }
   else
@@ -11910,6 +11995,9 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
       s = mips_output_register_range (s, info.mask, mips16e_a0_a3_regs,
 				      ARRAY_SIZE (mips16e_a0_a3_regs));
     }
+  else if (ISA_HAS_SAVEF_RESTOREF && fp_p)
+    s = mips_output_register_range (s, info.mask, nanomips_savef_restoref_regs,
+				    ARRAY_SIZE (nanomips_savef_restoref_regs));
   else
     s = mips_output_register_range (s, info.mask, nanomips_s0_s7_regs,
 				    ARRAY_SIZE (nanomips_s0_s7_regs));
@@ -13176,6 +13264,60 @@ umips_build_word_multiple (mips_save_restore_fn fn, unsigned *mask,
   return true;
 }
 
+/* Called while generating common epilogue.
+   Call FN for each fp register that is saved by the current function.
+   SP_OFFSET is the offset of the current stack pointer from the start
+   of the frame.  */
+
+static void
+mips_for_each_saved_fpr (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
+{
+  machine_mode fpr_mode;
+  int regno;
+  HOST_WIDE_INT offset;
+  unsigned int fmask = cfun->machine->frame.fmask;
+  bool restore_p = (fn == mips_save_reg) ? false : true;
+
+  offset = cfun->machine->frame.fp_sp_offset - sp_offset;
+  fpr_mode = (TARGET_SINGLE_FLOAT ? SFmode : DFmode);
+
+  if (TARGET_NANOMIPS
+      && ISA_HAS_SAVEF_RESTOREF
+      && mips_valid_savef_restoref_p (fmask))
+    {
+      rtx save_restore = mips_build_save_restore (restore_p, &fmask, &offset,
+						  0/*nargs*/, offset/*step*/,
+						  true/*fp_p*/, false/*jrc_p*/);
+      if (!restore_p)
+	RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
+      else
+	emit_insn (save_restore);
+      mips_frame_barrier ();
+
+      offset -= cfun->machine->frame.num_fp * UNITS_PER_HWFPVALUE;
+    }
+
+  /* This loop must iterate over the same space as its companion in
+     mips_compute_frame_info.  */
+  for (regno = FP_REG_LAST - MAX_FPRS_PER_FMT + 1;
+       regno >= FP_REG_FIRST;
+       regno -= MAX_FPRS_PER_FMT)
+    if (BITSET_P (fmask, regno - FP_REG_FIRST))
+      {
+	if (!TARGET_FLOAT64 && TARGET_DOUBLE_FLOAT
+	    && (fixed_regs[regno] || fixed_regs[regno + 1]))
+	  {
+	    if (fixed_regs[regno])
+	      mips_save_restore_reg (SFmode, regno + 1, offset, fn);
+	    else
+	      mips_save_restore_reg (SFmode, regno, offset, fn);
+	  }
+	else
+	  mips_save_restore_reg (fpr_mode, regno, offset, fn);
+	offset -= GET_MODE_SIZE (fpr_mode);
+      }
+}
+
 /* Call FN for each register that is saved by the current function.
    SP_OFFSET is the offset of the current stack pointer from the start
    of the frame.  */
@@ -13771,7 +13913,7 @@ mips_expand_prologue (void)
 	  /* Build the save instruction.  */
 	  mask = frame->mask;
 	  rtx insn = mips_build_save_restore (false, &mask, &offset,
-					      nargs, step1, false);
+					      nargs, step1, false, false);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
  	  size -= step1;
@@ -14231,7 +14373,7 @@ mips_expand_epilogue (bool sibcall_p)
       /* Generate the restore instruction.  */
       mask = frame->mask;
       restore = mips_build_save_restore (true, &mask, &offset, 0, step2,
-					 false/*jrc_p*/);
+					 false/*fp_p*/, false/*jrc_p*/);
 
       /* Restore any other registers manually.  */
       for (regno = GP_REG_FIRST; regno < GP_REG_LAST; regno++)
