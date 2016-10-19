@@ -153,7 +153,7 @@ enum mips_loadgp_style {
   LOADGP_RTP
 };
 
-struct mips16e_save_restore_info;
+struct mips_save_restore_info;
 
 /* Classifies a type of call.
 
@@ -336,9 +336,9 @@ extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
 extern bool mips_use_ins_ext_p (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 
-extern const char *mips16e_output_save_restore (rtx, HOST_WIDE_INT);
-extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
-					    struct mips16e_save_restore_info *);
+extern const char *mips_output_save_restore (rtx, HOST_WIDE_INT);
+extern bool mips_save_restore_pattern_p (rtx, HOST_WIDE_INT,
+					 struct mips_save_restore_info *);
 
 extern bool mask_low_and_shift_p (machine_mode, rtx, rtx, int);
 extern int mask_low_and_shift_len (machine_mode, rtx, rtx);
