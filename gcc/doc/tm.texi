@@ -5308,7 +5308,7 @@ macro, a reasonable default is used.
 @end defmac
 
 @deftypefn {Target Hook} bool TARGET_LIBC_HAS_FUNCTION (enum function_class @var{fn_class})
-This hook determines whether a function from a class of functions
+This hook determines properties, such as whether a class of functions
 @var{fn_class} is present at the runtime.
 @end deftypefn
 

@@ -281,14 +281,21 @@ union _dont_use_tree_here_;
 
 #endif
 
-/* Classes of functions that compiler needs to check
+/* Properties, such as classes of functions that the compiler can check
    whether they are present at the runtime or not.  */
 enum function_class {
   function_c94,
   function_c99_misc,
   function_c99_math_complex,
   function_sincos,
-  function_c11_misc
+  function_c11_misc,
+  /* If -ffinite-math-only (as implied by -ffast-math, or -Ofast) is in effect,
+     glibc's <math.h> is known to include <bits/math-finite.h> for "special
+     entry points to use when the compiler got told to only expect finite
+     results".  This divertes the math functions' assembler names from
+     "[function]" to "__[function]_finite".  This property indicates whether
+     such diversion may occur, not whether it actually has.  */
+  function_glibc_finite_math
 };
 
 /* Enumerate visibility settings.  This is deliberately ordered from most

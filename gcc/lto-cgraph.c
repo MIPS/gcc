@@ -38,6 +38,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "omp-low.h"
 #include "ipa-chkp.h"
+#include "target.h"
+#include "output.h"
+#include "builtins.h"
 
 /* True when asm nodes has been output.  */
 bool asm_nodes_output = false;
@@ -1091,21 +1094,37 @@ read_string (struct lto_input_block *ib)
   return str;
 }
 
+/* Output offload data.  */
+
+static void output_offload_tables (struct lto_simple_output_block *);
+
+void output_offload_data (void)
+{
+  /* Return early if there is no offload data.  */
+  if (vec_safe_is_empty (offload_funcs) && vec_safe_is_empty (offload_vars))
+    return;
+
+  struct lto_simple_output_block *ob
+    = lto_create_simple_output_block (LTO_section_offload_data);
+
+  /* Stream the target's function_glibc_finite_math property.  */
+  bool g_f_m = targetm.libc_has_function (function_glibc_finite_math);
+  streamer_write_hwi_stream (ob->main_stream, g_f_m);
+
+  output_offload_tables (ob);
+
+  lto_destroy_simple_output_block (ob);
+}
+
 /* Output function/variable tables that will allow libgomp to look up offload
    target code.
    OFFLOAD_FUNCS is filled in expand_omp_target, OFFLOAD_VARS is filled in
    varpool_node::get_create.  In WHOPR (partitioned) mode during the WPA stage
    both OFFLOAD_FUNCS and OFFLOAD_VARS are filled by input_offload_tables.  */
 
-void
-output_offload_tables (void)
+static void
+output_offload_tables (struct lto_simple_output_block *ob)
 {
-  if (vec_safe_is_empty (offload_funcs) && vec_safe_is_empty (offload_vars))
-    return;
-
-  struct lto_simple_output_block *ob
-    = lto_create_simple_output_block (LTO_section_offload_table);
-
   for (unsigned i = 0; i < vec_safe_length (offload_funcs); i++)
     {
       streamer_write_enum (ob->main_stream, LTO_symtab_tags,
@@ -1123,7 +1142,6 @@ output_offload_tables (void)
     }
 
   streamer_write_uhwi_stream (ob->main_stream, 0);
-  lto_destroy_simple_output_block (ob);
 
   /* In WHOPR mode during the WPA stage the joint offload tables need to be
      streamed to one partition only.  That's why we free offload_funcs and
@@ -1885,64 +1903,131 @@ input_symtab (void)
     }
 }
 
-/* Input function/variable tables that will allow libgomp to look up offload
-   target code, and store them into OFFLOAD_FUNCS and OFFLOAD_VARS.  */
+/* Input offload data.  */
+
+static void input_offload_tables (struct lto_input_block *,
+				  struct lto_file_decl_data *, bool);
 
 void
-input_offload_tables (bool do_force_output)
+input_offload_data (bool do_force_output)
 {
   struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
   struct lto_file_decl_data *file_data;
   unsigned int j = 0;
+  bool g_f_m_target = false;
 
   while ((file_data = file_data_vec[j++]))
     {
       const char *data;
       size_t len;
       struct lto_input_block *ib
-	= lto_create_simple_input_block (file_data, LTO_section_offload_table,
+	= lto_create_simple_input_block (file_data, LTO_section_offload_data,
 					 &data, &len);
       if (!ib)
 	continue;
 
-      enum LTO_symtab_tags tag
-	= streamer_read_enum (ib, LTO_symtab_tags, LTO_symtab_last_tag);
-      while (tag)
-	{
-	  if (tag == LTO_symtab_unavail_node)
-	    {
-	      int decl_index = streamer_read_uhwi (ib);
-	      tree fn_decl
-		= lto_file_decl_data_get_fn_decl (file_data, decl_index);
-	      vec_safe_push (offload_funcs, fn_decl);
+      /* Merge the target's function_glibc_finite_math property.  */
+      g_f_m_target |= streamer_read_hwi (ib);
 
-	      /* Prevent IPA from removing fn_decl as unreachable, since there
-		 may be no refs from the parent function to child_fn in offload
-		 LTO mode.  */
-	      if (do_force_output)
-		cgraph_node::get (fn_decl)->mark_force_output ();
-	    }
-	  else if (tag == LTO_symtab_variable)
-	    {
-	      int decl_index = streamer_read_uhwi (ib);
-	      tree var_decl
-		= lto_file_decl_data_get_var_decl (file_data, decl_index);
-	      vec_safe_push (offload_vars, var_decl);
+      input_offload_tables (ib, file_data, do_force_output);
 
-	      /* Prevent IPA from removing var_decl as unused, since there
-		 may be no refs to var_decl in offload LTO mode.  */
-	      if (do_force_output)
-		varpool_node::get (var_decl)->force_output = 1;
-	    }
-	  else
-	    fatal_error (input_location,
-			 "invalid offload table in %s", file_data->file_name);
-
-	  tag = streamer_read_enum (ib, LTO_symtab_tags, LTO_symtab_last_tag);
-	}
-
-      lto_destroy_simple_input_block (file_data, LTO_section_offload_table,
+      lto_destroy_simple_input_block (file_data, LTO_section_offload_data,
 				      ib, data, len);
+    }
+
+  /* Take action if the target has the function_glibc_finite_math property set,
+     and that doesn't match the current (that is, offloading target's).  */
+  bool g_f_m = targetm.libc_has_function (function_glibc_finite_math);
+  if (g_f_m_target && !g_f_m)
+    {
+      struct cgraph_node *node;
+      FOR_EACH_FUNCTION (node)
+      {
+	/* This only applies to references to external math functions.  */
+	if (!DECL_EXTERNAL (node->decl))
+	  continue;
+	/* All the relevant math functions are registered as GCC builtins.  */
+	if (!DECL_BUILT_IN (node->decl)
+	    || (mathfn_built_in (TREE_TYPE (TREE_TYPE (node->decl)),
+				 DECL_FUNCTION_CODE (node->decl))
+		== NULL_TREE))
+	  continue;
+	/* Check whether the assembler name for "[function]" has been set to
+	   "__[function]_finite".  */
+	if (!DECL_ASSEMBLER_NAME_SET_P (node->decl))
+	  continue;
+	const char *asm_name
+	  = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->decl));
+	if (*asm_name++ != '*')
+	  continue;
+	size_t ulp_len = strlen (user_label_prefix);
+	if (ulp_len == 0)
+	  ;
+	else if (strncmp (asm_name, user_label_prefix, ulp_len) == 0)
+	  asm_name += ulp_len;
+	else
+	  continue;
+	if (*asm_name++ != '_')
+	  continue;
+	if (*asm_name++ != '_')
+	  continue;
+	const char *name = IDENTIFIER_POINTER (DECL_NAME (node->decl));
+	size_t name_len = strlen (name);
+	if (strncmp (asm_name, name, name_len) == 0)
+	  asm_name += name_len;
+	else
+	  continue;
+	if (strcmp (asm_name, "_finite") != 0)
+	  continue;
+	/* ..., and if yes, reset it.  */
+	symtab->change_decl_assembler_name (node->decl,
+					    DECL_NAME (node->decl));
+      }
+    }
+}
+
+/* Input function/variable tables that will allow libgomp to look up offload
+   target code, and store them into OFFLOAD_FUNCS and OFFLOAD_VARS.  */
+
+static void
+input_offload_tables (struct lto_input_block *ib,
+		      struct lto_file_decl_data *file_data,
+		      bool do_force_output)
+{
+  enum LTO_symtab_tags tag
+    = streamer_read_enum (ib, LTO_symtab_tags, LTO_symtab_last_tag);
+  while (tag)
+    {
+      if (tag == LTO_symtab_unavail_node)
+	{
+	  int decl_index = streamer_read_uhwi (ib);
+	  tree fn_decl
+	    = lto_file_decl_data_get_fn_decl (file_data, decl_index);
+	  vec_safe_push (offload_funcs, fn_decl);
+
+	  /* Prevent IPA from removing fn_decl as unreachable, since there
+	     may be no refs from the parent function to child_fn in offload
+	     LTO mode.  */
+	  if (do_force_output)
+	    cgraph_node::get (fn_decl)->mark_force_output ();
+	}
+      else if (tag == LTO_symtab_variable)
+	{
+	  int decl_index = streamer_read_uhwi (ib);
+	  tree var_decl
+	    = lto_file_decl_data_get_var_decl (file_data, decl_index);
+	  vec_safe_push (offload_vars, var_decl);
+
+	  /* Prevent IPA from removing var_decl as unused, since there
+	     may be no refs to var_decl in offload LTO mode.  */
+	  if (do_force_output)
+	    varpool_node::get (var_decl)->force_output = 1;
+	}
+      else
+	fatal_error (input_location,
+		     "invalid offload table in %s", file_data->file_name);
+
+      tag = streamer_read_enum (ib, LTO_symtab_tags, LTO_symtab_last_tag);
     }
 }
 

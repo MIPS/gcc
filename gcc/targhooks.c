@@ -1389,7 +1389,7 @@ default_have_conditional_execution (void)
 }
 
 /* By default we assume that c99 functions are present at the runtime,
-   but sincos is not.  */
+   but others are not.  */
 bool
 default_libc_has_function (enum function_class fn_class)
 {
