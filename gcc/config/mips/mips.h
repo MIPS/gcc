@@ -254,6 +254,13 @@ struct mips_cpu_info {
 				       && mips_abi == ABI_32)
 #define ISA_HAS_SAVE_RESTORE	(GENERATE_MIPS16E_SAVE_RESTORE \
 				 || TARGET_NANOMIPS)
+/* ISA has RESTORE.JRC and RESTORE.JRC[16] instructions.  */
+#define ISA_HAS_RESTORE_JRC	TARGET_NANOMIPS
+/* It is assumed that RESTORE.JRC/RESTORE.JRC[16] has the same number of bits
+   and shift as SAVE/RESTORE and SAVE[16]/RESTORE[16], respectively.  */
+#define SAVE_RESTORE_BITS	9
+#define SAVE16_RESTORE16_BITS	4
+#define SAVE_RESTORE_SHIFT	4
 #define ISA_HAS_LWM_SWM		(TARGET_MICROMIPS || TARGET_NANOMIPS)
 
 /* True if we're generating a form of MIPS16 code in which general

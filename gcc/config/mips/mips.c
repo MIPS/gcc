@@ -11587,7 +11587,7 @@ nanomips_valid_save_restore_p (unsigned int mask, bool compressed_p,
 static rtx
 mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 			 HOST_WIDE_INT *offset_ptr, unsigned int nargs,
-			 HOST_WIDE_INT size)
+			 HOST_WIDE_INT size, bool restore_jrc_p)
 {
   rtx pattern, set;
   HOST_WIDE_INT offset, top_offset;
@@ -11610,11 +11610,16 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
     {
       if (nanomips_valid_save_restore_p (*mask_ptr, false, &n))
 	n++;
+      if (restore_p && restore_jrc_p)
+	n++;
     }
 
   /* Create the final PARALLEL.  */
   pattern = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
   n = 0;
+
+  if (restore_jrc_p)
+    XVECEXP (pattern, 0, n++) = ret_rtx;
 
   /* Add the stack pointer adjustment.  */
   set = gen_rtx_SET (stack_pointer_rtx,
@@ -11684,25 +11689,32 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 
 bool
 mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
-			     struct mips_save_restore_info *info)
+			     struct mips_save_restore_info *info,
+			     bool jrc_p)
 {
   unsigned int i, nargs, mask, extra;
   HOST_WIDE_INT top_offset, save_offset, offset;
   rtx set, reg, mem, base;
   int n;
 
-  if (!GENERATE_MIPS16E_SAVE_RESTORE)
+  if (!ISA_HAS_SAVE_RESTORE
+      && !(ISA_HAS_RESTORE_JRC && jrc_p))
     return false;
 
   /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
   top_offset = adjust > 0 ? adjust : 0;
+
 
   /* Interpret all other members of the PARALLEL.  */
   save_offset = top_offset - UNITS_PER_WORD;
   mask = 0;
   nargs = 0;
   i = 0;
-  for (n = 1; n < XVECLEN (pattern, 0); n++)
+
+  if (jrc_p && GET_CODE (XVECEXP (pattern, 0, 0)) != RETURN)
+    return false;
+
+  for (n = jrc_p ? 2 : 1; n < XVECLEN (pattern, 0); n++)
     {
       /* Check that we have a SET.  */
       set = XVECEXP (pattern, 0, n);
@@ -11821,7 +11833,7 @@ mips_output_register_range (char *s, unsigned int mask,
    PATTERN and ADJUST are as for mips_save_restore_pattern_p.  */
 
 const char *
-mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
+mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 {
   static char buffer[300];
 
@@ -11837,7 +11849,7 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
 		   ? true : false;
 
   /* Parse the pattern.  */
-  if (!mips_save_restore_pattern_p (pattern, adjust, &info))
+  if (!mips_save_restore_pattern_p (pattern, adjust, &info, jrc_p))
     gcc_unreachable ();
 
   /* Add the mnemonic.  */
@@ -11850,6 +11862,7 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
     {
       s = buffer;
       s += sprintf (s, "%s", restore_p ? "restore" : "save");
+      s += sprintf (s, "%s\t", jrc_p ? ".jrc" : "");
     }
 
   if (GENERATE_MIPS16E_SAVE_RESTORE)
@@ -13758,7 +13771,7 @@ mips_expand_prologue (void)
 	  /* Build the save instruction.  */
 	  mask = frame->mask;
 	  rtx insn = mips_build_save_restore (false, &mask, &offset,
-					      nargs, step1);
+					      nargs, step1, false);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
 	  mips_frame_barrier ();
  	  size -= step1;
@@ -14119,6 +14132,25 @@ mips_expand_before_return (void)
     emit_clobber (pic_offset_table_rtx);
 }
 
+void
+mips_expand_return (void)
+{
+  HOST_WIDE_INT offset, sp_offset;
+  HOST_WIDE_INT step;
+  rtx base;
+  const struct mips_frame_info *frame = &cfun->machine->frame;
+  unsigned int mask = frame->mask;
+
+  step = MIN (frame->total_size, MIPS_MAX_FIRST_STACK_STEP);
+  rtx restore = mips_build_save_restore (true, &mask, &offset, 0, step,
+					 false/*fp_p*/, true/*jrc_p*/);
+  mips_split_plus (SET_SRC (XVECEXP (restore, 0, 1)), &base, &sp_offset);
+  gcc_assert (REGNO (base) == STACK_POINTER_REGNUM);
+  gcc_assert (mips_save_restore_pattern_p (restore, sp_offset, NULL,
+					   false/*fp_p*/, true/*jrc_p*/));
+  emit_jump_insn (restore);
+}
+
 /* Expand an "epilogue" or "sibcall_epilogue" pattern; SIBCALL_P
    says which.  */
 
@@ -14131,9 +14163,9 @@ mips_expand_epilogue (bool sibcall_p)
   rtx_insn *insn;
   bool use_jraddiusp_p = false;
 
-  if (!sibcall_p && mips_can_use_return_insn ())
+  if (!sibcall_p && mips_can_use_simple_return_insn ())
     {
-      emit_jump_insn (gen_return ());
+      emit_jump_insn (gen_simple_return ());
       return;
     }
 
@@ -14198,7 +14230,8 @@ mips_expand_epilogue (bool sibcall_p)
 
       /* Generate the restore instruction.  */
       mask = frame->mask;
-      restore = mips_build_save_restore (true, &mask, &offset, 0, step2);
+      restore = mips_build_save_restore (true, &mask, &offset, 0, step2,
+					 false/*jrc_p*/);
 
       /* Restore any other registers manually.  */
       for (regno = GP_REG_FIRST; regno < GP_REG_LAST; regno++)
@@ -14365,7 +14398,7 @@ mips_expand_epilogue (bool sibcall_p)
    was created.  */
 
 bool
-mips_can_use_return_insn (void)
+mips_can_use_simple_return_insn (void)
 {
   /* Interrupt handlers need to go through the epilogue.  */
   if (cfun->machine->interrupt_handler_p)
@@ -14390,6 +14423,28 @@ mips_can_use_return_insn (void)
 
   return (cfun->machine->frame.total_size == 0
 	  && !cfun->machine->use_frame_header_for_callee_saved_regs);
+}
+
+bool
+mips_can_use_return_insn (void)
+{
+  HOST_WIDE_INT size = cfun->machine->frame.total_size;
+  /* For optimal code size, we only consider RESTORE.JRC[16] here.
+     We then catch remaining cases in the reorg pass.  */
+  return !mips_can_use_simple_return_insn ()
+	 && !crtl->calls_eh_return
+	 && cfun->machine->frame.num_fp == 0
+	 && cfun->machine->frame.num_acc == 0
+	 && cfun->machine->frame.num_cop0_regs == 0
+	 && ISA_HAS_RESTORE_JRC
+	 && mips_unsigned_immediate_p (size, SAVE16_RESTORE16_BITS,
+				       SAVE_RESTORE_SHIFT)
+	 && (cfun->machine->frame.num_gp == 0
+	     || BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
+	 && !cfun->machine->interrupt_handler_p
+	 && !frame_pointer_needed
+	 && nanomips_valid_save_restore_p (cfun->machine->frame.mask, true,
+					   NULL);
 }
 
 /* Return true if register REGNO can store a value of mode MODE.
