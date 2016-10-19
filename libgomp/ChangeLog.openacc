@@ -1,3 +1,8 @@
+2016-10-19  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR other/70945
+	* testsuite/libgomp.oacc-c-c++-common/pr70945-1.c: New file.
+
 2016-10-05  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/tile-1.c: New.

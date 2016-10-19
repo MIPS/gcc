@@ -1,3 +1,23 @@
+2016-10-19  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR other/70945
+	* targhooks.c (default_libc_has_function): Update comment.
+	* target.def (libc_has_function): Likewise.
+	* doc/tm.texi: Regenerate.
+	* coretypes.h (enum function_class): Add
+	function_glibc_finite_math.
+	* config/darwin.c (darwin_libc_has_function): Handle it.
+	* lto-streamer.h (enum lto_section_type): Rename
+	LTO_section_offload_table to LTO_section_offload_data.  Adjust all
+	users.
+	* lto-cgraph.c (void output_offload_data): New function, split out
+	of output_offload_tables.  Adjust all users.  Stream the target's
+	function_glibc_finite_math property.
+	(input_offload_data): New function, split out of
+	input_offload_tables.  Adjust all users.  Handle mismatch between
+	the target's and the offloading target's
+	function_glibc_finite_math property.
+
 2016-10-05  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* tree.h (OMP_CLAUSE_TILE_ITERVAR, OMP_CLAUSE_TILE_COUNT): New.
