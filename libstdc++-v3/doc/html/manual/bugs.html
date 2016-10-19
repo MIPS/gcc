@@ -423,6 +423,10 @@
     </span></dt><dd><p>The <code class="code">tuple_size</code> and <code class="code">tuple_element</code>
     partial specializations are defined in <code class="code">&lt;utility&gt;</code> which
     is included by <code class="code">&lt;array&gt;</code>.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2296" target="_top">2296</a>:
+	<span class="emphasis"><em><code class="code">std::addressof</code> should be constexpr</em></span>
+    </span></dt><dd><p>Use <code class="code">__builtin_addressof</code> and add
+    <code class="code">constexpr</code> to <code class="code">addressof</code> for C++17 and later.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2313" target="_top">2313</a>:
 	<span class="emphasis"><em><code class="code">tuple_size</code> should always derive from <code class="code">integral_constant&lt;size_t, N&gt;</code></em></span>
     </span></dt><dd><p>Update definitions of the partial specializations for const and volatile types.
@@ -462,6 +466,10 @@
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2441" target="_top">2441</a>:
        <span class="emphasis"><em>Exact-width atomic typedefs should be provided</em></span>
     </span></dt><dd><p>Define the typedefs.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2442" target="_top">2442</a>:
+       <span class="emphasis"><em><code class="code">call_once()</code> shouldn't <code class="code">DECAY_COPY()</code></em></span>
+    </span></dt><dd><p>Remove indirection through call wrapper that made copies
+    of arguments and forward arguments straight to <code class="code">std::invoke</code>.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2454" target="_top">2454</a>:
        <span class="emphasis"><em>Add <code class="code">raw_storage_iterator::base()</code> member
        </em></span>
@@ -482,6 +490,11 @@
        <span class="emphasis"><em><code class="code">allocator_traits::max_size()</code> default behavior is incorrect
        </em></span>
     </span></dt><dd><p>Divide by the object type.
+    </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2484" target="_top">2484</a>:
+       <span class="emphasis"><em><code class="code">rethrow_if_nested()</code>  is doubly unimplementable
+       </em></span>
+    </span></dt><dd><p>Avoid using <code class="code">dynamic_cast</code> when it would be
+    ill-formed.
     </p></dd><dt><span class="term"><a class="link" href="../ext/lwg-defects.html#2583" target="_top">2583</a>:
        <span class="emphasis"><em>There is no way to supply an allocator for <code class="code"> basic_string(str, pos)</code>
        </em></span>

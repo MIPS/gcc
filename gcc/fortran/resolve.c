@@ -8304,6 +8304,18 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
   /* Mark this as an associate variable.  */
   sym->attr.associate_var = 1;
 
+  /* Fix up the type-spec for CHARACTER types.  */
+  if (sym->ts.type == BT_CHARACTER && !sym->attr.select_type_temporary)
+    {
+      if (!sym->ts.u.cl)
+	sym->ts.u.cl = target->ts.u.cl;
+
+      if (!sym->ts.u.cl->length)
+	sym->ts.u.cl->length
+	  = gfc_get_int_expr (gfc_default_integer_kind,
+			      NULL, target->value.character.length);
+    }
+
   /* If the target is a good class object, so is the associate variable.  */
   if (sym->ts.type == BT_CLASS && gfc_expr_attr (target).class_ok)
     sym->attr.class_ok = 1;
@@ -11577,7 +11589,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
   if (!deferred_requirements (sym))
     return false;
 
-  if (sym->ts.type == BT_CHARACTER)
+  if (sym->ts.type == BT_CHARACTER && !sym->attr.associate_var)
     {
       /* Make sure that character string variables with assumed length are
 	 dummy arguments.  */
@@ -13775,6 +13787,19 @@ resolve_symbol (gfc_symbol *sym)
      (just like derived type declaration symbols have flavor FL_DERIVED). */
   gcc_assert (sym->ts.type != BT_UNION);
 
+  /* Coarrayed polymorphic objects with allocatable or pointer components are
+     yet unsupported for -fcoarray=lib.  */
+  if (flag_coarray == GFC_FCOARRAY_LIB && sym->ts.type == BT_CLASS
+      && sym->ts.u.derived && CLASS_DATA (sym)
+      && CLASS_DATA (sym)->attr.codimension
+      && (sym->ts.u.derived->attr.alloc_comp
+	  || sym->ts.u.derived->attr.pointer_comp))
+    {
+      gfc_error ("Sorry, allocatable/pointer components in polymorphic (CLASS) "
+		 "type coarrays at %L are unsupported", &sym->declared_at);
+      return;
+    }
+
   if (sym->attr.artificial)
     return;
 
@@ -13886,7 +13911,10 @@ resolve_symbol (gfc_symbol *sym)
 	  /* The specific case of an external procedure should emit an error
 	     in the case that there is no implicit type.  */
 	  if (!mp_flag)
-	    gfc_set_default_type (sym, sym->attr.external, NULL);
+	    {
+	      if (!sym->attr.mixed_entry_master)
+		gfc_set_default_type (sym, sym->attr.external, NULL);
+	    }
 	  else
 	    {
 	      /* Result may be in another namespace.  */

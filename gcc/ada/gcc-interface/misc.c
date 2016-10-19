@@ -157,7 +157,7 @@ gnat_handle_option (size_t scode, const char *arg, int value, int kind,
     case OPT_gant:
       warning (0, "%<-gnat%> misspelled as %<-gant%>");
 
-      /* fall through */
+      /* ... fall through ... */
 
     case OPT_gnat:
     case OPT_gnatO:
@@ -485,13 +485,13 @@ gnat_print_type (FILE *file, tree node, int indent)
       else
 	print_node (file, "index type", TYPE_INDEX_TYPE (node), indent + 4);
 
-      /* fall through */
+      /* ... fall through ... */
 
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
       print_node_brief (file, "RM size", TYPE_RM_SIZE (node), indent + 4);
 
-      /* fall through */
+      /* ... fall through ... */
 
     case REAL_TYPE:
       print_node_brief (file, "RM min", TYPE_RM_MIN_VALUE (node), indent + 4);
@@ -1366,7 +1366,7 @@ get_lang_specific (tree node)
 #undef  LANG_HOOKS_TYPE_HASH_EQ
 #define LANG_HOOKS_TYPE_HASH_EQ		gnat_type_hash_eq
 #undef  LANG_HOOKS_GETDECLS
-#define LANG_HOOKS_GETDECLS		lhd_return_null_tree_v
+#define LANG_HOOKS_GETDECLS		hook_tree_void_null
 #undef  LANG_HOOKS_PUSHDECL
 #define LANG_HOOKS_PUSHDECL		gnat_return_tree
 #undef  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
@@ -1415,6 +1415,8 @@ get_lang_specific (tree node)
 #define LANG_HOOKS_EH_PERSONALITY	gnat_eh_personality
 #undef  LANG_HOOKS_DEEP_UNSHARING
 #define LANG_HOOKS_DEEP_UNSHARING	true
+#undef  LANG_HOOKS_CUSTOM_FUNCTION_DESCRIPTORS
+#define LANG_HOOKS_CUSTOM_FUNCTION_DESCRIPTORS true
 
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

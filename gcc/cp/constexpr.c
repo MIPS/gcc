@@ -2315,9 +2315,13 @@ cxx_eval_component_reference (const constexpr_ctx *ctx, tree t,
     }
   if (*non_constant_p)
     return t;
+  bool pmf = TYPE_PTRMEMFUNC_P (TREE_TYPE (whole));
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (whole), i, field, value)
     {
-      if (field == part)
+      /* Use name match for PMF fields, as a variant will have a
+	 different FIELD_DECL with a different type.  */
+      if (pmf ? DECL_NAME (field) == DECL_NAME (part)
+	  : field == part)
 	{
 	  if (value)
 	    return value;
@@ -2341,6 +2345,8 @@ cxx_eval_component_reference (const constexpr_ctx *ctx, tree t,
      classes never get represented; throw together a value now.  */
   if (is_really_empty_class (TREE_TYPE (t)))
     return build_constructor (TREE_TYPE (t), NULL);
+
+  gcc_assert (DECL_CONTEXT (part) == TYPE_MAIN_VARIANT (TREE_TYPE (whole)));
 
   if (CONSTRUCTOR_NO_IMPLICIT_ZERO (whole))
     {
@@ -3200,6 +3206,26 @@ var_in_maybe_constexpr_fn (tree t)
   return var_in_constexpr_fn (t);
 }
 
+/* We're assigning INIT to TARGET.  In do_build_copy_constructor and
+   build_over_call we implement trivial copy of a class with tail padding using
+   assignment of character arrays, which is valid in normal code, but not in
+   constexpr evaluation.  We don't need to worry about clobbering tail padding
+   in constexpr evaluation, so strip the type punning.  */
+
+static void
+maybe_simplify_trivial_copy (tree &target, tree &init)
+{
+  if (TREE_CODE (target) == MEM_REF
+      && TREE_CODE (init) == MEM_REF
+      && TREE_TYPE (target) == TREE_TYPE (init)
+      && TREE_CODE (TREE_TYPE (target)) == ARRAY_TYPE
+      && TREE_TYPE (TREE_TYPE (target)) == unsigned_char_type_node)
+    {
+      target = build_fold_indirect_ref (TREE_OPERAND (target, 0));
+      init = build_fold_indirect_ref (TREE_OPERAND (init, 0));
+    }
+}
+
 /* Evaluate an INIT_EXPR or MODIFY_EXPR.  */
 
 static tree
@@ -3216,6 +3242,9 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 
   /* First we figure out where we're storing to.  */
   tree target = TREE_OPERAND (t, 0);
+
+  maybe_simplify_trivial_copy (target, init);
+
   tree type = TREE_TYPE (target);
   target = cxx_eval_constant_expression (ctx, target,
 					 true,
@@ -5019,6 +5048,11 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
         return (RECUR (from, TREE_CODE (t) != VIEW_CONVERT_EXPR));
       }
 
+    case ADDRESSOF_EXPR:
+      /* This is like ADDR_EXPR, except it won't form pointer-to-member.  */
+      t = TREE_OPERAND (t, 0);
+      goto handle_addr_expr;
+
     case ADDR_EXPR:
       /* -- a unary operator & that is applied to an lvalue that
             designates an object with thread or automatic storage
@@ -5029,6 +5063,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	/* A pointer-to-member constant.  */
 	return true;
 
+    handle_addr_expr:
 #if 0
       /* FIXME adjust when issue 1197 is fully resolved.  For now don't do
          any checking here, as we might dereference the pointer later.  If

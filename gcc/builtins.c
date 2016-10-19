@@ -148,11 +148,7 @@ static tree rewrite_call_expr (location_t, tree, int, tree, int, ...);
 static bool validate_arg (const_tree, enum tree_code code);
 static rtx expand_builtin_fabs (tree, rtx, rtx);
 static rtx expand_builtin_signbit (tree, rtx);
-static tree fold_builtin_strchr (location_t, tree, tree, tree);
-static tree fold_builtin_memchr (location_t, tree, tree, tree, tree);
 static tree fold_builtin_memcmp (location_t, tree, tree, tree);
-static tree fold_builtin_strcmp (location_t, tree, tree);
-static tree fold_builtin_strncmp (location_t, tree, tree, tree);
 static tree fold_builtin_isascii (location_t, tree);
 static tree fold_builtin_toascii (location_t, tree);
 static tree fold_builtin_isdigit (location_t, tree);
@@ -168,7 +164,6 @@ static tree fold_builtin_varargs (location_t, tree, tree*, int);
 
 static tree fold_builtin_strpbrk (location_t, tree, tree, tree);
 static tree fold_builtin_strstr (location_t, tree, tree, tree);
-static tree fold_builtin_strrchr (location_t, tree, tree, tree);
 static tree fold_builtin_strspn (location_t, tree, tree);
 static tree fold_builtin_strcspn (location_t, tree, tree);
 
@@ -693,7 +688,7 @@ builtin_save_expr (tree exp)
   if (TREE_CODE (exp) == SSA_NAME
       || (TREE_ADDRESSABLE (exp) == 0
 	  && (TREE_CODE (exp) == PARM_DECL
-	      || (TREE_CODE (exp) == VAR_DECL && !TREE_STATIC (exp)))))
+	      || (VAR_P (exp) && !TREE_STATIC (exp)))))
     return exp;
 
   return save_expr (exp);
@@ -4092,10 +4087,8 @@ std_canonical_va_list_type (tree type)
 
   wtype = va_list_type_node;
   htype = type;
-  /* Treat structure va_list types.  */
-  if (TREE_CODE (wtype) == RECORD_TYPE && POINTER_TYPE_P (htype))
-    htype = TREE_TYPE (htype);
-  else if (TREE_CODE (wtype) == ARRAY_TYPE)
+
+  if (TREE_CODE (wtype) == ARRAY_TYPE)
     {
       /* If va_list is an array type, the argument may have decayed
 	 to a pointer type, e.g. by being passed to another function.
@@ -4615,8 +4608,9 @@ expand_builtin_init_trampoline (tree exp, bool onstack)
     {
       trampolines_created = 1;
 
-      warning_at (DECL_SOURCE_LOCATION (t_func), OPT_Wtrampolines,
-		  "trampoline generated for nested function %qD", t_func);
+      if (targetm.calls.custom_function_descriptors != 0)
+	warning_at (DECL_SOURCE_LOCATION (t_func), OPT_Wtrampolines,
+		    "trampoline generated for nested function %qD", t_func);
     }
 
   return const0_rtx;
@@ -4636,6 +4630,58 @@ expand_builtin_adjust_trampoline (tree exp)
     tramp = targetm.calls.trampoline_adjust_address (tramp);
 
   return tramp;
+}
+
+/* Expand a call to the builtin descriptor initialization routine.
+   A descriptor is made up of a couple of pointers to the static
+   chain and the code entry in this order.  */
+
+static rtx
+expand_builtin_init_descriptor (tree exp)
+{
+  tree t_descr, t_func, t_chain;
+  rtx m_descr, r_descr, r_func, r_chain;
+
+  if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, POINTER_TYPE,
+			 VOID_TYPE))
+    return NULL_RTX;
+
+  t_descr = CALL_EXPR_ARG (exp, 0);
+  t_func = CALL_EXPR_ARG (exp, 1);
+  t_chain = CALL_EXPR_ARG (exp, 2);
+
+  r_descr = expand_normal (t_descr);
+  m_descr = gen_rtx_MEM (BLKmode, r_descr);
+  MEM_NOTRAP_P (m_descr) = 1;
+
+  r_func = expand_normal (t_func);
+  r_chain = expand_normal (t_chain);
+
+  /* Generate insns to initialize the descriptor.  */
+  emit_move_insn (adjust_address_nv (m_descr, ptr_mode, 0), r_chain);
+  emit_move_insn (adjust_address_nv (m_descr, ptr_mode,
+				     POINTER_SIZE / BITS_PER_UNIT), r_func);
+
+  return const0_rtx;
+}
+
+/* Expand a call to the builtin descriptor adjustment routine.  */
+
+static rtx
+expand_builtin_adjust_descriptor (tree exp)
+{
+  rtx tramp;
+
+  if (!validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  tramp = expand_normal (CALL_EXPR_ARG (exp, 0));
+
+  /* Unalign the descriptor to allow runtime identification.  */
+  tramp = plus_constant (ptr_mode, tramp,
+			 targetm.calls.custom_function_descriptors);
+
+  return force_operand (tramp, NULL_RTX);
 }
 
 /* Expand the call EXP to the built-in signbit, signbitf or signbitl
@@ -6337,6 +6383,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
     case BUILT_IN_ADJUST_TRAMPOLINE:
       return expand_builtin_adjust_trampoline (exp);
 
+    case BUILT_IN_INIT_DESCRIPTOR:
+      return expand_builtin_init_descriptor (exp);
+    case BUILT_IN_ADJUST_DESCRIPTOR:
+      return expand_builtin_adjust_descriptor (exp);
+
     case BUILT_IN_FORK:
     case BUILT_IN_EXECL:
     case BUILT_IN_EXECV:
@@ -7143,9 +7194,7 @@ fold_builtin_expect (location_t loc, tree arg0, tree arg1, tree arg2)
 	}
       while (TREE_CODE (inner) == COMPONENT_REF
 	     || TREE_CODE (inner) == ARRAY_REF);
-      if ((TREE_CODE (inner) == VAR_DECL
-           || TREE_CODE (inner) == FUNCTION_DECL)
-	  && DECL_WEAK (inner))
+      if (VAR_OR_FUNCTION_DECL_P (inner) && DECL_WEAK (inner))
 	return NULL_TREE;
     }
 
@@ -7250,47 +7299,6 @@ fold_builtin_sincos (location_t loc,
 			 fold_build1_loc (loc, REALPART_EXPR, type, call)));
 }
 
-/* Fold function call to builtin memchr.  ARG1, ARG2 and LEN are the
-   arguments to the call, and TYPE is its return type.
-   Return NULL_TREE if no simplification can be made.  */
-
-static tree
-fold_builtin_memchr (location_t loc, tree arg1, tree arg2, tree len, tree type)
-{
-  if (!validate_arg (arg1, POINTER_TYPE)
-      || !validate_arg (arg2, INTEGER_TYPE)
-      || !validate_arg (len, INTEGER_TYPE))
-    return NULL_TREE;
-  else
-    {
-      const char *p1;
-
-      if (TREE_CODE (arg2) != INTEGER_CST
-	  || !tree_fits_uhwi_p (len))
-	return NULL_TREE;
-
-      p1 = c_getstr (arg1);
-      if (p1 && compare_tree_int (len, strlen (p1) + 1) <= 0)
-	{
-	  char c;
-	  const char *r;
-	  tree tem;
-
-	  if (target_char_cast (arg2, &c))
-	    return NULL_TREE;
-
-	  r = (const char *) memchr (p1, c, tree_to_uhwi (len));
-
-	  if (r == NULL)
-	    return build_int_cst (TREE_TYPE (arg1), 0);
-
-	  tem = fold_build_pointer_plus_hwi_loc (loc, arg1, r - p1);
-	  return fold_convert_loc (loc, type, tem);
-	}
-      return NULL_TREE;
-    }
-}
-
 /* Fold function call to builtin memcmp with arguments ARG1 and ARG2.
    Return NULL_TREE if no simplification can be made.  */
 
@@ -7331,136 +7339,6 @@ fold_builtin_memcmp (location_t loc, tree arg1, tree arg2, tree len)
 				    fold_convert_loc (loc,
 						      cst_uchar_ptr_node,
 						      arg2)));
-      return fold_build2_loc (loc, MINUS_EXPR, integer_type_node, ind1, ind2);
-    }
-
-  return NULL_TREE;
-}
-
-/* Fold function call to builtin strcmp with arguments ARG1 and ARG2.
-   Return NULL_TREE if no simplification can be made.  */
-
-static tree
-fold_builtin_strcmp (location_t loc, tree arg1, tree arg2)
-{
-  if (!validate_arg (arg1, POINTER_TYPE)
-      || !validate_arg (arg2, POINTER_TYPE))
-    return NULL_TREE;
-
-  /* If ARG1 and ARG2 are the same (and not volatile), return zero.  */
-  if (operand_equal_p (arg1, arg2, 0))
-    return integer_zero_node;
-
-  /* If the second arg is "", return *(const unsigned char*)arg1.  */
-  const char *p2 = c_getstr (arg2);
-  if (p2 && *p2 == '\0')
-    {
-      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node
-	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
-
-      return fold_convert_loc (loc, integer_type_node,
-			       build1 (INDIRECT_REF, cst_uchar_node,
-				       fold_convert_loc (loc,
-							 cst_uchar_ptr_node,
-							 arg1)));
-    }
-
-  /* If the first arg is "", return -*(const unsigned char*)arg2.  */
-  const char *p1 = c_getstr (arg1);
-  if (p1 && *p1 == '\0')
-    {
-      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node
-	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
-
-      tree temp
-	= fold_convert_loc (loc, integer_type_node,
-			    build1 (INDIRECT_REF, cst_uchar_node,
-				    fold_convert_loc (loc,
-						      cst_uchar_ptr_node,
-						      arg2)));
-      return fold_build1_loc (loc, NEGATE_EXPR, integer_type_node, temp);
-    }
-
-  return NULL_TREE;
-}
-
-/* Fold function call to builtin strncmp with arguments ARG1, ARG2, and LEN.
-   Return NULL_TREE if no simplification can be made.  */
-
-static tree
-fold_builtin_strncmp (location_t loc, tree arg1, tree arg2, tree len)
-{
-  if (!validate_arg (arg1, POINTER_TYPE)
-      || !validate_arg (arg2, POINTER_TYPE)
-      || !validate_arg (len, INTEGER_TYPE))
-    return NULL_TREE;
-
-  /* If the LEN parameter is zero, return zero.  */
-  if (integer_zerop (len))
-    return omit_two_operands_loc (loc, integer_type_node, integer_zero_node,
-			      arg1, arg2);
-
-  /* If ARG1 and ARG2 are the same (and not volatile), return zero.  */
-  if (operand_equal_p (arg1, arg2, 0))
-    return omit_one_operand_loc (loc, integer_type_node, integer_zero_node, len);
-
-  /* If the second arg is "", and the length is greater than zero,
-     return *(const unsigned char*)arg1.  */
-  const char *p2 = c_getstr (arg2);
-  if (p2 && *p2 == '\0'
-      && TREE_CODE (len) == INTEGER_CST
-      && tree_int_cst_sgn (len) == 1)
-    {
-      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node
-	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
-
-      return fold_convert_loc (loc, integer_type_node,
-			       build1 (INDIRECT_REF, cst_uchar_node,
-				       fold_convert_loc (loc,
-							 cst_uchar_ptr_node,
-							 arg1)));
-    }
-
-  /* If the first arg is "", and the length is greater than zero,
-     return -*(const unsigned char*)arg2.  */
-  const char *p1 = c_getstr (arg1);
-  if (p1 && *p1 == '\0'
-      && TREE_CODE (len) == INTEGER_CST
-      && tree_int_cst_sgn (len) == 1)
-    {
-      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node
-	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
-
-      tree temp = fold_convert_loc (loc, integer_type_node,
-				    build1 (INDIRECT_REF, cst_uchar_node,
-					    fold_convert_loc (loc,
-							      cst_uchar_ptr_node,
-							      arg2)));
-      return fold_build1_loc (loc, NEGATE_EXPR, integer_type_node, temp);
-    }
-
-  /* If len parameter is one, return an expression corresponding to
-     (*(const unsigned char*)arg1 - (const unsigned char*)arg2).  */
-  if (tree_fits_uhwi_p (len) && tree_to_uhwi (len) == 1)
-    {
-      tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node
-	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
-
-      tree ind1 = fold_convert_loc (loc, integer_type_node,
-				    build1 (INDIRECT_REF, cst_uchar_node,
-					    fold_convert_loc (loc,
-							      cst_uchar_ptr_node,
-							      arg1)));
-      tree ind2 = fold_convert_loc (loc, integer_type_node,
-				    build1 (INDIRECT_REF, cst_uchar_node,
-					    fold_convert_loc (loc,
-							      cst_uchar_ptr_node,
-							      arg2)));
       return fold_build2_loc (loc, MINUS_EXPR, integer_type_node, ind1, ind2);
     }
 
@@ -8395,17 +8273,6 @@ fold_builtin_2 (location_t loc, tree fndecl, tree arg0, tree arg1)
     case BUILT_IN_STRCSPN:
       return fold_builtin_strcspn (loc, arg0, arg1);
 
-    case BUILT_IN_STRCHR:
-    case BUILT_IN_INDEX:
-      return fold_builtin_strchr (loc, arg0, arg1, type);
-
-    case BUILT_IN_STRRCHR:
-    case BUILT_IN_RINDEX:
-      return fold_builtin_strrchr (loc, arg0, arg1, type);
-
-    case BUILT_IN_STRCMP:
-      return fold_builtin_strcmp (loc, arg0, arg1);
-
     case BUILT_IN_STRPBRK:
       return fold_builtin_strpbrk (loc, arg0, arg1, type);
 
@@ -8486,12 +8353,6 @@ fold_builtin_3 (location_t loc, tree fndecl,
 	  && validate_arg (arg2, POINTER_TYPE))
 	return do_mpfr_remquo (arg0, arg1, arg2);
     break;
-
-    case BUILT_IN_STRNCMP:
-      return fold_builtin_strncmp (loc, arg0, arg1, arg2);
-
-    case BUILT_IN_MEMCHR:
-      return fold_builtin_memchr (loc, arg0, arg1, arg2, type);
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
@@ -8823,7 +8684,7 @@ readonly_data_expr (tree exp)
      understand).  */
   if (TREE_CODE (exp) == STRING_CST
       || TREE_CODE (exp) == CONSTRUCTOR
-      || (TREE_CODE (exp) == VAR_DECL && TREE_STATIC (exp)))
+      || (VAR_P (exp) && TREE_STATIC (exp)))
     return decl_readonly_section (exp, 0);
   else
     return false;
@@ -8892,124 +8753,6 @@ fold_builtin_strstr (location_t loc, tree s1, tree s2, tree type)
 	 strchr(s1, s2[0]).  */
       return build_call_expr_loc (loc, fn, 2, s1,
 				  build_int_cst (integer_type_node, p2[0]));
-    }
-}
-
-/* Simplify a call to the strchr builtin.  S1 and S2 are the arguments to
-   the call, and TYPE is its return type.
-
-   Return NULL_TREE if no simplification was possible, otherwise return the
-   simplified form of the call as a tree.
-
-   The simplified form may be a constant or other expression which
-   computes the same value, but in a more efficient manner (including
-   calls to other builtin functions).
-
-   The call may contain arguments which need to be evaluated, but
-   which are not useful to determine the result of the call.  In
-   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
-   COMPOUND_EXPR will be an argument which must be evaluated.
-   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
-   COMPOUND_EXPR in the chain will contain the tree for the simplified
-   form of the builtin function call.  */
-
-static tree
-fold_builtin_strchr (location_t loc, tree s1, tree s2, tree type)
-{
-  if (!validate_arg (s1, POINTER_TYPE)
-      || !validate_arg (s2, INTEGER_TYPE))
-    return NULL_TREE;
-  else
-    {
-      const char *p1;
-
-      if (TREE_CODE (s2) != INTEGER_CST)
-	return NULL_TREE;
-
-      p1 = c_getstr (s1);
-      if (p1 != NULL)
-	{
-	  char c;
-	  const char *r;
-	  tree tem;
-
-	  if (target_char_cast (s2, &c))
-	    return NULL_TREE;
-
-	  r = strchr (p1, c);
-
-	  if (r == NULL)
-	    return build_int_cst (TREE_TYPE (s1), 0);
-
-	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build_pointer_plus_hwi_loc (loc, s1, r - p1);
-	  return fold_convert_loc (loc, type, tem);
-	}
-      return NULL_TREE;
-    }
-}
-
-/* Simplify a call to the strrchr builtin.  S1 and S2 are the arguments to
-   the call, and TYPE is its return type.
-
-   Return NULL_TREE if no simplification was possible, otherwise return the
-   simplified form of the call as a tree.
-
-   The simplified form may be a constant or other expression which
-   computes the same value, but in a more efficient manner (including
-   calls to other builtin functions).
-
-   The call may contain arguments which need to be evaluated, but
-   which are not useful to determine the result of the call.  In
-   this case we return a chain of COMPOUND_EXPRs.  The LHS of each
-   COMPOUND_EXPR will be an argument which must be evaluated.
-   COMPOUND_EXPRs are chained through their RHS.  The RHS of the last
-   COMPOUND_EXPR in the chain will contain the tree for the simplified
-   form of the builtin function call.  */
-
-static tree
-fold_builtin_strrchr (location_t loc, tree s1, tree s2, tree type)
-{
-  if (!validate_arg (s1, POINTER_TYPE)
-      || !validate_arg (s2, INTEGER_TYPE))
-    return NULL_TREE;
-  else
-    {
-      tree fn;
-      const char *p1;
-
-      if (TREE_CODE (s2) != INTEGER_CST)
-	return NULL_TREE;
-
-      p1 = c_getstr (s1);
-      if (p1 != NULL)
-	{
-	  char c;
-	  const char *r;
-	  tree tem;
-
-	  if (target_char_cast (s2, &c))
-	    return NULL_TREE;
-
-	  r = strrchr (p1, c);
-
-	  if (r == NULL)
-	    return build_int_cst (TREE_TYPE (s1), 0);
-
-	  /* Return an offset into the constant string argument.  */
-	  tem = fold_build_pointer_plus_hwi_loc (loc, s1, r - p1);
-	  return fold_convert_loc (loc, type, tem);
-	}
-
-      if (! integer_zerop (s2))
-	return NULL_TREE;
-
-      fn = builtin_decl_implicit (BUILT_IN_STRCHR);
-      if (!fn)
-	return NULL_TREE;
-
-      /* Transform strrchr(s1, '\0') to strchr(s1, '\0').  */
-      return build_call_expr_loc (loc, fn, 2, s1, s2);
     }
 }
 
@@ -10175,4 +9918,18 @@ is_inexpensive_builtin (tree decl)
       }
 
   return false;
+}
+
+/* Return true if T is a constant and the value cast to a target char
+   can be represented by a host char.
+   Store the casted char constant in *P if so.  */
+
+bool
+target_char_cst_p (tree t, char *p)
+{
+  if (!tree_fits_uhwi_p (t) || CHAR_TYPE_SIZE != HOST_BITS_PER_CHAR)
+    return false;
+
+  *p = (char)tree_to_uhwi (t);
+  return true;
 }

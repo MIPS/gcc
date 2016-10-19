@@ -363,6 +363,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define SET_TARGET_LINK_STACK(X) do { } while (0)
 #endif
 
+#ifndef TARGET_FLOAT128_ENABLE_TYPE
+#define TARGET_FLOAT128_ENABLE_TYPE 0
+#endif
+
 /* Return 1 for a symbol ref for a thread-local storage symbol.  */
 #define RS6000_SYMBOL_REF_TLS_P(RTX) \
   (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
@@ -449,12 +453,12 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
-#define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128 && FLOAT128_IEEE_P (MODE))
+#define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128_TYPE && FLOAT128_IEEE_P (MODE))
 
 #define FLOAT128_2REG_P(MODE)						\
   (FLOAT128_IBM_P (MODE)						\
    || ((MODE) == TDmode)						\
-   || (!TARGET_FLOAT128 && FLOAT128_IEEE_P (MODE)))
+   || (!TARGET_FLOAT128_TYPE && FLOAT128_IEEE_P (MODE)))
 
 /* Return true for floating point that does not use a vector register.  */
 #define SCALAR_FLOAT_MODE_NOT_VECTOR_P(MODE)				\
@@ -603,6 +607,9 @@ extern int rs6000_vector_align[];
 				 && TARGET_POWERPC64)
 #define TARGET_VEXTRACTUB	(TARGET_P9_VECTOR && TARGET_DIRECT_MOVE \
 				 && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
+/* This wants to be set for p8 and newer.  On p7, overlapping unaligned
+   loads are slow. */
+#define TARGET_EFFICIENT_OVERLAPPING_UNALIGNED TARGET_EFFICIENT_UNALIGNED_VSX
 
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad
@@ -637,7 +644,7 @@ extern int rs6000_vector_align[];
 #define MASK_DIRECT_MOVE		OPTION_MASK_DIRECT_MOVE
 #define MASK_DLMZB			OPTION_MASK_DLMZB
 #define MASK_EABI			OPTION_MASK_EABI
-#define MASK_FLOAT128			OPTION_MASK_FLOAT128
+#define MASK_FLOAT128_TYPE		OPTION_MASK_FLOAT128_TYPE
 #define MASK_FPRND			OPTION_MASK_FPRND
 #define MASK_P8_FUSION			OPTION_MASK_P8_FUSION
 #define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT
@@ -1821,7 +1828,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 			   : (FP_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 #define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2		\
 				? (ALTIVEC_ARG_RETURN			\
-				   + (TARGET_FLOAT128 ? 1 : 0))		\
+				   + (TARGET_FLOAT128_TYPE ? 1 : 0))	\
 			        : (ALTIVEC_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 
 /* Flags for the call/call_value rtl operations set up by function_arg */
@@ -2728,7 +2735,7 @@ extern int frame_pointer_needed;
 #define RS6000_BTM_HARD_FLOAT	MASK_SOFT_FLOAT	/* Hardware floating point.  */
 #define RS6000_BTM_LDBL128	MASK_MULTIPLE	/* 128-bit long double.  */
 #define RS6000_BTM_64BIT	MASK_64BIT	/* 64-bit addressing.  */
-#define RS6000_BTM_FLOAT128	MASK_FLOAT128	/* IEEE 128-bit float.  */
+#define RS6000_BTM_FLOAT128	MASK_FLOAT128_TYPE /* IEEE 128-bit float.  */
 
 #define RS6000_BTM_COMMON	(RS6000_BTM_ALTIVEC			\
 				 | RS6000_BTM_VSX			\
@@ -2914,3 +2921,10 @@ extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
 #define TARGET_SUPPORTS_WIDE_INT 1
+
+/* Use custom descriptors instead of trampolines if not AIX or ELFv1.  */
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS (DEFAULT_ABI != ABI_AIX)
+
+#if (GCC_VERSION >= 3000)
+#pragma GCC poison TARGET_FLOAT128 OPTION_MASK_FLOAT128 MASK_FLOAT128
+#endif

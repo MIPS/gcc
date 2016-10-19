@@ -152,8 +152,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_PREFETCHWT1_P(x)	TARGET_ISA_PREFETCHWT1_P(x)
 #define TARGET_MPX	TARGET_ISA_MPX
 #define TARGET_MPX_P(x)	TARGET_ISA_MPX_P(x)
-#define TARGET_PCOMMIT	TARGET_ISA_PCOMMIT
-#define TARGET_PCOMMIT_P(x)	TARGET_ISA_PCOMMIT_P(x)
 #define TARGET_CLWB	TARGET_ISA_CLWB
 #define TARGET_CLWB_P(x)	TARGET_ISA_CLWB_P(x)
 #define TARGET_MWAITX	TARGET_ISA_MWAITX
@@ -481,8 +479,6 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_OPT_AGU ix86_tune_features[X86_TUNE_OPT_AGU]
 #define TARGET_AVOID_LEA_FOR_ADDR \
 	ix86_tune_features[X86_TUNE_AVOID_LEA_FOR_ADDR]
-#define TARGET_VECTORIZE_DOUBLE \
-	ix86_tune_features[X86_TUNE_VECTORIZE_DOUBLE]
 #define TARGET_SOFTWARE_PREFETCHING_BENEFICIAL \
 	ix86_tune_features[X86_TUNE_SOFTWARE_PREFETCHING_BENEFICIAL]
 #define TARGET_AVX128_OPTIMAL \
@@ -2669,6 +2665,9 @@ extern void debug_dispatch_window (int);
 #define SWITCHABLE_TARGET 1
 
 #define TARGET_SUPPORTS_WIDE_INT 1
+
+/* Use custom descriptors instead of trampolines when possible.  */
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
 
 /*
 Local variables:

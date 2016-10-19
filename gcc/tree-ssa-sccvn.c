@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa.h"
 #include "expmed.h"
 #include "insn-config.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "cgraph.h"
 #include "gimple-pretty-print.h"
@@ -3259,6 +3260,23 @@ set_ssa_val_to (tree from, tree to)
 	      fprintf (dump_file, "\n");
 	    }
 	  return false;
+	}
+      else if (currval != VN_TOP
+	       && ! is_gimple_min_invariant (currval)
+	       && is_gimple_min_invariant (to))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Forcing VARYING instead of changing "
+		       "value number of ");
+	      print_generic_expr (dump_file, from, 0);
+	      fprintf (dump_file, " from ");
+	      print_generic_expr (dump_file, currval, 0);
+	      fprintf (dump_file, " (non-constant) to ");
+	      print_generic_expr (dump_file, to, 0);
+	      fprintf (dump_file, " (constant)\n");
+	    }
+	  to = from;
 	}
       else if (TREE_CODE (to) == SSA_NAME
 	       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (to))

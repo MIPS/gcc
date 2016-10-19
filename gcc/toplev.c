@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "alloc-pool.h"
 #include "timevar.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs-libfuncs.h"
 #include "insn-config.h"
@@ -350,7 +351,7 @@ wrapup_global_declaration_1 (tree decl)
       && DECL_DEFER_OUTPUT (decl) != 0)
     DECL_DEFER_OUTPUT (decl) = 0;
 
-  if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
+  if (VAR_P (decl) && DECL_SIZE (decl) == 0)
     lang_hooks.finish_incomplete_decl (decl);
 }
 
@@ -361,7 +362,7 @@ bool
 wrapup_global_declaration_2 (tree decl)
 {
   if (TREE_ASM_WRITTEN (decl) || DECL_EXTERNAL (decl)
-      || (TREE_CODE (decl) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (decl)))
+      || (VAR_P (decl) && DECL_HAS_VALUE_EXPR_P (decl)))
     return false;
 
   /* Don't write out static consts, unless we still need them.
@@ -389,7 +390,7 @@ wrapup_global_declaration_2 (tree decl)
      to force a constant to be written if and only if it is
      defined in a main file, as opposed to an include file.  */
 
-  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+  if (VAR_P (decl) && TREE_STATIC (decl))
     {
       varpool_node *node;
       bool needed = true;

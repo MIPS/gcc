@@ -21,6 +21,7 @@
 #include "coretypes.h"
 #include "target.h"
 #include "c-family/c-common.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "c-family/c-pragma.h"
 #include "stringpool.h"
@@ -128,7 +129,7 @@ arm_cpu_builtins (struct cpp_reader* pfile)
   if (TARGET_SOFT_FLOAT)
     builtin_define ("__SOFTFP__");
 
-  def_or_undef_macro (pfile, "__VFP_FP__", TARGET_VFP);
+  builtin_define ("__VFP_FP__");
 
   if (TARGET_ARM_FP)
     builtin_define_with_int_value ("__ARM_FP", TARGET_ARM_FP);

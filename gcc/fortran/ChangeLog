@@ -1,3 +1,132 @@
+2016-10-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+	* trans-io.c (transfer_expr): Ignore dtio procedures for inquire
+	with iolength.
+
+2016-10-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/77972
+	* scanner.c (gfc_next_char_literal): If nextc is null do not
+	decrement the pointer and call the diagnostics.
+
+2016-10-14  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* resolve.c (resolve_symbol): Add unimplemented message for
+	polymorphic types with allocatable/pointer components and coarray=lib.
+
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* trans-intrinsic.c: Include memmodel.h.
+
+2016-10-13  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/72832
+	* trans-expr.c (gfc_copy_class_to_class): Add generation of
+	runtime array bounds check.
+	* trans-intrinsic.c (gfc_conv_intrinsic_size): Add a crutch to
+	get the descriptor of a function returning a class object.
+	* trans-stmt.c (gfc_trans_allocate): Use the array spec on the
+	array to allocate instead of the array spec from source=.
+
+2016-10-12  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* trans-expr.c (gfc_find_and_cut_at_last_class_ref): Fixed style.
+	(gfc_trans_class_init_assign): Same.
+	(gfc_conv_procedure_call): Same.
+	(gfc_trans_assignment_1): Same.
+	* trans-stmt.c (gfc_trans_allocate): Same.
+
+2016-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* iresolve.c (is_trig_resolved, resolve_trig_call): Formatting fixes.
+	* simplify.c (simplify_trig_call, degrees_f, radians_f,
+	gfc_simplify_atrigd, gfc_simplify_cotan): Likewise.
+
+2016-10-11  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77942
+	* simplify.c (gfc_simplify_cshift): Check for zero.
+
+2016-10-11  Fritz Reese  <fritzoreese@gmail.com>
+
+	* iresolve.c (get_radians, get_degrees): Fix sloppy commit.
+	* simplify.c (degrees_f, radians_f): Ditto.
+
+2016-10-11  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* simplify.c (radians_f): Fix mpfr_mod.
+	* ireolce.c (get_degrees): Declare tmp.
+
+2016-10-11  Fritz Reese  <fritzoreese@gmail.com>
+
+	* lang.opt: New flag -fdec-math.
+	* options.c (set_dec_flags): Enable with -fdec.
+	* invoke.texi, gfortran.texi, intrinsic.texi: Update documentation.
+	* intrinsics.c (add_functions, do_simplify): New intrinsics
+	with -fdec-math.
+	* gfortran.h (gfc_isym_id): New isym GFC_ISYM_COTAN.
+	* gfortran.h (gfc_resolve_atan2d, gfc_resolve_cotan,
+	gfc_resolve_trigd, gfc_resolve_atrigd): New prototypes.
+	* iresolve.c (resolve_trig_call, get_degrees, get_radians,
+	is_trig_resolved, gfc_resolve_cotan, gfc_resolve_trigd,
+	gfc_resolve_atrigd, gfc_resolve_atan2d): New functions.
+	* intrinsics.h (gfc_simplify_atan2d, gfc_simplify_atrigd,
+	gfc_simplify_cotan, gfc_simplify_trigd): New prototypes.
+	* simplify.c (simplify_trig_call, degrees_f, radians_f,
+	gfc_simplify_cotan, gfc_simplify_trigd, gfc_simplify_atrigd,
+	gfc_simplify_atan2d): New functions.
+
+2016-10-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/77915
+	* frontend-passes.c (inline_matmul_assign):  Return early if
+	inside a FORALL statement.
+
+2016-10-07  Fritz Reese  <fritzoreese@gmail.com>
+
+	* interface.c (compare_components): Check charlen for BT_CHAR.
+
+2016-10-07  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77406
+	* interface.c (gfc_compare_interfaces): Fix detection of ambiguous
+	interface involving alternate return.
+	(check_interface1): Improve error message and loci.
+
+2016-10-06  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/69955
+	* trans-array.c (gfc_conv_expr_descriptor): Don't allocate
+	components if it's not necessary.
+
+2016-10-05  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/57910
+	* trans-expr.c (gfc_add_interface_mapping): Don't try to
+	dereference call-by-value scalar argument.
+
+2016-10-05  Steven G. Kargl  <kargls@gcc.gnu.org>
+
+	PR fortran/58991
+	PR fortran/58992
+	* resolve.c (resolve_assoc_var):  Fix CHARACTER type-spec for a
+	selector in ASSOCIATE.
+	(resolve_fl_variable): Skip checks for an ASSOCIATE variable.
+
+2016-10-05  Fritz Reese  <fritzoreese@gmail.com>
+
+	* interface.c (gfc_compare_types): Don't compare BT_UNION components
+	until we know they're both UNIONs.
+	* interface.c (gfc_compare_union_types): Guard against empty
+	components.
+
+2016-10-05  Louis Krupp  <louis.krupp@zoho.com>
+
+	PR fortran/67524
+	* resolve.c (resolve_symbol): Don't apply default type rules to
+	mixed-entry master created for function entry points.
+
 2016-09-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/66643

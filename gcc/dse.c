@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "predict.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "gimple-ssa.h"
 #include "expmed.h"
@@ -911,7 +912,7 @@ can_escape (tree expr)
   base = get_base_address (expr);
   if (DECL_P (base)
       && !may_be_aliased (base)
-      && !(TREE_CODE (base) == VAR_DECL
+      && !(VAR_P (base)
 	   && !DECL_EXTERNAL (base)
 	   && !TREE_STATIC (base)
 	   && local_variable_can_escape (base)))

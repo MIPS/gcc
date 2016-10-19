@@ -56,7 +56,6 @@
 #include "arch.h"
 #include "malloc.h"
 #include "mgc0.h"
-#include "chan.h"
 #include "go-type.h"
 
 // Map gccgo field names to gc field names.
@@ -145,21 +144,6 @@ clearpools(void)
 		p->deferpool = nil;
 	}
 }
-
-// Holding worldsema grants an M the right to try to stop the world.
-// The procedure is:
-//
-//	runtime_semacquire(&runtime_worldsema);
-//	m->gcing = 1;
-//	runtime_stoptheworld();
-//
-//	... do stuff ...
-//
-//	m->gcing = 0;
-//	runtime_semrelease(&runtime_worldsema);
-//	runtime_starttheworld();
-//
-uint32 runtime_worldsema = 1;
 
 typedef struct Workbuf Workbuf;
 struct Workbuf
@@ -1112,15 +1096,13 @@ scanblock(Workbuf *wbuf, bool keepworking)
 			// There are no heap pointers in struct Hchan,
 			// so we can ignore the leading sizeof(Hchan) bytes.
 			if(!(chantype->elem->__code & kindNoPointers)) {
-				// Channel's buffer follows Hchan immediately in memory.
-				// Size of buffer (cap(c)) is second int in the chan struct.
-				chancap = ((uintgo*)chan)[1];
-				if(chancap > 0) {
+				chancap = chan->dataqsiz;
+				if(chancap > 0 && markonly(chan->buf)) {
 					// TODO(atom): split into two chunks so that only the
 					// in-use part of the circular buffer is scanned.
 					// (Channel routines zero the unused part, so the current
 					// code does not lead to leaks, it's just a little inefficient.)
-					*sbuf.obj.pos++ = (Obj){(byte*)chan+runtime_Hchansize, chancap*chantype->elem->__size,
+					*sbuf.obj.pos++ = (Obj){chan->buf, chancap*chantype->elem->__size,
 						(uintptr)chantype->elem->__gc | PRECISE | LOOP};
 					if(sbuf.obj.pos == sbuf.obj.end)
 						flushobjbuf(&sbuf);
@@ -1295,8 +1277,6 @@ markroot(ParFor *desc, uint32 i)
 		enqueue1(&wbuf, (Obj){(byte*)&runtime_allp, sizeof runtime_allp, 0});
 		enqueue1(&wbuf, (Obj){(byte*)&work, sizeof work, 0});
 		runtime_proc_scan(&wbuf, enqueue1);
-		runtime_MProf_Mark(&wbuf, enqueue1);
-		runtime_time_scan(&wbuf, enqueue1);
 		runtime_netpoll_scan(&wbuf, enqueue1);
 		break;
 
@@ -1380,7 +1360,7 @@ getempty(Workbuf *b)
 		runtime_lock(&work);
 		if(work.nchunk < sizeof *b) {
 			work.nchunk = 1<<20;
-			work.chunk = runtime_SysAlloc(work.nchunk, &mstats.gc_sys);
+			work.chunk = runtime_SysAlloc(work.nchunk, &mstats()->gc_sys);
 			if(work.chunk == nil)
 				runtime_throw("runtime: cannot allocate memory");
 		}
@@ -1561,7 +1541,7 @@ runtime_queuefinalizer(void *p, FuncVal *fn, const FuncType *ft, const PtrType *
 	runtime_lock(&finlock);
 	if(finq == nil || finq->cnt == finq->cap) {
 		if(finc == nil) {
-			finc = runtime_persistentalloc(FinBlockSize, 0, &mstats.gc_sys);
+			finc = runtime_persistentalloc(FinBlockSize, 0, &mstats()->gc_sys);
 			finc->cap = (FinBlockSize - sizeof(FinBlock)) / sizeof(Finalizer) + 1;
 			finc->alllink = allfin;
 			allfin = finc;
@@ -1758,7 +1738,7 @@ runtime_MSpan_Sweep(MSpan *s)
 				runtime_MHeap_Free(&runtime_mheap, s, 1);
 			c->local_nlargefree++;
 			c->local_largefree += size;
-			runtime_xadd64(&mstats.next_gc, -(uint64)(size * (gcpercent + 100)/100));
+			runtime_xadd64(&mstats()->next_gc, -(uint64)(size * (gcpercent + 100)/100));
 			res = true;
 		} else {
 			// Free small object.
@@ -1800,7 +1780,7 @@ runtime_MSpan_Sweep(MSpan *s)
 	if(nfree > 0) {
 		c->local_nsmallfree[cl] += nfree;
 		c->local_cachealloc -= nfree * size;
-		runtime_xadd64(&mstats.next_gc, -(uint64)(nfree * size * (gcpercent + 100)/100));
+		runtime_xadd64(&mstats()->next_gc, -(uint64)(nfree * size * (gcpercent + 100)/100));
 		res = runtime_MCentral_FreeSpan(&runtime_mheap.central[cl], s, nfree, head.next, end);
 		//MCentral_FreeSpan updates sweepgen
 	}
@@ -2013,6 +1993,7 @@ runtime_updatememstats(GCStats *stats)
 	uint32 i;
 	uint64 stacks_inuse, smallfree;
 	uint64 *src, *dst;
+	MStats *pmstats;
 
 	if(stats)
 		runtime_memclr((byte*)stats, sizeof(*stats));
@@ -2027,11 +2008,12 @@ runtime_updatememstats(GCStats *stats)
 			runtime_memclr((byte*)&mp->gcstats, sizeof(mp->gcstats));
 		}
 	}
-	mstats.stacks_inuse = stacks_inuse;
-	mstats.mcache_inuse = runtime_mheap.cachealloc.inuse;
-	mstats.mspan_inuse = runtime_mheap.spanalloc.inuse;
-	mstats.sys = mstats.heap_sys + mstats.stacks_sys + mstats.mspan_sys +
-		mstats.mcache_sys + mstats.buckhash_sys + mstats.gc_sys + mstats.other_sys;
+	pmstats = mstats();
+	pmstats->stacks_inuse = stacks_inuse;
+	pmstats->mcache_inuse = runtime_mheap.cachealloc.inuse;
+	pmstats->mspan_inuse = runtime_mheap.spanalloc.inuse;
+	pmstats->sys = pmstats->heap_sys + pmstats->stacks_sys + pmstats->mspan_sys +
+		pmstats->mcache_sys + pmstats->buckhash_sys + pmstats->gc_sys + pmstats->other_sys;
 	
 	// Calculate memory allocator stats.
 	// During program execution we only count number of frees and amount of freed memory.
@@ -2040,13 +2022,13 @@ runtime_updatememstats(GCStats *stats)
 	// Total number of mallocs is calculated as number of frees plus number of alive objects.
 	// Similarly, total amount of allocated memory is calculated as amount of freed memory
 	// plus amount of alive heap memory.
-	mstats.alloc = 0;
-	mstats.total_alloc = 0;
-	mstats.nmalloc = 0;
-	mstats.nfree = 0;
-	for(i = 0; i < nelem(mstats.by_size); i++) {
-		mstats.by_size[i].nmalloc = 0;
-		mstats.by_size[i].nfree = 0;
+	pmstats->alloc = 0;
+	pmstats->total_alloc = 0;
+	pmstats->nmalloc = 0;
+	pmstats->nfree = 0;
+	for(i = 0; i < nelem(pmstats->by_size); i++) {
+		pmstats->by_size[i].nmalloc = 0;
+		pmstats->by_size[i].nfree = 0;
 	}
 
 	// Flush MCache's to MCentral.
@@ -2061,30 +2043,30 @@ runtime_updatememstats(GCStats *stats)
 		if(s->state != MSpanInUse)
 			continue;
 		if(s->sizeclass == 0) {
-			mstats.nmalloc++;
-			mstats.alloc += s->elemsize;
+			pmstats->nmalloc++;
+			pmstats->alloc += s->elemsize;
 		} else {
-			mstats.nmalloc += s->ref;
-			mstats.by_size[s->sizeclass].nmalloc += s->ref;
-			mstats.alloc += s->ref*s->elemsize;
+			pmstats->nmalloc += s->ref;
+			pmstats->by_size[s->sizeclass].nmalloc += s->ref;
+			pmstats->alloc += s->ref*s->elemsize;
 		}
 	}
 
 	// Aggregate by size class.
 	smallfree = 0;
-	mstats.nfree = runtime_mheap.nlargefree;
-	for(i = 0; i < nelem(mstats.by_size); i++) {
-		mstats.nfree += runtime_mheap.nsmallfree[i];
-		mstats.by_size[i].nfree = runtime_mheap.nsmallfree[i];
-		mstats.by_size[i].nmalloc += runtime_mheap.nsmallfree[i];
+	pmstats->nfree = runtime_mheap.nlargefree;
+	for(i = 0; i < nelem(pmstats->by_size); i++) {
+		pmstats->nfree += runtime_mheap.nsmallfree[i];
+		pmstats->by_size[i].nfree = runtime_mheap.nsmallfree[i];
+		pmstats->by_size[i].nmalloc += runtime_mheap.nsmallfree[i];
 		smallfree += runtime_mheap.nsmallfree[i] * runtime_class_to_size[i];
 	}
-	mstats.nmalloc += mstats.nfree;
+	pmstats->nmalloc += pmstats->nfree;
 
 	// Calculate derived stats.
-	mstats.total_alloc = mstats.alloc + runtime_mheap.largefree + smallfree;
-	mstats.heap_alloc = mstats.alloc;
-	mstats.heap_objects = mstats.nmalloc - mstats.nfree;
+	pmstats->total_alloc = pmstats->alloc + runtime_mheap.largefree + smallfree;
+	pmstats->heap_alloc = pmstats->alloc;
+	pmstats->heap_objects = pmstats->nmalloc - pmstats->nfree;
 }
 
 // Structure of arguments passed to function gc().
@@ -2122,6 +2104,7 @@ runtime_gc(int32 force)
 	G *g;
 	struct gc_args a;
 	int32 i;
+	MStats *pmstats;
 
 	// The atomic operations are not atomic if the uint64s
 	// are not aligned on uint64 boundaries. This has been
@@ -2144,7 +2127,8 @@ runtime_gc(int32 force)
 	// while holding a lock.  The next mallocgc
 	// without a lock will do the gc instead.
 	m = runtime_m();
-	if(!mstats.enablegc || runtime_g() == m->g0 || m->locks > 0 || runtime_panicking)
+	pmstats = mstats();
+	if(!pmstats->enablegc || runtime_g() == m->g0 || m->locks > 0 || runtime_panicking || m->preemptoff.len > 0)
 		return;
 
 	if(gcpercent == GcpercentUnknown) {	// first time through
@@ -2156,11 +2140,11 @@ runtime_gc(int32 force)
 	if(gcpercent < 0)
 		return;
 
-	runtime_semacquire(&runtime_worldsema, false);
-	if(force==0 && mstats.heap_alloc < mstats.next_gc) {
+	runtime_acquireWorldsema();
+	if(force==0 && pmstats->heap_alloc < pmstats->next_gc) {
 		// typically threads which lost the race to grab
 		// worldsema exit here when gc is done.
-		runtime_semrelease(&runtime_worldsema);
+		runtime_releaseWorldsema();
 		return;
 	}
 
@@ -2168,7 +2152,7 @@ runtime_gc(int32 force)
 	a.start_time = runtime_nanotime();
 	a.eagersweep = force >= 2;
 	m->gcing = 1;
-	runtime_stoptheworld();
+	runtime_stopTheWorldWithSema();
 	
 	clearpools();
 
@@ -2192,8 +2176,8 @@ runtime_gc(int32 force)
 	// all done
 	m->gcing = 0;
 	m->locks++;
-	runtime_semrelease(&runtime_worldsema);
-	runtime_starttheworld();
+	runtime_releaseWorldsema();
+	runtime_startTheWorldWithSema();
 	m->locks--;
 
 	// now that gc is done, kick off finalizer thread if needed
@@ -2219,10 +2203,11 @@ static void
 gc(struct gc_args *args)
 {
 	M *m;
-	int64 t0, t1, t2, t3, t4;
+	int64 tm0, tm1, tm2, tm3, tm4;
 	uint64 heap0, heap1, obj, ninstr;
 	GCStats stats;
 	uint32 i;
+	MStats *pmstats;
 	// Eface eface;
 
 	m = runtime_m();
@@ -2231,7 +2216,7 @@ gc(struct gc_args *args)
 		runtime_tracegc();
 
 	m->traceback = 2;
-	t0 = args->start_time;
+	tm0 = args->start_time;
 	work.tstart = args->start_time; 
 
 	if(CollectStats)
@@ -2242,9 +2227,9 @@ gc(struct gc_args *args)
 		work.markfor = runtime_parforalloc(MaxGcproc);
 	m->locks--;
 
-	t1 = 0;
+	tm1 = 0;
 	if(runtime_debug.gctrace)
-		t1 = runtime_nanotime();
+		tm1 = runtime_nanotime();
 
 	// Sweep what is not sweeped by bgsweep.
 	while(runtime_sweepone() != (uintptr)-1)
@@ -2259,17 +2244,17 @@ gc(struct gc_args *args)
 		runtime_helpgc(work.nproc);
 	}
 
-	t2 = 0;
+	tm2 = 0;
 	if(runtime_debug.gctrace)
-		t2 = runtime_nanotime();
+		tm2 = runtime_nanotime();
 
 	gchelperstart();
 	runtime_parfordo(work.markfor);
 	scanblock(nil, true);
 
-	t3 = 0;
+	tm3 = 0;
 	if(runtime_debug.gctrace)
-		t3 = runtime_nanotime();
+		tm3 = runtime_nanotime();
 
 	bufferList[m->helpgc].busy = 0;
 	if(work.nproc > 1)
@@ -2278,28 +2263,29 @@ gc(struct gc_args *args)
 	cachestats();
 	// next_gc calculation is tricky with concurrent sweep since we don't know size of live heap
 	// estimate what was live heap size after previous GC (for tracing only)
-	heap0 = mstats.next_gc*100/(gcpercent+100);
+	pmstats = mstats();
+	heap0 = pmstats->next_gc*100/(gcpercent+100);
 	// conservatively set next_gc to high value assuming that everything is live
 	// concurrent/lazy sweep will reduce this number while discovering new garbage
-	mstats.next_gc = mstats.heap_alloc+(mstats.heap_alloc-runtime_stacks_sys)*gcpercent/100;
+	pmstats->next_gc = pmstats->heap_alloc+(pmstats->heap_alloc-runtime_stacks_sys)*gcpercent/100;
 
-	t4 = runtime_nanotime();
-	mstats.last_gc = runtime_unixnanotime();  // must be Unix time to make sense to user
-	mstats.pause_ns[mstats.numgc%nelem(mstats.pause_ns)] = t4 - t0;
-	mstats.pause_end[mstats.numgc%nelem(mstats.pause_end)] = mstats.last_gc;
-	mstats.pause_total_ns += t4 - t0;
-	mstats.numgc++;
-	if(mstats.debuggc)
-		runtime_printf("pause %D\n", t4-t0);
+	tm4 = runtime_nanotime();
+	pmstats->last_gc = runtime_unixnanotime();  // must be Unix time to make sense to user
+	pmstats->pause_ns[pmstats->numgc%nelem(pmstats->pause_ns)] = tm4 - tm0;
+	pmstats->pause_end[pmstats->numgc%nelem(pmstats->pause_end)] = pmstats->last_gc;
+	pmstats->pause_total_ns += tm4 - tm0;
+	pmstats->numgc++;
+	if(pmstats->debuggc)
+		runtime_printf("pause %D\n", tm4-tm0);
 
 	if(runtime_debug.gctrace) {
-		heap1 = mstats.heap_alloc;
+		heap1 = pmstats->heap_alloc;
 		runtime_updatememstats(&stats);
-		if(heap1 != mstats.heap_alloc) {
-			runtime_printf("runtime: mstats skew: heap=%D/%D\n", heap1, mstats.heap_alloc);
+		if(heap1 != pmstats->heap_alloc) {
+			runtime_printf("runtime: mstats skew: heap=%D/%D\n", heap1, pmstats->heap_alloc);
 			runtime_throw("mstats skew");
 		}
-		obj = mstats.nmalloc - mstats.nfree;
+		obj = pmstats->nmalloc - pmstats->nfree;
 
 		stats.nprocyield += work.markfor->nprocyield;
 		stats.nosyield += work.markfor->nosyield;
@@ -2308,9 +2294,9 @@ gc(struct gc_args *args)
 		runtime_printf("gc%d(%d): %D+%D+%D+%D us, %D -> %D MB, %D (%D-%D) objects,"
 				" %d/%d/%d sweeps,"
 				" %D(%D) handoff, %D(%D) steal, %D/%D/%D yields\n",
-			mstats.numgc, work.nproc, (t1-t0)/1000, (t2-t1)/1000, (t3-t2)/1000, (t4-t3)/1000,
+			pmstats->numgc, work.nproc, (tm1-tm0)/1000, (tm2-tm1)/1000, (tm3-tm2)/1000, (tm4-tm3)/1000,
 			heap0>>20, heap1>>20, obj,
-			mstats.nmalloc, mstats.nfree,
+			pmstats->nmalloc, pmstats->nfree,
 			sweep.nspan, gcstats.nbgsweep, gcstats.npausesweep,
 			stats.nhandoff, stats.nhandoffcnt,
 			work.markfor->nsteal, work.markfor->nstealcnt,
@@ -2349,7 +2335,7 @@ gc(struct gc_args *args)
 
 	// Free the old cached array if necessary.
 	if(sweep.spans && sweep.spans != runtime_mheap.allspans)
-		runtime_SysFree(sweep.spans, sweep.nspan*sizeof(sweep.spans[0]), &mstats.other_sys);
+		runtime_SysFree(sweep.spans, sweep.nspan*sizeof(sweep.spans[0]), &pmstats->other_sys);
 	// Cache the current array.
 	runtime_mheap.sweepspans = runtime_mheap.allspans;
 	runtime_mheap.sweepgen += 2;
@@ -2380,36 +2366,6 @@ gc(struct gc_args *args)
 	m->traceback = 0;
 }
 
-extern uintptr runtime_sizeof_C_MStats
-  __asm__ (GOSYM_PREFIX "runtime.Sizeof_C_MStats");
-
-void runtime_ReadMemStats(MStats *)
-  __asm__ (GOSYM_PREFIX "runtime.ReadMemStats");
-
-void
-runtime_ReadMemStats(MStats *stats)
-{
-	M *m;
-
-	// Have to acquire worldsema to stop the world,
-	// because stoptheworld can only be used by
-	// one goroutine at a time, and there might be
-	// a pending garbage collection already calling it.
-	runtime_semacquire(&runtime_worldsema, false);
-	m = runtime_m();
-	m->gcing = 1;
-	runtime_stoptheworld();
-	runtime_updatememstats(nil);
-	// Size of the trailing by_size array differs between Go and C,
-	// _NumSizeClasses was changed, but we can not change Go struct because of backward compatibility.
-	runtime_memmove(stats, &mstats, runtime_sizeof_C_MStats);
-	m->gcing = 0;
-	m->locks++;
-	runtime_semrelease(&runtime_worldsema);
-	runtime_starttheworld();
-	m->locks--;
-}
-
 void runtime_debug_readGCStats(Slice*)
   __asm__("runtime_debug.readGCStats");
 
@@ -2418,28 +2374,30 @@ runtime_debug_readGCStats(Slice *pauses)
 {
 	uint64 *p;
 	uint32 i, n;
+	MStats *pmstats;
 
 	// Calling code in runtime/debug should make the slice large enough.
-	if((size_t)pauses->cap < nelem(mstats.pause_ns)+3)
+	pmstats = mstats();
+	if((size_t)pauses->cap < nelem(pmstats->pause_ns)+3)
 		runtime_throw("runtime: short slice passed to readGCStats");
 
 	// Pass back: pauses, last gc (absolute time), number of gc, total pause ns.
 	p = (uint64*)pauses->array;
 	runtime_lock(&runtime_mheap);
-	n = mstats.numgc;
-	if(n > nelem(mstats.pause_ns))
-		n = nelem(mstats.pause_ns);
+	n = pmstats->numgc;
+	if(n > nelem(pmstats->pause_ns))
+		n = nelem(pmstats->pause_ns);
 	
 	// The pause buffer is circular. The most recent pause is at
 	// pause_ns[(numgc-1)%nelem(pause_ns)], and then backward
 	// from there to go back farther in time. We deliver the times
 	// most recent first (in p[0]).
 	for(i=0; i<n; i++)
-		p[i] = mstats.pause_ns[(mstats.numgc-1-i)%nelem(mstats.pause_ns)];
+		p[i] = pmstats->pause_ns[(pmstats->numgc-1-i)%nelem(pmstats->pause_ns)];
 
-	p[n] = mstats.last_gc;
-	p[n+1] = mstats.numgc;
-	p[n+2] = mstats.pause_total_ns;	
+	p[n] = pmstats->last_gc;
+	p[n+1] = pmstats->numgc;
+	p[n+2] = pmstats->pause_total_ns;
 	runtime_unlock(&runtime_mheap);
 	pauses->__count = n+3;
 }
@@ -2748,7 +2706,7 @@ runtime_MHeap_MapBits(MHeap *h)
 	if(h->bitmap_mapped >= n)
 		return;
 
-	runtime_SysMap(h->arena_start - n, n - h->bitmap_mapped, h->arena_reserved, &mstats.gc_sys);
+	runtime_SysMap(h->arena_start - n, n - h->bitmap_mapped, h->arena_reserved, &mstats()->gc_sys);
 	h->bitmap_mapped = n;
 }
 

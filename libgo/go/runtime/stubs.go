@@ -196,15 +196,15 @@ func getcallersp(argp unsafe.Pointer) uintptr
 // argp used in Defer structs when there is no argp.
 const _NoArgs = ^uintptr(0)
 
-// //go:linkname time_now time.now
-// func time_now() (sec int64, nsec int32)
+//go:linkname time_now time.now
+func time_now() (sec int64, nsec int32)
 
-/*
+// For gccgo, expose this for C callers.
+//go:linkname unixnanotime runtime.unixnanotime
 func unixnanotime() int64 {
 	sec, nsec := time_now()
 	return sec*1e9 + int64(nsec)
 }
-*/
 
 // round n up to a multiple of a.  a must be a power of 2.
 func round(n, a uintptr) uintptr {
@@ -250,17 +250,6 @@ func typedmemmove(typ *_type, dst, src unsafe.Pointer) {
 	memmove(dst, src, typ.size)
 }
 
-// Here for gccgo unless and until we port string.go.
-type stringStruct struct {
-	str unsafe.Pointer
-	len int
-}
-
-// Here for gccgo unless and until we port string.go.
-func stringStructOf(sp *string) *stringStruct {
-	return (*stringStruct)(unsafe.Pointer(sp))
-}
-
 // Here for gccgo unless and until we port slice.go.
 type slice struct {
 	array unsafe.Pointer
@@ -284,76 +273,6 @@ func mallocgc(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 		flag = 1 << 3
 	}
 	return c_mallocgc(size, uintptr(unsafe.Pointer(typ)), flag)
-}
-
-// Here for gccgo unless and until we port string.go.
-func rawstring(size int) (p unsafe.Pointer, s string) {
-	p = mallocgc(uintptr(size), nil, false)
-
-	(*(*stringStruct)(unsafe.Pointer(&s))).str = p
-	(*(*stringStruct)(unsafe.Pointer(&s))).len = size
-
-	return
-}
-
-// Here for gccgo unless and until we port string.go.
-func gostring(p *byte) string {
-	l := findnull(p)
-	if l == 0 {
-		return ""
-	}
-	m, s := rawstring(l)
-	memmove(m, unsafe.Pointer(p), uintptr(l))
-	return s
-}
-
-// Here for gccgo unless and until we port string.go.
-func index(s, t string) int {
-	if len(t) == 0 {
-		return 0
-	}
-	for i := 0; i < len(s); i++ {
-		if s[i] == t[0] && hasprefix(s[i:], t) {
-			return i
-		}
-	}
-	return -1
-}
-
-// Here for gccgo unless and until we port string.go.
-func hasprefix(s, t string) bool {
-	return len(s) >= len(t) && s[:len(t)] == t
-}
-
-// Here for gccgo unless and until we port string.go.
-//go:nosplit
-func findnull(s *byte) int {
-	if s == nil {
-		return 0
-	}
-	p := (*[_MaxMem/2 - 1]byte)(unsafe.Pointer(s))
-	l := 0
-	for p[l] != 0 {
-		l++
-	}
-	return l
-}
-
-// Here for gccgo unless and until we port string.go.
-//go:nosplit
-func gostringnocopy(str *byte) string {
-	ss := stringStruct{str: unsafe.Pointer(str), len: findnull(str)}
-	return *(*string)(unsafe.Pointer(&ss))
-}
-
-// Here for gccgo unless and until we port string.go.
-func atoi(s string) int {
-	n := 0
-	for len(s) > 0 && '0' <= s[0] && s[0] <= '9' {
-		n = n*10 + int(s[0]) - '0'
-		s = s[1:]
-	}
-	return n
 }
 
 // Here for gccgo until we port mgc.go.
@@ -384,3 +303,144 @@ func errno() int
 func entersyscall(int32)
 func entersyscallblock(int32)
 func exitsyscall(int32)
+func gopark(func(*g, unsafe.Pointer) bool, unsafe.Pointer, string, byte, int)
+func goparkunlock(*mutex, string, byte, int)
+func goready(*g, int)
+
+// Temporary hack for gccgo until we port proc.go.
+//go:nosplit
+func acquireSudog() *sudog {
+	mp := acquirem()
+	pp := mp.p.ptr()
+	if len(pp.sudogcache) == 0 {
+		pp.sudogcache = append(pp.sudogcache, new(sudog))
+	}
+	n := len(pp.sudogcache)
+	s := pp.sudogcache[n-1]
+	pp.sudogcache[n-1] = nil
+	pp.sudogcache = pp.sudogcache[:n-1]
+	if s.elem != nil {
+		throw("acquireSudog: found s.elem != nil in cache")
+	}
+	releasem(mp)
+	return s
+}
+
+// Temporary hack for gccgo until we port proc.go.
+//go:nosplit
+func releaseSudog(s *sudog) {
+	if s.elem != nil {
+		throw("runtime: sudog with non-nil elem")
+	}
+	if s.selectdone != nil {
+		throw("runtime: sudog with non-nil selectdone")
+	}
+	if s.next != nil {
+		throw("runtime: sudog with non-nil next")
+	}
+	if s.prev != nil {
+		throw("runtime: sudog with non-nil prev")
+	}
+	if s.waitlink != nil {
+		throw("runtime: sudog with non-nil waitlink")
+	}
+	if s.c != nil {
+		throw("runtime: sudog with non-nil c")
+	}
+	gp := getg()
+	if gp.param != nil {
+		throw("runtime: releaseSudog with non-nil gp.param")
+	}
+	mp := acquirem() // avoid rescheduling to another P
+	pp := mp.p.ptr()
+	pp.sudogcache = append(pp.sudogcache, s)
+	releasem(mp)
+}
+
+// Temporary hack for gccgo until we port the garbage collector.
+func typeBitsBulkBarrier(typ *_type, p, size uintptr) {}
+
+// Here for gccgo until we port msize.go.
+func roundupsize(uintptr) uintptr
+
+// Here for gccgo until we port mgc.go.
+func GC()
+
+// Here for gccgo until we port proc.go.
+var worldsema uint32 = 1
+
+func stopTheWorldWithSema()
+func startTheWorldWithSema()
+
+// For gccgo to call from C code.
+//go:linkname acquireWorldsema runtime.acquireWorldsema
+func acquireWorldsema() {
+	semacquire(&worldsema, false)
+}
+
+// For gccgo to call from C code.
+//go:linkname releaseWorldsema runtime.releaseWorldsema
+func releaseWorldsema() {
+	semrelease(&worldsema)
+}
+
+// Here for gccgo until we port proc.go.
+func stopTheWorld(reason string) {
+	semacquire(&worldsema, false)
+	getg().m.preemptoff = reason
+	getg().m.gcing = 1
+	systemstack(stopTheWorldWithSema)
+}
+
+// Here for gccgo until we port proc.go.
+func startTheWorld() {
+	getg().m.gcing = 0
+	getg().m.locks++
+	systemstack(startTheWorldWithSema)
+	// worldsema must be held over startTheWorldWithSema to ensure
+	// gomaxprocs cannot change while worldsema is held.
+	semrelease(&worldsema)
+	getg().m.preemptoff = ""
+	getg().m.locks--
+}
+
+// For gccgo to call from C code, so that the C code and the Go code
+// can share the memstats variable for now.
+//go:linkname getMstats runtime.getMstats
+func getMstats() *mstats {
+	return &memstats
+}
+
+// Temporary for gccgo until we port proc.go.
+func setcpuprofilerate_m(hz int32)
+
+// Temporary for gccgo until we port mem_GOOS.go.
+func sysAlloc(n uintptr, sysStat *uint64) unsafe.Pointer
+
+// Temporary for gccgo until we port proc.go, so that the C signal
+// handler can call into cpuprof.
+//go:linkname cpuprofAdd runtime.cpuprofAdd
+func cpuprofAdd(stk []uintptr) {
+	cpuprof.add(stk)
+}
+
+// For gccgo until we port proc.go.
+func Breakpoint()
+func LockOSThread()
+func UnlockOSThread()
+func allm() *m
+func allgs() []*g
+
+//go:nosplit
+func readgstatus(gp *g) uint32 {
+	return atomic.Load(&gp.atomicstatus)
+}
+
+// Temporary for gccgo until we port malloc.go
+func persistentalloc(size, align uintptr, sysStat *uint64) unsafe.Pointer
+
+// Temporary for gccgo until we port mheap.go
+func setprofilebucket(p unsafe.Pointer, b *bucket)
+
+// Currently in proc.c.
+func tracebackothers(*g)

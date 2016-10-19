@@ -55,7 +55,6 @@ typedef uintptr		uintreg;
 
 typedef	uint8			bool;
 typedef	uint8			byte;
-typedef	struct	Func		Func;
 typedef	struct	g		G;
 typedef	struct	mutex		Lock;
 typedef	struct	m		M;
@@ -66,15 +65,15 @@ typedef	struct	FuncVal		FuncVal;
 typedef	struct	SigTab		SigTab;
 typedef	struct	mcache		MCache;
 typedef struct	FixAlloc	FixAlloc;
-typedef	struct	Hchan		Hchan;
-typedef	struct	Timers		Timers;
-typedef	struct	Timer		Timer;
+typedef	struct	hchan		Hchan;
+typedef	struct	timer		Timer;
 typedef	struct	gcstats		GCStats;
 typedef	struct	LFNode		LFNode;
 typedef	struct	ParFor		ParFor;
 typedef	struct	ParForThread	ParForThread;
 typedef	struct	cgoMal		CgoMal;
 typedef	struct	PollDesc	PollDesc;
+typedef	struct	sudog		SudoG;
 
 typedef	struct	__go_open_array		Slice;
 typedef struct	__go_interface		Iface;
@@ -89,7 +88,7 @@ typedef struct	__go_interface_type	InterfaceType;
 typedef struct	__go_map_type		MapType;
 typedef struct	__go_channel_type	ChanType;
 
-typedef struct  traceback	Traceback;
+typedef struct  tracebackg	Traceback;
 
 typedef struct	location	Location;
 
@@ -152,16 +151,6 @@ struct	SigTab
 	void*   fwdsig;
 };
 
-// Layout of in-memory per-function information prepared by linker
-// See http://golang.org/s/go12symtab.
-// Keep in sync with linker and with ../../libmach/sym.c
-// and with package debug/gosym.
-struct	Func
-{
-	String	name;
-	uintptr	entry;	// entry pc
-};
-
 #ifdef GOOS_nacl
 enum {
    NaCl = 1,
@@ -190,36 +179,6 @@ enum {
    Solaris = 0
 };
 #endif
-
-struct	Timers
-{
-	Lock;
-	G	*timerproc;
-	bool		sleeping;
-	bool		rescheduling;
-	Note	waitnote;
-	Timer	**t;
-	int32	len;
-	int32	cap;
-};
-
-// Package time knows the layout of this structure.
-// If this struct changes, adjust ../time/sleep.go:/runtimeTimer.
-// For GOOS=nacl, package syscall knows the layout of this structure.
-// If this struct changes, adjust ../syscall/net_nacl.go:/runtimeTimer.
-struct	Timer
-{
-	intgo	i;	// heap index
-
-	// Timer wakes up at when, and then at when+period, ... (period > 0 only)
-	// each time calling f(now, arg) in the timer goroutine, so f must be
-	// a well-behaved function and not block.
-	int64	when;
-	int64	period;
-	FuncVal	*fv;
-	Eface	arg;
-	uintptr	seq;
-};
 
 // Lock-free stack node.
 struct LFNode
@@ -271,8 +230,10 @@ enum {
 };
 void	runtime_hashinit(void);
 
-void	runtime_traceback(void);
-void	runtime_tracebackothers(G*);
+void	runtime_traceback(void)
+  __asm__ (GOSYM_PREFIX "runtime.traceback");
+void	runtime_tracebackothers(G*)
+  __asm__ (GOSYM_PREFIX "runtime.tracebackothers");
 enum
 {
 	// The maximum number of frames we print for a traceback
@@ -294,7 +255,6 @@ extern	uint32	runtime_panicking;
 extern	int8*	runtime_goos;
 extern	int32	runtime_ncpu;
 extern 	void	(*runtime_sysargs)(int32, uint8**);
-extern	uint32	runtime_Hchansize;
 extern	struct debugVars runtime_debug;
 extern	uintptr	runtime_maxstacksize;
 
@@ -307,9 +267,8 @@ extern	bool	runtime_isarchive;
 #define runtime_strcmp(s1, s2) __builtin_strcmp((s1), (s2))
 #define runtime_strncmp(s1, s2, n) __builtin_strncmp((s1), (s2), (n))
 #define runtime_strstr(s1, s2) __builtin_strstr((s1), (s2))
-intgo	runtime_findnull(const byte*);
-intgo	runtime_findnullw(const uint16*);
-void	runtime_dump(byte*, int32);
+intgo	runtime_findnull(const byte*)
+  __asm__ (GOSYM_PREFIX "runtime.findnull");
 
 void	runtime_gogo(G*);
 struct __go_func_type;
@@ -324,22 +283,23 @@ void	runtime_goenvs_unix(void)
 void	runtime_throw(const char*) __attribute__ ((noreturn));
 void	runtime_panicstring(const char*) __attribute__ ((noreturn));
 bool	runtime_canpanic(G*);
-void	runtime_prints(const char*);
 void	runtime_printf(const char*, ...);
 int32	runtime_snprintf(byte*, int32, const char*, ...);
 #define runtime_mcmp(a, b, s) __builtin_memcmp((a), (b), (s))
 #define runtime_memmove(a, b, s) __builtin_memmove((a), (b), (s))
 void*	runtime_mal(uintptr);
-String	runtime_gostring(const byte*);
-String	runtime_gostringnocopy(const byte*);
+String	runtime_gostringnocopy(const byte*)
+  __asm__ (GOSYM_PREFIX "runtime.gostringnocopy");
 void	runtime_schedinit(void);
 void	runtime_initsig(bool);
 void	runtime_sigenable(uint32 sig);
 void	runtime_sigdisable(uint32 sig);
 void	runtime_sigignore(uint32 sig);
 int32	runtime_gotraceback(bool *crash);
-void	runtime_goroutineheader(G*);
-void	runtime_printtrace(Location*, int32, bool);
+void	runtime_goroutineheader(G*)
+  __asm__ (GOSYM_PREFIX "runtime.goroutineheader");
+void	runtime_printtrace(Slice, G*)
+  __asm__ (GOSYM_PREFIX "runtime.printtrace");
 #define runtime_open(p, f, m) open((p), (f), (m))
 #define runtime_read(d, v, n) read((d), (v), (n))
 #define runtime_write(d, v, n) write((d), (v), (n))
@@ -412,14 +372,18 @@ bool	__go_sigsend(int32 sig);
 int32	runtime_callers(int32, Location*, int32, bool keep_callers);
 int64	runtime_nanotime(void)	// monotonic time
   __asm__(GOSYM_PREFIX "runtime.nanotime");
-int64	runtime_unixnanotime(void); // real time, can skip
+int64	runtime_unixnanotime(void) // real time, can skip
+  __asm__ (GOSYM_PREFIX "runtime.unixnanotime");
 void	runtime_dopanic(int32) __attribute__ ((noreturn));
 void	runtime_startpanic(void);
 void	runtime_freezetheworld(void);
 void	runtime_unwindstack(G*, byte*);
 void	runtime_sigprof();
 void	runtime_resetcpuprofiler(int32);
-void	runtime_setcpuprofilerate(void(*)(uintptr*, int32), int32);
+void	runtime_setcpuprofilerate_m(int32)
+     __asm__ (GOSYM_PREFIX "runtime.setcpuprofilerate_m");
+void	runtime_cpuprofAdd(Slice)
+     __asm__ (GOSYM_PREFIX "runtime.cpuprofAdd");
 void	runtime_usleep(uint32)
      __asm__ (GOSYM_PREFIX "runtime.usleep");
 int64	runtime_cputicks(void)
@@ -428,8 +392,10 @@ int64	runtime_tickspersecond(void)
      __asm__ (GOSYM_PREFIX "runtime.tickspersecond");
 void	runtime_blockevent(int64, int32);
 extern int64 runtime_blockprofilerate;
-void	runtime_addtimer(Timer*);
-bool	runtime_deltimer(Timer*);
+void	runtime_addtimer(Timer*)
+  __asm__ (GOSYM_PREFIX "runtime.addtimer");
+bool	runtime_deltimer(Timer*)
+  __asm__ (GOSYM_PREFIX "runtime.deltimer");
 G*	runtime_netpoll(bool);
 void	runtime_netpollinit(void);
 int32	runtime_netpollopen(uintptr, PollDesc*);
@@ -445,14 +411,18 @@ void	runtime_crash(void);
 void	runtime_parsedebugvars(void)
   __asm__(GOSYM_PREFIX "runtime.parsedebugvars");
 void	_rt0_go(void);
-void*	runtime_funcdata(Func*, int32);
 int32	runtime_setmaxthreads(int32);
 G*	runtime_timejump(void);
 void	runtime_iterate_finq(void (*callback)(FuncVal*, void*, const FuncType*, const PtrType*));
 
-void	runtime_stoptheworld(void);
-void	runtime_starttheworld(void);
-extern uint32 runtime_worldsema;
+void	runtime_stopTheWorldWithSema(void)
+  __asm__(GOSYM_PREFIX "runtime.stopTheWorldWithSema");
+void	runtime_startTheWorldWithSema(void)
+  __asm__(GOSYM_PREFIX "runtime.startTheWorldWithSema");
+void	runtime_acquireWorldsema(void)
+  __asm__(GOSYM_PREFIX "runtime.acquireWorldsema");
+void	runtime_releaseWorldsema(void)
+  __asm__(GOSYM_PREFIX "runtime.releaseWorldsema");
 
 /*
  * mutual exclusion locks.  in the uncontended case,
@@ -534,35 +504,8 @@ void __wrap_rtems_task_variable_add(void **);
 #endif
 
 /*
- * Names generated by gccgo.
- */
-#define runtime_printbool	__go_print_bool
-#define runtime_printfloat	__go_print_double
-#define runtime_printint	__go_print_int64
-#define runtime_printiface	__go_print_interface
-#define runtime_printeface	__go_print_empty_interface
-#define runtime_printstring	__go_print_string
-#define runtime_printpointer	__go_print_pointer
-#define runtime_printuint	__go_print_uint64
-#define runtime_printslice	__go_print_slice
-#define runtime_printcomplex	__go_print_complex
-
-/*
  * runtime go-called
  */
-void	runtime_printbool(_Bool);
-void	runtime_printbyte(int8);
-void	runtime_printfloat(double);
-void	runtime_printint(int64);
-void	runtime_printiface(Iface);
-void	runtime_printeface(Eface);
-void	runtime_printstring(String);
-void	runtime_printpc(void*);
-void	runtime_printpointer(void*);
-void	runtime_printuint(uint64);
-void	runtime_printhex(uint64);
-void	runtime_printslice(Slice);
-void	runtime_printcomplex(complex double);
 void reflect_call(const struct __go_func_type *, FuncVal *, _Bool, _Bool,
 		  void **, void **)
   __asm__ (GOSYM_PREFIX "reflect.call");
@@ -581,8 +524,10 @@ void	runtime_newErrorCString(const char*, Eface*)
 /*
  * wrapped for go users
  */
-void	runtime_semacquire(uint32 volatile *, bool);
-void	runtime_semrelease(uint32 volatile *);
+void	runtime_semacquire(uint32 volatile *, bool)
+     __asm__ (GOSYM_PREFIX "runtime.semacquire");
+void	runtime_semrelease(uint32 volatile *)
+     __asm__ (GOSYM_PREFIX "runtime.semrelease");
 int32	runtime_gomaxprocsfunc(int32 n);
 void	runtime_procyield(uint32)
   __asm__(GOSYM_PREFIX "runtime.procyield");
@@ -592,8 +537,8 @@ void	runtime_lockOSThread(void);
 void	runtime_unlockOSThread(void);
 bool	runtime_lockedOSThread(void);
 
-bool	runtime_showframe(String, bool);
-void	runtime_printcreatedby(G*);
+void	runtime_printcreatedby(G*)
+  __asm__(GOSYM_PREFIX "runtime.printcreatedby");
 
 uintptr	runtime_memlimit(void);
 

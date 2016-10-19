@@ -1,3 +1,359 @@
+2016-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.h (cp_function_decl_explicit_p,
+	cp_function_decl_deleted_p, cp_function_decl_defaulted): Remove.
+	(cp_decl_dwarf_attribute): Declare.
+	(LANG_HOOKS_FUNCTION_DECL_EXPLICIT_P,
+	LANG_HOOKS_FUNCTION_DECL_DELETED_P,
+	LANG_HOOKS_FUNCTION_DECL_DEFAULTED): Remove.
+	(LANG_HOOKS_DECL_DWARF_ATTRIBUTE): Redefine.
+	* cp-objcp-common.c (cp_function_decl_explicit_p,
+	cp_function_decl_deleted_p, cp_function_decl_defaulted): Remove.
+	(cp_decl_dwarf_attribute): New function.
+
+2016-10-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77945
+	* constexpr.c (maybe_simplify_trivial_copy): New.
+	(cxx_eval_store_expression): Call it.
+	* call.c (build_over_call): Use unsigned char for trivial copy.
+
+2016-10-14  Jason Merrill  <jason@redhat.com>
+
+	Implement P0017R1, C++17 aggregates with bases.
+	* class.c (build_base_field_1): Split out from...
+	(build_base_field): ...here.  In C++17 mode, build a field for
+	empty bases.
+	* decl.c (xref_basetypes): In C++17 aggregates can have bases.
+	(next_initializable_field): Allow base fields in C++17.
+	* typeck2.c (process_init_constructor_record): Likewise.
+
+2016-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	DR 1511 - const volatile variables and ODR
+	* decl.c (grokvardecl): Change flags argument to type_quals,
+	add conceptp argument.  Set TREE_PUBLIC for non-static volatile vars.
+	(grokdeclarator): Adjust grokvardecl caller.
+
+2016-10-13  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71912
+	* class.c (struct flexmems_t):  Add members.
+	(find_flexarrays): Add arguments.  Correct handling of anonymous
+	structs.
+	(diagnose_flexarrays): Adjust to issue warnings in addition to errors.
+	(check_flexarrays): Add argument.
+	(diagnose_invalid_flexarray): New functions.
+
+2016-10-13  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	Implement P0386R2 - C++17 inline variables
+	* cp-tree.h (struct lang_type): Shrink language field to 1 bit
+	from 4.  Add var_declared_inline_p field.  Mention 2 spare bits.
+	(DECL_VAR_DECLARED_INLINE_P): Define.
+	(SET_DECL_VAR_DECLARED_INLINE_P): Define.
+	(DECL_INLINE_VAR_P): Define.
+	(diagnose_inline_vars_for_namespace): Declare.
+	* decl.c (diagnose_inline_vars_for_namespace): New function.
+	(duplicate_decls): For static data members copy
+	DECL_DECLARED_CONSTEXPR_P.
+	(redeclaration_error_message): Handle C++17 redundant redeclaration
+	of constexpr static data member outside of class.
+	(maybe_commonize_var): Handle inline variables.
+	(check_initializer): Ignore inline variables for diagnostics.
+	Adjust diagnostic wording for C++17.
+	(make_rtl_for_nonlocal_decl): Allow in-class definition of
+	inline static data members.
+	(bad_specifiers): Don't diagnose inline on variables here.
+	(grokvardecl): Add inlinep argument, non-static const inline variables
+	are TREE_PUBLIC.
+	(check_static_variable_definition): Return early also for inline
+	variables.
+	(mark_inline_variable): New.
+	(grokdeclarator): Handle inline variables and inline static data
+	members.
+	* typeck2.c (store_init_value): Don't diagnose non-constant
+	initializers for non-constexpr inline static data members.
+	* decl2.c (vague_linkage_p): Return true for inline variables.
+	(c_parse_final_cleanups): In-class declaration of inline static
+	data members is a definition.  Call diagnose_inline_vars_for_namespace
+	through walk_namespaces.
+	* pt.c (instantiate_decl): Set pattern_defined for in-class definitions
+	of inline static data members.
+
+2016-10-13  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (mark_inline_variable): New.
+
+>>>>>>> .r241142
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* decl2.c: Include memmodel.h.
+	* rtti.c: Likewise.
+
+2016-10-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77742
+	* init.c (build_new_1): Don't -Waligned-new about placement new.
+	(malloc_alignment): New.  Consider MALLOC_ABI_ALIGNMENT.
+	* decl.c (cxx_init_decl_processing): New.
+
+2016-10-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77890
+	PR c++/77912
+	* pt.c (do_class_deduction): Set cp_unevaluated_operand.
+	(tsubst) [TEMPLATE_TYPE_PARM]: Copy CLASS_PLACEHOLDER_TEMPLATE.
+
+2016-10-08  Jason Merrill  <jason@redhat.com>
+
+	* cp-gimplify.c (cp_fold): Add variable name.
+
+	* cp-gimplify.c (cp_fold): Distribute cp_truthvalue_conversion
+	into COND_EXPR.
+
+2016-10-07  Jason Merrill  <jason@redhat.com>
+
+	Further P0135 refinement.
+	* call.c (build_user_type_conversion_1): Consider conversions from
+	a single element in an initializer-list.
+	(build_temp): Undo early_elide_copy change.
+	(build_over_call): Check that we don't try to copy a TARGET_EXPR
+	in C++17 mode.  Set user_conv_p here.
+	(convert_like_real): Not here.
+	(check_self_delegation): Split out from...
+	(build_special_member_call): ...here.  Handle C++17 copy elision.
+	* cvt.c (early_elide_copy): Remove.
+	(ocp_convert): Undo early_elide_copy change.
+	* except.c (build_throw): Likewise.
+	* init.c (expand_default_init): Likewise.
+	* typeck.c (cp_build_modify_expr): Likewise.
+
+2016-10-07  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/64433
+	DR1658, DR1611
+	* init.c (emit_mem_initializers): Don't construct vbases of
+	abstract classes.
+	(push_base_cleanups): Don't push vbase cleanups for abstract class
+	when in C++14 mode.
+	* method.c (synthethesized_method_walk): Don't walk vbases of
+	abstract classes when in C++14 mode.
+
+2016-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement LWG2296 helper intrinsic
+	* parser.c (cp_parser_postfix_expression): Handle RID_ADDRESSOF.
+	* cp-objcp-common.c (cp_common_init_ts): Handle ADDRESSOF_EXPR.
+	* constexpr.c (potential_constant_expression_1): Likewise.
+	* error.c (dump_expr): Likewise.
+	* typeck.c (cp_build_addressof): New function.
+	* cp-tree.h (cp_build_addressof): Declare.
+	* cxx-pretty-print.h (pp_cxx_addressof_expression): Declare.
+	* cp-tree.def (ADDRESSOF_EXPR): New tree code.
+	* cxx-pretty-print.c (cxx_pretty_printer::primary_expression): Handle
+	ADDRESSOF_EXPR.  Add __builtin_addressof and
+	__has_unique_object_representations into syntax in function comment.
+	(pp_cxx_addressof_expression): New function.
+	* pt.c (tsubst_copy_and_build): Handle ADDRESSOF_EXPR.
+
+2016-10-07  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77700
+	* parser.c (cp_parser_base_specifier): Fix a warning.
+
+2016-10-07  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c++/69733
+	* decl.c (grokdeclarator): Try to find the correct location for an
+	ignored qualifier.
+
+2016-10-07  Martin Liska  <mliska@suse.cz>
+
+	* lambda.c (maybe_add_lambda_conv_op): Set default value.
+
+2016-10-06  Jason Merrill  <jason@redhat.com>
+
+	* call.c (build_temp, convert_like_real): Don't re-copy
+	TARGET_EXPR.  Handle packed fields.
+	(build_x_va_arg): Wrap it in a TARGET_EXPR.
+	(build_over_call): Add sanity check.
+	* cvt.c (early_elide_copy): New.
+	(ocp_convert): Use it.
+	* except.c (build_throw): Use it.
+	* init.c (get_nsdmi): Put back the TARGET_EXPR.
+	(expand_default_init): Call early_elide_copy.
+	* typeck.c (cp_build_modify_expr): Call early_elide_copy.
+
+2016-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0258R2 - helper for C++17
+	std::has_unique_object_representations trait
+	* cp-tree.h (enum cp_trait_kind): Add
+	CPTK_HAS_UNIQUE_OBJ_REPRESENTATIONS.
+	(struct lang_type_class): Add unique_obj_representations
+	and unique_obj_representations_set bitfields.
+	(CLASSTYPE_UNIQUE_OBJ_REPRESENTATIONS,
+	CLASSTYPE_UNIQUE_OBJ_REPRESENTATIONS_SET): Define.
+	(type_has_unique_obj_representations): Declare.
+	* parser.c (cp_parser_primary_expression): Handle
+	RID_HAS_UNIQUE_OBJ_REPRESENTATIONS.
+	(cp_parser_trait_expr): Likewise.  Formatting fix.
+	* semantics.c (trait_expr_value, finish_trait_expr): Handle
+	CPTK_HAS_UNIQUE_OBJ_REPRESENTATIONS.
+	* tree.c (type_has_unique_obj_representations): New function.
+	(record_has_unique_obj_representations): New function.
+	* cxx-pretty-print.c (pp_cxx_trait_expression): Handle
+	CPTK_HAS_UNIQUE_OBJ_REPRESENTATIONS.
+
+2016-10-05  Jason Merrill  <jason@redhat.com>
+
+	Implement P0135R1, Guaranteed copy elision.
+	* cvt.c (ocp_convert): Don't re-copy a TARGET_EXPR in C++17.
+
+	PR c++/54293
+	* call.c (reference_binding): Fix binding to member of temporary.
+
+	* call.c (extend_ref_init_temps): Fix TARGET_EXPR handling.
+
+	* parser.c (cp_parser_skip_to_end_of_statement): Add missing break.
+
+	* semantics.c (finish_compound_literal): Handle class placeholder.
+
+2016-10-05  Marek Polacek  <polacek@redhat.com>
+
+	Implement P0305R1, Selection statements with initializer.
+	* cp-array-notation.c (create_an_loop): Call finish_init_stmt
+	instead of finish_for_init_stmt.
+	* cp-tree.h (finish_for_init_stmt): Rename to finish_init_stmt.
+	* decl.c (poplevel): Adjust a comment.
+	* init.c (build_vec_init): Call finish_init_stmt instead of
+	finish_for_init_stmt.
+	* name-lookup.c (pushdecl_maybe_friend_1): Adjust a comment.
+	* name-lookup.h (enum scope_kind): Likewise.
+	* parser.c (cp_parser_statement): Update commentary.
+	(cp_parser_init_statement_p): New function.
+	(cp_parser_selection_statement): Parse the optional init-statement.
+	(cp_parser_for): Call finish_init_stmt instead of finish_for_init_stmt.
+	(cp_parser_c_for): Likewise.
+	(cp_convert_range_for): Call finish_init_stmt instead of finish_for_init_stmt.
+	(cp_parser_range_for_member_function): Update commentary.
+	(cp_parser_iteration_statement):
+	(cp_parser_for_init_statement): Rename to cp_parser_init_statement.
+	* pt.c (tsubst_omp_for_iterator): Update commentary.
+	(tsubst_expr): Call finish_init_stmt instead of finish_for_init_stmt.
+	* semantics.c (finish_for_init_stmt): Rename to finish_init_stmt.
+	Update commentary.
+
+2016-10-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77852
+	* pt.c (do_class_deduction): Handle list-initialization.
+	(do_auto_deduction): Call it sooner.
+	(build_deduction_guide): Use tsubst_arg_types.
+	(rewrite_template_parm): Don't copy_type.
+
+	PR c++/77775
+	* constexpr.c (cxx_eval_component_reference): Use name matching
+	for PMFs.
+
+	Implement P0091R2, Template argument deduction for class templates.
+	* parser.c (cp_parser_simple_type_specifier): Parse class placeholder.
+	Use the location of the beginning of the type-specifier.
+	(cp_parser_init_declarator): Parse deduction guide.
+	(cp_parser_diagnose_invalid_type_name): Mention class deduction.
+	(cp_parser_type_id_1): Don't accept class placeholder as template arg.
+	* cp-tree.h (CLASS_PLACEHOLDER_TEMPLATE): New.
+	* decl.c (grokdeclarator): Check for uninitialized auto here.
+	(start_decl_1): Not here.
+	(cp_finish_decl): Or here.  Don't collapse a list when doing
+	class deduction.
+	(grokfndecl): Check deduction guide scope and body.
+	* error.c (dump_decl, dump_function_decl, dump_function_name):
+	Handle deduction guides.
+	* pt.c (make_template_placeholder, do_class_deduction): New.
+	(build_deduction_guide, rewrite_template_parm): New.
+	(dguide_name, dguide_name_p, deduction_guide_p): New.
+	(do_auto_deduction): Call do_class_deduction.
+	(splice_late_return_type, is_auto): Handle class placeholders.
+	(template_parms_level_to_args): Split from template_parms_to_args.
+	(tsubst_template_parms_level): Split from tsubst_template_parms.
+	* typeck2.c (build_functional_cast): Handle class placeholder.
+
+2016-10-04  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/77804
+	* init.c (warn_placement_new_too_small): Avoid assuming an array type
+	has a constant size.
+
+2016-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77791
+	* parser.c (cp_parser_lambda_declarator_opt): Only pedwarn
+	for C++11 on decls in the param_list.  Test cxx_dialect < cxx14 before
+	the loop just once.
+
+	* cp-tree.h (enum cp_tree_index): Remove CPTI_JAVA_*,
+	CPTI_LANG_NAME_JAVA and CPTI_JCLASS.
+	(java_byte_type_node, java_short_type_node, java_int_type_node,
+	java_long_type_node, java_float_type_node, java_double_type_node,
+	java_char_type_node, java_boolean_type_node, lang_name_java,
+	jclass_node): Remove.
+	(enum languages): Remove lang_java.
+	(TYPE_FOR_JAVA): Remove.
+	(struct lang_type_class): Remove java_interface bit-field.
+	(TYPE_JAVA_INTERFACE): Remove.
+	(pragma_java_exceptions): Remove.
+	(check_java_method, build_java_class_ref): Remove prototypes.
+	* name-lookup.c (pushtag_1): Don't set TYPE_FOR_JAVA.
+	* decl2.c (acceptable_java_type, check_java_method): Remove.
+	(import_export_decl): Remove TYPE_FOR_JAVA handling.
+	(build_java_method_aliases): Remove.
+	(c_parse_final_cleanups): Don't call build_java_method_aliases.
+	(possibly_inlined_p): Don't test pragma_java_exceptions.
+	* init.c (build_new_1): Remove TYPE_FOR_JAVA handling.
+	(build_java_class_ref): Remove.
+	* pt.c (maybe_new_partial_specialization, lookup_template_class_1,
+	instantiate_class_template_1): Don't copy TYPE_FOR_JAVA.
+	* except.c (eh_type_info): Remove java type handling.
+	(decl_is_java_type, choose_personality_routine): Remove.
+	(initialize_handler_parm): Don't call choose_personality_routine.
+	(expand_start_catch_block): Don't handle java types.
+	(build_throw): Likewise.
+	* cp-lang.c (cp_eh_personality): Don't handle pragma_java_exceptions.
+	* typeck.c (structural_comptypes): Don't compare TYPE_FOR_JAVA.
+	* call.c (build_over_call): Don't handle TYPE_JAVA_INTERFACE.
+	(java_iface_lookup_fn): Remove.
+	(build_java_interface_fn_ref): Remove.
+	* tree.c (cxx_attribute_table): Remove java_interface.
+	(handle_java_interface_attribute): Remove.
+	* lex.c (pragma_java_exceptions): Remove.
+	(init_cp_pragma): Don't register GCC java_exceptions pragma.
+	(handle_pragma_java_exceptions): Remove.
+	(retrofit_lang_decl): Don't handle lang_name_java.
+	* method.c (implicitly_declare_fn): Don't handle TYPE_FOR_JAVA.
+	* error.c (language_to_string): Don't handle lang_java.
+	* decl.c (record_builtin_java_type): Remove.
+	(initialize_predefined_identifiers): Remove Java.
+	(cxx_init_decl_processing): Remove java_*_type_node.
+	(cp_finish_decl): Don't handle TYPE_FOR_JAVA.
+	(grokfndecl): Likewise.
+	(check_special_function_return_type): Likewise.
+	(grokdeclarator): Don't set TYPE_FOR_JAVA.
+	(grokparms): Don't handle TYPE_FOR_JAVA.
+	(xref_basetypes): Likewise.
+	(check_function_type): Likewise.
+	(finish_constructor_body): Likewise.
+	* mangle.c (write_builtin_type): Don't handle TYPE_FOR_JAVA
+	and java_*_type_node.
+	(write_bare_function_type): Don't handle TYPE_FOR_JAVA.
+	(write_java_integer_type_codes): Remove.
+	* class.c (add_method): Don't handle TYPE_FOR_JAVA.
+	(add_implicitly_declared_members, determine_key_method,
+	finish_struct_1): Likewise.
+	(push_lang_context): Don't handle lang_name_java.
+
 2016-10-03  Marek Polacek  <polacek@redhat.com>
 
 	Core 903

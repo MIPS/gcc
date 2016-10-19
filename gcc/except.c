@@ -118,6 +118,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cfghooks.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "expmed.h"
@@ -2898,7 +2899,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
       if (TREE_CODE (type) == ADDR_EXPR)
 	{
 	  type = TREE_OPERAND (type, 0);
-	  if (TREE_CODE (type) == VAR_DECL)
+	  if (VAR_P (type))
 	    is_public = TREE_PUBLIC (type);
 	}
       else

@@ -1,3 +1,137 @@
+2016-10-14  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_aggregate_bases
+	and __cpp_deduction_guides.
+
+2016-10-13  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Add __cpp_inline_variables.
+
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* c-cppbuiltin.c: Include memmodel.h.
+	* c-opts.c: Likewise.
+	* c-pragma.c: Likewise.
+	* c-warn.c: Likewise.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c.opt (Wextra): Add as C/C++/ObjC/ObjC++ option.
+	(Wimplicit-fallthrough=): Enable for these languages by -Wextra.
+	* c-opts.c (sanitize_cpp_opts): Initialize
+	cpp_opts->cpp_warn_implicit_fallthrough.
+
+2016-10-11  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (warning_candidate_p): Change the return type to bool
+	and return true/false instead of 1/0.
+	(vector_mode_valid_p): Likewise.
+
+2016-10-11  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (fold_for_warn): No longer static.
+	(bool_promoted_to_int_p): Likewise.
+	(c_common_get_narrower): Likewise.
+	(constant_expression_warning): Move to c-warn.c.
+	(constant_expression_error): Likewise.
+	(overflow_warning): Likewise.
+	(warn_logical_operator): Likewise.
+	(find_array_ref_with_const_idx_r): Likewise.
+	(warn_tautological_cmp): Likewise.
+	(expr_has_boolean_operands_p): Likewise.
+	(warn_logical_not_parentheses): Likewise.
+	(warn_if_unused_value): Likewise.
+	(strict_aliasing_warning): Likewise.
+	(sizeof_pointer_memaccess_warning): Likewise.
+	(check_main_parameter_types): Likewise.
+	(conversion_warning): Likewise.
+	(warnings_for_convert_and_check): Likewise.
+	(match_case_to_enum_1): Likewise.
+	(match_case_to_enum): Likewise.
+	(c_do_switch_warnings): Likewise.
+	(warn_for_omitted_condop): Likewise.
+	(readonly_error): Likewise.
+	(lvalue_error): Likewise.
+	(invalid_indirection_error): Likewise.
+	(warn_array_subscript_with_type_char): Likewise.
+	(warn_about_parentheses): Likewise.
+	(warn_for_unused_label): Likewise.
+	(warn_for_div_by_zero): Likewise.
+	(warn_for_memset): Likewise.
+	(warn_for_sign_compare): Likewise.
+	(do_warn_double_promotion): Likewise.
+	(do_warn_unused_parameter): Likewise.
+	(record_locally_defined_typedef): Likewise.
+	(maybe_record_typedef_use): Likewise.
+	(maybe_warn_unused_local_typedefs): Likewise.
+	(maybe_warn_bool_compare): Likewise.
+	(maybe_warn_shift_overflow): Likewise.
+	(warn_duplicated_cond_add_or_warn): Likewise.
+	(diagnose_mismatched_attributes): Likewise.
+	* c-common.h: Move the declarations from c-warn.c to its own section.
+	* c-warn.c: New file.
+
+2016-10-08  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (c_common_truthvalue_conversion): Don't distribute
+	into COND_EXPR in C++.
+
+2016-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-lex.c (c_lex_with_flags) <case CPP_COMMENT>: For CPP_COMMENT
+	token with PREV_FALLTHROUGH, skip all following CPP_PADDING and
+	CPP_COMMENT tokens and set add_flags to PREV_FALLTHROUGH afterwards.
+
+2016-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement LWG2296 helper intrinsic
+	* c-common.h (enum rid): Add RID_ADDRESSOF.
+	* c-common.c (c_common_reswords): Add __builtin_addressof.
+
+2016-10-07  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77700
+	* c-common.c (c_common_truthvalue_conversion): Warn also for
+	suspicious enum values in boolean context.
+
+2016-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0258R2 - helper for C++17
+	std::has_unique_object_representations trait
+	* c-common.h (enum rid): Add RID_HAS_UNIQUE_OBJ_REPRESENTATIONS.
+	* c-common.c (c_common_reswords): Add
+	__has_unique_object_representations.
+
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/66343
+	* c-ubsan.c (ubsan_instrument_return): Don't call
+	initialize_sanitizer_builtins here.
+
+2016-10-05  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Warn also for suspicious
+	conditional expression in boolean context when only one arm is
+	non-boolean.
+
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77823
+	* c-ubsan.c (ubsan_instrument_shift): Return NULL_TREE if type0
+	is not integral.
+
+	* c-common.c (c_common_reswords): Update comment for C++11.
+
+2016-10-04  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (make_tree_vector_from_ctor): New.
+	* c-common.h: Declare it.
+
+2016-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Don't define
+	__LIBGCC_JCR_SECTION_NAME__.
+
 2016-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
 	* c-common.c (c_common_truthvalue_conversion): Warn for suspicious

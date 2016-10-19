@@ -246,12 +246,15 @@ static void
 kickoff(void)
 {
 	void (*fn)(void*);
+	void *param;
 
 	if(g->traceback != nil)
 		gtraceback(g);
 
 	fn = (void (*)(void*))(g->entry);
-	fn(g->param);
+	param = g->param;
+	g->param = nil;
+	fn(param);
 	runtime_goexit();
 }
 
@@ -505,7 +508,7 @@ runtime_schedinit(void)
 	procresize(procs);
 
 	// Can not enable GC until all roots are registered.
-	// mstats.enablegc = 1;
+	// mstats()->enablegc = 1;
 }
 
 extern void main_init(void) __asm__ (GOSYM_PREFIX "__go_init_main");
@@ -564,7 +567,8 @@ static struct __go_channel_type chan_bool_type_descriptor =
     CHANNEL_BOTH_DIR
   };
 
-extern Hchan *__go_new_channel (ChanType *, uintptr);
+extern Hchan *makechan (ChanType *, int64)
+  __asm__ (GOSYM_PREFIX "runtime.makechan");
 extern void closechan(Hchan *) __asm__ (GOSYM_PREFIX "runtime.closechan");
 
 static void
@@ -613,7 +617,7 @@ runtime_main(void* dummy __attribute__((unused)))
 		runtime_throw("runtime_main not on m0");
 	__go_go(runtime_MHeap_Scavenger, nil);
 
-	runtime_main_init_done = __go_new_channel(&chan_bool_type_descriptor, 0);
+	runtime_main_init_done = makechan(&chan_bool_type_descriptor, 0);
 
 	_cgo_notify_runtime_init_done();
 
@@ -629,7 +633,7 @@ runtime_main(void* dummy __attribute__((unused)))
 	// For gccgo we have to wait until after main is initialized
 	// to enable GC, because initializing main registers the GC
 	// roots.
-	mstats.enablegc = 1;
+	mstats()->enablegc = 1;
 
 	if(runtime_isarchive) {
 		// This is not a complete program, but is instead a
@@ -654,67 +658,12 @@ runtime_main(void* dummy __attribute__((unused)))
 }
 
 void
-runtime_goroutineheader(G *gp)
-{
-	String status;
-	int64 waitfor;
-
-	switch(gp->atomicstatus) {
-	case _Gidle:
-		status = runtime_gostringnocopy((const byte*)"idle");
-		break;
-	case _Grunnable:
-		status = runtime_gostringnocopy((const byte*)"runnable");
-		break;
-	case _Grunning:
-		status = runtime_gostringnocopy((const byte*)"running");
-		break;
-	case _Gsyscall:
-		status = runtime_gostringnocopy((const byte*)"syscall");
-		break;
-	case _Gwaiting:
-		if(gp->waitreason.len > 0)
-			status = gp->waitreason;
-		else
-			status = runtime_gostringnocopy((const byte*)"waiting");
-		break;
-	default:
-		status = runtime_gostringnocopy((const byte*)"???");
-		break;
-	}
-
-	// approx time the G is blocked, in minutes
-	waitfor = 0;
-	if((gp->atomicstatus == _Gwaiting || gp->atomicstatus == _Gsyscall) && gp->waitsince != 0)
-		waitfor = (runtime_nanotime() - gp->waitsince) / (60LL*1000*1000*1000);
-
-	if(waitfor < 1)
-		runtime_printf("goroutine %D [%S]:\n", gp->goid, status);
-	else
-		runtime_printf("goroutine %D [%S, %D minutes]:\n", gp->goid, status, waitfor);
-}
-
-void
-runtime_printcreatedby(G *g)
-{
-	if(g != nil && g->gopc != 0 && g->goid != 1) {
-		String fn;
-		String file;
-		intgo line;
-
-		if(__go_file_line(g->gopc - 1, -1, &fn, &file, &line)) {
-			runtime_printf("created by %S\n", fn);
-			runtime_printf("\t%S:%D\n", file, (int64) line);
-		}
-	}
-}
-
-void
 runtime_tracebackothers(G * volatile me)
 {
 	G * volatile gp;
 	Traceback tb;
 	int32 traceback;
+	Slice slice;
 	volatile uintptr i;
 
 	tb.gp = me;
@@ -735,7 +684,10 @@ runtime_tracebackothers(G * volatile me)
 		  runtime_gogo(gp);
 		}
 
-		runtime_printtrace(tb.locbuf, tb.c, false);
+		slice.__values = &tb.locbuf[0];
+		slice.__count = tb.c;
+		slice.__capacity = tb.c;
+		runtime_printtrace(slice, nil);
 		runtime_printcreatedby(gp);
 	}
 
@@ -776,7 +728,10 @@ runtime_tracebackothers(G * volatile me)
 				runtime_gogo(gp);
 			}
 
-			runtime_printtrace(tb.locbuf, tb.c, false);
+			slice.__values = &tb.locbuf[0];
+			slice.__count = tb.c;
+			slice.__capacity = tb.c;
+			runtime_printtrace(slice, nil);
 			runtime_printcreatedby(gp);
 		}
 	}
@@ -851,6 +806,14 @@ runtime_ready(G *gp)
 	if(runtime_atomicload(&runtime_sched.npidle) != 0 && runtime_atomicload(&runtime_sched.nmspinning) == 0)  // TODO: fast atomic
 		wakep();
 	g->m->locks--;
+}
+
+void goready(G*, int) __asm__ (GOSYM_PREFIX "runtime.goready");
+
+void
+goready(G* gp, int traceskip __attribute__ ((unused)))
+{
+	runtime_ready(gp);
 }
 
 int32
@@ -939,7 +902,7 @@ runtime_freezetheworld(void)
 }
 
 void
-runtime_stoptheworld(void)
+runtime_stopTheWorldWithSema(void)
 {
 	int32 i;
 	uint32 s;
@@ -989,7 +952,7 @@ mhelpgc(void)
 }
 
 void
-runtime_starttheworld(void)
+runtime_startTheWorldWithSema(void)
 {
 	P *p, *p1;
 	M *mp;
@@ -1033,7 +996,7 @@ runtime_starttheworld(void)
 			mp = (M*)p->m;
 			p->m = 0;
 			if(mp->nextp)
-				runtime_throw("starttheworld: inconsistent mp->nextp");
+				runtime_throw("startTheWorldWithSema: inconsistent mp->nextp");
 			mp->nextp = (uintptr)p;
 			runtime_notewakeup(&mp->park);
 		} else {
@@ -1898,6 +1861,22 @@ runtime_park(bool(*unlockf)(G*, void*), void *lock, const char *reason)
 	runtime_mcall(park0);
 }
 
+void gopark(FuncVal *, void *, String, byte, int)
+  __asm__ ("runtime.gopark");
+
+void
+gopark(FuncVal *unlockf, void *lock, String reason,
+       byte traceEv __attribute__ ((unused)),
+       int traceskip __attribute__ ((unused)))
+{
+	if(g->atomicstatus != _Grunning)
+		runtime_throw("bad g status");
+	g->m->waitlock = lock;
+	g->m->waitunlockf = unlockf == nil ? nil : (void*)unlockf->fn;
+	g->waitreason = reason;
+	runtime_mcall(park0);
+}
+
 static bool
 parkunlock(G *gp, void *lock)
 {
@@ -1912,6 +1891,21 @@ void
 runtime_parkunlock(Lock *lock, const char *reason)
 {
 	runtime_park(parkunlock, lock, reason);
+}
+
+void goparkunlock(Lock *, String, byte, int)
+  __asm__ (GOSYM_PREFIX "runtime.goparkunlock");
+
+void
+goparkunlock(Lock *lock, String reason, byte traceEv __attribute__ ((unused)),
+	     int traceskip __attribute__ ((unused)))
+{
+	if(g->atomicstatus != _Grunning)
+		runtime_throw("bad g status");
+	g->m->waitlock = lock;
+	g->m->waitunlockf = parkunlock;
+	g->waitreason = reason;
+	runtime_mcall(park0);
 }
 
 // runtime_park continuation on g0.
@@ -1997,8 +1991,9 @@ goexit0(G *gp)
 	gp->paniconfault = 0;
 	gp->_defer = nil; // should be true already but just in case.
 	gp->_panic = nil; // non-nil for Goexit during panic. points at stack-allocated data.
-	gp->writenbuf = 0;
-	gp->writebuf = nil;
+	gp->writebuf.__values = nil;
+	gp->writebuf.__count = 0;
+	gp->writebuf.__capacity = 0;
 	gp->waitreason = runtime_gostringnocopy(nil);
 	gp->param = nil;
 	m->curg = nil;
@@ -2329,7 +2324,7 @@ runtime_malg(int32 stacksize, byte** ret_stack, uintptr* ret_stacksize)
                 // 32-bit mode, the Go allocation space is all of
                 // memory anyhow.
 		if(sizeof(void*) == 8) {
-			void *p = runtime_SysAlloc(stacksize, &mstats.other_sys);
+			void *p = runtime_SysAlloc(stacksize, &mstats()->other_sys);
 			if(p == nil)
 				runtime_throw("runtime: cannot allocate memory for goroutine stack");
 			*ret_stack = (byte*)p;
@@ -2539,13 +2534,13 @@ runtime_gomaxprocsfunc(int32 n)
 	}
 	runtime_unlock(&runtime_sched);
 
-	runtime_semacquire(&runtime_worldsema, false);
+	runtime_acquireWorldsema();
 	g->m->gcing = 1;
-	runtime_stoptheworld();
+	runtime_stopTheWorldWithSema();
 	newprocs = n;
 	g->m->gcing = 0;
-	runtime_semrelease(&runtime_worldsema);
-	runtime_starttheworld();
+	runtime_releaseWorldsema();
+	runtime_startTheWorldWithSema();
 
 	return ret;
 }
@@ -2642,11 +2637,8 @@ runtime_mcount(void)
 }
 
 static struct {
-	Lock;
-	void (*fn)(uintptr*, int32);
+	uint32 lock;
 	int32 hz;
-	uintptr pcbuf[TracebackMaxFrames];
-	Location locbuf[TracebackMaxFrames];
 } prof;
 
 static void System(void) {}
@@ -2659,8 +2651,11 @@ runtime_sigprof()
 	M *mp = g->m;
 	int32 n, i;
 	bool traceback;
+	uintptr pcbuf[TracebackMaxFrames];
+	Location locbuf[TracebackMaxFrames];
+	Slice stk;
 
-	if(prof.fn == nil || prof.hz == 0)
+	if(prof.hz == 0)
 		return;
 
 	if(mp == nil)
@@ -2674,12 +2669,6 @@ runtime_sigprof()
 	if(mp->mcache == nil)
 		traceback = false;
 
-	runtime_lock(&prof);
-	if(prof.fn == nil) {
-		runtime_unlock(&prof);
-		mp->mallocing--;
-		return;
-	}
 	n = 0;
 
 	if(runtime_atomicload(&runtime_in_callers) > 0) {
@@ -2691,33 +2680,43 @@ runtime_sigprof()
 	}
 
 	if(traceback) {
-		n = runtime_callers(0, prof.locbuf, nelem(prof.locbuf), false);
+		n = runtime_callers(0, locbuf, nelem(locbuf), false);
 		for(i = 0; i < n; i++)
-			prof.pcbuf[i] = prof.locbuf[i].pc;
+			pcbuf[i] = locbuf[i].pc;
 	}
 	if(!traceback || n <= 0) {
 		n = 2;
-		prof.pcbuf[0] = (uintptr)runtime_getcallerpc(&n);
+		pcbuf[0] = (uintptr)runtime_getcallerpc(&n);
 		if(mp->gcing || mp->helpgc)
-			prof.pcbuf[1] = (uintptr)GC;
+			pcbuf[1] = (uintptr)GC;
 		else
-			prof.pcbuf[1] = (uintptr)System;
+			pcbuf[1] = (uintptr)System;
 	}
-	prof.fn(prof.pcbuf, n);
-	runtime_unlock(&prof);
+
+	if (prof.hz != 0) {
+		stk.__values = &pcbuf[0];
+		stk.__count = n;
+		stk.__capacity = n;
+
+		// Simple cas-lock to coordinate with setcpuprofilerate.
+		while (!runtime_cas(&prof.lock, 0, 1)) {
+			runtime_osyield();
+		}
+		if (prof.hz != 0) {
+			runtime_cpuprofAdd(stk);
+		}
+		runtime_atomicstore(&prof.lock, 0);
+	}
+
 	mp->mallocing--;
 }
 
 // Arrange to call fn with a traceback hz times a second.
 void
-runtime_setcpuprofilerate(void (*fn)(uintptr*, int32), int32 hz)
+runtime_setcpuprofilerate_m(int32 hz)
 {
 	// Force sane arguments.
 	if(hz < 0)
-		hz = 0;
-	if(hz == 0)
-		fn = nil;
-	if(fn == nil)
 		hz = 0;
 
 	// Disable preemption, otherwise we can be rescheduled to another thread
@@ -2729,10 +2728,12 @@ runtime_setcpuprofilerate(void (*fn)(uintptr*, int32), int32 hz)
 	// it would deadlock.
 	runtime_resetcpuprofiler(0);
 
-	runtime_lock(&prof);
-	prof.fn = fn;
+	while (!runtime_cas(&prof.lock, 0, 1)) {
+		runtime_osyield();
+	}
 	prof.hz = hz;
-	runtime_unlock(&prof);
+	runtime_atomicstore(&prof.lock, 0);
+
 	runtime_lock(&runtime_sched);
 	runtime_sched.profilehz = hz;
 	runtime_unlock(&runtime_sched);
@@ -3546,4 +3547,29 @@ void
 sync_runtime_doSpin()
 {
 	runtime_procyield(ACTIVE_SPIN_CNT);
+}
+
+// For Go code to look at variables, until we port proc.go.
+
+extern M** runtime_go_allm(void)
+  __asm__ (GOSYM_PREFIX "runtime.allm");
+
+M**
+runtime_go_allm()
+{
+	return &runtime_allm;
+}
+
+extern Slice runtime_go_allgs(void)
+  __asm__ (GOSYM_PREFIX "runtime.allgs");
+
+Slice
+runtime_go_allgs()
+{
+	Slice s;
+
+	s.__values = runtime_allg;
+	s.__count = runtime_allglen;
+	s.__capacity = allgcap;
+	return s;
 }

@@ -145,7 +145,7 @@ Node::details() const
   std::stringstream details;
 
   if (!this->is_sink())
-    details << " l(" << LOCATION_LINE(this->location().gcc_location()) << ")";
+    details << " l(" << Linemap::location_to_line(this->location()) << ")";
 
   bool is_varargs = false;
   bool is_address_taken = false;
@@ -293,7 +293,6 @@ Node::op_format() const
 		  break;
 
 		case Runtime::MAKECHAN:
-		case Runtime::MAKECHANBIG:
 		case Runtime::MAKEMAP:
 		case Runtime::MAKESLICE1:
 		case Runtime::MAKESLICE2:
@@ -1215,7 +1214,7 @@ Escape_analysis_assign::expression(Expression** pexpr)
 			     "special treatment of append(slice1, slice2...)");
 
 		  // The content of the original slice leaks as well.
-		  Node* appendee = Node::make_node(call->args()->back());
+		  Node* appendee = Node::make_node(call->args()->front());
 		  this->assign_deref(this->context_->sink(), appendee);
 		}
 		break;
@@ -1229,19 +1228,22 @@ Escape_analysis_assign::expression(Expression** pexpr)
 		break;
 
 	      case Runtime::MAKECHAN:
-	      case Runtime::MAKECHANBIG:
 	      case Runtime::MAKEMAP:
 	      case Runtime::MAKESLICE1:
 	      case Runtime::MAKESLICE2:
 	      case Runtime::MAKESLICE1BIG:
 	      case Runtime::MAKESLICE2BIG:
-	      case Runtime::BYTE_ARRAY_TO_STRING:
-	      case Runtime::INT_ARRAY_TO_STRING:
-	      case Runtime::STRING_TO_BYTE_ARRAY:
-	      case Runtime::STRING_TO_INT_ARRAY:
-	      case Runtime::STRING_PLUS:
+	      case Runtime::SLICEBYTETOSTRING:
+	      case Runtime::SLICERUNETOSTRING:
+	      case Runtime::STRINGTOSLICEBYTE:
+	      case Runtime::STRINGTOSLICERUNE:
+	      case Runtime::CONCATSTRINGS:
+	      case Runtime::CONCATSTRING2:
+	      case Runtime::CONCATSTRING3:
+	      case Runtime::CONCATSTRING4:
+	      case Runtime::CONCATSTRING5:
 	      case Runtime::CONSTRUCT_MAP:
-	      case Runtime::INT_TO_STRING:
+	      case Runtime::INTSTRING:
 		{
 		  Node* runtime_node = Node::make_node(fe);
 		  this->context_->track(runtime_node);
@@ -1838,28 +1840,31 @@ Escape_analysis_assign::assign(Node* dst, Node* src)
 		    }
 
 		  case Runtime::MAKECHAN:
-		  case Runtime::MAKECHANBIG:
 		  case Runtime::MAKEMAP:
 		  case Runtime::MAKESLICE1:
 		  case Runtime::MAKESLICE2:
 		  case Runtime::MAKESLICE1BIG:
 		  case Runtime::MAKESLICE2BIG:
 		    // DST = make(...).
-		  case Runtime::BYTE_ARRAY_TO_STRING:
+		  case Runtime::SLICEBYTETOSTRING:
 		    // DST = string([]byte{...}).
-		  case Runtime::INT_ARRAY_TO_STRING:
+		  case Runtime::SLICERUNETOSTRING:
 		    // DST = string([]int{...}).
-		  case Runtime::STRING_TO_BYTE_ARRAY:
+		  case Runtime::STRINGTOSLICEBYTE:
 		    // DST = []byte(str).
-		  case Runtime::STRING_TO_INT_ARRAY:
-		    // DST = []int(str).
-		  case Runtime::STRING_PLUS:
+		  case Runtime::STRINGTOSLICERUNE:
+		    // DST = []rune(str).
+		  case Runtime::CONCATSTRINGS:
+		  case Runtime::CONCATSTRING2:
+		  case Runtime::CONCATSTRING3:
+		  case Runtime::CONCATSTRING4:
+		  case Runtime::CONCATSTRING5:
 		    // DST = str1 + str2
 		  case Runtime::CONSTRUCT_MAP:
 		    // When building a map literal's backend representation.
 		    // Likely never seen here and covered in
 		    // Expression::EXPRESSION_MAP_CONSTRUCTION.
-		  case Runtime::INT_TO_STRING:
+		  case Runtime::INTSTRING:
 		    // DST = string(i).
 		  case Runtime::IFACEE2E2:
 		  case Runtime::IFACEI2E2:
@@ -2086,6 +2091,36 @@ Escape_analysis_assign::assign_deref(Node* dst, Node* src)
 	case Expression::EXPRESSION_IOTA:
 	  // No need to try indirections on literal values
 	  // or numeric constants.
+	  return;
+
+	case Expression::EXPRESSION_FIXED_ARRAY_CONSTRUCTION:
+	case Expression::EXPRESSION_SLICE_CONSTRUCTION:
+	case Expression::EXPRESSION_STRUCT_CONSTRUCTION:
+	  {
+	    // Dereferencing an array, slice, or struct is like accessing each
+	    // of its values.  In this situation, we model the flow from src to
+	    // dst where src is one of the above as a flow from each of src's
+	    // values to dst.
+	    Expression* e = src->expr();
+	    Expression_list* vals = NULL;
+	    if (e->slice_literal() != NULL)
+	      vals = e->slice_literal()->vals();
+	    else if (e->array_literal() != NULL)
+	      vals = e->array_literal()->vals();
+	    else
+	      vals = e->struct_literal()->vals();
+
+	    if (vals != NULL)
+	      {
+		for (Expression_list::const_iterator p = vals->begin();
+		     p != vals->end();
+		     ++p)
+		  {
+		    if ((*p) != NULL)
+		      this->assign(dst, Node::make_node(*p));
+		  }
+	      }
+	  }
 	  return;
 
 	default:
@@ -2582,19 +2617,22 @@ Escape_analysis_flood::flood(Level level, Node* dst, Node* src,
 		      break;
 
 		    case Runtime::MAKECHAN:
-		    case Runtime::MAKECHANBIG:
 		    case Runtime::MAKEMAP:
 		    case Runtime::MAKESLICE1:
 		    case Runtime::MAKESLICE2:
 		    case Runtime::MAKESLICE1BIG:
 		    case Runtime::MAKESLICE2BIG:
-		    case Runtime::BYTE_ARRAY_TO_STRING:
-		    case Runtime::INT_ARRAY_TO_STRING:
-		    case Runtime::STRING_TO_BYTE_ARRAY:
-		    case Runtime::STRING_TO_INT_ARRAY:
-		    case Runtime::STRING_PLUS:
+		    case Runtime::SLICEBYTETOSTRING:
+		    case Runtime::SLICERUNETOSTRING:
+		    case Runtime::STRINGTOSLICEBYTE:
+		    case Runtime::STRINGTOSLICERUNE:
+		    case Runtime::CONCATSTRINGS:
+		    case Runtime::CONCATSTRING2:
+		    case Runtime::CONCATSTRING3:
+		    case Runtime::CONCATSTRING4:
+		    case Runtime::CONCATSTRING5:
 		    case Runtime::CONSTRUCT_MAP:
-		    case Runtime::INT_TO_STRING:
+		    case Runtime::INTSTRING:
 		    case Runtime::CONVERT_INTERFACE:
 		      // All runtime calls that involve allocation of memory
 		      // except new.  Runtime::NEW gets lowered into an

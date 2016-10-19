@@ -231,9 +231,6 @@ func (mp *muintptr) set(m *m) { *mp = muintptr(unsafe.Pointer(m)) }
 //
 // sudogs are allocated from a special pool. Use acquireSudog and
 // releaseSudog to allocate and free them.
-/*
-Commented out for gccgo for now.
-
 type sudog struct {
 	// The following fields are protected by the hchan.lock of the
 	// channel this sudog is blocking on. shrinkstack depends on
@@ -253,7 +250,6 @@ type sudog struct {
 	waitlink    *sudog // g.waiting list
 	c           *hchan // channel
 }
-*/
 
 type gcstats struct {
 	// the struct must consist of only uint64's,
@@ -351,20 +347,14 @@ type g struct {
 	tracelastp     puintptr // last P emitted an event for this goroutine
 	lockedm        *m
 	sig            uint32
-
-	// Temporary gccgo field.
-	writenbuf int32
-	// Not for gccgo yet: writebuf       []byte
-	// Temporary different type for gccgo.
-	writebuf *byte
-
-	sigcode0 uintptr
-	sigcode1 uintptr
-	sigpc    uintptr
-	gopc     uintptr // pc of go statement that created this goroutine
-	startpc  uintptr // pc of goroutine function
-	racectx  uintptr
-	// Not for gccgo for now: waiting        *sudog    // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
+	writebuf       []byte
+	sigcode0       uintptr
+	sigcode1       uintptr
+	sigpc          uintptr
+	gopc           uintptr // pc of go statement that created this goroutine
+	startpc        uintptr // pc of goroutine function
+	racectx        uintptr
+	waiting        *sudog // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
 	// Not for gccgo: cgoCtxt        []uintptr // cgo traceback context
 
 	// Per-G GC state
@@ -404,7 +394,7 @@ type g struct {
 	issystem     bool // do not output in stack dump
 	isbackground bool // ignore in deadlock detector
 
-	traceback *traceback // stack traceback buffer
+	traceback *tracebackg // stack traceback buffer
 
 	context      g_ucontext_t       // saved context for setcontext
 	stackcontext [10]unsafe.Pointer // split-stack context
@@ -528,7 +518,7 @@ type p struct {
 	gfree    *g
 	gfreecnt int32
 
-	// Not for gccgo for now: sudogcache []*sudog
+	sudogcache []*sudog
 	// Not for gccgo for now: sudogbuf   [128]*sudog
 
 	// Not for gccgo for now: tracebuf traceBufPtr
@@ -810,21 +800,6 @@ var (
 // required size and picking an appropriate offset when we use the
 // array.
 type g_ucontext_t [(_sizeof_ucontext_t + 15) / unsafe.Sizeof(unsafe.Pointer(nil))]unsafe.Pointer
-
-// traceback is used to collect stack traces from other goroutines.
-type traceback struct {
-	gp     *g
-	locbuf [_TracebackMaxFrames]location
-	c      int
-}
-
-// location is a location in the program, used for backtraces.
-type location struct {
-	pc       uintptr
-	filename string
-	function string
-	lineno   int
-}
 
 // cgoMal tracks allocations made by _cgo_allocate
 // FIXME: _cgo_allocate has been removed from gc and can probably be

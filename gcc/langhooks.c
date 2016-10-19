@@ -77,14 +77,6 @@ lhd_do_nothing_f (struct function * ARG_UNUSED (f))
 /* Do nothing (return NULL_TREE).  */
 
 tree
-lhd_return_null_tree_v (void)
-{
-  return NULL_TREE;
-}
-
-/* Do nothing (return NULL_TREE).  */
-
-tree
 lhd_return_null_tree (tree ARG_UNUSED (t))
 {
   return NULL_TREE;
@@ -128,7 +120,7 @@ lhd_warn_unused_global_decl (const_tree decl)
 
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
     return false;
-  if (TREE_CODE (decl) == VAR_DECL && TREE_READONLY (decl))
+  if (VAR_P (decl) && TREE_READONLY (decl))
     return false;
   if (DECL_IN_SYSTEM_HEADER (decl))
     return false;
@@ -152,7 +144,7 @@ lhd_set_decl_assembler_name (tree decl)
      VAR_DECLs for variables with static storage duration need a real
      DECL_ASSEMBLER_NAME.  */
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
-	      || (TREE_CODE (decl) == VAR_DECL
+	      || (VAR_P (decl)
 		  && (TREE_STATIC (decl)
 		      || DECL_EXTERNAL (decl)
 		      || TREE_PUBLIC (decl))));
@@ -699,6 +691,15 @@ const char *
 lhd_get_substring_location (const substring_loc &, location_t *)
 {
   return "unimplemented";
+}
+
+/* Default implementation of LANG_HOOKS_DECL_DWARF_ATTRIBUTE.  Don't add
+   any attributes.  */
+
+int
+lhd_decl_dwarf_attribute (const_tree, int)
+{
+  return -1;
 }
 
 /* Returns true if the current lang_hooks represents the GNU C frontend.  */

@@ -153,6 +153,10 @@ typedef struct GTY(()) machine_function
   bool split_stack_argp_used;
   /* Flag if r2 setup is needed with ELFv2 ABI.  */
   bool r2_setup_needed;
+  /* The components already handled by separate shrink-wrapping, which should
+     not be considered by the prologue and epilogue.  */
+  bool gpr_is_wrapped_separately[32];
+  bool lr_is_wrapped_separately;
 } machine_function;
 
 /* Support targetm.vectorize.builtin_mask_for_load.  */
@@ -1522,6 +1526,19 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_SET_UP_BY_PROLOGUE
 #define TARGET_SET_UP_BY_PROLOGUE rs6000_set_up_by_prologue
 
+#undef TARGET_SHRINK_WRAP_GET_SEPARATE_COMPONENTS
+#define TARGET_SHRINK_WRAP_GET_SEPARATE_COMPONENTS rs6000_get_separate_components
+#undef TARGET_SHRINK_WRAP_COMPONENTS_FOR_BB
+#define TARGET_SHRINK_WRAP_COMPONENTS_FOR_BB rs6000_components_for_bb
+#undef TARGET_SHRINK_WRAP_DISQUALIFY_COMPONENTS
+#define TARGET_SHRINK_WRAP_DISQUALIFY_COMPONENTS rs6000_disqualify_components
+#undef TARGET_SHRINK_WRAP_EMIT_PROLOGUE_COMPONENTS
+#define TARGET_SHRINK_WRAP_EMIT_PROLOGUE_COMPONENTS rs6000_emit_prologue_components
+#undef TARGET_SHRINK_WRAP_EMIT_EPILOGUE_COMPONENTS
+#define TARGET_SHRINK_WRAP_EMIT_EPILOGUE_COMPONENTS rs6000_emit_epilogue_components
+#undef TARGET_SHRINK_WRAP_SET_HANDLED_COMPONENTS
+#define TARGET_SHRINK_WRAP_SET_HANDLED_COMPONENTS rs6000_set_handled_components
+
 #undef TARGET_EXTRA_LIVE_ON_ENTRY
 #define TARGET_EXTRA_LIVE_ON_ENTRY rs6000_live_on_entry
 
@@ -1734,6 +1751,11 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_VECTORIZE_BUILTIN_MD_VECTORIZED_FUNCTION
 #define TARGET_VECTORIZE_BUILTIN_MD_VECTORIZED_FUNCTION \
   rs6000_builtin_md_vectorized_function
+
+#ifdef TARGET_THREAD_SSP_OFFSET
+#undef TARGET_STACK_PROTECT_GUARD
+#define TARGET_STACK_PROTECT_GUARD hook_tree_void_null
+#endif
 
 #if !TARGET_MACHO
 #undef TARGET_STACK_PROTECT_FAIL
@@ -2718,6 +2740,9 @@ rs6000_debug_reg_global (void)
   fprintf (stderr, DEBUG_FMT_D, "Number of rs6000 builtins",
 	   (int)RS6000_BUILTIN_COUNT);
 
+  fprintf (stderr, DEBUG_FMT_D, "Enable float128 on VSX",
+	   (int)TARGET_FLOAT128_ENABLE_TYPE);
+
   if (TARGET_VSX)
     fprintf (stderr, DEBUG_FMT_D, "VSX easy 64-bit scalar element",
 	     (int)VECTOR_ELEMENT_SCALAR_64BIT);
@@ -2956,7 +2981,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   /* KF mode (IEEE 128-bit in VSX registers).  We do not have arithmetic, so
      only set the memory modes.  Include TFmode if -mabi=ieeelongdouble.  */
-  if (TARGET_FLOAT128)
+  if (TARGET_FLOAT128_TYPE)
     {
       rs6000_vector_mem[KFmode] = VECTOR_VSX;
       rs6000_vector_align[KFmode] = 128;
@@ -3162,7 +3187,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_LFIWZX)
     rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;	/* DImode  */
 
-  if (TARGET_FLOAT128)
+  if (TARGET_FLOAT128_TYPE)
     {
       rs6000_constraints[RS6000_CONSTRAINT_wq] = VSX_REGS;	/* KFmode  */
       if (FLOAT128_IEEE_P (TFmode))
@@ -3701,7 +3726,7 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
 	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
 	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128   : 0)
-	  | ((TARGET_FLOAT128)		    ? RS6000_BTM_FLOAT128  : 0));
+	  | ((TARGET_FLOAT128_TYPE)	    ? RS6000_BTM_FLOAT128  : 0));
 }
 
 /* Implement TARGET_MD_ASM_ADJUST.  All asm statements are considered
@@ -4405,28 +4430,96 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  /* __float128 requires VSX support.  */
-  if (TARGET_FLOAT128 && !TARGET_VSX)
+  /* Set long double size before the IEEE 128-bit tests.  */
+  if (!global_options_set.x_rs6000_long_double_type_size)
     {
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) != 0)
-	error ("-mfloat128 requires VSX support");
-
-      rs6000_isa_flags &= ~(OPTION_MASK_FLOAT128 | OPTION_MASK_FLOAT128_HW);
+      if (main_target_opt != NULL
+	  && (main_target_opt->x_rs6000_long_double_type_size
+	      != RS6000_DEFAULT_LONG_DOUBLE_SIZE))
+	error ("target attribute or pragma changes long double size");
+      else
+	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
     }
 
-  /* If we have -mfloat128 and full ISA 3.0 support, enable -mfloat128-hardware
-     by default.  */
-  if (TARGET_FLOAT128 && !TARGET_FLOAT128_HW
+  /* Set -mabi=ieeelongdouble on some old targets.  Note, AIX and Darwin
+     explicitly redefine TARGET_IEEEQUAD to 0, so those systems will not
+     pick up this default.  */
+#if !defined (POWERPC_LINUX) && !defined (POWERPC_FREEBSD)
+  if (!global_options_set.x_rs6000_ieeequad)
+    rs6000_ieeequad = 1;
+#endif
+
+  /* Enable the default support for IEEE 128-bit floating point on Linux VSX
+     sytems, but don't enable the __float128 keyword.  */
+  if (TARGET_VSX && TARGET_LONG_DOUBLE_128
+      && (TARGET_FLOAT128_ENABLE_TYPE || TARGET_IEEEQUAD)
+      && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_TYPE) == 0))
+    rs6000_isa_flags |= OPTION_MASK_FLOAT128_TYPE;
+
+  /* IEEE 128-bit floating point requires VSX support.  */
+  if (!TARGET_VSX)
+    {
+      if (TARGET_FLOAT128_KEYWORD)
+	{
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_KEYWORD) != 0)
+	    error ("-mfloat128 requires VSX support");
+
+	  rs6000_isa_flags &= ~(OPTION_MASK_FLOAT128_TYPE
+				| OPTION_MASK_FLOAT128_KEYWORD
+				| OPTION_MASK_FLOAT128_HW);
+	}
+
+      else if (TARGET_FLOAT128_TYPE)
+	{
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_TYPE) != 0)
+	    error ("-mfloat128-type requires VSX support");
+
+	  rs6000_isa_flags &= ~(OPTION_MASK_FLOAT128_TYPE
+				| OPTION_MASK_FLOAT128_KEYWORD
+				| OPTION_MASK_FLOAT128_HW);
+	}
+    }
+
+  /* -mfloat128 and -mfloat128-hardware internally require the underlying IEEE
+      128-bit floating point support to be enabled.  */
+  if (!TARGET_FLOAT128_TYPE)
+    {
+      if (TARGET_FLOAT128_KEYWORD)
+	{
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_KEYWORD) != 0)
+	    {
+	      error ("-mfloat128 requires -mfloat128-type");
+	      rs6000_isa_flags &= ~(OPTION_MASK_FLOAT128_TYPE
+				    | OPTION_MASK_FLOAT128_KEYWORD
+				    | OPTION_MASK_FLOAT128_HW);
+	    }
+	  else
+	    rs6000_isa_flags |= OPTION_MASK_FLOAT128_TYPE;
+	}
+
+      if (TARGET_FLOAT128_HW)
+	{
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_HW) != 0)
+	    {
+	      error ("-mfloat128-hardware requires -mfloat128-type");
+	      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_HW;
+	    }
+	  else
+	    rs6000_isa_flags &= ~(OPTION_MASK_FLOAT128_TYPE
+				  | OPTION_MASK_FLOAT128_KEYWORD
+				  | OPTION_MASK_FLOAT128_HW);
+	}
+    }
+
+  /* If we have -mfloat128-type and full ISA 3.0 support, enable
+     -mfloat128-hardware by default.  However, don't enable the __float128
+     keyword.  If the user explicitly turned on -mfloat128-hardware, enable the
+     -mfloat128 option as well if it was not already set.  */
+  if (TARGET_FLOAT128_TYPE && !TARGET_FLOAT128_HW
       && (rs6000_isa_flags & ISA_3_0_MASKS_IEEE) == ISA_3_0_MASKS_IEEE
       && !(rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_HW))
-    {
-      rs6000_isa_flags |= OPTION_MASK_FLOAT128_HW;
-      if ((rs6000_isa_flags & OPTION_MASK_FLOAT128) != 0)
-	rs6000_isa_flags_explicit |= OPTION_MASK_FLOAT128_HW;
-    }
+    rs6000_isa_flags |= OPTION_MASK_FLOAT128_HW;
 
-  /* IEEE 128-bit floating point hardware instructions imply enabling
-     __float128.  */
   if (TARGET_FLOAT128_HW
       && (rs6000_isa_flags & ISA_3_0_MASKS_IEEE) != ISA_3_0_MASKS_IEEE)
     {
@@ -4436,9 +4529,10 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_HW;
     }
 
-  if (TARGET_FLOAT128_HW
-      && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) == 0)
-    rs6000_isa_flags |= OPTION_MASK_FLOAT128;
+  if (TARGET_FLOAT128_HW && !TARGET_FLOAT128_KEYWORD
+      && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_HW) != 0
+      && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_KEYWORD) == 0)
+    rs6000_isa_flags |= OPTION_MASK_FLOAT128_KEYWORD;
 
   /* Print the options after updating the defaults.  */
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
@@ -4501,28 +4595,14 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  if (!global_options_set.x_rs6000_long_double_type_size)
-    {
-      if (main_target_opt != NULL
-	  && (main_target_opt->x_rs6000_long_double_type_size
-	      != RS6000_DEFAULT_LONG_DOUBLE_SIZE))
-	error ("target attribute or pragma changes long double size");
-      else
-	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
-    }
-
-#if !defined (POWERPC_LINUX) && !defined (POWERPC_FREEBSD)
-  if (!global_options_set.x_rs6000_ieeequad)
-    rs6000_ieeequad = 1;
-#endif
-
   /* Disable VSX and Altivec silently if the user switched cpus to power7 in a
      target attribute or pragma which automatically enables both options,
      unless the altivec ABI was set.  This is set by default for 64-bit, but
      not for 32-bit.  */
   if (main_target_opt != NULL && !main_target_opt->x_rs6000_altivec_abi)
     rs6000_isa_flags &= ~((OPTION_MASK_VSX | OPTION_MASK_ALTIVEC
-			   | OPTION_MASK_FLOAT128)
+			   | OPTION_MASK_FLOAT128_TYPE
+			   | OPTION_MASK_FLOAT128_KEYWORD)
 			  & ~rs6000_isa_flags_explicit);
 
   /* Enable Altivec ABI for AIX -maltivec.  */
@@ -10894,7 +10974,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
       static bool warned_for_return_big_vectors = false;
       if (!warned_for_return_big_vectors)
 	{
-	  warning (0, "GCC vector returned by reference: "
+	  warning (OPT_Wpsabi, "GCC vector returned by reference: "
 		   "non-standard ABI extension with no compatibility guarantee");
 	  warned_for_return_big_vectors = true;
 	}
@@ -12552,7 +12632,7 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 	fprintf (stderr, "function_arg_pass_by_reference: synthetic vector\n");
       if (!warned_for_pass_big_vectors)
 	{
-	  warning (0, "GCC vector passed by reference: "
+	  warning (OPT_Wpsabi, "GCC vector passed by reference: "
 		   "non-standard ABI extension with no compatibility guarantee");
 	  warned_for_pass_big_vectors = true;
 	}
@@ -16505,28 +16585,54 @@ rs6000_init_builtins (void)
      IFmode is the IBM extended 128-bit format that is a pair of doubles.
      TFmode will be either IEEE 128-bit floating point or the IBM double-double
      format that uses a pair of doubles, depending on the switches and
-     defaults.  */
-  if (TARGET_FLOAT128)
+     defaults.
+
+     We do not enable the actual __float128 keyword unless the user explicitly
+     asks for it, because the library support is not yet complete.
+
+     If we don't support for either 128-bit IBM double double or IEEE 128-bit
+     floating point, we need make sure the type is non-zero or else self-test
+     fails during bootstrap.
+
+     We don't register a built-in type for __ibm128 if the type is the same as
+     long double.  Instead we add a #define for __ibm128 in
+     rs6000_cpu_cpp_builtins to long double.  */
+  if (TARGET_LONG_DOUBLE_128 && FLOAT128_IEEE_P (TFmode))
     {
       ibm128_float_type_node = make_node (REAL_TYPE);
       TYPE_PRECISION (ibm128_float_type_node) = 128;
       layout_type (ibm128_float_type_node);
       SET_TYPE_MODE (ibm128_float_type_node, IFmode);
 
-      ieee128_float_type_node = float128_type_node;
-
-      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
-					      "__float128");
-
       lang_hooks.types.register_builtin_type (ibm128_float_type_node,
 					      "__ibm128");
     }
   else
+    ibm128_float_type_node = long_double_type_node;
+
+  if (TARGET_FLOAT128_KEYWORD)
     {
-      /* All types must be nonzero, or self-test barfs during bootstrap.  */
-      ieee128_float_type_node = long_double_type_node;
-      ibm128_float_type_node = long_double_type_node;
+      ieee128_float_type_node = float128_type_node;
+      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					      "__float128");
     }
+
+  else if (TARGET_FLOAT128_TYPE)
+    {
+      ieee128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ibm128_float_type_node) = 128;
+      layout_type (ieee128_float_type_node);
+      SET_TYPE_MODE (ieee128_float_type_node, KFmode);
+
+      /* If we are not exporting the __float128/_Float128 keywords, we need a
+	 keyword to get the types created.  Use __ieee128 as the dummy
+	 keyword.  */
+      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					      "__ieee128");
+    }
+
+  else
+    ieee128_float_type_node = long_double_type_node;
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
@@ -18316,7 +18422,7 @@ static void
 rs6000_init_libfuncs (void)
 {
   /* __float128 support.  */
-  if (TARGET_FLOAT128)
+  if (TARGET_FLOAT128_TYPE)
     {
       init_float128_ibm (IFmode);
       init_float128_ieee (KFmode);
@@ -18687,6 +18793,14 @@ expand_block_compare (rtx operands[])
   if (bytes <= 0)
     return true;
 
+  /* The code generated for p7 and older is not faster than glibc
+     memcmp if alignment is small and length is not short, so bail
+     out to avoid those conditions.  */
+  if (!TARGET_EFFICIENT_OVERLAPPING_UNALIGNED
+      && ((base_align == 1 && bytes > 16)
+	  || (base_align == 2 && bytes > 32)))
+    return false;
+
   rtx tmp_reg_src1 = gen_reg_rtx (word_mode);
   rtx tmp_reg_src2 = gen_reg_rtx (word_mode);
 
@@ -18736,13 +18850,18 @@ expand_block_compare (rtx operands[])
   while (bytes > 0)
     {
       int align = compute_current_alignment (base_align, offset);
-      load_mode = select_block_compare_mode(offset, bytes, align, word_mode_ok);
+      if (TARGET_EFFICIENT_OVERLAPPING_UNALIGNED)
+	load_mode = select_block_compare_mode (offset, bytes, align,
+					       word_mode_ok);
+      else
+	load_mode = select_block_compare_mode (0, bytes, align, word_mode_ok);
       load_mode_size = GET_MODE_SIZE (load_mode);
       if (bytes >= load_mode_size)
 	cmp_bytes = load_mode_size;
-      else
+      else if (TARGET_EFFICIENT_OVERLAPPING_UNALIGNED)
 	{
-	  /* Move this load back so it doesn't go past the end.  */
+	  /* Move this load back so it doesn't go past the end.
+	     P8/P9 can do this efficiently.  */
 	  int extra_bytes = load_mode_size - bytes;
 	  cmp_bytes = bytes;
 	  if (extra_bytes < offset)
@@ -18752,7 +18871,12 @@ expand_block_compare (rtx operands[])
 	      bytes = cmp_bytes;
 	    }
 	}
-
+      else
+	/* P7 and earlier can't do the overlapping load trick fast,
+	   so this forces a non-overlapping load and a shift to get
+	   rid of the extra bytes.  */
+	cmp_bytes = bytes;
+      
       src1 = adjust_address (orig_src1, load_mode, offset);
       src2 = adjust_address (orig_src2, load_mode, offset);
 
@@ -27309,6 +27433,221 @@ rs6000_global_entry_point_needed_p (void)
   return cfun->machine->r2_setup_needed;
 }
 
+/* Implement TARGET_SHRINK_WRAP_GET_SEPARATE_COMPONENTS.  */
+static sbitmap
+rs6000_get_separate_components (void)
+{
+  rs6000_stack_t *info = rs6000_stack_info ();
+
+  if (WORLD_SAVE_P (info))
+    return NULL;
+
+  sbitmap components = sbitmap_alloc (32);
+  bitmap_clear (components);
+
+  /* The GPRs we need saved to the frame.  */
+  if ((info->savres_strategy & SAVE_INLINE_GPRS)
+      && (info->savres_strategy & REST_INLINE_GPRS))
+    {
+      int reg_size = TARGET_32BIT ? 4 : 8;
+      int offset = info->gp_save_offset;
+      if (info->push_p)
+	offset += info->total_size;
+
+      for (unsigned regno = info->first_gp_reg_save; regno < 32; regno++)
+	{
+	  if (IN_RANGE (offset, -0x8000, 0x7fff)
+	      && rs6000_reg_live_or_pic_offset_p (regno))
+	    bitmap_set_bit (components, regno);
+
+	  offset += reg_size;
+	}
+    }
+
+  /* Don't mess with the hard frame pointer.  */
+  if (frame_pointer_needed)
+    bitmap_clear_bit (components, HARD_FRAME_POINTER_REGNUM);
+
+  /* Don't mess with the fixed TOC register.  */
+  if ((TARGET_TOC && TARGET_MINIMAL_TOC)
+      || (flag_pic == 1 && DEFAULT_ABI == ABI_V4)
+      || (flag_pic && DEFAULT_ABI == ABI_DARWIN))
+    bitmap_clear_bit (components, RS6000_PIC_OFFSET_TABLE_REGNUM);
+
+  /* Optimize LR save and restore if we can.  This is component 0.  Any
+     out-of-line register save/restore routines need LR.  */
+  if (info->lr_save_p
+      && !(flag_pic && (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN))
+      && (info->savres_strategy & SAVE_INLINE_GPRS)
+      && (info->savres_strategy & REST_INLINE_GPRS)
+      && (info->savres_strategy & SAVE_INLINE_FPRS)
+      && (info->savres_strategy & REST_INLINE_FPRS)
+      && (info->savres_strategy & SAVE_INLINE_VRS)
+      && (info->savres_strategy & REST_INLINE_VRS))
+    {
+      int offset = info->lr_save_offset;
+      if (info->push_p)
+	offset += info->total_size;
+      if (IN_RANGE (offset, -0x8000, 0x7fff))
+	bitmap_set_bit (components, 0);
+    }
+
+  return components;
+}
+
+/* Implement TARGET_SHRINK_WRAP_COMPONENTS_FOR_BB.  */
+static sbitmap
+rs6000_components_for_bb (basic_block bb)
+{
+  rs6000_stack_t *info = rs6000_stack_info ();
+
+  bitmap in = DF_LIVE_IN (bb);
+  bitmap gen = &DF_LIVE_BB_INFO (bb)->gen;
+  bitmap kill = &DF_LIVE_BB_INFO (bb)->kill;
+
+  sbitmap components = sbitmap_alloc (32);
+  bitmap_clear (components);
+
+  /* GPRs are used in a bb if they are in the IN, GEN, or KILL sets.  */
+  for (unsigned regno = info->first_gp_reg_save; regno < 32; regno++)
+    if (bitmap_bit_p (in, regno)
+	|| bitmap_bit_p (gen, regno)
+	|| bitmap_bit_p (kill, regno))
+      bitmap_set_bit (components, regno);
+
+  /* LR needs to be saved around a bb if it is killed in that bb.  */
+  if (bitmap_bit_p (gen, LR_REGNO)
+      || bitmap_bit_p (kill, LR_REGNO))
+    bitmap_set_bit (components, 0);
+
+  return components;
+}
+
+/* Implement TARGET_SHRINK_WRAP_DISQUALIFY_COMPONENTS.  */
+static void
+rs6000_disqualify_components (sbitmap components, edge e,
+			      sbitmap edge_components, bool /*is_prologue*/)
+{
+  /* Our LR pro/epilogue code moves LR via R0, so R0 had better not be
+     live where we want to place that code.  */
+  if (bitmap_bit_p (edge_components, 0)
+      && bitmap_bit_p (DF_LIVE_IN (e->dest), 0))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Disqualifying LR because GPR0 is live "
+		 "on entry to bb %d\n", e->dest->index);
+      bitmap_clear_bit (components, 0);
+    }
+}
+
+/* Implement TARGET_SHRINK_WRAP_EMIT_PROLOGUE_COMPONENTS.  */
+static void
+rs6000_emit_prologue_components (sbitmap components)
+{
+  rs6000_stack_t *info = rs6000_stack_info ();
+  rtx ptr_reg = gen_rtx_REG (Pmode, frame_pointer_needed
+			     ? HARD_FRAME_POINTER_REGNUM
+			     : STACK_POINTER_REGNUM);
+  int reg_size = TARGET_32BIT ? 4 : 8;
+
+  /* Prologue for LR.  */
+  if (bitmap_bit_p (components, 0))
+    {
+      rtx reg = gen_rtx_REG (Pmode, 0);
+      rtx_insn *insn = emit_move_insn (reg, gen_rtx_REG (Pmode, LR_REGNO));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_REGISTER, NULL);
+
+      int offset = info->lr_save_offset;
+      if (info->push_p)
+	offset += info->total_size;
+
+      insn = emit_insn (gen_frame_store (reg, ptr_reg, offset));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
+      rtx mem = copy_rtx (SET_DEST (single_set (insn)));
+      add_reg_note (insn, REG_CFA_OFFSET, gen_rtx_SET (mem, lr));
+    }
+
+  /* Prologue for the GPRs.  */
+  int offset = info->gp_save_offset;
+  if (info->push_p)
+    offset += info->total_size;
+
+  for (int i = info->first_gp_reg_save; i < 32; i++)
+    {
+      if (bitmap_bit_p (components, i))
+	{
+	  rtx reg = gen_rtx_REG (Pmode, i);
+	  rtx_insn *insn = emit_insn (gen_frame_store (reg, ptr_reg, offset));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  rtx set = copy_rtx (single_set (insn));
+	  add_reg_note (insn, REG_CFA_OFFSET, set);
+	}
+
+      offset += reg_size;
+    }
+}
+
+/* Implement TARGET_SHRINK_WRAP_EMIT_EPILOGUE_COMPONENTS.  */
+static void
+rs6000_emit_epilogue_components (sbitmap components)
+{
+  rs6000_stack_t *info = rs6000_stack_info ();
+  rtx ptr_reg = gen_rtx_REG (Pmode, frame_pointer_needed
+			     ? HARD_FRAME_POINTER_REGNUM
+			     : STACK_POINTER_REGNUM);
+  int reg_size = TARGET_32BIT ? 4 : 8;
+
+  /* Epilogue for the GPRs.  */
+  int offset = info->gp_save_offset;
+  if (info->push_p)
+    offset += info->total_size;
+
+  for (int i = info->first_gp_reg_save; i < 32; i++)
+    {
+      if (bitmap_bit_p (components, i))
+	{
+	  rtx reg = gen_rtx_REG (Pmode, i);
+	  rtx_insn *insn = emit_insn (gen_frame_load (reg, ptr_reg, offset));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  add_reg_note (insn, REG_CFA_RESTORE, reg);
+	}
+
+      offset += reg_size;
+    }
+
+  /* Epilogue for LR.  */
+  if (bitmap_bit_p (components, 0))
+    {
+      int offset = info->lr_save_offset;
+      if (info->push_p)
+	offset += info->total_size;
+
+      rtx reg = gen_rtx_REG (Pmode, 0);
+      rtx_insn *insn = emit_insn (gen_frame_load (reg, ptr_reg, offset));
+
+      rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
+      insn = emit_move_insn (lr, reg);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_CFA_RESTORE, lr);
+    }
+}
+
+/* Implement TARGET_SHRINK_WRAP_SET_HANDLED_COMPONENTS.  */
+static void
+rs6000_set_handled_components (sbitmap components)
+{
+  rs6000_stack_t *info = rs6000_stack_info ();
+
+  for (int i = info->first_gp_reg_save; i < 32; i++)
+    if (bitmap_bit_p (components, i))
+      cfun->machine->gpr_is_wrapped_separately[i] = true;
+
+  if (bitmap_bit_p (components, 0))
+    cfun->machine->lr_is_wrapped_separately = true;
+}
+
 /* Emit function prologue as insns.  */
 
 void
@@ -27566,7 +27905,8 @@ rs6000_emit_prologue (void)
     }
 
   /* If we use the link register, get it into r0.  */
-  if (!WORLD_SAVE_P (info) && info->lr_save_p)
+  if (!WORLD_SAVE_P (info) && info->lr_save_p
+      && !cfun->machine->lr_is_wrapped_separately)
     {
       rtx addr, reg, mem;
 
@@ -27794,13 +28134,16 @@ rs6000_emit_prologue (void)
     }
   else if (!WORLD_SAVE_P (info))
     {
-      int i;
-      for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-	if (rs6000_reg_live_or_pic_offset_p (info->first_gp_reg_save + i))
-	  emit_frame_save (frame_reg_rtx, reg_mode,
-			   info->first_gp_reg_save + i,
-			   info->gp_save_offset + frame_off + reg_size * i,
-			   sp_off - frame_off);
+      int offset = info->gp_save_offset + frame_off;
+      for (int i = info->first_gp_reg_save; i < 32; i++)
+	{
+	  if (rs6000_reg_live_or_pic_offset_p (i)
+	      && !cfun->machine->gpr_is_wrapped_separately[i])
+	    emit_frame_save (frame_reg_rtx, reg_mode, i, offset,
+			     sp_off - frame_off);
+
+	  offset += reg_size;
+	}
     }
 
   if (crtl->calls_eh_return)
@@ -28723,7 +29066,9 @@ rs6000_emit_epilogue (int sibcall)
 		&& (restoring_FPRs_inline
 		    || (strategy & REST_NOINLINE_FPRS_DOESNT_RESTORE_LR))
 		&& (restoring_GPRs_inline
-		    || info->first_fp_reg_save < 64));
+		    || info->first_fp_reg_save < 64)
+		&& !cfun->machine->lr_is_wrapped_separately);
+
 
   if (WORLD_SAVE_P (info))
     {
@@ -29358,12 +29703,18 @@ rs6000_emit_epilogue (int sibcall)
     }
   else
     {
-      for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-	if (rs6000_reg_live_or_pic_offset_p (info->first_gp_reg_save + i))
-	  emit_insn (gen_frame_load
-		     (gen_rtx_REG (reg_mode, info->first_gp_reg_save + i),
-		      frame_reg_rtx,
-		      info->gp_save_offset + frame_off + reg_size * i));
+      int offset = info->gp_save_offset + frame_off;
+      for (i = info->first_gp_reg_save; i < 32; i++)
+	{
+	  if (rs6000_reg_live_or_pic_offset_p (i)
+	      && !cfun->machine->gpr_is_wrapped_separately[i])
+	    {
+	      rtx reg = gen_rtx_REG (reg_mode, i);
+	      emit_insn (gen_frame_load (reg, frame_reg_rtx, offset));
+	    }
+
+	  offset += reg_size;
+	}
     }
 
   if (DEFAULT_ABI == ABI_V4 || flag_shrink_wrap)
@@ -29402,8 +29753,10 @@ rs6000_emit_epilogue (int sibcall)
 	    || using_load_multiple
 	    || rs6000_reg_live_or_pic_offset_p (i))
 	  {
-	    rtx reg = gen_rtx_REG (reg_mode, i);
+	    if (cfun->machine->gpr_is_wrapped_separately[i])
+	      continue;
 
+	    rtx reg = gen_rtx_REG (reg_mode, i);
 	    cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
 	  }
     }
@@ -33425,7 +33778,7 @@ rs6000_mangle_type (const_tree type)
   /* Use a unique name for __float128 rather than trying to use "e" or "g". Use
      "g" for IBM extended double, no matter whether it is long double (using
      -mabi=ibmlongdouble) or the distinct __ibm128 type.  */
-  if (TARGET_FLOAT128)
+  if (TARGET_FLOAT128_TYPE)
     {
       if (type == ieee128_float_type_node)
 	return "U10__float128";
@@ -34166,7 +34519,7 @@ static void
 rs6000_elf_asm_out_constructor (rtx symbol, int priority)
 {
   const char *section = ".ctors";
-  char buf[16];
+  char buf[18];
 
   if (priority != DEFAULT_INIT_PRIORITY)
     {
@@ -34197,7 +34550,7 @@ static void
 rs6000_elf_asm_out_destructor (rtx symbol, int priority)
 {
   const char *section = ".dtors";
-  char buf[16];
+  char buf[18];
 
   if (priority != DEFAULT_INIT_PRIORITY)
     {
@@ -36397,7 +36750,7 @@ rs6000_complex_function_value (machine_mode mode)
   machine_mode inner = GET_MODE_INNER (mode);
   unsigned int inner_bytes = GET_MODE_UNIT_SIZE (mode);
 
-  if (TARGET_FLOAT128
+  if (TARGET_FLOAT128_TYPE
       && (mode == KCmode
 	  || (mode == TCmode && TARGET_IEEEQUAD)))
     regno = ALTIVEC_ARG_RETURN;
@@ -36804,7 +37157,7 @@ rs6000_scalar_mode_supported_p (machine_mode mode)
 
   if (DECIMAL_FLOAT_MODE_P (mode))
     return default_decimal_float_supported_p ();
-  else if (TARGET_FLOAT128 && (mode == KFmode || mode == IFmode))
+  else if (TARGET_FLOAT128_TYPE && (mode == KFmode || mode == IFmode))
     return true;
   else
     return default_scalar_mode_supported_p (mode);
@@ -36843,7 +37196,7 @@ rs6000_floatn_mode (int n, bool extended)
 	  return DFmode;
 
 	case 64:
-	  if (TARGET_FLOAT128)
+	  if (TARGET_FLOAT128_KEYWORD)
 	    return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
 	  else
 	    return VOIDmode;
@@ -36867,7 +37220,7 @@ rs6000_floatn_mode (int n, bool extended)
 	  return DFmode;
 
 	case 128:
-	  if (TARGET_FLOAT128)
+	  if (TARGET_FLOAT128_KEYWORD)
 	    return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
 	  else
 	    return VOIDmode;
@@ -36883,7 +37236,7 @@ rs6000_floatn_mode (int n, bool extended)
 static machine_mode
 rs6000_c_mode_for_suffix (char suffix)
 {
-  if (TARGET_FLOAT128)
+  if (TARGET_FLOAT128_TYPE)
     {
       if (suffix == 'q' || suffix == 'Q')
 	return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
@@ -36984,7 +37337,8 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "efficient-unaligned-vsx",	OPTION_MASK_EFFICIENT_UNALIGNED_VSX,
 								false, true  },
-  { "float128",			OPTION_MASK_FLOAT128,		false, false },
+  { "float128",			OPTION_MASK_FLOAT128_KEYWORD,	false, false },
+  { "float128-type",		OPTION_MASK_FLOAT128_TYPE,	false, false },
   { "float128-hardware",	OPTION_MASK_FLOAT128_HW,	false, false },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
