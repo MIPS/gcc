@@ -6879,8 +6879,15 @@
 
 (define_expand "return"
   [(simple_return)]
-  "mips_can_use_return_insn ()"
-  { mips_expand_before_return (); })
+  "mips_can_use_simple_return_insn () || mips_can_use_return_insn ()"
+{
+  mips_expand_before_return ();
+  if (mips_can_use_return_insn ())
+    {
+      mips_expand_return ();
+      DONE;
+    }
+})
 
 (define_expand "simple_return"
   [(simple_return)]
@@ -7773,8 +7780,9 @@
 		     (match_operand:P 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				   NULL)"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
+				   NULL, false)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
+				     false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
@@ -7786,8 +7794,9 @@
 	     (match_operand:DF 3 "register_operand" "f"))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
-				   NULL)"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
+				   NULL, false)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
+				     false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
@@ -7799,11 +7808,29 @@
 			     (match_operand:P 3 "const_int_operand" "I"))))])]
   "GET_CODE (operands[2]) == REG && REGNO (operands[2]) == STACK_POINTER_REGNUM
    && mips_save_restore_pattern_p (operands[0], INTVAL (operands[3]), NULL,
-				   NULL)"
-  { return mips_output_save_restore (operands[0], INTVAL (operands[3])); }
+				   NULL, false)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[3]),
+				     false/*jrc_p*/); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
+
+(define_insn "*mips_restore_jrc"
+  [(match_parallel 0 ""
+     [(return)
+      (set (match_operand:P 1 "register_operand")
+	   (plus:P (match_dup 1)
+		   (match_operand:P 2 "const_int_operand")))])]
+  "ISA_HAS_RESTORE_JRC
+   && GET_CODE (operands[1]) == REG
+   && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				   NULL, true)
+   && reload_completed"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2]),
+				     true/*jrc_p*/); }
+  [(set_attr "type"     "jump")
+   (set_attr "mode"     "none")])
 
 ;; Thread-Local Storage
 
