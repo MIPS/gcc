@@ -60,4 +60,11 @@ enum mips_lib_setting {
   MIPS_LIB_SMALL,
   MIPS_LIB_TINY
 };
+
+/* Enumerates the setting of the -mopt-return= option.  */
+enum mips_return_setting {
+  MIPS_RETURN_NEVER,
+  MIPS_RETURN_OPTIMAL,
+  MIPS_RETURN_ALWAYS
+};
 #endif
