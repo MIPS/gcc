@@ -2462,7 +2462,7 @@ lto_output (void)
      statements using the statement UIDs.  */
   output_symtab ();
 
-  output_offload_tables ();
+  output_offload_data ();
 
 #if CHECKING_P
   lto_bitmap_free (output);
