@@ -7772,8 +7772,35 @@
 	     (plus:P (match_dup 1)
 		     (match_operand:P 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
-   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				   NULL)"
   { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
+  [(set_attr "type" "arith")
+   (set_attr "extended_mips16" "yes")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*mips_savef"
+  [(match_parallel 0 ""
+       [(set (mem:DF (plus:P (match_operand:P 1 "register_operand" "d")
+			     (match_operand:P 2 "const_int_operand" "I")))
+	     (match_operand:DF 3 "register_operand" "f"))])]
+  "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				   NULL)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
+  [(set_attr "type" "arith")
+   (set_attr "extended_mips16" "yes")
+   (set_attr "can_delay" "no")])
+
+(define_insn "*mips_restoref"
+  [(match_parallel 0 ""
+       [(set (match_operand:DF 1 "register_operand" "=f")
+	     (mem:DF (plus:P (match_operand:P 2 "register_operand" "d")
+			     (match_operand:P 3 "const_int_operand" "I"))))])]
+  "GET_CODE (operands[2]) == REG && REGNO (operands[2]) == STACK_POINTER_REGNUM
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[3]), NULL,
+				   NULL)"
+  { return mips_output_save_restore (operands[0], INTVAL (operands[3])); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
