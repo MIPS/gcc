@@ -8227,7 +8227,8 @@
 	     (plus:P (match_dup 1)
 		     (match_operand:P 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
-   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
+   && mips_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL,
+				   NULL)"
   { return mips_output_save_restore (operands[0], INTVAL (operands[2])); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
