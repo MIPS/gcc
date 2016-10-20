@@ -1,3 +1,13 @@
+2016-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSINT_84): Add SI to allow generation of
+	vsx_sign_extend_{qi,hi}_si.
+
+	* config/rs6000/rs6000.md (movsi_internal1): Use '?' and '*'
+	constraints to prefer GPRs over vector registers. Add case to
+	allow constants -128..127 to be loaded via XXSPLTIB/VEXTSB2W.
+	(constant splitter for int in VSX registers): Likewise.
+
 2016-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (VSX_EXTRACT_I2): New iterator for small

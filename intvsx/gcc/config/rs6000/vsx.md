@@ -263,7 +263,7 @@
 			    (V2DI	"wi")])
 
 ;; Iterators for loading constants with xxspltib
-(define_mode_iterator VSINT_84  [V4SI V2DI DI])
+(define_mode_iterator VSINT_84  [V4SI V2DI DI SI])
 (define_mode_iterator VSINT_842 [V8HI V4SI V2DI])
 
 ;; Iterator for ISA 3.0 vector extract/insert of small integer vectors.
