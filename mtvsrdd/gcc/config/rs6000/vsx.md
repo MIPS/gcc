@@ -171,15 +171,6 @@
 		       (DF   "d")])
 
 
-;; Favored scalar register constraint for VEC_CONCAT optimization.
-(define_mode_attr VSz1 [(V2DI "r")
-			(V2DF "ws")])
-
-;; Secondary scalar register constraints for VEC_CONCAT optimization (both GPR
-;; and vector register specified, but still put favored constraint first).
-(define_mode_attr VSz2 [(V2DI "wlr")
-			(V2DF "rws")])
-
 ;; Map into either s or v, depending on whether this is a scalar or vector
 ;; operation
 (define_mode_attr VSv	[(V16QI "v")
@@ -1967,28 +1958,9 @@
 }
   [(set_attr "type" "vecperm")])
 
-(define_insn_and_split "*vsx_concat_<mode>_store"
-  [(set (match_operand:VSX_D 0 "memory_operand" "=m,?m")
-	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VSz1>,*<VSz2>")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VSz1>,*<VSz2>")))
-   (clobber (match_scratch:DI 3 "=&b,&b"))]
-  "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)"
-  "#"
-  "&& reload_completed"
-  [(set (match_dup 4) (match_dup 1))
-   (set (match_dup 5) (match_dup 2))]
-{
-  rtx mem = operands[0];
-  rtx reg0 = operands[1];
-  rtx reg1 = operands[2];
-  rtx tmp = operands[3];
-  machine_mode smode = <VS_scalar>mode;
-
-  operands[4] = rs6000_adjust_vec_address (reg0, mem, const0_rtx, tmp, smode);
-  operands[5] = rs6000_adjust_vec_address (reg1, mem, const1_rtx, tmp, smode);
-})
-
+;; Optimize creation of V2DImode vectors by eliminating the move direct
+;; operation to create the vector.  DFmode tends to be in vector registers
+;; instead of the GPRs, so it doesn't need to avoid the direct move.
 (define_insn_and_split "*vsx_concat_v2di_store"
   [(set (match_operand:V2DI 0 "memory_operand" "=m,?*m,?*m,?*m")
 	(vec_concat:V2DI
