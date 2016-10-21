@@ -1958,13 +1958,13 @@
   [(set_attr "type" "vecperm")])
 
 ;; Optimize vsx_concat that just does a store
-(define_insn_and_split "*vsx_concat_<mode>_store"
-  [(set (match_operand:VSX_D 0 "memory_operand" "=m")
-	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>b")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>b")))
-   (clobber (match_scratch:DI 3 "=&b"))]
-  "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)"
+(define_insn_and_split "*vsx_concat_v2di_store"
+  [(set (match_operand:V2DI 0 "memory_operand" "=m,?*m,?*m,?*m")
+	(vec_concat:V2DI
+	 (match_operand:DI 1 "gpc_reg_operand" "r,wi,r, wi")
+	 (match_operand:DI 2 "gpc_reg_operand" "r,r, wi,wi")))
+   (clobber (match_scratch:DI 3 "=&b,&b,&b,&b"))]
+  "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (V2DImode)"
   "#"
   "&& reload_completed"
   [(set (match_dup 4) (match_dup 1))
@@ -1974,10 +1974,9 @@
   rtx reg0 = operands[1];
   rtx reg1 = operands[2];
   rtx tmp = operands[3];
-  machine_mode smode = <VS_scalar>mode;
 
-  operands[4] = rs6000_adjust_vec_address (reg0, mem, const0_rtx, tmp, smode);
-  operands[5] = rs6000_adjust_vec_address (reg1, mem, const1_rtx, tmp, smode);
+  operands[4] = rs6000_adjust_vec_address (reg0, mem, const0_rtx, tmp, DImode);
+  operands[5] = rs6000_adjust_vec_address (reg1, mem, const1_rtx, tmp, DImode);
 })
 
 ;; Special purpose concat using xxpermdi to glue two single precision values

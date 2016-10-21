@@ -1,3 +1,8 @@
+2016-10-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_concat_v2di_store): Don't bother
+	trying to optimize vec_concat of DFmode stores, just DImode stores.
+
 2016-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_concat_<mode>_store): Add optimization
