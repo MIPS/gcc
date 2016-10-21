@@ -26481,6 +26481,7 @@ mips_post_ira_recoloring (void)
   recolor_allocno_data_t *recolor_data;
   bool changed;
   vec <int> recolor_allocnos;
+  bool ever_changed = false;
 
   /* Do not optimize if there is no sufficient data or number of allocnos is too
      large.  */
@@ -26568,13 +26569,16 @@ mips_post_ira_recoloring (void)
 				    &recolor_allocnos) == -1)
 	    continue;
 	  changed = true;
+	  ever_changed = true;
 	  mips_collect_recolor_data ();
 	  break;
 	}
     }
   while (changed);
 
-  mips_compute_frame_info (true, &cfun->machine->frame);
+  if (ever_changed)
+    mips_compute_frame_info (false, &cfun->machine->frame);
+
   recolor_allocnos.release ();
 
   /* Use S registers sequentially  if not all S registers are used.  */
