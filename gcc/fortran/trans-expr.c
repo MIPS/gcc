@@ -861,10 +861,8 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
     {
       ctree = gfc_class_len_get (var);
       /* When the actual arg is a char array, then set the _len component of the
-	 unlimited polymorphic entity, too.  But only when the char array is
-	 deferred.  For un-deferred char arrays the length is encoded in the
-	 _vptr->size and having it again in _len would do harm.  */
-      if (e->ts.type == BT_CHARACTER && e->ts.deferred)
+	 unlimited polymorphic entity to the length of the string.  */
+      if (e->ts.type == BT_CHARACTER)
 	{
 	  /* Start with parmse->string_length because this seems to be set to a
 	   correct value more often.  */
@@ -900,9 +898,6 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 		}
 	    }
 	}
-      else if (e->ts.type == BT_CHARACTER)
-	/* Only un-deferred char arrays can make it here.  */
-	tmp = integer_one_node;
       else
 	tmp = integer_zero_node;
 

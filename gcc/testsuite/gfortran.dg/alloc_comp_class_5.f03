@@ -41,7 +41,7 @@ program test_pr61337
   call add_item(a_list, [.true., .false.])
   call add_item(a_list, ["foo", "bar", "baz"])
 
-  if (size(a_list) /= 3) call abort()
+  if (size(a_list) /= 4) call abort()
   do i = 1, size(a_list)
           call checkarr(a_list(i))
   end do
@@ -62,7 +62,7 @@ contains
         type is (logical)
           if (any(x .neqv. [.true., .false.])) call abort()
         type is (character(len=*))
-          if (len(x)) call abort()
+          if (len(x) /= 3) call abort()
           if (any(x /= ["foo", "bar", "baz"])) call abort()
         class default
           call abort()
