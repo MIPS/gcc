@@ -707,7 +707,7 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
 	  if (!gfc_add_component (fclass, "_len", &c))
 	    return false;
 	  c->ts.type = BT_INTEGER;
-	  c->ts.kind = 4;
+	  c->ts.kind = gfc_charlen_int_kind;
 	  c->attr.access = ACCESS_PRIVATE;
 	  c->attr.artificial = 1;
 	}
@@ -2190,6 +2190,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
   gfc_namespace *ns;
   gfc_symbol *vtab = NULL, *vtype = NULL, *found_sym = NULL, *def_init = NULL;
   gfc_symbol *copy = NULL, *src = NULL, *dst = NULL;
+  gfc_gsymbol *gsym = NULL;
 
   /* Find the top-level namespace.  */
   for (ns = gfc_current_ns; ns; ns = ns->parent)
@@ -2200,6 +2201,20 @@ gfc_find_derived_vtab (gfc_symbol *derived)
   if (!derived->attr.unlimited_polymorphic && derived->attr.is_class)
     derived = gfc_get_derived_super_type (derived);
 
+  /* Find the gsymbol for the module of use associated derived types.  */
+  if ((derived->attr.use_assoc || derived->attr.used_in_submodule)
+       && !derived->attr.vtype && !derived->attr.is_class)
+    gsym =  gfc_find_gsymbol (gfc_gsym_root, derived->module);
+  else
+    gsym = NULL;
+
+  /* Work in the gsymbol namespace if the top-level namespace is a module.
+     This ensures that the vtable is unique, which is required since we use
+     its address in SELECT TYPE.  */
+  if (gsym && gsym->ns && ns && ns->proc_name
+      && ns->proc_name->attr.flavor == FL_MODULE)
+    ns = gsym->ns;
+
   if (ns)
     {
       char name[GFC_MAX_SYMBOL_LEN+1], tname[GFC_MAX_SYMBOL_LEN+1];
@@ -2208,7 +2223,14 @@ gfc_find_derived_vtab (gfc_symbol *derived)
       sprintf (name, "__vtab_%s", tname);
 
       /* Look for the vtab symbol in various namespaces.  */
-      gfc_find_symbol (name, gfc_current_ns, 0, &vtab);
+      if (gsym && gsym->ns)
+	{
+	  gfc_find_symbol (name, gsym->ns, 0, &vtab);
+	  if (vtab)
+	    ns = gsym->ns;
+	}
+      if (vtab == NULL)
+	gfc_find_symbol (name, gfc_current_ns, 0, &vtab);
       if (vtab == NULL)
 	gfc_find_symbol (name, ns, 0, &vtab);
       if (vtab == NULL)
@@ -2493,11 +2515,6 @@ find_intrinsic_vtab (gfc_typespec *ts)
   gfc_namespace *ns;
   gfc_symbol *vtab = NULL, *vtype = NULL, *found_sym = NULL;
   gfc_symbol *copy = NULL, *src = NULL, *dst = NULL;
-  int charlen = 0;
-
-  if (ts->type == BT_CHARACTER && !ts->deferred && ts->u.cl && ts->u.cl->length
-      && ts->u.cl->length->expr_type == EXPR_CONSTANT)
-    charlen = mpz_get_si (ts->u.cl->length->value.integer);
 
   /* Find the top-level namespace.  */
   for (ns = gfc_current_ns; ns; ns = ns->parent)
@@ -2508,12 +2525,10 @@ find_intrinsic_vtab (gfc_typespec *ts)
     {
       char name[GFC_MAX_SYMBOL_LEN+1], tname[GFC_MAX_SYMBOL_LEN+1];
 
-      if (ts->type == BT_CHARACTER)
-	sprintf (tname, "%s_%d_%d", gfc_basic_typename (ts->type),
-		 charlen, ts->kind);
-      else
-	sprintf (tname, "%s_%d_", gfc_basic_typename (ts->type), ts->kind);
-
+      /* Encode all type as TYPENAME_KIND_ including especially character
+	 arrays, whose length is no consistently stored in the _len component
+	 of the class-variable.  */
+      sprintf (tname, "%s_%d_", gfc_basic_typename (ts->type), ts->kind);
       sprintf (name, "__vtab_%s", tname);
 
       /* Look for the vtab symbol in the top-level namespace only.  */
@@ -2578,9 +2593,8 @@ find_intrinsic_vtab (gfc_typespec *ts)
 	      c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
 						 NULL,
 						 ts->type == BT_CHARACTER
-						 && charlen == 0 ?
-						   ts->kind :
-						   (int)gfc_element_size (e));
+						 ? ts->kind
+						 : (int)gfc_element_size (e));
 	      gfc_free_expr (e);
 
 	      /* Add component _extends.  */

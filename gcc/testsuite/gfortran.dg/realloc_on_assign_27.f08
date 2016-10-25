@@ -9,7 +9,6 @@
   end type
 
   class(t), allocatable :: x
-  class(r), allocatable :: foo ! Need this declared of copy_R is not generated.
   type(r) :: y = r (3, 42)
 
   x = y

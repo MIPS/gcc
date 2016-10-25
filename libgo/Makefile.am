@@ -427,39 +427,20 @@ endif
 endif
 endif
 
-if LIBGO_IS_LINUX
-runtime_netpoll_files = runtime/netpoll_epoll.c
-else
-if LIBGO_IS_SOLARIS
-runtime_netpoll_files = runtime/netpoll_select.c
-else
-runtime_netpoll_files = runtime/netpoll_kqueue.c
-endif
-endif
-
 runtime_files = \
 	runtime/go-append.c \
 	runtime/go-assert.c \
-	runtime/go-assert-interface.c \
 	runtime/go-breakpoint.c \
 	runtime/go-caller.c \
 	runtime/go-callers.c \
-	runtime/go-can-convert-interface.c \
 	runtime/go-cdiv.c \
 	runtime/go-cgo.c \
-	runtime/go-check-interface.c \
 	runtime/go-construct-map.c \
-	runtime/go-convert-interface.c \
 	runtime/go-copy.c \
 	runtime/go-defer.c \
 	runtime/go-deferred-recover.c \
-	runtime/go-eface-compare.c \
-	runtime/go-eface-val-compare.c \
 	runtime/go-ffi.c \
 	runtime/go-fieldtrack.c \
-	runtime/go-interface-compare.c \
-	runtime/go-interface-eface-compare.c \
-	runtime/go-interface-val-compare.c \
 	runtime/go-make-slice.c \
 	runtime/go-matherr.c \
 	runtime/go-memclr.c \
@@ -476,13 +457,10 @@ runtime_files = \
 	runtime/go-runtime-error.c \
 	runtime/go-setenv.c \
 	runtime/go-signal.c \
-	runtime/go-strcmp.c \
 	runtime/go-strslice.c \
 	runtime/go-type-complex.c \
-	runtime/go-type-eface.c \
 	runtime/go-type-float.c \
 	runtime/go-type-identity.c \
-	runtime/go-type-interface.c \
 	runtime/go-type-string.c \
 	runtime/go-typedesc-equal.c \
 	runtime/go-unsafe-new.c \
@@ -500,7 +478,6 @@ runtime_files = \
 	runtime/mgc0.c \
 	runtime/mheap.c \
 	runtime/msize.c \
-	$(runtime_netpoll_files) \
 	runtime/panic.c \
 	runtime/parfor.c \
 	runtime/print.c \
@@ -511,12 +488,7 @@ runtime_files = \
 	$(runtime_thread_files) \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
-	go-iface.c \
-	lfstack.c \
 	malloc.c \
-	netpoll.c \
-	rdebug.c \
-	reflect.c \
 	runtime1.c \
 	sigqueue.c \
 	$(runtime_getncpu_file)
@@ -531,32 +503,12 @@ malloc.c: $(srcdir)/runtime/malloc.goc goc2c
 	./goc2c $< > $@.tmp
 	mv -f $@.tmp $@
 
-mprof.c: $(srcdir)/runtime/mprof.goc goc2c
-	./goc2c $< > $@.tmp
-	mv -f $@.tmp $@
-
-netpoll.c: $(srcdir)/runtime/netpoll.goc goc2c
-	./goc2c $< > $@.tmp
-	mv -f $@.tmp $@
-
-reflect.c: $(srcdir)/runtime/reflect.goc goc2c
-	./goc2c $< > $@.tmp
-	mv -f $@.tmp $@
-
 runtime1.c: $(srcdir)/runtime/runtime1.goc goc2c
-	./goc2c $< > $@.tmp
-	mv -f $@.tmp $@
-
-sema.c: $(srcdir)/runtime/sema.goc goc2c
 	./goc2c $< > $@.tmp
 	mv -f $@.tmp $@
 
 sigqueue.c: $(srcdir)/runtime/sigqueue.goc goc2c
 	./goc2c --go-pkgpath os_signal $< > $@.tmp
-	mv -f $@.tmp $@
-
-time.c: $(srcdir)/runtime/time.goc goc2c
-	./goc2c $< > $@.tmp
 	mv -f $@.tmp $@
 
 %.c: $(srcdir)/runtime/%.goc goc2c
@@ -1278,7 +1230,7 @@ runtime-go.lo:
 runtime.inc: s-runtime-inc; @true
 s-runtime-inc: runtime-go.lo Makefile
 	rm -f runtime.inc.tmp2
-	grep -v "#define _" runtime.inc.tmp > runtime.inc.tmp2
+	grep -v "#define _" runtime.inc.tmp | grep -v "#define c0 " | grep -v "#define c1 " > runtime.inc.tmp2
 	for pattern in '_G[a-z]' '_P[a-z]' _Max _Lock _Sig _Trace _MHeap _Num; do \
 	  grep "#define $$pattern" runtime.inc.tmp >> runtime.inc.tmp2; \
 	done
@@ -3035,6 +2987,7 @@ TEST_PACKAGES = \
 	os/user/check \
 	path/filepath/check \
 	regexp/syntax/check \
+	runtime/debug/check \
 	runtime/pprof/check \
 	runtime/internal/atomic/check \
 	runtime/internal/sys/check \

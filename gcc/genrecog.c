@@ -732,9 +732,9 @@ validate_pattern (rtx pattern, md_rtx_info *info, rtx set, int set_code)
       return;
 
     case LABEL_REF:
-      if (GET_MODE (LABEL_REF_LABEL (pattern)) != VOIDmode)
+      if (GET_MODE (XEXP (pattern, 0)) != VOIDmode)
 	error_at (info->loc, "operand to label_ref %smode not VOIDmode",
-		  GET_MODE_NAME (GET_MODE (LABEL_REF_LABEL (pattern))));
+		  GET_MODE_NAME (GET_MODE (XEXP (pattern, 0))));
       break;
 
     default:
@@ -4659,7 +4659,7 @@ print_test (output_state *os, const rtx_test &test, bool is_param,
       gcc_assert (!is_param && value == 1);
       if (invert_p)
 	printf ("!");
-      print_c_condition (test.u.string);
+      rtx_reader_ptr->print_c_condition (test.u.string);
       break;
 
     case rtx_test::ACCEPT:

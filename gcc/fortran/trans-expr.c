@@ -383,7 +383,7 @@ gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
       tail = class_ref->next;
       class_ref->next = NULL;
     }
-  else if (e->symtree->n.sym->ts.type == BT_CLASS)
+  else if (e->symtree && e->symtree->n.sym->ts.type == BT_CLASS)
     {
       tail = e->ref;
       e->ref = NULL;
@@ -397,7 +397,7 @@ gfc_find_and_cut_at_last_class_ref (gfc_expr *e)
       gfc_free_ref_list (class_ref->next);
       class_ref->next = tail;
     }
-  else if (e->symtree->n.sym->ts.type == BT_CLASS)
+  else if (e->symtree && e->symtree->n.sym->ts.type == BT_CLASS)
     {
       gfc_free_ref_list (e->ref);
       e->ref = tail;
@@ -861,7 +861,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
     {
       ctree = gfc_class_len_get (var);
       /* When the actual arg is a char array, then set the _len component of the
-       unlimited polymorphic entity, too.  */
+	 unlimited polymorphic entity to the length of the string.  */
       if (e->ts.type == BT_CHARACTER)
 	{
 	  /* Start with parmse->string_length because this seems to be set to a
@@ -1033,8 +1033,13 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
 	&& e->symtree && e->symtree->n.sym->ts.type == BT_CLASS)
     {
       tmp = e->symtree->n.sym->backend_decl;
+
+      if (TREE_CODE (tmp) == FUNCTION_DECL)
+	tmp = gfc_get_fake_result_decl (e->symtree->n.sym, 0);
+
       if (DECL_LANG_SPECIFIC (tmp) && GFC_DECL_SAVED_DESCRIPTOR (tmp))
 	tmp = GFC_DECL_SAVED_DESCRIPTOR (tmp);
+
       slen = integer_zero_node;
     }
   else
@@ -1501,6 +1506,27 @@ gfc_trans_class_init_assign (gfc_code *code)
 
   return gfc_finish_block (&block);
 }
+
+
+/* Return the backend_decl for the vtable of an arbitrary typespec
+   and the vtable symbol.  */
+
+tree
+gfc_get_vtable_decl (gfc_typespec *ts, gfc_symbol **vtab)
+{
+  gfc_symbol *vtable = gfc_find_vtab (ts);
+  gcc_assert (vtable != NULL);
+  if (vtab != NULL)
+    *vtab = vtable;
+  if (vtable->backend_decl == NULL_TREE)
+    return gfc_get_symbol_decl (vtable);
+  else
+    return vtable->backend_decl;
+}
+
+
+  /* Translate an assignment to a CLASS object
+     (pointer or ordinary assignment).  */
 
 
 /* End of prototype trans-class.c  */
@@ -6165,8 +6191,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       && !GFC_CLASS_TYPE_P (TREE_TYPE (result)))
     {
       gfc_se parmse;
-      gfc_expr *class_expr
-			  = gfc_find_and_cut_at_last_class_ref (args->expr);
+      gfc_expr *class_expr = gfc_find_and_cut_at_last_class_ref (args->expr);
 
       gfc_init_se (&parmse, NULL);
       parmse.data_not_needed = 1;
@@ -6175,6 +6200,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	gfc_allocate_lang_decl (result);
       GFC_DECL_SAVED_DESCRIPTOR (result) = parmse.expr;
       gfc_free_expr (class_expr);
+      gcc_assert (parmse.pre.head == NULL_TREE
+		  && parmse.post.head == NULL_TREE);
     }
 
   /* Follow the function call with the argument post block.  */
@@ -7874,6 +7901,7 @@ trans_get_upoly_len (stmtblock_t *block, gfc_expr *expr)
   gfc_add_len_component (expr);
   gfc_conv_expr (&se, expr);
   gfc_add_block_to_block (block, &se.pre);
+  gcc_assert (se.post.head == NULL_TREE);
   if (ref)
     {
       gfc_free_ref_list (ref->next);
@@ -8017,6 +8045,7 @@ trans_class_vptr_len_assignment (stmtblock_t *block, gfc_expr * le,
 		  gfc_init_se (&se, NULL);
 		  gfc_conv_expr (&se, re->ts.u.cl->length);
 		  gfc_add_block_to_block (block, &se.pre);
+		  gcc_assert (se.post.head == NULL_TREE);
 		  from_len = gfc_evaluate_now (se.expr, block);
 		}
 	      else

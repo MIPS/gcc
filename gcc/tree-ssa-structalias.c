@@ -2944,6 +2944,16 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
 	  DECL_PT_UID (t) = DECL_UID (node->decl);
 	  t = node->decl;
 	}
+
+      /* If this is decl may bind to NULL note that.  */
+      if (address_p
+	  && (! node || ! node->nonzero_address ()))
+	{
+	  cexpr.var = nothing_id;
+	  cexpr.type = SCALAR;
+	  cexpr.offset = 0;
+	  results->safe_push (cexpr);
+	}
     }
 
   vi = get_vi_for_tree (t);
@@ -3213,6 +3223,12 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
   /* Pretend to take the address of the base, we'll take care of
      adding the required subset of sub-fields below.  */
   get_constraint_for_1 (t, results, true, lhs_p);
+  /* Strip off nothing_id.  */
+  if (results->length () == 2)
+    {
+      gcc_assert ((*results)[0].var == nothing_id);
+      results->unordered_remove (0);
+    }
   gcc_assert (results->length () == 1);
   struct constraint_expr &result = results->last ();
 
@@ -6451,6 +6467,7 @@ find_what_p_points_to (tree fndecl, tree p)
   struct ptr_info_def *pi;
   tree lookup_p = p;
   varinfo_t vi;
+  bool nonnull = get_ptr_nonnull (p);
 
   /* For parameters, get at the points-to set for the actual parm
      decl.  */
@@ -6466,6 +6483,12 @@ find_what_p_points_to (tree fndecl, tree p)
 
   pi = get_ptr_info (p);
   pi->pt = find_what_var_points_to (fndecl, vi);
+  /* Conservatively set to NULL from PTA (to true). */
+  pi->pt.null = 1;
+  /* Preserve pointer nonnull computed by VRP.  See get_ptr_nonnull
+     in gcc/tree-ssaname.c for more information.  */
+  if (nonnull)
+    set_ptr_nonnull (p);
 }
 
 
@@ -6505,6 +6528,7 @@ pt_solution_reset (struct pt_solution *pt)
 {
   memset (pt, 0, sizeof (struct pt_solution));
   pt->anything = true;
+  pt->null = true;
 }
 
 /* Set the points-to solution *PT to point only to the variables
@@ -6599,10 +6623,10 @@ pt_solution_empty_p (struct pt_solution *pt)
    return the var uid in *UID.  */
 
 bool
-pt_solution_singleton_p (struct pt_solution *pt, unsigned *uid)
+pt_solution_singleton_or_null_p (struct pt_solution *pt, unsigned *uid)
 {
   if (pt->anything || pt->nonlocal || pt->escaped || pt->ipa_escaped
-      || pt->null || pt->vars == NULL
+      || pt->vars == NULL
       || !bitmap_single_bit_set_p (pt->vars))
     return false;
 

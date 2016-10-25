@@ -1001,7 +1001,7 @@ reg_mentioned_p (const_rtx reg, const_rtx in)
     return 1;
 
   if (GET_CODE (in) == LABEL_REF)
-    return reg == LABEL_REF_LABEL (in);
+    return reg == label_ref_label (in);
 
   code = GET_CODE (in);
 
@@ -3085,7 +3085,7 @@ rtx_referenced_p (const_rtx x, const_rtx body)
 	/* Check if a label_ref Y refers to label X.  */
 	if (GET_CODE (y) == LABEL_REF
 	    && LABEL_P (x)
-	    && LABEL_REF_LABEL (y) == x)
+	    && label_ref_label (y) == x)
 	  return true;
 
 	if (rtx_equal_p (x, y))
@@ -3103,26 +3103,26 @@ rtx_referenced_p (const_rtx x, const_rtx body)
    *LABELP and the jump table to *TABLEP.  LABELP and TABLEP may be NULL.  */
 
 bool
-tablejump_p (const rtx_insn *insn, rtx *labelp, rtx_jump_table_data **tablep)
+tablejump_p (const rtx_insn *insn, rtx_insn **labelp,
+	     rtx_jump_table_data **tablep)
 {
-  rtx label;
-  rtx_insn *table;
-
   if (!JUMP_P (insn))
     return false;
 
-  label = JUMP_LABEL (insn);
-  if (label != NULL_RTX && !ANY_RETURN_P (label)
-      && (table = NEXT_INSN (as_a <rtx_insn *> (label))) != NULL_RTX
-      && JUMP_TABLE_DATA_P (table))
-    {
-      if (labelp)
-	*labelp = label;
-      if (tablep)
-	*tablep = as_a <rtx_jump_table_data *> (table);
-      return true;
-    }
-  return false;
+  rtx target = JUMP_LABEL (insn);
+  if (target == NULL_RTX || ANY_RETURN_P (target))
+    return false;
+
+  rtx_insn *label = as_a<rtx_insn *> (target);
+  rtx_insn *table = next_insn (label);
+  if (table == NULL_RTX || !JUMP_TABLE_DATA_P (table))
+    return false;
+
+  if (labelp)
+    *labelp = label;
+  if (tablep)
+    *tablep = as_a <rtx_jump_table_data *> (table);
+  return true;
 }
 
 /* A subroutine of computed_jump_p, return 1 if X contains a REG or MEM or
@@ -5547,7 +5547,7 @@ get_condition (rtx_insn *jump, rtx_insn **earliest, int allow_cc_mode,
      the condition.  */
   reverse
     = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-      && LABEL_REF_LABEL (XEXP (SET_SRC (set), 2)) == JUMP_LABEL (jump);
+      && label_ref_label (XEXP (SET_SRC (set), 2)) == JUMP_LABEL (jump);
 
   return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX,
 				 allow_cc_mode, valid_at_insn_p);

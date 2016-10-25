@@ -2681,6 +2681,20 @@ gfc_conv_ss_descriptor (stmtblock_t * block, gfc_ss * ss, int base)
 
   if (base)
     {
+      if (ss_info->expr->ts.type == BT_CHARACTER && !ss_info->expr->ts.deferred
+	  && ss_info->expr->ts.u.cl->length == NULL)
+	{
+	  /* Emit a DECL_EXPR for the variable sized array type in
+	     GFC_TYPE_ARRAY_DATAPTR_TYPE so the gimplification of its type
+	     sizes works correctly.  */
+	  tree arraytype = TREE_TYPE (
+		GFC_TYPE_ARRAY_DATAPTR_TYPE (TREE_TYPE (info->descriptor)));
+	  if (! TYPE_NAME (arraytype))
+	    TYPE_NAME (arraytype) = build_decl (UNKNOWN_LOCATION, TYPE_DECL,
+						NULL_TREE, arraytype);
+	  gfc_add_expr_to_block (block, build1 (DECL_EXPR, arraytype,
+						TYPE_NAME (arraytype)));
+	}
       /* Also the data pointer.  */
       tmp = gfc_conv_array_data (se.expr);
       /* If this is a variable or address of a variable we use it directly.
@@ -3130,6 +3144,7 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
       class_ref->next = NULL;
       gfc_init_se (&tmpse, NULL);
       gfc_conv_expr (&tmpse, expr);
+      gfc_add_block_to_block (&se->pre, &tmpse.pre);
       decl = tmpse.expr;
       class_ref->next = ref;
     }
@@ -3142,9 +3157,22 @@ build_class_array_ref (gfc_se *se, tree base, tree index)
 
   size = gfc_class_vtab_size_get (decl);
 
+  /* For unlimited polymorphic entities then _len component needs to be
+     multiplied with the size.  If no _len component is present, then
+     gfc_class_len_or_zero_get () return a zero_node.  */
+  tmp = gfc_class_len_or_zero_get (decl);
+  if (!integer_zerop (tmp))
+    size = fold_build2 (MULT_EXPR, TREE_TYPE (index),
+			fold_convert (TREE_TYPE (index), size),
+			fold_build2 (MAX_EXPR, TREE_TYPE (index),
+				     fold_convert (TREE_TYPE (index), tmp),
+				     fold_convert (TREE_TYPE (index),
+						   integer_one_node)));
+  else
+    size = fold_convert (TREE_TYPE (index), size);
+
   /* Build the address of the element.  */
   type = TREE_TYPE (TREE_TYPE (base));
-  size = fold_convert (TREE_TYPE (index), size);
   offset = fold_build2_loc (input_location, MULT_EXPR,
 			    gfc_array_index_type,
 			    index, size);
@@ -7119,6 +7147,8 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 		  gfc_conv_expr (&classse, class_expr);
 		  gfc_free_expr (class_expr);
 
+		  gcc_assert (classse.pre.head == NULL_TREE
+			      && classse.post.head == NULL_TREE);
 		  gfc_allocate_lang_decl (parm);
 		  GFC_DECL_SAVED_DESCRIPTOR (parm) = classse.expr;
 		}
@@ -7325,6 +7355,18 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	  DECL_LANG_SPECIFIC (expr->symtree->n.sym->backend_decl) ?
 	    GFC_DECL_SAVED_DESCRIPTOR (expr->symtree->n.sym->backend_decl)
 	  : expr->symtree->n.sym->backend_decl;
+    }
+  else if (expr->expr_type == EXPR_ARRAY && VAR_P (desc)
+	   && IS_CLASS_ARRAY (expr))
+    {
+      tree vtype;
+      gfc_allocate_lang_decl (desc);
+      tmp = gfc_create_var (expr->ts.u.derived->backend_decl, "class");
+      GFC_DECL_SAVED_DESCRIPTOR (desc) = tmp;
+      vtype = gfc_class_vptr_get (tmp);
+      gfc_add_modify (&se->pre, vtype,
+		      gfc_build_addr_expr (TREE_TYPE (vtype),
+				      gfc_find_vtab (&expr->ts)->backend_decl));
     }
   if (!se->direct_byref || se->byref_noassign)
     {
@@ -8236,10 +8278,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      /* Allocatable CLASS components.  */
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);
-	      /* Add reference to '_data' component.  */
-	      tmp = CLASS_DATA (c)->backend_decl;
-	      comp = fold_build3_loc (input_location, COMPONENT_REF,
-				      TREE_TYPE (tmp), comp, tmp, NULL_TREE);
+
+	      comp = gfc_class_data_get (comp);
 	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (comp)))
 		gfc_conv_descriptor_data_set (&fnblock, comp, null_pointer_node);
 	      else
