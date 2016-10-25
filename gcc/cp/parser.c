@@ -6604,6 +6604,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 
     case RID_ADDRESSOF:
     case RID_BUILTIN_SHUFFLE:
+    case RID_BUILTIN_LAUNDER:
       {
 	vec<tree, va_gc> *vec;
 	unsigned int i;
@@ -6628,6 +6629,18 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 			   "%<__builtin_addressof%>");
 	    return error_mark_node;
 
+	  case RID_BUILTIN_LAUNDER:
+	    if (vec->length () == 1)
+	      postfix_expression = finish_builtin_launder (loc, (*vec)[0],
+							   tf_warning_or_error);
+	    else
+	      {
+		error_at (loc, "wrong number of arguments to "
+			       "%<__builtin_launder%>");
+		postfix_expression = error_mark_node;
+	      }
+	    break;
+
 	  case RID_BUILTIN_SHUFFLE:
 	    if (vec->length () == 2)
 	      return build_x_vec_perm_expr (loc, (*vec)[0], NULL_TREE,
@@ -6642,6 +6655,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  default:
 	    gcc_unreachable ();
 	  }
+	break;
       }
 
     default:

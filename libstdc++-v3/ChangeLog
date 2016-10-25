@@ -1,3 +1,83 @@
+2016-10-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/filesystem/ops.cc (is_empty): Fix error handling.
+	* testsuite/experimental/filesystem/operations/is_empty.cc: New test.
+
+	PR libstdc++/71337
+	* src/filesystem/ops.cc (temp_directory_path): Pass error_code
+	argument to other filesystem operations.
+	* testsuite/experimental/filesystem/operations/temp_directory_path.cc:
+	Add testcase for inaccessible directory.
+
+	* src/filesystem/dir.cc (open_dir): Return same value for errors
+	whether ignored or not.
+	(_Dir::advance(error_code*, directory_options)): Return false on
+	error.
+	(directory_iterator(const path&, directory_options, error_code*)):
+	Create end iterator on error (LWG 2723).
+	(recursive_directory_iterator(const path&, directory_options,
+	error_code*)): Likewise.
+	* testsuite/experimental/filesystem/iterators/directory_iterator.cc:
+	Update expected behaviour on error.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Likewise.
+
+	* src/filesystem/ops.cc (close_fd): Remove.
+	(do_copy_file): Just use close(3) instead of close_fd, to prevent
+	retrying on error.
+
+	* src/filesystem/ops.cc (do_copy_file): Return an error if either
+	source or destination is not a regular file.
+	(copy): Update comment to refer to LWG 2681. Implement 2682 and 2683
+	resolutions.
+	(read_symlink): Add missing ec.clear().
+	* testsuite/experimental/filesystem/operations/copy.cc: Update
+	expected behaviour for copying directories with create_symlinks.
+	Verify that error_code arguments are cleared if there's no error.
+	* testsuite/experimental/filesystem/operations/read_symlink.cc: New.
+
+2016-10-24  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Cross-port exception-safety and move fixes of std::any to
+	std::experimental::any.
+	* include/experimental/any (operator=(const any&)):
+	Make strongly exception-safe.
+	(operator=(any&&)): clear() unconditionally in the case where
+	rhs has a value.
+	(_Manager_internal<_Tp>::_S_manage): Move in _Op_xfer, don't copy.
+	* testsuite/experimental/any/assign/2.cc: Adjust.
+	* testsuite/experimental/any/assign/exception.cc: New.
+	* testsuite/experimental/any/cons/2.cc: Adjust.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: Ajust.
+
+2016-10-24  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Cross-port the latest resolution of LWG2756 and some
+	bug-fixes to experimental::optional.
+	PR libstdc++/77288
+	PR libstdc++/77727
+	* include/experimental/optional (_Optional_base):
+	Remove constructors that take a _Tp.
+	(__is_optional_impl, __is_optional): Remove.
+	(__converts_from_optional): New.
+	(optional(_Up&&)): Fix constraints, call base with in_place.
+	(optional(const optional<_Up>&)): Fix constraints, use emplace.
+	(optional(optional<_Up>&&)): Likewise.
+	(operator=(_Up&&)): Fix constraints.
+	(operator=(const optional<_Up>&)): Likewise.
+	(operator=(optional<_Up>&&)): Likewise.
+	(emplace(_Args&&...)): Constrain.
+	(emplace(initializer_list<_Up>, _Args&&...)): Likewise.
+	* testsuite/experimental/optional/77288.cc: New.
+	* testsuite/experimental/optional/assignment/5.cc: Adjust.
+	* testsuite/experimental/optional/cons/77727.cc: New.
+	* testsuite/experimental/optional/cons/value.cc: Adjust.
+
+2016-10-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_vector.h (vector::_M_data_ptr, vector::data):
+	Change return type of non-standard C++98 extension to match C++11.
+
 2016-10-22  François Dumont  <fdumont@gcc.gnu.org>
 
 	* include/bits/c++config (_GLIBCXX_BEGIN_NAMESPACE_ALGO)

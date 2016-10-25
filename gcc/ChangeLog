@@ -1,3 +1,147 @@
+2016-10-25  H.J. Lu  <hongjiu.lu@intel.com>
+	    Martin Liska  <mliska@suse.cz>
+
+	PR ipa/78099
+	* common.opt: Mark flag_ipa_icf_variables as Optimization flag.
+	* ipa-icf.c (sem_function::get_hash): Add target optimization
+	node to hash.
+
+2016-10-25  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/78041
+	* config/arm/neon.md (ashldi3_neon): Add "r 0 i" and "&r r i" variants.
+	Remove partial overlap check for shift by 1.
+	(ashldi3_neon): Likewise.
+
+2016-10-25  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/constraints.md (Q constraint): Document its use for
+	Thumb-1.
+	(Pf constraint): New constraint for relaxed, consume or relaxed memory
+	models.
+	* config/arm/sync.md (atomic_load<mode>): Add new ARMv8-M Baseline only
+	alternatives to allow any register when memory model matches Pf and
+	thus lda is used, but only low registers otherwise.  Use unpredicated
+	output template for Thumb-1 targets.
+	(atomic_store<mode>): Likewise for stl.
+	(arm_load_exclusive<mode>): Add new ARMv8-M Baseline only alternative
+	whose output template does not have predication.
+	(arm_load_acquire_exclusive<mode>): Likewise.
+	(arm_load_exclusivesi): Likewise.
+	(arm_load_acquire_exclusivesi): Likewise.
+	(arm_store_release_exclusive<mode>): Likewise.
+	(arm_store_exclusive<mode>): Use unpredicated output template for
+	Thumb-1 targets.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* internal-fn.def (LAUNDER): New internal function.
+	* internal-fn.c (expand_LAUNDER): New function.
+
+2016-10-25  Georg-Johann Lay  <avr@gjlay.de>
+	    Pitchumani Sivanupandi  <pitchumani.sivanupandi@microchip.com>
+
+	New avr target pass to work around performance loss by PR fix.
+
+	PR target/71676
+	PR target/71678
+	* config/avr/avr.md (casesi_<mode>_sequence) [qi,hi]: New insn.
+	(*cmp<mode>) [qi,qq,uqq,hi,hq,uhq,ha,uha]: Rename to cmp<mode>3.
+	* config/avr/predicates.md (extend_operator): New.
+	* config/avr/avr-passes.def (avr_pass_casesi): Register new pass.
+	* config/avr/avr-protos.h (avr_casei_sequence_check_operands)
+	(make_avr_pass_casesi): New prototypes.
+	* config/avr/avr.c (print-rtl.h): Include it.
+	(pass_data avr_pass_data_casesi): Data for new pass.
+	(avr_pass_casesi): New class implementing rtl_opt_pass .avr-casesi.
+	(make_avr_pass_casesi, avr_parallel_insn_from_insns)
+	(avr_is_casesi_sequence, avr_casei_sequence_check_operands)
+	(avr_optimize_casesi): New functions.
+
+2016-10-25  Georg-Johann Lay  <avr@gjlay.de>
+	    Pitchumani Sivanupandi  <pitchumani.sivanupandi@microchip.com>
+
+	PR target/71676
+	PR target/71678
+	* config/avr/avr.md (casesi): Rewrite avoiding subregs of SI.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (gen_subprogram_die): Add DW_AT_reference or
+	DW_AT_rvalue_reference attributes.
+
+2016-10-24  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* doc/invoke.text (Wint-in-bool-context): Update documentation.
+	* value-prof.c (stringop_block_profile): Fix a warning.
+
+2016-10-24  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/77735
+	* builtins.c (string_length): New function.
+	(c_strlen): Use string_length.  Correctly handle wide strings.
+	* gimple-ssa-sprintf.c (target_max_value, target_size_max): New
+	functions.
+	(target_int_max): Call target_max_value.
+	(format_result::knownrange): New data member.
+	(fmtresult::fmtresult): Define default constructor.
+	(format_integer): Use it and set format_result::knownrange.
+	Handle global constants.
+	(format_floating_max): Add third argument.
+	(format_floating): Recompute maximum value for %a for each argument.
+	(get_string_length): Use fmtresult default ctor.
+	(format_string): Set format_result::knownrange.
+	(format_directive): Check format_result::knownrange.
+	(add_bytes): Same.  Correct caret placement in diagnostics.
+	(pass_sprintf_length::compute_format_length): Set
+	format_result::knownrange.
+	(pass_sprintf_length::handle_gimple_call): Use target_size_max.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_in_large_data_p, ix86_expand_builtin): Use
+	VAR_P (x) instead of TREE_CODE (x) == VAR_DECL.
+
+2016-10-24  Ximin Luo  <infinity0@pwned.gg>
+
+	PR debug/77985
+	* dwarf2out.c (file_table_relative_p): Remove.
+	(gen_compile_unit_die, dwarf2out_early_finish): Emit DW_AT_comp_dir
+	also for absolute paths.
+	* doc/tm.texi: Update.
+	* doc/tm.texi.in (SDB and DWARF) <TARGET_FORCE_AT_COMP_DIR>: Remove.
+	* target.def (force_at_comp_dir): Remove hook.
+	* config/darwin.h (TARGET_FORCE_AT_COMP_DIR): Remove define.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	* tree-vrp.c (evrp_dom_walker::before_dom_children): Ignore
+	backedges when identifying the single predecessor to take
+	conditional info from.  Use SCEV to get at ranges for loop IVs.
+	* lto-streamer-out.c (lto_write_mode_table): CSE inner mode to
+	avoid false warning.
+
+2016-10-24  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/78093
+	* doc/extend.texi (AVR Variable Attributes) [absdata]: Document it.
+	* config/avr/avr.c (AVR_SYMBOL_FLAG_TINY_ABSDATA): New macro.
+	(avr_address_tiny_absdata_p): New static function.
+	(avr_legitimate_address_p, avr_legitimize_address) [AVR_TINY]: Use
+	it to determine validity of constant addresses.
+	(avr_attribute_table) [absdata]: New variable attribute...
+	(avr_handle_absdata_attribute): ...and handler.
+	(avr_decl_absdata_p): New static function.
+	(avr_encode_section_info) [AVR_TINY]: Use it to add flag
+	AVR_SYMBOL_FLAG_TINY_ABSDATA to respective symbols_refs.
+	(avr_address_cost) [AVR_TINY]: absdata addresses cost 2.
+
+2016-10-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78076
+	* tree-ssa-loop-split.c (tree_ssa_split_loops): Reset aux
+	also on the loop tree root.
+
 2016-10-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (ix86_fold_builtin): Handle

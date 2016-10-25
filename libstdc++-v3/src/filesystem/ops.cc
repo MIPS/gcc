@@ -308,17 +308,6 @@ namespace
     return fs::file_time_type{seconds{s} + ns};
   }
 
-  // Returns true if the file descriptor was successfully closed,
-  // otherwise returns false and the reason will be in errno.
-  inline bool
-  close_fd(int fd)
-  {
-    while (::close(fd))
-      if (errno != EINTR)
-	return false;
-    return true;
-  }
-
   bool
   do_copy_file(const fs::path& from, const fs::path& to,
 	       fs::copy_options option,
@@ -361,6 +350,11 @@ namespace
 	  from_st = &st2;
       }
     f = make_file_status(*from_st);
+    if (!is_regular_file(f))
+      {
+	ec = std::make_error_code(std::errc::not_supported);
+	return false;
+      }
 
     using opts = fs::copy_options;
 
@@ -392,11 +386,16 @@ namespace
 	    ec = std::make_error_code(std::errc::file_exists);
 	    return false;
 	  }
+	else if (!is_regular_file(t))
+	  {
+	    ec = std::make_error_code(std::errc::not_supported);
+	    return false;
+	  }
       }
 
     struct CloseFD {
-      ~CloseFD() { if (fd != -1) close_fd(fd); }
-      bool close() { return close_fd(std::exchange(fd, -1)); }
+      ~CloseFD() { if (fd != -1) ::close(fd); }
+      bool close() { return ::close(std::exchange(fd, -1)) == 0; }
       int fd;
     };
 
@@ -489,7 +488,8 @@ fs::copy(const path& from, const path& to, copy_options options,
 
   file_status f, t;
   stat_type from_st, to_st;
-  // N4099 doesn't check copy_symlinks here, but I think that's a defect.
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 2681. filesystem::copy() cannot copy symlinks
   if (use_lstat || copy_symlinks
       ? ::lstat(from.c_str(), &from_st)
       : ::stat(from.c_str(), &from_st))
@@ -556,6 +556,10 @@ fs::copy(const path& from, const path& to, copy_options options,
 	  do_copy_file(from, to, options, &from_st, ptr,  ec);
 	}
     }
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 2682. filesystem::copy() won't create a symlink to a directory
+  else if (is_directory(f) && create_symlinks)
+    ec = std::make_error_code(errc::is_a_directory);
   else if (is_directory(f) && (is_set(options, copy_options::recursive)
 			       || options == copy_options::none))
     {
@@ -568,7 +572,10 @@ fs::copy(const path& from, const path& to, copy_options options,
       for (const directory_entry& x : directory_iterator(from))
 	copy(x.path(), to/x.path().filename(), options, ec);
     }
-  // "Otherwise no effects." (should ec.clear() be called?)
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 2683. filesystem::copy() says "no effects"
+  else
+    ec.clear();
 }
 
 bool
@@ -1015,20 +1022,24 @@ fs::hard_link_count(const path& p, error_code& ec) noexcept
 bool
 fs::is_empty(const path& p)
 {
-  return fs::is_directory(status(p))
-    ? fs::directory_iterator(p) == fs::directory_iterator()
-    : fs::file_size(p) == 0;
+  error_code ec;
+  bool e = is_empty(p, ec);
+  if (ec)
+    _GLIBCXX_THROW_OR_ABORT(filesystem_error("cannot check is file is empty",
+					     p, ec));
+  return e;
 }
 
 bool
 fs::is_empty(const path& p, error_code& ec) noexcept
 {
   auto s = status(p, ec);
-  if (ec.value())
+  if (ec)
     return false;
-  return fs::is_directory(s)
+  bool empty = fs::is_directory(s)
     ? fs::directory_iterator(p, ec) == fs::directory_iterator()
     : fs::file_size(p, ec) == 0;
+  return ec ? false : empty;
 }
 
 fs::file_time_type
@@ -1168,6 +1179,7 @@ fs::path fs::read_symlink(const path& p, error_code& ec)
       ec.assign(errno, std::generic_category());
       return {};
     }
+  ec.clear();
   return path{buf.data(), buf.data()+len};
 #else
   ec = std::make_error_code(std::errc::not_supported);
@@ -1420,12 +1432,17 @@ fs::path fs::temp_directory_path(error_code& ec)
   for (auto e = env; tmpdir == nullptr && *e != nullptr; ++e)
     tmpdir = ::getenv(*e);
   path p = tmpdir ? tmpdir : "/tmp";
-  if (exists(p) && is_directory(p))
+  auto st = status(p, ec);
+  if (!ec)
     {
-      ec.clear();
-      return p;
+      if (is_directory(st))
+	{
+	  ec.clear();
+	  return p;
+	}
+      else
+	ec = std::make_error_code(std::errc::not_a_directory);
     }
-  ec = std::make_error_code(std::errc::not_a_directory);
   return {};
 #endif
 }
