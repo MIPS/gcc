@@ -3129,7 +3129,7 @@ Memory operand suitable for TOC fusion memory references.
 Altivec register to hold 32/64-bit integers or NO_REGS.
 
 @item wI
-Floating point register to hold 32/64-bit integers or NO_REGS.
+VSX point register to hold 32/64-bit integers or NO_REGS.
 
 @item wJ
 VSX register to hold integers if ISA 3.0, or NO_REGS.

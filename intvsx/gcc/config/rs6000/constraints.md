@@ -163,7 +163,7 @@
   "Altivec register to hold 32/64-bit integers or NO_REGS.")
 
 (define_register_constraint "wI" "rs6000_constraints[RS6000_CONSTRAINT_wI]"
-  "Floating point register to hold 32/64-bit integers or NO_REGS.")
+  "VSX point register to hold 32/64-bit integers or NO_REGS.")
 
 (define_register_constraint "wJ" "rs6000_constraints[RS6000_CONSTRAINT_wJ]"
   "VSX register to hold integers if ISA 3.0, or NO_REGS.")

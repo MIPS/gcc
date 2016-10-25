@@ -3232,10 +3232,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     rs6000_constraints[RS6000_CONSTRAINT_we] = VSX_REGS;
 
   /* Support small integers in VSX registers.  */
-  if (TARGET_VSX_SIMODE)
+  if (TARGET_VSX_SIMODE)					/* SImode  */
     {
-      rs6000_constraints[RS6000_CONSTRAINT_wH] = ALTIVEC_REGS;	/* SImode  */
-      rs6000_constraints[RS6000_CONSTRAINT_wI] = FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wH] = ALTIVEC_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wI] = VSX_REGS;
       if (TARGET_P9_VECTOR)
 	{
 	  rs6000_constraints[RS6000_CONSTRAINT_wJ] = VSX_REGS;
@@ -22064,6 +22064,25 @@ print_operand (FILE *file, rtx x, int code)
 	  if (small_data_operand (x, GET_MODE (x)))
 	    fprintf (file, "@%s(%s)", SMALL_DATA_RELOC,
 		     reg_names[SMALL_DATA_REG]);
+	}
+      return;
+
+    case 'M':
+      /* Write either 'f' or 'xs' to generate
+		stfiwx or stxsiwx
+		lfiwax or lxsiwax
+		lfiwzx or lxsiwzx  */
+      if (!REG_P (x))
+	output_operand_lossage ("invalid %%M value");
+      else
+	{
+	  int r = REGNO (x);
+	  if (IN_RANGE (r, FIRST_FPR_REGNO, LAST_FPR_REGNO))
+	    fputs ("f", file);
+	  else if (IN_RANGE (r, FIRST_ALTIVEC_REGNO, LAST_ALTIVEC_REGNO))
+	    fputs ("xs", file);
+	  else
+	    output_operand_lossage ("invalid %%M value");
 	}
       return;
 
