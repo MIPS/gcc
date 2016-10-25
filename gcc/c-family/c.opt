@@ -202,7 +202,7 @@ Driver C ObjC C++ ObjC++ Joined Separate MissingArgError(missing path after %qs)
 
 fgimple
 C Var(flag_gimple) Init(0)
-Enable parsing GIMPLE
+Enable parsing GIMPLE.
 
 H
 C ObjC C++ ObjC++
