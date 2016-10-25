@@ -700,7 +700,8 @@ void gfc_allocate_using_malloc (stmtblock_t *, tree, tree, tree);
 /* Generate code to deallocate an array.  */
 tree gfc_deallocate_with_status (tree, tree, tree, tree, tree, bool,
 				 gfc_expr *, bool);
-tree gfc_deallocate_scalar_with_status (tree, tree, bool, gfc_expr*, gfc_typespec);
+tree gfc_deallocate_scalar_with_status (tree, tree, tree, bool, gfc_expr*,
+					gfc_typespec, bool c = false);
 
 /* Generate code to call realloc().  */
 tree gfc_call_realloc (stmtblock_t *, tree, tree);

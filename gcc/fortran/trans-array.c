@@ -8154,7 +8154,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 		comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 					decl, cdecl, NULL_TREE);
 
-	      tmp = gfc_deallocate_scalar_with_status (comp, NULL, true, NULL,
+	      tmp = gfc_deallocate_scalar_with_status (comp, NULL_TREE,
+						       NULL_TREE, true, NULL,
 						       c->ts);
 	      gfc_add_expr_to_block (&tmpblock, tmp);
 	      called_dealloc_with_status = true;
@@ -8180,7 +8181,9 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 					CLASS_DATA (c)->attr.codimension, NULL);
 	      else
 		{
-		  tmp = gfc_deallocate_scalar_with_status (comp, NULL_TREE, true, NULL,
+		  tmp = gfc_deallocate_scalar_with_status (comp, NULL_TREE,
+							   NULL_TREE, true,
+							   NULL,
 							   CLASS_DATA (c)->ts);
 		  gfc_add_expr_to_block (&tmpblock, tmp);
 		  called_dealloc_with_status = true;

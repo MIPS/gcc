@@ -4817,6 +4817,34 @@ gfc_get_corank (gfc_expr *e)
   return corank;
 }
 
+/* Return true, when e refs a component of derived type coarray.  */
+bool
+gfc_is_coarray_sub_component (gfc_expr *e)
+{
+  if (e->expr_type != EXPR_VARIABLE)
+    return false;
+
+  gfc_ref *ref = e->ref;
+  gfc_symbol *sym = e->symtree->n.sym;
+  /* Because the _data-ref needs to be in e, classes are treated correctly by
+     the loop below.  */
+  bool is_codim = sym->attr.codimension;
+
+  while (ref)
+    {
+      if (ref->type == REF_COMPONENT)
+	{
+	  if (!is_codim && ref->u.c.component->attr.codimension)
+	    is_codim = true;
+	  else if (is_codim && strcmp (ref->u.c.component->name, "_data") != 0)
+	    return true;
+	}
+      ref = ref->next;
+    }
+
+  return false;
+}
+
 
 /* Check whether the expression has an ultimate allocatable component.
    Being itself allocatable does not count.  */

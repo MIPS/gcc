@@ -4453,8 +4453,11 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		  else
 		    {
 		      gfc_expr *expr = gfc_lval_expr_from_sym (sym);
-		      tmp = gfc_deallocate_scalar_with_status (se.expr, NULL_TREE,
-						   true, expr, sym->ts);
+		      tmp = gfc_deallocate_scalar_with_status (se.expr,
+							       NULL_TREE,
+							       NULL_TREE,
+							       true, expr,
+							       sym->ts);
 		      gfc_free_expr (expr);
 		    }
 		}

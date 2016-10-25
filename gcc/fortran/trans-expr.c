@@ -5224,7 +5224,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			ptr = gfc_class_data_get (ptr);
 
 		      tmp = gfc_deallocate_scalar_with_status (ptr, NULL_TREE,
-							       true, e, e->ts);
+							       NULL_TREE, true,
+							       e, e->ts);
 		      gfc_add_expr_to_block (&block, tmp);
 		      tmp = fold_build2_loc (input_location, MODIFY_EXPR,
 					     void_type_node, ptr,

@@ -10317,8 +10317,8 @@ conv_intrinsic_move_alloc (gfc_code *code)
       gfc_add_block_to_block (&block, &to_se.pre);
 
       /* Deallocate "to".  */
-      tmp = gfc_deallocate_scalar_with_status (to_se.expr, NULL_TREE, true,
-					       to_expr, to_expr->ts);
+      tmp = gfc_deallocate_scalar_with_status (to_se.expr, NULL_TREE, NULL_TREE,
+					       true, to_expr, to_expr->ts);
       gfc_add_expr_to_block (&block, tmp);
 
       /* Assign (_data) pointers.  */
