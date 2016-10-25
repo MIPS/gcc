@@ -1,3 +1,18 @@
+2016-10-25  H.J. Lu  <hongjiu.lu@intel.com>
+	    Martin Liska  <mliska@suse.cz>
+
+	PR ipa/78099
+	* common.opt: Mark flag_ipa_icf_variables as Optimization flag.
+	* ipa-icf.c (sem_function::get_hash): Add target optimization
+	node to hash.
+
+2016-10-25  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/78041
+	* config/arm/neon.md (ashldi3_neon): Add "r 0 i" and "&r r i" variants.
+	Remove partial overlap check for shift by 1.
+	(ashldi3_neon): Likewise.
+
 2016-10-25  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* config/arm/constraints.md (Q constraint): Document its use for
