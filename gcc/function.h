@@ -228,6 +228,12 @@ struct GTY(()) function {
   /* GIMPLE body for this function.  */
   gimple_seq gimple_body;
 
+  /* GIMPLEFE pass to start with */
+  opt_pass *pass_startwith;
+
+  /* Startwith flag */
+  bool startwith;
+
   /* SSA and dataflow information.  */
   struct gimple_df *gimple_df;
 

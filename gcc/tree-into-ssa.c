@@ -1378,12 +1378,19 @@ rewrite_add_phi_arguments (basic_block bb)
       for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  tree currdef, res;
+	  tree currdef, res, argvar;
 	  location_t loc;
 
 	  phi = gsi.phi ();
 	  res = gimple_phi_result (phi);
-	  currdef = get_reaching_def (SSA_NAME_VAR (res));
+	  /* If we have pre-existing PHI its args may be different
+	     vars than existing vars */
+	  argvar = gimple_phi_arg_def (phi, e->dest_idx);
+	  if (argvar && TREE_CODE (argvar) == SSA_NAME)
+	    continue;
+	  if (!argvar)
+	    argvar = SSA_NAME_VAR (res);
+	  currdef = get_reaching_def (argvar);
 	  /* Virtual operand PHI args do not need a location.  */
 	  if (virtual_operand_p (res))
 	    loc = UNKNOWN_LOCATION;

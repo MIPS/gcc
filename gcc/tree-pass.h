@@ -622,8 +622,9 @@ extern gimple_opt_pass *make_pass_lower_vaarg (gcc::context *ctxt);
 /* Current optimization pass.  */
 extern opt_pass *current_pass;
 
-extern bool execute_one_pass (opt_pass *);
-extern void execute_pass_list (function *, opt_pass *);
+extern bool execute_one_pass (opt_pass *, bool startwith_p = false);
+extern void execute_pass_list (function *, opt_pass *,
+			       bool *startwith_p = NULL);
 extern void execute_ipa_pass_list (opt_pass *);
 extern void execute_ipa_summary_passes (ipa_opt_pass_d *);
 extern void execute_all_ipa_transforms (void);
