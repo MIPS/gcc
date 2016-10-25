@@ -3137,7 +3137,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wH - Altivec register to hold 32/64-bit integers or NO_REGS
 	wI - Floating point register to hold 32/64-bit integers or NO_REGS.
 	wJ - VSX register to hold integers if ISA 3.0, or NO_REGS.
-	wK - Altivec point register to hold integers if ISA 3.0, or NO_REGS.
+	wK - Altivec point register to hold integers if ISA 3.0, or NO_REGS.  */
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;	/* SFmode  */
@@ -3182,7 +3182,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_DIRECT_MOVE)
     {
       rs6000_constraints[RS6000_CONSTRAINT_wh] = FLOAT_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wj]			/* DImode  */
+      rs6000_constraints[RS6000_CONSTRAINT_wj]			/* SI/DImode  */
 	= rs6000_constraints[RS6000_CONSTRAINT_wi];
       rs6000_constraints[RS6000_CONSTRAINT_wk]			/* DFmode  */
 	= rs6000_constraints[RS6000_CONSTRAINT_ws];
@@ -3234,7 +3234,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   /* Support small integers in VSX registers.  */
   if (TARGET_VSX_SIMODE)
     {
-      rs6000_constraints[RS6000_CONSTRAINT_wH] = ALTIVEC_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wH] = ALTIVEC_REGS;	/* SImode  */
       rs6000_constraints[RS6000_CONSTRAINT_wI] = FLOAT_REGS;
       if (TARGET_P9_VECTOR)
 	{
