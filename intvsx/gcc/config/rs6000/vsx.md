@@ -2594,13 +2594,13 @@
       if (can_create_pseudo_p ())
 	dest = rs6000_address_for_fpconvert (dest);
 
-      if (TARGET_VSX_SMALL_INTEGER)
+      if (TARGET_VSX_SIMODE)
 	emit_move_insn (dest, gen_rtx_REG (SImode, REGNO (vec_tmp)));
       else
 	emit_insn (gen_stfiwx (dest, gen_rtx_REG (DImode, REGNO (vec_tmp))));
     }
 
-  else if (TARGET_VSX_SMALL_INTEGER)
+  else if (TARGET_VSX_SIMODE)
     emit_move_insn (dest, gen_rtx_REG (SImode, REGNO (vec_tmp)));
   else
     emit_move_insn (gen_rtx_REG (DImode, REGNO (dest)),

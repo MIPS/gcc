@@ -1,3 +1,38 @@
+2016-10-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wj): Reword documentation.
+	(wH): Likewise.
+	(wI): Likewise.
+	(wJ): Likewise.
+
+	* config/rs6000/rs6000.opt (-mvsx-small-integer): Delete switch.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Delete
+	explicit -mvsx-small-integer switch, and use TARGET_VSX_SIMODE
+	instead.  Change wJ constraint to be a VSX register instead of FPR
+	register.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_secondary_reload_simple_move): Likewise.
+	(rs6000_opt_masks): Delete -mvsx-small-integer.
+
+	* config/rs6000/vsx.md (vsx_extract_si): Use TARGET_VSX_SIMODE
+	instead of -mvsx-small-integer.
+
+	* config/rs6000/rs6000.h (TARGET_VSX_SIMODE): New macro to say
+	whether SImode values are allowed in VSX registers.
+
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax_mem): If
+	TARGET_VSX_SIMODE, use a normal move instead of generating a
+	special UNSPEC.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(XXSPLTIB splitter for SImode): Use TARGET_VSX_SIMODE instead of
+	-mvsx-small-integer.
+	(movsi_internal1): Use wj constraint instead of wHwI.
+
+	* doc/md.texi (PowerPC constraints): Update wj, wH, wI, wJ, and wK
+	documentation.
+
 2016-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (VSINT_84): Add SI to allow generation of

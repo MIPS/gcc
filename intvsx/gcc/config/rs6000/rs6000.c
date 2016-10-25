@@ -2013,16 +2013,8 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	  if(GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD)
 	    return 1;
 
-	  if (TARGET_VSX_SMALL_INTEGER)
-	    {
-	      if (mode == SImode)
-		return 1;
-
-#if 0
-	      if (TARGET_P9_VECTOR && (mode == QImode || mode == HImode))
-		return 1;
-#endif
-	    }
+	  if (mode == SImode && TARGET_VSX_SIMODE)
+	    return 1;
 	}
 
       if (PAIRED_SIMD_REGNO_P (regno) && TARGET_PAIRED_FLOAT
@@ -3128,7 +3120,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wg - Float register for power6x move insns.
 	wh - FP register for direct move instructions.
 	wi - FP or VSX register to hold 64-bit integers for VSX insns.
-	wj - FP or VSX register to hold 64-bit integers for direct moves.
+	wj - FP or VSX register to hold integers for direct moves or NO_REGS.
 	wk - FP or VSX register to hold 64-bit doubles for direct moves.
 	wl - Float register if we can do 32-bit signed int loads.
 	wm - VSX register for ISA 2.07 direct move operations.
@@ -3142,9 +3134,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wx - Float register if we can do 32-bit int stores.
 	wy - Register class to do ISA 2.07 SF operations.
 	wz - Float register if we can do 32-bit unsigned int loads.
-	wI - VSX register if SImode is allowed in VSX registers.
-	wJ - VSX register if QImode/HImode are allowed in VSX registers.
-	wK - Altivec register if QImode/HImode are allowed in VSX registers.  */
+	wH - Altivec register to hold 32/64-bit integers or NO_REGS
+	wI - Floating point register to hold 32/64-bit integers or NO_REGS.
+	wJ - VSX register to hold integers if ISA 3.0, or NO_REGS.
+	wK - Altivec point register to hold integers if ISA 3.0, or NO_REGS.
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;	/* SFmode  */
@@ -3239,13 +3232,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     rs6000_constraints[RS6000_CONSTRAINT_we] = VSX_REGS;
 
   /* Support small integers in VSX registers.  */
-  if (TARGET_VSX_SMALL_INTEGER)
+  if (TARGET_VSX_SIMODE)
     {
       rs6000_constraints[RS6000_CONSTRAINT_wH] = ALTIVEC_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wI] = FLOAT_REGS;
       if (TARGET_P9_VECTOR)
 	{
-	  rs6000_constraints[RS6000_CONSTRAINT_wJ] = FLOAT_REGS;
+	  rs6000_constraints[RS6000_CONSTRAINT_wJ] = VSX_REGS;
 	  rs6000_constraints[RS6000_CONSTRAINT_wK] = ALTIVEC_REGS;
 	}
     }
@@ -3403,17 +3396,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       if (TARGET_UPPER_REGS_SF)
 	reg_addr[SFmode].scalar_in_vmx_p = true;
 
-      if (TARGET_VSX_SMALL_INTEGER)
-	{
-	  reg_addr[SImode].scalar_in_vmx_p = true;
-#if 0
-	  if (TARGET_P9_VECTOR)
-	    {
-	      reg_addr[QImode].scalar_in_vmx_p = true;
-	      reg_addr[HImode].scalar_in_vmx_p = true;
-	    }
-#endif
-	}
+      if (TARGET_VSX_SIMODE)
+	reg_addr[SImode].scalar_in_vmx_p = true;
     }
 
   /* Setup the fusion operations.  */
@@ -4484,20 +4468,6 @@ rs6000_option_override_internal (bool global_init_p)
 
 	  rs6000_isa_flags &= ~OPTION_MASK_EFFICIENT_UNALIGNED_VSX;
 	}
-    }
-
-  /* Check whether we should allow small integers into VSX registers.  We
-     require direct move to prevent the register allocator from having to move
-     variables through memory to do moves.  SImode can be used on ISA 2.07,
-     while HImode and QImode require ISA 3.0.  */
-  if (TARGET_VSX_SMALL_INTEGER
-      && (!TARGET_DIRECT_MOVE || !TARGET_P8_VECTOR || !TARGET_UPPER_REGS_DI))
-    {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_SMALL_INTEGER)
-	error ("-mvsx-small-integer requires -mpower8-vector, "
-	       "-mupper-regs-di, and -mdirect-move");
-
-      rs6000_isa_flags &= ~OPTION_MASK_VSX_SMALL_INTEGER;
     }
 
   /* Set long double size before the IEEE 128-bit tests.  */
@@ -20458,14 +20428,8 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
 	}
 
       /* ISA 2.07: MTVSRWZ or  MFVSRWZ.  */
-      if (TARGET_VSX_SMALL_INTEGER)
-	{
-	  if (mode == SImode)
-	    return true;
-
-	  if (TARGET_P9_VECTOR && (mode == QImode || mode == HImode))
-	    return true;
-	}
+      if (mode == SImode && TARGET_VSX_SIMODE)
+	return true;
 
       /* ISA 2.07: MTVSRWZ or  MFVSRWZ.  */
       if (mode == SDmode)
@@ -37460,7 +37424,6 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, true  },
   { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
-  { "vsx-small-integer",	OPTION_MASK_VSX_SMALL_INTEGER,	false, true  },
   { "vsx-timode",		OPTION_MASK_VSX_TIMODE,		false, true  },
 #ifdef OPTION_MASK_64BIT
 #if TARGET_AIX_OS

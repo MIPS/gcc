@@ -81,7 +81,7 @@
   "FP or VSX register to hold 64-bit integers for VSX insns or NO_REGS.")
 
 (define_register_constraint "wj" "rs6000_constraints[RS6000_CONSTRAINT_wj]"
-  "FP or VSX register to hold 64-bit integers for direct moves or NO_REGS.")
+  "FP or VSX register to hold 32/64-bit integers for direct moves or NO_REGS.")
 
 (define_register_constraint "wk" "rs6000_constraints[RS6000_CONSTRAINT_wk]"
   "FP or VSX register to hold 64-bit doubles for direct moves or NO_REGS.")
@@ -160,16 +160,16 @@
   (match_operand 0 "toc_fusion_mem_wrapped"))
 
 (define_register_constraint "wH" "rs6000_constraints[RS6000_CONSTRAINT_wH]"
-  "Altivec register to hold 32-bit integers or NO_REGS.")
+  "Altivec register to hold 32/64-bit integers or NO_REGS.")
 
 (define_register_constraint "wI" "rs6000_constraints[RS6000_CONSTRAINT_wI]"
-  "FPR register to hold 32-bit integers or NO_REGS.")
+  "Floating point register to hold 32/64-bit integers or NO_REGS.")
 
 (define_register_constraint "wJ" "rs6000_constraints[RS6000_CONSTRAINT_wJ]"
-  "FPR register to hold 8/16-bit integers or NO_REGS.")
+  "VSX register to hold integers if ISA 3.0, or NO_REGS.")
 
 (define_register_constraint "wK" "rs6000_constraints[RS6000_CONSTRAINT_wK]"
-  "Altivec register to hold 8/16-bit integers or NO_REGS.")
+  "Altivec point register to hold integers if ISA 3.0, or NO_REGS.")
 
 (define_constraint "wL"
   "Int constant that is the element number mfvsrld accesses in a vector."

@@ -770,12 +770,15 @@ extern int rs6000_vector_align[];
 /* Macro to say whether we can do optimizations where we need to do parts of
    the calculation in 64-bit GPRs and then is transfered to the vector
    registers.  Do not allow -maltivec=be for these optimizations, because it
-   adds to the complexity of the code.  */
+   adds to the complexity of the code.  Allow 32-bit integers into VSX
+   registers as well if we have 64-bit direct moves.  */
 #define TARGET_DIRECT_MOVE_64BIT	(TARGET_DIRECT_MOVE		\
 					 && TARGET_P8_VECTOR		\
 					 && TARGET_POWERPC64		\
 					 && TARGET_UPPER_REGS_DI	\
 					 && (rs6000_altivec_element_order != 2))
+
+#define TARGET_VSX_SIMODE		TARGET_DIRECT_MOVE_64BIT
 
 /* Whether the various reciprocal divide/square root estimate instructions
    exist, and whether we should automatically generate code for the instruction
