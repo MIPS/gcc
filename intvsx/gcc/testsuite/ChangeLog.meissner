@@ -1,5 +1,9 @@
 2016-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/vsx-simode3.c: New test.
+
+	* gcc.target/powerpc/vsx-simode.c: Fix instructions expected.
+
 	* gcc.target/powerpc/vsx-simode.c: Add explict
 	-mvsx-small-integer.
 	* gcc.target/powerpc/vsx-simode2.c: Likewise.

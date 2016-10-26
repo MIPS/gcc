@@ -1,5 +1,11 @@
 2016-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (zero_extendsi<mode>2): Move LFIWZX and
+	LXSIWZX ahead of MTVSRWZ.
+	(extendsi<mode>2): Move LFIWAX and LXSIWAX ahead of MTVSRWA.
+
+2016-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/constraints.md: Undo recent changes.
 	* config/rs6000/rs6000.opt: Likewise.
 	* config/rs6000/rs6000.c: Likewise.
