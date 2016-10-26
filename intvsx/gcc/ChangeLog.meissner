@@ -1,5 +1,12 @@
 2016-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (zero_extendsi<mode>2): Add support for
+	MFVSRWZ.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_7_MASKS_SERVER): Add
+	-mvsx-small-integer to the defaults.
+	(POWERPC_MASKS): Add -mvsx-small-integer.
+
 	* config/rs6000/rs6000.md (zero_extendsi<mode>2): Move LFIWZX and
 	LXSIWZX ahead of MTVSRWZ.
 	(extendsi<mode>2): Move LFIWAX and LXSIWAX ahead of MTVSRWA.
