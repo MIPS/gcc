@@ -1,7 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-fgimple" } */
+/* { dg-options "-O -fgimple" } */
 
-void __GIMPLE (startwith ("tree-dse1")) foo ()
+void __GIMPLE (startwith ("dse2")) foo ()
 {
   int a;
 

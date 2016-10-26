@@ -1487,8 +1487,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
   bool diagnosed_no_specs = false;
   location_t here = c_parser_peek_token (parser)->location;
   bool gimple_body_p = false;
-  opt_pass *pass = NULL;
-  bool startwith_p = false;
+  char *pass = NULL;
 
   if (static_assert_ok
       && c_parser_next_token_is_keyword (parser, RID_STATIC_ASSERT))
@@ -1581,7 +1580,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	{
 	  gimple_body_p = true;
 	  c_parser_consume_token (parser);
-	  c_parser_gimple_pass_list (parser, &pass, &startwith_p);
+	  c_parser_gimple_pass_list (parser, &pass);
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
 	}
@@ -2001,12 +2000,6 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 				       true, false, NULL, vNULL);
       store_parm_decls ();
 
-      if (pass)
-	{
-	  cfun->pass_startwith = pass;
-	  cfun->startwith = startwith_p;
-	}
-
       if (omp_declare_simd_clauses.exists ()
 	  || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	c_finish_omp_declare_simd (parser, current_function_decl, NULL_TREE,
@@ -2018,6 +2011,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 
       if (gimple_body_p && flag_gimple)
 	{
+	  cfun->pass_startwith = pass;
 	  bool saved = in_late_binary_op;
 	  in_late_binary_op = true;
 	  c_parser_parse_gimple_body (parser);

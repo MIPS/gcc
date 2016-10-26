@@ -1686,13 +1686,12 @@ remove_cgraph_node_from_order (cgraph_node *node, void *data)
    call CALLBACK on the current function.
    This function is global so that plugins can use it.  */
 void
-do_per_function_toporder (void (*callback) (function *, void *data, void *flag),
-			  void *data, void *flag)
+do_per_function_toporder (void (*callback) (function *, void *data), void *data)
 {
   int i;
 
   if (current_function_decl)
-    callback (cfun, data, flag);
+    callback (cfun, data);
   else
     {
       cgraph_node_hook_list *hook;
@@ -1727,7 +1726,7 @@ do_per_function_toporder (void (*callback) (function *, void *data, void *flag),
 	    {
 	      struct function *fn = DECL_STRUCT_FUNCTION (node->decl);
 	      push_cfun (fn);
-	      callback (fn, data, flag);
+	      callback (fn, data);
 	      pop_cfun ();
 	    }
 	}
@@ -2278,18 +2277,8 @@ override_gate_status (opt_pass *pass, tree func, bool gate_status)
 /* Execute PASS. */
 
 bool
-execute_one_pass (opt_pass *pass, bool startwith_p)
+execute_one_pass (opt_pass *pass)
 {
-  /* For skipping passes until startwith pass */
-  if (cfun && startwith_p && cfun->startwith)
-    {
-      if (!strcmp (pass->name, cfun->pass_startwith->name)
-	  || !strcmp (pass->name, "*clean_state"))
-	cfun->startwith = false;
-      else
-	return true;
-    }
-
   unsigned int todo_after = 0;
 
   bool gate_status;
@@ -2322,6 +2311,35 @@ execute_one_pass (opt_pass *pass, bool startwith_p)
 	}
       current_pass = NULL;
       return false;
+    }
+
+  /* For skipping passes until startwith pass */
+  if (cfun
+      && cfun->pass_startwith
+      /* But we can't skip the lowering phase yet -- ideally we'd
+         drive that phase fully via properties.  */
+      && (cfun->curr_properties & PROP_ssa))
+    {
+      size_t namelen = strlen (pass->name);
+      if (! strncmp (pass->name, cfun->pass_startwith, namelen))
+	{
+	  /* The following supports starting with the Nth invocation
+	     of a pass (where N does not necessarily is equal to the
+	     dump file suffix).  */
+	  if (cfun->pass_startwith[namelen] == '\0'
+	      || (cfun->pass_startwith[namelen] == '1'
+		  && cfun->pass_startwith[namelen + 1] == '\0'))
+	    cfun->pass_startwith = NULL;
+	  else
+	    {
+	      if (cfun->pass_startwith[namelen + 1] != '\0')
+		return true;
+	      --cfun->pass_startwith[namelen];
+	      return true;
+	    }
+	}
+      else
+	return true;
     }
 
   /* Pass execution event trigger: useful to identify passes being
@@ -2429,7 +2447,7 @@ execute_one_pass (opt_pass *pass, bool startwith_p)
 }
 
 static void
-execute_pass_list_1 (opt_pass *pass, bool startwith_p)
+execute_pass_list_1 (opt_pass *pass)
 {
   do
     {
@@ -2438,23 +2456,18 @@ execute_pass_list_1 (opt_pass *pass, bool startwith_p)
 
       if (cfun == NULL)
 	return;
-      if (execute_one_pass (pass, startwith_p) && pass->sub)
-	execute_pass_list_1 (pass->sub, startwith_p);
+      if (execute_one_pass (pass) && pass->sub)
+	execute_pass_list_1 (pass->sub);
       pass = pass->next;
     }
   while (pass);
 }
 
 void
-execute_pass_list (function *fn, opt_pass *pass, bool *startwith_p)
+execute_pass_list (function *fn, opt_pass *pass)
 {
   gcc_assert (fn == cfun);
-
-  if (startwith_p)
-    execute_pass_list_1 (pass, *startwith_p);
-  else
-    execute_pass_list_1 (pass, false);
-
+  execute_pass_list_1 (pass);
   if (cfun && fn->cfg)
     {
       free_dominance_info (CDI_DOMINATORS);
@@ -2784,22 +2797,19 @@ ipa_read_optimization_summaries (void)
 void
 execute_ipa_pass_list (opt_pass *pass)
 {
-  bool startwith_p = false;
   do
     {
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
-      if (!strcmp (pass->name, "opt_local_passes"))
-	startwith_p = true;
-      if (execute_one_pass (pass, startwith_p) && pass->sub)
+      if (execute_one_pass (pass) && pass->sub)
 	{
 	  if (pass->sub->type == GIMPLE_PASS)
 	    {
 	      invoke_plugin_callbacks (PLUGIN_EARLY_GIMPLE_PASSES_START, NULL);
-	      do_per_function_toporder ((void (*)(function *, void *, void *))
+	      do_per_function_toporder ((void (*)(function *, void *))
 					  execute_pass_list,
-					pass->sub, &startwith_p);
+					pass->sub);
 	      invoke_plugin_callbacks (PLUGIN_EARLY_GIMPLE_PASSES_END, NULL);
 	    }
 	  else if (pass->sub->type == SIMPLE_IPA_PASS

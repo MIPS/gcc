@@ -66,7 +66,6 @@ static struct c_expr c_parser_gimple_postfix_expression (c_parser *);
 static struct c_expr c_parser_gimple_postfix_expression_after_primary (c_parser *,
 								       location_t,
 								       struct c_expr);
-static opt_pass *c_parser_gimple_pass_list_params (c_parser *, opt_pass **);
 static void c_parser_gimple_declaration (c_parser *);
 static void c_parser_gimple_goto_stmt (location_t, tree, gimple_seq *);
 static void c_parser_gimple_if_stmt (c_parser *, gimple_seq *);
@@ -112,7 +111,12 @@ c_parser_parse_gimple_body (c_parser *parser)
   gimple_bind_set_body (bind_stmt, seq);
   gimple_seq_add_stmt (&body, bind_stmt);
   gimple_set_body (current_function_decl, body);
-  cfun->curr_properties = PROP_gimple_any;
+
+  /* While we have SSA names in the IL we do not have a CFG built yet
+     and PHIs are represented using a PHI internal function.  We do
+     have lowered control flow and exception handling (well, we do not
+     have parser support for EH yet).  */
+  cfun->curr_properties = PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh;
 
   return;
 }
@@ -931,8 +935,7 @@ c_parser_gimple_label (c_parser *parser, gimple_seq *seq)
  */
 
 void
-c_parser_gimple_pass_list (c_parser *parser, opt_pass **pass,
-			   bool *startwith_p)
+c_parser_gimple_pass_list (c_parser *parser, char **pass)
 {
   if (! c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return;
@@ -946,11 +949,17 @@ c_parser_gimple_pass_list (c_parser *parser, opt_pass **pass,
       c_parser_consume_token (parser);
       if (! strcmp (op, "startwith"))
 	{
-	  *pass = c_parser_gimple_pass_list_params (parser, pass);
-	  if (! *pass)
+	  if (! c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
 	    return;
-
-	  *startwith_p = true;
+	  if (c_parser_next_token_is_not (parser, CPP_STRING))
+	    {
+	      error_at (c_parser_peek_token (parser)->location,
+			"expected pass name");
+	      return;
+	    }
+	  *pass = xstrdup (TREE_STRING_POINTER
+				(c_parser_peek_token (parser)->value));
+	  c_parser_consume_token (parser);
 	  if (! c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
 	    return;
 	}
@@ -968,66 +977,6 @@ c_parser_gimple_pass_list (c_parser *parser, opt_pass **pass,
     }
 
   return;
-}
-
-/* Support function for c_parser_gimple_pass_list.  */
-
-static opt_pass *
-c_parser_gimple_pass_list_params (c_parser *parser, opt_pass **pass)
-{
-  opt_pass *pass_start = NULL, *new_pass;
-  if (! c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    return NULL;
-
-  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-    return NULL;
-
-  while (c_parser_next_token_is_not (parser, CPP_CLOSE_PAREN))
-    {
-      if (c_parser_next_token_is (parser, CPP_EOF))
-	{
-	  error_at (c_parser_peek_token (parser)->location,
-		    "expected pass names");
-	  return NULL;
-	}
-
-      if (c_parser_next_token_is (parser, CPP_STRING))
-	{
-	  const char *name = NULL;
-	  name = TREE_STRING_POINTER (c_parser_peek_token (parser)->value);
-	  c_parser_consume_token (parser);
-	  new_pass = g->get_passes ()->get_pass_by_name (name);
-
-	  if (! new_pass)
-	    {
-	      error_at (c_parser_peek_token (parser)->location,
-			"invalid pass name");
-	      parser->error = true;
-	      c_parser_consume_token (parser);
-	      return NULL;
-	    }
-	  if (*pass)
-	    {
-	      (*pass)->next = new_pass;
-	      (*pass) = (*pass)->next;
-	    }
-	  else
-	    {
-	      *pass = new_pass;
-	      pass_start = *pass;
-	    }
-	}
-      else if (c_parser_next_token_is (parser, CPP_COMMA))
-	c_parser_consume_token (parser);
-      else
-	{
-	  error_at (c_parser_peek_token (parser)->location,
-		    "invalid pass name");
-	  c_parser_consume_token (parser);
-	  return NULL;
-	}
-    }
-  return pass_start;
 }
 
 /* Parse gimple local declaration.

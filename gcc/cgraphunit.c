@@ -1960,7 +1960,6 @@ cgraph_node::assemble_thunks_and_aliases (void)
 void
 cgraph_node::expand (void)
 {
-  bool startwith_p = true;
   location_t saved_loc;
 
   /* We ought to not compile any inline clones.  */
@@ -1999,7 +1998,7 @@ cgraph_node::expand (void)
   /* Signal the start of passes.  */
   invoke_plugin_callbacks (PLUGIN_ALL_PASSES_START, NULL);
 
-  execute_pass_list (cfun, g->get_passes ()->all_passes, &startwith_p);
+  execute_pass_list (cfun, g->get_passes ()->all_passes);
 
   /* Signal the end of passes.  */
   invoke_plugin_callbacks (PLUGIN_ALL_PASSES_END, NULL);
@@ -2052,8 +2051,7 @@ cgraph_node::expand (void)
   timevar_pop (TV_REST_OF_COMPILATION);
 
   /* Make sure that BE didn't give up on compiling.  */
-  if (!(flag_gimple && cfun->pass_startwith))  /* FIXME : for gimplefe custom_pass_list */
-    gcc_assert (TREE_ASM_WRITTEN (decl));
+  gcc_assert (TREE_ASM_WRITTEN (decl));
 
   if (cfun)
     pop_cfun ();

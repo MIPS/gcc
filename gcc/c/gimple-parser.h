@@ -22,6 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Gimple parsing functions.  */
 extern void c_parser_parse_gimple_body (c_parser *);
-extern void c_parser_gimple_pass_list (c_parser *, opt_pass **, bool *);
+extern void c_parser_gimple_pass_list (c_parser *, char **);
 
 #endif

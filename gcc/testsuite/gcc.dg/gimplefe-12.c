@@ -1,7 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-fgimple" } */
+/* { dg-options "-O -fgimple" } */
 
-void __GIMPLE (startwith ("tree-ccp1")) foo ()
+void __GIMPLE (startwith ("ccp1")) foo ()
 {
   int a;
   int b;

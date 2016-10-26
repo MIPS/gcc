@@ -252,7 +252,8 @@ flush_ssaname_freelist (void)
 /* Return an SSA_NAME node for variable VAR defined in statement STMT
    in function FN.  STMT may be an empty statement for artificial
    references (e.g., default definitions created when a variable is
-   used without a preceding definition).  */
+   used without a preceding definition).  If VERISON is not zero then
+   allocate the SSA name with that version.  */
 
 tree
 make_ssa_name_fn (struct function *fn, tree var, gimple *stmt,
@@ -266,7 +267,7 @@ make_ssa_name_fn (struct function *fn, tree var, gimple *stmt,
 	      || TREE_CODE (var) == RESULT_DECL
 	      || (TYPE_P (var) && is_gimple_reg_type (var)));
 
-  /* parsing ssa names with versions.	*/
+  /* Get the specified SSA name version.  */
   if (version != 0)
     {
       t = make_node (SSA_NAME);
