@@ -102,6 +102,9 @@ struct mips_cpu_info {
 /* True if we are targetting micromips R6 onwards.  */
 #define TARGET_MICROMIPS_R6 (TARGET_MICROMIPS && mips_isa_rev >= 6)
 
+/* True if we are targetting micromips R7 onwards.  */
+#define TARGET_MICROMIPS_R7 (TARGET_MICROMIPS && mips_isa_rev >= 7)
+
 /* True if we are generating position-independent VxWorks RTP code.  */
 #define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
 
