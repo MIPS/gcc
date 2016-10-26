@@ -17069,7 +17069,7 @@ spe_init_builtins (void)
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
-	    fprintf (stderr, "spe_init_builtins, skip binary %s\n",
+	    fprintf (stderr, "spe_init_builtins, skip predicate %s\n",
 		     d->name);
 	  continue;
 	}
@@ -17099,7 +17099,7 @@ spe_init_builtins (void)
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
-	    fprintf (stderr, "spe_init_builtins, skip binary %s\n",
+	    fprintf (stderr, "spe_init_builtins, skip evsel %s\n",
 		     d->name);
 	  continue;
 	}
@@ -17166,7 +17166,7 @@ paired_init_builtins (void)
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
-	    fprintf (stderr, "paired_init_builtins, skip binary %s\n",
+	    fprintf (stderr, "paired_init_builtins, skip predicate %s\n",
 		     d->name);
 	  continue;
 	}
@@ -17543,7 +17543,7 @@ altivec_init_builtins (void)
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
-	    fprintf (stderr, "altivec_init_builtins, skip binary %s\n",
+	    fprintf (stderr, "altivec_init_builtins, skip dst %s\n",
 		     d->name);
 	  continue;
 	}
@@ -17561,7 +17561,7 @@ altivec_init_builtins (void)
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
-	    fprintf (stderr, "altivec_init_builtins, skip binary %s\n",
+	    fprintf (stderr, "altivec_init_builtins, skip predicate %s\n",
 		     d->name);
 	  continue;
 	}
@@ -17612,7 +17612,7 @@ altivec_init_builtins (void)
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
-	    fprintf (stderr, "altivec_init_builtins, skip binary %s\n",
+	    fprintf (stderr, "altivec_init_builtins, skip abs %s\n",
 		     d->name);
 	  continue;
 	}
