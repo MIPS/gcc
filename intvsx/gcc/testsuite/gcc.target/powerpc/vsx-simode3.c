@@ -14,7 +14,7 @@ double load_asm_d_constraint (int *p)
 void store_asm_d_constraint (int *p, double x)
 {
   int i;
-  __asm__ ("xxlor %x0,%x1,%x1\t# store d constraint" : "=v" (i) : "d" (x));
+  __asm__ ("xxlor %x0,%x1,%x1\t# store v constraint" : "=v" (i) : "d" (x));
   *p = i;
 }
 
