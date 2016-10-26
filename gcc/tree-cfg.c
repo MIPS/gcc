@@ -361,33 +361,32 @@ lower_phi_internal_fn ()
   /* After edge creation, handle __PHI function from GIMPLE FE.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
 	  stmt = gsi_stmt (gsi);
-	  if (gimple_code (stmt) != GIMPLE_CALL)
-	    continue;
-
-	  if (gimple_call_internal_p (stmt) &&
-	      gimple_call_internal_fn (stmt) == IFN_PHI)
+	  if (! gimple_call_internal_p (stmt, IFN_PHI))
 	    {
-	      gsi_remove (&gsi, true);
-	      unsigned int i;
-	      lhs = gimple_call_lhs (stmt);
-	      phi_node = create_phi_node (lhs, bb);
+	      gsi_next (&gsi);
+	      continue;
+	    }
 
-	      /* Add arguments to the PHI node.  */
-	      for (i = 0; i < gimple_call_num_args (stmt); ++i)
+	  lhs = gimple_call_lhs (stmt);
+	  phi_node = create_phi_node (lhs, bb);
+
+	  /* Add arguments to the PHI node.  */
+	  for (unsigned i = 0; i < gimple_call_num_args (stmt); ++i)
+	    {
+	      tree arg = gimple_call_arg (stmt, i);
+	      if (TREE_CODE (arg) == LABEL_DECL)
+		pred = label_to_block (arg);
+	      else
 		{
-		  tree arg = gimple_call_arg (stmt, i);
-		  if (TREE_CODE (arg) == LABEL_DECL)
-		    pred = label_to_block (arg);
-		  else
-		    {
-		      edge e = find_edge (pred, bb);
-		      add_phi_arg (phi_node, arg, e, UNKNOWN_LOCATION);
-		    }
+		  edge e = find_edge (pred, bb);
+		  add_phi_arg (phi_node, arg, e, UNKNOWN_LOCATION);
 		}
 	    }
+
+	  gsi_remove (&gsi, true);
 	}
     }
 }
@@ -7552,7 +7551,7 @@ dump_function_to_file (tree fndecl, FILE *file, int flags)
     {
       print_generic_expr (file, TREE_TYPE (TREE_TYPE (fndecl)),
 			  dump_flags | TDF_SLIM);
-      fprintf (file, "\n%s (", function_name (fun));
+      fprintf (file, " __GIMPLE ()\n%s (", function_name (fun));
     }
   else
     fprintf (file, "%s %s(", function_name (fun), tmclone ? "[tm-clone] " : "");

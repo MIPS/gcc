@@ -1201,13 +1201,21 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
 		if (c_parser_next_token_is (parser, CPP_COLON))
 		  {
 		    c_parser_consume_token (parser);
-		    label = create_artificial_label (loc);
-		    case_label = build_case_label (exp1.value, NULL_TREE,
-						   label);
-		    labels.safe_push (case_label);
-		    gimple_seq_add_stmt (&switch_body,
-					 gimple_build_label
-					 (CASE_LABEL (case_label)));
+		    if (c_parser_next_token_is (parser, CPP_NAME))
+		      {
+			label = c_parser_peek_token (parser)->value;
+			c_parser_consume_token (parser);
+			tree decl = lookup_label_for_goto (loc, label);
+			case_label = build_case_label (exp1.value, NULL_TREE,
+						       decl);
+			labels.safe_push (case_label);
+			if (! c_parser_require (parser, CPP_SEMICOLON,
+						"expected %<;%>"))
+			  return;
+		      }
+		    else if (! c_parser_require (parser, CPP_NAME,
+						 "expected label"))
+		      return;
 		  }
 		else if (! c_parser_require (parser, CPP_SEMICOLON,
 					    "expected %<:%>"))
@@ -1220,12 +1228,20 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
 		if (c_parser_next_token_is (parser, CPP_COLON))
 		  {
 		    c_parser_consume_token (parser);
-		    default_label = build_case_label (NULL_TREE, NULL_TREE,
-						      create_artificial_label
-						      (UNKNOWN_LOCATION));
-		    gimple_seq_add_stmt (&switch_body,
-					 gimple_build_label
-					 (CASE_LABEL (default_label)));
+		    if (c_parser_next_token_is (parser, CPP_NAME))
+		      {
+			label = c_parser_peek_token (parser)->value;
+			c_parser_consume_token (parser);
+			tree decl = lookup_label_for_goto (loc, label);
+			default_label = build_case_label (NULL_TREE, NULL_TREE,
+							  decl);
+			if (! c_parser_require (parser, CPP_SEMICOLON,
+						"expected %<;%>"))
+			  return;
+		      }
+		    else if (! c_parser_require (parser, CPP_NAME,
+						 "expected label"))
+		      return;
 		  }
 		else if (! c_parser_require (parser, CPP_SEMICOLON,
 					    "expected %<:%>"))

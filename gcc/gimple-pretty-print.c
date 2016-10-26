@@ -909,7 +909,7 @@ dump_gimple_switch (pretty_printer *buffer, gswitch *gs, int spc,
 	}
     }
   if (flags & TDF_GIMPLE)
-    pp_right_brace (buffer);
+    pp_string (buffer, "; }");
   else
     pp_greater (buffer);
 }
@@ -2057,8 +2057,16 @@ dump_gimple_phi (pretty_printer *buffer, gphi *phi, int spc, bool comment,
 	dump_location (buffer, gimple_phi_arg_location (phi, i));
       if (flags & TDF_GIMPLE)
 	{
-	  pp_string (buffer, "bb_");
-	  pp_decimal_int (buffer, gimple_phi_arg_edge (phi, i)->src->index);
+	  basic_block src = gimple_phi_arg_edge (phi, i)->src;
+	  gimple *stmt = first_stmt (src);
+	  if (!stmt || gimple_code (stmt) != GIMPLE_LABEL)
+	    {
+	      pp_string (buffer, "bb_");
+	      pp_decimal_int (buffer, src->index);
+	    }
+	  else
+	    dump_generic_node (buffer, gimple_label_label (as_a <glabel *> (stmt)), 0, flags,
+			       false);
 	  pp_string (buffer, ": ");
 	}
       dump_generic_node (buffer, gimple_phi_arg_def (phi, i), spc, flags,
@@ -2073,7 +2081,7 @@ dump_gimple_phi (pretty_printer *buffer, gphi *phi, int spc, bool comment,
 	pp_string (buffer, ", ");
     }
   if (flags & TDF_GIMPLE)
-    pp_right_paren (buffer);
+    pp_string (buffer, ");");
   else
     pp_greater (buffer);
 }
