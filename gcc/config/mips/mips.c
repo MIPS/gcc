@@ -6754,6 +6754,10 @@ mips_expand_conditional_trap (rtx comparison)
       break;
     }
 
+  /* nanoMIPS only has EQ and NE flavours, hence, we must emit a compare.  */
+  if (TARGET_NANOMIPS && code != EQ && code != NE)
+    mips_emit_compare (&code, &op0, &op1, true);
+
   mode = GET_MODE (XEXP (comparison, 0));
   op0 = force_reg (mode, op0);
   if (!(ISA_HAS_COND_TRAPI
