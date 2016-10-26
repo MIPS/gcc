@@ -1448,16 +1448,10 @@ gfc_deallocate_scalar_with_status (tree pointer, tree status, tree label_finish,
   stmtblock_t null, non_null;
   tree cond, tmp, error;
   bool finalizable;
-  tree caf_decl = NULL_TREE;
   gfc_coarray_deregtype caf_dereg_type = GFC_CAF_COARRAY_DEREGISTER;
 
-  if (coarray)
-    {
-      caf_decl = build_fold_indirect_ref (pointer);
-      STRIP_NOPS (caf_decl);
-      if (gfc_is_coarray_sub_component (expr))
-	caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
-    }
+  if (coarray && gfc_is_coarray_sub_component (expr))
+    caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
 
   cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node, pointer,
 			  build_int_cst (TREE_TYPE (pointer), 0));
@@ -1504,7 +1498,10 @@ gfc_deallocate_scalar_with_status (tree pointer, tree status, tree label_finish,
   finalizable = gfc_add_finalizer_call (&non_null, expr);
   if (!finalizable && ts.type == BT_DERIVED && ts.u.derived->attr.alloc_comp)
     {
-      tmp = build_fold_indirect_ref_loc (input_location, pointer);
+      if (coarray)
+	tmp = gfc_conv_descriptor_data_get (pointer);
+      else
+	tmp = build_fold_indirect_ref_loc (input_location, pointer);
       tmp = gfc_deallocate_alloc_comp (ts.u.derived, tmp, 0);
       gfc_add_expr_to_block (&non_null, tmp);
     }

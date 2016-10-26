@@ -6368,7 +6368,7 @@ gfc_trans_deallocate (gfc_code *code)
     {
       gfc_expr *expr = gfc_copy_expr (al->expr);
       gcc_assert (expr->expr_type == EXPR_VARIABLE);
-      bool is_coarray_array = false;
+      bool is_coarray = false, is_coarray_array = false;
 
       if (expr->ts.type == BT_CLASS)
 	gfc_add_data_component (expr);
@@ -6386,9 +6386,10 @@ gfc_trans_deallocate (gfc_code *code)
 	  is_coarray_array = caf_attr.codimension
 	      && (caf_attr.dimension
 		  || !gfc_is_coarray_sub_component (expr));
+	  is_coarray = caf_attr.codimension;
 	}
       else if (flag_coarray == GFC_FCOARRAY_SINGLE)
-	is_coarray_array = gfc_caf_attr (expr).codimension;
+	is_coarray = is_coarray_array = gfc_caf_attr (expr).codimension;
 
       if (expr->rank || is_coarray_array)
 	{
@@ -6408,7 +6409,11 @@ gfc_trans_deallocate (gfc_code *code)
 	      if (!(last && last->u.c.component->attr.pointer)
 		    && !(!last && expr->symtree->n.sym->attr.pointer))
 		{
-		  tmp = gfc_deallocate_alloc_comp (expr->ts.u.derived, se.expr,
+		  if (is_coarray)
+		    tmp = gfc_conv_descriptor_data_get (se.expr);
+		  else
+		    tmp = se.expr;
+		  tmp = gfc_deallocate_alloc_comp (expr->ts.u.derived, tmp,
 						   expr->rank);
 		  gfc_add_expr_to_block (&se.pre, tmp);
 		}
@@ -6460,8 +6465,6 @@ gfc_trans_deallocate (gfc_code *code)
 	}
       else
 	{
-	  bool is_coarray = flag_coarray == GFC_FCOARRAY_LIB
-	      && gfc_caf_attr (expr).codimension;
 	  tmp = gfc_deallocate_scalar_with_status (se.expr, pstat, label_finish,
 						   false, al->expr,
 						   al->expr->ts, is_coarray);
