@@ -10122,6 +10122,20 @@ vt_initialize (void)
 		  adjust_insn (bb, insn);
 		  if (MAY_HAVE_DEBUG_INSNS)
 		    {
+		      if (DEBUG_INSN_P (insn)
+			  && !INSN_VAR_LOCATION_DECL (insn))
+			{
+			  rtx_insn *note;
+			  gcc_checking_assert (INSN_VAR_LOCATION_STATUS (insn)
+					       == VAR_INIT_STATUS_INITIALIZED);
+			  note = emit_note_before (NOTE_INSN_BEGIN_STMT,
+						   insn);
+			  NOTE_BEGIN_STMT_LOCATION (note) = INSN_LOCATION (insn);
+			  delete_insn (insn);
+			  insn = note;
+			  continue;
+			}
+
 		      if (CALL_P (insn))
 			prepare_call_arguments (bb, insn);
 		      cselib_process_insn (insn);
@@ -10195,10 +10209,11 @@ vt_initialize (void)
 
 static int debug_label_num = 1;
 
-/* Get rid of all debug insns from the insn stream.  */
+/* Remove from the insn stream all debug insns used for variable
+   tracking at assignments.  */
 
 static void
-delete_debug_insns (void)
+delete_vta_debug_insns (void)
 {
   basic_block bb;
   rtx_insn *insn, *next;
@@ -10212,6 +10227,10 @@ delete_debug_insns (void)
 	if (DEBUG_INSN_P (insn))
 	  {
 	    tree decl = INSN_VAR_LOCATION_DECL (insn);
+	    /* This is a program location marker (e.g. begin stmt),
+	       so leave it alone.  */
+	    if (!decl)
+	      continue;
 	    if (TREE_CODE (decl) == LABEL_DECL
 		&& DECL_NAME (decl)
 		&& !DECL_RTL_SET_P (decl))
@@ -10239,7 +10258,7 @@ static void
 vt_debug_insns_local (bool skipped ATTRIBUTE_UNUSED)
 {
   /* ??? Just skip it all for now.  */
-  delete_debug_insns ();
+  delete_vta_debug_insns ();
 }
 
 /* Free the data structures needed for variable tracking.  */
@@ -10309,7 +10328,7 @@ variable_tracking_main_1 (void)
 	 any pseudos at this point.  */
       || targetm.no_register_allocation)
     {
-      delete_debug_insns ();
+      delete_vta_debug_insns ();
       return 0;
     }
 
@@ -10334,7 +10353,7 @@ variable_tracking_main_1 (void)
     {
       vt_finalize ();
 
-      delete_debug_insns ();
+      delete_vta_debug_insns ();
 
       /* This is later restored by our caller.  */
       flag_var_tracking_assignments = 0;

@@ -4123,7 +4123,8 @@ duplicate_insn_chain (rtx_insn *from, rtx_insn *to)
 	{
 	case DEBUG_INSN:
 	  /* Don't duplicate label debug insns.  */
-	  if (TREE_CODE (INSN_VAR_LOCATION_DECL (insn)) == LABEL_DECL)
+	  if (INSN_VAR_LOCATION_DECL (insn)
+	      && TREE_CODE (INSN_VAR_LOCATION_DECL (insn)) == LABEL_DECL)
 	    break;
 	  /* FALLTHRU */
 	case INSN:

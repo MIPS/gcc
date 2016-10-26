@@ -1629,6 +1629,16 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	  gimple_seq_add_stmt (&stmts, copy);
 	  return stmts;
 	}
+      if (gimple_debug_begin_stmt_p (stmt))
+	{
+	  gdebug *copy
+	    = gimple_build_debug_begin_stmt (gimple_block (stmt),
+					     gimple_location (stmt));
+	  id->debug_stmts.safe_push (copy);
+	  gimple_seq_add_stmt (&stmts, copy);
+	  return stmts;
+	}
+      gcc_checking_assert (!is_gimple_debug (stmt));
 
       /* Create a new deep copy of the statement.  */
       copy = gimple_copy (stmt);
@@ -2541,6 +2551,11 @@ maybe_move_debug_stmts_to_successors (copy_body_data *id, basic_block new_bb)
 	      value = gimple_debug_source_bind_get_value (stmt);
 	      new_stmt = gimple_build_debug_source_bind (var, value, stmt);
 	    }
+	  else if (gimple_debug_begin_stmt_p (stmt))
+	    {
+	      new_stmt = gimple_build_debug_begin_stmt (gimple_block (stmt),
+							gimple_location (stmt));
+	    }
 	  else
 	    gcc_unreachable ();
 	  gsi_insert_before (&dsi, new_stmt, GSI_SAME_STMT);
@@ -2858,6 +2873,9 @@ copy_debug_stmt (gdebug *stmt, copy_body_data *id)
       gimple_set_block (stmt, n ? *n : id->block);
     }
 
+  if (gimple_debug_begin_stmt_p (stmt))
+    return;
+
   /* Remap all the operands in COPY.  */
   memset (&wi, 0, sizeof (wi));
   wi.info = id;
@@ -2866,8 +2884,10 @@ copy_debug_stmt (gdebug *stmt, copy_body_data *id)
 
   if (gimple_debug_source_bind_p (stmt))
     t = gimple_debug_source_bind_get_var (stmt);
-  else
+  else if (gimple_debug_bind_p (stmt))
     t = gimple_debug_bind_get_var (stmt);
+  else
+    gcc_unreachable ();
 
   if (TREE_CODE (t) == PARM_DECL && id->debug_map
       && (n = id->debug_map->get (t)))

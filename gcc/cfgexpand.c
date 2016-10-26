@@ -5623,36 +5623,77 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	  if (new_bb)
 	    return new_bb;
 	}
-      else if (gimple_debug_bind_p (stmt))
+      else if (gimple_debug_source_bind_p (stmt))
+	{
+	  location_t sloc = curr_insn_location ();
+	  tree var = gimple_debug_source_bind_get_var (stmt);
+	  tree value = gimple_debug_source_bind_get_value (stmt);
+	  rtx val;
+	  machine_mode mode;
+
+	  last = get_last_insn ();
+
+	  set_curr_insn_location (gimple_location (stmt));
+
+	  mode = DECL_MODE (var);
+
+	  val = gen_rtx_VAR_LOCATION (mode, var, (rtx)value,
+				      VAR_INIT_STATUS_UNINITIALIZED);
+
+	  emit_debug_insn (val);
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      /* We can't dump the insn with a TREE where an RTX
+		 is expected.  */
+	      PAT_VAR_LOCATION_LOC (val) = const0_rtx;
+	      maybe_dump_rtl_for_gimple_stmt (stmt, last);
+	      PAT_VAR_LOCATION_LOC (val) = (rtx)value;
+	    }
+
+	  set_curr_insn_location (sloc);
+	}
+      else if (is_gimple_debug (stmt))
 	{
 	  location_t sloc = curr_insn_location ();
 	  gimple_stmt_iterator nsi = gsi;
 
 	  for (;;)
 	    {
-	      tree var = gimple_debug_bind_get_var (stmt);
+	      tree var;
 	      tree value;
 	      rtx val;
 	      machine_mode mode;
 
-	      if (TREE_CODE (var) != DEBUG_EXPR_DECL
-		  && TREE_CODE (var) != LABEL_DECL
-		  && !target_for_debug_bind (var))
-		goto delink_debug_stmt;
+	      if (gimple_debug_bind_p (stmt))
+		{
+		  var = gimple_debug_bind_get_var (stmt);
 
-	      if (gimple_debug_bind_has_value_p (stmt))
-		value = gimple_debug_bind_get_value (stmt);
+		  if (TREE_CODE (var) != DEBUG_EXPR_DECL
+		      && TREE_CODE (var) != LABEL_DECL
+		      && !target_for_debug_bind (var))
+		    goto delink_debug_stmt;
+
+		  if (DECL_P (var))
+		    mode = DECL_MODE (var);
+		  else
+		    mode = TYPE_MODE (TREE_TYPE (var));
+
+		  if (gimple_debug_bind_has_value_p (stmt))
+		    value = gimple_debug_bind_get_value (stmt);
+		  else
+		    value = NULL_TREE;
+		}
 	      else
-		value = NULL_TREE;
+		{
+		  gcc_assert (gimple_debug_begin_stmt_p (stmt));
+		  var = value = NULL_TREE;
+		  mode = VOIDmode;
+		}
 
 	      last = get_last_insn ();
 
 	      set_curr_insn_location (gimple_location (stmt));
-
-	      if (DECL_P (var))
-		mode = DECL_MODE (var);
-	      else
-		mode = TYPE_MODE (TREE_TYPE (var));
 
 	      val = gen_rtx_VAR_LOCATION
 		(mode, var, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
@@ -5681,38 +5722,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	      if (gsi_end_p (nsi))
 		break;
 	      stmt = gsi_stmt (nsi);
-	      if (!gimple_debug_bind_p (stmt))
+	      if (!gimple_debug_bind_p (stmt)
+		  && !gimple_debug_begin_stmt_p (stmt))
 		break;
-	    }
-
-	  set_curr_insn_location (sloc);
-	}
-      else if (gimple_debug_source_bind_p (stmt))
-	{
-	  location_t sloc = curr_insn_location ();
-	  tree var = gimple_debug_source_bind_get_var (stmt);
-	  tree value = gimple_debug_source_bind_get_value (stmt);
-	  rtx val;
-	  machine_mode mode;
-
-	  last = get_last_insn ();
-
-	  set_curr_insn_location (gimple_location (stmt));
-
-	  mode = DECL_MODE (var);
-
-	  val = gen_rtx_VAR_LOCATION (mode, var, (rtx)value,
-				      VAR_INIT_STATUS_UNINITIALIZED);
-
-	  emit_debug_insn (val);
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      /* We can't dump the insn with a TREE where an RTX
-		 is expected.  */
-	      PAT_VAR_LOCATION_LOC (val) = const0_rtx;
-	      maybe_dump_rtl_for_gimple_stmt (stmt, last);
-	      PAT_VAR_LOCATION_LOC (val) = (rtx)value;
 	    }
 
 	  set_curr_insn_location (sloc);
@@ -5777,7 +5789,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   if (single_succ_p (bb)
       && (single_succ_edge (bb)->flags & EDGE_FALLTHRU)
       && (last = get_last_insn ())
-      && JUMP_P (last))
+      && (JUMP_P (last)
+	  || (DEBUG_INSN_P (last)
+	      && JUMP_P (prev_nondebug_insn (last)))))
     {
       rtx dummy = gen_reg_rtx (SImode);
       emit_insn_after_noloc (gen_move_insn (dummy, dummy), last, NULL);

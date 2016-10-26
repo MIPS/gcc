@@ -255,7 +255,8 @@ mark_stmt_if_obviously_necessary (gimple *stmt, bool aggressive)
 	 easily locate the debug temp bind stmt for a use thereof,
 	 would could refrain from marking all debug temps here, and
 	 mark them only if they're used.  */
-      if (!gimple_debug_bind_p (stmt)
+      if (gimple_debug_begin_stmt_p (stmt)
+	  || !gimple_debug_bind_p (stmt)
 	  || gimple_debug_bind_has_value_p (stmt)
 	  || TREE_CODE (gimple_debug_bind_get_var (stmt)) != DEBUG_EXPR_DECL)
 	mark_stmt_necessary (stmt, false);

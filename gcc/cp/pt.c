@@ -14647,6 +14647,12 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case BINARY_RIGHT_FOLD_EXPR:
       return tsubst_binary_right_fold (t, args, complain, in_decl);
 
+    case DEBUG_BEGIN_STMT:
+      /* ??? There's no point in copying it for now, but maybe some
+	 day it will contain more information, such as a pointer back
+	 to the containing function, inlined copy or so.  */
+      return t;
+
     default:
       /* We shouldn't get here, but keep going if !flag_checking.  */
       if (flag_checking)

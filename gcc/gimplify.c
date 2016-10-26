@@ -1591,6 +1591,13 @@ warn_switch_unreachable_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
       /* Walk the sub-statements.  */
       *handled_ops_p = false;
       break;
+
+    case GIMPLE_DEBUG:
+      /* Ignore these.  We may generate them before declarations that
+	 are never executed.  If there's something to warn about,
+	 there will be non-debug stmts too, and we'll catch those.  */
+      break;
+
     default:
       /* Save the first "real" statement (not a decl/lexical scope/...).  */
       wi->info = stmt;
@@ -1667,7 +1674,7 @@ case_label_p (const vec<tree> *cases, tree label)
   return false;
 }
 
-/* Find the last statement in a scope STMT.  */
+/* Find the last nondebug statement in a scope STMT.  */
 
 static gimple *
 last_stmt_in_scope (gimple *stmt)
@@ -1680,26 +1687,29 @@ last_stmt_in_scope (gimple *stmt)
     case GIMPLE_BIND:
       {
 	gbind *bind = as_a <gbind *> (stmt);
-	stmt = gimple_seq_last_stmt (gimple_bind_body (bind));
+	stmt = gimple_seq_last_nondebug_stmt (gimple_bind_body (bind));
 	return last_stmt_in_scope (stmt);
       }
 
     case GIMPLE_TRY:
       {
 	gtry *try_stmt = as_a <gtry *> (stmt);
-	stmt = gimple_seq_last_stmt (gimple_try_eval (try_stmt));
+	stmt = gimple_seq_last_nondebug_stmt (gimple_try_eval (try_stmt));
 	gimple *last_eval = last_stmt_in_scope (stmt);
 	if (gimple_stmt_may_fallthru (last_eval)
 	    && (last_eval == NULL
 		|| !gimple_call_internal_p (last_eval, IFN_FALLTHROUGH))
 	    && gimple_try_kind (try_stmt) == GIMPLE_TRY_FINALLY)
 	  {
-	    stmt = gimple_seq_last_stmt (gimple_try_cleanup (try_stmt));
+	    stmt = gimple_seq_last_nondebug_stmt (gimple_try_cleanup (try_stmt));
 	    return last_stmt_in_scope (stmt);
 	  }
 	else
 	  return last_eval;
       }
+
+    case GIMPLE_DEBUG:
+      gcc_unreachable ();
 
     default:
       return stmt;
@@ -1802,7 +1812,7 @@ collect_fallthrough_labels (gimple_stmt_iterator *gsi_p,
 	  if (find_label_entry (labels, label))
 	    prev = gsi_stmt (*gsi_p);
 	}
-      else
+      else if (!is_gimple_debug (gsi_stmt (*gsi_p)))
 	prev = gsi_stmt (*gsi_p);
       gsi_next (gsi_p);
     }
@@ -1834,7 +1844,7 @@ should_warn_for_implicit_fallthrough (gimple_stmt_iterator *gsi_p, tree label)
      as these are likely intentional.  */
   if (!case_label_p (&gimplify_ctxp->case_labels, label))
     {
-      gsi_next (&gsi);
+      gsi_next_nondebug (&gsi);
       if (gsi_end_p (gsi) || gimple_code (gsi_stmt (gsi)) != GIMPLE_LABEL)
 	return false;
     }
@@ -1845,7 +1855,7 @@ should_warn_for_implicit_fallthrough (gimple_stmt_iterator *gsi_p, tree label)
 
   /* Skip all immediately following labels.  */
   while (!gsi_end_p (gsi) && gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
-    gsi_next (&gsi);
+    gsi_next_nondebug (&gsi);
 
   /* { ... something; default:; } */
   if (gsi_end_p (gsi)
@@ -1892,7 +1902,7 @@ warn_implicit_fallthrough_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 	/* Found a label.  Skip all immediately following labels.  */
 	while (!gsi_end_p (*gsi_p)
 	       && gimple_code (gsi_stmt (*gsi_p)) == GIMPLE_LABEL)
-	  gsi_next (gsi_p);
+	  gsi_next_nondebug (gsi_p);
 
 	/* There might be no more statements.  */
 	if (gsi_end_p (*gsi_p))
@@ -3266,6 +3276,46 @@ shortcut_cond_r (tree pred, tree *true_label_p, tree *false_label_p,
   return expr;
 }
 
+/* If EXPR is a GOTO_EXPR, return its GOTO_DESTINATION.  If it is a
+   STATEMENT_LIST, skip any of its leading DEBUG_BEGIN_STMTS and
+   recurse on the subsequent statement, if it is the last one.
+   Otherwise, return NULL.  */
+
+static tree
+goto_destination (tree expr)
+{
+  if (!expr)
+    return NULL_TREE;
+
+  if (TREE_CODE (expr) == GOTO_EXPR)
+    return GOTO_DESTINATION (expr);
+
+  if (TREE_CODE (expr) != STATEMENT_LIST)
+    return NULL_TREE;
+
+  tree_stmt_iterator i = tsi_start (expr);
+
+  while (!tsi_end_p (i) && TREE_CODE (tsi_stmt (i)) == DEBUG_BEGIN_STMT)
+    tsi_next (&i);
+
+  if (!tsi_one_before_end_p (i))
+    return NULL_TREE;
+
+  return goto_destination (tsi_stmt (i));
+}
+
+/* Same as goto_destination, except that it returns NULL if the
+   destination is not a LABEL_DECL.  */
+
+static tree
+goto_destination_label (tree expr)
+{
+  tree dest = goto_destination (expr);
+  if (dest && TREE_CODE (dest) == LABEL_DECL)
+    return dest;
+  return NULL_TREE;
+}
+
 /* Given a conditional expression EXPR with short-circuit boolean
    predicates using TRUTH_ANDIF_EXPR or TRUTH_ORIF_EXPR, break the
    predicate apart into the equivalent sequence of conditionals.  */
@@ -3346,20 +3396,16 @@ shortcut_cond_expr (tree expr)
   /* If our arms just jump somewhere, hijack those labels so we don't
      generate jumps to jumps.  */
 
-  if (then_
-      && TREE_CODE (then_) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (then_)) == LABEL_DECL)
+  if (tree then_dest = goto_destination_label (then_))
     {
-      true_label = GOTO_DESTINATION (then_);
+      true_label = then_dest;
       then_ = NULL;
       then_se = false;
     }
 
-  if (else_
-      && TREE_CODE (else_) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (else_)) == LABEL_DECL)
+  if (tree else_dest = goto_destination_label (else_))
     {
-      false_label = GOTO_DESTINATION (else_);
+      false_label = else_dest;
       else_ = NULL;
       else_se = false;
     }
@@ -3717,11 +3763,9 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
   gimple_push_condition ();
 
   have_then_clause_p = have_else_clause_p = false;
-  if (TREE_OPERAND (expr, 1) != NULL
-      && TREE_CODE (TREE_OPERAND (expr, 1)) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (TREE_OPERAND (expr, 1))) == LABEL_DECL
-      && (DECL_CONTEXT (GOTO_DESTINATION (TREE_OPERAND (expr, 1)))
-	  == current_function_decl)
+  label_true = goto_destination_label (TREE_OPERAND (expr, 1));
+  if (label_true
+      && DECL_CONTEXT (label_true) == current_function_decl
       /* For -O0 avoid this optimization if the COND_EXPR and GOTO_EXPR
 	 have different locations, otherwise we end up with incorrect
 	 location information on the branches.  */
@@ -3729,17 +3773,12 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	  || !EXPR_HAS_LOCATION (expr)
 	  || !EXPR_HAS_LOCATION (TREE_OPERAND (expr, 1))
 	  || EXPR_LOCATION (expr) == EXPR_LOCATION (TREE_OPERAND (expr, 1))))
-    {
-      label_true = GOTO_DESTINATION (TREE_OPERAND (expr, 1));
-      have_then_clause_p = true;
-    }
+    have_then_clause_p = true;
   else
     label_true = create_artificial_label (UNKNOWN_LOCATION);
-  if (TREE_OPERAND (expr, 2) != NULL
-      && TREE_CODE (TREE_OPERAND (expr, 2)) == GOTO_EXPR
-      && TREE_CODE (GOTO_DESTINATION (TREE_OPERAND (expr, 2))) == LABEL_DECL
-      && (DECL_CONTEXT (GOTO_DESTINATION (TREE_OPERAND (expr, 2)))
-	  == current_function_decl)
+  label_false = goto_destination_label (TREE_OPERAND (expr, 2));
+  if (label_false
+      && DECL_CONTEXT (label_false) == current_function_decl
       /* For -O0 avoid this optimization if the COND_EXPR and GOTO_EXPR
 	 have different locations, otherwise we end up with incorrect
 	 location information on the branches.  */
@@ -3747,10 +3786,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	  || !EXPR_HAS_LOCATION (expr)
 	  || !EXPR_HAS_LOCATION (TREE_OPERAND (expr, 2))
 	  || EXPR_LOCATION (expr) == EXPR_LOCATION (TREE_OPERAND (expr, 2))))
-    {
-      label_false = GOTO_DESTINATION (TREE_OPERAND (expr, 2));
-      have_else_clause_p = true;
-    }
+    have_else_clause_p = true;
   else
     label_false = create_artificial_label (UNKNOWN_LOCATION);
 
@@ -11432,6 +11468,18 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  if (gimplify_omp_ctxp)
 	    omp_notice_variable (gimplify_omp_ctxp, *expr_p, true);
 	  ret = GS_ALL_DONE;
+	  break;
+
+	case DEBUG_EXPR_DECL:
+	  gcc_unreachable ();
+
+	case DEBUG_BEGIN_STMT:
+	  gimplify_seq_add_stmt (pre_p,
+				 gimple_build_debug_begin_stmt
+				 (TREE_BLOCK (*expr_p),
+				  EXPR_LOCATION (*expr_p)));
+	  ret = GS_ALL_DONE;
+	  *expr_p = NULL;
 	  break;
 
 	case SSA_NAME:

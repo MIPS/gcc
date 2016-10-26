@@ -3689,6 +3689,12 @@ can be computed by evaluating the RTL expression from that static
 point in the program up to the next such note for the same user
 variable.
 
+@findex NOTE_INSN_BEGIN_STMT
+@item NOTE_INSN_BEGIN_STMT
+This note is used to generate @code{is_stmt} markers in line number
+debuggign information.  It indicates the beginning of a user
+statement.
+
 @end table
 
 These codes are printed symbolically when they appear in debugging dumps.
@@ -3704,17 +3710,22 @@ representation of @code{GIMPLE_DEBUG} statements
 binds a user variable tree to an RTL representation of the
 @code{value} in the corresponding statement.  A @code{DEBUG_EXPR} in
 it stands for the value bound to the corresponding
-@code{DEBUG_EXPR_DECL}.
+@code{DEBUG_EXPR_DECL}.  A @code{GIMPLE_DEBUG_BEGIN_STMT} is expanded
+to RTL as a @code{DEBUG_INSN} with a @code{NULL_TREE} in
+@code{INSN_VAR_LOCATION_DECL}.
 
-Throughout optimization passes, binding information is kept in
-pseudo-instruction form, so that, unlike notes, it gets the same
-treatment and adjustments that regular instructions would.  It is the
-variable tracking pass that turns these pseudo-instructions into var
-location notes, analyzing control flow, value equivalences and changes
-to registers and memory referenced in value expressions, propagating
-the values of debug temporaries and determining expressions that can
-be used to compute the value of each user variable at as many points
-(ranges, actually) in the program as possible.
+Throughout optimization passes, @code{DEBUG_INSN}s are not reordered
+with respect to each other, particularly during scheduling.  Binding
+information is kept in pseudo-instruction form, so that, unlike notes,
+it gets the same treatment and adjustments that regular instructions
+would.  It is the variable tracking pass that turns these
+pseudo-instructions into @code{NOTE_INSN_VAR_LOCATION} and
+@code{NOTE_INSN_BEGIN_STMT} notes, analyzing control flow, value
+equivalences and changes to registers and memory referenced in value
+expressions, propagating the values of debug temporaries and
+determining expressions that can be used to compute the value of each
+user variable at as many points (ranges, actually) in the program as
+possible.
 
 Unlike @code{NOTE_INSN_VAR_LOCATION}, the value expression in an
 @code{INSN_VAR_LOCATION} denotes a value at that specific point in the

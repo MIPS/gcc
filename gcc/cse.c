@@ -6958,6 +6958,10 @@ insn_live_p (rtx_insn *insn, int *counts)
     {
       rtx_insn *next;
 
+      /* This is a debug begin stmt.  */
+      if (!INSN_VAR_LOCATION_DECL (insn))
+	return true;
+
       for (next = NEXT_INSN (insn); next; next = NEXT_INSN (next))
 	if (NOTE_P (next))
 	  continue;

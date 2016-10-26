@@ -491,14 +491,22 @@ make_blocks_1 (gimple_seq seq, basic_block bb)
 {
   gimple_stmt_iterator i = gsi_start (seq);
   gimple *stmt = NULL;
+  gimple *prev_stmt = NULL;
   bool start_new_block = true;
   bool first_stmt_of_seq = true;
 
   while (!gsi_end_p (i))
     {
-      gimple *prev_stmt;
-
-      prev_stmt = stmt;
+      /* PREV_STMT should only be set to a debug stmt if the debug
+	 stmt is before nondebug stmts.  Once stmt reaches a nondebug
+	 nonlabel, prev_stmt will be set to it, so that
+	 stmt_starts_bb_p will know to start a new block if a label is
+	 found.  However, if stmt was a label after debug stmts only,
+	 keep the label in prev_stmt even if we find further debug
+	 stmts, for there may be other labels after them, and they
+	 should land in the same block.  */
+      if (!prev_stmt || !stmt || !is_gimple_debug (stmt))
+	prev_stmt = stmt;
       stmt = gsi_stmt (i);
 
       if (stmt && is_gimple_call (stmt))
@@ -513,6 +521,7 @@ make_blocks_1 (gimple_seq seq, basic_block bb)
 	    gsi_split_seq_before (&i, &seq);
 	  bb = create_basic_block (seq, bb);
 	  start_new_block = false;
+	  prev_stmt = NULL;
 	}
 
       /* Now add STMT to BB and create the subgraphs for special statement
@@ -1419,6 +1428,9 @@ cleanup_dead_labels (void)
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
+	  if (is_gimple_debug (gsi_stmt (i)))
+	    continue;
+
 	  tree label;
 	  glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (i));
 
@@ -1579,6 +1591,12 @@ cleanup_dead_labels (void)
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); )
 	{
+	  if (is_gimple_debug (gsi_stmt (i)))
+	    {
+	      gsi_next (&i);
+	      continue;
+	    }
+
 	  tree label;
 	  glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (i));
 
@@ -1737,6 +1755,8 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
        gsi_next (&gsi))
     {
       tree lab;
+      if (is_gimple_debug (gsi_stmt (gsi)))
+	continue;
       glabel *label_stmt = dyn_cast <glabel *> (gsi_stmt (gsi));
       if (!label_stmt)
 	break;
@@ -2556,6 +2576,8 @@ stmt_starts_bb_p (gimple *stmt, gimple *prev_stmt)
 	  cfg_stats.num_merged_labels++;
 	  return false;
 	}
+      else if (prev_stmt && is_gimple_debug (prev_stmt))
+	return false;
       else
 	return true;
     }
@@ -5255,6 +5277,10 @@ gimple_verify_flow_info (void)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  tree label;
+
+	  if (is_gimple_debug (gsi_stmt (gsi)))
+	    continue;
+
 	  gimple *prev_stmt = stmt;
 
 	  stmt = gsi_stmt (gsi);
@@ -5324,7 +5350,7 @@ gimple_verify_flow_info (void)
 	    }
 	}
 
-      gsi = gsi_last_bb (bb);
+      gsi = gsi_last_nondebug_bb (bb);
       if (gsi_end_p (gsi))
 	continue;
 
@@ -5666,7 +5692,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 	return ret;
     }
 
-  gsi = gsi_last_bb (bb);
+  gsi = gsi_last_nondebug_bb (bb);
   stmt = gsi_end_p (gsi) ? NULL : gsi_stmt (gsi);
 
   switch (stmt ? gimple_code (stmt) : GIMPLE_ERROR_MARK)

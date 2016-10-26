@@ -833,6 +833,26 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
 }
 
 
+/* Build a new GIMPLE_DEBUG_BEGIN_STMT statement in BLOCK at
+   LOCATION.  */
+
+gdebug *
+gimple_build_debug_begin_stmt_stat (tree block, location_t location
+				    MEM_STAT_DECL)
+{
+  gdebug *p
+    = as_a <gdebug *> (
+        gimple_build_with_ops_stat (GIMPLE_DEBUG,
+				    (unsigned)GIMPLE_DEBUG_BEGIN_STMT, 0
+				    PASS_MEM_STAT));
+
+  gimple_set_block (p, block);
+  gimple_set_location (p, location);
+
+  return p;
+}
+
+
 /* Build a GIMPLE_OMP_CRITICAL statement.
 
    BODY is the sequence of statements for which only one thread can execute.

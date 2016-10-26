@@ -89,7 +89,7 @@ append_to_statement_list_1 (tree t, tree *list_p)
 void
 append_to_statement_list (tree t, tree *list_p)
 {
-  if (t && TREE_SIDE_EFFECTS (t))
+  if (t && (TREE_SIDE_EFFECTS (t) || TREE_CODE (t) == DEBUG_BEGIN_STMT))
     append_to_statement_list_1 (t, list_p);
 }
 
@@ -108,6 +108,7 @@ void
 tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
 {
   struct tree_statement_list_node *head, *tail, *cur;
+  bool side_effects = TREE_SIDE_EFFECTS (t);
 
   /* Die on looping.  */
   gcc_assert (t != i->container);
@@ -137,7 +138,7 @@ tsi_link_before (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
       tail = head;
     }
 
-  TREE_SIDE_EFFECTS (i->container) = 1;
+  TREE_SIDE_EFFECTS (i->container) |= side_effects;
 
   cur = i->ptr;
 
@@ -184,6 +185,7 @@ void
 tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
 {
   struct tree_statement_list_node *head, *tail, *cur;
+  bool side_effects = TREE_SIDE_EFFECTS (t);
 
   /* Die on looping.  */
   gcc_assert (t != i->container);
@@ -213,7 +215,7 @@ tsi_link_after (tree_stmt_iterator *i, tree t, enum tsi_iterator_update mode)
       tail = head;
     }
 
-  TREE_SIDE_EFFECTS (i->container) = 1;
+  TREE_SIDE_EFFECTS (i->container) |= side_effects;
 
   cur = i->ptr;
 

@@ -79,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "rtl-iter.h"
 #include "print-rtl.h"
+#include "langhooks.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data declarations.  */
@@ -2395,6 +2396,14 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    debug_hooks->var_location (insn);
 	  break;
 
+	case NOTE_INSN_BEGIN_STMT:
+	  gcc_checking_assert (lang_hooks.emits_begin_stmt);
+	  if (!DECL_IGNORED_P (current_function_decl)
+	      && notice_source_line (insn, NULL))
+	    (*debug_hooks->source_line) (last_linenum, last_filename,
+					 last_discriminator, true);
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	  break;
@@ -2482,7 +2491,15 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	rtx body = PATTERN (insn);
 	int insn_code_number;
 	const char *templ;
-	bool is_stmt;
+	bool is_stmt, *is_stmt_p;
+
+	if (MAY_HAVE_DEBUG_INSNS && lang_hooks.emits_begin_stmt)
+	  {
+	    is_stmt = false;
+	    is_stmt_p = NULL;
+	  }
+	else
+	  is_stmt_p = &is_stmt;
 
 	/* Reset this early so it is correct for ASM statements.  */
 	current_insn_predicate = NULL_RTX;
@@ -2585,12 +2602,18 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	/* Output this line note if it is the first or the last line
 	   note in a row.  */
 	if (!DECL_IGNORED_P (current_function_decl)
-	    && notice_source_line (insn, &is_stmt))
+	    && notice_source_line (insn, is_stmt_p))
 	  {
 	    if (flag_verbose_asm)
 	      asm_show_source (last_filename, last_linenum);
 	    (*debug_hooks->source_line) (last_linenum, last_filename,
 					 last_discriminator, is_stmt);
+	  }
+
+	if (DEBUG_INSN_P (insn))
+	  {
+	    gcc_checking_assert (!PAT_VAR_LOCATION_DECL (body));
+	    break;
 	  }
 
 	if (GET_CODE (body) == PARALLEL
@@ -3077,7 +3100,15 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
   const char *filename;
   int linenum;
 
-  if (override_filename)
+  if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_BEGIN_STMT)
+    {
+      expanded_location xloc
+	= expand_location (NOTE_BEGIN_STMT_LOCATION (insn));
+      filename = xloc.file;
+      linenum = xloc.line;
+      force_source_line = true;
+    }
+  else if (override_filename)
     {
       filename = override_filename;
       linenum = override_linenum;
@@ -3105,7 +3136,8 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
       last_filename = filename;
       last_linenum = linenum;
       last_discriminator = discriminator;
-      *is_stmt = true;
+      if (is_stmt)
+	*is_stmt = true;
       high_block_linenum = MAX (last_linenum, high_block_linenum);
       high_function_linenum = MAX (last_linenum, high_function_linenum);
       return true;
@@ -3117,7 +3149,8 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
          output the line table entry with is_stmt false so the
          debugger does not treat this as a breakpoint location.  */
       last_discriminator = discriminator;
-      *is_stmt = false;
+      if (is_stmt)
+	*is_stmt = false;
       return true;
     }
 
@@ -4655,6 +4688,7 @@ rest_of_clean_state (void)
       if (final_output
 	  && (!NOTE_P (insn) ||
 	      (NOTE_KIND (insn) != NOTE_INSN_VAR_LOCATION
+	       && NOTE_KIND (insn) != NOTE_INSN_BEGIN_STMT
 	       && NOTE_KIND (insn) != NOTE_INSN_CALL_ARG_LOCATION
 	       && NOTE_KIND (insn) != NOTE_INSN_BLOCK_BEG
 	       && NOTE_KIND (insn) != NOTE_INSN_BLOCK_END

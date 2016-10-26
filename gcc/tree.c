@@ -1011,7 +1011,8 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
   switch (type)
     {
     case tcc_statement:
-      TREE_SIDE_EFFECTS (t) = 1;
+      if (code != DEBUG_BEGIN_STMT)
+	TREE_SIDE_EFFECTS (t) = 1;
       break;
 
     case tcc_declaration:
@@ -4391,7 +4392,10 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
     }
 
   if (TREE_CODE_CLASS (code) == tcc_statement)
-    TREE_SIDE_EFFECTS (t) = 1;
+    {
+      if (code != DEBUG_BEGIN_STMT)
+	TREE_SIDE_EFFECTS (t) = 1;
+    }
   else switch (code)
     {
     case VA_ARG_EXPR:
@@ -12894,6 +12898,7 @@ block_may_fallthru (const_tree block)
      unmodified and we assign it to a const_tree.  */
   const_tree stmt = expr_last (CONST_CAST_TREE (block));
 
+ retry:
   switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
     {
     case GOTO_EXPR:
@@ -12947,6 +12952,26 @@ block_may_fallthru (const_tree block)
 
     case TARGET_EXPR:
       return block_may_fallthru (TREE_OPERAND (stmt, 1));
+
+    case DEBUG_BEGIN_STMT:
+      if (TREE_CODE (block) == STATEMENT_LIST)
+	{
+	  tree_stmt_iterator i = tsi_last (CONST_CAST_TREE (block));
+	  while (tsi_stmt (i) != stmt)
+	    tsi_prev (&i);
+	  tsi_prev (&i);
+	  while (!tsi_end_p (i) && TREE_CODE (tsi_stmt (i)) == DEBUG_BEGIN_STMT)
+	    tsi_prev (&i);
+	  if (tsi_end_p (i))
+	    return true;
+	  stmt = tsi_stmt (i);
+	}
+      else
+	{
+	  gcc_assert (block == stmt);
+	  stmt = NULL_TREE;
+	}
+      goto retry;
 
     case ERROR_MARK:
       return true;

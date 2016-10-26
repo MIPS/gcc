@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "gimple-iterator.h"
 #include "gimple-low.h"
+#include "langhooks.h"
 
 /* The differences between High GIMPLE and Low GIMPLE are the
    following:
@@ -294,6 +295,10 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       }
       break;
 
+    case GIMPLE_DEBUG:
+      gcc_checking_assert (MAY_HAVE_DEBUG_STMTS && lang_hooks.emits_begin_stmt);
+      break;
+
     case GIMPLE_NOP:
     case GIMPLE_ASM:
     case GIMPLE_ASSIGN:
@@ -501,6 +506,10 @@ lower_try_catch (gimple_stmt_iterator *gsi, struct lower_data *data)
 	cannot_fallthru = false;
       break;
 
+    case GIMPLE_DEBUG:
+      gcc_checking_assert (gimple_debug_begin_stmt_p (stmt));
+      break;
+
     default:
       /* This case represents statements to be executed when an
 	 exception occurs.  Those statements are implicitly followed
@@ -643,7 +652,7 @@ gimple_stmt_may_fallthru (gimple *stmt)
 bool
 gimple_seq_may_fallthru (gimple_seq seq)
 {
-  return gimple_stmt_may_fallthru (gimple_seq_last_stmt (seq));
+  return gimple_stmt_may_fallthru (gimple_seq_last_nondebug_stmt (seq));
 }
 
 

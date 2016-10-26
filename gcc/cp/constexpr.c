@@ -304,6 +304,9 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       tree_stmt_iterator i;
       for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
 	{
+	  if (TREE_CODE (tsi_stmt (i)) == DEBUG_BEGIN_STMT)
+	    /* ??? Can we retain this information somehow?  */
+	    continue;
 	  if (! build_data_member_initialization (tsi_stmt (i), vec))
 	    return false;
 	}
@@ -443,6 +446,7 @@ check_constexpr_ctor_body_1 (tree last, tree list)
 
     case USING_STMT:
     case STATIC_ASSERT:
+    case DEBUG_BEGIN_STMT:
       return true;
 
     default:
@@ -581,6 +585,9 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
       tree_stmt_iterator i;
       for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
 	{
+	  if (TREE_CODE (tsi_stmt (i)) == DEBUG_BEGIN_STMT)
+	    /* ??? Can we retain this information somehow?  */
+	    continue;
 	  ok = build_data_member_initialization (tsi_stmt (i), &vec);
 	  if (!ok)
 	    break;
@@ -668,6 +675,7 @@ constexpr_fn_retval (tree body)
       return constexpr_fn_retval (BIND_EXPR_BODY (body));
 
     case USING_STMT:
+    case DEBUG_BEGIN_STMT:
       return NULL_TREE;
 
     default:
@@ -3601,6 +3609,8 @@ cxx_eval_statement_list (const constexpr_ctx *ctx, tree t,
   for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
     {
       tree stmt = tsi_stmt (i);
+      if (TREE_CODE (stmt) == DEBUG_BEGIN_STMT)
+	continue;
       r = cxx_eval_constant_expression (ctx, stmt, false,
 					non_constant_p, overflow_p,
 					jump_target);
@@ -4908,6 +4918,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case CONTINUE_STMT:
     case REQUIRES_EXPR:
     case STATIC_ASSERT:
+    case DEBUG_BEGIN_STMT:
       return true;
 
     case AGGR_INIT_EXPR:
