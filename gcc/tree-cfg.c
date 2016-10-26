@@ -7548,8 +7548,14 @@ dump_function_to_file (tree fndecl, FILE *file, int flags)
     }
 
   current_function_decl = fndecl;
-  print_generic_expr (file, TREE_TYPE (TREE_TYPE (fndecl)), dump_flags);
-  fprintf (file, "\n%s %s(", function_name (fun), tmclone ? "[tm-clone] " : "");
+  if (flags & TDF_GIMPLE)
+    {
+      print_generic_expr (file, TREE_TYPE (TREE_TYPE (fndecl)),
+			  dump_flags | TDF_SLIM);
+      fprintf (file, "\n%s (", function_name (fun));
+    }
+  else
+    fprintf (file, "%s %s(", function_name (fun), tmclone ? "[tm-clone] " : "");
 
   arg = DECL_ARGUMENTS (fndecl);
   while (arg)

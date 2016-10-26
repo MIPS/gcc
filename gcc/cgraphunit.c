@@ -2052,7 +2052,6 @@ cgraph_node::expand (void)
 
   /* Make sure that BE didn't give up on compiling.  */
   gcc_assert (TREE_ASM_WRITTEN (decl));
-
   if (cfun)
     pop_cfun ();
 

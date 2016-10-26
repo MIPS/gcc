@@ -230,7 +230,7 @@ c_parser_gimple_compound_statement (c_parser *parser, gimple_seq *seq)
 	}
     }
   c_parser_consume_token (parser);
-  return return_p; 
+  return return_p;
 }
 
 /* Parse a gimple expression.

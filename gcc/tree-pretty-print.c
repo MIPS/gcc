@@ -257,10 +257,11 @@ dump_decl_name (pretty_printer *pp, tree node, int flags)
       else
 	pp_tree_identifier (pp, DECL_NAME (node));
     }
+  char uid_sep = (flags & TDF_GIMPLE) ? '_' : '.';
   if ((flags & TDF_UID) || DECL_NAME (node) == NULL_TREE)
     {
       if (TREE_CODE (node) == LABEL_DECL && LABEL_DECL_UID (node) != -1)
-	pp_printf (pp, "L_%d", (int) LABEL_DECL_UID (node));
+	pp_printf (pp, "L%c%d", uid_sep, (int) LABEL_DECL_UID (node));
       else if (TREE_CODE (node) == DEBUG_EXPR_DECL)
 	{
 	  if (flags & TDF_NOUID)
@@ -274,7 +275,7 @@ dump_decl_name (pretty_printer *pp, tree node, int flags)
 	  if (flags & TDF_NOUID)
 	    pp_printf (pp, "%c.xxxx", c);
 	  else
-	    pp_printf (pp, "%c_%u", c, DECL_UID (node));
+	    pp_printf (pp, "%c%c%u", c, uid_sep, DECL_UID (node));
 	}
     }
   if ((flags & TDF_ALIAS) && DECL_PT_UID (node) != DECL_UID (node))
@@ -1762,13 +1763,23 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       if (DECL_NAME (node))
 	dump_decl_name (pp, node, flags);
       else if (LABEL_DECL_UID (node) != -1)
-	pp_printf (pp, "<L%d>", (int) LABEL_DECL_UID (node));
+	{
+	  if (flags & TDF_GIMPLE)
+	    pp_printf (pp, "L%d", (int) LABEL_DECL_UID (node));
+	  else
+	    pp_printf (pp, "<L%d>", (int) LABEL_DECL_UID (node));
+	}
       else
 	{
 	  if (flags & TDF_NOUID)
 	    pp_string (pp, "<D.xxxx>");
 	  else
-	    pp_printf (pp, "<D.%u>", DECL_UID (node));
+	    {
+	      if (flags & TDF_GIMPLE)
+		pp_printf (pp, "<D%u>", DECL_UID (node));
+	      else
+		pp_printf (pp, "<D.%u>", DECL_UID (node));
+	    }
 	}
       break;
 
@@ -3965,14 +3976,14 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
   else
     aname = "<unset-asm-name>";
 
-  fprintf (dump_file, "\n/* Function %s (%s, funcdef_no=%d",
+  fprintf (dump_file, "\n;; Function %s (%s, funcdef_no=%d",
 	   dname, aname, fun->funcdef_no);
   if (!(flags & TDF_NOUID))
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)
     {
       fprintf (dump_file, ", cgraph_uid=%d", node->uid);
-      fprintf (dump_file, ", symbol_order=%d)%s", node->order,
+      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->order,
                node->frequency == NODE_FREQUENCY_HOT
                ? " (hot)"
                : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
@@ -3982,8 +3993,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
                : "");
     }
   else
-    fprintf (dump_file, ")");
-  fprintf (dump_file, "*/\n\n");
+    fprintf (dump_file, ")\n\n");
 }
 
 /* Dump double_int D to pretty_printer PP.  UNS is true

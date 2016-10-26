@@ -2099,7 +2099,7 @@ pass_init_dump_file (opt_pass *pass)
       release_dump_file_name ();
       dump_file_name = dumps->get_dump_file_name (pass->static_pass_number);
       dumps->dump_start (pass->static_pass_number, &dump_flags);
-      if (dump_file && current_function_decl)
+      if (dump_file && current_function_decl && ! (dump_flags & TDF_GIMPLE))
         dump_function_header (dump_file, current_function_decl, dump_flags);
       if (initializing_dump
 	  && dump_file && (dump_flags & TDF_GRAPH)

@@ -1467,7 +1467,7 @@ static void c_finish_oacc_routine (struct oacc_routine_data *, tree, bool);
      threadprivate-directive
 
    GIMPLE:
-     
+
    gimple-function-definition:
      declaration-specifiers[opt] __GIMPLE (gimple-pass-list) declarator
        declaration-list[opt] compound-statement  */
