@@ -40,6 +40,8 @@ test01()
   auto result = read_symlink(p, ec);
   VERIFY( !ec );
   VERIFY( result == tgt );
+
+  remove(p);
 }
 
 int

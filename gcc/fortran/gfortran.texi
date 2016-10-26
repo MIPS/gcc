@@ -1437,7 +1437,8 @@ purely for backward compatibility with legacy compilers.  By default,
 extensions, but to warn about the use of the latter.  Specifying
 either @option{-std=f95}, @option{-std=f2003} or @option{-std=f2008}
 disables both types of extensions, and @option{-std=legacy} allows both
-without warning.
+without warning.  The special compile flag @option{-fdec} enables additional
+compatibility extensions along with those enabled by @option{-std=legacy}.
 
 @menu
 * Old-style kind specifications::
@@ -1464,6 +1465,11 @@ without warning.
 * Type variants for integer intrinsics::
 * AUTOMATIC and STATIC attributes::
 * Extended math intrinsics::
+* Form feed as whitespace::
+* TYPE as an alias for PRINT::
+* %LOC as an rvalue::
+* .XOR. operator::
+* Bitwise logical operators::
 @end menu
 
 @node Old-style kind specifications
@@ -2509,6 +2515,96 @@ and then multiplying it by a constant radian-to-degree (or degree-to-radian)
 factor, as appropriate. The factor is computed at compile-time as 180/pi (or
 pi/180).
 
+@node Form feed as whitespace
+@subsection Form feed as whitespace
+@cindex form feed whitespace
+
+Historically, legacy compilers allowed insertion of form feed characters ('\f',
+ASCII 0xC) at the beginning of lines for formatted output to line printers,
+though the Fortran standard does not mention this. GNU Fortran supports the
+interpretation of form feed characters in source as whitespace for
+compatibility.
+
+@node TYPE as an alias for PRINT
+@subsection TYPE as an alias for PRINT
+@cindex type alias print
+For compatibility, GNU Fortran will interpret @code{TYPE} statements as
+@code{PRINT} statements with the flag @option{-fdec}.  With this flag asserted,
+the following two examples are equivalent:
+
+@smallexample
+TYPE *, 'hello world'
+@end smallexample
+
+@smallexample
+PRINT *, 'hello world'
+@end smallexample
+
+@node %LOC as an rvalue
+@subsection %LOC as an rvalue
+@cindex LOC
+Normally @code{%LOC} is allowed only in parameter lists.  However the intrinsic
+function @code{LOC} does the same thing, and is usable as the right-hand-side of
+assignments. For compatibility, GNU Fortran supports the use of @code{%LOC} as
+an alias for the builtin @code{LOC} with @option{-std=legacy}.  With this
+feature enabled the following two examples are equivalent:
+
+@smallexample
+integer :: i, l
+l = %loc(i)
+call sub(l)
+@end smallexample
+
+@smallexample
+integer :: i
+call sub(%loc(i))
+@end smallexample
+
+@node .XOR. operator
+@subsection .XOR. operator
+@cindex operators, xor
+
+GNU Fortran supports @code{.XOR.} as a logical operator with @code{-std=legacy}
+for compatibility with legacy code. @code{.XOR.} is equivalent to
+@code{.NEQV.}. That is, the output is true if and only if the inputs differ.
+
+@node Bitwise logical operators
+@subsection Bitwise logical operators
+@cindex logical, bitwise
+
+With @option{-fdec}, GNU Fortran relaxes the type constraints on
+logical operators to allow integer operands, and performs the corresponding
+bitwise operation instead.  This flag is for compatibility only, and should be
+avoided in new code.  Consider:
+
+@smallexample
+  INTEGER :: i, j
+  i = z'33'
+  j = z'cc'
+  print *, i .AND. j
+@end smallexample
+
+In this example, compiled with @option{-fdec}, GNU Fortran will
+replace the @code{.AND.} operation with a call to the intrinsic
+@code{@ref{IAND}} function, yielding the bitwise-and of @code{i} and @code{j}.
+
+Note that this conversion will occur if at least one operand is of integral
+type.  As a result, a logical operand will be converted to an integer when the
+other operand is an integer in a logical operation.  In this case,
+@code{.TRUE.} is converted to @code{1} and @code{.FALSE.} to @code{0}.
+
+Here is the mapping of logical operator to bitwise intrinsic used with
+@option{-fdec}:
+
+@multitable @columnfractions .25 .25 .5
+@headitem Operator @tab Intrinsic @tab Bitwise operation
+@item @code{.NOT.} @tab @code{@ref{NOT}} @tab complement
+@item @code{.AND.} @tab @code{@ref{IAND}} @tab intersection
+@item @code{.OR.} @tab @code{@ref{IOR}} @tab union
+@item @code{.NEQV.} @tab @code{@ref{IEOR}} @tab exclusive or
+@item @code{.EQV.} @tab @code{@ref{NOT}(@ref{IEOR})} @tab complement of exclusive or
+@end multitable
+
 
 @node Extensions not implemented in GNU Fortran
 @section Extensions not implemented in GNU Fortran
@@ -2533,7 +2629,6 @@ code that uses them running with the GNU Fortran compiler.
 * Variable FORMAT expressions::
 @c * Q edit descriptor::
 @c * TYPE and ACCEPT I/O Statements::
-@c * .XOR. operator::
 @c * CARRIAGECONTROL, DEFAULTFILE, DISPOSE and RECORDTYPE I/O specifiers::
 @c * Omitted arguments in procedure call::
 * Alternate complex function syntax::

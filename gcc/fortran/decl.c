@@ -1858,8 +1858,17 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
       && current_ts.u.derived == gfc_current_block ()
       && current_attr.pointer == 0)
     {
+      if (current_attr.allocatable
+	  && !gfc_notify_std(GFC_STD_F2008, "Component at %C "
+			     "must have the POINTER attribute"))
+	{
+	  return false;
+	}
+      else if (current_attr.allocatable == 0)
+	{
       gfc_error ("Component at %C must have the POINTER attribute");
       return false;
+    }
     }
 
   if (gfc_current_block ()->attr.pointer && (*as)->rank != 0)
@@ -2929,7 +2938,7 @@ match_record_decl (char *name)
     m = gfc_match (" record /");
     if (m == MATCH_YES)
       {
-          if (!gfc_option.flag_dec_structure)
+          if (!flag_dec_structure)
             {
                 gfc_current_locus = old_loc;
                 gfc_error ("RECORD at %C is an extension, enable it with "
@@ -2942,7 +2951,7 @@ match_record_decl (char *name)
       }
 
   gfc_current_locus = old_loc;
-  if (gfc_option.flag_dec_structure
+  if (flag_dec_structure
       && (gfc_match (" record% ") == MATCH_YES
           || gfc_match (" record%t") == MATCH_YES))
     gfc_error ("Structure name expected after RECORD at %C");
@@ -3145,7 +3154,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
     {
       /* Match nested STRUCTURE declarations; only valid within another
 	 structure declaration.  */
-      if (gfc_option.flag_dec_structure
+      if (flag_dec_structure
 	  && (gfc_current_state () == COMP_STRUCTURE
 	      || gfc_current_state () == COMP_MAP))
 	{
@@ -4842,6 +4851,10 @@ gfc_match_data_decl (void)
     {
 
       if (current_attr.pointer && gfc_comp_struct (gfc_current_state ()))
+	goto ok;
+
+      if (current_attr.allocatable && gfc_current_state () == COMP_DERIVED
+	  && current_ts.u.derived == gfc_current_block ())
 	goto ok;
 
       gfc_find_symbol (current_ts.u.derived->name,
@@ -8654,7 +8667,7 @@ gfc_match_structure_decl (void)
     match m;
     locus where;
 
-    if(!gfc_option.flag_dec_structure)
+    if(!flag_dec_structure)
       {
           gfc_error ("STRUCTURE at %C is a DEC extension, enable with "
                      "-fdec-structure");
@@ -8709,6 +8722,100 @@ gfc_match_structure_decl (void)
     gfc_new_block = sym;
     return MATCH_YES;
 }
+
+
+/* This function does some work to determine which matcher should be used to
+ * match a statement beginning with "TYPE". This is used to disambiguate TYPE
+ * as an alias for PRINT from derived type declarations, TYPE IS statements,
+ * and derived type data declarations.  */
+
+match
+gfc_match_type (gfc_statement *st)
+{
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  match m;
+  locus old_loc;
+
+  /* Requires -fdec.  */
+  if (!flag_dec)
+    return MATCH_NO;
+
+  m = gfc_match ("type");
+  if (m != MATCH_YES)
+    return m;
+  /* If we already have an error in the buffer, it is probably from failing to
+   * match a derived type data declaration. Let it happen.  */
+  else if (gfc_error_flag_test ())
+    return MATCH_NO;
+
+  old_loc = gfc_current_locus;
+  *st = ST_NONE;
+
+  /* If we see an attribute list before anything else it's definitely a derived
+   * type declaration.  */
+  if (gfc_match (" ,") == MATCH_YES || gfc_match (" ::") == MATCH_YES)
+    {
+      gfc_current_locus = old_loc;
+      *st = ST_DERIVED_DECL;
+      return gfc_match_derived_decl ();
+    }
+
+  /* By now "TYPE" has already been matched. If we do not see a name, this may
+   * be something like "TYPE *" or "TYPE <fmt>".  */
+  m = gfc_match_name (name);
+  if (m != MATCH_YES)
+    {
+      /* Let print match if it can, otherwise throw an error from
+       * gfc_match_derived_decl.  */
+      gfc_current_locus = old_loc;
+      if (gfc_match_print () == MATCH_YES)
+	{
+	  *st = ST_WRITE;
+	  return MATCH_YES;
+	}
+      gfc_current_locus = old_loc;
+      *st = ST_DERIVED_DECL;
+      return gfc_match_derived_decl ();
+    }
+
+  /* A derived type declaration requires an EOS. Without it, assume print.  */
+  m = gfc_match_eos ();
+  if (m == MATCH_NO)
+    {
+      /* Check manually for TYPE IS (... - this is invalid print syntax.  */
+      if (strncmp ("is", name, 3) == 0
+	  && gfc_match (" (", name) == MATCH_YES)
+	{
+	  gfc_current_locus = old_loc;
+	  gcc_assert (gfc_match (" is") == MATCH_YES);
+	  *st = ST_TYPE_IS;
+	  return gfc_match_type_is ();
+	}
+      gfc_current_locus = old_loc;
+      *st = ST_WRITE;
+      return gfc_match_print ();
+    }
+  else
+    {
+      /* By now we have "TYPE <name> <EOS>". Check first if the name is an
+       * intrinsic typename - if so let gfc_match_derived_decl dump an error.
+       * Otherwise if gfc_match_derived_decl fails it's probably an existing
+       * symbol which can be printed.  */
+      gfc_current_locus = old_loc;
+      m = gfc_match_derived_decl ();
+      if (gfc_is_intrinsic_typename (name) || m == MATCH_YES)
+	{
+	  *st = ST_DERIVED_DECL;
+	  return m;
+	}
+      gfc_current_locus = old_loc;
+      *st = ST_WRITE;
+      return gfc_match_print ();
+    }
+
+  return MATCH_NO;
+}
+
 
 /* Match the beginning of a derived type declaration.  If a type name
    was the result of a function, then it is possible to have a symbol

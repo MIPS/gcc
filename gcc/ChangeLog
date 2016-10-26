@@ -1,3 +1,102 @@
+2016-10-25  Jeff Law  <law@redhat.com>
+
+	* config/vax/vax.c (vad_address_cost_1): Add missing FALLTHRU comment.
+	(vax_notice_update_cc): Likewise.
+
+2016-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config.gcc (sparc*-*-solaris2*): Adjust.
+	(sparc64-*-linux*): Likewise.
+	* config/sparc/default-64.h: Rename to...
+	* config/sparc/default64.h: ...this.
+	* config/sparc/sparc.c (sparc_option_override): Replace TARGET_64BIT
+	with TARGET_ARCH64.
+	(sparc_mangle_type): Replace !TARGET_64BIT with TARGET_ARCH32.
+	* config/sparc/sparc.h: Minor tweaks.
+	* config/sparc/sparc.md: Replace !TARGET_64BIT and !TARGET_ARCH64 with
+	TARGET_ARCH32 throughout.  Minor various tweaks throughout.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c (fcache::file_patch): Add comment about lifetime.
+	(selftest::cpp_reader_ptr): New class.
+	(selftest::lexer_test): Convert m_parser from cpp_reader *
+	to a cpp_reader_ptr, and move m_tempfile to after it.
+	(selftest::lexer_test::lexer_test): Update for above reordering.
+	(lexer_test::~lexer_test): Move cleanup of m_parser to
+	cpp_reader_ptr's dtor.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* toplev.c (toplev::main): Remove call to
+	location_adhoc_data_fini.
+
+2016-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.h (wi::fits_to_tree_p): Accept only 0 and 1 for boolean types.
+	* tree.c (int_fits_type_p): Likewise.  Adjust head comment.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* ggc-tests.c (forcibly_ggc_collect): Rename to...
+	(selftest::forcibly_ggc_collect): ...this, and remove "static".
+	(test_basic_struct): Update for above renaming.
+	(test_length): Likewise.
+	(test_union): Likewise.
+	(test_finalization): Likewise.
+	(test_deletable_global): Likewise.
+	(test_inheritance): Likewise.
+	(test_chain_next): Likewise.
+	(test_user_struct): Likewise.
+	(test_tree_marking): Likewise.
+	* selftest-run-tests.c (selftest::run_tests): Call
+	selftest::forcibly_ggc_collect at the end of the selftests.
+	* selftest.h (selftest::forcibly_ggc_collect): New decl.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78102
+	* optabs.def (vcondeq_optab, vec_cmpeq_optab): New optabs.
+	* optabs.c (expand_vec_cond_expr): For comparison codes
+	EQ_EXPR and NE_EXPR, attempt vcondeq_optab as fallback.
+	(expand_vec_cmp_expr): For comparison codes
+	EQ_EXPR and NE_EXPR, attempt vec_cmpeq_optab as fallback.
+	* optabs-tree.h (expand_vec_cmp_expr_p, expand_vec_cond_expr_p):
+	Add enum tree_code argument.
+	* optabs-query.h (get_vec_cmp_eq_icode, get_vcond_eq_icode): New
+	inline functions.
+	* optabs-tree.c (expand_vec_cmp_expr_p): Add CODE argument.  For
+	CODE EQ_EXPR or NE_EXPR, attempt to use vec_cmpeq_optab as
+	fallback.
+	(expand_vec_cond_expr_p): Add CODE argument.  For CODE EQ_EXPR or
+	NE_EXPR, attempt to use vcondeq_optab as fallback.
+	* tree-vect-generic.c (expand_vector_comparison,
+	expand_vector_divmod, expand_vector_condition): Adjust
+	expand_vec_cmp_expr_p and expand_vec_cond_expr_p callers.
+	* tree-vect-stmts.c (vectorizable_condition,
+	vectorizable_comparison): Likewise.
+	* tree-vect-patterns.c (vect_recog_mixed_size_cond_pattern,
+	check_bool_pattern, search_type_for_mask_1): Likewise.
+	* expr.c (do_store_flag): Likewise.
+	* doc/md.texi (@code{vec_cmpeq@var{m}@var{n}},
+	@code{vcondeq@var{m}@var{n}}): Document.
+	* config/i386/sse.md (vec_cmpeqv2div2di, vcondeq<VI8F_128:mode>v2di):
+	New expanders.
+
+2016-10-25  Jeff Law  <law@redhat.com>
+
+	* config/v850/v850.c (v850_handle_data_area_attribute): Fix fallthru
+	comment.
+	(v850_output_aligned_bss): Add missing break.
+
+	* config/m68k/m68k.c (m68k_get_reloc_decoration): Add gcc_unreachable.
+
+2016-10-25  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/78106
+	* sanopt.c (imm_dom_path_with_freeing_call): Handle gasm
+	statements as they can also contain possibly a freeing call.
+
 2016-10-25  H.J. Lu  <hongjiu.lu@intel.com>
 	    Martin Liska  <mliska@suse.cz>
 
