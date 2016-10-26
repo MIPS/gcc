@@ -1104,13 +1104,16 @@ struct mips_cpu_info {
 				 && !TARGET_OCTEON)
 
 /* ISA has conditional trap instructions.  */
-#define ISA_HAS_COND_TRAP	(!ISA_MIPS1				\
-				 && !TARGET_MIPS16)
+#define ISA_HAS_COND_TRAP	(!ISA_MIPS1				  \
+				 && !TARGET_MIPS16			  \
+				 && (!TARGET_NANOMIPS			  \
+				     || TARGET_NANOMIPS == NANOMIPS_NMF))
 
 /* ISA has conditional trap with immediate instructions.  */
 #define ISA_HAS_COND_TRAPI	(!ISA_MIPS1				\
 				 && mips_isa_rev <= 5			\
-				 && !TARGET_MIPS16)
+				 && !TARGET_MIPS16			\
+				 && !TARGET_NANOMIPS)
 
 /* ISA has integer multiply-accumulate instructions, madd and msub.  */
 #define ISA_HAS_MADD_MSUB	(mips_isa_rev >= 1			\

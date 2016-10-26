@@ -566,7 +566,12 @@
   (match_code "zero_extend,sign_extend"))
 
 (define_predicate "trap_comparison_operator"
-  (match_code "eq,ne,lt,ltu,ge,geu"))
+  (match_code "eq,ne,lt,ltu,ge,geu")
+{
+  if (TARGET_NANOMIPS && GET_CODE (op) != EQ && GET_CODE (op) != NE)
+    return false;
+  return true;
+})
 
 (define_predicate "order_operator"
   (match_code "lt,ltu,le,leu,ge,geu,gt,gtu")
