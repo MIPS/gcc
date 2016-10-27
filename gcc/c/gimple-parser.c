@@ -1164,7 +1164,6 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
   auto_vec<tree> labels;
   tree default_label = NULL_TREE;
   gimple_seq switch_body = NULL;
-  location_t loc;
   c_parser_consume_token (parser);
 
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
@@ -1189,7 +1188,7 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
 	    case RID_CASE:
 	      {
 		c_expr exp1;
-		loc = c_parser_peek_token (parser)->location;
+		location_t loc = c_parser_peek_token (parser)->location;
 		c_parser_consume_token (parser);
 
 		if (c_parser_next_token_is (parser, CPP_NAME)
@@ -1224,6 +1223,7 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
 	      }
 	    case RID_DEFAULT:
 	      {
+		location_t loc = c_parser_peek_token (parser)->location;
 		c_parser_consume_token (parser);
 		if (c_parser_next_token_is (parser, CPP_COLON))
 		  {
@@ -1250,7 +1250,7 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
 	      }
 	    case RID_GOTO:
 	      {
-		loc = c_parser_peek_token (parser)->location;
+		location_t loc = c_parser_peek_token (parser)->location;
 		c_parser_consume_token (parser);
 		if (c_parser_next_token_is (parser, CPP_NAME))
 		  {
