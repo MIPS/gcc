@@ -1383,10 +1383,11 @@ rewrite_add_phi_arguments (basic_block bb)
 
 	  phi = gsi.phi ();
 	  res = gimple_phi_result (phi);
-	  /* If we have pre-existing PHI its args may be different
-	     vars than existing vars */
+	  /* If we have pre-existing PHI (via the GIMPLE FE) its args may
+	     be different vars than existing vars and they may be constants
+	     as well.  Note the following supports partial SSA for PHI args.  */
 	  argvar = gimple_phi_arg_def (phi, e->dest_idx);
-	  if (argvar && TREE_CODE (argvar) == SSA_NAME)
+	  if (argvar && ! DECL_P (argvar))
 	    continue;
 	  if (!argvar)
 	    argvar = SSA_NAME_VAR (res);
