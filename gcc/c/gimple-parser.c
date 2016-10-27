@@ -158,7 +158,7 @@ c_parser_gimple_compound_statement (c_parser *parser, gimple_seq *seq)
 
   while (c_parser_next_token_is_not (parser, CPP_CLOSE_BRACE))
     {
-      if (parser->error)
+      if (c_parser_error (parser))
 	{
 	  c_parser_skip_until_found (parser, CPP_CLOSE_BRACE, NULL);
 	  return return_p;
@@ -484,7 +484,7 @@ c_parser_gimple_binary_expression (c_parser *parser, enum tree_code *subcode)
   stack[0].expr = c_parser_gimple_unary_expression (parser);
   sp = 0;
   source_range src_range;
-  if (parser->error)
+  if (c_parser_error (parser))
     goto out;
   switch (c_parser_peek_token (parser)->type)
     {
@@ -813,7 +813,7 @@ c_parser_gimple_postfix_expression_after_primary (c_parser *parser,
 	  break;
 
 	start = expr.get_start ();
-	finish = parser->tokens_buf[0].location;
+	finish = c_parser_tokens_buf (parser, 0)->location;
 	expr.value = build_array_ref (op_loc, expr.value, idx);
 	set_c_expr_source_range (&expr, start, finish);
 
@@ -834,7 +834,7 @@ c_parser_gimple_postfix_expression_after_primary (c_parser *parser,
 				   "expected %<)%>");
 	orig_expr = expr;
 	start = expr.get_start ();
-	finish = parser->tokens_buf[0].get_finish ();
+	finish = c_parser_tokens_buf (parser, 0)->get_finish ();
 	expr.value = c_build_function_call_vec (expr_loc, arg_loc, expr.value,
 						exprlist, origtypes);
 	set_c_expr_source_range (&expr, start, finish);
@@ -1032,7 +1032,7 @@ c_parser_gimple_declaration (c_parser *parser)
       && ! c_parser_next_token_is (parser, CPP_NAME))
     {
       c_parser_error (parser, "expected %<;%>");
-      parser->error = false;
+      c_parser_set_error (parser, false);
       return;
     }
 

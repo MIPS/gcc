@@ -50,7 +50,7 @@ enum c_id_kind {
 
 /* A single C token after string literal concatenation and conversion
    of preprocessing tokens to tokens.  */
-typedef struct GTY (()) c_token {
+struct GTY (()) c_token {
   /* The kind of token.  */
   ENUM_BITFIELD (cpp_ttype) type : 8;
   /* If this token is a CPP_NAME, this value indicates whether also
@@ -78,59 +78,10 @@ typedef struct GTY (()) c_token {
   {
     return get_range ().m_finish;
   }
-} c_token_;
-
-/* A parser structure recording information about the state and
-   context of parsing.  Includes lexer information with up to two
-   tokens of look-ahead; more are not needed for C.  */
-struct GTY(()) c_parser {
-  /* The look-ahead tokens.  */
-  struct c_token * GTY((skip)) tokens;
-  /* Buffer for look-ahead tokens.  */
-  struct c_token GTY(()) tokens_buf[4];
-  /* How many look-ahead tokens are available (0 - 4, or
-     more if parsing from pre-lexed tokens).  */
-  unsigned int tokens_avail;
-  /* True if a syntax error is being recovered from; false otherwise.
-     c_parser_error sets this flag.  It should clear this flag when
-     enough tokens have been consumed to recover from the error.  */
-  BOOL_BITFIELD error : 1;
-  /* True if we're processing a pragma, and shouldn't automatically
-     consume CPP_PRAGMA_EOL.  */
-  BOOL_BITFIELD in_pragma : 1;
-  /* True if we're parsing the outermost block of an if statement.  */
-  BOOL_BITFIELD in_if_block : 1;
-  /* True if we want to lex an untranslated string.  */
-  BOOL_BITFIELD lex_untranslated_string : 1;
-
-  /* Objective-C specific parser/lexer information.  */
-
-  /* True if we are in a context where the Objective-C "PQ" keywords
-     are considered keywords.  */
-  BOOL_BITFIELD objc_pq_context : 1;
-  /* True if we are parsing a (potential) Objective-C foreach
-     statement.  This is set to true after we parsed 'for (' and while
-     we wait for 'in' or ';' to decide if it's a standard C for loop or an
-     Objective-C foreach loop.  */
-  BOOL_BITFIELD objc_could_be_foreach_context : 1;
-  /* The following flag is needed to contextualize Objective-C lexical
-     analysis.  In some cases (e.g., 'int NSObject;'), it is
-     undesirable to bind an identifier to an Objective-C class, even
-     if a class with that name exists.  */
-  BOOL_BITFIELD objc_need_raw_identifier : 1;
-  /* Nonzero if we're processing a __transaction statement.  The value
-     is 1 | TM_STMT_ATTR_*.  */
-  unsigned int in_transaction : 4;
-  /* True if we are in a context where the Objective-C "Property attribute"
-     keywords are valid.  */
-  BOOL_BITFIELD objc_property_attr_context : 1;
-
-  /* Cilk Plus specific parser/lexer information.  */
-
-  /* Buffer to hold all the tokens from parsing the vector attribute for the
-     SIMD-enabled functions (formerly known as elemental functions).  */
-  vec <c_token_, va_gc> *cilk_simd_fn_tokens;
 };
+
+/* The parser.  */
+struct c_parser;
 
 /* Possibly kinds of declarator to parse.  */
 enum c_dtr_syn {
@@ -192,6 +143,13 @@ extern bool c_parser_next_token_starts_declspecs (c_parser *parser);
 extern c_token * c_parser_peek_2nd_token (c_parser *parser);
 bool c_parser_next_tokens_start_declaration (c_parser *parser);
 bool c_token_starts_typename (c_token *token);
+
+/* Abstraction to avoid defining c_parser here which messes up gengtype
+   output wrt ObjC due to vec<c_token> routines being put in gtype-c.h
+   but not gtype-objc.h.  */
+extern c_token * c_parser_tokens_buf (c_parser *parser, unsigned n);
+extern bool c_parser_error (c_parser *parser);
+extern void c_parser_set_error (c_parser *parser, bool);
 
 /* Return true if the next token from PARSER has the indicated
    TYPE.  */
