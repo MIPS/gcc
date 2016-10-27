@@ -2043,7 +2043,7 @@ expand_FALLTHROUGH_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 		      break;
 		    }
 		}
-	      else
+	      else if (!is_gimple_debug (stmt))
 		/* Something other than a label.  That's not expected.  */
 		break;
 	      gsi_next (&gsi2);
