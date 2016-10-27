@@ -799,147 +799,147 @@ c_parser_gimple_postfix_expression_after_primary (c_parser *parser,
   vec<location_t> arg_loc = vNULL;
   location_t start;
   location_t finish;
+  tree ident;
+  location_t comp_loc;
 
-  location_t op_loc = c_parser_peek_token (parser)->location;
-
-  switch (c_parser_peek_token (parser)->type)
+  while (true)
     {
-    case CPP_OPEN_SQUARE:
-      {
-	c_parser_consume_token (parser);
-	tree idx = c_parser_gimple_unary_expression (parser).value;
-
-	if (! c_parser_require (parser, CPP_CLOSE_SQUARE, "expected %<]%>"))
-	  break;
-
-	start = expr.get_start ();
-	finish = c_parser_tokens_buf (parser, 0)->location;
-	expr.value = build_array_ref (op_loc, expr.value, idx);
-	set_c_expr_source_range (&expr, start, finish);
-
-	expr.original_code = ERROR_MARK;
-	expr.original_type = NULL;
-	break;
-      }
-    case CPP_OPEN_PAREN:
-      {
-	/* Function call.  */
-	c_parser_consume_token (parser);
-	if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-	  exprlist = NULL;
-	else
-	  exprlist = c_parser_gimple_expr_list (parser, &origtypes,
-						&arg_loc);
-	c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
-				   "expected %<)%>");
-	orig_expr = expr;
-	start = expr.get_start ();
-	finish = c_parser_tokens_buf (parser, 0)->get_finish ();
-	expr.value = c_build_function_call_vec (expr_loc, arg_loc, expr.value,
-						exprlist, origtypes);
-	set_c_expr_source_range (&expr, start, finish);
-
-	expr.original_code = ERROR_MARK;
-	if (TREE_CODE (expr.value) == INTEGER_CST
-	    && TREE_CODE (orig_expr.value) == FUNCTION_DECL
-	    && DECL_BUILT_IN_CLASS (orig_expr.value) == BUILT_IN_NORMAL
-	    && DECL_FUNCTION_CODE (orig_expr.value) == BUILT_IN_CONSTANT_P)
-	  expr.original_code = C_MAYBE_CONST_EXPR;
-	expr.original_type = NULL;
-	if (exprlist)
+      location_t op_loc = c_parser_peek_token (parser)->location;
+      switch (c_parser_peek_token (parser)->type)
+	{
+	case CPP_OPEN_SQUARE:
 	  {
-	    release_tree_vector (exprlist);
-	    release_tree_vector (origtypes);
-	  }
-	arg_loc.release ();
-	break;
-      }
-    case CPP_DOT:
-      {
-	/* Structure element reference.  */
-	tree ident;
-	location_t comp_loc;
-	c_parser_consume_token (parser);
-	if (c_parser_next_token_is (parser, CPP_NAME))
-	  {
-	    c_token *comp_tok = c_parser_peek_token (parser);
-	    ident = comp_tok->value;
-	    comp_loc = comp_tok->location;
-	  }
-	else
-	  {
-	    c_parser_error (parser, "expected identifier");
-	    expr.set_error ();
+	    c_parser_consume_token (parser);
+	    tree idx = c_parser_gimple_unary_expression (parser).value;
+
+	    if (! c_parser_require (parser, CPP_CLOSE_SQUARE, "expected %<]%>"))
+	      break;
+
+	    start = expr.get_start ();
+	    finish = c_parser_tokens_buf (parser, 0)->location;
+	    expr.value = build_array_ref (op_loc, expr.value, idx);
+	    set_c_expr_source_range (&expr, start, finish);
+
 	    expr.original_code = ERROR_MARK;
 	    expr.original_type = NULL;
-	    return expr;
+	    break;
 	  }
-	start = expr.get_start ();
-	finish = c_parser_peek_token (parser)->get_finish ();
-	c_parser_consume_token (parser);
-	expr.value = build_component_ref (op_loc, expr.value, ident,
-					  comp_loc);
-	set_c_expr_source_range (&expr, start, finish);
-	expr.original_code = ERROR_MARK;
-	if (TREE_CODE (expr.value) != COMPONENT_REF)
-	  expr.original_type = NULL;
-	else
+	case CPP_OPEN_PAREN:
 	  {
-	    /* Remember the original type of a bitfield.  */
-	    tree field = TREE_OPERAND (expr.value, 1);
-	    if (TREE_CODE (field) != FIELD_DECL)
-	      expr.original_type = NULL;
+	    /* Function call.  */
+	    c_parser_consume_token (parser);
+	    if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
+	      exprlist = NULL;
 	    else
-	      expr.original_type = DECL_BIT_FIELD_TYPE (field);
-	  }
-	break;
-      }
-    case CPP_DEREF:
-      {
-	/* Structure element reference.  */
-	tree ident;
-	location_t comp_loc;
-	c_parser_consume_token (parser);
-	if (c_parser_next_token_is (parser, CPP_NAME))
-	  {
-	    c_token *comp_tok = c_parser_peek_token (parser);
-	    ident = comp_tok->value;
-	    comp_loc = comp_tok->location;
-	  }
-	else
-	  {
-	    c_parser_error (parser, "expected identifier");
-	    expr.set_error ();
+	      exprlist = c_parser_gimple_expr_list (parser, &origtypes,
+						    &arg_loc);
+	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
+				       "expected %<)%>");
+	    orig_expr = expr;
+	    start = expr.get_start ();
+	    finish = c_parser_tokens_buf (parser, 0)->get_finish ();
+	    expr.value = c_build_function_call_vec (expr_loc, arg_loc,
+						    expr.value,
+						    exprlist, origtypes);
+	    set_c_expr_source_range (&expr, start, finish);
+
 	    expr.original_code = ERROR_MARK;
+	    if (TREE_CODE (expr.value) == INTEGER_CST
+		&& TREE_CODE (orig_expr.value) == FUNCTION_DECL
+		&& DECL_BUILT_IN_CLASS (orig_expr.value) == BUILT_IN_NORMAL
+		&& DECL_FUNCTION_CODE (orig_expr.value) == BUILT_IN_CONSTANT_P)
+	      expr.original_code = C_MAYBE_CONST_EXPR;
 	    expr.original_type = NULL;
-	    return expr;
+	    if (exprlist)
+	      {
+		release_tree_vector (exprlist);
+		release_tree_vector (origtypes);
+	      }
+	    arg_loc.release ();
+	    break;
 	  }
-	start = expr.get_start ();
-	finish = c_parser_peek_token (parser)->get_finish ();
-	c_parser_consume_token (parser);
-	expr.value = build_component_ref (op_loc,
-					  build_simple_mem_ref_loc (op_loc,
-								    expr.value),
-					  ident, comp_loc);
-	set_c_expr_source_range (&expr, start, finish);
-	expr.original_code = ERROR_MARK;
-	if (TREE_CODE (expr.value) != COMPONENT_REF)
-	  expr.original_type = NULL;
-	else
+	case CPP_DOT:
 	  {
-	    /* Remember the original type of a bitfield.  */
-	    tree field = TREE_OPERAND (expr.value, 1);
-	    if (TREE_CODE (field) != FIELD_DECL)
+	    /* Structure element reference.  */
+	    c_parser_consume_token (parser);
+	    if (c_parser_next_token_is (parser, CPP_NAME))
+	      {
+		c_token *comp_tok = c_parser_peek_token (parser);
+		ident = comp_tok->value;
+		comp_loc = comp_tok->location;
+	      }
+	    else
+	      {
+		c_parser_error (parser, "expected identifier");
+		expr.set_error ();
+		expr.original_code = ERROR_MARK;
+		expr.original_type = NULL;
+		return expr;
+	      }
+	    start = expr.get_start ();
+	    finish = c_parser_peek_token (parser)->get_finish ();
+	    c_parser_consume_token (parser);
+	    expr.value = build_component_ref (op_loc, expr.value, ident,
+					      comp_loc);
+	    set_c_expr_source_range (&expr, start, finish);
+	    expr.original_code = ERROR_MARK;
+	    if (TREE_CODE (expr.value) != COMPONENT_REF)
 	      expr.original_type = NULL;
 	    else
-	      expr.original_type = DECL_BIT_FIELD_TYPE (field);
+	      {
+		/* Remember the original type of a bitfield.  */
+		tree field = TREE_OPERAND (expr.value, 1);
+		if (TREE_CODE (field) != FIELD_DECL)
+		  expr.original_type = NULL;
+		else
+		  expr.original_type = DECL_BIT_FIELD_TYPE (field);
+	      }
+	    break;
 	  }
-	break;
-      }
-    default:
-      return expr;
+	case CPP_DEREF:
+	  {
+	    /* Structure element reference.  */
+	    c_parser_consume_token (parser);
+	    if (c_parser_next_token_is (parser, CPP_NAME))
+	      {
+		c_token *comp_tok = c_parser_peek_token (parser);
+		ident = comp_tok->value;
+		comp_loc = comp_tok->location;
+	      }
+	    else
+	      {
+		c_parser_error (parser, "expected identifier");
+		expr.set_error ();
+		expr.original_code = ERROR_MARK;
+		expr.original_type = NULL;
+		return expr;
+	      }
+	    start = expr.get_start ();
+	    finish = c_parser_peek_token (parser)->get_finish ();
+	    c_parser_consume_token (parser);
+	    expr.value = build_component_ref (op_loc,
+					      build_simple_mem_ref_loc
+					        (op_loc, expr.value),
+					      ident, comp_loc);
+	    set_c_expr_source_range (&expr, start, finish);
+	    expr.original_code = ERROR_MARK;
+	    if (TREE_CODE (expr.value) != COMPONENT_REF)
+	      expr.original_type = NULL;
+	    else
+	      {
+		/* Remember the original type of a bitfield.  */
+		tree field = TREE_OPERAND (expr.value, 1);
+		if (TREE_CODE (field) != FIELD_DECL)
+		  expr.original_type = NULL;
+		else
+		  expr.original_type = DECL_BIT_FIELD_TYPE (field);
+	      }
+	    break;
+	  }
+	default:
+	  return expr;
+	}
     }
-  return expr;
 }
 
 /* Parse expression list.
