@@ -453,7 +453,7 @@ c_parser_peek_2nd_token (c_parser *parser)
 /* Return a pointer to the Nth token from PARSER, reading it
    in if necessary.  The N-1th token is already read in.  */
 
-static c_token *
+c_token *
 c_parser_peek_nth_token (c_parser *parser, unsigned int n)
 {
   /* N is 1-based, not zero-based.  */

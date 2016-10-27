@@ -72,7 +72,6 @@ static void c_parser_gimple_if_stmt (c_parser *, gimple_seq *);
 static void c_parser_gimple_switch_stmt (c_parser *, gimple_seq *);
 static void c_parser_gimple_return_stmt (c_parser *, gimple_seq *);
 static void c_finish_gimple_return (location_t, tree);
-static c_expr c_parser_parse_ssa_names (c_parser *);
 static tree c_parser_gimple_paren_condition (c_parser *);
 static vec<tree, va_gc> *c_parser_gimple_expr_list (c_parser *,
 		    vec<tree, va_gc> **, vec<location_t> *);
@@ -343,7 +342,7 @@ c_parser_gimple_expression (c_parser *parser, gimple_seq *seq)
 	    c_parser_consume_token (parser);
 	  else
 	    {
-	      arg = c_parser_parse_ssa_names (parser).value;
+	      arg = c_parser_gimple_unary_expression (parser).value;
 	      vargs.safe_push (arg);
 	    }
 	}
@@ -633,69 +632,76 @@ c_parser_gimple_unary_expression (c_parser *parser)
     }
 }
 
-/* Parse gimple ssa names.  */
+/* Decompose ID into base name (ID until ver_offset) and VERSION.  Return
+   true if ID matches a SSA name.  */
 
-static c_expr
-c_parser_parse_ssa_names (c_parser *parser)
+static bool
+c_parser_parse_ssa_name_id (tree id, unsigned *version, unsigned *ver_offset)
 {
-  tree id = NULL_TREE;
-  c_expr ret;
-  char *var_name = NULL, *var_version = NULL, *token = NULL;
-  ret.original_code = ERROR_MARK;
-  ret.original_type = NULL;
+  const char *token = IDENTIFIER_POINTER (id);
+  const char *var_version = strrchr (token, '_');
+  if (! var_version)
+    return false;
 
-  /* SSA token string.  */
-  const char *ssa_token
-    = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-  token = new char [strlen (ssa_token) + 1];
-  strcpy (token, ssa_token);
+  *ver_offset = var_version - token;
+  for (const char *p = var_version + 1; *p; ++p)
+    if (! ISDIGIT (*p))
+      return false;
+  *version = atoi (var_version + 1);
+  return *version > 0;
+}
 
-  /* Separate var name and version.  */
-  var_version = strrchr (token, '_');
-  if (var_version)
+/* Get at the actual SSA name ID with VERSION starting at VER_OFFSET.
+   TYPE is the type if the SSA name is being declared.  */
+
+static tree 
+c_parser_parse_ssa_name (c_parser *parser,
+			 tree id, tree type, unsigned version,
+			 unsigned ver_offset)
+{
+  tree name = NULL_TREE;
+  const char *token = IDENTIFIER_POINTER (id);
+
+  if (ver_offset == 0)
     {
-      var_name = new char[var_version - token + 1];
-      memcpy (var_name, token, var_version - token);
-      var_name[var_version - token] = '\0';
-      id = get_identifier (var_name);
-
-      /* lookup for parent decl.  */
-      if (lookup_name (id))
+      /* Anonymous unnamed SSA name.  */
+      if (version < num_ssa_names)
+	name = ssa_name (version);
+      if (! name)
 	{
-	  var_version++;
-	  unsigned int version;
-	  version = atoi (var_version);
-	  if (var_version && version)
+	  if (! type)
 	    {
-	      ret.value = NULL_TREE;
-	      if (version < num_ssa_names)
-		ret.value = ssa_name (version);
-	      if (! ret.value)
-		ret.value = make_ssa_name_fn (cfun, lookup_name (id),
-					      gimple_build_nop (), version);
-	      c_parser_consume_token (parser);
+	      c_parser_error (parser, "SSA name not declared"); 
+	      return error_mark_node;
 	    }
+	  name = make_ssa_name_fn (cfun, type, NULL, version);
 	}
     }
-
-  /* For default definition SSA names.  */
-  if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
+  else
     {
-      c_parser_consume_token (parser);
-      ssa_token = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-      if (! strcmp ("D", ssa_token))
+      if (version < num_ssa_names)
+	name = ssa_name (version);
+      if (! name)
 	{
-	  set_ssa_default_def (cfun, lookup_name (id), ret.value);
-	  c_parser_consume_token (parser);
+	  /* Separate var name from version.  */
+	  char *var_name = XNEWVEC (char, ver_offset + 1);
+	  memcpy (var_name, token, ver_offset);
+	  var_name[ver_offset] = '\0';
+	  /* lookup for parent decl.  */
+	  id = get_identifier (var_name);
+	  tree parent = lookup_name (id);
+	  XDELETEVEC (var_name);
+	  if (! parent)
+	    {
+	      c_parser_error (parser, "base variable or SSA name not declared"); 
+	      return error_mark_node;
+	    }
+	  name = make_ssa_name_fn (cfun, parent,
+				   gimple_build_nop (), version);
 	}
-      if (! c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
-	goto out;
     }
 
-  out:
-  free (var_name);
-  free (token);
-  return ret;
+  return name;
 }
 
 /* Parse gimple postfix expression.
@@ -756,8 +762,32 @@ c_parser_gimple_postfix_expression (c_parser *parser)
       if (c_parser_peek_token (parser)->id_kind == C_ID_ID)
 	{
 	  tree id = c_parser_peek_token (parser)->value;
-	  if (! lookup_name (id))
-	    expr = c_parser_parse_ssa_names (parser);
+	  unsigned version, ver_offset;
+	  if (! lookup_name (id)
+	      && c_parser_parse_ssa_name_id (id, &version, &ver_offset))
+	    {
+	      c_parser_consume_token (parser);
+	      expr.value = c_parser_parse_ssa_name (parser, id, NULL_TREE,
+						    version, ver_offset);
+	      /* For default definition SSA names.  */
+	      if (c_parser_next_token_is (parser, CPP_OPEN_PAREN)
+		  && c_parser_peek_2nd_token (parser)->type == CPP_NAME
+		  && strcmp ("D",
+			     IDENTIFIER_POINTER
+			       (c_parser_peek_2nd_token (parser)->value)) == 0
+		  && c_parser_peek_nth_token (parser, 3)->type == CPP_CLOSE_PAREN)
+		{
+		  c_parser_consume_token (parser);
+		  c_parser_consume_token (parser);
+		  c_parser_consume_token (parser);
+		  if (! SSA_NAME_IS_DEFAULT_DEF (expr.value))
+		    {
+		      set_ssa_default_def (cfun, SSA_NAME_VAR (expr.value),
+					   expr.value);
+		      SSA_NAME_DEF_STMT (expr.value) = gimple_build_nop ();
+		    }
+		}
+	    }
 	  else
 	    {
 	      c_parser_consume_token (parser);
@@ -1125,13 +1155,30 @@ c_parser_gimple_declaration (c_parser *parser)
 
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     {
-      tree postfix_attrs = NULL_TREE;
-      tree all_prefix_attrs = specs->attrs;
-      specs->attrs = NULL;
-      tree decl = start_decl (declarator, specs, false,
-			 chainon (postfix_attrs, all_prefix_attrs));
-      if (decl)
-	finish_decl (decl, UNKNOWN_LOCATION, NULL_TREE, NULL_TREE, NULL_TREE);
+      /* Handle SSA name decls specially, they do not go into the identifier
+         table but we simply build the SSA name for later lookup.  */
+      unsigned version, ver_offset;
+      if (declarator->kind == cdk_id
+	  && is_gimple_reg_type (specs->type)
+	  && c_parser_parse_ssa_name_id (declarator->u.id,
+					 &version, &ver_offset)
+	  /* The following restricts it to unnamed anonymous SSA names
+	     which fails parsing of named ones in dumps (we could
+	     decide to not dump their name for -gimple).  */
+	  && ver_offset == 0)
+	c_parser_parse_ssa_name (parser, declarator->u.id, specs->type,
+				 version, ver_offset);
+      else
+	{
+	  tree postfix_attrs = NULL_TREE;
+	  tree all_prefix_attrs = specs->attrs;
+	  specs->attrs = NULL;
+	  tree decl = start_decl (declarator, specs, false,
+				  chainon (postfix_attrs, all_prefix_attrs));
+	  if (decl)
+	    finish_decl (decl, UNKNOWN_LOCATION, NULL_TREE, NULL_TREE,
+			 NULL_TREE);
+	}
     }
   else
     {

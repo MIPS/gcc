@@ -133,6 +133,8 @@ enum c_lookahead_kind {
 
 
 extern c_token * c_parser_peek_token (c_parser *parser);
+extern c_token * c_parser_peek_2nd_token (c_parser *parser);
+extern c_token * c_parser_peek_nth_token (c_parser *parser, unsigned int n);
 extern bool c_parser_require (c_parser *parser, enum cpp_ttype type,
 			      const char *msgid);
 extern void c_parser_error (c_parser *parser, const char *gmsgid);
@@ -140,7 +142,6 @@ extern void c_parser_consume_token (c_parser *parser);
 extern void c_parser_skip_until_found (c_parser *parser, enum cpp_ttype type,
 				       const char *msgid);
 extern bool c_parser_next_token_starts_declspecs (c_parser *parser);
-extern c_token * c_parser_peek_2nd_token (c_parser *parser);
 bool c_parser_next_tokens_start_declaration (c_parser *parser);
 bool c_token_starts_typename (c_token *token);
 
