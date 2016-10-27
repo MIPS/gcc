@@ -575,11 +575,6 @@ static c_expr
 c_parser_gimple_unary_expression (c_parser *parser)
 {
   struct c_expr ret, op;
-  if (c_parser_peek_token (parser)->type == CPP_NAME
-      && TREE_CODE (c_parser_peek_token (parser)->value) == IDENTIFIER_NODE
-      && ! lookup_name (c_parser_peek_token (parser)->value))
-    return c_parser_parse_ssa_names (parser);
-
   location_t op_loc = c_parser_peek_token (parser)->location;
   location_t finish;
   ret.original_code = ERROR_MARK;
@@ -761,12 +756,17 @@ c_parser_gimple_postfix_expression (c_parser *parser)
       if (c_parser_peek_token (parser)->id_kind == C_ID_ID)
 	{
 	  tree id = c_parser_peek_token (parser)->value;
-	  c_parser_consume_token (parser);
-	  expr.value = build_external_ref (loc, id,
-					   (c_parser_peek_token (parser)->type
-					    == CPP_OPEN_PAREN),
-					   &expr.original_type);
-	  set_c_expr_source_range (&expr, tok_range);
+	  if (! lookup_name (id))
+	    expr = c_parser_parse_ssa_names (parser);
+	  else
+	    {
+	      c_parser_consume_token (parser);
+	      expr.value
+		= build_external_ref (loc, id,
+				      (c_parser_peek_token (parser)->type
+				       == CPP_OPEN_PAREN), &expr.original_type);
+	      set_c_expr_source_range (&expr, tok_range);
+	    }
 	  break;
 	}
       else
