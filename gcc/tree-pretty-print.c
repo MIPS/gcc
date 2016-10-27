@@ -2706,7 +2706,8 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
 	      && SSA_NAME_VAR (node)
 	      && DECL_NAMELESS (SSA_NAME_VAR (node)))
 	    dump_fancy_name (pp, SSA_NAME_IDENTIFIER (node));
-	  else
+	  else if (! (flags & TDF_GIMPLE)
+		   || SSA_NAME_VAR (node))
 	    dump_generic_node (pp, SSA_NAME_IDENTIFIER (node),
 			       spc, flags, false);
 	}
