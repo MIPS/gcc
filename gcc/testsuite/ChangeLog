@@ -1,3 +1,157 @@
+2016-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78132
+	* gcc.target/i386/pr78132.c: New test.
+
+2016-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/vect/pr71264.c: XFAIL on SPARC.
+
+2016-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-simode.c: New test.
+	* gcc.target/powerpc/vsx-simode2.c: Likewise.
+	* gcc.target/powerpc/vsx-simode3.c: Likewise.
+
+2016-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/78026
+	* gfortran.dg/gomp/pr78026.f03: New test.
+	* gfortran.dg/select_type_38.f03: New test.
+
+	PR middle-end/78025
+	* g++.dg/gomp/declare-simd-7.C: New test.
+
+2016-10-27  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_init_1.f90: Remove -fdump-tree-original.
+	* gfortran.dg/dec_init_2.f90: Likewise.
+	* gfortran.dg/dec_init_3.f90: New test.
+	* gfortran.dg/dec_init_4.f90: Likewise.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/fold-narrowbopcst-1.c: New test.
+
+2016-10-27  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_io_5.f90: Don't use "test.txt", and use
+	dg-shouldfail/dg-output instead of XFAIL.
+	* gfortran.dg/dec_io_6.f90: Likewise.
+
+2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.target/arm/atomic-comp-swap-release-acquire-3.c: New test.
+	* gcc.target/arm/atomic-op-acq_rel-3.c: Likewise.
+	* gcc.target/arm/atomic-op-acquire-3.c: Likewise.
+	* gcc.target/arm/atomic-op-char-3.c: Likewise.
+	* gcc.target/arm/atomic-op-consume-3.c: Likewise.
+	* gcc.target/arm/atomic-op-int-3.c: Likewise.
+	* gcc.target/arm/atomic-op-relaxed-3.c: Likewise.
+	* gcc.target/arm/atomic-op-release-3.c: Likewise.
+	* gcc.target/arm/atomic-op-seq_cst-3.c: Likewise.
+	* gcc.target/arm/atomic-op-short-3.c: Likewise.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/fold-convmaxconv-1.c: New test.
+	* gcc.dg/fold-convminconv-1.c: New test.
+
+2016-10-26  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/78092
+	* gfortran.dg/pr78092.f90: New test.
+
+2016-10-26  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/78056
+	* gcc.target/powerpc/vsu/vec-any-eqz-7.c (test_any_equal): Change
+	expected error message.
+	* gcc.target/powerpc/vsu/vec-xst-len-12.c (store_data): Change
+	expected error message.
+	* gcc.target/powerpc/vsu/vec-all-nez-7.c
+	(test_all_not_equal_and_not_zero): Change expected error message.
+
+2016-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/77973
+	* gfortran.dg/gomp/pr77973.f90: New test.
+
+2016-10-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78108
+	* gfortran.dg/submodule_18.f08: New test.
+	* gfortran.dg/submodule_19.f08: New test.
+
+2016-10-26  Michael Matz  <matz@suse.de>
+
+	* g++.dg/pr78060.C: New test.
+	* gfortran.dg/pr78061.f: New test.
+	* g++.dg/pr78088.C: New test.
+
+2016-10-26  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_io_1.f90: New test.
+	* gfortran.dg/dec_io_2.f90: New test.
+	* gfortran.dg/dec_io_3.f90: New test.
+	* gfortran.dg/dec_io_4.f90: New test.
+	* gfortran.dg/dec_io_5.f90: New test.
+	* gfortran.dg/dec_io_6.f90: New test.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/78106
+	* gcc.dg/asan/pr78106.c: Add -ffat-lto-objects to dg-options.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_bitwise_ops_1.f90: New test.
+	* gfortran.dg/dec_bitwise_ops_2.f90: New test.
+
+2016-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt59.adb: New test.
+	* gnat.dg/opt59_pkg.ad[sb]: New helper.
+
+	* gnat.dg/opt60.adb: New test.
+
+2016-10-25  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/72770
+	* gfortran.dg/alloc_comp_class_5.f03: Added test again that caused
+	this pr.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78102
+	* gcc.target/i386/pr78102.c: New test.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_logical_xor_1.f90: New test.
+	* gfortran.dg/dec_logical_xor_2.f90: New test.
+	* gfortran.dg/dec_logical_xor_3.f03: New test.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_loc_rval_1.f90: New test.
+	* gfortran.dg/dec_loc_rval_2.f90: New test.
+	* gfortran.dg/dec_loc_rval_3.f03: New test.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_type_print.f90: New testcase.
+
+2016-10-25  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/feed_1.f90: New test.
+	* gfortran.dg/feed_2.f90: New test.
+
+2016-10-25  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/78106
+	* gcc.dg/asan/pr78106.c: New test.
+
 2016-10-25  Martin Liska  <mliska@suse.cz>
 
 	* gcc.dg/ipa/ipa-icf-32.c: Removed one scanned pattern.
@@ -635,7 +789,7 @@
 	* g++.dg/concepts/decl-diagnose.C (struct X): Expect also error about
 	uninitialized const.
 
-2016-10-13  Sandra Loosemore <sandra@codesourcery.com>
+2016-10-13  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* gcc.target/arm/scd42-1.c: Skip if -mcpu incompatible with
 	Xscale is specified, not just -march.

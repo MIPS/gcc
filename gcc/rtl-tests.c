@@ -65,9 +65,8 @@ assert_rtl_dump_eq (const location &loc, const char *expected_dump, rtx x)
 {
   named_temp_file tmp_out (".rtl");
   FILE *outfile = fopen (tmp_out.get_filename (), "w");
-  flag_compact = true;
-  print_rtl (outfile, x);
-  flag_compact = false;
+  rtx_writer w (outfile, 0, false, true);
+  w.print_rtl (x);
   fclose (outfile);
 
   char *dump = read_file (SELFTEST_LOCATION, tmp_out.get_filename ());
@@ -122,7 +121,7 @@ test_dumping_insns ()
   /* Barriers.  */
   rtx_barrier *barrier = as_a <rtx_barrier *> (rtx_alloc (BARRIER));
   SET_NEXT_INSN (barrier) = NULL;
-  ASSERT_RTL_DUMP_EQ ("(cbarrier)\n", barrier);
+  ASSERT_RTL_DUMP_EQ ("(cbarrier 0)\n", barrier);
 
   /* Labels.  */
   rtx_insn *label = gen_label_rtx ();
@@ -180,7 +179,7 @@ test_uncond_jump ()
   ASSERT_TRUE (onlyjump_p (jump_insn));
   ASSERT_TRUE (control_flow_insn_p (jump_insn));
 
-  ASSERT_RTL_DUMP_EQ ("(cjump_insn (set (pc)\n"
+  ASSERT_RTL_DUMP_EQ ("(cjump_insn 1 (set (pc)\n"
 		      "        (label_ref 0))\n"
 		      "     (nil))\n",
 		      jump_insn);

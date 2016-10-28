@@ -1,3 +1,469 @@
+2016-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78132
+	* ree.c (combine_reaching_defs): Give up if copy_needed and
+	!HARD_REGNO_MODE_OK (REGNO (src_reg), dst_mode).
+
+2016-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (<*vlop:code><VL:mode>3): Remove leading '*'.
+
+2016-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wH constraint): Add new
+	constraints for allowing 32-bit integers (and eventually 8/16-bit
+	integers) into the vector registers.
+	(wI constraint): Likewise.
+	(wJ constraint): Likewise.
+	(wK constraint): Likewise.
+	* config/rs6000/rs6000-cpus.def (ISA_2_7_MASKS_SERVER): Add
+	-mvsx-small-integer as a default option for ISA 2.07
+	(i.e. power8).
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mvsx-small-integer): Add new debug
+	switch to turn off small integer support in vector registers.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Eliminate
+	test for -mupper-regs-di, since it is already done with the
+	reg_add[mode].scalar_in_vsx_p.  Add support for the switch
+	-mvsx-small-integer.
+	(rs6000_debug_reg_global): Add support for wH, wI, wJ, and wK
+	constraints.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Add consistency checks for
+	-mvsx-small-integer.
+	(rs6000_secondary_reload_simple_move): SImode is a simple move if
+	-mvsx-small-integer.
+	(rs6000_secondary_reload): Use std::swap.
+	(rs6000_preferred_reload_class): Don't prefer FLOAT_REGS over
+	VSX_REGS for small integers in vector registers, since there is no
+	D-FORM address mode for such types.
+	(rs6000_register_move_cost): Use FIRST_FPR_REGNO instead of 32.
+	(rs6000_opt_masks): Add -mvsx-small-integer.
+	* config/rs6000/vsx.md (VSINT_84): Add SImode for small integer
+	support.
+	(VSX_EXTRACT_I2): Clone VSX_EXTRACT_I, but drop V4SI since SImode
+	extracts can be done on ISA 2.07.
+	(vsx_extract_<mode>): Add support for small integers in vsx
+	registers.
+	(vsx_extract_<mode>_p9): Use 'v' instead of VSX_EX, since we no
+	longer support V4SImode in this pattern.
+	(vsx_extract_si): New insn to support extraction of SImode in ISA
+	2.07 using either xxextractuw or vspltw.
+	(vsx_extract_<mode>_p8): Use 'v' instead of VSX_EX, since we no
+	longer support V4SImode in this pattern.
+	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Add wH, wI,
+	wJ, and wK constraints.
+	* config/rs6000/rs6000.md (f32_sv): Use correct instruction for
+	storing SDmode with VSX instructions.
+	(zero_extendsi<mode>2): Reorder pattern, so RLDICL comes after the
+	GPR load and before the FPR and VSX loads.  Remove ??, ! from the
+	constraints.  Add MFVSRWZ and XXEXTRACTUW instructions to support
+	small integers in vector registers.
+	(extendsi<mode>2): Reorder pattern, so EXTSW comes after the GPR
+	load and before the FPR and VSX loads.  Remove ??, ! from the
+	constraints.  Add VEXTSW2D support for small integers in vector
+	registers.
+	(lfiwax): Remove ! constraint.  Add VEXTSW2D support for small
+	integers in vector registers.
+	(floatsi<mode>2_lfiwax): If -mvsx-small-integer issue a normal
+	move instead of using an UNSPEC.
+	(lfiwzx): Remove ! constraint.  Add XXEXTRACTUW support for small
+	integers in vector registers.
+	(floatunssi<mode>2_lfiwzx): If -mvsx-small-integer issue a normal
+	move instead of using an UNSPEC.
+	(movsi_internal1): Add support for -mvsx-small-integer.  Align
+	columns so that it is more readable.
+	(SImode splitter for ISA 3.0 constants): Add splitter for
+	-128..127 constants that can easily be constructed on ISA 3.0.
+	* doc/md.texi (PowerPC Constraints): Document wH, wI, wJ, and wK
+	constraints.
+
+2016-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/78025
+	* omp-simd-clone.c (simd_clone_adjust): Handle noreturn declare simd
+	functions.
+
+2016-10-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* builtins.c (expand_builtin_nonlocal_goto): Avoid evaluating
+	PIC_OFFSET_TABLE_REGNUM twice.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* match.pd ((convert (op:s (convert@2 @0) (convert?@3 @1)))): Add
+	support for constant operand for OP.
+
+2016-10-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (gen_member_die): Only reparent_child instead of
+	splice_child_die if child doesn't have DW_AT_specification attribute.
+
+2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.h (TARGET_HAVE_LDREX): Define for ARMv8-M Baseline.
+	(TARGET_HAVE_LDREXBH): Likewise.
+	(TARGET_HAVE_LDACQ): Likewise.
+
+2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (arm_split_atomic_op): Add function comment.  Add
+	logic to to decide whether to copy over old value to register for new
+	value.
+	* config/arm/sync.md: Add comments explaning why mode and code
+	attribute are not defined in iterators.md
+	(thumb1_atomic_op_str): New code attribute.
+	(thumb1_atomic_newop_str): Likewise.
+	(thumb1_atomic_fetch_op_str): Likewise.
+	(thumb1_atomic_fetch_newop_str): Likewise.
+	(thumb1_atomic_fetch_oldop_str): Likewise.
+	(atomic_exchange<mode>): Add new ARMv8-M Baseline only alternatives to
+	mirror the more restrictive constraints of the Thumb-1 insns after
+	split compared to Thumb-2 counterpart insns.
+	(atomic_<sync_optab><mode>): Likewise.  Add comment to keep constraints
+	in sync with non atomic version.
+	(atomic_nand<mode>): Likewise.
+	(atomic_fetch_<sync_optab><mode>): Likewise.
+	(atomic_fetch_nand<mode>): Likewise.
+	(atomic_<sync_optab>_fetch<mode>): Likewise.
+	(atomic_nand_fetch<mode>): Likewise.
+	* config/arm/thumb1.md (thumb1_addsi3): Add comment to keep contraint
+	in sync with atomic version.
+	(thumb1_subsi3_insn): Likewise.
+	(thumb1_andsi3_insn): Likewise.
+	(thumb1_iorsi3_insn): Likewise.
+	(thumb1_xorsi3_insn): Likewise.
+
+2016-10-27  Nick Clifton  <nickc@redhat.com>
+
+	* plugin.c (register_plugin_info): Produce an error message if the
+	plugin is not found in the hash table.
+
+2016-10-27  Bin Cheng  <bin.cheng@arm.com>
+
+	* match.pd ((convert1 (minmax ((convert2 (x) c)))) -> minmax (x c)):
+	New pattern.
+
+2016-10-26  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/78056
+	* config/rs6000/rs6000.c (spe_init_builtins): Modify loops to not
+	define builtin functions from the bdesc_spe_predicates or
+	bdesc_spe_evsel arrays if the builtin mask is not compatible with
+	the current compiler configuration.
+	(paired_init_builtins): Modify loop to not define define builtin
+	functions from the bdesc_paried_preds array if the builtin mask is
+	not compatible with the current compiler configuration.
+	(altivec_init_builtins): Modify loops to not define the
+	__builtin_altivec_stxvl function nor the builtin functions from
+	the bdesc_dst or bdesc_altivec_preds, or bdesc_abs arrays if the
+	builtin mask is not compatible with the current compiler
+	configuration.
+
+2016-10-26  Jeff Law  <law@redhat.com>
+
+	* config/sh/sh.c (output_branch): Add missing fallthru comments.
+	(gen_shl_and): Likewise.
+	* config/sh/sh.md (movsicc): Add missing fallthru comments.
+
+	* config/mips/mips.c (mips16_constant_cost): Add missing
+	fallthru comments.
+	(mips16_build_call_stub): Increase buffer size.  Adjust
+	fallthru comment.
+
+2016-10-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl.c (rtx_writer::print_rtx_operand_code_u): Print
+	INSN_UIDs for all insns in compact mode.
+	(rtx_writer::print_rtx): Likewise.
+	* print-rtl.h (rtx_writer::flag_compact): Update comment.
+	* rtl-tests.c (selftest::test_dumping_insns): Update expected
+	output to include INSN_UID.
+	(selftest::test_uncond_jump): Likewise.
+
+2016-10-26  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* haifa-sched.c (call_used_regs_num): Rename to...
+	(call_saved_regs_num): ...this.
+	(fixed_regs_num): New variable.
+	(sched_pressure_start_bb): Subtract out fixed_regs. Scale call_saved
+	regs not call_used.
+	(alloc_global_sched_pressure_data): Compute call_saved and fixed regs.
+
+2016-10-26  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl-function.c (print_rtx_function): Rewrite in terms of
+	class rtx_writer.
+	* print-rtl.c (outfile): Delete global.
+	(sawclose): Likewise.
+	(indent): Likewise.
+	(in_call_function_usage): Likewise.
+	(flag_compact): Likewise.
+	(flag_simple): Likewise.
+	(rtx_writer::rtx_writer): New ctor.
+	(print_rtx_operand_code_0): Convert to...
+	(rtx_writer::print_rtx_operand_code_0): ...this.
+	(print_rtx_operand_code_e): Convert to...
+	(rtx_writer::print_rtx_operand_code_e): ...this.
+	(print_rtx_operand_codes_E_and_V): Convert to...
+	(rtx_writer::print_rtx_operand_codes_E_and_V): ...this.
+	(print_rtx_operand_code_i): Convert to...
+	(rtx_writer::print_rtx_operand_code_i): ...this.
+	(print_rtx_operand_code_r): Convert to...
+	(rtx_writer::print_rtx_operand_code_r): ...this.
+	(print_rtx_operand_code_u): Convert to...
+	(rtx_writer::print_rtx_operand_code_u): ...this.
+	(print_rtx_operand): Convert to...
+	(rtx_writer::print_rtx_operand): ...this.
+	(print_rtx): Convert to...
+	(rtx_writer::print_rtx): ...this.
+	(print_inline_rtx): Rewrite in terms of class rtx_writer.
+	(debug_rtx): Likewise.
+	(print_rtl): Convert to...
+	(rtx_writer::print_rtl): ...this.
+	(print_rtl): Reimplement in terms of class rtx_writer.
+	(print_rtl_single): Rewrite in terms of class rtx_writer.
+	(print_rtl_single_with_indent): Convert to..
+	(rtx_writer::print_rtl_single_with_indent): ...this.
+	(print_simple_rtl): Rewrite in terms of class rtx_writer.
+	* print-rtl.h (flag_compact): Delete decl.
+	(class rtx_writer): New class.
+	* rtl-tests.c (selftest::assert_rtl_dump_eq): Rewrite in terms of
+	class rtx_writer.
+
+2016-10-26  Jeff Law  <law@redhat.com>
+
+	* config/microblaze/microblaze.c (tls_mentioned_p): Avoid
+	fallthru.
+
+	* config/arc/arc.c (acr_print_operand): Adjust fallthru comment.
+	(check_if_valid_sleep_operand): Add missing fallthru comment.
+	(arc_register_move_cost): Increase buffer size.
+	* config/arc/arc.md (cbranch4si_scratch): Add missing fallthru
+	comment.
+	* config/arc/predicates.md (move_str_operand): Avoid fallthru.
+
+	* config/cr16/cr16.c (cr16_print_operand): Add missing fallthru
+	comment.  Add gcc_unreachable for path that should never happen.
+
+	* config/epiphany/epiphany.c (epiphany_print_operand): Adjust
+	fallthru comment.
+
+2016-10-26  Jakub Jelinek  <jakub@redhat.com>
+	    Martin Liska  <mliska@suse.cz>
+
+	PR fortran/77973
+	* gimplify.c (gimplify_adjust_omp_clauses_1): For all added map
+	clauses with OMP_CLAUSE_SIZE being a decl, call omp_notice_variable
+	on outer context if any.
+
+2016-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gen-pass-instances.awk (adjust_linenos): INcrement pass_lines[p]
+	by increment rather than double it.
+	(insert_remove_pass): Strip leading whitespace from args[3].  Don't
+	emit a space before args[4].
+	(END): Don't emit a space before with_arg.
+
+2016-10-26  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/sync.md (atomic_compare_and_swap<mode>_1): Add new ARMv8-M
+	Baseline only alternatives to (i) hold store atomic success value in a
+	return register rather than a scratch register, (ii) use a low register
+	for it and to (iii) ensure the cbranchsi insn generated by the split
+	respect the constraints of Thumb-1 cbranchsi4_insn and
+	cbranchsi4_scratch.
+	* config/arm/thumb1.md (cbranchsi4_insn): Add comment to indicate
+	constraints must match those in atomic_compare_and_swap.
+	(cbranchsi4_scratch): Likewise.
+
+2016-10-26  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (arm_expand_compare_and_swap): Add new bdst local
+	variable.  Add the new parameter to the insn generator.  Set that
+	parameter to be CC flag for 32-bit targets, bval otherwise.  Set the
+	return value from the negation of that parameter for Thumb-1, keeping
+	the logic unchanged otherwise except for using bdst as the destination
+	register of the compare_and_swap insn.
+	(arm_split_compare_and_swap): Add explanation about how is the value
+	returned to the function comment.  Rename scratch variable to
+	neg_bval.  Adapt initialization of variables holding operands to the
+	new operand numbers.  Use return register to hold result of store
+	exclusive for Thumb-1, scratch register otherwise.  Construct the
+	appropriate cbranch for Thumb-1 targets, keeping the logic unchanged
+	for 32-bit targets.  Guard Z flag setting to restrict to 32bit targets.
+	Use gen_cbranchsi4 rather than hand-written conditional branch to loop
+	for strongly ordered compare_and_swap.
+	* config/arm/predicates.md (cc_register_operand): New predicate.
+	* config/arm/sync.md (atomic_compare_and_swap<mode>_1): Use a
+	match_operand with the new predicate to accept either the CC flag or a
+	destination register for the boolean return value, restricting it to
+	CC flag only via constraint.  Adapt operand numbers accordingly.
+
+2016-10-26  Jeff Law  <law@redhat.com>
+
+	* config/fr30/fr30.c (fr30_print_operand): Adjust fallthru comment.
+
+	* config/frv/frv.c (comparison_string): Do not fall through after
+	an error.
+
+	* config/iq2000/iq2000.c (iq2000_function_arg): Adjust fallthru
+	comment.
+	(expand_one_builtin): Add missing break.
+
+	* config/m32c/m32c.c (encode_pattern_1): Add fallthru comment.
+	(m32c_legitimate_address_p): Likewise.
+
+	* config/m32r/m32r.c (m32r_print_operand): Adjust fallthru comment.
+
+	* config/mcore/mcore.c (mcore_gen_compare): Adjust fallthru comments.
+
+	* config/microblaze/microblaze.c (microblaze_function_arg): Adjust
+	fallthru comment.
+
+	* config/msp430/msp430.c (msp430_legitimate_address_p): Adjust
+	fallthru comment.
+
+	* config/nios2/nios2.c (nios2_rtx_costs): Avoid fallthru.
+
+	* config/rl78/rl78.c (rl78_calculate_death_notes): Add fallthru
+	comment.
+	(rl78_asm_ctor_dtor): Increase buffer size.
+
+	* config/stormy16/stormy16.c (xstormy16_asm_output_destrutor): Increase
+	buffer size.
+	(xstormy16_asm_output_constructor): Likewise.
+
+	* config/pa/pa.c (pa_asm_output_mi_thunk): Increase buffer
+	size.
+
+	* config/h8300/h8300.c (h8300_print_operand): Adjust FALLTHRU
+	comment to silence warning.
+
+	* config/spu/spu.c (spu_sched_reorder): Add missing fallthru comment.
+	(spu_legitimate_address_p): Fix logic error and add missing fallthru
+	comment.
+
+2016-10-26  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/78060
+	PR tree-optimization/78061
+	PR tree-optimization/78088
+	* tree-ssa-loop-split.c (easy_exit_values): New function.
+	(tree_ssa_split_loops): Use it.
+	(compute_new_first_bound): Change order of operations,
+	fix invalid use of types.
+
+2016-10-26  Georg-Johann Lay  <avr@gjlay.de>
+
+	gen-pass-instances.awk is sensitive to the order in which
+	passes are added; passes that appear later have to be added first.
+
+	PR target/71676
+	PR target/71678
+	* config/avr/avr-passes.def: Swap order of directives for
+	gen-pass-instances.awk.
+
+2016-10-25  Jeff Law  <law@redhat.com>
+
+	* config/vax/vax.c (vad_address_cost_1): Add missing FALLTHRU comment.
+	(vax_notice_update_cc): Likewise.
+
+2016-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config.gcc (sparc*-*-solaris2*): Adjust.
+	(sparc64-*-linux*): Likewise.
+	* config/sparc/default-64.h: Rename to...
+	* config/sparc/default64.h: ...this.
+	* config/sparc/sparc.c (sparc_option_override): Replace TARGET_64BIT
+	with TARGET_ARCH64.
+	(sparc_mangle_type): Replace !TARGET_64BIT with TARGET_ARCH32.
+	* config/sparc/sparc.h: Minor tweaks.
+	* config/sparc/sparc.md: Replace !TARGET_64BIT and !TARGET_ARCH64 with
+	TARGET_ARCH32 throughout.  Minor various tweaks throughout.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c (fcache::file_patch): Add comment about lifetime.
+	(selftest::cpp_reader_ptr): New class.
+	(selftest::lexer_test): Convert m_parser from cpp_reader *
+	to a cpp_reader_ptr, and move m_tempfile to after it.
+	(selftest::lexer_test::lexer_test): Update for above reordering.
+	(lexer_test::~lexer_test): Move cleanup of m_parser to
+	cpp_reader_ptr's dtor.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* toplev.c (toplev::main): Remove call to
+	location_adhoc_data_fini.
+
+2016-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.h (wi::fits_to_tree_p): Accept only 0 and 1 for boolean types.
+	* tree.c (int_fits_type_p): Likewise.  Adjust head comment.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* ggc-tests.c (forcibly_ggc_collect): Rename to...
+	(selftest::forcibly_ggc_collect): ...this, and remove "static".
+	(test_basic_struct): Update for above renaming.
+	(test_length): Likewise.
+	(test_union): Likewise.
+	(test_finalization): Likewise.
+	(test_deletable_global): Likewise.
+	(test_inheritance): Likewise.
+	(test_chain_next): Likewise.
+	(test_user_struct): Likewise.
+	(test_tree_marking): Likewise.
+	* selftest-run-tests.c (selftest::run_tests): Call
+	selftest::forcibly_ggc_collect at the end of the selftests.
+	* selftest.h (selftest::forcibly_ggc_collect): New decl.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78102
+	* optabs.def (vcondeq_optab, vec_cmpeq_optab): New optabs.
+	* optabs.c (expand_vec_cond_expr): For comparison codes
+	EQ_EXPR and NE_EXPR, attempt vcondeq_optab as fallback.
+	(expand_vec_cmp_expr): For comparison codes
+	EQ_EXPR and NE_EXPR, attempt vec_cmpeq_optab as fallback.
+	* optabs-tree.h (expand_vec_cmp_expr_p, expand_vec_cond_expr_p):
+	Add enum tree_code argument.
+	* optabs-query.h (get_vec_cmp_eq_icode, get_vcond_eq_icode): New
+	inline functions.
+	* optabs-tree.c (expand_vec_cmp_expr_p): Add CODE argument.  For
+	CODE EQ_EXPR or NE_EXPR, attempt to use vec_cmpeq_optab as
+	fallback.
+	(expand_vec_cond_expr_p): Add CODE argument.  For CODE EQ_EXPR or
+	NE_EXPR, attempt to use vcondeq_optab as fallback.
+	* tree-vect-generic.c (expand_vector_comparison,
+	expand_vector_divmod, expand_vector_condition): Adjust
+	expand_vec_cmp_expr_p and expand_vec_cond_expr_p callers.
+	* tree-vect-stmts.c (vectorizable_condition,
+	vectorizable_comparison): Likewise.
+	* tree-vect-patterns.c (vect_recog_mixed_size_cond_pattern,
+	check_bool_pattern, search_type_for_mask_1): Likewise.
+	* expr.c (do_store_flag): Likewise.
+	* doc/md.texi (@code{vec_cmpeq@var{m}@var{n}},
+	@code{vcondeq@var{m}@var{n}}): Document.
+	* config/i386/sse.md (vec_cmpeqv2div2di, vcondeq<VI8F_128:mode>v2di):
+	New expanders.
+
+2016-10-25  Jeff Law  <law@redhat.com>
+
+	* config/v850/v850.c (v850_handle_data_area_attribute): Fix fallthru
+	comment.
+	(v850_output_aligned_bss): Add missing break.
+
+	* config/m68k/m68k.c (m68k_get_reloc_decoration): Add gcc_unreachable.
+
+2016-10-25  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/78106
+	* sanopt.c (imm_dom_path_with_freeing_call): Handle gasm
+	statements as they can also contain possibly a freeing call.
+
 2016-10-25  H.J. Lu  <hongjiu.lu@intel.com>
 	    Martin Liska  <mliska@suse.cz>
 

@@ -1,3 +1,117 @@
+2016-10-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libstdc++/70975
+	* src/filesystem/ops.cc (do_copy_file) [_GLIBCXX_USE_SENDFILE]:
+	Pass non-null pointer to sendfile for offset argument.
+
+2016-10-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/ext/random/uniform_inside_sphere_distribution/cons/
+	default.cc: Fix effective target selector.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/cons/
+	parms.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	equal.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	generate.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	inequal.cc: Likewise.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/operators/
+	serialize.cc: Likewise.
+
+	* testsuite/experimental/filesystem/iterators/directory_iterator.cc:
+	Use end() function to get end iterator.
+	* testsuite/experimental/filesystem/iterators/pop.cc: Remove printf
+	statements that were present for debugging.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Use end() function to get end
+	iterator.
+	* testsuite/experimental/filesystem/operations/last_write_time.cc:
+	Only require file timestamps to be accurate to one second.
+
+2016-10-26  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_map.h (map()): Make default.
+	* include/bits/stl_multimap.h (multimap()): Likewise.
+	* include/bits/stl_multiset.h (multiset()): Likewise.
+	* include/bits/stl_set.h (set()): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree_impl()): Add conditional noexcept.
+	(_Rb_tree()): Make default.
+
+2016-10-26  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR libstdc++/78110
+	* libsupc++/new_opa.cc: Don't include <malloc.h> in a free standing
+	environment.  Declare memalign directly in that case.
+
+2016-10-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/experimental/filesystem/iterators/pop.cc: Remove
+	unreliable dependency on directory order.
+
+2016-10-26  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement uniform_inside_sphere_distribution extension.
+	* include/ext/random: Implement uniform_inside_sphere_distribution.
+	* include/ext/random.tcc: Ditto.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/
+	cons/default.cc: New.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/
+	cons/parms.cc: New.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/
+	operators/equal.cc: New.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/
+	operators/generate.cc: New.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/
+	operators/inequal.cc: New.
+	* testsuite/ext/random/uniform_inside_sphere_distribution/
+	operators/serialize.cc: New.
+
+2016-10-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/bits/fs_dir.h (recursive_directory_iterator):
+	Overload pop (LWG 2706).
+	* src/filesystem/dir.cc (recursive_directory_iterator::pop): Define
+	new overload.
+	* testsuite/experimental/filesystem/iterators/pop.cc: New test.
+
+	* src/filesystem/dir.cc (recursive_directory_iterator::increment):
+	Reset state on error.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Check state after increment error.
+
+	PR libstdc++/78111
+	* src/filesystem/ops.cc (canonical): Set error for non-existent path.
+
+2016-10-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_FILESYSTEM_DEPS): Include <limits.h>
+	for PATH_MAX in realpath test.
+	* configure: Regenerate.
+
+2016-10-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/filesystem/ops.cc
+	(last_write_time(const path&, file_time_type, error_code&)): Handle
+	negative times correctly.
+	* testsuite/experimental/filesystem/operations/last_write_time.cc:
+	Test writing file times.
+
+	* src/filesystem/ops.cc (do_copy_file): Report an error if source or
+	destination is not a regular file (LWG 2712).
+	(equivalent): Fix error handling and result when only one file exists.
+	* testsuite/experimental/filesystem/operations/copy.cc: Remove files
+	created by tests. Test copying directories.
+	* testsuite/experimental/filesystem/operations/copy_file.cc: Remove
+	files created by tests.
+	* testsuite/experimental/filesystem/operations/equivalent.cc: New.
+	* testsuite/experimental/filesystem/operations/is_empty.cc: New.
+	* testsuite/experimental/filesystem/operations/read_symlink.cc: Remove
+	file created by test.
+	* testsuite/experimental/filesystem/operations/remove_all.cc: New.
+	* testsuite/util/testsuite_fs.h (~scoped_file): Only try to remove
+	file if path is non-empty, to support removal by other means.
+
 2016-10-24  Jonathan Wakely  <jwakely@redhat.com>
 
 	* src/filesystem/ops.cc (is_empty): Fix error handling.
