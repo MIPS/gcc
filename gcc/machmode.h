@@ -706,14 +706,14 @@ fixed_size_mode::from_int (int i)
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.
    The value is BLKmode if no other mode is found.  */
 
-extern machine_mode mode_for_size (unsigned int, enum mode_class, int);
+extern machine_mode mode_for_size (poly_int64, enum mode_class, int);
 
 /* Return the machine mode to use for a MODE_INT of SIZE bits, if one
    exists.  If LIMIT is nonzero, modes wider than MAX_FIXED_MODE_SIZE
    will not be used.  */
 
 inline opt_scalar_int_mode
-int_mode_for_size (unsigned int size, int limit)
+int_mode_for_size (poly_int64 size, int limit)
 {
   return dyn_cast <scalar_int_mode> (mode_for_size (size, MODE_INT, limit));
 }
@@ -722,20 +722,20 @@ int_mode_for_size (unsigned int size, int limit)
    exists.  */
 
 inline opt_scalar_float_mode
-float_mode_for_size (unsigned int size)
+float_mode_for_size (poly_int64 size)
 {
   return dyn_cast <scalar_float_mode> (mode_for_size (size, MODE_FLOAT, 0));
 }
 
 /* Similar to mode_for_size, but find the smallest mode for a given width.  */
 
-extern machine_mode smallest_mode_for_size (unsigned int, enum mode_class);
+extern machine_mode smallest_mode_for_size (poly_int64, enum mode_class);
 
 /* Find the narrowest integer mode that contains at least SIZE bits.
    Such a mode must exist.  */
 
 inline scalar_int_mode
-smallest_int_mode_for_size (unsigned int size)
+smallest_int_mode_for_size (poly_int64 size)
 {
   return as_a <scalar_int_mode> (smallest_mode_for_size (size, MODE_INT));
 }
@@ -749,7 +749,7 @@ extern machine_mode bitwise_mode_for_mode (machine_mode);
 /* Return a mode that is suitable for representing a vector,
    or BLKmode on failure.  */
 
-extern machine_mode mode_for_vector (scalar_mode, unsigned);
+extern machine_mode mode_for_vector (scalar_mode, poly_int64);
 
 /* A class for iterating through possible bitfield modes.  */
 class bit_field_mode_iterator
