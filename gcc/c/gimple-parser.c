@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "gimple-ssa.h"
 #include "tree-dfa.h"
+#include "tree-dump.h"
 
 
 /* Gimple parsing functions.  */
@@ -114,10 +115,11 @@ c_parser_parse_gimple_body (c_parser *parser)
   /* While we have SSA names in the IL we do not have a CFG built yet
      and PHIs are represented using a PHI internal function.  We do
      have lowered control flow and exception handling (well, we do not
-     have parser support for EH yet).  */
-  cfun->curr_properties = PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh;
+     have parser support for EH yet).  But as we still have BINDs
+     we have to go through lowering again.  */
+  cfun->curr_properties = PROP_gimple_any;
 
-  return;
+  dump_function (TDI_generic, current_function_decl);
 }
 
 /* Parse a compound statement in gimple function body.
@@ -696,6 +698,9 @@ c_parser_parse_ssa_name (c_parser *parser,
 	      c_parser_error (parser, "base variable or SSA name not declared"); 
 	      return error_mark_node;
 	    }
+	  if (VECTOR_TYPE_P (TREE_TYPE (parent))
+	      || TREE_CODE (TREE_TYPE (parent)) == COMPLEX_TYPE)
+	    DECL_GIMPLE_REG_P (parent) = 1;
 	  name = make_ssa_name_fn (cfun, parent,
 				   gimple_build_nop (), version);
 	}

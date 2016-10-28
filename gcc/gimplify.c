@@ -12337,22 +12337,7 @@ gimplify_function_tree (tree fndecl)
       && !needs_to_live_in_memory (ret))
     DECL_GIMPLE_REG_P (ret) = 1;
 
-  if (!cfun->gimple_body)
-    bind = gimplify_body (fndecl, true);
-  else
-    {
-      gimple_seq seq;
-      gimple *outer_stmt;
-      seq = cfun->gimple_body;
-      outer_stmt = gimple_seq_first_stmt (seq);
-      if (gimple_code (outer_stmt) == GIMPLE_BIND
-	  && gimple_seq_first (seq) == gimple_seq_last (seq))
-	bind = as_a <gbind *> (outer_stmt);
-      else
-	bind = gimple_build_bind (NULL_TREE, seq, NULL);
-
-      DECL_SAVED_TREE (fndecl) = NULL_TREE;
-    }
+  bind = gimplify_body (fndecl, true);
 
   /* The tree body of the function is no longer needed, replace it
      with the new GIMPLE body.  */

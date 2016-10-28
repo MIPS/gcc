@@ -7666,7 +7666,7 @@ dump_function_to_file (tree fndecl, FILE *file, int flags)
 
       fprintf (file, "}\n");
     }
-  else if (DECL_SAVED_TREE (fndecl) == NULL)
+  else if (fun->curr_properties & PROP_gimple_any)
     {
       /* The function is now in GIMPLE form but the CFG has not been
 	 built yet.  Emit the single sequence of GIMPLE statements
