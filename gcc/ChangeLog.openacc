@@ -1,3 +1,8 @@
+2016-10-28  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_single): Use a single predicate
+	for loops partitioned across both worker and vector axes.
+
 2016-10-19  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR other/70945
