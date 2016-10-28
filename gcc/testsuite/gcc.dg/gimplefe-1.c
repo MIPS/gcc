@@ -2,7 +2,7 @@
 /* { dg-options "-fgimple" } */
 
 int i;
-void __GIMPLE () foo()
+void __GIMPLE foo()
 {
   i = 1;
 }

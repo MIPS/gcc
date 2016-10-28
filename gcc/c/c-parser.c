@@ -159,7 +159,7 @@ struct GTY(()) c_parser {
   /* The look-ahead tokens.  */
   c_token * GTY((skip)) tokens;
   /* Buffer for look-ahead tokens.  */
-  c_token GTY(()) tokens_buf[4];
+  c_token tokens_buf[4];
   /* How many look-ahead tokens are available (0 - 4, or
      more if parsing from pre-lexed tokens).  */
   unsigned int tokens_avail;
@@ -1563,8 +1563,6 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
   tree all_prefix_attrs;
   bool diagnosed_no_specs = false;
   location_t here = c_parser_peek_token (parser)->location;
-  bool gimple_body_p = false;
-  char *pass = NULL;
 
   if (static_assert_ok
       && c_parser_next_token_is_keyword (parser, RID_STATIC_ASSERT))
@@ -1648,19 +1646,6 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
       c_parser_error (parser, "expected declaration specifiers");
       c_parser_skip_to_end_of_block_or_statement (parser);
       return;
-    }
-
-  if (c_parser_next_token_is (parser, CPP_KEYWORD))
-    {
-      c_token *kw_token = c_parser_peek_token (parser);
-      if (kw_token->keyword == RID_GIMPLE)
-	{
-	  gimple_body_p = true;
-	  c_parser_consume_token (parser);
-	  c_parser_gimple_pass_list (parser, &pass);
-	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
-				     "expected %<)%>");
-	}
     }
 
   finish_declspecs (specs);
@@ -1793,7 +1778,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
       struct c_declarator *declarator;
       bool dummy = false;
       timevar_id_t tv;
-      tree fnbody;
+      tree fnbody = NULL_TREE;
       /* Declaring either one or more declarators (in which case we
 	 should diagnose if there were no declaration specifiers) or a
 	 function definition (in which case the diagnostic for
@@ -2076,7 +2061,6 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	c_parser_declaration_or_fndef (parser, false, false, false,
 				       true, false, NULL, vNULL);
       store_parm_decls ();
-
       if (omp_declare_simd_clauses.exists ()
 	  || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	c_finish_omp_declare_simd (parser, current_function_decl, NULL_TREE,
@@ -2086,23 +2070,23 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
       DECL_STRUCT_FUNCTION (current_function_decl)->function_start_locus
 	= c_parser_peek_token (parser)->location;
 
-      if (gimple_body_p && flag_gimple)
+      /* If the definition was marked with __GIMPLE then parse the
+         function body as GIMPLE.  */
+      if (specs->gimple_p)
 	{
-	  cfun->pass_startwith = pass;
+	  cfun->pass_startwith = specs->gimple_pass;
 	  bool saved = in_late_binary_op;
 	  in_late_binary_op = true;
 	  c_parser_parse_gimple_body (parser);
 	  in_late_binary_op = saved;
-	  cgraph_node::finalize_function (current_function_decl, false);
-	  set_cfun (NULL);
-	  current_function_decl = NULL;
-	  timevar_pop (tv);
-	  return;
 	}
-
-      fnbody = c_parser_compound_statement (parser);
-      if (flag_cilkplus && contains_array_notation_expr (fnbody))
-	fnbody = expand_array_notation_exprs (fnbody);
+      else
+	{
+	  fnbody = c_parser_compound_statement (parser);
+	  if (flag_cilkplus && contains_array_notation_expr (fnbody))
+	    fnbody = expand_array_notation_exprs (fnbody);
+	}
+      tree fndecl = current_function_decl;
       if (nested)
 	{
 	  tree decl = current_function_decl;
@@ -2118,9 +2102,13 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	}
       else
 	{
-	  add_stmt (fnbody);
+	  if (fnbody)
+	    add_stmt (fnbody);
 	  finish_function ();
 	}
+      /* Get rid of the empty stmt list for GIMPLE.  */
+      if (specs->gimple_p)
+	DECL_SAVED_TREE (fndecl) = NULL_TREE;
 
       timevar_pop (tv);
       break;
@@ -2607,6 +2595,14 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	    goto out;
 	  align = c_parser_alignas_specifier (parser);
 	  declspecs_add_alignas (loc, specs, align);
+	  break;
+	case RID_GIMPLE:
+	  if (! flag_gimple)
+	    error_at (loc, "%<__GIMPLE%> only valid with -fgimple");
+	  c_parser_consume_token (parser);
+	  specs->gimple_p = true;
+	  specs->locations[cdw_gimple] = loc;
+	  specs->gimple_pass = c_parser_gimple_pass_list (parser);
 	  break;
 	default:
 	  goto out;

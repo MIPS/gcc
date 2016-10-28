@@ -1046,14 +1046,15 @@ c_parser_gimple_label (c_parser *parser, gimple_seq *seq)
      startwith("pass-name")
  */
 
-void
-c_parser_gimple_pass_list (c_parser *parser, char **pass)
+char *
+c_parser_gimple_pass_list (c_parser *parser)
 {
-  if (! c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    return;
+  char *pass = NULL;
 
-  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-    return;
+  /* Accept __GIMPLE.  */
+  if (c_parser_next_token_is_not (parser, CPP_OPEN_PAREN))
+    return NULL;
+  c_parser_consume_token (parser);
 
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
@@ -1062,33 +1063,31 @@ c_parser_gimple_pass_list (c_parser *parser, char **pass)
       if (! strcmp (op, "startwith"))
 	{
 	  if (! c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-	    return;
+	    return NULL;
 	  if (c_parser_next_token_is_not (parser, CPP_STRING))
 	    {
 	      error_at (c_parser_peek_token (parser)->location,
 			"expected pass name");
-	      return;
+	      return NULL;
 	    }
-	  *pass = xstrdup (TREE_STRING_POINTER
+	  pass = xstrdup (TREE_STRING_POINTER
 				(c_parser_peek_token (parser)->value));
 	  c_parser_consume_token (parser);
 	  if (! c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
-	    return;
+	    return NULL;
 	}
       else
 	{
 	  error_at (c_parser_peek_token (parser)->location,
 		    "invalid operation");
-	  return;
+	  return NULL;
 	}
     }
-  else if (c_parser_next_token_is (parser, CPP_EOF))
-    {
-      c_parser_error (parser, "expected parameters");
-      return;
-    }
 
-  return;
+  if (! c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
+    return NULL;
+
+  return pass;
 }
 
 /* Parse gimple local declaration.
