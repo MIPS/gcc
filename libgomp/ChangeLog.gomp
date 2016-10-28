@@ -1,3 +1,7 @@
+2016-10-28  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/broadcast-1.c: New test.
+
 2016-10-19  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR other/70945
