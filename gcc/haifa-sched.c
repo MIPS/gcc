@@ -4920,6 +4920,7 @@ get_ebb_head_tail (basic_block beg, basic_block end,
 
   while (beg_head != beg_tail)
     if (NOTE_P (beg_head))
+    label_next:
       beg_head = NEXT_INSN (beg_head);
     else if (DEBUG_INSN_P (beg_head))
       {
@@ -4941,7 +4942,15 @@ get_ebb_head_tail (basic_block beg, basic_block end,
 		  df_insn_change_bb (note, beg);
 	      }
 	    else if (!DEBUG_INSN_P (note))
-	      break;
+	      {
+		if (LABEL_P (note))
+		  {
+		    beg_head = note;
+		    goto label_next;
+		  }
+		else
+		  break;
+	      }
 	  }
 
 	break;
