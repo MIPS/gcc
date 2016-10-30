@@ -1270,11 +1270,17 @@ gfc_add_finalizer_call (stmtblock_t *block, gfc_expr *expr2)
    expression being deallocated for its locus and variable name.
 
    For coarrays, "pointer" must be the array descriptor and not its
-   "data" component.  */
+   "data" component.
+
+   COARRAY_DEALLOC_MODE gives the mode unregister coarrays.  Available modes are
+   the ones of GFC_CAF_DEREGTYPE, -1 when the mode for deregistration is to be
+   analyzed and set by this routine, and -2 to indicate that a non-coarray is to
+   be deallocated.  */
 tree
 gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
 			    tree errlen, tree label_finish,
-			    bool can_fail, gfc_expr* expr, bool coarray)
+			    bool can_fail, gfc_expr* expr,
+			    int coarray_dealloc_mode)
 {
   stmtblock_t null, non_null;
   tree cond, tmp, error;
@@ -1282,14 +1288,17 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
   tree caf_decl = NULL_TREE;
   gfc_coarray_deregtype caf_dereg_type = GFC_CAF_COARRAY_DEREGISTER;
 
-  if (coarray)
+  if (coarray_dealloc_mode >= -1)
     {
       gcc_assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (pointer)));
       caf_decl = pointer;
       pointer = gfc_conv_descriptor_data_get (caf_decl);
       STRIP_NOPS (pointer);
-      if (expr && gfc_is_coarray_sub_component (expr))
+      if (coarray_dealloc_mode == -1 && expr
+	  && gfc_is_coarray_sub_component (expr))
 	caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
+      else
+	caf_dereg_type = (enum gfc_coarray_deregtype) coarray_dealloc_mode;
     }
 
   cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node, pointer,
@@ -1334,7 +1343,7 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
   /* When POINTER is not NULL, we free it.  */
   gfc_start_block (&non_null);
   gfc_add_finalizer_call (&non_null, expr);
-  if (!coarray || flag_coarray != GFC_FCOARRAY_LIB)
+  if (coarray_dealloc_mode == -2 || flag_coarray != GFC_FCOARRAY_LIB)
     {
       tmp = build_call_expr_loc (input_location,
 				 builtin_decl_explicit (BUILT_IN_FREE), 1,
@@ -1450,7 +1459,7 @@ gfc_deallocate_scalar_with_status (tree pointer, tree status, tree label_finish,
   bool finalizable;
   gfc_coarray_deregtype caf_dereg_type = GFC_CAF_COARRAY_DEREGISTER;
 
-  if (coarray && gfc_is_coarray_sub_component (expr))
+  if (coarray && expr && gfc_is_coarray_sub_component (expr))
     caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
 
   cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node, pointer,

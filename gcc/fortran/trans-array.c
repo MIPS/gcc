@@ -5641,12 +5641,13 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
 tree
 gfc_array_deallocate (tree descriptor, tree pstat, tree errmsg, tree errlen,
-		      tree label_finish, gfc_expr* expr)
+		      tree label_finish, gfc_expr* expr,
+		      int coarray_dealloc_mode)
 {
   tree var;
   tree tmp;
   stmtblock_t block;
-  bool coarray = gfc_caf_attr (expr).codimension;
+  bool coarray = coarray_dealloc_mode != GFC_CAF_COARRAY_NOCOARRAY;
 
   gfc_start_block (&block);
 
@@ -5656,7 +5657,8 @@ gfc_array_deallocate (tree descriptor, tree pstat, tree errmsg, tree errlen,
 
   /* Parameter is the address of the data component.  */
   tmp = gfc_deallocate_with_status (coarray ? descriptor : var, pstat, errmsg,
-				    errlen, label_finish, false, expr, coarray);
+				    errlen, label_finish, false, expr,
+				    coarray_dealloc_mode);
   gfc_add_expr_to_block (&block, tmp);
 
   /* Zero the data pointer; only for coarrays an error can occur and then
@@ -7790,11 +7792,13 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
 /* Generate code to deallocate an array, if it is allocated.  */
 
 tree
-gfc_trans_dealloc_allocated (tree descriptor, bool coarray, gfc_expr *expr)
+gfc_trans_dealloc_allocated (tree descriptor, gfc_expr *expr,
+			     int coarray_dealloc_mode)
 {
   tree tmp;
   tree var;
   stmtblock_t block;
+  bool coarray = coarray_dealloc_mode != GFC_CAF_COARRAY_NOCOARRAY;
 
   gfc_start_block (&block);
 
@@ -7805,8 +7809,8 @@ gfc_trans_dealloc_allocated (tree descriptor, bool coarray, gfc_expr *expr)
      Although it is ignored here, it's presence ensures that arrays that
      are already deallocated are ignored.  */
   tmp = gfc_deallocate_with_status (coarray ? descriptor : var, NULL_TREE,
-				    NULL_TREE, NULL_TREE, NULL_TREE, true,
-				    expr, coarray);
+				    NULL_TREE, NULL_TREE, NULL_TREE, true, expr,
+				    coarray_dealloc_mode);
   gfc_add_expr_to_block (&block, tmp);
 
   /* Zero the data pointer.  */
@@ -7979,13 +7983,12 @@ gfc_duplicate_allocatable_nocopy (tree dest, tree src, tree type, int rank)
    deallocate, nullify or copy allocatable components.  This is the work horse
    function for the functions named in this enum.  */
 
-enum {DEALLOCATE_ALLOC_COMP = 1, DEALLOCATE_ALLOC_COMP_NO_CAF,
-      NULLIFY_ALLOC_COMP, COPY_ALLOC_COMP, COPY_ONLY_ALLOC_COMP,
-      COPY_ALLOC_COMP_CAF};
+enum {DEALLOCATE_ALLOC_COMP = 1, NULLIFY_ALLOC_COMP,
+      COPY_ALLOC_COMP, COPY_ONLY_ALLOC_COMP};
 
 static tree
 structure_alloc_comps (gfc_symbol * der_type, tree decl,
-		       tree dest, int rank, int purpose)
+		       tree dest, int rank, int purpose, int caf_mode)
 {
   gfc_component *c;
   gfc_loopinfo loop;
@@ -8019,10 +8022,10 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
       /* Deref dest in sync with decl, but only when it is not NULL.  */
       if (dest)
 	dest = build_fold_indirect_ref_loc (input_location, dest);
-    }
 
-  /* Just in case it gets dereferenced.  */
-  decl_type = TREE_TYPE (decl);
+      /* Update the decl_type because it got dereferenced.  */
+      decl_type = TREE_TYPE (decl);
+    }
 
   /* If this is an array of derived types with allocatable components
      build a loop and recursively call this function.  */
@@ -8064,16 +8067,18 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
       vref = gfc_build_array_ref (var, index, NULL);
 
-      if (purpose == COPY_ALLOC_COMP || purpose == COPY_ONLY_ALLOC_COMP)
+      if ((purpose == COPY_ALLOC_COMP || purpose == COPY_ONLY_ALLOC_COMP)
+	  && (caf_mode & GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY) == 0)
         {
 	  tmp = build_fold_indirect_ref_loc (input_location,
 					 gfc_conv_array_data (dest));
 	  dref = gfc_build_array_ref (tmp, index, NULL);
 	  tmp = structure_alloc_comps (der_type, vref, dref, rank,
-				       COPY_ALLOC_COMP);
+				       COPY_ALLOC_COMP, 0);
 	}
       else
-        tmp = structure_alloc_comps (der_type, vref, NULL_TREE, rank, purpose);
+        tmp = structure_alloc_comps (der_type, vref, NULL_TREE, rank, purpose,
+				     caf_mode);
 
       gfc_add_expr_to_block (&loopbody, tmp);
 
@@ -8119,7 +8124,6 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
       switch (purpose)
 	{
 	case DEALLOCATE_ALLOC_COMP:
-	case DEALLOCATE_ALLOC_COMP_NO_CAF:
 
 	  /* gfc_deallocate_scalar_with_status calls gfc_deallocate_alloc_comp
 	     (i.e. this function) so generate all the calls and suppress the
@@ -8136,21 +8140,57 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      /* The finalizer frees allocatable components.  */
 	      called_dealloc_with_status
 		= gfc_add_comp_finalizer_call (&tmpblock, comp, c,
-					       purpose == DEALLOCATE_ALLOC_COMP);
+					       purpose == DEALLOCATE_ALLOC_COMP
+		    && (caf_mode & GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY) != 0);
 	    }
 	  else
 	    comp = NULL_TREE;
 
-	  if (c->attr.allocatable && !c->attr.proc_pointer
+	  if (c->attr.allocatable && !c->attr.proc_pointer && !same_type
 	      && (c->attr.dimension
-		  || (c->attr.codimension
-		      && purpose != DEALLOCATE_ALLOC_COMP_NO_CAF))
-	      && !same_type)
+		  || ((caf_mode & GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY) != 0
+		      && ((caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0
+			  || c->attr.codimension))))
 	    {
+	      int caf_dereg_mode =
+		  ((caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0
+		   || c->attr.codimension)
+		  ? ((caf_mode & GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY) != 0
+		     ? GFC_CAF_COARRAY_DEALLOCATE_ONLY
+		     : GFC_CAF_COARRAY_DEREGISTER)
+		  : GFC_CAF_COARRAY_NOCOARRAY;
 	      if (comp == NULL_TREE)
 		comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 					decl, cdecl, NULL_TREE);
-	      tmp = gfc_trans_dealloc_allocated (comp, c->attr.codimension, NULL);
+
+	      if (c->attr.dimension || c->attr.codimension)
+		/* Deallocate array.  */
+		tmp = gfc_trans_dealloc_allocated (comp, NULL, caf_dereg_mode);
+	      else
+		{
+		  /* Deallocate scalar.  */
+		  tree cond = fold_build2_loc (input_location, NE_EXPR,
+					       boolean_type_node, comp,
+					       build_int_cst (TREE_TYPE (comp),
+							      0));
+
+		  tmp = fold_build3_loc (input_location, COMPONENT_REF,
+					 pvoid_type_node, decl, c->caf_token,
+					 NULL_TREE);
+		  tmp = build_call_expr_loc (input_location,
+					     gfor_fndecl_caf_deregister, 5,
+					     gfc_build_addr_expr (NULL_TREE,
+								  tmp),
+					     build_int_cst (integer_type_node,
+							    caf_dereg_mode),
+					     null_pointer_node,
+					     null_pointer_node,
+					     integer_zero_node);
+		  tmp = fold_build3_loc (input_location, COND_EXPR,
+					 void_type_node, cond, tmp,
+					 build_empty_stmt (input_location));
+		}
+
 	      gfc_add_expr_to_block (&tmpblock, tmp);
 	    }
 	  else if (c->attr.allocatable && !c->attr.codimension && !same_type)
@@ -8256,7 +8296,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
 	  else if (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.allocatable
 		   && (!CLASS_DATA (c)->attr.codimension
-		       || purpose != DEALLOCATE_ALLOC_COMP_NO_CAF))
+		    || (caf_mode & GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY) == 0))
 	    {
 	      /* Allocatable CLASS components.  */
 
@@ -8266,8 +8306,10 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				      TREE_TYPE (tmp), comp, tmp, NULL_TREE);
 
 	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (comp)))
-	        tmp = gfc_trans_dealloc_allocated (comp,
-					CLASS_DATA (c)->attr.codimension, NULL);
+	        tmp = gfc_trans_dealloc_allocated (comp, NULL,
+						CLASS_DATA (c)->attr.codimension
+						? GFC_CAF_COARRAY_DEREGISTER
+						: GFC_CAF_COARRAY_NOCOARRAY);
 	      else
 		{
 		  tmp = gfc_deallocate_scalar_with_status (comp, NULL_TREE,
@@ -8328,7 +8370,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				      decl, cdecl, NULL_TREE);
 	      rank = c->as ? c->as->rank : 0;
 	      tmp = structure_alloc_comps (c->ts.u.derived, comp, NULL_TREE,
-					   rank, purpose);
+					   rank, purpose, caf_mode);
 	      gfc_add_expr_to_block (&fnblock, tmp);
 	    }
 
@@ -8389,43 +8431,45 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				      decl, cdecl, NULL_TREE);
 	      rank = c->as ? c->as->rank : 0;
 	      tmp = structure_alloc_comps (c->ts.u.derived, comp, NULL_TREE,
-					   rank, purpose);
+					   rank, purpose, caf_mode);
 	      gfc_add_expr_to_block (&fnblock, tmp);
-	    }
-	  break;
-
-	case COPY_ALLOC_COMP_CAF:
-	  if (!c->attr.codimension
-	      && (c->ts.type != BT_CLASS || CLASS_DATA (c)->attr.coarray_comp)
-	      && (c->ts.type != BT_DERIVED
-		  || !c->ts.u.derived->attr.coarray_comp))
-	    continue;
-
-	  comp = fold_build3_loc (input_location, COMPONENT_REF, ctype, decl,
-				  cdecl, NULL_TREE);
-	  dcmp = fold_build3_loc (input_location, COMPONENT_REF, ctype, dest,
-				  cdecl, NULL_TREE);
-
-	  if (c->attr.codimension)
-	    {
-	      if (c->ts.type == BT_CLASS)
-		{
-		  comp = gfc_class_data_get (comp);
-		  dcmp = gfc_class_data_get (dcmp);
-		}
-	      gfc_conv_descriptor_data_set (&fnblock, dcmp,
-					   gfc_conv_descriptor_data_get (comp));
-	    }
-	  else
-	    {
-	      tmp = structure_alloc_comps (c->ts.u.derived, comp, dcmp,
-					   rank, purpose);
-	      gfc_add_expr_to_block (&fnblock, tmp);
-
 	    }
 	  break;
 
 	case COPY_ALLOC_COMP:
+	  if (caf_mode & GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY)
+	    {
+	      if (!c->attr.codimension
+		  && (c->ts.type != BT_CLASS || CLASS_DATA (c)->attr.coarray_comp)
+		  && (c->ts.type != BT_DERIVED
+		      || !c->ts.u.derived->attr.coarray_comp))
+		continue;
+
+	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype, decl,
+				      cdecl, NULL_TREE);
+	      dcmp = fold_build3_loc (input_location, COMPONENT_REF, ctype, dest,
+				      cdecl, NULL_TREE);
+
+	      if (c->attr.codimension)
+		{
+		  if (c->ts.type == BT_CLASS)
+		    {
+		      comp = gfc_class_data_get (comp);
+		      dcmp = gfc_class_data_get (dcmp);
+		    }
+		  gfc_conv_descriptor_data_set (&fnblock, dcmp,
+						gfc_conv_descriptor_data_get (comp));
+		}
+	      else
+		{
+		  tmp = structure_alloc_comps (c->ts.u.derived, comp, dcmp,
+					       rank, purpose, caf_mode);
+		  gfc_add_expr_to_block (&fnblock, tmp);
+
+		}
+	      break;
+	    }
+
 	  if (c->attr.pointer)
 	    continue;
 
@@ -8514,7 +8558,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      gfc_add_modify (&fnblock, dcmp, tmp);
 	      add_when_allocated = structure_alloc_comps (c->ts.u.derived,
 							  comp, dcmp,
-							  rank, purpose);
+							  rank, purpose,
+							  caf_mode);
 	    }
 	  else
 	    add_when_allocated = NULL_TREE;
@@ -8573,7 +8618,8 @@ tree
 gfc_nullify_alloc_comp (gfc_symbol * der_type, tree decl, int rank)
 {
   return structure_alloc_comps (der_type, decl, NULL_TREE, rank,
-				NULLIFY_ALLOC_COMP);
+				NULLIFY_ALLOC_COMP,
+				GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY);
 }
 
 
@@ -8581,10 +8627,12 @@ gfc_nullify_alloc_comp (gfc_symbol * der_type, tree decl, int rank)
    deallocate allocatable components.  */
 
 tree
-gfc_deallocate_alloc_comp (gfc_symbol * der_type, tree decl, int rank)
+gfc_deallocate_alloc_comp (gfc_symbol * der_type, tree decl, int rank,
+			   int caf_mode)
 {
   return structure_alloc_comps (der_type, decl, NULL_TREE, rank,
-				DEALLOCATE_ALLOC_COMP);
+				DEALLOCATE_ALLOC_COMP,
+			      GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY | caf_mode);
 }
 
 
@@ -8597,14 +8645,15 @@ tree
 gfc_deallocate_alloc_comp_no_caf (gfc_symbol * der_type, tree decl, int rank)
 {
   return structure_alloc_comps (der_type, decl, NULL_TREE, rank,
-				DEALLOCATE_ALLOC_COMP_NO_CAF);
+				DEALLOCATE_ALLOC_COMP, 0);
 }
 
 
 tree
 gfc_reassign_alloc_comp_caf (gfc_symbol *der_type, tree decl, tree dest)
 {
-  return structure_alloc_comps (der_type, decl, dest, 0, COPY_ALLOC_COMP_CAF);
+  return structure_alloc_comps (der_type, decl, dest, 0, COPY_ALLOC_COMP,
+				GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY);
 }
 
 
@@ -8614,7 +8663,7 @@ gfc_reassign_alloc_comp_caf (gfc_symbol *der_type, tree decl, tree dest)
 tree
 gfc_copy_alloc_comp (gfc_symbol * der_type, tree decl, tree dest, int rank)
 {
-  return structure_alloc_comps (der_type, decl, dest, rank, COPY_ALLOC_COMP);
+  return structure_alloc_comps (der_type, decl, dest, rank, COPY_ALLOC_COMP, 0);
 }
 
 
@@ -8624,7 +8673,8 @@ gfc_copy_alloc_comp (gfc_symbol * der_type, tree decl, tree dest, int rank)
 tree
 gfc_copy_only_alloc_comp (gfc_symbol * der_type, tree decl, tree dest, int rank)
 {
-  return structure_alloc_comps (der_type, decl, dest, rank, COPY_ONLY_ALLOC_COMP);
+  return structure_alloc_comps (der_type, decl, dest, rank,
+				COPY_ONLY_ALLOC_COMP, 0);
 }
 
 
@@ -9445,8 +9495,10 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
     {
       gfc_expr *e;
       e = has_finalizer ? gfc_lval_expr_from_sym (sym) : NULL;
-      tmp = gfc_trans_dealloc_allocated (sym->backend_decl,
-					 sym->attr.codimension, e);
+      tmp = gfc_trans_dealloc_allocated (sym->backend_decl, e,
+					 sym->attr.codimension
+					 ? GFC_CAF_COARRAY_DEREGISTER
+					 : GFC_CAF_COARRAY_NOCOARRAY);
       if (e)
 	gfc_free_expr (e);
       gfc_add_expr_to_block (&cleanup, tmp);

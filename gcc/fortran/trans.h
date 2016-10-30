@@ -122,9 +122,14 @@ enum gfc_coarray_regtype
 
 
 /* Describes the action to take on _caf_deregister. Keep in sync with
-   gcc/fortran/trans.h.  */
+   gcc/fortran/trans.h.  The negative values are not valid for the library and
+   are used by the drivers for building the correct call.  */
 enum gfc_coarray_deregtype {
-  GFC_CAF_COARRAY_DEREGISTER,
+  /* This is no coarray, i.e. build a call to a free().  */
+  GFC_CAF_COARRAY_NOCOARRAY = -2,
+  /* The driver is to analyze which _caf_deregister()-call to generate.  */
+  GFC_CAF_COARRAY_ANALYZE = -1,
+  GFC_CAF_COARRAY_DEREGISTER = 0,
   GFC_CAF_COARRAY_DEALLOCATE_ONLY
 };
 
@@ -149,6 +154,15 @@ enum gfc_caf_array_ref_t {
   GFC_CAF_ARR_REF_OPEN_END,
   GFC_CAF_ARR_REF_OPEN_START
 };
+
+
+/* trans-array(structure_alloc_comps) caf_mode bits.  */
+enum gfc_structure_caf_mode_t {
+  GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY = 1 << 0,
+  GFC_STRUCTURE_CAF_MODE_IN_COARRAY = 1 << 1,
+  GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY = 1 << 2
+};
+
 
 /* The array-specific scalarization information.  The array members of
    this struct are indexed by actual array index, and thus can be sparse.  */
@@ -700,7 +714,7 @@ void gfc_allocate_using_malloc (stmtblock_t *, tree, tree, tree);
 
 /* Generate code to deallocate an array.  */
 tree gfc_deallocate_with_status (tree, tree, tree, tree, tree, bool,
-				 gfc_expr *, bool);
+				 gfc_expr *, int);
 tree gfc_deallocate_scalar_with_status (tree, tree, tree, bool, gfc_expr*,
 					gfc_typespec, bool c = false);
 

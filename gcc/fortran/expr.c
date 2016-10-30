@@ -4818,7 +4818,9 @@ gfc_get_corank (gfc_expr *e)
   return corank;
 }
 
+
 /* Return true, when e refs a component of derived type coarray.  */
+
 bool
 gfc_is_coarray_sub_component (gfc_expr *e)
 {

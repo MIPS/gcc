@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-fcoarray=lib -fdump-tree-original" }
+! { dg-options "-fcoarray=lib -lcaf_single -fdump-tree-original" }
 !
 ! Allocate/deallocate with libcaf.
 !
@@ -37,7 +37,7 @@ program test_caf_alloc
   deallocate(xx)
 end
 
-! { dg-final { scan-tree-dump-times "_gfortran_caf_is_present \\(xx\\.token, 2 - \\(integer\\(kind=4\\)\\) xx\\.dim\\[0\\]\\.lbound, &caf_ref\\.\[0-9\]+\\)" 10 "original" } }
+! { dg-final { scan-tree-dump-times "_gfortran_caf_is_present \\(xx\\.token, 2 - \\(integer\\(kind=4\\)\\) xx\\.dim\\\[0\\\]\\.lbound, &caf_ref\\.\[0-9\]+\\)" 10 "original" } }
 ! { dg-final { scan-tree-dump-times "_gfortran_caf_register \\(72, 1, &xx\\.token, \\(void \\*\\) &xx, 0B, 0B, 0\\)" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "_gfortran_caf_register \\(\[0-9\]+, 7" 2 "original" } }
 ! { dg-final { scan-tree-dump-times "_gfortran_caf_register \\(\[0-9\]+, 8" 2 "original" } }

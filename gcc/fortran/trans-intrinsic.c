@@ -1674,7 +1674,8 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
 		      tmp = gfc_deallocate_with_status (tmp, NULL_TREE,
 							NULL_TREE, NULL_TREE,
 							NULL_TREE, true,
-							NULL, false);
+							NULL,
+						     GFC_CAF_COARRAY_NOCOARRAY);
 		      gfc_add_expr_to_block (&se->post, tmp);
 		    }
 		}
@@ -10476,7 +10477,7 @@ conv_intrinsic_move_alloc (gfc_code *code)
 
       tmp = gfc_deallocate_with_status (to_se.expr, NULL_TREE, NULL_TREE,
 					NULL_TREE, NULL_TREE, true, to_expr,
-					true);
+					GFC_CAF_COARRAY_DEALLOCATE_ONLY);
       gfc_add_expr_to_block (&block, tmp);
 
       tmp = gfc_conv_descriptor_data_get (to_se.expr);
@@ -10504,7 +10505,8 @@ conv_intrinsic_move_alloc (gfc_code *code)
 
       tmp = gfc_conv_descriptor_data_get (to_se.expr);
       tmp = gfc_deallocate_with_status (tmp, NULL_TREE, NULL_TREE, NULL_TREE,
-					NULL_TREE, true, to_expr, false);
+					NULL_TREE, true, to_expr,
+					GFC_CAF_COARRAY_NOCOARRAY);
       gfc_add_expr_to_block (&block, tmp);
     }
 

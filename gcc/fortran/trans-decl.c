@@ -4451,7 +4451,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		    tmp = gfc_deallocate_with_status (descriptor, NULL_TREE,
 						      NULL_TREE, NULL_TREE,
 						      NULL_TREE, true, NULL,
-						      true);
+						      GFC_CAF_COARRAY_ANALYZE);
 		  else
 		    {
 		      gfc_expr *expr = gfc_lval_expr_from_sym (sym);

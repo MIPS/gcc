@@ -5312,7 +5312,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 		  tmp = gfc_deallocate_with_status (ptr, NULL_TREE,
 						    NULL_TREE, NULL_TREE,
 						    NULL_TREE, true, e,
-						    false);
+						    GFC_CAF_COARRAY_NOCOARRAY);
 		  gfc_add_expr_to_block (&block, tmp);
 		  tmp = fold_build2_loc (input_location, MODIFY_EXPR,
 					 void_type_node, ptr,
@@ -5435,7 +5435,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 		{
 		  tmp = build_fold_indirect_ref_loc (input_location,
 						     parmse.expr);
-		  tmp = gfc_trans_dealloc_allocated (tmp, false, e);
+		  tmp = gfc_trans_dealloc_allocated (tmp, e,
+						     GFC_CAF_COARRAY_NOCOARRAY);
 		  if (fsym->attr.optional
 		      && e->expr_type == EXPR_VARIABLE
 		      && e->symtree->n.sym->attr.optional)
@@ -6212,7 +6213,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  tmp = gfc_conv_descriptor_data_get (tmp2);
 	  tmp = gfc_deallocate_with_status (tmp, NULL_TREE, NULL_TREE,
 					    NULL_TREE, NULL_TREE, true,
-					    NULL, false);
+					    NULL, GFC_CAF_COARRAY_NOCOARRAY);
 	  gfc_add_expr_to_block (&se->pre, tmp);
 	}
     }
