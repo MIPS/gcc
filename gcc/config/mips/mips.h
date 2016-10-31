@@ -1106,7 +1106,8 @@ struct mips_cpu_info {
 /* ISA has conditional trap with immediate instructions.  */
 #define ISA_HAS_COND_TRAPI	(!ISA_MIPS1				\
 				 && mips_isa_rev <= 5			\
-				 && !TARGET_MIPS16)
+				 && !TARGET_MIPS16			\
+				 && !TARGET_MICROMIPS_R7)
 
 /* ISA has integer multiply-accumulate instructions, madd and msub.  */
 #define ISA_HAS_MADD_MSUB	(mips_isa_rev >= 1			\
