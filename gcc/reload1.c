@@ -6599,7 +6599,7 @@ choose_reload_regs (struct insn_chain *chain)
 				  == NO_REGS)
 #ifdef SECONDARY_MEMORY_NEEDED
 			      && ! SECONDARY_MEMORY_NEEDED (last_class, rclass,
-							    mode)
+							    MACRO_MODE (mode))
 #endif
 			      ))
 
@@ -7026,7 +7026,8 @@ choose_reload_regs (struct insn_chain *chain)
 		   && (tem = replaced_subreg (rld[r].in), REG_P (tem))		   
 		   && REGNO (tem) < FIRST_PSEUDO_REGISTER
 		   && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (REGNO (tem)),
-					       rld[r].rclass, rld[r].inmode)
+					       rld[r].rclass,
+					       MACRO_MODE (rld[r].inmode))
 		   && remove_address_replacements
 		      (get_secondary_mem (tem, rld[r].inmode, rld[r].opnum,
 					  rld[r].when_needed)))
@@ -8686,7 +8687,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 	   && REGNO (tem2) < FIRST_PSEUDO_REGISTER
 	   && SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (REGNO (tem1)),
 				       REGNO_REG_CLASS (REGNO (tem2)),
-				       GET_MODE (out)))
+				       MACRO_MODE (GET_MODE (out))))
     {
       /* Get the memory to use and rewrite both registers to its mode.  */
       rtx loc = get_secondary_mem (in, GET_MODE (out), opnum, type);
