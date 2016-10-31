@@ -1363,6 +1363,8 @@ dw_val_equal_p (dw_val_node *a, dw_val_node *b)
     case dw_val_class_offset:
     case dw_val_class_unsigned_const:
     case dw_val_class_const:
+    case dw_val_class_unsigned_const_implicit:
+    case dw_val_class_const_implicit:
     case dw_val_class_range_list:
     case dw_val_class_lineptr:
     case dw_val_class_macptr:
@@ -1385,6 +1387,7 @@ dw_val_equal_p (dw_val_node *a, dw_val_node *b)
     case dw_val_class_flag:
       return a->v.val_flag == b->v.val_flag;
     case dw_val_class_file:
+    case dw_val_class_file_implicit:
       return a->v.val_file == b->v.val_file;
     case dw_val_class_decl_ref:
       return a->v.val_decl_ref == b->v.val_decl_ref;
@@ -1514,6 +1517,144 @@ loc_list_plus_const (dw_loc_list_ref list_head, HOST_WIDE_INT offset)
 #define DWARF_REF_SIZE	\
   (dwarf_version == 2 ? DWARF2_ADDR_SIZE : DWARF_OFFSET_SIZE)
 
+/* The number of bits that can be encoded by largest DW_FORM_dataN.
+   In DWARF4 and earlier it is DW_FORM_data8 with 64 bits, in DWARF5
+   DW_FORM_data16 with 128 bits.  */
+#define DWARF_LARGEST_DATA_FORM_BITS \
+  (dwarf_version >= 5 ? 128 : 64)
+
+/* Utility inline function for construction of ops that were GNU extension
+   before DWARF 5.  */
+static inline enum dwarf_location_atom
+dwarf_OP (enum dwarf_location_atom op)
+{
+  switch (op)
+    {
+    case DW_OP_implicit_pointer:
+      if (dwarf_version < 5)
+	return DW_OP_GNU_implicit_pointer;
+      break;
+
+    case DW_OP_entry_value:
+      if (dwarf_version < 5)
+	return DW_OP_GNU_entry_value;
+      break;
+
+    case DW_OP_const_type:
+      if (dwarf_version < 5)
+	return DW_OP_GNU_const_type;
+      break;
+
+    case DW_OP_regval_type:
+      if (dwarf_version < 5)
+	return DW_OP_GNU_regval_type;
+      break;
+
+    case DW_OP_deref_type:
+      if (dwarf_version < 5)
+	return DW_OP_GNU_deref_type;
+      break;
+
+    case DW_OP_convert:
+      if (dwarf_version < 5)
+	return DW_OP_GNU_convert;
+      break;
+
+    case DW_OP_reinterpret:
+      if (dwarf_version < 5)
+	return DW_OP_GNU_reinterpret;
+      break;
+
+    default:
+      break;
+    }
+  return op;
+}
+
+/* Similarly for attributes.  */
+static inline enum dwarf_attribute
+dwarf_AT (enum dwarf_attribute at)
+{
+  switch (at)
+    {
+    case DW_AT_call_return_pc:
+      if (dwarf_version < 5)
+	return DW_AT_low_pc;
+      break;
+
+    case DW_AT_call_tail_call:
+      if (dwarf_version < 5)
+	return DW_AT_GNU_tail_call;
+      break;
+
+    case DW_AT_call_origin:
+      if (dwarf_version < 5)
+	return DW_AT_abstract_origin;
+      break;
+
+    case DW_AT_call_target:
+      if (dwarf_version < 5)
+	return DW_AT_GNU_call_site_target;
+      break;
+
+    case DW_AT_call_target_clobbered:
+      if (dwarf_version < 5)
+	return DW_AT_GNU_call_site_target_clobbered;
+      break;
+
+    case DW_AT_call_parameter:
+      if (dwarf_version < 5)
+	return DW_AT_abstract_origin;
+      break;
+
+    case DW_AT_call_value:
+      if (dwarf_version < 5)
+	return DW_AT_GNU_call_site_value;
+      break;
+
+    case DW_AT_call_data_value:
+      if (dwarf_version < 5)
+	return DW_AT_GNU_call_site_data_value;
+      break;
+
+    case DW_AT_call_all_calls:
+      if (dwarf_version < 5)
+	return DW_AT_GNU_all_call_sites;
+      break;
+
+    case DW_AT_call_all_tail_calls:
+      if (dwarf_version < 5)
+	return DW_AT_GNU_all_tail_call_sites;
+      break;
+
+    default:
+      break;
+    }
+  return at;
+}
+
+/* And similarly for tags.  */
+static inline enum dwarf_tag
+dwarf_TAG (enum dwarf_tag tag)
+{
+  switch (tag)
+    {
+    case DW_TAG_call_site:
+      if (dwarf_version < 5)
+	return DW_TAG_GNU_call_site;
+      break;
+
+    case DW_TAG_call_site_parameter:
+      if (dwarf_version < 5)
+	return DW_TAG_GNU_call_site_parameter;
+      break;
+
+    default:
+      break;
+    }
+  return tag;
+}
+
 static unsigned long int get_base_type_offset (dw_die_ref);
 
 /* Return the size of a location descriptor.  */
@@ -1633,15 +1774,18 @@ size_of_loc_descr (dw_loc_descr_ref loc)
       size += size_of_uleb128 (loc->dw_loc_oprnd1.v.val_unsigned)
 	      + loc->dw_loc_oprnd1.v.val_unsigned;
       break;
+    case DW_OP_implicit_pointer:
     case DW_OP_GNU_implicit_pointer:
       size += DWARF_REF_SIZE + size_of_sleb128 (loc->dw_loc_oprnd2.v.val_int);
       break;
+    case DW_OP_entry_value:
     case DW_OP_GNU_entry_value:
       {
 	unsigned long op_size = size_of_locs (loc->dw_loc_oprnd1.v.val_loc);
 	size += size_of_uleb128 (op_size) + op_size;
 	break;
       }
+    case DW_OP_const_type:
     case DW_OP_GNU_const_type:
       {
 	unsigned long o
@@ -1668,6 +1812,7 @@ size_of_loc_descr (dw_loc_descr_ref loc)
 	  }
 	break;
       }
+    case DW_OP_regval_type:
     case DW_OP_GNU_regval_type:
       {
 	unsigned long o
@@ -1676,6 +1821,7 @@ size_of_loc_descr (dw_loc_descr_ref loc)
 		+ size_of_uleb128 (o);
       }
       break;
+    case DW_OP_deref_type:
     case DW_OP_GNU_deref_type:
       {
 	unsigned long o
@@ -1683,6 +1829,8 @@ size_of_loc_descr (dw_loc_descr_ref loc)
 	size += 1 + size_of_uleb128 (o);
       }
       break;
+    case DW_OP_convert:
+    case DW_OP_reinterpret:
     case DW_OP_GNU_convert:
     case DW_OP_GNU_reinterpret:
       if (loc->dw_loc_oprnd1.val_class == dw_val_class_unsigned_const)
@@ -2043,6 +2191,7 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
       }
       break;
 
+    case DW_OP_implicit_pointer:
     case DW_OP_GNU_implicit_pointer:
       {
 	char label[MAX_ARTIFICIAL_LABEL_BYTES
@@ -2054,11 +2203,13 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
       }
       break;
 
+    case DW_OP_entry_value:
     case DW_OP_GNU_entry_value:
       dw2_asm_output_data_uleb128 (size_of_locs (val1->v.val_loc), NULL);
       output_loc_sequence (val1->v.val_loc, for_eh_or_skip);
       break;
 
+    case DW_OP_const_type:
     case DW_OP_GNU_const_type:
       {
 	unsigned long o = get_base_type_offset (val1->v.val_die_ref.die), l;
@@ -2132,6 +2283,7 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
 	  }
       }
       break;
+    case DW_OP_regval_type:
     case DW_OP_GNU_regval_type:
       {
 	unsigned r = val1->v.val_unsigned;
@@ -2147,6 +2299,7 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
 	dw2_asm_output_data_uleb128 (o, NULL);
       }
       break;
+    case DW_OP_deref_type:
     case DW_OP_GNU_deref_type:
       {
 	unsigned long o = get_base_type_offset (val2->v.val_die_ref.die);
@@ -2155,6 +2308,8 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
 	dw2_asm_output_data_uleb128 (o, NULL);
       }
       break;
+    case DW_OP_convert:
+    case DW_OP_reinterpret:
     case DW_OP_GNU_convert:
     case DW_OP_GNU_reinterpret:
       if (loc->dw_loc_oprnd1.val_class == dw_val_class_unsigned_const)
@@ -2353,6 +2508,13 @@ output_loc_operands_raw (dw_loc_descr_ref loc)
       }
       break;
 
+    case DW_OP_implicit_pointer:
+    case DW_OP_entry_value:
+    case DW_OP_const_type:
+    case DW_OP_regval_type:
+    case DW_OP_deref_type:
+    case DW_OP_convert:
+    case DW_OP_reinterpret:
     case DW_OP_GNU_implicit_pointer:
     case DW_OP_GNU_entry_value:
     case DW_OP_GNU_const_type:
@@ -3006,27 +3168,15 @@ struct dw_loc_list_hasher : ggc_ptr_hash<cached_dw_loc_list>
 /* Table of cached location lists.  */
 static GTY (()) hash_table<dw_loc_list_hasher> *cached_dw_loc_list_table;
 
-/* A pointer to the base of a list of references to DIE's that
-   are uniquely identified by their tag, presence/absence of
-   children DIE's, and list of attribute/value pairs.  */
-static GTY((length ("abbrev_die_table_allocated")))
-  dw_die_ref *abbrev_die_table;
-
-/* Number of elements currently allocated for abbrev_die_table.  */
-static GTY(()) unsigned abbrev_die_table_allocated;
-
-/* Number of elements in abbrev_die_table currently in use.  */
-static GTY(()) unsigned abbrev_die_table_in_use;
+/* A vector of references to DIE's that are uniquely identified by their tag,
+   presence/absence of children DIE's, and list of attribute/value pairs.  */
+static GTY(()) vec<dw_die_ref, va_gc> *abbrev_die_table;
 
 /* A hash map to remember the stack usage for DWARF procedures.  The value
    stored is the stack size difference between before the DWARF procedure
    invokation and after it returned.  In other words, for a DWARF procedure
    that consumes N stack slots and that pushes M ones, this stores M - N.  */
 static hash_map<dw_die_ref, int> *dwarf_proc_stack_usage_map;
-
-/* Size (in elements) of increments by which we may expand the
-   abbrev_die_table.  */
-#define ABBREV_DIE_TABLE_INCREMENT 256
 
 /* A global counter for generating labels for line number data.  */
 static unsigned int line_info_label_num;
@@ -3905,7 +4055,8 @@ add_AT_int (dw_die_ref die, enum dwarf_attribute attr_kind, HOST_WIDE_INT int_va
 static inline HOST_WIDE_INT
 AT_int (dw_attr_node *a)
 {
-  gcc_assert (a && AT_class (a) == dw_val_class_const);
+  gcc_assert (a && (AT_class (a) == dw_val_class_const
+		    || AT_class (a) == dw_val_class_const_implicit));
   return a->dw_attr_val.v.val_int;
 }
 
@@ -3927,7 +4078,8 @@ add_AT_unsigned (dw_die_ref die, enum dwarf_attribute attr_kind,
 static inline unsigned HOST_WIDE_INT
 AT_unsigned (dw_attr_node *a)
 {
-  gcc_assert (a && AT_class (a) == dw_val_class_unsigned_const);
+  gcc_assert (a && (AT_class (a) == dw_val_class_unsigned_const
+		    || AT_class (a) == dw_val_class_unsigned_const_implicit));
   return a->dw_attr_val.v.val_unsigned;
 }
 
@@ -4506,7 +4658,8 @@ add_AT_file (dw_die_ref die, enum dwarf_attribute attr_kind,
 static inline struct dwarf_file_data *
 AT_file (dw_attr_node *a)
 {
-  gcc_assert (a && AT_class (a) == dw_val_class_file);
+  gcc_assert (a && (AT_class (a) == dw_val_class_file
+		    || AT_class (a) == dw_val_class_file_implicit));
   return a->dw_attr_val.v.val_file;
 }
 
@@ -5581,9 +5734,11 @@ print_dw_val (dw_val_node *val, bool recurse, FILE *outfile)
       fprintf (outfile, "range list");
       break;
     case dw_val_class_const:
+    case dw_val_class_const_implicit:
       fprintf (outfile, HOST_WIDE_INT_PRINT_DEC, val->v.val_int);
       break;
     case dw_val_class_unsigned_const:
+    case dw_val_class_unsigned_const_implicit:
       fprintf (outfile, HOST_WIDE_INT_PRINT_UNSIGNED, val->v.val_unsigned);
       break;
     case dw_val_class_const_double:
@@ -5650,6 +5805,7 @@ print_dw_val (dw_val_node *val, bool recurse, FILE *outfile)
 	fprintf (outfile, "<null>");
       break;
     case dw_val_class_file:
+    case dw_val_class_file_implicit:
       fprintf (outfile, "\"%s\" (%d)", val->v.val_file->filename,
 	       val->v.val_file->emitted_number);
       break;
@@ -5912,6 +6068,7 @@ check_die (dw_die_ref die)
 		    && a->dw_attr != DW_AT_high_pc
 		    && a->dw_attr != DW_AT_location
 		    && a->dw_attr != DW_AT_frame_base
+		    && a->dw_attr != DW_AT_call_all_calls
 		    && a->dw_attr != DW_AT_GNU_all_call_sites);
     }
 }
@@ -5979,9 +6136,11 @@ attr_checksum (dw_attr_node *at, struct md5_ctx *ctx, int *mark)
   switch (AT_class (at))
     {
     case dw_val_class_const:
+    case dw_val_class_const_implicit:
       CHECKSUM (at->dw_attr_val.v.val_int);
       break;
     case dw_val_class_unsigned_const:
+    case dw_val_class_unsigned_const_implicit:
       CHECKSUM (at->dw_attr_val.v.val_unsigned);
       break;
     case dw_val_class_const_double:
@@ -6032,6 +6191,7 @@ attr_checksum (dw_attr_node *at, struct md5_ctx *ctx, int *mark)
       break;
 
     case dw_val_class_file:
+    case dw_val_class_file_implicit:
       CHECKSUM_STRING (AT_file (at)->filename);
       break;
 
@@ -6256,11 +6416,13 @@ attr_checksum_ordered (enum dwarf_tag tag, dw_attr_node *at,
   switch (AT_class (at))
     {
     case dw_val_class_const:
+    case dw_val_class_const_implicit:
       CHECKSUM_ULEB128 (DW_FORM_sdata);
       CHECKSUM_SLEB128 (at->dw_attr_val.v.val_int);
       break;
 
     case dw_val_class_unsigned_const:
+    case dw_val_class_unsigned_const_implicit:
       CHECKSUM_ULEB128 (DW_FORM_sdata);
       CHECKSUM_SLEB128 ((int) at->dw_attr_val.v.val_unsigned);
       break;
@@ -6324,6 +6486,7 @@ attr_checksum_ordered (enum dwarf_tag tag, dw_attr_node *at,
       break;
 
     case dw_val_class_file:
+    case dw_val_class_file_implicit:
       CHECKSUM_ULEB128 (DW_FORM_string);
       CHECKSUM_STRING (AT_file (at)->filename);
       break;
@@ -6766,8 +6929,10 @@ same_dw_val_p (const dw_val_node *v1, const dw_val_node *v2, int *mark)
   switch (v1->val_class)
     {
     case dw_val_class_const:
+    case dw_val_class_const_implicit:
       return v1->v.val_int == v2->v.val_int;
     case dw_val_class_unsigned_const:
+    case dw_val_class_unsigned_const_implicit:
       return v1->v.val_unsigned == v2->v.val_unsigned;
     case dw_val_class_const_double:
       return v1->v.val_double.high == v2->v.val_double.high
@@ -6817,6 +6982,7 @@ same_dw_val_p (const dw_val_node *v1, const dw_val_node *v2, int *mark)
       return 1;
 
     case dw_val_class_file:
+    case dw_val_class_file_implicit:
       return v1->v.val_file == v2->v.val_file;
 
     case dw_val_class_data8:
@@ -8252,6 +8418,20 @@ optimize_external_refs (dw_die_ref die)
   return map;
 }
 
+/* The following 3 variables are temporaries that are computed only during the
+   build_abbrev_table call and used and released during the following
+   optimize_abbrev_table call.  */
+
+/* First abbrev_id that can be optimized based on usage.  */
+static unsigned int abbrev_opt_start;
+
+/* Vector of usage counts during build_abbrev_table.  Indexed by
+   abbrev_id - abbrev_opt_start.  */
+static vec<unsigned int> abbrev_usage_count;
+
+/* Vector of all DIEs added with die_abbrev >= abbrev_opt_start.  */
+static vec<dw_die_ref> sorted_abbrev_dies;
+
 /* The format of each DIE (and its attribute value pairs) is encoded in an
    abbreviation table.  This routine builds the abbreviation table and assigns
    a unique abbreviation id for each abbreviation entry.  The children of each
@@ -8260,11 +8440,11 @@ optimize_external_refs (dw_die_ref die)
 static void
 build_abbrev_table (dw_die_ref die, external_ref_hash_type *extern_map)
 {
-  unsigned long abbrev_id;
-  unsigned int n_alloc;
+  unsigned int abbrev_id = 0;
   dw_die_ref c;
   dw_attr_node *a;
   unsigned ix;
+  dw_die_ref abbrev;
 
   /* Scan the DIE references, and replace any that refer to
      DIEs from other CUs (i.e. those which are not marked) with
@@ -8284,13 +8464,14 @@ build_abbrev_table (dw_die_ref die, external_ref_hash_type *extern_map)
 	  set_AT_ref_external (a, 1);
       }
 
-  for (abbrev_id = 1; abbrev_id < abbrev_die_table_in_use; ++abbrev_id)
+  FOR_EACH_VEC_SAFE_ELT (abbrev_die_table, abbrev_id, abbrev)
     {
-      dw_die_ref abbrev = abbrev_die_table[abbrev_id];
       dw_attr_node *die_a, *abbrev_a;
       unsigned ix;
       bool ok = true;
 
+      if (abbrev_id == 0)
+	continue;
       if (abbrev->die_tag != die->die_tag)
 	continue;
       if ((abbrev->die_child != NULL) != (die->die_child != NULL))
@@ -8313,25 +8494,179 @@ build_abbrev_table (dw_die_ref die, external_ref_hash_type *extern_map)
 	break;
     }
 
-  if (abbrev_id >= abbrev_die_table_in_use)
+  if (abbrev_id >= vec_safe_length (abbrev_die_table))
     {
-      if (abbrev_die_table_in_use >= abbrev_die_table_allocated)
-	{
-	  n_alloc = abbrev_die_table_allocated + ABBREV_DIE_TABLE_INCREMENT;
-	  abbrev_die_table = GGC_RESIZEVEC (dw_die_ref, abbrev_die_table,
-					    n_alloc);
-
-	  memset (&abbrev_die_table[abbrev_die_table_allocated], 0,
-		 (n_alloc - abbrev_die_table_allocated) * sizeof (dw_die_ref));
-	  abbrev_die_table_allocated = n_alloc;
-	}
-
-      ++abbrev_die_table_in_use;
-      abbrev_die_table[abbrev_id] = die;
+      vec_safe_push (abbrev_die_table, die);
+      if (abbrev_opt_start)
+	abbrev_usage_count.safe_push (0);
+    }
+  if (abbrev_opt_start && abbrev_id >= abbrev_opt_start)
+    {
+      abbrev_usage_count[abbrev_id - abbrev_opt_start]++;
+      sorted_abbrev_dies.safe_push (die);
     }
 
   die->die_abbrev = abbrev_id;
   FOR_EACH_CHILD (die, c, build_abbrev_table (c, extern_map));
+}
+
+/* Callback function for sorted_abbrev_dies vector sorting.  We sort
+   by die_abbrev's usage count, from the most commonly used
+   abbreviation to the least.  */
+
+static int
+die_abbrev_cmp (const void *p1, const void *p2)
+{
+  dw_die_ref die1 = *(const dw_die_ref *) p1;
+  dw_die_ref die2 = *(const dw_die_ref *) p2;
+
+  gcc_checking_assert (die1->die_abbrev >= abbrev_opt_start);
+  gcc_checking_assert (die2->die_abbrev >= abbrev_opt_start);
+
+  if (abbrev_usage_count[die1->die_abbrev - abbrev_opt_start]
+      > abbrev_usage_count[die2->die_abbrev - abbrev_opt_start])
+    return -1;
+  if (abbrev_usage_count[die1->die_abbrev - abbrev_opt_start]
+      < abbrev_usage_count[die2->die_abbrev - abbrev_opt_start])
+    return 1;
+
+  /* Stabilize the sort.  */
+  if (die1->die_abbrev < die2->die_abbrev)
+    return -1;
+  if (die1->die_abbrev > die2->die_abbrev)
+    return 1;
+
+  return 0;
+}
+
+/* Convert dw_val_class_const and dw_val_class_unsigned_const class attributes
+   of DIEs in between sorted_abbrev_dies[first_id] and abbrev_dies[end_id - 1]
+   into dw_val_class_const_implicit or
+   dw_val_class_unsigned_const_implicit.  */
+
+static void
+optimize_implicit_const (unsigned int first_id, unsigned int end,
+			 vec<bool> &implicit_consts)
+{
+  /* It never makes sense if there is just one DIE using the abbreviation.  */
+  if (end < first_id + 2)
+    return;
+
+  dw_attr_node *a;
+  unsigned ix, i;
+  dw_die_ref die = sorted_abbrev_dies[first_id];
+  FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
+    if (implicit_consts[ix])
+      {
+	enum dw_val_class new_class = dw_val_class_none;
+	switch (AT_class (a))
+	  {
+	  case dw_val_class_unsigned_const:
+	    if ((HOST_WIDE_INT) AT_unsigned (a) < 0)
+	      continue;
+
+	    /* The .debug_abbrev section will grow by
+	       size_of_sleb128 (AT_unsigned (a)) and we avoid the constants
+	       in all the DIEs using that abbreviation.  */
+	    if (constant_size (AT_unsigned (a)) * (end - first_id)
+		<= (unsigned) size_of_sleb128 (AT_unsigned (a)))
+	      continue;
+
+	    new_class = dw_val_class_unsigned_const_implicit;
+	    break;
+
+	  case dw_val_class_const:
+	    new_class = dw_val_class_const_implicit;
+	    break;
+
+	  case dw_val_class_file:
+	    new_class = dw_val_class_file_implicit;
+	    break;
+
+	  default:
+	    continue;
+	  }
+	for (i = first_id; i < end; i++)
+	  (*sorted_abbrev_dies[i]->die_attr)[ix].dw_attr_val.val_class
+	    = new_class;
+      }
+}
+
+/* Attempt to optimize abbreviation table from abbrev_opt_start
+   abbreviation above.  */
+
+static void
+optimize_abbrev_table (void)
+{
+  if (abbrev_opt_start
+      && vec_safe_length (abbrev_die_table) > abbrev_opt_start
+      && (dwarf_version >= 5 || vec_safe_length (abbrev_die_table) > 127))
+    {
+      auto_vec<bool, 32> implicit_consts;
+      sorted_abbrev_dies.qsort (die_abbrev_cmp);
+
+      unsigned int abbrev_id = abbrev_opt_start - 1;
+      unsigned int first_id = 0;
+      unsigned int last_abbrev_id = 0;
+      unsigned int i;
+      dw_die_ref die;
+      /* Reassign abbreviation ids from abbrev_opt_start above, so that
+	 most commonly used abbreviations come first.  */
+      FOR_EACH_VEC_ELT (sorted_abbrev_dies, i, die)
+	{
+	  dw_attr_node *a;
+	  unsigned ix;
+
+	  if (die->die_abbrev != last_abbrev_id)
+	    {
+	      last_abbrev_id = die->die_abbrev;
+	      if (dwarf_version >= 5 && i)
+		optimize_implicit_const (first_id, i, implicit_consts);
+	      abbrev_id++;
+	      (*abbrev_die_table)[abbrev_id] = die;
+	      if (dwarf_version >= 5)
+		{
+		  first_id = i;
+		  implicit_consts.truncate (0);
+
+		  FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
+		    switch (AT_class (a))
+		      {
+		      case dw_val_class_const:
+		      case dw_val_class_unsigned_const:
+		      case dw_val_class_file:
+			implicit_consts.safe_push (true);
+			break;
+		      default:
+			implicit_consts.safe_push (false);
+			break;
+		      }
+		}
+	    }
+	  else if (dwarf_version >= 5)
+	    {
+	      FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
+		if (!implicit_consts[ix])
+		  continue;
+		else
+		  {
+		    dw_attr_node *other_a
+		      = &(*(*abbrev_die_table)[abbrev_id]->die_attr)[ix];
+		    if (!dw_val_equal_p (&a->dw_attr_val,
+					 &other_a->dw_attr_val))
+		      implicit_consts[ix] = false;
+		  }
+	    }
+	  die->die_abbrev = abbrev_id;
+	}
+      gcc_assert (abbrev_id == vec_safe_length (abbrev_die_table) - 1);
+      if (dwarf_version >= 5)
+	optimize_implicit_const (first_id, i, implicit_consts);
+    }
+
+  abbrev_opt_start = 0;
+  abbrev_usage_count.release ();
+  sorted_abbrev_dies.release ();
 }
 
 /* Return the power-of-two number of bytes necessary to represent VALUE.  */
@@ -8418,16 +8753,22 @@ size_of_die (dw_die_ref die)
 	      size += csize;
 	  }
 	  break;
+	case dw_val_class_const_implicit:
+	case dw_val_class_unsigned_const_implicit:
+	case dw_val_class_file_implicit:
+	  /* These occupy no size in the DIE, just an extra sleb128 in
+	     .debug_abbrev.  */
+	  break;
 	case dw_val_class_const_double:
 	  size += HOST_BITS_PER_DOUBLE_INT / HOST_BITS_PER_CHAR;
-	  if (HOST_BITS_PER_WIDE_INT >= 64)
+	  if (HOST_BITS_PER_WIDE_INT >= DWARF_LARGEST_DATA_FORM_BITS)
 	    size++; /* block */
 	  break;
 	case dw_val_class_wide_int:
 	  size += (get_full_len (*a->dw_attr_val.v.val_wide)
 		   * HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR);
-	  if (get_full_len (*a->dw_attr_val.v.val_wide) * HOST_BITS_PER_WIDE_INT
-	      > 64)
+	  if (get_full_len (*a->dw_attr_val.v.val_wide)
+	      * HOST_BITS_PER_WIDE_INT > DWARF_LARGEST_DATA_FORM_BITS)
 	    size++; /* block */
 	  break;
 	case dw_val_class_vec:
@@ -8798,6 +9139,10 @@ value_format (dw_attr_node *a)
 	default:
 	  gcc_unreachable ();
 	}
+    case dw_val_class_const_implicit:
+    case dw_val_class_unsigned_const_implicit:
+    case dw_val_class_file_implicit:
+      return DW_FORM_implicit_const;
     case dw_val_class_const_double:
       switch (HOST_BITS_PER_WIDE_INT)
 	{
@@ -8808,6 +9153,9 @@ value_format (dw_attr_node *a)
 	case 32:
 	  return DW_FORM_data8;
 	case 64:
+	  if (dwarf_version >= 5)
+	    return DW_FORM_data16;
+	  /* FALLTHRU */
 	default:
 	  return DW_FORM_block1;
 	}
@@ -8822,6 +9170,10 @@ value_format (dw_attr_node *a)
 	  return DW_FORM_data4;
 	case 64:
 	  return DW_FORM_data8;
+	case 128:
+	  if (dwarf_version >= 5)
+	    return DW_FORM_data16;
+	  /* FALLTHRU */
 	default:
 	  return DW_FORM_block1;
 	}
@@ -8951,6 +9303,17 @@ output_die_abbrevs (unsigned long abbrev_id, dw_die_ref abbrev)
       dw2_asm_output_data_uleb128 (a_attr->dw_attr, "(%s)",
                                    dwarf_attr_name (a_attr->dw_attr));
       output_value_format (a_attr);
+      if (value_format (a_attr) == DW_FORM_implicit_const)
+	{
+	  if (AT_class (a_attr) == dw_val_class_file_implicit)
+	    {
+	      int f = maybe_emit_file (a_attr->dw_attr_val.v.val_file);
+	      const char *filename = a_attr->dw_attr_val.v.val_file->filename;
+	      dw2_asm_output_data_sleb128 (f, "(%s)", filename);
+	    }
+	  else
+	    dw2_asm_output_data_sleb128 (a_attr->dw_attr_val.v.val_int, NULL);
+	}
     }
 
   dw2_asm_output_data (1, 0, NULL);
@@ -8964,10 +9327,12 @@ output_die_abbrevs (unsigned long abbrev_id, dw_die_ref abbrev)
 static void
 output_abbrev_section (void)
 {
-  unsigned long abbrev_id;
+  unsigned int abbrev_id;
+  dw_die_ref abbrev;
 
-  for (abbrev_id = 1; abbrev_id < abbrev_die_table_in_use; ++abbrev_id)
-    output_die_abbrevs (abbrev_id, abbrev_die_table[abbrev_id]);
+  FOR_EACH_VEC_SAFE_ELT (abbrev_die_table, abbrev_id, abbrev)
+    if (abbrev_id != 0)
+      output_die_abbrevs (abbrev_id, abbrev);
 
   /* Terminate the table.  */
   dw2_asm_output_data (1, 0, NULL);
@@ -9264,11 +9629,25 @@ output_die (dw_die_ref die)
 	  }
 	  break;
 
+	case dw_val_class_const_implicit:
+	  if (flag_debug_asm)
+	    fprintf (asm_out_file, "\t\t\t%s %s ("
+				   HOST_WIDE_INT_PRINT_DEC ")\n",
+		     ASM_COMMENT_START, name, AT_int (a));
+	  break;
+
+	case dw_val_class_unsigned_const_implicit:
+	  if (flag_debug_asm)
+	    fprintf (asm_out_file, "\t\t\t%s %s ("
+				   HOST_WIDE_INT_PRINT_HEX ")\n",
+		     ASM_COMMENT_START, name, AT_unsigned (a));
+	  break;
+
 	case dw_val_class_const_double:
 	  {
 	    unsigned HOST_WIDE_INT first, second;
 
-	    if (HOST_BITS_PER_WIDE_INT >= 64)
+	    if (HOST_BITS_PER_WIDE_INT >= DWARF_LARGEST_DATA_FORM_BITS)
 	      dw2_asm_output_data (1,
 				   HOST_BITS_PER_DOUBLE_INT
 				   / HOST_BITS_PER_CHAR,
@@ -9297,9 +9676,9 @@ output_die (dw_die_ref die)
 	    int i;
 	    int len = get_full_len (*a->dw_attr_val.v.val_wide);
 	    int l = HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR;
-	    if (len * HOST_BITS_PER_WIDE_INT > 64)
-	      dw2_asm_output_data (1, get_full_len (*a->dw_attr_val.v.val_wide) * l,
-				   NULL);
+	    if (len * HOST_BITS_PER_WIDE_INT > DWARF_LARGEST_DATA_FORM_BITS)
+	      dw2_asm_output_data (1, get_full_len (*a->dw_attr_val.v.val_wide)
+				      * l, NULL);
 
 	    if (WORDS_BIG_ENDIAN)
 	      for (i = len - 1; i >= 0; --i)
@@ -9457,6 +9836,14 @@ output_die (dw_die_ref die)
 	    break;
 	  }
 
+	case dw_val_class_file_implicit:
+	  if (flag_debug_asm)
+	    fprintf (asm_out_file, "\t\t\t%s %s (%d, %s)\n",
+		     ASM_COMMENT_START, name,
+		     maybe_emit_file (a->dw_attr_val.v.val_file),
+		     a->dw_attr_val.v.val_file->filename);
+	  break;
+
 	case dw_val_class_data8:
 	  {
 	    int i;
@@ -9564,7 +9951,15 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
 
   external_ref_hash_type *extern_map = optimize_external_refs (die);
 
+  /* For now, optimize only the main CU, in order to optimize the rest
+     we'd need to see all of them earlier.  Leave the rest for post-linking
+     tools like DWZ.  */
+  if (die == comp_unit_die ())
+    abbrev_opt_start = vec_safe_length (abbrev_die_table);
+
   build_abbrev_table (die, extern_map);
+
+  optimize_abbrev_table ();
 
   delete extern_map;
 
@@ -12587,13 +12982,13 @@ convert_descriptor_to_mode (machine_mode mode, dw_loc_descr_ref op)
 
   if (GET_MODE_SIZE (mode) <= DWARF2_ADDR_SIZE)
     {
-      add_loc_descr (&op, new_loc_descr (DW_OP_GNU_convert, 0, 0));
+      add_loc_descr (&op, new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0));
       return op;
     }
   type_die = base_type_for_mode (outer_mode, 1);
   if (type_die == NULL)
     return NULL;
-  cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+  cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
   cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
   cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
   cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -12634,6 +13029,7 @@ scompare_loc_descriptor (enum dwarf_location_atom op, rtx rtl,
     return NULL;
 
   if (dwarf_strict
+      && dwarf_version < 5
       && (!SCALAR_INT_MODE_P (op_mode)
 	  || GET_MODE_SIZE (op_mode) > DWARF2_ADDR_SIZE))
     return NULL;
@@ -12657,12 +13053,12 @@ scompare_loc_descriptor (enum dwarf_location_atom op, rtx rtl,
 
       if (type_die == NULL)
 	return NULL;
-      cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+      cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
       cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
       cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
       cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
       add_loc_descr (&op0, cvt);
-      cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+      cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
       cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
       cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
       cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -12744,7 +13140,9 @@ ucompare_loc_descriptor (enum dwarf_location_atom op, rtx rtl,
   if (!SCALAR_INT_MODE_P (op_mode))
     return NULL;
 
-  if (dwarf_strict && GET_MODE_SIZE (op_mode) > DWARF2_ADDR_SIZE)
+  if (dwarf_strict
+      && dwarf_version < 5
+      && GET_MODE_SIZE (op_mode) > DWARF2_ADDR_SIZE)
     return NULL;
 
   op0 = mem_loc_descriptor (XEXP (rtl, 0), op_mode, mem_mode,
@@ -12808,6 +13206,7 @@ minmax_loc_descriptor (rtx rtl, machine_mode mode,
   dw_loc_descr_ref bra_node, drop_node;
 
   if (dwarf_strict
+      && dwarf_version < 5
       && (!SCALAR_INT_MODE_P (mode)
 	  || GET_MODE_SIZE (mode) > DWARF2_ADDR_SIZE))
     return NULL;
@@ -12857,12 +13256,12 @@ minmax_loc_descriptor (rtx rtl, machine_mode mode,
       dw_loc_descr_ref cvt;
       if (type_die == NULL)
 	return NULL;
-      cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+      cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
       cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
       cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
       cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
       add_loc_descr (&op0, cvt);
-      cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+      cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
       cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
       cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
       cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -12908,12 +13307,12 @@ typed_binop (enum dwarf_location_atom op, rtx rtl, dw_die_ref type_die,
 			    VAR_INIT_STATUS_INITIALIZED);
   if (op0 == NULL || op1 == NULL)
     return NULL;
-  cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+  cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
   cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
   cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
   cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
   add_loc_descr (&op0, cvt);
-  cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+  cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
   cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
   cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
   cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -13381,7 +13780,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 					       mem_mode, initialized);
 	  break;
 	}
-      if (dwarf_strict)
+      if (dwarf_strict && dwarf_version < 5)
 	break;
       if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (inner)))
 	break;
@@ -13407,9 +13806,9 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	    }
 	  if (GET_MODE_SIZE (mode)
 	      != GET_MODE_SIZE (GET_MODE (inner)))
-	    cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+	    cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
 	  else
-	    cvt = new_loc_descr (DW_OP_GNU_reinterpret, 0, 0);
+	    cvt = new_loc_descr (dwarf_OP (DW_OP_reinterpret), 0, 0);
 	  cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -13418,7 +13817,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	      && GET_MODE_SIZE (mode) <= DWARF2_ADDR_SIZE)
 	    {
 	      /* Convert it to untyped afterwards.  */
-	      cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+	      cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
 	      add_loc_descr (&mem_loc_result, cvt);
 	    }
 	}
@@ -13437,7 +13836,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  dw_die_ref type_die;
 	  unsigned int dbx_regnum;
 
-	  if (dwarf_strict)
+	  if (dwarf_strict && dwarf_version < 5)
 	    break;
 	  if (REGNO (rtl) > FIRST_PSEUDO_REGISTER)
 	    break;
@@ -13448,7 +13847,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  dbx_regnum = dbx_reg_number (rtl);
 	  if (dbx_regnum == IGNORED_DWARF_REGNUM)
 	    break;
-          mem_loc_result = new_loc_descr (DW_OP_GNU_regval_type,
+	  mem_loc_result = new_loc_descr (dwarf_OP (DW_OP_regval_type),
 					  dbx_regnum, 0);
 	  mem_loc_result->dw_loc_oprnd2.val_class = dw_val_class_die_ref;
 	  mem_loc_result->dw_loc_oprnd2.v.val_die_ref.die = type_die;
@@ -13520,7 +13919,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  add_loc_descr (&mem_loc_result, int_loc_descriptor (shift));
 	  add_loc_descr (&mem_loc_result, new_loc_descr (op, 0, 0));
 	}
-      else if (!dwarf_strict)
+      else if (!dwarf_strict || dwarf_version >= 5)
 	{
 	  dw_die_ref type_die1, type_die2;
 	  dw_loc_descr_ref cvt;
@@ -13533,12 +13932,12 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  if (type_die2 == NULL)
 	    break;
 	  mem_loc_result = op0;
-	  cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+	  cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
 	  cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die1;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
 	  add_loc_descr (&mem_loc_result, cvt);
-	  cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+	  cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
 	  cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die2;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -13570,13 +13969,13 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	      dw_die_ref type_die;
 	      dw_loc_descr_ref deref;
 
-	      if (dwarf_strict)
+	      if (dwarf_strict && dwarf_version < 5)
 		return NULL;
 	      type_die
 		= base_type_for_mode (mode, SCALAR_INT_MODE_P (mode));
 	      if (type_die == NULL)
 		return NULL;
-	      deref = new_loc_descr (DW_OP_GNU_deref_type,
+	      deref = new_loc_descr (dwarf_OP (DW_OP_deref_type),
 				     GET_MODE_SIZE (mode), 0);
 	      deref->dw_loc_oprnd2.val_class = dw_val_class_die_ref;
 	      deref->dw_loc_oprnd2.v.val_die_ref.die = type_die;
@@ -13647,7 +14046,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       return 0;
 
     case ENTRY_VALUE:
-      if (dwarf_strict)
+      if (dwarf_strict && dwarf_version < 5)
 	return NULL;
       if (REG_P (ENTRY_VALUE_EXP (rtl)))
 	{
@@ -13676,7 +14075,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	gcc_unreachable ();
       if (op0 == NULL)
 	return NULL;
-      mem_loc_result = new_loc_descr (DW_OP_GNU_entry_value, 0, 0);
+      mem_loc_result = new_loc_descr (dwarf_OP (DW_OP_entry_value), 0, 0);
       mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_loc;
       mem_loc_result->dw_loc_oprnd1.v.val_loc = op0;
       break;
@@ -13747,7 +14146,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       goto do_binop;
 
     case DIV:
-      if (!dwarf_strict
+      if ((!dwarf_strict || dwarf_version >= 5)
 	  && SCALAR_INT_MODE_P (mode)
 	  && GET_MODE_SIZE (mode) > DWARF2_ADDR_SIZE)
 	{
@@ -13825,7 +14224,8 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       break;
 
     case MOD:
-      if (GET_MODE_SIZE (mode) > DWARF2_ADDR_SIZE && !dwarf_strict)
+      if (GET_MODE_SIZE (mode) > DWARF2_ADDR_SIZE
+	  && (!dwarf_strict || dwarf_version >= 5))
 	{
 	  mem_loc_result = typed_binop (DW_OP_mod, rtl,
 					base_type_for_mode (mode, 0),
@@ -13851,7 +14251,8 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       break;
 
     case UDIV:
-      if (!dwarf_strict && SCALAR_INT_MODE_P (mode))
+      if ((!dwarf_strict || dwarf_version >= 5)
+	  && SCALAR_INT_MODE_P (mode))
 	{
 	  if (GET_MODE_CLASS (mode) > DWARF2_ADDR_SIZE)
 	    {
@@ -13899,7 +14300,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  mem_loc_result = int_loc_descriptor (INTVAL (rtl));
 	  break;
 	}
-      if (!dwarf_strict
+      if ((!dwarf_strict || dwarf_version >= 5)
 	  && (GET_MODE_BITSIZE (mode) == HOST_BITS_PER_WIDE_INT
 	      || GET_MODE_BITSIZE (mode) == HOST_BITS_PER_DOUBLE_INT))
 	{
@@ -13912,20 +14313,20 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  if (INTVAL (rtl) >= 0
 	      && amode != BLKmode
 	      && trunc_int_for_mode (INTVAL (rtl), amode) == INTVAL (rtl)
-	      /* const DW_OP_GNU_convert <XXX> vs.
-		 DW_OP_GNU_const_type <XXX, 1, const>.  */
+	      /* const DW_OP_convert <XXX> vs.
+		 DW_OP_const_type <XXX, 1, const>.  */
 	      && size_of_int_loc_descriptor (INTVAL (rtl)) + 1 + 1
 		 < (unsigned long) 1 + 1 + 1 + GET_MODE_SIZE (mode))
 	    {
 	      mem_loc_result = int_loc_descriptor (INTVAL (rtl));
-	      op0 = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+	      op0 = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
 	      op0->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	      op0->dw_loc_oprnd1.v.val_die_ref.die = type_die;
 	      op0->dw_loc_oprnd1.v.val_die_ref.external = 0;
 	      add_loc_descr (&mem_loc_result, op0);
 	      return mem_loc_result;
 	    }
-	  mem_loc_result = new_loc_descr (DW_OP_GNU_const_type, 0,
+	  mem_loc_result = new_loc_descr (dwarf_OP (DW_OP_const_type), 0,
 					  INTVAL (rtl));
 	  mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	  mem_loc_result->dw_loc_oprnd1.v.val_die_ref.die = type_die;
@@ -13943,7 +14344,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       break;
 
     case CONST_DOUBLE:
-      if (!dwarf_strict)
+      if (!dwarf_strict || dwarf_version >= 5)
 	{
 	  dw_die_ref type_die;
 
@@ -13962,7 +14363,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  type_die = base_type_for_mode (mode, SCALAR_INT_MODE_P (mode));
 	  if (type_die == NULL)
 	    return NULL;
-	  mem_loc_result = new_loc_descr (DW_OP_GNU_const_type, 0, 0);
+	  mem_loc_result = new_loc_descr (dwarf_OP (DW_OP_const_type), 0, 0);
 	  mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	  mem_loc_result->dw_loc_oprnd1.v.val_die_ref.die = type_die;
 	  mem_loc_result->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -13990,14 +14391,14 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       break;
 
     case CONST_WIDE_INT:
-      if (!dwarf_strict)
+      if (!dwarf_strict || dwarf_version >= 5)
 	{
 	  dw_die_ref type_die;
 
 	  type_die = base_type_for_mode (mode, SCALAR_INT_MODE_P (mode));
 	  if (type_die == NULL)
 	    return NULL;
-	  mem_loc_result = new_loc_descr (DW_OP_GNU_const_type, 0, 0);
+	  mem_loc_result = new_loc_descr (dwarf_OP (DW_OP_const_type), 0, 0);
 	  mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	  mem_loc_result->dw_loc_oprnd1.v.val_die_ref.die = type_die;
 	  mem_loc_result->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -14133,7 +14534,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
     case UNSIGNED_FLOAT:
     case FIX:
     case UNSIGNED_FIX:
-      if (!dwarf_strict)
+      if (!dwarf_strict || dwarf_version >= 5)
 	{
 	  dw_die_ref type_die;
 	  dw_loc_descr_ref cvt;
@@ -14151,7 +14552,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 					     GET_CODE (rtl) == UNSIGNED_FLOAT);
 	      if (type_die == NULL)
 		break;
-	      cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+	      cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
 	      cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	      cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
 	      cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -14160,7 +14561,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  type_die = base_type_for_mode (mode, GET_CODE (rtl) == UNSIGNED_FIX);
 	  if (type_die == NULL)
 	    break;
-	  cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
+	  cvt = new_loc_descr (dwarf_OP (DW_OP_convert), 0, 0);
 	  cvt->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.die = type_die;
 	  cvt->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -14322,7 +14723,7 @@ concatn_loc_descriptor (rtx concatn, enum var_init_status initialized)
   return cc_loc_result;
 }
 
-/* Helper function for loc_descriptor.  Return DW_OP_GNU_implicit_pointer
+/* Helper function for loc_descriptor.  Return DW_OP_implicit_pointer
    for DEBUG_IMPLICIT_PTR RTL.  */
 
 static dw_loc_descr_ref
@@ -14331,13 +14732,13 @@ implicit_ptr_descriptor (rtx rtl, HOST_WIDE_INT offset)
   dw_loc_descr_ref ret;
   dw_die_ref ref;
 
-  if (dwarf_strict)
+  if (dwarf_strict && dwarf_version < 5)
     return NULL;
   gcc_assert (TREE_CODE (DEBUG_IMPLICIT_PTR_DECL (rtl)) == VAR_DECL
 	      || TREE_CODE (DEBUG_IMPLICIT_PTR_DECL (rtl)) == PARM_DECL
 	      || TREE_CODE (DEBUG_IMPLICIT_PTR_DECL (rtl)) == RESULT_DECL);
   ref = lookup_decl_die (DEBUG_IMPLICIT_PTR_DECL (rtl));
-  ret = new_loc_descr (DW_OP_GNU_implicit_pointer, 0, offset);
+  ret = new_loc_descr (dwarf_OP (DW_OP_implicit_pointer), 0, offset);
   ret->dw_loc_oprnd2.val_class = dw_val_class_const;
   if (ref)
     {
@@ -15595,6 +15996,13 @@ resolve_args_picking_1 (dw_loc_descr_ref loc, unsigned initial_frame_offset,
 	    break;
 	  }
 
+	case DW_OP_implicit_pointer:
+	case DW_OP_entry_value:
+	case DW_OP_const_type:
+	case DW_OP_regval_type:
+	case DW_OP_deref_type:
+	case DW_OP_convert:
+	case DW_OP_reinterpret:
 	case DW_OP_GNU_push_tls_address:
 	case DW_OP_GNU_uninit:
 	case DW_OP_GNU_encoded_addr:
@@ -20325,7 +20733,7 @@ premark_types_used_by_global_vars (void)
       ->traverse<void *, premark_types_used_by_global_vars_helper> (NULL);
 }
 
-/* Generate a DW_TAG_GNU_call_site DIE in function DECL under SUBR_DIE
+/* Generate a DW_TAG_call_site DIE in function DECL under SUBR_DIE
    for CA_LOC call arg loc node.  */
 
 static dw_die_ref
@@ -20346,17 +20754,18 @@ gen_call_site_die (tree decl, dw_die_ref subr_die,
     }
   if (stmt_die == NULL)
     stmt_die = subr_die;
-  die = new_die (DW_TAG_GNU_call_site, stmt_die, NULL_TREE);
-  add_AT_lbl_id (die, DW_AT_low_pc, ca_loc->label);
+  die = new_die (dwarf_TAG (DW_TAG_call_site), stmt_die, NULL_TREE);
+  add_AT_lbl_id (die, dwarf_AT (DW_AT_call_return_pc), ca_loc->label);
   if (ca_loc->tail_call_p)
-    add_AT_flag (die, DW_AT_GNU_tail_call, 1);
+    add_AT_flag (die, dwarf_AT (DW_AT_call_tail_call), 1);
   if (ca_loc->symbol_ref)
     {
       dw_die_ref tdie = lookup_decl_die (SYMBOL_REF_DECL (ca_loc->symbol_ref));
       if (tdie)
-	add_AT_die_ref (die, DW_AT_abstract_origin, tdie);
+	add_AT_die_ref (die, dwarf_AT (DW_AT_call_origin), tdie);
       else
-        add_AT_addr (die, DW_AT_abstract_origin, ca_loc->symbol_ref, false);
+	add_AT_addr (die, dwarf_AT (DW_AT_call_origin), ca_loc->symbol_ref,
+		     false);
     }
   return die;
 }
@@ -20653,7 +21062,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    add_AT_flag (subr_die, DW_AT_deleted, 1);
 
 	  /* If this is a C++11 defaulted special function member then
-	     generate a DW_AT_GNU_defaulted attribute.  */
+	     generate a DW_AT_defaulted attribute.  */
 	  if (dwarf_version >= 5 || !dwarf_strict)
 	    {
 	      int defaulted
@@ -21022,7 +21431,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	 location info.  */
       decls_for_scope (outer_scope, subr_die);
 
-      if (call_arg_locations && !dwarf_strict)
+      if (call_arg_locations && (!dwarf_strict || dwarf_version >= 5))
 	{
 	  struct call_arg_loc_node *ca_loc;
 	  for (ca_loc = call_arg_locations; ca_loc; ca_loc = ca_loc->next)
@@ -21058,7 +21467,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		    continue;
 		  /* Get dynamic information about call target only if we
 		     have no static information: we cannot generate both
-		     DW_AT_abstract_origin and DW_AT_GNU_call_site_target
+		     DW_AT_call_origin and DW_AT_call_target
 		     attributes.  */
 		  if (ca_loc->symbol_ref == NULL_RTX)
 		    {
@@ -21108,13 +21517,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		    continue;
 		  if (die == NULL)
 		    die = gen_call_site_die (decl, subr_die, ca_loc);
-		  cdie = new_die (DW_TAG_GNU_call_site_parameter, die,
+		  cdie = new_die (dwarf_TAG (DW_TAG_call_site_parameter), die,
 				  NULL_TREE);
 		  if (reg != NULL)
 		    add_AT_loc (cdie, DW_AT_location, reg);
 		  else if (tdie != NULL)
-		    add_AT_die_ref (cdie, DW_AT_abstract_origin, tdie);
-		  add_AT_loc (cdie, DW_AT_GNU_call_site_value, val);
+		    add_AT_die_ref (cdie, dwarf_AT (DW_AT_call_parameter),
+				    tdie);
+		  add_AT_loc (cdie, dwarf_AT (DW_AT_call_value), val);
 		  if (next_arg != XEXP (arg, 1))
 		    {
 		      mode = GET_MODE (XEXP (XEXP (XEXP (arg, 1), 0), 1));
@@ -21125,7 +21535,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 						mode, VOIDmode,
 						VAR_INIT_STATUS_INITIALIZED);
 		      if (val != NULL)
-			add_AT_loc (cdie, DW_AT_GNU_call_site_data_value, val);
+			add_AT_loc (cdie, dwarf_AT (DW_AT_call_data_value),
+				    val);
 		    }
 		}
 	      if (die == NULL
@@ -21142,7 +21553,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 					       VOIDmode,
 					       VAR_INIT_STATUS_INITIALIZED);
 		  if (tval)
-		    add_AT_loc (die, DW_AT_GNU_call_site_target, tval);
+		    add_AT_loc (die, dwarf_AT (DW_AT_call_target), tval);
 		  else if (tlocc != NULL_RTX)
 		    {
 		      tval = mem_loc_descriptor (tlocc,
@@ -21151,7 +21562,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 						 VOIDmode,
 						 VAR_INIT_STATUS_INITIALIZED);
 		      if (tval)
-			add_AT_loc (die, DW_AT_GNU_call_site_target_clobbered,
+			add_AT_loc (die,
+				    dwarf_AT (DW_AT_call_target_clobbered),
 				    tval);
 		    }
 		}
@@ -21167,13 +21579,13 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       call_arg_loc_last = NULL;
       if (tail_call_site_count >= 0
 	  && tail_call_site_count == tail_call_site_note_count
-	  && !dwarf_strict)
+	  && (!dwarf_strict || dwarf_version >= 5))
 	{
 	  if (call_site_count >= 0
 	      && call_site_count == call_site_note_count)
-	    add_AT_flag (subr_die, DW_AT_GNU_all_call_sites, 1);
+	    add_AT_flag (subr_die, dwarf_AT (DW_AT_call_all_calls), 1);
 	  else
-	    add_AT_flag (subr_die, DW_AT_GNU_all_tail_call_sites, 1);
+	    add_AT_flag (subr_die, dwarf_AT (DW_AT_call_all_tail_calls), 1);
 	}
       call_site_count = -1;
       tail_call_site_count = -1;
@@ -25165,7 +25577,7 @@ dwarf2out_define (unsigned int lineno ATTRIBUTE_UNUSED,
     {
       macinfo_entry e;
       /* Insert a dummy first entry to be able to optimize the whole
-	 predefined macro block using DW_MACRO_GNU_transparent_include.  */
+	 predefined macro block using DW_MACRO_import.  */
       if (macinfo_table->is_empty () && lineno <= 1)
 	{
 	  e.code = 0;
@@ -25192,7 +25604,7 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
     {
       macinfo_entry e;
       /* Insert a dummy first entry to be able to optimize the whole
-	 predefined macro block using DW_MACRO_GNU_transparent_include.  */
+	 predefined macro block using DW_MACRO_import.  */
       if (macinfo_table->is_empty () && lineno <= 1)
 	{
 	  e.code = 0;
@@ -25264,8 +25676,7 @@ output_macinfo_op (macinfo_entry *ref)
 	  && (debug_str_section->common.flags & SECTION_MERGE) != 0)
 	{
 	  ref->code = ref->code == DW_MACINFO_define
-		      ? DW_MACRO_GNU_define_indirect
-		      : DW_MACRO_GNU_undef_indirect;
+		      ? DW_MACRO_define_strp : DW_MACRO_undef_strp;
 	  output_macinfo_op (ref);
 	  return;
 	}
@@ -25276,16 +25687,16 @@ output_macinfo_op (macinfo_entry *ref)
 				   (unsigned long) ref->lineno);
       dw2_asm_output_nstring (ref->info, -1, "The macro");
       break;
-    case DW_MACRO_GNU_define_indirect:
-    case DW_MACRO_GNU_undef_indirect:
+    case DW_MACRO_define_strp:
+    case DW_MACRO_undef_strp:
       node = find_AT_string (ref->info);
       gcc_assert (node
-                  && ((node->form == DW_FORM_strp)
-                      || (node->form == DW_FORM_GNU_str_index)));
+		  && (node->form == DW_FORM_strp
+		      || node->form == DW_FORM_GNU_str_index));
       dw2_asm_output_data (1, ref->code,
-			   ref->code == DW_MACRO_GNU_define_indirect
-			   ? "Define macro indirect"
-			   : "Undefine macro indirect");
+			   ref->code == DW_MACRO_define_strp
+			   ? "Define macro strp"
+			   : "Undefine macro strp");
       dw2_asm_output_data_uleb128 (ref->lineno, "At line number %lu",
 				   (unsigned long) ref->lineno);
       if (node->form == DW_FORM_strp)
@@ -25296,8 +25707,8 @@ output_macinfo_op (macinfo_entry *ref)
         dw2_asm_output_data_uleb128 (node->index, "The macro: \"%s\"",
                                      ref->info);
       break;
-    case DW_MACRO_GNU_transparent_include:
-      dw2_asm_output_data (1, ref->code, "Transparent include");
+    case DW_MACRO_import:
+      dw2_asm_output_data (1, ref->code, "Import");
       ASM_GENERATE_INTERNAL_LABEL (label,
 				   DEBUG_MACRO_SECTION_LABEL, ref->lineno);
       dw2_asm_output_offset (DWARF_OFFSET_SIZE, label, NULL, NULL);
@@ -25313,7 +25724,7 @@ output_macinfo_op (macinfo_entry *ref)
    other compilation unit .debug_macinfo sections.  IDX is the first
    index of a define/undef, return the number of ops that should be
    emitted in a comdat .debug_macinfo section and emit
-   a DW_MACRO_GNU_transparent_include entry referencing it.
+   a DW_MACRO_import entry referencing it.
    If the define/undef entry should be emitted normally, return 0.  */
 
 static unsigned
@@ -25399,10 +25810,10 @@ optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
   for (i = 0; i < 16; i++)
     sprintf (tail + i * 2, "%02x", checksum[i] & 0xff);
 
-  /* Construct a macinfo_entry for DW_MACRO_GNU_transparent_include
+  /* Construct a macinfo_entry for DW_MACRO_import
      in the empty vector entry before the first define/undef.  */
   inc = &(*macinfo_table)[idx - 1];
-  inc->code = DW_MACRO_GNU_transparent_include;
+  inc->code = DW_MACRO_import;
   inc->lineno = 0;
   inc->info = ggc_strdup (grp_name);
   if (!*macinfo_htab)
@@ -25414,7 +25825,7 @@ optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
       inc->code = 0;
       inc->info = NULL;
       /* If such an entry has been used before, just emit
-	 a DW_MACRO_GNU_transparent_include op.  */
+	 a DW_MACRO_import op.  */
       inc = *slot;
       output_macinfo_op (inc);
       /* And clear all macinfo_entry in the range to avoid emitting them
@@ -25460,8 +25871,8 @@ save_macinfo_strings (void)
                 && (debug_str_section->common.flags & SECTION_MERGE) != 0)
               set_indirect_string (find_AT_string (ref->info));
             break;
-          case DW_MACRO_GNU_define_indirect:
-          case DW_MACRO_GNU_undef_indirect:
+	  case DW_MACRO_define_strp:
+	  case DW_MACRO_undef_strp:
             set_indirect_string (find_AT_string (ref->info));
             break;
           default:
@@ -25485,15 +25896,16 @@ output_macinfo (void)
     return;
 
   /* output_macinfo* uses these interchangeably.  */
-  gcc_assert ((int) DW_MACINFO_define == (int) DW_MACRO_GNU_define
-	      && (int) DW_MACINFO_undef == (int) DW_MACRO_GNU_undef
-	      && (int) DW_MACINFO_start_file == (int) DW_MACRO_GNU_start_file
-	      && (int) DW_MACINFO_end_file == (int) DW_MACRO_GNU_end_file);
+  gcc_assert ((int) DW_MACINFO_define == (int) DW_MACRO_define
+	      && (int) DW_MACINFO_undef == (int) DW_MACRO_undef
+	      && (int) DW_MACINFO_start_file == (int) DW_MACRO_start_file
+	      && (int) DW_MACINFO_end_file == (int) DW_MACRO_end_file);
 
   /* For .debug_macro emit the section header.  */
-  if (!dwarf_strict)
+  if (!dwarf_strict || dwarf_version >= 5)
     {
-      dw2_asm_output_data (2, 4, "DWARF macro version number");
+      dw2_asm_output_data (2, dwarf_version >= 5 ? 5 : 4,
+			   "DWARF macro version number");
       if (DWARF_OFFSET_SIZE == 8)
 	dw2_asm_output_data (1, 3, "Flags: 64-bit, lineptr present");
       else
@@ -25507,8 +25919,7 @@ output_macinfo (void)
   /* In the first loop, it emits the primary .debug_macinfo section
      and after each emitted op the macinfo_entry is cleared.
      If a longer range of define/undef ops can be optimized using
-     DW_MACRO_GNU_transparent_include, the
-     DW_MACRO_GNU_transparent_include op is emitted and kept in
+     DW_MACRO_import, the DW_MACRO_import op is emitted and kept in
      the vector before the first define/undef in the range and the
      whole range of define/undef ops is not emitted and kept.  */
   for (i = 0; macinfo_table->iterate (i, &ref); i++)
@@ -25524,7 +25935,7 @@ output_macinfo (void)
 	  break;
 	case DW_MACINFO_define:
 	case DW_MACINFO_undef:
-	  if (!dwarf_strict
+	  if ((!dwarf_strict || dwarf_version >= 5)
 	      && HAVE_COMDAT_GROUP
 	      && vec_safe_length (files) != 1
 	      && i > 0
@@ -25558,16 +25969,15 @@ output_macinfo (void)
   delete macinfo_htab;
   macinfo_htab = NULL;
 
-  /* If any DW_MACRO_GNU_transparent_include were used, on those
-     DW_MACRO_GNU_transparent_include entries terminate the
-     current chain and switch to a new comdat .debug_macinfo
+  /* If any DW_MACRO_import were used, on those DW_MACRO_import entries
+     terminate the current chain and switch to a new comdat .debug_macinfo
      section and emit the define/undef entries within it.  */
   for (i = 0; macinfo_table->iterate (i, &ref); i++)
     switch (ref->code)
       {
       case 0:
 	continue;
-      case DW_MACRO_GNU_transparent_include:
+      case DW_MACRO_import:
 	{
 	  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 	  tree comdat_key = get_identifier (ref->info);
@@ -25583,7 +25993,8 @@ output_macinfo (void)
 	  ASM_OUTPUT_LABEL (asm_out_file, label);
 	  ref->code = 0;
 	  ref->info = NULL;
-	  dw2_asm_output_data (2, 4, "DWARF macro version number");
+	  dw2_asm_output_data (2, dwarf_version >= 5 ? 5 : 4,
+			       "DWARF macro version number");
 	  if (DWARF_OFFSET_SIZE == 8)
 	    dw2_asm_output_data (1, 1, "Flags: 64-bit");
 	  else
@@ -25615,7 +26026,8 @@ init_sections_and_labels (void)
       debug_loc_section = get_section (DEBUG_LOC_SECTION,
                                        SECTION_DEBUG, NULL);
       debug_macinfo_section_name
-	= dwarf_strict ? DEBUG_MACINFO_SECTION : DEBUG_MACRO_SECTION;
+	= (dwarf_strict && dwarf_version < 5)
+	  ? DEBUG_MACINFO_SECTION : DEBUG_MACRO_SECTION;
       debug_macinfo_section = get_section (debug_macinfo_section_name,
 					   SECTION_DEBUG, NULL);
     }
@@ -25652,7 +26064,8 @@ init_sections_and_labels (void)
       debug_str_dwo_section = get_section (DEBUG_STR_DWO_SECTION,
                                            DEBUG_STR_DWO_SECTION_FLAGS, NULL);
       debug_macinfo_section_name
-	= dwarf_strict ? DEBUG_DWO_MACINFO_SECTION : DEBUG_DWO_MACRO_SECTION;
+	= (dwarf_strict && dwarf_version < 5)
+	  ? DEBUG_DWO_MACINFO_SECTION : DEBUG_DWO_MACRO_SECTION;
       debug_macinfo_section = get_section (debug_macinfo_section_name,
 					   SECTION_DEBUG | SECTION_EXCLUDE,
 					   NULL);
@@ -25683,7 +26096,7 @@ init_sections_and_labels (void)
   ASM_GENERATE_INTERNAL_LABEL (debug_addr_section_label,
                                DEBUG_ADDR_SECTION_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (macinfo_section_label,
-			       dwarf_strict
+			       (dwarf_strict && dwarf_version < 5)
 			       ? DEBUG_MACINFO_SECTION_LABEL
 			       : DEBUG_MACRO_SECTION_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (loc_section_label, DEBUG_LOC_SECTION_LABEL, 0);
@@ -25719,11 +26132,9 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   vec_alloc (decl_scope_table, 256);
 
   /* Allocate the initial hunk of the abbrev_die_table.  */
-  abbrev_die_table = ggc_cleared_vec_alloc<dw_die_ref>
-    (ABBREV_DIE_TABLE_INCREMENT);
-  abbrev_die_table_allocated = ABBREV_DIE_TABLE_INCREMENT;
+  vec_alloc (abbrev_die_table, 256);
   /* Zero-th entry is allocated, but unused.  */
-  abbrev_die_table_in_use = 1;
+  abbrev_die_table->quick_push (NULL);
 
   /* Allocate the dwarf_proc_stack_usage_map.  */
   dwarf_proc_stack_usage_map = new hash_map<dw_die_ref, int>;
@@ -25971,6 +26382,9 @@ prune_unused_types_walk_loc_descr (dw_loc_descr_ref loc)
   for (; loc != NULL; loc = loc->dw_loc_next)
     switch (loc->dw_loc_opc)
       {
+      case DW_OP_implicit_pointer:
+      case DW_OP_convert:
+      case DW_OP_reinterpret:
       case DW_OP_GNU_implicit_pointer:
       case DW_OP_GNU_convert:
       case DW_OP_GNU_reinterpret:
@@ -25980,16 +26394,20 @@ prune_unused_types_walk_loc_descr (dw_loc_descr_ref loc)
       case DW_OP_call2:
       case DW_OP_call4:
       case DW_OP_call_ref:
+      case DW_OP_const_type:
       case DW_OP_GNU_const_type:
       case DW_OP_GNU_parameter_ref:
 	gcc_assert (loc->dw_loc_oprnd1.val_class == dw_val_class_die_ref);
 	prune_unused_types_mark (loc->dw_loc_oprnd1.v.val_die_ref.die, 1);
 	break;
+      case DW_OP_regval_type:
+      case DW_OP_deref_type:
       case DW_OP_GNU_regval_type:
       case DW_OP_GNU_deref_type:
 	gcc_assert (loc->dw_loc_oprnd2.val_class == dw_val_class_die_ref);
 	prune_unused_types_mark (loc->dw_loc_oprnd2.v.val_die_ref.die, 1);
 	break;
+      case DW_OP_entry_value:
       case DW_OP_GNU_entry_value:
 	gcc_assert (loc->dw_loc_oprnd1.val_class == dw_val_class_loc);
 	prune_unused_types_walk_loc_descr (loc->dw_loc_oprnd1.v.val_loc);
@@ -26451,18 +26869,24 @@ mark_base_types (dw_loc_descr_ref loc)
     {
       switch (loc->dw_loc_opc)
 	{
+	case DW_OP_regval_type:
+	case DW_OP_deref_type:
 	case DW_OP_GNU_regval_type:
 	case DW_OP_GNU_deref_type:
 	  base_type = loc->dw_loc_oprnd2.v.val_die_ref.die;
 	  break;
+	case DW_OP_convert:
+	case DW_OP_reinterpret:
 	case DW_OP_GNU_convert:
 	case DW_OP_GNU_reinterpret:
 	  if (loc->dw_loc_oprnd1.val_class == dw_val_class_unsigned_const)
 	    continue;
 	  /* FALLTHRU */
+	case DW_OP_const_type:
 	case DW_OP_GNU_const_type:
 	  base_type = loc->dw_loc_oprnd1.v.val_die_ref.die;
 	  break;
+	case DW_OP_entry_value:
 	case DW_OP_GNU_entry_value:
 	  mark_base_types (loc->dw_loc_oprnd1.v.val_loc);
 	  continue;
@@ -26607,7 +27031,7 @@ resolve_one_addr (rtx *addr)
 
 /* For STRING_CST, return SYMBOL_REF of its constant pool entry,
    if possible, and create DW_TAG_dwarf_procedure that can be referenced
-   from DW_OP_GNU_implicit_pointer if the string hasn't been seen yet.  */
+   from DW_OP_implicit_pointer if the string hasn't been seen yet.  */
 
 static rtx
 string_cst_pool_decl (tree t)
@@ -26649,7 +27073,7 @@ string_cst_pool_decl (tree t)
    a DW_OP_addr followed by DW_OP_stack_value, either at the start
    of exprloc or after DW_OP_{,bit_}piece, and val_addr can't be
    resolved.  Replace it (both DW_OP_addr and DW_OP_stack_value)
-   with DW_OP_GNU_implicit_pointer if possible
+   with DW_OP_implicit_pointer if possible
    and return true, if unsuccessful, return false.  */
 
 static bool
@@ -26688,7 +27112,7 @@ optimize_one_addr_into_implicit_ptr (dw_loc_descr_ref loc)
 	  if (ref && (get_AT (ref, DW_AT_location)
 		      || get_AT (ref, DW_AT_const_value)))
 	    {
-	      loc->dw_loc_opc = DW_OP_GNU_implicit_pointer;
+	      loc->dw_loc_opc = dwarf_OP (DW_OP_implicit_pointer);
 	      loc->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
 	      loc->dw_loc_oprnd1.val_entry = NULL;
 	      loc->dw_loc_oprnd1.v.val_die_ref.die = ref;
@@ -26721,7 +27145,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 		 || prev->dw_loc_opc == DW_OP_bit_piece)
 		&& loc->dw_loc_next
 		&& loc->dw_loc_next->dw_loc_opc == DW_OP_stack_value
-		&& !dwarf_strict
+		&& (!dwarf_strict || dwarf_version >= 5)
 		&& optimize_one_addr_into_implicit_ptr (loc))
 	      break;
 	    return false;
@@ -26764,6 +27188,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 	    && !resolve_one_addr (&loc->dw_loc_oprnd2.v.val_addr))
 	  return false;
 	break;
+      case DW_OP_implicit_pointer:
       case DW_OP_GNU_implicit_pointer:
       case DW_OP_GNU_parameter_ref:
 	if (loc->dw_loc_oprnd1.val_class == dw_val_class_decl_ref)
@@ -26777,17 +27202,25 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 	    loc->dw_loc_oprnd1.v.val_die_ref.external = 0;
 	  }
 	break;
+      case DW_OP_const_type:
+      case DW_OP_regval_type:
+      case DW_OP_deref_type:
+      case DW_OP_convert:
+      case DW_OP_reinterpret:
       case DW_OP_GNU_const_type:
       case DW_OP_GNU_regval_type:
       case DW_OP_GNU_deref_type:
       case DW_OP_GNU_convert:
       case DW_OP_GNU_reinterpret:
 	while (loc->dw_loc_next
-	       && loc->dw_loc_next->dw_loc_opc == DW_OP_GNU_convert)
+	       && (loc->dw_loc_next->dw_loc_opc == DW_OP_convert
+		   || loc->dw_loc_next->dw_loc_opc == DW_OP_GNU_convert))
 	  {
 	    dw_die_ref base1, base2;
 	    unsigned enc1, enc2, size1, size2;
-	    if (loc->dw_loc_opc == DW_OP_GNU_regval_type
+	    if (loc->dw_loc_opc == DW_OP_regval_type
+		|| loc->dw_loc_opc == DW_OP_deref_type
+		|| loc->dw_loc_opc == DW_OP_GNU_regval_type
 		|| loc->dw_loc_opc == DW_OP_GNU_deref_type)
 	      base1 = loc->dw_loc_oprnd2.v.val_die_ref.die;
 	    else if (loc->dw_loc_oprnd1.val_class
@@ -26811,9 +27244,11 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 		     && loc != keep)
 		    || enc1 == enc2))
 	      {
-		/* Optimize away next DW_OP_GNU_convert after
+		/* Optimize away next DW_OP_convert after
 		   adjusting LOC's base type die reference.  */
-		if (loc->dw_loc_opc == DW_OP_GNU_regval_type
+		if (loc->dw_loc_opc == DW_OP_regval_type
+		    || loc->dw_loc_opc == DW_OP_deref_type
+		    || loc->dw_loc_opc == DW_OP_GNU_regval_type
 		    || loc->dw_loc_opc == DW_OP_GNU_deref_type)
 		  loc->dw_loc_oprnd2.v.val_die_ref.die = base2;
 		else
@@ -26821,7 +27256,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 		loc->dw_loc_next = loc->dw_loc_next->dw_loc_next;
 		continue;
 	      }
-	    /* Don't change integer DW_OP_GNU_convert after e.g. floating
+	    /* Don't change integer DW_OP_convert after e.g. floating
 	       point typed stack entry.  */
 	    else if (enc1 != DW_ATE_unsigned && enc1 != DW_ATE_signed)
 	      keep = loc->dw_loc_next;
@@ -26838,7 +27273,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
    DW_OP_addr alone, which referred to DECL in DW_OP_addr's operand
    and DW_OP_addr couldn't be resolved.  resolve_addr has already
    removed the DW_AT_location attribute.  This function attempts to
-   add a new DW_AT_location attribute with DW_OP_GNU_implicit_pointer
+   add a new DW_AT_location attribute with DW_OP_implicit_pointer
    to it or DW_AT_const_value attribute, if possible.  */
 
 static void
@@ -26860,13 +27295,13 @@ optimize_location_into_implicit_ptr (dw_die_ref die, tree decl)
      DW_AT_const_value instead.  */
   if (tree_add_const_value_attribute (die, init))
     return;
-  if (dwarf_strict)
+  if (dwarf_strict && dwarf_version < 5)
     return;
   /* If init is ADDR_EXPR or POINTER_PLUS_EXPR of ADDR_EXPR,
      and ADDR_EXPR refers to a decl that has DW_AT_location or
      DW_AT_const_value (but isn't addressable, otherwise
      resolving the original DW_OP_addr wouldn't fail), see if
-     we can add DW_OP_GNU_implicit_pointer.  */
+     we can add DW_OP_implicit_pointer.  */
   STRIP_NOPS (init);
   if (TREE_CODE (init) == POINTER_PLUS_EXPR
       && tree_fits_shwi_p (TREE_OPERAND (init, 1)))
@@ -26900,7 +27335,7 @@ optimize_location_into_implicit_ptr (dw_die_ref die, tree decl)
 	  || (!get_AT (ref, DW_AT_location)
 	      && !get_AT (ref, DW_AT_const_value)))
 	return;
-      l = new_loc_descr (DW_OP_GNU_implicit_pointer, 0, offset);
+      l = new_loc_descr (dwarf_OP (DW_OP_implicit_pointer), 0, offset);
       l->dw_loc_oprnd1.val_class = dw_val_class_die_ref;
       l->dw_loc_oprnd1.v.val_die_ref.die = ref;
       l->dw_loc_oprnd1.v.val_die_ref.external = 0;
@@ -26923,6 +27358,7 @@ non_dwarf_expression (dw_loc_descr_ref l)
 	case DW_OP_regx:
 	case DW_OP_implicit_value:
 	case DW_OP_stack_value:
+	case DW_OP_implicit_pointer:
 	case DW_OP_GNU_implicit_pointer:
 	case DW_OP_GNU_parameter_ref:
 	case DW_OP_piece:
@@ -27227,8 +27663,10 @@ resolve_addr (dw_die_ref die)
 	    remove_AT (die, a->dw_attr);
 	    ix--;
 	  }
-	if (die->die_tag == DW_TAG_GNU_call_site
-	    && a->dw_attr == DW_AT_abstract_origin)
+	if ((die->die_tag == DW_TAG_call_site
+	     && a->dw_attr == DW_AT_call_origin)
+	    || (die->die_tag == DW_TAG_GNU_call_site
+		&& a->dw_attr == DW_AT_abstract_origin))
 	  {
 	    tree tdecl = SYMBOL_REF_DECL (a->dw_attr_val.v.val_addr);
 	    dw_die_ref tdie = lookup_decl_die (tdecl);
@@ -27412,12 +27850,16 @@ hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
         inchash::add_rtx (val1->val_entry->addr.rtl, hstate);
       }
       break;
+    case DW_OP_implicit_pointer:
     case DW_OP_GNU_implicit_pointer:
       hstate.add_int (val2->v.val_int);
       break;
+    case DW_OP_entry_value:
     case DW_OP_GNU_entry_value:
       hstate.add_object (val1->v.val_loc);
       break;
+    case DW_OP_regval_type:
+    case DW_OP_deref_type:
     case DW_OP_GNU_regval_type:
     case DW_OP_GNU_deref_type:
       {
@@ -27430,6 +27872,8 @@ hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
 	hstate.add_object (encoding);
       }
       break;
+    case DW_OP_convert:
+    case DW_OP_reinterpret:
     case DW_OP_GNU_convert:
     case DW_OP_GNU_reinterpret:
       if (val1->val_class == dw_val_class_unsigned_const)
@@ -27438,6 +27882,7 @@ hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
 	  break;
 	}
       /* FALLTHRU */
+    case DW_OP_const_type:
     case DW_OP_GNU_const_type:
       {
 	unsigned int byte_size
@@ -27446,7 +27891,8 @@ hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
 	  = get_AT_unsigned (val1->v.val_die_ref.die, DW_AT_encoding);
 	hstate.add_object (byte_size);
 	hstate.add_object (encoding);
-	if (loc->dw_loc_opc != DW_OP_GNU_const_type)
+	if (loc->dw_loc_opc != DW_OP_const_type
+	    && loc->dw_loc_opc != DW_OP_GNU_const_type)
 	  break;
 	hstate.add_object (val2->val_class);
 	switch (val2->val_class)
@@ -27639,13 +28085,16 @@ compare_loc_operands (dw_loc_descr_ref x, dw_loc_descr_ref y)
         rtx ay1 = valy1->val_entry->addr.rtl;
         return rtx_equal_p (ax1, ay1);
       }
+    case DW_OP_implicit_pointer:
     case DW_OP_GNU_implicit_pointer:
       return valx1->val_class == dw_val_class_die_ref
 	     && valx1->val_class == valy1->val_class
 	     && valx1->v.val_die_ref.die == valy1->v.val_die_ref.die
 	     && valx2->v.val_int == valy2->v.val_int;
+    case DW_OP_entry_value:
     case DW_OP_GNU_entry_value:
       return compare_loc_operands (valx1->v.val_loc, valy1->v.val_loc);
+    case DW_OP_const_type:
     case DW_OP_GNU_const_type:
       if (valx1->v.val_die_ref.die != valy1->v.val_die_ref.die
 	  || valx2->val_class != valy2->val_class)
@@ -27668,10 +28117,14 @@ compare_loc_operands (dw_loc_descr_ref x, dw_loc_descr_ref y)
 	default:
 	  gcc_unreachable ();
 	}
+    case DW_OP_regval_type:
+    case DW_OP_deref_type:
     case DW_OP_GNU_regval_type:
     case DW_OP_GNU_deref_type:
       return valx1->v.val_int == valy1->v.val_int
 	     && valx2->v.val_die_ref.die == valy2->v.val_die_ref.die;
+    case DW_OP_convert:
+    case DW_OP_reinterpret:
     case DW_OP_GNU_convert:
     case DW_OP_GNU_reinterpret:
       if (valx1->val_class != valy1->val_class)
@@ -27999,7 +28452,8 @@ dwarf2out_finish (const char *)
 
   if (have_macinfo)
     add_AT_macptr (comp_unit_die (),
-		   dwarf_strict ? DW_AT_macro_info : DW_AT_GNU_macros,
+		   dwarf_version >= 5 ? DW_AT_macros
+		   : dwarf_strict ? DW_AT_macro_info : DW_AT_GNU_macros,
 		   macinfo_section_label);
 
   if (dwarf_split_debug_info)
@@ -28109,7 +28563,7 @@ dwarf2out_finish (const char *)
     output_skeleton_debug_sections (main_comp_unit_die);
 
   /* Output the abbreviation table.  */
-  if (abbrev_die_table_in_use != 1)
+  if (vec_safe_length (abbrev_die_table) != 1)
     {
       switch_to_section (debug_abbrev_section);
       ASM_OUTPUT_LABEL (asm_out_file, abbrev_section_label);
@@ -28332,8 +28786,6 @@ dwarf2out_c_finalize (void)
   tail_call_site_count = -1;
   cached_dw_loc_list_table = NULL;
   abbrev_die_table = NULL;
-  abbrev_die_table_allocated = 0;
-  abbrev_die_table_in_use = 0;
   delete dwarf_proc_stack_usage_map;
   dwarf_proc_stack_usage_map = NULL;
   line_info_label_num = 0;

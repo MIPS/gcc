@@ -1,3 +1,153 @@
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78089
+	* c-c++-common/builtin-shuffle-1.c: New test.
+	* g++.dg/cpp0x/addressof3.C: New test.
+
+2016-10-31  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add tests for a const member and a reference member for launder.
+	* g++.dg/cpp1z/launder3.C: New.
+	* g++.dg/cpp1z/launder4.C: Likewise.
+	* g++.dg/cpp1z/launder5.C: Likewise.
+	* g++.dg/cpp1z/launder5.cc: Likewise.
+	* g++.dg/cpp1z/launder5.h: Likewise.
+	* g++.dg/cpp1z/launder6.C: Likewise.
+	* g++.dg/cpp1z/launder6.cc: Likewise.
+	* g++.dg/cpp1z/launder6.h: Likewise.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77948
+	* g++.dg/cpp0x/pr77948-1.C: New test.
+	* g++.dg/cpp0x/pr77948-2.C: New test.
+	* g++.dg/cpp0x/pr77948-3.C: New test.
+	* g++.dg/cpp0x/pr77948-4.C: New test.
+	* g++.dg/cpp0x/pr77948-5.C: New test.
+	* g++.dg/cpp0x/pr77948-6.C: New test.
+
+	PR tree-optimization/77860
+	* gcc.dg/pr77860.c: New test.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77886
+	* g++.dg/warn/Wimplicit-fallthrough-2.C: New test.
+
+2016-10-31  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/lto/pr60449_0.c: Skip for avr.
+
+2016-10-30  Le-Chun Wu  <lcwu@google.com>
+	    Mark Wielaard  <mjw@redhat.com>
+
+	* gcc.dg/Wshadow-compatible-local-1.c: New test.
+	* gcc.dg/Wshadow-local-1.c: Likewise.
+	* gcc.dg/Wshadow-local-2.c: Likewise.
+	* g++.dg/warn/Wshadow-compatible-local-1.C: Likewise.
+	* g++.dg/warn/Wshadow-local-1.C: Likewise.
+	* g++.dg/warn/Wshadow-local-2.C: Likewise.
+
+2016-10-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/71915
+	PR tree-optimization/71490
+	* gcc.dg/tree-ssa/pr54245.c: Delete.
+	* gcc.dg/tree-ssa/slsr-8.c: Adjust for new optimization and
+	document why.
+
+2016-10-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/78123
+	* gfortran.dg/fmt_t_9.f: New test.
+
+2016-10-30  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/67219
+	* gfortran.dg/pr67219.f90:  New test.
+
+2016-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/77919
+	* g++.dg/torture/pr77919-2.C: New test.
+
+	PR target/78148
+	* gcc.dg/pr78148.c: New test.
+
+2016-10-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/overflow-3.c: Replace and move old one to...
+	* gcc.target/sparc/overflow-4.c: ...here.
+	* gcc.target/sparc/overflow-5.c: New test.
+
+2016-10-28  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+	    Kugan Vivekanandarajah  <kuganv@linaro.org>
+	    Jim Wilson  <jim.wilson@linaro.org>
+
+	PR tree-optimization/43721
+	* lib/target-supports.exp (check_effective_target_divmod): New.
+	(check_effective_target_divmod_simode): Likewise.
+	(check_effective_target_arm_divmod_simode): Likewise.
+	* gcc.dg/divmod-1-simode.c: New test.
+	* gcc.dg/divmod-1.c: Likewise.
+	* gcc.dg/divmod-2-simode.c: Likewise.
+	* gcc.dg/divmod-2.c: Likewise.
+	* gcc.dg/divmod-3-simode.c: Likewise.
+	* gcc.dg/divmod-3.c: Likewise.
+	* gcc.dg/divmod-4-simode.c: Likewise.
+	* gcc.dg/divmod-4.c: Likewise.
+	* gcc.dg/divmod-5.c: Likewise.
+	* gcc.dg/divmod-6-simode.c: Likewise.
+	* gcc.dg/divmod-6.c: Likewise.
+	* gcc.dg/divmod-7.c: Likewise.
+
+2016-10-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+            Jakub Jelinek  <jakub@redhat.com>
+            Andrew Pinski  <pinskia@gmail.com>
+
+	PR middle-end/22141
+	PR rtl-optimization/23684
+	* gcc.c-torture/execute/pr22141-1.c: New test.
+	* gcc.c-torture/execute/pr22141-2.c: Likewise.
+	* gcc.target/aarch64/ldp_stp_1.c: Adjust for -fstore-merging.
+	* gcc.target/aarch64/ldp_stp_4.c: Likewise.
+	* gcc.dg/store_merging_1.c: New test.
+	* gcc.dg/store_merging_2.c: Likewise.
+	* gcc.dg/store_merging_3.c: Likewise.
+	* gcc.dg/store_merging_4.c: Likewise.
+	* gcc.dg/store_merging_5.c: Likewise.
+	* gcc.dg/store_merging_6.c: Likewise.
+	* gcc.dg/store_merging_7.c: Likewise.
+	* gcc.target/i386/pr22141.c: Likewise.
+	* gcc.target/i386/pr34012.c: Add -fno-store-merging to dg-options.
+	* g++.dg/init/new17.C: Likewise.
+
+2016-10-26  Will Schmidt <will_schmidt@vnet.ibm.com>
+
+	PR middle-end/72747
+	* c-c++-common/pr72747-1.c: New test.
+	* c-c++-common/pr72747-2.c: Likewise.
+
+2016-10-28  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/oscbreak-1.c: New test.
+
+2016-10-28  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/target-attribute/tattr-m64-33.c: New test.
+
+2016-10-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/77919
+	* g++.dg/torture/pr77919.C: New test.
+
+	PR rtl-optimization/78132
+	* gcc.target/i386/pr78132.c: New test.
+
+2016-10-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/vect/pr71264.c: XFAIL on SPARC.
+
 2016-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vsx-simode.c: New test.
