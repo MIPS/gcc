@@ -767,7 +767,8 @@ extern const char * reg_class_names[];
 
 /* Given a hard REGN a FROM mode and a TO mode, return nonzero if
    REGN cannot change modes between the specified modes.  */
-#define REG_CANNOT_CHANGE_MODE_P(REGN, FROM, TO)                          \
-         CANNOT_CHANGE_MODE_CLASS (FROM, TO, REGNO_REG_CLASS (REGN))
+#define REG_CANNOT_CHANGE_MODE_P(REGN, FROM, TO)			\
+  CANNOT_CHANGE_MODE_CLASS (MACRO_MODE (FROM), MACRO_MODE (TO),		\
+			    REGNO_REG_CLASS (REGN))
 
 #endif /* ! GCC_HARD_REG_SET_H */

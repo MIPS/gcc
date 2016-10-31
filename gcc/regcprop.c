@@ -376,7 +376,8 @@ mode_change_ok (machine_mode orig_mode, machine_mode new_mode,
     return false;
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
-  return !REG_CANNOT_CHANGE_MODE_P (regno, orig_mode, new_mode);
+  return !REG_CANNOT_CHANGE_MODE_P (regno, MACRO_MODE (orig_mode),
+				    MACRO_MODE (new_mode));
 #endif
 
   return true;
