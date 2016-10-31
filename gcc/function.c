@@ -4256,7 +4256,8 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
     }
 
 #ifdef FUNCTION_ARG_OFFSET
-  locate->offset.constant += FUNCTION_ARG_OFFSET (passed_mode, type);
+  locate->offset.constant += FUNCTION_ARG_OFFSET (MACRO_MODE (passed_mode),
+						  type);
 #endif
 }
 
