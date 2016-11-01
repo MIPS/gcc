@@ -718,7 +718,9 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
 {
   plugin_context *ctx = (plugin_context *) arg;
 
-  if (!DECL_P (*in) || DECL_NAME (*in) == NULL_TREE)
+  if (!DECL_P (*in)
+      || TREE_CODE (*in) == NAMESPACE_DECL
+      || DECL_NAME (*in) == NULL_TREE)
     return NULL_TREE;
 
   decl_addr_value value;
