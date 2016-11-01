@@ -73,7 +73,6 @@ func reflect_memclr(ptr unsafe.Pointer, n uintptr) {
 }
 
 // memmove copies n bytes from "from" to "to".
-// in memmove_*.s
 //go:noescape
 func memmove(to, from unsafe.Pointer, n uintptr)
 
@@ -81,6 +80,10 @@ func memmove(to, from unsafe.Pointer, n uintptr)
 func reflect_memmove(to, from unsafe.Pointer, n uintptr) {
 	memmove(to, from, n)
 }
+
+//go:noescape
+//extern __builtin_memcmp
+func memcmp(a, b unsafe.Pointer, size uintptr) int32
 
 // exported value for testing
 var hashLoad = loadFactor
@@ -250,11 +253,18 @@ func typedmemmove(typ *_type, dst, src unsafe.Pointer) {
 	memmove(dst, src, typ.size)
 }
 
-// Here for gccgo unless and until we port slice.go.
-type slice struct {
-	array unsafe.Pointer
-	len   int
-	cap   int
+// Temporary for gccgo until we port mbarrier.go.
+//go:linkname typedslicecopy runtime.typedslicecopy
+func typedslicecopy(typ *_type, dst, src slice) int {
+	n := dst.len
+	if n > src.len {
+		n = src.len
+	}
+	if n == 0 {
+		return 0
+	}
+	memmove(dst.array, src.array, uintptr(n)*typ.size)
+	return n
 }
 
 // Here for gccgo until we port malloc.go.
@@ -296,7 +306,7 @@ func casp(ptr *unsafe.Pointer, old, new unsafe.Pointer) bool {
 func lock(l *mutex)
 func unlock(l *mutex)
 
-// Here for gccgo for Solaris.
+// Here for gccgo for netpoll and Solaris.
 func errno() int
 
 // Temporary for gccgo until we port proc.go.
@@ -444,3 +454,38 @@ func setprofilebucket(p unsafe.Pointer, b *bucket)
 
 // Currently in proc.c.
 func tracebackothers(*g)
+
+// Temporary for gccgo until we port mgc.go.
+func setgcpercent(int32) int32
+
+//go:linkname setGCPercent runtime_debug.setGCPercent
+func setGCPercent(in int32) (out int32) {
+	return setgcpercent(in)
+}
+
+// Temporary for gccgo until we port proc.go.
+func setmaxthreads(int) int
+
+//go:linkname setMaxThreads runtime_debug.setMaxThreads
+func setMaxThreads(in int) (out int) {
+	return setmaxthreads(in)
+}
+
+// Temporary for gccgo until we port atomic_pointer.go.
+//go:nosplit
+func atomicstorep(ptr unsafe.Pointer, new unsafe.Pointer) {
+	atomic.StorepNoWB(noescape(ptr), new)
+}
+
+// Temporary for gccgo until we port mbarrier.go
+func writebarrierptr(dst *uintptr, src uintptr) {
+	*dst = src
+}
+
+// Temporary for gccgo until we port malloc.go
+var zerobase uintptr
+
+//go:linkname getZerobase runtime.getZerobase
+func getZerobase() *uintptr {
+	return &zerobase
+}

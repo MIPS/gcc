@@ -521,6 +521,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_ra, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_flra_remat, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fstore_merging, NULL, 1 },
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
@@ -530,6 +531,7 @@ static const struct default_options default_options_table[] =
        regardless of them being declared inline.  */
     { OPT_LEVELS_3_PLUS_AND_SIZE, OPT_finline_functions, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_fsplit_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
@@ -972,7 +974,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     opts->x_flag_delete_null_pointer_checks = 0;
 
   /* Aggressive compiler optimizations may cause false negatives.  */
-  if (opts->x_flag_sanitize)
+  if (opts->x_flag_sanitize & ~(SANITIZE_LEAK | SANITIZE_UNREACHABLE))
     {
       opts->x_flag_aggressive_loop_optimizations = 0;
       opts->x_flag_strict_overflow = 0;
@@ -1427,6 +1429,8 @@ enable_fdo_optimizations (struct gcc_options *opts,
     opts->x_flag_ipa_bit_cp = value;
   if (!opts_set->x_flag_predictive_commoning)
     opts->x_flag_predictive_commoning = value;
+  if (!opts_set->x_flag_split_loops)
+    opts->x_flag_split_loops = value;
   if (!opts_set->x_flag_unswitch_loops)
     opts->x_flag_unswitch_loops = value;
   if (!opts_set->x_flag_gcse_after_reload)

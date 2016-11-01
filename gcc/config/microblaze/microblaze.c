@@ -543,6 +543,7 @@ tls_mentioned_p (rtx x)
       case UNSPEC:
         if (XINT (x, 1) == UNSPEC_TLS)
           return 1;
+	return 0;
 
       default:
         return 0;
@@ -1553,7 +1554,7 @@ microblaze_function_arg (cumulative_args_t cum_v, machine_mode mode,
     default:
       gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
 	  || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
-      /* Drops through.  */
+      /* FALLTHRU */
     case BLKmode:
       regbase = GP_ARG_FIRST;
       break;

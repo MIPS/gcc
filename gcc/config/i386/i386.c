@@ -77,6 +77,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "case-cfn-macros.h"
 #include "regrename.h"
 #include "dojump.h"
+#include "fold-const-call.h"
+#include "tree-vrp.h"
+#include "tree-ssanames.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -7131,10 +7134,10 @@ ix86_in_large_data_p (tree exp)
     return false;
 
   /* Automatic variables are never large data.  */
-  if (TREE_CODE (exp) == VAR_DECL && !is_global_var (exp))
+  if (VAR_P (exp) && !is_global_var (exp))
     return false;
 
-  if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
+  if (VAR_P (exp) && DECL_SECTION_NAME (exp))
     {
       const char *section = DECL_SECTION_NAME (exp);
       if (strcmp (section, ".ldata") == 0
@@ -16357,7 +16360,9 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	  base = get_thread_pointer (tp_mode,
 				     for_mov || !TARGET_TLS_DIRECT_SEG_REFS);
 	  off = force_reg (tp_mode, off);
-	  return gen_rtx_PLUS (tp_mode, base, off);
+	  dest = gen_rtx_PLUS (tp_mode, base, off);
+	  if (tp_mode != Pmode)
+	    dest = convert_to_mode (Pmode, dest, 1);
 	}
       else
 	{
@@ -33321,6 +33326,131 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	    return NULL_TREE;
 	  }
 
+	case IX86_BUILTIN_INFQ:
+	case IX86_BUILTIN_HUGE_VALQ:
+	  {
+	    tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	    REAL_VALUE_TYPE inf;
+	    real_inf (&inf);
+	    return build_real (type, inf);
+	  }
+
+	case IX86_BUILTIN_TZCNT16:
+	case IX86_BUILTIN_TZCNT32:
+	case IX86_BUILTIN_TZCNT64:
+	  gcc_assert (n_args == 1);
+	  if (TREE_CODE (args[0]) == INTEGER_CST)
+	    {
+	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	      tree arg = args[0];
+	      if (fn_code == IX86_BUILTIN_TZCNT16)
+		arg = fold_convert (short_unsigned_type_node, arg);
+	      if (integer_zerop (arg))
+		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));
+	      else
+		return fold_const_call (CFN_CTZ, type, arg);
+	    }
+	  break;
+
+	case IX86_BUILTIN_LZCNT16:
+	case IX86_BUILTIN_LZCNT32:
+	case IX86_BUILTIN_LZCNT64:
+	  gcc_assert (n_args == 1);
+	  if (TREE_CODE (args[0]) == INTEGER_CST)
+	    {
+	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	      tree arg = args[0];
+	      if (fn_code == IX86_BUILTIN_LZCNT16)
+		arg = fold_convert (short_unsigned_type_node, arg);
+	      if (integer_zerop (arg))
+		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));
+	      else
+		return fold_const_call (CFN_CLZ, type, arg);
+	    }
+	  break;
+
+	case IX86_BUILTIN_BEXTR32:
+	case IX86_BUILTIN_BEXTR64:
+	case IX86_BUILTIN_BEXTRI32:
+	case IX86_BUILTIN_BEXTRI64:
+	  gcc_assert (n_args == 2);
+	  if (tree_fits_uhwi_p (args[1]))
+	    {
+	      unsigned HOST_WIDE_INT res = 0;
+	      unsigned int prec = TYPE_PRECISION (TREE_TYPE (args[0]));
+	      unsigned int start = tree_to_uhwi (args[1]);
+	      unsigned int len = (start & 0xff00) >> 8;
+	      start &= 0xff;
+	      if (start >= prec || len == 0)
+		res = 0;
+	      else if (!tree_fits_uhwi_p (args[0]))
+		break;
+	      else
+		res = tree_to_uhwi (args[0]) >> start;
+	      if (len > prec)
+		len = prec;
+	      if (len < HOST_BITS_PER_WIDE_INT)
+		res &= (HOST_WIDE_INT_1U << len) - 1;
+	      return build_int_cstu (TREE_TYPE (TREE_TYPE (fndecl)), res);
+	    }
+	  break;
+
+	case IX86_BUILTIN_BZHI32:
+	case IX86_BUILTIN_BZHI64:
+	  gcc_assert (n_args == 2);
+	  if (tree_fits_uhwi_p (args[1]))
+	    {
+	      unsigned int idx = tree_to_uhwi (args[1]) & 0xff;
+	      if (idx >= TYPE_PRECISION (TREE_TYPE (args[0])))
+		return args[0];
+	      if (!tree_fits_uhwi_p (args[0]))
+		break;
+	      unsigned HOST_WIDE_INT res = tree_to_uhwi (args[0]);
+	      res &= ~(HOST_WIDE_INT_M1U << idx);
+	      return build_int_cstu (TREE_TYPE (TREE_TYPE (fndecl)), res);
+	    }
+	  break;
+
+	case IX86_BUILTIN_PDEP32:
+	case IX86_BUILTIN_PDEP64:
+	  gcc_assert (n_args == 2);
+	  if (tree_fits_uhwi_p (args[0]) && tree_fits_uhwi_p (args[1]))
+	    {
+	      unsigned HOST_WIDE_INT src = tree_to_uhwi (args[0]);
+	      unsigned HOST_WIDE_INT mask = tree_to_uhwi (args[1]);
+	      unsigned HOST_WIDE_INT res = 0;
+	      unsigned HOST_WIDE_INT m, k = 1;
+	      for (m = 1; m; m <<= 1)
+		if ((mask & m) != 0)
+		  {
+		    if ((src & k) != 0)
+		      res |= m;
+		    k <<= 1;
+		  }
+	      return build_int_cstu (TREE_TYPE (TREE_TYPE (fndecl)), res);
+	    }
+	  break;
+
+	case IX86_BUILTIN_PEXT32:
+	case IX86_BUILTIN_PEXT64:
+	  gcc_assert (n_args == 2);
+	  if (tree_fits_uhwi_p (args[0]) && tree_fits_uhwi_p (args[1]))
+	    {
+	      unsigned HOST_WIDE_INT src = tree_to_uhwi (args[0]);
+	      unsigned HOST_WIDE_INT mask = tree_to_uhwi (args[1]);
+	      unsigned HOST_WIDE_INT res = 0;
+	      unsigned HOST_WIDE_INT m, k = 1;
+	      for (m = 1; m; m <<= 1)
+		if ((mask & m) != 0)
+		  {
+		    if ((src & m) != 0)
+		      res |= k;
+		    k <<= 1;
+		  }
+	      return build_int_cstu (TREE_TYPE (TREE_TYPE (fndecl)), res);
+	    }
+	  break;
+
 	default:
 	  break;
 	}
@@ -33331,6 +33461,105 @@ ix86_fold_builtin (tree fndecl, int n_args,
 #endif
 
   return NULL_TREE;
+}
+
+/* Fold a MD builtin (use ix86_fold_builtin for folding into
+   constant) in GIMPLE.  */
+
+bool
+ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
+{
+  gimple *stmt = gsi_stmt (*gsi);
+  tree fndecl = gimple_call_fndecl (stmt);
+  gcc_checking_assert (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD);
+  int n_args = gimple_call_num_args (stmt);
+  enum ix86_builtins fn_code = (enum ix86_builtins) DECL_FUNCTION_CODE (fndecl);
+  tree decl = NULL_TREE;
+  tree arg0, arg1;
+
+  switch (fn_code)
+    {
+    case IX86_BUILTIN_TZCNT32:
+      decl = builtin_decl_implicit (BUILT_IN_CTZ);
+      goto fold_tzcnt_lzcnt;
+
+    case IX86_BUILTIN_TZCNT64:
+      decl = builtin_decl_implicit (BUILT_IN_CTZLL);
+      goto fold_tzcnt_lzcnt;
+
+    case IX86_BUILTIN_LZCNT32:
+      decl = builtin_decl_implicit (BUILT_IN_CLZ);
+      goto fold_tzcnt_lzcnt;
+
+    case IX86_BUILTIN_LZCNT64:
+      decl = builtin_decl_implicit (BUILT_IN_CLZLL);
+      goto fold_tzcnt_lzcnt;
+
+    fold_tzcnt_lzcnt:
+      gcc_assert (n_args == 1);
+      arg0 = gimple_call_arg (stmt, 0);
+      if (TREE_CODE (arg0) == SSA_NAME && decl && gimple_call_lhs (stmt))
+	{
+	  int prec = TYPE_PRECISION (TREE_TYPE (arg0));
+	  /* If arg0 is provably non-zero, optimize into generic
+	     __builtin_c[tl]z{,ll} function the middle-end handles
+	     better.  */
+	  if (!expr_not_equal_to (arg0, wi::zero (prec)))
+	    return false;
+
+	  location_t loc = gimple_location (stmt);
+	  gimple *g = gimple_build_call (decl, 1, arg0);
+	  gimple_set_location (g, loc);
+	  tree lhs = make_ssa_name (integer_type_node);
+	  gimple_call_set_lhs (g, lhs);
+	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	  g = gimple_build_assign (gimple_call_lhs (stmt), NOP_EXPR, lhs);
+	  gimple_set_location (g, loc);
+	  gsi_replace (gsi, g, true);
+	  return true;
+	}
+      break;
+
+    case IX86_BUILTIN_BZHI32:
+    case IX86_BUILTIN_BZHI64:
+      gcc_assert (n_args == 2);
+      arg1 = gimple_call_arg (stmt, 1);
+      if (tree_fits_uhwi_p (arg1) && gimple_call_lhs (stmt))
+	{
+	  unsigned int idx = tree_to_uhwi (arg1) & 0xff;
+	  arg0 = gimple_call_arg (stmt, 0);
+	  if (idx < TYPE_PRECISION (TREE_TYPE (arg0)))
+	    break;
+	  location_t loc = gimple_location (stmt);
+	  gimple *g = gimple_build_assign (gimple_call_lhs (stmt), arg0);
+	  gimple_set_location (g, loc);
+	  gsi_replace (gsi, g, true);
+	  return true;
+	}
+      break;
+
+    case IX86_BUILTIN_PDEP32:
+    case IX86_BUILTIN_PDEP64:
+    case IX86_BUILTIN_PEXT32:
+    case IX86_BUILTIN_PEXT64:
+      gcc_assert (n_args == 2);
+      arg1 = gimple_call_arg (stmt, 1);
+      if (integer_all_onesp (arg1) && gimple_call_lhs (stmt))
+	{
+	  location_t loc = gimple_location (stmt);
+	  arg0 = gimple_call_arg (stmt, 0);
+	  gimple *g = gimple_build_assign (gimple_call_lhs (stmt), arg0);
+	  gimple_set_location (g, loc);
+	  gsi_replace (gsi, g, true);
+	  return true;
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  return false;
 }
 
 /* Make builtins to detect cpu type and features supported.  NAME is
@@ -34315,8 +34544,10 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case FLOAT128_FTYPE_FLOAT128:
     case FLOAT_FTYPE_FLOAT:
     case INT_FTYPE_INT:
-    case UINT64_FTYPE_INT:
+    case UINT_FTYPE_UINT:
     case UINT16_FTYPE_UINT16:
+    case UINT64_FTYPE_INT:
+    case UINT64_FTYPE_UINT64:
     case INT64_FTYPE_INT64:
     case INT64_FTYPE_V4SF:
     case INT64_FTYPE_V2DF:
@@ -36455,7 +36686,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	  target = gen_reg_rtx (Pmode);
 
 	arg0 = CALL_EXPR_ARG (exp, 0);
-	gcc_assert (TREE_CODE (arg0) == VAR_DECL);
+	gcc_assert (VAR_P (arg0));
 
 	name = DECL_ASSEMBLER_NAME (arg0);
 	symbol = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (name));
@@ -36679,24 +36910,6 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
     case IX86_BUILTIN_VEC_SET_V4HI:
     case IX86_BUILTIN_VEC_SET_V16QI:
       return ix86_expand_vec_set_builtin (exp);
-
-    case IX86_BUILTIN_INFQ:
-    case IX86_BUILTIN_HUGE_VALQ:
-      {
-	REAL_VALUE_TYPE inf;
-	rtx tmp;
-
-	real_inf (&inf);
-	tmp = const_double_from_real_value (inf, mode);
-
-	tmp = validize_mem (force_const_mem (mode, tmp));
-
-	if (target == 0)
-	  target = gen_reg_rtx (mode);
-
-	emit_move_insn (target, tmp);
-	return target;
-      }
 
     case IX86_BUILTIN_NANQ:
     case IX86_BUILTIN_NANSQ:
@@ -50536,6 +50749,9 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_FOLD_BUILTIN
 #define TARGET_FOLD_BUILTIN ix86_fold_builtin
 
+#undef TARGET_GIMPLE_FOLD_BUILTIN
+#define TARGET_GIMPLE_FOLD_BUILTIN ix86_gimple_fold_builtin
+
 #undef TARGET_COMPARE_VERSION_PRIORITY
 #define TARGET_COMPARE_VERSION_PRIORITY ix86_compare_version_priority
 
@@ -50832,6 +51048,9 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK ix86_hard_regno_scratch_ok
+
+#undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

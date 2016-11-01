@@ -1,3 +1,77 @@
+2016-10-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/54679
+	* io/format.c (parse_format_list): Adjust checks for FMT_L to
+	treat a zero width as an extension, giving warnings or error
+	as appropriate. Improve messages.
+
+2016-10-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/78123
+	* io/transfer.c (formatted_transfer_scalar_read): Clear seen_eor
+	only if we have tabbed to left of current position.
+
+2016-10-26  Fritz Reese  <fritzoreese@gmail.com>
+
+	* libgfortran.h (IOPARM_OPEN_HAS_READONLY, IOPARM_OPEN_HAS_SHARE,
+	IOPARM_OPEN_HAS_CC): New for READONLY, SHARE, and CARRIAGECONTROL.
+	* io/close.c (st_close): Support READONLY.
+	* io/io.h (st_parameter_open, unit_flags): Support SHARE,
+	CARRIAGECONTROL, and READONLY.
+	* io/open.c (st_open): Ditto.
+	* io/transfer.c (data_transfer_init): Ditto.
+	* io/io.h (st_parameter_dt): New member 'cc' for CARRIAGECONTROL.
+	* io/write.c (write_check_cc, write_cc): New functions for
+	CARRIAGECONTROL.
+	* io/transfer.c (next_record_cc): Ditto.
+	* io/file_pos.c (st_endfile): Support SHARE and CARRIAGECONTROL.
+	* io/io.h (st_parameter_inquire): Ditto.
+	* io/open.c (edit_modes, new_unit): Ditto.
+	* io/inquire.c (inquire_via_unit, inquire_via_filename): Ditto.
+	* io/io.h (unit_share, unit_cc, cc_fortran, IOPARM_INQUIRE_HAS_SHARE,
+	IOPARM_INQUIRE_HAS_CC): New for SHARE and CARRIAGECONTROL.
+	* io/open.c (share_opt, cc_opt): Ditto.
+	* io/read.c (read_x): Support CARRIAGECONTROL.
+	* io/transfer.c (read_sf, next_record_r, next_record_w): Ditto.
+	* io/write.c (list_formatted_write_scalar, write_a): Ditto.
+	* io/unix.h (close_share): New prototype.
+	* io/unix.c (open_share, close_share): New functions to handle SHARE.
+	* io/unix.c (open_external): Handle READONLY. Call open_share.
+	* io/close.c (st_close): Call close_share.
+
+2016-10-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/77828
+	* io/io.h (st_parameter_dt): Reorder for readability and sanity.
+	* io/transfer.c (data_transfer_init): Remove TODO and enable the
+	runtime error message, rec= specifier not allowed in STREAM
+	access.
+	* libtool-version: Bump major version of libgfortran to 4.
+
+2016-10-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/78055
+	* io/io.h (st_parameter_dt): Restore GFC_IO_INT to maintain
+	alignment.
+
+2016-10-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* io/transfer.c (finalize_transfer): Free format data in child
+	procedures. (st_read_done, st_write_done): Don't free format
+	hash table.
+
+2016-10-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/48298
+	* io/io.h: Move size_used from dtp to unit structure. Add bool
+	has_size to unit structure.
+	* io/read.c (read_x): Use has_size and size_used.
+	* io/transfer.c (read_sf_internal,read_sf,read_block_form,
+	read_block_form4): Likewise.
+	(data_transfer_init): If parent, initialize the size variables.
+	(finalize_transfer): Set the size variable using size_used in
+	gfc_unit. (write_block): Delete bogus/dead code.
+
 2016-10-16  Janne Blomqvist  <jb@gcc.gnu.org>
 
 	PR libfortran/48587

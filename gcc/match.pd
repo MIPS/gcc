@@ -541,6 +541,12 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (bit_ior:c (bit_and @0 INTEGER_CST@2) (bit_and (bit_not @0) INTEGER_CST@1))
  (if (wi::bit_not (@2) == @1)
   (bit_xor @0 @1)))
+
+/* PR53979: Transform ((a ^ b) | a) -> (a | b) */
+(simplify
+  (bit_ior:c (bit_xor:c @0 @1) @0)
+  (bit_ior @0 @1))
+
 /* Simplify (~X & Y) to X ^ Y if we know that (X & ~Y) is 0.  */
 #if GIMPLE
 (simplify
@@ -1331,6 +1337,17 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
        && TYPE_MIN_VALUE (type)
        && operand_equal_p (@1, TYPE_MIN_VALUE (type), OEP_ONLY_CONST))
    @0)))
+
+/* (convert (minmax ((convert (x) c)))) -> minmax (x c) if x is promoted
+   and the outer convert demotes the expression back to x's type.  */
+(for minmax (min max)
+ (simplify
+  (convert (minmax@0 (convert @1) INTEGER_CST@2))
+  (if (types_match (@1, type) && int_fits_type_p (@2, type)
+       && TYPE_SIGN (TREE_TYPE (@0)) == TYPE_SIGN (type)
+       && TYPE_PRECISION (TREE_TYPE (@0)) > TYPE_PRECISION (type))
+   (minmax @1 (convert @2)))))
+
 (for minmax (FMIN FMAX)
  /* If either argument is NaN, return the other one.  Avoid the
     transformation if we get (and honor) a signalling NaN.  */
@@ -2575,7 +2592,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    Disable the transform if either operand is pointer to function.
    This broke pr22051-2.c for arm where function pointer
    canonicalizaion is not wanted.  */
- 
+
 (for cmp (ne eq)
  (simplify
   (cmp (convert @0) INTEGER_CST@1)
@@ -3260,7 +3277,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    operation and convert the result to the desired type.  */
 (for op (plus minus)
   (simplify
-    (convert (op:s (convert@2 @0) (convert@3 @1)))
+    (convert (op:s (convert@2 @0) (convert?@3 @1)))
     (if (INTEGRAL_TYPE_P (type)
 	 /* We check for type compatibility between @0 and @1 below,
 	    so there's no need to check that @1/@3 are integral types.  */
@@ -3276,12 +3293,16 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 	 && TYPE_PRECISION (type) == GET_MODE_PRECISION (TYPE_MODE (type))
 	 /* The inner conversion must be a widening conversion.  */
 	 && TYPE_PRECISION (TREE_TYPE (@2)) > TYPE_PRECISION (TREE_TYPE (@0))
-	 && types_match (@0, @1)
-	 && types_match (@0, type))
+	 && types_match (@0, type)
+	 && (types_match (@0, @1)
+	     /* Or the second operand is const integer or converted const
+		integer from valueize.  */
+	     || TREE_CODE (@1) == INTEGER_CST))
       (if (TYPE_OVERFLOW_WRAPS (TREE_TYPE (@0)))
-	(convert (op @0 @1))
+	(op @0 (convert @1))
 	(with { tree utype = unsigned_type_for (TREE_TYPE (@0)); }
-	 (convert (op (convert:utype @0) (convert:utype @1))))))))
+	 (convert (op (convert:utype @0)
+		      (convert:utype @1))))))))
 
 /* This is another case of narrowing, specifically when there's an outer
    BIT_AND_EXPR which masks off bits outside the type of the innermost

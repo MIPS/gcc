@@ -3653,7 +3653,7 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, enum tree_code op)
   if (TREE_TYPE (args[0]) != type)
     args[0] = convert (type, args[0]);
   /* Only evaluate the argument once.  */
-  if (TREE_CODE (args[0]) != VAR_DECL && !TREE_CONSTANT (args[0]))
+  if (!VAR_P (args[0]) && !TREE_CONSTANT (args[0]))
     args[0] = gfc_evaluate_now (args[0], &se->pre);
 
   mvar = gfc_create_var (type, "M");
@@ -3677,7 +3677,7 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, enum tree_code op)
 	cond = NULL_TREE;
 
 	/* Only evaluate the argument once.  */
-	if (TREE_CODE (val) != VAR_DECL && !TREE_CONSTANT (val))
+	if (!VAR_P (val) && !TREE_CONSTANT (val))
 	  val = gfc_evaluate_now (val, &se->pre);
       }
 
@@ -6708,7 +6708,9 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
 					TREE_OPERAND (argse.expr, 0), 0)))
 		  || GFC_DECL_CLASS (TREE_OPERAND (argse.expr, 0)))))
 	byte_size = gfc_class_vtab_size_get (TREE_OPERAND (argse.expr, 0));
-      else if (arg->rank > 0)
+      else if (arg->rank > 0
+	       || (arg->rank == 0
+		   && arg->ref && arg->ref->type == REF_COMPONENT))
 	/* The scalarizer added an additional temp.  To get the class' vptr
 	   one has to look at the original backend_decl.  */
 	byte_size = gfc_class_vtab_size_get (

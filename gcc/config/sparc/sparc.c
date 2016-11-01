@@ -648,6 +648,7 @@ static reg_class_t sparc_secondary_reload (bool, rtx, reg_class_t,
 static machine_mode sparc_cstore_mode (enum insn_code icode);
 static void sparc_atomic_assign_expand_fenv (tree *, tree *, tree *);
 static bool sparc_fixed_condition_code_regs (unsigned int *, unsigned int *);
+static unsigned int sparc_min_arithmetic_precision (void);
 
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 /* Table of valid machine attributes.  */
@@ -865,6 +866,12 @@ char sparc_hard_reg_printed[8];
 
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS sparc_fixed_condition_code_regs
+
+#undef TARGET_MIN_ARITHMETIC_PRECISION
+#define TARGET_MIN_ARITHMETIC_PRECISION sparc_min_arithmetic_precision
+
+#undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1381,13 +1388,13 @@ sparc_option_override (void)
 
 #ifndef SPARC_BI_ARCH
   /* Check for unsupported architecture size.  */
-  if (! TARGET_64BIT != DEFAULT_ARCH32_P)
+  if (!TARGET_64BIT != DEFAULT_ARCH32_P)
     error ("%s is not supported by this configuration",
 	   DEFAULT_ARCH32_P ? "-m64" : "-m32");
 #endif
 
   /* We force all 64bit archs to use 128 bit long double */
-  if (TARGET_64BIT && ! TARGET_LONG_DOUBLE_128)
+  if (TARGET_ARCH64 && !TARGET_LONG_DOUBLE_128)
     {
       error ("-mlong-double-64 not allowed with -m64");
       target_flags |= MASK_LONG_DOUBLE_128;
@@ -2746,6 +2753,14 @@ sparc_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
   return true;
 }
 
+/* Implement TARGET_MIN_ARITHMETIC_PRECISION.  */
+
+static unsigned int
+sparc_min_arithmetic_precision (void)
+{
+  return 32;
+}
+
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
    CCFP[E]mode is used.  CCNZmode should be used when the first operand
@@ -2781,8 +2796,9 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	  gcc_unreachable ();
 	}
     }
-  else if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
-	   || GET_CODE (x) == NEG || GET_CODE (x) == ASHIFT)
+  else if ((GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
+	    || GET_CODE (x) == NEG || GET_CODE (x) == ASHIFT)
+	   && y == const0_rtx)
     {
       if (TARGET_ARCH64 && GET_MODE (x) == DImode)
 	return CCXNZmode;
@@ -2796,6 +2812,18 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	{
 	  if (TARGET_ARCH64 && GET_MODE (x) == DImode)
 	    return CCXCmode;
+	  else
+	    return CCCmode;
+	}
+
+      /* This is for the [u]addvdi4_sp32 and [u]subvdi4_sp32 patterns.  */
+      if (!TARGET_ARCH64 && GET_MODE (x) == DImode)
+	{
+	  if (GET_CODE (y) == UNSPEC
+	      && (XINT (y, 1) == UNSPEC_ADDV
+		 || XINT (y, 1) == UNSPEC_SUBV
+	         || XINT (y, 1) == UNSPEC_NEGV))
+	    return CCVmode;
 	  else
 	    return CCCmode;
 	}
@@ -7721,10 +7749,16 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
       switch (code)
 	{
 	case NE:
-	  branch = "bne";
+	  if (mode == CCVmode || mode == CCXVmode)
+	    branch = "bvs";
+	  else
+	    branch = "bne";
 	  break;
 	case EQ:
-	  branch = "be";
+	  if (mode == CCVmode || mode == CCXVmode)
+	    branch = "bvc";
+	  else
+	    branch = "be";
 	  break;
 	case GE:
 	  if (mode == CCNZmode || mode == CCXNZmode)
@@ -7791,6 +7825,7 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
 	case CCmode:
 	case CCNZmode:
 	case CCCmode:
+	case CCVmode:
 	  labelno = "%%icc, ";
 	  if (v8)
 	    labelno = "";
@@ -7798,6 +7833,7 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
 	case CCXmode:
 	case CCXNZmode:
 	case CCXCmode:
+	case CCXVmode:
 	  labelno = "%%xcc, ";
 	  gcc_assert (!v8);
 	  break;
@@ -8801,11 +8837,13 @@ sparc_print_operand (FILE *file, rtx x, int code)
 	    case CCmode:
 	    case CCNZmode:
 	    case CCCmode:
+	    case CCVmode:
 	      s = "%icc";
 	      break;
 	    case CCXmode:
 	    case CCXNZmode:
 	    case CCXCmode:
+	    case CCXVmode:
 	      s = "%xcc";
 	      break;
 	    default:
@@ -8880,10 +8918,16 @@ sparc_print_operand (FILE *file, rtx x, int code)
 	switch (GET_CODE (x))
 	  {
 	  case NE:
-	    s = "ne";
+	    if (mode == CCVmode || mode == CCXVmode)
+	      s = "vs";
+	    else
+	      s = "ne";
 	    break;
 	  case EQ:
-	    s = "e";
+	    if (mode == CCVmode || mode == CCXVmode)
+	      s = "vc";
+	    else
+	      s = "e";
 	    break;
 	  case GE:
 	    if (mode == CCNZmode || mode == CCXNZmode)
@@ -11707,7 +11751,7 @@ sparc_file_end (void)
 static const char *
 sparc_mangle_type (const_tree type)
 {
-  if (!TARGET_64BIT
+  if (TARGET_ARCH32
       && TYPE_MAIN_VARIANT (type) == long_double_type_node
       && TARGET_LONG_DOUBLE_128)
     return "g";

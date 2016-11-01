@@ -1184,7 +1184,7 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/c-semantics.o c-family/c-ada-spec.o \
   c-family/c-cilkplus.o \
   c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o \
-  c-family/c-warn.o
+  c-family/c-attribs.o c-family/c-warn.o
 
 # Language-independent object files.
 # We put the *-match.o and insn-*.o files first so that a parallel make
@@ -1297,8 +1297,10 @@ OBJS = \
 	gimple-ssa-isolate-paths.o \
 	gimple-ssa-nonnull-compare.o \
 	gimple-ssa-split-paths.o \
+	gimple-ssa-store-merging.o \
 	gimple-ssa-strength-reduction.o \
 	gimple-ssa-sprintf.o \
+	gimple-ssa-warn-alloca.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
 	gimple-walk.o \
@@ -1508,6 +1510,7 @@ OBJS = \
 	tree-ssa-loop-manip.o \
 	tree-ssa-loop-niter.o \
 	tree-ssa-loop-prefetch.o \
+	tree-ssa-loop-split.o \
 	tree-ssa-loop-unswitch.o \
 	tree-ssa-loop.o \
 	tree-ssa-math-opts.o \

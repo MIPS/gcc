@@ -2524,7 +2524,11 @@ gfc_get_derived_type (gfc_symbol * derived, bool in_coarray)
 	     non-procedure pointer components have no backend_decl.  */
 	  for (c = derived->components; c; c = c->next)
 	    {
-	      if (!c->attr.proc_pointer && c->backend_decl == NULL)
+	      bool same_alloc_type = c->attr.allocatable
+				     && derived == c->ts.u.derived;
+	      if (!c->attr.proc_pointer
+		  && !same_alloc_type
+		  && c->backend_decl == NULL)
 		break;
 	      else if (c->next == NULL)
 		return derived->backend_decl;
@@ -2556,13 +2560,17 @@ gfc_get_derived_type (gfc_symbol * derived, bool in_coarray)
      will be built and so we can return the type.  */
   for (c = derived->components; c; c = c->next)
     {
+      bool same_alloc_type = c->attr.allocatable
+			     && derived == c->ts.u.derived;
+
       if (c->ts.type == BT_UNION && c->ts.u.derived->backend_decl == NULL)
         c->ts.u.derived->backend_decl = gfc_get_union_type (c->ts.u.derived);
 
       if (c->ts.type != BT_DERIVED && c->ts.type != BT_CLASS)
 	continue;
 
-      if ((!c->attr.pointer && !c->attr.proc_pointer)
+      if ((!c->attr.pointer && !c->attr.proc_pointer
+	  && !same_alloc_type)
 	  || c->ts.u.derived->backend_decl == NULL)
 	c->ts.u.derived->backend_decl = gfc_get_derived_type (c->ts.u.derived,
 							      in_coarray
@@ -2596,6 +2604,8 @@ gfc_get_derived_type (gfc_symbol * derived, bool in_coarray)
      types are built as part of gfc_get_union_type.  */
   for (c = derived->components; c; c = c->next)
     {
+      bool same_alloc_type = c->attr.allocatable
+			     && derived == c->ts.u.derived;
       /* Prevent infinite recursion, when the procedure pointer type is
 	 the same as derived, by forcing the procedure pointer component to
 	 be built as if the explicit interface does not exist.  */
@@ -2656,7 +2666,7 @@ gfc_get_derived_type (gfc_symbol * derived, bool in_coarray)
 	       && !(unlimited_entity && c == derived->components))
 	field_type = build_pointer_type (field_type);
 
-      if (c->attr.pointer)
+      if (c->attr.pointer || same_alloc_type)
 	field_type = gfc_nonrestricted_type (field_type);
 
       /* vtype fields can point to different types to the base type.  */
@@ -3129,7 +3139,7 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
   int rank, dim;
   bool indirect = false;
   tree etype, ptype, field, t, base_decl;
-  tree data_off, dim_off, dim_size, elem_size;
+  tree data_off, dim_off, dtype_off, dim_size, elem_size;
   tree lower_suboff, upper_suboff, stride_suboff;
 
   if (! GFC_DESCRIPTOR_TYPE_P (type))
@@ -3193,6 +3203,7 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
   data_off = byte_position (field);
   field = DECL_CHAIN (field);
   field = DECL_CHAIN (field);
+  dtype_off = byte_position (field);
   field = DECL_CHAIN (field);
   dim_off = byte_position (field);
   dim_size = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (field)));
@@ -3215,6 +3226,24 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
 	   || GFC_TYPE_ARRAY_AKIND (type) == GFC_ARRAY_POINTER_CONT)
     info->associated = build2 (NE_EXPR, boolean_type_node,
 			       info->data_location, null_pointer_node);
+  if ((GFC_TYPE_ARRAY_AKIND (type) == GFC_ARRAY_ASSUMED_RANK
+       || GFC_TYPE_ARRAY_AKIND (type) == GFC_ARRAY_ASSUMED_RANK_CONT)
+      && dwarf_version >= 5)
+    {
+      rank = 1;
+      info->ndimensions = 1;
+      t = base_decl;
+      if (!integer_zerop (dtype_off))
+	t = fold_build_pointer_plus (t, dtype_off);
+      t = build1 (NOP_EXPR, build_pointer_type (gfc_array_index_type), t);
+      t = build1 (INDIRECT_REF, gfc_array_index_type, t);
+      info->rank = build2 (BIT_AND_EXPR, gfc_array_index_type, t,
+			   build_int_cst (gfc_array_index_type,
+					  GFC_DTYPE_RANK_MASK));
+      t = build0 (PLACEHOLDER_EXPR, TREE_TYPE (dim_off));
+      t = size_binop (MULT_EXPR, t, dim_size);
+      dim_off = build2 (PLUS_EXPR, TREE_TYPE (dim_off), t, dim_off);
+    }
 
   for (dim = 0; dim < rank; dim++)
     {
@@ -3250,7 +3279,8 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
       t = build1 (INDIRECT_REF, gfc_array_index_type, t);
       t = build2 (MULT_EXPR, gfc_array_index_type, t, elem_size);
       info->dimen[dim].stride = t;
-      dim_off = size_binop (PLUS_EXPR, dim_off, dim_size);
+      if (dim + 1 < rank)
+	dim_off = size_binop (PLUS_EXPR, dim_off, dim_size);
     }
 
   return true;

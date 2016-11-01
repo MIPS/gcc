@@ -1353,6 +1353,10 @@ match_complex_constant (gfc_expr **result)
 
   if (gfc_match_char (',') == MATCH_NO)
     {
+      /* It is possible that gfc_int2real issued a warning when
+	 converting an integer to real.  Throw this away here.  */
+
+      gfc_clear_warning ();
       gfc_pop_error (&old_error);
       m = MATCH_NO;
       goto cleanup;
@@ -2359,6 +2363,10 @@ gfc_expr_attr (gfc_expr *e)
 	      attr.allocatable = CLASS_DATA (sym)->attr.allocatable;
 	    }
 	}
+      else if (e->value.function.isym
+	       && e->value.function.isym->transformational
+	       && e->ts.type == BT_CLASS)
+	attr = CLASS_DATA (e)->attr;
       else
 	attr = gfc_variable_attr (e, NULL);
 
@@ -2967,9 +2975,20 @@ gfc_match_rvalue (gfc_expr **result)
   bool implicit_char;
   gfc_ref *ref;
 
-  m = gfc_match_name (name);
-  if (m != MATCH_YES)
-    return m;
+  m = gfc_match ("%%loc");
+  if (m == MATCH_YES)
+    {
+      if (!gfc_notify_std (GFC_STD_LEGACY, "%%LOC() as an rvalue at %C"))
+        return MATCH_ERROR;
+      strncpy (name, "loc", 4);
+    }
+
+  else
+    {
+      m = gfc_match_name (name);
+      if (m != MATCH_YES)
+        return m;
+    }
 
   /* Check if the symbol exists.  */
   if (gfc_find_sym_tree (name, NULL, 1, &symtree))

@@ -323,9 +323,8 @@ Expression::convert_interface_to_interface(Type *lhs_type, Expression* rhs,
   if (for_type_guard)
     {
       // A type assertion fails when converting a nil interface.
-      first_field =
-          Runtime::make_call(Runtime::ASSERT_INTERFACE, location, 2,
-                             lhs_type_expr, rhs_type_expr);
+      first_field = Runtime::make_call(Runtime::ASSERTITAB, location, 2,
+				       lhs_type_expr, rhs_type_expr);
     }
   else if (lhs_is_empty)
     {
@@ -337,9 +336,8 @@ Expression::convert_interface_to_interface(Type *lhs_type, Expression* rhs,
     {
       // A conversion to a non-empty interface may fail, but unlike a
       // type assertion converting nil will always succeed.
-      first_field =
-          Runtime::make_call(Runtime::CONVERT_INTERFACE, location, 2,
-                             lhs_type_expr, rhs_type_expr);
+      first_field = Runtime::make_call(Runtime::REQUIREITAB, location, 2,
+				       lhs_type_expr, rhs_type_expr);
     }
 
   // The second field is simply the object pointer.
@@ -370,7 +368,7 @@ Expression::convert_interface_to_type(Type *lhs_type, Expression* rhs,
   Expression* rhs_inter_expr = Expression::make_type_descriptor(rhs_type,
                                                                 location);
 
-  Expression* check_iface = Runtime::make_call(Runtime::CHECK_INTERFACE_TYPE,
+  Expression* check_iface = Runtime::make_call(Runtime::ASSERTI2T,
                                                location, 3, lhs_type_expr,
                                                rhs_descriptor, rhs_inter_expr);
 
@@ -1290,7 +1288,10 @@ Func_descriptor_expression::do_get_backend(Translate_context* context)
       && !no->func_declaration_value()->asm_name().empty()
       && Linemap::is_predeclared_location(no->location()))
     {
-      var_name = no->func_declaration_value()->asm_name() + "_descriptor";
+      if (no->func_declaration_value()->asm_name().substr(0, 8) != "runtime.")
+	var_name = no->func_declaration_value()->asm_name() + "_descriptor";
+      else
+	var_name = no->func_declaration_value()->asm_name() + "$descriptor";
       is_descriptor = true;
     }
   else
@@ -6196,9 +6197,18 @@ Expression::comparison(Translate_context* context, Type* result_type,
 
   if (left_type->is_string_type() && right_type->is_string_type())
     {
-      left = Runtime::make_call(Runtime::STRCMP, location, 2,
-                                left, right);
-      right = zexpr;
+      if (op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ)
+	{
+	  left = Runtime::make_call(Runtime::EQSTRING, location, 2,
+				    left, right);
+	  right = Expression::make_boolean(true, location);
+	}
+      else
+	{
+	  left = Runtime::make_call(Runtime::CMPSTRING, location, 2,
+				    left, right);
+	  right = zexpr;
+	}
     }
   else if ((left_type->interface_type() != NULL
 	    && right_type->interface_type() == NULL
@@ -6230,11 +6240,12 @@ Expression::comparison(Translate_context* context, Type* result_type,
           Expression::make_type_descriptor(right_type, location);
       left =
           Runtime::make_call((left_type->interface_type()->is_empty()
-                              ? Runtime::EMPTY_INTERFACE_VALUE_COMPARE
-                              : Runtime::INTERFACE_VALUE_COMPARE),
+                              ? Runtime::EFACEVALEQ
+                              : Runtime::IFACEVALEQ),
                              location, 3, left, descriptor,
                              pointer_arg);
-      right = zexpr;
+      go_assert(op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ);
+      right = Expression::make_boolean(true, location);
     }
   else if (left_type->interface_type() != NULL
 	   && right_type->interface_type() != NULL)
@@ -6242,25 +6253,25 @@ Expression::comparison(Translate_context* context, Type* result_type,
       Runtime::Function compare_function;
       if (left_type->interface_type()->is_empty()
 	  && right_type->interface_type()->is_empty())
-	compare_function = Runtime::EMPTY_INTERFACE_COMPARE;
+	compare_function = Runtime::EFACEEQ;
       else if (!left_type->interface_type()->is_empty()
 	       && !right_type->interface_type()->is_empty())
-	compare_function = Runtime::INTERFACE_COMPARE;
+	compare_function = Runtime::IFACEEQ;
       else
 	{
 	  if (left_type->interface_type()->is_empty())
 	    {
-	      go_assert(op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ);
 	      std::swap(left_type, right_type);
 	      std::swap(left, right);
 	    }
 	  go_assert(!left_type->interface_type()->is_empty());
 	  go_assert(right_type->interface_type()->is_empty());
-	  compare_function = Runtime::INTERFACE_EMPTY_COMPARE;
+	  compare_function = Runtime::IFACEEFACEEQ;
 	}
 
       left = Runtime::make_call(compare_function, location, 2, left, right);
-      right = zexpr;
+      go_assert(op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ);
+      right = Expression::make_boolean(true, location);
     }
 
   if (left_type->is_nil_type()
@@ -6940,7 +6951,9 @@ class Builtin_call_expression : public Call_expression
   complex_type(Type*);
 
   Expression*
-  lower_make();
+  lower_make(Statement_inserter*);
+
+  Expression* flatten_append(Gogo*, Named_object*, Statement_inserter*);
 
   bool
   check_int_value(Expression*, bool is_length);
@@ -7041,7 +7054,7 @@ Builtin_call_expression::do_set_recover_arg(Expression* arg)
 // specific expressions.  We also convert to a constant if we can.
 
 Expression*
-Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
+Builtin_call_expression::do_lower(Gogo*, Named_object* function,
 				  Statement_inserter* inserter, int)
 {
   if (this->is_error_expression())
@@ -7119,7 +7132,7 @@ Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
       break;
 
     case BUILTIN_MAKE:
-      return this->lower_make();
+      return this->lower_make(inserter);
 
     case BUILTIN_RECOVER:
       if (function != NULL)
@@ -7131,30 +7144,6 @@ Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
 	  Type* eface = Type::make_empty_interface_type(loc);
 	  return Expression::make_cast(eface, Expression::make_nil(loc), loc);
 	}
-      break;
-
-    case BUILTIN_APPEND:
-      {
-	// Lower the varargs.
-	const Expression_list* args = this->args();
-	if (args == NULL || args->empty())
-	  return this;
-	Type* slice_type = args->front()->type();
-	if (!slice_type->is_slice_type())
-	  {
-	    if (slice_type->is_nil_type())
-	      go_error_at(args->front()->location(), "use of untyped nil");
-	    else
-	      go_error_at(args->front()->location(),
-			  "argument 1 must be a slice");
-	    this->set_is_error();
-	    return this;
-	  }
-	Type* element_type = slice_type->array_type()->element_type();
-	this->lower_varargs(gogo, function, inserter,
-			    Type::make_array_type(element_type, NULL),
-			    2, SLICE_STORAGE_DOES_NOT_ESCAPE);
-      }
       break;
 
     case BUILTIN_DELETE:
@@ -7222,7 +7211,7 @@ Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
 // append into temporary expressions.
 
 Expression*
-Builtin_call_expression::do_flatten(Gogo*, Named_object*,
+Builtin_call_expression::do_flatten(Gogo* gogo, Named_object* function,
                                     Statement_inserter* inserter)
 {
   Location loc = this->location();
@@ -7233,6 +7222,8 @@ Builtin_call_expression::do_flatten(Gogo*, Named_object*,
       break;
 
     case BUILTIN_APPEND:
+      return this->flatten_append(gogo, function, inserter);
+
     case BUILTIN_COPY:
       {
 	Type* at = this->args()->front()->type();
@@ -7274,16 +7265,19 @@ Builtin_call_expression::do_flatten(Gogo*, Named_object*,
 
     case BUILTIN_LEN:
     case BUILTIN_CAP:
-      Expression_list::iterator pa = this->args()->begin();
-      if (!(*pa)->is_variable()
-	  && ((*pa)->type()->map_type() != NULL
-	      || (*pa)->type()->channel_type() != NULL))
-	{
-	  Temporary_statement* temp =
-	    Statement::make_temporary(NULL, *pa, loc);
-	  inserter->insert(temp);
-	  *pa = Expression::make_temporary_reference(temp, loc);
-	}
+      {
+	Expression_list::iterator pa = this->args()->begin();
+	if (!(*pa)->is_variable()
+	    && ((*pa)->type()->map_type() != NULL
+		|| (*pa)->type()->channel_type() != NULL))
+	  {
+	    Temporary_statement* temp =
+	      Statement::make_temporary(NULL, *pa, loc);
+	    inserter->insert(temp);
+	    *pa = Expression::make_temporary_reference(temp, loc);
+	  }
+      }
+      break;
     }
 
   return this;
@@ -7292,7 +7286,7 @@ Builtin_call_expression::do_flatten(Gogo*, Named_object*,
 // Lower a make expression.
 
 Expression*
-Builtin_call_expression::lower_make()
+Builtin_call_expression::lower_make(Statement_inserter* inserter)
 {
   Location loc = this->location();
 
@@ -7329,10 +7323,6 @@ Builtin_call_expression::lower_make()
       return Expression::make_error(this->location());
     }
 
-  bool have_big_args = false;
-  Type* uintptr_type = Type::lookup_integer_type("uintptr");
-  int uintptr_bits = uintptr_type->integer_type()->bits();
-
   Type_context int_context(Type::lookup_integer_type("int"), false);
 
   ++parg;
@@ -7352,9 +7342,6 @@ Builtin_call_expression::lower_make()
       len_arg->determine_type(&int_context);
       if (!this->check_int_value(len_arg, true))
 	return Expression::make_error(this->location());
-      if (len_arg->type()->integer_type() != NULL
-	  && len_arg->type()->integer_type()->bits() > uintptr_bits)
-	have_big_args = true;
       ++parg;
     }
 
@@ -7380,9 +7367,6 @@ Builtin_call_expression::lower_make()
 	  return Expression::make_error(this->location());
 	}
 
-      if (cap_arg->type()->integer_type() != NULL
-	  && cap_arg->type()->integer_type()->bits() > uintptr_bits)
-	have_big_args = true;
       ++parg;
     }
 
@@ -7393,32 +7377,234 @@ Builtin_call_expression::lower_make()
     }
 
   Location type_loc = first_arg->location();
-  Expression* type_arg = Expression::make_type_descriptor(type, type_loc);
 
   Expression* call;
   if (is_slice)
     {
+      Type* et = type->array_type()->element_type();
+      Expression* type_arg = Expression::make_type_descriptor(et, type_loc);
       if (cap_arg == NULL)
-	call = Runtime::make_call((have_big_args
-				   ? Runtime::MAKESLICE1BIG
-				   : Runtime::MAKESLICE1),
-				  loc, 2, type_arg, len_arg);
-      else
-	call = Runtime::make_call((have_big_args
-				   ? Runtime::MAKESLICE2BIG
-				   : Runtime::MAKESLICE2),
-				  loc, 3, type_arg, len_arg, cap_arg);
+	{
+	  Temporary_statement* temp = Statement::make_temporary(NULL,
+								len_arg,
+								loc);
+	  inserter->insert(temp);
+	  len_arg = Expression::make_temporary_reference(temp, loc);
+	  cap_arg = Expression::make_temporary_reference(temp, loc);
+	}
+      call = Runtime::make_call(Runtime::MAKESLICE, loc, 3, type_arg,
+				len_arg, cap_arg);
     }
   else if (is_map)
-    call = Runtime::make_call(Runtime::MAKEMAP, loc, 4, type_arg, len_arg,
-			      Expression::make_nil(loc),
-			      Expression::make_nil(loc));
+    {
+      Expression* type_arg = Expression::make_type_descriptor(type, type_loc);
+      call = Runtime::make_call(Runtime::MAKEMAP, loc, 4, type_arg, len_arg,
+				Expression::make_nil(loc),
+				Expression::make_nil(loc));
+    }
   else if (is_chan)
-    call = Runtime::make_call(Runtime::MAKECHAN, loc, 2, type_arg, len_arg);
+    {
+      Expression* type_arg = Expression::make_type_descriptor(type, type_loc);
+      call = Runtime::make_call(Runtime::MAKECHAN, loc, 2, type_arg, len_arg);
+    }
   else
     go_unreachable();
 
   return Expression::make_unsafe_cast(type, call, loc);
+}
+
+// Flatten a call to the predeclared append function.  We do this in
+// the flatten phase, not the lowering phase, so that we run after
+// type checking and after order_evaluations.
+
+Expression*
+Builtin_call_expression::flatten_append(Gogo* gogo, Named_object* function,
+					Statement_inserter* inserter)
+{
+  if (this->is_error_expression())
+    return this;
+
+  Location loc = this->location();
+
+  const Expression_list* args = this->args();
+  go_assert(args != NULL && !args->empty());
+
+  Type* slice_type = args->front()->type();
+  go_assert(slice_type->is_slice_type());
+  Type* element_type = slice_type->array_type()->element_type();
+
+  if (args->size() == 1)
+    {
+      // append(s) evaluates to s.
+      return args->front();
+    }
+
+  Type* int_type = Type::lookup_integer_type("int");
+  Type* uint_type = Type::lookup_integer_type("uint");
+
+  // Implementing
+  //   append(s1, s2...)
+  // or
+  //   append(s1, a1, a2, a3, ...)
+
+  // s1tmp := s1
+  Temporary_statement* s1tmp = Statement::make_temporary(NULL, args->front(),
+							 loc);
+  inserter->insert(s1tmp);
+
+  // l1tmp := len(s1tmp)
+  Named_object* lenfn = gogo->lookup_global("len");
+  Expression* lenref = Expression::make_func_reference(lenfn, NULL, loc);
+  Expression_list* call_args = new Expression_list();
+  call_args->push_back(Expression::make_temporary_reference(s1tmp, loc));
+  Expression* len = Expression::make_call(lenref, call_args, false, loc);
+  gogo->lower_expression(function, inserter, &len);
+  gogo->flatten_expression(function, inserter, &len);
+  Temporary_statement* l1tmp = Statement::make_temporary(int_type, len, loc);
+  inserter->insert(l1tmp);
+
+  Temporary_statement* s2tmp = NULL;
+  Temporary_statement* l2tmp = NULL;
+  Expression_list* add = NULL;
+  Expression* len2;
+  if (this->is_varargs())
+    {
+      go_assert(args->size() == 2);
+
+      // s2tmp := s2
+      s2tmp = Statement::make_temporary(NULL, args->back(), loc);
+      inserter->insert(s2tmp);
+
+      // l2tmp := len(s2tmp)
+      lenref = Expression::make_func_reference(lenfn, NULL, loc);
+      call_args = new Expression_list();
+      call_args->push_back(Expression::make_temporary_reference(s2tmp, loc));
+      len = Expression::make_call(lenref, call_args, false, loc);
+      gogo->lower_expression(function, inserter, &len);
+      gogo->flatten_expression(function, inserter, &len);
+      l2tmp = Statement::make_temporary(int_type, len, loc);
+      inserter->insert(l2tmp);
+
+      // len2 = l2tmp
+      len2 = Expression::make_temporary_reference(l2tmp, loc);
+    }
+  else
+    {
+      // We have to ensure that all the arguments are in variables
+      // now, because otherwise if one of them is an index expression
+      // into the current slice we could overwrite it before we fetch
+      // it.
+      add = new Expression_list();
+      Expression_list::const_iterator pa = args->begin();
+      for (++pa; pa != args->end(); ++pa)
+	{
+	  if ((*pa)->is_variable())
+	    add->push_back(*pa);
+	  else
+	    {
+	      Temporary_statement* tmp = Statement::make_temporary(NULL, *pa,
+								   loc);
+	      inserter->insert(tmp);
+	      add->push_back(Expression::make_temporary_reference(tmp, loc));
+	    }
+	}
+
+      // len2 = len(add)
+      len2 = Expression::make_integer_ul(add->size(), int_type, loc);
+    }
+
+  // ntmp := l1tmp + len2
+  Expression* ref = Expression::make_temporary_reference(l1tmp, loc);
+  Expression* sum = Expression::make_binary(OPERATOR_PLUS, ref, len2, loc);
+  gogo->lower_expression(function, inserter, &sum);
+  gogo->flatten_expression(function, inserter, &sum);
+  Temporary_statement* ntmp = Statement::make_temporary(int_type, sum, loc);
+  inserter->insert(ntmp);
+
+  // s1tmp = uint(ntmp) > uint(cap(s1tmp)) ?
+  //   growslice(type, s1tmp, ntmp) :
+  //   s1tmp[:ntmp]
+  // Using uint here means that if the computation of ntmp overflowed,
+  // we will call growslice which will panic.
+
+  Expression* left = Expression::make_temporary_reference(ntmp, loc);
+  left = Expression::make_cast(uint_type, left, loc);
+
+  Named_object* capfn = gogo->lookup_global("cap");
+  Expression* capref = Expression::make_func_reference(capfn, NULL, loc);
+  call_args = new Expression_list();
+  call_args->push_back(Expression::make_temporary_reference(s1tmp, loc));
+  Expression* right = Expression::make_call(capref, call_args, false, loc);
+  right = Expression::make_cast(uint_type, right, loc);
+
+  Expression* cond = Expression::make_binary(OPERATOR_GT, left, right, loc);
+
+  Expression* a1 = Expression::make_type_descriptor(element_type, loc);
+  Expression* a2 = Expression::make_temporary_reference(s1tmp, loc);
+  Expression* a3 = Expression::make_temporary_reference(ntmp, loc);
+  Expression* call = Runtime::make_call(Runtime::GROWSLICE, loc, 3,
+					a1, a2, a3);
+  call = Expression::make_unsafe_cast(slice_type, call, loc);
+
+  ref = Expression::make_temporary_reference(s1tmp, loc);
+  Expression* zero = Expression::make_integer_ul(0, int_type, loc);
+  Expression* ref2 = Expression::make_temporary_reference(ntmp, loc);
+  // FIXME: Mark this index as not requiring bounds checks.
+  ref = Expression::make_index(ref, zero, ref2, NULL, loc);
+
+  Expression* rhs = Expression::make_conditional(cond, call, ref, loc);
+
+  gogo->lower_expression(function, inserter, &rhs);
+  gogo->flatten_expression(function, inserter, &rhs);
+
+  Expression* lhs = Expression::make_temporary_reference(s1tmp, loc);
+  Statement* assign = Statement::make_assignment(lhs, rhs, loc);
+  inserter->insert(assign);
+
+  if (this->is_varargs())
+    {
+      // copy(s1tmp[l1tmp:], s2tmp)
+      a1 = Expression::make_temporary_reference(s1tmp, loc);
+      ref = Expression::make_temporary_reference(l1tmp, loc);
+      Expression* nil = Expression::make_nil(loc);
+      // FIXME: Mark this index as not requiring bounds checks.
+      a1 = Expression::make_index(a1, ref, nil, NULL, loc);
+
+      a2 = Expression::make_temporary_reference(s2tmp, loc);
+
+      Named_object* copyfn = gogo->lookup_global("copy");
+      Expression* copyref = Expression::make_func_reference(copyfn, NULL, loc);
+      call_args = new Expression_list();
+      call_args->push_back(a1);
+      call_args->push_back(a2);
+      call = Expression::make_call(copyref, call_args, false, loc);
+      gogo->lower_expression(function, inserter, &call);
+      gogo->flatten_expression(function, inserter, &call);
+      inserter->insert(Statement::make_statement(call, false));
+    }
+  else
+    {
+      // For each argument:
+      //  s1tmp[l1tmp+i] = a
+      unsigned long i = 0;
+      for (Expression_list::const_iterator pa = add->begin();
+	   pa != add->end();
+	   ++pa, ++i)
+	{
+	  ref = Expression::make_temporary_reference(s1tmp, loc);
+	  ref2 = Expression::make_temporary_reference(l1tmp, loc);
+	  Expression* off = Expression::make_integer_ul(i, int_type, loc);
+	  ref2 = Expression::make_binary(OPERATOR_PLUS, ref2, off, loc);
+	  // FIXME: Mark this index as not requiring bounds checks.
+	  lhs = Expression::make_index(ref, ref2, NULL, NULL, loc);
+	  gogo->lower_expression(function, inserter, &lhs);
+	  gogo->flatten_expression(function, inserter, &lhs);
+	  assign = Statement::make_assignment(lhs, *pa, loc);
+	  inserter->insert(assign);
+	}
+    }
+
+  return Expression::make_temporary_reference(s1tmp, loc);
 }
 
 // Return whether an expression has an integer value.  Report an error
@@ -8000,6 +8186,7 @@ Builtin_call_expression::do_determine_type(const Type_context* context)
 
   bool is_print;
   Type* arg_type = NULL;
+  Type* trailing_arg_types = NULL;
   switch (this->code_)
     {
     case BUILTIN_PRINT:
@@ -8034,6 +8221,16 @@ Builtin_call_expression::do_determine_type(const Type_context* context)
 	  }
 	is_print = false;
       }
+      break;
+
+    case BUILTIN_APPEND:
+      if (!this->is_varargs()
+	  && args != NULL
+	  && !args->empty()
+	  && args->front()->type()->is_slice_type())
+	trailing_arg_types =
+	  args->front()->type()->array_type()->element_type();
+      is_print = false;
       break;
 
     default:
@@ -8092,6 +8289,12 @@ Builtin_call_expression::do_determine_type(const Type_context* context)
 	    }
 
 	  (*pa)->determine_type(&subcontext);
+
+	  if (trailing_arg_types != NULL)
+	    {
+	      arg_type = trailing_arg_types;
+	      trailing_arg_types = NULL;
+	    }
 	}
     }
 }
@@ -8298,54 +8501,102 @@ Builtin_call_expression::do_check_types(Gogo*)
     case BUILTIN_APPEND:
       {
 	const Expression_list* args = this->args();
-	if (args == NULL || args->size() < 2)
+	if (args == NULL || args->empty())
 	  {
 	    this->report_error(_("not enough arguments"));
 	    break;
 	  }
-	if (args->size() > 2)
+
+	Type* slice_type = args->front()->type();
+	if (!slice_type->is_slice_type())
 	  {
-	    this->report_error(_("too many arguments"));
-	    break;
-	  }
-	if (args->front()->type()->is_error()
-	    || args->back()->type()->is_error())
-	  {
+	    if (slice_type->is_error_type())
+	      break;
+	    if (slice_type->is_nil_type())
+	      go_error_at(args->front()->location(), "use of untyped nil");
+	    else
+	      go_error_at(args->front()->location(),
+			  "argument 1 must be a slice");
 	    this->set_is_error();
 	    break;
 	  }
 
-	Array_type* at = args->front()->type()->array_type();
-	Type* e = at->element_type();
-
-	// The language permits appending a string to a []byte, as a
-	// special case.
-	if (args->back()->type()->is_string_type())
+	Type* element_type = slice_type->array_type()->element_type();
+	if (this->is_varargs())
 	  {
-	    if (e->integer_type() != NULL && e->integer_type()->is_byte())
-	      break;
-	  }
+	    if (!args->back()->type()->is_slice_type()
+		&& !args->back()->type()->is_string_type())
+	      {
+		go_error_at(args->back()->location(),
+			    "invalid use of %<...%> with non-slice/non-string");
+		this->set_is_error();
+		break;
+	      }
 
-	// The language says that the second argument must be
-	// assignable to a slice of the element type of the first
-	// argument.  We already know the first argument is a slice
-	// type.
-	Type* arg2_type = Type::make_array_type(e, NULL);
-	std::string reason;
-	if (!Type::are_assignable(arg2_type, args->back()->type(), &reason))
-	  {
-	    if (reason.empty())
-	      this->report_error(_("argument 2 has invalid type"));
+	    if (args->size() < 2)
+	      {
+		this->report_error(_("not enough arguments"));
+		break;
+	      }
+	    if (args->size() > 2)
+	      {
+		this->report_error(_("too many arguments"));
+		break;
+	      }
+
+	    if (args->back()->type()->is_string_type()
+		&& element_type->integer_type() != NULL
+		&& element_type->integer_type()->is_byte())
+	      {
+		// Permit append(s1, s2...) when s1 is a slice of
+		// bytes and s2 is a string type.
+	      }
 	    else
 	      {
-		go_error_at(this->location(),
-			    "argument 2 has invalid type (%s)",
-			    reason.c_str());
-		this->set_is_error();
+		// We have to test for assignment compatibility to a
+		// slice of the element type, which is not necessarily
+		// the same as the type of the first argument: the
+		// first argument might have a named type.
+		Type* check_type = Type::make_array_type(element_type, NULL);
+		std::string reason;
+		if (!Type::are_assignable(check_type, args->back()->type(),
+					  &reason))
+		  {
+		    if (reason.empty())
+		      go_error_at(args->back()->location(),
+				  "argument 2 has invalid type");
+		    else
+		      go_error_at(args->back()->location(),
+				  "argument 2 has invalid type (%s)",
+				  reason.c_str());
+		    this->set_is_error();
+		    break;
+		  }
 	      }
 	  }
-	break;
+	else
+	  {
+	    Expression_list::const_iterator pa = args->begin();
+	    int i = 2;
+	    for (++pa; pa != args->end(); ++pa, ++i)
+	      {
+		std::string reason;
+		if (!Type::are_assignable(element_type, (*pa)->type(),
+					  &reason))
+		  {
+		    if (reason.empty())
+		      go_error_at((*pa)->location(),
+				  "argument %d has incompatible type", i);
+		    else
+		      go_error_at((*pa)->location(),
+				  "argument %d has incompatible type (%s)",
+				  i, reason.c_str());
+		    this->set_is_error();
+		  }
+	      }
+	  }
       }
+      break;
 
     case BUILTIN_REAL:
     case BUILTIN_IMAG:
@@ -8708,97 +8959,39 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 	Type* arg1_type = arg1->type();
 	Array_type* at = arg1_type->array_type();
 	go_assert(arg1->is_variable());
-	Expression* arg1_val = at->get_value_pointer(gogo, arg1);
-	Expression* arg1_len = at->get_length(gogo, arg1);
+
+	Expression* call;
 
 	Type* arg2_type = arg2->type();
         go_assert(arg2->is_variable());
-	Expression* arg2_val;
-	Expression* arg2_len;
-	if (arg2_type->is_slice_type())
-	  {
-	    at = arg2_type->array_type();
-	    arg2_val = at->get_value_pointer(gogo, arg2);
-	    arg2_len = at->get_length(gogo, arg2);
-	  }
+	if (arg2_type->is_string_type())
+	  call = Runtime::make_call(Runtime::SLICESTRINGCOPY, location,
+				    2, arg1, arg2);
 	else
 	  {
-	    go_assert(arg2->is_variable());
-            arg2_val = Expression::make_string_info(arg2, STRING_INFO_DATA,
-                                                    location);
-	    arg2_len = Expression::make_string_info(arg2, STRING_INFO_LENGTH,
-                                                    location);
+	    Type* et = at->element_type();
+	    if (et->has_pointer())
+	      {
+		Expression* td = Expression::make_type_descriptor(et,
+								  location);
+		call = Runtime::make_call(Runtime::TYPEDSLICECOPY, location,
+					  3, td, arg1, arg2);
+	      }
+	    else
+	      {
+		Expression* sz = Expression::make_type_info(et,
+							    TYPE_INFO_SIZE);
+		call = Runtime::make_call(Runtime::SLICECOPY, location, 3,
+					  arg1, arg2, sz);
+	      }
 	  }
-        Expression* cond =
-            Expression::make_binary(OPERATOR_LT, arg1_len, arg2_len, location);
-        Expression* length =
-            Expression::make_conditional(cond, arg1_len, arg2_len, location);
 
-	Type* element_type = at->element_type();
-	int64_t element_size;
-        bool ok = element_type->backend_type_size(gogo, &element_size);
-        if (!ok)
-          {
-            go_assert(saw_errors());
-            return gogo->backend()->error_expression();
-          }
-
-	Expression* size_expr = Expression::make_integer_int64(element_size,
-							       length->type(),
-							       location);
-        Expression* bytecount =
-            Expression::make_binary(OPERATOR_MULT, size_expr, length, location);
-        Expression* copy = Runtime::make_call(Runtime::COPY, location, 3,
-                                              arg1_val, arg2_val, bytecount);
-
-        Expression* compound = Expression::make_compound(copy, length, location);
-        return compound->get_backend(context);
+	return call->get_backend(context);
       }
 
     case BUILTIN_APPEND:
-      {
-	const Expression_list* args = this->args();
-	go_assert(args != NULL && args->size() == 2);
-	Expression* arg1 = args->front();
-	Expression* arg2 = args->back();
-
-	Array_type* at = arg1->type()->array_type();
-	Type* element_type = at->element_type()->forwarded();
-
-        go_assert(arg2->is_variable());
-	Expression* arg2_val;
-	Expression* arg2_len;
-	int64_t size;
-	if (arg2->type()->is_string_type()
-	    && element_type->integer_type() != NULL
-	    && element_type->integer_type()->is_byte())
-	  {
-	    arg2_val = Expression::make_string_info(arg2, STRING_INFO_DATA,
-						    location);
-	    arg2_len = Expression::make_string_info(arg2, STRING_INFO_LENGTH,
-						    location);
-	    size = 1;
-	  }
-	else
-	  {
-	    arg2_val = at->get_value_pointer(gogo, arg2);
-	    arg2_len = at->get_length(gogo, arg2);
-            bool ok = element_type->backend_type_size(gogo, &size);
-            if (!ok)
-              {
-                go_assert(saw_errors());
-                return gogo->backend()->error_expression();
-              }
-	  }
-        Expression* element_size =
-	  Expression::make_integer_int64(size, NULL, location);
-
-        Expression* append = Runtime::make_call(Runtime::APPEND, location, 4,
-                                                arg1, arg2_val, arg2_len,
-                                                element_size);
-        append = Expression::make_unsafe_cast(arg1->type(), append, location);
-        return append->get_backend(context);
-      }
+      // Handled in Builtin_call_expression::flatten_append.
+      go_unreachable();
 
     case BUILTIN_REAL:
     case BUILTIN_IMAG:
@@ -12009,12 +12202,10 @@ Expression::make_allocation(Type* type, Location location)
   return new Allocation_expression(type, location);
 }
 
-// Class Struct_construction_expression.
-
-// Traversal.
+// Class Ordered_value_list.
 
 int
-Struct_construction_expression::do_traverse(Traverse* traverse)
+Ordered_value_list::traverse_vals(Traverse* traverse)
 {
   if (this->vals_ != NULL)
     {
@@ -12025,8 +12216,8 @@ Struct_construction_expression::do_traverse(Traverse* traverse)
 	}
       else
 	{
-	  for (std::vector<int>::const_iterator p =
-		 this->traverse_order_->begin();
+	  for (std::vector<unsigned long>::const_iterator p =
+		   this->traverse_order_->begin();
 	       p != this->traverse_order_->end();
 	       ++p)
 	    {
@@ -12036,6 +12227,18 @@ Struct_construction_expression::do_traverse(Traverse* traverse)
 	    }
 	}
     }
+  return TRAVERSE_CONTINUE;
+}
+
+// Class Struct_construction_expression.
+
+// Traversal.
+
+int
+Struct_construction_expression::do_traverse(Traverse* traverse)
+{
+  if (this->traverse_vals(traverse) == TRAVERSE_EXIT)
+    return TRAVERSE_EXIT;
   if (Type::traverse(this->type_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
   return TRAVERSE_CONTINUE;
@@ -12046,10 +12249,10 @@ Struct_construction_expression::do_traverse(Traverse* traverse)
 bool
 Struct_construction_expression::is_constant_struct() const
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return true;
-  for (Expression_list::const_iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::const_iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       if (*pv != NULL
@@ -12077,10 +12280,10 @@ Struct_construction_expression::is_constant_struct() const
 bool
 Struct_construction_expression::do_is_immutable() const
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return true;
-  for (Expression_list::const_iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::const_iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       if (*pv != NULL && !(*pv)->is_immutable())
@@ -12094,15 +12297,15 @@ Struct_construction_expression::do_is_immutable() const
 void
 Struct_construction_expression::do_determine_type(const Type_context*)
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return;
   const Struct_field_list* fields = this->type_->struct_type()->fields();
-  Expression_list::const_iterator pv = this->vals_->begin();
+  Expression_list::const_iterator pv = this->vals()->begin();
   for (Struct_field_list::const_iterator pf = fields->begin();
        pf != fields->end();
        ++pf, ++pv)
     {
-      if (pv == this->vals_->end())
+      if (pv == this->vals()->end())
 	return;
       if (*pv != NULL)
 	{
@@ -12112,7 +12315,7 @@ Struct_construction_expression::do_determine_type(const Type_context*)
     }
   // Extra values are an error we will report elsewhere; we still want
   // to determine the type to avoid knockon errors.
-  for (; pv != this->vals_->end(); ++pv)
+  for (; pv != this->vals()->end(); ++pv)
     (*pv)->determine_type_no_context();
 }
 
@@ -12121,24 +12324,24 @@ Struct_construction_expression::do_determine_type(const Type_context*)
 void
 Struct_construction_expression::do_check_types(Gogo*)
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return;
 
   Struct_type* st = this->type_->struct_type();
-  if (this->vals_->size() > st->field_count())
+  if (this->vals()->size() > st->field_count())
     {
       this->report_error(_("too many expressions for struct"));
       return;
     }
 
   const Struct_field_list* fields = st->fields();
-  Expression_list::const_iterator pv = this->vals_->begin();
+  Expression_list::const_iterator pv = this->vals()->begin();
   int i = 0;
   for (Struct_field_list::const_iterator pf = fields->begin();
        pf != fields->end();
        ++pf, ++pv, ++i)
     {
-      if (pv == this->vals_->end())
+      if (pv == this->vals()->end())
 	{
 	  this->report_error(_("too few expressions for struct"));
 	  break;
@@ -12162,7 +12365,7 @@ Struct_construction_expression::do_check_types(Gogo*)
 	  this->set_is_error();
 	}
     }
-  go_assert(pv == this->vals_->end());
+  go_assert(pv == this->vals()->end());
 }
 
 // Flatten a struct construction expression.  Store the values into
@@ -12172,7 +12375,7 @@ Expression*
 Struct_construction_expression::do_flatten(Gogo*, Named_object*,
 					   Statement_inserter* inserter)
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return this;
 
   // If this is a constant struct, we don't need temporaries.
@@ -12180,8 +12383,8 @@ Struct_construction_expression::do_flatten(Gogo*, Named_object*,
     return this;
 
   Location loc = this->location();
-  for (Expression_list::iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       if (*pv != NULL)
@@ -12211,18 +12414,18 @@ Struct_construction_expression::do_get_backend(Translate_context* context)
   Gogo* gogo = context->gogo();
 
   Btype* btype = this->type_->get_backend(gogo);
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return gogo->backend()->zero_expression(btype);
 
   const Struct_field_list* fields = this->type_->struct_type()->fields();
-  Expression_list::const_iterator pv = this->vals_->begin();
+  Expression_list::const_iterator pv = this->vals()->begin();
   std::vector<Bexpression*> init;
   for (Struct_field_list::const_iterator pf = fields->begin();
        pf != fields->end();
        ++pf)
     {
       Btype* fbtype = pf->type()->get_backend(gogo);
-      if (pv == this->vals_->end())
+      if (pv == this->vals()->end())
         init.push_back(gogo->backend()->zero_expression(fbtype));
       else if (*pv == NULL)
 	{
@@ -12248,8 +12451,8 @@ Struct_construction_expression::do_export(Export* exp) const
 {
   exp->write_c_string("convert(");
   exp->write_type(this->type_);
-  for (Expression_list::const_iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::const_iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       exp->write_c_string(", ");
@@ -12267,7 +12470,7 @@ Struct_construction_expression::do_dump_expression(
 {
   ast_dump_context->dump_type(this->type_);
   ast_dump_context->ostream() << "{";
-  ast_dump_context->dump_expression_list(this->vals_);
+  ast_dump_context->dump_expression_list(this->vals());
   ast_dump_context->ostream() << "}";
 }
 
@@ -12288,8 +12491,7 @@ Expression::make_struct_composite_literal(Type* type, Expression_list* vals,
 int
 Array_construction_expression::do_traverse(Traverse* traverse)
 {
-  if (this->vals_ != NULL
-      && this->vals_->traverse(traverse) == TRAVERSE_EXIT)
+  if (this->traverse_vals(traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
   if (Type::traverse(this->type_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
@@ -12301,15 +12503,15 @@ Array_construction_expression::do_traverse(Traverse* traverse)
 bool
 Array_construction_expression::is_constant_array() const
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return true;
 
   // There are no constant constructors for interfaces.
   if (this->type_->array_type()->element_type()->interface_type() != NULL)
     return false;
 
-  for (Expression_list::const_iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::const_iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       if (*pv != NULL
@@ -12326,10 +12528,10 @@ Array_construction_expression::is_constant_array() const
 bool
 Array_construction_expression::do_is_immutable() const
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return true;
-  for (Expression_list::const_iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::const_iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       if (*pv != NULL && !(*pv)->is_immutable())
@@ -12343,11 +12545,11 @@ Array_construction_expression::do_is_immutable() const
 void
 Array_construction_expression::do_determine_type(const Type_context*)
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return;
   Type_context subcontext(this->type_->array_type()->element_type(), false);
-  for (Expression_list::const_iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::const_iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       if (*pv != NULL)
@@ -12360,14 +12562,14 @@ Array_construction_expression::do_determine_type(const Type_context*)
 void
 Array_construction_expression::do_check_types(Gogo*)
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return;
 
   Array_type* at = this->type_->array_type();
   int i = 0;
   Type* element_type = at->element_type();
-  for (Expression_list::const_iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::const_iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv, ++i)
     {
       if (*pv != NULL
@@ -12388,7 +12590,7 @@ Expression*
 Array_construction_expression::do_flatten(Gogo*, Named_object*,
 					   Statement_inserter* inserter)
 {
-  if (this->vals_ == NULL)
+  if (this->vals() == NULL)
     return this;
 
   // If this is a constant array, we don't need temporaries.
@@ -12396,8 +12598,8 @@ Array_construction_expression::do_flatten(Gogo*, Named_object*,
     return this;
 
   Location loc = this->location();
-  for (Expression_list::iterator pv = this->vals_->begin();
-       pv != this->vals_->end();
+  for (Expression_list::iterator pv = this->vals()->begin();
+       pv != this->vals()->end();
        ++pv)
     {
       if (*pv != NULL)
@@ -12430,14 +12632,14 @@ Array_construction_expression::get_constructor(Translate_context* context,
   std::vector<unsigned long> indexes;
   std::vector<Bexpression*> vals;
   Gogo* gogo = context->gogo();
-  if (this->vals_ != NULL)
+  if (this->vals() != NULL)
     {
       size_t i = 0;
       std::vector<unsigned long>::const_iterator pi;
       if (this->indexes_ != NULL)
 	pi = this->indexes_->begin();
-      for (Expression_list::const_iterator pv = this->vals_->begin();
-	   pv != this->vals_->end();
+      for (Expression_list::const_iterator pv = this->vals()->begin();
+	   pv != this->vals()->end();
 	   ++pv, ++i)
 	{
 	  if (this->indexes_ != NULL)
@@ -12477,13 +12679,13 @@ Array_construction_expression::do_export(Export* exp) const
 {
   exp->write_c_string("convert(");
   exp->write_type(this->type_);
-  if (this->vals_ != NULL)
+  if (this->vals() != NULL)
     {
       std::vector<unsigned long>::const_iterator pi;
       if (this->indexes_ != NULL)
 	pi = this->indexes_->begin();
-      for (Expression_list::const_iterator pv = this->vals_->begin();
-	   pv != this->vals_->end();
+      for (Expression_list::const_iterator pv = this->vals()->begin();
+	   pv != this->vals()->end();
 	   ++pv)
 	{
 	  exp->write_c_string(", ");
@@ -12524,10 +12726,10 @@ Array_construction_expression::do_dump_expression(
   this->dump_slice_storage_expression(ast_dump_context);
   ast_dump_context->ostream() << "{" ;
   if (this->indexes_ == NULL)
-    ast_dump_context->dump_expression_list(this->vals_);
+    ast_dump_context->dump_expression_list(this->vals());
   else
     {
-      Expression_list::const_iterator pv = this->vals_->begin();
+      Expression_list::const_iterator pv = this->vals()->begin();
       for (std::vector<unsigned long>::const_iterator pi =
 	     this->indexes_->begin();
 	   pi != this->indexes_->end();
@@ -13156,7 +13358,7 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 
   size_t field_count = st->field_count();
   std::vector<Expression*> vals(field_count);
-  std::vector<int>* traverse_order = new(std::vector<int>);
+  std::vector<unsigned long>* traverse_order = new(std::vector<unsigned long>);
   Expression_list::const_iterator p = this->vals_->begin();
   Expression* external_expr = NULL;
   const Named_object* external_no = NULL;
@@ -13288,7 +13490,7 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
                     type->named_type()->message_name().c_str());
 
       vals[index] = val;
-      traverse_order->push_back(index);
+      traverse_order->push_back(static_cast<unsigned long>(index));
     }
 
   if (!this->all_are_names_)
@@ -13319,15 +13521,16 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
   return ret;
 }
 
-// Used to sort an index/value array.
+// Index/value/traversal-order triple.
 
-class Index_value_compare
-{
- public:
-  bool
-  operator()(const std::pair<unsigned long, Expression*>& a,
-	     const std::pair<unsigned long, Expression*>& b)
-  { return a.first < b.first; }
+struct IVT_triple {
+  unsigned long index;
+  unsigned long traversal_order;
+  Expression* expr;
+  IVT_triple(unsigned long i, unsigned long to, Expression *e)
+      : index(i), traversal_order(to), expr(e) { }
+  bool operator<(const IVT_triple& other) const
+  { return this->index < other.index; }
 };
 
 // Lower an array composite literal.
@@ -13431,35 +13634,45 @@ Composite_literal_expression::lower_array(Type* type)
       indexes = NULL;
     }
 
+  std::vector<unsigned long>* traverse_order = NULL;
   if (indexes_out_of_order)
     {
-      typedef std::vector<std::pair<unsigned long, Expression*> > V;
+      typedef std::vector<IVT_triple> V;
 
       V v;
       v.reserve(indexes->size());
       std::vector<unsigned long>::const_iterator pi = indexes->begin();
+      unsigned long torder = 0;
       for (Expression_list::const_iterator pe = vals->begin();
 	   pe != vals->end();
-	   ++pe, ++pi)
-	v.push_back(std::make_pair(*pi, *pe));
+	   ++pe, ++pi, ++torder)
+	v.push_back(IVT_triple(*pi, torder, *pe));
 
-      std::sort(v.begin(), v.end(), Index_value_compare());
+      std::sort(v.begin(), v.end());
 
       delete indexes;
       delete vals;
+
       indexes = new std::vector<unsigned long>();
       indexes->reserve(v.size());
       vals = new Expression_list();
       vals->reserve(v.size());
+      traverse_order = new std::vector<unsigned long>();
+      traverse_order->reserve(v.size());
 
       for (V::const_iterator p = v.begin(); p != v.end(); ++p)
 	{
-	  indexes->push_back(p->first);
-	  vals->push_back(p->second);
+	  indexes->push_back(p->index);
+	  vals->push_back(p->expr);
+	  traverse_order->push_back(p->traversal_order);
 	}
     }
 
-  return this->make_array(type, indexes, vals);
+  Expression* ret = this->make_array(type, indexes, vals);
+  Array_construction_expression* ace = ret->array_literal();
+  if (ace != NULL && traverse_order != NULL)
+    ace->set_traverse_order(traverse_order);
+  return ret;
 }
 
 // Actually build the array composite literal. This handles

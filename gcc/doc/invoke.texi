@@ -255,6 +255,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-fsyntax-only  -fmax-errors=@var{n}  -Wpedantic @gol
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
+-Walloca -Walloca-larger-than=@var{n} @gol
 -Wno-aggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
 -Wno-attributes -Wbool-compare -Wbool-operation @gol
 -Wno-builtin-macro-redefined -Wc90-c99-compat -Wc99-c11-compat @gol
@@ -292,6 +293,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wno-pragmas -Wredundant-decls  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
+-Wshadow=global, -Wshadow=local, -Wshadow=compatible-local @gol
 -Wshift-overflow -Wshift-overflow=@var{n} @gol
 -Wshift-count-negative -Wshift-count-overflow -Wshift-negative-value @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
@@ -313,7 +315,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wunused-const-variable -Wunused-const-variable=@var{n} @gol
 -Wunused-but-set-parameter -Wunused-but-set-variable @gol
 -Wuseless-cast -Wvariadic-macros -Wvector-operation-performance @gol
--Wvla -Wvolatile-register-var  -Wwrite-strings @gol
+-Wvla -Wvla-larger-than=@var{n} -Wvolatile-register-var  -Wwrite-strings @gol
 -Wzero-as-null-pointer-constant -Whsa}
 
 @item C and Objective-C-only Warning Options
@@ -401,10 +403,10 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fsemantic-interposition -fshrink-wrap -fshrink-wrap-separate @gol
 -fsignaling-nans @gol
--fsingle-precision-constant -fsplit-ivs-in-unroller @gol
+-fsingle-precision-constant -fsplit-ivs-in-unroller -fsplit-loops@gol
 -fsplit-paths @gol
 -fsplit-wide-types -fssa-backprop -fssa-phiopt @gol
--fstdarg-opt -fstrict-aliasing @gol
+-fstdarg-opt -fstore-merging -fstrict-aliasing @gol
 -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-vars -ftree-copy-prop -ftree-dce -ftree-dominator-opts @gol
@@ -415,8 +417,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-vectorize @gol
 -ftree-parallelize-loops=@var{n} -ftree-pre -ftree-partial-pre -ftree-pta @gol
 -ftree-reassoc -ftree-sink -ftree-slsr -ftree-sra @gol
--ftree-switch-conversion -ftree-tail-merge -ftree-ter @gol
--ftree-vectorize -ftree-vrp -funconstrained-commons @gol
+-ftree-switch-conversion -ftree-tail-merge @gol
+-ftree-ter -ftree-vectorize -ftree-vrp -funconstrained-commons @gol
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-math-optimizations -funswitch-loops @gol
 -fipa-ra -fvariable-expansion-in-unroller -fvect-cost-model -fvpt @gol
@@ -4976,6 +4978,73 @@ annotations.
 Warn about overriding virtual functions that are not marked with the override
 keyword.
 
+@item -Walloca
+@opindex Wno-alloca
+@opindex Walloca
+This option warns on all uses of @code{alloca} in the source.
+
+@item -Walloca-larger-than=@var{n}
+This option warns on calls to @code{alloca} that are not bounded by a
+controlling predicate limiting its size to @var{n} bytes, or calls to
+@code{alloca} where the bound is unknown.
+
+For example, a bounded case of @code{alloca} could be:
+
+@smallexample
+void func (size_t n)
+@{
+  void *p;
+  if (n <= 1000)
+    p = alloca (n);
+  else
+    p = malloc (n);
+  f (p);
+@}
+@end smallexample
+
+In the above example, passing @code{-Walloca=1000} would not issue a
+warning because the call to @code{alloca} is known to be at most 1000
+bytes.  However, if @code{-Walloca=500} was passed, the compiler would
+have emitted a warning.
+
+Unbounded uses, on the other hand, are uses of @code{alloca} with no
+controlling predicate verifying its size.  For example:
+
+@smallexample
+void func ()
+@{
+  void *p = alloca (n);
+  f (p);
+@}
+@end smallexample
+
+If @code{-Walloca=500} was passed, the above would trigger a warning,
+but this time because of the lack of bounds checking.
+
+Note, that even seemingly correct code involving signed integers could
+cause a warning:
+
+@smallexample
+void func (signed int n)
+@{
+  if (n < 500)
+    @{
+      p = alloca (n);
+      f (p);
+    @}
+@}
+@end smallexample
+
+In the above example, @var{n} could be negative, causing a larger than
+expected argument to be implicitly casted into the @code{alloca} call.
+
+This option also warns when @code{alloca} is used in a loop.
+
+This warning is not enabled by @option{-Wall}, and is only active when
+@option{-ftree-vrp} is active (default for @option{-O2} and above).
+
+See also @option{-Wvla-larger-than=@var{n}}.
+
 @item -Warray-bounds
 @itemx -Warray-bounds=@var{n}
 @opindex Wno-array-bounds
@@ -5253,12 +5322,55 @@ variable, parameter, type, class member (in C++), or instance variable
 (in Objective-C) or whenever a built-in function is shadowed. Note
 that in C++, the compiler warns if a local variable shadows an
 explicit typedef, but not if it shadows a struct/class/enum.
+Same as @option{-Wshadow=global}.
 
 @item -Wno-shadow-ivar @r{(Objective-C only)}
 @opindex Wno-shadow-ivar
 @opindex Wshadow-ivar
 Do not warn whenever a local variable shadows an instance variable in an
 Objective-C method.
+
+@item -Wshadow=global
+@opindex Wshadow=local
+The default for @option{-Wshadow}. Warns for any (global) shadowing.
+
+@item -Wshadow=local
+@opindex Wshadow=local
+Warn when a local variable shadows another local variable or parameter.
+This warning is enabled by @option{-Wshadow=global}.
+
+@item -Wshadow=compatible-local
+@opindex Wshadow=compatible-local
+Warn when a local variable shadows another local variable or parameter
+whose type is compatible with that of the shadowing variable. In C++,
+type compatibility here means the type of the shadowing variable can be
+converted to that of the shadowed variable. The creation of this flag
+(in addition to @option{-Wshadow=local}) is based on the idea that when
+a local variable shadows another one of incompatible type, it is most
+likely intentional, not a bug or typo, as shown in the following example:
+
+@smallexample
+@group
+for (SomeIterator i = SomeObj.begin(); i != SomeObj.end(); ++i)
+@{
+  for (int i = 0; i < N; ++i)
+  @{
+    ...
+  @}
+  ...
+@}
+@end group
+@end smallexample
+
+Since the two variable @code{i} in the example above have incompatible types,
+enabling only @option{-Wshadow=compatible-local} will not emit a warning.
+Because their types are incompatible, if a programmer accidentally uses one
+in place of the other, type checking will catch that and emit an error or
+warning. So not warning (about shadowing) in this case will not lead to
+undetected bugs. Use of this flag instead of @option{-Wshadow=local} can
+possibly reduce the number of warnings triggered by intentional shadowing.
+
+This warning is enabled by @option{-Wshadow=local}.
 
 @item -Wlarger-than=@var{len}
 @opindex Wlarger-than=@var{len}
@@ -6101,8 +6213,9 @@ of the C++ standard.
 @opindex Wno-int-in-bool-context
 Warn for suspicious use of integer values where boolean values are expected,
 such as conditional expressions (?:) using non-boolean integer constants in
-boolean context, like @code{if (a <= b ? 2 : 3)}.  Or left shifting in
-boolean context, like @code{for (a = 0; 1 << a; a++);}.
+boolean context, like @code{if (a <= b ? 2 : 3)}.  Or left shifting of signed
+integers in boolean context, like @code{for (a = 0; 1 << a; a++);}.  Likewise
+for all kinds of multiplications regardless of the data type.
 This warning is enabled by @option{-Wall}.
 
 @item -Wno-int-to-pointer-cast
@@ -6172,9 +6285,25 @@ moving from a moved-from object, this warning can be disabled.
 @item -Wvla
 @opindex Wvla
 @opindex Wno-vla
-Warn if variable length array is used in the code.
+Warn if a variable-length array is used in the code.
 @option{-Wno-vla} prevents the @option{-Wpedantic} warning of
-the variable length array.
+the variable-length array.
+
+@item -Wvla-larger-than=@var{n}
+If this option is used, the compiler will warn on uses of
+variable-length arrays where the size is either unbounded, or bounded
+by an argument that can be larger than @var{n} bytes.  This is similar
+to how @option{-Walloca-larger-than=@var{n}} works, but with
+variable-length arrays.
+
+Note that GCC may optimize small variable-length arrays of a known
+value into plain arrays, so this warning may not get triggered for
+such arrays.
+
+This warning is not enabled by @option{-Wall}, and is only active when
+@option{-ftree-vrp} is active (default for @option{-O2} and above).
+
+See also @option{-Walloca-larger-than=@var{n}}.
 
 @item -Wvolatile-register-var
 @opindex Wvolatile-register-var
@@ -6668,6 +6797,7 @@ compilation time.
 -fsplit-wide-types @gol
 -fssa-backprop @gol
 -fssa-phiopt @gol
+-fstore-merging @gol
 -ftree-bit-ccp @gol
 -ftree-ccp @gol
 -ftree-ch @gol
@@ -8010,6 +8140,13 @@ Perform scalar replacement of aggregates.  This pass replaces structure
 references with scalars to prevent committing structures to memory too
 early.  This flag is enabled by default at @option{-O} and higher.
 
+@item -fstore-merging
+@opindex fstore-merging
+Perform merging of narrow stores to consecutive memory addresses.  This pass
+merges contiguous stores of immediate values narrower than a word into fewer
+wider stores to reduce the number of instructions.  This is enabled by default
+at @option{-O} and higher.
+
 @item -ftree-ter
 @opindex ftree-ter
 Perform temporary expression replacement during the SSA->normal phase.  Single
@@ -9140,6 +9277,11 @@ Enabled with @option{-O3} and/or @option{-fprofile-use}.
 Enables the loop invariant motion pass in the RTL loop optimizer.  Enabled
 at level @option{-O1}
 
+@item -fsplit-loops
+@opindex fsplit-loops
+Split a loop into two if it contains a condition that's always true
+for one side of the iteration space and false for the other.
+
 @item -funswitch-loops
 @opindex funswitch-loops
 Move branches with loop invariant conditions out of the loop, with duplicates
@@ -9482,6 +9624,14 @@ avoid quadratic behavior in tree tail merging.  The default value is 10.
 @item max-tail-merge-iterations
 The maximum amount of iterations of the pass over the function.  This is used to
 limit compilation time in tree tail merging.  The default value is 2.
+
+@item store-merging-allow-unaligned
+Allow the store merging pass to introduce unaligned stores if it is legal to
+do so.  The default value is 1.
+
+@item max-stores-to-merge
+The maximum number of stores to attempt to merge into wider stores in the store
+merging pass.  The minimum value is 2 and the default is 64.
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop may have to be unrolled.
@@ -22144,10 +22294,18 @@ The default is to not print debug information.
 @opindex march
 Generate code that runs on @var{cpu-type}, which is the name of a
 system representing a certain processor type.  Possible values for
-@var{cpu-type} are @samp{z900}, @samp{z990}, @samp{z9-109},
-@samp{z9-ec}, @samp{z10}, @samp{z196}, @samp{zEC12}, and @samp{z13}.
-The default is @option{-march=z900}.  @samp{g5} and @samp{g6} are
-deprecated and will be removed with future releases.
+@var{cpu-type} are @samp{z900}/@samp{arch5}, @samp{z990}/@samp{arch6},
+@samp{z9-109}, @samp{z9-ec}/@samp{arch7}, @samp{z10}/@samp{arch8},
+@samp{z196}/@samp{arch9}, @samp{zEC12}, @samp{z13}/@samp{arch11}, and
+@samp{native}.
+
+The default is @option{-march=z900}.  @samp{g5}/@samp{arch3} and
+@samp{g6} are deprecated and will be removed with future releases.
+
+Specifying @samp{native} as cpu type can be used to select the best
+architecture option for the host processor.
+@option{-march=native} has no effect if GCC does not recognize the
+processor.
 
 @item -mtune=@var{cpu-type}
 @opindex mtune

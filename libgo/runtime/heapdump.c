@@ -298,8 +298,8 @@ dumpgoroutine(G *gp)
 		dumpint(TagPanic);
 		dumpint((uintptr)p);
 		dumpint((uintptr)gp);
-		dumpint((uintptr)p->arg.__type_descriptor);
-		dumpint((uintptr)p->arg.__object);
+		dumpint((uintptr)p->arg._type);
+		dumpint((uintptr)p->arg.data);
 		dumpint((uintptr)0);
 		dumpint((uintptr)p->next);
 	}
@@ -545,6 +545,8 @@ dumpmemprof_callback(Bucket *b, uintptr nstk, Location *stk, uintptr size, uintp
 	dumpint(frees);
 }
 
+static FuncVal dumpmemprof_callbackv = {(void(*)(void))dumpmemprof_callback};
+
 static void
 dumpmemprof(void)
 {
@@ -554,7 +556,7 @@ dumpmemprof(void)
 	SpecialProfile *spp;
 	byte *p;
 
-	runtime_iterate_memprof(dumpmemprof_callback);
+	runtime_iterate_memprof(&dumpmemprof_callbackv);
 
 	allspans = runtime_mheap.allspans;
 	for(spanidx=0; spanidx<runtime_mheap.nspan; spanidx++) {

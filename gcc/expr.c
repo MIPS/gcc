@@ -10421,10 +10421,36 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	if (GET_CODE (op0) == CONCAT && !must_force_mem)
 	  {
 	    if (bitpos == 0
-		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
+		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0))
+		&& COMPLEX_MODE_P (mode1)
+		&& COMPLEX_MODE_P (GET_MODE (op0))
+		&& (GET_MODE_PRECISION (GET_MODE_INNER (mode1))
+		    == GET_MODE_PRECISION (GET_MODE_INNER (GET_MODE (op0)))))
 	      {
 		if (reversep)
 		  op0 = flip_storage_order (GET_MODE (op0), op0);
+		if (mode1 != GET_MODE (op0))
+		  {
+		    rtx parts[2];
+		    for (int i = 0; i < 2; i++)
+		      {
+			rtx op = read_complex_part (op0, i != 0);
+			if (GET_CODE (op) == SUBREG)
+			  op = force_reg (GET_MODE (op), op);
+			rtx temp = gen_lowpart_common (GET_MODE_INNER (mode1),
+						       op);
+			if (temp)
+			  op = temp;
+			else
+			  {
+			    if (!REG_P (op) && !MEM_P (op))
+			      op = force_reg (GET_MODE (op), op);
+			    op = gen_lowpart (GET_MODE_INNER (mode1), op);
+			  }
+			parts[i] = op;
+		      }
+		    op0 = gen_rtx_CONCAT (mode1, parts[0], parts[1]);
+		  }
 		return op0;
 	      }
 	    if (bitpos == 0
@@ -11286,7 +11312,7 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
     {
       tree ifexp = build2 (ops->code, ops->type, arg0, arg1);
       if (VECTOR_BOOLEAN_TYPE_P (ops->type)
-	  && expand_vec_cmp_expr_p (TREE_TYPE (arg0), ops->type))
+	  && expand_vec_cmp_expr_p (TREE_TYPE (arg0), ops->type, ops->code))
 	return expand_vec_cmp_expr (ops->type, ifexp, target);
       else
 	{

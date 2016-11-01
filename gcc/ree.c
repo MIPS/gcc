@@ -482,6 +482,14 @@ get_defs (rtx_insn *insn, rtx reg, vec<rtx_insn *> *dest)
         return NULL;
       if (DF_REF_INSN_INFO (ref_link->ref) == NULL)
         return NULL;
+      /* As global regs are assumed to be defined at each function call
+	 dataflow can report a call_insn as being a definition of REG.
+	 But we can't do anything with that in this pass so proceed only
+	 if the instruction really sets REG in a way that can be deduced
+	 from the RTL structure.  */
+      if (global_regs[REGNO (reg)]
+	  && !set_of (reg, DF_REF_INSN (ref_link->ref)))
+	return NULL;
     }
 
   if (dest)
@@ -580,7 +588,7 @@ make_defs_and_copies_lists (rtx_insn *extend_insn, const_rtx set_pat,
 
   /* Initialize the work list.  */
   if (!get_defs (extend_insn, src_reg, &state->work_list))
-    gcc_unreachable ();
+    return false;
 
   is_insn_visited = XCNEWVEC (bool, max_insn_uid);
 
@@ -779,6 +787,11 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
 
       machine_mode dst_mode = GET_MODE (SET_DEST (PATTERN (cand->insn)));
       rtx src_reg = get_extended_src_reg (SET_SRC (PATTERN (cand->insn)));
+
+      /* Ensure we can use the src_reg in dst_mode (needed for
+	 the (set (reg1) (reg2)) insn mentioned above).  */
+      if (!HARD_REGNO_MODE_OK (REGNO (src_reg), dst_mode))
+	return false;
 
       /* Ensure the number of hard registers of the copy match.  */
       if (HARD_REGNO_NREGS (REGNO (src_reg), dst_mode)

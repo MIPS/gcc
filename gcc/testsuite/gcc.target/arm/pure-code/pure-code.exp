@@ -28,7 +28,7 @@ if ![info exists DEFAULT_CFLAGS] then {
 # The -mpure-code option is only available for M-profile targets that support
 # thumb2.
 if {[check_effective_target_arm_thumb2_ok]
-    && ![check_effective_target_arm_arm_ok]} then {
+    && [check_effective_target_arm_cortex_m]} then {
 # Initialize `dg'.
 dg-init
 
@@ -48,6 +48,10 @@ set LTO_TORTURE_OPTIONS [add_fat_objects ${LTO_TORTURE_OPTIONS}]
 
 gcc-dg-runtest [lsort [glob $srcdir/$subdir/*.c]] \
 	"" $DEFAULT_CFLAGS
+
+# Restore global values
+set dg-do-what-default ${saved-dg-do-what-default}
+set LTO_TORTURE_OPTIONS ${saved-lto_torture_options}
 
 # All done.
 dg-finish

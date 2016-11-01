@@ -1,3 +1,22 @@
+2016-10-27  Carl Love  <cel@us.ibm.com>
+
+	* MAINTAINERS (Write After Approval): Fix my entry in the Write After
+	Approval list to make it alphabetical.
+
+2016-10-27  Carl Love  <cel@us.ibm.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2016-10-27  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* MAINTAINERS (Reviewers): Add myself.
+	(Write After Approval): Add myself.
+
+2016-10-21  Hartmut Penner  <hepenner@us.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* MAINTAINERS: Update email address.
+
 2016-10-10  Nathan Sidwell  <nathan@acm.org>
 
 	* MAINTAINERS: Update email address.

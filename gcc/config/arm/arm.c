@@ -62,6 +62,7 @@
 #include "builtins.h"
 #include "tm-constrs.h"
 #include "rtl-iter.h"
+#include "optabs-libfuncs.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -304,6 +305,7 @@ static section *arm_function_section (tree, enum node_frequency, bool, bool);
 static bool arm_asm_elf_flags_numeric (unsigned int flags, unsigned int *num);
 static unsigned int arm_elf_section_type_flags (tree decl, const char *name,
 						int reloc);
+static void arm_expand_divmod_libfunc (rtx, machine_mode, rtx, rtx, rtx *, rtx *);
 
 /* Table of machine attributes.  */
 static const struct attribute_spec arm_attribute_table[] =
@@ -738,6 +740,9 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS arm_elf_section_type_flags
+
+#undef TARGET_EXPAND_DIVMOD_LIBFUNC
+#define TARGET_EXPAND_DIVMOD_LIBFUNC arm_expand_divmod_libfunc
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -28152,9 +28157,9 @@ emit_unlikely_jump (rtx insn)
 void
 arm_expand_compare_and_swap (rtx operands[])
 {
-  rtx bval, rval, mem, oldval, newval, is_weak, mod_s, mod_f, x;
+  rtx bval, bdst, rval, mem, oldval, newval, is_weak, mod_s, mod_f, x;
   machine_mode mode;
-  rtx (*gen) (rtx, rtx, rtx, rtx, rtx, rtx, rtx);
+  rtx (*gen) (rtx, rtx, rtx, rtx, rtx, rtx, rtx, rtx);
 
   bval = operands[0];
   rval = operands[1];
@@ -28211,43 +28216,54 @@ arm_expand_compare_and_swap (rtx operands[])
       gcc_unreachable ();
     }
 
-  emit_insn (gen (rval, mem, oldval, newval, is_weak, mod_s, mod_f));
+  bdst = TARGET_THUMB1 ? bval : gen_rtx_REG (CCmode, CC_REGNUM);
+  emit_insn (gen (bdst, rval, mem, oldval, newval, is_weak, mod_s, mod_f));
 
   if (mode == QImode || mode == HImode)
     emit_move_insn (operands[1], gen_lowpart (mode, rval));
 
   /* In all cases, we arrange for success to be signaled by Z set.
      This arrangement allows for the boolean result to be used directly
-     in a subsequent branch, post optimization.  */
-  x = gen_rtx_REG (CCmode, CC_REGNUM);
-  x = gen_rtx_EQ (SImode, x, const0_rtx);
-  emit_insn (gen_rtx_SET (bval, x));
+     in a subsequent branch, post optimization.  For Thumb-1 targets, the
+     boolean negation of the result is also stored in bval because Thumb-1
+     backend lacks dependency tracking for CC flag due to flag-setting not
+     being represented at RTL level.  */
+  if (TARGET_THUMB1)
+      emit_insn (gen_cstoresi_eq0_thumb1 (bval, bdst));
+  else
+    {
+      x = gen_rtx_EQ (SImode, bdst, const0_rtx);
+      emit_insn (gen_rtx_SET (bval, x));
+    }
 }
 
 /* Split a compare and swap pattern.  It is IMPLEMENTATION DEFINED whether
    another memory store between the load-exclusive and store-exclusive can
    reset the monitor from Exclusive to Open state.  This means we must wait
    until after reload to split the pattern, lest we get a register spill in
-   the middle of the atomic sequence.  */
+   the middle of the atomic sequence.  Success of the compare and swap is
+   indicated by the Z flag set for 32bit targets and by neg_bval being zero
+   for Thumb-1 targets (ie. negation of the boolean value returned by
+   atomic_compare_and_swapmode standard pattern in operand 0).  */
 
 void
 arm_split_compare_and_swap (rtx operands[])
 {
-  rtx rval, mem, oldval, newval, scratch;
+  rtx rval, mem, oldval, newval, neg_bval;
   machine_mode mode;
   enum memmodel mod_s, mod_f;
   bool is_weak;
   rtx_code_label *label1, *label2;
   rtx x, cond;
 
-  rval = operands[0];
-  mem = operands[1];
-  oldval = operands[2];
-  newval = operands[3];
-  is_weak = (operands[4] != const0_rtx);
-  mod_s = memmodel_from_int (INTVAL (operands[5]));
-  mod_f = memmodel_from_int (INTVAL (operands[6]));
-  scratch = operands[7];
+  rval = operands[1];
+  mem = operands[2];
+  oldval = operands[3];
+  newval = operands[4];
+  is_weak = (operands[5] != const0_rtx);
+  mod_s = memmodel_from_int (INTVAL (operands[6]));
+  mod_f = memmodel_from_int (INTVAL (operands[7]));
+  neg_bval = TARGET_THUMB1 ? operands[0] : operands[8];
   mode = GET_MODE (mem);
 
   bool is_armv8_sync = arm_arch8 && is_mm_sync (mod_s);
@@ -28279,26 +28295,44 @@ arm_split_compare_and_swap (rtx operands[])
 
   arm_emit_load_exclusive (mode, rval, mem, use_acquire);
 
-  cond = arm_gen_compare_reg (NE, rval, oldval, scratch);
-  x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
-  x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
-			    gen_rtx_LABEL_REF (Pmode, label2), pc_rtx);
-  emit_unlikely_jump (gen_rtx_SET (pc_rtx, x));
+  /* Z is set to 0 for 32bit targets (resp. rval set to 1) if oldval != rval,
+     as required to communicate with arm_expand_compare_and_swap.  */
+  if (TARGET_32BIT)
+    {
+      cond = arm_gen_compare_reg (NE, rval, oldval, neg_bval);
+      x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
+      x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
+				gen_rtx_LABEL_REF (Pmode, label2), pc_rtx);
+      emit_unlikely_jump (gen_rtx_SET (pc_rtx, x));
+    }
+  else
+    {
+      emit_move_insn (neg_bval, const1_rtx);
+      cond = gen_rtx_NE (VOIDmode, rval, oldval);
+      if (thumb1_cmpneg_operand (oldval, SImode))
+	emit_unlikely_jump (gen_cbranchsi4_scratch (neg_bval, rval, oldval,
+						    label2, cond));
+      else
+	emit_unlikely_jump (gen_cbranchsi4_insn (cond, rval, oldval, label2));
+    }
 
-  arm_emit_store_exclusive (mode, scratch, mem, newval, use_release);
+  arm_emit_store_exclusive (mode, neg_bval, mem, newval, use_release);
 
   /* Weak or strong, we want EQ to be true for success, so that we
      match the flags that we got from the compare above.  */
-  cond = gen_rtx_REG (CCmode, CC_REGNUM);
-  x = gen_rtx_COMPARE (CCmode, scratch, const0_rtx);
-  emit_insn (gen_rtx_SET (cond, x));
+  if (TARGET_32BIT)
+    {
+      cond = gen_rtx_REG (CCmode, CC_REGNUM);
+      x = gen_rtx_COMPARE (CCmode, neg_bval, const0_rtx);
+      emit_insn (gen_rtx_SET (cond, x));
+    }
 
   if (!is_weak)
     {
-      x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
-      x = gen_rtx_IF_THEN_ELSE (VOIDmode, x,
-				gen_rtx_LABEL_REF (Pmode, label1), pc_rtx);
-      emit_unlikely_jump (gen_rtx_SET (pc_rtx, x));
+      /* Z is set to boolean value of !neg_bval, as required to communicate
+	 with arm_expand_compare_and_swap.  */
+      x = gen_rtx_NE (VOIDmode, neg_bval, const0_rtx);
+      emit_unlikely_jump (gen_cbranchsi4 (x, neg_bval, const0_rtx, label1));
     }
 
   if (!is_mm_relaxed (mod_f))
@@ -28313,6 +28347,15 @@ arm_split_compare_and_swap (rtx operands[])
     emit_label (label2);
 }
 
+/* Split an atomic operation pattern.  Operation is given by CODE and is one
+   of PLUS, MINUS, IOR, XOR, SET (for an exchange operation) or NOT (for a nand
+   operation).  Operation is performed on the content at MEM and on VALUE
+   following the memory model MODEL_RTX.  The content at MEM before and after
+   the operation is returned in OLD_OUT and NEW_OUT respectively while the
+   success of the operation is returned in COND.  Using a scratch register or
+   an operand register for these determines what result is returned for that
+   pattern.  */
+
 void
 arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
 		     rtx value, rtx model_rtx, rtx cond)
@@ -28321,6 +28364,7 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   machine_mode mode = GET_MODE (mem);
   machine_mode wmode = (mode == DImode ? DImode : SImode);
   rtx_code_label *label;
+  bool all_low_regs, bind_old_new;
   rtx x;
 
   bool is_armv8_sync = arm_arch8 && is_mm_sync (model);
@@ -28354,6 +28398,28 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   value = simplify_gen_subreg (wmode, value, mode, 0);
 
   arm_emit_load_exclusive (mode, old_out, mem, use_acquire);
+
+  /* Does the operation require destination and first operand to use the same
+     register?  This is decided by register constraints of relevant insn
+     patterns in thumb1.md.  */
+  gcc_assert (!new_out || REG_P (new_out));
+  all_low_regs = REG_P (value) && REGNO_REG_CLASS (REGNO (value)) == LO_REGS
+		 && new_out && REGNO_REG_CLASS (REGNO (new_out)) == LO_REGS
+		 && REGNO_REG_CLASS (REGNO (old_out)) == LO_REGS;
+  bind_old_new =
+    (TARGET_THUMB1
+     && code != SET
+     && code != MINUS
+     && (code != PLUS || (!all_low_regs && !satisfies_constraint_L (value))));
+
+  /* We want to return the old value while putting the result of the operation
+     in the same register as the old value so copy the old value over to the
+     destination register and use that register for the operation.  */
+  if (old_out && bind_old_new)
+    {
+      emit_move_insn (new_out, old_out);
+      old_out = new_out;
+    }
 
   switch (code)
     {
@@ -29216,6 +29282,12 @@ arm_emit_coreregs_64bit_shift (enum rtx_code code, rtx out, rtx in,
 	  /* Shifts by a constant less than 32.  */
 	  rtx reverse_amount = GEN_INT (32 - INTVAL (amount));
 
+	  /* Clearing the out register in DImode first avoids lots
+	     of spilling and results in less stack usage.
+	     Later this redundant insn is completely removed.
+	     Do that only if "in" and "out" are different registers.  */
+	  if (REG_P (out) && REG_P (in) && REGNO (out) != REGNO (in))
+	    emit_insn (SET (out, const0_rtx));
 	  emit_insn (SET (out_down, LSHIFT (code, in_down, amount)));
 	  emit_insn (SET (out_down,
 			  ORR (REV_LSHIFT (code, in_up, reverse_amount),
@@ -29227,6 +29299,8 @@ arm_emit_coreregs_64bit_shift (enum rtx_code code, rtx out, rtx in,
 	  /* Shifts by a constant greater than 31.  */
 	  rtx adj_amount = GEN_INT (INTVAL (amount) - 32);
 
+	  if (REG_P (out) && REG_P (in) && REGNO (out) != REGNO (in))
+	    emit_insn (SET (out, const0_rtx));
 	  emit_insn (SET (out_down, SHIFT (code, in_up, adj_amount)));
 	  if (code == ASHIFTRT)
 	    emit_insn (gen_ashrsi3 (out_up, in_up,
@@ -30081,9 +30155,9 @@ arm_const_not_ok_for_debug_p (rtx p)
 	      && GET_CODE (XEXP (p, 0)) == SYMBOL_REF
 	      && (decl_op0 = SYMBOL_REF_DECL (XEXP (p, 0))))
 	    {
-	      if ((TREE_CODE (decl_op1) == VAR_DECL
+	      if ((VAR_P (decl_op1)
 		   || TREE_CODE (decl_op1) == CONST_DECL)
-		  && (TREE_CODE (decl_op0) == VAR_DECL
+		  && (VAR_P (decl_op0)
 		      || TREE_CODE (decl_op0) == CONST_DECL))
 		return (get_variable_section (decl_op1, false)
 			!= get_variable_section (decl_op0, false));
@@ -30774,6 +30848,35 @@ arm_elf_section_type_flags (tree decl, const char *name, int reloc)
     flags |= SECTION_ARM_PURECODE;
 
   return flags;
+}
+
+/* Generate call to __aeabi_[mode]divmod (op0, op1).  */
+
+static void
+arm_expand_divmod_libfunc (rtx libfunc, machine_mode mode,
+			   rtx op0, rtx op1,
+			   rtx *quot_p, rtx *rem_p)
+{
+  if (mode == SImode)
+    gcc_assert (!TARGET_IDIV);
+
+  machine_mode libval_mode = smallest_mode_for_size (2 * GET_MODE_BITSIZE (mode),
+						     MODE_INT);
+
+  rtx libval = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
+					libval_mode, 2,
+					op0, GET_MODE (op0),
+					op1, GET_MODE (op1));
+
+  rtx quotient = simplify_gen_subreg (mode, libval, libval_mode, 0);
+  rtx remainder = simplify_gen_subreg (mode, libval, libval_mode,
+				       GET_MODE_SIZE (mode));
+
+  gcc_assert (quotient);
+  gcc_assert (remainder);
+
+  *quot_p = quotient;
+  *rem_p = remainder;
 }
 
 #include "gt-arm.h"

@@ -1602,6 +1602,10 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wx,		/* FPR register for STFIWX */
   RS6000_CONSTRAINT_wy,		/* VSX register for SF */
   RS6000_CONSTRAINT_wz,		/* FPR register for LFIWZX */
+  RS6000_CONSTRAINT_wH,		/* Altivec register for 32-bit integers.  */
+  RS6000_CONSTRAINT_wI,		/* VSX register for 32-bit integers.  */
+  RS6000_CONSTRAINT_wJ,		/* VSX register for 8/16-bit integers.  */
+  RS6000_CONSTRAINT_wK,		/* Altivec register for 16/32-bit integers.  */
   RS6000_CONSTRAINT_MAX
 };
 
@@ -2694,7 +2698,8 @@ extern int frame_pointer_needed;
 #define RS6000_BTC_TYPE_MASK	0x0000000f	/* Mask to isolate types */
 
 #define RS6000_BTC_MISC		0x00000000	/* No special attributes.  */
-#define RS6000_BTC_CONST	0x00000100	/* uses no global state.  */
+#define RS6000_BTC_CONST	0x00000100	/* Neither uses, nor
+						   modifies global state.  */
 #define RS6000_BTC_PURE		0x00000200	/* reads global
 						   state/mem and does
 						   not modify global state.  */
@@ -2921,9 +2926,6 @@ extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
 #define TARGET_SUPPORTS_WIDE_INT 1
-
-/* Use custom descriptors instead of trampolines if not AIX or ELFv1.  */
-#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS (DEFAULT_ABI != ABI_AIX)
 
 #if (GCC_VERSION >= 3000)
 #pragma GCC poison TARGET_FLOAT128 OPTION_MASK_FLOAT128 MASK_FLOAT128

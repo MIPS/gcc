@@ -267,8 +267,9 @@ read_sf_internal (st_parameter_dt *dtp, int * length)
 
   dtp->u.p.current_unit->bytes_left -= *length;
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) *length;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) *length;
 
   return base;
 
@@ -315,7 +316,8 @@ read_sf (st_parameter_dt *dtp, int * length)
       q = fbuf_getc (dtp->u.p.current_unit);
       if (q == EOF)
 	break;
-      else if (q == '\n' || q == '\r')
+      else if (dtp->u.p.current_unit->flags.cc != CC_NONE
+	       && (q == '\n' || q == '\r'))
 	{
 	  /* Unexpected end of line. Set the position.  */
 	  dtp->u.p.sf_seen_eor = 1;
@@ -397,8 +399,9 @@ read_sf (st_parameter_dt *dtp, int * length)
 
   dtp->u.p.current_unit->bytes_left -= n;
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) n;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) n;
 
   /* We can't call fbuf_getptr before the loop doing fbuf_getc, because
      fbuf_getc might reallocate the buffer.  So return current pointer
@@ -478,8 +481,9 @@ read_block_form (st_parameter_dt *dtp, int * nbytes)
   source = fbuf_read (dtp->u.p.current_unit, nbytes);
   fbuf_seek (dtp->u.p.current_unit, *nbytes, SEEK_CUR);
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) *nbytes;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) *nbytes;
 
   if (norig != *nbytes)
     {
@@ -536,8 +540,9 @@ read_block_form4 (st_parameter_dt *dtp, int * nbytes)
 
   dtp->u.p.current_unit->bytes_left -= *nbytes;
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) *nbytes;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) *nbytes;
 
   return source;
 }
@@ -770,8 +775,9 @@ write_block (st_parameter_dt *dtp, int length)
 	}
     }
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) length;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) length;
 
   dtp->u.p.current_unit->strm_pos += (gfc_offset) length;
 
@@ -1573,7 +1579,8 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
               dtp->u.p.current_unit->bytes_left -= dtp->u.p.sf_seen_eor;
               dtp->u.p.skips -= dtp->u.p.sf_seen_eor;
 	      bytes_used = pos;
-	      dtp->u.p.sf_seen_eor = 0;
+	      if (dtp->u.p.pending_spaces == 0)
+		dtp->u.p.sf_seen_eor = 0;
 	    }
 	  if (dtp->u.p.skips < 0)
 	    {
@@ -2593,11 +2600,10 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   dtp->u.p.ionml = ionml;
   dtp->u.p.mode = read_flag ? READING : WRITING;
 
+  dtp->u.p.cc.len = 0;
+
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
-
-  if ((cf & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used = 0;  /* Initialize the count.  */
 
   dtp->u.p.current_unit = get_unit (dtp, 1);
 
@@ -2634,6 +2640,9 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       u_flags.async = ASYNC_UNSPECIFIED;
       u_flags.round = ROUND_UNSPECIFIED;
       u_flags.sign = SIGN_UNSPECIFIED;
+      u_flags.share = SHARE_UNSPECIFIED;
+      u_flags.cc = CC_UNSPECIFIED;
+      u_flags.readonly = 0;
 
       u_flags.status = STATUS_UNKNOWN;
 
@@ -2672,6 +2681,18 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       dtp->common.flags |= (opp.common.flags & IOPARM_COMMON_MASK);
       if (dtp->u.p.current_unit == NULL)
 	return;
+    }
+
+  if (dtp->u.p.current_unit->child_dtio == 0)
+    {
+      if ((cf & IOPARM_DT_HAS_SIZE) != 0)
+	{
+	  dtp->u.p.current_unit->has_size = true;
+	  /* Initialize the count.  */
+	  dtp->u.p.current_unit->size_used = 0;
+	}
+      else
+	dtp->u.p.current_unit->has_size = false;
     }
 
   /* Check the action.  */
@@ -3012,20 +3033,13 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	  return;
 	}
 
-      /* TODO: This is required to maintain compatibility between
-         4.3 and 4.4 runtime. Remove when ABI changes from 4.3 */
-
-      if (is_stream_io (dtp))
-        dtp->u.p.current_unit->strm_pos = dtp->rec;
-
-      /* TODO: Un-comment this code when ABI changes from 4.3.
       if (dtp->u.p.current_unit->flags.access == ACCESS_STREAM)
        {
          generate_error (&dtp->common, LIBERROR_OPTION_CONFLICT,
                      "Record number not allowed for stream access "
                      "data transfer");
          return;
-       }  */
+       }
     }
 
   /* Bugware for badly written mixed C-Fortran I/O.  */
@@ -3342,7 +3356,7 @@ next_record_r (st_parameter_dt *dtp, int done)
 	    }
 	  break;
 	}
-      else
+      else if (dtp->u.p.current_unit->flags.cc != CC_NONE)
 	{
 	  do
 	    {
@@ -3524,6 +3538,30 @@ sset (stream * s, int c, ssize_t nbyte)
 }
 
 
+/* Finish up a record according to the legacy carriagecontrol type, based
+   on the first character in the record.  */
+
+static void
+next_record_cc (st_parameter_dt *dtp)
+{
+  /* Only valid with CARRIAGECONTROL=FORTRAN.  */
+  if (dtp->u.p.current_unit->flags.cc != CC_FORTRAN)
+    return;
+
+  fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
+  if (dtp->u.p.cc.len > 0)
+    {
+      char * p = fbuf_alloc (dtp->u.p.current_unit, dtp->u.p.cc.len);
+      if (!p)
+	generate_error (&dtp->common, LIBERROR_OS, NULL);
+
+      /* Output CR for the first character with default CC setting.  */
+      *(p++) = dtp->u.p.cc.u.end;
+      if (dtp->u.p.cc.len > 1)
+	*p = dtp->u.p.cc.u.end;
+    }
+}
+
 /* Position to the next record in write mode.  */
 
 static void
@@ -3670,21 +3708,30 @@ next_record_w (st_parameter_dt *dtp, int done)
 		}
 	    }
 	}
+      /* Handle legacy CARRIAGECONTROL line endings.  */
+      else if (dtp->u.p.current_unit->flags.cc == CC_FORTRAN)
+	next_record_cc (dtp);
       else
 	{
+	  /* Skip newlines for CC=CC_NONE.  */
+	  const int len = (dtp->u.p.current_unit->flags.cc == CC_NONE)
+	    ? 0
 #ifdef HAVE_CRLF
-	  const int len = 2;
+	    : 2;
 #else
-	  const int len = 1;
+	    : 1;
 #endif
-          fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
-          char * p = fbuf_alloc (dtp->u.p.current_unit, len);
-          if (!p)
-            goto io_error;
+	  fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
+	  if (dtp->u.p.current_unit->flags.cc != CC_NONE)
+	    {
+	      char * p = fbuf_alloc (dtp->u.p.current_unit, len);
+	      if (!p)
+		goto io_error;
 #ifdef HAVE_CRLF
-          *(p++) = '\r';
+	      *(p++) = '\r';
 #endif
-          *p = '\n';
+	      *p = '\n';
+	    }
 	  if (is_stream_io (dtp))
 	    {
 	      dtp->u.p.current_unit->strm_pos += len;
@@ -3769,10 +3816,17 @@ finalize_transfer (st_parameter_dt *dtp)
     }
 
   if (dtp->u.p.current_unit && (dtp->u.p.current_unit->child_dtio  > 0))
-    return;
+    {
+      if (cf & IOPARM_DT_HAS_FORMAT)
+        {
+	  free (dtp->u.p.fmt);
+	  free (dtp->format);
+	}
+      return;
+    }
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    *dtp->size = dtp->u.p.size_used;
+    *dtp->size = dtp->u.p.current_unit->size_used;
 
   if (dtp->u.p.eor_condition)
     {
@@ -3958,7 +4012,6 @@ st_read_done (st_parameter_dt *dtp)
         {
 	  free (dtp->u.p.current_unit->filename);
 	  dtp->u.p.current_unit->filename = NULL;
-	  free_format_hash_table (dtp->u.p.current_unit);
 	  free (dtp->u.p.current_unit->s);
 	  dtp->u.p.current_unit->s = NULL;
 	  if (dtp->u.p.current_unit->ls)
@@ -4029,7 +4082,6 @@ st_write_done (st_parameter_dt *dtp)
 	{
 	  free (dtp->u.p.current_unit->filename);
 	  dtp->u.p.current_unit->filename = NULL;
-	  free_format_hash_table (dtp->u.p.current_unit);
 	  free (dtp->u.p.current_unit->s);
 	  dtp->u.p.current_unit->s = NULL;
 	  if (dtp->u.p.current_unit->ls)

@@ -1,3 +1,74 @@
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78089
+	* parser.c (cp_parser_postfix_expression): Replace return statement in
+	the first switch with setting postfix_expression to the return
+	expression and break;.
+
+	PR c++/77886
+	* pt.c (tsubst_expr) <case CASE_LABEL_EXPR> Copy over
+	FALLTHROUGH_LABEL_P flag to the new LABEL_DECL.
+	(tsubst_expr) <case LABEL_EXPR>: Likewise.
+
+2016-09-11  Le-Chun Wu  <lcwu@google.com>
+	    Mark Wielaard  <mjw@redhat.com>
+
+	* name-lookup.c (pushdecl_maybe_friend): When emitting a
+	shadowing warning, use the code corresponding to the
+	given -Wshadow= variant.
+
+2016-10-26  Jason Merrill  <jason@redhat.com>
+
+	* class.c (add_method): Allow using-declarations to coexist.
+
+2016-10-25  Jason Merrill  <jason@redhat.com>
+
+	* constexpr.c (maybe_constant_init): Pull out TARGET_EXPR_INITIAL.
+	(cxx_eval_outermost_constant_expr): Don't return a CONSTRUCTOR
+	with CONSTRUCTOR_NO_IMPLICIT_ZERO.
+	(cxx_eval_call_expression): Clear CONSTRUCTOR_NO_IMPLICIT_ZERO.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_postfix_expression): Adding missing break;.
+
+	* cp-tree.h (finish_builtin_launder): Declare.
+	* parser.c (cp_parser_postfix_expression): Handle RID_BUILTIN_LAUNDER.
+	* semantics.c (finish_builtin_launder): New function.
+	* pt.c (tsubst_copy_and_build): Handle instantiation of IFN_LAUNDER.
+	* constexpr.c (cxx_eval_internal_function): Handle IFN_LAUNDER.
+	(potential_constant_expression_1): Likewise.
+
+2016-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.c (cp_decl_dwarf_attribute): Handle DW_AT_reference
+	and DW_AT_rvalue_reference.
+
+	* cxx-pretty-print.c (pp_cxx_check_constraint): Use VAR_P (x)
+	instead of TREE_CODE (x) == VAR_DECL.
+	* constraint.cc (get_concept_definition): Likewise.
+	(finish_shorthand_constraint): Likewise.
+	* init.c (warn_placement_new_too_small): Likewise.
+	* cp-gimplify.c (cp_genericize_r): Likewise.
+
+2016-10-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77656
+	* pt.c (convert_template_argument): Call convert_nontype_argument
+	on value-dependent but not type-dependent arguments.
+	(convert_nontype_argument): Handle value-dependent arguments.
+	(canonicalize_expr_argument): New.
+	(deducible_expression, unify): Skip CONVERT_EXPR.
+	* error.c (dump_template_argument): Likewise.
+	* mangle.c (write_expression): Likewise.
+
+	* ptree.c (cxx_print_xnode) [TEMPLATE_PARM_INDEX]: Dump the decl.
+
+2016-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.c (cp_decl_dwarf_attribute): Handle
+	DW_AT_const_expr.
+
 2016-10-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-objcp-common.h (cp_function_decl_explicit_p,

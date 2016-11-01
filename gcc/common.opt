@@ -668,7 +668,25 @@ Warn about returning a pointer/reference to a local or temporary variable.
 
 Wshadow
 Common Var(warn_shadow) Warning
-Warn when one local variable shadows another.
+Warn when one variable shadows another.  Same as -Wshadow=global.
+
+Wshadow=global
+Common Warning Alias(Wshadow)
+Warn when one variable shadows another (globally).
+
+Wshadow=local
+Common Var(warn_shadow_local) Warning EnabledBy(Wshadow)
+Warn when one local variable shadows another local variable or parameter.
+
+Wshadow-local
+Common Warning Undocumented Alias(Wshadow=local)
+
+Wshadow=compatible-local
+Common Var(warn_shadow_compatible_local) Warning EnabledBy(Wshadow=local)
+Warn when one local variable shadows another local variable or parameter of compatible type.
+
+Wshadow-compatible-local
+Common Warning Undocumented Alias(Wshadow=compatible-local)
 
 Wstack-protector
 Common Var(warn_stack_protect) Warning
@@ -1463,6 +1481,10 @@ fstrict-volatile-bitfields
 Common Report Var(flag_strict_volatile_bitfields) Init(-1) Optimization
 Force bitfield accesses to match their type width.
 
+fstore-merging
+Common Report Var(flag_store_merging) Optimization
+Merge adjacent stores.
+
 fguess-branch-probability
 Common Report Var(flag_guess_branch_prob) Optimization
 Enable guessing of branch probabilities.
@@ -1597,7 +1619,7 @@ Common Report Var(flag_ipa_icf_functions) Optimization
 Perform Identical Code Folding for functions.
 
 fipa-icf-variables
-Common Report Var(flag_ipa_icf_variables)
+Common Report Var(flag_ipa_icf_variables) Optimization
 Perform Identical Code Folding for variables.
 
 fipa-reference
@@ -2575,6 +2597,10 @@ Allow math optimizations that may violate IEEE or ISO standards.
 funswitch-loops
 Common Report Var(flag_unswitch_loops) Optimization
 Perform loop unswitching.
+
+fsplit-loops
+Common Report Var(flag_split_loops) Optimization
+Perform loop splitting.
 
 funwind-tables
 Common Report Var(flag_unwind_tables) Optimization

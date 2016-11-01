@@ -4892,6 +4892,8 @@ them: try the first ones in this list first.
 
 @hook TARGET_SCHED_FUSION_PRIORITY
 
+@hook TARGET_EXPAND_DIVMOD_LIBFUNC
+
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
 @c the above section title is WAY too long.  maybe cut the part between
@@ -7084,8 +7086,6 @@ tables, and hence is desirable if it works.
 
 @hook TARGET_WANT_DEBUG_PUB_SECTIONS
 
-@hook TARGET_FORCE_AT_COMP_DIR
-
 @hook TARGET_DELAY_SCHED2
 
 @hook TARGET_DELAY_VARTRACK
@@ -7576,6 +7576,8 @@ Define this macro to 1 if operations between registers with integral mode
 smaller than a word are always performed on the entire register.
 Most RISC machines have this property and most CISC machines do not.
 @end defmac
+
+@hook TARGET_MIN_ARITHMETIC_PRECISION
 
 @defmac LOAD_EXTEND_OP (@var{mem_mode})
 Define this macro to be a C expression indicating when insns that read

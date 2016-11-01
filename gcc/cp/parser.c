@@ -6441,7 +6441,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	   can be used in constant-expressions.  */
 	if (!cast_valid_in_integral_constant_expression_p (type)
 	    && cp_parser_non_integral_constant_expression (parser, NIC_CAST))
-	  return error_mark_node;
+	  {
+	    postfix_expression = error_mark_node;
+	    break;
+	  }
 
 	switch (keyword)
 	  {
@@ -6521,7 +6524,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	parser->type_definition_forbidden_message = saved_message;
 	/* `typeid' may not appear in an integral constant expression.  */
 	if (cp_parser_non_integral_constant_expression (parser, NIC_TYPEID))
-	  return error_mark_node;
+	  postfix_expression = error_mark_node;
       }
       break;
 
@@ -6604,6 +6607,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 
     case RID_ADDRESSOF:
     case RID_BUILTIN_SHUFFLE:
+    case RID_BUILTIN_LAUNDER:
       {
 	vec<tree, va_gc> *vec;
 	unsigned int i;
@@ -6614,7 +6618,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    /*cast_p=*/false, /*allow_expansion_p=*/true,
 		    /*non_constant_p=*/NULL);
 	if (vec == NULL)
-	  return error_mark_node;
+	  {
+	    postfix_expression = error_mark_node;
+	    break;
+	  }
 
 	FOR_EACH_VEC_ELT (*vec, i, p)
 	  mark_exp_read (p);
@@ -6623,25 +6630,49 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  {
 	  case RID_ADDRESSOF:
 	    if (vec->length () == 1)
-	      return cp_build_addressof (loc, (*vec)[0], tf_warning_or_error);
-	    error_at (loc, "wrong number of arguments to "
-			   "%<__builtin_addressof%>");
-	    return error_mark_node;
+	      postfix_expression
+		= cp_build_addressof (loc, (*vec)[0], tf_warning_or_error);
+	    else
+	      {
+		error_at (loc, "wrong number of arguments to "
+			       "%<__builtin_addressof%>");
+		postfix_expression = error_mark_node;
+	      }
+	    break;
+
+	  case RID_BUILTIN_LAUNDER:
+	    if (vec->length () == 1)
+	      postfix_expression = finish_builtin_launder (loc, (*vec)[0],
+							   tf_warning_or_error);
+	    else
+	      {
+		error_at (loc, "wrong number of arguments to "
+			       "%<__builtin_launder%>");
+		postfix_expression = error_mark_node;
+	      }
+	    break;
 
 	  case RID_BUILTIN_SHUFFLE:
 	    if (vec->length () == 2)
-	      return build_x_vec_perm_expr (loc, (*vec)[0], NULL_TREE,
-					    (*vec)[1], tf_warning_or_error);
+	      postfix_expression
+		= build_x_vec_perm_expr (loc, (*vec)[0], NULL_TREE,
+					 (*vec)[1], tf_warning_or_error);
 	    else if (vec->length () == 3)
-	      return build_x_vec_perm_expr (loc, (*vec)[0], (*vec)[1],
-					    (*vec)[2], tf_warning_or_error);
-	    error_at (loc, "wrong number of arguments to "
-			   "%<__builtin_shuffle%>");
-	    return error_mark_node;
+	      postfix_expression
+		= build_x_vec_perm_expr (loc, (*vec)[0], (*vec)[1],
+					 (*vec)[2], tf_warning_or_error);
+	    else
+	      {
+		error_at (loc, "wrong number of arguments to "
+			       "%<__builtin_shuffle%>");
+		postfix_expression = error_mark_node;
+	      }
+	    break;
 
 	  default:
 	    gcc_unreachable ();
 	  }
+	break;
       }
 
     default:

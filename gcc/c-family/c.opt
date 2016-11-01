@@ -295,6 +295,16 @@ Wall
 C ObjC C++ ObjC++ Warning
 Enable most warning messages.
 
+Walloca
+C ObjC C++ ObjC++ Var(warn_alloca) Warning
+Warn on any use of alloca.
+
+Walloca-larger-than=
+C ObjC C++ ObjC++ Var(warn_alloca_limit) Warning Joined RejectNegative UInteger
+-Walloca-larger-than=<number> Warn on unbounded uses of
+alloca, and on bounded uses of alloca whose bound can be larger than
+<number> bytes.
+
 Warray-bounds
 LangEnabledBy(C ObjC C++ ObjC++,Wall)
 ; in common.opt
@@ -1030,6 +1040,12 @@ Wvla
 C ObjC C++ ObjC++ Var(warn_vla) Init(-1) Warning
 Warn if a variable length array is used.
 
+Wvla-larger-than=
+C ObjC C++ ObjC++ Var(warn_vla_limit) Warning Joined RejectNegative UInteger
+-Wvla-larger-than=<number> Warn on unbounded uses of variable-length arrays, and
+on bounded uses of variable-length arrays whose bound can be
+larger than <number> bytes.
+
 Wvolatile-register-var
 C ObjC C++ ObjC++ Var(warn_volatile_register_var) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
 Warn when a register variable is declared volatile.
@@ -1689,7 +1705,7 @@ C ObjC C++ ObjC++ Joined
 -femit-struct-debug-detailed=<spec-list>	Detailed reduced debug info for structs.
 
 fext-numeric-literals
-C++ ObjC++
+C++ ObjC++ Var(flag_ext_numeric_literals) Init(1)
 Interpret imaginary, fixed-point, or other gnu number suffix as the corresponding
 number literal rather than a user-defined number literal.
 

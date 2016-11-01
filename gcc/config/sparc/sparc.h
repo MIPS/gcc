@@ -44,12 +44,12 @@ along with GCC; see the file COPYING3.  If not see
 #endif /* sparc64 */
 #else
 #ifdef SPARC_BI_ARCH
-#define TARGET_ARCH32 (! TARGET_64BIT)
+#define TARGET_ARCH32 (!TARGET_64BIT)
 #else
 #define TARGET_ARCH32 (DEFAULT_ARCH32_P)
 #endif /* SPARC_BI_ARCH */
 #endif /* IN_LIBGCC2 */
-#define TARGET_ARCH64 (! TARGET_ARCH32)
+#define TARGET_ARCH64 (!TARGET_ARCH32)
 
 /* Code model selection in 64-bit environment.
 
@@ -1813,6 +1813,3 @@ extern int sparc_indent_opcode;
 #define SPARC_LOW_FE_EXCEPT_VALUES 0
 
 #define TARGET_SUPPORTS_WIDE_INT 1
-
-/* Use custom descriptors instead of trampolines when possible.  */
-#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1

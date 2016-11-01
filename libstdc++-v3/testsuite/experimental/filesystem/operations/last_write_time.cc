@@ -32,10 +32,12 @@
 # include <utime.h>
 #endif
 
+using time_type = std::experimental::filesystem::file_time_type;
+
 void
 test01()
 {
-  using time_type = std::experimental::filesystem::file_time_type;
+  // read times
 
   auto p = __gnu_test::nonexistent_path();
   std::error_code ec;
@@ -103,8 +105,52 @@ test01()
 #endif
 }
 
+bool approx_equal(time_type file_time, time_type expected)
+{
+  auto delta = expected - file_time;
+  if (delta < delta.zero())
+    delta = -delta;
+  return delta < std::chrono::seconds(1);
+}
+
+void
+test02()
+{
+  // write times
+
+  __gnu_test::scoped_file f;
+  std::error_code ec;
+  time_type time;
+
+  time = last_write_time(f.path);
+  last_write_time(f.path, time, ec);
+  VERIFY( !ec );
+  VERIFY( approx_equal(last_write_time(f.path), time) );
+
+  time -= std::chrono::milliseconds(1000 * 60 * 10 + 15);
+  last_write_time(f.path, time, ec);
+  VERIFY( !ec );
+  VERIFY( approx_equal(last_write_time(f.path), time) );
+
+  time += std::chrono::milliseconds(1000 * 60 * 20 + 15);
+  last_write_time(f.path, time, ec);
+  VERIFY( !ec );
+  VERIFY( approx_equal(last_write_time(f.path), time) );
+
+  time = time_type();
+  last_write_time(f.path, time, ec);
+  VERIFY( !ec );
+  VERIFY( approx_equal(last_write_time(f.path), time) );
+
+  time -= std::chrono::milliseconds(1000 * 60 * 10 + 15);
+  last_write_time(f.path, time, ec);
+  VERIFY( !ec );
+  VERIFY( approx_equal(last_write_time(f.path), time) );
+}
+
 int
 main()
 {
   test01();
+  test02();
 }
