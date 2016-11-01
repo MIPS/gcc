@@ -8152,6 +8152,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 		      && ((caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0
 			  || c->attr.codimension))))
 	    {
+	      /* Allocatable arrays or coarray'ed components (scalar or
+		 array).  */
 	      int caf_dereg_mode =
 		  ((caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0
 		   || c->attr.codimension)
