@@ -142,7 +142,11 @@ fs::canonical(const path& p, const path& base, error_code& ec)
 #endif
 
   if (!exists(pa, ec))
-    return result;
+    {
+      if (!ec)
+	ec = make_error_code(std::errc::no_such_file_or_directory);
+      return result;
+    }
   // else: we know there are (currently) no unresolvable symlink loops
 
   result = pa.root_path();
@@ -440,7 +444,8 @@ namespace
       }
 
 #ifdef _GLIBCXX_USE_SENDFILE
-    const auto n = ::sendfile(out.fd, in.fd, nullptr, from_st->st_size);
+    off_t offset = 0;
+    const auto n = ::sendfile(out.fd, in.fd, &offset, from_st->st_size);
     if (n < 0 && (errno == ENOSYS || errno == EINVAL))
       {
 #endif
