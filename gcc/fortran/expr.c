@@ -4166,7 +4166,7 @@ gfc_has_default_initializer (gfc_symbol *der)
         if (!c->attr.pointer && !c->attr.proc_pointer
 	     && !(c->attr.allocatable && der == c->ts.u.derived)
 	     && ((c->initializer
-		  && is_non_empty_structure_constructor(c->initializer))
+		  && is_non_empty_structure_constructor (c->initializer))
 		 || gfc_has_default_initializer (c->ts.u.derived)))
 	  return true;
 	if (c->attr.pointer && c->initializer)
