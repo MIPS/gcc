@@ -6285,34 +6285,6 @@ gfc_trans_allocate (gfc_code * code)
 	  init_expr = NULL;
 	  gfc_add_expr_to_block (&block, tmp);
 	}
-      else if (!code->expr3
-	       && ((gfc_bt_struct (expr->ts.type)
-		    && expr->ts.u.derived->attr.alloc_comp)
-		   || (expr->ts.type == BT_CLASS
-		       && CLASS_DATA (expr)->ts.u.derived->attr.alloc_comp)))
-	{
-	  /* Nullify the allocated object only, when no source= or mold= is
-	     present and this object is a structure type.  */
-	  int rank = 0;
-	  gfc_symbol *der = expr->ts.type == BT_CLASS
-	      ? CLASS_DATA (expr)->ts.u.derived : expr->ts.u.derived;
-
-gcc_unreachable ();
-	  if (POINTER_TYPE_P (TREE_TYPE (se.expr)))
-	    tmp = build_fold_indirect_ref_loc (input_location, se.expr);
-	  else
-	    {
-	      tmp = se.expr;
-	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
-		{
-		  rank = GFC_TYPE_ARRAY_RANK (TREE_TYPE (tmp));
-		  if (rank == 0 && GFC_TYPE_ARRAY_CORANK (TREE_TYPE (tmp)))
-		    tmp = gfc_conv_descriptor_data_get (tmp);
-		}
-	    }
-	  tmp = gfc_nullify_alloc_comp (der, tmp, rank);
-	  gfc_add_expr_to_block (&block, tmp);
-	}
 
       gfc_free_expr (expr);
     } // for-loop
