@@ -3825,6 +3825,64 @@ rs6000_option_override_internal (bool global_init_p)
   /* Don't override by the processor default if given explicitly.  */
   set_masks &= ~rs6000_isa_flags_explicit;
 
+#define KELVIN_DEBUG
+  /* Bootstrap will fail if the compiler writes anything to stderr
+     because non-empty stderr files are interpreted by config as
+     missing capabilities.  But I can still build a debug compiler and
+     experiment with it.
+  */
+#ifdef KELVIN_DEBUG
+  /* kelvin believes rs6000_cpu_index is set to value >= 0 if
+   *  -mcpu=<xxx> is specified on the command line.
+   */
+  if (rs6000_cpu_index >= 0) {
+    char flags_buffer[128];
+    const char *name;
+    HOST_WIDE_INT flags;
+
+    name = processor_target_table[rs6000_cpu_index].name;
+    flags = processor_target_table[rs6000_cpu_index].target_enable;
+    fprintf (stderr, "rs6000_cpu_index is %d, also known as %s\n",
+	     rs6000_cpu_index, name);
+    sprintf (flags_buffer, "-mcpu=%s flags", name);
+    rs6000_print_isa_options (stderr, 0, flags_buffer, flags);
+  }
+  else
+    fprintf (stderr, "rs6000_cpu_index is %d (which is < 0)\n",
+	     rs6000_cpu_index);
+
+  fprintf (stderr, "HAVE_AS_POPCNTB (power5): %d\n", HAVE_AS_POPCNTB);
+  fprintf (stderr, "    HAVE_AS_DFP (power6): %d\n", HAVE_AS_DFP);
+  fprintf (stderr, "HAVE_AS_POPCNTD (power7): %d\n", HAVE_AS_POPCNTD);
+  fprintf (stderr, " HAVE_AS_POWER8 (power8): %d\n", HAVE_AS_POWER8);
+  fprintf (stderr, " HAVE_AS_POWER9 (power9): %d\n", HAVE_AS_POWER9);
+  fprintf (stderr, "  (see below for associated flag definitions)\n");
+
+  /*
+  fprintf (stderr, "@ here, cpu_index is %d\n", cpu_index);
+  */
+  rs6000_print_isa_options (stderr, 0, "rs6000_isa_flags", rs6000_isa_flags);
+  rs6000_print_isa_options (stderr, 0, "set_masks", set_masks);
+
+  /* implicit_cpu gets the value of OPTION_TARGET_CPU_DEFAULT.
+   * Apparently, this macro is defined on certain builds, but not
+   * defined on others?  It is defined in rs6000.h to be
+   * TARGET_CPU_DEFAULT.
+   *  TARGET_CPU_DEFAULT is (char *) 0, by default.
+   * Not sure how this value gets overwritten.
+   */
+  fprintf (stderr, "  implicit_cpu is %s\n", implicit_cpu);
+
+  /* if the flags aren't right, kelvin thinks he'll want to reset the
+     value of rs6000_cpu_index to -1.  implicit_cpu is apparently the
+     host cpu.
+
+     In theory, the choice of implicit_cpu could have the same
+     problems as the specification of -mcpu=xxx.  But that's out of
+     scope for my current efforts.
+  */
+#endif	/* KELVIN_DEBUG */
+
   /* Process the -mcpu=<xxx> and -mtune=<xxx> argument.  If the user changed
      the cpu in a target attribute or pragma, but did not specify a tuning
      option, use the cpu for the tuning option rather than the option specified
@@ -3859,6 +3917,68 @@ rs6000_option_override_internal (bool global_init_p)
     }
 
   gcc_assert (cpu_index >= 0);
+
+#define KELVIN_PATCH
+#ifdef KELVIN_PATCH
+  /* What follows is Kelvin's proposed patch to gracefully and
+     politely disable code generation in absence of required assembler
+     support. */
+  if (have_cpu) 
+    {
+      if (!HAVE_AS_POWER9
+	  && (processor_target_table[rs6000_cpu_index].processor 
+	      == PROCESSOR_POWER9))
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power9 instruction because " 
+		   "assembler lacks power9 support");
+	}
+      if (!HAVE_AS_POWER8
+	  && (processor_target_table[rs6000_cpu_index].processor 
+	      == PROCESSOR_POWER8))
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power8 instructions because "
+		   "assembler lacks power8 support");
+	}
+      if (!HAVE_AS_POPCNTD
+	  && (processor_target_table[rs6000_cpu_index].processor 
+	      == PROCESSOR_POWER7))
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power7 instructions because "
+		   "assembler lacks power7 support");
+	}
+      if (!HAVE_AS_DFP
+	  && (processor_target_table[rs6000_cpu_index].processor 
+	      == PROCESSOR_POWER6))
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power6 instructions because "
+		   "assembler lacks power6 support");
+	}
+      if (!HAVE_AS_POPCNTB
+	  && (processor_target_table[rs6000_cpu_index].processor 
+	      == PROCESSOR_POWER5))
+	{
+	  have_cpu = false;
+	  warning (0, "will not generate power5 instructions because "
+		   "assembler lacks power5 support");
+	}
+
+      if (!have_cpu)
+	{
+	  /* PowerPC 64-bit LE requires at least ISA 2.07.  */
+	  const char *default_cpu = ((!TARGET_POWERPC64)
+				     ? "powerpc"
+				     : ((BYTES_BIG_ENDIAN)
+					? "powerpc64"
+					: "powerpc64le"));
+
+	  rs6000_cpu_index = cpu_index = rs6000_cpu_name_lookup (default_cpu);
+	}
+    }
+#endif  /* KELVIN_PATCH */
 
   /* If we have a cpu, either through an explicit -mcpu=<xxx> or if the
      compiler was configured with --with-cpu=<xxx>, replace all of the ISA bits
