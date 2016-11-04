@@ -21952,8 +21952,7 @@ micromips_movep_opt ()
   basic_block bb;
   rtx_insn *insn, *prev;
   int num_src_regs = 4, i, i1, i2, p, m;
-  rtx_insn *move[4];
-  rtx use[4];
+  rtx_insn *move[4], *rmove[4];
   rtx dest1, dest2, src1, src2, reg;
   int a[4] = {1,1,1,-3}, s[4] = {-3,1,1,1};
 
@@ -21966,10 +21965,7 @@ micromips_movep_opt ()
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       for (i = 0; i < num_src_regs; i++)
-	{
-	  move[i] = NULL;
-	  use[i] = NULL;
-	}
+	move[i] = rmove[i] = NULL;
 
       FOR_BB_INSNS_REVERSE_SAFE (bb, insn, prev)
 	{
@@ -21979,87 +21975,134 @@ micromips_movep_opt ()
 	  rtx pattern = PATTERN (insn);
 
 	  /* Confirm $Arg is being used but not being set.  */
-	  for (i = 0; i < num_src_regs; i++)
-	    {
-	      reg = regno_use_in (i + GP_ARG_FIRST, pattern);
-	      if (CALL_P (insn))
-		{
-		  if (find_regno_fusage (insn, USE, i+GP_ARG_FIRST))
-		    use[i] = insn;
-		  else
-		    move[i] = NULL;
-		}
-	      else if (reg && !reg_set_p (reg, insn))
-		use[i] = insn;
-	    }
+	  if (CALL_P (insn))
+	    for (i = 0; i < num_src_regs; i++)
+	      if (!find_regno_fusage (insn, USE, i+GP_ARG_FIRST))
+		move[i] = rmove[i] = NULL;
 
 	  if (GET_CODE (pattern) == SET)
 	    {
 	      rtx src = SET_SRC (pattern);
 	      rtx dest = SET_DEST (pattern);
-	      if (!(movep_src_operand (src, GET_MODE (src))
-		    && movep_dest_operand (dest, GET_MODE (dest))))
-		continue;
 
-	      i = REGNO (dest) - GP_ARG_FIRST;
-	      move[i] = insn;
+	      if (movep_src_operand (src, GET_MODE (src))
+		  && movep_dest_operand (dest, GET_MODE (dest)))
+	        {
+		  /* MOVEP.  */
+		  i = REGNO (dest) - GP_ARG_FIRST;
+	          move[i] = insn;
 
-	      p = a[i];
-	      m = s[i];
+	          p = a[i];
+	          m = s[i];
 
-	      /* reg_used_between_p is exclusive of from and to insns.  Our to
-		 and from (move[i] and move[i+-off]) form mov $arg, movep_src
-		 insn.  So if move[j] has $argx as move_src, don't allow such
-		 move at all.  */
+	          if (move[i+p]
+		      && (!reg_used_between_p
+			  (SET_DEST (PATTERN (move[i+p])), move[i], move[i+p]))
+		      && (!reg_set_between_p
+			  (SET_SRC (PATTERN (move[i+p])), move[i], move[i+p])))
+	            {
+	              i1 = i;
+	              i2 = i + p;
+	            }
+	          else if (move[i-m]
+			   && (!reg_used_between_p
+			    (SET_DEST (PATTERN (move[i-m])), move[i], move[i-m]))
+			   && (!reg_set_between_p
+			    (SET_SRC (PATTERN (move[i-m])), move[i], move[i-m])))
+	            {
+	              i1 = i - m;
+	              i2 = i;
+	            }
+	          else
+	            continue;
 
-	      /* When we are hoping to generate movep here, there should be a
-		 move in i+1 or i-1.  If there is, it MUST be after i in
-		 the flow as we are scanning in the reverse direction.  */
+	          src1 = SET_SRC (PATTERN (move[i1]));
+	          dest1 = SET_DEST (PATTERN (move[i1]));
+	          src2 = SET_SRC (PATTERN (move[i2]));
+	          dest2 = SET_DEST (PATTERN (move[i2]));
 
-	      if (move[i+p] && (!use[i+p] || (use[i+p] && !reg_used_between_p
-		  (gen_rtx_REG (Pmode, i+p+GP_ARG_FIRST), move[i], move[i+p]))))
-		{
-		  i1 = i;
-		  i2 = i + p;
+	          /* Redundent though fool proof.  */
+	          if (umips_movep_target_p (dest1, dest2)
+	              && movep_src_operand (src1, GET_MODE (src1))
+	              && movep_src_operand (src2, GET_MODE (src2))
+	              && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
+	            {
+	              rtx movep_insn = gen_movep (dest1, src1, dest2,
+						  src2);
+
+	              rtx last = emit_insn_after_setloc (movep_insn, insn,
+							 INSN_LOCATION (insn));
+	              if (dump_file)
+	                {
+	                  print_rtl_single (dump_file, move[i1]);
+	                  print_rtl_single (dump_file, move[i2]);
+	                  fprintf (dump_file, "MOVEP INSN\n");
+	                  print_rtl_single (dump_file, last);
+	                }
+	              delete_insn (move[i1]);
+	              delete_insn (move[i2]);
+	              move[i1] = NULL;
+	              move[i2] = NULL;
+	            }
 		}
-	      else if (move[i-m] && (!use[i-m] || (!reg_used_between_p
-		  (gen_rtx_REG (Pmode, i-m+GP_ARG_FIRST), move[i], move[i-m]))))
+	      else if (TARGET_ADD_MOVEP_REVERSED
+		       && movep_src_operand_rev (dest, GET_MODE (dest))
+		       && movep_dest_operand (src, GET_MODE (src)))
 		{
-		  i1 = i - m;
-		  i2 = i;
-		}
-	      else
-		continue;
-
-	      src1 = SET_SRC (PATTERN (move[i1]));
-	      dest1 = SET_DEST (PATTERN (move[i1]));
-	      src2 = SET_SRC (PATTERN (move[i2]));
-	      dest2 = SET_DEST (PATTERN (move[i2]));
-
-	      /* Redundent though fool proof.  */
-	      if (umips_movep_target_p (dest1, dest2)
-		  && movep_src_operand (src1, GET_MODE (src1))
-		  && movep_src_operand (src2, GET_MODE (src2))
-		  && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
-		{
-		  rtx movep = gen_movep (dest1, src1, dest2,
-					 src2);
-
-		  rtx last = emit_insn_after_setloc (movep, insn,
-						     INSN_LOCATION (insn));
-		  if (dump_file)
+		  /* Reverse MOVEP.  */
+		  i = REGNO (src) - GP_ARG_FIRST;
+		  rmove[i] = insn;
+		  p = a[i];
+		  m = s[i];
+		  if (rmove[i+p]
+		      && (!reg_set_between_p
+			  (SET_SRC (PATTERN (rmove[i+p])), rmove[i], rmove[i+p]))
+		      && (!reg_used_between_p
+			  (SET_DEST (PATTERN (rmove[i+p])), rmove[i], rmove[i+p])))
 		    {
-		      print_rtl_single (dump_file, move[i1]);
-		      print_rtl_single (dump_file, move[i2]);
-		      fprintf (dump_file, "MOVEP INSN\n");
-		      print_rtl_single (dump_file, last);
+		      i1 = i;
+		      i2 = i + p;
 		    }
-		  delete_insn (move[i1]);
-		  delete_insn (move[i2]);
-		  move[i1] = NULL;
-		  move[i2] = NULL;
-		  use[i1] = NULL;
-		  use[i2] = NULL;
+		  else if (rmove[i-m]
+			   && (!reg_set_between_p
+			    (SET_SRC (PATTERN (rmove[i-m])), rmove[i], rmove[i-m]))
+			   && (!reg_used_between_p
+			    (SET_DEST (PATTERN (rmove[i-m])), rmove[i], rmove[i-m])))
+		    {
+		      i1 = i - m;
+		      i2 = i;
+		    }
+		  else
+		    continue;
+
+		  src1 = SET_SRC (PATTERN (rmove[i1]));
+		  dest1 = SET_DEST (PATTERN (rmove[i1]));
+		  src2 = SET_SRC (PATTERN (rmove[i2]));
+		  dest2 = SET_DEST (PATTERN (rmove[i2]));
+
+		  /* Redundent though fool proof.  */
+		  if (umips_movep_target_p (src1, src2)
+		      && movep_src_operand_rev (dest1, GET_MODE (dest1))
+		      && movep_src_operand_rev (dest2, GET_MODE (dest2))
+		      && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
+		    {
+		      rtx movep_insn = gen_movep (dest1, src1, dest2,
+						  src2);
+
+		      rtx last = emit_insn_after_setloc (movep_insn, insn,
+							 INSN_LOCATION (insn));
+		      if (dump_file)
+			{
+			  print_rtl_single (dump_file, rmove[i1]);
+			  print_rtl_single (dump_file, rmove[i2]);
+			  fprintf (dump_file, "REV MOVEP INSN\n");
+			  print_rtl_single (dump_file, last);
+			}
+		      delete_insn (rmove[i1]);
+		      delete_insn (rmove[i2]);
+		      rmove[i1] = NULL;
+		      rmove[i2] = NULL;
+		    }
 		}
 	    }
 	}
@@ -22403,7 +22446,7 @@ mips_reorg (void)
       free_bb_for_insn ();
     }
 
-  if (TARGET_MICROMIPS_R7 && TARGET_OPT_MOVEP)
+  if (TARGET_MICROMIPS_R7 && (TARGET_OPT_MOVEP || TARGET_ADD_MOVEP_REVERSED))
     micromips_movep_opt ();
 
   if (TARGET_MICROMIPS_R7 && (TARGET_OPT_MOVEBALC || TARGET_ADD_MOVEP_BALC))

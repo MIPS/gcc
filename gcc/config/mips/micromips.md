@@ -151,7 +151,9 @@
 	(match_operand:MOVEP2 3 "register_operand" ""))]
   "TARGET_MICROMIPS_R7
    && TARGET_ADD_MOVEP_REVERSED
-   && umips_movep_target_p (operands[1], operands[3])"
+   && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
+      operands[3])
+    && umips_movep_target_p (operands[1], operands[3])"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (set (match_dup 2) (match_dup 3))])])
 
@@ -162,7 +164,9 @@
 		   (match_operand:MOVEP2 3 "register_operand"))])]
   "TARGET_MICROMIPS_R7
    && TARGET_ADD_MOVEP_REVERSED
-   && umips_movep_target_p (operands[1], operands[3])"
+   && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
+      operands[3])
+    && umips_movep_target_p (operands[1], operands[3])"
 {
   if (REGNO (operands[1]) < REGNO (operands[3]))
     return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
