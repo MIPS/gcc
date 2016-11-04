@@ -1,3 +1,16 @@
+2016-11-03  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Correct
+	__cpp_inheriting_constructors.
+
+2016-11-01  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Update
+	__cpp_inheriting_constructors.
+
+	* c.opt (-fnew-inheriting-ctors): New.
+	* c-opts.c: Default to on for ABI 11+.
+
 2016-10-31  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/77948

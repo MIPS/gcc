@@ -1,3 +1,44 @@
+2016-11-03  Fritz Reese <fritzoreese@gmail.com>
+
+	* gfortran.texi: Document.
+	* gfortran.h (gfc_dt): New field default_exp.
+	* primary.c (match_real_constant): Default exponent with -fdec.
+	* io.c (match_io): Set dt.default_exp with -fdec.
+	* ioparm.def (IOPARM_dt_default_exp): New.
+	* trans-io.c (build_dt): Set IOPARM_dt_default_exp with -fdec.
+
+2016-11-03  Fritz O. Reese <fritzoreese@gmail.com>
+
+	* decl.c (gfc_match_parameter): Allow omitted '()' with -std=legacy.
+	* parse.c (decode_statement): Match "parameter" before assignments.
+	* gfortran.texi: Document.
+
+2016-11-02  Fritz O. Reese <fritzoreese@gmail.com>
+
+	* lang.opt, invoke.texi: New argument -Wargument-mismatch.
+	* interface.c (compare_parameter, compare_actual_formal,
+	gfc_check_typebound_override, argument_rank_mismatch): Control argument
+	mismatch warnings with -Wargument-mismatch.
+	* resolve.c (resolve_structure_cons, resolve_global_procedure): Ditto.
+
+2016-11-02  Fritz Reese <fritzoreese@gmail.com>
+
+	* gfortran.h (gfc_error): New declaration for gfc_error with 'opt'.
+	* error.c (gfc_error): Add optional 'opt' argument.
+	* error.c (gfc_notify_std): Call fully-qualified gfc_error.
+
+2016-11-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78178
+	* match.c (match_simple_where):  Fill in locus for assigment
+	in simple WHERE statement.
+
+2016-11-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/69544
+	* match.c (gfc_match_where):  Fill in locus for assigment
+	in simple WHERE statement.
+
 2016-10-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/54679

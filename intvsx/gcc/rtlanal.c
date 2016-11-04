@@ -2307,7 +2307,7 @@ add_shallow_copy_of_reg_note (rtx_insn *insn, rtx note)
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
 
 void
-remove_note (rtx insn, const_rtx note)
+remove_note (rtx_insn *insn, const_rtx note)
 {
   rtx link;
 
@@ -2328,7 +2328,7 @@ remove_note (rtx insn, const_rtx note)
     {
     case REG_EQUAL:
     case REG_EQUIV:
-      df_notes_rescan (as_a <rtx_insn *> (insn));
+      df_notes_rescan (insn);
       break;
     default:
       break;
@@ -4568,18 +4568,18 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
 					  known_x, known_mode, known_ret);
 
 #ifdef LOAD_EXTEND_OP
-	  /* If this is a typical RISC machine, we only have to worry
-	     about the way loads are extended.  */
-	  if (WORD_REGISTER_OPERATIONS
-	      && ((LOAD_EXTEND_OP (inner_mode) == SIGN_EXTEND
+          /* On many CISC machines, accessing an object in a wider mode
+	     causes the high-order bits to become undefined.  So they are
+	     not known to be zero.  */
+	  if (!WORD_REGISTER_OPERATIONS
+	      /* If this is a typical RISC machine, we only have to worry
+		 about the way loads are extended.  */
+	      || ((LOAD_EXTEND_OP (inner_mode) == SIGN_EXTEND
 		     ? val_signbit_known_set_p (inner_mode, nonzero)
 		     : LOAD_EXTEND_OP (inner_mode) != ZERO_EXTEND)
 		   || !MEM_P (SUBREG_REG (x))))
 #endif
 	    {
-	      /* On many CISC machines, accessing an object in a wider mode
-		 causes the high-order bits to become undefined.  So they are
-		 not known to be zero.  */
 	      if (GET_MODE_PRECISION (GET_MODE (x))
 		  > GET_MODE_PRECISION (inner_mode))
 		nonzero |= (GET_MODE_MASK (GET_MODE (x))
