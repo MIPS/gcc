@@ -15331,7 +15331,9 @@ mips_adjust_insn_length (rtx_insn *insn, int length)
   /* A unconditional jump has an unfilled delay slot if it is not part
      of a sequence.  A conditional jump normally has a delay slot, but
      does not on MIPS16.  */
-  if (CALL_P (insn) || (TARGET_MIPS16 ? simplejump_p (insn) : JUMP_P (insn)))
+  if (CALL_P (insn)
+      || (TARGET_MIPS16 ? simplejump_p (insn)
+			: (TARGET_MICROMIPS_R7 ? false : JUMP_P (insn))))
     length += TARGET_MIPS16 ? 2 : 4;
 
   /* See how many nops might be needed to avoid hardware hazards.  */
@@ -15448,7 +15450,8 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   gcc_assert (LABEL_P (operands[0]));
 
   length = get_attr_length (insn);
-  if (length <= 8)
+  if ((!TARGET_MICROMIPS_R7 && length <= 8)
+      || (TARGET_MICROMIPS_R7 && length <= 4))
     {
       /* Just a simple conditional branch.  */
       mips_branch_likely = (final_sequence && INSN_ANNULLED_BRANCH_P (insn));
@@ -15487,7 +15490,7 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   if (TARGET_ABSOLUTE_JUMPS && TARGET_CB_MAYBE)
     {
       /* Add a hazard nop.  */
-      if (!final_sequence)
+      if (!final_sequence && get_attr_hazard (insn) != HAZARD_NONE)
 	{
 	  output_asm_insn ("nop\t\t# hazard nop", 0);
 	  fprintf (asm_out_file, "\n");

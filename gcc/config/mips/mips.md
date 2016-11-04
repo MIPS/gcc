@@ -194,6 +194,9 @@
 (define_attr "jal" "unset,direct,indirect"
   (const_string "unset"))
 
+(define_attr "cbranch_cmp_op" "unset,reg,imm,zero,c1zero"
+  (const_string "unset"))
+
 ;; This attribute is YES if the instruction is a jal macro (not a
 ;; real jal instruction).
 ;;
@@ -619,8 +622,31 @@
 	  ;; from the shorten_branches reference address.
 	  (and (eq_attr "type" "branch")
 	       (not (match_test "TARGET_MIPS16")))
-	  (cond [;; Any variant can handle the 17-bit range.
-		 (and (le (minus (match_dup 0) (pc)) (const_int 65532))
+	  (cond [;; Variant that can handle 11-bit range when the second
+		 ;; operand is an immediate.
+		 (and (match_test "TARGET_MICROMIPS_R7")
+		      (eq_attr "cbranch_cmp_op" "imm")
+		      (and (le (minus (match_dup 0) (pc)) (const_int 2046))
+			   (le (minus (pc) (match_dup 0)) (const_int 2048))))
+		   (const_int 4)
+		 ;; Variant that can handle 14-bit range.
+		 (and (match_test "TARGET_MICROMIPS_R7")
+		      (ior (and (match_test "TARGET_HARD_FLOAT")
+				(eq_attr "cbranch_cmp_op" "c1zero"))
+			   (eq_attr "cbranch_cmp_op" "reg"))
+		      (and (le (minus (match_dup 0) (pc)) (const_int 16382))
+			   (le (minus (pc) (match_dup 0)) (const_int 16384))))
+		   (const_int 4)
+		 ;; Variant that can handle 20-bit range.
+		 (and (match_test "TARGET_MICROMIPS_R7")
+		      (eq_attr "cbranch_cmp_op" "zero")
+		      (and (le (minus (match_dup 0) (pc)) (const_int 1048574))
+			   (le (minus (pc) (match_dup 0)) (const_int 1048576))))
+		   (const_int 4)
+
+		 ;; Any variant can handle the 17-bit range.
+		 (and (not (match_test "TARGET_MICROMIPS_R7"))
+		      (le (minus (match_dup 0) (pc)) (const_int 65532))
 		      (le (minus (pc) (match_dup 0)) (const_int 65534)))
 		   (const_int 4)
 
@@ -630,6 +656,10 @@
 		      	   (le (minus (pc) (match_dup 0)) (const_int 131068))))
 		   (const_int 4)
 
+		 ;; The non-PIC case: branch, and J.
+		 (and (match_test "TARGET_MICROMIPS_R7")
+		      (match_test "TARGET_ABSOLUTE_JUMPS"))
+		   (const_int 8)
 		 ;; The non-PIC case: branch, first delay slot, and J.
 		 (match_test "TARGET_ABSOLUTE_JUMPS")
 		   (const_int 12)]
@@ -6461,6 +6491,7 @@
 					   MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "c1zero")
    (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
 					    (const_string "always")
 					    (const_string "never")))
@@ -6488,6 +6519,7 @@
 					   MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "c1zero")
    (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
 					    (const_string "always")
 					    (const_string "never")))
@@ -6508,8 +6540,12 @@
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "zero,reg,imm")
    (set_attr "compact_form" "maybe,always,always")
-   (set_attr "hazard" "forbidden_slot")])
+   (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
+					   (match_test "TARGET_MICROMIPS_R7"))
+				      (const_string "none")
+				      (const_string "forbidden_slot")))])
 
 (define_insn "*branch_order<mode>_inverted"
   [(set (pc)
@@ -6522,8 +6558,12 @@
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "zero,reg,imm")
    (set_attr "compact_form" "maybe,always,always")
-   (set_attr "hazard" "forbidden_slot")])
+   (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
+					   (match_test "TARGET_MICROMIPS_R7"))
+				      (const_string "none")
+				      (const_string "forbidden_slot")))])
 
 ;; Conditional branch on equality comparison.
 
@@ -6531,29 +6571,36 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "equality_operator"
-			 [(match_operand:GPR 2 "register_operand" "d,d")
-			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "dJ,Uub7")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "d,J,Uub7")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
   { return mips_output_equal_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "reg,zero,imm")
    (set_attr "compact_form" "maybe")
-   (set_attr "hazard" "forbidden_slot")])
+   (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R7")
+				      (const_string "none")
+				      (const_string "forbidden_slot")))])
 
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "equality_operator"
-			 [(match_operand:GPR 2 "register_operand" "d,d")
-			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "dJ,Uub7")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "d,J,Uub7")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
   { return mips_output_equal_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "reg,zero,imm")
    (set_attr "compact_form" "maybe")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "hazard" "forbidden_slot")
+   (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R7")
+				      (const_string "none")
+				      (const_string "forbidden_slot")))])
 
 ;; MIPS16 branches
 
