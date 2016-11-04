@@ -1,3 +1,13 @@
+2016-11-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Initial
+	support for QImode in vector registers on power9.
+	(rs6000_secondary_reload_simple_move): Likewise.
+	(rs6000_preferred_reload_class): Likewise.
+	* config/rs6000/rs6000.md (zero_extendqi<mode>2): Likewise.
+	(extendqi<mode>2): Likewise.
+	(movqi_internal): Likewise.
+
 2016-11-01   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 241732
