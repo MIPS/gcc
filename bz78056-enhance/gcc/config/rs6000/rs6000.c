@@ -3866,14 +3866,16 @@ rs6000_option_override_internal (bool global_init_p)
 #ifdef HAVE_AS_POWER9
   fprintf (stderr, " HAVE_AS_POWER9 (power9): %d\n", HAVE_AS_POWER9);
 #endif
+  /*
   fprintf (stderr, "  (see below for associated flag definitions)\n");
-
+  */
   /*
   fprintf (stderr, "@ here, cpu_index is %d\n", cpu_index);
   */
+  /*
   rs6000_print_isa_options (stderr, 0, "rs6000_isa_flags", rs6000_isa_flags);
   rs6000_print_isa_options (stderr, 0, "set_masks", set_masks);
-
+  */
   /* implicit_cpu gets the value of OPTION_TARGET_CPU_DEFAULT.
    * Apparently, this macro is defined on certain builds, but not
    * defined on others?  It is defined in rs6000.h to be
@@ -3881,8 +3883,9 @@ rs6000_option_override_internal (bool global_init_p)
    *  TARGET_CPU_DEFAULT is (char *) 0, by default.
    * Not sure how this value gets overwritten.
    */
+  /*
   fprintf (stderr, "  implicit_cpu is %s\n", implicit_cpu);
-
+  */
   /* if the flags aren't right, kelvin thinks he'll want to reset the
      value of rs6000_cpu_index to -1.  implicit_cpu is apparently the
      host cpu.
@@ -3957,7 +3960,7 @@ rs6000_option_override_internal (bool global_init_p)
 	      == PROCESSOR_POWER9))
 	{
 	  have_cpu = false;
-	  warning (0, "will not generate power9 instruction because " 
+	  warning (0, "will not generate power9 instructions because " 
 		   "assembler lacks power9 support");
 	}
       if (!HAVE_AS_POWER8
@@ -17221,6 +17224,8 @@ spe_init_builtins (void)
 	  continue;
 	}
 
+      /* Cannot define builtin if the instruction is disabled. */
+      gc_assert (d->icode > 0);
       switch (insn_data[d->icode].operand[1].mode)
 	{
 	case V2SImode:
@@ -17251,6 +17256,8 @@ spe_init_builtins (void)
 	  continue;
 	}
 
+      /* Cannot define builtin if the instruction is disabled. */
+      gc_assert (d->icode > 0);
       switch (insn_data[d->icode].operand[1].mode)
 	{
 	case V2SImode:
@@ -17317,6 +17324,9 @@ paired_init_builtins (void)
 		     d->name);
 	  continue;
 	}
+
+      /* Cannot define builtin if the instruction is disabled. */
+      gc_assert (d->icode > 0);
 
       if (TARGET_DEBUG_BUILTIN)
 	fprintf (stderr, "paired pred #%d, insn = %s [%d], mode = %s\n",
@@ -17687,6 +17697,13 @@ altivec_init_builtins (void)
     {
       HOST_WIDE_INT mask = d->mask;
 
+      /* Cannot define builtin if the instruction is disabled. */
+      /* kelvin is reluctant here to enforce this assertion, because
+       * we're not actually making use of d->icode to figure out the
+       * built-in function prototype.  Need to investigate whether the
+       * dst built-ins have any reliance at all on the icode?  Maybe
+       * their implementation is entirely special cased.  */
+      gc_assert (d->icode > 0);
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
@@ -17716,7 +17733,11 @@ altivec_init_builtins (void)
       if (rs6000_overloaded_builtin_p (d->code))
 	mode1 = VOIDmode;
       else
-	mode1 = insn_data[d->icode].operand[1].mode;
+	{
+	  /* Cannot define builtin if the instruction is disabled. */
+	  gc_assert (d->icode > 0);
+	  mode1 = insn_data[d->icode].operand[1].mode;
+	}
 
       switch (mode1)
 	{
@@ -17764,6 +17785,8 @@ altivec_init_builtins (void)
 	  continue;
 	}
 
+      /* Cannot define builtin if the instruction is disabled. */
+      gc_assert (d->icode > 0);
       mode0 = insn_data[d->icode].operand[0].mode;
 
       switch (mode0)
@@ -17951,6 +17974,11 @@ htm_init_builtins (void)
       tree rettype;
       tree argtype;
 
+      /* Cannot define builtin if the instruction is disabled. */
+      /* kelvin also reluctant here, because the implementation of the
+       * htm built-in functions may not require the icode value.  */
+      gc_assert (d->icode > 0);
+      
       if (TARGET_32BIT && TARGET_POWERPC64)
 	gpr_type_node = long_long_unsigned_type_node;
       else
