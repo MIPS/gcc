@@ -149,7 +149,8 @@ _gfortran_caf_register (size_t size, caf_register_t type, caf_token_t *token,
   else
     local = malloc (size);
 
-  if (type != CAF_REGTYPE_COARRAY_ALLOC_ALLOCATE_ONLY)
+  if (type != CAF_REGTYPE_COARRAY_ALLOC_ALLOCATE_ONLY
+      && (type != CAF_REGTYPE_COARRAY_ALLOC || *token == NULL))
     *token = malloc (sizeof (struct caf_single_token));
 
   if (unlikely (*token == NULL

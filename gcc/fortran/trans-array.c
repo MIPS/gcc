@@ -8373,10 +8373,52 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	  break;
 
 	case NULLIFY_ALLOC_COMP:
-	  if (c->attr.pointer || c->attr.proc_pointer)
+	  if (c->attr.pointer || c->attr.proc_pointer
+	      || !(c->attr.allocatable || (c->ts.type == BT_CLASS
+					   && CLASS_DATA (c)->attr.allocatable)
+		   || cmp_has_alloc_comps))
 	    continue;
-	  else if (c->attr.allocatable
-		   && (c->attr.dimension|| c->attr.codimension))
+
+	  if (flag_coarray == GFC_FCOARRAY_LIB
+	      && ((caf_mode & (GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY
+			       | GFC_STRUCTURE_CAF_MODE_IN_COARRAY))
+		  == (GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY
+		      | GFC_STRUCTURE_CAF_MODE_IN_COARRAY)
+		  || c->attr.codimension))
+	    {
+	      /* Register the component with the coarray library.  */
+	      tree token;
+
+	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
+				      decl, cdecl, NULL_TREE);
+	      if (c->attr.dimension || c->attr.codimension)
+		{
+		  tmp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
+					 decl, cdecl, NULL_TREE);
+		  token = gfc_conv_descriptor_token (tmp);
+		}
+	      else
+		{
+		  gfc_se se;
+		  symbol_attribute attr;
+
+		  gfc_init_se (&se, NULL);
+		  gfc_clear_attr (&attr);
+		  token = fold_build3_loc (input_location, COMPONENT_REF,
+					   pvoid_type_node, decl, c->caf_token,
+					   NULL_TREE);
+		  comp = gfc_conv_scalar_to_descriptor (&se, comp, attr);
+		  gfc_add_block_to_block (&fnblock, &se.pre);
+		}
+
+	      gfc_allocate_using_caf_lib (&fnblock, comp, size_zero_node,
+					  gfc_build_addr_expr (NULL_TREE,
+							       token),
+					  NULL_TREE, NULL_TREE, NULL_TREE,
+					  GFC_CAF_COARRAY_ALLOC_REGISTER_ONLY);
+	    }
+
+	  if (c->attr.allocatable && (c->attr.dimension || c->attr.codimension))
 	    {
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);
@@ -8434,15 +8476,17 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	  if (caf_mode & GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY)
 	    {
 	      if (!c->attr.codimension
-		  && (c->ts.type != BT_CLASS || CLASS_DATA (c)->attr.coarray_comp)
+		  && (c->ts.type != BT_CLASS
+		      || !CLASS_DATA (c)->attr.coarray_comp)
 		  && (c->ts.type != BT_DERIVED
-		      || !c->ts.u.derived->attr.coarray_comp))
+		      || !c->ts.u.derived->attr.coarray_comp)
+		  && (caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) == 0)
 		continue;
 
-	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype, decl,
-				      cdecl, NULL_TREE);
-	      dcmp = fold_build3_loc (input_location, COMPONENT_REF, ctype, dest,
-				      cdecl, NULL_TREE);
+	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
+				      decl, cdecl, NULL_TREE);
+	      dcmp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
+				      dest, cdecl, NULL_TREE);
 
 	      if (c->attr.codimension)
 		{
@@ -8452,14 +8496,14 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 		      dcmp = gfc_class_data_get (dcmp);
 		    }
 		  gfc_conv_descriptor_data_set (&fnblock, dcmp,
-						gfc_conv_descriptor_data_get (comp));
+					   gfc_conv_descriptor_data_get (comp));
 		}
 	      else
 		{
 		  tmp = structure_alloc_comps (c->ts.u.derived, comp, dcmp,
-					       rank, purpose, caf_mode);
+					       rank, purpose, caf_mode
+					   | GFC_STRUCTURE_CAF_MODE_IN_COARRAY);
 		  gfc_add_expr_to_block (&fnblock, tmp);
-
 		}
 	      break;
 	    }

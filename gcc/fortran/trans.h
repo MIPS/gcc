@@ -705,6 +705,10 @@ tree gfc_call_malloc (stmtblock_t *, tree, tree);
 /* Build a memcpy call.  */
 tree gfc_build_memcpy_call (tree, tree, tree);
 
+/* Register memory with the coarray library.  */
+void gfc_allocate_using_caf_lib (stmtblock_t *, tree, tree, tree, tree, tree,
+				 tree, gfc_coarray_regtype);
+
 /* Allocate memory for allocatable variables, with optional status variable.  */
 void gfc_allocate_allocatable (stmtblock_t*, tree, tree, tree, tree,
 			       tree, tree, tree, gfc_expr*, int);

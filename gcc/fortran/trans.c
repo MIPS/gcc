@@ -709,10 +709,10 @@ gfc_allocate_using_malloc (stmtblock_t * block, tree pointer,
       newmem = _caf_register (size, regtype, token, &stat, errmsg, errlen);
       return newmem;
     }  */
-static void
-allocate_using_caf_lib (stmtblock_t * block, tree pointer, tree size,
-			tree token, tree status, tree errmsg, tree errlen,
-			gfc_coarray_regtype alloc_type)
+void
+gfc_allocate_using_caf_lib (stmtblock_t * block, tree pointer, tree size,
+			    tree token, tree status, tree errmsg, tree errlen,
+			    gfc_coarray_regtype alloc_type)
 {
   tree tmp, pstat;
 
@@ -735,8 +735,7 @@ allocate_using_caf_lib (stmtblock_t * block, tree pointer, tree size,
   tmp = build_call_expr_loc (input_location,
 	     gfor_fndecl_caf_register, 7,
 	     fold_build2_loc (input_location,
-			      MAX_EXPR, size_type_node, size,
-			      build_int_cst (size_type_node, 1)),
+			      MAX_EXPR, size_type_node, size, size_one_node),
 	     build_int_cst (integer_type_node, alloc_type),
 	     token, gfc_build_addr_expr (pvoid_type_node, pointer),
 	     pstat, errmsg, errlen);
@@ -856,8 +855,8 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size,
 	size = fold_build2_loc (input_location, TRUNC_DIV_EXPR, size_type_node,
 				size, TYPE_SIZE_UNIT (ptr_type_node));
 
-      allocate_using_caf_lib (&alloc_block, tmp, size, sub_caf_tree,
-			      status, errmsg, errlen, caf_alloc_type);
+      gfc_allocate_using_caf_lib (&alloc_block, tmp, size, sub_caf_tree,
+				  status, errmsg, errlen, caf_alloc_type);
       if (need_assign)
 	gfc_add_modify (&alloc_block, mem, fold_convert (TREE_TYPE (mem),
 					   gfc_conv_descriptor_data_get (tmp)));
