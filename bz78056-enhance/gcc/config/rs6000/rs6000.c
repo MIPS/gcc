@@ -3825,13 +3825,13 @@ rs6000_option_override_internal (bool global_init_p)
   /* Don't override by the processor default if given explicitly.  */
   set_masks &= ~rs6000_isa_flags_explicit;
 
-#define KELVIN_DEBUG
+#undef KELVIN_DEBUG
+#ifdef KELVIN_DEBUG
   /* Bootstrap will fail if the compiler writes anything to stderr
      because non-empty stderr files are interpreted by config as
      missing capabilities.  But I can still build a debug compiler and
      experiment with it.
   */
-#ifdef KELVIN_DEBUG
   /* kelvin believes rs6000_cpu_index is set to value >= 0 if
    *  -mcpu=<xxx> is specified on the command line.
    */
@@ -17225,7 +17225,7 @@ spe_init_builtins (void)
 	}
 
       /* Cannot define builtin if the instruction is disabled. */
-      gc_assert (d->icode > 0);
+      gcc_assert (d->icode > 0);
       switch (insn_data[d->icode].operand[1].mode)
 	{
 	case V2SImode:
@@ -17257,7 +17257,7 @@ spe_init_builtins (void)
 	}
 
       /* Cannot define builtin if the instruction is disabled. */
-      gc_assert (d->icode > 0);
+      gcc_assert (d->icode > 0);
       switch (insn_data[d->icode].operand[1].mode)
 	{
 	case V2SImode:
@@ -17326,7 +17326,7 @@ paired_init_builtins (void)
 	}
 
       /* Cannot define builtin if the instruction is disabled. */
-      gc_assert (d->icode > 0);
+      gcc_assert (d->icode > 0);
 
       if (TARGET_DEBUG_BUILTIN)
 	fprintf (stderr, "paired pred #%d, insn = %s [%d], mode = %s\n",
@@ -17697,13 +17697,8 @@ altivec_init_builtins (void)
     {
       HOST_WIDE_INT mask = d->mask;
 
-      /* Cannot define builtin if the instruction is disabled. */
-      /* kelvin is reluctant here to enforce this assertion, because
-       * we're not actually making use of d->icode to figure out the
-       * built-in function prototype.  Need to investigate whether the
-       * dst built-ins have any reliance at all on the icode?  Maybe
-       * their implementation is entirely special cased.  */
-      gc_assert (d->icode > 0);
+      /* It is expected that these dst built-in functions have
+	 d->icode equal to CODE_FOR_nothing.  */
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
@@ -17735,7 +17730,7 @@ altivec_init_builtins (void)
       else
 	{
 	  /* Cannot define builtin if the instruction is disabled. */
-	  gc_assert (d->icode > 0);
+	  gcc_assert (d->icode > 0);
 	  mode1 = insn_data[d->icode].operand[1].mode;
 	}
 
@@ -17786,7 +17781,7 @@ altivec_init_builtins (void)
 	}
 
       /* Cannot define builtin if the instruction is disabled. */
-      gc_assert (d->icode > 0);
+      gcc_assert (d->icode > 0);
       mode0 = insn_data[d->icode].operand[0].mode;
 
       switch (mode0)
@@ -17974,11 +17969,9 @@ htm_init_builtins (void)
       tree rettype;
       tree argtype;
 
-      /* Cannot define builtin if the instruction is disabled. */
-      /* kelvin also reluctant here, because the implementation of the
-       * htm built-in functions may not require the icode value.  */
-      gc_assert (d->icode > 0);
-      
+      /* It is expected that these htm built-in functions have
+	 d->icode equal to CODE_FOR_nothing.  */
+
       if (TARGET_32BIT && TARGET_POWERPC64)
 	gpr_type_node = long_long_unsigned_type_node;
       else
