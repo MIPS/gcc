@@ -3851,11 +3851,21 @@ rs6000_option_override_internal (bool global_init_p)
     fprintf (stderr, "rs6000_cpu_index is %d (which is < 0)\n",
 	     rs6000_cpu_index);
 
+#ifdef HAVE_AS_POPCNTB
   fprintf (stderr, "HAVE_AS_POPCNTB (power5): %d\n", HAVE_AS_POPCNTB);
+#endif
+#ifdef HAVE_AS_DFP
   fprintf (stderr, "    HAVE_AS_DFP (power6): %d\n", HAVE_AS_DFP);
+#endif
+#ifdef HAVE_AS_POPCNTD
   fprintf (stderr, "HAVE_AS_POPCNTD (power7): %d\n", HAVE_AS_POPCNTD);
+#endif
+#ifdef HAVE_AS_POWER8
   fprintf (stderr, " HAVE_AS_POWER8 (power8): %d\n", HAVE_AS_POWER8);
+#endif
+#ifdef HAVE_AS_POWER9
   fprintf (stderr, " HAVE_AS_POWER9 (power9): %d\n", HAVE_AS_POWER9);
+#endif
   fprintf (stderr, "  (see below for associated flag definitions)\n");
 
   /*
@@ -3920,6 +3930,23 @@ rs6000_option_override_internal (bool global_init_p)
 
 #define KELVIN_PATCH
 #ifdef KELVIN_PATCH
+
+#ifndef HAVE_AS_POWER9
+#define HAVE_AS_POWER9 0
+#endif
+#ifndef HAVE_AS_POWER8
+#define HAVE_AS_POWER8 0
+#endif
+#ifndef HAVE_AS_POPCNTD
+#define HAVE_AS_POPCNTD 0
+#endif
+#ifndef HAVE_AS_DFP
+#define HAVE_AS_DFP 0
+#endif
+#ifndef HAVE_AS_POPCNTB
+#define HAVE_AS_POPCNTB 0
+#endif
+
   /* What follows is Kelvin's proposed patch to gracefully and
      politely disable code generation in absence of required assembler
      support. */
