@@ -2024,7 +2024,7 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	      if (mode == SImode)
 		return 1;
 
-	      if (TARGET_P9_VECTOR && (/* mode == HImode || */mode == QImode))
+	      if (TARGET_P9_VECTOR && (mode == HImode || mode == QImode))
 		return 1;
 	    }
 	}
@@ -3413,7 +3413,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[SImode].scalar_in_vmx_p = true;
 	  if (TARGET_P9_VECTOR)
 	    {
-	      /* reg_addr[HImode].scalar_in_vmx_p = true; */
+	      reg_addr[HImode].scalar_in_vmx_p = true;
 	      reg_addr[QImode].scalar_in_vmx_p = true;
 	    }
 	}
@@ -20625,7 +20625,7 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
 	  if (mode == SImode)
 	    return true;
 
-	  if (TARGET_P9_VECTOR && (/* mode == HImode || */mode == QImode))
+	  if (TARGET_P9_VECTOR && (mode == HImode || mode == QImode))
 	    return true;
 	}
 
@@ -21450,6 +21450,13 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 		  else
 		    return NO_REGS;
 		}
+
+	      /* ISA 3.0 can load -128..127 using the XXSPLTIB instruction and
+		 a sign extend in the Altivec registers.  */
+	      if (IN_RANGE (value, -128, 127) && TARGET_P9_VECTOR
+		  && TARGET_VSX_SMALL_INTEGER
+		  && (rclass == ALTIVEC_REGS || rclass == VSX_REGS))
+		return ALTIVEC_REGS;
 	    }
 
 	  /* Force constant to memory.  */

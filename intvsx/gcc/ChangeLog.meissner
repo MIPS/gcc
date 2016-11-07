@@ -1,5 +1,27 @@
 2016-11-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow HImode
+	if -mvsx-small-integer and -mpower9-vector.
+	(rs6000_secondary_reload_simple_move): Likewise.
+	(rs6000_preferred_reload_class): If -mvsx-small-integer and
+	-mpower9-vector, don't force constants we can load with XXSPLTIB
+	and sign extend to come from memroy.
+
+	* config/rs6000/rs6000.md (INT_ISA3): Add support for HImode to go
+	in vector registers if -mvsx-small-integer and -mpower9-vector.
+	(zero_extendhi<mode>2): Likewise.
+	(extendhi<mode>): Likewise.
+	(split for load HI with sign extend in VSX regs): Likewise.
+	(movsi_internal1): Allow VSPLTISW on ISA 2.07.
+	(movhi_internal): Combine movhi_internal and movqi_internal into
+	mov<mode>_internal.  Add support for -mvsx-small-integer and
+	-mpower9-vector.
+	(movqi_internal): Likewise.
+	(mov<mode>_internal): Likewise.
+	(movdi_internal64): Do split to load -16..15 via VSPLTISW to sign
+	extend the value to 64-bits.
+	(integer splitter for XXSPLTIB): Add support for QI/HI/SImode.
+
 	Merge up to 241924.
 	* REVISION: Update subversion id.
 
