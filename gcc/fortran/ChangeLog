@@ -1,3 +1,110 @@
+2016-11-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78226
+	resolve.c (build_loc_call): Add location to return value.
+
+2016-11-06  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* expr.c (is_non_empty_structure_constructor): New function to detect
+	non-empty structure constructor.
+	(gfc_has_default_initializer): Analyse initializers.
+	* resolve.c (cond_init): Removed.
+	(resolve_allocate_expr): Removed dead code.  Moved invariant code out
+	of the loop over all objects to allocate.
+	(resolve_allocate_deallocate): Added the invariant code remove from
+	resolve_allocate_expr.
+	* trans-array.c (gfc_array_allocate): Removed nullify of structure
+	components in favour of doing this in gfc_trans_allocate for both
+	scalars and arrays in the same place.
+	* trans-expr.c (gfc_trans_init_assign): Always using _vptr->copy for
+	class objects.
+	* trans-stmt.c (allocate_get_initializer): Get the initializer
+	expression for object allocated.
+	(gfc_trans_allocate): Nullify a derived type only, when no SOURCE=
+	or MOLD= is present preventing duplicate work.  Moved the creation
+	of the init-expression here to prevent code for conditions that
+	can not occur on freshly allocated object, like checking for the need
+	to free allocatable components.
+
+2016-11-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78221
+	* arith.c (gfc_complex2real):  Change gfc_warning_now to
+	gfc_warning.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	* check.c (gfc_check_move_alloc): Introduce error to prevent
+	aliasing between to and from arguments.
+
+2016-11-05  Janus Weil  <janus@gcc.gnu.org>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR fortran/69495
+	* invoke.texi: Mention -Wpedantic as an alias of -pedantic.
+	* check.c (gfc_check_transfer): Mention responsible flag in warning
+	message.
+	* frontend-passes.c (do_warn_function_elimination): Ditto.
+	* resolve.c (resolve_elemental_actual): Ditto.
+	(resolve_operator): Ditto.
+	(warn_unused_fortran_label): Ditto.
+	* trans-common.c (translate_common): Ditto.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* trans-expr.c (gfc_conv_class_to_class): Return _len component
+	of unlimited polymorphic entities.
+
+2016-11-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/64933
+	* primary.c (gfc_match_varspec): If selector expression is
+	unambiguously an array, make sure that the associate name
+	is an array and has an array spec. Modify the original
+	condition for doing this to exclude character types.
+
+2016-11-03  Fritz Reese <fritzoreese@gmail.com>
+
+	* gfortran.texi: Document.
+	* gfortran.h (gfc_dt): New field default_exp.
+	* primary.c (match_real_constant): Default exponent with -fdec.
+	* io.c (match_io): Set dt.default_exp with -fdec.
+	* ioparm.def (IOPARM_dt_default_exp): New.
+	* trans-io.c (build_dt): Set IOPARM_dt_default_exp with -fdec.
+
+2016-11-03  Fritz O. Reese <fritzoreese@gmail.com>
+
+	* decl.c (gfc_match_parameter): Allow omitted '()' with -std=legacy.
+	* parse.c (decode_statement): Match "parameter" before assignments.
+	* gfortran.texi: Document.
+
+2016-11-02  Fritz O. Reese <fritzoreese@gmail.com>
+
+	* lang.opt, invoke.texi: New argument -Wargument-mismatch.
+	* interface.c (compare_parameter, compare_actual_formal,
+	gfc_check_typebound_override, argument_rank_mismatch): Control argument
+	mismatch warnings with -Wargument-mismatch.
+	* resolve.c (resolve_structure_cons, resolve_global_procedure): Ditto.
+
+2016-11-02  Fritz Reese <fritzoreese@gmail.com>
+
+	* gfortran.h (gfc_error): New declaration for gfc_error with 'opt'.
+	* error.c (gfc_error): Add optional 'opt' argument.
+	* error.c (gfc_notify_std): Call fully-qualified gfc_error.
+
+2016-11-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78178
+	* match.c (match_simple_where):  Fill in locus for assigment
+	in simple WHERE statement.
+
+2016-11-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/69544
+	* match.c (gfc_match_where):  Fill in locus for assigment
+	in simple WHERE statement.
+
 2016-10-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/54679

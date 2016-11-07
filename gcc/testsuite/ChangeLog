@@ -1,3 +1,268 @@
+2016-11-07  Martin Liska  <mliska@suse.cz>
+
+	* c-c++-common/asan/force-inline-opt0-1.c: Disable
+	-f-sanitize-address-use-after-scope.
+	* c-c++-common/asan/inc.c: Change number of expected ASAN_CHECK
+	internal fn calls.
+	* g++.dg/asan/use-after-scope-1.C: New test.
+	* g++.dg/asan/use-after-scope-2.C: Likewise.
+	* g++.dg/asan/use-after-scope-3.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-1.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-2.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-3.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-4.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-5.C: Likewise.
+	* g++.dg/asan/use-after-scope-types.h: Likewise.
+	* gcc.dg/asan/use-after-scope-1.c: Likewise.
+	* gcc.dg/asan/use-after-scope-2.c: Likewise.
+	* gcc.dg/asan/use-after-scope-3.c: Likewise.
+	* gcc.dg/asan/use-after-scope-4.c: Likewise.
+	* gcc.dg/asan/use-after-scope-5.c: Likewise.
+	* gcc.dg/asan/use-after-scope-6.c: Likewise.
+	* gcc.dg/asan/use-after-scope-7.c: Likewise.
+	* gcc.dg/asan/use-after-scope-8.c: Likewise.
+	* gcc.dg/asan/use-after-scope-9.c: Likewise.
+	* gcc.dg/asan/use-after-scope-switch-1.c: Likewise.
+	* gcc.dg/asan/use-after-scope-switch-2.c: Likewise.
+	* gcc.dg/asan/use-after-scope-switch-3.c: Likewise.
+	* gcc.dg/asan/use-after-scope-goto-1.c: Likewise.
+	* gcc.dg/asan/use-after-scope-goto-2.c: Likewise.
+
+2016-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78189
+	* g++.dg/torture/pr78189.C: New testcase.
+
+2016-11-06  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/Wtrampolines.c: XFAIL AIX.
+
+2016-11-06  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/allocate_with_source_14.f03: Fixed number mallocs
+	occuring.
+
+2016-11-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78221
+	* arith.c (gfc_complex2real):  Change gfc_warning_now to
+	gfc_warning.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/move_alloc_17.f03: New test.
+
+2016-11-05  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/78188
+	* g++.dg/ipa/pr78188.C: New test.
+
+2016-11-05  Janus Weil  <janus@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/69495
+	* gfortran.dg/elemental_optional_args_6.f90: Use -Wpedantic flag.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* gfortran.dg/select_type_39.f03: New test.
+
+2016-11-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/64933
+	* gfortran.dg/associate_23.f90: New test.
+
+2016-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77834
+	* gcc.dg/pr77834.c: New test.
+
+2016-11-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67980
+	* g++.dg/cpp1y/pr67980.C: New.
+
+2016-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/fold-vec-add-1.c: New.
+	* gcc.target/powerpc/fold-vec-add-2.c: New.
+	* gcc.target/powerpc/fold-vec-add-3.c: New.
+	* gcc.target/powerpc/fold-vec-add-4.c: New.
+	* gcc.target/powerpc/fold-vec-add-5.c: New.
+	* gcc.target/powerpc/fold-vec-add-6.c: New.
+	* gcc.target/powerpc/fold-vec-add-7.c: New.
+
+2016-11-04  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* gcc.target/mips/mips.exp (mips-dg-options): Downgrade to R5
+	for -mbranch-likely, infer -mno-branch-likely for R6.
+
+2016-11-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/71973
+	* g++.dg/cpp1y/lambda-generic-udt.C: Fix builtin function declaration.
+	* g++.dg/init/new15.C: Likewise.
+	* g++.dg/ipa/inline-1.C: Likewise.
+	* g++.dg/ipa/inline-2.C: Likewise.
+	* g++.dg/lto/20080908-1_0.C: Likewise.
+	* g++.dg/tc1/dr20.C: Likewise.
+	* g++.dg/tree-ssa/inline-1.C: Likewise.
+	* g++.dg/tree-ssa/inline-2.C: Likewise.
+	* g++.old-deja/g++.law/except1.C: Likewise.
+	* g++.old-deja/g++.other/vbase5.C: Likewise.
+	* obj-c++.dg/lto/trivial-1_0.mm: Likewise.
+
+2016-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/78210
+	* gcc.dg/tree-ssa/slsr-8.c: Fix slsr scan to include the
+	possibility of widening multiplies.
+
+2016-11-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78185
+	* gcc.dg/pr78185.c: New testcase.
+
+2016-10-04  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/debug/dwarf2/ref-3.C: XFAIL AIX.
+	* g++.dg/debug/dwarf2/ref-4.C: XFAIL AIX.
+
+2016-11-03  Jakub Jelinek  <jakub@redhat.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR debug/28767
+	PR debug/56974
+	* g++.dg/debug/dwarf2/ptrdmem-1.C: New test.
+	* g++.dg/debug/dwarf2/ref-3.C: New test.
+	* g++.dg/debug/dwarf2/ref-4.C: New test.
+	* g++.dg/debug/dwarf2/refqual-1.C: New test.
+	* g++.dg/debug/dwarf2/refqual-2.C: New test.
+
+2016-11-03  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_exp_1.f90: New test.
+	* gfortran.dg/dec_exp_2.f90: Likewise.
+	* gfortran.dg/dec_exp_3.f90: Likewise.
+
+2016-11-03  Fritz O. Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_parameter_1.f: New test.
+	* gfortran.dg/dec_parameter_2.f90: Likewise.
+	* gfortran.dg/dec_parameter_3.f90: Likewise.
+	* gfortran.dg/dec_parameter_4.f90: Likewise.
+
+2016-11-03  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/no_profile_instrument_function-attr-1.c: Update scanned
+	output.
+	* gcc.dg/tree-prof/time-profiler-3.c: New test.
+
+2016-11-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR libgcc/78067
+	* gcc.dg/torture/fp-int-convert.h: Add more conversion tests.
+
+2016-11-03  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.c-torture/execute/pr78170.c: Require int32plus.
+
+2016-11-02  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* gcc.c-torture/compile/20001226-1.c: Don't xfail on xtensa.
+
+2016-11-01  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc.target/arm/simd/vmaxnm_f32_1.c (dg-require-effective-target):
+	Check for arm_v8_neon_hw.
+	* gcc.target/arm/simd/vmaxnmq_f32_1.c (dg-require-effective-target):
+	Likewise.
+	* gcc.target/arm/simd/vminnm_f32_1.c (dg-require-effective-target):
+	Likewise.
+	* gcc.target/arm/simd/vminnmq_f32_1.c(dg-require-effective-target):
+	Likewise.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/store_merging_8.c: New testcase.
+
+2016-11-02  Fritz O. Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/warn_argument_mismatch_1.f90: New test.
+
+2016-11-02  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/debug/dwarf2/prod-options.c: XFAIL AIX.
+	* gcc.dg/debug/dwarf2/pr71855.c: XFAIL AIX.
+	* gcc.dg/addr_equal_1.c: XFAIL AIX.
+	* gcc.dg/pr65779.c: XFAIL AIX.
+	* gcc.dg/pr70405.c: XFAIL AIX.
+
+	* g++.dg/debug/dwarf2/inline-var-1.C: XFAIL AIX.
+	* g++.dg/debug/dwarf2/ref-2.C: XFAIL AIX.
+	* g++.dg/debug/dwarf2/constexpr-var-1.C: XFAIL AIX.
+
+2016-11-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/target-supports.exp (check_gc_sections_available): Use
+	-print-prog-name=ld to determine linker used.
+
+2016-11-02  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/tree-ssa/builtins-folding-gimple-ub.c (main): Add
+	test case.
+
+2016-11-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR tree-optimization/78170
+	* gcc.c-torture/execute/pr78170.c: New test.
+
+2016-11-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR tree-optimization/78162
+	* gcc.c-torture/compile/pr78162.c: New test.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78035
+	PR tree-optimization/77964
+	* gcc.target/i386/pr78035.c: New testcase.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/vrp111.c: New testcase.
+	* gcc.dg/tree-ssa/pr20702.c: Disable EVRP.
+	* gcc.dg/tree-ssa/pr21086.c: Likewise.
+	* gcc.dg/tree-ssa/pr58480.c: Likewise.
+	* gcc.dg/tree-ssa/vrp08.c: Likewise.
+
+2016-11-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gfortran.dg/pr70937.f90: require-effective-target lto.
+
+2016-11-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/69544
+	* gfortran.dg/where_6.f90:  New test.
+
+2016-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/debug/dwarf2/inline-var-1.C: New test.
+
+2016-11-01  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/69544
+	* gfortran.dg/where_5.f90:  New test.
+
+2016-11-01  Bilyan Borisov  <bilyan.borisov@arm.com>
+
+	* gcc.target/arm/simd/vmaxnm_f32_1.c: New.
+	* gcc.target/arm/simd/vmaxnmq_f32_1.c: Likewise.
+	* gcc.target/arm/simd/vminnm_f32_1.c: Likewise.
+	* gcc.target/arm/simd/vminnmq_f32_1.c: Likewise.
+
 2016-11-01  Uros Bizjak  <ubizjak@gmail.com>
 
 	* lib/target-supports.exp: Normalize order of i?86 and x86_64 targets.
@@ -150,7 +415,7 @@
 	* gcc.target/i386/pr34012.c: Add -fno-store-merging to dg-options.
 	* g++.dg/init/new17.C: Likewise.
 
-2016-10-26  Will Schmidt <will_schmidt@vnet.ibm.com>
+2016-10-26  Will Schmidt  <will_schmidt@vnet.ibm.com>
 
 	PR middle-end/72747
 	* c-c++-common/pr72747-1.c: New test.
@@ -226,7 +491,7 @@
 	* gcc.dg/fold-convmaxconv-1.c: New test.
 	* gcc.dg/fold-convminconv-1.c: New test.
 
-2016-10-26  Steven G. Kargl <kargl@gcc.gnu.org>
+2016-10-26  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/78092
 	* gfortran.dg/pr78092.f90: New test.
@@ -13218,6 +13483,7 @@
 2016-01-28  Ilya Enkovich  <enkovich.gnu@gmail.com>
 
 	* gcc.dg/declare-simd.c: New test.
+
 2016-01-28  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/69466

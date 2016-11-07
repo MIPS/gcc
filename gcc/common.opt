@@ -907,7 +907,8 @@ Driver Undocumented
 ;     identity, such as ia32 calling convention attributes (stdcall, etc.)
 ;     Default in G++ 6 (set in c_common_post_options).
 ;
-; 11: The version of the ABI that corrects mangling of sizeof... expressions.
+; 11: The version of the ABI that corrects mangling of sizeof... expressions
+;     and introduces new inheriting constructor handling.
 ;     Default in G++ 7.
 ;
 ; Additional positive integers will be assigned as new versions of
@@ -984,6 +985,9 @@ After diagnosing undefined behavior attempt to continue execution.
 fsanitize-recover
 Common Report
 This switch is deprecated; use -fsanitize-recover= instead.
+
+fsanitize-address-use-after-scope
+Common Driver Report Var(flag_sanitize_address_use_after_scope) Init(0)
 
 fsanitize-undefined-trap-on-error
 Common Driver Report Var(flag_sanitize_undefined_trap_on_error) Init(0)

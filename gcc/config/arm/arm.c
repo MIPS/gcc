@@ -2248,7 +2248,8 @@ const struct tune_params arm_cortex_m7_tune =
 };
 
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
-   arm_v6t2_tune. It is used for cortex-m0, cortex-m1 and cortex-m0plus.  */
+   arm_v6t2_tune.  It is used for cortex-m0, cortex-m1, cortex-m0plus and
+   cortex-m23.  */
 const struct tune_params arm_v6m_tune =
 {
   arm_9e_rtx_costs,
@@ -3104,17 +3105,7 @@ arm_option_override (void)
       arm_feature_set sought = ARM_FSET_EMPTY;;
 
       arm_selected_cpu = &all_cores[TARGET_CPU_DEFAULT];
-      if (!arm_selected_cpu->name)
-	{
-#ifdef SUBTARGET_CPU_DEFAULT
-	  /* Use the subtarget default CPU if none was specified by
-	     configure.  */
-	  arm_selected_cpu = &all_cores[SUBTARGET_CPU_DEFAULT];
-#endif
-	  /* Default to ARM6.  */
-	  if (!arm_selected_cpu->name)
-	    arm_selected_cpu = &all_cores[arm6];
-	}
+      gcc_assert (arm_selected_cpu->name);
 
       sel = arm_selected_cpu;
       insn_flags = sel->flags;
@@ -7905,10 +7896,10 @@ load_tls_operand (rtx x, rtx reg)
   return reg;
 }
 
-static rtx
+static rtx_insn *
 arm_call_tls_get_addr (rtx x, rtx reg, rtx *valuep, int reloc)
 {
-  rtx insns, label, labelno, sum;
+  rtx label, labelno, sum;
 
   gcc_assert (reloc != TLS_DESCSEQ);
   start_sequence ();
@@ -7932,7 +7923,7 @@ arm_call_tls_get_addr (rtx x, rtx reg, rtx *valuep, int reloc)
 				     LCT_PURE, /* LCT_CONST?  */
 				     Pmode, 1, reg, Pmode);
 
-  insns = get_insns ();
+  rtx_insn *insns = get_insns ();
   end_sequence ();
 
   return insns;
@@ -7964,7 +7955,8 @@ arm_tls_descseq_addr (rtx x, rtx reg)
 rtx
 legitimize_tls_address (rtx x, rtx reg)
 {
-  rtx dest, tp, label, labelno, sum, insns, ret, eqv, addend;
+  rtx dest, tp, label, labelno, sum, ret, eqv, addend;
+  rtx_insn *insns;
   unsigned int model = SYMBOL_REF_TLS_MODEL (x);
 
   switch (model)

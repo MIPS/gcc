@@ -2336,6 +2336,7 @@ typedef struct
   gfc_expr *io_unit, *format_expr, *rec, *advance, *iostat, *size, *iomsg,
 	   *id, *pos, *asynchronous, *blank, *decimal, *delim, *pad, *round,
 	   *sign, *extra_comma, *dt_io_kind, *udtio;
+  char default_exp;
 
   gfc_symbol *namelist;
   /* A format_label of `format_asterisk' indicates the "*" format */
@@ -2730,6 +2731,7 @@ bool gfc_warning_now_at (location_t loc, int opt, const char *gmsgid, ...)
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 
+void gfc_error (int opt, const char *, ...) ATTRIBUTE_GCC_GFC(2,3);
 void gfc_error (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_error_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);

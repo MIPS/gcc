@@ -911,7 +911,7 @@ ada_demangle (const char *mangled, int option ATTRIBUTE_UNUSED)
   int len0;
   const char* p;
   char *d;
-  char *demangled;
+  char *demangled = NULL;
   
   /* Discard leading _ada_, which is used for library level subprograms.  */
   if (strncmp (mangled, "_ada_", 5) == 0)
@@ -1156,6 +1156,7 @@ ada_demangle (const char *mangled, int option ATTRIBUTE_UNUSED)
   return demangled;
 
  unknown:
+  XDELETEVEC (demangled);
   len0 = strlen (mangled);
   demangled = XNEWVEC (char, len0 + 3);
 
@@ -1656,9 +1657,7 @@ demangle_signature (struct work_stuff *work,
 	      (*mangled)++;
 	      break;
 	    }
-	  else
-	    /* fall through */
-	    {;}
+	  /* fall through */
 
 	default:
 	  if (AUTO_DEMANGLING || GNU_DEMANGLING)
@@ -4023,6 +4022,7 @@ demangle_fund_type (struct work_stuff *work,
 	  success = 0;
 	  break;
 	}
+      /* fall through */
     case 'I':
       (*mangled)++;
       if (**mangled == '_')

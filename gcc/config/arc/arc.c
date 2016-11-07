@@ -4830,7 +4830,6 @@ static rtx
 arc_emit_call_tls_get_addr (rtx sym, int reloc, rtx eqv)
 {
   rtx r0 = gen_rtx_REG (Pmode, R0_REG);
-  rtx insns;
   rtx call_fusage = NULL_RTX;
 
   start_sequence ();
@@ -4847,7 +4846,7 @@ arc_emit_call_tls_get_addr (rtx sym, int reloc, rtx eqv)
   RTL_PURE_CALL_P (call_insn) = 1;
   add_function_usage_to (call_insn, call_fusage);
 
-  insns = get_insns ();
+  rtx_insn *insns = get_insns ();
   end_sequence ();
 
   rtx dest = gen_reg_rtx (Pmode);
@@ -9021,10 +9020,7 @@ arc_process_double_reg_moves (rtx *operands)
       rtx srcLow  = simplify_gen_subreg (SImode, src, DFmode,
 					TARGET_BIG_ENDIAN ? 4 : 0);
 
-      emit_insn (gen_rtx_UNSPEC_VOLATILE (Pmode,
-					  gen_rtvec (3, dest, srcHigh, srcLow),
-					  VUNSPEC_ARC_DEXCL_NORES));
-
+      emit_insn (gen_dexcl_2op (dest, srcHigh, srcLow));
     }
   else
     gcc_unreachable ();
