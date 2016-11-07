@@ -1,3 +1,151 @@
+2016-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/78227
+	* gcc.target/i386/pr78227-1.c: New test.
+	* gcc.target/i386/pr78227-2.c: New test.
+
+2016-11-07  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR middle-end/35691
+	* gcc.dg/pr35691-1.c: New test-case.
+	* gcc.dg/pr35691-2.c: Likewise.
+
+2016-11-07  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/77309
+	* gcc.dg/torture/pr77309.c: New test.
+
+2016-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71529
+	* gcc.target/i386/pr71529.C: Moved to ...
+	* g++.dg/opt/pr71529.C: ... here.  New test.  Guard for i?86/x86_64.
+
+	PR target/64411
+	* gcc.target/i386/pr64411.C: Moved to ...
+	* g++.dg/opt/pr64411.C: ... here.  New test.  Guard for i?86/x86_64
+	lp64.
+
+	PR target/65105
+	* gcc.target/i386/pr65105-4.C: Moved to ...
+	* g++.dg/opt/pr65105-4.C: ... here.  New test.  Guard for i?86/x86_64.
+	Run into compile test rather than execute test.
+
+2016-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR target/78229
+	* g++.dg/pr78229.C: New testcase.
+
+2016-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78218
+	* gcc.dg/torture/pr78218.c: New testcase.
+
+2016-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78228
+	* gcc.dg/tree-ssa/phi-opt-15.c: New testcase.
+
+2016-11-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/77822
+	* g++.dg/torture/pr77822.C: New test.
+
+2016-11-07  Martin Liska  <mliska@suse.cz>
+
+	* c-c++-common/asan/force-inline-opt0-1.c: Disable
+	-f-sanitize-address-use-after-scope.
+	* c-c++-common/asan/inc.c: Change number of expected ASAN_CHECK
+	internal fn calls.
+	* g++.dg/asan/use-after-scope-1.C: New test.
+	* g++.dg/asan/use-after-scope-2.C: Likewise.
+	* g++.dg/asan/use-after-scope-3.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-1.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-2.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-3.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-4.C: Likewise.
+	* g++.dg/asan/use-after-scope-types-5.C: Likewise.
+	* g++.dg/asan/use-after-scope-types.h: Likewise.
+	* gcc.dg/asan/use-after-scope-1.c: Likewise.
+	* gcc.dg/asan/use-after-scope-2.c: Likewise.
+	* gcc.dg/asan/use-after-scope-3.c: Likewise.
+	* gcc.dg/asan/use-after-scope-4.c: Likewise.
+	* gcc.dg/asan/use-after-scope-5.c: Likewise.
+	* gcc.dg/asan/use-after-scope-6.c: Likewise.
+	* gcc.dg/asan/use-after-scope-7.c: Likewise.
+	* gcc.dg/asan/use-after-scope-8.c: Likewise.
+	* gcc.dg/asan/use-after-scope-9.c: Likewise.
+	* gcc.dg/asan/use-after-scope-switch-1.c: Likewise.
+	* gcc.dg/asan/use-after-scope-switch-2.c: Likewise.
+	* gcc.dg/asan/use-after-scope-switch-3.c: Likewise.
+	* gcc.dg/asan/use-after-scope-goto-1.c: Likewise.
+	* gcc.dg/asan/use-after-scope-goto-2.c: Likewise.
+
+2016-11-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/78189
+	* g++.dg/torture/pr78189.C: New testcase.
+
+2016-11-06  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/Wtrampolines.c: XFAIL AIX.
+
+2016-11-06  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/allocate_with_source_14.f03: Fixed number mallocs
+	occuring.
+
+2016-11-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78221
+	* arith.c (gfc_complex2real):  Change gfc_warning_now to
+	gfc_warning.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/move_alloc_17.f03: New test.
+
+2016-11-05  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/78188
+	* g++.dg/ipa/pr78188.C: New test.
+
+2016-11-05  Janus Weil  <janus@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/69495
+	* gfortran.dg/elemental_optional_args_6.f90: Use -Wpedantic flag.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* gfortran.dg/select_type_39.f03: New test.
+
+2016-11-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/64933
+	* gfortran.dg/associate_23.f90: New test.
+
+2016-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77834
+	* gcc.dg/pr77834.c: New test.
+
+2016-11-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67980
+	* g++.dg/cpp1y/pr67980.C: New.
+
+2016-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/fold-vec-add-1.c: New.
+	* gcc.target/powerpc/fold-vec-add-2.c: New.
+	* gcc.target/powerpc/fold-vec-add-3.c: New.
+	* gcc.target/powerpc/fold-vec-add-4.c: New.
+	* gcc.target/powerpc/fold-vec-add-5.c: New.
+	* gcc.target/powerpc/fold-vec-add-6.c: New.
+	* gcc.target/powerpc/fold-vec-add-7.c: New.
+
 2016-11-04  Toma Tabacu  <toma.tabacu@imgtec.com>
 
 	* gcc.target/mips/mips.exp (mips-dg-options): Downgrade to R5

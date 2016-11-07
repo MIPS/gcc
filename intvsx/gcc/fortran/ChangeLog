@@ -1,3 +1,76 @@
+2016-11-07  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78226
+	* match.c (gfc_match_select_type):  Add where for expr1.
+	* resolve.c (resolev_select_type): Add where for expr1 of new
+	statement.
+
+2016-11-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78226
+	resolve.c (build_loc_call): Add location to return value.
+
+2016-11-06  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* expr.c (is_non_empty_structure_constructor): New function to detect
+	non-empty structure constructor.
+	(gfc_has_default_initializer): Analyse initializers.
+	* resolve.c (cond_init): Removed.
+	(resolve_allocate_expr): Removed dead code.  Moved invariant code out
+	of the loop over all objects to allocate.
+	(resolve_allocate_deallocate): Added the invariant code remove from
+	resolve_allocate_expr.
+	* trans-array.c (gfc_array_allocate): Removed nullify of structure
+	components in favour of doing this in gfc_trans_allocate for both
+	scalars and arrays in the same place.
+	* trans-expr.c (gfc_trans_init_assign): Always using _vptr->copy for
+	class objects.
+	* trans-stmt.c (allocate_get_initializer): Get the initializer
+	expression for object allocated.
+	(gfc_trans_allocate): Nullify a derived type only, when no SOURCE=
+	or MOLD= is present preventing duplicate work.  Moved the creation
+	of the init-expression here to prevent code for conditions that
+	can not occur on freshly allocated object, like checking for the need
+	to free allocatable components.
+
+2016-11-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78221
+	* arith.c (gfc_complex2real):  Change gfc_warning_now to
+	gfc_warning.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	* check.c (gfc_check_move_alloc): Introduce error to prevent
+	aliasing between to and from arguments.
+
+2016-11-05  Janus Weil  <janus@gcc.gnu.org>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR fortran/69495
+	* invoke.texi: Mention -Wpedantic as an alias of -pedantic.
+	* check.c (gfc_check_transfer): Mention responsible flag in warning
+	message.
+	* frontend-passes.c (do_warn_function_elimination): Ditto.
+	* resolve.c (resolve_elemental_actual): Ditto.
+	(resolve_operator): Ditto.
+	(warn_unused_fortran_label): Ditto.
+	* trans-common.c (translate_common): Ditto.
+
+2016-11-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* trans-expr.c (gfc_conv_class_to_class): Return _len component
+	of unlimited polymorphic entities.
+
+2016-11-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/64933
+	* primary.c (gfc_match_varspec): If selector expression is
+	unambiguously an array, make sure that the associate name
+	is an array and has an array spec. Modify the original
+	condition for doing this to exclude character types.
+
 2016-11-03  Fritz Reese <fritzoreese@gmail.com>
 
 	* gfortran.texi: Document.
