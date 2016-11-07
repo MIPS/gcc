@@ -781,7 +781,8 @@ hsa_needs_cvt (BrigType16_t dtype, BrigType16_t stype)
   return false;
 }
 
-/* Return declaration name if exists.  */
+/* Return declaration name if it exists or create one from UID if it does not.
+   If DECL is a local variable, make UID part of its name.  */
 
 const char *
 hsa_get_declaration_name (tree decl)
@@ -789,7 +790,7 @@ hsa_get_declaration_name (tree decl)
   if (!DECL_NAME (decl))
     {
       char buf[64];
-      snprintf (buf, 64, "__hsa_anon_%i", DECL_UID (decl));
+      snprintf (buf, 64, "__hsa_anon_%u", DECL_UID (decl));
       size_t len = strlen (buf);
       char *copy = (char *) obstack_alloc (&hsa_obstack, len + 1);
       memcpy (copy, buf, len + 1);
@@ -808,7 +809,19 @@ hsa_get_declaration_name (tree decl)
   if (name[0] == '*')
     name++;
 
-  return name;
+  if ((TREE_CODE (decl) == VAR_DECL)
+      && decl_function_context (decl))
+    {
+      size_t len = strlen (name);
+      char *buf = (char *) alloca (len + 32);
+      snprintf (buf, len + 32, "%s_%u", name, DECL_UID (decl));
+      len = strlen (buf);
+      char *copy = (char *) obstack_alloc (&hsa_obstack, len + 1);
+      memcpy (copy, buf, len + 1);
+      return copy;
+    }
+  else
+    return name;
 }
 
 /* Lookup or create the associated hsa_symbol structure with a given VAR_DECL
