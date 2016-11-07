@@ -204,7 +204,7 @@ struct GTY(()) c_parser {
   vec <c_token, va_gc> *cilk_simd_fn_tokens;
 };
 
-/* Return a pointer to the Nth token in PARERs tokens_buf.  */
+/* Return a pointer to the Nth token in PARSERs tokens_buf.  */
 
 c_token *
 c_parser_tokens_buf (c_parser *parser, unsigned n)
