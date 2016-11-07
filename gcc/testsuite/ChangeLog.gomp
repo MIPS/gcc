@@ -1,3 +1,7 @@
+2016-11-07  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/deviceptr-4.c: Adjust testcase.
+
 2016-10-05  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/tile-lowering.f95: Add more coverage.

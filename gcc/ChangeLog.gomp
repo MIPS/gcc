@@ -1,3 +1,10 @@
+2016-11-07  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (enum gimplify_omp_var_data): Remove stale
+	GOVD_USE_DEVPTR.
+	(gimplify_scan_omp_clauses): Likewise.
+	(gimplify_adjust_omp_clauses_1): Likewise.
+
 2016-10-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_single): Use a single predicate
