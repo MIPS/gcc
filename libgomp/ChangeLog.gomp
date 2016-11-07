@@ -1,3 +1,12 @@
+2016-11-07  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk
+	2016-11-02  Cesar Philippidis  <cesar@codesourcery.com>
+		    Nathan Sidwell  <nathan@acm.org>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Interrogate board attributes
+	to determine default geometry.
+
 2016-10-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/broadcast-1.c: New test.

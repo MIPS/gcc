@@ -910,10 +910,11 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 	 variable to specify runtime defaults. */
       static int default_dims[GOMP_DIM_MAX];
 
+      pthread_mutex_lock (&ptx_dev_lock);
       if (!default_dims[0])
 	{
 	  /* We only read the environment variable once.  You can't
-	     change it in the middle of execution.  The sytntax  is
+	     change it in the middle of execution.  The syntax  is
 	     the same as for the -fopenacc-dim compilation option.  */
 	  const char *env_var = getenv ("GOMP_OPENACC_DIM");
 	  if (env_var)
@@ -942,15 +943,17 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 	  CUdevice dev = nvptx_thread()->ptx_dev->dev;
 	  /* 32 is the default for known hardware.  */
 	  int gang = 0, worker = 32, vector = 32;
+	  CUdevice_attribute cu_tpb, cu_ws, cu_mpc, cu_tpm;
 
-	  if (CUDA_SUCCESS == cuDeviceGetAttribute
-	      (&block_size, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, dev)
-	      && CUDA_SUCCESS == cuDeviceGetAttribute
-	      (&warp_size, CU_DEVICE_ATTRIBUTE_WARP_SIZE, dev)
-	      && CUDA_SUCCESS == cuDeviceGetAttribute
-	      (&dev_size, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev)
-	      && CUDA_SUCCESS == cuDeviceGetAttribute
-	      (&cpu_size, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev))
+	  cu_tpb = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK;
+	  cu_ws = CU_DEVICE_ATTRIBUTE_WARP_SIZE;
+	  cu_mpc = CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT;
+	  cu_tpm  = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR;
+
+	  if (cuDeviceGetAttribute (&block_size, cu_tpb, dev) == CUDA_SUCCESS
+	      && cuDeviceGetAttribute (&warp_size, cu_ws, dev) == CUDA_SUCCESS
+	      && cuDeviceGetAttribute (&dev_size, cu_mpc, dev) == CUDA_SUCCESS
+	      && cuDeviceGetAttribute (&cpu_size, cu_tpm, dev)  == CUDA_SUCCESS)
 	    {
 	      GOMP_PLUGIN_debug (0, " warp_size=%d, block_size=%d,"
 				 " dev_size=%d, cpu_size=%d\n",
@@ -980,6 +983,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 			     default_dims[GOMP_DIM_WORKER],
 			     default_dims[GOMP_DIM_VECTOR]);
 	}
+      pthread_mutex_unlock (&ptx_dev_lock);
 
       for (i = 0; i != GOMP_DIM_MAX; i++)
 	if (!dims[i])
