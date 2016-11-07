@@ -152,8 +152,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_PREFETCHWT1_P(x)	TARGET_ISA_PREFETCHWT1_P(x)
 #define TARGET_MPX	TARGET_ISA_MPX
 #define TARGET_MPX_P(x)	TARGET_ISA_MPX_P(x)
-#define TARGET_PCOMMIT	TARGET_ISA_PCOMMIT
-#define TARGET_PCOMMIT_P(x)	TARGET_ISA_PCOMMIT_P(x)
 #define TARGET_CLWB	TARGET_ISA_CLWB
 #define TARGET_CLWB_P(x)	TARGET_ISA_CLWB_P(x)
 #define TARGET_MWAITX	TARGET_ISA_MWAITX
@@ -465,6 +463,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_SLOW_PSHUFB]
 #define TARGET_VECTOR_PARALLEL_EXECUTION \
 	ix86_tune_features[X86_TUNE_VECTOR_PARALLEL_EXECUTION]
+#define TARGET_AVOID_4BYTE_PREFIXES \
+	ix86_tune_features[X86_TUNE_AVOID_4BYTE_PREFIXES]
 #define TARGET_FUSE_CMP_AND_BRANCH_32 \
 	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_32]
 #define TARGET_FUSE_CMP_AND_BRANCH_64 \
@@ -479,8 +479,6 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_OPT_AGU ix86_tune_features[X86_TUNE_OPT_AGU]
 #define TARGET_AVOID_LEA_FOR_ADDR \
 	ix86_tune_features[X86_TUNE_AVOID_LEA_FOR_ADDR]
-#define TARGET_VECTORIZE_DOUBLE \
-	ix86_tune_features[X86_TUNE_VECTORIZE_DOUBLE]
 #define TARGET_SOFTWARE_PREFETCHING_BENEFICIAL \
 	ix86_tune_features[X86_TUNE_SOFTWARE_PREFETCHING_BENEFICIAL]
 #define TARGET_AVX128_OPTIMAL \
@@ -957,10 +955,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #define STACK_REGS
 
-#define IS_STACK_MODE(MODE)					\
-  (((MODE) == SFmode && !(TARGET_SSE && TARGET_SSE_MATH))	\
-   || ((MODE) == DFmode && !(TARGET_SSE2 && TARGET_SSE_MATH))	\
-   || (MODE) == XFmode)
+#define IS_STACK_MODE(MODE)				\
+  (X87_FLOAT_MODE_P (MODE)				\
+   && (!(SSE_FLOAT_MODE_P (MODE) && TARGET_SSE_MATH)	\
+       || TARGET_MIX_SSE_I387))
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -1126,7 +1124,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #define VALID_AVX512VL_128_REG_MODE(MODE)				\
   ((MODE) == V2DImode || (MODE) == V2DFmode || (MODE) == V16QImode	\
-   || (MODE) == V4SImode || (MODE) == V4SFmode || (MODE) == V8HImode)
+   || (MODE) == V4SImode || (MODE) == V4SFmode || (MODE) == V8HImode	\
+   || (MODE) == TFmode || (MODE) == V1TImode)
 
 #define VALID_SSE2_REG_MODE(MODE)					\
   ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode	\
@@ -1344,6 +1343,7 @@ enum reg_class
   CLOBBERED_REGS,		/* call-clobbered integer registers */
   Q_REGS,			/* %eax %ebx %ecx %edx */
   NON_Q_REGS,			/* %esi %edi %ebp %esp */
+  TLS_GOTBASE_REGS,		/* %ebx %ecx %edx %esi %edi %ebp */
   INDEX_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp */
   LEGACY_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp */
   GENERAL_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp
@@ -1404,6 +1404,7 @@ enum reg_class
    "AD_REGS",				\
    "CLOBBERED_REGS",			\
    "Q_REGS", "NON_Q_REGS",		\
+   "TLS_GOTBASE_REGS",			\
    "INDEX_REGS",			\
    "LEGACY_REGS",			\
    "GENERAL_REGS",			\
@@ -1444,6 +1445,7 @@ enum reg_class
       { 0x07,       0x0,    0x0 },       /* CLOBBERED_REGS */            \
       { 0x0f,       0x0,    0x0 },       /* Q_REGS */                    \
   { 0x1100f0,    0x1fe0,    0x0 },       /* NON_Q_REGS */                \
+      { 0x7e,    0x1fe0,    0x0 },       /* TLS_GOTBASE_REGS */		 \
       { 0x7f,    0x1fe0,    0x0 },       /* INDEX_REGS */                \
   { 0x1100ff,       0x0,    0x0 },       /* LEGACY_REGS */               \
   { 0x1100ff,    0x1fe0,    0x0 },       /* GENERAL_REGS */              \
@@ -1621,7 +1623,7 @@ enum reg_class
    function prologue should increase the stack frame size by this amount.  
 
    In 32bit mode enabling argument accumulation results in about 5% code size
-   growth becuase move instructions are less compact than push.  In 64bit
+   growth because move instructions are less compact than push.  In 64bit
    mode the difference is less drastic but visible.  
 
    FIXME: Unlike earlier implementations, the size of unwind info seems to
@@ -1634,11 +1636,19 @@ enum reg_class
 
    If stack probes are required, the space used for large function
    arguments on the stack must also be probed, so enable
-   -maccumulate-outgoing-args so this happens in the prologue.  */
+   -maccumulate-outgoing-args so this happens in the prologue.
+
+   We must use argument accumulation in interrupt function if stack
+   may be realigned to avoid DRAP.  */
 
 #define ACCUMULATE_OUTGOING_ARGS \
-  ((TARGET_ACCUMULATE_OUTGOING_ARGS && optimize_function_for_speed_p (cfun)) \
-   || TARGET_STACK_PROBE || TARGET_64BIT_MS_ABI)
+  ((TARGET_ACCUMULATE_OUTGOING_ARGS \
+    && optimize_function_for_speed_p (cfun)) \
+   || (cfun->machine->func_type != TYPE_NORMAL \
+       && crtl->stack_realign_needed) \
+   || TARGET_STACK_PROBE \
+   || TARGET_64BIT_MS_ABI \
+   || (TARGET_MACHO && crtl->profile))
 
 /* If defined, a C expression whose value is nonzero when we want to use PUSH
    instructions to pass outgoing arguments.  */
@@ -1746,6 +1756,11 @@ typedef struct ix86_args {
    use pop */
 
 #define EXIT_IGNORE_STACK 1
+
+/* Define this macro as a C expression that is nonzero for registers
+   used by the epilogue or the `return' pattern.  */
+
+#define EPILOGUE_USES(REGNO) ix86_epilogue_uses (REGNO)
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  */
@@ -1931,8 +1946,18 @@ typedef struct ix86_args {
 
 /* MOVE_MAX_PIECES is the number of bytes at a time which we can
    move efficiently, as opposed to  MOVE_MAX which is the maximum
-   number of bytes we can move with a single instruction.  */
-#define MOVE_MAX_PIECES UNITS_PER_WORD
+   number of bytes we can move with a single instruction.
+
+   ??? We should use TImode in 32-bit mode and use OImode or XImode
+   if they are available.  But since by_pieces_ninsns determines the
+   widest mode with MAX_FIXED_MODE_SIZE, we can only use TImode in
+   64-bit mode.  */
+#define MOVE_MAX_PIECES \
+  ((TARGET_64BIT \
+    && TARGET_SSE2 \
+    && TARGET_SSE_UNALIGNED_LOAD_OPTIMAL \
+    && TARGET_SSE_UNALIGNED_STORE_OPTIMAL) \
+   ? GET_MODE_SIZE (TImode) : UNITS_PER_WORD)
 
 /* If a memory-to-memory move would take MOVE_RATIO or more simple
    move-instruction pairs, we will do a movmem or libcall instead.
@@ -2360,16 +2385,6 @@ enum ix86_fpcmp_strategy {
    Post-reload pass may be later used to eliminate the redundant fildcw if
    needed.  */
 
-enum ix86_entity
-{
-  AVX_U128 = 0,
-  I387_TRUNC,
-  I387_FLOOR,
-  I387_CEIL,
-  I387_MASK_PM,
-  MAX_386_ENTITIES
-};
-
 enum ix86_stack_slot
 {
   SLOT_TEMP = 0,
@@ -2379,6 +2394,23 @@ enum ix86_stack_slot
   SLOT_CW_CEIL,
   SLOT_CW_MASK_PM,
   MAX_386_STACK_LOCALS
+};
+
+enum ix86_entity
+{
+  X86_DIRFLAG = 0,
+  AVX_U128,
+  I387_TRUNC,
+  I387_FLOOR,
+  I387_CEIL,
+  I387_MASK_PM,
+  MAX_386_ENTITIES
+};
+
+enum x86_dirflag_state
+{
+  X86_DIRFLAG_RESET,
+  X86_DIRFLAG_ANY
 };
 
 enum avx_u128_state
@@ -2402,8 +2434,9 @@ enum avx_u128_state
    starting counting at zero - determines the integer that is used to
    refer to the mode-switched entity in question.  */
 
-#define NUM_MODES_FOR_MODE_SWITCHING \
-  { AVX_U128_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY }
+#define NUM_MODES_FOR_MODE_SWITCHING			\
+  { X86_DIRFLAG_ANY, AVX_U128_ANY,			\
+    I387_CW_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY }
 
 
 /* Avoid renaming of stack registers, as doing so in combination with
@@ -2462,6 +2495,19 @@ struct GTY(()) machine_frame_state
 /* Private to winnt.c.  */
 struct seh_frame_state;
 
+enum function_type
+{
+  TYPE_UNKNOWN = 0,
+  TYPE_NORMAL,
+  /* The current function is an interrupt service routine with a
+     pointer argument as specified by the "interrupt" attribute.  */
+  TYPE_INTERRUPT,
+  /* The current function is an interrupt service routine with a
+     pointer argument and an integer argument as specified by the
+     "interrupt" attribute.  */
+  TYPE_EXCEPTION
+};
+
 struct GTY(()) machine_function {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
@@ -2487,12 +2533,13 @@ struct GTY(()) machine_function {
   /* Nonzero if the function accesses a previous frame.  */
   BOOL_BITFIELD accesses_prev_frame : 1;
 
-  /* Nonzero if the function requires a CLD in the prologue.  */
-  BOOL_BITFIELD needs_cld : 1;
-
   /* Set by ix86_compute_frame_layout and used by prologue/epilogue
      expander to determine the style used.  */
   BOOL_BITFIELD use_fast_prologue_epilogue : 1;
+
+  /* Nonzero if the current function calls pc thunk and
+     must not use the red zone.  */
+  BOOL_BITFIELD pc_thunk_call_expanded : 1;
 
   /* If true, the current function needs the default PIC register, not
      an alternate register (on x86) and must not use the red zone (on
@@ -2511,6 +2558,13 @@ struct GTY(()) machine_function {
 
   /* If true, it is safe to not save/restore DRAP register.  */
   BOOL_BITFIELD no_drap_save_restore : 1;
+
+  /* Function type.  */
+  ENUM_BITFIELD(function_type) func_type : 2;
+
+  /* If true, the current function is a function specified with
+     the "interrupt" or "no_caller_saved_registers" attribute.  */
+  BOOL_BITFIELD no_caller_saved_registers : 1;
 
   /* If true, there is register available for argument passing.  This
      is used only in ix86_function_ok_for_sibcall by 32-bit to determine
@@ -2532,7 +2586,7 @@ struct GTY(()) machine_function {
 #define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
 #define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
-#define ix86_current_function_needs_cld (cfun->machine->needs_cld)
+#define ix86_pc_thunk_call_expanded (cfun->machine->pc_thunk_call_expanded)
 #define ix86_tls_descriptor_calls_expanded_in_cfun \
   (cfun->machine->tls_descriptor_call_expanded_p)
 /* Since tls_descriptor_call_expanded is not cleared, even if all TLS

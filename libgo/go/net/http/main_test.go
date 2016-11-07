@@ -79,6 +79,15 @@ func goroutineLeaked() bool {
 	return true
 }
 
+// setParallel marks t as a parallel test if we're in short mode
+// (all.bash), but as a serial test otherwise. Using t.Parallel isn't
+// compatible with the afterTest func in non-short mode.
+func setParallel(t *testing.T) {
+	if testing.Short() {
+		t.Parallel()
+	}
+}
+
 func afterTest(t testing.TB) {
 	http.DefaultTransport.(*http.Transport).CloseIdleConnections()
 	if testing.Short() {
@@ -110,4 +119,18 @@ func afterTest(t testing.TB) {
 		time.Sleep(250 * time.Millisecond)
 	}
 	t.Errorf("Test appears to have leaked %s:\n%s", bad, stacks)
+}
+
+// waitCondition reports whether fn eventually returned true,
+// checking immediately and then every checkEvery amount,
+// until waitFor has elapsed, at which point it returns false.
+func waitCondition(waitFor, checkEvery time.Duration, fn func() bool) bool {
+	deadline := time.Now().Add(waitFor)
+	for time.Now().Before(deadline) {
+		if fn() {
+			return true
+		}
+		time.Sleep(checkEvery)
+	}
+	return false
 }

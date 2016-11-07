@@ -169,7 +169,7 @@ finish_thunk (tree thunk)
     virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
   function = THUNK_TARGET (thunk);
   name = mangle_thunk (function, DECL_THIS_THUNK_P (thunk),
-		       fixed_offset, virtual_offset);
+		       fixed_offset, virtual_offset, thunk);
 
   /* We can end up with declarations of (logically) different
      covariant thunks, that do identical adjustments.  The two thunks
@@ -474,6 +474,24 @@ trivial_fn_p (tree fn)
   return type_has_trivial_fn (DECL_CONTEXT (fn), special_function_p (fn));
 }
 
+/* PARM is a PARM_DECL for a function which we want to forward to another
+   function without changing its value category, a la std::forward.  */
+
+tree
+forward_parm (tree parm)
+{
+  tree exp = convert_from_reference (parm);
+  tree type = TREE_TYPE (parm);
+  if (DECL_PACK_P (parm))
+    type = PACK_EXPANSION_PATTERN (type);
+  if (TREE_CODE (type) != REFERENCE_TYPE)
+    type = cp_build_reference_type (type, /*rval=*/true);
+  exp = build_static_cast (type, exp, tf_warning_or_error);
+  if (DECL_PACK_P (parm))
+    exp = make_pack_expansion (exp);
+  return exp;
+}
+
 /* Subroutine of do_build_copy_constructor: Add a mem-initializer for BINFO
    given the parameter or parameters PARM, possibly inherited constructor
    base INH, or move flag MOVE_P.  */
@@ -494,10 +512,7 @@ add_one_base_init (tree binfo, tree parm, bool move_p, tree inh,
       init = NULL_TREE;
       for (; parm; parm = DECL_CHAIN (parm))
 	{
-	  tree exp = convert_from_reference (parm);
-	  if (TREE_CODE (TREE_TYPE (parm)) != REFERENCE_TYPE
-	      || TYPE_REF_IS_RVALUE (TREE_TYPE (parm)))
-	    exp = move (exp);
+	  tree exp = forward_parm (parm);
 	  *p = build_tree_list (NULL_TREE, exp);
 	  p = &TREE_CHAIN (*p);
 	}
@@ -527,14 +542,32 @@ do_build_copy_constructor (tree fndecl)
   if (!inh)
     parm = convert_from_reference (parm);
 
-  if (trivial
-      && is_empty_class (current_class_type))
-    /* Don't copy the padding byte; it might not have been allocated
-       if *this is a base subobject.  */;
-  else if (trivial)
+  if (trivial)
     {
-      tree t = build2 (INIT_EXPR, void_type_node, current_class_ref, parm);
-      finish_expr_stmt (t);
+      if (is_empty_class (current_class_type))
+	/* Don't copy the padding byte; it might not have been allocated
+	   if *this is a base subobject.  */;
+      else if (tree_int_cst_equal (TYPE_SIZE (current_class_type),
+				   CLASSTYPE_SIZE (current_class_type)))
+	{
+	  tree t = build2 (INIT_EXPR, void_type_node, current_class_ref, parm);
+	  finish_expr_stmt (t);
+	}
+      else
+	{
+	  /* We must only copy the non-tail padding parts.  */
+	  tree base_size = CLASSTYPE_SIZE_UNIT (current_class_type);
+	  base_size = size_binop (MINUS_EXPR, base_size, size_int (1));
+	  tree array_type = build_array_type (unsigned_char_type_node,
+					      build_index_type (base_size));
+	  tree alias_set = build_int_cst (TREE_TYPE (current_class_ptr), 0);
+	  tree lhs = build2 (MEM_REF, array_type,
+			     current_class_ptr, alias_set);
+	  tree rhs = build2 (MEM_REF, array_type,
+			     TREE_OPERAND (parm, 0), alias_set);
+	  tree t = build2 (INIT_EXPR, void_type_node, lhs, rhs);
+	  finish_expr_stmt (t);
+	}
     }
   else
     {
@@ -728,7 +761,7 @@ do_build_copy_assign (tree fndecl)
 	    init = move (init);
 
 	  if (DECL_NAME (field))
-	    init = cp_build_modify_expr (comp, NOP_EXPR, init, 
+	    init = cp_build_modify_expr (input_location, comp, NOP_EXPR, init,
 					 tf_warning_or_error);
 	  else
 	    init = build2 (MODIFY_EXPR, TREE_TYPE (comp), comp, init);
@@ -989,12 +1022,8 @@ get_inherited_ctor (tree ctor)
 static tree
 check_nontriv (tree *tp, int *, void *)
 {
-  tree fn;
-  if (TREE_CODE (*tp) == CALL_EXPR)
-    fn = CALL_EXPR_FN (*tp);
-  else if (TREE_CODE (*tp) == AGGR_INIT_EXPR)
-    fn = AGGR_INIT_EXPR_FN (*tp);
-  else
+  tree fn = cp_get_callee (*tp);
+  if (fn == NULL_TREE)
     return NULL_TREE;
 
   if (TREE_CODE (fn) == ADDR_EXPR)
@@ -1014,7 +1043,7 @@ assignable_expr (tree to, tree from)
   ++cp_unevaluated_operand;
   to = build_stub_object (to);
   from = build_stub_object (from);
-  tree r = cp_build_modify_expr (to, NOP_EXPR, from, tf_none);
+  tree r = cp_build_modify_expr (input_location, to, NOP_EXPR, from, tf_none);
   --cp_unevaluated_operand;
   return r;
 }
@@ -1100,7 +1129,11 @@ process_subob_fn (tree fn, tree *spec_p, bool *trivial_p,
 		  bool diag, tree arg, bool dtor_from_ctor = false)
 {
   if (!fn || fn == error_mark_node)
-    goto bad;
+    {
+      if (deleted_p)
+	*deleted_p = true;
+      return;
+    }
 
   if (spec_p)
     {
@@ -1133,12 +1166,6 @@ process_subob_fn (tree fn, tree *spec_p, bool *trivial_p,
 	  explain_invalid_constexpr_fn (fn);
 	}
     }
-
-  return;
-
- bad:
-  if (deleted_p)
-    *deleted_p = true;
 }
 
 /* Subroutine of synthesized_method_walk to allow recursion into anonymous
@@ -1292,12 +1319,12 @@ walk_field_subobs (tree fields, tree fnname, special_function_kind sfk,
     }
 }
 
-/* The caller wants to generate an implicit declaration of SFK for CTYPE
-   which is const if relevant and CONST_P is set.  If spec_p, trivial_p and
-   deleted_p are non-null, set their referent appropriately.  If diag is
-   true, we're either being called from maybe_explain_implicit_delete to
-   give errors, or if constexpr_p is non-null, from
-   explain_invalid_constexpr_fn.  */
+/* The caller wants to generate an implicit declaration of SFK for
+   CTYPE which is const if relevant and CONST_P is set.  If SPEC_P,
+   TRIVIAL_P, DELETED_P or CONSTEXPR_P are non-null, set their
+   referent appropriately.  If DIAG is true, we're either being called
+   from maybe_explain_implicit_delete to give errors, or if
+   CONSTEXPR_P is non-null, from explain_invalid_constexpr_fn.  */
 
 static void
 synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
@@ -1366,9 +1393,18 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
 
   /* If that user-written default constructor would satisfy the
      requirements of a constexpr constructor (7.1.5), the
-     implicitly-defined default constructor is constexpr.  */
+     implicitly-defined default constructor is constexpr.
+
+     The implicitly-defined copy/move assignment operator is constexpr if
+      - X is a literal type, and
+      - the assignment operator selected to copy/move each direct base class
+	subobject is a constexpr function, and
+      - for each non-static data member of X that is of class type (or array
+	thereof), the assignment operator selected to copy/move that member is a
+	constexpr function.  */
   if (constexpr_p)
-    *constexpr_p = ctor_p;
+    *constexpr_p = ctor_p
+      || (assign_p && cxx_dialect >= cxx14);
 
   move_p = false;
   switch (sfk)
@@ -1382,6 +1418,7 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
     case sfk_move_constructor:
     case sfk_move_assignment:
       move_p = true;
+      /* FALLTHRU */
     case sfk_copy_constructor:
     case sfk_copy_assignment:
       copy_arg_p = true;
@@ -1497,9 +1534,13 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
     }
 
   vbases = CLASSTYPE_VBASECLASSES (ctype);
-  if (vec_safe_is_empty (vbases))
+  if (assign_p)
+    /* No need to examine vbases here.  */;
+  else if (vec_safe_is_empty (vbases))
     /* No virtual bases to worry about.  */;
-  else if (!assign_p)
+  else if (ABSTRACT_CLASS_TYPE_P (ctype) && cxx_dialect >= cxx14)
+    /* Vbase cdtors are not relevant.  */;
+  else
     {
       if (constexpr_p)
 	*constexpr_p = false;
@@ -1728,7 +1769,7 @@ implicitly_declare_fn (special_function_kind kind, tree type,
 
   type = TYPE_MAIN_VARIANT (type);
 
-  if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (type))
+  if (targetm.cxx.cdtor_returns_this ())
     {
       if (kind == sfk_destructor)
 	/* See comment in check_special_function_return_type.  */
@@ -1843,7 +1884,7 @@ implicitly_declare_fn (special_function_kind kind, tree type,
       SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
     }
 
-  DECL_ALIGN (fn) = MINIMUM_METHOD_BOUNDARY;
+  SET_DECL_ALIGN (fn, MINIMUM_METHOD_BOUNDARY);
 
   /* Create the explicit arguments.  */
   if (rhs_parm_type)
@@ -1892,12 +1933,6 @@ implicitly_declare_fn (special_function_kind kind, tree type,
   DECL_DEFAULTED_FN (fn) = 1;
   if (cxx_dialect >= cxx11)
     {
-      /* "The closure type associated with a lambda-expression has a deleted
-	 default constructor and a deleted copy assignment operator."  */
-      if ((kind == sfk_constructor
-	   || kind == sfk_copy_assignment)
-	  && LAMBDA_TYPE_P (type))
-	deleted_p = true;
       DECL_DELETED_FN (fn) = deleted_p;
       DECL_DECLARED_CONSTEXPR_P (fn) = constexpr_p;
     }

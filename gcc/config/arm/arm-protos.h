@@ -50,8 +50,12 @@ extern tree arm_builtin_decl (unsigned code, bool initialize_p
 			      ATTRIBUTE_UNUSED);
 extern void arm_init_builtins (void);
 extern void arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update);
-
+extern rtx arm_simd_vect_par_cnst_half (machine_mode mode, bool high);
+extern bool arm_simd_check_vect_par_cnst_half_p (rtx op, machine_mode mode,
+						 bool high);
 #ifdef RTX_CODE
+extern void arm_gen_unlikely_cbranch (enum rtx_code, machine_mode cc_mode,
+				      rtx label_ref);
 extern bool arm_vector_mode_supported_p (machine_mode);
 extern bool arm_small_register_classes_for_mode_p (machine_mode);
 extern int arm_hard_regno_mode_ok (unsigned int, machine_mode);
@@ -89,7 +93,6 @@ extern void neon_expand_vector_init (rtx, rtx);
 extern void neon_lane_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT, const_tree);
 extern void neon_const_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 extern HOST_WIDE_INT neon_element_bits (machine_mode);
-extern void neon_reinterpret (rtx, rtx);
 extern void neon_emit_pair_result_insn (machine_mode,
 					rtx (*) (rtx, rtx, rtx, rtx),
 					rtx, rtx, rtx);
@@ -162,6 +165,7 @@ extern const char *arm_output_iwmmxt_shift_immediate (const char *, rtx *, bool)
 extern const char *arm_output_iwmmxt_tinsr (rtx *);
 extern unsigned int arm_sync_loop_insns (rtx , rtx *);
 extern int arm_attr_length_push_multi(rtx, rtx);
+extern int arm_attr_length_pop_multi(rtx *, bool, bool);
 extern void arm_expand_compare_and_swap (rtx op[]);
 extern void arm_split_compare_and_swap (rtx op[]);
 extern void arm_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx, rtx);
@@ -193,7 +197,6 @@ extern const char *thumb_call_via_reg (rtx);
 extern void thumb_expand_movmemqi (rtx *);
 extern rtx arm_return_addr (int, rtx);
 extern void thumb_reload_out_hi (rtx *);
-extern void thumb_reload_in_hi (rtx *);
 extern void thumb_set_return_address (rtx, rtx);
 extern const char *thumb1_output_casesi (rtx *);
 extern const char *thumb2_output_casesi (rtx *);
@@ -259,7 +262,7 @@ struct tune_params
 {
   bool (*rtx_costs) (rtx, RTX_CODE, RTX_CODE, int *, bool);
   const struct cpu_cost_table *insn_extra_cost;
-  bool (*sched_adjust_cost) (rtx_insn *, rtx, rtx_insn *, int *);
+  bool (*sched_adjust_cost) (rtx_insn *, int, rtx_insn *, int *);
   int (*branch_cost) (bool, bool);
   /* Vectorizer costs.  */
   const struct cpu_vec_costs* vec_costs;
@@ -301,8 +304,9 @@ struct tune_params
   enum fuse_ops
   {
     FUSE_NOTHING   = 0,
-    FUSE_MOVW_MOVT = 1 << 0
-  } fusible_ops: 1;
+    FUSE_MOVW_MOVT = 1 << 0,
+    FUSE_AES_AESMC = 1 << 1
+  } fusible_ops: 2;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
   enum {SCHED_AUTOPREF_OFF, SCHED_AUTOPREF_RANK, SCHED_AUTOPREF_FULL}
     sched_autopref: 2;
@@ -319,6 +323,7 @@ extern int vfp3_const_double_for_bits (rtx);
 
 extern void arm_emit_coreregs_64bit_shift (enum rtx_code, rtx, rtx, rtx, rtx,
 					   rtx);
+extern bool arm_fusion_enabled_p (tune_params::fuse_ops);
 extern bool arm_valid_symbolic_address_p (rtx);
 extern bool arm_validize_comparison (rtx *, rtx *, rtx *);
 #endif /* RTX_CODE */
@@ -332,6 +337,7 @@ extern bool arm_autoinc_modes_ok_p (machine_mode, enum arm_auto_incmodes);
 extern void arm_emit_eabi_attribute (const char *, int, int);
 
 extern void arm_reset_previous_fndecl (void);
+extern void save_restore_target_globals (tree);
 
 /* Defined in gcc/common/config/arm-common.c.  */
 extern const char *arm_rewrite_selected_cpu (const char *name);
@@ -387,36 +393,43 @@ extern bool arm_is_constant_pool_ref (rtx);
 #define FL_ARCH6KZ    (1 << 31)       /* ARMv6KZ architecture.  */
 
 #define FL2_ARCH8_1   (1 << 0)	      /* Architecture 8.1.  */
+#define FL2_ARCH8_2   (1 << 1)	      /* Architecture 8.2.  */
+#define FL2_FP16INST  (1 << 2)	      /* FP16 Instructions for ARMv8.2 and
+					 later.  */
 
 /* Flags that only effect tuning, not available instructions.  */
 #define FL_TUNE		(FL_WBUF | FL_VFPV2 | FL_STRONG | FL_LDSCHED \
 			 | FL_CO_PROC)
 
-#define FL_FOR_ARCH2	FL_NOTM
-#define FL_FOR_ARCH3	(FL_FOR_ARCH2 | FL_MODE32)
-#define FL_FOR_ARCH3M	(FL_FOR_ARCH3 | FL_ARCH3M)
-#define FL_FOR_ARCH4	(FL_FOR_ARCH3M | FL_ARCH4)
-#define FL_FOR_ARCH4T	(FL_FOR_ARCH4 | FL_THUMB)
-#define FL_FOR_ARCH5	(FL_FOR_ARCH4 | FL_ARCH5)
-#define FL_FOR_ARCH5T	(FL_FOR_ARCH5 | FL_THUMB)
-#define FL_FOR_ARCH5E	(FL_FOR_ARCH5 | FL_ARCH5E)
-#define FL_FOR_ARCH5TE	(FL_FOR_ARCH5E | FL_THUMB)
-#define FL_FOR_ARCH5TEJ	FL_FOR_ARCH5TE
-#define FL_FOR_ARCH6	(FL_FOR_ARCH5TE | FL_ARCH6)
-#define FL_FOR_ARCH6J	FL_FOR_ARCH6
-#define FL_FOR_ARCH6K	(FL_FOR_ARCH6 | FL_ARCH6K)
-#define FL_FOR_ARCH6Z	FL_FOR_ARCH6
-#define FL_FOR_ARCH6KZ	(FL_FOR_ARCH6K | FL_ARCH6KZ)
-#define FL_FOR_ARCH6T2	(FL_FOR_ARCH6 | FL_THUMB2)
-#define FL_FOR_ARCH6M	(FL_FOR_ARCH6 & ~FL_NOTM)
-#define FL_FOR_ARCH7	((FL_FOR_ARCH6T2 & ~FL_NOTM) | FL_ARCH7)
-#define FL_FOR_ARCH7A	(FL_FOR_ARCH7 | FL_NOTM | FL_ARCH6K)
-#define FL_FOR_ARCH7VE	(FL_FOR_ARCH7A | FL_THUMB_DIV | FL_ARM_DIV)
-#define FL_FOR_ARCH7R	(FL_FOR_ARCH7A | FL_THUMB_DIV)
-#define FL_FOR_ARCH7M	(FL_FOR_ARCH7 | FL_THUMB_DIV)
-#define FL_FOR_ARCH7EM  (FL_FOR_ARCH7M | FL_ARCH7EM)
-#define FL_FOR_ARCH8A	(FL_FOR_ARCH7VE | FL_ARCH8)
+#define FL_FOR_ARCH2		FL_NOTM
+#define FL_FOR_ARCH3		(FL_FOR_ARCH2 | FL_MODE32)
+#define FL_FOR_ARCH3M		(FL_FOR_ARCH3 | FL_ARCH3M)
+#define FL_FOR_ARCH4		(FL_FOR_ARCH3M | FL_ARCH4)
+#define FL_FOR_ARCH4T		(FL_FOR_ARCH4 | FL_THUMB)
+#define FL_FOR_ARCH5		(FL_FOR_ARCH4 | FL_ARCH5)
+#define FL_FOR_ARCH5T		(FL_FOR_ARCH5 | FL_THUMB)
+#define FL_FOR_ARCH5E		(FL_FOR_ARCH5 | FL_ARCH5E)
+#define FL_FOR_ARCH5TE		(FL_FOR_ARCH5E | FL_THUMB)
+#define FL_FOR_ARCH5TEJ		FL_FOR_ARCH5TE
+#define FL_FOR_ARCH6		(FL_FOR_ARCH5TE | FL_ARCH6)
+#define FL_FOR_ARCH6J		FL_FOR_ARCH6
+#define FL_FOR_ARCH6K		(FL_FOR_ARCH6 | FL_ARCH6K)
+#define FL_FOR_ARCH6Z		FL_FOR_ARCH6
+#define FL_FOR_ARCH6ZK		FL_FOR_ARCH6K
+#define FL_FOR_ARCH6KZ		(FL_FOR_ARCH6K | FL_ARCH6KZ)
+#define FL_FOR_ARCH6T2		(FL_FOR_ARCH6 | FL_THUMB2)
+#define FL_FOR_ARCH6M		(FL_FOR_ARCH6 & ~FL_NOTM)
+#define FL_FOR_ARCH7		((FL_FOR_ARCH6T2 & ~FL_NOTM) | FL_ARCH7)
+#define FL_FOR_ARCH7A		(FL_FOR_ARCH7 | FL_NOTM | FL_ARCH6K)
+#define FL_FOR_ARCH7VE		(FL_FOR_ARCH7A | FL_THUMB_DIV | FL_ARM_DIV)
+#define FL_FOR_ARCH7R		(FL_FOR_ARCH7A | FL_THUMB_DIV)
+#define FL_FOR_ARCH7M		(FL_FOR_ARCH7 | FL_THUMB_DIV)
+#define FL_FOR_ARCH7EM		(FL_FOR_ARCH7M | FL_ARCH7EM)
+#define FL_FOR_ARCH8A		(FL_FOR_ARCH7VE | FL_ARCH8)
 #define FL2_FOR_ARCH8_1A	FL2_ARCH8_1
+#define FL2_FOR_ARCH8_2A	(FL2_FOR_ARCH8_1A | FL2_ARCH8_2)
+#define FL_FOR_ARCH8M_BASE	(FL_FOR_ARCH6M | FL_ARCH8 | FL_THUMB_DIV)
+#define FL_FOR_ARCH8M_MAIN	(FL_FOR_ARCH7M | FL_ARCH8)
 
 /* There are too many feature bits to fit in a single word so the set of cpu and
    fpu capabilities is a structure.  A feature set is created and manipulated
@@ -599,6 +612,9 @@ extern int arm_tune_cortex_a9;
    problems in GLD which doesn't understand that armv5t code is
    interworking clean.  */
 extern int arm_cpp_interwork;
+
+/* Nonzero if chip supports Thumb 1.  */
+extern int arm_arch_thumb1;
 
 /* Nonzero if chip supports Thumb 2.  */
 extern int arm_arch_thumb2;

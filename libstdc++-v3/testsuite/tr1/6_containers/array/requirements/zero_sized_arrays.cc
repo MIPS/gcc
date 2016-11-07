@@ -23,11 +23,10 @@
 #include <testsuite_hooks.h>
 
 void
-test01() 
-{ 
+test01()
+{
   const size_t len = 0;
   typedef std::tr1::array<int, len> array_type;
-  bool test __attribute__((unused)) = true;
 
   // 1: ?
   array_type a = { };

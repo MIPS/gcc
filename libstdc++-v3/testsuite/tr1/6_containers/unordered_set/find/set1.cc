@@ -28,8 +28,6 @@
 #include <tr1/unordered_set>
 #include "testsuite_hooks.h"
 
-bool test __attribute__((unused)) = true;
-
 void test01()
 {
   typedef std::tr1::unordered_set<std::string> Set;
@@ -49,7 +47,7 @@ void test01()
   VERIFY(std::distance(p.first, p.second) == 1);
 
   Set::iterator i3 = s.find("lime");
-  VERIFY(i3 == s.end());  
+  VERIFY(i3 == s.end());
 
   std::pair<Set::iterator, Set::iterator> p2 = s.equal_range("lime");
   VERIFY(p2.first == p2.second);

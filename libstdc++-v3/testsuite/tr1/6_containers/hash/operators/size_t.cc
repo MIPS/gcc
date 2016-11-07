@@ -27,8 +27,6 @@ template<typename T>
   void
   do_test()
   {
-    bool test __attribute__((unused)) = true;
-
     typedef T 				value_type;
     typedef std::tr1::hash<value_type> 	hash_type;
     using std::size_t;
@@ -37,13 +35,13 @@ template<typename T>
                         // that matters.
     hash_type h1;
     size_t r1 = size_t(h1(v));
-    
+
     hash_type h2;
     size_t r2 = size_t(h2(v));
 
     VERIFY( r1 == r2 );
   }
-  
+
 void test01()
 {
   do_test<bool>();

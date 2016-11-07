@@ -32,7 +32,7 @@
 /* First all usupported platforms. Add stubs for exported routines. */
 
 #if defined (VMS) || defined (__vxworks) || defined (__Lynx__) \
-  || defined (__ANDROID__) || defined (__PikeOS__)
+  || defined (__ANDROID__) || defined (__PikeOS__) || defined(__DJGPP__)
 
 #define ATTRIBUTE_UNUSED __attribute__((unused))
 
@@ -170,7 +170,7 @@ static int Vw32_start_process_inherit_error_mode = 1;
 
 /* Control whether spawnve quotes arguments as necessary to ensure
    correct parsing by child process.  Because not all uses of spawnve
-   are careful about constructing argv arrays, we make this behaviour
+   are careful about constructing argv arrays, we make this behavior
    conditional (off by default, since a similar operation is already done
    in g-expect.adb by calling Normalize_Argument). */
 static int Vw32_quote_process_args = 0;
@@ -289,34 +289,27 @@ is_gui_app (char *exe)
     {
     case IMAGE_SUBSYSTEM_UNKNOWN:
         return 1;
-        break;
 
     case IMAGE_SUBSYSTEM_NATIVE:
         return 1;
-        break;
 
     case IMAGE_SUBSYSTEM_WINDOWS_GUI:
         return 1;
-        break;
 
     case IMAGE_SUBSYSTEM_WINDOWS_CUI:
         return 0;
-        break;
 
     case IMAGE_SUBSYSTEM_OS2_CUI:
         return 0;
-        break;
 
     case IMAGE_SUBSYSTEM_POSIX_CUI:
         return 0;
-        break;
 
     default:
         /* Unknown, return GUI app to be preservative: if yes, it will be
            correctly launched, if no, it will be launched, and a console will
            be also displayed, which is not a big deal */
         return 1;
-        break;
     }
 
 }

@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "memmodel.h"
 #include "backend.h"
 #include "target.h"
 #include "tree.h"
@@ -127,9 +128,14 @@ gimple_init_edge_profiler (void)
   tree ic_profiler_fn_type;
   tree average_profiler_fn_type;
   tree time_profiler_fn_type;
+  const char *profiler_fn_name;
+  const char *fn_name;
 
   if (!gcov_type_node)
     {
+      const char *fn_suffix
+	= flag_profile_update == PROFILE_UPDATE_ATOMIC ? "_atomic" : "";
+
       gcov_type_node = get_gcov_type ();
       gcov_type_ptr = build_pointer_type (gcov_type_node);
 
@@ -139,9 +145,10 @@ gimple_init_edge_profiler (void)
 					  gcov_type_ptr, gcov_type_node,
 					  integer_type_node,
 					  unsigned_type_node, NULL_TREE);
-      tree_interval_profiler_fn
-	      = build_fn_decl ("__gcov_interval_profiler",
-				     interval_profiler_fn_type);
+      fn_name = concat ("__gcov_interval_profiler", fn_suffix, NULL);
+      tree_interval_profiler_fn = build_fn_decl (fn_name,
+						 interval_profiler_fn_type);
+      free (CONST_CAST (char *, fn_name));
       TREE_NOTHROW (tree_interval_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_interval_profiler_fn)
 	= tree_cons (get_identifier ("leaf"), NULL,
@@ -152,8 +159,9 @@ gimple_init_edge_profiler (void)
 	      = build_function_type_list (void_type_node,
 					  gcov_type_ptr, gcov_type_node,
 					  NULL_TREE);
-      tree_pow2_profiler_fn = build_fn_decl ("__gcov_pow2_profiler",
-						   pow2_profiler_fn_type);
+      fn_name = concat ("__gcov_pow2_profiler", fn_suffix, NULL);
+      tree_pow2_profiler_fn = build_fn_decl (fn_name, pow2_profiler_fn_type);
+      free (CONST_CAST (char *, fn_name));
       TREE_NOTHROW (tree_pow2_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_pow2_profiler_fn)
 	= tree_cons (get_identifier ("leaf"), NULL,
@@ -164,9 +172,10 @@ gimple_init_edge_profiler (void)
 	      = build_function_type_list (void_type_node,
 					  gcov_type_ptr, gcov_type_node,
 					  NULL_TREE);
-      tree_one_value_profiler_fn
-	      = build_fn_decl ("__gcov_one_value_profiler",
-				     one_value_profiler_fn_type);
+      fn_name = concat ("__gcov_one_value_profiler", fn_suffix, NULL);
+      tree_one_value_profiler_fn = build_fn_decl (fn_name,
+						  one_value_profiler_fn_type);
+      free (CONST_CAST (char *, fn_name));
       TREE_NOTHROW (tree_one_value_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_one_value_profiler_fn)
 	= tree_cons (get_identifier ("leaf"), NULL,
@@ -180,11 +189,12 @@ gimple_init_edge_profiler (void)
 					  gcov_type_node,
 					  ptr_void,
 					  NULL_TREE);
+      profiler_fn_name = "__gcov_indirect_call_profiler_v2";
+      if (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE))
+	profiler_fn_name = "__gcov_indirect_call_topn_profiler";
+
       tree_indirect_call_profiler_fn
-	      = build_fn_decl ( (PARAM_VALUE (PARAM_INDIR_CALL_TOPN_PROFILE) ?
-				 "__gcov_indirect_call_topn_profiler":
-				 "__gcov_indirect_call_profiler_v2"),
-			       ic_profiler_fn_type);
+	      = build_fn_decl (profiler_fn_name, ic_profiler_fn_type);
 
       TREE_NOTHROW (tree_indirect_call_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_indirect_call_profiler_fn)
@@ -195,9 +205,9 @@ gimple_init_edge_profiler (void)
       time_profiler_fn_type
 	       = build_function_type_list (void_type_node,
 					  gcov_type_ptr, NULL_TREE);
-      tree_time_profiler_fn
-	      = build_fn_decl ("__gcov_time_profiler",
-				     time_profiler_fn_type);
+      fn_name = concat ("__gcov_time_profiler", fn_suffix, NULL);
+      tree_time_profiler_fn = build_fn_decl (fn_name, time_profiler_fn_type);
+      free (CONST_CAST (char *, fn_name));
       TREE_NOTHROW (tree_time_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_time_profiler_fn)
 	= tree_cons (get_identifier ("leaf"), NULL,
@@ -207,16 +217,17 @@ gimple_init_edge_profiler (void)
       average_profiler_fn_type
 	      = build_function_type_list (void_type_node,
 					  gcov_type_ptr, gcov_type_node, NULL_TREE);
-      tree_average_profiler_fn
-	      = build_fn_decl ("__gcov_average_profiler",
-				     average_profiler_fn_type);
+      fn_name = concat ("__gcov_average_profiler", fn_suffix, NULL);
+      tree_average_profiler_fn = build_fn_decl (fn_name,
+						average_profiler_fn_type);
+      free (CONST_CAST (char *, fn_name));
       TREE_NOTHROW (tree_average_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_average_profiler_fn)
 	= tree_cons (get_identifier ("leaf"), NULL,
 		     DECL_ATTRIBUTES (tree_average_profiler_fn));
-      tree_ior_profiler_fn
-	      = build_fn_decl ("__gcov_ior_profiler",
-				     average_profiler_fn_type);
+      fn_name = concat ("__gcov_ior_profiler", fn_suffix, NULL);
+      tree_ior_profiler_fn = build_fn_decl (fn_name, average_profiler_fn_type);
+      free (CONST_CAST (char *, fn_name));
       TREE_NOTHROW (tree_ior_profiler_fn) = 1;
       DECL_ATTRIBUTES (tree_ior_profiler_fn)
 	= tree_cons (get_identifier ("leaf"), NULL,
@@ -241,22 +252,38 @@ gimple_init_edge_profiler (void)
 void
 gimple_gen_edge_profiler (int edgeno, edge e)
 {
-  tree ref, one, gcov_type_tmp_var;
-  gassign *stmt1, *stmt2, *stmt3;
+  tree one;
 
-  ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
   one = build_int_cst (gcov_type_node, 1);
-  gcov_type_tmp_var = make_temp_ssa_name (gcov_type_node,
-					  NULL, "PROF_edge_counter");
-  stmt1 = gimple_build_assign (gcov_type_tmp_var, ref);
-  gcov_type_tmp_var = make_temp_ssa_name (gcov_type_node,
-					  NULL, "PROF_edge_counter");
-  stmt2 = gimple_build_assign (gcov_type_tmp_var, PLUS_EXPR,
-			       gimple_assign_lhs (stmt1), one);
-  stmt3 = gimple_build_assign (unshare_expr (ref), gimple_assign_lhs (stmt2));
-  gsi_insert_on_edge (e, stmt1);
-  gsi_insert_on_edge (e, stmt2);
-  gsi_insert_on_edge (e, stmt3);
+
+  if (flag_profile_update == PROFILE_UPDATE_ATOMIC)
+    {
+      /* __atomic_fetch_add (&counter, 1, MEMMODEL_RELAXED); */
+      tree addr = tree_coverage_counter_addr (GCOV_COUNTER_ARCS, edgeno);
+      tree f = builtin_decl_explicit (LONG_LONG_TYPE_SIZE > 32
+				      ? BUILT_IN_ATOMIC_FETCH_ADD_8:
+				      BUILT_IN_ATOMIC_FETCH_ADD_4);
+      gcall *stmt = gimple_build_call (f, 3, addr, one,
+				       build_int_cst (integer_type_node,
+						      MEMMODEL_RELAXED));
+      gsi_insert_on_edge (e, stmt);
+    }
+  else
+    {
+      tree ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
+      tree gcov_type_tmp_var = make_temp_ssa_name (gcov_type_node,
+						   NULL, "PROF_edge_counter");
+      gassign *stmt1 = gimple_build_assign (gcov_type_tmp_var, ref);
+      gcov_type_tmp_var = make_temp_ssa_name (gcov_type_node,
+					      NULL, "PROF_edge_counter");
+      gassign *stmt2 = gimple_build_assign (gcov_type_tmp_var, PLUS_EXPR,
+					    gimple_assign_lhs (stmt1), one);
+      gassign *stmt3 = gimple_build_assign (unshare_expr (ref),
+					    gimple_assign_lhs (stmt2));
+      gsi_insert_on_edge (e, stmt1);
+      gsi_insert_on_edge (e, stmt2);
+      gsi_insert_on_edge (e, stmt3);
+    }
 }
 
 /* Emits code to get VALUE to instrument at GSI, and returns the
@@ -445,22 +472,6 @@ gimple_gen_time_profiler (unsigned tag, unsigned base,
   gsi_insert_before (&gsi, call, GSI_NEW_STMT);
 }
 
-/* Output instructions as GIMPLE trees for code to find the most common value
-   of a difference between two evaluations of an expression.
-   VALUE is the expression whose value is profiled.  TAG is the tag of the
-   section for counters, BASE is offset of the counter position.  */
-
-void
-gimple_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
-			       unsigned tag ATTRIBUTE_UNUSED,
-			       unsigned base ATTRIBUTE_UNUSED)
-{
-  /* FIXME implement this.  */
-  if (flag_checking)
-    internal_error ("unimplemented functionality");
-  gcc_unreachable ();
-}
-
 /* Output instructions as GIMPLE trees to increment the average histogram
    counter.  VALUE is the expression whose value is profiled.  TAG is the
    tag of the section for counters, BASE is offset of the counter position.  */
@@ -502,12 +513,47 @@ gimple_gen_ior_profiler (histogram_value value, unsigned tag, unsigned base)
   gsi_insert_before (&gsi, call, GSI_NEW_STMT);
 }
 
+#ifndef HAVE_sync_compare_and_swapsi
+#define HAVE_sync_compare_and_swapsi 0
+#endif
+#ifndef HAVE_atomic_compare_and_swapsi
+#define HAVE_atomic_compare_and_swapsi 0
+#endif
+
+#ifndef HAVE_sync_compare_and_swapdi
+#define HAVE_sync_compare_and_swapdi 0
+#endif
+#ifndef HAVE_atomic_compare_and_swapdi
+#define HAVE_atomic_compare_and_swapdi 0
+#endif
+
 /* Profile all functions in the callgraph.  */
 
 static unsigned int
 tree_profiling (void)
 {
   struct cgraph_node *node;
+
+  /* Verify whether we can utilize atomic update operations.  */
+  if (flag_profile_update == PROFILE_UPDATE_ATOMIC)
+    {
+      bool can_support = false;
+      unsigned HOST_WIDE_INT gcov_type_size
+	= tree_to_uhwi (TYPE_SIZE_UNIT (get_gcov_type ()));
+      if (gcov_type_size == 4)
+	can_support
+	  = HAVE_sync_compare_and_swapsi || HAVE_atomic_compare_and_swapsi;
+      else if (gcov_type_size == 8)
+	can_support
+	  = HAVE_sync_compare_and_swapdi || HAVE_atomic_compare_and_swapdi;
+
+      if (!can_support)
+      {
+	warning (0, "target does not support atomic profile update, "
+		 "single mode is selected");
+	flag_profile_update = PROFILE_UPDATE_SINGLE;
+      }
+    }
 
   /* This is a small-ipa pass that gets called only once, from
      cgraphunit.c:ipa_passes().  */
@@ -524,6 +570,9 @@ tree_profiling (void)
       if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION)
 	continue;
 
+      if (lookup_attribute ("no_profile_instrument_function",
+			    DECL_ATTRIBUTES (node->decl)))
+	continue;
       /* Do not instrument extern inline functions when testing coverage.
 	 While this is not perfectly consistent (early inlined extern inlines
 	 will get acocunted), testsuite expects that.  */

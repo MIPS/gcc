@@ -24,8 +24,6 @@
 
 using namespace std::tr1;
 
-bool test __attribute__((unused)) = true;
-
 #define TEST1(x) VERIFY( x == x && !(x != x) && x <= x && !(x < x) )
 
 int
@@ -45,6 +43,6 @@ main()
   VERIFY(!(a > a) && !(b > b));
   VERIFY(a >= a && b >= b);
   VERIFY(a < b && !(b < a) && a <= b && !(b <= a));
-  VERIFY(b > a && !(a > b) && b >= a && !(a >= b));  
+  VERIFY(b > a && !(a > b) && b >= a && !(a >= b));
 }
 

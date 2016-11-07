@@ -36,6 +36,8 @@
 
    UNSPEC_ALLOCA
 
+   UNSPEC_SET_SOFTSTACK
+
    UNSPEC_DIM_SIZE
 
    UNSPEC_BIT_CONV
@@ -66,7 +68,7 @@
 (define_attr "subregs_ok" "false,true"
   (const_string "false"))
 
-(define_attr "divergent" "false,true"
+(define_attr "atomic" "false,true"
   (const_string "false"))
 
 ;; The nvptx operand predicates, in general, don't permit subregs and
@@ -565,7 +567,7 @@
   [(set (pc)
 	(if_then_else (match_operator 0 "nvptx_comparison_operator"
 		       [(match_operand:HSDIM 1 "nvptx_register_operand" "")
-			(match_operand:HSDIM 2 "nvptx_register_operand" "")])
+			(match_operand:HSDIM 2 "nvptx_nonmemory_operand" "")])
 		      (label_ref (match_operand 3 "" ""))
 		      (pc)))]
   ""
@@ -580,7 +582,7 @@
   [(set (pc)
 	(if_then_else (match_operator 0 "nvptx_float_comparison_operator"
 		       [(match_operand:SDFM 1 "nvptx_register_operand" "")
-			(match_operand:SDFM 2 "nvptx_register_operand" "")])
+			(match_operand:SDFM 2 "nvptx_nonmemory_operand" "")])
 		      (label_ref (match_operand 3 "" ""))
 		      (pc)))]
   ""
@@ -818,6 +820,17 @@
   ""
   "%.\\tsqrt%#%t0\\t%0, %1;")
 
+(define_expand "sincossf3"
+  [(set (match_operand:SF 0 "nvptx_register_operand" "=R")
+	(unspec:SF [(match_operand:SF 2 "nvptx_register_operand" "R")]
+	           UNSPEC_COS))
+   (set (match_operand:SF 1 "nvptx_register_operand" "=R")
+	(unspec:SF [(match_dup 2)] UNSPEC_SIN))]
+  "flag_unsafe_math_optimizations"
+{
+  operands[2] = make_safe_from (operands[2], operands[0]);
+})
+
 (define_insn "sinsf2"
   [(set (match_operand:SF 0 "nvptx_register_operand" "=R")
 	(unspec:SF [(match_operand:SF 1 "nvptx_register_operand" "R")]
@@ -958,6 +971,9 @@
   [(clobber (const_int 0))]
   ""
 {
+  if (TARGET_SOFT_STACK)
+    emit_insn (gen_set_softstack_insn (gen_rtx_REG (Pmode,
+						    SOFTSTACK_PREV_REGNUM)));
   emit_jump_insn (gen_return ());
   DONE;
 })
@@ -1003,12 +1019,11 @@
 })
 
 (define_insn "set_softstack_insn"
-  [(unspec [(match_operand 0 "nvptx_register_operand" "R")] UNSPEC_ALLOCA)]
+  [(unspec [(match_operand 0 "nvptx_register_operand" "R")]
+	   UNSPEC_SET_SOFTSTACK)]
   "TARGET_SOFT_STACK"
 {
-  return (cfun->machine->using_softstack
-	  ? "%.\\tst.shared%t0\\t[%%fstmp2], %0;"
-	  : "");
+  return nvptx_output_set_softstack (REGNO (operands[0]));
 })
 
 (define_expand "restore_stack_block"
@@ -1167,31 +1182,17 @@
   ""
   "%.\\tvote.ballot.b32\\t%0, %1;")
 
+;; Patterns for OpenMP SIMD-via-SIMT lowering
+
+;; Implement IFN_GOMP_SIMT_LANE: set operand 0 to lane index
 (define_insn "omp_simt_lane"
   [(set (match_operand:SI 0 "nvptx_register_operand" "")
 	(unspec:SI [(const_int 0)] UNSPEC_LANEID))]
   ""
   "%.\\tmov.u32\\t%0, %%laneid;")
 
-(define_insn "nvptx_nounroll"
-  [(unspec_volatile [(const_int 0)] UNSPECV_NOUNROLL)]
-  ""
-  "\\t.pragma \\\"nounroll\\\";"
-  [(set_attr "predicable" "false")])
-
-(define_expand "omp_simt_last_lane"
-  [(match_operand:SI 0 "nvptx_register_operand" "=R")
-   (match_operand:SI 1 "nvptx_register_operand" "R")]
-  ""
-{
-  rtx pred = gen_reg_rtx (BImode);
-  rtx tmp = gen_reg_rtx (SImode);
-  emit_move_insn (pred, gen_rtx_NE (BImode, operands[1], const0_rtx));
-  emit_insn (gen_nvptx_vote_ballot (tmp, pred));
-  emit_insn (gen_ctzsi2 (operands[0], tmp));
-  DONE;
-})
-
+;; Implement IFN_GOMP_SIMT_ORDERED: copy operand 1 to operand 0 and
+;; place a compiler barrier to disallow unrolling/peeling the containing loop
 (define_expand "omp_simt_ordered"
   [(match_operand:SI 0 "nvptx_register_operand" "=R")
    (match_operand:SI 1 "nvptx_register_operand" "R")]
@@ -1202,17 +1203,8 @@
   DONE;
 })
 
-(define_expand "omp_simt_vote_any"
-  [(match_operand:SI 0 "nvptx_register_operand" "=R")
-   (match_operand:SI 1 "nvptx_register_operand" "R")]
-  ""
-{
-  rtx pred = gen_reg_rtx (BImode);
-  emit_move_insn (pred, gen_rtx_NE (BImode, operands[1], const0_rtx));
-  emit_insn (gen_nvptx_vote_ballot (operands[0], pred));
-  DONE;
-})
-
+;; Implement IFN_GOMP_SIMT_XCHG_BFLY: perform a "butterfly" exchange
+;; across lanes
 (define_expand "omp_simt_xchg_bfly"
   [(match_operand 0 "nvptx_register_operand" "=R")
    (match_operand 1 "nvptx_register_operand" "R")
@@ -1224,6 +1216,8 @@
   DONE;
 })
 
+;; Implement IFN_GOMP_SIMT_XCHG_IDX: broadcast value in operand 1
+;; from lane given by index in operand 2 to operand 0 in all lanes
 (define_expand "omp_simt_xchg_idx"
   [(match_operand 0 "nvptx_register_operand" "=R")
    (match_operand 1 "nvptx_register_operand" "R")
@@ -1232,6 +1226,34 @@
 {
   emit_insn (nvptx_gen_shuffle (operands[0], operands[1], operands[2],
 				SHUFFLE_IDX));
+  DONE;
+})
+
+;; Implement IFN_GOMP_SIMT_VOTE_ANY:
+;; set operand 0 to zero iff all lanes supply zero in operand 1
+(define_expand "omp_simt_vote_any"
+  [(match_operand:SI 0 "nvptx_register_operand" "=R")
+   (match_operand:SI 1 "nvptx_register_operand" "R")]
+  ""
+{
+  rtx pred = gen_reg_rtx (BImode);
+  emit_move_insn (pred, gen_rtx_NE (BImode, operands[1], const0_rtx));
+  emit_insn (gen_nvptx_vote_ballot (operands[0], pred));
+  DONE;
+})
+
+;; Implement IFN_GOMP_SIMT_LAST_LANE:
+;; set operand 0 to the lowest lane index that passed non-zero in operand 1
+(define_expand "omp_simt_last_lane"
+  [(match_operand:SI 0 "nvptx_register_operand" "=R")
+   (match_operand:SI 1 "nvptx_register_operand" "R")]
+  ""
+{
+  rtx pred = gen_reg_rtx (BImode);
+  rtx tmp = gen_reg_rtx (SImode);
+  emit_move_insn (pred, gen_rtx_NE (BImode, operands[1], const0_rtx));
+  emit_insn (gen_nvptx_vote_ballot (tmp, pred));
+  emit_insn (gen_ctzsi2 (operands[0], tmp));
   DONE;
 })
 
@@ -1288,7 +1310,7 @@
 	(unspec_volatile:SDIM [(const_int 0)] UNSPECV_CAS))]
   ""
   "%.\\tatom%A1.cas.b%T0\\t%0, %1, %2, %3;"
-  [(set_attr "divergent" "true")])
+  [(set_attr "atomic" "true")])
 
 (define_insn "atomic_exchange<mode>"
   [(set (match_operand:SDIM 0 "nvptx_register_operand" "=R")	;; output
@@ -1300,7 +1322,7 @@
 	(match_operand:SDIM 2 "nvptx_nonmemory_operand" "Ri"))]	;; input
   ""
   "%.\\tatom%A1.exch.b%T0\\t%0, %1, %2;"
-  [(set_attr "divergent" "true")])
+  [(set_attr "atomic" "true")])
 
 (define_insn "atomic_fetch_add<mode>"
   [(set (match_operand:SDIM 1 "memory_operand" "+m")
@@ -1313,7 +1335,7 @@
 	(match_dup 1))]
   ""
   "%.\\tatom%A1.add%t0\\t%0, %1, %2;"
-  [(set_attr "divergent" "true")])
+  [(set_attr "atomic" "true")])
 
 (define_insn "atomic_fetch_addsf"
   [(set (match_operand:SF 1 "memory_operand" "+m")
@@ -1326,7 +1348,7 @@
 	(match_dup 1))]
   ""
   "%.\\tatom%A1.add%t0\\t%0, %1, %2;"
-  [(set_attr "divergent" "true")])
+  [(set_attr "atomic" "true")])
 
 (define_code_iterator any_logic [and ior xor])
 (define_code_attr logic [(and "and") (ior "or") (xor "xor")])
@@ -1343,11 +1365,17 @@
 	(match_dup 1))]
   "0"
   "%.\\tatom%A1.b%T0.<logic>\\t%0, %1, %2;"
-  [(set_attr "divergent" "true")])
+  [(set_attr "atomic" "true")])
 
 (define_insn "nvptx_barsync"
   [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
 		    UNSPECV_BARSYNC)]
   ""
   "\\tbar.sync\\t%0;"
+  [(set_attr "predicable" "false")])
+
+(define_insn "nvptx_nounroll"
+  [(unspec_volatile [(const_int 0)] UNSPECV_NOUNROLL)]
+  ""
+  "\\t.pragma \\\"nounroll\\\";"
   [(set_attr "predicable" "false")])

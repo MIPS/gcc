@@ -68,12 +68,16 @@
    |mcpu=cortex-a15.cortex-a7				\
    |mcpu=cortex-a17.cortex-a7				\
    |mcpu=marvell-pj4					\
+   |mcpu=cortex-a32					\
    |mcpu=cortex-a35					\
    |mcpu=cortex-a53					\
    |mcpu=cortex-a57					\
    |mcpu=cortex-a57.cortex-a53				\
    |mcpu=cortex-a72					\
    |mcpu=cortex-a72.cortex-a53				\
+   |mcpu=cortex-a73					\
+   |mcpu=cortex-a73.cortex-a35				\
+   |mcpu=cortex-a73.cortex-a53				\
    |mcpu=exynos-m1                                      \
    |mcpu=qdf24xx					\
    |mcpu=xgene1                                         \
@@ -86,6 +90,14 @@
    |march=armv7e-m|mcpu=cortex-m4|mcpu=cortex-m7        \
    |march=armv6-m|mcpu=cortex-m0                        \
    |march=armv8-a					\
+   |march=armv8-a+crc					\
+   |march=armv8.1-a					\
+   |march=armv8.1-a+crc					\
+   |march=armv8.2-a					\
+   |march=armv8.2-a+fp16				\
+   |march=armv8-m.base					\
+   |march=armv8-m.main					\
+   |march=armv8-m.main+dsp				\
    :%{!r:--be8}}}"
 #else
 #define BE8_LINK_SPEC \
@@ -101,6 +113,9 @@
    |mcpu=cortex-a57.cortex-a53				\
    |mcpu=cortex-a72					\
    |mcpu=cortex-a72.cortex-a53				\
+   |mcpu=cortex-a73					\
+   |mcpu=cortex-a73.cortex-a35				\
+   |mcpu=cortex-a73.cortex-a53				\
    |mcpu=exynos-m1                                      \
    |mcpu=qdf24xx					\
    |mcpu=xgene1                                         \
@@ -114,6 +129,14 @@
    |march=armv7e-m|mcpu=cortex-m4|mcpu=cortex-m7        \
    |march=armv6-m|mcpu=cortex-m0                        \
    |march=armv8-a					\
+   |march=armv8-a+crc					\
+   |march=armv8.1-a					\
+   |march=armv8.1-a+crc					\
+   |march=armv8.2-a					\
+   |march=armv8.2-a+fp16				\
+   |march=armv8-m.base					\
+   |march=armv8-m.main					\
+   |march=armv8-m.main+dsp				\
    :%{!r:--be8}}}"
 #endif
 

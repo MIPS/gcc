@@ -106,6 +106,7 @@ show_typespec (gfc_typespec *ts)
     {
     case BT_DERIVED:
     case BT_CLASS:
+    case BT_UNION:
       fprintf (dumpfile, "%s", ts->u.derived->name);
       break;
 
@@ -119,6 +120,14 @@ show_typespec (gfc_typespec *ts)
       fprintf (dumpfile, "%d", ts->kind);
       break;
     }
+  if (ts->is_c_interop)
+    fputs (" C_INTEROP", dumpfile);
+
+  if (ts->is_iso_c)
+    fputs (" ISO_C", dumpfile);
+
+  if (ts->deferred)
+    fputs (" DEFERRED", dumpfile);
 
   fputc (')', dumpfile);
 }
@@ -218,7 +227,7 @@ show_array_ref (gfc_array_ref * ar)
 	     print the start expression which contains the vector, in
 	     the latter case we have to print any of lower and upper
 	     bound and the stride, if they're present.  */
-  
+
 	  if (ar->start[i] != NULL)
 	    show_expr (ar->start[i]);
 
@@ -420,7 +429,7 @@ show_expr (gfc_expr *p)
 	  break;
 
 	case BT_CHARACTER:
-	  show_char_const (p->value.character.string, 
+	  show_char_const (p->value.character.string,
 			   p->value.character.length);
 	  break;
 
@@ -973,7 +982,7 @@ show_common (gfc_symtree *st)
 	fputs (", ", dumpfile);
     }
   fputc ('\n', dumpfile);
-}    
+}
 
 
 /* Worker function to display the symbol tree.  */
@@ -1229,7 +1238,7 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
       for (list = omp_clauses->tile_list; list; list = list->next)
 	{
 	  show_expr (list->expr);
-	  if (list->next) 
+	  if (list->next)
 	    fputs (", ", dumpfile);
 	}
       fputc (')', dumpfile);
@@ -1241,7 +1250,7 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
       for (list = omp_clauses->wait_list; list; list = list->next)
 	{
 	  show_expr (list->expr);
-	  if (list->next) 
+	  if (list->next)
 	    fputs (", ", dumpfile);
 	}
       fputc (')', dumpfile);
@@ -1773,6 +1782,7 @@ show_code_node (int level, gfc_code *c)
       {
 	const char* blocktype;
 	gfc_namespace *saved_ns;
+	gfc_association_list *alist;
 
 	if (c->ext.block.assoc)
 	  blocktype = "ASSOCIATE";
@@ -1780,6 +1790,12 @@ show_code_node (int level, gfc_code *c)
 	  blocktype = "BLOCK";
 	show_indent ();
 	fprintf (dumpfile, "%s ", blocktype);
+	for (alist = c->ext.block.assoc; alist; alist = alist->next)
+	  {
+	    fprintf (dumpfile, " %s = ", alist->name);
+	    show_expr (alist->target);
+	  }
+
 	++show_level;
 	ns = c->ext.block.ns;
 	saved_ns = gfc_current_ns;
@@ -1793,9 +1809,18 @@ show_code_node (int level, gfc_code *c)
 	break;
       }
 
+    case EXEC_END_BLOCK:
+      /* Only come here when there is a label on an
+	 END ASSOCIATE construct.  */
+      break;
+
     case EXEC_SELECT:
+    case EXEC_SELECT_TYPE:
       d = c->block;
-      fputs ("SELECT CASE ", dumpfile);
+      if (c->op == EXEC_SELECT_TYPE)
+	fputs ("SELECT TYPE", dumpfile);
+      else
+	fputs ("SELECT CASE ", dumpfile);
       show_expr (c->expr1);
       fputc ('\n', dumpfile);
 
@@ -2607,7 +2632,7 @@ show_namespace (gfc_namespace *ns)
       fputs ("User operators:\n", dumpfile);
       gfc_traverse_user_op (ns, show_uop);
     }
-  
+
   for (eq = ns->equiv; eq; eq = eq->next)
     show_equiv (eq);
 

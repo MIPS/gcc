@@ -27,7 +27,6 @@
 void
 test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::discard_block;
   using std::tr1::subtract_with_carry;
 
@@ -37,12 +36,12 @@ test01()
     subtract_with_carry<long, (1 << 24), 10, 24>,
     389, 24
     > u, v;
-  
+
   u(); // advance
   str << u;
-  
+
   VERIFY( u != v );
-  
+
   str >> v;
   VERIFY( u == v );
 }

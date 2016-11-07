@@ -259,7 +259,7 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   streamer_write_gcov_count_stream (ob->main_stream, edge->count);
 
   bp = bitpack_create (ob->main_stream);
-  uid = (!gimple_has_body_p (edge->caller->decl)
+  uid = (!gimple_has_body_p (edge->caller->decl) || edge->caller->thunk.thunk_p
 	 ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt) + 1);
   bp_pack_enum (&bp, cgraph_inline_failed_t,
 	        CIF_N_REASONS, edge->inline_failed);
@@ -268,6 +268,8 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   bp_pack_value (&bp, edge->indirect_inlining_edge, 1);
   bp_pack_value (&bp, edge->speculative, 1);
   bp_pack_value (&bp, edge->call_stmt_cannot_inline_p, 1);
+  gcc_assert (!edge->call_stmt_cannot_inline_p
+	      || edge->inline_failed != CIF_BODY_NOT_AVAILABLE);
   bp_pack_value (&bp, edge->can_throw_external, 1);
   bp_pack_value (&bp, edge->in_polymorphic_cdtor, 1);
   if (edge->indirect_unknown_callee)
@@ -396,7 +398,8 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 
   boundary_p = !lto_symtab_encoder_in_partition_p (encoder, node);
 
-  if (node->analyzed && (!boundary_p || node->alias || node->thunk.thunk_p))
+  if (node->analyzed && (!boundary_p || node->alias
+			 || (node->thunk.thunk_p && !node->global.inlined_to)))
     tag = LTO_symtab_analyzed_node;
   else
     tag = LTO_symtab_unavail_node;
@@ -970,7 +973,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       if (node->alias && node->analyzed)
 	create_references (encoder, node);
       if (cnode
-	  && cnode->thunk.thunk_p)
+	  && cnode->thunk.thunk_p && !cnode->global.inlined_to)
 	add_node_to (encoder, cnode->callees->callee, false);
       while (node->transparent_alias && node->analyzed)
 	{
@@ -1026,7 +1029,7 @@ output_symtab (void)
     {
       node = dyn_cast <cgraph_node *> (lto_symtab_encoder_deref (encoder, i));
       if (node
-	  && (node->thunk.thunk_p
+	  && ((node->thunk.thunk_p && !node->global.inlined_to)
 	      || lto_symtab_encoder_in_partition_p (encoder, node)))
 	{
 	  output_outgoing_cgraph_edges (node->callees, ob, encoder);
@@ -1864,7 +1867,9 @@ input_symtab (void)
     }
 
   merge_profile_summaries (file_data_vec);
-  get_working_sets ();
+
+  if (!flag_auto_profile)
+    get_working_sets ();
 
 
   /* Clear out the aux field that was used to store enough state to
@@ -1885,7 +1890,7 @@ input_symtab (void)
    target code, and store them into OFFLOAD_FUNCS and OFFLOAD_VARS.  */
 
 void
-input_offload_tables (void)
+input_offload_tables (bool do_force_output)
 {
   struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
   struct lto_file_decl_data *file_data;
@@ -1915,7 +1920,8 @@ input_offload_tables (void)
 	      /* Prevent IPA from removing fn_decl as unreachable, since there
 		 may be no refs from the parent function to child_fn in offload
 		 LTO mode.  */
-	      cgraph_node::get (fn_decl)->mark_force_output ();
+	      if (do_force_output)
+		cgraph_node::get (fn_decl)->mark_force_output ();
 	    }
 	  else if (tag == LTO_symtab_variable)
 	    {
@@ -1926,7 +1932,8 @@ input_offload_tables (void)
 
 	      /* Prevent IPA from removing var_decl as unused, since there
 		 may be no refs to var_decl in offload LTO mode.  */
-	      varpool_node::get (var_decl)->force_output = 1;
+	      if (do_force_output)
+		varpool_node::get (var_decl)->force_output = 1;
 	    }
 	  else
 	    fatal_error (input_location,

@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "fold-const.h"
 #include "gimple-iterator.h"
@@ -148,18 +149,13 @@ make_pass_tree_loop (gcc::context *ctxt)
 static bool
 gate_oacc_kernels (function *fn)
 {
-  if (flag_tree_parallelize_loops <= 1)
+  if (!flag_openacc)
     return false;
 
   tree oacc_function_attr = get_oacc_fn_attrib (fn->decl);
   if (oacc_function_attr == NULL_TREE)
     return false;
-
-  tree val = TREE_VALUE (oacc_function_attr);
-  while (val != NULL_TREE && TREE_VALUE (val) == NULL_TREE)
-    val = TREE_CHAIN (val);
-
-  if (val != NULL_TREE)
+  if (!oacc_fn_attrib_kernels_p (oacc_function_attr))
     return false;
 
   struct loop *loop;
@@ -235,10 +231,9 @@ public:
   virtual bool gate (function *)
   {
     return (optimize
-	    /* Don't bother doing anything if the program has errors.  */
-	    && !seen_error ()
 	    && flag_openacc
-	    && flag_tree_parallelize_loops > 1);
+	    /* Don't bother doing anything if the program has errors.  */
+	    && !seen_error ());
   }
 
 }; // class pass_ipa_oacc
@@ -775,6 +770,8 @@ gen_lsm_tmp_name (tree ref)
     case SSA_NAME:
     case VAR_DECL:
     case PARM_DECL:
+    case FUNCTION_DECL:
+    case LABEL_DECL:
       name = get_name (ref);
       if (!name)
 	name = "D";
@@ -790,11 +787,9 @@ gen_lsm_tmp_name (tree ref)
       break;
 
     case INTEGER_CST:
+    default:
       /* Nothing.  */
       break;
-
-    default:
-      gcc_unreachable ();
     }
 }
 

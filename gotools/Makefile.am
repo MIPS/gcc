@@ -1,5 +1,5 @@
 # Makefile for gotools
-#   Copyright 2015 Free Software Foundation, Inc.
+#   Copyright (C) 2015-2016 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -76,6 +76,7 @@ go_cmd_go_files = \
 go_cmd_gofmt_files = \
 	$(cmdsrcdir)/gofmt/doc.go \
 	$(cmdsrcdir)/gofmt/gofmt.go \
+	$(cmdsrcdir)/gofmt/internal.go \
 	$(cmdsrcdir)/gofmt/rewrite.go \
 	$(cmdsrcdir)/gofmt/simplify.go
 

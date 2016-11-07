@@ -989,9 +989,18 @@ proper position among the other output files.  */
     the vtable verification runtime functions are in libstdc++, so we use
     the spec just below this one.  */
 #ifndef VTABLE_VERIFICATION_SPEC
+#if ENABLE_VTABLE_VERIFY
 #define VTABLE_VERIFICATION_SPEC "\
 %{!nostdlib:%{fvtable-verify=std: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}\
     %{fvtable-verify=preinit: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}}"
+#else
+#define VTABLE_VERIFICATION_SPEC "\
+%{fvtable-verify=none:} \
+%{fvtable-verify=std: \
+  %e-fvtable-verify=std is not supported in this configuration} \
+%{fvtable-verify=preinit: \
+  %e-fvtable-verify=preinit is not supported in this configuration}"
+#endif
 #endif
 
 #ifndef CHKP_SPEC
@@ -1019,7 +1028,7 @@ proper position among the other output files.  */
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} \
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " \
     VTABLE_VERIFICATION_SPEC " " SANITIZER_EARLY_SPEC " %o " CHKP_SPEC " \
-    %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*} 1):\
+    %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1):\
 	%:include(libgomp.spec)%(link_gomp)}\
     %{fcilkplus:%:include(libcilkrts.spec)%(link_cilkrts)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
@@ -1132,7 +1141,14 @@ static const char *cc1_options =
  %{-help=*:--help=%*}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{coverage:-fprofile-arcs -ftest-coverage}";
+ %{coverage:-fprofile-arcs -ftest-coverage}\
+ %{fprofile-arcs|fprofile-generate*|coverage:\
+   %{!fprofile-update=single:\
+     %{pthread:-fprofile-update=atomic}}}\
+ %{fprofile-update=single:\
+   %{fprofile-arcs|fprofile-generate*|coverage:\
+     %{pthread:%n-fprofile-update=atomic should be used\
+ for a multithreaded application}}}";
 
 static const char *asm_options =
 "%{-target-help:%:print-asm-header()} "
@@ -1183,7 +1199,7 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
    for targets that use different start files and suchlike.  */
 #ifndef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS \
-  "%{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*} 1): " \
+  "%{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1): " \
   "-pthread}"
 #endif
 
@@ -1321,7 +1337,7 @@ static const struct compiler default_compilers[] =
 					       %W{o*:--output-pch=%*}}%V}}\
 	  %{!save-temps*:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)\
-		    %{!fsyntax-only:-o %g.s \
+		    %{!fsyntax-only:%{!S:-o %g.s} \
 		        %{!fdump-ada-spec*:%{!o*:--output-pch=%i.gch}\
 					   %W{o*:--output-pch=%*}}%V}}}}}}}", 0, 0, 0},
   {".i", "@cpp-output", 0, 0, 0},
@@ -3538,6 +3554,29 @@ save_switch (const char *opt, size_t n_args, const char *const *args,
   n_switches++;
 }
 
+/* Set the SOURCE_DATE_EPOCH environment variable to the current time if it is
+   not set already.  */
+
+static void
+set_source_date_epoch_envvar ()
+{
+  /* Array size is 21 = ceil(log_10(2^64)) + 1 to hold string representations
+     of 64 bit integers.  */
+  char source_date_epoch[21];
+  time_t tt;
+
+  errno = 0;
+  tt = time (NULL);
+  if (tt < (time_t) 0 || errno != 0)
+    tt = (time_t) 0;
+
+  snprintf (source_date_epoch, 21, "%llu", (unsigned long long) tt);
+  /* Using setenv instead of xputenv because we want the variable to remain
+     after finalizing so that it's still set in the second run when using
+     -fcompare-debug.  */
+  setenv ("SOURCE_DATE_EPOCH", source_date_epoch, 0);
+}
+
 /* Handle an option DECODED that is unknown to the option-processing
    machinery.  */
 
@@ -3837,6 +3876,7 @@ driver_handle_option (struct gcc_options *opts,
       else
 	compare_debug_opt = arg;
       save_switch (compare_debug_replacement_opt, 0, NULL, validated, true);
+      set_source_date_epoch_envvar ();
       return true;
 
     case OPT_fdiagnostics_color_:
@@ -4384,7 +4424,12 @@ process_command (unsigned int decoded_options_count,
 	    fname = xstrdup (arg);
 
           if (strcmp (fname, "-") != 0 && access (fname, F_OK) < 0)
-	    perror_with_name (fname);
+	    {
+	      if (fname[0] == '@' && access (fname + 1, F_OK) < 0)
+		perror_with_name (fname + 1);
+	      else
+		perror_with_name (fname);
+	    }
           else
 	    add_infile (arg, spec_lang);
 
@@ -5387,8 +5432,9 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			if (files_differ)
 #endif
 			  {
-			    temp_filename = save_string (temp_filename,
-							 temp_filename_length + 1);
+			    temp_filename
+			      = save_string (temp_filename,
+					     temp_filename_length - 1);
 			    obstack_grow (&obstack, temp_filename,
 						    temp_filename_length);
 			    arg_going = 1;
@@ -7135,7 +7181,8 @@ compare_files (char *cmpfile[])
 
 driver::driver (bool can_finalize, bool debug) :
   explicit_link_files (NULL),
-  decoded_options (NULL)
+  decoded_options (NULL),
+  m_option_suggestions (NULL)
 {
   env.init (can_finalize, debug);
 }
@@ -7144,6 +7191,14 @@ driver::~driver ()
 {
   XDELETEVEC (explicit_link_files);
   XDELETEVEC (decoded_options);
+  if (m_option_suggestions)
+    {
+      int i;
+      char *str;
+      FOR_EACH_VEC_ELT (*m_option_suggestions, i, str)
+	free (str);
+      delete m_option_suggestions;
+    }
 }
 
 /* driver::main is implemented as a series of driver:: method calls.  */
@@ -7632,49 +7687,99 @@ driver::maybe_putenv_OFFLOAD_TARGETS () const
   offload_targets = NULL;
 }
 
+/* Helper function for driver::suggest_option.  Populate
+   m_option_suggestions with candidate strings for misspelled options.
+   The strings will be freed by the driver's dtor.  */
+
+void
+driver::build_option_suggestions (void)
+{
+  gcc_assert (m_option_suggestions == NULL);
+  m_option_suggestions = new auto_vec <char *> ();
+
+  /* We build a vec of m_option_suggestions, using add_misspelling_candidates
+     to add copies of strings, without a leading dash.  */
+
+  for (unsigned int i = 0; i < cl_options_count; i++)
+    {
+      const struct cl_option *option = &cl_options[i];
+      const char *opt_text = option->opt_text;
+      switch (i)
+	{
+	default:
+	  if (option->var_type == CLVC_ENUM)
+	    {
+	      const struct cl_enum *e = &cl_enums[option->var_enum];
+	      for (unsigned j = 0; e->values[j].arg != NULL; j++)
+		{
+		  char *with_arg = concat (opt_text, e->values[j].arg, NULL);
+		  add_misspelling_candidates (m_option_suggestions, option,
+					      with_arg);
+		  free (with_arg);
+		}
+	    }
+	  else
+	    add_misspelling_candidates (m_option_suggestions, option,
+					opt_text);
+	  break;
+
+	case OPT_fsanitize_:
+	case OPT_fsanitize_recover_:
+	  /* -fsanitize= and -fsanitize-recover= can take
+	     a comma-separated list of arguments.  Given that combinations
+	     are supported, we can't add all potential candidates to the
+	     vec, but if we at least add them individually without commas,
+	     we should do a better job e.g. correcting
+	       "-sanitize=address"
+	     to
+	       "-fsanitize=address"
+	     rather than to "-Wframe-address" (PR driver/69265).  */
+	  {
+	    for (int j = 0; sanitizer_opts[j].name != NULL; ++j)
+	      {
+		/* Get one arg at a time e.g. "-fsanitize=address".  */
+		char *with_arg = concat (opt_text,
+					 sanitizer_opts[j].name,
+					 NULL);
+		/* Add with_arg and all of its variant spellings e.g.
+		   "-fno-sanitize=address" to candidates (albeit without
+		   leading dashes).  */
+		add_misspelling_candidates (m_option_suggestions, option,
+					    with_arg);
+		free (with_arg);
+	      }
+	  }
+	  break;
+	}
+    }
+}
+
 /* Helper function for driver::handle_unrecognized_options.
 
    Given an unrecognized option BAD_OPT (without the leading dash),
    locate the closest reasonable matching option (again, without the
-   leading dash), or NULL.  */
+   leading dash), or NULL.
 
-static const char *
-suggest_option (const char *bad_opt)
+   The returned string is owned by the driver instance.  */
+
+const char *
+driver::suggest_option (const char *bad_opt)
 {
-  const cl_option *best_option = NULL;
-  edit_distance_t best_distance = MAX_EDIT_DISTANCE;
+  /* Lazily populate m_option_suggestions.  */
+  if (!m_option_suggestions)
+    build_option_suggestions ();
+  gcc_assert (m_option_suggestions);
 
-  for (unsigned int i = 0; i < cl_options_count; i++)
-    {
-      edit_distance_t dist = levenshtein_distance (bad_opt,
-						   cl_options[i].opt_text + 1);
-      if (dist < best_distance)
-	{
-	  best_distance = dist;
-	  best_option = &cl_options[i];
-	}
-    }
-
-  if (!best_option)
-    return NULL;
-
-  /* If more than half of the letters were misspelled, the suggestion is
-     likely to be meaningless.  */
-  if (best_option)
-    {
-      unsigned int cutoff = MAX (strlen (bad_opt),
-				 strlen (best_option->opt_text + 1)) / 2;
-      if (best_distance > cutoff)
-	return NULL;
-    }
-
-  return best_option->opt_text + 1;
+  /* "m_option_suggestions" is now populated.  Use it.  */
+  return find_closest_string
+    (bad_opt,
+     (auto_vec <const char *> *) m_option_suggestions);
 }
 
 /* Reject switches that no pass was interested in.  */
 
 void
-driver::handle_unrecognized_options () const
+driver::handle_unrecognized_options ()
 {
   for (size_t i = 0; (int) i < n_switches; i++)
     if (! switches[i].validated)
@@ -8270,6 +8375,7 @@ save_string (const char *s, int len)
 {
   char *result = XNEWVEC (char, len + 1);
 
+  gcc_checking_assert (strlen (s) >= (unsigned int) len);
   memcpy (result, s, len);
   result[len] = 0;
   return result;
@@ -9708,7 +9814,7 @@ replace_extension_spec_func (int argc, const char **argv)
   return result;
 }
 
-/* Returns "" if the n in ARGV[1] == -opt=<n> is greater than ARGV[2].
+/* Returns "" if ARGV[ARGC - 2] is greater than ARGV[ARGC-1].
    Otherwise, return NULL.  */
 
 static const char *
@@ -9719,29 +9825,13 @@ greater_than_spec_func (int argc, const char **argv)
   if (argc == 1)
     return NULL;
 
-  gcc_assert (argc == 3);
-  gcc_assert (argv[0][0] == '-');
-  gcc_assert (argv[0][1] == '\0');
+  gcc_assert (argc >= 2);
 
-  /* Point p to <n> in in -opt=<n>.  */
-  const char *p = argv[1];
-  while (true)
-    {
-      char c = *p;
-      if (c == '\0')
-	gcc_unreachable ();
+  long arg = strtol (argv[argc - 2], &converted, 10);
+  gcc_assert (converted != argv[argc - 2]);
 
-      ++p;
-
-      if (c == '=')
-	break;
-    }
-
-  long arg = strtol (p, &converted, 10);
-  gcc_assert (converted != p);
-
-  long lim = strtol (argv[2], &converted, 10);
-  gcc_assert (converted != argv[2]);
+  long lim = strtol (argv[argc - 1], &converted, 10);
+  gcc_assert (converted != argv[argc - 1]);
 
   if (arg > lim)
     return "";
@@ -9898,8 +9988,20 @@ driver::finalize ()
   multilib_os_dir = 0;
   multiarch_dir = 0;
 
-  XDELETEVEC (specs);
-  specs = 0;
+  /* Free any specs dynamically-allocated by set_spec.
+     These will be at the head of the list, before the
+     statically-allocated ones.  */
+  if (specs)
+    {
+      while (specs != static_specs)
+	{
+	  spec_list *next = specs->next;
+	  free (const_cast <char *> (specs->name));
+	  XDELETE (specs);
+	  specs = next;
+	}
+      specs = 0;
+    }
   for (unsigned i = 0; i < ARRAY_SIZE (static_specs); i++)
     {
       spec_list *sl = &static_specs[i];

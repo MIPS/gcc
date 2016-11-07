@@ -109,6 +109,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "tree.h"
 #include "predict.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"
 #include "regs.h"
@@ -1286,7 +1287,7 @@ initialize_lra_reg_info_element (int i)
   lra_reg_info[i].live_ranges = NULL;
   lra_reg_info[i].nrefs = lra_reg_info[i].freq = 0;
   lra_reg_info[i].last_reload = 0;
-  lra_reg_info[i].restore_regno = -1;
+  lra_reg_info[i].restore_rtx = NULL_RTX;
   lra_reg_info[i].val = get_new_reg_value ();
   lra_reg_info[i].offset = 0;
   lra_reg_info[i].copies = NULL;
@@ -1621,6 +1622,92 @@ lra_get_insn_regs (int uid)
 
 
 
+/* Recursive hash function for RTL X.  */
+hashval_t
+lra_rtx_hash (rtx x)
+{
+  int i, j;
+  enum rtx_code code;
+  const char *fmt;
+  hashval_t val = 0;
+
+  if (x == 0)
+    return val;
+
+  code = GET_CODE (x);
+  val += (int) code + 4095;
+
+  /* Some RTL can be compared nonrecursively.  */
+  switch (code)
+    {
+    case REG:
+      return val + REGNO (x);
+
+    case LABEL_REF:
+      return iterative_hash_object (XEXP (x, 0), val);
+
+    case SYMBOL_REF:
+      return iterative_hash_object (XSTR (x, 0), val);
+
+    case SCRATCH:
+    case CONST_DOUBLE:
+    case CONST_INT:
+    case CONST_VECTOR:
+      return val;
+
+    default:
+      break;
+    }
+
+  /* Hash the elements.  */
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      switch (fmt[i])
+	{
+	case 'w':
+	  val += XWINT (x, i);
+	  break;
+
+	case 'n':
+	case 'i':
+	  val += XINT (x, i);
+	  break;
+
+	case 'V':
+	case 'E':
+	  val += XVECLEN (x, i);
+
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    val += lra_rtx_hash (XVECEXP (x, i, j));
+	  break;
+
+	case 'e':
+	  val += lra_rtx_hash (XEXP (x, i));
+	  break;
+
+	case 'S':
+	case 's':
+	  val += htab_hash_string (XSTR (x, i));
+	  break;
+
+	case 'u':
+	case '0':
+	case 't':
+	  break;
+
+	  /* It is believed that rtx's at this level will never
+	     contain anything but integers and other rtx's, except for
+	     within LABEL_REFs and SYMBOL_REFs.  */
+	default:
+	  abort ();
+	}
+    }
+  return val;
+}
+
+
+
 /* This page contains code dealing with stack of the insns which
    should be processed by the next constraint pass.  */
 
@@ -1742,20 +1829,29 @@ lra_process_new_insns (rtx_insn *insn, rtx_insn *before, rtx_insn *after,
     }
   if (before != NULL_RTX)
     {
+      if (cfun->can_throw_non_call_exceptions)
+	copy_reg_eh_region_note_forward (insn, before, NULL);
       emit_insn_before (before, insn);
       push_insns (PREV_INSN (insn), PREV_INSN (before));
       setup_sp_offset (before, PREV_INSN (insn));
     }
   if (after != NULL_RTX)
     {
+      if (cfun->can_throw_non_call_exceptions)
+	copy_reg_eh_region_note_forward (insn, after, NULL);
       for (last = after; NEXT_INSN (last) != NULL_RTX; last = NEXT_INSN (last))
 	;
       emit_insn_after (after, insn);
       push_insns (last, insn);
       setup_sp_offset (after, last);
     }
+  if (cfun->can_throw_non_call_exceptions)
+    {
+      rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+      if (note && !insn_could_throw_p (insn))
+	remove_note (insn, note);
+    }
 }
-
 
 
 /* Replace all references to register OLD_REGNO in *LOC with pseudo
@@ -1958,6 +2054,10 @@ restore_scratches (void)
 
   for (i = 0; scratches.iterate (i, &loc); i++)
     {
+      /* Ignore already deleted insns.  */
+      if (NOTE_P (loc->insn)
+	  && NOTE_KIND (loc->insn) == NOTE_INSN_DELETED)
+	continue;
       if (last != loc->insn)
 	{
 	  last = loc->insn;
@@ -2400,11 +2500,9 @@ lra (FILE *f)
   /* We've possibly turned single trapping insn into multiple ones.  */
   if (cfun->can_throw_non_call_exceptions)
     {
-      sbitmap blocks;
-      blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+      auto_sbitmap blocks (last_basic_block_for_fn (cfun));
       bitmap_ones (blocks);
       find_many_sub_basic_blocks (blocks);
-      sbitmap_free (blocks);
     }
 
   if (inserted_p)

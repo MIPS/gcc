@@ -17,6 +17,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +34,7 @@ import (
 type Dir string
 
 func (d Dir) Open(name string) (File, error) {
-	if filepath.Separator != '/' && strings.IndexRune(name, filepath.Separator) >= 0 ||
+	if filepath.Separator != '/' && strings.ContainsRune(name, filepath.Separator) ||
 		strings.Contains(name, "\x00") {
 		return nil, errors.New("http: invalid character in file path")
 	}
@@ -62,36 +63,40 @@ type FileSystem interface {
 type File interface {
 	io.Closer
 	io.Reader
+	io.Seeker
 	Readdir(count int) ([]os.FileInfo, error)
-	Seek(offset int64, whence int) (int64, error)
 	Stat() (os.FileInfo, error)
 }
 
 func dirList(w ResponseWriter, f File) {
+	dirs, err := f.Readdir(-1)
+	if err != nil {
+		// TODO: log err.Error() to the Server.ErrorLog, once it's possible
+		// for a handler to get at its Server via the ResponseWriter. See
+		// Issue 12438.
+		Error(w, "Error reading directory", StatusInternalServerError)
+		return
+	}
+	sort.Sort(byName(dirs))
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, "<pre>\n")
-	for {
-		dirs, err := f.Readdir(100)
-		if err != nil || len(dirs) == 0 {
-			break
+	for _, d := range dirs {
+		name := d.Name()
+		if d.IsDir() {
+			name += "/"
 		}
-		for _, d := range dirs {
-			name := d.Name()
-			if d.IsDir() {
-				name += "/"
-			}
-			// name may contain '?' or '#', which must be escaped to remain
-			// part of the URL path, and not indicate the start of a query
-			// string or fragment.
-			url := url.URL{Path: name}
-			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", url.String(), htmlReplacer.Replace(name))
-		}
+		// name may contain '?' or '#', which must be escaped to remain
+		// part of the URL path, and not indicate the start of a query
+		// string or fragment.
+		url := url.URL{Path: name}
+		fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", url.String(), htmlReplacer.Replace(name))
 	}
 	fmt.Fprintf(w, "</pre>\n")
 }
 
 // ServeContent replies to the request using the content in the
-// provided ReadSeeker.  The main benefit of ServeContent over io.Copy
+// provided ReadSeeker. The main benefit of ServeContent over io.Copy
 // is that it handles Range requests properly, sets the MIME type, and
 // handles If-Modified-Since requests.
 //
@@ -103,7 +108,7 @@ func dirList(w ResponseWriter, f File) {
 // never sent in the response.
 //
 // If modtime is not the zero time or Unix epoch, ServeContent
-// includes it in a Last-Modified header in the response.  If the
+// includes it in a Last-Modified header in the response. If the
 // request includes an If-Modified-Since header, ServeContent uses
 // modtime to decide whether the content needs to be sent at all.
 //
@@ -116,11 +121,11 @@ func dirList(w ResponseWriter, f File) {
 // Note that *os.File implements the io.ReadSeeker interface.
 func ServeContent(w ResponseWriter, req *Request, name string, modtime time.Time, content io.ReadSeeker) {
 	sizeFunc := func() (int64, error) {
-		size, err := content.Seek(0, os.SEEK_END)
+		size, err := content.Seek(0, io.SeekEnd)
 		if err != nil {
 			return 0, errSeeker
 		}
-		_, err = content.Seek(0, os.SEEK_SET)
+		_, err = content.Seek(0, io.SeekStart)
 		if err != nil {
 			return 0, errSeeker
 		}
@@ -161,7 +166,7 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 			var buf [sniffLen]byte
 			n, _ := io.ReadFull(content, buf[:])
 			ctype = DetectContentType(buf[:n])
-			_, err := content.Seek(0, os.SEEK_SET) // rewind to output whole file
+			_, err := content.Seek(0, io.SeekStart) // rewind to output whole file
 			if err != nil {
 				Error(w, "seeker can't seek", StatusInternalServerError)
 				return
@@ -191,7 +196,7 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 			// The total number of bytes in all the ranges
 			// is larger than the size of the file by
 			// itself, so this is probably an attack, or a
-			// dumb client.  Ignore the range request.
+			// dumb client. Ignore the range request.
 			ranges = nil
 		}
 		switch {
@@ -208,7 +213,7 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 			// A response to a request for a single range MUST NOT
 			// be sent using the multipart/byteranges media type."
 			ra := ranges[0]
-			if _, err := content.Seek(ra.start, os.SEEK_SET); err != nil {
+			if _, err := content.Seek(ra.start, io.SeekStart); err != nil {
 				Error(w, err.Error(), StatusRequestedRangeNotSatisfiable)
 				return
 			}
@@ -231,7 +236,7 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 						pw.CloseWithError(err)
 						return
 					}
-					if _, err := content.Seek(ra.start, os.SEEK_SET); err != nil {
+					if _, err := content.Seek(ra.start, io.SeekStart); err != nil {
 						pw.CloseWithError(err)
 						return
 					}
@@ -286,7 +291,7 @@ func checkLastModified(w ResponseWriter, r *Request, modtime time.Time) bool {
 // checkETag implements If-None-Match and If-Range checks.
 //
 // The ETag or modtime must have been previously set in the
-// ResponseWriter's headers.  The modtime is only compared at second
+// ResponseWriter's headers. The modtime is only compared at second
 // granularity and may be the zero value to mean unknown.
 //
 // The return value is the effective request "Range" header to use and
@@ -331,7 +336,7 @@ func checkETag(w ResponseWriter, r *Request, modtime time.Time) (rangeReq string
 		}
 
 		// TODO(bradfitz): deal with comma-separated or multiple-valued
-		// list of If-None-match values.  For now just handle the common
+		// list of If-None-match values. For now just handle the common
 		// case of a single item.
 		if inm == etag || inm == "*" {
 			h := w.Header()
@@ -364,8 +369,8 @@ func serveFile(w ResponseWriter, r *Request, fs FileSystem, name string, redirec
 	}
 	defer f.Close()
 
-	d, err1 := f.Stat()
-	if err1 != nil {
+	d, err := f.Stat()
+	if err != nil {
 		msg, code := toHTTPError(err)
 		Error(w, msg, code)
 		return
@@ -385,6 +390,15 @@ func serveFile(w ResponseWriter, r *Request, fs FileSystem, name string, redirec
 				localRedirect(w, r, "../"+path.Base(url))
 				return
 			}
+		}
+	}
+
+	// redirect if the directory name doesn't end in a slash
+	if d.IsDir() {
+		url := r.URL.Path
+		if url[len(url)-1] != '/' {
+			localRedirect(w, r, path.Base(url)+"/")
+			return
 		}
 	}
 
@@ -446,14 +460,43 @@ func localRedirect(w ResponseWriter, r *Request, newPath string) {
 // ServeFile replies to the request with the contents of the named
 // file or directory.
 //
+// If the provided file or directory name is a relative path, it is
+// interpreted relative to the current directory and may ascend to parent
+// directories. If the provided name is constructed from user input, it
+// should be sanitized before calling ServeFile. As a precaution, ServeFile
+// will reject requests where r.URL.Path contains a ".." path element.
+//
 // As a special case, ServeFile redirects any request where r.URL.Path
 // ends in "/index.html" to the same path, without the final
 // "index.html". To avoid such redirects either modify the path or
 // use ServeContent.
 func ServeFile(w ResponseWriter, r *Request, name string) {
+	if containsDotDot(r.URL.Path) {
+		// Too many programs use r.URL.Path to construct the argument to
+		// serveFile. Reject the request under the assumption that happened
+		// here and ".." may not be wanted.
+		// Note that name might not contain "..", for example if code (still
+		// incorrectly) used filepath.Join(myDir, r.URL.Path).
+		Error(w, "invalid URL path", StatusBadRequest)
+		return
+	}
 	dir, file := filepath.Split(name)
 	serveFile(w, r, Dir(dir), file, false)
 }
+
+func containsDotDot(v string) bool {
+	if !strings.Contains(v, "..") {
+		return false
+	}
+	for _, ent := range strings.FieldsFunc(v, isSlashRune) {
+		if ent == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+func isSlashRune(r rune) bool { return r == '/' || r == '\\' }
 
 type fileHandler struct {
 	root FileSystem
@@ -585,3 +628,9 @@ func sumRangesSize(ranges []httpRange) (size int64) {
 	}
 	return
 }
+
+type byName []os.FileInfo
+
+func (s byName) Len() int           { return len(s) }
+func (s byName) Less(i, j int) bool { return s[i].Name() < s[j].Name() }
+func (s byName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

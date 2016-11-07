@@ -1,3 +1,117 @@
+2016-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-09-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* be.po, da.po, de.po, el.po, es.po, fi.po, fr.po, hr.po, id.po,
+	ja.po, nl.po, ru.po, sr.po, sv.po, tr.po, uk.po, vi.po, zh_CN.po,
+	zh_TW.po: Update.
+
+2016-08-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2016-07-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-06-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* fr.po: Update.
+
+2016-05-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* ru.po: Update.
+
+2016-05-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* ru.po: Update.
+
+2016-05-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* da.po, sv.po: Update.
+
+2016-05-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-05-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po, zh_CN.po: Update.
+
+2016-04-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2016-04-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* be.po, da.po, de.po, el.po, es.po, fi.po, fr.po, hr.po, id.po,
+	ja.po, nl.po, ru.po, sr.po, sv.po, tr.po, uk.po, vi.po, zh_CN.po,
+	zh_TW.po: Update.
+
+2016-04-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-04-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-04-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2016-04-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2016-03-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* fr.po: Update.
+
+2016-03-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-03-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-02-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-02-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po, vi.po: Update.
+
+2016-02-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-02-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* de.po: Update.
+
+2016-02-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* fi.po, sv.po: Update.
+
+2016-02-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* be.po, da.po, de.po, el.po, es.po, fi.po, fr.po, hr.po, id.po,
+	ja.po, nl.po, ru.po, sr.po, sv.po, tr.po, uk.po, vi.po, zh_CN.po,
+	zh_TW.po: Update.
+
+2016-01-31  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
 2016-01-11  Joseph Myers  <joseph@codesourcery.com>
 
 	* zh_CN.po: Update.
@@ -1182,11 +1296,11 @@
 	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
 	ru.po, sr.po, sv.po, tr.po, zh_CN.po, zh_TW.po: Update.
 
-2007-08-01  Philipp Thomas <pth@suse.de>
+2007-08-01  Philipp Thomas  <pth@suse.de>
 
 	* sv.po: Update.
 
-2007-07-31  Philipp Thomas <pth@suse.de>
+2007-07-31  Philipp Thomas  <pth@suse.de>
 
 	* de.po: Update.
 
@@ -3232,11 +3346,11 @@ notice and this notice are preserved.
 	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
 	ru.po, sr.po, sv.po, tr.po, zh_CN.po, zh_TW.po: Update.
 
-2007-08-01  Philipp Thomas <pth@suse.de>
+2007-08-01  Philipp Thomas  <pth@suse.de>
 
 	* sv.po: Update.
 
-2007-07-31  Philipp Thomas <pth@suse.de>
+2007-07-31  Philipp Thomas  <pth@suse.de>
 
 	* de.po: Update.
 

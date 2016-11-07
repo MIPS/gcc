@@ -2115,7 +2115,7 @@ objc_build_struct (tree klass, tree fields, tree super_name)
 	= size_binop (FLOOR_DIV_EXPR, convert (sizetype, DECL_SIZE (base)),
 		      size_int (BITS_PER_UNIT));
       DECL_ARTIFICIAL (base) = 1;
-      DECL_ALIGN (base) = 1;
+      SET_DECL_ALIGN (base, 1);
       DECL_FIELD_CONTEXT (base) = s;
 #ifdef OBJCPLUS
       DECL_FIELD_IS_BASE (base) = 1;
@@ -2654,7 +2654,8 @@ objc_build_component_ref (tree datum, tree component)
   return finish_class_member_access_expr (datum, component, false,
                                           tf_warning_or_error);
 #else
-  return build_component_ref (input_location, datum, component);
+  return build_component_ref (input_location, datum, component,
+			      UNKNOWN_LOCATION);
 #endif
 }
 
@@ -5168,7 +5169,7 @@ receiver_is_class_object (tree receiver, int self, int super)
      (due to the code below) and so will know that +alloc is called on
      the 'NSObject' class, and can perform the corresponding checks.
 
-     Programmers can disable this behaviour by casting the results of
+     Programmers can disable this behavior by casting the results of
      objc_getClass() to 'Class' (this may seem weird because
      objc_getClass() is already declared to return 'Class', but the
      compiler treats it as a special function).  This may be useful if
@@ -5880,7 +5881,7 @@ lookup_method (tree mchain, tree method)
    OBJC_LOOKUP_NO_SUPER is clear, and no suitable class method could
    be found in INTERFACE or any of its superclasses, look for an
    _instance_ method of the same name in the root class as a last
-   resort.  This behaviour can be turned off by using
+   resort.  This behavior can be turned off by using
    OBJC_LOOKUP_NO_INSTANCE_METHODS_OF_ROOT_CLASS.
 
    If a suitable method cannot be found, return NULL_TREE.  */
@@ -7053,7 +7054,6 @@ continue_class (tree klass)
 #endif /* OBJCPLUS */
 
 	return get_class_ivars (implementation_template, true);
-	break;
       }
     case CLASS_INTERFACE_TYPE:
       {
@@ -7069,7 +7069,6 @@ continue_class (tree klass)
 	pop_lang_context ();
 #endif /* OBJCPLUS */
 	return NULL_TREE;
-	break;
       }
     default:
       return error_mark_node;
@@ -9278,7 +9277,6 @@ objc_maybe_printable_name (tree decl, int v ATTRIBUTE_UNUSED)
     {
     case FUNCTION_DECL:
       return objc_demangle (IDENTIFIER_POINTER (DECL_NAME (decl)));
-      break;
 
       /* The following happens when we are printing a deprecation
 	 warning for a method.  The warn_deprecation() will end up
@@ -9293,17 +9291,14 @@ objc_maybe_printable_name (tree decl, int v ATTRIBUTE_UNUSED)
     case INSTANCE_METHOD_DECL:
     case CLASS_METHOD_DECL:
       return IDENTIFIER_POINTER (DECL_NAME (decl));
-      break;
       /* This happens when printing a deprecation warning for a
 	 property.  We may want to consider some sort of pretty
 	 printing (eg, include the class name where it was declared
 	 ?).  */
     case PROPERTY_DECL:
       return IDENTIFIER_POINTER (PROPERTY_NAME (decl));
-      break;
     default:
       return NULL;
-      break;
     }
 }
 

@@ -105,9 +105,9 @@ static const struct lang_flags lang_defaults[] =
   /* GNUCXX   */  { 0,  1,  1,  1,  0,  0,  1,   0,   0,   0,    0,     0,     0,   0 },
   /* CXX98    */  { 0,  1,  0,  1,  0,  1,  1,   0,   0,   0,    0,     0,     1,   0 },
   /* GNUCXX11 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    0,     0,     0,   0 },
-  /* CXX11    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    0,     0,     1,   0 },
+  /* CXX11    */  { 1,  1,  0,  1,  1,  1,  1,   1,   1,   1,    0,     0,     1,   0 },
   /* GNUCXX14 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0,   0 },
-  /* CXX14    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     1,   0 },
+  /* CXX14    */  { 1,  1,  0,  1,  1,  1,  1,   1,   1,   1,    1,     1,     1,   0 },
   /* GNUCXX1Z */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0,   1 },
   /* CXX1Z    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     0,   1 },
   /* ASM      */  { 0,  0,  1,  0,  0,  0,  0,   0,   0,   0,    0,     0,     0,   0 }
@@ -189,6 +189,7 @@ cpp_create_reader (enum c_lang lang, cpp_hash_table *table,
   CPP_OPTION (pfile, warn_dollars) = 1;
   CPP_OPTION (pfile, warn_variadic_macros) = 1;
   CPP_OPTION (pfile, warn_builtin_macro_redefined) = 1;
+  CPP_OPTION (pfile, cpp_warn_implicit_fallthrough) = 0;
   /* By default, track locations of tokens resulting from macro
      expansion.  The '2' means, track the locations with the highest
      accuracy.  Read the comments for struct
@@ -256,6 +257,9 @@ cpp_create_reader (enum c_lang lang, cpp_hash_table *table,
 
   /* Do not force token locations by default.  */
   pfile->forced_token_location_p = NULL;
+
+  /* Initialize source_date_epoch to -2 (not yet set).  */
+  pfile->source_date_epoch = (time_t) -2;
 
   /* The expression parser stack.  */
   _cpp_expand_op_stack (pfile);
@@ -534,7 +538,7 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
 }
 
 /* Sanity-checks are dependent on command-line options, so it is
-   called as a subroutine of cpp_read_main_file ().  */
+   called as a subroutine of cpp_read_main_file.  */
 #if CHECKING_P
 static void sanity_checks (cpp_reader *);
 static void sanity_checks (cpp_reader *pfile)
@@ -613,6 +617,8 @@ cpp_post_options (cpp_reader *pfile)
 const char *
 cpp_read_main_file (cpp_reader *pfile, const char *fname)
 {
+  const source_location loc = 0;
+
   if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
     {
       if (!pfile->deps)
@@ -623,11 +629,12 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
     }
 
   pfile->main_file
-    = _cpp_find_file (pfile, fname, &pfile->no_search_path, false, 0, false);
+    = _cpp_find_file (pfile, fname, &pfile->no_search_path, false, 0, false,
+		      loc);
   if (_cpp_find_failed (pfile->main_file))
     return NULL;
 
-  _cpp_stack_file (pfile, pfile->main_file, false);
+  _cpp_stack_file (pfile, pfile->main_file, false, loc);
 
   /* For foo.i, read the original filename foo.c now, for the benefit
      of the front ends.  */

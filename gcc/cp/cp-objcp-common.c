@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "cp-tree.h"
 #include "cp-objcp-common.h"
+#include "dwarf2.h"
 
 /* Special routine to get the alias set for C++.  */
 
@@ -130,24 +131,79 @@ cxx_types_compatible_p (tree x, tree y)
   return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
 
-/* Return true if DECL is explicit member function.  */
-
-bool
-cp_function_decl_explicit_p (tree decl)
+/* Return -1 if dwarf ATTR shouldn't be added for DECL, or the attribute
+   value otherwise.  */
+int
+cp_decl_dwarf_attribute (const_tree decl, int attr)
 {
-  return (decl
-	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
-	  && DECL_NONCONVERTING_P (decl));
-}
+  if (decl == NULL_TREE)
+    return -1;
 
-/* Return true if DECL is deleted special member function.  */
-
-bool
-cp_function_decl_deleted_p (tree decl)
-{
-  return (decl
+  switch (attr)
+    {
+    case DW_AT_explicit:
+      if (TREE_CODE (decl) == FUNCTION_DECL
 	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
-	  && DECL_DELETED_FN (decl));
+	  && DECL_NONCONVERTING_P (decl))
+	return 1;
+      break;
+
+    case DW_AT_deleted:
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
+	  && DECL_DELETED_FN (decl))
+	return 1;
+      break;
+
+    case DW_AT_defaulted:
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_LANG_SPECIFIC (STRIP_TEMPLATE (decl))
+	  && DECL_DEFAULTED_FN (decl))
+	{
+	  if (DECL_DEFAULTED_IN_CLASS_P (decl))
+	    return DW_DEFAULTED_in_class;
+
+	  if (DECL_DEFAULTED_OUTSIDE_CLASS_P (decl))
+	    return DW_DEFAULTED_out_of_class;
+	}
+      break;
+
+    case DW_AT_const_expr:
+      if (VAR_OR_FUNCTION_DECL_P (decl) && DECL_DECLARED_CONSTEXPR_P (decl))
+	return 1;
+      break;
+
+    case DW_AT_reference:
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl)
+	  && FUNCTION_REF_QUALIFIED (TREE_TYPE (decl))
+	  && !FUNCTION_RVALUE_QUALIFIED (TREE_TYPE (decl)))
+	return 1;
+      if ((TREE_CODE (decl) == FUNCTION_TYPE
+	   || TREE_CODE (decl) == METHOD_TYPE)
+	  && FUNCTION_REF_QUALIFIED (decl)
+	  && !FUNCTION_RVALUE_QUALIFIED (decl))
+	return 1;
+      break;
+
+    case DW_AT_rvalue_reference:
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl)
+	  && FUNCTION_REF_QUALIFIED (TREE_TYPE (decl))
+	  && FUNCTION_RVALUE_QUALIFIED (TREE_TYPE (decl)))
+	return 1;
+      if ((TREE_CODE (decl) == FUNCTION_TYPE
+	   || TREE_CODE (decl) == METHOD_TYPE)
+	  && FUNCTION_REF_QUALIFIED (decl)
+	  && FUNCTION_RVALUE_QUALIFIED (decl))
+	return 1;
+      break;
+
+    default:
+      break;
+    }
+
+  return -1;
 }
 
 /* Stubs to keep c-opts.c happy.  */
@@ -294,6 +350,7 @@ cp_common_init_ts (void)
   MARK_TS_TYPED (STMT_EXPR);
   MARK_TS_TYPED (OFFSET_REF);
   MARK_TS_TYPED (OFFSETOF_EXPR);
+  MARK_TS_TYPED (ADDRESSOF_EXPR);
   MARK_TS_TYPED (PTRMEM_CST);
   MARK_TS_TYPED (EMPTY_CLASS_EXPR);
   MARK_TS_TYPED (VEC_INIT_EXPR);

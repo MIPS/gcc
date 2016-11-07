@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <mpfr.h>
 
 #include "go-c.h"
+#include "go-gcc.h"
 
 /* Language-dependent contents of a type.  */
 
@@ -83,13 +84,14 @@ struct GTY(()) language_function
 static const char *go_pkgpath = NULL;
 static const char *go_prefix = NULL;
 static const char *go_relative_import_path = NULL;
+static const char *go_c_header = NULL;
 
 /* Language hooks.  */
 
 static bool
 go_langhook_init (void)
 {
-  build_common_tree_nodes (false, false);
+  build_common_tree_nodes (false);
 
   /* I don't know why this has to be done explicitly.  */
   void_list_node = build_tree_list (NULL_TREE, void_type_node);
@@ -99,9 +101,20 @@ go_langhook_init (void)
      to, e.g., unsigned_char_type_node) but before calling
      build_common_builtin_nodes (because it calls, indirectly,
      go_type_for_size).  */
-  go_create_gogo (INT_TYPE_SIZE, POINTER_SIZE, go_pkgpath, go_prefix,
-		  go_relative_import_path, go_check_divide_zero,
-		  go_check_divide_overflow);
+  struct go_create_gogo_args args;
+  args.int_type_size = INT_TYPE_SIZE;
+  args.pointer_size = POINTER_SIZE;
+  args.pkgpath = go_pkgpath;
+  args.prefix = go_prefix;
+  args.relative_import_path = go_relative_import_path;
+  args.c_header = go_c_header;
+  args.check_divide_by_zero = go_check_divide_zero;
+  args.check_divide_overflow = go_check_divide_overflow;
+  args.compiling_runtime = go_compiling_runtime;
+  args.debug_escape_level = go_debug_escape_level;
+  args.linemap = go_get_linemap();
+  args.backend = go_get_backend();
+  go_create_gogo (&args);
 
   build_common_builtin_nodes ();
 
@@ -149,6 +162,9 @@ go_langhook_init_options_struct (struct gcc_options *opts)
   /* Exceptions are used to handle recovering from panics.  */
   opts->x_flag_exceptions = 1;
   opts->x_flag_non_call_exceptions = 1;
+
+  /* We need to keep pointers live for the garbage collector.  */
+  opts->x_flag_keep_gc_roots_live = 1;
 
   /* Go programs expect runtime.Callers to work, and that uses
      libbacktrace that uses debug info.  Set the debug info level to 1
@@ -242,6 +258,10 @@ go_langhook_handle_option (
 
     case OPT_fgo_relative_import_path_:
       go_relative_import_path = arg;
+      break;
+
+    case OPT_fgo_c_header_:
+      go_c_header = arg;
       break;
 
     default:
@@ -353,10 +373,9 @@ go_langhook_type_for_mode (machine_mode mode, int unsignedp)
       return NULL_TREE;
     }
 
-  // FIXME: This static_cast should be in machmode.h.
-  enum mode_class mc = static_cast<enum mode_class>(GET_MODE_CLASS(mode));
+  enum mode_class mc = GET_MODE_CLASS (mode);
   if (mc == MODE_INT)
-    return go_langhook_type_for_size(GET_MODE_BITSIZE(mode), unsignedp);
+    return go_langhook_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
   else if (mc == MODE_FLOAT)
     {
       switch (GET_MODE_BITSIZE (mode))

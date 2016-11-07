@@ -309,6 +309,10 @@ Wtabs
 Fortran Warning Var(warn_tabs) LangEnabledBy(Fortran,Wall || Wpedantic)
 Permit nonconforming uses of the tab character.
 
+Wundefined-do-loop
+Fortran Warning Var(warn_undefined_do_loop) LangEnabledBy(Fortran,Wall)
+Warn about an invalid DO loop.
+
 Wunderflow
 Fortran Warning Var(warn_underflow) Init(1)
 Warn about underflow of numerical constant expressions.
@@ -416,6 +420,26 @@ fd-lines-as-comments
 Fortran RejectNegative
 Treat lines with 'D' in column one as comments.
 
+fdec
+Fortran Var(flag_dec)
+Enable all DEC language extensions.
+
+fdec-intrinsic-ints
+Fortran Var(flag_dec_intrinsic_ints)
+Enable kind-specific variants of integer intrinsic functions.
+
+fdec-math
+Fortran Var(flag_dec_math)
+Enable legacy math intrinsics for compatibility.
+
+fdec-structure
+Fortran Var(flag_dec_structure)
+Enable support for DEC STRUCTURE/RECORD.
+
+fdec-static
+Fortran Var(flag_dec_static)
+Enable DEC-style STATIC and AUTOMATIC attributes.
+
 fdefault-double-8
 Fortran Var(flag_default_double)
 Set the default double precision kind to an 8 byte wide type.
@@ -512,6 +536,10 @@ finit-character=
 Fortran RejectNegative Joined UInteger
 -finit-character=<n>	Initialize local character variables to ASCII value n.
 
+finit-derived
+Fortran Var(flag_init_derived)
+Initialize components of derived type variables according to other init flags.
+
 finit-integer=
 Fortran RejectNegative Joined
 -finit-integer=<n>	Initialize local integer variables to n.
@@ -576,6 +604,10 @@ Set default accessibility of module entities to PRIVATE.
 
 fopenacc
 Fortran LTO
+; Documented in C
+
+fopenacc-dim=
+Fortran LTO Joined Var(flag_openacc_dims)
 ; Documented in C
 
 fopenmp

@@ -27,7 +27,6 @@
 void
 test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::xor_combine;
   using std::tr1::minstd_rand;
   using std::tr1::mt19937;
@@ -38,12 +37,12 @@ test01()
     minstd_rand, 1,
     mt19937, 2
     > u, v;
- 
+
   u(); // advance
   str << u;
-  
+
   VERIFY( u != v );
-  
+
   str >> v;
   VERIFY( u == v );
 }

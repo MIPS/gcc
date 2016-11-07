@@ -27,8 +27,6 @@
 #include <tr1/unordered_set>
 #include "testsuite_hooks.h"
 
-bool test __attribute__((unused)) = true;
-
 void test01()
 {
   typedef std::tr1::unordered_multiset<std::string> Set;
@@ -53,7 +51,7 @@ void test02()
   VERIFY(s.size() == 2);
   VERIFY(std::distance(s.begin(), s.end()) == 2);
   VERIFY(*i == "abcde");
-  
+
   Set::iterator i2 = s.begin();
   ++i2;
   VERIFY(i == s.begin() || i == i2);

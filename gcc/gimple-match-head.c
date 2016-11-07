@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "internal-fn.h"
 #include "case-cfn-macros.h"
+#include "gimplify.h"
 
 
 /* Forward declarations of the private auto-generated matchers.
@@ -88,6 +89,8 @@ gimple_resimplify1 (gimple_seq *seq,
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
+	  if (TREE_OVERFLOW_P (tem))
+	    tem = drop_tree_overflow (tem);
 	  res_ops[0] = tem;
 	  res_ops[1] = NULL_TREE;
 	  res_ops[2] = NULL_TREE;
@@ -133,6 +136,8 @@ gimple_resimplify2 (gimple_seq *seq,
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
+	  if (TREE_OVERFLOW_P (tem))
+	    tem = drop_tree_overflow (tem);
 	  res_ops[0] = tem;
 	  res_ops[1] = NULL_TREE;
 	  res_ops[2] = NULL_TREE;
@@ -193,6 +198,8 @@ gimple_resimplify3 (gimple_seq *seq,
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
+	  if (TREE_OVERFLOW_P (tem))
+	    tem = drop_tree_overflow (tem);
 	  res_ops[0] = tem;
 	  res_ops[1] = NULL_TREE;
 	  res_ops[2] = NULL_TREE;
@@ -232,18 +239,18 @@ gimple_resimplify3 (gimple_seq *seq,
    a GENERIC tree for that expression into *OP0.  */
 
 void
-maybe_build_generic_op (enum tree_code code, tree type,
-			tree *op0, tree op1, tree op2)
+maybe_build_generic_op (enum tree_code code, tree type, tree *ops)
 {
   switch (code)
     {
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case VIEW_CONVERT_EXPR:
-      *op0 = build1 (code, type, *op0);
+      ops[0] = build1 (code, type, ops[0]);
       break;
     case BIT_FIELD_REF:
-      *op0 = build3 (code, type, *op0, op1, op2);
+      ops[0] = build3 (code, type, ops[0], ops[1], ops[2]);
+      ops[1] = ops[2] = NULL_TREE;
       break;
     default:;
     }
@@ -315,7 +322,7 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	  else
 	    res = create_tmp_reg (type);
 	}
-      maybe_build_generic_op (rcode, type, &ops[0], ops[1], ops[2]);
+      maybe_build_generic_op (rcode, type, ops);
       gimple *new_stmt = gimple_build_assign (res, rcode,
 					     ops[0], ops[1], ops[2]);
       gimple_seq_add_stmt_without_update (seq, new_stmt);

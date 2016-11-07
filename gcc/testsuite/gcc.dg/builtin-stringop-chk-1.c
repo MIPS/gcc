@@ -1,7 +1,7 @@
 /* Test whether buffer overflow warnings for __*_chk builtins
    are emitted properly.  */
 /* { dg-do compile } */
-/* { dg-options "-O2 -std=gnu99 -ftrack-macro-expansion=0" } */
+/* { dg-options "-O2 -Wno-format -std=gnu99 -ftrack-macro-expansion=0" } */
 /* { dg-additional-options "-mstructure-size-boundary=8" { target arm*-*-* } } */
 // { dg-skip-if "packed attribute missing for t" { "epiphany-*-*" } { "*" } { "" } }
 
@@ -70,7 +70,7 @@ test (int arg, ...)
   memset (p, 'd', 0);
   q = strcpy (p, ""); /* { dg-warning "will always overflow" "strcpy" } */
 
-  /* This invokes undefined behaviour, since we are past the end of buf1.  */
+  /* This invokes undefined behavior, since we are past the end of buf1.  */
   p = p + 10;
   memset (p, 'd', 1); /* { dg-warning "will always overflow" "memset" } */
 

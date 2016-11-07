@@ -73,17 +73,41 @@ proc prune_gcc_output { text } {
     # Call into multiline.exp to handle any multiline output directives.
     set text [handle-multiline-outputs $text]
 
+    # Handle any freeform regexps.
+    set text [handle-dg-regexps $text]
+
     #send_user "After:$text\n"
 
     return $text
 }
 
+# escape metacharacters in literal string, so it can be used in regex
+
+proc escape_regex_chars { line } {
+    return [string map {"^" "\\^"
+			"$" "\\$"
+			"(" "\\("
+			")" "\\)"
+			"[" "\\["
+			"]" "\\]"
+			"{" "\\{"
+			"}" "\\}"
+			"." "\\."
+			"\\" "\\\\"
+			"?" "\\?"
+			"+" "\\+"
+			"*" "\\*"
+			"|" "\\|"} $line]
+}
+
 proc prune_file_path { text } {
     global srcdir
 
+    set safedir [escape_regex_chars $srcdir]
+    regsub -all "$safedir\/" $text "" text
+
     # Truncate absolute file path into relative path.
-    set topdir "[file dirname [file dirname [file dirname $srcdir]]]"
-    regsub -all "$srcdir\/" $text "" text
+    set topdir "[file dirname [file dirname [file dirname $safedir]]]"
     regsub -all "$topdir\/" $text "" text
 
     return $text

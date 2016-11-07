@@ -27,18 +27,17 @@
 void
 test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::subtract_with_carry;
 
   std::stringstream str;
   subtract_with_carry<unsigned long, (1UL << 24), 10, 24> u;
   subtract_with_carry<unsigned long, (1UL << 24), 10, 24> v;
-  
+
   u(); // advance
   str << u;
-  
+
   VERIFY( u != v );
-  
+
   str >> v;
   VERIFY( u == v );
 }

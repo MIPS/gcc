@@ -29,6 +29,7 @@
 #include "gimple-expr.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "optabs.h"
@@ -1987,17 +1988,13 @@ c6x_get_unit_specifier (rtx_insn *insn)
     case UNITS_DLS:
     case UNITS_D_ADDR:
       return 'd';
-      break;
     case UNITS_L:
     case UNITS_LS:
       return 'l';
-      break;
     case UNITS_S:
       return 's';
-      break;
     case UNITS_M:
       return 'm';
-      break;
     default:
       gcc_unreachable ();
     }
@@ -4471,7 +4468,8 @@ c6x_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
    anti- and output dependencies.  */
 
 static int
-c6x_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
+c6x_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
+		 unsigned int)
 {
   enum attr_type insn_type = TYPE_UNKNOWN, dep_insn_type = TYPE_UNKNOWN;
   int dep_insn_code_number, insn_code_number;
@@ -4486,7 +4484,7 @@ c6x_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
   if (insn_code_number >= 0)
     insn_type = get_attr_type (insn);
 
-  kind = REG_NOTE_KIND (link);
+  kind = (reg_note) dep_type;
   if (kind == 0)
     {
       /* If we have a dependency on a load, and it's not for the result of
@@ -4806,10 +4804,10 @@ convert_to_callp (rtx_insn *insn)
 /* Scan forwards from INSN until we find the next insn that has mode TImode
    (indicating it starts a new cycle), and occurs in cycle CLOCK.
    Return it if we find such an insn, NULL_RTX otherwise.  */
-static rtx
-find_next_cycle_insn (rtx insn, int clock)
+static rtx_insn *
+find_next_cycle_insn (rtx_insn *insn, int clock)
 {
-  rtx t = insn;
+  rtx_insn *t = insn;
   if (GET_MODE (t) == TImode)
     t = next_real_insn (t);
   while (t && GET_MODE (t) != TImode)
@@ -4817,7 +4815,7 @@ find_next_cycle_insn (rtx insn, int clock)
 
   if (t && insn_get_clock (t) == clock)
     return t;
-  return NULL_RTX;
+  return NULL;
 }
 
 /* If COND_INSN has a COND_EXEC condition, wrap the same condition
@@ -4835,10 +4833,10 @@ duplicate_cond (rtx pat, rtx cond_insn)
 
 /* Walk forward from INSN to find the last insn that issues in the same clock
    cycle.  */
-static rtx
-find_last_same_clock (rtx insn)
+static rtx_insn *
+find_last_same_clock (rtx_insn *insn)
 {
-  rtx retval = insn;
+  rtx_insn *retval = insn;
   rtx_insn *t = next_real_insn (insn);
 
   while (t && GET_MODE (t) != TImode)
@@ -4934,12 +4932,11 @@ reorg_split_calls (rtx *call_labels)
 		 no insn setting/using B3 is scheduled in the delay slots of
 		 a call.  */
 	      int this_clock = insn_get_clock (insn);
-	      rtx last_same_clock;
-	      rtx after1;
+	      rtx_insn *after1;
 
 	      call_labels[INSN_UID (insn)] = label;
 
-	      last_same_clock = find_last_same_clock (insn);
+	      rtx_insn *last_same_clock = find_last_same_clock (insn);
 
 	      if (can_use_callp (insn))
 		{
@@ -6746,6 +6743,9 @@ c6x_debug_unwind_info (void)
 #define TARGET_LEGITIMATE_CONSTANT_P c6x_legitimate_constant_p
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P c6x_legitimate_address_p
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P c6x_in_small_data_p

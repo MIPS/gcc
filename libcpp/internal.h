@@ -502,6 +502,11 @@ struct cpp_reader
   const unsigned char *date;
   const unsigned char *time;
 
+  /* Externally set timestamp to replace current date and time useful for
+     reproducibility.  It should be initialized to -2 (not yet set) and
+     set to -1 to disable it or to a non-negative value to enable it.  */
+  time_t source_date_epoch;
+
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
   cpp_token eof;
@@ -626,7 +631,8 @@ extern bool _cpp_save_parameter (cpp_reader *, cpp_macro *, cpp_hashnode *,
 extern bool _cpp_arguments_ok (cpp_reader *, cpp_macro *, const cpp_hashnode *,
 			       unsigned int);
 extern const unsigned char *_cpp_builtin_macro_text (cpp_reader *,
-						     cpp_hashnode *);
+						     cpp_hashnode *,
+						     source_location = 0);
 extern int _cpp_warn_if_unused_macro (cpp_reader *, cpp_hashnode *, void *);
 extern void _cpp_push_token_context (cpp_reader *, cpp_hashnode *,
 				     const cpp_token *, unsigned int);
@@ -639,13 +645,14 @@ extern void _cpp_destroy_hashtable (cpp_reader *);
 /* In files.c */
 typedef struct _cpp_file _cpp_file;
 extern _cpp_file *_cpp_find_file (cpp_reader *, const char *, cpp_dir *,
-				  bool, int, bool);
+				  bool, int, bool, source_location);
 extern bool _cpp_find_failed (_cpp_file *);
 extern void _cpp_mark_file_once_only (cpp_reader *, struct _cpp_file *);
 extern void _cpp_fake_include (cpp_reader *, const char *);
-extern bool _cpp_stack_file (cpp_reader *, _cpp_file*, bool);
+extern bool _cpp_stack_file (cpp_reader *, _cpp_file*, bool,
+			     source_location);
 extern bool _cpp_stack_include (cpp_reader *, const char *, int,
-				enum include_type);
+				enum include_type, source_location);
 extern int _cpp_compare_file_date (cpp_reader *, const char *, int);
 extern void _cpp_report_missing_guards (cpp_reader *);
 extern void _cpp_init_files (cpp_reader *);
@@ -688,7 +695,7 @@ extern int _cpp_handle_directive (cpp_reader *, int);
 extern void _cpp_define_builtin (cpp_reader *, const char *);
 extern char ** _cpp_save_pragma_names (cpp_reader *);
 extern void _cpp_restore_pragma_names (cpp_reader *, char **);
-extern int _cpp_do__Pragma (cpp_reader *);
+extern int _cpp_do__Pragma (cpp_reader *, source_location);
 extern void _cpp_init_directives (cpp_reader *);
 extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
@@ -747,7 +754,9 @@ struct normalize_state
 extern bool _cpp_valid_ucn (cpp_reader *, const unsigned char **,
 			    const unsigned char *, int,
 			    struct normalize_state *state,
-			    cppchar_t *);
+			    cppchar_t *,
+			    source_range *char_range,
+			    cpp_string_location_reader *loc_reader);
 extern void _cpp_destroy_iconv (cpp_reader *);
 extern unsigned char *_cpp_convert_input (cpp_reader *, const char *,
 					  unsigned char *, size_t, size_t,

@@ -191,7 +191,7 @@ def_target_insn (const char *name, const char *prototype)
 	      printf ("target_have_%s (void)\n", name);
 	      printf ("{\n");
 	      printf ("  return ");
-	      print_c_condition (test);
+	      rtx_reader_ptr->print_c_condition (test);
 	      printf (";\n");
 	      printf ("}\n");
 	    }
@@ -279,7 +279,7 @@ add_insn (md_rtx_info *info)
 }
 
 int
-main (int argc, char **argv)
+main (int argc, const char **argv)
 {
   progname = "gentarget-def";
 

@@ -30,8 +30,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfghooks.h"
 #include "alloc-pool.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
+#include "tree-vrp.h"
 #include "tree-ssanames.h"
 #include "optabs.h"
 #include "emit-rtl.h"
@@ -897,6 +899,16 @@ has_stmt_been_instrumented_p (gimple *stmt)
 	  return true;
 	}
     }
+  else if (is_gimple_call (stmt) && gimple_store_p (stmt))
+    {
+      asan_mem_ref r;
+      asan_mem_ref_init (&r, NULL, 1);
+
+      r.start = gimple_call_lhs (stmt);
+      r.access_size = int_size_in_bytes (TREE_TYPE (r.start));
+      return has_mem_ref_been_instrumented (&r);
+    }
+
   return false;
 }
 
@@ -1340,7 +1352,7 @@ asan_protect_global (tree decl)
 	return false;
       return true;
     }
-  if (TREE_CODE (decl) != VAR_DECL
+  if (!VAR_P (decl)
       /* TLS vars aren't statically protectable.  */
       || DECL_THREAD_LOCAL_P (decl)
       /* Externs will be protected elsewhere.  */
@@ -1756,6 +1768,8 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
 
   tree type, base;
   HOST_WIDE_INT size_in_bytes;
+  if (location == UNKNOWN_LOCATION)
+    location = EXPR_LOCATION (t);
 
   type = TREE_TYPE (t);
   switch (TREE_CODE (t))
@@ -1781,7 +1795,7 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
   machine_mode mode;
   int unsignedp, reversep, volatilep = 0;
   tree inner = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
-				    &unsignedp, &reversep, &volatilep, false);
+				    &unsignedp, &reversep, &volatilep);
 
   if (TREE_CODE (t) == COMPONENT_REF
       && DECL_BIT_FIELD_REPRESENTATIVE (TREE_OPERAND (t, 1)) != NULL_TREE)
@@ -1797,7 +1811,7 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
       || bitsize != size_in_bytes * BITS_PER_UNIT)
     return;
 
-  if (TREE_CODE (inner) == VAR_DECL
+  if (VAR_P (inner)
       && offset == NULL_TREE
       && bitpos >= 0
       && DECL_SIZE (inner)
@@ -2038,7 +2052,39 @@ maybe_instrument_call (gimple_stmt_iterator *iter)
       gimple_set_location (g, gimple_location (stmt));
       gsi_insert_before (iter, g, GSI_SAME_STMT);
     }
-  return false;
+
+  bool instrumented = false;
+  if (gimple_store_p (stmt))
+    {
+      tree ref_expr = gimple_call_lhs (stmt);
+      instrument_derefs (iter, ref_expr,
+			 gimple_location (stmt),
+			 /*is_store=*/true);
+
+      instrumented = true;
+    }
+
+  /* Walk through gimple_call arguments and check them id needed.  */
+  unsigned args_num = gimple_call_num_args (stmt);
+  for (unsigned i = 0; i < args_num; ++i)
+    {
+      tree arg = gimple_call_arg (stmt, i);
+      /* If ARG is not a non-aggregate register variable, compiler in general
+	 creates temporary for it and pass it as argument to gimple call.
+	 But in some cases, e.g. when we pass by value a small structure that
+	 fits to register, compiler can avoid extra overhead by pulling out
+	 these temporaries.  In this case, we should check the argument.  */
+      if (!is_gimple_reg (arg) && !is_gimple_min_invariant (arg))
+	{
+	  instrument_derefs (iter, arg,
+			     gimple_location (stmt),
+			     /*is_store=*/false);
+	  instrumented = true;
+	}
+    }
+  if (instrumented)
+    gsi_next (iter);
+  return instrumented;
 }
 
 /* Walk each instruction of all basic block and instrument those that
@@ -2115,6 +2161,9 @@ transform_statements (void)
 tree
 asan_dynamic_init_call (bool after_p)
 {
+  if (shadow_ptr_types[0] == NULL_TREE)
+    asan_init_shadow_ptr_types ();
+
   tree fn = builtin_decl_implicit (after_p
 				   ? BUILT_IN_ASAN_AFTER_DYNAMIC_INIT
 				   : BUILT_IN_ASAN_BEFORE_DYNAMIC_INIT);
@@ -2124,8 +2173,6 @@ asan_dynamic_init_call (bool after_p)
       pretty_printer module_name_pp;
       pp_string (&module_name_pp, main_input_filename);
 
-      if (shadow_ptr_types[0] == NULL_TREE)
-	asan_init_shadow_ptr_types ();
       module_name_cst = asan_pp_string (&module_name_pp);
       module_name_cst = fold_convert (const_ptr_type_node,
 				      module_name_cst);
@@ -2370,6 +2417,8 @@ initialize_sanitizer_builtins (void)
   /* ECF_COLD missing */ ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
 #undef ATTR_PURE_NOTHROW_LEAF_LIST
 #define ATTR_PURE_NOTHROW_LEAF_LIST ECF_PURE | ATTR_NOTHROW_LEAF_LIST
+#undef DEF_BUILTIN_STUB
+#define DEF_BUILTIN_STUB(ENUM, NAME)
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
@@ -2389,6 +2438,7 @@ initialize_sanitizer_builtins (void)
 			   ATTR_PURE_NOTHROW_LEAF_LIST)
 
 #undef DEF_SANITIZER_BUILTIN
+#undef DEF_BUILTIN_STUB
 }
 
 /* Called via htab_traverse.  Count number of emitted

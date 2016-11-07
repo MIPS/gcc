@@ -34,8 +34,8 @@
 		%b	decimalless scientific notation with exponent a power of two,
 			in the manner of strconv.FormatFloat with the 'b' format,
 			e.g. -123456p-78
-		%e	scientific notation, e.g. -1234.456e+78
-		%E	scientific notation, e.g. -1234.456E+78
+		%e	scientific notation, e.g. -1.234456e+78
+		%E	scientific notation, e.g. -1.234456E+78
 		%f	decimal point but no exponent, e.g. 123.456
 		%F	synonym for %f
 		%g	%e for large exponents, %f otherwise
@@ -62,7 +62,7 @@
 	For compound objects, the elements are printed using these rules, recursively,
 	laid out like this:
 		struct:             {field0 field1 ...}
-		array, slice:       [elem0  elem1 ...]
+		array, slice:       [elem0 elem1 ...]
 		maps:               map[key1:value1 key2:value2]
 		pointer to above:   &{}, &[], &map[]
 
@@ -95,10 +95,10 @@
 
 	For floating-point values, width sets the minimum width of the field and
 	precision sets the number of places after the decimal, if appropriate,
-	except that for %g/%G it sets the total number of digits. For example,
-	given 123.45 the format %6.2f prints 123.45 while %.4g prints 123.5.
-	The default precision for %e and %f is 6; for %g it is the smallest
-	number of digits necessary to identify the value uniquely.
+	except that for %g/%G precision sets the total number of significant
+	digits. For example, given 12.345 the format %6.3f prints 12.345 while
+	%.3g prints 12.3. The default precision for %e and %f is 6; for %g it
+	is the smallest number of digits necessary to identify the value uniquely.
 
 	For complex numbers, the width and precision apply to the two
 	components independently and the result is parenthesized, so %f applied
@@ -138,8 +138,8 @@
 	formatting considerations apply for operands that implement
 	certain interfaces. In order of application:
 
-	1. If the operand is a reflect.Value, the concrete value it
-	holds is printed as if it was the operand.
+	1. If the operand is a reflect.Value, the operand is replaced by the
+	concrete value that it holds, and printing continues with the next rule.
 
 	2. If an operand implements the Formatter interface, it will
 	be invoked. Formatter provides fine control of formatting.
@@ -210,7 +210,7 @@
 		Too many arguments: %!(EXTRA type=value)
 			Printf("hi", "guys"):      hi%!(EXTRA string=guys)
 		Too few arguments: %!verb(MISSING)
-			Printf("hi%d"):            hi %!d(MISSING)
+			Printf("hi%d"):            hi%!d(MISSING)
 		Non-int for width or precision: %!(BADWIDTH) or %!(BADPREC)
 			Printf("%*s", 4.5, "hi"):  %!(BADWIDTH)hi
 			Printf("%.*s", 4.5, "hi"): %!(BADPREC)hi

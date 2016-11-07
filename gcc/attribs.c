@@ -130,7 +130,7 @@ register_scoped_attributes (const struct attribute_spec * attributes,
       /* We don't have any namespace NS yet.  Create one.  */
       scoped_attributes sa;
 
-      if (!attributes_table.is_empty ())
+      if (attributes_table.is_empty ())
 	attributes_table.create (64);
 
       memset (&sa, 0, sizeof (sa));
@@ -553,7 +553,7 @@ decl_attributes (tree *node, tree attributes, int flags)
 
       /* Layout the decl in case anything changed.  */
       if (spec->type_required && DECL_P (*node)
-	  && (TREE_CODE (*node) == VAR_DECL
+	  && (VAR_P (*node)
 	      || TREE_CODE (*node) == PARM_DECL
 	      || TREE_CODE (*node) == RESULT_DECL))
 	relayout_decl (*node);

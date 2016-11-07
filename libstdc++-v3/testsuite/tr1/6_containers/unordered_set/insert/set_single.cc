@@ -27,8 +27,6 @@
 #include <tr1/unordered_set>
 #include "testsuite_hooks.h"
 
-bool test __attribute__((unused)) = true;
-
 void test01()
 {
   typedef std::tr1::unordered_set<std::string> Set;
@@ -50,7 +48,7 @@ void test02()
   VERIFY(s.empty());
 
   std::pair<Set::iterator, bool> p1 = s.insert("abcde");
-  std::pair<Set::iterator, bool> p2 = s.insert("abcde");  
+  std::pair<Set::iterator, bool> p2 = s.insert("abcde");
   VERIFY(p1.second);
   VERIFY(!p2.second);
   VERIFY(s.size() == 1);

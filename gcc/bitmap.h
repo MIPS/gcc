@@ -157,12 +157,14 @@ struct bitmap_usage: public mem_usage
   {
     char *location_string = loc->to_string ();
 
-    fprintf (stderr, "%-48s %10li:%5.1f%%%10li%10li:%5.1f%%%12li%12li%10s\n",
-	     location_string,
-	     (long)m_allocated, get_percent (m_allocated, total.m_allocated),
-	     (long)m_peak, (long)m_times,
+    fprintf (stderr, "%-48s %10" PRIu64 ":%5.1f%%"
+	     "%10" PRIu64 "%10" PRIu64 ":%5.1f%%"
+	     "%12" PRIu64 "%12" PRIu64 "%10s\n",
+	     location_string, (uint64_t)m_allocated,
+	     get_percent (m_allocated, total.m_allocated),
+	     (uint64_t)m_peak, (uint64_t)m_times,
 	     get_percent (m_times, total.m_times),
-	     (long)m_nsearches, (long)m_search_iter,
+	     m_nsearches, m_search_iter,
 	     loc->m_ggc ? "ggc" : "heap");
 
     free (location_string);
@@ -253,6 +255,9 @@ extern void bitmap_clear (bitmap);
 /* Copy a bitmap to another bitmap.  */
 extern void bitmap_copy (bitmap, const_bitmap);
 
+/* Move a bitmap to another bitmap.  */
+extern void bitmap_move (bitmap, bitmap);
+
 /* True if two bitmaps are identical.  */
 extern bool bitmap_equal_p (const_bitmap, const_bitmap);
 
@@ -274,6 +279,9 @@ extern bool bitmap_single_bit_set_p (const_bitmap);
 
 /* Count the number of bits set in the bitmap.  */
 extern unsigned long bitmap_count_bits (const_bitmap);
+
+/* Count the number of unique bits set across the two bitmaps.  */
+extern unsigned long bitmap_count_unique_bits (const_bitmap, const_bitmap);
 
 /* Boolean operations on bitmaps.  The _into variants are two operand
    versions that modify the first source operand.  The other variants
@@ -610,6 +618,9 @@ bmp_iter_set (bitmap_iterator *bi, unsigned *bit_no)
 	  bi->word_no++;
 	}
 
+      /* Make sure we didn't remove the element while iterating.  */
+      gcc_checking_assert (bi->elt1->indx != -1U);
+
       /* Advance to the next element.  */
       bi->elt1 = bi->elt1->next;
       if (!bi->elt1)
@@ -656,6 +667,9 @@ bmp_iter_and (bitmap_iterator *bi, unsigned *bit_no)
       /* Advance to the next identical element.  */
       do
 	{
+	  /* Make sure we didn't remove the element while iterating.  */
+	  gcc_checking_assert (bi->elt1->indx != -1U);
+
 	  /* Advance elt1 while it is less than elt2.  We always want
 	     to advance one elt.  */
 	  do
@@ -665,6 +679,9 @@ bmp_iter_and (bitmap_iterator *bi, unsigned *bit_no)
 		return false;
 	    }
 	  while (bi->elt1->indx < bi->elt2->indx);
+
+	  /* Make sure we didn't remove the element while iterating.  */
+	  gcc_checking_assert (bi->elt2->indx != -1U);
 
 	  /* Advance elt2 to be no less than elt1.  This might not
 	     advance.  */
@@ -718,10 +735,16 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
 	  bi->word_no++;
 	}
 
+      /* Make sure we didn't remove the element while iterating.  */
+      gcc_checking_assert (bi->elt1->indx != -1U);
+
       /* Advance to the next element of elt1.  */
       bi->elt1 = bi->elt1->next;
       if (!bi->elt1)
 	return false;
+
+      /* Make sure we didn't remove the element while iterating.  */
+      gcc_checking_assert (! bi->elt2 || bi->elt2->indx != -1U);
 
       /* Advance elt2 until it is no less than elt1.  */
       while (bi->elt2 && bi->elt2->indx < bi->elt1->indx)
@@ -731,6 +754,18 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
       bi->word_no = 0;
     }
 }
+
+/* If you are modifying a bitmap you are currently iterating over you
+   have to ensure to
+     - never remove the current bit;
+     - if you set or clear a bit before the current bit this operation
+       will not affect the set of bits you are visiting during the iteration;
+     - if you set or clear a bit after the current bit it is unspecified
+       whether that affects the set of bits you are visiting during the
+       iteration.
+   If you want to remove the current bit you can delay this to the next
+   iteration (and after the iteration in case the last iteration is
+   affected).  */
 
 /* Loop over all bits set in BITMAP, starting with MIN and setting
    BITNUM to the bit number.  ITER is a bitmap iterator.  BITNUM

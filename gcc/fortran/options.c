@@ -47,6 +47,30 @@ set_default_std_flags (void)
 }
 
 
+/* Set all the DEC extension flags.  */
+
+static void
+set_dec_flags (int value)
+{
+  /* Allow legacy code without warnings.  */
+  gfc_option.allow_std |= GFC_STD_F95_OBS | GFC_STD_F95_DEL
+    | GFC_STD_GNU | GFC_STD_LEGACY;
+  gfc_option.warn_std &= ~(GFC_STD_LEGACY | GFC_STD_F95_DEL);
+
+  /* Set -fd-lines-as-comments by default.  */
+  if (value && gfc_current_form != FORM_FREE && gfc_option.flag_d_lines == -1)
+    gfc_option.flag_d_lines = 0;
+
+  /* Set other DEC compatibility extensions.  */
+  flag_dollar_ok |= value;
+  flag_cray_pointer |= value;
+  flag_dec_structure |= value;
+  flag_dec_intrinsic_ints |= value;
+  flag_dec_static |= value;
+  flag_dec_math |= value;
+}
+
+
 /* Return language mask for Fortran options.  */
 
 unsigned int
@@ -101,6 +125,8 @@ gfc_init_options (unsigned int decoded_options_count,
      in .opt, but that is not supported yet.  */
   if (!global_options_set.x_cpp_warn_missing_include_dirs)
     global_options.x_cpp_warn_missing_include_dirs = 1;
+
+  set_dec_flags (0);
 
   set_default_std_flags ();
 
@@ -197,8 +223,7 @@ gfc_post_options (const char **pfilename)
 
   /* Excess precision other than "fast" requires front-end
      support.  */
-  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
-      && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
+  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
     sorry ("-fexcess-precision=standard for Fortran");
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
 
@@ -515,6 +540,15 @@ gfc_handle_runtime_check_option (const char *arg)
 	      result = 1;
 	      break;
 	    }
+	  else if (optname[n] && pos > 3 && strncmp ("no-", arg, 3) == 0
+		   && strncmp (optname[n], arg+3, pos-3) == 0)
+	    {
+	      gfc_option.rtcheck &= ~optmask[n];
+	      arg += pos;
+	      pos = 0;
+	      result = 1;
+	      break;
+	    }
 	}
       if (!result)
 	gfc_fatal_error ("Argument to %<-fcheck%> is not valid: %s", arg);
@@ -699,6 +733,15 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fcheck_:
       gfc_handle_runtime_check_option (arg);
+      break;
+
+    case OPT_fdec:
+      /* Enable all DEC extensions.  */
+      set_dec_flags (1);
+      break;
+
+    case OPT_fdec_structure:
+      flag_dec_structure = 1;
       break;
     }
 

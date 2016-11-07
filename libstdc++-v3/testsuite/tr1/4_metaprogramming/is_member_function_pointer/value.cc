@@ -25,7 +25,6 @@
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::is_member_function_pointer;
   using namespace __gnu_test;
 
@@ -48,7 +47,7 @@ void test01()
 	   const int (ClassType::*)>(false)) );
   VERIFY( (test_category<is_member_function_pointer,
 	   ClassType (ClassType::*)>(false)) );
-  
+
   // Sanity check.
   VERIFY( (test_category<is_member_function_pointer, ClassType>(false)) );
 }

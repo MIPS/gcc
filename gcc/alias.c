@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "gimple-ssa.h"
 #include "emit-rtl.h"
@@ -310,7 +311,7 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
   /* If this is a reference based on a partitioned decl replace the
      base with a MEM_REF of the pointer representative we
      created during stack slot partitioning.  */
-  if (TREE_CODE (base) == VAR_DECL
+  if (VAR_P (base)
       && ! is_global_var (base)
       && cfun->gimple_df->decls_to_pointers != NULL)
     {
@@ -619,6 +620,14 @@ component_uses_parent_alias_set_from (const_tree t)
 	case COMPONENT_REF:
 	  if (DECL_NONADDRESSABLE_P (TREE_OPERAND (t, 1)))
 	    found = t;
+	  /* Permit type-punning when accessing a union, provided the access
+	     is directly through the union.  For example, this code does not
+	     permit taking the address of a union member and then storing
+	     through it.  Even the type-punning allowed here is a GCC
+	     extension, albeit a common and useful one; the C standard says
+	     that such accesses have implementation-defined behavior.  */
+	  else if (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
+	    found = t;
 	  break;
 
 	case ARRAY_REF:
@@ -769,6 +778,10 @@ reference_alias_ptr_type_1 (tree *t)
 tree
 reference_alias_ptr_type (tree t)
 {
+  /* If the frontend assigns this alias-set zero, preserve that.  */
+  if (lang_hooks.get_alias_set (t) == 0)
+    return ptr_type_node;
+
   tree ptype = reference_alias_ptr_type_1 (&t);
   /* If there is a given pointer type for aliasing purposes, return it.  */
   if (ptype != NULL_TREE)
@@ -827,7 +840,7 @@ get_alias_set (tree t)
 
   /* We can not give up with -fno-strict-aliasing because we need to build
      proper type representation for possible functions which are build with
-     -fstirct-aliasing.  */
+     -fstrict-aliasing.  */
 
   /* return 0 if this or its type is an error.  */
   if (t == error_mark_node
@@ -858,7 +871,7 @@ get_alias_set (tree t)
       /* If we've already determined the alias set for a decl, just return
 	 it.  This is necessary for C++ anonymous unions, whose component
 	 variables don't look like union members (boo!).  */
-      if (TREE_CODE (t) == VAR_DECL
+      if (VAR_P (t)
 	  && DECL_RTL_SET_P (t) && MEM_P (DECL_RTL (t)))
 	return MEM_ALIAS_SET (DECL_RTL (t));
 
@@ -1386,7 +1399,7 @@ find_base_value (rtx src)
       if (GET_CODE (src) != PLUS && GET_CODE (src) != MINUS)
 	break;
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case PLUS:
     case MINUS:
@@ -1754,7 +1767,7 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
       return REGNO (x) == REGNO (y);
 
     case LABEL_REF:
-      return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
+      return label_ref_label (x) == label_ref_label (y);
 
     case SYMBOL_REF:
       return compare_base_symbol_refs (x, y) == 1;
@@ -2075,7 +2088,7 @@ compare_base_symbol_refs (const_rtx x_base, const_rtx y_base)
         return -1;
       /* Anchors contains static VAR_DECLs and CONST_DECLs.  We are safe
 	 to ignore CONST_DECLs because they are readonly.  */
-      if (TREE_CODE (x_decl) != VAR_DECL
+      if (!VAR_P (x_decl)
 	  || (!TREE_STATIC (x_decl) && !TREE_PUBLIC (x_decl)))
 	return 0;
 
@@ -2522,7 +2535,7 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
     {
       HOST_WIDE_INT sc = INTVAL (XEXP (x, 1));
       unsigned HOST_WIDE_INT uc = sc;
-      if (sc < 0 && -uc == (uc & -uc))
+      if (sc < 0 && pow2_or_zerop (-uc))
 	{
 	  if (xsize > 0)
 	    xsize = -xsize;
@@ -2537,7 +2550,7 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
     {
       HOST_WIDE_INT sc = INTVAL (XEXP (y, 1));
       unsigned HOST_WIDE_INT uc = sc;
-      if (sc < 0 && -uc == (uc & -uc))
+      if (sc < 0 && pow2_or_zerop (-uc))
 	{
 	  if (ysize > 0)
 	    ysize = -ysize;
@@ -2651,8 +2664,8 @@ adjust_offset_for_component_ref (tree x, bool *known_p,
 
       offset_int woffset
 	= (wi::to_offset (xoffset)
-	   + wi::lrshift (wi::to_offset (DECL_FIELD_BIT_OFFSET (field)),
-			  LOG2_BITS_PER_UNIT));
+	   + (wi::to_offset (DECL_FIELD_BIT_OFFSET (field))
+	      >> LOG2_BITS_PER_UNIT));
       if (!wi::fits_uhwi_p (woffset))
 	{
 	  *known_p = false;
@@ -3056,6 +3069,20 @@ output_dependence (const_rtx mem, const_rtx x)
   return write_dependence_p (mem, x, VOIDmode, NULL_RTX,
 			     /*mem_canonicalized=*/false,
 			     /*x_canonicalized*/false, /*writep=*/true);
+}
+
+/* Likewise, but we already have a canonicalized MEM, and X_ADDR for X.
+   Also, consider X in X_MODE (which might be from an enclosing
+   STRICT_LOW_PART / ZERO_EXTRACT).
+   If MEM_CANONICALIZED is true, MEM is canonicalized.  */
+
+int
+canon_output_dependence (const_rtx mem, bool mem_canonicalized,
+			 const_rtx x, machine_mode x_mode, rtx x_addr)
+{
+  return write_dependence_p (mem, x, x_mode, x_addr,
+			     mem_canonicalized, /*x_canonicalized=*/true,
+			     /*writep=*/true);
 }
 
 

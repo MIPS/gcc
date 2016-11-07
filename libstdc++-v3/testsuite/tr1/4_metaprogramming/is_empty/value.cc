@@ -43,7 +43,6 @@ class NonEmptyClassTwo
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::is_empty;
   using namespace __gnu_test;
 
@@ -65,7 +64,7 @@ void test01()
 
   VERIFY( (test_category<is_empty, AbstractClass>(false)) );
   VERIFY( (test_category<is_empty, NonEmptyClassOne>(false)) );
-  VERIFY( (test_category<is_empty, NonEmptyClassTwo>(false)) );  
+  VERIFY( (test_category<is_empty, NonEmptyClassTwo>(false)) );
 }
 
 int main()

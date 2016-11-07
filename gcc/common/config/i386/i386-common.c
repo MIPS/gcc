@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic-core.h"
 #include "tm.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "common/common-target.h"
 #include "common/common-target-def.h"
@@ -86,7 +87,6 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_XSAVEC_SET \
   (OPTION_MASK_ISA_XSAVEC | OPTION_MASK_ISA_XSAVE)
 #define OPTION_MASK_ISA_CLWB_SET OPTION_MASK_ISA_CLWB
-#define OPTION_MASK_ISA_PCOMMIT_SET OPTION_MASK_ISA_PCOMMIT
 
 /* SSE4 includes both SSE4.1 and SSE4.2. -msse4 should be the same
    as -msse4.2.  */
@@ -187,7 +187,6 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_CLFLUSHOPT_UNSET OPTION_MASK_ISA_CLFLUSHOPT
 #define OPTION_MASK_ISA_XSAVEC_UNSET OPTION_MASK_ISA_XSAVEC
 #define OPTION_MASK_ISA_XSAVES_UNSET OPTION_MASK_ISA_XSAVES
-#define OPTION_MASK_ISA_PCOMMIT_UNSET OPTION_MASK_ISA_PCOMMIT
 #define OPTION_MASK_ISA_CLWB_UNSET OPTION_MASK_ISA_CLWB
 #define OPTION_MASK_ISA_MWAITX_UNSET OPTION_MASK_ISA_MWAITX
 #define OPTION_MASK_ISA_CLZERO_UNSET OPTION_MASK_ISA_CLZERO
@@ -223,6 +222,11 @@ along with GCC; see the file COPYING3.  If not see
 #define OPTION_MASK_ISA_RDRND_UNSET OPTION_MASK_ISA_RDRND
 #define OPTION_MASK_ISA_F16C_UNSET OPTION_MASK_ISA_F16C
 
+#define OPTION_MASK_ISA_GENERAL_REGS_ONLY_UNSET \
+  (OPTION_MASK_ISA_MMX_UNSET \
+   | OPTION_MASK_ISA_SSE_UNSET \
+   | OPTION_MASK_ISA_MPX)
+
 /* Implement TARGET_HANDLE_OPTION.  */
 
 bool
@@ -236,6 +240,22 @@ ix86_handle_option (struct gcc_options *opts,
 
   switch (code)
     {
+    case OPT_mgeneral_regs_only:
+      if (value)
+	{
+	  /* Disable MPX, MMX, SSE and x87 instructions if only
+	     general registers are allowed.  */
+	  opts->x_ix86_isa_flags
+	    &= ~OPTION_MASK_ISA_GENERAL_REGS_ONLY_UNSET;
+	  opts->x_ix86_isa_flags_explicit
+	    |= OPTION_MASK_ISA_GENERAL_REGS_ONLY_UNSET;
+
+	  opts->x_target_flags &= ~MASK_80387;
+	}
+      else
+	gcc_unreachable ();
+      return true;
+
     case OPT_mmmx:
       if (value)
 	{
@@ -909,19 +929,6 @@ ix86_handle_option (struct gcc_options *opts,
 	{
 	  opts->x_ix86_isa_flags &= ~OPTION_MASK_ISA_CLFLUSHOPT_UNSET;
 	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_CLFLUSHOPT_UNSET;
-	}
-      return true;
-
-    case OPT_mpcommit:
-      if (value)
-	{
-	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PCOMMIT_SET;
-	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_PCOMMIT_SET;
-	}
-      else
-	{
-	  opts->x_ix86_isa_flags &= ~OPTION_MASK_ISA_PCOMMIT_UNSET;
-	  opts->x_ix86_isa_flags_explicit |= OPTION_MASK_ISA_PCOMMIT_UNSET;
 	}
       return true;
 

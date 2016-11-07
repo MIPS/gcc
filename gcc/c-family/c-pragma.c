@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "function.h"		/* For cfun.  */
 #include "c-common.h"
+#include "memmodel.h"
 #include "tm_p.h"		/* For REGISTER_TARGET_PRAGMAS.  */
 #include "stringpool.h"
 #include "cgraph.h"
@@ -214,6 +215,7 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
 	    align = maximum_field_alignment;
 	    break;
 	  }
+	/* FALLTHRU */
       default:
 	GCC_BAD2 ("alignment must be a small power of two, not %d", align);
       }
@@ -817,9 +819,12 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
   const char *arg = NULL;
   if (cl_options[option_index].flags & CL_JOINED)
     arg = option_string + 1 + cl_options[option_index].opt_len;
+  /* FIXME: input_location isn't the best location here, but it is
+     what we used to do here before and changing it breaks e.g.
+     PR69543 and PR69558.  */
   control_warning_option (option_index, (int) kind,
 			  arg, kind != DK_IGNORED,
-			  loc, lang_mask, &handlers,
+			  input_location, lang_mask, &handlers,
 			  &global_options, &global_options_set,
 			  global_dc);
 }
@@ -1283,7 +1288,7 @@ static const struct omp_pragma_def omp_pragmas[] = {
   { "threadprivate", PRAGMA_OMP_THREADPRIVATE }
 };
 static const struct omp_pragma_def omp_pragmas_simd[] = {
-  { "declare", PRAGMA_OMP_DECLARE_REDUCTION },
+  { "declare", PRAGMA_OMP_DECLARE },
   { "distribute", PRAGMA_OMP_DISTRIBUTE },
   { "for", PRAGMA_OMP_FOR },
   { "parallel", PRAGMA_OMP_PARALLEL },
@@ -1330,6 +1335,13 @@ c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
     {
       *space = NULL;
       *name = "simd";
+      return;
+    }
+
+  if (id == PRAGMA_CILK_GRAINSIZE)
+    {
+      *space = "cilk";
+      *name = "grainsize";
       return;
     }
 
@@ -1520,7 +1532,7 @@ init_pragma (void)
     cpp_register_deferred_pragma (parse_in, "GCC", "ivdep", PRAGMA_IVDEP, false,
 				  false);
 
-  if (flag_cilkplus && !flag_preprocess_only)
+  if (flag_cilkplus)
     cpp_register_deferred_pragma (parse_in, "cilk", "grainsize",
 				  PRAGMA_CILK_GRAINSIZE, true, false);
 

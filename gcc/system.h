@@ -198,7 +198,9 @@ extern int fprintf_unlocked (FILE *, const char *, ...);
    the ctype macros through safe-ctype.h */
 
 #ifdef __cplusplus
+#ifdef INCLUDE_STRING
 # include <string>
+#endif
 #endif
 
 /* There are an extraordinary number of issues with <ctype.h>.
@@ -215,8 +217,23 @@ extern int errno;
 #endif
 
 #ifdef __cplusplus
+#if defined (INCLUDE_ALGORITHM) || !defined (HAVE_SWAP_IN_UTILITY)
 # include <algorithm>
+#endif
+#ifdef INCLUDE_LIST
+# include <list>
+#endif
+#ifdef INCLUDE_MAP
+# include <map>
+#endif
+#ifdef INCLUDE_SET
+# include <set>
+#endif
+#ifdef INCLUDE_VECTOR
+# include <vector>
+#endif
 # include <cstring>
+# include <new>
 # include <utility>
 #endif
 
@@ -729,15 +746,30 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #define gcc_unreachable() (fancy_abort (__FILE__, __LINE__, __FUNCTION__))
 #endif
 
+#if GCC_VERSION >= 7000 && defined(__has_attribute)
+# if __has_attribute(fallthrough)
+#  define gcc_fallthrough() __attribute__((fallthrough))
+# else
+#  define gcc_fallthrough()
+# endif
+#else
+# define gcc_fallthrough()
+#endif
+
 #if GCC_VERSION >= 3001
 #define STATIC_CONSTANT_P(X) (__builtin_constant_p (X) && (X))
 #else
 #define STATIC_CONSTANT_P(X) (false && (X))
 #endif
 
-/* Until we can use C++11's static_assert.  */
+/* static_assert (COND, MESSAGE) is available in C++11 onwards.  */
+#if __cplusplus >= 201103L
+#define STATIC_ASSERT(X) \
+  static_assert ((X), #X)
+#else
 #define STATIC_ASSERT(X) \
   typedef int assertion1[(X) ? 1 : -1] ATTRIBUTE_UNUSED
+#endif
 
 /* Provide a fake boolean type.  We make no attempt to use the
    C99 _Bool, as it may not be available in the bootstrap compiler,
@@ -954,7 +986,9 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	EXTRA_ADDRESS_CONSTRAINT CONST_DOUBLE_OK_FOR_CONSTRAINT_P	   \
 	CALLER_SAVE_PROFITABLE LARGEST_EXPONENT_IS_NORMAL		   \
 	ROUND_TOWARDS_ZERO SF_SIZE DF_SIZE XF_SIZE TF_SIZE LIBGCC2_TF_CEXT \
-	LIBGCC2_LONG_DOUBLE_TYPE_SIZE STRUCT_VALUE EH_FRAME_IN_DATA_SECTION
+	LIBGCC2_LONG_DOUBLE_TYPE_SIZE STRUCT_VALUE			   \
+	EH_FRAME_IN_DATA_SECTION TARGET_FLT_EVAL_METHOD_NON_DEFAULT	   \
+	JCR_SECTION_NAME TARGET_USE_JCR_SECTION
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
@@ -970,7 +1004,9 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	TARGET_HANDLE_PRAGMA_EXTERN_PREFIX \
 	TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN \
 	TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD \
-	TARGET_MD_ASM_CLOBBERS TARGET_RELAXED_ORDERING EXTENDED_SDB_BASIC_TYPES
+	TARGET_MD_ASM_CLOBBERS TARGET_RELAXED_ORDERING \
+	EXTENDED_SDB_BASIC_TYPES TARGET_INVALID_PARAMETER_TYPE \
+	TARGET_INVALID_RETURN_TYPE
 
 /* Arrays that were deleted in favor of a functional interface.  */
  #pragma GCC poison built_in_decls implicit_built_in_decls
@@ -1008,6 +1044,10 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #undef bcmp
 #undef rindex
  #pragma GCC poison bcopy bzero bcmp rindex
+
+/* Poison ENABLE_CHECKING macro that should be replaced with
+   'if (flag_checking)', or with CHECKING_P macro.  */
+#pragma GCC poison ENABLE_CHECKING
 
 #endif /* GCC >= 3.0 */
 

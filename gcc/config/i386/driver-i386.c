@@ -413,8 +413,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   unsigned int has_clflushopt = 0, has_xsavec = 0, has_xsaves = 0;
   unsigned int has_avx512dq = 0, has_avx512bw = 0, has_avx512vl = 0;
   unsigned int has_avx512vbmi = 0, has_avx512ifma = 0, has_clwb = 0;
-  unsigned int has_pcommit = 0, has_mwaitx = 0;
-  unsigned int has_clzero = 0, has_pku = 0;
+  unsigned int has_mwaitx = 0, has_clzero = 0, has_pku = 0;
 
   bool arch;
 
@@ -492,13 +491,12 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_avx512pf = ebx & bit_AVX512PF;
       has_avx512cd = ebx & bit_AVX512CD;
       has_sha = ebx & bit_SHA;
-      has_pcommit = ebx & bit_PCOMMIT;
       has_clflushopt = ebx & bit_CLFLUSHOPT;
       has_clwb = ebx & bit_CLWB;
       has_avx512dq = ebx & bit_AVX512DQ;
       has_avx512bw = ebx & bit_AVX512BW;
       has_avx512vl = ebx & bit_AVX512VL;
-      has_avx512vl = ebx & bit_AVX512IFMA;
+      has_avx512ifma = ebx & bit_AVX512IFMA;
 
       has_prefetchwt1 = ecx & bit_PREFETCHWT1;
       has_avx512vbmi = ecx & bit_AVX512VBMI;
@@ -517,7 +515,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   /* Check cpuid level of extended features.  */
   __cpuid (0x80000000, ext_level, ebx, ecx, edx);
 
-  if (ext_level > 0x80000000)
+  if (ext_level >= 0x80000001)
     {
       __cpuid (0x80000001, eax, ebx, ecx, edx);
 
@@ -535,7 +533,10 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_3dnowp = edx & bit_3DNOWP;
       has_3dnow = edx & bit_3DNOW;
       has_mwaitx = ecx & bit_MWAITX;
+    }
 
+  if (ext_level >= 0x80000008)
+    {
       __cpuid (0x80000008, eax, ebx, ecx, edx);
       has_clzero = ebx & bit_CLZERO;
     }
@@ -548,14 +549,21 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 #define XSTATE_OPMASK			0x20
 #define XSTATE_ZMM			0x40
 #define XSTATE_HI_ZMM			0x80
+
+#define XCR_AVX_ENABLED_MASK \
+  (XSTATE_SSE | XSTATE_YMM)
+#define XCR_AVX512F_ENABLED_MASK \
+  (XSTATE_SSE | XSTATE_YMM | XSTATE_OPMASK | XSTATE_ZMM | XSTATE_HI_ZMM)
+
   if (has_osxsave)
     asm (".byte 0x0f; .byte 0x01; .byte 0xd0"
 	 : "=a" (eax), "=d" (edx)
 	 : "c" (XCR_XFEATURE_ENABLED_MASK));
+  else
+    eax = 0;
 
-  /* Check if SSE and YMM states are supported.  */
-  if (!has_osxsave
-      || (eax & (XSTATE_SSE | XSTATE_YMM)) != (XSTATE_SSE | XSTATE_YMM))
+  /* Check if AVX registers are supported.  */
+  if ((eax & XCR_AVX_ENABLED_MASK) != XCR_AVX_ENABLED_MASK)
     {
       has_avx = 0;
       has_avx2 = 0;
@@ -569,10 +577,8 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_xsavec = 0;
     }
 
-  if (!has_osxsave
-      || (eax &
-	  (XSTATE_SSE | XSTATE_YMM | XSTATE_OPMASK | XSTATE_ZMM | XSTATE_HI_ZMM))
-	  != (XSTATE_SSE | XSTATE_YMM | XSTATE_OPMASK | XSTATE_ZMM | XSTATE_HI_ZMM))
+  /* Check if AVX512F registers are supported.  */
+  if ((eax & XCR_AVX512F_ENABLED_MASK) != XCR_AVX512F_ENABLED_MASK)
     {
       has_avx512f = 0;
       has_avx512er = 0;
@@ -603,7 +609,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       unsigned int name;
 
       /* Detect geode processor by its processor signature.  */
-      if (ext_level > 0x80000001)
+      if (ext_level >= 0x80000002)
 	__cpuid (0x80000002, name, ebx, ecx, edx);
       else
 	name = 0;
@@ -637,33 +643,26 @@ const char *host_detect_local_cpu (int argc, const char **argv)
     }
   else if (vendor == signature_CENTAUR_ebx)
     {
-      if (arch)
+      processor = PROCESSOR_GENERIC;
+
+      switch (family)
 	{
-	  switch (family)
-	    {
-	    case 6:
-	      if (model > 9)
-		/* Use the default detection procedure.  */
-		processor = PROCESSOR_GENERIC;
-	      else if (model == 9)
-		cpu = "c3-2";
-	      else if (model >= 6)
-		cpu = "c3";
-	      else
-		processor = PROCESSOR_GENERIC;
-	      break;
-	    case 5:
-	      if (has_3dnow)
-		cpu = "winchip2";
-	      else if (has_mmx)
-		cpu = "winchip2-c6";
-	      else
-		processor = PROCESSOR_GENERIC;
-	      break;
-	    default:
-	      /* We have no idea.  */
-	      processor = PROCESSOR_GENERIC;
-	    }
+	default:
+	  /* We have no idea.  */
+	  break;
+
+	case 5:
+	  if (has_3dnow || has_mmx)
+	    processor = PROCESSOR_I486;
+	  break;
+
+	case 6:
+	  if (has_longmode)
+	    processor = PROCESSOR_K8;
+	  else if (model >= 9)
+	    processor = PROCESSOR_PENTIUMPRO;
+	  else if (model >= 6)
+	    processor = PROCESSOR_I486;
 	}
     }
   else
@@ -694,7 +693,18 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       /* Default.  */
       break;
     case PROCESSOR_I486:
-      cpu = "i486";
+      if (arch && vendor == signature_CENTAUR_ebx)
+	{
+	  if (model >= 6)
+	    cpu = "c3";
+	  else if (has_3dnow)
+	    cpu = "winchip2";
+	  else
+	    /* Assume WinChip C6.  */
+	    cpu = "winchip-c6";
+	}
+      else
+	cpu = "i486";
       break;
     case PROCESSOR_PENTIUM:
       if (arch && has_mmx)
@@ -811,14 +821,31 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 		   as all the CPUs below are 32-bit only.  */
 		cpu = "x86-64";
 	      else if (has_sse3)
-		/* It is Core Duo.  */
-		cpu = "pentium-m";
+		{
+		  if (vendor == signature_CENTAUR_ebx)
+		    /* C7 / Eden "Esther" */
+		    cpu = "c7";
+		  else
+		    /* It is Core Duo.  */
+		    cpu = "pentium-m";
+		}
 	      else if (has_sse2)
 		/* It is Pentium M.  */
 		cpu = "pentium-m";
 	      else if (has_sse)
-		/* It is Pentium III.  */
-		cpu = "pentium3";
+		{
+		  if (vendor == signature_CENTAUR_ebx)
+		    {
+		      if (model >= 9)
+			/* Eden "Nehemiah" */
+			cpu = "nehemiah";
+		      else
+			cpu = "c3-2";
+		    }
+		  else
+		    /* It is Pentium III.  */
+		    cpu = "pentium3";
+		}
 	      else if (has_mmx)
 		/* It is Pentium II.  */
 		cpu = "pentium2";
@@ -859,9 +886,30 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	cpu = "athlon";
       break;
     case PROCESSOR_K8:
-      if (arch && has_sse3)
-	cpu = "k8-sse3";
+      if (arch)
+	{
+	  if (vendor == signature_CENTAUR_ebx)
+	    {
+	      if (has_sse4_1)
+		/* Nano 3000 | Nano dual / quad core | Eden X4 */
+		cpu = "nano-3000";
+	      else if (has_ssse3)
+		/* Nano 1000 | Nano 2000 */
+		cpu = "nano";
+	      else if (has_sse3)
+		/* Eden X2 */
+		cpu = "eden-x2";
+	      else
+		/* Default to k8 */
+		cpu = "k8";
+	    }
+	  else if (has_sse3)
+	    cpu = "k8-sse3";
+	  else
+	    cpu = "k8";
+	}
       else
+	/* For -mtune, we default to -mtune=k8 */
 	cpu = "k8";
       break;
     case PROCESSOR_AMDFAM10:
@@ -902,6 +950,11 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	      else
 		cpu = "prescott";
 	    }
+	  else if (has_longmode)
+	    /* Perhaps some emulator?  Assume x86-64, otherwise gcc
+	       -march=native would be unusable for 64-bit compilations,
+	       as all the CPUs below are 32-bit only.  */
+	    cpu = "x86-64";
 	  else if (has_sse2)
 	    cpu = "pentium4";
 	  else if (has_cmov)
@@ -969,7 +1022,6 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       const char *avx512ifma = has_avx512ifma ? " -mavx512ifma" : " -mno-avx512ifma";
       const char *avx512vbmi = has_avx512vbmi ? " -mavx512vbmi" : " -mno-avx512vbmi";
       const char *clwb = has_clwb ? " -mclwb" : " -mno-clwb";
-      const char *pcommit = has_pcommit ? " -mpcommit" : " -mno-pcommit";
       const char *mwaitx  = has_mwaitx  ? " -mmwaitx"  : " -mno-mwaitx"; 
       const char *clzero  = has_clzero  ? " -mclzero"  : " -mno-clzero";
       const char *pku = has_pku ? " -mpku" : " -mno-pku";
@@ -981,7 +1033,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 			fxsr, xsave, xsaveopt, avx512f, avx512er,
 			avx512cd, avx512pf, prefetchwt1, clflushopt,
 			xsavec, xsaves, avx512dq, avx512bw, avx512vl,
-			avx512ifma, avx512vbmi, clwb, pcommit, mwaitx,
+			avx512ifma, avx512vbmi, clwb, mwaitx,
 			clzero, pku, NULL);
     }
 

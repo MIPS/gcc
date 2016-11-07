@@ -13,7 +13,6 @@ import (
 	"go/printer"
 	"go/scanner"
 	"go/token"
-	"internal/format"
 	"io"
 	"io/ioutil"
 	"os"
@@ -56,7 +55,6 @@ func report(err error) {
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: gofmt [flags] [path ...]\n")
 	flag.PrintDefaults()
-	os.Exit(2)
 }
 
 func initParserMode() {
@@ -88,7 +86,7 @@ func processFile(filename string, in io.Reader, out io.Writer, stdin bool) error
 		return err
 	}
 
-	file, sourceAdj, indentAdj, err := format.Parse(fileSet, filename, src, stdin)
+	file, sourceAdj, indentAdj, err := parse(fileSet, filename, src, stdin)
 	if err != nil {
 		return err
 	}
@@ -107,7 +105,7 @@ func processFile(filename string, in io.Reader, out io.Writer, stdin bool) error
 		simplify(file)
 	}
 
-	res, err := format.Format(fileSet, file, sourceAdj, indentAdj, src, printer.Config{Mode: printerMode, Tabwidth: tabWidth})
+	res, err := format(fileSet, file, sourceAdj, indentAdj, src, printer.Config{Mode: printerMode, Tabwidth: tabWidth})
 	if err != nil {
 		return err
 	}
@@ -144,7 +142,9 @@ func visitFile(path string, f os.FileInfo, err error) error {
 	if err == nil && isGoFile(f) {
 		err = processFile(path, nil, os.Stdout, false)
 	}
-	if err != nil {
+	// Don't complain if a file was deleted in the meantime (i.e.
+	// the directory changed concurrently while running gofmt).
+	if err != nil && !os.IsNotExist(err) {
 		report(err)
 	}
 	return nil

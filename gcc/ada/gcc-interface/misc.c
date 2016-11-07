@@ -255,8 +255,7 @@ static bool
 gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
   /* Excess precision other than "fast" requires front-end support.  */
-  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
-      && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
+  if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
     sorry ("-fexcess-precision=standard for Ada");
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
 
@@ -355,7 +354,7 @@ gnat_init (void)
 {
   /* Do little here, most of the standard declarations are set up after the
      front-end has been run.  Use the same `char' as C for Interfaces.C.  */
-  build_common_tree_nodes (flag_signed_char, false);
+  build_common_tree_nodes (flag_signed_char);
 
   /* In Ada, we use an unsigned 8-bit type for the default boolean type.  */
   boolean_type_node = make_unsigned_type (8);
@@ -368,9 +367,6 @@ gnat_init (void)
 
   sbitsize_one_node = sbitsize_int (1);
   sbitsize_unit_node = sbitsize_int (BITS_PER_UNIT);
-
-  /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
-  internal_reference_types ();
 
   /* Register our internal error function.  */
   global_dc->internal_error = &internal_error_function;
@@ -575,6 +571,15 @@ gnat_descriptive_type (const_tree type)
     return NULL_TREE;
 }
 
+/* Return the underlying base type of an enumeration type.  */
+
+static tree
+gnat_enum_underlying_base_type (const_tree)
+{
+  /* Enumeration types are base types in Ada.  */
+  return void_type_node;
+}
+
 /* Return the type to be used for debugging information instead of TYPE or
    NULL_TREE if TYPE is fine.  */
 
@@ -712,7 +717,9 @@ gnat_get_alias_set (tree type)
       get_alias_set (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (type)))));
 
   /* If the type can alias any other types, return the alias set 0.  */
-  else if (TYPE_P (type) && TYPE_UNIVERSAL_ALIASING_P (type))
+  else if (TYPE_P (type)
+	   && !TYPE_IS_DUMMY_P (type)
+	   && TYPE_UNIVERSAL_ALIASING_P (type))
     return 0;
 
   return -1;
@@ -777,8 +784,7 @@ gnat_get_array_descr_info (const_tree const_type,
   tree thinptr_bound_field = NULL_TREE;
 
   /* ??? See gnat_get_debug_type.  */
-  if (TYPE_CAN_HAVE_DEBUG_TYPE_P (type) && TYPE_DEBUG_TYPE (type))
-    type = TYPE_DEBUG_TYPE (type);
+  type = maybe_debug_type (type);
 
   /* If we have an implementation type for a packed array, get the orignial
      array type.  */
@@ -927,7 +933,7 @@ gnat_get_array_descr_info (const_tree const_type,
 	     and XUA types.  */
 	  if (TYPE_CONTEXT (first_dimen)
 	      && TREE_CODE (TYPE_CONTEXT (first_dimen)) != RECORD_TYPE
-	      && contains_placeholder_p (TYPE_MIN_VALUE (index_type))
+	      && CONTAINS_PLACEHOLDER_P (TYPE_MIN_VALUE (index_type))
 	      && gnat_encodings != DWARF_GNAT_ENCODINGS_MINIMAL)
 	    {
 	      info->dimen[i].lower_bound = NULL_TREE;
@@ -935,8 +941,10 @@ gnat_get_array_descr_info (const_tree const_type,
 	    }
 	  else
 	    {
-	      info->dimen[i].lower_bound = TYPE_MIN_VALUE (index_type);
-	      info->dimen[i].upper_bound = TYPE_MAX_VALUE (index_type);
+	      info->dimen[i].lower_bound
+		= maybe_character_value (TYPE_MIN_VALUE (index_type));
+	      info->dimen[i].upper_bound
+		= maybe_character_value (TYPE_MAX_VALUE (index_type));
 	    }
 	}
 
@@ -954,13 +962,12 @@ gnat_get_array_descr_info (const_tree const_type,
 	  thinptr_bound_field = DECL_CHAIN (thinptr_bound_field);
 	}
 
-      /* The DWARF back-end will output exactly INDEX_TYPE as the array index'
-	 "root" type, so pell subtypes when possible.  */
-      while (TREE_TYPE (index_type)
-	     && !subrange_type_for_debug_p (index_type, NULL, NULL))
+      /* The DWARF back-end will output BOUNDS_TYPE as the base type of
+	 the array index, so get to the base type of INDEX_TYPE.  */
+      while (TREE_TYPE (index_type))
 	index_type = TREE_TYPE (index_type);
 
-      info->dimen[i].bounds_type = index_type;
+      info->dimen[i].bounds_type = maybe_debug_type (index_type);
       info->dimen[i].stride = NULL_TREE;
     }
 
@@ -1359,9 +1366,11 @@ get_lang_specific (tree node)
 #undef  LANG_HOOKS_TYPE_HASH_EQ
 #define LANG_HOOKS_TYPE_HASH_EQ		gnat_type_hash_eq
 #undef  LANG_HOOKS_GETDECLS
-#define LANG_HOOKS_GETDECLS		lhd_return_null_tree_v
+#define LANG_HOOKS_GETDECLS		hook_tree_void_null
 #undef  LANG_HOOKS_PUSHDECL
 #define LANG_HOOKS_PUSHDECL		gnat_return_tree
+#undef  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
+#define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL hook_bool_const_tree_false
 #undef  LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
 #undef  LANG_HOOKS_PRINT_DECL
@@ -1390,23 +1399,24 @@ get_lang_specific (tree node)
 #define LANG_HOOKS_GET_TYPE_BIAS	gnat_get_type_bias
 #undef  LANG_HOOKS_DESCRIPTIVE_TYPE
 #define LANG_HOOKS_DESCRIPTIVE_TYPE	gnat_descriptive_type
+#undef  LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE
+#define LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE gnat_enum_underlying_base_type
 #undef  LANG_HOOKS_GET_DEBUG_TYPE
 #define LANG_HOOKS_GET_DEBUG_TYPE	gnat_get_debug_type
 #undef  LANG_HOOKS_GET_FIXED_POINT_TYPE_INFO
-#define LANG_HOOKS_GET_FIXED_POINT_TYPE_INFO \
-					gnat_get_fixed_point_type_info
+#define LANG_HOOKS_GET_FIXED_POINT_TYPE_INFO gnat_get_fixed_point_type_info
 #undef  LANG_HOOKS_ATTRIBUTE_TABLE
 #define LANG_HOOKS_ATTRIBUTE_TABLE	gnat_internal_attribute_table
 #undef  LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_BUILTIN_FUNCTION	gnat_builtin_function
+#undef  LANG_HOOKS_INIT_TS
+#define LANG_HOOKS_INIT_TS		gnat_init_ts
 #undef  LANG_HOOKS_EH_PERSONALITY
 #define LANG_HOOKS_EH_PERSONALITY	gnat_eh_personality
 #undef  LANG_HOOKS_DEEP_UNSHARING
 #define LANG_HOOKS_DEEP_UNSHARING	true
-#undef  LANG_HOOKS_INIT_TS
-#define LANG_HOOKS_INIT_TS		gnat_init_ts
-#undef  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
-#define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL hook_bool_const_tree_false
+#undef  LANG_HOOKS_CUSTOM_FUNCTION_DESCRIPTORS
+#define LANG_HOOKS_CUSTOM_FUNCTION_DESCRIPTORS true
 
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

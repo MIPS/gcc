@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
    function_epilogue.  Those instructions never exist as rtl.  */
 
 #include "config.h"
+#define INCLUDE_ALGORITHM /* reverse */
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
@@ -51,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -2095,9 +2097,11 @@ output_alternate_entry_point (FILE *file, rtx_insn *insn)
     case LABEL_WEAK_ENTRY:
 #ifdef ASM_WEAKEN_LABEL
       ASM_WEAKEN_LABEL (file, name);
+      gcc_fallthrough ();
 #endif
     case LABEL_GLOBAL_ENTRY:
       targetm.asm_out.globalize_label (file, name);
+      gcc_fallthrough ();
     case LABEL_STATIC_ENTRY:
 #ifdef ASM_OUTPUT_TYPE_DIRECTIVE
       ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
@@ -2137,6 +2141,26 @@ call_from_call_insn (rtx_call_insn *insn)
 	}
     }
   return x;
+}
+
+/* Print a comment into the asm showing FILENAME, LINENUM, and the
+   corresponding source line, if available.  */
+
+static void
+asm_show_source (const char *filename, int linenum)
+{
+  if (!filename)
+    return;
+
+  int line_size;
+  const char *line = location_get_source_line (filename, linenum, &line_size);
+  if (!line)
+    return;
+
+  fprintf (asm_out_file, "%s %s:%i: ", ASM_COMMENT_START, filename, linenum);
+  /* "line" is not 0-terminated, so we must use line_size.  */
+  fwrite (line, 1, line_size, asm_out_file);
+  fputc ('\n', asm_out_file);
 }
 
 /* The final scan for one insn, INSN.
@@ -2562,8 +2586,16 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	   note in a row.  */
 	if (!DECL_IGNORED_P (current_function_decl)
 	    && notice_source_line (insn, &is_stmt))
-	  (*debug_hooks->source_line) (last_linenum, last_filename,
-				       last_discriminator, is_stmt);
+	  {
+	    if (flag_verbose_asm)
+	      asm_show_source (last_filename, last_linenum);
+	    (*debug_hooks->source_line) (last_linenum, last_filename,
+					 last_discriminator, is_stmt);
+	  }
+
+	if (GET_CODE (body) == PARALLEL
+	    && GET_CODE (XVECEXP (body, 0, 0)) == ASM_INPUT)
+	  body = XVECEXP (body, 0, 0);
 
 	if (GET_CODE (body) == ASM_INPUT)
 	  {
@@ -3794,7 +3826,7 @@ output_asm_label (rtx x)
   char buf[256];
 
   if (GET_CODE (x) == LABEL_REF)
-    x = LABEL_REF_LABEL (x);
+    x = label_ref_label (x);
   if (LABEL_P (x)
       || (NOTE_P (x)
 	  && NOTE_KIND (x) == NOTE_INSN_DELETED_LABEL))
@@ -3885,7 +3917,7 @@ output_addr_const (FILE *file, rtx x)
       break;
 
     case LABEL_REF:
-      x = LABEL_REF_LABEL (x);
+      x = label_ref_label (x);
       /* Fall through.  */
     case CODE_LABEL:
       ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));

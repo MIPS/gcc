@@ -6,6 +6,9 @@
 /* Define to 1 if you have the `acosl' function. */
 #undef HAVE_ACOSL
 
+/* Define to 1 if you have the `aligned_alloc' function. */
+#undef HAVE_ALIGNED_ALLOC
+
 /* Define to 1 if you have the `asinf' function. */
 #undef HAVE_ASINF
 
@@ -180,7 +183,7 @@
 /* Define if _Unwind_GetIPInfo is available. */
 #undef HAVE_GETIPINFO
 
-/* Define if gets is available in <stdio.h>. */
+/* Define if gets is available in <stdio.h> before C++14. */
 #undef HAVE_GETS
 
 /* Define to 1 if you have the `hypot' function. */
@@ -285,6 +288,9 @@
 /* Define if mbstate_t exists in wchar.h. */
 #undef HAVE_MBSTATE_T
 
+/* Define to 1 if you have the `memalign' function. */
+#undef HAVE_MEMALIGN
+
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
@@ -300,11 +306,17 @@
 /* Define to 1 if you have the <nan.h> header file. */
 #undef HAVE_NAN_H
 
-/* Define if <math.h> defines obsolete isinf and isnan functions. */
-#undef HAVE_OBSOLETE_ISINF_ISNAN
+/* Define if <math.h> defines obsolete isinf function. */
+#undef HAVE_OBSOLETE_ISINF
+
+/* Define if <math.h> defines obsolete isnan function. */
+#undef HAVE_OBSOLETE_ISNAN
 
 /* Define if poll is available in <poll.h>. */
 #undef HAVE_POLL
+
+/* Define to 1 if you have the `posix_memalign' function. */
+#undef HAVE_POSIX_MEMALIGN
 
 /* Define to 1 if you have the `powf' function. */
 #undef HAVE_POWF
@@ -501,6 +513,9 @@
 
 /* Define to 1 if you have the `_acosl' function. */
 #undef HAVE__ACOSL
+
+/* Define to 1 if you have the `_aligned_malloc' function. */
+#undef HAVE__ALIGNED_MALLOC
 
 /* Define to 1 if you have the `_asinf' function. */
 #undef HAVE__ASINF
@@ -768,6 +783,10 @@
    <cstdio> in namespace std for C++98. */
 #undef _GLIBCXX98_USE_C99_STDIO
 
+/* Define if C99 functions or macros in <stdlib.h> should be imported in
+   <cstdlib> in namespace std for C++98. */
+#undef _GLIBCXX98_USE_C99_STDLIB
+
 /* Define if C99 functions or macros in <wchar.h> should be imported in
    <cwchar> in namespace std for C++98. */
 #undef _GLIBCXX98_USE_C99_WCHAR
@@ -930,7 +949,7 @@
 /* Define if _SC_NPROC_ONLN is available in <unistd.h>. */
 #undef _GLIBCXX_USE_SC_NPROC_ONLN
 
-/* Define if sendfile is available in <sys/stat.h>. */
+/* Define if sendfile is available in <sys/sendfile.h>. */
 #undef _GLIBCXX_USE_SENDFILE
 
 /* Define if struct stat has timespec members. */

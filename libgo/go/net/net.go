@@ -14,7 +14,7 @@ the same interfaces and similar Dial and Listen functions.
 
 The Dial function connects to a server:
 
-	conn, err := net.Dial("tcp", "google.com:80")
+	conn, err := net.Dial("tcp", "golang.org:80")
 	if err != nil {
 		// handle error
 	}
@@ -79,6 +79,7 @@ On Windows, the resolver always uses C library functions, such as GetAddrInfo an
 package net
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -297,7 +298,7 @@ func (c *conn) File() (f *os.File, err error) {
 // Multiple goroutines may invoke methods on a PacketConn simultaneously.
 type PacketConn interface {
 	// ReadFrom reads a packet from the connection,
-	// copying the payload into b.  It returns the number of
+	// copying the payload into b. It returns the number of
 	// bytes copied into b and the return address that
 	// was on the packet.
 	// ReadFrom can be made to time out and return
@@ -345,7 +346,7 @@ var listenerBacklog = maxListenerBacklog()
 // Multiple goroutines may invoke methods on a Listener simultaneously.
 type Listener interface {
 	// Accept waits for and returns the next connection to the listener.
-	Accept() (c Conn, err error)
+	Accept() (Conn, error)
 
 	// Close closes the listener.
 	// Any blocked Accept operations will be unblocked and return errors.
@@ -364,6 +365,9 @@ type Error interface {
 
 // Various errors contained in OpError.
 var (
+	// For connection setup operations.
+	errNoSuitableAddress = errors.New("no suitable address found")
+
 	// For connection setup and write operations.
 	errMissingAddress = errors.New("missing address")
 
@@ -373,6 +377,22 @@ var (
 	errClosing                = errors.New("use of closed network connection")
 	ErrWriteToConnected       = errors.New("use of WriteTo with pre-connected connection")
 )
+
+// mapErr maps from the context errors to the historical internal net
+// error values.
+//
+// TODO(bradfitz): get rid of this after adjusting tests and making
+// context.DeadlineExceeded implement net.Error?
+func mapErr(err error) error {
+	switch err {
+	case context.Canceled:
+		return errCanceled
+	case context.DeadlineExceeded:
+		return errTimeout
+	default:
+		return err
+	}
+}
 
 // OpError is the error type usually returned by functions in the net
 // package. It describes the operation, network type, and address of
@@ -426,7 +446,16 @@ func (e *OpError) Error() string {
 	return s
 }
 
-var noDeadline = time.Time{}
+var (
+	// aLongTimeAgo is a non-zero time, far in the past, used for
+	// immediate cancelation of dials.
+	aLongTimeAgo = time.Unix(233431200, 0)
+
+	// nonDeadline and noCancel are just zero values for
+	// readability with functions taking too many parameters.
+	noDeadline = time.Time{}
+	noCancel   = (chan struct{})(nil)
+)
 
 type timeout interface {
 	Timeout() bool
@@ -520,10 +549,11 @@ var (
 
 // DNSError represents a DNS lookup error.
 type DNSError struct {
-	Err       string // description of the error
-	Name      string // name looked for
-	Server    string // server used
-	IsTimeout bool   // if true, timed out; not all timeouts set this
+	Err         string // description of the error
+	Name        string // name looked for
+	Server      string // server used
+	IsTimeout   bool   // if true, timed out; not all timeouts set this
+	IsTemporary bool   // if true, error is temporary; not all errors set this
 }
 
 func (e *DNSError) Error() string {
@@ -546,7 +576,7 @@ func (e *DNSError) Timeout() bool { return e.IsTimeout }
 // Temporary reports whether the DNS error is known to be temporary.
 // This is not always known; a DNS lookup may fail due to a temporary
 // error and return a DNSError for which Temporary returns false.
-func (e *DNSError) Temporary() bool { return e.IsTimeout }
+func (e *DNSError) Temporary() bool { return e.IsTimeout || e.IsTemporary }
 
 type writerOnly struct {
 	io.Writer

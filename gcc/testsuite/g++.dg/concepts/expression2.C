@@ -1,4 +1,4 @@
-// { dg-options "-std=c++1z" }
+// { dg-options "-std=c++1z -fconcepts" }
 
 template<typename T>
 concept bool C1()
@@ -31,12 +31,12 @@ class S
 int main()
 {
   f1(s); // { dg-error "cannot call" }
-  f2(s); // { dg-error "cannot call" }
+  f2(s); // { dg-error "" }
 
   // When used in non-SFINAE contexts, make sure that we fail
   // the constraint check before emitting the access check
   // failures. The context is being presented constistently
   // in both cases.
   static_assert(C1<S>(), ""); // { dg-error "failed" }
-  static_assert(C2<S>(), ""); // { dg-error "failed" }
+  static_assert(C2<S>(), ""); // { dg-error "" }
 }

@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfghooks.h"
 #include "cfgloop.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "expmed.h"
@@ -340,6 +341,19 @@ extern int reload_completed;
 
 /* Kept up to date using the SCHED_VARIABLE_ISSUE hook.  */
 static rtx_insn *last_scheduled_insn;
+#define MAX_SCHED_UNITS 3
+static int last_scheduled_unit_distance[MAX_SCHED_UNITS];
+
+/* The maximum score added for an instruction whose unit hasn't been
+   in use for MAX_SCHED_MIX_DISTANCE steps.  Increase this value to
+   give instruction mix scheduling more priority over instruction
+   grouping.  */
+#define MAX_SCHED_MIX_SCORE      8
+
+/* The maximum distance up to which individual scores will be
+   calculated.  Everything beyond this gives MAX_SCHED_MIX_SCORE.
+   Increase this with the OOO windows size of the machine.  */
+#define MAX_SCHED_MIX_DISTANCE 100
 
 /* Structure used to hold the components of a S/390 memory
    address.  A legitimate address on S/390 is of the general
@@ -380,6 +394,8 @@ struct GTY (()) s390_frame_layout
      be saved to.
       0 - does not need to be saved at all
      -1 - stack slot  */
+#define SAVE_SLOT_NONE   0
+#define SAVE_SLOT_STACK -1
   signed char gpr_save_slots[16];
 
   /* Number of first and last gpr to be saved, restored.  */
@@ -426,6 +442,13 @@ struct GTY(()) machine_function
   /* True if the current function may contain a tbegin clobbering
      FPRs.  */
   bool tbegin_p;
+
+  /* For -fsplit-stack support: A stack local which holds a pointer to
+     the stack arguments for a function with a variable number of
+     arguments.  This is set at the start of the function and is used
+     to initialize the overflow_arg_area field of the va_list
+     structure.  */
+  rtx split_stack_varargs_pointer;
 };
 
 /* Few accessor macros for struct cfun->machine->s390_frame_layout.  */
@@ -769,7 +792,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		     machine_mode mode ATTRIBUTE_UNUSED,
 		     int ignore ATTRIBUTE_UNUSED)
 {
-#define MAX_ARGS 5
+#define MAX_ARGS 6
 
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
@@ -853,6 +876,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   arity = 0;
   FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
+      rtx tmp_rtx;
       const struct insn_operand_data *insn_op;
       unsigned int op_flags = all_op_flags & ((1 << O_SHIFT) - 1);
 
@@ -927,6 +951,20 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	  op[arity] = replace_equiv_address (op[arity],
 					     copy_to_mode_reg (Pmode,
 					       XEXP (op[arity], 0)));
+	}
+      /* Some of the builtins require different modes/types than the
+	 pattern in order to implement a specific API.  Instead of
+	 adding many expanders which do the mode change we do it here.
+	 E.g. s390_vec_add_u128 required to have vector unsigned char
+	 arguments is mapped to addti3.  */
+      else if (insn_op->mode != VOIDmode
+	       && GET_MODE (op[arity]) != VOIDmode
+	       && GET_MODE (op[arity]) != insn_op->mode
+	       && ((tmp_rtx = simplify_gen_subreg (insn_op->mode, op[arity],
+						   GET_MODE (op[arity]), 0))
+		   != NULL_RTX))
+	{
+	  op[arity] = tmp_rtx;
 	}
       else if (GET_MODE (op[arity]) == insn_op->mode
 	       || GET_MODE (op[arity]) == VOIDmode
@@ -1097,7 +1135,7 @@ static const struct attribute_spec s390_attribute_table[] = {
 /* Return the alignment for LABEL.  We default to the -falign-labels
    value except for the literal pool base label.  */
 int
-s390_label_align (rtx label)
+s390_label_align (rtx_insn *label)
 {
   rtx_insn *prev_insn = prev_active_insn (label);
   rtx set, src;
@@ -2223,67 +2261,107 @@ s390_single_part (rtx op,
 }
 
 /* Return true if IN contains a contiguous bitfield in the lower SIZE
-   bits and no other bits are set in IN.  POS and LENGTH can be used
-   to obtain the start position and the length of the bitfield.
+   bits and no other bits are set in (the lower SIZE bits of) IN.
 
-   POS gives the position of the first bit of the bitfield counting
-   from the lowest order bit starting with zero.  In order to use this
-   value for S/390 instructions this has to be converted to "bits big
-   endian" style.  */
+   PSTART and PEND can be used to obtain the start and end
+   position (inclusive) of the bitfield relative to 64
+   bits. *PSTART / *PEND gives the position of the first/last bit
+   of the bitfield counting from the highest order bit starting
+   with zero.  */
 
 bool
-s390_contiguous_bitmask_p (unsigned HOST_WIDE_INT in, int size,
-			   int *pos, int *length)
+s390_contiguous_bitmask_nowrap_p (unsigned HOST_WIDE_INT in, int size,
+				  int *pstart, int *pend)
 {
-  int tmp_pos = 0;
-  int tmp_length = 0;
-  int i;
-  unsigned HOST_WIDE_INT mask = 1ULL;
-  bool contiguous = false;
+  int start;
+  int end = -1;
+  int lowbit = sizeof (HOST_WIDE_INT) * BITS_PER_UNIT - 1;
+  int highbit = sizeof (HOST_WIDE_INT) * BITS_PER_UNIT - size;
+  unsigned HOST_WIDE_INT bitmask = 1ULL;
 
-  for (i = 0; i < size; mask <<= 1, i++)
+  gcc_assert (!!pstart == !!pend);
+  for (start = lowbit; start >= highbit; bitmask <<= 1, start--)
+    if (end == -1)
+      {
+	/* Look for the rightmost bit of a contiguous range of ones.  */
+	if (bitmask & in)
+	  /* Found it.  */
+	  end = start;
+      }
+    else
+      {
+	/* Look for the firt zero bit after the range of ones.  */
+	if (! (bitmask & in))
+	  /* Found it.  */
+	  break;
+      }
+  /* We're one past the last one-bit.  */
+  start++;
+
+  if (end == -1)
+    /* No one bits found.  */
+    return false;
+
+  if (start > highbit)
     {
-      if (contiguous)
-	{
-	  if (mask & in)
-	    tmp_length++;
-	  else
-	    break;
-	}
-      else
-	{
-	  if (mask & in)
-	    {
-	      contiguous = true;
-	      tmp_length++;
-	    }
-	  else
-	    tmp_pos++;
-	}
+      unsigned HOST_WIDE_INT mask;
+
+      /* Calculate a mask for all bits beyond the contiguous bits.  */
+      mask = ((~(0ULL) >> highbit) & (~(0ULL) << (lowbit - start + 1)));
+      if (mask & in)
+	/* There are more bits set beyond the first range of one bits.  */
+	return false;
     }
 
-  if (!tmp_length)
-    return false;
-
-  /* Calculate a mask for all bits beyond the contiguous bits.  */
-  mask = (-1LL & ~(((1ULL << (tmp_length + tmp_pos - 1)) << 1) - 1));
-
-  if ((unsigned)size < sizeof (HOST_WIDE_INT) * BITS_PER_UNIT)
-    mask &= (HOST_WIDE_INT_1U << size) - 1;
-
-  if (mask & in)
-    return false;
-
-  if (tmp_length + tmp_pos - 1 > size)
-    return false;
-
-  if (length)
-    *length = tmp_length;
-
-  if (pos)
-    *pos = tmp_pos;
+  if (pstart)
+    {
+      *pstart = start;
+      *pend = end;
+    }
 
   return true;
+}
+
+/* Same as s390_contiguous_bitmask_nowrap_p but also returns true
+   if ~IN contains a contiguous bitfield.  In that case, *END is <
+   *START.
+
+   If WRAP_P is true, a bitmask that wraps around is also tested.
+   When a wraparoud occurs *START is greater than *END (in
+   non-null pointers), and the uppermost (64 - SIZE) bits are thus
+   part of the range.  If WRAP_P is false, no wraparound is
+   tested.  */
+
+bool
+s390_contiguous_bitmask_p (unsigned HOST_WIDE_INT in, bool wrap_p,
+			   int size, int *start, int *end)
+{
+  int bs = sizeof (HOST_WIDE_INT) * BITS_PER_UNIT;
+  bool b;
+
+  gcc_assert (!!start == !!end);
+  if ((in & ((~(0ULL)) >> (bs - size))) == 0)
+    /* This cannot be expressed as a contiguous bitmask.  Exit early because
+       the second call of s390_contiguous_bitmask_nowrap_p would accept this as
+       a valid bitmask.  */
+    return false;
+  b = s390_contiguous_bitmask_nowrap_p (in, size, start, end);
+  if (b)
+    return true;
+  if (! wrap_p)
+    return false;
+  b = s390_contiguous_bitmask_nowrap_p (~in, size, start, end);
+  if (b && start)
+    {
+      int s = *start;
+      int e = *end;
+
+      gcc_assert (s >= 1);
+      *start = ((e + 1) & (bs - 1));
+      *end = ((s - 1 + bs) & (bs - 1));
+    }
+
+  return b;
 }
 
 /* Return true if OP contains the same contiguous bitfield in *all*
@@ -2299,9 +2377,11 @@ bool
 s390_contiguous_bitmask_vector_p (rtx op, int *start, int *end)
 {
   unsigned HOST_WIDE_INT mask;
-  int length, size;
+  int size;
   rtx elt;
+  bool b;
 
+  gcc_assert (!!start == !!end);
   if (!const_vec_duplicate_p (op, &elt)
       || !CONST_INT_P (elt))
     return false;
@@ -2313,25 +2393,21 @@ s390_contiguous_bitmask_vector_p (rtx op, int *start, int *end)
     return false;
 
   mask = UINTVAL (elt);
-  if (s390_contiguous_bitmask_p (mask, size, start,
-				 end != NULL ? &length : NULL))
+
+  b = s390_contiguous_bitmask_p (mask, true, size, start, end);
+  if (b)
     {
-      if (end != NULL)
-	*end = *start + length - 1;
+      if (start)
+	{
+	  int bs = sizeof (HOST_WIDE_INT) * BITS_PER_UNIT;
+
+	  *start -= (bs - size);
+	  *end -= (bs - size);
+	}
       return true;
     }
-  /* 0xff00000f style immediates can be covered by swapping start and
-     end indices in vgm.  */
-  if (s390_contiguous_bitmask_p (~mask, size, start,
-				 end != NULL ? &length : NULL))
-    {
-      if (end != NULL)
-	*end = *start - 1;
-      if (start != NULL)
-	*start = *start + length;
-      return true;
-    }
-  return false;
+  else
+    return false;
 }
 
 /* Return true if C consists only of byte chunks being either 0 or
@@ -2385,14 +2461,21 @@ s390_bytemask_vector_p (rtx op, unsigned *mask)
 bool
 s390_extzv_shift_ok (int bitsize, int rotl, unsigned HOST_WIDE_INT contig)
 {
-  int pos, len;
+  int start, end;
   bool ok;
 
-  ok = s390_contiguous_bitmask_p (contig, bitsize, &pos, &len);
+  ok = s390_contiguous_bitmask_nowrap_p (contig, bitsize, &start, &end);
   gcc_assert (ok);
 
-  return ((rotl >= 0 && rotl <= pos)
-	  || (rotl < 0 && -rotl <= bitsize - len - pos));
+  if (rotl >= 0)
+    return (64 - end >= rotl);
+  else
+    {
+      /* Translate "- rotate right" in BITSIZE mode to "rotate left" in
+	 DIMode.  */
+      rotl = -rotl + (64 - bitsize);
+      return (start >= rotl);
+    }
 }
 
 /* Check whether we can (and want to) split a double-word
@@ -2795,9 +2878,7 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	    return false;
 	  }
 
-      if (!REG_P (base)
-	  || (GET_MODE (base) != SImode
-	      && GET_MODE (base) != Pmode))
+      if (!REG_P (base) || GET_MODE (base) != Pmode)
 	return false;
 
       if (REGNO (base) == STACK_POINTER_REGNUM
@@ -2843,9 +2924,7 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	    return false;
 	  }
 
-      if (!REG_P (indx)
-	  || (GET_MODE (indx) != SImode
-	      && GET_MODE (indx) != Pmode))
+      if (!REG_P (indx) || GET_MODE (indx) != Pmode)
 	return false;
 
       if (REGNO (indx) == STACK_POINTER_REGNUM
@@ -2964,26 +3043,29 @@ s390_decompose_address (rtx addr, struct s390_address *out)
   return true;
 }
 
-/* Decompose a RTL expression OP for a shift count into its components,
-   and return the base register in BASE and the offset in OFFSET.
+/* Decompose a RTL expression OP for an address style operand into its
+   components, and return the base register in BASE and the offset in
+   OFFSET.  While OP looks like an address it is never supposed to be
+   used as such.
 
-   Return true if OP is a valid shift count, false if not.  */
+   Return true if OP is a valid address operand, false if not.  */
 
 bool
-s390_decompose_shift_count (rtx op, rtx *base, HOST_WIDE_INT *offset)
+s390_decompose_addrstyle_without_index (rtx op, rtx *base,
+					HOST_WIDE_INT *offset)
 {
-  HOST_WIDE_INT off = 0;
+  rtx off = NULL_RTX;
 
   /* We can have an integer constant, an address register,
      or a sum of the two.  */
-  if (GET_CODE (op) == CONST_INT)
+  if (CONST_SCALAR_INT_P (op))
     {
-      off = INTVAL (op);
+      off = op;
       op = NULL_RTX;
     }
-  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
+  if (op && GET_CODE (op) == PLUS && CONST_SCALAR_INT_P (XEXP (op, 1)))
     {
-      off = INTVAL (XEXP (op, 1));
+      off = XEXP (op, 1);
       op = XEXP (op, 0);
     }
   while (op && GET_CODE (op) == SUBREG)
@@ -2993,7 +3075,18 @@ s390_decompose_shift_count (rtx op, rtx *base, HOST_WIDE_INT *offset)
     return false;
 
   if (offset)
-    *offset = off;
+    {
+      if (off == NULL_RTX)
+	*offset = 0;
+      else if (CONST_INT_P (off))
+	*offset = INTVAL (off);
+      else if (CONST_WIDE_INT_P (off))
+	/* The offset will anyway be cut down to 12 bits so take just
+	   the lowest order chunk of the wide int.  */
+	*offset = CONST_WIDE_INT_ELT (off, 0);
+      else
+	gcc_unreachable ();
+    }
   if (base)
     *base = op;
 
@@ -3084,6 +3177,19 @@ s390_check_qrst_address (char c, rtx op, bool lit_pool_ok)
       decomposed = true;
     }
 
+  /* With reload, we sometimes get intermediate address forms that are
+     actually invalid as-is, but we need to accept them in the most
+     generic cases below ('R' or 'T'), since reload will in fact fix
+     them up.  LRA behaves differently here; we never see such forms,
+     but on the other hand, we need to strictly reject every invalid
+     address form.  Perform this check right up front.  */
+  if (lra_in_progress)
+    {
+      if (!decomposed && !s390_decompose_address (op, &addr))
+	return 0;
+      decomposed = true;
+    }
+
   switch (c)
     {
     case 'Q': /* no index short displacement */
@@ -3108,25 +3214,17 @@ s390_check_qrst_address (char c, rtx op, bool lit_pool_ok)
       break;
 
     case 'S': /* no index long displacement */
-      if (!TARGET_LONG_DISPLACEMENT)
-	return 0;
       if (!decomposed && !s390_decompose_address (op, &addr))
 	return 0;
       if (addr.indx)
 	return 0;
-      if (s390_short_displacement (addr.disp))
-	return 0;
       break;
 
     case 'T': /* with index long displacement */
-      if (!TARGET_LONG_DISPLACEMENT)
-	return 0;
       /* Any invalid address here will be fixed up by reload,
 	 so accept it for the most generic constraint.  */
-      if ((decomposed || s390_decompose_address (op, &addr))
-	  && s390_short_displacement (addr.disp))
-	return 0;
       break;
+
     default:
       return 0;
     }
@@ -3135,7 +3233,7 @@ s390_check_qrst_address (char c, rtx op, bool lit_pool_ok)
 
 
 /* Evaluates constraint strings described by the regular expression
-   ([A|B|Z](Q|R|S|T))|U|W|Y and returns 1 if OP is a valid operand for
+   ([A|B|Z](Q|R|S|T))|Y and returns 1 if OP is a valid operand for
    the constraint given in STR, or 0 else.  */
 
 int
@@ -3165,16 +3263,10 @@ s390_mem_constraint (const char *str, rtx op)
       if (GET_CODE (op) != MEM)
 	return 0;
       return s390_check_qrst_address (c, XEXP (op, 0), true);
-    case 'U':
-      return (s390_check_qrst_address ('Q', op, true)
-	      || s390_check_qrst_address ('R', op, true));
-    case 'W':
-      return (s390_check_qrst_address ('S', op, true)
-	      || s390_check_qrst_address ('T', op, true));
     case 'Y':
       /* Simply check for the basic form of a shift count.  Reload will
 	 take care of making sure we have a proper base register.  */
-      if (!s390_decompose_shift_count (op, NULL, NULL))
+      if (!s390_decompose_addrstyle_without_index (op, NULL, NULL))
 	return 0;
       break;
     case 'Z':
@@ -3339,8 +3431,10 @@ s390_memory_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
-   scanned.  In either case, *TOTAL contains the cost result.
-   OUTER_CODE contains the code of the superexpression of x.  */
+   scanned.  In either case, *TOTAL contains the cost result.  The
+   initial value of *TOTAL is the default value computed by
+   rtx_cost.  It may be left unmodified.  OUTER_CODE contains the
+   code of the superexpression of x.  */
 
 static bool
 s390_rtx_costs (rtx x, machine_mode mode, int outer_code,
@@ -3374,6 +3468,7 @@ s390_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  *total = COSTS_N_INSNS (2);
 	  return true;
 	}
+      /* fallthrough */
     case ASHIFT:
     case ASHIFTRT:
     case LSHIFTRT:
@@ -5600,6 +5695,124 @@ s390_expand_vec_strlen (rtx target, rtx string, rtx alignment)
     emit_move_insn (target, temp);
 }
 
+void
+s390_expand_vec_movstr (rtx result, rtx dst, rtx src)
+{
+  int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
+  rtx temp = gen_reg_rtx (Pmode);
+  rtx src_addr = XEXP (src, 0);
+  rtx dst_addr = XEXP (dst, 0);
+  rtx src_addr_reg = gen_reg_rtx (Pmode);
+  rtx dst_addr_reg = gen_reg_rtx (Pmode);
+  rtx offset = gen_reg_rtx (Pmode);
+  rtx vsrc = gen_reg_rtx (V16QImode);
+  rtx vpos = gen_reg_rtx (V16QImode);
+  rtx loadlen = gen_reg_rtx (SImode);
+  rtx gpos_qi = gen_reg_rtx(QImode);
+  rtx gpos = gen_reg_rtx (SImode);
+  rtx done_label = gen_label_rtx ();
+  rtx loop_label = gen_label_rtx ();
+  rtx exit_label = gen_label_rtx ();
+  rtx full_label = gen_label_rtx ();
+
+  /* Perform a quick check for string ending on the first up to 16
+     bytes and exit early if successful.  */
+
+  emit_insn (gen_vlbb (vsrc, src, GEN_INT (6)));
+  emit_insn (gen_lcbb (loadlen, src_addr, GEN_INT (6)));
+  emit_insn (gen_vfenezv16qi (vpos, vsrc, vsrc));
+  emit_insn (gen_vec_extractv16qi (gpos_qi, vpos, GEN_INT (7)));
+  emit_move_insn (gpos, gen_rtx_SUBREG (SImode, gpos_qi, 0));
+  /* gpos is the byte index if a zero was found and 16 otherwise.
+     So if it is lower than the loaded bytes we have a hit.  */
+  emit_cmp_and_jump_insns (gpos, loadlen, GE, NULL_RTX, SImode, 1,
+			   full_label);
+  emit_insn (gen_vstlv16qi (vsrc, gpos, dst));
+
+  force_expand_binop (Pmode, add_optab, dst_addr, gpos, result,
+		      1, OPTAB_DIRECT);
+  emit_jump (exit_label);
+  emit_barrier ();
+
+  emit_label (full_label);
+  LABEL_NUSES (full_label) = 1;
+
+  /* Calculate `offset' so that src + offset points to the last byte
+     before 16 byte alignment.  */
+
+  /* temp = src_addr & 0xf */
+  force_expand_binop (Pmode, and_optab, src_addr, GEN_INT (15), temp,
+		      1, OPTAB_DIRECT);
+
+  /* offset = 0xf - temp */
+  emit_move_insn (offset, GEN_INT (15));
+  force_expand_binop (Pmode, sub_optab, offset, temp, offset,
+		      1, OPTAB_DIRECT);
+
+  /* Store `offset' bytes in the dstination string.  The quick check
+     has loaded at least `offset' bytes into vsrc.  */
+
+  emit_insn (gen_vstlv16qi (vsrc, gen_lowpart (SImode, offset), dst));
+
+  /* Advance to the next byte to be loaded.  */
+  force_expand_binop (Pmode, add_optab, offset, const1_rtx, offset,
+		      1, OPTAB_DIRECT);
+
+  /* Make sure the addresses are single regs which can be used as a
+     base.  */
+  emit_move_insn (src_addr_reg, src_addr);
+  emit_move_insn (dst_addr_reg, dst_addr);
+
+  /* MAIN LOOP */
+
+  emit_label (loop_label);
+  LABEL_NUSES (loop_label) = 1;
+
+  emit_move_insn (vsrc,
+		  gen_rtx_MEM (V16QImode,
+			       gen_rtx_PLUS (Pmode, src_addr_reg, offset)));
+
+  emit_insn (gen_vec_vfenesv16qi (vpos, vsrc, vsrc,
+				  GEN_INT (VSTRING_FLAG_ZS | VSTRING_FLAG_CS)));
+  add_int_reg_note (s390_emit_ccraw_jump (8, EQ, done_label),
+		    REG_BR_PROB, very_unlikely);
+
+  emit_move_insn (gen_rtx_MEM (V16QImode,
+			       gen_rtx_PLUS (Pmode, dst_addr_reg, offset)),
+		  vsrc);
+  /* offset += 16 */
+  force_expand_binop (Pmode, add_optab, offset, GEN_INT (16),
+		      offset,  1, OPTAB_DIRECT);
+
+  emit_jump (loop_label);
+  emit_barrier ();
+
+  /* REGULAR EXIT */
+
+  /* We are done.  Add the offset of the zero character to the dst_addr
+     pointer to get the result.  */
+
+  emit_label (done_label);
+  LABEL_NUSES (done_label) = 1;
+
+  force_expand_binop (Pmode, add_optab, dst_addr_reg, offset, dst_addr_reg,
+		      1, OPTAB_DIRECT);
+
+  emit_insn (gen_vec_extractv16qi (gpos_qi, vpos, GEN_INT (7)));
+  emit_move_insn (gpos, gen_rtx_SUBREG (SImode, gpos_qi, 0));
+
+  emit_insn (gen_vstlv16qi (vsrc, gpos, gen_rtx_MEM (BLKmode, dst_addr_reg)));
+
+  force_expand_binop (Pmode, add_optab, dst_addr_reg, gpos, result,
+		      1, OPTAB_DIRECT);
+
+  /* EARLY EXIT */
+
+  emit_label (exit_label);
+  LABEL_NUSES (exit_label) = 1;
+}
+
+
 /* Expand conditional increment or decrement using alc/slb instructions.
    Should generate code setting DST to either SRC or SRC + INCREMENT,
    depending on the result of the comparison CMP_OP0 CMP_CODE CMP_OP1.
@@ -5913,7 +6126,7 @@ s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
     {
       machine_mode mode_s = GET_MODE (src);
 
-      if (mode_s == VOIDmode)
+      if (CONSTANT_P (src))
 	{
 	  /* For constant zero values the representation with AND
 	     appears to be folded in more situations than the (set
@@ -6189,10 +6402,10 @@ s390_expand_vcond (rtx target, rtx then, rtx els,
      can be handled by the optimization above but not by the
      following code.  Hence, force them into registers here.  */
   if (!REG_P (cmp_op1))
-    cmp_op1 = force_reg (target_mode, cmp_op1);
+    cmp_op1 = force_reg (GET_MODE (cmp_op1), cmp_op1);
 
   if (!REG_P (cmp_op2))
-    cmp_op2 = force_reg (target_mode, cmp_op2);
+    cmp_op2 = force_reg (GET_MODE (cmp_op2), cmp_op2);
 
   s390_expand_vec_compare (result_target, cond,
 			   cmp_op1, cmp_op2);
@@ -6292,11 +6505,17 @@ s390_expand_vec_init (rtx target, rtx vals)
   /* Unfortunately the vec_init expander is not allowed to fail.  So
      we have to implement the fallback ourselves.  */
   for (i = 0; i < n_elts; i++)
-    emit_insn (gen_rtx_SET (target,
-			    gen_rtx_UNSPEC (mode,
-					    gen_rtvec (3, XVECEXP (vals, 0, i),
-						       GEN_INT (i), target),
-					    UNSPEC_VEC_SET)));
+    {
+      rtx elem = XVECEXP (vals, 0, i);
+      if (!general_operand (elem, GET_MODE (elem)))
+	elem = force_reg (inner_mode, elem);
+
+      emit_insn (gen_rtx_SET (target,
+			      gen_rtx_UNSPEC (mode,
+					      gen_rtvec (3, elem,
+							 GEN_INT (i), target),
+					      UNSPEC_VEC_SET)));
+    }
 }
 
 /* Structure to hold the initial parameters for a compare_and_swap operation
@@ -6731,13 +6950,13 @@ s390_delegitimize_address (rtx orig_x)
    instead the rightmost bits are interpreted as the value.  */
 
 static void
-print_shift_count_operand (FILE *file, rtx op)
+print_addrstyle_operand (FILE *file, rtx op)
 {
   HOST_WIDE_INT offset;
   rtx base;
 
   /* Extract base register and offset.  */
-  if (!s390_decompose_shift_count (op, &base, &offset))
+  if (!s390_decompose_addrstyle_without_index (op, &base, &offset))
     gcc_unreachable ();
 
   /* Sanity check.  */
@@ -7033,7 +7252,8 @@ print_operand_address (FILE *file, rtx addr)
     'O': print only the displacement of a memory reference or address.
     'R': print only the base register of a memory reference or address.
     'S': print S-type memory reference (base+displacement).
-    'Y': print shift count operand.
+    'Y': print address style operand without index (e.g. shift count or setmem
+	 operand).
 
     'b': print integer X as if it's an unsigned byte.
     'c': print integer X as if it's an signed byte.
@@ -7201,7 +7421,7 @@ print_operand (FILE *file, rtx x, int code)
       break;
 
     case 'Y':
-      print_shift_count_operand (file, x);
+      print_addrstyle_operand (file, x);
       return;
     }
 
@@ -7268,16 +7488,17 @@ print_operand (FILE *file, rtx x, int code)
 	case 'e': case 'f':
 	case 's': case 't':
 	  {
-	    int pos, len;
+	    int start, end;
+	    int len;
 	    bool ok;
 
 	    len = (code == 's' || code == 'e' ? 64 : 32);
-	    ok = s390_contiguous_bitmask_p (ival, len, &pos, &len);
+	    ok = s390_contiguous_bitmask_p (ival, true, len, &start, &end);
 	    gcc_assert (ok);
 	    if (code == 's' || code == 't')
-	      ival = 64 - pos - len;
+	      ival = start;
 	    else
-	      ival = 64 - 1 - pos;
+	      ival = end;
 	  }
 	  break;
 	default:
@@ -7317,16 +7538,12 @@ print_operand (FILE *file, rtx x, int code)
 	case 'e':
 	case 's':
 	  {
-	    int start, stop, inner_len;
+	    int start, end;
 	    bool ok;
 
-	    inner_len = GET_MODE_UNIT_BITSIZE (GET_MODE (x));
-	    ok = s390_contiguous_bitmask_vector_p (x, &start, &stop);
+	    ok = s390_contiguous_bitmask_vector_p (x, &start, &end);
 	    gcc_assert (ok);
-	    if (code == 's' || code == 't')
-	      ival = inner_len - stop - 1;
-	    else
-	      ival = inner_len - start - 1;
+	    ival = (code == 's') ? start : end;
 	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, ival);
 	  }
 	  break;
@@ -9198,7 +9415,7 @@ s390_register_info_gprtofpr ()
 
   for (i = 15; i >= 6; i--)
     {
-      if (cfun_gpr_save_slot (i) == 0)
+      if (cfun_gpr_save_slot (i) == SAVE_SLOT_NONE)
 	continue;
 
       /* Advance to the next FP register which can be used as a
@@ -9215,7 +9432,7 @@ s390_register_info_gprtofpr ()
 	     case we ran out of FPR save slots.  */
 	  for (j = 6; j <= 15; j++)
 	    if (FP_REGNO_P (cfun_gpr_save_slot (j)))
-	      cfun_gpr_save_slot (j) = -1;
+	      cfun_gpr_save_slot (j) = SAVE_SLOT_STACK;
 	  break;
 	}
       cfun_gpr_save_slot (i) = save_reg_slot++;
@@ -9242,12 +9459,16 @@ s390_register_info_stdarg_fpr ()
     return;
 
   min_fpr = crtl->args.info.fprs;
-  max_fpr = min_fpr + cfun->va_list_fpr_size;
-  if (max_fpr > FP_ARG_NUM_REG)
-    max_fpr = FP_ARG_NUM_REG;
+  max_fpr = min_fpr + cfun->va_list_fpr_size - 1;
+  if (max_fpr >= FP_ARG_NUM_REG)
+    max_fpr = FP_ARG_NUM_REG - 1;
 
-  for (i = min_fpr; i < max_fpr; i++)
-    cfun_set_fpr_save (i + FPR0_REGNUM);
+  /* FPR argument regs start at f0.  */
+  min_fpr += FPR0_REGNUM;
+  max_fpr += FPR0_REGNUM;
+
+  for (i = min_fpr; i <= max_fpr; i++)
+    cfun_set_fpr_save (i);
 }
 
 /* Reserve the GPR save slots for GPRs which need to be saved due to
@@ -9267,12 +9488,61 @@ s390_register_info_stdarg_gpr ()
     return;
 
   min_gpr = crtl->args.info.gprs;
-  max_gpr = min_gpr + cfun->va_list_gpr_size;
-  if (max_gpr > GP_ARG_NUM_REG)
-    max_gpr = GP_ARG_NUM_REG;
+  max_gpr = min_gpr + cfun->va_list_gpr_size - 1;
+  if (max_gpr >= GP_ARG_NUM_REG)
+    max_gpr = GP_ARG_NUM_REG - 1;
 
-  for (i = min_gpr; i < max_gpr; i++)
-    cfun_gpr_save_slot (2 + i) = -1;
+  /* GPR argument regs start at r2.  */
+  min_gpr += GPR2_REGNUM;
+  max_gpr += GPR2_REGNUM;
+
+  /* If r6 was supposed to be saved into an FPR and now needs to go to
+     the stack for vararg we have to adjust the restore range to make
+     sure that the restore is done from stack as well.  */
+  if (FP_REGNO_P (cfun_gpr_save_slot (GPR6_REGNUM))
+      && min_gpr <= GPR6_REGNUM
+      && max_gpr >= GPR6_REGNUM)
+    {
+      if (cfun_frame_layout.first_restore_gpr == -1
+	  || cfun_frame_layout.first_restore_gpr > GPR6_REGNUM)
+	cfun_frame_layout.first_restore_gpr = GPR6_REGNUM;
+      if (cfun_frame_layout.last_restore_gpr == -1
+	  || cfun_frame_layout.last_restore_gpr < GPR6_REGNUM)
+	cfun_frame_layout.last_restore_gpr = GPR6_REGNUM;
+    }
+
+  if (cfun_frame_layout.first_save_gpr == -1
+      || cfun_frame_layout.first_save_gpr > min_gpr)
+    cfun_frame_layout.first_save_gpr = min_gpr;
+
+  if (cfun_frame_layout.last_save_gpr == -1
+      || cfun_frame_layout.last_save_gpr < max_gpr)
+    cfun_frame_layout.last_save_gpr = max_gpr;
+
+  for (i = min_gpr; i <= max_gpr; i++)
+    cfun_gpr_save_slot (i) = SAVE_SLOT_STACK;
+}
+
+/* Calculate the save and restore ranges for stm(g) and lm(g) in the
+   prologue and epilogue.  */
+
+static void
+s390_register_info_set_ranges ()
+{
+  int i, j;
+
+  /* Find the first and the last save slot supposed to use the stack
+     to set the restore range.
+     Vararg regs might be marked as save to stack but only the
+     call-saved regs really need restoring (i.e. r6).  This code
+     assumes that the vararg regs have not yet been recorded in
+     cfun_gpr_save_slot.  */
+  for (i = 0; i < 16 && cfun_gpr_save_slot (i) != SAVE_SLOT_STACK; i++);
+  for (j = 15; j > i && cfun_gpr_save_slot (j) != SAVE_SLOT_STACK; j--);
+  cfun_frame_layout.first_restore_gpr = (i == 16) ? -1 : i;
+  cfun_frame_layout.last_restore_gpr = (i == 16) ? -1 : j;
+  cfun_frame_layout.first_save_gpr = (i == 16) ? -1 : i;
+  cfun_frame_layout.last_save_gpr = (i == 16) ? -1 : j;
 }
 
 /* The GPR and FPR save slots in cfun->machine->frame_layout are set
@@ -9283,7 +9553,7 @@ s390_register_info_stdarg_gpr ()
 static void
 s390_register_info ()
 {
-  int i, j;
+  int i;
   char clobbered_regs[32];
 
   gcc_assert (!epilogue_completed);
@@ -9316,9 +9586,13 @@ s390_register_info ()
 	  cfun_frame_layout.high_fprs++;
       }
 
-  if (flag_pic)
-    clobbered_regs[PIC_OFFSET_TABLE_REGNUM]
-      |= !!df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM);
+  /* Register 12 is used for GOT address, but also as temp in prologue
+     for split-stack stdarg functions (unless r14 is available).  */
+  clobbered_regs[12]
+    |= ((flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
+	|| (flag_split_stack && cfun->stdarg
+	    && (crtl->is_leaf || TARGET_TPF_PROFILING
+		|| has_hard_reg_initial_val (Pmode, RETURN_REGNUM))));
 
   clobbered_regs[BASE_REGNUM]
     |= (cfun->machine->base_reg
@@ -9347,33 +9621,20 @@ s390_register_info ()
 	|| (reload_completed && cfun_frame_layout.frame_size > 0)
 	|| cfun->calls_alloca);
 
-  memset (cfun_frame_layout.gpr_save_slots, 0, 16);
+  memset (cfun_frame_layout.gpr_save_slots, SAVE_SLOT_NONE, 16);
 
   for (i = 6; i < 16; i++)
     if (clobbered_regs[i])
-      cfun_gpr_save_slot (i) = -1;
+      cfun_gpr_save_slot (i) = SAVE_SLOT_STACK;
 
   s390_register_info_stdarg_fpr ();
   s390_register_info_gprtofpr ();
-
-  /* First find the range of GPRs to be restored.  Vararg regs don't
-     need to be restored so we do it before assigning slots to the
-     vararg GPRs.  */
-  for (i = 0; i < 16 && cfun_gpr_save_slot (i) != -1; i++);
-  for (j = 15; j > i && cfun_gpr_save_slot (j) != -1; j--);
-  cfun_frame_layout.first_restore_gpr = (i == 16) ? -1 : i;
-  cfun_frame_layout.last_restore_gpr = (i == 16) ? -1 : j;
-
+  s390_register_info_set_ranges ();
   /* stdarg functions might need to save GPRs 2 to 6.  This might
-     override the GPR->FPR save decision made above for r6 since
-     vararg regs must go to the stack.  */
+     override the GPR->FPR save decision made by
+     s390_register_info_gprtofpr for r6 since vararg regs must go to
+     the stack.  */
   s390_register_info_stdarg_gpr ();
-
-  /* Now the range of GPRs which need saving.  */
-  for (i = 0; i < 16 && cfun_gpr_save_slot (i) != -1; i++);
-  for (j = 15; j > i && cfun_gpr_save_slot (j) != -1; j--);
-  cfun_frame_layout.first_save_gpr = (i == 16) ? -1 : i;
-  cfun_frame_layout.last_save_gpr = (i == 16) ? -1 : j;
 }
 
 /* This function is called by s390_optimize_prologue in order to get
@@ -9384,7 +9645,7 @@ static void
 s390_optimize_register_info ()
 {
   char clobbered_regs[32];
-  int i, j;
+  int i;
 
   gcc_assert (epilogue_completed);
   gcc_assert (!cfun->machine->split_branches_pending_p);
@@ -9407,23 +9668,14 @@ s390_optimize_register_info ()
 	|| cfun_frame_layout.save_return_addr_p
 	|| crtl->calls_eh_return);
 
-  memset (cfun_frame_layout.gpr_save_slots, 0, 6);
+  memset (cfun_frame_layout.gpr_save_slots, SAVE_SLOT_NONE, 6);
 
   for (i = 6; i < 16; i++)
     if (!clobbered_regs[i])
-      cfun_gpr_save_slot (i) = 0;
+      cfun_gpr_save_slot (i) = SAVE_SLOT_NONE;
 
-  for (i = 0; i < 16 && cfun_gpr_save_slot (i) != -1; i++);
-  for (j = 15; j > i && cfun_gpr_save_slot (j) != -1; j--);
-  cfun_frame_layout.first_restore_gpr = (i == 16) ? -1 : i;
-  cfun_frame_layout.last_restore_gpr = (i == 16) ? -1 : j;
-
+  s390_register_info_set_ranges ();
   s390_register_info_stdarg_gpr ();
-
-  for (i = 0; i < 16 && cfun_gpr_save_slot (i) != -1; i++);
-  for (j = 15; j > i && cfun_gpr_save_slot (j) != -1; j--);
-  cfun_frame_layout.first_save_gpr = (i == 16) ? -1 : i;
-  cfun_frame_layout.last_save_gpr = (i == 16) ? -1 : j;
 }
 
 /* Fill cfun->machine with info about frame of current function.  */
@@ -9844,7 +10096,7 @@ s390_hard_regno_rename_ok (unsigned int old_reg, unsigned int new_reg)
      regrename manually about it.  */
   if (GENERAL_REGNO_P (new_reg)
       && !call_really_used_regs[new_reg]
-      && cfun_gpr_save_slot (new_reg) == 0)
+      && cfun_gpr_save_slot (new_reg) == SAVE_SLOT_NONE)
     return false;
 
   return true;
@@ -9859,7 +10111,7 @@ s390_hard_regno_scratch_ok (unsigned int regno)
   /* See s390_hard_regno_rename_ok.  */
   if (GENERAL_REGNO_P (regno)
       && !call_really_used_regs[regno]
-      && cfun_gpr_save_slot (regno) == 0)
+      && cfun_gpr_save_slot (regno) == SAVE_SLOT_NONE)
     return false;
 
   return true;
@@ -10352,19 +10604,25 @@ s390_restore_gprs_from_fprs (void)
 
   for (i = 6; i < 16; i++)
     {
-      if (FP_REGNO_P (cfun_gpr_save_slot (i)))
-	{
-	  rtx_insn *insn =
-	    emit_move_insn (gen_rtx_REG (DImode, i),
-			    gen_rtx_REG (DImode, cfun_gpr_save_slot (i)));
-	  df_set_regs_ever_live (i, true);
-	  add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (DImode, i));
-	  if (i == STACK_POINTER_REGNUM)
-	    add_reg_note (insn, REG_CFA_DEF_CFA,
-			  plus_constant (Pmode, stack_pointer_rtx,
-					 STACK_POINTER_OFFSET));
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	}
+      rtx_insn *insn;
+
+      if (!FP_REGNO_P (cfun_gpr_save_slot (i)))
+	continue;
+
+      rtx fpr = gen_rtx_REG (DImode, cfun_gpr_save_slot (i));
+
+      if (i == STACK_POINTER_REGNUM)
+	insn = emit_insn (gen_stack_restore_from_fpr (fpr));
+      else
+	insn = emit_move_insn (gen_rtx_REG (DImode, i), fpr);
+
+      df_set_regs_ever_live (i, true);
+      add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (DImode, i));
+      if (i == STACK_POINTER_REGNUM)
+	add_reg_note (insn, REG_CFA_DEF_CFA,
+		      plus_constant (Pmode, stack_pointer_rtx,
+				     STACK_POINTER_OFFSET));
+      RTX_FRAME_RELATED_P (insn) = 1;
     }
 }
 
@@ -10440,12 +10698,15 @@ s390_emit_prologue (void)
   int next_fpr = 0;
 
   /* Choose best register to use for temp use within prologue.
-     See below for why TPF must use the register 1.  */
+     TPF with profiling must avoid the register 14 - the tracing function
+     needs the original contents of r14 to be preserved.  */
 
   if (!has_hard_reg_initial_val (Pmode, RETURN_REGNUM)
       && !crtl->is_leaf
       && !TARGET_TPF_PROFILING)
     temp_reg = gen_rtx_REG (Pmode, RETURN_REGNUM);
+  else if (flag_split_stack && cfun->stdarg)
+    temp_reg = gen_rtx_REG (Pmode, 12);
   else
     temp_reg = gen_rtx_REG (Pmode, 1);
 
@@ -10875,7 +11136,7 @@ s390_emit_epilogue (bool sibcall)
 	     be in between two GPRs which need saving.)  Otherwise it
 	     would be difficult to take that decision back in
 	     s390_optimize_prologue.  */
-	  if (cfun_gpr_save_slot (RETURN_REGNUM) == -1)
+	  if (cfun_gpr_save_slot (RETURN_REGNUM) == SAVE_SLOT_STACK)
 	    {
 	      int return_regnum = find_unused_clobbered_reg();
 	      if (!return_regnum)
@@ -10939,6 +11200,166 @@ s300_set_up_by_prologue (hard_reg_set_container *regs)
     SET_HARD_REG_BIT (regs->set, REGNO (cfun->machine->base_reg));
 }
 
+/* -fsplit-stack support.  */
+
+/* A SYMBOL_REF for __morestack.  */
+static GTY(()) rtx morestack_ref;
+
+/* When using -fsplit-stack, the allocation routines set a field in
+   the TCB to the bottom of the stack plus this much space, measured
+   in bytes.  */
+
+#define SPLIT_STACK_AVAILABLE 1024
+
+/* Emit -fsplit-stack prologue, which goes before the regular function
+   prologue.  */
+
+void
+s390_expand_split_stack_prologue (void)
+{
+  rtx r1, guard, cc = NULL;
+  rtx_insn *insn;
+  /* Offset from thread pointer to __private_ss.  */
+  int psso = TARGET_64BIT ? 0x38 : 0x20;
+  /* Pointer size in bytes.  */
+  /* Frame size and argument size - the two parameters to __morestack.  */
+  HOST_WIDE_INT frame_size = cfun_frame_layout.frame_size;
+  /* Align argument size to 8 bytes - simplifies __morestack code.  */
+  HOST_WIDE_INT args_size = crtl->args.size >= 0
+			    ? ((crtl->args.size + 7) & ~7)
+			    : 0;
+  /* Label to be called by __morestack.  */
+  rtx_code_label *call_done = NULL;
+  rtx_code_label *parm_base = NULL;
+  rtx tmp;
+
+  gcc_assert (flag_split_stack && reload_completed);
+  if (!TARGET_CPU_ZARCH)
+    {
+      sorry ("CPUs older than z900 are not supported for -fsplit-stack");
+      return;
+    }
+
+  r1 = gen_rtx_REG (Pmode, 1);
+
+  /* If no stack frame will be allocated, don't do anything.  */
+  if (!frame_size)
+    {
+      if (cfun->machine->split_stack_varargs_pointer != NULL_RTX)
+	{
+	  /* If va_start is used, just use r15.  */
+	  emit_move_insn (r1,
+			 gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				       GEN_INT (STACK_POINTER_OFFSET)));
+
+	}
+      return;
+    }
+
+  if (morestack_ref == NULL_RTX)
+    {
+      morestack_ref = gen_rtx_SYMBOL_REF (Pmode, "__morestack");
+      SYMBOL_REF_FLAGS (morestack_ref) |= (SYMBOL_FLAG_LOCAL
+					   | SYMBOL_FLAG_FUNCTION);
+    }
+
+  if (CONST_OK_FOR_K (frame_size) || CONST_OK_FOR_Op (frame_size))
+    {
+      /* If frame_size will fit in an add instruction, do a stack space
+	 check, and only call __morestack if there's not enough space.  */
+
+      /* Get thread pointer.  r1 is the only register we can always destroy - r0
+	 could contain a static chain (and cannot be used to address memory
+	 anyway), r2-r6 can contain parameters, and r6-r15 are callee-saved.  */
+      emit_move_insn (r1, gen_rtx_REG (Pmode, TP_REGNUM));
+      /* Aim at __private_ss.  */
+      guard = gen_rtx_MEM (Pmode, plus_constant (Pmode, r1, psso));
+
+      /* If less that 1kiB used, skip addition and compare directly with
+	 __private_ss.  */
+      if (frame_size > SPLIT_STACK_AVAILABLE)
+	{
+	  emit_move_insn (r1, guard);
+	  if (TARGET_64BIT)
+	    emit_insn (gen_adddi3 (r1, r1, GEN_INT (frame_size)));
+	  else
+	    emit_insn (gen_addsi3 (r1, r1, GEN_INT (frame_size)));
+	  guard = r1;
+	}
+
+      /* Compare the (maybe adjusted) guard with the stack pointer.  */
+      cc = s390_emit_compare (LT, stack_pointer_rtx, guard);
+    }
+
+  call_done = gen_label_rtx ();
+  parm_base = gen_label_rtx ();
+
+  /* Emit the parameter block.  */
+  tmp = gen_split_stack_data (parm_base, call_done,
+			      GEN_INT (frame_size),
+			      GEN_INT (args_size));
+  insn = emit_insn (tmp);
+  add_reg_note (insn, REG_LABEL_OPERAND, call_done);
+  LABEL_NUSES (call_done)++;
+  add_reg_note (insn, REG_LABEL_OPERAND, parm_base);
+  LABEL_NUSES (parm_base)++;
+
+  /* %r1 = litbase.  */
+  insn = emit_move_insn (r1, gen_rtx_LABEL_REF (VOIDmode, parm_base));
+  add_reg_note (insn, REG_LABEL_OPERAND, parm_base);
+  LABEL_NUSES (parm_base)++;
+
+  /* Now, we need to call __morestack.  It has very special calling
+     conventions: it preserves param/return/static chain registers for
+     calling main function body, and looks for its own parameters at %r1. */
+
+  if (cc != NULL)
+    {
+      tmp = gen_split_stack_cond_call (morestack_ref, cc, call_done);
+
+      insn = emit_jump_insn (tmp);
+      JUMP_LABEL (insn) = call_done;
+      LABEL_NUSES (call_done)++;
+
+      /* Mark the jump as very unlikely to be taken.  */
+      add_int_reg_note (insn, REG_BR_PROB, REG_BR_PROB_BASE / 100);
+
+      if (cfun->machine->split_stack_varargs_pointer != NULL_RTX)
+	{
+	  /* If va_start is used, and __morestack was not called, just use
+	     r15.  */
+	  emit_move_insn (r1,
+			 gen_rtx_PLUS (Pmode, stack_pointer_rtx,
+				       GEN_INT (STACK_POINTER_OFFSET)));
+	}
+    }
+  else
+    {
+      tmp = gen_split_stack_call (morestack_ref, call_done);
+      insn = emit_jump_insn (tmp);
+      JUMP_LABEL (insn) = call_done;
+      LABEL_NUSES (call_done)++;
+      emit_barrier ();
+    }
+
+  /* __morestack will call us here.  */
+
+  emit_label (call_done);
+}
+
+/* We may have to tell the dataflow pass that the split stack prologue
+   is initializing a register.  */
+
+static void
+s390_live_on_entry (bitmap regs)
+{
+  if (cfun->machine->split_stack_varargs_pointer != NULL_RTX)
+    {
+      gcc_assert (flag_split_stack);
+      bitmap_set_bit (regs, 1);
+    }
+}
+
 /* Return true if the function can use simple_return to return outside
    of a shrink-wrapped region.  At present shrink-wrapping is supported
    in all cases.  */
@@ -10969,7 +11390,7 @@ s390_can_use_return_insn (void)
     return false;
 
   for (i = 0; i < 16; i++)
-    if (cfun_gpr_save_slot (i))
+    if (cfun_gpr_save_slot (i) != SAVE_SLOT_NONE)
       return false;
 
   /* For 31 bit this is not covered by the frame_size check below
@@ -11541,6 +11962,27 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
+  if (flag_split_stack
+     && (lookup_attribute ("no_split_stack", DECL_ATTRIBUTES (cfun->decl))
+         == NULL)
+     && cfun->machine->split_stack_varargs_pointer == NULL_RTX)
+    {
+      rtx reg;
+      rtx_insn *seq;
+
+      reg = gen_reg_rtx (Pmode);
+      cfun->machine->split_stack_varargs_pointer = reg;
+
+      start_sequence ();
+      emit_move_insn (reg, gen_rtx_REG (Pmode, 1));
+      seq = get_insns ();
+      end_sequence ();
+
+      push_topmost_sequence ();
+      emit_insn_after (seq, entry_of_function ());
+      pop_topmost_sequence ();
+    }
+
   /* Find the overflow area.
      FIXME: This currently is too pessimistic when the vector ABI is
      enabled.  In that case we *always* set up the overflow area
@@ -11549,7 +11991,10 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
       || n_fpr + cfun->va_list_fpr_size > FP_ARG_NUM_REG
       || TARGET_VX_ABI)
     {
-      t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
+      if (cfun->machine->split_stack_varargs_pointer == NULL_RTX)
+        t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
+      else
+        t = make_tree (TREE_TYPE (ovf), cfun->machine->split_stack_varargs_pointer);
 
       off = INTVAL (crtl->args.arg_offset_rtx);
       off = off < 0 ? 0 : off;
@@ -11974,6 +12419,13 @@ s390_function_profiler (FILE *file, int labelno)
       output_asm_insn ("brasl\t%0,%4", op);
       output_asm_insn ("lg\t%0,%1", op);
     }
+  else if (TARGET_CPU_ZARCH)
+    {
+      output_asm_insn ("st\t%0,%1", op);
+      output_asm_insn ("larl\t%2,%3", op);
+      output_asm_insn ("brasl\t%0,%4", op);
+      output_asm_insn ("l\t%0,%1", op);
+    }
   else if (!flag_pic)
     {
       op[6] = gen_label_rtx ();
@@ -12019,17 +12471,13 @@ s390_encode_section_info (tree decl, rtx rtl, int first)
     {
       /* Store the alignment to be able to check if we can use
 	 a larl/load-relative instruction.  We only handle the cases
-	 that can go wrong (i.e. no FUNC_DECLs).  If a symref does
-	 not have any flag we assume it to be correctly aligned.  */
-
-      if (DECL_ALIGN (decl) % 64)
-	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
-
-      if (DECL_ALIGN (decl) % 32)
-	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
-
+	 that can go wrong (i.e. no FUNC_DECLs).  */
       if (DECL_ALIGN (decl) == 0 || DECL_ALIGN (decl) % 16)
 	SYMBOL_FLAG_SET_NOTALIGN2 (XEXP (rtl, 0));
+      else if (DECL_ALIGN (decl) % 32)
+	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
+      else if (DECL_ALIGN (decl) % 64)
+	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
     }
 
   /* Literal pool references don't have a decl so they are handled
@@ -12037,18 +12485,14 @@ s390_encode_section_info (tree decl, rtx rtl, int first)
      entry to decide upon the alignment.  */
   if (MEM_P (rtl)
       && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
-      && TREE_CONSTANT_POOL_ADDRESS_P (XEXP (rtl, 0))
-      && MEM_ALIGN (rtl) != 0
-      && GET_MODE_BITSIZE (GET_MODE (rtl)) != 0)
+      && TREE_CONSTANT_POOL_ADDRESS_P (XEXP (rtl, 0)))
     {
-      if (MEM_ALIGN (rtl) % 64)
-	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
-
-      if (MEM_ALIGN (rtl) % 32)
-	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
-
       if (MEM_ALIGN (rtl) == 0 || MEM_ALIGN (rtl) % 16)
 	SYMBOL_FLAG_SET_NOTALIGN2 (XEXP (rtl, 0));
+      else if (MEM_ALIGN (rtl) % 32)
+	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
+      else if (MEM_ALIGN (rtl) % 64)
+	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
     }
 }
 
@@ -12470,7 +12914,7 @@ s390_emit_call (rtx addr_location, rtx tls_call, rtx result_reg,
          replace the symbol itself with the PLT stub.  */
       if (flag_pic && !SYMBOL_REF_LOCAL_P (addr_location))
         {
-	  if (retaddr_reg != NULL_RTX)
+	  if (TARGET_64BIT || retaddr_reg != NULL_RTX)
 	    {
 	      addr_location = gen_rtx_UNSPEC (Pmode,
 					      gen_rtvec (1, addr_location),
@@ -12652,37 +13096,46 @@ s390_optimize_prologue (void)
 
       /* Remove ldgr/lgdr instructions used for saving and restore
 	 GPRs if possible.  */
-      if (TARGET_Z10
-	  && GET_CODE (pat) == SET
-	  && GET_MODE (SET_SRC (pat)) == DImode
-	  && REG_P (SET_SRC (pat))
-	  && REG_P (SET_DEST (pat)))
+      if (TARGET_Z10)
 	{
-	  int src_regno = REGNO (SET_SRC (pat));
-	  int dest_regno = REGNO (SET_DEST (pat));
-	  int gpr_regno;
-	  int fpr_regno;
+	  rtx tmp_pat = pat;
 
-	  if (!((GENERAL_REGNO_P (src_regno) && FP_REGNO_P (dest_regno))
-		|| (FP_REGNO_P (src_regno) && GENERAL_REGNO_P (dest_regno))))
-	    continue;
+	  if (INSN_CODE (insn) == CODE_FOR_stack_restore_from_fpr)
+	    tmp_pat = XVECEXP (pat, 0, 0);
 
-	  gpr_regno = GENERAL_REGNO_P (src_regno) ? src_regno : dest_regno;
-	  fpr_regno = FP_REGNO_P (src_regno) ? src_regno : dest_regno;
-
-	  /* GPR must be call-saved, FPR must be call-clobbered.  */
-	  if (!call_really_used_regs[fpr_regno]
-	      || call_really_used_regs[gpr_regno])
-	    continue;
-
-	  /* It must not happen that what we once saved in an FPR now
-	     needs a stack slot.  */
-	  gcc_assert (cfun_gpr_save_slot (gpr_regno) != -1);
-
-	  if (cfun_gpr_save_slot (gpr_regno) == 0)
+	  if (GET_CODE (tmp_pat) == SET
+	      && GET_MODE (SET_SRC (tmp_pat)) == DImode
+	      && REG_P (SET_SRC (tmp_pat))
+	      && REG_P (SET_DEST (tmp_pat)))
 	    {
-	      remove_insn (insn);
-	      continue;
+	      int src_regno = REGNO (SET_SRC (tmp_pat));
+	      int dest_regno = REGNO (SET_DEST (tmp_pat));
+	      int gpr_regno;
+	      int fpr_regno;
+
+	      if (!((GENERAL_REGNO_P (src_regno)
+		     && FP_REGNO_P (dest_regno))
+		    || (FP_REGNO_P (src_regno)
+			&& GENERAL_REGNO_P (dest_regno))))
+		continue;
+
+	      gpr_regno = GENERAL_REGNO_P (src_regno) ? src_regno : dest_regno;
+	      fpr_regno = FP_REGNO_P (src_regno) ? src_regno : dest_regno;
+
+	      /* GPR must be call-saved, FPR must be call-clobbered.  */
+	      if (!call_really_used_regs[fpr_regno]
+		  || call_really_used_regs[gpr_regno])
+		continue;
+
+	      /* It must not happen that what we once saved in an FPR now
+		 needs a stack slot.  */
+	      gcc_assert (cfun_gpr_save_slot (gpr_regno) != SAVE_SLOT_STACK);
+
+	      if (cfun_gpr_save_slot (gpr_regno) == SAVE_SLOT_NONE)
+		{
+		  remove_insn (insn);
+		  continue;
+		}
 	    }
 	}
 
@@ -13049,6 +13502,155 @@ s390_z10_optimize_cmp (rtx_insn *insn)
   return insn_added_p;
 }
 
+/* Number of INSNs to be scanned backward in the last BB of the loop
+   and forward in the first BB of the loop.  This usually should be a
+   bit more than the number of INSNs which could go into one
+   group.  */
+#define S390_OSC_SCAN_INSN_NUM 5
+
+/* Scan LOOP for static OSC collisions and return true if a osc_break
+   should be issued for this loop.  */
+static bool
+s390_adjust_loop_scan_osc (struct loop* loop)
+
+{
+  HARD_REG_SET modregs, newregs;
+  rtx_insn *insn, *store_insn = NULL;
+  rtx set;
+  struct s390_address addr_store, addr_load;
+  subrtx_iterator::array_type array;
+  int insn_count;
+
+  CLEAR_HARD_REG_SET (modregs);
+
+  insn_count = 0;
+  FOR_BB_INSNS_REVERSE (loop->latch, insn)
+    {
+      if (!INSN_P (insn) || INSN_CODE (insn) <= 0)
+	continue;
+
+      insn_count++;
+      if (insn_count > S390_OSC_SCAN_INSN_NUM)
+	return false;
+
+      find_all_hard_reg_sets (insn, &newregs, true);
+      IOR_HARD_REG_SET (modregs, newregs);
+
+      set = single_set (insn);
+      if (!set)
+	continue;
+
+      if (MEM_P (SET_DEST (set))
+	  && s390_decompose_address (XEXP (SET_DEST (set), 0), &addr_store))
+	{
+	  store_insn = insn;
+	  break;
+	}
+    }
+
+  if (store_insn == NULL_RTX)
+    return false;
+
+  insn_count = 0;
+  FOR_BB_INSNS (loop->header, insn)
+    {
+      if (!INSN_P (insn) || INSN_CODE (insn) <= 0)
+	continue;
+
+      if (insn == store_insn)
+	return false;
+
+      insn_count++;
+      if (insn_count > S390_OSC_SCAN_INSN_NUM)
+	return false;
+
+      find_all_hard_reg_sets (insn, &newregs, true);
+      IOR_HARD_REG_SET (modregs, newregs);
+
+      set = single_set (insn);
+      if (!set)
+	continue;
+
+      /* An intermediate store disrupts static OSC checking
+	 anyway.  */
+      if (MEM_P (SET_DEST (set))
+	  && s390_decompose_address (XEXP (SET_DEST (set), 0), NULL))
+	return false;
+
+      FOR_EACH_SUBRTX (iter, array, SET_SRC (set), NONCONST)
+	if (MEM_P (*iter)
+	    && s390_decompose_address (XEXP (*iter, 0), &addr_load)
+	    && rtx_equal_p (addr_load.base, addr_store.base)
+	    && rtx_equal_p (addr_load.indx, addr_store.indx)
+	    && rtx_equal_p (addr_load.disp, addr_store.disp))
+	  {
+	    if ((addr_load.base != NULL_RTX
+		 && TEST_HARD_REG_BIT (modregs, REGNO (addr_load.base)))
+		|| (addr_load.indx != NULL_RTX
+		    && TEST_HARD_REG_BIT (modregs, REGNO (addr_load.indx))))
+	      return true;
+	  }
+    }
+  return false;
+}
+
+/* Look for adjustments which can be done on simple innermost
+   loops.  */
+static void
+s390_adjust_loops ()
+{
+  struct loop *loop = NULL;
+
+  df_analyze ();
+  compute_bb_for_insn ();
+
+  /* Find the loops.  */
+  loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
+
+  FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
+    {
+      if (dump_file)
+	{
+	  flow_loop_dump (loop, dump_file, NULL, 0);
+	  fprintf (dump_file, ";;  OSC loop scan Loop: ");
+	}
+      if (loop->latch == NULL
+	  || pc_set (BB_END (loop->latch)) == NULL_RTX
+	  || !s390_adjust_loop_scan_osc (loop))
+	{
+	  if (dump_file)
+	    {
+	      if (loop->latch == NULL)
+		fprintf (dump_file, " muliple backward jumps\n");
+	      else
+		{
+		  fprintf (dump_file, " header insn: %d latch insn: %d ",
+			   INSN_UID (BB_HEAD (loop->header)),
+			   INSN_UID (BB_END (loop->latch)));
+		  if (pc_set (BB_END (loop->latch)) == NULL_RTX)
+		    fprintf (dump_file, " loop does not end with jump\n");
+		  else
+		    fprintf (dump_file, " not instrumented\n");
+		}
+	    }
+	}
+      else
+	{
+	  rtx_insn *new_insn;
+
+	  if (dump_file)
+	    fprintf (dump_file, " adding OSC break insn: ");
+	  new_insn = emit_insn_before (gen_osc_break (),
+				       BB_END (loop->latch));
+	  INSN_ADDRESSES_NEW (new_insn, -1);
+	}
+    }
+
+  loop_optimizer_finalize ();
+
+  df_finish_pass (false);
+}
+
 /* Perform machine-dependent processing.  */
 
 static void
@@ -13056,6 +13658,9 @@ s390_reorg (void)
 {
   bool pool_overflow = false;
   int hw_before, hw_after;
+
+  if (s390_tune == PROCESSOR_2964_Z13)
+    s390_adjust_loops ();
 
   /* Make sure all splits have been performed; splits after
      machine_dependent_reorg might confuse insn length counts.  */
@@ -13322,27 +13927,66 @@ s390_z10_prevent_earlyload_conflicts (rtx_insn **ready, int *nready_p)
 
 static int s390_sched_state;
 
-#define S390_OOO_SCHED_STATE_NORMAL  3
-#define S390_OOO_SCHED_STATE_CRACKED 4
+#define S390_SCHED_STATE_NORMAL  3
+#define S390_SCHED_STATE_CRACKED 4
 
-#define S390_OOO_SCHED_ATTR_MASK_CRACKED    0x1
-#define S390_OOO_SCHED_ATTR_MASK_EXPANDED   0x2
-#define S390_OOO_SCHED_ATTR_MASK_ENDGROUP   0x4
-#define S390_OOO_SCHED_ATTR_MASK_GROUPALONE 0x8
+#define S390_SCHED_ATTR_MASK_CRACKED    0x1
+#define S390_SCHED_ATTR_MASK_EXPANDED   0x2
+#define S390_SCHED_ATTR_MASK_ENDGROUP   0x4
+#define S390_SCHED_ATTR_MASK_GROUPALONE 0x8
 
 static unsigned int
 s390_get_sched_attrmask (rtx_insn *insn)
 {
   unsigned int mask = 0;
 
-  if (get_attr_ooo_cracked (insn))
-    mask |= S390_OOO_SCHED_ATTR_MASK_CRACKED;
-  if (get_attr_ooo_expanded (insn))
-    mask |= S390_OOO_SCHED_ATTR_MASK_EXPANDED;
-  if (get_attr_ooo_endgroup (insn))
-    mask |= S390_OOO_SCHED_ATTR_MASK_ENDGROUP;
-  if (get_attr_ooo_groupalone (insn))
-    mask |= S390_OOO_SCHED_ATTR_MASK_GROUPALONE;
+  switch (s390_tune)
+    {
+    case PROCESSOR_2827_ZEC12:
+      if (get_attr_zEC12_cracked (insn))
+	mask |= S390_SCHED_ATTR_MASK_CRACKED;
+      if (get_attr_zEC12_expanded (insn))
+	mask |= S390_SCHED_ATTR_MASK_EXPANDED;
+      if (get_attr_zEC12_endgroup (insn))
+	mask |= S390_SCHED_ATTR_MASK_ENDGROUP;
+      if (get_attr_zEC12_groupalone (insn))
+	mask |= S390_SCHED_ATTR_MASK_GROUPALONE;
+      break;
+    case PROCESSOR_2964_Z13:
+      if (get_attr_z13_cracked (insn))
+	mask |= S390_SCHED_ATTR_MASK_CRACKED;
+      if (get_attr_z13_expanded (insn))
+	mask |= S390_SCHED_ATTR_MASK_EXPANDED;
+      if (get_attr_z13_endgroup (insn))
+	mask |= S390_SCHED_ATTR_MASK_ENDGROUP;
+      if (get_attr_z13_groupalone (insn))
+	mask |= S390_SCHED_ATTR_MASK_GROUPALONE;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  return mask;
+}
+
+static unsigned int
+s390_get_unit_mask (rtx_insn *insn, int *units)
+{
+  unsigned int mask = 0;
+
+  switch (s390_tune)
+    {
+    case PROCESSOR_2964_Z13:
+      *units = 3;
+      if (get_attr_z13_unit_lsu (insn))
+	mask |= 1 << 0;
+      if (get_attr_z13_unit_fxu (insn))
+	mask |= 1 << 1;
+      if (get_attr_z13_unit_vfu (insn))
+	mask |= 1 << 2;
+      break;
+    default:
+      gcc_unreachable ();
+    }
   return mask;
 }
 
@@ -13360,47 +14004,66 @@ s390_sched_score (rtx_insn *insn)
     case 0:
       /* Try to put insns into the first slot which would otherwise
 	 break a group.  */
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_CRACKED) != 0
-	  || (mask & S390_OOO_SCHED_ATTR_MASK_EXPANDED) != 0)
+      if ((mask & S390_SCHED_ATTR_MASK_CRACKED) != 0
+	  || (mask & S390_SCHED_ATTR_MASK_EXPANDED) != 0)
 	score += 5;
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_GROUPALONE) != 0)
+      if ((mask & S390_SCHED_ATTR_MASK_GROUPALONE) != 0)
 	score += 10;
+      /* fallthrough */
     case 1:
       /* Prefer not cracked insns while trying to put together a
 	 group.  */
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_CRACKED) == 0
-	  && (mask & S390_OOO_SCHED_ATTR_MASK_EXPANDED) == 0
-	  && (mask & S390_OOO_SCHED_ATTR_MASK_GROUPALONE) == 0)
+      if ((mask & S390_SCHED_ATTR_MASK_CRACKED) == 0
+	  && (mask & S390_SCHED_ATTR_MASK_EXPANDED) == 0
+	  && (mask & S390_SCHED_ATTR_MASK_GROUPALONE) == 0)
 	score += 10;
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_ENDGROUP) == 0)
+      if ((mask & S390_SCHED_ATTR_MASK_ENDGROUP) == 0)
 	score += 5;
       break;
     case 2:
       /* Prefer not cracked insns while trying to put together a
 	 group.  */
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_CRACKED) == 0
-	  && (mask & S390_OOO_SCHED_ATTR_MASK_EXPANDED) == 0
-	  && (mask & S390_OOO_SCHED_ATTR_MASK_GROUPALONE) == 0)
+      if ((mask & S390_SCHED_ATTR_MASK_CRACKED) == 0
+	  && (mask & S390_SCHED_ATTR_MASK_EXPANDED) == 0
+	  && (mask & S390_SCHED_ATTR_MASK_GROUPALONE) == 0)
 	score += 10;
       /* Prefer endgroup insns in the last slot.  */
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_ENDGROUP) != 0)
+      if ((mask & S390_SCHED_ATTR_MASK_ENDGROUP) != 0)
 	score += 10;
       break;
-    case S390_OOO_SCHED_STATE_NORMAL:
+    case S390_SCHED_STATE_NORMAL:
       /* Prefer not cracked insns if the last was not cracked.  */
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_CRACKED) == 0
-	  && (mask & S390_OOO_SCHED_ATTR_MASK_EXPANDED) == 0)
+      if ((mask & S390_SCHED_ATTR_MASK_CRACKED) == 0
+	  && (mask & S390_SCHED_ATTR_MASK_EXPANDED) == 0)
 	score += 5;
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_GROUPALONE) != 0)
+      if ((mask & S390_SCHED_ATTR_MASK_GROUPALONE) != 0)
 	score += 10;
       break;
-    case S390_OOO_SCHED_STATE_CRACKED:
+    case S390_SCHED_STATE_CRACKED:
       /* Try to keep cracked insns together to prevent them from
 	 interrupting groups.  */
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_CRACKED) != 0
-	  || (mask & S390_OOO_SCHED_ATTR_MASK_EXPANDED) != 0)
+      if ((mask & S390_SCHED_ATTR_MASK_CRACKED) != 0
+	  || (mask & S390_SCHED_ATTR_MASK_EXPANDED) != 0)
 	score += 5;
       break;
+    }
+
+  if (s390_tune == PROCESSOR_2964_Z13)
+    {
+      int units, i;
+      unsigned unit_mask, m = 1;
+
+      unit_mask = s390_get_unit_mask (insn, &units);
+      gcc_assert (units <= MAX_SCHED_UNITS);
+
+      /* Add a score in range 0..MAX_SCHED_MIX_SCORE depending on how long
+	 ago the last insn of this unit type got scheduled.  This is
+	 supposed to help providing a proper instruction mix to the
+	 CPU.  */
+      for (i = 0; i < units; i++, m <<= 1)
+	if (m & unit_mask)
+	  score += (last_scheduled_unit_distance[i] * MAX_SCHED_MIX_SCORE /
+		    MAX_SCHED_MIX_DISTANCE);
     }
   return score;
 }
@@ -13457,12 +14120,12 @@ s390_sched_reorder (FILE *file, int verbose,
 
 	      if (verbose > 5)
 		fprintf (file,
-			 "move insn %d to the top of list\n",
+			 ";;\t\tBACKEND: move insn %d to the top of list\n",
 			 INSN_UID (ready[last_index]));
 	    }
 	  else if (verbose > 5)
 	    fprintf (file,
-		     "best insn %d already on top\n",
+		     ";;\t\tBACKEND: best insn %d already on top\n",
 		     INSN_UID (ready[last_index]));
 	}
 
@@ -13473,16 +14136,35 @@ s390_sched_reorder (FILE *file, int verbose,
 
 	  for (i = last_index; i >= 0; i--)
 	    {
-	      if (recog_memoized (ready[i]) < 0)
+	      unsigned int sched_mask;
+	      rtx_insn *insn = ready[i];
+
+	      if (recog_memoized (insn) < 0)
 		continue;
-	      fprintf (file, "insn %d score: %d: ", INSN_UID (ready[i]),
-		       s390_sched_score (ready[i]));
-#define PRINT_OOO_ATTR(ATTR) fprintf (file, "%s ", get_attr_##ATTR (ready[i]) ? #ATTR : "!" #ATTR);
-	      PRINT_OOO_ATTR (ooo_cracked);
-	      PRINT_OOO_ATTR (ooo_expanded);
-	      PRINT_OOO_ATTR (ooo_endgroup);
-	      PRINT_OOO_ATTR (ooo_groupalone);
-#undef PRINT_OOO_ATTR
+
+	      sched_mask = s390_get_sched_attrmask (insn);
+	      fprintf (file, ";;\t\tBACKEND: insn %d score: %d: ",
+		       INSN_UID (insn),
+		       s390_sched_score (insn));
+#define PRINT_SCHED_ATTR(M, ATTR) fprintf (file, "%s ",\
+					   ((M) & sched_mask) ? #ATTR : "");
+	      PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_CRACKED, cracked);
+	      PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_EXPANDED, expanded);
+	      PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_ENDGROUP, endgroup);
+	      PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_GROUPALONE, groupalone);
+#undef PRINT_SCHED_ATTR
+	      if (s390_tune == PROCESSOR_2964_Z13)
+		{
+		  unsigned int unit_mask, m = 1;
+		  int units, j;
+
+		  unit_mask  = s390_get_unit_mask (insn, &units);
+		  fprintf (file, "(units:");
+		  for (j = 0; j < units; j++, m <<= 1)
+		    if (m & unit_mask)
+		      fprintf (file, " u%d", j);
+		  fprintf (file, ")");
+		}
 	      fprintf (file, "\n");
 	    }
 	}
@@ -13507,12 +14189,12 @@ s390_sched_variable_issue (FILE *file, int verbose, rtx_insn *insn, int more)
     {
       unsigned int mask = s390_get_sched_attrmask (insn);
 
-      if ((mask & S390_OOO_SCHED_ATTR_MASK_CRACKED) != 0
-	  || (mask & S390_OOO_SCHED_ATTR_MASK_EXPANDED) != 0)
-	s390_sched_state = S390_OOO_SCHED_STATE_CRACKED;
-      else if ((mask & S390_OOO_SCHED_ATTR_MASK_ENDGROUP) != 0
-	       || (mask & S390_OOO_SCHED_ATTR_MASK_GROUPALONE) != 0)
-	s390_sched_state = S390_OOO_SCHED_STATE_NORMAL;
+      if ((mask & S390_SCHED_ATTR_MASK_CRACKED) != 0
+	  || (mask & S390_SCHED_ATTR_MASK_EXPANDED) != 0)
+	s390_sched_state = S390_SCHED_STATE_CRACKED;
+      else if ((mask & S390_SCHED_ATTR_MASK_ENDGROUP) != 0
+	       || (mask & S390_SCHED_ATTR_MASK_GROUPALONE) != 0)
+	s390_sched_state = S390_SCHED_STATE_NORMAL;
       else
 	{
 	  /* Only normal insns are left (mask == 0).  */
@@ -13521,30 +14203,73 @@ s390_sched_variable_issue (FILE *file, int verbose, rtx_insn *insn, int more)
 	    case 0:
 	    case 1:
 	    case 2:
-	    case S390_OOO_SCHED_STATE_NORMAL:
-	      if (s390_sched_state == S390_OOO_SCHED_STATE_NORMAL)
+	    case S390_SCHED_STATE_NORMAL:
+	      if (s390_sched_state == S390_SCHED_STATE_NORMAL)
 		s390_sched_state = 1;
 	      else
 		s390_sched_state++;
 
 	      break;
-	    case S390_OOO_SCHED_STATE_CRACKED:
-	      s390_sched_state = S390_OOO_SCHED_STATE_NORMAL;
+	    case S390_SCHED_STATE_CRACKED:
+	      s390_sched_state = S390_SCHED_STATE_NORMAL;
 	      break;
 	    }
 	}
+
+      if (s390_tune == PROCESSOR_2964_Z13)
+	{
+	  int units, i;
+	  unsigned unit_mask, m = 1;
+
+	  unit_mask = s390_get_unit_mask (insn, &units);
+	  gcc_assert (units <= MAX_SCHED_UNITS);
+
+	  for (i = 0; i < units; i++, m <<= 1)
+	    if (m & unit_mask)
+	      last_scheduled_unit_distance[i] = 0;
+	    else if (last_scheduled_unit_distance[i] < MAX_SCHED_MIX_DISTANCE)
+	      last_scheduled_unit_distance[i]++;
+	}
+
       if (verbose > 5)
 	{
-	  fprintf (file, "insn %d: ", INSN_UID (insn));
-#define PRINT_OOO_ATTR(ATTR)						\
-	  fprintf (file, "%s ", get_attr_##ATTR (insn) ? #ATTR : "");
-	  PRINT_OOO_ATTR (ooo_cracked);
-	  PRINT_OOO_ATTR (ooo_expanded);
-	  PRINT_OOO_ATTR (ooo_endgroup);
-	  PRINT_OOO_ATTR (ooo_groupalone);
-#undef PRINT_OOO_ATTR
-	  fprintf (file, "\n");
-	  fprintf (file, "sched state: %d\n", s390_sched_state);
+	  unsigned int sched_mask;
+
+	  sched_mask = s390_get_sched_attrmask (insn);
+
+	  fprintf (file, ";;\t\tBACKEND: insn %d: ", INSN_UID (insn));
+#define PRINT_SCHED_ATTR(M, ATTR) fprintf (file, "%s ", ((M) & sched_mask) ? #ATTR : "");
+	  PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_CRACKED, cracked);
+	  PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_EXPANDED, expanded);
+	  PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_ENDGROUP, endgroup);
+	  PRINT_SCHED_ATTR (S390_SCHED_ATTR_MASK_GROUPALONE, groupalone);
+#undef PRINT_SCHED_ATTR
+
+	  if (s390_tune == PROCESSOR_2964_Z13)
+	    {
+	      unsigned int unit_mask, m = 1;
+	      int units, j;
+
+	      unit_mask  = s390_get_unit_mask (insn, &units);
+	      fprintf (file, "(units:");
+	      for (j = 0; j < units; j++, m <<= 1)
+		if (m & unit_mask)
+		  fprintf (file, " %d", j);
+	      fprintf (file, ")");
+	    }
+	  fprintf (file, " sched state: %d\n", s390_sched_state);
+
+	  if (s390_tune == PROCESSOR_2964_Z13)
+	    {
+	      int units, j;
+
+	      s390_get_unit_mask (insn, &units);
+
+	      fprintf (file, ";;\t\tBACKEND: units unused for: ");
+	      for (j = 0; j < units; j++)
+		fprintf (file, "%d:%d ", j, last_scheduled_unit_distance[j]);
+	      fprintf (file, "\n");
+	    }
 	}
     }
 
@@ -13561,6 +14286,7 @@ s390_sched_init (FILE *file ATTRIBUTE_UNUSED,
 		 int max_ready ATTRIBUTE_UNUSED)
 {
   last_scheduled_insn = NULL;
+  memset (last_scheduled_unit_distance, 0, MAX_SCHED_UNITS * sizeof (int));
   s390_sched_state = 0;
 }
 
@@ -13570,7 +14296,7 @@ s390_sched_init (FILE *file ATTRIBUTE_UNUSED,
    The loop is analyzed for memory accesses by calling check_dpu for
    each rtx of the loop. Depending on the loop_depth and the amount of
    memory accesses a new number <=nunroll is returned to improve the
-   behaviour of the hardware prefetch unit.  */
+   behavior of the hardware prefetch unit.  */
 static unsigned
 s390_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
 {
@@ -14443,6 +15169,7 @@ s390_vector_alignment (const_tree type)
 static void
 s390_asm_file_start (void)
 {
+  default_file_start ();
   s390_asm_output_machine_for_arch (asm_out_file);
 }
 #endif
@@ -14469,6 +15196,9 @@ s390_asm_file_end (void)
 	     s390_vector_abi);
 #endif
   file_end_indicate_exec_stack ();
+
+  if (flag_split_stack)
+    file_end_indicate_split_stack ();
 }
 
 /* Return true if TYPE is a vector bool type.  */
@@ -14546,6 +15276,11 @@ s390_invalid_binary_op (int op ATTRIBUTE_UNUSED, const_tree type1, const_tree ty
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE s390_option_override
+
+#ifdef TARGET_THREAD_SSP_OFFSET
+#undef TARGET_STACK_PROTECT_GUARD
+#define TARGET_STACK_PROTECT_GUARD hook_tree_void_null
+#endif
 
 #undef	TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO s390_encode_section_info
@@ -14723,6 +15458,9 @@ s390_invalid_binary_op (int op ATTRIBUTE_UNUSED, const_tree type1, const_tree ty
 
 #undef TARGET_SET_UP_BY_PROLOGUE
 #define TARGET_SET_UP_BY_PROLOGUE s300_set_up_by_prologue
+
+#undef TARGET_EXTRA_LIVE_ON_ENTRY
+#define TARGET_EXTRA_LIVE_ON_ENTRY s390_live_on_entry
 
 #undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
 #define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P \

@@ -25,7 +25,6 @@
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::is_member_pointer;
   using namespace __gnu_test;
 
@@ -43,7 +42,7 @@ void test01()
 	   ClassType (ClassType::*) (ClassType)>(true)) );
   VERIFY( (test_category<is_member_pointer,
 	   float (ClassType::*) (int, float, int[], int&)>(true)) );
-  
+
   // Sanity check.
   VERIFY( (test_category<is_member_pointer, ClassType>(false)) );
 }

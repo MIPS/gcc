@@ -377,7 +377,7 @@ copy_var_decl (tree var, tree name, tree type)
   DECL_ATTRIBUTES (copy) = DECL_ATTRIBUTES (var);
   if (DECL_USER_ALIGN (var))
     {
-      DECL_ALIGN (copy) = DECL_ALIGN (var);
+      SET_DECL_ALIGN (copy, DECL_ALIGN (var));
       DECL_USER_ALIGN (copy) = 1;
     }
 
@@ -519,8 +519,8 @@ create_tmp_reg_fn (struct function *fn, tree type, const char *prefix)
    *OP1_P, *OP2_P and *OP3_P respectively.  */
 
 void
-extract_ops_from_tree_1 (tree expr, enum tree_code *subcode_p, tree *op1_p,
-			 tree *op2_p, tree *op3_p)
+extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
+		       tree *op2_p, tree *op3_p)
 {
   enum gimple_rhs_class grhs_class;
 
@@ -888,7 +888,7 @@ mark_addressable (tree x)
   if (TREE_CODE (x) == MEM_REF
       && TREE_CODE (TREE_OPERAND (x, 0)) == ADDR_EXPR)
     x = TREE_OPERAND (TREE_OPERAND (x, 0), 0);
-  if (TREE_CODE (x) != VAR_DECL
+  if (!VAR_P (x)
       && TREE_CODE (x) != PARM_DECL
       && TREE_CODE (x) != RESULT_DECL)
     return;

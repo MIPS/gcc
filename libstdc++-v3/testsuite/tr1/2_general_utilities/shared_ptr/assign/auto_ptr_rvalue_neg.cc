@@ -33,15 +33,13 @@ std::auto_ptr<A> source() { return std::auto_ptr<A>(); }
 int
 test01()
 {
-  bool test __attribute__((unused)) = true;
-
   std::tr1::shared_ptr<A> a;
   a = source(); // { dg-error "" }
 
   return 0;
 }
 
-int 
+int
 main()
 {
   test01();

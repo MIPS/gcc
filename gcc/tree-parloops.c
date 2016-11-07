@@ -725,6 +725,7 @@ eliminate_local_variables_stmt (edge entry, gimple_stmt_iterator *gsi,
     }
   else if (gimple_clobber_p (stmt))
     {
+      unlink_stmt_vdef (stmt);
       stmt = gimple_build_nop ();
       gsi_replace (gsi, stmt, false);
       dta.changed = true;
@@ -766,14 +767,16 @@ eliminate_local_variables (edge entry, edge exit)
 
   FOR_EACH_VEC_ELT (body, i, bb)
     if (bb != entry_bb && bb != exit_bb)
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	if (is_gimple_debug (gsi_stmt (gsi)))
-	  {
-	    if (gimple_debug_bind_p (gsi_stmt (gsi)))
-	      has_debug_stmt = true;
-	  }
-	else
-	  eliminate_local_variables_stmt (entry, &gsi, &decl_address);
+      {
+        for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  if (is_gimple_debug (gsi_stmt (gsi)))
+	    {
+	      if (gimple_debug_bind_p (gsi_stmt (gsi)))
+	        has_debug_stmt = true;
+	    }
+	  else
+	    eliminate_local_variables_stmt (entry, &gsi, &decl_address);
+      }
 
   if (has_debug_stmt)
     FOR_EACH_VEC_ELT (body, i, bb)
@@ -1473,6 +1476,7 @@ create_loop_fn (location_t loc)
   DECL_EXTERNAL (decl) = 0;
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = make_node (BLOCK);
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (decl)) = decl;
 
   t = build_decl (loc, RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (t) = 1;
@@ -1865,7 +1869,7 @@ try_transform_to_exit_first_loop_alt (struct loop *loop,
 
   /* Check if nit + 1 overflows.  */
   widest_int type_max = wi::to_widest (TYPE_MAXVAL (nit_type));
-  if (!wi::lts_p (nit_max, type_max))
+  if (nit_max >= type_max)
     return false;
 
   gimple *def = SSA_NAME_DEF_STMT (nit);
@@ -2015,7 +2019,8 @@ transform_to_exit_first_loop (struct loop *loop,
 /* Create the parallel constructs for LOOP as described in gen_parallel_loop.
    LOOP_FN and DATA are the arguments of GIMPLE_OMP_PARALLEL.
    NEW_DATA is the variable that should be initialized from the argument
-   of LOOP_FN.  N_THREADS is the requested number of threads.  */
+   of LOOP_FN.  N_THREADS is the requested number of threads, which can be 0 if
+   that number is to be determined later.  */
 
 static void
 create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
@@ -2040,7 +2045,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       tree clause = build_omp_clause (loc, OMP_CLAUSE_NUM_GANGS);
       OMP_CLAUSE_NUM_GANGS_EXPR (clause)
 	= build_int_cst (integer_type_node, n_threads);
-      set_oacc_fn_attrib (cfun->decl, clause, NULL);
+      set_oacc_fn_attrib (cfun->decl, clause, true, NULL);
     }
   else
     {
@@ -2048,6 +2053,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       basic_block paral_bb = single_pred (bb);
       gsi = gsi_last_bb (paral_bb);
 
+      gcc_checking_assert (n_threads != 0);
       t = build_omp_clause (loc, OMP_CLAUSE_NUM_THREADS);
       OMP_CLAUSE_NUM_THREADS_EXPR (t)
 	= build_int_cst (integer_type_node, n_threads);
@@ -2220,7 +2226,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 }
 
 /* Generates code to execute the iterations of LOOP in N_THREADS
-   threads in parallel.
+   threads in parallel, which can be 0 if that number is to be determined
+   later.
 
    NITER describes number of iterations of LOOP.
    REDUCTION_LIST describes the reductions existent in the LOOP.  */
@@ -2317,6 +2324,7 @@ gen_parallel_loop (struct loop *loop,
       else
 	m_p_thread=MIN_PER_THREAD;
 
+      gcc_checking_assert (n_threads != 0);
       many_iterations_cond =
 	fold_build2 (GE_EXPR, boolean_type_node,
 		     nit, build_int_cst (type, m_p_thread * n_threads));
@@ -2982,9 +2990,7 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 		   && !gimple_vdef (stmt)
 		   && !gimple_vuse (stmt))
 	    continue;
-	  else if (is_gimple_call (stmt)
-		   && gimple_call_internal_p (stmt)
-		   && gimple_call_internal_fn (stmt) == IFN_GOACC_DIM_POS)
+	  else if (gimple_call_internal_p (stmt, IFN_GOACC_DIM_POS))
 	    continue;
 	  else if (gimple_code (stmt) == GIMPLE_RETURN)
 	    continue;
@@ -3161,6 +3167,7 @@ oacc_entry_exit_ok (struct loop *loop,
 	}
     }
 
+  region_bbs.release ();
   free (loop_bbs);
 
   BITMAP_FREE (in_loop_bbs);
@@ -3176,7 +3183,7 @@ oacc_entry_exit_ok (struct loop *loop,
 static bool
 parallelize_loops (bool oacc_kernels_p)
 {
-  unsigned n_threads = flag_tree_parallelize_loops;
+  unsigned n_threads;
   bool changed = false;
   struct loop *loop;
   struct loop *skip_loop = NULL;
@@ -3197,6 +3204,13 @@ parallelize_loops (bool oacc_kernels_p)
 
   if (cfun->has_nonlocal_label)
     return false;
+
+  /* For OpenACC kernels, n_threads will be determined later; otherwise, it's
+     the argument to -ftree-parallelize-loops.  */
+  if (oacc_kernels_p)
+    n_threads = 0;
+  else
+    n_threads = flag_tree_parallelize_loops;
 
   gcc_obstack_init (&parloop_obstack);
   reduction_info_table_type reduction_list (10);
@@ -3273,7 +3287,7 @@ parallelize_loops (bool oacc_kernels_p)
 
       estimated = estimated_stmt_executions_int (loop);
       if (estimated == -1)
-	estimated = max_stmt_executions_int (loop);
+	estimated = likely_max_stmt_executions_int (loop);
       /* FIXME: Bypass this check as graphite doesn't update the
 	 count and frequency correctly now.  */
       if (!flag_loop_parallelize_all
@@ -3360,7 +3374,13 @@ public:
   {}
 
   /* opt_pass methods: */
-  virtual bool gate (function *) { return flag_tree_parallelize_loops > 1; }
+  virtual bool gate (function *)
+  {
+    if (oacc_kernels_p)
+      return flag_openacc;
+    else
+      return flag_tree_parallelize_loops > 1;
+  }
   virtual unsigned int execute (function *);
   opt_pass * clone () { return new pass_parallelize_loops (m_ctxt); }
   void set_pass_param (unsigned int n, bool param)

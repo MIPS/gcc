@@ -100,7 +100,7 @@ extern int get_rgn_sched_max_insns_priority (void);
 extern void sel_add_to_insn_priority (rtx, int);
 
 /* True if during selective scheduling we need to emulate some of haifa
-   scheduler behaviour.  */
+   scheduler behavior.  */
 extern int sched_emulate_haifa_p;
 
 /* Mapping from INSN_UID to INSN_LUID.  In the end all other per insn data
@@ -536,6 +536,17 @@ struct deps_desc
 
   /* The last insn bearing REG_ARGS_SIZE that we've seen.  */
   rtx_insn *last_args_size;
+
+  /* A list of all prologue insns we have seen without intervening epilogue
+     insns, and one of all epilogue insns we have seen without intervening
+     prologue insns.  This is used to prevent mixing prologue and epilogue
+     insns.  See PR78029.  */
+  rtx_insn_list *last_prologue;
+  rtx_insn_list *last_epilogue;
+
+  /* Whether the last *logue insn was an epilogue insn or a prologue insn
+     instead.  */
+  bool last_logue_was_epilogue;
 
   /* The maximum register number for the following arrays.  Before reload
      this is max_reg_num; after reload it is FIRST_PSEUDO_REGISTER.  */
@@ -1351,6 +1362,7 @@ extern void finish_deps_global (void);
 extern void deps_analyze_insn (struct deps_desc *, rtx_insn *);
 extern void remove_from_deps (struct deps_desc *, rtx_insn *);
 extern void init_insn_reg_pressure_info (rtx_insn *);
+extern void get_implicit_reg_pending_clobbers (HARD_REG_SET *, rtx_insn *);
 
 extern dw_t get_dep_weak (ds_t, ds_t);
 extern ds_t set_dep_weak (ds_t, ds_t, dw_t);
@@ -1623,10 +1635,11 @@ sd_iterator_cond (sd_iterator_def *it_ptr, dep_t *dep_ptr)
 	      sd_next_list (it_ptr->insn,
 			    &it_ptr->types, &list, &it_ptr->resolved_p);
 
-	      it_ptr->linkp = &DEPS_LIST_FIRST (list);
-
 	      if (list)
-		continue;
+		{
+		  it_ptr->linkp = &DEPS_LIST_FIRST (list);
+		  continue;
+		}
 	    }
 
 	  *dep_ptr = NULL;

@@ -273,8 +273,10 @@ trivially_empty_bb_p (basic_block bb)
 static inline bool
 same_close_phi_node (gphi *p1, gphi *p2)
 {
-  return operand_equal_p (gimple_phi_arg_def (p1, 0),
-			  gimple_phi_arg_def (p2, 0), 0);
+  return (types_compatible_p (TREE_TYPE (gimple_phi_result (p1)),
+			      TREE_TYPE (gimple_phi_result (p2)))
+	  && operand_equal_p (gimple_phi_arg_def (p1, 0),
+			      gimple_phi_arg_def (p2, 0), 0));
 }
 
 static void make_close_phi_nodes_unique (basic_block bb);
@@ -532,21 +534,6 @@ public:
      back-loop the back-edge is not counted.  */
 
   static edge get_nearest_pdom_with_single_exit (basic_block dom);
-
-
-  /* Pretty printers.  */
-
-  static void print_edge (FILE *file, const_edge e)
-  {
-    fprintf (file, "edge (bb_%d, bb_%d)", e->src->index, e->dest->index);
-  }
-
-  static void print_sese (FILE *file, sese_l s)
-  {
-    fprintf (file, "(entry_"); print_edge (file, s.entry);
-    fprintf (file, ", exit_"); print_edge (file, s.exit);
-    fprintf (file, ")\n");
-  }
 
   /* Merge scops at same loop depth and returns the new sese.
      Returns a new SESE when merge was successful, INVALID_SESE otherwise.  */
@@ -849,7 +836,9 @@ scop_detection::merge_sese (sese_l first, sese_l second) const
     {
       /* Find the first empty succ (with single exit) of combined.exit.  */
       basic_block imm_succ = combined.exit->dest;
-      if (single_succ_p (imm_succ) && trivially_empty_bb_p (imm_succ))
+      if (single_succ_p (imm_succ)
+	  && single_pred_p (imm_succ)
+	  && trivially_empty_bb_p (imm_succ))
 	combined.exit = single_succ_edge (imm_succ);
       else
 	{
@@ -1733,8 +1722,7 @@ static void
 build_cross_bb_scalars_def (scop_p scop, tree def, basic_block def_bb,
 			     vec<tree> *writes)
 {
-  gcc_assert (def);
-  if (!is_gimple_reg (def))
+  if (!def || !is_gimple_reg (def))
     return;
 
   /* Do not gather scalar variables that can be analyzed by SCEV as they can be

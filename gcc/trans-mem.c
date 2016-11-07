@@ -165,7 +165,6 @@ get_attrs_for (const_tree x)
     {
     case FUNCTION_DECL:
       return TYPE_ATTRIBUTES (TREE_TYPE (x));
-      break;
 
     default:
       if (TYPE_P (x))
@@ -726,7 +725,8 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 				"atomic transaction", fn);
 		    else
 		      {
-			if (!DECL_P (fn) || DECL_NAME (fn))
+			if ((!DECL_P (fn) || DECL_NAME (fn))
+			    && TREE_CODE (fn) != SSA_NAME)
 			  error_at (gimple_location (stmt),
 				    "unsafe function call %qE within "
 				    "atomic transaction", fn);
@@ -744,7 +744,8 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 				"%<transaction_safe%> function", fn);
 		    else
 		      {
-			if (!DECL_P (fn) || DECL_NAME (fn))
+			if ((!DECL_P (fn) || DECL_NAME (fn))
+			    && TREE_CODE (fn) != SSA_NAME)
 			  error_at (gimple_location (stmt),
 				    "unsafe function call %qE within "
 				    "%<transaction_safe%> function", fn);
@@ -1544,7 +1545,7 @@ requires_barrier (basic_block entry_block, tree x, gimple *stmt)
       x = TREE_OPERAND (TMR_BASE (x), 0);
       if (TREE_CODE (x) == PARM_DECL)
 	return false;
-      gcc_assert (TREE_CODE (x) == VAR_DECL);
+      gcc_assert (VAR_P (x));
       /* FALLTHRU */
 
     case PARM_DECL:
@@ -2039,16 +2040,17 @@ tm_region_init (struct tm_region *region)
   struct tm_region *old_region;
   auto_vec<tm_region *> bb_regions;
 
-  all_tm_regions = region;
-  bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
-
   /* We could store this information in bb->aux, but we may get called
      through get_all_tm_blocks() from another pass that may be already
      using bb->aux.  */
   bb_regions.safe_grow_cleared (last_basic_block_for_fn (cfun));
 
+  all_tm_regions = region;
+  bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   queue.safe_push (bb);
+  bitmap_set_bit (visited_blocks, bb->index);
   bb_regions[bb->index] = region;
+
   do
     {
       bb = queue.pop ();

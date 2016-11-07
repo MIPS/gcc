@@ -42,8 +42,8 @@
 
 #ifndef __cpp_range_based_for
 #  error "__cpp_range_based_for"
-#elif __cpp_range_based_for != 200907
-#  error "__cpp_range_based_for != 200907"
+#elif __cpp_range_based_for != 201603
+#  error "__cpp_range_based_for != 201603"
 #endif
 
 #ifndef __cpp_decltype
@@ -58,10 +58,10 @@
 #  error "__cpp_attributes != 200809"
 #endif
 
-#ifndef __cpp_rvalue_reference
-#  error "__cpp_rvalue_reference"
-#elif __cpp_rvalue_reference != 200610
-#  error "__cpp_rvalue_reference != 200610"
+#ifndef __cpp_rvalue_references
+#  error "__cpp_rvalue_references"
+#elif __cpp_rvalue_references != 200610
+#  error "__cpp_rvalue_references != 200610"
 #endif
 
 #ifndef __cpp_variadic_templates
@@ -128,8 +128,8 @@
 
 #ifndef __cpp_constexpr
 #  error "__cpp_constexpr"
-#elif __cpp_constexpr != 201304
-#  error "__cpp_constexpr != 201304"
+#elif __cpp_constexpr != 201603
+#  error "__cpp_constexpr != 201603"
 #endif
 
 #ifndef __cpp_decltype_auto
@@ -328,12 +328,78 @@
 
 #ifndef __cpp_fold_expressions
 #  error "__cpp_fold_expressions"
-#elif __cpp_fold_expressions != 201411
-#  error "__cpp_fold_expressions != 201411"
+#elif __cpp_fold_expressions != 201603
+#  error "__cpp_fold_expressions != 201603"
 #endif
 
 #ifndef __cpp_nontype_template_args
 #  error "__cpp_nontype_template_args"
 #elif __cpp_nontype_template_args != 201411
 #  error "__cpp_nontype_template_args != 201411"
+#endif
+
+#ifndef __cpp_hex_float
+#  error "__cpp_hex_float"
+#elif __cpp_hex_float != 201603
+#  error "__cpp_hex_float != 201603"
+#endif
+
+#ifndef __cpp_aggregate_bases
+#  error "__cpp_aggregate_bases"
+#elif __cpp_aggregate_bases != 201603
+#  error "__cpp_aggregate_bases != 201603"
+#endif
+
+#ifndef __cpp_deduction_guides
+#  error "__cpp_deduction_guides"
+#elif __cpp_deduction_guides != 201606
+#  error "__cpp_deduction_guides != 201606"
+#endif
+
+#ifndef __cpp_if_constexpr
+#  error "__cpp_if_constexpr"
+#elif __cpp_if_constexpr != 201606
+#  error "__cpp_if_constexpr != 201606"
+#endif
+
+#ifndef __cpp_aligned_new
+#  error "__cpp_aligned_new"
+#elif __cpp_aligned_new != 201606
+#  error "__cpp_aligned_new != 201606"
+#endif
+
+#ifndef __cpp_inline_variables
+#  error "__cpp_inline_variables"
+#elif __cpp_inline_variables != 201606
+#  error "__cpp_inline_variables != 201606"
+#endif
+
+#ifndef __cpp_capture_star_this
+#  error "__cpp_capture_star_this"
+#elif __cpp_capture_star_this != 201603
+#  error "__cpp_capture_star_this != 201603"
+#endif
+
+#ifdef __has_cpp_attribute
+
+#  if ! __has_cpp_attribute(maybe_unused)
+#    error "__has_cpp_attribute(maybe_unused)"
+#  elif __has_cpp_attribute(maybe_unused) != 201603
+#    error "__has_cpp_attribute(maybe_unused) != 201603"
+#  endif
+
+#  if ! __has_cpp_attribute(nodiscard)
+#    error "__has_cpp_attribute(nodiscard)"
+#  elif __has_cpp_attribute(nodiscard) != 201603
+#    error "__has_cpp_attribute(nodiscard) != 201603"
+#  endif
+
+#  if ! __has_cpp_attribute(fallthrough)
+#    error "__has_cpp_attribute(fallthrough)"
+#  elif __has_cpp_attribute(fallthrough) != 201603
+#    error "__has_cpp_attribute(fallthrough) != 201603"
+#  endif
+
+#else
+#  error "__has_cpp_attribute"
 #endif

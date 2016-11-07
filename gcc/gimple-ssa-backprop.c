@@ -258,7 +258,7 @@ private:
 
   /* A bitmap of blocks that we have finished processing in the initial
      post-order walk.  */
-  sbitmap m_visited_blocks;
+  auto_sbitmap m_visited_blocks;
 
   /* A worklist of SSA names whose definitions need to be reconsidered.  */
   auto_vec <tree, 64> m_worklist;
@@ -272,7 +272,7 @@ private:
 backprop::backprop (function *fn)
   : m_fn (fn),
     m_info_pool ("usage_info"),
-    m_visited_blocks (sbitmap_alloc (last_basic_block_for_fn (m_fn))),
+    m_visited_blocks (last_basic_block_for_fn (m_fn)),
     m_worklist_names (BITMAP_ALLOC (NULL))
 {
   bitmap_clear (m_visited_blocks);
@@ -281,7 +281,6 @@ backprop::backprop (function *fn)
 backprop::~backprop ()
 {
   BITMAP_FREE (m_worklist_names);
-  sbitmap_free (m_visited_blocks);
   m_info_pool.release ();
 }
 
@@ -831,15 +830,21 @@ backprop::optimize_assign (gassign *assign, tree lhs, const usage_info *info)
 void
 backprop::optimize_phi (gphi *phi, tree var, const usage_info *info)
 {
-  /* If the sign of the result doesn't matter, strip sign operations
-     from all arguments.  */
+  /* If the sign of the result doesn't matter, try to strip sign operations
+     from arguments.  */
   if (info->flags.ignore_sign)
     {
+      basic_block bb = gimple_bb (phi);
       use_operand_p use;
       ssa_op_iter oi;
       bool replaced = false;
       FOR_EACH_PHI_ARG (use, phi, oi, SSA_OP_USE)
 	{
+	  /* Propagating along abnormal edges is delicate, punt for now.  */
+	  const int index = PHI_ARG_INDEX_FROM_USE (use);
+	  if (EDGE_PRED (bb, index)->flags & EDGE_ABNORMAL)
+	    continue;
+
 	  tree new_arg = strip_sign_op (USE_FROM_PTR (use));
 	  if (new_arg)
 	    {

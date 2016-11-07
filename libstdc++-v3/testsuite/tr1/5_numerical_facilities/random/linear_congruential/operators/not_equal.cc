@@ -24,10 +24,8 @@
 #include <testsuite_hooks.h>
 
 void
-test01() 
-{ 
-  bool test __attribute__((unused)) = true;
-	
+test01()
+{
   std::tr1::minstd_rand0 a;
   std::tr1::minstd_rand0 b;
   std::tr1::minstd_rand0 c(120);

@@ -28,8 +28,6 @@ using std::pair;
 int
 main()
 {
-  bool test __attribute__((unused)) = true;
-
   int x1=0,x2=0;
   const int &z1=x1;
 
@@ -60,7 +58,7 @@ main()
   tuple<int,int> tn(pair1);
   tuple<int,const int&> to(pair1);
   tuple<int,int> tp(pair2);
-  tuple<int,const int&> tq(pair2);  
+  tuple<int,const int&> tq(pair2);
   return 0;
 }
 

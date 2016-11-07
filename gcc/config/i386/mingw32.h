@@ -100,10 +100,12 @@ along with GCC; see the file COPYING3.  If not see
 #if DWARF2_UNWIND_INFO
 /* DW2-unwind is just available for 32-bit mode.  */
 #if TARGET_64BIT_DEFAULT
-#error DW2 unwind is not available for 64-bit.
-#endif
+#define SHARED_LIBGCC_UNDEFS_SPEC \
+  "%{m32: %{shared-libgcc: -u ___register_frame_info -u ___deregister_frame_info}}"
+#else
 #define SHARED_LIBGCC_UNDEFS_SPEC \
  "%{shared-libgcc: -u ___register_frame_info -u ___deregister_frame_info}"
+#endif
 #else
 #define SHARED_LIBGCC_UNDEFS_SPEC ""
 #endif
@@ -207,7 +209,7 @@ do {						         \
 
 /* mingw32 uses the  -mthreads option to enable thread support.  */
 #undef GOMP_SELF_SPECS
-#define GOMP_SELF_SPECS "%{fopenacc|fopenmp|ftree-parallelize-loops=*: " \
+#define GOMP_SELF_SPECS "%{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1): " \
 			"-mthreads -pthread}"
 #undef GTM_SELF_SPECS
 #define GTM_SELF_SPECS "%{fgnu-tm:-mthreads -pthread}"
@@ -236,9 +238,6 @@ do {						         \
 
 #undef TARGET_N_FORMAT_TYPES
 #define TARGET_N_FORMAT_TYPES 3
-
-/* Let defaults.h definition of TARGET_USE_JCR_SECTION apply. */
-#undef TARGET_USE_JCR_SECTION
 
 #define HAVE_ENABLE_EXECUTE_STACK
 #undef  CHECK_EXECUTE_STACK_ENABLED

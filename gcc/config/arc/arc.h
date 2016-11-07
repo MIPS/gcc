@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #define SYMBOL_FLAG_SHORT_CALL	(SYMBOL_FLAG_MACH_DEP << 0)
 #define SYMBOL_FLAG_MEDIUM_CALL	(SYMBOL_FLAG_MACH_DEP << 1)
 #define SYMBOL_FLAG_LONG_CALL	(SYMBOL_FLAG_MACH_DEP << 2)
+#define SYMBOL_FLAG_CMEM	(SYMBOL_FLAG_MACH_DEP << 3)
 
 /* Check if this symbol has a long_call attribute in its declaration */
 #define SYMBOL_REF_LONG_CALL_P(X)	\
@@ -63,55 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef CC1_SPEC
 
 /* Names to predefine in the preprocessor for this target machine.  */
-#define TARGET_CPU_CPP_BUILTINS()	\
- do {					\
-    builtin_define ("__arc__");		\
-    if (TARGET_ARC600)			\
-      {					\
-	builtin_define ("__A6__");	\
-	builtin_define ("__ARC600__");	\
-      }					\
-    else if (TARGET_ARC601)			\
-      {					\
-	builtin_define ("__ARC601__");	\
-      }					\
-    else if (TARGET_ARC700)			\
-      {					\
-	builtin_define ("__A7__");	\
-	builtin_define ("__ARC700__");	\
-      }					\
-    else if (TARGET_EM)			\
-      {					\
-	builtin_define ("__EM__");	\
-      }					\
-    else if (TARGET_HS)			\
-      {					\
-	builtin_define ("__HS__");	\
-      }					\
-    if (TARGET_ATOMIC)			\
-      {					\
-	builtin_define ("__ARC_ATOMIC__");	\
-      }					\
-    if (TARGET_NORM)			\
-      {					\
-	builtin_define ("__ARC_NORM__");\
-	builtin_define ("__Xnorm");	\
-      }					\
-    if (TARGET_MUL64_SET)		\
-      builtin_define ("__ARC_MUL64__");\
-    if (TARGET_MULMAC_32BY16_SET)	\
-      builtin_define ("__ARC_MUL32BY16__");\
-    if (TARGET_SIMD_SET)        	\
-      builtin_define ("__ARC_SIMD__");	\
-    if (TARGET_BARREL_SHIFTER)		\
-      builtin_define ("__Xbarrel_shifter");\
-    builtin_assert ("cpu=arc");		\
-    builtin_assert ("machine=arc");	\
-    builtin_define (TARGET_BIG_ENDIAN	\
-		    ? "__BIG_ENDIAN__" : "__LITTLE_ENDIAN__"); \
-    if (TARGET_BIG_ENDIAN)		\
-      builtin_define ("__big_endian__"); \
-} while(0)
+#define TARGET_CPU_CPP_BUILTINS() arc_cpu_cpp_builtins (pfile)
 
 #if DEFAULT_LIBC == LIBC_UCLIBC
 
@@ -132,6 +85,8 @@ along with GCC; see the file COPYING3.  If not see
 %{mdsp-packa:-D__Xdsp_packa} %{mcrc:-D__Xcrc} %{mdvbf:-D__Xdvbf} \
 %{mtelephony:-D__Xtelephony} %{mxy:-D__Xxy} %{mmul64: -D__Xmult32} \
 %{mlock:-D__Xlock} %{mswape:-D__Xswape} %{mrtsc:-D__Xrtsc} \
+%{mcpu=NPS400:-D__NPS400__} \
+%{mcpu=nps400:-D__NPS400__} \
 "
 
 #define CC1_SPEC "\
@@ -149,7 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 %{mcpu=ARC700:-mEA} \
 %{!mcpu=*:" ASM_DEFAULT "} \
 %{mbarrel-shifter} %{mno-mpy} %{mmul64} %{mmul32x16:-mdsp-packa} %{mnorm} \
-%{mswap} %{mEA} %{mmin-max} %{mspfp*} %{mdpfp*} \
+%{mswap} %{mEA} %{mmin-max} %{mspfp*} %{mdpfp*} %{mfpu=fpuda*:-mfpuda} \
 %{msimd} \
 %{mmac-d16} %{mmac-24} %{mdsp-packa} %{mcrc} %{mdvbf} %{mtelephony} %{mxy} \
 %{mcpu=ARC700|!mcpu=*:%{mlock}} \
@@ -184,7 +139,8 @@ along with GCC; see the file COPYING3.  If not see
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
-    %{fopenacc|fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
+    %{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*:%*} 1):\
+	%:include(libgomp.spec)%(link_gomp)}\
     %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
@@ -196,7 +152,13 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #if DEFAULT_LIBC != LIBC_UCLIBC
-#define STARTFILE_SPEC "%{!shared:crt0.o%s} crti%O%s %{pg|p:crtg.o%s} crtbegin.o%s"
+#define ARC_TLS_EXTRA_START_SPEC "crttls.o%s"
+
+#define EXTRA_SPECS \
+  { "arc_tls_extra_start_spec", ARC_TLS_EXTRA_START_SPEC }, \
+
+#define STARTFILE_SPEC "%{!shared:crt0.o%s} crti%O%s %{pg|p:crtg.o%s} " \
+  "%(arc_tls_extra_start_spec) crtbegin.o%s"
 #else
 #define STARTFILE_SPEC   "%{!shared:%{!mkernel:crt1.o%s}} crti.o%s \
   %{!shared:%{pg|p|profile:crtg.o%s} crtbegin.o%s} %{shared:crtbeginS.o%s}"
@@ -251,7 +213,8 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_MIXED_CODE (TARGET_MIXED_CODE_SET)
 
 #define TARGET_SPFP (TARGET_SPFP_FAST_SET || TARGET_SPFP_COMPACT_SET)
-#define TARGET_DPFP (TARGET_DPFP_FAST_SET || TARGET_DPFP_COMPACT_SET)
+#define TARGET_DPFP (TARGET_DPFP_FAST_SET || TARGET_DPFP_COMPACT_SET	\
+		     || TARGET_FP_DP_AX)
 
 #define SUBTARGET_SWITCHES
 
@@ -262,11 +225,12 @@ along with GCC; see the file COPYING3.  If not see
    default for A7, and only for pre A7 cores when -mnorm is given.  */
 #define TARGET_NORM (TARGET_ARC700 || TARGET_NORM_SET || TARGET_HS)
 /* Indicate if an optimized floating point emulation library is available.  */
-#define TARGET_OPTFPE \
- (TARGET_ARC700 \
-  /* We need a barrel shifter and NORM.  */ \
-  || (TARGET_ARC600 && TARGET_NORM_SET) \
-  || TARGET_HS)
+#define TARGET_OPTFPE				\
+   (TARGET_ARC700				\
+    /* We need a barrel shifter and NORM.  */	\
+    || (TARGET_ARC600 && TARGET_NORM_SET)	\
+    || TARGET_HS				\
+    || (TARGET_EM && TARGET_NORM_SET && TARGET_BARREL_SHIFTER))
 
 /* Non-zero means the cpu supports swap instruction.  This flag is set by
    default for A7, and only for pre A7 cores when -mswap is given.  */
@@ -290,7 +254,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #define TARGET_ARC600 (arc_cpu == PROCESSOR_ARC600)
 #define TARGET_ARC601 (arc_cpu == PROCESSOR_ARC601)
-#define TARGET_ARC700 (arc_cpu == PROCESSOR_ARC700)
+#define TARGET_ARC700 (arc_cpu == PROCESSOR_ARC700	\
+		       || arc_cpu == PROCESSOR_NPS400)
 #define TARGET_EM     (arc_cpu == PROCESSOR_ARCEM)
 #define TARGET_HS     (arc_cpu == PROCESSOR_ARCHS)
 #define TARGET_V2							\
@@ -302,6 +267,22 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS { "mARC700" }
 #endif
+
+#ifndef UNALIGNED_ACCESS_DEFAULT
+#define UNALIGNED_ACCESS_DEFAULT 0
+#endif
+
+#ifndef TARGET_NPS_BITOPS_DEFAULT
+#define TARGET_NPS_BITOPS_DEFAULT 0
+#endif
+
+#ifndef TARGET_NPS_CMEM_DEFAULT
+#define TARGET_NPS_CMEM_DEFAULT 0
+#endif
+
+/* Enable the RRQ instruction alternatives.  */
+
+#define TARGET_RRQ_CLASS TARGET_NPS_BITOPS
 
 /* Target machine storage layout.  */
 
@@ -639,6 +620,9 @@ enum reg_class
    WRITABLE_CORE_REGS,		/* 'w' */
    CHEAP_CORE_REGS,		/* 'c' */
    ALL_CORE_REGS,		/* 'Rac' */
+   R0R3_CD_REGS,		/* 'Rcd' */
+   R0R1_CD_REGS,		/* 'Rsd' */
+   AC16_H_REGS,			/* 'h' */
    ALL_REGS,
    LIM_REG_CLASSES
 };
@@ -665,6 +649,9 @@ enum reg_class
   "MPY_WRITABLE_CORE_REGS",   \
   "WRITABLE_CORE_REGS",   \
   "CHEAP_CORE_REGS",	  \
+  "R0R3_CD_REGS", \
+  "R0R1_CD_REGS", \
+  "AC16_H_REGS",	    \
   "ALL_CORE_REGS",	  \
   "ALL_REGS"          	  \
 }
@@ -697,6 +684,9 @@ enum reg_class
   {0xffffffff, 0xd0000000, 0x00000000, 0x00000000, 0x00000000},      /* 'w', r0-r31, r60 */ \
   {0xffffffff, 0xdfffffff, 0x00000000, 0x00000000, 0x00000000},      /* 'c', r0-r60, ap, pcl */ \
   {0xffffffff, 0xdfffffff, 0x00000000, 0x00000000, 0x00000000},      /* 'Rac', r0-r60, ap, pcl */ \
+  {0x0000000f, 0x00000000, 0x00000000, 0x00000000, 0x00000000},      /* 'Rcd', r0-r3 */ \
+  {0x00000003, 0x00000000, 0x00000000, 0x00000000, 0x00000000},      /* 'Rsd', r0-r1 */ \
+  {0x9fffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000},      /* 'h',  r0-28, r30 */ \
   {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff}       /* All Registers */		\
 }
 
@@ -708,6 +698,12 @@ enum reg_class
 #define ARC_FIRST_SIMD_DMA_CONFIG_IN_REG   128
 #define ARC_FIRST_SIMD_DMA_CONFIG_OUT_REG  136
 #define ARC_LAST_SIMD_DMA_CONFIG_REG       143
+
+/* ARCv2 double-register accumulator.  */
+#define ACC_REG_FIRST 58
+#define ACC_REG_LAST  59
+#define ACCL_REGNO    (TARGET_BIG_ENDIAN ? ACC_REG_FIRST + 1 : ACC_REG_FIRST)
+#define ACCH_REGNO    (TARGET_BIG_ENDIAN ? ACC_REG_FIRST : ACC_REG_FIRST + 1)
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
@@ -735,9 +731,10 @@ extern enum reg_class arc_regno_reg_class[];
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
-#define REGNO_OK_FOR_BASE_P(REGNO) \
-((REGNO) < 29 || ((REGNO) == ARG_POINTER_REGNUM) || ((REGNO) == 63) ||\
- (unsigned) reg_renumber[REGNO] < 29)
+#define REGNO_OK_FOR_BASE_P(REGNO)					\
+  ((REGNO) < 29 || ((REGNO) == ARG_POINTER_REGNUM) || ((REGNO) == 63)	\
+   || ((unsigned) reg_renumber[REGNO] < 29)				\
+   || ((unsigned) (REGNO) == (unsigned) arc_tp_regno))
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) REGNO_OK_FOR_BASE_P(REGNO)
 
@@ -773,6 +770,8 @@ extern enum reg_class arc_regno_reg_class[];
 #define UNSIGNED_INT6(X) ((unsigned) (X) < 0x40)
 #define UNSIGNED_INT7(X) ((unsigned) (X) < 0x80)
 #define UNSIGNED_INT8(X) ((unsigned) (X) < 0x100)
+#define UNSIGNED_INT12(X) ((unsigned) (X) < 0x800)
+#define UNSIGNED_INT16(X) ((unsigned) (X) < 0x10000)
 #define IS_ONE(X) ((X) == 1)
 #define IS_ZERO(X) ((X) == 0)
 
@@ -860,7 +859,7 @@ arc_return_addr_rtx(COUNT,FRAME)
    for a call to a function whose data type is FNTYPE.
    For a library call, FNTYPE is 0.  */
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT,N_NAMED_ARGS) \
-((CUM) = 0)
+  ((CUM) = 0)
 
 /* The number of registers used for parameter passing.  Local to this file.  */
 #define MAX_ARC_PARM_REGS 8
@@ -923,6 +922,8 @@ arc_return_addr_rtx(COUNT,FRAME)
 #define EXIT_IGNORE_STACK 0
 
 #define EPILOGUE_USES(REGNO) arc_epilogue_uses ((REGNO))
+
+#define EH_USES(REGNO) arc_eh_uses((REGNO))
 
 /* Definitions for register eliminations.
 
@@ -997,6 +998,7 @@ extern int arc_initial_elimination_offset(int from, int to);
 
 /* Is the argument a const_int rtx, containing an exact power of 2 */
 #define  IS_POWEROF2_P(X) (! ( (X) & ((X) - 1)) && (X))
+#define  IS_POWEROF2_OR_0_P(X) (! ( (X) & ((X) - 1)))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -1544,10 +1546,10 @@ extern int arc_return_address_regs[4];
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE, PREFIX, NUM, TABLE) \
   ASM_OUTPUT_ALIGN ((FILE), ADDR_VEC_ALIGN (TABLE));
 
-#define INSN_LENGTH_ALIGNMENT(INSN) \
-  ((JUMP_P (INSN) \
+#define INSN_LENGTH_ALIGNMENT(INSN)		  \
+  ((JUMP_TABLE_DATA_P (INSN)			  \
     && GET_CODE (PATTERN (INSN)) == ADDR_DIFF_VEC \
-    && GET_MODE (PATTERN (INSN)) == QImode) \
+    && GET_MODE (PATTERN (INSN)) == QImode)	  \
    ? 0 : length_unit_log)
 
 /* Define if operations between registers always perform the operation
@@ -1644,7 +1646,8 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
    && GET_CODE (PATTERN (X)) != CLOBBER		\
    && (get_attr_type (X) == TYPE_CALL || get_attr_type (X) == TYPE_SFUNC))
 
-#define INSN_REFERENCES_ARE_DELAYED(insn) INSN_SETS_ARE_DELAYED (insn)
+#define INSN_REFERENCES_ARE_DELAYED(insn)				\
+  (INSN_SETS_ARE_DELAYED (insn) && !insn_is_tls_gd_dispatch (insn))
 
 #define CALL_ATTR(X, NAME) \
   ((CALL_P (X) || NONJUMP_INSN_P (X)) \
@@ -1652,12 +1655,13 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
    && GET_CODE (PATTERN (X)) != CLOBBER \
    && get_attr_is_##NAME (X) == IS_##NAME##_YES) \
 
-#define REVERSE_CONDITION(CODE,MODE) \
-	(((MODE) == CC_FP_GTmode || (MODE) == CC_FP_GEmode \
-	  || (MODE) == CC_FP_UNEQmode || (MODE) == CC_FP_ORDmode \
-	  || (MODE) == CC_FPXmode) \
-	 ? reverse_condition_maybe_unordered ((CODE)) \
-	 : reverse_condition ((CODE)))
+#define REVERSE_CONDITION(CODE,MODE)				 \
+  (((MODE) == CC_FP_GTmode || (MODE) == CC_FP_GEmode		 \
+    || (MODE) == CC_FP_UNEQmode || (MODE) == CC_FP_ORDmode	 \
+    || (MODE) == CC_FPXmode || (MODE) == CC_FPU_UNEQmode	 \
+    || (MODE) == CC_FPUmode)					 \
+   ? reverse_condition_maybe_unordered ((CODE))			 \
+   : reverse_condition ((CODE)))
 
 #define ADJUST_INSN_LENGTH(X, LENGTH) \
   ((LENGTH) \
@@ -1710,6 +1714,12 @@ enum
 /* Any multiplication feature macro.  */
 #define TARGET_ANY_MPY						\
   (TARGET_MPY || TARGET_MUL64_SET || TARGET_MULMAC_32BY16_SET)
+/* PLUS_DMPY feature macro.  */
+#define TARGET_PLUS_DMPY  ((arc_mpy_option > 6) && TARGET_HS)
+/* PLUS_MACD feature macro.  */
+#define TARGET_PLUS_MACD  ((arc_mpy_option > 7) && TARGET_HS)
+/* PLUS_QMACW feature macro.  */
+#define TARGET_PLUS_QMACW ((arc_mpy_option > 8) && TARGET_HS)
 
 /* ARC600 and ARC601 feature macro.  */
 #define TARGET_ARC600_FAMILY (TARGET_ARC600 || TARGET_ARC601)
@@ -1719,5 +1729,27 @@ enum
 /* Loop count register can be read in very next instruction after has
    been written to by an ordinary instruction.  */
 #define TARGET_LP_WR_INTERLOCK (!TARGET_ARC600_FAMILY)
+
+/* FPU defines.  */
+/* Any FPU support.  */
+#define TARGET_HARD_FLOAT (arc_fpu_build != 0)
+/* Single precision floating point support.  */
+#define TARGET_FP_SP_BASE   ((arc_fpu_build & FPU_SP) != 0)
+/* Double precision floating point support.  */
+#define TARGET_FP_DP_BASE   ((arc_fpu_build & FPU_DP) != 0)
+/* Single precision floating point support with fused operation.  */
+#define TARGET_FP_SP_FUSED  ((arc_fpu_build & FPU_SF) != 0)
+/* Double precision floating point support with fused operation.  */
+#define TARGET_FP_DP_FUSED  ((arc_fpu_build & FPU_DF) != 0)
+/* Single precision floating point conversion instruction support.  */
+#define TARGET_FP_SP_CONV   ((arc_fpu_build & FPU_SC) != 0)
+/* Double precision floating point conversion instruction support.  */
+#define TARGET_FP_DP_CONV   ((arc_fpu_build & FPU_DC) != 0)
+/* Single precision floating point SQRT/DIV instruction support.  */
+#define TARGET_FP_SP_SQRT   ((arc_fpu_build & FPU_SD) != 0)
+/* Double precision floating point SQRT/DIV instruction support.  */
+#define TARGET_FP_DP_SQRT   ((arc_fpu_build & FPU_DD) != 0)
+/* Double precision floating point assist instruction support.  */
+#define TARGET_FP_DP_AX     ((arc_fpu_build & FPX_DP) != 0)
 
 #endif /* GCC_ARC_H */

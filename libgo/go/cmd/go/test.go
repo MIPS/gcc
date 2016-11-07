@@ -1,4 +1,4 @@
-// Copyright 2011 The Go Authors.  All rights reserved.
+// Copyright 2011 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -13,7 +13,6 @@ import (
 	"go/doc"
 	"go/parser"
 	"go/token"
-	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -33,7 +32,7 @@ func init() {
 	cmdTest.Run = runTest
 }
 
-const testUsage = "test [-c] [-i] [build and test flags] [packages] [flags for test binary]"
+const testUsage = "test [build/test flags] [packages] [build/test flags & test binary flags]"
 
 var cmdTest = &Command{
 	CustomFlags: true,
@@ -60,6 +59,9 @@ Each listed package causes the execution of a separate test binary.
 Test files that declare a package with the suffix "_test" will be compiled as a
 separate package, and then linked and run with the main test binary.
 
+The go tool will ignore a directory named "testdata", making it available
+to hold ancillary data needed by the tests.
+
 By default, go test needs no arguments.  It compiles and tests the package
 with source in the current directory, including tests, and runs the tests.
 
@@ -67,11 +69,6 @@ The package is built in a temporary directory so it does not interfere with the
 non-test installation.
 
 ` + strings.TrimSpace(testFlag1) + ` See 'go help testflag' for details.
-
-If the test binary needs any other flags, they should be presented after the
-package names. The go tool treats as a flag the first argument that begins with
-a minus sign that it does not recognize itself; that argument and all subsequent
-arguments are passed as arguments to the test binary.
 
 For more about build flags, see 'go help build'.
 For more about specifying packages, see 'go help packages'.
@@ -83,10 +80,16 @@ See also: go build, go vet.
 const testFlag1 = `
 In addition to the build flags, the flags handled by 'go test' itself are:
 
+	-args
+	    Pass the remainder of the command line (everything after -args)
+	    to the test binary, uninterpreted and unchanged.
+	    Because this flag consumes the remainder of the command line,
+	    the package list (if present) must appear before this flag.
+
 	-c
-		Compile the test binary to pkg.test but do not run it
-		(where pkg is the last element of the package's import path).
-		The file name can be changed with the -o flag.
+	    Compile the test binary to pkg.test but do not run it
+	    (where pkg is the last element of the package's import path).
+	    The file name can be changed with the -o flag.
 
 	-exec xprog
 	    Run the test binary using xprog. The behavior is the same as
@@ -97,8 +100,8 @@ In addition to the build flags, the flags handled by 'go test' itself are:
 	    Do not run the test.
 
 	-o file
-		Compile the test binary to the named file.
-		The test still runs (unless -c or -i is specified).
+	    Compile the test binary to the named file.
+	    The test still runs (unless -c or -i is specified).
 
 The test binary also accepts flags that control execution of the test; these
 flags are also accessible by 'go test'.
@@ -125,7 +128,10 @@ control the execution of any test:
 
 const testFlag2 = `
 	-bench regexp
-	    Run benchmarks matching the regular expression.
+	    Run (sub)benchmarks matching a regular expression.
+	    The given regular expression is split into smaller ones by
+	    top-level '/', where each must match the corresponding part of a
+	    benchmark's identifier.
 	    By default, no benchmarks run. To run all benchmarks,
 	    use '-bench .' or '-bench=.'.
 
@@ -207,10 +213,16 @@ const testFlag2 = `
 	    Allow parallel execution of test functions that call t.Parallel.
 	    The value of this flag is the maximum number of tests to run
 	    simultaneously; by default, it is set to the value of GOMAXPROCS.
+	    Note that -parallel only applies within a single test binary.
+	    The 'go test' command may run tests for different packages
+	    in parallel as well, according to the setting of the -p flag
+	    (see 'go help build').
 
 	-run regexp
-	    Run only those tests and examples matching the regular
-	    expression.
+	    Run only those tests and examples matching the regular expression.
+	    For tests the regular expression is split into smaller ones by
+	    top-level '/', where each must match the corresponding part of a
+	    test's identifier.
 
 	-short
 	    Tell long-running tests to shorten their run time.
@@ -224,31 +236,68 @@ const testFlag2 = `
 
 	-trace trace.out
 	    Write an execution trace to the specified file before exiting.
-	    Writes test binary as -c would.
 
 	-v
 	    Verbose output: log all tests as they are run. Also print all
 	    text from Log and Logf calls even if the test succeeds.
 
-The test binary, called pkg.test where pkg is the name of the
-directory containing the package sources, can be invoked directly
-after building it with 'go test -c'. When invoking the test binary
-directly, each of the standard flag names must be prefixed with 'test.',
-as in -test.run=TestMyFunc or -test.v.
+Each of these flags is also recognized with an optional 'test.' prefix,
+as in -test.v. When invoking the generated test binary (the result of
+'go test -c') directly, however, the prefix is mandatory.
 
-When running 'go test', flags not listed above are passed through
-unaltered. For instance, the command
+The 'go test' command rewrites or removes recognized flags,
+as appropriate, both before and after the optional package list,
+before invoking the test binary.
 
-	go test -x -v -cpuprofile=prof.out -dir=testdata -update
+For instance, the command
+
+	go test -v -myflag testdata -cpuprofile=prof.out -x
 
 will compile the test binary and then run it as
 
-	pkg.test -test.v -test.cpuprofile=prof.out -dir=testdata -update
+	pkg.test -test.v -myflag testdata -test.cpuprofile=prof.out
+
+(The -x flag is removed because it applies only to the go command's
+execution, not to the test itself.)
 
 The test flags that generate profiles (other than for coverage) also
 leave the test binary in pkg.test for use when analyzing the profiles.
 
-Flags not recognized by 'go test' must be placed after any specified packages.
+When 'go test' runs a test binary, it does so from within the
+corresponding package's source code directory. Depending on the test,
+it may be necessary to do the same when invoking a generated test
+binary directly.
+
+The command-line package list, if present, must appear before any
+flag not known to the go test command. Continuing the example above,
+the package list would have to appear before -myflag, but could appear
+on either side of -v.
+
+To keep an argument for a test binary from being interpreted as a
+known flag or a package name, use -args (see 'go help test') which
+passes the remainder of the command line through to the test binary
+uninterpreted and unaltered.
+
+For instance, the command
+
+	go test -v -args -x -v
+
+will compile the test binary and then run it as
+
+	pkg.test -test.v -x -v
+
+Similarly,
+
+	go test -args math
+
+will compile the test binary and then run it as
+
+	pkg.test math
+
+In the first example, the -x and the second -v are passed through to the
+test binary unchanged and with no effect on the go command itself.
+In the second example, the argument math is passed through to the test
+binary, instead of being interpreted as the package list.
 `
 
 var helpTestfunc = &Command{
@@ -269,10 +318,11 @@ A benchmark function is one named BenchmarkXXX and should have the signature,
 
 An example function is similar to a test function but, instead of using
 *testing.T to report success or failure, prints output to os.Stdout.
-That output is compared against the function's "Output:" comment, which
-must be the last comment in the function body (see example below). An
-example with no such comment, or with no text after "Output:" is compiled
-but not executed.
+If the last comment in the function starts with "Output:" then the output
+is compared exactly against the comment (see examples below). If the last
+comment begins with "Unordered output:" then the output is compared to the
+comment, however the order of the lines is ignored. An example with no such
+comment, or with no text after "Output:" is compiled but not executed.
 
 Godoc displays the body of ExampleXXX to demonstrate the use
 of the function, constant, or variable XXX.  An example of a method M with
@@ -286,6 +336,20 @@ Here is an example of an example:
 		Println("The output of\nthis example.")
 		// Output: The output of
 		// this example.
+	}
+
+Here is another example where the ordering of the output is ignored:
+
+	func ExamplePerm() {
+		for _, value := range Perm(4) {
+			fmt.Println(value)
+		}
+
+		// Unordered output: 4
+		// 2
+		// 1
+		// 3
+		// 0
 	}
 
 The entire test file is presented as the example when it contains a single
@@ -328,7 +392,7 @@ func runTest(cmd *Command, args []string) {
 
 	findExecCmd() // initialize cached result
 
-	raceInit()
+	instrumentInit()
 	buildModeInit()
 	pkgs := packagesForBuild(pkgArgs)
 	if len(pkgs) == 0 {
@@ -346,7 +410,7 @@ func runTest(cmd *Command, args []string) {
 	}
 
 	// If a test timeout was given and is parseable, set our kill timeout
-	// to that timeout plus one minute.  This is a backup alarm in case
+	// to that timeout plus one minute. This is a backup alarm in case
 	// the test wedges with a goroutine spinning and its background
 	// timer does not get a chance to fire.
 	if dt, err := time.ParseDuration(testTimeout); err == nil && dt > 0 {
@@ -396,7 +460,7 @@ func runTest(cmd *Command, args []string) {
 		if deps["C"] {
 			delete(deps, "C")
 			deps["runtime/cgo"] = true
-			if goos == runtime.GOOS && goarch == runtime.GOARCH && !buildRace {
+			if goos == runtime.GOOS && goarch == runtime.GOARCH && !buildRace && !buildMSan {
 				deps["cmd/cgo"] = true
 			}
 		}
@@ -442,7 +506,7 @@ func runTest(cmd *Command, args []string) {
 		}
 		for _, p := range testCoverPkgs {
 			if !used[p.ImportPath] {
-				log.Printf("warning: no packages being tested depend on %s", p.ImportPath)
+				fmt.Fprintf(os.Stderr, "warning: no packages being tested depend on %s\n", p.ImportPath)
 			}
 		}
 
@@ -453,7 +517,8 @@ func runTest(cmd *Command, args []string) {
 				continue
 			}
 			p.Stale = true // rebuild
-			p.fake = true  // do not warn about rebuild
+			p.StaleReason = "rebuild for coverage"
+			p.fake = true // do not warn about rebuild
 			p.coverMode = testCoverMode
 			var coverFiles []string
 			coverFiles = append(coverFiles, p.GoFiles...)
@@ -546,6 +611,9 @@ func runTest(cmd *Command, args []string) {
 		extraOpts := ""
 		if buildRace {
 			extraOpts = "-race "
+		}
+		if buildMSan {
+			extraOpts = "-msan "
 		}
 		fmt.Fprintf(os.Stderr, "installing these packages with 'go test %s-i%s' will speed future tests.\n\n", extraOpts, args)
 	}
@@ -655,7 +723,7 @@ func (b *builder) test(p *Package) (buildAction, runAction, printAction *action,
 	// the usual place in the temporary tree, because then
 	// other tests will see it as the real package.
 	// Instead we make a _test directory under the import path
-	// and then repeat the import path there.  We tell the
+	// and then repeat the import path there. We tell the
 	// compiler and linker to look in that _test directory first.
 	//
 	// That is, if the package under test is unicode/utf8,
@@ -693,6 +761,7 @@ func (b *builder) test(p *Package) (buildAction, runAction, printAction *action,
 		ptest.fake = true
 		ptest.forceLibrary = true
 		ptest.Stale = true
+		ptest.StaleReason = "rebuild for test"
 		ptest.build = new(build.Package)
 		*ptest.build = *p.build
 		m := map[string][]token.Position{}
@@ -829,10 +898,12 @@ func (b *builder) test(p *Package) (buildAction, runAction, printAction *action,
 		}
 	}
 
-	// writeTestmain writes _testmain.go. This must happen after recompileForTest,
-	// because recompileForTest modifies XXX.
-	if err := writeTestmain(filepath.Join(testDir, "_testmain.go"), t); err != nil {
-		return nil, nil, nil, err
+	if !buildN {
+		// writeTestmain writes _testmain.go. This must happen after recompileForTest,
+		// because recompileForTest modifies XXX.
+		if err := writeTestmain(filepath.Join(testDir, "_testmain.go"), t); err != nil {
+			return nil, nil, nil, err
+		}
 	}
 
 	computeStale(pmain)
@@ -972,6 +1043,7 @@ func recompileForTest(pmain, preal, ptest *Package, testDir string) {
 				p.target = ""
 				p.fake = true
 				p.Stale = true
+				p.StaleReason = "depends on package being tested"
 			}
 		}
 
@@ -1171,11 +1243,11 @@ func (b *builder) notest(a *action) error {
 	return nil
 }
 
-// isTestMain tells whether fn is a TestMain(m *testing.M) function.
-func isTestMain(fn *ast.FuncDecl) bool {
-	if fn.Name.String() != "TestMain" ||
-		fn.Type.Results != nil && len(fn.Type.Results.List) > 0 ||
-		fn.Type.Params == nil ||
+// isTestFunc tells whether fn has the type of a testing function. arg
+// specifies the parameter type we look for: B, M or T.
+func isTestFunc(fn *ast.FuncDecl, arg string) bool {
+	if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 ||
+		fn.Type.Params.List == nil ||
 		len(fn.Type.Params.List) != 1 ||
 		len(fn.Type.Params.List[0].Names) > 1 {
 		return false
@@ -1187,10 +1259,11 @@ func isTestMain(fn *ast.FuncDecl) bool {
 	// We can't easily check that the type is *testing.M
 	// because we don't know how testing has been imported,
 	// but at least check that it's *M or *something.M.
-	if name, ok := ptr.X.(*ast.Ident); ok && name.Name == "M" {
+	// Same applies for B and T.
+	if name, ok := ptr.X.(*ast.Ident); ok && name.Name == arg {
 		return true
 	}
-	if sel, ok := ptr.X.(*ast.SelectorExpr); ok && sel.Sel.Name == "M" {
+	if sel, ok := ptr.X.(*ast.SelectorExpr); ok && sel.Sel.Name == arg {
 		return true
 	}
 	return false
@@ -1287,9 +1360,10 @@ func (t *testFuncs) Tested() string {
 }
 
 type testFunc struct {
-	Package string // imported package name (_test or _xtest)
-	Name    string // function name
-	Output  string // output, for examples
+	Package   string // imported package name (_test or _xtest)
+	Name      string // function name
+	Output    string // output, for examples
+	Unordered bool   // output is allowed to be unordered.
 }
 
 var testFileSet = token.NewFileSet()
@@ -1309,17 +1383,25 @@ func (t *testFuncs) load(filename, pkg string, doImport, seen *bool) error {
 		}
 		name := n.Name.String()
 		switch {
-		case isTestMain(n):
+		case name == "TestMain" && isTestFunc(n, "M"):
 			if t.TestMain != nil {
 				return errors.New("multiple definitions of TestMain")
 			}
-			t.TestMain = &testFunc{pkg, name, ""}
+			t.TestMain = &testFunc{pkg, name, "", false}
 			*doImport, *seen = true, true
 		case isTest(name, "Test"):
-			t.Tests = append(t.Tests, testFunc{pkg, name, ""})
+			err := checkTestFunc(n, "T")
+			if err != nil {
+				return err
+			}
+			t.Tests = append(t.Tests, testFunc{pkg, name, "", false})
 			*doImport, *seen = true, true
 		case isTest(name, "Benchmark"):
-			t.Benchmarks = append(t.Benchmarks, testFunc{pkg, name, ""})
+			err := checkTestFunc(n, "B")
+			if err != nil {
+				return err
+			}
+			t.Benchmarks = append(t.Benchmarks, testFunc{pkg, name, "", false})
 			*doImport, *seen = true, true
 		}
 	}
@@ -1331,8 +1413,17 @@ func (t *testFuncs) load(filename, pkg string, doImport, seen *bool) error {
 			// Don't run examples with no output.
 			continue
 		}
-		t.Examples = append(t.Examples, testFunc{pkg, "Example" + e.Name, e.Output})
+		t.Examples = append(t.Examples, testFunc{pkg, "Example" + e.Name, e.Output, e.Unordered})
 		*seen = true
+	}
+	return nil
+}
+
+func checkTestFunc(fn *ast.FuncDecl, arg string) error {
+	if !isTestFunc(fn, arg) {
+		name := fn.Name.String()
+		pos := testFileSet.Position(fn.Pos())
+		return fmt.Errorf("%s: wrong signature for %s, must be: func %s(%s *testing.%s)", pos, name, name, strings.ToLower(arg), arg)
 	}
 	return nil
 }
@@ -1382,7 +1473,7 @@ var benchmarks = []testing.InternalBenchmark{
 
 var examples = []testing.InternalExample{
 {{range .Examples}}
-	{"{{.Name}}", {{.Package}}.{{.Name}}, {{.Output | printf "%q"}}},
+	{"{{.Name}}", {{.Package}}.{{.Name}}, {{.Output | printf "%q"}}, {{.Unordered}}},
 {{end}}
 }
 

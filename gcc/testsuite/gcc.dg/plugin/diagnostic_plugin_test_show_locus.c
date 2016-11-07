@@ -133,11 +133,20 @@ custom_diagnostic_finalizer (diagnostic_context *context,
   bool old_show_color = pp_show_color (context->printer);
   if (force_show_locus_color)
     pp_show_color (context->printer) = true;
-  diagnostic_show_locus (context, diagnostic);
+  diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
   pp_show_color (context->printer) = old_show_color;
 
   pp_destroy_prefix (context->printer);
-  pp_newline_and_flush (context->printer);
+  pp_flush (context->printer);
+}
+
+/* Add a location to RICHLOC with caret==start at START, ranging to FINISH.  */
+
+static void
+add_range (rich_location *richloc, location_t start, location_t finish,
+	   bool show_caret_p)
+{
+  richloc->add_range (make_location (start, start, finish), show_caret_p);
 }
 
 /* Exercise the diagnostic machinery to emit various warnings,
@@ -165,8 +174,8 @@ test_show_locus (function *fun)
     {
       const int line = fnstart_line + 2;
       rich_location richloc (line_table, get_loc (line, 15));
-      richloc.add_range (get_loc (line, 10), get_loc (line, 14), false);
-      richloc.add_range (get_loc (line, 16), get_loc (line, 16), false);
+      add_range (&richloc, get_loc (line, 10), get_loc (line, 14), false);
+      add_range (&richloc, get_loc (line, 16), get_loc (line, 16), false);
       warning_at_rich_loc (&richloc, 0, "test");
     }
 
@@ -174,10 +183,8 @@ test_show_locus (function *fun)
     {
       const int line = fnstart_line + 2;
       rich_location richloc (line_table, get_loc (line, 24));
-      richloc.add_range (get_loc (line, 6),
-			 get_loc (line, 22), false);
-      richloc.add_range (get_loc (line, 26),
-			 get_loc (line, 43), false);
+      add_range (&richloc, get_loc (line, 6), get_loc (line, 22), false);
+      add_range (&richloc, get_loc (line, 26), get_loc (line, 43), false);
       warning_at_rich_loc (&richloc, 0, "test");
     }
 
@@ -185,10 +192,9 @@ test_show_locus (function *fun)
     {
       const int line = fnstart_line + 2;
       rich_location richloc (line_table, get_loc (line + 1, 7));
-      richloc.add_range (get_loc (line, 7),
-			 get_loc (line, 23), false);
-      richloc.add_range (get_loc (line + 1, 9),
-			 get_loc (line + 1, 26), false);
+      add_range (&richloc, get_loc (line, 7), get_loc (line, 23), false);
+      add_range (&richloc, get_loc (line + 1, 9), get_loc (line + 1, 26),
+		 false);
       warning_at_rich_loc (&richloc, 0, "test");
     }
 
@@ -196,22 +202,20 @@ test_show_locus (function *fun)
     {
       const int line = fnstart_line + 2;
       rich_location richloc (line_table, get_loc (line + 5, 7));
-      richloc.add_range (get_loc (line, 7),
-			 get_loc (line + 4, 65), false);
-      richloc.add_range (get_loc (line + 5, 9),
-			 get_loc (line + 10, 61), false);
+      add_range (&richloc, get_loc (line, 7), get_loc (line + 4, 65), false);
+      add_range (&richloc, get_loc (line + 5, 9), get_loc (line + 10, 61),
+		 false);
       warning_at_rich_loc (&richloc, 0, "test");
     }
 
-  /* Example of a rich_location constructed directly from a
-     source_range where the range is larger than one character.  */
+  /* Example of a rich_location where the range is larger than
+     one character.  */
   if (0 == strcmp (fnname, "test_richloc_from_proper_range"))
     {
       const int line = fnstart_line + 2;
-      source_range src_range;
-      src_range.m_start = get_loc (line, 12);
-      src_range.m_finish = get_loc (line, 16);
-      rich_location richloc (src_range);
+      location_t start = get_loc (line, 12);
+      location_t finish = get_loc (line, 16);
+      rich_location richloc (line_table, make_location (start, start, finish));
       warning_at_rich_loc (&richloc, 0, "test");
     }
 
@@ -220,15 +224,9 @@ test_show_locus (function *fun)
   if (0 == strcmp (fnname, "test_caret_within_proper_range"))
     {
       const int line = fnstart_line + 2;
-      location_t caret = get_loc (line, 16);
-      source_range src_range;
-      src_range.m_start = get_loc (line, 12);
-      src_range.m_finish = get_loc (line, 20);
-      location_t combined_loc = COMBINE_LOCATION_DATA (line_table,
-						       caret,
-						       src_range,
-						       NULL);
-      warning_at (combined_loc, 0, "test");
+      warning_at (make_location (get_loc (line, 16), get_loc (line, 12),
+				 get_loc (line, 20)),
+		  0, "test");
     }
 
   /* Example of a very wide line, where the information of interest
@@ -236,15 +234,11 @@ test_show_locus (function *fun)
   if (0 == strcmp (fnname, "test_very_wide_line"))
     {
       const int line = fnstart_line + 2;
-      location_t caret = get_loc (line, 94);
-      source_range src_range;
-      src_range.m_start = get_loc (line, 90);
-      src_range.m_finish = get_loc (line, 98);
-      location_t combined_loc = COMBINE_LOCATION_DATA (line_table,
-						       caret,
-						       src_range,
-						       NULL);
-      warning_at (combined_loc, 0, "test");
+      global_dc->show_ruler_p = true;
+      warning_at (make_location (get_loc (line, 94), get_loc (line, 90),
+				 get_loc (line, 98)),
+		  0, "test");
+      global_dc->show_ruler_p = false;
     }
 
   /* Example of multiple carets.  */
@@ -254,7 +248,7 @@ test_show_locus (function *fun)
       location_t caret_a = get_loc (line, 7);
       location_t caret_b = get_loc (line, 11);
       rich_location richloc (line_table, caret_a);
-      richloc.add_range (caret_b, caret_b, true);
+      add_range (&richloc, caret_b, caret_b, true);
       global_dc->caret_chars[0] = 'A';
       global_dc->caret_chars[1] = 'B';
       warning_at_rich_loc (&richloc, 0, "test");
@@ -266,22 +260,23 @@ test_show_locus (function *fun)
   if (0 == strcmp (fnname, "test_fixit_insert"))
     {
       const int line = fnstart_line + 2;
-      source_range src_range;
-      src_range.m_start = get_loc (line, 19);
-      src_range.m_finish = get_loc (line, 22);
-      rich_location richloc (src_range);
-      richloc.add_fixit_insert (src_range.m_start, "{");
-      richloc.add_fixit_insert (get_loc (line, 23), "}");
+      location_t start = get_loc (line, 19);
+      location_t finish = get_loc (line, 22);
+      rich_location richloc (line_table, make_location (start, start, finish));
+      richloc.add_fixit_insert_before ("{");
+      richloc.add_fixit_insert_after ("}");
       warning_at_rich_loc (&richloc, 0, "example of insertion hints");
     }
 
   if (0 == strcmp (fnname, "test_fixit_remove"))
     {
       const int line = fnstart_line + 2;
+      location_t start = get_loc (line, 8);
+      location_t finish = get_loc (line, 8);
+      rich_location richloc (line_table, make_location (start, start, finish));
       source_range src_range;
-      src_range.m_start = get_loc (line, 8);
-      src_range.m_finish = get_loc (line, 8);
-      rich_location richloc (src_range);
+      src_range.m_start = start;
+      src_range.m_finish = finish;
       richloc.add_fixit_remove (src_range);
       warning_at_rich_loc (&richloc, 0, "example of a removal hint");
     }
@@ -289,10 +284,12 @@ test_show_locus (function *fun)
   if (0 == strcmp (fnname, "test_fixit_replace"))
     {
       const int line = fnstart_line + 2;
+      location_t start = get_loc (line, 2);
+      location_t finish = get_loc (line, 19);
+      rich_location richloc (line_table, make_location (start, start, finish));
       source_range src_range;
-      src_range.m_start = get_loc (line, 2);
-      src_range.m_finish = get_loc (line, 19);
-      rich_location richloc (src_range);
+      src_range.m_start = start;
+      src_range.m_finish = finish;
       richloc.add_fixit_replace (src_range, "gtk_widget_show_all");
       warning_at_rich_loc (&richloc, 0, "example of a replacement hint");
     }
@@ -310,7 +307,7 @@ test_show_locus (function *fun)
       location_t caret_a = get_loc (line, 5);
       location_t caret_b = get_loc (line - 1, 19);
       rich_location richloc (line_table, caret_a);
-      richloc.add_range (caret_b, caret_b, true);
+      richloc.add_range (caret_b, true);
       global_dc->caret_chars[0] = '1';
       global_dc->caret_chars[1] = '2';
       warning_at_rich_loc (&richloc, 0, "test");
@@ -327,6 +324,59 @@ test_show_locus (function *fun)
       tree local = (*fun->local_decls)[0];
       warning_at (input_location, 0,
 		  "example of plus in format code for %q+D", local);
+    }
+
+  /* Example of many locations and many fixits.
+     Underline (separately) every word in a comment, and convert them
+     to upper case.  */
+  if (0 == strcmp (fnname, "test_many_nested_locations"))
+    {
+      const char *file = LOCATION_FILE (fnstart);
+      const int start_line = fnstart_line + 2;
+      const int finish_line = start_line + 7;
+      location_t loc = get_loc (start_line - 1, 2);
+      rich_location richloc (line_table, loc);
+      for (int line = start_line; line <= finish_line; line++)
+	{
+	  int line_size;
+	  const char *content = location_get_source_line (file, line,
+							  &line_size);
+	  gcc_assert (content);
+	  /* Split line up into words.  */
+	  for (int idx = 0; idx < line_size; idx++)
+	    {
+	      if (ISALPHA (content[idx]))
+		{
+		  int start_idx = idx;
+		  while (idx < line_size && ISALPHA (content[idx]))
+		    idx++;
+		  if (idx == line_size || !ISALPHA (content[idx]))
+		    {
+		      location_t start_of_word = get_loc (line, start_idx);
+		      location_t end_of_word = get_loc (line, idx - 1);
+		      location_t word
+			= make_location (start_of_word, start_of_word,
+					 end_of_word);
+		      richloc.add_range (word, true);
+
+		      /* Add a fixit, converting to upper case.  */
+		      char *copy = xstrndup (content + start_idx,
+					     idx - start_idx);
+		      for (char *ch = copy; *ch; ch++)
+			*ch = TOUPPER (*ch);
+		      richloc.add_fixit_replace (word, copy);
+		      free (copy);
+		    }
+		}
+	    }
+	}
+      /* Verify that we added enough locations to fully exercise
+	 rich_location.  We want to exceed both the
+	 statically-allocated buffer in class rich_location,
+	 and then trigger a reallocation of the dynamic buffer.  */
+      gcc_assert (richloc.get_num_locations () > 3 + (2 * 16));
+      warning_at_rich_loc (&richloc, 0, "test of %i locations",
+			   richloc.get_num_locations ());
     }
 }
 

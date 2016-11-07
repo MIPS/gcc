@@ -141,8 +141,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "predict.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
+#include "print-rtl.h"
 #include "regs.h"
 #include "ira.h"
 #include "recog.h"
@@ -342,8 +344,7 @@ struct ls_expr
   struct gcse_expr * expr;	/* Gcse expression reference for LM.  */
   rtx pattern;			/* Pattern of this mem.  */
   rtx pattern_regs;		/* List of registers mentioned by the mem.  */
-  rtx_insn_list *loads;		/* INSN list of loads seen.  */
-  rtx_insn_list *stores;	/* INSN list of stores seen.  */
+  vec<rtx_insn *> stores;	/* INSN list of stores seen.  */
   struct ls_expr * next;	/* Next in the list.  */
   int invalid;			/* Invalid for some reason.  */
   int index;			/* If it maps to a bitmap index.  */
@@ -810,7 +811,7 @@ want_to_gcse_p (rtx x, machine_mode mode, int *max_distance_ptr)
 	    *max_distance_ptr = max_distance;
 	}
 
-      return can_assign_to_reg_without_clobbers_p (x);
+      return can_assign_to_reg_without_clobbers_p (x, mode);
     }
 }
 
@@ -818,9 +819,9 @@ want_to_gcse_p (rtx x, machine_mode mode, int *max_distance_ptr)
 
 static GTY(()) rtx_insn *test_insn;
 
-/* Return true if we can assign X to a pseudo register such that the
-   resulting insn does not result in clobbering a hard register as a
-   side-effect.
+/* Return true if we can assign X to a pseudo register of mode MODE
+   such that the resulting insn does not result in clobbering a hard
+   register as a side-effect.
 
    Additionally, if the target requires it, check that the resulting insn
    can be copied.  If it cannot, this means that X is special and probably
@@ -831,14 +832,14 @@ static GTY(()) rtx_insn *test_insn;
    maybe live hard regs.  */
 
 bool
-can_assign_to_reg_without_clobbers_p (rtx x)
+can_assign_to_reg_without_clobbers_p (rtx x, machine_mode mode)
 {
   int num_clobbers = 0;
   int icode;
   bool can_assign = false;
 
   /* If this is a valid operand, we are OK.  If it's VOIDmode, we aren't.  */
-  if (general_operand (x, GET_MODE (x)))
+  if (general_operand (x, mode))
     return 1;
   else if (GET_MODE (x) == VOIDmode)
     return 0;
@@ -857,7 +858,7 @@ can_assign_to_reg_without_clobbers_p (rtx x)
 
   /* Now make an insn like the one we would make when GCSE'ing and see if
      valid.  */
-  PUT_MODE (SET_DEST (PATTERN (test_insn)), GET_MODE (x));
+  PUT_MODE (SET_DEST (PATTERN (test_insn)), mode);
   SET_SRC (PATTERN (test_insn)) = x;
 
   icode = recog (PATTERN (test_insn), test_insn, &num_clobbers);
@@ -1691,12 +1692,11 @@ free_pre_mem (void)
 static void
 prune_expressions (bool pre_p)
 {
-  sbitmap prune_exprs;
   struct gcse_expr *expr;
   unsigned int ui;
   basic_block bb;
 
-  prune_exprs = sbitmap_alloc (expr_hash_table.n_elems);
+  auto_sbitmap prune_exprs (expr_hash_table.n_elems);
   bitmap_clear (prune_exprs);
   for (ui = 0; ui < expr_hash_table.size; ui++)
     {
@@ -1767,8 +1767,6 @@ prune_expressions (bool pre_p)
 	    break;
 	  }
     }
-
-  sbitmap_free (prune_exprs);
 }
 
 /* It may be necessary to insert a large number of insns on edges to
@@ -1783,7 +1781,6 @@ static void
 prune_insertions_deletions (int n_elems)
 {
   sbitmap_iterator sbi;
-  sbitmap prune_exprs;
 
   /* We always use I to iterate over blocks/edges and J to iterate over
      expressions.  */
@@ -1797,7 +1794,7 @@ prune_insertions_deletions (int n_elems)
   /* Set of expressions which require too many insertions relative to
      the number of deletions achieved.  We will prune these out of the
      insertion/deletion sets.  */
-  prune_exprs = sbitmap_alloc (n_elems);
+  auto_sbitmap prune_exprs (n_elems);
   bitmap_clear (prune_exprs);
 
   /* Iterate over the edges counting the number of times each expression
@@ -1835,7 +1832,6 @@ prune_insertions_deletions (int n_elems)
 	bitmap_clear_bit (pre_delete_map[i], j);
     }
 
-  sbitmap_free (prune_exprs);
   free (insertions);
   free (deletions);
 }
@@ -2647,10 +2643,10 @@ add_label_notes (rtx x, rtx_insn *insn)
 	 such a LABEL_REF, so we don't have to handle REG_LABEL_TARGET
 	 notes.  */
       gcc_assert (!JUMP_P (insn));
-      add_reg_note (insn, REG_LABEL_OPERAND, LABEL_REF_LABEL (x));
+      add_reg_note (insn, REG_LABEL_OPERAND, label_ref_label (x));
 
-      if (LABEL_P (LABEL_REF_LABEL (x)))
-	LABEL_NUSES (LABEL_REF_LABEL (x))++;
+      if (LABEL_P (label_ref_label (x)))
+	LABEL_NUSES (label_ref_label (x))++;
 
       return;
     }
@@ -3605,8 +3601,7 @@ ldst_entry (rtx x)
   ptr->expr         = NULL;
   ptr->pattern      = x;
   ptr->pattern_regs = NULL_RTX;
-  ptr->loads        = NULL;
-  ptr->stores       = NULL;
+  ptr->stores.create (0);
   ptr->reaching_reg = NULL_RTX;
   ptr->invalid      = 0;
   ptr->index        = 0;
@@ -3622,8 +3617,7 @@ ldst_entry (rtx x)
 static void
 free_ldst_entry (struct ls_expr * ptr)
 {
-  free_INSN_LIST_list (& ptr->loads);
-  free_INSN_LIST_list (& ptr->stores);
+  ptr->stores.release ();
 
   free (ptr);
 }
@@ -3663,19 +3657,8 @@ print_ldst_list (FILE * file)
 
       print_rtl (file, ptr->pattern);
 
-      fprintf (file, "\n	 Loads : ");
-
-      if (ptr->loads)
-	print_rtl (file, ptr->loads);
-      else
-	fprintf (file, "(nil)");
-
       fprintf (file, "\n	Stores : ");
-
-      if (ptr->stores)
-	print_rtl (file, ptr->stores);
-      else
-	fprintf (file, "(nil)");
+      print_rtx_insn_vec (file, ptr->stores);
 
       fprintf (file, "\n\n");
     }
@@ -3796,16 +3779,12 @@ compute_ld_motion_mems (void)
 		{
 		  rtx src = SET_SRC (PATTERN (insn));
 		  rtx dest = SET_DEST (PATTERN (insn));
-		  rtx note = find_reg_equal_equiv_note (insn);
-		  rtx src_eq;
 
-		  /* Check for a simple LOAD...  */
+		  /* Check for a simple load.  */
 		  if (MEM_P (src) && simple_mem (src))
 		    {
 		      ptr = ldst_entry (src);
-		      if (REG_P (dest))
-			ptr->loads = alloc_INSN_LIST (insn, ptr->loads);
-		      else
+		      if (!REG_P (dest))
 			ptr->invalid = 1;
 		    }
 		  else
@@ -3814,12 +3793,11 @@ compute_ld_motion_mems (void)
 		      invalidate_any_buried_refs (src);
 		    }
 
-		  if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
-		    src_eq = XEXP (note, 0);
-		  else
-		    src_eq = NULL_RTX;
-
-		  if (src_eq != NULL_RTX
+		  /* Check for a simple load through a REG_EQUAL note.  */
+		  rtx note = find_reg_equal_equiv_note (insn), src_eq;
+		  if (note
+		      && REG_NOTE_KIND (note) == REG_EQUAL
+		      && (src_eq = XEXP (note, 0))
 		      && !(MEM_P (src_eq) && simple_mem (src_eq)))
 		    invalidate_any_buried_refs (src_eq);
 
@@ -3830,19 +3808,30 @@ compute_ld_motion_mems (void)
 		  if (MEM_P (dest) && simple_mem (dest))
 		    {
 		      ptr = ldst_entry (dest);
-
+		      machine_mode src_mode = GET_MODE (src);
 		      if (! MEM_P (src)
 			  && GET_CODE (src) != ASM_OPERANDS
 			  /* Check for REG manually since want_to_gcse_p
 			     returns 0 for all REGs.  */
-			  && can_assign_to_reg_without_clobbers_p (src))
-			ptr->stores = alloc_INSN_LIST (insn, ptr->stores);
+			  && can_assign_to_reg_without_clobbers_p (src,
+								    src_mode))
+			ptr->stores.safe_push (insn);
 		      else
 			ptr->invalid = 1;
 		    }
 		}
 	      else
-		invalidate_any_buried_refs (PATTERN (insn));
+		{
+		  /* Invalidate all MEMs in the pattern and...  */
+		  invalidate_any_buried_refs (PATTERN (insn));
+
+		  /* ...in REG_EQUAL notes for PARALLELs with single SET.  */
+		  rtx note = find_reg_equal_equiv_note (insn), src_eq;
+		  if (note
+		      && REG_NOTE_KIND (note) == REG_EQUAL
+		      && (src_eq = XEXP (note, 0)))
+		    invalidate_any_buried_refs (src_eq);
+		}
 	    }
 	}
     }
@@ -3919,11 +3908,10 @@ update_ld_motion_stores (struct gcse_expr * expr)
 	 where reg is the reaching reg used in the load.  We checked in
 	 compute_ld_motion_mems that we can replace (set mem expr) with
 	 (set reg expr) in that insn.  */
-      rtx list = mem_ptr->stores;
-
-      for ( ; list != NULL_RTX; list = XEXP (list, 1))
+      rtx_insn *insn;
+      unsigned int i;
+      FOR_EACH_VEC_ELT_REVERSE (mem_ptr->stores, i, insn)
 	{
-	  rtx_insn *insn = as_a <rtx_insn *> (XEXP (list, 0));
 	  rtx pat = PATTERN (insn);
 	  rtx src = SET_SRC (pat);
 	  rtx reg = expr->reaching_reg;

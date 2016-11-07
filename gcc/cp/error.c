@@ -31,8 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ubsan.h"
 #include "internal-fn.h"
 
-#include <new>                    // For placement-new.
-
 #define pp_separate_with_comma(PP) pp_cxx_separate_with (PP, ',')
 #define pp_separate_with_semicolon(PP) pp_cxx_separate_with (PP, ';')
 
@@ -172,6 +170,10 @@ dump_template_argument (cxx_pretty_printer *pp, tree arg, int flags)
     {
       if (TREE_CODE (arg) == TREE_LIST)
 	arg = TREE_VALUE (arg);
+
+      /* Strip implicit conversions.  */
+      while (CONVERT_EXPR_P (arg))
+	arg = TREE_OPERAND (arg, 0);
 
       dump_expr (pp, arg, (flags | TFF_EXPR_IN_PARENS) & ~TFF_CLASS_KEY_OR_ENUM);
     }
@@ -452,7 +454,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 		     ? DECL_ORIGINAL_TYPE (t) : TREE_TYPE (t), flags);
 	  break;
 	}
-      /* Else fall through.  */
+      /* Fall through.  */
 
     case TEMPLATE_DECL:
     case NAMESPACE_DECL:
@@ -577,7 +579,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 
     default:
       pp_unsupported_tree (pp, t);
-      /* Fall through to error.  */
+      /* Fall through.  */
 
     case ERROR_MARK:
       pp_string (pp, M_("<type error>"));
@@ -681,9 +683,9 @@ dump_aggr_type (cxx_pretty_printer *pp, tree t, int flags)
   if (name == 0 || anon_aggrname_p (name))
     {
       if (flags & TFF_CLASS_KEY_OR_ENUM)
-	pp_string (pp, M_("<anonymous>"));
+	pp_string (pp, M_("<unnamed>"));
       else
-	pp_printf (pp, M_("<anonymous %s>"), variety);
+	pp_printf (pp, M_("<unnamed %s>"), variety);
     }
   else if (LAMBDA_TYPE_P (t))
     {
@@ -875,10 +877,10 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
     case ARRAY_TYPE:
       pp_maybe_space (pp);
       pp_cxx_left_bracket (pp);
-      if (TYPE_DOMAIN (t) && TYPE_MAX_VALUE (TYPE_DOMAIN (t)))
+      if (tree dtype = TYPE_DOMAIN (t))
 	{
-	  tree dtype = TYPE_DOMAIN (t);
 	  tree max = TYPE_MAX_VALUE (dtype);
+	  /* Zero-length arrays have an upper bound of SIZE_MAX.  */
 	  if (integer_all_onesp (max))
 	    pp_character (pp, '0');
 	  else if (tree_fits_shwi_p (max))
@@ -961,9 +963,13 @@ dump_simple_decl (cxx_pretty_printer *pp, tree t, tree type, int flags)
 {
   if (flags & TFF_DECL_SPECIFIERS)
     {
-      if (VAR_P (t)
-	  && DECL_DECLARED_CONSTEXPR_P (t))
-	pp_cxx_ws_string (pp, "constexpr");
+      if (VAR_P (t) && DECL_DECLARED_CONSTEXPR_P (t))
+        {
+	  if (DECL_LANG_SPECIFIC (t) && DECL_DECLARED_CONCEPT_P (t))
+	    pp_cxx_ws_string (pp, "concept");
+	  else
+	    pp_cxx_ws_string (pp, "constexpr");
+	}
       dump_type_prefix (pp, type, flags & ~TFF_UNQUALIFIED_NAME);
       pp_maybe_space (pp);
     }
@@ -1062,7 +1068,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	  dump_type (pp, DECL_CONTEXT (t), flags);
 	  break;
 	}
-      /* Else fall through.  */
+      /* Fall through.  */
     case FIELD_DECL:
     case PARM_DECL:
       dump_simple_decl (pp, t, TREE_TYPE (t), flags);
@@ -1157,6 +1163,9 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	  dump_type (pp, TREE_TYPE (t), flags);
 	  break;
 	}
+      else if (dguide_name_p (t))
+	dump_decl (pp, CLASSTYPE_TI_TEMPLATE (TREE_TYPE (t)),
+		   TFF_PLAIN_IDENTIFIER);
       else
 	pp_cxx_tree_identifier (pp, t);
       break;
@@ -1273,7 +1282,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 
     default:
       pp_unsupported_tree (pp, t);
-      /* Fall through to error.  */
+      /* Fall through.  */
 
     case ERROR_MARK:
       pp_string (pp, M_("<declaration error>"));
@@ -1336,16 +1345,19 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 	  if (TEMPLATE_TYPE_PARAMETER_PACK (TREE_TYPE (t)))
 	    pp_cxx_ws_string (pp, "...");
 	}
+
+      /* Only print the requirements if we're also printing
+         the template header.  */
+      if (flag_concepts)
+	if (tree ci = get_constraints (t))
+	  if (check_constraint_info (ci))
+	    if (tree reqs = CI_TEMPLATE_REQS (ci))
+	      {
+		pp_cxx_requires_clause (pp, reqs);
+		pp_cxx_whitespace (pp);
+	      }
     }
 
-  if (flag_concepts)
-    if (tree ci = get_constraints (t))
-      if (check_constraint_info (ci))
-        if (tree reqs = CI_TEMPLATE_REQS (ci))
-	  {
-	    pp_cxx_requires_clause (pp, reqs);
-	    pp_cxx_whitespace (pp);
-	  }
 
   if (DECL_CLASS_TEMPLATE_P (t))
     dump_type (pp, TREE_TYPE (t),
@@ -1488,6 +1500,7 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
   int show_return = flags & TFF_RETURN_TYPE || flags & TFF_DECL_SPECIFIERS;
   int do_outer_scope = ! (flags & TFF_UNQUALIFIED_NAME);
   tree exceptions;
+  bool constexpr_p;
 
   flags &= ~(TFF_UNQUALIFIED_NAME | TFF_TEMPLATE_NAME);
   if (TREE_CODE (t) == TEMPLATE_DECL)
@@ -1497,8 +1510,12 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
      emitting an error about incompatible specifications.  */
   exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (t));
 
+  /* Likewise for the constexpr specifier, in case t is a specialization.  */
+  constexpr_p = DECL_DECLARED_CONSTEXPR_P (t);
+
   /* Pretty print template instantiations only.  */
   if (DECL_USE_TEMPLATE (t) && DECL_TEMPLATE_INFO (t)
+      && !(flags & TFF_NO_TEMPLATE_BINDINGS)
       && flag_pretty_templates)
     {
       tree tmpl;
@@ -1531,14 +1548,19 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
       else if (DECL_VIRTUAL_P (t))
 	pp_cxx_ws_string (pp, "virtual");
 
-      if (DECL_DECLARED_CONSTEXPR_P (t))
-	pp_cxx_ws_string (pp, "constexpr");
+      if (constexpr_p)
+        {
+          if (DECL_DECLARED_CONCEPT_P (t))
+            pp_cxx_ws_string (pp, "concept");
+          else
+	    pp_cxx_ws_string (pp, "constexpr");
+	}
     }
 
   /* Print the return type?  */
   if (show_return)
-    show_return = !DECL_CONV_FN_P (t)  && !DECL_CONSTRUCTOR_P (t)
-		  && !DECL_DESTRUCTOR_P (t);
+    show_return = (!DECL_CONV_FN_P (t)  && !DECL_CONSTRUCTOR_P (t)
+		   && !DECL_DESTRUCTOR_P (t) && !deduction_guide_p (t));
   if (show_return)
     {
       tree ret = fndecl_declared_return_type (t);
@@ -1583,6 +1605,11 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
 
       if (show_return)
 	dump_type_suffix (pp, TREE_TYPE (fntype), flags);
+      else if (deduction_guide_p (t))
+	{
+	  pp_cxx_ws_string (pp, "->");
+	  dump_type (pp, TREE_TYPE (TREE_TYPE (t)), flags);
+	}
 
       if (flag_concepts)
         if (tree ci = get_constraints (t))
@@ -1730,7 +1757,7 @@ dump_function_name (cxx_pretty_printer *pp, tree t, int flags)
     {
       if (LAMBDA_TYPE_P (DECL_CONTEXT (t)))
 	name = get_identifier ("<lambda>");
-      else if (TYPE_ANONYMOUS_P (DECL_CONTEXT (t)))
+      else if (TYPE_UNNAMED_P (DECL_CONTEXT (t)))
 	name = get_identifier ("<constructor>");
       else
 	name = constructor_name (DECL_CONTEXT (t));
@@ -1752,10 +1779,6 @@ dump_function_name (cxx_pretty_printer *pp, tree t, int flags)
       pp_cxx_ws_string (pp, "operator");
       dump_type (pp, TREE_TYPE (TREE_TYPE (t)), flags);
     }
-  else if (name && IDENTIFIER_OPNAME_P (name))
-    pp_cxx_tree_identifier (pp, name);
-  else if (name && UDLIT_OPER_P (name))
-    pp_cxx_tree_identifier (pp, name);
   else
     dump_decl (pp, name, flags);
 
@@ -1974,6 +1997,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case IDENTIFIER_NODE:
       dump_decl (pp, t, ((flags & ~(TFF_DECL_SPECIFIERS|TFF_RETURN_TYPE
                                     |TFF_TEMPLATE_HEADER))
+			 | TFF_NO_TEMPLATE_BINDINGS
                          | TFF_NO_FUNCTION_ARGUMENTS));
       break;
 
@@ -2658,11 +2682,19 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       pp_cxx_offsetof_expression (pp, t);
       break;
 
+    case ADDRESSOF_EXPR:
+      pp_cxx_addressof_expression (pp, t);
+      break;
+
     case SCOPE_REF:
       dump_decl (pp, t, flags);
       break;
 
     case EXPR_PACK_EXPANSION:
+    case UNARY_LEFT_FOLD_EXPR:
+    case UNARY_RIGHT_FOLD_EXPR:
+    case BINARY_LEFT_FOLD_EXPR:
+    case BINARY_RIGHT_FOLD_EXPR:
     case TYPEID_EXPR:
     case MEMBER_REF:
     case DOTSTAR_EXPR:
@@ -2735,6 +2767,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case PRED_CONSTR:
+    case CHECK_CONSTR:
     case EXPR_CONSTR:
     case TYPE_CONSTR:
     case ICONV_CONSTR:
@@ -2755,7 +2788,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	  `report_error_function'.  That could cause an infinite loop.  */
     default:
       pp_unsupported_tree (pp, t);
-      /* fall through to ERROR_MARK...  */
+      /* Fall through.  */
     case ERROR_MARK:
       pp_string (pp, M_("<expression error>"));
       break;
@@ -2844,7 +2877,7 @@ decl_as_dwarf_string (tree decl, int flags)
 {
   const char *name;
   /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
-     here will be adequate to get the desired behaviour.  */
+     here will be adequate to get the desired behavior.  */
   cxx_pp->flags |= pp_c_flag_gnu_v3;
   name = decl_as_string (decl, flags);
   /* Subsequent calls to the pretty printer shouldn't use this style.  */
@@ -2876,7 +2909,7 @@ lang_decl_dwarf_name (tree decl, int v, bool translate)
 {
   const char *name;
   /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
-     here will be adequate to get the desired behaviour.  */
+     here will be adequate to get the desired behavior.  */
   cxx_pp->flags |= pp_c_flag_gnu_v3;
   name = lang_decl_name (decl, v, translate);
   /* Subsequent calls to the pretty printer shouldn't use this style.  */
@@ -2997,9 +3030,6 @@ language_to_string (enum languages c)
 
     case lang_cplusplus:
       return "C++";
-
-    case lang_java:
-      return "Java";
 
     default:
       gcc_unreachable ();
@@ -3365,8 +3395,8 @@ print_instantiation_partial_context_line (diagnostic_context *context,
     {
       pp_verbatim (context->printer,
 		   recursive_p
-		   ? _("recursively required from here")
-		   : _("required from here"));
+		   ? _("recursively required from here\n")
+		   : _("required from here\n"));
     }
 }
 
@@ -3450,7 +3480,6 @@ print_instantiation_partial_context (diagnostic_context *context,
     }
   print_instantiation_partial_context_line (context, NULL, loc,
 					    /*recursive_p=*/false);
-  pp_newline (context->printer);
 }
 
 /* Called from cp_thing to print the template context for an error.  */

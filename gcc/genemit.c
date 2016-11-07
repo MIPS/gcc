@@ -302,7 +302,7 @@ emit_c_code (const char *code, bool can_fail_p, const char *name)
   printf ("#define DONE return (_val = get_insns (),"
 	  "end_sequence (), _val)\n");
 
-  print_md_ptr_loc (code);
+  rtx_reader_ptr->print_md_ptr_loc (code);
   printf ("%s\n", code);
 
   printf ("#undef DONE\n");
@@ -745,7 +745,7 @@ output_peephole2_scratches (rtx split)
 }
 
 int
-main (int argc, char **argv)
+main (int argc, const char **argv)
 {
   progname = "genemit";
 
@@ -773,6 +773,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"varasm.h\"\n");
   printf ("#include \"stor-layout.h\"\n");
   printf ("#include \"calls.h\"\n");
+  printf ("#include \"memmodel.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"insn-config.h\"\n");

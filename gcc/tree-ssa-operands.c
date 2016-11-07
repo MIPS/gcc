@@ -833,6 +833,7 @@ get_expr_operands (struct function *fn, gimple *stmt, tree *expr_p, int flags)
       get_expr_operands (fn, stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
+    case BIT_INSERT_EXPR:
     case COMPOUND_EXPR:
     case OBJ_TYPE_REF:
     case ASSERT_EXPR:
@@ -1246,11 +1247,8 @@ dump_immediate_uses (FILE *file)
   unsigned int x;
 
   fprintf (file, "Immediate_uses: \n\n");
-  for (x = 1; x < num_ssa_names; x++)
+  FOR_EACH_SSA_NAME (x, var, cfun)
     {
-      var = ssa_name (x);
-      if (!var)
-        continue;
       dump_immediate_uses_for (file, var);
     }
 }

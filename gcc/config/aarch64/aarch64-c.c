@@ -22,6 +22,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "input.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "c-family/c-common.h"
@@ -94,6 +95,11 @@ aarch64_update_cpp_builtins (cpp_reader *pfile)
     }
   else
     cpp_undef (pfile, "__ARM_FP");
+
+  aarch64_def_or_undef (TARGET_FP_F16INST,
+			"__ARM_FEATURE_FP16_SCALAR_ARITHMETIC", pfile);
+  aarch64_def_or_undef (TARGET_SIMD_F16INST,
+			"__ARM_FEATURE_FP16_VECTOR_ARITHMETIC", pfile);
 
   aarch64_def_or_undef (TARGET_SIMD, "__ARM_FEATURE_NUMERIC_MAXMIN", pfile);
   aarch64_def_or_undef (TARGET_SIMD, "__ARM_NEON", pfile);
@@ -177,6 +183,11 @@ aarch64_pragma_target_parse (tree args, tree pop_target)
   aarch64_update_cpp_builtins (parse_in);
 
   cpp_opts->warn_unused_macros = saved_warn_unused_macros;
+
+  /* If we're popping or reseting make sure to update the globals so that
+     the optab availability predicates get recomputed.  */
+  if (pop_target)
+    aarch64_save_restore_target_globals (pop_target);
 
   /* Initialize SIMD builtins if we haven't already.
      Set current_target_pragma to NULL for the duration so that

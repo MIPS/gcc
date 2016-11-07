@@ -67,7 +67,7 @@ enum gomp_map_kind
     /* Must already be present.  */
     GOMP_MAP_FORCE_PRESENT =		(GOMP_MAP_FLAG_SPECIAL_0 | 2),
     /* Deallocate a mapping, without copying from device.  */
-    GOMP_MAP_FORCE_DEALLOC =		(GOMP_MAP_FLAG_SPECIAL_0 | 3),
+    GOMP_MAP_DELETE =			(GOMP_MAP_FLAG_SPECIAL_0 | 3),
     /* Is a device pointer.  OMP_CLAUSE_SIZE for these is unused; is implicitly
        POINTER_SIZE_UNITS.  */
     GOMP_MAP_FORCE_DEVICEPTR =		(GOMP_MAP_FLAG_SPECIAL_1 | 0),
@@ -125,11 +125,9 @@ enum gomp_map_kind
     GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION
       =					(GOMP_MAP_FLAG_SPECIAL_2
 					 | GOMP_MAP_FLAG_SPECIAL | 3),
-    /* OpenMP 4.5 alias for forced deallocation.  */
-    GOMP_MAP_DELETE =			GOMP_MAP_FORCE_DEALLOC,
     /* Decrement usage count and deallocate if zero.  */
     GOMP_MAP_RELEASE =			(GOMP_MAP_FLAG_SPECIAL_2
-					 | GOMP_MAP_FORCE_DEALLOC),
+					 | GOMP_MAP_DELETE),
 
     /* Internal to GCC, not used in libgomp.  */
     /* Do not map, but pointer assign a pointer instead.  */
@@ -198,8 +196,10 @@ enum gomp_map_kind
 /* Internal to libgomp.  */
 #define GOMP_TARGET_FLAG_UPDATE		(1U << 31)
 
-/* Versions of libgomp and device-specific plugins.  */
-#define GOMP_VERSION	0
+/* Versions of libgomp and device-specific plugins.  GOMP_VERSION
+   should be incremented whenever an ABI-incompatible change is introduced
+   to the plugin interface defined in libgomp/libgomp.h.  */
+#define GOMP_VERSION	1
 #define GOMP_VERSION_NVIDIA_PTX 1
 #define GOMP_VERSION_INTEL_MIC 0
 #define GOMP_VERSION_HSA 0

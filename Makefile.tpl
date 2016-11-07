@@ -225,6 +225,7 @@ HOST_EXPORTS = \
 	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
 	ISLLIBS="$(HOST_ISLLIBS)"; export ISLLIBS; \
 	ISLINC="$(HOST_ISLINC)"; export ISLINC; \
+	ISLVER="$(HOST_ISLVER)"; export ISLVER; \
 	LIBELFLIBS="$(HOST_LIBELFLIBS)"; export LIBELFLIBS; \
 	LIBELFINC="$(HOST_LIBELFINC)"; export LIBELFINC; \
 	XGCC_FLAGS_FOR_TARGET="$(XGCC_FLAGS_FOR_TARGET)"; export XGCC_FLAGS_FOR_TARGET; \
@@ -318,12 +319,11 @@ HOST_GMPINC = @gmpinc@
 # Where to find isl
 HOST_ISLLIBS = @isllibs@
 HOST_ISLINC = @islinc@
+HOST_ISLVER = @islver@
 
 # Where to find libelf
 HOST_LIBELFLIBS = @libelflibs@
 HOST_LIBELFINC = @libelfinc@
-
-EXTRA_CONFIGARGS_LIBJAVA = @EXTRA_CONFIGARGS_LIBJAVA@
 
 # ----------------------------------------------
 # Programs producing files for the BUILD machine
@@ -380,6 +380,8 @@ MAKEINFO = @MAKEINFO@
 EXPECT = @EXPECT@
 RUNTEST = @RUNTEST@
 
+AUTO_PROFILE = gcc-auto-profile -c 1000000
+
 # This just becomes part of the MAKEINFO definition passed down to
 # sub-makes.  It lets flags be given on the command line while still
 # using the makeinfo from the object tree.
@@ -415,6 +417,8 @@ LIBCFLAGS = $(CFLAGS)
 CXXFLAGS = @CXXFLAGS@
 LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
 GOCFLAGS = $(CFLAGS)
+
+CREATE_GCOV = create_gcov
 
 TFLAGS =
 
@@ -459,6 +463,12 @@ STAGEprofile_TFLAGS = $(STAGE2_TFLAGS)
 
 STAGEfeedback_CFLAGS = $(STAGE3_CFLAGS) -fprofile-use
 STAGEfeedback_TFLAGS = $(STAGE3_TFLAGS)
+
+STAGEautoprofile_CFLAGS = $(STAGE2_CFLAGS) -g
+STAGEautoprofile_TFLAGS = $(STAGE2_TFLAGS)
+
+STAGEautofeedback_CFLAGS = $(STAGE3_CFLAGS)
+STAGEautofeedback_TFLAGS = $(STAGE3_TFLAGS)
 
 do-compare = @do_compare@
 do-compare3 = $(do-compare)
@@ -590,7 +600,8 @@ BASE_FLAGS_TO_PASS =[+ FOR flags_to_pass +][+ IF optional +] \
 	$(CXX_FOR_TARGET_FLAG_TO_PASS) \
 	"TFLAGS=$(TFLAGS)" \
 	"CONFIG_SHELL=$(SHELL)" \
-	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 
+	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
+	$(if $(LSAN_OPTIONS),"LSAN_OPTIONS=$(LSAN_OPTIONS)")
 
 # We leave this in just in case, but it is not needed anymore.
 RECURSE_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS)
@@ -614,7 +625,8 @@ EXTRA_HOST_FLAGS = \
 	'READELF=$(READELF)' \
 	'STRIP=$(STRIP)' \
 	'WINDRES=$(WINDRES)' \
-	'WINDMC=$(WINDMC)'
+	'WINDMC=$(WINDMC)' \
+	'CREATE_GCOV=$(CREATE_GCOV)'
 
 FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS)
 
@@ -807,7 +819,7 @@ local-clean:
 
 local-distclean:
 	-rm -f Makefile config.status config.cache mh-frag mt-frag
-	-rm -f maybedep.tmp serdep.tmp
+	-rm -f maybedep.tmp serdep.tmp stage_final
 	-if [ "$(TARGET_SUBDIR)" != "." ]; then \
 	  rm -rf $(TARGET_SUBDIR); \
 	else true; fi
@@ -819,7 +831,8 @@ local-distclean:
 	-rm -f texinfo/doc/Makefile texinfo/po/POTFILES
 	-rmdir texinfo/doc texinfo/info texinfo/intl texinfo/lib 2>/dev/null
 	-rmdir texinfo/makeinfo texinfo/po texinfo/util 2>/dev/null
-	-rmdir fastjar gcc libiberty texinfo zlib 2>/dev/null
+	-rmdir fastjar gcc gnattools gotools libcc1 libiberty 2>/dev/null
+	-rmdir texinfo zlib 2>/dev/null
 	-find . -name config.cache -exec rm -f {} \; \; 2>/dev/null
 
 local-maintainer-clean:
@@ -1143,6 +1156,7 @@ all-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
 	[+exports+][+ IF prev +] \
 	[+poststage1_exports+][+ ENDIF prev +] [+extra_exports+] \
 	cd [+subdir+]/[+module+] && \
+	[+autoprofile+] \
 	$(MAKE) $(BASE_FLAGS_TO_PASS)[+ IF prefix +] \
 		CFLAGS="$(CFLAGS_FOR_TARGET)" \
 		CXXFLAGS="$(CXXFLAGS_FOR_TARGET)" \
@@ -1156,7 +1170,7 @@ all-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
 		[+args+] [+IF prev +][+poststage1_args+][+ ELSE prev +] \
 		[+stage1_args+][+ ENDIF prev +] [+extra_make_flags+] \
-		TFLAGS="$(STAGE[+id+]_TFLAGS)" \
+		TFLAGS="$(STAGE[+id+]_TFLAGS)" [+profile_data+] \
 		$(TARGET-stage[+id+]-[+prefix+][+module+])
 
 maybe-clean-stage[+id+]-[+prefix+][+module+]: clean-stage[+id+]-[+prefix+][+module+]
@@ -1927,7 +1941,10 @@ config.status: configure
 # Rebuilding configure.
 AUTOCONF = autoconf
 $(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac $(srcdir)/config/acx.m4 \
-	$(srcdir)/config/override.m4 $(srcdir)/config/proginstall.m4
+	$(srcdir)/config/override.m4 $(srcdir)/config/proginstall.m4 \
+	$(srcdir)/config/elf.m4 $(srcdir)/config/isl.m4 \
+	$(srcdir)/libtool.m4 $(srcdir)/ltoptions.m4 $(srcdir)/ltsugar.m4 \
+	$(srcdir)/ltversion.m4 $(srcdir)/lt~obsolete.m4
 	cd $(srcdir) && $(AUTOCONF)
 
 # ------------------------------

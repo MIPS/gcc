@@ -41,28 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cpplib.h"
 #include "diagnostic.h"
 
-/* Extract any source range information from EXPR and write it
-   to *R.  */
-
-static bool
-get_range_for_expr (tree expr, location_range *r)
-{
-  if (EXPR_HAS_RANGE (expr))
-    {
-      source_range sr = EXPR_LOCATION_RANGE (expr);
-
-      /* Do we have meaningful data?  */
-      if (sr.m_start && sr.m_finish)
-	{
-	  r->m_start = expand_location (sr.m_start);
-	  r->m_finish = expand_location (sr.m_finish);
-	  return true;
-	}
-    }
-
-  return false;
-}
-
 /* Add a range to the rich_location, covering expression EXPR. */
 
 void
@@ -70,10 +48,8 @@ gcc_rich_location::add_expr (tree expr)
 {
   gcc_assert (expr);
 
-  location_range r;
-  r.m_show_caret_p = false;
-  if (get_range_for_expr (expr, &r))
-    add_range (&r);
+  if (CAN_HAVE_RANGE_P (expr))
+    add_range (EXPR_LOCATION (expr), false);
 }
 
 /* If T is an expression, add a range for it to the rich_location.  */
@@ -83,4 +59,16 @@ gcc_rich_location::maybe_add_expr (tree t)
 {
   if (EXPR_P (t))
     add_expr (t);
+}
+
+/* Add a fixit hint suggesting replacing the range at MISSPELLED_TOKEN_LOC
+   with the identifier HINT_ID.  */
+
+void
+gcc_rich_location::add_fixit_misspelled_id (location_t misspelled_token_loc,
+					    tree hint_id)
+{
+  gcc_assert (TREE_CODE (hint_id) == IDENTIFIER_NODE);
+
+  add_fixit_replace (misspelled_token_loc, IDENTIFIER_POINTER (hint_id));
 }

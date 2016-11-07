@@ -44,12 +44,12 @@ along with GCC; see the file COPYING3.  If not see
 #endif /* sparc64 */
 #else
 #ifdef SPARC_BI_ARCH
-#define TARGET_ARCH32 (! TARGET_64BIT)
+#define TARGET_ARCH32 (!TARGET_64BIT)
 #else
 #define TARGET_ARCH32 (DEFAULT_ARCH32_P)
 #endif /* SPARC_BI_ARCH */
 #endif /* IN_LIBGCC2 */
-#define TARGET_ARCH64 (! TARGET_ARCH32)
+#define TARGET_ARCH64 (!TARGET_ARCH32)
 
 /* Code model selection in 64-bit environment.
 
@@ -142,6 +142,7 @@ extern enum cmodel sparc_cmodel;
 #define TARGET_CPU_niagara2	14
 #define TARGET_CPU_niagara3	15
 #define TARGET_CPU_niagara4	16
+#define TARGET_CPU_niagara7	19
 
 #if TARGET_CPU_DEFAULT == TARGET_CPU_v9 \
  || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc \
@@ -149,7 +150,8 @@ extern enum cmodel sparc_cmodel;
  || TARGET_CPU_DEFAULT == TARGET_CPU_niagara \
  || TARGET_CPU_DEFAULT == TARGET_CPU_niagara2 \
  || TARGET_CPU_DEFAULT == TARGET_CPU_niagara3 \
- || TARGET_CPU_DEFAULT == TARGET_CPU_niagara4
+ || TARGET_CPU_DEFAULT == TARGET_CPU_niagara4 \
+ || TARGET_CPU_DEFAULT == TARGET_CPU_niagara7
 
 #define CPP_CPU32_DEFAULT_SPEC ""
 #define ASM_CPU32_DEFAULT_SPEC ""
@@ -185,6 +187,10 @@ extern enum cmodel sparc_cmodel;
 #if TARGET_CPU_DEFAULT == TARGET_CPU_niagara4
 #define CPP_CPU64_DEFAULT_SPEC "-D__sparc_v9__"
 #define ASM_CPU64_DEFAULT_SPEC AS_NIAGARA4_FLAG
+#endif
+#if TARGET_CPU_DEFAULT == TARGET_CPU_niagara7
+#define CPP_CPU64_DEFAULT_SPEC "-D__sparc_v9__"
+#define ASM_CPU64_DEFAULT_SPEC AS_NIAGARA7_FLAG
 #endif
 
 #else
@@ -288,6 +294,7 @@ extern enum cmodel sparc_cmodel;
 %{mcpu=niagara2:-D__sparc_v9__} \
 %{mcpu=niagara3:-D__sparc_v9__} \
 %{mcpu=niagara4:-D__sparc_v9__} \
+%{mcpu=niagara7:-D__sparc_v9__} \
 %{!mcpu*:%(cpp_cpu_default)} \
 "
 #define CPP_ARCH32_SPEC ""
@@ -339,6 +346,7 @@ extern enum cmodel sparc_cmodel;
 %{mcpu=niagara2:%{!mv8plus:-Av9b}} \
 %{mcpu=niagara3:%{!mv8plus:-Av9" AS_NIAGARA3_FLAG "}} \
 %{mcpu=niagara4:%{!mv8plus:" AS_NIAGARA4_FLAG "}} \
+%{mcpu=niagara7:%{!mv8plus:" AS_NIAGARA7_FLAG "}} \
 %{!mcpu*:%(asm_cpu_default)} \
 "
 
@@ -595,7 +603,8 @@ extern enum cmodel sparc_cmodel;
    (e.g.: in CLASS_MAX_NREGS).  There are also 4 fp condition code registers, so
    32+32+32+4 == 100.
    Register 100 is used as the integer condition code register.
-   Register 101 is used as the soft frame pointer register.  */
+   Register 101 is used as the soft frame pointer register.
+   Register 102 is used as the general status register by VIS instructions.  */
 
 #define FIRST_PSEUDO_REGISTER 103
 
@@ -670,7 +679,7 @@ extern enum cmodel sparc_cmodel;
   0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0,	\
 				\
-  0, 0, 0, 0, 0, 1, 1}
+  0, 0, 0, 0, 1, 1, 1}
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -877,12 +886,7 @@ extern int sparc_mode_class[];
    have a class that is the union of FPCC_REGS with either of the others,
    it is important that it appear first.  Otherwise the compiler will die
    trying to compile _fixunsdfsi because fix_truncdfsi2 won't match its
-   constraints.
-
-   It is important that SPARC_ICC_REG have class NO_REGS.  Otherwise combine
-   may try to use it to hold an SImode value.  See register_operand.
-   ??? Should %fcc[0123] be handled similarly?
-*/
+   constraints.  */
 
 enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
 		 EXTRA_FP_REGS, GENERAL_OR_FP_REGS, GENERAL_OR_EXTRA_FP_REGS,
@@ -1513,7 +1517,7 @@ do {									   \
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
-   CCFP[E]mode is used.  CC_NOOVmode should be used when the first operand
+   CCFP[E]mode is used.  CCNZmode should be used when the first operand
    is a PLUS, MINUS, NEG, or ASHIFT.  CCmode should be used when no special
    processing is needed.  */
 #define SELECT_CC_MODE(OP,X,Y)  select_cc_mode ((OP), (X), (Y))
@@ -1775,6 +1779,12 @@ extern int sparc_indent_opcode;
 #define AS_NIAGARA4_FLAG "-xarch=sparc4"
 #else
 #define AS_NIAGARA4_FLAG "-Av9" AS_NIAGARA3_FLAG
+#endif
+
+#ifdef HAVE_AS_SPARC5_VIS4
+#define AS_NIAGARA7_FLAG "-xarch=sparc5"
+#else
+#define AS_NIAGARA7_FLAG AS_NIAGARA4_FLAG
 #endif
 
 #ifdef HAVE_AS_LEON

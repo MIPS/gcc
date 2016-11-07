@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
@@ -396,7 +397,7 @@ df_scan_start_block (basic_block bb, FILE *file)
 #endif
 }
 
-static struct df_problem problem_SCAN =
+static const struct df_problem problem_SCAN =
 {
   DF_SCAN,                    /* Problem id.  */
   DF_NONE,                    /* Direction.  */
@@ -2875,7 +2876,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	  df_uses_record (collection_rec, loc, ref_type, bb, insn_info, flags);
 	  return;
 	}
-      /* ... Fall through ...  */
+      /* Fall through */
 
     case REG:
       df_ref_record (DF_REF_REGULAR, collection_rec,
@@ -3223,11 +3224,22 @@ df_insn_refs_collect (struct df_collection_rec *collection_rec,
         }
     }
 
+  int flags = (is_cond_exec) ? DF_REF_CONDITIONAL : 0;
   /* For CALL_INSNs, first record DF_REF_BASE register defs, as well as
      uses from CALL_INSN_FUNCTION_USAGE. */
   if (CALL_P (insn_info->insn))
-    df_get_call_refs (collection_rec, bb, insn_info,
-		      (is_cond_exec) ? DF_REF_CONDITIONAL : 0);
+    df_get_call_refs (collection_rec, bb, insn_info, flags);
+
+  if (asm_noperands (PATTERN (insn_info->insn)) >= 0)
+    for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      if (global_regs[i])
+       {
+         /* As with calls, asm statements reference all global regs. */
+         df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
+                        NULL, bb, insn_info, DF_REF_REG_USE, flags);
+         df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
+                        NULL, bb, insn_info, DF_REF_REG_DEF, flags);
+       }
 
   /* Record other defs.  These should be mostly for DF_REF_REGULAR, so
      that a qsort on the defs is unnecessary in most cases.  */
@@ -3818,10 +3830,9 @@ static bool initialized = false;
 void
 df_hard_reg_init (void)
 {
-#ifdef ELIMINABLE_REGS
   int i;
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
-#endif
+
   if (initialized)
     return;
 
@@ -3829,12 +3840,8 @@ df_hard_reg_init (void)
      mark_used_regs.  */
   CLEAR_HARD_REG_SET (elim_reg_set);
 
-#ifdef ELIMINABLE_REGS
   for (i = 0; i < (int) ARRAY_SIZE (eliminables); i++)
     SET_HARD_REG_BIT (elim_reg_set, eliminables[i].from);
-#else
-  SET_HARD_REG_BIT (elim_reg_set, FRAME_POINTER_REGNUM);
-#endif
 
   initialized = true;
 }

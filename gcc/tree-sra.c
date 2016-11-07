@@ -687,7 +687,7 @@ sra_deinitialize (void)
 
 static bool constant_decl_p (tree decl)
 {
-  return TREE_CODE (decl) == VAR_DECL && DECL_IN_CONSTANT_POOL (decl);
+  return VAR_P (decl) && DECL_IN_CONSTANT_POOL (decl);
 }
 
 /* Remove DECL from candidates for SRA and write REASON to the dump file if
@@ -1055,7 +1055,7 @@ completely_scalarize (tree base, tree decl_type, HOST_WIDE_INT offset, tree ref)
 		idx = wi::sext (idx, TYPE_PRECISION (domain));
 		max = wi::sext (max, TYPE_PRECISION (domain));
 	      }
-	    for (int el_off = offset; wi::les_p (idx, max); ++idx)
+	    for (int el_off = offset; idx <= max; ++idx)
 	      {
 		tree nref = build4 (ARRAY_REF, elemtype,
 				    ref,
@@ -1673,14 +1673,14 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
     }
   else
     {
-      off = build_int_cst (reference_alias_ptr_type (base),
+      off = build_int_cst (reference_alias_ptr_type (prev_base),
 			   base_offset + offset / BITS_PER_UNIT);
       base = build_fold_addr_expr (unshare_expr (base));
     }
 
   misalign = (misalign + offset) & (align - 1);
   if (misalign != 0)
-    align = (misalign & -misalign);
+    align = least_bit_hwi (misalign);
   if (align != TYPE_ALIGN (exp_type))
     exp_type = build_aligned_type (exp_type, align);
 
@@ -1965,7 +1965,7 @@ find_var_candidates (void)
 
   FOR_EACH_LOCAL_DECL (cfun, i, var)
     {
-      if (TREE_CODE (var) != VAR_DECL)
+      if (!VAR_P (var))
         continue;
 
       ret |= maybe_add_sra_candidate (var);
@@ -2074,7 +2074,8 @@ sort_and_splice_var_accesses (tree var)
       access->grp_scalar_write = grp_scalar_write;
       access->grp_assignment_read = grp_assignment_read;
       access->grp_assignment_write = grp_assignment_write;
-      access->grp_hint = multiple_scalar_reads || total_scalarization;
+      access->grp_hint = total_scalarization
+	|| (multiple_scalar_reads && !constant_decl_p (var));
       access->grp_total_scalarization = total_scalarization;
       access->grp_partial_lhs = grp_partial_lhs;
       access->grp_unscalarizable_region = unscalarizable_region;
@@ -2132,6 +2133,7 @@ create_access_replacement (struct access *access)
       bool fail = false;
 
       DECL_NAME (repl) = get_identifier (pretty_name);
+      DECL_NAMELESS (repl) = 1;
       obstack_free (&name_obstack, pretty_name);
 
       /* Get rid of any SSA_NAMEs embedded in debug_expr,
@@ -2421,13 +2423,14 @@ analyze_access_subtree (struct access *root, struct access *parent,
 
       if (covered_to < limit)
 	hole = true;
-      if (scalar)
+      if (scalar || !allow_replacements)
 	root->grp_total_scalarization = 0;
     }
 
   if (!hole || root->grp_total_scalarization)
     root->grp_covered = 1;
-  else if (root->grp_write || TREE_CODE (root->base) == PARM_DECL)
+  else if (root->grp_write || TREE_CODE (root->base) == PARM_DECL
+	   || constant_decl_p (root->base))
     root->grp_unscalarized_data = 1; /* not covered and written to */
   return sth_created;
 }
@@ -2650,8 +2653,7 @@ analyze_all_variable_accesses (void)
       {
 	tree var = candidate (i);
 
-	if (TREE_CODE (var) == VAR_DECL
-	    && scalarizable_type_p (TREE_TYPE (var)))
+	if (VAR_P (var) && scalarizable_type_p (TREE_TYPE (var)))
 	  {
 	    if (tree_to_uhwi (TYPE_SIZE (TREE_TYPE (var)))
 		<= max_scalarization_size)
@@ -2742,6 +2744,9 @@ generate_subtree_copies (struct access *access, tree agg,
 			 gimple_stmt_iterator *gsi, bool write,
 			 bool insert_after, location_t loc)
 {
+  /* Never write anything into constant pool decls.  See PR70602.  */
+  if (!write && constant_decl_p (agg))
+    return;
   do
     {
       if (chunk_size && access->offset >= start_offset + chunk_size)
@@ -2813,7 +2818,7 @@ generate_subtree_copies (struct access *access, tree agg,
 }
 
 /* Assign zero to all scalar replacements in an access subtree.  ACCESS is the
-   the root of the subtree to be processed.  GSI is the statement iterator used
+   root of the subtree to be processed.  GSI is the statement iterator used
    for inserting statements which are added after the current statement if
    INSERT_AFTER is true or before it otherwise.  */
 
@@ -2853,7 +2858,7 @@ init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
     init_subtree_with_zero (child, gsi, insert_after, loc);
 }
 
-/* Clobber all scalar replacements in an access subtree.  ACCESS is the the
+/* Clobber all scalar replacements in an access subtree.  ACCESS is the
    root of the subtree to be processed.  GSI is the statement iterator used
    for inserting statements which are added after the current statement if
    INSERT_AFTER is true or before it otherwise.  */
@@ -3218,7 +3223,7 @@ sra_modify_constructor_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	return SRA_AM_MODIFIED;
     }
 
-  if (vec_safe_length (CONSTRUCTOR_ELTS (gimple_assign_rhs1 (stmt))) > 0)
+  if (CONSTRUCTOR_NELTS (gimple_assign_rhs1 (stmt)) > 0)
     {
       /* I have never seen this code path trigger but if it can happen the
 	 following should handle it gracefully.  */
@@ -3339,6 +3344,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
     }
   else if (racc
 	   && !racc->grp_unscalarized_data
+	   && !racc->grp_unscalarizable_region
 	   && TREE_CODE (lhs) == SSA_NAME
 	   && !access_has_replacements_p (racc))
     {
@@ -3503,7 +3509,8 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
       else
 	{
 	  if (access_has_children_p (racc)
-	      && !racc->grp_unscalarized_data)
+	      && !racc->grp_unscalarized_data
+	      && TREE_CODE (lhs) != SSA_NAME)
 	    {
 	      if (dump_file)
 		{
@@ -3552,32 +3559,31 @@ initialize_constant_pool_replacements (void)
   unsigned i;
 
   EXECUTE_IF_SET_IN_BITMAP (candidate_bitmap, 0, i, bi)
-    if (bitmap_bit_p (should_scalarize_away_bitmap, i)
-	&& !bitmap_bit_p (cannot_scalarize_away_bitmap, i))
-      {
-	tree var = candidate (i);
-	if (!constant_decl_p (var))
-	  continue;
-	vec<access_p> *access_vec = get_base_access_vector (var);
-	if (!access_vec)
-	  continue;
-	for (unsigned i = 0; i < access_vec->length (); i++)
-	  {
-	    struct access *access = (*access_vec)[i];
-	    if (!access->replacement_decl)
-	      continue;
-	    gassign *stmt = gimple_build_assign (
-	      get_access_replacement (access), unshare_expr (access->expr));
-	    if (dump_file && (dump_flags & TDF_DETAILS))
-	      {
-		fprintf (dump_file, "Generating constant initializer: ");
-		print_gimple_stmt (dump_file, stmt, 0, 1);
-		fprintf (dump_file, "\n");
-	      }
-	    gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
-	    update_stmt (stmt);
-	  }
-      }
+    {
+      tree var = candidate (i);
+      if (!constant_decl_p (var))
+	continue;
+      vec<access_p> *access_vec = get_base_access_vector (var);
+      if (!access_vec)
+	continue;
+      for (unsigned i = 0; i < access_vec->length (); i++)
+	{
+	  struct access *access = (*access_vec)[i];
+	  if (!access->replacement_decl)
+	    continue;
+	  gassign *stmt
+	    = gimple_build_assign (get_access_replacement (access),
+				   unshare_expr (access->expr));
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Generating constant initializer: ");
+	      print_gimple_stmt (dump_file, stmt, 0, 1);
+	      fprintf (dump_file, "\n");
+	    }
+	  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+	  update_stmt (stmt);
+	}
+    }
 
   seq = gsi_seq (gsi);
   if (seq)
@@ -4698,6 +4704,7 @@ get_replaced_param_substitute (struct ipa_parm_adjustment *adj)
 
       repl = create_tmp_reg (TREE_TYPE (adj->base), "ISR");
       DECL_NAME (repl) = get_identifier (pretty_name);
+      DECL_NAMELESS (repl) = 1;
       obstack_free (&name_obstack, pretty_name);
 
       adj->new_ssa_base = repl;
@@ -4756,6 +4763,8 @@ replace_removed_params_ssa_names (tree old_name, gimple *stmt,
 
   repl = get_replaced_param_substitute (adj);
   new_name = make_ssa_name (repl, stmt);
+  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name)
+    = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (old_name);
 
   if (dump_file)
     {
@@ -5220,7 +5229,7 @@ ipa_sra_check_caller (struct cgraph_node *node, void *data)
 	  machine_mode mode;
 	  int unsignedp, reversep, volatilep = 0;
 	  get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode,
-			       &unsignedp, &reversep, &volatilep, false);
+			       &unsignedp, &reversep, &volatilep);
 	  if (bitpos % BITS_PER_UNIT)
 	    {
 	      iscc->bad_arg_alignment = true;

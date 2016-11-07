@@ -20,6 +20,9 @@ import (
 // The size of a CRC-32 checksum in bytes.
 const Size = 4
 
+// Use "slice by 8" when payload >= this value.
+const sliceBy8Cutoff = 16
+
 // Predefined polynomials.
 const (
 	// IEEE is by far and away the most common CRC-32 polynomial.
@@ -45,10 +48,12 @@ type Table [256]uint32
 // Castagnoli table so we can compare against it to find when the caller is
 // using this polynomial.
 var castagnoliTable *Table
+var castagnoliTable8 *slicing8Table
 var castagnoliOnce sync.Once
 
 func castagnoliInit() {
 	castagnoliTable = makeTable(Castagnoli)
+	castagnoliTable8 = makeTable8(Castagnoli)
 }
 
 // IEEETable is the table for the IEEE polynomial.
@@ -57,11 +62,12 @@ var IEEETable = makeTable(IEEE)
 // slicing8Table is array of 8 Tables
 type slicing8Table [8]Table
 
-// iEEETable8 is the slicing8Table for IEEE
-var iEEETable8 *slicing8Table
-var iEEETable8Once sync.Once
+// ieeeTable8 is the slicing8Table for IEEE
+var ieeeTable8 *slicing8Table
+var ieeeTable8Once sync.Once
 
-// MakeTable returns the Table constructed from the specified polynomial.
+// MakeTable returns a Table constructed from the specified polynomial.
+// The contents of this Table must not be modified.
 func MakeTable(poly uint32) *Table {
 	switch poly {
 	case IEEE:
@@ -112,10 +118,12 @@ type digest struct {
 
 // New creates a new hash.Hash32 computing the CRC-32 checksum
 // using the polynomial represented by the Table.
+// Its Sum method will lay the value out in big-endian byte order.
 func New(tab *Table) hash.Hash32 { return &digest{0, tab} }
 
 // NewIEEE creates a new hash.Hash32 computing the CRC-32 checksum
 // using the IEEE polynomial.
+// Its Sum method will lay the value out in big-endian byte order.
 func NewIEEE() hash.Hash32 { return New(IEEETable) }
 
 func (d *digest) Size() int { return Size }
@@ -143,20 +151,19 @@ func updateSlicingBy8(crc uint32, tab *slicing8Table, p []byte) uint32 {
 		p = p[8:]
 	}
 	crc = ^crc
+	if len(p) == 0 {
+		return crc
+	}
 	return update(crc, &tab[0], p)
 }
 
 // Update returns the result of adding the bytes in p to the crc.
 func Update(crc uint32, tab *Table, p []byte) uint32 {
-	if tab == castagnoliTable {
+	switch tab {
+	case castagnoliTable:
 		return updateCastagnoli(crc, p)
-	}
-	// only use slicing-by-8 when input is larger than 4KB
-	if tab == IEEETable && len(p) >= 4096 {
-		iEEETable8Once.Do(func() {
-			iEEETable8 = makeTable8(IEEE)
-		})
-		return updateSlicingBy8(crc, iEEETable8, p)
+	case IEEETable:
+		return updateIEEE(crc, p)
 	}
 	return update(crc, tab, p)
 }
@@ -179,4 +186,4 @@ func Checksum(data []byte, tab *Table) uint32 { return Update(0, tab, data) }
 
 // ChecksumIEEE returns the CRC-32 checksum of data
 // using the IEEE polynomial.
-func ChecksumIEEE(data []byte) uint32 { return Update(0, IEEETable, data) }
+func ChecksumIEEE(data []byte) uint32 { return updateIEEE(0, data) }

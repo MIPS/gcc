@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "predict.h"
 #include "tm_p.h"
 #include "expmed.h"
@@ -993,6 +994,7 @@ expand_binop_directly (machine_mode mode, optab binoptab,
   bool commutative_p;
   rtx_insn *pat;
   rtx xop0 = op0, xop1 = op1;
+  bool canonicalize_op1 = false;
 
   /* If it is a commutative operator and the modes would match
      if we would swap the operands, we can save the conversions.  */
@@ -1006,6 +1008,11 @@ expand_binop_directly (machine_mode mode, optab binoptab,
   xop0 = avoid_expensive_constant (xmode0, binoptab, 0, xop0, unsignedp);
   if (!shift_optab_p (binoptab))
     xop1 = avoid_expensive_constant (xmode1, binoptab, 1, xop1, unsignedp);
+  else
+    /* Shifts and rotates often use a different mode for op1 from op0;
+       for VOIDmode constants we don't know the mode, so force it
+       to be canonicalized using convert_modes.  */
+    canonicalize_op1 = true;
 
   /* In case the insn wants input operands in modes different from
      those of the actual operands, convert the operands.  It would
@@ -1020,7 +1027,8 @@ expand_binop_directly (machine_mode mode, optab binoptab,
       mode0 = xmode0;
     }
 
-  mode1 = GET_MODE (xop1) != VOIDmode ? GET_MODE (xop1) : mode;
+  mode1 = ((GET_MODE (xop1) != VOIDmode || canonicalize_op1)
+	   ? GET_MODE (xop1) : mode);
   if (xmode1 != VOIDmode && xmode1 != mode1)
     {
       xop1 = convert_modes (xmode1, mode1, xop1, unsignedp);
@@ -1117,6 +1125,16 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
     {
       op1 = negate_rtx (mode, op1);
       binoptab = add_optab;
+    }
+  /* For shifts, constant invalid op1 might be expanded from different
+     mode than MODE.  As those are invalid, force them to a register
+     to avoid further problems during expansion.  */
+  else if (CONST_INT_P (op1)
+	   && shift_optab_p (binoptab)
+	   && UINTVAL (op1) >= GET_MODE_BITSIZE (GET_MODE_INNER (mode)))
+    {
+      op1 = gen_int_mode (INTVAL (op1), GET_MODE_INNER (mode));
+      op1 = force_reg (GET_MODE_INNER (mode), op1);
     }
 
   /* Record where to delete back to if we backtrack.  */
@@ -2364,18 +2382,26 @@ expand_parity (machine_mode mode, rtx op0, rtx target)
 
 	      last = get_last_insn ();
 
-	      if (target == 0)
-		target = gen_reg_rtx (mode);
+	      if (target == 0 || GET_MODE (target) != wider_mode)
+		target = gen_reg_rtx (wider_mode);
+
 	      xop0 = widen_operand (op0, wider_mode, mode, true, false);
 	      temp = expand_unop (wider_mode, popcount_optab, xop0, NULL_RTX,
 				  true);
 	      if (temp != 0)
 		temp = expand_binop (wider_mode, and_optab, temp, const1_rtx,
 				     target, true, OPTAB_DIRECT);
-	      if (temp == 0)
-		delete_insns_since (last);
 
-	      return temp;
+	      if (temp)
+		{
+		  if (mclass != MODE_INT
+		      || !TRULY_NOOP_TRUNCATION_MODES_P (mode, wider_mode))
+		    return convert_to_mode (mode, temp, 0);
+		  else
+		    return gen_lowpart (mode, temp);
+		}
+	      else
+		delete_insns_since (last);
 	    }
 	}
     }
@@ -3699,13 +3725,17 @@ can_compare_p (enum rtx_code code, machine_mode mode,
 }
 
 /* This function is called when we are going to emit a compare instruction that
-   compares the values found in *PX and *PY, using the rtl operator COMPARISON.
-
-   *PMODE is the mode of the inputs (in case they are const_int).
-   *PUNSIGNEDP nonzero says that the operands are unsigned;
-   this matters if they need to be widened (as given by METHODS).
+   compares the values found in X and Y, using the rtl operator COMPARISON.
 
    If they have mode BLKmode, then SIZE specifies the size of both operands.
+
+   UNSIGNEDP nonzero says that the operands are unsigned;
+   this matters if they need to be widened (as given by METHODS).
+
+   *PTEST is where the resulting comparison RTX is returned or NULL_RTX
+   if we failed to produce one.
+
+   *PMODE is the mode of the inputs (in case they are const_int).
 
    This function performs all the setup necessary so that the caller only has
    to emit a single comparison insn.  This setup can involve doing a BLKmode
@@ -3759,8 +3789,6 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
     {
       machine_mode result_mode;
       enum insn_code cmp_code;
-      tree length_type;
-      rtx libfunc;
       rtx result;
       rtx opalign
 	= GEN_INT (MIN (MEM_ALIGN (x), MEM_ALIGN (y)) / BITS_PER_UNIT);
@@ -3801,22 +3829,12 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
       if (methods != OPTAB_LIB && methods != OPTAB_LIB_WIDEN)
 	goto fail;
 
-      /* Otherwise call a library function, memcmp.  */
-      libfunc = memcmp_libfunc;
-      length_type = sizetype;
-      result_mode = TYPE_MODE (integer_type_node);
-      cmp_mode = TYPE_MODE (length_type);
-      size = convert_to_mode (TYPE_MODE (length_type), size,
-			      TYPE_UNSIGNED (length_type));
+      /* Otherwise call a library function.  */
+      result = emit_block_comp_via_libcall (XEXP (x, 0), XEXP (y, 0), size);
 
-      result = emit_library_call_value (libfunc, 0, LCT_PURE,
-					result_mode, 3,
-					XEXP (x, 0), Pmode,
-					XEXP (y, 0), Pmode,
-					size, cmp_mode);
       x = result;
       y = const0_rtx;
-      mode = result_mode;
+      mode = TYPE_MODE (integer_type_node);
       methods = OPTAB_LIB_WIDEN;
       unsignedp = false;
     }
@@ -4208,6 +4226,17 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
   rtx_insn *last;
   enum insn_code icode;
   enum rtx_code reversed;
+
+  /* If the two source operands are identical, that's just a move.  */
+
+  if (rtx_equal_p (op2, op3))
+    {
+      if (!target)
+	target = gen_reg_rtx (mode);
+
+      emit_move_insn (target, op3);
+      return target;
+    }
 
   /* If one operand is constant, make it the second one.  Only do this
      if the other operand is not constant as well.  */
@@ -4898,7 +4927,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
 	  expand_fix (to, target, 0);
 	  target = expand_binop (GET_MODE (to), xor_optab, to,
 				 gen_int_mode
-				 ((HOST_WIDE_INT) 1 << (bitsize - 1),
+				 (HOST_WIDE_INT_1 << (bitsize - 1),
 				  GET_MODE (to)),
 				 to, 1, OPTAB_LIB_WIDEN);
 
@@ -5607,7 +5636,12 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
 
   icode = get_vcond_icode (mode, cmp_op_mode, unsignedp);
   if (icode == CODE_FOR_nothing)
-    return 0;
+    {
+      if (tcode == EQ_EXPR || tcode == NE_EXPR)
+	icode = get_vcond_eq_icode (mode, cmp_op_mode);
+      if (icode == CODE_FOR_nothing)
+	return 0;
+    }
 
   comparison = vector_compare_rtx (tcode, op0a, op0b, unsignedp, icode, 4);
   rtx_op1 = expand_normal (op1);
@@ -5646,7 +5680,12 @@ expand_vec_cmp_expr (tree type, tree exp, rtx target)
 
   icode = get_vec_cmp_icode (vmode, mask_mode, unsignedp);
   if (icode == CODE_FOR_nothing)
-    return 0;
+    {
+      if (tcode == EQ_EXPR || tcode == NE_EXPR)
+	icode = get_vec_cmp_eq_icode (vmode, mask_mode);
+      if (icode == CODE_FOR_nothing)
+	return 0;
+    }
 
   comparison = vector_compare_rtx (tcode, op0a, op0b, unsignedp, icode, 2);
   create_output_operand (&ops[0], target, mask_mode);

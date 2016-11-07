@@ -23,13 +23,11 @@
 #include <testsuite_hooks.h>
 
 void
-test01() 
-{ 
-  bool test __attribute__((unused)) = true;
-
+test01()
+{
   const size_t len = 5;
   typedef std::tr1::array<int, len> array_type;
-  
+
   {
     array_type a = { { 0, 1, 2, 3, 4 } };
     int* pi = a.data();

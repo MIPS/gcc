@@ -96,6 +96,7 @@ a register with any other reload.  */
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"
 #include "regs.h"
@@ -714,25 +715,23 @@ find_valid_class_1 (machine_mode outer ATTRIBUTE_UNUSED,
 
   for (rclass = 1; rclass < N_REG_CLASSES; rclass++)
     {
-      int bad = 0;
-      for (regno = 0; regno < FIRST_PSEUDO_REGISTER && !bad; regno++)
-	{
-	  if (in_hard_reg_set_p (reg_class_contents[rclass], mode, regno)
-	      && !HARD_REGNO_MODE_OK (regno, mode))
-	    bad = 1;
-	}
-      
-      if (bad)
-	continue;
+      unsigned int computed_rclass_size = 0;
+
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+        {
+          if (in_hard_reg_set_p (reg_class_contents[rclass], mode, regno)
+              && (HARD_REGNO_MODE_OK (regno, mode)))
+            computed_rclass_size++;
+        }
 
       cost = register_move_cost (outer, (enum reg_class) rclass, dest_class);
 
-      if ((reg_class_size[rclass] > best_size
+      if ((computed_rclass_size > best_size
 	   && (best_cost < 0 || best_cost >= cost))
 	  || best_cost > cost)
 	{
 	  best_class = (enum reg_class) rclass;
-	  best_size = reg_class_size[rclass];
+	  best_size = computed_rclass_size;
 	  best_cost = register_move_cost (outer, (enum reg_class) rclass,
 					  dest_class);
 	}
@@ -1141,7 +1140,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 						   SUBREG_BYTE (in),
 						   GET_MODE (in)),
 			      REGNO (SUBREG_REG (in)));
-      else if (GET_CODE (SUBREG_REG (in)) == SYMBOL_REF)
+      else if (CONSTANT_P (SUBREG_REG (in))
+               || GET_CODE (SUBREG_REG (in)) == PLUS)
 	subreg_in_class = find_valid_class_1 (inmode,
 					      GET_MODE (SUBREG_REG (in)),
 					      rclass);
@@ -2318,7 +2318,7 @@ operands_match_p (rtx x, rtx y)
       return 0;
 
     case LABEL_REF:
-      return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
+      return label_ref_label (x) == label_ref_label (y);
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
@@ -3471,6 +3471,23 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			offmemok = 1;
 			break;
 
+		      case CT_SPECIAL_MEMORY:
+			if (force_reload)
+			  break;
+			if (constraint_satisfied_p (operand, cn))
+			  win = 1;
+			/* Likewise if the address will be reloaded because
+			   reg_equiv_address is nonzero.  For reg_equiv_mem
+			   we have to check.  */
+			else if (REG_P (operand)
+				 && REGNO (operand) >= FIRST_PSEUDO_REGISTER
+				 && reg_renumber[REGNO (operand)] < 0
+				 && reg_equiv_mem (REGNO (operand)) != 0
+				 && (constraint_satisfied_p
+				     (reg_equiv_mem (REGNO (operand)), cn)))
+			  win = 1;
+			break;
+
 		      case CT_ADDRESS:
 			if (constraint_satisfied_p (operand, cn))
 			  win = 1;
@@ -3943,7 +3960,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 	       there will be no reload needed at all.  */
 	    if (plus == NULL_RTX
 		&& subreg == NULL_RTX
-		&& alternative_allows_const_pool_ref (this_address_reloaded == 0
+		&& alternative_allows_const_pool_ref (this_address_reloaded != 1
 						      ? substed_operand[i]
 						      : NULL,
 						      recog_data.constraints[i],
@@ -4201,17 +4218,17 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 	     this instruction.  */
 	  if (GET_CODE (substitution) == LABEL_REF
 	      && !find_reg_note (insn, REG_LABEL_OPERAND,
-				 LABEL_REF_LABEL (substitution))
+				 label_ref_label (substitution))
 	      /* For a JUMP_P, if it was a branch target it must have
 		 already been recorded as such.  */
 	      && (!JUMP_P (insn)
-		  || !label_is_jump_target_p (LABEL_REF_LABEL (substitution),
+		  || !label_is_jump_target_p (label_ref_label (substitution),
 					      insn)))
 	    {
 	      add_reg_note (insn, REG_LABEL_OPERAND,
-			    LABEL_REF_LABEL (substitution));
-	      if (LABEL_P (LABEL_REF_LABEL (substitution)))
-		++LABEL_NUSES (LABEL_REF_LABEL (substitution));
+			    label_ref_label (substitution));
+	      if (LABEL_P (label_ref_label (substitution)))
+		++LABEL_NUSES (label_ref_label (substitution));
 	    }
 
 	}
@@ -4588,8 +4605,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 /* Return true if alternative number ALTNUM in constraint-string
    CONSTRAINT is guaranteed to accept a reloaded constant-pool reference.
-   MEM gives the reference if it didn't need any reloads, otherwise it
-   is null.  */
+   MEM gives the reference if its address hasn't been fully reloaded,
+   otherwise it is NULL.  */
 
 static bool
 alternative_allows_const_pool_ref (rtx mem ATTRIBUTE_UNUSED,
@@ -5817,14 +5834,16 @@ find_reloads_address_1 (machine_mode mode, addr_space_t as,
 			   ? XEXP (x, 0)
 			   : reg_equiv_mem (regno));
 	      enum insn_code icode = optab_handler (add_optab, GET_MODE (x));
-	      if (insn && NONJUMP_INSN_P (insn) && equiv
-		  && memory_operand (equiv, GET_MODE (equiv))
+	      if (insn && NONJUMP_INSN_P (insn)
 #if HAVE_cc0
 		  && ! sets_cc0_p (PATTERN (insn))
 #endif
-		  && ! (icode != CODE_FOR_nothing
-			&& insn_operand_matches (icode, 0, equiv)
-			&& insn_operand_matches (icode, 1, equiv))
+		  && (regno < FIRST_PSEUDO_REGISTER
+		      || (equiv
+			  && memory_operand (equiv, GET_MODE (equiv))
+			  && ! (icode != CODE_FOR_nothing
+				&& insn_operand_matches (icode, 0, equiv)
+				&& insn_operand_matches (icode, 1, equiv))))
 		  /* Using RELOAD_OTHER means we emit this and the reload we
 		     made earlier in the wrong order.  */
 		  && !reloaded_inner_of_autoinc)
@@ -6731,7 +6750,7 @@ find_equiv_reg (rtx goal, rtx_insn *insn, enum reg_class rclass, int other,
       if (NONJUMP_INSN_P (p)
 	  /* If we don't want spill regs ...  */
 	  && (! (reload_reg_p != 0
-		 && reload_reg_p != (short *) (HOST_WIDE_INT) 1)
+		 && reload_reg_p != (short *) HOST_WIDE_INT_1)
 	      /* ... then ignore insns introduced by reload; they aren't
 		 useful and can cause results in reload_as_needed to be
 		 different from what they were when calculating the need for
@@ -6864,7 +6883,7 @@ find_equiv_reg (rtx goal, rtx_insn *insn, enum reg_class rclass, int other,
      (Now that insns introduced by reload are ignored above,
      this case shouldn't happen, but I'm not positive.)  */
 
-  if (reload_reg_p != 0 && reload_reg_p != (short *) (HOST_WIDE_INT) 1)
+  if (reload_reg_p != 0 && reload_reg_p != (short *) HOST_WIDE_INT_1)
     {
       int i;
       for (i = 0; i < valuenregs; ++i)

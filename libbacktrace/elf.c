@@ -7,13 +7,13 @@ modification, are permitted provided that the following conditions are
 met:
 
     (1) Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer. 
+    notice, this list of conditions and the following disclaimer.
 
     (2) Redistributions in binary form must reproduce the above copyright
     notice, this list of conditions and the following disclaimer in
     the documentation and/or other materials provided with the
-    distribution.  
-    
+    distribution.
+
     (3) The name of the author may not be used to
     endorse or promote products derived from this software without
     specific prior written permission.
@@ -791,7 +791,6 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
     {
       if (!backtrace_close (descriptor, error_callback, data))
 	goto fail;
-      *fileline_fn = elf_nodebug;
       return 1;
     }
 
@@ -867,6 +866,9 @@ struct phdr_data
    libraries.  */
 
 static int
+#ifdef __i386__
+__attribute__ ((__force_align_arg_pointer__))
+#endif
 phdr_callback (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
 	       void *pdata)
 {
@@ -925,7 +927,7 @@ backtrace_initialize (struct backtrace_state *state, int descriptor,
   int ret;
   int found_sym;
   int found_dwarf;
-  fileline elf_fileline_fn;
+  fileline elf_fileline_fn = elf_nodebug;
   struct phdr_data pd;
 
   ret = elf_add (state, descriptor, 0, error_callback, data, &elf_fileline_fn,

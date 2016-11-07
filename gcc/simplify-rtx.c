@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "predict.h"
+#include "memmodel.h"
 #include "optabs.h"
 #include "emit-rtl.h"
 #include "recog.h"
@@ -40,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
    occasionally need to sign extend from low to high as if low were a
    signed wide int.  */
 #define HWI_SIGN_EXTEND(low) \
- ((((HOST_WIDE_INT) low) < 0) ? ((HOST_WIDE_INT) -1) : ((HOST_WIDE_INT) 0))
+  ((((HOST_WIDE_INT) low) < 0) ? HOST_WIDE_INT_M1 : HOST_WIDE_INT_0)
 
 static rtx neg_const_int (machine_mode, const_rtx);
 static bool plus_minus_operand_p (const_rtx);
@@ -111,8 +112,8 @@ mode_signbit_p (machine_mode mode, const_rtx x)
     return false;
 
   if (width < HOST_BITS_PER_WIDE_INT)
-    val &= ((unsigned HOST_WIDE_INT) 1 << width) - 1;
-  return val == ((unsigned HOST_WIDE_INT) 1 << (width - 1));
+    val &= (HOST_WIDE_INT_1U << width) - 1;
+  return val == (HOST_WIDE_INT_1U << (width - 1));
 }
 
 /* Test whether VAL is equal to the most significant bit of mode MODE
@@ -132,7 +133,7 @@ val_signbit_p (machine_mode mode, unsigned HOST_WIDE_INT val)
     return false;
 
   val &= GET_MODE_MASK (mode);
-  return val == ((unsigned HOST_WIDE_INT) 1 << (width - 1));
+  return val == (HOST_WIDE_INT_1U << (width - 1));
 }
 
 /* Test whether the most significant bit of mode MODE is set in VAL.
@@ -149,7 +150,7 @@ val_signbit_known_set_p (machine_mode mode, unsigned HOST_WIDE_INT val)
   if (width == 0 || width > HOST_BITS_PER_WIDE_INT)
     return false;
 
-  val &= (unsigned HOST_WIDE_INT) 1 << (width - 1);
+  val &= HOST_WIDE_INT_1U << (width - 1);
   return val != 0;
 }
 
@@ -167,7 +168,7 @@ val_signbit_known_clear_p (machine_mode mode, unsigned HOST_WIDE_INT val)
   if (width == 0 || width > HOST_BITS_PER_WIDE_INT)
     return false;
 
-  val &= (unsigned HOST_WIDE_INT) 1 << (width - 1);
+  val &= HOST_WIDE_INT_1U << (width - 1);
   return val == 0;
 }
 
@@ -251,15 +252,14 @@ avoid_constant_pool_reference (rtx x)
       /* If we're accessing the constant in a different mode than it was
          originally stored, attempt to fix that up via subreg simplifications.
          If that fails we have no choice but to return the original memory.  */
-      if ((offset != 0 || cmode != GET_MODE (x))
-	  && offset >= 0 && offset < GET_MODE_SIZE (cmode))
+      if (offset == 0 && cmode == GET_MODE (x))
+	return c;
+      else if (offset >= 0 && offset < GET_MODE_SIZE (cmode))
         {
           rtx tem = simplify_subreg (GET_MODE (x), c, cmode, offset);
           if (tem && CONSTANT_P (tem))
             return tem;
         }
-      else
-        return c;
     }
 
   return x;
@@ -305,7 +305,7 @@ delegitimize_mem_from_attrs (rtx x)
 
 	    decl
 	      = get_inner_reference (decl, &bitsize, &bitpos, &toffset, &mode,
-				     &unsignedp, &reversep, &volatilep, false);
+				     &unsignedp, &reversep, &volatilep);
 	    if (bitsize != GET_MODE_BITSIZE (mode)
 		|| (bitpos % BITS_PER_UNIT)
 		|| (toffset && !tree_fits_shwi_p (toffset)))
@@ -322,7 +322,7 @@ delegitimize_mem_from_attrs (rtx x)
 
       if (decl
 	  && mode == GET_MODE (x)
-	  && TREE_CODE (decl) == VAR_DECL
+	  && VAR_P (decl)
 	  && (TREE_STATIC (decl)
 	      || DECL_THREAD_LOCAL_P (decl))
 	  && DECL_RTL_SET_P (decl)
@@ -887,7 +887,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	 comparison is all ones.   */
       if (COMPARISON_P (op)
 	  && (mode == BImode || STORE_FLAG_VALUE == -1)
-	  && ((reversed = reversed_comparison_code (op, NULL_RTX)) != UNKNOWN))
+	  && ((reversed = reversed_comparison_code (op, NULL)) != UNKNOWN))
 	return simplify_gen_relational (reversed, mode, VOIDmode,
 					XEXP (op, 0), XEXP (op, 1));
 
@@ -1010,7 +1010,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	       || (GET_CODE (false_rtx) == NEG
 		   && rtx_equal_p (XEXP (false_rtx, 0), true_rtx)))
 	    {
-	      if (reversed_comparison_code (cond, NULL_RTX) != UNKNOWN)
+	      if (reversed_comparison_code (cond, NULL) != UNKNOWN)
 		temp = reversed_comparison (cond, mode);
 	      else
 		{
@@ -1482,7 +1482,14 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 		  && REG_POINTER (SUBREG_REG (op))
 		  && GET_MODE (SUBREG_REG (op)) == Pmode))
 	  && !targetm.have_ptr_extend ())
-	return convert_memory_address (Pmode, op);
+	{
+	  temp
+	    = convert_memory_address_addr_space_1 (Pmode, op,
+						   ADDR_SPACE_GENERIC, false,
+						   true);
+	  if (temp)
+	    return temp;
+	}
 #endif
       break;
 
@@ -1604,7 +1611,14 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 		  && REG_POINTER (SUBREG_REG (op))
 		  && GET_MODE (SUBREG_REG (op)) == Pmode))
 	  && !targetm.have_ptr_extend ())
-	return convert_memory_address (Pmode, op);
+	{
+	  temp
+	    = convert_memory_address_addr_space_1 (Pmode, op,
+						   ADDR_SPACE_GENERIC, false,
+						   true);
+	  if (temp)
+	    return temp;
+	}
 #endif
       break;
 
@@ -2277,8 +2291,11 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
       if (!HONOR_SIGNED_ZEROS (mode) && trueop0 == CONST0_RTX (mode))
 	return simplify_gen_unary (NEG, mode, op1, mode);
 
-      /* (-1 - a) is ~a.  */
-      if (trueop0 == constm1_rtx)
+      /* (-1 - a) is ~a, unless the expression contains symbolic
+	 constants, in which case not retaining additions and
+	 subtractions could cause invalid assembly to be produced.  */
+      if (trueop0 == constm1_rtx
+	  && !contains_symbolic_reference_p (op1))
 	return simplify_gen_unary (NOT, mode, op1, mode);
 
       /* Subtracting 0 has no effect unless the mode has signed zeros
@@ -3662,7 +3679,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	      for (int i = 0; i < XVECLEN (trueop1, 0); i++)
 		{
 		  rtx j = XVECEXP (trueop1, 0, i);
-		  if (sel & (1 << UINTVAL (j)))
+		  if (sel & (HOST_WIDE_INT_1U << UINTVAL (j)))
 		    all_operand1 = false;
 		  else
 		    all_operand0 = false;
@@ -4418,9 +4435,26 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
       n_ops = i;
     }
 
-  /* If nothing changed, fail.  */
+  /* If nothing changed, check that rematerialization of rtl instructions
+     is still required.  */
   if (!canonicalized)
-    return NULL_RTX;
+    {
+      /* Perform rematerialization if only all operands are registers and
+	 all operations are PLUS.  */
+      /* ??? Also disallow (non-global, non-frame) fixed registers to work
+	 around rs6000 and how it uses the CA register.  See PR67145.  */
+      for (i = 0; i < n_ops; i++)
+	if (ops[i].neg
+	    || !REG_P (ops[i].op)
+	    || (REGNO (ops[i].op) < FIRST_PSEUDO_REGISTER
+		&& fixed_regs[REGNO (ops[i].op)]
+		&& !global_regs[REGNO (ops[i].op)]
+		&& ops[i].op != frame_pointer_rtx
+		&& ops[i].op != arg_pointer_rtx
+		&& ops[i].op != stack_pointer_rtx))
+	  return NULL_RTX;
+      goto gen_result;
+    }
 
   /* Create (minus -C X) instead of (neg (const (plus X C))).  */
   if (n_ops == 2
@@ -4462,6 +4496,7 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
     }
 
   /* Now make the result by performing the requested operations.  */
+ gen_result:
   result = ops[0].op;
   for (i = 1; i < n_ops; i++)
     result = gen_rtx_fmt_ee (ops[i].neg ? MINUS : PLUS,
@@ -4593,7 +4628,7 @@ simplify_relational_operation_1 (enum rtx_code code, machine_mode mode,
 	}
       else if (code == EQ)
 	{
-	  enum rtx_code new_code = reversed_comparison_code (op0, NULL_RTX);
+	  enum rtx_code new_code = reversed_comparison_code (op0, NULL);
 	  if (new_code != UNKNOWN)
 	    return simplify_gen_relational (new_code, mode, VOIDmode,
 					    XEXP (op0, 0), XEXP (op0, 1));
@@ -4614,6 +4649,19 @@ simplify_relational_operation_1 (enum rtx_code code, machine_mode mode,
 	= simplify_gen_unary (NEG, cmp_mode, XEXP (op0, 1), cmp_mode);
       return simplify_gen_relational ((code == LTU ? GEU : LTU), mode,
 				      cmp_mode, XEXP (op0, 0), new_cmp);
+    }
+
+  /* (GTU (PLUS a C) (C - 1)) where C is a non-zero constant can be
+     transformed into (LTU a -C).  */
+  if (code == GTU && GET_CODE (op0) == PLUS && CONST_INT_P (op1)
+      && CONST_INT_P (XEXP (op0, 1))
+      && (UINTVAL (op1) == UINTVAL (XEXP (op0, 1)) - 1)
+      && XEXP (op0, 1) != const0_rtx)
+    {
+      rtx new_cmp
+	= simplify_gen_unary (NEG, cmp_mode, XEXP (op0, 1), cmp_mode);
+      return simplify_gen_relational (LTU, mode, cmp_mode,
+				       XEXP (op0, 0), new_cmp);
     }
 
   /* Canonicalize (LTU/GEU (PLUS a b) b) as (LTU/GEU (PLUS a b) a).  */
@@ -5153,7 +5201,7 @@ simplify_const_relational_operation (enum rtx_code code,
 	      int sign_bitnum = GET_MODE_PRECISION (mode) - 1;
 	      int has_sign = (HOST_BITS_PER_WIDE_INT >= sign_bitnum
 			      && (UINTVAL (inner_const)
-				  & ((unsigned HOST_WIDE_INT) 1
+				  & (HOST_WIDE_INT_1U
 				     << sign_bitnum)));
 
 	      switch (code)
@@ -5232,6 +5280,50 @@ simplify_const_relational_operation (enum rtx_code code,
 
   return 0;
 }
+
+/* Recognize expressions of the form (X CMP 0) ? VAL : OP (X)
+   where OP is CLZ or CTZ and VAL is the value from CLZ_DEFINED_VALUE_AT_ZERO
+   or CTZ_DEFINED_VALUE_AT_ZERO respectively and return OP (X) if the expression
+   can be simplified to that or NULL_RTX if not.
+   Assume X is compared against zero with CMP_CODE and the true
+   arm is TRUE_VAL and the false arm is FALSE_VAL.  */
+
+static rtx
+simplify_cond_clz_ctz (rtx x, rtx_code cmp_code, rtx true_val, rtx false_val)
+{
+  if (cmp_code != EQ && cmp_code != NE)
+    return NULL_RTX;
+
+  /* Result on X == 0 and X !=0 respectively.  */
+  rtx on_zero, on_nonzero;
+  if (cmp_code == EQ)
+    {
+      on_zero = true_val;
+      on_nonzero = false_val;
+    }
+  else
+    {
+      on_zero = false_val;
+      on_nonzero = true_val;
+    }
+
+  rtx_code op_code = GET_CODE (on_nonzero);
+  if ((op_code != CLZ && op_code != CTZ)
+      || !rtx_equal_p (XEXP (on_nonzero, 0), x)
+      || !CONST_INT_P (on_zero))
+    return NULL_RTX;
+
+  HOST_WIDE_INT op_val;
+  if (((op_code == CLZ
+	&& CLZ_DEFINED_VALUE_AT_ZERO (GET_MODE (on_nonzero), op_val))
+      || (op_code == CTZ
+	  && CTZ_DEFINED_VALUE_AT_ZERO (GET_MODE (on_nonzero), op_val)))
+      && op_val == INTVAL (on_zero))
+    return on_nonzero;
+
+  return NULL_RTX;
+}
+
 
 /* Simplify CODE, an operation with result mode MODE and three operands,
    OP0, OP1, and OP2.  OP0_MODE was the mode of OP0 before it became
@@ -5297,12 +5389,12 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	  if (HOST_BITS_PER_WIDE_INT != op1val)
 	    {
 	      /* First zero-extend.  */
-	      val &= ((unsigned HOST_WIDE_INT) 1 << op1val) - 1;
+	      val &= (HOST_WIDE_INT_1U << op1val) - 1;
 	      /* If desired, propagate sign bit.  */
 	      if (code == SIGN_EXTRACT
-		  && (val & ((unsigned HOST_WIDE_INT) 1 << (op1val - 1)))
+		  && (val & (HOST_WIDE_INT_1U << (op1val - 1)))
 		     != 0)
-		val |= ~ (((unsigned HOST_WIDE_INT) 1 << op1val) - 1);
+		val |= ~ ((HOST_WIDE_INT_1U << op1val) - 1);
 	    }
 
 	  return gen_int_mode (val, mode);
@@ -5365,6 +5457,19 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	    }
 	}
 
+      /* Convert x == 0 ? N : clz (x) into clz (x) when
+	 CLZ_DEFINED_VALUE_AT_ZERO is defined to N for the mode of x.
+	 Similarly for ctz (x).  */
+      if (COMPARISON_P (op0) && !side_effects_p (op0)
+	  && XEXP (op0, 1) == const0_rtx)
+	{
+	  rtx simplified
+	    = simplify_cond_clz_ctz (XEXP (op0, 0), GET_CODE (op0),
+				     op1, op2);
+	  if (simplified)
+	    return simplified;
+	}
+
       if (COMPARISON_P (op0) && ! side_effects_p (op0))
 	{
 	  machine_mode cmp_mode = (GET_MODE (XEXP (op0, 0)) == VOIDmode
@@ -5383,7 +5488,7 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	      else if (t == 0 && f == STORE_FLAG_VALUE)
 		{
 		  enum rtx_code tmp;
-		  tmp = reversed_comparison_code (op0, NULL_RTX);
+		  tmp = reversed_comparison_code (op0, NULL);
 		  if (tmp == UNKNOWN)
 		    break;
 		  code = tmp;
@@ -5426,7 +5531,7 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	  if (n_elts == HOST_BITS_PER_WIDE_INT)
 	    mask = -1;
 	  else
-	    mask = ((unsigned HOST_WIDE_INT) 1 << n_elts) - 1;
+	    mask = (HOST_WIDE_INT_1U << n_elts) - 1;
 
 	  if (!(sel & mask) && !side_effects_p (op0))
 	    return op1;
@@ -5442,7 +5547,7 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	      unsigned int i;
 
 	      for (i = 0; i < n_elts; i++)
-		RTVEC_ELT (v, i) = ((sel & ((unsigned HOST_WIDE_INT) 1 << i))
+		RTVEC_ELT (v, i) = ((sel & (HOST_WIDE_INT_1U << i))
 				    ? CONST_VECTOR_ELT (trueop0, i)
 				    : CONST_VECTOR_ELT (trueop1, i));
 	      return gen_rtx_CONST_VECTOR (mode, v);
@@ -5789,14 +5894,12 @@ simplify_immed_subreg (machine_mode outermode, rtx op,
 	case MODE_DECIMAL_FLOAT:
 	  {
 	    REAL_VALUE_TYPE r;
-	    long tmp[MAX_BITSIZE_MODE_ANY_MODE / 32];
+	    long tmp[MAX_BITSIZE_MODE_ANY_MODE / 32] = { 0 };
 
 	    /* real_from_target wants its input in words affected by
 	       FLOAT_WORDS_BIG_ENDIAN.  However, we ignore this,
 	       and use WORDS_BIG_ENDIAN instead; see the documentation
 	       of SUBREG in rtl.texi.  */
-	    for (i = 0; i < max_bitsize / 32; i++)
-	      tmp[i] = 0;
 	    for (i = 0; i < elem_bitsize; i += value_bit)
 	      {
 		int ibase;
@@ -6016,14 +6119,18 @@ simplify_subreg (machine_mode outermode, rtx op,
       && GET_MODE_SIZE (outermode) <= GET_MODE_SIZE (GET_MODE (op)))
     return adjust_address_nv (op, outermode, byte);
 
-  /* Handle complex values represented as CONCAT
-     of real and imaginary part.  */
-  if (GET_CODE (op) == CONCAT)
+  /* Handle complex or vector values represented as CONCAT or VEC_CONCAT
+     of two parts.  */
+  if (GET_CODE (op) == CONCAT
+      || GET_CODE (op) == VEC_CONCAT)
     {
       unsigned int part_size, final_offset;
       rtx part, res;
 
-      part_size = GET_MODE_UNIT_SIZE (GET_MODE (XEXP (op, 0)));
+      enum machine_mode part_mode = GET_MODE (XEXP (op, 0));
+      if (part_mode == VOIDmode)
+	part_mode = GET_MODE_INNER (GET_MODE (op));
+      part_size = GET_MODE_SIZE (part_mode);
       if (byte < part_size)
 	{
 	  part = XEXP (op, 0);
@@ -6038,10 +6145,13 @@ simplify_subreg (machine_mode outermode, rtx op,
       if (final_offset + GET_MODE_SIZE (outermode) > part_size)
 	return NULL_RTX;
 
-      res = simplify_subreg (outermode, part, GET_MODE (part), final_offset);
+      part_mode = GET_MODE (part);
+      if (part_mode == VOIDmode)
+	part_mode = GET_MODE_INNER (GET_MODE (op));
+      res = simplify_subreg (outermode, part, part_mode, final_offset);
       if (res)
 	return res;
-      if (validate_subreg (outermode, GET_MODE (part), part, final_offset))
+      if (validate_subreg (outermode, part_mode, part, final_offset))
 	return gen_rtx_SUBREG (outermode, part, final_offset);
       return NULL_RTX;
     }
@@ -6157,7 +6267,7 @@ simplify_rtx (const_rtx x)
       if (swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
 	return simplify_gen_binary (code, mode, XEXP (x, 1), XEXP (x, 0));
 
-      /* Fall through....  */
+      /* Fall through.  */
 
     case RTX_BIN_ARITH:
       return simplify_binary_operation (code, mode, XEXP (x, 0), XEXP (x, 1));

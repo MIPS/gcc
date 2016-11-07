@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "tree.h"
 #include "predict.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -700,12 +701,13 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
 
       /* Update max ref width and hard reg usage.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
-	if (reg->regno >= FIRST_PSEUDO_REGISTER
-	    && (GET_MODE_SIZE (reg->biggest_mode)
-		> GET_MODE_SIZE (lra_reg_info[reg->regno].biggest_mode)))
-	  lra_reg_info[reg->regno].biggest_mode = reg->biggest_mode;
-	else if (reg->regno < FIRST_PSEUDO_REGISTER)
-	  lra_hard_reg_usage[reg->regno] += freq;
+	{
+	  if (GET_MODE_SIZE (reg->biggest_mode)
+	      > GET_MODE_SIZE (lra_reg_info[reg->regno].biggest_mode))
+	    lra_reg_info[reg->regno].biggest_mode = reg->biggest_mode;
+	  if (reg->regno < FIRST_PSEUDO_REGISTER)
+	    lra_hard_reg_usage[reg->regno] += freq;
+	}
 
       call_p = CALL_P (curr_insn);
       src_regno = (set != NULL_RTX && REG_P (SET_SRC (set))
@@ -1014,12 +1016,11 @@ remove_some_program_points_and_update_live_ranges (void)
   int n, max_regno;
   int *map;
   lra_live_range_t r, prev_r, next_r;
-  sbitmap born_or_dead, born, dead;
   sbitmap_iterator sbi;
   bool born_p, dead_p, prev_born_p, prev_dead_p;
 
-  born = sbitmap_alloc (lra_live_max_point);
-  dead = sbitmap_alloc (lra_live_max_point);
+  auto_sbitmap born (lra_live_max_point);
+  auto_sbitmap dead (lra_live_max_point);
   bitmap_clear (born);
   bitmap_clear (dead);
   max_regno = max_reg_num ();
@@ -1032,7 +1033,7 @@ remove_some_program_points_and_update_live_ranges (void)
 	  bitmap_set_bit (dead, r->finish);
 	}
     }
-  born_or_dead = sbitmap_alloc (lra_live_max_point);
+  auto_sbitmap born_or_dead (lra_live_max_point);
   bitmap_ior (born_or_dead, born, dead);
   map = XCNEWVEC (int, lra_live_max_point);
   n = -1;
@@ -1055,9 +1056,6 @@ remove_some_program_points_and_update_live_ranges (void)
       prev_born_p = born_p;
       prev_dead_p = dead_p;
     }
-  sbitmap_free (born_or_dead);
-  sbitmap_free (born);
-  sbitmap_free (dead);
   n++;
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "Compressing live ranges: from %d to %d - %d%%\n",
@@ -1208,7 +1206,7 @@ lra_create_live_ranges_1 (bool all_p, bool dead_insn_p)
 	 conservative because of recent transformation.  Here in this
 	 file we recalculate it again as it costs practically
 	 nothing.  */
-      if (regno_reg_rtx[i] != NULL_RTX)
+      if (i >= FIRST_PSEUDO_REGISTER && regno_reg_rtx[i] != NULL_RTX)
 	lra_reg_info[i].biggest_mode = GET_MODE (regno_reg_rtx[i]);
       else
 	lra_reg_info[i].biggest_mode = VOIDmode;

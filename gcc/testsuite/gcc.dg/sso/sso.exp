@@ -18,6 +18,10 @@
 load_lib gcc-dg.exp
 load_lib torture-options.exp
 
+if { ![check_effective_target_int32] } {
+    return
+}
+
 # Initialize `dg'.
 torture-init
 dg-init

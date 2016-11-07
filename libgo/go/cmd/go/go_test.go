@@ -1,4 +1,4 @@
-// Copyright 2015 The Go Authors.  All rights reserved.
+// Copyright 2015 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"go/build"
 	"go/format"
+	"internal/race"
 	"internal/testenv"
 	"io"
 	"io/ioutil"
@@ -31,8 +32,7 @@ var (
 
 	exeSuffix string // ".exe" on Windows
 
-	builder             = testenv.Builder()
-	skipExternalBuilder = false // skip external tests on this builder
+	skipExternal = false // skip external tests
 )
 
 func init() {
@@ -44,14 +44,21 @@ func init() {
 		case "arm", "arm64":
 			canRun = false
 		}
-	}
-
-	if strings.HasPrefix(builder+"-", "freebsd-arm-") {
-		skipExternalBuilder = true
-		canRun = false
-	}
-
-	switch runtime.GOOS {
+	case "linux":
+		switch runtime.GOARCH {
+		case "arm":
+			// many linux/arm machines are too slow to run
+			// the full set of external tests.
+			skipExternal = true
+		}
+	case "freebsd":
+		switch runtime.GOARCH {
+		case "arm":
+			// many freebsd/arm machines are too slow to run
+			// the full set of external tests.
+			skipExternal = true
+			canRun = false
+		}
 	case "windows":
 		exeSuffix = ".exe"
 	}
@@ -63,7 +70,11 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	if canRun {
-		out, err := exec.Command("go", "build", "-tags", "testgo", "-o", "testgo"+exeSuffix).CombinedOutput()
+		args := []string{"build", "-tags", "testgo", "-o", "testgo" + exeSuffix}
+		if race.Enabled {
+			args = append(args, "-race")
+		}
+		out, err := exec.Command("go", args...).CombinedOutput()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "building testgo failed: %v\n%s", err, out)
 			os.Exit(2)
@@ -83,8 +94,6 @@ func TestMain(m *testing.M) {
 		case "linux", "darwin", "freebsd", "windows":
 			canRace = canCgo && runtime.GOARCH == "amd64"
 		}
-
-		measureTick("./testgo" + exeSuffix)
 	}
 
 	// Don't let these environment variables confuse the test.
@@ -100,27 +109,11 @@ func TestMain(m *testing.M) {
 	os.Exit(r)
 }
 
-// The length of an mtime tick on this system.  This is an estimate of
+// The length of an mtime tick on this system. This is an estimate of
 // how long we need to sleep to ensure that the mtime of two files is
 // different.
-var mtimeTick time.Duration
-
-// measureTick sets mtimeTick by looking at the rounding of the mtime
-// of a file.
-func measureTick(path string) {
-	st, err := os.Stat(path)
-	if err != nil {
-		// Default to one second, the most conservative value.
-		mtimeTick = time.Second
-		return
-	}
-	mtime := st.ModTime()
-	t := time.Microsecond
-	for mtime.Round(t).Equal(mtime) && t < time.Second {
-		t *= 10
-	}
-	mtimeTick = t
-}
+// We used to try to be clever but that didn't always work (see golang.org/issue/12205).
+var mtimeTick time.Duration = 1 * time.Second
 
 // Manage a single run of the testgo binary.
 type testgoData struct {
@@ -138,8 +131,8 @@ type testgoData struct {
 func testgo(t *testing.T) *testgoData {
 	testenv.MustHaveGoBuild(t)
 
-	if skipExternalBuilder {
-		t.Skip("skipping external tests on %s builder", builder)
+	if skipExternal {
+		t.Skip("skipping external tests on %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 
 	return &testgoData{t: t}
@@ -188,7 +181,7 @@ func (tg *testgoData) pwd() string {
 	return wd
 }
 
-// cd changes the current directory to the named directory.  Note that
+// cd changes the current directory to the named directory. Note that
 // using this means that the test must not be run in parallel with any
 // other tests.
 func (tg *testgoData) cd(dir string) {
@@ -332,7 +325,7 @@ func (tg *testgoData) getStderr() string {
 }
 
 // doGrepMatch looks for a regular expression in a buffer, and returns
-// whether it is found.  The regular expression is matched against
+// whether it is found. The regular expression is matched against
 // each line separately, as with the grep command.
 func (tg *testgoData) doGrepMatch(match string, b *bytes.Buffer) bool {
 	if !tg.ran {
@@ -348,7 +341,7 @@ func (tg *testgoData) doGrepMatch(match string, b *bytes.Buffer) bool {
 }
 
 // doGrep looks for a regular expression in a buffer and fails if it
-// is not found.  The name argument is the name of the output we are
+// is not found. The name argument is the name of the output we are
 // searching, "output" or "error".  The msg argument is logged on
 // failure.
 func (tg *testgoData) doGrep(match string, b *bytes.Buffer, name, msg string) {
@@ -382,7 +375,7 @@ func (tg *testgoData) grepBoth(match, msg string) {
 }
 
 // doGrepNot looks for a regular expression in a buffer and fails if
-// it is found.  The name and msg arguments are as for doGrep.
+// it is found. The name and msg arguments are as for doGrep.
 func (tg *testgoData) doGrepNot(match string, b *bytes.Buffer, name, msg string) {
 	if tg.doGrepMatch(match, b) {
 		tg.t.Log(msg)
@@ -428,18 +421,6 @@ func (tg *testgoData) doGrepCount(match string, b *bytes.Buffer) int {
 	return c
 }
 
-// grepCountStdout returns the number of times a regexp is seen in
-// standard output.
-func (tg *testgoData) grepCountStdout(match string) int {
-	return tg.doGrepCount(match, &tg.stdout)
-}
-
-// grepCountStderr returns the number of times a regexp is seen in
-// standard error.
-func (tg *testgoData) grepCountStderr(match string) int {
-	return tg.doGrepCount(match, &tg.stderr)
-}
-
 // grepCountBoth returns the number of times a regexp is seen in both
 // standard output and standard error.
 func (tg *testgoData) grepCountBoth(match string) int {
@@ -447,12 +428,12 @@ func (tg *testgoData) grepCountBoth(match string) int {
 }
 
 // creatingTemp records that the test plans to create a temporary file
-// or directory.  If the file or directory exists already, it will be
-// removed.  When the test completes, the file or directory will be
+// or directory. If the file or directory exists already, it will be
+// removed. When the test completes, the file or directory will be
 // removed if it exists.
 func (tg *testgoData) creatingTemp(path string) {
 	if filepath.IsAbs(path) && !strings.HasPrefix(path, tg.tempdir) {
-		tg.t.Fatal("internal testsuite error: creatingTemp(%q) with absolute path not in temporary directory", path)
+		tg.t.Fatalf("internal testsuite error: creatingTemp(%q) with absolute path not in temporary directory", path)
 	}
 	// If we have changed the working directory, make sure we have
 	// an absolute path, because we are going to change directory
@@ -464,7 +445,7 @@ func (tg *testgoData) creatingTemp(path string) {
 	tg.temps = append(tg.temps, path)
 }
 
-// makeTempdir makes a temporary directory for a run of testgo.  If
+// makeTempdir makes a temporary directory for a run of testgo. If
 // the temporary directory was already created, this does nothing.
 func (tg *testgoData) makeTempdir() {
 	if tg.tempdir == "" {
@@ -508,6 +489,16 @@ func (tg *testgoData) path(name string) string {
 	return filepath.Join(tg.tempdir, name)
 }
 
+// mustExist fails if path does not exist.
+func (tg *testgoData) mustExist(path string) {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			tg.t.Fatalf("%s does not exist but should", path)
+		}
+		tg.t.Fatalf("%s stat failed: %v", path, err)
+	}
+}
+
 // mustNotExist fails if path exists.
 func (tg *testgoData) mustNotExist(path string) {
 	if _, err := os.Stat(path); err == nil || !os.IsNotExist(err) {
@@ -543,31 +534,42 @@ func (tg *testgoData) wantArchive(path string) {
 	}
 }
 
-// isStale returns whether pkg is stale.
-func (tg *testgoData) isStale(pkg string) bool {
-	tg.run("list", "-f", "{{.Stale}}", pkg)
-	switch v := strings.TrimSpace(tg.getStdout()); v {
-	case "true":
-		return true
-	case "false":
-		return false
-	default:
-		tg.t.Fatalf("unexpected output checking staleness of package %v: %v", pkg, v)
-		panic("unreachable")
+// isStale reports whether pkg is stale, and why
+func (tg *testgoData) isStale(pkg string) (bool, string) {
+	tg.run("list", "-f", "{{.Stale}}:{{.StaleReason}}", pkg)
+	v := strings.TrimSpace(tg.getStdout())
+	f := strings.SplitN(v, ":", 2)
+	if len(f) == 2 {
+		switch f[0] {
+		case "true":
+			return true, f[1]
+		case "false":
+			return false, f[1]
+		}
 	}
+	tg.t.Fatalf("unexpected output checking staleness of package %v: %v", pkg, v)
+	panic("unreachable")
 }
 
 // wantStale fails with msg if pkg is not stale.
-func (tg *testgoData) wantStale(pkg, msg string) {
-	if !tg.isStale(pkg) {
+func (tg *testgoData) wantStale(pkg, reason, msg string) {
+	stale, why := tg.isStale(pkg)
+	if !stale {
 		tg.t.Fatal(msg)
+	}
+	if reason == "" && why != "" || !strings.Contains(why, reason) {
+		tg.t.Errorf("wrong reason for Stale=true: %q, want %q", why, reason)
 	}
 }
 
 // wantNotStale fails with msg if pkg is stale.
-func (tg *testgoData) wantNotStale(pkg, msg string) {
-	if tg.isStale(pkg) {
+func (tg *testgoData) wantNotStale(pkg, reason, msg string) {
+	stale, why := tg.isStale(pkg)
+	if stale {
 		tg.t.Fatal(msg)
+	}
+	if reason == "" && why != "" || !strings.Contains(why, reason) {
+		tg.t.Errorf("wrong reason for Stale=false: %q, want %q", why, reason)
 	}
 }
 
@@ -585,32 +587,6 @@ func (tg *testgoData) cleanup() {
 	}
 	if tg.tempdir != "" {
 		tg.check(os.RemoveAll(tg.tempdir))
-	}
-}
-
-// resetReadOnlyFlagAll resets windows read-only flag
-// set on path and any children it contains.
-// The flag is set by git and has to be removed.
-// os.Remove refuses to remove files with read-only flag set.
-func (tg *testgoData) resetReadOnlyFlagAll(path string) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		tg.t.Fatalf("resetReadOnlyFlagAll(%q) failed: %v", path, err)
-	}
-	if !fi.IsDir() {
-		err := os.Chmod(path, 0666)
-		if err != nil {
-			tg.t.Fatalf("resetReadOnlyFlagAll(%q) failed: %v", path, err)
-		}
-	}
-	fd, err := os.Open(path)
-	if err != nil {
-		tg.t.Fatalf("resetReadOnlyFlagAll(%q) failed: %v", path, err)
-	}
-	defer fd.Close()
-	names, _ := fd.Readdirnames(-1)
-	for _, name := range names {
-		tg.resetReadOnlyFlagAll(path + string(filepath.Separator) + name)
 	}
 }
 
@@ -669,19 +645,122 @@ func TestGoBuildDashAInDevBranch(t *testing.T) {
 	tg.setenv("TESTGO_IS_GO_RELEASE", "0")
 	tg.run("build", "-v", "-a", "math")
 	tg.grepStderr("runtime", "testgo build -a math in dev branch DID NOT build runtime, but should have")
+
+	// Everything is out of date. Rebuild to leave things in a better state.
+	tg.run("install", "std")
 }
 
-func TestGoBuilDashAInReleaseBranch(t *testing.T) {
+func TestGoBuildDashAInReleaseBranch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("don't rebuild the standard library in short mode")
 	}
 
 	tg := testgo(t)
 	defer tg.cleanup()
-	tg.run("install", "math") // should be up to date already but just in case
+	tg.run("install", "math", "net/http") // should be up to date already but just in case
 	tg.setenv("TESTGO_IS_GO_RELEASE", "1")
-	tg.run("build", "-v", "-a", "math")
-	tg.grepStderr("runtime", "testgo build -a math in dev branch did not build runtime, but should have")
+	tg.run("install", "-v", "-a", "math")
+	tg.grepStderr("runtime", "testgo build -a math in release branch DID NOT build runtime, but should have")
+
+	// Now runtime.a is updated (newer mtime), so everything would look stale if not for being a release.
+	tg.run("build", "-v", "net/http")
+	tg.grepStderrNot("strconv", "testgo build -v net/http in release branch with newer runtime.a DID build strconv but should not have")
+	tg.grepStderrNot("golang.org/x/net/http2/hpack", "testgo build -v net/http in release branch with newer runtime.a DID build .../golang.org/x/net/http2/hpack but should not have")
+	tg.grepStderrNot("net/http", "testgo build -v net/http in release branch with newer runtime.a DID build net/http but should not have")
+
+	// Everything is out of date. Rebuild to leave things in a better state.
+	tg.run("install", "std")
+}
+
+func TestNewReleaseRebuildsStalePackagesInGOPATH(t *testing.T) {
+	if testing.Short() {
+		t.Skip("don't rebuild the standard library in short mode")
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+
+	addNL := func(name string) (restore func()) {
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		old := data
+		data = append(data, '\n')
+		if err := ioutil.WriteFile(name, append(data, '\n'), 0666); err != nil {
+			t.Fatal(err)
+		}
+		tg.sleep()
+		return func() {
+			if err := ioutil.WriteFile(name, old, 0666); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	tg.setenv("TESTGO_IS_GO_RELEASE", "1")
+
+	tg.tempFile("d1/src/p1/p1.go", `package p1`)
+	tg.setenv("GOPATH", tg.path("d1"))
+	tg.run("install", "-a", "p1")
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale, incorrectly")
+	tg.sleep()
+
+	// Changing mtime and content of runtime/internal/sys/sys.go
+	// should have no effect: we're in a release, which doesn't rebuild
+	// for general mtime or content changes.
+	sys := runtime.GOROOT() + "/src/runtime/internal/sys/sys.go"
+	restore := addNL(sys)
+	defer restore()
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale, incorrectly, after updating runtime/internal/sys/sys.go")
+	restore()
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale, incorrectly, after restoring runtime/internal/sys/sys.go")
+
+	// But changing runtime/internal/sys/zversion.go should have an effect:
+	// that's how we tell when we flip from one release to another.
+	zversion := runtime.GOROOT() + "/src/runtime/internal/sys/zversion.go"
+	restore = addNL(zversion)
+	defer restore()
+	tg.wantStale("p1", "build ID mismatch", "./testgo list claims p1 is NOT stale, incorrectly, after changing to new release")
+	restore()
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale, incorrectly, after changing back to old release")
+	addNL(zversion)
+	tg.wantStale("p1", "build ID mismatch", "./testgo list claims p1 is NOT stale, incorrectly, after changing again to new release")
+	tg.run("install", "p1")
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale after building with new release")
+
+	// Restore to "old" release.
+	restore()
+	tg.wantStale("p1", "build ID mismatch", "./testgo list claims p1 is NOT stale, incorrectly, after changing to old release after new build")
+	tg.run("install", "p1")
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale after building with old release")
+
+	// Everything is out of date. Rebuild to leave things in a better state.
+	tg.run("install", "std")
+}
+
+func TestGoListStandard(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.cd(runtime.GOROOT() + "/src")
+	tg.run("list", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./...")
+	stdout := tg.getStdout()
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.HasPrefix(line, "_/") && strings.HasSuffix(line, "/src") {
+			// $GOROOT/src shows up if there are any .go files there.
+			// We don't care.
+			continue
+		}
+		if line == "" {
+			continue
+		}
+		t.Errorf("package in GOROOT not listed as standard: %v", line)
+	}
+
+	// Similarly, expanding std should include some of our vendored code.
+	tg.run("list", "std", "cmd")
+	tg.grepStdout("golang.org/x/net/http2/hpack", "list std cmd did not mention vendored hpack")
+	tg.grepStdout("golang.org/x/arch/x86/x86asm", "list std cmd did not mention vendored x86asm")
 }
 
 func TestGoInstallCleansUpAfterGoBuild(t *testing.T) {
@@ -737,8 +816,8 @@ func TestGoInstallRebuildsStalePackagesInOtherGOPATH(t *testing.T) {
 	sep := string(filepath.ListSeparator)
 	tg.setenv("GOPATH", tg.path("d1")+sep+tg.path("d2"))
 	tg.run("install", "p1")
-	tg.wantNotStale("p1", "./testgo list mypkg claims p1 is stale, incorrectly")
-	tg.wantNotStale("p2", "./testgo list mypkg claims p2 is stale, incorrectly")
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale, incorrectly")
+	tg.wantNotStale("p2", "", "./testgo list claims p2 is stale, incorrectly")
 	tg.sleep()
 	if f, err := os.OpenFile(tg.path("d2/src/p2/p2.go"), os.O_WRONLY|os.O_APPEND, 0); err != nil {
 		t.Fatal(err)
@@ -747,12 +826,12 @@ func TestGoInstallRebuildsStalePackagesInOtherGOPATH(t *testing.T) {
 	} else {
 		tg.must(f.Close())
 	}
-	tg.wantStale("p2", "./testgo list mypkg claims p2 is NOT stale, incorrectly")
-	tg.wantStale("p1", "./testgo list mypkg claims p1 is NOT stale, incorrectly")
+	tg.wantStale("p2", "newer source file", "./testgo list claims p2 is NOT stale, incorrectly")
+	tg.wantStale("p1", "stale dependency", "./testgo list claims p1 is NOT stale, incorrectly")
 
 	tg.run("install", "p1")
-	tg.wantNotStale("p2", "./testgo list mypkg claims p2 is stale after reinstall, incorrectly")
-	tg.wantNotStale("p1", "./testgo list mypkg claims p1 is stale after reinstall, incorrectly")
+	tg.wantNotStale("p2", "", "./testgo list claims p2 is stale after reinstall, incorrectly")
+	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale after reinstall, incorrectly")
 }
 
 func TestGoInstallDetectsRemovedFiles(t *testing.T) {
@@ -766,13 +845,35 @@ func TestGoInstallDetectsRemovedFiles(t *testing.T) {
 		package mypkg`)
 	tg.setenv("GOPATH", tg.path("."))
 	tg.run("install", "mypkg")
-	tg.wantNotStale("mypkg", "./testgo list mypkg claims mypkg is stale, incorrectly")
+	tg.wantNotStale("mypkg", "", "./testgo list mypkg claims mypkg is stale, incorrectly")
 	// z.go was not part of the build; removing it is okay.
 	tg.must(os.Remove(tg.path("src/mypkg/z.go")))
-	tg.wantNotStale("mypkg", "./testgo list mypkg claims mypkg is stale after removing z.go; should not be stale")
+	tg.wantNotStale("mypkg", "", "./testgo list mypkg claims mypkg is stale after removing z.go; should not be stale")
 	// y.go was part of the package; removing it should be detected.
 	tg.must(os.Remove(tg.path("src/mypkg/y.go")))
-	tg.wantStale("mypkg", "./testgo list mypkg claims mypkg is NOT stale after removing y.go; should be stale")
+	tg.wantStale("mypkg", "build ID mismatch", "./testgo list mypkg claims mypkg is NOT stale after removing y.go; should be stale")
+}
+
+func TestWildcardMatchesSyntaxErrorDirs(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.tempFile("src/mypkg/x.go", `package mypkg`)
+	tg.tempFile("src/mypkg/y.go", `pkg mypackage`)
+	tg.setenv("GOPATH", tg.path("."))
+	tg.cd(tg.path("src/mypkg"))
+	tg.runFail("list", "./...")
+	tg.runFail("build", "./...")
+	tg.runFail("install", "./...")
+}
+
+func TestGoListWithTags(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.tempFile("src/mypkg/x.go", "// +build thetag\n\npackage mypkg\n")
+	tg.setenv("GOPATH", tg.path("."))
+	tg.cd(tg.path("./src"))
+	tg.run("list", "-tags=thetag", "./my...")
+	tg.grepStdout("mypkg", "did not find mypkg")
 }
 
 func TestGoInstallErrorOnCrossCompileToBin(t *testing.T) {
@@ -813,13 +914,13 @@ func TestGoInstallDetectsRemovedFilesInPackageMain(t *testing.T) {
 		package main`)
 	tg.setenv("GOPATH", tg.path("."))
 	tg.run("install", "mycmd")
-	tg.wantNotStale("mycmd", "./testgo list mypkg claims mycmd is stale, incorrectly")
+	tg.wantNotStale("mycmd", "", "./testgo list mypkg claims mycmd is stale, incorrectly")
 	// z.go was not part of the build; removing it is okay.
 	tg.must(os.Remove(tg.path("src/mycmd/z.go")))
-	tg.wantNotStale("mycmd", "./testgo list mycmd claims mycmd is stale after removing z.go; should not be stale")
+	tg.wantNotStale("mycmd", "", "./testgo list mycmd claims mycmd is stale after removing z.go; should not be stale")
 	// y.go was part of the package; removing it should be detected.
 	tg.must(os.Remove(tg.path("src/mycmd/y.go")))
-	tg.wantStale("mycmd", "./testgo list mycmd claims mycmd is NOT stale after removing y.go; should be stale")
+	tg.wantStale("mycmd", "build ID mismatch", "./testgo list mycmd claims mycmd is NOT stale after removing y.go; should be stale")
 }
 
 func testLocalRun(tg *testgoData, exepath, local, match string) {
@@ -951,6 +1052,16 @@ func TestInternalPackagesOutsideGOROOTAreRespected(t *testing.T) {
 	tg.grepBoth("use of internal package not allowed", "wrote error message for testdata/testinternal2")
 }
 
+func TestRunInternal(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	dir := filepath.Join(tg.pwd(), "testdata")
+	tg.setenv("GOPATH", dir)
+	tg.run("run", filepath.Join(dir, "src/run/good.go"))
+	tg.runFail("run", filepath.Join(dir, "src/run/bad.go"))
+	tg.grepStderr("use of internal package not allowed", "unexpected error for run/bad.go")
+}
+
 func testMove(t *testing.T, vcs, url, base, config string) {
 	testenv.MustHaveExternalNetwork(t)
 
@@ -977,8 +1088,8 @@ func testMove(t *testing.T, vcs, url, base, config string) {
 	}
 	if vcs == "git" {
 		// git will ask for a username and password when we
-		// run go get -d -f -u.  An empty username and
-		// password will work.  Prevent asking by setting
+		// run go get -d -f -u. An empty username and
+		// password will work. Prevent asking by setting
 		// GIT_ASKPASS.
 		tg.creatingTemp("sink" + exeSuffix)
 		tg.tempFile("src/sink/sink.go", `package main; func main() {}`)
@@ -1050,10 +1161,9 @@ func TestImportCommentConflict(t *testing.T) {
 	tg.grepStderr("found import comments", "go build did not mention comment conflict")
 }
 
-// cmd/go: custom import path checking should not apply to github.com/xxx/yyy.
+// cmd/go: custom import path checking should not apply to Go packages without import comment.
 func TestIssue10952(t *testing.T) {
 	testenv.MustHaveExternalNetwork(t)
-
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("skipping because git binary not found")
 	}
@@ -1066,17 +1176,63 @@ func TestIssue10952(t *testing.T) {
 	const importPath = "github.com/zombiezen/go-get-issue-10952"
 	tg.run("get", "-d", "-u", importPath)
 	repoDir := tg.path("src/" + importPath)
-	defer tg.resetReadOnlyFlagAll(repoDir)
 	tg.runGit(repoDir, "remote", "set-url", "origin", "https://"+importPath+".git")
 	tg.run("get", "-d", "-u", importPath)
 }
 
-func TestDisallowedCSourceFiles(t *testing.T) {
+// Test git clone URL that uses SCP-like syntax and custom import path checking.
+func TestIssue11457(t *testing.T) {
+	testenv.MustHaveExternalNetwork(t)
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("skipping because git binary not found")
+	}
+
 	tg := testgo(t)
 	defer tg.cleanup()
-	tg.setenv("GOPATH", filepath.Join(tg.pwd(), "testdata"))
-	tg.runFail("build", "badc")
-	tg.grepStderr("C source files not allowed", "go test did not say C source files not allowed")
+	tg.parallel()
+	tg.tempDir("src")
+	tg.setenv("GOPATH", tg.path("."))
+	const importPath = "github.com/rsc/go-get-issue-11457"
+	tg.run("get", "-d", "-u", importPath)
+	repoDir := tg.path("src/" + importPath)
+	tg.runGit(repoDir, "remote", "set-url", "origin", "git@github.com:rsc/go-get-issue-11457")
+
+	// At this time, custom import path checking compares remotes verbatim (rather than
+	// just the host and path, skipping scheme and user), so we expect go get -u to fail.
+	// However, the goal of this test is to verify that gitRemoteRepo correctly parsed
+	// the SCP-like syntax, and we expect it to appear in the error message.
+	tg.runFail("get", "-d", "-u", importPath)
+	want := " is checked out from ssh://git@github.com/rsc/go-get-issue-11457"
+	if !strings.HasSuffix(strings.TrimSpace(tg.getStderr()), want) {
+		t.Error("expected clone URL to appear in stderr")
+	}
+}
+
+func TestGetGitDefaultBranch(t *testing.T) {
+	testenv.MustHaveExternalNetwork(t)
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("skipping because git binary not found")
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.tempDir("src")
+	tg.setenv("GOPATH", tg.path("."))
+
+	// This repo has two branches, master and another-branch.
+	// The another-branch is the default that you get from 'git clone'.
+	// The go get command variants should not override this.
+	const importPath = "github.com/rsc/go-get-default-branch"
+
+	tg.run("get", "-d", importPath)
+	repoDir := tg.path("src/" + importPath)
+	tg.runGit(repoDir, "branch", "--contains", "HEAD")
+	tg.grepStdout(`\* another-branch`, "not on correct default branch")
+
+	tg.run("get", "-d", "-u", importPath)
+	tg.runGit(repoDir, "branch", "--contains", "HEAD")
+	tg.grepStdout(`\* another-branch`, "not on correct default branch")
 }
 
 func TestErrorMessageForSyntaxErrorInTestGoFileSaysFAIL(t *testing.T) {
@@ -1139,6 +1295,15 @@ func TestInstallFailsWithNoBuildableFiles(t *testing.T) {
 	tg.grepStderr("no buildable Go source files", "go install cgotest did not report 'no buildable Go Source files'")
 }
 
+func TestRelativeGOBINFail(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.tempFile("triv.go", `package main; func main() {}`)
+	tg.setenv("GOBIN", ".")
+	tg.runFail("install")
+	tg.grepStderr("cannot install, GOBIN must be an absolute path", "go install must fail if $GOBIN is a relative path")
+}
+
 // Test that without $GOBIN set, binaries get installed
 // into the GOPATH bin directory.
 func TestInstallIntoGOPATH(t *testing.T) {
@@ -1150,9 +1315,21 @@ func TestInstallIntoGOPATH(t *testing.T) {
 	tg.wantExecutable("testdata/bin/go-cmd-test"+exeSuffix, "go install go-cmd-test did not write to testdata/bin/go-cmd-test")
 }
 
+// Issue 12407
+func TestBuildOutputToDevNull(t *testing.T) {
+	if runtime.GOOS == "plan9" {
+		t.Skip("skipping because /dev/null is a regular file on plan9")
+	}
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.setenv("GOPATH", filepath.Join(tg.pwd(), "testdata"))
+	tg.run("build", "-o", os.DevNull, "go-cmd-test")
+}
+
 func TestPackageMainTestImportsArchiveNotBinary(t *testing.T) {
 	tg := testgo(t)
 	defer tg.cleanup()
+	tg.parallel()
 	gobin := filepath.Join(tg.pwd(), "testdata", "bin")
 	tg.creatingTemp(gobin)
 	tg.setenv("GOBIN", gobin)
@@ -1161,8 +1338,35 @@ func TestPackageMainTestImportsArchiveNotBinary(t *testing.T) {
 	tg.sleep()
 	tg.run("test", "main_test")
 	tg.run("install", "main_test")
-	tg.wantNotStale("main_test", "after go install, main listed as stale")
+	tg.wantNotStale("main_test", "", "after go install, main listed as stale")
 	tg.run("test", "main_test")
+}
+
+// The runtime version string takes one of two forms:
+// "go1.X[.Y]" for Go releases, and "devel +hash" at tip.
+// Determine whether we are in a released copy by
+// inspecting the version.
+var isGoRelease = strings.HasPrefix(runtime.Version(), "go1")
+
+// Issue 12690
+func TestPackageNotStaleWithTrailingSlash(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+
+	// Make sure the packages below are not stale.
+	tg.run("install", "runtime", "os", "io")
+
+	goroot := runtime.GOROOT()
+	tg.setenv("GOROOT", goroot+"/")
+
+	want := ""
+	if isGoRelease {
+		want = "standard package in Go release distribution"
+	}
+
+	tg.wantNotStale("runtime", want, "with trailing slash in GOROOT, runtime listed as stale")
+	tg.wantNotStale("os", want, "with trailing slash in GOROOT, os listed as stale")
+	tg.wantNotStale("io", want, "with trailing slash in GOROOT, io listed as stale")
 }
 
 // With $GOBIN set, binaries get installed to $GOBIN.
@@ -1208,28 +1412,6 @@ func TestInstallToGOBINCommandLinePackage(t *testing.T) {
 	tg.setenv("GOBIN", gobin)
 	tg.run("install", "testdata/src/go-cmd-test/helloworld.go")
 	tg.wantExecutable("testdata/bin1/helloworld"+exeSuffix, "go install testdata/src/go-cmd-test/helloworld.go did not write testdata/bin1/helloworld")
-}
-
-func TestGodocInstalls(t *testing.T) {
-	testenv.MustHaveExternalNetwork(t)
-
-	// godoc installs into GOBIN
-	tg := testgo(t)
-	defer tg.cleanup()
-	tg.parallel()
-	tg.tempDir("gobin")
-	tg.setenv("GOPATH", tg.path("."))
-	tg.setenv("GOBIN", tg.path("gobin"))
-	tg.run("get", "golang.org/x/tools/cmd/godoc")
-	tg.wantExecutable(tg.path("gobin/godoc"), "did not install godoc to $GOBIN")
-	tg.unsetenv("GOBIN")
-
-	// godoc installs into GOROOT
-	goroot := runtime.GOROOT()
-	tg.setenv("GOROOT", goroot)
-	tg.check(os.RemoveAll(filepath.Join(goroot, "bin", "godoc")))
-	tg.run("install", "golang.org/x/tools/cmd/godoc")
-	tg.wantExecutable(filepath.Join(goroot, "bin", "godoc"), "did not install godoc to $GOROOT/bin")
 }
 
 func TestGoGetNonPkg(t *testing.T) {
@@ -1321,7 +1503,7 @@ func TestGoTestWithPackageListedMultipleTimes(t *testing.T) {
 	defer tg.cleanup()
 	tg.parallel()
 	tg.run("test", "errors", "errors", "errors", "errors", "errors")
-	if strings.Index(strings.TrimSpace(tg.getStdout()), "\n") != -1 {
+	if strings.Contains(strings.TrimSpace(tg.getStdout()), "\n") {
 		t.Error("go test errors errors errors errors errors tested the same package multiple times")
 	}
 }
@@ -1350,10 +1532,22 @@ func TestGoListCmdOnlyShowsCommands(t *testing.T) {
 	tg.run("list", "cmd")
 	out := strings.TrimSpace(tg.getStdout())
 	for _, line := range strings.Split(out, "\n") {
-		if strings.Index(line, "cmd/") == -1 {
+		if !strings.Contains(line, "cmd/") {
 			t.Error("go list cmd shows non-commands")
 			break
 		}
+	}
+}
+
+func TestGoListDedupsPackages(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.setenv("GOPATH", filepath.Join(tg.pwd(), "testdata"))
+	tg.run("list", "xtestonly", "./testdata/src/xtestonly/...")
+	got := strings.TrimSpace(tg.getStdout())
+	const want = "xtestonly"
+	if got != want {
+		t.Errorf("got %q; want %q", got, want)
 	}
 }
 
@@ -1458,8 +1652,8 @@ func TestLdflagsArgumentsWithSpacesIssue3941(t *testing.T) {
 		func main() {
 			println(extern)
 		}`)
-	tg.run("run", "-ldflags", `-X main.extern "hello world"`, tg.path("main.go"))
-	tg.grepStderr("^hello world", `ldflags -X main.extern 'hello world' failed`)
+	tg.run("run", "-ldflags", `-X "main.extern=hello world"`, tg.path("main.go"))
+	tg.grepStderr("^hello world", `ldflags -X "main.extern=hello world"' failed`)
 }
 
 func TestGoTestCpuprofileLeavesBinaryBehind(t *testing.T) {
@@ -1499,7 +1693,7 @@ func TestGoTestDashOWritesBinary(t *testing.T) {
 }
 
 // Issue 4568.
-func TestSymlinksDoNotConfuseGoList(t *testing.T) {
+func TestSymlinksList(t *testing.T) {
 	switch runtime.GOOS {
 	case "plan9", "windows":
 		t.Skipf("skipping symlink test on %s", runtime.GOOS)
@@ -1516,6 +1710,57 @@ func TestSymlinksDoNotConfuseGoList(t *testing.T) {
 	if strings.TrimSpace(tg.getStdout()) != tg.path(".") {
 		t.Error("confused by symlinks")
 	}
+}
+
+// Issue 14054.
+func TestSymlinksVendor(t *testing.T) {
+	switch runtime.GOOS {
+	case "plan9", "windows":
+		t.Skipf("skipping symlink test on %s", runtime.GOOS)
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.tempDir("gopath/src/dir1/vendor/v")
+	tg.tempFile("gopath/src/dir1/p.go", "package main\nimport _ `v`\nfunc main(){}")
+	tg.tempFile("gopath/src/dir1/vendor/v/v.go", "package v")
+	tg.must(os.Symlink(tg.path("gopath/src/dir1"), tg.path("symdir1")))
+	tg.setenv("GOPATH", tg.path("gopath"))
+	tg.cd(tg.path("symdir1"))
+	tg.run("list", "-f", "{{.Root}}", ".")
+	if strings.TrimSpace(tg.getStdout()) != tg.path("gopath") {
+		t.Error("list confused by symlinks")
+	}
+
+	// All of these should succeed, not die in vendor-handling code.
+	tg.run("run", "p.go")
+	tg.run("build")
+	tg.run("install")
+}
+
+func TestSymlinksInternal(t *testing.T) {
+	switch runtime.GOOS {
+	case "plan9", "windows":
+		t.Skipf("skipping symlink test on %s", runtime.GOOS)
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.tempDir("gopath/src/dir1/internal/v")
+	tg.tempFile("gopath/src/dir1/p.go", "package main\nimport _ `dir1/internal/v`\nfunc main(){}")
+	tg.tempFile("gopath/src/dir1/internal/v/v.go", "package v")
+	tg.must(os.Symlink(tg.path("gopath/src/dir1"), tg.path("symdir1")))
+	tg.setenv("GOPATH", tg.path("gopath"))
+	tg.cd(tg.path("symdir1"))
+	tg.run("list", "-f", "{{.Root}}", ".")
+	if strings.TrimSpace(tg.getStdout()) != tg.path("gopath") {
+		t.Error("list confused by symlinks")
+	}
+
+	// All of these should succeed, not die in internal-handling code.
+	tg.run("run", "p.go")
+	tg.run("build")
+	tg.run("install")
 }
 
 // Issue 4515.
@@ -1628,7 +1873,9 @@ func TestShadowingLogic(t *testing.T) {
 	}
 	// The output will have makeImportValid applies, but we only
 	// bother to deal with characters we might reasonably see.
-	pwdForwardSlash = strings.Replace(pwdForwardSlash, ":", "_", -1)
+	for _, r := range " :" {
+		pwdForwardSlash = strings.Replace(pwdForwardSlash, string(r), "_", -1)
+	}
 	want := "(_" + pwdForwardSlash + "/testdata/shadow/root1/src/math) (" + filepath.Join(runtime.GOROOT(), "src", "math") + ")"
 	if strings.TrimSpace(tg.getStdout()) != want {
 		t.Error("shadowed math is not shadowed; looking for", want)
@@ -1750,6 +1997,27 @@ func TestCoverageUsesActualSettingToOverrideEvenForRace(t *testing.T) {
 	checkCoverage(tg, data)
 }
 
+func TestBuildDryRunWithCgo(t *testing.T) {
+	if !canCgo {
+		t.Skip("skipping because cgo not enabled")
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.tempFile("foo.go", `package main
+
+/*
+#include <limits.h>
+*/
+import "C"
+
+func main() {
+        println(C.INT_MAX)
+}`)
+	tg.run("build", "-n", tg.path("foo.go"))
+	tg.grepStderrNot(`os.Stat .* no such file or directory`, "unexpected stat of archive file")
+}
+
 func TestCoverageWithCgo(t *testing.T) {
 	if !canCgo {
 		t.Skip("skipping because cgo not enabled")
@@ -1833,6 +2101,9 @@ func TestIssue6480(t *testing.T) {
 
 // cmd/cgo: undefined reference when linking a C-library using gccgo
 func TestIssue7573(t *testing.T) {
+	if !canCgo {
+		t.Skip("skipping because cgo not enabled")
+	}
 	if _, err := exec.LookPath("gccgo"); err != nil {
 		t.Skip("skipping because no gccgo compiler found")
 	}
@@ -1852,10 +2123,33 @@ func main() { C.f() }`)
 	tg.grepStderr(`gccgo.*\-L alibpath \-lalib`, `no Go-inline "#cgo LDFLAGS:" ("-L alibpath -lalib") passed to gccgo linking stage`)
 }
 
-func TestListTemplateCanUseContextFunction(t *testing.T) {
+func TestListTemplateContextFunction(t *testing.T) {
 	tg := testgo(t)
 	defer tg.cleanup()
-	tg.run("list", "-f", "GOARCH: {{context.GOARCH}}")
+	for _, tt := range []struct {
+		v    string
+		want string
+	}{
+		{"GOARCH", runtime.GOARCH},
+		{"GOOS", runtime.GOOS},
+		{"GOROOT", filepath.Clean(runtime.GOROOT())},
+		{"GOPATH", os.Getenv("GOPATH")},
+		{"CgoEnabled", ""},
+		{"UseAllFiles", ""},
+		{"Compiler", ""},
+		{"BuildTags", ""},
+		{"ReleaseTags", ""},
+		{"InstallSuffix", ""},
+	} {
+		tmpl := "{{context." + tt.v + "}}"
+		tg.run("list", "-f", tmpl)
+		if tt.want == "" {
+			continue
+		}
+		if got := strings.TrimSpace(tg.getStdout()); got != tt.want {
+			t.Errorf("go list -f %q: got %q; want %q", tmpl, got, tt.want)
+		}
+	}
 }
 
 // cmd/go: "go test" should fail if package does not build
@@ -1869,7 +2163,7 @@ func TestIssue7108(t *testing.T) {
 // cmd/go: go test -a foo does not rebuild regexp.
 func TestIssue6844(t *testing.T) {
 	if testing.Short() {
-		t.Skip("don't rebuild the standard libary in short mode")
+		t.Skip("don't rebuild the standard library in short mode")
 	}
 
 	tg := testgo(t)
@@ -1929,6 +2223,13 @@ func TestGoTestFooTestWorks(t *testing.T) {
 	tg := testgo(t)
 	defer tg.cleanup()
 	tg.run("test", "testdata/standalone_test.go")
+}
+
+func TestGoTestFlagsAfterPackage(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.run("test", "testdata/flag_test.go", "-v", "-args", "-v=7") // Two distinct -v flags.
+	tg.run("test", "-v", "testdata/flag_test.go", "-args", "-v=7") // Two distinct -v flags.
 }
 
 func TestGoTestXtestonlyWorks(t *testing.T) {
@@ -1991,6 +2292,21 @@ func TestGoGenerateRunFlag(t *testing.T) {
 	tg.grepStdoutNot("no", "go generate -run yes ./testdata/generate/test4.go selected no")
 }
 
+func TestGoGenerateEnv(t *testing.T) {
+	switch runtime.GOOS {
+	case "plan9", "windows":
+		t.Skipf("skipping because %s does not have the env command", runtime.GOOS)
+	}
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.tempFile("env.go", "package main\n\n//go:generate env")
+	tg.run("generate", tg.path("env.go"))
+	for _, v := range []string{"GOARCH", "GOOS", "GOFILE", "GOLINE", "GOPACKAGE", "DOLLAR"} {
+		tg.grepStdout("^"+v+"=", "go generate environment missing "+v)
+	}
+}
+
 func TestGoGetCustomDomainWildcard(t *testing.T) {
 	testenv.MustHaveExternalNetwork(t)
 
@@ -2019,8 +2335,7 @@ func TestGoVetWithExternalTests(t *testing.T) {
 	tg := testgo(t)
 	defer tg.cleanup()
 	tg.makeTempdir()
-	tg.setenv("GOPATH", tg.path("."))
-	tg.run("get", "golang.org/x/tools/cmd/vet")
+	tg.run("install", "cmd/vet")
 	tg.setenv("GOPATH", filepath.Join(tg.pwd(), "testdata"))
 	tg.runFail("vet", "vetpkg")
 	tg.grepBoth("missing argument for Printf", "go vet vetpkg did not find missing argument for Printf")
@@ -2032,8 +2347,7 @@ func TestGoVetWithTags(t *testing.T) {
 	tg := testgo(t)
 	defer tg.cleanup()
 	tg.makeTempdir()
-	tg.setenv("GOPATH", tg.path("."))
-	tg.run("get", "golang.org/x/tools/cmd/vet")
+	tg.run("install", "cmd/vet")
 	tg.setenv("GOPATH", filepath.Join(tg.pwd(), "testdata"))
 	tg.runFail("vet", "-tags", "tagtest", "vetpkg")
 	tg.grepBoth(`c\.go.*wrong number of args for format`, "go get vetpkg did not run scan tagged file")
@@ -2051,7 +2365,23 @@ func TestGoGetRscIoToolstash(t *testing.T) {
 	tg.run("get", "./toolstash")
 }
 
-// Test that you can not import a main package.
+// Issue 13037: Was not parsing <meta> tags in 404 served over HTTPS
+func TestGoGetHTTPS404(t *testing.T) {
+	testenv.MustHaveExternalNetwork(t)
+	switch runtime.GOOS {
+	case "darwin", "linux", "freebsd":
+	default:
+		t.Skipf("test case does not work on %s", runtime.GOOS)
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.tempDir("src")
+	tg.setenv("GOPATH", tg.path("."))
+	tg.run("get", "bazil.org/fuse/fs/fstestutil")
+}
+
+// Test that you cannot import a main package.
 func TestIssue4210(t *testing.T) {
 	tg := testgo(t)
 	defer tg.cleanup()
@@ -2071,6 +2401,8 @@ func TestIssue4210(t *testing.T) {
 
 func TestGoGetInsecure(t *testing.T) {
 	testenv.MustHaveExternalNetwork(t)
+
+	t.Skip("golang.org/issue/15410")
 
 	tg := testgo(t)
 	defer tg.cleanup()
@@ -2125,18 +2457,6 @@ func TestGoGetInsecureCustomDomain(t *testing.T) {
 	const repo = "wh3rd.net/repo"
 	tg.runFail("get", "-d", repo)
 	tg.run("get", "-d", "-insecure", repo)
-}
-
-func TestIssue10193(t *testing.T) {
-	testenv.MustHaveExternalNetwork(t)
-
-	tg := testgo(t)
-	defer tg.cleanup()
-	tg.parallel()
-	tg.tempDir("src")
-	tg.setenv("GOPATH", tg.path("."))
-	tg.runFail("get", "code.google.com/p/rsc/pdf")
-	tg.grepStderr("is shutting down", "missed warning about code.google.com")
 }
 
 func TestGoRunDirs(t *testing.T) {
@@ -2199,7 +2519,7 @@ func TestGoTestImportErrorStack(t *testing.T) {
 	tg.setenv("GOPATH", filepath.Join(tg.pwd(), "testdata"))
 	tg.runFail("test", "testdep/p1")
 	if !strings.Contains(tg.stderr.String(), out) {
-		t.Fatal("did not give full import stack:\n\n%s", tg.stderr.String())
+		t.Fatalf("did not give full import stack:\n\n%s", tg.stderr.String())
 	}
 }
 
@@ -2277,6 +2597,59 @@ func TestGoInstallShadowedGOPATH(t *testing.T) {
 	tg.cd(tg.path("gopath2/src/test"))
 	tg.runFail("install")
 	tg.grepStderr("no install location for.*gopath2.src.test: hidden by .*gopath1.src.test", "missing error")
+}
+
+func TestGoBuildGOPATHOrder(t *testing.T) {
+	// golang.org/issue/14176#issuecomment-179895769
+	// golang.org/issue/14192
+	// -I arguments to compiler could end up not in GOPATH order,
+	// leading to unexpected import resolution in the compiler.
+	// This is still not a complete fix (see golang.org/issue/14271 and next test)
+	// but it is clearly OK and enough to fix both of the two reported
+	// instances of the underlying problem. It will have to do for now.
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.makeTempdir()
+	tg.setenv("GOPATH", tg.path("p1")+string(filepath.ListSeparator)+tg.path("p2"))
+
+	tg.tempFile("p1/src/foo/foo.go", "package foo\n")
+	tg.tempFile("p2/src/baz/baz.go", "package baz\n")
+	tg.tempFile("p2/pkg/"+runtime.GOOS+"_"+runtime.GOARCH+"/foo.a", "bad\n")
+	tg.tempFile("p1/src/bar/bar.go", `
+		package bar
+		import _ "baz"
+		import _ "foo"
+	`)
+
+	tg.run("install", "-x", "bar")
+}
+
+func TestGoBuildGOPATHOrderBroken(t *testing.T) {
+	// This test is known not to work.
+	// See golang.org/issue/14271.
+	t.Skip("golang.org/issue/14271")
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.makeTempdir()
+
+	tg.tempFile("p1/src/foo/foo.go", "package foo\n")
+	tg.tempFile("p2/src/baz/baz.go", "package baz\n")
+	tg.tempFile("p1/pkg/"+runtime.GOOS+"_"+runtime.GOARCH+"/baz.a", "bad\n")
+	tg.tempFile("p2/pkg/"+runtime.GOOS+"_"+runtime.GOARCH+"/foo.a", "bad\n")
+	tg.tempFile("p1/src/bar/bar.go", `
+		package bar
+		import _ "baz"
+		import _ "foo"
+	`)
+
+	colon := string(filepath.ListSeparator)
+	tg.setenv("GOPATH", tg.path("p1")+colon+tg.path("p2"))
+	tg.run("install", "-x", "bar")
+
+	tg.setenv("GOPATH", tg.path("p2")+colon+tg.path("p1"))
+	tg.run("install", "-x", "bar")
 }
 
 func TestIssue11709(t *testing.T) {
@@ -2386,4 +2759,198 @@ func TestGoBuildARM(t *testing.T) {
 		func main() {}`)
 	tg.run("build", "hello.go")
 	tg.grepStderrNot("unable to find math.a", "did not build math.a correctly")
+}
+
+func TestIssue13655(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	for _, pkg := range []string{"runtime", "runtime/internal/atomic"} {
+		tg.run("list", "-f", "{{.Deps}}", pkg)
+		tg.grepStdout("runtime/internal/sys", "did not find required dependency of "+pkg+" on runtime/internal/sys")
+	}
+}
+
+// For issue 14337.
+func TestParallelTest(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.makeTempdir()
+	const testSrc = `package package_test
+		import (
+			"testing"
+		)
+		func TestTest(t *testing.T) {
+		}`
+	tg.tempFile("src/p1/p1_test.go", strings.Replace(testSrc, "package_test", "p1_test", 1))
+	tg.tempFile("src/p2/p2_test.go", strings.Replace(testSrc, "package_test", "p2_test", 1))
+	tg.tempFile("src/p3/p3_test.go", strings.Replace(testSrc, "package_test", "p3_test", 1))
+	tg.tempFile("src/p4/p4_test.go", strings.Replace(testSrc, "package_test", "p4_test", 1))
+	tg.setenv("GOPATH", tg.path("."))
+	tg.run("test", "-p=4", "p1", "p2", "p3", "p4")
+}
+
+func TestCgoConsistentResults(t *testing.T) {
+	if !canCgo {
+		t.Skip("skipping because cgo not enabled")
+	}
+	if runtime.GOOS == "solaris" {
+		// See https://golang.org/issue/13247
+		t.Skip("skipping because Solaris builds are known to be inconsistent; see #13247")
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.makeTempdir()
+	tg.setenv("GOPATH", filepath.Join(tg.pwd(), "testdata"))
+	exe1 := tg.path("cgotest1" + exeSuffix)
+	exe2 := tg.path("cgotest2" + exeSuffix)
+	tg.run("build", "-o", exe1, "cgotest")
+	tg.run("build", "-x", "-o", exe2, "cgotest")
+	b1, err := ioutil.ReadFile(exe1)
+	tg.must(err)
+	b2, err := ioutil.ReadFile(exe2)
+	tg.must(err)
+
+	if !tg.doGrepMatch(`-fdebug-prefix-map=\$WORK`, &tg.stderr) {
+		t.Skip("skipping because C compiler does not support -fdebug-prefix-map")
+	}
+	if !bytes.Equal(b1, b2) {
+		t.Error("building cgotest twice did not produce the same output")
+	}
+}
+
+// Issue 14444: go get -u .../ duplicate loads errors
+func TestGoGetUpdateAllDoesNotTryToLoadDuplicates(t *testing.T) {
+	testenv.MustHaveExternalNetwork(t)
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.makeTempdir()
+	tg.setenv("GOPATH", tg.path("."))
+	tg.run("get", "-u", ".../")
+	tg.grepStderrNot("duplicate loads of", "did not remove old packages from cache")
+}
+
+func TestFatalInBenchmarkCauseNonZeroExitStatus(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.runFail("test", "-bench", ".", "./testdata/src/benchfatal")
+	tg.grepBothNot("^ok", "test passed unexpectedly")
+	tg.grepBoth("FAIL.*benchfatal", "test did not run everything")
+}
+
+func TestBinaryOnlyPackages(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.makeTempdir()
+	tg.setenv("GOPATH", tg.path("."))
+
+	tg.tempFile("src/p1/p1.go", `//go:binary-only-package
+
+		package p1
+	`)
+	tg.wantStale("p1", "cannot access install target", "p1 is binary-only but has no binary, should be stale")
+	tg.runFail("install", "p1")
+	tg.grepStderr("missing or invalid package binary", "did not report attempt to compile binary-only package")
+
+	tg.tempFile("src/p1/p1.go", `
+		package p1
+		import "fmt"
+		func F(b bool) { fmt.Printf("hello from p1\n"); if b { F(false) } }
+	`)
+	tg.run("install", "p1")
+	os.Remove(tg.path("src/p1/p1.go"))
+	tg.mustNotExist(tg.path("src/p1/p1.go"))
+
+	tg.tempFile("src/p2/p2.go", `//go:binary-only-packages-are-not-great
+
+		package p2
+		import "p1"
+		func F() { p1.F(true) }
+	`)
+	tg.runFail("install", "p2")
+	tg.grepStderr("no buildable Go source files", "did not complain about missing sources")
+
+	tg.tempFile("src/p1/missing.go", `//go:binary-only-package
+
+		package p1
+		func G()
+	`)
+	tg.wantNotStale("p1", "no source code", "should NOT want to rebuild p1 (first)")
+	tg.run("install", "-x", "p1") // no-op, up to date
+	tg.grepBothNot("/compile", "should not have run compiler")
+	tg.run("install", "p2") // does not rebuild p1 (or else p2 will fail)
+	tg.wantNotStale("p2", "", "should NOT want to rebuild p2")
+
+	// changes to the non-source-code do not matter,
+	// and only one file needs the special comment.
+	tg.tempFile("src/p1/missing2.go", `
+		package p1
+		func H()
+	`)
+	tg.wantNotStale("p1", "no source code", "should NOT want to rebuild p1 (second)")
+	tg.wantNotStale("p2", "", "should NOT want to rebuild p2")
+
+	tg.tempFile("src/p3/p3.go", `
+		package main
+		import (
+			"p1"
+			"p2"
+		)
+		func main() {
+			p1.F(false)
+			p2.F()
+		}
+	`)
+	tg.run("install", "p3")
+
+	tg.run("run", tg.path("src/p3/p3.go"))
+	tg.grepStdout("hello from p1", "did not see message from p1")
+}
+
+// Issue 16050.
+func TestAlwaysLinkSysoFiles(t *testing.T) {
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.tempDir("src/syso")
+	tg.tempFile("src/syso/a.syso", ``)
+	tg.tempFile("src/syso/b.go", `package syso`)
+	tg.setenv("GOPATH", tg.path("."))
+
+	// We should see the .syso file regardless of the setting of
+	// CGO_ENABLED.
+
+	tg.setenv("CGO_ENABLED", "1")
+	tg.run("list", "-f", "{{.SysoFiles}}", "syso")
+	tg.grepStdout("a.syso", "missing syso file with CGO_ENABLED=1")
+
+	tg.setenv("CGO_ENABLED", "0")
+	tg.run("list", "-f", "{{.SysoFiles}}", "syso")
+	tg.grepStdout("a.syso", "missing syso file with CGO_ENABLED=0")
+}
+
+// Issue 16120.
+func TestGenerateUsesBuildContext(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test won't run under Windows")
+	}
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.tempDir("src/gen")
+	tg.tempFile("src/gen/gen.go", "package gen\n//go:generate echo $GOOS $GOARCH\n")
+	tg.setenv("GOPATH", tg.path("."))
+
+	tg.setenv("GOOS", "linux")
+	tg.setenv("GOARCH", "amd64")
+	tg.run("generate", "gen")
+	tg.grepStdout("linux amd64", "unexpected GOOS/GOARCH combination")
+
+	tg.setenv("GOOS", "darwin")
+	tg.setenv("GOARCH", "386")
+	tg.run("generate", "gen")
+	tg.grepStdout("darwin 386", "unexpected GOOS/GOARCH combination")
 }

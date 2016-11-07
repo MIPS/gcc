@@ -274,7 +274,6 @@ namespace __gnu_debug
       /**
        *  @brief Iterator dereference.
        *  @pre iterator is dereferenceable
-       *  @todo Make this correct w.r.t. iterators that return proxies
        */
       pointer
       operator->() const _GLIBCXX_NOEXCEPT
@@ -282,7 +281,7 @@ namespace __gnu_debug
 	_GLIBCXX_DEBUG_VERIFY(this->_M_dereferenceable(),
 			      _M_message(__msg_bad_deref)
 			      ._M_iterator(*this, "this"));
-	return std::__addressof(*base());
+	return base().operator->();
       }
 
       // ------ Input iterator requirements ------
@@ -296,7 +295,7 @@ namespace __gnu_debug
 	_GLIBCXX_DEBUG_VERIFY(this->_M_incrementable(),
 			      _M_message(__msg_bad_inc)
 			      ._M_iterator(*this, "this"));
-	__gnu_cxx::__scoped_lock(this->_M_get_mutex());
+	__gnu_cxx::__scoped_lock __l(this->_M_get_mutex());
 	++base();
 	return *this;
       }

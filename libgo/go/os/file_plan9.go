@@ -5,6 +5,7 @@
 package os
 
 import (
+	"io"
 	"runtime"
 	"syscall"
 	"time"
@@ -75,8 +76,8 @@ func syscallMode(i FileMode) (o uint32) {
 }
 
 // OpenFile is the generalized open call; most users will use Open
-// or Create instead.  It opens the named file with specified flag
-// (O_RDONLY etc.) and perm, (0666 etc.) if applicable.  If successful,
+// or Create instead. It opens the named file with specified flag
+// (O_RDONLY etc.) and perm, (0666 etc.) if applicable. If successful,
 // methods on the returned File can be used for I/O.
 // If there is an error, it will be of type *PathError.
 func OpenFile(name string, flag int, perm FileMode) (*File, error) {
@@ -123,7 +124,7 @@ func OpenFile(name string, flag int, perm FileMode) (*File, error) {
 	}
 
 	if append {
-		if _, e = syscall.Seek(fd, 0, SEEK_END); e != nil {
+		if _, e = syscall.Seek(fd, 0, io.SeekEnd); e != nil {
 			return nil, &PathError{"seek", name, e}
 		}
 	}
@@ -145,11 +146,9 @@ func (file *file) close() error {
 		return ErrInvalid
 	}
 	var err error
-	syscall.ForkLock.RLock()
 	if e := syscall.Close(file.fd); e != nil {
 		err = &PathError{"close", file.name, e}
 	}
-	syscall.ForkLock.RUnlock()
 	file.fd = -1 // so it can't be closed again
 
 	// no need for a finalizer anymore
@@ -339,7 +338,9 @@ func rename(oldname, newname string) error {
 
 	// If newname still contains slashes after removing the oldname
 	// prefix, the rename is cross-directory and must be rejected.
-	// This case is caught by d.Marshal below.
+	if lastIndex(newname, '/') >= 0 {
+		return &LinkError{"rename", oldname, newname, ErrInvalid}
+	}
 
 	var d syscall.Dir
 
@@ -351,6 +352,13 @@ func rename(oldname, newname string) error {
 	if err != nil {
 		return &LinkError{"rename", oldname, newname, err}
 	}
+
+	// If newname already exists and is not a directory, rename replaces it.
+	f, err := Stat(dirname + newname)
+	if err == nil && !f.IsDir() {
+		Remove(dirname + newname)
+	}
+
 	if err = syscall.Wstat(oldname, buf[:n]); err != nil {
 		return &LinkError{"rename", oldname, newname, err}
 	}
@@ -410,12 +418,9 @@ func Chtimes(name string, atime time.Time, mtime time.Time) error {
 func Pipe() (r *File, w *File, err error) {
 	var p [2]int
 
-	syscall.ForkLock.RLock()
 	if e := syscall.Pipe(p[0:]); e != nil {
-		syscall.ForkLock.RUnlock()
 		return nil, nil, NewSyscallError("pipe", e)
 	}
-	syscall.ForkLock.RUnlock()
 
 	return NewFile(uintptr(p[0]), "|0"), NewFile(uintptr(p[1]), "|1"), nil
 }

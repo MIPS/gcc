@@ -128,7 +128,7 @@ along with GCC; see the file COPYING3.  If not see
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.  */
 
-#define LTO_major_version 5
+#define LTO_major_version 6
 #define LTO_minor_version 0
 
 typedef unsigned char	lto_decl_flags_t;
@@ -161,9 +161,6 @@ enum LTO_tags
 
   /* EH region holding the previous statement.  */
   LTO_eh_region,
-
-  /* An MD or NORMAL builtin.  Only the code and class are streamed out.  */
-  LTO_builtin_decl,
 
   /* Shared INTEGER_CST node.  */
   LTO_integer_cst,
@@ -844,7 +841,7 @@ extern void lto_orig_address_map (tree, intptr_t);
 extern intptr_t lto_orig_address_get (tree);
 extern void lto_orig_address_remove (tree);
 #endif
-extern void lto_check_version (int, int);
+extern void lto_check_version (int, int, const char *);
 extern void lto_streamer_hooks_init (void);
 
 /* In lto-streamer-in.c */
@@ -915,7 +912,7 @@ bool lto_symtab_encoder_encode_initializer_p (lto_symtab_encoder_t,
 void output_symtab (void);
 void input_symtab (void);
 void output_offload_tables (void);
-void input_offload_tables (void);
+void input_offload_tables (bool);
 bool referenced_from_other_partition_p (struct ipa_ref_list *,
 				        lto_symtab_encoder_t);
 bool reachable_from_other_partition_p (struct cgraph_node *,

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Checks some of the GNU style formatting rules in a set of patches.
-# Copyright (C) 2010, 2012  Free Software Foundation, Inc.
+# Copyright (C) 2010, 2012, 2016  Free Software Foundation, Inc.
 # Contributed by Sebastian Pop <sebastian.pop@amd.com>
 
 # This program is free software; you can redistribute it and/or modify
@@ -15,8 +15,11 @@
 # GNU General Public License for more details.
 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+# along with this program; if not, see the file COPYING3.  If not,
+# see <http://www.gnu.org/licenses/>.
+
+# Set to empty in the environment to override.
+: ${color:---color=always}
 
 usage() {
     cat <<EOF
@@ -78,7 +81,17 @@ if [ $nfiles -eq 1 ]; then
 else
     format="-nH"
 fi
+
+# Remove the testsuite part of the diff.  We don't care about GNU style
+# in testcases and the dg-* directives give too many false positives.
+remove_testsuite ()
+{
+  awk 'BEGIN{testsuite=0} /^(.*:)?([1-9][0-9]*:)?\+\+\+ / && ! /testsuite\//{testsuite=0} \
+       {if (!testsuite) print} /^(.*:)?([1-9][0-9]*:)?\+\+\+ (.*\/)?testsuite\//{testsuite=1}'
+}
+
 grep $format '^+' $files \
+    | remove_testsuite \
     | grep -v ':+++' \
     > $inp
 
@@ -100,7 +113,7 @@ g (){
 
     local found=false
     cat $inp \
-	| egrep --color=always -- "$arg" \
+	| egrep $color -- "$arg" \
 	> "$tmp" && found=true
 
     if $found; then
@@ -117,8 +130,8 @@ ag (){
 
     local found=false
     cat $inp \
-	| egrep --color=always -- "$arg1" \
-	| egrep --color=always -- "$arg2" \
+	| egrep $color -- "$arg1" \
+	| egrep $color -- "$arg2" \
 	> "$tmp" && found=true
 
     if $found; then
@@ -136,7 +149,7 @@ vg (){
     local found=false
     cat $inp \
 	| egrep -v -- "$varg" \
-	| egrep --color=always -- "$arg" \
+	| egrep $color -- "$arg" \
 	> "$tmp" && found=true
 
     if $found; then
@@ -157,8 +170,9 @@ col (){
 	fi
 
 	# Don't reuse $inp, which may be generated using -H and thus contain a
-	# file prefix.
-	grep -n '^+' $f \
+	# file prefix.  Re-remove the testsuite since we're not using $inp.
+	cat $f | remove_testsuite \
+	    | grep -n '^+' \
 	    | grep -v ':+++' \
 	    > $tmp
 
@@ -187,7 +201,7 @@ col (){
 	# Combine prefix back with long lines.
 	# Filter out empty lines.
 	local found=false
-	paste -d '' "$tmp2" "$tmp3" \
+	paste -d '\0' "$tmp2" "$tmp3" \
 	    | grep -v '^[0-9][0-9]*:+$' \
 	    > "$tmp" && found=true
 
@@ -200,6 +214,7 @@ col (){
 	fi
     done
 }
+
 
 col 'Lines should not exceed 80 characters.'
 
@@ -221,13 +236,21 @@ g 'Dot, space, space, end of comment.' \
 g 'Sentences should end with a dot.  Dot, space, space, end of the comment.' \
     '[[:alnum:]][[:blank:]]*\*/'
 
-vg 'There should be exactly one space between function name and parentheses.' \
+vg 'There should be exactly one space between function name and parenthesis.' \
     '\#define' \
     '[[:alnum:]]([[:blank:]]{2,})?\('
 
-g 'There should be no space before closing parentheses.' \
+g 'There should be no space before a left square bracket.' \
+   '[[:alnum:]][[:blank:]]+\['
+
+g 'There should be no space before closing parenthesis.' \
     '[[:graph:]][[:blank:]]+\)'
 
-ag 'Braces should be on a separate line.' \
-    '\{' \
-    'if[[:blank:]]\(|while[[:blank:]]\(|switch[[:blank:]]\('
+# This will give false positives for C99 compound literals.
+g 'Braces should be on a separate line.' \
+    '(\)|else)[[:blank:]]*{'
+
+# Does this apply to definitions of aggregate objects?
+ag 'Trailing operator.' \
+  '^[1-9][0-9]*:\+[[:space:]]' \
+  '(([^a-zA-Z_]\*)|([-%<=&|^?])|([^*]/)|([^:][+]))$'

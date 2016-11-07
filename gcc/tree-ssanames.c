@@ -260,7 +260,7 @@ make_ssa_name_fn (struct function *fn, tree var, gimple *stmt)
   tree t;
   use_operand_p imm;
 
-  gcc_assert (TREE_CODE (var) == VAR_DECL
+  gcc_assert (VAR_P (var)
 	      || TREE_CODE (var) == PARM_DECL
 	      || TREE_CODE (var) == RESULT_DECL
 	      || (TYPE_P (var) && is_gimple_reg_type (var)));
@@ -286,7 +286,7 @@ make_ssa_name_fn (struct function *fn, tree var, gimple *stmt)
 
   if (TYPE_P (var))
     {
-      TREE_TYPE (t) = var;
+      TREE_TYPE (t) = TYPE_MAIN_VARIANT (var);
       SET_SSA_NAME_VAR_OR_IDENTIFIER (t, NULL_TREE);
     }
   else
@@ -372,6 +372,35 @@ get_range_info (const_tree name, wide_int *min, wide_int *max)
   *min = ri->get_min ();
   *max = ri->get_max ();
   return SSA_NAME_RANGE_TYPE (name);
+}
+
+/* Set nonnull attribute to pointer NAME.  */
+
+void
+set_ptr_nonnull (tree name)
+{
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (name)));
+  struct ptr_info_def *pi = get_ptr_info (name);
+  pi->pt.null = 0;
+}
+
+/* Return nonnull attribute of pointer NAME.  */
+bool
+get_ptr_nonnull (const_tree name)
+{
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (name)));
+  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (name);
+  if (pi == NULL)
+    return false;
+  /* TODO Now pt->null is conservatively set to true in PTA
+     analysis. vrp is the only pass (including ipa-vrp)
+     that clears pt.null via set_ptr_nonull when it knows
+     for sure. PTA will preserves the pt.null value set by VRP.
+
+     When PTA analysis is improved, pt.anything, pt.nonlocal
+     and pt.escaped may also has to be considered before
+     deciding that pointer cannot point to NULL.  */
+  return !pi->pt.null;
 }
 
 /* Change non-zero bits bitmask of NAME.  */
@@ -740,10 +769,6 @@ release_defs (gimple *stmt)
   tree def;
   ssa_op_iter iter;
 
-  /* Make sure that we are in SSA.  Otherwise, operand cache may point
-     to garbage.  */
-  gcc_assert (gimple_in_ssa_p (cfun));
-
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)
       release_ssa_name (def);
@@ -759,8 +784,8 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
 
-/* Release the vector of free SSA_NAMEs and compact the the
-   vector of SSA_NAMEs that are live.  */
+/* Release the vector of free SSA_NAMEs and compact the vector of SSA_NAMEs
+   that are live.  */
 
 static void
 release_free_names_and_compact_live_names (function *fun)

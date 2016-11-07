@@ -1,7 +1,6 @@
-! { dg-do compile { target i?86-*-* x86_64-*-* } }
+! { dg-do compile }
 ! { dg-require-effective-target vect_double }
-! { dg-require-effective-target sse2 }
-! { dg-options "-O3 -ffast-math -msse2 -fpredictive-commoning -ftree-vectorize -fdump-tree-pcom-details" }
+! { dg-options "-O3 -fpredictive-commoning -fdump-tree-pcom-details" }
 
 
 ******* RESID COMPUTES THE RESIDUAL:  R = V - AU
@@ -43,3 +42,4 @@ C
 ! { dg-final { scan-tree-dump-times "Executing predictive commoning without unrolling" 1 "pcom" { target lp64 } } }
 ! { dg-final { scan-tree-dump-times "Executing predictive commoning without unrolling" 2 "pcom" { target ia32 } } }
 ! { dg-final { scan-tree-dump-times "Predictive commoning failed: no suitable chains" 0 "pcom" } }
+! { dg-final { scan-tree-dump-times "Loop iterates only 1 time, nothing to do" 1 "pcom" } }

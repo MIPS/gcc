@@ -142,7 +142,7 @@ varpool_node *
 varpool_node::get_create (tree decl)
 {
   varpool_node *node = varpool_node::get (decl);
-  gcc_checking_assert (TREE_CODE (decl) == VAR_DECL);
+  gcc_checking_assert (VAR_P (decl));
   if (node)
     return node;
 
@@ -395,8 +395,7 @@ ctor_for_folding (tree decl)
   varpool_node *node, *real_node;
   tree real_decl;
 
-  if (TREE_CODE (decl) != VAR_DECL
-      && TREE_CODE (decl) != CONST_DECL)
+  if (!VAR_P (decl) && TREE_CODE (decl) != CONST_DECL)
     return error_mark_node;
 
   /* Static constant bounds are created to be
@@ -420,7 +419,7 @@ ctor_for_folding (tree decl)
       return error_mark_node;
     }
 
-  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+  gcc_assert (VAR_P (decl));
 
   real_node = node = varpool_node::get (decl);
   if (node)
@@ -482,7 +481,7 @@ varpool_node::add (tree decl)
 /* Return variable availability.  See cgraph.h for description of individual
    return values.  */
 enum availability
-varpool_node::get_availability (void)
+varpool_node::get_availability (symtab_node *ref)
 {
   if (!definition)
     return AVAIL_NOT_AVAILABLE;
@@ -495,9 +494,16 @@ varpool_node::get_availability (void)
     {
       enum availability avail;
 
-      ultimate_alias_target (&avail);
+      ultimate_alias_target (&avail, ref);
       return avail;
     }
+  /* If this is a reference from symbol itself and there are no aliases, we
+     may be sure that the symbol was not interposed by something else because
+     the symbol itself would be unreachable otherwise.  */
+  if ((this == ref && !has_aliases_p ())
+      || (ref && get_comdat_group ()
+          && get_comdat_group () == ref->get_comdat_group ()))
+    return AVAIL_AVAILABLE;
   /* If the variable can be overwritten, return OVERWRITABLE.  Takes
      care of at least one notable extension - the COMDAT variables
      used to share template instantiations in C++.  */
@@ -572,7 +578,7 @@ varpool_node::assemble_decl (void)
     return false;
 
   gcc_checking_assert (!TREE_ASM_WRITTEN (decl)
-		       && TREE_CODE (decl) == VAR_DECL
+		       && VAR_P (decl)
 		       && !DECL_HAS_VALUE_EXPR_P (decl));
 
   if (!in_other_partition
@@ -586,9 +592,7 @@ varpool_node::assemble_decl (void)
       /* After the parser has generated debugging information, augment
 	 this information with any new location/etc information that may
 	 have become available after the compilation proper.  */
-      timevar_start (TV_PHASE_DBGINFO);
       debug_hooks->late_global_decl (decl);
-      timevar_stop (TV_PHASE_DBGINFO);
       return true;
     }
 
@@ -708,7 +712,7 @@ varpool_node::finalize_named_section_flags (void)
       && !alias
       && !in_other_partition
       && !DECL_EXTERNAL (decl)
-      && TREE_CODE (decl) == VAR_DECL
+      && VAR_P (decl)
       && !DECL_HAS_VALUE_EXPR_P (decl)
       && get_section ())
     get_variable_section (decl, false);
@@ -728,11 +732,6 @@ symbol_table::output_variables (void)
 
   timevar_push (TV_VAROUT);
 
-  FOR_EACH_VARIABLE (node)
-    if (!node->definition
-	&& !DECL_HAS_VALUE_EXPR_P (node->decl)
- 	&& !DECL_HARD_REGISTER (node->decl))
-      assemble_undefined_decl (node->decl);
   FOR_EACH_DEFINED_VARIABLE (node)
     {
       /* Handled in output_in_order.  */
@@ -742,20 +741,19 @@ symbol_table::output_variables (void)
       node->finalize_named_section_flags ();
     }
 
-  FOR_EACH_DEFINED_VARIABLE (node)
+  /* There is a similar loop in output_in_order.  Please keep them in sync.  */
+  FOR_EACH_VARIABLE (node)
     {
       /* Handled in output_in_order.  */
       if (node->no_reorder)
 	continue;
-#ifdef ACCEL_COMPILER
-      /* Do not assemble "omp declare target link" vars.  */
-      if (DECL_HAS_VALUE_EXPR_P (node->decl)
-	  && lookup_attribute ("omp declare target link",
-			       DECL_ATTRIBUTES (node->decl)))
+      if (DECL_HARD_REGISTER (node->decl)
+	  || DECL_HAS_VALUE_EXPR_P (node->decl))
 	continue;
-#endif
-      if (node->assemble_decl ())
-        changed = true;
+      if (node->definition)
+	changed |= node->assemble_decl ();
+      else
+	assemble_undefined_decl (node->decl);
     }
   timevar_pop (TV_VAROUT);
   return changed;
@@ -769,8 +767,8 @@ varpool_node::create_alias (tree alias, tree decl)
 {
   varpool_node *alias_node;
 
-  gcc_assert (TREE_CODE (decl) == VAR_DECL);
-  gcc_assert (TREE_CODE (alias) == VAR_DECL);
+  gcc_assert (VAR_P (decl));
+  gcc_assert (VAR_P (alias));
   alias_node = varpool_node::get_create (alias);
   alias_node->alias = true;
   alias_node->definition = true;

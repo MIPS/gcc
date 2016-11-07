@@ -56,7 +56,13 @@ struct diagnostic_classification_change_t
 /*  Forward declarations.  */
 typedef void (*diagnostic_starter_fn) (diagnostic_context *,
 				       diagnostic_info *);
+
+typedef void (*diagnostic_start_span_fn) (diagnostic_context *,
+					  expanded_location);
+
 typedef diagnostic_starter_fn diagnostic_finalizer_fn;
+
+class edit_context;
 
 /* This data structure bundles altogether any information relevant to
    the context of a diagnostic message.  */
@@ -105,7 +111,7 @@ struct diagnostic_context
   int caret_max_width;
 
   /* Character used for caret diagnostics.  */
-  char caret_chars[rich_location::MAX_RANGES];
+  char caret_chars[rich_location::STATICALLY_ALLOCATED_RANGES];
 
   /* True if we should print the command line option which controls
      each diagnostic, if known.  */
@@ -147,6 +153,11 @@ struct diagnostic_context
                       ...
   */
   diagnostic_starter_fn begin_diagnostic;
+
+  /* This function is called by diagnostic_show_locus in between
+     disjoint spans of source code, so that the context can print
+     something to indicate that a new span of source code has begun.  */
+  diagnostic_start_span_fn start_span;
 
   /* This function is called after the diagnostic message is printed.  */
   diagnostic_finalizer_fn end_diagnostic;
@@ -192,6 +203,18 @@ struct diagnostic_context
      source code (to avoid e.g. colorizing just the first character in
      a token, which would look strange).  */
   bool colorize_source_p;
+
+  /* Usable by plugins; if true, print a debugging ruler above the
+     source output.  */
+  bool show_ruler_p;
+
+  /* If true, print fixits in machine-parseable form after the
+     rest of the diagnostic.  */
+  bool parseable_fixits_p;
+
+  /* If non-NULL, an edit_context to which fix-it hints should be
+     applied, for generating patches.  */
+  edit_context *edit_context_ptr;
 };
 
 static inline void
@@ -217,12 +240,6 @@ diagnostic_inhibit_notes (diagnostic_context * context)
 
 /* Same as output_prefixing_rule.  Works on 'diagnostic_context *'.  */
 #define diagnostic_prefixing_rule(DC) ((DC)->printer->wrapping.rule)
-
-/* Maximum characters per line in automatic line wrapping mode.
-   Zero means don't wrap lines.  */
-#define diagnostic_line_cutoff(DC) ((DC)->printer->wrapping.line_cutoff)
-
-#define diagnostic_flush_buffer(DC) pp_flush ((DC)->printer)
 
 /* True if the last module or file in which a diagnostic was reported is
    different from the current one.  */
@@ -273,7 +290,9 @@ extern void diagnostic_initialize (diagnostic_context *, int);
 extern void diagnostic_color_init (diagnostic_context *, int value = -1);
 extern void diagnostic_finish (diagnostic_context *);
 extern void diagnostic_report_current_module (diagnostic_context *, location_t);
-extern void diagnostic_show_locus (diagnostic_context *, const diagnostic_info *);
+extern void diagnostic_show_locus (diagnostic_context *,
+				   rich_location *richloc,
+				   diagnostic_t diagnostic_kind);
 
 /* Force diagnostics controlled by OPTIDX to be kind KIND.  */
 extern diagnostic_t diagnostic_classify_diagnostic (diagnostic_context *,
@@ -293,13 +312,11 @@ extern void diagnostic_set_info_translated (diagnostic_info *, const char *,
      ATTRIBUTE_GCC_DIAG(2,0);
 extern void diagnostic_append_note (diagnostic_context *, location_t,
                                     const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);
-extern void diagnostic_append_note_at_rich_loc (diagnostic_context *,
-						rich_location *,
-						const char *, ...)
-  ATTRIBUTE_GCC_DIAG(3,4);
 #endif
 extern char *diagnostic_build_prefix (diagnostic_context *, const diagnostic_info *);
 void default_diagnostic_starter (diagnostic_context *, diagnostic_info *);
+void default_diagnostic_start_span_fn (diagnostic_context *,
+				       expanded_location);
 void default_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
 void diagnostic_set_caret_max_width (diagnostic_context *context, int value);
 void diagnostic_action_after_output (diagnostic_context *, diagnostic_t);
@@ -332,7 +349,7 @@ diagnostic_num_locations (const diagnostic_info * diagnostic)
 static inline expanded_location
 diagnostic_expand_location (const diagnostic_info * diagnostic, int which = 0)
 {
-  return diagnostic->richloc->get_range (which)->m_caret;
+  return diagnostic->richloc->get_expanded_location (which);
 }
 
 /* This is somehow the right-side margin of a caret line, that is, we

@@ -93,12 +93,6 @@ extern unsigned long total_code_bytes;
    detect the sequence as a pc-relative call.  */
 #define TARGET_LONG_PIC_SDIFF_CALL (!TARGET_GAS && TARGET_HPUX)
 
-/* Define to a C expression evaluating to true to use long PIC
-   pc-relative calls.  Long PIC pc-relative calls are only used with
-   GAS.  Currently, they are usable for calls which bind local to a
-   module but not for external calls.  */
-#define TARGET_LONG_PIC_PCREL_CALL 0
-
 /* Define to a C expression evaluating to true to use SOM secondary
    definition symbols for weak support.  Linker support for secondary
    definition symbols is buggy prior to HP-UX 11.X.  */
@@ -298,8 +292,20 @@ typedef struct GTY(()) machine_function
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-/* No data type wants to be aligned rounder than this.  */
+/* No data type wants to be aligned rounder than this.  The long double
+   type has 16-byte alignment on the 64-bit target even though it was never
+   implemented in hardware.  The software implementation only needs 8-byte
+   alignment.  This is to match the HP compilers.  */
 #define BIGGEST_ALIGNMENT (2 * BITS_PER_WORD)
+
+/* Alignment, in bits, a C conformant malloc implementation has to provide.
+   The HP-UX malloc implementation provides a default alignment of 8 bytes.
+   This can be increased with mallopt.  The glibc implementation also provides
+   8-byte alignment.  Note that this isn't enough for various POSIX types such
+   as pthread_mutex_t.  However, since we no longer need the 16-byte alignment
+   for atomic operations, we ignore the nominal alignment specified for these
+   types.  The same is true for long double on 64-bit HP-UX.  */
+#define MALLOC_ABI_ALIGNMENT (64)
 
 /* Get around hp-ux assembler bug, and make strcpy of constants fast.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)		\

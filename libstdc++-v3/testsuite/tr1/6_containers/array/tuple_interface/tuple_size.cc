@@ -23,9 +23,8 @@
 #include <testsuite_hooks.h>
 
 void
-test01() 
-{ 
-  bool test __attribute__((unused)) = true;
+test01()
+{
   using namespace std::tr1;
 
   {

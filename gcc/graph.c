@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfganal.h"
 #include "cfgloop.h"
 #include "graph.h"
+#include "dumpfile.h"
 
 /* DOT files with the .dot extension are recognized as document templates
    by a well-known piece of word processing software out of Redmond, WA.
@@ -155,9 +156,8 @@ draw_cfg_nodes_no_loops (pretty_printer *pp, struct function *fun)
 {
   int *rpo = XNEWVEC (int, n_basic_blocks_for_fn (fun));
   int i, n;
-  sbitmap visited;
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  auto_sbitmap visited (last_basic_block_for_fn (cfun));
   bitmap_clear (visited);
 
   n = pre_and_rev_post_order_compute_fn (fun, NULL, rpo, true);
@@ -178,8 +178,6 @@ draw_cfg_nodes_no_loops (pretty_printer *pp, struct function *fun)
 	if (! bitmap_bit_p (visited, bb->index))
 	  draw_cfg_node (pp, fun->funcdef_no, bb);
     }
-
-  sbitmap_free (visited);
 }
 
 /* Draw all the basic blocks in LOOP.  Print the blocks in breath-first
@@ -272,14 +270,13 @@ draw_cfg_edges (pretty_printer *pp, struct function *fun)
    subgraphs right for GraphViz, which requires nodes to be defined
    before edges to cluster nodes properly.  */
 
-void
-print_graph_cfg (const char *base, struct function *fun)
+void DEBUG_FUNCTION
+print_graph_cfg (FILE *fp, struct function *fun)
 {
-  const char *funcname = function_name (fun);
-  FILE *fp = open_graph_file (base, "a");
   pretty_printer graph_slim_pp;
   graph_slim_pp.buffer->stream = fp;
   pretty_printer *const pp = &graph_slim_pp;
+  const char *funcname = function_name (fun);
   pp_printf (pp, "subgraph \"cluster_%s\" {\n"
 		 "\tstyle=\"dashed\";\n"
 		 "\tcolor=\"black\";\n"
@@ -289,6 +286,30 @@ print_graph_cfg (const char *base, struct function *fun)
   draw_cfg_edges (pp, fun);
   pp_printf (pp, "}\n");
   pp_flush (pp);
+}
+
+/* Overload with additional flag argument.  */
+
+void DEBUG_FUNCTION
+print_graph_cfg (FILE *fp, struct function *fun, int flags)
+{
+  int saved_dump_flags = dump_flags;
+  dump_flags = flags;
+  print_graph_cfg (fp, fun);
+  dump_flags = saved_dump_flags;
+}
+
+
+/* Print a graphical representation of the CFG of function FUN.
+   First print all basic blocks.  Draw all edges at the end to get
+   subgraphs right for GraphViz, which requires nodes to be defined
+   before edges to cluster nodes properly.  */
+
+void
+print_graph_cfg (const char *base, struct function *fun)
+{
+  FILE *fp = open_graph_file (base, "a");
+  print_graph_cfg (fp, fun);
   fclose (fp);
 }
 

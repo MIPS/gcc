@@ -27,6 +27,7 @@
 #include "tree.h"
 #include "gimple-expr.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "expmed.h"
@@ -56,6 +57,41 @@
 
 /* This file should be included last.  */
 #include "target-def.h"
+
+/* Enumeration of indexes into machine_libfunc_table.  */
+enum machine_libfunc_index
+{
+  MLTI_long_int_memcpy,
+  MLTI_wrd_memcpy,
+  MLTI_byt_memcpy,
+
+  MLTI_long_int_memset,
+  MLTI_wrd_memset,
+  MLTI_byt_memset,
+
+  MLTI_set_trampoline_parity,
+
+  MLTI_MAX
+};
+
+struct GTY(()) machine_libfuncs
+{
+  rtx table[MLTI_MAX];
+};
+
+/* The table of Visium-specific libfuncs.  */
+static GTY(()) struct machine_libfuncs visium_libfuncs;
+
+#define vlt visium_libfuncs.table
+
+/* Accessor macros for visium_libfuncs.  */
+#define long_int_memcpy_libfunc		(vlt[MLTI_long_int_memcpy])
+#define wrd_memcpy_libfunc		(vlt[MLTI_wrd_memcpy])
+#define byt_memcpy_libfunc		(vlt[MLTI_byt_memcpy])
+#define long_int_memset_libfunc		(vlt[MLTI_long_int_memset])
+#define wrd_memset_libfunc		(vlt[MLTI_wrd_memset])
+#define byt_memset_libfunc		(vlt[MLTI_byt_memset])
+#define set_trampoline_parity_libfunc	(vlt[MLTI_set_trampoline_parity])
 
 /* Machine specific function data. */
 struct GTY (()) machine_function
@@ -176,7 +212,7 @@ static int visium_issue_rate (void);
 
 static int visium_adjust_priority (rtx_insn *, int);
 
-static int visium_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
+static int visium_adjust_cost (rtx_insn *, int, rtx_insn *, int, unsigned int);
 
 static int visium_register_move_cost (enum machine_mode, reg_class_t,
 				      reg_class_t);
@@ -186,6 +222,8 @@ static int visium_memory_move_cost (enum machine_mode, reg_class_t, bool);
 static bool visium_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 
 static void visium_option_override (void);
+
+static void visium_init_libfuncs (void);
 
 static unsigned int visium_reorg (void);
 
@@ -226,6 +264,9 @@ static unsigned int visium_reorg (void);
 
 #undef  TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P visium_legitimate_constant_p
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef  TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P visium_legitimate_address_p
@@ -281,6 +322,9 @@ static unsigned int visium_reorg (void);
 
 #undef  TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE visium_option_override
+
+#undef  TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS visium_init_libfuncs
 
 #undef  TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE visium_conditional_register_usage
@@ -422,6 +466,23 @@ visium_option_override (void)
   register_pass (&insert_pass_visium_reorg);
 }
 
+/* Register the Visium-specific libfuncs with the middle-end.  */
+
+static void
+visium_init_libfuncs (void)
+{
+  if (!TARGET_BMI)
+    long_int_memcpy_libfunc = init_one_libfunc ("__long_int_memcpy");
+  wrd_memcpy_libfunc = init_one_libfunc ("__wrd_memcpy");
+  byt_memcpy_libfunc = init_one_libfunc ("__byt_memcpy");
+
+  long_int_memset_libfunc = init_one_libfunc ("__long_int_memset");
+  wrd_memset_libfunc = init_one_libfunc ("__wrd_memset");
+  byt_memset_libfunc = init_one_libfunc ("__byt_memset");
+
+  set_trampoline_parity_libfunc = init_one_libfunc ("__set_trampoline_parity");
+}
+
 /* Return the number of instructions that can issue on the same cycle.  */
 
 static int
@@ -471,14 +532,15 @@ visium_adjust_priority (rtx_insn *insn, int priority)
    a dependency LINK of INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-visium_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
+visium_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
+		    unsigned int)
 {
   enum attr_type attr_type;
 
   /* Don't adjust costs for true dependencies as they are described with
      bypasses.  But we make an exception for the first scheduling pass to
      help the subsequent postreload compare elimination pass.  */
-  if (REG_NOTE_KIND (link) == REG_DEP_TRUE)
+  if (dep_type == REG_DEP_TRUE)
     {
       if (!reload_completed
 	  && recog_memoized (insn) >= 0
@@ -500,11 +562,12 @@ visium_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 
 	      /* The logical instructions use CCmode and thus work with any
 		 comparison operator, whereas the arithmetic instructions use
-		 CC_NOOVmode and thus work with only a small subset.  */
+		 CCNZmode and thus work with only a small subset.  */
 	      if (dep_attr_type == TYPE_LOGIC
 		  || (dep_attr_type == TYPE_ARITH
-		      && visium_noov_operator (XEXP (src, 0),
-					       GET_MODE (XEXP (src, 0)))))
+		      && visium_nz_comparison_operator (XEXP (src, 0),
+							GET_MODE
+							(XEXP (src, 0)))))
 		return 0;
 	    }
 	}
@@ -519,7 +582,7 @@ visium_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 
   /* Anti dependency: DEP_INSN reads a register that INSN writes some
      cycles later.  */
-  if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
+  if (dep_type == REG_DEP_ANTI)
     {
       /* On the GR5, the latency of FP instructions needs to be taken into
 	 account for every dependency involving a write.  */
@@ -580,7 +643,7 @@ visium_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 
   /* Output dependency: DEP_INSN writes a register that INSN writes some
      cycles later.  */
-  else if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
+  else if (dep_type == REG_DEP_OUTPUT)
     {
       /* On the GR5, the latency of FP instructions needs to be taken into
 	 account for every dependency involving a write.  */
@@ -1564,8 +1627,8 @@ visium_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
      7:   {
      8:     bytes = 0;
      9:     addr_rtx = ovfl;
-     10:     ovfl += rsize;
-     11:   }
+     10:    ovfl += rsize;
+     11:  }
 
    */
 
@@ -1629,6 +1692,16 @@ visium_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   gimplify_and_add (t, pre_p);
   t = build1 (LABEL_EXPR, void_type_node, lab_over);
   gimplify_and_add (t, pre_p);
+
+  /* Emit a big-endian correction if size < UNITS_PER_WORD.  */
+  if (size < UNITS_PER_WORD)
+    {
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (addr), addr,
+		  size_int (UNITS_PER_WORD - size));
+      t = build2 (MODIFY_EXPR, void_type_node, addr, t);
+      gimplify_and_add (t, pre_p);
+    }
+
   addr = fold_convert (ptrtype, addr);
 
   return build_va_arg_indirect_ref (addr);
@@ -1969,7 +2042,7 @@ visium_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
 /* Split a double move of OPERANDS in MODE.  */
 
 void
-split_double_move (rtx *operands, enum machine_mode mode)
+visium_split_double_move (rtx *operands, enum machine_mode mode)
 {
   bool swap = false;
 
@@ -2019,14 +2092,71 @@ split_double_move (rtx *operands, enum machine_mode mode)
     }
 }
 
+/* Split a double addition or subtraction of operands.  */
+
+void
+visium_split_double_add (enum rtx_code code, rtx op0, rtx op1, rtx op2)
+{
+  rtx op3 = gen_lowpart (SImode, op0);
+  rtx op4 = gen_lowpart (SImode, op1);
+  rtx op5;
+  rtx op6 = gen_highpart (SImode, op0);
+  rtx op7 = (op1 == const0_rtx ? op1 : gen_highpart (SImode, op1));
+  rtx op8;
+  rtx x, pat, flags;
+
+  /* If operand #2 is a small constant, then its high part is null.  */
+  if (CONST_INT_P (op2))
+    {
+      HOST_WIDE_INT val = INTVAL (op2);
+
+      if (val < 0)
+	{
+	  code = (code == MINUS ? PLUS : MINUS);
+	  val = -val;
+	}
+
+      op5 = gen_int_mode (val, SImode);
+      op8 = const0_rtx;
+    }
+  else
+    {
+      op5 = gen_lowpart (SImode, op2);
+      op8 = gen_highpart (SImode, op2);
+    }
+
+  if (op4 == const0_rtx)
+    pat = gen_negsi2_insn_set_carry (op3, op5);
+  else if (code == MINUS)
+    pat = gen_subsi3_insn_set_carry (op3, op4, op5);
+  else
+    pat = gen_addsi3_insn_set_carry (op3, op4, op5);
+  emit_insn (pat);
+
+  /* This is the plus_[plus_]sltu_flags or minus_[minus_]sltu_flags pattern.  */
+  if (op8 == const0_rtx)
+    x = op7;
+  else
+    x = gen_rtx_fmt_ee (code, SImode, op7, op8);
+  flags = gen_rtx_REG (CCCmode, FLAGS_REGNUM);
+  x = gen_rtx_fmt_ee (code, SImode, x, gen_rtx_LTU (SImode, flags, const0_rtx));
+  pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
+  XVECEXP (pat, 0, 0) = gen_rtx_SET (op6, x);
+  flags = gen_rtx_REG (CCmode, FLAGS_REGNUM);
+  XVECEXP (pat, 0, 1) = gen_rtx_CLOBBER (VOIDmode, flags);
+  emit_insn (pat);
+
+  visium_flags_exposed = true;
+}
+
 /* Expand a copysign of OPERANDS in MODE.  */
 
 void
 visium_expand_copysign (rtx *operands, enum machine_mode mode)
 {
-  rtx dest = operands[0];
-  rtx op0 = operands[1];
-  rtx op1 = operands[2];
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
   rtx mask = force_reg (SImode, GEN_INT (0x7fffffff));
   rtx x;
 
@@ -2034,37 +2164,37 @@ visium_expand_copysign (rtx *operands, enum machine_mode mode)
      the FPU on the MCM have a non-standard behavior wrt NaNs.  */
   gcc_assert (mode == SFmode);
 
-  /* First get all the non-sign bits of OP0.  */
-  if (GET_CODE (op0) == CONST_DOUBLE)
+  /* First get all the non-sign bits of op1.  */
+  if (GET_CODE (op1) == CONST_DOUBLE)
     {
-      if (real_isneg (CONST_DOUBLE_REAL_VALUE (op0)))
-	op0 = simplify_unary_operation (ABS, mode, op0, mode);
-      if (op0 != CONST0_RTX (mode))
+      if (real_isneg (CONST_DOUBLE_REAL_VALUE (op1)))
+	op1 = simplify_unary_operation (ABS, mode, op1, mode);
+      if (op1 != CONST0_RTX (mode))
 	{
 	  long l;
-	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op0), l);
-	  op0 = force_reg (SImode, GEN_INT (trunc_int_for_mode (l, SImode)));
+	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op1), l);
+	  op1 = force_reg (SImode, gen_int_mode (l, SImode));
 	}
     }
   else
     {
-      op0 = copy_to_mode_reg (SImode, gen_lowpart (SImode, op0));
-      op0 = force_reg (SImode, gen_rtx_AND (SImode, op0, mask));
+      op1 = copy_to_mode_reg (SImode, gen_lowpart (SImode, op1));
+      op1 = force_reg (SImode, gen_rtx_AND (SImode, op1, mask));
     }
 
-  /* Then get the sign bit of OP1.  */
+  /* Then get the sign bit of op2.  */
   mask = force_reg (SImode, gen_rtx_NOT (SImode, mask));
-  op1 = copy_to_mode_reg (SImode, gen_lowpart (SImode, op1));
-  op1 = force_reg (SImode, gen_rtx_AND (SImode, op1, mask));
+  op2 = copy_to_mode_reg (SImode, gen_lowpart (SImode, op2));
+  op2 = force_reg (SImode, gen_rtx_AND (SImode, op2, mask));
 
   /* Finally OR the two values.  */
-  if (op0 == CONST0_RTX (SFmode))
-    x = op1;
+  if (op1 == CONST0_RTX (SFmode))
+    x = op2;
   else
-    x = force_reg (SImode, gen_rtx_IOR (SImode, op0, op1));
+    x = force_reg (SImode, gen_rtx_IOR (SImode, op1, op2));
 
   /* And move the result to the destination.  */
-  emit_insn (gen_rtx_SET (dest, gen_lowpart (SFmode, x)));
+  emit_insn (gen_rtx_SET (op0, gen_lowpart (SFmode, x)));
 }
 
 /* Expand a cstore of OPERANDS in MODE for EQ/NE/LTU/GTU/GEU/LEU.  We generate
@@ -2226,7 +2356,6 @@ visium_split_cstore (enum rtx_code op_code, rtx op0, rtx op1,
 static void
 expand_block_move_4 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__long_int_memcpy");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 4;
 
@@ -2250,8 +2379,9 @@ expand_block_move_4 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
       emit_insn (insn);
     }
   else
-    emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode, src_reg,
-		       Pmode,
+    emit_library_call (long_int_memcpy_libfunc, LCT_NORMAL, VOIDmode, 3,
+		       dst_reg, Pmode,
+		       src_reg, Pmode,
 		       convert_to_mode (TYPE_MODE (sizetype),
 					GEN_INT (bytes >> 2),
 				        TYPE_UNSIGNED (sizetype)),
@@ -2282,12 +2412,12 @@ expand_block_move_4 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 static void
 expand_block_move_2 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__wrd_memcpy");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 2;
 
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode, src_reg,
-		     Pmode,
+  emit_library_call (wrd_memcpy_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
+		     src_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      GEN_INT (bytes >> 1),
 				      TYPE_UNSIGNED (sizetype)),
@@ -2309,9 +2439,8 @@ expand_block_move_2 (rtx dst, rtx dst_reg, rtx src, rtx src_reg, rtx bytes_rtx)
 static void
 expand_block_move_1 (rtx dst_reg, rtx src_reg, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__byt_memcpy");
-
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (byt_memcpy_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     src_reg, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      bytes_rtx,
@@ -2325,12 +2454,12 @@ expand_block_move_1 (rtx dst_reg, rtx src_reg, rtx bytes_rtx)
 static void
 expand_block_set_4 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__long_int_memset");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 4;
 
   value_rtx = convert_to_mode (Pmode, value_rtx, 1);
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (long_int_memset_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     value_rtx, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      GEN_INT (bytes >> 2),
@@ -2371,12 +2500,12 @@ expand_block_set_4 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 static void
 expand_block_set_2 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__wrd_memset");
   unsigned HOST_WIDE_INT bytes = UINTVAL (bytes_rtx);
   unsigned int rem = bytes % 2;
 
   value_rtx = convert_to_mode (Pmode, value_rtx, 1);
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (wrd_memset_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     value_rtx, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      GEN_INT (bytes >> 1),
@@ -2398,10 +2527,9 @@ expand_block_set_2 (rtx dst, rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 static void
 expand_block_set_1 (rtx dst_reg, rtx value_rtx, rtx bytes_rtx)
 {
-  const rtx sym = gen_rtx_SYMBOL_REF (Pmode, "__byt_memset");
-
   value_rtx = convert_to_mode (Pmode, value_rtx, 1);
-  emit_library_call (sym, LCT_NORMAL, VOIDmode, 3, dst_reg, Pmode,
+  emit_library_call (byt_memset_libfunc, LCT_NORMAL, VOIDmode, 3,
+		     dst_reg, Pmode,
 		     value_rtx, Pmode,
 		     convert_to_mode (TYPE_MODE (sizetype),
 				      bytes_rtx,
@@ -2552,8 +2680,8 @@ visium_trampoline_init (rtx m_tramp, tree fndecl, rtx static_chain)
 					     GEN_INT (0xffff), NULL_RTX),
 				 0x04940000));
 
-  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__set_trampoline_parity"),
-		     LCT_NORMAL, VOIDmode, 1, addr, SImode);
+  emit_library_call (set_trampoline_parity_libfunc, LCT_NORMAL, VOIDmode, 1,
+		     addr, SImode);
 }
 
 /* Return true if the current function must have and use a frame pointer.  */
@@ -2695,6 +2823,24 @@ visium_select_cc_mode (enum rtx_code code, rtx op0, rtx op1)
 	}
     }
 
+  /* This is for the cmp<mode>_sne pattern.  */
+  if (op1 == constm1_rtx)
+    return CCCmode;
+
+  /* This is for the add<mode>3_insn_set_carry pattern.  */
+  if ((code == LTU || code == GEU)
+      && GET_CODE (op0) == PLUS
+      && rtx_equal_p (XEXP (op0, 0), op1))
+    return CCCmode;
+
+  /* This is for the {add,sub,neg}<mode>3_insn_set_overflow pattern.  */
+  if ((code == EQ || code == NE)
+      && GET_CODE (op1) == UNSPEC
+      && (XINT (op1, 1) == UNSPEC_ADDV
+	  || XINT (op1, 1) == UNSPEC_SUBV
+	  || XINT (op1, 1) == UNSPEC_NEGV))
+    return CCVmode;
+
   if (op1 != const0_rtx)
     return CCmode;
 
@@ -2706,21 +2852,24 @@ visium_select_cc_mode (enum rtx_code code, rtx op0, rtx op1)
     case ASHIFT:
     case LTU:
     case LT:
-      /* The V flag may be set differently from a COMPARE with zero.
-	 The consequence is that a comparison operator testing V must
-	 be turned into another operator not testing V and yielding
-	 the same result for a comparison with zero.  That's possible
-	 for GE/LT which become NC/NS respectively, but not for GT/LE
-	 for which the altered operator doesn't exist on the Visium.  */
-      return CC_NOOVmode;
+      /* The C and V flags may be set differently from a COMPARE with zero.
+	 The consequence is that a comparison operator testing C or V must
+	 be turned into another operator not testing C or V and yielding
+	 the same result for a comparison with zero.  That's possible for
+	 GE/LT which become NC/NS respectively, but not for GT/LE for which
+	 the altered operator doesn't exist on the Visium.  */
+      return CCNZmode;
 
     case ZERO_EXTRACT:
       /* This is a btst, the result is in C instead of Z.  */
-      return CC_BTSTmode;
+      return CCCmode;
 
     case CONST_INT:
       /* This is a degenerate case, typically an uninitialized variable.  */
       gcc_assert (op0 == constm1_rtx);
+
+      /* ... fall through ... */
+
     case REG:
     case AND:
     case IOR:
@@ -2958,21 +3107,25 @@ output_cbranch (rtx label, enum rtx_code code, enum machine_mode cc_mode,
   switch (code)
     {
     case NE:
-      if (cc_mode == CC_BTSTmode)
+      if (cc_mode == CCCmode)
 	cond = "cs";
+      else if (cc_mode == CCVmode)
+	cond = "os";
       else
 	cond = "ne";
       break;
 
     case EQ:
-      if (cc_mode == CC_BTSTmode)
+      if (cc_mode == CCCmode)
 	cond = "cc";
+      else if (cc_mode == CCVmode)
+	cond = "oc";
       else
 	cond = "eq";
       break;
 
     case GE:
-      if (cc_mode == CC_NOOVmode)
+      if (cc_mode == CCNZmode)
 	cond = "nc";
       else
 	cond = "ge";
@@ -2991,8 +3144,8 @@ output_cbranch (rtx label, enum rtx_code code, enum machine_mode cc_mode,
 
     case LT:
       if (cc_mode == CCFPmode || cc_mode == CCFPEmode)
-	cond = "ns";
-      else if (cc_mode == CC_NOOVmode)
+	cond = "cs"; /* or "ns" */
+      else if (cc_mode == CCNZmode)
 	cond = "ns";
       else
 	cond = "lt";
@@ -3023,7 +3176,7 @@ output_cbranch (rtx label, enum rtx_code code, enum machine_mode cc_mode,
       break;
 
     case UNGE:
-      cond = "nc";
+      cond = "cc"; /* or "nc" */
       break;
 
     case UNGT:
@@ -3482,18 +3635,15 @@ visium_compute_frame_size (int size)
 int
 visium_initial_elimination_offset (int from, int to ATTRIBUTE_UNUSED)
 {
-  const int frame_size = visium_compute_frame_size (get_frame_size ());
   const int save_fp = current_frame_info.save_fp;
   const int save_lr = current_frame_info.save_lr;
   const int lr_slot = current_frame_info.lr_slot;
-  const int local_frame_offset
-    = (save_fp + save_lr + lr_slot) * UNITS_PER_WORD;
   int offset;
 
   if (from == FRAME_POINTER_REGNUM)
-    offset = local_frame_offset;
+    offset = (save_fp + save_lr + lr_slot) * UNITS_PER_WORD;
   else if (from == ARG_POINTER_REGNUM)
-    offset = frame_size;
+    offset = visium_compute_frame_size (get_frame_size ());
   else
     gcc_unreachable ();
 

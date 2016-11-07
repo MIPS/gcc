@@ -39,6 +39,11 @@ along with GCC; see the file COPYING3.  If not see
 #undef MAX_STACK_ALIGNMENT
 #define MAX_STACK_ALIGNMENT  (TARGET_SEH ? 128 : MAX_OFILE_ALIGNMENT)
 
+/* 32-bit Windows aligns the stack on a 4-byte boundary but SSE instructions
+   may require 16-byte alignment.  */
+#undef STACK_REALIGN_DEFAULT
+#define STACK_REALIGN_DEFAULT TARGET_SSE
+
 /* Support hooks for SEH.  */
 #undef  TARGET_ASM_UNWIND_EMIT
 #define TARGET_ASM_UNWIND_EMIT  i386_pe_seh_unwind_emit
@@ -97,13 +102,16 @@ along with GCC; see the file COPYING3.  If not see
 /* Use section relative relocations for debugging offsets.  Unlike
    other targets that fake this by putting the section VMA at 0, PE
    won't allow it.  */
-#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
+#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, OFFSET, SECTION) \
   do {								\
     switch (SIZE)						\
       {								\
       case 4:							\
 	fputs ("\t.secrel32\t", FILE);				\
 	assemble_name (FILE, LABEL);				\
+	if ((OFFSET) != 0)					\
+	  fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC,		\
+		   (HOST_WIDE_INT) (OFFSET));			\
 	break;							\
       case 8:							\
 	/* This is a hack.  There is no 64-bit section relative	\
@@ -113,6 +121,9 @@ along with GCC; see the file COPYING3.  If not see
 	   Fake the 64-bit offset by zero-extending it.  */	\
 	fputs ("\t.secrel32\t", FILE);				\
 	assemble_name (FILE, LABEL);				\
+	if ((OFFSET) != 0)					\
+	  fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC,		\
+		   (HOST_WIDE_INT) (OFFSET));			\
 	fputs ("\n\t.long\t0", FILE);				\
 	break;							\
       default:							\
@@ -334,16 +345,13 @@ do {						\
 #define ASM_COMMENT_START " #"
 
 #ifndef DWARF2_UNWIND_INFO
-/* If configured with --disable-sjlj-exceptions, use DWARF2, else
-   default to SJLJ.  */
+/* If configured with --disable-sjlj-exceptions, use DWARF2 for 32-bit
+   mode else default to SJLJ.  64-bit code uses SEH unless you request
+   SJLJ.  */
 #if  (defined (CONFIG_SJLJ_EXCEPTIONS) && !CONFIG_SJLJ_EXCEPTIONS)
 /* The logic of this #if must be kept synchronised with the logic
-   for selecting the tmake_eh_file fragment in config.gcc.  */
+   for selecting the tmake_eh_file fragment in libgcc/config.host.  */
 #define DWARF2_UNWIND_INFO 1
-/* If multilib is selected break build as sjlj is required.  */
-#if defined (TARGET_BI_ARCH)
-#error For 64-bit windows and 32-bit based multilib version of gcc just SJLJ exceptions are supported.
-#endif
 #else
 #define DWARF2_UNWIND_INFO 0
 #endif
@@ -433,16 +441,7 @@ do {						\
     }                                 \
   while (0)
 
-/* Use the weak support for ONE_ONLY decls.  */
-#undef  MAKE_DECL_ONE_ONLY
-#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-
 #endif /* HAVE_GAS_WEAK */
-
-/* FIXME: SUPPORTS_WEAK && TARGET_HAVE_NAMED_SECTIONS is true,
-   but for .jcr section to work we also need crtbegin and crtend
-   objects.  */
-#define TARGET_USE_JCR_SECTION 1
 
 /* Decide whether it is safe to use a local alias for a virtual function
    when constructing thunks.  */

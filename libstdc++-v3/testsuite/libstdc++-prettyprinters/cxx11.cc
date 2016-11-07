@@ -1,5 +1,5 @@
-// { dg-do run }
-// { dg-options "-std=gnu++11 -g -O0" }
+// { dg-do run { target c++11 } }
+// { dg-options "-g -O0" }
 
 // Copyright (C) 2011-2016 Free Software Foundation, Inc.
 //
@@ -144,6 +144,7 @@ main()
   use(uoms);
   use(uptr->s);
 
+  std::cout << "\n";
   return 0;
 }
 

@@ -79,15 +79,22 @@ enum print_switch_type
 };
 
 /* Types of memory operation understood by the "by_pieces" infrastructure.
-   Used by the TARGET_USE_BY_PIECES_INFRASTRUCTURE_P target hook.  */
+   Used by the TARGET_USE_BY_PIECES_INFRASTRUCTURE_P target hook and
+   internally by the functions in expr.c.  */
 
 enum by_pieces_operation
 {
   CLEAR_BY_PIECES,
   MOVE_BY_PIECES,
   SET_BY_PIECES,
-  STORE_BY_PIECES
+  STORE_BY_PIECES,
+  COMPARE_BY_PIECES
 };
+
+extern unsigned HOST_WIDE_INT by_pieces_ninsns (unsigned HOST_WIDE_INT,
+						unsigned int,
+						unsigned int,
+						by_pieces_operation);
 
 typedef int (* print_switch_fn_type) (print_switch_type, const char *);
 
@@ -101,7 +108,7 @@ extern int elf_record_gcc_switches (print_switch_type type, const char *);
 extern bool target_default_pointer_address_modes_p (void);
 
 /* For hooks which use the MOVE_RATIO macro, this gives the legacy default
-   behaviour.  */
+   behavior.  */
 extern unsigned int get_move_ratio (bool);
 
 struct stdarg_info;

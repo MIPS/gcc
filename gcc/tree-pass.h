@@ -108,11 +108,6 @@ public:
   /* Static pass number, used as a fragment of the dump file name.  */
   int static_pass_number;
 
-  /* When a given dump file is being initialized, this flag is set to
-     true if the corresponding TDF_graph dump file has also been
-     initialized.  */
-  bool graph_dump_initialized;
-
 protected:
   gcc::context *m_ctxt;
 };
@@ -373,6 +368,7 @@ extern gimple_opt_pass *make_pass_tree_no_loop (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tree_loop_init (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_lim (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tree_unswitch (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_loop_split (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_predcom (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_iv_canon (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_scev_cprop (gcc::context *ctxt);
@@ -404,6 +400,8 @@ extern gimple_opt_pass *make_pass_dce (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_cd_dce (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_call_cdce (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_merge_phi (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_thread_jumps (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_early_thread_jumps (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_split_crit_edges (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_laddress (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_pre (gcc::context *ctxt);
@@ -430,6 +428,7 @@ extern gimple_opt_pass *make_pass_late_warn_uninitialized (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_cse_reciprocals (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_cse_sincos (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_optimize_bswap (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_store_merging (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_optimize_widening_mul (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_warn_function_return (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_warn_function_noreturn (gcc::context *ctxt);
@@ -446,6 +445,7 @@ extern gimple_opt_pass *make_pass_fre (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_check_data_deps (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_copy_prop (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_isolate_erroneous_paths (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_early_vrp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_vrp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_uncprop (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_return_slot (gcc::context *ctxt);
@@ -474,6 +474,9 @@ extern gimple_opt_pass *make_pass_oacc_kernels (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_oacc (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_oacc_kernels (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_gen_hsail (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_warn_nonnull_compare (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_sprintf_length (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_walloca (gcc::context *ctxt);
 
 /* IPA Passes */
 extern simple_ipa_opt_pass *make_pass_ipa_lower_emutls (gcc::context *ctxt);
@@ -509,10 +512,11 @@ extern ipa_opt_pass_d *make_pass_ipa_profile (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_cdtor_merge (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_single_use (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_comdats (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_materialize_all_clones (gcc::context *
+							      ctxt);
 
 extern gimple_opt_pass *make_pass_cleanup_cfg_post_optimizing (gcc::context
 							       *ctxt);
-extern gimple_opt_pass *make_pass_init_datastructures (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_fixup_cfg (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_backprop (gcc::context *ctxt);
 

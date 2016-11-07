@@ -1,10 +1,7 @@
-// { dg-do compile }
-// { dg-options "-fopenacc -fdump-tree-gimple" }
+// { dg-additional-options "-fdump-tree-gimple" }
 
-// This error is temporary.  Remove when support is added for these clauses
-// in the middle end.  Also remove the comments from the reduction test
+// Remove the comments from the reduction test
 // after the FE learns that reduction variables may appear in data clauses too.
-// { dg-prune-output "sorry, unimplemented" }
 
 void
 test ()
@@ -114,6 +111,7 @@ test ()
 // { dg-final { scan-tree-dump-times "acc loop vector" 2 "gimple" } }
 // { dg-final { scan-tree-dump-times "acc loop seq" 2 "gimple" } }
 // { dg-final { scan-tree-dump-times "acc loop auto" 2 "gimple" } }
-// { dg-final { scan-tree-dump-times "acc loop tile.2, 3" 2 "gimple" } }
+// XFAILed: OpenACC tile clauses are discarded during gimplification.
+// { dg-final { scan-tree-dump-times "acc loop tile.2, 3" 2 "gimple" { xfail *-*-* } } }
 // { dg-final { scan-tree-dump-times "acc loop independent private.i" 2 "gimple" } }
 // { dg-final { scan-tree-dump-times "private.z" 2 "gimple" } }

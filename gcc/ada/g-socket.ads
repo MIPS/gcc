@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 2001-2014, AdaCore                     --
+--                     Copyright (C) 2001-2016, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1005,7 +1005,11 @@ package GNAT.Sockets is
    --  Same interface as Ada.Streams.Stream_IO
 
    function Stream (Socket : Socket_Type) return Stream_Access;
-   --  Create a stream associated with an already connected stream-based socket
+   --  Create a stream associated with a connected stream-based socket.
+   --  Note: keep in mind that the default stream attributes for composite
+   --  types perform separate Read/Write operations for each component,
+   --  recursively. If performance is an issue, you may want to consider
+   --  introducing a buffering stage.
 
    function Stream
      (Socket  : Socket_Type;
@@ -1066,10 +1070,10 @@ package GNAT.Sockets is
    --  blocks until an event occurs. On some platforms, the select(2) system
    --  can block the full process (not just the calling thread).
    --
-   --  Check_Selector provides the very same behaviour. The only difference is
+   --  Check_Selector provides the very same behavior. The only difference is
    --  that it does not watch for exception events. Note that on some platforms
    --  it is kept process blocking on purpose. The timeout parameter allows the
-   --  user to have the behaviour he wants. Abort_Selector allows the safe
+   --  user to have the behavior he wants. Abort_Selector allows the safe
    --  abort of a blocked Check_Selector call. A special socket is opened by
    --  Create_Selector and included in each call to Check_Selector.
    --
@@ -1107,7 +1111,10 @@ package GNAT.Sockets is
    --
    --  Note that two different Socket_Set_Type objects must be passed as
    --  R_Socket_Set and W_Socket_Set (even if they denote the same set of
-   --  Sockets), or some event may be lost.
+   --  Sockets), or some event may be lost. Also keep in mind that this
+   --  procedure modifies the passed socket sets to indicate which sockets
+   --  actually had events upon return. The socket set therefore has to
+   --  be reset by the caller for further calls.
    --
    --  Socket_Error is raised when the select(2) system call returns an error
    --  condition, or when a read error occurs on the signalling socket used for

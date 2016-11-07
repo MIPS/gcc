@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -349,6 +349,7 @@ package Rtsfind is
       System_Pool_Empty,
       System_Pool_Local,
       System_Pool_Size,
+      System_Relative_Delays,
       System_RPC,
       System_Scalar_Values,
       System_Secondary_Stack,
@@ -725,6 +726,7 @@ package Rtsfind is
      RE_Address,                         -- System
      RE_Any_Priority,                    -- System
      RE_Bit_Order,                       -- System
+     RE_Default_Priority,                -- System
      RE_High_Order_First,                -- System
      RE_Interrupt_Priority,              -- System
      RE_Lib_Stop,                        -- System
@@ -1402,6 +1404,8 @@ package Rtsfind is
      RE_Tk_Objref,                       -- System.Partition_Interface
      RE_Tk_Union,                        -- System.Partition_Interface
 
+     RO_RD_Delay_For,                    -- System.Relative_Delays
+
      RE_IS_Is1,                          -- System.Scalar_Values
      RE_IS_Is2,                          -- System.Scalar_Values
      RE_IS_Is4,                          -- System.Scalar_Values
@@ -1957,6 +1961,7 @@ package Rtsfind is
      RE_Address                          => System,
      RE_Any_Priority                     => System,
      RE_Bit_Order                        => System,
+     RE_Default_Priority                 => System,
      RE_High_Order_First                 => System,
      RE_Interrupt_Priority               => System,
      RE_Lib_Stop                         => System,
@@ -2632,6 +2637,8 @@ package Rtsfind is
      RE_Global_Pool_32_Object            => System_Pool_32_Global,
 
      RE_Stack_Bounded_Pool               => System_Pool_Size,
+
+     RO_RD_Delay_For                     => System_Relative_Delays,
 
      RE_Do_Apc                           => System_RPC,
      RE_Do_Rpc                           => System_RPC,

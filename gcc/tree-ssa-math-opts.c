@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 
    First of all, with some experiments it was found out that the
    transformation is not always useful if there are only two divisions
-   hy the same divisor.  This is probably because modern processors
+   by the same divisor.  This is probably because modern processors
    can pipeline the divisions; on older, in-order processors it should
    still be effective to optimize two divisions by the same number.
    We make this a param, and it shall be called N in the remainder of
@@ -2051,6 +2051,9 @@ init_symbolic_number (struct symbolic_number *n, tree src)
 {
   int size;
 
+  if (! INTEGRAL_TYPE_P (TREE_TYPE (src)))
+    return false;
+
   n->base_addr = n->offset = n->alias_set = n->vuse = NULL_TREE;
 
   /* Set up the symbolic number N by setting each byte to a value between 1 and
@@ -2094,7 +2097,7 @@ find_bswap_or_nop_load (gimple *stmt, tree ref, struct symbolic_number *n)
     return false;
 
   base_addr = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &reversep, &volatilep, false);
+				   &unsignedp, &reversep, &volatilep);
 
   if (TREE_CODE (base_addr) == MEM_REF)
     {
@@ -2104,7 +2107,7 @@ find_bswap_or_nop_load (gimple *stmt, tree ref, struct symbolic_number *n)
       if (!integer_zerop (off))
 	{
 	  offset_int boff, coff = mem_ref_offset (base_addr);
-	  boff = wi::lshift (coff, LOG2_BITS_PER_UNIT);
+	  boff = coff << LOG2_BITS_PER_UNIT;
 	  bit_offset += boff;
 	}
 
@@ -2118,7 +2121,7 @@ find_bswap_or_nop_load (gimple *stmt, tree ref, struct symbolic_number *n)
 	  /* TEM is the bitpos rounded to BITS_PER_UNIT towards -Inf.
 	     Subtract it to BIT_OFFSET and add it (scaled) to OFFSET.  */
 	  bit_offset -= tem;
-	  tem = wi::arshift (tem, LOG2_BITS_PER_UNIT);
+	  tem >>= LOG2_BITS_PER_UNIT;
 	  if (offset)
 	    offset = size_binop (PLUS_EXPR, offset,
 				    wide_int_to_tree (sizetype, tem));
@@ -2160,9 +2163,18 @@ perform_symbolic_merge (gimple *source_stmt1, struct symbolic_number *n1,
   gimple *source_stmt;
   struct symbolic_number *n_start;
 
+  tree rhs1 = gimple_assign_rhs1 (source_stmt1);
+  if (TREE_CODE (rhs1) == BIT_FIELD_REF
+      && TREE_CODE (TREE_OPERAND (rhs1, 0)) == SSA_NAME)
+    rhs1 = TREE_OPERAND (rhs1, 0);
+  tree rhs2 = gimple_assign_rhs1 (source_stmt2);
+  if (TREE_CODE (rhs2) == BIT_FIELD_REF
+      && TREE_CODE (TREE_OPERAND (rhs2, 0)) == SSA_NAME)
+    rhs2 = TREE_OPERAND (rhs2, 0);
+
   /* Sources are different, cancel bswap if they are not memory location with
      the same base (array, structure, ...).  */
-  if (gimple_assign_rhs1 (source_stmt1) != gimple_assign_rhs1 (source_stmt2))
+  if (rhs1 != rhs2)
     {
       uint64_t inc;
       HOST_WIDE_INT start_sub, end_sub, end1, end2, end;
@@ -2284,6 +2296,43 @@ find_bswap_or_nop_1 (gimple *stmt, struct symbolic_number *n, int limit)
 
   if (find_bswap_or_nop_load (stmt, rhs1, n))
     return stmt;
+
+  /* Handle BIT_FIELD_REF.  */
+  if (TREE_CODE (rhs1) == BIT_FIELD_REF
+      && TREE_CODE (TREE_OPERAND (rhs1, 0)) == SSA_NAME)
+    {
+      unsigned HOST_WIDE_INT bitsize = tree_to_uhwi (TREE_OPERAND (rhs1, 1));
+      unsigned HOST_WIDE_INT bitpos = tree_to_uhwi (TREE_OPERAND (rhs1, 2));
+      if (bitpos % BITS_PER_UNIT == 0
+	  && bitsize % BITS_PER_UNIT == 0
+	  && init_symbolic_number (n, TREE_OPERAND (rhs1, 0)))
+	{
+	  /* Handle big-endian bit numbering in BIT_FIELD_REF.  */
+	  if (BYTES_BIG_ENDIAN)
+	    bitpos = TYPE_PRECISION (n->type) - bitpos - bitsize;
+
+	  /* Shift.  */
+	  if (!do_shift_rotate (RSHIFT_EXPR, n, bitpos))
+	    return NULL;
+
+	  /* Mask.  */
+	  uint64_t mask = 0;
+	  uint64_t tmp = (1 << BITS_PER_UNIT) - 1;
+	  for (unsigned i = 0; i < bitsize / BITS_PER_UNIT;
+	       i++, tmp <<= BITS_PER_UNIT)
+	    mask |= (uint64_t) MARKER_MASK << (i * BITS_PER_MARKER);
+	  n->n &= mask;
+
+	  /* Convert.  */
+	  n->type = TREE_TYPE (rhs1);
+	  if (!n->base_addr)
+	    n->range = TYPE_PRECISION (n->type) / BITS_PER_UNIT;
+
+	  return verify_symbolic_number_p (n, stmt) ? stmt : NULL;
+	}
+
+      return NULL;
+    }
 
   if (TREE_CODE (rhs1) != SSA_NAME)
     return NULL;
@@ -2449,11 +2498,9 @@ find_bswap_or_nop_1 (gimple *stmt, struct symbolic_number *n, int limit)
 static gimple *
 find_bswap_or_nop (gimple *stmt, struct symbolic_number *n, bool *bswap)
 {
-  unsigned rsize;
-  uint64_t tmpn, mask;
-/* The number which the find_bswap_or_nop_1 result should match in order
-   to have a full byte swap.  The number is shifted to the right
-   according to the size of the symbolic number before using it.  */
+  /* The number which the find_bswap_or_nop_1 result should match in order
+     to have a full byte swap.  The number is shifted to the right
+     according to the size of the symbolic number before using it.  */
   uint64_t cmpxchg = CMPXCHG;
   uint64_t cmpnop = CMPNOP;
 
@@ -2474,36 +2521,26 @@ find_bswap_or_nop (gimple *stmt, struct symbolic_number *n, bool *bswap)
 
   /* Find real size of result (highest non-zero byte).  */
   if (n->base_addr)
-    for (tmpn = n->n, rsize = 0; tmpn; tmpn >>= BITS_PER_MARKER, rsize++);
-  else
-    rsize = n->range;
+    {
+      unsigned HOST_WIDE_INT rsize;
+      uint64_t tmpn;
 
-  /* Zero out the bits corresponding to untouched bytes in original gimple
-     expression.  */
+      for (tmpn = n->n, rsize = 0; tmpn; tmpn >>= BITS_PER_MARKER, rsize++);
+      if (BYTES_BIG_ENDIAN && n->range != rsize)
+	/* This implies an offset, which is currently not handled by
+	   bswap_replace.  */
+	return NULL;
+      n->range = rsize;
+    }
+
+  /* Zero out the extra bits of N and CMP*.  */
   if (n->range < (int) sizeof (int64_t))
     {
+      uint64_t mask;
+
       mask = ((uint64_t) 1 << (n->range * BITS_PER_MARKER)) - 1;
       cmpxchg >>= (64 / BITS_PER_MARKER - n->range) * BITS_PER_MARKER;
       cmpnop &= mask;
-    }
-
-  /* Zero out the bits corresponding to unused bytes in the result of the
-     gimple expression.  */
-  if (rsize < n->range)
-    {
-      if (BYTES_BIG_ENDIAN)
-	{
-	  mask = ((uint64_t) 1 << (rsize * BITS_PER_MARKER)) - 1;
-	  cmpxchg &= mask;
-	  cmpnop >>= (n->range - rsize) * BITS_PER_MARKER;
-	}
-      else
-	{
-	  mask = ((uint64_t) 1 << (rsize * BITS_PER_MARKER)) - 1;
-	  cmpxchg >>= (n->range - rsize) * BITS_PER_MARKER;
-	  cmpnop &= mask;
-	}
-      n->range = rsize;
     }
 
   /* A complete byte swap should make the symbolic number to start with
@@ -2603,14 +2640,14 @@ bswap_replace (gimple *cur_stmt, gimple *src_stmt, tree fndecl,
 	  tree offset;
 
 	  get_inner_reference (src, &bitsize, &bitpos, &offset, &mode,
-			       &unsignedp, &reversep, &volatilep, false);
+			       &unsignedp, &reversep, &volatilep);
 	  if (n->range < (unsigned HOST_WIDE_INT) bitsize)
 	    {
 	      load_offset = (bitsize - n->range) / BITS_PER_UNIT;
 	      unsigned HOST_WIDE_INT l
 		= (load_offset * BITS_PER_UNIT) & (align - 1);
 	      if (l)
-		align = l & -l;
+		align = least_bit_hwi (l);
 	    }
 	}
 
@@ -2622,6 +2659,8 @@ bswap_replace (gimple *cur_stmt, gimple *src_stmt, tree fndecl,
       /* Move cur_stmt just before  one of the load of the original
 	 to ensure it has the same VUSE.  See PR61517 for what could
 	 go wrong.  */
+      if (gimple_bb (cur_stmt) != gimple_bb (src_stmt))
+	reset_flow_sensitive_info (gimple_assign_lhs (cur_stmt));
       gsi_move_before (&gsi, &gsi_ins);
       gsi = gsi_for_stmt (cur_stmt);
 
@@ -2693,6 +2732,8 @@ bswap_replace (gimple *cur_stmt, gimple *src_stmt, tree fndecl,
 	}
       src = val_tmp;
     }
+  else if (TREE_CODE (src) == BIT_FIELD_REF)
+    src = TREE_OPERAND (src, 0);
 
   if (n->range == 16)
     bswap_stats.found_16bit++;
@@ -3837,7 +3878,7 @@ pass_optimize_widening_mul::execute (function *fun)
 	    {
 	      tree fndecl = gimple_call_fndecl (stmt);
 	      if (fndecl
-		  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+		  && gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
 		{
 		  switch (DECL_FUNCTION_CODE (fndecl))
 		    {

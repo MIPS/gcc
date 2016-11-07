@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "cfgbuild.h"
@@ -396,7 +397,7 @@ typedef struct fur_static_params *fur_static_params_p;
 typedef struct cmpd_local_params *cmpd_local_params_p;
 typedef struct moveop_static_params *moveop_static_params_p;
 
-/* Set of hooks and parameters that determine behaviour specific to
+/* Set of hooks and parameters that determine behavior specific to
    move_op or find_used_regs functions.  */
 struct code_motion_path_driver_info_def
 {
@@ -494,7 +495,7 @@ static int max_ws;
 static int num_insns_scheduled;
 
 /* A vector of expressions is used to be able to sort them.  */
-static vec<expr_t> vec_av_set = vNULL;
+static vec<expr_t> vec_av_set;
 
 /* A vector of vinsns is used to hold temporary lists of vinsns.  */
 typedef vec<vinsn_t> vinsn_vec_t;
@@ -512,7 +513,7 @@ static vinsn_vec_t vec_target_unavailable_vinsns = vinsn_vec_t ();
 
 /* Vector to store temporary nops inserted in move_op to prevent removal
    of empty bbs.  */
-static vec<insn_t> vec_temp_moveop_nops = vNULL;
+static vec<insn_t> vec_temp_moveop_nops;
 
 /* These bitmaps record original instructions scheduled on the current
    iteration and bookkeeping copies created by them.  */
@@ -1185,7 +1186,7 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
       || global_regs[regno]
       || (!HARD_FRAME_POINTER_IS_FRAME_POINTER && frame_pointer_needed
 	  && regno == HARD_FRAME_POINTER_REGNUM)
-      || (HARD_FRAME_POINTER_REGNUM && frame_pointer_needed
+      || (HARD_FRAME_POINTER_IS_FRAME_POINTER && frame_pointer_needed
 	  && regno == FRAME_POINTER_REGNUM)
       || (reload_completed && cl == NO_REGS))
     {
@@ -1457,31 +1458,44 @@ choose_best_pseudo_reg (regset used_regs,
         gcc_assert (mode == GET_MODE (dest));
       orig_regno = REGNO (dest);
 
-      if (!REGNO_REG_SET_P (used_regs, orig_regno))
-        {
-          if (orig_regno < FIRST_PSEUDO_REGISTER)
-            {
-              gcc_assert (df_regs_ever_live_p (orig_regno));
+      /* Check that nothing in used_regs intersects with orig_regno.  When
+	 we have a hard reg here, still loop over hard_regno_nregs.  */
+      if (HARD_REGISTER_NUM_P (orig_regno))
+	{
+	  int j, n;
+	  for (j = 0, n = hard_regno_nregs[orig_regno][mode]; j < n; j++)
+	    if (REGNO_REG_SET_P (used_regs, orig_regno + j))
+	      break;
+	  if (j < n)
+	    continue;
+	}
+      else
+	{
+	  if (REGNO_REG_SET_P (used_regs, orig_regno))
+	    continue;
+	}
+      if (HARD_REGISTER_NUM_P (orig_regno))
+	{
+	  gcc_assert (df_regs_ever_live_p (orig_regno));
 
-              /* For hard registers, we have to check hardware imposed
-                 limitations (frame/stack registers, calls crossed).  */
-              if (!TEST_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs,
-                                      orig_regno))
-		{
-		  /* Don't let register cross a call if it doesn't already
-		     cross one.  This condition is written in accordance with
-		     that in sched-deps.c sched_analyze_reg().  */
-		  if (!reg_rename_p->crosses_call
-		      || REG_N_CALLS_CROSSED (orig_regno) > 0)
-		    return gen_rtx_REG (mode, orig_regno);
-		}
+	  /* For hard registers, we have to check hardware imposed
+	     limitations (frame/stack registers, calls crossed).  */
+	  if (!TEST_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs,
+				  orig_regno))
+	    {
+	      /* Don't let register cross a call if it doesn't already
+		 cross one.  This condition is written in accordance with
+		 that in sched-deps.c sched_analyze_reg().  */
+	      if (!reg_rename_p->crosses_call
+		  || REG_N_CALLS_CROSSED (orig_regno) > 0)
+		return gen_rtx_REG (mode, orig_regno);
+	    }
 
-              bad_hard_regs = true;
-            }
-          else
-            return dest;
-        }
-     }
+	  bad_hard_regs = true;
+	}
+      else
+	return dest;
+    }
 
   *is_orig_reg_p_ptr = false;
 
@@ -4249,8 +4263,9 @@ invoke_aftermath_hooks (fence_t fence, rtx_insn *best_insn, int issue_more)
                                       issue_more);
       memcpy (FENCE_STATE (fence), curr_state, dfa_state_size);
     }
-  else if (GET_CODE (PATTERN (best_insn)) != USE
-           && GET_CODE (PATTERN (best_insn)) != CLOBBER)
+  else if (!DEBUG_INSN_P (best_insn)
+	   && GET_CODE (PATTERN (best_insn)) != USE
+	   && GET_CODE (PATTERN (best_insn)) != CLOBBER)
     issue_more--;
 
   return issue_more;
@@ -6450,7 +6465,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
         {
           /* We have already found an original operation on this branch, do not
              go any further and just return TRUE here.  If we don't stop here,
-             function can have exponential behaviour even on the small code
+             function can have exponential behavior even on the small code
              with many different paths (e.g. with data speculation and
              recovery blocks).  */
           if (sched_verbose >= 6)
@@ -6750,11 +6765,10 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 static int
 init_seqno (bitmap blocks_to_reschedule, basic_block from)
 {
-  sbitmap visited_bbs;
   bitmap_iterator bi;
   unsigned bbi;
 
-  visited_bbs = sbitmap_alloc (current_nr_blocks);
+  auto_sbitmap visited_bbs (current_nr_blocks);
 
   if (blocks_to_reschedule)
     {
@@ -6779,7 +6793,6 @@ init_seqno (bitmap blocks_to_reschedule, basic_block from)
      removed by the call to purge_empty_blocks in sel_sched_region_1).  */
   gcc_assert (cur_seqno >= 0);
 
-  sbitmap_free (visited_bbs);
   return sched_max_luid - 1;
 }
 

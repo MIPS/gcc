@@ -25,7 +25,6 @@
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::is_abstract;
   using namespace __gnu_test;
 
@@ -36,9 +35,9 @@ void test01()
   VERIFY( (test_category<is_abstract, void>(false)) );
   VERIFY( (test_category<is_abstract, int (int)>(false)) );
   VERIFY( (test_category<is_abstract, int&>(false)) );
-  
+
   // Sanity check.
-  VERIFY( (test_category<is_abstract, ClassType>(false)) );  
+  VERIFY( (test_category<is_abstract, ClassType>(false)) );
 }
 
 int main()

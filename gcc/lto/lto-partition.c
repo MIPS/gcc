@@ -31,10 +31,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "params.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "lto-partition.h"
-#include "hsa.h"
 
 vec<ltrans_partition> ltrans_partitions;
 
@@ -164,31 +164,13 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
 
       /* Add all thunks associated with the function.  */
       for (e = cnode->callers; e; e = e->next_caller)
-	if (e->caller->thunk.thunk_p)
+	if (e->caller->thunk.thunk_p && !e->caller->global.inlined_to)
 	  add_symbol_to_partition_1 (part, e->caller);
 
       /* Instrumented version is actually the same function.
 	 Therefore put it into the same partition.  */
       if (cnode->instrumented_version)
 	add_symbol_to_partition_1 (part, cnode->instrumented_version);
-
-      /* Add an HSA associated with the symbol.  */
-      if (hsa_summaries != NULL)
-	{
-	  hsa_function_summary *s = hsa_summaries->get (cnode);
-	  if (s->m_kind == HSA_KERNEL)
-	    {
-	      /* Add binded function.  */
-	      bool added = add_symbol_to_partition_1 (part,
-						      s->m_binded_function);
-	      gcc_assert (added);
-	      if (symtab->dump_file)
-		fprintf (symtab->dump_file,
-			 "adding an HSA function (host/gpu) to the "
-			 "partition: %s\n",
-			 s->m_binded_function->name ());
-	    }
-	}
     }
 
   add_references_to_partition (part, node);
@@ -466,7 +448,7 @@ add_sorted_nodes (vec<symtab_node *> &next_nodes, ltrans_partition partition)
    and in-partition calls was reached.  */
 
 void
-lto_balanced_map (int n_lto_partitions)
+lto_balanced_map (int n_lto_partitions, int max_partition_size)
 {
   int n_nodes = 0;
   int n_varpool_nodes = 0, varpool_pos = 0, best_varpool_pos = 0;
@@ -530,6 +512,9 @@ lto_balanced_map (int n_lto_partitions)
   varpool_order.qsort (varpool_node_cmp);
 
   /* Compute partition size and create the first partition.  */
+  if (PARAM_VALUE (MIN_PARTITION_SIZE) > max_partition_size)
+    fatal_error (input_location, "min partition size cannot be greater than max partition size");
+
   partition_size = total_size / n_lto_partitions;
   if (partition_size < PARAM_VALUE (MIN_PARTITION_SIZE))
     partition_size = PARAM_VALUE (MIN_PARTITION_SIZE);
@@ -738,7 +723,8 @@ lto_balanced_map (int n_lto_partitions)
 		 best_cost, best_internal, best_i);
       /* Partition is too large, unwind into step when best cost was reached and
 	 start new partition.  */
-      if (partition->insns > 2 * partition_size)
+      if (partition->insns > 2 * partition_size
+	  || partition->insns > max_partition_size)
 	{
 	  if (best_i != i)
 	    {

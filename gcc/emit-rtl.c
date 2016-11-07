@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "memmodel.h"
 #include "backend.h"
 #include "target.h"
 #include "rtl.h"
@@ -57,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "rtl-iter.h"
 #include "stor-layout.h"
+#include "opts.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -1155,7 +1157,11 @@ set_reg_attrs_from_value (rtx reg, rtx x)
     {
 #if defined(POINTERS_EXTEND_UNSIGNED)
       if (((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
-	   || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+	   || (GET_CODE (x) == ZERO_EXTEND && ! POINTERS_EXTEND_UNSIGNED)
+	   || (paradoxical_subreg_p (x)
+	       && ! (SUBREG_PROMOTED_VAR_P (x)
+		     && SUBREG_CHECK_PROMOTED_SIGN (x,
+						    POINTERS_EXTEND_UNSIGNED))))
 	  && !targetm.have_ptr_extend ())
 	can_be_reg_pointer = false;
 #endif
@@ -1354,7 +1360,7 @@ get_first_label_num (void)
    Fix this now so that array indices work later.  */
 
 void
-maybe_set_first_label_num (rtx x)
+maybe_set_first_label_num (rtx_code_label *x)
 {
   if (CODE_LABEL_NUMBER (x) < first_label_num)
     first_label_num = CODE_LABEL_NUMBER (x);
@@ -1812,9 +1818,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	 able to simply always use TYPE_ALIGN?  */
     }
 
-  /* We can set the alignment from the type if we are making an object,
-     this is an INDIRECT_REF, or if TYPE_ALIGN_OK.  */
-  if (objectp || TREE_CODE (t) == INDIRECT_REF || TYPE_ALIGN_OK (type))
+  /* We can set the alignment from the type if we are making an object or if
+     this is an INDIRECT_REF.  */
+  if (objectp || TREE_CODE (t) == INDIRECT_REF)
     attrs.align = MAX (attrs.align, TYPE_ALIGN (type));
 
   /* If the size is known, we can set that.  */
@@ -1959,7 +1965,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       get_object_alignment_1 (t, &obj_align, &obj_bitpos);
       obj_bitpos = (obj_bitpos - bitpos) & (obj_align - 1);
       if (obj_bitpos != 0)
-	obj_align = (obj_bitpos & -obj_bitpos);
+	obj_align = least_bit_hwi (obj_bitpos);
       attrs.align = MAX (attrs.align, obj_align);
     }
 
@@ -2293,7 +2299,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
      if zero.  */
   if (offset != 0)
     {
-      max_align = (offset & -offset) * BITS_PER_UNIT;
+      max_align = least_bit_hwi (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
@@ -2621,8 +2627,10 @@ unshare_all_rtl_1 (rtx_insn *insn)
      This special care is necessary when the stack slot MEM does not
      actually appear in the insn chain.  If it does appear, its address
      is unshared from all else at that point.  */
-  stack_slot_list = safe_as_a <rtx_expr_list *> (
-		      copy_rtx_if_shared (stack_slot_list));
+  unsigned int i;
+  rtx temp;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    (*stack_slot_list)[i] = copy_rtx_if_shared (temp);
 }
 
 /* Go through all the RTL insn bodies and copy any invalid shared
@@ -2651,7 +2659,10 @@ unshare_all_rtl_again (rtx_insn *insn)
   for (decl = DECL_ARGUMENTS (cfun->decl); decl; decl = DECL_CHAIN (decl))
     set_used_flags (DECL_RTL (decl));
 
-  reset_used_flags (stack_slot_list);
+  rtx temp;
+  unsigned int i;
+  FOR_EACH_VEC_SAFE_ELT (stack_slot_list, i, temp)
+    reset_used_flags (temp);
 
   unshare_all_rtl_1 (insn);
 }
@@ -3291,9 +3302,8 @@ previous_insn (rtx_insn *insn)
    look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_insn (rtx uncast_insn)
+next_nonnote_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3327,10 +3337,8 @@ next_nonnote_insn_bb (rtx_insn *insn)
    not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_insn (rtx uncast_insn)
+prev_nonnote_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3366,10 +3374,8 @@ prev_nonnote_insn_bb (rtx uncast_insn)
    routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nondebug_insn (rtx uncast_insn)
+next_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3384,10 +3390,8 @@ next_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nondebug_insn (rtx uncast_insn)
+prev_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3402,10 +3406,8 @@ prev_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_nondebug_insn (rtx uncast_insn)
+next_nonnote_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3420,10 +3422,8 @@ next_nonnote_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_nondebug_insn (rtx uncast_insn)
+prev_nonnote_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3458,10 +3458,8 @@ next_real_insn (rtx uncast_insn)
    SEQUENCEs.  */
 
 rtx_insn *
-prev_real_insn (rtx uncast_insn)
+prev_real_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3493,7 +3491,7 @@ last_call_insn (void)
    standalone USE and CLOBBER insn.  */
 
 int
-active_insn_p (const_rtx insn)
+active_insn_p (const rtx_insn *insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
 	  || JUMP_TABLE_DATA_P (insn) /* FIXME */
@@ -3504,10 +3502,8 @@ active_insn_p (const_rtx insn)
 }
 
 rtx_insn *
-next_active_insn (rtx uncast_insn)
+next_active_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3523,10 +3519,8 @@ next_active_insn (rtx uncast_insn)
    standalone USE and CLOBBER insn.  */
 
 rtx_insn *
-prev_active_insn (rtx uncast_insn)
+prev_active_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3547,10 +3541,8 @@ prev_active_insn (rtx uncast_insn)
    Return 0 if we can't find the insn.  */
 
 rtx_insn *
-next_cc0_user (rtx uncast_insn)
+next_cc0_user (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   rtx note = find_reg_note (insn, REG_CC_USER, NULL_RTX);
 
   if (note)
@@ -3609,8 +3601,8 @@ mark_label_nuses (rtx x)
   const char *fmt;
 
   code = GET_CODE (x);
-  if (code == LABEL_REF && LABEL_P (LABEL_REF_LABEL (x)))
-    LABEL_NUSES (LABEL_REF_LABEL (x))++;
+  if (code == LABEL_REF && LABEL_P (label_ref_label (x)))
+    LABEL_NUSES (label_ref_label (x))++;
 
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -5894,6 +5886,13 @@ init_emit_once (void)
 #endif
 
   /* Create the unique rtx's for certain rtx codes and operand values.  */
+
+  /* Process stack-limiting command-line options.  */
+  if (opt_fstack_limit_symbol_arg != NULL)
+    stack_limit_rtx 
+      = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (opt_fstack_limit_symbol_arg));
+  if (opt_fstack_limit_register_no >= 0)
+    stack_limit_rtx = gen_rtx_REG (Pmode, opt_fstack_limit_register_no);
 
   /* Don't use gen_rtx_CONST_INT here since gen_rtx_CONST_INT in this case
      tries to use these variables.  */

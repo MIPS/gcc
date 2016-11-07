@@ -24,10 +24,8 @@
 #include <testsuite_hooks.h>
 
 void
-test01() 
+test01()
 {
-  bool test __attribute__((unused)) = true;
-
   std::tr1::ranlux4 a;
   for (int i = 0; i < 9999; ++i)
     a();

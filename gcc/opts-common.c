@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "options.h"
 #include "diagnostic.h"
+#include "spellcheck.h"
 
 static void prune_options (struct cl_decoded_option **, unsigned int *);
 
@@ -364,6 +365,53 @@ static const struct option_map option_map[] =
     { "--", NULL, "-f", true, false },
     { "--no-", NULL, "-f", false, true }
   };
+
+/* Helper function for gcc.c's driver::suggest_option, for populating the
+   vec of suggestions for misspelled options.
+
+   option_map above provides various prefixes for spelling command-line
+   options, which decode_cmdline_option uses to map spellings of options
+   to specific options.  We want to do the reverse: to find all the ways
+   that a user could validly spell an option.
+
+   Given valid OPT_TEXT (with a leading dash) for OPTION, add it and all
+   of its valid variant spellings to CANDIDATES, each without a leading
+   dash.
+
+   For example, given "-Wabi-tag", the following are added to CANDIDATES:
+     "Wabi-tag"
+     "Wno-abi-tag"
+     "-warn-abi-tag"
+     "-warn-no-abi-tag".
+
+   The added strings must be freed using free.  */
+
+void
+add_misspelling_candidates (auto_vec<char *> *candidates,
+			    const struct cl_option *option,
+			    const char *opt_text)
+{
+  gcc_assert (candidates);
+  gcc_assert (option);
+  gcc_assert (opt_text);
+  candidates->safe_push (xstrdup (opt_text + 1));
+  for (unsigned i = 0; i < ARRAY_SIZE (option_map); i++)
+    {
+      const char *opt0 = option_map[i].opt0;
+      const char *new_prefix = option_map[i].new_prefix;
+      size_t new_prefix_len = strlen (new_prefix);
+
+      if (option->cl_reject_negative && option_map[i].negated)
+	continue;
+
+      if (strncmp (opt_text, new_prefix, new_prefix_len) == 0)
+	{
+	  char *alternative = concat (opt0 + 1, opt_text + new_prefix_len,
+				      NULL);
+	  candidates->safe_push (alternative);
+	}
+    }
+}
 
 /* Decode the switch beginning at ARGV for the language indicated by
    LANG_MASK (including CL_COMMON and CL_TARGET if applicable), into
@@ -1021,6 +1069,38 @@ generate_option_input_file (const char *file,
   decoded->errors = 0;
 }
 
+/* Helper function for listing valid choices and hint for misspelled
+   value.  CANDIDATES is a vector containing all valid strings,
+   STR is set to a heap allocated string that contains all those
+   strings concatenated, separated by spaces, and the return value
+   is the closest string from those to ARG, or NULL if nothing is
+   close enough.  Callers should XDELETEVEC (STR) after using it
+   to avoid memory leaks.  */
+
+const char *
+candidates_list_and_hint (const char *arg, char *&str,
+			  const auto_vec <const char *> &candidates)
+{
+  size_t len = 0;
+  int i;
+  const char *candidate;
+  char *p;
+
+  FOR_EACH_VEC_ELT (candidates, i, candidate)
+    len += strlen (candidate) + 1;
+
+  str = p = XNEWVEC (char, len);
+  FOR_EACH_VEC_ELT (candidates, i, candidate)
+    {
+      len = strlen (candidate);
+      memcpy (p, candidate, len);
+      p[len] = ' ';
+      p += len + 1;
+    }
+  p[-1] = '\0';
+  return find_closest_string (arg, &candidates);
+}
+
 /* Perform diagnostics for read_cmdline_option and control_warning_option
    functions.  Returns true if an error has been diagnosed.
    LOC and LANG_MASK arguments like in read_cmdline_option.
@@ -1060,31 +1140,28 @@ cmdline_handle_error (location_t loc, const struct cl_option *option,
     {
       const struct cl_enum *e = &cl_enums[option->var_enum];
       unsigned int i;
-      size_t len;
-      char *s, *p;
+      char *s;
 
       if (e->unknown_error)
 	error_at (loc, e->unknown_error, arg);
       else
 	error_at (loc, "unrecognized argument in option %qs", opt);
 
-      len = 0;
-      for (i = 0; e->values[i].arg != NULL; i++)
-	len += strlen (e->values[i].arg) + 1;
-
-      s = XALLOCAVEC (char, len);
-      p = s;
+      auto_vec <const char *> candidates;
       for (i = 0; e->values[i].arg != NULL; i++)
 	{
 	  if (!enum_arg_ok_for_language (&e->values[i], lang_mask))
 	    continue;
-	  size_t arglen = strlen (e->values[i].arg);
-	  memcpy (p, e->values[i].arg, arglen);
-	  p[arglen] = ' ';
-	  p += arglen + 1;
+	  candidates.safe_push (e->values[i].arg);
 	}
-      p[-1] = 0;
-      inform (loc, "valid arguments to %qs are: %s", option->opt_text, s);
+      const char *hint = candidates_list_and_hint (arg, s, candidates);
+      if (hint)
+	inform (loc, "valid arguments to %qs are: %s; did you mean %qs?",
+		option->opt_text, s, hint);
+      else
+	inform (loc, "valid arguments to %qs are: %s", option->opt_text, s);
+      XDELETEVEC (s);
+
       return true;
     }
 

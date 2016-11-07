@@ -339,7 +339,7 @@ mark_control_dependent_edges_necessary (basic_block bb, bool ignore_self)
   EXECUTE_IF_SET_IN_BITMAP (cd->get_edges_dependent_on (bb->index),
 			    0, edge_number, bi)
     {
-      basic_block cd_bb = cd->get_edge (edge_number)->src;
+      basic_block cd_bb = cd->get_edge_src (edge_number);
 
       if (ignore_self && cd_bb == bb)
 	{
@@ -462,7 +462,8 @@ mark_aliased_reaching_defs_necessary_1 (ao_ref *ref, tree vdef, void *data)
   gimple *def_stmt = SSA_NAME_DEF_STMT (vdef);
 
   /* All stmts we visit are necessary.  */
-  mark_operand_necessary (vdef);
+  if (! gimple_clobber_p (def_stmt))
+    mark_operand_necessary (vdef);
 
   /* If the stmt lhs kills ref, then we can stop walking.  */
   if (gimple_has_lhs (def_stmt)
@@ -584,7 +585,8 @@ mark_all_reaching_defs_necessary_1 (ao_ref *ref ATTRIBUTE_UNUSED,
 	  }
     }
 
-  mark_operand_necessary (vdef);
+  if (! gimple_clobber_p (def_stmt))
+    mark_operand_necessary (vdef);
 
   return false;
 }
@@ -1091,7 +1093,7 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
       && is_gimple_val (gimple_assign_rhs1 (stmt)))
     {
       tree lhs = gimple_assign_lhs (stmt);
-      if ((TREE_CODE (lhs) == VAR_DECL || TREE_CODE (lhs) == PARM_DECL)
+      if ((VAR_P (lhs) || TREE_CODE (lhs) == PARM_DECL)
 	  && !DECL_IGNORED_P (lhs)
 	  && is_gimple_reg_type (TREE_TYPE (lhs))
 	  && !is_global_var (lhs)
@@ -1575,7 +1577,7 @@ perform_tree_ssa_dce (bool aggressive)
     {
       /* Compute control dependence.  */
       calculate_dominance_info (CDI_POST_DOMINATORS);
-      cd = new control_dependences (create_edge_list ());
+      cd = new control_dependences ();
 
       visited_control_parents =
 	sbitmap_alloc (last_basic_block_for_fn (cfun));

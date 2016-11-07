@@ -1531,10 +1531,8 @@ thread_block_1 (basic_block bb, bool noloop_only, bool joiners)
 	     threading path that crosses loop boundaries.  We do not try
 	     and thread this elsewhere, so just cancel the jump threading
 	     request by clearing the AUX field now.  */
-	  if ((bb->loop_father != e2->src->loop_father
-	       && !loop_exit_edge_p (e2->src->loop_father, e2))
-	      || (e2->src->loop_father != e2->dest->loop_father
-		  && !loop_exit_edge_p (e2->src->loop_father, e2)))
+	  if (bb->loop_father != e2->src->loop_father
+	      && !loop_exit_edge_p (e2->src->loop_father, e2))
 	    {
 	      /* Since this case is not handled by our special code
 		 to thread through a loop header, we must explicitly
@@ -1663,16 +1661,6 @@ dbds_continue_enumeration_p (const_basic_block bb, const void *stop)
    returns the state.  */
 
 enum bb_dom_status
-{
-  /* BB does not dominate latch of the LOOP.  */
-  DOMST_NONDOMINATING,
-  /* The LOOP is broken (there is no path from the header to its latch.  */
-  DOMST_LOOP_BROKEN,
-  /* BB dominates the latch of the LOOP.  */
-  DOMST_DOMINATING
-};
-
-static enum bb_dom_status
 determine_bb_domination_status (struct loop *loop, basic_block bb)
 {
   basic_block *bblocks;
@@ -2308,11 +2296,11 @@ duplicate_thread_path (edge entry, edge exit,
 	}
 
       /* Special case the last block on the path: make sure that it does not
-	 jump back on the copied path.  */
+	 jump back on the copied path, including back to itself.  */
       if (i + 1 == n_region)
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (bb_in_bbs (e->dest, region_copy, n_region - 1))
+	    if (bb_in_bbs (e->dest, region_copy, n_region))
 	      {
 		basic_block orig = get_bb_original (e->dest);
 		if (orig)
@@ -2389,73 +2377,14 @@ static bool
 valid_jump_thread_path (vec<jump_thread_edge *> *path)
 {
   unsigned len = path->length ();
-  bool threaded_multiway_branch = false;
-  bool multiway_branch_in_path = false;
-  bool threaded_through_latch = false;
 
-  /* Check that the path is connected and see if there's a multi-way
-     branch on the path and whether or not a multi-way branch
-     is threaded.  */
+  /* Check that the path is connected.  */
   for (unsigned int j = 0; j < len - 1; j++)
     {
       edge e = (*path)[j]->e;
-      struct loop *loop = e->dest->loop_father;
-
       if (e->dest != (*path)[j+1]->e->src)
 	return false;
-
-      /* If we're threading through the loop latch back into the
-	 same loop and the destination does not dominate the loop
-	 latch, then this thread would create an irreducible loop.  */
-      if (loop->latch
-	  && loop_latch_edge (loop) == e
-	  && loop == path->last()->e->dest->loop_father
-	  && (determine_bb_domination_status (loop, path->last ()->e->dest)
-	       == DOMST_NONDOMINATING))
-	threaded_through_latch = true;
-
-      gimple *last = last_stmt (e->dest);
-      if (j == len - 2)
-	threaded_multiway_branch
-	  |= (last && gimple_code (last) == GIMPLE_SWITCH);
-      else
-	multiway_branch_in_path
-	  |= (last && gimple_code (last) == GIMPLE_SWITCH);
     }
-
-  /* If we are trying to thread through the loop latch to a block in the
-     loop that does not dominate the loop latch, then that will create an
-     irreducible loop.  We avoid that unless the jump thread has a multi-way
-     branch, in which case we have deemed it worth losing other
-     loop optimizations later if we can eliminate the multi-way branch.  */
-  if (!threaded_multiway_branch && threaded_through_latch)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file,
-		   "Thread through latch without threading a multiway "
-		   "branch.\n");
-	  dump_jump_thread_path (dump_file, *path, false);
-	}
-      return false;
-    }
-
-  /* When there is a multi-way branch on the path, then threading can
-     explode the CFG due to duplicating the edges for that multi-way
-     branch.  So like above, only allow a multi-way branch on the path
-     if we actually thread a multi-way branch.  */
-  if (!threaded_multiway_branch && multiway_branch_in_path)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file,
-		   "Thread through multiway branch without threading "
-		   "a multiway branch.\n");
-	  dump_jump_thread_path (dump_file, *path, false);
-	}
-      return false;
-    }
-
   return true;
 }
 
@@ -2621,55 +2550,15 @@ thread_through_all_blocks (bool may_peel_loop_headers)
       retval |= thread_through_loop_header (loop, may_peel_loop_headers);
     }
 
-  /* Any jump threading paths that are still attached to edges at this
-     point must be one of two cases.
-
-     First, we could have a jump threading path which went from outside
-     a loop to inside a loop that was ignored because a prior jump thread
-     across a backedge was realized (which indirectly causes the loop
-     above to ignore the latter thread).  We can detect these because the
-     loop structures will be different and we do not currently try to
-     optimize this case.
-
-     Second, we could be threading across a backedge to a point within the
-     same loop.  This occurrs for the FSA/FSM optimization and we would
-     like to optimize it.  However, we have to be very careful as this
-     may completely scramble the loop structures, with the result being
-     irreducible loops causing us to throw away our loop structure.
-
-     As a compromise for the latter case, if the thread path ends in
-     a block where the last statement is a multiway branch, then go
-     ahead and thread it, else ignore it.  */
+  /* All jump threading paths should have been resolved at this
+     point.  Verify that is the case.  */
   basic_block bb;
-  edge e;
   FOR_EACH_BB_FN (bb, cfun)
     {
-      /* If we do end up threading here, we can remove elements from
-	 BB->preds.  Thus we can not use the FOR_EACH_EDGE iterator.  */
-      for (edge_iterator ei = ei_start (bb->preds);
-	   (e = ei_safe_edge (ei));)
-	if (e->aux)
-	  {
-	    vec<jump_thread_edge *> *path = THREAD_PATH (e);
-
-	    /* Case 1, threading from outside to inside the loop
-	       after we'd already threaded through the header.  */
-	    if ((*path)[0]->e->dest->loop_father
-		!= path->last ()->e->src->loop_father)
-	      {
-		delete_jump_thread_path (path);
-		e->aux = NULL;
-		ei_next (&ei);
-	      }
-	    else
-	      {
-		delete_jump_thread_path (path);
-		e->aux = NULL;
-		ei_next (&ei);
-	      }
- 	  }
-	else
-	  ei_next (&ei);
+      edge_iterator ei;
+      edge e;
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	gcc_assert (e->aux == NULL);
     }
 
   statistics_counter_event (cfun, "Jumps threaded",

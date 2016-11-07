@@ -59,6 +59,9 @@ extern int dot_symbols;
 
 #define TARGET_PROFILE_KERNEL profile_kernel
 
+#undef TARGET_KEEP_LEAF_WHEN_PROFILED
+#define TARGET_KEEP_LEAF_WHEN_PROFILED rs6000_keep_leaf_when_profiled
+
 #define TARGET_USES_LINUX64_OPT 1
 #ifdef HAVE_LD_LARGE_TOC
 #undef TARGET_CMODEL
@@ -486,7 +489,7 @@ extern int dot_symbols;
 #define MINIMAL_TOC_SECTION_ASM_OP \
   (TARGET_64BIT						\
    ? "\t.section\t\".toc1\",\"aw\""			\
-   : ((TARGET_RELOCATABLE || flag_pic)			\
+   : (flag_pic						\
       ? "\t.section\t\".got2\",\"aw\""			\
       : "\t.section\t\".got1\",\"aw\""))
 
@@ -582,7 +585,6 @@ extern int dot_symbols;
 			&& ! TARGET_NO_FP_IN_TOC)))			\
 	       || (!TARGET_64BIT					\
 		   && !TARGET_NO_FP_IN_TOC				\
-		   && !TARGET_RELOCATABLE				\
 		   && SCALAR_FLOAT_MODE_P (GET_MODE (X))		\
 		   && BITS_PER_WORD == HOST_BITS_PER_INT)))))
 
@@ -591,7 +593,7 @@ extern int dot_symbols;
    true if the symbol may be affected by dynamic relocations.  */
 #undef	ASM_PREFERRED_EH_DATA_FORMAT
 #define	ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
-  ((TARGET_64BIT || flag_pic || TARGET_RELOCATABLE)			\
+  (TARGET_64BIT || flag_pic						\
    ? (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel		\
       | (TARGET_64BIT ? DW_EH_PE_udata8 : DW_EH_PE_sdata4))		\
    : DW_EH_PE_absptr)
@@ -632,3 +634,13 @@ extern int dot_symbols;
   || (TARGET_GLIBC_MAJOR == 2 && TARGET_GLIBC_MINOR >= 19)
 #define RS6000_GLIBC_ATOMIC_FENV 1
 #endif
+
+/* The IEEE 128-bit emulator is only built on Linux systems.  Flag that we
+   should enable the type handling for KFmode on VSX systems even if we are not
+   enabling the __float128 keyword.  */
+#undef	TARGET_FLOAT128_ENABLE_TYPE
+#define TARGET_FLOAT128_ENABLE_TYPE 1
+
+/* The format string to which "%p" corresponds.  */
+#undef TARGET_PRINTF_POINTER_FORMAT
+#define TARGET_PRINTF_POINTER_FORMAT linux_printf_pointer_format

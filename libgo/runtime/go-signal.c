@@ -26,112 +26,114 @@ extern void __splitstack_setcontext(void *context[10]);
 
 #endif
 
-#define N SigNotify
-#define K SigKill
-#define T SigThrow
-#define P SigPanic
-#define D SigDefault
+#define N _SigNotify
+#define K _SigKill
+#define T _SigThrow
+#define P _SigPanic
+#define D _SigDefault
 
 /* Signal actions.  This collects the sigtab tables for several
-   different targets from the master library.  SIGKILL, SIGCONT, and
-   SIGSTOP are not listed, as we don't want to set signal handlers for
-   them.  */
+   different targets from the master library.  SIGKILL and SIGSTOP are
+   not listed, as we don't want to set signal handlers for them.  */
 
 SigTab runtime_sigtab[] = {
 #ifdef SIGHUP
-  { SIGHUP,	N + K },
+  { SIGHUP,	N + K, NULL },
 #endif
 #ifdef SIGINT
-  { SIGINT, 	N + K },
+  { SIGINT, 	N + K, NULL  },
 #endif
 #ifdef SIGQUIT
-  { SIGQUIT, 	N + T },
+  { SIGQUIT, 	N + T, NULL  },
 #endif
 #ifdef SIGILL
-  { SIGILL, 	T },
+  { SIGILL, 	T, NULL  },
 #endif
 #ifdef SIGTRAP
-  { SIGTRAP, 	T },
+  { SIGTRAP, 	T, NULL  },
 #endif
 #ifdef SIGABRT
-  { SIGABRT, 	N + T },
+  { SIGABRT, 	N + T, NULL  },
 #endif
 #ifdef SIGBUS
-  { SIGBUS, 	P },
+  { SIGBUS, 	P, NULL  },
 #endif
 #ifdef SIGFPE
-  { SIGFPE, 	P },
+  { SIGFPE, 	P, NULL  },
 #endif
 #ifdef SIGUSR1
-  { SIGUSR1, 	N },
+  { SIGUSR1, 	N, NULL  },
 #endif
 #ifdef SIGSEGV
-  { SIGSEGV, 	P },
+  { SIGSEGV, 	P, NULL  },
 #endif
 #ifdef SIGUSR2
-  { SIGUSR2, 	N },
+  { SIGUSR2, 	N, NULL  },
 #endif
 #ifdef SIGPIPE
-  { SIGPIPE, 	N },
+  { SIGPIPE, 	N, NULL  },
 #endif
 #ifdef SIGALRM
-  { SIGALRM, 	N },
+  { SIGALRM, 	N, NULL  },
 #endif
 #ifdef SIGTERM
-  { SIGTERM, 	N + K },
+  { SIGTERM, 	N + K, NULL  },
 #endif
 #ifdef SIGSTKFLT
-  { SIGSTKFLT, 	T },
+  { SIGSTKFLT, 	T, NULL  },
 #endif
 #ifdef SIGCHLD
-  { SIGCHLD, 	N },
+  { SIGCHLD, 	N, NULL  },
+#endif
+#ifdef SIGCONT
+  { SIGCONT,	N + D, NULL  },
 #endif
 #ifdef SIGTSTP
-  { SIGTSTP, 	N + D },
+  { SIGTSTP, 	N + D, NULL  },
 #endif
 #ifdef SIGTTIN
-  { SIGTTIN, 	N + D },
+  { SIGTTIN, 	N + D, NULL  },
 #endif
 #ifdef SIGTTOU
-  { SIGTTOU, 	N + D },
+  { SIGTTOU, 	N + D, NULL  },
 #endif
 #ifdef SIGURG
-  { SIGURG, 	N },
+  { SIGURG, 	N, NULL  },
 #endif
 #ifdef SIGXCPU
-  { SIGXCPU, 	N },
+  { SIGXCPU, 	N, NULL  },
 #endif
 #ifdef SIGXFSZ
-  { SIGXFSZ, 	N },
+  { SIGXFSZ, 	N, NULL  },
 #endif
 #ifdef SIGVTALRM
-  { SIGVTALRM, 	N },
+  { SIGVTALRM, 	N, NULL  },
 #endif
 #ifdef SIGPROF
-  { SIGPROF, 	N },
+  { SIGPROF, 	N, NULL  },
 #endif
 #ifdef SIGWINCH
-  { SIGWINCH, 	N },
+  { SIGWINCH, 	N, NULL  },
 #endif
 #ifdef SIGIO
-  { SIGIO, 	N },
+  { SIGIO, 	N, NULL  },
 #endif
 #ifdef SIGPWR
-  { SIGPWR, 	N },
+  { SIGPWR, 	N, NULL  },
 #endif
 #ifdef SIGSYS
-  { SIGSYS, 	N },
+  { SIGSYS, 	N, NULL  },
 #endif
 #ifdef SIGEMT
-  { SIGEMT,	T },
+  { SIGEMT,	T, NULL  },
 #endif
 #ifdef SIGINFO
-  { SIGINFO,	N },
+  { SIGINFO,	N, NULL  },
 #endif
 #ifdef SIGTHR
-  { SIGTHR,	N },
+  { SIGTHR,	N, NULL  },
 #endif
-  { -1,		0 }
+  { -1,		0, NULL  }
 };
 #undef N
 #undef K
@@ -154,6 +156,8 @@ runtime_sighandler (int sig, Siginfo *info,
 #ifdef SIGPROF
   if (sig == SIGPROF)
     {
+      /* FIXME: Handle m == NULL by calling something like gc's
+	 sigprofNonGo.  */
       if (m != NULL && gp != m->g0 && gp != m->gsignal)
 	runtime_sigprof ();
       return;
@@ -180,14 +184,14 @@ runtime_sighandler (int sig, Siginfo *info,
 #ifdef SA_SIGINFO
       notify = info != NULL && info->si_code == SI_USER;
 #endif
-      if (notify || (t->flags & SigNotify) != 0)
+      if (notify || (t->flags & _SigNotify) != 0)
 	{
 	  if (__go_sigsend (sig))
 	    return;
 	}
-      if ((t->flags & SigKill) != 0)
+      if ((t->flags & _SigKill) != 0)
 	runtime_exit (2);
-      if ((t->flags & SigThrow) == 0)
+      if ((t->flags & _SigThrow) == 0)
 	return;
 
       runtime_startpanic ();
@@ -218,7 +222,7 @@ runtime_sighandler (int sig, Siginfo *info,
 	  G *g;
 
 	  g = runtime_g ();
-	  runtime_traceback ();
+	  runtime_traceback (0);
 	  runtime_tracebackothers (g);
 
 	  /* The gc library calls runtime_dumpregs here, and provides
@@ -318,7 +322,7 @@ sig_panic_info_handler (int sig, Siginfo *info, void *context)
 #endif
     }
 
-  /* All signals with SigPanic should be in cases above, and this
+  /* All signals with _SigPanic should be in cases above, and this
      handler should only be invoked for those signals.  */
   __builtin_unreachable ();
 }
@@ -363,7 +367,7 @@ sig_panic_handler (int sig)
 #endif
     }
 
-  /* All signals with SigPanic should be in cases above, and this
+  /* All signals with _SigPanic should be in cases above, and this
      handler should only be invoked for those signals.  */
   __builtin_unreachable ();
 }
@@ -404,7 +408,7 @@ sig_tramp_info (int sig, Siginfo *info, void *context)
       /* We are running on the signal stack.  Set the split stack
 	 context so that the stack guards are checked correctly.  */
 #ifdef USING_SPLIT_STACK
-      __splitstack_setcontext (&mp->gsignal->stack_context[0]);
+      __splitstack_setcontext (&mp->gsignal->stackcontext[0]);
 #endif
     }
 
@@ -449,7 +453,7 @@ runtime_setsig (int32 i, GoSighandler *fn, bool restart)
 
   t = &runtime_sigtab[i];
 
-  if ((t->flags & SigPanic) == 0)
+  if ((t->flags & _SigPanic) == 0)
     {
 #ifdef SA_SIGINFO
       sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
@@ -525,6 +529,9 @@ os_sigpipe (void)
 {
   struct sigaction sa;
   int i;
+
+  if (__go_sigsend (SIGPIPE))
+    return;
 
   memset (&sa, 0, sizeof sa);
 

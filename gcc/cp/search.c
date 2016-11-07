@@ -27,16 +27,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "intl.h"
 #include "toplev.h"
-#include "spellcheck.h"
+#include "spellcheck-tree.h"
 
 static int is_subobject_of_p (tree, tree);
 static tree dfs_lookup_base (tree, void *);
 static tree dfs_dcast_hint_pre (tree, void *);
 static tree dfs_dcast_hint_post (tree, void *);
 static tree dfs_debug_mark (tree, void *);
-static tree dfs_walk_once_r (tree, tree (*pre_fn) (tree, void *),
-			     tree (*post_fn) (tree, void *), void *data);
-static void dfs_unmark_r (tree);
 static int check_hidden_convs (tree, int, int, tree, tree, tree);
 static tree split_conversions (tree, tree, tree, tree);
 static int lookup_conversions_r (tree, int, int,
@@ -44,10 +41,6 @@ static int lookup_conversions_r (tree, int, int,
 static int look_for_overrides_r (tree, tree);
 static tree lookup_field_r (tree, void *);
 static tree dfs_accessible_post (tree, void *);
-static tree dfs_walk_once_accessible_r (tree, bool, bool,
-					tree (*pre_fn) (tree, void *),
-					tree (*post_fn) (tree, void *),
-					void *data);
 static tree dfs_walk_once_accessible (tree, bool,
 				      tree (*pre_fn) (tree, void *),
 				      tree (*post_fn) (tree, void *),
@@ -954,6 +947,7 @@ accessible_p (tree type, tree decl, bool consider_local_p)
      in default arguments for template parameters), and access
      checking should be performed in the outermost parameter list.  */
   if (processing_template_decl
+      && !expanding_concept ()
       && (!processing_template_parmlist || processing_template_decl > 1))
     return 1;
 
@@ -1113,6 +1107,14 @@ lookup_field_r (tree binfo, void *data)
   if (!nval)
     /* Look for a data member or type.  */
     nval = lookup_field_1 (type, lfi->name, lfi->want_type);
+  else if (TREE_CODE (nval) == OVERLOAD && OVL_USED (nval))
+    {
+      /* If we have both dependent and non-dependent using-declarations, return
+	 the dependent one rather than an incomplete list of functions.  */
+      tree dep_using = lookup_field_1 (type, lfi->name, lfi->want_type);
+      if (dep_using && TREE_CODE (dep_using) == USING_DECL)
+	nval = dep_using;
+    }
 
   /* If there is no declaration with the indicated name in this type,
      then there's nothing to do.  */
@@ -1397,13 +1399,7 @@ lookup_field_fuzzy_info::fuzzy_lookup_fnfields (tree type)
 void
 lookup_field_fuzzy_info::fuzzy_lookup_field (tree type)
 {
-  if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
-      || TREE_CODE (type) == TYPENAME_TYPE)
-    /* The TYPE_FIELDS of a TEMPLATE_TYPE_PARM and
-       BOUND_TEMPLATE_TEMPLATE_PARM are not fields at all;
-       instead TYPE_FIELDS is the TEMPLATE_PARM_INDEX.
-       The TYPE_FIELDS of TYPENAME_TYPE is its TYPENAME_TYPE_FULLNAME.  */
+  if (!CLASS_TYPE_P (type))
     return;
 
   for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
@@ -1758,9 +1754,11 @@ adjust_result_of_qualified_name_lookup (tree decl,
       if (base && base != error_mark_node)
 	{
 	  BASELINK_ACCESS_BINFO (decl) = base;
-	  BASELINK_BINFO (decl)
+	  tree decl_binfo
 	    = lookup_base (base, BINFO_TYPE (BASELINK_BINFO (decl)),
 			   ba_unique, NULL, tf_none);
+	  if (decl_binfo && decl_binfo != error_mark_node)
+	    BASELINK_BINFO (decl) = decl_binfo;
 	}
     }
 
@@ -1826,7 +1824,8 @@ dfs_walk_all (tree binfo, tree (*pre_fn) (tree, void *),
 
 static tree
 dfs_walk_once_r (tree binfo, tree (*pre_fn) (tree, void *),
-		 tree (*post_fn) (tree, void *), void *data)
+		 tree (*post_fn) (tree, void *), hash_set<tree> *pset,
+		 void *data)
 {
   tree rval;
   unsigned ix;
@@ -1849,13 +1848,10 @@ dfs_walk_once_r (tree binfo, tree (*pre_fn) (tree, void *),
   for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
     {
       if (BINFO_VIRTUAL_P (base_binfo))
-	{
-	  if (BINFO_MARKED (base_binfo))
-	    continue;
-	  BINFO_MARKED (base_binfo) = 1;
-	}
+	if (pset->add (base_binfo))
+	  continue;
 
-      rval = dfs_walk_once_r (base_binfo, pre_fn, post_fn, data);
+      rval = dfs_walk_once_r (base_binfo, pre_fn, post_fn, pset, data);
       if (rval)
 	return rval;
     }
@@ -1870,30 +1866,6 @@ dfs_walk_once_r (tree binfo, tree (*pre_fn) (tree, void *),
     }
 
   return NULL_TREE;
-}
-
-/* Worker for dfs_walk_once. Recursively unmark the virtual base binfos of
-   BINFO.  */
-
-static void
-dfs_unmark_r (tree binfo)
-{
-  unsigned ix;
-  tree base_binfo;
-
-  /* Process the basetypes.  */
-  for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
-    {
-      if (BINFO_VIRTUAL_P (base_binfo))
-	{
-	  if (!BINFO_MARKED (base_binfo))
-	    continue;
-	  BINFO_MARKED (base_binfo) = 0;
-	}
-      /* Only walk, if it can contain more virtual bases.  */
-      if (CLASSTYPE_VBASECLASSES (BINFO_TYPE (base_binfo)))
-	dfs_unmark_r (base_binfo);
-    }
 }
 
 /* Like dfs_walk_all, except that binfos are not multiply walked.  For
@@ -1918,22 +1890,8 @@ dfs_walk_once (tree binfo, tree (*pre_fn) (tree, void *),
     rval = dfs_walk_all (binfo, pre_fn, post_fn, data);
   else
     {
-      rval = dfs_walk_once_r (binfo, pre_fn, post_fn, data);
-      if (!BINFO_INHERITANCE_CHAIN (binfo))
-	{
-	  /* We are at the top of the hierarchy, and can use the
-	     CLASSTYPE_VBASECLASSES list for unmarking the virtual
-	     bases.  */
-	  vec<tree, va_gc> *vbases;
-	  unsigned ix;
-	  tree base_binfo;
-
-	  for (vbases = CLASSTYPE_VBASECLASSES (BINFO_TYPE (binfo)), ix = 0;
-	       vec_safe_iterate (vbases, ix, &base_binfo); ix++)
-	    BINFO_MARKED (base_binfo) = 0;
-	}
-      else
-	dfs_unmark_r (binfo);
+      hash_set<tree> pset;
+      rval = dfs_walk_once_r (binfo, pre_fn, post_fn, &pset, data);
     }
 
   active--;
@@ -1947,7 +1905,7 @@ dfs_walk_once (tree binfo, tree (*pre_fn) (tree, void *),
    indicates whether bases should be marked during traversal.  */
 
 static tree
-dfs_walk_once_accessible_r (tree binfo, bool friends_p, bool once,
+dfs_walk_once_accessible_r (tree binfo, bool friends_p, hash_set<tree> *pset,
 			    tree (*pre_fn) (tree, void *),
 			    tree (*post_fn) (tree, void *), void *data)
 {
@@ -1971,9 +1929,9 @@ dfs_walk_once_accessible_r (tree binfo, bool friends_p, bool once,
   /* Find the next child binfo to walk.  */
   for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
     {
-      bool mark = once && BINFO_VIRTUAL_P (base_binfo);
+      bool mark = pset && BINFO_VIRTUAL_P (base_binfo);
 
-      if (mark && BINFO_MARKED (base_binfo))
+      if (mark && pset->contains (base_binfo))
 	continue;
 
       /* If the base is inherited via private or protected
@@ -1992,9 +1950,9 @@ dfs_walk_once_accessible_r (tree binfo, bool friends_p, bool once,
 	}
 
       if (mark)
-	BINFO_MARKED (base_binfo) = 1;
+	pset->add (base_binfo);
 
-      rval = dfs_walk_once_accessible_r (base_binfo, friends_p, once,
+      rval = dfs_walk_once_accessible_r (base_binfo, friends_p, pset,
 					 pre_fn, post_fn, data);
       if (rval)
 	return rval;
@@ -2021,28 +1979,14 @@ dfs_walk_once_accessible (tree binfo, bool friends_p,
 			    tree (*pre_fn) (tree, void *),
 			    tree (*post_fn) (tree, void *), void *data)
 {
-  bool diamond_shaped = CLASSTYPE_DIAMOND_SHAPED_P (BINFO_TYPE (binfo));
-  tree rval = dfs_walk_once_accessible_r (binfo, friends_p, diamond_shaped,
+  hash_set<tree> *pset = NULL;
+  if (CLASSTYPE_DIAMOND_SHAPED_P (BINFO_TYPE (binfo)))
+    pset = new hash_set<tree>;
+  tree rval = dfs_walk_once_accessible_r (binfo, friends_p, pset,
 					  pre_fn, post_fn, data);
 
-  if (diamond_shaped)
-    {
-      if (!BINFO_INHERITANCE_CHAIN (binfo))
-	{
-	  /* We are at the top of the hierarchy, and can use the
-	     CLASSTYPE_VBASECLASSES list for unmarking the virtual
-	     bases.  */
-	  vec<tree, va_gc> *vbases;
-	  unsigned ix;
-	  tree base_binfo;
-
-	  for (vbases = CLASSTYPE_VBASECLASSES (BINFO_TYPE (binfo)), ix = 0;
-	       vec_safe_iterate (vbases, ix, &base_binfo); ix++)
-	    BINFO_MARKED (base_binfo) = 0;
-	}
-      else
-	dfs_unmark_r (binfo);
-    }
+  if (pset)
+    delete pset;
   return rval;
 }
 
@@ -2903,3 +2847,21 @@ original_binfo (tree binfo, tree here)
   return result;
 }
 
+/* True iff TYPE has any dependent bases (and therefore we can't say
+   definitively that another class is not a base of an instantiation of
+   TYPE).  */
+
+bool
+any_dependent_bases_p (tree type)
+{
+  if (!type || !CLASS_TYPE_P (type) || !processing_template_decl)
+    return false;
+
+  unsigned i;
+  tree base_binfo;
+  FOR_EACH_VEC_SAFE_ELT (BINFO_BASE_BINFOS (TYPE_BINFO (type)), i, base_binfo)
+    if (BINFO_DEPENDENT_BASE_P (base_binfo))
+      return true;
+
+  return false;
+}

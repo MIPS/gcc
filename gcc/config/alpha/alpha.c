@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "gimple.h"
 #include "df.h"
 #include "tm_p.h"
@@ -373,18 +374,6 @@ alpha_option_override (void)
       64, 64, 16*1024 }
   };
 
-  opt_pass *pass_handle_trap_shadows = make_pass_handle_trap_shadows (g);
-  struct register_pass_info handle_trap_shadows_info
-    = { pass_handle_trap_shadows, "eh_ranges",
-	1, PASS_POS_INSERT_AFTER
-      };
-
-  opt_pass *pass_align_insns = make_pass_align_insns (g);
-  struct register_pass_info align_insns_info
-    = { pass_align_insns, "shorten",
-	1, PASS_POS_INSERT_BEFORE
-      };
-
   int const ct_size = ARRAY_SIZE (cpu_table);
   int line_size = 0, l1_size = 0, l2_size = 0;
   int i;
@@ -609,9 +598,6 @@ alpha_option_override (void)
     target_flags |= MASK_LONG_DOUBLE_128;
 #endif
 
-  /* This needs to be done at start up.  It's convenient to do it here.  */
-  register_pass (&handle_trap_shadows_info);
-  register_pass (&align_insns_info);
 }
 
 /* Implement targetm.override_options_after_change.  */
@@ -4758,14 +4744,15 @@ alpha_split_atomic_exchange_12 (rtx operands[])
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-alpha_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
+alpha_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
+		   unsigned int)
 {
   enum attr_type dep_insn_type;
 
   /* If the dependence is an anti-dependence, there is no cost.  For an
      output dependence, there is sometimes a cost, but it doesn't seem
      worth handling those few cases.  */
-  if (REG_NOTE_KIND (link) != 0)
+  if (dep_type != 0)
     return cost;
 
   /* If we can't recognize the insns, we can't really do anything.  */
@@ -5753,8 +5740,29 @@ static bool
 alpha_pass_by_reference (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			 machine_mode mode,
 			 const_tree type ATTRIBUTE_UNUSED,
-			 bool named ATTRIBUTE_UNUSED)
+			 bool named)
 {
+  /* Pass float and _Complex float variable arguments by reference.
+     This avoids 64-bit store from a FP register to a pretend args save area
+     and subsequent 32-bit load from the saved location to a FP register.
+
+     Note that 32-bit loads and stores to/from a FP register on alpha reorder
+     bits to form a canonical 64-bit value in the FP register.  This fact
+     invalidates compiler assumption that 32-bit FP value lives in the lower
+     32-bits of the passed 64-bit FP value, so loading the 32-bit value from
+     the stored 64-bit location using 32-bit FP load is invalid on alpha.
+
+     This introduces sort of ABI incompatibility, but until _Float32 was
+     introduced, C-family languages promoted 32-bit float variable arg to
+     a 64-bit double, and it was not allowed to pass float as a varible
+     argument.  Passing _Complex float as a variable argument never
+     worked on alpha.  Thus, we have no backward compatibility issues
+     to worry about, and passing unpromoted _Float32 and _Complex float
+     as a variable argument will actually work in the future.  */
+
+  if (mode == SFmode || mode == SCmode)
+    return !named;
+
   return mode == TFmode || mode == TCmode;
 }
 
@@ -9752,8 +9760,6 @@ alpha_init_libfuncs (void)
       set_optab_libfunc (smod_optab, DImode, "OTS$REM_L");
       set_optab_libfunc (umod_optab, SImode, "OTS$REM_UI");
       set_optab_libfunc (umod_optab, DImode, "OTS$REM_UL");
-      abort_libfunc = init_one_libfunc ("decc$abort");
-      memcmp_libfunc = init_one_libfunc ("decc$memcmp");
 #ifdef MEM_LIBFUNCS_INIT
       MEM_LIBFUNCS_INIT;
 #endif
@@ -10039,6 +10045,9 @@ alpha_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE alpha_mangle_type
 #endif
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P alpha_legitimate_address_p

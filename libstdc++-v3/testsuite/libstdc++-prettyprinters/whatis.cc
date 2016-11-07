@@ -1,5 +1,5 @@
-// { dg-do run }
-// { dg-options "-g -O0 -std=gnu++11" }
+// { dg-do run { target c++11 } }
+// { dg-options "-g -O0" }
 
 // Copyright (C) 2011-2016 Free Software Foundation, Inc.
 //
@@ -33,6 +33,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <random>
 
 template<class T>
 void
@@ -286,6 +287,7 @@ main()
   placeholder(&unord2_ptr);
   placeholder(&unord2_holder);
 
+  std::cout << "\n";
   return 0;
 }
 

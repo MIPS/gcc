@@ -105,7 +105,7 @@ open_outfile (const char *file_name)
 }
 
 int
-main (int argc, char **argv)
+main (int argc, const char **argv)
 {
   FILE *h_file, *s_file;
   unsigned int i, j, n, last_kind[5];
@@ -257,6 +257,7 @@ main (int argc, char **argv)
 	   "#include \"varasm.h\"\n"
 	   "#include \"stor-layout.h\"\n"
 	   "#include \"calls.h\"\n"
+	   "#include \"memmodel.h\"\n"
 	   "#include \"tm_p.h\"\n"
 	   "#include \"flags.h\"\n"
 	   "#include \"insn-config.h\"\n"

@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hsa.h"
 #include "internal-fn.h"
 #include "ctype.h"
+#include "builtins.h"
 
 /* Structure containing intermediate HSA representation of the generated
    function.  */
@@ -472,6 +473,22 @@ hsa_bittype_for_type (BrigType16_t t)
   return hsa_bittype_for_bitsize (hsa_type_bit_size (t));
 }
 
+/* Return HSA unsigned integer type with the same size as the type T.  */
+
+BrigType16_t
+hsa_unsigned_type_for_type (BrigType16_t t)
+{
+  return hsa_uint_for_bitsize (hsa_type_bit_size (t));
+}
+
+/* Return true if TYPE is a packed HSA type.  */
+
+bool
+hsa_type_packed_p (BrigType16_t type)
+{
+  return (type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE;
+}
+
 /* Return true if and only if TYPE is a floating point number type.  */
 
 bool
@@ -552,6 +569,25 @@ hsa_alignment_encoding (unsigned n)
     default:
       gcc_unreachable ();
     }
+}
+
+/* Return HSA alignment encoding alignment of T got
+   by get_object_alignment.  */
+
+BrigAlignment8_t
+hsa_object_alignment (tree t)
+{
+  return hsa_alignment_encoding (get_object_alignment (t));
+}
+
+/* Return byte alignment for given BrigAlignment8_t value.  */
+
+unsigned
+hsa_byte_alignment (BrigAlignment8_t alignment)
+{
+  gcc_assert (alignment != BRIG_ALIGNMENT_NONE);
+
+  return 1 << (alignment - 1);
 }
 
 /* Return natural alignment of HSA TYPE.  */
@@ -696,6 +732,31 @@ hsa_add_kernel_dependency (tree caller, const char *called_function)
   s->safe_push (called_function);
 }
 
+/* Expansion to HSA needs a few gc roots to hold types, constructors etc.  In
+   order to minimize the number of GTY roots, we'll root them all in the
+   following array.  The individual elements should only be accessed by the
+   very simple getters (of a pointer-to-tree) below.  */
+
+static GTY(()) tree hsa_tree_gt_roots[3];
+
+tree *
+hsa_get_ctor_statements (void)
+{
+  return &hsa_tree_gt_roots[0];
+}
+
+tree *
+hsa_get_dtor_statements (void)
+{
+  return &hsa_tree_gt_roots[1];
+}
+
+tree *
+hsa_get_kernel_dispatch_type (void)
+{
+  return &hsa_tree_gt_roots[2];
+}
+
 /* Modify the name P in-place so that it is a valid HSA identifier.  */
 
 void
@@ -737,7 +798,7 @@ hsa_get_declaration_name (tree decl)
 
   tree name_tree;
   if (TREE_CODE (decl) == FUNCTION_DECL
-      || (TREE_CODE (decl) == VAR_DECL && is_global_var (decl)))
+      || (VAR_P (decl) && is_global_var (decl)))
     name_tree = DECL_ASSEMBLER_NAME (decl);
   else
     name_tree = DECL_NAME (decl);
@@ -781,6 +842,11 @@ hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
   TREE_OPTIMIZATION (fn_opts)->x_flag_tree_loop_vectorize = false;
   TREE_OPTIMIZATION (fn_opts)->x_flag_tree_slp_vectorize = false;
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (gdecl) = fn_opts;
+
+  /* Create reference between a kernel and a corresponding host implementation
+     to quarantee LTO streaming to a same LTRANS.  */
+  if (kind == HSA_KERNEL)
+    gpu->create_reference (host, IPA_REF_ADDR);
 }
 
 /* Add a HOST function to HSA summaries.  */
@@ -881,7 +947,6 @@ hsa_internal_fn::get_arity ()
     case IFN_SCALB:
     case IFN_LDEXP:
       return 2;
-      break;
     case IFN_CLRSB:
     case IFN_CLZ:
     case IFN_CTZ:

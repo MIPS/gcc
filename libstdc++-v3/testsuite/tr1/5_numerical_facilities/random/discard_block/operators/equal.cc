@@ -26,7 +26,6 @@
 void
 test01()
 {
-  bool test __attribute__((unused)) = true;
   using namespace std::tr1;
 
   discard_block
@@ -36,7 +35,7 @@ test01()
     > u, v;
 
   VERIFY( u == v );
-  
+
   for (int i = 0; i < 100; ++i)
     {
       u();

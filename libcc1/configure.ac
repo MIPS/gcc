@@ -1,4 +1,4 @@
-dnl   Copyright (C) 2014 Free Software Foundation, Inc.
+dnl   Copyright (C) 2014-2016 Free Software Foundation, Inc.
 dnl
 dnl This file is part of GCC.
 dnl
@@ -50,6 +50,7 @@ AC_CHECK_DECLS([basename])
 
 gcc_version=`cat $srcdir/../gcc/BASE-VER`
 AC_SUBST(gcc_version)
+AC_SUBST([CONFIG_STATUS_DEPENDENCIES], ['$(top_srcdir)/../gcc/BASE-VER'])
 
 ACX_PROG_CC_WARNING_OPTS([-W -Wall], [WARN_FLAGS])
 AC_SUBST(WARN_FLAGS)

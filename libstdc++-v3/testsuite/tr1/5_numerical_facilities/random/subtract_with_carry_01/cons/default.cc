@@ -24,9 +24,8 @@
 #include <testsuite_hooks.h>
 
 void
-test01() 
+test01()
 {
-  bool test __attribute__((unused)) = true;
   using namespace std::tr1;
 
   subtract_with_carry_01<float, 24, 10, 24> x;

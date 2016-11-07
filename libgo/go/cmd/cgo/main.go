@@ -1,4 +1,4 @@
-// Copyright 2009 The Go Authors.  All rights reserved.
+// Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -42,6 +42,10 @@ type Package struct {
 	GoFiles     []string // list of Go files
 	GccFiles    []string // list of gcc output files
 	Preamble    string   // collected preamble for _cgo_export.h
+
+	// See unsafeCheckPointerName.
+	CgoChecks         []string
+	DeferredCgoChecks []string
 }
 
 // A File collects information about a single Go input file.
@@ -51,6 +55,7 @@ type File struct {
 	Package  string              // Package name
 	Preamble string              // C preamble (doc comment on import "C")
 	Ref      []*Ref              // all references to C.xxx in AST
+	Calls    []*Call             // all calls to C.xxx in AST
 	ExpFunc  []*ExpFunc          // exported functions for this file
 	Name     map[string]*Name    // map from Go name to Name
 }
@@ -62,6 +67,12 @@ func nameKeys(m map[string]*Name) []string {
 	}
 	sort.Strings(ks)
 	return ks
+}
+
+// A Call refers to a call of a C.xxx function in the AST.
+type Call struct {
+	Call     *ast.CallExpr
+	Deferred bool
 }
 
 // A Ref refers to an expression of the form C.xxx in the AST.
@@ -132,43 +143,47 @@ func usage() {
 }
 
 var ptrSizeMap = map[string]int64{
-	"386":     4,
-	"alpha":   8,
-	"amd64":   8,
-	"arm":     4,
-	"arm64":   8,
-	"m68k":    4,
-	"mipso32": 4,
-	"mipsn32": 4,
-	"mipso64": 8,
-	"mipsn64": 8,
-	"ppc":     4,
-	"ppc64":   8,
-	"ppc64le": 8,
-	"s390":    4,
-	"s390x":   8,
-	"sparc":   4,
-	"sparc64": 8,
+	"386":      4,
+	"alpha":    8,
+	"amd64":    8,
+	"arm":      4,
+	"arm64":    8,
+	"m68k":     4,
+	"mipso32":  4,
+	"mipsn32":  4,
+	"mipso64":  8,
+	"mipsn64":  8,
+	"mips64":   8,
+	"mips64le": 8,
+	"ppc":      4,
+	"ppc64":    8,
+	"ppc64le":  8,
+	"s390":     4,
+	"s390x":    8,
+	"sparc":    4,
+	"sparc64":  8,
 }
 
 var intSizeMap = map[string]int64{
-	"386":     4,
-	"alpha":   8,
-	"amd64":   8,
-	"arm":     4,
-	"arm64":   8,
-	"m68k":    4,
-	"mipso32": 4,
-	"mipsn32": 4,
-	"mipso64": 8,
-	"mipsn64": 8,
-	"ppc":     4,
-	"ppc64":   8,
-	"ppc64le": 8,
-	"s390":    4,
-	"s390x":   8,
-	"sparc":   4,
-	"sparc64": 8,
+	"386":      4,
+	"alpha":    8,
+	"amd64":    8,
+	"arm":      4,
+	"arm64":    8,
+	"m68k":     4,
+	"mipso32":  4,
+	"mipsn32":  4,
+	"mipso64":  8,
+	"mipsn64":  8,
+	"mips64":   8,
+	"mips64le": 8,
+	"ppc":      4,
+	"ppc64":    8,
+	"ppc64le":  8,
+	"s390":     4,
+	"s390x":    8,
+	"sparc":    4,
+	"sparc64":  8,
 }
 
 var cPrefix string
@@ -202,9 +217,9 @@ func main() {
 
 	if *dynobj != "" {
 		// cgo -dynimport is essentially a separate helper command
-		// built into the cgo binary.  It scans a gcc-produced executable
+		// built into the cgo binary. It scans a gcc-produced executable
 		// and dumps information about the imported symbols and the
-		// imported libraries.  The 'go build' rules for cgo prepare an
+		// imported libraries. The 'go build' rules for cgo prepare an
 		// appropriate executable and then use its import information
 		// instead of needing to make the linkers duplicate all the
 		// specialized knowledge gcc has about where to look for imported
@@ -238,6 +253,12 @@ func main() {
 	}
 
 	goFiles := args[i:]
+
+	for _, arg := range args[:i] {
+		if arg == "-fsanitize=thread" {
+			tsanProlog = yesTsanProlog
+		}
+	}
 
 	p := newPackage(args[:i])
 
@@ -297,11 +318,7 @@ func main() {
 		if nerrors > 0 {
 			os.Exit(2)
 		}
-		pkg := f.Package
-		if dir := os.Getenv("CGOPKGPATH"); dir != "" {
-			pkg = filepath.Join(dir, pkg)
-		}
-		p.PackagePath = pkg
+		p.PackagePath = f.Package
 		p.Record(f)
 		if *godefs {
 			os.Stdout.WriteString(p.godefs(f, input))

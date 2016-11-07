@@ -36,6 +36,7 @@
 ;;         jyy: constant consisting of byte chunks being either 0 or 0xff
 ;;         jKK: constant vector with all elements having the same value and
 ;;              matching K constraint
+;;         jm6: An integer operand with the lowest order 6 bits all ones.
 ;;    t -- Access registers 36 and 37.
 ;;    v -- Vector registers v0-v31.
 ;;    C -- A signed 8-bit constant (-128..127)
@@ -54,7 +55,12 @@
 ;;         D,S,H:   mode of the containing operand
 ;;         0,F:     value of the other parts (F - all bits set)
 ;;         --
-;;         xx[DS]q  satisfies s390_contiguous_bitmask_p for DImode or SImode
+;;         xxDq     satisfies s390_contiguous_bitmask_p for DImode
+;;                  (with possible wraparound of the one-bit range)
+;;         xxSw     satisfies s390_contiguous_bitmask_p for SImode
+;;                  (with possible wraparound of the one-bit range)
+;;         xxSq     satisfies s390_contiguous_bitmask_nowrap_p for SImode
+;;                  (without wraparound of the one-bit range)
 ;;
 ;;         The constraint matches if the specified part of a constant
 ;;         has a value different from its other parts.  If the letter x
@@ -76,9 +82,9 @@
 ;;    B -- Multiple letter constraint followed by Q, R, S, or T:
 ;;         Memory reference of the type specified by second letter that
 ;;         does *not* refer to a literal pool entry.
-;;    U -- Pointer with short displacement. (deprecated - use ZQZR)
-;;    W -- Pointer with long displacement. (deprecated - use ZSZT)
-;;    Y -- Shift count operand.
+;;    U -- Pointer with short displacement. (deprecated - use ZR)
+;;    W -- Pointer with long displacement. (deprecated - use ZT)
+;;    Y -- Address style operand without index.
 ;;    ZQ -- Pointer without index register and with short displacement.
 ;;    ZR -- Pointer with index register and short displacement.
 ;;    ZS -- Pointer without index register but with long displacement.
@@ -188,12 +194,12 @@
 
 
 (define_address_constraint "Y"
-  "Shift count operand"
+  "Address style operand without index register"
 
-;; Simply check for the basic form of a shift count.  Reload will
-;; take care of making sure we have a proper base register.
+;; Simply check for base + offset style operands.  Reload will take
+;; care of making sure we have a proper base register.
 
-  (match_test "s390_decompose_shift_count (op, NULL, NULL)"  ))
+  (match_test "s390_decompose_addrstyle_without_index (op, NULL, NULL)"  ))
 
 
 ;;    N -- Multiple letter constraint followed by 4 parameter letters.
@@ -345,15 +351,20 @@
   (and (match_code "const_int")
        (match_test "s390_N_constraint_str (\"xQH0\", ival)")))
 
-(define_constraint "NxxDq"
+(define_constraint "NxxDw"
   "@internal"
   (and (match_code "const_int")
-       (match_test "s390_contiguous_bitmask_p (ival, 64, NULL, NULL)")))
+       (match_test "s390_contiguous_bitmask_p (ival, true, 64, NULL, NULL)")))
 
 (define_constraint "NxxSq"
   "@internal"
   (and (match_code "const_int")
-       (match_test "s390_contiguous_bitmask_p (ival, 32, NULL, NULL)")))
+       (match_test "s390_contiguous_bitmask_p (ival, false, 32, NULL, NULL)")))
+
+(define_constraint "NxxSw"
+  "@internal"
+  (and (match_code "const_int")
+       (match_test "s390_contiguous_bitmask_p (ival, true, 32, NULL, NULL)")))
 
 ;;
 ;; Double-letter constraints starting with O follow.
@@ -415,6 +426,9 @@
 	    (match_test "const_vec_duplicate_p (op)"))
        (match_test "satisfies_constraint_K (XVECEXP (op, 0, 0))")))
 
+(define_constraint "jm6"
+  "@internal An integer operand with the lowest order 6 bits all ones."
+  (match_operand 0 "const_int_6bitset_operand"))
 
 ;;
 ;; Memory constraints follow.
@@ -451,8 +465,7 @@
 ; the TARGET_MEM_CONSTRAINT macro.
 (define_memory_constraint "m"
   "Matches the most general memory address for pre-z10 machines."
-  (match_test "s390_mem_constraint (\"R\", op)
-               || s390_mem_constraint (\"T\", op)"))
+  (match_test "s390_mem_constraint (\"T\", op)"))
 
 (define_memory_constraint "AQ"
   "@internal
@@ -508,12 +521,12 @@
 
 
 (define_address_constraint "U"
-  "Pointer with short displacement. (deprecated - use ZQZR)"
-  (match_test "s390_mem_constraint (\"U\", op)"))
+  "Pointer with short displacement. (deprecated - use ZR)"
+  (match_test "s390_mem_constraint (\"ZR\", op)"))
 
 (define_address_constraint "W"
-  "Pointer with long displacement. (deprecated - use ZSZT)"
-  (match_test "s390_mem_constraint (\"W\", op)"))
+  "Pointer with long displacement. (deprecated - use ZT)"
+  (match_test "s390_mem_constraint (\"ZT\", op)"))
 
 
 (define_address_constraint "ZQ"

@@ -126,7 +126,7 @@ struct GTY(()) expr_status {
   rtx x_apply_args_value;
 
   /* List of labels that must never be deleted.  */
-  rtx_insn_list *x_forced_labels;
+  vec<rtx_insn *, va_gc> *x_forced_labels;
 };
 
 typedef struct call_site_record_d *call_site_record;
@@ -327,6 +327,10 @@ struct GTY(()) function {
   /* Nonzero if function being compiled receives nonlocal gotos
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
+
+  /* Nonzero if function being compiled has a forced label
+     placed into static storage.  */
+  unsigned int has_forced_label_in_static : 1;
 
   /* Nonzero if we've set cannot_be_copied_reason.  I.e. if
      (cannot_be_copied_set && !cannot_be_copied_reason), the function
@@ -624,7 +628,11 @@ extern void clobber_return_register (void);
 extern void expand_function_end (void);
 extern rtx get_arg_pointer_save_area (void);
 extern void maybe_copy_prologue_epilogue_insn (rtx, rtx);
+extern int prologue_contains (const_rtx);
+extern int epilogue_contains (const_rtx);
 extern int prologue_epilogue_contains (const_rtx);
+extern void record_prologue_seq (rtx_insn *);
+extern void record_epilogue_seq (rtx_insn *);
 extern void emit_return_into_block (bool simple_p, basic_block bb);
 extern void set_return_jump_label (rtx_insn *);
 extern bool active_insn_between (rtx_insn *head, rtx_insn *tail);

@@ -62,8 +62,8 @@ tree pfunc_type_node;
 
 tree gfc_charlen_type_node;
 
-tree float128_type_node = NULL_TREE;
-tree complex_float128_type_node = NULL_TREE;
+tree gfc_float128_type_node = NULL_TREE;
+tree gfc_complex_float128_type_node = NULL_TREE;
 
 bool gfc_real16_is_float128 = false;
 
@@ -901,7 +901,7 @@ gfc_init_types (void)
       PUSH_TYPE (name_buf, type);
 
       if (gfc_real_kinds[index].c_float128)
-	float128_type_node = type;
+	gfc_float128_type_node = type;
 
       type = gfc_build_complex_type (type);
       gfc_complex_types[index] = type;
@@ -910,7 +910,7 @@ gfc_init_types (void)
       PUSH_TYPE (name_buf, type);
 
       if (gfc_real_kinds[index].c_float128)
-	complex_float128_type_node = type;
+	gfc_complex_float128_type_node = type;
     }
 
   for (index = 0; gfc_character_kinds[index].kind != 0; ++index)
@@ -1051,10 +1051,10 @@ gfc_get_character_type (int kind, gfc_charlen * cl)
   return gfc_get_character_type_len (kind, len);
 }
 
-/* Covert a basic type.  This will be an array for character types.  */
+/* Convert a basic type.  This will be an array for character types.  */
 
 tree
-gfc_typenode_for_spec (gfc_typespec * spec)
+gfc_typenode_for_spec (gfc_typespec * spec, bool in_coarray)
 {
   tree basetype;
 
@@ -1101,9 +1101,13 @@ gfc_typenode_for_spec (gfc_typespec * spec)
 					     gfc_index_one_node);
       break;
 
+    case BT_UNION:
+      basetype = gfc_get_union_type (spec->u.derived);
+      break;
+
     case BT_DERIVED:
     case BT_CLASS:
-      basetype = gfc_get_derived_type (spec->u.derived);
+      basetype = gfc_get_derived_type (spec->u.derived, in_coarray);
 
       if (spec->type == BT_CLASS)
 	GFC_CLASS_TYPE_P (basetype) = 1;
@@ -1307,7 +1311,7 @@ gfc_is_nodesc_array (gfc_symbol * sym)
 static tree
 gfc_build_array_type (tree type, gfc_array_spec * as,
 		      enum gfc_array_kind akind, bool restricted,
-		      bool contiguous)
+		      bool contiguous, bool in_coarray)
 {
   tree lbound[GFC_MAX_DIMENSIONS];
   tree ubound[GFC_MAX_DIMENSIONS];
@@ -1357,7 +1361,7 @@ gfc_build_array_type (tree type, gfc_array_spec * as,
   return gfc_get_array_type_bounds (type, as->rank == -1
 					  ? GFC_MAX_DIMENSIONS : as->rank,
 				    corank, lbound,
-				    ubound, 0, akind, restricted);
+				    ubound, 0, akind, restricted, in_coarray);
 }
 
 /* Returns the struct descriptor_dimension type.  */
@@ -1720,7 +1724,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, gfc_packed packed,
 
 static tree
 gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted,
-			       enum gfc_array_kind akind)
+			       enum gfc_array_kind akind, bool in_coarray)
 {
   tree fat_type, decl, arraytype, *chain = NULL;
   char name[16 + 2*GFC_RANK_DIGITS + 1 + 1];
@@ -1782,7 +1786,7 @@ gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted,
       TREE_NO_WARNING (decl) = 1;
     }
 
-  if (flag_coarray == GFC_FCOARRAY_LIB && codimen
+  if (flag_coarray == GFC_FCOARRAY_LIB && (codimen || in_coarray)
       && akind == GFC_ARRAY_ALLOCATABLE)
     {
       decl = gfc_add_field_to_struct_1 (fat_type,
@@ -1810,18 +1814,21 @@ gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted,
 tree
 gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
 			   tree * ubound, int packed,
-			   enum gfc_array_kind akind, bool restricted)
+			   enum gfc_array_kind akind, bool restricted,
+			   bool in_coarray)
 {
   char name[8 + 2*GFC_RANK_DIGITS + 1 + GFC_MAX_SYMBOL_LEN];
   tree fat_type, base_type, arraytype, lower, upper, stride, tmp, rtype;
   const char *type_name;
   int n;
 
-  base_type = gfc_get_array_descriptor_base (dimen, codimen, restricted, akind);
+  base_type = gfc_get_array_descriptor_base (dimen, codimen, restricted, akind,
+					     in_coarray);
   fat_type = build_distinct_type_copy (base_type);
   /* Make sure that nontarget and target array type have the same canonical
      type (and same stub decl for debug info).  */
-  base_type = gfc_get_array_descriptor_base (dimen, codimen, false, akind);
+  base_type = gfc_get_array_descriptor_base (dimen, codimen, false, akind,
+					     in_coarray);
   TYPE_CANONICAL (fat_type) = base_type;
   TYPE_STUB_DECL (fat_type) = TYPE_STUB_DECL (base_type);
 
@@ -2157,7 +2164,7 @@ gfc_sym_type (gfc_symbol * sym)
 				   || !sym->ts.u.cl->backend_decl))))
     type = gfc_character1_type_node;
   else
-    type = gfc_typenode_for_spec (&sym->ts);
+    type = gfc_typenode_for_spec (&sym->ts, sym->attr.codimension);
 
   if (sym->attr.dummy && !sym->attr.function && !sym->attr.value)
     byref = 1;
@@ -2195,7 +2202,7 @@ gfc_sym_type (gfc_symbol * sym)
 	  else if (sym->attr.allocatable)
 	    akind = GFC_ARRAY_ALLOCATABLE;
 	  type = gfc_build_array_type (type, sym->as, akind, restricted,
-				       sym->attr.contiguous);
+				       sym->attr.contiguous, false);
 	}
     }
   else
@@ -2275,7 +2282,7 @@ gfc_add_field_to_struct (tree context, tree name, tree type, tree **chain)
   tree decl = gfc_add_field_to_struct_1 (context, name, type, chain);
 
   DECL_INITIAL (decl) = 0;
-  DECL_ALIGN (decl) = 0;
+  SET_DECL_ALIGN (decl, 0);
   DECL_USER_ALIGN (decl) = 0;
 
   return decl;
@@ -2314,7 +2321,9 @@ gfc_copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to,
   for (; to_cm; to_cm = to_cm->next, from_cm = from_cm->next)
     {
       to_cm->backend_decl = from_cm->backend_decl;
-      if (from_cm->ts.type == BT_DERIVED
+      if (from_cm->ts.type == BT_UNION)
+        gfc_get_union_type (to_cm->ts.u.derived);
+      else if (from_cm->ts.type == BT_DERIVED
 	  && (!from_cm->attr.pointer || from_gsym))
 	gfc_get_derived_type (to_cm->ts.u.derived);
       else if (from_cm->ts.type == BT_CLASS
@@ -2349,13 +2358,69 @@ gfc_get_ppc_type (gfc_component* c)
 }
 
 
+/* Build a tree node for a union type. Requires building each map
+   structure which is an element of the union. */
+
+tree
+gfc_get_union_type (gfc_symbol *un)
+{
+    gfc_component *map = NULL;
+    tree typenode = NULL, map_type = NULL, map_field = NULL;
+    tree *chain = NULL;
+
+    if (un->backend_decl)
+      {
+        if (TYPE_FIELDS (un->backend_decl) || un->attr.proc_pointer_comp)
+          return un->backend_decl;
+        else
+          typenode = un->backend_decl;
+      }
+    else
+      {
+        typenode = make_node (UNION_TYPE);
+        TYPE_NAME (typenode) = get_identifier (un->name);
+      }
+
+    /* Add each contained MAP as a field. */
+    for (map = un->components; map; map = map->next)
+      {
+        gcc_assert (map->ts.type == BT_DERIVED);
+
+        /* The map's type node, which is defined within this union's context. */
+        map_type = gfc_get_derived_type (map->ts.u.derived);
+        TYPE_CONTEXT (map_type) = typenode;
+
+        /* The map field's declaration. */
+        map_field = gfc_add_field_to_struct(typenode, get_identifier(map->name),
+                                            map_type, &chain);
+        if (map->loc.lb)
+          gfc_set_decl_location (map_field, &map->loc);
+        else if (un->declared_at.lb)
+          gfc_set_decl_location (map_field, &un->declared_at);
+
+        DECL_PACKED (map_field) |= TYPE_PACKED (typenode);
+        DECL_NAMELESS(map_field) = true;
+
+        /* We should never clobber another backend declaration for this map,
+           because each map component is unique. */
+        if (!map->backend_decl)
+          map->backend_decl = map_field;
+      }
+
+    un->backend_decl = typenode;
+    gfc_finish_type (typenode);
+
+    return typenode;
+}
+
+
 /* Build a tree node for a derived type.  If there are equal
    derived types, with different local names, these are built
    at the same time.  If an equal derived type has been built
    in a parent namespace, this is used.  */
 
 tree
-gfc_get_derived_type (gfc_symbol * derived)
+gfc_get_derived_type (gfc_symbol * derived, bool in_coarray)
 {
   tree typenode = NULL, field = NULL, field_type = NULL;
   tree canonical = NULL_TREE;
@@ -2370,7 +2435,8 @@ gfc_get_derived_type (gfc_symbol * derived)
   if (derived->attr.unlimited_polymorphic
       || (flag_coarray == GFC_FCOARRAY_LIB
 	  && derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
-	  && derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE))
+	  && (derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE
+	      || derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)))
     return ptr_type_node;
 
   if (flag_coarray != GFC_FCOARRAY_LIB
@@ -2458,7 +2524,11 @@ gfc_get_derived_type (gfc_symbol * derived)
 	     non-procedure pointer components have no backend_decl.  */
 	  for (c = derived->components; c; c = c->next)
 	    {
-	      if (!c->attr.proc_pointer && c->backend_decl == NULL)
+	      bool same_alloc_type = c->attr.allocatable
+				     && derived == c->ts.u.derived;
+	      if (!c->attr.proc_pointer
+		  && !same_alloc_type
+		  && c->backend_decl == NULL)
 		break;
 	      else if (c->next == NULL)
 		return derived->backend_decl;
@@ -2490,12 +2560,21 @@ gfc_get_derived_type (gfc_symbol * derived)
      will be built and so we can return the type.  */
   for (c = derived->components; c; c = c->next)
     {
+      bool same_alloc_type = c->attr.allocatable
+			     && derived == c->ts.u.derived;
+
+      if (c->ts.type == BT_UNION && c->ts.u.derived->backend_decl == NULL)
+        c->ts.u.derived->backend_decl = gfc_get_union_type (c->ts.u.derived);
+
       if (c->ts.type != BT_DERIVED && c->ts.type != BT_CLASS)
 	continue;
 
-      if ((!c->attr.pointer && !c->attr.proc_pointer)
+      if ((!c->attr.pointer && !c->attr.proc_pointer
+	  && !same_alloc_type)
 	  || c->ts.u.derived->backend_decl == NULL)
-	c->ts.u.derived->backend_decl = gfc_get_derived_type (c->ts.u.derived);
+	c->ts.u.derived->backend_decl = gfc_get_derived_type (c->ts.u.derived,
+							      in_coarray
+							|| c->attr.codimension);
 
       if (c->ts.u.derived->attr.is_iso_c)
         {
@@ -2519,9 +2598,14 @@ gfc_get_derived_type (gfc_symbol * derived)
     return derived->backend_decl;
 
   /* Build the type member list. Install the newly created RECORD_TYPE
-     node as DECL_CONTEXT of each FIELD_DECL.  */
+     node as DECL_CONTEXT of each FIELD_DECL. In this case we must go
+     through only the top-level linked list of components so we correctly
+     build UNION_TYPE nodes for BT_UNION components. MAPs and other nested
+     types are built as part of gfc_get_union_type.  */
   for (c = derived->components; c; c = c->next)
     {
+      bool same_alloc_type = c->attr.allocatable
+			     && derived == c->ts.u.derived;
       /* Prevent infinite recursion, when the procedure pointer type is
 	 the same as derived, by forcing the procedure pointer component to
 	 be built as if the explicit interface does not exist.  */
@@ -2549,7 +2633,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 	    c->ts.u.cl->backend_decl
 			= build_int_cst (gfc_charlen_type_node, 0);
 
-	  field_type = gfc_typenode_for_spec (&c->ts);
+	  field_type = gfc_typenode_for_spec (&c->ts, in_coarray);
 	}
 
       /* This returns an array descriptor type.  Initialization may be
@@ -2569,7 +2653,8 @@ gfc_get_derived_type (gfc_symbol * derived)
 	      field_type = gfc_build_array_type (field_type, c->as, akind,
 						 !c->attr.target
 						 && !c->attr.pointer,
-						 c->attr.contiguous);
+						 c->attr.contiguous,
+						 in_coarray);
 	    }
 	  else
 	    field_type = gfc_get_nodesc_array_type (field_type, c->as,
@@ -2581,7 +2666,7 @@ gfc_get_derived_type (gfc_symbol * derived)
 	       && !(unlimited_entity && c == derived->components))
 	field_type = build_pointer_type (field_type);
 
-      if (c->attr.pointer)
+      if (c->attr.pointer || same_alloc_type)
 	field_type = gfc_nonrestricted_type (field_type);
 
       /* vtype fields can point to different types to the base type.  */
@@ -2614,6 +2699,19 @@ gfc_get_derived_type (gfc_symbol * derived)
       gcc_assert (field);
       if (!c->backend_decl)
 	c->backend_decl = field;
+
+      /* Do not add a caf_token field for classes' data components.  */
+      if (in_coarray && !c->attr.dimension && !c->attr.codimension
+	  && c->attr.allocatable && c->caf_token == NULL_TREE
+	  && strcmp ("_data", c->name) != 0)
+	{
+	  char caf_name[GFC_MAX_SYMBOL_LEN];
+	  snprintf (caf_name, GFC_MAX_SYMBOL_LEN, "_caf_%s", c->name);
+	  c->caf_token = gfc_add_field_to_struct (typenode,
+						  get_identifier (caf_name),
+						  pvoid_type_node, &chain);
+	  TREE_NO_WARNING (c->caf_token) = 1;
+	}
     }
 
   /* Now lay out the derived type, including the fields.  */
@@ -3253,6 +3351,123 @@ gfc_get_caf_vector_type (int dim)
 			  gfc_rank_cst[dim-1]);
   vector_types[dim-1] = build_array_type (vec_type, tmp);
   return vector_types[dim-1];
+}
+
+
+tree
+gfc_get_caf_reference_type ()
+{
+  static tree reference_type = NULL_TREE;
+  tree c_struct_type, s_struct_type, v_struct_type, union_type, dim_union_type,
+      a_struct_type, u_union_type, tmp, *chain;
+
+  if (reference_type != NULL_TREE)
+    return reference_type;
+
+  chain = 0;
+  c_struct_type = make_node (RECORD_TYPE);
+  tmp = gfc_add_field_to_struct_1 (c_struct_type,
+				   get_identifier ("offset"),
+				   gfc_array_index_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (c_struct_type,
+				   get_identifier ("caf_token_offset"),
+				   gfc_array_index_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  gfc_finish_type (c_struct_type);
+
+  chain = 0;
+  s_struct_type = make_node (RECORD_TYPE);
+  tmp = gfc_add_field_to_struct_1 (s_struct_type,
+				   get_identifier ("start"),
+				   gfc_array_index_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (s_struct_type,
+				   get_identifier ("end"),
+				   gfc_array_index_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (s_struct_type,
+				   get_identifier ("stride"),
+				   gfc_array_index_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  gfc_finish_type (s_struct_type);
+
+  chain = 0;
+  v_struct_type = make_node (RECORD_TYPE);
+  tmp = gfc_add_field_to_struct_1 (v_struct_type,
+				   get_identifier ("vector"),
+				   pvoid_type_node, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (v_struct_type,
+				   get_identifier ("nvec"),
+				   size_type_node, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (v_struct_type,
+				   get_identifier ("kind"),
+				   integer_type_node, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  gfc_finish_type (v_struct_type);
+
+  chain = 0;
+  union_type = make_node (UNION_TYPE);
+  tmp = gfc_add_field_to_struct_1 (union_type, get_identifier ("s"),
+				   s_struct_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (union_type, get_identifier ("v"),
+				   v_struct_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  gfc_finish_type (union_type);
+
+  tmp = build_range_type (gfc_array_index_type, gfc_index_zero_node,
+			  gfc_rank_cst[GFC_MAX_DIMENSIONS - 1]);
+  dim_union_type = build_array_type (union_type, tmp);
+
+  chain = 0;
+  a_struct_type = make_node (RECORD_TYPE);
+  tmp = gfc_add_field_to_struct_1 (a_struct_type, get_identifier ("mode"),
+		build_array_type (unsigned_char_type_node,
+				  build_range_type (gfc_array_index_type,
+						    gfc_index_zero_node,
+					 gfc_rank_cst[GFC_MAX_DIMENSIONS - 1])),
+		&chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (a_struct_type,
+				   get_identifier ("static_array_type"),
+				   integer_type_node, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (a_struct_type, get_identifier ("dim"),
+				   dim_union_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  gfc_finish_type (a_struct_type);
+
+  chain = 0;
+  u_union_type = make_node (UNION_TYPE);
+  tmp = gfc_add_field_to_struct_1 (u_union_type, get_identifier ("c"),
+				   c_struct_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (u_union_type, get_identifier ("a"),
+				   a_struct_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  gfc_finish_type (u_union_type);
+
+  chain = 0;
+  reference_type = make_node (RECORD_TYPE);
+  tmp = gfc_add_field_to_struct_1 (reference_type, get_identifier ("next"),
+				   build_pointer_type (reference_type), &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (reference_type, get_identifier ("type"),
+				   integer_type_node, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (reference_type, get_identifier ("item_size"),
+				   size_type_node, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  tmp = gfc_add_field_to_struct_1 (reference_type, get_identifier ("u"),
+				   u_union_type, &chain);
+  TREE_NO_WARNING (tmp) = 1;
+  gfc_finish_type (reference_type);
+  TYPE_NAME (reference_type) = get_identifier ("caf_reference_t");
+
+  return reference_type;
 }
 
 #include "gt-fortran-trans-types.h"

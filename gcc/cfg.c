@@ -386,7 +386,7 @@ clear_bb_flags (void)
 {
   basic_block bb;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL, next_bb)
+  FOR_ALL_BB_FN (bb, cfun)
     bb->flags &= BB_FLAGS_TO_PRESERVE;
 }
 
@@ -412,20 +412,31 @@ check_bb_profile (basic_block bb, FILE * file, int indent, int flags)
 
   if (bb != EXIT_BLOCK_PTR_FOR_FN (fun))
     {
+      bool found = false;
       FOR_EACH_EDGE (e, ei, bb->succs)
-	sum += e->probability;
-      if (EDGE_COUNT (bb->succs) && abs (sum - REG_BR_PROB_BASE) > 100)
-	fprintf (file, "%s%sInvalid sum of outgoing probabilities %.1f%%\n",
-		 (flags & TDF_COMMENT) ? ";; " : "", s_indent,
-		 sum * 100.0 / REG_BR_PROB_BASE);
-      lsum = 0;
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	lsum += e->count;
-      if (EDGE_COUNT (bb->succs)
-	  && (lsum - bb->count > 100 || lsum - bb->count < -100))
-	fprintf (file, "%s%sInvalid sum of outgoing counts %i, should be %i\n",
-		 (flags & TDF_COMMENT) ? ";; " : "", s_indent,
-		 (int) lsum, (int) bb->count);
+	{
+	  if (!(e->flags & EDGE_EH))
+	    found = true;
+	  sum += e->probability;
+	}
+      /* Only report mismatches for non-EH control flow. If there are only EH
+	 edges it means that the BB ends by noreturn call.  Here the control
+	 flow may just terminate.  */
+      if (found)
+	{
+	  if (EDGE_COUNT (bb->succs) && abs (sum - REG_BR_PROB_BASE) > 100)
+	    fprintf (file, "%s%sInvalid sum of outgoing probabilities %.1f%%\n",
+		     (flags & TDF_COMMENT) ? ";; " : "", s_indent,
+		     sum * 100.0 / REG_BR_PROB_BASE);
+	  lsum = 0;
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    lsum += e->count;
+	  if (EDGE_COUNT (bb->succs)
+	      && (lsum - bb->count > 100 || lsum - bb->count < -100))
+	    fprintf (file, "%s%sInvalid sum of outgoing counts %i, should be %i\n",
+		     (flags & TDF_COMMENT) ? ";; " : "", s_indent,
+		     (int) lsum, (int) bb->count);
+	}
     }
     if (bb != ENTRY_BLOCK_PTR_FOR_FN (fun))
     {
@@ -1055,6 +1066,18 @@ initialize_original_copy_tables (void)
   loop_copy = new hash_table<bb_copy_hasher> (10);
 }
 
+/* Reset the data structures to maintain mapping between blocks and
+   its copies.  */
+
+void
+reset_original_copy_tables (void)
+{
+  gcc_assert (original_copy_bb_pool);
+  bb_original->empty ();
+  bb_copy->empty ();
+  loop_copy->empty ();
+}
+
 /* Free the data structures to maintain mapping between blocks and
    its copies.  */
 void
@@ -1064,7 +1087,7 @@ free_original_copy_tables (void)
   delete bb_copy;
   bb_copy = NULL;
   delete bb_original;
-  bb_copy = NULL;
+  bb_original = NULL;
   delete loop_copy;
   loop_copy = NULL;
   delete original_copy_bb_pool;

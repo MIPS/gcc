@@ -27,6 +27,7 @@
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"
 #include "regs.h"
@@ -43,6 +44,9 @@
 #include "output.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+#include "cfgloop.h"
+#include "insn-addr.h"
+#include "cfgrtl.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -539,6 +543,7 @@ tls_mentioned_p (rtx x)
       case UNSPEC:
         if (XINT (x, 1) == UNSPEC_TLS)
           return 1;
+	return 0;
 
       default:
         return 0;
@@ -1549,7 +1554,7 @@ microblaze_function_arg (cumulative_args_t cum_v, machine_mode mode,
     default:
       gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
 	  || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
-      /* Drops through.  */
+      /* FALLTHRU */
     case BLKmode:
       regbase = GP_ARG_FIRST;
       break;
@@ -3558,14 +3563,12 @@ microblaze_function_value (const_tree valtype,
 
 /* Implement TARGET_SCHED_ADJUST_COST.  */
 static int
-microblaze_adjust_cost (rtx_insn *insn ATTRIBUTE_UNUSED, rtx link,
-			rtx_insn *dep ATTRIBUTE_UNUSED, int cost)
+microblaze_adjust_cost (rtx_insn *, int dep_type, rtx_insn *, int cost,
+			unsigned int)
 {
-  if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
+  if (dep_type == REG_DEP_OUTPUT || dep_type == 0)
     return cost;
-  if (REG_NOTE_KIND (link) != 0)
-    return 0;
-  return cost;
+  return 0;
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P.
@@ -3607,6 +3610,152 @@ microblaze_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
   return true;
 }
 
+static rtx
+get_branch_target (rtx branch)
+{
+  if (CALL_P (branch))
+    {
+      rtx call;
+
+      call = XVECEXP (PATTERN (branch), 0, 0);
+      if (GET_CODE (call) == SET)
+        call = SET_SRC (call);
+      if (GET_CODE (call) != CALL)
+        abort ();
+      return XEXP (XEXP (call, 0), 0);
+    }
+
+  return NULL_RTX;
+}
+
+/* Heuristics to identify where to insert at the
+   fall through path of the caller function. If there
+   is a call after the caller branch delay slot then
+   we dont generate the instruction prefetch instruction.
+
+   Scan up to 32 instructions after the call and checks
+   for the JUMP and call instruction . If there is a call
+   or JUMP instruction in the range of 32 instruction "wic"
+   instruction wont be generated. Otherwise insert the "wic"
+   instruction in the fall through of the call instruction
+   four instruction after the call. before_4 is used for
+   the position to insert "wic" instructions. before_16 is
+   used to check for call and JUMP instruction for first
+   15 insns.  */
+
+static void
+insert_wic_for_ilb_runout (rtx_insn *first)
+{
+  rtx_insn *insn;
+  rtx_insn *before_4 = 0;
+  rtx_insn *before_16 = 0;
+  int addr_offset = 0;
+  int length;
+  int wic_addr0 = 128 * 4;
+
+  int first_addr = INSN_ADDRESSES (INSN_UID (first));
+
+  for (insn = first; insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+        addr_offset = INSN_ADDRESSES (INSN_UID (insn)) - first_addr;
+        length = get_attr_length (insn);
+        if (before_4 == 0 && addr_offset + length >= 4 * 4)
+          before_4 = insn;
+
+        if (JUMP_P(insn))
+          return;
+        if (before_16 == 0 && addr_offset + length >= 14 * 4)
+          before_16 = insn;
+        if (CALL_P (insn) || tablejump_p (insn, 0, 0))
+          return;
+        if (addr_offset + length >= 32 * 4)
+          {
+            gcc_assert (before_4 && before_16);
+            if (wic_addr0 > 4 * 4)
+              {
+                insn =
+                  emit_insn_before (gen_iprefetch
+                                    (gen_int_mode (addr_offset, SImode)),
+                                    before_4);
+                recog_memoized (insn);
+                INSN_LOCATION (insn) = INSN_LOCATION (before_4);
+                INSN_ADDRESSES_NEW (insn, INSN_ADDRESSES (INSN_UID (before_4)));
+                return;
+              }
+           }
+       }
+}
+
+/* Insert instruction prefetch instruction at the fall
+   through path of the function call.  */
+
+static void
+insert_wic (void)
+{
+  rtx_insn *insn;
+  int i;
+  basic_block bb, prev = 0;
+  rtx branch_target = 0;
+
+  shorten_branches (get_insns ());
+
+  for (i = 0; i < n_basic_blocks_for_fn (cfun) - 1; i++)
+     {
+       edge e;
+       edge_iterator ei;
+       bool simple_loop = false;
+
+       bb = BASIC_BLOCK_FOR_FN (cfun, i);
+
+       if (bb == NULL)
+         continue;
+
+       if ((prev != 0) && (prev != bb))
+         continue;
+       else
+         prev = 0;
+
+       FOR_EACH_EDGE (e, ei, bb->preds)
+         if (e->src == bb)
+           {
+             simple_loop = true;
+             prev= e->dest;
+             break;
+           }
+
+       for (insn = BB_END (bb); insn; insn = PREV_INSN (insn))
+          {
+            if (INSN_P (insn) && !simple_loop
+               && CALL_P(insn))
+              {
+                if ((branch_target = get_branch_target (insn)))
+                  insert_wic_for_ilb_runout (
+                    next_active_insn (next_active_insn (insn)));
+              }
+              if (insn == BB_HEAD (bb))
+                break;
+           }
+      }
+}
+
+/* The reorg function defined through the macro
+   TARGET_MACHINE_DEPENDENT_REORG.  */
+
+static void
+microblaze_machine_dependent_reorg (void)
+{
+  if (TARGET_PREFETCH)
+    {
+      compute_bb_for_insn ();
+      loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
+      shorten_branches (get_insns ());
+      insert_wic ();
+      loop_optimizer_finalize ();
+      free_bb_for_insn ();
+      return;
+    }
+}
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO      microblaze_encode_section_info
@@ -3663,6 +3812,9 @@ microblaze_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P 	microblaze_legitimate_address_p 
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
+
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED	microblaze_frame_pointer_required
 
@@ -3698,6 +3850,9 @@ microblaze_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P microblaze_legitimate_constant_p
+
+#undef TARGET_MACHINE_DEPENDENT_REORG
+#define TARGET_MACHINE_DEPENDENT_REORG microblaze_machine_dependent_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

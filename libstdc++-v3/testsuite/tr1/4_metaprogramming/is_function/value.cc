@@ -25,7 +25,6 @@
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::is_function;
   using namespace __gnu_test;
 
@@ -42,7 +41,7 @@ void test01()
 
   VERIFY( (test_category<is_function, AbstractClass>(false)) );
   VERIFY( (test_category<is_function, int(&)(int)>(false)) );
-  
+
   // Sanity check.
   VERIFY( (test_category<is_function, ClassType>(false)) );
 }

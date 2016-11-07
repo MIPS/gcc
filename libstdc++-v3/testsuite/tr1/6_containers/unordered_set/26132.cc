@@ -25,14 +25,12 @@
 // libstdc++/26132
 void test01()
 {
-  bool test __attribute__((unused)) = true;
-
   for (float lf = 1.0; lf < 101.0; lf *= 10.0)
     for (int size = 1; size <= 6561; size *= 3)
       {
 	std::tr1::unordered_set<int> us1;
 	typedef std::tr1::unordered_set<int>::size_type size_type;
-	
+
 	us1.max_load_factor(10.0);
 
 	for (int i = 0; i < size; ++i)

@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "c-family/c-common.h"
 #include "c/c-tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "c-family/c-pragma.h"
 #include "toplev.h"
@@ -151,7 +152,7 @@ vms_pragma_nomember_alignment (cpp_reader *pfile ATTRIBUTE_UNUSED)
    1) extern int name;
    2) int name;
    3) int name = 5;
-   See below for the behaviour as implemented by the native compiler.
+   See below for the behavior as implemented by the native compiler.
 */
 
 enum extern_model_kind

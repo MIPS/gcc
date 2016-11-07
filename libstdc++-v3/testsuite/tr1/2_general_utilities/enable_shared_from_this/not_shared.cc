@@ -27,8 +27,6 @@ struct X : public std::tr1::enable_shared_from_this<X>
 int
 test01()
 {
-  bool test __attribute__((unused)) = true;
-
   X x;
 
   try
@@ -50,7 +48,7 @@ test01()
   return 0;
 }
 
-int 
+int
 main()
 {
   test01();

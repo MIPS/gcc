@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
@@ -45,12 +46,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "sel-sched-dump.h"
 
 /* A vector holding bb info for whole scheduling pass.  */
-vec<sel_global_bb_info_def>
-    sel_global_bb_info = vNULL;
+vec<sel_global_bb_info_def> sel_global_bb_info;
 
 /* A vector holding bb info.  */
-vec<sel_region_bb_info_def>
-    sel_region_bb_info = vNULL;
+vec<sel_region_bb_info_def> sel_region_bb_info;
 
 /* A pool for allocating all lists.  */
 object_allocator<_list_node> sched_lists_pool ("sel-sched-lists");
@@ -66,7 +65,7 @@ struct loop *current_loop_nest;
 
 /* LOOP_NESTS is a vector containing the corresponding loop nest for
    each region.  */
-static vec<loop_p> loop_nests = vNULL;
+static vec<loop_p> loop_nests;
 
 /* Saves blocks already in loop regions, indexed by bb->index.  */
 static sbitmap bbs_in_loop_rgns = NULL;
@@ -1871,12 +1870,16 @@ merge_expr (expr_t to, expr_t from, insn_t split_point)
   /* Make sure that speculative pattern is propagated into exprs that
      have non-speculative one.  This will provide us with consistent
      speculative bits and speculative patterns inside expr.  */
-  if ((EXPR_SPEC_DONE_DS (from) != 0
-       && EXPR_SPEC_DONE_DS (to) == 0)
-      /* Do likewise for volatile insns, so that we always retain
-	 the may_trap_p bit on the resulting expression.  */
-      || (VINSN_MAY_TRAP_P (EXPR_VINSN (from))
-	  && !VINSN_MAY_TRAP_P (EXPR_VINSN (to))))
+  if (EXPR_SPEC_DONE_DS (to) == 0
+      && (EXPR_SPEC_DONE_DS (from) != 0
+	  /* Do likewise for volatile insns, so that we always retain
+	     the may_trap_p bit on the resulting expression.  However,
+	     avoid propagating the trapping bit into the instructions
+	     already speculated.  This would result in replacing the
+	     speculative pattern with the non-speculative one and breaking
+	     the speculation support.  */
+	  || (!VINSN_MAY_TRAP_P (EXPR_VINSN (to))
+	      && VINSN_MAY_TRAP_P (EXPR_VINSN (from)))))
     change_vinsn_in_expr (to, EXPR_VINSN (from));
 
   merge_expr_data (to, from, split_point);
@@ -2650,6 +2653,23 @@ maybe_downgrade_id_to_use (idata_t id, insn_t insn)
     IDATA_TYPE (id) = USE;
 }
 
+/* Setup implicit register clobbers calculated by sched-deps for INSN
+   before reload and save them in ID.  */
+static void
+setup_id_implicit_regs (idata_t id, insn_t insn)
+{
+  if (reload_completed)
+    return;
+
+  HARD_REG_SET temp;
+  unsigned regno;
+  hard_reg_set_iterator hrsi;
+
+  get_implicit_reg_pending_clobbers (&temp, insn);
+  EXECUTE_IF_SET_IN_HARD_REG_SET (temp, 0, regno, hrsi)
+    SET_REGNO_REG_SET (IDATA_REG_SETS (id), regno);
+}
+
 /* Setup register sets describing INSN in ID.  */
 static void
 setup_id_reg_sets (idata_t id, insn_t insn)
@@ -2704,6 +2724,9 @@ setup_id_reg_sets (idata_t id, insn_t insn)
 	}
     }
 
+  /* Also get implicit reg clobbers from sched-deps.  */
+  setup_id_implicit_regs (id, insn);
+
   return_regset_to_pool (tmp);
 }
 
@@ -2735,20 +2758,18 @@ deps_init_id (idata_t id, insn_t insn, bool force_unique_p)
   deps_init_id_data.force_use_p = false;
 
   init_deps (dc, false);
-
   memcpy (&deps_init_id_sched_deps_info,
 	  &const_deps_init_id_sched_deps_info,
 	  sizeof (deps_init_id_sched_deps_info));
-
   if (spec_info != NULL)
     deps_init_id_sched_deps_info.generate_spec_deps = 1;
-
   sched_deps_info = &deps_init_id_sched_deps_info;
 
   deps_analyze_insn (dc, insn);
+  /* Implicit reg clobbers received from sched-deps separately.  */
+  setup_id_implicit_regs (id, insn);
 
   free_deps (dc);
-
   deps_init_id_data.id = NULL;
 }
 
@@ -4084,11 +4105,14 @@ get_seqno_by_preds (rtx_insn *insn)
   insn_t *preds;
   int n, i, seqno;
 
-  while (tmp != head)
+  /* Loop backwards from INSN to HEAD including both.  */
+  while (1)
     {
-      tmp = PREV_INSN (tmp);
       if (INSN_P (tmp))
-        return INSN_SEQNO (tmp);
+	return INSN_SEQNO (tmp);
+      if (tmp == head)
+	break;
+      tmp = PREV_INSN (tmp);
     }
 
   cfg_preds (bb, &preds, &n);
@@ -4138,7 +4162,7 @@ finish_region_bb_info (void)
 
 
 /* Data for each insn in current region.  */
-vec<sel_insn_data_def> s_i_d = vNULL;
+vec<sel_insn_data_def> s_i_d;
 
 /* Extend data structures for insns from current region.  */
 static void
@@ -4474,8 +4498,7 @@ get_av_level (insn_t insn)
 
 /* The basic block that already has been processed by the sched_data_update (),
    but hasn't been in sel_add_bb () yet.  */
-static vec<basic_block>
-    last_added_blocks = vNULL;
+static vec<basic_block> last_added_blocks;
 
 /* A pool for allocating successor infos.  */
 static struct

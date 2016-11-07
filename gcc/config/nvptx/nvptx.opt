@@ -31,7 +31,7 @@ Link in code for a __main kernel.
 
 moptimize
 Target Report Var(nvptx_optimize) Init(-1)
-Optimize partition neutering
+Optimize partition neutering.
 
 msoft-stack
 Target Report Mask(SOFT_STACK)
@@ -39,7 +39,7 @@ Use custom stacks instead of local memory for automatic storage.
 
 muniform-simt
 Target Report Mask(UNIFORM_SIMT)
-Generate code that executes all threads in a warp as if one was active.
+Generate code that can keep local state uniform across all lanes.
 
 mgomp
 Target Report Mask(GOMP)

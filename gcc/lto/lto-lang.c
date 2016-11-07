@@ -352,10 +352,15 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
   /* If no arguments are specified, all pointer arguments should be
      non-null.  Verify a full prototype is given so that the arguments
-     will have the correct types when we actually check them later.  */
+     will have the correct types when we actually check them later.
+     Avoid diagnosing type-generic built-ins since those have no
+     prototype.  */
   if (!args)
     {
-      gcc_assert (prototype_p (type));
+      gcc_assert (prototype_p (type)
+		  || !TYPE_ATTRIBUTES (type)
+		  || lookup_attribute ("type generic", TYPE_ATTRIBUTES (type)));
+
       return NULL_TREE;
     }
 
@@ -836,7 +841,7 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
       /* If -fPIC or -fPIE was used at compile time, be sure that
          flag_pie is 2.  */
       flag_pie = MAX (flag_pie, flag_pic);
-      flag_pic = 0;
+      flag_pic = flag_pie;
       break;
 
     case LTO_LINKER_OUTPUT_EXEC: /* Normal executable */
@@ -1246,7 +1251,7 @@ lto_init (void)
   flag_generate_lto = (flag_wpa != NULL);
 
   /* Create the basic integer types.  */
-  build_common_tree_nodes (flag_signed_char, flag_short_double);
+  build_common_tree_nodes (flag_signed_char);
 
   /* The global tree for the main identifier is filled in by
      language-specific front-end initialization that is not run in the

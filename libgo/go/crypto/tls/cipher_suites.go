@@ -74,7 +74,7 @@ type cipherSuite struct {
 
 var cipherSuites = []*cipherSuite{
 	// Ciphersuite order is chosen so that ECDHE comes before plain RSA
-	// and RC4 comes before AES (because of the Lucky13 attack).
+	// and RC4 comes before AES-CBC (because of the Lucky13 attack).
 	{TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, 16, 0, 4, ecdheRSAKA, suiteECDHE | suiteTLS12, nil, nil, aeadAESGCM},
 	{TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, 16, 0, 4, ecdheECDSAKA, suiteECDHE | suiteECDSA | suiteTLS12, nil, nil, aeadAESGCM},
 	{TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, 32, 0, 4, ecdheRSAKA, suiteECDHE | suiteTLS12 | suiteSHA384, nil, nil, aeadAESGCM},
@@ -85,6 +85,8 @@ var cipherSuites = []*cipherSuite{
 	{TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, 16, 20, 16, ecdheECDSAKA, suiteECDHE | suiteECDSA, cipherAES, macSHA1, nil},
 	{TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, 32, 20, 16, ecdheRSAKA, suiteECDHE, cipherAES, macSHA1, nil},
 	{TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, 32, 20, 16, ecdheECDSAKA, suiteECDHE | suiteECDSA, cipherAES, macSHA1, nil},
+	{TLS_RSA_WITH_AES_128_GCM_SHA256, 16, 0, 4, rsaKA, suiteTLS12, nil, nil, aeadAESGCM},
+	{TLS_RSA_WITH_AES_256_GCM_SHA384, 32, 0, 4, rsaKA, suiteTLS12 | suiteSHA384, nil, nil, aeadAESGCM},
 	{TLS_RSA_WITH_RC4_128_SHA, 16, 20, 0, rsaKA, suiteDefaultOff, cipherRC4, macSHA1, nil},
 	{TLS_RSA_WITH_AES_128_CBC_SHA, 16, 20, 16, rsaKA, 0, cipherAES, macSHA1, nil},
 	{TLS_RSA_WITH_AES_256_CBC_SHA, 32, 20, 16, rsaKA, 0, cipherAES, macSHA1, nil},
@@ -259,13 +261,17 @@ func mutualCipherSuite(have []uint16, want uint16) *cipherSuite {
 	return nil
 }
 
-// A list of the possible cipher suite ids. Taken from
-// http://www.iana.org/assignments/tls-parameters/tls-parameters.xml
+// A list of cipher suite IDs that are, or have been, implemented by this
+// package.
+//
+// Taken from http://www.iana.org/assignments/tls-parameters/tls-parameters.xml
 const (
 	TLS_RSA_WITH_RC4_128_SHA                uint16 = 0x0005
 	TLS_RSA_WITH_3DES_EDE_CBC_SHA           uint16 = 0x000a
 	TLS_RSA_WITH_AES_128_CBC_SHA            uint16 = 0x002f
 	TLS_RSA_WITH_AES_256_CBC_SHA            uint16 = 0x0035
+	TLS_RSA_WITH_AES_128_GCM_SHA256         uint16 = 0x009c
+	TLS_RSA_WITH_AES_256_GCM_SHA384         uint16 = 0x009d
 	TLS_ECDHE_ECDSA_WITH_RC4_128_SHA        uint16 = 0xc007
 	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA    uint16 = 0xc009
 	TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA    uint16 = 0xc00a
@@ -280,6 +286,6 @@ const (
 
 	// TLS_FALLBACK_SCSV isn't a standard cipher suite but an indicator
 	// that the client is doing version fallback. See
-	// https://tools.ietf.org/html/draft-ietf-tls-downgrade-scsv-00.
+	// https://tools.ietf.org/html/rfc7507.
 	TLS_FALLBACK_SCSV uint16 = 0x5600
 )

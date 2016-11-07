@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "ipa-chkp.h"
 #include "gomp-constants.h"
+#include "asan.h"
 
 
 /* Read a STRING_CST from the string table in DATA_IN using input
@@ -116,7 +117,10 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   TREE_ADDRESSABLE (expr) = (unsigned) bp_unpack_value (bp, 1);
   TREE_THIS_VOLATILE (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (DECL_P (expr))
-    DECL_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
+    {
+      DECL_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
+      DECL_NAMELESS (expr) = (unsigned) bp_unpack_value (bp, 1);
+    }
   else if (TYPE_P (expr))
     TYPE_UNSIGNED (expr) = (unsigned) bp_unpack_value (bp, 1);
   else
@@ -226,10 +230,10 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
   DECL_PRESERVE_P (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_EXTERNAL (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_GIMPLE_REG_P (expr) = (unsigned) bp_unpack_value (bp, 1);
-  DECL_ALIGN (expr) = (unsigned) bp_unpack_var_len_unsigned (bp);
+  SET_DECL_ALIGN (expr, (unsigned) bp_unpack_var_len_unsigned (bp));
 #ifdef ACCEL_COMPILER
   if (DECL_ALIGN (expr) > targetm.absolute_biggest_alignment)
-    DECL_ALIGN (expr) = targetm.absolute_biggest_alignment;
+    SET_DECL_ALIGN (expr, targetm.absolute_biggest_alignment);
 #endif
   if (TREE_CODE (expr) == LABEL_DECL)
     {
@@ -247,7 +251,7 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
       expr->decl_common.off_align = bp_unpack_value (bp, 8);
     }
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       DECL_HAS_DEBUG_EXPR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_NONLOCAL_FRAME (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -255,11 +259,10 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 
   if (TREE_CODE (expr) == RESULT_DECL
       || TREE_CODE (expr) == PARM_DECL
-      || TREE_CODE (expr) == VAR_DECL)
+      || VAR_P (expr))
     {
       DECL_BY_REFERENCE (expr) = (unsigned) bp_unpack_value (bp, 1);
-      if (TREE_CODE (expr) == VAR_DECL
-	  || TREE_CODE (expr) == PARM_DECL)
+      if (VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
 	DECL_HAS_VALUE_EXPR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
     }
 }
@@ -289,7 +292,7 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
   DECL_VISIBILITY (expr) = (enum symbol_visibility) bp_unpack_value (bp,  2);
   DECL_VISIBILITY_SPECIFIED (expr) = (unsigned) bp_unpack_value (bp,  1);
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       DECL_HARD_REGISTER (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_IN_CONSTANT_POOL (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -374,10 +377,10 @@ unpack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
   else if (TREE_CODE (expr) == ARRAY_TYPE)
     TYPE_NONALIASED_COMPONENT (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_PRECISION (expr) = bp_unpack_var_len_unsigned (bp);
-  TYPE_ALIGN (expr) = bp_unpack_var_len_unsigned (bp);
+  SET_TYPE_ALIGN (expr, bp_unpack_var_len_unsigned (bp));
 #ifdef ACCEL_COMPILER
   if (TYPE_ALIGN (expr) > targetm.absolute_biggest_alignment)
-    TYPE_ALIGN (expr) = targetm.absolute_biggest_alignment;
+    SET_TYPE_ALIGN (expr, targetm.absolute_biggest_alignment);
 #endif
 }
 
@@ -708,12 +711,11 @@ lto_input_ts_decl_common_tree_pointers (struct lto_input_block *ib,
      for early inlining so drop it on the floor instead of ICEing in
      dwarf2out.c.  */
 
-  if ((TREE_CODE (expr) == VAR_DECL
-       || TREE_CODE (expr) == PARM_DECL)
+  if ((VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
       && DECL_HAS_VALUE_EXPR_P (expr))
     SET_DECL_VALUE_EXPR (expr, stream_read_tree (ib, data_in));
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       tree dexpr = stream_read_tree (ib, data_in);
       if (dexpr)
@@ -1106,57 +1108,6 @@ streamer_get_pickled_tree (struct lto_input_block *ib, struct data_in *data_in)
   result = streamer_tree_cache_get_tree (data_in->reader_cache, ix);
   gcc_assert (result
               && TREE_CODE (result) == lto_tag_to_tree_code (expected_tag));
-
-  return result;
-}
-
-
-/* Read a code and class from input block IB and return the
-   corresponding builtin.  DATA_IN is as in stream_read_tree.  */
-
-tree
-streamer_get_builtin_tree (struct lto_input_block *ib, struct data_in *data_in)
-{
-  enum built_in_class fclass;
-  enum built_in_function fcode;
-  const char *asmname;
-  tree result;
-
-  fclass = streamer_read_enum (ib, built_in_class, BUILT_IN_LAST);
-  gcc_assert (fclass == BUILT_IN_NORMAL || fclass == BUILT_IN_MD);
-
-  fcode = (enum built_in_function) streamer_read_uhwi (ib);
-
-  if (fclass == BUILT_IN_NORMAL)
-    {
-      if (fcode >= END_BUILTINS)
-	fatal_error (input_location,
-		     "machine independent builtin code out of range");
-      result = builtin_decl_explicit (fcode);
-      if (!result
-	  && fcode > BEGIN_CHKP_BUILTINS
-	  && fcode < END_CHKP_BUILTINS)
-	{
-	  fcode = (enum built_in_function) (fcode - BEGIN_CHKP_BUILTINS - 1);
-	  result = builtin_decl_explicit (fcode);
-	  result = chkp_maybe_clone_builtin_fndecl (result);
-	}
-      gcc_assert (result);
-    }
-  else if (fclass == BUILT_IN_MD)
-    {
-      result = targetm.builtin_decl (fcode, true);
-      if (!result || result == error_mark_node)
-	fatal_error (input_location, "target specific builtin not available");
-    }
-  else
-    gcc_unreachable ();
-
-  asmname = streamer_read_string (data_in, ib);
-  if (asmname)
-    set_builtin_user_assembler_name (result, asmname);
-
-  streamer_tree_cache_append (data_in->reader_cache, result, 0);
 
   return result;
 }

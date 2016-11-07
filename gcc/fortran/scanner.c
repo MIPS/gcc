@@ -336,7 +336,7 @@ add_path_to_list (gfc_directorylist **list, const char *path,
     }
   else if (!S_ISDIR (st.st_mode))
     {
-      gfc_warning_now (0, "%qs is not a directory", path);
+      gfc_fatal_error ("%qs is not a directory", path);
       return;
     }
 
@@ -1414,7 +1414,7 @@ restart:
 
       if (c != '&')
 	{
-	  if (in_string)
+	  if (in_string && gfc_current_locus.nextc)
 	    {
 	      gfc_current_locus.nextc--;
 	      if (warn_ampersand && in_string == INSTRING_WARN)
@@ -1427,7 +1427,10 @@ restart:
 	  /* Both !$omp and !$ -fopenmp continuation lines have & on the
 	     continuation line only optionally.  */
 	  else if (openmp_flag || openacc_flag || openmp_cond_flag)
-	    gfc_current_locus.nextc--;
+	    {
+	      if (gfc_current_locus.nextc)
+		  gfc_current_locus.nextc--;
+	    }
 	  else
 	    {
 	      c = ' ';
@@ -1556,6 +1559,7 @@ restart:
 not_continuation:
   c = '\n';
   gfc_current_locus = old_loc;
+  end_flag = 0;
 
 done:
   if (c == '\n')
@@ -2200,6 +2204,8 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
   FILE *input;
   int len, line_len;
   bool first_line;
+  struct stat st;
+  int stat_result;
   const char *filename;
   /* If realfilename and displayedname are different and non-null then
      surely realfilename is the preprocessed form of
@@ -2227,6 +2233,7 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
 	}
       else
 	input = gfc_open_file (realfilename);
+
       if (input == NULL)
 	{
 	  gfc_error_now ("Can't open file %qs", filename);
@@ -2240,6 +2247,15 @@ load_file (const char *realfilename, const char *displayedname, bool initial)
 	{
 	  fprintf (stderr, "%s:%d: Error: Can't open included file '%s'\n",
 		   current_file->filename, current_file->line, filename);
+	  return false;
+	}
+      stat_result = stat (realfilename, &st);
+      if (stat_result == 0 && !S_ISREG(st.st_mode))
+	{
+	  fprintf (stderr, "%s:%d: Error: Included path '%s'"
+		   " is not a regular file\n",
+		   current_file->filename, current_file->line, filename);
+	  fclose (input);
 	  return false;
 	}
     }

@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "c-target.h"
 #include "c-common.h"
+#include "memmodel.h"
 #include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
 #include "diagnostic.h"
 #include "c-pragma.h"
@@ -164,12 +165,12 @@ static void
 c_diagnostic_finalizer (diagnostic_context *context,
 			diagnostic_info *diagnostic)
 {
-  diagnostic_show_locus (context, diagnostic);
+  diagnostic_show_locus (context, diagnostic->richloc, diagnostic->kind);
   /* By default print macro expansion contexts in the diagnostic
      finalizer -- for tokens resulting from macro expansion.  */
   virt_loc_aware_diagnostic_finalizer (context, diagnostic);
   pp_destroy_prefix (context->printer);
-  pp_newline_and_flush (context->printer);
+  pp_flush (context->printer);
 }
 
 /* Common default settings for diagnostics.  */
@@ -216,6 +217,9 @@ c_common_init_options (unsigned int decoded_options_count,
   unsigned int i;
   struct cpp_callbacks *cb;
 
+  g_string_concat_db
+    = new (ggc_alloc <string_concat_db> ()) string_concat_db ();
+
   parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
 				ident_hash, line_table);
   cb = cpp_get_callbacks (parse_in);
@@ -245,6 +249,10 @@ c_common_init_options (unsigned int decoded_options_count,
 	    break;
 	  }
     }
+
+  /* Set C++ standard to C++14 if not specified on the command line.  */
+  if (c_dialect_cxx ())
+    set_std_cxx14 (/*ISO*/false);
 
   global_dc->colorize_source_p = true;
 }
@@ -372,6 +380,16 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       cpp_opts->warn_num_sign_change = value;
       break;
 
+    case OPT_Walloca_larger_than_:
+      if (!value)
+	inform (loc, "-Walloca-larger-than=0 is meaningless");
+      break;
+
+    case OPT_Wvla_larger_than_:
+      if (!value)
+	inform (loc, "-Wvla-larger-than=0 is meaningless");
+      break;
+
     case OPT_Wunknown_pragmas:
       /* Set to greater than 1, so that even unknown pragmas in
 	 system headers will be warned about.  */
@@ -432,7 +450,7 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffreestanding:
       value = !value;
-      /* Fall through....  */
+      /* Fall through.  */
     case OPT_fhosted:
       flag_hosted = value;
       flag_no_builtin = !value;
@@ -763,8 +781,7 @@ c_common_post_options (const char **pfilename)
      support.  */
   if (c_dialect_cxx ())
     {
-      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
-	  && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
+      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
 	sorry ("-fexcess-precision=standard for C++");
       flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
     }
@@ -801,10 +818,6 @@ c_common_post_options (const char **pfilename)
   if (!global_options_set.x_flag_tree_loop_distribute_patterns
       && flag_no_builtin)
     flag_tree_loop_distribute_patterns = 0;
-
-  /* Set C++ standard to C++14 if not specified on the command line.  */
-  if (c_dialect_cxx () && cxx_dialect == cxx_unset)
-    set_std_cxx14 (/*ISO*/false);
 
   /* -Woverlength-strings is off by default, but is enabled by -Wpedantic.
      It is never enabled in C++, as the minimum limit is not normative
@@ -868,6 +881,10 @@ c_common_post_options (const char **pfilename)
     warn_shift_negative_value = (extra_warnings
 				 && (cxx_dialect >= cxx11 || flag_isoc99));
 
+  /* -Wregister is enabled by default in C++17.  */
+  if (!global_options_set.x_warn_register)
+    warn_register = cxx_dialect >= cxx1z;
+
   /* Declone C++ 'structors if -Os.  */
   if (flag_declone_ctor_dtor == -1)
     flag_declone_ctor_dtor = optimize_size;
@@ -887,15 +904,15 @@ c_common_post_options (const char **pfilename)
     }
   else if (flag_abi_compat_version == -1)
     {
-      /* Generate compatibility aliases for ABI v8 (5.1) by default. */
+      /* Generate compatibility aliases for ABI v10 (6.1) by default. */
       flag_abi_compat_version
-	= (flag_abi_version == 0 ? 8 : 0);
+	= (flag_abi_version == 0 ? 10 : 0);
     }
 
   /* Change flag_abi_version to be the actual current ABI level for the
      benefit of c_cpp_builtins.  */
   if (flag_abi_version == 0)
-    flag_abi_version = 10;
+    flag_abi_version = 11;
 
   if (cxx_dialect >= cxx11)
     {
@@ -909,6 +926,12 @@ c_common_post_options (const char **pfilename)
     }
   else if (warn_narrowing == -1)
     warn_narrowing = 0;
+
+  /* C++17 has stricter evaluation order requirements; let's use some of them
+     for earlier C++ as well, so chaining works as expected.  */
+  if (c_dialect_cxx ()
+      && flag_strong_eval_order == -1)
+    flag_strong_eval_order = (cxx_dialect >= cxx1z ? 2 : 1);
 
   /* Global sized deallocation is new in C++14.  */
   if (flag_sized_deallocation == -1)
@@ -1267,6 +1290,11 @@ sanitize_cpp_opts (void)
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
 
+  if (warn_implicit_fallthrough < 5)
+    cpp_opts->cpp_warn_implicit_fallthrough = warn_implicit_fallthrough;
+  else
+    cpp_opts->cpp_warn_implicit_fallthrough = 0;
+
   if (cpp_opts->directives_only)
     {
       if (cpp_warn_unused_macros)
@@ -1519,6 +1547,8 @@ set_std_cxx98 (int iso)
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
+  flag_isoc94 = 0;
+  flag_isoc99 = 0;
   cxx_dialect = cxx98;
   lang_hooks.name = "GNU C++98";
 }
@@ -1564,8 +1594,6 @@ set_std_cxx1z (int iso)
   /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
-  /* Enable concepts by default. */
-  flag_concepts = 1;
   flag_isoc11 = 1;
   cxx_dialect = cxx1z;
   lang_hooks.name = "GNU C++14"; /* Pretend C++14 till standarization.  */

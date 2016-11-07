@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 */
 
 #include "config.h"
+#define INCLUDE_LIST
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
@@ -66,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "gimple-pretty-print.h"
 #include "data-streamer.h"
-#include <list>
 #include "fold-const.h"
 #include "calls.h"
 #include "varasm.h"
@@ -300,6 +300,7 @@ sem_function::get_hash (void)
 	 (cl_target_option_hash
 	   (TREE_TARGET_OPTION (DECL_FUNCTION_SPECIFIC_TARGET (decl))));
       if (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl))
+	hstate.add_wide_int
 	 (cl_optimization_hash
 	   (TREE_OPTIMIZATION (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl))));
       hstate.add_flag (DECL_CXX_CONSTRUCTOR_P (decl));
@@ -1643,7 +1644,7 @@ sem_function::hash_stmt (gimple *stmt, inchash::hash &hstate)
 	  add_type (TREE_TYPE (gimple_assign_lhs (stmt)), two);
 	  break;
 	}
-      /* ... fall through ... */
+      /* fall through */
     case GIMPLE_CALL:
     case GIMPLE_ASM:
     case GIMPLE_COND:
@@ -1695,6 +1696,11 @@ sem_function::parse (cgraph_node *node, bitmap_obstack *stack)
     return NULL;
 
   if (lookup_attribute_by_prefix ("omp ", DECL_ATTRIBUTES (node->decl)) != NULL)
+    return NULL;
+
+  /* PR ipa/70306.  */
+  if (DECL_STATIC_CONSTRUCTOR (node->decl)
+      || DECL_STATIC_DESTRUCTOR (node->decl))
     return NULL;
 
   sem_function *f = new sem_function (node, 0, stack);
@@ -2128,6 +2134,23 @@ sem_variable::get_hash (void)
   return m_hash;
 }
 
+/* Set all points-to UIDs of aliases pointing to node N as UID.  */
+
+static void
+set_alias_uids (symtab_node *n, int uid)
+{
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (n, ref)
+    {
+      if (dump_file)
+	fprintf (dump_file, "  Setting points-to UID of [%s] as %d\n",
+		 xstrdup_for_dump (ref->referring->asm_name ()), uid);
+
+      SET_DECL_PT_UID (ref->referring->decl, uid);
+      set_alias_uids (ref->referring, uid);
+    }
+}
+
 /* Merges instance with an ALIAS_ITEM, where alias, thunk or redirection can
    be applied.  */
 
@@ -2157,7 +2180,6 @@ sem_variable::merge (sem_item *alias_item)
   varpool_node *alias = alias_var->get_node ();
   bool original_discardable = false;
 
-  bool original_address_matters = original->address_matters_p ();
   bool alias_address_matters = alias->address_matters_p ();
 
   /* See if original is in a section that can be discarded if the main
@@ -2200,15 +2222,23 @@ sem_variable::merge (sem_item *alias_item)
     }
 
   /* We can not merge if address comparsion metters.  */
-  if (original_address_matters && alias_address_matters
-      && flag_merge_constants < 2)
+  if (alias_address_matters && flag_merge_constants < 2)
     {
       if (dump_file)
 	fprintf (dump_file,
-		 "Not unifying; "
-		 "adress of original and alias may be compared.\n\n");
+		 "Not unifying; address of original may be compared.\n\n");
       return false;
     }
+
+  if (DECL_ALIGN (original->decl) < DECL_ALIGN (alias->decl))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Not unifying; "
+		 "original and alias have incompatible alignments\n\n");
+
+      return false;
+    }
+
   if (DECL_COMDAT_GROUP (original->decl) != DECL_COMDAT_GROUP (alias->decl))
     {
       if (dump_file)
@@ -2245,8 +2275,9 @@ sem_variable::merge (sem_item *alias_item)
       alias->resolve_alias (original);
 
       if (dump_file)
-	fprintf (dump_file, "Unified; Variable alias has been created.\n\n");
+	fprintf (dump_file, "Unified; Variable alias has been created.\n");
 
+      set_alias_uids (original, DECL_UID (original->decl));
       return true;
     }
 }

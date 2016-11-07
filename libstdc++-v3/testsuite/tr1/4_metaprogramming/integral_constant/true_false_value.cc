@@ -24,14 +24,13 @@
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   using std::tr1::true_type;
   using std::tr1::false_type;
 
   VERIFY( true_type::value == true );
   VERIFY( false_type::value == false );
   VERIFY( true_type::type::value == true );
-  VERIFY( false_type::type::value == false );  
+  VERIFY( false_type::type::value == false );
 }
 
 int main()

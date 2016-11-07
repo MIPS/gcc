@@ -199,6 +199,11 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
       error_at (loc, "invalid expression type for %<#pragma omp atomic%>");
       return error_mark_node;
     }
+  if (TYPE_ATOMIC (type))
+    {
+      error_at (loc, "%<_Atomic%> expression in %<#pragma omp atomic%>");
+      return error_mark_node;
+    }
 
   if (opcode == RDIV_EXPR)
     opcode = TRUNC_DIV_EXPR;
@@ -207,7 +212,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 
   /* Take and save the address of the lhs.  From then on we'll reference it
      via indirection.  */
-  addr = build_unary_op (loc, ADDR_EXPR, lhs, 0);
+  addr = build_unary_op (loc, ADDR_EXPR, lhs, false);
   if (addr == error_mark_node)
     return error_mark_node;
   if (!test)
@@ -298,14 +303,14 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 			     loc, x, NULL_TREE);
       if (rhs1 && rhs1 != lhs)
 	{
-	  tree rhs1addr = build_unary_op (loc, ADDR_EXPR, rhs1, 0);
+	  tree rhs1addr = build_unary_op (loc, ADDR_EXPR, rhs1, false);
 	  if (rhs1addr == error_mark_node)
 	    return error_mark_node;
 	  x = omit_one_operand_loc (loc, type, x, rhs1addr);
 	}
       if (lhs1 && lhs1 != lhs)
 	{
-	  tree lhs1addr = build_unary_op (loc, ADDR_EXPR, lhs1, 0);
+	  tree lhs1addr = build_unary_op (loc, ADDR_EXPR, lhs1, false);
 	  if (lhs1addr == error_mark_node)
 	    return error_mark_node;
 	  if (code == OMP_ATOMIC_CAPTURE_OLD)
@@ -320,7 +325,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
     }
   else if (rhs1 && rhs1 != lhs)
     {
-      tree rhs1addr = build_unary_op (loc, ADDR_EXPR, rhs1, 0);
+      tree rhs1addr = build_unary_op (loc, ADDR_EXPR, rhs1, false);
       if (rhs1addr == error_mark_node)
 	return error_mark_node;
       x = omit_one_operand_loc (loc, type, x, rhs1addr);
@@ -479,6 +484,14 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
 	{
 	  error_at (elocus, "invalid type for iteration variable %qE", decl);
 	  fail = true;
+	}
+      else if (TYPE_ATOMIC (TREE_TYPE (decl)))
+	{
+	  error_at (elocus, "%<_Atomic%> iteration variable %qE", decl);
+	  fail = true;
+	  /* _Atomic iterator confuses stuff too much, so we risk ICE
+	     trying to diagnose it further.  */
+	  continue;
 	}
 
       /* In the case of "for (int i = 0...)", init will be a decl.  It should
@@ -861,9 +874,10 @@ c_omp_check_loop_iv_exprs (location_t stmt_loc, tree declv, tree decl,
    #pragma acc parallel loop  */
 
 tree
-c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
+c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses,
+			   bool is_parallel)
 {
-  tree next, loop_clauses;
+  tree next, loop_clauses, nc;
 
   loop_clauses = *not_loop_clauses = NULL_TREE;
   for (; clauses ; clauses = next)
@@ -882,7 +896,23 @@ c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_PRIVATE:
+	  OMP_CLAUSE_CHAIN (clauses) = loop_clauses;
+	  loop_clauses = clauses;
+	  break;
+
+	  /* Reductions must be duplicated on both constructs.  */
 	case OMP_CLAUSE_REDUCTION:
+	  if (is_parallel)
+	    {
+	      nc = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+				     OMP_CLAUSE_REDUCTION);
+	      OMP_CLAUSE_DECL (nc) = OMP_CLAUSE_DECL (clauses);
+	      OMP_CLAUSE_REDUCTION_CODE (nc)
+		= OMP_CLAUSE_REDUCTION_CODE (clauses);
+	      OMP_CLAUSE_CHAIN (nc) = *not_loop_clauses;
+	      *not_loop_clauses = nc;
+	    }
+
 	  OMP_CLAUSE_CHAIN (clauses) = loop_clauses;
 	  loop_clauses = clauses;
 	  break;
@@ -966,6 +996,7 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	case OMP_CLAUSE_MAP:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_DEFAULTMAP:
+	case OMP_CLAUSE_DEPEND:
 	  s = C_OMP_CLAUSE_SPLIT_TARGET;
 	  break;
 	case OMP_CLAUSE_NUM_TEAMS:
@@ -981,7 +1012,6 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	  s = C_OMP_CLAUSE_SPLIT_PARALLEL;
 	  break;
 	case OMP_CLAUSE_ORDERED:
-	case OMP_CLAUSE_NOWAIT:
 	  s = C_OMP_CLAUSE_SPLIT_FOR;
 	  break;
 	case OMP_CLAUSE_SCHEDULE:
@@ -1313,6 +1343,18 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	     innermost construct.  */
 	  if (code == OMP_SIMD)
 	    s = C_OMP_CLAUSE_SPLIT_SIMD;
+	  else
+	    s = C_OMP_CLAUSE_SPLIT_FOR;
+	  break;
+	case OMP_CLAUSE_NOWAIT:
+	  /* Nowait clause is allowed on target, for and sections, but
+	     is not allowed on parallel for or parallel sections.  Therefore,
+	     put it on target construct if present, because that can only
+	     be combined with parallel for{, simd} and not with for{, simd},
+	     otherwise to the worksharing construct.  */
+	  if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP))
+	      != 0)
+	    s = C_OMP_CLAUSE_SPLIT_TARGET;
 	  else
 	    s = C_OMP_CLAUSE_SPLIT_FOR;
 	  break;

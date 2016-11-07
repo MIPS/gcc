@@ -305,12 +305,16 @@ supportable_convert_operation (enum tree_code code,
    and resulting mask with MASK_TYPE.  */
 
 bool
-expand_vec_cmp_expr_p (tree value_type, tree mask_type)
+expand_vec_cmp_expr_p (tree value_type, tree mask_type, enum tree_code code)
 {
-  enum insn_code icode = get_vec_cmp_icode (TYPE_MODE (value_type),
-					    TYPE_MODE (mask_type),
-					    TYPE_UNSIGNED (value_type));
-  return (icode != CODE_FOR_nothing);
+  if (get_vec_cmp_icode (TYPE_MODE (value_type), TYPE_MODE (mask_type),
+			 TYPE_UNSIGNED (value_type)) != CODE_FOR_nothing)
+    return true;
+  if ((code == EQ_EXPR || code == NE_EXPR)
+      && (get_vec_cmp_eq_icode (TYPE_MODE (value_type), TYPE_MODE (mask_type))
+	  != CODE_FOR_nothing))
+    return true;
+  return false;
 }
 
 /* Return TRUE iff, appropriate vector insns are available
@@ -318,18 +322,26 @@ expand_vec_cmp_expr_p (tree value_type, tree mask_type)
    with operand vector types in CMP_OP_TYPE.  */
 
 bool
-expand_vec_cond_expr_p (tree value_type, tree cmp_op_type)
+expand_vec_cond_expr_p (tree value_type, tree cmp_op_type, enum tree_code code)
 {
   machine_mode value_mode = TYPE_MODE (value_type);
   machine_mode cmp_op_mode = TYPE_MODE (cmp_op_type);
-  if (VECTOR_BOOLEAN_TYPE_P (cmp_op_type))
-    return get_vcond_mask_icode (TYPE_MODE (value_type),
-				 TYPE_MODE (cmp_op_type)) != CODE_FOR_nothing;
+  if (VECTOR_BOOLEAN_TYPE_P (cmp_op_type)
+      && get_vcond_mask_icode (TYPE_MODE (value_type),
+			       TYPE_MODE (cmp_op_type)) != CODE_FOR_nothing)
+    return true;
+
   if (GET_MODE_SIZE (value_mode) != GET_MODE_SIZE (cmp_op_mode)
-      || GET_MODE_NUNITS (value_mode) != GET_MODE_NUNITS (cmp_op_mode)
-      || get_vcond_icode (TYPE_MODE (value_type), TYPE_MODE (cmp_op_type),
-			  TYPE_UNSIGNED (cmp_op_type)) == CODE_FOR_nothing)
+      || GET_MODE_NUNITS (value_mode) != GET_MODE_NUNITS (cmp_op_mode))
     return false;
+
+  if (get_vcond_icode (TYPE_MODE (value_type), TYPE_MODE (cmp_op_type),
+		       TYPE_UNSIGNED (cmp_op_type)) == CODE_FOR_nothing
+      && ((code != EQ_EXPR && code != NE_EXPR)
+	  || get_vcond_eq_icode (TYPE_MODE (value_type),
+				 TYPE_MODE (cmp_op_type)) == CODE_FOR_nothing))
+    return false;
+
   return true;
 }
 
