@@ -17972,13 +17972,6 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, grid_prop *grid)
 			     "clause is present\n ");
 	  return false;
 
-	case OMP_CLAUSE_LASTPRIVATE:
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
-			     GRID_MISSED_MSG_PREFIX "a lastprivate "
-			     "clause is present\n ");
-	  return false;
-
 	case OMP_CLAUSE_THREAD_LIMIT:
 	  if (!integer_zerop (OMP_CLAUSE_OPERAND (clauses, 0)))
 	    group_size = OMP_CLAUSE_OPERAND (clauses, 0);

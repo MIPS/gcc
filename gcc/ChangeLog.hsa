@@ -1,5 +1,10 @@
 2016-11-07  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (grid_target_follows_gridifiable_pattern): Do not
+	check for lastprivate clause on teams construct.
+
+2016-11-07  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (hsa_get_declaration_name): Append UID to local variable
 	names.
 
