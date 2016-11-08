@@ -5599,6 +5599,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 		      x = build_call_expr_internal_loc
 			(UNKNOWN_LOCATION, IFN_GOMP_SIMT_XCHG_IDX,
 			 TREE_TYPE (new_var), 2, new_var, simtlast);
+		      new_var = unshare_expr (new_var);
 		      gimplify_assign (new_var, x, stmt_list);
 		      new_var = unshare_expr (new_var);
 		    }
