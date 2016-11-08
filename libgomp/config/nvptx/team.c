@@ -23,7 +23,7 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-/* This file handles the maintainence of threads on NVPTX.  */
+/* This file handles maintainance of threads on NVPTX.  */
 
 #if defined __nvptx_softstack__ && defined __nvptx_unisimt__
 
@@ -34,6 +34,16 @@
 struct gomp_thread *nvptx_thrs __attribute__((shared,nocommon));
 
 static void gomp_thread_start (struct gomp_thread_pool *);
+
+
+/* This externally visible function handles target region entry.  It
+   sets up a per-team thread pool and transfers control by calling FN (FN_DATA)
+   in the master thread or gomp_thread_start in other threads.
+
+   The name of this function is part of the interface with the compiler: for
+   each target region, GCC emits a PTX .kernel function that sets up soft-stack
+   and uniform-simt state and calls this function, passing in FN the original
+   function outlined for the target region.  */
 
 void
 gomp_nvptx_main (void (*fn) (void *), void *fn_data)
@@ -73,8 +83,8 @@ gomp_nvptx_main (void (*fn) (void *), void *fn_data)
     }
 }
 
-/* This function is a pthread_create entry point.  This contains the idle
-   loop in which a thread waits to be called up to become part of a team.  */
+/* This function contains the idle loop in which a thread waits
+   to be called up to become part of a team.  */
 
 static void
 gomp_thread_start (struct gomp_thread_pool *pool)
