@@ -1,5 +1,14 @@
 2016-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (fix_trunc<SFDF:mode><QHI:mode>2):
+	Rewrite conversion of floating point to char/short optimization to
+	require -mvsx-small-integer.
+	(fix_trunc<SFDF:mode><QHI:mode>2): Likewise.
+	(fixuns_trunc<SFDF:mode><QHI:mode>2): Likewise.
+	(fixuns_trunc<SFDF:mode><QHI:mode>2_internal): Likewise.
+
+	* config/rs6000/vsx.md (p9_lxsi<wd>zx): Delete, no longer used.
+
 	* config/rs6000/rs6000.md (float<QHI:mode><FP_ISA3:mode>2):
 	Rewrite char/short to floating point conversion optimization to
 	require -mvsx-small-integer.
@@ -14,7 +23,7 @@
 	(rs6000_secondary_reload_simple_move): Likewise.
 	(rs6000_preferred_reload_class): If -mvsx-small-integer and
 	-mpower9-vector, don't force constants we can load with XXSPLTIB
-	and sign extend to come from memroy.
+	and sign extend to come from memory.
 
 	* config/rs6000/rs6000.md (INT_ISA3): Add support for HImode to go
 	in vector registers if -mvsx-small-integer and -mpower9-vector.

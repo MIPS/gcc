@@ -3254,15 +3254,6 @@
 
 
 ;; ISA 3.0 memory operations
-(define_insn "p9_lxsi<wd>zx"
-  [(set (match_operand:DI 0 "vsx_register_operand" "=wi")
-	(unspec:DI [(zero_extend:DI
-		     (match_operand:QHI 1 "indexed_or_indirect_operand" "Z"))]
-		   UNSPEC_P9_MEMORY))]
-  "TARGET_P9_VECTOR"
-  "lxsi<wd>zx %x0,%y1"
-  [(set_attr "type" "fpload")])
-
 (define_insn "p9_stxsi<wd>x"
   [(set (match_operand:QHI 0 "reg_or_indexed_operand" "=r,Z")
 	(unspec:QHI [(match_operand:DI 1 "vsx_register_operand" "wi,wi")]
