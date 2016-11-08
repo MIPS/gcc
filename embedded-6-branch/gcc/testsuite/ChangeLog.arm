@@ -1,3 +1,18 @@
+2016-11-08  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Backport from mainline
+	2016-10-21  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/pure-code/pure-code.exp: Require arm_cortex_m
+	effective target.
+
+	2016-09-22  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+		    Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/pure-code/ffunction-sections.c: New.
+	* gcc.target/arm/pure-code/no-literal-pool.c: New.
+	* gcc.target/arm/pure-code/pure-code.exp: New.
+
 2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
