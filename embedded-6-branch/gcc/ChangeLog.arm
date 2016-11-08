@@ -1,3 +1,12 @@
+2016-11-08  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Backport from mainline
+	2016-05-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.ac: Treat a --with-headers option without argument
+	the same as the default (i.e. consult sys-include directory).
+	* configure: Regenerate.
+
 2016-10-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
