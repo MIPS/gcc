@@ -18,5 +18,5 @@ void store_asm_v_constraint (short *p, double x)
   *p = i;
 }
 
-/* { dg-final { scan-assembler "lxsihx"  } } */
+/* { dg-final { scan-assembler "lxsihzx" } } */
 /* { dg-final { scan-assembler "stxsihx" } } */

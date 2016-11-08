@@ -18,5 +18,5 @@ void store_asm_v_constraint (signed char *p, double x)
   *p = i;
 }
 
-/* { dg-final { scan-assembler "lxsibx"  } } */
+/* { dg-final { scan-assembler "lxsibzx" } } */
 /* { dg-final { scan-assembler "stxsibx" } } */

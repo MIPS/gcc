@@ -13,10 +13,10 @@ double load_asm_d_constraint (signed char *p)
 
 void store_asm_d_constraint (signed char *p, double x)
 {
-  short i;
+  signed char i;
   __asm__ ("xxlor %x0,%x1,%x1\t# store d constraint" : "=d" (i) : "d" (x));
   *p = i;
 }
 
-/* { dg-final { scan-assembler "lxsibx"  } } */
+/* { dg-final { scan-assembler "lxsibzx" } } */
 /* { dg-final { scan-assembler "stxsibx" } } */
