@@ -1,5 +1,20 @@
 2016-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (UNSPEC_P9_MEMORY): Delete, the unspec is
+	no longer used.
+	(vsx_extract_<mode>): With -mvsx-small-integer on ISA 3.0,
+	eliminate the old code that worked around not being able to put
+	the small integer types directly into the vector registers, and
+	rewrite the extracts to use the native types.  Optimize zero
+	extracts on ISA 3.0, since the VEXTRACTU{B,H,W} already zero
+	extends the value.
+	(vsx_extract_<mode>_p): Likewise.
+	(vsx_extract_<mode>_di): Likewise.
+	(vsx_extract_<mode>_di_p9): Likewise.
+	(vsx_extract_si): Likewise.
+	(vsx_extract_<mode>_p8): Likewise.
+	(p9_stxsi<wd>x): Delete, no longer used.
+
 	* config/rs6000/rs6000.md (fix_trunc<SFDF:mode><QHI:mode>2):
 	Rewrite conversion of floating point to char/short optimization to
 	require -mvsx-small-integer.
