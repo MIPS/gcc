@@ -1,12 +1,3 @@
-2016-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* config/rs6000/rs6000.md (movsi_internal1_single): Remove ?* from
-	constraints targeting stores from floating point and vector
-	registers.
-	(mov<mode>_internal, QHI iterator): Likewise.
-	(movdi_internal32): Likewise.
-	(movdi_internal64): Likewise.
-
 2016-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_extract_<mode>_store_p9): Add store
