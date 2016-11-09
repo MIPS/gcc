@@ -201,7 +201,10 @@ _gfortran_caf_deregister (caf_token_t *token, caf_deregister_t type, int *stat,
     free (single_token->memptr);
 
   if (type != CAF_DEREGTYPE_COARRAY_DEALLOCATE_ONLY)
-    free (TOKEN (*token));
+    {
+      free (TOKEN (*token));
+      *token = NULL;
+    }
   else
     {
       single_token->memptr = NULL;
