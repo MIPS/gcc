@@ -1731,9 +1731,26 @@ cprop_into_stmt (gimple *stmt)
 {
   use_operand_p op_p;
   ssa_op_iter iter;
+  tree last_copy_propagated_op = NULL;
 
   FOR_EACH_SSA_USE_OPERAND (op_p, stmt, iter, SSA_OP_USE)
-    cprop_operand (stmt, op_p);
+    {
+      tree old_op = USE_FROM_PTR (op_p);
+
+      /* If we have A = B and B = A in the copy propagation tables
+	 (due to an equality comparison), avoid substituting B for A
+	 then A for B in the trivially discovered cases.   This allows
+	 optimization of statements were A and B appear as input
+	 operands.  */
+      if (old_op != last_copy_propagated_op)
+	{
+	  cprop_operand (stmt, op_p);
+
+	  tree new_op = USE_FROM_PTR (op_p);
+	  if (new_op != old_op && TREE_CODE (new_op) == SSA_NAME)
+	    last_copy_propagated_op = new_op;
+	}
+    }
 }
 
 /* Optimize the statement in block BB pointed to by iterator SI
@@ -1923,12 +1940,11 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si,
     {
       tree val = NULL;
 
-      update_stmt_if_modified (stmt);
-
       if (gimple_code (stmt) == GIMPLE_COND)
         val = fold_binary_loc (gimple_location (stmt),
-			   gimple_cond_code (stmt), boolean_type_node,
-                           gimple_cond_lhs (stmt),  gimple_cond_rhs (stmt));
+			       gimple_cond_code (stmt), boolean_type_node,
+			       gimple_cond_lhs (stmt),
+			       gimple_cond_rhs (stmt));
       else if (gswitch *swtch_stmt = dyn_cast <gswitch *> (stmt))
 	val = gimple_switch_index (swtch_stmt);
 
@@ -1946,12 +1962,16 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si,
 		    gimple_cond_make_true (as_a <gcond *> (stmt));
 		  else
 		    gcc_unreachable ();
+
+		  gimple_set_modified (stmt, true);
 		}
 
 	      /* Further simplifications may be possible.  */
 	      cfg_altered = true;
 	    }
 	}
+
+      update_stmt_if_modified (stmt);
 
       /* If we simplified a statement in such a way as to be shown that it
 	 cannot trap, update the eh information and the cfg to match.  */

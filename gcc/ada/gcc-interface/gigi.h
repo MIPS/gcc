@@ -174,10 +174,6 @@ enum alias_set_op
 extern void relate_alias_sets (tree gnu_new_type, tree gnu_old_type,
 			       enum alias_set_op op);
 
-/* Given a GNU tree and a GNAT list of choices, generate an expression to test
-   the value passed against the list of choices.  */
-extern tree choices_to_gnu (tree operand, Node_Id choices);
-
 /* Given GNAT_ENTITY, an object (constant, variable, parameter, exception)
    and GNU_TYPE, its corresponding GCC type, set Esize and Alignment to the
    size and alignment used by Gigi.  Prefer SIZE over TYPE_SIZE if non-null.
@@ -394,12 +390,14 @@ enum standard_datatypes
   /* Value BITS_PER_UNIT in signed bitsizetype.  */
   ADT_sbitsize_unit_node,
 
-  /* Function declaration nodes for run-time functions for allocating memory.
-     Ada allocators cause calls to this function to be generated.  */
+  /* Function declaration node for run-time allocation function.  */
   ADT_malloc_decl,
 
-  /* Likewise for freeing memory.  */
+  /* Function declaration node for run-time freeing function.  */
   ADT_free_decl,
+
+  /* Function declaration node for run-time reallocation function.  */
+  ADT_realloc_decl,
 
   /* Function decl node for 64-bit multiplication with overflow checking.  */
   ADT_mulv64_decl,
@@ -471,6 +469,7 @@ extern GTY(()) tree gnat_raise_decls_ext[(int) LAST_REASON_CODE + 1];
 #define sbitsize_unit_node gnat_std_decls[(int) ADT_sbitsize_unit_node]
 #define malloc_decl gnat_std_decls[(int) ADT_malloc_decl]
 #define free_decl gnat_std_decls[(int) ADT_free_decl]
+#define realloc_decl gnat_std_decls[(int) ADT_realloc_decl]
 #define mulv64_decl gnat_std_decls[(int) ADT_mulv64_decl]
 #define parent_name_id gnat_std_decls[(int) ADT_parent_name_id]
 #define exception_data_name_id gnat_std_decls[(int) ADT_exception_data_name_id]
@@ -857,9 +856,11 @@ extern tree build_load_modify_store (tree dest, tree src, Node_Id gnat_node);
 /* Make a binary operation of kind OP_CODE.  RESULT_TYPE is the type
    desired for the result.  Usually the operation is to be performed
    in that type.  For MODIFY_EXPR and ARRAY_REF, RESULT_TYPE may be 0
-   in which case the type to be used will be derived from the operands.  */
+   in which case the type to be used will be derived from the operands.
+   Don't fold the result if NO_FOLD is true.  */
 extern tree build_binary_op (enum tree_code op_code, tree result_type,
-                             tree left_operand, tree right_operand);
+			     tree left_operand, tree right_operand,
+			     bool no_fold=false);
 
 /* Similar, but make unary operation.  */
 extern tree build_unary_op (enum tree_code op_code, tree result_type,
@@ -1012,6 +1013,11 @@ extern void process_deferred_decl_context (bool force);
    the debug info, or Empty if there is no such scope.  If not NULL, set
    IS_SUBPROGRAM to whether the returned entity is a subprogram.  */
 extern Entity_Id get_debug_scope (Node_Id gnat_node, bool *is_subprogram);
+
+/* Return whether EXPR, which is the renamed object in an object renaming
+   declaration, can be materialized as a reference (REFERENCE_TYPE).  This
+   should be synchronized with Exp_Dbug.Debug_Renaming_Declaration.  */
+extern bool can_materialize_object_renaming_p (Node_Id expr);
 
 #ifdef __cplusplus
 extern "C" {

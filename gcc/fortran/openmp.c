@@ -567,43 +567,67 @@ cleanup:
 }
 
 static match
-match_oacc_clause_gang (gfc_omp_clauses *cp)
+match_oacc_clause_gwv (gfc_omp_clauses *cp, unsigned gwv)
 {
   match ret = MATCH_YES;
 
   if (gfc_match (" ( ") != MATCH_YES)
     return MATCH_NO;
 
-  /* The gang clause accepts two optional arguments, num and static.
-     The num argument may either be explicit (num: <val>) or
-     implicit without (<val> without num:).  */
-
-  while (ret == MATCH_YES)
+  if (gwv == GOMP_DIM_GANG)
     {
-      if (gfc_match (" static :") == MATCH_YES)
+        /* The gang clause accepts two optional arguments, num and static.
+	 The num argument may either be explicit (num: <val>) or
+	 implicit without (<val> without num:).  */
+
+      while (ret == MATCH_YES)
 	{
-	  if (cp->gang_static)
-	    return MATCH_ERROR;
+	  if (gfc_match (" static :") == MATCH_YES)
+	    {
+	      if (cp->gang_static)
+		return MATCH_ERROR;
+	      else
+		cp->gang_static = true;
+	      if (gfc_match_char ('*') == MATCH_YES)
+		cp->gang_static_expr = NULL;
+	      else if (gfc_match (" %e ", &cp->gang_static_expr) != MATCH_YES)
+		return MATCH_ERROR;
+	    }
 	  else
-	    cp->gang_static = true;
-	  if (gfc_match_char ('*') == MATCH_YES)
-	    cp->gang_static_expr = NULL;
-	  else if (gfc_match (" %e ", &cp->gang_static_expr) != MATCH_YES)
-	    return MATCH_ERROR;
-	}
-      else
-	{
-	  /* This is optional.  */
-	  if (cp->gang_num_expr || gfc_match (" num :") == MATCH_ERROR)
-	    return MATCH_ERROR;
-	  else if (gfc_match (" %e ", &cp->gang_num_expr) != MATCH_YES)
-	    return MATCH_ERROR;
-	}
+	    {
+	      if (cp->gang_num_expr)
+		return MATCH_ERROR;
 
-      ret = gfc_match (" , ");
+	      /* The 'num' argument is optional.  */
+	      gfc_match (" num :");
+
+	      if (gfc_match (" %e ", &cp->gang_num_expr) != MATCH_YES)
+		return MATCH_ERROR;
+	    }
+
+	  ret = gfc_match (" , ");
+	}
     }
+  else if (gwv == GOMP_DIM_WORKER)
+    {
+      /* The 'num' argument is optional.  */
+      gfc_match (" num :");
 
-  return gfc_match (" ) ");
+      if (gfc_match (" %e ", &cp->worker_expr) != MATCH_YES)
+	return MATCH_ERROR;
+    }
+  else if (gwv == GOMP_DIM_VECTOR)
+    {
+      /* The 'length' argument is optional.  */
+      gfc_match (" length :");
+
+      if (gfc_match (" %e ", &cp->vector_expr) != MATCH_YES)
+	return MATCH_ERROR;
+    }
+  else
+    gfc_fatal_error ("Unexpected OpenACC parallelism.");
+
+  return gfc_match (" )");
 }
 
 static match
@@ -965,14 +989,20 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && gfc_match ("async") == MATCH_YES)
 	    {
 	      c->async = true;
-	      needs_space = false;
-	      if (gfc_match (" ( %e )", &c->async_expr) != MATCH_YES)
+	      match m = gfc_match (" ( %e )", &c->async_expr);
+	      if (m == MATCH_ERROR)
+		{
+		  gfc_current_locus = old_loc;
+		  break;
+		}
+	      else if (m == MATCH_NO)
 		{
 		  c->async_expr
 		    = gfc_get_constant_expr (BT_INTEGER,
 					     gfc_default_integer_kind,
 					     &gfc_current_locus);
 		  mpz_set_si (c->async_expr->value.integer, GOMP_ASYNC_NOVAL);
+		  needs_space = true;
 		}
 	      continue;
 	    }
@@ -1187,9 +1217,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && gfc_match ("gang") == MATCH_YES)
 	    {
 	      c->gang = true;
-	      if (match_oacc_clause_gang(c) == MATCH_YES)
-		needs_space = false;
-	      else
+	      match m = match_oacc_clause_gwv (c, GOMP_DIM_GANG);
+	      if (m == MATCH_ERROR)
+		{
+		  gfc_current_locus = old_loc;
+		  break;
+		}
+	      else if (m == MATCH_NO)
 		needs_space = true;
 	      continue;
 	    }
@@ -1821,23 +1855,28 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	    continue;
 	  break;
 	case 'v':
-	  if ((mask & OMP_CLAUSE_VECTOR)
-	      && !c->vector
-	      && gfc_match ("vector") == MATCH_YES)
-	    {
-	      c->vector = true;
-	      if (gfc_match (" ( length : %e )", &c->vector_expr) == MATCH_YES
-		  || gfc_match (" ( %e )", &c->vector_expr) == MATCH_YES)
-		needs_space = false;
-	      else
-		needs_space = true;
-	      continue;
-	    }
+	  /* VECTOR_LENGTH must be matched before VECTOR, because the latter
+	     doesn't unconditionally match '('.  */
 	  if ((mask & OMP_CLAUSE_VECTOR_LENGTH)
 	      && c->vector_length_expr == NULL
 	      && (gfc_match ("vector_length ( %e )", &c->vector_length_expr)
 		  == MATCH_YES))
 	    continue;
+	  if ((mask & OMP_CLAUSE_VECTOR)
+	      && !c->vector
+	      && gfc_match ("vector") == MATCH_YES)
+	    {
+	      c->vector = true;
+	      match m = match_oacc_clause_gwv (c, GOMP_DIM_VECTOR);
+	      if (m == MATCH_ERROR)
+		{
+		  gfc_current_locus = old_loc;
+		  break;
+		}
+	      if (m == MATCH_NO)
+		needs_space = true;
+	      continue;
+	    }
 	  break;
 	case 'w':
 	  if ((mask & OMP_CLAUSE_WAIT)
@@ -1845,7 +1884,14 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && gfc_match ("wait") == MATCH_YES)
 	    {
 	      c->wait = true;
-	      match_oacc_expr_list (" (", &c->wait_list, false);
+	      match m = match_oacc_expr_list (" (", &c->wait_list, false);
+	      if (m == MATCH_ERROR)
+		{
+		  gfc_current_locus = old_loc;
+		  break;
+		}
+	      else if (m == MATCH_NO)
+		needs_space = true;
 	      continue;
 	    }
 	  if ((mask & OMP_CLAUSE_WORKER)
@@ -1853,10 +1899,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && gfc_match ("worker") == MATCH_YES)
 	    {
 	      c->worker = true;
-	      if (gfc_match (" ( num : %e )", &c->worker_expr) == MATCH_YES
-		  || gfc_match (" ( %e )", &c->worker_expr) == MATCH_YES)
-		needs_space = false;
-	      else
+	      match m = match_oacc_clause_gwv (c, GOMP_DIM_WORKER);
+	      if (m == MATCH_ERROR)
+		{
+		  gfc_current_locus = old_loc;
+		  break;
+		}
+	      else if (m == MATCH_NO)
 		needs_space = true;
 	      continue;
 	    }
@@ -2113,15 +2162,18 @@ gfc_match_oacc_wait (void)
 {
   gfc_omp_clauses *c = gfc_get_omp_clauses ();
   gfc_expr_list *wait_list = NULL, *el;
+  bool space = true;
+  match m;
 
-  match_oacc_expr_list (" (", &wait_list, true);
-  gfc_match_omp_clauses (&c, OACC_WAIT_CLAUSES, false, false, true);
+  m = match_oacc_expr_list (" (", &wait_list, true);
+  if (m == MATCH_ERROR)
+    return m;
+  else if (m == MATCH_YES)
+    space = false;
 
-  if (gfc_match_omp_eos () != MATCH_YES)
-    {
-      gfc_error ("Unexpected junk in !$ACC WAIT at %C");
-      return MATCH_ERROR;
-    }
+  if (gfc_match_omp_clauses (&c, OACC_WAIT_CLAUSES, space, space, true)
+      == MATCH_ERROR)
+    return MATCH_ERROR;
 
   if (wait_list)
     for (el = wait_list; el; el = el->next)
@@ -2525,6 +2577,12 @@ gfc_match_omp_declare_simd (void)
   if (gfc_match_omp_clauses (&c, OMP_DECLARE_SIMD_CLAUSES, true,
 			     needs_space) != MATCH_YES)
     return MATCH_ERROR;
+
+  if (gfc_current_ns->is_block_data)
+    {
+      gfc_free_omp_clauses (c);
+      return MATCH_YES;
+    }
 
   ods = gfc_get_omp_declare_simd ();
   ods->where = where;
@@ -4621,17 +4679,24 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 			      && CLASS_DATA (n->sym)->attr.allocatable))
 			gfc_error ("ALLOCATABLE object %qs in %s clause at %L",
 				   n->sym->name, name, &n->where);
-		      if (n->sym->attr.pointer
-			  || (n->sym->ts.type == BT_CLASS && CLASS_DATA (n->sym)
-			      && CLASS_DATA (n->sym)->attr.class_pointer))
-			gfc_error ("POINTER object %qs in %s clause at %L",
-				   n->sym->name, name, &n->where);
+		      if (n->sym->ts.type == BT_CLASS
+			  && CLASS_DATA (n->sym)
+			  && CLASS_DATA (n->sym)->attr.class_pointer)
+			gfc_error ("POINTER object %qs of polymorphic type in "
+				   "%s clause at %L", n->sym->name, name,
+				   &n->where);
 		      if (n->sym->attr.cray_pointer)
 			gfc_error ("Cray pointer object %qs in %s clause at %L",
 				   n->sym->name, name, &n->where);
-		      if (n->sym->attr.cray_pointee)
+		      else if (n->sym->attr.cray_pointee)
 			gfc_error ("Cray pointee object %qs in %s clause at %L",
 				   n->sym->name, name, &n->where);
+		      else if (n->sym->attr.flavor == FL_VARIABLE
+			       && !n->sym->as
+			       && !n->sym->attr.pointer)
+			gfc_error ("%s clause variable %qs at %L is neither "
+				   "a POINTER nor an array", name,
+				   n->sym->name, &n->where);
 		      /* FALLTHRU */
 		  case OMP_LIST_DEVICE_RESIDENT:
 		    check_symbol_not_pointer (n->sym, n->where, name);
@@ -4796,12 +4861,33 @@ resolve_omp_atomic (gfc_code *code)
     = (gfc_omp_atomic_op) (atomic_code->ext.omp_atomic & GFC_OMP_ATOMIC_MASK);
 
   code = code->block->next;
-  gcc_assert (code->op == EXEC_ASSIGN);
-  gcc_assert (((aop != GFC_OMP_ATOMIC_CAPTURE) && code->next == NULL)
-	      || ((aop == GFC_OMP_ATOMIC_CAPTURE)
-		  && code->next != NULL
-		  && code->next->op == EXEC_ASSIGN
-		  && code->next->next == NULL));
+  /* resolve_blocks asserts this is initially EXEC_ASSIGN.
+     If it changed to EXEC_NOP, assume an error has been emitted already.  */
+  if (code->op == EXEC_NOP)
+    return;
+  if (code->op != EXEC_ASSIGN)
+    {
+    unexpected:
+      gfc_error ("unexpected !$OMP ATOMIC expression at %L", &code->loc);
+      return;
+    }
+  if (aop != GFC_OMP_ATOMIC_CAPTURE)
+    {
+      if (code->next != NULL)
+	goto unexpected;
+    }
+  else
+    {
+      if (code->next == NULL)
+	goto unexpected;
+      if (code->next->op == EXEC_NOP)
+	return;
+      if (code->next->op != EXEC_ASSIGN || code->next->next)
+	{
+	  code = code->next;
+	  goto unexpected;
+	}
+    }
 
   if (code->expr1->expr_type != EXPR_VARIABLE
       || code->expr1->symtree == NULL

@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "tree-inline.h"
@@ -319,10 +320,14 @@ inline_call (struct cgraph_edge *e, bool update_original,
     to = to->global.inlined_to;
   if (to->thunk.thunk_p)
     {
+      struct cgraph_node *target = to->callees->callee;
       if (in_lto_p)
 	to->get_untransformed_body ();
       to->expand_thunk (false, true);
-      e = to->callees;
+      /* When thunk is instrumented we may have multiple callees.  */
+      for (e = to->callees; e && e->callee != target; e = e->next_callee)
+	;
+      gcc_assert (e);
     }
 
 
@@ -342,10 +347,10 @@ inline_call (struct cgraph_edge *e, bool update_original,
       if (dump_file)
 	fprintf (dump_file, "Dropping flag_strict_aliasing on %s:%i\n",
 		 to->name (), to->order);
-      build_optimization_node (&opts);
       DECL_FUNCTION_SPECIFIC_OPTIMIZATION (to->decl)
 	 = build_optimization_node (&opts);
     }
+
   inline_summary *caller_info = inline_summaries->get (to);
   inline_summary *callee_info = inline_summaries->get (callee);
   if (!caller_info->fp_expressions && callee_info->fp_expressions)
@@ -402,7 +407,6 @@ inline_call (struct cgraph_edge *e, bool update_original,
 	  if (dump_file)
 	    fprintf (dump_file, "Copying FP flags from %s:%i to %s:%i\n",
 		     callee->name (), callee->order, to->name (), to->order);
-	  build_optimization_node (&opts);
 	  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (to->decl)
 	     = build_optimization_node (&opts);
 	}
