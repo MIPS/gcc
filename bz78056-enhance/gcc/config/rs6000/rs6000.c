@@ -3953,18 +3953,18 @@ rs6000_option_override_internal (bool global_init_p)
   /* What follows is Kelvin's proposed patch to gracefully and
      politely disable code generation in absence of required assembler
      support. */
-  if (have_cpu) 
+  if (have_cpu)
     {
       if (!HAVE_AS_POWER9
-	  && (processor_target_table[rs6000_cpu_index].processor 
+	  && (processor_target_table[rs6000_cpu_index].processor
 	      == PROCESSOR_POWER9))
 	{
 	  have_cpu = false;
-	  warning (0, "will not generate power9 instructions because " 
+	  warning (0, "will not generate power9 instructions because "
 		   "assembler lacks power9 support");
 	}
       if (!HAVE_AS_POWER8
-	  && (processor_target_table[rs6000_cpu_index].processor 
+	  && (processor_target_table[rs6000_cpu_index].processor
 	      == PROCESSOR_POWER8))
 	{
 	  have_cpu = false;
@@ -3972,7 +3972,7 @@ rs6000_option_override_internal (bool global_init_p)
 		   "assembler lacks power8 support");
 	}
       if (!HAVE_AS_POPCNTD
-	  && (processor_target_table[rs6000_cpu_index].processor 
+	  && (processor_target_table[rs6000_cpu_index].processor
 	      == PROCESSOR_POWER7))
 	{
 	  have_cpu = false;
@@ -3980,7 +3980,7 @@ rs6000_option_override_internal (bool global_init_p)
 		   "assembler lacks power7 support");
 	}
       if (!HAVE_AS_DFP
-	  && (processor_target_table[rs6000_cpu_index].processor 
+	  && (processor_target_table[rs6000_cpu_index].processor
 	      == PROCESSOR_POWER6))
 	{
 	  have_cpu = false;
@@ -3988,7 +3988,7 @@ rs6000_option_override_internal (bool global_init_p)
 		   "assembler lacks power6 support");
 	}
       if (!HAVE_AS_POPCNTB
-	  && (processor_target_table[rs6000_cpu_index].processor 
+	  && (processor_target_table[rs6000_cpu_index].processor
 	      == PROCESSOR_POWER5))
 	{
 	  have_cpu = false;
