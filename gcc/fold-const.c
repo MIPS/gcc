@@ -80,10 +80,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "selftest.h"
 
-#ifndef LOAD_EXTEND_OP
-#define LOAD_EXTEND_OP(M) UNKNOWN
-#endif
-
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
 int folding_initializer = 0;
@@ -5082,12 +5078,10 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       case EQ_EXPR:
       case UNEQ_EXPR:
 	tem = fold_convert_loc (loc, arg1_type, arg1);
-	return pedantic_non_lvalue_loc (loc,
-				    fold_convert_loc (loc, type,
-						  negate_expr (tem)));
+	return fold_convert_loc (loc, type, negate_expr (tem));
       case NE_EXPR:
       case LTGT_EXPR:
-	return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
+	return fold_convert_loc (loc, type, arg1);
       case UNGE_EXPR:
       case UNGT_EXPR:
 	if (flag_trapping_math)
@@ -5098,7 +5092,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
 	  break;
 	tem = fold_build1_loc (loc, ABS_EXPR, TREE_TYPE (arg1), arg1);
-	return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, tem));
+	return fold_convert_loc (loc, type, tem);
       case UNLE_EXPR:
       case UNLT_EXPR:
 	if (flag_trapping_math)
@@ -5124,7 +5118,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       && integer_zerop (arg01) && integer_zerop (arg2))
     {
       if (comp_code == NE_EXPR)
-	return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
+	return fold_convert_loc (loc, type, arg1);
       else if (comp_code == EQ_EXPR)
 	return build_zero_cst (type);
     }
@@ -5170,20 +5164,12 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       tree comp_op1 = arg01;
       tree comp_type = TREE_TYPE (comp_op0);
 
-      /* Avoid adding NOP_EXPRs in case this is an lvalue.  */
-      if (TYPE_MAIN_VARIANT (comp_type) == TYPE_MAIN_VARIANT (type))
-	{
-	  comp_type = type;
-	  comp_op0 = arg1;
-	  comp_op1 = arg2;
-	}
-
       switch (comp_code)
 	{
 	case EQ_EXPR:
-	  return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg2));
+	  return fold_convert_loc (loc, type, arg2);
 	case NE_EXPR:
-	  return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
+	  return fold_convert_loc (loc, type, arg1);
 	case LE_EXPR:
 	case LT_EXPR:
 	case UNLE_EXPR:
@@ -5200,8 +5186,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 		    ? fold_build2_loc (loc, MIN_EXPR, comp_type, comp_op0, comp_op1)
 		    : fold_build2_loc (loc, MIN_EXPR, comp_type,
 				   comp_op1, comp_op0);
-	      return pedantic_non_lvalue_loc (loc,
-					  fold_convert_loc (loc, type, tem));
+	      return fold_convert_loc (loc, type, tem);
 	    }
 	  break;
 	case GE_EXPR:
@@ -5216,19 +5201,16 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 		    ? fold_build2_loc (loc, MAX_EXPR, comp_type, comp_op0, comp_op1)
 		    : fold_build2_loc (loc, MAX_EXPR, comp_type,
 				   comp_op1, comp_op0);
-	      return pedantic_non_lvalue_loc (loc,
-					  fold_convert_loc (loc, type, tem));
+	      return fold_convert_loc (loc, type, tem);
 	    }
 	  break;
 	case UNEQ_EXPR:
 	  if (!HONOR_NANS (arg1))
-	    return pedantic_non_lvalue_loc (loc,
-					fold_convert_loc (loc, type, arg2));
+	    return fold_convert_loc (loc, type, arg2);
 	  break;
 	case LTGT_EXPR:
 	  if (!HONOR_NANS (arg1))
-	    return pedantic_non_lvalue_loc (loc,
-					fold_convert_loc (loc, type, arg1));
+	    return fold_convert_loc (loc, type, arg1);
 	  break;
 	default:
 	  gcc_assert (TREE_CODE_CLASS (comp_code) == tcc_comparison);
@@ -5267,8 +5249,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MIN_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc,
-					    fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
 
@@ -5285,8 +5266,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MIN_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc,
-					    fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
 
@@ -5303,7 +5283,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MAX_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
 
@@ -5319,7 +5299,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MAX_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
       case NE_EXPR:

@@ -5039,6 +5039,16 @@ DEFHOOK
   machine_mode, (enum insn_code icode),
   default_cstore_mode)
 
+/* This target hook allows the backend to compute the register pressure
+   classes to use.  */
+DEFHOOK
+(compute_pressure_classes,
+ "A target hook which lets a backend compute the set of pressure classes to\
+  be used by those optimization passes which take register pressure into\
+  account, as opposed to letting IRA compute them.  It returns the number of\
+  register classes stored in the array @var{pressure_classes}.",
+ int, (enum reg_class *pressure_classes), NULL)
+
 /* True if a structure, union or array with MODE containing FIELD should
    be accessed using BLKmode.  */
 DEFHOOK
@@ -6155,6 +6165,12 @@ HOOK_VECTOR_END (mode_switching)
   DEFHOOKPOD (code_for_##NAME, "*", enum insn_code, CODE_FOR_nothing)
 #include "target-insns.def"
 #undef DEF_TARGET_INSN
+
+DEFHOOK
+(run_target_selftests,
+ "If selftests are enabled, run any selftests for this target.",
+ void, (void),
+ NULL)
 
 /* Close the 'struct gcc_target' definition.  */
 HOOK_VECTOR_END (C90_EMPTY_HACK)
