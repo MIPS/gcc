@@ -583,6 +583,7 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
 	  if (!dr_b)
 	    return false;
 
+	  bool dependent = false;
 	  /* If we run into a store of this same instance (we've just
 	     marked those) then delay dependence checking until we run
 	     into the last store because this is where it will have
@@ -599,22 +600,21 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
 		    = STMT_VINFO_DATA_REF (vinfo_for_stmt (store));
 		  ddr_p ddr = initialize_data_dependence_relation
 				(dr_a, store_dr, vNULL);
-		  if (vect_slp_analyze_data_ref_dependence (ddr))
-		    {
-		      free_dependence_relation (ddr);
-		      return false;
-		    }
+		  dependent = vect_slp_analyze_data_ref_dependence (ddr);
 		  free_dependence_relation (ddr);
+		  if (dependent)
+		    break;
 		}
 	    }
-
-	  ddr_p ddr = initialize_data_dependence_relation (dr_a, dr_b, vNULL);
-	  if (vect_slp_analyze_data_ref_dependence (ddr))
+	  else
 	    {
+	      ddr_p ddr = initialize_data_dependence_relation (dr_a,
+							       dr_b, vNULL);
+	      dependent = vect_slp_analyze_data_ref_dependence (ddr);
 	      free_dependence_relation (ddr);
-	      return false;
 	    }
-	  free_dependence_relation (ddr);
+	  if (dependent)
+	    return false;
 	}
     }
   return true;
@@ -773,10 +773,25 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base = ref;
   while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
+  unsigned int base_alignment;
+  unsigned HOST_WIDE_INT base_bitpos;
+  get_object_alignment_1 (base, &base_alignment, &base_bitpos);
+  /* As data-ref analysis strips the MEM_REF down to its base operand
+     to form DR_BASE_ADDRESS and adds the offset to DR_INIT we have to
+     adjust things to make base_alignment valid as the alignment of
+     DR_BASE_ADDRESS.  */
   if (TREE_CODE (base) == MEM_REF)
-    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
-		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
-  unsigned int base_alignment = get_object_alignment (base);
+    {
+      base_bitpos -= mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
+      base_bitpos &= (base_alignment - 1);
+    }
+  if (base_bitpos != 0)
+    base_alignment = base_bitpos & -base_bitpos;
+  /* Also look at the alignment of the base address DR analysis
+     computed.  */
+  unsigned int base_addr_alignment = get_pointer_alignment (base_addr);
+  if (base_addr_alignment > base_alignment)
+    base_alignment = base_addr_alignment;
 
   if (base_alignment >= TYPE_ALIGN (TREE_TYPE (vectype)))
     DR_VECT_AUX (dr)->base_element_aligned = true;
@@ -798,12 +813,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 
   if (base_alignment < TYPE_ALIGN (vectype))
     {
-      /* Strip an inner MEM_REF to a bare decl if possible.  */
-      if (TREE_CODE (base) == MEM_REF
-	  && integer_zerop (TREE_OPERAND (base, 1))
-	  && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
-	base = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
-
+      base = base_addr;
+      if (TREE_CODE (base) == ADDR_EXPR)
+	base = TREE_OPERAND (base, 0);
       if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype)))
 	{
 	  if (dump_enabled_p ())
@@ -811,6 +823,19 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	      dump_printf_loc (MSG_NOTE, vect_location,
 	                       "can't force alignment of ref: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, ref);
+	      dump_printf (MSG_NOTE, "\n");
+	    }
+	  return true;
+	}
+
+      if (DECL_USER_ALIGN (base))
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "not forcing alignment of user-aligned "
+			       "variable: ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, base);
 	      dump_printf (MSG_NOTE, "\n");
 	    }
 	  return true;

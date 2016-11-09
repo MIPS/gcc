@@ -1,3 +1,172 @@
+2016-11-07  Jason Merrill  <jason@redhat.com>
+
+	Implement P0012R1, Make exception specifications part of the type
+	system.
+	* cp-tree.h (enum tsubst_flags): Add tf_fndecl_type.
+	(flag_noexcept_type, ce_type): New.
+	* call.c (build_conv): Add ck_fnptr.
+	(enum conversion_kind): Change ck_tsafe to ck_fnptr.
+	(convert_like_real): Likewise.
+	(standard_conversion): Likewise.  Allow function pointer
+	conversions for pointers to member functions.
+	(reference_compatible_p): Allow function pointer conversions.
+	(direct_reference_binding): Likewise.
+	(reference_binding): Reference-compatible is no longer a subset of
+	reference-related.
+	(is_subseq): Also strip ck_lvalue after next_conversion.
+	* class.c (instantiate_type): Check fnptr_conv_p.
+	(resolve_address_of_overloaded_function): Likewise.
+	* cvt.c (can_convert_tx_safety): Now static.
+	(noexcept_conv_p, fnptr_conv_p, strip_fnptr_conv): New.
+	* decl.c (flag_noexcept_type): Define.
+	(cxx_init_decl_processing): Set it.
+	(bad_specifiers): Check it.
+	(grokdeclarator) [cdk_function]: Add exception-spec to type here.
+	* lambda.c (maybe_add_lambda_conv_op): Add exception-spec to
+	returned pointer.
+	* mangle.c (struct globals): Add need_cxx1z_warning.
+	(mangle_decl): Check it.
+	(write_exception_spec): New.
+	(write_function_type): Call it.
+	(canonicalize_for_substitution): Handle exception spec.
+	(write_type): Likewise.
+	(write_encoding): Set processing_template_decl across mangling of
+	partially-instantiated type.
+	* pt.c (determine_specialization): Pass tf_fndecl_type.
+	(tsubst_decl, fn_type_unification): Likewise.
+	(tsubst): Strip tf_fndecl_type, pass it to
+	tsubst_exception_specification.
+	(convert_nontype_argument_function): Handle function pointer
+	conversion.
+	(convert_nontype_argument): Likewise.
+	(unify, for_each_template_parm_r): Walk into noexcept-specifier.
+	* rtti.c (ptr_initializer): Encode noexcept.
+	* tree.c (canonical_eh_spec): New.
+	(build_exception_variant): Use it.
+	* typeck.c (composite_pointer_type): Handle fnptr conversion.
+	(comp_except_specs): Compare canonical EH specs.
+	(structural_comptypes): Call it.
+
+	* call.c (standard_conversion): Reorganize pointer conversions.
+	* pt.c (convert_nontype_argument_function): Convert to ref here.
+	(convert_nontype_argument): Not here.
+	(convert_template_argument): Add original type to error message.
+	(RECUR_AND_CHECK_FAILURE): Remove trailing semicolon.
+	(unify): Compare function-qualifiers.
+	* typeck.c (same_type_ignoring_top_level_qualifiers_p): Use
+	cp_build_qualified_type rather than TYPE_MAIN_VARIANT.
+
+	* pt.c (push_tinst_level_loc): Add template instantiations to the
+	announce_function stream.
+
+2016-11-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67980
+	* pt.c (tsubst_expr, case IF_STMT): Use fold_non_dependent_expr
+	to suppress unwanted warnings.
+
+2016-11-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78198
+	* call.c (convert_default_arg): Look through inheriting ctors.
+
+2016-11-03  Jakub Jelinek  <jakub@redhat.com>
+	    Alexandre Oliva  <aoliva@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR debug/28767
+	PR debug/56974
+	* tree.c (cp_check_qualified_type): Use check_base_type and
+	TYPE_QUALS comparison instead of check_qualified_type.
+	(cxx_type_hash_eq): Return false if type_memfn_rqual don't match.
+	* cp-objcp-common.c (cp_get_debug_type): New function.
+	(cp_decl_dwarf_attribute): Don't handle types here.
+	(cp_type_dwarf_attribute): New function.
+	* cp-objcp-common.h (cp_get_debug_type, cp_type_dwarf_attribute):
+	Declare.
+	(LANG_HOOKS_GET_DEBUG_TYPE, LANG_HOOKS_TYPE_DWARF_ATTRIBUTE):
+	Define.
+
+2016-11-03  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (cp_check_qualified_type): Call check_base_type instead
+	of check_qualified_type.
+	(cxx_type_hash_eq): Check ref-qualifiers.
+	* typeck.c (apply_memfn_quals): No need to mess with TYPE_CANONICAL.
+
+2016-11-01  Jason Merrill  <jason@redhat.com>
+
+	Implement P0136R1, Rewording inheriting constructors.
+	* call.c (enum rejection_reason_code): Add rr_inherited_ctor.
+	(inherited_ctor_rejection): New.
+	(add_function_candidate): Reject inherited ctors for copying.
+	(enforce_access): Use strip_inheriting_ctors.
+	(print_z_candidate): Likewise.  Handle rr_inherited_ctor.
+	(convert_like_real): Avoid copying inheriting ctor parameters.
+	(build_over_call): Likewise.  A base ctor inheriting from vbase
+	has no parms.  Sorry about varargs.
+	(joust): A local constructor beats inherited with the same convs.
+	* class.c (add_method): Handle hiding inheriting ctors.
+	(one_inherited_ctor): Handle new semantics.
+	(add_implicitly_declared_members): Pass using_decl down.
+	(build_clone): A base ctor inheriting from vbase has no parms.
+	* cp-tree.h (DECL_INHERITED_CTOR): Store this instead of the base.
+	(SET_DECL_INHERITED_CTOR): Likewise.
+	(DECL_INHERITED_CTOR_BASE): Adjust.
+	* constexpr.c: Adjust.
+	* error.c (dump_function_decl): Decorate inheriting ctors.
+	* init.c (emit_mem_initializers): Suppress access control in
+	inheriting ctor.
+	* mangle.c (write_special_name_constructor): Handle new inheriting
+	ctor mangling.
+	* method.c (strip_inheriting_ctors, inherited_ctor_binfo)
+	(ctor_omit_inherited_parms, binfo_inherited_from): New.
+	(synthesized_method_walk): Use binfo_inherited_from.  Suppress
+	access control in inheriting ctor.
+	(deduce_inheriting_ctor): Deleted if ambiguous ctor inheritance.
+	(maybe_explain_implicit_delete): Explain ambigous ctor inheritance.
+	(add_one_base_init, do_build_copy_constructor): Adjust.
+	(locate_fn_flags, explain_implicit_non_constexpr): Adjust.
+	(implicitly_declare_fn): Adjust.
+	(get_inherited_ctor): Remove.
+	* name-lookup.c (do_class_using_decl): Check for indirect ctor
+	inheritance.
+	* optimize.c (cdtor_comdat_group): Adjust for new mangling.
+	(maybe_clone_body): Handle omitted parms in base clone.
+	(maybe_thunk_body): Don't thunk if base clone omits parms.
+	* pt.c (tsubst_decl): Adjust.
+	(instantiate_template_1): Suppress access control in inheriting
+	ctor.
+	(fn_type_unification): Do deduction with inherited ctor.
+	* tree.c (special_function_p): Adjust.
+
+2016-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-objcp-common.c (cp_decl_dwarf_attribute): Handle DW_AT_inline.
+
+2016-11-01  Jason Merrill  <jason@redhat.com>
+
+	* class.c (declared_access): Split out from handle_using_decl.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78089
+	* parser.c (cp_parser_postfix_expression): Replace return statement in
+	the first switch with setting postfix_expression to the return
+	expression and break;.
+
+	PR c++/77886
+	* pt.c (tsubst_expr) <case CASE_LABEL_EXPR> Copy over
+	FALLTHROUGH_LABEL_P flag to the new LABEL_DECL.
+	(tsubst_expr) <case LABEL_EXPR>: Likewise.
+
+2016-09-11  Le-Chun Wu  <lcwu@google.com>
+	    Mark Wielaard  <mjw@redhat.com>
+
+	* name-lookup.c (pushdecl_maybe_friend): When emitting a
+	shadowing warning, use the code corresponding to the
+	given -Wshadow= variant.
+
 2016-10-26  Jason Merrill  <jason@redhat.com>
 
 	* class.c (add_method): Allow using-declarations to coexist.

@@ -56,6 +56,7 @@
 #include "sched-int.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
+#include "gimple-ssa.h"
 #include "gimple-walk.h"
 #include "intl.h"
 #include "params.h"
@@ -1632,6 +1633,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_FOLD_BUILTIN
 #define TARGET_FOLD_BUILTIN rs6000_fold_builtin
+#undef TARGET_GIMPLE_FOLD_BUILTIN
+#define TARGET_GIMPLE_FOLD_BUILTIN rs6000_gimple_fold_builtin
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
@@ -16391,6 +16394,46 @@ rs6000_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 #endif
 }
 
+/* Fold a machine-dependent built-in in GIMPLE.  (For folding into
+   a constant, use rs6000_fold_builtin.)  */
+
+bool
+rs6000_gimple_fold_builtin (gimple_stmt_iterator *gsi)
+{
+  gimple *stmt = gsi_stmt (*gsi);
+  tree fndecl = gimple_call_fndecl (stmt);
+  gcc_checking_assert (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD);
+  enum rs6000_builtins fn_code
+    = (enum rs6000_builtins) DECL_FUNCTION_CODE (fndecl);
+  tree arg0, arg1, lhs;
+
+  switch (fn_code)
+    {
+    /* Flavors of vec_add.  We deliberately don't expand
+       P8V_BUILTIN_VADDUQM as it gets lowered from V1TImode to
+       TImode, resulting in much poorer code generation.  */
+    case ALTIVEC_BUILTIN_VADDUBM:
+    case ALTIVEC_BUILTIN_VADDUHM:
+    case ALTIVEC_BUILTIN_VADDUWM:
+    case P8V_BUILTIN_VADDUDM:
+    case ALTIVEC_BUILTIN_VADDFP:
+    case VSX_BUILTIN_XVADDDP:
+      {
+	arg0 = gimple_call_arg (stmt, 0);
+	arg1 = gimple_call_arg (stmt, 1);
+	lhs = gimple_call_lhs (stmt);
+	gimple *g = gimple_build_assign (lhs, PLUS_EXPR, arg0, arg1);
+	gimple_set_location (g, gimple_location (stmt));
+	gsi_replace (gsi, g, true);
+	return true;
+      }
+    default:
+      break;
+    }
+
+  return false;
+}
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -16939,11 +16982,10 @@ rs6000_init_builtins (void)
   def_builtin ("__builtin_cpu_is", ftype, RS6000_BUILTIN_CPU_IS);
   def_builtin ("__builtin_cpu_supports", ftype, RS6000_BUILTIN_CPU_SUPPORTS);
 
-#if TARGET_XCOFF
   /* AIX libm provides clog as __clog.  */
-  if ((tdecl = builtin_decl_explicit (BUILT_IN_CLOG)) != NULL_TREE)
+  if (TARGET_XCOFF &&
+      (tdecl = builtin_decl_explicit (BUILT_IN_CLOG)) != NULL_TREE)
     set_user_assembler_name (tdecl, "__clog");
-#endif
 
 #ifdef SUBTARGET_INIT_BUILTINS
   SUBTARGET_INIT_BUILTINS;
@@ -26996,8 +27038,8 @@ output_probe_stack_range (rtx reg1, rtx reg2)
    pointer.  That fails when saving regs off r1, and sched moves the
    r31 setup past the reg saves.  */
 
-static rtx
-rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
+static rtx_insn *
+rs6000_frame_related (rtx_insn *insn, rtx reg, HOST_WIDE_INT val,
 		      rtx reg2, rtx repl2)
 {
   rtx repl;
@@ -27161,11 +27203,11 @@ gen_frame_store (rtx reg, rtx frame_reg, int offset)
 /* Save a register into the frame, and emit RTX_FRAME_RELATED_P notes.
    Save REGNO into [FRAME_REG + OFFSET] in mode MODE.  */
 
-static rtx
+static rtx_insn *
 emit_frame_save (rtx frame_reg, machine_mode mode,
 		 unsigned int regno, int offset, HOST_WIDE_INT frame_reg_to_sp)
 {
-  rtx reg, insn;
+  rtx reg;
 
   /* Some cases that need register indexed addressing.  */
   gcc_checking_assert (!((TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
@@ -27176,7 +27218,7 @@ emit_frame_save (rtx frame_reg, machine_mode mode,
 			     && !SPE_CONST_OFFSET_OK (offset))));
 
   reg = gen_rtx_REG (mode, regno);
-  insn = emit_insn (gen_frame_store (reg, frame_reg, offset));
+  rtx_insn *insn = emit_insn (gen_frame_store (reg, frame_reg, offset));
   return rs6000_frame_related (insn, frame_reg, frame_reg_to_sp,
 			       NULL_RTX, NULL_RTX);
 }
@@ -27444,7 +27486,7 @@ ptr_regno_for_savres (int sel)
    out-of-line register save/restore routine, and emit the insn
    or jump_insn as appropriate.  */
 
-static rtx
+static rtx_insn *
 rs6000_emit_savres_rtx (rs6000_stack_t *info,
 			rtx frame_reg_rtx, int save_area_offset, int lr_offset,
 			machine_mode reg_mode, int sel)
@@ -27454,7 +27496,8 @@ rs6000_emit_savres_rtx (rs6000_stack_t *info,
   int reg_size = GET_MODE_SIZE (reg_mode);
   rtx sym;
   rtvec p;
-  rtx par, insn;
+  rtx par;
+  rtx_insn *insn;
 
   offset = 0;
   start_reg = ((sel & SAVRES_REG) == SAVRES_GPR
@@ -27631,6 +27674,9 @@ rs6000_get_separate_components (void)
   rs6000_stack_t *info = rs6000_stack_info ();
 
   if (WORLD_SAVE_P (info))
+    return NULL;
+
+  if (TARGET_SPE_ABI)
     return NULL;
 
   sbitmap components = sbitmap_alloc (32);
@@ -27854,7 +27900,7 @@ rs6000_emit_prologue (void)
   rtx frame_reg_rtx = sp_reg_rtx;
   unsigned int cr_save_regno;
   rtx cr_save_rtx = NULL_RTX;
-  rtx insn;
+  rtx_insn *insn;
   int strategy;
   int using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
 			      && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
@@ -28360,12 +28406,12 @@ rs6000_emit_prologue (void)
 	  if (regno == INVALID_REGNUM)
 	    break;
 
-	  insn
+	  rtx set
 	    = gen_frame_store (gen_rtx_REG (reg_mode, regno),
 			       sp_reg_rtx,
 			       info->ehrd_offset + sp_off + reg_size * (int) i);
-	  RTVEC_ELT (p, i) = insn;
-	  RTX_FRAME_RELATED_P (insn) = 1;
+	  RTVEC_ELT (p, i) = set;
+	  RTX_FRAME_RELATED_P (set) = 1;
 	}
 
       insn = emit_insn (gen_blockage ());
@@ -28377,7 +28423,8 @@ rs6000_emit_prologue (void)
   if (TARGET_AIX && crtl->calls_eh_return)
     {
       rtx tmp_reg, tmp_reg_si, hi, lo, compare_result, toc_save_done, jump;
-      rtx save_insn, join_insn, note;
+      rtx join_insn, note;
+      rtx_insn *save_insn;
       long toc_restore_insn;
 
       tmp_reg = gen_rtx_REG (Pmode, 11);
@@ -35316,6 +35363,31 @@ rs6000_declare_alias (struct symtab_node *n, void *d)
   return false;
 }
 
+
+#ifdef HAVE_GAS_HIDDEN
+/* Helper function to calculate visibility of a DECL
+   and return the value as a const string.  */
+
+static const char *
+rs6000_xcoff_visibility (tree decl)
+{
+  static const char * const visibility_types[] = {
+    "", ",protected", ",hidden", ",internal"
+  };
+
+  enum symbol_visibility vis = DECL_VISIBILITY (decl);
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_node::get (decl)
+      && cgraph_node::get (decl)->instrumentation_clone
+      && cgraph_node::get (decl)->instrumented_version)
+    vis = DECL_VISIBILITY (cgraph_node::get (decl)->instrumented_version->decl);
+
+  return visibility_types[vis];
+}
+#endif
+
+
 /* This macro produces the initial definition of a function name.
    On the RS/6000, we need to place an extra '.' in the function name and
    output the function descriptor.
@@ -35355,6 +35427,9 @@ rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
 	    }
 	  fputs ("\t.globl .", file);
 	  RS6000_OUTPUT_BASENAME (file, buffer);
+#ifdef HAVE_GAS_HIDDEN
+	  fputs (rs6000_xcoff_visibility (decl), file);
+#endif
 	  putc ('\n', file);
 	}
     }
@@ -35399,6 +35474,52 @@ rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
   return;
 }
 
+
+/* Output assembly language to globalize a symbol from a DECL,
+   possibly with visibility.  */
+
+void
+rs6000_xcoff_asm_globalize_decl_name (FILE *stream, tree decl)
+{
+  const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  fputs (GLOBAL_ASM_OP, stream);
+  RS6000_OUTPUT_BASENAME (stream, name);
+#ifdef HAVE_GAS_HIDDEN
+  fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+  putc ('\n', stream);
+}
+
+/* Output assembly language to define a symbol as COMMON from a DECL,
+   possibly with visibility.  */
+
+void
+rs6000_xcoff_asm_output_aligned_decl_common (FILE *stream,
+					     tree decl ATTRIBUTE_UNUSED,
+					     const char *name,
+					     unsigned HOST_WIDE_INT size,
+					     unsigned HOST_WIDE_INT align)
+{
+  unsigned HOST_WIDE_INT align2 = 2;
+
+  if (align > 32)
+    align2 = floor_log2 (align / BITS_PER_UNIT);
+  else if (size > 4)
+    align2 = 3;
+
+  fputs (COMMON_ASM_OP, stream);
+  RS6000_OUTPUT_BASENAME (stream, name);
+
+  fprintf (stream,
+	   "," HOST_WIDE_INT_PRINT_UNSIGNED "," HOST_WIDE_INT_PRINT_UNSIGNED,
+	   size, align2);
+
+#ifdef HAVE_GAS_HIDDEN
+  fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+  putc ('\n', stream);
+}
+
 /* This macro produces the initial definition of a object (variable) name.
    Because AIX assembler's .set command has unexpected semantics, we output
    all aliases as alternative labels in front of the definition.  */
@@ -35409,8 +35530,8 @@ rs6000_xcoff_declare_object_name (FILE *file, const char *name, tree decl)
   struct declare_alias_data data = {file, false};
   RS6000_OUTPUT_BASENAME (file, name);
   fputs (":\n", file);
-  symtab_node::get (decl)->call_for_symbol_and_aliases (rs6000_declare_alias,
-							&data, true);
+  symtab_node::get_create (decl)->call_for_symbol_and_aliases (rs6000_declare_alias,
+							       &data, true);
 }
 
 /* Overide the default 'SYMBOL-.' syntax with AIX compatible 'SYMBOL-$'. */
@@ -35479,6 +35600,45 @@ rs6000_xcoff_encode_section_info (tree decl, rtx rtl, int first)
 }
 #endif /* HAVE_AS_TLS */
 #endif /* TARGET_XCOFF */
+
+void
+rs6000_asm_weaken_decl (FILE *stream, tree decl,
+			const char *name, const char *val)
+{
+  fputs ("\t.weak\t", stream);
+  RS6000_OUTPUT_BASENAME (stream, name);
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL
+      && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)
+    {
+      if (TARGET_XCOFF)						
+	fputs ("[DS]", stream);
+#if TARGET_XCOFF && HAVE_GAS_HIDDEN
+      if (TARGET_XCOFF)
+	fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+      fputs ("\n\t.weak\t.", stream);
+      RS6000_OUTPUT_BASENAME (stream, name);
+    }
+#if TARGET_XCOFF && HAVE_GAS_HIDDEN
+  if (TARGET_XCOFF)
+    fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+  fputc ('\n', stream);
+  if (val)
+    {
+      ASM_OUTPUT_DEF (stream, name, val);
+      if (decl && TREE_CODE (decl) == FUNCTION_DECL
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)
+	{
+	  fputs ("\t.set\t.", stream);
+	  RS6000_OUTPUT_BASENAME (stream, name);
+	  fputs (",.", stream);
+	  RS6000_OUTPUT_BASENAME (stream, val);
+	  fputc ('\n', stream);
+	}
+    }
+}
+
 
 /* Return true if INSN should not be copied.  */
 
@@ -38651,7 +38811,7 @@ rs6000_code_end (void)
   TREE_STATIC (decl) = 1;
 
 #if RS6000_WEAK
-  if (USE_HIDDEN_LINKONCE)
+  if (USE_HIDDEN_LINKONCE && !TARGET_XCOFF)
     {
       cgraph_node::create (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
       targetm.asm_out.unique_section (decl, 0);

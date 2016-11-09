@@ -2216,7 +2216,7 @@ determine_specialization (tree template_id,
             continue;
 
           // Then, try to form the new function type.
-	  insttype = tsubst (TREE_TYPE (fn), targs, tf_none, NULL_TREE);
+	  insttype = tsubst (TREE_TYPE (fn), targs, tf_fndecl_type, NULL_TREE);
 	  if (insttype == error_mark_node)
 	    continue;
 	  fn_arg_types
@@ -5876,7 +5876,7 @@ get_underlying_template (tree tmpl)
 }
 
 /* Subroutine of convert_nontype_argument. Converts EXPR to TYPE, which
-   must be a function or a pointer-to-function type, as specified
+   must be a reference-to-function or a pointer-to-function type, as specified
    in [temp.arg.nontype]: disambiguate EXPR if it is an overload set,
    and check that the resulting function has external linkage.  */
 
@@ -5892,7 +5892,7 @@ convert_nontype_argument_function (tree type, tree expr,
   if (fn == error_mark_node)
     return error_mark_node;
 
-  fn_no_ptr = fn;
+  fn_no_ptr = strip_fnptr_conv (fn);
   if (TREE_CODE (fn_no_ptr) == ADDR_EXPR)
     fn_no_ptr = TREE_OPERAND (fn_no_ptr, 0);
   if (BASELINK_P (fn_no_ptr))
@@ -5913,11 +5913,11 @@ convert_nontype_argument_function (tree type, tree expr,
 	  error ("%qE is not a valid template argument for type %qT",
 		 expr, type);
 	  if (TYPE_PTR_P (type))
-	    error ("it must be the address of a function with "
-		   "external linkage");
+	    inform (input_location, "it must be the address of a function "
+		    "with external linkage");
 	  else
-	    error ("it must be the name of a function with "
-		   "external linkage");
+	    inform (input_location, "it must be the name of a function with "
+		    "external linkage");
 	}
       return NULL_TREE;
     }
@@ -5938,6 +5938,11 @@ convert_nontype_argument_function (tree type, tree expr,
 	}
       return NULL_TREE;
     }
+
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    fn = build_address (fn);
+  if (!same_type_ignoring_top_level_qualifiers_p (type, TREE_TYPE (fn)))
+    fn = build_nop (type, fn);
 
   return fn;
 }
@@ -6648,8 +6653,6 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	expr = convert_nontype_argument_function (type, expr, complain);
       if (!expr || expr == error_mark_node)
 	return expr;
-
-      expr = build_nop (type, build_address (expr));
     }
   /* [temp.arg.nontype]/5, bullet 6
 
@@ -6668,6 +6671,11 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
       if (!value_dependent_expression_p (expr)
 	  && !check_valid_ptrmem_cst_expr (type, expr, complain))
 	return error_mark_node;
+
+      /* Repeated conversion can't deal with a conversion that turns PTRMEM_CST
+	 into a CONSTRUCTOR, so build up a new PTRMEM_CST instead.  */
+      if (fnptr_conv_p (type, TREE_TYPE (expr)))
+	expr = make_ptrmem_cst (type, PTRMEM_CST_MEMBER (expr));
 
       /* There is no way to disable standard conversions in
 	 resolve_address_of_overloaded_function (called by
@@ -7325,7 +7333,8 @@ convert_template_argument (tree parm,
       if (val == NULL_TREE)
 	val = error_mark_node;
       else if (val == error_mark_node && (complain & tf_error))
-	error ("could not convert template argument %qE to %qT",  orig_arg, t);
+	error ("could not convert template argument %qE from %qT to %qT",
+	       orig_arg, TREE_TYPE (orig_arg), t);
 
       if (INDIRECT_REF_P (val))
         {
@@ -8857,6 +8866,13 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
 	   want walk_tree walking into them itself.  */
 	*walk_subtrees = 0;
       }
+
+      if (flag_noexcept_type)
+	{
+	  tree spec = TYPE_RAISES_EXCEPTIONS (t);
+	  if (spec)
+	    WALK_SUBTREE (TREE_PURPOSE (spec));
+	}
       break;
 
     case TYPEOF_TYPE:
@@ -9169,6 +9185,13 @@ push_tinst_level_loc (tree d, location_t loc)
      constant expressions.  */
   if (limit_bad_template_recursion (d))
     return false;
+
+  /* When not -quiet, dump template instantiations other than functions, since
+     announce_function will take care of those.  */
+  if (!quiet_flag
+      && TREE_CODE (d) != TREE_LIST
+      && TREE_CODE (d) != FUNCTION_DECL)
+    fprintf (stderr, " %s", decl_as_string (d, TFF_DECL_SPECIFIERS));
 
   new_level = ggc_alloc<tinst_level> ();
   new_level->decl = d;
@@ -11921,7 +11944,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    member = 0;
 	    ctx = DECL_CONTEXT (t);
 	  }
-	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	type = tsubst (TREE_TYPE (t), args, complain|tf_fndecl_type, in_decl);
 	if (type == error_mark_node)
 	  RETURN (error_mark_node);
 
@@ -12056,7 +12079,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    maybe_retrofit_in_chrg (r);
 	    if (DECL_CONSTRUCTOR_P (r))
 	      grok_ctor_properties (ctx, r);
-	    if (DECL_INHERITED_CTOR_BASE (r))
+	    if (DECL_INHERITED_CTOR (r))
 	      deduce_inheriting_ctor (r);
 	    /* If this is an instantiation of a member template, clone it.
 	       If it isn't, that'll be handled by
@@ -13004,6 +13027,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	}
     }
 
+  bool fndecl_type = (complain & tf_fndecl_type);
+  complain &= ~tf_fndecl_type;
+
   if (type
       && code != TYPENAME_TYPE
       && code != TEMPLATE_TYPE_PARM
@@ -13501,8 +13527,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  return error_mark_node;
 
 	/* Substitute the exception specification.  */
-	specs = tsubst_exception_specification (t, args, complain,
-						in_decl, /*defer_ok*/true);
+	specs = tsubst_exception_specification (t, args, complain, in_decl,
+						/*defer_ok*/fndecl_type);
 	if (specs == error_mark_node)
 	  return error_mark_node;
 	if (specs)
@@ -15437,15 +15463,27 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       if (IF_STMT_CONSTEXPR_P (t) && integer_zerop (tmp))
 	/* Don't instantiate the THEN_CLAUSE. */;
       else
-	RECUR (THEN_CLAUSE (t));
+	{
+	  bool inhibit = integer_zerop (fold_non_dependent_expr (tmp));
+	  if (inhibit)
+	    ++c_inhibit_evaluation_warnings;
+	  RECUR (THEN_CLAUSE (t));
+	  if (inhibit)
+	    --c_inhibit_evaluation_warnings;
+	}
       finish_then_clause (stmt);
 
       if (IF_STMT_CONSTEXPR_P (t) && integer_nonzerop (tmp))
 	/* Don't instantiate the ELSE_CLAUSE. */;
       else if (ELSE_CLAUSE (t))
 	{
+	  bool inhibit = integer_nonzerop (fold_non_dependent_expr (tmp));
 	  begin_else_clause (stmt);
+	  if (inhibit)
+	    ++c_inhibit_evaluation_warnings;
 	  RECUR (ELSE_CLAUSE (t));
+	  if (inhibit)
+	    --c_inhibit_evaluation_warnings;
 	  finish_else_clause (stmt);
 	}
 
@@ -15487,7 +15525,10 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       {
 	tree low = RECUR (CASE_LOW (t));
 	tree high = RECUR (CASE_HIGH (t));
-	finish_case_label (EXPR_LOCATION (t), low, high);
+	tree l = finish_case_label (EXPR_LOCATION (t), low, high);
+	if (l && TREE_CODE (l) == CASE_LABEL_EXPR)
+	  FALLTHROUGH_LABEL_P (CASE_LABEL (l))
+	    = FALLTHROUGH_LABEL_P (CASE_LABEL (t));
       }
       break;
 
@@ -15497,6 +15538,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	tree label;
 
 	label = finish_label_stmt (DECL_NAME (decl));
+	if (TREE_CODE (label) == LABEL_DECL)
+	  FALLTHROUGH_LABEL_P (label) = FALLTHROUGH_LABEL_P (decl);
 	if (DECL_ATTRIBUTES (decl) != NULL_TREE)
 	  cplus_decl_attributes (&label, DECL_ATTRIBUTES (decl), 0);
       }
@@ -17658,11 +17701,16 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
   DECL_TI_ARGS (fndecl) = targ_ptr;
 
   /* Now we know the specialization, compute access previously
-     deferred.  */
-  push_access_scope (fndecl);
-  if (!perform_deferred_access_checks (complain))
-    access_ok = false;
-  pop_access_scope (fndecl);
+     deferred.  Do no access control for inheriting constructors,
+     as we already checked access for the inherited constructor.  */
+  if (!(flag_new_inheriting_ctors
+	&& DECL_INHERITED_CTOR (fndecl)))
+    {
+      push_access_scope (fndecl);
+      if (!perform_deferred_access_checks (complain))
+	access_ok = false;
+      pop_access_scope (fndecl);
+    }
   pop_deferring_access_checks ();
 
   /* If we've just instantiated the main entry point for a function,
@@ -17820,6 +17868,11 @@ fn_type_unification (tree fn,
   static int deduction_depth;
   struct pending_template *old_last_pend = last_pending_template;
   struct tinst_level *old_error_tinst = last_error_tinst_level;
+
+  tree orig_fn = fn;
+  if (flag_new_inheriting_ctors)
+    fn = strip_inheriting_ctors (fn);
+
   tree tparms = DECL_INNERMOST_TEMPLATE_PARMS (fn);
   tree tinst;
   tree r = error_mark_node;
@@ -17953,7 +18006,7 @@ fn_type_unification (tree fn,
 	 access path at this point.  */
       push_deferring_access_checks (dk_deferred);
       fntype = tsubst (TREE_TYPE (fn), explicit_targs,
-		       complain | tf_partial, NULL_TREE);
+		       complain | tf_partial | tf_fndecl_type, NULL_TREE);
       pop_deferring_access_checks ();
       input_location = loc;
       processing_template_decl -= incomplete;
@@ -18107,6 +18160,11 @@ fn_type_unification (tree fn,
 	    goto fail;
 	  }
     }
+
+  /* After doing deduction with the inherited constructor, actually return an
+     instantiation of the inheriting constructor.  */
+  if (orig_fn != fn)
+    decl = instantiate_template (orig_fn, targs, complain);
 
   r = decl;
 
@@ -19315,7 +19373,7 @@ template_parm_level_and_index (tree parm, int* level, int* index)
   do {									\
     if (unify (TP, TA, P, A, S, EP))					\
       return 1;								\
-  } while (0);
+  } while (0)
 
 /* Unifies the remaining arguments in PACKED_ARGS with the pack
    expansion at the end of PACKED_PARMS. Returns 0 if the type
@@ -20273,6 +20331,11 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 		 class_of_this_parm (arg),
 		 class_of_this_parm (parm))))
 	  return unify_cv_qual_mismatch (explain_p, parm, arg);
+	if (TREE_CODE (arg) == FUNCTION_TYPE
+	    && type_memfn_quals (parm) != type_memfn_quals (arg))
+	  return unify_cv_qual_mismatch (explain_p, parm, arg);
+	if (type_memfn_rqual (parm) != type_memfn_rqual (arg))
+	  return unify_type_mismatch (explain_p, parm, arg);
 
 	RECUR_AND_CHECK_FAILURE (tparms, targs, TREE_TYPE (parm),
 				 TREE_TYPE (arg), UNIFY_ALLOW_NONE, explain_p);
@@ -20285,9 +20348,27 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	  args[i] = TREE_VALUE (a);
 	nargs = i;
 
-	return type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
-				      args, nargs, 1, DEDUCE_EXACT,
-				      LOOKUP_NORMAL, NULL, explain_p);
+	if (type_unification_real (tparms, targs, TYPE_ARG_TYPES (parm),
+				   args, nargs, 1, DEDUCE_EXACT,
+				   LOOKUP_NORMAL, NULL, explain_p))
+	  return 1;
+
+	if (flag_noexcept_type)
+	  {
+	    tree pspec = TYPE_RAISES_EXCEPTIONS (parm);
+	    tree aspec = canonical_eh_spec (TYPE_RAISES_EXCEPTIONS (arg));
+	    if (pspec == NULL_TREE) pspec = noexcept_false_spec;
+	    if (aspec == NULL_TREE) aspec = noexcept_false_spec;
+	    if (TREE_PURPOSE (pspec) && TREE_PURPOSE (aspec)
+		&& uses_template_parms (TREE_PURPOSE (pspec)))
+	      RECUR_AND_CHECK_FAILURE (tparms, targs, TREE_PURPOSE (pspec),
+				       TREE_PURPOSE (aspec),
+				       UNIFY_ALLOW_NONE, explain_p);
+	    else if (nothrow_spec_p (pspec) && !nothrow_spec_p (aspec))
+	      return unify_type_mismatch (explain_p, parm, arg);
+	  }
+
+	return 0;
       }
 
     case OFFSET_TYPE:

@@ -4515,7 +4515,7 @@ nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
 /* Define dimension sizes for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
-#define PTX_GANG_DEFAULT  32
+#define PTX_GANG_DEFAULT  0 /* Defer to runtime.  */
 
 /* Implement TARGET_SIMT_VF target hook: number of threads in a warp.  */
 

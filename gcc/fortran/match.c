@@ -5898,6 +5898,7 @@ gfc_match_select_type (void)
     {
       expr1 = gfc_get_expr ();
       expr1->expr_type = EXPR_VARIABLE;
+      expr1->where = expr2->where;
       if (gfc_get_sym_tree (name, NULL, &expr1->symtree, false))
 	{
 	  m = MATCH_ERROR;
@@ -6219,6 +6220,7 @@ match_simple_where (void)
 
   c->next = XCNEW (gfc_code);
   *c->next = new_st;
+  c->next->loc = gfc_current_locus;
   gfc_clear_new_st ();
 
   new_st.op = EXEC_WHERE;
@@ -6275,8 +6277,12 @@ gfc_match_where (gfc_statement *st)
   c = gfc_get_code (EXEC_WHERE);
   c->expr1 = expr;
 
+  /* Put in the assignment.  It will not be processed by add_statement, so we
+     need to copy the location here. */
+
   c->next = XCNEW (gfc_code);
   *c->next = new_st;
+  c->next->loc = gfc_current_locus;
   gfc_clear_new_st ();
 
   new_st.op = EXEC_WHERE;

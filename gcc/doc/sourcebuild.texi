@@ -1675,6 +1675,10 @@ and @code{MOVT} instructions available.
 ARM target generates Thumb-1 code for @code{-mthumb} with
 @code{CBZ} and @code{CBNZ} instructions available.
 
+@item arm_divmod_simode
+ARM target for which divmod transform is disabled, if it supports hardware
+div instruction.
+
 @end table
 
 @subsubsection AArch64-specific attributes
@@ -1848,6 +1852,13 @@ Target requires a command line argument to enable a SIMD instruction set.
 
 @item pie_copyreloc
 The x86-64 target linker supports PIE with copy reloc.
+
+@item divmod
+Target supporting hardware divmod insn or divmod libcall.
+
+@item divmod_simode
+Target supporting hardware divmod insn or divmod libcall for SImode.
+
 @end table
 
 @subsubsection Environment attributes
@@ -2478,10 +2489,6 @@ $ make check-ada CHAPTERS="c3 c9"
 The tests are organized by directory, each directory corresponding to
 a chapter of the Ada Reference Manual.  So for example, @file{c9} corresponds
 to chapter 9, which deals with tasking features of the language.
-
-There is also an extra chapter called @file{gcc} containing a template for
-creating new executable tests, although this is deprecated in favor of
-the @file{gnat.dg} testsuite.
 
 The tests are run using two @command{sh} scripts: @file{run_acats} and
 @file{run_all.sh}.  To run the tests using a simulator or a cross

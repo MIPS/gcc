@@ -639,7 +639,8 @@
   [(set (pc) (if_then_else
 	      (EQL (zero_extract:DI (match_operand:GPI 0 "register_operand" "r")
 				    (const_int 1)
-				    (match_operand 1 "const_int_operand" "n"))
+				    (match_operand 1
+				      "aarch64_simd_shift_imm_<mode>" "n"))
 		   (const_int 0))
 	     (label_ref (match_operand 2 "" ""))
 	     (pc)))
@@ -1605,25 +1606,12 @@
 	      (match_operand:GPI 2 "aarch64_pluslong_operand" "")))]
   ""
 {
-  if (aarch64_pluslong_strict_immedate (operands[2], <MODE>mode))
-    {
-      /* Give CSE the opportunity to share this constant across additions.  */
-      if (!cse_not_expected && can_create_pseudo_p ())
-        operands[2] = force_reg (<MODE>mode, operands[2]);
-
-      /* Split will refuse to operate on a modification to the stack pointer.
-	 Aid the prologue and epilogue expanders by splitting this now.  */
-      else if (reload_completed && operands[0] == stack_pointer_rtx)
-	{
-	  HOST_WIDE_INT i = INTVAL (operands[2]);
-	  HOST_WIDE_INT s = (i >= 0 ? i & 0xfff : -(-i & 0xfff));
-	  emit_insn (gen_rtx_SET (operands[0],
-				  gen_rtx_PLUS (<MODE>mode, operands[1],
-						GEN_INT (i - s))));
-	  operands[1] = operands[0];
-	  operands[2] = GEN_INT (s);
-	}
-    }
+  /* If the constant is too large for a single instruction and isn't frame
+     based, split off the immediate so it is available for CSE.  */
+  if (!aarch64_plus_immediate (operands[2], <MODE>mode)
+      && can_create_pseudo_p ()
+      && !REGNO_PTR_FRAME_P (REGNO (operands[1])))
+    operands[2] = force_reg (<MODE>mode, operands[2]);
 })
 
 (define_insn "*add<mode>3_aarch64"
@@ -4281,19 +4269,28 @@
 
 (define_expand "<optab>"
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(ANY_EXTRACT:DI (match_operand:DI 1 "register_operand" "r")
-			(match_operand 2 "const_int_operand" "n")
-			(match_operand 3 "const_int_operand" "n")))]
+	(ANY_EXTRACT:DI (match_operand:DI 1 "register_operand")
+			(match_operand 2
+			  "aarch64_simd_shift_imm_offset_di")
+			(match_operand 3 "aarch64_simd_shift_imm_di")))]
   ""
-  ""
+  {
+    if (!IN_RANGE (INTVAL (operands[2]) + INTVAL (operands[3]),
+		   1, GET_MODE_BITSIZE (DImode) - 1))
+     FAIL;
+  }
 )
+
 
 (define_insn "*<optab><mode>"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(ANY_EXTRACT:GPI (match_operand:GPI 1 "register_operand" "r")
-			 (match_operand 2 "const_int_operand" "n")
-			 (match_operand 3 "const_int_operand" "n")))]
-  ""
+			 (match_operand 2
+			   "aarch64_simd_shift_imm_offset_<mode>" "n")
+			 (match_operand 3
+			   "aarch64_simd_shift_imm_<mode>" "n")))]
+  "IN_RANGE (INTVAL (operands[2]) + INTVAL (operands[3]),
+	     1, GET_MODE_BITSIZE (<MODE>mode) - 1)"
   "<su>bfx\\t%<w>0, %<w>1, %3, %2"
   [(set_attr "type" "bfm")]
 )
