@@ -1,3 +1,15 @@
+2016-11-10  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_variable_list): New allow_derived argument.
+	(gfc_match_omp_map_clause): Update call to
+	gfc_match_omp_variable_list.
+	(gfc_match_omp_clauses): Update calls to gfc_match_omp_map_clause.
+	(gfc_match_oacc_update): Update call to gfc_match_omp_clauses.
+	(resolve_omp_clauses): Permit derived type variables in ACC UPDATE
+	clauses.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Lower derived type
+	members.
+
 2016-10-05  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_trans_omp_do): Check do_clauses for the

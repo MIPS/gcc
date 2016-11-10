@@ -7049,7 +7049,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
 		  bool ptr = (OMP_CLAUSE_MAP_KIND (c)
 			      == GOMP_MAP_ALWAYS_POINTER);
-		  if (n == NULL || (n->value & GOVD_MAP) == 0)
+		  if ((n == NULL || (n->value & GOVD_MAP) == 0)
+		      && code != OACC_UPDATE)
 		    {
 		      tree l = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 						 OMP_CLAUSE_MAP);

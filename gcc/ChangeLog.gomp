@@ -1,3 +1,8 @@
+2016-11-10  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Update handling of ACC
+	UPDATE variables.
+
 2016-11-07  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (enum gimplify_omp_var_data): Remove stale
