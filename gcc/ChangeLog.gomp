@@ -1,5 +1,17 @@
 2016-11-10  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* gimplify.c (gimplify_scan_omp_clauses): Remove
+	OMP_CLAUSE_DEVICE_RESIDENT.
+	(gimplify_adjust_omp_clauses): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	* tree-core.h (enum omp_clause_code): Likewise.
+	* tree-nested.c (convert_nonlocal_omp_clauses):
+	(convert_local_omp_clauses):
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+	* tree.c (walk_tree_1): Likewise.
+
+2016-11-10  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gimplify.c (gimplify_scan_omp_clauses): Update handling of ACC
 	UPDATE variables.
 
