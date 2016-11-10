@@ -43,7 +43,7 @@
 (define_register_constraint "b" "ALL_REGS"
   "@internal")
 
-(define_register_constraint "u" "M16_REGS"
+(define_register_constraint "u" "TARGET_MICROMIPS_R7 ? M16R7_REGS : M16_REGS"
   "@internal")
 
 ;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
