@@ -564,7 +564,7 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
-  M16_REGS,        M16_STORE_REGS,  M16_4X4_REGS,    M16_4X4_REGS,
+  M16_REGS,        M16_STORE_REGS,  M16R7_REGS,      M16R7_REGS,
   M16_4X4_REGS,    M16_4X4_REGS,    M16_4X4_REGS,    M16_4X4_REGS,
   T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
   LEA_REGS,        M16_SP_REGS,     LEA_REGS,        LEA_REGS,
@@ -23488,6 +23488,10 @@ mips_option_override (void)
 	target_flags |= MASK_64BIT;
     }
 
+  if (TARGET_MICROMIPS_R7
+      && TARGET_V0_V1_CALLEE_SAVED && TARGET_NEW_GPR3)
+    error ("unsupported combination: %s", "-mret-callee-saved -mnew-gpr3");
+
   if ((target_flags_explicit & MASK_FLOAT64) != 0)
     {
       if (mips_isa_rev >= 6 && !TARGET_FLOAT64)
@@ -26479,6 +26483,20 @@ static const int umipsr7_v0v1_alloc_order[] =
   24, 25,
 };
 
+static const int umipsr7_new_gpr3_alloc_order[] =
+{
+  64, 65,176,177,178,179,180,181,
+  /* Call-clobbered GPRs.  */
+  1,  4,  5,  6,  7,
+  31,
+  28,
+  /* Call-saved GPRs.  */
+  16, 17, 18, 19, 20, 21, 22, 23, 30,
+  /* Call-clobbered GPRs.  */
+  2,   3,  8,  9, 10, 11, 12, 13, 14, 15,
+  24, 25,
+};
+
 void
 mips_adjust_reg_alloc_order ()
 {
@@ -26487,6 +26505,9 @@ mips_adjust_reg_alloc_order ()
   if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
     memcpy (reg_alloc_order, umipsr7_v0v1_alloc_order,
 	    sizeof (umipsr7_v0v1_alloc_order));
+  if (TARGET_MICROMIPS_R7 && TARGET_NEW_GPR3)
+    memcpy (reg_alloc_order, umipsr7_new_gpr3_alloc_order,
+	    sizeof (umipsr7_new_gpr3_alloc_order));
 }
 
 /* Initialize the GCC target structure.  */

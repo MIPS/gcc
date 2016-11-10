@@ -2199,6 +2199,7 @@ enum reg_class
   M16_TAIL_REGS,		/* mips sibling call registers  */
   M16_STORE_REGS,		/* microMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
+  M16R7_REGS,			/* microMIPS R7 directly accessible registers */
   M16_4X4_REGS,			/* microMIPS R7 registers $0-$7,$16-$23 */
   M16_SP_REGS,			/* mips16 + $sp */
   T_REG,			/* mips16 T register ($24) */
@@ -2241,6 +2242,7 @@ enum reg_class
   "M16_TAIL_REGS",							\
   "M16_STORE_REGS",							\
   "M16_REGS",								\
+  "M16R7_REGS",								\
   "M16_4X4_REGS",							\
   "M16_SP_REGS",							\
   "T_REG",								\
@@ -2286,6 +2288,7 @@ enum reg_class
   { 0x000000fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_TAIL_REGS */	\
   { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
+  { 0x000f00f0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16R7_REGS */	\
   { 0x00ff00ff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_4X4_REGS */	\
   { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */	\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
