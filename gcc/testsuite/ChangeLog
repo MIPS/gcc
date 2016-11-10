@@ -1,3 +1,65 @@
+2016-11-10  Pierre-Marie de Rodat  <derodat@adacore.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/78112
+	* g++.dg/pr78112.C: New testcase
+
+2016-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/asan/asan_test.C: Remove -Wno-format, add
+	-Wno-c++1z-compat.
+	* g++.dg/asan/dejagnu-gtest.h (EXPECT_TRUE): Use "%s" format
+	string in case condition contains % characters.
+
+	PR c++/78283
+	* g++.dg/cpp1z/noexcept-type13.C: New test.
+
+2016-11-09  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* gcc.target/mips/mips.exp (mips-dg-options): Upgrade to MIPS IV if
+	using (HAS_MOVN) with MIPS III.
+
+2016-11-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/46459
+	* gfortran.dg/volatile14.f90: New test.
+
+2016-11-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78262
+	* gcc.target/i386/pr78262.c: New test.
+
+2016-11-09  Fritz O. Reese <fritzoreese@gmail.com>
+
+	PR fortran/78259
+	* gfortran.dg/pr78259.f90: New test.
+
+2016-11-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60777
+	* gfortran.dg/spec_expr_7.f90: New test.
+
+2016-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77718
+	* gcc.c-torture/execute/pr77718.c: New test.
+
+	* gcc.dg/ubsan/c99-shift-3.c: New test.
+	* gcc.dg/ubsan/c99-shift-4.c: New test.
+	* gcc.dg/ubsan/c99-shift-5.c: New test.
+	* gcc.dg/ubsan/c99-shift-6.c: New test.
+
+2016-11-09  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/tree-ssa/builtins-folding-generic.c (main): Add new
+	test-case for memcmp.
+	* gcc.dg/tree-ssa/builtins-folding-gimple.c: Likewise.
+
+2016-11-09  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR testsuite/78269
+	* g++.dg/cpp1z/noexcept-type9.C: Make it a compile test.
+
 2016-11-09  Paul Thomas  <pault@gcc.gnu.org>
 
 	* gfortran.dg/move_alloc_18.f90: New test.

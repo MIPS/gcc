@@ -1,3 +1,129 @@
+2016-11-10  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	PR debug/78112
+	* dwarf2out.c (dwarf2out_early_global_decl): Call dwarf2out_decl
+	on the context only when it has no DIE yet.
+
+2016-11-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.h (target_cpus): Delete.
+	* arm-opts.h (enum processor_type): Prefix entires with TARGET_CPU_.
+	* arm.c (all_cores): Prefix IDENT with TARGET_CPU_.
+	(all_architectures): Likewise.
+	(arm_option_override): Adjust use of CPU enums.
+	(arm_sched_reorder): Likewise.
+	* vfp.md (movdi_vfp, movdi_vfp_cortexa8): Likewise.
+	* arm.opt (mcpu, mtune): Adjust use of CPU enums.
+	* arm/genopt.sh (processor_type): Prefix enumeration entries with
+	TARGET_CPU_.
+	* arm-tables.opt: Regenerated.
+
+2016-11-10  Siddhesh Poyarekar  <siddhesh.poyarekar@linaro.org>
+
+	* config/aarch64/aarch64-cores.def (qdf24xx): Update part
+	number.
+	(falkor): New core.
+	* config/aarch64/aarch64-tune.md: Regenerated.
+	* config/arm/arm-cores.def (falkor): New core.
+	* config/arm/arm-tables.opt: Regenerated.
+	* config/arm/arm-tune.md: Regenerated.
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Add falkor support.
+	* config/arm/t-aprofile (MULTILIB_MATCHES): Likewise.
+	* doc/invoke.texi (AArch64 Options/-mtune): Document it.
+	(ARM Options/-mtune): Likewise.
+
+2016-11-10  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	Revert
+	2016-11-09  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* ipa-cp.c (ipa_get_jf_pass_through_result): Handle unary expressions.
+	(propagate_vr_accross_jump_function): Likewise.
+	* ipa-prop.c (ipa_set_jf_unary_pass_through): New.
+	(load_from_param_1): New.
+	(load_from_unmodified_param): Factor common part into load_from_param_1.
+	(load_from_param): New.
+	(compute_complex_assign_jump_func): Handle unary expressions.
+	(ipa_write_jump_function): Likewise.
+	(ipa_read_jump_function): Likewise.
+
+2016-11-09  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* simplify-rtx.c (simplify_binary_operation_1): Simplify
+	(xor (and (xor A B) C) B) to (ior (and A C) (and B ~C)) and
+	(xor (and (xor A B) C) A) to (ior (and A ~C) (and B C)) if C
+	is a const_int.
+
+2016-11-09  David Malcolm  <dmalcolm@redhat.com>
+
+	* print-rtl-function.c: Include varasm.h.
+	(print_any_param_name): New function.
+	(print_param): New function.
+	(print_rtx_function): Call print_param for each argument.
+	* print-rtl.c (rtx_writer::finish_directive): New function.
+	* print-rtl.h (rtx_writer::finish_directive): New decl.
+
+2016-11-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78262
+	* config/i386/i386.md (*<shift_insn><mode>3_doubleword): Mark
+	operand 0 as earlyclobber.
+
+2016-11-09  Martin Liska  <mliska@suse.cz>
+
+	* fold-const-call.c (fold_const_call): Fix up type of s0 and s1.
+
+2016-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77718
+	* builtins.c (expand_builtin_memcmp): Formatting fix.
+
+	* flag-types.h (enum sanitize_code): Add SANITIZE_SHIFT_BASE
+	and SANITIZE_SHIFT_EXPONENT, change SANITIZE_SHIFT to bitwise
+	or of them, renumber other enumerators.
+	* opts.c (sanitizer_opts): Add shift-base and shift-exponent.
+	* doc/invoke.texi: Document -fsanitize=shift-base and
+	-fsanitize-shift-exponent, document -fsanitize=shift as
+	having those 2 suboptions.
+
+2016-11-09  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (tree_swap_operands_p): Remove unused arg.
+	* fold-const.c (tree_swap_operands_p): Likewise.
+	(fold_binary_loc): Adjust.
+	(fold_ternary_loc): Likewise.
+	* genmatch.c (dt_operand::gen_gimple_exp): Likewise.
+	* gimple-fold.c (fold_stmt_1): Likewise.
+	* gimple-match-head.c (gimple_resimplify2): Likewise.
+	(gimple_resimplify3): Likewise.
+	(gimple_simplify): Likewise.
+	* tree-ssa-dom.c (record_equality): Likewise.
+	* tree-ssa-reassoc.c (optimize_range_tests_var_bound): Likewise.
+	* tree-ssa-sccvn.c (vn_nary_op_compute_hash): Likewise.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition_1): Likewise.
+
+2016-11-09  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-dom.c (canonicalize_comparison): Remove.
+	(optimize_stmt): Remove redundant pre-propagation canonicalization
+	of comparison operand order.
+
+2016-11-09  Martin Liska  <mliska@suse.cz>
+
+	* fold-const-call.c (fold_const_call): Fix the folding.
+
+2016-11-09  Richard Biener  <rguenther@suse.de>
+
+	* common.opt (flag_evaluation_order): Remove.
+	* expr.c (expand_operands): Remove code guarded by
+	flag_evaluation_order.
+	* fold-const.c (reorder_operands_p): Remove, it always returns
+	true.
+	(negate_expr_p): Remove calls to reorder_operands_p.
+	(fold_negate_expr): Likewise.
+	(tree_swap_operands_p): Likewise.
+	(fold_binary_loc): Likewise.
+
 2016-11-09  Andreas Schwab  <schwab@suse.de>
 
 	PR target/78254
@@ -52,7 +178,7 @@
 	* sanitizer.def (__asan_version_mismatch_check_v6): Replace with
 	__asan_version_mismatch_check_v8.
 
- 2016-11-08  David Edelsohn  <dje.gcc@gmail.com>
+2016-11-08  David Edelsohn  <dje.gcc@gmail.com>
 
 	* dwarf2asm.c (USE_LINKONCE_INDIRECT): Test XCOFF_DEBUGGING_INFO
 	at runtime.
@@ -5011,7 +5137,8 @@
 
 2016-09-29  Bernd Schmidt  <bschmidt@redhat.com>
 
-	* builtins.c (expand_builtin_memcmp): don't swap args unless
+	PR target/77718
+	* builtins.c (expand_builtin_memcmp): Don't swap args unless
 	result is only being compared with zero.
 
 2016-09-29  Marek Polacek  <polacek@redhat.com>
