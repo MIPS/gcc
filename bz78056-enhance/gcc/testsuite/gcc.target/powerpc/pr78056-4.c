@@ -1,6 +1,8 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power7" } } */
-/* { dg-require-effective-target powerpc_p8vector_ok } */
+/* powerpc_vsx_ok represents power7 */
+/* { dg-require-effective-target powerpc_vsx_ok } */
+/* { dg-skip-if "" { powerpc_p8vector_ok } } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
 /* { dg-options "-mcpu=power7" } */
 
