@@ -8,10 +8,11 @@
 #include <altivec.h>
 
 /* Though the command line specifies power7 target, this function is
-   to support power9.  */
+   to support power8, which will fail because this platform does not
+   support power8.  */
 __attribute__((target("cpu=power8")))
-__int128
-atomic_load_128_relaxed (__int128 *ptr)
+char
+char_fetch_add_relaxed (char *ptr, int value)
 { /* { dg-warning "lacks power8 support" } */
-	return __atomic_load_n (ptr, __ATOMIC_RELAXED); /* { dg-warning "implicit declaration" } */
+  return __atomic_fetch_add (ptr, value, __ATOMIC_RELAXED); /* { dg-warning "implicit declaration" } */
 }

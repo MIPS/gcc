@@ -7,16 +7,15 @@
 /* This test should succeed on both 32- and 64-bit configurations.  */
 #include <altivec.h>
 
-/* Though the command line specifies power7 target, this function is
-   to support power8.  */
+/* Test for the byte atomic operations on power8 using lbarx/stbcx.  */
 __attribute__((target("cpu=power8")))
-__int128
-atomic_load_128_relaxed (__int128 *ptr)
+char
+char_fetch_add_relaxed (char *ptr, int value)
 {
-	return __atomic_load_n (ptr, __ATOMIC_RELAXED);
+  return __atomic_fetch_add (ptr, value, __ATOMIC_RELAXED);
 }
 
-/* { dg-final { scan-assembler-not "lqarx" } } */
+/* { dg-final { scan-assembler-times "lbarx" 1 } } */
 
 
 
