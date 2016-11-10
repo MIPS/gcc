@@ -573,7 +573,7 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
-  M16_REGS,        M16_STORE_REGS,  M16_4X4_REGS,    M16_4X4_REGS,
+  M16_REGS,        M16_STORE_REGS,  M16R7_REGS,      M16R7_REGS,
   M16_4X4_REGS,    M16_4X4_REGS,    M16_4X4_REGS,    M16_4X4_REGS,
   T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
   LEA_REGS,        M16_SP_REGS,     LEA_REGS,        LEA_REGS,
@@ -15494,6 +15494,7 @@ mips_move_to_gpr_cost (reg_class_t from)
   switch (from)
     {
     case M16_REGS:
+    case M16R7_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
@@ -15527,6 +15528,7 @@ mips_move_from_gpr_cost (reg_class_t to)
   switch (to)
     {
     case M16_REGS:
+    case M16R7_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
@@ -15599,6 +15601,9 @@ mips_register_priority (int hard_regno)
   /* Treat MIPS16 registers with higher priority than other regs.  */
   if (TARGET_MIPS16
       && TEST_HARD_REG_BIT (reg_class_contents[M16_REGS], hard_regno))
+    return 1;
+  if (TARGET_MICROMIPS_R7
+      && TEST_HARD_REG_BIT (reg_class_contents[M16R7_REGS], hard_regno))
     return 1;
   return 0;
 }
@@ -24992,7 +24997,7 @@ umips_movep_target_p (rtx reg1, rtx reg2)
     0x00000030, /* 4, 5 */
     0x00000060, /* 5, 6 */
     0x000000c0, /* 6, 7 */
-    0x00000090, /* 4, 7 */
+    0x00000180, /* 7, 8 */
   };
 
   if (!ISA_HAS_XLP)
@@ -26603,6 +26608,30 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
     return true;
 
   return false;
+}
+
+static const int umipsr7_alloc_order[] =
+{
+  64, 65,176,177,178,179,180,181,
+  /* Call-clobbered GPRs.  */
+  1,  4,  5,  6,  7,
+  31,
+  28,
+  /* Call-saved GPRs.  */
+  16, 17, 18, 19, 20, 21, 22, 23, 30,
+  /* Call-clobbered GPRs.  */
+  2,   3,  8,  9, 10, 11, 12, 13, 14, 15,
+  24, 25,
+};
+
+void
+mips_adjust_reg_alloc_order ()
+{
+  const int mips_reg_alloc_order[] = REG_ALLOC_ORDER;
+  memcpy (reg_alloc_order, mips_reg_alloc_order, sizeof (reg_alloc_order));
+  if (TARGET_MICROMIPS_R7)
+    memcpy (reg_alloc_order, umipsr7_alloc_order,
+	    sizeof (umipsr7_alloc_order));
 }
 
 /* Initialize the GCC target structure.  */
