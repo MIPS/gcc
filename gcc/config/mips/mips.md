@@ -624,10 +624,11 @@
 		      (and (le (minus (match_dup 0) (pc)) (const_int 2046))
 			   (le (minus (pc) (match_dup 0)) (const_int 2048))))
 		   (const_int 4)
-		 ;; Variant that can handle 14-bit range for hard-float.
+		 ;; Variant that can handle 14-bit range.
 		 (and (match_test "TARGET_MICROMIPS_R7")
-		      (match_test "TARGET_HARD_FLOAT")
-		      (eq_attr "cbranch_cmp_op" "c1zero")
+		      (ior (and (match_test "TARGET_HARD_FLOAT")
+				(eq_attr "cbranch_cmp_op" "c1zero"))
+			   (eq_attr "cbranch_cmp_op" "reg"))
 		      (and (le (minus (match_dup 0) (pc)) (const_int 16382))
 			   (le (minus (pc) (match_dup 0)) (const_int 16384))))
 		   (const_int 4)
