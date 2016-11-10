@@ -7859,9 +7859,7 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 
   if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (dest)))
     {
-      tmp = null_pointer_node;
-      tmp = fold_build2_loc (input_location, MODIFY_EXPR, type, dest, tmp);
-      gfc_add_expr_to_block (&block, tmp);
+      gfc_add_modify (&block, dest, fold_convert (type, null_pointer_node));
       null_data = gfc_finish_block (&block);
 
       gfc_init_block (&block);
@@ -7873,9 +7871,7 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
       if (!no_malloc)
 	{
 	  tmp = gfc_call_malloc (&block, type, size);
-	  tmp = fold_build2_loc (input_location, MODIFY_EXPR, void_type_node,
-				 dest, fold_convert (type, tmp));
-	  gfc_add_expr_to_block (&block, tmp);
+	  gfc_add_modify (&block, dest, fold_convert (type, tmp));
 	}
 
       if (!no_memcpy)
@@ -7970,6 +7966,13 @@ gfc_duplicate_allocatable_nocopy (tree dest, tree src, tree type, int rank)
 				NULL_TREE, NULL_TREE);
 }
 
+
+static tree
+duplicate_allocatable_coarray (tree dest, tree src, tree type, int rank,
+			       int caf_mode)
+{
+  return dest;
+}
 
 /* Recursively traverse an object of derived type, generating code to
    deallocate, nullify or copy allocatable components.  This is the work horse
@@ -8640,9 +8643,11 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 		       || (caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0))
 	    {
 	      rank = c->as ? c->as->rank : 0;
-	      if (c->attr.codimension
-		  || (caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0)
+	      if (c->attr.codimension)
 		tmp = gfc_copy_allocatable_data (dcmp, comp, ctype, rank);
+	      else if ((caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0)
+		tmp = duplicate_allocatable_coarray (dcmp, comp, ctype, rank,
+						     caf_mode);
 	      else
 		tmp = gfc_duplicate_allocatable (dcmp, comp, ctype, rank,
 						 add_when_allocated);
@@ -8713,9 +8718,11 @@ gfc_reassign_alloc_comp_caf (gfc_symbol *der_type, tree decl, tree dest)
    copy it and its allocatable components.  */
 
 tree
-gfc_copy_alloc_comp (gfc_symbol * der_type, tree decl, tree dest, int rank)
+gfc_copy_alloc_comp (gfc_symbol * der_type, tree decl, tree dest, int rank,
+		     int caf_mode)
 {
-  return structure_alloc_comps (der_type, decl, dest, rank, COPY_ALLOC_COMP, 0);
+  return structure_alloc_comps (der_type, decl, dest, rank, COPY_ALLOC_COMP,
+				caf_mode);
 }
 
 

@@ -530,7 +530,8 @@ int gfc_conv_procedure_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
 void gfc_conv_subref_array_arg (gfc_se *, gfc_expr *, int, sym_intent, bool);
 
 /* Generate code for a scalar assignment.  */
-tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, gfc_typespec, bool, bool);
+tree gfc_trans_scalar_assign (gfc_se *, gfc_se *, gfc_typespec, bool, bool,
+			      bool c = false);
 
 /* Translate COMMON blocks.  */
 void gfc_trans_common (gfc_namespace *);

@@ -5554,7 +5554,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    {
 	      tree local_tmp;
 	      local_tmp = gfc_evaluate_now (tmp, &se->pre);
-	      local_tmp = gfc_copy_alloc_comp (e->ts.u.derived, local_tmp, tmp, parm_rank);
+	      local_tmp = gfc_copy_alloc_comp (e->ts.u.derived, local_tmp, tmp,
+					       parm_rank, 0);
 	      gfc_add_expr_to_block (&se->post, local_tmp);
 	    }
 
@@ -6209,7 +6210,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	     from being corrupted.  */
 	  tmp2 = gfc_evaluate_now (result, &se->pre);
 	  tmp = gfc_copy_alloc_comp (arg->expr->ts.u.derived,
-				     result, tmp2, expr->rank);
+				     result, tmp2, expr->rank, 0);
 	  gfc_add_expr_to_block (&se->pre, tmp);
 	  tmp = gfc_copy_allocatable_data (result, tmp2, TREE_TYPE(tmp2),
 				           expr->rank);
@@ -6934,16 +6935,18 @@ gfc_trans_alloc_subarray_assign (tree dest, gfc_component * cm,
   /* Deal with arrays of derived types with allocatable components.  */
   if (gfc_bt_struct (cm->ts.type)
 	&& cm->ts.u.derived->attr.alloc_comp)
+    // TODO: Fix caf_mode
     tmp = gfc_copy_alloc_comp (cm->ts.u.derived,
 			       se.expr, dest,
-			       cm->as->rank);
+			       cm->as->rank, 0);
   else if (cm->ts.type == BT_CLASS && expr->ts.type == BT_DERIVED
 	   && CLASS_DATA(cm)->attr.allocatable)
     {
       if (cm->ts.u.derived->attr.alloc_comp)
+	// TODO: Fix caf_mode
 	tmp = gfc_copy_alloc_comp (expr->ts.u.derived,
 				   se.expr, dest,
-				   expr->rank);
+				   expr->rank, 0);
       else
 	{
 	  tmp = TREE_TYPE (dest);
@@ -7368,8 +7371,9 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
 	  if (cm->ts.u.derived->attr.alloc_comp
 	      && expr->expr_type != EXPR_NULL)
 	    {
+	      // TODO: Fix caf_mode
 	      tmp = gfc_copy_alloc_comp (cm->ts.u.derived, se.expr,
-					 dest, expr->rank);
+					 dest, expr->rank, 0);
 	      gfc_add_expr_to_block (&block, tmp);
 	      if (dealloc != NULL_TREE)
 		gfc_add_expr_to_block (&block, dealloc);
@@ -8602,7 +8606,7 @@ gfc_conv_string_parameter (gfc_se * se)
 
 tree
 gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
-			 bool deep_copy, bool dealloc)
+			 bool deep_copy, bool dealloc, bool in_coarray)
 {
   stmtblock_t block;
   tree tmp;
@@ -8679,7 +8683,10 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 	 same as the lhs.  */
       if (deep_copy)
 	{
-	  tmp = gfc_copy_alloc_comp (ts.u.derived, rse->expr, lse->expr, 0);
+	  int caf_mode = in_coarray ? (GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY
+				       | GFC_STRUCTURE_CAF_MODE_IN_COARRAY) : 0;
+	  tmp = gfc_copy_alloc_comp (ts.u.derived, rse->expr, lse->expr, 0,
+				     caf_mode);
 	  tmp = build3_v (COND_EXPR, cond, build_empty_stmt (input_location),
 			  tmp);
 	  gfc_add_expr_to_block (&block, tmp);
@@ -9935,7 +9942,8 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 				   gfc_expr_is_variable (expr2)
 				   || scalar_to_array
 				   || expr2->expr_type == EXPR_ARRAY,
-				   !(l_is_temp || init_flag) && dealloc);
+				   !(l_is_temp || init_flag) && dealloc,
+				   expr1->symtree->n.sym->attr.codimension);
   /* Add the pre blocks to the body.  */
   gfc_add_block_to_block (&body, &rse.pre);
   gfc_add_block_to_block (&body, &lse.pre);
