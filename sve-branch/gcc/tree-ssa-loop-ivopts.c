@@ -4331,6 +4331,7 @@ force_expr_to_var_cost (tree expr, bool speed)
   tree op0, op1;
   comp_cost cost0, cost1, cost;
   machine_mode mode;
+  scalar_int_mode int_mode;
 
   if (!costs_initialized)
     {
@@ -4447,8 +4448,9 @@ force_expr_to_var_cost (tree expr, bool speed)
 	    mult = op0;
 
 	  if (mult != NULL_TREE
+	      && is_a <scalar_int_mode> (mode, &int_mode)
 	      && cst_and_fits_in_hwi (TREE_OPERAND (mult, 1))
-	      && get_shiftadd_cost (expr, mode, cost0, cost1, mult,
+	      && get_shiftadd_cost (expr, int_mode, cost0, cost1, mult,
 				    speed, &sa_cost))
 	    return sa_cost;
 	}
