@@ -242,6 +242,11 @@
 ;; All SVE vector modes.
 (define_mode_iterator SVE_ALL [V32QI V16HI V8SI V4DI V8SF V4DF])
 
+;; All SVE vector structure modes.
+(define_mode_iterator SVE_STRUCT [V64QI V32HI V16SI V8DI V16SF V8DF
+				  V96QI V48HI V24SI V12DI V24SF V12DF
+				  V128QI V64HI V32SI V16DI V32SF V16DF])
+
 ;; All SVE vector modes that have 8-bit or 16-bit elements.
 (define_mode_iterator SVE_BH [V32QI V16HI])
 
@@ -769,6 +774,33 @@
 ;; ld..._lane and st..._lane operations.
 (define_mode_attr nregs [(OI "2") (CI "3") (XI "4")])
 
+;; Map the mode of a single vector to a list of two vectors.
+(define_mode_attr VRL2 [(V32QI "V64QI") (V16HI "V32HI")
+			(V8SI  "V16SI") (V8SF  "V16SF")
+			(V4DI  "V8DI")  (V4DF  "V8DF")])
+
+(define_mode_attr vrl2 [(V32QI "v64qi") (V16HI "v32hi")
+			(V8SI  "v16si") (V8SF  "v16sf")
+			(V4DI  "v8di")  (V4DF  "v8df")])
+
+;; Map the mode of a single vector to a list of three vectors.
+(define_mode_attr VRL3 [(V32QI "V96QI") (V16HI "V48HI")
+			(V8SI  "V24SI") (V8SF  "V24SF")
+			(V4DI  "V12DI") (V4DF  "V12DF")])
+
+(define_mode_attr vrl3 [(V32QI "v96qi") (V16HI "v48hi")
+			(V8SI  "v24si") (V8SF  "v24sf")
+			(V4DI  "v12di") (V4DF  "v12df")])
+
+;; Map the mode of a single vector to a list of four vectors.
+(define_mode_attr VRL4 [(V32QI "V128QI") (V16HI "V64HI")
+			(V8SI  "V32SI")  (V8SF  "V32SF")
+			(V4DI  "V16DI")  (V4DF  "V16DF")])
+
+(define_mode_attr vrl4 [(V32QI "v128qi") (V16HI "v64hi")
+			(V8SI  "v32si")  (V8SF  "v32sf")
+			(V4DI  "v16di")  (V4DF  "v16df")])
+
 ;; Mode for atomic operation suffixes
 (define_mode_attr atomic_sfx
   [(QI "b") (HI "h") (SI "") (DI "")])
@@ -860,17 +892,75 @@
 ;; No need of iterator for -fPIC as it use got_lo12 for both modes.
 (define_mode_attr got_modifier [(SI "gotpage_lo14") (DI "gotpage_lo15")])
 
-;; The predicate mode associated with an SVE data mode.
+;; The number of subvectors in an SVE_STRUCT.
+(define_mode_attr vector_count [(V64QI "2") (V32HI "2") (V16SI "2")
+				(V8DI "2") (V16SF "2") (V8DF "2")
+				(V96QI "3") (V48HI "3") (V24SI "3")
+				(V12DI "3") (V24SF "3") (V12DF "3")
+				(V128QI "4") (V64HI "4") (V32SI "4")
+				(V16DI "4") (V32SF "4") (V16DF "4")])
+
+;; The number of instruction bytes needed for an SVE_STRUCT move.  This is
+;; equal to vector_count * 4.
+(define_mode_attr insn_length [(V64QI "8") (V32HI "8") (V16SI "8")
+			       (V8DI "8") (V16SF "8") (V8DF "8")
+			       (V96QI "12") (V48HI "12") (V24SI "12")
+			       (V12DI "12") (V24SF "12") (V12DF "12")
+			       (V128QI "16") (V64HI "16") (V32SI "16")
+			       (V16DI "16") (V32SF "16") (V16DF "16")])
+
+;; The type of a subvector in an SVE_STRUCT.
+(define_mode_attr VSINGLE [(V64QI "V32QI") (V32HI "V16HI") (V16SI "V8SI")
+			   (V8DI "V4DI") (V16SF "V8SF") (V8DF "V4DF")
+			   (V96QI "V32QI") (V48HI "V16HI") (V24SI "V8SI")
+			   (V12DI "V4DI") (V24SF "V8SF") (V12DF "V4DF")
+			   (V128QI "V32QI") (V64HI "V16HI") (V32SI "V8SI")
+			   (V16DI "V4DI") (V32SF "V8SF") (V16DF "V4DF")])
+
+;; ...and again in lower case.
+(define_mode_attr vsingle [(V64QI "v32qi") (V32HI "v16hi") (V16SI "v8si")
+			   (V8DI "v4di") (V16SF "v8sf") (V8DF "v4df")
+			   (V96QI "v32qi") (V48HI "v16hi") (V24SI "v8si")
+			   (V12DI "v4di") (V24SF "v8sf") (V12DF "v4df")
+			   (V128QI "v32qi") (V64HI "v16hi") (V32SI "v8si")
+			   (V16DI "v4di") (V32SF "v8sf") (V16DF "v4df")])
+
+;; The predicate mode associated with an SVE data mode.  For structure modes
+;; this is equivalent to the <VPRED> of the subvector mode.
 (define_mode_attr VPRED [(V32QI "V32BI")
 			 (V16HI "V16BI")
 			 (V8SI "V8BI") (V8SF "V8BI")
-			 (V4DI "V4BI") (V4DF "V4BI")])
+			 (V4DI "V4BI") (V4DF "V4BI")
+			 (V64QI "V32BI")
+			 (V32HI "V16BI")
+			 (V16SI "V8BI") (V16SF "V8BI")
+			 (V8DI "V4BI") (V8DF "V4BI")
+			 (V96QI "V32BI")
+			 (V48HI "V16BI")
+			 (V24SI "V8BI") (V24SF "V8BI")
+			 (V12DI "V4BI") (V12DF "V4BI")
+			 (V128QI "V32BI")
+			 (V64HI "V16BI")
+			 (V32SI "V8BI") (V32SF "V8BI")
+			 (V16DI "V4BI") (V16DF "V4BI")])
 
 ;; ...and again in lower case.
 (define_mode_attr vpred [(V32QI "v32bi")
 			 (V16HI "v16bi")
 			 (V8SI "v8bi") (V8SF "v8bi")
-			 (V4DI "v4bi") (V4DF "v4bi")])
+			 (V4DI "v4bi") (V4DF "v4bi")
+			 (V64QI "v32bi")
+			 (V32HI "v16bi")
+			 (V16SI "v8bi") (V16SF "v8bi")
+			 (V8DI "v4bi") (V8DF "v4bi")
+			 (V96QI "v32bi")
+			 (V48HI "v16bi")
+			 (V24SI "v8bi") (V24SF "v8bi")
+			 (V12DI "v4bi") (V12DF "v4bi")
+			 (V128QI "v32bi")
+			 (V64HI "v16bi")
+			 (V32SI "v8bi") (V32SF "v8bi")
+			 (V16DI "v4bi") (V16DF "v4bi")])
 
 ;; -------------------------------------------------------------------
 ;; Code Iterators

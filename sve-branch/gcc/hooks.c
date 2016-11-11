@@ -466,3 +466,12 @@ hook_bool_uint_uintp_false (unsigned int, unsigned int *)
 {
   return false;
 }
+
+/* Generic hook that takes a mode and an unsigned HOST_WIDE_INT and
+   returns BLKmode.  */
+
+machine_mode
+hook_mode_mode_uhwi_blkmode (machine_mode, unsigned HOST_WIDE_INT)
+{
+  return BLKmode;
+}

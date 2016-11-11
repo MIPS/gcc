@@ -1086,10 +1086,15 @@ aarch64_classify_vector_mode (machine_mode mode)
 	  || inner == DImode
 	  || inner == DFmode))
     {
-      if (TARGET_SVE
-	  && inner != HFmode
-	  && must_eq (GET_MODE_BITSIZE (mode), BITS_PER_SVE_VECTOR))
-	return VEC_SVE_DATA;
+      if (TARGET_SVE && inner != HFmode)
+	{
+	  if (must_eq (GET_MODE_BITSIZE (mode), BITS_PER_SVE_VECTOR))
+	    return VEC_SVE_DATA;
+	  if (must_eq (GET_MODE_BITSIZE (mode), BITS_PER_SVE_VECTOR * 2)
+	      || must_eq (GET_MODE_BITSIZE (mode), BITS_PER_SVE_VECTOR * 3)
+	      || must_eq (GET_MODE_BITSIZE (mode), BITS_PER_SVE_VECTOR * 4))
+	    return VEC_SVE_DATA | VEC_STRUCT;
+	}
 
       /* This includes V1DF but not V1DI (which doesn't exist).  */
       if (TARGET_SIMD
@@ -1115,6 +1120,18 @@ static bool
 aarch64_sve_data_mode_p (machine_mode mode)
 {
   return aarch64_classify_vector_mode (mode) & VEC_SVE_DATA;
+}
+
+/* Implement target hook TARGET_ARRAY_MODE.  */
+static machine_mode
+aarch64_array_mode (machine_mode mode, unsigned HOST_WIDE_INT nelems)
+{
+  if (aarch64_classify_vector_mode (mode) == VEC_SVE_DATA
+      && IN_RANGE (nelems, 2, 4))
+    return mode_for_vector (GET_MODE_INNER (mode),
+			    GET_MODE_NUNITS (mode) * nelems);
+
+  return BLKmode;
 }
 
 /* Implement target hook TARGET_ARRAY_MODE_SUPPORTED_P.  */
@@ -4880,6 +4897,18 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	    return (type == ADDR_QUERY_M
 		    ? offset_4bit_signed_scaled_p (mode, offset)
 		    : offset_9bit_signed_scaled_p (mode, offset));
+
+	  if (vec_flags == (VEC_SVE_DATA | VEC_STRUCT))
+	    {
+	      poly_int64 end_offset = (offset
+				       + GET_MODE_SIZE (mode)
+				       - BYTES_PER_SVE_VECTOR);
+	      return (type == ADDR_QUERY_M
+		      ? offset_4bit_signed_scaled_p (mode, offset)
+		      : (offset_9bit_signed_scaled_p (SVE_BYTE_MODE, offset)
+			 && offset_9bit_signed_scaled_p (SVE_BYTE_MODE,
+							 end_offset)));
+	    }
 
 	  if (vec_flags == VEC_SVE_PRED)
 	    return offset_9bit_signed_scaled_p (mode, offset);
@@ -12296,19 +12325,41 @@ aarch64_sve_ld1r_operand_p (rtx op)
 	  && offset_6bit_unsigned_scaled_p (mode, addr.const_offset));
 }
 
-/* Return true if OP is a valid MEM operand for an LDR of an SVE data
-   register.  The conditions for STR are the same.  */
+/* Return true if OP is a valid MEM operand for an SVE LDR instruction.
+   The conditions for STR are the same.  */
 bool
 aarch64_sve_ldr_operand_p (rtx op)
 {
   struct aarch64_address_info addr;
-  machine_mode mode = GET_MODE (op);
 
   return (MEM_P (op)
-	  && aarch64_classify_address (&addr, XEXP (op, 0), mode,
+	  && aarch64_classify_address (&addr, XEXP (op, 0), GET_MODE (op),
 				       ADDR_QUERY_ANY, false)
-	  && addr.type == ADDRESS_REG_IMM
-	  && offset_9bit_signed_scaled_p (SVE_BYTE_MODE, addr.const_offset));
+	  && addr.type == ADDRESS_REG_IMM);
+}
+
+/* Return true if OP is a valid MEM operand for an SVE_STRUCT mode.
+   We need to be able to access the individual pieces, so the range
+   is different from LD[234] and ST[234].  */
+bool
+aarch64_sve_struct_memory_operand_p (rtx op)
+{
+  if (!MEM_P (op))
+    return false;
+
+  machine_mode mode = GET_MODE (op);
+  struct aarch64_address_info addr;
+  if (!aarch64_classify_address (&addr, XEXP (op, 0), mode,
+				 ADDR_QUERY_ANY, false)
+      || addr.type != ADDRESS_REG_IMM)
+    return false;
+
+  poly_int64 first = addr.const_offset;
+  poly_int64 last = (first
+		     + GET_MODE_SIZE (mode)
+		     - GET_MODE_SIZE (SVE_BYTE_MODE));
+  return (offset_4bit_signed_scaled_p (SVE_BYTE_MODE, first)
+	  && offset_4bit_signed_scaled_p (SVE_BYTE_MODE, last));
 }
 
 /* Emit a register copy from operand to operand, taking care not to
@@ -15893,6 +15944,9 @@ aarch64_dwarf_poly_indeterminate_value (unsigned int i, unsigned int *factor,
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P aarch64_vector_mode_supported_p
+
+#undef TARGET_ARRAY_MODE
+#define TARGET_ARRAY_MODE aarch64_array_mode
 
 #undef TARGET_ARRAY_MODE_SUPPORTED_P
 #define TARGET_ARRAY_MODE_SUPPORTED_P aarch64_array_mode_supported_p

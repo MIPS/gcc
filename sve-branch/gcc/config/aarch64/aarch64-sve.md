@@ -83,6 +83,84 @@
 )
 
 (define_expand "mov<mode>"
+  [(set (match_operand:SVE_STRUCT 0 "nonimmediate_operand")
+	(match_operand:SVE_STRUCT 1 "general_operand"))]
+  "TARGET_SVE"
+  {
+    if (MEM_P (operands[0]) || MEM_P (operands[1]))
+      {
+	aarch64_expand_sve_mem_move (operands[0], operands[1], <VPRED>mode,
+				     gen_pred_mov<mode>);
+	DONE;
+      }
+    if (CONSTANT_P (operands[1]))
+      {
+	aarch64_expand_mov_immediate (operands[0], operands[1]);
+	DONE;
+      }
+  }
+)
+
+;; See the comments above the SVE_ALL aarch64_sve_mov<mode> for details
+;; of the memory handling.
+(define_insn_and_split "aarch64_sve_mov<mode>"
+  [(set (match_operand:SVE_STRUCT 0 "aarch64_sve_nonimmediate_operand" "=w, Utr, w, w")
+	(match_operand:SVE_STRUCT 1 "aarch64_sve_general_operand" "Utr, w, w, Dn"))]
+  "TARGET_SVE
+   && ((lra_in_progress || reload_completed)
+       || (register_operand (operands[0], <MODE>mode)
+	   && nonmemory_operand (operands[1], <MODE>mode)))"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  {
+    rtx dest = operands[0];
+    rtx src = operands[1];
+    if (REG_P (dest) && REG_P (src))
+      aarch64_simd_emit_reg_reg_move (operands, <VSINGLE>mode, <vector_count>);
+    else
+      for (unsigned int i = 0; i < <vector_count>; ++i)
+	{
+	  rtx subdest = simplify_gen_subreg (<VSINGLE>mode, dest, <MODE>mode,
+					     i * BYTES_PER_SVE_VECTOR);
+	  rtx subsrc = simplify_gen_subreg (<VSINGLE>mode, src, <MODE>mode,
+					    i * BYTES_PER_SVE_VECTOR);
+	  emit_insn (gen_aarch64_sve_mov<mode> (subdest, subsrc));
+	}
+    DONE;
+  }
+  [(set_attr "length" "<insn_length>")]
+)
+
+(define_insn_and_split "pred_mov<mode>"
+  [(set (match_operand:SVE_STRUCT 0 "aarch64_sve_struct_nonimmediate_operand" "=w, Utx")
+	(unspec:SVE_STRUCT
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (match_operand:SVE_STRUCT 2 "aarch64_sve_struct_nonimmediate_operand" "Utx, w")]
+	  UNSPEC_PRED_MOVE))]
+  "TARGET_SVE
+   && (register_operand (operands[0], <MODE>mode)
+       || register_operand (operands[2], <MODE>mode))"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  {
+    for (unsigned int i = 0; i < <vector_count>; ++i)
+      {
+	rtx subdest = simplify_gen_subreg (<VSINGLE>mode, operands[0],
+					   <MODE>mode,
+					   i * BYTES_PER_SVE_VECTOR);
+	rtx subsrc = simplify_gen_subreg (<VSINGLE>mode, operands[2],
+					  <MODE>mode,
+					  i * BYTES_PER_SVE_VECTOR);
+	emit_insn (gen_pred_mov<vsingle> (subdest, operands[1], subsrc));
+      }
+    DONE;
+  }
+  [(set_attr "length" "<insn_length>")]
+)
+
+(define_expand "mov<mode>"
   [(set (match_operand:PRED_ALL 0 "nonimmediate_operand")
 	(match_operand:PRED_ALL 1 "general_operand"))]
   "TARGET_SVE"
@@ -236,6 +314,162 @@
     operands[2] = aarch64_check_zero_based_sve_index_immediate (operands[2]);
     return "index\t%0.<Vetype>, %<vw>1, #%2";
   }
+)
+
+(define_expand "vec_load_lanes<vrl2><mode>"
+  [(set (match_operand:<VRL2> 0 "register_operand")
+	(unspec:<VRL2>
+	  [(match_dup 2)
+	   (match_operand:<VRL2> 1 "memory_operand")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+	  UNSPEC_LD2))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_load_lanes<vrl2><mode>"
+  [(set (match_operand:<VRL2> 0 "register_operand" "=w")
+	(unspec:<VRL2>
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:<VRL2> 1 "memory_operand" "m")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+	  UNSPEC_LD2))]
+  "TARGET_SVE"
+  "ld2<Vesize>\t{%S0.<Vetype> - %T0.<Vetype>}, %2/z, %1"
+)
+
+(define_expand "vec_load_lanes<vrl3><mode>"
+  [(set (match_operand:<VRL3> 0 "register_operand")
+	(unspec:<VRL3>
+	  [(match_dup 2)
+	   (match_operand:<VRL3> 1 "memory_operand")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+	  UNSPEC_LD3))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_load_lanes<vrl3><mode>"
+  [(set (match_operand:<VRL3> 0 "register_operand" "=w")
+	(unspec:<VRL3>
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:<VRL3> 1 "memory_operand" "m")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+	  UNSPEC_LD3))]
+  "TARGET_SVE"
+  "ld3<Vesize>\t{%S0.<Vetype> - %U0.<Vetype>}, %2/z, %1"
+)
+
+(define_expand "vec_load_lanes<vrl4><mode>"
+  [(set (match_operand:<VRL4> 0 "register_operand")
+	(unspec:<VRL4>
+	  [(match_dup 2)
+	   (match_operand:<VRL4> 1 "memory_operand")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+	  UNSPEC_LD4))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_load_lanes<vrl4><mode>"
+  [(set (match_operand:<VRL4> 0 "register_operand" "=w")
+	(unspec:<VRL4>
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:<VRL4> 1 "memory_operand" "m")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+	  UNSPEC_LD4))]
+  "TARGET_SVE"
+  "ld4<Vesize>\t{%S0.<Vetype> - %V0.<Vetype>}, %2/z, %1"
+)
+
+;; This is always a full update, so the (match_dup 0) is redundant.
+;; There doesn't seem to be any obvious benefit to treating the all-true
+;; case differently though.  In particular, it's very unlikely that we'll
+;; only find out during RTL that a store_lanes is dead.
+(define_expand "vec_store_lanes<vrl2><mode>"
+  [(set (match_operand:<VRL2> 0 "memory_operand")
+	(unspec:<VRL2>
+	  [(match_dup 2)
+	   (match_operand:<VRL2> 1 "register_operand")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)
+	   (match_dup 0)]
+	  UNSPEC_ST2))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_store_lanes<vrl2><mode>"
+  [(set (match_operand:<VRL2> 0 "memory_operand" "+m")
+	(unspec:<VRL2>
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:<VRL2> 1 "register_operand" "w")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)
+	   (match_dup 0)]
+	  UNSPEC_ST2))]
+  "TARGET_SVE"
+  "st2<Vesize>\t{%S1.<Vetype> - %T1.<Vetype>}, %2, %0"
+)
+
+;; See the comment above vec_store_lanes<vrl2><mode>.
+(define_expand "vec_store_lanes<vrl3><mode>"
+  [(set (match_operand:<VRL3> 0 "memory_operand")
+	(unspec:<VRL3>
+	  [(match_dup 2)
+	   (match_operand:<VRL3> 1 "register_operand")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)
+	   (match_dup 0)]
+	  UNSPEC_ST3))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_store_lanes<vrl3><mode>"
+  [(set (match_operand:<VRL3> 0 "memory_operand" "+m")
+	(unspec:<VRL3>
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:<VRL3> 1 "register_operand" "w")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)
+	   (match_dup 0)]
+	  UNSPEC_ST3))]
+  "TARGET_SVE"
+  "st3<Vesize>\t{%S1.<Vetype> - %U1.<Vetype>}, %2, %0"
+)
+
+;; See the comment above vec_store_lanes<vrl2><mode>.
+(define_expand "vec_store_lanes<vrl4><mode>"
+  [(set (match_operand:<VRL4> 0 "memory_operand")
+	(unspec:<VRL4>
+	  [(match_dup 2)
+	   (match_operand:<VRL4> 1 "register_operand")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)
+	   (match_dup 0)]
+	  UNSPEC_ST4))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_store_lanes<vrl4><mode>"
+  [(set (match_operand:<VRL4> 0 "memory_operand" "+m")
+	(unspec:<VRL4>
+	  [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (match_operand:<VRL4> 1 "register_operand" "w")
+	   (unspec:SVE_ALL [(const_int 0)] UNSPEC_VSTRUCTDUMMY)
+	   (match_dup 0)]
+	  UNSPEC_ST4))]
+  "TARGET_SVE"
+  "st4<Vesize>\t{%S1.<Vetype> - %V1.<Vetype>}, %2, %0"
 )
 
 (define_expand "vec_perm_const<mode>"
@@ -1424,7 +1658,7 @@
 	     UNSPEC_FLOAT_CONVERT)]
 	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
-  "fcvt\\t%0.s, %1/m, %2.d"
+  "fcvt\t%0.s, %1/m, %2.d"
 )
 
 (define_insn "*extendv8sfv4df2"
@@ -1436,7 +1670,7 @@
 	     UNSPEC_FLOAT_CONVERT)]
 	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
-  "fcvt\\t%0.d, %1/m, %2.s"
+  "fcvt\t%0.d, %1/m, %2.s"
 )
 
 (define_insn "vec_unpack<su>_<perm_hilo>_<mode>"
@@ -1510,7 +1744,7 @@
 	   (match_operand:<VWIDE> 2 "register_operand" "Upa")]
 	  UNSPEC_PACK))]
   "TARGET_SVE"
-  "uzp1\\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
+  "uzp1\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
 )
 
 (define_insn "vec_pack_trunc_<Vwide>"
@@ -1520,7 +1754,7 @@
 	   (match_operand:<VWIDE> 2 "register_operand" "w")]
 	  UNSPEC_PACK))]
   "TARGET_SVE"
-  "uzp1\\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
+  "uzp1\t%0.<Vetype>, %1.<Vetype>, %2.<Vetype>"
 )
 
 (define_insn "*vec_pack_trunc_v4df_no_convert"
@@ -1529,7 +1763,7 @@
 		      (match_operand:V8SF 2 "register_operand" "w")]
 		     UNSPEC_PACK))]
   "TARGET_SVE"
-  "uzp1\\t%0.s, %1.s, %2.s"
+  "uzp1\t%0.s, %1.s, %2.s"
 )
 
 ;; Double to float

@@ -77,6 +77,9 @@ INT_MODE (XI, 64);
   ADJUST_NUNITS (VD##DF, aarch64_sve_vg * NVECS);
 
 SVE_MODES (1, V32, V16, V8, V4)
+SVE_MODES (2, V64, V32, V16, V8)
+SVE_MODES (3, V96, V48, V24, V12)
+SVE_MODES (4, V128, V64, V32, V16)
 
 /* Quad float: 128-bit floating mode for long doubles.  */
 FLOAT_MODE (TF, 16, ieee_quad_format);
