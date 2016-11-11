@@ -2521,16 +2521,93 @@ find_interesting_uses_outside (struct ivopts_data *data, edge exit)
     }
 }
 
+/* Compute the range of acceptable offsets for a memory of mode MEM_MODE
+   in address space AS.  Store the required byte multiple in *MULTIPLE_OUT
+   and the maximum offset in *MAX_OFFSET_OUT.  If MIN_OFFSET_OUT is
+   nonnull, also store the minimum offset there.  ADDR is a PLUS of an
+   address register and a dummy rtx, suitable for checking whether an
+   address is valid.  ADDR_MODE is the mode of this rtx.  */
+
+static void
+compute_offset_range (machine_mode mem_mode, addr_space_t as,
+		      scalar_int_mode addr_mode, rtx addr,
+		      poly_int64 *min_offset_out, poly_int64 *max_offset_out,
+		      poly_int64 *multiple_out)
+{
+  poly_int64 off;
+  int i;
+
+  /* Assume at first that the offset needs to be a multiple of the
+     mode size, then try to prove that smaller multiples are OK.  */
+  poly_int64 multiple = GET_MODE_SIZE (mem_mode);
+  HOST_WIDE_INT min_mode_size
+    = constant_lower_bound (GET_MODE_SIZE (mem_mode));
+  HOST_WIDE_INT const_multiple = 1;
+  while (const_multiple <= min_mode_size)
+    {
+      XEXP (addr, 1) = gen_int_mode (const_multiple, addr_mode);
+      if (memory_address_addr_space_p (mem_mode, addr, as))
+	{
+	  multiple = const_multiple;
+	  break;
+	}
+      const_multiple *= 2;
+    }
+
+  /* Pick the largest value of WIDTH such that -(1 << WIDTH) * MULTIPLE
+     is still representable.  */
+  int width = GET_MODE_BITSIZE (addr_mode) - 1;
+  if (width > (HOST_BITS_PER_WIDE_INT - 1))
+    width = HOST_BITS_PER_WIDE_INT - 1;
+  width -= ceil_log2 (constant_lower_bound (multiple));
+
+  /* Look for the largest supported offset.  */
+  for (i = width; i >= 0; i--)
+    {
+      off = ((HOST_WIDE_INT_1U << i) - 1) * multiple;
+      XEXP (addr, 1) = gen_int_mode (off, addr_mode);
+      if (memory_address_addr_space_p (mem_mode, addr, as))
+	break;
+      /* Cope with targets that allow a small unscaled range and a larger
+	 scaled range.  In this case it's generally better to pick the
+	 scaled range.  */
+      if (must_eq (multiple, 1)
+	  && multiple_p (off + 1, GET_MODE_SIZE (mem_mode) * 2))
+	{
+	  off -= GET_MODE_SIZE (mem_mode) - 1;
+	  XEXP (addr, 1) = gen_int_mode (off, addr_mode);
+	  if (memory_address_addr_space_p (mem_mode, addr, as))
+	    {
+	      multiple = GET_MODE_SIZE (mem_mode);
+	      width = i;
+	      break;
+	    }
+	}
+    }
+
+  *multiple_out = multiple;
+  *max_offset_out = (i < 0 ? 0 : off);
+  if (min_offset_out)
+    {
+      for (i = width; i >= 0; i--)
+	{
+	  off = -(HOST_WIDE_INT_1U << i) * multiple;
+	  XEXP (addr, 1) = gen_int_mode (off, addr_mode);
+	  if (memory_address_addr_space_p (mem_mode, addr, as))
+	    break;
+	}
+      *min_offset_out = (i < 0 ? 0 : off);
+    }
+}
+
 /* Compute maximum offset of [base + offset] addressing mode
    for memory reference represented by USE.  */
 
 static poly_int64
 compute_max_addr_offset (struct iv_use *use)
 {
-  int width;
   rtx reg, addr;
-  HOST_WIDE_INT i;
-  poly_int64 off;
+  poly_int64 multiple, off;
   unsigned list_index, num;
   addr_space_t as;
   machine_mode mem_mode;
@@ -2556,32 +2633,7 @@ compute_max_addr_offset (struct iv_use *use)
   addr_mode = targetm.addr_space.address_mode (as);
   reg = gen_raw_REG (addr_mode, LAST_VIRTUAL_REGISTER + 1);
   addr = gen_rtx_fmt_ee (PLUS, addr_mode, reg, NULL_RTX);
-
-  width = GET_MODE_BITSIZE (addr_mode) - 1;
-  if (width > (HOST_BITS_PER_WIDE_INT - 1))
-    width = HOST_BITS_PER_WIDE_INT - 1;
-
-  for (i = width; i > 0; i--)
-    {
-      off = (HOST_WIDE_INT_1U << i) - 1;
-      XEXP (addr, 1) = gen_int_mode (off, addr_mode);
-      if (memory_address_addr_space_p (mem_mode, addr, as))
-	break;
-
-      /* For some strict-alignment targets, the offset must be naturally
-	 aligned.  Try an aligned offset if mem_mode is not QImode.  */
-      off = (HOST_WIDE_INT_1U << i);
-      if (must_gt (off, GET_MODE_SIZE (mem_mode)) && mem_mode != QImode)
-	{
-	  off -= GET_MODE_SIZE (mem_mode);
-	  XEXP (addr, 1) = gen_int_mode (off, addr_mode);
-	  if (memory_address_addr_space_p (mem_mode, addr, as))
-	    break;
-	}
-    }
-  if (i == 0)
-    off = 0;
-
+  compute_offset_range (mem_mode, as, addr_mode, addr, 0, &off, &multiple);
   max_offset_list[list_index] = off;
   return off;
 }
@@ -4020,7 +4072,7 @@ enum ainc_type
 
 struct address_cost_data
 {
-  poly_int64_pod min_offset, max_offset;
+  poly_int64_pod min_offset, max_offset, offset_multiple;
   unsigned costs[2][2][2][2];
   unsigned ainc_costs[AINC_NONE];
 };
@@ -4052,8 +4104,8 @@ get_address_cost (bool symbol_present, bool var_present,
     {
       HOST_WIDE_INT i;
       HOST_WIDE_INT rat;
-      poly_int64 off = 0;
-      int old_cse_not_expected, width;
+      poly_int64 min_offset, max_offset, offset_multiple;
+      int old_cse_not_expected;
       unsigned sym_p, var_p, off_p, rat_p, add_c;
       rtx_insn *seq;
       rtx addr, base;
@@ -4062,42 +4114,13 @@ get_address_cost (bool symbol_present, bool var_present,
       data = (address_cost_data *) xcalloc (1, sizeof (*data));
 
       reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
-
-      width = GET_MODE_BITSIZE (address_mode) - 1;
-      if (width > (HOST_BITS_PER_WIDE_INT - 1))
-	width = HOST_BITS_PER_WIDE_INT - 1;
       addr = gen_rtx_fmt_ee (PLUS, address_mode, reg1, NULL_RTX);
 
-      for (i = width; i >= 0; i--)
-	{
-	  off = -(HOST_WIDE_INT_1U << i);
-	  XEXP (addr, 1) = gen_int_mode (off, address_mode);
-	  if (memory_address_addr_space_p (mem_mode, addr, as))
-	    break;
-	}
-      data->min_offset = (i == -1? 0 : off);
-
-      for (i = width; i >= 0; i--)
-	{
-	  off = (HOST_WIDE_INT_1U << i) - 1;
-	  XEXP (addr, 1) = gen_int_mode (off, address_mode);
-	  if (memory_address_addr_space_p (mem_mode, addr, as))
-	    break;
-	  /* For some strict-alignment targets, the offset must be naturally
-	     aligned.  Try an aligned offset if mem_mode is not QImode.  */
-	  off = (mem_mode != QImode
-		 ? (HOST_WIDE_INT_1U << i) - GET_MODE_SIZE (mem_mode)
-		 : poly_uint64 (0));
-	  if (may_ne (off, 0))
-	    {
-	      XEXP (addr, 1) = gen_int_mode (off, address_mode);
-	      if (memory_address_addr_space_p (mem_mode, addr, as))
-		break;
-	    }
-	}
-      if (i == -1)
-	off = 0;
-      data->max_offset = off;
+      compute_offset_range (mem_mode, as, address_mode, addr,
+			    &min_offset, &max_offset, &offset_multiple);
+      data->min_offset = min_offset;
+      data->max_offset = max_offset;
+      data->offset_multiple = offset_multiple;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -4106,6 +4129,9 @@ get_address_cost (bool symbol_present, bool var_present,
 	  print_dec (data->min_offset, dump_file, SIGNED);
 	  fprintf (dump_file, "\n  max offset %s ", GET_MODE_NAME (mem_mode));
 	  print_dec (data->max_offset, dump_file, SIGNED);
+	  fprintf (dump_file, "\n  offset mulitple %s ",
+		   GET_MODE_NAME (mem_mode));
+	  print_dec (data->offset_multiple, dump_file, SIGNED);
 	  fprintf (dump_file, "\n");
 	}
 
@@ -4194,10 +4220,11 @@ get_address_cost (bool symbol_present, bool var_present,
 		base = gen_rtx_fmt_e (CONST, address_mode,
 				      gen_rtx_fmt_ee
 					(PLUS, address_mode, base,
-					 gen_int_mode (off, address_mode)));
+					 gen_int_mode (max_offset,
+						       address_mode)));
 	    }
 	  else if (off_p)
-	    base = gen_int_mode (off, address_mode);
+	    base = gen_int_mode (max_offset, address_mode);
 	  else
 	    base = NULL_RTX;
 
@@ -4319,7 +4346,8 @@ get_address_cost (bool symbol_present, bool var_present,
   cost = 0;
   offset_p = (may_ne (s_offset, 0)
 	      && must_le (data->min_offset, s_offset)
-	      && must_le (s_offset, data->max_offset));
+	      && must_le (s_offset, data->max_offset)
+	      && multiple_p (s_offset, data->offset_multiple));
   ratio_p = (ratio != 1
 	     && multiplier_allowed_in_address_p (ratio, mem_mode, as));
 
