@@ -5157,8 +5157,8 @@ vectorizable_operation (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Most operations cannot handle bit-precision types without extra
      truncations.  */
   if (!VECTOR_BOOLEAN_TYPE_P (vectype_out)
-      && (TYPE_PRECISION (TREE_TYPE (scalar_dest))
-	  != GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (scalar_dest))))
+      && may_ne (TYPE_PRECISION (TREE_TYPE (scalar_dest)),
+		 GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (scalar_dest))))
       /* Exception are bitwise binary operations.  */
       && code != BIT_IOR_EXPR
       && code != BIT_XOR_EXPR

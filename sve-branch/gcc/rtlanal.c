@@ -4480,6 +4480,7 @@ nonzero_bits1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
   unsigned HOST_WIDE_INT inner_nz;
   enum rtx_code code;
   machine_mode inner_mode;
+  unsigned int inner_width;
   scalar_int_mode xmode;
 
   unsigned int mode_width = GET_MODE_PRECISION (mode);
@@ -4783,8 +4784,9 @@ nonzero_bits1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
       /* If the inner mode is a single word for both the host and target
 	 machines, we can compute this from which bits of the inner
 	 object might be nonzero.  */
-      if (GET_MODE_PRECISION (inner_mode) <= BITS_PER_WORD
-	  && (GET_MODE_PRECISION (inner_mode) <= HOST_BITS_PER_WIDE_INT))
+      if (GET_MODE_PRECISION (inner_mode).is_constant (&inner_width)
+	  && inner_width <= BITS_PER_WORD
+	  && inner_width <= HOST_BITS_PER_WIDE_INT)
 	{
 	  nonzero &= cached_nonzero_bits (SUBREG_REG (x), mode,
 					  known_x, known_mode, known_ret);
@@ -4801,7 +4803,7 @@ nonzero_bits1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	      /* On many CISC machines, accessing an object in a wider mode
 		 causes the high-order bits to become undefined.  So they are
 		 not known to be zero.  */
-	      if (xmode_width > GET_MODE_PRECISION (inner_mode))
+	      if (xmode_width > inner_width)
 		nonzero |= (GET_MODE_MASK (xmode)
 			    & ~GET_MODE_MASK (inner_mode));
 	    }
@@ -6086,8 +6088,9 @@ lsb_bitfield_op_p (rtx x)
       machine_mode mode = GET_MODE (XEXP (x, 0));
       HOST_WIDE_INT len = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT pos = INTVAL (XEXP (x, 2));
+      poly_int64 remaining_bits = GET_MODE_PRECISION (mode) - len;
 
-      return (pos == (BITS_BIG_ENDIAN ? GET_MODE_PRECISION (mode) - len : 0));
+      return must_eq (pos, BITS_BIG_ENDIAN ? remaining_bits : 0);
     }
   return false;
 }

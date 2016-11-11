@@ -1683,7 +1683,12 @@ subreg_lowpart_p (const_rtx x)
 bool
 partial_subreg_p (machine_mode outermode, machine_mode innermode)
 {
-  return GET_MODE_PRECISION (outermode) < GET_MODE_PRECISION (innermode);
+  /* Modes involved in a subreg must be ordered.  In particular, we must
+     always know at compile time whether the subreg is paradoxical.  */
+  poly_int64 outer_prec = GET_MODE_PRECISION (outermode);
+  poly_int64 inner_prec = GET_MODE_PRECISION (innermode);
+  gcc_checking_assert (ordered_p (outer_prec, inner_prec));
+  return may_lt (outer_prec, inner_prec);
 }
 
 /* Likewise return true if X is a subreg that is smaller than the inner
@@ -1718,7 +1723,12 @@ wider_subreg_mode (const_rtx x)
 bool
 paradoxical_subreg_p (machine_mode outermode, machine_mode innermode)
 {
-  return GET_MODE_PRECISION (outermode) > GET_MODE_PRECISION (innermode);
+  /* Modes involved in a subreg must be ordered.  In particular, we must
+     always know at compile time whether the subreg is paradoxical.  */
+  poly_int64 outer_prec = GET_MODE_PRECISION (outermode);
+  poly_int64 inner_prec = GET_MODE_PRECISION (innermode);
+  gcc_checking_assert (ordered_p (outer_prec, inner_prec));
+  return may_gt (outer_prec, inner_prec);
 }
 
 /* Return true if X is a paradoxical subreg, false otherwise.  */

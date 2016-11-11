@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define HAVE_MACHINE_MODES
 
 extern CONST_MODE_SIZE unsigned char mode_size[NUM_MACHINE_MODES];
-extern const unsigned short mode_precision[NUM_MACHINE_MODES];
+extern const poly_uint16_pod mode_precision[NUM_MACHINE_MODES];
 extern const poly_uint16_pod mode_nunits[NUM_MACHINE_MODES];
 extern CONST_MODE_UNIT_SIZE unsigned char mode_unit_size[NUM_MACHINE_MODES];
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
@@ -204,7 +204,7 @@ mode_to_bits (machine_mode_enum mode)
 
 /* Return the base GET_MODE_PRECISION value for MODE.  */
 
-ALWAYS_INLINE unsigned short
+ALWAYS_INLINE poly_uint16
 mode_to_precision (machine_mode_enum mode)
 {
   return mode_precision[mode];
@@ -581,7 +581,30 @@ fixed_size_mode::from_int (int i)
 
 /* Get the number of value bits of an object of mode MODE.  */
 
-#define GET_MODE_PRECISION(MODE) ((unsigned short) mode_to_precision (MODE))
+#if POLY_INT_CONVERSION
+#define GET_MODE_PRECISION(MODE) \
+  ((unsigned short) mode_to_precision (MODE).coeffs[0])
+#else
+ALWAYS_INLINE poly_uint16
+GET_MODE_PRECISION (machine_mode_enum mode)
+{
+  return mode_to_precision (mode);
+}
+
+template<typename T>
+ALWAYS_INLINE typename if_poly<typename T::measurement_type>::t
+GET_MODE_PRECISION (const T &mode)
+{
+  return mode_to_precision (mode);
+}
+
+template<typename T>
+ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::t
+GET_MODE_PRECISION (const T &mode)
+{
+  return mode_to_precision (mode).coeffs[0];
+}
+#endif
 
 /* Get the number of integral bits of an object of mode MODE.  */
 extern CONST_MODE_IBIT unsigned char mode_ibit[NUM_MACHINE_MODES];
@@ -805,9 +828,22 @@ extern void init_adjust_machine_modes (void);
   TRULY_NOOP_TRUNCATION (GET_MODE_PRECISION (MACRO_MODE (MODE1)), \
 			 GET_MODE_PRECISION (MACRO_MODE (MODE2)))
 
-#define HWI_COMPUTABLE_MODE_P(MODE) \
-  (SCALAR_INT_MODE_P (MODE) \
-   && GET_MODE_PRECISION (MODE) <= HOST_BITS_PER_WIDE_INT)
+/* Return true if MODE is a scalar integer mode that fits in a
+   HOST_WIDE_INT.  */
+
+inline bool
+HWI_COMPUTABLE_MODE_P (machine_mode mode)
+{
+  machine_mode_enum mme = mode;
+  return (SCALAR_INT_MODE_P (mme)
+	  && mode_to_precision (mme).coeffs[0] <= HOST_BITS_PER_WIDE_INT);
+}
+
+inline bool
+HWI_COMPUTABLE_MODE_P (scalar_int_mode mode)
+{
+  return GET_MODE_PRECISION (mode) <= HOST_BITS_PER_WIDE_INT;
+}
 
 struct int_n_data_t {
   /* These parts are initailized by genmodes output */
@@ -864,6 +900,17 @@ is_complex_int_mode (machine_mode mode, T *cmode)
       return true;
     }
   return false;
+}
+
+/* Return true if MODE is a scalar integer mode with a precision
+   smaller than LIMIT's precision.  */
+
+inline bool
+is_narrower_int_mode (machine_mode mode, scalar_int_mode limit)
+{
+  scalar_int_mode int_mode;
+  return (is_a <scalar_int_mode> (mode, &int_mode)
+	  && GET_MODE_PRECISION (int_mode) < GET_MODE_PRECISION (limit));
 }
 
 namespace mode_iterator
