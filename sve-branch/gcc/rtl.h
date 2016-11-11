@@ -2201,7 +2201,7 @@ extern void get_full_rtx_cost (rtx, machine_mode, enum rtx_code, int,
 			       struct full_rtx_costs *);
 extern poly_int64 subreg_lsb (const_rtx);
 extern poly_int64 subreg_lsb_1 (machine_mode, machine_mode, poly_int64);
-extern poly_int64 subreg_size_offset_from_lsb (unsigned int, unsigned int,
+extern poly_int64 subreg_size_offset_from_lsb (poly_int64, poly_int64,
 					       poly_int64);
 extern poly_int64 subreg_offset_from_lsb (machine_mode, machine_mode,
 					  poly_int64);
@@ -2814,9 +2814,9 @@ extern machine_mode wider_subreg_mode (const_rtx);
 extern bool paradoxical_subreg_p (machine_mode, machine_mode);
 extern bool paradoxical_subreg_p (const_rtx);
 extern int subreg_lowpart_p (const_rtx);
-extern poly_int64 subreg_size_lowpart_offset (unsigned int, unsigned int);
+extern poly_int64 subreg_size_lowpart_offset (poly_int64, poly_int64);
 extern poly_int64 subreg_lowpart_offset (machine_mode, machine_mode);
-extern poly_int64 subreg_size_highpart_offset (unsigned int, unsigned int);
+extern poly_int64 subreg_size_highpart_offset (poly_int64, poly_int64);
 extern poly_int64 subreg_highpart_offset (machine_mode, machine_mode);
 extern poly_int64 byte_lowpart_offset (machine_mode, machine_mode);
 extern poly_int64 subreg_memory_offset (machine_mode, machine_mode,

@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef HAVE_MACHINE_MODES
 #define HAVE_MACHINE_MODES
 
-extern CONST_MODE_SIZE unsigned char mode_size[NUM_MACHINE_MODES];
+extern CONST_MODE_SIZE poly_uint16_pod mode_size[NUM_MACHINE_MODES];
 extern const poly_uint16_pod mode_precision[NUM_MACHINE_MODES];
 extern const poly_uint16_pod mode_nunits[NUM_MACHINE_MODES];
 extern CONST_MODE_UNIT_SIZE unsigned char mode_unit_size[NUM_MACHINE_MODES];
@@ -183,7 +183,7 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 
 /* Return the base GET_MODE_SIZE value for MODE.  */
 
-ALWAYS_INLINE unsigned short
+ALWAYS_INLINE poly_uint16
 mode_to_bytes (machine_mode_enum mode)
 {
 #if GCC_VERSION >= 4001
@@ -557,9 +557,9 @@ public:
 /* Return true if MODE has a fixed size.  */
 
 inline bool
-fixed_size_mode::includes_p (machine_mode_enum)
+fixed_size_mode::includes_p (machine_mode_enum mode)
 {
-  return true;
+  return mode_to_bytes (mode).is_constant ();
 }
 
 /* Return M as a fixed_size_mode.  This function should only be used by
@@ -573,7 +573,29 @@ fixed_size_mode::from_int (int i)
 
 /* Get the size in bytes of an object of mode MODE.  */
 
-#define GET_MODE_SIZE(MODE) ((unsigned short) mode_to_bytes (MODE))
+#if POLY_INT_CONVERSION
+#define GET_MODE_SIZE(MODE) ((unsigned short) mode_to_bytes (MODE).coeffs[0])
+#else
+ALWAYS_INLINE poly_uint16
+GET_MODE_SIZE (machine_mode_enum mode)
+{
+  return mode_to_bytes (mode);
+}
+
+template<typename T>
+ALWAYS_INLINE typename if_poly<typename T::measurement_type>::t
+GET_MODE_SIZE (const T &mode)
+{
+  return mode_to_bytes (mode);
+}
+
+template<typename T>
+ALWAYS_INLINE typename if_nonpoly<typename T::measurement_type>::t
+GET_MODE_SIZE (const T &mode)
+{
+  return mode_to_bytes (mode).coeffs[0];
+}
+#endif
 
 /* Get the size in bits of an object of mode MODE.  */
 

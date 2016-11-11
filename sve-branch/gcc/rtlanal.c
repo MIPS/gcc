@@ -3397,7 +3397,7 @@ for_each_inc_dec_find_inc_dec (rtx mem, for_each_inc_dec_fn fn, void *data)
     case PRE_INC:
     case POST_INC:
       {
-	int size = GET_MODE_SIZE (GET_MODE (mem));
+	poly_int64 size = GET_MODE_SIZE (GET_MODE (mem));
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (size, GET_MODE (r1));
 	return fn (mem, x, r1, r1, c, data);
@@ -3406,7 +3406,7 @@ for_each_inc_dec_find_inc_dec (rtx mem, for_each_inc_dec_fn fn, void *data)
     case PRE_DEC:
     case POST_DEC:
       {
-	int size = GET_MODE_SIZE (GET_MODE (mem));
+	poly_int64 size = GET_MODE_SIZE (GET_MODE (mem));
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (-size, GET_MODE (r1));
 	return fn (mem, x, r1, r1, c, data);
@@ -3679,12 +3679,12 @@ subreg_lsb (const_rtx x)
    and the lsb of the inner value.  */
 
 poly_int64
-subreg_size_offset_from_lsb (unsigned int outer_bytes,
-			     unsigned int inner_bytes,
+subreg_size_offset_from_lsb (poly_int64 outer_bytes, poly_int64 inner_bytes,
 			     poly_int64 lsb)
 {
   /* A paradoxical subreg begins at bit position 0.  */
-  if (outer_bytes > inner_bytes)
+  gcc_checking_assert (ordered_p (outer_bytes, inner_bytes));
+  if (may_gt (outer_bytes, inner_bytes))
     {
       gcc_checking_assert (must_eq (lsb, 0));
       return 0;
@@ -3753,8 +3753,9 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 
   gcc_assert (xregno < FIRST_PSEUDO_REGISTER);
 
-  unsigned int xsize = GET_MODE_SIZE (xmode);
-  unsigned int ysize = GET_MODE_SIZE (ymode);
+  poly_int64 xsize = GET_MODE_SIZE (xmode);
+  poly_int64 ysize = GET_MODE_SIZE (ymode);
+
   bool rknown = false;
 
   /* If there are holes in a non-scalar mode in registers, we expect
@@ -3765,6 +3766,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       /* As a consequence, we must be dealing with a constant number of
 	 scalars, and thus a constant offset.  */
       HOST_WIDE_INT coffset = offset.to_constant ();
+      HOST_WIDE_INT cysize = ysize.to_constant ();
       nregs_xmode = HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode);
       unsigned int nunits = GET_MODE_NUNITS (xmode).to_constant ();
       scalar_mode xmode_unit = GET_MODE_INNER (xmode);
@@ -3785,7 +3787,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	 of each unit.  */
       if ((coffset / GET_MODE_SIZE (xmode_unit) + 1 < nunits)
 	  && (coffset / GET_MODE_SIZE (xmode_unit)
-	      != ((coffset + ysize - 1) / GET_MODE_SIZE (xmode_unit))))
+	      != ((coffset + cysize - 1) / GET_MODE_SIZE (xmode_unit))))
 	{
 	  info->representable_p = false;
 	  rknown = true;
@@ -3797,7 +3799,8 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
   nregs_ymode = hard_regno_nregs[xregno][ymode];
 
   /* Paradoxical subregs are otherwise valid.  */
-  if (!rknown && must_eq (offset, 0) && ysize > xsize)
+  gcc_checking_assert (ordered_p (xsize, ysize));
+  if (!rknown && must_eq (offset, 0) && may_gt (ysize, xsize))
     {
       info->representable_p = true;
       /* If this is a big endian paradoxical subreg, which uses more
@@ -3819,20 +3822,19 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 
   /* If registers store different numbers of bits in the different
      modes, we cannot generally form this subreg.  */
+  poly_int64 regsize_xmode, regsize_ymode;
   if (!HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode)
       && !HARD_REGNO_NREGS_HAS_PADDING (xregno, ymode)
-      && (xsize % nregs_xmode) == 0
-      && (ysize % nregs_ymode) == 0)
+      && multiple_p (xsize, nregs_xmode, &regsize_xmode)
+      && multiple_p (ysize, nregs_ymode, &regsize_ymode))
     {
-      int regsize_xmode = xsize / nregs_xmode;
-      int regsize_ymode = ysize / nregs_ymode;
       if (!rknown
-	  && ((nregs_ymode > 1 && regsize_xmode > regsize_ymode)
-	      || (nregs_xmode > 1 && regsize_ymode > regsize_xmode)))
+	  && ((nregs_ymode > 1 && may_gt (regsize_xmode, regsize_ymode))
+	      || (nregs_xmode > 1 && may_gt (regsize_ymode, regsize_xmode))))
 	{
 	  info->representable_p = false;
-	  info->nregs = CEIL (ysize, regsize_xmode);
-	  if (!can_div_trunc_p (offset, regsize_xmode, &info->offset))
+	  if (!can_div_away_from_zero_p (ysize, regsize_xmode, &info->nregs)
+	      || !can_div_trunc_p (offset, regsize_xmode, &info->offset))
 	    gcc_unreachable ();
 	  return;
 	}
@@ -3854,7 +3856,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       HOST_WIDE_INT count;
       if (!rknown
 	  && WORDS_BIG_ENDIAN == REG_WORDS_BIG_ENDIAN
-	  && regsize_xmode == regsize_ymode
+	  && must_eq (regsize_xmode, regsize_ymode)
 	  && constant_multiple_p (offset, regsize_ymode, &count))
 	{
 	  info->representable_p = true;
@@ -3891,14 +3893,13 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
      be exact, otherwise we don't know how to verify the constraint.
      These conditions may be relaxed but subreg_regno_offset would
      need to be redesigned.  */
-  gcc_assert ((xsize % num_blocks) == 0);
-  unsigned int bytes_per_block = xsize / num_blocks;
+  poly_int64 bytes_per_block = exact_div (xsize, num_blocks);
 
   /* Get the number of the first block that contains the subreg and the byte
      offset of the subreg from the start of that block.  */
   unsigned int block_number;
   poly_int64 subblock_offset;
-  if (!can_div_trunc_p (offset, poly_int64 (bytes_per_block), &block_number,
+  if (!can_div_trunc_p (offset, bytes_per_block, &block_number,
 			&subblock_offset))
     gcc_unreachable ();
 
@@ -4250,7 +4251,7 @@ rtx_cost (rtx x, machine_mode mode, enum rtx_code outer_code,
 
   /* A size N times larger than UNITS_PER_WORD likely needs N times as
      many insns, taking N times as long.  */
-  factor = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
+  factor = estimated_poly_value (GET_MODE_SIZE (mode)) / UNITS_PER_WORD;
   if (factor == 0)
     factor = 1;
 
@@ -4281,7 +4282,7 @@ rtx_cost (rtx x, machine_mode mode, enum rtx_code outer_code,
       /* A SET doesn't have a mode, so let's look at the SET_DEST to get
 	 the mode for the factor.  */
       mode = GET_MODE (SET_DEST (x));
-      factor = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
+      factor = estimated_poly_value (GET_MODE_SIZE (mode)) / UNITS_PER_WORD;
       if (factor == 0)
 	factor = 1;
       /* FALLTHRU */

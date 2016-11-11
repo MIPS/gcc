@@ -586,7 +586,8 @@ get_reload_reg (enum op_type type, machine_mode mode, rtx original,
 	    {
 	      if (in_subreg_p)
 		continue;
-	      if (GET_MODE_SIZE (GET_MODE (reg)) < GET_MODE_SIZE (mode))
+	      if (may_lt (GET_MODE_SIZE (GET_MODE (reg)),
+			  GET_MODE_SIZE (mode)))
 		continue;
 	      reg = lowpart_subreg (mode, reg, GET_MODE (reg));
 	      if (reg == NULL_RTX || GET_CODE (reg) != SUBREG)
@@ -810,6 +811,7 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
   ((MODE) != VOIDmode				\
    && CONSTANT_P (X)				\
    && GET_CODE (X) != HIGH			\
+   && GET_MODE_SIZE (MODE).is_constant ()	\
    && !targetm.cannot_force_const_mem (MODE, X))
 
 /* True if C is a non-empty register class that has too few registers
@@ -893,6 +895,8 @@ match_reload (signed char out, signed char *ins, signed char *outs,
   push_to_sequence (*before);
   if (inmode != outmode)
     {
+      /* process_alt_operands has already checked that the mode sizes
+	 are ordered.  */
       if (partial_subreg_p (outmode, inmode))
 	{
 	  reg = new_in_reg
@@ -1342,7 +1346,7 @@ process_addr_reg (rtx *loc, bool check_only_p, rtx_insn **before, rtx_insn **aft
 	 -fno-split-wide-types specified.  */
       if (!REG_P (reg)
 	  || in_class_p (reg, cl, &new_class)
-	  || GET_MODE_SIZE (mode) <= GET_MODE_SIZE (ptr_mode))
+	  || must_le (GET_MODE_SIZE (mode), GET_MODE_SIZE (ptr_mode)))
        loc = &SUBREG_REG (*loc);
     }
 
@@ -1995,6 +1999,13 @@ process_alt_operands (int only_alternative)
 		    p = end;
 		    len = 0;
 		    lra_assert (nop > m);
+
+		    /* Reject matches if we don't know which operand is
+		       bigger.  This situation would arguably be a bug in
+		       an .md pattern, but could also occur in a user asm.  */
+		    if (!ordered_p (GET_MODE_SIZE (biggest_mode[m]),
+				    GET_MODE_SIZE (biggest_mode[nop])))
+		      break;
 
 		    this_alternative_matches = m;
 		    m_hregno = get_hard_regno (*curr_id->operand_loc[m], false);
@@ -4545,8 +4556,8 @@ lra_constraints (bool first_p)
 		/* Prevent access beyond equivalent memory for
 		   paradoxical subregs.  */
 		|| (MEM_P (x)
-		    && (GET_MODE_SIZE (lra_reg_info[i].biggest_mode)
-			> GET_MODE_SIZE (GET_MODE (x))))
+		    && may_gt (GET_MODE_SIZE (lra_reg_info[i].biggest_mode),
+			       GET_MODE_SIZE (GET_MODE (x))))
 		|| (pic_offset_table_rtx
 		    && ((CONST_POOL_OK_P (PSEUDO_REGNO_MODE (i), x)
 			 && (targetm.preferred_reload_class

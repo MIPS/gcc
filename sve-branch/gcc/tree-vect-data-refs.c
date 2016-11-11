@@ -893,7 +893,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 static unsigned int
 vect_get_dr_size (struct data_reference *dr)
 {
-  return GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
+  return GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr)))).to_constant ();
 }
 
 /* Function vect_update_misalignment_for_peel
@@ -1967,11 +1967,22 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
               gcc_assert (vectype);
 
+	      /* At present we don't support versioning for alignment
+		 with variable VF, since there's no guarantee that the
+		 VF is a power of two.  We could relax this if we added
+		 a way of enforcing a power-of-two size.  */
+	      unsigned HOST_WIDE_INT size;
+	      if (!GET_MODE_SIZE (TYPE_MODE (vectype)).is_constant (&size))
+		{
+		  do_versioning = false;
+		  break;
+		}
+
               /* The rightmost bits of an aligned address must be zeros.
                  Construct the mask needed for this test.  For example,
                  GET_MODE_SIZE for the vector mode V4SI is 16 bytes so the
                  mask must be 15 = 0xf. */
-              mask = GET_MODE_SIZE (TYPE_MODE (vectype)) - 1;
+	      mask = size - 1;
 
               /* FORNOW: use the same mask to test all potentially unaligned
                  references in the loop.  The vectorizer currently supports
@@ -6174,8 +6185,8 @@ vect_supportable_dr_alignment (struct data_reference *dr,
 	    ;
 	  else if (!loop_vinfo
 		   || (nested_in_vect_loop
-		       && (TREE_INT_CST_LOW (DR_STEP (dr))
-			   != GET_MODE_SIZE (TYPE_MODE (vectype)))))
+		       && may_ne (TREE_INT_CST_LOW (DR_STEP (dr)),
+				  GET_MODE_SIZE (TYPE_MODE (vectype)))))
 	    return dr_explicit_realign;
 	  else
 	    return dr_explicit_realign_optimized;

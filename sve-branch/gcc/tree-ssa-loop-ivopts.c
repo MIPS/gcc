@@ -3057,10 +3057,10 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
   mem_mode = TYPE_MODE (TREE_TYPE (*use->op_p));
   if (((USE_LOAD_PRE_INCREMENT (mem_mode)
 	|| USE_STORE_PRE_INCREMENT (mem_mode))
-       && GET_MODE_SIZE (mem_mode) == cstepi)
+       && must_eq (GET_MODE_SIZE (mem_mode), cstepi))
       || ((USE_LOAD_PRE_DECREMENT (mem_mode)
 	   || USE_STORE_PRE_DECREMENT (mem_mode))
-	  && GET_MODE_SIZE (mem_mode) == -cstepi))
+	  && must_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
     {
       enum tree_code code = MINUS_EXPR;
       tree new_base;
@@ -3079,10 +3079,10 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
     }
   if (((USE_LOAD_POST_INCREMENT (mem_mode)
 	|| USE_STORE_POST_INCREMENT (mem_mode))
-       && GET_MODE_SIZE (mem_mode) == cstepi)
+       && must_eq (GET_MODE_SIZE (mem_mode), cstepi))
       || ((USE_LOAD_POST_DECREMENT (mem_mode)
 	   || USE_STORE_POST_DECREMENT (mem_mode))
-	  && GET_MODE_SIZE (mem_mode) == -cstepi))
+	  && must_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
     {
       add_candidate_1 (data, base, step, important, IP_AFTER_USE, use,
 		       use->stmt);
@@ -3974,7 +3974,6 @@ get_address_cost (bool symbol_present, bool var_present,
   unsigned cost, acost, complexity;
   enum ainc_type autoinc_type;
   bool offset_p, ratio_p, autoinc;
-  HOST_WIDE_INT msize;
   poly_int64 s_offset, autoinc_offset;
 
   if (data_index >= address_cost_data_list.length ())
@@ -4018,10 +4017,9 @@ get_address_cost (bool symbol_present, bool var_present,
 	    break;
 	  /* For some strict-alignment targets, the offset must be naturally
 	     aligned.  Try an aligned offset if mem_mode is not QImode.  */
-	  off = mem_mode != QImode
-		? (HOST_WIDE_INT_1U << i)
-		    - GET_MODE_SIZE (mem_mode)
-		: 0;
+	  off = (mem_mode != QImode
+		 ? (HOST_WIDE_INT_1U << i) - GET_MODE_SIZE (mem_mode)
+		 : poly_uint64 (0));
 	  if (may_ne (off, 0))
 	    {
 	      XEXP (addr, 1) = gen_int_mode (off, address_mode);
@@ -4221,7 +4219,6 @@ get_address_cost (bool symbol_present, bool var_present,
 
   autoinc = false;
   autoinc_type = AINC_NONE;
-  msize = GET_MODE_SIZE (mem_mode);
   autoinc_offset = offset;
   if (stmt_after_inc)
     autoinc_offset += ratio * cstep;
@@ -4229,21 +4226,22 @@ get_address_cost (bool symbol_present, bool var_present,
     autoinc = false;
   else
     {
+      poly_int64 msize = GET_MODE_SIZE (mem_mode);
       if (has_postinc[mem_mode]
 	  && must_eq (autoinc_offset, 0)
-	  && msize == cstep)
+	  && must_eq (msize, cstep))
 	autoinc_type = AINC_POST_INC;
       else if (has_postdec[mem_mode]
 	       && must_eq (autoinc_offset, 0)
-	       && msize == -cstep)
+	       && must_eq (msize, -cstep))
 	autoinc_type = AINC_POST_DEC;
       else if (has_preinc[mem_mode]
 	       && must_eq (autoinc_offset, msize)
-	       && msize == cstep)
+	       && must_eq (msize, cstep))
 	autoinc_type = AINC_PRE_INC;
       else if (has_predec[mem_mode]
 	       && must_eq (autoinc_offset, -msize)
-	       && msize == -cstep)
+	       && must_eq (msize, -cstep))
 	autoinc_type = AINC_PRE_DEC;
 
       if (autoinc_type != AINC_NONE)

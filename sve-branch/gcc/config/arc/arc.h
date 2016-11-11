@@ -1417,7 +1417,7 @@ do {							\
   do                                                    \
     {                                                   \
       if (GET_CODE (PATTERN (JUMPTABLE)) == ADDR_DIFF_VEC \
-	  && ((GET_MODE_SIZE (GET_MODE (PATTERN (JUMPTABLE))) \
+	  && ((GET_MODE_SIZE (MACRO_MODE (GET_MODE (PATTERN (JUMPTABLE)))) \
 	       * XVECLEN (PATTERN (JUMPTABLE), 1) + 1)	\
 	      & 2))					\
       arc_toggle_unalign ();				\
@@ -1541,7 +1541,7 @@ extern int arc_return_address_regs[4];
  : SImode)
 
 #define ADDR_VEC_ALIGN(VEC_INSN) \
-  (exact_log2 (GET_MODE_SIZE (GET_MODE (PATTERN (VEC_INSN)))))
+  (exact_log2 (GET_MODE_SIZE (MACRO_MODE (GET_MODE (PATTERN (VEC_INSN))))))
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE, PREFIX, NUM, TABLE) \
   ASM_OUTPUT_ALIGN ((FILE), ADDR_VEC_ALIGN (TABLE));

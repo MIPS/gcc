@@ -771,7 +771,7 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	 words or to cope with mode punning between equal-sized modes.
 	 In the latter case, use subreg on the rhs side, not lhs.  */
       rtx sub;
-      HOST_WIDE_INT wordnum;
+      poly_uint64 wordnum;
 
       if (must_eq (bitsize, GET_MODE_BITSIZE (GET_MODE (op0)))
 	  && must_eq (bitnum, 0U))
@@ -786,7 +786,7 @@ store_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	    }
 	}
       else if (multiple_p (bitsize, BITS_PER_WORD)
-	       && constant_multiple_p (bitnum, BITS_PER_WORD, &wordnum))
+	       && multiple_p (bitnum, BITS_PER_WORD, &wordnum))
 	{
 	  sub = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
 				     wordnum * UNITS_PER_WORD);
@@ -1631,8 +1631,8 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	new_mode = MIN_MODE_VECTOR_INT;
 
       FOR_EACH_MODE_FROM (new_mode, new_mode)
-	if (GET_MODE_SIZE (new_mode) == GET_MODE_SIZE (GET_MODE (op0))
-	    && GET_MODE_UNIT_SIZE (new_mode) == GET_MODE_SIZE (tmode)
+	if (must_eq (GET_MODE_SIZE (new_mode), GET_MODE_SIZE (GET_MODE (op0)))
+	    && must_eq (GET_MODE_UNIT_SIZE (new_mode), GET_MODE_SIZE (tmode))
 	    && targetm.vector_mode_supported_p (new_mode))
 	  break;
       if (new_mode != VOIDmode)
@@ -1686,7 +1686,7 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	}
       else
 	{
-	  HOST_WIDE_INT size = GET_MODE_SIZE (GET_MODE (op0));
+	  poly_int64 size = GET_MODE_SIZE (GET_MODE (op0));
 	  rtx mem = assign_stack_temp (GET_MODE (op0), size);
 	  emit_move_insn (mem, op0);
 	  op0 = adjust_bitfield_address_size (mem, BLKmode, 0, size);
@@ -1788,6 +1788,10 @@ extract_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
       /* Indicate for flow that the entire target reg is being set.  */
       emit_clobber (target);
 
+      /* The mode must be fixed-size, since extractions from variable-sized
+	 objects must be handled before calling this function.  */
+      unsigned int target_size
+	= GET_MODE_SIZE (GET_MODE (target)).to_constant ();
       last = get_last_insn ();
       for (i = 0; i < nwords; i++)
 	{
@@ -1795,9 +1799,7 @@ extract_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	     if I is 1, use the next to lowest word; and so on.  */
 	  /* Word number in TARGET to use.  */
 	  unsigned int wordnum
-	    = (backwards
-	       ? GET_MODE_SIZE (GET_MODE (target)) / UNITS_PER_WORD - i - 1
-	       : i);
+	    = (backwards ? target_size / UNITS_PER_WORD - i - 1 : i);
 	  /* Offset from start of field in OP0.  */
 	  unsigned int bit_offset = (backwards ^ reverse
 				     ? MAX ((int) bitsize - ((int) i + 1)
@@ -1826,11 +1828,11 @@ extract_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	{
 	  /* Unless we've filled TARGET, the upper regs in a multi-reg value
 	     need to be zero'd out.  */
-	  if (GET_MODE_SIZE (GET_MODE (target)) > nwords * UNITS_PER_WORD)
+	  if (target_size > nwords * UNITS_PER_WORD)
 	    {
 	      unsigned int i, total_words;
 
-	      total_words = GET_MODE_SIZE (GET_MODE (target)) / UNITS_PER_WORD;
+	      total_words = target_size / UNITS_PER_WORD;
 	      for (i = nwords; i < total_words; i++)
 		emit_move_insn
 		  (operand_subword (target,

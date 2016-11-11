@@ -2637,12 +2637,14 @@ df_ref_record (enum df_ref_class cl,
 bool
 df_read_modify_subreg_p (const_rtx x)
 {
-  unsigned int isize;
-
   if (!partial_subreg_p (x))
     return false;
-  isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
-  return isize > REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
+  poly_int64 isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
+  poly_int64 regsize = REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
+  /* It doesn't make sense for REGMODE_NATURAL_SIZE to pick a size
+     that isn't ordered wrt the mode passed to it.  */
+  gcc_checking_assert (ordered_p (isize, regsize));
+  return may_gt (isize, regsize);
 }
 
 

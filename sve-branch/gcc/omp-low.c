@@ -4256,7 +4256,8 @@ omp_clause_aligned_alignment (tree clause)
 	tree type = lang_hooks.types.type_for_mode (mode, 1);
 	if (type == NULL_TREE || TYPE_MODE (type) != mode)
 	  continue;
-	unsigned int nelts = GET_MODE_SIZE (vmode) / GET_MODE_SIZE (mode);
+	poly_uint64 nelts = exact_div (GET_MODE_SIZE (vmode),
+				       GET_MODE_SIZE (mode));
 	type = build_vector_type (type, nelts);
 	if (TYPE_MODE (type) != vmode)
 	  continue;
@@ -5585,7 +5586,7 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
   gimple_seq after_join = NULL;
   tree init_code = NULL_TREE, fini_code = NULL_TREE,
     setup_code = NULL_TREE, teardown_code = NULL_TREE;
-  unsigned offset = 0;
+  HOST_WIDE_INT offset = 0;
 
   for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
@@ -5729,7 +5730,8 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	unsigned align = GET_MODE_ALIGNMENT (mode) /  BITS_PER_UNIT;
 	offset = (offset + align - 1) & ~(align - 1);
 	tree off = build_int_cst (sizetype, offset);
-	offset += GET_MODE_SIZE (mode);
+	/* The offset must be a compile-time constant.  */
+	offset += GET_MODE_SIZE (mode).to_constant ();
 
 	if (!init_code)
 	  {

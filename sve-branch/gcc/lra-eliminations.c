@@ -718,7 +718,7 @@ lra_eliminate_regs (rtx x, machine_mode mem_mode,
 /* Stack pointer offset before the current insn relative to one at the
    func start.  RTL insns can change SP explicitly.  We keep the
    changes from one insn to another through this variable.  */
-static HOST_WIDE_INT curr_sp_change;
+static poly_int64 curr_sp_change;
 
 /* Scan rtx X for references to elimination source or target registers
    in contexts that would prevent the elimination from happening.
@@ -747,12 +747,12 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
 		  && XEXP (x, 0) == XEXP (XEXP (x, 1), 0)
 		  && CONST_INT_P (XEXP (XEXP (x, 1), 1)))))
 	{
-	  int size = GET_MODE_SIZE (mem_mode);
+	  poly_int64 size = GET_MODE_SIZE (mem_mode);
 	  
 #ifdef PUSH_ROUNDING
 	  /* If more bytes than MEM_MODE are pushed, account for
 	     them.  */
-	  size = PUSH_ROUNDING (size);
+	  size = PUSH_ROUNDING (MACRO_INT (size));
 #endif
 	  if (code == PRE_DEC || code == POST_DEC)
 	    curr_sp_change -= size;
@@ -1357,13 +1357,13 @@ init_elimination (void)
 	    if (NONDEBUG_INSN_P (insn))
 	      {
 		mark_not_eliminable (PATTERN (insn), VOIDmode);
-		if (curr_sp_change != 0
+		if (may_ne (curr_sp_change, 0)
 		    && find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX))
 		  stop_to_sp_elimination_p = true;
 	      }
 	  }
       if (! frame_pointer_needed
-	  && (curr_sp_change != 0 || stop_to_sp_elimination_p)
+	  && (may_ne (curr_sp_change, 0) || stop_to_sp_elimination_p)
 	  && bb->succs && bb->succs->length () != 0)
 	for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	  if (ep->to == STACK_POINTER_REGNUM)

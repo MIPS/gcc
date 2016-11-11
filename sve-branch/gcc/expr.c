@@ -2227,7 +2227,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type,
       else if (VECTOR_MODE_P (GET_MODE (dst))
 	       && REG_P (src))
 	{
-	  int slen = GET_MODE_SIZE (GET_MODE (src));
+	  poly_uint16 slen = GET_MODE_SIZE (GET_MODE (src));
 	  rtx mem;
 
 	  mem = assign_stack_temp (GET_MODE (src), slen);
@@ -2955,7 +2955,7 @@ clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
      just move a zero.  Otherwise, do this a piece at a time.  */
   if (mode != BLKmode
       && CONST_INT_P (size)
-      && INTVAL (size) == (HOST_WIDE_INT) GET_MODE_SIZE (mode))
+      && must_eq (INTVAL (size), GET_MODE_SIZE (mode)))
     {
       rtx zero = CONST0_RTX (mode);
       if (zero != NULL)
@@ -3334,12 +3334,11 @@ rtx
 emit_move_resolve_push (machine_mode mode, rtx x)
 {
   enum rtx_code code = GET_CODE (XEXP (x, 0));
-  HOST_WIDE_INT adjust;
   rtx temp;
 
-  adjust = GET_MODE_SIZE (mode);
+  poly_int64 adjust = GET_MODE_SIZE (mode);
 #ifdef PUSH_ROUNDING
-  adjust = PUSH_ROUNDING (adjust);
+  adjust = PUSH_ROUNDING (MACRO_INT (adjust));
 #endif
   if (code == PRE_DEC || code == POST_DEC)
     adjust = -adjust;
@@ -3353,7 +3352,7 @@ emit_move_resolve_push (machine_mode mode, rtx x)
       val = INTVAL (XEXP (expr, 1));
       if (GET_CODE (expr) == MINUS)
 	val = -val;
-      gcc_assert (adjust == val || adjust == -val);
+      gcc_assert (must_eq (adjust, val) || must_eq (adjust, -val));
       adjust = val;
     }
 
@@ -3496,7 +3495,7 @@ emit_move_complex (machine_mode mode, rtx x, rtx y)
 	 existing block move logic.  */
       if (MEM_P (x) && MEM_P (y))
 	{
-	  emit_block_move (x, y, GEN_INT (GET_MODE_SIZE (mode)),
+	  emit_block_move (x, y, gen_int_mode (GET_MODE_SIZE (mode), Pmode),
 			   BLOCK_OP_NO_LIBCALL);
 	  return get_last_insn ();
 	}
@@ -3561,9 +3560,12 @@ emit_move_multi_word (machine_mode mode, rtx x, rtx y)
   rtx_insn *seq;
   rtx inner;
   bool need_clobber;
-  int i;
+  int i, mode_size;
 
-  gcc_assert (GET_MODE_SIZE (mode) >= UNITS_PER_WORD);
+  /* This function can only handle cases where the number of words is
+     known at compile time.  */
+  mode_size = GET_MODE_SIZE (mode).to_constant ();
+  gcc_assert (mode_size >= UNITS_PER_WORD);
 
   /* If X is a push on the stack, do the push now and replace
      X with a reference to the stack pointer.  */
@@ -3582,9 +3584,7 @@ emit_move_multi_word (machine_mode mode, rtx x, rtx y)
   start_sequence ();
 
   need_clobber = false;
-  for (i = 0;
-       i < (GET_MODE_SIZE (mode) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
-       i++)
+  for (i = 0; i < CEIL (mode_size, UNITS_PER_WORD); i++)
     {
       rtx xpart = operand_subword (x, i, 1, mode);
       rtx ypart;
@@ -4108,11 +4108,11 @@ static void
 emit_single_push_insn_1 (machine_mode mode, rtx x, tree type)
 {
   rtx dest_addr;
-  unsigned rounded_size = PUSH_ROUNDING (GET_MODE_SIZE (mode));
+  poly_int64 rounded_size = PUSH_ROUNDING (MACRO_INT (GET_MODE_SIZE (mode)));
   rtx dest;
   enum insn_code icode;
 
-  stack_pointer_delta += PUSH_ROUNDING (GET_MODE_SIZE (mode));
+  stack_pointer_delta += PUSH_ROUNDING (MACRO_INT (GET_MODE_SIZE (mode)));
   /* If there is push pattern, use it.  Otherwise try old way of throwing
      MEM representing push operation to move expander.  */
   icode = optab_handler (push_optab, mode);
@@ -4124,7 +4124,7 @@ emit_single_push_insn_1 (machine_mode mode, rtx x, tree type)
       if (maybe_expand_insn (icode, 1, ops))
 	return;
     }
-  if (GET_MODE_SIZE (mode) == rounded_size)
+  if (must_eq (GET_MODE_SIZE (mode), rounded_size))
     dest_addr = gen_rtx_fmt_e (STACK_PUSH_CODE, Pmode, stack_pointer_rtx);
   /* If we are to pad downward, adjust the stack pointer first and
      then store X into the stack location using an offset.  This is
@@ -4132,9 +4132,6 @@ emit_single_push_insn_1 (machine_mode mode, rtx x, tree type)
      access to type.  */
   else if (targetm.calls.function_arg_padding (mode, type) == PAD_DOWNWARD)
     {
-      unsigned padding_size = rounded_size - GET_MODE_SIZE (mode);
-      HOST_WIDE_INT offset;
-
       emit_move_insn (stack_pointer_rtx,
 		      expand_binop (Pmode,
 				    STACK_GROWS_DOWNWARD ? sub_optab
@@ -4143,31 +4140,27 @@ emit_single_push_insn_1 (machine_mode mode, rtx x, tree type)
 				    gen_int_mode (rounded_size, Pmode),
 				    NULL_RTX, 0, OPTAB_LIB_WIDEN));
 
-      offset = (HOST_WIDE_INT) padding_size;
+      poly_int64 offset = rounded_size - GET_MODE_SIZE (mode);
       if (STACK_GROWS_DOWNWARD && STACK_PUSH_CODE == POST_DEC)
 	/* We have already decremented the stack pointer, so get the
 	   previous value.  */
-	offset += (HOST_WIDE_INT) rounded_size;
+	offset += rounded_size;
 
       if (!STACK_GROWS_DOWNWARD && STACK_PUSH_CODE == POST_INC)
 	/* We have already incremented the stack pointer, so get the
 	   previous value.  */
-	offset -= (HOST_WIDE_INT) rounded_size;
+	offset -= rounded_size;
 
-      dest_addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-				gen_int_mode (offset, Pmode));
+      dest_addr = plus_constant (Pmode, stack_pointer_rtx, offset);
     }
   else
     {
       if (STACK_GROWS_DOWNWARD)
 	/* ??? This seems wrong if STACK_PUSH_CODE == POST_DEC.  */
-	dest_addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-				  gen_int_mode (-(HOST_WIDE_INT) rounded_size,
-						Pmode));
+	dest_addr = plus_constant (Pmode, stack_pointer_rtx, -rounded_size);
       else
 	/* ??? This seems wrong if STACK_PUSH_CODE == POST_INC.  */
-	dest_addr = gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-				  gen_int_mode (rounded_size, Pmode));
+	dest_addr = plus_constant (Pmode, stack_pointer_rtx, rounded_size);
 
       dest_addr = gen_rtx_PRE_MODIFY (Pmode, stack_pointer_rtx, dest_addr);
     }
@@ -4313,7 +4306,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	  /* A value is to be stored in an insufficiently aligned
 	     stack slot; copy via a suitably aligned slot if
 	     necessary.  */
-	  size = GEN_INT (GET_MODE_SIZE (mode));
+	  size = gen_int_mode (GET_MODE_SIZE (mode), Pmode);
 	  if (!MEM_P (xinner))
 	    {
 	      temp = assign_temp (type, 1, 1);
@@ -4469,9 +4462,10 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
     }
   else if (partial > 0)
     {
-      /* Scalar partly in registers.  */
-
-      int size = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
+      /* Scalar partly in registers.  This case is only supported
+	 for fixed-wdth modes.  */
+      int size = GET_MODE_SIZE (mode).to_constant ();
+      size /= UNITS_PER_WORD;
       int i;
       int not_stack;
       /* # bytes of start of argument
@@ -6212,7 +6206,8 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 	   a constant.  But if more than one register is involved,
 	   this probably loses.  */
 	else if (REG_P (target) && TREE_STATIC (exp)
-		 && GET_MODE_SIZE (GET_MODE (target)) <= UNITS_PER_WORD)
+		 && must_le (GET_MODE_SIZE (GET_MODE (target)),
+			     UNITS_PER_WORD))
 	  {
 	    emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 	    cleared = 1;
@@ -10990,10 +10985,13 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		  gcc_assert (!TREE_ADDRESSABLE (exp));
 
 		  if (GET_MODE (op0) == BLKmode)
-		    emit_block_move (new_with_op0_mode, op0,
-				     GEN_INT (GET_MODE_SIZE (mode)),
-				     (modifier == EXPAND_STACK_PARM
-				      ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
+		    {
+		      rtx size_rtx = gen_int_mode (mode_size, Pmode);
+		      emit_block_move (new_with_op0_mode, op0, size_rtx,
+				       (modifier == EXPAND_STACK_PARM
+					? BLOCK_OP_CALL_PARM
+					: BLOCK_OP_NORMAL));
+		    }
 		  else
 		    emit_move_insn (new_with_op0_mode, op0);
 

@@ -1565,7 +1565,7 @@ find_base_value (rtx src)
 	 address modes depending on the address space.  */
       if (!target_default_pointer_address_modes_p ())
 	break;
-      if (GET_MODE_SIZE (GET_MODE (src)) < GET_MODE_SIZE (Pmode))
+      if (!is_narrower_int_mode (GET_MODE (src), Pmode))
 	break;
       /* Fall through.  */
     case HIGH:
@@ -1988,7 +1988,7 @@ find_base_term (rtx x)
 	 address modes depending on the address space.  */
       if (!target_default_pointer_address_modes_p ())
 	return 0;
-      if (GET_MODE_SIZE (GET_MODE (x)) < GET_MODE_SIZE (Pmode))
+      if (!is_narrower_int_mode (GET_MODE (x), Pmode))
 	return 0;
       /* Fall through.  */
     case HIGH:
