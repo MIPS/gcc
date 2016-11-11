@@ -1950,7 +1950,7 @@ struct symbolic_number {
   tree type;
   tree base_addr;
   tree offset;
-  HOST_WIDE_INT bytepos;
+  poly_int64 bytepos;
   tree alias_set;
   tree vuse;
   unsigned HOST_WIDE_INT range;
@@ -2177,7 +2177,7 @@ perform_symbolic_merge (gimple *source_stmt1, struct symbolic_number *n1,
   if (rhs1 != rhs2)
     {
       uint64_t inc;
-      HOST_WIDE_INT start_sub, end_sub, end1, end2, end;
+      HOST_WIDE_INT start1, start2, start_sub, end_sub, end1, end2, end;
       struct symbolic_number *toinc_n_ptr, *n_end;
 
       if (!n1->base_addr || !n2->base_addr
@@ -2188,23 +2188,27 @@ perform_symbolic_merge (gimple *source_stmt1, struct symbolic_number *n1,
 	  || (n1->offset && !operand_equal_p (n1->offset, n2->offset, 0)))
 	return NULL;
 
-      if (n1->bytepos < n2->bytepos)
+      start1 = 0;
+      if (!(n2->bytepos - n1->bytepos).is_constant (&start2))
+	return NULL;
+
+      if (start1 < start2)
 	{
 	  n_start = n1;
-	  start_sub = n2->bytepos - n1->bytepos;
+	  start_sub = start2 - start1;
 	  source_stmt = source_stmt1;
 	}
       else
 	{
 	  n_start = n2;
-	  start_sub = n1->bytepos - n2->bytepos;
+	  start_sub = start1 - start2;
 	  source_stmt = source_stmt2;
 	}
 
       /* Find the highest address at which a load is performed and
 	 compute related info.  */
-      end1 = n1->bytepos + (n1->range - 1);
-      end2 = n2->bytepos + (n2->range - 1);
+      end1 = start1 + (n1->range - 1);
+      end2 = start2 + (n2->range - 1);
       if (end1 < end2)
 	{
 	  end = end2;
@@ -2223,7 +2227,7 @@ perform_symbolic_merge (gimple *source_stmt1, struct symbolic_number *n1,
       else
 	toinc_n_ptr = (n_start == n1) ? n2 : n1;
 
-      n->range = end - n_start->bytepos + 1;
+      n->range = end - MIN (start1, start2) + 1;
 
       /* Check that the range of memory covered can be represented by
 	 a symbolic number.  */
