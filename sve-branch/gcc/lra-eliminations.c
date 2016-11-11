@@ -204,10 +204,11 @@ form_sum (rtx x, rtx y)
   if (mode == VOIDmode)
     mode = Pmode;
 
-  if (CONST_INT_P (x))
-    return plus_constant (mode, y, INTVAL (x));
-  else if (CONST_INT_P (y))
-    return plus_constant (mode, x, INTVAL (y));
+  poly_int64 c;
+  if (poly_int_const_p (x, &c))
+    return plus_constant (mode, y, c);
+  else if (poly_int_const_p (y, &c))
+    return plus_constant (mode, x, c);
   else if (CONSTANT_P (x))
     std::swap (x, y);
 
@@ -732,6 +733,7 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
   struct lra_elim_table *ep;
   int i, j;
   const char *fmt;
+  poly_int64 offset;
 
   switch (code)
     {
@@ -809,9 +811,9 @@ mark_not_eliminable (rtx x, machine_mode mem_mode)
       if (SET_DEST (x) == stack_pointer_rtx
 	  && GET_CODE (SET_SRC (x)) == PLUS
 	  && XEXP (SET_SRC (x), 0) == SET_DEST (x)
-	  && CONST_INT_P (XEXP (SET_SRC (x), 1)))
+	  && poly_int_const_p (XEXP (SET_SRC (x), 1), &offset))
 	{
-	  curr_sp_change += INTVAL (XEXP (SET_SRC (x), 1));
+	  curr_sp_change += offset;
 	  return;
 	}
       if (! REG_P (SET_DEST (x))

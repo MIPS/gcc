@@ -2063,12 +2063,13 @@ internal_arg_pointer_based_exp (const_rtx rtl, bool toplevel)
   if (REG_P (rtl) && HARD_REGISTER_P (rtl))
     return NULL_RTX;
 
-  if (GET_CODE (rtl) == PLUS && CONST_INT_P (XEXP (rtl, 1)))
+  poly_int64 offset;
+  if (GET_CODE (rtl) == PLUS && poly_int_const_p (XEXP (rtl, 1), &offset))
     {
       rtx val = internal_arg_pointer_based_exp (XEXP (rtl, 0), toplevel);
       if (val == NULL_RTX || val == pc_rtx)
 	return val;
-      return plus_constant (Pmode, val, INTVAL (XEXP (rtl, 1)));
+      return plus_constant (Pmode, val, offset);
     }
 
   /* When called at the topmost level, scan pseudo assignments in between the
@@ -5238,17 +5239,14 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	  /* emit_push_insn might not work properly if arg->value and
 	     argblock + arg->locate.offset areas overlap.  */
 	  rtx x = arg->value;
-	  int i = 0;
+	  poly_int64 i = 0;
 
 	  if (XEXP (x, 0) == crtl->args.internal_arg_pointer
 	      || (GET_CODE (XEXP (x, 0)) == PLUS
 		  && XEXP (XEXP (x, 0), 0) ==
 		     crtl->args.internal_arg_pointer
-		  && CONST_INT_P (XEXP (XEXP (x, 0), 1))))
+		  && poly_int_const_p (XEXP (XEXP (x, 0), 1), &i)))
 	    {
-	      if (XEXP (x, 0) != crtl->args.internal_arg_pointer)
-		i = INTVAL (XEXP (XEXP (x, 0), 1));
-
 	      /* arg.locate doesn't contain the pretend_args_size offset,
 		 it's part of argblock.  Ensure we don't count it in I.  */
 	      if (STACK_GROWS_DOWNWARD)
@@ -5258,8 +5256,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
 	      /* expand_call should ensure this.  */
 	      gcc_assert (!arg->locate.offset.var
-			  && arg->locate.size.var == 0
-			  && CONST_INT_P (size_rtx));
+			  && arg->locate.size.var == 0);
+	      poly_int64 const_size = rtx_to_poly_int64 (size_rtx);
 
 	      if (must_eq (arg->locate.offset.constant, i))
 		{
@@ -5268,13 +5266,13 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		     they aren't really at the same location.  Check for
 		     this by making sure that the incoming size is the
 		     same as the outgoing size.  */
-		  if (may_ne (arg->locate.size.constant, INTVAL (size_rtx)))
+		  if (may_ne (arg->locate.size.constant, const_size))
 		    sibcall_failure = 1;
 		}
 	      else if (maybe_in_range_p (arg->locate.offset.constant,
-					 i, INTVAL (size_rtx)))
+					 i, const_size))
 		sibcall_failure = 1;
-	      /* Use arg->locate.size.constant instead of size_rtx
+	      /* Use arg->locate.size.constant instead of const_size
 		 because we only care about the part of the argument
 		 on the stack.  */
 	      else if (maybe_in_range_p (i, arg->locate.offset.constant,
