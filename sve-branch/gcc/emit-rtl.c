@@ -320,9 +320,9 @@ mem_attrs_eq_p (const struct mem_attrs *p, const struct mem_attrs *q)
     return false;
   return (p->alias == q->alias
 	  && p->offset_known_p == q->offset_known_p
-	  && (!p->offset_known_p || p->offset == q->offset)
+	  && (!p->offset_known_p || must_eq (p->offset, q->offset))
 	  && p->size_known_p == q->size_known_p
-	  && (!p->size_known_p || p->size == q->size)
+	  && (!p->size_known_p || must_eq (p->size, q->size))
 	  && p->align == q->align
 	  && p->addrspace == q->addrspace
 	  && (p->expr == q->expr
@@ -1817,7 +1817,7 @@ int
 get_mem_align_offset (rtx mem, unsigned int align)
 {
   tree expr;
-  unsigned HOST_WIDE_INT offset;
+  poly_uint64 offset;
 
   /* This function can't use
      if (!MEM_EXPR (mem) || !MEM_OFFSET_KNOWN_P (mem)
@@ -1888,7 +1888,10 @@ get_mem_align_offset (rtx mem, unsigned int align)
   else
     return -1;
 
-  return offset & ((align / BITS_PER_UNIT) - 1);
+  HOST_WIDE_INT misalign;
+  if (!known_misalignment (offset, align / BITS_PER_UNIT, &misalign))
+    return -1;
+  return misalign;
 }
 
 /* Given REF (a MEM) and T, either the type of X or the expression
@@ -1898,9 +1901,9 @@ get_mem_align_offset (rtx mem, unsigned int align)
 
 void
 set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
-				 HOST_WIDE_INT bitpos)
+				 poly_int64 bitpos)
 {
-  HOST_WIDE_INT apply_bitpos = 0;
+  poly_int64 apply_bitpos = 0;
   tree type;
   struct mem_attrs attrs, *defattrs, *refattrs;
   addr_space_t as;
@@ -2113,27 +2116,29 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       unsigned int obj_align;
       unsigned HOST_WIDE_INT obj_bitpos;
       get_object_alignment_1 (t, &obj_align, &obj_bitpos);
-      obj_bitpos = (obj_bitpos - bitpos) & (obj_align - 1);
-      if (obj_bitpos != 0)
-	obj_align = least_bit_hwi (obj_bitpos);
+      unsigned int diff_align = known_alignment (obj_bitpos - bitpos);
+      if (diff_align != 0)
+	obj_align = MIN (obj_align, diff_align);
       attrs.align = MAX (attrs.align, obj_align);
     }
 
-  if (tree_fits_uhwi_p (new_size))
+  poly_uint64 const_size;
+  if (poly_tree_p (new_size, &const_size))
     {
       attrs.size_known_p = true;
-      attrs.size = tree_to_uhwi (new_size);
+      attrs.size = const_size;
     }
 
   /* If we modified OFFSET based on T, then subtract the outstanding
      bit position offset.  Similarly, increase the size of the accessed
      object to contain the negative offset.  */
-  if (apply_bitpos)
+  if (may_ne (apply_bitpos, 0))
     {
       gcc_assert (attrs.offset_known_p);
-      attrs.offset -= apply_bitpos / BITS_PER_UNIT;
+      poly_int64 bytepos = bits_to_bytes_round_down (apply_bitpos);
+      attrs.offset -= bytepos;
       if (attrs.size_known_p)
-	attrs.size += apply_bitpos / BITS_PER_UNIT;
+	attrs.size += bytepos;
     }
 
   /* Now set the attributes we computed above.  */
@@ -2200,7 +2205,7 @@ set_mem_expr (rtx mem, tree expr)
 /* Set the offset of MEM to OFFSET.  */
 
 void
-set_mem_offset (rtx mem, HOST_WIDE_INT offset)
+set_mem_offset (rtx mem, poly_int64 offset)
 {
   struct mem_attrs attrs;
 
@@ -2225,7 +2230,7 @@ clear_mem_offset (rtx mem)
 /* Set the size of MEM to SIZE.  */
 
 void
-set_mem_size (rtx mem, HOST_WIDE_INT size)
+set_mem_size (rtx mem, poly_int64 size)
 {
   struct mem_attrs attrs;
 
@@ -2342,14 +2347,13 @@ change_address (rtx memref, machine_mode mode, rtx addr)
    has no inherent size.  */
 
 rtx
-adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
+adjust_address_1 (rtx memref, machine_mode mode, poly_int64 offset,
 		  int validate, int adjust_address, int adjust_object,
-		  HOST_WIDE_INT size)
+		  poly_int64 size)
 {
   rtx addr = XEXP (memref, 0);
   rtx new_rtx;
   scalar_int_mode address_mode;
-  int pbits;
   struct mem_attrs attrs = *get_mem_attrs (memref), *defattrs;
   unsigned HOST_WIDE_INT max_align;
 #ifdef POINTERS_EXTEND_UNSIGNED
@@ -2367,8 +2371,10 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
     size = defattrs->size;
 
   /* If there are no changes, just return the original memory reference.  */
-  if (mode == GET_MODE (memref) && !offset
-      && (size == 0 || (attrs.size_known_p && attrs.size == size))
+  if (mode == GET_MODE (memref)
+      && must_eq (offset, 0)
+      && (must_eq (size, 0)
+	  || (attrs.size_known_p && must_eq (attrs.size, size)))
       && (!validate || memory_address_addr_space_p (mode, addr,
 						    attrs.addrspace)))
     return memref;
@@ -2381,22 +2387,17 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
   /* Convert a possibly large offset to a signed value within the
      range of the target address space.  */
   address_mode = get_address_mode (memref);
-  pbits = GET_MODE_BITSIZE (address_mode);
-  if (HOST_BITS_PER_WIDE_INT > pbits)
-    {
-      int shift = HOST_BITS_PER_WIDE_INT - pbits;
-      offset = (((HOST_WIDE_INT) ((unsigned HOST_WIDE_INT) offset << shift))
-		>> shift);
-    }
+  offset = trunc_int_for_mode (offset, address_mode);
 
   if (adjust_address)
     {
       /* If MEMREF is a LO_SUM and the offset is within the alignment of the
 	 object, we can merge it into the LO_SUM.  */
-      if (GET_MODE (memref) != BLKmode && GET_CODE (addr) == LO_SUM
-	  && offset >= 0
-	  && (unsigned HOST_WIDE_INT) offset
-	      < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
+      if (GET_MODE (memref) != BLKmode
+	  && GET_CODE (addr) == LO_SUM
+	  && known_in_range_p (offset, 0,
+			       GET_MODE_ALIGNMENT (GET_MODE (memref))
+			       / BITS_PER_UNIT))
 	addr = gen_rtx_LO_SUM (address_mode, XEXP (addr, 0),
 			       plus_constant (address_mode,
 					      XEXP (addr, 1), offset));
@@ -2407,7 +2408,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
       else if (POINTERS_EXTEND_UNSIGNED > 0
 	       && GET_CODE (addr) == ZERO_EXTEND
 	       && GET_MODE (XEXP (addr, 0)) == pointer_mode
-	       && trunc_int_for_mode (offset, pointer_mode) == offset)
+	       && must_eq (trunc_int_for_mode (offset, pointer_mode), offset))
 	addr = gen_rtx_ZERO_EXTEND (address_mode,
 				    plus_constant (pointer_mode,
 						   XEXP (addr, 0), offset));
@@ -2420,7 +2421,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
 
   /* If the address is a REG, change_address_1 rightfully returns memref,
      but this would destroy memref's MEM_ATTRS.  */
-  if (new_rtx == memref && offset != 0)
+  if (new_rtx == memref && may_ne (offset, 0))
     new_rtx = copy_rtx (new_rtx);
 
   /* Conservatively drop the object if we don't know where we start from.  */
@@ -2437,7 +2438,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
       attrs.offset += offset;
 
       /* Drop the object if the new left end is not within its bounds.  */
-      if (adjust_object && attrs.offset < 0)
+      if (adjust_object && may_lt (attrs.offset, 0))
 	{
 	  attrs.expr = NULL_TREE;
 	  attrs.alias = 0;
@@ -2447,16 +2448,16 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
   /* Compute the new alignment by taking the MIN of the alignment and the
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
-  if (offset != 0)
+  if (may_ne (offset, 0))
     {
-      max_align = least_bit_hwi (offset) * BITS_PER_UNIT;
+      max_align = known_alignment (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
-  if (size)
+  if (may_ne (size, 0))
     {
       /* Drop the object if the new right end is not within its bounds.  */
-      if (adjust_object && (offset + size) > attrs.size)
+      if (adjust_object && may_gt (offset + size, attrs.size))
 	{
 	  attrs.expr = NULL_TREE;
 	  attrs.alias = 0;
@@ -2484,7 +2485,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
 
 rtx
 adjust_automodify_address_1 (rtx memref, machine_mode mode, rtx addr,
-			     HOST_WIDE_INT offset, int validate)
+			     poly_int64 offset, int validate)
 {
   memref = change_address_1 (memref, VOIDmode, addr, validate, false);
   return adjust_address_1 (memref, mode, offset, validate, 0, 0, 0);
@@ -2569,7 +2570,7 @@ replace_equiv_address_nv (rtx memref, rtx addr, bool inplace)
    operations plus masking logic.  */
 
 rtx
-widen_memory_access (rtx memref, machine_mode mode, HOST_WIDE_INT offset)
+widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 {
   rtx new_rtx = adjust_address_1 (memref, mode, offset, 1, 1, 0, 0);
   struct mem_attrs attrs;
@@ -2603,7 +2604,7 @@ widen_memory_access (rtx memref, machine_mode mode, HOST_WIDE_INT offset)
 	     otherwise strip back to the containing structure.  */
 	  if (TREE_CODE (DECL_SIZE_UNIT (field)) == INTEGER_CST
 	      && compare_tree_int (DECL_SIZE_UNIT (field), size) >= 0
-	      && attrs.offset >= 0)
+	      && must_ge (attrs.offset, 0))
 	    break;
 
 	  if (! tree_fits_uhwi_p (offset))
@@ -2622,7 +2623,7 @@ widen_memory_access (rtx memref, machine_mode mode, HOST_WIDE_INT offset)
 	       && DECL_SIZE_UNIT (attrs.expr)
 	       && TREE_CODE (DECL_SIZE_UNIT (attrs.expr)) == INTEGER_CST
 	       && compare_tree_int (DECL_SIZE_UNIT (attrs.expr), size) >= 0
-	       && (! attrs.offset_known_p || attrs.offset >= 0))
+	       && must_ge (attrs.offset, 0))
 	break;
       else
 	{

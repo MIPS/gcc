@@ -2849,7 +2849,7 @@ may_trap_p_1 (const_rtx x, unsigned flags)
 	  code_changed
 	  || !MEM_NOTRAP_P (x))
 	{
-	  HOST_WIDE_INT size = MEM_SIZE_KNOWN_P (x) ? MEM_SIZE (x) : 0;
+	  poly_int64 size = MEM_SIZE_KNOWN_P (x) ? MEM_SIZE (x) : 0;
 	  return rtx_addr_can_trap_p_1 (XEXP (x, 0), 0, size,
 					GET_MODE (x), code_changed);
 	}

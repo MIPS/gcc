@@ -328,13 +328,13 @@ extern void set_mem_addr_space (rtx, addr_space_t);
 extern void set_mem_expr (rtx, tree);
 
 /* Set the offset for MEM to OFFSET.  */
-extern void set_mem_offset (rtx, HOST_WIDE_INT);
+extern void set_mem_offset (rtx, poly_int64);
 
 /* Clear the offset recorded for MEM.  */
 extern void clear_mem_offset (rtx);
 
 /* Set the size for MEM to SIZE.  */
-extern void set_mem_size (rtx, HOST_WIDE_INT);
+extern void set_mem_size (rtx, poly_int64);
 
 /* Clear the size recorded for MEM.  */
 extern void clear_mem_size (rtx);
@@ -492,10 +492,10 @@ extern rtx change_address (rtx, machine_mode, rtx);
 #define adjust_automodify_address_nv(MEMREF, MODE, ADDR, OFFSET) \
   adjust_automodify_address_1 (MEMREF, MODE, ADDR, OFFSET, 0)
 
-extern rtx adjust_address_1 (rtx, machine_mode, HOST_WIDE_INT, int, int,
-			     int, HOST_WIDE_INT);
+extern rtx adjust_address_1 (rtx, machine_mode, poly_int64, int, int,
+			     int, poly_int64);
 extern rtx adjust_automodify_address_1 (rtx, machine_mode, rtx,
-					HOST_WIDE_INT, int);
+					poly_int64, int);
 
 /* Return a memory reference like MEMREF, but whose address is changed by
    adding OFFSET, an RTX, to it.  POW2 is the highest power of two factor
@@ -510,7 +510,7 @@ extern void set_mem_attributes (rtx, tree, int);
 /* Similar, except that BITPOS has not yet been applied to REF, so if
    we alter MEM_OFFSET according to T then we should subtract BITPOS
    expecting that it'll be added back in later.  */
-extern void set_mem_attributes_minus_bitpos (rtx, tree, int, HOST_WIDE_INT);
+extern void set_mem_attributes_minus_bitpos (rtx, tree, int, poly_int64);
 
 /* Return OFFSET if XEXP (MEM, 0) - OFFSET is known to be ALIGN
    bits aligned for 0 <= OFFSET < ALIGN / BITS_PER_UNIT, or
@@ -519,6 +519,6 @@ extern int get_mem_align_offset (rtx, unsigned int);
 
 /* Return a memory reference like MEMREF, but with its mode widened to
    MODE and adjusted by OFFSET.  */
-extern rtx widen_memory_access (rtx, machine_mode, HOST_WIDE_INT);
+extern rtx widen_memory_access (rtx, machine_mode, poly_int64);
 
 #endif /* GCC_EMIT_RTL_H */

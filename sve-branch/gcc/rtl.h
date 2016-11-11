@@ -154,11 +154,11 @@ struct GTY(()) mem_attrs
 
   /* The offset of the memory reference from the start of EXPR.
      Only valid if OFFSET_KNOWN_P.  */
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
 
   /* The size of the memory reference in bytes.  Only valid if
      SIZE_KNOWN_P.  */
-  HOST_WIDE_INT size;
+  poly_int64 size;
 
   /* The alias set of the memory reference.  */
   alias_set_type alias;
