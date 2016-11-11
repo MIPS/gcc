@@ -2089,11 +2089,13 @@ gen_group_rtx (rtx orig)
    into corresponding XEXP (XVECEXP (DST, 0, i), 0) element.  */
 
 static void
-emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
+emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type,
+		   poly_int64 ssize)
 {
   rtx src;
   int start, i;
   machine_mode m = GET_MODE (orig_src);
+  bool known_size_p = may_ge (ssize, 0);
 
   gcc_assert (GET_CODE (dst) == PARALLEL);
 
@@ -2128,12 +2130,13 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
   for (i = start; i < XVECLEN (dst, 0); i++)
     {
       machine_mode mode = GET_MODE (XEXP (XVECEXP (dst, 0, i), 0));
-      HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (dst, 0, i), 1));
-      unsigned int bytelen = GET_MODE_SIZE (mode);
-      int shift = 0;
+      poly_int64 bytepos = INTVAL (XEXP (XVECEXP (dst, 0, i), 1));
+      poly_int64 bytelen = GET_MODE_SIZE (mode);
+      poly_int64 shift = 0;
 
       /* Handle trailing fragments that run over the size of the struct.  */
-      if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
+      gcc_checking_assert (ordered_p (bytepos + bytelen, ssize));
+      if (known_size_p && may_gt (bytepos + bytelen, ssize))
 	{
 	  /* Arrange to shift the fragment to where it belongs.
 	     extract_bit_field loads to the lsb of the reg.  */
@@ -2147,7 +2150,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 	      )
 	    shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
 	  bytelen = ssize - bytepos;
-	  gcc_assert (bytelen > 0);
+	  gcc_assert (must_gt (bytelen, 0));
 	}
 
       /* If we won't be loading directly from memory, protect the real source
@@ -2171,33 +2174,34 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
       if (MEM_P (src)
 	  && (! targetm.slow_unaligned_access (mode, MEM_ALIGN (src))
 	      || MEM_ALIGN (src) >= GET_MODE_ALIGNMENT (mode))
-	  && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
-	  && bytelen == GET_MODE_SIZE (mode))
+	  && multiple_p (bytepos * BITS_PER_UNIT, GET_MODE_ALIGNMENT (mode))
+	  && must_eq (bytelen, GET_MODE_SIZE (mode)))
 	{
 	  tmps[i] = gen_reg_rtx (mode);
 	  emit_move_insn (tmps[i], adjust_address (src, mode, bytepos));
 	}
       else if (COMPLEX_MODE_P (mode)
 	       && GET_MODE (src) == mode
-	       && bytelen == GET_MODE_SIZE (mode))
+	       && must_eq (bytelen, GET_MODE_SIZE (mode)))
 	/* Let emit_move_complex do the bulk of the work.  */
 	tmps[i] = src;
       else if (GET_CODE (src) == CONCAT)
 	{
-	  unsigned int slen = GET_MODE_SIZE (GET_MODE (src));
-	  unsigned int slen0 = GET_MODE_SIZE (GET_MODE (XEXP (src, 0)));
-	  unsigned int elt = bytepos / slen0;
-	  unsigned int subpos = bytepos % slen0;
+	  poly_int64 slen = GET_MODE_SIZE (GET_MODE (src));
+	  poly_int64 slen0 = GET_MODE_SIZE (GET_MODE (XEXP (src, 0)));
+	  unsigned int elt;
+	  poly_int64 subpos;
 
-	  if (subpos + bytelen <= slen0)
+	  if (can_div_trunc_p (bytepos, slen0, &elt, &subpos)
+	      && must_le (subpos + bytelen, slen0))
 	    {
 	      /* The following assumes that the concatenated objects all
 		 have the same size.  In this case, a simple calculation
 		 can be used to determine the object and the bit field
 		 to be extracted.  */
 	      tmps[i] = XEXP (src, elt);
-	      if (subpos != 0
-		  || subpos + bytelen != slen0
+	      if (may_ne (subpos, 0)
+		  || may_ne (subpos + bytelen, slen0)
 		  || (!CONSTANT_P (tmps[i])
 		      && (!REG_P (tmps[i]) || GET_MODE (tmps[i]) != mode)))
 		tmps[i] = extract_bit_field (tmps[i], bytelen * BITS_PER_UNIT,
@@ -2208,7 +2212,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 	    {
 	      rtx mem;
 
-	      gcc_assert (!bytepos);
+	      gcc_assert (must_eq (bytepos, 0));
 	      mem = assign_stack_temp (GET_MODE (src), slen);
 	      emit_move_insn (mem, src);
 	      tmps[i] = extract_bit_field (mem, bytelen * BITS_PER_UNIT,
@@ -2226,23 +2230,21 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 
 	  mem = assign_stack_temp (GET_MODE (src), slen);
 	  emit_move_insn (mem, src);
-	  tmps[i] = adjust_address (mem, mode, (int) bytepos);
+	  tmps[i] = adjust_address (mem, mode, bytepos);
 	}
       else if (CONSTANT_P (src) && GET_MODE (dst) != BLKmode
                && XVECLEN (dst, 0) > 1)
         tmps[i] = simplify_gen_subreg (mode, src, GET_MODE (dst), bytepos);
       else if (CONSTANT_P (src))
 	{
-	  HOST_WIDE_INT len = (HOST_WIDE_INT) bytelen;
-
-	  if (len == ssize)
+	  if (must_eq (bytelen, ssize))
 	    tmps[i] = src;
 	  else
 	    {
 	      rtx first, second;
 
 	      /* TODO: const_wide_int can have sizes other than this...  */
-	      gcc_assert (2 * len == ssize);
+	      gcc_assert (must_eq (2 * bytelen, ssize));
 	      split_double (src, &first, &second);
 	      if (i)
 		tmps[i] = second;
@@ -2257,7 +2259,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 				     bytepos * BITS_PER_UNIT, 1, NULL_RTX,
 				     mode, mode, false);
 
-      if (shift)
+      if (may_ne (shift, 0))
 	tmps[i] = expand_shift (LSHIFT_EXPR, mode, tmps[i],
 				shift, tmps[i], 0);
     }
@@ -2269,7 +2271,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
    if not known.  */
 
 void
-emit_group_load (rtx dst, rtx src, tree type, int ssize)
+emit_group_load (rtx dst, rtx src, tree type, poly_int64 ssize)
 {
   rtx *tmps;
   int i;
@@ -2292,7 +2294,7 @@ emit_group_load (rtx dst, rtx src, tree type, int ssize)
    in the right place.  */
 
 rtx
-emit_group_load_into_temps (rtx parallel, rtx src, tree type, int ssize)
+emit_group_load_into_temps (rtx parallel, rtx src, tree type, poly_int64 ssize)
 {
   rtvec vec;
   int i;
@@ -2363,11 +2365,13 @@ emit_group_move_into_temps (rtx src)
    known.  */
 
 void
-emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
+emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED,
+		  poly_int64 ssize)
 {
   rtx *tmps, dst;
   int start, finish, i;
   machine_mode m = GET_MODE (orig_dst);
+  bool known_size_p = may_ge (ssize, 0);
 
   gcc_assert (GET_CODE (src) == PARALLEL);
 
@@ -2494,24 +2498,25 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
   /* Process the pieces.  */
   for (i = start; i < finish; i++)
     {
-      HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
+      poly_int64 bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
       machine_mode mode = GET_MODE (tmps[i]);
-      unsigned int bytelen = GET_MODE_SIZE (mode);
-      unsigned int adj_bytelen;
+      poly_int64 bytelen = GET_MODE_SIZE (mode);
+      poly_int64 adj_bytelen;
       rtx dest = dst;
 
       /* Handle trailing fragments that run over the size of the struct.  */
-      if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
+      gcc_checking_assert (ordered_p (bytepos + bytelen, ssize));
+      if (known_size_p && may_gt (bytepos + bytelen, ssize))
 	adj_bytelen = ssize - bytepos;
       else
 	adj_bytelen = bytelen;
 
       if (GET_CODE (dst) == CONCAT)
 	{
-	  if (bytepos + adj_bytelen
-	      <= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
+	  if (must_le (bytepos + adj_bytelen,
+		       GET_MODE_SIZE (GET_MODE (XEXP (dst, 0)))))
 	    dest = XEXP (dst, 0);
-	  else if (bytepos >= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
+	  else if (must_ge (bytepos, GET_MODE_SIZE (GET_MODE (XEXP (dst, 0)))))
 	    {
 	      bytepos -= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0)));
 	      dest = XEXP (dst, 1);
@@ -2521,7 +2526,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	      machine_mode dest_mode = GET_MODE (dest);
 	      machine_mode tmp_mode = GET_MODE (tmps[i]);
 
-	      gcc_assert (bytepos == 0 && XVECLEN (src, 0));
+	      gcc_assert (must_eq (bytepos, 0) && XVECLEN (src, 0));
 
 	      if (GET_MODE_ALIGNMENT (dest_mode)
 		  >= GET_MODE_ALIGNMENT (tmp_mode))
@@ -2546,7 +2551,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	}
 
       /* Handle trailing fragments that run over the size of the struct.  */
-      if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
+      if (known_size_p && may_gt (bytepos + bytelen, ssize))
 	{
 	  /* store_bit_field always takes its value from the lsb.
 	     Move the fragment to the lsb if it's not already there.  */
@@ -2559,7 +2564,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 #endif
 	      )
 	    {
-	      int shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
+	      poly_int64 shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
 	      tmps[i] = expand_shift (RSHIFT_EXPR, mode, tmps[i],
 				      shift, tmps[i], 0);
 	    }
@@ -2575,8 +2580,9 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
       else if (MEM_P (dest)
 	       && (!targetm.slow_unaligned_access (mode, MEM_ALIGN (dest))
 		   || MEM_ALIGN (dest) >= GET_MODE_ALIGNMENT (mode))
-	       && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
-	       && bytelen == GET_MODE_SIZE (mode))
+	       && multiple_p (bytepos * BITS_PER_UNIT,
+			      GET_MODE_ALIGNMENT (mode))
+	       && must_eq (bytelen, GET_MODE_SIZE (mode)))
 	emit_move_insn (adjust_address (dest, mode, bytepos), tmps[i]);
 
       else
