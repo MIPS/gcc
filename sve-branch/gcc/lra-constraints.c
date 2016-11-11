@@ -3839,10 +3839,13 @@ curr_insn_transform (bool check_only_p)
       if (INSN_CODE (curr_insn) >= 0
           && (p = get_insn_name (INSN_CODE (curr_insn))) != NULL)
         fprintf (lra_dump_file, " {%s}", p);
-      if (curr_id->sp_offset != 0)
-        fprintf (lra_dump_file, " (sp_off=%" HOST_WIDE_INT_PRINT "d)",
-		 curr_id->sp_offset);
-       fprintf (lra_dump_file, "\n");
+      if (may_ne (curr_id->sp_offset, 0))
+	{
+	  fprintf (lra_dump_file, " (sp_off=");
+	  print_dec (curr_id->sp_offset, lra_dump_file, SIGNED);
+	  fprintf (lra_dump_file, ")");
+	}
+      fprintf (lra_dump_file, "\n");
     }
 
   /* Right now, for any pair of operands I and J that are required to
