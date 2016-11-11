@@ -4945,7 +4945,7 @@ expand_debug_expr (tree exp)
 	unsigned i, nelts;
 
 	nelts = VECTOR_CST_NELTS (exp);
-	gcc_assert (nelts == TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)));
+	gcc_assert (must_eq (nelts, TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
 	op0 = gen_rtx_CONCATN (mode, rtvec_alloc (nelts));
 
 	for (i = 0; i < nelts; ++i)
@@ -4965,10 +4965,13 @@ expand_debug_expr (tree exp)
       else if (TREE_CODE (TREE_TYPE (exp)) == VECTOR_TYPE)
 	{
 	  unsigned i;
+	  unsigned HOST_WIDE_INT nelts;
 	  tree val;
 
-	  op0 = gen_rtx_CONCATN
-	    (mode, rtvec_alloc (TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
+	  if (!TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)).is_constant (&nelts))
+	    goto flag_unsupported;
+
+	  op0 = gen_rtx_CONCATN (mode, rtvec_alloc (nelts));
 
 	  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), i, val)
 	    {
@@ -4978,7 +4981,7 @@ expand_debug_expr (tree exp)
 	      XVECEXP (op0, 0, i) = op1;
 	    }
 
-	  if (i < TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)))
+	  if (i < nelts)
 	    {
 	      op1 = expand_debug_expr
 		(build_zero_cst (TREE_TYPE (TREE_TYPE (exp))));
@@ -4986,7 +4989,7 @@ expand_debug_expr (tree exp)
 	      if (!op1)
 		return NULL;
 
-	      for (; i < TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)); i++)
+	      for (; i < nelts; i++)
 		XVECEXP (op0, 0, i) = op1;
 	    }
 

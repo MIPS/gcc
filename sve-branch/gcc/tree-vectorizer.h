@@ -1049,6 +1049,16 @@ vect_vf_for_cost (loop_vec_info loop_vinfo)
   return estimated_poly_value (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
 }
 
+/* Estimate the number of elements in VEC_TYPE for costing purposes.
+   Pick a reasonable estimate if the exact number isn't known at
+   compile time.  */
+
+static inline unsigned int
+vect_nunits_for_cost (tree vec_type)
+{
+  return estimated_poly_value (TYPE_VECTOR_SUBPARTS (vec_type));
+}
+
 /* Source location */
 extern source_location vect_location;
 
@@ -1188,7 +1198,6 @@ extern bool vectorizable_live_operation (gimple *, gimple_stmt_iterator *,
 extern bool vectorizable_reduction (gimple *, gimple_stmt_iterator *,
 				    gimple **, slp_tree);
 extern bool vectorizable_induction (gimple *, gimple_stmt_iterator *, gimple **);
-extern tree get_initial_def_for_reduction (gimple *, tree, tree *);
 extern bool vect_worthwhile_without_simd_p (loop_vec_info, tree_code);
 extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
 					stmt_vector_for_cost *,

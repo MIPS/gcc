@@ -1771,7 +1771,7 @@ make_vector_stat (unsigned len MEM_STAT_DECL)
 tree
 build_vector_stat (tree type, unsigned int nelts, tree *vals MEM_STAT_DECL)
 {
-  gcc_assert (nelts == TYPE_VECTOR_SUBPARTS (type));
+  gcc_assert (must_eq (nelts, TYPE_VECTOR_SUBPARTS (type)));
   int over = 0;
   unsigned cnt = 0;
   tree v = make_vector (nelts);
@@ -1801,9 +1801,12 @@ build_vector_stat (tree type, unsigned int nelts, tree *vals MEM_STAT_DECL)
 tree
 build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
 {
-  tree *vec = XALLOCAVEC (tree, TYPE_VECTOR_SUBPARTS (type));
-  unsigned HOST_WIDE_INT idx, pos = 0;
+  unsigned HOST_WIDE_INT idx, nelts, pos = 0;
   tree value;
+
+  /* We can't construct a VECTOR_CST for a variable number of elements.  */
+  nelts = TYPE_VECTOR_SUBPARTS (type).to_constant ();
+  tree *vec = XALLOCAVEC (tree, nelts);
 
   FOR_EACH_CONSTRUCTOR_VALUE (v, idx, value)
     {
@@ -1813,17 +1816,20 @@ build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
       else
 	vec[pos++] = value;
     }
-  while (pos < TYPE_VECTOR_SUBPARTS (type))
-    vec[pos++] = build_zero_cst (TREE_TYPE (type));
+  for (; pos < nelts; ++pos)
+    vec[pos] = build_zero_cst (TREE_TYPE (type));
 
-  return build_vector (type, TYPE_VECTOR_SUBPARTS (type), vec);
+  return build_vector (type, nelts, vec);
 }
 
 /* Build a vector of type VECTYPE where all the elements are SCs.  */
 tree
-build_vector_from_val (tree vectype, tree sc) 
+build_vector_from_val (tree vectype, tree sc)
 {
-  int i, nunits = TYPE_VECTOR_SUBPARTS (vectype);
+  unsigned HOST_WIDE_INT i, nunits;
+
+  if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&nunits))
+    return build1 (VEC_DUPLICATE_EXPR, vectype, sc);
 
   if (sc == error_mark_node)
     return sc;
@@ -1852,6 +1858,37 @@ build_vector_from_val (tree vectype, tree sc)
 	CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, sc);
       return build_constructor (vectype, v);
     }
+}
+
+/* Return a vector with the same number of units and number of bits
+   as VEC_TYPE, but in which the elements are a linear series of unsigned
+   integers { BASE, BASE + STEP, BASE + STEP * 2, ... }.  */
+
+tree
+build_index_vector (tree vec_type, poly_uint64 base, poly_uint64 step)
+{
+  tree index_vec_type = vec_type;
+  tree index_elt_type = TREE_TYPE (vec_type);
+  if (!INTEGRAL_TYPE_P (index_elt_type) || !TYPE_UNSIGNED (index_elt_type))
+    {
+      index_elt_type = build_nonstandard_integer_type
+	(GET_MODE_BITSIZE (SCALAR_TYPE_MODE (index_elt_type)), true);
+      index_vec_type = build_vector_type
+	(index_elt_type, TYPE_VECTOR_SUBPARTS (vec_type));
+    }
+
+  unsigned HOST_WIDE_INT count;
+  if (TYPE_VECTOR_SUBPARTS (vec_type).is_constant (&count))
+    {
+      tree *v = XALLOCAVEC (tree, count);
+      for (unsigned int i = 0; i < count; ++i)
+	v[i] = build_int_cstu (index_elt_type, base + i * step);
+      return build_vector (index_vec_type, count, v);
+    }
+
+  return build2 (VEC_SERIES_EXPR, index_vec_type,
+		 build_int_cstu (index_elt_type, base),
+		 build_int_cstu (index_elt_type, step));
 }
 
 /* Something has messed with the elements of CONSTRUCTOR C after it was built;
@@ -7335,7 +7372,8 @@ type_cache_hasher::equal (type_hash *a, type_hash *b)
       return 1;
 
     case VECTOR_TYPE:
-      return TYPE_VECTOR_SUBPARTS (a->type) == TYPE_VECTOR_SUBPARTS (b->type);
+      return must_eq (TYPE_VECTOR_SUBPARTS (a->type),
+		      TYPE_VECTOR_SUBPARTS (b->type));
 
     case ENUMERAL_TYPE:
       if (TYPE_VALUES (a->type) != TYPE_VALUES (b->type)
@@ -10371,7 +10409,7 @@ make_vector_type (tree innertype, poly_int64 nunits, machine_mode mode)
 
   t = make_node (VECTOR_TYPE);
   TREE_TYPE (t) = mv_innertype;
-  SET_TYPE_VECTOR_SUBPARTS (t, nunits.to_constant ()); /* Temporary */
+  SET_TYPE_VECTOR_SUBPARTS (t, nunits);
   SET_TYPE_MODE (t, mode);
 
   if (TYPE_STRUCTURAL_EQUALITY_P (mv_innertype) || in_lto_p)
@@ -11260,7 +11298,7 @@ build_vector_type_for_mode (tree innertype, machine_mode mode)
    a power of two.  */
 
 tree
-build_vector_type (tree innertype, int nunits)
+build_vector_type (tree innertype, poly_int64 nunits)
 {
   return make_vector_type (innertype, nunits, VOIDmode);
 }
@@ -11285,8 +11323,7 @@ build_truth_vector_type (poly_uint64 nunits, poly_uint64 vector_size)
 
   tree bool_type = build_nonstandard_boolean_type (esize);
 
-  /* Temporary.  */
-  return make_vector_type (bool_type, nunits.to_constant (), mask_mode);
+  return make_vector_type (bool_type, nunits, mask_mode);
 }
 
 /* Returns a vector type corresponding to a comparison of VECTYPE.  */
@@ -11308,7 +11345,7 @@ build_same_sized_truth_vector_type (tree vectype)
 /* Similarly, but builds a variant type with TYPE_VECTOR_OPAQUE set.  */
 
 tree
-build_opaque_vector_type (tree innertype, int nunits)
+build_opaque_vector_type (tree innertype, poly_int64 nunits)
 {
   tree t = make_vector_type (innertype, nunits, VOIDmode);
   tree cand;
@@ -11411,7 +11448,7 @@ tree
 uniform_vector_p (const_tree vec)
 {
   tree first, t;
-  unsigned i;
+  unsigned HOST_WIDE_INT i, nelts;
 
   if (vec == NULL_TREE)
     return NULL_TREE;
@@ -11431,7 +11468,8 @@ uniform_vector_p (const_tree vec)
       return first;
     }
 
-  else if (TREE_CODE (vec) == CONSTRUCTOR)
+  else if (TREE_CODE (vec) == CONSTRUCTOR
+	   && TYPE_VECTOR_SUBPARTS (TREE_TYPE (vec)).is_constant (&nelts))
     {
       first = error_mark_node;
 
@@ -11445,7 +11483,7 @@ uniform_vector_p (const_tree vec)
 	  if (!operand_equal_p (first, t, 0))
 	    return NULL_TREE;
         }
-      if (i != TYPE_VECTOR_SUBPARTS (TREE_TYPE (vec)))
+      if (i != nelts)
 	return NULL_TREE;
 
       return first;

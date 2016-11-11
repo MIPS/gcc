@@ -1058,16 +1058,17 @@ vector_alignment_reachable_p (struct data_reference *dr)
 	 the prolog loop ({VF - misalignment}), is a multiple of the
 	 number of the interleaved accesses.  */
       int elem_size, mis_in_elements;
-      int nelements = TYPE_VECTOR_SUBPARTS (vectype);
 
       /* FORNOW: handle only known alignment.  */
       if (!known_alignment_for_access_p (dr))
 	return false;
 
-      elem_size = GET_MODE_SIZE (TYPE_MODE (vectype)) / nelements;
+      poly_uint64 nelements = TYPE_VECTOR_SUBPARTS (vectype);
+      poly_uint64 vector_size = GET_MODE_SIZE (TYPE_MODE (vectype));
+      elem_size = vector_element_size (vector_size, nelements);
       mis_in_elements = DR_MISALIGNMENT (dr) / elem_size;
 
-      if ((nelements - mis_in_elements) % GROUP_SIZE (stmt_info))
+      if (!multiple_p (nelements - mis_in_elements, GROUP_SIZE (stmt_info)))
 	return false;
     }
 
@@ -4898,9 +4899,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
   tree perm_mask_low, perm_mask_high;
   tree data_ref;
   tree perm3_mask_low, perm3_mask_high;
-  unsigned int i, n, log_length = exact_log2 (length);
-  unsigned int j, nelt = TYPE_VECTOR_SUBPARTS (vectype);
-  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
+  unsigned int i, j, n, log_length = exact_log2 (length);
 
   result_chain->quick_grow (length);
   memcpy (result_chain->address (), dr_chain.address (),
@@ -4908,6 +4907,9 @@ vect_permute_store_chain (vec<tree> dr_chain,
 
   if (length == 3)
     {
+      /* Enforced by vect_grouped_store_supported.  */
+      unsigned int nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
+      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
       unsigned int j0 = 0, j1 = 0, j2 = 0;
 
       for (j = 0; j < 3; j++)
@@ -4968,6 +4970,9 @@ vect_permute_store_chain (vec<tree> dr_chain,
       /* If length is not equal to 3 then only power of 2 is supported.  */
       gcc_assert (pow2p_hwi (length));
 
+      /* Enforced by vect_grouped_store_supported.  */
+      unsigned int nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
+      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
       for (i = 0, n = nelt / 2; i < n; i++)
 	{
 	  sel[i * 2] = i;
@@ -5299,7 +5304,7 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
      that leaves unused vector loads around punt - we at least create
      very sub-optimal code in that case (and blow up memory,
      see PR65518).  */
-  if (single_element_p && count > TYPE_VECTOR_SUBPARTS (vectype))
+  if (single_element_p && may_gt (count, TYPE_VECTOR_SUBPARTS (vectype)))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -5483,8 +5488,6 @@ vect_permute_load_chain (vec<tree> dr_chain,
   gimple *perm_stmt;
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   unsigned int i, j, log_length = exact_log2 (length);
-  unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype);
-  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
 
   result_chain->quick_grow (length);
   memcpy (result_chain->address (), dr_chain.address (),
@@ -5492,6 +5495,10 @@ vect_permute_load_chain (vec<tree> dr_chain,
 
   if (length == 3)
     {
+      /* Enforced by vect_grouped_load_supported.  */
+      unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
+      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
+
       unsigned int k;
 
       for (k = 0; k < 3; k++)
@@ -5539,6 +5546,9 @@ vect_permute_load_chain (vec<tree> dr_chain,
       /* If length is not equal to 3 then only power of 2 is supported.  */
       gcc_assert (pow2p_hwi (length));
 
+      /* Enforced by vect_grouped_load_supported.  */
+      unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
+      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
       for (i = 0; i < nelt; ++i)
 	sel[i] = i * 2;
       perm_mask_even = vect_gen_perm_mask_checked (vectype, nelt, sel);
@@ -5677,15 +5687,16 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
 
   tree vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
   unsigned int i;
-  unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype);
-  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
 
-  unsigned HOST_WIDE_INT vf;
-  if (!LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&vf))
+  unsigned HOST_WIDE_INT nelt, vf;
+  if (!TYPE_VECTOR_SUBPARTS (vectype).is_constant (&nelt)
+      || !LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&vf))
     /* Not supported for variable-width vectors.  */
     return false;
+
+  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
 
   result_chain->quick_grow (length);
   memcpy (result_chain->address (), dr_chain.address (),

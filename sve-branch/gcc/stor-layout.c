@@ -2214,10 +2214,8 @@ layout_type (tree type)
 
     case VECTOR_TYPE:
       {
-	int nunits = TYPE_VECTOR_SUBPARTS (type);
+	poly_uint64 nunits = TYPE_VECTOR_SUBPARTS (type);
 	tree innertype = TREE_TYPE (type);
-
-	gcc_assert (!(nunits & (nunits - 1)));
 
 	/* Find an appropriate mode for the vector type.  */
 	if (TYPE_MODE (type) == VOIDmode)
@@ -2499,8 +2497,8 @@ vector_type_mode (const_tree t)
       /* For integers, try mapping it to a same-sized scalar mode.  */
       if (is_int_mode (TREE_TYPE (t)->type_common.mode, &innermode))
 	{
-	  unsigned int size = (TYPE_VECTOR_SUBPARTS (t)
-			       * GET_MODE_BITSIZE (innermode));
+	  poly_int64 size = (TYPE_VECTOR_SUBPARTS (t)
+			     * GET_MODE_BITSIZE (innermode));
 	  scalar_int_mode mode;
 	  if (int_mode_for_size (size, 0).exists (&mode)
 	      && have_regs_of_mode[mode])

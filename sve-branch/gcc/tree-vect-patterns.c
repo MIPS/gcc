@@ -3715,8 +3715,9 @@ vect_recog_bool_pattern (vec<gimple *> *stmts, tree *type_in,
          vectorized matches the vector type of the result in
 	 size and number of elements.  */
       unsigned prec
-	= wi::udiv_trunc (TYPE_SIZE (vectype),
-			  TYPE_VECTOR_SUBPARTS (vectype)).to_uhwi ();
+	= vector_element_size (tree_to_poly_uint64 (TYPE_SIZE (vectype)),
+			       TYPE_VECTOR_SUBPARTS (vectype));
+
       tree type
 	= build_nonstandard_integer_type (prec,
 					  TYPE_UNSIGNED (TREE_TYPE (var)));
@@ -3905,7 +3906,8 @@ vect_recog_mask_conversion_pattern (vec<gimple *> *stmts, tree *type_in,
       vectype2 = get_mask_type_for_scalar_type (rhs1_type);
 
       if (!vectype1 || !vectype2
-	  || TYPE_VECTOR_SUBPARTS (vectype1) == TYPE_VECTOR_SUBPARTS (vectype2))
+	  || must_eq (TYPE_VECTOR_SUBPARTS (vectype1),
+		      TYPE_VECTOR_SUBPARTS (vectype2)))
 	return NULL;
 
       tmp = build_mask_conversion (rhs1, vectype1, stmt_vinfo, vinfo);
@@ -3984,7 +3986,8 @@ vect_recog_mask_conversion_pattern (vec<gimple *> *stmts, tree *type_in,
       vectype2 = get_mask_type_for_scalar_type (rhs1_type);
 
       if (!vectype1 || !vectype2
-	  || TYPE_VECTOR_SUBPARTS (vectype1) == TYPE_VECTOR_SUBPARTS (vectype2))
+	  || must_eq (TYPE_VECTOR_SUBPARTS (vectype1),
+		      TYPE_VECTOR_SUBPARTS (vectype2)))
 	return NULL;
 
       /* If rhs1 is a comparison we need to move it into a

@@ -5379,7 +5379,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 	    && TYPE_PRECISION (elem_type) == 32)
 	  return 5;
 	else
-	  return max (2, TYPE_VECTOR_SUBPARTS (vectype) - 1);
+	  return max (2, (int) TYPE_VECTOR_SUBPARTS (vectype) - 1);
 
       default:
         gcc_unreachable ();

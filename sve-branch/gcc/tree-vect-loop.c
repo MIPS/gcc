@@ -181,11 +181,11 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   unsigned nbbs = loop->num_nodes;
-  unsigned int vectorization_factor = 0;
+  poly_uint64 vectorization_factor = 0;
   tree scalar_type;
   gphi *phi;
   tree vectype;
-  unsigned int nunits;
+  poly_uint64 nunits;
   stmt_vec_info stmt_info;
   unsigned i;
   HOST_WIDE_INT dummy;
@@ -256,12 +256,17 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
 	      nunits = TYPE_VECTOR_SUBPARTS (vectype);
 	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_NOTE, vect_location, "nunits = %d\n",
-                                 nunits);
+		{
+		  dump_printf_loc (MSG_NOTE, vect_location, "nunits = ");
+		  print_dec (nunits, dump_file, SIGNED);
+		  fprintf (dump_file, "\n");
+		}
 
-	      if (!vectorization_factor
-		  || (nunits > vectorization_factor))
+	      if (must_eq (vectorization_factor, 0U))
 		vectorization_factor = nunits;
+	      else
+		vectorization_factor = common_multiple (vectorization_factor,
+							nunits);
 	    }
 	}
 
@@ -552,10 +557,17 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
 	  nunits = TYPE_VECTOR_SUBPARTS (vf_vectype);
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, vect_location, "nunits = %d\n", nunits);
-	  if (!vectorization_factor
-	      || (nunits > vectorization_factor))
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location, "nunits = ");
+	      print_dec (nunits, dump_file, SIGNED);
+	      fprintf (dump_file, "\n");
+	    }
+
+	  if (must_eq (vectorization_factor, 0U))
 	    vectorization_factor = nunits;
+	  else
+	    vectorization_factor = common_multiple (vectorization_factor,
+						    nunits);
 
 	  if (!analyze_pattern_stmt && gsi_end_p (pattern_def_si))
 	    {
@@ -567,9 +579,13 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
   /* TODO: Analyze cost. Decide if worth while to vectorize.  */
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_NOTE, vect_location, "vectorization factor = %d\n",
-                     vectorization_factor);
-  if (vectorization_factor <= 1)
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "vectorization factor = ");
+      print_dec (vectorization_factor, dump_file, SIGNED);
+      fprintf (dump_file, "\n");
+    }
+
+  if (must_le (vectorization_factor, 1U))
     {
       if (dump_enabled_p ())
         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -630,8 +646,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
 	      if (!mask_type)
 		mask_type = vectype;
-	      else if (TYPE_VECTOR_SUBPARTS (mask_type)
-		       != TYPE_VECTOR_SUBPARTS (vectype))
+	      else if (may_ne (TYPE_VECTOR_SUBPARTS (mask_type),
+			       TYPE_VECTOR_SUBPARTS (vectype)))
 		{
 		  if (dump_enabled_p ())
 		    {
@@ -3796,7 +3812,7 @@ get_initial_def_for_induction (gimple *iv_phi)
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree vectype;
-  int nunits;
+  poly_uint64 nunits;
   edge pe = loop_preheader_edge (loop);
   struct loop *iv_loop;
   basic_block new_bb;
@@ -3807,8 +3823,8 @@ get_initial_def_for_induction (gimple *iv_phi)
   tree induc_def, vec_def, vec_dest;
   tree init_expr, step_expr;
   poly_uint64 vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  int i;
-  int ncopies;
+  unsigned int i;
+  unsigned int ncopies;
   tree expr;
   stmt_vec_info phi_info = vinfo_for_stmt (iv_phi);
   bool nested_in_vect_loop = false;
@@ -3896,18 +3912,41 @@ get_initial_def_for_induction (gimple *iv_phi)
       stmts = NULL;
       new_name = gimple_convert (&stmts, TREE_TYPE (vectype), init_expr);
 
-      tree *elts = XALLOCAVEC (tree, nunits);
-      elts[0] = new_name;
-      for (i = 1; i < nunits; i++)
+      unsigned HOST_WIDE_INT const_nunits;
+      if (nunits.is_constant (&const_nunits))
 	{
-	  /* Create: new_name_i = new_name + step_expr  */
-	  new_name = gimple_build (&stmts, PLUS_EXPR, TREE_TYPE (new_name),
-				   new_name, step_expr);
-	  elts[i] = new_name;
+	  tree *elts = XALLOCAVEC (tree, const_nunits);
+	  elts[0] = new_name;
+	  for (i = 1; i < const_nunits; i++)
+	    {
+	      /* Create: new_name_i = new_name + step_expr.  */
+	      new_name = gimple_build (&stmts, PLUS_EXPR, TREE_TYPE (new_name),
+				       new_name, step_expr);
+	      elts[i] = new_name;
+	    }
+	  /* Create a vector from [new_name_0, new_name_1, ...,
+	     new_name_nunits-1]  */
+	  new_vec = gimple_build_vector (&stmts, vectype, const_nunits, elts);
 	}
-      /* Create a vector from [new_name_0, new_name_1, ...,
-	 new_name_nunits-1]  */
-      new_vec = gimple_build_vector (&stmts, vectype, nunits, elts);
+      else if (INTEGRAL_TYPE_P (TREE_TYPE (step_expr)))
+	new_vec = gimple_build (&stmts, VEC_SERIES_EXPR, vectype,
+				new_name, step_expr);
+      else
+	{
+	  gcc_assert (SCALAR_FLOAT_TYPE_P (TREE_TYPE (step_expr)));
+	  gcc_assert (flag_associative_math);
+	  tree index = build_index_vector (vectype, 0, 1);
+	  tree base_vec = gimple_build_vector_from_val (&stmts, vectype,
+							new_name);
+	  tree step_vec = gimple_build_vector_from_val (&stmts, vectype,
+							step_expr);
+	  new_vec = gimple_build (&stmts, FLOAT_EXPR, vectype, index);
+	  new_vec = gimple_build (&stmts, MULT_EXPR, vectype,
+				  new_vec, step_vec);
+	  new_vec = gimple_build (&stmts, PLUS_EXPR, vectype,
+				  new_vec, base_vec);
+	}
+
       if (stmts)
 	{
 	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
@@ -4162,7 +4201,7 @@ get_initial_def_for_induction (gimple *iv_phi)
 
    A cost model should help decide between these two schemes.  */
 
-tree
+static tree
 get_initial_def_for_reduction (gimple *stmt, tree init_val,
                                tree *adjustment_def)
 {
@@ -4171,7 +4210,7 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree scalar_type = TREE_TYPE (init_val);
   tree vectype = get_vectype_for_scalar_type (scalar_type);
-  int nunits;
+  poly_uint64 nunits;
   enum tree_code code = gimple_assign_rhs_code (stmt);
   tree def_for_init;
   tree init_def;
@@ -4182,6 +4221,7 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
   int int_init_val = 0;
   gimple *def_stmt = NULL;
   gimple_seq stmts = NULL;
+  int count;
 
   gcc_assert (vectype);
   nunits = TYPE_VECTOR_SUBPARTS (vectype);
@@ -4249,29 +4289,32 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
         else
           def_for_init = build_int_cst (scalar_type, int_init_val);
 
-        /* Create a vector of '0' or '1' except the first element.  */
-	elts = XALLOCAVEC (tree, nunits);
-        for (i = nunits - 2; i >= 0; --i)
-	  elts[i + 1] = def_for_init;
-
         /* Option1: the first element is '0' or '1' as well.  */
         if (adjustment_def)
-          {
-	    elts[0] = def_for_init;
-	    init_def = build_vector (vectype, nunits, elts);
-            break;
-          }
+	  {
+	    init_def = build_vector_from_val (vectype, def_for_init);
+	    break;
+	  }
+
+	/* Enforced by vectorizable_reduction (which disallows double
+	   reductions with variable-length vectors).  */
+	count = nunits.to_constant ();
+
+	/* Create a vector of '0' or '1' except the first element.  */
+	elts = XALLOCAVEC (tree, count);
+	for (i = count - 2; i >= 0; --i)
+	  elts[i + 1] = def_for_init;
 
         /* Option2: the first element is INIT_VAL.  */
 	elts[0] = init_val;
         if (TREE_CONSTANT (init_val))
-	  init_def = build_vector (vectype, nunits, elts);
+	  init_def = build_vector (vectype, count, elts);
         else
 	  {
 	    vec<constructor_elt, va_gc> *v;
-	    vec_alloc (v, nunits);
+	    vec_alloc (v, count);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, init_val);
-	    for (i = 1; i < nunits; ++i)
+	    for (i = 1; i < count; ++i)
 	      CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, elts[i]);
 	    init_def = build_constructor (vectype, v);
 	  }
@@ -4870,6 +4913,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
     {
       bool reduce_with_shift = have_whole_vector_shift (mode);
       int element_bitsize = tree_to_uhwi (bitsize);
+      /* Enforced by vectorizable_reduction.  */
       int vec_size_in_bits = tree_to_uhwi (TYPE_SIZE (vectype));
       tree vec_temp;
 
@@ -5444,6 +5488,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype_out = STMT_VINFO_VECTYPE (stmt_info);
   tree vectype_in = NULL_TREE;
+  tree reduc_vectype;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum tree_code code, orig_code, epilog_reduc_code;
@@ -5753,6 +5798,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   gcc_assert (ncopies >= 1);
 
   vec_mode = TYPE_MODE (vectype_in);
+  reduc_vectype = vectype_in;
 
   if (code == COND_EXPR)
     {
@@ -5862,6 +5908,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       orig_code = gimple_assign_rhs_code (orig_stmt);
       gcc_assert (vectype_out);
       vec_mode = TYPE_MODE (vectype_out);
+      reduc_vectype = vectype_out;
     }
   else
     {
@@ -5951,6 +5998,16 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	      return false;
 	    }
 	}
+
+      if (epilog_reduc_code == ERROR_MARK
+	  && !TYPE_VECTOR_SUBPARTS (vectype_out).is_constant ())
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Missing target support for variable-length"
+			     " vectorization.\n");
+	  return false;
+	}
     }
   else
     {
@@ -5981,6 +6038,18 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			 "multiple types in double reduction or condition "
 			 "reduction.\n");
+      return false;
+    }
+
+  if (double_reduc && !TYPE_VECTOR_SUBPARTS (reduc_vectype).is_constant ())
+    {
+      /* One problem here is that we need to create a specific vector
+	 during vect_create_epilog_for_reduction.  */
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "Double reduction not supported for variable-length"
+			 " vectors.\n");
+
       return false;
     }
 
@@ -6269,8 +6338,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	 zeroes.  */
       if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
 	{
-	  int nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
-	  int k;
+	  poly_uint64 nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
 
 	  gcc_assert (gimple_assign_rhs_code (*vec_stmt) == VEC_COND_EXPR);
 
@@ -6279,11 +6347,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	     vector size (STEP).  */
 
 	  /* Create a {1,2,3,...} vector.  */
-	  tree *vtemp = XALLOCAVEC (tree, nunits_out);
-	  for (k = 0; k < nunits_out; ++k)
-	    vtemp[k] = build_int_cst (cr_index_scalar_type, k + 1);
-	  tree series_vect = build_vector (cr_index_vector_type,
-					   nunits_out, vtemp);
+	  tree series_vect = build_index_vector (cr_index_vector_type, 1, 1);
 
 	  /* Create a vector of the step value.  */
 	  tree step = build_int_cst (cr_index_scalar_type, nunits_out);
@@ -6508,10 +6572,12 @@ vectorizable_live_operation (gimple *stmt,
   imm_use_iterator imm_iter;
   tree lhs, lhs_type, bitsize, vec_bitsize;
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  int nunits = TYPE_VECTOR_SUBPARTS (vectype);
+  poly_uint64 nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies;
   gimple *use_stmt;
   auto_vec<tree> vec_oprnds;
+  int vec_entry = 0;
+  poly_uint64 vec_index = 0;
 
   gcc_assert (STMT_VINFO_LIVE_P (stmt_info));
 
@@ -6540,6 +6606,26 @@ vectorizable_live_operation (gimple *stmt,
       return true;
     }
 
+  if (slp_node)
+    {
+      gcc_assert (slp_index >= 0);
+      int num_scalar = SLP_TREE_SCALAR_STMTS (slp_node).length ();
+
+      /* Calculate the number of statements that come after this one.  */
+      poly_uint64 skip_nunits = num_scalar - slp_index - 1;
+
+      /* Calculate how many vectors and elements we'll need to count
+	 back from the end.  */
+      if (!can_div_trunc_p (skip_nunits, nunits, &vec_entry, &vec_index))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Cannot determine which vector holds the"
+			     " final result.\n");
+	  return false;
+	}
+    }
+
   if (!vec_stmt)
     /* No transformation required.  */
     return true;
@@ -6559,17 +6645,13 @@ vectorizable_live_operation (gimple *stmt,
   tree vec_lhs, bitstart;
   if (slp_node)
     {
-      gcc_assert (slp_index >= 0);
-
-      int num_scalar = SLP_TREE_SCALAR_STMTS (slp_node).length ();
+      /* The code above set vec_entry and vec_index to the number of whole
+	 vectors and elements that we'll need to count back from the end.
+	 Convert them to count from the beginning, now that the number of
+	 vector statements is known.  */
       int num_vec = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-
-      /* Get the last occurrence of the scalar index from the concatenation of
-	 all the slp vectors. Calculate which slp vector it is and the index
-	 within.  */
-      int pos = (num_vec * nunits) - num_scalar + slp_index;
-      int vec_entry = pos / nunits;
-      int vec_index = pos % nunits;
+      vec_entry = num_vec - 1 - vec_entry;
+      vec_index = nunits - 1 - vec_index;
 
       /* Get the correct slp vectorized stmt.  */
       vec_lhs = gimple_get_lhs (SLP_TREE_VEC_STMTS (slp_node)[vec_entry]);
@@ -6969,9 +7051,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 
 	  if (STMT_VINFO_VECTYPE (stmt_info))
 	    {
-	      unsigned int nunits
-		= (unsigned int)
-		  TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (stmt_info));
+	      poly_uint64 nunits
+		= TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (stmt_info));
 	      if (!STMT_SLP_TYPE (stmt_info)
 		  && may_ne (nunits, vf)
 		  && dump_enabled_p ())

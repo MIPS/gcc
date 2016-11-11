@@ -5855,7 +5855,13 @@ count_type_elements (const_tree type, bool for_ctor_p)
       return 2;
 
     case VECTOR_TYPE:
-      return TYPE_VECTOR_SUBPARTS (type);
+      {
+	unsigned HOST_WIDE_INT nelts;
+	if (TYPE_VECTOR_SUBPARTS (type).is_constant (&nelts))
+	  return nelts;
+	else
+	  return -1;
+      }
 
     case INTEGER_TYPE:
     case REAL_TYPE:
@@ -6614,7 +6620,8 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 	HOST_WIDE_INT bitsize;
 	HOST_WIDE_INT bitpos;
 	rtvec vector = NULL;
-	unsigned n_elts;
+	poly_uint64 n_elts;
+	unsigned HOST_WIDE_INT const_n_elts;
 	alias_set_type alias;
 	machine_mode mode = GET_MODE (target);
 
@@ -6637,7 +6644,9 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 	  }
 
 	n_elts = TYPE_VECTOR_SUBPARTS (type);
-	if (REG_P (target) && VECTOR_MODE_P (mode))
+	if (REG_P (target)
+	    && VECTOR_MODE_P (mode)
+	    && n_elts.is_constant (&const_n_elts))
 	  {
 	    icode = optab_handler (vec_init_optab, mode);
 	    /* Don't use vec_init<mode> if some elements have VECTOR_TYPE.  */
@@ -6656,8 +6665,8 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 	      {
 		unsigned int i;
 
-		vector = rtvec_alloc (n_elts);
-		for (i = 0; i < n_elts; i++)
+		vector = rtvec_alloc (const_n_elts);
+		for (i = 0; i < const_n_elts; i++)
 		  RTVEC_ELT (vector, i) = CONST0_RTX (GET_MODE_INNER (mode));
 	      }
 	  }
@@ -6688,7 +6697,8 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 
 	    /* Clear the entire vector first if there are any missing elements,
 	       or if the incidence of zero elements is >= 75%.  */
-	    need_to_clear = (count < n_elts || 4 * zero_count >= 3 * count);
+	    need_to_clear = (may_lt (count, n_elts)
+			     || 4 * zero_count >= 3 * count);
 	  }
 
 	if (need_to_clear && may_gt (size, 0) && !vector)

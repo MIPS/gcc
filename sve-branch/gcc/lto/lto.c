@@ -315,7 +315,7 @@ hash_canonical_type (tree type)
 
   if (VECTOR_TYPE_P (type))
     {
-      hstate.add_int (TYPE_VECTOR_SUBPARTS (type));
+      hstate.add_poly_int (TYPE_VECTOR_SUBPARTS (type));
       hstate.add_int (TYPE_UNSIGNED (type));
     }
 

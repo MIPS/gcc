@@ -1970,7 +1970,8 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (simplify
  (plus:c @3 (view_convert? (vec_cond:s @0 integer_each_onep@1 integer_zerop@2)))
  (if (VECTOR_TYPE_P (type)
-      && TYPE_VECTOR_SUBPARTS (type) == TYPE_VECTOR_SUBPARTS (TREE_TYPE (@1))
+      && must_eq (TYPE_VECTOR_SUBPARTS (type),
+		  TYPE_VECTOR_SUBPARTS (TREE_TYPE (@1)))
       && (TYPE_MODE (TREE_TYPE (type))
           == TYPE_MODE (TREE_TYPE (TREE_TYPE (@1)))))
   (minus @3 (view_convert (vec_cond @0 (negate @1) @2)))))
@@ -1979,7 +1980,8 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (simplify
  (minus @3 (view_convert? (vec_cond:s @0 integer_each_onep@1 integer_zerop@2)))
  (if (VECTOR_TYPE_P (type)
-      && TYPE_VECTOR_SUBPARTS (type) == TYPE_VECTOR_SUBPARTS (TREE_TYPE (@1))
+      && must_eq (TYPE_VECTOR_SUBPARTS (type),
+		  TYPE_VECTOR_SUBPARTS (TREE_TYPE (@1)))
       && (TYPE_MODE (TREE_TYPE (type))
           == TYPE_MODE (TREE_TYPE (TREE_TYPE (@1)))))
   (plus @3 (view_convert (vec_cond @0 (negate @1) @2)))))
@@ -3433,49 +3435,47 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    (if (n != 0
 	&& (idx % width) == 0
 	&& (n % width) == 0
-	&& ((idx + n) / width) <= TYPE_VECTOR_SUBPARTS (TREE_TYPE (ctor)))
+	&& must_le ((idx + n) / width,
+		    TYPE_VECTOR_SUBPARTS (TREE_TYPE (ctor))))
     (with
      {
        idx = idx / width;
        n = n / width;
        /* Constructor elements can be subvectors.  */
-       unsigned HOST_WIDE_INT k = 1;
+       poly_uint64 k = 1;
        if (CONSTRUCTOR_NELTS (ctor) != 0)
          {
            tree cons_elem = TREE_TYPE (CONSTRUCTOR_ELT (ctor, 0)->value);
 	   if (TREE_CODE (cons_elem) == VECTOR_TYPE)
 	     k = TYPE_VECTOR_SUBPARTS (cons_elem);
 	 }
+       unsigned HOST_WIDE_INT elt, count, const_k;
      }
      (switch
       /* We keep an exact subset of the constructor elements.  */
-      (if ((idx % k) == 0 && (n % k) == 0)
+      (if (multiple_p (idx, k, &elt) && multiple_p (n, k, &count))
        (if (CONSTRUCTOR_NELTS (ctor) == 0)
         { build_constructor (type, NULL); }
-	(with
+	(if (count == 1)
+	 (if (elt < CONSTRUCTOR_NELTS (ctor))
+	  { CONSTRUCTOR_ELT (ctor, elt)->value; }
+	  { build_zero_cst (type); })
 	 {
-	   idx /= k;
-	   n /= k;
-	 }
-	 (if (n == 1)
-	  (if (idx < CONSTRUCTOR_NELTS (ctor))
-	   { CONSTRUCTOR_ELT (ctor, idx)->value; }
-	   { build_zero_cst (type); })
-	  {
-	    vec<constructor_elt, va_gc> *vals;
-	    vec_alloc (vals, n);
-	    for (unsigned i = 0;
-	         i < n && idx + i < CONSTRUCTOR_NELTS (ctor); ++i)
-	      CONSTRUCTOR_APPEND_ELT (vals, NULL_TREE,
-				      CONSTRUCTOR_ELT (ctor, idx + i)->value);
-	    build_constructor (type, vals);
-	  }))))
+	   vec<constructor_elt, va_gc> *vals;
+	   vec_alloc (vals, count);
+	   for (unsigned i = 0;
+		i < count && elt + i < CONSTRUCTOR_NELTS (ctor); ++i)
+	     CONSTRUCTOR_APPEND_ELT (vals, NULL_TREE,
+				     CONSTRUCTOR_ELT (ctor, elt + i)->value);
+	   build_constructor (type, vals);
+	 })))
       /* The bitfield references a single constructor element.  */
-      (if (idx + n <= (idx / k + 1) * k)
+      (if (k.is_constant (&const_k)
+	   && idx + n <= (idx / const_k + 1) * const_k)
        (switch
-        (if (CONSTRUCTOR_NELTS (ctor) <= idx / k)
+	(if (CONSTRUCTOR_NELTS (ctor) <= idx / const_k)
 	 { build_zero_cst (type); })
-	(if (n == k)
-	 { CONSTRUCTOR_ELT (ctor, idx / k)->value; })
-	(BIT_FIELD_REF { CONSTRUCTOR_ELT (ctor, idx / k)->value; }
-		       @1 { bitsize_int ((idx % k) * width); })))))))))
+	(if (n == const_k)
+	 { CONSTRUCTOR_ELT (ctor, idx / const_k)->value; })
+	(BIT_FIELD_REF { CONSTRUCTOR_ELT (ctor, idx / const_k)->value; }
+		       @1 { bitsize_int ((idx % const_k) * width); })))))))))

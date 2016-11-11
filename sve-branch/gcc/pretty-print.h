@@ -312,8 +312,6 @@ pp_get_prefix (const pretty_printer *pp) { return pp->prefix; }
       pp_string (PP, pp_buffer (PP)->digit_buffer);		\
     }								\
   while (0)
-#define pp_wide_integer(PP, I) \
-   pp_scalar (PP, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) I)
 #define pp_pointer(PP, P)      pp_scalar (PP, "%p", P)
 
 #define pp_identifier(PP, ID)  pp_string (PP, (pp_translate_identifiers (PP) \
@@ -387,5 +385,31 @@ pp_set_verbatim_wrapping_ (pretty_printer *pp)
 extern const char *identifier_to_locale (const char *);
 extern void *(*identifier_to_locale_alloc) (size_t);
 extern void (*identifier_to_locale_free) (void *);
+
+inline void
+pp_wide_integer (pretty_printer *pp, HOST_WIDE_INT i)
+{
+  pp_scalar (pp, HOST_WIDE_INT_PRINT_DEC, i);
+}
+
+template<unsigned int N, typename T>
+void
+pp_wide_integer (pretty_printer *pp, poly_int_pod<N, T> x)
+{
+  T const_x;
+  if (x.is_constant (&const_x))
+    pp_wide_integer (pp, const_x);
+  else
+    {
+      pp_left_bracket (pp);
+      for (unsigned int i = 0; i < N; ++i)
+	{
+	  if (i != 0)
+	    pp_comma (pp);
+	  pp_wide_integer (pp, x.coeffs[i]);
+	}
+      pp_right_bracket (pp);
+    }
+}
 
 #endif /* GCC_PRETTY_PRINT_H */

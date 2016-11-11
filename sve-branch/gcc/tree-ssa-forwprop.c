@@ -1943,7 +1943,8 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
   gimple *stmt = gsi_stmt (*gsi);
   gimple *def_stmt;
   tree op, op2, orig, type, elem_type;
-  unsigned elem_size, nelts, i;
+  unsigned elem_size, i;
+  unsigned HOST_WIDE_INT nelts;
   enum tree_code code, conv_code;
   constructor_elt *elt;
   unsigned char *sel;
@@ -1955,7 +1956,8 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
   type = TREE_TYPE (op);
   gcc_checking_assert (TREE_CODE (type) == VECTOR_TYPE);
 
-  nelts = TYPE_VECTOR_SUBPARTS (type);
+  if (!TYPE_VECTOR_SUBPARTS (type).is_constant (&nelts))
+    return false;
   elem_type = TREE_TYPE (type);
   elem_size = TREE_INT_CST_LOW (TYPE_SIZE (elem_type));
 
@@ -2024,8 +2026,8 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
     return false;
 
   if (! VECTOR_TYPE_P (TREE_TYPE (orig))
-      || (TYPE_VECTOR_SUBPARTS (type)
-	  != TYPE_VECTOR_SUBPARTS (TREE_TYPE (orig))))
+      || may_ne (TYPE_VECTOR_SUBPARTS (type),
+		 TYPE_VECTOR_SUBPARTS (TREE_TYPE (orig))))
     return false;
 
   tree tem;
