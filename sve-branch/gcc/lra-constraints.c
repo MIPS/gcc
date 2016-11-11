@@ -1598,7 +1598,9 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
     {
       enum reg_class rclass;
 
-      if (REG_P (reg))
+      subreg_shape shape (innermode, SUBREG_BYTE (operand), mode);
+      if (REG_P (reg)
+	  || hard_reg_set_empty_p (simplifiable_subregs (shape)))
 	/* There is a big probability that we will get the same class
 	   for the new pseudo and we will get the same insn which
 	   means infinite looping.  So spill the new pseudo.  */
