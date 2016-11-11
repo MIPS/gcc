@@ -3856,8 +3856,8 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
 {
   if (VECTOR_MODE_P (mode)
       && code != VEC_CONCAT
-      && GET_CODE (op0) == CONST_VECTOR
-      && GET_CODE (op1) == CONST_VECTOR)
+      && is_const_vec (op0)
+      && is_const_vec (op1))
     {
       unsigned n_elts = GET_MODE_NUNITS (mode);
       machine_mode op0mode = GET_MODE (op0);
@@ -6024,7 +6024,7 @@ simplify_subreg (machine_mode outermode, rtx op,
   if (CONST_SCALAR_INT_P (op)
       || CONST_DOUBLE_AS_FLOAT_P (op)
       || GET_CODE (op) == CONST_FIXED
-      || GET_CODE (op) == CONST_VECTOR)
+      || is_const_vec (op))
     {
       rtx elt;
       if (VECTOR_MODE_P (outermode)

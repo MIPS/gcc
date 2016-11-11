@@ -1450,7 +1450,7 @@ gen_lowpart_common (machine_mode mode, rtx x)
 	return gen_rtx_fmt_e (GET_CODE (x), int_mode, XEXP (x, 0));
     }
   else if (GET_CODE (x) == SUBREG || REG_P (x)
-	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
+	   || GET_CODE (x) == CONCAT || is_const_vec (x)
 	   || CONST_DOUBLE_AS_FLOAT_P (x) || CONST_SCALAR_INT_P (x))
     return lowpart_subreg (mode, x, innermode);
 
@@ -5802,6 +5802,13 @@ is_const_vec_duplicate (const_rtx x, rtx *elt_out)
     {
       if (elt_out)
 	*elt_out = CONST_VECTOR_ELT (x, 0);
+      return true;
+    }
+  if (GET_CODE (x) == CONST
+      && GET_CODE (XEXP (x, 0)) == VEC_DUPLICATE)
+    {
+      if (elt_out)
+	*elt_out = XEXP (XEXP (x, 0), 0);
       return true;
     }
   return false;
