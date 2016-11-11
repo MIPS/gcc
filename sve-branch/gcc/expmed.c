@@ -2206,7 +2206,7 @@ extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
     return NULL_RTX;
 
   if (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (src_mode)
-      && MODES_TIEABLE_P (mode, src_mode))
+      && targetm.modes_tieable_p (mode, src_mode))
     {
       rtx x = gen_lowpart_common (mode, src);
       if (x)
@@ -2217,9 +2217,9 @@ extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
       || !int_mode_for_mode (mode).exists (&int_mode))
     return NULL_RTX;
 
-  if (!MODES_TIEABLE_P (src_int_mode, src_mode))
+  if (!targetm.modes_tieable_p (src_int_mode, src_mode))
     return NULL_RTX;
-  if (!MODES_TIEABLE_P (int_mode, mode))
+  if (!targetm.modes_tieable_p (int_mode, mode))
     return NULL_RTX;
 
   src = gen_lowpart (src_int_mode, src);

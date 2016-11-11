@@ -1410,6 +1410,15 @@ default_hard_regno_mode_ok (unsigned int regno ATTRIBUTE_UNUSED,
   return HARD_REGNO_MODE_OK (regno, MACRO_MODE (mode));
 }
 
+/* The default implementation of TARGET_MODES_TIEABLE_P.  */
+
+bool
+default_modes_tieable_p (machine_mode mode1 ATTRIBUTE_UNUSED,
+			 machine_mode mode2 ATTRIBUTE_UNUSED)
+{
+  return MODES_TIEABLE_P (MACRO_MODE (mode1), MACRO_MODE (mode2));
+}
+
 bool
 default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
 {
