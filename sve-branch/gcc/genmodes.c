@@ -47,6 +47,7 @@ static const char *const mode_class_names[MAX_MODE_CLASS] =
 
 static int bits_per_unit;
 static int max_bitsize_mode_any_int;
+static int max_bitsize_mode_any_mode;
 
 /* Data structure for building up what we know about a mode.
    They're clustered by mode class.  */
@@ -820,6 +821,12 @@ create_modes (void)
 #else
   max_bitsize_mode_any_int = 0;
 #endif
+
+#ifdef MAX_BITSIZE_MODE_ANY_MODE
+  max_bitsize_mode_any_mode = MAX_BITSIZE_MODE_ANY_MODE;
+#else
+  max_bitsize_mode_any_mode = 0;
+#endif
 }
 
 #ifndef NUM_POLY_INT_COEFFS
@@ -998,12 +1005,18 @@ emit_max_int (void)
   else
     printf ("#define MAX_BITSIZE_MODE_ANY_INT %d\n", max_bitsize_mode_any_int);
 
-  mmax = 0;
-  for (j = 0; j < MAX_MODE_CLASS; j++)
-    for (i = modes[j]; i; i = i->next)
-      if (mmax < i->bytesize)
-	mmax = i->bytesize;
-  printf ("#define MAX_BITSIZE_MODE_ANY_MODE (%d*BITS_PER_UNIT)\n", mmax);
+  if (max_bitsize_mode_any_mode == 0)
+    {
+      mmax = 0;
+      for (j = 0; j < MAX_MODE_CLASS; j++)
+	for (i = modes[j]; i; i = i->next)
+	  if (mmax < i->bytesize)
+	    mmax = i->bytesize;
+      printf ("#define MAX_BITSIZE_MODE_ANY_MODE (%d*BITS_PER_UNIT)\n", mmax);
+    }
+  else
+    printf ("#define MAX_BITSIZE_MODE_ANY_MODE %d\n",
+	    max_bitsize_mode_any_mode);
 }
 
 /* Emit mode_size_inline routine into insn-modes.h header.  */
