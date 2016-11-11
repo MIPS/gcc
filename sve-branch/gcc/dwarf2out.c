@@ -13853,7 +13853,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
     case UDIV:
       if (!dwarf_strict && SCALAR_INT_MODE_P (mode))
 	{
-	  if (GET_MODE_CLASS (mode) > DWARF2_ADDR_SIZE)
+	  if (GET_MODE_SIZE (mode) > DWARF2_ADDR_SIZE)
 	    {
 	      op = DW_OP_div;
 	      goto do_binop;
