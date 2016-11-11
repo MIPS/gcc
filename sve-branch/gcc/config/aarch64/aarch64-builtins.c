@@ -1000,8 +1000,7 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 					    GET_MODE_NUNITS (builtin_mode),
 					    exp);
 		  /* Keep to GCC-vector-extension lane indices in the RTL.  */
-		  op[opc] =
-		    GEN_INT (ENDIAN_LANE_N (builtin_mode, INTVAL (op[opc])));
+		  op[opc] = endian_lane_rtx (builtin_mode, INTVAL (op[opc]));
 		}
 	      goto constant_arg;
 
@@ -1014,7 +1013,7 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 		  aarch64_simd_lane_bounds (op[opc],
 					    0, GET_MODE_NUNITS (vmode), exp);
 		  /* Keep to GCC-vector-extension lane indices in the RTL.  */
-		  op[opc] = GEN_INT (ENDIAN_LANE_N (vmode, INTVAL (op[opc])));
+		  op[opc] = endian_lane_rtx (vmode, INTVAL (op[opc]));
 		}
 	      /* Fall through - if the lane index isn't a constant then
 		 the next case will error.  */
