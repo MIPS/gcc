@@ -5601,12 +5601,14 @@ get_condition (rtx_insn *jump, rtx_insn **earliest, int allow_cc_mode,
 static void
 init_num_sign_bit_copies_in_rep (void)
 {
-  machine_mode mode, in_mode;
+  opt_scalar_int_mode in_mode_iter;
+  scalar_int_mode mode;
 
-  FOR_EACH_MODE_IN_CLASS (in_mode, MODE_INT)
-    FOR_EACH_MODE_UNTIL (mode, in_mode)
+  FOR_EACH_MODE_IN_CLASS (in_mode_iter, MODE_INT)
+    FOR_EACH_MODE_UNTIL (mode, *in_mode_iter)
       {
-	machine_mode i;
+	scalar_int_mode in_mode = *in_mode_iter;
+	scalar_int_mode i;
 
 	/* Currently, it is assumed that TARGET_MODE_REP_EXTENDED
 	   extends to the next widest mode.  */
@@ -5619,7 +5621,7 @@ init_num_sign_bit_copies_in_rep (void)
 	  {
 	    /* This must always exist (for the last iteration it will be
 	       IN_MODE).  */
-	    machine_mode wider = *GET_MODE_WIDER_MODE (i);
+	    scalar_int_mode wider = *GET_MODE_WIDER_MODE (i);
 
 	    if (targetm.mode_rep_extended (i, wider) == SIGN_EXTEND
 		/* We can only check sign-bit copies starting from the

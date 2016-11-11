@@ -697,18 +697,17 @@ convert_modes (machine_mode mode, machine_mode oldmode, rtx x, int unsignedp)
 static unsigned int
 alignment_for_piecewise_move (unsigned int max_pieces, unsigned int align)
 {
-  machine_mode tmode;
+  scalar_int_mode tmode = *int_mode_for_size (max_pieces * BITS_PER_UNIT, 1);
 
-  tmode = mode_for_size (max_pieces * BITS_PER_UNIT, MODE_INT, 1);
   if (align >= GET_MODE_ALIGNMENT (tmode))
     align = GET_MODE_ALIGNMENT (tmode);
   else
     {
-      machine_mode tmode, xmode;
-
-      xmode = NARROWEST_INT_MODE;
-      FOR_EACH_MODE_IN_CLASS (tmode, MODE_INT)
+      scalar_int_mode xmode = NARROWEST_INT_MODE;
+      opt_scalar_int_mode mode_iter;
+      FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
 	{
+	  tmode = *mode_iter;
 	  if (GET_MODE_SIZE (tmode) > max_pieces
 	      || SLOW_UNALIGNED_ACCESS (tmode, align))
 	    break;
@@ -1704,7 +1703,6 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 			    unsigned HOST_WIDE_INT probable_max_size)
 {
   int save_volatile_ok = volatile_ok;
-  machine_mode mode;
 
   if (expected_align < align)
     expected_align = align;
@@ -1723,8 +1721,10 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
      including more than one in the machine description unless
      the more limited one has some advantage.  */
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
+  opt_scalar_int_mode mode_iter;
+  FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
     {
+      scalar_int_mode mode = *mode_iter;
       enum insn_code code = direct_optab_handler (movmem_optab, mode);
 
       if (code != CODE_FOR_nothing
@@ -2784,13 +2784,13 @@ copy_blkmode_to_reg (machine_mode mode, tree src)
     {
       /* Find the smallest integer mode large enough to hold the
 	 entire structure.  */
-      FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
-	/* Have we found a large enough mode?  */
-	if (GET_MODE_SIZE (mode) >= bytes)
+      opt_scalar_int_mode mode_iter;
+      FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
+	if (GET_MODE_SIZE (*mode_iter) >= bytes)
 	  break;
 
       /* A suitable mode should have been found.  */
-      gcc_assert (mode != VOIDmode);
+      mode = *mode_iter;
     }
 
   if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (word_mode))
@@ -3028,8 +3028,6 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
      including more than one in the machine description unless
      the more limited one has some advantage.  */
 
-  machine_mode mode;
-
   if (expected_align < align)
     expected_align = align;
   if (expected_size != -1)
@@ -3040,8 +3038,10 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	expected_size = min_size;
     }
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
+  opt_scalar_int_mode mode_iter;
+  FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
     {
+      scalar_int_mode mode = *mode_iter;
       enum insn_code code = direct_optab_handler (setmem_optab, mode);
 
       if (code != CODE_FOR_nothing

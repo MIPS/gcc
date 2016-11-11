@@ -4885,11 +4885,12 @@ cse_insn (rtx_insn *insn)
 	  && GET_CODE (src) == AND && CONST_INT_P (XEXP (src, 1))
 	  && GET_MODE_SIZE (int_mode) < UNITS_PER_WORD)
 	{
-	  machine_mode tmode;
+	  opt_scalar_int_mode tmode_iter;
 	  rtx new_and = gen_rtx_AND (VOIDmode, NULL_RTX, XEXP (src, 1));
 
-	  FOR_EACH_WIDER_MODE (tmode, int_mode)
+	  FOR_EACH_WIDER_MODE (tmode_iter, int_mode)
 	    {
+	      scalar_int_mode tmode = *tmode_iter;
 	      if (GET_MODE_SIZE (tmode) > UNITS_PER_WORD)
 		break;
 

@@ -205,8 +205,9 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
   scalar_int_mode int_mode_to;
   if (is_a <scalar_int_mode> (mode, &int_mode_to))
     {
-      FOR_EACH_MODE_IN_CLASS (mode_from, MODE_INT)
-	init_expmed_one_conv (all, int_mode_to, mode_from, speed);
+      opt_scalar_int_mode int_mode_from;
+      FOR_EACH_MODE_IN_CLASS (int_mode_from, MODE_INT)
+	init_expmed_one_conv (all, int_mode_to, *int_mode_from, speed);
 
       scalar_int_mode wider_mode;
       if (GET_MODE_CLASS (int_mode_to) == MODE_INT
@@ -2009,12 +2010,13 @@ extract_fixed_bit_field_1 (machine_mode tmode, rtx op0,
 
   /* Find the narrowest integer mode that contains the field.  */
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
-    if (GET_MODE_BITSIZE (mode) >= bitsize + bitnum)
-      {
-	op0 = convert_to_mode (mode, op0, 0);
-	break;
-      }
+  opt_scalar_int_mode mode_iter;
+  FOR_EACH_MODE_IN_CLASS (mode_iter, MODE_INT)
+    if (GET_MODE_BITSIZE (*mode_iter) >= bitsize + bitnum)
+      break;
+
+  mode = *mode_iter;
+  op0 = convert_to_mode (mode, op0, 0);
 
   if (mode != tmode)
     target = 0;
