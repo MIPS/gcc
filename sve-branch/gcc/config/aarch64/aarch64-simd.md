@@ -109,8 +109,7 @@
      case 4: return "ins\t%0.d[0], %1";
      case 5: return "mov\t%0, %1";
      case 6:
-	return aarch64_output_simd_mov_immediate (operands[1],
-						  <MODE>mode, 64);
+	return aarch64_output_simd_mov_immediate (operands[1], 64);
      default: gcc_unreachable ();
      }
 }
@@ -141,7 +140,7 @@
     case 5:
 	return "#";
     case 6:
-	return aarch64_output_simd_mov_immediate (operands[1], <MODE>mode, 128);
+	return aarch64_output_simd_mov_immediate (operands[1], 128);
     default:
 	gcc_unreachable ();
     }

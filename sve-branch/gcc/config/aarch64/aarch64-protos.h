@@ -336,7 +336,7 @@ bool aarch64_mov_operand_p (rtx, machine_mode);
 rtx aarch64_reverse_mask (machine_mode, unsigned int);
 bool aarch64_offset_7bit_signed_scaled_p (machine_mode, poly_int64);
 char *aarch64_output_scalar_simd_mov_immediate (rtx, scalar_int_mode);
-char *aarch64_output_simd_mov_immediate (rtx, machine_mode, unsigned);
+char *aarch64_output_simd_mov_immediate (rtx, unsigned);
 bool aarch64_pad_arg_upward (machine_mode, const_tree);
 bool aarch64_pad_reg_upward (machine_mode, const_tree, bool);
 bool aarch64_regno_ok_for_base_p (int, bool);
@@ -346,8 +346,7 @@ bool aarch64_simd_imm_scalar_p (rtx x, machine_mode mode);
 bool aarch64_simd_imm_zero_p (rtx, machine_mode);
 bool aarch64_simd_scalar_immediate_valid_for_move (rtx, scalar_int_mode);
 bool aarch64_simd_shift_imm_p (rtx, machine_mode, bool);
-bool aarch64_simd_valid_immediate (rtx, machine_mode, bool,
-				   struct simd_immediate_info *);
+bool aarch64_simd_valid_immediate (rtx, struct simd_immediate_info *);
 bool aarch64_symbolic_address_p (rtx);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
 bool aarch64_use_return_insn_p (void);
