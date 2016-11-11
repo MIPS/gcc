@@ -293,7 +293,7 @@ enum aarch64_parse_opt_result
 
 extern struct tune_params aarch64_tune_params;
 
-HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
+poly_int64 aarch64_initial_elimination_offset (unsigned, unsigned);
 int aarch64_get_condition_code (rtx);
 bool aarch64_bitmask_imm (HOST_WIDE_INT val, machine_mode);
 int aarch64_branch_cost (bool, bool);
@@ -320,8 +320,8 @@ bool aarch64_modes_tieable_p (machine_mode mode1,
 bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
 bool aarch64_move_imm (HOST_WIDE_INT, scalar_int_mode);
 bool aarch64_mov_operand_p (rtx, machine_mode);
-rtx aarch64_reverse_mask (machine_mode);
-bool aarch64_offset_7bit_signed_scaled_p (machine_mode, HOST_WIDE_INT);
+rtx aarch64_reverse_mask (machine_mode, unsigned int);
+bool aarch64_offset_7bit_signed_scaled_p (machine_mode, poly_int64);
 char *aarch64_output_scalar_simd_mov_immediate (rtx, scalar_int_mode);
 char *aarch64_output_simd_mov_immediate (rtx, machine_mode, unsigned);
 bool aarch64_pad_arg_upward (machine_mode, const_tree);
@@ -358,7 +358,7 @@ const char *aarch64_output_move_struct (rtx *operands);
 rtx aarch64_return_addr (int, rtx);
 rtx aarch64_simd_gen_const_vector_dup (machine_mode, int);
 bool aarch64_simd_mem_operand_p (rtx);
-rtx aarch64_simd_vect_par_cnst_half (machine_mode, bool);
+rtx aarch64_simd_vect_par_cnst_half (machine_mode, int, bool);
 rtx aarch64_tls_get_addr (void);
 tree aarch64_fold_builtin (tree, int, tree *, bool);
 unsigned aarch64_dbx_register_number (unsigned);
@@ -437,11 +437,11 @@ tree aarch64_builtin_rsqrt (unsigned int);
 tree aarch64_builtin_vectorized_function (unsigned int, tree, tree);
 
 extern void aarch64_split_combinev16qi (rtx operands[3]);
-extern void aarch64_expand_vec_perm (rtx target, rtx op0, rtx op1, rtx sel);
+extern void aarch64_expand_vec_perm (rtx, rtx, rtx, rtx, unsigned int);
 extern bool aarch64_madd_needs_nop (rtx_insn *);
 extern void aarch64_final_prescan_insn (rtx_insn *);
 extern bool
-aarch64_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel);
+aarch64_expand_vec_perm_const (rtx, rtx, rtx, rtx, unsigned int);
 void aarch64_atomic_assign_expand_fenv (tree *, tree *, tree *);
 int aarch64_ccmp_mode_to_code (machine_mode mode);
 

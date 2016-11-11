@@ -56,3 +56,7 @@ VECTOR_MODES (FLOAT, 64);	/* V8SF V4DF.  */
 
 /* Quad float: 128-bit floating mode for long doubles.  */
 FLOAT_MODE (TF, 16, ieee_quad_format);
+
+/* Coefficient 1 is multiplied by the number of 128-bit chunks in an
+   SVE vector (referred to as "VQ") minus one.  */
+#define NUM_POLY_INT_COEFFS 2
