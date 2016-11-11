@@ -123,7 +123,11 @@ struct arg_data
 static char *stack_usage_map;
 
 /* Size of STACK_USAGE_MAP.  */
-static int highest_outgoing_arg_in_use;
+static unsigned int highest_outgoing_arg_in_use;
+
+/* Assume that any stack location beyond this byte index is used,
+   without checking the contents of stack_usage_map.  */
+static unsigned HOST_WIDE_INT stack_usage_watermark = HOST_WIDE_INT_MAX;
 
 /* A bitmap of virtual-incoming stack space.  Bit is set if the corresponding
    stack location's tail call argument has been already stored into the stack.
@@ -132,6 +136,10 @@ static int highest_outgoing_arg_in_use;
    overwritten with tail call arguments.  */
 static sbitmap stored_args_map;
 
+/* Assume that any virtual-incoming location beyond this byte index has been
+   stored, without checking the contents of stored_args_map.  */
+static unsigned HOST_WIDE_INT stored_args_watermark;
+
 /* stack_arg_under_construction is nonzero when an argument may be
    initialized with a constructor call (including a C function that
    returns a BLKmode struct) and expand_call must take special action
@@ -139,9 +147,6 @@ static sbitmap stored_args_map;
    argument list for the constructor call.  */
 static int stack_arg_under_construction;
 
-static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
-			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
-			 cumulative_args_t);
 static void precompute_register_parameters (int, struct arg_data *, int *);
 static void store_bounds (struct arg_data *, struct arg_data *);
 static int store_one_arg (struct arg_data *, rtx, int, int, int);
@@ -149,13 +154,6 @@ static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
 				      struct args_size *);
 static void precompute_arguments (int, struct arg_data *);
-static int compute_argument_block_size (int, struct args_size *, tree, tree, int);
-static void initialize_argument_information (int, struct arg_data *,
-					     struct args_size *, int,
-					     tree, tree,
-					     tree, tree, cumulative_args_t, int,
-					     rtx *, int *, int *, int *,
-					     bool *, bool);
 static void compute_argument_addresses (struct arg_data *, rtx, int);
 static rtx rtx_for_function_call (tree, tree);
 static void load_register_parameters (struct arg_data *, int, rtx *, int,
@@ -166,8 +164,6 @@ static int special_function_p (const_tree, int);
 static int check_sibcall_argument_overlap_1 (rtx);
 static int check_sibcall_argument_overlap (rtx_insn *, struct arg_data *, int);
 
-static int combine_pending_stack_adjustment_and_call (int, struct args_size *,
-						      unsigned int);
 static tree split_complex_types (tree);
 
 #ifdef REG_PARM_STACK_SPACE
@@ -175,6 +171,46 @@ static rtx save_fixed_argument_area (int, rtx, int *, int *);
 static void restore_fixed_argument_area (rtx, rtx, int, int);
 #endif
 
+/* Return true if bytes [LOWER_BOUND, UPPER_BOUND) of the outgoing
+   stack region might already be in use.  */
+
+static bool
+stack_region_used_p (poly_uint64 lower_bound, poly_uint64 upper_bound,
+		     unsigned int reg_parm_stack_space)
+{
+  unsigned HOST_WIDE_INT const_lower, const_upper;
+  const_lower = constant_lower_bound (lower_bound);
+  if (!upper_bound.is_constant (&const_upper))
+    const_upper = HOST_WIDE_INT_MAX;
+
+  if (const_upper > stack_usage_watermark)
+    return true;
+
+  /* Don't worry about things in the fixed argument area;
+     it has already been saved.  */
+  const_lower = MAX (const_lower, reg_parm_stack_space);
+  const_upper = MIN (const_upper, highest_outgoing_arg_in_use);
+  for (unsigned HOST_WIDE_INT i = const_lower; i < const_upper; ++i)
+    if (stack_usage_map[i])
+      return true;
+  return false;
+}
+
+/* Record that bytes [LOWER_BOUND, UPPER_BOUND) of the outgoing
+   stack region are now in use.  */
+
+static void
+mark_stack_region_used (poly_uint64 lower_bound, poly_uint64 upper_bound)
+{
+  unsigned HOST_WIDE_INT const_lower, const_upper;
+  const_lower = constant_lower_bound (lower_bound);
+  if (upper_bound.is_constant (&const_upper))
+    for (unsigned HOST_WIDE_INT i = const_lower; i < const_upper; ++i)
+      stack_usage_map[i] = 1;
+  else
+    stack_usage_watermark = MIN (stack_usage_watermark, const_lower);
+}
+
 /* Force FUNEXP into a form suitable for the address of a CALL,
    and return that as an rtx.  Also load the static chain register
    if FNDECL is a nested function.
@@ -334,17 +370,17 @@ prepare_call_address (tree fndecl_or_type, rtx funexp, rtx static_chain_value,
 static void
 emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNUSED,
 	     tree funtype ATTRIBUTE_UNUSED,
-	     HOST_WIDE_INT stack_size ATTRIBUTE_UNUSED,
-	     HOST_WIDE_INT rounded_stack_size,
+	     poly_int64 stack_size ATTRIBUTE_UNUSED,
+	     poly_int64 rounded_stack_size,
 	     HOST_WIDE_INT struct_value_size ATTRIBUTE_UNUSED,
 	     rtx next_arg_reg ATTRIBUTE_UNUSED, rtx valreg,
 	     int old_inhibit_defer_pop, rtx call_fusage, int ecf_flags,
 	     cumulative_args_t args_so_far ATTRIBUTE_UNUSED)
 {
-  rtx rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
+  rtx rounded_stack_size_rtx = gen_int_mode (rounded_stack_size, Pmode);
   rtx call, funmem, pat;
   int already_popped = 0;
-  HOST_WIDE_INT n_popped = 0;
+  poly_int64 n_popped = 0;
 
   /* Sibling call patterns never pop arguments (no sibcall(_value)_pop
      patterns exist).  Any popping that the callee does on return will
@@ -402,12 +438,12 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if no arguments are actually popped.  If the target does not have
      "call" or "call_value" insns, then we must use the popping versions
      even if the call has no arguments to pop.  */
-  else if (n_popped > 0
+  else if (may_ne (n_popped, 0)
 	   || !(valreg
 		? targetm.have_call_value ()
 		: targetm.have_call ()))
     {
-      rtx n_pop = GEN_INT (n_popped);
+      rtx n_pop = gen_int_mode (n_popped, Pmode);
 
       /* If this subroutine pops its own args, record that in the call insn
 	 if possible, for the sake of frame pointer elimination.  */
@@ -481,7 +517,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
      if the context of the call as a whole permits.  */
   inhibit_defer_pop = old_inhibit_defer_pop;
 
-  if (n_popped > 0)
+  if (may_ne (n_popped, 0))
     {
       if (!already_popped)
 	CALL_INSN_FUNCTION_USAGE (call_insn)
@@ -489,7 +525,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 			       gen_rtx_CLOBBER (VOIDmode, stack_pointer_rtx),
 			       CALL_INSN_FUNCTION_USAGE (call_insn));
       rounded_stack_size -= n_popped;
-      rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
+      rounded_stack_size_rtx = gen_int_mode (rounded_stack_size, Pmode);
       stack_pointer_delta -= n_popped;
 
       add_args_size_note (call_insn, stack_pointer_delta);
@@ -513,7 +549,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	 If returning from the subroutine does pop the args, indicate that the
 	 stack pointer will be changed.  */
 
-      if (rounded_stack_size != 0)
+      if (may_ne (rounded_stack_size, 0))
 	{
 	  if (ecf_flags & ECF_NORETURN)
 	    /* Just pretend we did the pop.  */
@@ -536,8 +572,8 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 
      ??? It will be worthwhile to enable combine_stack_adjustments even for
      such machines.  */
-  else if (n_popped)
-    anti_adjust_stack (GEN_INT (n_popped));
+  else if (may_ne (n_popped, 0))
+    anti_adjust_stack (gen_int_mode (n_popped, Pmode));
 }
 
 /* Determine if the function identified by FNDECL is one with
@@ -1010,8 +1046,8 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 static rtx
 save_fixed_argument_area (int reg_parm_stack_space, rtx argblock, int *low_to_save, int *high_to_save)
 {
-  int low;
-  int high;
+  unsigned int low;
+  unsigned int high;
 
   /* Compute the boundary of the area that needs to be saved, if any.  */
   high = reg_parm_stack_space;
@@ -1022,7 +1058,7 @@ save_fixed_argument_area (int reg_parm_stack_space, rtx argblock, int *low_to_sa
     high = highest_outgoing_arg_in_use;
 
   for (low = 0; low < high; low++)
-    if (stack_usage_map[low] != 0)
+    if (stack_usage_map[low] != 0 || low >= stack_usage_watermark)
       {
 	int num_to_save;
 	int delta;
@@ -1238,7 +1274,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 				 tree fndecl, tree fntype,
 				 cumulative_args_t args_so_far,
 				 int reg_parm_stack_space,
-				 rtx *old_stack_level, int *old_pending_adj,
+				 rtx *old_stack_level,
+				 poly_int64 *old_pending_adj,
 				 int *must_preallocate, int *ecf_flags,
 				 bool *may_tailcall, bool call_from_thunk_p)
 {
@@ -1609,14 +1646,14 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
    REG_PARM_STACK_SPACE holds the number of bytes of stack space reserved
    for arguments passed in registers.  */
 
-static int
+static poly_int64
 compute_argument_block_size (int reg_parm_stack_space,
 			     struct args_size *args_size,
 			     tree fndecl ATTRIBUTE_UNUSED,
 			     tree fntype ATTRIBUTE_UNUSED,
 			     int preferred_stack_boundary ATTRIBUTE_UNUSED)
 {
-  int unadjusted_args_size = args_size->constant;
+  poly_int64 unadjusted_args_size = args_size->constant;
 
   /* For accumulate outgoing args mode we don't need to align, since the frame
      will be already aligned.  Align to STACK_BOUNDARY in order to prevent
@@ -1639,7 +1676,8 @@ compute_argument_block_size (int reg_parm_stack_space,
 	  /* We don't handle this case yet.  To handle it correctly we have
 	     to add the delta, round and subtract the delta.
 	     Currently no machine description requires this support.  */
-	  gcc_assert (!(stack_pointer_delta & (preferred_stack_boundary - 1)));
+	  gcc_assert (multiple_p (stack_pointer_delta,
+				  preferred_stack_boundary));
 	  args_size->var = round_up (args_size->var, preferred_stack_boundary);
 	}
 
@@ -1662,15 +1700,13 @@ compute_argument_block_size (int reg_parm_stack_space,
       preferred_stack_boundary /= BITS_PER_UNIT;
       if (preferred_stack_boundary < 1)
 	preferred_stack_boundary = 1;
-      args_size->constant = (((args_size->constant
-			       + stack_pointer_delta
-			       + preferred_stack_boundary - 1)
-			      / preferred_stack_boundary
-			      * preferred_stack_boundary)
+      args_size->constant = (aligned_upper_bound (args_size->constant
+						  + stack_pointer_delta,
+						  preferred_stack_boundary)
 			     - stack_pointer_delta);
 
-      args_size->constant = MAX (args_size->constant,
-				 reg_parm_stack_space);
+      args_size->constant = upper_bound (args_size->constant,
+					 reg_parm_stack_space);
 
       if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	args_size->constant -= reg_parm_stack_space;
@@ -1775,7 +1811,7 @@ finalize_must_preallocate (int must_preallocate, int num_actuals,
   if (! must_preallocate)
     {
       int partial_seen = 0;
-      int copy_to_evaluate_size = 0;
+      poly_int64 copy_to_evaluate_size = 0;
       int i;
 
       for (i = 0; i < num_actuals && ! must_preallocate; i++)
@@ -1800,8 +1836,8 @@ finalize_must_preallocate (int must_preallocate, int num_actuals,
 	      += int_size_in_bytes (TREE_TYPE (args[i].tree_value));
 	}
 
-      if (copy_to_evaluate_size * 2 >= args_size->constant
-	  && args_size->constant > 0)
+      if (may_ne (args_size->constant, 0)
+	  && may_ge (copy_to_evaluate_size * 2, args_size->constant))
 	must_preallocate = 1;
     }
   return must_preallocate;
@@ -1832,7 +1868,7 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  rtx slot_offset = ARGS_SIZE_RTX (args[i].locate.slot_offset);
 	  rtx addr;
 	  unsigned int align, boundary;
-	  unsigned int units_on_stack = 0;
+	  poly_int64 units_on_stack = 0;
 	  machine_mode partial_mode = VOIDmode;
 
 	  /* Skip this parm if it will not be passed on the stack.  */
@@ -2058,45 +2094,50 @@ internal_arg_pointer_based_exp (const_rtx rtl, bool toplevel)
   return NULL_RTX;
 }
 
-/* Return true if and only if SIZE storage units (usually bytes)
-   starting from address ADDR overlap with already clobbered argument
-   area.  This function is used to determine if we should give up a
-   sibcall.  */
+/* Return true if SIZE bytes starting from address ADDR might overlap an
+   already-clobbered argument area.  This function is used to determine
+   if we should give up a sibcall.  */
 
 static bool
-mem_overlaps_already_clobbered_arg_p (rtx addr, unsigned HOST_WIDE_INT size)
+mem_overlaps_already_clobbered_arg_p (rtx addr, poly_uint64 size)
 {
-  HOST_WIDE_INT i;
+  poly_int64 i;
+  unsigned HOST_WIDE_INT start, end;
   rtx val;
 
-  if (bitmap_empty_p (stored_args_map))
+  if (bitmap_empty_p (stored_args_map)
+      && stored_args_watermark == HOST_WIDE_INT_MAX)
     return false;
   val = internal_arg_pointer_based_exp (addr, true);
   if (val == NULL_RTX)
     return false;
-  else if (val == pc_rtx)
+  else if (!poly_int_const_p (val, &i))
     return true;
-  else
-    i = INTVAL (val);
+
+  if (must_eq (size, 0U))
+    return false;
 
   if (STACK_GROWS_DOWNWARD)
     i -= crtl->args.pretend_args_size;
   else
     i += crtl->args.pretend_args_size;
 
-
   if (ARGS_GROW_DOWNWARD)
     i = -i - size;
 
-  if (size > 0)
-    {
-      unsigned HOST_WIDE_INT k;
+  /* We can ignore any references to the function's own pretend args,
+     which at this point would manifest as negative values of I.  */
+  start = constant_lower_bound (ordered_max (i, 0));
+  if (!(i + size).is_constant (&end))
+    end = HOST_WIDE_INT_MAX;
 
-      for (k = 0; k < size; k++)
-	if (i + k < SBITMAP_SIZE (stored_args_map)
-	    && bitmap_bit_p (stored_args_map, i + k))
-	  return true;
-    }
+  if (end > stored_args_watermark)
+    return true;
+
+  end = MIN (end, SBITMAP_SIZE (stored_args_map));
+  for (unsigned HOST_WIDE_INT k = start; k < end; ++k)
+    if (bitmap_bit_p (stored_args_map, k))
+      return true;
 
   return false;
 }
@@ -2274,21 +2315,22 @@ load_register_parameters (struct arg_data *args, int num_actuals,
    aligned.  ARGS_SIZE->CONSTANT is set to the number of bytes that should
    be popped after the call.  Returns the adjustment.  */
 
-static int
-combine_pending_stack_adjustment_and_call (int unadjusted_args_size,
+static poly_int64
+combine_pending_stack_adjustment_and_call (poly_int64 unadjusted_args_size,
 					   struct args_size *args_size,
 					   unsigned int preferred_unit_stack_boundary)
 {
   /* The number of bytes to pop so that the stack will be
      under-aligned by UNADJUSTED_ARGS_SIZE bytes.  */
-  HOST_WIDE_INT adjustment;
+  poly_int64 adjustment;
   /* The alignment of the stack after the arguments are pushed, if we
      just pushed the arguments without adjust the stack here.  */
   unsigned HOST_WIDE_INT unadjusted_alignment;
 
-  unadjusted_alignment
-    = ((stack_pointer_delta + unadjusted_args_size)
-       % preferred_unit_stack_boundary);
+  if (!known_misalignment (stack_pointer_delta + unadjusted_args_size,
+			   preferred_unit_stack_boundary,
+			   &unadjusted_alignment))
+    gcc_unreachable ();
 
   /* We want to get rid of as many of the PENDING_STACK_ADJUST bytes
      as possible -- leaving just enough left to cancel out the
@@ -2297,9 +2339,12 @@ combine_pending_stack_adjustment_and_call (int unadjusted_args_size,
      -UNADJUSTED_ALIGNMENT modulo the PREFERRED_UNIT_STACK_BOUNDARY.  */
 
   /* Begin by trying to pop all the bytes.  */
-  unadjusted_alignment
-    = (unadjusted_alignment
-       - (pending_stack_adjust % preferred_unit_stack_boundary));
+  unsigned HOST_WIDE_INT tmp_alignment;
+  if (!known_misalignment (pending_stack_adjust,
+			   preferred_unit_stack_boundary,
+			   &tmp_alignment))
+    gcc_unreachable ();
+  unadjusted_alignment -= tmp_alignment;
   adjustment = pending_stack_adjust;
   /* Push enough additional bytes that the stack will be aligned
      after the arguments are pushed.  */
@@ -2377,7 +2422,8 @@ static int
 check_sibcall_argument_overlap (rtx_insn *insn, struct arg_data *arg,
 				int mark_stored_args_map)
 {
-  int low, high;
+  poly_uint64 low, high;
+  unsigned HOST_WIDE_INT const_low, const_high;
 
   if (insn == NULL_RTX)
     insn = get_insns ();
@@ -2395,9 +2441,14 @@ check_sibcall_argument_overlap (rtx_insn *insn, struct arg_data *arg,
 	low = -arg->locate.slot_offset.constant - arg->locate.size.constant;
       else
 	low = arg->locate.slot_offset.constant;
+      high = low + arg->locate.size.constant;
 
-      for (high = low + arg->locate.size.constant; low < high; low++)
-	bitmap_set_bit (stored_args_map, low);
+      const_low = constant_lower_bound (low);
+      if (high.is_constant (&const_high))
+	for (unsigned HOST_WIDE_INT i = const_low; i < const_high; ++i)
+	  bitmap_set_bit (stored_args_map, i);
+      else
+	stored_args_watermark = MIN (stored_args_watermark, const_low);
     }
   return insn != NULL_RTX;
 }
@@ -2540,7 +2591,8 @@ can_implement_as_sibling_call_p (tree exp,
      function, we cannot change it into a sibling call.
      crtl->args.pretend_args_size is not part of the
      stack allocated by our caller.  */
-  if (args_size.constant > (crtl->args.size - crtl->args.pretend_args_size))
+  if (may_gt (args_size.constant,
+	      crtl->args.size - crtl->args.pretend_args_size))
     {
       maybe_complain_about_tail_call (exp,
 				      "callee required more stack slots"
@@ -2550,10 +2602,12 @@ can_implement_as_sibling_call_p (tree exp,
 
   /* If the callee pops its own arguments, then it must pop exactly
      the same number of arguments as the current function.  */
-  if (targetm.calls.return_pops_args (fndecl, funtype, args_size.constant)
-      != targetm.calls.return_pops_args (current_function_decl,
-					 TREE_TYPE (current_function_decl),
-					 crtl->args.size))
+  if (may_ne (targetm.calls.return_pops_args (fndecl, funtype,
+					      args_size.constant),
+	      targetm.calls.return_pops_args (current_function_decl,
+					      TREE_TYPE
+					      (current_function_decl),
+					      crtl->args.size)))
     {
       maybe_complain_about_tail_call (exp,
 				      "inconsistent number of"
@@ -2643,7 +2697,7 @@ expand_call (tree exp, rtx target, int ignore)
   struct args_size args_size;
   struct args_size adjusted_args_size;
   /* Size of arguments before any adjustments (such as rounding).  */
-  int unadjusted_args_size;
+  poly_int64 unadjusted_args_size;
   /* Data on reg parms scanned so far.  */
   CUMULATIVE_ARGS args_so_far_v;
   cumulative_args_t args_so_far;
@@ -2676,22 +2730,23 @@ expand_call (tree exp, rtx target, int ignore)
   rtx save_area = 0;		/* Place that it is saved */
 #endif
 
-  int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
+  unsigned int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
+  unsigned HOST_WIDE_INT initial_stack_usage_watermark = stack_usage_watermark;
   char *stack_usage_map_buf = NULL;
 
-  int old_stack_allocated;
+  poly_int64 old_stack_allocated;
 
   /* State variables to track stack modifications.  */
   rtx old_stack_level = 0;
   int old_stack_arg_under_construction = 0;
-  int old_pending_adj = 0;
+  poly_int64 old_pending_adj = 0;
   int old_inhibit_defer_pop = inhibit_defer_pop;
 
   /* Some stack pointer alterations we make are performed via
      allocate_dynamic_stack_space. This modifies the stack_pointer_delta,
      which we then also need to save/restore along the way.  */
-  int old_stack_pointer_delta = 0;
+  poly_int64 old_stack_pointer_delta = 0;
 
   rtx call_fusage;
   tree addr = CALL_EXPR_FN (exp);
@@ -2956,7 +3011,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  || reg_mentioned_p (virtual_outgoing_args_rtx,
 			      structure_value_addr))
       && (args_size.var
-	  || (!ACCUMULATE_OUTGOING_ARGS && args_size.constant)))
+	  || (!ACCUMULATE_OUTGOING_ARGS && may_ne (args_size.constant, 0))))
     structure_value_addr = copy_to_reg (structure_value_addr);
 
   /* Tail calls can make things harder to debug, and we've traditionally
@@ -3072,10 +3127,10 @@ expand_call (tree exp, rtx target, int ignore)
 	 call sequence.
 	 Also do the adjustments before a throwing call, otherwise
 	 exception handling can fail; PR 19225. */
-      if (pending_stack_adjust >= 32
-	  || (pending_stack_adjust > 0
+      if (may_ge (pending_stack_adjust, 32)
+	  || (may_ne (pending_stack_adjust, 0)
 	      && (flags & ECF_MAY_BE_ALLOCA))
-	  || (pending_stack_adjust > 0
+	  || (may_ne (pending_stack_adjust, 0)
 	      && flag_exceptions && !(flags & ECF_NOTHROW))
 	  || pass == 0)
 	do_pending_stack_adjust ();
@@ -3119,8 +3174,10 @@ expand_call (tree exp, rtx target, int ignore)
 	    argblock
 	      = plus_constant (Pmode, argblock, -crtl->args.pretend_args_size);
 
-	  stored_args_map = sbitmap_alloc (args_size.constant);
+	  HOST_WIDE_INT map_size = constant_lower_bound (args_size.constant);
+	  stored_args_map = sbitmap_alloc (map_size);
 	  bitmap_clear (stored_args_map);
+	  stored_args_watermark = HOST_WIDE_INT_MAX;
 	}
 
       /* If we have no actual push instructions, or shouldn't use them,
@@ -3150,14 +3207,14 @@ expand_call (tree exp, rtx target, int ignore)
 	     in the area reserved for register arguments, which may be part of
 	     the stack frame.  */
 
-	  int needed = adjusted_args_size.constant;
+	  poly_int64 needed = adjusted_args_size.constant;
 
 	  /* Store the maximum argument space used.  It will be pushed by
 	     the prologue (if ACCUMULATE_OUTGOING_ARGS, or stack overflow
 	     checking).  */
 
-	  if (needed > crtl->outgoing_args_size)
-	    crtl->outgoing_args_size = needed;
+	  crtl->outgoing_args_size = upper_bound (crtl->outgoing_args_size,
+						  needed);
 
 	  if (must_preallocate)
 	    {
@@ -3183,12 +3240,16 @@ expand_call (tree exp, rtx target, int ignore)
 		  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 		    needed += reg_parm_stack_space;
 
+		  poly_int64 limit = needed;
 		  if (ARGS_GROW_DOWNWARD)
-		    highest_outgoing_arg_in_use
-		      = MAX (initial_highest_arg_in_use, needed + 1);
-		  else
-		    highest_outgoing_arg_in_use
-		      = MAX (initial_highest_arg_in_use, needed);
+		    limit += 1;
+
+		  /* For polynomial sizes, this is the maximum possible
+		     size needed for arguments with a constant size
+		     and offset.  */
+		  HOST_WIDE_INT const_limit = constant_lower_bound (limit);
+		  highest_outgoing_arg_in_use
+		    = MAX (initial_highest_arg_in_use, const_limit);
 
 		  free (stack_usage_map_buf);
 		  stack_usage_map_buf = XNEWVEC (char, highest_outgoing_arg_in_use);
@@ -3229,7 +3290,8 @@ expand_call (tree exp, rtx target, int ignore)
 			 needs to go up or down.  */
 		      needed = unadjusted_args_size - needed;
 
-		      if (needed < 0)
+		      gcc_checking_assert (ordered_p (needed, 0));
+		      if (may_lt (needed, 0))
 			{
 			  /* We're releasing stack space.  */
 			  /* ??? We can avoid any adjustment at all if we're
@@ -3246,11 +3308,12 @@ expand_call (tree exp, rtx target, int ignore)
 
 		  /* Special case this because overhead of `push_block' in
 		     this case is non-trivial.  */
-		  if (needed == 0)
+		  if (must_eq (needed, 0))
 		    argblock = virtual_outgoing_args_rtx;
 		  else
 		    {
-		      argblock = push_block (GEN_INT (needed), 0, 0);
+		      rtx needed_rtx = gen_int_mode (needed, Pmode);
+		      argblock = push_block (needed_rtx, 0, 0);
 		      if (ARGS_GROW_DOWNWARD)
 			argblock = plus_constant (Pmode, argblock, needed);
 		    }
@@ -3276,10 +3339,11 @@ expand_call (tree exp, rtx target, int ignore)
 	  if (stack_arg_under_construction)
 	    {
 	      rtx push_size
-		= GEN_INT (adjusted_args_size.constant
-			   + (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype
-			   					      : TREE_TYPE (fndecl))) ? 0
-			      : reg_parm_stack_space));
+		= (gen_int_mode
+		   (adjusted_args_size.constant
+		    + (OUTGOING_REG_PARM_STACK_SPACE (!fndecl ? fntype
+						      : TREE_TYPE (fndecl))
+		       ? 0 : reg_parm_stack_space), Pmode));
 	      if (old_stack_level == 0)
 		{
 		  emit_stack_save (SAVE_BLOCK, &old_stack_level);
@@ -3298,6 +3362,7 @@ expand_call (tree exp, rtx target, int ignore)
 		  stack_usage_map_buf = XCNEWVEC (char, highest_outgoing_arg_in_use);
 		  stack_usage_map = stack_usage_map_buf;
 		  highest_outgoing_arg_in_use = 0;
+		  stack_usage_watermark = HOST_WIDE_INT_MAX;
 		}
 	      /* We can pass TRUE as the 4th argument because we just
 		 saved the stack pointer and will restore it right after
@@ -3333,12 +3398,12 @@ expand_call (tree exp, rtx target, int ignore)
 
       /* Perform stack alignment before the first push (the last arg).  */
       if (argblock == 0
-          && adjusted_args_size.constant > reg_parm_stack_space
-	  && adjusted_args_size.constant != unadjusted_args_size)
+	  && may_gt (adjusted_args_size.constant, reg_parm_stack_space)
+	  && may_ne (adjusted_args_size.constant, unadjusted_args_size))
 	{
 	  /* When the stack adjustment is pending, we get better code
 	     by combining the adjustments.  */
-	  if (pending_stack_adjust
+	  if (may_ne (pending_stack_adjust, 0)
 	      && ! inhibit_defer_pop)
 	    {
 	      pending_stack_adjust
@@ -3349,8 +3414,9 @@ expand_call (tree exp, rtx target, int ignore)
 	      do_pending_stack_adjust ();
 	    }
 	  else if (argblock == 0)
-	    anti_adjust_stack (GEN_INT (adjusted_args_size.constant
-					- unadjusted_args_size));
+	    anti_adjust_stack (gen_int_mode (adjusted_args_size.constant
+					     - unadjusted_args_size,
+					     Pmode));
 	}
       /* Now that the stack is properly aligned, pops can't safely
 	 be deferred during the evaluation of the arguments.  */
@@ -3364,9 +3430,10 @@ expand_call (tree exp, rtx target, int ignore)
 	  && pass
 	  && adjusted_args_size.var == 0)
 	{
-	  int pushed = adjusted_args_size.constant + pending_stack_adjust;
-	  if (pushed > current_function_pushed_stack_size)
-	    current_function_pushed_stack_size = pushed;
+	  poly_int64 pushed = (adjusted_args_size.constant
+			       + pending_stack_adjust);
+	  current_function_pushed_stack_size
+	    = upper_bound (current_function_pushed_stack_size, pushed);
 	}
 
       funexp = rtx_for_function_call (fndecl, addr);
@@ -3401,7 +3468,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 	      /* We don't allow passing huge (> 2^30 B) arguments
 	         by value.  It would cause an overflow later on.  */
-	      if (adjusted_args_size.constant
+	      if (constant_lower_bound (adjusted_args_size.constant)
 		  >= (1 << (HOST_BITS_PER_INT - 2)))
 	        {
 	          sorry ("passing too large argument on stack");
@@ -3587,7 +3654,8 @@ expand_call (tree exp, rtx target, int ignore)
 
       /* Stack must be properly aligned now.  */
       gcc_assert (!pass
-		  || !(stack_pointer_delta % preferred_unit_stack_boundary));
+		  || multiple_p (stack_pointer_delta,
+				 preferred_unit_stack_boundary));
 
       /* Generate the actual call instruction.  */
       emit_call_1 (funexp, exp, fndecl, funtype, unadjusted_args_size,
@@ -3815,6 +3883,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  stack_arg_under_construction = old_stack_arg_under_construction;
 	  highest_outgoing_arg_in_use = initial_highest_arg_in_use;
 	  stack_usage_map = initial_stack_usage_map;
+	  stack_usage_watermark = initial_stack_usage_watermark;
 	  sibcall_failure = 1;
 	}
       else if (ACCUMULATE_OUTGOING_ARGS && pass)
@@ -3839,12 +3908,14 @@ expand_call (tree exp, rtx target, int ignore)
 		  emit_move_insn (stack_area, args[i].save_area);
 		else
 		  emit_block_move (stack_area, args[i].save_area,
-				   GEN_INT (args[i].locate.size.constant),
+				   (gen_int_mode
+				    (args[i].locate.size.constant, Pmode)),
 				   BLOCK_OP_CALL_PARM);
 	      }
 
 	  highest_outgoing_arg_in_use = initial_highest_arg_in_use;
 	  stack_usage_map = initial_stack_usage_map;
+	  stack_usage_watermark = initial_stack_usage_watermark;
 	}
 
       /* If this was alloca, record the new stack level.  */
@@ -3887,8 +3958,8 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  /* Verify that we've deallocated all the stack we used.  */
 	  gcc_assert ((flags & ECF_NORETURN)
-		      || (old_stack_allocated
-			  == stack_pointer_delta - pending_stack_adjust));
+		      || must_eq (old_stack_allocated,
+				  stack_pointer_delta - pending_stack_adjust));
 	}
 
       /* If something prevents making this a sibling call,
@@ -4047,7 +4118,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   int struct_value_size = 0;
   int flags;
   int reg_parm_stack_space = 0;
-  int needed;
+  poly_int64 needed;
   rtx_insn *before_call;
   bool have_push_fusage;
   tree tfom;			/* type_for_mode (outmode, 0) */
@@ -4060,8 +4131,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #endif
 
   /* Size of the stack reserved for parameter registers.  */
-  int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
+  unsigned int initial_highest_arg_in_use = highest_outgoing_arg_in_use;
   char *initial_stack_usage_map = stack_usage_map;
+  unsigned HOST_WIDE_INT initial_stack_usage_watermark = stack_usage_watermark;
   char *stack_usage_map_buf = NULL;
 
   rtx struct_value = targetm.calls.struct_value_rtx (0, 0);
@@ -4293,27 +4365,25 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   assemble_external_libcall (fun);
 
   original_args_size = args_size;
-  args_size.constant = (((args_size.constant
-			  + stack_pointer_delta
-			  + STACK_BYTES - 1)
-			  / STACK_BYTES
-			  * STACK_BYTES)
-			 - stack_pointer_delta);
+  args_size.constant = (aligned_upper_bound (args_size.constant
+					     + stack_pointer_delta,
+					     STACK_BYTES)
+			- stack_pointer_delta);
 
-  args_size.constant = MAX (args_size.constant,
-			    reg_parm_stack_space);
+  args_size.constant = upper_bound (args_size.constant,
+				    reg_parm_stack_space);
 
   if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
     args_size.constant -= reg_parm_stack_space;
 
-  if (args_size.constant > crtl->outgoing_args_size)
-    crtl->outgoing_args_size = args_size.constant;
+  crtl->outgoing_args_size = upper_bound (crtl->outgoing_args_size,
+					  args_size.constant);
 
   if (flag_stack_usage_info && !ACCUMULATE_OUTGOING_ARGS)
     {
-      int pushed = args_size.constant + pending_stack_adjust;
-      if (pushed > current_function_pushed_stack_size)
-	current_function_pushed_stack_size = pushed;
+      poly_int64 pushed = args_size.constant + pending_stack_adjust;
+      current_function_pushed_stack_size
+	= upper_bound (current_function_pushed_stack_size, pushed);
     }
 
   if (ACCUMULATE_OUTGOING_ARGS)
@@ -4338,11 +4408,15 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? fntype : TREE_TYPE (fndecl))))
 	needed += reg_parm_stack_space;
 
+      poly_int64 limit = needed;
       if (ARGS_GROW_DOWNWARD)
-	highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
-					   needed + 1);
-      else
-	highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use, needed);
+	limit += 1;
+
+      /* For polynomial sizes, this is the maximum possible size needed
+	 for arguments with a constant size and offset.  */
+      HOST_WIDE_INT const_limit = constant_lower_bound (limit);
+      highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
+					 const_limit);
 
       stack_usage_map_buf = XNEWVEC (char, highest_outgoing_arg_in_use);
       stack_usage_map = stack_usage_map_buf;
@@ -4370,14 +4444,15 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   else
     {
       if (!PUSH_ARGS)
-	argblock = push_block (GEN_INT (args_size.constant), 0, 0);
+	argblock = push_block (gen_int_mode (args_size.constant, Pmode), 0, 0);
     }
 
   /* We push args individually in reverse order, perform stack alignment
      before the first push (the last arg).  */
   if (argblock == 0)
-    anti_adjust_stack (GEN_INT (args_size.constant
-				- original_args_size.constant));
+    anti_adjust_stack (gen_int_mode (args_size.constant
+				     - original_args_size.constant,
+				     Pmode));
 
   argnum = nargs - 1;
 
@@ -4417,7 +4492,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       rtx reg = argvec[argnum].reg;
       int partial = argvec[argnum].partial;
       unsigned int parm_align = argvec[argnum].locate.boundary;
-      int lower_bound = 0, upper_bound = 0, i;
+      poly_int64 lower_bound = 0, upper_bound = 0;
 
       if (! (reg != 0 && partial == 0))
 	{
@@ -4441,18 +4516,11 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 		  upper_bound = lower_bound + argvec[argnum].locate.size.constant;
 		}
 
-	      i = lower_bound;
-	      /* Don't worry about things in the fixed argument area;
-		 it has already been saved.  */
-	      if (i < reg_parm_stack_space)
-		i = reg_parm_stack_space;
-	      while (i < upper_bound && stack_usage_map[i] == 0)
-		i++;
-
-	      if (i < upper_bound)
+	      if (stack_region_used_p (lower_bound, upper_bound,
+				       reg_parm_stack_space))
 		{
 		  /* We need to make a save area.  */
-		  unsigned int size
+		  poly_int64 size
 		    = argvec[argnum].locate.size.constant * BITS_PER_UNIT;
 		  machine_mode save_mode
 		    = mode_for_size (size, MODE_INT, 1);
@@ -4472,7 +4540,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 		      emit_block_move (validize_mem
 				         (copy_rtx (argvec[argnum].save_area)),
 				       stack_area,
-				       GEN_INT (argvec[argnum].locate.size.constant),
+				       (gen_int_mode
+					(argvec[argnum].locate.size.constant,
+					 Pmode)),
 				       BLOCK_OP_CALL_PARM);
 		    }
 		  else
@@ -4486,14 +4556,14 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
 	  emit_push_insn (val, mode, NULL_TREE, NULL_RTX, parm_align,
 			  partial, reg, 0, argblock,
-			  GEN_INT (argvec[argnum].locate.offset.constant),
+			  (gen_int_mode
+			   (argvec[argnum].locate.offset.constant, Pmode)),
 			  reg_parm_stack_space,
 			  ARGS_SIZE_RTX (argvec[argnum].locate.alignment_pad), false);
 
 	  /* Now mark the segment we just used.  */
 	  if (ACCUMULATE_OUTGOING_ARGS)
-	    for (i = lower_bound; i < upper_bound; i++)
-	      stack_usage_map[i] = 1;
+	    mark_stack_region_used (lower_bound, upper_bound);
 
 	  NO_DEFER_POP;
 
@@ -4615,8 +4685,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    ? hard_libcall_value (outmode, orgfun) : NULL_RTX);
 
   /* Stack must be properly aligned now.  */
-  gcc_assert (!(stack_pointer_delta
-		& (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT - 1)));
+  gcc_assert (multiple_p (stack_pointer_delta,
+			  PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT));
 
   before_call = get_last_insn ();
 
@@ -4754,7 +4824,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	      emit_block_move (stack_area,
 			       validize_mem
 			         (copy_rtx (argvec[count].save_area)),
-			       GEN_INT (argvec[count].locate.size.constant),
+			       (gen_int_mode
+				(argvec[count].locate.size.constant, Pmode)),
 			       BLOCK_OP_CALL_PARM);
 	    else
 	      emit_move_insn (stack_area, argvec[count].save_area);
@@ -4762,6 +4833,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
       highest_outgoing_arg_in_use = initial_highest_arg_in_use;
       stack_usage_map = initial_stack_usage_map;
+      stack_usage_watermark = initial_stack_usage_watermark;
     }
 
   free (stack_usage_map_buf);
@@ -4903,8 +4975,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
   tree pval = arg->tree_value;
   rtx reg = 0;
   int partial = 0;
-  int used = 0;
-  int i, lower_bound = 0, upper_bound = 0;
+  poly_int64 used = 0;
+  poly_int64 lower_bound = 0, upper_bound = 0;
   int sibcall_failure = 0;
 
   if (TREE_CODE (pval) == ERROR_MARK)
@@ -4941,18 +5013,11 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	      upper_bound = lower_bound + arg->locate.size.constant;
 	    }
 
-	  i = lower_bound;
-	  /* Don't worry about things in the fixed argument area;
-	     it has already been saved.  */
-	  if (i < reg_parm_stack_space)
-	    i = reg_parm_stack_space;
-	  while (i < upper_bound && stack_usage_map[i] == 0)
-	    i++;
-
-	  if (i < upper_bound)
+	  if (stack_region_used_p (lower_bound, upper_bound,
+				   reg_parm_stack_space))
 	    {
 	      /* We need to make a save area.  */
-	      unsigned int size = arg->locate.size.constant * BITS_PER_UNIT;
+	      poly_int64 size = arg->locate.size.constant * BITS_PER_UNIT;
 	      machine_mode save_mode = mode_for_size (size, MODE_INT, 1);
 	      rtx adr = memory_address (save_mode, XEXP (arg->stack_slot, 0));
 	      rtx stack_area = gen_rtx_MEM (save_mode, adr);
@@ -4964,7 +5029,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		  preserve_temp_slots (arg->save_area);
 		  emit_block_move (validize_mem (copy_rtx (arg->save_area)),
 				   stack_area,
-				   GEN_INT (arg->locate.size.constant),
+				   (gen_int_mode
+				    (arg->locate.size.constant, Pmode)),
 				   BLOCK_OP_CALL_PARM);
 		}
 	      else
@@ -5090,12 +5156,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       if (targetm.calls.function_arg_padding (arg->mode, TREE_TYPE (pval))
 	  == PAD_DOWNWARD)
 	{
-	  int pad = used - size;
-	  if (pad)
-	    {
-	      unsigned int pad_align = least_bit_hwi (pad) * BITS_PER_UNIT;
-	      parm_align = MIN (parm_align, pad_align);
-	    }
+	  poly_int64 pad = used - size;
+	  unsigned int pad_align_bytes = known_alignment (pad);
+	  if (pad_align_bytes != 0)
+	    parm_align = MIN (parm_align, pad_align_bytes * BITS_PER_UNIT);
 	}
 
       /* This isn't already where we want it on the stack, so put it there.
@@ -5116,7 +5180,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       /* BLKmode, at least partly to be pushed.  */
 
       unsigned int parm_align;
-      int excess;
+      poly_int64 excess;
       rtx size_rtx;
 
       /* Pushing a nonscalar.
@@ -5152,10 +5216,12 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	{
 	  if (arg->locate.size.var)
 	    parm_align = BITS_PER_UNIT;
-	  else if (excess)
+	  else
 	    {
-	      unsigned int excess_align = least_bit_hwi (excess) * BITS_PER_UNIT;
-	      parm_align = MIN (parm_align, excess_align);
+	      unsigned int excess_align_bytes = known_alignment (excess);
+	      if (excess_align_bytes)
+		parm_align = MIN (parm_align,
+				  excess_align_bytes * BITS_PER_UNIT);
 	    }
 	}
 
@@ -5187,30 +5253,25 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 			  && arg->locate.size.var == 0
 			  && CONST_INT_P (size_rtx));
 
-	      if (arg->locate.offset.constant > i)
-		{
-		  if (arg->locate.offset.constant < i + INTVAL (size_rtx))
-		    sibcall_failure = 1;
-		}
-	      else if (arg->locate.offset.constant < i)
-		{
-		  /* Use arg->locate.size.constant instead of size_rtx
-		     because we only care about the part of the argument
-		     on the stack.  */
-		  if (i < (arg->locate.offset.constant
-			   + arg->locate.size.constant))
-		    sibcall_failure = 1;
-		}
-	      else
+	      if (must_eq (arg->locate.offset.constant, i))
 		{
 		  /* Even though they appear to be at the same location,
 		     if part of the outgoing argument is in registers,
 		     they aren't really at the same location.  Check for
 		     this by making sure that the incoming size is the
 		     same as the outgoing size.  */
-		  if (arg->locate.size.constant != INTVAL (size_rtx))
+		  if (may_ne (arg->locate.size.constant, INTVAL (size_rtx)))
 		    sibcall_failure = 1;
 		}
+	      else if (maybe_in_range_p (arg->locate.offset.constant,
+					 i, INTVAL (size_rtx)))
+		sibcall_failure = 1;
+	      /* Use arg->locate.size.constant instead of size_rtx
+		 because we only care about the part of the argument
+		 on the stack.  */
+	      else if (maybe_in_range_p (i, arg->locate.offset.constant,
+					 arg->locate.size.constant))
+		sibcall_failure = 1;
 	    }
 	}
 
@@ -5241,9 +5302,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
   /* Mark all slots this store used.  */
   if (ACCUMULATE_OUTGOING_ARGS && !(flags & ECF_SIBCALL)
-      && argblock && ! variable_size && arg->stack)
-    for (i = lower_bound; i < upper_bound; i++)
-      stack_usage_map[i] = 1;
+      && argblock && !variable_size && arg->stack)
+    mark_stack_region_used (lower_bound, upper_bound);
 
   /* Once we have pushed something, pops can't safely
      be deferred during the rest of the arguments.  */

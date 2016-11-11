@@ -1724,7 +1724,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define STARTING_FRAME_OFFSET						\
   (FRAME_GROWS_DOWNWARD							\
    ? 0									\
-   : (RS6000_ALIGN (crtl->outgoing_args_size,				\
+   : (RS6000_ALIGN (MACRO_INT (crtl->outgoing_args_size),		\
 		    (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
       + RS6000_SAVE_AREA))
 
@@ -1735,7 +1735,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
    length of the outgoing arguments.  The default is correct for most
    machines.  See `function.c' for details.  */
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  (RS6000_ALIGN (crtl->outgoing_args_size,				\
+  (RS6000_ALIGN (MACRO_INT (crtl->outgoing_args_size),			\
 		 (TARGET_ALTIVEC || TARGET_VSX) ? 16 : 8)		\
    + (STACK_POINTER_OFFSET))
 

@@ -2041,7 +2041,10 @@ expand_used_vars (void)
   /* Compute the phase of the stack frame for this function.  */
   {
     int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-    int off = STARTING_FRAME_OFFSET % align;
+    /* At present we only support frame layouts in which the misalignment
+       of STARTING_FRAME_OFFSET is known at compile time.  */
+    int off = force_get_misalignment (poly_int64 (STARTING_FRAME_OFFSET),
+				      align);
     frame_phase = off ? align - off : 0;
   }
 

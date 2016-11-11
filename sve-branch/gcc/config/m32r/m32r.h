@@ -533,7 +533,7 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* The frame pointer points at the same place as the stack pointer, except if
    alloca has been called.  */
 #define STARTING_FRAME_OFFSET \
-  M32R_STACK_ALIGN (crtl->outgoing_args_size)
+  M32R_STACK_ALIGN (MACRO_INT (crtl->outgoing_args_size))
 
 /* Offset from the stack pointer register to the first location at which
    outgoing arguments are placed.  */

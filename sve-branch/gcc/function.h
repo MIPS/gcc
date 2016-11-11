@@ -92,7 +92,7 @@ extern GTY ((length ("crtl->emit.x_reg_rtx_no"))) rtx * regno_reg_rtx;
 struct GTY(()) expr_status {
   /* Number of units that we should eventually pop off the stack.
      These are the arguments to function calls that have already returned.  */
-  int x_pending_stack_adjust;
+  poly_int64 x_pending_stack_adjust;
 
   /* Under some ABIs, it is the caller's responsibility to pop arguments
      pushed for function calls.  A naive implementation would simply pop
@@ -115,7 +115,7 @@ struct GTY(()) expr_status {
      boundary can be momentarily unaligned while pushing the arguments.
      Record the delta since last aligned boundary here in order to get
      stack alignment in the nested function calls working right.  */
-  int x_stack_pointer_delta;
+  poly_int64 x_stack_pointer_delta;
 
   /* Nonzero means __builtin_saveregs has already been done in this function.
      The value is the pseudoreg containing the value __builtin_saveregs
@@ -198,9 +198,10 @@ struct GTY(()) stack_usage
      meaningful only if has_unbounded_dynamic_stack_size is zero.  */
   HOST_WIDE_INT dynamic_stack_size;
 
-  /* # of bytes of space pushed onto the stack after the prologue.  If
-     !ACCUMULATE_OUTGOING_ARGS, it contains the outgoing arguments.  */
-  int pushed_stack_size;
+  /* Upper bound on the number of bytes pushed onto the stack after the
+     prologue.  If !ACCUMULATE_OUTGOING_ARGS, it contains the outgoing
+     arguments.  */
+  poly_int64 pushed_stack_size;
 
   /* Nonzero if the amount of stack space allocated dynamically cannot
      be bounded at compile-time.  */
@@ -471,7 +472,7 @@ extern struct machine_function * (*init_machine_status) (void);
 
 struct args_size
 {
-  HOST_WIDE_INT constant;
+  poly_int64 constant;
   tree var;
 };
 
@@ -533,7 +534,7 @@ do {								\
 
 /* Convert the implicit sum in a `struct args_size' into an rtx.  */
 #define ARGS_SIZE_RTX(SIZE)					\
-((SIZE).var == 0 ? GEN_INT ((SIZE).constant)			\
+((SIZE).var == 0 ? gen_int_mode ((SIZE).constant, Pmode)	\
  : expand_normal (ARGS_SIZE_TREE (SIZE)))
 
 #define ASLK_REDUCE_ALIGN 1

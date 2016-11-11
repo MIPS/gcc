@@ -295,7 +295,10 @@ try_fit_stack_local (poly_int64 start, poly_int64 length,
   /* Calculate how many bytes the start of local variables is off from
      stack alignment.  */
   frame_alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-  frame_off = STARTING_FRAME_OFFSET % frame_alignment;
+  /* At present we only support frame layouts in which the misalignment
+     of STARTING_FRAME_OFFSET is known at compile time.  */
+  frame_off = force_get_misalignment (poly_int64 (STARTING_FRAME_OFFSET),
+				      frame_alignment);
   frame_phase = frame_off ? frame_alignment - frame_off : 0;
 
   /* Round the frame offset to the specified alignment.  */
@@ -1364,9 +1367,9 @@ initial_value_entry (int i, rtx *hreg, rtx *preg)
    respective hard registers.  */
 
 static int in_arg_offset;
-static int var_offset;
-static int dynamic_offset;
-static int out_arg_offset;
+static poly_int64 var_offset;
+static poly_int64 dynamic_offset;
+static poly_int64 out_arg_offset;
 static int cfa_offset;
 
 /* In most machines, the stack pointer register is equivalent to the bottom
@@ -1414,10 +1417,10 @@ static int cfa_offset;
    offset indirectly through the pointer.  Otherwise, return 0.  */
 
 static rtx
-instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
+instantiate_new_reg (rtx x, poly_int64 *poffset)
 {
   rtx new_rtx;
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
 
   if (x == virtual_incoming_args_rtx)
     {
@@ -1476,7 +1479,7 @@ instantiate_virtual_regs_in_rtx (rtx *loc)
       if (rtx x = *loc)
 	{
 	  rtx new_rtx;
-	  HOST_WIDE_INT offset;
+	  poly_int64 offset;
 	  switch (GET_CODE (x))
 	    {
 	    case REG:
@@ -1529,7 +1532,7 @@ safe_insn_predicate (int code, int operand, rtx x)
 static void
 instantiate_virtual_regs_in_insn (rtx_insn *insn)
 {
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
   int insn_code, i;
   bool any_change = false;
   rtx set, new_rtx, x;
@@ -1568,7 +1571,8 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	 to the generic case is avoiding a new pseudo and eliminating a
 	 move insn in the initial rtl stream.  */
       new_rtx = instantiate_new_reg (SET_SRC (set), &offset);
-      if (new_rtx && offset != 0
+      if (new_rtx
+	  && may_ne (offset, 0)
 	  && REG_P (SET_DEST (set))
 	  && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	{
@@ -1604,7 +1608,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  offset += INTVAL (recog_data.operand[2]);
 
 	  /* If the sum is zero, then replace with a plain move.  */
-	  if (offset == 0
+	  if (must_eq (offset, 0)
 	      && REG_P (SET_DEST (set))
 	      && REGNO (SET_DEST (set)) > LAST_VIRTUAL_REGISTER)
 	    {
@@ -1682,7 +1686,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (x, &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (offset == 0)
+	  if (must_eq (offset, 0))
 	    x = new_rtx;
 	  else
 	    {
@@ -1707,7 +1711,7 @@ instantiate_virtual_regs_in_insn (rtx_insn *insn)
 	  new_rtx = instantiate_new_reg (SUBREG_REG (x), &offset);
 	  if (new_rtx == NULL)
 	    continue;
-	  if (offset != 0)
+	  if (may_ne (offset, 0))
 	    {
 	      start_sequence ();
 	      new_rtx = expand_simple_binop
@@ -3888,14 +3892,15 @@ assign_parms (tree fndecl)
   /* Adjust function incoming argument size for alignment and
      minimum length.  */
 
-  crtl->args.size = MAX (crtl->args.size, all.reg_parm_stack_space);
-  crtl->args.size = CEIL_ROUND (crtl->args.size,
-					   PARM_BOUNDARY / BITS_PER_UNIT);
+  crtl->args.size = upper_bound (crtl->args.size, all.reg_parm_stack_space);
+  crtl->args.size = aligned_upper_bound (crtl->args.size,
+					 PARM_BOUNDARY / BITS_PER_UNIT);
 
   if (ARGS_GROW_DOWNWARD)
     {
       crtl->args.arg_offset_rtx
-	= (all.stack_args_size.var == 0 ? GEN_INT (-all.stack_args_size.constant)
+	= (all.stack_args_size.var == 0
+	   ? gen_int_mode (-all.stack_args_size.constant, Pmode)
 	   : expand_expr (size_diffop (all.stack_args_size.var,
 				       size_int (-all.stack_args_size.constant)),
 			  NULL_RTX, VOIDmode, EXPAND_NORMAL));
@@ -4136,15 +4141,19 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
     {
       if (reg_parm_stack_space > 0)
 	{
-	  if (initial_offset_ptr->var)
+	  if (initial_offset_ptr->var
+	      || !ordered_p (initial_offset_ptr->constant,
+			     reg_parm_stack_space))
 	    {
 	      initial_offset_ptr->var
 		= size_binop (MAX_EXPR, ARGS_SIZE_TREE (*initial_offset_ptr),
 			      ssize_int (reg_parm_stack_space));
 	      initial_offset_ptr->constant = 0;
 	    }
-	  else if (initial_offset_ptr->constant < reg_parm_stack_space)
-	    initial_offset_ptr->constant = reg_parm_stack_space;
+	  else
+	    initial_offset_ptr->constant
+	      = ordered_max (initial_offset_ptr->constant,
+			     reg_parm_stack_space);
 	}
     }
 
@@ -4272,9 +4281,9 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 		      struct args_size *alignment_pad)
 {
   tree save_var = NULL_TREE;
-  HOST_WIDE_INT save_constant = 0;
+  poly_int64 save_constant = 0;
   int boundary_in_bytes = boundary / BITS_PER_UNIT;
-  HOST_WIDE_INT sp_offset = STACK_POINTER_OFFSET;
+  poly_int64 sp_offset = STACK_POINTER_OFFSET;
 
 #ifdef SPARC_STACK_BOUNDARY_HACK
   /* ??? The SPARC port may claim a STACK_BOUNDARY higher than
@@ -4295,7 +4304,10 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 
   if (boundary > BITS_PER_UNIT)
     {
-      if (offset_ptr->var)
+      int misalign;
+      if (offset_ptr->var
+	  || !known_misalignment (offset_ptr->constant + sp_offset,
+				  boundary_in_bytes, &misalign))
 	{
 	  tree sp_offset_tree = ssize_int (sp_offset);
 	  tree offset = size_binop (PLUS_EXPR,
@@ -4316,13 +4328,13 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 	}
       else
 	{
-	  offset_ptr->constant = -sp_offset +
-	    (ARGS_GROW_DOWNWARD
-	    ? FLOOR_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes)
-	    : CEIL_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes));
+	  if (ARGS_GROW_DOWNWARD)
+	    offset_ptr->constant -= misalign;
+	  else
+	    offset_ptr->constant += -misalign & (boundary_in_bytes - 1);
 
-	    if (boundary > PARM_BOUNDARY)
-	      alignment_pad->constant = offset_ptr->constant - save_constant;
+	  if (boundary > PARM_BOUNDARY)
+	    alignment_pad->constant = offset_ptr->constant - save_constant;
 	}
     }
 }
