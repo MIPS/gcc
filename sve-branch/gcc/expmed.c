@@ -2299,9 +2299,9 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
     {
       if (CONST_INT_P (op1)
 	  && ((unsigned HOST_WIDE_INT) INTVAL (op1) >=
-	      (unsigned HOST_WIDE_INT) GET_MODE_BITSIZE (scalar_mode)))
+	      (unsigned HOST_WIDE_INT) GET_MODE_UNIT_BITSIZE (mode)))
 	op1 = GEN_INT ((unsigned HOST_WIDE_INT) INTVAL (op1)
-		       % GET_MODE_BITSIZE (scalar_mode));
+		       % GET_MODE_UNIT_BITSIZE (mode));
       else if (GET_CODE (op1) == SUBREG
 	       && subreg_lowpart_p (op1)
 	       && SCALAR_INT_MODE_P (GET_MODE (SUBREG_REG (op1)))
@@ -2315,10 +2315,10 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
      amount instead.  */
   if (rotate
       && CONST_INT_P (op1)
-      && IN_RANGE (INTVAL (op1), GET_MODE_BITSIZE (scalar_mode) / 2 + left,
-		   GET_MODE_BITSIZE (scalar_mode) - 1))
+      && IN_RANGE (INTVAL (op1), GET_MODE_UNIT_BITSIZE (mode) / 2 + left,
+		   GET_MODE_UNIT_BITSIZE (mode) - 1))
     {
-      op1 = GEN_INT (GET_MODE_BITSIZE (scalar_mode) - INTVAL (op1));
+      op1 = GEN_INT (GET_MODE_UNIT_BITSIZE (mode) - INTVAL (op1));
       left = !left;
       code = left ? LROTATE_EXPR : RROTATE_EXPR;
     }
@@ -2398,7 +2398,7 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
 	      if (op1 == const0_rtx)
 		return shifted;
 	      else if (CONST_INT_P (op1))
-		other_amount = GEN_INT (GET_MODE_BITSIZE (scalar_mode)
+		other_amount = GEN_INT (GET_MODE_UNIT_BITSIZE (mode)
 					- INTVAL (op1));
 	      else
 		{
