@@ -6096,22 +6096,23 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
    to the memory at bit OFFSET.  */
 
 tree
-fold_ctor_reference (tree type, tree ctor, unsigned HOST_WIDE_INT offset,
-		     unsigned HOST_WIDE_INT size, tree from_decl)
+fold_ctor_reference (tree type, tree ctor, poly_uint64 offset,
+		     poly_uint64 size, tree from_decl)
 {
   tree ret;
 
   /* We found the field with exact match.  */
   if (useless_type_conversion_p (type, TREE_TYPE (ctor))
-      && !offset)
+      && must_eq (offset, 0U))
     return canonicalize_constructor_val (unshare_expr (ctor), from_decl);
 
   /* We are at the end of walk, see if we can view convert the
      result.  */
-  if (!AGGREGATE_TYPE_P (TREE_TYPE (ctor)) && !offset
+  if (!AGGREGATE_TYPE_P (TREE_TYPE (ctor))
+      && must_eq (offset, 0U)
       /* VIEW_CONVERT_EXPR is defined only for matching sizes.  */
-      && !compare_tree_int (TYPE_SIZE (type), size)
-      && !compare_tree_int (TYPE_SIZE (TREE_TYPE (ctor)), size))
+      && equal_tree_size (TYPE_SIZE (type), size)
+      && equal_tree_size (TYPE_SIZE (TREE_TYPE (ctor)), size))
     {
       ret = canonicalize_constructor_val (unshare_expr (ctor), from_decl);
       ret = fold_unary (VIEW_CONVERT_EXPR, type, ret);
@@ -6121,28 +6122,30 @@ fold_ctor_reference (tree type, tree ctor, unsigned HOST_WIDE_INT offset,
     }
   /* For constants and byte-aligned/sized reads try to go through
      native_encode/interpret.  */
+  HOST_WIDE_INT byte_offset, byte_size;
   if (CONSTANT_CLASS_P (ctor)
       && BITS_PER_UNIT == 8
-      && offset % BITS_PER_UNIT == 0
-      && size % BITS_PER_UNIT == 0
-      && size <= MAX_BITSIZE_MODE_ANY_MODE)
+      && constant_multiple_p (offset, BITS_PER_UNIT, &byte_offset)
+      && constant_multiple_p (size, BITS_PER_UNIT, &byte_size)
+      && byte_size * BITS_PER_UNIT <= MAX_BITSIZE_MODE_ANY_MODE)
     {
       unsigned char buf[MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT];
-      int len = native_encode_expr (ctor, buf, size / BITS_PER_UNIT,
-				    offset / BITS_PER_UNIT);
+      int len = native_encode_expr (ctor, buf, byte_size, byte_offset);
       if (len > 0)
 	return native_interpret_expr (type, buf, len);
     }
-  if (TREE_CODE (ctor) == CONSTRUCTOR)
+  unsigned HOST_WIDE_INT const_offset, const_size;
+  if (TREE_CODE (ctor) == CONSTRUCTOR
+      && offset.is_constant (&const_offset)
+      && size.is_constant (&const_size))
     {
-
       if (TREE_CODE (TREE_TYPE (ctor)) == ARRAY_TYPE
 	  || TREE_CODE (TREE_TYPE (ctor)) == VECTOR_TYPE)
-	return fold_array_ctor_reference (type, ctor, offset, size,
-					  from_decl);
+	return fold_array_ctor_reference (type, ctor, const_offset,
+					  const_size, from_decl);
       else
-	return fold_nonarray_ctor_reference (type, ctor, offset, size,
-					     from_decl);
+	return fold_nonarray_ctor_reference (type, ctor, const_offset,
+					     const_size, from_decl);
     }
 
   return NULL_TREE;
