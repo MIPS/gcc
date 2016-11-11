@@ -1147,7 +1147,7 @@ check_and_process_move (bool *change_p, bool *sec_mem_p ATTRIBUTE_UNUSED)
   if (sclass == NO_REGS && dclass == NO_REGS)
     return false;
 #ifdef SECONDARY_MEMORY_NEEDED
-  if (SECONDARY_MEMORY_NEEDED (sclass, dclass, GET_MODE (src))
+  if (SECONDARY_MEMORY_NEEDED (sclass, dclass, MACRO_MODE (GET_MODE (src)))
 #ifdef SECONDARY_MEMORY_NEEDED_MODE
       && ((sclass != NO_REGS && dclass != NO_REGS)
 	  || (GET_MODE (src)
@@ -2608,10 +2608,11 @@ process_alt_operands (int only_alternative)
 		  && REG_P (op) && (cl = get_reg_class (REGNO (op))) != NO_REGS
 		  && ((curr_static_id->operand[nop].type != OP_OUT
 		       && SECONDARY_MEMORY_NEEDED (cl, this_alternative,
-						   GET_MODE (op)))
+						   MACRO_MODE (GET_MODE (op))))
 		      || (curr_static_id->operand[nop].type != OP_IN
-			  && SECONDARY_MEMORY_NEEDED (this_alternative, cl,
-						      GET_MODE (op)))))
+			  && (SECONDARY_MEMORY_NEEDED
+			      (this_alternative, cl,
+			       MACRO_MODE (GET_MODE (op)))))))
 		losers++;
 #endif
 	      /* Input reloads can be inherited more often than output
@@ -4918,7 +4919,8 @@ check_secondary_memory_needed_p (enum reg_class inher_cl ATTRIBUTE_UNUSED,
   lra_assert (inher_cl != NO_REGS);
   cl = get_reg_class (REGNO (dest));
   return (cl != NO_REGS && cl != ALL_REGS
-	  && SECONDARY_MEMORY_NEEDED (inher_cl, cl, GET_MODE (dest)));
+	  && SECONDARY_MEMORY_NEEDED (inher_cl, cl,
+				      MACRO_MODE (GET_MODE (dest))));
 #endif
 }
 
@@ -5187,14 +5189,15 @@ choose_split_class (enum reg_class allocno_class,
   enum reg_class hard_reg_class ATTRIBUTE_UNUSED
     = REGNO_REG_CLASS (hard_regno);
 
-  if (! SECONDARY_MEMORY_NEEDED (allocno_class, allocno_class, mode)
+  if (! SECONDARY_MEMORY_NEEDED (allocno_class, allocno_class,
+				 MACRO_MODE (mode))
       && TEST_HARD_REG_BIT (reg_class_contents[allocno_class], hard_regno))
     return allocno_class;
   for (i = 0;
        (cl = reg_class_subclasses[allocno_class][i]) != LIM_REG_CLASSES;
        i++)
-    if (! SECONDARY_MEMORY_NEEDED (cl, hard_reg_class, mode)
-	&& ! SECONDARY_MEMORY_NEEDED (hard_reg_class, cl, mode)
+    if (! SECONDARY_MEMORY_NEEDED (cl, hard_reg_class, MACRO_MODE (mode))
+	&& ! SECONDARY_MEMORY_NEEDED (hard_reg_class, cl, MACRO_MODE (mode))
 	&& TEST_HARD_REG_BIT (reg_class_contents[cl], hard_regno)
 	&& (best_cl == NO_REGS
 	    || ira_class_hard_regs_num[best_cl] < ira_class_hard_regs_num[cl]))

@@ -463,7 +463,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 	 way reloads are output.  */
 
       if (in_p && icode == CODE_FOR_nothing
-	  && SECONDARY_MEMORY_NEEDED (rclass, reload_class, mode))
+	  && SECONDARY_MEMORY_NEEDED (rclass, reload_class, MACRO_MODE (mode)))
 	{
 	  get_secondary_mem (x, reload_mode, opnum, type);
 
@@ -499,7 +499,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 
 #ifdef SECONDARY_MEMORY_NEEDED
       if (! in_p && icode == CODE_FOR_nothing
-	  && SECONDARY_MEMORY_NEEDED (reload_class, rclass, mode))
+	  && SECONDARY_MEMORY_NEEDED (reload_class, rclass, MACRO_MODE (mode)))
 	get_secondary_mem (x, mode, opnum, type);
 #endif
     }
@@ -1375,7 +1375,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	subreg_in_class = REGNO_REG_CLASS (reg_or_subregno (in));
       /* If a memory location is needed for the copy, make one.  */
       if (subreg_in_class != NO_REGS
-	  && SECONDARY_MEMORY_NEEDED (subreg_in_class, rclass, inmode))
+	  && SECONDARY_MEMORY_NEEDED (subreg_in_class, rclass,
+				      MACRO_MODE (inmode)))
 	get_secondary_mem (in, inmode, opnum, type);
 #endif
 
@@ -1408,7 +1409,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	  && reg_or_subregno (out) < FIRST_PSEUDO_REGISTER
 	  && SECONDARY_MEMORY_NEEDED (rclass,
 				      REGNO_REG_CLASS (reg_or_subregno (out)),
-				      outmode))
+				      MACRO_MODE (outmode)))
 	get_secondary_mem (out, outmode, opnum, type);
 #endif
     }
