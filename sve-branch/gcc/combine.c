@@ -8946,6 +8946,7 @@ if_then_else_cond (rtx x, rtx *ptrue, rtx *pfalse)
   enum rtx_code code = GET_CODE (x);
   rtx cond0, cond1, true0, true1, false0, false1;
   unsigned HOST_WIDE_INT nz;
+  scalar_int_mode int_mode;
 
   /* If we are comparing a value against zero, we are done.  */
   if ((code == NE || code == EQ)
@@ -9122,8 +9123,9 @@ if_then_else_cond (rtx x, rtx *ptrue, rtx *pfalse)
   /* If X is known to be either 0 or -1, those are the true and
      false values when testing X.  */
   else if (x == constm1_rtx || x == const0_rtx
-	   || (mode != VOIDmode
-	       && num_sign_bit_copies (x, mode) == GET_MODE_PRECISION (mode)))
+	   || (is_a <scalar_int_mode> (mode, &int_mode)
+	       && (num_sign_bit_copies (x, int_mode)
+		   == GET_MODE_PRECISION (int_mode))))
     {
       *ptrue = constm1_rtx, *pfalse = const0_rtx;
       return x;
