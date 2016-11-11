@@ -49821,7 +49821,7 @@ ix86_autovectorize_vector_sizes (void)
 /* Implemenation of targetm.vectorize.get_mask_mode.  */
 
 static machine_mode
-ix86_get_mask_mode (unsigned nunits, unsigned vector_size)
+ix86_get_mask_mode (poly_uint64 nunits, poly_uint64 vector_size)
 {
   unsigned elem_size = vector_size / nunits;
 

@@ -5822,7 +5822,7 @@ mode returned by @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE}.
 The default is zero which means to not iterate over other vector sizes.
 @end deftypefn
 
-@deftypefn {Target Hook} machine_mode TARGET_VECTORIZE_GET_MASK_MODE (unsigned @var{nunits}, unsigned @var{length})
+@deftypefn {Target Hook} machine_mode TARGET_VECTORIZE_GET_MASK_MODE (poly_uint64 @var{nunits}, poly_uint64 @var{length})
 This hook returns mode to be used for a mask to be used for a vector
 of specified @var{length} with @var{nunits} elements.  By default an integer
 vector mode of a proper size is returned.
