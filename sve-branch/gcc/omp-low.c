@@ -874,7 +874,7 @@ workshare_safe_to_combine_p (basic_block ws_entry_bb)
 }
 
 
-static int omp_max_vf (void);
+static poly_uint64 omp_max_vf (void);
 
 /* Adjust CHUNK_SIZE from SCHEDULE clause, depending on simd modifier
    presence (SIMD_SCHEDULE).  */
@@ -885,8 +885,8 @@ omp_adjust_chunk_size (tree chunk_size, bool simd_schedule)
   if (!simd_schedule)
     return chunk_size;
 
-  int vf = omp_max_vf ();
-  if (vf == 1)
+  poly_uint64 vf = omp_max_vf ();
+  if (must_eq (vf, 1U))
     return chunk_size;
 
   tree type = TREE_TYPE (chunk_size);
@@ -4266,7 +4266,7 @@ omp_clause_aligned_alignment (tree clause)
 
 /* Return maximum possible vectorization factor for the target.  */
 
-static int
+static poly_uint64
 omp_max_vf (void)
 {
   if (!optimize
@@ -4293,31 +4293,34 @@ omp_max_vf (void)
    privatization.  */
 
 static bool
-lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
-			      tree &idx, tree &lane, tree &ivar, tree &lvar)
+lower_rec_simd_input_clauses (tree new_var, omp_context *ctx,
+			      poly_uint64 &max_vf, tree &idx, tree &lane,
+			      tree &ivar, tree &lvar)
 {
-  if (max_vf == 0)
+  if (must_eq (max_vf, 0U))
     {
       max_vf = omp_max_vf ();
-      if (max_vf > 1)
+      if (may_gt (max_vf, 1U))
 	{
 	  tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				    OMP_CLAUSE_SAFELEN);
-	  if (c
-	      && (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST
-		  || tree_int_cst_sgn (OMP_CLAUSE_SAFELEN_EXPR (c)) != 1))
-	    max_vf = 1;
-	  else if (c && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
-					  max_vf) == -1)
-	    max_vf = tree_to_shwi (OMP_CLAUSE_SAFELEN_EXPR (c));
+	  if (c)
+	    {
+	      poly_uint64 safe_len;
+	      if (!poly_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
+		  || may_eq (safe_len, 0U))
+		max_vf = 1;
+	      else if (may_lt (safe_len, max_vf))
+		max_vf = safe_len;
+	    }
 	}
-      if (max_vf > 1)
+      if (may_gt (max_vf, 1U))
 	{
 	  idx = create_tmp_var (unsigned_type_node);
 	  lane = create_tmp_var (unsigned_type_node);
 	}
     }
-  if (max_vf == 1)
+  if (must_eq (max_vf, 1U))
     return false;
 
   tree atype = build_array_type_nelts (TREE_TYPE (new_var), max_vf);
@@ -4374,7 +4377,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
   int pass;
   bool is_simd = (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
 		  && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_SIMD);
-  int max_vf = 0;
+  poly_uint64 max_vf = 0;
   tree lane = NULL_TREE, idx = NULL_TREE;
   tree ivar = NULL_TREE, lvar = NULL_TREE;
   gimple_seq llist[2] = { NULL, NULL };
@@ -5360,14 +5363,14 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
   /* If max_vf is non-zero, then we can use only a vectorization factor
      up to the max_vf we chose.  So stick it into the safelen clause.  */
-  if (max_vf)
+  if (may_ne (max_vf, 0U))
     {
       tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				OMP_CLAUSE_SAFELEN);
+      poly_uint64 safe_len;
       if (c == NULL_TREE
-	  || (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) == INTEGER_CST
-	      && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
-				   max_vf) == 1))
+	  || (poly_tree_p (OMP_CLAUSE_SAFELEN_EXPR (c), &safe_len)
+	      && may_gt (safe_len, max_vf)))
 	{
 	  c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_SAFELEN);
 	  OMP_CLAUSE_SAFELEN_EXPR (c) = build_int_cst (integer_type_node,
