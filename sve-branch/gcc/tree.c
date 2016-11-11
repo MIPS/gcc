@@ -199,6 +199,16 @@ struct int_cst_hasher : ggc_cache_ptr_hash<tree_node>
 
 static GTY ((cache)) hash_table<int_cst_hasher> *int_cst_hash_table;
 
+/* Class and variable for making sure that there is a single POLY_CST
+   for a given value.  */
+struct poly_cst_hasher : ggc_cache_ptr_hash<tree_node>
+{
+  static hashval_t hash (tree t);
+  static bool equal (tree x, tree y);
+};
+
+static GTY ((cache)) hash_table<poly_cst_hasher> *poly_cst_hash_table;
+
 /* Hash table for optimization flags and target option flags.  Use the same
    hash table for both sets of options.  Nodes for building the current
    optimization and target option nodes.  The assumption is most of the time
@@ -461,6 +471,7 @@ tree_node_structure_for_code (enum tree_code code)
     case COMPLEX_CST:		return TS_COMPLEX;
     case VECTOR_CST:		return TS_VECTOR;
     case STRING_CST:		return TS_STRING;
+    case POLY_CST:		return TS_POLY;
       /* tcc_exceptional cases.  */
     case ERROR_MARK:		return TS_COMMON;
     case IDENTIFIER_NODE:	return TS_IDENTIFIER;
@@ -514,6 +525,7 @@ initialize_tree_contains_struct (void)
 	case TS_REAL_CST:
 	case TS_FIXED_CST:
 	case TS_VECTOR:
+	case TS_POLY:
 	case TS_STRING:
 	case TS_COMPLEX:
 	case TS_SSA_NAME:
@@ -645,6 +657,8 @@ init_ttree (void)
     = hash_table<tree_decl_map_cache_hasher>::create_ggc (512);
 
   int_cst_hash_table = hash_table<int_cst_hasher>::create_ggc (1024);
+
+  poly_cst_hash_table = hash_table<poly_cst_hasher>::create_ggc (64);
 
   int_cst_node = make_int_cst (1, 1);
 
@@ -813,6 +827,7 @@ tree_code_size (enum tree_code code)
 	case COMPLEX_CST:	return sizeof (struct tree_complex);
 	case VECTOR_CST:	return sizeof (struct tree_vector);
 	case STRING_CST:	gcc_unreachable ();
+	case POLY_CST:		return sizeof (struct tree_poly);
 	default:
 	  return lang_hooks.tree_size (code);
 	}
@@ -1283,31 +1298,84 @@ build_new_int_cst (tree type, const wide_int &cst)
   return nt;
 }
 
-/* Create an INT_CST node with a LOW value sign extended to TYPE.  */
+/* Create an INTEGER_CST node that contains VALUE sign-extended to TYPE.  */
+
+static tree
+build_int_cst_coeff (tree type, HOST_WIDE_INT value)
+{
+  return wide_int_to_tree (type, wi::shwi (value, TYPE_PRECISION (type)));
+}
+
+/* Create an INTEGER_CST node that contains VALUE zero-extended to TYPE.  */
+
+static tree
+build_int_cstu_coeff (tree type, unsigned HOST_WIDE_INT value)
+{
+  return wide_int_to_tree (type, wi::uhwi (value, TYPE_PRECISION (type)));
+}
+
+/* Implementation of the build_* routines below.  Use BUILD_COEFF to
+   create a tree for one polynomial coefficient.  */
+
+#define BUILD_POLY_TREE(BUILD_COEFF)				\
+  if (value.is_constant ())					\
+    return BUILD_COEFF (type, value.coeffs[0]);			\
+  tree values[NUM_POLY_INT_COEFFS];				\
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)	\
+    values[i] = BUILD_COEFF (type, value.coeffs[i]);		\
+  return build_poly_cst (type, values)
+
+/* Create a constant tree that contains VALUE sign-extended to TYPE.  */
 
 tree
-build_int_cst (tree type, HOST_WIDE_INT low)
+build_int_cst (tree type, poly_int64 value)
 {
   /* Support legacy code.  */
   if (!type)
     type = integer_type_node;
 
-  return wide_int_to_tree (type, wi::shwi (low, TYPE_PRECISION (type)));
+  BUILD_POLY_TREE (build_int_cst_coeff);
 }
 
+/* Create a constant tree that contains VALUE zero-extended to TYPE.  */
+
 tree
-build_int_cstu (tree type, unsigned HOST_WIDE_INT cst)
+build_int_cstu (tree type, poly_uint64 value)
 {
-  return wide_int_to_tree (type, wi::uhwi (cst, TYPE_PRECISION (type)));
+  BUILD_POLY_TREE (build_int_cstu_coeff);
 }
 
-/* Create an INT_CST node with a LOW value sign extended to TYPE.  */
+/* Create a constant tree that contains VALUE sign-extended to TYPE.  */
 
 tree
-build_int_cst_type (tree type, HOST_WIDE_INT low)
+build_int_cst_type (tree type, poly_int64 value)
 {
   gcc_assert (type);
-  return wide_int_to_tree (type, wi::shwi (low, TYPE_PRECISION (type)));
+  return build_int_cst (type, value);
+}
+
+/* Create a constant tree with value VALUE in type TYPE.  */
+
+tree
+poly_offset_int_to_tree (tree type, const poly_offset_int &value)
+{
+  BUILD_POLY_TREE (wide_int_to_tree);
+}
+
+/* Create a constant tree with value VALUE in type TYPE.  */
+
+tree
+poly_wide_int_to_tree (tree type, const poly_wide_int &value)
+{
+  BUILD_POLY_TREE (wide_int_to_tree);
+}
+
+/* Create a constant tree with value VALUE in type TYPE.  */
+
+tree
+poly_widest_int_to_tree (tree type, const poly_widest_int &value)
+{
+  BUILD_POLY_TREE (wide_int_to_tree);
 }
 
 /* Constructs tree in type TYPE from with value given by CST.  Signedness
@@ -2011,6 +2079,58 @@ build_string (int len, const char *str)
   return s;
 }
 
+hashval_t
+poly_cst_hasher::hash (tree t)
+{
+  inchash::hash hstate;
+
+  hstate.add_int (TYPE_UID (TREE_TYPE (t)));
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    hstate.add_wide_int (TREE_INT_CST_ELT (POLY_CST_ELT (t, i), 0));
+
+  return hstate.end ();
+}
+
+bool
+poly_cst_hasher::equal (tree x, tree y)
+{
+  if (TREE_TYPE (x) != TREE_TYPE (y))
+    return false;
+
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    if (POLY_CST_ELT (x, i) != POLY_CST_ELT (y, i))
+      return false;
+
+  return true;
+}
+
+/* Build a POLY_CST node with type TYPE and with the elements in VALUES.
+   The elements must also have type TYPE.  */
+
+tree
+build_poly_cst (tree type, const tree (&values)[NUM_POLY_INT_COEFFS])
+{
+  tree_node tmp;
+  memset (&tmp, 0, sizeof (tree_poly));
+  TREE_SET_CODE (&tmp, POLY_CST);
+  TREE_CONSTANT (&tmp) = 1;
+  TREE_TYPE (&tmp) = type;
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    POLY_CST_ELT (&tmp, i) = values[i];
+
+  tree *slot = poly_cst_hash_table->find_slot (&tmp, INSERT);
+  tree t = *slot;
+  if (!t)
+    {
+      /* Insert this one into the hash table.  */
+      t = make_node (POLY_CST);
+      memcpy (t, &tmp, sizeof (tree_poly));
+      *slot = t;
+    }
+
+  return t;
+}
+
 /* Return a newly constructed COMPLEX_CST node whose value is
    specified by the real and imaginary parts REAL and IMAG.
    Both REAL and IMAG should be constant nodes.  TYPE, if specified,
@@ -2710,6 +2830,160 @@ really_constant_p (const_tree exp)
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR)
     exp = TREE_OPERAND (exp, 0);
   return TREE_CONSTANT (exp);
+}
+
+/* Implementation of the query routines below.  Use PRED_P to test whether
+   a coefficient has an appropriate value and CONVERT to extract that
+   value.  */
+
+#define EXTRACT_POLY_TREE(PRED_P, CONVERT)			\
+  if (!t)							\
+    return false;						\
+  if (PRED_P (t))						\
+    {								\
+      *value = CONVERT (t);					\
+      return true;						\
+    }								\
+  if (NUM_POLY_INT_COEFFS != 1 && TREE_CODE (t) == POLY_CST)	\
+    {								\
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)	\
+	if (!PRED_P (POLY_CST_ELT (t, i)))			\
+	  return false;						\
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)	\
+	value->coeffs[i] = CONVERT (POLY_CST_ELT (t, i));	\
+      return true;						\
+    }								\
+  return false
+
+#define INTEGER_CST_P(X) (TREE_CODE (X) == INTEGER_CST)
+#define NO_CONVERT(X) (X)
+
+/* Return true if T holds a polynomial pointer difference, storing it in
+   *VALUE if so.  A true return means that T's precision is no greater
+   than 64 bits, which is the largest address space we support, so *VALUE
+   never loses precision.  However, the signedness of the result is
+   somewhat arbitrary, since if B lives near the end of a 64-bit address
+   range and A lives near the beginning, B - A is a large positive value
+   outside the range of int64_t.  A - B is likewise a large negative value
+   outside the range of int64_t.  All the pointer difference really
+   gives is a raw pointer-sized bitstring that can be added to the first
+   pointer value to get the second.  */
+
+bool
+ptrdiff_tree_p (const_tree t, poly_int64 *value)
+{
+  EXTRACT_POLY_TREE (cst_and_fits_in_hwi, int_cst_value);
+}
+
+/* Return true if T holds a value that can be represented as a poly_int64
+   without loss of precision.  Store the value in *VALUE if so.  */
+
+bool
+poly_tree_p (const_tree t, poly_int64 *value)
+{
+  EXTRACT_POLY_TREE (tree_fits_shwi_p, tree_to_shwi);
+}
+
+/* Return the value of T as a poly_int64.  */
+
+poly_int64
+tree_to_poly_int64 (const_tree t)
+{
+  poly_int64 res;
+  if (!poly_tree_p (t, &res))
+    gcc_unreachable ();
+  return res;
+}
+
+/* Return true if T holds a value that can be represented as a poly_uint64
+   without loss of precision.  Store the value in *VALUE if so.  */
+
+bool
+poly_tree_p (const_tree t, poly_uint64 *value)
+{
+  EXTRACT_POLY_TREE (tree_fits_uhwi_p, tree_to_uhwi);
+}
+
+/* Return the value of T as a poly_uint64.  */
+
+poly_uint64
+tree_to_poly_uint64 (const_tree t)
+{
+  poly_uint64 res;
+  if (!poly_tree_p (t, &res))
+    gcc_unreachable ();
+  return res;
+}
+
+/* Return true if T is an INTEGER_CST that can be represented as an
+   offset_int without loss of precision.  */
+
+static bool
+tree_fits_offset_p (const_tree t)
+{
+  return (TREE_CODE (t) == INTEGER_CST
+	  && TREE_INT_CST_OFFSET_NUNITS (t) >= TREE_INT_CST_NUNITS (t));
+}
+
+/* Return true if T holds a value that can be represented as a
+   poly_offset_int without loss of precision.  Store the value in
+   *VALUE if so.  */
+
+bool
+poly_tree_p (const_tree t, poly_offset_int *value)
+{
+  EXTRACT_POLY_TREE (tree_fits_offset_p, wi::to_offset);
+}
+
+/* Return the value of T as a poly_offset_int.  */
+
+poly_offset_int
+tree_to_poly_offset_int (const_tree t)
+{
+  poly_offset_int res;
+  if (!poly_tree_p (t, &res))
+    gcc_unreachable ();
+  return res;
+}
+
+/* Return true if T can be represented as a poly_wide_int, storing it
+   in *VALUE if so.  */
+
+bool
+poly_tree_p (const_tree t, poly_wide_int *value)
+{
+  EXTRACT_POLY_TREE (INTEGER_CST_P, NO_CONVERT);
+}
+
+/* Return the value of T as a poly_wide_int.  */
+
+poly_wide_int
+tree_to_poly_wide_int (const_tree t)
+{
+  poly_wide_int res;
+  if (!poly_tree_p (t, &res))
+    gcc_unreachable ();
+  return res;
+}
+
+/* Return true if T can be represented as a poly_widest_int, storing it
+   in *VALUE if so.  */
+
+bool
+poly_tree_p (const_tree t, poly_widest_int *value)
+{
+  EXTRACT_POLY_TREE (INTEGER_CST_P, wi::to_widest);
+}
+
+/* Return the value of T as a poly_widest_int.  */
+
+poly_widest_int
+tree_to_poly_widest_int (const_tree t)
+{
+  poly_widest_int res;
+  if (!poly_tree_p (t, &res))
+    gcc_unreachable ();
+  return res;
 }
 
 /* Return first list element whose TREE_VALUE is ELEM.
@@ -4666,7 +4940,7 @@ mem_ref_offset (const_tree t)
    offsetted by OFFSET units.  */
 
 tree
-build_invariant_address (tree type, tree base, HOST_WIDE_INT offset)
+build_invariant_address (tree type, tree base, poly_int64 offset)
 {
   tree ref = fold_build2 (MEM_REF, TREE_TYPE (type),
 			  build_fold_addr_expr (base),
@@ -7448,6 +7722,16 @@ simple_cst_equal (const_tree t1, const_tree t2)
 	      && ! memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
 			 TREE_STRING_LENGTH (t1)));
 
+    case POLY_CST:
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	{
+	  int res = simple_cst_equal (POLY_CST_ELT (t1, i),
+				      POLY_CST_ELT (t2, i));
+	  if (res != 1)
+	    return res;
+	}
+      return 1;
+
     case CONSTRUCTOR:
       {
 	unsigned HOST_WIDE_INT idx;
@@ -7581,6 +7865,15 @@ compare_tree_int (const_tree t, unsigned HOST_WIDE_INT u)
     return 1;
 }
 
+/* Return true if T is known to be equal to N.  */
+
+bool
+equal_tree_size (const_tree t, poly_uint64 size)
+{
+  poly_uint64 t_size;
+  return poly_tree_p (t, &t_size) && must_eq (t_size, size);
+}
+
 /* Return true if SIZE represents a constant size that is in bounds of
    what the middle-end and the backend accepts (covering not more than
    half of the address-space).  */
@@ -7588,6 +7881,13 @@ compare_tree_int (const_tree t, unsigned HOST_WIDE_INT u)
 bool
 valid_constant_size_p (const_tree size)
 {
+  if (TREE_CODE (size) == POLY_CST)
+    {
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	if (!valid_constant_size_p (POLY_CST_ELT (size, i)))
+	  return false;
+      return true;
+    }
   if (! tree_fits_uhwi_p (size)
       || TREE_OVERFLOW (size)
       || tree_int_cst_sign_bit (size) != 0)
@@ -7824,6 +8124,12 @@ add_expr (const_tree t, inchash::hash &hstate, unsigned int flags)
 	unsigned i;
 	for (i = 0; i < VECTOR_CST_NELTS (t); ++i)
 	  inchash::add_expr (VECTOR_CST_ELT (t, i), hstate, flags);
+	return;
+      }
+    case POLY_CST:
+      {
+	for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	  inchash::add_expr (POLY_CST_ELT (t, i), hstate);
 	return;
       }
     case SSA_NAME:
@@ -8416,7 +8722,7 @@ build_nonshared_array_type (tree elt_type, tree index_type)
    sizetype.  */
 
 tree
-build_array_type_nelts (tree elt_type, unsigned HOST_WIDE_INT nelts)
+build_array_type_nelts (tree elt_type, poly_uint64 nelts)
 {
   return build_array_type (elt_type, build_index_type (size_int (nelts - 1)));
 }

@@ -10009,6 +10009,9 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 				      copy_rtx (XEXP (temp, 0)));
       return temp;
 
+    case POLY_CST:
+      return immed_poly_int_const (tree_to_poly_wide_int (exp), mode);
+
     case SAVE_EXPR:
       {
 	tree val = treeop0;

@@ -1297,6 +1297,22 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
 
   if (!POINTER_TYPE_P (TREE_TYPE (val1)))
     {
+      if (TREE_CODE (val1) != INTEGER_CST
+	  || TREE_CODE (val2) != INTEGER_CST)
+	{
+	  poly_widest_int c1, c2;
+	  if (poly_tree_p (val1, &c1) && poly_tree_p (val2, &c2))
+	    {
+	      if (must_eq (c1, c2))
+		return 0;
+	      if (must_lt (c1, c2))
+		return -1;
+	      if (must_gt (c1, c2))
+		return 1;
+	    }
+	  return -2;
+	}
+
       /* We cannot compare overflowed values, except for overflow
 	 infinities.  */
       if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
@@ -1816,6 +1832,8 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
   tree res;
 
   res = int_const_binop (code, val1, val2);
+  if (!res)
+    return NULL_TREE;
 
   /* If we are using unsigned arithmetic, operate symbolically
      on -INF and +INF as int_const_binop only handles signed overflow.  */
@@ -1843,7 +1861,7 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
 	  tree tmp = int_const_binop (TRUNC_DIV_EXPR,
 				      res,
 				      val1);
-	  int check = compare_values (tmp, val2);
+	  int check = !tmp || compare_values (tmp, val2);
 
 	  if (check != 0)
 	    overflow = true;
@@ -1860,10 +1878,6 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
     /* If the singed operation wraps then int_const_binop has done
        everything we want.  */
     ;
-  /* Signed division of -1/0 overflows and by the time it gets here
-     returns NULL_TREE.  */
-  else if (!res)
-    return NULL_TREE;
   else if ((TREE_OVERFLOW (res)
 	    && !TREE_OVERFLOW (val1)
 	    && !TREE_OVERFLOW (val2))

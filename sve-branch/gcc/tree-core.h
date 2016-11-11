@@ -1310,6 +1310,11 @@ struct GTY(()) tree_vector {
   tree GTY ((length ("VECTOR_CST_NELTS ((tree) &%h)"))) elts[1];
 };
 
+struct GTY(()) tree_poly {
+  struct tree_typed typed;
+  tree elts[NUM_POLY_INT_COEFFS];
+};
+
 struct GTY(()) tree_identifier {
   struct tree_common common;
   struct ht_identifier id;
@@ -1831,6 +1836,7 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_real_cst GTY ((tag ("TS_REAL_CST"))) real_cst;
   struct tree_fixed_cst GTY ((tag ("TS_FIXED_CST"))) fixed_cst;
   struct tree_vector GTY ((tag ("TS_VECTOR"))) vector;
+  struct tree_poly GTY ((tag ("TS_POLY"))) poly;
   struct tree_string GTY ((tag ("TS_STRING"))) string;
   struct tree_complex GTY ((tag ("TS_COMPLEX"))) complex;
   struct tree_identifier GTY ((tag ("TS_IDENTIFIER"))) identifier;

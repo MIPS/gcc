@@ -854,6 +854,29 @@ start_record_layout (tree t)
   return rli;
 }
 
+/* Fold sizetype value X to bitsizetype, given that X represents a type
+   size or offset.  */
+
+static tree
+bits_from_bytes (tree x)
+{
+  if (TREE_CODE (x) == POLY_CST)
+    {
+      /* The runtime calculation isn't allowed to overflow sizetype;
+	 increasing the runtime values must always increase the size
+	 or offset of the object.  This means that the object imposes
+	 a maximum value on the runtime parameters, but we don't record
+	 what that is.  */
+      tree res[NUM_POLY_INT_COEFFS];
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	res[i] = bits_from_bytes (POLY_CST_ELT (x, i));
+      return build_poly_cst (bitsizetype, res);
+    }
+  x = fold_convert (bitsizetype, x);
+  gcc_checking_assert (x);
+  return x;
+}
+
 /* Return the combined bit position for the byte offset OFFSET and the
    bit position BITPOS.
 
@@ -868,10 +891,10 @@ bit_from_pos (tree offset, tree bitpos)
 {
   if (TREE_CODE (offset) == PLUS_EXPR)
     offset = size_binop (PLUS_EXPR,
-			 fold_convert (bitsizetype, TREE_OPERAND (offset, 0)),
-			 fold_convert (bitsizetype, TREE_OPERAND (offset, 1)));
+			 bits_from_bytes (TREE_OPERAND (offset, 0)),
+			 bits_from_bytes (TREE_OPERAND (offset, 1)));
   else
-    offset = fold_convert (bitsizetype, offset);
+    offset = bits_from_bytes (offset);
   return size_binop (PLUS_EXPR, bitpos,
 		     size_binop (MULT_EXPR, offset, bitsize_unit_node));
 }
@@ -2213,9 +2236,10 @@ layout_type (tree type)
 	  TYPE_SIZE_UNIT (type) = int_const_binop (MULT_EXPR,
 						   TYPE_SIZE_UNIT (innertype),
 						   size_int (nunits));
-	TYPE_SIZE (type) = int_const_binop (MULT_EXPR,
-					    TYPE_SIZE (innertype),
-					    bitsize_int (nunits));
+	TYPE_SIZE (type) = int_const_binop
+	  (MULT_EXPR,
+	   bits_from_bytes (TYPE_SIZE_UNIT (type)),
+	   bitsize_int (BITS_PER_UNIT));
 
 	/* For vector types, we do not default to the mode's alignment.
 	   Instead, query a target hook, defaulting to natural alignment.
@@ -2325,8 +2349,7 @@ layout_type (tree type)
 	      length = size_zero_node;
 
 	    TYPE_SIZE (type) = size_binop (MULT_EXPR, element_size,
-					   fold_convert (bitsizetype,
-							 length));
+					   bits_from_bytes (length));
 
 	    /* If we know the size of the element, calculate the total size
 	       directly, rather than do some division thing below.  This

@@ -552,10 +552,8 @@ fold_negate_expr (location_t loc, tree t)
 	return tem;
       break;
 
+    case POLY_CST:
     case REAL_CST:
-      tem = fold_negate_const (t, type);
-      return tem;
-
     case FIXED_CST:
       tem = fold_negate_const (t, type);
       return tem;
@@ -1106,7 +1104,48 @@ int_const_binop_1 (enum tree_code code, const_tree arg1, const_tree parg2,
 tree
 int_const_binop (enum tree_code code, const_tree arg1, const_tree arg2)
 {
-  return int_const_binop_1 (code, arg1, arg2, 1);
+  if (TREE_CODE (arg1) == INTEGER_CST && TREE_CODE (arg2) == INTEGER_CST)
+    return int_const_binop_1 (code, arg1, arg2, 1);
+
+  gcc_assert (NUM_POLY_INT_COEFFS != 1);
+
+  poly_wide_int x1, x2;
+  if (poly_tree_p (arg1, &x1) && poly_tree_p (arg2, &x2))
+    {
+      poly_wide_int res;
+      bool overflow;
+      tree type = TREE_TYPE (arg1);
+      switch (code)
+	{
+	case PLUS_EXPR:
+	  res = wi::add (x1, x2, TYPE_SIGN (type), &overflow);
+	  if (!overflow)
+	    return poly_wide_int_to_tree (type, res);
+	  break;
+
+	case MINUS_EXPR:
+	  res = wi::sub (x1, x2, TYPE_SIGN (type), &overflow);
+	  if (!overflow)
+	    return poly_wide_int_to_tree (type, res);
+	  break;
+
+	case MULT_EXPR:
+	  if (x2.is_constant ())
+	    res = wi::mul (x1, x2.coeffs[0], TYPE_SIGN (type), &overflow);
+	  else if (x1.is_constant ())
+	    res = wi::mul (x2, x1.coeffs[0], TYPE_SIGN (type), &overflow);
+	  else
+	    break;
+	  if (!overflow)
+	    return poly_wide_int_to_tree (type, res);
+	  break;
+
+	default:
+	  break;
+	}
+    }
+
+  return NULL_TREE;
 }
 
 /* Combine two constants ARG1 and ARG2 under operation CODE to produce a new
@@ -1124,7 +1163,8 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
   STRIP_NOPS (arg1);
   STRIP_NOPS (arg2);
 
-  if (TREE_CODE (arg1) == INTEGER_CST && TREE_CODE (arg2) == INTEGER_CST)
+  if ((TREE_CODE (arg1) == INTEGER_CST || TREE_CODE (arg1) == POLY_CST)
+      && (TREE_CODE (arg2) == INTEGER_CST || TREE_CODE (arg2) == POLY_CST))
     {
       if (code == POINTER_PLUS_EXPR)
 	return int_const_binop (PLUS_EXPR,
@@ -1649,6 +1689,11 @@ const_unop (enum tree_code code, tree type, tree arg0)
     case BIT_NOT_EXPR:
       if (TREE_CODE (arg0) == INTEGER_CST)
 	return fold_not_const (arg0, type);
+      else if (TREE_CODE (arg0) == POLY_CST)
+	{
+	  poly_wide_int res = -tree_to_poly_wide_int (arg0) - 1;
+	  return poly_wide_int_to_tree (type, res);
+	}
       /* Perform BIT_NOT_EXPR on each element individually.  */
       else if (TREE_CODE (arg0) == VECTOR_CST)
 	{
@@ -1776,7 +1821,7 @@ const_unop (enum tree_code code, tree type, tree arg0)
    indicates which particular sizetype to create.  */
 
 tree
-size_int_kind (HOST_WIDE_INT number, enum size_type_kind kind)
+size_int_kind (poly_int64 number, enum size_type_kind kind)
 {
   return build_int_cst (sizetype_tab[(int) kind], number);
 }
@@ -2148,6 +2193,22 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
 {
   if (TREE_TYPE (arg1) == type)
     return arg1;
+
+  /* We can't widen types, since the runtime value could overflow the
+     original type before being extended to the new type.  */
+  if (TREE_CODE (arg1) == POLY_CST
+      && INTEGRAL_TYPE_P (type)
+      && TYPE_PRECISION (type) <= TYPE_PRECISION (TREE_TYPE (arg1)))
+    {
+      tree res[NUM_POLY_INT_COEFFS];
+      for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	{
+	  res[i] = fold_convert_const (code, type, POLY_CST_ELT (arg1, i));
+	  if (!res[i] || TREE_CODE (res[i]) != INTEGER_CST)
+	    return NULL_TREE;
+	}
+      return build_poly_cst (type, res);
+    }
 
   if (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type)
       || TREE_CODE (type) == OFFSET_TYPE)
@@ -12698,6 +12759,14 @@ multiple_of_p (tree type, const_tree top, const_tree bottom)
       return wi::multiple_of_p (wi::to_widest (top), wi::to_widest (bottom),
 				SIGNED);
 
+    case POLY_CST:
+      {
+	poly_widest_int cbottom;
+	if (!poly_tree_p (bottom, &cbottom))
+	  return false;
+	return multiple_p (tree_to_poly_widest_int (top), cbottom);
+      }
+
     case SSA_NAME:
       if (TREE_CODE (bottom) == INTEGER_CST
 	  && (stmt = SSA_NAME_DEF_STMT (top)) != NULL
@@ -13820,6 +13889,15 @@ fold_negate_const (tree arg0, tree type)
 	if (overflow_p | TREE_OVERFLOW (arg0))
 	  TREE_OVERFLOW (t) = 1;
 	break;
+      }
+
+    case POLY_CST:
+      {
+	bool overflow;
+	poly_wide_int res = wi::neg (tree_to_poly_wide_int (arg0), &overflow);
+	if (!TYPE_UNSIGNED (type) && overflow)
+	  return NULL_TREE;
+	return poly_wide_int_to_tree (type, res);
       }
 
     default:

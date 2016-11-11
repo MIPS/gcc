@@ -4249,6 +4249,9 @@ expand_debug_expr (tree exp)
       op1 = expand_debug_expr (TREE_IMAGPART (exp));
       return gen_rtx_CONCAT (mode, op0, op1);
 
+    case POLY_CST:
+      return immed_poly_int_const (tree_to_poly_wide_int (exp), mode);
+
     case DEBUG_EXPR_DECL:
       op0 = DECL_RTL_IF_SET (exp);
 

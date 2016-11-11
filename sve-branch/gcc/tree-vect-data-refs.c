@@ -2582,8 +2582,10 @@ compare_tree (tree t1, tree t2)
   code = TREE_CODE (t1);
   switch (code)
     {
-    /* For const values, we can just use hash values for comparisons.  */
     case INTEGER_CST:
+      return tree_int_cst_compare (t1, t2);
+
+    /* For const values, we can just use hash values for comparisons.  */
     case REAL_CST:
     case FIXED_CST:
     case STRING_CST:
@@ -2689,7 +2691,7 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
     }
 
   /* Then sort after DR_INIT.  In case of identical DRs sort after stmt UID.  */
-  cmp = tree_int_cst_compare (DR_INIT (dra), DR_INIT (drb));
+  cmp = compare_tree (DR_INIT (dra), DR_INIT (drb));
   if (cmp == 0)
     return gimple_uid (DR_STMT (dra)) < gimple_uid (DR_STMT (drb)) ? -1 : 1;
   return cmp;

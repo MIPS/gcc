@@ -2089,7 +2089,7 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
     {
     case MULT_EXPR:
       mby = TREE_OPERAND (top, 1);
-      if (TREE_CODE (mby) != INTEGER_CST)
+      if (TREE_CODE (mby) != INTEGER_CST && TREE_CODE (mby) != POLY_CST)
 	return false;
 
       if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &res))
@@ -2119,6 +2119,11 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
 	return false;
       *mul = wi::sext (wi::divmod_trunc (p0, p1, SIGNED, &res), precision);
       return res == 0;
+
+    case POLY_CST:
+      return (TREE_CODE (bot) == POLY_CST
+	      && constant_multiple_p (tree_to_poly_widest_int (top),
+				      tree_to_poly_widest_int (bot), mul));
 
     default:
       return false;

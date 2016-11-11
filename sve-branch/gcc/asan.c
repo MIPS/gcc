@@ -1375,6 +1375,7 @@ asan_protect_global (tree decl)
 	  && !section_sanitized_p (DECL_SECTION_NAME (decl)))
       || DECL_SIZE (decl) == 0
       || ASAN_RED_ZONE_SIZE * BITS_PER_UNIT > MAX_OFILE_ALIGNMENT
+      || TREE_CODE (DECL_SIZE_UNIT (decl)) != INTEGER_CST
       || !valid_constant_size_p (DECL_SIZE_UNIT (decl))
       || DECL_ALIGN_UNIT (decl) > 2 * ASAN_RED_ZONE_SIZE
       || TREE_TYPE (decl) == ubsan_get_source_location_type ())

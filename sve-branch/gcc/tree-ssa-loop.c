@@ -669,6 +669,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case INTEGER_CST:
 	case REAL_CST:
 	case FIXED_CST:
+	case POLY_CST:
 	case CONSTRUCTOR:
 	  return true;
 
