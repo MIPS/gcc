@@ -41,6 +41,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
 #include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-niter.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
 
 /*************************************************************************
   Simple Loop Peeling Utilities
@@ -233,34 +236,226 @@ adjust_phi_and_debug_stmts (gimple *update_phi, edge e, tree new_def)
 			gimple_bb (update_phi));
 }
 
-/* Make the LOOP iterate NITERS times. This is done by adding a new IV
-   that starts at zero, increases by one and its limit is NITERS.
 
-   Assumption: the exit-condition of LOOP is the last stmt in the loop.  */
+/* Set up the controlling mask for loop LOOP, which has been vectorized
+   as described by LOOP_VINFO.  INIT_MASK is the value that the mask
+   should have during the first iteration.  */
 
-void
-slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
+static void
+slpeel_setup_loop_masks (struct loop *loop, loop_vec_info loop_vinfo,
+			 tree init_mask)
+{
+  vec<tree> &mask_array = LOOP_VINFO_MASK_ARRAY (loop_vinfo);
+  gphi *phi = create_phi_node (mask_array[0], loop->header);
+  add_phi_arg (phi, init_mask, loop_preheader_edge (loop), UNKNOWN_LOCATION);
+  add_phi_arg (phi, LOOP_VINFO_NEXT_MASK (loop_vinfo),
+	       loop_latch_edge (loop), UNKNOWN_LOCATION);
+
+  basic_block *bbs = get_loop_body (loop);
+  gimple_stmt_iterator gsi = gsi_after_labels (bbs[0]);
+
+  /* Create unpacked masks at each level required.  */
+  int mask_count = 1;
+  for (int i = 1; i < LOOP_VINFO_NUM_MASK_LEVELS (loop_vinfo); i++)
+    {
+      /* Number of masks in the previous level.  */
+      int num_masks_prev_level = 1 << (i - 1);
+      for (int j = 0; j < num_masks_prev_level; j++)
+	{
+	  gimple *tmp_stmt;
+	  tree mask_unpk;
+
+	  tree packed_mask = vect_get_loop_mask (loop_vinfo, i - 1, j);
+
+	  /* The mask variables have already been created.  */
+	  mask_unpk = mask_array[mask_count++];
+	  tmp_stmt = gimple_build_assign (mask_unpk, VEC_UNPACK_LO_EXPR,
+					  packed_mask);
+	  gsi_insert_before (&gsi, tmp_stmt, GSI_SAME_STMT);
+
+	  mask_unpk = mask_array[mask_count++];
+	  tmp_stmt = gimple_build_assign (mask_unpk, VEC_UNPACK_HI_EXPR,
+					  packed_mask);
+	  gsi_insert_before (&gsi, tmp_stmt, GSI_SAME_STMT);
+	}
+    }
+}
+
+
+/* Make LOOP iterate NITERS times using masking and WHILE_ULT calls.
+   LOOP_VINFO describes the vectorization of LOOP.  NSCALARITERS is the
+   number of iterations of the original scalar loop.
+
+   Insert the branch-back condition before LOOP_COND_GSI and return the
+   final gcond.  */
+
+static gcond *
+slpeel_iterate_loop_ntimes_while (struct loop *loop, loop_vec_info loop_vinfo,
+				  tree niters, tree nscalariters,
+				  gimple_stmt_iterator loop_cond_gsi)
+{
+  poly_uint64 vect_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  tree index_before_incr, index_after_incr;
+  gcond *cond_stmt;
+  edge exit_edge = single_exit (loop);
+  gimple_stmt_iterator incr_gsi;
+  bool insert_after;
+  enum tree_code code;
+  gimple *tmp_stmt;
+  unsigned HOST_WIDE_INT const_vf;
+
+  gcc_assert (nscalariters != NULL);
+  gcc_assert (TREE_TYPE (niters) == TREE_TYPE (nscalariters));
+
+  /* If set then the first iteration will definitely operate on all elements.
+     If not set then it might or might not operate on all elements.  */
+  bool first_iteration_full = (TREE_CODE (nscalariters) == INTEGER_CST
+			       && vect_factor.is_constant (&const_vf)
+			       && wi::geu_p (nscalariters, const_vf));
+
+  tree compare_type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
+  unsigned int compare_precision = TYPE_PRECISION (compare_type);
+
+  tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
+  tree zero_mask = build_zero_cst (mask_type);
+
+  /* Type of the initial value of nscalariters.  */
+  tree ni_actual_type = TREE_TYPE (nscalariters);
+  unsigned int ni_actual_precision = TYPE_PRECISION (ni_actual_type);
+
+  tree zero_index = build_int_cst (compare_type, 0);
+  tree step = build_int_cst (compare_type, vect_factor);
+
+  widest_int ni;
+  bool known_max_iters = max_loop_iterations (loop, &ni);
+  unsigned HOST_WIDE_INT max_vf = vect_max_vf (loop_vinfo);
+  bool might_wrap_p = (!known_max_iters
+		       || (wi::min_precision (ni + 1 + max_vf, UNSIGNED)
+			   > compare_precision));
+
+  /* Convert nscalariters to the same size as the compare.  */
+  gimple_seq seq = NULL;
+  nscalariters = gimple_convert (&seq, compare_type, nscalariters);
+
+  if (compare_precision > ni_actual_precision
+      && (!known_max_iters
+	  || wi::min_precision (ni + 1, UNSIGNED) > ni_actual_precision))
+    {
+      /* We know that there is always at least one iteration, so if the
+	 count is zero then it must have wrapped.  Add a check to guard
+	 against this.  If the max possible iterations fits within the
+	 original precision then we know this case isn't possible and
+	 can be skipped.  */
+
+      tree precision_shift = wide_int_to_tree
+	(compare_type, wi::lshift (wi::shwi (1, compare_precision),
+				   ni_actual_precision));
+
+      tree check_overflow_eq = build2 (EQ_EXPR, boolean_type_node,
+				       nscalariters, zero_index);
+      nscalariters = gimple_build (&seq, COND_EXPR, compare_type,
+				   check_overflow_eq, precision_shift,
+				   nscalariters);
+    }
+
+  /* Create the initial mask.  */
+  tree init_mask;
+  if (first_iteration_full)
+    /* First iteration is always full.  */
+    init_mask = build_minus_one_cst (mask_type);
+  else
+    {
+      /* The loop may have less than a single vector width's worth of
+	 iterations.  Generate a mask for it.  */
+      init_mask = make_temp_ssa_name (mask_type, NULL, "max_mask");
+      tmp_stmt = gimple_build_call_internal (IFN_WHILE_ULT, 3, zero_index,
+					     nscalariters, zero_mask);
+      gimple_call_set_lhs (tmp_stmt, init_mask);
+      gimple_seq_add_stmt (&seq, tmp_stmt);
+    }
+
+  slpeel_setup_loop_masks (loop, loop_vinfo, init_mask);
+
+  /* Create an induction variable that counts scalar iterations.  */
+  standard_iv_increment_position (loop, &incr_gsi, &insert_after);
+  create_iv (zero_index, step, NULL_TREE, loop, &incr_gsi, insert_after,
+	     &index_before_incr, &index_after_incr);
+
+  tree loop_max_iters = nscalariters;
+  tree test_index;
+  gimple_stmt_iterator *test_gsi;
+  if (might_wrap_p)
+    {
+      /* Decrease the bound by the vectorization factor and increment
+	 the IV after testing it.  */
+      if (!first_iteration_full)
+	/* Ensure our base value is at least a full iteration to prevent
+	   the minus creating a negative value.  */
+	loop_max_iters = gimple_build (&seq, MAX_EXPR, compare_type,
+				       loop_max_iters, step);
+
+      loop_max_iters = gimple_build (&seq, MINUS_EXPR, compare_type,
+				     loop_max_iters, step);
+
+      test_index = index_before_incr;
+      test_gsi = &incr_gsi;
+    }
+  else
+    {
+      /* Test the incremented IV, which will always hit a value above
+	 the bound before wrapping.  */
+      test_index = index_after_incr;
+      test_gsi = &loop_cond_gsi;
+    }
+
+  if (seq)
+    {
+      edge pe = loop_preheader_edge (loop);
+      basic_block new_bb = gsi_insert_seq_on_edge_immediate (pe, seq);
+      gcc_assert (!new_bb);
+    }
+
+  /* Compare the scalar iteration count against the number of scalar
+     iterations to get the mask for the next iteration.  */
+  tree cmp_res = LOOP_VINFO_NEXT_MASK (loop_vinfo);
+  gimple *cmp_stmt = gimple_build_call_internal
+    (IFN_WHILE_ULT, 3, test_index, loop_max_iters, zero_mask);
+  gimple_call_set_lhs (cmp_stmt, cmp_res);
+  gsi_insert_before (test_gsi, cmp_stmt, GSI_SAME_STMT);
+
+  /* Get a boolean result that tells us whether to iterate.  */
+  code = (exit_edge->flags & EDGE_TRUE_VALUE) ? EQ_EXPR : NE_EXPR;
+  cond_stmt = gimple_build_cond (code, cmp_res, zero_mask,
+				 NULL_TREE, NULL_TREE);
+  gsi_insert_before (&loop_cond_gsi, cond_stmt, GSI_SAME_STMT);
+
+  return cond_stmt;
+}
+
+
+/* Make LOOP iterate NITERS times without using a mask.  This is
+   done by adding a new IV that starts at zero, increases by one and its
+   limit is NITERS.
+
+   Insert the branch-back condition before LOOP_COND_GSI and return the
+   final gcond.  */
+
+static gcond *
+slpeel_iterate_loop_ntimes_unmasked (struct loop *loop, tree niters,
+				     gimple_stmt_iterator loop_cond_gsi)
 {
   tree indx_before_incr, indx_after_incr;
   gcond *cond_stmt;
-  gcond *orig_cond;
   edge exit_edge = single_exit (loop);
-  gimple_stmt_iterator loop_cond_gsi;
   gimple_stmt_iterator incr_gsi;
   bool insert_after;
   tree init = build_int_cst (TREE_TYPE (niters), 0);
   tree step = build_int_cst (TREE_TYPE (niters), 1);
-  source_location loop_loc;
   enum tree_code code;
-
-  orig_cond = get_loop_exit_condition (loop);
-  gcc_assert (orig_cond);
-  loop_cond_gsi = gsi_for_stmt (orig_cond);
 
   standard_iv_increment_position (loop, &incr_gsi, &insert_after);
   create_iv (init, step, NULL_TREE, loop,
              &incr_gsi, insert_after, &indx_before_incr, &indx_after_incr);
-
   indx_after_incr = force_gimple_operand_gsi (&loop_cond_gsi, indx_after_incr,
 					      true, NULL_TREE, true,
 					      GSI_SAME_STMT);
@@ -272,17 +467,41 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
 				 NULL_TREE);
 
   gsi_insert_before (&loop_cond_gsi, cond_stmt, GSI_SAME_STMT);
+  return cond_stmt;
+}
 
-  /* Remove old loop exit test:  */
+/* LOOP is either a new loop created by the vectorizer or an existing
+   loop that has been vectorized.  In the former case both LOOP_VINFO
+   and NSCALARITEMS are null.  In the latter case LOOP_VINFO describes
+   the vectorization and NSCALARITERS is the number of times that the
+   original scalar loop iterated.
+
+   Finalize the loop by making it iterate NITERS times.
+   Assumption: the exit-condition of LOOP is the last stmt in the loop.  */
+
+void
+slpeel_finalize_loop_iterations (struct loop *loop, loop_vec_info loop_vinfo,
+				 tree niters, tree nscalariters)
+{
+  gcond *cond_stmt;
+  gcond *orig_cond = get_loop_exit_condition (loop);
+  gimple_stmt_iterator loop_cond_gsi = gsi_for_stmt (orig_cond);
+
+  if (loop_vinfo && LOOP_VINFO_MASK_TYPE (loop_vinfo) != NULL_TREE)
+    cond_stmt = slpeel_iterate_loop_ntimes_while (loop, loop_vinfo,
+						  niters, nscalariters,
+						  loop_cond_gsi);
+  else
+    cond_stmt = slpeel_iterate_loop_ntimes_unmasked (loop, niters,
+						     loop_cond_gsi);
+
+  /* Remove old loop exit test.  */
   gsi_remove (&loop_cond_gsi, true);
   free_stmt_vec_info (orig_cond);
 
-  loop_loc = find_loop_location (loop);
   if (dump_enabled_p ())
     {
-      if (LOCATION_LOCUS (loop_loc) != UNKNOWN_LOCATION)
-	dump_printf (MSG_NOTE, "\nloop at %s:%d: ", LOCATION_FILE (loop_loc),
-		     LOCATION_LINE (loop_loc));
+      dump_printf_loc (MSG_NOTE, vect_location, "New loop exit condition: ");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, cond_stmt, 0);
     }
 
@@ -1159,6 +1378,8 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
   tree niters_vector;
   tree vf;
   edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
+  bool final_iter_may_be_partial
+    = (LOOP_VINFO_MASK_TYPE (loop_vinfo) != NULL_TREE);
 
   vf = build_int_cst (TREE_TYPE (niters),
 		      LOOP_VINFO_VECT_FACTOR (loop_vinfo));
@@ -1188,17 +1409,22 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
      overflow, we can generate niters >> log2(vf); otherwise we generate
      (niters - vf) >> log2(vf) + 1 by using the fact that we know ratio
      will be at least one.  */
-  if (niters_no_overflow)
+  if (niters_no_overflow && !final_iter_may_be_partial)
     niters_vector = fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (niters),
 				 ni_minus_gap, vf);
   else
-    niters_vector
-      = fold_build2 (PLUS_EXPR, TREE_TYPE (niters),
-		     fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (niters),
-				  fold_build2 (MINUS_EXPR, TREE_TYPE (niters),
-					       ni_minus_gap, vf),
-				  vf),
-		     build_int_cst (TREE_TYPE (niters), 1));
+    {
+      tree one = build_int_cst (TREE_TYPE (niters), 1);
+      tree sub = (final_iter_may_be_partial ? one : vf);
+      niters_vector
+	= fold_build2 (PLUS_EXPR, TREE_TYPE (niters),
+		       fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (niters),
+				    fold_build2 (MINUS_EXPR,
+						 TREE_TYPE (niters),
+						 ni_minus_gap, sub),
+				    vf),
+		       build_int_cst (TREE_TYPE (niters), 1));
+    }
 
   if (!is_gimple_val (niters_vector))
     {
@@ -1711,7 +1937,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
       /* Generate and update the number of iterations for prolog loop.  */
       niters_prolog = vect_gen_prolog_loop_niters (loop_vinfo, anchor,
 						   &bound_prolog);
-      slpeel_make_loop_iterate_ntimes (prolog, niters_prolog);
+      slpeel_finalize_loop_iterations (prolog, NULL, niters_prolog, NULL_TREE);
 
       /* Skip the prolog loop.  */
       if (skip_prolog)

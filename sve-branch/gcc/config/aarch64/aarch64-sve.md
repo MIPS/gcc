@@ -1214,6 +1214,18 @@
   "<maxmin_uns_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
 )
 
+;; Predicated integer operations.
+(define_insn "cond_<optab><mode>"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w")
+	(unspec:SVE_I
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	   (match_operand:SVE_I 2 "register_operand" "0")
+	   (match_operand:SVE_I 3 "register_operand" "w")]
+	  SVE_COND_INT_OP))]
+  "TARGET_SVE"
+  "<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+)
+
 (define_expand "reduc_plus_scal_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand")
 	(unspec:<VEL> [(match_dup 2)
@@ -1836,4 +1848,16 @@
     operands[6] = gen_rtx_SUBREG (V4DImode, operands[4], 0);
     operands[7] = gen_rtx_SUBREG (V4DImode, operands[5], 0);
   }
+)
+
+;; Predicated floating-point operations.
+(define_insn "cond_<optab><mode>"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w")
+	(unspec:SVE_F
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	   (match_operand:SVE_F 2 "register_operand" "0")
+	   (match_operand:SVE_F 3 "register_operand" "w")]
+	  SVE_COND_FP_OP))]
+  "TARGET_SVE"
+  "<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
 )

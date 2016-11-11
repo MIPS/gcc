@@ -391,6 +391,14 @@
     UNSPEC_ANDF		; Used in aarch64-sve.md.
     UNSPEC_IORF		; Used in aarch64-sve.md.
     UNSPEC_XORF		; Used in aarch64-sve.md.
+    UNSPEC_COND_ADD	; Used in aarch64-sve.md.
+    UNSPEC_COND_SMAX	; Used in aarch64-sve.md.
+    UNSPEC_COND_UMAX	; Used in aarch64-sve.md.
+    UNSPEC_COND_SMIN	; Used in aarch64-sve.md.
+    UNSPEC_COND_UMIN	; Used in aarch64-sve.md.
+    UNSPEC_COND_AND	; Used in aarch64-sve.md.
+    UNSPEC_COND_ORR	; Used in aarch64-sve.md.
+    UNSPEC_COND_EOR	; Used in aarch64-sve.md.
     UNSPEC_COND_LT	; Used in aarch64-sve.md.
     UNSPEC_COND_LE	; Used in aarch64-sve.md.
     UNSPEC_COND_EQ	; Used in aarch64-sve.md.
@@ -1304,6 +1312,15 @@
 
 (define_int_iterator UNPACK_UNSIGNED [UNSPEC_UNPACKULO UNSPEC_UNPACKUHI])
 
+(define_int_iterator SVE_COND_INT_OP [UNSPEC_COND_ADD
+				      UNSPEC_COND_SMAX UNSPEC_COND_UMAX
+				      UNSPEC_COND_SMIN UNSPEC_COND_UMIN
+				      UNSPEC_COND_AND
+				      UNSPEC_COND_ORR
+				      UNSPEC_COND_EOR])
+
+(define_int_iterator SVE_COND_FP_OP [UNSPEC_COND_ADD])
+
 (define_int_iterator SVE_COND_INT_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 				       UNSPEC_COND_EQ UNSPEC_COND_NE
 				       UNSPEC_COND_GE UNSPEC_COND_GT
@@ -1330,7 +1347,15 @@
 
 (define_int_attr optab [(UNSPEC_ANDF "and")
 			(UNSPEC_IORF "ior")
-			(UNSPEC_XORF "xor")])
+			(UNSPEC_XORF "xor")
+			(UNSPEC_COND_ADD "add")
+			(UNSPEC_COND_SMAX "smax")
+			(UNSPEC_COND_UMAX "umax")
+			(UNSPEC_COND_SMIN "smin")
+			(UNSPEC_COND_UMIN "umin")
+			(UNSPEC_COND_AND "and")
+			(UNSPEC_COND_ORR "ior")
+			(UNSPEC_COND_EOR "xor")])
 
 (define_int_attr  maxmin_uns [(UNSPEC_UMAXV "umax")
 			      (UNSPEC_UMINV "umin")
@@ -1519,3 +1544,14 @@
 			  (UNSPEC_COND_LS "vsd")
 			  (UNSPEC_COND_HS "vsd")
 			  (UNSPEC_COND_HI "vsd")])
+
+(define_int_attr sve_int_op [(UNSPEC_COND_ADD "add")
+			     (UNSPEC_COND_SMAX "smax")
+			     (UNSPEC_COND_UMAX "umax")
+			     (UNSPEC_COND_SMIN "smin")
+			     (UNSPEC_COND_UMIN "umin")
+			     (UNSPEC_COND_AND "and")
+			     (UNSPEC_COND_ORR "orr")
+			     (UNSPEC_COND_EOR "eor")])
+
+(define_int_attr sve_fp_op [(UNSPEC_COND_ADD "fadd")])

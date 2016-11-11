@@ -52,5 +52,6 @@ VEC_BOOL_CMPEQ (double, uint64_t)
 
 /* Both CMPNE and CMPEQ loops will contain an exclusive predicate or.  */
 /* { dg-final { scan-assembler-times {\teors?\tp[0-9]*\.b, p[0-7]/z, p[0-9]*\.b, p[0-9]*\.b\n} 12 } } */
-/* CMPEQ will also contain a predicate not operation.  */
-/* { dg-final { scan-assembler-times {\tnot\tp[0-9]*\.b, p[0-7]/z, p[0-9]*\.b\n} 6 } } */
+/* CMPEQ will also contain a masked predicate not operation, which gets
+   folded to BIC.  */
+/* { dg-final { scan-assembler-times {\tbic\tp[0-9]+\.b, p[0-7]/z, p[0-9]+\.b, p[0-9]+\.b\n} 6 } } */

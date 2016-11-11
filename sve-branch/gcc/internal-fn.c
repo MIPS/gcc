@@ -81,6 +81,8 @@ init_internal_fns ()
 #define mask_store_lanes_direct { 0, 0, false }
 #define unary_direct { 0, 0, true }
 #define binary_direct { 0, 0, true }
+#define cond_binary_direct { 1, 1, true }
+#define while_direct { 0, 2, false }
 
 const direct_internal_fn_info direct_internal_fn_array[IFN_LAST + 1] = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) not_direct,
@@ -2297,6 +2299,35 @@ expand_direct_optab_fn (internal_fn fn, gcall *stmt, direct_optab optab,
     }
 }
 
+/* Expand WHILE_ULT call STMT using optab OPTAB.  */
+
+static void
+expand_while_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
+{
+  expand_operand ops[3];
+  tree rhs_type[2];
+
+  tree lhs = gimple_call_lhs (stmt);
+  tree lhs_type = TREE_TYPE (lhs);
+  rtx lhs_rtx = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  create_output_operand (&ops[0], lhs_rtx, TYPE_MODE (lhs_type));
+
+  for (unsigned int i = 0; i < 2; ++i)
+    {
+      tree rhs = gimple_call_arg (stmt, i);
+      rhs_type[i] = TREE_TYPE (rhs);
+      rtx rhs_rtx = expand_normal (rhs);
+      create_input_operand (&ops[i + 1], rhs_rtx, TYPE_MODE (rhs_type[i]));
+    }
+
+  insn_code icode = convert_optab_handler (optab, TYPE_MODE (rhs_type[0]),
+					   TYPE_MODE (lhs_type));
+
+  expand_insn (icode, 3, ops);
+  if (!rtx_equal_p (lhs_rtx, ops[0].value))
+    emit_move_insn (lhs_rtx, ops[0].value);
+}
+
 /* Expanders for optabs that can use expand_direct_optab_fn.  */
 
 #define expand_unary_optab_fn(FN, STMT, OPTAB) \
@@ -2304,6 +2335,9 @@ expand_direct_optab_fn (internal_fn fn, gcall *stmt, direct_optab optab,
 
 #define expand_binary_optab_fn(FN, STMT, OPTAB) \
   expand_direct_optab_fn (FN, STMT, OPTAB, 2)
+
+#define expand_cond_binary_optab_fn(FN, STMT, OPTAB) \
+  expand_direct_optab_fn (FN, STMT, OPTAB, 3)
 
 /* RETURN_TYPE and ARGS are a return type and argument list that are
    in principle compatible with FN (which satisfies direct_internal_fn_p).
@@ -2349,6 +2383,19 @@ direct_optab_supported_p (direct_optab optab, tree_pair types,
   return direct_optab_handler (optab, mode, opt_type) != CODE_FOR_nothing;
 }
 
+/* Return true if OPTAB is supported for TYPES, where the first type
+   is the destination and the second type is the source.  Used for
+   convert optabs.  */
+
+static bool
+convert_optab_supported_p (convert_optab optab, tree_pair types,
+			   optimization_type opt_type)
+{
+  return (convert_optab_handler (optab, TYPE_MODE (types.first),
+				TYPE_MODE (types.second), opt_type)
+	  != CODE_FOR_nothing);
+}
+
 /* Return true if load/store lanes optab OPTAB is supported for
    array type TYPES.first when the optimization type is OPT_TYPE.  */
 
@@ -2365,12 +2412,14 @@ multi_vector_optab_supported_p (convert_optab optab, tree_pair types,
 
 #define direct_unary_optab_supported_p direct_optab_supported_p
 #define direct_binary_optab_supported_p direct_optab_supported_p
+#define direct_cond_binary_optab_supported_p direct_optab_supported_p
 #define direct_mask_load_optab_supported_p direct_optab_supported_p
 #define direct_load_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_load_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_store_optab_supported_p direct_optab_supported_p
 #define direct_store_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_store_lanes_optab_supported_p multi_vector_optab_supported_p
+#define direct_while_optab_supported_p convert_optab_supported_p
 
 /* Return true if FN is supported for the types in TYPES when the
    optimization type is OPT_TYPE.  The types are those associated with
@@ -2441,6 +2490,35 @@ static void (*const internal_fn_expanders[]) (internal_fn, gcall *) = {
 #include "internal-fn.def"
   0
 };
+
+/* Return a function that performs the conditional form of CODE, i.e.:
+
+     LHS = RHS1 ? RHS2 CODE RHS3 : RHS2
+
+   (operating elementwise if the operands are vectors).  Return IFN_LAST
+   if no such function exists.  */
+
+internal_fn
+get_conditional_internal_fn (tree_code code, tree type)
+{
+  switch (code)
+    {
+    case PLUS_EXPR:
+      return IFN_COND_ADD;
+    case MIN_EXPR:
+      return TYPE_UNSIGNED (type) ? IFN_COND_UMIN : IFN_COND_SMIN;
+    case MAX_EXPR:
+      return TYPE_UNSIGNED (type) ? IFN_COND_UMAX : IFN_COND_SMAX;
+    case BIT_AND_EXPR:
+      return IFN_COND_AND;
+    case BIT_IOR_EXPR:
+      return IFN_COND_IOR;
+    case BIT_XOR_EXPR:
+      return IFN_COND_XOR;
+    default:
+      return IFN_LAST;
+    }
+}
 
 /* Expand STMT as though it were a call to internal function FN.  */
 

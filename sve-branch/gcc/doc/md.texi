@@ -6033,7 +6033,35 @@ move operand 2 or (operands 2 + operand 3) into operand 0 according to the
 comparison in operand 1.  If the comparison is false, operand 2 is moved into
 operand 0, otherwise (operand 2 + operand 3) is moved.
 
-@cindex @code{neg@var{mode}cc} instruction pattern
+When defined for floating-point modes, the addition is performed only
+when operand 1 is true; the contents of operand 3 are not interpreted
+otherwise.  When defined for vector modes, all operands have the same
+number of elements and the instruction performs an elementwise
+conditional addition, i.e.:
+@smallexample
+op0[I] = op1[I] ? op2[I] + op3[I] : op2[I];
+@end smallexample
+In this case, operand 1 must have the same mode as the type
+returned by @code{TARGET_VECTORIZE_GET_MASK_MODE}.
+
+@cindex @code{cond_add@var{mode}} instruction pattern
+@cindex @code{cond_and@var{m}} instruction pattern
+@cindex @code{cond_ior@var{m}} instruction pattern
+@cindex @code{cond_xor@var{m}} instruction pattern
+@cindex @code{cond_smin@var{m}} instruction pattern
+@cindex @code{cond_smax@var{m}} instruction pattern
+@cindex @code{cond_umin@var{m}} instruction pattern
+@cindex @code{cond_umax@var{m}} instruction pattern
+@item @samp{cond_add@var{mode}}
+@itemx @samp{cond_and@var{m}}
+@itemx @samp{cond_ior@var{m}}
+@itemx @samp{cond_xor@var{m}}
+@itemx @samp{cond_smin@var{m}}
+@itemx @samp{cond_smax@var{m}}
+@itemx @samp{cond_umin@var{m}}
+@itemx @samp{cond_umax@var{m}}
+Similar to , for other binary arithmetic operations.
+
 @item @samp{neg@var{mode}cc}
 Similar to @samp{mov@var{mode}cc} but for conditional negation.  Conditionally
 move the negation of operand 2 or the unchanged operand 3 into operand 0
