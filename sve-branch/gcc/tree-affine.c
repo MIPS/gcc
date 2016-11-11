@@ -39,6 +39,14 @@ wide_int_ext_for_comb (const widest_int &cst, aff_tree *comb)
   return wi::sext (cst, TYPE_PRECISION (comb->type));
 }
 
+/* Likewise for polynomial offsets.  */
+
+poly_widest_int
+wide_int_ext_for_comb (const poly_widest_int &cst, aff_tree *comb)
+{
+  return wi::sext (cst, TYPE_PRECISION (comb->type));
+}
+
 /* Initializes affine combination COMB so that its value is zero in TYPE.  */
 
 static void
@@ -56,7 +64,7 @@ aff_combination_zero (aff_tree *comb, tree type)
 /* Sets COMB to CST.  */
 
 void
-aff_combination_const (aff_tree *comb, tree type, const widest_int &cst)
+aff_combination_const (aff_tree *comb, tree type, const poly_widest_int &cst)
 {
   aff_combination_zero (comb, type);
   comb->offset = wide_int_ext_for_comb (cst, comb);;
@@ -189,7 +197,7 @@ aff_combination_add_elt (aff_tree *comb, tree elt, const widest_int &scale_in)
 /* Adds CST to C.  */
 
 static void
-aff_combination_add_cst (aff_tree *c, const widest_int &cst)
+aff_combination_add_cst (aff_tree *c, const poly_widest_int &cst)
 {
   c->offset = wide_int_ext_for_comb (c->offset + cst, c);
 }
@@ -458,7 +466,8 @@ aff_combination_to_tree (aff_tree *comb)
   tree type = comb->type;
   tree expr = NULL_TREE;
   unsigned i;
-  widest_int off, sgn;
+  poly_widest_int off;
+  int sgn;
   tree type1 = type;
   if (POINTER_TYPE_P (type))
     type1 = sizetype;
@@ -474,7 +483,7 @@ aff_combination_to_tree (aff_tree *comb)
 
   /* Ensure that we get x - 1, not x + (-1) or x + 0xff..f if x is
      unsigned.  */
-  if (wi::neg_p (comb->offset))
+  if (must_lt (comb->offset, 0))
     {
       off = -comb->offset;
       sgn = -1;
@@ -484,8 +493,8 @@ aff_combination_to_tree (aff_tree *comb)
       off = comb->offset;
       sgn = 1;
     }
-  return add_elt_to_tree (expr, type, wide_int_to_tree (type1, off), sgn,
-			  comb);
+  return add_elt_to_tree (expr, type, poly_widest_int_to_tree (type1, off),
+			  sgn, comb);
 }
 
 /* Copies the tree elements of COMB to ensure that they are not shared.  */
@@ -556,7 +565,19 @@ aff_combination_add_product (aff_tree *c, const widest_int &coef, tree val,
     }
 
   if (val)
-    aff_combination_add_elt (r, val, coef * c->offset);
+    {
+      if (c->offset.is_constant ())
+	/* Access coeffs[0] directly, for efficiency.  */
+	aff_combination_add_elt (r, val, coef * c->offset.coeffs[0]);
+      else
+	{
+	  /* c->offset is polynomial, so multiply VAL rather than COEF
+	     by it.  */
+	  tree offset = poly_widest_int_to_tree (TREE_TYPE (val), c->offset);
+	  val = fold_build2 (MULT_EXPR, TREE_TYPE (val), val, offset);
+	  aff_combination_add_elt (r, val, coef);
+	}
+    }
   else
     aff_combination_add_cst (r, coef * c->offset);
 }
@@ -575,7 +596,15 @@ aff_combination_mult (aff_tree *c1, aff_tree *c2, aff_tree *r)
     aff_combination_add_product (c1, c2->elts[i].coef, c2->elts[i].val, r);
   if (c2->rest)
     aff_combination_add_product (c1, 1, c2->rest, r);
-  aff_combination_add_product (c1, c2->offset, NULL, r);
+  if (c2->offset.is_constant ())
+    /* Access coeffs[0] directly, for efficiency.  */
+    aff_combination_add_product (c1, c2->offset.coeffs[0], NULL, r);
+  else
+    {
+      /* c2->offset is polynomial, so do the multiplication in tree form.  */
+      tree offset = poly_widest_int_to_tree (c2->type, c2->offset);
+      aff_combination_add_product (c1, 1, offset, r);
+    }
 }
 
 /* Returns the element of COMB whose value is VAL, or NULL if no such
@@ -762,27 +791,28 @@ free_affine_expand_cache (hash_map<tree, name_expansion *> **cache)
    is set to true.  */
 
 static bool
-wide_int_constant_multiple_p (const widest_int &val, const widest_int &div,
-			      bool *mult_set, widest_int *mult)
+wide_int_constant_multiple_p (const poly_widest_int &val,
+			      const poly_widest_int &div,
+			      bool *mult_set, poly_widest_int *mult)
 {
-  widest_int rem, cst;
+  poly_widest_int rem, cst;
 
-  if (val == 0)
+  if (must_eq (val, 0))
     {
-      if (*mult_set && *mult != 0)
+      if (*mult_set && may_ne (*mult, 0))
 	return false;
       *mult_set = true;
       *mult = 0;
       return true;
     }
 
-  if (div == 0)
+  if (may_eq (div, 0))
     return false;
 
-  if (!wi::multiple_of_p (val, div, SIGNED, &cst))
+  if (!multiple_p (val, div, &cst))
     return false;
 
-  if (*mult_set && *mult != cst)
+  if (*mult_set && may_ne (*mult, cst))
     return false;
 
   *mult_set = true;
@@ -795,12 +825,12 @@ wide_int_constant_multiple_p (const widest_int &val, const widest_int &div,
 
 bool
 aff_combination_constant_multiple_p (aff_tree *val, aff_tree *div,
-				     widest_int *mult)
+				     poly_widest_int *mult)
 {
   bool mult_set = false;
   unsigned i;
 
-  if (val->n == 0 && val->offset == 0)
+  if (val->n == 0 && must_eq (val->offset, 0))
     {
       *mult = 0;
       return true;
@@ -913,23 +943,13 @@ get_inner_reference_aff (tree ref, aff_tree *addr, widest_int *size)
    size SIZE2 at position DIFF cannot overlap.  */
 
 bool
-aff_comb_cannot_overlap_p (aff_tree *diff, const widest_int &size1,
-			   const widest_int &size2)
+aff_comb_cannot_overlap_p (aff_tree *diff, const poly_widest_int &size1,
+			   const poly_widest_int &size2)
 {
   /* Unless the difference is a constant, we fail.  */
   if (diff->n != 0)
     return false;
 
-  if (wi::neg_p (diff->offset))
-    {
-      /* The second object is before the first one, we succeed if the last
-	 element of the second object is before the start of the first one.  */
-      return wi::neg_p (diff->offset + size2 - 1);
-    }
-  else
-    {
-      /* We succeed if the second object starts after the first one ends.  */
-      return size1 <= diff->offset;
-    }
+  return !ranges_may_overlap_p (0, size1, diff->offset, size2);
 }
 

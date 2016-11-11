@@ -5421,7 +5421,7 @@ iv_elimination_compare_lt (struct ivopts_data *data,
   aff_combination_scale (&tmpa, -1);
   aff_combination_add (&tmpb, &tmpa);
   aff_combination_add (&tmpb, &nit);
-  if (tmpb.n != 0 || tmpb.offset != 1)
+  if (tmpb.n != 0 || may_ne (tmpb.offset, 1))
     return false;
 
   /* Finally, check that CAND->IV->BASE - CAND->IV->STEP * A does not
