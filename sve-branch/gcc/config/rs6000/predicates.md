@@ -557,17 +557,17 @@
 
   switch (mode)
     {
-    case KFmode:
-    case IFmode:
-    case TFmode:
-    case DFmode:
-    case SFmode:
+    case E_KFmode:
+    case E_IFmode:
+    case E_TFmode:
+    case E_DFmode:
+    case E_SFmode:
       return 0;
 
-    case DImode:
+    case E_DImode:
       return (num_insns_constant (op, DImode) <= 2);
 
-    case SImode:
+    case E_SImode:
       return 1;
 
     default:
@@ -1802,12 +1802,12 @@
 
   switch (mode)
     {
-    case QImode:
-    case HImode:
-    case SImode:
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
       break;
 
-    case DImode:
+    case E_DImode:
       if (!TARGET_POWERPC64)
 	return 0;
       break;
@@ -1862,18 +1862,18 @@
 
   switch (mode)
     {
-    case QImode:
-    case HImode:
-    case SImode:
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
       break;
 
-    case DImode:
+    case E_DImode:
       if (!TARGET_POWERPC64)
 	return 0;
       break;
 
-    case SFmode:
-    case DFmode:
+    case E_SFmode:
+    case E_DFmode:
       if (!TARGET_P9_FUSION)
 	return 0;
       break;
@@ -1917,22 +1917,22 @@
 
   switch (mode)
     {
-    case QImode:
-    case HImode:
-    case SImode:
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
       break;
 
-    case DImode:
+    case E_DImode:
       if (!TARGET_POWERPC64)
 	return 0;
       break;
 
-    case SFmode:
+    case E_SFmode:
       if (!TARGET_SF_FPR)
 	return 0;
       break;
 
-    case DFmode:
+    case E_DFmode:
       if (!TARGET_DF_FPR)
 	return 0;
       break;

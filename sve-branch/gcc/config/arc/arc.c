@@ -249,13 +249,13 @@ arc_vector_mode_supported_p (machine_mode mode)
 {
   switch (mode)
     {
-    case V2HImode:
+    case E_V2HImode:
       return TARGET_PLUS_DMPY;
-    case V4HImode:
-    case V2SImode:
+    case E_V4HImode:
+    case E_V2SImode:
       return TARGET_PLUS_QMACW;
-    case V4SImode:
-    case V8HImode:
+    case E_V4SImode:
+    case E_V8HImode:
       return TARGET_SIMD_SET;
 
     default:
@@ -270,9 +270,9 @@ arc_preferred_simd_mode (machine_mode mode)
 {
   switch (mode)
     {
-    case HImode:
+    case E_HImode:
       return TARGET_PLUS_QMACW ? V4HImode : V2HImode;
-    case SImode:
+    case E_SImode:
       return V2SImode;
 
     default:
@@ -550,11 +550,11 @@ arc_secondary_reload (bool in_p,
 	{
 	  switch (mode)
 	    {
-	    case QImode:
+	    case E_QImode:
 	      sri->icode =
 		in_p ? CODE_FOR_reload_qi_load : CODE_FOR_reload_qi_store;
 	      break;
-	    case HImode:
+	    case E_HImode:
 	      sri->icode =
 		in_p ? CODE_FOR_reload_hi_load : CODE_FOR_reload_hi_store;
 	      break;
@@ -916,8 +916,8 @@ get_arc_condition_code (rtx comparison)
 {
   switch (GET_MODE (XEXP (comparison, 0)))
     {
-    case CCmode:
-    case SImode: /* For BRcc.  */
+    case E_CCmode:
+    case E_SImode: /* For BRcc.  */
       switch (GET_CODE (comparison))
 	{
 	case EQ : return ARC_CC_EQ;
@@ -932,7 +932,7 @@ get_arc_condition_code (rtx comparison)
 	case GEU : return ARC_CC_HS;
 	default : gcc_unreachable ();
 	}
-    case CC_ZNmode:
+    case E_CC_ZNmode:
       switch (GET_CODE (comparison))
 	{
 	case EQ : return ARC_CC_EQ;
@@ -942,21 +942,21 @@ get_arc_condition_code (rtx comparison)
 	case GT : return ARC_CC_PNZ;
 	default : gcc_unreachable ();
 	}
-    case CC_Zmode:
+    case E_CC_Zmode:
       switch (GET_CODE (comparison))
 	{
 	case EQ : return ARC_CC_EQ;
 	case NE : return ARC_CC_NE;
 	default : gcc_unreachable ();
 	}
-    case CC_Cmode:
+    case E_CC_Cmode:
       switch (GET_CODE (comparison))
 	{
 	case LTU : return ARC_CC_C;
 	case GEU : return ARC_CC_NC;
 	default : gcc_unreachable ();
 	}
-    case CC_FP_GTmode:
+    case E_CC_FP_GTmode:
       if (TARGET_ARGONAUT_SET && TARGET_SPFP)
 	switch (GET_CODE (comparison))
 	  {
@@ -971,7 +971,7 @@ get_arc_condition_code (rtx comparison)
 	  case UNLE : return ARC_CC_LS;
 	  default : gcc_unreachable ();
 	}
-    case CC_FP_GEmode:
+    case E_CC_FP_GEmode:
       /* Same for FPX and non-FPX.  */
       switch (GET_CODE (comparison))
 	{
@@ -979,21 +979,21 @@ get_arc_condition_code (rtx comparison)
 	case UNLT : return ARC_CC_LO;
 	default : gcc_unreachable ();
 	}
-    case CC_FP_UNEQmode:
+    case E_CC_FP_UNEQmode:
       switch (GET_CODE (comparison))
 	{
 	case UNEQ : return ARC_CC_EQ;
 	case LTGT : return ARC_CC_NE;
 	default : gcc_unreachable ();
 	}
-    case CC_FP_ORDmode:
+    case E_CC_FP_ORDmode:
       switch (GET_CODE (comparison))
 	{
 	case UNORDERED : return ARC_CC_C;
 	case ORDERED   : return ARC_CC_NC;
 	default : gcc_unreachable ();
 	}
-    case CC_FPXmode:
+    case E_CC_FPXmode:
       switch (GET_CODE (comparison))
 	{
 	case EQ        : return ARC_CC_EQ;
@@ -1004,7 +1004,7 @@ get_arc_condition_code (rtx comparison)
 	case UNEQ      : return ARC_CC_LS;
 	default : gcc_unreachable ();
 	}
-    case CC_FPUmode:
+    case E_CC_FPUmode:
       switch (GET_CODE (comparison))
 	{
 	case EQ	       : return ARC_CC_EQ;
@@ -1024,7 +1024,7 @@ get_arc_condition_code (rtx comparison)
 	case UNEQ      : /* Fall through.  */
 	default : gcc_unreachable ();
 	}
-    case CC_FPU_UNEQmode:
+    case E_CC_FPU_UNEQmode:
       switch (GET_CODE (comparison))
 	{
 	case LTGT : return ARC_CC_NE;
@@ -3364,8 +3364,8 @@ arc_print_operand (FILE *file, rtx x, int code)
 	size_suffix:
 	  switch (GET_MODE (XEXP (x, 0)))
 	    {
-	    case QImode: fputs ("b", file); return;
-	    case HImode: fputs ("w", file); return;
+	    case E_QImode: fputs ("b", file); return;
+	    case E_HImode: fputs ("w", file); return;
 	    default: break;
 	    }
 	  break;

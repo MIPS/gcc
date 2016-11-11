@@ -3886,13 +3886,13 @@
 
   switch (GET_MODE (diff_vec))
     {
-    case SImode:
+    case E_SImode:
       return \"ld.as %0,[%1,%2]%&\";
-    case HImode:
+    case E_HImode:
       if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
 	return \"ld%_.as %0,[%1,%2]\";
       return \"ld%_.x.as %0,[%1,%2]\";
-    case QImode:
+    case E_QImode:
       if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
 	return \"ldb%? %0,[%1,%2]%&\";
       return \"ldb.x %0,[%1,%2]\";
@@ -3955,7 +3955,7 @@
 
   switch (GET_MODE (diff_vec))
     {
-    case SImode:
+    case E_SImode:
       /* Max length can be 12 in this case, but this is OK because
 	 2 of these are for alignment, and are anticipated in the length
 	 of the ADDR_DIFF_VEC.  */
@@ -3967,7 +3967,7 @@
 	s = \"add %2,%0,2\n\tld.as %2,[pcl,%2]\";
       arc_clear_unalign ();
       break;
-    case HImode:
+    case E_HImode:
       if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
 	{
 	  if (satisfies_constraint_Rcq (xop[0]))
@@ -3996,7 +3996,7 @@
 	}
       arc_toggle_unalign ();
       break;
-    case QImode:
+    case E_QImode:
       if (ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned)
 	{
 	  if ((rtx_equal_p (xop[2], xop[0])

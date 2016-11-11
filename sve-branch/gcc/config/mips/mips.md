@@ -6417,14 +6417,14 @@
   
   switch (GET_MODE (diff_vec))
     {
-    case HImode:
+    case E_HImode:
       output_asm_insn ("sll\t%5, %0, 1", operands);
       output_asm_insn ("la\t%4, %2", operands);
       output_asm_insn ("<d>addu\t%5, %4, %5", operands);
       output_asm_insn ("lh\t%5, 0(%5)", operands);
       break;
     
-    case SImode:
+    case E_SImode:
       output_asm_insn ("sll\t%5, %0, 2", operands);
       output_asm_insn ("la\t%4, %2", operands);
       output_asm_insn ("<d>addu\t%5, %4, %5", operands);

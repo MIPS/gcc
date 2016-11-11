@@ -1110,11 +1110,20 @@ s390_handle_vectorbool_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
   mode = TYPE_MODE (type);
   switch (mode)
     {
-    case DImode: case V2DImode: result = s390_builtin_types[BT_BV2DI]; break;
-    case SImode: case V4SImode: result = s390_builtin_types[BT_BV4SI]; break;
-    case HImode: case V8HImode: result = s390_builtin_types[BT_BV8HI]; break;
-    case QImode: case V16QImode: result = s390_builtin_types[BT_BV16QI];
-    default: break;
+    case E_DImode: case E_V2DImode:
+      result = s390_builtin_types[BT_BV2DI];
+      break;
+    case E_SImode: case E_V4SImode:
+      result = s390_builtin_types[BT_BV4SI];
+      break;
+    case E_HImode: case E_V8HImode:
+      result = s390_builtin_types[BT_BV8HI];
+      break;
+    case E_QImode: case E_V16QImode:
+      result = s390_builtin_types[BT_BV16QI];
+      break;
+    default:
+      break;
     }
 
   *no_add_attrs = true;  /* No need to hang on to the attribute.  */
@@ -1207,14 +1216,14 @@ s390_vector_mode_supported_p (machine_mode mode)
 
   switch (inner)
     {
-    case QImode:
-    case HImode:
-    case SImode:
-    case DImode:
-    case TImode:
-    case SFmode:
-    case DFmode:
-    case TFmode:
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
+    case E_DImode:
+    case E_TImode:
+    case E_SFmode:
+    case E_DFmode:
+    case E_TFmode:
       return true;
     default:
       return false;
@@ -1241,18 +1250,18 @@ s390_cc_modes_compatible (machine_mode m1, machine_mode m2)
 
   switch (m1)
     {
-    case CCZmode:
+    case E_CCZmode:
       if (m2 == CCUmode || m2 == CCTmode || m2 == CCZ1mode
 	  || m2 == CCSmode || m2 == CCSRmode || m2 == CCURmode)
         return m2;
       return VOIDmode;
 
-    case CCSmode:
-    case CCUmode:
-    case CCTmode:
-    case CCSRmode:
-    case CCURmode:
-    case CCZ1mode:
+    case E_CCSmode:
+    case E_CCUmode:
+    case E_CCTmode:
+    case E_CCSRmode:
+    case E_CCURmode:
+    case E_CCZ1mode:
       if (m2 == CCZmode)
 	return m1;
 
@@ -1281,34 +1290,34 @@ s390_match_ccmode_set (rtx set, machine_mode req_mode)
   set_mode = GET_MODE (SET_DEST (set));
   switch (set_mode)
     {
-    case CCSmode:
-    case CCSRmode:
-    case CCUmode:
-    case CCURmode:
-    case CCLmode:
-    case CCL1mode:
-    case CCL2mode:
-    case CCL3mode:
-    case CCT1mode:
-    case CCT2mode:
-    case CCT3mode:
-    case CCVEQmode:
-    case CCVHmode:
-    case CCVHUmode:
-    case CCVFHmode:
-    case CCVFHEmode:
+    case E_CCSmode:
+    case E_CCSRmode:
+    case E_CCUmode:
+    case E_CCURmode:
+    case E_CCLmode:
+    case E_CCL1mode:
+    case E_CCL2mode:
+    case E_CCL3mode:
+    case E_CCT1mode:
+    case E_CCT2mode:
+    case E_CCT3mode:
+    case E_CCVEQmode:
+    case E_CCVHmode:
+    case E_CCVHUmode:
+    case E_CCVFHmode:
+    case E_CCVFHEmode:
       if (req_mode != set_mode)
         return 0;
       break;
 
-    case CCZmode:
+    case E_CCZmode:
       if (req_mode != CCSmode && req_mode != CCUmode && req_mode != CCTmode
 	  && req_mode != CCSRmode && req_mode != CCURmode)
         return 0;
       break;
 
-    case CCAPmode:
-    case CCANmode:
+    case E_CCAPmode:
+    case E_CCANmode:
       if (req_mode != CCAmode)
         return 0;
       break;
@@ -1650,8 +1659,8 @@ s390_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
       enum rtx_code new_code = UNKNOWN;
       switch (GET_MODE (XVECEXP (*op0, 0, 0)))
 	{
-	case CCZmode:
-	case CCRAWmode:
+	case E_CCZmode:
+	case E_CCRAWmode:
 	  switch (*code)
 	    {
 	    case EQ: new_code = EQ;  break;
@@ -1850,8 +1859,8 @@ s390_branch_condition_mask (rtx code)
 
   switch (GET_MODE (XEXP (code, 0)))
     {
-    case CCZmode:
-    case CCZ1mode:
+    case E_CCZmode:
+    case E_CCZ1mode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -1860,7 +1869,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCT1mode:
+    case E_CCT1mode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC1;
@@ -1869,7 +1878,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCT2mode:
+    case E_CCT2mode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC2;
@@ -1878,7 +1887,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCT3mode:
+    case E_CCT3mode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC3;
@@ -1887,7 +1896,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCLmode:
+    case E_CCLmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0 | CC2;
@@ -1896,7 +1905,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCL1mode:
+    case E_CCL1mode:
       switch (GET_CODE (code))
         {
 	case LTU:	return CC2 | CC3;  /* carry */
@@ -1905,7 +1914,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCL2mode:
+    case E_CCL2mode:
       switch (GET_CODE (code))
         {
 	case GTU:	return CC0 | CC1;  /* borrow */
@@ -1914,7 +1923,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCL3mode:
+    case E_CCL3mode:
       switch (GET_CODE (code))
 	{
 	case EQ:	return CC0 | CC2;
@@ -1926,7 +1935,7 @@ s390_branch_condition_mask (rtx code)
 	default:	return -1;
 	}
 
-    case CCUmode:
+    case E_CCUmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -1939,7 +1948,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCURmode:
+    case E_CCURmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -1952,7 +1961,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCAPmode:
+    case E_CCAPmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -1965,7 +1974,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCANmode:
+    case E_CCANmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -1978,7 +1987,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCSmode:
+    case E_CCSmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -1999,7 +2008,7 @@ s390_branch_condition_mask (rtx code)
         }
       break;
 
-    case CCSRmode:
+    case E_CCSRmode:
       switch (GET_CODE (code))
         {
         case EQ:	return CC0;
@@ -2022,7 +2031,7 @@ s390_branch_condition_mask (rtx code)
 
       /* Vector comparison modes.  */
 
-    case CCVEQmode:
+    case E_CCVEQmode:
       switch (GET_CODE (code))
 	{
 	case EQ:        return CC0;
@@ -2030,7 +2039,7 @@ s390_branch_condition_mask (rtx code)
 	default:        return -1;
 	}
 
-    case CCVEQANYmode:
+    case E_CCVEQANYmode:
       switch (GET_CODE (code))
 	{
 	case EQ:        return CC0 | CC1;
@@ -2040,7 +2049,7 @@ s390_branch_condition_mask (rtx code)
 
       /* Integer vector compare modes.  */
 
-    case CCVHmode:
+    case E_CCVHmode:
       switch (GET_CODE (code))
 	{
 	case GT:        return CC0;
@@ -2048,7 +2057,7 @@ s390_branch_condition_mask (rtx code)
 	default:        return -1;
 	}
 
-    case CCVHANYmode:
+    case E_CCVHANYmode:
       switch (GET_CODE (code))
 	{
 	case GT:        return CC0 | CC1;
@@ -2056,7 +2065,7 @@ s390_branch_condition_mask (rtx code)
 	default:        return -1;
 	}
 
-    case CCVHUmode:
+    case E_CCVHUmode:
       switch (GET_CODE (code))
 	{
 	case GTU:       return CC0;
@@ -2064,7 +2073,7 @@ s390_branch_condition_mask (rtx code)
 	default:        return -1;
 	}
 
-    case CCVHUANYmode:
+    case E_CCVHUANYmode:
       switch (GET_CODE (code))
 	{
 	case GTU:       return CC0 | CC1;
@@ -2074,7 +2083,7 @@ s390_branch_condition_mask (rtx code)
 
       /* FP vector compare modes.  */
 
-    case CCVFHmode:
+    case E_CCVFHmode:
       switch (GET_CODE (code))
 	{
 	case GT:        return CC0;
@@ -2082,7 +2091,7 @@ s390_branch_condition_mask (rtx code)
 	default:        return -1;
 	}
 
-    case CCVFHANYmode:
+    case E_CCVFHANYmode:
       switch (GET_CODE (code))
 	{
 	case GT:        return CC0 | CC1;
@@ -2090,7 +2099,7 @@ s390_branch_condition_mask (rtx code)
 	default:        return -1;
 	}
 
-    case CCVFHEmode:
+    case E_CCVFHEmode:
       switch (GET_CODE (code))
 	{
 	case GE:        return CC0;
@@ -2098,7 +2107,7 @@ s390_branch_condition_mask (rtx code)
 	default:        return -1;
 	}
 
-    case CCVFHEANYmode:
+    case E_CCVFHEANYmode:
       switch (GET_CODE (code))
 	{
 	case GE:        return CC0 | CC1;
@@ -2107,7 +2116,7 @@ s390_branch_condition_mask (rtx code)
 	}
 
 
-    case CCRAWmode:
+    case E_CCRAWmode:
       switch (GET_CODE (code))
 	{
 	case EQ:
@@ -3489,7 +3498,7 @@ s390_rtx_costs (rtx x, machine_mode mode, int outer_code,
     case MULT:
       switch (mode)
 	{
-	case SImode:
+	case E_SImode:
 	  {
 	    rtx left = XEXP (x, 0);
 	    rtx right = XEXP (x, 1);
@@ -3502,7 +3511,7 @@ s390_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	      *total = s390_cost->ms;  /* msr, ms, msy */
 	    break;
 	  }
-	case DImode:
+	case E_DImode:
 	  {
 	    rtx left = XEXP (x, 0);
 	    rtx right = XEXP (x, 1);
@@ -3533,11 +3542,11 @@ s390_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	      }
 	    break;
 	  }
-	case SFmode:
-	case DFmode:
+	case E_SFmode:
+	case E_DFmode:
 	  *total = s390_cost->mult_df;
 	  break;
-	case TFmode:
+	case E_TFmode:
 	  *total = s390_cost->mxbr;
 	  break;
 	default:
@@ -3548,10 +3557,10 @@ s390_rtx_costs (rtx x, machine_mode mode, int outer_code,
     case FMA:
       switch (mode)
 	{
-	case DFmode:
+	case E_DFmode:
 	  *total = s390_cost->madbr;
 	  break;
-	case SFmode:
+	case E_SFmode:
 	  *total = s390_cost->maebr;
 	  break;
 	default:
@@ -4237,7 +4246,7 @@ s390_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 					       GET_MODE_SIZE (mode))))
 	{
 #define __SECONDARY_RELOAD_CASE(M,m)					\
-	  case M##mode:							\
+	  case E_##M##mode:						\
 	    if (TARGET_64BIT)						\
 	      sri->icode = in_p ? CODE_FOR_reload##m##di_toreg_z10 :	\
                                   CODE_FOR_reload##m##di_tomem_z10;	\
@@ -6305,11 +6314,11 @@ s390_expand_vec_compare_cc (rtx target, enum rtx_code code,
   if (!all_p)
     switch (cmp_mode)
       {
-      case CCVEQmode:  full_cmp_mode = CCVEQANYmode;  break;
-      case CCVHmode:   full_cmp_mode = CCVHANYmode;   break;
-      case CCVHUmode:  full_cmp_mode = CCVHUANYmode;  break;
-      case CCVFHmode:  full_cmp_mode = CCVFHANYmode;  break;
-      case CCVFHEmode: full_cmp_mode = CCVFHEANYmode; break;
+      case E_CCVEQmode:  full_cmp_mode = CCVEQANYmode;  break;
+      case E_CCVHmode:   full_cmp_mode = CCVHANYmode;   break;
+      case E_CCVHUmode:  full_cmp_mode = CCVHUANYmode;  break;
+      case E_CCVFHmode:  full_cmp_mode = CCVFHANYmode;  break;
+      case E_CCVFHEmode: full_cmp_mode = CCVFHEANYmode; break;
       default: gcc_unreachable ();
       }
   else
@@ -14968,15 +14977,15 @@ s390_preferred_simd_mode (machine_mode mode)
   if (TARGET_VX)
     switch (mode)
       {
-      case DFmode:
+      case E_DFmode:
 	return V2DFmode;
-      case DImode:
+      case E_DImode:
 	return V2DImode;
-      case SImode:
+      case E_SImode:
 	return V4SImode;
-      case HImode:
+      case E_HImode:
 	return V8HImode;
-      case QImode:
+      case E_QImode:
 	return V16QImode;
       default:;
       }

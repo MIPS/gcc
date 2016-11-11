@@ -1633,25 +1633,25 @@ aarch64_split_simd_combine (rtx dst, rtx src1, rtx src2)
 
       switch (src_mode)
 	{
-	case V8QImode:
+	case E_V8QImode:
 	  gen = gen_aarch64_simd_combinev8qi;
 	  break;
-	case V4HImode:
+	case E_V4HImode:
 	  gen = gen_aarch64_simd_combinev4hi;
 	  break;
-	case V2SImode:
+	case E_V2SImode:
 	  gen = gen_aarch64_simd_combinev2si;
 	  break;
-	case V4HFmode:
+	case E_V4HFmode:
 	  gen = gen_aarch64_simd_combinev4hf;
 	  break;
-	case V2SFmode:
+	case E_V2SFmode:
 	  gen = gen_aarch64_simd_combinev2sf;
 	  break;
-	case DImode:
+	case E_DImode:
 	  gen = gen_aarch64_simd_combinedi;
 	  break;
-	case DFmode:
+	case E_DFmode:
 	  gen = gen_aarch64_simd_combinedf;
 	  break;
 	default:
@@ -1681,25 +1681,25 @@ aarch64_split_simd_move (rtx dst, rtx src)
 
       switch (src_mode)
 	{
-	case V16QImode:
+	case E_V16QImode:
 	  gen = gen_aarch64_split_simd_movv16qi;
 	  break;
-	case V8HImode:
+	case E_V8HImode:
 	  gen = gen_aarch64_split_simd_movv8hi;
 	  break;
-	case V4SImode:
+	case E_V4SImode:
 	  gen = gen_aarch64_split_simd_movv4si;
 	  break;
-	case V2DImode:
+	case E_V2DImode:
 	  gen = gen_aarch64_split_simd_movv2di;
 	  break;
-	case V8HFmode:
+	case E_V8HFmode:
 	  gen = gen_aarch64_split_simd_movv8hf;
 	  break;
-	case V4SFmode:
+	case E_V4SFmode:
 	  gen = gen_aarch64_split_simd_movv4sf;
 	  break;
-	case V2DFmode:
+	case E_V2DFmode:
 	  gen = gen_aarch64_split_simd_movv2df;
 	  break;
 	default:
@@ -2972,11 +2972,11 @@ aarch64_gen_storewb_pair (machine_mode mode, rtx base, rtx reg, rtx reg2,
 {
   switch (mode)
     {
-    case DImode:
+    case E_DImode:
       return gen_storewb_pairdi_di (base, base, reg, reg2,
 				    GEN_INT (-adjustment),
 				    GEN_INT (UNITS_PER_WORD - adjustment));
-    case DFmode:
+    case E_DFmode:
       return gen_storewb_pairdf_di (base, base, reg, reg2,
 				    GEN_INT (-adjustment),
 				    GEN_INT (UNITS_PER_WORD - adjustment));
@@ -3010,10 +3010,10 @@ aarch64_gen_loadwb_pair (machine_mode mode, rtx base, rtx reg, rtx reg2,
 {
   switch (mode)
     {
-    case DImode:
+    case E_DImode:
       return gen_loadwb_pairdi_di (base, base, reg, reg2, GEN_INT (adjustment),
 				   GEN_INT (UNITS_PER_WORD));
-    case DFmode:
+    case E_DFmode:
       return gen_loadwb_pairdf_di (base, base, reg, reg2, GEN_INT (adjustment),
 				   GEN_INT (UNITS_PER_WORD));
     default:
@@ -3051,10 +3051,10 @@ aarch64_gen_store_pair (machine_mode mode, rtx mem1, rtx reg1, rtx mem2,
 {
   switch (mode)
     {
-    case DImode:
+    case E_DImode:
       return gen_store_pairdi (mem1, reg1, mem2, reg2);
 
-    case DFmode:
+    case E_DFmode:
       return gen_store_pairdf (mem1, reg1, mem2, reg2);
 
     default:
@@ -3068,10 +3068,10 @@ aarch64_gen_load_pair (machine_mode mode, rtx reg1, rtx mem1, rtx reg2,
 {
   switch (mode)
     {
-    case DImode:
+    case E_DImode:
       return gen_load_pairdi (reg1, mem1, reg2, mem2);
 
-    case DFmode:
+    case E_DFmode:
       return gen_load_pairdf (reg1, mem1, reg2, mem2);
 
     default:
@@ -4384,8 +4384,8 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 {
   switch (mode)
     {
-    case CCFPmode:
-    case CCFPEmode:
+    case E_CCFPmode:
+    case E_CCFPEmode:
       switch (comp_code)
 	{
 	case GE: return AARCH64_GE;
@@ -4404,7 +4404,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	}
       break;
 
-    case CCmode:
+    case E_CCmode:
       switch (comp_code)
 	{
 	case NE: return AARCH64_NE;
@@ -4421,7 +4421,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	}
       break;
 
-    case CC_SWPmode:
+    case E_CC_SWPmode:
       switch (comp_code)
 	{
 	case NE: return AARCH64_NE;
@@ -4438,7 +4438,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	}
       break;
 
-    case CC_NZmode:
+    case E_CC_NZmode:
       switch (comp_code)
 	{
 	case NE: return AARCH64_NE;
@@ -4449,7 +4449,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	}
       break;
 
-    case CC_Zmode:
+    case E_CC_Zmode:
       switch (comp_code)
 	{
 	case NE: return AARCH64_NE;
@@ -4458,7 +4458,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	}
       break;
 
-    case CC_Cmode:
+    case E_CC_Cmode:
       switch (comp_code)
 	{
 	case NE: return AARCH64_CS;
@@ -5149,37 +5149,37 @@ aarch64_constant_pool_reload_icode (machine_mode mode)
 {
   switch (mode)
     {
-    case SFmode:
+    case E_SFmode:
       return CODE_FOR_aarch64_reload_movcpsfdi;
 
-    case DFmode:
+    case E_DFmode:
       return CODE_FOR_aarch64_reload_movcpdfdi;
 
-    case TFmode:
+    case E_TFmode:
       return CODE_FOR_aarch64_reload_movcptfdi;
 
-    case V8QImode:
+    case E_V8QImode:
       return CODE_FOR_aarch64_reload_movcpv8qidi;
 
-    case V16QImode:
+    case E_V16QImode:
       return CODE_FOR_aarch64_reload_movcpv16qidi;
 
-    case V4HImode:
+    case E_V4HImode:
       return CODE_FOR_aarch64_reload_movcpv4hidi;
 
-    case V8HImode:
+    case E_V8HImode:
       return CODE_FOR_aarch64_reload_movcpv8hidi;
 
-    case V2SImode:
+    case E_V2SImode:
       return CODE_FOR_aarch64_reload_movcpv2sidi;
 
-    case V4SImode:
+    case E_V4SImode:
       return CODE_FOR_aarch64_reload_movcpv4sidi;
 
-    case V2DImode:
+    case E_V2DImode:
       return CODE_FOR_aarch64_reload_movcpv2didi;
 
-    case V2DFmode:
+    case E_V2DFmode:
       return CODE_FOR_aarch64_reload_movcpv2dfdi;
 
     default:
@@ -7515,11 +7515,11 @@ get_rsqrte_type (machine_mode mode)
 {
   switch (mode)
   {
-    case DFmode:   return gen_aarch64_rsqrtedf;
-    case SFmode:   return gen_aarch64_rsqrtesf;
-    case V2DFmode: return gen_aarch64_rsqrtev2df;
-    case V2SFmode: return gen_aarch64_rsqrtev2sf;
-    case V4SFmode: return gen_aarch64_rsqrtev4sf;
+    case E_DFmode:   return gen_aarch64_rsqrtedf;
+    case E_SFmode:   return gen_aarch64_rsqrtesf;
+    case E_V2DFmode: return gen_aarch64_rsqrtev2df;
+    case E_V2SFmode: return gen_aarch64_rsqrtev2sf;
+    case E_V4SFmode: return gen_aarch64_rsqrtev4sf;
     default: gcc_unreachable ();
   }
 }
@@ -7533,11 +7533,11 @@ get_rsqrts_type (machine_mode mode)
 {
   switch (mode)
   {
-    case DFmode:   return gen_aarch64_rsqrtsdf;
-    case SFmode:   return gen_aarch64_rsqrtssf;
-    case V2DFmode: return gen_aarch64_rsqrtsv2df;
-    case V2SFmode: return gen_aarch64_rsqrtsv2sf;
-    case V4SFmode: return gen_aarch64_rsqrtsv4sf;
+    case E_DFmode:   return gen_aarch64_rsqrtsdf;
+    case E_SFmode:   return gen_aarch64_rsqrtssf;
+    case E_V2DFmode: return gen_aarch64_rsqrtsv2df;
+    case E_V2SFmode: return gen_aarch64_rsqrtsv2sf;
+    case E_V4SFmode: return gen_aarch64_rsqrtsv4sf;
     default: gcc_unreachable ();
   }
 }
@@ -7635,12 +7635,12 @@ get_recpe_type (machine_mode mode)
 {
   switch (mode)
   {
-    case SFmode:   return (gen_aarch64_frecpesf);
-    case V2SFmode: return (gen_aarch64_frecpev2sf);
-    case V4SFmode: return (gen_aarch64_frecpev4sf);
-    case DFmode:   return (gen_aarch64_frecpedf);
-    case V2DFmode: return (gen_aarch64_frecpev2df);
-    default:       gcc_unreachable ();
+    case E_SFmode:   return (gen_aarch64_frecpesf);
+    case E_V2SFmode: return (gen_aarch64_frecpev2sf);
+    case E_V4SFmode: return (gen_aarch64_frecpev4sf);
+    case E_DFmode:   return (gen_aarch64_frecpedf);
+    case E_V2DFmode: return (gen_aarch64_frecpev2df);
+    default:         gcc_unreachable ();
   }
 }
 
@@ -7653,12 +7653,12 @@ get_recps_type (machine_mode mode)
 {
   switch (mode)
   {
-    case SFmode:   return (gen_aarch64_frecpssf);
-    case V2SFmode: return (gen_aarch64_frecpsv2sf);
-    case V4SFmode: return (gen_aarch64_frecpsv4sf);
-    case DFmode:   return (gen_aarch64_frecpsdf);
-    case V2DFmode: return (gen_aarch64_frecpsv2df);
-    default:       gcc_unreachable ();
+    case E_SFmode:   return (gen_aarch64_frecpssf);
+    case E_V2SFmode: return (gen_aarch64_frecpsv2sf);
+    case E_V4SFmode: return (gen_aarch64_frecpsv4sf);
+    case E_DFmode:   return (gen_aarch64_frecpsdf);
+    case E_V2DFmode: return (gen_aarch64_frecpsv2df);
+    default:         gcc_unreachable ();
   }
 }
 
@@ -9982,24 +9982,24 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       /* Establish the base type.  */
       switch (ag_mode)
 	{
-	case SFmode:
+	case E_SFmode:
 	  field_t = float_type_node;
 	  field_ptr_t = float_ptr_type_node;
 	  break;
-	case DFmode:
+	case E_DFmode:
 	  field_t = double_type_node;
 	  field_ptr_t = double_ptr_type_node;
 	  break;
-	case TFmode:
+	case E_TFmode:
 	  field_t = long_double_type_node;
 	  field_ptr_t = long_double_ptr_type_node;
 	  break;
-	case HFmode:
+	case E_HFmode:
 	  field_t = aarch64_fp16_type_node;
 	  field_ptr_t = aarch64_fp16_ptr_type_node;
 	  break;
-	case V2SImode:
-	case V4SImode:
+	case E_V2SImode:
+	case E_V4SImode:
 	    {
 	      tree innertype = make_signed_type (GET_MODE_PRECISION (SImode));
 	      field_t = build_vector_type_for_mode (innertype, ag_mode);
@@ -10456,17 +10456,17 @@ aarch64_simd_container_mode (machine_mode mode, unsigned width)
       if (width == 128)
 	switch (mode)
 	  {
-	  case DFmode:
+	  case E_DFmode:
 	    return V2DFmode;
-	  case SFmode:
+	  case E_SFmode:
 	    return V4SFmode;
-	  case SImode:
+	  case E_SImode:
 	    return V4SImode;
-	  case HImode:
+	  case E_HImode:
 	    return V8HImode;
-	  case QImode:
+	  case E_QImode:
 	    return V16QImode;
-	  case DImode:
+	  case E_DImode:
 	    return V2DImode;
 	  default:
 	    break;
@@ -10474,13 +10474,13 @@ aarch64_simd_container_mode (machine_mode mode, unsigned width)
       else
 	switch (mode)
 	  {
-	  case SFmode:
+	  case E_SFmode:
 	    return V2SFmode;
-	  case SImode:
+	  case E_SImode:
 	    return V2SImode;
-	  case HImode:
+	  case E_HImode:
 	    return V4HImode;
-	  case QImode:
+	  case E_QImode:
 	    return V8QImode;
 	  default:
 	    break;
@@ -11398,10 +11398,10 @@ aarch64_emit_load_exclusive (machine_mode mode, rtx rval,
 
   switch (mode)
     {
-    case QImode: gen = gen_aarch64_load_exclusiveqi; break;
-    case HImode: gen = gen_aarch64_load_exclusivehi; break;
-    case SImode: gen = gen_aarch64_load_exclusivesi; break;
-    case DImode: gen = gen_aarch64_load_exclusivedi; break;
+    case E_QImode: gen = gen_aarch64_load_exclusiveqi; break;
+    case E_HImode: gen = gen_aarch64_load_exclusivehi; break;
+    case E_SImode: gen = gen_aarch64_load_exclusivesi; break;
+    case E_DImode: gen = gen_aarch64_load_exclusivedi; break;
     default:
       gcc_unreachable ();
     }
@@ -11419,10 +11419,10 @@ aarch64_emit_store_exclusive (machine_mode mode, rtx bval,
 
   switch (mode)
     {
-    case QImode: gen = gen_aarch64_store_exclusiveqi; break;
-    case HImode: gen = gen_aarch64_store_exclusivehi; break;
-    case SImode: gen = gen_aarch64_store_exclusivesi; break;
-    case DImode: gen = gen_aarch64_store_exclusivedi; break;
+    case E_QImode: gen = gen_aarch64_store_exclusiveqi; break;
+    case E_HImode: gen = gen_aarch64_store_exclusivehi; break;
+    case E_SImode: gen = gen_aarch64_store_exclusivesi; break;
+    case E_DImode: gen = gen_aarch64_store_exclusivedi; break;
     default:
       gcc_unreachable ();
     }
@@ -11487,8 +11487,8 @@ aarch64_expand_compare_and_swap (rtx operands[])
 
   switch (mode)
     {
-    case QImode:
-    case HImode:
+    case E_QImode:
+    case E_HImode:
       /* For short modes, we're going to perform the comparison in SImode,
 	 so do the zero-extension now.  */
       cmp_mode = SImode;
@@ -11496,8 +11496,8 @@ aarch64_expand_compare_and_swap (rtx operands[])
       oldval = convert_modes (SImode, mode, oldval, true);
       /* Fall through.  */
 
-    case SImode:
-    case DImode:
+    case E_SImode:
+    case E_DImode:
       /* Force the value into a register if needed.  */
       if (!aarch64_plus_operand (oldval, mode))
 	oldval = force_reg (cmp_mode, oldval);
@@ -11509,10 +11509,10 @@ aarch64_expand_compare_and_swap (rtx operands[])
 
   switch (mode)
     {
-    case QImode: idx = 0; break;
-    case HImode: idx = 1; break;
-    case SImode: idx = 2; break;
-    case DImode: idx = 3; break;
+    case E_QImode: idx = 0; break;
+    case E_HImode: idx = 1; break;
+    case E_SImode: idx = 2; break;
+    case E_DImode: idx = 3; break;
     default:
       gcc_unreachable ();
     }
@@ -11591,10 +11591,10 @@ aarch64_gen_atomic_cas (rtx rval, rtx mem,
 
   switch (mode)
     {
-    case QImode: gen = gen_aarch64_atomic_casqi; break;
-    case HImode: gen = gen_aarch64_atomic_cashi; break;
-    case SImode: gen = gen_aarch64_atomic_cassi; break;
-    case DImode: gen = gen_aarch64_atomic_casdi; break;
+    case E_QImode: gen = gen_aarch64_atomic_casqi; break;
+    case E_HImode: gen = gen_aarch64_atomic_cashi; break;
+    case E_SImode: gen = gen_aarch64_atomic_cassi; break;
+    case E_DImode: gen = gen_aarch64_atomic_casdi; break;
     default:
       gcc_unreachable ();
     }
@@ -11688,8 +11688,8 @@ aarch64_emit_bic (machine_mode mode, rtx dst, rtx s1, rtx s2, int shift)
 
   switch (mode)
     {
-    case SImode: gen = gen_and_one_cmpl_lshrsi3; break;
-    case DImode: gen = gen_and_one_cmpl_lshrdi3; break;
+    case E_SImode: gen = gen_and_one_cmpl_lshrsi3; break;
+    case E_DImode: gen = gen_and_one_cmpl_lshrdi3; break;
     default:
       gcc_unreachable ();
     }
@@ -11707,10 +11707,10 @@ aarch64_emit_atomic_swap (machine_mode mode, rtx dst, rtx value,
 
   switch (mode)
     {
-    case QImode: gen = gen_aarch64_atomic_swpqi; break;
-    case HImode: gen = gen_aarch64_atomic_swphi; break;
-    case SImode: gen = gen_aarch64_atomic_swpsi; break;
-    case DImode: gen = gen_aarch64_atomic_swpdi; break;
+    case E_QImode: gen = gen_aarch64_atomic_swpqi; break;
+    case E_HImode: gen = gen_aarch64_atomic_swphi; break;
+    case E_SImode: gen = gen_aarch64_atomic_swpsi; break;
+    case E_DImode: gen = gen_aarch64_atomic_swpdi; break;
     default:
       gcc_unreachable ();
     }
@@ -11769,10 +11769,10 @@ aarch64_emit_atomic_load_op (enum aarch64_atomic_load_op_code code,
 
   switch (mode)
     {
-    case QImode: idx = 0; break;
-    case HImode: idx = 1; break;
-    case SImode: idx = 2; break;
-    case DImode: idx = 3; break;
+    case E_QImode: idx = 0; break;
+    case E_HImode: idx = 1; break;
+    case E_SImode: idx = 2; break;
+    case E_DImode: idx = 3; break;
     default:
       gcc_unreachable ();
     }
@@ -12390,18 +12390,18 @@ aarch64_evpc_trn (struct expand_vec_perm_d *d)
     {
       switch (vmode)
 	{
-	case V16QImode: gen = gen_aarch64_trn2v16qi; break;
-	case V8QImode: gen = gen_aarch64_trn2v8qi; break;
-	case V8HImode: gen = gen_aarch64_trn2v8hi; break;
-	case V4HImode: gen = gen_aarch64_trn2v4hi; break;
-	case V4SImode: gen = gen_aarch64_trn2v4si; break;
-	case V2SImode: gen = gen_aarch64_trn2v2si; break;
-	case V2DImode: gen = gen_aarch64_trn2v2di; break;
-	case V4HFmode: gen = gen_aarch64_trn2v4hf; break;
-	case V8HFmode: gen = gen_aarch64_trn2v8hf; break;
-	case V4SFmode: gen = gen_aarch64_trn2v4sf; break;
-	case V2SFmode: gen = gen_aarch64_trn2v2sf; break;
-	case V2DFmode: gen = gen_aarch64_trn2v2df; break;
+	case E_V16QImode: gen = gen_aarch64_trn2v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_trn2v8qi; break;
+	case E_V8HImode: gen = gen_aarch64_trn2v8hi; break;
+	case E_V4HImode: gen = gen_aarch64_trn2v4hi; break;
+	case E_V4SImode: gen = gen_aarch64_trn2v4si; break;
+	case E_V2SImode: gen = gen_aarch64_trn2v2si; break;
+	case E_V2DImode: gen = gen_aarch64_trn2v2di; break;
+	case E_V4HFmode: gen = gen_aarch64_trn2v4hf; break;
+	case E_V8HFmode: gen = gen_aarch64_trn2v8hf; break;
+	case E_V4SFmode: gen = gen_aarch64_trn2v4sf; break;
+	case E_V2SFmode: gen = gen_aarch64_trn2v2sf; break;
+	case E_V2DFmode: gen = gen_aarch64_trn2v2df; break;
 	default:
 	  return false;
 	}
@@ -12410,18 +12410,18 @@ aarch64_evpc_trn (struct expand_vec_perm_d *d)
     {
       switch (vmode)
 	{
-	case V16QImode: gen = gen_aarch64_trn1v16qi; break;
-	case V8QImode: gen = gen_aarch64_trn1v8qi; break;
-	case V8HImode: gen = gen_aarch64_trn1v8hi; break;
-	case V4HImode: gen = gen_aarch64_trn1v4hi; break;
-	case V4SImode: gen = gen_aarch64_trn1v4si; break;
-	case V2SImode: gen = gen_aarch64_trn1v2si; break;
-	case V2DImode: gen = gen_aarch64_trn1v2di; break;
-	case V4HFmode: gen = gen_aarch64_trn1v4hf; break;
-	case V8HFmode: gen = gen_aarch64_trn1v8hf; break;
-	case V4SFmode: gen = gen_aarch64_trn1v4sf; break;
-	case V2SFmode: gen = gen_aarch64_trn1v2sf; break;
-	case V2DFmode: gen = gen_aarch64_trn1v2df; break;
+	case E_V16QImode: gen = gen_aarch64_trn1v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_trn1v8qi; break;
+	case E_V8HImode: gen = gen_aarch64_trn1v8hi; break;
+	case E_V4HImode: gen = gen_aarch64_trn1v4hi; break;
+	case E_V4SImode: gen = gen_aarch64_trn1v4si; break;
+	case E_V2SImode: gen = gen_aarch64_trn1v2si; break;
+	case E_V2DImode: gen = gen_aarch64_trn1v2di; break;
+	case E_V4HFmode: gen = gen_aarch64_trn1v4hf; break;
+	case E_V8HFmode: gen = gen_aarch64_trn1v8hf; break;
+	case E_V4SFmode: gen = gen_aarch64_trn1v4sf; break;
+	case E_V2SFmode: gen = gen_aarch64_trn1v2sf; break;
+	case E_V2DFmode: gen = gen_aarch64_trn1v2df; break;
 	default:
 	  return false;
 	}
@@ -12477,18 +12477,18 @@ aarch64_evpc_uzp (struct expand_vec_perm_d *d)
     {
       switch (vmode)
 	{
-	case V16QImode: gen = gen_aarch64_uzp2v16qi; break;
-	case V8QImode: gen = gen_aarch64_uzp2v8qi; break;
-	case V8HImode: gen = gen_aarch64_uzp2v8hi; break;
-	case V4HImode: gen = gen_aarch64_uzp2v4hi; break;
-	case V4SImode: gen = gen_aarch64_uzp2v4si; break;
-	case V2SImode: gen = gen_aarch64_uzp2v2si; break;
-	case V2DImode: gen = gen_aarch64_uzp2v2di; break;
-	case V4HFmode: gen = gen_aarch64_uzp2v4hf; break;
-	case V8HFmode: gen = gen_aarch64_uzp2v8hf; break;
-	case V4SFmode: gen = gen_aarch64_uzp2v4sf; break;
-	case V2SFmode: gen = gen_aarch64_uzp2v2sf; break;
-	case V2DFmode: gen = gen_aarch64_uzp2v2df; break;
+	case E_V16QImode: gen = gen_aarch64_uzp2v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_uzp2v8qi; break;
+	case E_V8HImode: gen = gen_aarch64_uzp2v8hi; break;
+	case E_V4HImode: gen = gen_aarch64_uzp2v4hi; break;
+	case E_V4SImode: gen = gen_aarch64_uzp2v4si; break;
+	case E_V2SImode: gen = gen_aarch64_uzp2v2si; break;
+	case E_V2DImode: gen = gen_aarch64_uzp2v2di; break;
+	case E_V4HFmode: gen = gen_aarch64_uzp2v4hf; break;
+	case E_V8HFmode: gen = gen_aarch64_uzp2v8hf; break;
+	case E_V4SFmode: gen = gen_aarch64_uzp2v4sf; break;
+	case E_V2SFmode: gen = gen_aarch64_uzp2v2sf; break;
+	case E_V2DFmode: gen = gen_aarch64_uzp2v2df; break;
 	default:
 	  return false;
 	}
@@ -12497,18 +12497,18 @@ aarch64_evpc_uzp (struct expand_vec_perm_d *d)
     {
       switch (vmode)
 	{
-	case V16QImode: gen = gen_aarch64_uzp1v16qi; break;
-	case V8QImode: gen = gen_aarch64_uzp1v8qi; break;
-	case V8HImode: gen = gen_aarch64_uzp1v8hi; break;
-	case V4HImode: gen = gen_aarch64_uzp1v4hi; break;
-	case V4SImode: gen = gen_aarch64_uzp1v4si; break;
-	case V2SImode: gen = gen_aarch64_uzp1v2si; break;
-	case V2DImode: gen = gen_aarch64_uzp1v2di; break;
-	case V4HFmode: gen = gen_aarch64_uzp1v4hf; break;
-	case V8HFmode: gen = gen_aarch64_uzp1v8hf; break;
-	case V4SFmode: gen = gen_aarch64_uzp1v4sf; break;
-	case V2SFmode: gen = gen_aarch64_uzp1v2sf; break;
-	case V2DFmode: gen = gen_aarch64_uzp1v2df; break;
+	case E_V16QImode: gen = gen_aarch64_uzp1v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_uzp1v8qi; break;
+	case E_V8HImode: gen = gen_aarch64_uzp1v8hi; break;
+	case E_V4HImode: gen = gen_aarch64_uzp1v4hi; break;
+	case E_V4SImode: gen = gen_aarch64_uzp1v4si; break;
+	case E_V2SImode: gen = gen_aarch64_uzp1v2si; break;
+	case E_V2DImode: gen = gen_aarch64_uzp1v2di; break;
+	case E_V4HFmode: gen = gen_aarch64_uzp1v4hf; break;
+	case E_V8HFmode: gen = gen_aarch64_uzp1v8hf; break;
+	case E_V4SFmode: gen = gen_aarch64_uzp1v4sf; break;
+	case E_V2SFmode: gen = gen_aarch64_uzp1v2sf; break;
+	case E_V2DFmode: gen = gen_aarch64_uzp1v2df; break;
 	default:
 	  return false;
 	}
@@ -12569,18 +12569,18 @@ aarch64_evpc_zip (struct expand_vec_perm_d *d)
     {
       switch (vmode)
 	{
-	case V16QImode: gen = gen_aarch64_zip2v16qi; break;
-	case V8QImode: gen = gen_aarch64_zip2v8qi; break;
-	case V8HImode: gen = gen_aarch64_zip2v8hi; break;
-	case V4HImode: gen = gen_aarch64_zip2v4hi; break;
-	case V4SImode: gen = gen_aarch64_zip2v4si; break;
-	case V2SImode: gen = gen_aarch64_zip2v2si; break;
-	case V2DImode: gen = gen_aarch64_zip2v2di; break;
-	case V4HFmode: gen = gen_aarch64_zip2v4hf; break;
-	case V8HFmode: gen = gen_aarch64_zip2v8hf; break;
-	case V4SFmode: gen = gen_aarch64_zip2v4sf; break;
-	case V2SFmode: gen = gen_aarch64_zip2v2sf; break;
-	case V2DFmode: gen = gen_aarch64_zip2v2df; break;
+	case E_V16QImode: gen = gen_aarch64_zip2v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_zip2v8qi; break;
+	case E_V8HImode: gen = gen_aarch64_zip2v8hi; break;
+	case E_V4HImode: gen = gen_aarch64_zip2v4hi; break;
+	case E_V4SImode: gen = gen_aarch64_zip2v4si; break;
+	case E_V2SImode: gen = gen_aarch64_zip2v2si; break;
+	case E_V2DImode: gen = gen_aarch64_zip2v2di; break;
+	case E_V4HFmode: gen = gen_aarch64_zip2v4hf; break;
+	case E_V8HFmode: gen = gen_aarch64_zip2v8hf; break;
+	case E_V4SFmode: gen = gen_aarch64_zip2v4sf; break;
+	case E_V2SFmode: gen = gen_aarch64_zip2v2sf; break;
+	case E_V2DFmode: gen = gen_aarch64_zip2v2df; break;
 	default:
 	  return false;
 	}
@@ -12589,18 +12589,18 @@ aarch64_evpc_zip (struct expand_vec_perm_d *d)
     {
       switch (vmode)
 	{
-	case V16QImode: gen = gen_aarch64_zip1v16qi; break;
-	case V8QImode: gen = gen_aarch64_zip1v8qi; break;
-	case V8HImode: gen = gen_aarch64_zip1v8hi; break;
-	case V4HImode: gen = gen_aarch64_zip1v4hi; break;
-	case V4SImode: gen = gen_aarch64_zip1v4si; break;
-	case V2SImode: gen = gen_aarch64_zip1v2si; break;
-	case V2DImode: gen = gen_aarch64_zip1v2di; break;
-	case V4HFmode: gen = gen_aarch64_zip1v4hf; break;
-	case V8HFmode: gen = gen_aarch64_zip1v8hf; break;
-	case V4SFmode: gen = gen_aarch64_zip1v4sf; break;
-	case V2SFmode: gen = gen_aarch64_zip1v2sf; break;
-	case V2DFmode: gen = gen_aarch64_zip1v2df; break;
+	case E_V16QImode: gen = gen_aarch64_zip1v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_zip1v8qi; break;
+	case E_V8HImode: gen = gen_aarch64_zip1v8hi; break;
+	case E_V4HImode: gen = gen_aarch64_zip1v4hi; break;
+	case E_V4SImode: gen = gen_aarch64_zip1v4si; break;
+	case E_V2SImode: gen = gen_aarch64_zip1v2si; break;
+	case E_V2DImode: gen = gen_aarch64_zip1v2di; break;
+	case E_V4HFmode: gen = gen_aarch64_zip1v4hf; break;
+	case E_V8HFmode: gen = gen_aarch64_zip1v8hf; break;
+	case E_V4SFmode: gen = gen_aarch64_zip1v4sf; break;
+	case E_V2SFmode: gen = gen_aarch64_zip1v2sf; break;
+	case E_V2DFmode: gen = gen_aarch64_zip1v2df; break;
 	default:
 	  return false;
 	}
@@ -12636,18 +12636,18 @@ aarch64_evpc_ext (struct expand_vec_perm_d *d)
 
   switch (d->vmode)
     {
-    case V16QImode: gen = gen_aarch64_extv16qi; break;
-    case V8QImode: gen = gen_aarch64_extv8qi; break;
-    case V4HImode: gen = gen_aarch64_extv4hi; break;
-    case V8HImode: gen = gen_aarch64_extv8hi; break;
-    case V2SImode: gen = gen_aarch64_extv2si; break;
-    case V4SImode: gen = gen_aarch64_extv4si; break;
-    case V4HFmode: gen = gen_aarch64_extv4hf; break;
-    case V8HFmode: gen = gen_aarch64_extv8hf; break;
-    case V2SFmode: gen = gen_aarch64_extv2sf; break;
-    case V4SFmode: gen = gen_aarch64_extv4sf; break;
-    case V2DImode: gen = gen_aarch64_extv2di; break;
-    case V2DFmode: gen = gen_aarch64_extv2df; break;
+    case E_V16QImode: gen = gen_aarch64_extv16qi; break;
+    case E_V8QImode: gen = gen_aarch64_extv8qi; break;
+    case E_V4HImode: gen = gen_aarch64_extv4hi; break;
+    case E_V8HImode: gen = gen_aarch64_extv8hi; break;
+    case E_V2SImode: gen = gen_aarch64_extv2si; break;
+    case E_V4SImode: gen = gen_aarch64_extv4si; break;
+    case E_V4HFmode: gen = gen_aarch64_extv4hf; break;
+    case E_V8HFmode: gen = gen_aarch64_extv8hf; break;
+    case E_V2SFmode: gen = gen_aarch64_extv2sf; break;
+    case E_V4SFmode: gen = gen_aarch64_extv4sf; break;
+    case E_V2DImode: gen = gen_aarch64_extv2di; break;
+    case E_V2DFmode: gen = gen_aarch64_extv2df; break;
     default:
       return false;
     }
@@ -12691,8 +12691,8 @@ aarch64_evpc_rev (struct expand_vec_perm_d *d)
     case 7:
       switch (d->vmode)
 	{
-	case V16QImode: gen = gen_aarch64_rev64v16qi; break;
-	case V8QImode: gen = gen_aarch64_rev64v8qi;  break;
+	case E_V16QImode: gen = gen_aarch64_rev64v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_rev64v8qi;  break;
 	default:
 	  return false;
 	}
@@ -12700,10 +12700,10 @@ aarch64_evpc_rev (struct expand_vec_perm_d *d)
     case 3:
       switch (d->vmode)
 	{
-	case V16QImode: gen = gen_aarch64_rev32v16qi; break;
-	case V8QImode: gen = gen_aarch64_rev32v8qi;  break;
-	case V8HImode: gen = gen_aarch64_rev64v8hi;  break;
-	case V4HImode: gen = gen_aarch64_rev64v4hi;  break;
+	case E_V16QImode: gen = gen_aarch64_rev32v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_rev32v8qi;  break;
+	case E_V8HImode: gen = gen_aarch64_rev64v8hi;  break;
+	case E_V4HImode: gen = gen_aarch64_rev64v4hi;  break;
 	default:
 	  return false;
 	}
@@ -12711,16 +12711,16 @@ aarch64_evpc_rev (struct expand_vec_perm_d *d)
     case 1:
       switch (d->vmode)
 	{
-	case V16QImode: gen = gen_aarch64_rev16v16qi; break;
-	case V8QImode: gen = gen_aarch64_rev16v8qi;  break;
-	case V8HImode: gen = gen_aarch64_rev32v8hi;  break;
-	case V4HImode: gen = gen_aarch64_rev32v4hi;  break;
-	case V4SImode: gen = gen_aarch64_rev64v4si;  break;
-	case V2SImode: gen = gen_aarch64_rev64v2si;  break;
-	case V4SFmode: gen = gen_aarch64_rev64v4sf;  break;
-	case V2SFmode: gen = gen_aarch64_rev64v2sf;  break;
-	case V8HFmode: gen = gen_aarch64_rev64v8hf;  break;
-	case V4HFmode: gen = gen_aarch64_rev64v4hf;  break;
+	case E_V16QImode: gen = gen_aarch64_rev16v16qi; break;
+	case E_V8QImode: gen = gen_aarch64_rev16v8qi;  break;
+	case E_V8HImode: gen = gen_aarch64_rev32v8hi;  break;
+	case E_V4HImode: gen = gen_aarch64_rev32v4hi;  break;
+	case E_V4SImode: gen = gen_aarch64_rev64v4si;  break;
+	case E_V2SImode: gen = gen_aarch64_rev64v2si;  break;
+	case E_V4SFmode: gen = gen_aarch64_rev64v4sf;  break;
+	case E_V2SFmode: gen = gen_aarch64_rev64v2sf;  break;
+	case E_V8HFmode: gen = gen_aarch64_rev64v8hf;  break;
+	case E_V4HFmode: gen = gen_aarch64_rev64v4hf;  break;
 	default:
 	  return false;
 	}
@@ -12777,18 +12777,18 @@ aarch64_evpc_dup (struct expand_vec_perm_d *d)
 
   switch (vmode)
     {
-    case V16QImode: gen = gen_aarch64_dup_lanev16qi; break;
-    case V8QImode: gen = gen_aarch64_dup_lanev8qi; break;
-    case V8HImode: gen = gen_aarch64_dup_lanev8hi; break;
-    case V4HImode: gen = gen_aarch64_dup_lanev4hi; break;
-    case V4SImode: gen = gen_aarch64_dup_lanev4si; break;
-    case V2SImode: gen = gen_aarch64_dup_lanev2si; break;
-    case V2DImode: gen = gen_aarch64_dup_lanev2di; break;
-    case V8HFmode: gen = gen_aarch64_dup_lanev8hf; break;
-    case V4HFmode: gen = gen_aarch64_dup_lanev4hf; break;
-    case V4SFmode: gen = gen_aarch64_dup_lanev4sf; break;
-    case V2SFmode: gen = gen_aarch64_dup_lanev2sf; break;
-    case V2DFmode: gen = gen_aarch64_dup_lanev2df; break;
+    case E_V16QImode: gen = gen_aarch64_dup_lanev16qi; break;
+    case E_V8QImode: gen = gen_aarch64_dup_lanev8qi; break;
+    case E_V8HImode: gen = gen_aarch64_dup_lanev8hi; break;
+    case E_V4HImode: gen = gen_aarch64_dup_lanev4hi; break;
+    case E_V4SImode: gen = gen_aarch64_dup_lanev4si; break;
+    case E_V2SImode: gen = gen_aarch64_dup_lanev2si; break;
+    case E_V2DImode: gen = gen_aarch64_dup_lanev2di; break;
+    case E_V8HFmode: gen = gen_aarch64_dup_lanev8hf; break;
+    case E_V4HFmode: gen = gen_aarch64_dup_lanev4hf; break;
+    case E_V4SFmode: gen = gen_aarch64_dup_lanev4sf; break;
+    case E_V2SFmode: gen = gen_aarch64_dup_lanev2sf; break;
+    case E_V2DFmode: gen = gen_aarch64_dup_lanev2df; break;
     default:
       return false;
     }
@@ -13215,25 +13215,25 @@ aarch64_gen_ccmp_first (rtx *prep_seq, rtx *gen_seq,
 
   switch (op_mode)
     {
-    case QImode:
-    case HImode:
-    case SImode:
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
       cmp_mode = SImode;
       icode = CODE_FOR_cmpsi;
       break;
 
-    case DImode:
+    case E_DImode:
       cmp_mode = DImode;
       icode = CODE_FOR_cmpdi;
       break;
 
-    case SFmode:
+    case E_SFmode:
       cmp_mode = SFmode;
       cc_mode = aarch64_select_cc_mode ((rtx_code) code, op0, op1);
       icode = cc_mode == CCFPEmode ? CODE_FOR_fcmpesf : CODE_FOR_fcmpsf;
       break;
 
-    case DFmode:
+    case E_DFmode:
       cmp_mode = DFmode;
       cc_mode = aarch64_select_cc_mode ((rtx_code) code, op0, op1);
       icode = cc_mode == CCFPEmode ? CODE_FOR_fcmpedf : CODE_FOR_fcmpdf;
@@ -13290,25 +13290,25 @@ aarch64_gen_ccmp_next (rtx *prep_seq, rtx *gen_seq, rtx prev, int cmp_code,
 
   switch (op_mode)
     {
-    case QImode:
-    case HImode:
-    case SImode:
+    case E_QImode:
+    case E_HImode:
+    case E_SImode:
       cmp_mode = SImode;
       icode = CODE_FOR_ccmpsi;
       break;
 
-    case DImode:
+    case E_DImode:
       cmp_mode = DImode;
       icode = CODE_FOR_ccmpdi;
       break;
 
-    case SFmode:
+    case E_SFmode:
       cmp_mode = SFmode;
       cc_mode = aarch64_select_cc_mode ((rtx_code) cmp_code, op0, op1);
       icode = cc_mode == CCFPEmode ? CODE_FOR_fccmpesf : CODE_FOR_fccmpsf;
       break;
 
-    case DFmode:
+    case E_DFmode:
       cmp_mode = DFmode;
       cc_mode = aarch64_select_cc_mode ((rtx_code) cmp_code, op0, op1);
       icode = cc_mode == CCFPEmode ? CODE_FOR_fccmpedf : CODE_FOR_fccmpdf;
