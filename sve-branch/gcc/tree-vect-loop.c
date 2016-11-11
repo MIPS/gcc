@@ -5772,8 +5772,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
             dump_printf (MSG_NOTE, "op not supported by target.\n");
 
           if (GET_MODE_SIZE (vec_mode) != UNITS_PER_WORD
-              || LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	          < vect_min_worthwhile_factor (code))
+	      || !vect_worthwhile_without_simd_p (loop_vinfo, code))
             return false;
 
           if (dump_enabled_p ())
@@ -5782,8 +5781,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
       /* Worthwhile without SIMD support?  */
       if (!VECTOR_MODE_P (TYPE_MODE (vectype_in))
-          && LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-   	     < vect_min_worthwhile_factor (code))
+	  && !vect_worthwhile_without_simd_p (loop_vinfo, code))
         {
           if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6329,7 +6327,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
    For a loop where we could vectorize the operation indicated by CODE,
    return the minimum vectorization factor that makes it worthwhile
    to use generic vectors.  */
-int
+static int
 vect_min_worthwhile_factor (enum tree_code code)
 {
   switch (code)
@@ -6348,6 +6346,20 @@ vect_min_worthwhile_factor (enum tree_code code)
     default:
       return INT_MAX;
     }
+}
+
+/* Return true if LOOP_VINFO is nonnull, if it has a constant vectorization
+   factor, and if it is worth decomposing CODE operations into scalar
+   operations for that vectorization factor.  */
+
+bool
+vect_worthwhile_without_simd_p (loop_vec_info loop_vinfo, tree_code code)
+{
+  if (!loop_vinfo)
+    return false;
+
+  return (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	  >= vect_min_worthwhile_factor (code));
 }
 
 
