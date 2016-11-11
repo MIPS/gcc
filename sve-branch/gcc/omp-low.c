@@ -4233,9 +4233,11 @@ omp_clause_aligned_alignment (tree clause)
   /* Otherwise return implementation defined alignment.  */
   unsigned int al = 1;
   opt_scalar_mode mode_iter;
-  int vs = targetm.vectorize.autovectorize_vector_sizes ();
-  if (vs)
-    vs = 1 << floor_log2 (vs);
+  auto_vec<poly_uint64, 8> sizes;
+  targetm.vectorize.autovectorize_vector_sizes (sizes);
+  poly_uint64 vs = 0;
+  for (unsigned int i = 0; i < sizes.length (); ++i)
+    vs = ordered_max (vs, sizes[i]);
   static enum mode_class classes[]
     = { MODE_INT, MODE_VECTOR_INT, MODE_FLOAT, MODE_VECTOR_FLOAT };
   for (int i = 0; i < 4; i += 2)
@@ -4246,16 +4248,16 @@ omp_clause_aligned_alignment (tree clause)
 	machine_mode vmode = targetm.vectorize.preferred_simd_mode (mode);
 	if (GET_MODE_CLASS (vmode) != classes[i + 1])
 	  continue;
-	while (vs
-	       && GET_MODE_SIZE (vmode) < vs
+	while (may_ne (vs, 0U)
+	       && must_lt (GET_MODE_SIZE (vmode), vs)
 	       && GET_MODE_2XWIDER_MODE (vmode).exists ())
 	  vmode = *GET_MODE_2XWIDER_MODE (vmode);
-	
+
 	tree type = lang_hooks.types.type_for_mode (mode, 1);
 	if (type == NULL_TREE || TYPE_MODE (type) != mode)
 	  continue;
-	type = build_vector_type (type, GET_MODE_SIZE (vmode)
-					/ GET_MODE_SIZE (mode));
+	unsigned int nelts = GET_MODE_SIZE (vmode) / GET_MODE_SIZE (mode);
+	type = build_vector_type (type, nelts);
 	if (TYPE_MODE (type) != vmode)
 	  continue;
 	if (TYPE_ALIGN_UNIT (type) > al)
@@ -4277,10 +4279,13 @@ omp_max_vf (void)
               || global_options_set.x_flag_tree_vectorize)))
     return 1;
 
-  int vs = targetm.vectorize.autovectorize_vector_sizes ();
-  if (vs)
+  auto_vec<poly_uint64, 8> sizes;
+  targetm.vectorize.autovectorize_vector_sizes (sizes);
+  if (!sizes.is_empty ())
     {
-      vs = 1 << floor_log2 (vs);
+      poly_uint64 vs = 0;
+      for (unsigned int i = 0; i < sizes.length (); ++i)
+	vs = ordered_max (vs, sizes[i]);
       return vs;
     }
   machine_mode vqimode = targetm.vectorize.preferred_simd_mode (QImode);

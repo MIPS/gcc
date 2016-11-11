@@ -2302,11 +2302,12 @@ loop_vec_info
 vect_analyze_loop (struct loop *loop)
 {
   loop_vec_info loop_vinfo;
-  unsigned int vector_sizes;
+  auto_vec<poly_uint64, 8> vector_sizes;
 
   /* Autodetect first vector size we try.  */
   current_vector_size = 0;
-  vector_sizes = targetm.vectorize.autovectorize_vector_sizes ();
+  targetm.vectorize.autovectorize_vector_sizes (vector_sizes);
+  unsigned int next_size = 0;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
@@ -2322,6 +2323,7 @@ vect_analyze_loop (struct loop *loop)
       return NULL;
     }
 
+  poly_uint64 autodetected_vector_size = 0;
   while (1)
     {
       /* Check the CFG characteristics of the loop (nesting, entry/exit).  */
@@ -2344,18 +2346,28 @@ vect_analyze_loop (struct loop *loop)
 
       destroy_loop_vec_info (loop_vinfo, true);
 
-      vector_sizes &= ~current_vector_size;
+      if (next_size == 0)
+	autodetected_vector_size = current_vector_size;
+
+      if (next_size < vector_sizes.length ()
+	  && must_eq (vector_sizes[next_size], autodetected_vector_size))
+	next_size += 1;
+
       if (fatal
-	  || vector_sizes == 0
-	  || current_vector_size == 0)
+	  || next_size == vector_sizes.length ()
+	  || must_eq (current_vector_size, 0U))
 	return NULL;
 
       /* Try the next biggest vector size.  */
-      current_vector_size = 1 << floor_log2 (vector_sizes);
+      current_vector_size = vector_sizes[next_size++];
       if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, vect_location,
-			 "***** Re-trying analysis with "
-			 "vector size %d\n", current_vector_size);
+	{
+	  dump_printf_loc (MSG_NOTE, vect_location,
+			   "***** Re-trying analysis with "
+			   "vector size ");
+	  print_dec (current_vector_size, dump_file, SIGNED);
+	  fprintf (dump_file, "\n");
+	}
     }
 }
 

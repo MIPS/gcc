@@ -4050,7 +4050,7 @@ extern tree build_reference_type_for_mode (tree, machine_mode, bool);
 extern tree build_reference_type (tree);
 extern tree build_vector_type_for_mode (tree, machine_mode);
 extern tree build_vector_type (tree innertype, int nunits);
-extern tree build_truth_vector_type (unsigned, unsigned);
+extern tree build_truth_vector_type (poly_uint64, poly_uint64);
 extern tree build_same_sized_truth_vector_type (tree vectype);
 extern tree build_opaque_vector_type (tree innertype, int nunits);
 extern tree build_index_type (tree);

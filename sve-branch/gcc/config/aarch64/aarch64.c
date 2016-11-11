@@ -10519,12 +10519,13 @@ aarch64_preferred_simd_mode (scalar_mode mode)
   return aarch64_simd_container_mode (mode, 128);
 }
 
-/* Return the bitmask of possible vector sizes for the vectorizer
+/* Return a list of possible vector sizes for the vectorizer
    to iterate over.  */
-static unsigned int
-aarch64_autovectorize_vector_sizes (void)
+static void
+aarch64_autovectorize_vector_sizes (vec<poly_uint64> &sizes)
 {
-  return (16 | 8);
+  sizes.safe_push (16);
+  sizes.safe_push (8);
 }
 
 /* Implement TARGET_MANGLE_TYPE.  */
