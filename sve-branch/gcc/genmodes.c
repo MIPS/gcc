@@ -45,6 +45,9 @@ static const char *const mode_class_names[MAX_MODE_CLASS] =
 # define EXTRA_MODES_FILE ""
 #endif
 
+static int bits_per_unit;
+static int max_bitsize_mode_any_int;
+
 /* Data structure for building up what we know about a mode.
    They're clustered by mode class.  */
 struct mode_data
@@ -375,6 +378,12 @@ complete_mode (struct mode_data *m)
       m->bytesize = 2 * m->component->bytesize;
       break;
 
+    case MODE_VECTOR_BOOL:
+      validate_mode (m, UNSET, UNSET, SET, SET, UNSET);
+      m->precision = m->ncomponents;
+      m->bytesize = (m->ncomponents + bits_per_unit - 1) / bits_per_unit;
+      break;
+
     case MODE_VECTOR_INT:
     case MODE_VECTOR_FLOAT:
     case MODE_VECTOR_FRACT:
@@ -524,6 +533,37 @@ make_vector_modes (enum mode_class cl, unsigned int width,
       v->component = m;
       v->ncomponents = ncomponents;
     }
+}
+
+/* Create a vector of booleans with the given number of elements.
+   Each element has BImode and by default the vector is packed,
+   with element 0 being the lsb of the first byte in memory.
+   The target can create an upacked representation by changing
+   the size of the vector.  */
+#define VECTOR_BOOL_MODE(BITS) make_vector_bool_mode (BITS, __FILE__, __LINE__)
+static void ATTRIBUTE_UNUSED
+make_vector_bool_mode (unsigned int bits,
+		       const char *file, unsigned int line)
+{
+  struct mode_data *m = find_mode ("BI");
+  if (!m)
+    {
+      error ("%s:%d: no mode \"BI\"", file, line);
+      return;
+    }
+
+  char buf[8];
+  if ((size_t) snprintf (buf, sizeof buf, "V%uBI", bits) >= sizeof buf)
+    {
+      error ("%s:%d: number of vector elements is too high",
+	     file, line);
+      return;
+    }
+
+  struct mode_data *v = new_mode (MODE_VECTOR_BOOL,
+				  xstrdup (buf), file, line);
+  v->component = m;
+  v->ncomponents = bits;
 }
 
 /* Input.  */
@@ -757,9 +797,6 @@ make_vector_mode (enum mode_class bclass,
 #define ADJUST_FLOAT_FORMAT(M, X)    _ADD_ADJUST (format, M, X, FLOAT, FLOAT)
 #define ADJUST_IBIT(M, X)  _ADD_ADJUST (ibit, M, X, ACCUM, UACCUM)
 #define ADJUST_FBIT(M, X)  _ADD_ADJUST (fbit, M, X, FRACT, UACCUM)
-
-static int bits_per_unit;
-static int max_bitsize_mode_any_int;
 
 static void
 create_modes (void)
@@ -1433,7 +1470,8 @@ emit_mode_wider (void)
 
 	  /* For vectors we want twice the number of components,
 	     with the same element type.  */
-	  if (m->cl == MODE_VECTOR_INT
+	  if (m->cl == MODE_VECTOR_BOOL
+	      || m->cl == MODE_VECTOR_INT
 	      || m->cl == MODE_VECTOR_FLOAT
 	      || m->cl == MODE_VECTOR_FRACT
 	      || m->cl == MODE_VECTOR_UFRACT
@@ -1652,6 +1690,7 @@ emit_mode_adjustments (void)
       printf ("\n  /* %s:%d */\n", a->file, a->line);
       switch (a->mode->cl)
 	{
+	case MODE_VECTOR_BOOL:
 	case MODE_VECTOR_INT:
 	case MODE_VECTOR_FLOAT:
 	case MODE_VECTOR_FRACT:
@@ -1681,6 +1720,10 @@ emit_mode_adjustments (void)
 	      printf ("  mode_unit_size[E_%smode] = s;\n", m->name);
 	      printf ("  mode_base_align[E_%smode] = s & (~s + 1);\n",
 		      m->name);
+	      break;
+
+	    case MODE_VECTOR_BOOL:
+	      /* Changes to BImode should not affect vector booleans.  */
 	      break;
 
 	    case MODE_VECTOR_INT:
@@ -1721,6 +1764,10 @@ emit_mode_adjustments (void)
 	    case MODE_COMPLEX_INT:
 	    case MODE_COMPLEX_FLOAT:
 	      printf ("  mode_base_align[E_%smode] = s;\n", m->name);
+	      break;
+
+	    case MODE_VECTOR_BOOL:
+	      /* Changes to BImode should not affect vector booleans.  */
 	      break;
 
 	    case MODE_VECTOR_INT:

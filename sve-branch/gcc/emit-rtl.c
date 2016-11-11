@@ -6009,6 +6009,16 @@ gen_const_vec_duplicate_1 (machine_mode mode, rtx el)
 rtx
 gen_const_vec_duplicate (machine_mode mode, rtx elt)
 {
+  if (GET_MODE_CLASS (mode) == MODE_VECTOR_BOOL)
+    {
+      if (elt == const1_rtx || elt == constm1_rtx)
+	return CONST1_RTX (mode);
+      else if (elt == const0_rtx)
+	return CONST0_RTX (mode);
+      else
+	gcc_unreachable ();
+    }
+
   scalar_mode inner_mode = GET_MODE_INNER (mode);
   if (elt == CONST0_RTX (inner_mode))
     return CONST0_RTX (mode);
@@ -6340,6 +6350,12 @@ init_emit_once (void)
   FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
     const_tiny_rtx[3][(int) mode] = constm1_rtx;
 
+  /* For BImode, 1 and -1 are unsigned and signed interpretations
+     of the same value.  */
+  const_tiny_rtx[0][(int) BImode] = const0_rtx;
+  const_tiny_rtx[1][(int) BImode] = const_true_rtx;
+  const_tiny_rtx[3][(int) BImode] = const_true_rtx;
+
   for (mode = MIN_MODE_PARTIAL_INT;
        mode <= MAX_MODE_PARTIAL_INT;
        mode = (machine_mode_enum) ((int) mode + 1))
@@ -6355,6 +6371,15 @@ init_emit_once (void)
     {
       rtx inner = const_tiny_rtx[0][(int)GET_MODE_INNER (mode)];
       const_tiny_rtx[0][(int) mode] = gen_rtx_CONCAT (mode, inner, inner);
+    }
+
+  /* As for BImode, "all 1" and "all -1" are unsigned and signed
+     interpretations of the same value.  */
+  FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_BOOL)
+    {
+      const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
+      const_tiny_rtx[3][(int) mode] = gen_const_vector (mode, 3);
+      const_tiny_rtx[1][(int) mode] = const_tiny_rtx[3][(int) mode];
     }
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_INT)
@@ -6457,10 +6482,6 @@ init_emit_once (void)
   for (i = (int) CCmode; i < (int) MAX_MACHINE_MODE; ++i)
     if (GET_MODE_CLASS ((machine_mode_enum) i) == MODE_CC)
       const_tiny_rtx[0][i] = const0_rtx;
-
-  const_tiny_rtx[0][(int) BImode] = const0_rtx;
-  if (STORE_FLAG_VALUE == 1)
-    const_tiny_rtx[1][(int) BImode] = const1_rtx;
 
   FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_POINTER_BOUNDS)
     {
