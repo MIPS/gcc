@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "gimple-walk.h"
 #include "dbgcnt.h"
+#include "gimple-fold.h"
 
 
 /* Recursively free the memory allocated for the SLP tree rooted at NODE.  */
@@ -204,18 +205,53 @@ vect_get_place_in_interleaving_chain (gimple *stmt, gimple *first_stmt)
   return -1;
 }
 
+/* Check whether it is possible to load COUNT elements of type ELT_MODE
+   using the method implemented by duplicate_and_interleave.  Return true
+   if so, returning the number of intermediate vectors in *NVECTORS_OUT
+   and the mode of each intermediate vector in *VEC_MODE_OUT.  */
 
-/* Get the defs for the rhs of STMT (collect them in OPRNDS_INFO), check that
-   they are of a valid type and that they match the defs of the first stmt of
-   the SLP group (stored in OPRNDS_INFO).  If there was a fatal error
-   return -1, if the error could be corrected by swapping operands of the
-   operation return 1, if everything is ok return 0.  */
+static bool
+can_duplicate_and_interleave_p (unsigned int count, machine_mode elt_mode,
+				unsigned int *nvectors_out,
+				machine_mode *vec_mode_out)
+{
+  poly_int64 elt_bytes = count * GET_MODE_SIZE (elt_mode);
+  poly_int64 nelts;
+  unsigned int nvectors = 1;
+  for (;;)
+    {
+      scalar_int_mode int_mode;
+      if (multiple_p (current_vector_size, elt_bytes, &nelts)
+	  && int_mode_for_size (elt_bytes * BITS_PER_UNIT,
+				0).exists (&int_mode))
+	{
+	  machine_mode vec_mode = mode_for_vector (int_mode, nelts);
+	  if (vec_mode != VOIDmode
+	      && targetm.vector_mode_supported_p (vec_mode))
+	    {
+	      *nvectors_out = nvectors;
+	      *vec_mode_out = vec_mode;
+	      return true;
+	    }
+	}
+      if (!multiple_p (elt_bytes, 2, &elt_bytes))
+	return false;
+      nvectors *= 2;
+    }
+}
+
+/* Get the defs for the rhs of STMTS[STMT_NUM] (collect them in OPRNDS_INFO),
+   check that they are of a valid type and that they match the defs of the
+   first stmt of the SLP group (stored in OPRNDS_INFO).  If there was a
+   fatal error return -1, if the error could be corrected by swapping
+   operands of the operation return 1, if everything is ok return 0.  */
 
 static int 
 vect_get_and_check_slp_defs (vec_info *vinfo,
-			     gimple *stmt, unsigned stmt_num,
-                             vec<slp_oprnd_info> *oprnds_info)
+			     vec<gimple *> stmts, unsigned stmt_num,
+			     vec<slp_oprnd_info> *oprnds_info)
 {
+  gimple *stmt = stmts[stmt_num];
   tree oprnd;
   unsigned int i, number_of_oprnds;
   gimple *def_stmt;
@@ -358,15 +394,15 @@ again:
 	     types for reduction chains: the first stmt must be a
 	     vect_reduction_def (a phi node), and the rest
 	     vect_internal_def.  */
-	  if (((oprnd_info->first_dt != dt
-                && !(oprnd_info->first_dt == vect_reduction_def
-                     && dt == vect_internal_def)
-		&& !((oprnd_info->first_dt == vect_external_def
-		      || oprnd_info->first_dt == vect_constant_def)
-		     && (dt == vect_external_def
-			 || dt == vect_constant_def)))
-               || !types_compatible_p (oprnd_info->first_op_type,
-				       TREE_TYPE (oprnd))))
+	  tree type = TREE_TYPE (oprnd);
+	  if ((oprnd_info->first_dt != dt
+	       && !(oprnd_info->first_dt == vect_reduction_def
+		    && dt == vect_internal_def)
+	       && !((oprnd_info->first_dt == vect_external_def
+		     || oprnd_info->first_dt == vect_constant_def)
+		    && (dt == vect_external_def
+			|| dt == vect_constant_def)))
+	      || !types_compatible_p (oprnd_info->first_op_type, type))
 	    {
 	      /* Try swapping operands if we got a mismatch.  */
 	      if (i == 0
@@ -383,6 +419,26 @@ again:
 
 	      return 1;
 	    }
+	  unsigned int nvectors;
+	  machine_mode vec_mode;
+	  if ((dt == vect_constant_def
+	       || dt == vect_external_def)
+	      && !current_vector_size.is_constant ()
+	      && (TREE_CODE (type) == BOOLEAN_TYPE
+		  || !can_duplicate_and_interleave_p (stmts.length (),
+						      TYPE_MODE (type),
+						      &nvectors, &vec_mode)))
+	    {
+	      if (dump_enabled_p ())
+		{
+		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				   "Build SLP failed: invalid type of def "
+				   "for variable-length SLP ");
+		  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, oprnd);
+		  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
+		}
+	      return -1;
+	    }
 	}
 
       /* Check the types of the definitions.  */
@@ -390,6 +446,8 @@ again:
 	{
 	case vect_constant_def:
 	case vect_external_def:
+	  break;
+
         case vect_reduction_def:
 	  /* We must already have set a vector size by now.  */
 	  gcc_checking_assert (must_ne (current_vector_size, 0U));
@@ -929,7 +987,7 @@ vect_build_slp_tree (vec_info *vinfo,
   slp_oprnd_info oprnd_info;
   FOR_EACH_VEC_ELT (stmts, i, stmt)
     {
-      switch (vect_get_and_check_slp_defs (vinfo, stmt, i, &oprnds_info))
+      switch (vect_get_and_check_slp_defs (vinfo, stmts, i, &oprnds_info))
 	{
 	case 0:
 	  break;
@@ -2879,6 +2937,121 @@ vect_mask_constant_operand_p (gimple *stmt, int opnum)
   return VECTOR_BOOLEAN_TYPE_P (STMT_VINFO_VECTYPE (stmt_vinfo));
 }
 
+/* Build a variable-length vector in which ELTS[0:NELTS] are repeated
+   to a fill NRESULTS vectors of type VECTOR_TYPE.  Store the vectors in
+   RESULTS and add any new instructions to SEQ.
+
+   The approach we use is:
+
+   (1) Find a vector mode VM with integer elements of mode IM.
+
+   (2) Replace ELTS[0:NELTS] with ELTS'[0:NELTS'], where each element of
+       ELTS' has mode IM.  This involves creating NELTS' VIEW_CONVERT_EXPRs
+       from small vectors to IM.
+
+   (3) Duplicate each ELTS'[I] into a vector of mode VM.
+
+   (4) Use a tree of VEC_INTERLEAVE_HI/LOs to create VMs with the
+       correct byte contents.
+
+   (5) Use VIEW_CONVERT_EXPR to cast the final VM to the required type.
+
+   We try to find the largest IM for which this sequence works, in order
+   to cut down on the number of interleaves.  */
+
+static void
+duplicate_and_interleave (gimple_seq *seq, tree vector_type,
+			  unsigned int nelts, tree *elts,
+			  unsigned int nresults, vec<tree> &results)
+{
+  tree element_type = TREE_TYPE (vector_type);
+
+  /* (1) Find a vector mode VM with integer elements of mode IM.  */
+  unsigned int nvectors = 1;
+  machine_mode new_vector_mode;
+  if (!can_duplicate_and_interleave_p (nelts, TYPE_MODE (element_type),
+				       &nvectors, &new_vector_mode))
+    gcc_unreachable ();
+
+  /* Get the types associated with IM and VM above.  */
+  unsigned int new_element_bits = GET_MODE_UNIT_BITSIZE (new_vector_mode);
+  tree new_element_type
+    = build_nonstandard_integer_type (new_element_bits, 1);
+  tree new_vector_type
+    = build_vector_type (new_element_type, GET_MODE_NUNITS (new_vector_mode));
+
+  /* Get a vector type that holds ELTS[0:NELTS/NELTS'].  */
+  unsigned int partial_nelts = nelts / nvectors;
+  tree partial_vector_type = build_vector_type (element_type, partial_nelts);
+
+  auto_vec<tree, 16> pieces;
+  pieces.safe_grow (nvectors * 2);
+  for (unsigned int i = 0; i < nvectors; ++i)
+    {
+      /* (2) Replace ELTS[0:NELTS] with ELTS'[0:NELTS'], where each element of
+	     ELTS' has mode IM.  */
+      tree t = gimple_build_vector (seq, partial_vector_type,
+				    partial_nelts, elts + i * partial_nelts);
+      t = gimple_build (seq, VIEW_CONVERT_EXPR, new_element_type, t);
+
+      /* (3) Duplicate each ELTS'[I] into a vector of mode VM.  */
+      pieces[i] = gimple_build_vector_from_val (seq, new_vector_type, t);
+    }
+
+  /* (4) Use a tree of VEC_INTERLEAVE_HIs to create a single VM with the
+	 correct byte contents.
+
+     We need to repeat the following operation log2(nvectors) times:
+
+	out[i * 2] = VEC_INTERLEAVE_HI (in[i], in[i + lo_start]);
+	out[i * 2 + 1] = VEC_INTERLEAVE_LO (in[i], in[i + lo_start]);
+
+     However, if each input repeats every N elements and the VF is
+     a multiple of N * 2, the LO result is the same as the HI.  */
+  unsigned int in_start = 0;
+  unsigned int out_start = nvectors;
+  unsigned int lo_start = nvectors / 2;
+  /* A bound on the number of outputs needed to produce NRESULTS results
+     in the final iteration.  */
+  unsigned int noutputs_bound = nvectors * nresults;
+  for (unsigned int in_repeat = 1; in_repeat < nvectors; in_repeat *= 2)
+    {
+      noutputs_bound /= 2;
+      unsigned int limit = MIN (noutputs_bound, nvectors);
+      for (unsigned int i = 0; i < limit; ++i)
+	{
+	  if ((i & 1) != 0
+	      && multiple_p (GET_MODE_NUNITS (new_vector_mode),
+			     2 * in_repeat))
+	    {
+	      pieces[out_start + i] = pieces[out_start + i - 1];
+	      continue;
+	    }
+
+	  tree output = make_ssa_name (new_vector_type);
+	  tree input1 = pieces[in_start + (i / 2)];
+	  tree input2 = pieces[in_start + (i / 2) + lo_start];
+	  internal_fn fn = ((i & 1) != 0
+			    ? IFN_VEC_INTERLEAVE_LO
+			    : IFN_VEC_INTERLEAVE_HI);
+	  gcall *call = gimple_build_call_internal (fn, 2, input1, input2);
+	  gimple_call_set_lhs (call, output);
+	  gimple_seq_add_stmt (seq, call);
+	  pieces[out_start + i] = output;
+	}
+      std::swap (in_start, out_start);
+    }
+
+  /* (5) Use VIEW_CONVERT_EXPR to cast the final VM to the required type.  */
+  results.reserve (nresults);
+  for (unsigned int i = 0; i < nresults; ++i)
+    if (i < nvectors)
+      results.quick_push (gimple_build (seq, VIEW_CONVERT_EXPR, vector_type,
+					pieces[in_start + i]));
+    else
+      results.quick_push (results[i - nvectors]);
+}
+
 
 /* For constant and loop invariant defs of SLP_NODE this function returns
    (vector) defs (VEC_OPRNDS) that will be used in the vectorized stmts.
@@ -2896,7 +3069,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
   vec<gimple *> stmts = SLP_TREE_SCALAR_STMTS (slp_node);
   gimple *stmt = stmts[0];
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
-  unsigned nunits;
+  unsigned HOST_WIDE_INT nunits;
   tree vec_cst;
   tree *elts;
   unsigned j, number_of_places_left_in_vector;
@@ -2907,12 +3080,13 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
   unsigned number_of_copies = 1;
   vec<tree> voprnds;
   voprnds.create (number_of_vectors);
-  bool constant_p, is_store;
+  bool is_store;
   tree neutral_op = NULL;
   enum tree_code code = gimple_expr_code (stmt);
   gimple *def_stmt;
   struct loop *loop;
   gimple_seq ctor_seq = NULL;
+  auto_vec<tree, 16> permute_results;
 
   /* Check if vector type is a boolean vector.  */
   if (TREE_CODE (TREE_TYPE (op)) == BOOLEAN_TYPE
@@ -2921,8 +3095,6 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
       = build_same_sized_truth_vector_type (STMT_VINFO_VECTYPE (stmt_vinfo));
   else
     vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
-  /* Enforced by vect_get_and_check_slp_defs.  */
-  nunits = TYPE_VECTOR_SUBPARTS (vector_type).to_constant ();
 
   if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def
       && reduc_index != -1)
@@ -2992,11 +3164,6 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 
   gcc_assert (op);
 
-  if (CONSTANT_CLASS_P (op))
-    constant_p = true;
-  else
-    constant_p = false;
-
   /* NUMBER_OF_COPIES is the number of times we need to use the same values in
      created vectors. It is greater than 1 if unrolling is performed.
 
@@ -3012,6 +3179,9 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
      For example, NUNITS is four as before, and the group size is 8
      (s1, s2, ..., s8).  We will create two vectors {s1, s2, s3, s4} and
      {s5, s6, s7, s8}.  */
+
+  if (!TYPE_VECTOR_SUBPARTS (vector_type).is_constant (&nunits))
+    nunits = group_size;
 
   number_of_copies = nunits * number_of_vectors / group_size;
 
@@ -3140,8 +3310,6 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 		}
 	    }
 	  elts[number_of_places_left_in_vector] = op;
-	  if (!CONSTANT_CLASS_P (op))
-	    constant_p = false;
 	  if (TREE_CODE (orig_op) == SSA_NAME
 	      && !SSA_NAME_IS_DEFAULT_DEF (orig_op)
 	      && STMT_VINFO_BB_VINFO (stmt_vinfo)
@@ -3153,16 +3321,17 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
             {
               number_of_places_left_in_vector = nunits;
 
-	      if (constant_p)
-		vec_cst = build_vector (vector_type, nunits, elts);
+	      if (must_eq (TYPE_VECTOR_SUBPARTS (vector_type), nunits))
+		/* Build the vector directly from ELTS.  */
+		vec_cst = gimple_build_vector (&ctor_seq, vector_type,
+					       nunits, elts);
 	      else
 		{
-		  vec<constructor_elt, va_gc> *v;
-		  unsigned k;
-		  vec_alloc (v, nunits);
-		  for (k = 0; k < nunits; ++k)
-		    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, elts[k]);
-		  vec_cst = build_constructor (vector_type, v);
+		  if (vec_oprnds->is_empty ())
+		    duplicate_and_interleave (&ctor_seq, vector_type,
+					      nunits, elts, number_of_vectors,
+					      permute_results);
+		  vec_cst = permute_results[number_of_vectors - j - 1];
 		}
 	      tree init;
 	      gimple_stmt_iterator gsi;
