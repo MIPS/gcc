@@ -1407,6 +1407,19 @@ default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* The default implementation of TARGET_HARD_REGNO_CALL_PART_CLOBBERED.  */
+
+bool
+default_hard_regno_call_part_clobbered (unsigned int regno ATTRIBUTE_UNUSED,
+					machine_mode mode ATTRIBUTE_UNUSED)
+{
+#ifdef HARD_REGNO_CALL_PART_CLOBBERED
+  return HARD_REGNO_CALL_PART_CLOBBERED (regno, MACRO_MODE (mode));
+#else
+  return false;
+#endif
+}
+
 /* The default implementation of TARGET_MODE_DEPENDENT_ADDRESS_P.  */
 
 bool
@@ -1733,7 +1746,7 @@ default_dwarf_frame_reg_mode (int regno)
 {
   machine_mode save_mode = reg_raw_mode[regno];
 
-  if (HARD_REGNO_CALL_PART_CLOBBERED (regno, save_mode))
+  if (targetm.hard_regno_call_part_clobbered (regno, save_mode))
     save_mode = choose_hard_reg_mode (regno, 1, true);
   return save_mode;
 }
