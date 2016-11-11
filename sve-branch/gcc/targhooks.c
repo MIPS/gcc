@@ -1625,6 +1625,14 @@ default_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 #endif
 }
 
+/* The default implementation of TARGET_ESTIMATED_POLY_VALUE.  */
+
+HOST_WIDE_INT
+default_estimated_poly_value (poly_int64 x)
+{
+  return x.coeffs[0];
+}
+
 /* For hooks which use the MOVE_RATIO macro, this gives the legacy default
    behavior.  SPEED_P is true if we are compiling for speed.  */
 

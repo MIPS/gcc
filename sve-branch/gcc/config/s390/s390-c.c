@@ -27,6 +27,8 @@
    included anymore - a mechanism supposed to avoid adding frontend -
    backend dependencies.  */
 
+#define TARGET_C_FILE 1
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"

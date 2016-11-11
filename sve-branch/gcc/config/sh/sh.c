@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #include <sstream>
 
+#define TARGET_C_FILE 1
+
 #include "config.h"
 #define INCLUDE_VECTOR
 #include "system.h"

@@ -21,6 +21,8 @@
    <http://www.gnu.org/licenses/>.  */
 
 
+#define TARGET_C_FILE 1
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"

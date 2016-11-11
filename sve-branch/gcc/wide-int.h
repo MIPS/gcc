@@ -275,7 +275,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* The type of result produced by a unary operation on type T.  */
 #define WI_UNARY_RESULT(T) \
-  typename wi::unary_traits <T>::result_type
+  typename wi::binary_traits <T, T>::result_type
 
 /* Define a variable RESULT to hold the result of a binary operation on
    X and Y, which have types T1 and T2 respectively.  Define VAL to
@@ -368,11 +368,6 @@ namespace wi
 	    enum precision_type P1 = int_traits <T1>::precision_type,
 	    enum precision_type P2 = int_traits <T2>::precision_type>
   struct binary_traits;
-
-  /* The result of a unary operation on T is the same as the result of
-     a binary operation on two values of type T.  */
-  template <typename T>
-  struct unary_traits : public binary_traits <T, T> {};
 
   /* Specify the result type for each supported combination of binary
      inputs.  Note that CONST_PRECISION and VAR_PRECISION cannot be
@@ -3116,6 +3111,20 @@ inline WI_SIGNED_SHIFT_RESULT (T1, T2)
 operator >> (const T1 &x, const T2 &y)
 {
   return wi::arshift (x, y);
+}
+
+template <typename T1, typename T2>
+inline WI_SIGNED_SHIFT_RESULT (T1, T2)
+operator / (const T1 &x, const T2 &y)
+{
+  return wi::sdiv_trunc (x, y);
+}
+
+template <typename T1, typename T2>
+inline WI_SIGNED_SHIFT_RESULT (T1, T2)
+operator % (const T1 &x, const T2 &y)
+{
+  return wi::smod_trunc (x, y);
 }
 
 template<typename T>

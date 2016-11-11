@@ -3676,6 +3676,14 @@ and uses a multiple of @code{BRANCH_COST} otherwise.",
 unsigned int, (edge e),
 default_max_noce_ifcvt_seq_cost)
 
+DEFHOOK
+(estimated_poly_value,
+ "Return an estimate of the runtime value of @var{val}, for use in\n\
+things like cost calculations or profiling frequencies.  The default\n\
+implementation returns the lowest possible value of @var{val}.",
+ HOST_WIDE_INT, (poly_int64 val),
+ default_estimated_poly_value)
+
 /* Permit speculative instructions in delay slots during delayed-branch 
    scheduling.  */
 DEFHOOK

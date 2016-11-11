@@ -1558,6 +1558,7 @@ write_insn_preds_c (void)
 	  rtx_reader_ptr->get_top_level_filename ());
 
   puts ("\
+#define TARGET_C_FILE 1\n\
 #include \"config.h\"\n\
 #include \"system.h\"\n\
 #include \"coretypes.h\"\n\

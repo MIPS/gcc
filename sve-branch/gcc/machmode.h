@@ -663,7 +663,11 @@ extern const unsigned char mode_complex[NUM_MACHINE_MODES];
    to treat everything as fixed_size_mode.  This should go away once
    macros are moved to target hooks.  It shouldn't be used in other
    contexts.  */
+#if NUM_POLY_INT_COEFFS == 1
+#define MACRO_MODE(MODE) (as_a <fixed_size_mode> (MODE))
+#else
 #define MACRO_MODE(MODE) (MODE)
+#endif
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.

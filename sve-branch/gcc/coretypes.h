@@ -372,6 +372,18 @@ typedef unsigned char uchar;
 #include "signop.h"
 #include "wide-int.h" 
 #include "wide-int-print.h"
+
+/* On targets that don't need polynomial offsets, target-specific code
+   should be able to treat poly_int like a normal constant, with a
+   conversion operator going from the former to the latter.  */
+#if defined (TARGET_C_FILE) && NUM_POLY_INT_COEFFS == 1
+#define POLY_INT_CONVERSION 1
+#else
+#define POLY_INT_CONVERSION 0
+#endif
+
+#include "poly-int.h"
+#include "poly-int-types.h"
 #include "insn-modes-inline.h"
 #include "machmode.h"
 #include "double-int.h"
