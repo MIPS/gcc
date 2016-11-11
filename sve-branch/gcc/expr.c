@@ -9094,7 +9094,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    && target
 	    && REG_P (target)
 	    && ! unsignedp
-	    && mode == GET_MODE_WIDER_MODE (word_mode)
+	    && mode == GET_MODE_WIDER_MODE (word_mode).else_void ()
 	    && GET_MODE_SIZE (mode) == 2 * GET_MODE_SIZE (word_mode)
 	    && TREE_CONSTANT (treeop1)
 	    && TREE_CODE (treeop0) == SSA_NAME)
