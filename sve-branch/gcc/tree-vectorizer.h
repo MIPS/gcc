@@ -123,7 +123,7 @@ typedef struct _slp_instance {
   unsigned int group_size;
 
   /* The unrolling factor required to vectorized this SLP instance.  */
-  unsigned int unrolling_factor;
+  poly_uint64 unrolling_factor;
 
   /* The group of nodes that contain loads of this SLP instance.  */
   vec<slp_tree> loads;
@@ -244,7 +244,7 @@ typedef struct _loop_vec_info : public vec_info {
   bool vectorizable;
 
   /* Unrolling factor  */
-  int vectorization_factor;
+  poly_uint64 vectorization_factor;
 
   /* Unknown DRs according to which loop was peeled.  */
   struct data_reference *unaligned_dr;
@@ -279,7 +279,7 @@ typedef struct _loop_vec_info : public vec_info {
 
   /* The unrolling factor needed to SLP the loop. In case of that pure SLP is
      applied to the loop, i.e., no unrolling is needed, this is 1.  */
-  unsigned slp_unrolling_factor;
+  poly_uint64 slp_unrolling_factor;
 
   /* Reduction cycles detected in the loop. Used in loop-aware SLP.  */
   vec<gimple *> reductions;
@@ -770,8 +770,7 @@ struct dataref_aux {
    conversion.  */
 #define MAX_INTERM_CVT_STEPS         3
 
-/* The maximum vectorization factor supported by any target (V64QI).  */
-#define MAX_VECTORIZATION_FACTOR 64
+#define MAX_VECTORIZATION_FACTOR INT_MAX
 
 extern vec<stmt_vec_info> stmt_vec_info_vec;
 
@@ -1018,6 +1017,16 @@ unlimited_cost_model (loop_p loop)
   return (flag_vect_cost_model == VECT_COST_MODEL_UNLIMITED);
 }
 
+/* Return the number of vectors of type VECTYPE that are needed to get
+   NUNITS elements.  NUNITS should be based on the vectorization factor,
+   so it is always a known multiple of the number of elements in VECTYPE.  */
+
+static inline unsigned int
+vect_get_num_vectors (poly_uint64 nunits, tree vectype)
+{
+  return exact_div (nunits, TYPE_VECTOR_SUBPARTS (vectype)).to_constant ();
+}
+
 /* Return the number of copies needed for loop vectorization when
    a statement operates on vectors of type VECTYPE.  This is the
    vectorization factor divided by the number of elements in
@@ -1026,10 +1035,18 @@ unlimited_cost_model (loop_p loop)
 static inline unsigned int
 vect_get_num_copies (loop_vec_info loop_vinfo, tree vectype)
 {
-  gcc_checking_assert (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-		       % TYPE_VECTOR_SUBPARTS (vectype) == 0);
-  return (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	  / TYPE_VECTOR_SUBPARTS (vectype));
+  return vect_get_num_vectors (LOOP_VINFO_VECT_FACTOR (loop_vinfo), vectype);
+}
+
+/* Return the vectorization factor that should be used for costing
+   purposes while vectorizing the loop described by LOOP_VINFO.
+   Pick a reasonable estimate if the vectorization factor isn't
+   known at compile time.  */
+
+static inline unsigned int
+vect_vf_for_cost (loop_vec_info loop_vinfo)
+{
+  return estimated_poly_value (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
 }
 
 /* Source location */
@@ -1116,7 +1133,7 @@ extern enum dr_alignment_support vect_supportable_dr_alignment
                                            (struct data_reference *, bool);
 extern tree vect_get_smallest_scalar_type (gimple *, HOST_WIDE_INT *,
                                            HOST_WIDE_INT *);
-extern bool vect_analyze_data_ref_dependences (loop_vec_info, int *);
+extern bool vect_analyze_data_ref_dependences (loop_vec_info, unsigned int *);
 extern bool vect_slp_analyze_instance_dependence (slp_instance);
 extern bool vect_enhance_data_refs_alignment (loop_vec_info);
 extern bool vect_analyze_data_refs_alignment (loop_vec_info);
@@ -1126,7 +1143,7 @@ extern bool vect_analyze_data_ref_accesses (vec_info *);
 extern bool vect_prune_runtime_alias_test_list (loop_vec_info);
 extern bool vect_check_gather_scatter (gimple *, loop_vec_info,
 				       gather_scatter_info *);
-extern bool vect_analyze_data_refs (vec_info *, int *);
+extern bool vect_analyze_data_refs (vec_info *, poly_uint64 *);
 extern tree vect_create_data_ref_ptr (gimple *, tree, struct loop *, tree,
 				      tree *, gimple_stmt_iterator *,
 				      gimple **, bool, bool *,
@@ -1181,7 +1198,7 @@ extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
 /* In tree-vect-slp.c.  */
 extern void vect_free_slp_instance (slp_instance);
 extern bool vect_transform_slp_perm_load (slp_tree, vec<tree> ,
-                                          gimple_stmt_iterator *, int,
+					  gimple_stmt_iterator *, poly_uint64,
                                           slp_instance, bool);
 extern bool vect_slp_analyze_operations (vec<slp_instance> slp_instances,
 					 void *);
