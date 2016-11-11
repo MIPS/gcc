@@ -575,7 +575,7 @@ get_secondary_mem (rtx x ATTRIBUTE_UNUSED, machine_mode mode,
      (e.g., FP registers).  */
 
 #ifdef SECONDARY_MEMORY_NEEDED_MODE
-  mode = SECONDARY_MEMORY_NEEDED_MODE (mode);
+  mode = SECONDARY_MEMORY_NEEDED_MODE (MACRO_MODE (mode));
 #else
   if (GET_MODE_BITSIZE (mode) < BITS_PER_WORD && INTEGRAL_MODE_P (mode))
     mode = mode_for_size (BITS_PER_WORD, GET_MODE_CLASS (mode), 0);

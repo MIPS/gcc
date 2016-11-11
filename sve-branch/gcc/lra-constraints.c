@@ -1150,7 +1150,8 @@ check_and_process_move (bool *change_p, bool *sec_mem_p ATTRIBUTE_UNUSED)
   if (SECONDARY_MEMORY_NEEDED (sclass, dclass, GET_MODE (src))
 #ifdef SECONDARY_MEMORY_NEEDED_MODE
       && ((sclass != NO_REGS && dclass != NO_REGS)
-	  || GET_MODE (src) != SECONDARY_MEMORY_NEEDED_MODE (GET_MODE (src)))
+	  || (GET_MODE (src)
+	      != SECONDARY_MEMORY_NEEDED_MODE (MACRO_MODE (GET_MODE (src)))))
 #endif
       )
     {
@@ -3763,7 +3764,7 @@ curr_insn_transform (bool check_only_p)
       rld = partial_subreg_p (GET_MODE (src), GET_MODE (dest)) ? src : dest;
       rld_mode = GET_MODE (rld);
 #ifdef SECONDARY_MEMORY_NEEDED_MODE
-      sec_mode = SECONDARY_MEMORY_NEEDED_MODE (rld_mode);
+      sec_mode = SECONDARY_MEMORY_NEEDED_MODE (MACRO_MODE (rld_mode));
 #else
       sec_mode = rld_mode;
 #endif
