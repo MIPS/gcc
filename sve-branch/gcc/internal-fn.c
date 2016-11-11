@@ -1309,7 +1309,7 @@ expand_mul_overflow (location_t loc, tree lhs, tree arg0, tree arg1,
     {
       struct separate_ops ops;
       int prec = GET_MODE_PRECISION (mode);
-      machine_mode hmode = mode_for_size (prec / 2, MODE_INT, 1);
+      scalar_int_mode hmode;
       machine_mode wmode;
       ops.op0 = make_tree (type, op0);
       ops.op1 = make_tree (type, op1);
@@ -1345,7 +1345,8 @@ expand_mul_overflow (location_t loc, tree lhs, tree arg0, tree arg1,
 				       PROB_VERY_LIKELY);
 	    }
 	}
-      else if (hmode != BLKmode && 2 * GET_MODE_PRECISION (hmode) == prec)
+      else if (int_mode_for_size (prec / 2, 1).exists (&hmode)
+	       && 2 * GET_MODE_PRECISION (hmode) == prec)
 	{
 	  rtx_code_label *large_op0 = gen_label_rtx ();
 	  rtx_code_label *small_op0_large_op1 = gen_label_rtx ();
