@@ -141,6 +141,10 @@ is_gimple_constant (const_tree t)
     case STRING_CST:
       return true;
 
+    case VEC_SERIES_EXPR:
+    case VEC_DUPLICATE_EXPR:
+      return TREE_CONSTANT (t);
+
     default:
       return false;
     }

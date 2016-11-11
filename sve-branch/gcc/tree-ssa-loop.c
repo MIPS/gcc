@@ -672,6 +672,8 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case CONSTRUCTOR:
 	  return true;
 
+	case VEC_DUPLICATE_EXPR:
+	case VEC_SERIES_EXPR:
 	case ADDR_EXPR:
 	  gcc_assert (is_gimple_min_invariant (*addr_p));
 	  return true;

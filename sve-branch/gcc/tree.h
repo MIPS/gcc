@@ -5457,4 +5457,16 @@ desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
   return to_type_precision <= TYPE_PRECISION (from_type);
 }
 
+/* Return true if OP is either an explicit tree constant (tcc_constant),
+   or a tree that acts like one.  */
+
+inline bool
+constant_tree_p (const_tree op)
+{
+  return (CONSTANT_CLASS_P (op)
+	  || (TREE_CONSTANT (op)
+	      && (TREE_CODE (op) == VEC_DUPLICATE_EXPR
+		  || TREE_CODE (op) == VEC_SERIES_EXPR)));
+}
+
 #endif  /* GCC_TREE_H  */

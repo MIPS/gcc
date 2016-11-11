@@ -3918,7 +3918,7 @@ get_initial_def_for_induction (gimple *iv_phi)
     }
 
   t = unshare_expr (new_name);
-  gcc_assert (CONSTANT_CLASS_P (new_name)
+  gcc_assert (constant_tree_p (new_name)
 	      || TREE_CODE (new_name) == SSA_NAME);
   stepvectype = get_vectype_for_scalar_type (TREE_TYPE (new_name));
   gcc_assert (stepvectype);
@@ -3987,7 +3987,7 @@ get_initial_def_for_induction (gimple *iv_phi)
 	}
 
       t = unshare_expr (new_name);
-      gcc_assert (CONSTANT_CLASS_P (new_name)
+      gcc_assert (constant_tree_p (new_name)
 		  || TREE_CODE (new_name) == SSA_NAME);
       new_vec = build_vector_from_val (stepvectype, t);
       vec_step = vect_init_vector (iv_phi, new_vec, stepvectype, NULL);
