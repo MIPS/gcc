@@ -1056,7 +1056,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
   if (in != 0 && GET_CODE (in) == SUBREG
       && (subreg_lowpart_p (in) || strict_low)
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SUBREG_REG (in)), inmode, rclass)
+      && !CANNOT_CHANGE_MODE_CLASS (MACRO_MODE (GET_MODE (SUBREG_REG (in))),
+				    MACRO_MODE (inmode), rclass)
 #endif
       && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (in))]
       && (CONSTANT_P (SUBREG_REG (in))
@@ -1165,7 +1166,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
   if (out != 0 && GET_CODE (out) == SUBREG
       && (subreg_lowpart_p (out) || strict_low)
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SUBREG_REG (out)), outmode, rclass)
+      && !CANNOT_CHANGE_MODE_CLASS (MACRO_MODE (GET_MODE (SUBREG_REG (out))),
+				    MACRO_MODE (outmode), rclass)
 #endif
       && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (out))]
       && (CONSTANT_P (SUBREG_REG (out))
