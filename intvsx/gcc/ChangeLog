@@ -1,3 +1,57 @@
+2016-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78243
+	* config/rs6000/vsx.md (vsx_extract_<mode>_p9): Correct the
+	element order for little endian ordering.
+
+	* config/rs6000/altivec.md (reduc_plus_scal_<mode>): Use
+	VECTOR_ELT_ORDER_BIG and not BYTES_BIG_ENDIAN to adjust element
+	number.
+
+2016-11-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/78310
+	* config/i386/i386.md (rotate to rotatex splitter): Avoid overflow
+	when calculating operand 2.
+	(rotate to rotatex zext splitter): Ditto.
+
+2016-11-11  Jeff Law  <law@redhat.com>
+
+	* gimple-ssa-isolate-paths.c (is_divmod_with_given_divisor): New
+	function.
+	(stmt_uses_name_in_undefined_way): New function, extracted from
+	find_implicit_erroneous_behavior and extended for div/mod case.
+	(stmt_uses_0_or_null_in_undefined_way): New function, extracted from
+	find_explicit_erroneous_behavior and extended for div/mod case.
+	(find_implicit_erroneous_behavior): Use new helper function.
+	(find_explicit_erroneous_behavior): Use new helper function.
+
+2016-11-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71575
+	* graphite-isl-ast-to-gimple.c (copy_cond_phi_nodes): Remove
+	bogus assert.
+
+2016-11-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78295
+	* tree-ssa-uninit.c (warn_uninitialized_vars): Do not warn
+	about uninitialized destination arg of BIT_INSERT_EXPR.
+
+2016-11-10  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR c/37998
+	* doc/invoke.texi (Code Gen Options) [-fno-common]: Use correct
+	terminology.  Expand to remove ambiguity.
+
+2016-11-10  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78232
+	* combine.c (try_combine): Add a big comment about why reusing i2dest
+	is undesirable.
+	(change_zero_ext): Do not call simplify_gen_binary, do the
+	simplifications manually.
+
 2016-11-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): If ISA 3.0,
@@ -6,10 +60,8 @@
 	(rs6000_secondary_reload_simple_move): Likewise.
 	(rs6000_preferred_reload_class): Don't force integer constants to
 	be loaded into vector registers that we can easily make into
-	memory (or being created in the GPRs and moved over with direct
-	move).
-	* config/rs6000/vsx.md (UNSPEC_P9_MEMORY): Delete, no longer
-	used.
+	memory (or being created in the GPRs and moved over with direct move).
+	* config/rs6000/vsx.md (UNSPEC_P9_MEMORY): Delete, no longer used.
 	(vsx_extract_<mode>): Rework V4SImode, V8HImode, and V16QImode
 	vector extraction on ISA 3.0 when the scalar integer can be
 	allocated in vector registers.  Generate the VEC_SELECT directy,
@@ -33,8 +85,7 @@
 	(zero_extendhi<mode>): Likewise.
 	(extendqi<mode>): Likewise.
 	(extendhi<mode>2): Likewise.
-	(HImode splitter for load/sign extend in vector register):
-	Likewise.
+	(HImode splitter for load/sign extend in vector register): Likewise.
 	(float<QHI:mode><FP_ISA3:mode>2): Eliminate old method of
 	optimizing floating point conversions to/from small data types and
 	rewrite it to support QImode/HImode being allowed in vector
@@ -61,8 +112,8 @@
 2016-11-10  Pat Haugen  <pthaugen@us.ibm.com>
 
 	PR rtl-optimization/78241
-	* loop-unroll.c (unroll_loop_runtime_iterations): Don't adjust 'niter', but
-	emit initial peel copy if niter expr is not reliable.
+	* loop-unroll.c (unroll_loop_runtime_iterations): Don't adjust 'niter',
+	but emit initial peel copy if niter expr is not reliable.
 
 2016-11-10  Segher Boessenkool  <segher@kernel.crashing.org>
 
@@ -143,8 +194,7 @@
 
 2016-11-10  Siddhesh Poyarekar  <siddhesh.poyarekar@linaro.org>
 
-	* config/aarch64/aarch64-cores.def (qdf24xx): Update part
-	number.
+	* config/aarch64/aarch64-cores.def (qdf24xx): Update part number.
 	(falkor): New core.
 	* config/aarch64/aarch64-tune.md: Regenerated.
 	* config/arm/arm-cores.def (falkor): New core.
@@ -191,6 +241,7 @@
 	PR target/78262
 	* config/i386/i386.md (*<shift_insn><mode>3_doubleword): Mark
 	operand 0 as earlyclobber.
+	(*ashl<mode>3_doubleword): Ditto for all operand 0 alternatives.
 
 2016-11-09  Martin Liska  <mliska@suse.cz>
 

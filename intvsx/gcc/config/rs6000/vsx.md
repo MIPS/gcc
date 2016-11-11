@@ -2543,8 +2543,8 @@
    && TARGET_VSX_SMALL_INTEGER"
 {
   HOST_WIDE_INT elt = INTVAL (operands[2]);
-  HOST_WIDE_INT elt_adj = ((!VECTOR_ELT_ORDER_BIG)
-			   ? (GET_MODE_NUNITS (<MODE>mode) - 1 - elt)
+  HOST_WIDE_INT elt_adj = (!VECTOR_ELT_ORDER_BIG
+			   ? GET_MODE_NUNITS (<MODE>mode) - 1 - elt
 			   : elt);
 
   HOST_WIDE_INT unit_size = GET_MODE_UNIT_SIZE (<MODE>mode);
