@@ -808,6 +808,35 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       return true;
     }
 
+  if (loop && nested_in_vect_loop_p (loop, stmt))
+    step = STMT_VINFO_DR_STEP (stmt_info);
+  else
+    step = DR_STEP (dr);
+  /* If this is a backward running DR then first access in the larger
+     vectype actually is N-1 elements before the address in the DR.
+     Adjust misalign accordingly.  */
+  if (tree_int_cst_sgn (step) < 0)
+    {
+      tree offset = ssize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+      /* DR_STEP (dr) is the same as -TYPE_SIZE of the scalar type,
+	 otherwise we wouldn't be here.  */
+      offset = fold_build2 (MULT_EXPR, ssizetype, offset, step);
+      /* PLUS because STEP was negative.  */
+      misalign = size_binop (PLUS_EXPR, misalign, offset);
+    }
+
+  if (TREE_CODE (misalign) != INTEGER_CST)
+    {
+      if (dump_enabled_p ())
+	{
+	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			   "Non-constant alignment for access: ");
+	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, ref);
+	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
+	}
+      return true;
+    }
+
   if (base_alignment < bit_alignment)
     {
       /* Strip an inner MEM_REF to a bare decl if possible.  */
@@ -841,23 +870,6 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       DR_VECT_AUX (dr)->base_decl = base;
       DR_VECT_AUX (dr)->base_misaligned = true;
       DR_VECT_AUX (dr)->base_element_aligned = true;
-    }
-
-  if (loop && nested_in_vect_loop_p (loop, stmt))
-    step = STMT_VINFO_DR_STEP (stmt_info);
-  else
-    step = DR_STEP (dr);
-  /* If this is a backward running DR then first access in the larger
-     vectype actually is N-1 elements before the address in the DR.
-     Adjust misalign accordingly.  */
-  if (tree_int_cst_sgn (step) < 0)
-    {
-      tree offset = ssize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
-      /* DR_STEP(dr) is the same as -TYPE_SIZE of the scalar type,
-	 otherwise we wouldn't be here.  */
-      offset = fold_build2 (MULT_EXPR, ssizetype, offset, step);
-      /* PLUS because STEP was negative.  */
-      misalign = size_binop (PLUS_EXPR, misalign, offset);
     }
 
   SET_DR_MISALIGNMENT (dr, wi::mod_floor (misalign, byte_alignment,
