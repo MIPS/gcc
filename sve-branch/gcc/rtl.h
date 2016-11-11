@@ -2800,6 +2800,8 @@ extern rtx operand_subword (rtx, unsigned int, int, machine_mode);
 extern rtx operand_subword_force (rtx, unsigned int, machine_mode);
 extern bool partial_subreg_p (machine_mode, machine_mode);
 extern bool partial_subreg_p (const_rtx);
+extern machine_mode wider_subreg_mode (machine_mode, machine_mode);
+extern machine_mode wider_subreg_mode (const_rtx);
 extern bool paradoxical_subreg_p (machine_mode, machine_mode);
 extern bool paradoxical_subreg_p (const_rtx);
 extern int subreg_lowpart_p (const_rtx);
