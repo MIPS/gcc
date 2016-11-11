@@ -5092,29 +5092,6 @@ aarch64_legitimate_address_p (machine_mode mode, rtx x,
   return aarch64_classify_address (&addr, x, mode, type, strict_p);
 }
 
-/* Split an out-of-range address displacement into a base and offset.
-   Use 4KB range for 1- and 2-byte accesses and a 16KB range otherwise
-   to increase opportunities for sharing the base address of different sizes.
-   For TI/TFmode and unaligned accesses use a 256-byte range.  */
-static bool
-aarch64_legitimize_address_displacement (rtx *disp, rtx *off, machine_mode mode)
-{
-  HOST_WIDE_INT size;
-  if (GET_MODE_SIZE (mode).is_constant (&size))
-    {
-      HOST_WIDE_INT mask = size < 4 ? 0xfff : 0x3fff;
-
-      if (mode == TImode || mode == TFmode
-	  || (INTVAL (*disp) & (size - 1)) != 0)
-	mask = 0xff;
-
-      *off = GEN_INT (INTVAL (*disp) & ~mask);
-      *disp = GEN_INT (INTVAL (*disp) & mask);
-      return true;
-    }
-  return false;
-}
-
 /* Return TRUE if rtx X is immediate constant 0.0 */
 bool
 aarch64_float_const_zero_rtx_p (rtx x)
@@ -6134,6 +6111,80 @@ aarch64_legitimize_address (rtx x, rtx /* orig_x  */, machine_mode mode)
     }
 
   return x;
+}
+
+/* Implement TARGET_LEGITIMIZE_ADDRESS_DISPLACEMENT.  */
+
+static bool
+aarch64_legitimize_address_displacement (rtx *offset1, rtx *offset2,
+					 poly_int64 orig_offset,
+					 machine_mode mode)
+{
+  HOST_WIDE_INT size;
+  if (GET_MODE_SIZE (mode).is_constant (&size))
+    {
+      HOST_WIDE_INT const_offset, mask, second_offset;
+
+      /* Remove the polynomial part of the offset to get a purely
+	 constant one.  */
+      const_offset = orig_offset.coeffs[0] - orig_offset.coeffs[1];
+
+      /* Split an out-of-range address displacement into a base and offset.
+	 Use 4KB range for 1- and 2-byte accesses and a 16KB range otherwise
+	 to increase opportunities for sharing the base address of different
+	 sizes.  For TI/TFmode and unaligned accesses use a 256-byte range.  */
+      mask = size < 4 ? 0xfff : 0x3fff;
+      if (mode == TImode
+	  || mode == TFmode
+	  || (const_offset & (size - 1)) != 0)
+	mask = 0xff;
+
+      /* Get the offset from the anchor point, which is the one we
+	 want to use in the address.  */
+      second_offset = const_offset & mask;
+      if (second_offset == 0 || must_eq (orig_offset, second_offset))
+	return false;
+
+      /* Split the offset into second_offset and the rest.  */
+      *offset1 = gen_int_mode (orig_offset - second_offset, Pmode);
+      *offset2 = gen_int_mode (second_offset, Pmode);
+      return true;
+    }
+  else
+    {
+      /* Get the mode we should use as the basis of the range.  For structure
+	 modes this is the mode of one vector.  */
+      unsigned int vec_flags = aarch64_classify_vector_mode (mode);
+      machine_mode step_mode
+	= (vec_flags & VEC_STRUCT) != 0 ? SVE_BYTE_MODE : mode;
+
+      /* Get the "mul vl" multiplier we'd like to use.  */
+      HOST_WIDE_INT factor = GET_MODE_SIZE (step_mode).coeffs[1];
+      HOST_WIDE_INT vnum = orig_offset.coeffs[1] / factor;
+      if (vec_flags & VEC_SVE_DATA)
+	/* LDR supports a 9-bit range, but the move patterns for
+	   structure modes require all vectors to be in range of the
+	   same base.  The simplest way of accomodating that while still
+	   promoting reuse of anchor points between different modes is
+	   to use an 8-bit range unconditionally.  */
+	vnum = ((vnum + 128) & 255) - 128;
+      else
+	/* Predicates are only handled singly, so we might as well use
+	   the full range.  */
+	vnum = ((vnum + 256) & 511) - 256;
+      if (vnum == 0)
+	return false;
+
+      /* Convert the "mul vl" multiplier into a byte offset.  */
+      poly_int64 second_offset = GET_MODE_SIZE (step_mode) * vnum;
+      if (must_eq (second_offset, orig_offset))
+	return false;
+
+      /* Split the offset into second_offset and the rest.  */
+      *offset1 = gen_int_mode (orig_offset - second_offset, Pmode);
+      *offset2 = gen_int_mode (second_offset, Pmode);
+      return true;
+    }
 }
 
 /* Return the reload icode required for a constant pool in mode.  */
