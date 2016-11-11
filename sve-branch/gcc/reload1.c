@@ -3043,8 +3043,7 @@ elimination_effects (rtx x, machine_mode mem_mode)
 
     case SUBREG:
       if (REG_P (SUBREG_REG (x))
-	  && (GET_MODE_SIZE (GET_MODE (x))
-	      <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
+	  && !paradoxical_subreg_p (x)
 	  && reg_equivs
 	  && reg_equiv_memory_loc (REGNO (SUBREG_REG (x))) != 0)
 	return;
@@ -6372,8 +6371,7 @@ compute_reload_subreg_offset (machine_mode outermode,
   /* If SUBREG is paradoxical then return the normal lowpart offset
      for OUTERMODE and INNERMODE.  Our caller has already checked
      that OUTERMODE fits in INNERMODE.  */
-  if (outer_offset == 0
-      && GET_MODE_SIZE (outermode) > GET_MODE_SIZE (middlemode))
+  if (paradoxical_subreg_p (outermode, middlemode))
     return subreg_lowpart_offset (outermode, innermode);
 
   /* SUBREG is normal, but may not be lowpart; return OUTER_OFFSET
@@ -6663,8 +6661,7 @@ choose_reload_regs (struct insn_chain *chain)
 				  && rld[r].out)
 			      /* Don't really use the inherited spill reg
 				 if we need it wider than we've got it.  */
-			      || (GET_MODE_SIZE (rld[r].mode)
-				  > GET_MODE_SIZE (mode))
+			      || paradoxical_subreg_p (rld[r].mode, mode)
 			      || bad_for_class
 
 			      /* If find_reloads chose reload_out as reload

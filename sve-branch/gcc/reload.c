@@ -1065,15 +1065,13 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	  || (((REG_P (SUBREG_REG (in))
 		&& REGNO (SUBREG_REG (in)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (in)))
-	      && ((GET_MODE_PRECISION (inmode)
-		   > GET_MODE_PRECISION (GET_MODE (SUBREG_REG (in))))
+	      && (paradoxical_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
 #ifdef LOAD_EXTEND_OP
 		  || (GET_MODE_SIZE (inmode) <= UNITS_PER_WORD
 		      && is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (in)),
 						 &inner_int_mode)
 		      && GET_MODE_SIZE (inner_int_mode) <= UNITS_PER_WORD
-		      && (GET_MODE_PRECISION (inmode)
-			  > GET_MODE_PRECISION (inner_int_mode))
+		      && paradoxical_subreg_p (inmode, inner_int_mode)
 		      && LOAD_EXTEND_OP (inner_int_mode) != UNKNOWN)
 #endif
 #if WORD_REGISTER_OPERATIONS
@@ -1176,8 +1174,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	  || (((REG_P (SUBREG_REG (out))
 		&& REGNO (SUBREG_REG (out)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (out)))
-	      && ((GET_MODE_PRECISION (outmode)
-		   > GET_MODE_PRECISION (GET_MODE (SUBREG_REG (out))))
+	      && (paradoxical_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
 #if WORD_REGISTER_OPERATIONS
 		  || ((GET_MODE_PRECISION (outmode)
 		       < GET_MODE_PRECISION (GET_MODE (SUBREG_REG (out))))
@@ -1307,7 +1304,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
   if (this_insn_is_asm)
     {
       machine_mode mode;
-      if (GET_MODE_SIZE (inmode) > GET_MODE_SIZE (outmode))
+      if (paradoxical_subreg_p (inmode, outmode))
 	mode = inmode;
       else
 	mode = outmode;
@@ -3151,8 +3148,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 #if !WORD_REGISTER_OPERATIONS
 			  && (((GET_MODE_BITSIZE (GET_MODE (operand))
 				< BIGGEST_ALIGNMENT)
-			       && (GET_MODE_SIZE (operand_mode[i])
-				   > GET_MODE_SIZE (GET_MODE (operand))))
+			       && paradoxical_subreg_p (operand_mode[i],
+							GET_MODE (operand)))
 			      || BYTES_BIG_ENDIAN
 #ifdef LOAD_EXTEND_OP
 			      || (GET_MODE_SIZE (operand_mode[i]) <= UNITS_PER_WORD
@@ -3160,8 +3157,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 				      (GET_MODE (operand), &int_mode))
 				  && (GET_MODE_SIZE (int_mode)
 				      <= UNITS_PER_WORD)
-				  && (GET_MODE_SIZE (operand_mode[i])
-				      > GET_MODE_SIZE (int_mode))
+				  && paradoxical_subreg_p (operand_mode[i],
+							   int_mode)
 				  && LOAD_EXTEND_OP (int_mode) != UNKNOWN)
 #endif
 			      )

@@ -2798,6 +2798,7 @@ extern rtx operand_subword (rtx, unsigned int, int, machine_mode);
 
 /* In emit-rtl.c */
 extern rtx operand_subword_force (rtx, unsigned int, machine_mode);
+extern bool paradoxical_subreg_p (machine_mode, machine_mode);
 extern bool paradoxical_subreg_p (const_rtx);
 extern int subreg_lowpart_p (const_rtx);
 extern unsigned int subreg_size_lowpart_offset (unsigned int, unsigned int);

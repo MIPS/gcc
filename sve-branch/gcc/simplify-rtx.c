@@ -1426,7 +1426,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
       if (GET_CODE (op) == SUBREG
 	  && SUBREG_PROMOTED_VAR_P (op)
 	  && SUBREG_PROMOTED_SIGNED_P (op)
-	  && GET_MODE_SIZE (mode) <= GET_MODE_SIZE (GET_MODE (XEXP (op, 0))))
+	  && !paradoxical_subreg_p (mode, GET_MODE (SUBREG_REG (op))))
 	{
 	  temp = rtl_hooks.gen_lowpart_no_emit (mode, op);
 	  if (temp)
@@ -1509,7 +1509,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
       if (GET_CODE (op) == SUBREG
 	  && SUBREG_PROMOTED_VAR_P (op)
 	  && SUBREG_PROMOTED_UNSIGNED_P (op)
-	  && GET_MODE_SIZE (mode) <= GET_MODE_SIZE (GET_MODE (XEXP (op, 0))))
+	  && !paradoxical_subreg_p (mode, GET_MODE (SUBREG_REG (op))))
 	{
 	  temp = rtl_hooks.gen_lowpart_no_emit (mode, op);
 	  if (temp)
@@ -6044,7 +6044,7 @@ simplify_subreg (machine_mode outermode, rtx op,
 	}
 
       /* See whether resulting subreg will be paradoxical.  */
-      if (GET_MODE_SIZE (innermostmode) > GET_MODE_SIZE (outermode))
+      if (!paradoxical_subreg_p (outermode, innermostmode))
 	{
 	  /* In nonparadoxical subregs we can't handle negative offsets.  */
 	  if (final_offset < 0)
