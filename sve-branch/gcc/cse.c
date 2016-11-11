@@ -4923,11 +4923,11 @@ cse_insn (rtx_insn *insn)
       rtx_code extend_op;
       if (flag_expensive_optimizations && src_related == 0
 	  && MEM_P (src) && ! do_not_record
-	  && (extend_op = load_extend_op (mode)) != UNKNOWN)
+	  && is_a <scalar_int_mode> (mode, &int_mode)
+	  && (extend_op = load_extend_op (int_mode)) != UNKNOWN)
 	{
 	  struct rtx_def memory_extend_buf;
 	  rtx memory_extend_rtx = &memory_extend_buf;
-	  machine_mode tmode;
 
 	  /* Set what we are trying to extend and the operation it might
 	     have been extended with.  */
@@ -4935,10 +4935,12 @@ cse_insn (rtx_insn *insn)
 	  PUT_CODE (memory_extend_rtx, extend_op);
 	  XEXP (memory_extend_rtx, 0) = src;
 
-	  FOR_EACH_WIDER_MODE (tmode, mode)
+	  opt_scalar_int_mode tmode_iter;
+	  FOR_EACH_WIDER_MODE (tmode_iter, int_mode)
 	    {
 	      struct table_elt *larger_elt;
 
+	      scalar_int_mode tmode = *tmode_iter;
 	      if (GET_MODE_SIZE (tmode) > UNITS_PER_WORD)
 		break;
 
@@ -4952,7 +4954,7 @@ cse_insn (rtx_insn *insn)
 		   larger_elt; larger_elt = larger_elt->next_same_value)
 		if (REG_P (larger_elt->exp))
 		  {
-		    src_related = gen_lowpart (mode, larger_elt->exp);
+		    src_related = gen_lowpart (int_mode, larger_elt->exp);
 		    break;
 		  }
 
