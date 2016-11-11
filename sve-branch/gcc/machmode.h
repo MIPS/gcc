@@ -546,9 +546,11 @@ extern opt_scalar_float_mode float_mode_for_size (unsigned int);
 
 /* Similar to mode_for_size, but find the smallest mode for a given width.  */
 
-extern machine_mode smallest_mode_for_size (unsigned int,
-						 enum mode_class);
+extern machine_mode smallest_mode_for_size (unsigned int, enum mode_class);
 
+/* As above, but for specific mode classes.  */
+
+extern scalar_int_mode smallest_int_mode_for_size (unsigned int);
 
 /* Return an integer mode of exactly the same size as the input mode.  */
 

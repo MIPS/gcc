@@ -344,8 +344,8 @@ convert_move (rtx to, rtx from, int unsignedp)
      xImode for all MODE_PARTIAL_INT modes they use, but no others.  */
   if (GET_MODE_CLASS (to_mode) == MODE_PARTIAL_INT)
     {
-      machine_mode full_mode
-	= smallest_mode_for_size (GET_MODE_BITSIZE (to_mode), MODE_INT);
+      scalar_int_mode full_mode
+	= smallest_int_mode_for_size (GET_MODE_BITSIZE (to_mode));
 
       gcc_assert (convert_optab_handler (trunc_optab, to_mode, full_mode)
 		  != CODE_FOR_nothing);
@@ -359,8 +359,8 @@ convert_move (rtx to, rtx from, int unsignedp)
   if (GET_MODE_CLASS (from_mode) == MODE_PARTIAL_INT)
     {
       rtx new_from;
-      machine_mode full_mode
-	= smallest_mode_for_size (GET_MODE_BITSIZE (from_mode), MODE_INT);
+      scalar_int_mode full_mode
+	= smallest_int_mode_for_size (GET_MODE_BITSIZE (from_mode));
       convert_optab ctab = unsignedp ? zext_optab : sext_optab;
       enum insn_code icode;
 
@@ -6898,7 +6898,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 	  rtx temp_target;
 	  if (mode == BLKmode || mode == VOIDmode)
-	    mode = smallest_mode_for_size (size * BITS_PER_UNIT, MODE_INT);
+	    mode = smallest_int_mode_for_size (size * BITS_PER_UNIT);
 	  temp_target = gen_reg_rtx (mode);
 	  emit_group_store (temp_target, temp, TREE_TYPE (exp), size);
 	  temp = temp_target;
@@ -6916,7 +6916,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	    {
 	      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 	      rtx temp_target;
-	      mode = smallest_mode_for_size (size * BITS_PER_UNIT, MODE_INT);
+	      mode = smallest_int_mode_for_size (size * BITS_PER_UNIT);
 	      temp_target = gen_reg_rtx (mode);
 	      temp_target
 	        = extract_bit_field (temp, size * BITS_PER_UNIT, 0, 1,
