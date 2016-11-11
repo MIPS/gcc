@@ -75,8 +75,10 @@ init_internal_fns ()
 #define not_direct { -2, -2, false }
 #define mask_load_direct { -1, 2, false }
 #define load_lanes_direct { -1, -1, false }
+#define mask_load_lanes_direct { -1, -1, false }
 #define mask_store_direct { 3, 2, false }
 #define store_lanes_direct { 0, 0, false }
+#define mask_store_lanes_direct { 0, 0, false }
 #define unary_direct { 0, 0, true }
 #define binary_direct { 0, 0, true }
 
@@ -1959,7 +1961,7 @@ expand_LOOP_VECTORIZED (internal_fn, gcall *)
   gcc_unreachable ();
 }
 
-/* Expand MASK_LOAD call STMT using optab OPTAB.  */
+/* Expand MASK_LOAD{,_LANES} call STMT using optab OPTAB.  */
 
 static void
 expand_mask_load_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
@@ -1968,6 +1970,7 @@ expand_mask_load_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
   tree type, lhs, rhs, maskt, ptr;
   rtx mem, target, mask;
   unsigned align;
+  insn_code icode;
 
   maskt = gimple_call_arg (stmt, 2);
   lhs = gimple_call_lhs (stmt);
@@ -1980,6 +1983,12 @@ expand_mask_load_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
     type = build_aligned_type (type, align);
   rhs = fold_build2 (MEM_REF, type, gimple_call_arg (stmt, 0), ptr);
 
+  if (optab == vec_mask_load_lanes_optab)
+    icode = get_multi_vector_move (type, optab);
+  else
+    icode = convert_optab_handler (optab, TYPE_MODE (type),
+				   TYPE_MODE (TREE_TYPE (maskt)));
+
   mem = expand_expr (rhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
   gcc_assert (MEM_P (mem));
   mask = expand_normal (maskt);
@@ -1987,12 +1996,12 @@ expand_mask_load_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
   create_output_operand (&ops[0], target, TYPE_MODE (type));
   create_fixed_operand (&ops[1], mem);
   create_input_operand (&ops[2], mask, TYPE_MODE (TREE_TYPE (maskt)));
-  expand_insn (convert_optab_handler (optab, TYPE_MODE (type),
-				      TYPE_MODE (TREE_TYPE (maskt))),
-	       3, ops);
+  expand_insn (icode, 3, ops);
 }
 
-/* Expand MASK_STORE call STMT using optab OPTAB.  */
+#define expand_mask_load_lanes_optab_fn expand_mask_load_optab_fn
+
+/* Expand MASK_STORE{,_LANES} call STMT using optab OPTAB.  */
 
 static void
 expand_mask_store_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
@@ -2001,6 +2010,7 @@ expand_mask_store_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
   tree type, lhs, rhs, maskt, ptr;
   rtx mem, reg, mask;
   unsigned align;
+  insn_code icode;
 
   maskt = gimple_call_arg (stmt, 2);
   rhs = gimple_call_arg (stmt, 3);
@@ -2011,6 +2021,12 @@ expand_mask_store_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
     type = build_aligned_type (type, align);
   lhs = fold_build2 (MEM_REF, type, gimple_call_arg (stmt, 0), ptr);
 
+  if (optab == vec_mask_store_lanes_optab)
+    icode = get_multi_vector_move (type, optab);
+  else
+    icode = convert_optab_handler (optab, TYPE_MODE (type),
+				   TYPE_MODE (TREE_TYPE (maskt)));
+
   mem = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
   gcc_assert (MEM_P (mem));
   mask = expand_normal (maskt);
@@ -2018,10 +2034,10 @@ expand_mask_store_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
   create_fixed_operand (&ops[0], mem);
   create_input_operand (&ops[1], reg, TYPE_MODE (type));
   create_input_operand (&ops[2], mask, TYPE_MODE (TREE_TYPE (maskt)));
-  expand_insn (convert_optab_handler (optab, TYPE_MODE (type),
-				      TYPE_MODE (TREE_TYPE (maskt))),
-	       3, ops);
+  expand_insn (icode, 3, ops);
 }
+
+#define expand_mask_store_lanes_optab_fn expand_mask_store_optab_fn
 
 static void
 expand_ABNORMAL_DISPATCHER (internal_fn, gcall *)
@@ -2351,8 +2367,10 @@ multi_vector_optab_supported_p (convert_optab optab, tree_pair types,
 #define direct_binary_optab_supported_p direct_optab_supported_p
 #define direct_mask_load_optab_supported_p direct_optab_supported_p
 #define direct_load_lanes_optab_supported_p multi_vector_optab_supported_p
+#define direct_mask_load_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_store_optab_supported_p direct_optab_supported_p
 #define direct_store_lanes_optab_supported_p multi_vector_optab_supported_p
+#define direct_mask_store_lanes_optab_supported_p multi_vector_optab_supported_p
 
 /* Return true if FN is supported for the types in TYPES when the
    optimization type is OPT_TYPE.  The types are those associated with

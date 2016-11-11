@@ -1913,7 +1913,7 @@ vect_analyze_slp_instance (vec_info *vinfo,
 	 instructions do not generate this SLP instance.  */
       if (is_a <loop_vec_info> (vinfo)
 	  && loads_permuted
-	  && dr && vect_store_lanes_supported (vectype, group_size))
+	  && dr && vect_store_lanes_supported (vectype, group_size, false))
 	{
 	  slp_tree load_node;
 	  FOR_EACH_VEC_ELT (loads, i, load_node)
@@ -1926,7 +1926,7 @@ vect_analyze_slp_instance (vec_info *vinfo,
 	      if (STMT_VINFO_STRIDED_P (stmt_vinfo)
 		  || ! vect_load_lanes_supported
 			(STMT_VINFO_VECTYPE (stmt_vinfo),
-			 GROUP_SIZE (stmt_vinfo)))
+			 GROUP_SIZE (stmt_vinfo), false))
 		break;
 	    }
 	  if (i == loads.length ())
