@@ -5123,7 +5123,7 @@ make_tree (tree type, rtx x)
 	    elts[i] = make_tree (itype, elt);
 	  }
 
-	return build_vector (type, elts);
+	return build_vector (type, units, elts);
       }
 
     case PLUS:

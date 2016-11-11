@@ -3978,8 +3978,8 @@ extern tree build_int_cstu (tree type, unsigned HOST_WIDE_INT cst);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
 extern tree make_vector_stat (unsigned MEM_STAT_DECL);
 #define make_vector(n) make_vector_stat (n MEM_STAT_INFO)
-extern tree build_vector_stat (tree, tree * MEM_STAT_DECL);
-#define build_vector(t,v) build_vector_stat (t, v MEM_STAT_INFO)
+extern tree build_vector_stat (tree, unsigned int, tree * MEM_STAT_DECL);
+#define build_vector(t,l,v) build_vector_stat (t, l, v MEM_STAT_INFO)
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
 extern void recompute_constructor_flags (tree);

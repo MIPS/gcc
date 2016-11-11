@@ -11028,7 +11028,7 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 	    n_elts[i] = build_int_cst (inner_type,
 				       TREE_INT_CST_LOW
 				         (VECTOR_CST_ELT (arg0, i)) << 4);
-	  return build_vector (rtype, n_elts);
+	  return build_vector (rtype, VECTOR_CST_NELTS (arg0), n_elts);
 	}
       break;
 
@@ -11045,7 +11045,7 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 	  tree inner_type = TREE_TYPE (rtype);
 	  tree *n_elts = XALLOCAVEC (tree, VECTOR_CST_NELTS (arg0));
 	  sparc_handle_vis_mul8x16 (n_elts, code, inner_type, arg0, arg1);
-	  return build_vector (rtype, n_elts);
+	  return build_vector (rtype, VECTOR_CST_NELTS (arg0), n_elts);
 	}
       break;
 
@@ -11065,7 +11065,7 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 	      n_elts[2*i+1] = VECTOR_CST_ELT (arg1, i);
 	    }
 
-	  return build_vector (rtype, n_elts);
+	  return build_vector (rtype, 2 * VECTOR_CST_NELTS (arg0), n_elts);
 	}
       break;
 

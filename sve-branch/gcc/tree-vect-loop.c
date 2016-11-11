@@ -3513,12 +3513,12 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
 }
 
 /* Writes into SEL a mask for a vec_perm, equivalent to a vec_shr by OFFSET
-   vector elements (not bits) for a vector of mode MODE.  */
+   vector elements (not bits) for a vector with NELT elements.  */
 static void
-calc_vec_perm_mask_for_shift (machine_mode mode, unsigned int offset,
+calc_vec_perm_mask_for_shift (unsigned int offset, unsigned int nelt,
 			      unsigned char *sel)
 {
-  unsigned int i, nelt = GET_MODE_NUNITS (mode);
+  unsigned int i;
 
   for (i = 0; i < nelt; i++)
     sel[i] = (i + offset) & (2*nelt - 1);
@@ -3541,8 +3541,8 @@ have_whole_vector_shift (machine_mode mode)
 
   for (i = nelt/2; i >= 1; i/=2)
     {
-      calc_vec_perm_mask_for_shift (mode, i, sel);
-      if (!can_vec_perm_p (mode, false, sel))
+      calc_vec_perm_mask_for_shift (i, nelt, sel);
+      if (!can_vec_perm_p (mode, false, nelt, sel))
 	return false;
     }
   return true;
@@ -4231,14 +4231,14 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
         if (adjustment_def)
           {
 	    elts[0] = def_for_init;
-            init_def = build_vector (vectype, elts);
+	    init_def = build_vector (vectype, nunits, elts);
             break;
           }
 
         /* Option2: the first element is INIT_VAL.  */
 	elts[0] = init_val;
         if (TREE_CONSTANT (init_val))
-          init_def = build_vector (vectype, elts);
+	  init_def = build_vector (vectype, nunits, elts);
         else
 	  {
 	    vec<constructor_elt, va_gc> *v;
@@ -4888,8 +4888,8 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
                elt_offset >= 1;
                elt_offset /= 2)
             {
-              calc_vec_perm_mask_for_shift (mode, elt_offset, sel);
-              tree mask = vect_gen_perm_mask_any (vectype, sel);
+	      calc_vec_perm_mask_for_shift (elt_offset, nelements, sel);
+	      tree mask = vect_gen_perm_mask_any (vectype, nelements, sel);
 	      epilog_stmt = gimple_build_assign (vec_dest, VEC_PERM_EXPR,
 						 new_temp, zero_vec, mask);
               new_name = make_ssa_name (vec_dest, epilog_stmt);
@@ -6255,7 +6255,8 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	  tree *vtemp = XALLOCAVEC (tree, nunits_out);
 	  for (k = 0; k < nunits_out; ++k)
 	    vtemp[k] = build_int_cst (cr_index_scalar_type, k + 1);
-	  tree series_vect = build_vector (cr_index_vector_type, vtemp);
+	  tree series_vect = build_vector (cr_index_vector_type,
+					   nunits_out, vtemp);
 
 	  /* Create a vector of the step value.  */
 	  tree step = build_int_cst (cr_index_scalar_type, nunits_out);

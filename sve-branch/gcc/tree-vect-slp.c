@@ -816,15 +816,15 @@ vect_build_slp_tree_1 (vec_info *vinfo,
   if (alt_stmt_code != ERROR_MARK
       && TREE_CODE_CLASS (alt_stmt_code) != tcc_reference)
     {
-      unsigned char *sel
-	= XALLOCAVEC (unsigned char, TYPE_VECTOR_SUBPARTS (vectype));
-      for (i = 0; i < TYPE_VECTOR_SUBPARTS (vectype); ++i)
+      unsigned int count = TYPE_VECTOR_SUBPARTS (vectype);
+      unsigned char *sel = XALLOCAVEC (unsigned char, count);
+      for (i = 0; i < count; ++i)
 	{
 	  sel[i] = i;
 	  if (gimple_assign_rhs_code (stmts[i % group_size]) == alt_stmt_code)
-	    sel[i] += TYPE_VECTOR_SUBPARTS (vectype);
+	    sel[i] += count;
 	}
-      if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
+      if (!can_vec_perm_p (TYPE_MODE (vectype), false, count, sel))
 	{
 	  for (i = 0; i < group_size; ++i)
 	    if (gimple_assign_rhs_code (stmts[i]) == alt_stmt_code)
@@ -3092,7 +3092,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
               number_of_places_left_in_vector = nunits;
 
 	      if (constant_p)
-		vec_cst = build_vector (vector_type, elts);
+		vec_cst = build_vector (vector_type, nunits, elts);
 	      else
 		{
 		  vec<constructor_elt, va_gc> *v;
@@ -3449,7 +3449,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 	  if (index == nunits)
 	    {
 	      if (! noop_p
-		  && ! can_vec_perm_p (mode, false, mask))
+		  && ! can_vec_perm_p (mode, false, nunits, mask))
 		{
 		  if (dump_enabled_p ())
 		    {
@@ -3473,7 +3473,7 @@ vect_transform_slp_perm_load (slp_tree node, vec<tree> dr_chain,
 		      for (int l = 0; l < nunits; ++l)
 			mask_elts[l] = build_int_cst (mask_element_type,
 						      mask[l]);
-		      mask_vec = build_vector (mask_type, mask_elts);
+		      mask_vec = build_vector (mask_type, nunits, mask_elts);
 		    }
 
 		  if (second_vec_index == -1)
@@ -3616,7 +3616,8 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance,
 		  melts[l] = build_int_cst
 		      (meltype, mask[k++] * TYPE_VECTOR_SUBPARTS (vectype) + l);
 		}
-	      tmask = build_vector (mvectype, melts);
+	      tmask = build_vector (mvectype, TYPE_VECTOR_SUBPARTS (vectype),
+				    melts);
 
 	      /* ???  Not all targets support a VEC_PERM_EXPR with a
 	         constant mask that would translate to a vec_merge RTX

@@ -1105,8 +1105,9 @@ extern void vect_get_store_cost (struct data_reference *, int,
 extern bool vect_supportable_shift (enum tree_code, tree);
 extern void vect_get_vec_defs (tree, tree, gimple *, vec<tree> *,
 			       vec<tree> *, slp_tree, int);
-extern tree vect_gen_perm_mask_any (tree, const unsigned char *);
-extern tree vect_gen_perm_mask_checked (tree, const unsigned char *);
+extern tree vect_gen_perm_mask_any (tree, unsigned int, const unsigned char *);
+extern tree vect_gen_perm_mask_checked (tree, unsigned int,
+					const unsigned char *);
 extern void optimize_mask_stores (struct loop*);
 
 /* In tree-vect-data-refs.c.  */

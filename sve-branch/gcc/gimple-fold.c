@@ -5646,11 +5646,11 @@ gimple_fold_stmt_to_constant_1 (gimple *stmt, tree (*valueize) (tree),
 		       && (CONSTRUCTOR_NELTS (rhs)
 			   == TYPE_VECTOR_SUBPARTS (TREE_TYPE (rhs))))
 		{
-		  unsigned i;
+		  unsigned i, nelts;
 		  tree val, *vec;
 
-		  vec = XALLOCAVEC (tree,
-				    TYPE_VECTOR_SUBPARTS (TREE_TYPE (rhs)));
+		  nelts = TYPE_VECTOR_SUBPARTS (TREE_TYPE (rhs));
+		  vec = XALLOCAVEC (tree, nelts);
 		  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (rhs), i, val)
 		    {
 		      val = (*valueize) (val);
@@ -5662,7 +5662,7 @@ gimple_fold_stmt_to_constant_1 (gimple *stmt, tree (*valueize) (tree),
 			return NULL_TREE;
 		    }
 
-		  return build_vector (TREE_TYPE (rhs), vec);
+		  return build_vector (TREE_TYPE (rhs), nelts, vec);
 		}
 	      if (subcode == OBJ_TYPE_REF)
 		{

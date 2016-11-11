@@ -1698,18 +1698,19 @@ make_vector_stat (unsigned len MEM_STAT_DECL)
 }
 
 /* Return a new VECTOR_CST node whose type is TYPE and whose values
-   are in a list pointed to by VALS.  */
+   are in a list of NELTS elements pointed to by VALS.  */
 
 tree
-build_vector_stat (tree type, tree *vals MEM_STAT_DECL)
+build_vector_stat (tree type, unsigned int nelts, tree *vals MEM_STAT_DECL)
 {
+  gcc_assert (nelts == TYPE_VECTOR_SUBPARTS (type));
   int over = 0;
   unsigned cnt = 0;
-  tree v = make_vector (TYPE_VECTOR_SUBPARTS (type));
+  tree v = make_vector (nelts);
   TREE_TYPE (v) = type;
 
   /* Iterate through elements and check for overflow.  */
-  for (cnt = 0; cnt < TYPE_VECTOR_SUBPARTS (type); ++cnt)
+  for (cnt = 0; cnt < nelts; ++cnt)
     {
       tree value = vals[cnt];
 
@@ -1747,7 +1748,7 @@ build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
   while (pos < TYPE_VECTOR_SUBPARTS (type))
     vec[pos++] = build_zero_cst (TREE_TYPE (type));
 
-  return build_vector (type, vec);
+  return build_vector (type, TYPE_VECTOR_SUBPARTS (type), vec);
 }
 
 /* Build a vector of type VECTYPE where all the elements are SCs.  */
@@ -1773,7 +1774,7 @@ build_vector_from_val (tree vectype, tree sc)
       tree *v = XALLOCAVEC (tree, nunits);
       for (i = 0; i < nunits; ++i)
 	v[i] = sc;
-      return build_vector (vectype, v);
+      return build_vector (vectype, nunits, v);
     }
   else
     {

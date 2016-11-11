@@ -402,7 +402,7 @@ add_rshift (gimple_stmt_iterator *gsi, tree type, tree op0, int *shiftcnts)
       for (i = 0; i < nunits; i++)
 	vec[i] = build_int_cst (TREE_TYPE (type), shiftcnts[i]);
       return gimplify_build2 (gsi, RSHIFT_EXPR, type, op0,
-			      build_vector (type, vec));
+			      build_vector (type, nunits, vec));
     }
 
   return NULL_TREE;
@@ -642,7 +642,7 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
 		vec[i] = build_int_cst (TREE_TYPE (type),
 					(HOST_WIDE_INT_1U
 					 << shifts[i]) - 1);
-	      cst = build_vector (type, vec);
+	      cst = build_vector (type, nunits, vec);
 	      addend = make_ssa_name (type);
 	      stmt = gimple_build_assign (addend, VEC_COND_EXPR, cond,
 					  cst, zero);
@@ -680,7 +680,7 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
 	    vec[i] = build_int_cst (TREE_TYPE (type),
 				    (HOST_WIDE_INT_1U
 				     << shifts[i]) - 1);
-	  mask = build_vector (type, vec);
+	  mask = build_vector (type, nunits, vec);
 	  op = optab_for_tree_code (BIT_AND_EXPR, type, optab_default);
 	  if (op != unknown_optab
 	      && optab_handler (op, TYPE_MODE (type)) != CODE_FOR_nothing)
@@ -756,7 +756,7 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
 
   for (i = 0; i < nunits; i++)
     vec[i] = build_int_cst (TREE_TYPE (type), mulc[i]);
-  mulcst = build_vector (type, vec);
+  mulcst = build_vector (type, nunits, vec);
 
   cur_op = gimplify_build2 (gsi, MULT_HIGHPART_EXPR, type, cur_op, mulcst);
 
@@ -1087,7 +1087,7 @@ optimize_vector_constructor (gimple_stmt_iterator *gsi)
   g = gimple_build_assign (make_ssa_name (type), rhs);
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
   g = gimple_build_assign (lhs, PLUS_EXPR, gimple_assign_lhs (g),
-			   build_vector (type, cst));
+			   build_vector (type, nelts, cst));
   gsi_replace (gsi, g, false);
 }
 
@@ -1266,7 +1266,7 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
 	sel_int[i] = (TREE_INT_CST_LOW (VECTOR_CST_ELT (mask, i))
 		      & (2 * elements - 1));
 
-      if (can_vec_perm_p (TYPE_MODE (vect_type), false, sel_int))
+      if (can_vec_perm_p (TYPE_MODE (vect_type), false, elements, sel_int))
 	{
 	  gimple_assign_set_rhs3 (stmt, mask);
 	  update_stmt (stmt);
@@ -1297,7 +1297,7 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
 	    }
 	}
     }
-  else if (can_vec_perm_p (TYPE_MODE (vect_type), true, NULL))
+  else if (can_vec_perm_p (TYPE_MODE (vect_type), true, elements, NULL))
     return;
   
   warning_at (loc, OPT_Wvector_operation_performance,

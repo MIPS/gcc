@@ -2048,7 +2048,7 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
     {
       tree mask_type, *mask_elts;
 
-      if (!can_vec_perm_p (TYPE_MODE (type), false, sel))
+      if (!can_vec_perm_p (TYPE_MODE (type), false, nelts, sel))
 	return false;
       mask_type
 	= build_vector_type (build_nonstandard_integer_type (elem_size, 1),
@@ -2060,7 +2060,7 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
       mask_elts = XALLOCAVEC (tree, nelts);
       for (i = 0; i < nelts; i++)
 	mask_elts[i] = build_int_cst (TREE_TYPE (mask_type), sel[i]);
-      op2 = build_vector (mask_type, mask_elts);
+      op2 = build_vector (mask_type, nelts, mask_elts);
       if (conv_code == ERROR_MARK)
 	gimple_assign_set_rhs_with_ops (gsi, VEC_PERM_EXPR, orig, orig, op2);
       else
