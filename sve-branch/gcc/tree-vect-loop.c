@@ -3864,36 +3864,29 @@ get_initial_def_for_induction (gimple *iv_phi)
     }
   else
     {
-      vec<constructor_elt, va_gc> *v;
-
       /* iv_loop is the loop to be vectorized. Create:
 	 vec_init = [X, X+S, X+2*S, X+3*S] (S = step_expr, X = init_expr)  */
       stmts = NULL;
       new_name = gimple_convert (&stmts, TREE_TYPE (vectype), init_expr);
 
-      vec_alloc (v, nunits);
-      bool constant_p = is_gimple_min_invariant (new_name);
-      CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, new_name);
+      tree *elts = XALLOCAVEC (tree, nunits);
+      elts[0] = new_name;
       for (i = 1; i < nunits; i++)
 	{
 	  /* Create: new_name_i = new_name + step_expr  */
 	  new_name = gimple_build (&stmts, PLUS_EXPR, TREE_TYPE (new_name),
 				   new_name, step_expr);
-	  if (!is_gimple_min_invariant (new_name))
-	    constant_p = false;
-	  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, new_name);
+	  elts[i] = new_name;
 	}
+      /* Create a vector from [new_name_0, new_name_1, ...,
+	 new_name_nunits-1]  */
+      new_vec = gimple_build_vector (&stmts, vectype, nunits, elts);
       if (stmts)
 	{
 	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
 	  gcc_assert (!new_bb);
 	}
 
-      /* Create a vector from [new_name_0, new_name_1, ..., new_name_nunits-1]  */
-      if (constant_p)
-	new_vec = build_vector_from_ctor (vectype, v);
-      else
-	new_vec = build_constructor (vectype, v);
       vec_init = vect_init_vector (iv_phi, new_vec, vectype, NULL);
     }
 
