@@ -860,11 +860,20 @@ static struct access *
 create_access (tree expr, gimple *stmt, bool write)
 {
   struct access *access;
+  poly_int64 poffset, psize, pmax_size;
   HOST_WIDE_INT offset, size, max_size;
   tree base = expr;
   bool reverse, ptr, unscalarizable_region = false;
 
-  base = get_ref_base_and_extent (expr, &offset, &size, &max_size, &reverse);
+  base = get_ref_base_and_extent (expr, &poffset, &psize, &pmax_size,
+				  &reverse);
+  if (!poffset.is_constant (&offset)
+      || !psize.is_constant (&size)
+      || !pmax_size.is_constant (&max_size))
+    {
+      disqualify_candidate (base, "Encountered a polynomial-sized access.");
+      return NULL;
+    }
 
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (base) == MEM_REF)
@@ -2895,7 +2904,8 @@ clobber_subtree (struct access *access, gimple_stmt_iterator *gsi,
 static struct access *
 get_access_for_expr (tree expr)
 {
-  HOST_WIDE_INT offset, size, max_size;
+  poly_int64 poffset, psize, pmax_size;
+  HOST_WIDE_INT offset, max_size;
   tree base;
   bool reverse;
 
@@ -2905,8 +2915,12 @@ get_access_for_expr (tree expr)
   if (TREE_CODE (expr) == VIEW_CONVERT_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  base = get_ref_base_and_extent (expr, &offset, &size, &max_size, &reverse);
-  if (max_size == -1 || !DECL_P (base))
+  base = get_ref_base_and_extent (expr, &poffset, &psize, &pmax_size,
+				  &reverse);
+  if (!pmax_size.is_constant (&max_size)
+      || !poffset.is_constant (&offset)
+      || max_size == -1
+      || !DECL_P (base))
     return NULL;
 
   if (!bitmap_bit_p (candidate_bitmap, DECL_UID (base)))

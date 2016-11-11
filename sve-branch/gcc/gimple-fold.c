@@ -5898,10 +5898,10 @@ gimple_fold_stmt_to_constant (gimple *stmt, tree (*valueize) (tree))
    is not explicitly available, but it is known to be zero
    such as 'static const int a;'.  */
 static tree
-get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
+get_base_constructor (tree base, poly_int64 *bit_offset,
 		      tree (*valueize)(tree))
 {
-  HOST_WIDE_INT bit_offset2, size, max_size;
+  poly_int64 bit_offset2, size, max_size;
   bool reverse;
 
   if (TREE_CODE (base) == MEM_REF)
@@ -5953,7 +5953,7 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
     case COMPONENT_REF:
       base = get_ref_base_and_extent (base, &bit_offset2, &size, &max_size,
 				      &reverse);
-      if (max_size == -1 || size != max_size)
+      if (must_eq (max_size, -1) || may_ne (size, max_size))
 	return NULL_TREE;
       *bit_offset +=  bit_offset2;
       return get_base_constructor (base, bit_offset, valueize);
@@ -6159,7 +6159,7 @@ tree
 fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
 {
   tree ctor, idx, base;
-  HOST_WIDE_INT offset, size, max_size;
+  poly_int64 offset, size, max_size;
   tree tem;
   bool reverse;
 
@@ -6214,7 +6214,7 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
 		    return build_zero_cst (TREE_TYPE (t));
 		  /* Out of bound array access.  Value is undefined,
 		     but don't fold.  */
-		  if (offset < 0)
+		  if (may_lt (offset, 0))
 		    return NULL_TREE;
 		  /* We can not determine ctor.  */
 		  if (!ctor)
@@ -6239,14 +6239,14 @@ fold_const_aggregate_ref_1 (tree t, tree (*valueize) (tree))
       if (ctor == error_mark_node)
 	return build_zero_cst (TREE_TYPE (t));
       /* We do not know precise address.  */
-      if (max_size == -1 || max_size != size)
+      if (must_eq (max_size, -1) || may_ne (max_size, size))
 	return NULL_TREE;
       /* We can not determine ctor.  */
       if (!ctor)
 	return NULL_TREE;
 
       /* Out of bound array access.  Value is undefined, but don't fold.  */
-      if (offset < 0)
+      if (may_lt (offset, 0))
 	return NULL_TREE;
 
       return fold_ctor_reference (TREE_TYPE (t), ctor, offset, size,
