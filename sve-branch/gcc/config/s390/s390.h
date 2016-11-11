@@ -265,7 +265,7 @@ extern const char *s390_host_detect_local_cpu (int argc, const char **argv);
    parameter passing.  */
 #define FUNCTION_ARG_PADDING(MODE, TYPE)			\
   (s390_function_arg_vector ((MODE), (TYPE))			\
-   ? upward							\
+   ? PAD_UPWARD							\
    : DEFAULT_FUNCTION_ARG_PADDING ((MODE), (TYPE)))
 
 #ifndef IN_LIBGCC2

@@ -728,6 +728,15 @@ default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+/* Default implementation of TARGET_FUNCTION_ARG_PADDING.  */
+
+pad_direction
+default_function_arg_padding (machine_mode mode ATTRIBUTE_UNUSED,
+			      const_tree type ATTRIBUTE_UNUSED)
+{
+  return FUNCTION_ARG_PADDING (MACRO_MODE (mode), type);
+}
+
 rtx
 default_function_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
 		      machine_mode mode ATTRIBUTE_UNUSED,

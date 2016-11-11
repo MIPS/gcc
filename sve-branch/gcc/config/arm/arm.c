@@ -15871,7 +15871,7 @@ bool
 arm_pad_arg_upward (machine_mode mode ATTRIBUTE_UNUSED, const_tree type)
 {
   if (!TARGET_AAPCS_BASED)
-    return DEFAULT_FUNCTION_ARG_PADDING(mode, type) == upward;
+    return DEFAULT_FUNCTION_ARG_PADDING (mode, type) == PAD_UPWARD;
 
   if (type && BYTES_BIG_ENDIAN && INTEGRAL_TYPE_P (type))
     return false;

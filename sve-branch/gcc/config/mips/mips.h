@@ -1661,7 +1661,7 @@ FP_ASM_SPEC "\
   DATA_ALIGNMENT (TYPE, ALIGN)
   
 #define PAD_VARARGS_DOWN \
-  (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)
+  (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == PAD_DOWNWARD)
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
@@ -2517,10 +2517,10 @@ typedef struct mips_args {
   mips_init_cumulative_args (&CUM, FNTYPE)
 
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
-  (mips_pad_arg_upward (MODE, TYPE) ? upward : downward)
+  (mips_pad_arg_upward (MODE, TYPE) ? PAD_UPWARD : PAD_DOWNWARD)
 
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  (mips_pad_reg_upward (MODE, TYPE) ? upward : downward)
+  (mips_pad_reg_upward (MODE, TYPE) ? PAD_UPWARD : PAD_DOWNWARD)
 
 /* True if using EABI and varargs can be passed in floating-point
    registers.  Under these conditions, we need a more complex form

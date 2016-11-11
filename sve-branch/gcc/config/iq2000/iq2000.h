@@ -321,13 +321,13 @@ typedef struct iq2000_args
 
 #define FUNCTION_ARG_PADDING(MODE, TYPE)				\
   (! BYTES_BIG_ENDIAN							\
-   ? upward								\
+   ? PAD_UPWARD								\
    : (((MODE) == BLKmode						\
        ? ((TYPE) && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST		\
 	  && int_size_in_bytes (TYPE) < (PARM_BOUNDARY / BITS_PER_UNIT))\
        : (GET_MODE_BITSIZE (MODE) < PARM_BOUNDARY			\
 	  && (GET_MODE_CLASS (MODE) == MODE_INT)))			\
-      ? downward : upward))
+      ? PAD_DOWNWARD : PAD_UPWARD))
 
 #define FUNCTION_ARG_REGNO_P(N)						\
   (((N) >= GP_ARG_FIRST && (N) <= GP_ARG_LAST))			

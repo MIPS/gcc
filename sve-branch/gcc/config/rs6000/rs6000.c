@@ -11004,7 +11004,8 @@ rs6000_return_in_msb (const_tree valtype)
   return (DEFAULT_ABI == ABI_ELFv2
 	  && BYTES_BIG_ENDIAN
 	  && AGGREGATE_TYPE_P (valtype)
-	  && FUNCTION_ARG_PADDING (TYPE_MODE (valtype), valtype) == upward);
+	  && (FUNCTION_ARG_PADDING (TYPE_MODE (valtype), valtype)
+	      == PAD_UPWARD));
 }
 
 #ifdef HAVE_AS_GNU_ATTRIBUTE
@@ -11221,16 +11222,12 @@ abi_v4_pass_in_fpr (machine_mode mode)
   return false;
 }
 
-/* If defined, a C expression which determines whether, and in which
-   direction, to pad out an argument with extra space.  The value
-   should be of type `enum direction': either `upward' to pad above
-   the argument, `downward' to pad below, or `none' to inhibit
-   padding.
+/* Implement FUNCTION_ARG_PADDING.
 
    For the AIX ABI structs are always stored left shifted in their
    argument slot.  */
 
-enum direction
+pad_direction
 function_arg_padding (machine_mode mode, const_tree type)
 {
 #ifndef AGGREGATE_PADDING_FIXED
@@ -11264,15 +11261,15 @@ function_arg_padding (machine_mode mode, const_tree type)
 	    size = GET_MODE_SIZE (mode);
 
 	  if (size == 1 || size == 2 || size == 4)
-	    return downward;
+	    return PAD_DOWNWARD;
 	}
-      return upward;
+      return PAD_UPWARD;
     }
 
   if (AGGREGATES_PAD_UPWARD_ALWAYS)
     {
       if (type != 0 && AGGREGATE_TYPE_P (type))
-	return upward;
+	return PAD_UPWARD;
     }
 
   /* Fall back to the default.  */

@@ -89,10 +89,8 @@ extern int ia64_dbx_register_number (int);
 extern rtx ia64_return_addr_rtx (HOST_WIDE_INT, rtx);
 extern void ia64_split_return_addr_rtx (rtx);
 
-#ifdef ARGS_SIZE_RTX
-/* expr.h defines ARGS_SIZE_RTX and `enum direction'.  */
-extern enum direction ia64_hpux_function_arg_padding (machine_mode, const_tree);
-#endif /* ARGS_SIZE_RTX */
+extern pad_direction ia64_hpux_function_arg_padding (machine_mode,
+						     const_tree);
 
 extern void ia64_hpux_handle_builtin_pragma (struct cpp_reader *);
 extern void ia64_output_function_profiler (FILE *, int);

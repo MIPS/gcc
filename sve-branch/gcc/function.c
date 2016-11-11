@@ -2719,7 +2719,7 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
      is TARGET_FUNCTION_ARG_BOUNDARY.  If we're using slot_offset, we're
      intentionally forcing upward padding.  Otherwise we have to come
      up with a guess at the alignment based on OFFSET_RTX.  */
-  if (data->locate.where_pad != downward || data->entry_parm)
+  if (data->locate.where_pad != PAD_DOWNWARD || data->entry_parm)
     align = boundary;
   else if (CONST_INT_P (offset_rtx))
     {
@@ -2873,7 +2873,7 @@ assign_parm_setup_block_p (struct assign_parm_data_one *data)
   if (REG_P (data->entry_parm)
       && GET_MODE_SIZE (data->promoted_mode) < UNITS_PER_WORD
       && (BLOCK_REG_PADDING (data->passed_mode, data->passed_type, 1)
-	  == (BYTES_BIG_ENDIAN ? upward : downward)))
+	  == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
     return true;
 #endif
 
@@ -2991,7 +2991,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 #ifdef BLOCK_REG_PADDING
 	      && (size == UNITS_PER_WORD
 		  || (BLOCK_REG_PADDING (mode, data->passed_type, 1)
-		      != (BYTES_BIG_ENDIAN ? upward : downward)))
+		      != (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
 #endif
 	      )
 	    {
@@ -3031,7 +3031,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	      gcc_checking_assert (BYTES_BIG_ENDIAN
 				   && (BLOCK_REG_PADDING (mode,
 							  data->passed_type, 1)
-				       == upward));
+				       == PAD_UPWARD));
 
 	      int by = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
 
@@ -3052,7 +3052,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	  else if (size != UNITS_PER_WORD
 #ifdef BLOCK_REG_PADDING
 		   && (BLOCK_REG_PADDING (mode, data->passed_type, 1)
-		       == downward)
+		       == PAD_DOWNWARD)
 #else
 		   && BYTES_BIG_ENDIAN
 #endif
@@ -3076,7 +3076,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 #ifdef BLOCK_REG_PADDING
 	  gcc_checking_assert (BLOCK_REG_PADDING (GET_MODE (mem),
 						  data->passed_type, 0)
-			       == upward);
+			       == PAD_UPWARD);
 #endif
 	  emit_move_insn (mem, entry_parm);
 	}
@@ -4104,9 +4104,9 @@ gimplify_parameters (void)
    rounding affects the initial and starting offsets, but not the argument
    size.
 
-   The second, controlled by FUNCTION_ARG_PADDING and PARM_BOUNDARY,
-   optionally rounds the size of the parm to PARM_BOUNDARY.  The
-   initial offset is not affected by this rounding, while the size always
+   The second, controlled by targetm.calls.function_arg_padding and
+   PARM_BOUNDARY, optionally rounds the size of the parm to PARM_BOUNDARY.
+   The initial offset is not affected by this rounding, while the size always
    is and the starting offset may be.  */
 
 /*  LOCATE->OFFSET will be negative for ARGS_GROW_DOWNWARD case;
@@ -4122,7 +4122,7 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 		     struct locate_and_pad_arg_data *locate)
 {
   tree sizetree;
-  enum direction where_pad;
+  pad_direction where_pad;
   unsigned int boundary, round_boundary;
   int part_size_in_regs;
 
@@ -4148,7 +4148,7 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 
   sizetree
     = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
-  where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
+  where_pad = targetm.calls.function_arg_padding (passed_mode, type);
   boundary = targetm.calls.function_arg_boundary (passed_mode, type);
   round_boundary = targetm.calls.function_arg_round_boundary (passed_mode,
 							      type);
@@ -4197,7 +4197,7 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 
       {
 	tree s2 = sizetree;
-	if (where_pad != none
+	if (where_pad != PAD_NONE
 	    && (!tree_fits_uhwi_p (sizetree)
 		|| (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
 	  s2 = round_up (s2, round_boundary / BITS_PER_UNIT);
@@ -4222,7 +4222,7 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
       /* Pad_below needs the pre-rounded size to know how much to pad
 	 below.  */
       locate->offset = locate->slot_offset;
-      if (where_pad == downward)
+      if (where_pad == PAD_DOWNWARD)
 	pad_below (&locate->offset, passed_mode, sizetree);
 
     }
@@ -4241,10 +4241,10 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
       /* Pad_below needs the pre-rounded size to know how much to pad below
 	 so this must be done before rounding up.  */
       locate->offset = locate->slot_offset;
-      if (where_pad == downward)
+      if (where_pad == PAD_DOWNWARD)
 	pad_below (&locate->offset, passed_mode, sizetree);
 
-      if (where_pad != none
+      if (where_pad != PAD_NONE
 	  && (!tree_fits_uhwi_p (sizetree)
 	      || (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
 	sizetree = round_up (sizetree, round_boundary / BITS_PER_UNIT);

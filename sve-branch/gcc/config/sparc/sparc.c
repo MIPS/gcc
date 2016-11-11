@@ -7147,11 +7147,11 @@ sparc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
    For the 64 bit ABI structs are always stored left shifted in their
    argument slot.  */
 
-enum direction
+pad_direction
 function_arg_padding (machine_mode mode, const_tree type)
 {
   if (TARGET_ARCH64 && type && AGGREGATE_TYPE_P (type))
-    return upward;
+    return PAD_UPWARD;
 
   /* Fall back to the default.  */
   return DEFAULT_FUNCTION_ARG_PADDING (mode, type);

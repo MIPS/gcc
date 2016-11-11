@@ -10560,14 +10560,14 @@ ia64_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
 /* For the HP-UX IA64 aggregate parameters are passed stored in the
    most significant bits of the stack slot.  */
 
-enum direction
+pad_direction
 ia64_hpux_function_arg_padding (machine_mode mode, const_tree type)
 {
    /* Exception to normal case for structures/unions/etc.  */
 
    if (type && AGGREGATE_TYPE_P (type)
        && int_size_in_bytes (type) < UNITS_PER_WORD)
-     return upward;
+     return PAD_UPWARD;
 
    /* Fall back to the default.  */
    return DEFAULT_FUNCTION_ARG_PADDING (mode, type);

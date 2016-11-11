@@ -637,10 +637,10 @@ typedef struct
 #endif
 
 #define FUNCTION_ARG_PADDING(MODE, TYPE) \
-  (aarch64_pad_arg_upward (MODE, TYPE) ? upward : downward)
+  (aarch64_pad_arg_upward (MODE, TYPE) ? PAD_UPWARD : PAD_DOWNWARD)
 
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  (aarch64_pad_reg_upward (MODE, TYPE, FIRST) ? upward : downward)
+  (aarch64_pad_reg_upward (MODE, TYPE, FIRST) ? PAD_UPWARD : PAD_DOWNWARD)
 
 #define PAD_VARARGS_DOWN	0
 

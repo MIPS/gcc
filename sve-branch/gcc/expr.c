@@ -2144,7 +2144,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 	  if (
 #ifdef BLOCK_REG_PADDING
 	      BLOCK_REG_PADDING (GET_MODE (orig_src), type, i == start)
-	      == (BYTES_BIG_ENDIAN ? upward : downward)
+	      == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)
 #else
 	      BYTES_BIG_ENDIAN
 #endif
@@ -2556,7 +2556,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	  if (
 #ifdef BLOCK_REG_PADDING
 	      BLOCK_REG_PADDING (GET_MODE (orig_dst), type, i == start)
-	      == (BYTES_BIG_ENDIAN ? upward : downward)
+	      == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)
 #else
 	      BYTES_BIG_ENDIAN
 #endif
@@ -4125,7 +4125,7 @@ emit_single_push_insn_1 (machine_mode mode, rtx x, tree type)
      then store X into the stack location using an offset.  This is
      because emit_move_insn does not know how to pad; it does not have
      access to type.  */
-  else if (FUNCTION_ARG_PADDING (mode, type) == downward)
+  else if (targetm.calls.function_arg_padding (mode, type) == PAD_DOWNWARD)
     {
       unsigned padding_size = rounded_size - GET_MODE_SIZE (mode);
       HOST_WIDE_INT offset;
@@ -4269,18 +4269,19 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 		rtx alignment_pad, bool sibcall_p)
 {
   rtx xinner;
-  enum direction stack_direction = STACK_GROWS_DOWNWARD ? downward : upward;
+  pad_direction stack_direction
+    = STACK_GROWS_DOWNWARD ? PAD_DOWNWARD : PAD_UPWARD;
 
-  /* Decide where to pad the argument: `downward' for below,
-     `upward' for above, or `none' for don't pad it.
+  /* Decide where to pad the argument: PAD_DOWNWARD for below,
+     PAD_UPWARD for above, or PAD_NONE for don't pad it.
      Default is below for small data on big-endian machines; else above.  */
-  enum direction where_pad = FUNCTION_ARG_PADDING (mode, type);
+  pad_direction where_pad = targetm.calls.function_arg_padding (mode, type);
 
   /* Invert direction if stack is post-decrement.
      FIXME: why?  */
   if (STACK_PUSH_CODE == POST_DEC)
-    if (where_pad != none)
-      where_pad = (where_pad == downward ? upward : downward);
+    if (where_pad != PAD_NONE)
+      where_pad = (where_pad == PAD_DOWNWARD ? PAD_UPWARD : PAD_DOWNWARD);
 
   xinner = x;
 
@@ -4352,7 +4353,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	     or if padding below and stack grows up.
 	     But if space already allocated, this has already been done.  */
 	  if (extra && args_addr == 0
-	      && where_pad != none && where_pad != stack_direction)
+	      && where_pad != PAD_NONE && where_pad != stack_direction)
 	    anti_adjust_stack (GEN_INT (extra));
 
 	  move_by_pieces (NULL, xinner, INTVAL (size) - used, align, 0);
@@ -4381,7 +4382,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	     A single stack adjust will do.  */
 	  if (! args_addr)
 	    {
-	      temp = push_block (size, extra, where_pad == downward);
+	      temp = push_block (size, extra, where_pad == PAD_DOWNWARD);
 	      extra = 0;
 	    }
 	  else if (CONST_INT_P (args_so_far))
@@ -4475,7 +4476,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	 or if padding below and stack grows up.
 	 But if space already allocated, this has already been done.  */
       if (extra && args_addr == 0
-	  && where_pad != none && where_pad != stack_direction)
+	  && where_pad != PAD_NONE && where_pad != stack_direction)
 	anti_adjust_stack (GEN_INT (extra));
 
       /* If we make space by pushing it, we might as well push
@@ -4526,7 +4527,7 @@ emit_push_insn (rtx x, machine_mode mode, tree type, rtx size,
 	 or if padding below and stack grows up.
 	 But if space already allocated, this has already been done.  */
       if (extra && args_addr == 0
-	  && where_pad != none && where_pad != stack_direction)
+	  && where_pad != PAD_NONE && where_pad != stack_direction)
 	anti_adjust_stack (GEN_INT (extra));
 
 #ifdef PUSH_ROUNDING

@@ -9871,7 +9871,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  if (BYTES_BIG_ENDIAN && GET_MODE_SIZE (ag_mode) < UNITS_PER_VREG)
 	    adjust = UNITS_PER_VREG - GET_MODE_SIZE (ag_mode);
 	}
-      else if (BLOCK_REG_PADDING (mode, type, 1) == downward
+      else if (BLOCK_REG_PADDING (mode, type, 1) == PAD_DOWNWARD
 	       && size < UNITS_PER_VREG)
 	{
 	  adjust = UNITS_PER_VREG - size;
@@ -9890,7 +9890,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
       if (align > 8)
 	dw_align = true;
 
-      if (BLOCK_REG_PADDING (mode, type, 1) == downward
+      if (BLOCK_REG_PADDING (mode, type, 1) == PAD_DOWNWARD
 	  && size < UNITS_PER_WORD)
 	{
 	  adjust = UNITS_PER_WORD  - size;
@@ -9965,7 +9965,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   /* String up with arg */
   on_stack = build2 (COMPOUND_EXPR, TREE_TYPE (arg), t, arg);
   /* Big-endianness related address adjustment.  */
-  if (BLOCK_REG_PADDING (mode, type, 1) == downward
+  if (BLOCK_REG_PADDING (mode, type, 1) == PAD_DOWNWARD
       && size < UNITS_PER_WORD)
   {
     t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (arg), arg,

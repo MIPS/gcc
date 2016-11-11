@@ -1351,12 +1351,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #define DEFAULT_FUNCTION_ARG_PADDING(MODE, TYPE)			\
   (! BYTES_BIG_ENDIAN							\
-   ? upward								\
+   ? PAD_UPWARD								\
    : (((MODE) == BLKmode						\
        ? ((TYPE) && TREE_CODE (TYPE_SIZE (TYPE)) == INTEGER_CST		\
 	  && int_size_in_bytes (TYPE) < (PARM_BOUNDARY / BITS_PER_UNIT)) \
        : GET_MODE_BITSIZE (MODE) < PARM_BOUNDARY)			\
-      ? downward : upward))
+      ? PAD_DOWNWARD : PAD_UPWARD))
 
 #ifndef FUNCTION_ARG_PADDING
 #define FUNCTION_ARG_PADDING(MODE, TYPE)	\

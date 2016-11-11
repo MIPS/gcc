@@ -300,7 +300,7 @@ typedef struct nios2_args
   (nios2_function_arg_padding ((MODE), (TYPE)))
 
 #define PAD_VARARGS_DOWN \
-  (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)
+  (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == PAD_DOWNWARD)
 
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
   (nios2_block_reg_padding ((MODE), (TYPE), (FIRST)))

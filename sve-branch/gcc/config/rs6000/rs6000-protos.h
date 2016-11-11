@@ -191,10 +191,7 @@ extern void rs6000_xcoff_declare_function_name (FILE *, const char *, tree);
 extern void rs6000_xcoff_declare_object_name (FILE *, const char *, tree);
 extern void rs6000_elf_declare_function_name (FILE *, const char *, tree);
 extern bool rs6000_elf_in_small_data_p (const_tree);
-#ifdef ARGS_SIZE_RTX
-/* expr.h defines ARGS_SIZE_RTX and `enum direction' */
-extern enum direction function_arg_padding (machine_mode, const_tree);
-#endif /* ARGS_SIZE_RTX */
+extern pad_direction function_arg_padding (machine_mode, const_tree);
 
 #endif /* TREE_CODE */
 
