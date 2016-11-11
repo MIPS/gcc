@@ -2457,17 +2457,18 @@ find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 /* Compute maximum offset of [base + offset] addressing mode
    for memory reference represented by USE.  */
 
-static HOST_WIDE_INT
+static poly_int64
 compute_max_addr_offset (struct iv_use *use)
 {
   int width;
   rtx reg, addr;
-  HOST_WIDE_INT i, off;
+  HOST_WIDE_INT i;
+  poly_int64 off;
   unsigned list_index, num;
   addr_space_t as;
   machine_mode mem_mode;
   scalar_int_mode addr_mode;
-  static vec<HOST_WIDE_INT> max_offset_list;
+  static vec<poly_int64_pod> max_offset_list;
 
   as = TYPE_ADDR_SPACE (TREE_TYPE (use->iv->base));
   mem_mode = TYPE_MODE (TREE_TYPE (*use->op_p));
@@ -2482,7 +2483,7 @@ compute_max_addr_offset (struct iv_use *use)
     }
 
   off = max_offset_list[list_index];
-  if (off != -1)
+  if (may_ne (off, -1))
     return off;
 
   addr_mode = targetm.addr_space.address_mode (as);
@@ -2503,7 +2504,7 @@ compute_max_addr_offset (struct iv_use *use)
       /* For some strict-alignment targets, the offset must be naturally
 	 aligned.  Try an aligned offset if mem_mode is not QImode.  */
       off = (HOST_WIDE_INT_1U << i);
-      if (off > GET_MODE_SIZE (mem_mode) && mem_mode != QImode)
+      if (must_gt (off, GET_MODE_SIZE (mem_mode)) && mem_mode != QImode)
 	{
 	  off -= GET_MODE_SIZE (mem_mode);
 	  XEXP (addr, 1) = gen_int_mode (off, addr_mode);
@@ -2594,7 +2595,7 @@ static void
 split_address_groups (struct ivopts_data *data)
 {
   unsigned int i, j;
-  HOST_WIDE_INT max_offset = -1;
+  poly_int64 max_offset = -1;
 
   /* Reset max offset to split all small groups.  */
   if (split_small_address_groups_p (data))
@@ -2610,7 +2611,7 @@ split_address_groups (struct ivopts_data *data)
       if (group->vuses.length () == 1)
 	continue;
 
-      if (max_offset != 0)
+      if (may_ne (max_offset, 0))
 	max_offset = compute_max_addr_offset (use);
 
       for (j = 1; j < group->vuses.length (); j++)
@@ -2619,8 +2620,8 @@ split_address_groups (struct ivopts_data *data)
 
 	  /* Only uses with offset that can fit in offset part against
 	     the first use can be grouped together.  */
-	  if (next->addr_offset - use->addr_offset
-	      > (unsigned HOST_WIDE_INT) max_offset)
+	  if (may_gt (next->addr_offset - use->addr_offset,
+		      poly_uint64 (max_offset)))
 	    break;
 
 	  next->id = j;
@@ -3958,7 +3959,7 @@ enum ainc_type
 
 struct address_cost_data
 {
-  HOST_WIDE_INT min_offset, max_offset;
+  poly_int64_pod min_offset, max_offset;
   unsigned costs[2][2][2][2];
   unsigned ainc_costs[AINC_NONE];
 };
@@ -3990,7 +3991,8 @@ get_address_cost (bool symbol_present, bool var_present,
   if (!data)
     {
       HOST_WIDE_INT i;
-      HOST_WIDE_INT rat, off = 0;
+      HOST_WIDE_INT rat;
+      poly_int64 off = 0;
       int old_cse_not_expected, width;
       unsigned sym_p, var_p, off_p, rat_p, add_c;
       rtx_insn *seq;
@@ -4027,7 +4029,7 @@ get_address_cost (bool symbol_present, bool var_present,
 		? (HOST_WIDE_INT_1U << i)
 		    - GET_MODE_SIZE (mem_mode)
 		: 0;
-	  if (off > 0)
+	  if (may_ne (off, 0))
 	    {
 	      XEXP (addr, 1) = gen_int_mode (off, address_mode);
 	      if (memory_address_addr_space_p (mem_mode, addr, as))
@@ -4041,12 +4043,11 @@ get_address_cost (bool symbol_present, bool var_present,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "get_address_cost:\n");
-	  fprintf (dump_file, "  min offset %s " HOST_WIDE_INT_PRINT_DEC "\n",
-		   GET_MODE_NAME (mem_mode),
-		   data->min_offset);
-	  fprintf (dump_file, "  max offset %s " HOST_WIDE_INT_PRINT_DEC "\n",
-		   GET_MODE_NAME (mem_mode),
-		   data->max_offset);
+	  fprintf (dump_file, "  min offset %s ", GET_MODE_NAME (mem_mode));
+	  print_dec (data->min_offset, dump_file, SIGNED);
+	  fprintf (dump_file, "\n  max offset %s ", GET_MODE_NAME (mem_mode));
+	  print_dec (data->max_offset, dump_file, SIGNED);
+	  fprintf (dump_file, "\n");
 	}
 
       rat = 1;
