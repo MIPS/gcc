@@ -2269,14 +2269,17 @@ operands_match_p (rtx x, rtx y)
 	 multiple hard register group of scalar integer registers, so that
 	 for example (reg:DI 0) and (reg:SI 1) will be considered the same
 	 register.  */
-      if (REG_WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD
-	  && SCALAR_INT_MODE_P (GET_MODE (x))
+      scalar_int_mode int_mode;
+      if (REG_WORDS_BIG_ENDIAN
+	  && is_a <scalar_int_mode> (GET_MODE (x), &int_mode)
+	  && GET_MODE_SIZE (int_mode) > UNITS_PER_WORD
 	  && i < FIRST_PSEUDO_REGISTER)
-	i += hard_regno_nregs[i][GET_MODE (x)] - 1;
-      if (REG_WORDS_BIG_ENDIAN && GET_MODE_SIZE (GET_MODE (y)) > UNITS_PER_WORD
-	  && SCALAR_INT_MODE_P (GET_MODE (y))
+	i += hard_regno_nregs[i][int_mode] - 1;
+      if (REG_WORDS_BIG_ENDIAN
+	  && is_a <scalar_int_mode> (GET_MODE (y), &int_mode)
+	  && GET_MODE_SIZE (int_mode) > UNITS_PER_WORD
 	  && j < FIRST_PSEUDO_REGISTER)
-	j += hard_regno_nregs[j][GET_MODE (y)] - 1;
+	j += hard_regno_nregs[j][int_mode] - 1;
 
       return i == j;
     }
