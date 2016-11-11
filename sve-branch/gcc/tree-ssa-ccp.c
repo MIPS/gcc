@@ -615,7 +615,7 @@ get_value_for_expr (tree expr, bool for_bits_p)
 	}
     }
   else if (is_gimple_min_invariant (expr)
-	   && (!for_bits_p || TREE_CODE (expr) != ADDR_EXPR))
+	   && (!for_bits_p || TREE_CODE (expr) == INTEGER_CST))
     {
       val.lattice_val = CONSTANT;
       val.value = expr;
