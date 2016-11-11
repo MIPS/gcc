@@ -1181,9 +1181,9 @@ constant_pointer_difference (tree p1, tree p2)
 		  && TREE_CODE (TREE_OPERAND (q, 0)) == SSA_NAME)
 		{
 		  p = TREE_OPERAND (q, 0);
-		  off = size_binop (PLUS_EXPR, off,
-				    wide_int_to_tree (sizetype,
-						      mem_ref_offset (q)));
+		  tree q_offset = poly_offset_int_to_tree
+		    (sizetype, mem_ref_offset (q));
+		  off = size_binop (PLUS_EXPR, off, q_offset);
 		}
 	      else
 		{

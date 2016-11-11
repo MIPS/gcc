@@ -3371,8 +3371,8 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 	{
 	  if (off == NULL_TREE)
 	    {
-	      offset_int moff = mem_ref_offset (base);
-	      off = wide_int_to_tree (sizetype, moff);
+	      poly_offset_int moff = mem_ref_offset (base);
+	      off = poly_offset_int_to_tree (sizetype, moff);
 	    }
 	  else
 	    off = size_binop (PLUS_EXPR, off,

@@ -1141,12 +1141,13 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 
   /* The offset embedded in MEM_REFs can be negative.  Bias them
      so that the resulting offset adjustment is positive.  */
-  offset_int moff = mem_ref_offset (base1);
+  poly_offset_int moff = mem_ref_offset (base1);
   moff <<= LOG2_BITS_PER_UNIT;
-  if (wi::neg_p (moff))
-    offset2p += (-moff).to_short_addr ();
+  gcc_checking_assert (ordered_p (moff, 0));
+  if (may_lt (moff, 0))
+    offset2p += (-moff).force_shwi ();
   else
-    offset1p += moff.to_short_addr ();
+    offset1p += moff.force_shwi ();
 
   /* If only one reference is based on a variable, they cannot alias if
      the pointer access is beyond the extent of the variable access.
@@ -1215,12 +1216,13 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
   if (TREE_CODE (dbase2) == MEM_REF
       || TREE_CODE (dbase2) == TARGET_MEM_REF)
     {
-      offset_int moff = mem_ref_offset (dbase2);
+      poly_offset_int moff = mem_ref_offset (dbase2);
       moff <<= LOG2_BITS_PER_UNIT;
-      if (wi::neg_p (moff))
-	doffset1 -= (-moff).to_short_addr ();
+      gcc_checking_assert (ordered_p (moff, 0));
+      if (may_lt (moff, 0))
+	doffset1 -= (-moff).force_shwi ();
       else
-	doffset2 -= moff.to_short_addr ();
+	doffset2 -= moff.force_shwi ();
     }
 
   /* If either reference is view-converted, give up now.  */
@@ -1310,21 +1312,23 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 		      && operand_equal_p (TMR_INDEX2 (base1),
 					  TMR_INDEX2 (base2), 0))))))
     {
-      offset_int moff;
+      poly_offset_int moff;
       /* The offset embedded in MEM_REFs can be negative.  Bias them
 	 so that the resulting offset adjustment is positive.  */
       moff = mem_ref_offset (base1);
       moff <<= LOG2_BITS_PER_UNIT;
-      if (wi::neg_p (moff))
-	offset2 += (-moff).to_short_addr ();
+      gcc_checking_assert (ordered_p (moff, 0));
+      if (may_lt (moff, 0))
+	offset2 += (-moff).force_shwi ();
       else
-	offset1 += moff.to_shwi ();
+	offset1 += moff.force_shwi ();
       moff = mem_ref_offset (base2);
       moff <<= LOG2_BITS_PER_UNIT;
-      if (wi::neg_p (moff))
-	offset1 += (-moff).to_short_addr ();
+      gcc_checking_assert (ordered_p (moff, 0));
+      if (may_lt (moff, 0))
+	offset1 += (-moff).force_shwi ();
       else
-	offset2 += moff.to_short_addr ();
+	offset2 += moff.force_shwi ();
       return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
     }
   if (!ptr_derefs_may_alias_p (ptr1, ptr2))

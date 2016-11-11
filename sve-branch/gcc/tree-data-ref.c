@@ -793,8 +793,8 @@ dr_analyze_innermost (struct data_reference *dr, struct loop *nest)
     {
       if (!integer_zerop (TREE_OPERAND (base, 1)))
 	{
-	  offset_int moff = mem_ref_offset (base);
-	  tree mofft = wide_int_to_tree (sizetype, moff);
+	  poly_offset_int moff = mem_ref_offset (base);
+	  tree mofft = poly_offset_int_to_tree (sizetype, moff);
 	  if (!poffset)
 	    poffset = mofft;
 	  else

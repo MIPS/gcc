@@ -149,7 +149,7 @@ compute_object_offset (const_tree expr, const_tree var)
 
     case MEM_REF:
       gcc_assert (TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR);
-      return wide_int_to_tree (sizetype, mem_ref_offset (expr));
+      return poly_offset_int_to_tree (sizetype, mem_ref_offset (expr));
 
     default:
       return error_mark_node;
@@ -203,11 +203,17 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	}
       if (sz != unknown[object_size_type])
 	{
-	  offset_int dsz = wi::sub (sz, mem_ref_offset (pt_var));
-	  if (wi::neg_p (dsz))
-	    sz = 0;
-	  else if (wi::fits_uhwi_p (dsz))
-	    sz = dsz.to_uhwi ();
+	  offset_int mem_offset;
+	  if (mem_ref_offset (pt_var).is_constant (&mem_offset))
+	    {
+	      offset_int dsz = wi::sub (sz, mem_offset);
+	      if (wi::neg_p (dsz))
+		sz = 0;
+	      else if (wi::fits_uhwi_p (dsz))
+		sz = dsz.to_uhwi ();
+	      else
+		sz = unknown[object_size_type];
+	    }
 	  else
 	    sz = unknown[object_size_type];
 	}

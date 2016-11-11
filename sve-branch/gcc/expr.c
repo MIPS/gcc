@@ -7158,8 +7158,8 @@ get_inner_reference (tree exp, poly_int64 *pbitsize,
 	      tree off = TREE_OPERAND (exp, 1);
 	      if (!integer_zerop (off))
 		{
-		  offset_int boff, coff = mem_ref_offset (exp);
-		  boff = coff << LOG2_BITS_PER_UNIT;
+		  poly_offset_int boff = mem_ref_offset (exp);
+		  boff <<= LOG2_BITS_PER_UNIT;
 		  bit_offset += boff;
 		}
 	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
@@ -10125,9 +10125,9 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	   might end up in a register.  */
 	if (mem_ref_refers_to_non_mem_p (exp))
 	  {
-	    HOST_WIDE_INT offset = mem_ref_offset (exp).to_short_addr ();
+	    poly_int64 offset = mem_ref_offset (exp).force_shwi ();
 	    base = TREE_OPERAND (base, 0);
-	    if (offset == 0
+	    if (must_eq (offset, 0)
 	        && !reverse
 		&& tree_fits_uhwi_p (TYPE_SIZE (type))
 		&& (GET_MODE_BITSIZE (DECL_MODE (base))
@@ -10162,7 +10162,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	op0 = memory_address_addr_space (mode, op0, as);
 	if (!integer_zerop (TREE_OPERAND (exp, 1)))
 	  {
-	    rtx off = immed_wide_int_const (mem_ref_offset (exp), address_mode);
+	    rtx off = immed_poly_int_const (mem_ref_offset (exp),
+					    address_mode);
 	    op0 = simplify_gen_binary (PLUS, address_mode, op0, off);
 	    op0 = memory_address_addr_space (mode, op0, as);
 	  }

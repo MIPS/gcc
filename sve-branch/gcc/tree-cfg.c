@@ -2855,7 +2855,8 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  error ("invalid first operand of MEM_REF");
 	  return x;
 	}
-      if (TREE_CODE (TREE_OPERAND (t, 1)) != INTEGER_CST
+      if ((TREE_CODE (TREE_OPERAND (t, 1)) != INTEGER_CST
+	   && TREE_CODE (TREE_OPERAND (t, 1)) != POLY_CST)
 	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 1))))
 	{
 	  error ("invalid offset operand of MEM_REF");
@@ -3259,7 +3260,8 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	  debug_generic_stmt (expr);
 	  return true;
 	}
-      if (TREE_CODE (TREE_OPERAND (expr, 1)) != INTEGER_CST
+      if ((TREE_CODE (TREE_OPERAND (expr, 1)) != INTEGER_CST
+	   && TREE_CODE (TREE_OPERAND (expr, 1)) != POLY_CST)
 	  || !POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1))))
 	{
 	  error ("invalid offset operand in MEM_REF");
@@ -3276,7 +3278,8 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
 	  return true;
 	}
       if (!TMR_OFFSET (expr)
-	  || TREE_CODE (TMR_OFFSET (expr)) != INTEGER_CST
+	  || (TREE_CODE (TMR_OFFSET (expr)) != INTEGER_CST
+	      && TREE_CODE (TMR_OFFSET (expr)) != POLY_CST)
 	  || !POINTER_TYPE_P (TREE_TYPE (TMR_OFFSET (expr))))
 	{
 	  error ("invalid offset operand in TARGET_MEM_REF");

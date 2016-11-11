@@ -2841,7 +2841,10 @@ decode_addr_const (tree exp, struct addr_const *value)
       else if (TREE_CODE (target) == MEM_REF
 	       && TREE_CODE (TREE_OPERAND (target, 0)) == ADDR_EXPR)
 	{
-	  offset += mem_ref_offset (target).to_short_addr ();
+	  offset_int mem_offset;
+	  if (!mem_ref_offset (target).is_constant (&mem_offset))
+	    break;
+	  offset += mem_offset.to_shwi ();
 	  target = TREE_OPERAND (TREE_OPERAND (target, 0), 0);
 	}
       else if (TREE_CODE (target) == INDIRECT_REF

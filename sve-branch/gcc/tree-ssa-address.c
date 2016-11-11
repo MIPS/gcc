@@ -885,9 +885,13 @@ copy_ref_info (tree new_ref, tree old_ref)
 			   && (TREE_INT_CST_LOW (TMR_STEP (new_ref))
 			       < align)))))
 	    {
-	      unsigned int inc = (mem_ref_offset (old_ref).to_short_addr ()
-				  - mem_ref_offset (new_ref).to_short_addr ());
-	      adjust_ptr_info_misalignment (new_pi, inc);
+	      poly_int64 inc = (mem_ref_offset (old_ref)
+				- mem_ref_offset (new_ref)).force_shwi ();
+	      HOST_WIDE_INT const_inc;
+	      if (inc.is_constant (&const_inc))
+		adjust_ptr_info_misalignment (new_pi, const_inc);
+	      else
+		mark_ptr_info_alignment_unknown (new_pi);
 	    }
 	  else
 	    mark_ptr_info_alignment_unknown (new_pi);
