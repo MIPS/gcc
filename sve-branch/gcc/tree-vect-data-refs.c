@@ -861,6 +861,13 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   return true;
 }
 
+/* Return the size of the value accessed by DR.  */
+
+static unsigned int
+vect_get_dr_size (struct data_reference *dr)
+{
+  return GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
+}
 
 /* Function vect_update_misalignment_for_peel
 
@@ -877,8 +884,8 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
   unsigned int i;
   vec<dr_p> same_align_drs;
   struct data_reference *current_dr;
-  int dr_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
-  int dr_peel_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr_peel))));
+  int dr_size = vect_get_dr_size (dr);
+  int dr_peel_size = vect_get_dr_size (dr_peel);
   stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
   stmt_vec_info peel_stmt_info = vinfo_for_stmt (DR_STMT (dr_peel));
 
@@ -1498,8 +1505,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               /* Save info about DR in the hash table.  */
               vectype = STMT_VINFO_VECTYPE (stmt_info);
               nelements = TYPE_VECTOR_SUBPARTS (vectype);
-              mis = DR_MISALIGNMENT (dr) / GET_MODE_SIZE (TYPE_MODE (
-                                                TREE_TYPE (DR_REF (dr))));
+	      mis = DR_MISALIGNMENT (dr) / vect_get_dr_size (dr);
               npeel_tmp = (negative
 			   ? (mis - nelements) : (nelements - mis))
 		  & (nelements - 1);
@@ -1729,8 +1735,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  updating DR_MISALIGNMENT values.  The peeling factor is the
                  vectorization factor minus the misalignment as an element
                  count.  */
-              mis = DR_MISALIGNMENT (dr0);
-              mis /= GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr0))));
+	      mis = DR_MISALIGNMENT (dr0) / vect_get_dr_size (dr0);
               npeel = ((negative ? mis - nelements : nelements - mis)
 		       & (nelements - 1));
             }
@@ -2017,8 +2022,8 @@ vect_find_same_alignment_drs (struct data_dependence_relation *ddr,
   struct data_reference *drb = DDR_B (ddr);
   stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra));
   stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
-  int dra_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dra))));
-  int drb_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (drb))));
+  int dra_size = vect_get_dr_size (dra);
+  int drb_size = vect_get_dr_size (drb);
   lambda_vector dist_v;
   unsigned int loop_depth;
 
