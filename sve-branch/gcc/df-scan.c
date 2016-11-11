@@ -2635,7 +2635,7 @@ df_ref_record (enum df_ref_class cl,
    This function returns true iff the SUBREG X is such a SUBREG.  */
 
 bool
-df_read_modify_subreg_p (rtx x)
+df_read_modify_subreg_p (const_rtx x)
 {
   unsigned int isize;
 

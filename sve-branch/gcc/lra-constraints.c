@@ -1605,7 +1605,7 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
 	  bitmap_set_bit (&lra_subreg_reload_pseudos, REGNO (new_reg));
 
 	  insert_before = (type != OP_OUT
-			   || GET_MODE_SIZE (innermode) > GET_MODE_SIZE (mode));
+			   || df_read_modify_subreg_p (operand));
 	  insert_after = (type != OP_IN);
 	  insert_move_for_subreg (insert_before ? &before : NULL,
 				  insert_after ? &after : NULL,
