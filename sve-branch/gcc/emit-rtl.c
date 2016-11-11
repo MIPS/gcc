@@ -920,6 +920,8 @@ validate_subreg (machine_mode omode, machine_mode imode,
   if (!ordered_p (isize, osize))
     return false;
 
+  poly_int64 regsize = REGMODE_NATURAL_SIZE (imode);
+
   /* ??? This should not be here.  Temporarily continue to allow word_mode
      subregs of anything.  The most common offender is (subreg:SI (reg:DF)).
      Generally, backends are doing something sketchy but it'll take time to
@@ -928,7 +930,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
     ;
   /* ??? Similarly, e.g. with (subreg:DF (reg:TI)).  Though store_bit_field
      is the culprit here, and not the backends.  */
-  else if (must_ge (osize, UNITS_PER_WORD) && must_ge (isize, osize))
+  else if (must_ge (osize, regsize) && must_ge (isize, osize))
     ;
   /* Allow component subregs of complex and vector.  Though given the below
      extraction rules, it's not always clear what that means.  */
@@ -982,17 +984,18 @@ validate_subreg (machine_mode omode, machine_mode imode,
     }
 
   /* For pseudo registers, we want most of the same checks.  Namely:
-     If the register no larger than a word, the subreg must be lowpart.
-     If the register is larger than a word, the subreg must be the lowpart
-     of a subword.  A subreg does *not* perform arbitrary bit extraction.
-     Given that we've already checked mode/offset alignment, we only have
-     to check subword subregs here.  */
-  if (!ordered_p (osize, UNITS_PER_WORD))
+     Divide the register into REGMODE_NATURAL_SIZE-sized blocks.
+     If the subreg is smaller than a block, it must be the lowpart
+     of a block, otherwise it must be a sequence of complete blocks.
+
+     Given that we've already checked the mode and offset alignment,
+     we only have to check subblock subregs here.  */
+  if (!ordered_p (osize, regsize))
     return false;
-  if (may_lt (osize, UNITS_PER_WORD)
+  if (may_lt (osize, regsize)
       && ! (lra_in_progress && (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))))
     {
-      poly_int64 block_size = ordered_min (isize, UNITS_PER_WORD);
+      poly_int64 block_size = ordered_min (isize, regsize);
       HOST_WIDE_INT start_reg;
       poly_int64 offset_within_reg;
       if (!can_div_trunc_p (offset, block_size, &start_reg, &offset_within_reg)
@@ -1537,12 +1540,12 @@ gen_lowpart_common (machine_mode mode, rtx x)
     }
   else
     {
-      /* MODE must occupy no more words than the mode of X.  */
-      poly_int64 word_size = UNITS_PER_WORD;
-      unsigned int mwords, xwords;
-      if (!can_div_away_from_zero_p (msize, word_size, &mwords)
-	  || !can_div_away_from_zero_p (xsize, word_size, &xwords)
-	  || mwords > xwords)
+      /* MODE must occupy no more of the underlying registers than X.  */
+      poly_int64 regsize = REGMODE_NATURAL_SIZE (innermode);
+      unsigned int mregs, xregs;
+      if (!can_div_away_from_zero_p (msize, regsize, &mregs)
+	  || !can_div_away_from_zero_p (xsize, regsize, &xregs)
+	  || mregs > xregs)
 	return 0;
     }
 

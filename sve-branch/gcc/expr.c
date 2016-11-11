@@ -6209,7 +6209,7 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 	   this probably loses.  */
 	else if (REG_P (target) && TREE_STATIC (exp)
 		 && must_le (GET_MODE_SIZE (GET_MODE (target)),
-			     UNITS_PER_WORD))
+			     REGMODE_NATURAL_SIZE (GET_MODE (target))))
 	  {
 	    emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 	    cleared = 1;
