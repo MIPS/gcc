@@ -244,7 +244,8 @@ convert_move (rtx to, rtx from, int unsignedp)
 
   if (VECTOR_MODE_P (to_mode) || VECTOR_MODE_P (from_mode))
     {
-      gcc_assert (GET_MODE_BITSIZE (from_mode) == GET_MODE_BITSIZE (to_mode));
+      gcc_assert (must_eq (GET_MODE_BITSIZE (from_mode),
+			   GET_MODE_BITSIZE (to_mode)));
 
       if (VECTOR_MODE_P (to_mode))
 	from = simplify_gen_subreg (to_mode, from, GET_MODE (from), 0);
@@ -696,7 +697,8 @@ convert_modes (machine_mode mode, machine_mode oldmode, rtx x, int unsignedp)
      subreg operation.  */
   if (VECTOR_MODE_P (mode) && GET_MODE (x) == VOIDmode)
     {
-      gcc_assert (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (oldmode));
+      gcc_assert (must_eq (GET_MODE_BITSIZE (mode),
+			   GET_MODE_BITSIZE (oldmode)));
       return simplify_gen_subreg (mode, x, oldmode, 0);
     }
 
@@ -3668,7 +3670,8 @@ emit_move_insn_1 (rtx x, rtx y)
      only safe when simplify_subreg can convert MODE constants into integer
      constants.  At present, it can only do this reliably if the value
      fits within a HOST_WIDE_INT.  */
-  if (!CONSTANT_P (y) || GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+  if (!CONSTANT_P (y)
+      || must_le (GET_MODE_BITSIZE (mode), HOST_BITS_PER_WIDE_INT))
     {
       rtx_insn *ret = emit_move_via_integer (mode, x, y, lra_in_progress);
 
@@ -4625,8 +4628,9 @@ optimize_bitfield_assignment_op (poly_uint64 pbitsize,
 				 machine_mode mode1, rtx str_rtx,
 				 tree to, tree src, bool reverse)
 {
+  /* str_mode is not guaranteed to be a scalar type.  */
   machine_mode str_mode = GET_MODE (str_rtx);
-  unsigned int str_bitsize = GET_MODE_BITSIZE (str_mode);
+  unsigned int str_bitsize;
   tree op0, op1;
   rtx value, result;
   optab binop;
@@ -4640,6 +4644,7 @@ optimize_bitfield_assignment_op (poly_uint64 pbitsize,
       || !pbitregion_start.is_constant (&bitregion_start)
       || !pbitregion_end.is_constant (&bitregion_end)
       || bitsize >= BITS_PER_WORD
+      || !GET_MODE_BITSIZE (str_mode).is_constant (&str_bitsize)
       || str_bitsize > BITS_PER_WORD
       || TREE_SIDE_EFFECTS (to)
       || TREE_THIS_VOLATILE (to))
@@ -5118,32 +5123,35 @@ expand_assignment (tree to, tree from, bool nontemporal)
       /* Handle expand_expr of a complex value returning a CONCAT.  */
       else if (GET_CODE (to_rtx) == CONCAT)
 	{
-	  unsigned short mode_bitsize = GET_MODE_BITSIZE (GET_MODE (to_rtx));
+	  machine_mode to_mode = GET_MODE (to_rtx);
+	  gcc_checking_assert (COMPLEX_MODE_P (to_mode));
+	  unsigned short inner_bitsize = GET_MODE_UNIT_BITSIZE (to_mode);
 	  if (COMPLEX_MODE_P (TYPE_MODE (TREE_TYPE (from)))
 	      && must_eq (bitpos, 0)
-	      && must_eq (bitsize, mode_bitsize))
+	      && must_eq (bitsize, inner_bitsize * 2))
 	    result = store_expr (from, to_rtx, false, nontemporal, reversep);
-	  else if (must_eq (bitsize, mode_bitsize / 2)
+	  else if (must_eq (bitsize, inner_bitsize)
 		   && (must_eq (bitpos, 0)
-		       || must_eq (bitpos, mode_bitsize / 2)))
+		       || must_eq (bitpos, inner_bitsize)))
 	    result = store_expr (from, XEXP (to_rtx, may_ne (bitpos, 0)),
 				 false, nontemporal, reversep);
-	  else if (must_le (bitpos + bitsize, mode_bitsize / 2))
+	  else if (must_le (bitpos + bitsize, inner_bitsize))
 	    result = store_field (XEXP (to_rtx, 0), bitsize, bitpos,
 				  bitregion_start, bitregion_end,
 				  mode1, from, get_alias_set (to),
 				  nontemporal, reversep);
-	  else if (must_ge (bitpos, mode_bitsize / 2))
+	  else if (must_ge (bitpos, inner_bitsize))
 	    result = store_field (XEXP (to_rtx, 1), bitsize,
-				  bitpos - mode_bitsize / 2,
+				  bitpos - inner_bitsize,
 				  bitregion_start, bitregion_end,
 				  mode1, from, get_alias_set (to),
 				  nontemporal, reversep);
-	  else if (must_eq (bitpos, 0) && must_eq (bitsize, mode_bitsize))
+	  else if (must_eq (bitpos, 0)
+		   && must_eq (bitsize, inner_bitsize * 2))
 	    {
 	      rtx from_rtx;
 	      result = expand_normal (from);
-	      from_rtx = simplify_gen_subreg (GET_MODE (to_rtx), result,
+	      from_rtx = simplify_gen_subreg (to_mode, result,
 					      TYPE_MODE (TREE_TYPE (from)), 0);
 	      emit_move_insn (XEXP (to_rtx, 0),
 			      read_complex_part (from_rtx, false));
@@ -5152,7 +5160,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	    }
 	  else
 	    {
-	      rtx temp = assign_stack_temp (GET_MODE (to_rtx),
+	      rtx temp = assign_stack_temp (to_mode,
 					    GET_MODE_SIZE (GET_MODE (to_rtx)));
 	      write_complex_part (temp, XEXP (to_rtx, 0), false);
 	      write_complex_part (temp, XEXP (to_rtx, 1), true);
@@ -10140,8 +10148,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    if (must_eq (offset, 0)
 	        && !reverse
 		&& tree_fits_uhwi_p (TYPE_SIZE (type))
-		&& (GET_MODE_BITSIZE (DECL_MODE (base))
-		    == tree_to_uhwi (TYPE_SIZE (type))))
+		&& must_eq (GET_MODE_BITSIZE (DECL_MODE (base)),
+			    tree_to_uhwi (TYPE_SIZE (type))))
 	      return expand_expr (build1 (VIEW_CONVERT_EXPR, type, base),
 				  target, tmode, modifier);
 	    if (TYPE_MODE (type) == BLKmode)

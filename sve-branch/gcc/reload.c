@@ -577,7 +577,8 @@ get_secondary_mem (rtx x ATTRIBUTE_UNUSED, machine_mode mode,
 #ifdef SECONDARY_MEMORY_NEEDED_MODE
   mode = SECONDARY_MEMORY_NEEDED_MODE (MACRO_MODE (mode));
 #else
-  if (GET_MODE_BITSIZE (mode) < BITS_PER_WORD && INTEGRAL_MODE_P (mode))
+  if (must_lt (GET_MODE_BITSIZE (mode), BITS_PER_WORD)
+      && INTEGRAL_MODE_P (mode))
     mode = mode_for_size (BITS_PER_WORD, GET_MODE_CLASS (mode), 0);
 #endif
 
@@ -3159,8 +3160,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			   || (REG_P (operand)
 			       && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
 #if !WORD_REGISTER_OPERATIONS
-			  && (((GET_MODE_BITSIZE (GET_MODE (operand))
-				< BIGGEST_ALIGNMENT)
+			  && ((may_lt (GET_MODE_BITSIZE (GET_MODE (operand)),
+				       BIGGEST_ALIGNMENT)
 			       && paradoxical_subreg_p (operand_mode[i],
 							GET_MODE (operand)))
 			      || BYTES_BIG_ENDIAN

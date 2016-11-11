@@ -4003,7 +4003,7 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
   if (linner == lhs
       || !plbitsize.is_constant (&lbitsize)
       || !plbitpos.is_constant (&lbitpos)
-      || lbitsize == GET_MODE_BITSIZE (lmode)
+      || must_eq (lbitsize, GET_MODE_BITSIZE (lmode))
       || lbitsize < 0
       || offset != 0
       || TREE_CODE (linner) == PLACEHOLDER_EXPR

@@ -3404,7 +3404,7 @@ optimize_atomic_compare_exchange_p (gimple *stmt)
       /* Don't optimize floating point expected vars, VIEW_CONVERT_EXPRs
 	 might not preserve all the bits.  See PR71716.  */
       || SCALAR_FLOAT_TYPE_P (etype)
-      || TYPE_PRECISION (etype) != GET_MODE_BITSIZE (TYPE_MODE (etype)))
+      || may_ne (TYPE_PRECISION (etype), GET_MODE_BITSIZE (TYPE_MODE (etype))))
     return false;
 
   tree weak = gimple_call_arg (stmt, 3);
