@@ -370,22 +370,15 @@ force_expand_binop (machine_mode mode, optab binoptab,
 rtx
 expand_vector_broadcast (machine_mode vmode, rtx op)
 {
-  enum insn_code icode;
+  int n;
   rtvec vec;
-  rtx ret;
-  int i, n;
 
   gcc_checking_assert (VECTOR_MODE_P (vmode));
 
-  n = GET_MODE_NUNITS (vmode);
-  vec = rtvec_alloc (n);
-  for (i = 0; i < n; ++i)
-    RTVEC_ELT (vec, i) = op;
-
   if (CONSTANT_P (op))
-    return gen_rtx_CONST_VECTOR (vmode, vec);
+    return gen_const_vec_duplicate (vmode, op);
 
-  icode = optab_handler (vec_duplicate_optab, vmode);
+  insn_code icode = optab_handler (vec_duplicate_optab, vmode);
   if (icode != CODE_FOR_nothing)
     {
       struct expand_operand ops[2];
@@ -395,6 +388,9 @@ expand_vector_broadcast (machine_mode vmode, rtx op)
       return ops[0].value;
     }
 
+  if (!GET_MODE_NUNITS (vmode).is_constant (&n))
+    return NULL;
+
   /* ??? If the target doesn't have a vec_init, then we have no easy way
      of performing this operation.  Most of this sort of generic support
      is hidden away in the vector lowering support in gimple.  */
@@ -402,7 +398,11 @@ expand_vector_broadcast (machine_mode vmode, rtx op)
   if (icode == CODE_FOR_nothing)
     return NULL;
 
-  ret = gen_reg_rtx (vmode);
+  vec = rtvec_alloc (n);
+  for (int i = 0; i < n; ++i)
+    RTVEC_ELT (vec, i) = op;
+
+  rtx ret = gen_reg_rtx (vmode);
   emit_insn (GEN_FCN (icode) (ret, gen_rtx_PARALLEL (vmode, vec)));
 
   return ret;
@@ -1067,7 +1067,7 @@ expand_binop_directly (enum insn_code icode, machine_mode mode, optab binoptab,
 	 arguments.  */
       tmp_mode = insn_data[(int) icode].operand[0].mode;
       if (VECTOR_MODE_P (mode)
-	  && GET_MODE_NUNITS (tmp_mode) != 2 * GET_MODE_NUNITS (mode))
+	  && may_ne (GET_MODE_NUNITS (tmp_mode), 2 * GET_MODE_NUNITS (mode)))
 	{
 	  delete_insns_since (last);
 	  return NULL_RTX;
@@ -5362,16 +5362,15 @@ vector_compare_rtx (machine_mode cmp_mode, enum tree_code tcode,
 static rtx
 shift_amt_for_vec_perm_mask (machine_mode op0_mode, rtx sel)
 {
-  unsigned int i, first, nelt = GET_MODE_NUNITS (GET_MODE (sel));
-  unsigned int bitsize = GET_MODE_UNIT_BITSIZE (GET_MODE (sel));
-
   if (GET_CODE (sel) != CONST_VECTOR)
     return NULL_RTX;
 
-  first = INTVAL (CONST_VECTOR_ELT (sel, 0));
+  unsigned int nelt = CONST_VECTOR_NUNITS (sel);
+  unsigned int bitsize = GET_MODE_UNIT_BITSIZE (GET_MODE (sel));
+  unsigned int first = INTVAL (CONST_VECTOR_ELT (sel, 0));
   if (first >= nelt)
     return NULL_RTX;
-  for (i = 1; i < nelt; i++)
+  for (unsigned int i = 1; i < nelt; i++)
     {
       int idx = INTVAL (CONST_VECTOR_ELT (sel, i));
       unsigned int expected = i + first;
@@ -5427,7 +5426,7 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
 {
   enum insn_code icode;
   machine_mode qimode;
-  unsigned int i, w, e, u;
+  unsigned int i, w, u;
   rtx tmp, sel_qi = NULL;
   rtvec vec;
 
@@ -5435,7 +5434,6 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
     target = gen_reg_rtx (mode);
 
   w = GET_MODE_SIZE (mode);
-  e = GET_MODE_NUNITS (mode);
   u = GET_MODE_UNIT_SIZE (mode);
 
   /* Set QIMODE to a different vector mode with byte elements.
@@ -5454,6 +5452,7 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
     {
       /* See if this can be handled with a vec_shr.  We only do this if the
 	 second vector is all zeroes.  */
+      unsigned int e = CONST_VECTOR_NUNITS (sel);
       enum insn_code shift_code = optab_handler (vec_shr_optab, mode);
       enum insn_code shift_code_qi = ((qimode != VOIDmode && qimode != mode)
 				      ? optab_handler (vec_shr_optab, qimode)
@@ -5668,7 +5667,8 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
 
 
   gcc_assert (GET_MODE_SIZE (mode) == GET_MODE_SIZE (cmp_op_mode)
-	      && GET_MODE_NUNITS (mode) == GET_MODE_NUNITS (cmp_op_mode));
+	      && must_eq (GET_MODE_NUNITS (mode),
+			  GET_MODE_NUNITS (cmp_op_mode)));
 
   icode = get_vcond_icode (mode, cmp_op_mode, unsignedp);
   if (icode == CODE_FOR_nothing)
@@ -5767,7 +5767,6 @@ expand_mult_highpart (machine_mode mode, rtx op0, rtx op1,
   machine_mode wmode;
   rtx m1, m2, perm;
   optab tab1, tab2;
-  rtvec v;
 
   method = can_mult_highpart_p (mode, uns_p);
   switch (method)
@@ -5793,9 +5792,9 @@ expand_mult_highpart (machine_mode mode, rtx op0, rtx op1,
     }
 
   icode = optab_handler (tab1, mode);
-  nunits = GET_MODE_NUNITS (mode);
   wmode = insn_data[icode].operand[0].mode;
-  gcc_checking_assert (2 * GET_MODE_NUNITS (wmode) == nunits);
+  gcc_checking_assert (must_eq (2 * GET_MODE_NUNITS (wmode),
+				GET_MODE_NUNITS (mode)));
   gcc_checking_assert (GET_MODE_SIZE (wmode) == GET_MODE_SIZE (mode));
 
   create_output_operand (&eops[0], gen_reg_rtx (wmode), wmode);
@@ -5810,9 +5809,13 @@ expand_mult_highpart (machine_mode mode, rtx op0, rtx op1,
   expand_insn (optab_handler (tab2, mode), 3, eops);
   m2 = gen_lowpart (mode, eops[0].value);
 
-  v = rtvec_alloc (nunits);
   if (method == 2)
     {
+      /* ??? Might want a way of representing this with variable-width
+	 vectors.  */
+      if (!GET_MODE_NUNITS (mode).is_constant (&nunits))
+	return NULL_RTX;
+      rtvec v = rtvec_alloc (nunits);
       for (i = 0; i < nunits; ++i)
 	RTVEC_ELT (v, i) = GEN_INT (!BYTES_BIG_ENDIAN + (i & ~1)
 				    + ((i & 1) ? nunits : 0));

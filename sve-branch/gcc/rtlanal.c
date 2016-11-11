@@ -3766,7 +3766,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	 scalars, and thus a constant offset.  */
       HOST_WIDE_INT coffset = offset.to_constant ();
       nregs_xmode = HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode);
-      unsigned int nunits = GET_MODE_NUNITS (xmode);
+      unsigned int nunits = GET_MODE_NUNITS (xmode).to_constant ();
       scalar_mode xmode_unit = GET_MODE_INNER (xmode);
       gcc_assert (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode_unit));
       gcc_assert (nregs_xmode

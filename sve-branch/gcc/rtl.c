@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 # include "errors.h"
 #else
 # include "rtlhash.h"
+# include "rtl-iter.h"
 # include "diagnostic-core.h"
 #endif
 
@@ -245,6 +246,33 @@ cwi_output_hex (FILE *outfile, const_rtx x)
     fprintf (outfile, HOST_WIDE_INT_PRINT_PADDED_HEX, CWI_ELT (x, i));
 }
 
+/* Return true if (const X) should be unique, or if X itself is
+   such a const.  */
+
+bool
+unique_const_p (const_rtx x ATTRIBUTE_UNUSED)
+{
+#ifdef GENERATOR_FILE
+  return false;
+#else
+  subrtx_iterator::array_type array;
+
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    {
+      enum rtx_code code = GET_CODE (*iter);
+      if (leaf_code_p (code))
+	switch (code)
+	  {
+	  CASE_CONST_UNIQUE:
+	    break;
+	  default:
+	    return false;
+	  }
+    }
+  return true;
+#endif
+}
+
 
 /* Return true if ORIG is a sharable CONST.  */
 
@@ -252,6 +280,9 @@ bool
 shared_const_p (const_rtx orig)
 {
   gcc_assert (GET_CODE (orig) == CONST);
+
+  if (unique_const_p (orig))
+    return true;
 
   /* CONST can be shared if it contains a SYMBOL_REF.  If it contains
      a LABEL_REF, it isn't sharable.  */

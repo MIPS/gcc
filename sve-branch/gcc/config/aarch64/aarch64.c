@@ -11077,7 +11077,7 @@ aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high,
    of mode MODE, and return the result as an SImode rtx.  */
 
 rtx
-endian_lane_rtx (machine_mode mode, unsigned int n)
+endian_lane_rtx (machine_mode mode, poly_uint64 n)
 {
   return gen_int_mode (ENDIAN_LANE_N (GET_MODE_NUNITS (mode), n), SImode);
 }

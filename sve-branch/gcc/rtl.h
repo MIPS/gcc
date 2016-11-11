@@ -2721,6 +2721,7 @@ extern rtx rtx_alloc_stat_v (RTX_CODE MEM_STAT_DECL, int);
 extern rtvec rtvec_alloc (int);
 extern rtvec shallow_copy_rtvec (rtvec);
 extern bool shared_const_p (const_rtx);
+extern bool unique_const_p (const_rtx);
 extern rtx copy_rtx (rtx);
 extern enum rtx_code classify_insn (rtx);
 extern void dump_rtx_statistics (void);
@@ -3400,6 +3401,7 @@ extern rtx_insn *
 gen_rtx_INSN (machine_mode mode, rtx_insn *prev_insn, rtx_insn *next_insn,
 	      basic_block bb, rtx pattern, int location, int code,
 	      rtx reg_notes);
+extern rtx gen_rtx_CONST (machine_mode, rtx);
 extern rtx gen_rtx_CONST_INT (machine_mode, HOST_WIDE_INT);
 extern rtx gen_rtx_CONST_VECTOR (machine_mode, rtvec);
 extern void set_mode_and_regno (rtx, machine_mode, unsigned int);
