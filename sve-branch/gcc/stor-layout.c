@@ -506,7 +506,7 @@ bitwise_type_for_mode (machine_mode mode)
    is no suitable mode.  */
 
 machine_mode
-mode_for_vector (machine_mode innermode, unsigned nunits)
+mode_for_vector (scalar_mode innermode, unsigned nunits)
 {
   machine_mode mode;
 
@@ -2173,10 +2173,13 @@ layout_type (tree type)
       }
 
    case FIXED_POINT_TYPE:
-     /* TYPE_MODE (type) has been set already.  */
-     TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
-     TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
-     break;
+     {
+       /* TYPE_MODE (type) has been set already.  */
+       scalar_mode mode = SCALAR_TYPE_MODE (type);
+       TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (mode));
+       TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (mode));
+       break;
+     }
 
     case COMPLEX_TYPE:
       TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
@@ -2197,7 +2200,8 @@ layout_type (tree type)
 	/* Find an appropriate mode for the vector type.  */
 	if (TYPE_MODE (type) == VOIDmode)
 	  SET_TYPE_MODE (type,
-			 mode_for_vector (TYPE_MODE (innertype), nunits));
+			 mode_for_vector (SCALAR_TYPE_MODE (innertype),
+					  nunits));
 
 	TYPE_SATURATING (type) = TYPE_SATURATING (TREE_TYPE (type));
         TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));

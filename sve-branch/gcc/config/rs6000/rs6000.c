@@ -5387,7 +5387,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 /* Implement targetm.vectorize.preferred_simd_mode.  */
 
 static machine_mode
-rs6000_preferred_simd_mode (machine_mode mode)
+rs6000_preferred_simd_mode (scalar_mode mode)
 {
   if (TARGET_VSX)
     switch (mode)
@@ -37273,7 +37273,7 @@ rs6000_eh_return_filter_mode (void)
 
 /* Target hook for scalar_mode_supported_p.  */
 static bool
-rs6000_scalar_mode_supported_p (machine_mode mode)
+rs6000_scalar_mode_supported_p (scalar_mode mode)
 {
   /* -m32 does not support TImode.  This is the default, from
      default_scalar_mode_supported_p.  For -m32 -mpowerpc64 we want the

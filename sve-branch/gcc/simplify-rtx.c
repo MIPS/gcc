@@ -5662,7 +5662,7 @@ simplify_immed_subreg (machine_mode outermode, rtx op,
   rtx result_s;
   rtvec result_v = NULL;
   enum mode_class outer_class;
-  machine_mode outer_submode;
+  scalar_mode outer_submode;
   int max_bitsize;
 
   /* Some ports misuse CCmode.  */
@@ -5728,7 +5728,7 @@ simplify_immed_subreg (machine_mode outermode, rtx op,
 
 	case CONST_WIDE_INT:
 	  {
-	    rtx_mode_t val = rtx_mode_t (el, innermode);
+	    rtx_mode_t val = rtx_mode_t (el, GET_MODE_INNER (innermode));
 	    unsigned char extend = wi::sign_mask (val);
 
 	    for (i = 0; i < elem_bitsize; i += value_bit)

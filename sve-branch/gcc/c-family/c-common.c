@@ -1025,8 +1025,8 @@ c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask,
       return error_mark_node;
     }
 
-  if (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (v0))))
-      != GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (mask)))))
+  if (GET_MODE_BITSIZE (SCALAR_TYPE_MODE (TREE_TYPE (TREE_TYPE (v0))))
+      != GET_MODE_BITSIZE (SCALAR_TYPE_MODE (TREE_TYPE (TREE_TYPE (mask)))))
     {
       if (complain)
 	error_at (loc, "__builtin_shuffle argument vector(s) inner type "
@@ -2123,12 +2123,12 @@ c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
   else
     mclass = unsignedp ? MODE_UACCUM : MODE_ACCUM;
 
-  machine_mode mode;
+  opt_scalar_mode mode;
   FOR_EACH_MODE_IN_CLASS (mode, mclass)
-    if (GET_MODE_IBIT (mode) >= ibit && GET_MODE_FBIT (mode) >= fbit)
+    if (GET_MODE_IBIT (*mode) >= ibit && GET_MODE_FBIT (*mode) >= fbit)
       break;
 
-  if (mode == VOIDmode || !targetm.scalar_mode_supported_p (mode))
+  if (!mode.exists () || !targetm.scalar_mode_supported_p (*mode))
     {
       sorry ("GCC cannot support operators with integer types and "
 	     "fixed-point types that have too many integral and "
@@ -2136,7 +2136,7 @@ c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
       return 0;
     }
 
-  return c_common_type_for_mode (mode, satp);
+  return c_common_type_for_mode (*mode, satp);
 }
 
 /* Used for communication between c_common_type_for_mode and

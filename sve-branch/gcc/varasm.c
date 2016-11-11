@@ -3844,7 +3844,7 @@ output_constant_pool_2 (machine_mode mode, rtx x, unsigned int align)
     case MODE_VECTOR_UACCUM:
       {
 	int i, units;
-        machine_mode submode = GET_MODE_INNER (mode);
+	scalar_mode submode = GET_MODE_INNER (mode);
 	unsigned int subalign = MIN (align, GET_MODE_BITSIZE (submode));
 
 	gcc_assert (GET_CODE (x) == CONST_VECTOR);
@@ -4794,7 +4794,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	  break;
 	case VECTOR_CST:
 	  {
-	    machine_mode inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
+	    scalar_mode inner = SCALAR_TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
 	    unsigned int nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
 	    int elt_size = GET_MODE_SIZE (inner);
 	    output_constant (VECTOR_CST_ELT (exp, 0), elt_size, align,

@@ -599,7 +599,8 @@ rtx
 immed_wide_int_const (const wide_int_ref &v, machine_mode mode)
 {
   unsigned int len = v.get_len ();
-  unsigned int prec = GET_MODE_PRECISION (mode);
+  /* Not scalar_int_mode because we also allow pointer bound modes.  */
+  unsigned int prec = GET_MODE_PRECISION (as_a <scalar_mode> (mode));
 
   /* Allow truncation but not extension since we do not know if the
      number is signed or unsigned.  */
@@ -659,18 +660,10 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, machine_mode mode)
         (i.e., i1 consists only from copies of the sign bit, and sign
 	of i0 and i1 are the same), then we return a CONST_INT for i0.
      3) Otherwise, we create a CONST_DOUBLE for i0 and i1.  */
-  if (mode != VOIDmode)
-    {
-      gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
-		  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT
-		  /* We can get a 0 for an error mark.  */
-		  || GET_MODE_CLASS (mode) == MODE_VECTOR_INT
-		  || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT
-		  || GET_MODE_CLASS (mode) == MODE_POINTER_BOUNDS);
-
-      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
-	return gen_int_mode (i0, mode);
-    }
+  scalar_mode smode;
+  if (is_a <scalar_mode> (mode, &smode)
+      && GET_MODE_BITSIZE (smode) <= HOST_BITS_PER_WIDE_INT)
+    return gen_int_mode (i0, mode);
 
   /* If this integer fits in one word, return a CONST_INT.  */
   if ((i1 == 0 && i0 >= 0) || (i1 == ~0 && i0 < 0))
@@ -5879,6 +5872,7 @@ init_emit_once (void)
   int i;
   machine_mode mode;
   scalar_float_mode double_mode;
+  opt_scalar_mode smode_iter;
 
   /* Initialize the CONST_INT, CONST_WIDE_INT, CONST_DOUBLE,
      CONST_FIXED, and memory attribute hash tables.  */
@@ -5993,62 +5987,66 @@ init_emit_once (void)
       const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
     }
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_FRACT)
+  FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_FRACT)
     {
-      FCONST0 (mode).data.high = 0;
-      FCONST0 (mode).data.low = 0;
-      FCONST0 (mode).mode = mode;
-      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      FCONST0 (mode), mode);
+      scalar_mode smode = *smode_iter;
+      FCONST0 (smode).data.high = 0;
+      FCONST0 (smode).data.low = 0;
+      FCONST0 (smode).mode = smode;
+      const_tiny_rtx[0][(int) smode]
+	= CONST_FIXED_FROM_FIXED_VALUE (FCONST0 (smode), smode);
     }
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_UFRACT)
+  FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_UFRACT)
     {
-      FCONST0 (mode).data.high = 0;
-      FCONST0 (mode).data.low = 0;
-      FCONST0 (mode).mode = mode;
-      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      FCONST0 (mode), mode);
+      scalar_mode smode = *smode_iter;
+      FCONST0 (smode).data.high = 0;
+      FCONST0 (smode).data.low = 0;
+      FCONST0 (smode).mode = smode;
+      const_tiny_rtx[0][(int) smode]
+	= CONST_FIXED_FROM_FIXED_VALUE (FCONST0 (smode), smode);
     }
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_ACCUM)
+  FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_ACCUM)
     {
-      FCONST0 (mode).data.high = 0;
-      FCONST0 (mode).data.low = 0;
-      FCONST0 (mode).mode = mode;
-      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      FCONST0 (mode), mode);
+      scalar_mode smode = *smode_iter;
+      FCONST0 (smode).data.high = 0;
+      FCONST0 (smode).data.low = 0;
+      FCONST0 (smode).mode = smode;
+      const_tiny_rtx[0][(int) smode]
+	= CONST_FIXED_FROM_FIXED_VALUE (FCONST0 (smode), smode);
 
       /* We store the value 1.  */
-      FCONST1 (mode).data.high = 0;
-      FCONST1 (mode).data.low = 0;
-      FCONST1 (mode).mode = mode;
-      FCONST1 (mode).data
-	= double_int_one.lshift (GET_MODE_FBIT (mode),
+      FCONST1 (smode).data.high = 0;
+      FCONST1 (smode).data.low = 0;
+      FCONST1 (smode).mode = smode;
+      FCONST1 (smode).data
+	= double_int_one.lshift (GET_MODE_FBIT (smode),
 				 HOST_BITS_PER_DOUBLE_INT,
-				 SIGNED_FIXED_POINT_MODE_P (mode));
-      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      FCONST1 (mode), mode);
+				 SIGNED_FIXED_POINT_MODE_P (smode));
+      const_tiny_rtx[1][(int) smode]
+	= CONST_FIXED_FROM_FIXED_VALUE (FCONST1 (smode), smode);
     }
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_UACCUM)
+  FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_UACCUM)
     {
-      FCONST0 (mode).data.high = 0;
-      FCONST0 (mode).data.low = 0;
-      FCONST0 (mode).mode = mode;
-      const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      FCONST0 (mode), mode);
+      scalar_mode smode = *smode_iter;
+      FCONST0 (smode).data.high = 0;
+      FCONST0 (smode).data.low = 0;
+      FCONST0 (smode).mode = smode;
+      const_tiny_rtx[0][(int) smode]
+	= CONST_FIXED_FROM_FIXED_VALUE (FCONST0 (smode), smode);
 
       /* We store the value 1.  */
-      FCONST1 (mode).data.high = 0;
-      FCONST1 (mode).data.low = 0;
-      FCONST1 (mode).mode = mode;
-      FCONST1 (mode).data
-	= double_int_one.lshift (GET_MODE_FBIT (mode),
+      FCONST1 (smode).data.high = 0;
+      FCONST1 (smode).data.low = 0;
+      FCONST1 (smode).mode = smode;
+      FCONST1 (smode).data
+	= double_int_one.lshift (GET_MODE_FBIT (smode),
 				 HOST_BITS_PER_DOUBLE_INT,
-				 SIGNED_FIXED_POINT_MODE_P (mode));
-      const_tiny_rtx[1][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
-				      FCONST1 (mode), mode);
+				 SIGNED_FIXED_POINT_MODE_P (smode));
+      const_tiny_rtx[1][(int) smode]
+	= CONST_FIXED_FROM_FIXED_VALUE (FCONST1 (smode), smode);
     }
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_FRACT)
@@ -6081,10 +6079,11 @@ init_emit_once (void)
   if (STORE_FLAG_VALUE == 1)
     const_tiny_rtx[1][(int) BImode] = const1_rtx;
 
-  FOR_EACH_MODE_IN_CLASS (mode, MODE_POINTER_BOUNDS)
+  FOR_EACH_MODE_IN_CLASS (smode_iter, MODE_POINTER_BOUNDS)
     {
-      wide_int wi_zero = wi::zero (GET_MODE_PRECISION (mode));
-      const_tiny_rtx[0][mode] = immed_wide_int_const (wi_zero, mode);
+      scalar_mode smode = *smode_iter;
+      wide_int wi_zero = wi::zero (GET_MODE_PRECISION (smode));
+      const_tiny_rtx[0][smode] = immed_wide_int_const (wi_zero, smode);
     }
 
   pc_rtx = gen_rtx_fmt_ (PC, VOIDmode);

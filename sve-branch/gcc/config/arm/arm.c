@@ -251,7 +251,7 @@ static bool arm_allocate_stack_slots_for_args (void);
 static bool arm_warn_func_return (tree);
 static tree arm_promoted_type (const_tree t);
 static tree arm_convert_to_type (tree type, tree expr);
-static bool arm_scalar_mode_supported_p (machine_mode);
+static bool arm_scalar_mode_supported_p (scalar_mode);
 static bool arm_frame_pointer_required (void);
 static bool arm_can_eliminate (const int, const int);
 static void arm_asm_trampoline_template (FILE *);
@@ -263,7 +263,7 @@ static bool xscale_sched_adjust_cost (rtx_insn *, int, rtx_insn *, int *);
 static bool fa726te_sched_adjust_cost (rtx_insn *, int, rtx_insn *, int *);
 static bool arm_array_mode_supported_p (machine_mode,
 					unsigned HOST_WIDE_INT);
-static machine_mode arm_preferred_simd_mode (machine_mode);
+static machine_mode arm_preferred_simd_mode (scalar_mode);
 static bool arm_class_likely_spilled_p (reg_class_t);
 static HOST_WIDE_INT arm_vector_alignment (const_tree type);
 static bool arm_vector_alignment_reachable (const_tree type, bool is_packed);
@@ -23750,7 +23750,7 @@ arm_convert_to_type (tree type, tree expr)
    special-cased in the default hook.  */
 
 static bool
-arm_scalar_mode_supported_p (machine_mode mode)
+arm_scalar_mode_supported_p (scalar_mode mode)
 {
   if (mode == HFmode)
     return (arm_fp16_format != ARM_FP16_FORMAT_NONE);
@@ -26816,7 +26816,7 @@ arm_array_mode_supported_p (machine_mode mode,
    widths are supported properly by the middle-end.  */
 
 static machine_mode
-arm_preferred_simd_mode (machine_mode mode)
+arm_preferred_simd_mode (scalar_mode mode)
 {
   if (TARGET_NEON)
     switch (mode)

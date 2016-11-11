@@ -4232,16 +4232,18 @@ omp_clause_aligned_alignment (tree clause)
 
   /* Otherwise return implementation defined alignment.  */
   unsigned int al = 1;
-  machine_mode mode, vmode;
+  opt_scalar_mode mode_iter;
   int vs = targetm.vectorize.autovectorize_vector_sizes ();
   if (vs)
     vs = 1 << floor_log2 (vs);
   static enum mode_class classes[]
     = { MODE_INT, MODE_VECTOR_INT, MODE_FLOAT, MODE_VECTOR_FLOAT };
   for (int i = 0; i < 4; i += 2)
-    FOR_EACH_MODE_IN_CLASS (mode, classes[i])
+    /* The for loop above dictates that we only walk through scalar classes.  */
+    FOR_EACH_MODE_IN_CLASS (mode_iter, classes[i])
       {
-	vmode = targetm.vectorize.preferred_simd_mode (mode);
+	scalar_mode mode = *mode_iter;
+	machine_mode vmode = targetm.vectorize.preferred_simd_mode (mode);
 	if (GET_MODE_CLASS (vmode) != classes[i + 1])
 	  continue;
 	while (vs
@@ -12479,18 +12481,20 @@ expand_omp_atomic (struct omp_region *region)
       /* __sync builtins require strict data alignment.  */
       if (exact_log2 (align) >= index)
 	{
+	  scalar_mode mode;
+
 	  /* Atomic load.  */
 	  if (loaded_val == stored_val
-	      && (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-		  || GET_MODE_CLASS (TYPE_MODE (type)) == MODE_FLOAT)
-	      && GET_MODE_BITSIZE (TYPE_MODE (type)) <= BITS_PER_WORD
+	      && (is_int_mode (TYPE_MODE (type), &mode)
+		  || is_float_mode (TYPE_MODE (type), &mode))
+	      && GET_MODE_BITSIZE (mode) <= BITS_PER_WORD
 	      && expand_omp_atomic_load (load_bb, addr, loaded_val, index))
 	    return;
 
 	  /* Atomic store.  */
-	  if ((GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-	       || GET_MODE_CLASS (TYPE_MODE (type)) == MODE_FLOAT)
-	      && GET_MODE_BITSIZE (TYPE_MODE (type)) <= BITS_PER_WORD
+	  if ((is_int_mode (TYPE_MODE (type), &mode)
+	       || is_float_mode (TYPE_MODE (type), &mode))
+	      && GET_MODE_BITSIZE (mode) <= BITS_PER_WORD
 	      && store_bb == single_succ (load_bb)
 	      && first_stmt (store_bb) == store
 	      && expand_omp_atomic_store (load_bb, addr, loaded_val,

@@ -10511,7 +10511,7 @@ aarch64_simd_container_mode (scalar_mode mode, unsigned width)
 
 /* Return 128-bit container as the preferred SIMD mode for MODE.  */
 static machine_mode
-aarch64_preferred_simd_mode (machine_mode mode)
+aarch64_preferred_simd_mode (scalar_mode mode)
 {
   return aarch64_simd_container_mode (mode, 128);
 }
@@ -11212,7 +11212,7 @@ void
 aarch64_expand_vector_init (rtx target, rtx vals)
 {
   machine_mode mode = GET_MODE (target);
-  machine_mode inner_mode = GET_MODE_INNER (mode);
+  scalar_mode inner_mode = GET_MODE_INNER (mode);
   /* The number of vector elements.  */
   int n_elts = GET_MODE_NUNITS (mode);
   /* The number of vector elements which are not constant.  */

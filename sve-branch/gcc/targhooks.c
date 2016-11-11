@@ -393,7 +393,7 @@ default_mangle_assembler_name (const char *name ATTRIBUTE_UNUSED)
    supported by optabs.c.  */
 
 bool
-default_scalar_mode_supported_p (machine_mode mode)
+default_scalar_mode_supported_p (scalar_mode mode)
 {
   int precision = GET_MODE_PRECISION (mode);
 
@@ -1161,7 +1161,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
    possibly adds/subtracts using bit-twiddling.  */
 
 machine_mode
-default_preferred_simd_mode (machine_mode mode ATTRIBUTE_UNUSED)
+default_preferred_simd_mode (scalar_mode)
 {
   return word_mode;
 }

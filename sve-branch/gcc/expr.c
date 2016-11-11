@@ -100,6 +100,7 @@ static rtx const_vector_from_tree (tree);
 static rtx const_scalar_mask_from_tree (scalar_int_mode, tree);
 static tree tree_expr_size (const_tree);
 static HOST_WIDE_INT int_expr_size (tree);
+static void convert_mode_scalar (rtx, rtx, int);
 
 
 /* This is run to set up which modes can be used
@@ -214,17 +215,7 @@ convert_move (rtx to, rtx from, int unsignedp)
 {
   machine_mode to_mode = GET_MODE (to);
   machine_mode from_mode = GET_MODE (from);
-  int to_real = SCALAR_FLOAT_MODE_P (to_mode);
-  int from_real = SCALAR_FLOAT_MODE_P (from_mode);
-  enum insn_code code;
-  rtx libcall;
 
-  /* rtx code for making an equivalent value.  */
-  enum rtx_code equiv_code = (unsignedp < 0 ? UNKNOWN
-			      : (unsignedp ? ZERO_EXTEND : SIGN_EXTEND));
-
-
-  gcc_assert (to_real == from_real);
   gcc_assert (to_mode != BLKmode);
   gcc_assert (from_mode != BLKmode);
 
@@ -274,6 +265,28 @@ convert_move (rtx to, rtx from, int unsignedp)
       convert_move (XEXP (to, 1), XEXP (from, 1), unsignedp);
       return;
     }
+
+  convert_mode_scalar (to, from, unsignedp);
+}
+
+/* Like convert_move, but deals only with scalar modes.  */
+
+static void
+convert_mode_scalar (rtx to, rtx from, int unsignedp)
+{
+  /* Both modes should be scalar types.  */
+  scalar_mode from_mode = as_a <scalar_mode> (GET_MODE (from));
+  scalar_mode to_mode = as_a <scalar_mode> (GET_MODE (to));
+  bool to_real = SCALAR_FLOAT_MODE_P (to_mode);
+  bool from_real = SCALAR_FLOAT_MODE_P (from_mode);
+  enum insn_code code;
+  rtx libcall;
+
+  gcc_assert (to_real == from_real);
+
+  /* rtx code for making an equivalent value.  */
+  enum rtx_code equiv_code = (unsignedp < 0 ? UNKNOWN
+			      : (unsignedp ? ZERO_EXTEND : SIGN_EXTEND));
 
   if (to_real)
     {
@@ -411,7 +424,7 @@ convert_move (rtx to, rtx from, int unsignedp)
       rtx fill_value;
       rtx lowfrom;
       int i;
-      machine_mode lowpart_mode;
+      scalar_mode lowpart_mode;
       int nwords = CEIL (GET_MODE_SIZE (to_mode), UNITS_PER_WORD);
 
       /* Try converting directly if the insn is supported.  */
@@ -544,23 +557,28 @@ convert_move (rtx to, rtx from, int unsignedp)
 	}
       else
 	{
-	  machine_mode intermediate;
+	  scalar_mode intermediate;
 	  rtx tmp;
 	  int shift_amount;
 
 	  /* Search for a mode to convert via.  */
-	  FOR_EACH_MODE_FROM (intermediate, from_mode)
-	    if (((can_extend_p (to_mode, intermediate, unsignedp)
-		  != CODE_FOR_nothing)
-		 || (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (intermediate)
-		     && TRULY_NOOP_TRUNCATION_MODES_P (to_mode, intermediate)))
-		&& (can_extend_p (intermediate, from_mode, unsignedp)
-		    != CODE_FOR_nothing))
-	      {
-		convert_move (to, convert_to_mode (intermediate, from,
-						   unsignedp), unsignedp);
-		return;
-	      }
+	  opt_scalar_mode intermediate_iter;
+	  FOR_EACH_MODE_FROM (intermediate_iter, from_mode)
+	    {
+	      scalar_mode intermediate = *intermediate_iter;
+	      if (((can_extend_p (to_mode, intermediate, unsignedp)
+		    != CODE_FOR_nothing)
+		   || (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (intermediate)
+		       && TRULY_NOOP_TRUNCATION_MODES_P (to_mode,
+							 intermediate)))
+		  && (can_extend_p (intermediate, from_mode, unsignedp)
+		      != CODE_FOR_nothing))
+		{
+		  convert_move (to, convert_to_mode (intermediate, from,
+						     unsignedp), unsignedp);
+		  return;
+		}
+	    }
 
 	  /* No suitable intermediate mode.
 	     Generate what we need with	shifts.  */
@@ -3107,7 +3125,7 @@ void
 write_complex_part (rtx cplx, rtx val, bool imag_p)
 {
   machine_mode cmode;
-  machine_mode imode;
+  scalar_mode imode;
   unsigned ibitsize;
 
   if (GET_CODE (cplx) == CONCAT)
@@ -3168,7 +3186,8 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
 rtx
 read_complex_part (rtx cplx, bool imag_p)
 {
-  machine_mode cmode, imode;
+  machine_mode cmode;
+  scalar_mode imode;
   unsigned ibitsize;
 
   if (GET_CODE (cplx) == CONCAT)
@@ -3364,7 +3383,7 @@ emit_move_resolve_push (machine_mode mode, rtx x)
 rtx_insn *
 emit_move_complex_push (machine_mode mode, rtx x, rtx y)
 {
-  machine_mode submode = GET_MODE_INNER (mode);
+  scalar_mode submode = GET_MODE_INNER (mode);
   bool imag_first;
 
 #ifdef PUSH_ROUNDING
@@ -7768,7 +7787,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, scalar_int_mode tmode,
 	 The expression is therefore always offset by the size of the
 	 scalar type.  */
       offset = 0;
-      bitpos = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (exp)));
+      bitpos = GET_MODE_BITSIZE (SCALAR_TYPE_MODE (TREE_TYPE (exp)));
       inner = TREE_OPERAND (exp, 0);
       break;
 
@@ -9265,7 +9284,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 				      GET_MODE_INNER (GET_MODE (target)), 0);
 	    if (reg_overlap_mentioned_p (temp, op1))
 	      {
-		machine_mode imode = GET_MODE_INNER (GET_MODE (target));
+		scalar_mode imode = GET_MODE_INNER (GET_MODE (target));
 		temp = adjust_address_nv (target, imode,
 					  GET_MODE_SIZE (imode));
 		if (reg_overlap_mentioned_p (temp, op0))
@@ -9372,7 +9391,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	{
 	  tree sel_type = TREE_TYPE (treeop2);
 	  machine_mode vmode
-	    = mode_for_vector (TYPE_MODE (TREE_TYPE (sel_type)),
+	    = mode_for_vector (SCALAR_TYPE_MODE (TREE_TYPE (sel_type)),
 			       TYPE_VECTOR_SUBPARTS (sel_type));
 	  gcc_assert (GET_MODE_CLASS (vmode) == MODE_VECTOR_INT);
 	  op2 = simplify_subreg (vmode, op2, TYPE_MODE (sel_type), 0);

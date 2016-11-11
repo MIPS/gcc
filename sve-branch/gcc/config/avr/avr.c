@@ -895,7 +895,7 @@ avr_regno_reg_class (int r)
 /* Implement `TARGET_SCALAR_MODE_SUPPORTED_P'.  */
 
 static bool
-avr_scalar_mode_supported_p (machine_mode mode)
+avr_scalar_mode_supported_p (scalar_mode mode)
 {
   if (ALL_FIXED_POINT_MODE_P (mode))
     return true;
@@ -8943,7 +8943,7 @@ avr_out_fract (rtx_insn *insn, rtx operands[], bool intsigned, int *plen)
 const char*
 avr_out_round (rtx_insn *insn ATTRIBUTE_UNUSED, rtx *xop, int *plen)
 {
-  machine_mode mode = GET_MODE (xop[0]);
+  scalar_mode mode = as_a <scalar_mode> (GET_MODE (xop[0]));
   scalar_int_mode imode = *int_mode_for_mode (mode);
   // The smallest fractional bit not cleared by the rounding is 2^(-RP).
   int fbit = (int) GET_MODE_FBIT (mode);

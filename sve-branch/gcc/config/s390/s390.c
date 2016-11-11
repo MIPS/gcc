@@ -1188,7 +1188,7 @@ s390_unwind_word_mode (void)
 
 /* Return true if the back end supports mode MODE.  */
 static bool
-s390_scalar_mode_supported_p (machine_mode mode)
+s390_scalar_mode_supported_p (scalar_mode mode)
 {
   /* In contrast to the default implementation reject TImode constants on 31bit
      TARGET_ZARCH for ABI compliance.  */
@@ -14973,7 +14973,7 @@ s390_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 /* Return the vector mode to be used for inner mode MODE when doing
    vectorization.  */
 static machine_mode
-s390_preferred_simd_mode (machine_mode mode)
+s390_preferred_simd_mode (scalar_mode mode)
 {
   if (TARGET_VX)
     switch (mode)

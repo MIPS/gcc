@@ -409,6 +409,57 @@ scalar_float_mode::from_int (int i)
   return machine_mode_enum (i);
 }
 
+/* Represents a machine mode that is known to be scalar.  All properties
+   (size, precision, etc.) are compile-time constants.  */
+class scalar_mode
+{
+public:
+  ALWAYS_INLINE scalar_mode () {}
+  ALWAYS_INLINE scalar_mode (const scalar_int_mode &m) : m_mode (m) {}
+  ALWAYS_INLINE scalar_mode (const scalar_float_mode &m) : m_mode (m) {}
+  ALWAYS_INLINE scalar_mode (const scalar_int_mode_pod &m) : m_mode (m) {}
+  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+
+  static bool includes_p (machine_mode_enum);
+  static scalar_mode from_int (int);
+
+protected:
+  ALWAYS_INLINE scalar_mode (machine_mode_enum m) : m_mode (m) {}
+
+  machine_mode_enum m_mode;
+};
+
+/* Return true if M represents some kind of scalar value.  */
+
+inline bool
+scalar_mode::includes_p (machine_mode_enum m)
+{
+  switch (GET_MODE_CLASS (m))
+    {
+    case MODE_INT:
+    case MODE_PARTIAL_INT:
+    case MODE_FRACT:
+    case MODE_UFRACT:
+    case MODE_ACCUM:
+    case MODE_UACCUM:
+    case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
+    case MODE_POINTER_BOUNDS:
+      return true;
+    default:
+      return false;
+    }
+}
+
+/* Return M as a scalar_mode.  This function should only be used by
+   utility functions; general code should use as_a<T> instead.  */
+
+ALWAYS_INLINE scalar_mode
+scalar_mode::from_int (int i)
+{
+  return machine_mode_enum (i);
+}
+
 /* Represents a general machine mode (scalar or non-scalar).  */
 class machine_mode
 {
@@ -465,12 +516,11 @@ extern const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES];
 extern const unsigned char mode_inner[NUM_MACHINE_MODES];
 #if GCC_VERSION >= 4001
 #define GET_MODE_INNER(MODE) \
-  (machine_mode ((machine_mode_enum) (__builtin_constant_p (MODE) \
-				      ? mode_inner_inline (MODE) \
-				      : mode_inner[MODE])))
+  (scalar_mode::from_int (__builtin_constant_p (MODE) \
+			   ? mode_inner_inline (MODE) : mode_inner[MODE]))
 #else
 #define GET_MODE_INNER(MODE) \
-  (machine_mode ((machine_mode_enum) mode_inner[MODE]))
+  (scalar_mode::from_int (machine_mode_enum (mode_inner[MODE])))
 #endif
 
 /* Get the size in bytes or bits of the basic parts of an
@@ -561,7 +611,7 @@ extern machine_mode bitwise_mode_for_mode (machine_mode);
 /* Return a mode that is suitable for representing a vector,
    or BLKmode on failure.  */
 
-extern machine_mode mode_for_vector (machine_mode, unsigned);
+extern machine_mode mode_for_vector (scalar_mode, unsigned);
 
 /* A class for iterating through possible bitfield modes.  */
 class bit_field_mode_iterator
@@ -665,6 +715,21 @@ is_int_mode (machine_mode mode, T *int_mode)
   return false;
 }
 
+/* Return true if MODE has class MODE_FLOAT, storing it as a
+   scalar_float_mode in *FLOAT_MODE if so.  */
+
+template<typename T>
+inline bool
+is_float_mode (machine_mode mode, T *float_mode)
+{
+  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+    {
+      *float_mode = scalar_float_mode::from_int (mode);
+      return true;
+    }
+  return false;
+}
+
 namespace mode_iterator
 {
   template<typename T>
@@ -714,6 +779,13 @@ namespace mode_iterator
   get_known_wider (T *iter)
   {
     *iter = *GET_MODE_WIDER_MODE (*iter);
+  }
+
+  template<typename T>
+  inline void
+  get_2xwider (opt_mode<T> *iter)
+  {
+    *iter = GET_MODE_2XWIDER_MODE (**iter);
   }
 
   inline void

@@ -3911,7 +3911,6 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
   vec<tree> interm_types = vNULL;
   tree last_oprnd, intermediate_type, cvt_type = NULL_TREE;
   int op_type;
-  machine_mode rhs_mode;
   unsigned short fltsz;
 
   /* Is STMT a vectorizable conversion?   */
@@ -4057,6 +4056,11 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
   gcc_assert (ncopies >= 1);
 
   /* Supportable by target?  */
+  bool found_mode = false;
+  scalar_mode lhs_mode = SCALAR_TYPE_MODE (lhs_type);
+  scalar_mode rhs_mode = SCALAR_TYPE_MODE (rhs_type);
+  opt_scalar_mode rhs_mode_iter;
+
   switch (modifier)
     {
     case NONE:
@@ -4084,13 +4088,13 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
 	}
 
       if (code != FLOAT_EXPR
-	  || (GET_MODE_SIZE (TYPE_MODE (lhs_type))
-	      <= GET_MODE_SIZE (TYPE_MODE (rhs_type))))
+	  || GET_MODE_SIZE (lhs_mode) <= GET_MODE_SIZE (rhs_mode))
 	goto unsupported;
 
-      fltsz = GET_MODE_SIZE (TYPE_MODE (lhs_type));
-      FOR_EACH_2XWIDER_MODE (rhs_mode, TYPE_MODE (rhs_type))
+      fltsz = GET_MODE_SIZE (lhs_mode);
+      FOR_EACH_2XWIDER_MODE (rhs_mode_iter, rhs_mode)
 	{
+	  rhs_mode = *rhs_mode_iter;
 	  if (GET_MODE_SIZE (rhs_mode) > fltsz)
 	    break;
 
@@ -4117,10 +4121,13 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
 	  if (supportable_widening_operation (NOP_EXPR, stmt, cvt_type,
 					      vectype_in, &code1, &code2,
 					      &multi_step_cvt, &interm_types))
-	    break;
+	    {
+	      found_mode = true;
+	      break;
+	    }
 	}
 
-      if (rhs_mode == VOIDmode || GET_MODE_SIZE (rhs_mode) > fltsz)
+      if (!found_mode)
 	goto unsupported;
 
       if (GET_MODE_SIZE (rhs_mode) == fltsz)
@@ -4141,11 +4148,9 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
 	break;
 
       if (code != FIX_TRUNC_EXPR
-	  || (GET_MODE_SIZE (TYPE_MODE (lhs_type))
-	      >= GET_MODE_SIZE (TYPE_MODE (rhs_type))))
+	  || GET_MODE_SIZE (lhs_mode) >= GET_MODE_SIZE (rhs_mode))
 	goto unsupported;
 
-      rhs_mode = TYPE_MODE (rhs_type);
       cvt_type
 	= build_nonstandard_integer_type (GET_MODE_BITSIZE (rhs_mode), 0);
       cvt_type = get_same_sized_vectype (cvt_type, vectype_in);
@@ -8741,18 +8746,16 @@ free_stmt_vec_info (gimple *stmt)
 static tree
 get_vectype_for_scalar_type_and_size (tree scalar_type, unsigned size)
 {
-  machine_mode inner_mode = TYPE_MODE (scalar_type);
+  scalar_mode inner_mode;
   machine_mode simd_mode;
-  unsigned int nbytes = GET_MODE_SIZE (inner_mode);
   int nunits;
   tree vectype;
 
-  if (nbytes == 0)
+  if (!is_int_mode (TYPE_MODE (scalar_type), &inner_mode)
+      && !is_float_mode (TYPE_MODE (scalar_type), &inner_mode))
     return NULL_TREE;
 
-  if (GET_MODE_CLASS (inner_mode) != MODE_INT
-      && GET_MODE_CLASS (inner_mode) != MODE_FLOAT)
-    return NULL_TREE;
+  unsigned int nbytes = GET_MODE_SIZE (inner_mode);
 
   /* For vector types of elements whose mode precision doesn't
      match their types precision we use a element type of mode

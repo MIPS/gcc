@@ -1825,6 +1825,8 @@ extern void protected_set_expr_location (tree, location_t);
    ((const machine_mode &) \
     (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
      ? vector_type_mode (NODE) : machine_mode ((NODE)->type_common.mode)))
+#define SCALAR_TYPE_MODE(NODE) \
+  (as_a <scalar_mode> (TYPE_CHECK (NODE)->type_common.mode))
 #define SCALAR_INT_TYPE_MODE(NODE) \
   (as_a <scalar_int_mode> (TYPE_CHECK (NODE)->type_common.mode))
 #define SCALAR_FLOAT_TYPE_MODE(NODE) \

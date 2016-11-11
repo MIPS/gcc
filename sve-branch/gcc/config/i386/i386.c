@@ -43570,7 +43570,7 @@ ix86_expand_reduc (rtx (*fn) (rtx, rtx, rtx), rtx dest, rtx in)
 
 /* Target hook for scalar_mode_supported_p.  */
 static bool
-ix86_scalar_mode_supported_p (machine_mode mode)
+ix86_scalar_mode_supported_p (scalar_mode mode)
 {
   if (DECIMAL_FLOAT_MODE_P (mode))
     return default_decimal_float_supported_p ();
@@ -49761,7 +49761,7 @@ ix86_reassociation_width (unsigned int, machine_mode mode)
    place emms and femms instructions.  */
 
 static machine_mode
-ix86_preferred_simd_mode (machine_mode mode)
+ix86_preferred_simd_mode (scalar_mode mode)
 {
   if (!TARGET_SSE)
     return word_mode;

@@ -1228,7 +1228,7 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
 	{
 	  /* The scalar may have been extended to be too wide.  Truncate
 	     it back to the proper size to fit in the broadcast vector.  */
-	  machine_mode inner_mode = GET_MODE_INNER (mode);
+	  scalar_mode inner_mode = GET_MODE_INNER (mode);
 	  if (!CONST_INT_P (op1)
 	      && (GET_MODE_BITSIZE (as_a <scalar_int_mode> (GET_MODE (op1)))
 		  > GET_MODE_BITSIZE (inner_mode)))
@@ -4612,6 +4612,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 {
   enum insn_code icode;
   rtx target = to;
+  scalar_mode from_mode, to_mode;
   machine_mode fmode, imode;
   bool can_do_signed = false;
 
@@ -4661,8 +4662,12 @@ expand_float (rtx to, rtx from, int unsignedp)
 
   /* Unsigned integer, and no way to convert directly.  Convert as signed,
      then unconditionally adjust the result.  */
-  if (unsignedp && can_do_signed)
+  if (unsignedp
+      && can_do_signed
+      && is_a <scalar_mode> (GET_MODE (to), &to_mode)
+      && is_a <scalar_mode> (GET_MODE (from), &from_mode))
     {
+      opt_scalar_mode fmode_iter;
       rtx_code_label *label = gen_label_rtx ();
       rtx temp;
       REAL_VALUE_TYPE offset;
@@ -4671,19 +4676,21 @@ expand_float (rtx to, rtx from, int unsignedp)
 	 least as wide as the target.  Using FMODE will avoid rounding woes
 	 with unsigned values greater than the signed maximum value.  */
 
-      FOR_EACH_MODE_FROM (fmode, GET_MODE (to))
-	if (GET_MODE_PRECISION (GET_MODE (from)) < GET_MODE_BITSIZE (fmode)
-	    && can_float_p (fmode, GET_MODE (from), 0) != CODE_FOR_nothing)
+      FOR_EACH_MODE_FROM (fmode_iter, to_mode)
+	if (GET_MODE_PRECISION (from_mode) < GET_MODE_BITSIZE (*fmode_iter)
+	    && can_float_p (*fmode_iter, from_mode, 0) != CODE_FOR_nothing)
 	  break;
 
-      if (fmode == VOIDmode)
+      if (fmode_iter.exists ())
+	fmode = *fmode_iter;
+      else
 	{
 	  /* There is no such mode.  Pretend the target is wide enough.  */
-	  fmode = GET_MODE (to);
+	  fmode = to_mode;
 
 	  /* Avoid double-rounding when TO is narrower than FROM.  */
 	  if ((significand_size (fmode) + 1)
-	      < GET_MODE_PRECISION (GET_MODE (from)))
+	      < GET_MODE_PRECISION (from_mode))
 	    {
 	      rtx temp1;
 	      rtx_code_label *neglabel = gen_label_rtx ();
@@ -4695,7 +4702,7 @@ expand_float (rtx to, rtx from, int unsignedp)
 		  || GET_MODE (target) != fmode)
 		target = gen_reg_rtx (fmode);
 
-	      imode = GET_MODE (from);
+	      imode = from_mode;
 	      do_pending_stack_adjust ();
 
 	      /* Test whether the sign bit is set.  */
@@ -4735,7 +4742,7 @@ expand_float (rtx to, rtx from, int unsignedp)
       /* If we are about to do some arithmetic to correct for an
 	 unsigned operand, do it in a pseudo-register.  */
 
-      if (GET_MODE (to) != fmode
+      if (to_mode != fmode
 	  || !REG_P (to) || REGNO (to) < FIRST_PSEUDO_REGISTER)
 	target = gen_reg_rtx (fmode);
 
@@ -4746,11 +4753,11 @@ expand_float (rtx to, rtx from, int unsignedp)
 	 correct its value by 2**bitwidth.  */
 
       do_pending_stack_adjust ();
-      emit_cmp_and_jump_insns (from, const0_rtx, GE, NULL_RTX, GET_MODE (from),
+      emit_cmp_and_jump_insns (from, const0_rtx, GE, NULL_RTX, from_mode,
 			       0, label);
 
 
-      real_2expN (&offset, GET_MODE_PRECISION (GET_MODE (from)), fmode);
+      real_2expN (&offset, GET_MODE_PRECISION (from_mode), fmode);
       temp = expand_binop (fmode, add_optab, target,
 			   const_double_from_real_value (offset, fmode),
 			   target, 0, OPTAB_LIB_WIDEN);
@@ -4811,6 +4818,7 @@ expand_fix (rtx to, rtx from, int unsignedp)
   enum insn_code icode;
   rtx target = to;
   machine_mode fmode, imode;
+  opt_scalar_mode fmode_iter;
   bool must_trunc = false;
 
   /* We first try to find a pair of modes, one real and one integer, at
@@ -4878,67 +4886,74 @@ expand_fix (rtx to, rtx from, int unsignedp)
      2^63.  The subtraction of 2^63 should not generate any rounding as it
      simply clears out that bit.  The rest is trivial.  */
 
-  if (unsignedp && GET_MODE_PRECISION (GET_MODE (to)) <= HOST_BITS_PER_WIDE_INT)
-    FOR_EACH_MODE_FROM (fmode, GET_MODE (from))
-      if (CODE_FOR_nothing != can_fix_p (GET_MODE (to), fmode, 0, &must_trunc)
-	  && (!DECIMAL_FLOAT_MODE_P (fmode)
-	      || GET_MODE_BITSIZE (fmode) > GET_MODE_PRECISION (GET_MODE (to))))
-	{
-	  int bitsize;
-	  REAL_VALUE_TYPE offset;
-	  rtx limit;
-	  rtx_code_label *lab1, *lab2;
-	  rtx_insn *insn;
+  scalar_int_mode to_mode;
+  if (unsignedp
+      && is_a <scalar_int_mode> (GET_MODE (to), &to_mode)
+      && HWI_COMPUTABLE_MODE_P (to_mode))
+    FOR_EACH_MODE_FROM (fmode_iter, as_a <scalar_mode> (GET_MODE (from)))
+      {
+	scalar_mode fmode = *fmode_iter;
+	if (CODE_FOR_nothing != can_fix_p (GET_MODE (to), fmode,
+					   0, &must_trunc)
+	    && (!DECIMAL_FLOAT_MODE_P (fmode)
+		|| (GET_MODE_BITSIZE (fmode) > GET_MODE_PRECISION (to_mode))))
+	  {
+	    int bitsize;
+	    REAL_VALUE_TYPE offset;
+	    rtx limit;
+	    rtx_code_label *lab1, *lab2;
+	    rtx_insn *insn;
 
-	  bitsize = GET_MODE_PRECISION (GET_MODE (to));
-	  real_2expN (&offset, bitsize - 1, fmode);
-	  limit = const_double_from_real_value (offset, fmode);
-	  lab1 = gen_label_rtx ();
-	  lab2 = gen_label_rtx ();
+	    bitsize = GET_MODE_PRECISION (to_mode);
+	    real_2expN (&offset, bitsize - 1, fmode);
+	    limit = const_double_from_real_value (offset, fmode);
+	    lab1 = gen_label_rtx ();
+	    lab2 = gen_label_rtx ();
 
-	  if (fmode != GET_MODE (from))
-	    from = convert_to_mode (fmode, from, 0);
+	    if (fmode != GET_MODE (from))
+	      from = convert_to_mode (fmode, from, 0);
 
-	  /* See if we need to do the subtraction.  */
-	  do_pending_stack_adjust ();
-	  emit_cmp_and_jump_insns (from, limit, GE, NULL_RTX, GET_MODE (from),
-				   0, lab1);
+	    /* See if we need to do the subtraction.  */
+	    do_pending_stack_adjust ();
+	    emit_cmp_and_jump_insns (from, limit, GE, NULL_RTX,
+				     GET_MODE (from), 0, lab1);
 
-	  /* If not, do the signed "fix" and branch around fixup code.  */
-	  expand_fix (to, from, 0);
-	  emit_jump_insn (targetm.gen_jump (lab2));
-	  emit_barrier ();
+	    /* If not, do the signed "fix" and branch around fixup code.  */
+	    expand_fix (to, from, 0);
+	    emit_jump_insn (targetm.gen_jump (lab2));
+	    emit_barrier ();
 
-	  /* Otherwise, subtract 2**(N-1), convert to signed number,
-	     then add 2**(N-1).  Do the addition using XOR since this
-	     will often generate better code.  */
-	  emit_label (lab1);
-	  target = expand_binop (GET_MODE (from), sub_optab, from, limit,
-				 NULL_RTX, 0, OPTAB_LIB_WIDEN);
-	  expand_fix (to, target, 0);
-	  target = expand_binop (GET_MODE (to), xor_optab, to,
-				 gen_int_mode
-				 (HOST_WIDE_INT_1 << (bitsize - 1),
-				  GET_MODE (to)),
-				 to, 1, OPTAB_LIB_WIDEN);
+	    /* Otherwise, subtract 2**(N-1), convert to signed number,
+	       then add 2**(N-1).  Do the addition using XOR since this
+	       will often generate better code.  */
+	    emit_label (lab1);
+	    target = expand_binop (GET_MODE (from), sub_optab, from, limit,
+				   NULL_RTX, 0, OPTAB_LIB_WIDEN);
+	    expand_fix (to, target, 0);
+	    target = expand_binop (GET_MODE (to), xor_optab, to,
+				   gen_int_mode
+				   (HOST_WIDE_INT_1 << (bitsize - 1),
+				    GET_MODE (to)),
+				   to, 1, OPTAB_LIB_WIDEN);
 
-	  if (target != to)
-	    emit_move_insn (to, target);
+	    if (target != to)
+	      emit_move_insn (to, target);
 
-	  emit_label (lab2);
+	    emit_label (lab2);
 
-	  if (optab_handler (mov_optab, GET_MODE (to)) != CODE_FOR_nothing)
-	    {
-	      /* Make a place for a REG_NOTE and add it.  */
-	      insn = emit_move_insn (to, to);
-	      set_dst_reg_note (insn, REG_EQUAL,
-				gen_rtx_fmt_e (UNSIGNED_FIX, GET_MODE (to),
-					       copy_rtx (from)),
-				to);
-	    }
+	    if (optab_handler (mov_optab, GET_MODE (to)) != CODE_FOR_nothing)
+	      {
+		/* Make a place for a REG_NOTE and add it.  */
+		insn = emit_move_insn (to, to);
+		set_dst_reg_note (insn, REG_EQUAL,
+				  gen_rtx_fmt_e (UNSIGNED_FIX, GET_MODE (to),
+						 copy_rtx (from)),
+				  to);
+	      }
 
-	  return;
-	}
+	    return;
+	  }
+      }
 
   /* We can't do it with an insn, so use a library call.  But first ensure
      that the mode of TO is at least as wide as SImode, since those are the
