@@ -695,6 +695,23 @@ gimplify_mem_ref_parts (gimple_stmt_iterator *gsi, struct mem_address *parts)
 					     true, GSI_SAME_STMT);
 }
 
+/* Return true if the STEP in PARTS gives a valid BASE + INDEX * STEP
+   address for type TYPE and if some other component (the symbol or
+   offset) is making it appear invalid.  */
+
+static bool
+keep_index_p (tree type, mem_address parts)
+{
+  if (!parts.base)
+    parts.base = parts.symbol;
+  if (!parts.base)
+    return false;
+
+  parts.symbol = NULL_TREE;
+  parts.offset = NULL_TREE;
+  return valid_mem_ref_p (TYPE_MODE (type), TYPE_ADDR_SPACE (type), &parts);
+}
+
 /* Creates and returns a TARGET_MEM_REF for address ADDR.  If necessary
    computations are emitted in front of GSI.  TYPE is the mode
    of created memory reference. IV_CAND is the selected iv candidate in ADDR,
@@ -716,7 +733,9 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 
   /* The expression is too complicated.  Try making it simpler.  */
 
-  if (parts.step && !integer_onep (parts.step))
+  if (parts.step
+      && !integer_onep (parts.step)
+      && !keep_index_p (type, parts))
     {
       /* Move the multiplication to index.  */
       gcc_assert (parts.index);
@@ -763,7 +782,7 @@ create_mem_ref (gimple_stmt_iterator *gsi, tree type, aff_tree *addr,
 	return mem_ref;
     }
 
-  if (parts.index)
+  if (parts.index && (!parts.step || integer_onep (parts.step)))
     {
       /* Add index to base.  */
       if (parts.base)
