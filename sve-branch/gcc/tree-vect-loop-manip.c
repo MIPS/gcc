@@ -282,6 +282,34 @@ slpeel_setup_loop_masks (struct loop *loop, loop_vec_info loop_vinfo,
 }
 
 
+/* In a fully-masked loop, we peel for alignment by moving the loop back
+   to the previous alignment boundary, so that the first SKIP_ELEMS elements
+   handled by the vector loop come before the start of the original scalar
+   loop.  Generate a mask in which the first SKIP_ELEMS elements are false
+   and the rest are true.  */
+
+static tree
+slpeel_insert_peeled_mask (gimple **seq, loop_vec_info loop_vinfo,
+			   tree skip_elems)
+{
+  gimple *tmp_stmt;
+  tree compare_type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
+  tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
+  tree zero_index = build_zero_cst (compare_type);
+  tree zero_mask = build_zero_cst (mask_type);
+
+  /* Generate a mask in which the first N elements are true.  */
+  tree peel_mask = make_temp_ssa_name (mask_type, NULL, "peel_mask");
+  tmp_stmt = gimple_build_call_internal (IFN_WHILE_ULT, 3,
+					 zero_index, skip_elems, zero_mask);
+  gimple_call_set_lhs (tmp_stmt, peel_mask);
+  gimple_seq_add_stmt (seq, tmp_stmt);
+
+  /* Invert the first mask.  */
+  return gimple_build (seq, BIT_NOT_EXPR, mask_type, peel_mask);
+}
+
+
 /* Make LOOP iterate NITERS times using masking and WHILE_ULT calls.
    LOOP_VINFO describes the vectorization of LOOP.  NSCALARITERS is the
    number of iterations of the original scalar loop.
@@ -358,20 +386,52 @@ slpeel_iterate_loop_ntimes_while (struct loop *loop, loop_vec_info loop_vinfo,
 				   nscalariters);
     }
 
+  /* Convert skip_elems to the right type.  */
+  tree skip_elems = LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo);
+  if (skip_elems)
+    skip_elems = gimple_convert (&seq, compare_type, skip_elems);
+
   /* Create the initial mask.  */
   tree init_mask;
-  if (first_iteration_full)
-    /* First iteration is always full.  */
-    init_mask = build_minus_one_cst (mask_type);
+  tree loop_max_iters = nscalariters;
+  if (skip_elems)
+    {
+      loop_max_iters = gimple_build (&seq, PLUS_EXPR, compare_type,
+				     loop_max_iters, skip_elems);
+
+      init_mask = slpeel_insert_peeled_mask (&seq, loop_vinfo, skip_elems);
+
+      if (!first_iteration_full)
+	{
+	  /* The loop may have less than a single vector width's worth of
+	     iterations.  Generate a mask for it.  */
+
+	  tree max_mask = make_temp_ssa_name (mask_type, NULL, "max_mask");
+	  tmp_stmt = gimple_build_call_internal (IFN_WHILE_ULT, 3, zero_index,
+						 loop_max_iters, zero_mask);
+	  gimple_call_set_lhs (tmp_stmt, max_mask);
+	  gimple_seq_add_stmt (&seq, tmp_stmt);
+
+	  /* Join the two masks.  */
+	  init_mask = gimple_build (&seq, BIT_AND_EXPR, mask_type,
+				    max_mask, init_mask);
+	}
+    }
   else
     {
-      /* The loop may have less than a single vector width's worth of
-	 iterations.  Generate a mask for it.  */
-      init_mask = make_temp_ssa_name (mask_type, NULL, "max_mask");
-      tmp_stmt = gimple_build_call_internal (IFN_WHILE_ULT, 3, zero_index,
-					     nscalariters, zero_mask);
-      gimple_call_set_lhs (tmp_stmt, init_mask);
-      gimple_seq_add_stmt (&seq, tmp_stmt);
+      if (first_iteration_full)
+	/* First iteration is always full.  */
+	init_mask = build_minus_one_cst (mask_type);
+      else
+	{
+	  /* The loop may have less than a single vector width's worth of
+	     iterations.  Generate a mask for it.  */
+	  init_mask = make_temp_ssa_name (mask_type, NULL, "max_mask");
+	  tmp_stmt = gimple_build_call_internal (IFN_WHILE_ULT, 3, zero_index,
+						 nscalariters, zero_mask);
+	  gimple_call_set_lhs (tmp_stmt, init_mask);
+	  gimple_seq_add_stmt (&seq, tmp_stmt);
+	}
     }
 
   slpeel_setup_loop_masks (loop, loop_vinfo, init_mask);
@@ -381,7 +441,6 @@ slpeel_iterate_loop_ntimes_while (struct loop *loop, loop_vec_info loop_vinfo,
   create_iv (zero_index, step, NULL_TREE, loop, &incr_gsi, insert_after,
 	     &index_before_incr, &index_after_incr);
 
-  tree loop_max_iters = nscalariters;
   tree test_index;
   gimple_stmt_iterator *test_gsi;
   if (might_wrap_p)
@@ -1107,6 +1166,51 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo,
     }
 }
 
+
+/* Return a gimple value containing the misalignment (measured in vector
+   elements) for the loop described by LOOP_VINFO, i.e. how many elements
+   it is away from a perfectly aligned address.  Add any new statements
+   to SEQ.  */
+
+static tree
+get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  struct data_reference *dr = LOOP_VINFO_UNALIGNED_DR (loop_vinfo);
+  gimple *dr_stmt = DR_STMT (dr);
+  stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+
+  unsigned int vectype_align = (vect_data_ref_required_alignment (dr)
+				/ BITS_PER_UNIT);
+  gcc_assert (vectype_align != 0);
+
+  bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
+  tree offset = (negative
+		 ? size_int (-TYPE_VECTOR_SUBPARTS (vectype) + 1)
+		 : size_zero_node);
+  tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt, seq,
+							  offset, loop);
+  tree type = unsigned_type_for (TREE_TYPE (start_addr));
+  tree vectype_align_minus_1 = build_int_cst (type, vectype_align - 1);
+  HOST_WIDE_INT elem_size
+    = int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
+  tree elem_size_log = build_int_cst (type, exact_log2 (elem_size));
+
+  /* Create:  misalign_in_bytes = addr & (vectype_align - 1).  */
+  tree int_start_addr = gimple_convert (seq, type, start_addr);
+  tree misalign_in_bytes = gimple_build (seq, BIT_AND_EXPR, type,
+					 int_start_addr,
+					 vectype_align_minus_1);
+
+  /* Create:  misalign_in_elems = misalign_in_bytes / element_size.  */
+  tree misalign_in_elems = gimple_build (seq, RSHIFT_EXPR, type,
+					 misalign_in_bytes, elem_size_log);
+
+  return misalign_in_elems;
+}
+
+
 /* Function vect_gen_prolog_loop_niters
 
    Generate the number of iterations which should be peeled as prolog for the
@@ -1143,7 +1247,6 @@ vect_gen_prolog_loop_niters (loop_vec_info loop_vinfo,
 			     basic_block bb, int *bound)
 {
   struct data_reference *dr = LOOP_VINFO_UNALIGNED_DR (loop_vinfo);
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree var;
   tree niters_type = TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo));
   gimple_seq stmts = NULL, new_stmts = NULL;
@@ -1167,41 +1270,26 @@ vect_gen_prolog_loop_niters (loop_vec_info loop_vinfo,
     }
   else
     {
-      bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
-      tree offset = negative
-	  ? size_int (-TYPE_VECTOR_SUBPARTS (vectype) + 1) : size_zero_node;
-      tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt,
-						&stmts, offset, loop);
-      tree type = unsigned_type_for (TREE_TYPE (start_addr));
-      tree vectype_align_minus_1 = build_int_cst (type, vectype_align - 1);
+      tree misalign_in_elems = get_misalign_in_elems (&stmts, loop_vinfo);
+      tree type = TREE_TYPE (misalign_in_elems);
       HOST_WIDE_INT elem_size
 	= int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
-      tree elem_size_log = build_int_cst (type, exact_log2 (elem_size));
       HOST_WIDE_INT align_in_elems = vectype_align / elem_size;
       tree align_in_elems_minus_1 = build_int_cst (type, align_in_elems - 1);
       tree align_in_elems_tree = build_int_cst (type, align_in_elems);
-      tree misalign_in_bytes;
-      tree misalign_in_elems;
-
-      /* Create:  misalign_in_bytes = addr & (vectype_align - 1).  */
-      misalign_in_bytes
-	= fold_build2 (BIT_AND_EXPR, type, fold_convert (type, start_addr),
-		       vectype_align_minus_1);
-
-      /* Create:  misalign_in_elems = misalign_in_bytes / element_size.  */
-      misalign_in_elems
-	= fold_build2 (RSHIFT_EXPR, type, misalign_in_bytes, elem_size_log);
 
       /* Create:  (niters_type) ((align_in_elems - misalign_in_elems)
 				 & (align_in_elems - 1)).  */
+      bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
       if (negative)
-	iters = fold_build2 (MINUS_EXPR, type, misalign_in_elems,
-			     align_in_elems_tree);
+	iters = gimple_build (&stmts, MINUS_EXPR, type,
+			      misalign_in_elems, align_in_elems_tree);
       else
-	iters = fold_build2 (MINUS_EXPR, type, align_in_elems_tree,
-			     misalign_in_elems);
-      iters = fold_build2 (BIT_AND_EXPR, type, iters, align_in_elems_minus_1);
-      iters = fold_convert (niters_type, iters);
+	iters = gimple_build (&stmts, MINUS_EXPR, type,
+			      align_in_elems_tree, misalign_in_elems);
+      iters = gimple_build (&stmts, BIT_AND_EXPR, type, iters,
+			    align_in_elems_minus_1);
+      iters = gimple_convert (&stmts, niters_type, iters);
       *bound = align_in_elems - 1;
     }
 
@@ -1233,20 +1321,22 @@ vect_gen_prolog_loop_niters (loop_vec_info loop_vinfo,
 
 /* Function vect_update_init_of_dr
 
-   NITERS iterations were peeled from LOOP.  DR represents a data reference
-   in LOOP.  This function updates the information recorded in DR to
-   account for the fact that the first NITERS iterations had already been
-   executed.  Specifically, it updates the OFFSET field of DR.  */
+   If CODE is PLUS, the vector loop starts NITERS iterations after the
+   scalar one, otherwise CODE is MINUS and the vector loop starts NITERS
+   iterations before the scalar one (using masking to skip inactive
+   elements).  This function updates the information recorded in DR to
+   account for the difference.  Specifically, it updates the OFFSET
+   field of DR.  */
 
 static void
-vect_update_init_of_dr (struct data_reference *dr, tree niters)
+vect_update_init_of_dr (struct data_reference *dr, tree niters, tree_code code)
 {
   tree offset = DR_OFFSET (dr);
 
   niters = fold_build2 (MULT_EXPR, sizetype,
 			fold_convert (sizetype, niters),
 			fold_convert (sizetype, DR_STEP (dr)));
-  offset = fold_build2 (PLUS_EXPR, sizetype,
+  offset = fold_build2 (code, sizetype,
 			fold_convert (sizetype, offset), niters);
   DR_OFFSET (dr) = offset;
 }
@@ -1254,14 +1344,12 @@ vect_update_init_of_dr (struct data_reference *dr, tree niters)
 
 /* Function vect_update_inits_of_drs
 
-   NITERS iterations were peeled from the loop represented by LOOP_VINFO.
-   This function updates the information recorded for the data references in
-   the loop to account for the fact that the first NITERS iterations had
-   already been executed.  Specifically, it updates the initial_condition of
-   the access_function of all the data_references in the loop.  */
+   Apply vect_update_inits_of_dr to all accesses in LOOP_VINFO.
+   CODE and NITERS are as for vect_update_inits_of_dr.  */
 
 static void
-vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters)
+vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters,
+			  tree_code code)
 {
   unsigned int i;
   vec<data_reference_p> datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
@@ -1288,9 +1376,57 @@ vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters)
     }
 
   FOR_EACH_VEC_ELT (datarefs, i, dr)
-    vect_update_init_of_dr (dr, niters);
+    vect_update_init_of_dr (dr, niters, code);
 }
 
+
+/* Function vect_prepare_for_masked_peels
+
+   For the information recorded in LOOP_VINFO prepare the loop for peeling
+   by masking.  This involves calculating the number of iterations to
+   be peeled and then aligning all memory references appropriately.  */
+
+void
+vect_prepare_for_masked_peels (loop_vec_info loop_vinfo)
+{
+  tree misalign_in_elems;
+  tree type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
+
+  gcc_assert (vect_use_loop_mask_for_alignment_p (loop_vinfo));
+
+  /* From the information recorded in LOOP_VINFO get the number of iterations
+     that need peeling from the loop via masking.  */
+  if (LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) > 0)
+    {
+      poly_int64 misalign = (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+			     - LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo));
+      misalign_in_elems = build_int_cst (type, misalign);
+    }
+  else
+    {
+      gimple_seq seq = NULL;
+      misalign_in_elems = get_misalign_in_elems (&seq, loop_vinfo);
+      misalign_in_elems = gimple_convert (&seq, type, misalign_in_elems);
+      if (seq)
+	{
+	  edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
+	  basic_block new_bb = gsi_insert_seq_on_edge_immediate (pe, seq);
+	  gcc_assert (!new_bb);
+	}
+    }
+
+  if (dump_enabled_p ())
+    {
+      dump_printf_loc (MSG_NOTE, vect_location,
+		       "misalignment for fully-masked loop: ");
+      dump_generic_expr (MSG_NOTE, TDF_SLIM, misalign_in_elems);
+      dump_printf (MSG_NOTE, "\n");
+    }
+
+  LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo) = misalign_in_elems;
+
+  vect_update_inits_of_drs (loop_vinfo, misalign_in_elems, MINUS_EXPR);
+}
 
 /* This function builds ni_name = number of iterations.  Statements
    are emitted on the loop preheader edge.  */
@@ -1855,19 +1991,22 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 		 bool niters_no_overflow)
 {
   edge e, guard_e;
-  tree type = TREE_TYPE (niters), guard_cond;
+  tree type, guard_cond;
   basic_block guard_bb, guard_to;
   int prob_prolog, prob_vector, prob_epilog;
   int bound_prolog = 0;
   poly_uint64 bound_scalar = 0;
   int estimated_vf;
-  int prolog_peeling = LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo);
+  int prolog_peeling = 0;
+  if (!vect_use_loop_mask_for_alignment_p (loop_vinfo))
+    prolog_peeling = LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo);
   bool epilog_peeling = (LOOP_VINFO_PEELING_FOR_NITER (loop_vinfo)
 			 || LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo));
 
   if (!prolog_peeling && !epilog_peeling)
     return;
 
+  type = TREE_TYPE (niters);
   prob_vector = 9 * REG_BR_PROB_BASE / 10;
   estimated_vf = estimated_poly_value (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
   if (estimated_vf == 2)
@@ -1955,7 +2094,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  scale_loop_profile (prolog, prob_prolog, bound_prolog);
 	}
       /* Update init address of DRs.  */
-      vect_update_inits_of_drs (loop_vinfo, niters_prolog);
+      vect_update_inits_of_drs (loop_vinfo, niters_prolog, PLUS_EXPR);
       /* Update niters for vector loop.  */
       LOOP_VINFO_NITERS (loop_vinfo)
 	= fold_build2 (MINUS_EXPR, type, niters, niters_prolog);

@@ -1176,6 +1176,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_VECT_FACTOR (res) = 0;
   LOOP_VINFO_MASK_TYPE (res) = NULL;
   LOOP_VINFO_MASK_ARRAY (res).create (0);
+  LOOP_VINFO_MASKED_SKIP_ELEMS (res) = NULL;
   LOOP_VINFO_NEXT_MASK (res) = NULL;
   LOOP_VINFO_NUM_MASK_LEVELS (res) = 1;
   LOOP_VINFO_LOOP_NEST (res) = vNULL;
@@ -2185,14 +2186,13 @@ start_over:
     }
 
   if (LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo)
-      && (LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo)
-	  || LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo)))
+      && LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo))
     {
       LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			 "Can't use a fully-masked loop because peeling for"
-			 " is required.\n");
+			 " gaps is required.\n");
     }
 
   /* Decide whether to use a fully-masked loop for this vectorization
@@ -3997,9 +3997,23 @@ get_initial_def_for_induction (gimple *iv_phi)
   gcc_assert (phi_info);
   gcc_assert (ncopies >= 1);
 
-  /* Convert the step to the desired type.  */
+  /* Convert the initial value and step to the desired type.  */
   stmts = NULL;
+  init_expr = gimple_convert (&stmts, TREE_TYPE (vectype), init_expr);
   step_expr = gimple_convert (&stmts, TREE_TYPE (vectype), step_expr);
+
+  /* If we are using the loop mask to "peel" for alignment then we need
+     to adjust the start value here.  */
+  tree skip_elems = LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo);
+  if (skip_elems)
+    {
+      skip_elems = gimple_convert (&stmts, TREE_TYPE (vectype), skip_elems);
+      tree skip_step = gimple_build (&stmts, MULT_EXPR, TREE_TYPE (vectype),
+				     skip_elems, step_expr);
+      init_expr = gimple_build (&stmts, MINUS_EXPR, TREE_TYPE (vectype),
+				init_expr, skip_step);
+    }
+
   if (stmts)
     {
       new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
@@ -7127,7 +7141,12 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   split_edge (loop_preheader_edge (loop));
 
   if (LOOP_VINFO_MASK_TYPE (loop_vinfo))
-    vect_populate_mask_array (loop_vinfo);
+    {
+      vect_populate_mask_array (loop_vinfo);
+      /* This will deal with any possible peeling.  */
+      if (vect_use_loop_mask_for_alignment_p (loop_vinfo))
+	vect_prepare_for_masked_peels (loop_vinfo);
+    }
 
   /* FORNOW: the vectorizer supports only loops which body consist
      of one basic block (header + empty latch). When the vectorizer will
@@ -7379,27 +7398,38 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   /* +1 to convert latch counts to loop iteration counts,
      -min_epilogue_iters to remove iterations that cannot be performed
        by the vector code.  */
-  int bias = 1 - min_epilogue_iters;
+  int bias_for_lowest = 1 - min_epilogue_iters;
+  int bias_for_assumed = bias_for_lowest;
+  int alignment_npeels = LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo);
+  if (alignment_npeels && mask_type)
+    {
+      /* When the amount of peeling is known at compile time, the first
+	 iteration will have exactly alignment_npeels active elements.
+	 In the worst case it will have at least one.  */
+      int min_first_active = (alignment_npeels > 0 ? alignment_npeels : 1);
+      bias_for_lowest += lowest_vf - min_first_active;
+      bias_for_assumed += assumed_vf - min_first_active;
+    }
   /* In these calculations the "- 1" converts loop iteration counts
      back to latch counts.  */
   loop->nb_iterations_upper_bound
     = (final_iter_may_be_partial
-       ? wi::udiv_ceil (loop->nb_iterations_upper_bound + bias,
+       ? wi::udiv_ceil (loop->nb_iterations_upper_bound + bias_for_lowest,
 			lowest_vf) - 1
-       : wi::udiv_floor (loop->nb_iterations_upper_bound + bias,
+       : wi::udiv_floor (loop->nb_iterations_upper_bound + bias_for_lowest,
 			 lowest_vf) - 1);
   loop->nb_iterations_likely_upper_bound
     = (final_iter_may_be_partial
-       ? wi::udiv_ceil (loop->nb_iterations_likely_upper_bound + bias,
-			lowest_vf) - 1
-       : wi::udiv_floor (loop->nb_iterations_likely_upper_bound + bias,
-			 lowest_vf) - 1);
+       ? wi::udiv_ceil (loop->nb_iterations_likely_upper_bound
+			+ bias_for_lowest, lowest_vf) - 1
+       : wi::udiv_floor (loop->nb_iterations_likely_upper_bound
+			 + bias_for_lowest, lowest_vf) - 1);
   if (loop->any_estimate)
     loop->nb_iterations_estimate
       = (final_iter_may_be_partial
-	 ? wi::udiv_ceil (loop->nb_iterations_estimate + bias,
+	 ? wi::udiv_ceil (loop->nb_iterations_estimate + bias_for_assumed,
 			  assumed_vf) - 1
-	 : wi::udiv_floor (loop->nb_iterations_estimate + bias,
+	 : wi::udiv_floor (loop->nb_iterations_estimate + bias_for_assumed,
 			   assumed_vf) - 1);
 
   if (dump_enabled_p ())
