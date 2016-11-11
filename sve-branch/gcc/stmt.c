@@ -866,8 +866,7 @@ emit_case_decision_tree (tree index_expr, tree index_type,
     {
       int unsignedp = TYPE_UNSIGNED (index_type);
       machine_mode wider_mode;
-      for (wider_mode = GET_MODE (index); wider_mode != VOIDmode;
-	   wider_mode = GET_MODE_WIDER_MODE (wider_mode))
+      FOR_EACH_MODE_FROM (wider_mode, GET_MODE (index))
 	if (have_insn_for (COMPARE, wider_mode))
 	  {
 	    index = convert_to_mode (wider_mode, index, unsignedp);
