@@ -60,8 +60,8 @@ along with GCC; see the file COPYING3.  If not see
 /* Gimple parsing functions.  */
 static bool c_parser_gimple_compound_statement (c_parser *, gimple_seq *);
 static void c_parser_gimple_label (c_parser *, gimple_seq *);
-static void c_parser_gimple_expression (c_parser *, gimple_seq *);
-static struct c_expr c_parser_gimple_binary_expression (c_parser *, enum tree_code *);
+static void c_parser_gimple_statement (c_parser *, gimple_seq *);
+static struct c_expr c_parser_gimple_binary_expression (c_parser *);
 static struct c_expr c_parser_gimple_unary_expression (c_parser *);
 static struct c_expr c_parser_gimple_postfix_expression (c_parser *);
 static struct c_expr c_parser_gimple_postfix_expression_after_primary (c_parser *,
@@ -214,7 +214,7 @@ c_parser_gimple_compound_statement (c_parser *parser, gimple_seq *seq)
 
 	default:
 expr_stmt:
-	  c_parser_gimple_expression (parser, seq);
+	  c_parser_gimple_statement (parser, seq);
 	  if (! c_parser_require (parser, CPP_SEMICOLON, "expected %<;%>"))
 	    return return_p;
 	}
@@ -223,36 +223,47 @@ expr_stmt:
   return return_p;
 }
 
-/* Parse a gimple expression.
+/* Parse a gimple statement.
 
-   gimple-expression:
-     gimple-unary-expression
-     gimple-call-statement
-     gimple-binary-expression
-     gimple-assign-expression
+   gimple-statement:
+     gimple-call-expression
+     gimple-assign-statement
+     gimple-phi-statement
+
+   gimple-assign-statement:
+     gimple-unary-expression = gimple-assign-rhs
+ 
+   gimple-assign-rhs:
      gimple-cast-expression
+     gimple-unary-expression
+     gimple-binary-expression
+     gimple-call-expression
+
+   gimple-phi-statement:
+     identifier = __PHI ( label : gimple_primary-expression, ... )
+
+   gimple-call-expr:
+     gimple-primary-expression ( argument-list )
+
+   gimple-cast-expression:
+     ( type-name ) gimple-primary-expression
 
 */
 
 static void
-c_parser_gimple_expression (c_parser *parser, gimple_seq *seq)
+c_parser_gimple_statement (c_parser *parser, gimple_seq *seq)
 {
   struct c_expr lhs, rhs;
   gimple *assign = NULL;
-  enum tree_code subcode = NOP_EXPR;
   location_t loc;
   tree arg = NULL_TREE;
   auto_vec<tree> vargs;
 
   lhs = c_parser_gimple_unary_expression (parser);
+  loc = EXPR_LOCATION (lhs.value);
   rhs.value = error_mark_node;
 
-  if (c_parser_next_token_is (parser, CPP_EQ))
-    c_parser_consume_token (parser);
-
-  loc = EXPR_LOCATION (lhs.value);
-
-  /* GIMPLE call expression.  */
+  /* GIMPLE call statement without LHS.  */
   if (c_parser_next_token_is (parser, CPP_SEMICOLON)
       && TREE_CODE (lhs.value) == CALL_EXPR)
     {
@@ -263,44 +274,53 @@ c_parser_gimple_expression (c_parser *parser, gimple_seq *seq)
       return;
     }
 
+  /* All following cases are statements with LHS.  */
+  if (! c_parser_require (parser, CPP_EQ, "expected %<=%>"))
+    return;
+
   /* Cast expression.  */
   if (c_parser_next_token_is (parser, CPP_OPEN_PAREN)
       && c_token_starts_typename (c_parser_peek_2nd_token (parser)))
     {
-      /* TODO: have a gimple_cast_expr function.  */
-      rhs = c_parser_cast_expression (parser, NULL);
-      if (lhs.value != error_mark_node &&
-	  rhs.value != error_mark_node)
+      c_parser_consume_token (parser);
+      struct c_type_name *type_name = c_parser_type_name (parser);
+      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+      if (type_name == NULL)
+	return;
+      /* ???  The actual type used in the cast expression is ignored as
+         in GIMPLE it is encoded by the type of the LHS.  */
+      rhs = c_parser_gimple_postfix_expression (parser);
+      if (lhs.value != error_mark_node
+	  && rhs.value != error_mark_node)
 	{
-	  assign = gimple_build_assign (lhs.value, rhs.value);
+	  enum tree_code code = NOP_EXPR;
+	  if (VECTOR_TYPE_P (TREE_TYPE (lhs.value)))
+	    {
+	      code = VIEW_CONVERT_EXPR;
+	      rhs.value = build1 (VIEW_CONVERT_EXPR,
+				  TREE_TYPE (lhs.value), rhs.value);
+	    }
+	  else if (FLOAT_TYPE_P (TREE_TYPE (lhs.value))
+		   && ! FLOAT_TYPE_P (TREE_TYPE (rhs.value)))
+	    code = FLOAT_EXPR;
+	  else if (! FLOAT_TYPE_P (TREE_TYPE (lhs.value))
+		   && FLOAT_TYPE_P (TREE_TYPE (rhs.value)))
+	    code = FIX_TRUNC_EXPR;
+	  assign = gimple_build_assign (lhs.value, code, rhs.value);
 	  gimple_seq_add_stmt (seq, assign);
 	  gimple_set_location (assign, loc);
 	  return;
 	}
     }
 
-  /* Pointer expression.  */
-  if (TREE_CODE (lhs.value) == INDIRECT_REF)
-    {
-      tree save_expr = lhs.value;
-      bool volatilep = TREE_THIS_VOLATILE (lhs.value);
-      bool notrap = TREE_THIS_NOTRAP (lhs.value);
-      tree saved_ptr_type = TREE_TYPE (TREE_OPERAND (lhs.value, 0));
-
-      lhs.value = fold_indirect_ref_loc (loc, lhs.value);
-      if (lhs.value == save_expr)
-	{
-	  lhs.value = fold_build2_loc (input_location, MEM_REF,
-				       TREE_TYPE (lhs.value),
-				       TREE_OPERAND (lhs.value, 0),
-				       build_int_cst (saved_ptr_type, 0));
-	  TREE_THIS_VOLATILE (lhs.value) = volatilep;
-	  TREE_THIS_NOTRAP (lhs.value) = notrap;
-	}
-    }
-
+  /* Unary expression.  */
   switch (c_parser_peek_token (parser)->type)
     {
+    case CPP_KEYWORD:
+      if (c_parser_peek_token (parser)->keyword != RID_REALPART
+	  && c_parser_peek_token (parser)->keyword != RID_IMAGPART)
+	break;
+      /* Fallthru.  */
     case CPP_AND:
     case CPP_PLUS:
     case CPP_MINUS:
@@ -316,7 +336,7 @@ c_parser_gimple_expression (c_parser *parser, gimple_seq *seq)
     default:;
     }
 
-  /* GIMPLE PHI expression.  */
+  /* GIMPLE PHI statement.  */
   if (c_parser_next_token_is_keyword (parser, RID_PHI))
     {
       c_parser_consume_token (parser);
@@ -373,17 +393,11 @@ c_parser_gimple_expression (c_parser *parser, gimple_seq *seq)
       return;
     }
 
-  rhs = c_parser_gimple_binary_expression (parser, &subcode);
-
+  rhs = c_parser_gimple_binary_expression (parser);
   if (lhs.value != error_mark_node
       && rhs.value != error_mark_node)
     {
-      if (subcode == NOP_EXPR)
-	assign = gimple_build_assign (lhs.value, rhs.value);
-      else
-	assign = gimple_build_assign (lhs.value, subcode,
-				      TREE_OPERAND (rhs.value, 0),
-				      TREE_OPERAND (rhs.value, 1));
+      assign = gimple_build_assign (lhs.value, rhs.value);
       gimple_seq_add_stmt (seq, assign);
       gimple_set_location (assign, loc);
     }
@@ -392,184 +406,123 @@ c_parser_gimple_expression (c_parser *parser, gimple_seq *seq)
 
 /* Parse gimple binary expr.
 
-   gimple-multiplicative-expression:
+   gimple-binary-expression:
      gimple-unary-expression * gimple-unary-expression
      gimple-unary-expression / gimple-unary-expression
      gimple-unary-expression % gimple-unary-expression
-
-   gimple-additive-expression:
      gimple-unary-expression + gimple-unary-expression
      gimple-unary-expression - gimple-unary-expression
-
-   gimple-shift-expression:
      gimple-unary-expression << gimple-unary-expression
      gimple-unary-expression >> gimple-unary-expression
-
-   gimple-relational-expression:
      gimple-unary-expression < gimple-unary-expression
      gimple-unary-expression > gimple-unary-expression
      gimple-unary-expression <= gimple-unary-expression
      gimple-unary-expression >= gimple-unary-expression
-
-   gimple-equality-expression:
      gimple-unary-expression == gimple-unary-expression
      gimple-unary-expression != gimple-unary-expression
-
-   gimple-AND-expression:
      gimple-unary-expression & gimple-unary-expression
-
-   gimple-exclusive-OR-expression:
      gimple-unary-expression ^ gimple-unary-expression
-
-   gimple-inclusive-OR-expression:
      gimple-unary-expression | gimple-unary-expression
-
-   gimple-logical-AND-expression:
-     gimple-unary-expression && gimple-unary-expression
-
-   gimple-logical-OR-expression:
-     gimple-unary-expression || gimple-unary-expression
 
 */
 
 static c_expr
-c_parser_gimple_binary_expression (c_parser *parser, enum tree_code *subcode)
+c_parser_gimple_binary_expression (c_parser *parser)
 {
-  struct {
-    /* The expression at this stack level.  */
-    struct c_expr expr;
-    /* The operation on its left.  */
-    enum tree_code op;
-    /* The source location of this operation.  */
-    location_t loc;
-  } stack[2];
-  int sp;
   /* Location of the binary operator.  */
-  location_t binary_loc = UNKNOWN_LOCATION;  /* Quiet warning.  */
-#define POP								      \
-  do {									      \
-    if (sp == 1								      \
-	&& c_parser_peek_token (parser)->type == CPP_SEMICOLON		      \
-	&& (((1 << PREC_BITOR) | (1 << PREC_BITXOR) | (1 << PREC_BITAND)      \
-	       | (1 << PREC_SHIFT) | (1 << PREC_ADD) | (1 << PREC_MULT)))     \
-	&& stack[sp].op != TRUNC_MOD_EXPR				      \
-	&& stack[0].expr.value != error_mark_node			      \
-	&& stack[1].expr.value != error_mark_node)			      \
-      stack[0].expr.value						      \
-	= build2 (stack[1].op, TREE_TYPE (stack[0].expr.value),		      \
-		  stack[0].expr.value, stack[1].expr.value);		      \
-    else								      \
-      stack[sp - 1].expr = parser_build_binary_op (stack[sp].loc,	      \
-						   stack[sp].op,	      \
-						   stack[sp - 1].expr,	      \
-						   stack[sp].expr);	      \
-    sp--;								      \
-  } while (0)
-  stack[0].loc = c_parser_peek_token (parser)->location;
-  stack[0].expr = c_parser_gimple_unary_expression (parser);
-  sp = 0;
-  source_range src_range;
+  struct c_expr ret, lhs, rhs;
+  enum tree_code code = ERROR_MARK;
+  ret.value = error_mark_node;
+  lhs = c_parser_gimple_postfix_expression (parser);
   if (c_parser_error (parser))
-    goto out;
+    return ret;
+  tree ret_type = TREE_TYPE (lhs.value);
   switch (c_parser_peek_token (parser)->type)
     {
     case CPP_MULT:
-      *subcode = MULT_EXPR;
+      code = MULT_EXPR;
       break;
     case CPP_DIV:
-      *subcode = TRUNC_DIV_EXPR;
+      code = TRUNC_DIV_EXPR;
       break;
     case CPP_MOD:
-      *subcode = TRUNC_MOD_EXPR;
+      code = TRUNC_MOD_EXPR;
       break;
     case CPP_PLUS:
-      *subcode = PLUS_EXPR;
+      if (POINTER_TYPE_P (TREE_TYPE (lhs.value)))
+	code = POINTER_PLUS_EXPR;
+      else
+	code = PLUS_EXPR;
       break;
     case CPP_MINUS:
-      *subcode = MINUS_EXPR;
+      code = MINUS_EXPR;
       break;
     case CPP_LSHIFT:
-      *subcode = LSHIFT_EXPR;
+      code = LSHIFT_EXPR;
       break;
     case CPP_RSHIFT:
-      *subcode = RSHIFT_EXPR;
+      code = RSHIFT_EXPR;
       break;
     case CPP_LESS:
-      *subcode = LT_EXPR;
+      code = LT_EXPR;
+      ret_type = boolean_type_node;
       break;
     case CPP_GREATER:
-      *subcode = GT_EXPR;
+      code = GT_EXPR;
+      ret_type = boolean_type_node;
       break;
     case CPP_LESS_EQ:
-      *subcode = LE_EXPR;
+      code = LE_EXPR;
+      ret_type = boolean_type_node;
       break;
     case CPP_GREATER_EQ:
-      *subcode = GE_EXPR;
+      code = GE_EXPR;
+      ret_type = boolean_type_node;
       break;
     case CPP_EQ_EQ:
-      *subcode = EQ_EXPR;
+      code = EQ_EXPR;
+      ret_type = boolean_type_node;
       break;
     case CPP_NOT_EQ:
-      *subcode = NE_EXPR;
+      code = NE_EXPR;
+      ret_type = boolean_type_node;
       break;
     case CPP_AND:
-      *subcode = BIT_AND_EXPR;
+      code = BIT_AND_EXPR;
       break;
     case CPP_XOR:
-      *subcode = BIT_XOR_EXPR;
+      code = BIT_XOR_EXPR;
       break;
     case CPP_OR:
-      *subcode = BIT_IOR_EXPR;
+      code = BIT_IOR_EXPR;
       break;
     case CPP_AND_AND:
-      *subcode = TRUTH_ANDIF_EXPR;
-      break;
+      c_parser_error (parser, "%<&&%> not valid in GIMPLE");
+      return ret;
     case CPP_OR_OR:
-      *subcode = TRUTH_ORIF_EXPR;
-      break;
+      c_parser_error (parser, "%<||%> not valid in GIMPLE");
+      return ret;
     default:
-      /* Not a binary operator, so end of the binary expression.  */
-      *subcode = NOP_EXPR;
-      goto out;
+      /* Not a binary expression.  */
+      return lhs;
     }
-  binary_loc = c_parser_peek_token (parser)->location;
+  location_t ret_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
-  switch (*subcode)
-    {
-    case TRUTH_ANDIF_EXPR:
-      src_range = stack[sp].expr.src_range;
-      stack[sp].expr.value = c_objc_common_truthvalue_conversion
-	(stack[sp].loc, default_conversion (stack[sp].expr.value));
-      set_c_expr_source_range (&stack[sp].expr, src_range);
-      break;
-    case TRUTH_ORIF_EXPR:
-      src_range = stack[sp].expr.src_range;
-      stack[sp].expr.value = c_objc_common_truthvalue_conversion
-	(stack[sp].loc, default_conversion (stack[sp].expr.value));
-      set_c_expr_source_range (&stack[sp].expr, src_range);
-      break;
-    default:
-      break;
-    }
-  sp++;
-  stack[sp].loc = binary_loc;
-  stack[sp].expr = c_parser_gimple_unary_expression (parser);
-  stack[sp].op = *subcode;
-out:
-  while (sp > 0)
-    POP;
-  return stack[0].expr;
-#undef POP
+  rhs = c_parser_gimple_postfix_expression (parser);
+  if (c_parser_error (parser))
+    return ret;
+  ret.value = build2_loc (ret_loc, code, ret_type, lhs.value, rhs.value);
+  return ret;
 }
 
 /* Parse gimple unary expression.
 
    gimple-unary-expression:
      gimple-postfix-expression
-     unary-operator cast-expression
+     unary-operator gimple-postfix-expression
 
    unary-operator: one of
-     & * + - ~ !
+     & * + - ~
 */
 
 static c_expr
@@ -580,51 +533,53 @@ c_parser_gimple_unary_expression (c_parser *parser)
   location_t finish;
   ret.original_code = ERROR_MARK;
   ret.original_type = NULL;
+  ret.value = error_mark_node;
   switch (c_parser_peek_token (parser)->type)
     {
     case CPP_AND:
       c_parser_consume_token (parser);
-      op = c_parser_cast_expression (parser, NULL);
+      op = c_parser_gimple_postfix_expression (parser);
       mark_exp_read (op.value);
       return parser_build_unary_op (op_loc, ADDR_EXPR, op);
     case CPP_MULT:
       {
 	c_parser_consume_token (parser);
-	op = c_parser_cast_expression (parser, NULL);
+	op = c_parser_gimple_postfix_expression (parser);
 	finish = op.get_finish ();
 	location_t combined_loc = make_location (op_loc, op_loc, finish);
-	ret.value = build_indirect_ref (combined_loc, op.value,
-					RO_UNARY_STAR);
+	ret.value = build_simple_mem_ref_loc (combined_loc, op.value);
+	TREE_SIDE_EFFECTS (ret.value)
+	  = TREE_THIS_VOLATILE (ret.value)
+	  = TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (op.value)));
 	ret.src_range.m_start = op_loc;
 	ret.src_range.m_finish = finish;
 	return ret;
       }
     case CPP_PLUS:
       c_parser_consume_token (parser);
-      op = c_parser_cast_expression (parser, NULL);
+      op = c_parser_gimple_postfix_expression (parser);
       return parser_build_unary_op (op_loc, CONVERT_EXPR, op);
     case CPP_MINUS:
       c_parser_consume_token (parser);
-      op = c_parser_cast_expression (parser, NULL);
+      op = c_parser_gimple_postfix_expression (parser);
       return parser_build_unary_op (op_loc, NEGATE_EXPR, op);
     case CPP_COMPL:
       c_parser_consume_token (parser);
-      op = c_parser_cast_expression (parser, NULL);
+      op = c_parser_gimple_postfix_expression (parser);
       return parser_build_unary_op (op_loc, BIT_NOT_EXPR, op);
     case CPP_NOT:
-      c_parser_consume_token (parser);
-      op = c_parser_cast_expression (parser, NULL);
-      return parser_build_unary_op (op_loc, TRUTH_NOT_EXPR, op);
+      c_parser_error (parser, "%<!%> not valid in GIMPLE");
+      return ret;
     case CPP_KEYWORD:
       switch (c_parser_peek_token (parser)->keyword)
 	{
 	case RID_REALPART:
 	  c_parser_consume_token (parser);
-	  op = c_parser_cast_expression (parser, NULL);
+	  op = c_parser_gimple_postfix_expression (parser);
 	  return parser_build_unary_op (op_loc, REALPART_EXPR, op);
 	case RID_IMAGPART:
 	  c_parser_consume_token (parser);
-	  op = c_parser_cast_expression (parser, NULL);
+	  op = c_parser_gimple_postfix_expression (parser);
 	  return parser_build_unary_op (op_loc, IMAGPART_EXPR, op);
 	default:
 	  return c_parser_gimple_postfix_expression (parser);
@@ -1208,12 +1163,9 @@ c_parser_gimple_goto_stmt (location_t loc, tree label, gimple_seq *seq)
 static tree
 c_parser_gimple_paren_condition (c_parser *parser)
 {
-  enum tree_code subcode = NOP_EXPR;
-  location_t loc = c_parser_peek_token (parser)->location;
   if (! c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return error_mark_node;
-  tree cond = c_parser_gimple_binary_expression (parser, &subcode).value;
-  cond = c_objc_common_truthvalue_conversion (loc, cond);
+  tree cond = c_parser_gimple_binary_expression (parser).value;
   if (! c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
     return error_mark_node;
   return cond;
@@ -1282,7 +1234,7 @@ c_parser_gimple_if_stmt (c_parser *parser, gimple_seq *seq)
 /* Parse gimple switch-statement.
 
    gimple-switch-statement:
-     switch (gimple-unary-expression) gimple-case-statement
+     switch (gimple-postfix-expression) gimple-case-statement
 
    gimple-case-statement:
      gimple-case-statement
@@ -1301,7 +1253,7 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
 
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      cond_expr = c_parser_gimple_unary_expression (parser);
+      cond_expr = c_parser_gimple_postfix_expression (parser);
       if (! c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
 	return;
     }
@@ -1326,7 +1278,7 @@ c_parser_gimple_switch_stmt (c_parser *parser, gimple_seq *seq)
 
 		if (c_parser_next_token_is (parser, CPP_NAME)
 		    || c_parser_peek_token (parser)->type == CPP_NUMBER)
-		  exp1 = c_parser_gimple_unary_expression (parser);
+		  exp1 = c_parser_gimple_postfix_expression (parser);
 		else
 		  c_parser_error (parser, "expected expression");
 

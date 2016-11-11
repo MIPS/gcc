@@ -1205,7 +1205,6 @@ static struct c_arg_info *c_parser_parms_list_declarator (c_parser *, tree,
 static struct c_parm *c_parser_parameter_declaration (c_parser *, tree);
 static tree c_parser_simple_asm_expr (c_parser *);
 static tree c_parser_attributes (c_parser *);
-static struct c_type_name *c_parser_type_name (c_parser *);
 static struct c_expr c_parser_initializer (c_parser *);
 static struct c_expr c_parser_braced_init (c_parser *, tree, bool,
 					   struct obstack *);
@@ -1233,6 +1232,7 @@ static struct c_expr c_parser_conditional_expression (c_parser *,
 						      struct c_expr *, tree);
 static struct c_expr c_parser_binary_expression (c_parser *, struct c_expr *,
 						 tree);
+static struct c_expr c_parser_cast_expression (c_parser *, struct c_expr *);
 static struct c_expr c_parser_unary_expression (c_parser *);
 static struct c_expr c_parser_sizeof_expression (c_parser *);
 static struct c_expr c_parser_alignof_expression (c_parser *);
@@ -4234,7 +4234,7 @@ c_parser_attributes (c_parser *parser)
      specifier-qualifier-list abstract-declarator[opt]
 */
 
-static struct c_type_name *
+struct c_type_name *
 c_parser_type_name (c_parser *parser)
 {
   struct c_declspecs *specs = build_null_declspecs ();
@@ -6789,7 +6789,7 @@ c_parser_binary_expression (c_parser *parser, struct c_expr *after,
      ( type-name ) unary-expression
 */
 
-struct c_expr
+static struct c_expr
 c_parser_cast_expression (c_parser *parser, struct c_expr *after)
 {
   location_t cast_loc = c_parser_peek_token (parser)->location;
