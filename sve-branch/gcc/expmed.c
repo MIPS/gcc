@@ -1582,7 +1582,6 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 {
   rtx op0 = str_rtx;
   machine_mode mode1;
-  unsigned HOST_WIDE_INT ibitsize, ibitnum;
 
   if (tmode == VOIDmode)
     tmode = mode;
@@ -1642,28 +1641,36 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
   /* Use vec_extract patterns for extracting parts of vectors whenever
      available.  */
   machine_mode outermode = GET_MODE (op0);
-  scalar_mode innermode = GET_MODE_INNER (outermode);
-  if (VECTOR_MODE_P (outermode)
-      && !MEM_P (op0)
-      && optab_handler (vec_extract_optab, outermode) != CODE_FOR_nothing
-      && bitsize.is_constant (&ibitsize)
-      && bitnum.is_constant (&ibitnum)
-      && ((ibitnum + ibitsize - 1) / GET_MODE_BITSIZE (innermode)
-	  == ibitnum / GET_MODE_BITSIZE (innermode)))
+  if (VECTOR_MODE_P (outermode) && !MEM_P (op0))
     {
-      struct expand_operand ops[3];
       enum insn_code icode = optab_handler (vec_extract_optab, outermode);
-      unsigned HOST_WIDE_INT pos = ibitnum / GET_MODE_BITSIZE (innermode);
-
-      create_output_operand (&ops[0], target, innermode);
-      create_input_operand (&ops[1], op0, outermode);
-      create_integer_operand (&ops[2], pos);
-      if (maybe_expand_insn (icode, 3, ops))
+      scalar_mode innermode = GET_MODE_INNER (outermode);
+      unsigned HOST_WIDE_INT ibitsize, ibitnum;
+      if (icode != CODE_FOR_nothing
+	  && bitsize.is_constant (&ibitsize)
+	  && bitnum.is_constant (&ibitnum)
+	  && ((ibitnum + ibitsize - 1) / GET_MODE_BITSIZE (innermode)
+	      == ibitnum / GET_MODE_BITSIZE (innermode)))
 	{
-	  target = ops[0].value;
-      	  if (GET_MODE (target) != mode)
-	    return gen_lowpart (tmode, target);
-	  return target;
+	  struct expand_operand ops[3];
+	  unsigned HOST_WIDE_INT pos = ibitnum / GET_MODE_BITSIZE (innermode);
+
+	  create_output_operand (&ops[0], target, innermode);
+	  create_input_operand (&ops[1], op0, outermode);
+	  create_integer_operand (&ops[2], pos);
+	  if (maybe_expand_insn (icode, 3, ops))
+	    {
+	      target = ops[0].value;
+	      if (GET_MODE (target) != mode)
+		return gen_lowpart (tmode, target);
+	      return target;
+	    }
+	}
+      if (GET_MODE_INNER (mode) == innermode)
+	{
+	  rtx sub = extract_bit_field_as_subreg (mode, op0, bitsize, bitnum);
+	  if (sub)
+	    return sub;
 	}
     }
 
