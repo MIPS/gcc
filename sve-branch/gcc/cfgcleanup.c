@@ -1143,7 +1143,7 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx_insn *i1, rtx_insn *i2)
       /* ??? Worse, this adjustment had better be constant lest we
          have differing incoming stack levels.  */
       if (!frame_pointer_needed
-          && find_args_size_adjust (i1) == HOST_WIDE_INT_MIN)
+	  && must_eq (find_args_size_adjust (i1), HOST_WIDE_INT_MIN))
 	return dir_none;
     }
   else if (p1 || p2)
