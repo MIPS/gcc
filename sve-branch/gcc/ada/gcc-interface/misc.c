@@ -1277,11 +1277,11 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 int
 fp_prec_to_size (int prec)
 {
-  machine_mode mode;
+  opt_scalar_float_mode mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_FLOAT)
-    if (GET_MODE_PRECISION (mode) == prec)
-      return GET_MODE_BITSIZE (mode);
+    if (GET_MODE_PRECISION (*mode) == prec)
+      return GET_MODE_BITSIZE (*mode);
 
   gcc_unreachable ();
 }
@@ -1291,11 +1291,11 @@ fp_prec_to_size (int prec)
 int
 fp_size_to_prec (int size)
 {
-  machine_mode mode;
+  opt_scalar_float_mode mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_FLOAT)
-    if (GET_MODE_BITSIZE (mode) == size)
-      return GET_MODE_PRECISION (mode);
+    if (GET_MODE_BITSIZE (*mode) == size)
+      return GET_MODE_PRECISION (*mode);
 
   gcc_unreachable ();
 }

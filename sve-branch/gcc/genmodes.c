@@ -1129,6 +1129,23 @@ mode_unit_precision_inline (machine_mode_enum mode)\n\
 }\n");
 }
 
+/* Return the best machine mode class for MODE, or null if machine_mode
+   should be used.  */
+
+static const char *
+get_mode_class (struct mode_data *mode)
+{
+  switch (mode->cl)
+    {
+    case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
+      return "scalar_float_mode";
+
+    default:
+      return NULL;
+    }
+}
+
 static void
 emit_insn_modes_h (void)
 {
@@ -1155,8 +1172,12 @@ enum machine_mode_enum\n{");
 	printf ("%*s/* %s:%d */\n", 27 - count_, "",
 		 trim_filename (m->file), m->line);
 	printf ("#define HAVE_%smode\n", m->name);
-	printf ("#define %smode (machine_mode (E_%smode))\n",
-		m->name, m->name);
+	if (const char *mode_class = get_mode_class (m))
+	  printf ("#define %smode (%s::from_int (E_%smode))\n",
+		  m->name, mode_class, m->name);
+	else
+	  printf ("#define %smode (machine_mode (E_%smode))\n",
+		  m->name, m->name);
       }
 
   puts ("  MAX_MACHINE_MODE,\n");

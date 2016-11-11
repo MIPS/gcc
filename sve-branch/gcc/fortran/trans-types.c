@@ -348,6 +348,7 @@ void
 gfc_init_kinds (void)
 {
   machine_mode_enum mode;
+  opt_scalar_float_mode float_mode_iter;
   int i_index, r_index, kind;
   bool saw_i4 = false, saw_i8 = false;
   bool saw_r4 = false, saw_r8 = false, saw_r10 = false, saw_r16 = false;
@@ -403,9 +404,10 @@ gfc_init_kinds (void)
   /* Set the maximum integer kind.  Used with at least BOZ constants.  */
   gfc_max_integer_kind = gfc_integer_kinds[i_index - 1].kind;
 
-  for (r_index = 0, mode = MIN_MODE_FLOAT; mode <= MAX_MODE_FLOAT;
-       mode = (machine_mode_enum) ((int) mode + 1))
+  r_index = 0;
+  FOR_EACH_MODE_IN_CLASS (float_mode_iter, MODE_FLOAT)
     {
+      scalar_float_mode mode = *float_mode_iter;
       const struct real_format *fmt = REAL_MODE_FORMAT (mode);
       int kind;
 

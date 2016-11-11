@@ -4740,7 +4740,8 @@ static rtx
 expand_builtin_signbit (tree exp, rtx target)
 {
   const struct real_format *fmt;
-  machine_mode fmode, imode, rmode;
+  scalar_float_mode fmode;
+  machine_mode imode, rmode;
   tree arg;
   int word, bitpos;
   enum insn_code icode;
@@ -4751,7 +4752,7 @@ expand_builtin_signbit (tree exp, rtx target)
     return NULL_RTX;
 
   arg = CALL_EXPR_ARG (exp, 0);
-  fmode = TYPE_MODE (TREE_TYPE (arg));
+  fmode = SCALAR_FLOAT_TYPE_MODE (TREE_TYPE (arg));
   rmode = TYPE_MODE (TREE_TYPE (exp));
   fmt = REAL_MODE_FORMAT (fmode);
 

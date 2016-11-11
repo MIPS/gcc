@@ -319,6 +319,15 @@ mode_for_size (unsigned int size, enum mode_class mclass, int limit)
   return BLKmode;
 }
 
+/* Return the machine mode to use for a MODE_FLOAT of SIZE bits, if one
+   exists.  */
+
+opt_scalar_float_mode
+float_mode_for_size (unsigned int size)
+{
+  return dyn_cast <scalar_float_mode> (mode_for_size (size, MODE_FLOAT, 0));
+}
+
 /* Similar, except passed a tree node.  */
 
 machine_mode
@@ -2132,14 +2141,16 @@ layout_type (tree type)
       break;
 
     case REAL_TYPE:
-      /* Allow the caller to choose the type mode, which is how decimal
-	 floats are distinguished from binary ones.  */
-      if (TYPE_MODE (type) == VOIDmode)
-	SET_TYPE_MODE (type,
-		       mode_for_size (TYPE_PRECISION (type), MODE_FLOAT, 0));
-      TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
-      TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
-      break;
+      {
+	/* Allow the caller to choose the type mode, which is how decimal
+	   floats are distinguished from binary ones.  */
+	if (TYPE_MODE (type) == VOIDmode)
+	  SET_TYPE_MODE (type, *float_mode_for_size (TYPE_PRECISION (type)));
+	scalar_float_mode mode = as_a <scalar_float_mode> (TYPE_MODE (type));
+	TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (mode));
+	TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (mode));
+	break;
+      }
 
    case FIXED_POINT_TYPE:
      /* TYPE_MODE (type) has been set already.  */

@@ -277,6 +277,84 @@ opt_mode<T>::exists (U *mode) const
   return false;
 }
 
+/* Return true if mode M has type T.  */
+
+template<typename T>
+inline bool
+is_a (machine_mode_enum m)
+{
+  return T::includes_p (m);
+}
+
+/* Assert that mode M has type T, and return it in that form.  */
+
+template<typename T>
+inline T
+as_a (machine_mode_enum m)
+{
+  gcc_checking_assert (T::includes_p (m));
+  return T::from_int (m);
+}
+
+/* Convert M to an opt_mode<T>.  */
+
+template<typename T>
+inline opt_mode<T>
+dyn_cast (machine_mode_enum m)
+{
+  if (T::includes_p (m))
+    return T::from_int (m);
+  return opt_mode<T> ();
+}
+
+/* Return true if mode M has type T, storing it as a T in *RESULT
+   if so.  */
+
+template<typename T, typename U>
+inline bool
+is_a (machine_mode_enum m, U *result)
+{
+  if (T::includes_p (m))
+    {
+      *result = T::from_int (m);
+      return true;
+    }
+  return false;
+}
+
+/* Represents a machine mode that is known to be a SCALAR_FLOAT_MODE_P.  */
+class scalar_float_mode
+{
+public:
+  ALWAYS_INLINE scalar_float_mode () {}
+  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+
+  static bool includes_p (machine_mode_enum);
+  static scalar_float_mode from_int (int i);
+
+protected:
+  ALWAYS_INLINE scalar_float_mode (machine_mode_enum m) : m_mode (m) {}
+
+  machine_mode_enum m_mode;
+};
+
+/* Return true if M is a scalar_float_mode.  */
+
+inline bool
+scalar_float_mode::includes_p (machine_mode_enum m)
+{
+  return SCALAR_FLOAT_MODE_P (m);
+}
+
+/* Return M as a scalar_float_mode.  This function should only be used by
+   utility functions; general code should use as_a<T> instead.  */
+
+ALWAYS_INLINE scalar_float_mode
+scalar_float_mode::from_int (int i)
+{
+  return machine_mode_enum (i);
+}
+
 /* Represents a general machine mode (scalar or non-scalar).  */
 class machine_mode
 {
@@ -407,7 +485,11 @@ extern const unsigned char mode_complex[NUM_MACHINE_MODES];
 
 extern machine_mode mode_for_size (unsigned int, enum mode_class, int);
 
-/* Similar, but find the smallest mode for a given width.  */
+/* As above, but for specific mode classes.  */
+
+extern opt_scalar_float_mode float_mode_for_size (unsigned int);
+
+/* Similar to mode_for_size, but find the smallest mode for a given width.  */
 
 extern machine_mode smallest_mode_for_size (unsigned int,
 						 enum mode_class);
@@ -511,16 +593,40 @@ extern const int_n_data_t int_n_data[NUM_INT_N_ENTS];
 
 namespace mode_iterator
 {
+  template<typename T>
+  inline void
+  start (opt_mode<T> *iter, enum mode_class mclass)
+  {
+    if (GET_CLASS_NARROWEST_MODE (mclass) == E_VOIDmode)
+      *iter = opt_mode<T> ();
+    else
+      *iter = as_a<T> (GET_CLASS_NARROWEST_MODE (mclass));
+  }
+
   inline void
   start (machine_mode *iter, enum mode_class mclass)
   {
     *iter = GET_CLASS_NARROWEST_MODE (mclass);
   }
 
+  template<typename T>
+  inline bool
+  iterate_p (opt_mode<T> *iter)
+  {
+    return iter->exists ();
+  }
+
   inline bool
   iterate_p (machine_mode *iter)
   {
     return *iter != E_VOIDmode;
+  }
+
+  template<typename T>
+  inline void
+  get_wider (opt_mode<T> *iter)
+  {
+    *iter = GET_MODE_WIDER_MODE (**iter);
   }
 
   inline void
