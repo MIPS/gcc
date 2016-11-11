@@ -893,7 +893,14 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (for bitop (bit_and bit_ior bit_xor)
  (simplify
   (bitop (bitop @0 CONSTANT_CLASS_P@1) CONSTANT_CLASS_P@2)
-  (bitop @0 (bitop @1 @2))))
+  (if (!CONSTANT_CLASS_P (@0))
+   (bitop @0 (bitop @1 @2))
+   (with { tree cst1 = const_binop (bitop, type, @0, @2); }
+    (if (cst1)
+     (bitop @1 { cst1; })
+     (with { tree cst2 = const_binop (bitop, type, @1, @2); }
+      (if (cst2)
+       (bitop @0 { cst2; }))))))))
 
 /* Try simple folding for X op !X, and X op X with the help
    of the truth_valued_p and logical_inverted_value predicates.  */
