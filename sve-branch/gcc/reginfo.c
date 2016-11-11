@@ -499,7 +499,8 @@ init_reg_modes_target (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = 0; j < MAX_MACHINE_MODE; j++)
-      hard_regno_nregs[i][j] = HARD_REGNO_NREGS (i, (machine_mode_enum) j);
+      hard_regno_nregs[i][j]
+	= HARD_REGNO_NREGS (i, MACRO_MODE ((machine_mode_enum) j));
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
