@@ -721,7 +721,7 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 		  /* If the destination pointer is not aligned we must be able
 		     to emit an unaligned store.  */
 		  && (dest_align >= GET_MODE_ALIGNMENT (mode)
-		      || !SLOW_UNALIGNED_ACCESS (mode, dest_align)
+		      || !targetm.slow_unaligned_access (mode, dest_align)
 		      || (optab_handler (movmisalign_optab, mode)
 			  != CODE_FOR_nothing)))
 		{
@@ -734,7 +734,7 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 		  if (tem)
 		    srcmem = tem;
 		  else if (src_align < GET_MODE_ALIGNMENT (mode)
-			   && SLOW_UNALIGNED_ACCESS (mode, src_align)
+			   && targetm.slow_unaligned_access (mode, src_align)
 			   && (optab_handler (movmisalign_optab, mode)
 			       == CODE_FOR_nothing))
 		    srcmem = NULL_TREE;

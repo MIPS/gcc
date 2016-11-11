@@ -1489,8 +1489,8 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
 	     equivalences in function lra_constraints) and because for spilled
 	     pseudos we allocate stack memory enough for the biggest
 	     corresponding paradoxical subreg.  */
-	  if (!SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (reg))
-	      || SLOW_UNALIGNED_ACCESS (innermode, MEM_ALIGN (reg))
+	  if (!targetm.slow_unaligned_access (mode, MEM_ALIGN (reg))
+	      || targetm.slow_unaligned_access (innermode, MEM_ALIGN (reg))
 	      || MEM_ALIGN (reg) >= GET_MODE_ALIGNMENT (mode))
 	    return true;
 

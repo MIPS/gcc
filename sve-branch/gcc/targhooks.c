@@ -1675,6 +1675,15 @@ default_compare_by_pieces_branch_ratio (machine_mode)
   return 1;
 }
 
+/* The default implementation of TARGET_SLOW_UNALIGNED_ACCESS.  */
+
+bool
+default_slow_unaligned_access (machine_mode mode ATTRIBUTE_UNUSED,
+			       unsigned int align ATTRIBUTE_UNUSED)
+{
+  return SLOW_UNALIGNED_ACCESS (MACRO_MODE (mode), align);
+}
+
 bool
 default_profile_before_prologue (void)
 {

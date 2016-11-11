@@ -2653,7 +2653,7 @@ bswap_replace (gimple *cur_stmt, gimple *src_stmt, tree fndecl,
 
       if (bswap
 	  && align < GET_MODE_ALIGNMENT (TYPE_MODE (load_type))
-	  && SLOW_UNALIGNED_ACCESS (TYPE_MODE (load_type), align))
+	  && targetm.slow_unaligned_access (TYPE_MODE (load_type), align))
 	return false;
 
       /* Move cur_stmt just before  one of the load of the original
