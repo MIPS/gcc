@@ -2178,6 +2178,10 @@ extern void get_full_rtx_cost (rtx, machine_mode, enum rtx_code, int,
 extern unsigned int subreg_lsb (const_rtx);
 extern unsigned int subreg_lsb_1 (machine_mode, machine_mode,
 				  unsigned int);
+extern unsigned int subreg_size_offset_from_lsb (unsigned int, unsigned int,
+						 unsigned int);
+extern unsigned int subreg_offset_from_lsb (machine_mode, machine_mode,
+					    unsigned int);
 extern unsigned int subreg_regno_offset	(unsigned int, machine_mode,
 					 unsigned int, machine_mode);
 extern bool subreg_offset_representable_p (unsigned int, machine_mode,
@@ -2764,8 +2768,10 @@ extern rtx operand_subword (rtx, unsigned int, int, machine_mode);
 extern rtx operand_subword_force (rtx, unsigned int, machine_mode);
 extern bool paradoxical_subreg_p (const_rtx);
 extern int subreg_lowpart_p (const_rtx);
+extern unsigned int subreg_size_lowpart_offset (unsigned int, unsigned int);
 extern unsigned int subreg_lowpart_offset (machine_mode,
 					   machine_mode);
+extern unsigned int subreg_size_highpart_offset (unsigned int, unsigned int);
 extern unsigned int subreg_highpart_offset (machine_mode,
 					    machine_mode);
 extern int byte_lowpart_offset (machine_mode, machine_mode);

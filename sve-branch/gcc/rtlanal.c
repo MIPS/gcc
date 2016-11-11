@@ -3518,6 +3518,55 @@ subreg_lsb (const_rtx x)
 		       SUBREG_BYTE (x));
 }
 
+/* Return the subreg byte offset for a subreg whose outer value has
+   OUTER_BYTES bytes, whose inner value has INNER_BYTES bytes,
+   and where there are LSB bits between the lsb of the outer value
+   and the lsb of the inner value.  */
+
+unsigned int
+subreg_size_offset_from_lsb (unsigned int outer_bytes,
+			     unsigned int inner_bytes,
+			     unsigned int lsb)
+{
+  /* A paradoxical subreg begins at bit position 0.  */
+  if (outer_bytes > inner_bytes)
+    {
+      gcc_checking_assert (lsb == 0);
+      return 0;
+    }
+
+  gcc_assert (lsb % BITS_PER_UNIT == 0);
+  unsigned int lower_bytes = lsb / BITS_PER_UNIT;
+  unsigned int upper_bytes = inner_bytes - (lower_bytes + outer_bytes);
+  if (WORDS_BIG_ENDIAN && BYTES_BIG_ENDIAN)
+    return upper_bytes;
+  else if (!WORDS_BIG_ENDIAN && !BYTES_BIG_ENDIAN)
+    return lower_bytes;
+  else
+    {
+      unsigned int lower_word_part = lower_bytes & -UNITS_PER_WORD;
+      unsigned int upper_word_part = upper_bytes & -UNITS_PER_WORD;
+      if (WORDS_BIG_ENDIAN)
+	return upper_word_part + (lower_bytes - lower_word_part);
+      else
+	return lower_word_part + (upper_bytes - upper_word_part);
+    }
+}
+
+/* Return the subreg byte offset for a subreg whose outer mode is
+   OUTER_MODE, whose inner mode is INNER_MODE, and where there are
+   LSB bits between the lsb of the outer value and the lsb of the
+   inner value.  This is the inverse of subreg_lsb_1.  */
+
+unsigned int
+subreg_offset_from_lsb (machine_mode outer_mode,
+			machine_mode inner_mode,
+			unsigned int lsb)
+{
+  return subreg_size_offset_from_lsb (GET_MODE_SIZE (outer_mode),
+				      GET_MODE_SIZE (inner_mode), lsb);
+}
+
 /* Fill in information about a subreg of a hard register.
    xregno - A regno of an inner hard subreg_reg (or what will become one).
    xmode  - The mode of xregno.
