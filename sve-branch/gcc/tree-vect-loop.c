@@ -1822,6 +1822,109 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
   return true;
 }
 
+/* Function vect_analyze_loop_costing.
+
+   Analyze cost of loop.  Decide if it is worth while to vectorize.
+   Return 1 if definitely yes, 0 if definitely no, or -1 if it's
+   worth retrying.  */
+
+static int
+vect_analyze_loop_costing (loop_vec_info loop_vinfo)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  unsigned int assumed_vf = vect_vf_for_cost (loop_vinfo);
+
+  /* Only fully-masked loops can have iteration counts less than the
+     vectorization factor.  */
+  if (!LOOP_VINFO_MASK_TYPE (loop_vinfo))
+    {
+      HOST_WIDE_INT max_niter;
+
+      if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+	max_niter = LOOP_VINFO_INT_NITERS (loop_vinfo);
+      else
+	max_niter = max_stmt_executions_int (loop);
+
+      if (max_niter != -1
+	  && (unsigned HOST_WIDE_INT) max_niter < assumed_vf)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "not vectorized: iteration count smaller than "
+			     "vectorization factor.\n");
+	  return 0;
+	}
+    }
+
+  int min_profitable_iters, min_profitable_estimate;
+  vect_estimate_min_profitable_iters (loop_vinfo, &min_profitable_iters,
+				      &min_profitable_estimate);
+
+  if (min_profitable_iters < 0)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "not vectorized: vectorization not profitable.\n");
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "not vectorized: vector version will never be "
+			 "profitable.\n");
+      return -1;
+    }
+
+  int min_scalar_loop_bound = (PARAM_VALUE (PARAM_MIN_VECT_LOOP_BOUND)
+			       * assumed_vf);
+  if (min_scalar_loop_bound > 0)
+    min_scalar_loop_bound--;
+
+  /* Use the cost model only if it is more conservative than user specified
+     threshold.  */
+
+  unsigned int th = (unsigned) min_scalar_loop_bound;
+  if (min_profitable_iters
+      && (!min_scalar_loop_bound
+          || min_profitable_iters > min_scalar_loop_bound))
+    th = (unsigned) min_profitable_iters;
+
+  LOOP_VINFO_COST_MODEL_THRESHOLD (loop_vinfo) = th;
+
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && LOOP_VINFO_INT_NITERS (loop_vinfo) <= th)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "not vectorized: vectorization not profitable.\n");
+      if (dump_enabled_p ())
+        dump_printf_loc (MSG_NOTE, vect_location,
+			 "not vectorized: iteration count smaller than user "
+			 "specified loop bound parameter or minimum profitable "
+			 "iterations (whichever is more conservative).\n");
+      return 0;
+    }
+
+  HOST_WIDE_INT estimated_niter = estimated_stmt_executions_int (loop);
+  if (estimated_niter == -1)
+    estimated_niter = likely_max_stmt_executions_int (loop);
+  if (estimated_niter != -1
+      && ((unsigned HOST_WIDE_INT) estimated_niter
+          <= MAX (th, (unsigned)min_profitable_estimate)))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "not vectorized: estimated iteration count too "
+                         "small.\n");
+      if (dump_enabled_p ())
+        dump_printf_loc (MSG_NOTE, vect_location,
+			 "not vectorized: estimated iteration count smaller "
+                         "than specified loop bound parameter or minimum "
+                         "profitable iterations (whichever is more "
+                         "conservative).\n");
+      return -1;
+    }
+
+  return 1;
+}
+
 
 /* Function vect_analyze_loop_2.
 
@@ -1832,6 +1935,7 @@ static bool
 vect_analyze_loop_2 (loop_vec_info loop_vinfo, bool &fatal)
 {
   bool ok;
+  int res;
   unsigned int max_vf = MAX_VECTORIZATION_FACTOR;
   poly_uint64 min_vf = 2;
   unsigned int n_stmts = 0;
@@ -1988,9 +2092,7 @@ vect_analyze_loop_2 (loop_vec_info loop_vinfo, bool &fatal)
   vect_compute_single_scalar_iteration_cost (loop_vinfo);
 
   poly_uint64 saved_vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  HOST_WIDE_INT estimated_niter;
   unsigned th;
-  int min_scalar_loop_bound;
 
   /* Check the SLP opportunities in the loop, analyze and build SLP trees.  */
   ok = vect_analyze_slp (loop_vinfo, n_stmts);
@@ -2016,7 +2118,6 @@ start_over:
   /* Now the vectorization factor is final.  */
   poly_uint64 vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   gcc_assert (must_ne (vectorization_factor, 0U));
-  unsigned int assumed_vf = vect_vf_for_cost (loop_vinfo);
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo) && dump_enabled_p ())
     {
@@ -2029,17 +2130,6 @@ start_over:
 
   HOST_WIDE_INT max_niter
     = likely_max_stmt_executions_int (LOOP_VINFO_LOOP (loop_vinfo));
-  if ((LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-       && (LOOP_VINFO_INT_NITERS (loop_vinfo) < assumed_vf))
-      || (max_niter != -1
-	  && (unsigned HOST_WIDE_INT) max_niter < assumed_vf))
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: iteration count smaller than "
-			 "vectorization factor.\n");
-      return false;
-    }
 
   /* Analyze the alignment of the data-refs in the loop.
      Fail if a data reference is found that cannot be vectorized.  */
@@ -2141,69 +2231,16 @@ start_over:
 			 "Not using a fully-masked loop.\n");
     }
 
-  /* Analyze cost.  Decide if worth while to vectorize.  */
-  int min_profitable_estimate, min_profitable_iters;
-  vect_estimate_min_profitable_iters (loop_vinfo, &min_profitable_iters,
-				      &min_profitable_estimate);
-
-  if (min_profitable_iters < 0)
+  /* Check the costings of the loop make vectorizing worthwhile.  */
+  res = vect_analyze_loop_costing (loop_vinfo);
+  if (res < 0)
+    goto again;
+  if (!res)
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: vectorization not profitable.\n");
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: vector version will never be "
-			 "profitable.\n");
-      goto again;
-    }
-
-  min_scalar_loop_bound = ((PARAM_VALUE (PARAM_MIN_VECT_LOOP_BOUND)
-			    * assumed_vf) - 1);
-
-  /* Use the cost model only if it is more conservative than user specified
-     threshold.  */
-  th = (unsigned) min_scalar_loop_bound;
-  if (min_profitable_iters
-      && (!min_scalar_loop_bound
-          || min_profitable_iters > min_scalar_loop_bound))
-    th = (unsigned) min_profitable_iters;
-
-  LOOP_VINFO_COST_MODEL_THRESHOLD (loop_vinfo) = th;
-
-  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      && LOOP_VINFO_INT_NITERS (loop_vinfo) <= th)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: vectorization not profitable.\n");
-      if (dump_enabled_p ())
-        dump_printf_loc (MSG_NOTE, vect_location,
-			 "not vectorized: iteration count smaller than user "
-			 "specified loop bound parameter or minimum profitable "
-			 "iterations (whichever is more conservative).\n");
-      goto again;
-    }
-
-  estimated_niter
-    = estimated_stmt_executions_int (LOOP_VINFO_LOOP (loop_vinfo));
-  if (estimated_niter == -1)
-    estimated_niter = max_niter;
-  if (estimated_niter != -1
-      && ((unsigned HOST_WIDE_INT) estimated_niter
-          <= MAX (th, (unsigned)min_profitable_estimate)))
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: estimated iteration count too "
-                         "small.\n");
-      if (dump_enabled_p ())
-        dump_printf_loc (MSG_NOTE, vect_location,
-			 "not vectorized: estimated iteration count smaller "
-                         "than specified loop bound parameter or minimum "
-                         "profitable iterations (whichever is more "
-                         "conservative).\n");
-      goto again;
+			 "Loop costings not worthwhile.\n");
+      return false;
     }
 
   /* Decide whether we need to create an epilogue loop to handle
@@ -3560,23 +3597,23 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
 
   if ((scalar_single_iter_cost * assumed_vf) > (int) vec_inside_cost)
     {
-      if (vec_outside_cost <= 0)
-        min_profitable_iters = 1;
+      min_profitable_iters = ((vec_outside_cost - scalar_outside_cost)
+			      * assumed_vf
+			      - vec_inside_cost * peel_iters_prologue
+			      - vec_inside_cost * peel_iters_epilogue);
+      if (min_profitable_iters <= 0)
+	min_profitable_iters = 1;
       else
-        {
-	  min_profitable_iters = ((vec_outside_cost - scalar_outside_cost)
-				  * assumed_vf
-				  - vec_inside_cost * peel_iters_prologue
-                                  - vec_inside_cost * peel_iters_epilogue)
-				 / ((scalar_single_iter_cost * assumed_vf)
-                                    - vec_inside_cost);
+	{
+	  min_profitable_iters /= ((scalar_single_iter_cost * assumed_vf)
+				   - vec_inside_cost);
 
 	  if ((scalar_single_iter_cost * assumed_vf * min_profitable_iters)
-              <= (((int) vec_inside_cost * min_profitable_iters)
+	      <= (((int) vec_inside_cost * min_profitable_iters)
 		  + (((int) vec_outside_cost - scalar_outside_cost)
 		     * assumed_vf)))
-            min_profitable_iters++;
-        }
+	    min_profitable_iters++;
+	}
     }
   /* vector version will never be profitable.  */
   else
