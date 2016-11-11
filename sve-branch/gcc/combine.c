@@ -104,10 +104,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "print-rtl.h"
 
-#ifndef LOAD_EXTEND_OP
-#define LOAD_EXTEND_OP(M) UNKNOWN
-#endif
-
 /* Number of attempts to combine instructions in this function.  */
 
 static int combine_attempts;
@@ -3733,7 +3729,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	    {
 	      /* Or as a SIGN_EXTEND if LOAD_EXTEND_OP says that that's
 		 what it really is.  */
-	      if (LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (*split)))
+	      if (load_extend_op (GET_MODE (SUBREG_REG (*split)))
 		  == SIGN_EXTEND)
 		SUBST (*split, gen_rtx_SIGN_EXTEND (split_mode,
 						    SUBREG_REG (*split)));
@@ -6789,16 +6785,13 @@ simplify_set (rtx x)
      would require a paradoxical subreg.  Replace the subreg with a
      zero_extend to avoid the reload that would otherwise be required.  */
 
-  if (GET_CODE (src) == SUBREG && subreg_lowpart_p (src)
-      && INTEGRAL_MODE_P (GET_MODE (SUBREG_REG (src)))
-      && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (src))) != UNKNOWN
-      && SUBREG_BYTE (src) == 0
-      && paradoxical_subreg_p (src)
-      && MEM_P (SUBREG_REG (src)))
+  enum rtx_code extend_op;
+  if (paradoxical_subreg_p (src)
+      && MEM_P (SUBREG_REG (src))
+      && (extend_op = load_extend_op (GET_MODE (SUBREG_REG (src)))) != UNKNOWN)
     {
       SUBST (SET_SRC (x),
-	     gen_rtx_fmt_e (LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (src))),
-			    GET_MODE (src), SUBREG_REG (src)));
+	     gen_rtx_fmt_e (extend_op, GET_MODE (src), SUBREG_REG (src)));
 
       src = SET_SRC (x);
     }

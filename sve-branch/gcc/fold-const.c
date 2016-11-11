@@ -80,10 +80,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "selftest.h"
 
-#ifndef LOAD_EXTEND_OP
-#define LOAD_EXTEND_OP(M) UNKNOWN
-#endif
-
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
 int folding_initializer = 0;
@@ -6753,7 +6749,7 @@ fold_single_bit_test (location_t loc, enum tree_code code,
       /* If we are going to be able to omit the AND below, we must do our
 	 operations as unsigned.  If we must use the AND, we have a choice.
 	 Normally unsigned is faster, but for some machines signed is.  */
-      ops_unsigned = (LOAD_EXTEND_OP (operand_mode) == SIGN_EXTEND
+      ops_unsigned = (load_extend_op (operand_mode) == SIGN_EXTEND
 		      && !flag_syntax_only) ? 0 : 1;
 
       signed_type = lang_hooks.types.type_for_mode (operand_mode, 0);
@@ -7802,7 +7798,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	      change = (cst == 0);
 	      if (change
 		  && !flag_syntax_only
-		  && (LOAD_EXTEND_OP (TYPE_MODE (TREE_TYPE (and0)))
+		  && (load_extend_op (TYPE_MODE (TREE_TYPE (and0)))
 		      == ZERO_EXTEND))
 		{
 		  tree uns = unsigned_type_for (TREE_TYPE (and0));

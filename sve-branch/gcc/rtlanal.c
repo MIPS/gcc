@@ -36,6 +36,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "addresses.h"
 #include "rtl-iter.h"
 
+#ifndef LOAD_EXTEND_OP
+#define LOAD_EXTEND_OP(X) UNKNOWN
+#endif
+
 /* Forward declarations */
 static void set_of_1 (rtx, const_rtx, void *);
 static bool covers_regno_p (const_rtx, unsigned int);
@@ -3847,6 +3851,18 @@ subreg_nregs_with_regno (unsigned int regno, const_rtx x)
   return info.nregs;
 }
 
+/* If loads from memories of mode MODE always sign or zero extend,
+   return SIGN_EXTEND or ZERO_EXTEND as appropriate.  Return UNKNOWN
+   otherwise.  */
+
+rtx_code
+load_extend_op (machine_mode mode)
+{
+  if (SCALAR_INT_MODE_P (mode)
+      && GET_MODE_PRECISION (mode) < BITS_PER_WORD)
+    return LOAD_EXTEND_OP (mode);
+  return UNKNOWN;
+}
 
 struct parms_set_data
 {
@@ -4361,13 +4377,11 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
       return UINTVAL (x);
 
     case MEM:
-#ifdef LOAD_EXTEND_OP
       /* In many, if not most, RISC machines, reading a byte from memory
 	 zeros the rest of the register.  Noticing that fact saves a lot
 	 of extra zero-extends.  */
-      if (LOAD_EXTEND_OP (GET_MODE (x)) == ZERO_EXTEND)
+      if (load_extend_op (GET_MODE (x)) == ZERO_EXTEND)
 	nonzero &= GET_MODE_MASK (GET_MODE (x));
-#endif
       break;
 
     case EQ:  case NE:
@@ -4567,15 +4581,14 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	  nonzero &= cached_nonzero_bits (SUBREG_REG (x), mode,
 					  known_x, known_mode, known_ret);
 
-#ifdef LOAD_EXTEND_OP
 	  /* If this is a typical RISC machine, we only have to worry
 	     about the way loads are extended.  */
+	  rtx_code extend_op;
 	  if (!WORD_REGISTER_OPERATIONS
-	      || (LOAD_EXTEND_OP (inner_mode) == SIGN_EXTEND
+	      || !MEM_P (SUBREG_REG (x))
+	      || ((extend_op = load_extend_op (inner_mode)) == SIGN_EXTEND
 		  ? val_signbit_known_set_p (inner_mode, nonzero)
-		  : LOAD_EXTEND_OP (inner_mode) != ZERO_EXTEND)
-	      || !MEM_P (SUBREG_REG (x)))
-#endif
+		  : extend_op != ZERO_EXTEND))
 	    {
 	      /* On many CISC machines, accessing an object in a wider mode
 		 causes the high-order bits to become undefined.  So they are
@@ -4824,10 +4837,7 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	 than a word and loads of that size don't sign extend, we can say
 	 nothing about the high order bits.  */
       if (GET_MODE_PRECISION (GET_MODE (x)) < BITS_PER_WORD
-#ifdef LOAD_EXTEND_OP
-	  && LOAD_EXTEND_OP (GET_MODE (x)) != SIGN_EXTEND
-#endif
-	  )
+	  && load_extend_op (GET_MODE (x)) != SIGN_EXTEND)
 	return 1;
     }
 
@@ -4868,12 +4878,10 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
       break;
 
     case MEM:
-#ifdef LOAD_EXTEND_OP
       /* Some RISC machines sign-extend all loads of smaller than a word.  */
-      if (LOAD_EXTEND_OP (GET_MODE (x)) == SIGN_EXTEND)
+      if (load_extend_op (GET_MODE (x)) == SIGN_EXTEND)
 	return MAX (1, ((int) bitwidth
 			- (int) GET_MODE_PRECISION (GET_MODE (x)) + 1));
-#endif
       break;
 
     case CONST_INT:
@@ -4910,7 +4918,6 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 				   - bitwidth)));
 	}
 
-#ifdef LOAD_EXTEND_OP
       /* For paradoxical SUBREGs on machines where all register operations
 	 affect the entire register, just look inside.  Note that we are
 	 passing MODE to the recursive call, so the number of sign bit copies
@@ -4923,11 +4930,10 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 
       if (WORD_REGISTER_OPERATIONS
 	  && paradoxical_subreg_p (x)
-	  && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
+	  && load_extend_op (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
 	  && MEM_P (SUBREG_REG (x)))
 	return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
 					   known_x, known_mode, known_ret);
-#endif
       break;
 
     case SIGN_EXTRACT:
