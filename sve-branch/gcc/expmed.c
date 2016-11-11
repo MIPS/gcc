@@ -5373,8 +5373,9 @@ emit_store_flag_1 (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
   /* If we are comparing a double-word integer with zero or -1, we can
      convert the comparison into one involving a single word.  */
-  if (GET_MODE_BITSIZE (mode) == BITS_PER_WORD * 2
-      && GET_MODE_CLASS (mode) == MODE_INT
+  scalar_int_mode int_mode;
+  if (is_int_mode (mode, &int_mode)
+      && GET_MODE_BITSIZE (int_mode) == BITS_PER_WORD * 2
       && (!MEM_P (op0) || ! MEM_VOLATILE_P (op0)))
     {
       rtx tem;
@@ -5385,8 +5386,8 @@ emit_store_flag_1 (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
 	  /* Do a logical OR or AND of the two words and compare the
 	     result.  */
-	  op00 = simplify_gen_subreg (word_mode, op0, mode, 0);
-	  op01 = simplify_gen_subreg (word_mode, op0, mode, UNITS_PER_WORD);
+	  op00 = simplify_gen_subreg (word_mode, op0, int_mode, 0);
+	  op01 = simplify_gen_subreg (word_mode, op0, int_mode, UNITS_PER_WORD);
 	  tem = expand_binop (word_mode,
 			      op1 == const0_rtx ? ior_optab : and_optab,
 			      op00, op01, NULL_RTX, unsignedp,
@@ -5401,9 +5402,9 @@ emit_store_flag_1 (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	  rtx op0h;
 
 	  /* If testing the sign bit, can just test on high word.  */
-	  op0h = simplify_gen_subreg (word_mode, op0, mode,
+	  op0h = simplify_gen_subreg (word_mode, op0, int_mode,
 				      subreg_highpart_offset (word_mode,
-							      mode));
+							      int_mode));
 	  tem = emit_store_flag (NULL_RTX, code, op0h, op1, word_mode,
 				 unsignedp, normalizep);
 	}
@@ -5428,21 +5429,21 @@ emit_store_flag_1 (rtx target, enum rtx_code code, rtx op0, rtx op1,
   /* If this is A < 0 or A >= 0, we can do this by taking the ones
      complement of A (for GE) and shifting the sign bit to the low bit.  */
   if (op1 == const0_rtx && (code == LT || code == GE)
-      && GET_MODE_CLASS (mode) == MODE_INT
+      && is_int_mode (mode, &int_mode)
       && (normalizep || STORE_FLAG_VALUE == 1
-	  || val_signbit_p (mode, STORE_FLAG_VALUE)))
+	  || val_signbit_p (int_mode, STORE_FLAG_VALUE)))
     {
       subtarget = target;
 
       if (!target)
-	target_mode = mode;
+	target_mode = int_mode;
 
       /* If the result is to be wider than OP0, it is best to convert it
 	 first.  If it is to be narrower, it is *incorrect* to convert it
 	 first.  */
-      else if (GET_MODE_SIZE (target_mode) > GET_MODE_SIZE (mode))
+      else if (GET_MODE_SIZE (target_mode) > GET_MODE_SIZE (int_mode))
 	{
-	  op0 = convert_modes (target_mode, mode, op0, 0);
+	  op0 = convert_modes (target_mode, int_mode, op0, 0);
 	  mode = target_mode;
 	}
 
@@ -5642,7 +5643,8 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
   /* The remaining tricks only apply to integer comparisons.  */
 
-  if (GET_MODE_CLASS (mode) != MODE_INT)
+  scalar_int_mode int_mode;
+  if (!is_int_mode (mode, &int_mode))
     return 0;
 
   /* If this is an equality comparison of integers, we can try to exclusive-or
@@ -5652,15 +5654,15 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
   if ((code == EQ || code == NE) && op1 != const0_rtx)
     {
-      tem = expand_binop (mode, xor_optab, op0, op1, subtarget, 1,
+      tem = expand_binop (int_mode, xor_optab, op0, op1, subtarget, 1,
 			  OPTAB_WIDEN);
 
       if (tem == 0)
-	tem = expand_binop (mode, sub_optab, op0, op1, subtarget, 1,
+	tem = expand_binop (int_mode, sub_optab, op0, op1, subtarget, 1,
 			    OPTAB_WIDEN);
       if (tem != 0)
 	tem = emit_store_flag (target, code, tem, const0_rtx,
-			       mode, unsignedp, normalizep);
+			       int_mode, unsignedp, normalizep);
       if (tem != 0)
 	return tem;
 
@@ -5671,10 +5673,10 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
      small X and if we'd have anyway to extend, implementing "X != 0"
      as "-(int)X >> 31" is still cheaper than inverting "(int)X == 0".  */
   rcode = reverse_condition (code);
-  if (can_compare_p (rcode, mode, ccp_store_flag)
-      && ! (optab_handler (cstore_optab, mode) == CODE_FOR_nothing
+  if (can_compare_p (rcode, int_mode, ccp_store_flag)
+      && ! (optab_handler (cstore_optab, int_mode) == CODE_FOR_nothing
 	    && code == NE
-	    && GET_MODE_SIZE (mode) < UNITS_PER_WORD
+	    && GET_MODE_SIZE (int_mode) < UNITS_PER_WORD
 	    && op1 == const0_rtx))
     {
       int want_add = ((STORE_FLAG_VALUE == 1 && normalizep == -1)
@@ -5682,10 +5684,10 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
       /* Again, for the reverse comparison, use either an addition or a XOR.  */
       if (want_add
-	  && rtx_cost (GEN_INT (normalizep), mode, PLUS, 1,
+	  && rtx_cost (GEN_INT (normalizep), int_mode, PLUS, 1,
 		       optimize_insn_for_speed_p ()) == 0)
 	{
-	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
+	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, int_mode, 0,
 				   STORE_FLAG_VALUE, target_mode);
 	  if (tem != 0)
             tem = expand_binop (target_mode, add_optab, tem,
@@ -5693,10 +5695,10 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 				target, 0, OPTAB_WIDEN);
 	}
       else if (!want_add
-	       && rtx_cost (trueval, mode, XOR, 1,
+	       && rtx_cost (trueval, int_mode, XOR, 1,
 			    optimize_insn_for_speed_p ()) == 0)
 	{
-	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
+	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, int_mode, 0,
 				   normalizep, target_mode);
 	  if (tem != 0)
             tem = expand_binop (target_mode, xor_optab, tem, trueval, target,
@@ -5733,10 +5735,10 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
       if (rtx_equal_p (subtarget, op0))
 	subtarget = 0;
 
-      tem = expand_binop (mode, sub_optab, op0, const1_rtx, subtarget, 0,
+      tem = expand_binop (int_mode, sub_optab, op0, const1_rtx, subtarget, 0,
 			  OPTAB_WIDEN);
       if (tem)
-	tem = expand_binop (mode, ior_optab, op0, tem, subtarget, 0,
+	tem = expand_binop (int_mode, ior_optab, op0, tem, subtarget, 0,
 			    OPTAB_WIDEN);
     }
 
@@ -5748,11 +5750,11 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
       if (rtx_equal_p (subtarget, op0))
 	subtarget = 0;
 
-      tem = maybe_expand_shift (RSHIFT_EXPR, mode, op0,
-				GET_MODE_BITSIZE (mode) - 1,
+      tem = maybe_expand_shift (RSHIFT_EXPR, int_mode, op0,
+				GET_MODE_BITSIZE (int_mode) - 1,
 				subtarget, 0);
       if (tem)
-	tem = expand_binop (mode, sub_optab, tem, op0, subtarget, 0,
+	tem = expand_binop (int_mode, sub_optab, tem, op0, subtarget, 0,
 			    OPTAB_WIDEN);
     }
 
@@ -5773,23 +5775,23 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	 that is compensated by the subsequent overflow when subtracting
 	 one / negating.  */
 
-      if (optab_handler (abs_optab, mode) != CODE_FOR_nothing)
-	tem = expand_unop (mode, abs_optab, op0, subtarget, 1);
-      else if (optab_handler (ffs_optab, mode) != CODE_FOR_nothing)
-	tem = expand_unop (mode, ffs_optab, op0, subtarget, 1);
-      else if (GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+      if (optab_handler (abs_optab, int_mode) != CODE_FOR_nothing)
+	tem = expand_unop (int_mode, abs_optab, op0, subtarget, 1);
+      else if (optab_handler (ffs_optab, int_mode) != CODE_FOR_nothing)
+	tem = expand_unop (int_mode, ffs_optab, op0, subtarget, 1);
+      else if (GET_MODE_SIZE (int_mode) < UNITS_PER_WORD)
 	{
-	  tem = convert_modes (word_mode, mode, op0, 1);
-	  mode = word_mode;
+	  tem = convert_modes (word_mode, int_mode, op0, 1);
+	  int_mode = word_mode;
 	}
 
       if (tem != 0)
 	{
 	  if (code == EQ)
-	    tem = expand_binop (mode, sub_optab, tem, const1_rtx, subtarget,
-				0, OPTAB_WIDEN);
+	    tem = expand_binop (int_mode, sub_optab, tem, const1_rtx,
+				subtarget, 0, OPTAB_WIDEN);
 	  else
-	    tem = expand_unop (mode, neg_optab, tem, subtarget, 0);
+	    tem = expand_unop (int_mode, neg_optab, tem, subtarget, 0);
 	}
 
       /* If we couldn't do it that way, for NE we can "or" the two's complement
@@ -5805,18 +5807,18 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	  if (rtx_equal_p (subtarget, op0))
 	    subtarget = 0;
 
-	  tem = expand_unop (mode, neg_optab, op0, subtarget, 0);
-	  tem = expand_binop (mode, ior_optab, tem, op0, subtarget, 0,
+	  tem = expand_unop (int_mode, neg_optab, op0, subtarget, 0);
+	  tem = expand_binop (int_mode, ior_optab, tem, op0, subtarget, 0,
 			      OPTAB_WIDEN);
 
 	  if (tem && code == EQ)
-	    tem = expand_unop (mode, one_cmpl_optab, tem, subtarget, 0);
+	    tem = expand_unop (int_mode, one_cmpl_optab, tem, subtarget, 0);
 	}
     }
 
   if (tem && normalizep)
-    tem = maybe_expand_shift (RSHIFT_EXPR, mode, tem,
-			      GET_MODE_BITSIZE (mode) - 1,
+    tem = maybe_expand_shift (RSHIFT_EXPR, int_mode, tem,
+			      GET_MODE_BITSIZE (int_mode) - 1,
 			      subtarget, normalizep == 1);
 
   if (tem)
