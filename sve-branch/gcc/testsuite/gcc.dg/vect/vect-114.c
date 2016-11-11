@@ -34,6 +34,6 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" { target { ! { vect_perm  } } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_perm } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" { target { ! vect_reverse } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_reverse } } } */
 

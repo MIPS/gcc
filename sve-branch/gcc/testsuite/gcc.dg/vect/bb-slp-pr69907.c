@@ -9,4 +9,4 @@ void foo(unsigned *p1, unsigned short *p2)
     p1[n] = p2[n * 2];
 }
 
-/* { dg-final { scan-tree-dump "BB vectorization with gaps at the end of a load is not supported" "slp1" } } */
+/* { dg-final { scan-tree-dump "BB vectorization with gaps at the end of a load is not supported" "slp1" { xfail vect_variable_length } } } */

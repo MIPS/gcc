@@ -15,5 +15,5 @@ void foo (int n)
     }
 }
 
-/* { dg-final { scan-tree-dump "vectorizing stmts using SLP" "vect" } } */
+/* { dg-final { scan-tree-dump "vectorizing stmts using SLP" "vect" { xfail { ! vect_perm } } } } */
 /* { dg-final { scan-tree-dump "vectorized 1 loops" "vect" } } */

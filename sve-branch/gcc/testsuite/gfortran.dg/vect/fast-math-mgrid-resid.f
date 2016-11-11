@@ -39,7 +39,7 @@ C
       END
 ! we want to check that predictive commoning did something on the
 ! vectorized loop.
-! { dg-final { scan-tree-dump-times "Executing predictive commoning without unrolling" 1 "pcom" { target lp64 } } }
-! { dg-final { scan-tree-dump-times "Executing predictive commoning without unrolling" 2 "pcom" { target ia32 } } }
+! { dg-final { scan-tree-dump-times "Executing predictive commoning without unrolling" 1 "pcom" { target lp64 xfail vect_variable_length } } }
+! { dg-final { scan-tree-dump-times "Executing predictive commoning without unrolling" 2 "pcom" { target ia32 xfail vect_variable_length } } }
 ! { dg-final { scan-tree-dump-times "Predictive commoning failed: no suitable chains" 0 "pcom" } }
-! { dg-final { scan-tree-dump-times "Loop iterates only 1 time, nothing to do" 1 "pcom" } }
+! { dg-final { scan-tree-dump-times "Loop iterates only 1 time, nothing to do" 1 "pcom" { xfail vect_variable_length } } }

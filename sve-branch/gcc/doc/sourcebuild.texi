@@ -1389,6 +1389,18 @@ Target supports a vector misalign access.
 @item vect_no_align
 Target does not support a vector alignment mechanism.
 
+@item vect_element_align_preferred
+Target does not favor any vector alignment greater than element alignment
+in auto-vectorized code.  The vectorizer will never use peeling or
+versioning for alignment on such targets.
+
+@item vect_unaligned_possible
+Target supports at least one case in which the vectorizer can insert
+vector loads or stores that are not aligned to the target's preferred
+vector alignment.  This excludes targets that don't support a misalignment
+mechanism and also excludes targets that don't want anything beyond element
+alignment.
+
 @item vect_no_int_min_max
 Target does not support a vector min and max instruction on @code{int}.
 
@@ -1426,6 +1438,9 @@ element types.
 
 @item vect_perm
 Target supports vector permutation.
+
+@item vect_reverse
+Target supports vector reversal, either directly or via a permute.
 
 @item vect_shift
 Target supports a hardware vector shift operation.
@@ -1495,6 +1510,14 @@ Target supports max reduction for vectors.
 
 @item vect_logical_reduc
 Target supports AND, IOR and XOR reduction on vectors.
+
+@item vect_fully_masked
+Target supports ``fully-masked'' vector loops that, via masking, can
+handle partial as well as full vectors.  Fully-masked vector code doesn't
+have a prologue or epilogue.
+
+@item vect_variable_length
+Target vectors have a length that is only known at run time.
 @end table
 
 @subsubsection Thread Local Storage attributes
@@ -1705,6 +1728,9 @@ AArch64 target which generates instruction sequences for big endian.
 @item aarch64_small_fpic
 Binutils installed on test system supports relocation types required by -fpic
 for AArch64 small memory model.
+
+@item aarch64_sve_hw
+AArch64 target that generates SVE code by default.
 
 @item aarch64_sve_hw
 AArch64 target that can run SVE code.
