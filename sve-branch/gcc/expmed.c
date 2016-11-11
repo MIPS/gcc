@@ -3602,14 +3602,11 @@ expand_mult_highpart_adjust (scalar_int_mode mode, rtx adj_operand, rtx op0,
 static rtx
 extract_high_half (scalar_int_mode mode, rtx op)
 {
-  machine_mode wider_mode;
-
   if (mode == word_mode)
     return gen_highpart (mode, op);
 
-  gcc_assert (!SCALAR_FLOAT_MODE_P (mode));
+  scalar_int_mode wider_mode = *GET_MODE_WIDER_MODE (mode);
 
-  wider_mode = *GET_MODE_WIDER_MODE (mode);
   op = expand_shift (RSHIFT_EXPR, wider_mode, op,
 		     GET_MODE_BITSIZE (mode), 0, 1);
   return convert_modes (mode, wider_mode, op, 0);
@@ -3623,15 +3620,13 @@ expmed_mult_highpart_optab (scalar_int_mode mode, rtx op0, rtx op1,
 			    rtx target, int unsignedp, int max_cost)
 {
   rtx narrow_op1 = gen_int_mode (INTVAL (op1), mode);
-  machine_mode wider_mode;
   optab moptab;
   rtx tem;
   int size;
   bool speed = optimize_insn_for_speed_p ();
 
-  gcc_assert (!SCALAR_FLOAT_MODE_P (mode));
+  scalar_int_mode wider_mode = *GET_MODE_WIDER_MODE (mode);
 
-  wider_mode = *GET_MODE_WIDER_MODE (mode);
   size = GET_MODE_BITSIZE (mode);
 
   /* Firstly, try using a multiplication insn that only generates the needed
@@ -3737,7 +3732,6 @@ static rtx
 expmed_mult_highpart (scalar_int_mode mode, rtx op0, rtx op1,
 		      rtx target, int unsignedp, int max_cost)
 {
-  machine_mode wider_mode = *GET_MODE_WIDER_MODE (mode);
   unsigned HOST_WIDE_INT cnst1;
   int extra_cost;
   bool sign_adjust = false;
@@ -3746,7 +3740,6 @@ expmed_mult_highpart (scalar_int_mode mode, rtx op0, rtx op1,
   rtx tem;
   bool speed = optimize_insn_for_speed_p ();
 
-  gcc_assert (!SCALAR_FLOAT_MODE_P (mode));
   /* We can't support modes wider than HOST_BITS_PER_INT.  */
   gcc_assert (HWI_COMPUTABLE_MODE_P (mode));
 
@@ -3756,6 +3749,7 @@ expmed_mult_highpart (scalar_int_mode mode, rtx op0, rtx op1,
      ??? We might be able to perform double-word arithmetic if
      mode == word_mode, however all the cost calculations in
      synth_mult etc. assume single-word operations.  */
+  scalar_int_mode wider_mode = *GET_MODE_WIDER_MODE (mode);
   if (GET_MODE_BITSIZE (wider_mode) > BITS_PER_WORD)
     return expmed_mult_highpart_optab (mode, op0, op1, target,
 				       unsignedp, max_cost);
