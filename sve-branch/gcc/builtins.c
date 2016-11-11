@@ -1331,7 +1331,6 @@ apply_args_size (void)
   static int size = -1;
   int align;
   unsigned int regno;
-  machine_mode mode;
 
   /* The values computed by this function never change.  */
   if (size < 0)
@@ -1347,7 +1346,7 @@ apply_args_size (void)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (FUNCTION_ARG_REGNO_P (regno))
 	  {
-	    mode = targetm.calls.get_raw_arg_mode (regno);
+	    fixed_size_mode mode = targetm.calls.get_raw_arg_mode (regno);
 
 	    gcc_assert (mode != VOIDmode);
 
@@ -1359,7 +1358,7 @@ apply_args_size (void)
 	  }
 	else
 	  {
-	    apply_args_mode[regno] = VOIDmode;
+	    apply_args_mode[regno] = as_a <fixed_size_mode> (VOIDmode);
 	  }
     }
   return size;
@@ -1373,7 +1372,6 @@ apply_result_size (void)
 {
   static int size = -1;
   int align, regno;
-  machine_mode mode;
 
   /* The values computed by this function never change.  */
   if (size < 0)
@@ -1383,7 +1381,7 @@ apply_result_size (void)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if (targetm.calls.function_value_regno_p (regno))
 	  {
-	    mode = targetm.calls.get_raw_result_mode (regno);
+	    fixed_size_mode mode = targetm.calls.get_raw_result_mode (regno);
 
 	    gcc_assert (mode != VOIDmode);
 
@@ -1394,7 +1392,7 @@ apply_result_size (void)
 	    apply_result_mode[regno] = mode;
 	  }
 	else
-	  apply_result_mode[regno] = VOIDmode;
+	  apply_result_mode[regno] = as_a <fixed_size_mode> (VOIDmode);
 
       /* Allow targets that use untyped_call and untyped_return to override
 	 the size so that machine-specific information can be stored here.  */
@@ -1413,7 +1411,7 @@ static rtx
 result_vector (int savep, rtx result)
 {
   int regno, size, align, nelts;
-  machine_mode mode;
+  fixed_size_mode mode;
   rtx reg, mem;
   rtx *savevec = XALLOCAVEC (rtx, FIRST_PSEUDO_REGISTER);
 
@@ -1442,7 +1440,7 @@ expand_builtin_apply_args_1 (void)
 {
   rtx registers, tem;
   int size, align, regno;
-  machine_mode mode;
+  fixed_size_mode mode;
   rtx struct_incoming_value = targetm.calls.struct_value_rtx (cfun ? TREE_TYPE (cfun->decl) : 0, 1);
 
   /* Create a block where the arg-pointer, structure value address,
@@ -1546,7 +1544,7 @@ static rtx
 expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
 {
   int size, align, regno;
-  machine_mode mode;
+  fixed_size_mode mode;
   rtx incoming_args, result, reg, dest, src;
   rtx_call_insn *call_insn;
   rtx old_stack_level = 0;
@@ -1707,7 +1705,7 @@ static void
 expand_builtin_return (rtx result)
 {
   int size, align, regno;
-  machine_mode mode;
+  fixed_size_mode mode;
   rtx reg;
   rtx_insn *call_fusage = 0;
 
