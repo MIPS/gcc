@@ -2957,15 +2957,15 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  tree t0 = TREE_OPERAND (t, 0);
 	  tree t1 = TREE_OPERAND (t, 1);
 	  tree t2 = TREE_OPERAND (t, 2);
-	  if (!tree_fits_uhwi_p (t1)
-	      || !tree_fits_uhwi_p (t2))
+	  poly_uint64 container_size, size, bitpos;
+	  if (!poly_tree_p (t1, &size)
+	      || !poly_tree_p (t2, &bitpos))
 	    {
 	      error ("invalid position or size operand to BIT_FIELD_REF");
 	      return t;
 	    }
 	  if (INTEGRAL_TYPE_P (TREE_TYPE (t))
-	      && (TYPE_PRECISION (TREE_TYPE (t))
-		  != tree_to_uhwi (t1)))
+	      && may_ne (TYPE_PRECISION (TREE_TYPE (t)), size))
 	    {
 	      error ("integral result type precision does not match "
 		     "field size of BIT_FIELD_REF");
@@ -2973,16 +2973,16 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    }
 	  else if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
 		   && TYPE_MODE (TREE_TYPE (t)) != BLKmode
-		   && (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (t)))
-		       != tree_to_uhwi (t1)))
+		   && may_ne (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (t))),
+			      size))
 	    {
 	      error ("mode size of non-integral result does not "
 		     "match field size of BIT_FIELD_REF");
 	      return t;
 	    }
 	  if (!AGGREGATE_TYPE_P (TREE_TYPE (t0))
-	      && (tree_to_uhwi (t1) + tree_to_uhwi (t2)
-		  > tree_to_uhwi (TYPE_SIZE (TREE_TYPE (t0)))))
+	      && poly_tree_p (TYPE_SIZE (TREE_TYPE (t0)), &container_size)
+	      && may_gt (size + bitpos, container_size))
 	    {
 	      error ("position plus size exceeds size of referenced object in "
 		     "BIT_FIELD_REF");

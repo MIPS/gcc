@@ -7098,7 +7098,7 @@ get_inner_reference (tree exp, poly_int64 *pbitsize,
       switch (TREE_CODE (exp))
 	{
 	case BIT_FIELD_REF:
-	  bit_offset += wi::to_offset (TREE_OPERAND (exp, 2));
+	  bit_offset += tree_to_poly_offset_int (TREE_OPERAND (exp, 2));
 	  break;
 
 	case COMPONENT_REF:

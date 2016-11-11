@@ -4756,6 +4756,8 @@ complete_or_array_type_p (const_tree type)
 
 extern tree strip_float_extensions (tree);
 extern int really_constant_p (const_tree);
+extern poly_uint64 bit_field_size (const_tree);
+extern poly_uint64 bit_field_offset (const_tree);
 extern bool ptrdiff_tree_p (const_tree, poly_int64 *);
 extern bool poly_tree_p (const_tree, poly_int64 *);
 extern bool poly_tree_p (const_tree, poly_uint64 *);

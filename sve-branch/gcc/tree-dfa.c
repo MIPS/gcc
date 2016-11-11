@@ -415,7 +415,7 @@ get_ref_base_and_extent (tree exp, poly_int64 *poffset,
       switch (TREE_CODE (exp))
 	{
 	case BIT_FIELD_REF:
-	  bit_offset += wi::to_offset (TREE_OPERAND (exp, 2));
+	  bit_offset += bit_field_offset (exp);
 	  break;
 
 	case COMPONENT_REF:
@@ -699,12 +699,9 @@ get_addr_base_and_unit_offset_1 (tree exp, poly_int64 *poffset,
       switch (TREE_CODE (exp))
 	{
 	case BIT_FIELD_REF:
-	  {
-	    HOST_WIDE_INT this_off = TREE_INT_CST_LOW (TREE_OPERAND (exp, 2));
-	    if (this_off % BITS_PER_UNIT)
-	      return NULL_TREE;
-	    byte_offset += this_off / BITS_PER_UNIT;
-	  }
+	  if (!multiple_p (bit_field_offset (exp), BITS_PER_UNIT, &suboffset))
+	    return NULL_TREE;
+	  byte_offset += suboffset;
 	  break;
 
 	case COMPONENT_REF:

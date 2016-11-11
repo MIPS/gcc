@@ -2985,6 +2985,24 @@ tree_to_poly_widest_int (const_tree t)
     gcc_unreachable ();
   return res;
 }
+
+/* Return the bit size of BIT_FIELD_REF T, in cases where it is known
+   to be a poly_uint64.  (This is always true at the gimple level.)  */
+
+poly_uint64
+bit_field_size (const_tree t)
+{
+  return tree_to_poly_uint64 (TREE_OPERAND (t, 1));
+}
+
+/* Return the starting bit offset of BIT_FIELD_REF T, in cases where it is
+   known to be a poly_uint64.  (This is always true at the gimple level.)  */
+
+poly_uint64
+bit_field_offset (const_tree t)
+{
+  return tree_to_poly_uint64 (TREE_OPERAND (t, 2));
+}
 
 /* Return first list element whose TREE_VALUE is ELEM.
    Return 0 if ELEM is not in LIST.  */
