@@ -608,6 +608,11 @@ extern const unsigned char class_narrowest_mode[MAX_MODE_CLASS];
 #define GET_CLASS_NARROWEST_MODE(CLASS) \
   (machine_mode ((machine_mode_enum) class_narrowest_mode[CLASS]))
 
+/* The narrowest full integer mode available on the target.  */
+
+#define NARROWEST_INT_MODE \
+  (scalar_int_mode::from_int (class_narrowest_mode[MODE_INT]))
+
 /* Return the narrowest mode in T's class.  */
 
 template<typename T>
