@@ -626,11 +626,15 @@ tree
 ao_ref_base (ao_ref *ref)
 {
   bool reverse;
+  HOST_WIDE_INT offset, size, max_size;
 
   if (ref->base)
     return ref->base;
-  ref->base = get_ref_base_and_extent (ref->ref, &ref->offset, &ref->size,
-				       &ref->max_size, &reverse);
+  ref->base = get_ref_base_and_extent (ref->ref, &offset, &size,
+				       &max_size, &reverse);
+  ref->offset = offset;
+  ref->size = size;
+  ref->max_size = max_size;
   return ref->base;
 }
 
@@ -770,11 +774,11 @@ static bool
 aliasing_component_refs_p (tree ref1,
 			   alias_set_type ref1_alias_set,
 			   alias_set_type base1_alias_set,
-			   HOST_WIDE_INT offset1, HOST_WIDE_INT max_size1,
+			   poly_int64 offset1, poly_int64 max_size1,
 			   tree ref2,
 			   alias_set_type ref2_alias_set,
 			   alias_set_type base2_alias_set,
-			   HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
+			   poly_int64 offset2, poly_int64 max_size2,
 			   bool ref2_is_decl)
 {
   /* If one reference is a component references through pointers try to find a
@@ -816,7 +820,7 @@ aliasing_component_refs_p (tree ref1,
       offset2 -= offadj;
       get_ref_base_and_extent (base1, &offadj, &sztmp, &msztmp, &reverse);
       offset1 -= offadj;
-      return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
+      return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
     }
   /* If we didn't find a common base, try the other way around.  */
   refp = &ref1;
@@ -835,7 +839,7 @@ aliasing_component_refs_p (tree ref1,
       offset1 -= offadj;
       get_ref_base_and_extent (base2, &offadj, &sztmp, &msztmp, &reverse);
       offset2 -= offadj;
-      return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
+      return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
     }
 
   /* If we have two type access paths B1.path1 and B2.path2 they may
@@ -1081,9 +1085,9 @@ nonoverlapping_component_refs_p (const_tree x, const_tree y)
 
 static bool
 decl_refs_may_alias_p (tree ref1, tree base1,
-		       HOST_WIDE_INT offset1, HOST_WIDE_INT max_size1,
+		       poly_int64 offset1, poly_int64 max_size1,
 		       tree ref2, tree base2,
-		       HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2)
+		       poly_int64 offset2, poly_int64 max_size2)
 {
   gcc_checking_assert (DECL_P (base1) && DECL_P (base2));
 
@@ -1093,7 +1097,7 @@ decl_refs_may_alias_p (tree ref1, tree base1,
 
   /* If both references are based on the same variable, they cannot alias if
      the accesses do not overlap.  */
-  if (!ranges_overlap_p (offset1, max_size1, offset2, max_size2))
+  if (!ranges_may_overlap_p (offset1, max_size1, offset2, max_size2))
     return false;
 
   /* For components with variable position, the above test isn't sufficient,
@@ -1115,19 +1119,18 @@ decl_refs_may_alias_p (tree ref1, tree base1,
 
 static bool
 indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
-			       HOST_WIDE_INT offset1,
-			       HOST_WIDE_INT max_size1 ATTRIBUTE_UNUSED,
+			       poly_int64 offset1, poly_int64 max_size1,
 			       alias_set_type ref1_alias_set,
 			       alias_set_type base1_alias_set,
 			       tree ref2 ATTRIBUTE_UNUSED, tree base2,
-			       HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
+			       poly_int64 offset2, poly_int64 max_size2,
 			       alias_set_type ref2_alias_set,
 			       alias_set_type base2_alias_set, bool tbaa_p)
 {
   tree ptr1;
   tree ptrtype1, dbase2;
-  HOST_WIDE_INT offset1p = offset1, offset2p = offset2;
-  HOST_WIDE_INT doffset1, doffset2;
+  poly_int64 offset1p = offset1, offset2p = offset2;
+  poly_int64 doffset1, doffset2;
 
   gcc_checking_assert ((TREE_CODE (base1) == MEM_REF
 			|| TREE_CODE (base1) == TARGET_MEM_REF)
@@ -1151,7 +1154,9 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
      ???  IVOPTs creates bases that do not honor this restriction,
      so do not apply this optimization for TARGET_MEM_REFs.  */
   if (TREE_CODE (base1) != TARGET_MEM_REF
-      && !ranges_overlap_p (MAX (0, offset1p), -1, offset2p, max_size2))
+      && ordered_p (0, offset1p)
+      && !ranges_may_overlap_p (ordered_max (poly_int64 (0), offset1p), -1,
+				offset2p, max_size2))
     return false;
   /* They also cannot alias if the pointer may not point to the decl.  */
   if (!ptr_deref_may_alias_decl_p (ptr1, base2))
@@ -1232,7 +1237,7 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
   if ((TREE_CODE (base1) != TARGET_MEM_REF
        || (!TMR_INDEX (base1) && !TMR_INDEX2 (base1)))
       && same_type_for_tbaa (TREE_TYPE (base1), TREE_TYPE (dbase2)) == 1)
-    return ranges_overlap_p (doffset1, max_size1, doffset2, max_size2);
+    return ranges_may_overlap_p (doffset1, max_size1, doffset2, max_size2);
 
   if (ref1 && ref2
       && nonoverlapping_component_refs_p (ref1, ref2))
@@ -1260,11 +1265,11 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 
 static bool
 indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
-			   HOST_WIDE_INT offset1, HOST_WIDE_INT max_size1,
+			   poly_int64 offset1, poly_int64 max_size1,
 			   alias_set_type ref1_alias_set,
 			   alias_set_type base1_alias_set,
 			   tree ref2 ATTRIBUTE_UNUSED, tree base2,
-			   HOST_WIDE_INT offset2, HOST_WIDE_INT max_size2,
+			   poly_int64 offset2, poly_int64 max_size2,
 			   alias_set_type ref2_alias_set,
 			   alias_set_type base2_alias_set, bool tbaa_p)
 {
@@ -1319,7 +1324,7 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 	offset1 += (-moff).to_short_addr ();
       else
 	offset2 += moff.to_short_addr ();
-      return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
+      return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
     }
   if (!ptr_derefs_may_alias_p (ptr1, ptr2))
     return false;
@@ -1347,7 +1352,7 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
       && same_type_for_tbaa (TREE_TYPE (base2), TREE_TYPE (ptrtype2)) == 1
       && same_type_for_tbaa (TREE_TYPE (ptrtype1),
 			     TREE_TYPE (ptrtype2)) == 1)
-    return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
+    return ranges_may_overlap_p (offset1, max_size1, offset2, max_size2);
 
   /* Do type-based disambiguation.  */
   if (base1_alias_set != base2_alias_set
@@ -1382,8 +1387,8 @@ bool
 refs_may_alias_p_1 (ao_ref *ref1, ao_ref *ref2, bool tbaa_p)
 {
   tree base1, base2;
-  HOST_WIDE_INT offset1 = 0, offset2 = 0;
-  HOST_WIDE_INT max_size1 = -1, max_size2 = -1;
+  poly_int64 offset1 = 0, offset2 = 0;
+  poly_int64 max_size1 = -1, max_size2 = -1;
   bool var1_p, var2_p, ind1_p, ind2_p;
 
   gcc_checking_assert ((!ref1->ref
@@ -2371,14 +2376,17 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
          handling constant offset and size.  */
       /* For a must-alias check we need to be able to constrain
 	 the access properly.  */
-      if (ref->max_size == -1)
+      if (!ref->max_size_known_p ())
 	return false;
-      HOST_WIDE_INT size, offset, max_size, ref_offset = ref->offset;
+      HOST_WIDE_INT size, max_size, const_offset;
+      poly_int64 ref_offset = ref->offset;
       bool reverse;
       tree base
-	= get_ref_base_and_extent (lhs, &offset, &size, &max_size, &reverse);
+	= get_ref_base_and_extent (lhs, &const_offset, &size, &max_size,
+				   &reverse);
       /* We can get MEM[symbol: sZ, index: D.8862_1] here,
 	 so base == ref->base does not always hold.  */
+      poly_int64 offset = const_offset;
       if (base != ref->base)
 	{
 	  /* If both base and ref->base are MEM_REFs, only compare the
@@ -2390,18 +2398,13 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 	      if (!tree_int_cst_equal (TREE_OPERAND (base, 1),
 				       TREE_OPERAND (ref->base, 1)))
 		{
-		  offset_int off1 = mem_ref_offset (base);
+		  poly_offset_int off1 = mem_ref_offset (base);
 		  off1 <<= LOG2_BITS_PER_UNIT;
 		  off1 += offset;
-		  offset_int off2 = mem_ref_offset (ref->base);
+		  poly_offset_int off2 = mem_ref_offset (ref->base);
 		  off2 <<= LOG2_BITS_PER_UNIT;
 		  off2 += ref_offset;
-		  if (wi::fits_shwi_p (off1) && wi::fits_shwi_p (off2))
-		    {
-		      offset = off1.to_shwi ();
-		      ref_offset = off2.to_shwi ();
-		    }
-		  else
+		  if (!off1.to_shwi (&offset) || !off2.to_shwi (&ref_offset))
 		    size = -1;
 		}
 	    }
@@ -2410,12 +2413,9 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 	}
       /* For a must-alias check we need to be able to constrain
 	 the access properly.  */
-      if (size != -1 && size == max_size)
-	{
-	  if (offset <= ref_offset
-	      && offset + size >= ref_offset + ref->max_size)
-	    return true;
-	}
+      if (size == max_size
+	  && known_subrange_p (ref_offset, ref->max_size, offset, size))
+	return true;
     }
 
   if (is_gimple_call (stmt))
@@ -2446,19 +2446,19 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 	    {
 	      /* For a must-alias check we need to be able to constrain
 		 the access properly.  */
-	      if (ref->max_size == -1)
+	      if (!ref->max_size_known_p ())
 		return false;
 	      tree dest = gimple_call_arg (stmt, 0);
 	      tree len = gimple_call_arg (stmt, 2);
 	      if (!tree_fits_shwi_p (len))
 		return false;
 	      tree rbase = ref->base;
-	      offset_int roffset = ref->offset;
+	      poly_offset_int roffset = ref->offset;
 	      ao_ref dref;
 	      ao_ref_init_from_ptr_and_size (&dref, dest, len);
 	      tree base = ao_ref_base (&dref);
-	      offset_int offset = dref.offset;
-	      if (!base || dref.size == -1)
+	      poly_offset_int offset = dref.offset;
+	      if (!base || must_eq (dref.size, -1))
 		return false;
 	      if (TREE_CODE (base) == MEM_REF)
 		{
@@ -2471,9 +2471,9 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 		  rbase = TREE_OPERAND (rbase, 0);
 		}
 	      if (base == rbase
-		  && offset <= roffset
-		  && (roffset + ref->max_size
-		      <= offset + (wi::to_offset (len) << LOG2_BITS_PER_UNIT)))
+		  && known_subrange_p (roffset, ref->max_size, offset,
+				       wi::to_offset (len)
+				       << LOG2_BITS_PER_UNIT))
 		return true;
 	      break;
 	    }
