@@ -1770,7 +1770,7 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
         {
 	  gimple *stmt = gsi_stmt (si);
 	  if (!gimple_clobber_p (stmt)
-	      && !vect_analyze_stmt (stmt, &need_to_vectorize, NULL))
+	      && !vect_analyze_stmt (stmt, &need_to_vectorize, NULL, -1))
 	    return false;
         }
     } /* bbs */

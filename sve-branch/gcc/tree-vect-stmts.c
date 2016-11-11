@@ -8133,10 +8133,22 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
   return true;
 }
 
-/* Make sure the statement is vectorizable.  */
+/* Check whether STMT can occur in a vectorized loop and, if STMT is
+   relevant, whether STMT itself can be vectorized.  Return false if
+   either condition prevents vectorization.
+
+   NEED_TO_VECTORIZE points to a cumulative boolean that says whether we
+   have found any statement that needs to be vectorized.  Set this boolean
+   to true if STMT is one such statement.  The contents of NEED_TO_VECTORIZE
+   become irrelevant if this function returns false.
+
+   If the statement is being considered for SLP vectorization, NODE is the
+   containing SLP tree node and SLP_INDEX is the index of the statement
+   within that node.  */
 
 bool
-vect_analyze_stmt (gimple *stmt, bool *need_to_vectorize, slp_tree node)
+vect_analyze_stmt (gimple *stmt, bool *need_to_vectorize, slp_tree node,
+		   int slp_index)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
@@ -8216,7 +8228,8 @@ vect_analyze_stmt (gimple *stmt, bool *need_to_vectorize, slp_tree node)
           dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
         }
 
-      if (!vect_analyze_stmt (pattern_stmt, need_to_vectorize, node))
+      if (!vect_analyze_stmt (pattern_stmt, need_to_vectorize,
+			      node, slp_index))
         return false;
    }
 
@@ -8241,7 +8254,7 @@ vect_analyze_stmt (gimple *stmt, bool *need_to_vectorize, slp_tree node)
 		}
 
 	      if (!vect_analyze_stmt (pattern_def_stmt,
-				      need_to_vectorize, node))
+				      need_to_vectorize, node, slp_index))
 		return false;
 	    }
 	}
@@ -8373,7 +8386,7 @@ vect_analyze_stmt (gimple *stmt, bool *need_to_vectorize, slp_tree node)
       need extra handling, except for vectorizable reductions.  */
   if (STMT_VINFO_LIVE_P (stmt_info)
       && STMT_VINFO_TYPE (stmt_info) != reduc_vec_info_type)
-    ok = vectorizable_live_operation (stmt, NULL, NULL, -1, NULL);
+    ok = vectorizable_live_operation (stmt, NULL, node, slp_index, NULL);
 
   if (!ok)
     {

@@ -1093,7 +1093,7 @@ extern tree vect_get_vec_def_for_stmt_copy (enum vect_def_type, tree);
 extern bool vect_transform_stmt (gimple *, gimple_stmt_iterator *,
                                  bool *, slp_tree, slp_instance);
 extern void vect_remove_stores (gimple *);
-extern bool vect_analyze_stmt (gimple *, bool *, slp_tree);
+extern bool vect_analyze_stmt (gimple *, bool *, slp_tree, int);
 extern bool vectorizable_condition (gimple *, gimple_stmt_iterator *,
 				    gimple **, tree, int, slp_tree);
 extern void vect_get_load_cost (struct data_reference *, int, bool,

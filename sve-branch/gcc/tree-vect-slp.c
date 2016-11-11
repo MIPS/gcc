@@ -2310,7 +2310,7 @@ vect_slp_analyze_node_operations (slp_tree node)
 	if (SLP_TREE_DEF_TYPE (child) != vect_internal_def)
 	  STMT_VINFO_DEF_TYPE (vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (child)[i]))
 	    = SLP_TREE_DEF_TYPE (child);
-      res = vect_analyze_stmt (stmt, &dummy, node);
+      res = vect_analyze_stmt (stmt, &dummy, node, i);
       /* Restore def-types.  */
       FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), j, child)
 	if (SLP_TREE_DEF_TYPE (child) != vect_internal_def)
