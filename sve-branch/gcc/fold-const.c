@@ -8398,22 +8398,22 @@ pointer_may_wrap_p (tree base, tree offset, poly_int64 bitpos)
   if (!total.to_uhwi (&total_hwi))
     return true;
 
-  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (TREE_TYPE (base)));
-  if (size <= 0)
+  poly_int64 size = int_size_in_bytes (TREE_TYPE (TREE_TYPE (base)));
+  if (must_le (size, 0))
     return true;
 
   /* We can do slightly better for SIZE if we have an ADDR_EXPR of an
      array.  */
   if (TREE_CODE (base) == ADDR_EXPR)
     {
-      HOST_WIDE_INT base_size;
+      poly_int64 base_size;
 
       base_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (base, 0)));
-      if (base_size > 0 && size < base_size)
+      if (may_ge (base_size, 0) && may_lt (size, base_size))
 	size = base_size;
     }
 
-  return may_gt (total_hwi, (unsigned HOST_WIDE_INT) size);
+  return may_gt (total_hwi, poly_uint64 (size));
 }
 
 /* Return a positive integer when the symbol DECL is known to have

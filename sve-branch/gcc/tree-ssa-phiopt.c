@@ -1531,7 +1531,7 @@ struct name_to_bb
   unsigned int ssa_name_ver;
   unsigned int phase;
   bool store;
-  HOST_WIDE_INT offset, size;
+  poly_int64 offset, size;
   basic_block bb;
 };
 
@@ -1552,8 +1552,12 @@ static unsigned int nt_call_phase;
 inline hashval_t
 ssa_names_hasher::hash (const name_to_bb *n)
 {
-  return n->ssa_name_ver ^ (((hashval_t) n->store) << 31)
-         ^ (n->offset << 6) ^ (n->size << 3);
+  inchash::hash h;
+  h.add_int (n->ssa_name_ver);
+  h.add_int (n->store);
+  h.add_poly_wide_int (n->offset);
+  h.add_poly_wide_int (n->size);
+  return h.end ();
 }
 
 /* The equality function of *P1 and *P2.  */
@@ -1561,10 +1565,10 @@ ssa_names_hasher::hash (const name_to_bb *n)
 inline bool
 ssa_names_hasher::equal (const name_to_bb *n1, const name_to_bb *n2)
 {
-  return n1->ssa_name_ver == n2->ssa_name_ver
-         && n1->store == n2->store
-         && n1->offset == n2->offset
-         && n1->size == n2->size;
+  return (n1->ssa_name_ver == n2->ssa_name_ver
+	  && n1->store == n2->store
+	  && must_eq (n1->offset, n2->offset)
+	  && must_eq (n1->size, n2->size));
 }
 
 class nontrapping_dom_walker : public dom_walker
@@ -1644,12 +1648,13 @@ nontrapping_dom_walker::after_dom_children (basic_block bb)
 void
 nontrapping_dom_walker::add_or_mark_expr (basic_block bb, tree exp, bool store)
 {
-  HOST_WIDE_INT size;
+  poly_int64 size;
 
   if (TREE_CODE (exp) == MEM_REF
       && TREE_CODE (TREE_OPERAND (exp, 0)) == SSA_NAME
       && tree_fits_shwi_p (TREE_OPERAND (exp, 1))
-      && (size = int_size_in_bytes (TREE_TYPE (exp))) > 0)
+      && (size = int_size_in_bytes (TREE_TYPE (exp)),
+	  may_gt (size, 0)))
     {
       tree name = TREE_OPERAND (exp, 0);
       struct name_to_bb map;

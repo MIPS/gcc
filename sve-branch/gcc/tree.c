@@ -3247,33 +3247,48 @@ size_in_bytes_loc (location_t loc, const_tree type)
   return t;
 }
 
-/* Return the size of TYPE (in bytes) as a wide integer
+/* Return the size of TYPE (in bytes) as a poly_int64
    or return -1 if the size can vary or is larger than an integer.  */
 
-HOST_WIDE_INT
+poly_int64
 int_size_in_bytes (const_tree type)
 {
-  tree t;
+  poly_int64 result;
 
   if (type == error_mark_node)
     return 0;
 
   type = TYPE_MAIN_VARIANT (type);
-  t = TYPE_SIZE_UNIT (type);
-
-  if (t && tree_fits_uhwi_p (t))
-    return TREE_INT_CST_LOW (t);
+  if (poly_tree_p (TYPE_SIZE_UNIT (type), &result))
+    {
+      gcc_assert (must_ge (result, 0));
+      return result;
+    }
   else
     return -1;
+}
+
+/* Like int_size_in_bytes, but return -1 for polynomial sizes.  This is
+   useful for frontends that don't support polynomial type sizes and for
+   debug formats that can't represent them.  Some optimization passes
+   might also only handle non-polynomial sizes.  */
+
+HOST_WIDE_INT
+int_size_in_bytes_hwi (const_tree type)
+{
+  HOST_WIDE_INT res;
+  if (!int_size_in_bytes (type).is_constant (&res))
+    res = -1;
+  return res;
 }
 
 /* Return the maximum size of TYPE (in bytes) as a wide integer
    or return -1 if the size can vary or is larger than an integer.  */
 
-HOST_WIDE_INT
+poly_int64
 max_int_size_in_bytes (const_tree type)
 {
-  HOST_WIDE_INT size = -1;
+  poly_int64 size = -1;
   tree size_tree;
 
   /* If this is an array type, check for a possible MAX_SIZE attached.  */
@@ -3289,7 +3304,7 @@ max_int_size_in_bytes (const_tree type)
   /* If we still haven't been able to get a size, see if the language
      can compute a maximum size.  */
 
-  if (size == -1)
+  if (must_eq (size, -1))
     {
       size_tree = lang_hooks.types.max_size (type);
 
@@ -8635,7 +8650,7 @@ subrange_type_for_debug_p (const_tree type, tree *lowval, tree *highval)
      name, then the type is not a subrange but a copy of the base type.  */
   if ((TREE_CODE (base_type) == INTEGER_TYPE
        || TREE_CODE (base_type) == BOOLEAN_TYPE)
-      && int_size_in_bytes (type) == int_size_in_bytes (base_type)
+      && must_eq (int_size_in_bytes (type), int_size_in_bytes (base_type))
       && tree_int_cst_equal (low, TYPE_MIN_VALUE (base_type))
       && tree_int_cst_equal (high, TYPE_MAX_VALUE (base_type))
       && TYPE_IDENTIFIER (type) == TYPE_IDENTIFIER (base_type))

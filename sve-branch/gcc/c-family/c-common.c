@@ -6331,7 +6331,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
       if (TREE_CODE (initial_value) == STRING_CST)
 	{
 	  int eltsize
-	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
+	    = int_size_in_bytes_hwi (TREE_TYPE (TREE_TYPE (initial_value)));
 	  maxindex = size_int (TREE_STRING_LENGTH (initial_value)/eltsize - 1);
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)

@@ -1498,7 +1498,7 @@ sem_item::add_expr (const_tree exp, inchash::hash &hstate)
 	unsigned HOST_WIDE_INT idx;
 	tree value;
 
-	hstate.add_wide_int (int_size_in_bytes (TREE_TYPE (exp)));
+	hstate.add_poly_wide_int (int_size_in_bytes (TREE_TYPE (exp)));
 
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value)
 	  if (value)
@@ -1513,7 +1513,7 @@ sem_item::add_expr (const_tree exp, inchash::hash &hstate)
     case VAR_DECL:
     case CONST_DECL:
     case PARM_DECL:
-      hstate.add_wide_int (int_size_in_bytes (TREE_TYPE (exp)));
+      hstate.add_poly_wide_int (int_size_in_bytes (TREE_TYPE (exp)));
       break;
     case MEM_REF:
     case POINTER_PLUS_EXPR:
@@ -1531,7 +1531,7 @@ sem_item::add_expr (const_tree exp, inchash::hash &hstate)
       }
       break;
     CASE_CONVERT:
-      hstate.add_wide_int (int_size_in_bytes (TREE_TYPE (exp)));
+      hstate.add_poly_wide_int (int_size_in_bytes (TREE_TYPE (exp)));
       return add_expr (TREE_OPERAND (exp, 0), hstate);
     default:
       break;
@@ -1938,11 +1938,11 @@ sem_variable::equals (tree t1, tree t2)
 
 	if (typecode == ARRAY_TYPE)
 	  {
-	    HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
+	    poly_int64 size_1 = int_size_in_bytes (TREE_TYPE (t1));
 	    /* For arrays, check that the sizes all match.  */
 	    if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
-		|| size_1 == -1
-		|| size_1 != int_size_in_bytes (TREE_TYPE (t2)))
+		|| must_eq (size_1, -1)
+		|| may_ne (size_1, int_size_in_bytes (TREE_TYPE (t2))))
 	      return return_false_with_msg ("constructor array size mismatch");
 	  }
 	else if (!func_checker::compatible_types_p (TREE_TYPE (t1),

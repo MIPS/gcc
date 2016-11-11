@@ -6199,7 +6199,7 @@ pa_pass_by_reference (cumulative_args_t ca ATTRIBUTE_UNUSED,
   HOST_WIDE_INT size;
 
   if (type)
-    size = int_size_in_bytes (type);
+    size = int_size_in_bytes_hwi (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -6222,7 +6222,8 @@ pa_function_arg_padding (machine_mode mode, const_tree type)
       /* Return PAD_NONE if justification is not required.  */
       if (type
 	  && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-	  && (int_size_in_bytes (type) * BITS_PER_UNIT) % PARM_BOUNDARY == 0)
+	  && ((int_size_in_bytes_hwi (type) * BITS_PER_UNIT)
+	      % PARM_BOUNDARY == 0))
 	return PAD_NONE;
 
       /* The directions set here are ignored when a BLKmode argument larger
@@ -6350,7 +6351,7 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  type = ptr;
 	  ptr = build_pointer_type (type);
 	}
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
       valist_type = TREE_TYPE (valist);
 
       /* Args grow down.  Not handled by generic routines.  */
@@ -9332,7 +9333,7 @@ pa_function_value (const_tree valtype,
       || TREE_CODE (valtype) == COMPLEX_TYPE
       || TREE_CODE (valtype) == VECTOR_TYPE)
     {
-      HOST_WIDE_INT valsize = int_size_in_bytes (valtype);
+      HOST_WIDE_INT valsize = int_size_in_bytes_hwi (valtype);
 
       /* Handle aggregates that fit exactly in a word or double word.  */
       if ((valsize & (UNITS_PER_WORD - 1)) == 0)
@@ -9641,7 +9642,7 @@ pa_function_arg_boundary (machine_mode mode, const_tree type)
   bool singleword = (type
 		     ? (integer_zerop (TYPE_SIZE (type))
 			|| !TREE_CONSTANT (TYPE_SIZE (type))
-			|| int_size_in_bytes (type) <= UNITS_PER_WORD)
+			|| int_size_in_bytes_hwi (type) <= UNITS_PER_WORD)
 		     : GET_MODE_SIZE (mode) <= UNITS_PER_WORD);
 
   return singleword ? PARM_BOUNDARY : MAX_PARM_BOUNDARY;
@@ -9878,14 +9879,14 @@ pa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   /* SOM ABI says that objects larger than 64 bits are returned in memory.
      PA64 ABI says that objects larger than 128 bits are returned in memory.
-     Note, int_size_in_bytes can return -1 if the size of the object is
+     Note, int_size_in_bytes_hwi can return -1 if the size of the object is
      variable or larger than the maximum value that can be expressed as
      a HOST_WIDE_INT.   It can also return zero for an empty type.  The
      simplest way to handle variable and empty types is to pass them in
      memory.  This avoids problems in defining the boundaries of argument
      slots, allocating registers, etc.  */
-  return (int_size_in_bytes (type) > (TARGET_64BIT ? 16 : 8)
-	  || int_size_in_bytes (type) <= 0);
+  return (int_size_in_bytes_hwi (type) > (TARGET_64BIT ? 16 : 8)
+	  || int_size_in_bytes_hwi (type) <= 0);
 }
 
 /* Structure to hold declaration and name of external symbols that are

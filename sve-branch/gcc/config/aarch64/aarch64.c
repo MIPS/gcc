@@ -2066,12 +2066,12 @@ aarch64_pass_by_reference (cumulative_args_t pcum ATTRIBUTE_UNUSED,
 
   /* GET_MODE_SIZE (BLKmode) is useless since it is 0.  */
   size = (mode == BLKmode && type)
-    ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
+    ? (int) int_size_in_bytes_hwi (type) : (int) GET_MODE_SIZE (mode);
 
   /* Aggregates are passed by reference based on their size.  */
   if (type && AGGREGATE_TYPE_P (type))
     {
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
     }
 
   /* Variable sized arguments are always returned by reference.  */
@@ -2104,8 +2104,8 @@ aarch64_return_in_msb (const_tree valtype)
   /* Only composite types smaller than or equal to 16 bytes can
      be potentially returned in registers.  */
   if (!aarch64_composite_type_p (valtype, TYPE_MODE (valtype))
-      || int_size_in_bytes (valtype) <= 0
-      || int_size_in_bytes (valtype) > 16)
+      || int_size_in_bytes_hwi (valtype) <= 0
+      || int_size_in_bytes_hwi (valtype) > 16)
     return false;
 
   /* But not a composite that is an HFA (Homogeneous Floating-point Aggregate)
@@ -2137,7 +2137,7 @@ aarch64_function_value (const_tree type, const_tree func,
 
   if (aarch64_return_in_msb (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
 
       if (size % UNITS_PER_WORD != 0)
 	{
@@ -2225,7 +2225,7 @@ aarch64_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
     return false;
 
   /* Types larger than 2 registers returned in memory.  */
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
   return (size < 0 || size > 2 * UNITS_PER_WORD);
 }
 
@@ -2291,7 +2291,8 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
 
   /* Size in bytes, rounded to the nearest multiple of 8 bytes.  */
   size
-    = ROUND_UP (type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode),
+    = ROUND_UP (type ? (int) int_size_in_bytes_hwi (type)
+		: GET_MODE_SIZE (mode),
 		UNITS_PER_WORD);
 
   allocate_ncrn = (type) ? !(FLOAT_TYPE_P (type)) : !FLOAT_MODE_P (mode);
@@ -2559,7 +2560,7 @@ aarch64_pad_reg_upward (machine_mode mode, const_tree type,
   /* Small composite types are always padded upward.  */
   if (BYTES_BIG_ENDIAN && aarch64_composite_type_p (type, mode))
     {
-      HOST_WIDE_INT size = (type ? int_size_in_bytes (type)
+      HOST_WIDE_INT size = (type ? (int) int_size_in_bytes_hwi (type)
 			    : GET_MODE_SIZE (mode));
       if (size < 2 * UNITS_PER_WORD)
 	return true;
@@ -9846,7 +9847,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
   stack = build3 (COMPONENT_REF, TREE_TYPE (f_stack), unshare_expr (valist),
 		  f_stack, NULL_TREE);
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
   align = aarch64_function_arg_alignment (mode, type) / BITS_PER_UNIT;
 
   dw_align = false;
@@ -10047,9 +10048,9 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  u = fold_convert (field_ptr_t, addr);
 	  u = build2 (MODIFY_EXPR, field_t,
 		      build2 (MEM_REF, field_t, tmp_ha,
-			      build_int_cst (field_ptr_t,
-					     (i *
-					      int_size_in_bytes (field_t)))),
+			      (build_int_cst
+			       (field_ptr_t,
+				i * int_size_in_bytes_hwi (field_t)))),
 		      build1 (INDIRECT_REF, field_t, u));
 	  t = build2 (COMPOUND_EXPR, TREE_TYPE (t), t, u);
 	}
@@ -10210,7 +10211,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
     case VECTOR_TYPE:
       /* Use V2SImode and V4SImode as representatives of all 64-bit
 	 and 128-bit vector types.  */
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
       switch (size)
 	{
 	case 8:
@@ -10346,7 +10347,7 @@ aarch64_short_vector_p (const_tree type,
   HOST_WIDE_INT size = -1;
 
   if (type && TREE_CODE (type) == VECTOR_TYPE)
-    size = int_size_in_bytes (type);
+    size = int_size_in_bytes_hwi (type);
   else if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 	    || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
     size = GET_MODE_SIZE (mode);

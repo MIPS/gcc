@@ -2083,9 +2083,10 @@ xtensa_function_arg_advance (cumulative_args_t cum, machine_mode mode,
   arg_words = &get_cumulative_args (cum)->arg_words;
   max = MAX_ARGS_IN_REGISTERS;
 
-  words = (((mode != BLKmode)
-	    ? (int) GET_MODE_SIZE (mode)
-	    : int_size_in_bytes (type)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  words = CEIL (mode != BLKmode
+		? (int) GET_MODE_SIZE (mode)
+		: int_size_in_bytes_hwi (type),
+		UNITS_PER_WORD);
 
   if (*arg_words < max
       && (targetm.calls.must_pass_in_stack (mode, type)
@@ -2113,9 +2114,10 @@ xtensa_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
   regbase = (incoming_p ? GP_ARG_FIRST : GP_OUTGOING_ARG_FIRST);
   max = MAX_ARGS_IN_REGISTERS;
 
-  words = (((mode != BLKmode)
-	    ? (int) GET_MODE_SIZE (mode)
-	    : int_size_in_bytes (type)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  words = CEIL (mode != BLKmode
+		? (int) GET_MODE_SIZE (mode)
+		: int_size_in_bytes_hwi (type),
+		UNITS_PER_WORD);
 
   if (type && (TYPE_ALIGN (type) > BITS_PER_WORD))
     {
@@ -2171,7 +2173,7 @@ xtensa_return_in_msb (const_tree valtype)
 {
   return (TARGET_BIG_ENDIAN
 	  && AGGREGATE_TYPE_P (valtype)
-	  && int_size_in_bytes (valtype) >= UNITS_PER_WORD);
+	  && int_size_in_bytes_hwi (valtype) >= UNITS_PER_WORD);
 }
 
 
@@ -3796,7 +3798,7 @@ xtensa_rtx_costs (rtx x, machine_mode mode, int outer_code,
 static bool
 xtensa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  return ((unsigned HOST_WIDE_INT) int_size_in_bytes (type)
+  return ((unsigned HOST_WIDE_INT) int_size_in_bytes_hwi (type)
 	  > 4 * UNITS_PER_WORD);
 }
 

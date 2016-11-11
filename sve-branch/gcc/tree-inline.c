@@ -3823,7 +3823,7 @@ estimate_move_cost (tree type, bool ARG_UNUSED (speed_p))
 	      / simd_mode_size);
     }
 
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
 
   if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO (speed_p))
     /* Cost of a memcpy call, 3 arguments and the call.  */

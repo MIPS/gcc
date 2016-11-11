@@ -851,7 +851,7 @@ extern int arm_arch_crc;
 /* The number of (integer) registers required to hold a quantity of TYPE MODE.  */
 #define ARM_NUM_REGS2(MODE, TYPE)                   \
   ARM_NUM_INTS ((MODE) == BLKmode ? 		\
-  int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE))
+  int_size_in_bytes_hwi (TYPE) : GET_MODE_SIZE (MODE))
 
 /* The number of (integer) argument register available.  */
 #define NUM_ARG_REGS		4

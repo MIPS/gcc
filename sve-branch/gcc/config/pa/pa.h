@@ -620,7 +620,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
 #define FUNCTION_ARG_SIZE(MODE, TYPE)	\
   ((((MODE) != BLKmode \
      ? (HOST_WIDE_INT) GET_MODE_SIZE (MODE) \
-     : int_size_in_bytes (TYPE)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+     : int_size_in_bytes_hwi (TYPE)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,

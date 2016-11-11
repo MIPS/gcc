@@ -1359,7 +1359,7 @@ static unsigned int
 msp430_function_arg_boundary (machine_mode mode, const_tree type)
 {
   if (mode == BLKmode
-      && int_size_in_bytes (type) > 1)
+      && int_size_in_bytes_hwi (type) > 1)
     return 16;
   if (GET_MODE_BITSIZE (mode) > 8)
     return 16;

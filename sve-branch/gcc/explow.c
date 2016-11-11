@@ -1930,7 +1930,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
   if (REG_P (val)
       && GET_MODE (val) == BLKmode)
     {
-      unsigned HOST_WIDE_INT bytes = int_size_in_bytes (valtype);
+      poly_uint64 bytes = int_size_in_bytes (valtype);
       opt_scalar_int_mode tmpmode;
 
       /* int_size_in_bytes can return -1.  We don't need a check here
@@ -1940,7 +1940,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
       FOR_EACH_MODE_IN_CLASS (tmpmode, MODE_INT)
 	{
 	  /* Have we found a large enough mode?  */
-	  if (GET_MODE_SIZE (*tmpmode) >= bytes)
+	  if (must_ge (GET_MODE_SIZE (*tmpmode), bytes))
 	    break;
 	}
 

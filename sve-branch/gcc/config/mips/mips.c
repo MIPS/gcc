@@ -5776,7 +5776,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
   unsigned int num_bytes, num_words, max_regs;
 
   /* Work out the size of the argument.  */
-  num_bytes = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+  num_bytes = type ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode);
   num_words = (num_bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   /* Decide whether it should go in a floating-point register, assuming
@@ -6145,7 +6145,7 @@ mips_pad_arg_upward (machine_mode mode, const_tree type)
   if (mode != BLKmode)
     return GET_MODE_BITSIZE (mode) >= PARM_BOUNDARY;
   else
-    return int_size_in_bytes (type) >= (PARM_BOUNDARY / BITS_PER_UNIT);
+    return int_size_in_bytes_hwi (type) >= (PARM_BOUNDARY / BITS_PER_UNIT);
 }
 
 /* Likewise BLOCK_REG_PADDING (MODE, TYPE, ...).  Return !BYTES_BIG_ENDIAN
@@ -6181,7 +6181,7 @@ mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 	  || mode == DAmode || mode == UDAmode)
 	return 0;
 
-      size = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
+      size = type ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode);
       return size == -1 || size > UNITS_PER_WORD;
     }
   else
@@ -6371,7 +6371,7 @@ mips_function_value_1 (const_tree valtype, const_tree fn_decl_or_type,
 	 whether we have to round the mode up to a whole number of words.  */
       if (mips_return_in_msb (valtype))
 	{
-	  HOST_WIDE_INT size = int_size_in_bytes (valtype);
+	  HOST_WIDE_INT size = int_size_in_bytes_hwi (valtype);
 	  if (size % UNITS_PER_WORD != 0)
 	    {
 	      size += UNITS_PER_WORD - size % UNITS_PER_WORD;
@@ -6468,7 +6468,7 @@ mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
   return (TARGET_OLDABI
 	  ? TYPE_MODE (type) == BLKmode
-	  : !IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
+	  : !IN_RANGE (int_size_in_bytes_hwi (type), 0, 2 * UNITS_PER_WORD));
 }
 
 /* Implement TARGET_SETUP_INCOMING_VARARGS.  */
@@ -6844,7 +6844,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
       ovfl = build3 (COMPONENT_REF, TREE_TYPE (f_ovfl), valist, f_ovfl,
 		     NULL_TREE);
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
 
       if (GET_MODE_CLASS (TYPE_MODE (type)) == MODE_FLOAT
 	  && GET_MODE_SIZE (TYPE_MODE (type)) <= UNITS_PER_FPVALUE)
@@ -9328,7 +9328,7 @@ mips_in_small_data_p (const_tree decl)
 
   /* We have traditionally not treated zero-sized objects as small data,
      so this is now effectively part of the ABI.  */
-  size = int_size_in_bytes (TREE_TYPE (decl));
+  size = int_size_in_bytes_hwi (TREE_TYPE (decl));
   return size > 0 && size <= mips_small_data_threshold;
 }
 
@@ -9406,7 +9406,7 @@ mips_output_external (FILE *file, tree decl, const char *name)
 	  fputs ("\t.extern\t", file);
 	  assemble_name (file, name);
 	  fprintf (file, ", " HOST_WIDE_INT_PRINT_DEC "\n",
-		   int_size_in_bytes (TREE_TYPE (decl)));
+		   int_size_in_bytes_hwi (TREE_TYPE (decl)));
 	}
     }
 }
@@ -9713,7 +9713,7 @@ mips_declare_object_name (FILE *stream, const char *name,
       HOST_WIDE_INT size;
 
       size_directive_output = 1;
-      size = int_size_in_bytes (TREE_TYPE (decl));
+      size = int_size_in_bytes_hwi (TREE_TYPE (decl));
       ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
     }
 
@@ -9738,7 +9738,7 @@ mips_finish_declare_object (FILE *stream, tree decl, int top_level, int at_end)
       HOST_WIDE_INT size;
 
       size_directive_output = 1;
-      size = int_size_in_bytes (TREE_TYPE (decl));
+      size = int_size_in_bytes_hwi (TREE_TYPE (decl));
       ASM_OUTPUT_SIZE_DIRECTIVE (stream, name, size);
     }
 }

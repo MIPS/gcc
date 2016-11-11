@@ -118,7 +118,7 @@ gfc_element_size (gfc_expr *e)
 	HOST_WIDE_INT size;
 	ts = e->ts;
 	type = gfc_typenode_for_spec (&ts);
-	size = int_size_in_bytes (type);
+	size = int_size_in_bytes_hwi (type);
 	gcc_assert (size >= 0);
 	return size;
       }
@@ -258,7 +258,7 @@ encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
 
       if (c->expr->expr_type == EXPR_NULL)
 	{
-	  size = int_size_in_bytes (TREE_TYPE (cmp->backend_decl));
+	  size = int_size_in_bytes_hwi (TREE_TYPE (cmp->backend_decl));
 	  gcc_assert (size >= 0);
 	  memset (&buffer[ptr], 0, size);
 	}
@@ -267,7 +267,7 @@ encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
 				buffer_size - ptr);
     }
 
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
   gcc_assert (size >= 0);
   return size;
 }
@@ -503,7 +503,7 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
       c->n.component = cmp;
       gfc_target_interpret_expr (buffer, buffer_size, e, true);
       e->ts.is_iso_c = 1;
-      return int_size_in_bytes (ptr_type_node);
+      return int_size_in_bytes_hwi (ptr_type_node);
     }
 
   type = gfc_typenode_for_spec (&result->ts);
@@ -554,7 +554,7 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
       gfc_target_interpret_expr (&buffer[ptr], buffer_size - ptr, e, true);
     }
 
-  return int_size_in_bytes (type);
+  return int_size_in_bytes_hwi (type);
 }
 
 

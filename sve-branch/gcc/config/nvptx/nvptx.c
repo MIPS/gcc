@@ -1670,7 +1670,7 @@ nvptx_assemble_decl_begin (FILE *file, const char *name, const char *section,
     /* Neither vector nor complex types can contain the other.  */
     type = TREE_TYPE (type);
 
-  unsigned elt_size = int_size_in_bytes (type);
+  unsigned elt_size = int_size_in_bytes_hwi (type);
 
   /* Largest mode we're prepared to accept.  For BLKmode types we
      don't know if it'll contain pointer constants, so have to choose

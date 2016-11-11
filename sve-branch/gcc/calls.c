@@ -372,7 +372,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	     tree funtype ATTRIBUTE_UNUSED,
 	     poly_int64 stack_size ATTRIBUTE_UNUSED,
 	     poly_int64 rounded_stack_size,
-	     HOST_WIDE_INT struct_value_size ATTRIBUTE_UNUSED,
+	     poly_int64 struct_value_size ATTRIBUTE_UNUSED,
 	     rtx next_arg_reg ATTRIBUTE_UNUSED, rtx valreg,
 	     int old_inhibit_defer_pop, rtx call_fusage, int ecf_flags,
 	     cumulative_args_t args_so_far ATTRIBUTE_UNUSED)
@@ -432,7 +432,8 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 					 next_arg_reg, NULL_RTX);
       else
 	pat = targetm.gen_sibcall (funmem, rounded_stack_size_rtx,
-				   next_arg_reg, GEN_INT (struct_value_size));
+				   next_arg_reg,
+				   gen_int_mode (struct_value_size, Pmode));
     }
   /* If the target has "call" or "call_value" insns, then prefer them
      if no arguments are actually popped.  If the target does not have
@@ -465,7 +466,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 				      next_arg_reg, NULL_RTX);
       else
 	pat = targetm.gen_call (funmem, rounded_stack_size_rtx, next_arg_reg,
-				GEN_INT (struct_value_size));
+				gen_int_mode (struct_value_size, Pmode));
     }
   emit_insn (pat);
 
@@ -1161,7 +1162,10 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	&& (MEM_ALIGN (args[i].value)
 	    < (unsigned int) MIN (BIGGEST_ALIGNMENT, BITS_PER_WORD)))
       {
-	int bytes = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
+	/* ABIs that pass variable-sized BLKmode values in registers
+	   should use PARALLELs instead of a single REG, so that we don't
+	   need to second-guess how the value is partitioned up.  */
+	int bytes = int_size_in_bytes_hwi (TREE_TYPE (args[i].tree_value));
 	int endian_correction = 0;
 
 	if (args[i].partial)
@@ -1623,7 +1627,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	   end it should be padded.  */
 	args[i].locate.where_pad =
 	  BLOCK_REG_PADDING (mode, type,
-			     int_size_in_bytes (type) <= UNITS_PER_WORD);
+			     must_le (int_size_in_bytes (type),
+				      UNITS_PER_WORD));
 #endif
 
       /* Update ARGS_SIZE, the total stack space for args so far.  */
@@ -2167,7 +2172,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	{
 	  int partial = args[i].partial;
 	  int nregs;
-	  int size = 0;
+	  poly_int64 size = 0;
 	  rtx_insn *before_arg = get_last_insn ();
 	  /* Set non-negative if we must move a word at a time, even if
 	     just one word (e.g, partial == 4 && mode == DFmode).  Set
@@ -2184,7 +2189,11 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	  else if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode)
 	    {
 	      size = int_size_in_bytes (TREE_TYPE (args[i].tree_value));
-	      nregs = (size + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
+	      /* ABIs that pass variable-sized BLKmode values in
+		 registers should use PARALLELs instead of a single REG,
+		 so that we don't need to second-guess how the value is
+		 partitioned up.  */
+	      nregs = CEIL (size.to_constant (), UNITS_PER_WORD);
 	    }
 	  else
 	    size = GET_MODE_SIZE (args[i].mode);
@@ -2206,12 +2215,12 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	      /* Handle case where we have a value that needs shifting
 		 up to the msb.  eg. a QImode value and we're padding
 		 upward on a BYTES_BIG_ENDIAN machine.  */
-	      if (size < UNITS_PER_WORD
+	      if (must_lt (size, UNITS_PER_WORD)
 		  && (args[i].locate.where_pad
 		      == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
 		{
 		  rtx x;
-		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+		  poly_int64 shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
 
 		  /* Assigning REG here rather than a temp makes CALL_FUSAGE
 		     report the whole reg as used.  Strictly speaking, the
@@ -2235,17 +2244,19 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 
 	  else if (partial == 0 || args[i].pass_on_stack)
 	    {
+	      /* We only get nregs != -1 if the size is constant.  */
+	      HOST_WIDE_INT const_size = size.to_constant ();
 	      rtx mem = validize_mem (copy_rtx (args[i].value));
 
 	      /* Check for overlap with already clobbered argument area,
 	         providing that this has non-zero size.  */
 	      if (is_sibcall
-		  && size != 0
+		  && const_size != 0
 		  && (mem_overlaps_already_clobbered_arg_p
-		      (XEXP (args[i].value, 0), size)))
+		      (XEXP (args[i].value, 0), const_size)))
 		*sibcall_failure = 1;
 
-	      if (size % UNITS_PER_WORD == 0
+	      if (const_size % UNITS_PER_WORD == 0
 		  || MEM_ALIGN (mem) % BITS_PER_WORD == 0)
 		move_block_to_reg (REGNO (reg), mem, nregs, args[i].mode);
 	      else
@@ -2255,7 +2266,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 				       args[i].mode);
 		  rtx dest = gen_rtx_REG (word_mode, REGNO (reg) + nregs - 1);
 		  unsigned int bitoff = (nregs - 1) * BITS_PER_WORD;
-		  unsigned int bitsize = size * BITS_PER_UNIT - bitoff;
+		  unsigned int bitsize = const_size * BITS_PER_UNIT - bitoff;
 		  rtx x = extract_bit_field (mem, bitsize, bitoff, 1, dest,
 					     word_mode, word_mode, false);
 		  if (BYTES_BIG_ENDIAN)
@@ -2266,7 +2277,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		}
 
 	      /* Handle a BLKmode that needs shifting.  */
-	      if (nregs == 1 && size < UNITS_PER_WORD
+	      if (nregs == 1 && const_size < UNITS_PER_WORD
 #ifdef BLOCK_REG_PADDING
 		  && args[i].locate.where_pad == PAD_DOWNWARD
 #else
@@ -2275,7 +2286,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		  )
 		{
 		  rtx dest = gen_rtx_REG (word_mode, REGNO (reg));
-		  int shift = (UNITS_PER_WORD - size) * BITS_PER_UNIT;
+		  int shift = (UNITS_PER_WORD - const_size) * BITS_PER_UNIT;
 		  enum tree_code dir = (BYTES_BIG_ENDIAN
 					? RSHIFT_EXPR : LSHIFT_EXPR);
 		  rtx x;
@@ -2674,7 +2685,7 @@ expand_call (tree exp, rtx target, int ignore)
   /* Size of aggregate value wanted, or zero if none wanted
      or if we are using the non-reentrant PCC calling convention
      or expecting the value in registers.  */
-  HOST_WIDE_INT struct_value_size = 0;
+  poly_int64 struct_value_size = 0;
   /* Nonzero if called function returns an aggregate in memory PCC style,
      by returning the address of where to find it.  */
   int pcc_struct_value = 0;
@@ -5358,7 +5369,7 @@ must_pass_in_stack_var_size_or_pad (machine_mode mode, const_tree type)
   /* If the padding and mode of the type is such that a copy into
      a register would put it into the wrong part of the register.  */
   if (mode == BLKmode
-      && int_size_in_bytes (type) % (PARM_BOUNDARY / BITS_PER_UNIT)
+      && !multiple_p (int_size_in_bytes (type), PARM_BOUNDARY / BITS_PER_UNIT)
       && (targetm.calls.function_arg_padding (mode, type)
 	  == (BYTES_BIG_ENDIAN ? PAD_UPWARD : PAD_DOWNWARD)))
     return true;

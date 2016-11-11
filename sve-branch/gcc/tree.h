@@ -4283,8 +4283,9 @@ size_in_bytes (const_tree t)
   return size_in_bytes_loc (input_location, t);
 }
 
-extern HOST_WIDE_INT int_size_in_bytes (const_tree);
-extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
+extern poly_int64 int_size_in_bytes (const_tree);
+extern HOST_WIDE_INT int_size_in_bytes_hwi (const_tree);
+extern poly_int64 max_int_size_in_bytes (const_tree);
 extern tree bit_position (const_tree);
 extern tree byte_position (const_tree);
 extern HOST_WIDE_INT int_byte_position (const_tree);

@@ -533,7 +533,7 @@ s390_check_type_for_vector_abi (const_tree type, bool arg_p, bool in_struct_p)
 
   if (VECTOR_TYPE_P (type))
     {
-      int type_size = int_size_in_bytes (type);
+      int type_size = int_size_in_bytes_hwi (type);
 
       /* Outside arguments only the alignment is changing and this
 	 only happens for vector types >= 16 bytes.  */
@@ -11444,7 +11444,7 @@ static int
 s390_function_arg_size (machine_mode mode, const_tree type)
 {
   if (type)
-    return int_size_in_bytes (type);
+    return int_size_in_bytes_hwi (type);
 
   /* No type info available for some library calls ...  */
   if (mode != BLKmode)
@@ -11493,8 +11493,8 @@ s390_function_arg_vector (machine_mode mode, const_tree type)
 	{
 	  /* If the field declaration adds extra byte due to
 	     e.g. padding this is not accepted as vector type.  */
-	  if (int_size_in_bytes (single) <= 0
-	      || int_size_in_bytes (single) != int_size_in_bytes (type))
+	  if (int_size_in_bytes_hwi (single) <= 0
+	      || int_size_in_bytes_hwi (single) != int_size_in_bytes_hwi (type))
 	    return false;
 	  type = single;
 	}
@@ -11738,12 +11738,12 @@ s390_return_in_memory (const_tree type, const_tree fundecl ATTRIBUTE_UNUSED)
       || POINTER_TYPE_P (type)
       || TREE_CODE (type) == OFFSET_TYPE
       || TREE_CODE (type) == REAL_TYPE)
-    return int_size_in_bytes (type) > 8;
+    return int_size_in_bytes_hwi (type) > 8;
 
   /* vector types which fit into a VR.  */
   if (TARGET_VX_ABI
       && VECTOR_TYPE_P (type)
-      && int_size_in_bytes (type) <= 16)
+      && int_size_in_bytes_hwi (type) <= 16)
     return false;
 
   /* Aggregates and similar constructs are always returned
@@ -12087,7 +12087,7 @@ s390_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   valist = unshare_expr (valist);
   ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
 
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
 
   s390_check_type_for_vector_abi (type, true, false);
 

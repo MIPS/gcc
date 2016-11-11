@@ -5192,7 +5192,7 @@ arm_function_value(const_tree type, const_tree func,
      for big-endian AAPCS.  */
   if (arm_return_in_msb (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
       if (size % UNITS_PER_WORD != 0)
 	{
 	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
@@ -5378,7 +5378,7 @@ arm_return_in_memory (const_tree type, const_tree fntype)
 {
   HOST_WIDE_INT size;
 
-  size = int_size_in_bytes (type);  /* Negative if not fixed size.  */
+  size = int_size_in_bytes_hwi (type);  /* Negative if not fixed size.  */
 
   if (TARGET_AAPCS_BASED)
     {
@@ -5432,7 +5432,7 @@ arm_return_in_memory (const_tree type, const_tree fntype)
      ARM and Thumb compilers, which always return aggregates in memory.  */
 #ifndef ARM_WINCE
   /* All structures/unions bigger than one word are returned in memory.
-     Also catch the case where int_size_in_bytes returns -1.  In this case
+     Also catch the case where int_size_in_bytes_hwi returns -1.  In this case
      the aggregate is either huge or of variable size, and in either case
      we will want to return it via memory and not in a register.  */
   if (size < 0 || size > UNITS_PER_WORD)
@@ -5664,7 +5664,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
       /* Use V2SImode and V4SImode as representatives of all 64-bit
 	 and 128-bit vector types, whether or not those modes are
 	 supported with the present options.  */
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
       switch (size)
 	{
 	case 8:
@@ -6147,7 +6147,7 @@ aapcs_allocate_return_reg (machine_mode mode, const_tree type,
      for big-endian AAPCS.  */
   if (type && arm_return_in_msb (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
       if (size % UNITS_PER_WORD != 0)
 	{
 	  size += UNITS_PER_WORD - size % UNITS_PER_WORD;
@@ -15900,7 +15900,7 @@ arm_pad_reg_upward (machine_mode mode,
 	  if ((AGGREGATE_TYPE_P (type)
 	       || TREE_CODE (type) == COMPLEX_TYPE
 	       || FIXED_POINT_TYPE_P (type))
-	      && int_size_in_bytes (type) <= 4)
+	      && int_size_in_bytes_hwi (type) <= 4)
 	    return true;
 	}
       else

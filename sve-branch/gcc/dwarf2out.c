@@ -331,6 +331,22 @@ matches_main_base (const char *path)
   return last_match;
 }
 
+/* Return true if the size of type T is known and is <= DWARF2_ADDR_SIZE.
+   Store the size in *SIZE_OUT on success, if SIZE_OUT is nonnull.  */
+
+static bool
+addr_sized_p (tree t, unsigned int *size_out = 0)
+{
+  HOST_WIDE_INT size = int_size_in_bytes_hwi (t);
+  if (IN_RANGE (size, 0, DWARF2_ADDR_SIZE))
+    {
+      if (size_out)
+	*size_out = size;
+      return true;
+    }
+  return false;
+}
+
 #ifdef DEBUG_DEBUG_STRUCT
 
 static int
@@ -10951,7 +10967,7 @@ base_type_die (tree type, bool reverse)
   base_type_result = new_die (DW_TAG_base_type, comp_unit_die (), type);
 
   add_AT_unsigned (base_type_result, DW_AT_byte_size,
-		   int_size_in_bytes (type));
+		   tree_to_uhwi (TYPE_SIZE_UNIT (type)));
   add_AT_unsigned (base_type_result, DW_AT_encoding, encoding);
 
   if (need_endianity_attribute_p (reverse))
@@ -11107,14 +11123,14 @@ subrange_type_die (tree type, tree low, tree high, tree bias,
 		   dw_die_ref context_die)
 {
   dw_die_ref subrange_die;
-  const HOST_WIDE_INT size_in_bytes = int_size_in_bytes (type);
+  unsigned HOST_WIDE_INT size_in_bytes = tree_to_uhwi (TYPE_SIZE_UNIT (type));
 
   if (context_die == NULL)
     context_die = comp_unit_die ();
 
   subrange_die = new_die (DW_TAG_subrange_type, context_die, type);
 
-  if (int_size_in_bytes (TREE_TYPE (type)) != size_in_bytes)
+  if (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (type))) != size_in_bytes)
     {
       /* The size of the subrange type and its base type do not match,
 	 so we need to generate a size attribute for the subrange type.  */
@@ -14790,7 +14806,7 @@ dw_loc_list_1 (tree loc, rtx varloc, int want_address,
   if (want_address == 2 && !have_address
       && (dwarf_version >= 4 || !dwarf_strict))
     {
-      if (int_size_in_bytes (TREE_TYPE (loc)) > DWARF2_ADDR_SIZE)
+      if (!addr_sized_p (TREE_TYPE (loc)))
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -14810,10 +14826,10 @@ dw_loc_list_1 (tree loc, rtx varloc, int want_address,
   /* If we've got an address and don't want one, dereference.  */
   if (!want_address && have_address)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (loc));
+      unsigned int size;
       enum dwarf_location_atom op;
 
-      if (size > DWARF2_ADDR_SIZE || size == -1)
+      if (!addr_sized_p (TREE_TYPE (loc), &size))
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -15268,7 +15284,7 @@ loc_list_for_address_of_addr_expr_of_indirect_ref (tree loc, bool toplev,
     list_ret = loc_list_from_tree (TREE_OPERAND (obj, 0), toplev ? 2 : 1,
 				   context);
   else if (toplev
-	   && int_size_in_bytes (TREE_TYPE (loc)) <= DWARF2_ADDR_SIZE
+	   && addr_sized_p (TREE_TYPE (loc))
 	   && (dwarf_version >= 4 || !dwarf_strict))
     {
       list_ret = loc_list_from_tree (TREE_OPERAND (obj, 0), 0, context);
@@ -15450,7 +15466,7 @@ is_handled_procedure_type (tree type)
   return ((INTEGRAL_TYPE_P (type)
 	   || TREE_CODE (type) == OFFSET_TYPE
 	   || TREE_CODE (type) == POINTER_TYPE)
-	  && int_size_in_bytes (type) <= DWARF2_ADDR_SIZE);
+	  && addr_sized_p (type));
 }
 
 /* Helper for resolve_args_picking: do the same but stop when coming across
@@ -16229,7 +16245,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
       else if (want_address == 2
 	       && tree_fits_shwi_p (loc)
 	       && (ret = address_of_int_loc_descriptor
-	       		   (int_size_in_bytes (TREE_TYPE (loc)),
+	       		   (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (loc))),
 	       		    tree_to_shwi (loc))))
 	have_address = 1;
       else if (tree_fits_shwi_p (loc))
@@ -16253,7 +16269,8 @@ loc_list_from_tree_1 (tree loc, int want_address,
       else if (TREE_CODE (loc) == CONSTRUCTOR)
 	{
 	  tree type = TREE_TYPE (loc);
-	  unsigned HOST_WIDE_INT size = int_size_in_bytes (type);
+	  /* DW_OP_piece doesn't support polynomial offsets.  */
+	  unsigned HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
 	  unsigned HOST_WIDE_INT offset = 0;
 	  unsigned HOST_WIDE_INT cnt;
 	  constructor_elt *ce;
@@ -16604,7 +16621,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
   if (want_address == 2 && !have_address
       && (dwarf_version >= 4 || !dwarf_strict))
     {
-      if (int_size_in_bytes (TREE_TYPE (loc)) > DWARF2_ADDR_SIZE)
+      if (!addr_sized_p (TREE_TYPE (loc)))
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -16630,9 +16647,8 @@ loc_list_from_tree_1 (tree loc, int want_address,
   /* If we've got an address and don't want one, dereference.  */
   if (!want_address && have_address)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (loc));
-
-      if (size > DWARF2_ADDR_SIZE || size == -1)
+      unsigned int size;
+      if (!addr_sized_p (TREE_TYPE (loc), &size))
 	{
 	  expansion_failed (loc, NULL_RTX,
 			    "DWARF address size mismatch");
@@ -16752,7 +16768,7 @@ type_byte_size (const_tree type, HOST_WIDE_INT *cst_size)
   struct loc_descr_context ctx;
 
   /* Return a constant integer in priority, if possible.  */
-  *cst_size = int_size_in_bytes (type);
+  *cst_size = int_size_in_bytes_hwi (type);
   if (*cst_size != -1)
     return NULL;
 
@@ -17891,7 +17907,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	  if (!is_int_mode (TYPE_MODE (enttype), &mode)
 	      || GET_MODE_SIZE (mode) != 1)
 	    return false;
-	  if (int_size_in_bytes (type) != size)
+	  if (may_ne (int_size_in_bytes (type), size))
 	    return false;
 	  if (size > TREE_STRING_LENGTH (init))
 	    {
@@ -17907,7 +17923,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
       return false;
     case CONSTRUCTOR:
       type = TREE_TYPE (init);
-      if (int_size_in_bytes (type) != size)
+      if (may_ne (int_size_in_bytes (type), size))
 	return false;
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
@@ -17920,7 +17936,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	      || !tree_fits_shwi_p (TYPE_MIN_VALUE (TYPE_DOMAIN (type))))
 	    return false;
 
-	  fieldsize = int_size_in_bytes (TREE_TYPE (type));
+	  fieldsize = int_size_in_bytes_hwi (TREE_TYPE (type));
 	  if (fieldsize <= 0)
 	    return false;
 
@@ -17966,7 +17982,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	  unsigned HOST_WIDE_INT cnt;
 	  constructor_elt *ce;
 
-	  if (int_size_in_bytes (type) != size)
+	  if (may_ne (int_size_in_bytes (type), size))
 	    return false;
 
 	  if (TREE_CODE (type) == RECORD_TYPE)
@@ -18037,7 +18053,7 @@ tree_add_const_value_attribute (dw_die_ref die, tree t)
   if (CHAR_BIT == 8 && BITS_PER_UNIT == 8
       && initializer_constant_valid_p (init, type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (init));
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (init));
       if (size > 0 && (int) size == size)
 	{
 	  unsigned char *array = ggc_cleared_vec_alloc<unsigned char> (size);
@@ -18683,7 +18699,7 @@ add_byte_size_attribute (dw_die_ref die, tree tree_node)
 	 generally given as the number of bytes normally allocated for an
 	 object of the *declared* type of the member itself.  This is true
 	 even for bit-fields.  */
-      size = int_size_in_bytes (field_type (tree_node));
+      size_expr = type_byte_size (field_type (tree_node), &size);
       break;
     default:
       gcc_unreachable ();
@@ -19388,7 +19404,7 @@ gen_array_type_die (tree type, dw_die_ref context_die)
       array_die = new_die (DW_TAG_string_type, scope_die, type);
       add_name_attribute (array_die, type_tag (type));
       equate_type_number_to_die (type, array_die);
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
       if (size >= 0)
 	add_AT_unsigned (array_die, DW_AT_byte_size, size);
       else if (TYPE_DOMAIN (type) != NULL_TREE
@@ -19398,14 +19414,14 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 	  tree rszdecl = szdecl;
 	  HOST_WIDE_INT rsize = 0;
 
-	  size = int_size_in_bytes (TREE_TYPE (szdecl));
+	  size = int_size_in_bytes_hwi (TREE_TYPE (szdecl));
 	  if (!DECL_P (szdecl))
 	    {
 	      if (TREE_CODE (szdecl) == INDIRECT_REF
 		  && DECL_P (TREE_OPERAND (szdecl, 0)))
 		{
 		  rszdecl = TREE_OPERAND (szdecl, 0);
-		  rsize = int_size_in_bytes (TREE_TYPE (rszdecl));
+		  rsize = int_size_in_bytes_hwi (TREE_TYPE (rszdecl));
 		  if (rsize <= 0)
 		    size = 0;
 		}

@@ -494,7 +494,7 @@ m32r_in_small_data_p (const_tree decl)
     {
       if (! TREE_READONLY (decl) && ! TARGET_SDATA_NONE)
 	{
-	  int size = int_size_in_bytes (TREE_TYPE (decl));
+	  int size = int_size_in_bytes_hwi (TREE_TYPE (decl));
 
 	  if (size > 0 && size <= g_switch_value)
 	    return true;
@@ -671,7 +671,7 @@ m32r_pass_by_reference (cumulative_args_t ca ATTRIBUTE_UNUSED,
   int size;
 
   if (type)
-    size = int_size_in_bytes (type);
+    size = int_size_in_bytes_hwi (type);
   else
     size = GET_MODE_SIZE (mode);
 
@@ -1153,7 +1153,7 @@ m32r_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
   int words;
   unsigned int size =
     (((mode == BLKmode && type)
-      ? (unsigned int) int_size_in_bytes (type)
+      ? (unsigned int) int_size_in_bytes_hwi (type)
       : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
     / UNITS_PER_WORD;
 
@@ -1175,7 +1175,7 @@ m32r_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
 /* Round arg MODE/TYPE up to the next word boundary.  */
 #define ROUND_ADVANCE_ARG(MODE, TYPE) \
   ((MODE) == BLKmode				\
-   ? ROUND_ADVANCE ((unsigned int) int_size_in_bytes (TYPE))	\
+   ? ROUND_ADVANCE ((unsigned int) int_size_in_bytes_hwi (TYPE))	\
    : ROUND_ADVANCE ((unsigned int) GET_MODE_SIZE (MODE)))
 
 /* Round CUM up to the necessary point for argument MODE/TYPE.  */

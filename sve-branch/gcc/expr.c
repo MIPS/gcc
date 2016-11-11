@@ -2619,7 +2619,7 @@ maybe_emit_group_store (rtx x, tree type)
 void
 copy_blkmode_from_reg (rtx target, rtx srcreg, tree type)
 {
-  unsigned HOST_WIDE_INT bytes = int_size_in_bytes (type);
+  unsigned HOST_WIDE_INT bytes = int_size_in_bytes_hwi (type);
   rtx src = NULL, dst = NULL;
   unsigned HOST_WIDE_INT bitsize = MIN (TYPE_ALIGN (type), BITS_PER_WORD);
   unsigned HOST_WIDE_INT bitpos, xbitpos, padding_correction = 0;
@@ -2744,7 +2744,7 @@ copy_blkmode_to_reg (machine_mode mode_in, tree src)
 
   x = expand_normal (src);
 
-  bytes = int_size_in_bytes (TREE_TYPE (src));
+  bytes = int_size_in_bytes_hwi (TREE_TYPE (src));
   if (bytes == 0)
     return NULL_RTX;
 
@@ -5772,7 +5772,7 @@ flexible_array_member_p (const_tree f, const_tree type)
 	  && TYPE_MIN_VALUE (TYPE_DOMAIN (tf))
 	  && integer_zerop (TYPE_MIN_VALUE (TYPE_DOMAIN (tf)))
 	  && !TYPE_MAX_VALUE (TYPE_DOMAIN (tf))
-	  && int_size_in_bytes (type) >= 0);
+	  && may_ne (int_size_in_bytes (type), -1));
 }
 
 /* If FOR_CTOR_P, return the number of top-level elements that a constructor
@@ -6166,7 +6166,7 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 		   bool reverse)
 {
   tree type = TREE_TYPE (exp);
-  HOST_WIDE_INT exp_size = int_size_in_bytes (type);
+  poly_int64 exp_size = int_size_in_bytes (type);
 
   switch (TREE_CODE (type))
     {
@@ -6292,8 +6292,8 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 		&& bitpos % BITS_PER_WORD == 0
 		&& GET_MODE_CLASS (mode) == MODE_INT
 		&& TREE_CODE (value) == INTEGER_CST
-		&& exp_size >= 0
-		&& bitpos + BITS_PER_WORD <= exp_size * BITS_PER_UNIT)
+		&& may_ne (exp_size, -1)
+		&& must_le (bitpos + BITS_PER_WORD, exp_size * BITS_PER_UNIT))
 	      {
 		tree type = TREE_TYPE (value);
 
@@ -6939,7 +6939,7 @@ store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
 	 The Irix 6 ABI has examples of this.  */
       if (GET_CODE (temp) == PARALLEL)
 	{
-	  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
+	  poly_int64 size = int_size_in_bytes (TREE_TYPE (exp));
 	  rtx temp_target;
 	  if (mode == BLKmode || mode == VOIDmode)
 	    mode = smallest_int_mode_for_size (size * BITS_PER_UNIT);
@@ -6958,7 +6958,7 @@ store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
 	    }
 	  else
 	    {
-	      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
+	      poly_int64 size = int_size_in_bytes (TREE_TYPE (exp));
 	      rtx temp_target;
 	      mode = smallest_int_mode_for_size (size * BITS_PER_UNIT);
 	      temp_target = gen_reg_rtx (mode);
@@ -8323,14 +8323,15 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	      gcc_assert (REG_P (target)
 			  && !TYPE_REVERSE_STORAGE_ORDER (type));
 
-	      /* Store this field into a union of the proper type.  */
-	      store_field (target,
-			   MIN ((int_size_in_bytes (TREE_TYPE
-						    (treeop0))
-				 * BITS_PER_UNIT),
-				(HOST_WIDE_INT) GET_MODE_BITSIZE (mode)),
-			   0, 0, 0, TYPE_MODE (valtype), treeop0, 0,
-			   false, false);
+	      /* Store this field into a union of the proper type.
+		 The relationship between the sizes of the union
+		 fields and size of the union itself must be known
+		 at compile time.  */
+	      poly_int64 bytes1 = int_size_in_bytes (TREE_TYPE (treeop0));
+	      poly_int64 bytes2 = GET_MODE_SIZE (mode);
+	      poly_int64 bytes = ordered_min (bytes1, bytes2);
+	      store_field (target, bytes * BITS_PER_UNIT, 0, 0, 0,
+			   TYPE_MODE (valtype), treeop0, 0, false, false);
 	    }
 
 	  /* Return the entire union.  */
@@ -10955,10 +10956,12 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 		}
 	      else if (STRICT_ALIGNMENT)
 		{
+		  /* We must know the relationship between the converted
+		     size and the original size at compile time.  */
 		  tree inner_type = TREE_TYPE (treeop0);
-		  HOST_WIDE_INT temp_size
-		    = MAX (int_size_in_bytes (inner_type),
-			   (HOST_WIDE_INT) GET_MODE_SIZE (mode));
+		  poly_int64 temp_size = int_size_in_bytes (inner_type);
+		  poly_int64 mode_size = GET_MODE_SIZE (mode);
+		  temp_size = ordered_max (temp_size, mode_size);
 		  rtx new_rtx
 		    = assign_stack_temp_for_type (mode, temp_size, type);
 		  rtx new_with_op0_mode

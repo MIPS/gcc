@@ -10735,7 +10735,7 @@ rs6000_aggregate_candidate (const_tree type, machine_mode *modep)
 	return -1;
 
       /* Use V4SImode as representative of all 128-bit vector types.  */
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
       switch (size)
 	{
 	case 16:
@@ -10928,7 +10928,7 @@ rs6000_discover_homogeneous_aggregate (machine_mode mode, const_tree type,
    The PPC32 SVR4 ABI uses IEEE double extended for long double, if 128-bit
    long double support is enabled.  These values are returned in memory.
 
-   int_size_in_bytes returns -1 for variable size objects, which go in
+   int_size_in_bytes_hwi returns -1 for variable size objects, which go in
    memory always.  The cast to unsigned makes -1 > 8.  */
 
 static bool
@@ -10938,7 +10938,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   if (TARGET_MACHO
       && rs6000_darwin64_abi
       && TREE_CODE (type) == RECORD_TYPE
-      && int_size_in_bytes (type) > 0)
+      && int_size_in_bytes_hwi (type) > 0)
     {
       CUMULATIVE_ARGS valcum;
       rtx valret;
@@ -10961,12 +10961,12 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 
   /* The ELFv2 ABI returns aggregates up to 16B in registers */
   if (DEFAULT_ABI == ABI_ELFv2 && AGGREGATE_TYPE_P (type)
-      && (unsigned HOST_WIDE_INT) int_size_in_bytes (type) <= 16)
+      && (unsigned HOST_WIDE_INT) int_size_in_bytes_hwi (type) <= 16)
     return false;
 
   if (AGGREGATE_TYPE_P (type)
       && (aix_struct_return
-	  || (unsigned HOST_WIDE_INT) int_size_in_bytes (type) > 8))
+	  || (unsigned HOST_WIDE_INT) int_size_in_bytes_hwi (type) > 8))
     return true;
 
   /* Allow -maltivec -mabi=no-altivec without warning.  Altivec vector
@@ -10977,7 +10977,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 
   /* Return synthetic vectors in memory.  */
   if (TREE_CODE (type) == VECTOR_TYPE
-      && int_size_in_bytes (type) > (TARGET_ALTIVEC_ABI ? 16 : 8))
+      && int_size_in_bytes_hwi (type) > (TARGET_ALTIVEC_ABI ? 16 : 8))
     {
       static bool warned_for_return_big_vectors = false;
       if (!warned_for_return_big_vectors)
@@ -11257,7 +11257,7 @@ function_arg_padding (machine_mode mode, const_tree type)
 	  if (mode == BLKmode)
 	    {
 	      if (type && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST)
-		size = int_size_in_bytes (type);
+		size = int_size_in_bytes_hwi (type);
 	    }
 	  else
 	    size = GET_MODE_SIZE (mode);
@@ -11311,12 +11311,12 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
     return 128;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
-	       && int_size_in_bytes (type) >= 8
-	       && int_size_in_bytes (type) < 16))
+	       && int_size_in_bytes_hwi (type) >= 8
+	       && int_size_in_bytes_hwi (type) < 16))
     return 64;
   else if (ALTIVEC_OR_VSX_VECTOR_MODE (elt_mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
-	       && int_size_in_bytes (type) >= 16))
+	       && int_size_in_bytes_hwi (type) >= 16))
     return 128;
 
   /* Aggregate types that need > 8 byte alignment are quadword-aligned
@@ -11395,7 +11395,7 @@ rs6000_arg_size (machine_mode mode, const_tree type)
   if (mode != BLKmode)
     size = GET_MODE_SIZE (mode);
   else
-    size = int_size_in_bytes (type);
+    size = int_size_in_bytes_hwi (type);
 
   if (TARGET_32BIT)
     return (size + 3) >> 2;
@@ -11550,9 +11550,9 @@ rs6000_darwin64_struct_check_p (machine_mode mode, const_tree type)
   return rs6000_darwin64_abi
 	 && ((mode == BLKmode 
 	      && TREE_CODE (type) == RECORD_TYPE 
-	      && int_size_in_bytes (type) > 0)
+	      && int_size_in_bytes_hwi (type) > 0)
 	  || (type && TREE_CODE (type) == RECORD_TYPE 
-	      && int_size_in_bytes (type) == 8)) ? 1 : 0;
+	      && int_size_in_bytes_hwi (type) == 8)) ? 1 : 0;
 }
 
 /* Update the data in CUM to advance over an argument
@@ -11601,7 +11601,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
   if (TARGET_ALTIVEC_ABI
       && (ALTIVEC_OR_VSX_VECTOR_MODE (elt_mode)
 	  || (type && TREE_CODE (type) == VECTOR_TYPE
-	      && int_size_in_bytes (type) == 16)))
+	      && int_size_in_bytes_hwi (type) == 16)))
     {
       bool stack = false;
 
@@ -11657,7 +11657,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 
   else if (TARGET_MACHO && rs6000_darwin64_struct_check_p (mode, type))
     {
-      int size = int_size_in_bytes (type);
+      int size = int_size_in_bytes_hwi (type);
       /* Variable sized types have size == -1 and are
 	 treated as if consisting entirely of ints.
 	 Pad to 16 byte boundary if needed.  */
@@ -12033,7 +12033,7 @@ rs6000_darwin64_record_arg (CUMULATIVE_ARGS *orig_cum, const_tree type,
 {
   rtx rvec[FIRST_PSEUDO_REGISTER];
   int k = 1, kbase = 1;
-  HOST_WIDE_INT typesize = int_size_in_bytes (type);
+  HOST_WIDE_INT typesize = int_size_in_bytes_hwi (type);
   /* This is a copy; modifications are not visible to our caller.  */
   CUMULATIVE_ARGS copy_cum = *orig_cum;
   CUMULATIVE_ARGS *cum = &copy_cum;
@@ -12297,7 +12297,7 @@ rs6000_function_arg (cumulative_args_t cum_v, machine_mode mode,
   else if (TARGET_ALTIVEC_ABI
 	   && (ALTIVEC_OR_VSX_VECTOR_MODE (mode)
 	       || (type && TREE_CODE (type) == VECTOR_TYPE
-		   && int_size_in_bytes (type) == 16)))
+		   && int_size_in_bytes_hwi (type) == 16)))
     {
       if (named || abi == ABI_V4)
 	return NULL_RTX;
@@ -12612,7 +12612,7 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
       return 1;
     }
 
-  if (int_size_in_bytes (type) < 0)
+  if (int_size_in_bytes_hwi (type) < 0)
     {
       if (TARGET_DEBUG_ARG)
 	fprintf (stderr, "function_arg_pass_by_reference: variable size\n");
@@ -12630,7 +12630,7 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 
   /* Pass synthetic vectors in memory.  */
   if (TREE_CODE (type) == VECTOR_TYPE
-      && int_size_in_bytes (type) > (TARGET_ALTIVEC_ABI ? 16 : 8))
+      && int_size_in_bytes_hwi (type) > (TARGET_ALTIVEC_ABI ? 16 : 8))
     {
       static bool warned_for_pass_big_vectors = false;
       if (TARGET_DEBUG_ARG)
@@ -13265,7 +13265,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), unshare_expr (valist),
 		f_sav, NULL_TREE);
 
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
   rsize = (size + 3) / 4;
   align = 1;
 
@@ -34165,7 +34165,7 @@ rs6000_elf_in_small_data_p (const_tree decl)
     }
   else
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (decl));
 
       if (size > 0
 	  && size <= g_switch_value
@@ -35104,7 +35104,7 @@ rs6000_xcoff_section_type_flags (tree decl, const char *name, int reloc)
   else
     /* Increase alignment of large objects if not already stricter.  */
     align = MAX ((DECL_ALIGN (decl) / BITS_PER_UNIT),
-		 int_size_in_bytes (TREE_TYPE (decl)) > MIN_UNITS_PER_WORD
+		 int_size_in_bytes_hwi (TREE_TYPE (decl)) > MIN_UNITS_PER_WORD
 		 ? UNITS_PER_FP_WORD : MIN_UNITS_PER_WORD);
 
   return flags | (exact_log2 (align) & SECTION_ENTSIZE);

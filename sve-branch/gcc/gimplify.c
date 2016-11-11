@@ -663,13 +663,13 @@ force_constant_size (tree var)
   /* The only attempt we make is by querying the maximum size of objects
      of the variable's type.  */
 
-  HOST_WIDE_INT max_size;
+  poly_int64 max_size;
 
   gcc_assert (VAR_P (var));
 
   max_size = max_int_size_in_bytes (TREE_TYPE (var));
 
-  gcc_assert (max_size >= 0);
+  gcc_assert (may_ge (max_size, 0));
 
   DECL_SIZE_UNIT (var)
     = build_int_cst (TREE_TYPE (DECL_SIZE_UNIT (var)), max_size);
@@ -4483,7 +4483,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   parts in, then generate code for the non-constant parts.  */
 	/* TODO.  There's code in cp/typeck.c to do this.  */
 
-	if (int_size_in_bytes (TREE_TYPE (ctor)) < 0)
+	if (must_eq (int_size_in_bytes (TREE_TYPE (ctor)), -1))
 	  /* store_constructor will ignore the clearing of variable-sized
 	     objects.  Initializers for such objects must explicitly set
 	     every field that needs to be set.  */
@@ -4529,16 +4529,17 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		|| !lookup_attribute ("chkp ctor",
 				      DECL_ATTRIBUTES (current_function_decl))))
 	  {
-	    HOST_WIDE_INT size = int_size_in_bytes (type);
+	    poly_int64 size = int_size_in_bytes (type);
 	    unsigned int align;
+	    HOST_WIDE_INT const_size;
 
 	    /* ??? We can still get unbounded array types, at least
 	       from the C++ front end.  This seems wrong, but attempt
 	       to work around it for now.  */
-	    if (size < 0)
+	    if (must_eq (size, -1))
 	      {
 		size = int_size_in_bytes (TREE_TYPE (object));
-		if (size >= 0)
+		if (may_ne (size, -1))
 		  TREE_TYPE (ctor) = type = TREE_TYPE (object);
 	      }
 
@@ -4552,10 +4553,11 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    /* Do a block move either if the size is so small as to make
 	       each individual move a sub-unit move on average, or if it
 	       is so large as to make individual moves inefficient.  */
-	    if (size > 0
+	    if (may_gt (size, 0)
 		&& num_nonzero_elements > 1
-		&& (size < num_nonzero_elements
-		    || !can_move_by_pieces (size, align)))
+		&& (!size.is_constant (&const_size)
+		    || const_size < num_nonzero_elements
+		    || !can_move_by_pieces (const_size, align)))
 	      {
 		if (notify_temp_creation)
 		  return GS_ERROR;
@@ -8230,7 +8232,7 @@ omp_shared_to_firstprivate_optimizable_decl_p (tree decl)
     return false;
   /* Don't optimize too large decls, as each thread/task will have
      its own.  */
-  HOST_WIDE_INT len = int_size_in_bytes (type);
+  HOST_WIDE_INT len = int_size_in_bytes_hwi (type);
   if (len == -1 || len > 4 * POINTER_SIZE / BITS_PER_UNIT)
     return false;
   if (lang_hooks.decls.omp_privatize_by_reference (decl))

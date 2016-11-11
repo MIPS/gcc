@@ -12455,7 +12455,7 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
       tree t, side_effects = NULL_TREE, size = NULL_TREE;
       tree condition = NULL_TREE;
 
-      if (int_size_in_bytes (TREE_TYPE (first)) <= 0)
+      if (must_le (int_size_in_bytes (TREE_TYPE (first)), 0))
 	maybe_zero_len = true;
 
       for (i = num, t = OMP_CLAUSE_DECL (c); i > 0;

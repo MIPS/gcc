@@ -7149,11 +7149,11 @@ ix86_in_large_data_p (tree exp)
     }
   else
     {
-      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (exp));
 
       /* If this is an incomplete type with size 0, then we can't put it
 	 in data because it might be too big when completed.  Also,
-	 int_size_in_bytes returns -1 if size can vary or is larger than
+	 int_size_in_bytes_hwi returns -1 if size can vary or is larger than
 	 an integer in which case also it is safer to assume that it goes in
 	 large data.  */
       if (size <= 0 || size > ix86_section_threshold)
@@ -8489,7 +8489,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 
   if (TREE_CODE (type) == VECTOR_TYPE && !VECTOR_MODE_P (mode))
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
       if ((size == 8 || size == 16 || size == 32 || size == 64)
 	  /* ??? Generic code allows us to create width 1 vectors.  Ignore.  */
 	  && TYPE_VECTOR_SUBPARTS (type) > 1)
@@ -8688,8 +8688,9 @@ static int
 classify_argument (machine_mode mode, const_tree type,
 		   enum x86_64_reg_class classes[MAX_CLASSES], int bit_offset)
 {
-  HOST_WIDE_INT bytes =
-    (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
+  HOST_WIDE_INT bytes = (mode == BLKmode
+			 ? int_size_in_bytes_hwi (type)
+			 : (int) GET_MODE_SIZE (mode));
   int words = CEIL (bytes + (bit_offset % 64) / 8, UNITS_PER_WORD);
 
   /* Variable sized entities are always passed/returned in memory.  */
@@ -9140,8 +9141,9 @@ construct_container (machine_mode mode, machine_mode orig_mode,
   static bool issued_x87_ret_error;
 
   machine_mode tmpmode;
-  int bytes =
-    (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
+  int bytes = (mode == BLKmode
+	       ? int_size_in_bytes_hwi (type)
+	       : (int) GET_MODE_SIZE (mode));
   enum x86_64_reg_class regclass[MAX_CLASSES];
   int n;
   int i;
@@ -9558,7 +9560,7 @@ ix86_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
     return;
 
   if (mode == BLKmode)
-    bytes = int_size_in_bytes (type);
+    bytes = int_size_in_bytes_hwi (type);
   else
     bytes = GET_MODE_SIZE (mode);
   words = CEIL (bytes, UNITS_PER_WORD);
@@ -9922,7 +9924,7 @@ ix86_function_arg (cumulative_args_t cum_v, machine_mode omode,
     }
 
   if (mode == BLKmode)
-    bytes = int_size_in_bytes (type);
+    bytes = int_size_in_bytes_hwi (type);
   else
     bytes = GET_MODE_SIZE (mode);
   words = CEIL (bytes, UNITS_PER_WORD);
@@ -9983,14 +9985,14 @@ ix86_pass_by_reference (cumulative_args_t cum_v, machine_mode mode,
 		{
 		  /* Structs/unions of sizes other than 8, 16, 32, or 64 bits
 		     are passed by reference.  */
-		  msize = int_size_in_bytes (type);
+		  msize = int_size_in_bytes_hwi (type);
 		}
 	    }
 
 	  /* __m128 is passed by reference.  */
 	  return msize != 1 && msize != 2 && msize != 4 && msize != 8;
 	}
-      else if (type && int_size_in_bytes (type) == -1)
+      else if (type && int_size_in_bytes_hwi (type) == -1)
 	return true;
     }
 
@@ -10519,7 +10521,7 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     {
       if (ix86_function_type_abi (fntype) == MS_ABI)
 	{
-	  size = int_size_in_bytes (type);
+	  size = int_size_in_bytes_hwi (type);
 
 	  /* __m128 is returned in xmm0.  */
 	  if ((!type || VECTOR_INTEGER_TYPE_P (type)
@@ -10543,7 +10545,7 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     }
   else
     {
-      size = int_size_in_bytes (type);
+      size = int_size_in_bytes_hwi (type);
 
       /* Intel MCU psABI returns scalars and aggregates no larger than 8
 	 bytes in registers.  */
@@ -11095,7 +11097,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, false);
   if (indirect_p)
     type = build_pointer_type (type);
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
   rsize = CEIL (size, UNITS_PER_WORD);
 
   nat_mode = type_natural_mode (type, NULL, false);

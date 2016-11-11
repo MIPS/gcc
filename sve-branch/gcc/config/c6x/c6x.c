@@ -508,7 +508,7 @@ c6x_function_arg (cumulative_args_t cum_v, machine_mode mode,
     return NULL_RTX;
   if (type)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
       if (TARGET_BIG_ENDIAN && AGGREGATE_TYPE_P (type))
 	{
 	  if (size > 4)
@@ -550,7 +550,7 @@ c6x_block_reg_pad_upward (machine_mode mode ATTRIBUTE_UNUSED,
     return true;
   if (!type)
     return true;
-  size = int_size_in_bytes (type);
+  size = int_size_in_bytes_hwi (type);
   return size == 3;
 }
 
@@ -566,7 +566,7 @@ c6x_function_arg_boundary (machine_mode mode, const_tree type)
 
   if (mode == BLKmode)
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
       if (size > 4)
 	return 2 * BITS_PER_WORD;
       if (boundary < BITS_PER_WORD)
@@ -598,7 +598,7 @@ c6x_function_value (const_tree type, const_tree func ATTRIBUTE_UNUSED,
      have to adjust for endianness.  */
   if (TARGET_BIG_ENDIAN && type && AGGREGATE_TYPE_P (type))
     {
-      HOST_WIDE_INT size = int_size_in_bytes (type);
+      HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
       if (size > 4)
 	{
 
@@ -646,7 +646,7 @@ c6x_pass_by_reference (cumulative_args_t cum_v ATTRIBUTE_UNUSED,
 {
   int size = -1;
   if (type)
-    size = int_size_in_bytes (type);
+    size = int_size_in_bytes_hwi (type);
   else if (mode != VOIDmode)
     size = GET_MODE_SIZE (mode);
   return size > 2 * UNITS_PER_WORD || size == -1;
@@ -659,7 +659,7 @@ c6x_pass_by_reference (cumulative_args_t cum_v ATTRIBUTE_UNUSED,
 static bool
 c6x_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  int size = int_size_in_bytes (type);
+  int size = int_size_in_bytes_hwi (type);
   return size > 2 * UNITS_PER_WORD || size == -1;
 }
 
@@ -669,7 +669,7 @@ c6x_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 static bool
 c6x_return_in_msb (const_tree valtype)
 {
-  HOST_WIDE_INT size = int_size_in_bytes (valtype);
+  HOST_WIDE_INT size = int_size_in_bytes_hwi (valtype);
   return TARGET_BIG_ENDIAN && AGGREGATE_TYPE_P (valtype) && size == 3;
 }
 

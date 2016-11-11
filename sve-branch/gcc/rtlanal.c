@@ -871,7 +871,7 @@ offset_within_block_p (const_rtx symbol, HOST_WIDE_INT offset)
 	return true;
 
       decl = SYMBOL_REF_DECL (symbol);
-      if (decl && offset < int_size_in_bytes (TREE_TYPE (decl)))
+      if (decl && must_lt (offset, int_size_in_bytes (TREE_TYPE (decl))))
 	return true;
     }
 

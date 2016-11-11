@@ -4854,7 +4854,7 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
       tree t, side_effects = NULL_TREE, size = NULL_TREE;
       tree condition = NULL_TREE;
 
-      if (int_size_in_bytes (TREE_TYPE (first)) <= 0)
+      if (may_le (int_size_in_bytes (TREE_TYPE (first)), 0))
 	maybe_zero_len = true;
       if (processing_template_decl && maybe_zero_len)
 	return false;

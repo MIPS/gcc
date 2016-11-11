@@ -3420,7 +3420,7 @@ optimize_atomic_compare_exchange_p (gimple *stmt)
       && optab_handler (sync_compare_and_swap_optab, mode) == CODE_FOR_nothing)
     return false;
 
-  if (int_size_in_bytes (etype) != GET_MODE_SIZE (mode))
+  if (may_ne (int_size_in_bytes (etype), GET_MODE_SIZE (mode)))
     return false;
 
   return true;
@@ -3454,8 +3454,10 @@ fold_builtin_atomic_compare_exchange (gimple_stmt_iterator *gsi)
 				       gimple_assign_lhs (g)));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
-  int flag = (integer_onep (gimple_call_arg (stmt, 3)) ? 256 : 0)
-	     + int_size_in_bytes (itype);
+  /* The valid sizes are enumerated by the N in __atomic_compare_exchange_N,
+     so are known to be small constants.  */
+  int flag = ((integer_onep (gimple_call_arg (stmt, 3)) ? 256 : 0)
+	      + int_size_in_bytes_hwi (itype));
   g = gimple_build_call_internal (IFN_ATOMIC_COMPARE_EXCHANGE, 6,
 				  gimple_call_arg (stmt, 0),
 				  gimple_assign_lhs (g),

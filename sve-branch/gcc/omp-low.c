@@ -18479,8 +18479,8 @@ add_decls_addresses_to_decl_constructor (vec<tree, va_gc> *v_decls,
 	  /* Most significant bit of the size marks "omp declare target link"
 	     vars in host and target tables.  */
 	  unsigned HOST_WIDE_INT isize = tree_to_uhwi (size);
-	  isize |= 1ULL << (int_size_in_bytes (const_ptr_type_node)
-			    * BITS_PER_UNIT - 1);
+	  isize |= 1ULL << (tree_to_uhwi (TYPE_SIZE (const_ptr_type_node))
+			    - 1);
 	  size = wide_int_to_tree (const_ptr_type_node, isize);
 	}
 

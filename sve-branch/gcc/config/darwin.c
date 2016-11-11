@@ -1240,7 +1240,7 @@ darwin_mergeable_string_section (tree exp,
       && TREE_CODE (exp) == STRING_CST
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
       && align <= 256
-      && (int_size_in_bytes (TREE_TYPE (exp))
+      && (int_size_in_bytes_hwi (TREE_TYPE (exp))
 	  == TREE_STRING_LENGTH (exp))
       && ((size_t) TREE_STRING_LENGTH (exp)
 	  == strlen (TREE_STRING_POINTER (exp)) + 1))

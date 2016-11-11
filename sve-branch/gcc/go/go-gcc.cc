@@ -982,7 +982,7 @@ Gcc_backend::function_type(const Btyped_identifier& receiver,
   // returns a zero-sized value as returning void.  That should do no
   // harm since there is no actual value to be returned.  See
   // https://gcc.gnu.org/PR72814 for details.
-  if (result != void_type_node && int_size_in_bytes(result) == 0)
+  if (result != void_type_node && must_eq(int_size_in_bytes(result), 0))
     result = void_type_node;
 
   tree fntype = build_function_type(result, args);
@@ -1836,7 +1836,7 @@ Gcc_backend::constructor_expression(Btype* btype,
           || TREE_TYPE(val) == error_mark_node)
         return this->error_expression();
 
-      if (int_size_in_bytes(TREE_TYPE(field)) == 0)
+      if (must_eq(int_size_in_bytes(TREE_TYPE(field)), 0))
 	{
 	  // GIMPLE cannot represent indices of zero-sized types so
 	  // trying to construct a map with zero-sized keys might lead
@@ -1877,9 +1877,9 @@ Gcc_backend::array_constructor_expression(
   gcc_assert(indexes.size() == vals.size());
 
   tree element_type = TREE_TYPE(type_tree);
-  HOST_WIDE_INT element_size = int_size_in_bytes(element_type);
+  bool zero_size_p = must_eq(int_size_in_bytes(element_type), 0);
   vec<constructor_elt, va_gc> *init;
-  vec_alloc(init, element_size == 0 ? 0 : vals.size());
+  vec_alloc(init, zero_size_p ? 0 : vals.size());
 
   tree sink = NULL_TREE;
   bool is_constant = true;
@@ -1892,7 +1892,7 @@ Gcc_backend::array_constructor_expression(
           || val == error_mark_node)
         return this->error_expression();
 
-      if (element_size == 0)
+      if (zero_size_p)
        {
          // GIMPLE cannot represent arrays of zero-sized types so trying
          // to construct an array of zero-sized values might lead to errors.
@@ -2079,9 +2079,9 @@ Gcc_backend::init_statement(Bvariable* var, Bexpression* init)
   // initialization of a zero-sized expression to a non-zero sized
   // variable, or vice-versa.  Avoid crashes by omitting the
   // initializer.  Such initializations don't mean anything anyhow.
-  if (int_size_in_bytes(TREE_TYPE(var_tree)) != 0
+  if (may_ne(int_size_in_bytes(TREE_TYPE(var_tree)), 0)
       && init_tree != NULL_TREE
-      && int_size_in_bytes(TREE_TYPE(init_tree)) != 0)
+      && may_ne(int_size_in_bytes(TREE_TYPE(init_tree)), 0))
     {
       DECL_INITIAL(var_tree) = init_tree;
       init_tree = NULL_TREE;
@@ -2113,8 +2113,8 @@ Gcc_backend::assignment_statement(Bexpression* lhs, Bexpression* rhs,
   // expression; avoid crashes here by avoiding assignments of
   // zero-sized expressions.  Such assignments don't really mean
   // anything anyhow.
-  if (int_size_in_bytes(TREE_TYPE(lhs_tree)) == 0
-      || int_size_in_bytes(TREE_TYPE(rhs_tree)) == 0)
+  if (must_eq(int_size_in_bytes(TREE_TYPE(lhs_tree)), 0)
+      || must_eq(int_size_in_bytes(TREE_TYPE(rhs_tree)), 0))
     return this->compound_statement(this->expression_statement(lhs),
 				    this->expression_statement(rhs));
 
@@ -2134,8 +2134,8 @@ Gcc_backend::assignment_statement(Bexpression* lhs, Bexpression* rhs,
       else if (TREE_CODE(lhs_type_tree) == RECORD_TYPE
 	       || TREE_CODE(lhs_type_tree) == ARRAY_TYPE)
 	{
-	  gcc_assert(int_size_in_bytes(lhs_type_tree)
-		     == int_size_in_bytes(TREE_TYPE(rhs_tree)));
+	  gcc_assert(must_eq(int_size_in_bytes(lhs_type_tree),
+			     int_size_in_bytes(TREE_TYPE(rhs_tree))));
 	  rhs_tree = fold_build1_loc(location.gcc_location(),
 				     VIEW_CONVERT_EXPR,
 				     lhs_type_tree, rhs_tree);
@@ -2165,7 +2165,7 @@ Gcc_backend::return_statement(Bfunction* bfunction,
   // If the result size is zero bytes, we have set the function type
   // to have a result type of void, so don't return anything.
   // See the function_type method.
-  if (int_size_in_bytes(TREE_TYPE(result)) == 0)
+  if (must_eq(int_size_in_bytes(TREE_TYPE(result)), 0))
     {
       tree stmt_list = NULL_TREE;
       for (std::vector<Bexpression*>::const_iterator p = vals.begin();
@@ -2513,7 +2513,7 @@ tree go_non_zero_struct;
 tree
 Gcc_backend::non_zero_size_type(tree type)
 {
-  if (int_size_in_bytes(type) != 0)
+  if (may_ne(int_size_in_bytes(type), 0))
     return type;
 
   switch (TREE_CODE(type))
@@ -2586,7 +2586,7 @@ Gcc_backend::global_variable(const std::string& package_name,
 
   // The GNU linker does not like dynamic variables with zero size.
   tree orig_type_tree = type_tree;
-  if ((is_external || !is_hidden) && int_size_in_bytes(type_tree) == 0)
+  if ((is_external || !is_hidden) && must_eq(int_size_in_bytes(type_tree), 0))
     type_tree = this->non_zero_size_type(type_tree);
 
   std::string var_name(package_name);

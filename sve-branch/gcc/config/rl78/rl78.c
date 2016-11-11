@@ -1647,7 +1647,7 @@ rl78_function_arg_advance (cumulative_args_t cum_v, machine_mode mode, const_tre
   CUMULATIVE_ARGS * cum = get_cumulative_args (cum_v);
 
   rounded_size = ((mode == BLKmode)
-		  ? int_size_in_bytes (type) : GET_MODE_SIZE (mode));
+		  ? int_size_in_bytes_hwi (type) : GET_MODE_SIZE (mode));
   if (rounded_size & 1)
     rounded_size ++;
   (*cum) += rounded_size;
@@ -4231,7 +4231,7 @@ rl78_reorg (void)
 static bool
 rl78_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  const HOST_WIDE_INT size = int_size_in_bytes (type);
+  const HOST_WIDE_INT size = int_size_in_bytes_hwi (type);
   return (size == -1 || size > 8);
 }
 

@@ -780,7 +780,7 @@ mergeable_string_section (tree decl ATTRIBUTE_UNUSED,
       && TREE_CODE (decl) == STRING_CST
       && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
       && align <= 256
-      && (len = int_size_in_bytes (TREE_TYPE (decl))) > 0
+      && (len = int_size_in_bytes_hwi (TREE_TYPE (decl))) > 0
       && TREE_STRING_LENGTH (decl) >= len)
     {
       scalar_int_mode mode;
@@ -2955,7 +2955,7 @@ const_hash_1 (const tree exp)
 	unsigned HOST_WIDE_INT idx;
 	tree value;
 
-	hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
+	hi = 5 + int_size_in_bytes_hwi (TREE_TYPE (exp));
 
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value)
 	  if (value)
@@ -3102,11 +3102,11 @@ compare_constant (const tree t1, const tree t2)
 
 	if (typecode == ARRAY_TYPE)
 	  {
-	    HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
+	    HOST_WIDE_INT size_1 = int_size_in_bytes_hwi (TREE_TYPE (t1));
 	    /* For arrays, check that mode, size and storage order match.  */
 	    if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
 		|| size_1 == -1
-		|| size_1 != int_size_in_bytes (TREE_TYPE (t2))
+		|| size_1 != int_size_in_bytes_hwi (TREE_TYPE (t2))
 		|| TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t1))
 		   != TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t2)))
 	      return 0;
@@ -3217,7 +3217,7 @@ get_constant_size (tree exp)
 {
   HOST_WIDE_INT size;
 
-  size = int_size_in_bytes (TREE_TYPE (exp));
+  size = int_size_in_bytes_hwi (TREE_TYPE (exp));
   if (TREE_CODE (exp) == STRING_CST)
     size = MAX (TREE_STRING_LENGTH (exp), size);
   return size;
@@ -4712,8 +4712,9 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	 || TREE_CODE (exp) == NON_LVALUE_EXPR
 	 || TREE_CODE (exp) == VIEW_CONVERT_EXPR)
     {
-      HOST_WIDE_INT type_size = int_size_in_bytes (TREE_TYPE (exp));
-      HOST_WIDE_INT op_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (exp, 0)));
+      HOST_WIDE_INT type_size = int_size_in_bytes_hwi (TREE_TYPE (exp));
+      HOST_WIDE_INT op_size
+	= int_size_in_bytes_hwi (TREE_TYPE (TREE_OPERAND (exp, 0)));
 
       /* Make sure eliminating the conversion is really a no-op, except with
 	 VIEW_CONVERT_EXPRs to allow for wild Ada unchecked conversions and
@@ -4728,7 +4729,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
     }
 
   code = TREE_CODE (TREE_TYPE (exp));
-  thissize = int_size_in_bytes (TREE_TYPE (exp));
+  thissize = int_size_in_bytes_hwi (TREE_TYPE (exp));
 
   /* Allow a constructor with no elements for any data type.
      This means to fill the space with zeros.  */
@@ -4913,7 +4914,7 @@ static void
 output_constructor_array_range (oc_local_state *local)
 {
   unsigned HOST_WIDE_INT fieldsize
-    = int_size_in_bytes (TREE_TYPE (local->type));
+    = int_size_in_bytes_hwi (TREE_TYPE (local->type));
 
   HOST_WIDE_INT lo_index
     = tree_to_shwi (TREE_OPERAND (local->index, 0));
@@ -5018,7 +5019,7 @@ output_constructor_regular_field (oc_local_state *local)
 	fieldsize = tree_to_uhwi (DECL_SIZE_UNIT (local->field));
     }
   else
-    fieldsize = int_size_in_bytes (TREE_TYPE (local->type));
+    fieldsize = int_size_in_bytes_hwi (TREE_TYPE (local->type));
 
   /* Output the element's initial value.  */
   if (local->val == NULL_TREE)
