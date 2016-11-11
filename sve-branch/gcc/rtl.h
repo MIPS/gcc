@@ -2804,10 +2804,8 @@ extern rtx gen_lowpart_if_possible (machine_mode, rtx);
 /* In emit-rtl.c */
 extern rtx gen_highpart (machine_mode, rtx);
 extern rtx gen_highpart_mode (machine_mode, machine_mode, rtx);
-extern rtx operand_subword (rtx, unsigned int, int, machine_mode);
-
-/* In emit-rtl.c */
-extern rtx operand_subword_force (rtx, unsigned int, machine_mode);
+extern rtx operand_subword (rtx, poly_int64, int, machine_mode);
+extern rtx operand_subword_force (rtx, poly_int64, machine_mode);
 extern bool partial_subreg_p (machine_mode, machine_mode);
 extern bool partial_subreg_p (const_rtx);
 extern machine_mode wider_subreg_mode (machine_mode, machine_mode);
