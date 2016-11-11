@@ -79,11 +79,8 @@ static void emit_block_move_via_loop (rtx, rtx, rtx, unsigned);
 static void clear_by_pieces (rtx, unsigned HOST_WIDE_INT, unsigned int);
 static rtx_insn *compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
-static void store_constructor_field (rtx, unsigned HOST_WIDE_INT,
-				     HOST_WIDE_INT, machine_mode,
-				     tree, int, alias_set_type, bool);
-static void store_constructor (tree, rtx, int, HOST_WIDE_INT, bool);
-static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT,
+static void store_constructor (tree, rtx, int, poly_int64, bool);
+static rtx store_field (rtx, poly_int64, poly_int64,
 			unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT,
 			machine_mode, tree, alias_set_type, bool, bool);
 
@@ -6077,28 +6074,31 @@ all_zeros_p (const_tree exp)
    clear a substructure if the outer structure has already been cleared.  */
 
 static void
-store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
-			 HOST_WIDE_INT bitpos, machine_mode mode,
-			 tree exp, int cleared,
+store_constructor_field (rtx target, poly_uint64 bitsize, poly_int64 bitpos,
+			 machine_mode mode, tree exp, int cleared,
 			 alias_set_type alias_set, bool reverse)
 {
+  poly_int64 bytepos;
+  poly_int64 bytesize;
   if (TREE_CODE (exp) == CONSTRUCTOR
       /* We can only call store_constructor recursively if the size and
 	 bit position are on a byte boundary.  */
-      && bitpos % BITS_PER_UNIT == 0
-      && (bitsize > 0 && bitsize % BITS_PER_UNIT == 0)
+      && multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
+      && may_ne (bitsize, 0U)
+      && multiple_p (bitsize, BITS_PER_UNIT, &bytesize)
       /* If we have a nonzero bitpos for a register target, then we just
 	 let store_field do the bitfield handling.  This is unlikely to
 	 generate unnecessary clear instructions anyways.  */
-      && (bitpos == 0 || MEM_P (target)))
+      && (must_eq (bitpos, 0) || MEM_P (target)))
     {
       if (MEM_P (target))
-	target
-	  = adjust_address (target,
-			    GET_MODE (target) == BLKmode
-			    || 0 != (bitpos
-				     % GET_MODE_ALIGNMENT (GET_MODE (target)))
-			    ? BLKmode : VOIDmode, bitpos / BITS_PER_UNIT);
+	{
+	  machine_mode target_mode = GET_MODE (target);
+	  if (target_mode != BLKmode
+	      && !multiple_p (bitpos, GET_MODE_ALIGNMENT (target_mode)))
+	    target_mode = BLKmode;
+	  target = adjust_address (target, target_mode, bytepos);
+	}
 
 
       /* Update the alias set, if required.  */
@@ -6109,8 +6109,7 @@ store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
 	  set_mem_alias_set (target, alias_set);
 	}
 
-      store_constructor (exp, target, cleared, bitsize / BITS_PER_UNIT,
-			 reverse);
+      store_constructor (exp, target, cleared, bytesize, reverse);
     }
   else
     store_field (target, bitsize, bitpos, 0, 0, mode, exp, alias_set, false,
@@ -6144,7 +6143,7 @@ fields_length (const_tree type)
    If REVERSE is true, the store is to be done in reverse order.  */
 
 static void
-store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
+store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 		   bool reverse)
 {
   tree type = TREE_TYPE (exp);
@@ -6163,7 +6162,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	reverse = TYPE_REVERSE_STORAGE_ORDER (type);
 
 	/* If size is zero or the target is already cleared, do nothing.  */
-	if (size == 0 || cleared)
+	if (must_eq (size, 0) || cleared)
 	  cleared = 1;
 	/* We either clear the aggregate or indicate the value is dead.  */
 	else if ((TREE_CODE (type) == UNION_TYPE
@@ -6191,14 +6190,14 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	   the whole structure first.  Don't do this if TARGET is a
 	   register whose mode size isn't equal to SIZE since
 	   clear_storage can't handle this case.  */
-	else if (size > 0
+	else if (may_gt (size, 0)
 		 && (((int) CONSTRUCTOR_NELTS (exp) != fields_length (type))
 		     || mostly_zeros_p (exp))
 		 && (!REG_P (target)
-		     || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
-			 == size)))
+		     || must_eq (GET_MODE_SIZE (GET_MODE (target)), size)))
 	  {
-	    clear_storage (target, GEN_INT (size), BLOCK_OP_NORMAL);
+	    clear_storage (target, gen_int_mode (size, Pmode),
+			   BLOCK_OP_NORMAL);
 	    cleared = 1;
 	  }
 
@@ -6399,12 +6398,13 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	      need_to_clear = 1;
 	  }
 
-	if (need_to_clear && size > 0)
+	if (need_to_clear && may_gt (size, 0))
 	  {
 	    if (REG_P (target))
-	      emit_move_insn (target,  CONST0_RTX (GET_MODE (target)));
+	      emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 	    else
-	      clear_storage (target, GEN_INT (size), BLOCK_OP_NORMAL);
+	      clear_storage (target, gen_int_mode (size, Pmode),
+			     BLOCK_OP_NORMAL);
 	    cleared = 1;
 	  }
 
@@ -6418,7 +6418,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), i, index, value)
 	  {
 	    machine_mode mode;
-	    HOST_WIDE_INT bitsize;
+	    poly_int64 bitsize;
 	    HOST_WIDE_INT bitpos;
 	    rtx xtarget = target;
 
@@ -6510,7 +6510,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		    xtarget = adjust_address (xtarget, mode, 0);
 		    if (TREE_CODE (value) == CONSTRUCTOR)
 		      store_constructor (value, xtarget, cleared,
-					 bitsize / BITS_PER_UNIT, reverse);
+					 exact_div (bitsize, BITS_PER_UNIT),
+					 reverse);
 		    else
 		      store_expr (value, xtarget, 0, false, reverse);
 
@@ -6671,12 +6672,13 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	    need_to_clear = (count < n_elts || 4 * zero_count >= 3 * count);
 	  }
 
-	if (need_to_clear && size > 0 && !vector)
+	if (need_to_clear && may_gt (size, 0) && !vector)
 	  {
 	    if (REG_P (target))
 	      emit_move_insn (target, CONST0_RTX (mode));
 	    else
-	      clear_storage (target, GEN_INT (size), BLOCK_OP_NORMAL);
+	      clear_storage (target, gen_int_mode (size, Pmode),
+			     BLOCK_OP_NORMAL);
 	    cleared = 1;
 	  }
 
@@ -6760,7 +6762,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
    If REVERSE is true, the store is to be done in reverse order.  */
 
 static rtx
-store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
+store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
 	     unsigned HOST_WIDE_INT bitregion_start,
 	     unsigned HOST_WIDE_INT bitregion_end,
 	     machine_mode mode, tree exp,
@@ -6771,14 +6773,14 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 
   /* If we have nothing to store, do nothing unless the expression has
      side-effects.  */
-  if (bitsize == 0)
+  if (must_eq (bitsize, 0))
     return expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   if (GET_CODE (target) == CONCAT)
     {
       /* We're storing into a struct containing a single __complex.  */
 
-      gcc_assert (!bitpos);
+      gcc_assert (must_eq (bitpos, 0));
       return store_expr (exp, target, 0, nontemporal, reverse);
     }
 
@@ -6786,6 +6788,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
      is a bit field, we cannot use addressing to access it.
      Use bit-field techniques or SUBREG to store in it.  */
 
+  bool bitsize_known_p = may_ge (bitsize, 0);
   if (mode == VOIDmode
       || (mode != BLKmode && ! direct_store[(int) mode]
 	  && GET_MODE_CLASS (mode) != MODE_COMPLEX_INT
@@ -6796,21 +6799,22 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	 store it as a bit field.  */
       || (mode != BLKmode
 	  && ((((MEM_ALIGN (target) < GET_MODE_ALIGNMENT (mode))
-		|| bitpos % GET_MODE_ALIGNMENT (mode))
+		|| !multiple_p (bitpos, GET_MODE_ALIGNMENT (mode)))
 	       && targetm.slow_unaligned_access (mode, MEM_ALIGN (target)))
-	      || (bitpos % BITS_PER_UNIT != 0)))
-      || (bitsize >= 0 && mode != BLKmode
-	  && GET_MODE_BITSIZE (mode) > bitsize)
+	      || !multiple_p (bitpos, BITS_PER_UNIT)))
+      || (bitsize_known_p
+	  && mode != BLKmode
+	  && may_gt (GET_MODE_BITSIZE (mode), bitsize))
       /* If the RHS and field are a constant size and the size of the
 	 RHS isn't the same size as the bitfield, we must use bitfield
 	 operations.  */
-      || (bitsize >= 0
+      || (bitsize_known_p
 	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST
-	  && compare_tree_int (TYPE_SIZE (TREE_TYPE (exp)), bitsize) != 0
+	  && !equal_tree_size (TYPE_SIZE (TREE_TYPE (exp)), bitsize)
 	  /* Except for initialization of full bytes from a CONSTRUCTOR, which
 	     we will handle specially below.  */
 	  && !(TREE_CODE (exp) == CONSTRUCTOR
-	       && bitsize % BITS_PER_UNIT == 0)
+	       && multiple_p (bitsize, BITS_PER_UNIT))
 	  /* And except for bitwise copying of TREE_ADDRESSABLE types,
 	     where the FIELD_DECL has the right bitsize, but TREE_TYPE (exp)
 	     includes some extra padding.  store_expr / expand_expr will in
@@ -6822,13 +6826,13 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  && (!TREE_ADDRESSABLE (TREE_TYPE (exp))
 	      || TREE_CODE (exp) != COMPONENT_REF
 	      || TREE_CODE (DECL_SIZE (TREE_OPERAND (exp, 1))) != INTEGER_CST
-	      || (bitsize % BITS_PER_UNIT != 0)
-	      || (bitpos % BITS_PER_UNIT != 0)
-	      || (compare_tree_int (DECL_SIZE (TREE_OPERAND (exp, 1)), bitsize)
-		  != 0)))
+	      || !multiple_p (bitsize, BITS_PER_UNIT)
+	      || !multiple_p (bitpos, BITS_PER_UNIT)
+	      || !equal_tree_size (DECL_SIZE (TREE_OPERAND (exp, 1)),
+				   bitsize)))
       /* If we are expanding a MEM_REF of a non-BLKmode non-addressable
          decl we must use bitfield operations.  */
-      || (bitsize >= 0
+      || (bitsize_known_p
 	  && TREE_CODE (exp) == MEM_REF
 	  && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
 	  && DECL_P (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
@@ -6848,11 +6852,12 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	{
 	  tree type = TREE_TYPE (exp);
 	  if (partial_integral_type_p (type)
-	      && bitsize == TYPE_PRECISION (type))
+	      && must_eq (bitsize, TYPE_PRECISION (type)))
 	    {
 	      tree op = gimple_assign_rhs1 (nop_def);
 	      type = TREE_TYPE (op);
-	      if (INTEGRAL_TYPE_P (type) && TYPE_PRECISION (type) >= bitsize)
+	      if (INTEGRAL_TYPE_P (type)
+		  && must_ge (TYPE_PRECISION (type), bitsize))
 		exp = op;
 	    }
 	}
@@ -6876,7 +6881,8 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  if (reverse)
 	    temp = flip_storage_order (temp_mode, temp);
 
-	  if (bitsize < size
+	  gcc_checking_assert (ordered_p (bitsize, size));
+	  if (may_lt (bitsize, size)
 	      && reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
 	    temp = expand_shift (RSHIFT_EXPR, temp_mode, temp,
 				 size - bitsize, NULL_RTX, 1);
@@ -6896,16 +6902,16 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  && (GET_MODE (target) == BLKmode
 	      || (MEM_P (target)
 		  && GET_MODE_CLASS (GET_MODE (target)) == MODE_INT
-		  && (bitpos % BITS_PER_UNIT) == 0
-		  && (bitsize % BITS_PER_UNIT) == 0)))
+		  && multiple_p (bitpos, BITS_PER_UNIT)
+		  && multiple_p (bitsize, BITS_PER_UNIT))))
 	{
-	  gcc_assert (MEM_P (target) && MEM_P (temp)
-		      && (bitpos % BITS_PER_UNIT) == 0);
+	  gcc_assert (MEM_P (target) && MEM_P (temp));
+	  poly_int64 bytepos = exact_div (bitpos, BITS_PER_UNIT);
+	  poly_int64 bytesize = bits_to_bytes_round_up (bitsize);
 
-	  target = adjust_address (target, VOIDmode, bitpos / BITS_PER_UNIT);
+	  target = adjust_address (target, VOIDmode, bytepos);
 	  emit_block_move (target, temp,
-			   GEN_INT ((bitsize + BITS_PER_UNIT - 1)
-				    / BITS_PER_UNIT),
+			   gen_int_mode (bytesize, Pmode),
 			   BLOCK_OP_NORMAL);
 
 	  return const0_rtx;
@@ -6955,7 +6961,8 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
   else
     {
       /* Now build a reference to just the desired component.  */
-      rtx to_rtx = adjust_address (target, mode, bitpos / BITS_PER_UNIT);
+      rtx to_rtx = adjust_address (target, mode,
+				   exact_div (bitpos, BITS_PER_UNIT));
 
       if (to_rtx == target)
 	to_rtx = copy_rtx (to_rtx);
@@ -6965,10 +6972,10 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 
       /* Above we avoided using bitfield operations for storing a CONSTRUCTOR
 	 into a target smaller than its type; handle that case now.  */
-      if (TREE_CODE (exp) == CONSTRUCTOR && bitsize >= 0)
+      if (TREE_CODE (exp) == CONSTRUCTOR && bitsize_known_p)
 	{
-	  gcc_assert (bitsize % BITS_PER_UNIT == 0);
-	  store_constructor (exp, to_rtx, 0, bitsize / BITS_PER_UNIT, reverse);
+	  poly_int64 bytesize = exact_div (bitsize, BITS_PER_UNIT);
+	  store_constructor (exp, to_rtx, 0, bytesize, reverse);
 	  return to_rtx;
 	}
 
