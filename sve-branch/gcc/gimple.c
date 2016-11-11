@@ -2054,6 +2054,7 @@ get_gimple_rhs_num_ops (enum tree_code code)
       || (SYM) == BIT_INSERT_EXPR					    \
       || (SYM) == FMA_EXPR) ? GIMPLE_TERNARY_RHS			    \
    : ((SYM) == CONSTRUCTOR						    \
+      || (SYM) == VEC_DUPLICATE_EXPR					    \
       || (SYM) == OBJ_TYPE_REF						    \
       || (SYM) == ASSERT_EXPR						    \
       || (SYM) == ADDR_EXPR						    \

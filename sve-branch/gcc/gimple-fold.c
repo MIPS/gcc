@@ -6617,7 +6617,8 @@ gimple_build (gimple_seq *seq, location_t loc,
       gimple *stmt;
       if (code == REALPART_EXPR
 	  || code == IMAGPART_EXPR
-	  || code == VIEW_CONVERT_EXPR)
+	  || code == VIEW_CONVERT_EXPR
+	  || code == VEC_DUPLICATE_EXPR)
 	stmt = gimple_build_assign (res, code, build1 (code, type, op0));
       else
 	stmt = gimple_build_assign (res, code, op0);

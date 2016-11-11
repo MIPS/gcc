@@ -3147,6 +3147,15 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       pp_string (pp, " > ");
       break;
 
+    case VEC_DUPLICATE_EXPR:
+      pp_space (pp);
+      for (str = get_tree_code_name (code); *str; str++)
+	pp_character (pp, TOUPPER (*str));
+      pp_string (pp, " < ");
+      dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (pp, " > ");
+      break;
+
     case VEC_UNPACK_HI_EXPR:
       pp_string (pp, " VEC_UNPACK_HI_EXPR < ");
       dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);

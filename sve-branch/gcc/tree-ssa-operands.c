@@ -829,6 +829,7 @@ get_expr_operands (struct function *fn, gimple *stmt, tree *expr_p, int flags)
       /* FALLTHRU */
 
     case VIEW_CONVERT_EXPR:
+    case VEC_DUPLICATE_EXPR:
     do_unary:
       get_expr_operands (fn, stmt, &TREE_OPERAND (expr, 0), flags);
       return;

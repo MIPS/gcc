@@ -367,7 +367,7 @@ force_expand_binop (machine_mode mode, optab binoptab,
    mode of OP must be the element mode of VMODE.  If OP is a constant,
    then the return value will be a constant.  */
 
-static rtx
+rtx
 expand_vector_broadcast (machine_mode vmode, rtx op)
 {
   enum insn_code icode;
@@ -384,6 +384,16 @@ expand_vector_broadcast (machine_mode vmode, rtx op)
 
   if (CONSTANT_P (op))
     return gen_rtx_CONST_VECTOR (vmode, vec);
+
+  icode = optab_handler (vec_duplicate_optab, vmode);
+  if (icode != CODE_FOR_nothing)
+    {
+      struct expand_operand ops[2];
+      create_output_operand (&ops[0], NULL_RTX, vmode);
+      create_input_operand (&ops[1], op, GET_MODE (op));
+      expand_insn (icode, 2, ops);
+      return ops[0].value;
+    }
 
   /* ??? If the target doesn't have a vec_init, then we have no easy way
      of performing this operation.  Most of this sort of generic support

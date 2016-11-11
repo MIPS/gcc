@@ -2638,6 +2638,7 @@ dt_operand::gen_gimple_expr (FILE *f, int indent)
       if (id->kind == id_base::CODE)
 	{
 	  if (e->is_generic
+	      || *id == VEC_DUPLICATE_EXPR
 	      || *id == REALPART_EXPR || *id == IMAGPART_EXPR
 	      || *id == BIT_FIELD_REF || *id == VIEW_CONVERT_EXPR)
 	    {

@@ -11175,6 +11175,15 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
+	case VEC_DUPLICATE_EXPR:
+	  if (TREE_CONSTANT (*expr_p))
+	    {
+	      ret = GS_ALL_DONE;
+	      break;
+	    }
+	  else
+	    goto expr_1;
+
 	case CONST_DECL:
 	  /* If we require an lvalue, such as for ADDR_EXPR, retain the
 	     CONST_DECL node.  Otherwise the decl is replaceable by its
@@ -11700,6 +11709,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    /* If *EXPR_P does not need to be special-cased, handle it
 	       according to its class.  */
 	    case tcc_unary:
+	    expr_1:
 	      ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
 				   post_p, is_gimple_val, fb_rvalue);
 	      break;

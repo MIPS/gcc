@@ -820,6 +820,8 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (match negate_expr_p
  VECTOR_CST
  (if (FLOAT_TYPE_P (TREE_TYPE (type)) || TYPE_OVERFLOW_WRAPS (type))))
+(match negate_expr_p
+ (vec_duplicate negate_expr_p@0))
 
 /* (-A) * (-B) -> A * B  */
 (simplify

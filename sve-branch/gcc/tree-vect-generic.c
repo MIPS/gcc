@@ -1378,16 +1378,16 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
 static tree
 ssa_uniform_vector_p (tree op)
 {
-  if (TREE_CODE (op) == VECTOR_CST
-      || TREE_CODE (op) == CONSTRUCTOR)
-    return uniform_vector_p (op);
   if (TREE_CODE (op) == SSA_NAME)
     {
       gimple *def_stmt = SSA_NAME_DEF_STMT (op);
-      if (gimple_assign_single_p (def_stmt))
-	return uniform_vector_p (gimple_assign_rhs1 (def_stmt));
+      if (!gimple_assign_single_p (def_stmt))
+	return NULL_TREE;
+      op = gimple_assign_rhs1 (def_stmt);
     }
-  return NULL_TREE;
+  if (!VECTOR_TYPE_P (TREE_TYPE (op)))
+    return NULL_TREE;
+  return uniform_vector_p (op);
 }
 
 /* Return type in which CODE operation with optab OP can be

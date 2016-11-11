@@ -425,6 +425,7 @@ negate_expr_p (tree t)
       return negate_expr_p (TREE_OPERAND (t, 0))
 	     && negate_expr_p (TREE_OPERAND (t, 1));
 
+    case VEC_DUPLICATE_EXPR:
     case CONJ_EXPR:
       return negate_expr_p (TREE_OPERAND (t, 0));
 
@@ -581,6 +582,14 @@ fold_negate_expr (location_t loc, tree t)
 	  }
 
 	return build_vector (type, count, elts);
+      }
+
+    case VEC_DUPLICATE_EXPR:
+      {
+	tree sub = fold_negate_expr (loc, TREE_OPERAND (t, 0));
+	if (!sub)
+	  return NULL_TREE;
+	return build1_loc (loc, VEC_DUPLICATE_EXPR, type, sub);
       }
 
     case COMPLEX_EXPR:
@@ -1415,6 +1424,16 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
       return build_vector (type, count, elts);
     }
 
+  if (TREE_CODE (arg1) == VEC_DUPLICATE_EXPR
+      && TREE_CODE (arg2) == VEC_DUPLICATE_EXPR)
+    {
+      tree sub = const_binop (code, TREE_OPERAND (arg1, 0),
+			      TREE_OPERAND (arg2, 0));
+      if (!sub)
+	return NULL_TREE;
+      return build1 (VEC_DUPLICATE_EXPR, TREE_TYPE (arg1), sub);
+    }
+
   /* Shifts allow a scalar offset for a vector.  */
   if (TREE_CODE (arg1) == VECTOR_CST
       && TREE_CODE (arg2) == INTEGER_CST)
@@ -1436,6 +1455,15 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
 	}
 
       return build_vector (type, count, elts);
+    }
+
+  if (TREE_CODE (arg1) == VEC_DUPLICATE_EXPR
+      && TREE_CODE (arg2) == INTEGER_CST)
+    {
+      tree sub = const_binop (code, TREE_OPERAND (arg1, 0), arg2);
+      if (!sub)
+	return NULL_TREE;
+      return build1 (VEC_DUPLICATE_EXPR, TREE_TYPE (arg1), sub);
     }
   return NULL_TREE;
 }
@@ -1636,6 +1664,13 @@ const_unop (enum tree_code code, tree type, tree arg0)
 	    }
 	  if (i == count)
 	    return build_vector (type, count, elements);
+	}
+      else if (TREE_CODE (arg0) == VEC_DUPLICATE_EXPR)
+	{
+	  tree sub = const_unop (BIT_NOT_EXPR, TREE_TYPE (type),
+				 TREE_OPERAND (arg0, 0));
+	  if (sub)
+	    return build1 (VEC_DUPLICATE_EXPR, type, sub);
 	}
       break;
 
@@ -2156,6 +2191,15 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
 	      v[i] = cvt;
 	    }
 	  return build_vector (type, len, v);
+	}
+      if (TREE_CODE (arg1) == VEC_DUPLICATE_EXPR
+	  && (TYPE_VECTOR_SUBPARTS (type)
+	      == TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg1))))
+	{
+	  tree sub = fold_convert_const (code, TREE_TYPE (type),
+					 TREE_OPERAND (arg1, 0));
+	  if (sub)
+	    return build1 (VEC_DUPLICATE_EXPR, type, sub);
 	}
     }
   return NULL_TREE;
@@ -3134,6 +3178,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 				  flags | OEP_ADDRESS_OF);
 
 	case TRUTH_NOT_EXPR:
+	case VEC_DUPLICATE_EXPR:
 	  return OP_SAME (0);
 
 	case TRUTH_ANDIF_EXPR:
@@ -8935,6 +8980,14 @@ exact_inverse (tree type, tree cst)
 	}
 
       return build_vector (type, vec_nelts, elts);
+
+    case VEC_DUPLICATE_EXPR:
+      {
+	tree sub = exact_inverse (TREE_TYPE (type), TREE_OPERAND (cst, 0));
+	if (!sub)
+	  return NULL_TREE;
+	return build1 (VEC_DUPLICATE_EXPR, type, sub);
+      }
 
     default:
       return NULL_TREE;
