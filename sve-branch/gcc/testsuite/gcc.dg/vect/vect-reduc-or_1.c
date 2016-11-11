@@ -1,4 +1,4 @@
-/* { dg-require-effective-target whole_vector_shift } */
+/* { dg-do run { target { whole_vector_shift || vect_logical_reduc } } } */
 
 /* Write a reduction loop to be reduced using vector shifts.  */
 
@@ -34,5 +34,5 @@ main (unsigned char argc, char **argv)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "Reduce using vector shifts" "vect" } } */
-
+/* { dg-final { scan-tree-dump "Reduce using vector shifts" "vect" { target { ! vect_logical_reduc } } } } */
+/* { dg-final { scan-tree-dump "Reduce using direct vector reduction" "vect" { target vect_logical_reduc } } } */

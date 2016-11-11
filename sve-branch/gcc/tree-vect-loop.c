@@ -2419,11 +2419,20 @@ reduction_code_for_scalar_code (enum tree_code code,
         *reduc_code = REDUC_PLUS_EXPR;
         return true;
 
+      case BIT_AND_EXPR:
+	*reduc_code = REDUC_AND_EXPR;
+	return true;
+
+      case BIT_IOR_EXPR:
+	*reduc_code = REDUC_IOR_EXPR;
+	return true;
+
+      case BIT_XOR_EXPR:
+	*reduc_code = REDUC_XOR_EXPR;
+	return true;
+
       case MULT_EXPR:
       case MINUS_EXPR:
-      case BIT_IOR_EXPR:
-      case BIT_XOR_EXPR:
-      case BIT_AND_EXPR:
         *reduc_code = ERROR_MARK;
         return true;
 

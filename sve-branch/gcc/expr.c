@@ -9337,6 +9337,9 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
+    case REDUC_AND_EXPR:
+    case REDUC_IOR_EXPR:
+    case REDUC_XOR_EXPR:
       {
         op0 = expand_normal (treeop0);
         this_optab = optab_for_tree_code (code, type, optab_default);

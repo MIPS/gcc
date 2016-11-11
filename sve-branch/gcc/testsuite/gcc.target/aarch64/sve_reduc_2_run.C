@@ -92,6 +92,33 @@ int main ()
   TEST_REDUC_MAX (float)
   TEST_REDUC_MAX (double)
 
+  TEST_REDUC_AND (int8_t)
+  TEST_REDUC_AND (int16_t)
+  TEST_REDUC_AND (int32_t)
+  TEST_REDUC_AND (int64_t)
+  TEST_REDUC_AND (uint8_t)
+  TEST_REDUC_AND (uint16_t)
+  TEST_REDUC_AND (uint32_t)
+  TEST_REDUC_AND (uint64_t)
+
+  TEST_REDUC_IOR (int8_t)
+  TEST_REDUC_IOR (int16_t)
+  TEST_REDUC_IOR (int32_t)
+  TEST_REDUC_IOR (int64_t)
+  TEST_REDUC_IOR (uint8_t)
+  TEST_REDUC_IOR (uint16_t)
+  TEST_REDUC_IOR (uint32_t)
+  TEST_REDUC_IOR (uint64_t)
+
+  TEST_REDUC_XOR (int8_t)
+  TEST_REDUC_XOR (int16_t)
+  TEST_REDUC_XOR (int32_t)
+  TEST_REDUC_XOR (int64_t)
+  TEST_REDUC_XOR (uint8_t)
+  TEST_REDUC_XOR (uint16_t)
+  TEST_REDUC_XOR (uint32_t)
+  TEST_REDUC_XOR (uint64_t)
+
   if (result != 26880)
     {
       fprintf (stderr, "result = %d\n", result);

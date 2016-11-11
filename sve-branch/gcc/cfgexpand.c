@@ -5061,6 +5061,9 @@ expand_debug_expr (tree exp)
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
+    case REDUC_AND_EXPR:
+    case REDUC_IOR_EXPR:
+    case REDUC_XOR_EXPR:
     case VEC_COND_EXPR:
     case VEC_PACK_FIX_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:

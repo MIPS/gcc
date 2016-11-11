@@ -1779,6 +1779,9 @@ const_unop (enum tree_code code, tree type, tree arg0)
     case REDUC_MIN_EXPR:
     case REDUC_MAX_EXPR:
     case REDUC_PLUS_EXPR:
+    case REDUC_AND_EXPR:
+    case REDUC_IOR_EXPR:
+    case REDUC_XOR_EXPR:
       {
 	unsigned int nelts, i;
 	tree *elts;
@@ -1797,6 +1800,9 @@ const_unop (enum tree_code code, tree type, tree arg0)
 	  case REDUC_MIN_EXPR: subcode = MIN_EXPR; break;
 	  case REDUC_MAX_EXPR: subcode = MAX_EXPR; break;
 	  case REDUC_PLUS_EXPR: subcode = PLUS_EXPR; break;
+	  case REDUC_AND_EXPR: subcode = BIT_AND_EXPR; break;
+	  case REDUC_IOR_EXPR: subcode = BIT_IOR_EXPR; break;
+	  case REDUC_XOR_EXPR: subcode = BIT_XOR_EXPR; break;
 	  default: gcc_unreachable ();
 	  }
 

@@ -3124,24 +3124,6 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       is_expr = false;
       break;
 
-    case REDUC_MAX_EXPR:
-      pp_string (pp, " REDUC_MAX_EXPR < ");
-      dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (pp, " > ");
-      break;
-
-    case REDUC_MIN_EXPR:
-      pp_string (pp, " REDUC_MIN_EXPR < ");
-      dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (pp, " > ");
-      break;
-
-    case REDUC_PLUS_EXPR:
-      pp_string (pp, " REDUC_PLUS_EXPR < ");
-      dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (pp, " > ");
-      break;
-
     case VEC_SERIES_EXPR:
     case VEC_WIDEN_MULT_HI_EXPR:
     case VEC_WIDEN_MULT_LO_EXPR:
@@ -3160,6 +3142,12 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       break;
 
     case VEC_DUPLICATE_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_MIN_EXPR:
+    case REDUC_PLUS_EXPR:
+    case REDUC_AND_EXPR:
+    case REDUC_IOR_EXPR:
+    case REDUC_XOR_EXPR:
       pp_space (pp);
       for (str = get_tree_code_name (code); *str; str++)
 	pp_character (pp, TOUPPER (*str));

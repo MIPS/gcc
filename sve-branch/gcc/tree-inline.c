@@ -3918,6 +3918,9 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
+    case REDUC_AND_EXPR:
+    case REDUC_IOR_EXPR:
+    case REDUC_XOR_EXPR:
     case WIDEN_SUM_EXPR:
     case WIDEN_MULT_EXPR:
     case DOT_PROD_EXPR:

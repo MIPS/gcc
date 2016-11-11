@@ -3681,6 +3681,9 @@ verify_gimple_assign_unary (gassign *stmt)
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
+    case REDUC_AND_EXPR:
+    case REDUC_IOR_EXPR:
+    case REDUC_XOR_EXPR:
       if (!VECTOR_TYPE_P (rhs1_type)
 	  || !useless_type_conversion_p (lhs_type, TREE_TYPE (rhs1_type)))
         {
