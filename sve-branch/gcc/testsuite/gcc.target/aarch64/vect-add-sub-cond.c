@@ -1,7 +1,7 @@
 /* Make sure that vector comaprison results are not unnecessarily ANDed
    with vectors of 1.  */
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize" } */
+/* { dg-options "-O2 -ftree-vectorize -march=armv8-a" } */
 
 #define COUNT1(X) if (X) count += 1
 #define COUNT2(X) if (X) count -= 1

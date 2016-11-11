@@ -62,8 +62,16 @@
     (SFP_REGNUM		64)
     (AP_REGNUM		65)
     (CC_REGNUM		66)
+    (P0_REGNUM		67)
+    (P7_REGNUM		74)
+    (P15_REGNUM		82)
   ]
 )
+
+(define_c_enum "param" [
+  ; Parameter used for poly_ints.  Must be first.
+  CPARAM_VQ
+])
 
 (define_c_enum "unspec" [
     UNSPEC_CASESI
@@ -137,6 +145,18 @@
     UNSPEC_RSQRTE
     UNSPEC_RSQRTS
     UNSPEC_NZCV
+    UNSPEC_LD1_SVE
+    UNSPEC_ST1_SVE
+    UNSPEC_MERGE_PTRUE
+    UNSPEC_PTEST_PTRUE
+    UNSPEC_UNPACKSHI
+    UNSPEC_UNPACKUHI
+    UNSPEC_UNPACKSLO
+    UNSPEC_UNPACKULO
+    UNSPEC_PACK
+    UNSPEC_FLOAT_CONVERT
+    UNSPEC_WHILE_LO
+    UNSPEC_PRED_MOVE
 ])
 
 (define_c_enum "unspecv" [
@@ -967,12 +987,19 @@
   "
     if (GET_CODE (operands[0]) == MEM && operands[1] != const0_rtx)
       operands[1] = force_reg (<MODE>mode, operands[1]);
+
+    if (CONSTANT_P (operands[1])
+	&& !CONST_INT_P (operands[1]))
+      {
+	aarch64_expand_mov_immediate (operands[0], operands[1]);
+	DONE;
+      }
   "
 )
 
 (define_insn "*mov<mode>_aarch64"
-  [(set (match_operand:SHORT 0 "nonimmediate_operand" "=r,r,   *w,r,*w, m, m, r,*w,*w")
-        (match_operand:SHORT 1 "general_operand"      " r,M,D<hq>,m, m,rZ,*w,*w, r,*w"))]
+  [(set (match_operand:SHORT 0 "nonimmediate_operand" "=r,r,   *w,r ,r,*w, m, m, r,*w,*w")
+	(match_operand:SHORT 1 "aarch64_mov_operand"  " r,M,D<hq>,Dv,m, m,rZ,*w,*w, r,*w"))]
   "(register_operand (operands[0], <MODE>mode)
     || aarch64_reg_or_zero (operands[1], <MODE>mode))"
 {
@@ -986,26 +1013,29 @@
        return aarch64_output_scalar_simd_mov_immediate (operands[1],
 							<MODE>mode);
      case 3:
-       return "ldr<size>\t%w0, %1";
+       return aarch64_output_sve_cnt_immediate (\"cnt\", \"%x0\", operands[1]);
      case 4:
-       return "ldr\t%<size>0, %1";
+       return "ldr<size>\t%w0, %1";
      case 5:
-       return "str<size>\t%w1, %0";
+       return "ldr\t%<size>0, %1";
      case 6:
-       return "str\t%<size>1, %0";
+       return "str<size>\t%w1, %0";
      case 7:
-       return "umov\t%w0, %1.<v>[0]";
+       return "str\t%<size>1, %0";
      case 8:
-       return "dup\t%0.<Vallxd>, %w1";
+       return "umov\t%w0, %1.<v>[0]";
      case 9:
+       return "dup\t%0.<Vallxd>, %w1";
+     case 10:
        return "dup\t%<Vetype>0, %1.<v>[0]";
      default:
        gcc_unreachable ();
      }
 }
-  [(set_attr "type" "mov_reg,mov_imm,neon_move,load1,load1,store1,store1,\
-                     neon_to_gp<q>,neon_from_gp<q>,neon_dup")
-   (set_attr "simd" "*,*,yes,*,*,*,*,yes,yes,yes")]
+  ;; The "mov_imm" type for CNT is just a placeholder.
+  [(set_attr "type" "mov_reg,mov_imm,neon_move,mov_imm,load1,load1,store1,\
+		     store1,neon_to_gp<q>,neon_from_gp<q>,neon_dup")
+   (set_attr "simd" "*,*,yes,*,*,*,*,*,yes,yes,yes")]
 )
 
 (define_expand "mov<mode>"
@@ -1028,8 +1058,8 @@
 )
 
 (define_insn_and_split "*movsi_aarch64"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,k,r,r,r,r,*w,m,  m,r,r  ,*w, r,*w")
-	(match_operand:SI 1 "aarch64_mov_operand"  " r,r,k,M,n,m, m,rZ,*w,S,Ush,rZ,*w,*w"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,k,r,r,r,r ,r,*w,m,  m,r,r  ,*w, r,*w")
+	(match_operand:SI 1 "aarch64_mov_operand"  " r,r,k,M,n,Dv,m, m,rZ,*w,S,Ush,rZ,*w,*w"))]
   "(register_operand (operands[0], SImode)
     || aarch64_reg_or_zero (operands[1], SImode))"
   "@
@@ -1038,6 +1068,7 @@
    mov\\t%w0, %w1
    mov\\t%w0, %1
    #
+   * return aarch64_output_sve_cnt_immediate (\"cnt\", \"%x0\", operands[1]);
    ldr\\t%w0, %1
    ldr\\t%s0, %1
    str\\t%w1, %0
@@ -1054,14 +1085,15 @@
        aarch64_expand_mov_immediate (operands[0], operands[1]);
        DONE;
     }"
-  [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,mov_imm,load1,load1,store1,store1,\
-                     adr,adr,f_mcr,f_mrc,fmov")
-   (set_attr "fp" "*,*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes")]
+  ;; The "mov_imm" type for CNT is just a placeholder.
+  [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,mov_imm,adr,load1,load1,
+		     store1,store1,adr,adr,f_mcr,f_mrc,fmov")
+   (set_attr "fp" "*,*,*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes")]
 )
 
 (define_insn_and_split "*movdi_aarch64"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,k,r,r,r,r,*w,m,  m,r,r,  *w, r,*w,w")
-	(match_operand:DI 1 "aarch64_mov_operand"  " r,r,k,N,n,m, m,rZ,*w,S,Ush,rZ,*w,*w,Dd"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,k,r,r,r,r ,r,*w,m,  m,r,r,  *w, r,*w,w")
+	(match_operand:DI 1 "aarch64_mov_operand"  " r,r,k,N,n,Dv,m, m,rZ,*w,S,Ush,rZ,*w,*w,Dd"))]
   "(register_operand (operands[0], DImode)
     || aarch64_reg_or_zero (operands[1], DImode))"
   "@
@@ -1070,6 +1102,7 @@
    mov\\t%x0, %1
    mov\\t%x0, %1
    #
+   * return aarch64_output_sve_cnt_immediate (\"cnt\", \"%x0\", operands[1]);
    ldr\\t%x0, %1
    ldr\\t%d0, %1
    str\\t%x1, %0
@@ -1087,10 +1120,12 @@
        aarch64_expand_mov_immediate (operands[0], operands[1]);
        DONE;
     }"
-  [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,mov_imm,load1,load1,store1,store1,\
-                     adr,adr,f_mcr,f_mrc,fmov,neon_move")
-   (set_attr "fp" "*,*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,*")
-   (set_attr "simd" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes")]
+  ;; The "mov_imm" type for CNTD is just a placeholder.
+  [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,mov_imm,mov_imm,\
+		     load1,load1,store1,store1,adr,adr,f_mcr,f_mrc,\
+		     fmov,neon_move")
+   (set_attr "fp" "*,*,*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,*")
+   (set_attr "simd" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,yes")]
 )
 
 (define_insn "insv_imm<mode>"
@@ -1111,6 +1146,17 @@
   "
     if (GET_CODE (operands[0]) == MEM && operands[1] != const0_rtx)
       operands[1] = force_reg (TImode, operands[1]);
+
+    if (GET_CODE (operands[1]) == CONST
+	|| GET_CODE (operands[1]) == CONST_PARAM)
+      {
+	poly_int64 offset;
+	rtx base = gen_lowpart (DImode, strip_offset (operands[1], &offset));
+	emit_move_insn (gen_lowpart (DImode, operands[0]),
+			plus_constant (DImode, base, offset));
+	emit_move_insn (gen_highpart (DImode, operands[0]), const0_rtx);
+	DONE;
+      }
   "
 )
 
@@ -1605,7 +1651,7 @@
   [(set
     (match_operand:GPI 0 "register_operand" "")
     (plus:GPI (match_operand:GPI 1 "register_operand" "")
-	      (match_operand:GPI 2 "aarch64_pluslong_operand" "")))]
+	      (match_operand:GPI 2 "aarch64_pluslong_or_poly_operand" "")))]
   ""
 {
   if (aarch64_pluslong_strict_immedate (operands[2], <MODE>mode))
@@ -1627,23 +1673,34 @@
 	  operands[2] = GEN_INT (s);
 	}
     }
+  /* Expand polynomial additions now if the destination is the stack
+     pointer, since we don't want to use that as a temporary.  */
+  else if (operands[0] == stack_pointer_rtx
+	   && aarch64_split_add_offset_immediate (operands[2], <MODE>mode))
+    {
+      aarch64_split_add_offset (<MODE>mode, operands[0], NULL_RTX, NULL_RTX,
+				operands[1], operands[2]);
+      DONE;
+    }
 })
 
 (define_insn "*add<mode>3_aarch64"
   [(set
-    (match_operand:GPI 0 "register_operand" "=rk,rk,w,rk,r")
+    (match_operand:GPI 0 "register_operand" "=rk,rk,w,rk,r,rk")
     (plus:GPI
-     (match_operand:GPI 1 "register_operand" "%rk,rk,w,rk,rk")
-     (match_operand:GPI 2 "aarch64_pluslong_operand" "I,r,w,J,Uaa")))]
+     (match_operand:GPI 1 "register_operand" "%rk,rk,w,rk,rk,rk")
+     (match_operand:GPI 2 "aarch64_pluslong_operand" "I,r,w,J,Uaa,Uad")))]
   ""
   "@
   add\\t%<w>0, %<w>1, %2
   add\\t%<w>0, %<w>1, %<w>2
   add\\t%<rtn>0<vas>, %<rtn>1<vas>, %<rtn>2<vas>
   sub\\t%<w>0, %<w>1, #%n2
-  #"
-  [(set_attr "type" "alu_imm,alu_sreg,neon_add,alu_imm,multiple")
-   (set_attr "simd" "*,*,yes,*,*")]
+  #
+  * return aarch64_output_sve_addvl_addpl (operands[0], operands[1], operands[2]);"
+  ;; The "alu_imm" type for ADDVL/ADDPL is just a placeholder.
+  [(set_attr "type" "alu_imm,alu_sreg,neon_add,alu_imm,multiple,alu_imm")
+   (set_attr "simd" "*,*,yes,*,*,*")]
 )
 
 ;; zero_extend version of above
@@ -1703,6 +1760,48 @@
     operands[3] = GEN_INT (i - s);
     operands[4] = GEN_INT (s);
   }
+)
+
+;; Match addition of polynomial offsets that require one temporary, for which
+;; we can use the early-clobbered destination register.  This is a separate
+;; pattern so that the early clobber doesn't affect register allocation
+;; for other forms of addition.  However, we still need to provide an
+;; all-register alternative, in case the offset goes out of range after
+;; elimination.  For completeness we might as well provide all GPR-based
+;; alternatives from the main pattern.
+;;
+;; We don't have a pattern for additions requiring two temporaries since at
+;; present LRA doesn't allow new scratches to be added during elimination.
+;; Such offsets should be rare anyway.
+;;
+;; ??? But if we added LRA support for new scratches, much of the ugliness
+;; here would go away.  We could just handle all polynomial constants in
+;; this pattern.
+(define_insn_and_split "*add<mode>3_poly_1"
+  [(set
+    (match_operand:GPI 0 "register_operand" "=r,r,r,r,r,&r")
+    (plus:GPI
+     (match_operand:GPI 1 "register_operand" "%rk,rk,rk,rk,rk,rk")
+     (match_operand:GPI 2 "aarch64_pluslong_or_poly_operand" "I,r,J,Uaa,Uad,Ua1")))]
+  "TARGET_SVE && operands[0] != stack_pointer_rtx"
+  "@
+  add\\t%<w>0, %<w>1, %2
+  add\\t%<w>0, %<w>1, %<w>2
+  sub\\t%<w>0, %<w>1, #%n2
+  #
+  * return aarch64_output_sve_addvl_addpl (operands[0], operands[1], operands[2]);
+  #"
+  "&& epilogue_completed
+   && !reg_overlap_mentioned_p (operands[0], operands[1])
+   && aarch64_split_add_offset_immediate (operands[2], <MODE>mode)"
+  [(const_int 0)]
+  {
+    aarch64_split_add_offset (<MODE>mode, operands[0], operands[0], NULL_RTX,
+			      operands[1], operands[2]);
+    DONE;
+  }
+  ;; The "alu_imm" type for ADDVL/ADDPL is just a placeholder.
+  [(set_attr "type" "alu_imm,alu_sreg,alu_imm,multiple,alu_imm,multiple")]
 )
 
 (define_split
@@ -5388,6 +5487,12 @@
   DONE;
 })
 
+;; Helper for aarch64.c code.
+(define_expand "set_clobber_cc"
+  [(parallel [(set (match_operand 0)
+		   (match_operand 1))
+	      (clobber (reg:CC CC_REGNUM))])])
+
 ;; AdvSIMD Stuff
 (include "aarch64-simd.md")
 
@@ -5396,3 +5501,6 @@
 
 ;; ldp/stp peephole patterns
 (include "aarch64-ldpstp.md")
+
+;; SVE.
+(include "aarch64-sve.md")

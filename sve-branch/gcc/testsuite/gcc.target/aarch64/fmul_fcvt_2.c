@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-save-temps -O2 -ftree-vectorize -fno-inline" } */
+/* { dg-options "-save-temps -O2 -ftree-vectorize -fno-inline -march=armv8-a" } */
 
 #define N 1024
 

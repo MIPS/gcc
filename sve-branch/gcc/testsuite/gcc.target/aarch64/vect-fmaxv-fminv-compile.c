@@ -1,6 +1,6 @@
 
 /* { dg-do compile } */
-/* { dg-options "-O3 -ffast-math -fno-vect-cost-model" } */
+/* { dg-options "-O3 -ffast-math -fno-vect-cost-model -march=armv8-a" } */
 
 #include "vect-fmaxv-fminv.x"
 

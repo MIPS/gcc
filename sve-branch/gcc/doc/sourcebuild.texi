@@ -1683,20 +1683,28 @@ ARM target generates Thumb-1 code for @code{-mthumb} with
 @item aarch64_asm_<ext>_ok
 AArch64 assembler supports the architecture extension @code{ext} via the
 @code{.arch_extension} pseudo-op.
+
 @item aarch64_tiny
 AArch64 target which generates instruction sequences for tiny memory model.
+
 @item aarch64_small
 AArch64 target which generates instruction sequences for small memory model.
+
 @item aarch64_large
 AArch64 target which generates instruction sequences for large memory model.
+
 @item aarch64_little_endian
 AArch64 target which generates instruction sequences for little endian.
+
 @item aarch64_big_endian
 AArch64 target which generates instruction sequences for big endian.
+
 @item aarch64_small_fpic
 Binutils installed on test system supports relocation types required by -fpic
 for AArch64 small memory model.
 
+@item aarch64_sve_hw
+AArch64 target that can run SVE code.
 @end table
 
 @subsubsection MIPS-specific attributes

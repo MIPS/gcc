@@ -3891,6 +3891,18 @@ proc check_effective_target_arm_neon_hw { } {
     } [add_options_for_arm_neon ""]]
 }
 
+proc check_effective_target_aarch64_sve_hw { } {
+    return [check_runtime aarch64_sve_hw_available {
+	int
+	main (void)
+	{
+	  unsigned long res;
+	  asm volatile ("ptrue p0.b");
+	  return 0;
+	}
+    }]
+}
+
 proc check_effective_target_arm_neonv2_hw { } {
     return [check_runtime arm_neon_hwv2_available {
 	#include "arm_neon.h"

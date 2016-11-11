@@ -53,20 +53,20 @@
 ;; Iterator for all scalar floating point modes (SF, DF and TF)
 (define_mode_iterator GPF_TF [SF DF TF])
 
-;; Integer vector modes.
+;; Integer AdvSIMD modes.
 (define_mode_iterator VDQ_I [V8QI V16QI V4HI V8HI V2SI V4SI V2DI])
 
-;; vector and scalar, 64 & 128-bit container, all integer modes
+;; AdvSIMD and scalar, 64 & 128-bit container, all integer modes
 (define_mode_iterator VSDQ_I [V8QI V16QI V4HI V8HI V2SI V4SI V2DI QI HI SI DI])
 
-;; vector and scalar, 64 & 128-bit container: all vector integer modes;
+;; AdvSIMD and scalar, 64 & 128-bit container: all AdvSIMD integer modes;
 ;; 64-bit scalar integer mode
 (define_mode_iterator VSDQ_I_DI [V8QI V16QI V4HI V8HI V2SI V4SI V2DI DI])
 
 ;; Double vector modes.
 (define_mode_iterator VD [V8QI V4HI V4HF V2SI V2SF])
 
-;; vector, 64-bit container, all integer modes
+;; AdvSIMD, 64-bit container, all integer modes
 (define_mode_iterator VD_BHSI [V8QI V4HI V2SI])
 
 ;; 128 and 64-bit container; 8, 16, 32-bit vector integer modes
@@ -91,16 +91,16 @@
 ;; pointer-sized quantities.  Exactly one of the two alternatives will match.
 (define_mode_iterator PTR [(SI "ptr_mode == SImode") (DI "ptr_mode == DImode")])
 
-;; Vector Float modes suitable for moving, loading and storing.
+;; AdvSIMD Float modes suitable for moving, loading and storing.
 (define_mode_iterator VDQF_F16 [V4HF V8HF V2SF V4SF V2DF])
 
-;; Vector Float modes.
+;; AdvSIMD Float modes.
 (define_mode_iterator VDQF [V2SF V4SF V2DF])
 (define_mode_iterator VHSDF [(V4HF "TARGET_SIMD_F16INST")
 			     (V8HF "TARGET_SIMD_F16INST")
 			     V2SF V4SF V2DF])
 
-;; Vector Float modes, and DF.
+;; AdvSIMD Float modes, and DF.
 (define_mode_iterator VDQF_DF [V2SF V4SF V2DF DF])
 (define_mode_iterator VHSDF_DF [(V4HF "TARGET_SIMD_F16INST")
 				(V8HF "TARGET_SIMD_F16INST")
@@ -111,7 +111,7 @@
 				  (HF "TARGET_SIMD_F16INST")
 				  SF DF])
 
-;; Vector single Float modes.
+;; AdvSIMD single Float modes.
 (define_mode_iterator VDQSF [V2SF V4SF])
 
 ;; Quad vector Float modes with half/single elements.
@@ -120,34 +120,34 @@
 ;; Modes suitable to use as the return type of a vcond expression.
 (define_mode_iterator VDQF_COND [V2SF V2SI V4SF V4SI V2DF V2DI])
 
-;; All Float modes.
+;; All scalar and AdvSIMD Float modes.
 (define_mode_iterator VALLF [V2SF V4SF V2DF SF DF])
 
-;; Vector Float modes with 2 elements.
+;; AdvSIMD Float modes with 2 elements.
 (define_mode_iterator V2F [V2SF V2DF])
 
-;; All vector modes on which we support any arithmetic operations.
+;; All AdvSIMD modes on which we support any arithmetic operations.
 (define_mode_iterator VALL [V8QI V16QI V4HI V8HI V2SI V4SI V2DI V2SF V4SF V2DF])
 
-;; All vector modes suitable for moving, loading, and storing.
+;; All AdvSIMD modes suitable for moving, loading, and storing.
 (define_mode_iterator VALL_F16 [V8QI V16QI V4HI V8HI V2SI V4SI V2DI
 				V4HF V8HF V2SF V4SF V2DF])
 
-;; All vector modes barring HF modes, plus DI.
+;; All AdvSIMD modes barring HF modes, plus DI.
 (define_mode_iterator VALLDI [V8QI V16QI V4HI V8HI V2SI V4SI V2DI V2SF V4SF V2DF DI])
 
-;; All vector modes and DI.
+;; All AdvSIMD modes and DI.
 (define_mode_iterator VALLDI_F16 [V8QI V16QI V4HI V8HI V2SI V4SI V2DI
 				  V4HF V8HF V2SF V4SF V2DF DI])
 
-;; All vector modes, plus DI and DF.
+;; All AdvSIMD modes, plus DI and DF.
 (define_mode_iterator VALLDIF [V8QI V16QI V4HI V8HI V2SI V4SI
 			       V2DI V4HF V8HF V2SF V4SF V2DF DI DF])
 
-;; Vector modes for Integer reduction across lanes.
+;; AdvSIMD modes for Integer reduction across lanes.
 (define_mode_iterator VDQV [V8QI V16QI V4HI V8HI V4SI V2DI])
 
-;; Vector modes(except V2DI) for Integer reduction across lanes.
+;; AdvSIMD modes (except V2DI) for Integer reduction across lanes.
 (define_mode_iterator VDQV_S [V8QI V16QI V4HI V8HI V4SI])
 
 ;; All double integer narrow-able modes.
@@ -156,7 +156,8 @@
 ;; All quad integer narrow-able modes.
 (define_mode_iterator VQN [V8HI V4SI V2DI])
 
-;; Vector and scalar 128-bit container: narrowable 16, 32, 64-bit integer modes
+;; AdvSIMD and scalar 128-bit container: narrowable 16, 32, 64-bit integer
+;; modes
 (define_mode_iterator VSQN_HSDI [V8HI V4SI V2DI HI SI DI])
 
 ;; All quad integer widen-able modes.
@@ -165,54 +166,54 @@
 ;; Double vector modes for combines.
 (define_mode_iterator VDC [V8QI V4HI V4HF V2SI V2SF DI DF])
 
-;; Vector modes except double int.
+;; AdvSIMD modes except double int.
 (define_mode_iterator VDQIF [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DF])
 (define_mode_iterator VDQIF_F16 [V8QI V16QI V4HI V8HI V2SI V4SI
                                  V4HF V8HF V2SF V4SF V2DF])
 
-;; Vector modes for S type.
+;; AdvSIMD modes for S type.
 (define_mode_iterator VDQ_SI [V2SI V4SI])
 
-;; Vector modes for S and D
+;; AdvSIMD modes for S and D
 (define_mode_iterator VDQ_SDI [V2SI V4SI V2DI])
 
-;; Vector modes for H, S and D
+;; AdvSIMD modes for H, S and D
 (define_mode_iterator VDQ_HSDI [(V4HI "TARGET_SIMD_F16INST")
 				(V8HI "TARGET_SIMD_F16INST")
 				V2SI V4SI V2DI])
 
-;; Scalar and Vector modes for S and D
+;; Scalar and AdvSIMD modes for S and D
 (define_mode_iterator VSDQ_SDI [V2SI V4SI V2DI SI DI])
 
-;; Scalar and Vector modes for S and D, Vector modes for H.
+;; Scalar and AdvSIMD modes for S and D, AdvSIMD modes for H.
 (define_mode_iterator VSDQ_HSDI [(V4HI "TARGET_SIMD_F16INST")
 				 (V8HI "TARGET_SIMD_F16INST")
 				 V2SI V4SI V2DI
 				 (HI "TARGET_SIMD_F16INST")
 				 SI DI])
 
-;; Vector modes for Q and H types.
+;; AdvSIMD modes for Q and H types.
 (define_mode_iterator VDQQH [V8QI V16QI V4HI V8HI])
 
-;; Vector modes for H and S types.
+;; AdvSIMD modes for H and S types.
 (define_mode_iterator VDQHS [V4HI V8HI V2SI V4SI])
 
-;; Vector modes for H, S and D types.
+;; AdvSIMD modes for H, S and D types.
 (define_mode_iterator VDQHSD [V4HI V8HI V2SI V4SI V2DI])
 
-;; Vector and scalar integer modes for H and S
+;; AdvSIMD and scalar integer modes for H and S
 (define_mode_iterator VSDQ_HSI [V4HI V8HI V2SI V4SI HI SI])
 
-;; Vector and scalar 64-bit container: 16, 32-bit integer modes
+;; AdvSIMD and scalar 64-bit container: 16, 32-bit integer modes
 (define_mode_iterator VSD_HSI [V4HI V2SI HI SI])
 
-;; Vector 64-bit container: 16, 32-bit integer modes
+;; AdvSIMD 64-bit container: 16, 32-bit integer modes
 (define_mode_iterator VD_HSI [V4HI V2SI])
 
 ;; Scalar 64-bit container: 16, 32-bit integer modes
 (define_mode_iterator SD_HSI [HI SI])
 
-;; Vector 64-bit container: 16, 32-bit integer modes
+;; AdvSIMD 64-bit container: 16, 32-bit integer modes
 (define_mode_iterator VQ_HSI [V8HI V4SI])
 
 ;; All byte modes.
@@ -223,20 +224,50 @@
 
 (define_mode_iterator TX [TI TF])
 
-;; Opaque structure modes.
+;; AdvSIMD opaque structure modes.
 (define_mode_iterator VSTRUCT [OI CI XI])
 
 ;; Double scalar modes
 (define_mode_iterator DX [DI DF])
 
-;; Modes available for <f>mul lane operations.
+;; Modes available for AdvSIMD <f>mul lane operations.
 (define_mode_iterator VMUL [V4HI V8HI V2SI V4SI
 			    (V4HF "TARGET_SIMD_F16INST")
 			    (V8HF "TARGET_SIMD_F16INST")
 			    V2SF V4SF V2DF])
 
-;; Modes available for <f>mul lane operations changing lane count.
+;; Modes available for AdvSIMD <f>mul lane operations changing lane count.
 (define_mode_iterator VMUL_CHANGE_NLANES [V4HI V8HI V2SI V4SI V2SF V4SF])
+
+;; All SVE vector modes.
+(define_mode_iterator SVE_ALL [V32QI V16HI V8SI V4DI V8SF V4DF])
+
+;; All SVE vector modes that have 8-bit or 16-bit elements.
+(define_mode_iterator SVE_BH [V32QI V16HI])
+
+;; All SVE vector modes that have 8-bit, 16-bit or 32-bit elements.
+(define_mode_iterator SVE_BHS [V32QI V16HI V8SI V8SF])
+
+;; All SVE integer vector modes that have 8-bit, 16-bit or 32-bit elements.
+(define_mode_iterator SVE_BHSI [V32QI V16HI V8SI])
+
+;; All SVE vector modes that have 32-bit or 64-bit elements.
+(define_mode_iterator SVE_SD [V8SI V4DI V8SF V4DF])
+
+;; All SVE integer vector modes that have 32-bit or 64-bit elements.
+(define_mode_iterator SVE_SDI [V8SI V4DI])
+
+;; All SVE integer vector modes.
+(define_mode_iterator SVE_I [V32QI V16HI V8SI V4DI])
+
+;; All SVE floating-point vector modes.
+(define_mode_iterator SVE_F [V8SF V4DF])
+
+;; All SVE predicate modes.
+(define_mode_iterator PRED_ALL [V32BI V16BI V8BI V4BI])
+
+;; SVE predicate modes that control 8-bit, 16-bit or 32-bit elements.
+(define_mode_iterator PRED_BHS [V32BI V16BI V8BI])
 
 ;; ------------------------------------------------------------------
 ;; Unspec enumerations for Advance SIMD. These could well go into
@@ -348,6 +379,21 @@
     UNSPEC_SQRDMLSH     ; Used in aarch64-simd.md.
     UNSPEC_FMAXNM       ; Used in aarch64-simd.md.
     UNSPEC_FMINNM       ; Used in aarch64-simd.md.
+    UNSPEC_SEL		; Used in aarch64-sve.md.
+    UNSPEC_ANDF		; Used in aarch64-sve.md.
+    UNSPEC_IORF		; Used in aarch64-sve.md.
+    UNSPEC_XORF		; Used in aarch64-sve.md.
+    UNSPEC_COND_LT	; Used in aarch64-sve.md.
+    UNSPEC_COND_LE	; Used in aarch64-sve.md.
+    UNSPEC_COND_EQ	; Used in aarch64-sve.md.
+    UNSPEC_COND_NE	; Used in aarch64-sve.md.
+    UNSPEC_COND_GE	; Used in aarch64-sve.md.
+    UNSPEC_COND_GT	; Used in aarch64-sve.md.
+    UNSPEC_COND_LO	; Used in aarch64-sve.md.
+    UNSPEC_COND_LS	; Used in aarch64-sve.md.
+    UNSPEC_COND_HS	; Used in aarch64-sve.md.
+    UNSPEC_COND_HI	; Used in aarch64-sve.md.
+    UNSPEC_COND_UO	; Used in aarch64-sve.md.
 ])
 
 ;; ------------------------------------------------------------------
@@ -482,16 +528,22 @@
 			   (HI   "")])
 
 ;; Mode-to-individual element type mapping.
-(define_mode_attr Vetype [(V8QI "b") (V16QI "b")
-			  (V4HI "h") (V8HI  "h")
-                          (V2SI "s") (V4SI  "s")
-			  (V2DI "d") (V4HF "h")
-			  (V8HF "h") (V2SF  "s")
-			  (V4SF "s") (V2DF  "d")
+(define_mode_attr Vetype [(V8QI "b") (V16QI "b") (V32QI "b") (V32BI "b")
+			  (V4HI "h") (V8HI  "h") (V16HI "h") (V16BI "h")
+			  (V2SI "s") (V4SI  "s") (V8SI  "s") (V8BI "s")
+			  (V2DI "d") (V4DI  "d") (V4BI  "d")
+			  (V4HF "h") (V8HF  "h")
+			  (V2SF "s") (V4SF  "s") (V8SF  "s")
+			  (V2DF "d") (V4DF  "d")
 			  (HF   "h")
 			  (SF   "s") (DF  "d")
 			  (QI "b")   (HI "h")
 			  (SI "s")   (DI "d")])
+
+;; Equivalent of "size" for a vector element.
+(define_mode_attr Vesize [(V32QI "b") (V16HI "h")
+			  (V8SI  "w") (V8SF  "w")
+			  (V4DI  "d") (V4DF  "d")])
 
 ;; Vetype is used everywhere in scheduling type and assembly output,
 ;; sometimes they are not the same, for example HF modes on some
@@ -514,14 +566,14 @@
 			  (SI   "8b")])
 
 ;; Define element mode for each vector mode.
-(define_mode_attr VEL [(V8QI "QI") (V16QI "QI")
-			(V4HI "HI") (V8HI "HI")
-                        (V2SI "SI") (V4SI "SI")
-                        (DI "DI")   (V2DI "DI")
-                        (V4HF "HF") (V8HF "HF")
-                        (V2SF "SF") (V4SF "SF")
-                        (V2DF "DF") (DF "DF")
-			(SI   "SI") (HI   "HI")
+(define_mode_attr VEL [(V8QI  "QI") (V16QI "QI") (V32QI "QI")
+			(V4HI "HI") (V8HI  "HI") (V16HI "HI")
+			(V2SI "SI") (V4SI  "SI") (V8SI  "SI")
+			(DI   "DI") (V2DI  "DI") (V4DI  "DI")
+			(V4HF "HF") (V8HF  "HF")
+			(V2SF "SF") (V4SF  "SF") (V8SF  "SF")
+			(DF   "DF") (V2DF  "DF") (V4DF  "DF")
+			(SI   "SI") (HI    "HI")
 			(QI   "QI")])
 
 ;; 64-bit container modes the inner or scalar source mode.
@@ -602,22 +654,32 @@
 			   (V2DI "4s")])
 
 ;; Widened modes of vector modes.
-(define_mode_attr VWIDE [(V8QI "V8HI") (V4HI "V4SI")
-			 (V2SI "V2DI") (V16QI "V8HI") 
-			 (V8HI "V4SI") (V4SI "V2DI")
-			 (HI "SI")     (SI "DI")
-			 (V8HF "V4SF") (V4SF "V2DF")
-			 (V4HF "V4SF") (V2SF "V2DF")]
-)
+(define_mode_attr VWIDE [(V8QI  "V8HI")  (V4HI  "V4SI")
+			 (V2SI  "V2DI")  (V16QI "V8HI")
+			 (V8HI  "V4SI")  (V4SI  "V2DI")
+			 (HI    "SI")    (SI    "DI")
+			 (V8HF  "V4SF")  (V4SF  "V2DF")
+			 (V4HF  "V4SF")  (V2SF  "V2DF")
+			 (V32QI "V16HI") (V16HI "V8SI")
+			 (V8SI  "V4DI")
+			 (V32BI "V16BI") (V16BI "V8BI")
+			 (V8BI  "V4BI")])
 
 ;; Widened modes of vector modes, lowercase
-(define_mode_attr Vwide [(V2SF "v2df") (V4HF "v4sf")])
+(define_mode_attr Vwide [(V2SF "v2df") (V4HF "v4sf")
+			 (V32QI "v16hi") (V16HI "v8si")
+			 (V8SI  "v4di")
+			 (V32BI "v16bi") (V16BI "v8bi")
+			 (V8BI  "v4bi")])
 
 ;; Widened mode register suffixes for VD_BHSI/VQW/VQ_HSF.
 (define_mode_attr Vwtype [(V8QI "8h") (V4HI "4s")
 			  (V2SI "2d") (V16QI "8h") 
 			  (V8HI "4s") (V4SI "2d")
 			  (V8HF "4s") (V4SF "2d")])
+
+;; SVE vector after widening
+(define_mode_attr Vewtype [(V32QI "h") (V16HI "s") (V8SI "d")])
 
 ;; Widened mode register suffixes for VDW/VQW.
 (define_mode_attr Vmwtype [(V8QI ".8h") (V4HI ".4s")
@@ -632,45 +694,51 @@
 			     (V4SF "2s")])
 
 ;; Define corresponding core/FP element mode for each vector mode.
-(define_mode_attr vw   [(V8QI "w") (V16QI "w")
-                        (V4HI "w") (V8HI "w")
-                        (V2SI "w") (V4SI "w")
-                        (DI   "x") (V2DI "x")
-                        (V2SF "s") (V4SF "s")
-                        (V2DF "d")])
+(define_mode_attr vw [(V8QI "w") (V16QI "w") (V32QI "w")
+		      (V4HI "w") (V8HI "w") (V16HI "w")
+		      (V2SI "w") (V4SI "w") (V8SI "w")
+		      (DI   "x") (V2DI "x") (V4DI "x")
+		      (V2SF "s") (V4SF "s") (V8SF "s")
+		      (V2DF "d") (V4DF "d")])
 
 ;; Corresponding core element mode for each vector mode.  This is a
 ;; variation on <vw> mapping FP modes to GP regs.
-(define_mode_attr vwcore  [(V8QI "w") (V16QI "w")
-			   (V4HI "w") (V8HI "w")
-			   (V2SI "w") (V4SI "w")
-			   (DI   "x") (V2DI "x")
-			   (V4HF "w") (V8HF "w")
-			   (V2SF "w") (V4SF "w")
-			   (V2DF "x")])
+(define_mode_attr vwcore [(V8QI "w") (V16QI "w") (V32QI "w")
+			  (V4HI "w") (V8HI "w") (V16HI "w")
+			  (V2SI "w") (V4SI "w") (V8SI "w")
+			  (DI   "x") (V2DI "x") (V4DI "x")
+			  (V4HF "w") (V8HF "w")
+			  (V2SF "w") (V4SF "w") (V8SF "w")
+			  (V2DF "x") (V4DF "x")])
 
 ;; Double vector types for ALLX.
 (define_mode_attr Vallxd [(QI "8b") (HI "4h") (SI "2s")])
 
 ;; Mode with floating-point values replaced by like-sized integers.
-(define_mode_attr V_INT_EQUIV [(V8QI "V8QI") (V16QI "V16QI")
-			       (V4HI "V4HI") (V8HI  "V8HI")
-			       (V2SI "V2SI") (V4SI  "V4SI")
-			       (DI   "DI")   (V2DI  "V2DI")
+(define_mode_attr V_INT_EQUIV [(V8QI "V8QI") (V16QI "V16QI") (V32QI "V32QI")
+			       (V4HI "V4HI") (V8HI  "V8HI")  (V16HI "V16HI")
+			       (V2SI "V2SI") (V4SI  "V4SI")  (V8SI  "V8SI")
+			       (DI   "DI")   (V2DI  "V2DI")  (V4DI  "V4DI")
 			       (V4HF "V4HI") (V8HF  "V8HI")
-			       (V2SF "V2SI") (V4SF  "V4SI")
-			       (V2DF "V2DI") (DF    "DI")
+			       (V2SF "V2SI") (V4SF  "V4SI")  (V8SF  "V8SI")
+			       (DF   "DI")   (V2DF  "V2DI")  (V4DF  "V4DI")
 			       (SF   "SI")   (HF    "HI")])
 
 ;; Lower case mode with floating-point values replaced by like-sized integers.
-(define_mode_attr v_int_equiv [(V8QI "v8qi") (V16QI "v16qi")
-			       (V4HI "v4hi") (V8HI  "v8hi")
-			       (V2SI "v2si") (V4SI  "v4si")
-			       (DI   "di")   (V2DI  "v2di")
+(define_mode_attr v_int_equiv [(V8QI "v8qi") (V16QI "v16qi") (V32QI "v32qi")
+			       (V4HI "v4hi") (V8HI  "v8hi")  (V16HI "v16hi")
+			       (V2SI "v2si") (V4SI  "v4si")  (V8SI  "v8si")
+			       (DI   "di")   (V2DI  "v2di")  (V4DI  "v4di")
 			       (V4HF "v4hi") (V8HF  "v8hi")
-			       (V2SF "v2si") (V4SF  "v4si")
-			       (V2DF "v2di") (DF    "di")
+			       (V2SF "v2si") (V4SF  "v4si")  (V8SF  "v8si")
+			       (DF   "di")   (V2DF  "v2di")  (V4DF  "v4di")
 			       (SF   "si")])
+
+;; Floating-point equivalent of selected modes.
+(define_mode_attr V_FP_EQUIV [(V8SI "V8SF") (V8SF "V8SF")
+			      (V4DI "V4DF") (V4DF "V4DF")])
+(define_mode_attr v_fp_equiv [(V8SI "v8sf") (V8SF "v8sf")
+			      (V4DI "v4df") (V4DF "v4df")])
 
 ;; Mode for vector conditional operations where the comparison has
 ;; different type from the lhs.
@@ -792,6 +860,18 @@
 ;; No need of iterator for -fPIC as it use got_lo12 for both modes.
 (define_mode_attr got_modifier [(SI "gotpage_lo14") (DI "gotpage_lo15")])
 
+;; The predicate mode associated with an SVE data mode.
+(define_mode_attr VPRED [(V32QI "V32BI")
+			 (V16HI "V16BI")
+			 (V8SI "V8BI") (V8SF "V8BI")
+			 (V4DI "V4BI") (V4DF "V4BI")])
+
+;; ...and again in lower case.
+(define_mode_attr vpred [(V32QI "v32bi")
+			 (V16HI "v16bi")
+			 (V8SI "v8bi") (V8SF "v8bi")
+			 (V4DI "v4bi") (V4DF "v4bi")])
+
 ;; -------------------------------------------------------------------
 ;; Code Iterators
 ;; -------------------------------------------------------------------
@@ -804,6 +884,9 @@
 
 ;; Code iterator for logical operations
 (define_code_iterator LOGICAL [and ior xor])
+
+;; LOGICAL without AND.
+(define_code_iterator LOGICAL_OR [ior xor])
 
 ;; Code iterator for logical operations whose :nlogical works on SIMD registers.
 (define_code_iterator NLOGICAL [and ior])
@@ -863,6 +946,11 @@
 ;; Unsigned comparison operators.
 (define_code_iterator FAC_COMPARISONS [lt le ge gt])
 
+;; SVE integer unary operations.
+(define_code_iterator SVE_INT_UNARY [neg not popcount])
+
+(define_code_iterator SVE_FP_UNARY [neg abs sqrt])
+
 ;; -------------------------------------------------------------------
 ;; Code Attributes
 ;; -------------------------------------------------------------------
@@ -879,6 +967,7 @@
 			 (unsigned_fix "fixuns")
 			 (float "float")
 			 (unsigned_float "floatuns")
+			 (popcount "popcount")
 			 (and "and")
 			 (ior "ior")
 			 (xor "xor")
@@ -892,6 +981,10 @@
 			 (us_minus "qsub")
 			 (ss_neg "qneg")
 			 (ss_abs "qabs")
+			 (smin "smin")
+			 (smax "smax")
+			 (umin "umin")
+			 (umax "umax")
 			 (eq "eq")
 			 (ne "ne")
 			 (lt "lt")
@@ -901,7 +994,9 @@
 			 (ltu "ltu")
 			 (leu "leu")
 			 (geu "geu")
-			 (gtu "gtu")])
+			 (gtu "gtu")
+			 (abs "abs")
+			 (sqrt "sqrt")])
 
 ;; For comparison operators we use the FCM* and CM* instructions.
 ;; As there are no CMLE or CMLT instructions which act on 3 vector
@@ -944,8 +1039,11 @@
 ;; Operation names for negate and bitwise complement.
 (define_code_attr neg_not_op [(neg "neg") (not "not")])
 
-;; Similar, but when not(op)
+;; Similar, but when the second operand is inverted.
 (define_code_attr nlogical [(and "bic") (ior "orn") (xor "eon")])
+
+;; Similar, but when both operands are inverted.
+(define_code_attr logical_nn [(and "nor") (ior "nand")])
 
 ;; Sign- or zero-extending data-op
 (define_code_attr su [(sign_extend "s") (zero_extend "u")
@@ -954,6 +1052,9 @@
 		      (div "s") (udiv "u")
 		      (smax "s") (umax "u")
 		      (smin "s") (umin "u")])
+
+;; Whether a shift is left or right.
+(define_code_attr lr [(ashift "l") (ashiftrt "r") (lshiftrt "r")])
 
 ;; Emit conditional branch instructions.
 (define_code_attr bcond [(eq "beq") (ne "bne") (lt "bne") (ge "beq")])
@@ -1000,6 +1101,23 @@
 ;; Attribute to describe constants acceptable in atomic logical operations
 (define_mode_attr lconst_atomic [(QI "K") (HI "K") (SI "K") (DI "L")])
 
+(define_code_attr sve_int_op [(plus "add")
+			      (neg "neg")
+			      (smin "smin")
+			      (smax "smax")
+			      (umin "umin")
+			      (umax "umax")
+			      (and "and")
+			      (ior "orr")
+			      (xor "eor")
+			      (not "not")
+			      (popcount "cnt")])
+
+(define_code_attr sve_fp_op [(plus "fadd")
+			     (neg "fneg")
+			     (abs "fabs")
+			     (sqrt "fsqrt")])
+
 ;; -------------------------------------------------------------------
 ;; Int Iterators.
 ;; -------------------------------------------------------------------
@@ -1008,6 +1126,8 @@
 
 (define_int_iterator FMAXMINV [UNSPEC_FMAXV UNSPEC_FMINV
 			       UNSPEC_FMAXNMV UNSPEC_FMINNMV])
+
+(define_int_iterator LOGICALF [UNSPEC_ANDF UNSPEC_IORF UNSPEC_XORF])
 
 (define_int_iterator HADDSUB [UNSPEC_SHADD UNSPEC_UHADD
 			      UNSPEC_SRHADD UNSPEC_URHADD
@@ -1084,6 +1204,21 @@
 
 (define_int_iterator CRYPTO_SHA256 [UNSPEC_SHA256H UNSPEC_SHA256H2])
 
+(define_int_iterator UNPACK [UNSPEC_UNPACKSHI UNSPEC_UNPACKUHI
+			     UNSPEC_UNPACKSLO UNSPEC_UNPACKULO])
+
+(define_int_iterator UNPACK_UNSIGNED [UNSPEC_UNPACKULO UNSPEC_UNPACKUHI])
+
+(define_int_iterator SVE_COND_INT_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
+				       UNSPEC_COND_EQ UNSPEC_COND_NE
+				       UNSPEC_COND_GE UNSPEC_COND_GT
+				       UNSPEC_COND_LO UNSPEC_COND_LS
+				       UNSPEC_COND_HS UNSPEC_COND_HI])
+
+(define_int_iterator SVE_COND_FP_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
+				      UNSPEC_COND_EQ UNSPEC_COND_NE
+				      UNSPEC_COND_GE UNSPEC_COND_GT])
+
 ;; Iterators for atomic operations.
 
 (define_int_iterator ATOMIC_LDOP
@@ -1097,6 +1232,11 @@
 ;; -------------------------------------------------------------------
 ;; Int Iterators Attributes.
 ;; -------------------------------------------------------------------
+
+(define_int_attr optab [(UNSPEC_ANDF "and")
+			(UNSPEC_IORF "ior")
+			(UNSPEC_XORF "xor")])
+
 (define_int_attr  maxmin_uns [(UNSPEC_UMAXV "umax")
 			      (UNSPEC_UMINV "umin")
 			      (UNSPEC_SMAXV "smax")
@@ -1122,6 +1262,15 @@
 				 (UNSPEC_FMINV "fmin")
 				 (UNSPEC_FMAXNM "fmaxnm")
 				 (UNSPEC_FMINNM "fminnm")])
+
+(define_int_attr logicalf_op [(UNSPEC_ANDF "and")
+		 	      (UNSPEC_IORF "orr")
+			      (UNSPEC_XORF "eor")])
+
+(define_int_attr su [(UNSPEC_UNPACKSHI "s")
+		     (UNSPEC_UNPACKUHI "u")
+		     (UNSPEC_UNPACKSLO "s")
+		     (UNSPEC_UNPACKULO "u")])
 
 (define_int_attr sur [(UNSPEC_SHADD "s") (UNSPEC_UHADD "u")
 		      (UNSPEC_SRHADD "sr") (UNSPEC_URHADD "ur")
@@ -1220,7 +1369,9 @@
 
 (define_int_attr perm_hilo [(UNSPEC_ZIP1 "1") (UNSPEC_ZIP2 "2")
 			    (UNSPEC_TRN1 "1") (UNSPEC_TRN2 "2")
-			    (UNSPEC_UZP1 "1") (UNSPEC_UZP2 "2")])
+			    (UNSPEC_UZP1 "1") (UNSPEC_UZP2 "2")
+			    (UNSPEC_UNPACKSHI "hi") (UNSPEC_UNPACKUHI "hi")
+			    (UNSPEC_UNPACKSLO "lo") (UNSPEC_UNPACKULO "lo")])
 
 (define_int_attr frecp_suffix  [(UNSPEC_FRECPE "e") (UNSPEC_FRECPX "x")])
 
@@ -1243,3 +1394,25 @@
 (define_int_attr sha256_op [(UNSPEC_SHA256H "") (UNSPEC_SHA256H2 "2")])
 
 (define_int_attr rdma_as [(UNSPEC_SQRDMLAH "a") (UNSPEC_SQRDMLSH "s")])
+
+(define_int_attr cmp_op [(UNSPEC_COND_LT "lt")
+			 (UNSPEC_COND_LE "le")
+			 (UNSPEC_COND_EQ "eq")
+			 (UNSPEC_COND_NE "ne")
+			 (UNSPEC_COND_GE "ge")
+			 (UNSPEC_COND_GT "gt")
+			 (UNSPEC_COND_LO "lo")
+			 (UNSPEC_COND_LS "ls")
+			 (UNSPEC_COND_HS "hs")
+			 (UNSPEC_COND_HI "hi")])
+
+(define_int_attr imm_con [(UNSPEC_COND_EQ "vsc")
+			  (UNSPEC_COND_NE "vsc")
+			  (UNSPEC_COND_LT "vsc")
+			  (UNSPEC_COND_GE "vsc")
+			  (UNSPEC_COND_LE "vsc")
+			  (UNSPEC_COND_GT "vsc")
+			  (UNSPEC_COND_LO "vsd")
+			  (UNSPEC_COND_LS "vsd")
+			  (UNSPEC_COND_HS "vsd")
+			  (UNSPEC_COND_HI "vsd")])

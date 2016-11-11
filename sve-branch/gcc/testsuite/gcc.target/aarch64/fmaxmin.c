@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -ftree-vectorize -fno-inline -save-temps" } */
+/* { dg-options "-O2 -ftree-vectorize -fno-inline -save-temps -march=armv8-a" } */
 
 
 extern void abort (void);

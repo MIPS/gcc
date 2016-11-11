@@ -27,6 +27,12 @@
 (define_register_constraint "w" "FP_REGS"
   "Floating point and SIMD vector registers.")
 
+(define_register_constraint "Upa" "PR_REGS"
+  "SVE predicate registers p0 - p15.")
+
+(define_register_constraint "Upl" "PR_LO_REGS"
+  "SVE predicate registers p0 - p7.")
+
 (define_register_constraint "x" "FP_LO_REGS"
   "Floating point and SIMD vector registers V0 - V15.")
 
@@ -132,6 +138,19 @@
   (and (match_code "const_int")
        (match_test "(unsigned) exact_log2 (ival) <= 4")))
 
+;; "ad" for "(A)DDVL/ADDPL (D)irect".
+(define_constraint "Uad"
+  "@internal
+ A constraint that matches a VG-based constant that can be added by
+ a single ADDVL or ADDPL."
+ (match_operand 0 "aarch64_sve_addvl_addpl_immediate"))
+
+(define_constraint "Ua1"
+  "@internal
+ A constraint that matches a VG-based constant that can be added by
+ using multiple instructions, with one temporary register."
+ (match_operand 0 "aarch64_split_add_offset_immediate"))
+
 (define_memory_constraint "Q"
  "A memory address which uses a single base register with no offset."
  (and (match_code "mem")
@@ -144,12 +163,25 @@
        (match_test "aarch64_legitimate_address_p (GET_MODE (op), XEXP (op, 0),
 						  ADDR_QUERY_LDP_STP, 1)")))
 
+(define_memory_constraint "Utr"
+  "@internal
+   An address valid for SVE LDR and STR instructions (as distinct from
+   LD[1234] and ST[1234] patterns)."
+  (and (match_code "mem")
+       (match_test "aarch64_sve_ldr_operand_p (op)")))
+
 (define_memory_constraint "Utv"
   "@internal
    An address valid for loading/storing opaque structure
    types wider than TImode."
   (and (match_code "mem")
        (match_test "aarch64_simd_mem_operand_p (op)")))
+
+(define_memory_constraint "Utw"
+  "@internal
+   An address valid for SVE LD1Rs."
+  (and (match_code "mem")
+       (match_test "aarch64_sve_ld1r_operand_p (op)")))
 
 (define_constraint "Ufc"
   "A floating point constant which can be used with an\
@@ -160,7 +192,7 @@
 (define_constraint "Dn"
   "@internal
  A constraint that matches vector of immediates."
- (and (match_code "const_vector")
+ (and (match_code "const,const_vector")
       (match_test "aarch64_simd_valid_immediate (op, NULL)")))
 
 (define_constraint "Dh"
@@ -170,6 +202,12 @@
  (and (match_code "const_int")
       (match_test "aarch64_simd_scalar_immediate_valid_for_move (op,
 						 HImode)")))
+
+(define_constraint "Di"
+  "@internal
+ A constraint that matches an immediate operand valid for
+ the SVE INDEX instruction."
+ (match_operand 0 "aarch64_sve_index_immediate"))
 
 (define_constraint "Dq"
   "@internal
@@ -182,24 +220,95 @@
 (define_constraint "Dl"
   "@internal
  A constraint that matches vector of immediates for left shifts."
- (and (match_code "const_vector")
+ (and (match_code "const,const_vector")
       (match_test "aarch64_simd_shift_imm_p (op, GET_MODE (op),
 						 true)")))
 
 (define_constraint "Dr"
   "@internal
  A constraint that matches vector of immediates for right shifts."
- (and (match_code "const_vector")
+ (and (match_code "const,const_vector")
       (match_test "aarch64_simd_shift_imm_p (op, GET_MODE (op),
 						 false)")))
 (define_constraint "Dz"
   "@internal
- A constraint that matches vector of immediate zero."
- (and (match_code "const_vector")
-      (match_test "aarch64_simd_imm_zero_p (op, GET_MODE (op))")))
+ A constraint that matches a vector of immediate zero."
+ (and (match_code "const,const_vector")
+      (match_test "op == CONST0_RTX (GET_MODE (op))")))
+
+(define_constraint "Dm"
+  "@internal
+ A constraint that matches a vector of immediate minus one."
+ (and (match_code "const,const_vector")
+      (match_test "op == CONST1_RTX (GET_MODE (op))")))
 
 (define_constraint "Dd"
   "@internal
  A constraint that matches an immediate operand valid for AdvSIMD scalar."
  (and (match_code "const_int")
       (match_test "aarch64_simd_imm_scalar_p (op, GET_MODE (op))")))
+
+(define_constraint "Dv"
+  "@internal
+ A constraint that matches a VG-based constant that can be loaded by
+ a single CNT[BHWD]."
+ (match_operand 0 "aarch64_sve_cnt_immediate"))
+
+(define_constraint "vsa"
+  "@internal
+ A constraint that matches a signed immediate operand valid for SVE
+ arithmetic instructions."
+ (match_operand 0 "aarch64_sve_arith_immediate"))
+
+(define_constraint "vsc"
+  "@internal
+ A constraint that matches a signed immediate operand valid for SVE
+ CMP instructions."
+ (match_operand 0 "aarch64_sve_cmp_vsc_immediate"))
+
+(define_constraint "vsd"
+  "@internal
+ A constraint that matches an unsigned immediate operand valid for SVE
+ CMP instructions."
+ (match_operand 0 "aarch64_sve_cmp_vsd_immediate"))
+
+(define_constraint "vsi"
+  "@internal
+ A constraint that matches a vector count operand valid for SVE INC and
+ DEC instructions."
+ (match_operand 0 "aarch64_sve_inc_dec_immediate"))
+
+(define_constraint "vsn"
+  "@internal
+ A constraint that matches a signed immediate operand whose negative
+ is valid for SVE SUB instructions."
+ (match_operand 0 "aarch64_sve_sub_arith_immediate"))
+
+(define_constraint "vsl"
+  "@internal
+ A constraint that matches an immediate operand valid for SVE logical
+ operations."
+ (match_operand 0 "aarch64_sve_logical_immediate"))
+
+(define_constraint "vsm"
+  "@internal
+ A constraint that matches an immediate operand valid for SVE MUL
+ operations."
+ (match_operand 0 "aarch64_sve_mul_immediate"))
+
+(define_constraint "vfa"
+  "@internal
+ A constraint that matches an immediate operand valid for SVE FADD
+ and FSUB operations."
+ (match_operand 0 "aarch64_sve_float_arith_immediate"))
+
+(define_constraint "vfm"
+  "@internal
+ A constraint that matches an imediate operand valid for SVE FMUL
+ operations."
+ (match_operand 0 "aarch64_sve_float_mul_immediate"))
+
+(define_constraint "vfn"
+  "@internal
+ A constraint that matches the negative of vfa"
+ (match_operand 0 "aarch64_sve_float_arith_with_sub_immediate"))

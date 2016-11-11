@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3" } */
+/* { dg-options "-O3 -march=armv8-a" } */
 
 int 
 t6(int len, void * dummy, short * __restrict x)

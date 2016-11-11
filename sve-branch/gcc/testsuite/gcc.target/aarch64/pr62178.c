@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3" } */
+/* { dg-options "-O3 -march=armv8-a" } */
 
 int a[30 +1][30 +1], b[30 +1][30 +1], r[30 +1][30 +1];
 
