@@ -11011,6 +11011,14 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       gcc_assert (target);
       return target;
 
+    case VEC_SERIES_EXPR:
+      expand_operands (treeop0, treeop1, NULL_RTX, &op0, &op1, modifier);
+
+      if (CONSTANT_P (op0) && CONSTANT_P (op1))
+	return gen_const_vec_series (mode, op0, op1);
+
+      return expand_vec_series_expr (mode, op0, op1, target);
+
     case RETURN_EXPR:
     case LABEL_EXPR:
     case GOTO_EXPR:

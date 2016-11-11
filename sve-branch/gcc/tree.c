@@ -4491,7 +4491,8 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   /* Expressions without side effects may be constant if their
      arguments are as well.  */
   constant = (TREE_CODE_CLASS (code) == tcc_comparison
-	      || TREE_CODE_CLASS (code) == tcc_binary);
+	      || TREE_CODE_CLASS (code) == tcc_binary
+	      || code == VEC_SERIES_EXPR);
   read_only = 1;
   side_effects = TREE_SIDE_EFFECTS (t);
 

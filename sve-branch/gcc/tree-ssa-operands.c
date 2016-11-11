@@ -838,6 +838,7 @@ get_expr_operands (struct function *fn, gimple *stmt, tree *expr_p, int flags)
     case COMPOUND_EXPR:
     case OBJ_TYPE_REF:
     case ASSERT_EXPR:
+    case VEC_SERIES_EXPR:
     do_binary:
       {
 	get_expr_operands (fn, stmt, &TREE_OPERAND (expr, 0), flags);

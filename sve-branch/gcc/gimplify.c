@@ -11184,6 +11184,15 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  else
 	    goto expr_1;
 
+	case VEC_SERIES_EXPR:
+	  if (TREE_CONSTANT (*expr_p))
+	    {
+	      ret = GS_ALL_DONE;
+	      break;
+	    }
+	  else
+	    goto expr_2;
+
 	case CONST_DECL:
 	  /* If we require an lvalue, such as for ADDR_EXPR, retain the
 	     CONST_DECL node.  Otherwise the decl is replaceable by its

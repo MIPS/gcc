@@ -6641,7 +6641,11 @@ gimple_build (gimple_seq *seq, location_t loc,
   if (!res)
     {
       res = create_tmp_reg_or_ssa_name (type);
-      gimple *stmt = gimple_build_assign (res, code, op0, op1);
+      gimple *stmt;
+      if (code == VEC_SERIES_EXPR)
+	stmt = gimple_build_assign (res, code, build2 (code, type, op0, op1));
+      else
+	stmt = gimple_build_assign (res, code, op0, op1);
       gimple_set_location (stmt, loc);
       gimple_seq_add_stmt_without_update (seq, stmt);
     }

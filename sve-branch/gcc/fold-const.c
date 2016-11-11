@@ -1481,6 +1481,9 @@ const_binop (enum tree_code code, tree type, tree arg1, tree arg2)
      result as argument put those cases that need it here.  */
   switch (code)
     {
+    case VEC_SERIES_EXPR:
+      return NULL_TREE;
+
     case COMPLEX_EXPR:
       if ((TREE_CODE (arg1) == REAL_CST
 	   && TREE_CODE (arg2) == REAL_CST)
@@ -3183,6 +3186,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 
 	case TRUTH_ANDIF_EXPR:
 	case TRUTH_ORIF_EXPR:
+	case VEC_SERIES_EXPR:
 	  return OP_SAME (0) && OP_SAME (1);
 
 	case FMA_EXPR:
