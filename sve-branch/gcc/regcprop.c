@@ -344,8 +344,7 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
      We can't properly represent the latter case in our tables, so don't
      record anything then.  */
   else if (sn < (unsigned int) hard_regno_nregs[sr][vd->e[sr].mode]
-	   && (GET_MODE_SIZE (vd->e[sr].mode) > UNITS_PER_WORD
-	       ? WORDS_BIG_ENDIAN : BYTES_BIG_ENDIAN))
+	   && subreg_lowpart_offset (GET_MODE (dest), vd->e[sr].mode) != 0)
     return;
 
   /* If SRC had been assigned a mode narrower than the copy, we can't
@@ -871,8 +870,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		 is also invalid.  */
 	      if (hard_regno_nregs[regno][mode]
 		  < hard_regno_nregs[regno][vd->e[regno].mode]
-		  && (GET_MODE_SIZE (vd->e[regno].mode) > UNITS_PER_WORD
-		      ? WORDS_BIG_ENDIAN : BYTES_BIG_ENDIAN))
+		  && subreg_lowpart_offset (mode, vd->e[regno].mode) != 0)
 		goto no_move_special_case;
 	    }
 
