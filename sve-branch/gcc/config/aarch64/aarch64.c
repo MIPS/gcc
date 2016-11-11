@@ -7555,7 +7555,7 @@ aarch64_emit_approx_sqrt (rtx dst, rtx src, bool recp)
     return false;
 
   machine_mode mmsk = mode_for_vector
-		        (int_mode_for_mode (GET_MODE_INNER (mode)),
+			(*int_mode_for_mode (GET_MODE_INNER (mode)),
 			 GET_MODE_NUNITS (mode));
   bool use_approx_sqrt_p = (!recp
 			    && (flag_mlow_precision_sqrt

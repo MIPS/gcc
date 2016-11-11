@@ -232,6 +232,7 @@ public:
   ALWAYS_INLINE opt_mode () : m_mode (E_VOIDmode) {}
   ALWAYS_INLINE opt_mode (const T &m) : m_mode (m) {}
   machine_mode_enum else_void () const;
+  machine_mode_enum else_blk () const;
   T operator * () const;
 
   /* Return true if the object contains a T rather than nothing.  */
@@ -250,6 +251,15 @@ ALWAYS_INLINE machine_mode_enum
 opt_mode<T>::else_void () const
 {
   return m_mode;
+}
+
+/* If the T exists, return its enum value, otherwise return E_BLKmode.  */
+
+template<typename T>
+inline machine_mode_enum
+opt_mode<T>::else_blk () const
+{
+  return m_mode == E_VOIDmode ? E_BLKmode : m_mode;
 }
 
 /* Assert that the object contains a T and return it.  */
@@ -540,10 +550,9 @@ extern machine_mode smallest_mode_for_size (unsigned int,
 						 enum mode_class);
 
 
-/* Return an integer mode of the exact same size as the input mode,
-   or BLKmode on failure.  */
+/* Return an integer mode of exactly the same size as the input mode.  */
 
-extern machine_mode int_mode_for_mode (machine_mode);
+extern opt_scalar_int_mode int_mode_for_mode (machine_mode);
 
 extern machine_mode bitwise_mode_for_mode (machine_mode);
 
