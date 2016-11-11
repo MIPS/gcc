@@ -148,7 +148,6 @@ struct GTY(()) alias_set_entry {
 };
 
 static int rtx_equal_for_memref_p (const_rtx, const_rtx);
-static int memrefs_conflict_p (int, rtx, int, rtx, HOST_WIDE_INT);
 static void record_set (rtx, const_rtx, void *);
 static int base_alias_check (rtx, rtx, rtx, rtx, machine_mode,
 			     machine_mode);
@@ -176,11 +175,104 @@ static struct {
   unsigned long long num_disambiguated;
 } alias_stats;
 
+/* Represents the size of a memory reference during alias analysis.
+   There are three possibilities:
+
+   (1) the size needs to be treated as completely unknown
+   (2) the size is known exactly and no alignment is applied to the address
+   (3) the size is known exactly but an alignment is applied to the address
+
+   (3) is used for aligned addresses of the form (and X (const_int -N)),
+   which can subtract something in the range [0, N) from the original
+   address X.  We handle this by subtracting N - 1 from X and adding N - 1
+   to the size, so that the range spans all possible bytes.  */
+class mem_alias_size {
+public:
+  /* Return an unknown size (case (1) above).  */
+  static mem_alias_size unknown () { return (HOST_WIDE_INT) 0; }
+
+  /* Return an exact size (case (2) above).  */
+  static mem_alias_size exact (HOST_WIDE_INT size) { return size; }
+
+  /* Return a worst-case size after alignment (case (3) above).
+     SIZE includes the maximum adjustment applied by the alignment.  */
+  static mem_alias_size aligned (HOST_WIDE_INT size) { return -size; }
+
+  /* Return the size of memory reference X.  */
+  static mem_alias_size mem (const_rtx x) { return MEM_SIZE (x); }
+
+  static mem_alias_size mode (machine_mode m);
+
+  /* Return true if the exact size of the memory is known.  */
+  bool exact_p () const { return m_value > 0; }
+  bool exact_p (HOST_WIDE_INT *) const;
+
+  /* Return true if an upper bound on the memory size is known;
+     i.e. not case (1) above.  */
+  bool max_size_known_p () const { return m_value != 0; }
+  bool max_size_known_p (HOST_WIDE_INT *) const;
+
+  /* Return true if the size is subject to alignment.  */
+  bool aligned_p () const { return m_value < 0; }
+
+private:
+  mem_alias_size (HOST_WIDE_INT value) : m_value (value) {}
+
+  HOST_WIDE_INT m_value;
+};
+
+/* Return the size of mode M.  */
+
+inline mem_alias_size
+mem_alias_size::mode (machine_mode m)
+{
+  return (HOST_WIDE_INT) GET_MODE_SIZE (m);
+}
+
+/* Return true if the exact memory size is known, storing it in *RES if so.  */
+
+inline bool
+mem_alias_size::exact_p (HOST_WIDE_INT *res) const
+{
+  if (!exact_p ())
+    return false;
+  *res = m_value;
+  return true;
+}
+
+/* Return true if an upper bound on the memory size is known,
+   storing it in *RES if so.  */
+
+inline bool
+mem_alias_size::max_size_known_p (HOST_WIDE_INT *res) const
+{
+  if (!max_size_known_p ())
+    return false;
+  *res = m_value < 0 ? -m_value : m_value;
+  return true;
+}
+
+/* Align X to POW2 bytes, where POW2 is known to be a power of two.  */
+
+inline mem_alias_size
+align_to (mem_alias_size x, unsigned HOST_WIDE_INT pow2)
+{
+  HOST_WIDE_INT value;
+  if (x.max_size_known_p (&value))
+    return mem_alias_size::aligned (value + (pow2 - 1));
+  return mem_alias_size::unknown ();
+}
+
+/* Return true if X might be greater than Y bytes.  */
+
+inline bool
+alias_may_gt (mem_alias_size x, HOST_WIDE_INT y)
+{
+  HOST_WIDE_INT value;
+  return !x.max_size_known_p (&value) || value > y;
+}
 
 /* Set up all info needed to perform alias analysis on memory references.  */
-
-/* Returns the size in bytes of the mode of X.  */
-#define SIZE_FOR_MODE(X) (GET_MODE_SIZE (GET_MODE (X)))
 
 /* Cap the number of passes we make over the insns propagating alias
    information through set chains.
@@ -2268,56 +2360,54 @@ get_addr (rtx x)
   return x;
 }
 
-/*  Return the address of the (N_REFS + 1)th memory reference to ADDR
-    where SIZE is the size in bytes of the memory reference.  If ADDR
-    is not modified by the memory reference then ADDR is returned.  */
+/* Return the address of the (N_REFS + 1)th memory reference to ADDR
+   where SIZE is the size in bytes of the memory reference.  If ADDR
+   is not modified by the memory reference then ADDR is returned.  */
 
 static rtx
-addr_side_effect_eval (rtx addr, int size, int n_refs)
+addr_side_effect_eval (rtx addr, mem_alias_size size, int n_refs)
 {
-  int offset = 0;
+  int count;
 
   switch (GET_CODE (addr))
     {
     case PRE_INC:
-      offset = (n_refs + 1) * size;
+      count = (n_refs + 1);
       break;
     case PRE_DEC:
-      offset = -(n_refs + 1) * size;
+      count = -(n_refs + 1);
       break;
     case POST_INC:
-      offset = n_refs * size;
+      count = n_refs;
       break;
     case POST_DEC:
-      offset = -n_refs * size;
+      count = -n_refs;
       break;
 
     default:
       return addr;
     }
 
-  if (offset)
-    addr = gen_rtx_PLUS (GET_MODE (addr), XEXP (addr, 0),
-			 gen_int_mode (offset, GET_MODE (addr)));
-  else
-    addr = XEXP (addr, 0);
+  HOST_WIDE_INT value;
+  /* Can only automodify a pointer to a known memory size.  */
+  if (!size.exact_p (&value))
+    gcc_unreachable ();
+  addr = plus_constant (GET_MODE (addr), XEXP (addr, 0), value * count);
   addr = canon_rtx (addr);
 
   return addr;
 }
 
 /* Return TRUE if an object X sized at XSIZE bytes and another object
-   Y sized at YSIZE bytes, starting C bytes after X, may overlap.  If
-   any of the sizes is zero, assume an overlap, otherwise use the
-   absolute value of the sizes as the actual sizes.  */
+   Y sized at YSIZE bytes, starting C bytes after X, may overlap.  */
 
 static inline bool
-offset_overlap_p (HOST_WIDE_INT c, int xsize, int ysize)
+offset_overlap_p (HOST_WIDE_INT c, mem_alias_size xsize,
+		  mem_alias_size ysize)
 {
-  return (xsize == 0 || ysize == 0
-	  || (c >= 0
-	      ? (abs (xsize) > c)
-	      : (abs (ysize) > -c)));
+  return (c >= 0
+	  ? alias_may_gt (xsize, c)
+	  : alias_may_gt (ysize, -c));
 }
 
 /* Return one if X and Y (memory addresses) reference the
@@ -2331,14 +2421,6 @@ offset_overlap_p (HOST_WIDE_INT c, int xsize, int ysize)
    similarly YSIZE is the size in bytes for Y.
    Expect that canon_rtx has been already called for X and Y.
 
-   If XSIZE or YSIZE is zero, we do not know the amount of memory being
-   referenced (the reference was BLKmode), so make the most pessimistic
-   assumptions.
-
-   If XSIZE or YSIZE is negative, we may access memory outside the object
-   being referenced as a side effect.  This can happen when using AND to
-   align memory references, as is done on the Alpha.
-
    Nice to notice that varying addresses cannot conflict with fp if no
    local variables had their addresses taken, but that's too hard now.
 
@@ -2347,7 +2429,9 @@ offset_overlap_p (HOST_WIDE_INT c, int xsize, int ysize)
    If that is fixed the TBAA hack for union type-punning can be removed.  */
 
 static int
-memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
+memrefs_conflict_p (mem_alias_size xsize, rtx x,
+		    mem_alias_size ysize, rtx y,
+		    HOST_WIDE_INT c)
 {
   if (GET_CODE (x) == VALUE)
     {
@@ -2392,13 +2476,13 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
   else if (GET_CODE (x) == LO_SUM)
     x = XEXP (x, 1);
   else
-    x = addr_side_effect_eval (x, abs (xsize), 0);
+    x = addr_side_effect_eval (x, xsize, 0);
   if (GET_CODE (y) == HIGH)
     y = XEXP (y, 0);
   else if (GET_CODE (y) == LO_SUM)
     y = XEXP (y, 1);
   else
-    y = addr_side_effect_eval (y, abs (ysize), 0);
+    y = addr_side_effect_eval (y, ysize, 0);
 
   if (GET_CODE (x) == SYMBOL_REF && GET_CODE (y) == SYMBOL_REF)
     {
@@ -2411,7 +2495,7 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	 through alignment adjustments (i.e., that have negative
 	 sizes), because we can't know how far they are from each
 	 other.  */
-      if (xsize < 0 || ysize < 0)
+      if (xsize.aligned_p () || ysize.aligned_p ())
 	return -1;
       /* If decls are different or we know by offsets that there is no overlap,
 	 we win.  */
@@ -2512,12 +2596,17 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	    return offset_overlap_p (c, xsize, ysize);
 
 	  /* Can't properly adjust our sizes.  */
-	  if (!CONST_INT_P (x1))
+	  HOST_WIDE_INT new_xsize, new_ysize;
+	  if (!CONST_INT_P (x1)
+	      || !xsize.exact_p (&new_xsize)
+	      || !ysize.exact_p (&new_ysize))
 	    return -1;
-	  xsize /= INTVAL (x1);
-	  ysize /= INTVAL (x1);
+	  new_xsize /= INTVAL (x1);
+	  new_ysize /= INTVAL (x1);
 	  c /= INTVAL (x1);
-	  return memrefs_conflict_p (xsize, x0, ysize, y0, c);
+	  return memrefs_conflict_p (mem_alias_size::exact (new_xsize), x0,
+				     mem_alias_size::exact (new_ysize), y0,
+				     c);
 	}
 
       default:
@@ -2534,14 +2623,11 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
   if (GET_CODE (x) == AND && CONST_INT_P (XEXP (x, 1)))
     {
       HOST_WIDE_INT sc = INTVAL (XEXP (x, 1));
-      unsigned HOST_WIDE_INT uc = sc;
-      if (sc < 0 && pow2_or_zerop (-uc))
+      unsigned HOST_WIDE_INT align = -sc;
+      if (sc < 0 && pow2_or_zerop (align))
 	{
-	  if (xsize > 0)
-	    xsize = -xsize;
-	  if (xsize)
-	    xsize += sc + 1;
-	  c -= sc + 1;
+	  xsize = align_to (xsize, align);
+	  c += align - 1;
 	  return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)),
 				     ysize, y, c);
 	}
@@ -2549,14 +2635,11 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
   if (GET_CODE (y) == AND && CONST_INT_P (XEXP (y, 1)))
     {
       HOST_WIDE_INT sc = INTVAL (XEXP (y, 1));
-      unsigned HOST_WIDE_INT uc = sc;
-      if (sc < 0 && pow2_or_zerop (-uc))
+      unsigned HOST_WIDE_INT align = -sc;
+      if (sc < 0 && pow2_or_zerop (align))
 	{
-	  if (ysize > 0)
-	    ysize = -ysize;
-	  if (ysize)
-	    ysize += sc + 1;
-	  c += sc + 1;
+	  ysize = align_to (ysize, align);
+	  c -= align - 1;
 	  return memrefs_conflict_p (xsize, x,
 				     ysize, canon_rtx (XEXP (y, 0)), c);
 	}
@@ -2582,13 +2665,6 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
       if (GET_CODE (y) == CONST)
 	return memrefs_conflict_p (xsize, x, ysize,
 				   canon_rtx (XEXP (y, 0)), c);
-
-      /* Assume a potential overlap for symbolic addresses that went
-	 through alignment adjustments (i.e., that have negative
-	 sizes), because we can't know how far they are from each
-	 other.  */
-      if (CONSTANT_P (y))
-	return (xsize < 0 || ysize < 0 || offset_overlap_p (c, xsize, ysize));
 
       return -1;
     }
@@ -2746,7 +2822,8 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
       || (moffsetx_known_p && moffsety_known_p
 	  && MEM_SIZE_KNOWN_P (x) && MEM_SIZE_KNOWN_P (y)
 	  && !offset_overlap_p (moffsety - moffsetx,
-				MEM_SIZE (x), MEM_SIZE (y)));
+				mem_alias_size::mem (x),
+				mem_alias_size::mem (y)));
 
   /* With invalid code we can end up storing into the constant pool.
      Bail out to avoid ICEing when creating RTL for this.
@@ -2915,8 +2992,9 @@ true_dependence_1 (const_rtx mem, machine_mode mem_mode, rtx mem_addr,
   if (!mem_canonicalized)
     mem_addr = canon_rtx (true_mem_addr);
 
-  if ((ret = memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
-				 SIZE_FOR_MODE (x), x_addr, 0)) != -1)
+  if ((ret = memrefs_conflict_p (mem_alias_size::mode (mem_mode), mem_addr,
+				 mem_alias_size::mode (GET_MODE (x)),
+				 x_addr, 0)) != -1)
     return ret;
 
   if (mems_in_disjoint_alias_sets_p (x, mem))
@@ -3027,8 +3105,9 @@ write_dependence_p (const_rtx mem,
   if (!mem_canonicalized)
     mem_addr = canon_rtx (true_mem_addr);
 
-  if ((ret = memrefs_conflict_p (SIZE_FOR_MODE (mem), mem_addr,
-				 GET_MODE_SIZE (x_mode), x_addr, 0)) != -1)
+  if ((ret = memrefs_conflict_p (mem_alias_size::mode (GET_MODE (mem)),
+				 mem_addr, mem_alias_size::mode (x_mode),
+				 x_addr, 0)) != -1)
     return ret;
 
   if (nonoverlapping_memrefs_p (x, mem, false))
