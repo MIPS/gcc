@@ -2208,15 +2208,15 @@
 
 ;; Set the element of a V2DI/VD2F mode
 (define_insn "vsx_set_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,?<VSa>")
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSa>")
 	(unspec:VSX_D
-	 [(match_operand:VSX_D 1 "vsx_register_operand" "wd,<VSa>")
-	  (match_operand:<VS_scalar> 2 "vsx_register_operand" "<VS_64reg>,<VSa>")
-	  (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
+	 [(match_operand:VSX_D 1 "vsx_register_operand" "<VSa>")
+	  (match_operand:<VS_scalar> 2 "vsx_register_operand" "<VS_64reg>")
+	  (match_operand:QI 3 "const_0_to_1_operand" "n")]
 	 UNSPEC_VSX_SET))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
-  int idx_first = BYTES_BIG_ENDIAN ? 0 : 1;
+  int idx_first = VECTOR_ELT_ORDER_BIG ? 0 : 1;
   if (INTVAL (operands[3]) == idx_first)
     return \"xxpermdi %x0,%x2,%x1,1\";
   else if (INTVAL (operands[3]) == 1 - idx_first)
@@ -2230,28 +2230,31 @@
 ;; Optimize cases were we can do a simple or direct move.
 ;; Or see if we can avoid doing the move at all
 
-;; There are some unresolved problems with reload that show up if an Altivec
-;; register was picked.  Limit the scalar value to FPRs for now.
-
 (define_insn "vsx_extract_<mode>"
-  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=d,    d,     wr, wr")
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand"
+		"=<VS_64reg>, <VS_64reg>,  wr, wr")
 
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "gpc_reg_operand"      "<VSa>, <VSa>, wm, wo")
+	 (match_operand:VSX_D 1 "gpc_reg_operand"
+		"<VSa>,       <VSa>,       wm, wo")
 
 	 (parallel
-	  [(match_operand:QI 2 "const_0_to_1_operand"  "wD,    n,     wD, n")])))]
+	  [(match_operand:QI 2 "const_0_to_1_operand"
+		"wD,          n,           wD, n")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int element = INTVAL (operands[2]);
   int op0_regno = REGNO (operands[0]);
   int op1_regno = REGNO (operands[1]);
-  int fldDM;
 
   gcc_assert (IN_RANGE (element, 0, 1));
   gcc_assert (VSX_REGNO_P (op1_regno));
 
-  if (element == VECTOR_ELEMENT_SCALAR_64BIT)
+  if (!VECTOR_ELT_ORDER_BIG)
+    element = 1 - element;
+
+  /* Extract that can be done as a simple move.  */
+  if (!element)
     {
       if (op0_regno == op1_regno)
 	return ASM_COMMENT_START " vec_extract to same register";
@@ -2270,21 +2273,16 @@
 	gcc_unreachable ();
     }
 
-  else if (element == VECTOR_ELEMENT_MFVSRLD_64BIT && INT_REGNO_P (op0_regno)
-	   && TARGET_P9_VECTOR && TARGET_POWERPC64 && TARGET_DIRECT_MOVE)
+  /* Move lower element to VSX register.  */
+  else if (VSX_REGNO_P (op0_regno))
+    return "xxpermdi %x0,%x1,%x1,1";
+
+  /* ISA 3.0 direct move from lower element.  */
+  else if (TARGET_P9_VECTOR && TARGET_POWERPC64 && TARGET_DIRECT_MOVE
+	   && INT_REGNO_P (op0_regno))
     return "mfvsrld %0,%x1";
 
-  else if (VSX_REGNO_P (op0_regno))
-    {
-      fldDM = element << 1;
-      if (!BYTES_BIG_ENDIAN)
-	fldDM = 3 - fldDM;
-      operands[3] = GEN_INT (fldDM);
-      return "xxpermdi %x0,%x1,%x1,%3";
-    }
-
-  else
-    gcc_unreachable ();
+  gcc_unreachable ();
 }
   [(set_attr "type" "veclogical,mftgpr,mftgpr,vecperm")])
 
