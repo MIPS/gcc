@@ -536,7 +536,8 @@ The current status of the support is can be found in the
 and @ref{TS 18508 status} sections of the documentation.
 
 Additionally, the GNU Fortran compilers supports the OpenMP specification
-(version 4.0, @url{http://openmp.org/@/wp/@/openmp-specifications/}).
+(version 4.0 and most of the features of the 4.5 version,
+@url{http://openmp.org/@/wp/@/openmp-specifications/}).
 There also is initial support for the OpenACC specification (targeting
 version 2.0, @uref{http://www.openacc.org/}).
 Note that this is an experimental feature, incomplete, and subject to
@@ -1471,6 +1472,8 @@ compatibility extensions along with those enabled by @option{-std=legacy}.
 * .XOR. operator::
 * Bitwise logical operators::
 * Extended I/O specifiers::
+* Legacy PARAMETER statements::
+* Default exponents::
 @end menu
 
 @node Old-style kind specifications
@@ -1997,7 +2000,7 @@ and environment variables that influence run-time behavior.
 
 GNU Fortran strives to be compatible to the 
 @uref{http://openmp.org/wp/openmp-specifications/,
-OpenMP Application Program Interface v4.0}.
+OpenMP Application Program Interface v4.5}.
 
 To enable the processing of the OpenMP directive @code{!$omp} in
 free-form source code; the @code{c$omp}, @code{*$omp} and @code{!$omp}
@@ -2695,6 +2698,31 @@ system's manual pages for further details. Locking via @code{SHARE=} is not
 supported on other systems.
 
 @end table
+
+@node Legacy PARAMETER statements
+@subsection Legacy PARAMETER statements
+@cindex PARAMETER
+
+For compatibility, GNU Fortran supports legacy PARAMETER statements without
+parentheses with @option{-std=legacy}.  A warning is emitted if used with
+@option{-std=gnu}, and an error is acknowledged with a real Fortran standard
+flag (@option{-std=f95}, etc...).  These statements take the following form:
+
+@smallexample
+implicit real (E)
+parameter e = 2.718282
+real c
+parameter c = 3.0e8
+@end smallexample
+
+@node Default exponents
+@subsection Default exponents
+@cindex exponent
+
+For compatibility, GNU Fortran supports a default exponent of zero in real
+constants with @option{-fdec}.  For example, @code{9e} would be
+interpreted as @code{9e0}, rather than an error.
+
 
 @node Extensions not implemented in GNU Fortran
 @section Extensions not implemented in GNU Fortran

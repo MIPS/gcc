@@ -1,3 +1,50 @@
+2016-11-09  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_template_auto.
+
+2016-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Handle split
+	-fsanitize=shift-base and -fsanitize=shift-exponent.
+
+2016-11-07  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wc++1z-compat): New.
+	* c-cppbuiltin.c (c_cpp_builtins): Add __cpp_noexcept_function_type.
+
+2016-11-07  Martin Liska  <mliska@suse.cz>
+
+	* c-warn.c (warn_for_unused_label): Save all labels used
+	in goto or in &label.
+
+2016-11-03  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Correct
+	__cpp_inheriting_constructors.
+
+2016-11-01  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Update
+	__cpp_inheriting_constructors.
+
+	* c.opt (-fnew-inheriting-ctors): New.
+	* c-opts.c: Default to on for ABI 11+.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77948
+	* c.opt (fext-numeric-literals): Add Var and Init.
+	* c-opts.c (c_common_handle_option): Don't clear
+	cpp_opts->ext_numeric_literals for -std=c++{11,14,1z}.
+	(c_common_post_options): Clear it here if not set
+	explicitly.
+
+2016-10-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR debug/77773
+	* c-pretty-print.c (simple_type_specifier): Do not dereference `t'
+	if NULL.
+
 2016-10-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-common.h (enum rid): Add RID_BUILTIN_LAUNDER.

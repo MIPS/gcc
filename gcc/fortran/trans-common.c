@@ -457,7 +457,11 @@ build_common_decl (gfc_common_head *com, tree union_type, bool is_init)
       if (com->threadprivate)
 	set_decl_tls_model (decl, decl_default_tls_model (decl));
 
-      if (com->omp_declare_target)
+      if (com->omp_declare_target_link)
+	DECL_ATTRIBUTES (decl)
+	  = tree_cons (get_identifier ("omp declare target link"),
+		       NULL_TREE, DECL_ATTRIBUTES (decl));
+      else if (com->omp_declare_target)
 	DECL_ATTRIBUTES (decl)
 	  = tree_cons (get_identifier ("omp declare target"),
 		       NULL_TREE, DECL_ATTRIBUTES (decl));
@@ -1149,13 +1153,13 @@ translate_common (gfc_common_head *common, gfc_symbol *var_list)
 	      if (warn_align_commons)
 		{
 		  if (strcmp (common->name, BLANK_COMMON_NAME))
-		    gfc_warning (0,
+		    gfc_warning (OPT_Walign_commons,
 				 "Padding of %d bytes required before %qs in "
 				 "COMMON %qs at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,
 				 s->sym->name, common->name, &common->where);
 		  else
-		    gfc_warning (0,
+		    gfc_warning (OPT_Walign_commons,
 				 "Padding of %d bytes required before %qs in "
 				 "COMMON at %L; reorder elements or use "
 				 "-fno-align-commons", (int)offset,

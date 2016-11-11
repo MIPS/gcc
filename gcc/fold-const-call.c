@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "case-cfn-macros.h"
 #include "tm.h" /* For C[LT]Z_DEFINED_AT_ZERO.  */
 #include "builtins.h"
+#include "gimple-expr.h"
 
 /* Functions that test for certain constant types, abstracting away the
    decision about whether to check for overflow.  */
@@ -57,7 +58,8 @@ complex_cst_p (tree t)
 static inline bool
 host_size_t_cst_p (tree t, size_t *size_out)
 {
-  if (integer_cst_p (t)
+  if (types_compatible_p (size_type_node, TREE_TYPE (t))
+      && integer_cst_p (t)
       && wi::min_precision (t, UNSIGNED) <= sizeof (size_t) * CHAR_BIT)
     {
       *size_out = tree_to_uhwi (t);
@@ -1504,6 +1506,7 @@ tree
 fold_const_call (combined_fn fn, tree type, tree arg0, tree arg1, tree arg2)
 {
   const char *p0, *p1;
+  unsigned HOST_WIDE_INT s0, s1;
   size_t s2 = 0;
   switch (fn)
     {
@@ -1536,11 +1539,11 @@ fold_const_call (combined_fn fn, tree type, tree arg0, tree arg1, tree arg2)
       }
     case CFN_BUILT_IN_BCMP:
     case CFN_BUILT_IN_MEMCMP:
-      if ((p0 = c_getstr (arg0))
-	  && (p1 = c_getstr (arg1))
+      if ((p0 = c_getstr (arg0, &s0))
+	  && (p1 = c_getstr (arg1, &s1))
 	  && host_size_t_cst_p (arg2, &s2)
-	  && s2 <= strlen (p0)
-	  && s2 <= strlen (p1))
+	  && s2 <= s0
+	  && s2 <= s1)
 	return build_cmp_result (type, memcmp (p0, p1, s2));
       return NULL_TREE;
 

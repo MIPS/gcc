@@ -80,6 +80,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "fold-const-call.h"
 #include "tree-vrp.h"
 #include "tree-ssanames.h"
+#include "selftest.h"
+#include "selftest-rtl.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -2803,11 +2805,24 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
 
   switch (GET_CODE (src))
     {
+    case ASHIFT:
+    case LSHIFTRT:
+      /* Consider only non-variable shifts narrower
+	 than general register width.  */
+      if (!(CONST_INT_P (XEXP (src, 1))
+	    && IN_RANGE (INTVAL (XEXP (src, 1)), 0, 31)))
+	return false;
+      break;
+
     case PLUS:
     case MINUS:
     case IOR:
     case XOR:
     case AND:
+      if (!REG_P (XEXP (src, 1))
+	  && !MEM_P (XEXP (src, 1))
+	  && !CONST_INT_P (XEXP (src, 1)))
+	return false;
       break;
 
     case REG:
@@ -2828,11 +2843,6 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
       && (GET_CODE (src) != AND
 	  || GET_CODE (XEXP (src, 0)) != NOT
 	  || !REG_P (XEXP (XEXP (src, 0), 0))))
-      return false;
-
-  if (!REG_P (XEXP (src, 1))
-      && !MEM_P (XEXP (src, 1))
-      && !CONST_INT_P (XEXP (src, 1)))
       return false;
 
   if ((GET_MODE (XEXP (src, 0)) != DImode
@@ -3385,6 +3395,13 @@ dimode_scalar_chain::compute_convert_gain ()
 	gain += 2 * ix86_cost->int_store[2] - ix86_cost->sse_store[1];
       else if (MEM_P (src) && REG_P (dst))
 	gain += 2 * ix86_cost->int_load[2] - ix86_cost->sse_load[1];
+      else if (GET_CODE (src) == ASHIFT
+	       || GET_CODE (src) == LSHIFTRT)
+	{
+	  gain += ix86_cost->add;
+    	  if (CONST_INT_P (XEXP (src, 0)))
+	    gain -= vector_const_cost (XEXP (src, 0));
+	}
       else if (GET_CODE (src) == PLUS
 	       || GET_CODE (src) == MINUS
 	       || GET_CODE (src) == IOR
@@ -3736,6 +3753,12 @@ dimode_scalar_chain::convert_insn (rtx_insn *insn)
 
   switch (GET_CODE (src))
     {
+    case ASHIFT:
+    case LSHIFTRT:
+      convert_op (&XEXP (src, 0), insn);
+      PUT_MODE (src, V2DImode);
+      break;
+
     case PLUS:
     case MINUS:
     case IOR:
@@ -20376,7 +20399,8 @@ ix86_split_idivmod (machine_mode mode, rtx operands[],
 		    bool signed_p)
 {
   rtx_code_label *end_label, *qimode_label;
-  rtx insn, div, mod;
+  rtx div, mod;
+  rtx_insn *insn;
   rtx scratch, tmp0, tmp1, tmp2;
   rtx (*gen_divmod4_1) (rtx, rtx, rtx, rtx);
   rtx (*gen_zero_extend) (rtx, rtx);
@@ -23558,6 +23582,7 @@ ix86_expand_sse_cmp (rtx dest, enum rtx_code code, rtx cmp_op0, rtx cmp_op1,
     cmp_op1 = force_reg (cmp_ops_mode, cmp_op1);
 
   if (optimize
+      || (maskcmp && cmp_mode != mode)
       || (op_true && reg_overlap_mentioned_p (dest, op_true))
       || (op_false && reg_overlap_mentioned_p (dest, op_false)))
     dest = gen_reg_rtx (maskcmp ? cmp_mode : mode);
@@ -33515,7 +33540,7 @@ ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 	  g = gimple_build_assign (gimple_call_lhs (stmt), NOP_EXPR, lhs);
 	  gimple_set_location (g, loc);
-	  gsi_replace (gsi, g, true);
+	  gsi_replace (gsi, g, false);
 	  return true;
 	}
       break;
@@ -33533,7 +33558,7 @@ ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	  location_t loc = gimple_location (stmt);
 	  gimple *g = gimple_build_assign (gimple_call_lhs (stmt), arg0);
 	  gimple_set_location (g, loc);
-	  gsi_replace (gsi, g, true);
+	  gsi_replace (gsi, g, false);
 	  return true;
 	}
       break;
@@ -33550,7 +33575,7 @@ ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 	  arg0 = gimple_call_arg (stmt, 0);
 	  gimple *g = gimple_build_assign (gimple_call_lhs (stmt), arg0);
 	  gimple_set_location (g, loc);
-	  gsi_replace (gsi, g, true);
+	  gsi_replace (gsi, g, false);
 	  return true;
 	}
       break;
@@ -50571,8 +50596,70 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 {
   return as != ADDR_SPACE_GENERIC;
 }
-#undef TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID
-#define TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID ix86_addr_space_zero_address_valid
+
+static void
+ix86_init_libfuncs (void)
+{
+  if (TARGET_64BIT)
+    {
+      set_optab_libfunc (sdivmod_optab, TImode, "__divmodti4");
+      set_optab_libfunc (udivmod_optab, TImode, "__udivmodti4");
+    }
+  else
+    {
+      set_optab_libfunc (sdivmod_optab, DImode, "__divmoddi4");
+      set_optab_libfunc (udivmod_optab, DImode, "__udivmoddi4");
+    }
+
+#if TARGET_MACHO
+  darwin_rename_builtins ();
+#endif
+}
+
+/* Generate call to __divmoddi4.  */
+
+static void
+ix86_expand_divmod_libfunc (rtx libfunc, machine_mode mode,
+			    rtx op0, rtx op1,
+			    rtx *quot_p, rtx *rem_p)
+{
+  rtx rem = assign_386_stack_local (mode, SLOT_TEMP);
+
+  rtx quot = emit_library_call_value (libfunc, NULL_RTX, LCT_NORMAL,
+				    mode, 3,
+				    op0, GET_MODE (op0),
+				    op1, GET_MODE (op1),
+				    XEXP (rem, 0), Pmode);
+  *quot_p = quot;
+  *rem_p = rem;
+}
+
+/* Target-specific selftests.  */
+
+#if CHECKING_P
+
+namespace selftest {
+
+/* Verify that hard regs are dumped as expected (in compact mode).  */
+
+static void
+ix86_test_dumping_hard_regs ()
+{
+  ASSERT_RTL_DUMP_EQ ("(reg:SI ax)", gen_raw_REG (SImode, 0));
+  ASSERT_RTL_DUMP_EQ ("(reg:SI dx)", gen_raw_REG (SImode, 1));
+}
+
+/* Run all target-specific selftests.  */
+
+static void
+ix86_run_selftests (void)
+{
+  ix86_test_dumping_hard_regs ();
+}
+
+} // namespace selftest
+
+#endif /* CHECKING_P */
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
@@ -50957,11 +51044,6 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE ix86_conditional_register_usage
 
-#if TARGET_MACHO
-#undef TARGET_INIT_LIBFUNCS
-#define TARGET_INIT_LIBFUNCS darwin_rename_builtins
-#endif
-
 #undef TARGET_LOOP_UNROLL_ADJUST
 #define TARGET_LOOP_UNROLL_ADJUST ix86_loop_unroll_adjust
 
@@ -51051,6 +51133,20 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
 #define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
+
+#undef TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID
+#define TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID ix86_addr_space_zero_address_valid
+
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS ix86_init_libfuncs
+
+#undef TARGET_EXPAND_DIVMOD_LIBFUNC
+#define TARGET_EXPAND_DIVMOD_LIBFUNC ix86_expand_divmod_libfunc
+
+#if CHECKING_P
+#undef TARGET_RUN_TARGET_SELFTESTS
+#define TARGET_RUN_TARGET_SELFTESTS selftest::ix86_run_selftests
+#endif /* #if CHECKING_P */
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

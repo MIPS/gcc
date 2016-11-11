@@ -49,15 +49,6 @@ extern char arm_arch_name[];
 
 #include "config/arm/arm-opts.h"
 
-enum target_cpus
-{
-#define ARM_CORE(NAME, INTERNAL_IDENT, IDENT, ARCH, FLAGS, COSTS) \
-  TARGET_CPU_##INTERNAL_IDENT,
-#include "arm-cores.def"
-#undef ARM_CORE
-  TARGET_CPU_generic
-};
-
 /* The processor for which instructions should be scheduled.  */
 extern enum processor_type arm_tune;
 
@@ -83,12 +74,6 @@ extern GTY(()) rtx arm_target_insn;
 /* Callback to output language specific object attributes.  */
 extern void (*arm_lang_output_object_attributes_hook)(void);
 
-/* Just in case configure has failed to define anything.  */
-#ifndef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT TARGET_CPU_generic
-#endif
-
-
 #undef  CPP_SPEC
 #define CPP_SPEC "%(subtarget_cpp_spec)					\
 %{mfloat-abi=soft:%{mfloat-abi=hard:					\

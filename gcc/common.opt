@@ -58,10 +58,6 @@ int flag_incremental_link = 0
 Variable
 int flag_complex_method = 1
 
-; Nonzero if subexpressions must be evaluated from left-to-right.
-Variable
-int flag_evaluation_order = 0
-
 ; Language specific warning pass for unused results.
 Variable
 bool flag_warn_unused_result = false
@@ -668,7 +664,25 @@ Warn about returning a pointer/reference to a local or temporary variable.
 
 Wshadow
 Common Var(warn_shadow) Warning
-Warn when one local variable shadows another.
+Warn when one variable shadows another.  Same as -Wshadow=global.
+
+Wshadow=global
+Common Warning Alias(Wshadow)
+Warn when one variable shadows another (globally).
+
+Wshadow=local
+Common Var(warn_shadow_local) Warning EnabledBy(Wshadow)
+Warn when one local variable shadows another local variable or parameter.
+
+Wshadow-local
+Common Warning Undocumented Alias(Wshadow=local)
+
+Wshadow=compatible-local
+Common Var(warn_shadow_compatible_local) Warning EnabledBy(Wshadow=local)
+Warn when one local variable shadows another local variable or parameter of compatible type.
+
+Wshadow-compatible-local
+Common Warning Undocumented Alias(Wshadow=compatible-local)
 
 Wstack-protector
 Common Var(warn_stack_protect) Warning
@@ -889,7 +903,8 @@ Driver Undocumented
 ;     identity, such as ia32 calling convention attributes (stdcall, etc.)
 ;     Default in G++ 6 (set in c_common_post_options).
 ;
-; 11: The version of the ABI that corrects mangling of sizeof... expressions.
+; 11: The version of the ABI that corrects mangling of sizeof... expressions
+;     and introduces new inheriting constructor handling.
 ;     Default in G++ 7.
 ;
 ; Additional positive integers will be assigned as new versions of
@@ -966,6 +981,9 @@ After diagnosing undefined behavior attempt to continue execution.
 fsanitize-recover
 Common Report
 This switch is deprecated; use -fsanitize-recover= instead.
+
+fsanitize-address-use-after-scope
+Common Driver Report Var(flag_sanitize_address_use_after_scope) Init(0)
 
 fsanitize-undefined-trap-on-error
 Common Driver Report Var(flag_sanitize_undefined_trap_on_error) Init(0)
@@ -1462,6 +1480,10 @@ Enable the loop nest optimizer.
 fstrict-volatile-bitfields
 Common Report Var(flag_strict_volatile_bitfields) Init(-1) Optimization
 Force bitfield accesses to match their type width.
+
+fstore-merging
+Common Report Var(flag_store_merging) Optimization
+Merge adjacent stores.
 
 fguess-branch-probability
 Common Report Var(flag_guess_branch_prob) Optimization

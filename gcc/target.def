@@ -2627,7 +2627,7 @@ DEFHOOK
  insns are saved in @var{gen_seq}.  They will be emitted when all the\n\
  compares in the the conditional comparision are generated without error.\n\
  @var{code} is the @code{rtx_code} of the compare for @var{op0} and @var{op1}.",
- rtx, (rtx *prep_seq, rtx *gen_seq, int code, tree op0, tree op1),
+ rtx, (rtx_insn **prep_seq, rtx_insn **gen_seq, int code, tree op0, tree op1),
  NULL)
 
 DEFHOOK
@@ -2644,7 +2644,7 @@ DEFHOOK
  be appropriate for passing to @code{gen_ccmp_next} or @code{cbranch_optab}.\n\
  @var{code} is the @code{rtx_code} of the compare for @var{op0} and @var{op1}.\n\
  @var{bit_code} is @code{AND} or @code{IOR}, which is the op on the compares.",
- rtx, (rtx *prep_seq, rtx *gen_seq, rtx prev, int cmp_code, tree op0, tree op1, int bit_code),
+ rtx, (rtx_insn **prep_seq, rtx_insn **gen_seq, rtx prev, int cmp_code, tree op0, tree op1, int bit_code),
  NULL)
 
 /* Return a new value for loop unroll size.  */
@@ -5029,6 +5029,18 @@ DEFHOOK
  reg_class_t, (reg_class_t, machine_mode),
  NULL)
 
+/* Determine an additional allocno class.  */
+DEFHOOK
+(additional_allocno_class_p,
+ "This hook should return @code{true} if given class of registers should\
+  be an allocno class in any way.  Usually RA uses only one register\
+  class from all classes containing the same register set.  In some\
+  complicated cases, you need to have two or more such classes as\
+  allocno ones for RA correct work.  Not defining this hook is\
+  equivalent to returning @code{false} for all inputs.",
+ bool, (reg_class_t),
+ hook_bool_reg_class_t_false)
+
 DEFHOOK
 (cstore_mode,
  "This hook defines the machine mode to use for the boolean result of\
@@ -5038,6 +5050,16 @@ DEFHOOK
   patterns.",
   machine_mode, (enum insn_code icode),
   default_cstore_mode)
+
+/* This target hook allows the backend to compute the register pressure
+   classes to use.  */
+DEFHOOK
+(compute_pressure_classes,
+ "A target hook which lets a backend compute the set of pressure classes to\
+  be used by those optimization passes which take register pressure into\
+  account, as opposed to letting IRA compute them.  It returns the number of\
+  register classes stored in the array @var{pressure_classes}.",
+ int, (enum reg_class *pressure_classes), NULL)
 
 /* True if a structure, union or array with MODE containing FIELD should
    be accessed using BLKmode.  */
@@ -5054,6 +5076,15 @@ retain the field's mode.\n\
 Normally, this is not needed.",
  bool, (const_tree field, machine_mode mode),
  default_member_type_forces_blk)
+
+/* See tree-ssa-math-opts.c:divmod_candidate_p for conditions
+   that gate the divod transform.  */
+DEFHOOK
+(expand_divmod_libfunc,
+ "Define this hook for enabling divmod transform if the port does not have\n\
+hardware divmod insn but defines target-specific divmod libfuncs.", 
+ void, (rtx libfunc, machine_mode mode, rtx op0, rtx op1, rtx *quot, rtx *rem),
+ NULL)
 
 /* Return the class for a secondary reload, and fill in extra information.  */
 DEFHOOK
@@ -5932,6 +5963,24 @@ comparison code or operands.",
  void, (int *code, rtx *op0, rtx *op1, bool op0_preserve_value),
  default_canonicalize_comparison)
 
+DEFHOOK
+(min_arithmetic_precision,
+ "On some RISC architectures with 64-bit registers, the processor also\n\
+maintains 32-bit condition codes that make it possible to do real 32-bit\n\
+arithmetic, although the operations are performed on the full registers.\n\
+\n\
+On such architectures, defining this hook to 32 tells the compiler to try\n\
+using 32-bit arithmetical operations setting the condition codes instead\n\
+of doing full 64-bit arithmetic.\n\
+\n\
+More generally, define this hook on RISC architectures if you want the\n\
+compiler to try using arithmetical operations setting the condition codes\n\
+with a precision lower than the word precision.\n\
+\n\
+You need not define this hook if @code{WORD_REGISTER_OPERATIONS} is not\n\
+defined to 1.",
+ unsigned int, (void), default_min_arithmetic_precision)
+
 DEFHOOKPOD
 (atomic_test_and_set_trueval,
  "This value should be set if the result written by\
@@ -6128,6 +6177,12 @@ HOOK_VECTOR_END (mode_switching)
   DEFHOOKPOD (code_for_##NAME, "*", enum insn_code, CODE_FOR_nothing)
 #include "target-insns.def"
 #undef DEF_TARGET_INSN
+
+DEFHOOK
+(run_target_selftests,
+ "If selftests are enabled, run any selftests for this target.",
+ void, (void),
+ NULL)
 
 /* Close the 'struct gcc_target' definition.  */
 HOOK_VECTOR_END (C90_EMPTY_HACK)

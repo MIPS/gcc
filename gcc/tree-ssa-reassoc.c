@@ -924,7 +924,7 @@ eliminate_using_constants (enum tree_code opcode,
   tree type = TREE_TYPE (oelast->op);
 
   if (oelast->rank == 0
-      && (INTEGRAL_TYPE_P (type) || FLOAT_TYPE_P (type)))
+      && (ANY_INTEGRAL_TYPE_P (type) || FLOAT_TYPE_P (type)))
     {
       switch (opcode)
 	{
@@ -2980,7 +2980,7 @@ optimize_range_tests_var_bound (enum tree_code opcode, int first, int length,
       gimple_set_uid (g, uid);
       rhs2 = gimple_assign_lhs (g);
       gsi_insert_before (&gsi, g, GSI_SAME_STMT);
-      if (tree_swap_operands_p (rhs1, rhs2, false))
+      if (tree_swap_operands_p (rhs1, rhs2))
 	{
 	  std::swap (rhs1, rhs2);
 	  ccode = swap_tree_comparison (ccode);

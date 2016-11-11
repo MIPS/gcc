@@ -104,10 +104,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "print-rtl.h"
 
-#ifndef LOAD_EXTEND_OP
-#define LOAD_EXTEND_OP(M) UNKNOWN
-#endif
-
 /* Number of attempts to combine instructions in this function.  */
 
 static int combine_attempts;
@@ -3531,6 +3527,15 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       if (m_split_insn == 0 && ! reg_overlap_mentioned_p (i2dest, newpat))
 	{
 	  machine_mode new_mode = GET_MODE (SET_DEST (newpat));
+
+	  /* ??? Reusing i2dest without resetting the reg_stat entry for it
+	     (temporarily, until we are committed to this instruction
+	     combination) does not work: for example, any call to nonzero_bits
+	     on the register (from a splitter in the MD file, for example)
+	     will get the old information, which is invalid.
+
+	     Since nowadays we can create registers during combine just fine,
+	     we should just create a new one here, not reuse i2dest.  */
 
 	  /* First try to split using the original register as a
 	     scratch register.  */
@@ -7757,7 +7762,8 @@ extract_left_shift (rtx x, int count)
 
    IN_CODE says what kind of expression we are processing.  Normally, it is
    SET.  In a memory address it is MEM.  When processing the arguments of
-   a comparison or a COMPARE against zero, it is COMPARE.  */
+   a comparison or a COMPARE against zero, it is COMPARE, or EQ if more
+   precisely it is an equality comparison against zero.  */
 
 rtx
 make_compound_operation (rtx x, enum rtx_code in_code)
@@ -7771,6 +7777,7 @@ make_compound_operation (rtx x, enum rtx_code in_code)
   rtx new_rtx = 0;
   rtx tem;
   const char *fmt;
+  bool equality_comparison = false;
 
   /* PR rtl-optimization/70944.  */
   if (VECTOR_MODE_P (mode))
@@ -7780,6 +7787,11 @@ make_compound_operation (rtx x, enum rtx_code in_code)
      address, we stay there.  If we have a comparison, set to COMPARE,
      but once inside, go back to our default of SET.  */
 
+  if (in_code == EQ)
+    {
+      equality_comparison = true;
+      in_code = COMPARE;
+    }
   next_code = (code == MEM ? MEM
 	       : ((code == COMPARE || COMPARISON_P (x))
 		  && XEXP (x, 1) == const0_rtx) ? COMPARE
@@ -7988,11 +8000,12 @@ make_compound_operation (rtx x, enum rtx_code in_code)
       /* If we are in a comparison and this is an AND with a power of two,
 	 convert this into the appropriate bit extract.  */
       else if (in_code == COMPARE
-	       && (i = exact_log2 (UINTVAL (XEXP (x, 1)))) >= 0)
+	       && (i = exact_log2 (UINTVAL (XEXP (x, 1)))) >= 0
+	       && (equality_comparison || i < GET_MODE_PRECISION (mode) - 1))
 	new_rtx = make_extraction (mode,
-			       make_compound_operation (XEXP (x, 0),
-							next_code),
-			       i, NULL_RTX, 1, 1, 0, 1);
+				   make_compound_operation (XEXP (x, 0),
+							    next_code),
+				   i, NULL_RTX, 1, 1, 0, 1);
 
       /* If the one operand is a paradoxical subreg of a register or memory and
 	 the constant (limited to the smaller mode) has only zero bits where
@@ -11106,9 +11119,10 @@ recog_for_combine_1 (rtx *pnewpat, rtx_insn *insn, rtx *pnotes)
    Return whether anything was so changed.  */
 
 static bool
-change_zero_ext (rtx *src)
+change_zero_ext (rtx pat)
 {
   bool changed = false;
+  rtx *src = &SET_SRC (pat);
 
   subrtx_ptr_iterator::array_type array;
   FOR_EACH_SUBRTX_PTR (iter, array, src, NONCONST)
@@ -11128,8 +11142,10 @@ change_zero_ext (rtx *src)
 	  if (BITS_BIG_ENDIAN)
 	    start = GET_MODE_PRECISION (mode) - size - start;
 
-	  x = simplify_gen_binary (LSHIFTRT, mode,
-				   XEXP (x, 0), GEN_INT (start));
+	  if (start)
+	    x = gen_rtx_LSHIFTRT (mode, XEXP (x, 0), GEN_INT (start));
+	  else
+	    x = XEXP (x, 0);
 	}
       else if (GET_CODE (x) == ZERO_EXTEND
 	       && SCALAR_INT_MODE_P (mode)
@@ -11140,6 +11156,14 @@ change_zero_ext (rtx *src)
 	  size = GET_MODE_PRECISION (GET_MODE (XEXP (x, 0)));
 	  x = SUBREG_REG (XEXP (x, 0));
 	}
+      else if (GET_CODE (x) == ZERO_EXTEND
+	       && SCALAR_INT_MODE_P (mode)
+	       && REG_P (XEXP (x, 0))
+	       && HARD_REGISTER_P (XEXP (x, 0)))
+	{
+	  size = GET_MODE_PRECISION (GET_MODE (XEXP (x, 0)));
+	  x = gen_rtx_REG (mode, REGNO (XEXP (x, 0)));
+	}
       else
 	continue;
 
@@ -11147,6 +11171,49 @@ change_zero_ext (rtx *src)
       x = gen_rtx_AND (mode, x, immed_wide_int_const (mask, mode));
 
       SUBST (**iter, x);
+      changed = true;
+    }
+
+  if (changed)
+    FOR_EACH_SUBRTX_PTR (iter, array, src, NONCONST)
+      {
+	rtx x = **iter;
+	if (COMMUTATIVE_ARITH_P (x)
+	    && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
+	  {
+	    rtx tem = XEXP (x, 0);
+	    SUBST (XEXP (x, 0), XEXP (x, 1));
+	    SUBST (XEXP (x, 1), tem);
+	  }
+      }
+
+  rtx *dst = &SET_DEST (pat);
+  if (GET_CODE (*dst) == ZERO_EXTRACT
+      && REG_P (XEXP (*dst, 0))
+      && CONST_INT_P (XEXP (*dst, 1))
+      && CONST_INT_P (XEXP (*dst, 2)))
+    {
+      rtx reg = XEXP (*dst, 0);
+      int width = INTVAL (XEXP (*dst, 1));
+      int offset = INTVAL (XEXP (*dst, 2));
+      machine_mode mode = GET_MODE (reg);
+      int reg_width = GET_MODE_PRECISION (mode);
+      if (BITS_BIG_ENDIAN)
+	offset = reg_width - width - offset;
+
+      rtx x, y, z, w;
+      wide_int mask = wi::shifted_mask (offset, width, true, reg_width);
+      wide_int mask2 = wi::shifted_mask (offset, width, false, reg_width);
+      x = gen_rtx_AND (mode, reg, immed_wide_int_const (mask, mode));
+      if (offset)
+	y = gen_rtx_ASHIFT (mode, SET_SRC (pat), GEN_INT (offset));
+      else
+	y = SET_SRC (pat);
+      z = gen_rtx_AND (mode, y, immed_wide_int_const (mask2, mode));
+      w = gen_rtx_IOR (mode, x, z);
+      SUBST (SET_DEST (pat), reg);
+      SUBST (SET_SRC (pat), w);
+
       changed = true;
     }
 
@@ -11172,7 +11239,7 @@ change_zero_ext (rtx *src)
 static int
 recog_for_combine (rtx *pnewpat, rtx_insn *insn, rtx *pnotes)
 {
-  rtx pat = PATTERN (insn);
+  rtx pat = *pnewpat;
   int insn_code_number = recog_for_combine_1 (pnewpat, insn, pnotes);
   if (insn_code_number >= 0 || check_asm_operands (pat))
     return insn_code_number;
@@ -11181,7 +11248,7 @@ recog_for_combine (rtx *pnewpat, rtx_insn *insn, rtx *pnotes)
   bool changed = false;
 
   if (GET_CODE (pat) == SET)
-    changed = change_zero_ext (&SET_SRC (pat));
+    changed = change_zero_ext (pat);
   else if (GET_CODE (pat) == PARALLEL)
     {
       int i;
@@ -11189,7 +11256,7 @@ recog_for_combine (rtx *pnewpat, rtx_insn *insn, rtx *pnotes)
 	{
 	  rtx set = XVECEXP (pat, 0, i);
 	  if (GET_CODE (set) == SET)
-	    changed |= change_zero_ext (&SET_SRC (set));
+	    changed |= change_zero_ext (set);
 	}
     }
 
@@ -11367,6 +11434,7 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
 	  const_op -= 1;
 	  code = LE;
 	  /* ... fall through to LE case below.  */
+	  gcc_fallthrough ();
 	}
       else
 	break;
@@ -11396,6 +11464,7 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
 	  const_op -= 1;
 	  code = GT;
 	  /* ... fall through to GT below.  */
+	  gcc_fallthrough ();
 	}
       else
 	break;
@@ -12413,19 +12482,23 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
      care bits and we can assume they have any convenient value.  So
      making the transformation is safe.
 
-     2. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is not defined.
+     2. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is UNKNOWN.
      In this case the upper bits of op0 are undefined.  We should not make
      the simplification in that case as we do not know the contents of
      those bits.
 
-     3. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is defined and not
-     UNKNOWN.  In that case we know those bits are zeros or ones.  We must
-     also be sure that they are the same as the upper bits of op1.
+     3. SUBREG_REG (op0) is a memory and LOAD_EXTEND_OP is not UNKNOWN.
+     In that case we know those bits are zeros or ones.  We must also be
+     sure that they are the same as the upper bits of op1.
 
      We can never remove a SUBREG for a non-equality comparison because
      the sign bit is in a different place in the underlying object.  */
 
-  op0 = make_compound_operation (op0, op1 == const0_rtx ? COMPARE : SET);
+  rtx_code op0_mco_code = SET;
+  if (op1 == const0_rtx)
+    op0_mco_code = code == NE || code == EQ ? EQ : COMPARE;
+
+  op0 = make_compound_operation (op0, op0_mco_code);
   op1 = make_compound_operation (op1, SET);
 
   if (GET_CODE (op0) == SUBREG && subreg_lowpart_p (op0)

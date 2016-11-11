@@ -2787,21 +2787,25 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
 	  || o->head->op == EXEC_OMP_DO_SIMD
 	  || o->head->op == EXEC_OMP_PARALLEL_DO_SIMD))
     {
-      int collapse = 1;
+      int count = 1;
       gcc_assert (o->head->next != NULL
 		  && (o->head->next->op == EXEC_DO
 		      || o->head->next->op == EXEC_DO_WHILE)
 		  && o->previous != NULL
 		  && o->previous->tail->op == o->head->op);
-      if (o->previous->tail->ext.omp_clauses != NULL
-	  && o->previous->tail->ext.omp_clauses->collapse > 1)
-	collapse = o->previous->tail->ext.omp_clauses->collapse;
-      if (st == ST_EXIT && cnt <= collapse)
+      if (o->previous->tail->ext.omp_clauses != NULL)
+	{
+	  if (o->previous->tail->ext.omp_clauses->collapse > 1)
+	    count = o->previous->tail->ext.omp_clauses->collapse;
+	  if (o->previous->tail->ext.omp_clauses->orderedc)
+	    count = o->previous->tail->ext.omp_clauses->orderedc;
+	}
+      if (st == ST_EXIT && cnt <= count)
 	{
 	  gfc_error ("EXIT statement at %C terminating !$OMP DO loop");
 	  return MATCH_ERROR;
 	}
-      if (st == ST_CYCLE && cnt < collapse)
+      if (st == ST_CYCLE && cnt < count)
 	{
 	  gfc_error ("CYCLE statement at %C to non-innermost collapsed"
 		     " !$OMP DO loop");
@@ -5898,6 +5902,7 @@ gfc_match_select_type (void)
     {
       expr1 = gfc_get_expr ();
       expr1->expr_type = EXPR_VARIABLE;
+      expr1->where = expr2->where;
       if (gfc_get_sym_tree (name, NULL, &expr1->symtree, false))
 	{
 	  m = MATCH_ERROR;
@@ -6219,6 +6224,7 @@ match_simple_where (void)
 
   c->next = XCNEW (gfc_code);
   *c->next = new_st;
+  c->next->loc = gfc_current_locus;
   gfc_clear_new_st ();
 
   new_st.op = EXEC_WHERE;
@@ -6275,8 +6281,12 @@ gfc_match_where (gfc_statement *st)
   c = gfc_get_code (EXEC_WHERE);
   c->expr1 = expr;
 
+  /* Put in the assignment.  It will not be processed by add_statement, so we
+     need to copy the location here. */
+
   c->next = XCNEW (gfc_code);
   *c->next = new_st;
+  c->next->loc = gfc_current_locus;
   gfc_clear_new_st ();
 
   new_st.op = EXEC_WHERE;

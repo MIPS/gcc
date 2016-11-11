@@ -2591,7 +2591,7 @@ maybe_emit_group_store (rtx x, tree type)
 
    This is used on targets that return BLKmode values in registers.  */
 
-void
+static void
 copy_blkmode_from_reg (rtx target, rtx srcreg, tree type)
 {
   unsigned HOST_WIDE_INT bytes = int_size_in_bytes (type);
@@ -7681,10 +7681,6 @@ expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
     }
   else
     {
-      /* If we need to preserve evaluation order, copy exp0 into its own
-	 temporary variable so that it can't be clobbered by exp1.  */
-      if (flag_evaluation_order && TREE_SIDE_EFFECTS (exp1))
-	exp0 = save_expr (exp0);
       *op0 = expand_expr (exp0, target, VOIDmode, modifier);
       *op1 = expand_expr (exp1, NULL_RTX, VOIDmode, modifier);
     }
@@ -10421,10 +10417,36 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	if (GET_CODE (op0) == CONCAT && !must_force_mem)
 	  {
 	    if (bitpos == 0
-		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
+		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0))
+		&& COMPLEX_MODE_P (mode1)
+		&& COMPLEX_MODE_P (GET_MODE (op0))
+		&& (GET_MODE_PRECISION (GET_MODE_INNER (mode1))
+		    == GET_MODE_PRECISION (GET_MODE_INNER (GET_MODE (op0)))))
 	      {
 		if (reversep)
 		  op0 = flip_storage_order (GET_MODE (op0), op0);
+		if (mode1 != GET_MODE (op0))
+		  {
+		    rtx parts[2];
+		    for (int i = 0; i < 2; i++)
+		      {
+			rtx op = read_complex_part (op0, i != 0);
+			if (GET_CODE (op) == SUBREG)
+			  op = force_reg (GET_MODE (op), op);
+			rtx temp = gen_lowpart_common (GET_MODE_INNER (mode1),
+						       op);
+			if (temp)
+			  op = temp;
+			else
+			  {
+			    if (!REG_P (op) && !MEM_P (op))
+			      op = force_reg (GET_MODE (op), op);
+			    op = gen_lowpart (GET_MODE_INNER (mode1), op);
+			  }
+			parts[i] = op;
+		      }
+		    op0 = gen_rtx_CONCAT (mode1, parts[0], parts[1]);
+		  }
 		return op0;
 	      }
 	    if (bitpos == 0

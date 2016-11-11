@@ -241,9 +241,15 @@ func newarray(*_type, int) unsafe.Pointer
 // funcPC returns the entry PC of the function f.
 // It assumes that f is a func value. Otherwise the behavior is undefined.
 // For gccgo here unless and until we port proc.go.
+// Note that this differs from the gc implementation; the gc implementation
+// adds sys.PtrSize to the address of the interface value, but GCC's
+// alias analysis decides that that can not be a reference to the second
+// field of the interface, and in some cases it drops the initialization
+// of the second field as a dead store.
 //go:nosplit
 func funcPC(f interface{}) uintptr {
-	return **(**uintptr)(add(unsafe.Pointer(&f), sys.PtrSize))
+	i := (*iface)(unsafe.Pointer(&f))
+	return **(**uintptr)(i.data)
 }
 
 // typedmemmove copies a typed value.
@@ -253,11 +259,18 @@ func typedmemmove(typ *_type, dst, src unsafe.Pointer) {
 	memmove(dst, src, typ.size)
 }
 
-// Here for gccgo unless and until we port slice.go.
-type slice struct {
-	array unsafe.Pointer
-	len   int
-	cap   int
+// Temporary for gccgo until we port mbarrier.go.
+//go:linkname typedslicecopy runtime.typedslicecopy
+func typedslicecopy(typ *_type, dst, src slice) int {
+	n := dst.len
+	if n > src.len {
+		n = src.len
+	}
+	if n == 0 {
+		return 0
+	}
+	memmove(dst.array, src.array, uintptr(n)*typ.size)
+	return n
 }
 
 // Here for gccgo until we port malloc.go.
@@ -474,3 +487,35 @@ func atomicstorep(ptr unsafe.Pointer, new unsafe.Pointer) {
 func writebarrierptr(dst *uintptr, src uintptr) {
 	*dst = src
 }
+
+// Temporary for gccgo until we port malloc.go
+var zerobase uintptr
+
+//go:linkname getZerobase runtime.getZerobase
+func getZerobase() *uintptr {
+	return &zerobase
+}
+
+// Temporary for gccgo until we port proc.go.
+func needm()
+func dropm()
+func sigprof()
+func mcount() int32
+
+// Signal trampoline, written in C.
+func sigtramp()
+
+// The sa_handler field is generally hidden in a union, so use C accessors.
+func getSigactionHandler(*_sigaction) uintptr
+func setSigactionHandler(*_sigaction, uintptr)
+
+// Retrieve fields from the siginfo_t and ucontext_t pointers passed
+// to a signal handler using C, as they are often hidden in a union.
+// Returns  and, if available, PC where signal occurred.
+func getSiginfo(*_siginfo_t, unsafe.Pointer) (sigaddr uintptr, sigpc uintptr)
+
+// Implemented in C for gccgo.
+func dumpregs(*_siginfo_t, unsafe.Pointer)
+
+// Temporary for gccgo until we port panic.go.
+func startpanic()

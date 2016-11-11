@@ -6441,7 +6441,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	   can be used in constant-expressions.  */
 	if (!cast_valid_in_integral_constant_expression_p (type)
 	    && cp_parser_non_integral_constant_expression (parser, NIC_CAST))
-	  return error_mark_node;
+	  {
+	    postfix_expression = error_mark_node;
+	    break;
+	  }
 
 	switch (keyword)
 	  {
@@ -6521,7 +6524,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	parser->type_definition_forbidden_message = saved_message;
 	/* `typeid' may not appear in an integral constant expression.  */
 	if (cp_parser_non_integral_constant_expression (parser, NIC_TYPEID))
-	  return error_mark_node;
+	  postfix_expression = error_mark_node;
       }
       break;
 
@@ -6615,7 +6618,10 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    /*cast_p=*/false, /*allow_expansion_p=*/true,
 		    /*non_constant_p=*/NULL);
 	if (vec == NULL)
-	  return error_mark_node;
+	  {
+	    postfix_expression = error_mark_node;
+	    break;
+	  }
 
 	FOR_EACH_VEC_ELT (*vec, i, p)
 	  mark_exp_read (p);
@@ -6624,10 +6630,15 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  {
 	  case RID_ADDRESSOF:
 	    if (vec->length () == 1)
-	      return cp_build_addressof (loc, (*vec)[0], tf_warning_or_error);
-	    error_at (loc, "wrong number of arguments to "
-			   "%<__builtin_addressof%>");
-	    return error_mark_node;
+	      postfix_expression
+		= cp_build_addressof (loc, (*vec)[0], tf_warning_or_error);
+	    else
+	      {
+		error_at (loc, "wrong number of arguments to "
+			       "%<__builtin_addressof%>");
+		postfix_expression = error_mark_node;
+	      }
+	    break;
 
 	  case RID_BUILTIN_LAUNDER:
 	    if (vec->length () == 1)
@@ -6643,14 +6654,20 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 
 	  case RID_BUILTIN_SHUFFLE:
 	    if (vec->length () == 2)
-	      return build_x_vec_perm_expr (loc, (*vec)[0], NULL_TREE,
-					    (*vec)[1], tf_warning_or_error);
+	      postfix_expression
+		= build_x_vec_perm_expr (loc, (*vec)[0], NULL_TREE,
+					 (*vec)[1], tf_warning_or_error);
 	    else if (vec->length () == 3)
-	      return build_x_vec_perm_expr (loc, (*vec)[0], (*vec)[1],
-					    (*vec)[2], tf_warning_or_error);
-	    error_at (loc, "wrong number of arguments to "
-			   "%<__builtin_shuffle%>");
-	    return error_mark_node;
+	      postfix_expression
+		= build_x_vec_perm_expr (loc, (*vec)[0], (*vec)[1],
+					 (*vec)[2], tf_warning_or_error);
+	    else
+	      {
+		error_at (loc, "wrong number of arguments to "
+			       "%<__builtin_shuffle%>");
+		postfix_expression = error_mark_node;
+	      }
+	    break;
 
 	  default:
 	    gcc_unreachable ();
@@ -16579,7 +16596,8 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 						 /*ambiguous_decls=*/NULL,
 						 token->location);
 	      if (tmpl && tmpl != error_mark_node
-		  && DECL_CLASS_TEMPLATE_P (tmpl))
+		  && (DECL_CLASS_TEMPLATE_P (tmpl)
+		      || DECL_TEMPLATE_TEMPLATE_PARM_P (tmpl)))
 		type = make_template_placeholder (tmpl);
 	      else
 		{
@@ -20294,26 +20312,35 @@ cp_parser_type_id_1 (cp_parser* parser, bool is_template_arg,
       && (!flag_concepts || parser->in_type_id_in_expr_p)
       /* None of the valid uses of 'auto' in C++14 involve the type-id
 	 nonterminal, but it is valid in a trailing-return-type.  */
-      && !(cxx_dialect >= cxx14 && is_trailing_return)
-      && type_uses_auto (type_specifier_seq.type))
-    {
-      /* A type-id with type 'auto' is only ok if the abstract declarator
-	 is a function declarator with a late-specified return type.
+      && !(cxx_dialect >= cxx14 && is_trailing_return))
+    if (tree auto_node = type_uses_auto (type_specifier_seq.type))
+      {
+	/* A type-id with type 'auto' is only ok if the abstract declarator
+	   is a function declarator with a late-specified return type.
 
-         A type-id with 'auto' is also valid in a trailing-return-type
-         in a compound-requirement. */
-      if (abstract_declarator
-	  && abstract_declarator->kind == cdk_function
-	  && abstract_declarator->u.function.late_return_type)
-	/* OK */;
-      else if (parser->in_result_type_constraint_p)
-        /* OK */;
-      else
-	{
-	  error ("invalid use of %<auto%>");
-	  return error_mark_node;
-	}
-    }
+	   A type-id with 'auto' is also valid in a trailing-return-type
+	   in a compound-requirement. */
+	if (abstract_declarator
+	    && abstract_declarator->kind == cdk_function
+	    && abstract_declarator->u.function.late_return_type)
+	  /* OK */;
+	else if (parser->in_result_type_constraint_p)
+	  /* OK */;
+	else
+	  {
+	    location_t loc = type_specifier_seq.locations[ds_type_spec];
+	    if (tree tmpl = CLASS_PLACEHOLDER_TEMPLATE (auto_node))
+	      {
+		error_at (loc, "missing template arguments after %qT",
+			  auto_node);
+		inform (DECL_SOURCE_LOCATION (tmpl), "%qD declared here",
+			tmpl);
+	      }
+	    else
+	      error_at (loc, "invalid use of %qT", auto_node);
+	    return error_mark_node;
+	  }
+      }
   
   return groktypename (&type_specifier_seq, abstract_declarator,
 		       is_template_arg);

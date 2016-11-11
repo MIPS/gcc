@@ -1091,6 +1091,12 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
 	tmp = integer_zero_node;
       gfc_add_modify (&parmse->pre, ctree,
 		      fold_convert (TREE_TYPE (ctree), tmp));
+
+      /* Return the len component, except in the case of scalarized array
+	references, where the dynamic type cannot change.  */
+      if (!elemental && full_array && copyback)
+	  gfc_add_modify (&parmse->post, tmp,
+			  fold_convert (TREE_TYPE (tmp), ctree));
     }
 
   if (optional)
@@ -7321,7 +7327,8 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
       gfc_constructor *c = gfc_constructor_first (expr->value.constructor);
       /* We mark that the entire union should be initialized with a contrived
          EXPR_NULL expression at the beginning.  */
-      if (c->n.component == NULL && c->expr->expr_type == EXPR_NULL)
+      if (c != NULL && c->n.component == NULL
+	  && c->expr != NULL && c->expr->expr_type == EXPR_NULL)
         {
           tmp = build2_loc (input_location, MODIFY_EXPR, void_type_node,
 		            dest, build_constructor (TREE_TYPE (dest), NULL));
@@ -10036,7 +10043,7 @@ gfc_trans_assignment (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 tree
 gfc_trans_init_assign (gfc_code * code)
 {
-  return gfc_trans_assignment (code->expr1, code->expr2, true, false);
+  return gfc_trans_assignment (code->expr1, code->expr2, true, false, true);
 }
 
 tree

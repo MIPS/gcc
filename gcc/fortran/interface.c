@@ -558,46 +558,46 @@ gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
      we will say they are not equal for the purposes of this test; therefore
      we compare the maps sequentially. */
   for (;;)
-  {
-    map1_t = map1->ts.u.derived;
-    map2_t = map2->ts.u.derived;
-
-    cmp1 = map1_t->components;
-    cmp2 = map2_t->components;
-
-    /* Protect against null components.  */
-    if (map1_t->attr.zero_comp != map2_t->attr.zero_comp)
-      return 0;
-
-    if (map1_t->attr.zero_comp)
-      return 1;
-
-    for (;;)
     {
-      /* No two fields will ever point to the same map type unless they are
-         the same component, because one map field is created with its type
-         declaration. Therefore don't worry about recursion here. */
-      /* TODO: worry about recursion into parent types of the unions? */
-      if (compare_components (cmp1, cmp2, map1_t, map2_t) == 0)
-        return 0;
+      map1_t = map1->ts.u.derived;
+      map2_t = map2->ts.u.derived;
 
-      cmp1 = cmp1->next;
-      cmp2 = cmp2->next;
+      cmp1 = map1_t->components;
+      cmp2 = map2_t->components;
 
-      if (cmp1 == NULL && cmp2 == NULL)
-        break;
-      if (cmp1 == NULL || cmp2 == NULL)
-        return 0;
+      /* Protect against null components.  */
+      if (map1_t->attr.zero_comp != map2_t->attr.zero_comp)
+	return 0;
+
+      if (map1_t->attr.zero_comp)
+	return 1;
+
+      for (;;)
+	{
+	  /* No two fields will ever point to the same map type unless they are
+	     the same component, because one map field is created with its type
+	     declaration. Therefore don't worry about recursion here. */
+	  /* TODO: worry about recursion into parent types of the unions? */
+	  if (compare_components (cmp1, cmp2, map1_t, map2_t) == 0)
+	    return 0;
+
+	  cmp1 = cmp1->next;
+	  cmp2 = cmp2->next;
+
+	  if (cmp1 == NULL && cmp2 == NULL)
+	    break;
+	  if (cmp1 == NULL || cmp2 == NULL)
+	    return 0;
+	}
+
+      map1 = map1->next;
+      map2 = map2->next;
+
+      if (map1 == NULL && map2 == NULL)
+	break;
+      if (map1 == NULL || map2 == NULL)
+	return 0;
     }
-
-    map1 = map1->next;
-    map2 = map2->next;
-
-    if (map1 == NULL && map2 == NULL)
-      break;
-    if (map1 == NULL || map2 == NULL)
-      return 0;
-  }
 
   return 1;
 }
@@ -2139,17 +2139,17 @@ argument_rank_mismatch (const char *name, locus *where,
     }
   else if (rank1 == 0)
     {
-      gfc_error ("Rank mismatch in argument %qs at %L "
+      gfc_error (OPT_Wargument_mismatch, "Rank mismatch in argument %qs at %L "
 		 "(scalar and rank-%d)", name, where, rank2);
     }
   else if (rank2 == 0)
     {
-      gfc_error ("Rank mismatch in argument %qs at %L "
+      gfc_error (OPT_Wargument_mismatch, "Rank mismatch in argument %qs at %L "
 		 "(rank-%d and scalar)", name, where, rank1);
     }
   else
     {
-      gfc_error ("Rank mismatch in argument %qs at %L "
+      gfc_error (OPT_Wargument_mismatch, "Rank mismatch in argument %qs at %L "
 		 "(rank-%d and rank-%d)", name, where, rank1, rank2);
     }
 }
@@ -2200,7 +2200,8 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 				   sizeof(err), NULL, NULL))
 	{
 	  if (where)
-	    gfc_error ("Interface mismatch in dummy procedure %qs at %L: %s",
+	    gfc_error (OPT_Wargument_mismatch,
+		       "Interface mismatch in dummy procedure %qs at %L: %s",
 		       formal->name, &actual->where, err);
 	  return 0;
 	}
@@ -2227,7 +2228,8 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 				   err, sizeof(err), NULL, NULL))
 	{
 	  if (where)
-	    gfc_error ("Interface mismatch in dummy procedure %qs at %L: %s",
+	    gfc_error (OPT_Wargument_mismatch,
+		       "Interface mismatch in dummy procedure %qs at %L: %s",
 		       formal->name, &actual->where, err);
 	  return 0;
 	}
@@ -2253,7 +2255,8 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 					 CLASS_DATA (actual)->ts.u.derived)))
     {
       if (where)
-	gfc_error ("Type mismatch in argument %qs at %L; passed %s to %s",
+	gfc_error (OPT_Wargument_mismatch,
+		   "Type mismatch in argument %qs at %L; passed %s to %s",
 		   formal->name, where, gfc_typename (&actual->ts),
 		   gfc_typename (&formal->ts));
       return 0;
@@ -2957,7 +2960,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 			f->sym->ts.u.cl->length->value.integer) != 0))
 	 {
 	   if (where && (f->sym->attr.pointer || f->sym->attr.allocatable))
-	     gfc_warning (0,
+	     gfc_warning (OPT_Wargument_mismatch,
 			  "Character length mismatch (%ld/%ld) between actual "
 			  "argument and pointer or allocatable dummy argument "
 			  "%qs at %L",
@@ -2965,7 +2968,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 			  mpz_get_si (f->sym->ts.u.cl->length->value.integer),
 			  f->sym->name, &a->expr->where);
 	   else if (where)
-	     gfc_warning (0,
+	     gfc_warning (OPT_Wargument_mismatch,
 			  "Character length mismatch (%ld/%ld) between actual "
 			  "argument and assumed-shape dummy argument %qs "
 			  "at %L",
@@ -2997,12 +3000,14 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	  && f->sym->attr.flavor != FL_PROCEDURE)
 	{
 	  if (a->expr->ts.type == BT_CHARACTER && !f->sym->as && where)
-	    gfc_warning (0, "Character length of actual argument shorter "
+	    gfc_warning (OPT_Wargument_mismatch,
+			 "Character length of actual argument shorter "
 			 "than of dummy argument %qs (%lu/%lu) at %L",
 			 f->sym->name, actual_size, formal_size,
 			 &a->expr->where);
           else if (where)
-	    gfc_warning (0, "Actual argument contains too few "
+	    gfc_warning (OPT_Wargument_mismatch,
+			 "Actual argument contains too few "
 			 "elements for dummy argument %qs (%lu/%lu) at %L",
 			 f->sym->name, actual_size, formal_size,
 			 &a->expr->where);
@@ -3185,6 +3190,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	 shape array, if the dummy argument has the VOLATILE attribute.  */
 
       if (f->sym->attr.volatile_
+	  && a->expr->expr_type == EXPR_VARIABLE
 	  && a->expr->symtree->n.sym->as
 	  && a->expr->symtree->n.sym->as->type == AS_ASSUMED_SHAPE
 	  && !(f->sym->as && f->sym->as->type == AS_ASSUMED_SHAPE))
@@ -3214,6 +3220,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	 dummy argument has the VOLATILE attribute.  */
 
       if (f->sym->attr.volatile_
+	  && a->expr->expr_type == EXPR_VARIABLE
 	  && a->expr->symtree->n.sym->attr.pointer
 	  && a->expr->symtree->n.sym->as
 	  && !(f->sym->as
@@ -4547,7 +4554,8 @@ gfc_check_typebound_override (gfc_symtree* proc, gfc_symtree* old)
       if (!gfc_check_dummy_characteristics (proc_formal->sym, old_formal->sym,
 					check_type, err, sizeof(err)))
 	{
-	  gfc_error ("Argument mismatch for the overriding procedure "
+	  gfc_error (OPT_Wargument_mismatch,
+		     "Argument mismatch for the overriding procedure "
 		     "%qs at %L: %s", proc->name, &where, err);
 	  return false;
 	}

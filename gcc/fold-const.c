@@ -80,10 +80,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "selftest.h"
 
-#ifndef LOAD_EXTEND_OP
-#define LOAD_EXTEND_OP(M) UNKNOWN
-#endif
-
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */
 int folding_initializer = 0;
@@ -137,7 +133,6 @@ static tree fold_binary_op_with_conditional_arg (location_t,
 						 tree, tree,
 						 tree, tree, int);
 static tree fold_div_compare (location_t, enum tree_code, tree, tree, tree);
-static bool reorder_operands_p (const_tree, const_tree);
 static tree fold_negate_const (tree, tree);
 static tree fold_not_const (const_tree, tree);
 static tree fold_relational_const (enum tree_code, tree, tree, tree);
@@ -439,9 +434,7 @@ negate_expr_p (tree t)
 	      && ! TYPE_OVERFLOW_WRAPS (type)))
 	return false;
       /* -(A + B) -> (-B) - A.  */
-      if (negate_expr_p (TREE_OPERAND (t, 1))
-	  && reorder_operands_p (TREE_OPERAND (t, 0),
-				 TREE_OPERAND (t, 1)))
+      if (negate_expr_p (TREE_OPERAND (t, 1)))
 	return true;
       /* -(A + B) -> (-A) - B.  */
       return negate_expr_p (TREE_OPERAND (t, 0));
@@ -451,9 +444,7 @@ negate_expr_p (tree t)
       return !HONOR_SIGN_DEPENDENT_ROUNDING (element_mode (type))
 	     && !HONOR_SIGNED_ZEROS (element_mode (type))
 	     && (! INTEGRAL_TYPE_P (type)
-		 || TYPE_OVERFLOW_WRAPS (type))
-	     && reorder_operands_p (TREE_OPERAND (t, 0),
-				    TREE_OPERAND (t, 1));
+		 || TYPE_OVERFLOW_WRAPS (type));
 
     case MULT_EXPR:
       if (TYPE_UNSIGNED (type))
@@ -610,9 +601,7 @@ fold_negate_expr (location_t loc, tree t)
 	  && !HONOR_SIGNED_ZEROS (element_mode (type)))
 	{
 	  /* -(A + B) -> (-B) - A.  */
-	  if (negate_expr_p (TREE_OPERAND (t, 1))
-	      && reorder_operands_p (TREE_OPERAND (t, 0),
-				     TREE_OPERAND (t, 1)))
+	  if (negate_expr_p (TREE_OPERAND (t, 1)))
 	    {
 	      tem = negate_expr (TREE_OPERAND (t, 1));
 	      return fold_build2_loc (loc, MINUS_EXPR, type,
@@ -632,8 +621,7 @@ fold_negate_expr (location_t loc, tree t)
     case MINUS_EXPR:
       /* - (A - B) -> B - A  */
       if (!HONOR_SIGN_DEPENDENT_ROUNDING (element_mode (type))
-	  && !HONOR_SIGNED_ZEROS (element_mode (type))
-	  && reorder_operands_p (TREE_OPERAND (t, 0), TREE_OPERAND (t, 1)))
+	  && !HONOR_SIGNED_ZEROS (element_mode (type)))
 	return fold_build2_loc (loc, MINUS_EXPR, type,
 			    TREE_OPERAND (t, 1), TREE_OPERAND (t, 0));
       break;
@@ -3809,11 +3797,11 @@ make_bit_field_ref (location_t loc, tree inner, tree orig_inner, tree type,
 {
   tree result, bftype;
 
-  if (get_alias_set (inner) != get_alias_set (orig_inner))
+  alias_set_type iset = get_alias_set (orig_inner);
+  if (iset == 0 && get_alias_set (inner) != iset)
     inner = fold_build2 (MEM_REF, TREE_TYPE (inner),
 			 build_fold_addr_expr (inner),
-			 build_int_cst
-			  (reference_alias_ptr_type (orig_inner), 0));
+			 build_int_cst (ptr_type_node, 0));
 
   if (bitpos == 0 && !reversep)
     {
@@ -5082,12 +5070,10 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       case EQ_EXPR:
       case UNEQ_EXPR:
 	tem = fold_convert_loc (loc, arg1_type, arg1);
-	return pedantic_non_lvalue_loc (loc,
-				    fold_convert_loc (loc, type,
-						  negate_expr (tem)));
+	return fold_convert_loc (loc, type, negate_expr (tem));
       case NE_EXPR:
       case LTGT_EXPR:
-	return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
+	return fold_convert_loc (loc, type, arg1);
       case UNGE_EXPR:
       case UNGT_EXPR:
 	if (flag_trapping_math)
@@ -5098,7 +5084,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	if (TYPE_UNSIGNED (TREE_TYPE (arg1)))
 	  break;
 	tem = fold_build1_loc (loc, ABS_EXPR, TREE_TYPE (arg1), arg1);
-	return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, tem));
+	return fold_convert_loc (loc, type, tem);
       case UNLE_EXPR:
       case UNLT_EXPR:
 	if (flag_trapping_math)
@@ -5124,7 +5110,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       && integer_zerop (arg01) && integer_zerop (arg2))
     {
       if (comp_code == NE_EXPR)
-	return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
+	return fold_convert_loc (loc, type, arg1);
       else if (comp_code == EQ_EXPR)
 	return build_zero_cst (type);
     }
@@ -5170,20 +5156,12 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       tree comp_op1 = arg01;
       tree comp_type = TREE_TYPE (comp_op0);
 
-      /* Avoid adding NOP_EXPRs in case this is an lvalue.  */
-      if (TYPE_MAIN_VARIANT (comp_type) == TYPE_MAIN_VARIANT (type))
-	{
-	  comp_type = type;
-	  comp_op0 = arg1;
-	  comp_op1 = arg2;
-	}
-
       switch (comp_code)
 	{
 	case EQ_EXPR:
-	  return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg2));
+	  return fold_convert_loc (loc, type, arg2);
 	case NE_EXPR:
-	  return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
+	  return fold_convert_loc (loc, type, arg1);
 	case LE_EXPR:
 	case LT_EXPR:
 	case UNLE_EXPR:
@@ -5200,8 +5178,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 		    ? fold_build2_loc (loc, MIN_EXPR, comp_type, comp_op0, comp_op1)
 		    : fold_build2_loc (loc, MIN_EXPR, comp_type,
 				   comp_op1, comp_op0);
-	      return pedantic_non_lvalue_loc (loc,
-					  fold_convert_loc (loc, type, tem));
+	      return fold_convert_loc (loc, type, tem);
 	    }
 	  break;
 	case GE_EXPR:
@@ -5216,19 +5193,16 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 		    ? fold_build2_loc (loc, MAX_EXPR, comp_type, comp_op0, comp_op1)
 		    : fold_build2_loc (loc, MAX_EXPR, comp_type,
 				   comp_op1, comp_op0);
-	      return pedantic_non_lvalue_loc (loc,
-					  fold_convert_loc (loc, type, tem));
+	      return fold_convert_loc (loc, type, tem);
 	    }
 	  break;
 	case UNEQ_EXPR:
 	  if (!HONOR_NANS (arg1))
-	    return pedantic_non_lvalue_loc (loc,
-					fold_convert_loc (loc, type, arg2));
+	    return fold_convert_loc (loc, type, arg2);
 	  break;
 	case LTGT_EXPR:
 	  if (!HONOR_NANS (arg1))
-	    return pedantic_non_lvalue_loc (loc,
-					fold_convert_loc (loc, type, arg1));
+	    return fold_convert_loc (loc, type, arg1);
 	  break;
 	default:
 	  gcc_assert (TREE_CODE_CLASS (comp_code) == tcc_comparison);
@@ -5267,8 +5241,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MIN_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc,
-					    fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
 
@@ -5285,8 +5258,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MIN_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc,
-					    fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
 
@@ -5303,7 +5275,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MAX_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
 
@@ -5319,7 +5291,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
 	    tem = fold_build2_loc (loc, MAX_EXPR, TREE_TYPE (arg00), arg00,
 				   fold_convert_loc (loc, TREE_TYPE (arg00),
 						     arg2));
-	    return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, tem));
+	    return fold_convert_loc (loc, type, tem);
 	  }
 	break;
       case NE_EXPR:
@@ -6781,27 +6753,12 @@ fold_single_bit_test (location_t loc, enum tree_code code,
   return NULL_TREE;
 }
 
-/* Check whether we are allowed to reorder operands arg0 and arg1,
-   such that the evaluation of arg1 occurs before arg0.  */
-
-static bool
-reorder_operands_p (const_tree arg0, const_tree arg1)
-{
-  if (! flag_evaluation_order)
-      return true;
-  if (TREE_CONSTANT (arg0) || TREE_CONSTANT (arg1))
-    return true;
-  return ! TREE_SIDE_EFFECTS (arg0)
-	 && ! TREE_SIDE_EFFECTS (arg1);
-}
-
 /* Test whether it is preferable two swap two operands, ARG0 and
    ARG1, for example because ARG0 is an integer constant and ARG1
-   isn't.  If REORDER is true, only recommend swapping if we can
-   evaluate the operands in reverse order.  */
+   isn't.  */
 
 bool
-tree_swap_operands_p (const_tree arg0, const_tree arg1, bool reorder)
+tree_swap_operands_p (const_tree arg0, const_tree arg1)
 {
   if (CONSTANT_CLASS_P (arg1))
     return 0;
@@ -6815,10 +6772,6 @@ tree_swap_operands_p (const_tree arg0, const_tree arg1, bool reorder)
     return 0;
   if (TREE_CONSTANT (arg0))
     return 1;
-
-  if (reorder && flag_evaluation_order
-      && (TREE_SIDE_EFFECTS (arg0) || TREE_SIDE_EFFECTS (arg1)))
-    return 0;
 
   /* It is preferable to swap two SSA_NAME to ensure a canonical form
      for commutative and comparison operators.  Ensuring a canonical
@@ -7510,6 +7463,26 @@ can_native_interpret_type_p (tree type)
     case REAL_TYPE:
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
+      return true;
+    default:
+      return false;
+    }
+}
+
+/* Return true iff a constant of type TYPE is accepted by
+   native_encode_expr.  */
+
+bool
+can_native_encode_type_p (tree type)
+{
+  switch (TREE_CODE (type))
+    {
+    case INTEGER_TYPE:
+    case REAL_TYPE:
+    case FIXED_POINT_TYPE:
+    case COMPLEX_TYPE:
+    case VECTOR_TYPE:
+    case POINTER_TYPE:
       return true;
     default:
       return false;
@@ -9159,13 +9132,13 @@ fold_binary_loc (location_t loc,
   /* If this is a commutative operation, and ARG0 is a constant, move it
      to ARG1 to reduce the number of tests below.  */
   if (commutative_tree_code (code)
-      && tree_swap_operands_p (arg0, arg1, true))
+      && tree_swap_operands_p (arg0, arg1))
     return fold_build2_loc (loc, code, type, op1, op0);
 
   /* Likewise if this is a comparison, and ARG0 is a constant, move it
      to ARG1 to reduce the number of tests below.  */
   if (kind == tcc_comparison
-      && tree_swap_operands_p (arg0, arg1, true))
+      && tree_swap_operands_p (arg0, arg1))
     return fold_build2_loc (loc, swap_tree_comparison (code), type, op1, op0);
 
   tem = generic_simplify (loc, code, type, op0, op1);
@@ -9224,8 +9197,7 @@ fold_binary_loc (location_t loc,
 	  return build2_loc (loc, COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
 			     tem);
 	}
-      if (TREE_CODE (arg1) == COMPOUND_EXPR
-	  && reorder_operands_p (arg0, TREE_OPERAND (arg1, 0)))
+      if (TREE_CODE (arg1) == COMPOUND_EXPR)
 	{
 	  tem = fold_build2_loc (loc, code, type, op0,
 			     fold_convert_loc (loc, TREE_TYPE (op1),
@@ -9714,8 +9686,7 @@ fold_binary_loc (location_t loc,
     case MINUS_EXPR:
       /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */
       if (TREE_CODE (arg0) == NEGATE_EXPR
-	  && negate_expr_p (op1)
-	  && reorder_operands_p (arg0, arg1))
+	  && negate_expr_p (op1))
 	return fold_build2_loc (loc, MINUS_EXPR, type,
 				negate_expr (op1),
 				fold_convert_loc (loc, type,
@@ -11271,7 +11242,7 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
   /* If this is a commutative operation, and OP0 is a constant, move it
      to OP1 to reduce the number of tests below.  */
   if (commutative_ternary_tree_code (code)
-      && tree_swap_operands_p (op0, op1, true))
+      && tree_swap_operands_p (op0, op1))
     return fold_build3_loc (loc, code, type, op1, op0, op2);
 
   tem = generic_simplify (loc, code, type, op0, op1, op2);
@@ -11400,7 +11371,7 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
       /* If the second operand is simpler than the third, swap them
 	 since that produces better jump optimization results.  */
       if (truth_value_p (TREE_CODE (arg0))
-	  && tree_swap_operands_p (op1, op2, false))
+	  && tree_swap_operands_p (op1, op2))
 	{
 	  location_t loc0 = expr_location_or (arg0, loc);
 	  /* See if this can be inverted.  If it can't, possibly because
