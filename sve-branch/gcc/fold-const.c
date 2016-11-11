@@ -8353,15 +8353,15 @@ maybe_canonicalize_comparison (location_t loc, enum tree_code code, tree type,
    expressions like &p->x which can not wrap.  */
 
 static bool
-pointer_may_wrap_p (tree base, tree offset, HOST_WIDE_INT bitpos)
+pointer_may_wrap_p (tree base, tree offset, poly_int64 bitpos)
 {
   if (!POINTER_TYPE_P (TREE_TYPE (base)))
     return true;
 
-  if (bitpos < 0)
+  if (may_lt (bitpos, 0))
     return true;
 
-  wide_int wi_offset;
+  poly_wide_int wi_offset;
   int precision = TYPE_PRECISION (TREE_TYPE (base));
   if (offset == NULL_TREE)
     wi_offset = wi::zero (precision);
@@ -8371,12 +8371,14 @@ pointer_may_wrap_p (tree base, tree offset, HOST_WIDE_INT bitpos)
     wi_offset = offset;
 
   bool overflow;
-  wide_int units = wi::shwi (bitpos / BITS_PER_UNIT, precision);
-  wide_int total = wi::add (wi_offset, units, UNSIGNED, &overflow);
+  poly_wide_int units = wi::shwi (0, precision);
+  units += bits_to_bytes_round_down (bitpos);
+  poly_wide_int total = wi::add (wi_offset, units, UNSIGNED, &overflow);
   if (overflow)
     return true;
 
-  if (!wi::fits_uhwi_p (total))
+  poly_uint64 total_hwi;
+  if (!total.to_uhwi (&total_hwi))
     return true;
 
   HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (TREE_TYPE (base)));
@@ -8394,7 +8396,7 @@ pointer_may_wrap_p (tree base, tree offset, HOST_WIDE_INT bitpos)
 	size = base_size;
     }
 
-  return total.to_uhwi () > (unsigned HOST_WIDE_INT) size;
+  return may_gt (total_hwi, (unsigned HOST_WIDE_INT) size);
 }
 
 /* Return a positive integer when the symbol DECL is known to have
