@@ -435,6 +435,10 @@ get_max_uid (void)
   return crtl->emit.x_cur_insn_uid;
 }
 
+extern bool is_const_vec_duplicate (const_rtx, rtx * = 0);
+
+extern rtx gen_const_vec_duplicate (machine_mode, rtx);
+
 extern void set_decl_incoming_rtl (tree, rtx, bool);
 
 /* Return a memory reference like MEMREF, but with its mode changed

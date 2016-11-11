@@ -3115,8 +3115,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 	      if (ctor_seq != NULL)
 		{
 		  gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (init));
-		  gsi_insert_seq_before_without_update (&gsi, ctor_seq,
-							GSI_SAME_STMT);
+		  gsi_insert_seq_before (&gsi, ctor_seq, GSI_SAME_STMT);
 		  ctor_seq = NULL;
 		}
 	      voprnds.quick_push (init);

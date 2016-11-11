@@ -1650,6 +1650,7 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
 				rtx op, machine_mode op_mode)
 {
   scalar_int_mode result_mode;
+  rtx op_elt;
 
   if (code == VEC_DUPLICATE)
     {
@@ -1662,30 +1663,38 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
 	  gcc_assert (GET_MODE_INNER (mode) == GET_MODE_INNER
 						(GET_MODE (op)));
       }
+      if (is_const_vec_duplicate (op, &op_elt))
+	return gen_const_vec_duplicate (mode, op_elt);
       if (CONST_SCALAR_INT_P (op) || CONST_DOUBLE_AS_FLOAT_P (op)
 	  || GET_CODE (op) == CONST_VECTOR)
 	{
+	  if (GET_CODE (op) != CONST_VECTOR)
+	    return gen_const_vec_duplicate (mode, op);
+
 	  int elt_size = GET_MODE_UNIT_SIZE (mode);
           unsigned n_elts = (GET_MODE_SIZE (mode) / elt_size);
 	  rtvec v = rtvec_alloc (n_elts);
 	  unsigned int i;
 
-	  if (GET_CODE (op) != CONST_VECTOR)
-	    for (i = 0; i < n_elts; i++)
-	      RTVEC_ELT (v, i) = op;
-	  else
-	    {
-	      machine_mode inmode = GET_MODE (op);
-	      int in_elt_size = GET_MODE_UNIT_SIZE (inmode);
-              unsigned in_n_elts = (GET_MODE_SIZE (inmode) / in_elt_size);
+	  machine_mode inmode = GET_MODE (op);
+	  int in_elt_size = GET_MODE_UNIT_SIZE (inmode);
+	  unsigned in_n_elts = (GET_MODE_SIZE (inmode) / in_elt_size);
 
-	      gcc_assert (in_n_elts < n_elts);
-	      gcc_assert ((n_elts % in_n_elts) == 0);
-	      for (i = 0; i < n_elts; i++)
-	        RTVEC_ELT (v, i) = CONST_VECTOR_ELT (op, i % in_n_elts);
-	    }
+	  gcc_assert (in_n_elts < n_elts);
+	  gcc_assert ((n_elts % in_n_elts) == 0);
+	  for (i = 0; i < n_elts; i++)
+	    RTVEC_ELT (v, i) = CONST_VECTOR_ELT (op, i % in_n_elts);
 	  return gen_rtx_CONST_VECTOR (mode, v);
 	}
+    }
+
+  if (VECTOR_MODE_P (mode) && is_const_vec_duplicate (op, &op_elt))
+    {
+      rtx new_elt = simplify_unary_operation
+	(code, GET_MODE_INNER (mode), op_elt, GET_MODE_INNER (op_mode));
+      if (!new_elt)
+	return 0;
+      return gen_const_vec_duplicate (mode, new_elt);
     }
 
   if (VECTOR_MODE_P (mode) && GET_CODE (op) == CONST_VECTOR)
@@ -3436,7 +3445,10 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  gcc_assert (GET_CODE (trueop1) == PARALLEL);
 	  gcc_assert (XVECLEN (trueop1, 0) == 1);
 	  gcc_assert (CONST_INT_P (XVECEXP (trueop1, 0, 0)));
+	  rtx op0_elt;
 
+	  if (is_const_vec_duplicate (trueop0, &op0_elt))
+	    return op0_elt;
 	  if (GET_CODE (trueop0) == CONST_VECTOR)
 	    return CONST_VECTOR_ELT (trueop0, INTVAL (XVECEXP
 						      (trueop1, 0, 0)));
@@ -3529,7 +3541,12 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  gcc_assert (GET_MODE_INNER (mode)
 		      == GET_MODE_INNER (GET_MODE (trueop0)));
 	  gcc_assert (GET_CODE (trueop1) == PARALLEL);
+	  rtx op0_elt;
 
+	  if (is_const_vec_duplicate (trueop0, &op0_elt))
+	    /* It doesn't matter which elements are selected by trueop1,
+	       because they are all the same.  */
+	    return gen_const_vec_duplicate (mode, op0_elt);
 	  if (GET_CODE (trueop0) == CONST_VECTOR)
 	    {
 	      int elt_size = GET_MODE_UNIT_SIZE (mode);
@@ -3849,6 +3866,15 @@ simplify_const_binary_operation (enum rtx_code code, machine_mode mode,
       unsigned op1_n_elts = GET_MODE_NUNITS (op1mode);
       rtvec v = rtvec_alloc (n_elts);
       unsigned int i;
+
+      rtx op0_elt = NULL, op1_elt = NULL;
+      if (is_const_vec_duplicate (op0, &op0_elt)
+	  && is_const_vec_duplicate (op1, &op1_elt))
+	{
+	  rtx x = simplify_binary_operation (code, GET_MODE_INNER (mode),
+					     op0_elt, op1_elt);
+	  return x ? gen_const_vec_duplicate (mode, x) : 0;
+	}
 
       gcc_assert (op0_n_elts == n_elts);
       gcc_assert (op1_n_elts == n_elts);
@@ -4581,20 +4607,13 @@ simplify_relational_operation (enum rtx_code code, machine_mode mode,
 	    return CONST0_RTX (mode);
 #ifdef VECTOR_STORE_FLAG_VALUE
 	  {
-	    int i, units;
-	    rtvec v;
-
 	    rtx val = VECTOR_STORE_FLAG_VALUE (mode);
 	    if (val == NULL_RTX)
 	      return NULL_RTX;
 	    if (val == const1_rtx)
 	      return CONST1_RTX (mode);
 
-	    units = GET_MODE_NUNITS (mode);
-	    v = rtvec_alloc (units);
-	    for (i = 0; i < units; i++)
-	      RTVEC_ELT (v, i) = val;
-	    return gen_rtx_raw_CONST_VECTOR (mode, v);
+	    return gen_const_vec_duplicate (mode, val);
 	  }
 #else
 	  return NULL_RTX;
@@ -6007,6 +6026,13 @@ simplify_subreg (machine_mode outermode, rtx op,
       || GET_CODE (op) == CONST_FIXED
       || GET_CODE (op) == CONST_VECTOR)
     {
+      rtx elt;
+      if (VECTOR_MODE_P (outermode)
+	  && GET_MODE_INNER (outermode) == GET_MODE_INNER (innermode)
+	  && byte % GET_MODE_UNIT_SIZE (outermode) == 0
+	  && is_const_vec_duplicate (op, &elt))
+	return gen_const_vec_duplicate (outermode, elt);
+
       /* simplify_immed_subreg deconstructs OP into bytes and constructs
 	 the result from bytes, so it only works if the sizes of the modes
 	 are known at compile time.  Cases that apply to general modes
