@@ -164,6 +164,7 @@ extern int default_reloc_rw_mask (void);
 extern tree default_mangle_decl_assembler_name (tree, tree);
 extern tree default_emutls_var_fields (tree, tree *);
 extern tree default_emutls_var_init (tree, tree, tree);
+extern bool default_hard_regno_mode_ok (unsigned int, machine_mode);
 extern bool default_hard_regno_scratch_ok (unsigned int);
 extern bool default_hard_regno_call_part_clobbered (unsigned int,
 						    machine_mode);

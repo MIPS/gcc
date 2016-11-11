@@ -408,7 +408,7 @@ maybe_mode_change (machine_mode orig_mode, machine_mode copy_mode,
 					       + copy_offset,
 					       GET_MODE_SIZE (orig_mode));
       regno += subreg_regno_offset (regno, orig_mode, offset, new_mode);
-      if (HARD_REGNO_MODE_OK (regno, new_mode))
+      if (targetm.hard_regno_mode_ok (regno, new_mode))
 	return gen_raw_REG (new_mode, regno);
     }
   return NULL_RTX;

@@ -1401,6 +1401,15 @@ default_addr_space_convert (rtx op ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+/* The default implementation of TARGET_HARD_REGNO_MODE_OK.  */
+
+bool
+default_hard_regno_mode_ok (unsigned int regno ATTRIBUTE_UNUSED,
+			    machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return HARD_REGNO_MODE_OK (regno, MACRO_MODE (mode));
+}
+
 bool
 default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
 {

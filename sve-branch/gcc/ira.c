@@ -1502,7 +1502,8 @@ setup_prohibited_class_mode_regs (void)
 	  for (k = ira_class_hard_regs_num[cl] - 1; k >= 0; k--)
 	    {
 	      hard_regno = ira_class_hard_regs[cl][k];
-	      if (! HARD_REGNO_MODE_OK (hard_regno, (machine_mode_enum) j))
+	      if (!targetm.hard_regno_mode_ok (hard_regno,
+					       (machine_mode_enum) j))
 		SET_HARD_REG_BIT (ira_prohibited_class_mode_regs[cl][j],
 				  hard_regno);
 	      else if (in_hard_reg_set_p (temp_hard_regset,
@@ -1748,7 +1749,7 @@ setup_prohibited_mode_move_regs (void)
       SET_HARD_REG_SET (ira_prohibited_mode_move_regs[i]);
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	{
-	  if (! HARD_REGNO_MODE_OK (j, (machine_mode_enum) i))
+	  if (!targetm.hard_regno_mode_ok (j, (machine_mode_enum) i))
 	    continue;
 	  set_mode_and_regno (test_reg1, (machine_mode_enum) i, j);
 	  set_mode_and_regno (test_reg2, (machine_mode_enum) i, j);
