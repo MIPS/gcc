@@ -293,26 +293,26 @@ finalize_size_functions (void)
 
 /* Return the machine mode to use for a nonscalar of SIZE bits.  The
    mode must be in class MCLASS, and have exactly that many value bits;
-   it may have padding as well.  If LIMIT is nonzero, modes of wider
-   than MAX_FIXED_MODE_SIZE will not be used.  */
+   it may have padding as well.  If LIMIT is nonzero, modes wider than
+   MAX_FIXED_MODE_SIZE will not be used.  */
 
 machine_mode
-mode_for_size (unsigned int size, enum mode_class mclass, int limit)
+mode_for_size (poly_int64 size, enum mode_class mclass, int limit)
 {
   machine_mode mode;
   int i;
 
-  if (limit && size > MAX_FIXED_MODE_SIZE)
+  if (limit && may_gt (size, MAX_FIXED_MODE_SIZE))
     return BLKmode;
 
   /* Get the first mode which has this size, in the specified class.  */
   FOR_EACH_MODE_IN_CLASS (mode, mclass)
-    if (GET_MODE_PRECISION (mode) == size)
+    if (must_eq (GET_MODE_PRECISION (mode), size))
       return mode;
 
   if (mclass == MODE_INT || mclass == MODE_PARTIAL_INT)
     for (i = 0; i < NUM_INT_N_ENTS; i ++)
-      if (int_n_data[i].bitsize == size
+      if (must_eq (int_n_data[i].bitsize, size)
 	  && int_n_enabled_p[i])
 	return int_n_data[i].m;
 
@@ -324,7 +324,7 @@ mode_for_size (unsigned int size, enum mode_class mclass, int limit)
    will not be used.  */
 
 opt_scalar_int_mode
-int_mode_for_size (unsigned int size, int limit)
+int_mode_for_size (poly_int64 size, int limit)
 {
   return dyn_cast <scalar_int_mode> (mode_for_size (size, MODE_INT, limit));
 }
@@ -333,7 +333,7 @@ int_mode_for_size (unsigned int size, int limit)
    exists.  */
 
 opt_scalar_float_mode
-float_mode_for_size (unsigned int size)
+float_mode_for_size (poly_int64 size)
 {
   return dyn_cast <scalar_float_mode> (mode_for_size (size, MODE_FLOAT, 0));
 }
@@ -359,7 +359,7 @@ mode_for_size_tree (const_tree size, enum mode_class mclass, int limit)
    contains at least the requested number of value bits.  */
 
 machine_mode
-smallest_mode_for_size (unsigned int size, enum mode_class mclass)
+smallest_mode_for_size (poly_int64 size, enum mode_class mclass)
 {
   machine_mode mode = VOIDmode;
   int i;
@@ -367,18 +367,17 @@ smallest_mode_for_size (unsigned int size, enum mode_class mclass)
   /* Get the first mode which has at least this size, in the
      specified class.  */
   FOR_EACH_MODE_IN_CLASS (mode, mclass)
-    if (GET_MODE_PRECISION (mode) >= size)
+    if (must_ge (GET_MODE_PRECISION (mode), size))
       break;
+
+  gcc_assert (mode != VOIDmode);
 
   if (mclass == MODE_INT || mclass == MODE_PARTIAL_INT)
     for (i = 0; i < NUM_INT_N_ENTS; i ++)
-      if (int_n_data[i].bitsize >= size
-	  && int_n_data[i].bitsize < GET_MODE_PRECISION (mode)
+      if (must_ge (int_n_data[i].bitsize, size)
+	  && must_lt (int_n_data[i].bitsize, GET_MODE_PRECISION (mode))
 	  && int_n_enabled_p[i])
 	mode = int_n_data[i].m;
-
-  if (mode == VOIDmode)
-    gcc_unreachable ();
 
   return mode;
 }
@@ -387,7 +386,7 @@ smallest_mode_for_size (unsigned int size, enum mode_class mclass)
    Such a mode must exist.  */
 
 scalar_int_mode
-smallest_int_mode_for_size (unsigned int size)
+smallest_int_mode_for_size (poly_int64 size)
 {
   return as_a <scalar_int_mode> (smallest_mode_for_size (size, MODE_INT));
 }
@@ -506,7 +505,7 @@ bitwise_type_for_mode (machine_mode mode)
    is no suitable mode.  */
 
 machine_mode
-mode_for_vector (scalar_mode innermode, unsigned nunits)
+mode_for_vector (scalar_mode innermode, poly_int64 nunits)
 {
   machine_mode mode;
 
@@ -527,7 +526,7 @@ mode_for_vector (scalar_mode innermode, unsigned nunits)
   /* Do not check vector_mode_supported_p here.  We'll do that
      later in vector_type_mode.  */
   FOR_EACH_MODE_FROM (mode, mode)
-    if (GET_MODE_NUNITS (mode) == nunits
+    if (must_eq (GET_MODE_NUNITS (mode), nunits)
 	&& GET_MODE_INNER (mode) == innermode)
       break;
 

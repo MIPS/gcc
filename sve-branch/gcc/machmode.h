@@ -673,20 +673,20 @@ extern const unsigned char mode_complex[NUM_MACHINE_MODES];
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.
    The value is BLKmode if no other mode is found.  */
 
-extern machine_mode mode_for_size (unsigned int, enum mode_class, int);
+extern machine_mode mode_for_size (poly_int64, enum mode_class, int);
 
 /* As above, but for specific mode classes.  */
 
-extern opt_scalar_int_mode int_mode_for_size (unsigned int, int);
-extern opt_scalar_float_mode float_mode_for_size (unsigned int);
+extern opt_scalar_int_mode int_mode_for_size (poly_int64, int);
+extern opt_scalar_float_mode float_mode_for_size (poly_int64);
 
 /* Similar to mode_for_size, but find the smallest mode for a given width.  */
 
-extern machine_mode smallest_mode_for_size (unsigned int, enum mode_class);
+extern machine_mode smallest_mode_for_size (poly_int64, enum mode_class);
 
 /* As above, but for specific mode classes.  */
 
-extern scalar_int_mode smallest_int_mode_for_size (unsigned int);
+extern scalar_int_mode smallest_int_mode_for_size (poly_int64);
 
 /* Return an integer mode of exactly the same size as the input mode.  */
 
@@ -697,7 +697,7 @@ extern machine_mode bitwise_mode_for_mode (machine_mode);
 /* Return a mode that is suitable for representing a vector,
    or BLKmode on failure.  */
 
-extern machine_mode mode_for_vector (scalar_mode, unsigned);
+extern machine_mode mode_for_vector (scalar_mode, poly_int64);
 
 /* A class for iterating through possible bitfield modes.  */
 class bit_field_mode_iterator
