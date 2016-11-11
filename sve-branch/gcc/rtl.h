@@ -1902,6 +1902,9 @@ set_regno_raw (rtx x, unsigned int regno, unsigned int nregs)
 #define SUBREG_REG(RTX) XCEXP (RTX, 0, SUBREG)
 #define SUBREG_BYTE(RTX) XCUINT (RTX, 1, SUBREG)
 
+/* The number of the parameter in a CONST_PARAM.  */
+#define CONST_PARAM_ID(RTX) XCUINT (RTX, 0, CONST_PARAM)
+
 /* in rtlanal.c */
 /* Return the right cost to give to an operation
    to make the cost of the corresponding register-to-register instruction
@@ -2696,7 +2699,8 @@ get_full_set_src_cost (rtx x, machine_mode mode, struct full_rtx_costs *c)
 
 /* In explow.c */
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, machine_mode);
-extern rtx plus_constant (machine_mode, rtx, HOST_WIDE_INT, bool = false);
+extern poly_int64 trunc_int_for_mode (poly_int64, machine_mode);
+extern rtx plus_constant (machine_mode, rtx, poly_int64, bool = false);
 
 /* In rtl.c */
 extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
@@ -2840,6 +2844,8 @@ extern rtx immed_wide_int_const (const wide_int_ref &, machine_mode);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       machine_mode);
 #endif
+template<unsigned int N, typename T>
+extern rtx immed_poly_int_const (const poly_int_pod<N, T> &, machine_mode);
 
 /* In varasm.c  */
 extern rtx force_const_mem (machine_mode, rtx);
@@ -3029,6 +3035,10 @@ extern HOST_WIDE_INT get_integer_term (const_rtx);
 extern rtx get_related_value (const_rtx);
 extern bool offset_within_block_p (const_rtx, HOST_WIDE_INT);
 extern void split_const (rtx, rtx *, rtx *);
+extern rtx strip_offset (rtx, poly_int64 *);
+extern bool poly_int_const_p (scalar_int_mode, const_rtx, poly_wide_int *);
+extern bool poly_int_const_p (const_rtx, poly_int64 *);
+extern poly_int64 rtx_to_poly_int64 (const_rtx);
 extern bool unsigned_reg_p (rtx);
 extern int reg_mentioned_p (const_rtx, const_rtx);
 extern int count_occurrences (const_rtx, const_rtx, int);

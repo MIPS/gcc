@@ -2110,6 +2110,7 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
   rtx tem, reversed, opleft, opright;
   HOST_WIDE_INT val;
   scalar_int_mode int_mode, inner_mode;
+  poly_int64 offset;
 
   /* Even if we can't compute a constant result,
      there are some cases worth simplifying.  */
@@ -2423,6 +2424,12 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  if (tem)
 	    return simplify_gen_binary (MINUS, mode, tem, XEXP (op0, 0));
 	}
+
+      if ((GET_CODE (op0) == CONST
+	   || GET_CODE (op0) == SYMBOL_REF
+	   || GET_CODE (op0) == LABEL_REF)
+	  && poly_int_const_p (op1, &offset))
+	return plus_constant (mode, op0, trunc_int_for_mode (-offset, mode));
 
       /* Don't let a relocatable value get a negative coeff.  */
       if (CONST_INT_P (op1) && GET_MODE (op0) != VOIDmode)
@@ -4465,8 +4472,8 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
 		       trivial CONST expressions we handle later.  */
 		    if (GET_CODE (tem) == CONST
 			&& GET_CODE (XEXP (tem, 0)) == ncode
-			&& XEXP (XEXP (tem, 0), 0) == lhs
-			&& XEXP (XEXP (tem, 0), 1) == rhs)
+			&& rtx_equal_p (XEXP (XEXP (tem, 0), 0), lhs)
+			&& rtx_equal_p (XEXP (XEXP (tem, 0), 1), rhs))
 		      break;
 		    lneg &= rneg;
 		    if (GET_CODE (tem) == NEG)

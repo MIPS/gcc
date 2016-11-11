@@ -489,9 +489,9 @@ gen_rtx_CONST_INT (machine_mode mode ATTRIBUTE_UNUSED, HOST_WIDE_INT arg)
 }
 
 rtx
-gen_int_mode (HOST_WIDE_INT c, machine_mode mode)
+gen_int_mode (poly_int64 c, machine_mode mode)
 {
-  return GEN_INT (trunc_int_for_mode (c, mode));
+  return immed_poly_int_const (c, mode);
 }
 
 /* CONST_DOUBLEs might be created from pairs of integers, or from
@@ -682,6 +682,73 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, machine_mode mode)
   return lookup_const_double (value);
 }
 #endif
+
+/* Generate an appropriate constant for polynomial coefficient C,
+   in mode MODE.  */
+
+static rtx
+immed_poly_int_coeff (HOST_WIDE_INT c, machine_mode mode)
+{
+  return GEN_INT (trunc_int_for_mode (c, mode));
+}
+
+static rtx
+immed_poly_int_coeff (const wide_int_ref &c, machine_mode mode)
+{
+  return immed_wide_int_const (c, mode);
+}
+
+/* Return an rtx representation of C in mode MODE.  */
+
+template<unsigned int N, typename T>
+rtx
+immed_poly_int_const (const poly_int_pod<N, T> &c, machine_mode mode)
+{
+  rtx base = const0_rtx;
+  /* The value is equivalent to the constant-folded form of:
+
+	(const_scalar_int coeff0)
+      + (mult (const_param 0) (const_scalar_int coeff1))
+      + ...
+      + (mult (const_param n-1) (const_scalar_int coeffn))
+
+     The normal canonicalization rules for PLUSes require the first term
+     (the plain const_scalar_int for coeff0) to be the second operand of
+     the outermost PLUS.  They also require the nesting to be on the first
+     operand.  It's then a question of which order the parameters should
+     be summed.  If coeff0 has to be the outermost, it makes sense for
+     (mult (const_param n-1) (const_scalar_int coeffn)) to be the
+     innermost.  Build the sum in that order.  */
+  for (unsigned int i = N; i-- > 0; )
+    if (c.coeffs[i] != 0)
+      {
+	rtx term;
+	if (i == 0)
+	  term = immed_poly_int_coeff (c.coeffs[0], mode);
+	else
+	  {
+	    term = gen_rtx_CONST_PARAM (mode, i - 1);
+	    if (c.coeffs[i] != 1)
+	      {
+		rtx coeff = immed_poly_int_coeff (c.coeffs[i], mode);
+		term = gen_rtx_MULT (mode, term, coeff);
+	      }
+	  }
+	if (base == const0_rtx)
+	  base = term;
+	else if (swap_commutative_operands_p (base, term))
+	  base = gen_rtx_PLUS (mode, term, base);
+	else
+	  base = gen_rtx_PLUS (mode, base, term);
+      }
+  if (!CONST_SCALAR_INT_P (base))
+    base = gen_rtx_CONST (mode, base);
+  return base;
+}
+
+template rtx immed_poly_int_const (const poly_int64_pod &, machine_mode);
+template rtx immed_poly_int_const (const poly_wide_int_pod &, machine_mode);
+template rtx immed_poly_int_const (const poly_offset_int_pod &, machine_mode);
 
 rtx
 gen_rtx_REG (machine_mode mode, unsigned int regno)
@@ -6462,7 +6529,7 @@ get_shift_amount_mode (machine_mode)
    by VALUE bits.  */
 
 rtx
-gen_int_shift_amount (machine_mode mode, HOST_WIDE_INT value)
+gen_int_shift_amount (machine_mode mode, poly_int64 value)
 {
   return gen_int_mode (value, get_shift_amount_mode (mode));
 }

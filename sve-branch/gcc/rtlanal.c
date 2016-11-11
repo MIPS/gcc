@@ -903,6 +903,147 @@ split_const (rtx x, rtx *base_out, rtx *offset_out)
   *base_out = x;
   *offset_out = const0_rtx;
 }
+
+/* If PAIR_P, express integer value X as some value Y plus a polynomial offset,
+   where Y is either const0_rtx, X or something within X (as opposed to a
+   new rtx).  Return the value Y and store the offset in *OFFSET_OUT.
+
+   If !PAIR_P, return const0_rtx if integer value X is a polynomial constant.
+   Store the value in *OFFSET_OUT if so, otherwise return X and leave
+   *OFFSET_OUT unchanged.
+
+   In both cases MODE is the mode of X.  */
+
+static rtx
+strip_offset (scalar_int_mode mode, rtx x, poly_wide_int *offset_out,
+	      bool pair_p)
+{
+  unsigned int precision = GET_MODE_PRECISION (mode);
+  rtx orig_x = x;
+  if (GET_CODE (x) == CONST)
+    x = XEXP (x, 0);
+  switch (GET_CODE (x))
+    {
+    CASE_CONST_SCALAR_INT:
+      *offset_out = rtx_mode_t (x, mode);
+      return const0_rtx;
+
+    case PLUS:
+      {
+	poly_wide_int offset0, offset1;
+	rtx x0 = strip_offset (mode, XEXP (x, 0), &offset0, pair_p);
+	rtx x1 = strip_offset (mode, XEXP (x, 1), &offset1, pair_p);
+	if (pair_p
+	    /* Can't express this case without generating new rtl.  */
+	    ? (x0 != const0_rtx && x1 != const0_rtx)
+	    /* Don't change *OFFSET_OUT unless X is fully constant.  */
+	    : (x0 != const0_rtx || x1 != const0_rtx))
+	  break;
+	*offset_out = offset0 + offset1;
+	return x0 == const0_rtx ? x1 : x0;
+      }
+
+    case MULT:
+      {
+	poly_wide_int offset0;
+	if (CONST_SCALAR_INT_P (XEXP (x, 1))
+	    && strip_offset (mode, XEXP (x, 0), &offset0, false) == const0_rtx)
+	  {
+	    *offset_out = offset0 * rtx_mode_t (XEXP (x, 1), mode);
+	    return const0_rtx;
+	  }
+	break;
+      }
+
+    case ASHIFT:
+      {
+	poly_wide_int offset0;
+	if (CONST_INT_P (XEXP (x, 1))
+	    && strip_offset (mode, XEXP (x, 0), &offset0, false) == const0_rtx)
+	  {
+	    *offset_out = offset0 << INTVAL (XEXP (x, 1));
+	    return const0_rtx;
+	  }
+	break;
+      }
+
+    case CONST_PARAM:
+      if (CONST_PARAM_ID (x) + 1 >= NUM_POLY_INT_COEFFS)
+	break;
+
+      *offset_out = wi::shwi (0, precision);
+      offset_out->coeffs[CONST_PARAM_ID (x) + 1] = wi::shwi (1, precision);
+      return const0_rtx;
+
+    default:
+      break;
+    }
+  /* This represents failure if !PAIR_P.  */
+  if (pair_p)
+    *offset_out = wi::shwi (0, GET_MODE_PRECISION (mode));
+  return orig_x;
+}
+
+/* Return true if X, an integer of mode MODE, is a constant that can
+   be represented as a poly_wide_int.  Store the value in *RES if so,
+   otherwise leave *RES unmodified.  */
+
+bool
+poly_int_const_p (scalar_int_mode mode, const_rtx x, poly_wide_int *res)
+{
+  return strip_offset (mode, const_cast <rtx> (x), res, false) == const0_rtx;
+}
+
+/* Return true if arbitrary value X is an integer constant that can
+   be represented as a poly_int64.  Store the value in *RES if so,
+   otherwise leave it unmodified.  */
+
+bool
+poly_int_const_p (const_rtx x, poly_int64 *res)
+{
+  if (CONST_INT_P (x))
+    {
+      *res = INTVAL (x);
+      return true;
+    }
+  scalar_int_mode mode;
+  poly_wide_int tmp;
+  return (is_a <scalar_int_mode> (GET_MODE (x), &mode)
+	  && strip_offset (mode, const_cast <rtx> (x),
+			   &tmp, false) == const0_rtx
+	  && tmp.to_shwi (res));
+}
+
+/* Express integer value X as some value Y plus a polynomial offset,
+   where Y is either const0_rtx, X or something within X (as opposed
+   to a new rtx).  Return the Y and store the offset in *OFFSET_OUT.  */
+
+rtx
+strip_offset (rtx x, poly_int64 *offset_out)
+{
+  if (CONST_INT_P (x))
+    {
+      *offset_out = INTVAL (x);
+      return const0_rtx;
+    }
+  scalar_int_mode mode = as_a <scalar_int_mode> (GET_MODE (x));
+  poly_wide_int tmp;
+  rtx subx = strip_offset (mode, x, &tmp, true);
+  if (!tmp.to_shwi (offset_out))
+    gcc_unreachable ();
+  return subx;
+}
+
+/* Return the value of X as a poly_int64.  */
+
+poly_int64
+rtx_to_poly_int64 (const_rtx x)
+{
+  poly_int64 value;
+  if (!poly_int_const_p (x, &value))
+    gcc_unreachable ();
+  return value;
+}
 
 /* Return the number of places FIND appears within X.  If COUNT_DEST is
    zero, we do not count occurrences inside the destination of a SET.  */

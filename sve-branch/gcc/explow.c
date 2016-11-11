@@ -74,22 +74,33 @@ trunc_int_for_mode (HOST_WIDE_INT c, machine_mode mode)
   return c;
 }
 
+/* Likewise for polynomial values, using the sign-extended representation
+   for each individual coefficient.  */
+
+poly_int64
+trunc_int_for_mode (poly_int64 x, machine_mode mode)
+{
+  for (unsigned int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+    x.coeffs[i] = trunc_int_for_mode (x.coeffs[i], mode);
+  return x;
+}
+
 /* Return an rtx for the sum of X and the integer C, given that X has
    mode MODE.  INPLACE is true if X can be modified inplace or false
    if it must be treated as immutable.  */
 
 rtx
-plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
-	       bool inplace)
+plus_constant (machine_mode mode, rtx x, poly_int64 c, bool inplace)
 {
   RTX_CODE code;
   rtx y;
   rtx tem;
   int all_constant = 0;
+  poly_int64 c2;
 
   gcc_assert (GET_MODE (x) == VOIDmode || GET_MODE (x) == mode);
 
-  if (c == 0)
+  if (must_eq (c, 0))
     return x;
 
  restart:
@@ -97,10 +108,11 @@ plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
   code = GET_CODE (x);
   y = x;
 
+  if (poly_int_const_p (x, &c2))
+    return gen_int_mode (c + c2, mode);
+
   switch (code)
     {
-    CASE_CONST_SCALAR_INT:
-      return immed_wide_int_const (wi::add (rtx_mode_t (x, mode), c), mode);
     case MEM:
       /* If this is a reference to the constant pool, try replacing it with
 	 a reference to a new constant.  If the resulting address isn't
@@ -180,8 +192,16 @@ plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
       break;
     }
 
-  if (c != 0)
-    x = gen_rtx_PLUS (mode, x, gen_int_mode (c, mode));
+  if (may_ne (c, 0))
+    {
+      rtx c_rtx = gen_int_mode (c, mode);
+      /* Avoid nested (const ...)s.  */
+      if (GET_CODE (c_rtx) == CONST && all_constant)
+	c_rtx = XEXP (c_rtx, 0);
+      if (swap_commutative_operands_p (x, c_rtx))
+	std::swap (x, c_rtx);
+      x = gen_rtx_PLUS (mode, x, c_rtx);
+    }
 
   if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
     return x;
