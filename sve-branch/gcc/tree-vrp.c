@@ -2144,11 +2144,23 @@ extract_range_from_multiplicative_op_1 (value_range *vr,
 	      break;
 	    }
 
-	  if (compare_values (val[i], min) == -1)
+	  cmp = compare_values (val[i], min);
+	  if (cmp == -1)
 	    min = val[i];
+	  else if (cmp != 0 && cmp != 1)
+	    {
+	      min = NULL_TREE;
+	      break;
+	    }
 
-	  if (compare_values (val[i], max) == 1)
+	  cmp = compare_values (val[i], max);
+	  if (cmp == 1)
 	    max = val[i];
+	  else if (cmp != 0 && cmp != -1)
+	    {
+	      max = NULL_TREE;
+	      break;
+	    }
 	}
     }
 
