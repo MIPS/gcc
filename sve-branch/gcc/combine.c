@@ -11490,7 +11490,7 @@ static enum rtx_code
 simplify_compare_const (enum rtx_code code, machine_mode mode,
 			rtx op0, rtx *pop1)
 {
-  unsigned int mode_width = GET_MODE_PRECISION (mode);
+  scalar_int_mode int_mode;
   HOST_WIDE_INT const_op = INTVAL (*pop1);
 
   /* Get the constant we are comparing against and turn off all bits
@@ -11505,10 +11505,11 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
   if (const_op
       && (code == EQ || code == NE || code == GE || code == GEU
 	  || code == LT || code == LTU)
-      && mode_width - 1 < HOST_BITS_PER_WIDE_INT
-      && pow2p_hwi (const_op & GET_MODE_MASK (mode))
-      && (nonzero_bits (op0, mode)
-	  == (unsigned HOST_WIDE_INT) (const_op & GET_MODE_MASK (mode))))
+      && is_a <scalar_int_mode> (mode, &int_mode)
+      && GET_MODE_PRECISION (int_mode) - 1 < HOST_BITS_PER_WIDE_INT
+      && pow2p_hwi (const_op & GET_MODE_MASK (int_mode))
+      && (nonzero_bits (op0, int_mode)
+	  == (unsigned HOST_WIDE_INT) (const_op & GET_MODE_MASK (int_mode))))
     {
       code = (code == EQ || code == GE || code == GEU ? NE : EQ);
       const_op = 0;
@@ -11519,7 +11520,8 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
   if (const_op == -1
       && (code == EQ || code == NE || code == GT || code == LE
 	  || code == GEU || code == LTU)
-      && num_sign_bit_copies (op0, mode) == mode_width)
+      && is_a <scalar_int_mode> (mode, &int_mode)
+      && num_sign_bit_copies (op0, int_mode) == GET_MODE_PRECISION (int_mode))
     {
       code = (code == EQ || code == LE || code == GEU ? NE : EQ);
       const_op = 0;
@@ -11552,9 +11554,10 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
       /* If we are doing a <= 0 comparison on a value known to have
 	 a zero sign bit, we can replace this with == 0.  */
       else if (const_op == 0
-	       && mode_width - 1 < HOST_BITS_PER_WIDE_INT
-	       && (nonzero_bits (op0, mode)
-		   & (HOST_WIDE_INT_1U << (mode_width - 1)))
+	       && is_a <scalar_int_mode> (mode, &int_mode)
+	       && GET_MODE_PRECISION (int_mode) - 1 < HOST_BITS_PER_WIDE_INT
+	       && (nonzero_bits (op0, int_mode)
+		   & (HOST_WIDE_INT_1U << (GET_MODE_PRECISION (int_mode) - 1)))
 	       == 0)
 	code = EQ;
       break;
@@ -11581,9 +11584,10 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
       /* If we are doing a > 0 comparison on a value known to have
 	 a zero sign bit, we can replace this with != 0.  */
       else if (const_op == 0
-	       && mode_width - 1 < HOST_BITS_PER_WIDE_INT
-	       && (nonzero_bits (op0, mode)
-		   & (HOST_WIDE_INT_1U << (mode_width - 1)))
+	       && is_a <scalar_int_mode> (mode, &int_mode)
+	       && GET_MODE_PRECISION (int_mode) - 1 < HOST_BITS_PER_WIDE_INT
+	       && (nonzero_bits (op0, int_mode)
+		   & (HOST_WIDE_INT_1U << (GET_MODE_PRECISION (int_mode) - 1)))
 	       == 0)
 	code = NE;
       break;
@@ -11597,9 +11601,10 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
 	  /* ... fall through ...  */
 	}
       /* (unsigned) < 0x80000000 is equivalent to >= 0.  */
-      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
-	       && (unsigned HOST_WIDE_INT) const_op
-	       == HOST_WIDE_INT_1U << (mode_width - 1))
+      else if (is_a <scalar_int_mode> (mode, &int_mode)
+	       && GET_MODE_PRECISION (int_mode) - 1 < HOST_BITS_PER_WIDE_INT
+	       && ((unsigned HOST_WIDE_INT) const_op
+		   == HOST_WIDE_INT_1U << (GET_MODE_PRECISION (int_mode) - 1)))
 	{
 	  const_op = 0;
 	  code = GE;
@@ -11613,9 +11618,11 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
       if (const_op == 0)
 	code = EQ;
       /* (unsigned) <= 0x7fffffff is equivalent to >= 0.  */
-      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
-	       && (unsigned HOST_WIDE_INT) const_op
-	       == (HOST_WIDE_INT_1U << (mode_width - 1)) - 1)
+      else if (is_a <scalar_int_mode> (mode, &int_mode)
+	       && GET_MODE_PRECISION (int_mode) - 1 < HOST_BITS_PER_WIDE_INT
+	       && ((unsigned HOST_WIDE_INT) const_op
+		   == ((HOST_WIDE_INT_1U
+			<< (GET_MODE_PRECISION (int_mode) - 1)) - 1)))
 	{
 	  const_op = 0;
 	  code = GE;
@@ -11632,9 +11639,10 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
 	}
 
       /* (unsigned) >= 0x80000000 is equivalent to < 0.  */
-      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
-	       && (unsigned HOST_WIDE_INT) const_op
-	       == HOST_WIDE_INT_1U << (mode_width - 1))
+      else if (is_a <scalar_int_mode> (mode, &int_mode)
+	       && GET_MODE_PRECISION (int_mode) - 1 < HOST_BITS_PER_WIDE_INT
+	       && ((unsigned HOST_WIDE_INT) const_op
+		   == HOST_WIDE_INT_1U << (GET_MODE_PRECISION (int_mode) - 1)))
 	{
 	  const_op = 0;
 	  code = LT;
@@ -11648,9 +11656,11 @@ simplify_compare_const (enum rtx_code code, machine_mode mode,
       if (const_op == 0)
 	code = NE;
       /* (unsigned) > 0x7fffffff is equivalent to < 0.  */
-      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
-	       && (unsigned HOST_WIDE_INT) const_op
-	       == (HOST_WIDE_INT_1U << (mode_width - 1)) - 1)
+      else if (is_a <scalar_int_mode> (mode, &int_mode)
+	       && GET_MODE_PRECISION (int_mode) - 1 < HOST_BITS_PER_WIDE_INT
+	       && ((unsigned HOST_WIDE_INT) const_op
+		   == (HOST_WIDE_INT_1U
+		       << (GET_MODE_PRECISION (int_mode) - 1)) - 1))
 	{
 	  const_op = 0;
 	  code = LT;
@@ -11835,9 +11845,8 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 
   while (CONST_INT_P (op1))
     {
-      machine_mode mode = GET_MODE (op0);
-      unsigned int mode_width = GET_MODE_PRECISION (mode);
-      unsigned HOST_WIDE_INT mask = GET_MODE_MASK (mode);
+      machine_mode raw_mode = GET_MODE (op0);
+      scalar_int_mode int_mode;
       int equality_comparison_p;
       int sign_bit_comparison_p;
       int unsigned_comparison_p;
@@ -11848,14 +11857,14 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	 can handle VOIDmode if OP0 is a COMPARE or a comparison
 	 operation.  */
 
-      if (GET_MODE_CLASS (mode) != MODE_INT
-	  && ! (mode == VOIDmode
+      if (GET_MODE_CLASS (raw_mode) != MODE_INT
+	  && ! (raw_mode == VOIDmode
 		&& (GET_CODE (op0) == COMPARE || COMPARISON_P (op0))))
 	break;
 
       /* Try to simplify the compare to constant, possibly changing the
 	 comparison op, and/or changing op1 to zero.  */
-      code = simplify_compare_const (code, mode, op0, &op1);
+      code = simplify_compare_const (code, raw_mode, op0, &op1);
       const_op = INTVAL (op1);
 
       /* Compute some predicates to simplify code below.  */
@@ -11867,16 +11876,62 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 
       /* If this is a sign bit comparison and we can do arithmetic in
 	 MODE, say that we will only be needing the sign bit of OP0.  */
-      if (sign_bit_comparison_p && HWI_COMPUTABLE_MODE_P (mode))
-	op0 = force_to_mode (op0, mode,
+      if (sign_bit_comparison_p
+	  && is_int_mode (raw_mode, &int_mode)
+	  && HWI_COMPUTABLE_MODE_P (int_mode))
+	op0 = force_to_mode (op0, int_mode,
 			     HOST_WIDE_INT_1U
-			     << (GET_MODE_PRECISION (mode) - 1),
+			     << (GET_MODE_PRECISION (int_mode) - 1),
 			     0);
+
+      if (COMPARISON_P (op0))
+	{
+	  /* We can't do anything if OP0 is a condition code value, rather
+	     than an actual data value.  */
+	  if (const_op != 0
+	      || CC0_P (XEXP (op0, 0))
+	      || GET_MODE_CLASS (GET_MODE (XEXP (op0, 0))) == MODE_CC)
+	    break;
+
+	  /* Get the two operands being compared.  */
+	  if (GET_CODE (XEXP (op0, 0)) == COMPARE)
+	    tem = XEXP (XEXP (op0, 0), 0), tem1 = XEXP (XEXP (op0, 0), 1);
+	  else
+	    tem = XEXP (op0, 0), tem1 = XEXP (op0, 1);
+
+	  /* Check for the cases where we simply want the result of the
+	     earlier test or the opposite of that result.  */
+	  if (code == NE || code == EQ
+	      || (val_signbit_known_set_p (raw_mode, STORE_FLAG_VALUE)
+		  && (code == LT || code == GE)))
+	    {
+	      enum rtx_code new_code;
+	      if (code == LT || code == NE)
+		new_code = GET_CODE (op0);
+	      else
+		new_code = reversed_comparison_code (op0, NULL);
+
+	      if (new_code != UNKNOWN)
+		{
+		  code = new_code;
+		  op0 = tem;
+		  op1 = tem1;
+		  continue;
+		}
+	    }
+	  break;
+	}
+
+      if (raw_mode == VOIDmode)
+	break;
+      scalar_int_mode mode = as_a <scalar_int_mode> (raw_mode);
 
       /* Now try cases based on the opcode of OP0.  If none of the cases
 	 does a "continue", we exit this loop immediately after the
 	 switch.  */
 
+      unsigned int mode_width = GET_MODE_PRECISION (mode);
+      unsigned HOST_WIDE_INT mask = GET_MODE_MASK (mode);
       switch (GET_CODE (op0))
 	{
 	case ZERO_EXTRACT:
@@ -12021,8 +12076,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	     insn of the given mode, since we'd have to revert it
 	     later on, and then we wouldn't know whether to sign- or
 	     zero-extend.  */
-	  mode = GET_MODE (XEXP (op0, 0));
-	  if (GET_MODE_CLASS (mode) == MODE_INT
+	  if (is_int_mode (GET_MODE (XEXP (op0, 0)), &mode)
 	      && ! unsigned_comparison_p
 	      && HWI_COMPUTABLE_MODE_P (mode)
 	      && trunc_int_for_mode (const_op, mode) == const_op
@@ -12056,11 +12110,12 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 
 	  if (mode_width <= HOST_BITS_PER_WIDE_INT
 	      && subreg_lowpart_p (op0)
-	      && GET_MODE_PRECISION (GET_MODE (SUBREG_REG (op0))) > mode_width
+	      && is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (op0)),
+					 &inner_mode)
+	      && GET_MODE_PRECISION (inner_mode) > mode_width
 	      && GET_CODE (SUBREG_REG (op0)) == PLUS
 	      && CONST_INT_P (XEXP (SUBREG_REG (op0), 1)))
 	    {
-	      machine_mode inner_mode = GET_MODE (SUBREG_REG (op0));
 	      rtx a = XEXP (SUBREG_REG (op0), 0);
 	      HOST_WIDE_INT c1 = -INTVAL (XEXP (SUBREG_REG (op0), 1));
 
@@ -12102,8 +12157,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	  /* FALLTHROUGH */
 
 	case ZERO_EXTEND:
-	  mode = GET_MODE (XEXP (op0, 0));
-	  if (GET_MODE_CLASS (mode) == MODE_INT
+	  if (is_int_mode (GET_MODE (XEXP (op0, 0)), &mode)
 	      && (unsigned_comparison_p || equality_comparison_p)
 	      && HWI_COMPUTABLE_MODE_P (mode)
 	      && (unsigned HOST_WIDE_INT) const_op <= GET_MODE_MASK (mode)
@@ -12192,45 +12246,6 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	    }
 	  break;
 
-	case EQ:  case NE:
-	case UNEQ:  case LTGT:
-	case LT:  case LTU:  case UNLT:  case LE:  case LEU:  case UNLE:
-	case GT:  case GTU:  case UNGT:  case GE:  case GEU:  case UNGE:
-	case UNORDERED: case ORDERED:
-	  /* We can't do anything if OP0 is a condition code value, rather
-	     than an actual data value.  */
-	  if (const_op != 0
-	      || CC0_P (XEXP (op0, 0))
-	      || GET_MODE_CLASS (GET_MODE (XEXP (op0, 0))) == MODE_CC)
-	    break;
-
-	  /* Get the two operands being compared.  */
-	  if (GET_CODE (XEXP (op0, 0)) == COMPARE)
-	    tem = XEXP (XEXP (op0, 0), 0), tem1 = XEXP (XEXP (op0, 0), 1);
-	  else
-	    tem = XEXP (op0, 0), tem1 = XEXP (op0, 1);
-
-	  /* Check for the cases where we simply want the result of the
-	     earlier test or the opposite of that result.  */
-	  if (code == NE || code == EQ
-	      || (val_signbit_known_set_p (GET_MODE (op0), STORE_FLAG_VALUE)
-		  && (code == LT || code == GE)))
-	    {
-	      enum rtx_code new_code;
-	      if (code == LT || code == NE)
-		new_code = GET_CODE (op0);
-	      else
-		new_code = reversed_comparison_code (op0, NULL);
-
-	      if (new_code != UNKNOWN)
-		{
-		  code = new_code;
-		  op0 = tem;
-		  op1 = tem1;
-		  continue;
-		}
-	    }
-	  break;
 
 	case IOR:
 	  /* The sign bit of (ior (plus X (const_int -1)) X) is nonzero
