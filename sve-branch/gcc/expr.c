@@ -80,8 +80,7 @@ static void clear_by_pieces (rtx, unsigned HOST_WIDE_INT, unsigned int);
 static rtx_insn *compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
 static void store_constructor (tree, rtx, int, poly_int64, bool);
-static rtx store_field (rtx, poly_int64, poly_int64,
-			unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT,
+static rtx store_field (rtx, poly_int64, poly_int64, poly_uint64, poly_uint64,
 			machine_mode, tree, alias_set_type, bool, bool);
 
 static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (const_tree, const_tree);
@@ -4606,10 +4605,10 @@ get_subtarget (rtx x)
    and there's nothing else to do.  */
 
 static bool
-optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
-				 unsigned HOST_WIDE_INT bitpos,
-				 unsigned HOST_WIDE_INT bitregion_start,
-				 unsigned HOST_WIDE_INT bitregion_end,
+optimize_bitfield_assignment_op (poly_uint64 pbitsize,
+				 poly_uint64 pbitpos,
+				 poly_uint64 pbitregion_start,
+				 poly_uint64 pbitregion_end,
 				 machine_mode mode1, rtx str_rtx,
 				 tree to, tree src, bool reverse)
 {
@@ -4621,7 +4620,12 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
   gimple *srcstmt;
   enum tree_code code;
 
+  unsigned HOST_WIDE_INT bitsize, bitpos, bitregion_start, bitregion_end;
   if (mode1 != VOIDmode
+      || !pbitsize.is_constant (&bitsize)
+      || !pbitpos.is_constant (&bitpos)
+      || !pbitregion_start.is_constant (&bitregion_start)
+      || !pbitregion_end.is_constant (&bitregion_end)
       || bitsize >= BITS_PER_WORD
       || str_bitsize > BITS_PER_WORD
       || TREE_SIDE_EFFECTS (to)
@@ -6763,8 +6767,7 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 
 static rtx
 store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
-	     unsigned HOST_WIDE_INT bitregion_start,
-	     unsigned HOST_WIDE_INT bitregion_end,
+	     poly_uint64 bitregion_start, poly_uint64 bitregion_end,
 	     machine_mode mode, tree exp,
 	     alias_set_type alias_set, bool nontemporal,  bool reverse)
 {
