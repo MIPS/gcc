@@ -615,19 +615,21 @@ decompose_register (unsigned int regno)
 /* Get a SUBREG of a CONCATN.  */
 
 static rtx
-simplify_subreg_concatn (machine_mode outermode, rtx op,
-			 unsigned int byte)
+simplify_subreg_concatn (machine_mode outermode, rtx op, poly_int64 orig_byte)
 {
   unsigned int outer_size, outer_words, inner_size, inner_words;
   machine_mode innermode, partmode;
   rtx part;
   unsigned int final_offset;
+  HOST_WIDE_INT byte;
 
   innermode = GET_MODE (op);
   if (!interesting_mode_p (outermode, &outer_size, &outer_words)
       || !interesting_mode_p (innermode, &inner_size, &inner_words))
     gcc_unreachable ();
 
+  /* Must be constant if interesting_mode_p passes.  */
+  byte = orig_byte.to_constant ();
   gcc_assert (GET_CODE (op) == CONCATN);
   gcc_assert (byte % outer_size == 0);
 
@@ -675,7 +677,7 @@ simplify_gen_subreg_concatn (machine_mode outermode, rtx op,
 
       if ((GET_MODE_SIZE (GET_MODE (op))
 	   == GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
-	  && SUBREG_BYTE (op) == 0)
+	  && must_eq (SUBREG_BYTE (op), 0))
 	return simplify_gen_subreg_concatn (outermode, SUBREG_REG (op),
 					    GET_MODE (SUBREG_REG (op)), byte);
 
@@ -874,7 +876,7 @@ resolve_simple_move (rtx set, rtx_insn *insn)
 
   if (GET_CODE (src) == SUBREG
       && resolve_reg_p (SUBREG_REG (src))
-      && (SUBREG_BYTE (src) != 0
+      && (may_ne (SUBREG_BYTE (src), 0)
 	  || (GET_MODE_SIZE (orig_mode)
 	      != GET_MODE_SIZE (GET_MODE (SUBREG_REG (src))))))
     {
@@ -889,7 +891,7 @@ resolve_simple_move (rtx set, rtx_insn *insn)
 
   if (GET_CODE (dest) == SUBREG
       && resolve_reg_p (SUBREG_REG (dest))
-      && (SUBREG_BYTE (dest) != 0
+      && (may_ne (SUBREG_BYTE (dest), 0)
 	  || (GET_MODE_SIZE (orig_mode)
 	      != GET_MODE_SIZE (GET_MODE (SUBREG_REG (dest))))))
     {

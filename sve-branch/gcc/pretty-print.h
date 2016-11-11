@@ -354,6 +354,9 @@ extern void pp_separate_with (pretty_printer *, char);
 extern void pp_printf (pretty_printer *, const char *, ...)
      ATTRIBUTE_GCC_PPDIAG(2,3);
 
+template<unsigned int N, typename T>
+extern void pp_poly_int (pretty_printer *, const poly_int_pod<N, T> &);
+
 extern void pp_verbatim (pretty_printer *, const char *, ...)
      ATTRIBUTE_GCC_PPDIAG(2,3);
 extern void pp_flush (pretty_printer *);

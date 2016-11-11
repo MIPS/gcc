@@ -99,6 +99,7 @@ print_mem_expr (FILE *outfile, const_tree expr)
   fputc (' ', outfile);
   print_generic_expr (outfile, CONST_CAST_TREE (expr), dump_flags);
 }
+#endif
 
 /* Print X to FILE.  */
 
@@ -116,7 +117,6 @@ print_poly_int (FILE *file, poly_int64 x)
 		 x.coeffs[i], i == NUM_POLY_INT_COEFFS - 1 ? ']' : ',');
     }
 }
-#endif
 
 /* Subroutine of print_rtx_operand for handling code '0'.
    0 indicates a field for internal use that should not be printed.
@@ -547,6 +547,11 @@ print_rtx_operand (const_rtx in_rtx, int idx)
 
     case 'i':
       print_rtx_operand_code_i (in_rtx, idx);
+      break;
+
+    case 'p':
+      fprintf (outfile, " ");
+      print_poly_int (outfile, SUBREG_BYTE (in_rtx));
       break;
 
     case 'r':
@@ -1480,7 +1485,8 @@ print_value (pretty_printer *pp, const_rtx x, int verbose)
       break;
     case SUBREG:
       print_value (pp, SUBREG_REG (x), verbose);
-      pp_printf (pp, "#%d", SUBREG_BYTE (x));
+      pp_printf (pp, "#");
+      pp_poly_int (pp, SUBREG_BYTE (x));
       break;
     case SCRATCH:
     case CC0:

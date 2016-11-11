@@ -2349,6 +2349,11 @@ operands_match_p (rtx x, rtx y)
 	    return 0;
 	  break;
 
+	case 'p':
+	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	    return 0;
+	  break;
+
 	case 'e':
 	  val = operands_match_p (XEXP (x, i), XEXP (y, i));
 	  if (val == 0)
@@ -6145,7 +6150,7 @@ find_reloads_subreg_address (rtx x, int opnum, enum reload_type type,
   int regno = REGNO (SUBREG_REG (x));
   int reloaded = 0;
   rtx tem, orig;
-  int offset;
+  poly_int64 offset;
 
   gcc_assert (reg_equiv_memory_loc (regno) != 0);
 
@@ -6192,7 +6197,7 @@ find_reloads_subreg_address (rtx x, int opnum, enum reload_type type,
 				   XEXP (tem, 0), &XEXP (tem, 0),
 				   opnum, type, ind_levels, insn);
   /* ??? Do we need to handle nonzero offsets somehow?  */
-  if (!offset && !rtx_equal_p (tem, orig))
+  if (must_eq (offset, 0) && !rtx_equal_p (tem, orig))
     push_reg_equiv_alt_mem (regno, tem);
 
   /* For some processors an address may be valid in the original mode but

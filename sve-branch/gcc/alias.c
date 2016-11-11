@@ -1922,6 +1922,11 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
 	    return 0;
 	  break;
 
+	case 'p':
+	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	    return 0;
+	  break;
+
 	case 'E':
 	  /* Two vectors must have the same length.  */
 	  if (XVECLEN (x, i) != XVECLEN (y, i))

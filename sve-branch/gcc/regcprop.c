@@ -345,7 +345,8 @@ copy_value (rtx dest, rtx src, struct value_data *vd)
      We can't properly represent the latter case in our tables, so don't
      record anything then.  */
   else if (sn < (unsigned int) hard_regno_nregs[sr][vd->e[sr].mode]
-	   && subreg_lowpart_offset (GET_MODE (dest), vd->e[sr].mode) != 0)
+	   && may_ne (subreg_lowpart_offset (GET_MODE (dest),
+					     vd->e[sr].mode), 0))
     return;
 
   /* If SRC had been assigned a mode narrower than the copy, we can't
@@ -405,9 +406,9 @@ maybe_mode_change (machine_mode orig_mode, machine_mode copy_mode,
       int use_nregs = hard_regno_nregs[copy_regno][new_mode];
       int copy_offset
 	= GET_MODE_SIZE (copy_mode) / copy_nregs * (copy_nregs - use_nregs);
-      int offset = subreg_size_lowpart_offset (GET_MODE_SIZE (new_mode)
-					       + copy_offset,
-					       GET_MODE_SIZE (orig_mode));
+      poly_int64 offset
+	= subreg_size_lowpart_offset (GET_MODE_SIZE (new_mode) + copy_offset,
+				      GET_MODE_SIZE (orig_mode));
       regno += subreg_regno_offset (regno, orig_mode, offset, new_mode);
       if (targetm.hard_regno_mode_ok (regno, new_mode))
 	return gen_raw_REG (new_mode, regno);
@@ -868,7 +869,8 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 		 is also invalid.  */
 	      if (hard_regno_nregs[regno][mode]
 		  < hard_regno_nregs[regno][vd->e[regno].mode]
-		  && subreg_lowpart_offset (mode, vd->e[regno].mode) != 0)
+		  && may_ne (subreg_lowpart_offset (mode,
+						    vd->e[regno].mode), 0))
 		goto no_move_special_case;
 	    }
 

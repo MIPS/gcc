@@ -2276,7 +2276,7 @@ extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
       /* simplify_gen_subreg can't be used here, as if simplify_subreg
 	 fails, it will happily create (subreg (symbol_ref)) or similar
 	 invalid SUBREGs.  */
-      unsigned int byte = subreg_lowpart_offset (mode, src_mode);
+      poly_int64 byte = subreg_lowpart_offset (mode, src_mode);
       rtx ret = simplify_subreg (mode, src, src_mode, byte);
       if (ret)
 	return ret;

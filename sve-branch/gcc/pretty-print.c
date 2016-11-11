@@ -905,6 +905,25 @@ pp_printf (pretty_printer *pp, const char *msg, ...)
   va_end (ap);
 }
 
+/* Output polynomial integer X to PP, as decimal.  */
+
+template<unsigned int N, typename T>
+void
+pp_poly_int (pretty_printer *pp, const poly_int_pod<N, T> &x)
+{
+  if (x.is_constant ())
+    pp_printf (pp, "%wd", (HOST_WIDE_INT) x.coeffs[0]);
+  else
+    {
+      pp_printf (pp, "[");
+      for (unsigned int i = 0; i < N; ++i)
+	pp_printf (pp, "%wd%c", (HOST_WIDE_INT) x.coeffs[i],
+		   i == N - 1 ? ']' : ',');
+    }
+}
+
+template void pp_poly_int (pretty_printer *, const poly_uint16_pod &);
+template void pp_poly_int (pretty_printer *, const poly_int64_pod &);
 
 /* Output MESSAGE verbatim into BUFFER.  */
 void

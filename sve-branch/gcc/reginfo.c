@@ -1197,7 +1197,9 @@ reg_classes_intersect_p (reg_class_t c1, reg_class_t c2)
 inline hashval_t
 simplifiable_subregs_hasher::hash (const simplifiable_subreg *value)
 {
-  return value->shape.unique_id ();
+  inchash::hash h;
+  h.add_wide_int (value->shape.unique_id ());
+  return h.end ();
 }
 
 inline bool
@@ -1222,9 +1224,11 @@ simplifiable_subregs (const subreg_shape &shape)
   if (!this_target_hard_regs->x_simplifiable_subregs)
     this_target_hard_regs->x_simplifiable_subregs
       = new hash_table <simplifiable_subregs_hasher> (30);
+  inchash::hash h;
+  h.add_wide_int (shape.unique_id ());
   simplifiable_subreg **slot
     = (this_target_hard_regs->x_simplifiable_subregs
-       ->find_slot_with_hash (&shape, shape.unique_id (), INSERT));
+       ->find_slot_with_hash (&shape, h.end (), INSERT));
 
   if (!*slot)
     {
@@ -1285,7 +1289,7 @@ record_subregs_of_mode (rtx subreg, bool partial_def)
       unsigned int size = MAX (REGMODE_NATURAL_SIZE (shape.inner_mode),
 			       GET_MODE_SIZE (shape.outer_mode));
       gcc_checking_assert (size < GET_MODE_SIZE (shape.inner_mode));
-      if (shape.offset >= size)
+      if (must_ge (shape.offset, size))
 	shape.offset -= size;
       else
 	shape.offset += size;

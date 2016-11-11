@@ -89,7 +89,8 @@ const char * const rtx_format[NUM_RTX_CODE] = {
      "b" is a pointer to a bitmap header.
      "B" is a basic block pointer.
      "t" is a tree pointer.
-     "r" a register.  */
+     "r" a register.
+     "p" is a poly_uint16 offset.  */
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   FORMAT ,
 #include "rtl.def"		/* rtl expressions are defined here */
@@ -345,6 +346,7 @@ copy_rtx (rtx orig)
       case 't':
       case 'w':
       case 'i':
+      case 'p':
       case 's':
       case 'S':
       case 'T':
@@ -475,6 +477,11 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
 #endif
 	      return 0;
 	    }
+	  break;
+
+	case 'p':
+	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	    return 0;
 	  break;
 
 	case 'V':
@@ -612,6 +619,11 @@ rtx_equal_p (const_rtx x, const_rtx y)
 #endif
 	      return 0;
 	    }
+	  break;
+
+	case 'p':
+	  if (may_ne (SUBREG_BYTE (x), SUBREG_BYTE (y)))
+	    return 0;
 	  break;
 
 	case 'V':
