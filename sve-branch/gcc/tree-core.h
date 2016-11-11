@@ -960,6 +960,9 @@ struct GTY(()) tree_base {
     /* VEC length.  This field is only used with TREE_VEC.  */
     int length;
 
+    /* Number of elements.  This field is only used with VECTOR_CST.  */
+    unsigned int nelts;
+
     /* SSA version number.  This field is only used with SSA_NAME.  */
     unsigned int version;
 
@@ -1304,7 +1307,7 @@ struct GTY(()) tree_complex {
 
 struct GTY(()) tree_vector {
   struct tree_typed typed;
-  tree GTY ((length ("TYPE_VECTOR_SUBPARTS (TREE_TYPE ((tree)&%h))"))) elts[1];
+  tree GTY ((length ("VECTOR_CST_NELTS ((tree) &%h)"))) elts[1];
 };
 
 struct GTY(()) tree_identifier {

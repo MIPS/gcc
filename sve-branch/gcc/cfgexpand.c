@@ -4925,12 +4925,13 @@ expand_debug_expr (tree exp)
 
     case VECTOR_CST:
       {
-	unsigned i;
+	unsigned i, nelts;
 
-	op0 = gen_rtx_CONCATN
-	  (mode, rtvec_alloc (TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
+	nelts = VECTOR_CST_NELTS (exp);
+	gcc_assert (nelts == TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)));
+	op0 = gen_rtx_CONCATN (mode, rtvec_alloc (nelts));
 
-	for (i = 0; i < VECTOR_CST_NELTS (exp); ++i)
+	for (i = 0; i < nelts; ++i)
 	  {
 	    op1 = expand_debug_expr (VECTOR_CST_ELT (exp, i));
 	    if (!op1)
