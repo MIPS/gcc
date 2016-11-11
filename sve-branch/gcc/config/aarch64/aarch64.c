@@ -3984,14 +3984,14 @@ virt_or_elim_regno_p (unsigned regno)
 	  || regno == ARG_POINTER_REGNUM);
 }
 
-/* Return true if X is a valid address for machine mode MODE.  If it is,
-   fill in INFO appropriately.  STRICT_P is true if REG_OK_STRICT is in
-   effect.  OUTER_CODE is PARALLEL for a load/store pair.  */
+/* Return true if X is a valid address of type TYPE for machine mode MODE.
+   If it is, fill in INFO appropriately.  STRICT_P is true if
+   REG_OK_STRICT is in effect.  */
 
 static bool
 aarch64_classify_address (struct aarch64_address_info *info,
 			  rtx x, machine_mode mode,
-			  RTX_CODE outer_code, bool strict_p)
+			  aarch64_addr_query_type type, bool strict_p)
 {
   enum rtx_code code = GET_CODE (x);
   rtx op0, op1;
@@ -4000,7 +4000,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
   HOST_WIDE_INT const_size;
 
   /* On BE, we use load/store pair for all large int mode load/stores.  */
-  bool load_store_pair_p = (outer_code == PARALLEL
+  bool load_store_pair_p = (type == ADDR_QUERY_LDP_STP
 			    || (BYTES_BIG_ENDIAN
 				&& aarch64_vect_struct_mode_p (mode)));
 
@@ -4250,19 +4250,18 @@ aarch64_legitimate_address_hook_p (machine_mode mode, rtx x, bool strict_p)
 {
   struct aarch64_address_info addr;
 
-  return aarch64_classify_address (&addr, x, mode, MEM, strict_p);
+  return aarch64_classify_address (&addr, x, mode, ADDR_QUERY_M, strict_p);
 }
 
-/* Return TRUE if X is a legitimate address for accessing memory in
-   mode MODE.  OUTER_CODE will be PARALLEL if this is a load/store
-   pair operation.  */
+/* Return TRUE if X is a legitimate address of type TYPE for accessing
+   memory in mode MODE.  STRICT_P is true if REG_OK_STRICT is in effect.  */
 bool
 aarch64_legitimate_address_p (machine_mode mode, rtx x,
-			      RTX_CODE outer_code, bool strict_p)
+			      aarch64_addr_query_type type, bool strict_p)
 {
   struct aarch64_address_info addr;
 
-  return aarch64_classify_address (&addr, x, mode, outer_code, strict_p);
+  return aarch64_classify_address (&addr, x, mode, type, strict_p);
 }
 
 /* Split an out-of-range address displacement into a base and offset.
@@ -4966,7 +4965,7 @@ aarch64_print_operand_address (FILE *f, machine_mode mode, rtx x)
   struct aarch64_address_info addr;
   unsigned int size;
 
-  if (aarch64_classify_address (&addr, x, mode, MEM, true))
+  if (aarch64_classify_address (&addr, x, mode, ADDR_QUERY_M, true))
     switch (addr.type)
       {
       case ADDRESS_REG_IMM:
@@ -5869,7 +5868,7 @@ aarch64_address_cost (rtx x,
   int cost = 0;
   info.shift = 0;
 
-  if (!aarch64_classify_address (&info, x, mode, c, false))
+  if (!aarch64_classify_address (&info, x, mode, ADDR_QUERY_M, false))
     {
       if (GET_CODE (x) == CONST || GET_CODE (x) == SYMBOL_REF)
 	{

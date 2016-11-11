@@ -158,8 +158,8 @@
 
 (define_predicate "aarch64_mem_pair_operand"
   (and (match_code "mem")
-       (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0), PARALLEL,
-					       0)")))
+       (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0),
+						  ADDR_QUERY_LDP_STP, 0)")))
 
 (define_predicate "aarch64_valid_symref"
   (match_code "const, symbol_ref, label_ref")
