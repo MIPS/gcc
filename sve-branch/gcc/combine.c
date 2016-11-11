@@ -445,6 +445,8 @@ static rtx extract_left_shift (rtx, int);
 static int get_pos_from_mask (unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT *);
 static rtx canon_reg_for_combine (rtx, rtx);
+static rtx force_int_to_mode (rtx, scalar_int_mode, scalar_int_mode,
+			      scalar_int_mode, unsigned HOST_WIDE_INT, int);
 static rtx force_to_mode (rtx, machine_mode,
 			  unsigned HOST_WIDE_INT, int);
 static rtx if_then_else_cond (rtx, rtx *, rtx *);
@@ -8423,8 +8425,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
   enum rtx_code code = GET_CODE (x);
   int next_select = just_select || code == XOR || code == NOT || code == NEG;
   machine_mode op_mode;
-  unsigned HOST_WIDE_INT fuller_mask, nonzero;
-  rtx op0, op1, temp;
+  unsigned HOST_WIDE_INT nonzero;
 
   /* If this is a CALL or ASM_OPERANDS, don't do anything.  Some of the
      code below will do the wrong thing since the mode of such an
@@ -8451,15 +8452,6 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
   /* Truncate MASK to fit OP_MODE.  */
   if (op_mode)
     mask &= GET_MODE_MASK (op_mode);
-
-  /* When we have an arithmetic operation, or a shift whose count we
-     do not know, we need to assume that all bits up to the highest-order
-     bit in MASK will be needed.  This is how we form such a mask.  */
-  if (mask & (HOST_WIDE_INT_1U << (HOST_BITS_PER_WIDE_INT - 1)))
-    fuller_mask = HOST_WIDE_INT_M1U;
-  else
-    fuller_mask = ((HOST_WIDE_INT_1U << (floor_log2 (mask) + 1))
-		   - 1);
 
   /* Determine what bits of X are guaranteed to be (non)zero.  */
   nonzero = nonzero_bits (x, mode);
@@ -8498,9 +8490,42 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 		    & ~GET_MODE_MASK (GET_MODE (SUBREG_REG (x)))))))
     return force_to_mode (SUBREG_REG (x), mode, mask, next_select);
 
-  /* The arithmetic simplifications here only work for scalar integer modes.  */
-  if (!SCALAR_INT_MODE_P (mode) || !SCALAR_INT_MODE_P (GET_MODE (x)))
-    return gen_lowpart_or_truncate (mode, x);
+  scalar_int_mode int_mode, xmode;
+  if (is_a <scalar_int_mode> (mode, &int_mode)
+      && is_a <scalar_int_mode> (GET_MODE (x), &xmode))
+    /* OP_MODE is either MODE or XMODE, so it must be a scalar
+       integer too.  */
+    return force_int_to_mode (x, int_mode, xmode,
+			      as_a <scalar_int_mode> (op_mode),
+			      mask, just_select);
+
+  return gen_lowpart_or_truncate (mode, x);
+}
+
+/* Subroutine of force_to_mode that handles cases where both X and
+   the result are scalar integers.  MODE is the mode of the result,
+   XMODE is the mode of X, and OP_MODE says which of MODE or XMODE
+   is preferred for simplified versions of X.  The other arguments
+   are as for force_to_mode.  */
+
+static rtx
+force_int_to_mode (rtx x, scalar_int_mode mode, scalar_int_mode xmode,
+		   scalar_int_mode op_mode, unsigned HOST_WIDE_INT mask,
+		   int just_select)
+{
+  enum rtx_code code = GET_CODE (x);
+  int next_select = just_select || code == XOR || code == NOT || code == NEG;
+  unsigned HOST_WIDE_INT fuller_mask;
+  rtx op0, op1, temp;
+
+  /* When we have an arithmetic operation, or a shift whose count we
+     do not know, we need to assume that all bits up to the highest-order
+     bit in MASK will be needed.  This is how we form such a mask.  */
+  if (mask & (HOST_WIDE_INT_1U << (HOST_BITS_PER_WIDE_INT - 1)))
+    fuller_mask = HOST_WIDE_INT_M1U;
+  else
+    fuller_mask = ((HOST_WIDE_INT_1U << (floor_log2 (mask) + 1))
+		   - 1);
 
   switch (code)
     {
@@ -8531,14 +8556,14 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	{
 	  x = simplify_and_const_int (x, op_mode, XEXP (x, 0),
 				      mask & INTVAL (XEXP (x, 1)));
+	  xmode = op_mode;
 
 	  /* If X is still an AND, see if it is an AND with a mask that
 	     is just some low-order bits.  If so, and it is MASK, we don't
 	     need it.  */
 
 	  if (GET_CODE (x) == AND && CONST_INT_P (XEXP (x, 1))
-	      && ((INTVAL (XEXP (x, 1)) & GET_MODE_MASK (GET_MODE (x)))
-		  == mask))
+	      && (INTVAL (XEXP (x, 1)) & GET_MODE_MASK (xmode)) == mask)
 	    x = XEXP (x, 0);
 
 	  /* If it remains an AND, try making another AND with the bits
@@ -8547,18 +8572,17 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	     cheaper constant.  */
 
 	  if (GET_CODE (x) == AND && CONST_INT_P (XEXP (x, 1))
-	      && GET_MODE_MASK (GET_MODE (x)) != mask
-	      && HWI_COMPUTABLE_MODE_P (GET_MODE (x)))
+	      && GET_MODE_MASK (xmode) != mask
+	      && HWI_COMPUTABLE_MODE_P (xmode))
 	    {
 	      unsigned HOST_WIDE_INT cval
-		= UINTVAL (XEXP (x, 1))
-		  | (GET_MODE_MASK (GET_MODE (x)) & ~mask);
+		= UINTVAL (XEXP (x, 1)) | (GET_MODE_MASK (xmode) & ~mask);
 	      rtx y;
 
-	      y = simplify_gen_binary (AND, GET_MODE (x), XEXP (x, 0),
-				       gen_int_mode (cval, GET_MODE (x)));
-	      if (set_src_cost (y, GET_MODE (x), optimize_this_for_speed_p)
-	          < set_src_cost (x, GET_MODE (x), optimize_this_for_speed_p))
+	      y = simplify_gen_binary (AND, xmode, XEXP (x, 0),
+				       gen_int_mode (cval, xmode));
+	      if (set_src_cost (y, xmode, optimize_this_for_speed_p)
+		  < set_src_cost (x, xmode, optimize_this_for_speed_p))
 		x = y;
 	    }
 
@@ -8588,7 +8612,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	    && pow2p_hwi (- smask)
 	    && (nonzero_bits (XEXP (x, 0), mode) & ~smask) == 0
 	    && (INTVAL (XEXP (x, 1)) & ~smask) != 0)
-	  return force_to_mode (plus_constant (GET_MODE (x), XEXP (x, 0),
+	  return force_to_mode (plus_constant (xmode, XEXP (x, 0),
 					       (INTVAL (XEXP (x, 1)) & smask)),
 				mode, smask, next_select);
       }
@@ -8619,8 +8643,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
       if (CONST_INT_P (XEXP (x, 0))
 	  && least_bit_hwi (UINTVAL (XEXP (x, 0))) > mask)
 	{
-	  x = simplify_gen_unary (NEG, GET_MODE (x), XEXP (x, 1),
-				  GET_MODE (x));
+	  x = simplify_gen_unary (NEG, xmode, XEXP (x, 1), xmode);
 	  return force_to_mode (x, mode, mask, next_select);
 	}
 
@@ -8629,8 +8652,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
       if (CONST_INT_P (XEXP (x, 0))
 	  && ((UINTVAL (XEXP (x, 0)) | fuller_mask) == UINTVAL (XEXP (x, 0))))
 	{
-	  x = simplify_gen_unary (NOT, GET_MODE (x),
-				  XEXP (x, 1), GET_MODE (x));
+	  x = simplify_gen_unary (NOT, xmode, XEXP (x, 1), xmode);
 	  return force_to_mode (x, mode, mask, next_select);
 	}
 
@@ -8651,16 +8673,16 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	  && CONST_INT_P (XEXP (x, 1))
 	  && ((INTVAL (XEXP (XEXP (x, 0), 1))
 	       + floor_log2 (INTVAL (XEXP (x, 1))))
-	      < GET_MODE_PRECISION (GET_MODE (x)))
+	      < GET_MODE_PRECISION (xmode))
 	  && (UINTVAL (XEXP (x, 1))
-	      & ~nonzero_bits (XEXP (x, 0), GET_MODE (x))) == 0)
+	      & ~nonzero_bits (XEXP (x, 0), xmode)) == 0)
 	{
 	  temp = gen_int_mode ((INTVAL (XEXP (x, 1)) & mask)
 			       << INTVAL (XEXP (XEXP (x, 0), 1)),
-			       GET_MODE (x));
-	  temp = simplify_gen_binary (GET_CODE (x), GET_MODE (x),
+			       xmode);
+	  temp = simplify_gen_binary (GET_CODE (x), xmode,
 				      XEXP (XEXP (x, 0), 0), temp);
-	  x = simplify_gen_binary (LSHIFTRT, GET_MODE (x), temp,
+	  x = simplify_gen_binary (LSHIFTRT, xmode, temp,
 				   XEXP (XEXP (x, 0), 1));
 	  return force_to_mode (x, mode, mask, next_select);
 	}
@@ -8684,8 +8706,11 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
       op0 = gen_lowpart_or_truncate (op_mode, op0);
       op1 = gen_lowpart_or_truncate (op_mode, op1);
 
-      if (op_mode != GET_MODE (x) || op0 != XEXP (x, 0) || op1 != XEXP (x, 1))
-	x = simplify_gen_binary (code, op_mode, op0, op1);
+      if (op_mode != xmode || op0 != XEXP (x, 0) || op1 != XEXP (x, 1))
+	{
+	  x = simplify_gen_binary (code, op_mode, op0, op1);
+	  xmode = op_mode;
+	}
       break;
 
     case ASHIFT:
@@ -8718,8 +8743,11 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 				     force_to_mode (XEXP (x, 0), op_mode,
 						    mask, next_select));
 
-      if (op_mode != GET_MODE (x) || op0 != XEXP (x, 0))
-	x = simplify_gen_binary (code, op_mode, op0, XEXP (x, 1));
+      if (op_mode != xmode || op0 != XEXP (x, 0))
+	{
+	  x = simplify_gen_binary (code, op_mode, op0, XEXP (x, 1));
+	  xmode = op_mode;
+	}
       break;
 
     case LSHIFTRT:
@@ -8741,13 +8769,16 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	  /* We can only change the mode of the shift if we can do arithmetic
 	     in the mode of the shift and INNER_MASK is no wider than the
 	     width of X's mode.  */
-	  if ((inner_mask & ~GET_MODE_MASK (GET_MODE (x))) != 0)
-	    op_mode = GET_MODE (x);
+	  if ((inner_mask & ~GET_MODE_MASK (xmode)) != 0)
+	    op_mode = xmode;
 
 	  inner = force_to_mode (inner, op_mode, inner_mask, next_select);
 
-	  if (GET_MODE (x) != op_mode || inner != XEXP (x, 0))
-	    x = simplify_gen_binary (LSHIFTRT, op_mode, inner, XEXP (x, 1));
+	  if (xmode != op_mode || inner != XEXP (x, 0))
+	    {
+	      x = simplify_gen_binary (LSHIFTRT, op_mode, inner, XEXP (x, 1));
+	      xmode = op_mode;
+	    }
 	}
 
       /* If we have (and (lshiftrt FOO C1) C2) where the combination of the
@@ -8760,17 +8791,17 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	     bit.  */
 	  && ((INTVAL (XEXP (x, 1))
 	       + num_sign_bit_copies (XEXP (x, 0), GET_MODE (XEXP (x, 0))))
-	      >= GET_MODE_PRECISION (GET_MODE (x)))
+	      >= GET_MODE_PRECISION (xmode))
 	  && pow2p_hwi (mask + 1)
 	  /* Number of bits left after the shift must be more than the mask
 	     needs.  */
 	  && ((INTVAL (XEXP (x, 1)) + exact_log2 (mask + 1))
-	      <= GET_MODE_PRECISION (GET_MODE (x)))
+	      <= GET_MODE_PRECISION (xmode))
 	  /* Must be more sign bit copies than the mask needs.  */
 	  && ((int) num_sign_bit_copies (XEXP (x, 0), GET_MODE (XEXP (x, 0)))
 	      >= exact_log2 (mask + 1)))
-	x = simplify_gen_binary (LSHIFTRT, GET_MODE (x), XEXP (x, 0),
-				 GEN_INT (GET_MODE_PRECISION (GET_MODE (x))
+	x = simplify_gen_binary (LSHIFTRT, xmode, XEXP (x, 0),
+				 GEN_INT (GET_MODE_PRECISION (xmode)
 					  - exact_log2 (mask + 1)));
 
       goto shiftrt;
@@ -8778,7 +8809,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
     case ASHIFTRT:
       /* If we are just looking for the sign bit, we don't need this shift at
 	 all, even if it has a variable count.  */
-      if (val_signbit_p (GET_MODE (x), mask))
+      if (val_signbit_p (xmode, mask))
 	return force_to_mode (XEXP (x, 0), mode, mask, next_select);
 
       /* If this is a shift by a constant, get a mask that contains those bits
@@ -8791,13 +8822,14 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
       if (CONST_INT_P (XEXP (x, 1)) && INTVAL (XEXP (x, 1)) >= 0
 	  && INTVAL (XEXP (x, 1)) < HOST_BITS_PER_WIDE_INT)
 	{
+	  unsigned HOST_WIDE_INT nonzero;
 	  int i;
 
 	  /* If the considered data is wider than HOST_WIDE_INT, we can't
 	     represent a mask for all its bits in a single scalar.
 	     But we only care about the lower bits, so calculate these.  */
 
-	  if (GET_MODE_PRECISION (GET_MODE (x)) > HOST_BITS_PER_WIDE_INT)
+	  if (GET_MODE_PRECISION (xmode) > HOST_BITS_PER_WIDE_INT)
 	    {
 	      nonzero = HOST_WIDE_INT_M1U;
 
@@ -8806,21 +8838,21 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 		 We need only shift if these are fewer than nonzero can
 		 hold.  If not, we must keep all bits set in nonzero.  */
 
-	      if (GET_MODE_PRECISION (GET_MODE (x)) - INTVAL (XEXP (x, 1))
+	      if (GET_MODE_PRECISION (xmode) - INTVAL (XEXP (x, 1))
 		  < HOST_BITS_PER_WIDE_INT)
 		nonzero >>= INTVAL (XEXP (x, 1))
 			    + HOST_BITS_PER_WIDE_INT
-			    - GET_MODE_PRECISION (GET_MODE (x)) ;
+			    - GET_MODE_PRECISION (xmode);
 	    }
 	  else
 	    {
-	      nonzero = GET_MODE_MASK (GET_MODE (x));
+	      nonzero = GET_MODE_MASK (xmode);
 	      nonzero >>= INTVAL (XEXP (x, 1));
 	    }
 
 	  if ((mask & ~nonzero) == 0)
 	    {
-	      x = simplify_shift_const (NULL_RTX, LSHIFTRT, GET_MODE (x),
+	      x = simplify_shift_const (NULL_RTX, LSHIFTRT, xmode,
 					XEXP (x, 0), INTVAL (XEXP (x, 1)));
 	      if (GET_CODE (x) != ASHIFTRT)
 		return force_to_mode (x, mode, mask, next_select);
@@ -8829,8 +8861,8 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	  else if ((i = exact_log2 (mask)) >= 0)
 	    {
 	      x = simplify_shift_const
-		  (NULL_RTX, LSHIFTRT, GET_MODE (x), XEXP (x, 0),
-		   GET_MODE_PRECISION (GET_MODE (x)) - 1 - i);
+		  (NULL_RTX, LSHIFTRT, xmode, XEXP (x, 0),
+		   GET_MODE_PRECISION (xmode) - 1 - i);
 
 	      if (GET_CODE (x) != ASHIFTRT)
 		return force_to_mode (x, mode, mask, next_select);
@@ -8840,8 +8872,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
       /* If MASK is 1, convert this to an LSHIFTRT.  This can be done
 	 even if the shift count isn't a constant.  */
       if (mask == 1)
-	x = simplify_gen_binary (LSHIFTRT, GET_MODE (x),
-				 XEXP (x, 0), XEXP (x, 1));
+	x = simplify_gen_binary (LSHIFTRT, xmode, XEXP (x, 0), XEXP (x, 1));
 
     shiftrt:
 
@@ -8853,7 +8884,7 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	  && CONST_INT_P (XEXP (x, 1))
 	  && INTVAL (XEXP (x, 1)) >= 0
 	  && (INTVAL (XEXP (x, 1))
-	      <= GET_MODE_PRECISION (GET_MODE (x)) - (floor_log2 (mask) + 1))
+	      <= GET_MODE_PRECISION (xmode) - (floor_log2 (mask) + 1))
 	  && GET_CODE (XEXP (x, 0)) == ASHIFT
 	  && XEXP (XEXP (x, 0), 1) == XEXP (x, 1))
 	return force_to_mode (XEXP (XEXP (x, 0), 0), mode, mask,
@@ -8871,12 +8902,11 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	  && INTVAL (XEXP (x, 1)) >= 0)
 	{
 	  temp = simplify_binary_operation (code == ROTATE ? ROTATERT : ROTATE,
-					    GET_MODE (x),
-					    gen_int_mode (mask, GET_MODE (x)),
+					    xmode, gen_int_mode (mask, xmode),
 					    XEXP (x, 1));
 	  if (temp && CONST_INT_P (temp))
-	    x = simplify_gen_binary (code, GET_MODE (x),
-				     force_to_mode (XEXP (x, 0), GET_MODE (x),
+	    x = simplify_gen_binary (code, xmode,
+				     force_to_mode (XEXP (x, 0), xmode,
 						    INTVAL (temp), next_select),
 				     XEXP (x, 1));
 	}
@@ -8903,14 +8933,12 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
 	  && CONST_INT_P (XEXP (XEXP (x, 0), 1))
 	  && INTVAL (XEXP (XEXP (x, 0), 1)) >= 0
 	  && (INTVAL (XEXP (XEXP (x, 0), 1)) + floor_log2 (mask)
-	      < GET_MODE_PRECISION (GET_MODE (x)))
+	      < GET_MODE_PRECISION (xmode))
 	  && INTVAL (XEXP (XEXP (x, 0), 1)) < HOST_BITS_PER_WIDE_INT)
 	{
-	  temp = gen_int_mode (mask << INTVAL (XEXP (XEXP (x, 0), 1)),
-			       GET_MODE (x));
-	  temp = simplify_gen_binary (XOR, GET_MODE (x),
-				      XEXP (XEXP (x, 0), 0), temp);
-	  x = simplify_gen_binary (LSHIFTRT, GET_MODE (x),
+	  temp = gen_int_mode (mask << INTVAL (XEXP (XEXP (x, 0), 1)), xmode);
+	  temp = simplify_gen_binary (XOR, xmode, XEXP (XEXP (x, 0), 0), temp);
+	  x = simplify_gen_binary (LSHIFTRT, xmode,
 				   temp, XEXP (XEXP (x, 0), 1));
 
 	  return force_to_mode (x, mode, mask, next_select);
@@ -8924,8 +8952,11 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
       op0 = gen_lowpart_or_truncate (op_mode,
 				     force_to_mode (XEXP (x, 0), mode, mask,
 						    next_select));
-      if (op_mode != GET_MODE (x) || op0 != XEXP (x, 0))
-	x = simplify_gen_unary (code, op_mode, op0, op_mode);
+      if (op_mode != xmode || op0 != XEXP (x, 0))
+	{
+	  x = simplify_gen_unary (code, op_mode, op0, op_mode);
+	  xmode = op_mode;
+	}
       break;
 
     case NE:
@@ -8946,14 +8977,14 @@ force_to_mode (rtx x, machine_mode mode, unsigned HOST_WIDE_INT mask,
       /* We have no way of knowing if the IF_THEN_ELSE can itself be
 	 written in a narrower mode.  We play it safe and do not do so.  */
 
-      op0 = gen_lowpart_or_truncate (GET_MODE (x),
+      op0 = gen_lowpart_or_truncate (xmode,
 				     force_to_mode (XEXP (x, 1), mode,
 						    mask, next_select));
-      op1 = gen_lowpart_or_truncate (GET_MODE (x),
+      op1 = gen_lowpart_or_truncate (xmode,
 				     force_to_mode (XEXP (x, 2), mode,
 						    mask, next_select));
       if (op0 != XEXP (x, 1) || op1 != XEXP (x, 2))
-	x = simplify_gen_ternary (IF_THEN_ELSE, GET_MODE (x),
+	x = simplify_gen_ternary (IF_THEN_ELSE, xmode,
 				  GET_MODE (XEXP (x, 0)), XEXP (x, 0),
 				  op0, op1);
       break;
