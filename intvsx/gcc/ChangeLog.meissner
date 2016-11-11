@@ -1,13 +1,5 @@
 2016-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/vsx.md (vsx_set_<mode>, VSX_D iterator): Simplify
-	alternatives to eliminate favored/all alternatives.  Use
-	VECTOR_ELT_ORDER_BIG instead of BYTES_BIG_ENDIAN to properly
-	adjust the element number for little endian ordering.
-	(vsx_extract_<mode>, VSX_D iterator): Allow scalar result to go
-	into the Altivec registers.  Use VECTOR_ELEMENT_SCALAR_64BIT
-	instead of BYTES_BIG_ENDIAN for little endian element ordering.
-
 	Merge up to 242318.
 	* REVISION: Update subversion id.
 
