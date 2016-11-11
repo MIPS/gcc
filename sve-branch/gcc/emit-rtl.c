@@ -5843,6 +5843,88 @@ gen_const_vec_duplicate (machine_mode mode, rtx elt)
   return gen_const_vec_duplicate_1 (mode, elt);
 }
 
+/* Return true if X is a constant vector that contains a linear series
+   of the form:
+
+   { B, B + S, B + 2 * S, B + 3 * S, ... }
+
+   for a nonzero S.  If BASE_OUT and STEP_OUT are nonnull, store B and S there
+   on success.  */
+
+bool
+is_const_vec_series (const_rtx x, rtx *base_out, rtx *step_out)
+{
+  /* Reject floating-point vectors, to avoid having to worry about whether
+     index I should be calculated as B + S + S ... + S or whether it should
+     be calculated as B + S * I (which could round differently).  */
+  if (GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_INT)
+    return false;
+
+  if (GET_CODE (x) == CONST_VECTOR)
+    {
+      if (XVECLEN (x, 0) < 2)
+	return false;
+
+      scalar_mode inner = GET_MODE_INNER (GET_MODE (x));
+      rtx base = XVECEXP (x, 0, 0);
+      rtx step = simplify_binary_operation (MINUS, inner,
+					    XVECEXP (x, 0, 1), base);
+      if (rtx_equal_p (step, CONST0_RTX (inner)))
+	return false;
+
+      for (int i = 2; i < XVECLEN (x, 0); ++i)
+	{
+	  rtx diff = simplify_binary_operation (MINUS, inner,
+						XVECEXP (x, 0, i),
+						XVECEXP (x, 0, i - 1));
+	  if (!rtx_equal_p (step, diff))
+	    return false;
+	}
+
+      if (base_out)
+	*base_out = base;
+      if (step_out)
+	*step_out = step;
+      return true;
+    }
+
+  if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == VEC_SERIES)
+    {
+      if (base_out)
+	*base_out = XEXP (XEXP (x, 0), 0);
+      if (step_out)
+	*step_out = XEXP (XEXP (x, 0), 1);
+      return true;
+    }
+
+  return false;
+}
+
+/* Return a constant rtx of mode MODE equal to BASE + I * STEP.  */
+
+static rtx
+get_vec_series_element (scalar_mode inner_mode, rtx base, rtx step, int i)
+{
+  rtx mult = simplify_gen_binary (MULT, inner_mode, step, GEN_INT (i));
+  rtx res = simplify_gen_binary (PLUS, inner_mode, base, mult);
+  gcc_checking_assert (CONSTANT_P (res));
+  return res;
+}
+
+/* Generate a vector constant of mode MODE in which element I has
+   the value BASE + I * STEP.  */
+
+rtx
+gen_const_vec_series (machine_mode mode, rtx base, rtx step)
+{
+  int nunits = GET_MODE_NUNITS (mode);
+  rtvec v = rtvec_alloc (nunits);
+  scalar_mode inner_mode = GET_MODE_INNER (mode);
+  for (int i = 0; i < nunits; ++i)
+    RTVEC_ELT (v, i) = get_vec_series_element (inner_mode, base, step, i);
+  return gen_rtx_raw_CONST_VECTOR (mode, v);
+}
+
 /* Generate a new vector constant for mode MODE and constant value
    CONSTANT.  */
 

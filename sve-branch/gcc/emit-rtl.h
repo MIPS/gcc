@@ -444,8 +444,10 @@ is_const_vec (const_rtx x)
 }
 
 extern bool is_const_vec_duplicate (const_rtx, rtx * = 0);
+extern bool is_const_vec_series (const_rtx, rtx * = 0, rtx * = 0);
 
 extern rtx gen_const_vec_duplicate (machine_mode, rtx);
+extern rtx gen_const_vec_series (machine_mode, rtx, rtx);
 
 extern void set_decl_incoming_rtl (tree, rtx, bool);
 
