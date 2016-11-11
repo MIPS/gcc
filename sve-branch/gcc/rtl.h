@@ -3825,5 +3825,19 @@ struct GTY(()) cgraph_rtl_info {
   unsigned function_used_regs_valid: 1;
 };
 
+/* If X is a PLUS of a base and a constant offset, add the constant to *OFFSET
+   and return the base.  Return X otherwise.  */
+
+inline rtx
+strip_offset_and_add (rtx x, poly_int64 *offset)
+{
+  if (GET_CODE (x) == PLUS)
+    {
+      poly_int64 suboffset;
+      x = strip_offset (x, &suboffset);
+      *offset += suboffset;
+    }
+  return x;
+}
 
 #endif /* ! GCC_RTL_H */
