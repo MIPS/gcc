@@ -8504,9 +8504,10 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  else
 	    offset0 = size_binop (PLUS_EXPR, offset0,
 				  TREE_OPERAND (arg0, 1));
-	  if (TREE_CODE (offset0) == INTEGER_CST)
+	  poly_offset_int offset0_val;
+	  if (poly_tree_p (offset0, &offset0_val))
 	    {
-	      poly_offset_int tem = wi::sext (wi::to_offset (offset0),
+	      poly_offset_int tem = wi::sext (offset0_val,
 					      TYPE_PRECISION (sizetype));
 	      tem <<= LOG2_BITS_PER_UNIT;
 	      tem += bitpos0;
@@ -8547,9 +8548,10 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  else
 	    offset1 = size_binop (PLUS_EXPR, offset1,
 				  TREE_OPERAND (arg1, 1));
-	  if (TREE_CODE (offset1) == INTEGER_CST)
+	  poly_offset_int offset1_val;
+	  if (poly_tree_p (offset1, &offset1_val))
 	    {
-	      poly_offset_int tem = wi::sext (wi::to_offset (offset1),
+	      poly_offset_int tem = wi::sext (offset1_val,
 					      TYPE_PRECISION (sizetype));
 	      tem <<= LOG2_BITS_PER_UNIT;
 	      tem += bitpos1;

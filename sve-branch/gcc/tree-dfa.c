@@ -398,9 +398,8 @@ get_ref_base_and_extent (tree exp, poly_int64 *poffset,
       else
 	bitsize = GET_MODE_BITSIZE (mode);
     }
-  if (size_tree != NULL_TREE
-      && TREE_CODE (size_tree) == INTEGER_CST)
-    bitsize = wi::to_offset (size_tree);
+  if (size_tree && !poly_tree_p (size_tree, &bitsize))
+    bitsize = -1;
 
   *preverse = reverse_storage_order_for_component_p (exp);
 
@@ -467,10 +466,8 @@ get_ref_base_and_extent (tree exp, poly_int64 *poffset,
 		/* We need to adjust maxsize to the whole structure bitsize.
 		   But we can subtract any constant offset seen so far,
 		   because that would get us out of the structure otherwise.  */
-		if (may_ne (maxsize, -1)
-		    && csize
-		    && TREE_CODE (csize) == INTEGER_CST)
-		  maxsize = wi::to_offset (csize) - bit_offset;
+		if (may_ne (maxsize, -1) && poly_tree_p (csize, &maxsize))
+		  maxsize -= bit_offset;
 		else
 		  maxsize = -1;
 	      }
@@ -508,10 +505,8 @@ get_ref_base_and_extent (tree exp, poly_int64 *poffset,
 		/* We need to adjust maxsize to the whole array bitsize.
 		   But we can subtract any constant offset seen so far,
 		   because that would get us outside of the array otherwise.  */
-		if (may_ne (maxsize, -1)
-		    && asize
-		    && TREE_CODE (asize) == INTEGER_CST)
-		  maxsize = wi::to_offset (asize) - bit_offset;
+		if (may_ne (maxsize, -1) && poly_tree_p (asize, &maxsize))
+		  maxsize -= bit_offset;
 		else
 		  maxsize = -1;
 
@@ -557,10 +552,8 @@ get_ref_base_and_extent (tree exp, poly_int64 *poffset,
 	     padding that is there for alignment purposes.  */
 	  if (seen_variable_array_ref
 	      && may_ne (maxsize, -1)
-	      && (TYPE_SIZE (TREE_TYPE (exp)) == NULL_TREE
-		  || TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) != INTEGER_CST
-		  || may_eq (bit_offset + maxsize,
-			     wi::to_offset (TYPE_SIZE (TREE_TYPE (exp))))))
+	      && (!poly_tree_p (TYPE_SIZE (TREE_TYPE (exp)), &type_size)
+		  || may_eq (bit_offset + maxsize, type_size)))
 	    maxsize = -1;
 
 	  /* Hand back the decl for MEM[&decl, off].  */
@@ -631,19 +624,16 @@ get_ref_base_and_extent (tree exp, poly_int64 *poffset,
       /* If maxsize is unknown adjust it according to the size of the
          base decl.  */
       else if (must_eq (maxsize, -1)
-	       && DECL_SIZE (exp)
-	       && TREE_CODE (DECL_SIZE (exp)) == INTEGER_CST)
-	maxsize = wi::to_offset (DECL_SIZE (exp)) - bit_offset;
+	       && poly_tree_p (DECL_SIZE (exp), &maxsize))
+	maxsize -= bit_offset;
     }
   else if (CONSTANT_CLASS_P (exp))
     {
       /* If maxsize is unknown adjust it according to the size of the
          base type constant.  */
       if (must_eq (maxsize, -1)
-	  && TYPE_SIZE (TREE_TYPE (exp))
-	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST)
-	maxsize = (wi::to_offset (TYPE_SIZE (TREE_TYPE (exp)))
-		   - bit_offset);
+	  && poly_tree_p (TYPE_SIZE (TREE_TYPE (exp)), &maxsize))
+	maxsize -= bit_offset;
     }
 
   if (!maxsize.to_shwi (pmax_size) || may_lt (*pmax_size, 0))

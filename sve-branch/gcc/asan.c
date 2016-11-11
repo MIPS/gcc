@@ -1812,12 +1812,12 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
       || may_ne (bitsize, size_in_bytes * BITS_PER_UNIT))
     return;
 
+  poly_uint64 size;
   if (VAR_P (inner)
       && offset == NULL_TREE
       && DECL_SIZE (inner)
-      && tree_fits_shwi_p (DECL_SIZE (inner))
-      && known_subrange_p (bitpos, bitsize,
-			   0, tree_to_shwi (DECL_SIZE (inner))))
+      && poly_tree_p (DECL_SIZE (inner), &size)
+      && known_subrange_p (bitpos, bitsize, 0, size))
     {
       if (DECL_THREAD_LOCAL_P (inner))
 	return;

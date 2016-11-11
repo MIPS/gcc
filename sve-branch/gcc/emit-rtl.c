@@ -2670,14 +2670,15 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 	      && must_ge (attrs.offset, 0))
 	    break;
 
-	  if (! tree_fits_uhwi_p (offset))
+	  poly_uint64 offset_val;
+	  if (!poly_tree_p (offset, &offset_val))
 	    {
 	      attrs.expr = NULL_TREE;
 	      break;
 	    }
 
 	  attrs.expr = TREE_OPERAND (attrs.expr, 0);
-	  attrs.offset += tree_to_uhwi (offset);
+	  attrs.offset += offset_val;
 	  attrs.offset += (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
 			   / BITS_PER_UNIT);
 	}

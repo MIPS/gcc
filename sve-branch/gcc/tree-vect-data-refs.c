@@ -744,9 +744,10 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   if (loop && nested_in_vect_loop_p (loop, stmt))
     {
       tree step = DR_STEP (dr);
+      poly_offset_int const_step;
 
-      if (tree_fits_shwi_p (step)
-	  && tree_to_shwi (step) % byte_alignment == 0)
+      if (poly_tree_p (step, &const_step)
+	  && multiple_p (const_step, byte_alignment))
         {
           if (dump_enabled_p ())
             dump_printf_loc (MSG_NOTE, vect_location,

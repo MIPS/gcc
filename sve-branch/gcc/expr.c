@@ -4855,10 +4855,10 @@ get_bit_range (poly_uint64 *bitstart, poly_uint64 *bitend, tree exp,
      relative to the representative.  DECL_FIELD_OFFSET of field and
      repr are the same by construction if they are not constants,
      see finish_bitfield_layout.  */
-  if (tree_fits_uhwi_p (DECL_FIELD_OFFSET (field))
-      && tree_fits_uhwi_p (DECL_FIELD_OFFSET (repr)))
-    bitoffset = (tree_to_uhwi (DECL_FIELD_OFFSET (field))
-		 - tree_to_uhwi (DECL_FIELD_OFFSET (repr))) * BITS_PER_UNIT;
+  poly_uint64 field_offset, repr_offset;
+  if (poly_tree_p (DECL_FIELD_OFFSET (field), &field_offset)
+      && poly_tree_p (DECL_FIELD_OFFSET (repr), &repr_offset))
+    bitoffset = (field_offset - repr_offset) * BITS_PER_UNIT;
   else
     bitoffset = 0;
   bitoffset += (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
@@ -4885,7 +4885,7 @@ get_bit_range (poly_uint64 *bitstart, poly_uint64 *bitend, tree exp,
   else
     *bitstart = *bitpos - bitoffset;
 
-  *bitend = *bitstart + tree_to_uhwi (DECL_SIZE (repr)) - 1;
+  *bitend = *bitstart + tree_to_poly_uint64 (DECL_SIZE (repr)) - 1;
 }
 
 /* Returns true if ADDR is an ADDR_EXPR of a DECL that does not reside
@@ -6454,12 +6454,10 @@ store_constructor (tree exp, rtx target, int cleared, poly_int64 size,
 	      continue;
 
 	    mode = TYPE_MODE (elttype);
-	    if (mode == BLKmode)
-	      bitsize = (tree_fits_uhwi_p (TYPE_SIZE (elttype))
-			 ? tree_to_uhwi (TYPE_SIZE (elttype))
-			 : -1);
-	    else
+	    if (mode != BLKmode)
 	      bitsize = GET_MODE_BITSIZE (mode);
+	    else if (!poly_tree_p (TYPE_SIZE (elttype), &bitsize))
+	      bitsize = -1;
 
 	    if (index != NULL_TREE && TREE_CODE (index) == RANGE_EXPR)
 	      {
@@ -6820,6 +6818,7 @@ store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
      Use bit-field techniques or SUBREG to store in it.  */
 
   bool bitsize_known_p = may_ge (bitsize, 0);
+  poly_uint64 type_bitsize;
   if (mode == VOIDmode
       || (mode != BLKmode && ! direct_store[(int) mode]
 	  && GET_MODE_CLASS (mode) != MODE_COMPLEX_INT
@@ -6840,8 +6839,8 @@ store_field (rtx target, poly_int64 bitsize, poly_int64 bitpos,
 	 RHS isn't the same size as the bitfield, we must use bitfield
 	 operations.  */
       || (bitsize_known_p
-	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST
-	  && !equal_tree_size (TYPE_SIZE (TREE_TYPE (exp)), bitsize)
+	  && poly_tree_p (TYPE_SIZE (TREE_TYPE (exp)), &type_bitsize)
+	  && may_ne (type_bitsize, poly_uint64 (bitsize))
 	  /* Except for initialization of full bytes from a CONSTRUCTOR, which
 	     we will handle specially below.  */
 	  && !(TREE_CODE (exp) == CONSTRUCTOR
@@ -7194,10 +7193,10 @@ get_inner_reference (tree exp, poly_int64 *pbitsize,
   /* If OFFSET is constant, see if we can return the whole thing as a
      constant bit position.  Make sure to handle overflow during
      this conversion.  */
-  if (TREE_CODE (offset) == INTEGER_CST)
+  poly_offset_int offset_val;
+  if (poly_tree_p (offset, &offset_val))
     {
-      poly_offset_int tem = wi::sext (wi::to_offset (offset),
-				      TYPE_PRECISION (sizetype));
+      poly_offset_int tem = wi::sext (offset_val, TYPE_PRECISION (sizetype));
       tem <<= LOG2_BITS_PER_UNIT;
       tem += bit_offset;
       if (tem.to_shwi (pbitpos))
@@ -10140,11 +10139,11 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	  {
 	    poly_int64 offset = mem_ref_offset (exp).force_shwi ();
 	    base = TREE_OPERAND (base, 0);
+	    poly_uint64 type_size;
 	    if (must_eq (offset, 0)
 	        && !reverse
-		&& tree_fits_uhwi_p (TYPE_SIZE (type))
-		&& must_eq (GET_MODE_BITSIZE (DECL_MODE (base)),
-			    tree_to_uhwi (TYPE_SIZE (type))))
+		&& poly_tree_p (TYPE_SIZE (type), &type_size)
+		&& must_eq (GET_MODE_BITSIZE (DECL_MODE (base)), type_size))
 	      return expand_expr (build1 (VIEW_CONVERT_EXPR, type, base),
 				  target, tmode, modifier);
 	    if (TYPE_MODE (type) == BLKmode)
@@ -10421,6 +10420,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       {
 	machine_mode mode1, mode2;
 	poly_int64 bitsize, bitpos, bytepos;
+	poly_uint64 type_size;
 	tree offset;
 	int reversep, volatilep = 0, must_force_mem;
 	tree tem
@@ -10628,8 +10628,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	       we must use bitfield operations.  */
 	    || (may_ge (bitsize, 0)
 		&& TYPE_SIZE (TREE_TYPE (exp))
-		&& TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST
-		&& !equal_tree_size (TYPE_SIZE (TREE_TYPE (exp)), bitsize)))
+		&& poly_tree_p (TYPE_SIZE (TREE_TYPE (exp)), &type_size)
+		&& may_ne (type_size, poly_uint64 (bitsize))))
 	  {
 	    machine_mode ext_mode = mode;
 
