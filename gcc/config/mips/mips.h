@@ -41,6 +41,7 @@ extern int target_flags_explicit;
 #define ABI_64  2
 #define ABI_EABI 3
 #define ABI_O64  4
+#define ABI_R7_32 5
 
 /* Masks that affect tuning.
 
@@ -188,7 +189,7 @@ struct mips_cpu_info {
 #define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
 
 /* True if TARGET_USE_GOT and if $gp is a call-clobbered register.  */
-#define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OLDABI)
+#define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OLDABI && !TARGET_R7_ABI)
 
 /* True if TARGET_USE_GOT and if $gp is a call-saved register.  */
 #define TARGET_CALL_SAVED_GP (TARGET_USE_GOT && !TARGET_CALL_CLOBBERED_GP)
@@ -1681,7 +1682,7 @@ FP_ASM_SPEC "\
 
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_NEWABI ? 128 : 64)
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_NEWABI || TARGET_R7_ABI ? 128 : 64)
 
 /* Define the sizes of fixed-point types.  */
 #define SHORT_FRACT_TYPE_SIZE 8
@@ -2557,7 +2558,7 @@ enum reg_class
 
 /* o32 and o64 reserve stack space for all argument registers.  */
 #define REG_PARM_STACK_SPACE(FNDECL) 			\
-  (TARGET_OLDABI					\
+  (TARGET_OLDABI && !TARGET_R7_ABI			\
    ? (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD)		\
    : 0)
 
@@ -2568,7 +2569,7 @@ enum reg_class
    `crtl->outgoing_args_size'.  */
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
-#define STACK_BOUNDARY (TARGET_NEWABI ? 128 : 64)
+#define STACK_BOUNDARY (TARGET_NEWABI || TARGET_R7_ABI ? 128 : 64)
 
 /* Symbolic macros for the registers used to return integer and floating
    point values.  */
@@ -2576,7 +2577,7 @@ enum reg_class
 #define GP_RETURN (GP_REG_FIRST + TARGET_RET_IN_ARGS ? 4 : 2)
 #define FP_RETURN ((TARGET_SOFT_FLOAT) ? GP_RETURN : (FP_REG_FIRST + 0))
 
-#define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
+#define MAX_ARGS_IN_REGISTERS (TARGET_R7_ABI ? 8 : (TARGET_OLDABI ? 4 : 8))
 
 /* Symbolic macros for the first/last argument registers.  */
 
@@ -2698,7 +2699,7 @@ typedef struct mips_args {
 /* Treat LOC as a byte offset from the stack pointer and round it up
    to the next fully-aligned offset.  */
 #define MIPS_STACK_ALIGN(LOC) \
-  (TARGET_NEWABI ? ROUND_UP ((LOC), 16) : ROUND_UP ((LOC), 8))
+  (TARGET_NEWABI || TARGET_R7_ABI ? ROUND_UP ((LOC), 16) : ROUND_UP ((LOC), 8))
 
 
 /* Output assembler code to FILE to increment profiler label # LABELNO

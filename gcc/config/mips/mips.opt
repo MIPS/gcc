@@ -601,3 +601,9 @@ Target Undocumented Var(TARGET_NEW_GPR3) Init (0)
 
 mxlp
 Target Var(TARGET_EXLP) Init(1)
+
+mr7abi
+Target Undocumented Var(TARGET_R7_ABI) Init (0)
+
+mregalloc
+Target Undocumented Var(TARGET_REGALLOC) Init (0)

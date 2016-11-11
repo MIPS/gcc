@@ -7092,7 +7092,7 @@ mips_arg_regno (const struct mips_arg_info *info, bool hard_float_p)
 static bool
 mips_strict_argument_naming (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
-  return !TARGET_OLDABI;
+  return !TARGET_OLDABI || TARGET_R7_ABI;
 }
 
 /* Implement TARGET_FUNCTION_ARG.  */
@@ -7125,7 +7125,7 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
   /* The n32 and n64 ABIs say that if any 64-bit chunk of the structure
      contains a double in its entirety, then that 64-bit chunk is passed
      in a floating-point register.  */
-  if (TARGET_NEWABI
+  if ((TARGET_NEWABI || TARGET_R7_ABI)
       && TARGET_HARD_FLOAT
       && named
       && type != 0
@@ -7189,7 +7189,7 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
   /* Handle the n32/n64 conventions for passing complex floating-point
      arguments in FPR pairs.  The real part goes in the lower register
      and the imaginary part goes in the upper register.  */
-  if (TARGET_NEWABI
+  if ((TARGET_NEWABI || TARGET_R7_ABI)
       && info.fpr_p
       && GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
     {
@@ -7405,7 +7405,7 @@ mips_fpr_return_fields (const_tree valtype, tree *fields)
   tree field;
   int i;
 
-  if (!TARGET_NEWABI)
+  if (!TARGET_NEWABI || !TARGET_R7_ABI)
     return 0;
 
   if (TREE_CODE (valtype) != RECORD_TYPE)
@@ -7443,7 +7443,7 @@ mips_return_in_msb (const_tree valtype)
 {
   tree fields[2];
 
-  return (TARGET_NEWABI
+  return ((TARGET_NEWABI || TARGET_R7_ABI)
 	  && TARGET_BIG_ENDIAN
 	  && AGGREGATE_TYPE_P (valtype)
 	  && mips_fpr_return_fields (valtype, fields) == 0);
@@ -7655,7 +7655,7 @@ mips_function_value_regno_p (const unsigned int regno)
 static bool
 mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
-  return (TARGET_OLDABI
+  return (TARGET_OLDABI && !TARGET_R7_ABI
 	  ? TYPE_MODE (type) == BLKmode
 	  : !IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
 }
@@ -10036,7 +10036,7 @@ mips_init_relocs (void)
   if (TARGET_EXPLICIT_RELOCS)
     {
       mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
-      if (TARGET_NEWABI)
+      if (TARGET_NEWABI || TARGET_R7_ABI)
 	{
 	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
 	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
@@ -10065,7 +10065,7 @@ mips_init_relocs (void)
 	}
       else
 	{
-	  if (TARGET_NEWABI)
+	  if (TARGET_NEWABI || TARGET_R7_ABI)
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got_disp(";
 	  else
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got(";
@@ -10076,7 +10076,7 @@ mips_init_relocs (void)
 	}
     }
 
-  if (TARGET_NEWABI)
+  if (TARGET_NEWABI || TARGET_R7_ABI)
     {
       mips_split_p[SYMBOL_GOTOFF_LOADGP] = true;
       mips_hi_relocs[SYMBOL_GOTOFF_LOADGP] = "%hi(%neg(%gp_rel(";
@@ -13100,6 +13100,7 @@ mips_compute_frame_info (void)
      that modify the stack pointer.  */
 
   if (TARGET_OLDABI
+      && !TARGET_R7_ABI
       && optimize > 0
       && flag_frame_header_optimization
       && !MAIN_NAME_P (DECL_NAME (current_function_decl))
@@ -13185,7 +13186,7 @@ mips_current_loadgp_style (void)
   if (TARGET_ABSOLUTE_ABICALLS)
     return LOADGP_ABSOLUTE;
 
-  return TARGET_NEWABI ? LOADGP_NEWABI : LOADGP_OLDABI;
+  return TARGET_NEWABI || TARGET_R7_ABI ? LOADGP_NEWABI : LOADGP_OLDABI;
 }
 
 /* Implement TARGET_FRAME_POINTER_REQUIRED.  */
@@ -23576,7 +23577,7 @@ mips_option_override (void)
 	target_flags &= ~MASK_LONG64;
     }
 
-  if (!TARGET_OLDABI)
+  if (!TARGET_OLDABI || TARGET_R7_ABI)
     flag_pcc_struct_return = 0;
 
   /* Decide which rtx_costs structure to use.  */
@@ -25118,7 +25119,7 @@ void mips_function_profiler (FILE *file)
 		 cfun->machine->frame.ra_fp_offset,
 		 reg_names[STACK_POINTER_REGNUM]);
     }
-  if (!TARGET_NEWABI)
+  if (!TARGET_NEWABI || !TARGET_R7_ABI)
     fprintf (file,
 	     "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n",
 	     TARGET_64BIT ? "dsubu" : "subu",
@@ -26497,6 +26498,20 @@ static const int umipsr7_new_gpr3_alloc_order[] =
   24, 25,
 };
 
+static const int umipsr7_new_gpr3_alloc_order2[] =
+{
+  64, 65,176,177,178,179,180,181,
+  /* Call-clobbered GPRs.  */
+  1,  16, 17, 4,  5,  6,  7,
+  31,
+  28,
+  /* Call-saved GPRs.  */
+  18, 19, 20, 21, 22, 23, 30,
+  /* Call-clobbered GPRs.  */
+  2,   3,  8,  9, 10, 11, 12, 13, 14, 15,
+  24, 25,
+};
+
 void
 mips_adjust_reg_alloc_order ()
 {
@@ -26505,6 +26520,9 @@ mips_adjust_reg_alloc_order ()
   if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
     memcpy (reg_alloc_order, umipsr7_v0v1_alloc_order,
 	    sizeof (umipsr7_v0v1_alloc_order));
+  if (TARGET_MICROMIPS_R7 && TARGET_NEW_GPR3 && TARGET_REGALLOC)
+    memcpy (reg_alloc_order, umipsr7_new_gpr3_alloc_order2,
+	    sizeof (umipsr7_new_gpr3_alloc_order2));
   if (TARGET_MICROMIPS_R7 && TARGET_NEW_GPR3)
     memcpy (reg_alloc_order, umipsr7_new_gpr3_alloc_order,
 	    sizeof (umipsr7_new_gpr3_alloc_order));
