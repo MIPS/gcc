@@ -1543,6 +1543,28 @@ subreg_lowpart_p (const_rtx x)
 	  == SUBREG_BYTE (x));
 }
 
+/* Return true if a subreg of mode OUTERMODE would only access part of
+   an inner register with mode INNERMODE.  The other bits of the inner
+   register would then be "don't care" on read.  The behavior for writes
+   depends on REGMODE_NATURAL_SIZE; bits in the same REGMODE_NATURAL_SIZE-d
+   chunk would be clobbered but other bits would be preserved.  */
+bool
+partial_subreg_p (machine_mode outermode, machine_mode innermode)
+{
+  return GET_MODE_PRECISION (outermode) < GET_MODE_PRECISION (innermode);
+}
+
+/* Likewise return true if X is a subreg that is smaller than the inner
+   register.  Use df_read_modify_subreg_p to test whether writing to such
+   a subreg preserves any part of the inner register.  */
+bool
+partial_subreg_p (const_rtx x)
+{
+  if (GET_CODE (x) != SUBREG)
+    return false;
+  return partial_subreg_p (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
+}
+
 /* Return true if a subreg with the given outer and inner modes is
    paradoxical.  */
 bool

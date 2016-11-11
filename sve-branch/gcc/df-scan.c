@@ -2637,13 +2637,12 @@ df_ref_record (enum df_ref_class cl,
 bool
 df_read_modify_subreg_p (rtx x)
 {
-  unsigned int isize, osize;
-  if (GET_CODE (x) != SUBREG)
+  unsigned int isize;
+
+  if (!partial_subreg_p (x))
     return false;
   isize = GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)));
-  osize = GET_MODE_SIZE (GET_MODE (x));
-  return isize > osize
-	 && isize > REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
+  return isize > REGMODE_NATURAL_SIZE (GET_MODE (SUBREG_REG (x)));
 }
 
 

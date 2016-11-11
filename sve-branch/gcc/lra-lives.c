@@ -702,8 +702,8 @@ process_bb_lives (basic_block bb, int &curr_point, bool dead_insn_p)
       /* Update max ref width and hard reg usage.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	{
-	  if (GET_MODE_SIZE (reg->biggest_mode)
-	      > GET_MODE_SIZE (lra_reg_info[reg->regno].biggest_mode))
+	  if (partial_subreg_p (lra_reg_info[reg->regno].biggest_mode,
+				reg->biggest_mode))
 	    lra_reg_info[reg->regno].biggest_mode = reg->biggest_mode;
 	  if (reg->regno < FIRST_PSEUDO_REGISTER)
 	    lra_hard_reg_usage[reg->regno] += freq;
