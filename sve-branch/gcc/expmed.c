@@ -72,8 +72,8 @@ static rtx extract_split_bit_field (rtx, opt_scalar_int_mode,
 				    unsigned HOST_WIDE_INT,
 				    unsigned HOST_WIDE_INT, int, bool);
 static void do_cmp_and_jump (rtx, rtx, enum rtx_code, machine_mode, rtx_code_label *);
-static rtx expand_smod_pow2 (machine_mode, rtx, HOST_WIDE_INT);
-static rtx expand_sdiv_pow2 (machine_mode, rtx, HOST_WIDE_INT);
+static rtx expand_smod_pow2 (scalar_int_mode, rtx, HOST_WIDE_INT);
+static rtx expand_sdiv_pow2 (scalar_int_mode, rtx, HOST_WIDE_INT);
 
 /* Return a constant integer mask value of mode MODE with BITSIZE ones
    followed by BITPOS zeros, or the complement of that if COMPLEMENT.
@@ -81,7 +81,7 @@ static rtx expand_sdiv_pow2 (machine_mode, rtx, HOST_WIDE_INT);
    mask is zero-extended if BITSIZE+BITPOS is too small for MODE.  */
 
 static inline rtx
-mask_rtx (machine_mode mode, int bitpos, int bitsize, bool complement)
+mask_rtx (scalar_int_mode mode, int bitpos, int bitsize, bool complement)
 {
   return immed_wide_int_const
     (wi::shifted_mask (bitpos, bitsize, complement,
@@ -118,8 +118,8 @@ struct init_expmed_rtl
 };
 
 static void
-init_expmed_one_conv (struct init_expmed_rtl *all, machine_mode to_mode,
-		      machine_mode from_mode, bool speed)
+init_expmed_one_conv (struct init_expmed_rtl *all, scalar_int_mode to_mode,
+		      scalar_int_mode from_mode, bool speed)
 {
   int to_size, from_size;
   rtx which;
@@ -476,7 +476,7 @@ adjust_bit_field_mem_for_reg (enum extraction_pattern pattern,
 	{
 	  /* Limit the search to the mode required by the corresponding
 	     register insertion or extraction instruction, if any.  */
-	  machine_mode limit_mode = word_mode;
+	  scalar_int_mode limit_mode = word_mode;
 	  extraction_insn insn;
 	  if (get_best_reg_extraction_insn (&insn, pattern,
 					    GET_MODE_BITSIZE (best_mode),
@@ -2199,7 +2199,7 @@ extract_split_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 rtx
 extract_low_bits (machine_mode mode, machine_mode src_mode, rtx src)
 {
-  machine_mode int_mode, src_int_mode;
+  scalar_int_mode int_mode, src_int_mode;
 
   if (mode == src_mode)
     return src;
@@ -2530,9 +2530,9 @@ static void synth_mult (struct algorithm *, unsigned HOST_WIDE_INT,
 static rtx expand_mult_const (machine_mode, rtx, HOST_WIDE_INT, rtx,
 			      const struct algorithm *, enum mult_variant);
 static unsigned HOST_WIDE_INT invert_mod2n (unsigned HOST_WIDE_INT, int);
-static rtx extract_high_half (machine_mode, rtx);
-static rtx expmed_mult_highpart (machine_mode, rtx, rtx, rtx, int, int);
-static rtx expmed_mult_highpart_optab (machine_mode, rtx, rtx, rtx,
+static rtx extract_high_half (scalar_int_mode, rtx);
+static rtx expmed_mult_highpart (scalar_int_mode, rtx, rtx, rtx, int, int);
+static rtx expmed_mult_highpart_optab (scalar_int_mode, rtx, rtx, rtx,
 				       int, int);
 /* Compute and return the best algorithm for multiplying by T.
    The algorithm must cost less than cost_limit
@@ -3575,7 +3575,7 @@ invert_mod2n (unsigned HOST_WIDE_INT x, int n)
    MODE is the mode of operation.  */
 
 rtx
-expand_mult_highpart_adjust (machine_mode mode, rtx adj_operand, rtx op0,
+expand_mult_highpart_adjust (scalar_int_mode mode, rtx adj_operand, rtx op0,
 			     rtx op1, rtx target, int unsignedp)
 {
   rtx tem;
@@ -3600,7 +3600,7 @@ expand_mult_highpart_adjust (machine_mode mode, rtx adj_operand, rtx op0,
 /* Subroutine of expmed_mult_highpart.  Return the MODE high part of OP.  */
 
 static rtx
-extract_high_half (machine_mode mode, rtx op)
+extract_high_half (scalar_int_mode mode, rtx op)
 {
   machine_mode wider_mode;
 
@@ -3619,7 +3619,7 @@ extract_high_half (machine_mode mode, rtx op)
    optab.  OP1 is an rtx for the constant operand.  */
 
 static rtx
-expmed_mult_highpart_optab (machine_mode mode, rtx op0, rtx op1,
+expmed_mult_highpart_optab (scalar_int_mode mode, rtx op0, rtx op1,
 			    rtx target, int unsignedp, int max_cost)
 {
   rtx narrow_op1 = gen_int_mode (INTVAL (op1), mode);
@@ -3734,7 +3734,7 @@ expmed_mult_highpart_optab (machine_mode mode, rtx op0, rtx op1,
    MAX_COST is the total allowed cost for the expanded RTL.  */
 
 static rtx
-expmed_mult_highpart (machine_mode mode, rtx op0, rtx op1,
+expmed_mult_highpart (scalar_int_mode mode, rtx op0, rtx op1,
 		      rtx target, int unsignedp, int max_cost)
 {
   machine_mode wider_mode = *GET_MODE_WIDER_MODE (mode);
@@ -3798,7 +3798,7 @@ expmed_mult_highpart (machine_mode mode, rtx op0, rtx op1,
 /* Expand signed modulus of OP0 by a power of two D in mode MODE.  */
 
 static rtx
-expand_smod_pow2 (machine_mode mode, rtx op0, HOST_WIDE_INT d)
+expand_smod_pow2 (scalar_int_mode mode, rtx op0, HOST_WIDE_INT d)
 {
   rtx result, temp, shift;
   rtx_code_label *label;
@@ -3895,7 +3895,7 @@ expand_smod_pow2 (machine_mode mode, rtx op0, HOST_WIDE_INT d)
    This routine is only called for positive values of D.  */
 
 static rtx
-expand_sdiv_pow2 (machine_mode mode, rtx op0, HOST_WIDE_INT d)
+expand_sdiv_pow2 (scalar_int_mode mode, rtx op0, HOST_WIDE_INT d)
 {
   rtx temp;
   rtx_code_label *label;

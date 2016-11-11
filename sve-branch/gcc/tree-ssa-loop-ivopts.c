@@ -2460,7 +2460,8 @@ compute_max_addr_offset (struct iv_use *use)
   HOST_WIDE_INT i, off;
   unsigned list_index, num;
   addr_space_t as;
-  machine_mode mem_mode, addr_mode;
+  machine_mode mem_mode;
+  scalar_int_mode addr_mode;
   static vec<HOST_WIDE_INT> max_offset_list;
 
   as = TYPE_ADDR_SPACE (TREE_TYPE (use->iv->base));
@@ -3965,7 +3966,7 @@ get_address_cost (bool symbol_present, bool var_present,
 		  addr_space_t as, bool speed,
 		  bool stmt_after_inc, bool *may_autoinc)
 {
-  machine_mode address_mode = targetm.addr_space.address_mode (as);
+  scalar_int_mode address_mode = targetm.addr_space.address_mode (as);
   static vec<address_cost_data *> address_cost_data_list;
   unsigned int data_index = (int) as * MAX_MACHINE_MODE + (int) mem_mode;
   address_cost_data *data;
@@ -4280,7 +4281,7 @@ get_address_cost (bool symbol_present, bool var_present,
     the cost in COST.  */
 
 static bool
-get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
+get_shiftadd_cost (tree expr, scalar_int_mode mode, comp_cost cost0,
 		   comp_cost cost1, tree mult, bool speed, comp_cost *cost)
 {
   comp_cost res;

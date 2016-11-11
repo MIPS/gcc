@@ -2088,7 +2088,7 @@ notice_update_cc (rtx exp)
   return;
 }
 
-static machine_mode
+static scalar_int_mode
 cr16_unwind_word_mode (void)
 {
   return SImode;

@@ -12579,7 +12579,7 @@ base_type_for_mode (machine_mode mode, bool unsignedp)
    possible.  */
 
 static dw_loc_descr_ref
-convert_descriptor_to_mode (machine_mode mode, dw_loc_descr_ref op)
+convert_descriptor_to_mode (scalar_int_mode mode, dw_loc_descr_ref op)
 {
   machine_mode outer_mode = mode;
   dw_die_ref type_die;

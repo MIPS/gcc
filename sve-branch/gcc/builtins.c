@@ -91,7 +91,7 @@ builtin_info_type builtin_info[(int)END_BUILTINS];
 /* Non-zero if __builtin_constant_p should be folded right away.  */
 bool force_folding_builtin_constant_p;
 
-static rtx c_readstr (const char *, machine_mode);
+static rtx c_readstr (const char *, scalar_int_mode);
 static int target_char_cast (tree, char *);
 static rtx get_memory_rtx (tree, tree);
 static int apply_args_size (void);
@@ -117,7 +117,7 @@ static rtx expand_builtin_va_end (tree);
 static rtx expand_builtin_va_copy (tree);
 static rtx expand_builtin_strcmp (tree, rtx);
 static rtx expand_builtin_strncmp (tree, rtx, machine_mode);
-static rtx builtin_memcpy_read_str (void *, HOST_WIDE_INT, machine_mode);
+static rtx builtin_memcpy_read_str (void *, HOST_WIDE_INT, scalar_int_mode);
 static rtx expand_builtin_memcpy (tree, rtx);
 static rtx expand_builtin_memcpy_with_bounds (tree, rtx);
 static rtx expand_builtin_memcpy_args (tree, tree, tree, rtx, tree);
@@ -129,7 +129,7 @@ static rtx expand_builtin_strcpy (tree, rtx);
 static rtx expand_builtin_strcpy_args (tree, tree, rtx);
 static rtx expand_builtin_stpcpy (tree, rtx, machine_mode);
 static rtx expand_builtin_strncpy (tree, rtx);
-static rtx builtin_memset_gen_str (void *, HOST_WIDE_INT, machine_mode);
+static rtx builtin_memset_gen_str (void *, HOST_WIDE_INT, scalar_int_mode);
 static rtx expand_builtin_memset (tree, rtx, machine_mode);
 static rtx expand_builtin_memset_with_bounds (tree, rtx, machine_mode);
 static rtx expand_builtin_memset_args (tree, tree, tree, rtx, machine_mode, tree);
@@ -661,7 +661,7 @@ c_strlen (tree src, int only_value)
    GET_MODE_BITSIZE (MODE) bits from string constant STR.  */
 
 static rtx
-c_readstr (const char *str, machine_mode mode)
+c_readstr (const char *str, scalar_int_mode mode)
 {
   HOST_WIDE_INT ch;
   unsigned int i, j;
@@ -2856,7 +2856,7 @@ expand_builtin_strlen (tree exp, rtx target,
 
 static rtx
 builtin_memcpy_read_str (void *data, HOST_WIDE_INT offset,
-			 machine_mode mode)
+			 scalar_int_mode mode)
 {
   const char *str = (const char *) data;
 
@@ -3366,7 +3366,7 @@ expand_builtin_stpcpy (tree exp, rtx target, machine_mode mode)
 
 rtx
 builtin_strncpy_read_str (void *data, HOST_WIDE_INT offset,
-			  machine_mode mode)
+			  scalar_int_mode mode)
 {
   const char *str = (const char *) data;
 
@@ -3432,7 +3432,7 @@ expand_builtin_strncpy (tree exp, rtx target)
 
 rtx
 builtin_memset_read_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
-			 machine_mode mode)
+			 scalar_int_mode mode)
 {
   const char *c = (const char *) data;
   char *p = XALLOCAVEC (char, GET_MODE_SIZE (mode));
@@ -3449,7 +3449,7 @@ builtin_memset_read_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
 
 static rtx
 builtin_memset_gen_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
-			machine_mode mode)
+			scalar_int_mode mode)
 {
   rtx target, coeff;
   size_t size;
@@ -4741,7 +4741,7 @@ expand_builtin_signbit (tree exp, rtx target)
 {
   const struct real_format *fmt;
   scalar_float_mode fmode;
-  machine_mode imode, rmode;
+  scalar_int_mode rmode, imode;
   tree arg;
   int word, bitpos;
   enum insn_code icode;

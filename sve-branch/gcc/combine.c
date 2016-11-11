@@ -7366,9 +7366,9 @@ make_extraction (machine_mode mode, rtx inner, HOST_WIDE_INT pos,
      ignore the POS lowest bits, etc.  */
   machine_mode is_mode = GET_MODE (inner);
   machine_mode inner_mode;
-  machine_mode wanted_inner_mode;
-  machine_mode wanted_inner_reg_mode = word_mode;
-  machine_mode pos_mode = word_mode;
+  scalar_int_mode wanted_inner_mode;
+  scalar_int_mode wanted_inner_reg_mode = word_mode;
+  scalar_int_mode pos_mode = word_mode;
   machine_mode extraction_mode = word_mode;
   rtx new_rtx = 0;
   rtx orig_pos_rtx = pos_rtx;
@@ -10227,9 +10227,9 @@ merge_outer_ops (enum rtx_code *pop0, HOST_WIDE_INT *pconst0, enum rtx_code op1,
    result of the shift is subject to operation OUTER_CODE with operand
    OUTER_CONST.  */
 
-static machine_mode
+static scalar_int_mode
 try_widen_shift_mode (enum rtx_code code, rtx op, int count,
-		      machine_mode orig_mode, machine_mode mode,
+		      scalar_int_mode orig_mode, scalar_int_mode mode,
 		      enum rtx_code outer_code, HOST_WIDE_INT outer_const)
 {
   gcc_assert (GET_MODE_PRECISION (mode) > GET_MODE_PRECISION (orig_mode));

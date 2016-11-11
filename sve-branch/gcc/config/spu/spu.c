@@ -5321,7 +5321,7 @@ spu_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
   return true;
 }
 
-static machine_mode
+static scalar_int_mode
 spu_unwind_word_mode (void)
 {
   return SImode;
@@ -6697,7 +6697,7 @@ spu_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_packed
 }
 
 /* Return the appropriate mode for a named address pointer.  */
-static machine_mode
+static scalar_int_mode
 spu_addr_space_pointer_mode (addr_space_t addrspace)
 {
   switch (addrspace)
@@ -6712,7 +6712,7 @@ spu_addr_space_pointer_mode (addr_space_t addrspace)
 }
 
 /* Return the appropriate mode for a named address address.  */
-static machine_mode
+static scalar_int_mode
 spu_addr_space_address_mode (addr_space_t addrspace)
 {
   switch (addrspace)
@@ -6858,7 +6858,7 @@ spu_init_expanders (void)
     }
 }
 
-static machine_mode
+static scalar_int_mode
 spu_libgcc_cmp_return_mode (void)
 {
 
@@ -6867,7 +6867,7 @@ spu_libgcc_cmp_return_mode (void)
   return SImode;
 }
 
-static machine_mode
+static scalar_int_mode
 spu_libgcc_shift_count_mode (void)
 {
 /* For SPU word mode is TI mode so it is better to use SImode
