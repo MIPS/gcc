@@ -9214,6 +9214,15 @@ full_integral_type_p (const_tree t)
   return INTEGRAL_TYPE_P (t) && scalar_type_is_full_p (t);
 }
 
+/* Return true if T is an integral type that has fewer bits than
+   its underlying mode.  */
+
+bool
+partial_integral_type_p (const_tree t)
+{
+  return INTEGRAL_TYPE_P (t) && !scalar_type_is_full_p (t);
+}
+
 /* Return true if VAR is an automatic variable defined in function FN.  */
 
 bool

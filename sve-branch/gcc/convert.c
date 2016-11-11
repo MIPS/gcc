@@ -631,8 +631,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	     the signed-to-unsigned case the high-order bits have to
 	     be cleared.  */
 	  if (TYPE_UNSIGNED (type) != TYPE_UNSIGNED (TREE_TYPE (expr))
-	      && (TYPE_PRECISION (TREE_TYPE (expr))
-		  != GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (expr)))))
+	      && partial_integral_type_p (TREE_TYPE (expr)))
 	    code = CONVERT_EXPR;
 	  else
 	    code = NOP_EXPR;
@@ -645,7 +644,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	 type corresponding to its mode, then do a nop conversion
 	 to TYPE.  */
       else if (TREE_CODE (type) == ENUMERAL_TYPE
-	       || outprec != GET_MODE_PRECISION (TYPE_MODE (type)))
+	       || partial_integral_type_p (type))
 	return build1 (NOP_EXPR, type,
 		       convert (lang_hooks.types.type_for_mode
 				(TYPE_MODE (type), TYPE_UNSIGNED (type)),

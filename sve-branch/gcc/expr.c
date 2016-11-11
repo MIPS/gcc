@@ -6849,8 +6849,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       if (nop_def)
 	{
 	  tree type = TREE_TYPE (exp);
-	  if (INTEGRAL_TYPE_P (type)
-	      && TYPE_PRECISION (type) < GET_MODE_BITSIZE (TYPE_MODE (type))
+	  if (partial_integral_type_p (type)
 	      && bitsize == TYPE_PRECISION (type))
 	    {
 	      tree op = gimple_assign_rhs1 (nop_def);
@@ -8257,8 +8256,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
   /* An operation in what may be a bit-field type needs the
      result to be reduced to the precision of the bit-field type,
      which is narrower than that of the type's mode.  */
-  reduce_bit_field = (INTEGRAL_TYPE_P (type)
-		      && GET_MODE_PRECISION (mode) > TYPE_PRECISION (type));
+  reduce_bit_field = partial_integral_type_p (type);
 
   if (reduce_bit_field && modifier == EXPAND_STACK_PARM)
     target = 0;
@@ -9620,9 +9618,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
   /* An operation in what may be a bit-field type needs the
      result to be reduced to the precision of the bit-field type,
      which is narrower than that of the type's mode.  */
-  reduce_bit_field = (!ignore
-		      && INTEGRAL_TYPE_P (type)
-		      && GET_MODE_PRECISION (mode) > TYPE_PRECISION (type));
+  reduce_bit_field = (!ignore && partial_integral_type_p (type));
 
   /* If we are going to ignore this result, we need only do something
      if there is a side-effect somewhere in the expression.  If there

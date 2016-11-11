@@ -3425,9 +3425,7 @@ convert_mult_to_fma (gimple *mul_stmt, tree op1, tree op2)
     return false;
 
   /* We don't want to do bitfield reduction ops.  */
-  if (INTEGRAL_TYPE_P (type)
-      && (TYPE_PRECISION (type)
-	  != GET_MODE_PRECISION (TYPE_MODE (type))))
+  if (partial_integral_type_p (type))
     return false;
 
   /* If the target doesn't support it, don't generate it.  We assume that

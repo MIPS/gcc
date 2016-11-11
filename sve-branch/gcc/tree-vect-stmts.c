@@ -3954,12 +3954,8 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
     return false;
 
   if (!VECTOR_BOOLEAN_TYPE_P (vectype_out)
-      && ((INTEGRAL_TYPE_P (lhs_type)
-	   && (TYPE_PRECISION (lhs_type)
-	       != GET_MODE_PRECISION (TYPE_MODE (lhs_type))))
-	  || (INTEGRAL_TYPE_P (rhs_type)
-	      && (TYPE_PRECISION (rhs_type)
-		  != GET_MODE_PRECISION (TYPE_MODE (rhs_type))))))
+      && (partial_integral_type_p (lhs_type)
+	  || partial_integral_type_p (rhs_type)))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -4559,10 +4555,8 @@ vectorizable_assignment (gimple *stmt, gimple_stmt_iterator *gsi,
   if ((CONVERT_EXPR_CODE_P (code)
        || code == VIEW_CONVERT_EXPR)
       && INTEGRAL_TYPE_P (TREE_TYPE (scalar_dest))
-      && ((TYPE_PRECISION (TREE_TYPE (scalar_dest))
-	   != GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (scalar_dest))))
-	  || ((TYPE_PRECISION (TREE_TYPE (op))
-	       != GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (op))))))
+      && (partial_integral_type_p (TREE_TYPE (scalar_dest))
+	  || partial_integral_type_p (TREE_TYPE (op)))
       /* But a conversion that does not change the bit-pattern is ok.  */
       && !((TYPE_PRECISION (TREE_TYPE (scalar_dest))
 	    > TYPE_PRECISION (TREE_TYPE (op)))
@@ -4737,8 +4731,7 @@ vectorizable_shift (gimple *stmt, gimple_stmt_iterator *gsi,
 
   scalar_dest = gimple_assign_lhs (stmt);
   vectype_out = STMT_VINFO_VECTYPE (stmt_info);
-  if (TYPE_PRECISION (TREE_TYPE (scalar_dest))
-      != GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (scalar_dest))))
+  if (partial_integral_type_p (TREE_TYPE (scalar_dest)))
     {
       if (dump_enabled_p ())
         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
