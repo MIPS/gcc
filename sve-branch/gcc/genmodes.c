@@ -75,7 +75,9 @@ struct mode_data
   unsigned int counter;		/* Rank ordering of modes */
   unsigned int ibit;		/* the number of integral bits */
   unsigned int fbit;		/* the number of fractional bits */
-  bool need_bytesize_adj;	/* true if this mode need dynamic size
+  bool need_nunits_adj;		/* true if this mode needs dynamic nunits
+				   adjustment */
+  bool need_bytesize_adj;	/* true if this mode needs dynamic size
 				   adjustment */
   unsigned int int_n;		/* If nonzero, then __int<INT_N> will be defined */
 };
@@ -88,7 +90,7 @@ static const struct mode_data blank_mode = {
   0, "<unknown>", MAX_MODE_CLASS,
   -1U, -1U, -1U, -1U,
   0, 0, 0, 0, 0, 0,
-  "<unknown>", 0, 0, 0, 0, false, 0
+  "<unknown>", 0, 0, 0, 0, false, false, 0
 };
 
 static htab_t modes_by_name;
@@ -106,6 +108,7 @@ struct mode_adjust
   unsigned int line;
 };
 
+static struct mode_adjust *adj_nunits;
 static struct mode_adjust *adj_bytesize;
 static struct mode_adjust *adj_alignment;
 static struct mode_adjust *adj_format;
@@ -792,6 +795,7 @@ make_vector_mode (enum mode_class bclass,
 #define _ADD_ADJUST(A, M, X, C1, C2) \
   new_adjust (#M, &adj_##A, #A, #X, MODE_##C1, MODE_##C2, __FILE__, __LINE__)
 
+#define ADJUST_NUNITS(M, X)    _ADD_ADJUST (nunits, M, X, RANDOM, RANDOM)
 #define ADJUST_BYTESIZE(M, X)  _ADD_ADJUST (bytesize, M, X, RANDOM, RANDOM)
 #define ADJUST_ALIGNMENT(M, X) _ADD_ADJUST (alignment, M, X, RANDOM, RANDOM)
 #define ADJUST_FLOAT_FORMAT(M, X)    _ADD_ADJUST (format, M, X, FLOAT, FLOAT)
@@ -960,7 +964,7 @@ calc_wider_mode (void)
 
 #define print_maybe_const_decl(TYPE, NAME, ASIZE, CATEGORY)	\
   printf ("\n" TYPE " " NAME "[" ASIZE "] = \n{\n",		\
-	  adj_##CATEGORY ? "" : "const ")
+	  CATEGORY ? "" : "const ")
 
 #define print_closer() puts ("};")
 
@@ -1017,6 +1021,8 @@ emit_mode_size_inline (void)
       for (m = a->mode->contained; m; m = m->next_cont)
 	m->need_bytesize_adj = true;
     }
+  for (mode_adjust *a = adj_nunits; a; a = a->next)
+    a->mode->need_bytesize_adj = true;
 
   printf ("\
 #ifdef __cplusplus\n\
@@ -1048,7 +1054,10 @@ emit_mode_nunits_inline (void)
   int c;
   struct mode_data *m;
 
-  puts ("\
+  for (mode_adjust *a = adj_nunits; a; a = a->next)
+    a->mode->need_nunits_adj = true;
+
+  printf ("\
 #ifdef __cplusplus\n\
 inline __attribute__((__always_inline__))\n\
 #else\n\
@@ -1057,12 +1066,13 @@ extern __inline__ __attribute__((__always_inline__, __gnu_inline__))\n\
 poly_uint16\n\
 mode_nunits_inline (machine_mode_enum mode)\n\
 {\n\
-  extern poly_uint16_pod mode_nunits[NUM_MACHINE_MODES];\n\
+  extern %spoly_uint16_pod mode_nunits[NUM_MACHINE_MODES];\n\
   switch (mode)\n\
-    {");
+    {\n", adj_nunits ? "" : "const ");
 
   for_all_modes (c, m)
-    printf ("    case E_%smode: return %u;\n", m->name, m->ncomponents);
+    if (!m->need_nunits_adj)
+      printf ("    case E_%smode: return %u;\n", m->name, m->ncomponents);
 
   puts ("\
     default: return mode_nunits[mode];\n\
@@ -1275,6 +1285,8 @@ enum machine_mode_enum\n{");
 };\n");
 
   /* I can't think of a better idea, can you?  */
+  printf ("#define CONST_MODE_NUNITS%s\n", adj_nunits ? "" : " const");
+  printf ("#define CONST_MODE_PRECISION%s\n", adj_nunits ? "" : " const");
   printf ("#define CONST_MODE_SIZE%s\n", adj_bytesize ? "" : " const");
   printf ("#define CONST_MODE_UNIT_SIZE%s\n", adj_bytesize ? "" : " const");
   printf ("#define CONST_MODE_BASE_ALIGN%s\n", adj_alignment ? "" : " const");
@@ -1390,7 +1402,8 @@ emit_mode_precision (void)
   int c;
   struct mode_data *m;
 
-  print_decl ("poly_uint16_pod", "mode_precision", "NUM_MACHINE_MODES");
+  print_maybe_const_decl ("%spoly_uint16_pod", "mode_precision",
+			  "NUM_MACHINE_MODES", adj_nunits);
 
   for_all_modes (c, m)
     if (m->precision != (unsigned int)-1)
@@ -1409,7 +1422,7 @@ emit_mode_size (void)
   struct mode_data *m;
 
   print_maybe_const_decl ("%spoly_uint16_pod", "mode_size",
-			  "NUM_MACHINE_MODES", bytesize);
+			  "NUM_MACHINE_MODES", adj_nunits || adj_bytesize);
 
   for_all_modes (c, m)
     tagged_printf ("{ %u" ZERO_COEFFS " }", m->bytesize, m->name);
@@ -1423,7 +1436,8 @@ emit_mode_nunits (void)
   int c;
   struct mode_data *m;
 
-  print_decl ("poly_uint16_pod", "mode_nunits", "NUM_MACHINE_MODES");
+  print_maybe_const_decl ("%spoly_uint16_pod", "mode_nunits",
+			  "NUM_MACHINE_MODES", adj_nunits);
 
   for_all_modes (c, m)
     tagged_printf ("{ %u" ZERO_COEFFS " }", m->ncomponents, m->name);
@@ -1561,7 +1575,7 @@ emit_mode_unit_size (void)
   struct mode_data *m;
 
   print_maybe_const_decl ("%sunsigned char", "mode_unit_size",
-			  "NUM_MACHINE_MODES", bytesize);
+			  "NUM_MACHINE_MODES", adj_bytesize);
 
   for_all_modes (c, m)
     tagged_printf ("%u",
@@ -1602,7 +1616,7 @@ emit_mode_base_align (void)
 
   print_maybe_const_decl ("%sunsigned char",
 			  "mode_base_align", "NUM_MACHINE_MODES",
-			  alignment);
+			  adj_alignment);
 
   for_all_modes (c, m)
     tagged_printf ("%u", m->alignment, m->name);
@@ -1682,6 +1696,20 @@ emit_mode_adjustments (void)
 \n{\
 \n  poly_uint16 ps ATTRIBUTE_UNUSED;\n\
   size_t s ATTRIBUTE_UNUSED;");
+
+  for (a = adj_nunits; a; a = a->next)
+    {
+      m = a->mode;
+      printf ("\n  /* %s:%d */\n  ps = %s;\n",
+	      a->file, a->line, a->adjustment);
+      printf ("  mode_nunits[E_%smode] = ps;\n", m->name);
+      printf ("  mode_size[E_%smode] = mode_unit_size[E_%smode] * ps;\n",
+	      m->name, m->name);
+      if (m->precision == (unsigned int) -1)
+	printf ("  mode_precision[E_%smode]"
+		" = poly_uint16 (mode_size[E_%smode])"
+		" * BITS_PER_UNIT;", m->name, m->name);
+    }
 
   /* Size adjustments must be propagated to all containing modes.
      A size adjustment forces us to recalculate the alignment too.  */
@@ -1823,7 +1851,7 @@ emit_mode_ibit (void)
 
   print_maybe_const_decl ("%sunsigned char",
 			  "mode_ibit", "NUM_MACHINE_MODES",
-			  ibit);
+			  adj_ibit);
 
   for_all_modes (c, m)
     tagged_printf ("%u", m->ibit, m->name);
@@ -1841,7 +1869,7 @@ emit_mode_fbit (void)
 
   print_maybe_const_decl ("%sunsigned char",
 			  "mode_fbit", "NUM_MACHINE_MODES",
-			  fbit);
+			  adj_fbit);
 
   for_all_modes (c, m)
     tagged_printf ("%u", m->fbit, m->name);
