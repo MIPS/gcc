@@ -1360,7 +1360,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
     return;
 
   int modebitsize = GET_MODE_BITSIZE (SCALAR_INT_TYPE_MODE (type));
-  HOST_WIDE_INT bitsize, bitpos;
+  poly_int64 bitsize, bitpos;
   tree offset;
   machine_mode mode;
   int volatilep = 0, reversep, unsignedp = 0;
@@ -1369,8 +1369,8 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   tree utype = build_nonstandard_integer_type (modebitsize, 1);
 
   if ((VAR_P (base) && DECL_HARD_REGISTER (base))
-      || (bitpos % modebitsize) != 0
-      || bitsize != modebitsize
+      || !multiple_p (bitpos, modebitsize)
+      || may_ne (bitsize, modebitsize)
       || GET_MODE_BITSIZE (SCALAR_INT_TYPE_MODE (utype)) != modebitsize
       || TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
     return;
@@ -1780,15 +1780,15 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
   if (size_in_bytes <= 0)
     return;
 
-  HOST_WIDE_INT bitsize, bitpos;
+  poly_int64 bitsize, bitpos;
   tree offset;
   machine_mode mode;
   int volatilep = 0, reversep, unsignedp = 0;
   tree inner = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
 				    &unsignedp, &reversep, &volatilep);
 
-  if (bitpos % BITS_PER_UNIT != 0
-      || bitsize != size_in_bytes * BITS_PER_UNIT)
+  if (!multiple_p (bitpos, BITS_PER_UNIT)
+      || may_ne (bitsize, size_in_bytes * BITS_PER_UNIT))
     return;
 
   bool decl_p = DECL_P (inner);

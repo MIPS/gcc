@@ -246,7 +246,7 @@ static bool
 get_object_alignment_2 (tree exp, unsigned int *alignp,
 			unsigned HOST_WIDE_INT *bitposp, bool addr_p)
 {
-  HOST_WIDE_INT bitsize, bitpos;
+  poly_int64 bitsize, bitpos;
   tree offset;
   machine_mode mode;
   int unsignedp, reversep, volatilep;
@@ -370,7 +370,18 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
     }
 
   *alignp = align;
-  *bitposp = bitpos & (*alignp - 1);
+  *bitposp = bitpos.coeffs[0] & (align - 1);
+
+  /* Account for the alignment of other coefficients, so that the constant
+     bitpos is guaranteed to be accurate.  */
+  unsigned int alt_align = ::known_alignment (bitpos - bitpos.coeffs[0]);
+  if (alt_align != 0 && alt_align < align)
+    {
+      *alignp = alt_align;
+      *bitposp = bitpos.coeffs[0] & (alt_align - 1);
+      known_alignment = false;
+    }
+
   return known_alignment;
 }
 

@@ -3966,7 +3966,7 @@ struct address_cost_data
 
 static comp_cost
 get_address_cost (bool symbol_present, bool var_present,
-		  unsigned HOST_WIDE_INT offset, HOST_WIDE_INT ratio,
+		  poly_uint64 offset, HOST_WIDE_INT ratio,
 		  HOST_WIDE_INT cstep, machine_mode mem_mode,
 		  addr_space_t as, bool speed,
 		  bool stmt_after_inc, bool *may_autoinc)
@@ -3980,9 +3980,8 @@ get_address_cost (bool symbol_present, bool var_present,
   unsigned cost, acost, complexity;
   enum ainc_type autoinc_type;
   bool offset_p, ratio_p, autoinc;
-  HOST_WIDE_INT s_offset, autoinc_offset, msize;
-  unsigned HOST_WIDE_INT mask;
-  unsigned bits;
+  HOST_WIDE_INT msize;
+  poly_int64 s_offset, autoinc_offset;
 
   if (data_index >= address_cost_data_list.length ())
     address_cost_data_list.safe_grow_cleared (data_index + 1);
@@ -4223,11 +4222,7 @@ get_address_cost (bool symbol_present, bool var_present,
       address_cost_data_list[data_index] = data;
     }
 
-  bits = GET_MODE_BITSIZE (address_mode);
-  mask = ~(HOST_WIDE_INT_M1U << (bits - 1) << 1);
-  offset &= mask;
-  if ((offset >> (bits - 1) & 1))
-    offset |= ~mask;
+  offset = trunc_int_for_mode (offset, address_mode);
   s_offset = offset;
 
   autoinc = false;
@@ -4240,16 +4235,20 @@ get_address_cost (bool symbol_present, bool var_present,
     autoinc = false;
   else
     {
-      if (has_postinc[mem_mode] && autoinc_offset == 0
+      if (has_postinc[mem_mode]
+	  && must_eq (autoinc_offset, 0)
 	  && msize == cstep)
 	autoinc_type = AINC_POST_INC;
-      else if (has_postdec[mem_mode] && autoinc_offset == 0
+      else if (has_postdec[mem_mode]
+	       && must_eq (autoinc_offset, 0)
 	       && msize == -cstep)
 	autoinc_type = AINC_POST_DEC;
-      else if (has_preinc[mem_mode] && autoinc_offset == msize
+      else if (has_preinc[mem_mode]
+	       && must_eq (autoinc_offset, msize)
 	       && msize == cstep)
 	autoinc_type = AINC_PRE_INC;
-      else if (has_predec[mem_mode] && autoinc_offset == -msize
+      else if (has_predec[mem_mode]
+	       && must_eq (autoinc_offset, -msize)
 	       && msize == -cstep)
 	autoinc_type = AINC_PRE_DEC;
 
@@ -4258,16 +4257,16 @@ get_address_cost (bool symbol_present, bool var_present,
     }
 
   cost = 0;
-  offset_p = (s_offset != 0
-	      && data->min_offset <= s_offset
-	      && s_offset <= data->max_offset);
+  offset_p = (may_ne (s_offset, 0)
+	      && must_le (data->min_offset, s_offset)
+	      && must_le (s_offset, data->max_offset));
   ratio_p = (ratio != 1
 	     && multiplier_allowed_in_address_p (ratio, mem_mode, as));
 
   if (ratio != 1 && !ratio_p)
     cost += mult_by_coeff_cost (ratio, address_mode, speed);
 
-  if (s_offset && !offset_p && !symbol_present)
+  if (may_ne (s_offset, 0) && !offset_p && !symbol_present)
     cost += add_cost (speed, address_mode);
 
   if (may_autoinc)
@@ -4524,11 +4523,10 @@ force_var_cost (struct ivopts_data *data,
 static comp_cost
 split_address_cost (struct ivopts_data *data,
 		    tree addr, bool *symbol_present, bool *var_present,
-		    unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
+		    poly_uint64 *offset, bitmap *depends_on)
 {
   tree core;
-  HOST_WIDE_INT bitsize;
-  HOST_WIDE_INT bitpos;
+  poly_int64 bitsize, bitpos, bytepos;
   tree toffset;
   machine_mode mode;
   int unsignedp, reversep, volatilep;
@@ -4537,7 +4535,7 @@ split_address_cost (struct ivopts_data *data,
 			      &unsignedp, &reversep, &volatilep);
 
   if (toffset != 0
-      || bitpos % BITS_PER_UNIT != 0
+      || !multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
       || reversep
       || !VAR_P (core))
     {
@@ -4550,7 +4548,7 @@ split_address_cost (struct ivopts_data *data,
       return comp_cost (target_spill_cost[data->speed], 0);
     }
 
-  *offset += bitpos / BITS_PER_UNIT;
+  *offset += bytepos;
   if (TREE_STATIC (core)
       || DECL_EXTERNAL (core))
     {
@@ -4573,9 +4571,9 @@ split_address_cost (struct ivopts_data *data,
 static comp_cost
 ptr_difference_cost (struct ivopts_data *data,
 		     tree e1, tree e2, bool *symbol_present, bool *var_present,
-		     unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
+		     poly_uint64 *offset, bitmap *depends_on)
 {
-  HOST_WIDE_INT diff = 0;
+  poly_int64 diff = 0;
   aff_tree aff_e1, aff_e2;
   tree type;
 
@@ -4614,7 +4612,7 @@ ptr_difference_cost (struct ivopts_data *data,
 static comp_cost
 difference_cost (struct ivopts_data *data,
 		 tree e1, tree e2, bool *symbol_present, bool *var_present,
-		 unsigned HOST_WIDE_INT *offset, bitmap *depends_on)
+		 poly_uint64 *offset, bitmap *depends_on)
 {
   machine_mode mode = TYPE_MODE (TREE_TYPE (e1));
   unsigned HOST_WIDE_INT off1, off2;
@@ -4852,7 +4850,8 @@ get_computation_cost_at (struct ivopts_data *data,
   tree ubase = use->iv->base, ustep = use->iv->step;
   tree cbase, cstep;
   tree utype = TREE_TYPE (ubase), ctype;
-  unsigned HOST_WIDE_INT cstepi, offset = 0;
+  unsigned HOST_WIDE_INT cstepi;
+  poly_uint64 offset = 0;
   HOST_WIDE_INT ratio, aratio;
   bool var_present, symbol_present, stmt_is_after_inc;
   comp_cost cost;
@@ -5030,7 +5029,7 @@ get_computation_cost_at (struct ivopts_data *data,
     }
 
   /* Otherwise estimate the costs for computing the expression.  */
-  if (!symbol_present && !var_present && !offset)
+  if (!symbol_present && !var_present && must_eq (offset, 0U))
     {
       if (ratio != 1)
 	cost += mult_by_coeff_cost (ratio, TYPE_MODE (ctype), speed);
@@ -5039,13 +5038,13 @@ get_computation_cost_at (struct ivopts_data *data,
 
   /* Symbol + offset should be compile-time computable so consider that they
       are added once to the variable, if present.  */
-  if (var_present && (symbol_present || offset))
+  if (var_present && (symbol_present || may_ne (offset, 0U)))
     cost += adjust_setup_cost (data,
 				    add_cost (speed, TYPE_MODE (ctype)));
 
   /* Having offset does not affect runtime cost in case it is added to
      symbol, but it increases complexity.  */
-  if (offset)
+  if (may_ne (offset, 0U))
     cost.complexity++;
 
   cost += add_cost (speed, TYPE_MODE (ctype));

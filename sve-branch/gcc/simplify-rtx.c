@@ -301,20 +301,20 @@ delegitimize_mem_from_attrs (rtx x)
 	case IMAGPART_EXPR:
 	case VIEW_CONVERT_EXPR:
 	  {
-	    HOST_WIDE_INT bitsize, bitpos;
+	    poly_int64 bitsize, bitpos, bytepos;
 	    tree toffset;
 	    int unsignedp, reversep, volatilep = 0;
 
 	    decl
 	      = get_inner_reference (decl, &bitsize, &bitpos, &toffset, &mode,
 				     &unsignedp, &reversep, &volatilep);
-	    if (bitsize != GET_MODE_BITSIZE (mode)
-		|| (bitpos % BITS_PER_UNIT)
+	    if (may_ne (bitsize, GET_MODE_BITSIZE (mode))
+		|| !multiple_p (bitpos, BITS_PER_UNIT, &bytepos)
 		|| (toffset && !tree_fits_shwi_p (toffset)))
 	      decl = NULL;
 	    else
 	      {
-		offset += bitpos / BITS_PER_UNIT;
+		offset += bytepos;
 		if (toffset)
 		  offset += tree_to_shwi (toffset);
 	      }

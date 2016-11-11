@@ -3979,7 +3979,8 @@ static tree
 optimize_bit_field_compare (location_t loc, enum tree_code code,
 			    tree compare_type, tree lhs, tree rhs)
 {
-  HOST_WIDE_INT lbitpos, lbitsize, rbitpos, rbitsize, nbitpos, nbitsize;
+  poly_int64 plbitpos, plbitsize, rbitpos, rbitsize;
+  HOST_WIDE_INT lbitpos, lbitsize, nbitpos, nbitsize;
   tree type = TREE_TYPE (lhs);
   tree unsigned_type;
   int const_p = TREE_CODE (rhs) == INTEGER_CST;
@@ -3993,14 +3994,20 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
   tree offset;
 
   /* Get all the information about the extractions being done.  If the bit size
-     if the same as the size of the underlying object, we aren't doing an
+     is the same as the size of the underlying object, we aren't doing an
      extraction at all and so can do nothing.  We also don't want to
      do anything if the inner expression is a PLACEHOLDER_EXPR since we
      then will no longer be able to replace it.  */
-  linner = get_inner_reference (lhs, &lbitsize, &lbitpos, &offset, &lmode,
+  linner = get_inner_reference (lhs, &plbitsize, &plbitpos, &offset, &lmode,
 				&lunsignedp, &lreversep, &lvolatilep);
-  if (linner == lhs || lbitsize == GET_MODE_BITSIZE (lmode) || lbitsize < 0
-      || offset != 0 || TREE_CODE (linner) == PLACEHOLDER_EXPR || lvolatilep)
+  if (linner == lhs
+      || !plbitsize.is_constant (&lbitsize)
+      || !plbitpos.is_constant (&lbitpos)
+      || lbitsize == GET_MODE_BITSIZE (lmode)
+      || lbitsize < 0
+      || offset != 0
+      || TREE_CODE (linner) == PLACEHOLDER_EXPR
+      || lvolatilep)
     return 0;
 
   if (const_p)
@@ -4013,19 +4020,24 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
        = get_inner_reference (rhs, &rbitsize, &rbitpos, &offset, &rmode,
 			      &runsignedp, &rreversep, &rvolatilep);
 
-     if (rinner == rhs || lbitpos != rbitpos || lbitsize != rbitsize
-	 || lunsignedp != runsignedp || lreversep != rreversep || offset != 0
-	 || TREE_CODE (rinner) == PLACEHOLDER_EXPR || rvolatilep)
+     if (rinner == rhs
+	 || may_ne (lbitpos, rbitpos)
+	 || may_ne (lbitsize, rbitsize)
+	 || lunsignedp != runsignedp
+	 || lreversep != rreversep
+	 || offset != 0
+	 || TREE_CODE (rinner) == PLACEHOLDER_EXPR
+	 || rvolatilep)
        return 0;
    }
 
   /* Honor the C++ memory model and mimic what RTL expansion does.  */
-  unsigned HOST_WIDE_INT bitstart = 0;
-  unsigned HOST_WIDE_INT bitend = 0;
+  poly_uint64 bitstart = 0;
+  poly_uint64 bitend = 0;
   if (TREE_CODE (lhs) == COMPONENT_REF)
     {
-      get_bit_range (&bitstart, &bitend, lhs, &lbitpos, &offset);
-      if (offset != NULL_TREE)
+      get_bit_range (&bitstart, &bitend, lhs, &plbitpos, &offset);
+      if (!plbitpos.is_constant (&lbitpos) || offset != NULL_TREE)
 	return 0;
     }
 
@@ -4191,10 +4203,14 @@ decode_field_reference (location_t loc, tree *exp_, HOST_WIDE_INT *pbitsize,
 	return 0;
     }
 
-  inner = get_inner_reference (exp, pbitsize, pbitpos, &offset, pmode,
-			       punsignedp, preversep, pvolatilep);
+  poly_int64 poly_bitsize, poly_bitpos;
+  inner = get_inner_reference (exp, &poly_bitsize, &poly_bitpos, &offset,
+			       pmode, punsignedp, preversep, pvolatilep);
   if ((inner == exp && and_mask == 0)
-      || *pbitsize < 0 || offset != 0
+      || !poly_bitsize.is_constant (pbitsize)
+      || !poly_bitpos.is_constant (pbitpos)
+      || *pbitsize < 0
+      || offset != 0
       || TREE_CODE (inner) == PLACEHOLDER_EXPR)
     return 0;
 
@@ -7847,7 +7863,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	  && POINTER_TYPE_P (type)
 	  && handled_component_p (TREE_OPERAND (op0, 0)))
         {
-	  HOST_WIDE_INT bitsize, bitpos;
+	  poly_int64 bitsize, bitpos;
 	  tree offset;
 	  machine_mode mode;
 	  int unsignedp, reversep, volatilep;
@@ -7858,7 +7874,8 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	  /* If the reference was to a (constant) zero offset, we can use
 	     the address of the base if it has the same base type
 	     as the result type and the pointer type is unqualified.  */
-	  if (! offset && bitpos == 0
+	  if (!offset
+	      && must_eq (bitpos, 0)
 	      && (TYPE_MAIN_VARIANT (TREE_TYPE (type))
 		  == TYPE_MAIN_VARIANT (TREE_TYPE (base)))
 	      && TYPE_QUALS (type) == TYPE_UNQUALIFIED)
@@ -8445,7 +8462,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  || TREE_CODE (arg1) == POINTER_PLUS_EXPR))
     {
       tree base0, base1, offset0 = NULL_TREE, offset1 = NULL_TREE;
-      HOST_WIDE_INT bitsize, bitpos0 = 0, bitpos1 = 0;
+      poly_int64 bitsize, bitpos0 = 0, bitpos1 = 0;
       machine_mode mode;
       int volatilep, reversep, unsignedp;
       bool indirect_base0 = false, indirect_base1 = false;
@@ -8488,15 +8505,12 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 				  TREE_OPERAND (arg0, 1));
 	  if (TREE_CODE (offset0) == INTEGER_CST)
 	    {
-	      offset_int tem = wi::sext (wi::to_offset (offset0),
-					 TYPE_PRECISION (sizetype));
+	      poly_offset_int tem = wi::sext (wi::to_offset (offset0),
+					      TYPE_PRECISION (sizetype));
 	      tem <<= LOG2_BITS_PER_UNIT;
 	      tem += bitpos0;
-	      if (wi::fits_shwi_p (tem))
-		{
-		  bitpos0 = tem.to_shwi ();
-		  offset0 = NULL_TREE;
-		}
+	      if (tem.to_shwi (&bitpos0))
+		offset0 = NULL_TREE;
 	    }
 	}
 
@@ -8534,15 +8548,12 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 				  TREE_OPERAND (arg1, 1));
 	  if (TREE_CODE (offset1) == INTEGER_CST)
 	    {
-	      offset_int tem = wi::sext (wi::to_offset (offset1),
-					 TYPE_PRECISION (sizetype));
+	      poly_offset_int tem = wi::sext (wi::to_offset (offset1),
+					      TYPE_PRECISION (sizetype));
 	      tem <<= LOG2_BITS_PER_UNIT;
 	      tem += bitpos1;
-	      if (wi::fits_shwi_p (tem))
-		{
-		  bitpos1 = tem.to_shwi ();
-		  offset1 = NULL_TREE;
-		}
+	      if (tem.to_shwi (&bitpos1))
+		offset1 = NULL_TREE;
 	    }
 	}
 
@@ -8563,7 +8574,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 
 	    {
 	      if (!equality_code
-		  && bitpos0 != bitpos1
+		  && may_ne (bitpos0, bitpos1)
 		  && (pointer_may_wrap_p (base0, offset0, bitpos0)
 		      || pointer_may_wrap_p (base1, offset1, bitpos1)))
 		fold_overflow_warning (("assuming pointer wraparound does not "
@@ -8574,17 +8585,41 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      switch (code)
 		{
 		case EQ_EXPR:
-		  return constant_boolean_node (bitpos0 == bitpos1, type);
+		  if (must_eq (bitpos0, bitpos1))
+		    return boolean_true_node;
+		  if (must_ne (bitpos0, bitpos1))
+		    return boolean_false_node;
+		  break;
 		case NE_EXPR:
-		  return constant_boolean_node (bitpos0 != bitpos1, type);
+		  if (must_ne (bitpos0, bitpos1))
+		    return boolean_true_node;
+		  if (must_eq (bitpos0, bitpos1))
+		    return boolean_false_node;
+		  break;
 		case LT_EXPR:
-		  return constant_boolean_node (bitpos0 < bitpos1, type);
+		  if (must_lt (bitpos0, bitpos1))
+		    return boolean_true_node;
+		  if (must_ge (bitpos0, bitpos1))
+		    return boolean_false_node;
+		  break;
 		case LE_EXPR:
-		  return constant_boolean_node (bitpos0 <= bitpos1, type);
+		  if (must_le (bitpos0, bitpos1))
+		    return boolean_true_node;
+		  if (must_gt (bitpos0, bitpos1))
+		    return boolean_false_node;
+		  break;
 		case GE_EXPR:
-		  return constant_boolean_node (bitpos0 >= bitpos1, type);
+		  if (must_ge (bitpos0, bitpos1))
+		    return boolean_true_node;
+		  if (must_lt (bitpos0, bitpos1))
+		    return boolean_false_node;
+		  break;
 		case GT_EXPR:
-		  return constant_boolean_node (bitpos0 > bitpos1, type);
+		  if (must_gt (bitpos0, bitpos1))
+		    return boolean_true_node;
+		  if (must_le (bitpos0, bitpos1))
+		    return boolean_false_node;
+		  break;
 		default:;
 		}
 	    }
@@ -8595,7 +8630,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	     because pointer arithmetic is restricted to retain within an
 	     object and overflow on pointer differences is undefined as of
 	     6.5.6/8 and /9 with respect to the signed ptrdiff_t.  */
-	  else if (bitpos0 == bitpos1
+	  else if (must_eq (bitpos0, bitpos1)
 		   && (equality_code
 		       || (indirect_base0
 			   && (DECL_P (base0) || CONSTANT_CLASS_P (base0)))
@@ -8628,7 +8663,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	}
       /* For equal offsets we can simplify to a comparison of the
 	 base addresses.  */
-      else if (bitpos0 == bitpos1
+      else if (must_eq (bitpos0, bitpos1)
 	       && (indirect_base0
 		   ? base0 != TREE_OPERAND (arg0, 0) : base0 != arg0)
 	       && (indirect_base1
@@ -8657,7 +8692,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 		  eliminated.  When ptr is null, although the -> expression
 		  is strictly speaking invalid, GCC retains it as a matter
 		  of QoI.  See PR c/44555. */
-	       && (offset0 == NULL_TREE && bitpos0 != 0)
+	       && (offset0 == NULL_TREE && may_ne (bitpos0, 0))
 	       /* The caller guarantees that when one of the arguments is
 		  constant (i.e., null in this case) it is second.  */
 	       && integer_zerop (arg1))
@@ -14492,12 +14527,12 @@ round_down_loc (location_t loc, tree value, int divisor)
 
 static tree
 split_address_to_core_and_offset (tree exp,
-				  HOST_WIDE_INT *pbitpos, tree *poffset)
+				  poly_int64 *pbitpos, tree *poffset)
 {
   tree core;
   machine_mode mode;
   int unsignedp, reversep, volatilep;
-  HOST_WIDE_INT bitsize;
+  poly_int64 bitsize;
   location_t loc = EXPR_LOCATION (exp);
 
   if (TREE_CODE (exp) == ADDR_EXPR)
@@ -14521,17 +14556,18 @@ split_address_to_core_and_offset (tree exp,
    otherwise.  If they do, E1 - E2 is stored in *DIFF.  */
 
 bool
-ptr_difference_const (tree e1, tree e2, HOST_WIDE_INT *diff)
+ptr_difference_const (tree e1, tree e2, poly_int64 *diff)
 {
   tree core1, core2;
-  HOST_WIDE_INT bitpos1, bitpos2;
+  poly_int64 bitpos1, bitpos2;
   tree toffset1, toffset2, tdiff, type;
 
   core1 = split_address_to_core_and_offset (e1, &bitpos1, &toffset1);
   core2 = split_address_to_core_and_offset (e2, &bitpos2, &toffset2);
 
-  if (bitpos1 % BITS_PER_UNIT != 0
-      || bitpos2 % BITS_PER_UNIT != 0
+  poly_int64 bytepos1, bytepos2;
+  if (!multiple_p (bitpos1, BITS_PER_UNIT, &bytepos1)
+      || !multiple_p (bitpos2, BITS_PER_UNIT, &bytepos2)
       || !operand_equal_p (core1, core2, 0))
     return false;
 
@@ -14556,7 +14592,7 @@ ptr_difference_const (tree e1, tree e2, HOST_WIDE_INT *diff)
   else
     *diff = 0;
 
-  *diff += (bitpos1 - bitpos2) / BITS_PER_UNIT;
+  *diff += bytepos1 - bytepos2;
   return true;
 }
 

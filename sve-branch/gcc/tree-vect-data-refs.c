@@ -3320,7 +3320,8 @@ bool
 vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
 			   gather_scatter_info *info)
 {
-  HOST_WIDE_INT scale = 1, pbitpos, pbitsize;
+  HOST_WIDE_INT scale = 1;
+  poly_int64 pbitpos, pbitsize;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -3361,7 +3362,8 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
      that can be gimplified before the loop.  */
   base = get_inner_reference (base, &pbitsize, &pbitpos, &off, &pmode,
 			      &punsignedp, &reversep, &pvolatilep);
-  gcc_assert (base && (pbitpos % BITS_PER_UNIT) == 0 && !reversep);
+  gcc_assert (base && !reversep);
+  poly_int64 pbytepos = exact_div (pbitpos, BITS_PER_UNIT);
 
   if (TREE_CODE (base) == MEM_REF)
     {
@@ -3394,14 +3396,14 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
       if (!integer_zerop (off))
 	return false;
       off = base;
-      base = size_int (pbitpos / BITS_PER_UNIT);
+      base = size_int (pbytepos);
     }
   /* Otherwise put base + constant offset into the loop invariant BASE
      and continue with OFF.  */
   else
     {
       base = fold_convert (sizetype, base);
-      base = size_binop (PLUS_EXPR, base, size_int (pbitpos / BITS_PER_UNIT));
+      base = size_binop (PLUS_EXPR, base, size_int (pbytepos));
     }
 
   /* OFF at this point may be either a SSA_NAME or some tree expression
@@ -3807,7 +3809,7 @@ again:
       if (loop && nested_in_vect_loop_p (loop, stmt))
 	{
 	  tree outer_step, outer_base, outer_init;
-	  HOST_WIDE_INT pbitsize, pbitpos;
+	  poly_int64 pbitsize, pbitpos, pbytepos;
 	  tree poffset;
 	  machine_mode pmode;
 	  int punsignedp, preversep, pvolatilep;
@@ -3833,7 +3835,7 @@ again:
 					    &preversep, &pvolatilep);
 	  gcc_assert (outer_base != NULL_TREE);
 
-	  if (pbitpos % BITS_PER_UNIT != 0)
+	  if (!multiple_p (pbitpos, BITS_PER_UNIT, &pbytepos))
 	    {
 	      if (dump_enabled_p ())
 		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -3882,7 +3884,7 @@ again:
 	      return false;
 	    }
 
-	  outer_init = ssize_int (pbitpos / BITS_PER_UNIT);
+	  outer_init = ssize_int (pbytepos);
 	  split_constant_offset (base_iv.base, &base_iv.base, &dinit);
 	  outer_init =  size_binop (PLUS_EXPR, outer_init, dinit);
 	  split_constant_offset (offset_iv.base, &offset_iv.base, &dinit);

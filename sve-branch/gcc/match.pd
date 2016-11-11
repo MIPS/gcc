@@ -1096,13 +1096,13 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (simplify
  (minus (convert ADDR_EXPR@0) (convert @1))
  (if (tree_nop_conversion_p (type, TREE_TYPE (@0)))
-  (with { HOST_WIDE_INT diff; }
+  (with { poly_int64 diff; }
    (if (ptr_difference_const (@0, @1, &diff))
     { build_int_cst_type (type, diff); }))))
 (simplify
  (minus (convert @0) (convert ADDR_EXPR@1))
  (if (tree_nop_conversion_p (type, TREE_TYPE (@0)))
-  (with { HOST_WIDE_INT diff; }
+  (with { poly_int64 diff; }
    (if (ptr_difference_const (@0, @1, &diff))
     { build_int_cst_type (type, diff); }))))
 

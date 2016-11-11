@@ -7571,7 +7571,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    }
 
 		  tree offset;
-		  HOST_WIDE_INT bitsize, bitpos;
+		  poly_int64 bitsize, bitpos;
 		  machine_mode mode;
 		  int unsignedp, reversep, volatilep = 0;
 		  tree base = OMP_CLAUSE_DECL (c);
@@ -7671,13 +7671,13 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      tree *sc = NULL, *scp = NULL;
 		      if (GOMP_MAP_ALWAYS_P (OMP_CLAUSE_MAP_KIND (c)) || ptr)
 			n->value |= GOVD_SEEN;
-		      offset_int o1, o2;
+		      poly_offset_int o1, o2;
 		      if (offset)
 			o1 = wi::to_offset (offset);
 		      else
 			o1 = 0;
-		      if (bitpos)
-			o1 = o1 + bitpos / BITS_PER_UNIT;
+		      if (may_ne (bitpos, 0))
+			o1 += bits_to_bytes_round_down (bitpos);
 		      sc = &OMP_CLAUSE_CHAIN (*osc);
 		      if (*sc != c
 			  && (OMP_CLAUSE_MAP_KIND (*sc)
@@ -7696,7 +7696,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			else
 			  {
 			    tree offset2;
-			    HOST_WIDE_INT bitsize2, bitpos2;
+			    poly_int64 bitsize2, bitpos2;
 			    base = OMP_CLAUSE_DECL (*sc);
 			    if (TREE_CODE (base) == ARRAY_REF)
 			      {
@@ -7765,10 +7765,12 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			      o2 = wi::to_offset (offset2);
 			    else
 			      o2 = 0;
-			    if (bitpos2)
-			      o2 = o2 + bitpos2 / BITS_PER_UNIT;
-			    if (wi::ltu_p (o1, o2)
-				|| (wi::eq_p (o1, o2) && bitpos < bitpos2))
+			    o2 += bits_to_bytes_round_down (bitpos2);
+			    int order = compare_sizes_for_sort (o1, o2);
+			    if (order < 0
+				|| (order == 0
+				    && compare_sizes_for_sort (bitpos,
+							       bitpos2) < 0))
 			      {
 				if (ptr)
 				  scp = sc;
