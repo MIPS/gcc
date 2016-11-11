@@ -3,7 +3,7 @@
 /* dfp_hw represents power 6 */
 /* { dg-require-effective-target dfp_hw } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
-/* { dg-options "-mcpu=power5" } */
+/* { dg-options "-mcpu=power5 -mabi=altivec" } */
 
 /* This test should succeed on both 32- and 64-bit configurations.  */
 #include <altivec.h>
@@ -11,10 +11,9 @@
 /* Though the command line specifies power5 target, this function is
    to support power6.  */
 __attribute__((target("cpu=power6")))
-/* fabs/fnabs/fsel */
-double normal1 (double a, double b)
+double power6 (double a, double b)
 {
   return __builtin_copysign (a, b);
 }
-/* { dg-final { scan-assembler-times "fabs" 1 } } */
+/* { dg-final { scan-assembler-times "fcpsgn" 1 } } */
 

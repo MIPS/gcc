@@ -1,10 +1,11 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power5" } } */
-/* { dg-require-effective-target powerpc_p5vector_ok } */
+/* Is desirable to require-effective-target to be p5_ok, but there's
+   no such effective target.  */
 /* dfp_hw represents power 6 */
 /* { dg-skip-if "" { dfp_hw } } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
-/* { dg-options "-mcpu=power5" } */
+/* { dg-options "-mcpu=power5 -mabi=altivec" } */
 
 /* This test should succeed on both 32- and 64-bit configurations.  */
 #include <altivec.h>
