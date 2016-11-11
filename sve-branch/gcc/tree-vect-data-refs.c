@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "builtins.h"
 #include "params.h"
+#include "internal-fn.h"
 
 /* Return true if load- or store-lanes optab OPTAB is implemented for
    COUNT vectors of type VECTYPE.  NAME is the name of OPTAB.  */
@@ -4805,7 +4806,16 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
       return false;
     }
 
-  /* Check that the permutation is supported.  */
+  /* Powers of 2 use a tree of interleaving operations.  See whether the
+     target supports them directly.  */
+  if (count != 3
+      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, vectype,
+					 OPTIMIZE_FOR_SPEED)
+      && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_LO, vectype,
+					 OPTIMIZE_FOR_SPEED))
+    return true;
+
+  /* Otherwise check for support in the form of general permutations.  */
   unsigned int nelt;
   if (VECTOR_MODE_P (mode) && GET_MODE_NUNITS (mode).is_constant (&nelt))
     {
@@ -5048,49 +5058,77 @@ vect_permute_store_chain (vec<tree> dr_chain,
       /* If length is not equal to 3 then only power of 2 is supported.  */
       gcc_assert (pow2p_hwi (length));
 
-      /* Enforced by vect_grouped_store_supported.  */
-      unsigned int nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
-      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
-      for (i = 0, n = nelt / 2; i < n; i++)
+      if (direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_HI, vectype,
+					  OPTIMIZE_FOR_SPEED)
+	  && direct_internal_fn_supported_p (IFN_VEC_INTERLEAVE_LO, vectype,
+					     OPTIMIZE_FOR_SPEED))
 	{
-	  sel[i * 2] = i;
-	  sel[i * 2 + 1] = i + nelt;
+	  /* We could support the case where only one of the optabs is
+	     implemented, but that seems unlikely.  */
+	  perm_mask_high = NULL_TREE;
+	  perm_mask_low = NULL_TREE;
 	}
-	perm_mask_high = vect_gen_perm_mask_checked (vectype, nelt, sel);
+      else
+	{
+	  /* Enforced by vect_grouped_store_supported.  */
+	  unsigned int nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
+	  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
+	  for (i = 0, n = nelt / 2; i < n; i++)
+	    {
+	      sel[i * 2] = i;
+	      sel[i * 2 + 1] = i + nelt;
+	    }
+	  perm_mask_high = vect_gen_perm_mask_checked (vectype, nelt, sel);
 
-	for (i = 0; i < nelt; i++)
-	  sel[i] += nelt / 2;
-	perm_mask_low = vect_gen_perm_mask_checked (vectype, nelt, sel);
+	  for (i = 0; i < nelt; i++)
+	    sel[i] += nelt / 2;
+	  perm_mask_low = vect_gen_perm_mask_checked (vectype, nelt, sel);
+	}
 
-	for (i = 0, n = log_length; i < n; i++)
-	  {
-	    for (j = 0; j < length/2; j++)
-	      {
-		vect1 = dr_chain[j];
-		vect2 = dr_chain[j+length/2];
+      for (i = 0, n = log_length; i < n; i++)
+	{
+	  for (j = 0; j < length / 2; j++)
+	    {
+	      vect1 = dr_chain[j];
+	      vect2 = dr_chain[j + length / 2];
 
-		/* Create interleaving stmt:
-		   high = VEC_PERM_EXPR <vect1, vect2, {0, nelt, 1, nelt+1,
-							...}>  */
-		high = make_temp_ssa_name (vectype, NULL, "vect_inter_high");
+	      /* Create interleaving stmt:
+		 high = VEC_PERM_EXPR <vect1, vect2,
+				       {0, nelt, 1, nelt + 1, ...}>  */
+	      high = make_temp_ssa_name (vectype, NULL, "vect_inter_high");
+	      if (perm_mask_high)
 		perm_stmt = gimple_build_assign (high, VEC_PERM_EXPR, vect1,
 						 vect2, perm_mask_high);
-		vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-		(*result_chain)[2*j] = high;
+	      else
+		{
+		  perm_stmt = gimple_build_call_internal
+		    (IFN_VEC_INTERLEAVE_HI, 2, vect1, vect2);
+		  gimple_set_lhs (perm_stmt, high);
+		}
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      (*result_chain)[2 * j] = high;
 
-		/* Create interleaving stmt:
-		   low = VEC_PERM_EXPR <vect1, vect2,
-					{nelt/2, nelt*3/2, nelt/2+1, nelt*3/2+1,
-					 ...}>  */
-		low = make_temp_ssa_name (vectype, NULL, "vect_inter_low");
+	      /* Create interleaving stmt:
+		 low = VEC_PERM_EXPR <vect1, vect2,
+				      {nelt / 2, nelt * 3 / 2,
+				       nelt / 2 + 1, nelt * 3 / 2 + 1,
+				       ...}>  */
+	      low = make_temp_ssa_name (vectype, NULL, "vect_inter_low");
+	      if (perm_mask_low)
 		perm_stmt = gimple_build_assign (low, VEC_PERM_EXPR, vect1,
 						 vect2, perm_mask_low);
-		vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-		(*result_chain)[2*j+1] = low;
-	      }
-	    memcpy (dr_chain.address (), result_chain->address (),
-		    length * sizeof (tree));
-	  }
+	      else
+		{
+		  perm_stmt = gimple_build_call_internal
+		    (IFN_VEC_INTERLEAVE_LO, 2, vect1, vect2);
+		  gimple_set_lhs (perm_stmt, low);
+		}
+	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+	      (*result_chain)[2 * j + 1] = low;
+	    }
+	  memcpy (dr_chain.address (), result_chain->address (),
+		  length * sizeof (tree));
+	}
     }
 }
 
@@ -5402,7 +5440,16 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
       return false;
     }
 
-  /* Check that the permutation is supported.  */
+  /* Powers of 2 use a tree of extract operations.  See whether the
+     target supports them directly.  */
+  if (count != 3
+      && direct_internal_fn_supported_p (IFN_VEC_EXTRACT_EVEN, vectype,
+					 OPTIMIZE_FOR_SPEED)
+      && direct_internal_fn_supported_p (IFN_VEC_EXTRACT_ODD, vectype,
+					 OPTIMIZE_FOR_SPEED))
+    return true;
+
+  /* Otherwise check for support in the form of general permutations.  */
   unsigned int nelt;
   if (VECTOR_MODE_P (mode) && GET_MODE_NUNITS (mode).is_constant (&nelt))
     {
@@ -5630,16 +5677,29 @@ vect_permute_load_chain (vec<tree> dr_chain,
       /* If length is not equal to 3 then only power of 2 is supported.  */
       gcc_assert (pow2p_hwi (length));
 
-      /* Enforced by vect_grouped_load_supported.  */
-      unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
-      unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
-      for (i = 0; i < nelt; ++i)
-	sel[i] = i * 2;
-      perm_mask_even = vect_gen_perm_mask_checked (vectype, nelt, sel);
+      if (direct_internal_fn_supported_p (IFN_VEC_EXTRACT_EVEN, vectype,
+					  OPTIMIZE_FOR_SPEED)
+	  && direct_internal_fn_supported_p (IFN_VEC_EXTRACT_ODD, vectype,
+					     OPTIMIZE_FOR_SPEED))
+	{
+	  /* We could support the case where only one of the optabs is
+	     implemented, but that seems unlikely.  */
+	  perm_mask_even = NULL_TREE;
+	  perm_mask_odd = NULL_TREE;
+	}
+      else
+	{
+	  /* Enforced by vect_grouped_load_supported.  */
+	  unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype).to_constant ();
+	  unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
+	  for (i = 0; i < nelt; ++i)
+	    sel[i] = i * 2;
+	  perm_mask_even = vect_gen_perm_mask_checked (vectype, nelt, sel);
 
-      for (i = 0; i < nelt; ++i)
-	sel[i] = i * 2 + 1;
-      perm_mask_odd = vect_gen_perm_mask_checked (vectype, nelt, sel);
+	  for (i = 0; i < nelt; ++i)
+	    sel[i] = i * 2 + 1;
+	  perm_mask_odd = vect_gen_perm_mask_checked (vectype, nelt, sel);
+	}
 
       for (i = 0; i < log_length; i++)
 	{
@@ -5650,19 +5710,33 @@ vect_permute_load_chain (vec<tree> dr_chain,
 
 	      /* data_ref = permute_even (first_data_ref, second_data_ref);  */
 	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_perm_even");
-	      perm_stmt = gimple_build_assign (data_ref, VEC_PERM_EXPR,
-					       first_vect, second_vect,
-					       perm_mask_even);
+	      if (perm_mask_even)
+		perm_stmt = gimple_build_assign (data_ref, VEC_PERM_EXPR,
+						 first_vect, second_vect,
+						 perm_mask_even);
+	      else
+		{
+		  perm_stmt = gimple_build_call_internal
+		    (IFN_VEC_EXTRACT_EVEN, 2, first_vect, second_vect);
+		  gimple_set_lhs (perm_stmt, data_ref);
+		}
 	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-	      (*result_chain)[j/2] = data_ref;
+	      (*result_chain)[j / 2] = data_ref;
 
 	      /* data_ref = permute_odd (first_data_ref, second_data_ref);  */
 	      data_ref = make_temp_ssa_name (vectype, NULL, "vect_perm_odd");
-	      perm_stmt = gimple_build_assign (data_ref, VEC_PERM_EXPR,
-					       first_vect, second_vect,
-					       perm_mask_odd);
+	      if (perm_mask_odd)
+		perm_stmt = gimple_build_assign (data_ref, VEC_PERM_EXPR,
+						 first_vect, second_vect,
+						 perm_mask_odd);
+	      else
+		{
+		  perm_stmt = gimple_build_call_internal
+		    (IFN_VEC_EXTRACT_ODD, 2, first_vect, second_vect);
+		  gimple_set_lhs (perm_stmt, data_ref);
+		}
 	      vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-	      (*result_chain)[j/2+length/2] = data_ref;
+	      (*result_chain)[j / 2 + length / 2] = data_ref;
 	    }
 	  memcpy (dr_chain.address (), result_chain->address (),
 		  length * sizeof (tree));

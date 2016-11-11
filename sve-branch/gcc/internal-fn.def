@@ -110,6 +110,13 @@ DEF_INTERNAL_OPTAB_FN (MASK_STORE_LANES, 0,
 		       vec_mask_store_lanes, mask_store_lanes)
 
 DEF_INTERNAL_OPTAB_FN (WHILE_ULT, ECF_CONST, while_ult, while)
+
+DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_HI, ECF_CONST, vec_interleave_hi, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_INTERLEAVE_LO, ECF_CONST, vec_interleave_lo, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_EVEN, ECF_CONST, vec_extract_even, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_ODD, ECF_CONST, vec_extract_odd, binary)
+DEF_INTERNAL_OPTAB_FN (VEC_REVERSE, ECF_CONST, vec_reverse, unary)
+
 DEF_INTERNAL_COND_OPTAB_FN (ADD, ECF_CONST, add, binary)
 DEF_INTERNAL_COND_OPTAB_FN (SMIN, ECF_CONST, smin, binary)
 DEF_INTERNAL_COND_OPTAB_FN (SMAX, ECF_CONST, smax, binary)

@@ -4847,6 +4847,49 @@ There is no need for a target to supply both @samp{vec_perm@var{m}}
 and @samp{vec_perm_const@var{m}} if the former can trivially implement
 the operation with, say, the vector constant loaded into a register.
 
+@cindex @code{vec_reverse_@var{m}} instruction pattern
+@item @samp{vec_reverse_@var{m}}
+Reverse the order of the elements in vector input operand 1 and store
+the result in vector output operand 0.  Both operands have mode @var{m}.
+
+This pattern is provided mainly for targets with variable-length vectors.
+Targets with fixed-length vectors can instead handle any reverse-specific
+optimizations in @samp{vec_perm_const@var{m}}.
+
+@cindex @code{vec_interleave_hi_@var{m}} instruction pattern
+@item @samp{vec_interleave_hi_@var{m}}
+Take the ``high'' halves of vector input operands 1 and 2 and interleave
+the elements, so that element @var{x} of operand 1 is followed by
+element @var{x} of operand 2.  Store the result in vector output operand 0.
+All three operands have mode @var{m}.
+
+Note that GCC nomenclature follows big-endian conventions, so the
+high half is the half that comes first in memory.
+
+This pattern is provided mainly for targets with variable-length
+vectors.  Targets with fixed-length vectors can instead handle any
+interleave-specific optimizations in @samp{vec_perm_const@var{m}}.
+
+@cindex @code{vec_interleave_lo_@var{m}} instruction pattern
+@item @samp{vec_interleave_lo_@var{m}}
+Like @samp{vec_interleave_hi_@var{m}}, but operate on the low halves
+instead of the high halves.
+
+@cindex @code{vec_extract_even_@var{m}} instruction pattern
+@item @samp{vec_extract_even_@var{m}}
+Concatenate vector input operands 1 and 2, extract the elements with
+even-numbered indices, and store the result in vector output operand 0.
+All three operands have mode @var{m}.
+
+This pattern is provided mainly for targets with variable-length vectors.
+Targets with fixed-length vectors can instead handle any
+extract-specific optimizations in @samp{vec_perm_const@var{m}}.
+
+@cindex @code{vec_extract_odd_@var{m}} instruction pattern
+@item @samp{vec_extract_odd_@var{m}}
+Like @samp{vec_extract_even_@var{m}}, but extract the elements with
+odd-numbered indices.
+
 @cindex @code{push@var{m}1} instruction pattern
 @item @samp{push@var{m}1}
 Output a push instruction.  Operand 0 is value to push.  Used only when

@@ -1850,6 +1850,46 @@ perm_mask_for_reverse (tree vectype)
   return vect_gen_perm_mask_checked (vectype, nunits, sel);
 }
 
+/* Return true if the target can reverse the elements in a vector of
+   type VECTOR_TYPE.  */
+
+static bool
+can_reverse_vector_p (tree vector_type)
+{
+  return (direct_internal_fn_supported_p (IFN_VEC_REVERSE, vector_type,
+					  OPTIMIZE_FOR_SPEED)
+	  || perm_mask_for_reverse (vector_type));
+}
+
+/* Generate a statement to reverse the elements in vector INPUT and
+   return the SSA name that holds the result.  GSI is a statement iterator
+   pointing to STMT, which is the scalar statement we're vectorizing.
+   VEC_DEST is the destination variable with which new SSA names
+   should be associated.  */
+
+static tree
+reverse_vector (tree vec_dest, tree input, gimple *stmt,
+		gimple_stmt_iterator *gsi)
+{
+  tree new_temp = make_ssa_name (vec_dest);
+  tree vector_type = TREE_TYPE (input);
+  gimple *perm_stmt;
+  if (direct_internal_fn_supported_p (IFN_VEC_REVERSE, vector_type,
+				      OPTIMIZE_FOR_SPEED))
+    {
+      perm_stmt = gimple_build_call_internal (IFN_VEC_REVERSE, 1, input);
+      gimple_set_lhs (perm_stmt, new_temp);
+    }
+  else
+    {
+      tree perm_mask = perm_mask_for_reverse (vector_type);
+      perm_stmt = gimple_build_assign (new_temp, VEC_PERM_EXPR,
+				       input, input, perm_mask);
+    }
+  vect_finish_stmt_generation (stmt, perm_stmt, gsi);
+  return new_temp;
+}
+
 /* A subroutine of get_load_store_type, with a subset of the same
    arguments.  Handle the case where STMT is part of a grouped load
    or store.
@@ -2044,7 +2084,7 @@ get_negative_load_store_type (gimple *stmt, tree vectype,
       return VMAT_CONTIGUOUS_DOWN;
     }
 
-  if (!perm_mask_for_reverse (vectype))
+  if (!can_reverse_vector_p (vectype))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6641,20 +6681,10 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 
 	      if (memory_access_type == VMAT_CONTIGUOUS_REVERSE)
 		{
-		  tree perm_mask = perm_mask_for_reverse (vectype);
 		  tree perm_dest 
 		    = vect_create_destination_var (gimple_assign_rhs1 (stmt),
 						   vectype);
-		  tree new_temp = make_ssa_name (perm_dest);
-
-		  /* Generate the permute statement.  */
-		  gimple *perm_stmt 
-		    = gimple_build_assign (new_temp, VEC_PERM_EXPR, vec_oprnd,
-					   vec_oprnd, perm_mask);
-		  vect_finish_stmt_generation (stmt, perm_stmt, gsi);
-
-		  perm_stmt = SSA_NAME_DEF_STMT (new_temp);
-		  vec_oprnd = new_temp;
+		  vec_oprnd = reverse_vector (perm_dest, vec_oprnd, stmt, gsi);
 		}
 
 	      tree offset_arg = (dataref_offset
@@ -7935,9 +7965,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 
 	      if (memory_access_type == VMAT_CONTIGUOUS_REVERSE)
 		{
-		  tree perm_mask = perm_mask_for_reverse (vectype);
-		  new_temp = permute_vec_elements (new_temp, new_temp,
-						   perm_mask, stmt, gsi);
+		  new_temp = reverse_vector (vec_dest, new_temp, stmt, gsi);
 		  new_stmt = SSA_NAME_DEF_STMT (new_temp);
 		}
 

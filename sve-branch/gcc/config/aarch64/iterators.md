@@ -1282,6 +1282,9 @@
 			      UNSPEC_TRN1 UNSPEC_TRN2
 			      UNSPEC_UZP1 UNSPEC_UZP2])
 
+(define_int_iterator OPTAB_PERMUTE [UNSPEC_ZIP1 UNSPEC_ZIP2
+				    UNSPEC_UZP1 UNSPEC_UZP2])
+
 (define_int_iterator REVERSE [UNSPEC_REV64 UNSPEC_REV32 UNSPEC_REV16])
 
 (define_int_iterator FRINT [UNSPEC_FRINTZ UNSPEC_FRINTP UNSPEC_FRINTM
@@ -1486,6 +1489,11 @@
 				  (UNSPEC_UCVTF "ucvtf")
 				  (UNSPEC_FCVTZS "fcvtzs")
 				  (UNSPEC_FCVTZU "fcvtzu")])
+
+(define_int_attr perm_optab [(UNSPEC_ZIP1 "vec_interleave_hi")
+			     (UNSPEC_ZIP2 "vec_interleave_lo")
+			     (UNSPEC_UZP1 "vec_extract_even")
+			     (UNSPEC_UZP2 "vec_extract_odd")])
 
 (define_int_attr perm_insn [(UNSPEC_ZIP1 "zip") (UNSPEC_ZIP2 "zip")
 			    (UNSPEC_TRN1 "trn") (UNSPEC_TRN2 "trn")
