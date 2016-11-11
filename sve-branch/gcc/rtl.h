@@ -2139,13 +2139,13 @@ wi::int_traits <rtx_mode_t>::decompose (HOST_WIDE_INT *,
 
 namespace wi
 {
-  hwi_with_prec shwi (HOST_WIDE_INT, machine_mode mode);
-  wide_int min_value (machine_mode, signop);
-  wide_int max_value (machine_mode, signop);
+  hwi_with_prec shwi (HOST_WIDE_INT, machine_mode_enum);
+  wide_int min_value (machine_mode_enum, signop);
+  wide_int max_value (machine_mode_enum, signop);
 }
 
 inline wi::hwi_with_prec
-wi::shwi (HOST_WIDE_INT val, machine_mode mode)
+wi::shwi (HOST_WIDE_INT val, machine_mode_enum mode)
 {
   return shwi (val, GET_MODE_PRECISION (mode));
 }
@@ -2153,7 +2153,7 @@ wi::shwi (HOST_WIDE_INT val, machine_mode mode)
 /* Produce the smallest number that is represented in MODE.  The precision
    is taken from MODE and the sign from SGN.  */
 inline wide_int
-wi::min_value (machine_mode mode, signop sgn)
+wi::min_value (machine_mode_enum mode, signop sgn)
 {
   return min_value (GET_MODE_PRECISION (mode), sgn);
 }
@@ -2161,7 +2161,7 @@ wi::min_value (machine_mode mode, signop sgn)
 /* Produce the largest number that is represented in MODE.  The precision
    is taken from MODE and the sign from SGN.  */
 inline wide_int
-wi::max_value (machine_mode mode, signop sgn)
+wi::max_value (machine_mode_enum mode, signop sgn)
 {
   return max_value (GET_MODE_PRECISION (mode), sgn);
 }
