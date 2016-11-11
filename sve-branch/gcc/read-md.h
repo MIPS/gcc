@@ -139,7 +139,8 @@ class rtx_reader
   rtx copy_rtx_for_iterators (rtx original);
   void read_conditions ();
   void record_potential_iterator_use (struct iterator_group *group,
-				      void *ptr, const char *name);
+				      rtx x, unsigned int index,
+				      const char *name);
   struct mapping *read_mapping (struct iterator_group *group, htab_t table);
   bool read_rtx (const char *rtx_name, vec<rtx> *rtxen);
   rtx read_rtx_code (const char *code_name);

@@ -64,8 +64,10 @@ struct iterator_group {
      return its integer value.  */
   int (*find_builtin) (const char *);
 
-  /* Make the given pointer use the given iterator value.  */
-  void (*apply_iterator) (void *, int);
+  /* Make the given rtx use the iterator value given by the third argument.
+     If the iterator applies to operands, the second argument gives the
+     operand index, otherwise it is ignored.  */
+  void (*apply_iterator) (rtx, unsigned int, int);
 };
 
 /* Records one use of an iterator.  */
@@ -73,8 +75,11 @@ struct iterator_use {
   /* The iterator itself.  */
   struct mapping *iterator;
 
-  /* The location of the use, as passed to the apply_iterator callback.  */
-  void *ptr;
+  /* The location of the use, as passed to the apply_iterator callback.
+     The index is the number of the operand that used the iterator
+     if applicable, otherwise it is ignored.  */
+  rtx x;
+  unsigned int index;
 };
 
 /* Records one use of an attribute (the "<[iterator:]attribute>" syntax)
@@ -86,8 +91,11 @@ struct attribute_use {
   /* The name of the attribute, possibly with an "iterator:" prefix.  */
   const char *value;
 
-  /* The location of the use, as passed to GROUP's apply_iterator callback.  */
-  void *ptr;
+  /* The location of the use, as passed to GROUP's apply_iterator callback.
+     The index is the number of the operand that used the iterator
+     if applicable, otherwise it is ignored.  */
+  rtx x;
+  unsigned int index;
 };
 
 /* This struct is used to link subst_attr named ATTR_NAME with
@@ -134,9 +142,9 @@ find_mode (const char *name)
 }
 
 static void
-apply_mode_iterator (void *loc, int mode)
+apply_mode_iterator (rtx x, unsigned int, int mode)
 {
-  PUT_MODE ((rtx) loc, (machine_mode_enum) mode);
+  PUT_MODE (x, (machine_mode_enum) mode);
 }
 
 /* Implementations of the iterator_group callbacks for codes.  */
@@ -154,9 +162,9 @@ find_code (const char *name)
 }
 
 static void
-apply_code_iterator (void *loc, int code)
+apply_code_iterator (rtx x, unsigned int, int code)
 {
-  PUT_CODE ((rtx) loc, (enum rtx_code) code);
+  PUT_CODE (x, (enum rtx_code) code);
 }
 
 /* Implementations of the iterator_group callbacks for ints.  */
@@ -173,22 +181,21 @@ find_int (const char *name)
 }
 
 static void
-apply_int_iterator (void *loc, int value)
+apply_int_iterator (rtx x, unsigned int index, int value)
 {
-  *(int *)loc = value;
+  XINT (x, index) = value;
 }
 
 /* This routine adds attribute or does nothing depending on VALUE.  When
    VALUE is 1, it does nothing - the first duplicate of original
    template is kept untouched when it's subjected to a define_subst.
-   When VALUE isn't 1, the routine modifies RTL-template LOC, adding
+   When VALUE isn't 1, the routine modifies RTL-template RT, adding
    attribute, named exactly as define_subst, which later will be
    applied.  If such attribute has already been added, then no the
    routine has no effect.  */
 static void
-apply_subst_iterator (void *loc, int value)
+apply_subst_iterator (rtx rt, unsigned int, int value)
 {
-  rtx rt = (rtx)loc;
   rtx new_attr;
   rtvec attrs_vec, new_attrs_vec;
   int i;
@@ -471,7 +478,7 @@ apply_attribute_uses (void)
       v = map_attr_string (ause->value);
       if (!v)
 	fatal_with_file_and_line ("unknown iterator value `%s'", ause->value);
-      ause->group->apply_iterator (ause->ptr,
+      ause->group->apply_iterator (ause->x, ause->index,
 				   ause->group->find_builtin (v->string));
     }
 }
@@ -538,7 +545,8 @@ apply_iterators (rtx original, vec<rtx> *queue)
 	  if (iuse->iterator->group == &substs)
 	    continue;
 	  v = iuse->iterator->current_value;
-	  iuse->iterator->group->apply_iterator (iuse->ptr, v->number);
+	  iuse->iterator->group->apply_iterator (iuse->x, iuse->index,
+						 v->number);
 	  condition = rtx_reader_ptr->join_c_conditions (condition, v->string);
 	}
       apply_attribute_uses ();
@@ -553,9 +561,11 @@ apply_iterators (rtx original, vec<rtx> *queue)
 	  v = iuse->iterator->current_value;
 	  if (iuse->iterator->group == &substs)
 	    {
-	      iuse->ptr = x;
+	      iuse->x = x;
+	      iuse->index = 0;
 	      current_iterator_name = iuse->iterator->name;
-	      iuse->iterator->group->apply_iterator (iuse->ptr, v->number);
+	      iuse->iterator->group->apply_iterator (iuse->x, iuse->index,
+						     v->number);
 	    }
 	}
       /* Add the new rtx to the end of the queue.  */
@@ -809,33 +819,36 @@ validate_const_wide_int (const char *string)
     fatal_with_file_and_line ("invalid hex constant \"%s\"\n", string);
 }
 
-/* Record that PTR uses iterator ITERATOR.  */
+/* Record that X uses iterator ITERATOR.  If the use is in an operand
+   of X, INDEX is the index of that operand, otherwise it is ignored.  */
 
 static void
-record_iterator_use (struct mapping *iterator, void *ptr)
+record_iterator_use (struct mapping *iterator, rtx x, unsigned int index)
 {
-  struct iterator_use iuse = {iterator, ptr};
+  struct iterator_use iuse = {iterator, x, index};
   iterator_uses.safe_push (iuse);
 }
 
-/* Record that PTR uses attribute VALUE, which must match a built-in
-   value from group GROUP.  */
+/* Record that X uses attribute VALUE, which must match a built-in
+   value from group GROUP.  If the use is in an operand of X, INDEX
+   is the index of that operand, otherwise it is ignored.  */
 
 static void
-record_attribute_use (struct iterator_group *group, void *ptr,
-		      const char *value)
+record_attribute_use (struct iterator_group *group, rtx x,
+		      unsigned int index, const char *value)
 {
-  struct attribute_use ause = {group, value, ptr};
+  struct attribute_use ause = {group, value, x, index};
   attribute_uses.safe_push (ause);
 }
 
 /* Interpret NAME as either a built-in value, iterator or attribute
-   for group GROUP.  PTR is the value to pass to GROUP's apply_iterator
-   callback.  */
+   for group GROUP.  X and INDEX are the values to pass to GROUP's
+   apply_iterator callback.  */
 
 void
 rtx_reader::record_potential_iterator_use (struct iterator_group *group,
-					   void *ptr, const char *name)
+					   rtx x, unsigned int index,
+					   const char *name)
 {
   struct mapping *m;
   size_t len;
@@ -846,15 +859,16 @@ rtx_reader::record_potential_iterator_use (struct iterator_group *group,
       /* Copy the attribute string into permanent storage, without the
 	 angle brackets around it.  */
       obstack_grow0 (&m_string_obstack, name + 1, len - 2);
-      record_attribute_use (group, ptr, XOBFINISH (&m_string_obstack, char *));
+      record_attribute_use (group, x, index,
+			    XOBFINISH (&m_string_obstack, char *));
     }
   else
     {
       m = (struct mapping *) htab_find (group->iterators, &name);
       if (m != 0)
-	record_iterator_use (m, ptr);
+	record_iterator_use (m, x, index);
       else
-	group->apply_iterator (ptr, group->find_builtin (name));
+	group->apply_iterator (x, index, group->find_builtin (name));
     }
 }
 
@@ -1115,7 +1129,7 @@ rtx_reader::read_rtx_code (const char *code_name)
   PUT_CODE (return_rtx, code);
 
   if (iterator)
-    record_iterator_use (iterator, return_rtx);
+    record_iterator_use (iterator, return_rtx, 0);
 
   /* If what follows is `: mode ', read it and
      store the mode in the rtx.  */
@@ -1124,7 +1138,7 @@ rtx_reader::read_rtx_code (const char *code_name)
   if (c == ':')
     {
       read_name (&name);
-      record_potential_iterator_use (&modes, return_rtx, name.string);
+      record_potential_iterator_use (&modes, return_rtx, 0, name.string);
     }
   else
     unread_char (c);
@@ -1342,7 +1356,7 @@ rtx_reader::read_rtx_operand (rtx return_rtx, int idx)
 		  m = 0;
 	      }
 	    if (m != 0)
-	      record_iterator_use (m, return_rtx);
+	      record_iterator_use (m, return_rtx, 0);
 	  }
 
 	if (star_if_braced)
@@ -1380,8 +1394,7 @@ rtx_reader::read_rtx_operand (rtx return_rtx, int idx)
     case 'n':
       /* Can be an iterator or an integer constant.  */
       read_name (&name);
-      record_potential_iterator_use (&ints, &XINT (return_rtx, idx),
-				     name.string);
+      record_potential_iterator_use (&ints, return_rtx, idx, name.string);
       break;
 
     case 'r':
