@@ -63,6 +63,14 @@ class hash
     val = iterative_hash_host_wide_int (v, val);
   }
 
+  /* Add polynomial value V, treating each element as a HOST_WIDE_INT.  */
+  template<unsigned int N, typename T>
+  void add_poly_wide_int (const poly_int_pod<N, T> &v)
+  {
+    for (unsigned int i = 0; i < N; ++i)
+      add_wide_int (v.coeffs[i]);
+  }
+
   /* Hash in pointer PTR.  */
   void add_ptr (const void *ptr)
   {
