@@ -9195,6 +9195,25 @@ get_type_static_bounds (const_tree type, mpz_t min, mpz_t max)
     }
 }
 
+/* Return true if the mode underlying scalar type T has the same number
+   of bits as T does.  Examples of when this is false include bitfields
+   that are narrower than the mode that contains them.  */
+
+static bool
+scalar_type_is_full_p (const_tree t)
+{
+  return GET_MODE_PRECISION (SCALAR_TYPE_MODE (t)) == TYPE_PRECISION (t);
+}
+
+/* Return true if T is an integral type that has the same number of bits
+   as its underlying mode.  */
+
+bool
+full_integral_type_p (const_tree t)
+{
+  return INTEGRAL_TYPE_P (t) && scalar_type_is_full_p (t);
+}
+
 /* Return true if VAR is an automatic variable defined in function FN.  */
 
 bool
