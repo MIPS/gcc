@@ -770,7 +770,7 @@ struct ipa_parm_adjustment
 
   /* Offset into the original parameter (for the cases when the new parameter
      is a component of an original one).  */
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
 
   /* Zero based index of the original parameter this one is based on.  */
   int base_index;
