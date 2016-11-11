@@ -1152,6 +1152,7 @@ extern tree vect_get_new_ssa_name (tree, enum vect_var_kind,
 extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 						  tree, struct loop *,
 						  tree = NULL_TREE);
+extern unsigned int vect_data_ref_required_alignment (struct data_reference *);
 
 /* In tree-vect-loop.c.  */
 /* FORNOW: Used in tree-parloops.c.  */

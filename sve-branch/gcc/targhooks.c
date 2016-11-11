@@ -1135,6 +1135,14 @@ default_vector_alignment (const_tree type)
   return align;
 }
 
+/* The default implementation of TARGET_PREFERRED_VECTOR_ALIGNMENT.  */
+
+HOST_WIDE_INT
+default_preferred_vector_alignment (const_tree type)
+{
+  return TYPE_ALIGN (type);
+}
+
 bool
 default_builtin_vector_alignment_reachable (const_tree type, bool is_packed)
 {
