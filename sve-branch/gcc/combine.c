@@ -410,13 +410,12 @@ static struct undobuf undobuf;
 
 static int n_occurrences;
 
-static rtx reg_nonzero_bits_for_combine (const_rtx, machine_mode, const_rtx,
-					 machine_mode,
-					 unsigned HOST_WIDE_INT,
+static rtx reg_nonzero_bits_for_combine (const_rtx, scalar_int_mode,
+					 scalar_int_mode,
 					 unsigned HOST_WIDE_INT *);
-static rtx reg_num_sign_bit_copies_for_combine (const_rtx, machine_mode, const_rtx,
-						machine_mode,
-						unsigned int, unsigned int *);
+static rtx reg_num_sign_bit_copies_for_combine (const_rtx, scalar_int_mode,
+						scalar_int_mode,
+						unsigned int *);
 static void do_SUBST (rtx *, rtx);
 static void do_SUBST_INT (int *, int);
 static void init_reg_last (void);
@@ -9943,17 +9942,15 @@ simplify_and_const_int (rtx x, scalar_int_mode mode, rtx varop,
   return x;
 }
 
-/* Given a REG, X, compute which bits in X can be nonzero.
+/* Given a REG X of mode XMODE, compute which bits in X can be nonzero.
    We don't care about bits outside of those defined in MODE.
 
    For most X this is simply GET_MODE_MASK (GET_MODE (MODE)), but if X is
    a shift, AND, or zero_extract, we can do better.  */
 
 static rtx
-reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
-			      const_rtx known_x ATTRIBUTE_UNUSED,
-			      machine_mode known_mode ATTRIBUTE_UNUSED,
-			      unsigned HOST_WIDE_INT known_ret ATTRIBUTE_UNUSED,
+reg_nonzero_bits_for_combine (const_rtx x, scalar_int_mode xmode,
+			      scalar_int_mode mode,
 			      unsigned HOST_WIDE_INT *nonzero)
 {
   rtx tem;
@@ -9965,9 +9962,12 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
      for this register.  */
 
   rsp = &reg_stat[REGNO (x)];
+
+  scalar_int_mode last_mode;
   if (rsp->last_set_value != 0
-      && (rsp->last_set_mode == mode
-	  || (GET_MODE_CLASS (rsp->last_set_mode) == MODE_INT
+      && is_a <scalar_int_mode> (rsp->last_set_mode, &last_mode)
+      && (last_mode == mode
+	  || (GET_MODE_CLASS (last_mode) == MODE_INT
 	      && GET_MODE_CLASS (mode) == MODE_INT))
       && ((rsp->last_set_label >= label_tick_ebb_start
 	   && rsp->last_set_label < label_tick)
@@ -9982,9 +9982,9 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
     {
       unsigned HOST_WIDE_INT mask = rsp->last_set_nonzero_bits;
 
-      if (GET_MODE_PRECISION (rsp->last_set_mode) < GET_MODE_PRECISION (mode))
+      if (GET_MODE_PRECISION (last_mode) < GET_MODE_PRECISION (mode))
 	/* We don't know anything about the upper bits.  */
-	mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (rsp->last_set_mode);
+	mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (last_mode);
 
       *nonzero &= mask;
       return NULL;
@@ -9995,8 +9995,7 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
   if (tem)
     {
       if (SHORT_IMMEDIATES_SIGN_EXTEND)
-	tem = sign_extend_short_imm (tem, GET_MODE (x),
-				     GET_MODE_PRECISION (mode));
+	tem = sign_extend_short_imm (tem, xmode, GET_MODE_PRECISION (mode));
 
       return tem;
     }
@@ -10004,9 +10003,9 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
     {
       unsigned HOST_WIDE_INT mask = rsp->nonzero_bits;
 
-      if (GET_MODE_PRECISION (GET_MODE (x)) < GET_MODE_PRECISION (mode))
+      if (GET_MODE_PRECISION (xmode) < GET_MODE_PRECISION (mode))
 	/* We don't know anything about the upper bits.  */
-	mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (GET_MODE (x));
+	mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (xmode);
 
       *nonzero &= mask;
     }
@@ -10014,17 +10013,14 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
   return NULL;
 }
 
-/* Return the number of bits at the high-order end of X that are known to
-   be equal to the sign bit.  X will be used in mode MODE; if MODE is
-   VOIDmode, X will be used in its own mode.  The returned value  will always
-   be between 1 and the number of bits in MODE.  */
+/* Given a reg X of mode XMODE, return the number of bits at the high-order
+   end of X that are known to be equal to the sign bit.  X will be used
+   in mode MODE; the returned value will always be between 1 and the
+   number of bits in MODE.  */
 
 static rtx
-reg_num_sign_bit_copies_for_combine (const_rtx x, machine_mode mode,
-				     const_rtx known_x ATTRIBUTE_UNUSED,
-				     machine_mode known_mode
-				     ATTRIBUTE_UNUSED,
-				     unsigned int known_ret ATTRIBUTE_UNUSED,
+reg_num_sign_bit_copies_for_combine (const_rtx x, scalar_int_mode xmode,
+				     scalar_int_mode mode,
 				     unsigned int *result)
 {
   rtx tem;
@@ -10053,7 +10049,7 @@ reg_num_sign_bit_copies_for_combine (const_rtx x, machine_mode mode,
     return tem;
 
   if (nonzero_sign_valid && rsp->sign_bit_copies != 0
-      && GET_MODE_PRECISION (GET_MODE (x)) == GET_MODE_PRECISION (mode))
+      && GET_MODE_PRECISION (xmode) == GET_MODE_PRECISION (mode))
     *result = rsp->sign_bit_copies;
 
   return NULL;
