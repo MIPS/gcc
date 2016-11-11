@@ -1149,7 +1149,7 @@ vn_reference_fold_indirect (vec<vn_reference_op_s> *ops,
   vn_reference_op_t op = &(*ops)[i];
   vn_reference_op_t mem_op = &(*ops)[i - 1];
   tree addr_base;
-  HOST_WIDE_INT addr_offset = 0;
+  poly_int64 addr_offset = 0;
 
   /* The only thing we have to do is from &OBJ.foo.bar add the offset
      from .foo.bar to the preceding MEM_REF offset and replace the
@@ -1159,9 +1159,9 @@ vn_reference_fold_indirect (vec<vn_reference_op_s> *ops,
   gcc_checking_assert (addr_base && TREE_CODE (addr_base) != MEM_REF);
   if (addr_base != TREE_OPERAND (op->op0, 0))
     {
-      offset_int off = offset_int::from (mem_op->op0, SIGNED);
+      poly_offset_int off = offset_int::from (mem_op->op0, SIGNED);
       off += addr_offset;
-      mem_op->op0 = wide_int_to_tree (TREE_TYPE (mem_op->op0), off);
+      mem_op->op0 = poly_offset_int_to_tree (TREE_TYPE (mem_op->op0), off);
       op->op0 = build_fold_addr_expr (addr_base);
       if (tree_fits_shwi_p (mem_op->op0))
 	mem_op->off = tree_to_shwi (mem_op->op0);
@@ -1183,7 +1183,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
   vn_reference_op_t mem_op = &(*ops)[i - 1];
   gimple *def_stmt;
   enum tree_code code;
-  offset_int off;
+  poly_offset_int off;
 
   def_stmt = SSA_NAME_DEF_STMT (op->op0);
   if (!is_gimple_assign (def_stmt))
@@ -1202,7 +1202,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
   if (code == ADDR_EXPR)
     {
       tree addr, addr_base;
-      HOST_WIDE_INT addr_offset;
+      poly_int64 addr_offset;
 
       addr = gimple_assign_rhs1 (def_stmt);
       addr_base = get_addr_base_and_unit_offset (TREE_OPERAND (addr, 0),
@@ -1212,7 +1212,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	 dereference isn't offsetted.  */
       if (!addr_base
 	  && *i_p == ops->length () - 1
-	  && off == 0
+	  && must_eq (off, 0)
 	  /* This makes us disable this transform for PRE where the
 	     reference ops might be also used for code insertion which
 	     is invalid.  */
@@ -1259,7 +1259,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
       op->op0 = ptr;
     }
 
-  mem_op->op0 = wide_int_to_tree (TREE_TYPE (mem_op->op0), off);
+  mem_op->op0 = poly_offset_int_to_tree (TREE_TYPE (mem_op->op0), off);
   if (tree_fits_shwi_p (mem_op->op0))
     mem_op->off = tree_to_shwi (mem_op->op0);
   else
@@ -2205,10 +2205,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	}
       if (TREE_CODE (lhs) == ADDR_EXPR)
 	{
-	  HOST_WIDE_INT tmp_lhs_offset;
 	  tree tem = get_addr_base_and_unit_offset (TREE_OPERAND (lhs, 0),
-						    &tmp_lhs_offset);
-	  lhs_offset = tmp_lhs_offset;
+						    &lhs_offset);
 	  if (!tem)
 	    return (void *)-1;
 	  if (TREE_CODE (tem) == MEM_REF
@@ -2235,10 +2233,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	rhs = SSA_VAL (rhs);
       if (TREE_CODE (rhs) == ADDR_EXPR)
 	{
-	  HOST_WIDE_INT tmp_rhs_offset;
 	  tree tem = get_addr_base_and_unit_offset (TREE_OPERAND (rhs, 0),
-						    &tmp_rhs_offset);
-	  rhs_offset = tmp_rhs_offset;
+						    &rhs_offset);
 	  if (!tem)
 	    return (void *)-1;
 	  if (TREE_CODE (tem) == MEM_REF
@@ -3217,7 +3213,7 @@ static inline bool
 set_ssa_val_to (tree from, tree to)
 {
   tree currval = SSA_VAL (from);
-  HOST_WIDE_INT toff, coff;
+  poly_int64 toff, coff;
 
   /* The only thing we allow as value numbers are ssa_names
      and invariants.  So assert that here.  We don't allow VN_TOP
@@ -3293,7 +3289,7 @@ set_ssa_val_to (tree from, tree to)
 	   && TREE_CODE (to) == ADDR_EXPR
 	   && (get_addr_base_and_unit_offset (TREE_OPERAND (currval, 0), &coff)
 	       == get_addr_base_and_unit_offset (TREE_OPERAND (to, 0), &toff))
-	   && coff == toff))
+	   && must_eq (coff, toff)))
     {
       /* If we equate two SSA names we have to make the side-band info
          of the leader conservative (and remember whatever original value

@@ -4908,7 +4908,7 @@ build5_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 tree
 build_simple_mem_ref_loc (location_t loc, tree ptr)
 {
-  HOST_WIDE_INT offset = 0;
+  poly_int64 offset = 0;
   tree ptype = TREE_TYPE (ptr);
   tree tem;
   /* For convenience allow addresses that collapse to a simple base

@@ -169,8 +169,9 @@ get_addr_stridx (tree exp, tree ptr)
   if (!decl_to_stridxlist_htab)
     return 0;
 
-  base = get_addr_base_and_unit_offset (exp, &off);
-  if (base == NULL || !DECL_P (base))
+  poly_int64 poff;
+  base = get_addr_base_and_unit_offset (exp, &poff);
+  if (base == NULL || !DECL_P (base) || !poff.is_constant (&off))
     return 0;
 
   list = decl_to_stridxlist_htab->get (base);
@@ -302,8 +303,9 @@ addr_stridxptr (tree exp)
 {
   HOST_WIDE_INT off;
 
-  tree base = get_addr_base_and_unit_offset (exp, &off);
-  if (base == NULL_TREE || !DECL_P (base))
+  poly_int64 poff;
+  tree base = get_addr_base_and_unit_offset (exp, &poff);
+  if (base == NULL_TREE || !DECL_P (base) || !poff.is_constant (&off))
     return NULL;
 
   if (!decl_to_stridxlist_htab)

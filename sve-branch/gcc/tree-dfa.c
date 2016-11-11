@@ -686,10 +686,11 @@ get_ref_base_and_extent_hwi (tree exp, HOST_WIDE_INT *poffset,
    its argument or a constant if the argument is known to be constant.  */
 
 tree
-get_addr_base_and_unit_offset_1 (tree exp, HOST_WIDE_INT *poffset,
+get_addr_base_and_unit_offset_1 (tree exp, poly_int64 *poffset,
 				 tree (*valueize) (tree))
 {
-  HOST_WIDE_INT byte_offset = 0;
+  poly_int64 byte_offset = 0;
+  poly_int64 suboffset;
 
   /* Compute cumulative byte-offset for nested component-refs and array-refs,
      and find the ultimate containing object.  */
@@ -823,7 +824,7 @@ done:
    is not BITS_PER_UNIT-aligned.  */
 
 tree
-get_addr_base_and_unit_offset (tree exp, HOST_WIDE_INT *poffset)
+get_addr_base_and_unit_offset (tree exp, poly_int64 *poffset)
 {
   return get_addr_base_and_unit_offset_1 (exp, poffset, NULL);
 }
