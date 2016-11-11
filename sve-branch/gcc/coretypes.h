@@ -56,8 +56,10 @@ struct rtx_def;
 typedef struct rtx_def *rtx;
 typedef const struct rtx_def *const_rtx;
 class machine_mode;
+class scalar_int_mode;
 class scalar_float_mode;
 template<typename> class opt_mode;
+typedef opt_mode<scalar_int_mode> opt_scalar_int_mode;
 typedef opt_mode<scalar_float_mode> opt_scalar_float_mode;
 
 /* Subclasses of rtx_def, using indentation to show the class

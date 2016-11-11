@@ -322,6 +322,39 @@ is_a (machine_mode_enum m, U *result)
   return false;
 }
 
+/* Represents a machine mode that is known to be a SCALAR_INT_MODE_P.  */
+class scalar_int_mode
+{
+public:
+  ALWAYS_INLINE scalar_int_mode () {}
+  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+
+  static bool includes_p (machine_mode_enum);
+  static scalar_int_mode from_int (int);
+
+protected:
+  ALWAYS_INLINE scalar_int_mode (machine_mode_enum m) : m_mode (m) {}
+
+  machine_mode_enum m_mode;
+};
+
+/* Return true if M is a scalar_int_mode.  */
+
+inline bool
+scalar_int_mode::includes_p (machine_mode_enum m)
+{
+  return SCALAR_INT_MODE_P (m);
+}
+
+/* Return M as a scalar_int_mode.  This function should only be used by
+   utility functions; general code should use as_a<T> instead.  */
+
+ALWAYS_INLINE scalar_int_mode
+scalar_int_mode::from_int (int i)
+{
+  return machine_mode_enum (i);
+}
+
 /* Represents a machine mode that is known to be a SCALAR_FLOAT_MODE_P.  */
 class scalar_float_mode
 {
@@ -564,9 +597,9 @@ get_narrowest_mode (T mode)
 /* Define the integer modes whose sizes are BITS_PER_UNIT and BITS_PER_WORD
    and the mode whose class is Pmode and whose size is POINTER_SIZE.  */
 
-extern machine_mode byte_mode;
-extern machine_mode word_mode;
-extern machine_mode ptr_mode;
+extern scalar_int_mode byte_mode;
+extern scalar_int_mode word_mode;
+extern scalar_int_mode ptr_mode;
 
 /* Target-dependent machine mode initialization - in insn-modes.c.  */
 extern void init_adjust_machine_modes (void);
