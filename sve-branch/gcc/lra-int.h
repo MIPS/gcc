@@ -132,7 +132,7 @@ struct lra_operand_data
   const char *constraint;
   /* It is taken only from machine description (which is different
      from recog_data.operand_mode) and can be of VOIDmode.  */
-  ENUM_BITFIELD(machine_mode) mode : 16;
+  machine_mode_enum mode : 16;
   /* The type of the operand (in/out/inout).  */
   ENUM_BITFIELD (op_type) type : 8;
   /* Through if accessed through STRICT_LOW.  */
@@ -153,7 +153,7 @@ struct lra_insn_reg
   /* The biggest mode through which the insn refers to the register
      occurrence (remember the register can be accessed through a
      subreg in the insn).  */
-  ENUM_BITFIELD(machine_mode) biggest_mode : 16;
+  machine_mode_enum biggest_mode : 16;
   /* The type of the corresponding operand which is the register.  */
   ENUM_BITFIELD (op_type) type : 8;
   /* True if the reg is accessed through a subreg and the subreg is

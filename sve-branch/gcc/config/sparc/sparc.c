@@ -4877,7 +4877,7 @@ sparc_init_modes (void)
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
-      machine_mode m = (machine_mode) i;
+      machine_mode m = (machine_mode_enum) i;
       unsigned int size = GET_MODE_SIZE (m);
 
       switch (GET_MODE_CLASS (m))
@@ -5352,17 +5352,17 @@ emit_save_or_restore_regs (unsigned int low, unsigned int high, rtx base,
 
 	  if (reg0 && reg1)
 	    {
-	      mode = SPARC_INT_REG_P (i) ? DImode : DFmode;
+	      mode = SPARC_INT_REG_P (i) ? E_DImode : E_DFmode;
 	      regno = i;
 	    }
 	  else if (reg0)
 	    {
-	      mode = SPARC_INT_REG_P (i) ? SImode : SFmode;
+	      mode = SPARC_INT_REG_P (i) ? E_SImode : E_SFmode;
 	      regno = i;
 	    }
 	  else if (reg1)
 	    {
-	      mode = SPARC_INT_REG_P (i) ? SImode : SFmode;
+	      mode = SPARC_INT_REG_P (i) ? E_SImode : E_SFmode;
 	      regno = i + 1;
 	      offset += 4;
 	    }

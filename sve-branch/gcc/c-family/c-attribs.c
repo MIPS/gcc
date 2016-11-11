@@ -1289,7 +1289,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))
 	    {
-	      mode = (machine_mode) j;
+	      mode = (machine_mode_enum) j;
 	      break;
 	    }
 

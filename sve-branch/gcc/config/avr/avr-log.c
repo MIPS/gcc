@@ -195,7 +195,7 @@ avr_log_vadump (FILE *file, const char *caller, va_list ap)
               break;
 
             case 'm':
-              fputs (GET_MODE_NAME ((machine_mode) va_arg (ap, int)),
+              fputs (GET_MODE_NAME ((machine_mode_enum) va_arg (ap, int)),
                      file);
               break;
 

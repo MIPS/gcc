@@ -20,6 +20,13 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef HAVE_MACHINE_MODES
 #define HAVE_MACHINE_MODES
 
+extern CONST_MODE_SIZE unsigned char mode_size[NUM_MACHINE_MODES];
+extern const unsigned short mode_precision[NUM_MACHINE_MODES];
+extern const unsigned char mode_nunits[NUM_MACHINE_MODES];
+extern CONST_MODE_UNIT_SIZE unsigned char mode_unit_size[NUM_MACHINE_MODES];
+extern const unsigned char mode_wider[NUM_MACHINE_MODES];
+extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
+
 /* Get the name of mode MODE as a string.  */
 
 extern const char * const mode_name[NUM_MACHINE_MODES];
@@ -174,22 +181,72 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
 #define POINTER_BOUNDS_MODE_P(MODE)      \
   (GET_MODE_CLASS (MODE) == MODE_POINTER_BOUNDS)
 
-/* Get the size in bytes and bits of an object of mode MODE.  */
+/* Return the base GET_MODE_SIZE value for MODE.  */
 
-extern CONST_MODE_SIZE unsigned char mode_size[NUM_MACHINE_MODES];
+ALWAYS_INLINE unsigned short
+mode_to_bytes (machine_mode_enum mode)
+{
 #if GCC_VERSION >= 4001
-#define GET_MODE_SIZE(MODE) \
-  ((unsigned short) (__builtin_constant_p (MODE) \
-		     ? mode_size_inline (MODE) : mode_size[MODE]))
+  return __builtin_constant_p (mode) ?
+	 mode_size_inline (mode) : mode_size[mode];
 #else
-#define GET_MODE_SIZE(MODE)    ((unsigned short) mode_size[MODE])
+  return mode_size[mode];
 #endif
-#define GET_MODE_BITSIZE(MODE) \
-  ((unsigned short) (GET_MODE_SIZE (MODE) * BITS_PER_UNIT))
+}
+
+/* Return the base GET_MODE_BITSIZE value for MODE.  */
+
+ALWAYS_INLINE unsigned short
+mode_to_bits (machine_mode_enum mode)
+{
+  return mode_to_bytes (mode) * BITS_PER_UNIT;
+}
+
+/* Return the base GET_MODE_PRECISION value for MODE.  */
+
+ALWAYS_INLINE unsigned short
+mode_to_precision (machine_mode_enum mode)
+{
+  return mode_precision[mode];
+}
+
+/* Return the base GET_MODE_NUNITS value for MODE.  */
+
+ALWAYS_INLINE unsigned short
+mode_to_nunits (machine_mode_enum mode)
+{
+#if GCC_VERSION >= 4001
+  return __builtin_constant_p (mode) ?
+         mode_nunits_inline (mode) : mode_nunits[mode];
+#else
+  return mode_nunits[mode];
+#endif
+}
+
+/* Represents a general machine mode (scalar or non-scalar).  */
+class machine_mode
+{
+public:
+  ALWAYS_INLINE machine_mode () {}
+  template<typename T>
+  ALWAYS_INLINE machine_mode (const T &m) : m_mode (m) {}
+  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+
+protected:
+  machine_mode_enum m_mode;
+};
+
+/* Get the size in bytes of an object of mode MODE.  */
+
+#define GET_MODE_SIZE(MODE) ((unsigned short) mode_to_bytes (MODE))
+
+/* Get the size in bits of an object of mode MODE.  */
+
+#define GET_MODE_BITSIZE(MODE) ((unsigned short) mode_to_bits (MODE))
 
 /* Get the number of value bits of an object of mode MODE.  */
-extern const unsigned short mode_precision[NUM_MACHINE_MODES];
-#define GET_MODE_PRECISION(MODE)  mode_precision[MODE]
+
+#define GET_MODE_PRECISION(MODE) ((unsigned short) mode_to_precision (MODE))
 
 /* Get the number of integral bits of an object of mode MODE.  */
 extern CONST_MODE_IBIT unsigned char mode_ibit[NUM_MACHINE_MODES];
@@ -213,10 +270,12 @@ extern const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES];
 extern const unsigned char mode_inner[NUM_MACHINE_MODES];
 #if GCC_VERSION >= 4001
 #define GET_MODE_INNER(MODE) \
-  ((machine_mode) (__builtin_constant_p (MODE) \
-			? mode_inner_inline (MODE) : mode_inner[MODE]))
+  (machine_mode ((machine_mode_enum) (__builtin_constant_p (MODE) \
+				      ? mode_inner_inline (MODE) \
+				      : mode_inner[MODE])))
 #else
-#define GET_MODE_INNER(MODE) ((machine_mode) mode_inner[MODE])
+#define GET_MODE_INNER(MODE) \
+  (machine_mode ((machine_mode_enum) mode_inner[MODE]))
 #endif
 
 /* Get the size in bytes or bits of the basic parts of an
@@ -244,31 +303,27 @@ extern const unsigned short mode_unit_precision[NUM_MACHINE_MODES];
 #define GET_MODE_UNIT_PRECISION(MODE) mode_unit_precision[MODE]
 #endif
 
+/* Get the number of units in an object of mode MODE.  This is 2 for
+   complex modes and the number of elements for vector modes.  */
 
-/* Get the number of units in the object.  */
-
-extern const unsigned char mode_nunits[NUM_MACHINE_MODES];
-#if GCC_VERSION >= 4001
-#define GET_MODE_NUNITS(MODE) \
-  ((unsigned char) (__builtin_constant_p (MODE) \
-		    ? mode_nunits_inline (MODE) : mode_nunits[MODE]))
-#else
-#define GET_MODE_NUNITS(MODE)  mode_nunits[MODE]
-#endif
+#define GET_MODE_NUNITS(MODE) ((unsigned short) mode_to_nunits (MODE))
 
 /* Get the next wider natural mode (eg, QI -> HI -> SI -> DI -> TI).  */
 
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
-#define GET_MODE_WIDER_MODE(MODE) ((machine_mode) mode_wider[MODE])
+#define GET_MODE_WIDER_MODE(MODE) \
+  (machine_mode ((machine_mode_enum) mode_wider[MODE]))
 
 /* For scalars, this is a mode with twice the precision.  For vectors,
    this is a mode with the same inner mode but with twice the elements.  */
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
-#define GET_MODE_2XWIDER_MODE(MODE) ((machine_mode) mode_2xwider[MODE])
+#define GET_MODE_2XWIDER_MODE(MODE) \
+  (machine_mode ((machine_mode_enum) mode_2xwider[MODE]))
 
 /* Get the complex mode from the component mode.  */
 extern const unsigned char mode_complex[NUM_MACHINE_MODES];
-#define GET_MODE_COMPLEX_MODE(MODE) ((machine_mode) mode_complex[MODE])
+#define GET_MODE_COMPLEX_MODE(MODE) \
+  (machine_mode ((machine_mode_enum) mode_complex[MODE]))
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.
@@ -337,7 +392,7 @@ extern unsigned get_mode_alignment (machine_mode);
 
 extern const unsigned char class_narrowest_mode[MAX_MODE_CLASS];
 #define GET_CLASS_NARROWEST_MODE(CLASS) \
-  ((machine_mode) class_narrowest_mode[CLASS])
+  (machine_mode ((machine_mode_enum) class_narrowest_mode[CLASS]))
 
 /* Define the integer modes whose sizes are BITS_PER_UNIT and BITS_PER_WORD
    and the mode whose class is Pmode and whose size is POINTER_SIZE.  */
@@ -360,7 +415,7 @@ extern void init_adjust_machine_modes (void);
 struct int_n_data_t {
   /* These parts are initailized by genmodes output */
   unsigned int bitsize;
-  machine_mode m;
+  machine_mode_enum m;
   /* RID_* is RID_INTN_BASE + index into this array */
 };
 

@@ -2336,7 +2336,7 @@ xstormy16_expand_builtin (tree exp, rtx target,
 
       copyto[o] = 0;
 
-      omode = (machine_mode) insn_data[code].operand[o].mode;
+      omode = (machine_mode_enum) insn_data[code].operand[o].mode;
       if (ao == 'r')
 	op[o] = target ? target : gen_reg_rtx (omode);
       else if (ao == 't')

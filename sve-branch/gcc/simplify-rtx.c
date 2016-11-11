@@ -5049,7 +5049,9 @@ simplify_const_relational_operation (enum rtx_code code,
       /* It would be nice if we really had a mode here.  However, the
 	 largest int representable on the target is as good as
 	 infinite.  */
-      machine_mode cmode = (mode == VOIDmode) ? MAX_MODE_INT : mode;
+      machine_mode cmode = mode;
+      if (cmode == VOIDmode)
+	cmode = MAX_MODE_INT;
       rtx_mode_t ptrueop0 = rtx_mode_t (trueop0, cmode);
       rtx_mode_t ptrueop1 = rtx_mode_t (trueop1, cmode);
 
@@ -6127,7 +6129,7 @@ simplify_subreg (machine_mode outermode, rtx op,
       unsigned int part_size, final_offset;
       rtx part, res;
 
-      enum machine_mode part_mode = GET_MODE (XEXP (op, 0));
+      machine_mode part_mode = GET_MODE (XEXP (op, 0));
       if (part_mode == VOIDmode)
 	part_mode = GET_MODE_INNER (GET_MODE (op));
       part_size = GET_MODE_SIZE (part_mode);

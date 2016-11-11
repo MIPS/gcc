@@ -179,9 +179,8 @@ int dot_symbols;
 
 /* Specify the machine mode that pointers have.  After generation of rtl, the
    compiler makes no further distinction between pointers and any other objects
-   of this machine mode.  The type is unsigned since not all things that
-   include rs6000.h also include machmode.h.  */
-unsigned rs6000_pmode;
+   of this machine mode.  */
+machine_mode rs6000_pmode;
 
 /* Width in bits of a pointer.  */
 unsigned rs6000_pointer_size;
@@ -2768,7 +2767,7 @@ rs6000_setup_reg_addr_masks (void)
 
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     {
-      machine_mode m2 = (machine_mode) m;
+      machine_mode m2 = (machine_mode_enum) m;
       bool complex_p = false;
       size_t msize;
 
@@ -3376,8 +3375,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_P9_FUSION)
     {
       struct fuse_insns {
-	enum machine_mode mode;			/* mode of the fused type.  */
-	enum machine_mode pmode;		/* pointer mode.  */
+	machine_mode_enum mode;			/* mode of the fused type.  */
+	machine_mode_enum pmode;		/* pointer mode.  */
 	enum rs6000_reload_reg_type rtype;	/* register type.  */
 	enum insn_code load;			/* load insn.  */
 	enum insn_code store;			/* store insn.  */
@@ -3449,12 +3448,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  CODE_FOR_fusion_gpr_di_df_store },
       };
 
-      enum machine_mode cur_pmode = Pmode;
+      machine_mode cur_pmode = Pmode;
       size_t i;
 
       for (i = 0; i < ARRAY_SIZE (addis_insns); i++)
 	{
-	  enum machine_mode xmode = addis_insns[i].mode;
+	  machine_mode xmode = addis_insns[i].mode;
 	  enum rs6000_reload_reg_type rtype = addis_insns[i].rtype;
 
 	  if (addis_insns[i].pmode != cur_pmode)
@@ -3491,12 +3490,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
     for (m = 0; m < NUM_MACHINE_MODES; ++m)
       rs6000_hard_regno_nregs[m][r]
-	= rs6000_hard_regno_nregs_internal (r, (machine_mode)m);
+	= rs6000_hard_regno_nregs_internal (r, (machine_mode_enum) m);
 
   /* Precalculate HARD_REGNO_MODE_OK.  */
   for (r = 0; r < FIRST_PSEUDO_REGISTER; ++r)
     for (m = 0; m < NUM_MACHINE_MODES; ++m)
-      if (rs6000_hard_regno_mode_ok (r, (machine_mode)m))
+      if (rs6000_hard_regno_mode_ok (r, (machine_mode_enum) m))
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
 
   /* Precalculate CLASS_MAX_NREGS sizes.  */
@@ -3518,7 +3517,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
       for (m = 0; m < NUM_MACHINE_MODES; ++m)
 	{
-	  machine_mode m2 = (machine_mode)m;
+	  machine_mode m2 = (machine_mode_enum) m;
 	  int reg_size2 = reg_size;
 
 	  /* TDmode & IBM 128-bit floating point always takes 2 registers, even
@@ -3797,12 +3796,12 @@ rs6000_option_override_internal (bool global_init_p)
   /* Set the pointer size.  */
   if (TARGET_64BIT)
     {
-      rs6000_pmode = (int)DImode;
+      rs6000_pmode = DImode;
       rs6000_pointer_size = 64;
     }
   else
     {
-      rs6000_pmode = (int)SImode;
+      rs6000_pmode = SImode;
       rs6000_pointer_size = 32;
     }
 
@@ -9744,7 +9743,7 @@ rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode)
  
 static int
 rs6000_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
-                            enum machine_mode mode)
+                            machine_mode mode)
 {
   switch (rs6000_cpu)
     {
@@ -14717,7 +14716,7 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 
 	if (nonvoid)
 	  {
-	    machine_mode tmode = (uses_spr) ? insn_op->mode : SImode;
+	    machine_mode tmode = (uses_spr) ? insn_op->mode : E_SImode;
 	    if (!target
 		|| GET_MODE (target) != tmode
 		|| (uses_spr && !(*insn_op->predicate) (target, tmode)))
@@ -23187,8 +23186,8 @@ rs6000_invalid_binary_op (int op ATTRIBUTE_UNUSED,
 			  const_tree type1,
 			  const_tree type2)
 {
-  enum machine_mode mode1 = TYPE_MODE (type1);
-  enum machine_mode mode2 = TYPE_MODE (type2);
+  machine_mode mode1 = TYPE_MODE (type1);
+  machine_mode mode2 = TYPE_MODE (type2);
 
   /* For complex modes, use the inner type.  */
   if (COMPLEX_MODE_P (mode1))
@@ -39315,7 +39314,7 @@ fusion_p9_p (rtx addis_reg,		/* register set via addis.  */
 	     rtx src)			/* source (register or memory).  */
 {
   rtx addr, mem, offset;
-  enum machine_mode mode = GET_MODE (src);
+  machine_mode mode = GET_MODE (src);
 
   /* Validate arguments.  */
   if (!base_reg_operand (addis_reg, GET_MODE (addis_reg)))
@@ -39489,7 +39488,7 @@ expand_fusion_p9_store (rtx *operands)
 const char *
 emit_fusion_p9_load (rtx reg, rtx mem, rtx tmp_reg)
 {
-  enum machine_mode mode = GET_MODE (reg);
+  machine_mode mode = GET_MODE (reg);
   rtx hi;
   rtx lo;
   rtx addr;
@@ -39573,7 +39572,7 @@ emit_fusion_p9_load (rtx reg, rtx mem, rtx tmp_reg)
 const char *
 emit_fusion_p9_store (rtx mem, rtx reg, rtx tmp_reg)
 {
-  enum machine_mode mode = GET_MODE (reg);
+  machine_mode mode = GET_MODE (reg);
   rtx hi;
   rtx lo;
   rtx addr;

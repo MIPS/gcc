@@ -550,7 +550,7 @@ compute_can_copy (void)
 #ifdef AVOID_CCMODE_COPIES
 	can_copy[i] = 0;
 #else
-	reg = gen_rtx_REG ((machine_mode) i, LAST_VIRTUAL_REGISTER + 1);
+	reg = gen_rtx_REG ((machine_mode_enum) i, LAST_VIRTUAL_REGISTER + 1);
 	insn = emit_insn (gen_rtx_SET (reg, reg));
 	if (recog (PATTERN (insn), insn, NULL) >= 0)
 	  can_copy[i] = 1;

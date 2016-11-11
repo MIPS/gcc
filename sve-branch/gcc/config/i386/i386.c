@@ -10832,7 +10832,7 @@ ix86_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
 
 static void
 ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
-				   enum machine_mode mode,
+				   machine_mode mode,
 				   tree type,
 				   int *pretend_size ATTRIBUTE_UNUSED,
 				   int no_rtl)
@@ -24304,7 +24304,7 @@ struct expand_vec_perm_d
 {
   rtx target, op0, op1;
   unsigned char perm[MAX_VECT_LEN];
-  machine_mode vmode;
+  machine_mode_enum vmode;
   unsigned char nelt;
   bool one_operand_p;
   bool testing_p;
@@ -30028,7 +30028,7 @@ ix86_constant_alignment (tree exp, int align)
 static int
 iamcu_alignment (tree type, int align)
 {
-  enum machine_mode mode;
+  machine_mode mode;
 
   if (align < 32 || TYPE_USER_ALIGN (type))
     return align;
@@ -34389,7 +34389,7 @@ ix86_expand_sse_pcmpestr (const struct builtin_description *d,
       emit_insn
 	(gen_rtx_SET (gen_rtx_STRICT_LOW_PART (VOIDmode, target),
 		      gen_rtx_fmt_ee (EQ, QImode,
-				      gen_rtx_REG ((machine_mode) d->flag,
+				      gen_rtx_REG ((machine_mode_enum) d->flag,
 						   FLAGS_REG),
 				      const0_rtx)));
       return SUBREG_REG (target);
@@ -34484,7 +34484,7 @@ ix86_expand_sse_pcmpistr (const struct builtin_description *d,
       emit_insn
 	(gen_rtx_SET (gen_rtx_STRICT_LOW_PART (VOIDmode, target),
 		      gen_rtx_fmt_ee (EQ, QImode,
-				      gen_rtx_REG ((machine_mode) d->flag,
+				      gen_rtx_REG ((machine_mode_enum) d->flag,
 						   FLAGS_REG),
 				      const0_rtx)));
       return SUBREG_REG (target);
@@ -45648,7 +45648,7 @@ canonicalize_vector_int_perm (const struct expand_vec_perm_d *d,
 			      struct expand_vec_perm_d *nd)
 {
   int i;
-  enum machine_mode mode = VOIDmode;
+  machine_mode mode = VOIDmode;
 
   switch (d->vmode)
     {
@@ -50337,7 +50337,7 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 /* Return mode to be used for bounds or VOIDmode
    if bounds are not supported.  */
 
-static enum machine_mode
+static machine_mode
 ix86_mpx_bound_mode ()
 {
   /* Do not support pointer checker if MPX
@@ -50457,7 +50457,7 @@ extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset)
 
 bool
 ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
-				    enum machine_mode mode)
+				    machine_mode mode)
 {
   HOST_WIDE_INT offval_1, offval_2, msize;
   rtx mem_1, mem_2, reg_1, reg_2, base_1, base_2, offset_1, offset_2;

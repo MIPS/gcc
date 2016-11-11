@@ -1176,7 +1176,7 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 
   for (iloop = 0; iloop < NUM_MACHINE_MODES; iloop++)
     {
-      machine_mode i = (machine_mode) iloop;
+      machine_mode i = (machine_mode_enum) iloop;
       machine_mode inner_mode = i;
       bool float_p = false;
       bool complex_p = false;

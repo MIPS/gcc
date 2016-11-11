@@ -1240,7 +1240,7 @@ arc_init_reg_tables (void)
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
-      machine_mode m = (machine_mode) i;
+      machine_mode m = (machine_mode_enum) i;
 
       switch (GET_MODE_CLASS (m))
 	{
@@ -8562,7 +8562,7 @@ arc_legitimize_address_0 (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     }
   else if (GET_CODE (addr) == SYMBOL_REF && !SYMBOL_REF_FUNCTION_P (addr))
     x = force_reg (Pmode, x);
-  if (memory_address_p ((machine_mode) mode, x))
+  if (memory_address_p ((machine_mode_enum) mode, x))
      return x;
   return NULL_RTX;
 }

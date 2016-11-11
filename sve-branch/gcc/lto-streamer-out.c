@@ -2719,7 +2719,7 @@ lto_write_mode_table (void)
   for (int i = 0; i < (int) MAX_MACHINE_MODE; i++)
     if (streamer_mode_table[i])
       {
-	machine_mode m = (machine_mode) i;
+	machine_mode m = (machine_mode_enum) i;
 	machine_mode inner_m = GET_MODE_INNER (m);
 	if (inner_m != m)
 	  streamer_mode_table[(int) inner_m] = 1;
@@ -2730,7 +2730,7 @@ lto_write_mode_table (void)
     for (int i = 0; i < (int) MAX_MACHINE_MODE; i++)
       if (streamer_mode_table[i] && i != (int) VOIDmode && i != (int) BLKmode)
 	{
-	  machine_mode m = (machine_mode) i;
+	  machine_mode m = (machine_mode_enum) i;
 	  if ((GET_MODE_INNER (m) == m) ^ (pass == 0))
 	    continue;
 	  bp_pack_value (&bp, m, 8);

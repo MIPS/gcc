@@ -1360,7 +1360,7 @@ iq2000_function_arg (cumulative_args_t cum_v, machine_mode mode,
   if (mode == VOIDmode)
     {
       if (cum->num_adjusts > 0)
-	ret = gen_rtx_PARALLEL ((machine_mode) cum->fp_code,
+	ret = gen_rtx_PARALLEL ((machine_mode_enum) cum->fp_code,
 		       gen_rtvec_v (cum->num_adjusts, cum->adjust));
     }
 

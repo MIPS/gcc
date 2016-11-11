@@ -197,7 +197,7 @@ compute_costs (bool speed_p, struct cost_rtxes *rtxes)
 
   for (i = 0; i < MAX_MACHINE_MODE; i++)
     {
-      machine_mode mode = (machine_mode) i;
+      machine_mode mode = (machine_mode_enum) i;
       int factor = GET_MODE_SIZE (mode) / UNITS_PER_WORD;
       if (factor > 1)
 	{
@@ -1352,12 +1352,12 @@ dump_choices (bool speed_p, const char *description)
   fprintf (dump_file, "Choices when optimizing for %s:\n", description);
 
   for (i = 0; i < MAX_MACHINE_MODE; i++)
-    if (GET_MODE_SIZE ((machine_mode) i) > UNITS_PER_WORD)
+    if (GET_MODE_SIZE ((machine_mode_enum) i) > UNITS_PER_WORD)
       fprintf (dump_file, "  %s mode %s for copy lowering.\n",
 	       choices[speed_p].move_modes_to_split[i]
 	       ? "Splitting"
 	       : "Skipping",
-	       GET_MODE_NAME ((machine_mode) i));
+	       GET_MODE_NAME ((machine_mode_enum) i));
 
   fprintf (dump_file, "  %s mode %s for zero_extend lowering.\n",
 	   choices[speed_p].splitting_zext ? "Splitting" : "Skipping",

@@ -1822,8 +1822,9 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define TYPE_MODE_RAW(NODE) (TYPE_CHECK (NODE)->type_common.mode)
 #define TYPE_MODE(NODE) \
-  (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
-   ? vector_type_mode (NODE) : (NODE)->type_common.mode)
+   ((const machine_mode &) \
+    (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
+     ? vector_type_mode (NODE) : machine_mode ((NODE)->type_common.mode)))
 #define SET_TYPE_MODE(NODE, MODE) \
   (TYPE_CHECK (NODE)->type_common.mode = (MODE))
 
@@ -2345,7 +2346,9 @@ extern machine_mode element_mode (const_tree t);
 /* Holds the machine mode corresponding to the declaration of a variable or
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
-#define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.mode)
+#define DECL_MODE(NODE) \
+  ((const machine_mode &) \
+   machine_mode (DECL_COMMON_CHECK (NODE)->decl_common.mode))
 #define SET_DECL_MODE(NODE, MODE) \
   (DECL_COMMON_CHECK (NODE)->decl_common.mode = (MODE))
 

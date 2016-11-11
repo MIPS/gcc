@@ -179,7 +179,7 @@ END {
     # The vector types are defined via two tables defining the real
     # machine mode and the builtin primitive type.  We use two tables
     # rather than a structure to avoid structure padding and save space.
-    print "static const machine_mode ix86_builtin_type_vect_mode[] = {"
+    print "static const machine_mode_enum ix86_builtin_type_vect_mode[] = {"
     for (i = 0; i < vect_defs; ++i) {
 	if (i == 0)
 	    printf "  "
@@ -187,7 +187,7 @@ END {
 	    printf ",\n  "
 	else
 	    printf ", "
-	printf vect_mode[i] "mode"
+	printf "E_" vect_mode[i] "mode"
     }
     print "\n};\n\n"
 

@@ -1525,7 +1525,7 @@ lto_input_mode_table (struct lto_file_decl_data *file_data)
 	= bp_unpack_enum (&bp, mode_class, MAX_MODE_CLASS);
       unsigned int size = bp_unpack_value (&bp, 8);
       unsigned int prec = bp_unpack_value (&bp, 16);
-      machine_mode inner = (machine_mode) bp_unpack_value (&bp, 8);
+      machine_mode inner = (machine_mode_enum) bp_unpack_value (&bp, 8);
       unsigned int nunits = bp_unpack_value (&bp, 8);
       unsigned int ibit = 0, fbit = 0;
       unsigned int real_fmt_len = 0;
@@ -1554,7 +1554,7 @@ lto_input_mode_table (struct lto_file_decl_data *file_data)
 	for (machine_mode mr = pass ? VOIDmode
 				    : GET_CLASS_NARROWEST_MODE (mclass);
 	     pass ? mr < MAX_MACHINE_MODE : mr != VOIDmode;
-	     pass ? mr = (machine_mode) (mr + 1)
+	     pass ? mr = (machine_mode_enum) (mr + 1)
 		  : mr = GET_MODE_WIDER_MODE (mr))
 	  if (GET_MODE_CLASS (mr) != mclass
 	      || GET_MODE_SIZE (mr) != size

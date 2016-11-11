@@ -369,7 +369,7 @@ struct c_common_resword
 
 /* Mode used to build pointers (VOIDmode means ptr_mode).  */
 
-extern machine_mode c_default_pointer_mode;
+extern machine_mode_enum c_default_pointer_mode;
 
 /* Extra cpp_ttype values for C++.  */
 

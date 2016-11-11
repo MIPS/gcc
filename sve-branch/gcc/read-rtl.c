@@ -136,7 +136,7 @@ find_mode (const char *name)
 static void
 apply_mode_iterator (void *loc, int mode)
 {
-  PUT_MODE ((rtx) loc, (machine_mode) mode);
+  PUT_MODE ((rtx) loc, (machine_mode_enum) mode);
 }
 
 /* Implementations of the iterator_group callbacks for codes.  */

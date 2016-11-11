@@ -409,7 +409,7 @@ cond_exec_process_insns (ce_if_block *ce_info ATTRIBUTE_UNUSED,
 
       if (CALL_P (insn) && prob_val >= 0)
 	validate_change (insn, &REG_NOTES (insn),
-			 gen_rtx_INT_LIST ((machine_mode) REG_BR_PROB,
+			 gen_rtx_INT_LIST ((machine_mode_enum) REG_BR_PROB,
 					   prob_val, REG_NOTES (insn)), 1);
 
     insn_done:

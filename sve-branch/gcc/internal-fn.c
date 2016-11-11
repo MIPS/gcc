@@ -1811,7 +1811,7 @@ expand_arith_overflow (enum tree_code code, gimple *stmt)
 	  /* The infinity precision result will always fit into result.  */
 	  rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
 	  write_complex_part (target, const0_rtx, true);
-	  enum machine_mode mode = TYPE_MODE (type);
+	  machine_mode mode = TYPE_MODE (type);
 	  struct separate_ops ops;
 	  ops.code = code;
 	  ops.type = type;
@@ -1865,7 +1865,7 @@ expand_arith_overflow (enum tree_code code, gimple *stmt)
       if (orig_precres == precres && precop <= BITS_PER_WORD)
 	{
 	  int p = WORD_REGISTER_OPERATIONS ? BITS_PER_WORD : precop;
-	  enum machine_mode m = smallest_mode_for_size (p, MODE_INT);
+	  machine_mode m = smallest_mode_for_size (p, MODE_INT);
 	  tree optype = build_nonstandard_integer_type (GET_MODE_PRECISION (m),
 							uns0_p && uns1_p
 							&& unsr_p);
@@ -1907,7 +1907,7 @@ expand_arith_overflow (enum tree_code code, gimple *stmt)
       if (orig_precres == precres)
 	{
 	  int p = MAX (prec0, prec1);
-	  enum machine_mode m = smallest_mode_for_size (p, MODE_INT);
+	  machine_mode m = smallest_mode_for_size (p, MODE_INT);
 	  tree optype = build_nonstandard_integer_type (GET_MODE_PRECISION (m),
 							uns0_p && uns1_p
 							&& unsr_p);

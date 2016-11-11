@@ -613,19 +613,6 @@ enum arm_pcs
   ARM_PCS_UNKNOWN
 };
 
-
-
-
-/* We can't use machine_mode inside a generator file because it
-   hasn't been created yet; we shouldn't be using any code that
-   needs the real definition though, so this ought to be safe.  */
-#ifdef GENERATOR_FILE
-#define MACHMODE int
-#else
-#include "insn-modes.h"
-#define MACHMODE machine_mode
-#endif
-
 #ifndef USED_FOR_TARGET
 /* AAPCS related state tracking.  */
 typedef struct
@@ -639,7 +626,7 @@ typedef struct
   rtx aapcs_reg;		/* Register assigned to this argument.  This
 				   is NULL_RTX if this parameter goes on
 				   the stack.  */
-  MACHMODE aapcs_vfp_rmode;
+  machine_mode aapcs_vfp_rmode;
   int aapcs_stack_words;	/* If the argument is passed on the stack, this
 				   is the number of words needed, after rounding
 				   up.  Only meaningful when

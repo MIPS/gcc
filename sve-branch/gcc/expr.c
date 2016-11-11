@@ -130,7 +130,7 @@ init_expr_target (void)
   PATTERN (insn) = pat;
 
   for (mode = VOIDmode; (int) mode < NUM_MACHINE_MODES;
-       mode = (machine_mode) ((int) mode + 1))
+       mode = (machine_mode_enum) ((int) mode + 1))
     {
       int regno;
 

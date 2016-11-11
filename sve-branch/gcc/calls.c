@@ -4203,7 +4203,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   for (; count < nargs; count++)
     {
       rtx val = va_arg (p, rtx);
-      machine_mode mode = (machine_mode) va_arg (p, int);
+      machine_mode mode = (machine_mode_enum) va_arg (p, int);
       int unsigned_p = 0;
 
       /* We cannot convert the arg value to the mode the library wants here;

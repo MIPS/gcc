@@ -10743,7 +10743,7 @@ build_common_builtin_nodes (void)
 	if (targetm.libfunc_gnu_prefix)
 	  prefix = "__gnu_";
 
-	type = lang_hooks.types.type_for_mode ((machine_mode) mode, 0);
+	type = lang_hooks.types.type_for_mode ((machine_mode_enum) mode, 0);
 	if (type == NULL)
 	  continue;
 	inner_type = TREE_TYPE (type);

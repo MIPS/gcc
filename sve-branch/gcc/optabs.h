@@ -53,7 +53,7 @@ struct expand_operand {
 
   /* The mode passed to the convert_*_operand function.  It has a
      type-dependent meaning.  */
-  ENUM_BITFIELD (machine_mode) mode : 16;
+  machine_mode_enum mode : 16;
 
   /* The value of the operand.  */
   rtx value;

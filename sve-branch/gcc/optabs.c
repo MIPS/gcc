@@ -5140,7 +5140,7 @@ debug_optab_libfuncs (void)
   for (i = FIRST_NORM_OPTAB; i <= LAST_NORMLIB_OPTAB; ++i)
     for (j = 0; j < NUM_MACHINE_MODES; ++j)
       {
-	rtx l = optab_libfunc ((optab) i, (machine_mode) j);
+	rtx l = optab_libfunc ((optab) i, (machine_mode_enum) j);
 	if (l)
 	  {
 	    gcc_assert (GET_CODE (l) == SYMBOL_REF);
@@ -5156,8 +5156,8 @@ debug_optab_libfuncs (void)
     for (j = 0; j < NUM_MACHINE_MODES; ++j)
       for (k = 0; k < NUM_MACHINE_MODES; ++k)
 	{
-	  rtx l = convert_optab_libfunc ((optab) i, (machine_mode) j,
-					 (machine_mode) k);
+	  rtx l = convert_optab_libfunc ((optab) i, (machine_mode_enum) j,
+					 (machine_mode_enum) k);
 	  if (l)
 	    {
 	      gcc_assert (GET_CODE (l) == SYMBOL_REF);
