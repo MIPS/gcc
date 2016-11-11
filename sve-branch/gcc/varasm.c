@@ -3721,10 +3721,17 @@ force_const_mem (machine_mode in_mode, rtx x)
   desc = ggc_alloc<constant_descriptor_rtx> ();
   *slot = desc;
 
+  tree type = NULL_TREE;
+  if (mode != VOIDmode
+      /* Don't use the tree type system for vector modes that have
+	 no associated vector type.  */
+      && (!VECTOR_MODE_P (mode)
+	  || targetm.vector_mode_supported_p (mode)))
+    type = lang_hooks.types.type_for_mode (mode, 0);
+
   /* Align the location counter as required by EXP's data type.  */
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 
-  tree type = lang_hooks.types.type_for_mode (mode, 0);
   if (type != NULL_TREE)
     align = CONSTANT_ALIGNMENT (make_tree (type, x), align);
 
@@ -3768,7 +3775,8 @@ force_const_mem (machine_mode in_mode, rtx x)
 
   /* Construct the MEM.  */
   desc->mem = def = gen_const_mem (mode, symbol);
-  set_mem_attributes (def, lang_hooks.types.type_for_mode (mode, 0), 1);
+  if (type)
+    set_mem_attributes (def, type, 1);
   set_mem_align (def, align);
 
   /* If we're dropping a label to the constant pool, make sure we
