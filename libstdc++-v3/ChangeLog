@@ -1,3 +1,33 @@
+2016-11-10  François Dumont  <fdumont@gcc.gnu.org>
+
+	* src/c++11/debug.cc (format_word): Delete.
+	(print_literal): New. Replace call to print_word for literals.
+
+2016-11-09  Tim Shen  <timshen@google.com>
+
+	* libstdc++-v3/include/bits/regex.h (regex_iterator::regex_iterator()):
+	Define end() as _M_pregex == nullptr.
+	* libstdc++-v3/include/bits/regex.tcc (regex_iterator::operator==(),
+	regex_iterator::operator++()): Fix operator==() and operator++() to
+	look at null-ness of _M_pregex on both sides.
+	* testsuite/28_regex/regression.cc: New testcase.
+
+2016-11-07  Jason Merrill  <jason@redhat.com>
+
+	* include/bits/c++config (_GLIBCXX_NOEXCEPT_PARM)
+	(_GLIBCXX_NOEXCEPT_QUAL): New.
+	* include/std/type_traits (is_function): Use them.
+	* libsubc++/new (launder): Likewise.
+	* libsupc++/cxxabi.h (__pbase_type_info::__masks): Add
+	__noexcept_mask.
+	* libsupc++/pbase_type_info.cc (__do_catch): Handle function
+	pointer conversion.
+
+2016-11-07  François Dumont  <fdumont@gcc.gnu.org>
+
+	* config/abi/pre/gnu-versioned-namespace.ver: Export C++17 new of
+	over-aligned types symbols.
+
 2016-10-28  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/experimental/bits/fs_path.h (__is_path_src)

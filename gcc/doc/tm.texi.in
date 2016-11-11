@@ -2507,7 +2507,11 @@ value that the middle-end intended.
 
 @hook TARGET_SPILL_CLASS
 
+@hook TARGET_ADDITIONAL_ALLOCNO_CLASS_P
+
 @hook TARGET_CSTORE_MODE
+
+@hook TARGET_COMPUTE_PRESSURE_CLASSES
 
 @node Stack and Calling
 @section Stack Layout and Calling Conventions

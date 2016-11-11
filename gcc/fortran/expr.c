@@ -2206,7 +2206,7 @@ check_alloc_comp_init (gfc_expr *e)
   gfc_constructor *ctor;
 
   gcc_assert (e->expr_type == EXPR_STRUCTURE);
-  gcc_assert (e->ts.type == BT_DERIVED);
+  gcc_assert (e->ts.type == BT_DERIVED || e->ts.type == BT_CLASS);
 
   for (comp = e->ts.u.derived->components,
        ctor = gfc_constructor_first (e->value.constructor);
@@ -2794,12 +2794,12 @@ external_spec_function (gfc_expr *e)
       return false;
     }
 
-  if (f->attr.recursive)
-    {
-      gfc_error ("Specification function %qs at %L cannot be RECURSIVE",
-		 f->name, &e->where);
+  /* F08:7.1.11.6. */
+  if (f->attr.recursive
+      && !gfc_notify_std (GFC_STD_F2003,
+			  "Specification function '%s' "
+			  "at %L cannot be RECURSIVE",  f->name, &e->where))
       return false;
-    }
 
 function_allowed:
   return restricted_args (e->value.function.actual);
@@ -3445,7 +3445,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
     {
       char err[200];
       gfc_symbol *s1,*s2;
-      gfc_component *comp;
+      gfc_component *comp1, *comp2;
       const char *name;
 
       attr = gfc_expr_attr (rvalue);
@@ -3549,9 +3549,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	    }
 	}
 
-      comp = gfc_get_proc_ptr_comp (lvalue);
-      if (comp)
-	s1 = comp->ts.interface;
+      comp1 = gfc_get_proc_ptr_comp (lvalue);
+      if (comp1)
+	s1 = comp1->ts.interface;
       else
 	{
 	  s1 = lvalue->symtree->n.sym;
@@ -3559,18 +3559,18 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	    s1 = s1->ts.interface;
 	}
 
-      comp = gfc_get_proc_ptr_comp (rvalue);
-      if (comp)
+      comp2 = gfc_get_proc_ptr_comp (rvalue);
+      if (comp2)
 	{
 	  if (rvalue->expr_type == EXPR_FUNCTION)
 	    {
-	      s2 = comp->ts.interface->result;
+	      s2 = comp2->ts.interface->result;
 	      name = s2->name;
 	    }
 	  else
 	    {
-	      s2 = comp->ts.interface;
-	      name = comp->name;
+	      s2 = comp2->ts.interface;
+	      name = comp2->name;
 	    }
 	}
       else if (rvalue->expr_type == EXPR_FUNCTION)
@@ -3590,6 +3590,15 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 
       if (s2 && s2->attr.proc_pointer && s2->ts.interface)
 	s2 = s2->ts.interface;
+
+      /* Special check for the case of absent interface on the lvalue.
+       * All other interface checks are done below. */
+      if (!s1 && comp1 && comp1->attr.subroutine && s2 && s2->attr.function)
+	{
+	  gfc_error ("Interface mismatch in procedure pointer assignment "
+		     "at %L: '%s' is not a subroutine", &rvalue->where, name);
+	  return false;
+	}
 
       if (s1 == s2 || !s1 || !s2)
 	return true;
@@ -4367,6 +4376,7 @@ gfc_generate_initializer (gfc_typespec *ts, bool generate)
 	{
 	  ctor->expr = gfc_get_expr ();
 	  ctor->expr->expr_type = EXPR_NULL;
+	  ctor->expr->where = init->where;
 	  ctor->expr->ts = comp->ts;
 	}
 

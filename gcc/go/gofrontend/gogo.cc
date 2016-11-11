@@ -394,6 +394,7 @@ void
 Gogo::import_package(const std::string& filename,
 		     const std::string& local_name,
 		     bool is_local_name_exported,
+		     bool must_exist,
 		     Location location)
 {
   if (filename.empty())
@@ -497,7 +498,8 @@ Gogo::import_package(const std::string& filename,
 						this->relative_import_path_);
   if (stream == NULL)
     {
-      go_error_at(location, "import file %qs not found", filename.c_str());
+      if (must_exist)
+	go_error_at(location, "import file %qs not found", filename.c_str());
       return;
     }
 
@@ -1299,29 +1301,35 @@ Gogo::write_globals()
               // The initializer is constant if it is the zero-value of the
               // variable's type or if the initial value is an immutable value
               // that is not copied to the heap.
-              bool is_constant_initializer = false;
+              bool is_static_initializer = false;
               if (var->init() == NULL)
-                is_constant_initializer = true;
+                is_static_initializer = true;
               else
                 {
                   Type* var_type = var->type();
                   Expression* init = var->init();
                   Expression* init_cast =
                       Expression::make_cast(var_type, init, var->location());
-                  is_constant_initializer =
-                      init_cast->is_immutable() && !var_type->has_pointer();
+                  is_static_initializer = init_cast->is_static_initializer();
                 }
 
 	      // Non-constant variable initializations might need to create
 	      // temporary variables, which will need the initialization
 	      // function as context.
-              if (!is_constant_initializer && init_fndecl == NULL)
-		init_fndecl = this->initialization_function_decl();
-              Bexpression* var_binit = var->get_init(this, init_fndecl);
+	      Named_object* var_init_fn;
+	      if (is_static_initializer)
+		var_init_fn = NULL;
+	      else
+		{
+		  if (init_fndecl == NULL)
+		    init_fndecl = this->initialization_function_decl();
+		  var_init_fn = init_fndecl;
+		}
+              Bexpression* var_binit = var->get_init(this, var_init_fn);
 
               if (var_binit == NULL)
 		;
-	      else if (is_constant_initializer)
+	      else if (is_static_initializer)
 		{
 		  if (expression_requires(var->init(), NULL,
 					  this->var_depends_on(var), no))
@@ -2173,6 +2181,14 @@ Gogo::is_thunk(const Named_object* no)
 void
 Gogo::define_global_names()
 {
+  if (this->is_main_package())
+    {
+      // Every Go program has to import the runtime package, so that
+      // it is properly initialized.
+      this->import_package("runtime", "_", false, false,
+			   Linemap::predeclared_location());
+    }
+
   for (Bindings::const_declarations_iterator p =
 	 this->globals_->begin_declarations();
        p != this->globals_->end_declarations();

@@ -2019,8 +2019,14 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	  if(GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD)
 	    return 1;
 
-	  if (TARGET_VSX_SMALL_INTEGER && mode == SImode)
-	    return 1;
+	  if (TARGET_VSX_SMALL_INTEGER)
+	    {
+	      if (mode == SImode)
+		return 1;
+
+	      if (TARGET_P9_VECTOR && (mode == HImode || mode == QImode))
+		return 1;
+	    }
 	}
 
       if (PAIRED_SIMD_REGNO_P (regno) && TARGET_PAIRED_FLOAT
@@ -3403,7 +3409,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	reg_addr[SFmode].scalar_in_vmx_p = true;
 
       if (TARGET_VSX_SMALL_INTEGER)
-	reg_addr[SImode].scalar_in_vmx_p = true;
+	{
+	  reg_addr[SImode].scalar_in_vmx_p = true;
+	  if (TARGET_P9_VECTOR)
+	    {
+	      reg_addr[HImode].scalar_in_vmx_p = true;
+	      reg_addr[QImode].scalar_in_vmx_p = true;
+	    }
+	}
     }
 
   /* Setup the fusion operations.  */
@@ -16982,11 +16995,10 @@ rs6000_init_builtins (void)
   def_builtin ("__builtin_cpu_is", ftype, RS6000_BUILTIN_CPU_IS);
   def_builtin ("__builtin_cpu_supports", ftype, RS6000_BUILTIN_CPU_SUPPORTS);
 
-#if TARGET_XCOFF
   /* AIX libm provides clog as __clog.  */
-  if ((tdecl = builtin_decl_explicit (BUILT_IN_CLOG)) != NULL_TREE)
+  if (TARGET_XCOFF &&
+      (tdecl = builtin_decl_explicit (BUILT_IN_CLOG)) != NULL_TREE)
     set_user_assembler_name (tdecl, "__clog");
-#endif
 
 #ifdef SUBTARGET_INIT_BUILTINS
   SUBTARGET_INIT_BUILTINS;
@@ -20607,8 +20619,14 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
 	}
 
       /* ISA 2.07: MTVSRWZ or  MFVSRWZ.  */
-      if (TARGET_VSX_SMALL_INTEGER && mode == SImode)
-	return true;
+      if (TARGET_VSX_SMALL_INTEGER)
+	{
+	  if (mode == SImode)
+	    return true;
+
+	  if (TARGET_P9_VECTOR && (mode == HImode || mode == QImode))
+	    return true;
+	}
 
       /* ISA 2.07: MTVSRWZ or  MFVSRWZ.  */
       if (mode == SDmode)
@@ -21412,6 +21430,33 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	     instructions, we want altivec registers.  */
 	  if (GET_CODE (x) == CONST_VECTOR && easy_vector_constant (x, mode))
 	    return ALTIVEC_REGS;
+
+	  /* If this is an integer constant that can easily be loaded into
+	     vector registers, allow it.  */
+	  if (CONST_INT_P (x))
+	    {
+	      HOST_WIDE_INT value = INTVAL (x);
+
+	      /* ISA 2.07 can generate -1 in all registers with XXLORC.  ISA
+		 2.06 can generate it in the Altivec registers with
+		 VSPLTI<x>.  */
+	      if (value == -1)
+		{
+		  if (TARGET_P8_VECTOR)
+		    return rclass;
+		  else if (rclass == ALTIVEC_REGS || rclass == VSX_REGS)
+		    return ALTIVEC_REGS;
+		  else
+		    return NO_REGS;
+		}
+
+	      /* ISA 3.0 can load -128..127 using the XXSPLTIB instruction and
+		 a sign extend in the Altivec registers.  */
+	      if (IN_RANGE (value, -128, 127) && TARGET_P9_VECTOR
+		  && TARGET_VSX_SMALL_INTEGER
+		  && (rclass == ALTIVEC_REGS || rclass == VSX_REGS))
+		return ALTIVEC_REGS;
+	    }
 
 	  /* Force constant to memory.  */
 	  return NO_REGS;
@@ -35364,6 +35409,31 @@ rs6000_declare_alias (struct symtab_node *n, void *d)
   return false;
 }
 
+
+#ifdef HAVE_GAS_HIDDEN
+/* Helper function to calculate visibility of a DECL
+   and return the value as a const string.  */
+
+static const char *
+rs6000_xcoff_visibility (tree decl)
+{
+  static const char * const visibility_types[] = {
+    "", ",protected", ",hidden", ",internal"
+  };
+
+  enum symbol_visibility vis = DECL_VISIBILITY (decl);
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_node::get (decl)
+      && cgraph_node::get (decl)->instrumentation_clone
+      && cgraph_node::get (decl)->instrumented_version)
+    vis = DECL_VISIBILITY (cgraph_node::get (decl)->instrumented_version->decl);
+
+  return visibility_types[vis];
+}
+#endif
+
+
 /* This macro produces the initial definition of a function name.
    On the RS/6000, we need to place an extra '.' in the function name and
    output the function descriptor.
@@ -35403,6 +35473,9 @@ rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
 	    }
 	  fputs ("\t.globl .", file);
 	  RS6000_OUTPUT_BASENAME (file, buffer);
+#ifdef HAVE_GAS_HIDDEN
+	  fputs (rs6000_xcoff_visibility (decl), file);
+#endif
 	  putc ('\n', file);
 	}
     }
@@ -35445,6 +35518,52 @@ rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
 	}
     }
   return;
+}
+
+
+/* Output assembly language to globalize a symbol from a DECL,
+   possibly with visibility.  */
+
+void
+rs6000_xcoff_asm_globalize_decl_name (FILE *stream, tree decl)
+{
+  const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
+  fputs (GLOBAL_ASM_OP, stream);
+  RS6000_OUTPUT_BASENAME (stream, name);
+#ifdef HAVE_GAS_HIDDEN
+  fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+  putc ('\n', stream);
+}
+
+/* Output assembly language to define a symbol as COMMON from a DECL,
+   possibly with visibility.  */
+
+void
+rs6000_xcoff_asm_output_aligned_decl_common (FILE *stream,
+					     tree decl ATTRIBUTE_UNUSED,
+					     const char *name,
+					     unsigned HOST_WIDE_INT size,
+					     unsigned HOST_WIDE_INT align)
+{
+  unsigned HOST_WIDE_INT align2 = 2;
+
+  if (align > 32)
+    align2 = floor_log2 (align / BITS_PER_UNIT);
+  else if (size > 4)
+    align2 = 3;
+
+  fputs (COMMON_ASM_OP, stream);
+  RS6000_OUTPUT_BASENAME (stream, name);
+
+  fprintf (stream,
+	   "," HOST_WIDE_INT_PRINT_UNSIGNED "," HOST_WIDE_INT_PRINT_UNSIGNED,
+	   size, align2);
+
+#ifdef HAVE_GAS_HIDDEN
+  fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+  putc ('\n', stream);
 }
 
 /* This macro produces the initial definition of a object (variable) name.
@@ -35527,6 +35646,45 @@ rs6000_xcoff_encode_section_info (tree decl, rtx rtl, int first)
 }
 #endif /* HAVE_AS_TLS */
 #endif /* TARGET_XCOFF */
+
+void
+rs6000_asm_weaken_decl (FILE *stream, tree decl,
+			const char *name, const char *val)
+{
+  fputs ("\t.weak\t", stream);
+  RS6000_OUTPUT_BASENAME (stream, name);
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL
+      && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)
+    {
+      if (TARGET_XCOFF)						
+	fputs ("[DS]", stream);
+#if TARGET_XCOFF && HAVE_GAS_HIDDEN
+      if (TARGET_XCOFF)
+	fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+      fputs ("\n\t.weak\t.", stream);
+      RS6000_OUTPUT_BASENAME (stream, name);
+    }
+#if TARGET_XCOFF && HAVE_GAS_HIDDEN
+  if (TARGET_XCOFF)
+    fputs (rs6000_xcoff_visibility (decl), stream);
+#endif
+  fputc ('\n', stream);
+  if (val)
+    {
+      ASM_OUTPUT_DEF (stream, name, val);
+      if (decl && TREE_CODE (decl) == FUNCTION_DECL
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)
+	{
+	  fputs ("\t.set\t.", stream);
+	  RS6000_OUTPUT_BASENAME (stream, name);
+	  fputs (",.", stream);
+	  RS6000_OUTPUT_BASENAME (stream, val);
+	  fputc ('\n', stream);
+	}
+    }
+}
+
 
 /* Return true if INSN should not be copied.  */
 
@@ -38699,7 +38857,7 @@ rs6000_code_end (void)
   TREE_STATIC (decl) = 1;
 
 #if RS6000_WEAK
-  if (USE_HIDDEN_LINKONCE)
+  if (USE_HIDDEN_LINKONCE && !TARGET_XCOFF)
     {
       cgraph_node::create (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
       targetm.asm_out.unique_section (decl, 0);

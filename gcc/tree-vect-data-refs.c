@@ -813,12 +813,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 
   if (base_alignment < TYPE_ALIGN (vectype))
     {
-      /* Strip an inner MEM_REF to a bare decl if possible.  */
-      if (TREE_CODE (base) == MEM_REF
-	  && integer_zerop (TREE_OPERAND (base, 1))
-	  && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
-	base = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
-
+      base = base_addr;
+      if (TREE_CODE (base) == ADDR_EXPR)
+	base = TREE_OPERAND (base, 0);
       if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype)))
 	{
 	  if (dump_enabled_p ())
@@ -826,6 +823,19 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	      dump_printf_loc (MSG_NOTE, vect_location,
 	                       "can't force alignment of ref: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, ref);
+	      dump_printf (MSG_NOTE, "\n");
+	    }
+	  return true;
+	}
+
+      if (DECL_USER_ALIGN (base))
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "not forcing alignment of user-aligned "
+			       "variable: ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, base);
 	      dump_printf (MSG_NOTE, "\n");
 	    }
 	  return true;

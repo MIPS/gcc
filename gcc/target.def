@@ -5029,6 +5029,18 @@ DEFHOOK
  reg_class_t, (reg_class_t, machine_mode),
  NULL)
 
+/* Determine an additional allocno class.  */
+DEFHOOK
+(additional_allocno_class_p,
+ "This hook should return @code{true} if given class of registers should\
+  be an allocno class in any way.  Usually RA uses only one register\
+  class from all classes containing the same register set.  In some\
+  complicated cases, you need to have two or more such classes as\
+  allocno ones for RA correct work.  Not defining this hook is\
+  equivalent to returning @code{false} for all inputs.",
+ bool, (reg_class_t),
+ hook_bool_reg_class_t_false)
+
 DEFHOOK
 (cstore_mode,
  "This hook defines the machine mode to use for the boolean result of\
@@ -5038,6 +5050,16 @@ DEFHOOK
   patterns.",
   machine_mode, (enum insn_code icode),
   default_cstore_mode)
+
+/* This target hook allows the backend to compute the register pressure
+   classes to use.  */
+DEFHOOK
+(compute_pressure_classes,
+ "A target hook which lets a backend compute the set of pressure classes to\
+  be used by those optimization passes which take register pressure into\
+  account, as opposed to letting IRA compute them.  It returns the number of\
+  register classes stored in the array @var{pressure_classes}.",
+ int, (enum reg_class *pressure_classes), NULL)
 
 /* True if a structure, union or array with MODE containing FIELD should
    be accessed using BLKmode.  */

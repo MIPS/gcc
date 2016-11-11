@@ -5574,6 +5574,11 @@ enabled by @option{-Wall}.
 Warn about C++ constructs whose meaning differs between ISO C++ 2011
 and ISO C++ 2014.  This warning is enabled by @option{-Wall}.
 
+@item -Wc++1z-compat @r{(C++ and Objective-C++ only)}
+@opindex Wc++1z-compat
+Warn about C++ constructs whose meaning differs between ISO C++ 2014
+and the forthoming ISO C++ 2017(?).  This warning is enabled by @option{-Wall}.
+
 @item -Wcast-qual
 @opindex Wcast-qual
 @opindex Wno-cast-qual
@@ -10566,6 +10571,21 @@ at runtime.  Current suboptions are:
 This option enables checking that the result of a shift operation is
 not undefined.  Note that what exactly is considered undefined differs
 slightly between C and C++, as well as between ISO C90 and C99, etc.
+This option has two suboptions, @option{-fsanitize=shift-base} and
+@option{-fsanitize=shift-exponent}.
+
+@item -fsanitize=shift-exponent
+@opindex fsanitize=shift-exponent
+This option enables checking that the second argument of a shift operation
+is not negative and is smaller than the precision of the promoted first
+argument.
+
+@item -fsanitize=shift-base
+@opindex fsanitize=shift-base
+If the second argument of a shift operation is within range, check that the
+result of a shift operation is not undefined.  Note that what exactly is
+considered undefined differs slightly between C and C++, as well as between
+ISO C90 and C99, etc.
 
 @item -fsanitize=integer-divide-by-zero
 @opindex fsanitize=integer-divide-by-zero
@@ -11959,25 +11979,32 @@ Use it to conform to a non-default application binary interface.
 
 @item -fno-common
 @opindex fno-common
-In C code, controls the placement of uninitialized global variables.
-Unix C compilers have traditionally permitted multiple definitions of
-such variables in different compilation units by placing the variables
-in a common block.
-This is the behavior specified by @option{-fcommon}, and is the default
-for GCC on most targets.
-On the other hand, this behavior is not required by ISO C, and on some
-targets may carry a speed or code size penalty on variable references.
-The @option{-fno-common} option specifies that the compiler should place
-uninitialized global variables in the data section of the object file,
-rather than generating them as common blocks.
-This has the effect that if the same variable is declared
-(without @code{extern}) in two different compilations,
-you get a multiple-definition error when you link them.
-In this case, you must compile with @option{-fcommon} instead.
+@cindex tentative definitions
+In C code, this option controls the placement of global variables 
+defined without an initializer, known as @dfn{tentative definitions} 
+in the C standard.  Tentative definitions are distinct from declarations 
+of a variable with the @code{extern} keyword, which do not allocate storage.
+
+Unix C compilers have traditionally allocated storage for
+uninitialized global variables in a common block.  This allows the
+linker to resolve all tentative definitions of the same variable
+in different compilation units to the same object, or to a non-tentative
+definition.  
+This is the behavior specified by @option{-fcommon}, and is the default for 
+GCC on most targets.  
+On the other hand, this behavior is not required by ISO
+C, and on some targets may carry a speed or code size penalty on
+variable references.
+
+The @option{-fno-common} option specifies that the compiler should instead
+place uninitialized global variables in the data section of the object file.
+This inhibits the merging of tentative definitions by the linker so
+you get a multiple-definition error if the same 
+variable is defined in more than one compilation unit.
 Compiling with @option{-fno-common} is useful on targets for which
 it provides better performance, or if you wish to verify that the
 program will work on other systems that always treat uninitialized
-variable declarations this way.
+variable definitions this way.
 
 @item -fno-ident
 @opindex fno-ident
@@ -13871,10 +13898,10 @@ processors implementing the target architecture.
 Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
 @samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57},
-@samp{cortex-a72}, @samp{cortex-a73}, @samp{exynos-m1}, @samp{qdf24xx},
-@samp{thunderx}, @samp{xgene1}, @samp{vulcan}, @samp{cortex-a57.cortex-a53},
-@samp{cortex-a72.cortex-a53}, @samp{cortex-a73.cortex-a35},
-@samp{cortex-a73.cortex-a53}, @samp{native}.
+@samp{cortex-a72}, @samp{cortex-a73}, @samp{exynos-m1}, @samp{falkor},
+@samp{qdf24xx}, @samp{thunderx}, @samp{xgene1}, @samp{vulcan},
+@samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
+@samp{cortex-a73.cortex-a35}, @samp{cortex-a73.cortex-a53}, @samp{native}.
 
 The values @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
 @samp{cortex-a73.cortex-a35}, @samp{cortex-a73.cortex-a53}
@@ -14963,6 +14990,7 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{cortex-m0.small-multiply},
 @samp{cortex-m0plus.small-multiply},
 @samp{exynos-m1},
+@samp{falkor},
 @samp{qdf24xx},
 @samp{marvell-pj4},
 @samp{xscale}, @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312},

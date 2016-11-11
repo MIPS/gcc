@@ -1,3 +1,17 @@
+2016-11-09  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_template_auto.
+
+2016-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Handle split
+	-fsanitize=shift-base and -fsanitize=shift-exponent.
+
+2016-11-07  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wc++1z-compat): New.
+	* c-cppbuiltin.c (c_cpp_builtins): Add __cpp_noexcept_function_type.
+
 2016-11-07  Martin Liska  <mliska@suse.cz>
 
 	* c-warn.c (warn_for_unused_label): Save all labels used
