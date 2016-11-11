@@ -97,7 +97,7 @@ static void emit_single_push_insn (machine_mode, rtx, tree);
 #endif
 static void do_tablejump (rtx, machine_mode, rtx, rtx, rtx, int);
 static rtx const_vector_from_tree (tree);
-static rtx const_scalar_mask_from_tree (tree);
+static rtx const_scalar_mask_from_tree (scalar_int_mode, tree);
 static tree tree_expr_size (const_tree);
 static HOST_WIDE_INT int_expr_size (tree);
 
@@ -9897,7 +9897,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	if (is_int_mode (mode, &int_mode))
 	  {
 	    if (VECTOR_BOOLEAN_TYPE_P (TREE_TYPE (exp)))
-	      return const_scalar_mask_from_tree (exp);
+	      return const_scalar_mask_from_tree (int_mode, exp);
 	    else
 	      {
 		tree type_for_mode
@@ -11624,12 +11624,12 @@ const_vector_mask_from_tree (tree exp)
   return gen_rtx_CONST_VECTOR (mode, v);
 }
 
-/* Return a CONST_INT rtx representing vector mask for
-   a VECTOR_CST of booleans.  */
+/* EXP is a VECTOR_CST in which each element is either all-zeros or all-ones.
+   Return a constant scalar rtx of mode MODE in which bit X is set if element
+   X of EXP is nonzero.  */
 static rtx
-const_scalar_mask_from_tree (tree exp)
+const_scalar_mask_from_tree (scalar_int_mode mode, tree exp)
 {
-  machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
   wide_int res = wi::zero (GET_MODE_PRECISION (mode));
   tree elt;
   unsigned i;
