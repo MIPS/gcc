@@ -114,14 +114,13 @@ struct GTY(()) dw_fde_node {
    Instead of passing around REG and OFFSET, we pass a copy
    of this structure.  */
 struct GTY(()) dw_cfa_location {
-  HOST_WIDE_INT offset;
-  HOST_WIDE_INT base_offset;
+  poly_int64_pod offset;
+  poly_int64_pod base_offset;
   /* REG is in DWARF_FRAME_REGNUM space, *not* normal REGNO space.  */
   unsigned int reg;
   BOOL_BITFIELD indirect : 1;  /* 1 if CFA is accessed via a dereference.  */
   BOOL_BITFIELD in_use : 1;    /* 1 if a saved cfa is stored here.  */
 };
-
 
 /* Each DIE may have a series of attribute/value pairs.  Values
    can take on several forms.  The forms that are used in this

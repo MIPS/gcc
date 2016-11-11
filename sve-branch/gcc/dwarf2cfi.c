@@ -208,7 +208,7 @@ static dw_cfa_location *cur_cfa;
 struct queued_reg_save {
   rtx reg;
   rtx saved_reg;
-  HOST_WIDE_INT cfa_offset;
+  poly_int64_pod cfa_offset;
 };
 
 
@@ -656,10 +656,10 @@ bool
 cfa_equal_p (const dw_cfa_location *loc1, const dw_cfa_location *loc2)
 {
   return (loc1->reg == loc2->reg
-	  && loc1->offset == loc2->offset
+	  && must_eq (loc1->offset, loc2->offset)
 	  && loc1->indirect == loc2->indirect
 	  && (loc1->indirect == 0
-	      || loc1->base_offset == loc2->base_offset));
+	      || must_eq (loc1->base_offset, loc2->base_offset)));
 }
 
 /* Determine if two CFI operands are identical.  */
@@ -760,19 +760,23 @@ def_cfa_0 (dw_cfa_location *old_cfa, dw_cfa_location *new_cfa)
 
   cfi = new_cfi ();
 
-  if (new_cfa->reg == old_cfa->reg && !new_cfa->indirect && !old_cfa->indirect)
+  HOST_WIDE_INT const_offset;
+  if (new_cfa->reg == old_cfa->reg
+      && !new_cfa->indirect
+      && !old_cfa->indirect
+      && new_cfa->offset.is_constant (&const_offset))
     {
       /* Construct a "DW_CFA_def_cfa_offset <offset>" instruction, indicating
 	 the CFA register did not change but the offset did.  The data
 	 factoring for DW_CFA_def_cfa_offset_sf happens in output_cfi, or
 	 in the assembler via the .cfi_def_cfa_offset directive.  */
-      if (new_cfa->offset < 0)
+      if (const_offset < 0)
 	cfi->dw_cfi_opc = DW_CFA_def_cfa_offset_sf;
       else
 	cfi->dw_cfi_opc = DW_CFA_def_cfa_offset;
-      cfi->dw_cfi_oprnd1.dw_cfi_offset = new_cfa->offset;
+      cfi->dw_cfi_oprnd1.dw_cfi_offset = const_offset;
     }
-  else if (new_cfa->offset == old_cfa->offset
+  else if (must_eq (new_cfa->offset, old_cfa->offset)
 	   && old_cfa->reg != INVALID_REGNUM
 	   && !new_cfa->indirect
 	   && !old_cfa->indirect)
@@ -783,19 +787,20 @@ def_cfa_0 (dw_cfa_location *old_cfa, dw_cfa_location *new_cfa)
       cfi->dw_cfi_opc = DW_CFA_def_cfa_register;
       cfi->dw_cfi_oprnd1.dw_cfi_reg_num = new_cfa->reg;
     }
-  else if (new_cfa->indirect == 0)
+  else if (new_cfa->indirect == 0
+	   && new_cfa->offset.is_constant (&const_offset))
     {
       /* Construct a "DW_CFA_def_cfa <register> <offset>" instruction,
 	 indicating the CFA register has changed to <register> with
 	 the specified offset.  The data factoring for DW_CFA_def_cfa_sf
 	 happens in output_cfi, or in the assembler via the .cfi_def_cfa
 	 directive.  */
-      if (new_cfa->offset < 0)
+      if (const_offset < 0)
 	cfi->dw_cfi_opc = DW_CFA_def_cfa_sf;
       else
 	cfi->dw_cfi_opc = DW_CFA_def_cfa;
       cfi->dw_cfi_oprnd1.dw_cfi_reg_num = new_cfa->reg;
-      cfi->dw_cfi_oprnd2.dw_cfi_offset = new_cfa->offset;
+      cfi->dw_cfi_oprnd2.dw_cfi_offset = const_offset;
     }
   else
     {
@@ -838,33 +843,42 @@ def_cfa_1 (dw_cfa_location *new_cfa)
    otherwise it is saved in SREG.  */
 
 static void
-reg_save (unsigned int reg, unsigned int sreg, HOST_WIDE_INT offset)
+reg_save (unsigned int reg, unsigned int sreg, poly_int64 offset)
 {
   dw_fde_ref fde = cfun ? cfun->fde : NULL;
   dw_cfi_ref cfi = new_cfi ();
 
   cfi->dw_cfi_oprnd1.dw_cfi_reg_num = reg;
 
-  /* When stack is aligned, store REG using DW_CFA_expression with FP.  */
-  if (fde
-      && fde->stack_realign
-      && sreg == INVALID_REGNUM)
+  if (sreg == INVALID_REGNUM)
     {
-      cfi->dw_cfi_opc = DW_CFA_expression;
-      cfi->dw_cfi_oprnd1.dw_cfi_reg_num = reg;
-      cfi->dw_cfi_oprnd2.dw_cfi_loc
-	= build_cfa_aligned_loc (&cur_row->cfa, offset,
-				 fde->stack_realignment);
-    }
-  else if (sreg == INVALID_REGNUM)
-    {
-      if (need_data_align_sf_opcode (offset))
-	cfi->dw_cfi_opc = DW_CFA_offset_extended_sf;
-      else if (reg & ~0x3f)
-	cfi->dw_cfi_opc = DW_CFA_offset_extended;
+      HOST_WIDE_INT const_offset;
+      /* When stack is aligned, store REG using DW_CFA_expression with FP.  */
+      if (fde && fde->stack_realign)
+	{
+	  cfi->dw_cfi_opc = DW_CFA_expression;
+	  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = reg;
+	  cfi->dw_cfi_oprnd2.dw_cfi_loc
+	    = build_cfa_aligned_loc (&cur_row->cfa, offset,
+				     fde->stack_realignment);
+	}
+      else if (offset.is_constant (&const_offset))
+	{
+	  if (need_data_align_sf_opcode (const_offset))
+	    cfi->dw_cfi_opc = DW_CFA_offset_extended_sf;
+	  else if (reg & ~0x3f)
+	    cfi->dw_cfi_opc = DW_CFA_offset_extended;
+	  else
+	    cfi->dw_cfi_opc = DW_CFA_offset;
+	  cfi->dw_cfi_oprnd2.dw_cfi_offset = const_offset;
+	}
       else
-	cfi->dw_cfi_opc = DW_CFA_offset;
-      cfi->dw_cfi_oprnd2.dw_cfi_offset = offset;
+	{
+	  cfi->dw_cfi_opc = DW_CFA_expression;
+	  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = reg;
+	  cfi->dw_cfi_oprnd2.dw_cfi_loc
+	    = build_cfa_loc (&cur_row->cfa, offset);
+	}
     }
   else if (sreg == reg)
     {
@@ -997,7 +1011,7 @@ record_reg_saved_in_reg (rtx dest, rtx src)
    SREG, or if SREG is NULL then it is saved at OFFSET to the CFA.  */
 
 static void
-queue_reg_save (rtx reg, rtx sreg, HOST_WIDE_INT offset)
+queue_reg_save (rtx reg, rtx sreg, poly_int64 offset)
 {
   queued_reg_save *q;
   queued_reg_save e = {reg, sreg, offset};
@@ -1154,7 +1168,7 @@ dwarf2out_frame_debug_adjust_cfa (rtx pat)
 static void
 dwarf2out_frame_debug_cfa_offset (rtx set)
 {
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
   rtx src, addr, span;
   unsigned int sregno;
 
@@ -1197,7 +1211,7 @@ dwarf2out_frame_debug_cfa_offset (rtx set)
     {
       /* We have a PARALLEL describing where the contents of SRC live.
    	 Adjust the offset for each piece of the PARALLEL.  */
-      HOST_WIDE_INT span_offset = offset;
+      poly_int64 span_offset = offset;
 
       gcc_assert (GET_CODE (span) == PARALLEL);
 
@@ -1514,7 +1528,7 @@ static void
 dwarf2out_frame_debug_expr (rtx expr)
 {
   rtx src, dest, span;
-  HOST_WIDE_INT offset;
+  poly_int64 offset;
   dw_fde_ref fde;
 
   /* If RTX_FRAME_RELATED_P is set on a PARALLEL, process each member of
@@ -1723,8 +1737,11 @@ dwarf2out_frame_debug_expr (rtx expr)
 		      && dwf_regno (XEXP (src, 0)) == cur_trace->cfa_temp.reg
 		      && CONST_INT_P (XEXP (src, 1)));
 
+	  /* Targets with polynomial offsets.  */
 	  cur_trace->cfa_temp.reg = dwf_regno (dest);
-	  cur_trace->cfa_temp.offset |= INTVAL (XEXP (src, 1));
+	  if (!can_ior_p (cur_trace->cfa_temp.offset, INTVAL (XEXP (src, 1)),
+			  &cur_trace->cfa_temp.offset))
+	    gcc_unreachable ();
 	  break;
 
 	  /* Skip over HIGH, assuming it will be followed by a LO_SUM,
@@ -1902,7 +1919,7 @@ dwarf2out_frame_debug_expr (rtx expr)
 	{
 	  /* We're storing the current CFA reg into the stack.  */
 
-	  if (cur_cfa->offset == 0)
+	  if (must_eq (cur_cfa->offset, 0))
 	    {
               /* Rule 19 */
               /* If stack is aligned, putting CFA reg into stack means
@@ -1960,7 +1977,7 @@ dwarf2out_frame_debug_expr (rtx expr)
 	{
 	  /* We have a PARALLEL describing where the contents of SRC live.
 	     Queue register saves for each piece of the PARALLEL.  */
-	  HOST_WIDE_INT span_offset = offset;
+	  poly_int64 span_offset = offset;
 
 	  gcc_assert (GET_CODE (span) == PARALLEL);
 
