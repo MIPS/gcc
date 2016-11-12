@@ -7095,12 +7095,32 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
-  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
+  if (VECTOR_MEM_VSX_P (mode))
     {
-      rtx (*set_func) (rtx, rtx, rtx, rtx)
-	= ((mode == V2DFmode) ? gen_vsx_set_v2df : gen_vsx_set_v2di);
-      emit_insn (set_func (target, target, val, GEN_INT (elt)));
-      return;
+      rtx (*set_func) (rtx, rtx, rtx, rtx) = (rtx (*) (rtx, rtx, rtx, rtx))0;
+
+      if (mode == V2DFmode)
+	set_func = gen_vsx_set_v2df;
+
+      else if (mode == V2DImode)
+	set_func = gen_vsx_set_v2di;
+
+      else if (TARGET_P9_VECTOR && TARGET_VSX_SMALL_INTEGER
+	       && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
+	{
+	  if (mode == V4SImode)
+	    set_func = gen_vsx_set_v4si_p9;
+	  else if (mode == V8HImode)
+	    set_func = gen_vsx_set_v8hi_p9;
+	  else if (mode == V16QImode)
+	    set_func = gen_vsx_set_v16qi_p9;
+	}
+
+      if (set_func)
+	{
+	  emit_insn (set_func (target, target, val, GEN_INT (elt)));
+	  return;
+	}
     }
 
   /* Simplify setting single element vectors like V1TImode.  */
