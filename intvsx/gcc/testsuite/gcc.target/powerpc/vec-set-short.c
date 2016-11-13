@@ -29,12 +29,12 @@ insert_mem_7 (vector short v, short *p)
   return vec_insert (*p, v, 7);
 }
 
-/* { dg-final { scan-assembler    "vinserth"  } } */
-/* { dg-final { scan-assembler    "xxsplitib" } } */
-/* { dg-final { scan-assembler    "vspltish"  } } */
-/* { dg-final { scan-assember-not "mtvsrd"    } } */
-/* { dg-final { scan-assember-not "mtvsrdd"   } } */
-/* { dg-final { scan-assember-not "mtvsrwa"   } } */
-/* { dg-final { scan-assember-not "mtvsrwz"   } } */
-/* { dg-final { scan-assember-not "mfvsrd"    } } */
-/* { dg-final { scan-assember-not "mfvsrwz"   } } */
+/* { dg-final { scan-assembler     "vinserth" } } */
+/* { dg-final { scan-assembler     "xxspltib" } } */
+/* { dg-final { scan-assembler     "vspltish" } } */
+/* { dg-final { scan-assembler-not "mtvsrd"   } } */
+/* { dg-final { scan-assembler-not "mtvsrdd"  } } */
+/* { dg-final { scan-assembler-not "mtvsrwa"  } } */
+/* { dg-final { scan-assembler-not "mtvsrwz"  } } */
+/* { dg-final { scan-assembler-not "mfvsrd"   } } */
+/* { dg-final { scan-assembler-not "mfvsrwz"  } } */

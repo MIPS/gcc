@@ -29,12 +29,12 @@ insert_mem_3 (vector int v, int *p)
   return vec_insert (*p, v, 3);
 }
 
-/* { dg-final { scan-assembler    "xxinsertw" } } */
-/* { dg-final { scan-assembler    "xxsplitib" } } */
-/* { dg-final { scan-assembler    "vspltisw"  } } */
-/* { dg-final { scan-assember-not "mtvsrd"    } } */
-/* { dg-final { scan-assember-not "mtvsrdd"   } } */
-/* { dg-final { scan-assember-not "mtvsrwa"   } } */
-/* { dg-final { scan-assember-not "mtvsrwz"   } } */
-/* { dg-final { scan-assember-not "mfvsrd"    } } */
-/* { dg-final { scan-assember-not "mfvsrwz"   } } */
+/* { dg-final { scan-assembler     "xxinsertw" } } */
+/* { dg-final { scan-assembler     "xxspltib"  } } */
+/* { dg-final { scan-assembler     "vspltisw"  } } */
+/* { dg-final { scan-assembler-not "mtvsrd"    } } */
+/* { dg-final { scan-assembler-not "mtvsrdd"   } } */
+/* { dg-final { scan-assembler-not "mtvsrwa"   } } */
+/* { dg-final { scan-assembler-not "mtvsrwz"   } } */
+/* { dg-final { scan-assembler-not "mfvsrd"    } } */
+/* { dg-final { scan-assembler-not "mfvsrwz"   } } */
