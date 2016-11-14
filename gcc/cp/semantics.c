@@ -2259,7 +2259,7 @@ perform_koenig_lookup (cp_expr fn, vec<tree, va_gc> *args,
 	}
     }
 
-  if (fn && template_id)
+  if (fn && template_id && fn != error_mark_node)
     fn = build2 (TEMPLATE_ID_EXPR, unknown_type_node, fn, tmpl_args);
   
   return fn;
@@ -8872,6 +8872,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
          overloaded functions, the program is ill-formed.  */
       if (identifier_p (expr))
         expr = lookup_name (expr);
+
+      if (VAR_P (expr) && DECL_HAS_VALUE_EXPR_P (expr))
+	expr = DECL_VALUE_EXPR (expr);
 
       if (INDIRECT_REF_P (expr))
         /* This can happen when the expression is, e.g., "a.b". Just

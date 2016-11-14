@@ -292,7 +292,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wparentheses -Wno-pedantic-ms-format @gol
 -Wplacement-new -Wplacement-new=@var{n} @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
--Wno-pragmas -Wredundant-decls  -Wno-return-local-addr @gol
+-Wno-pragmas -Wredundant-decls -Wrestrict  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
 -Wshadow=global, -Wshadow=local, -Wshadow=compatible-local @gol
 -Wshift-overflow -Wshift-overflow=@var{n} @gol
@@ -650,7 +650,8 @@ Objective-C and Objective-C++ Dialects}.
 -mpure-code}
 
 @emph{AVR Options}
-@gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
+@gccoptlist{-mmcu=@var{mcu} -mabsdata -maccumulate-args @gol
+-mbranch-cost=@var{cost} @gol
 -mcall-prologues -mint8 -mn_flash=@var{size} -mno-interrupts @gol
 -mrelax -mrmw -mstrict-X -mtiny-stack -mfract-convert-truncate -nodevicelib @gol
 -Waddr-space-convert -Wmisspelled-isr}
@@ -6194,6 +6195,12 @@ reduce the padding and so make the structure smaller.
 Warn if anything is declared more than once in the same scope, even in
 cases where multiple declaration is valid and changes nothing.
 
+@item -Wrestrict
+@opindex Wrestrict
+@opindex Wno-restrict
+Warn when an argument passed to a restrict-qualified parameter
+aliases with another argument.
+
 @item -Wnested-externs @r{(C and Objective-C only)}
 @opindex Wnested-externs
 @opindex Wno-nested-externs
@@ -10504,12 +10511,17 @@ To optimize the program based on the collected profile information, use
 
 Alter the update method for an application instrumented for profile
 feedback based optimization.  The @var{method} argument should be one of
-@samp{single} or @samp{atomic}.  The first one is useful for single-threaded
-applications, while the second one prevents profile corruption by emitting
-thread-safe code.
+@samp{single}, @samp{atomic} or @samp{prefer-atomic}.
+The first one is useful for single-threaded applications,
+while the second one prevents profile corruption by emitting thread-safe code.
 
 @strong{Warning:} When an application does not properly join all threads
 (or creates an detached thread), a profile file can be still corrupted.
+
+Using @samp{prefer-atomic} would be transformed either to @samp{atomic},
+when supported by a target, or to @samp{single} otherwise.  The GCC driver
+automatically selects @samp{prefer-atomic} when @option{-pthread}
+is present in the command line.
 
 @item -fsanitize=address
 @opindex fsanitize=address
@@ -15310,6 +15322,13 @@ The default for this option is@tie{}@samp{avr2}.
 GCC supports the following AVR devices and ISAs:
 
 @include avr-mmcu.texi
+
+@item -mabsdata
+@opindex mabsdata
+
+Assume that all data in static storage can be accessed by LDS / STS
+instructions.  This option has only an effect on reduced Tiny devices like
+ATtiny40.
 
 @item -maccumulate-args
 @opindex maccumulate-args

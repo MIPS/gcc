@@ -1885,6 +1885,12 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
 	return DECL_BIT_FIELD_TYPE (field);
       }
 
+    case VAR_DECL:
+      if (DECL_HAS_VALUE_EXPR_P (exp))
+	return is_bitfield_expr_with_lowered_type (DECL_VALUE_EXPR
+						   (CONST_CAST_TREE (exp)));
+      return NULL_TREE;
+
     CASE_CONVERT:
       if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (exp, 0)))
 	  == TYPE_MAIN_VARIANT (TREE_TYPE (exp)))
@@ -3835,6 +3841,10 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 	{
 	  for (; typetail != void_list_node; ++i)
 	    {
+	      /* After DR777, with explicit template args we can end up with a
+		 default argument followed by no default argument.  */
+	      if (!TREE_PURPOSE (typetail))
+		break;
 	      tree parmval
 		= convert_default_arg (TREE_VALUE (typetail),
 				       TREE_PURPOSE (typetail),
@@ -3850,9 +3860,10 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 		break;
 	    }
 	}
-      else
+
+      if (typetail && typetail != void_list_node)
 	{
-          if (complain & tf_error)
+	  if (complain & tf_error)
 	    error_args_num (input_location, fndecl, /*too_many_p=*/false);
 	  return -1;
 	}
