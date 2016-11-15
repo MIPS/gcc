@@ -1,15 +1,52 @@
+2016-11-15  Michael Matz  <matz@suse.de>
+
+	PR missed-optimization/77881
+	* combine.c (simplify_comparison): Remove useless subregs
+	also inside the loop, not just after it.
+	(make_compound_operation): Recognize some subregs as being
+	masking as well.
+
+2016-11-15  Richard Sandiford  <richard.sandiford@arm.com>
+	    Alan Hayward  <alan.hayward@arm.com>
+	    David Sherwood  <david.sherwood@arm.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Fix GET_MODE_CLASS/
+	GET_MODE_SIZE typo.
+
+2016-11-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Add support
+	for using xxinsertw and vinsert{b,h} on ISA 3.0.
+
+	* config/rs6000/vsx.md (vsx_extract_<mode>): Update comment.
+	(vsx_set_<mode>_p9): New insn to generate xxinsertw and
+	vinsert{b,h} on ISA 3.0.
+
+2016-11-14  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* tree-ssa-math-opts.c (find_bswap_or_nop): Zero out bytes in cmpxchg
+	and cmpnop in two steps: first the ones not accessed in original gimple
+	expression in a endian independent way and then the ones not accessed
+	in the final result in an endian-specific way.
+	(bswap_replace): Stop doing big endian adjustment.
+
+2016-11-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*andndi3_doubleword): Merge operand constraints.
+	(*ashl<mode>3_doubleword): Ditto.
+
 2016-11-14  Martin Liska  <mliska@suse.cz>
 
 	* tree-ssa-dse.c (dse_optimize_stmt): Remove quotes and extra
 	new line.
 
 2016-11-14  Prasad Ghangal  <prasad.ghangal@gmail.com>
-	Richard Biener  <rguenther@suse.de>
-    
+	    Richard Biener  <rguenther@suse.de>
+
 	* doc/invoke.texi (fgimple): Document.
-    	* dumpfile.h (TDF_GIMPLE): Add.
-    	* dumpfile.c (dump_options): Add gimple.
-    	* gimple-pretty-print.c (dump_gimple_switch): Adjust dump
+	* dumpfile.h (TDF_GIMPLE): Add.
+	* dumpfile.c (dump_options): Add gimple.
+	* gimple-pretty-print.c (dump_gimple_switch): Adjust dump
 	for TDF_GIMPLE.
 	(dump_gimple_label): Likewise.
 	(dump_gimple_phi): Likewise.
@@ -17,25 +54,25 @@
 	(dump_phi_nodes): Likewise.
 	(pp_cfg_jump): Likewise.  Pass in dump flags.
 	(dump_implicit_edges): Adjust.
-    	* passes.c (pass_init_dump_file): Do not dump function header
-    	for TDF_GIMPLE.
-    	* tree-cfg.c (dump_function_to_file): Dump function return type
+	* passes.c (pass_init_dump_file): Do not dump function header
+	for TDF_GIMPLE.
+	* tree-cfg.c (dump_function_to_file): Dump function return type
 	and __GIMPLE keyword for TDF_GIMPLE.  Change guard for dumping
 	GIMPLE stmts.
-    	* tree-pretty-print.c (dump_decl_name): Adjust dump for TDF_GIMPLE.
-    	(dump_generic_node): Likewise.
+	* tree-pretty-print.c (dump_decl_name): Adjust dump for TDF_GIMPLE.
+	(dump_generic_node): Likewise.
 	* function.h (struct function): Add pass_startwith member.
 	* passes.c (execute_one_pass): Implement startwith.
-    	* tree-ssanames.c (make_ssa_name_fn): New argument, check for version
-    	and assign proper version for parsed ssa names.
-    	* tree-ssanames.h (make_ssa_name_fn): Add new argument to the function.
-    	* internal-fn.c (expand_PHI): New function.
-    	* internal-fn.h (expand_PHI): Declared here.
-    	* internal-fn.def: New defination for PHI.
-    	* tree-cfg.c (lower_phi_internal_fn): New function.
+	* tree-ssanames.c (make_ssa_name_fn): New argument, check for version
+	and assign proper version for parsed ssa names.
+	* tree-ssanames.h (make_ssa_name_fn): Add new argument to the function.
+	* internal-fn.c (expand_PHI): New function.
+	* internal-fn.h (expand_PHI): Declared here.
+	* internal-fn.def: New defination for PHI.
+	* tree-cfg.c (lower_phi_internal_fn): New function.
 	(build_gimple_cfg): Call it.
-    	(verify_gimple_call): Condition for passing label as arg in internal
-    	function PHI.
+	(verify_gimple_call): Condition for passing label as arg in internal
+	function PHI.
 	* tree-into-ssa.c (rewrite_add_phi_arguments): Handle already
 	present PHIs with arguments.
 
