@@ -3,10 +3,7 @@
 /* dfp_hw represents power 6 */
 /* { dg-require-effective-target dfp_hw } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
-/* { dg-options "-mcpu=power5 -mabi=altivec" } */
-
-/* This test should succeed on both 32- and 64-bit configurations.  */
-#include <altivec.h>
+/* { dg-options "-mcpu=power5" } */
 
 /* Though the command line specifies power5 target, this function is
    to support power6.  */
