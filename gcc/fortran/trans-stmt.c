@@ -6457,8 +6457,12 @@ gfc_trans_deallocate (gfc_code *code)
 	      if (!(last && last->u.c.component->attr.pointer)
 		    && !(!last && expr->symtree->n.sym->attr.pointer))
 		{
-		  if (is_coarray)
+		  if (is_coarray && (!last
+				     || !last->u.c.component->attr.dimension))
 		    {
+		      /* Add the ref to the data member only, when this is not
+			 a regular array or deallocate_alloc_comp will try to
+			 add another one.  */
 		      tmp = gfc_conv_descriptor_data_get (se.expr);
 		    }
 		  else

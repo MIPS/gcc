@@ -1765,6 +1765,7 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
 	  ar->as = ar2.as;
 	  ar->type = AR_FULL;
 	}
+      // TODO: Check whether argse.want_coarray = 1 can help with the below.
       gfc_conv_expr_descriptor (&argse, array_expr);
       /* Using gfc_conv_expr_descriptor, we only get the descriptor, but that
 	 has the wrong type if component references are done.  */
@@ -1958,7 +1959,7 @@ conv_caf_send (gfc_code *code) {
       gfc_add_block_to_block (&block, &lhs_se.pre);
       gfc_conv_intrinsic_caf_get (&rhs_se, rhs_expr, lhs_se.expr, lhs_kind,
 				  may_require_tmp, lhs_may_realloc,
-				  &lhs_caf_attr);
+				  &rhs_caf_attr);
       gfc_add_block_to_block (&block, &rhs_se.pre);
       gfc_add_block_to_block (&block, &rhs_se.post);
       gfc_add_block_to_block (&block, &lhs_se.post);
@@ -7386,6 +7387,8 @@ gfc_conv_allocated (gfc_se *se, gfc_expr *expr)
       && arg1->expr->value.function.isym
       && arg1->expr->value.function.isym->id == GFC_ISYM_CAF_GET)
     caf_attr = gfc_caf_attr (arg1->expr->value.function.actual->expr);
+  else
+    gfc_clear_attr (&caf_attr);
   if (flag_coarray == GFC_FCOARRAY_LIB && caf_attr.codimension
       && !caf_this_image_ref (arg1->expr->value.function.actual->expr->ref))
     tmp = trans_caf_is_present (se, arg1->expr->value.function.actual->expr);

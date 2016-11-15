@@ -1287,15 +1287,18 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
   tree caf_decl = NULL_TREE;
   gfc_coarray_deregtype caf_dereg_type = GFC_CAF_COARRAY_DEREGISTER;
 
-  if (coarray_dealloc_mode >= -1)
+  if (coarray_dealloc_mode >= GFC_CAF_COARRAY_ANALYZE)
     {
       gcc_assert (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (pointer)));
       caf_decl = pointer;
       pointer = gfc_conv_descriptor_data_get (caf_decl);
       STRIP_NOPS (pointer);
-      if (coarray_dealloc_mode == -1 && expr
-	  && gfc_is_coarray_sub_component (expr))
-	caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
+      if (coarray_dealloc_mode == GFC_CAF_COARRAY_ANALYZE)
+	{
+	  if (expr && gfc_is_coarray_sub_component (expr))
+	    caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
+	  // else do a deregister as set by default.
+	}
       else
 	caf_dereg_type = (enum gfc_coarray_deregtype) coarray_dealloc_mode;
     }
@@ -1342,7 +1345,8 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
   /* When POINTER is not NULL, we free it.  */
   gfc_start_block (&non_null);
   gfc_add_finalizer_call (&non_null, expr);
-  if (coarray_dealloc_mode == -2 || flag_coarray != GFC_FCOARRAY_LIB)
+  if (coarray_dealloc_mode == GFC_CAF_COARRAY_NOCOARRAY
+      || flag_coarray != GFC_FCOARRAY_LIB)
     {
       tmp = build_call_expr_loc (input_location,
 				 builtin_decl_explicit (BUILT_IN_FREE), 1,
@@ -1408,6 +1412,7 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
 	}
 
       token = gfc_build_addr_expr  (NULL_TREE, token);
+      gcc_assert (caf_dereg_type > GFC_CAF_COARRAY_ANALYZE);
       tmp = build_call_expr_loc (input_location,
 				 gfor_fndecl_caf_deregister, 5,
 				 token, build_int_cst (integer_type_node,
