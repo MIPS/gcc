@@ -1464,9 +1464,12 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
   if (!DECL_INITIAL (fun)
       && DECL_TEMPLOID_INSTANTIATION (fun))
     {
+      location_t save_loc = input_location;
+      input_location = loc;
       ++function_depth;
       instantiate_decl (fun, /*defer_ok*/false, /*expl_inst*/false);
       --function_depth;
+      input_location = save_loc;
     }
 
   /* If in direct recursive call, optimize definition search.  */
@@ -3767,7 +3770,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       return (*ctx->values->get (t));
 
     case VAR_DECL:
-      if (is_capture_proxy (t))
+      if (DECL_HAS_VALUE_EXPR_P (t))
 	return cxx_eval_constant_expression (ctx, DECL_VALUE_EXPR (t),
 					     lval, non_constant_p, overflow_p);
       /* fall through */
@@ -5034,6 +5037,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
       return RECUR (TREE_OPERAND (t, 0), rval);
 
     case VAR_DECL:
+      if (DECL_HAS_VALUE_EXPR_P (t))
+	return RECUR (DECL_VALUE_EXPR (t), rval);
       if (want_rval
 	  && !var_in_maybe_constexpr_fn (t)
 	  && !type_dependent_expression_p (t)
@@ -5102,6 +5107,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 #endif
       return RECUR (t, any);
 
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case COMPONENT_REF:
     case BIT_FIELD_REF:
     case ARROW_EXPR:
@@ -5273,8 +5280,6 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	return true;
       /* fall through.  */
 
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
     case CONJ_EXPR:
     case SAVE_EXPR:
     case FIX_TRUNC_EXPR:

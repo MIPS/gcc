@@ -3528,6 +3528,15 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	{
 	  machine_mode new_mode = GET_MODE (SET_DEST (newpat));
 
+	  /* ??? Reusing i2dest without resetting the reg_stat entry for it
+	     (temporarily, until we are committed to this instruction
+	     combination) does not work: for example, any call to nonzero_bits
+	     on the register (from a splitter in the MD file, for example)
+	     will get the old information, which is invalid.
+
+	     Since nowadays we can create registers during combine just fine,
+	     we should just create a new one here, not reuse i2dest.  */
+
 	  /* First try to split using the original register as a
 	     scratch register.  */
 	  parallel = gen_rtx_PARALLEL (VOIDmode,
@@ -9886,18 +9895,17 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
 		  (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb),
 		   REGNO (x)))))
     {
-      unsigned HOST_WIDE_INT mask = rsp->last_set_nonzero_bits;
-
-      if (GET_MODE_PRECISION (rsp->last_set_mode) < GET_MODE_PRECISION (mode))
-	/* We don't know anything about the upper bits.  */
-	mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (rsp->last_set_mode);
-
-      *nonzero &= mask;
+      /* Note that, even if the precision of last_set_mode is lower than that
+	 of mode, record_value_for_reg invoked nonzero_bits on the register
+	 with nonzero_bits_mode (because last_set_mode is necessarily integral
+	 and HWI_COMPUTABLE_MODE_P in this case) so bits in nonzero_bits_mode
+	 are all valid, hence in mode too since nonzero_bits_mode is defined
+	 to the largest HWI_COMPUTABLE_MODE_P mode.  */
+      *nonzero &= rsp->last_set_nonzero_bits;
       return NULL;
     }
 
   tem = get_last_value (x);
-
   if (tem)
     {
       if (SHORT_IMMEDIATES_SIGN_EXTEND)
@@ -9906,7 +9914,8 @@ reg_nonzero_bits_for_combine (const_rtx x, machine_mode mode,
 
       return tem;
     }
-  else if (nonzero_sign_valid && rsp->nonzero_bits)
+
+  if (nonzero_sign_valid && rsp->nonzero_bits)
     {
       unsigned HOST_WIDE_INT mask = rsp->nonzero_bits;
 
@@ -11133,8 +11142,10 @@ change_zero_ext (rtx pat)
 	  if (BITS_BIG_ENDIAN)
 	    start = GET_MODE_PRECISION (mode) - size - start;
 
-	  x = simplify_gen_binary (LSHIFTRT, mode,
-				   XEXP (x, 0), GEN_INT (start));
+	  if (start)
+	    x = gen_rtx_LSHIFTRT (mode, XEXP (x, 0), GEN_INT (start));
+	  else
+	    x = XEXP (x, 0);
 	}
       else if (GET_CODE (x) == ZERO_EXTEND
 	       && SCALAR_INT_MODE_P (mode)
@@ -11190,16 +11201,18 @@ change_zero_ext (rtx pat)
       if (BITS_BIG_ENDIAN)
 	offset = reg_width - width - offset;
 
+      rtx x, y, z, w;
       wide_int mask = wi::shifted_mask (offset, width, true, reg_width);
-      rtx x = gen_rtx_AND (mode, reg, immed_wide_int_const (mask, mode));
-      rtx y = simplify_gen_binary (ASHIFT, mode, SET_SRC (pat),
-				   GEN_INT (offset));
       wide_int mask2 = wi::shifted_mask (offset, width, false, reg_width);
-      y = simplify_gen_binary (AND, mode, y,
-			       immed_wide_int_const (mask2, mode));
-      rtx z = simplify_gen_binary (IOR, mode, x, y);
+      x = gen_rtx_AND (mode, reg, immed_wide_int_const (mask, mode));
+      if (offset)
+	y = gen_rtx_ASHIFT (mode, SET_SRC (pat), GEN_INT (offset));
+      else
+	y = SET_SRC (pat);
+      z = gen_rtx_AND (mode, y, immed_wide_int_const (mask2, mode));
+      w = gen_rtx_IOR (mode, x, z);
       SUBST (SET_DEST (pat), reg);
-      SUBST (SET_SRC (pat), z);
+      SUBST (SET_SRC (pat), w);
 
       changed = true;
     }

@@ -2019,8 +2019,14 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	  if(GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD)
 	    return 1;
 
-	  if (TARGET_VSX_SMALL_INTEGER && mode == SImode)
-	    return 1;
+	  if (TARGET_VSX_SMALL_INTEGER)
+	    {
+	      if (mode == SImode)
+		return 1;
+
+	      if (TARGET_P9_VECTOR && (mode == HImode || mode == QImode))
+		return 1;
+	    }
 	}
 
       if (PAIRED_SIMD_REGNO_P (regno) && TARGET_PAIRED_FLOAT
@@ -3403,7 +3409,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	reg_addr[SFmode].scalar_in_vmx_p = true;
 
       if (TARGET_VSX_SMALL_INTEGER)
-	reg_addr[SImode].scalar_in_vmx_p = true;
+	{
+	  reg_addr[SImode].scalar_in_vmx_p = true;
+	  if (TARGET_P9_VECTOR)
+	    {
+	      reg_addr[HImode].scalar_in_vmx_p = true;
+	      reg_addr[QImode].scalar_in_vmx_p = true;
+	    }
+	}
     }
 
   /* Setup the fusion operations.  */
@@ -7082,12 +7095,33 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
-  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
+  if (VECTOR_MEM_VSX_P (mode))
     {
-      rtx (*set_func) (rtx, rtx, rtx, rtx)
-	= ((mode == V2DFmode) ? gen_vsx_set_v2df : gen_vsx_set_v2di);
-      emit_insn (set_func (target, target, val, GEN_INT (elt)));
-      return;
+      rtx insn = NULL_RTX;
+      rtx elt_rtx = GEN_INT (elt);
+
+      if (mode == V2DFmode)
+	insn = gen_vsx_set_v2df (target, target, val, elt_rtx);
+
+      else if (mode == V2DImode)
+	insn = gen_vsx_set_v2di (target, target, val, elt_rtx);
+
+      else if (TARGET_P9_VECTOR && TARGET_VSX_SMALL_INTEGER
+	       && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
+	{
+	  if (mode == V4SImode)
+	    insn = gen_vsx_set_v4si_p9 (target, target, val, elt_rtx);
+	  else if (mode == V8HImode)
+	    insn = gen_vsx_set_v8hi_p9 (target, target, val, elt_rtx);
+	  else if (mode == V16QImode)
+	    insn = gen_vsx_set_v16qi_p9 (target, target, val, elt_rtx);
+	}
+
+      if (insn)
+	{
+	  emit_insn (insn);
+	  return;
+	}
     }
 
   /* Simplify setting single element vectors like V1TImode.  */
@@ -20606,8 +20640,14 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
 	}
 
       /* ISA 2.07: MTVSRWZ or  MFVSRWZ.  */
-      if (TARGET_VSX_SMALL_INTEGER && mode == SImode)
-	return true;
+      if (TARGET_VSX_SMALL_INTEGER)
+	{
+	  if (mode == SImode)
+	    return true;
+
+	  if (TARGET_P9_VECTOR && (mode == HImode || mode == QImode))
+	    return true;
+	}
 
       /* ISA 2.07: MTVSRWZ or  MFVSRWZ.  */
       if (mode == SDmode)
@@ -21411,6 +21451,33 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	     instructions, we want altivec registers.  */
 	  if (GET_CODE (x) == CONST_VECTOR && easy_vector_constant (x, mode))
 	    return ALTIVEC_REGS;
+
+	  /* If this is an integer constant that can easily be loaded into
+	     vector registers, allow it.  */
+	  if (CONST_INT_P (x))
+	    {
+	      HOST_WIDE_INT value = INTVAL (x);
+
+	      /* ISA 2.07 can generate -1 in all registers with XXLORC.  ISA
+		 2.06 can generate it in the Altivec registers with
+		 VSPLTI<x>.  */
+	      if (value == -1)
+		{
+		  if (TARGET_P8_VECTOR)
+		    return rclass;
+		  else if (rclass == ALTIVEC_REGS || rclass == VSX_REGS)
+		    return ALTIVEC_REGS;
+		  else
+		    return NO_REGS;
+		}
+
+	      /* ISA 3.0 can load -128..127 using the XXSPLTIB instruction and
+		 a sign extend in the Altivec registers.  */
+	      if (IN_RANGE (value, -128, 127) && TARGET_P9_VECTOR
+		  && TARGET_VSX_SMALL_INTEGER
+		  && (rclass == ALTIVEC_REGS || rclass == VSX_REGS))
+		return ALTIVEC_REGS;
+	    }
 
 	  /* Force constant to memory.  */
 	  return NO_REGS;
@@ -30366,53 +30433,54 @@ rs6000_output_function_epilogue (FILE *file,
 	 seems to set the bit when not optimizing.  */
       fprintf (file, "%d\n", ((float_parms << 1) | (! optimize)));
 
-      if (! optional_tbtab)
-	return;
+      if (optional_tbtab)
+	{
+	  /* Optional fields follow.  Some are variable length.  */
 
-      /* Optional fields follow.  Some are variable length.  */
+	  /* Parameter types, left adjusted bit fields: 0 fixed, 10 single
+	     float, 11 double float.  */
+	  /* There is an entry for each parameter in a register, in the order
+	     that they occur in the parameter list.  Any intervening arguments
+	     on the stack are ignored.  If the list overflows a long (max
+	     possible length 34 bits) then completely leave off all elements
+	     that don't fit.  */
+	  /* Only emit this long if there was at least one parameter.  */
+	  if (fixed_parms || float_parms)
+	    fprintf (file, "\t.long %d\n", parm_info);
 
-      /* Parameter types, left adjusted bit fields: 0 fixed, 10 single float,
-	 11 double float.  */
-      /* There is an entry for each parameter in a register, in the order that
-	 they occur in the parameter list.  Any intervening arguments on the
-	 stack are ignored.  If the list overflows a long (max possible length
-	 34 bits) then completely leave off all elements that don't fit.  */
-      /* Only emit this long if there was at least one parameter.  */
-      if (fixed_parms || float_parms)
-	fprintf (file, "\t.long %d\n", parm_info);
+	  /* Offset from start of code to tb table.  */
+	  fputs ("\t.long ", file);
+	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
+	  RS6000_OUTPUT_BASENAME (file, fname);
+	  putc ('-', file);
+	  rs6000_output_function_entry (file, fname);
+	  putc ('\n', file);
 
-      /* Offset from start of code to tb table.  */
-      fputs ("\t.long ", file);
-      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
-      RS6000_OUTPUT_BASENAME (file, fname);
-      putc ('-', file);
-      rs6000_output_function_entry (file, fname);
-      putc ('\n', file);
+	  /* Interrupt handler mask.  */
+	  /* Omit this long, since we never set the interrupt handler bit
+	     above.  */
 
-      /* Interrupt handler mask.  */
-      /* Omit this long, since we never set the interrupt handler bit
-	 above.  */
+	  /* Number of CTL (controlled storage) anchors.  */
+	  /* Omit this long, since the has_ctl bit is never set above.  */
 
-      /* Number of CTL (controlled storage) anchors.  */
-      /* Omit this long, since the has_ctl bit is never set above.  */
+	  /* Displacement into stack of each CTL anchor.  */
+	  /* Omit this list of longs, because there are no CTL anchors.  */
 
-      /* Displacement into stack of each CTL anchor.  */
-      /* Omit this list of longs, because there are no CTL anchors.  */
+	  /* Length of function name.  */
+	  if (*fname == '*')
+	    ++fname;
+	  fprintf (file, "\t.short %d\n", (int) strlen (fname));
 
-      /* Length of function name.  */
-      if (*fname == '*')
-	++fname;
-      fprintf (file, "\t.short %d\n", (int) strlen (fname));
+	  /* Function name.  */
+	  assemble_string (fname, strlen (fname));
 
-      /* Function name.  */
-      assemble_string (fname, strlen (fname));
+	  /* Register for alloca automatic storage; this is always reg 31.
+	     Only emit this if the alloca bit was set above.  */
+	  if (frame_pointer_needed)
+	    fputs ("\t.byte 31\n", file);
 
-      /* Register for alloca automatic storage; this is always reg 31.
-	 Only emit this if the alloca bit was set above.  */
-      if (frame_pointer_needed)
-	fputs ("\t.byte 31\n", file);
-
-      fputs ("\t.align 2\n", file);
+	  fputs ("\t.align 2\n", file);
+	}
     }
 
   /* Arrange to define .LCTOC1 label, if not already done.  */
@@ -35626,7 +35694,9 @@ rs6000_asm_weaken_decl (FILE *stream, tree decl,
   fputc ('\n', stream);
   if (val)
     {
+#ifdef ASM_OUTPUT_DEF
       ASM_OUTPUT_DEF (stream, name, val);
+#endif
       if (decl && TREE_CODE (decl) == FUNCTION_DECL
 	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)
 	{

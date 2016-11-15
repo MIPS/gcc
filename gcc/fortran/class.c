@@ -378,7 +378,8 @@ gfc_is_class_scalar_expr (gfc_expr *e)
 	&& CLASS_DATA (e->symtree->n.sym)
 	&& !CLASS_DATA (e->symtree->n.sym)->attr.dimension
 	&& (e->ref == NULL
-	    || (strcmp (e->ref->u.c.component->name, "_data") == 0
+	    || (e->ref->type == REF_COMPONENT
+		&& strcmp (e->ref->u.c.component->name, "_data") == 0
 		&& e->ref->next == NULL)))
     return true;
 
@@ -390,7 +391,8 @@ gfc_is_class_scalar_expr (gfc_expr *e)
 	    && CLASS_DATA (ref->u.c.component)
 	    && !CLASS_DATA (ref->u.c.component)->attr.dimension
 	    && (ref->next == NULL
-		|| (strcmp (ref->next->u.c.component->name, "_data") == 0
+		|| (ref->next->type == REF_COMPONENT
+		    && strcmp (ref->next->u.c.component->name, "_data") == 0
 		    && ref->next->next == NULL)))
 	return true;
     }
@@ -2963,15 +2965,6 @@ gfc_find_typebound_intrinsic_op (gfc_symbol* derived, bool* t,
 gfc_symtree*
 gfc_get_tbp_symtree (gfc_symtree **root, const char *name)
 {
-  gfc_symtree *result;
-
-  result = gfc_find_symtree (*root, name);
-  if (!result)
-    {
-      result = gfc_new_symtree (root, name);
-      gcc_assert (result);
-      result->n.tb = NULL;
-    }
-
-  return result;
+  gfc_symtree *result = gfc_find_symtree (*root, name);
+  return result ? result : gfc_new_symtree (root, name);
 }
