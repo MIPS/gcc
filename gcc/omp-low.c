@@ -13600,10 +13600,10 @@ expand_omp_target (struct omp_region *region)
     }
 }
 
-/* Expand KFOR loop as a GPGPU kernel, i.e. as a body only with iteration
-   variable derived from the thread number.  INTRA_GROUP means this is an
-   expansion of a loop iterating over work-items within a separate iteration
-   over groups. */
+/* Expand KFOR loop as a HSA grifidied kernel, i.e. as a body only with
+   iteration variable derived from the thread number.  INTRA_GROUP means this
+   is an expansion of a loop iterating over work-items within a separate
+   iteration over groups. */
 
 static void
 grid_expand_omp_for_loop (struct omp_region *kfor, bool intra_group)
@@ -13729,7 +13729,7 @@ grid_remap_kernel_arg_accesses (tree *tp, int *walk_subtrees, void *data)
 static void expand_omp (struct omp_region *region);
 
 /* If TARGET region contains a kernel body for loop, remove its region from the
-   TARGET and expand it in GPGPU kernel fashion. */
+   TARGET and expand it in HSA gridified kernel fashion. */
 
 static void
 grid_expand_target_grid_body (struct omp_region *target)
@@ -17368,7 +17368,7 @@ struct grid_prop
 };
 
 #define GRID_MISSED_MSG_PREFIX "Will not turn target construct into a " \
-  "gridified GPGPU kernel because "
+  "gridified HSA kernel because "
 
 /* Return true if STMT is an assignment of a register-type into a local
    VAR_DECL.  If GRID is non-NULL, the assignment additionally must not be to
@@ -17682,7 +17682,7 @@ grid_inner_loop_gridifiable_p (gomp_for *gfor, grid_prop *grid)
 
 /* Given distribute omp construct represented by DIST, which in the original
    source forms a compound construct with a looping construct, return true if it
-   can be turned into a gridified GPGPU kernel.  Otherwise return false. GRID
+   can be turned into a gridified HSA kernel.  Otherwise return false. GRID
    describes hitherto discovered properties of the loop that is evaluated for
    possible gridification.  */
 
@@ -17867,7 +17867,7 @@ grid_handle_call_in_distribute (gimple_stmt_iterator *gsi)
 /* Given a sequence of statements within a distribute omp construct or a
    parallel construct, which in the original source does not form a compound
    construct with a looping construct, return true if it does not prevent us
-   from turning it into a gridified GPGPU kernel.  Otherwise return false. GRID
+   from turning it into a gridified HSA kernel.  Otherwise return false. GRID
    describes hitherto discovered properties of the loop that is evaluated for
    possible gridification.  IN_PARALLEL must be true if seq is within a
    parallel construct and flase if it is only within a distribute
@@ -17991,10 +17991,9 @@ grid_dist_follows_tiling_pattern (gimple_seq seq, grid_prop *grid,
     return true;
 }
 
-/* If TARGET follows a pattern that can be turned into a gridified GPGPU
-   kernel, return true, otherwise return false.  In the case of success, also
-   fill in GROUP_SIZE_P with the requested group size or NULL if there is
-   none.  */
+/* If TARGET follows a pattern that can be turned into a gridified HSA kernel,
+   return true, otherwise return false.  In the case of success, also fill in
+   GRID with information describing the kernel grid.  */
 
 static bool
 grid_target_follows_gridifiable_pattern (gomp_target *target, grid_prop *grid)
@@ -18530,7 +18529,7 @@ grid_attempt_target_gridification (gomp_target *target,
   location_t loc = gimple_location (target);
   if (dump_enabled_p ())
     dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
-		     "Target construct will be turned into a gridified GPGPU "
+		     "Target construct will be turned into a gridified HSA "
 		     "kernel\n");
 
   /* Copy target body to a GPUKERNEL construct:  */

@@ -1,3 +1,14 @@
+2016-11-15  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (grid references): Replace GPGPU in the function
+	comment with a reference to HSA grids.
+	(grid_dist_follows_simple_pattern): Likewise.
+	(grid_dist_follows_tiling_pattern): Likewise.
+	(grid_target_follows_gridifiable_pattern): Likewise.
+	(grid_expand_target_grid_body): Update function comment.
+	(GRID_MISSED_MSG_PREFIX): Replece GPGPU with HSA kernel.
+	(grid_attempt_target_gridification): Likewise.
+
 2016-11-07  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (grid_target_follows_gridifiable_pattern): Do not

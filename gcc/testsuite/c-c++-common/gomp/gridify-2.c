@@ -63,4 +63,4 @@ void tiled_sgemm_tt(const int M, const int N, const int K, const float alpha, co
       }	   /* end target teams distribute */
 }
 
-/* { dg-final { scan-tree-dump "Target construct will be turned into a gridified GPGPU kernel" "omplower" } } */
+/* { dg-final { scan-tree-dump "Target construct will be turned into a gridified HSA kernel" "omplower" } } */
