@@ -215,6 +215,20 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 15)")))
 
+;; Match constants that are multiples of 8 that can be used with VEXTRACT and
+;; VINSERT operations
+(define_predicate "vextract_shift_operand"
+  (and (match_code "const_int")
+       (match_test "((INTVAL (op) & 0x7) == 0)")))
+
+;; Match constants that can be used as the mask for VEXTRACT and VINSERT
+;; operations.
+(define_predicate "vextract_mask_operand"
+  (and (match_code "const_int")
+       (match_test "(INTVAL (op) == 0xffffffff
+		     || INTVAL (op) == 0xffff
+		     || INTVAL (op) == 0xff)")))
+
 ;; Return 1 if op is a register that is not special.
 (define_predicate "gpc_reg_operand"
   (match_operand 0 "register_operand")

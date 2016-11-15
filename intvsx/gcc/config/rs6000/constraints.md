@@ -197,6 +197,12 @@
   "Vector constant that can be loaded with XXSPLTIB & sign extension."
   (match_test "xxspltib_constant_split (op, mode)"))
 
+;; Constraint for XXEXTRACTUW mask
+(define_constraint "wW"
+  "Constant 4294967295"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) == 4294967295")))
+
 ;; ISA 3.0 DS-form instruction that has the bottom 2 bits 0 and no update form.
 ;; Used by LXSD/STXSD/LXSSP/STXSSP.  In contrast to "Y", the multiple-of-four
 ;; offset is enforced for 32-bit too.
