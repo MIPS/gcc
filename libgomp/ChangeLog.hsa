@@ -1,3 +1,7 @@
+2016-11-15  Martin Jambor  <mjambor@suse.cz>
+
+	* plugin/plugin-hsa.c: Prefixed incldes of hsa headers with plugin/
+
 2016-11-12  Martin Jambor  <mjambor@suse.cz>
         * hsa.h: Moved to plugin directory.
 	* hsa_ext_finalize.h: Likewise.
