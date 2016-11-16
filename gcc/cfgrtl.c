@@ -2884,7 +2884,7 @@ rtl_verify_fallthru (void)
 	  else
 	    for (insn = NEXT_INSN (BB_END (e->src)); insn != BB_HEAD (e->dest);
 		 insn = NEXT_INSN (insn))
-	      if (BARRIER_P (insn) || INSN_P (insn))
+	      if (BARRIER_P (insn) || NONDEBUG_INSN_P (insn))
 		{
 		  error ("verify_flow_info: Incorrect fallthru %i->%i",
 			 e->src->index, e->dest->index);
@@ -2933,6 +2933,7 @@ rtl_verify_bb_layout (void)
 	    {
 	    case BARRIER:
 	    case NOTE:
+	    case DEBUG_INSN:
 	      break;
 
 	    case CODE_LABEL:

@@ -314,7 +314,16 @@ expr_last (tree expr)
   if (TREE_CODE (expr) == STATEMENT_LIST)
     {
       struct tree_statement_list_node *n = STATEMENT_LIST_TAIL (expr);
-      return n ? n->stmt : NULL_TREE;
+      if (!n)
+	return NULL_TREE;
+      struct tree_statement_list_node *f = STATEMENT_LIST_HEAD (expr);
+      if (f->next != n)
+	return n->stmt;
+      if (TREE_CODE (f->stmt) != DEBUG_BEGIN_STMT)
+	return n->stmt;
+      if (TREE_CODE (n->stmt) != STATEMENT_LIST)
+	return n->stmt;
+      return expr_last (n->stmt);
     }
 
   while (TREE_CODE (expr) == COMPOUND_EXPR)

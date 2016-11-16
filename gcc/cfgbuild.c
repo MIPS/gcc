@@ -443,6 +443,7 @@ find_bb_boundaries (basic_block bb)
   rtx_jump_table_data *table;
   rtx_insn *flow_transfer_insn = NULL;
   edge fallthru = NULL;
+  bool only_header_debug_insns_p = true;
 
   if (insn == BB_END (bb))
     return;
@@ -460,6 +461,13 @@ find_bb_boundaries (basic_block bb)
       if ((flow_transfer_insn || code == CODE_LABEL)
 	  && inside_basic_block_p (insn))
 	{
+	  if (only_header_debug_insns_p)
+	    {
+	      gcc_assert (!flow_transfer_insn);
+	      BB_HEAD (bb) = insn;
+	      goto end;
+	    }
+
 	  fallthru = split_block (bb, PREV_INSN (insn));
 	  if (flow_transfer_insn)
 	    {
@@ -471,6 +479,7 @@ find_bb_boundaries (basic_block bb)
 		   x = NEXT_INSN (x))
 		if (!BARRIER_P (x))
 		  set_block_for_insn (x, NULL);
+	      only_header_debug_insns_p = true;
 	    }
 
 	  bb = fallthru->dest;
@@ -490,8 +499,11 @@ find_bb_boundaries (basic_block bb)
 
       if (control_flow_insn_p (insn))
 	flow_transfer_insn = insn;
+    end:
       if (insn == end)
 	break;
+      if (!DEBUG_INSN_P (insn))
+	only_header_debug_insns_p = false;
       insn = NEXT_INSN (insn);
     }
 

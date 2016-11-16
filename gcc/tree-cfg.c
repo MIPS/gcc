@@ -5605,8 +5605,10 @@ gimple_block_label (basic_block bb)
   tree label;
   glabel *stmt;
 
-  for (i = s; !gsi_end_p (i); first = false, gsi_next (&i))
+  for (i = s; !gsi_end_p (i); gsi_next (&i))
     {
+      if (is_gimple_debug (gsi_stmt (i)))
+	continue;
       stmt = dyn_cast <glabel *> (gsi_stmt (i));
       if (!stmt)
 	break;
@@ -5617,6 +5619,7 @@ gimple_block_label (basic_block bb)
 	    gsi_move_before (&i, &s);
 	  return label;
 	}
+      first = false;
     }
 
   label = create_artificial_label (UNKNOWN_LOCATION);
