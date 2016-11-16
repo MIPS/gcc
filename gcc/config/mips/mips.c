@@ -22296,6 +22296,16 @@ micromips_move_balc_opt ()
 
 		  rtx last = emit_insn_after_setloc (mov_balc, call_insn,
 						     INSN_LOCATION (call_insn));
+
+		  rtx note = find_reg_note (call_insn, REG_EH_REGION,
+					    NULL_RTX);
+		  if (note != NULL_RTX)
+		    add_reg_note (last, REG_EH_REGION, XEXP (note, 0));
+
+		  note = find_reg_note (call_insn, REG_CALL_DECL, NULL_RTX);
+		  if (note != NULL_RTX)
+		    add_reg_note (last, REG_CALL_DECL, XEXP (note, 0));
+
 		  if (dump_file)
 		    {
 		      print_rtl_single (dump_file, call_insn);
