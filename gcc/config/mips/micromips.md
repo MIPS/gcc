@@ -182,13 +182,23 @@
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
   "TARGET_MICROMIPS_R7
    && umips_move_balc_p (operands)"
-  [(parallel [(set (match_dup 4)
-		   (call (mem:SI (match_dup 2))
-			 (match_dup 3)))
-	      (set (match_dup 0)
-		   (match_dup 1))
-	      (use (match_dup 0))
-	      (clobber (reg:SI RETURN_ADDR_REGNUM))])])
+  [(const_int 0)]
+{
+  rtx move_balc = gen_move_balc_call_value (operands[0], operands[1],
+					    operands[2], operands[3],
+					    operands[4]);
+  rtx_insn *insn = emit_call_insn (move_balc);
+
+  rtx note = find_reg_note (NEXT_INSN (curr_insn), REG_EH_REGION, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_EH_REGION, XEXP (note, 0));
+
+  note = find_reg_note (NEXT_INSN (curr_insn), REG_CALL_DECL, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_CALL_DECL, XEXP (note, 0));
+
+  DONE;
+})
 
 (define_peephole2
   [(set (match_operand 0 "register_operand")
@@ -198,14 +208,24 @@
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
   "TARGET_MICROMIPS_R7
    && umips_move_balc_p (operands)"
-  [(parallel [(call (mem:SI (match_dup 2))
-		    (match_dup 3))
-	      (set (match_dup 0)
-		   (match_dup 1))
-	      (use (match_dup 0))
-	      (clobber (reg:SI RETURN_ADDR_REGNUM))])])
+  [(const_int 0)]
+{
+  rtx move_balc = gen_move_balc_call (operands[0], operands[1],
+				      operands[2], operands[3]);
+  rtx_insn *insn = emit_call_insn (move_balc);
 
-(define_insn "*move_balc_call_value"
+  rtx note = find_reg_note (NEXT_INSN (curr_insn), REG_EH_REGION, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_EH_REGION, XEXP (note, 0));
+
+  note = find_reg_note (NEXT_INSN (curr_insn), REG_CALL_DECL, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_CALL_DECL, XEXP (note, 0));
+
+  DONE;
+})
+
+(define_insn "move_balc_call_value"
   [(parallel [(set (match_operand 4 "" "")
 		   (call (mem:SI (match_operand 2 "" ""))
 			 (match_operand 3 "" "")))
@@ -220,7 +240,7 @@
   }
   [(set_attr "jal" "direct")])
 
-(define_insn "*move_balc_call"
+(define_insn "move_balc_call"
   [(parallel [(call (mem:SI (match_operand 2 "" ""))
 		    (match_operand 3 "" ""))
 	      (set (match_operand 0 "register_operand" "")
