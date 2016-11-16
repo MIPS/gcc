@@ -6,9 +6,8 @@
 
 #define LARGE 0x12345
 
-int fusion_float_read (float *p){ return p[LARGE]; }
+float fusion_float_read (float *p){ return p[LARGE]; }
 
 void fusion_float_write (float *p, float f){ p[LARGE] = f; }
 
-/* { dg-final { scan-assembler "load fusion, type SF"  } } */
 /* { dg-final { scan-assembler "store fusion, type SF" } } */
