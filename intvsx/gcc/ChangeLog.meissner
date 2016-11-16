@@ -1,3 +1,36 @@
+2016-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78101
+	* config/rs6000/predicates.md (fusion_addis_mem_combo_load): Add
+	the appropriate checks for SFmode/DFmode load/stores in GPR
+	registers.
+	(fusion_addis_mem_combo_store): Likewise.
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Rename
+	fusion_fpr_* to fusion_vsx_* and add in support for ISA 3.0 scalar
+	d-form instructions for traditional Altivec registers.
+	(emit_fusion_p9_load): Likewise.
+	(emit_fusion_p9_store): Likewise.
+	* config/rs6000/rs6000.md (p9 fusion store peephole2): Remove
+	early clobber from scratch register.  Do not match if the register
+	being stored is the scratch register.
+	(fusion_vsx_<P:mode>_<FPR_FUSION:mode>_load): Rename fusion_fpr_*
+	to fusion_vsx_* and add in support for ISA 3.0 scalar d-form
+	instructions for traditional Altivec registers.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_load): Likewise.
+	(fusion_vsx_<P:mode>_<FPR_FUSION:mode>_store): Likewise.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_store): Likewise.
+
+2016-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (movsi_internal1): Change "?*" load and
+	store constraints to "$" or "^", change FPR/VSX move constraints
+	to "^".
+	(mov<mode>_internal, QHI iterator): Likewise.
+	(movdi_internal32): Likewise.
+	(movdi_internal64): Change d-form FPR/vector load and store
+	constraints to "^", change Altivec indexed load and store
+	constraints to "$".
+
 2016-11-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wW constraint): New constraint for
@@ -8,7 +41,8 @@
 	(vextract_mask_operand): Likewise.
 	* config/rs6000/rs6000.md (rotl<mode>3_mask_p9): New insn to
 	attempt to generate VEXTRACT{B,H} and XXEXTRACTW instructions.
-	(movdi_internal64): Change ?* constraints to $.
+	(movdi_internal64): Change ?* load/store constraints to $ or ^,
+	change FPR/VSX move constraints to ^.
 
 2016-11-14   Michael Meissner  <meissner@linux.vnet.ibm.com>
 

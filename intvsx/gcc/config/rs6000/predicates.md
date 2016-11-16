@@ -1858,7 +1858,7 @@
 ;; Match a GPR load (lbz, lhz, lwz, ld) that uses a combined address in the
 ;; memory field with both the addis and the memory offset.  Sign extension
 ;; is not handled here, since lha and lwa are not fused.
-;; With extended fusion, also match a FPR load (lfd, lfs) and float_extend
+;; With P9 fusion, also match a fpr/vector load and float_extend
 (define_predicate "fusion_addis_mem_combo_load"
   (match_code "mem,zero_extend,float_extend")
 {
@@ -1887,8 +1887,12 @@
       break;
 
     case SFmode:
-    case DFmode:
       if (!TARGET_P9_FUSION)
+	return 0;
+      break;
+
+    case DFmode:
+      if ((!TARGET_POWERPC64 && !TARGET_DF_FPR) || !TARGET_P9_FUSION)
 	return 0;
       break;
 
@@ -1934,6 +1938,7 @@
     case QImode:
     case HImode:
     case SImode:
+    case SFmode:
       break;
 
     case DImode:
@@ -1941,13 +1946,8 @@
 	return 0;
       break;
 
-    case SFmode:
-      if (!TARGET_SF_FPR)
-	return 0;
-      break;
-
     case DFmode:
-      if (!TARGET_DF_FPR)
+      if (!TARGET_POWERPC64 && !TARGET_DF_FPR)
 	return 0;
       break;
 
