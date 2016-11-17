@@ -1,3 +1,10 @@
+2016-11-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2016-11-16  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.target/arm/empty_fiq_handler.c: New test.
+
 2016-11-08  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	Backport from mainline
