@@ -297,7 +297,9 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
 
     case GIMPLE_DEBUG:
       gcc_checking_assert (MAY_HAVE_DEBUG_STMTS && lang_hooks.emits_begin_stmt);
-      break;
+      /* Propagate fallthruness.  */
+      gsi_next (gsi);
+      return;
 
     case GIMPLE_NOP:
     case GIMPLE_ASM:
