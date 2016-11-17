@@ -2906,7 +2906,7 @@ rtl_verify_bb_layout (void)
 {
   basic_block bb;
   int err = 0;
-  rtx_insn *x;
+  rtx_insn *x, *y;
   int num_bb_notes;
   rtx_insn * const rtx_first = get_insns ();
   basic_block last_bb_seen = ENTRY_BLOCK_PTR_FOR_FN (cfun), curr_bb = NULL;
@@ -2952,7 +2952,8 @@ rtl_verify_bb_layout (void)
 
       if (JUMP_P (x)
 	  && returnjump_p (x) && ! condjump_p (x)
-	  && ! (next_nonnote_insn (x) && BARRIER_P (next_nonnote_insn (x))))
+	  && ! ((y = next_nonnote_nondebug_insn (x))
+		&& BARRIER_P (y)))
 	    fatal_insn ("return not followed by barrier", x);
 
       if (curr_bb && x == BB_END (curr_bb))
