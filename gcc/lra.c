@@ -936,7 +936,6 @@ lra_set_insn_recog_data (rtx_insn *insn)
   data->used_insn_alternative = -1;
   data->icode = icode;
   data->regs = NULL;
-  data->sp_offset = 0;
   if (DEBUG_INSN_P (insn))
     {
       data->insn_static_data = &debug_insn_static_data;
