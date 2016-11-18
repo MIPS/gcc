@@ -6,7 +6,7 @@
 /* { dg-final { scan-assembler-times "fcfid "      2 } } */
 /* { dg-final { scan-assembler-times "fcfids "     2 } } */
 /* { dg-final { scan-assembler-times "fctiwuz \|xscvdpuxws " 2 } } */
-/* { dg-final { scan-assembler-times "fctiwz \|;xscvdpsxws "  2 } } */
+/* { dg-final { scan-assembler-times "fctiwz \|xscvdpsxws "  2 } } */
 /* { dg-final { scan-assembler-times "mfvsrd "     4 } } */
 /* { dg-final { scan-assembler-times "mtvsrwa "    2 } } */
 /* { dg-final { scan-assembler-times "mtvsrwz "    2 } } */
