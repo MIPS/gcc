@@ -1120,7 +1120,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
       if (tablejump_p (insn, &label, &table))
 	delete_insn_chain (label, table, false);
 
-      barrier = next_nonnote_insn (BB_END (src));
+      barrier = next_nonnote_nondebug_insn (BB_END (src));
       if (!barrier || !BARRIER_P (barrier))
 	emit_barrier_after (BB_END (src));
       else
@@ -2274,11 +2274,11 @@ get_last_bb_insn (basic_block bb)
     end = table;
 
   /* Include any barriers that may follow the basic block.  */
-  tmp = next_nonnote_insn_bb (end);
+  tmp = next_nonnote_nondebug_insn_bb (end);
   while (tmp && BARRIER_P (tmp))
     {
       end = tmp;
-      tmp = next_nonnote_insn_bb (end);
+      tmp = next_nonnote_nondebug_insn_bb (end);
     }
 
   return end;

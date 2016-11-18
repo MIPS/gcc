@@ -3314,20 +3314,17 @@ next_nonnote_insn (rtx_insn *insn)
   return insn;
 }
 
-/* Return the next insn after INSN that is not a NOTE, but stop the
-   search before we enter another basic block.  This routine does not
-   look inside SEQUENCEs.  */
+/* Return the next insn after INSN that is not a DEBUG_INSN.  This
+   routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_insn_bb (rtx_insn *insn)
+next_nondebug_insn (rtx_insn *insn)
 {
   while (insn)
     {
       insn = NEXT_INSN (insn);
-      if (insn == 0 || !NOTE_P (insn))
+      if (insn == 0 || !DEBUG_INSN_P (insn))
 	break;
-      if (NOTE_INSN_BASIC_BLOCK_P (insn))
-	return NULL;
     }
 
   return insn;
@@ -3343,43 +3340,6 @@ prev_nonnote_insn (rtx_insn *insn)
     {
       insn = PREV_INSN (insn);
       if (insn == 0 || !NOTE_P (insn))
-	break;
-    }
-
-  return insn;
-}
-
-/* Return the previous insn before INSN that is not a NOTE, but stop
-   the search before we enter another basic block.  This routine does
-   not look inside SEQUENCEs.  */
-
-rtx_insn *
-prev_nonnote_insn_bb (rtx uncast_insn)
-{
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
-  while (insn)
-    {
-      insn = PREV_INSN (insn);
-      if (insn == 0 || !NOTE_P (insn))
-	break;
-      if (NOTE_INSN_BASIC_BLOCK_P (insn))
-	return NULL;
-    }
-
-  return insn;
-}
-
-/* Return the next insn after INSN that is not a DEBUG_INSN.  This
-   routine does not look inside SEQUENCEs.  */
-
-rtx_insn *
-next_nondebug_insn (rtx_insn *insn)
-{
-  while (insn)
-    {
-      insn = NEXT_INSN (insn);
-      if (insn == 0 || !DEBUG_INSN_P (insn))
 	break;
     }
 
@@ -3418,6 +3378,29 @@ next_nonnote_nondebug_insn (rtx_insn *insn)
   return insn;
 }
 
+/* Return the next insn after INSN that is not a NOTE nor DEBUG_INSN,
+   but stop the search before we enter another basic block.  This
+   routine does not look inside SEQUENCEs.  */
+
+rtx_insn *
+next_nonnote_nondebug_insn_bb (rtx_insn *insn)
+{
+  while (insn)
+    {
+      insn = NEXT_INSN (insn);
+      if (insn == 0)
+	break;
+      if (DEBUG_INSN_P (insn))
+	continue;
+      if (!NOTE_P (insn))
+	break;
+      if (NOTE_INSN_BASIC_BLOCK_P (insn))
+	return NULL;
+    }
+
+  return insn;
+}
+
 /* Return the previous insn before INSN that is not a NOTE nor DEBUG_INSN.
    This routine does not look inside SEQUENCEs.  */
 
@@ -3429,6 +3412,31 @@ prev_nonnote_nondebug_insn (rtx_insn *insn)
       insn = PREV_INSN (insn);
       if (insn == 0 || (!NOTE_P (insn) && !DEBUG_INSN_P (insn)))
 	break;
+    }
+
+  return insn;
+}
+
+/* Return the previous insn before INSN that is not a NOTE nor
+   DEBUG_INSN, but stop the search before we enter another basic
+   block.  This routine does not look inside SEQUENCEs.  */
+
+rtx_insn *
+prev_nonnote_nondebug_insn_bb (rtx uncast_insn)
+{
+  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
+
+  while (insn)
+    {
+      insn = PREV_INSN (insn);
+      if (insn == 0)
+	break;
+      if (DEBUG_INSN_P (insn))
+	continue;
+      if (!NOTE_P (insn))
+	break;
+      if (NOTE_INSN_BASIC_BLOCK_P (insn))
+	return NULL;
     }
 
   return insn;
