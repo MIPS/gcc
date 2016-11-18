@@ -9654,9 +9654,14 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
       gfc_conv_descriptor_data_set (&init, descriptor, null_pointer_node);
       if (flag_coarray == GFC_FCOARRAY_LIB && sym->attr.codimension)
 	{
-	   tmp = gfc_conv_descriptor_token (descriptor);
-	   gfc_add_modify (&init, tmp, fold_convert (TREE_TYPE (tmp),
-						     null_pointer_node));
+	  /* Declare the variable static so its array descriptor stays present
+	     after leaving the scope.  It may still be accessed through another
+	     image.  This may happen, for example, with the caf_mpi
+	     implementation.  */
+	  TREE_STATIC (descriptor) = 1;
+	  tmp = gfc_conv_descriptor_token (descriptor);
+	  gfc_add_modify (&init, tmp, fold_convert (TREE_TYPE (tmp),
+						    null_pointer_node));
 	}
     }
 

@@ -1928,7 +1928,9 @@ conv_caf_send (gfc_code *code) {
 
   /* Special case: RHS is a coarray but LHS is not; this code path avoids a
      temporary and a loop.  */
-  if (!gfc_is_coindexed (lhs_expr) && !lhs_caf_attr.codimension)
+  if (!gfc_is_coindexed (lhs_expr)
+      && (!lhs_caf_attr.codimension
+	  || !(lhs_expr->rank > 0 && lhs_caf_attr.allocatable)))
     {
       bool lhs_may_realloc = lhs_expr->rank > 0 && lhs_caf_attr.allocatable;
       gcc_assert (gfc_is_coindexed (rhs_expr));
@@ -2061,7 +2063,7 @@ conv_caf_send (gfc_code *code) {
       gfc_add_block_to_block (&block, &stat_se.post);
     }
 
-  if (!gfc_is_coindexed (rhs_expr) && !rhs_caf_attr.codimension)
+  if (!gfc_is_coindexed (rhs_expr))
     {
       if (lhs_caf_attr.alloc_comp)
 	{
