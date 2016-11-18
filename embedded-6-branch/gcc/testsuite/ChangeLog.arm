@@ -1,3 +1,12 @@
+2016-11-18  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2016-11-18  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.target/arm/optional_thumb-1.c: New test.
+	* gcc.target/arm/optional_thumb-2.c: New test.
+	* gcc.target/arm/optional_thumb-3.c: New test.
+
 2016-11-08  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
