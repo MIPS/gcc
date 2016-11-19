@@ -2967,7 +2967,7 @@ make_label_decl (tree id, int local_p)
   decl = build_decl (input_location, LABEL_DECL, id, void_type_node);
 
   DECL_CONTEXT (decl) = current_function_decl;
-  DECL_MODE (decl) = VOIDmode;
+  SET_DECL_MODE (decl, VOIDmode);
   C_DECLARED_LABEL_FLAG (decl) = local_p;
 
   /* Say where one reference is to the label, for the sake of the
@@ -6839,7 +6839,9 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  /* Set these flags now for templates.  We'll update the flags in
 	     store_init_value for instantiations.  */
 	  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
-	  if (decl_maybe_constant_var_p (decl))
+	  if (decl_maybe_constant_var_p (decl)
+	      /* FIXME setting TREE_CONSTANT on refs breaks the back end.  */
+	      && TREE_CODE (type) != REFERENCE_TYPE)
 	    TREE_CONSTANT (decl) = 1;
 	}
     }
@@ -7293,6 +7295,22 @@ get_tuple_decomp_init (tree decl, unsigned i)
     }
 }
 
+/* It's impossible to recover the decltype of a tuple decomposition variable
+   based on the actual type of the variable, so store it in a hash table.  */
+static GTY(()) hash_map<tree,tree> *decomp_type_table;
+static void
+store_decomp_type (tree v, tree t)
+{
+  if (!decomp_type_table)
+    decomp_type_table = hash_map<tree,tree>::create_ggc (13);
+  decomp_type_table->put (v, t);
+}
+tree
+lookup_decomp_type (tree v)
+{
+  return *decomp_type_table->get (v);
+}
+
 /* Finish a decomposition declaration.  DECL is the underlying declaration
    "e", FIRST is the head of a chain of decls for the individual identifiers
    chained through DECL_CHAIN in reverse order and COUNT is the number of
@@ -7301,7 +7319,6 @@ get_tuple_decomp_init (tree decl, unsigned i)
 void
 cp_finish_decomp (tree decl, tree first, unsigned int count)
 {
-  location_t loc = DECL_SOURCE_LOCATION (decl);
   if (error_operand_p (decl))
     {
      error_out:
@@ -7315,9 +7332,12 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	    }
 	  first = DECL_CHAIN (first);
 	}
+      if (DECL_P (decl) && DECL_NAMESPACE_SCOPE_P (decl))
+	SET_DECL_ASSEMBLER_NAME (decl, get_identifier ("<decomp>"));
       return;
     }
 
+  location_t loc = DECL_SOURCE_LOCATION (decl);
   if (type_dependent_expression_p (decl)
       /* This happens for range for when not in templates.
 	 Still add the DECL_VALUE_EXPRs for later processing.  */
@@ -7465,6 +7485,8 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 		      v[i]);
 	      goto error_out;
 	    }
+	  /* Save the decltype away before reference collapse.  */
+	  store_decomp_type (v[i], eltype);
 	  eltype = cp_build_reference_type (eltype, !lvalue_p (init));
 	  TREE_TYPE (v[i]) = eltype;
 	  layout_decl (v[i], 0);
@@ -7530,6 +7552,8 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	    i++;
 	  }
     }
+  if (DECL_NAMESPACE_SCOPE_P (decl))
+    SET_DECL_ASSEMBLER_NAME (decl, mangle_decomp (decl, v));
 }
 
 /* Returns a declaration for a VAR_DECL as if:

@@ -485,7 +485,6 @@ runtime_files = \
 	runtime/yield.c \
 	$(rtems_task_variable_add_file) \
 	malloc.c \
-	runtime1.c \
 	$(runtime_getncpu_file)
 
 goc2c.$(OBJEXT): runtime/goc2c.c
@@ -495,10 +494,6 @@ goc2c: goc2c.$(OBJEXT)
 	$(CC_FOR_BUILD) $(CFLAGS_FOR_BUILD) $(LDFLAGS_FOR_BUILD) -o $@ $<
 
 malloc.c: $(srcdir)/runtime/malloc.goc goc2c
-	./goc2c $< > $@.tmp
-	mv -f $@.tmp $@
-
-runtime1.c: $(srcdir)/runtime/runtime1.goc goc2c
 	./goc2c $< > $@.tmp
 	mv -f $@.tmp $@
 
@@ -1056,6 +1051,14 @@ runtime_internal_atomic_lo_GOCFLAGS = -fgo-compiling-runtime
 runtime_internal_atomic_lo_check_GOCFLAGS = -fgo-compiling-runtime
 runtime_internal_sys_lo_GOCFLAGS = -fgo-compiling-runtime
 runtime_internal_sys_lo_check_GOCFLAGS = -fgo-compiling-runtime
+
+# If libffi is supported (the normal case) use the ffi build tag for
+# the runtime package.
+if USE_LIBFFI
+matchargs_runtime = --tag=libffi
+else
+matchargs_runtime =
+endif
 
 # At least for now, we need -static-libgo for this test, because
 # otherwise we can't get the line numbers.

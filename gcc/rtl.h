@@ -2954,6 +2954,7 @@ extern void set_insn_deleted (rtx);
 
 /* Functions in rtlanal.c */
 
+extern rtx_code load_extend_op (machine_mode);
 extern rtx single_set_2 (const rtx_insn *, const_rtx);
 extern bool contains_symbol_ref_p (const_rtx);
 extern bool contains_symbolic_reference_p (const_rtx);
@@ -3770,5 +3771,9 @@ struct GTY(()) cgraph_rtl_info {
   unsigned function_used_regs_valid: 1;
 };
 
+/* gtype-desc.c.  */
+extern void gt_ggc_mx (rtx &);
+extern void gt_pch_nx (rtx &);
+extern void gt_pch_nx (rtx &, gt_pointer_operator, void *);
 
 #endif /* ! GCC_RTL_H */

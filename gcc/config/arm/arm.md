@@ -609,9 +609,9 @@
 ;;  (plus (reg rN) (reg sp)) into (reg rN).  In this case reload will
 ;; put the duplicated register first, and not try the commutative version.
 (define_insn_and_split "*arm_addsi3"
-  [(set (match_operand:SI          0 "s_register_operand" "=rk,l,l ,l ,r ,k ,r,r ,k ,r ,k,k,r ,k ,r")
-        (plus:SI (match_operand:SI 1 "s_register_operand" "%0 ,l,0 ,l ,rk,k ,r,rk,k ,rk,k,r,rk,k ,rk")
-                 (match_operand:SI 2 "reg_or_int_operand" "rk ,l,Py,Pd,rI,rI,k,Pj,Pj,L ,L,L,PJ,PJ,?n")))]
+  [(set (match_operand:SI          0 "s_register_operand" "=rk,l,l ,l ,r ,k ,r,k ,r ,k ,r ,k,k,r ,k ,r")
+	(plus:SI (match_operand:SI 1 "s_register_operand" "%0 ,l,0 ,l ,rk,k ,r,r ,rk,k ,rk,k,r,rk,k ,rk")
+		 (match_operand:SI 2 "reg_or_int_operand" "rk ,l,Py,Pd,rI,rI,k,rI,Pj,Pj,L ,L,L,PJ,PJ,?n")))]
   "TARGET_32BIT"
   "@
    add%?\\t%0, %0, %2
@@ -621,6 +621,7 @@
    add%?\\t%0, %1, %2
    add%?\\t%0, %1, %2
    add%?\\t%0, %2, %1
+   add%?\\t%0, %1, %2
    addw%?\\t%0, %1, %2
    addw%?\\t%0, %1, %2
    sub%?\\t%0, %1, #%n2
@@ -640,10 +641,10 @@
 		      operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "2,4,4,4,4,4,4,4,4,4,4,4,4,4,16")
+  [(set_attr "length" "2,4,4,4,4,4,4,4,4,4,4,4,4,4,4,16")
    (set_attr "predicable" "yes")
-   (set_attr "predicable_short_it" "yes,yes,yes,yes,no,no,no,no,no,no,no,no,no,no,no")
-   (set_attr "arch" "t2,t2,t2,t2,*,*,*,t2,t2,*,*,a,t2,t2,*")
+   (set_attr "predicable_short_it" "yes,yes,yes,yes,no,no,no,no,no,no,no,no,no,no,no,no")
+   (set_attr "arch" "t2,t2,t2,t2,*,*,*,a,t2,t2,*,*,a,t2,t2,*")
    (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
 		      (const_string "alu_imm")
 		      (const_string "alu_sreg")))
@@ -4546,9 +4547,11 @@
 (define_insn "*extv_reg"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(sign_extract:SI (match_operand:SI 1 "s_register_operand" "r")
-                         (match_operand:SI 2 "const_int_M_operand" "M")
-                         (match_operand:SI 3 "const_int_M_operand" "M")))]
-  "arm_arch_thumb2"
+			  (match_operand:SI 2 "const_int_operand" "n")
+			  (match_operand:SI 3 "const_int_operand" "n")))]
+  "arm_arch_thumb2
+   && IN_RANGE (INTVAL (operands[3]), 0, 31)
+   && IN_RANGE (INTVAL (operands[2]), 1, 32 - INTVAL (operands[3]))"
   "sbfx%?\t%0, %1, %3, %2"
   [(set_attr "length" "4")
    (set_attr "predicable" "yes")
@@ -4559,9 +4562,11 @@
 (define_insn "extzv_t2"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(zero_extract:SI (match_operand:SI 1 "s_register_operand" "r")
-                         (match_operand:SI 2 "const_int_M_operand" "M")
-                         (match_operand:SI 3 "const_int_M_operand" "M")))]
-  "arm_arch_thumb2"
+			  (match_operand:SI 2 "const_int_operand" "n")
+			  (match_operand:SI 3 "const_int_operand" "n")))]
+  "arm_arch_thumb2
+   && IN_RANGE (INTVAL (operands[3]), 0, 31)
+   && IN_RANGE (INTVAL (operands[2]), 1, 32 - INTVAL (operands[3]))"
   "ubfx%?\t%0, %1, %3, %2"
   [(set_attr "length" "4")
    (set_attr "predicable" "yes")
@@ -11636,7 +11641,6 @@
         (mem:SI (plus:SI (match_dup 1)
                          (match_operand:SI 4 "const_int_operand" ""))))]
   "TARGET_LDRD && TARGET_THUMB2 && reload_completed
-     && current_tune->prefer_ldrd_strd
      && ((INTVAL (operands[2]) + 4) == INTVAL (operands[4]))
      && (operands_ok_ldrd_strd (operands[0], operands[3],
                                   operands[1], INTVAL (operands[2]),
@@ -11653,7 +11657,6 @@
         (mem:SI (plus:SI (match_dup 1)
                          (const_int 4))))]
   "TARGET_LDRD && TARGET_THUMB2 && reload_completed
-     && current_tune->prefer_ldrd_strd
      && (operands_ok_ldrd_strd (operands[0], operands[2],
                                   operands[1], 0, false, true))"
   "ldrd%?\t%0, %2, [%1]"
@@ -11668,7 +11671,6 @@
    (set (match_operand:SI 2 "s_register_operand" "=r")
         (mem:SI (match_dup 1)))]
   "TARGET_LDRD && TARGET_THUMB2 && reload_completed
-     && current_tune->prefer_ldrd_strd
      && (operands_ok_ldrd_strd (operands[0], operands[2],
                                   operands[1], -4, false, true))"
   "ldrd%?\t%0, %2, [%1, #-4]"
@@ -11684,7 +11686,6 @@
                          (match_operand:SI 3 "const_int_operand" "")))
         (match_operand:SI 4 "s_register_operand" "r"))]
   "TARGET_LDRD && TARGET_THUMB2 && reload_completed
-     && current_tune->prefer_ldrd_strd
      && ((INTVAL (operands[1]) + 4) == INTVAL (operands[3]))
      && (operands_ok_ldrd_strd (operands[2], operands[4],
                                   operands[0], INTVAL (operands[1]),
@@ -11701,7 +11702,6 @@
                          (const_int 4)))
         (match_operand:SI 2 "s_register_operand" "r"))]
   "TARGET_LDRD && TARGET_THUMB2 && reload_completed
-     && current_tune->prefer_ldrd_strd
      && (operands_ok_ldrd_strd (operands[1], operands[2],
                                   operands[0], 0, false, false))"
   "strd%?\t%1, %2, [%0]"
@@ -11716,7 +11716,6 @@
    (set (mem:SI (match_dup 0))
         (match_operand:SI 2 "s_register_operand" "r"))]
   "TARGET_LDRD && TARGET_THUMB2 && reload_completed
-     && current_tune->prefer_ldrd_strd
      && (operands_ok_ldrd_strd (operands[1], operands[2],
                                   operands[0], -4, false, false))"
   "strd%?\t%1, %2, [%0, #-4]"

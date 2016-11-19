@@ -5862,6 +5862,10 @@ usable.  In that case, the smaller the number is, the more desirable it is
 to use it.
 @end deftypefn
 
+@deftypefn {Target Hook} int TARGET_SIMT_VF (void)
+Return number of threads in SIMT thread group on the target.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree @var{decl}, int *@var{dims}, int @var{fn_level})
 This hook should check the launch dimensions provided for an OpenACC
 compute region, or routine.  Defaulted values are represented as -1
@@ -6364,7 +6368,8 @@ other fields in the same word of the structure, but to different bytes.
 Define this macro to be the value 1 if memory accesses described by the
 @var{mode} and @var{alignment} parameters have a cost many times greater
 than aligned accesses, for example if they are emulated in a trap
-handler.
+handler.  This macro is invoked only for unaligned accesses, i.e. when
+@code{@var{alignment} < GET_MODE_ALIGNMENT (@var{mode})}.
 
 When this macro is nonzero, the compiler will act as if
 @code{STRICT_ALIGNMENT} were nonzero when generating code for block
