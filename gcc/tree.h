@@ -2350,6 +2350,8 @@ extern machine_mode element_mode (const_tree t);
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.mode)
+#define SET_DECL_MODE(NODE, MODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.mode = (MODE))
 
 /* For FUNCTION_DECL, if it is built-in, this identifies which built-in
    operation it is.  Note, however, that this field is overloaded, with
@@ -2457,8 +2459,7 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
    if transformations have made this more complicated than evaluating the
-   decl itself.  This should only be used for debugging; once this field has
-   been set, the decl itself may not legitimately appear in the function.  */
+   decl itself.  */
 #define DECL_HAS_VALUE_EXPR_P(NODE) \
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, RESULT_DECL) \
    ->decl_common.decl_flag_2)

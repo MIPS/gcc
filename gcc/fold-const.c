@@ -450,13 +450,13 @@ negate_expr_p (tree t)
       if (TYPE_UNSIGNED (type))
 	break;
       /* INT_MIN/n * n doesn't overflow while negating one operand it does
-         if n is a power of two.  */
+         if n is a (negative) power of two.  */
       if (INTEGRAL_TYPE_P (TREE_TYPE (t))
 	  && ! TYPE_OVERFLOW_WRAPS (TREE_TYPE (t))
 	  && ! ((TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST
-		 && ! integer_pow2p (TREE_OPERAND (t, 0)))
+		 && wi::popcount (wi::abs (TREE_OPERAND (t, 0))) != 1)
 		|| (TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
-		    && ! integer_pow2p (TREE_OPERAND (t, 1)))))
+		    && wi::popcount (wi::abs (TREE_OPERAND (t, 1))) != 1)))
 	break;
 
       /* Fall through.  */
@@ -6725,7 +6725,7 @@ fold_single_bit_test (location_t loc, enum tree_code code,
       /* If we are going to be able to omit the AND below, we must do our
 	 operations as unsigned.  If we must use the AND, we have a choice.
 	 Normally unsigned is faster, but for some machines signed is.  */
-      ops_unsigned = (LOAD_EXTEND_OP (operand_mode) == SIGN_EXTEND
+      ops_unsigned = (load_extend_op (operand_mode) == SIGN_EXTEND
 		      && !flag_syntax_only) ? 0 : 1;
 
       signed_type = lang_hooks.types.type_for_mode (operand_mode, 0);
@@ -7775,7 +7775,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	      change = (cst == 0);
 	      if (change
 		  && !flag_syntax_only
-		  && (LOAD_EXTEND_OP (TYPE_MODE (TREE_TYPE (and0)))
+		  && (load_extend_op (TYPE_MODE (TREE_TYPE (and0)))
 		      == ZERO_EXTEND))
 		{
 		  tree uns = unsigned_type_for (TREE_TYPE (and0));
@@ -8700,8 +8700,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 
   /* We can fold X/C1 op C2 where C1 and C2 are integer constants
      into a single range test.  */
-  if ((TREE_CODE (arg0) == TRUNC_DIV_EXPR
-       || TREE_CODE (arg0) == EXACT_DIV_EXPR)
+  if (TREE_CODE (arg0) == TRUNC_DIV_EXPR
       && TREE_CODE (arg1) == INTEGER_CST
       && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
       && !integer_zerop (TREE_OPERAND (arg0, 1))

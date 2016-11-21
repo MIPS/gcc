@@ -1526,8 +1526,8 @@ Common Report Var(flag_tree_loop_if_convert) Init(-1) Optimization
 Convert conditional jumps in innermost loops to branchless equivalents.
 
 ftree-loop-if-convert-stores
-Common Report Var(flag_tree_loop_if_convert_stores) Optimization
-Also if-convert conditional jumps containing memory writes.
+Common Ignore
+Does nothing. Preserved for backward compatibility.
 
 ; -finhibit-size-directive inhibits output of .size for ELF.
 ; This is used only for compiling crtstuff.c,
@@ -1959,7 +1959,7 @@ Enable correction of flow inconsistent profile data input.
 
 fprofile-update=
 Common Joined RejectNegative Enum(profile_update) Var(flag_profile_update) Init(PROFILE_UPDATE_SINGLE)
--fprofile-update=[single|atomic]	Set the profile update method.
+-fprofile-update=[single|atomic|prefer-atomic]	Set the profile update method.
 
 Enum
 Name(profile_update) Type(enum profile_update) UnknownError(unknown profile update method %qs)
@@ -1969,6 +1969,9 @@ Enum(profile_update) String(single) Value(PROFILE_UPDATE_SINGLE)
 
 EnumValue
 Enum(profile_update) String(atomic) Value(PROFILE_UPDATE_ATOMIC)
+
+EnumValue
+Enum(profile_update) String(prefer-atomic) Value(PROFILE_UPDATE_PREFER_ATOMIC)
 
 fprofile-generate
 Common

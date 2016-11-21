@@ -252,7 +252,7 @@ static bool arm_can_eliminate (const int, const int);
 static void arm_asm_trampoline_template (FILE *);
 static void arm_trampoline_init (rtx, tree, rtx);
 static rtx arm_trampoline_adjust_address (rtx);
-static rtx arm_pic_static_addr (rtx orig, rtx reg);
+static rtx_insn *arm_pic_static_addr (rtx orig, rtx reg);
 static bool cortex_a9_sched_adjust_cost (rtx_insn *, int, rtx_insn *, int *);
 static bool xscale_sched_adjust_cost (rtx_insn *, int, rtx_insn *, int *);
 static bool fa726te_sched_adjust_cost (rtx_insn *, int, rtx_insn *, int *);
@@ -6903,8 +6903,6 @@ legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
   if (GET_CODE (orig) == SYMBOL_REF
       || GET_CODE (orig) == LABEL_REF)
     {
-      rtx insn;
-
       if (reg == 0)
 	{
 	  gcc_assert (can_create_pseudo_p ());
@@ -6917,6 +6915,7 @@ legitimize_pic_address (rtx orig, machine_mode mode, rtx reg)
 	 same segment as the GOT.  Unfortunately, the flexibility of linker
 	 scripts means that we can't be sure of that in general, so assume
 	 that GOTOFF is never valid on VxWorks.  */
+      rtx_insn *insn;
       if ((GET_CODE (orig) == LABEL_REF
 	   || (GET_CODE (orig) == SYMBOL_REF &&
 	       SYMBOL_REF_LOCAL_P (orig)))
@@ -7155,10 +7154,10 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 }
 
 /* Generate code to load the address of a static var when flag_pic is set.  */
-static rtx
+static rtx_insn *
 arm_pic_static_addr (rtx orig, rtx reg)
 {
-  rtx l1, labelno, offset_rtx, insn;
+  rtx l1, labelno, offset_rtx;
 
   gcc_assert (flag_pic);
 
@@ -7175,8 +7174,7 @@ arm_pic_static_addr (rtx orig, rtx reg)
                                UNSPEC_SYMBOL_OFFSET);
   offset_rtx = gen_rtx_CONST (Pmode, offset_rtx);
 
-  insn = emit_insn (gen_pic_load_addr_unified (reg, offset_rtx, labelno));
-  return insn;
+  return emit_insn (gen_pic_load_addr_unified (reg, offset_rtx, labelno));
 }
 
 /* Return nonzero if X is valid as an ARM state addressing register.  */
@@ -16928,8 +16926,6 @@ output_mov_long_double_arm_from_arm (rtx *operands)
 void
 arm_emit_movpair (rtx dest, rtx src)
  {
-  rtx insn;
-
   /* If the src is an immediate, simplify it.  */
   if (CONST_INT_P (src))
     {
@@ -16940,14 +16936,14 @@ arm_emit_movpair (rtx dest, rtx src)
 	  emit_set_insn (gen_rtx_ZERO_EXTRACT (SImode, dest, GEN_INT (16),
 					       GEN_INT (16)),
 			 GEN_INT ((val >> 16) & 0x0000ffff));
-	  insn = get_last_insn ();
+	  rtx_insn *insn = get_last_insn ();
 	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
 	}
       return;
     }
    emit_set_insn (dest, gen_rtx_HIGH (SImode, src));
    emit_set_insn (dest, gen_rtx_LO_SUM (SImode, dest, src));
-   insn = get_last_insn ();
+   rtx_insn *insn = get_last_insn ();
    set_unique_reg_note (insn, REG_EQUAL, copy_rtx (src));
  }
 
@@ -23593,6 +23589,7 @@ thumb1_expand_prologue (void)
   unsigned long live_regs_mask;
   unsigned long l_mask;
   unsigned high_regs_pushed = 0;
+  bool lr_needs_saving;
 
   func_type = arm_current_func_type ();
 
@@ -23615,6 +23612,7 @@ thumb1_expand_prologue (void)
 
   offsets = arm_get_frame_offsets ();
   live_regs_mask = offsets->saved_regs_mask;
+  lr_needs_saving = live_regs_mask & (1 << LR_REGNUM);
 
   /* Extract a mask of the ones we can give to the Thumb's push instruction.  */
   l_mask = live_regs_mask & 0x40ff;
@@ -23681,6 +23679,7 @@ thumb1_expand_prologue (void)
 	{
 	  insn = thumb1_emit_multi_reg_push (l_mask, l_mask);
 	  RTX_FRAME_RELATED_P (insn) = 1;
+	  lr_needs_saving = false;
 
 	  offset = bit_count (l_mask) * UNITS_PER_WORD;
 	}
@@ -23745,12 +23744,13 @@ thumb1_expand_prologue (void)
      be a push of LR and we can combine it with the push of the first high
      register.  */
   else if ((l_mask & 0xff) != 0
-	   || (high_regs_pushed == 0 && l_mask))
+	   || (high_regs_pushed == 0 && lr_needs_saving))
     {
       unsigned long mask = l_mask;
       mask |= (1 << thumb1_extra_regs_pushed (offsets, true)) - 1;
       insn = thumb1_emit_multi_reg_push (mask, mask);
       RTX_FRAME_RELATED_P (insn) = 1;
+      lr_needs_saving = false;
     }
 
   if (high_regs_pushed)
@@ -23768,7 +23768,9 @@ thumb1_expand_prologue (void)
       /* Here we need to mask out registers used for passing arguments
 	 even if they can be pushed.  This is to avoid using them to stash the high
 	 registers.  Such kind of stash may clobber the use of arguments.  */
-      pushable_regs = l_mask & (~arg_regs_mask) & 0xff;
+      pushable_regs = l_mask & (~arg_regs_mask);
+      if (lr_needs_saving)
+	pushable_regs &= ~(1 << LR_REGNUM);
 
       if (pushable_regs == 0)
 	pushable_regs = 1 << thumb_find_work_register (live_regs_mask);
@@ -23776,8 +23778,9 @@ thumb1_expand_prologue (void)
       while (high_regs_pushed > 0)
 	{
 	  unsigned long real_regs_mask = 0;
+	  unsigned long push_mask = 0;
 
-	  for (regno = LAST_LO_REGNUM; regno >= 0; regno --)
+	  for (regno = LR_REGNUM; regno >= 0; regno --)
 	    {
 	      if (pushable_regs & (1 << regno))
 		{
@@ -23786,6 +23789,7 @@ thumb1_expand_prologue (void)
 
 		  high_regs_pushed --;
 		  real_regs_mask |= (1 << next_hi_reg);
+		  push_mask |= (1 << regno);
 
 		  if (high_regs_pushed)
 		    {
@@ -23795,23 +23799,20 @@ thumb1_expand_prologue (void)
 			  break;
 		    }
 		  else
-		    {
-		      pushable_regs &= ~((1 << regno) - 1);
-		      break;
-		    }
+		    break;
 		}
 	    }
 
 	  /* If we had to find a work register and we have not yet
 	     saved the LR then add it to the list of regs to push.  */
-	  if (l_mask == (1 << LR_REGNUM))
+	  if (lr_needs_saving)
 	    {
-	      pushable_regs |= l_mask;
-	      real_regs_mask |= l_mask;
-	      l_mask = 0;
+	      push_mask |= 1 << LR_REGNUM;
+	      real_regs_mask |= 1 << LR_REGNUM;
+	      lr_needs_saving = false;
 	    }
 
-	  insn = thumb1_emit_multi_reg_push (pushable_regs, real_regs_mask);
+	  insn = thumb1_emit_multi_reg_push (push_mask, real_regs_mask);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
     }
@@ -26935,8 +26936,8 @@ emit_unlikely_jump (rtx insn)
 {
   int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
 
-  insn = emit_jump_insn (insn);
-  add_int_reg_note (insn, REG_BR_PROB, very_unlikely);
+  rtx_insn *jump = emit_jump_insn (insn);
+  add_int_reg_note (jump, REG_BR_PROB, very_unlikely);
 }
 
 /* Expand a compare and swap pattern.  */

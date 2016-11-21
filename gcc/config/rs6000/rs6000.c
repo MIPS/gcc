@@ -3441,28 +3441,28 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
       static const struct fuse_insns addis_insns[] = {
 	{ SFmode, DImode, RELOAD_REG_FPR,
-	  CODE_FOR_fusion_fpr_di_sf_load,
-	  CODE_FOR_fusion_fpr_di_sf_store },
+	  CODE_FOR_fusion_vsx_di_sf_load,
+	  CODE_FOR_fusion_vsx_di_sf_store },
 
 	{ SFmode, SImode, RELOAD_REG_FPR,
-	  CODE_FOR_fusion_fpr_si_sf_load,
-	  CODE_FOR_fusion_fpr_si_sf_store },
+	  CODE_FOR_fusion_vsx_si_sf_load,
+	  CODE_FOR_fusion_vsx_si_sf_store },
 
 	{ DFmode, DImode, RELOAD_REG_FPR,
-	  CODE_FOR_fusion_fpr_di_df_load,
-	  CODE_FOR_fusion_fpr_di_df_store },
+	  CODE_FOR_fusion_vsx_di_df_load,
+	  CODE_FOR_fusion_vsx_di_df_store },
 
 	{ DFmode, SImode, RELOAD_REG_FPR,
-	  CODE_FOR_fusion_fpr_si_df_load,
-	  CODE_FOR_fusion_fpr_si_df_store },
+	  CODE_FOR_fusion_vsx_si_df_load,
+	  CODE_FOR_fusion_vsx_si_df_store },
 
 	{ DImode, DImode, RELOAD_REG_FPR,
-	  CODE_FOR_fusion_fpr_di_di_load,
-	  CODE_FOR_fusion_fpr_di_di_store },
+	  CODE_FOR_fusion_vsx_di_di_load,
+	  CODE_FOR_fusion_vsx_di_di_store },
 
 	{ DImode, SImode, RELOAD_REG_FPR,
-	  CODE_FOR_fusion_fpr_si_di_load,
-	  CODE_FOR_fusion_fpr_si_di_store },
+	  CODE_FOR_fusion_vsx_si_di_load,
+	  CODE_FOR_fusion_vsx_si_di_store },
 
 	{ QImode, DImode, RELOAD_REG_GPR,
 	  CODE_FOR_fusion_gpr_di_qi_load,
@@ -3522,6 +3522,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
 	  reg_addr[xmode].fusion_addis_ld[rtype] = addis_insns[i].load;
 	  reg_addr[xmode].fusion_addis_st[rtype] = addis_insns[i].store;
+
+	  if (rtype == RELOAD_REG_FPR && TARGET_P9_DFORM_SCALAR)
+	    {
+	      reg_addr[xmode].fusion_addis_ld[RELOAD_REG_VMX]
+		= addis_insns[i].load;
+	      reg_addr[xmode].fusion_addis_st[RELOAD_REG_VMX]
+		= addis_insns[i].store;
+	    }
 	}
     }
 
@@ -7095,12 +7103,33 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
-  if (VECTOR_MEM_VSX_P (mode) && (mode == V2DFmode || mode == V2DImode))
+  if (VECTOR_MEM_VSX_P (mode))
     {
-      rtx (*set_func) (rtx, rtx, rtx, rtx)
-	= ((mode == V2DFmode) ? gen_vsx_set_v2df : gen_vsx_set_v2di);
-      emit_insn (set_func (target, target, val, GEN_INT (elt)));
-      return;
+      rtx insn = NULL_RTX;
+      rtx elt_rtx = GEN_INT (elt);
+
+      if (mode == V2DFmode)
+	insn = gen_vsx_set_v2df (target, target, val, elt_rtx);
+
+      else if (mode == V2DImode)
+	insn = gen_vsx_set_v2di (target, target, val, elt_rtx);
+
+      else if (TARGET_P9_VECTOR && TARGET_VSX_SMALL_INTEGER
+	       && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
+	{
+	  if (mode == V4SImode)
+	    insn = gen_vsx_set_v4si_p9 (target, target, val, elt_rtx);
+	  else if (mode == V8HImode)
+	    insn = gen_vsx_set_v8hi_p9 (target, target, val, elt_rtx);
+	  else if (mode == V16QImode)
+	    insn = gen_vsx_set_v16qi_p9 (target, target, val, elt_rtx);
+	}
+
+      if (insn)
+	{
+	  emit_insn (insn);
+	  return;
+	}
     }
 
   /* Simplify setting single element vectors like V1TImode.  */
@@ -9099,7 +9128,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		rs6000_emit_move (got, gsym, Pmode);
 	      else
 		{
-		  rtx mem, lab, last;
+		  rtx mem, lab;
 
 		  tmp1 = gen_reg_rtx (Pmode);
 		  tmp2 = gen_reg_rtx (Pmode);
@@ -9110,7 +9139,7 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		  if (TARGET_LINK_STACK)
 		    emit_insn (gen_addsi3 (tmp1, tmp1, GEN_INT (4)));
 		  emit_move_insn (tmp2, mem);
-		  last = emit_insn (gen_addsi3 (got, tmp1, tmp2));
+		  rtx_insn *last = emit_insn (gen_addsi3 (got, tmp1, tmp2));
 		  set_unique_reg_note (last, REG_EQUAL, gsym);
 		}
 	    }
@@ -24641,11 +24670,9 @@ static void
 emit_unlikely_jump (rtx cond, rtx label)
 {
   int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
-  rtx x;
-
-  x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
-  x = emit_jump_insn (gen_rtx_SET (pc_rtx, x));
-  add_int_reg_note (x, REG_BR_PROB, very_unlikely);
+  rtx x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
+  rtx_insn *insn = emit_jump_insn (gen_rtx_SET (pc_rtx, x));
+  add_int_reg_note (insn, REG_BR_PROB, very_unlikely);
 }
 
 /* A subroutine of the atomic operation splitters.  Emit a load-locked
@@ -25869,7 +25896,7 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 		+---------------------------------------+
 		| saved TOC pointer			| 20      40
 		+---------------------------------------+
-		| Parameter save area (P)		| 24      48
+		| Parameter save area (+padding*) (P)	| 24      48
 		+---------------------------------------+
 		| Alloca space (A)			| 24+P    etc.
 		+---------------------------------------+
@@ -25890,6 +25917,9 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 	old SP->| back chain to caller's caller		|
 		+---------------------------------------+
 
+     * If the alloca area is present, the parameter save area is
+       padded so that the former starts 16-byte aligned.
+
    The required alignment for AIX configurations is two words (i.e., 8
    or 16 bytes).
 
@@ -25904,7 +25934,7 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 		+---------------------------------------+
 		| Saved TOC pointer			|  24
 		+---------------------------------------+
-		| Parameter save area (P)		|  32
+		| Parameter save area (+padding*) (P)	|  32
 		+---------------------------------------+
 		| Alloca space (A)			|  32+P
 		+---------------------------------------+
@@ -25921,6 +25951,8 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 	old SP->| back chain to caller's caller		|  32+P+A+L+W+Y+G+F
 		+---------------------------------------+
 
+     * If the alloca area is present, the parameter save area is
+       padded so that the former starts 16-byte aligned.
 
    V.4 stack frames look like:
 
@@ -25929,7 +25961,7 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 		+---------------------------------------+
 		| caller's saved LR			| 4
 		+---------------------------------------+
-		| Parameter save area (P)		| 8
+		| Parameter save area (+padding*) (P)	| 8
 		+---------------------------------------+
 		| Alloca space (A)			| 8+P
 		+---------------------------------------+
@@ -25957,6 +25989,10 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 		+---------------------------------------+
 	old SP->| back chain to caller's caller		|
 		+---------------------------------------+
+
+     * If the alloca area is present and the required alignment is
+       16 bytes, the parameter save area is padded so that the
+       alloca area starts 16-byte aligned.
 
    The required alignment for V.4 is 16 bytes, or 8 bytes if -meabi is
    given.  (But note below and in sysv4.h that we require only 8 and
@@ -26092,8 +26128,13 @@ rs6000_stack_info (void)
   info->reg_size     = reg_size;
   info->fixed_size   = RS6000_SAVE_AREA;
   info->vars_size    = RS6000_ALIGN (get_frame_size (), 8);
-  info->parm_size    = RS6000_ALIGN (crtl->outgoing_args_size,
-					 TARGET_ALTIVEC ? 16 : 8);
+  if (cfun->calls_alloca)
+    info->parm_size  =
+      RS6000_ALIGN (crtl->outgoing_args_size + info->fixed_size,
+		    STACK_BOUNDARY / BITS_PER_UNIT) - info->fixed_size;
+  else
+    info->parm_size  = RS6000_ALIGN (crtl->outgoing_args_size,
+				     TARGET_ALTIVEC ? 16 : 8);
   if (FRAME_GROWS_DOWNWARD)
     info->vars_size
       += RS6000_ALIGN (info->fixed_size + info->vars_size + info->parm_size,
@@ -27802,7 +27843,8 @@ rs6000_components_for_bb (basic_block bb)
       bitmap_set_bit (components, regno);
 
   /* LR needs to be saved around a bb if it is killed in that bb.  */
-  if (bitmap_bit_p (gen, LR_REGNO)
+  if (bitmap_bit_p (in, LR_REGNO)
+      || bitmap_bit_p (gen, LR_REGNO)
       || bitmap_bit_p (kill, LR_REGNO))
     bitmap_set_bit (components, 0);
 
@@ -30412,53 +30454,54 @@ rs6000_output_function_epilogue (FILE *file,
 	 seems to set the bit when not optimizing.  */
       fprintf (file, "%d\n", ((float_parms << 1) | (! optimize)));
 
-      if (! optional_tbtab)
-	return;
+      if (optional_tbtab)
+	{
+	  /* Optional fields follow.  Some are variable length.  */
 
-      /* Optional fields follow.  Some are variable length.  */
+	  /* Parameter types, left adjusted bit fields: 0 fixed, 10 single
+	     float, 11 double float.  */
+	  /* There is an entry for each parameter in a register, in the order
+	     that they occur in the parameter list.  Any intervening arguments
+	     on the stack are ignored.  If the list overflows a long (max
+	     possible length 34 bits) then completely leave off all elements
+	     that don't fit.  */
+	  /* Only emit this long if there was at least one parameter.  */
+	  if (fixed_parms || float_parms)
+	    fprintf (file, "\t.long %d\n", parm_info);
 
-      /* Parameter types, left adjusted bit fields: 0 fixed, 10 single float,
-	 11 double float.  */
-      /* There is an entry for each parameter in a register, in the order that
-	 they occur in the parameter list.  Any intervening arguments on the
-	 stack are ignored.  If the list overflows a long (max possible length
-	 34 bits) then completely leave off all elements that don't fit.  */
-      /* Only emit this long if there was at least one parameter.  */
-      if (fixed_parms || float_parms)
-	fprintf (file, "\t.long %d\n", parm_info);
+	  /* Offset from start of code to tb table.  */
+	  fputs ("\t.long ", file);
+	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
+	  RS6000_OUTPUT_BASENAME (file, fname);
+	  putc ('-', file);
+	  rs6000_output_function_entry (file, fname);
+	  putc ('\n', file);
 
-      /* Offset from start of code to tb table.  */
-      fputs ("\t.long ", file);
-      ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
-      RS6000_OUTPUT_BASENAME (file, fname);
-      putc ('-', file);
-      rs6000_output_function_entry (file, fname);
-      putc ('\n', file);
+	  /* Interrupt handler mask.  */
+	  /* Omit this long, since we never set the interrupt handler bit
+	     above.  */
 
-      /* Interrupt handler mask.  */
-      /* Omit this long, since we never set the interrupt handler bit
-	 above.  */
+	  /* Number of CTL (controlled storage) anchors.  */
+	  /* Omit this long, since the has_ctl bit is never set above.  */
 
-      /* Number of CTL (controlled storage) anchors.  */
-      /* Omit this long, since the has_ctl bit is never set above.  */
+	  /* Displacement into stack of each CTL anchor.  */
+	  /* Omit this list of longs, because there are no CTL anchors.  */
 
-      /* Displacement into stack of each CTL anchor.  */
-      /* Omit this list of longs, because there are no CTL anchors.  */
+	  /* Length of function name.  */
+	  if (*fname == '*')
+	    ++fname;
+	  fprintf (file, "\t.short %d\n", (int) strlen (fname));
 
-      /* Length of function name.  */
-      if (*fname == '*')
-	++fname;
-      fprintf (file, "\t.short %d\n", (int) strlen (fname));
+	  /* Function name.  */
+	  assemble_string (fname, strlen (fname));
 
-      /* Function name.  */
-      assemble_string (fname, strlen (fname));
+	  /* Register for alloca automatic storage; this is always reg 31.
+	     Only emit this if the alloca bit was set above.  */
+	  if (frame_pointer_needed)
+	    fputs ("\t.byte 31\n", file);
 
-      /* Register for alloca automatic storage; this is always reg 31.
-	 Only emit this if the alloca bit was set above.  */
-      if (frame_pointer_needed)
-	fputs ("\t.byte 31\n", file);
-
-      fputs ("\t.align 2\n", file);
+	  fputs ("\t.align 2\n", file);
+	}
     }
 
   /* Arrange to define .LCTOC1 label, if not already done.  */
@@ -30554,10 +30597,10 @@ rs6000_expand_split_stack_prologue (void)
 			       gen_rtx_GEU (VOIDmode, compare, const0_rtx),
 			       gen_rtx_LABEL_REF (VOIDmode, ok_label),
 			       pc_rtx);
-  jump = emit_jump_insn (gen_rtx_SET (pc_rtx, jump));
-  JUMP_LABEL (jump) = ok_label;
+  insn = emit_jump_insn (gen_rtx_SET (pc_rtx, jump));
+  JUMP_LABEL (insn) = ok_label;
   /* Mark the jump as very likely to be taken.  */
-  add_int_reg_note (jump, REG_BR_PROB,
+  add_int_reg_note (insn, REG_BR_PROB,
 		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100);
 
   lr = gen_rtx_REG (Pmode, LR_REGNO);
@@ -35672,7 +35715,9 @@ rs6000_asm_weaken_decl (FILE *stream, tree decl,
   fputc ('\n', stream);
   if (val)
     {
+#ifdef ASM_OUTPUT_DEF
       ASM_OUTPUT_DEF (stream, name, val);
+#endif
       if (decl && TREE_CODE (decl) == FUNCTION_DECL
 	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)
 	{
@@ -39793,6 +39838,15 @@ emit_fusion_p9_load (rtx reg, rtx mem, rtx tmp_reg)
       else
 	gcc_unreachable ();
     }
+  else if (ALTIVEC_REGNO_P (r) && TARGET_P9_DFORM_SCALAR)
+    {
+      if (mode == SFmode)
+	load_string = "lxssp";
+      else if (mode == DFmode || mode == DImode)
+	load_string = "lxsd";
+      else
+	gcc_unreachable ();
+    }
   else if (INT_REGNO_P (r))
     {
       switch (mode)
@@ -39868,6 +39922,15 @@ emit_fusion_p9_store (rtx mem, rtx reg, rtx tmp_reg)
 	store_string = "stfs";
       else if (mode == DFmode)
 	store_string = "stfd";
+      else
+	gcc_unreachable ();
+    }
+  else if (ALTIVEC_REGNO_P (r) && TARGET_P9_DFORM_SCALAR)
+    {
+      if (mode == SFmode)
+	store_string = "stxssp";
+      else if (mode == DFmode || mode == DImode)
+	store_string = "stxsd";
       else
 	gcc_unreachable ();
     }

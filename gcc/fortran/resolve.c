@@ -214,27 +214,33 @@ resolve_procedure_interface (gfc_symbol *sym)
       if (ifc->result)
 	{
 	  sym->ts = ifc->result->ts;
+	  sym->attr.allocatable = ifc->result->attr.allocatable;
+	  sym->attr.pointer = ifc->result->attr.pointer;
+	  sym->attr.dimension = ifc->result->attr.dimension;
+	  sym->attr.class_ok = ifc->result->attr.class_ok;
+	  sym->as = gfc_copy_array_spec (ifc->result->as);
 	  sym->result = sym;
 	}
       else
-	sym->ts = ifc->ts;
+	{
+	  sym->ts = ifc->ts;
+	  sym->attr.allocatable = ifc->attr.allocatable;
+	  sym->attr.pointer = ifc->attr.pointer;
+	  sym->attr.dimension = ifc->attr.dimension;
+	  sym->attr.class_ok = ifc->attr.class_ok;
+	  sym->as = gfc_copy_array_spec (ifc->as);
+	}
       sym->ts.interface = ifc;
       sym->attr.function = ifc->attr.function;
       sym->attr.subroutine = ifc->attr.subroutine;
 
-      sym->attr.allocatable = ifc->attr.allocatable;
-      sym->attr.pointer = ifc->attr.pointer;
       sym->attr.pure = ifc->attr.pure;
       sym->attr.elemental = ifc->attr.elemental;
-      sym->attr.dimension = ifc->attr.dimension;
       sym->attr.contiguous = ifc->attr.contiguous;
       sym->attr.recursive = ifc->attr.recursive;
       sym->attr.always_explicit = ifc->attr.always_explicit;
       sym->attr.ext_attr |= ifc->attr.ext_attr;
       sym->attr.is_bind_c = ifc->attr.is_bind_c;
-      sym->attr.class_ok = ifc->attr.class_ok;
-      /* Copy array spec.  */
-      sym->as = gfc_copy_array_spec (ifc->as);
       /* Copy char length.  */
       if (ifc->ts.type == BT_CHARACTER && ifc->ts.u.cl)
 	{
@@ -6134,7 +6140,7 @@ resolve_typebound_function (gfc_expr* e)
 	  gfc_free_ref_list (class_ref->next);
 	  class_ref->next = NULL;
 	}
-      else if (e->ref && !class_ref)
+      else if (e->ref && !class_ref && expr->ts.type != BT_CLASS)
 	{
 	  gfc_free_ref_list (e->ref);
 	  e->ref = NULL;
@@ -9641,16 +9647,15 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
   static gfc_expr **var_expr;
   static int total_var = 0;
   static int nvar = 0;
-  int old_nvar, tmp;
+  int i, old_nvar, tmp;
   gfc_forall_iterator *fa;
-  int i;
 
   old_nvar = nvar;
 
   /* Start to resolve a FORALL construct   */
   if (forall_save == 0)
     {
-      /* Count the total number of FORALL index in the nested FORALL
+      /* Count the total number of FORALL indices in the nested FORALL
          construct in order to allocate the VAR_EXPR with proper size.  */
       total_var = gfc_count_forall_iterators (code);
 
@@ -9658,19 +9663,25 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
       var_expr = XCNEWVEC (gfc_expr *, total_var);
     }
 
-  /* The information about FORALL iterator, including FORALL index start, end
-     and stride. The FORALL index can not appear in start, end or stride.  */
+  /* The information about FORALL iterator, including FORALL indices start, end
+     and stride.  An outer FORALL indice cannot appear in start, end or stride.  */
   for (fa = code->ext.forall_iterator; fa; fa = fa->next)
     {
+      /* Fortran 20008: C738 (R753).  */
+      if (fa->var->ref && fa->var->ref->type == REF_ARRAY)
+	{
+	  gfc_error ("FORALL index-name at %L must be a scalar variable "
+		     "of type integer", &fa->var->where);
+	  continue;
+	}
+
       /* Check if any outer FORALL index name is the same as the current
 	 one.  */
       for (i = 0; i < nvar; i++)
 	{
 	  if (fa->var->symtree->n.sym == var_expr[i]->symtree->n.sym)
-	    {
-	      gfc_error ("An outer FORALL construct already has an index "
-			 "with this name %L", &fa->var->where);
-	    }
+	    gfc_error ("An outer FORALL construct already has an index "
+			"with this name %L", &fa->var->where);
 	}
 
       /* Record the current FORALL index.  */
@@ -13584,19 +13595,6 @@ resolve_component (gfc_component *c, gfc_symbol *sym)
       gfc_error ("The pointer component %qs of %qs at %L is a type "
                  "that has not been declared", c->name, sym->name,
                  &c->loc);
-      return false;
-    }
-
-  /* C437.  */
-  if (c->ts.type == BT_CLASS && c->attr.flavor != FL_PROCEDURE
-      && (!c->attr.class_ok
-          || !(CLASS_DATA (c)->attr.class_pointer
-               || CLASS_DATA (c)->attr.allocatable)))
-    {
-      gfc_error ("Component %qs with CLASS at %L must be allocatable "
-                 "or pointer", c->name, &c->loc);
-      /* Prevent a recurrence of the error.  */
-      c->ts.type = BT_UNKNOWN;
       return false;
     }
 

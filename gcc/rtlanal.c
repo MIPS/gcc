@@ -543,6 +543,8 @@ rtx_addr_can_trap_p_1 (const_rtx x, HOST_WIDE_INT offset, HOST_WIDE_INT size,
 
 	  if (size == 0)
 	    size = GET_MODE_SIZE (mode);
+	  if (size == 0)
+	    return 1;
 
 	  if (x == frame_pointer_rtx)
 	    {
@@ -1943,7 +1945,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
    by INSN.  */
 
 int
-dead_or_set_p (const_rtx insn, const_rtx x)
+dead_or_set_p (const rtx_insn *insn, const_rtx x)
 {
   unsigned int regno, end_regno;
   unsigned int i;
@@ -2017,7 +2019,7 @@ covers_regno_p (const_rtx dest, unsigned int test_regno)
 /* Utility function for dead_or_set_p to check an individual register. */
 
 int
-dead_or_set_regno_p (const_rtx insn, unsigned int test_regno)
+dead_or_set_regno_p (const rtx_insn *insn, unsigned int test_regno)
 {
   const_rtx pattern;
 
@@ -2286,7 +2288,7 @@ add_reg_note (rtx insn, enum reg_note kind, rtx datum)
 /* Add an integer register note with kind KIND and datum DATUM to INSN.  */
 
 void
-add_int_reg_note (rtx insn, enum reg_note kind, int datum)
+add_int_reg_note (rtx_insn *insn, enum reg_note kind, int datum)
 {
   gcc_checking_assert (int_reg_note_p (kind));
   REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode) kind,
@@ -3079,8 +3081,8 @@ replace_label (rtx *loc, rtx old_label, rtx new_label, bool update_label_nuses)
 }
 
 void
-replace_label_in_insn (rtx_insn *insn, rtx old_label, rtx new_label,
-		       bool update_label_nuses)
+replace_label_in_insn (rtx_insn *insn, rtx_insn *old_label,
+		       rtx_insn *new_label, bool update_label_nuses)
 {
   rtx insn_as_rtx = insn;
   replace_label (&insn_as_rtx, old_label, new_label, update_label_nuses);
@@ -3861,7 +3863,6 @@ subreg_nregs_with_regno (unsigned int regno, const_rtx x)
   return info.nregs;
 }
 
-
 struct parms_set_data
 {
   int nregs;
@@ -4256,7 +4257,7 @@ cached_nonzero_bits (const_rtx x, machine_mode mode, const_rtx known_x,
 /* Given an expression, X, compute which bits in X can be nonzero.
    We don't care about bits outside of those defined in MODE.
 
-   For most X this is simply GET_MODE_MASK (GET_MODE (MODE)), but if X is
+   For most X this is simply GET_MODE_MASK (GET_MODE (X)), but if X is
    an arithmetic operation, we can do better.  */
 
 static unsigned HOST_WIDE_INT
@@ -4378,7 +4379,7 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
       /* In many, if not most, RISC machines, reading a byte from memory
 	 zeros the rest of the register.  Noticing that fact saves a lot
 	 of extra zero-extends.  */
-      if (LOAD_EXTEND_OP (GET_MODE (x)) == ZERO_EXTEND)
+      if (load_extend_op (GET_MODE (x)) == ZERO_EXTEND)
 	nonzero &= GET_MODE_MASK (GET_MODE (x));
       break;
 
@@ -4563,18 +4564,17 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
       /* If this is a SUBREG formed for a promoted variable that has
 	 been zero-extended, we know that at least the high-order bits
 	 are zero, though others might be too.  */
-
       if (SUBREG_PROMOTED_VAR_P (x) && SUBREG_PROMOTED_UNSIGNED_P (x))
 	nonzero = GET_MODE_MASK (GET_MODE (x))
 		  & cached_nonzero_bits (SUBREG_REG (x), GET_MODE (x),
 					 known_x, known_mode, known_ret);
 
-      inner_mode = GET_MODE (SUBREG_REG (x));
       /* If the inner mode is a single word for both the host and target
 	 machines, we can compute this from which bits of the inner
 	 object might be nonzero.  */
+      inner_mode = GET_MODE (SUBREG_REG (x));
       if (GET_MODE_PRECISION (inner_mode) <= BITS_PER_WORD
-	  && (GET_MODE_PRECISION (inner_mode) <= HOST_BITS_PER_WIDE_INT))
+	  && GET_MODE_PRECISION (inner_mode) <= HOST_BITS_PER_WIDE_INT)
 	{
 	  nonzero &= cached_nonzero_bits (SUBREG_REG (x), mode,
 					  known_x, known_mode, known_ret);
@@ -4582,19 +4582,18 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
           /* On many CISC machines, accessing an object in a wider mode
 	     causes the high-order bits to become undefined.  So they are
 	     not known to be zero.  */
-	  if (!WORD_REGISTER_OPERATIONS
-	      /* If this is a typical RISC machine, we only have to worry
-		 about the way loads are extended.  */
-	      || ((LOAD_EXTEND_OP (inner_mode) == SIGN_EXTEND
-		     ? val_signbit_known_set_p (inner_mode, nonzero)
-		     : LOAD_EXTEND_OP (inner_mode) != ZERO_EXTEND)
-		   || !MEM_P (SUBREG_REG (x))))
-	    {
-	      if (GET_MODE_PRECISION (GET_MODE (x))
+	  rtx_code extend_op;
+	  if ((!WORD_REGISTER_OPERATIONS
+	       /* If this is a typical RISC machine, we only have to worry
+		  about the way loads are extended.  */
+	       || ((extend_op = load_extend_op (inner_mode)) == SIGN_EXTEND
+		   ? val_signbit_known_set_p (inner_mode, nonzero)
+		   : extend_op != ZERO_EXTEND)
+	       || (!MEM_P (SUBREG_REG (x)) && !REG_P (SUBREG_REG (x))))
+	      && GET_MODE_PRECISION (GET_MODE (x))
 		  > GET_MODE_PRECISION (inner_mode))
-		nonzero |= (GET_MODE_MASK (GET_MODE (x))
-			    & ~GET_MODE_MASK (inner_mode));
-	    }
+	    nonzero
+	      |= (GET_MODE_MASK (GET_MODE (x)) & ~GET_MODE_MASK (inner_mode));
 	}
       break;
 
@@ -4798,7 +4797,7 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 		      unsigned int known_ret)
 {
   enum rtx_code code = GET_CODE (x);
-  unsigned int bitwidth = GET_MODE_PRECISION (mode);
+  machine_mode inner_mode;
   int num0, num1, result;
   unsigned HOST_WIDE_INT nonzero;
 
@@ -4813,7 +4812,8 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
       || VECTOR_MODE_P (GET_MODE (x)) || VECTOR_MODE_P (mode))
     return 1;
 
-  /* For a smaller object, just ignore the high bits.  */
+  /* For a smaller mode, just ignore the high bits.  */
+  unsigned int bitwidth = GET_MODE_PRECISION (mode);
   if (bitwidth < GET_MODE_PRECISION (GET_MODE (x)))
     {
       num0 = cached_num_sign_bit_copies (x, GET_MODE (x),
@@ -4834,7 +4834,7 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	 than a word and loads of that size don't sign extend, we can say
 	 nothing about the high order bits.  */
       if (GET_MODE_PRECISION (GET_MODE (x)) < BITS_PER_WORD
-	  && LOAD_EXTEND_OP (GET_MODE (x)) != SIGN_EXTEND)
+	  && load_extend_op (GET_MODE (x)) != SIGN_EXTEND)
 	return 1;
     }
 
@@ -4876,7 +4876,7 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 
     case MEM:
       /* Some RISC machines sign-extend all loads of smaller than a word.  */
-      if (LOAD_EXTEND_OP (GET_MODE (x)) == SIGN_EXTEND)
+      if (load_extend_op (GET_MODE (x)) == SIGN_EXTEND)
 	return MAX (1, ((int) bitwidth
 			- (int) GET_MODE_PRECISION (GET_MODE (x)) + 1));
       break;
@@ -4906,13 +4906,13 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	}
 
       /* For a smaller object, just ignore the high bits.  */
-      if (bitwidth <= GET_MODE_PRECISION (GET_MODE (SUBREG_REG (x))))
+      inner_mode = GET_MODE (SUBREG_REG (x));
+      if (bitwidth <= GET_MODE_PRECISION (inner_mode))
 	{
 	  num0 = cached_num_sign_bit_copies (SUBREG_REG (x), VOIDmode,
 					     known_x, known_mode, known_ret);
-	  return MAX (1, (num0
-			  - (int) (GET_MODE_PRECISION (GET_MODE (SUBREG_REG (x)))
-				   - bitwidth)));
+	  return
+	    MAX (1, num0 - (int) (GET_MODE_PRECISION (inner_mode) - bitwidth));
 	}
 
       /* For paradoxical SUBREGs on machines where all register operations
@@ -4926,9 +4926,9 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	 to the stack.  */
 
       if (WORD_REGISTER_OPERATIONS
+	  && load_extend_op (inner_mode) == SIGN_EXTEND
 	  && paradoxical_subreg_p (x)
-	  && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
-	  && MEM_P (SUBREG_REG (x)))
+	  && (MEM_P (SUBREG_REG (x)) || REG_P (SUBREG_REG (x))))
 	return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
 					   known_x, known_mode, known_ret);
       break;

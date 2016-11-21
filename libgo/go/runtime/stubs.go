@@ -501,6 +501,7 @@ func needm()
 func dropm()
 func sigprof()
 func mcount() int32
+func gcount() int32
 
 // Signal trampoline, written in C.
 func sigtramp()
@@ -519,3 +520,9 @@ func dumpregs(*_siginfo_t, unsafe.Pointer)
 
 // Temporary for gccgo until we port panic.go.
 func startpanic()
+
+// Temporary for gccgo until we port proc.go.
+//go:linkname getsched runtime.getsched
+func getsched() *schedt {
+	return &sched
+}

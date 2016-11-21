@@ -179,7 +179,7 @@ in the following sections.
 @xref{C Dialect Options,,Options Controlling C Dialect}.
 @gccoptlist{-ansi  -std=@var{standard}  -fgnu89-inline @gol
 -aux-info @var{filename} -fallow-parameterless-variadic-functions @gol
--fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
+-fno-asm  -fno-builtin  -fno-builtin-@var{function} -fgimple@gol
 -fhosted  -ffreestanding -fopenacc -fopenmp -fopenmp-simd @gol
 -fms-extensions -fplan9-extensions -fsso-struct=@var{endianness}
 -fallow-single-precision  -fcond-mismatch -flax-vector-conversions @gol
@@ -292,7 +292,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wparentheses -Wno-pedantic-ms-format @gol
 -Wplacement-new -Wplacement-new=@var{n} @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
--Wno-pragmas -Wredundant-decls  -Wno-return-local-addr @gol
+-Wno-pragmas -Wredundant-decls -Wrestrict  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
 -Wshadow=global, -Wshadow=local, -Wshadow=compatible-local @gol
 -Wshift-overflow -Wshift-overflow=@var{n} @gol
@@ -412,7 +412,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-vars -ftree-copy-prop -ftree-dce -ftree-dominator-opts @gol
 -ftree-dse -ftree-forwprop -ftree-fre -fcode-hoisting -ftree-loop-if-convert @gol
--ftree-loop-if-convert-stores -ftree-loop-im @gol
+-ftree-loop-im @gol
 -ftree-phiprop -ftree-loop-distribution -ftree-loop-distribute-patterns @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
 -ftree-loop-vectorize @gol
@@ -650,7 +650,8 @@ Objective-C and Objective-C++ Dialects}.
 -mpure-code}
 
 @emph{AVR Options}
-@gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
+@gccoptlist{-mmcu=@var{mcu} -mabsdata -maccumulate-args @gol
+-mbranch-cost=@var{cost} @gol
 -mcall-prologues -mint8 -mn_flash=@var{size} -mno-interrupts @gol
 -mrelax -mrmw -mstrict-X -mtiny-stack -mfract-convert-truncate -nodevicelib @gol
 -Waddr-space-convert -Wmisspelled-isr}
@@ -1315,12 +1316,6 @@ traditional preprocessor).
 @item @var{file}.go
 Go source code.
 
-@c FIXME: Descriptions of Java file types.
-@c @var{file}.java
-@c @var{file}.class
-@c @var{file}.zip
-@c @var{file}.jar
-
 @item @var{file}.ads
 Ada source code file that contains a library unit declaration (a
 declaration of a package, subprogram, or generic, or a generic
@@ -1369,7 +1364,6 @@ assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input f95  f95-cpp-input
 go
-java
 @end smallexample
 
 @item -x none
@@ -1949,6 +1943,13 @@ built-in functions selectively when using @option{-fno-builtin} or
 #define abs(n)          __builtin_abs ((n))
 #define strcpy(d, s)    __builtin_strcpy ((d), (s))
 @end smallexample
+
+@item -fgimple
+@opindex fgimple
+
+Enable parsing of function definitions marked with @code{__GIMPLE}.
+This is an experimental feature that allows unit testing of GIMPLE
+passes.
 
 @item -fhosted
 @opindex fhosted
@@ -3166,7 +3167,7 @@ accomplished via the comm page.
 @item -fobjc-exceptions
 @opindex fobjc-exceptions
 Enable syntactic support for structured exception handling in
-Objective-C, similar to what is offered by C++ and Java.  This option
+Objective-C, similar to what is offered by C++.  This option
 is required to use the Objective-C keywords @code{@@try},
 @code{@@throw}, @code{@@catch}, @code{@@finally} and
 @code{@@synchronized}.  This option is available with both the GNU
@@ -6187,6 +6188,12 @@ reduce the padding and so make the structure smaller.
 Warn if anything is declared more than once in the same scope, even in
 cases where multiple declaration is valid and changes nothing.
 
+@item -Wrestrict
+@opindex Wrestrict
+@opindex Wno-restrict
+Warn when an argument passed to a restrict-qualified parameter
+aliases with another argument.
+
 @item -Wnested-externs @r{(C and Objective-C only)}
 @opindex Wnested-externs
 @opindex Wno-nested-externs
@@ -8053,24 +8060,6 @@ branch-less equivalents.  The intent is to remove control-flow from
 the innermost loops in order to improve the ability of the
 vectorization pass to handle these loops.  This is enabled by default
 if vectorization is enabled.
-
-@item -ftree-loop-if-convert-stores
-@opindex ftree-loop-if-convert-stores
-Attempt to also if-convert conditional jumps containing memory writes.
-This transformation can be unsafe for multi-threaded programs as it
-transforms conditional memory writes into unconditional memory writes.
-For example,
-@smallexample
-for (i = 0; i < N; i++)
-  if (cond)
-    A[i] = expr;
-@end smallexample
-is transformed to
-@smallexample
-for (i = 0; i < N; i++)
-  A[i] = cond ? expr : A[i];
-@end smallexample
-potentially producing data races.
 
 @item -ftree-loop-distribution
 @opindex ftree-loop-distribution
@@ -10508,12 +10497,17 @@ To optimize the program based on the collected profile information, use
 
 Alter the update method for an application instrumented for profile
 feedback based optimization.  The @var{method} argument should be one of
-@samp{single} or @samp{atomic}.  The first one is useful for single-threaded
-applications, while the second one prevents profile corruption by emitting
-thread-safe code.
+@samp{single}, @samp{atomic} or @samp{prefer-atomic}.
+The first one is useful for single-threaded applications,
+while the second one prevents profile corruption by emitting thread-safe code.
 
 @strong{Warning:} When an application does not properly join all threads
 (or creates an detached thread), a profile file can be still corrupted.
+
+Using @samp{prefer-atomic} would be transformed either to @samp{atomic},
+when supported by a target, or to @samp{single} otherwise.  The GCC driver
+automatically selects @samp{prefer-atomic} when @option{-pthread}
+is present in the command line.
 
 @item -fsanitize=address
 @opindex fsanitize=address
@@ -10792,8 +10786,8 @@ Inserts a call to @code{__sanitizer_cov_trace_pc} into every basic block.
 @opindex fbounds-check
 For front ends that support it, generate additional code to check that
 indices used to access arrays are within the declared range.  This is
-currently only supported by the Java and Fortran front ends, where
-this option defaults to true and false respectively.
+currently only supported by the Fortran front end, where this option
+defaults to false.
 
 @item -fcheck-pointer-bounds
 @opindex fcheck-pointer-bounds
@@ -11442,10 +11436,9 @@ of these is when the application wishes to throw and catch exceptions
 across different shared libraries.  In that case, each of the libraries
 as well as the application itself should use the shared @file{libgcc}.
 
-Therefore, the G++ and GCJ drivers automatically add
-@option{-shared-libgcc} whenever you build a shared library or a main
-executable, because C++ and Java programs typically use exceptions, so
-this is the right thing to do.
+Therefore, the G++ and driver automatically adds @option{-shared-libgcc}
+ whenever you build a shared library or a main executable, because C++
+ programs typically use exceptions, so this is the right thing to do.
 
 If, instead, you use the GCC driver to create shared libraries, you may
 find that they are not always linked with the shared @file{libgcc}.
@@ -11459,7 +11452,7 @@ propagate through such shared libraries, without incurring relocation
 costs at library load time.
 
 However, if a library or main executable is supposed to throw or catch
-exceptions, you must link it using the G++ or GCJ driver, as appropriate
+exceptions, you must link it using the G++ driver, as appropriate
 for the languages used in the program, or using the option
 @option{-shared-libgcc}, such that it is linked with the shared
 @file{libgcc}.
@@ -11854,8 +11847,7 @@ results in @option{-ftrapv} being effective.
 This option instructs the compiler to assume that signed arithmetic
 overflow of addition, subtraction and multiplication wraps around
 using twos-complement representation.  This flag enables some optimizations
-and disables others.  This option is enabled by default for the Java
-front end, as required by the Java language specification.
+and disables others.
 The options @option{-ftrapv} and @option{-fwrapv} override each other, so using
 @option{-ftrapv} @option{-fwrapv} on the command-line results in
 @option{-fwrapv} being effective.  Note that only active options override, so
@@ -14168,29 +14160,92 @@ values for @var{cpu} are
 @table @samp
 @opindex mA6
 @opindex mARC600
-@item ARC600
 @item arc600
 Compile for ARC600.  Aliases: @option{-mA6}, @option{-mARC600}.
 
-@item ARC601
 @item arc601
 @opindex mARC601
 Compile for ARC601.  Alias: @option{-mARC601}.
 
-@item ARC700
 @item arc700
 @opindex mA7
 @opindex mARC700
 Compile for ARC700.  Aliases: @option{-mA7}, @option{-mARC700}.
 This is the default when configured with @option{--with-cpu=arc700}@.
 
-@item ARCEM
 @item arcem
 Compile for ARC EM.
 
-@item ARCHS
 @item archs
 Compile for ARC HS.
+
+@item em
+@opindex em
+Compile for ARC EM cpu with no hardware extension.
+
+@item em4
+@opindex em4
+Compile for ARC EM4 cpu.
+
+@item em4_dmips
+@opindex em4_dmips
+Compile for ARC EM4 DMIPS cpu.
+
+@item em4_fpus
+@opindex em4_fpus
+Compile for ARC EM4 DMIPS cpu with single precision floating point
+extension.
+
+@item em4_fpuda
+@opindex em4_fpuda
+Compile for ARC EM4 DMIPS cpu with single precision floating point and
+double assists instructions.
+
+@item hs
+@opindex hs
+Compile for ARC HS cpu with no hardware extension, except the atomic
+instructions.
+
+@item hs34
+@opindex hs34
+Compile for ARC HS34 cpu.
+
+@item hs38
+@opindex hs38
+Compile for ARC HS38 cpu.
+
+@item hs38_linux
+@opindex hs38_linux
+Compile for ARC HS38 cpu with all hardware extensions on.
+
+@item arc600_norm
+@opindex arc600_norm
+Compile for ARC 600 cpu with norm instruction enabled.
+
+@item arc600_mul32x16
+@opindex arc600_mul32x16
+Compile for ARC 600 cpu with norm and mul32x16 instructions enabled.
+
+@item arc600_mul64
+@opindex arc600_mul64
+Compile for ARC 600 cpu with norm and mul64 instructions enabled.
+
+@item arc601_norm
+@opindex arc601_norm
+Compile for ARC 601 cpu with norm instruction enabled.
+
+@item arc601_mul32x16
+@opindex arc601_mul32x16
+Compile for ARC 601 cpu with norm and mul32x16 instructions enabled.
+
+@item arc601_mul64
+@opindex arc601_mul64
+Compile for ARC 601 cpu with norm and mul64 instructions enabled.
+
+@item nps400
+@opindex nps400
+Compile for ARC 700 on NPS400 chip.
+
 @end table
 
 @item -mdpfp
@@ -14217,7 +14272,8 @@ supported.  This is always enabled for @option{-mcpu=ARC700}.
 
 @item -mno-mpy
 @opindex mno-mpy
-Do not generate mpy instructions for ARC700.
+Do not generate mpy instructions for ARC700.  This instruction is
+deprecated.
 
 @item -mmul32x16
 @opindex mmul32x16
@@ -14424,12 +14480,14 @@ define preprocessor macro symbols.
 @item -mdsp-packa
 @opindex mdsp-packa
 Passed down to the assembler to enable the DSP Pack A extensions.
-Also sets the preprocessor symbol @code{__Xdsp_packa}.
+Also sets the preprocessor symbol @code{__Xdsp_packa}.  This option is
+deprecated.
 
 @item -mdvbf
 @opindex mdvbf
 Passed down to the assembler to enable the dual viterbi butterfly
-extension.  Also sets the preprocessor symbol @code{__Xdvbf}.
+extension.  Also sets the preprocessor symbol @code{__Xdvbf}.  This
+option is deprecated.
 
 @c ARC700 4.10 extension instruction
 @item -mlock
@@ -14441,19 +14499,19 @@ Conditional extension.  Also sets the preprocessor symbol
 @item -mmac-d16
 @opindex mmac-d16
 Passed down to the assembler.  Also sets the preprocessor symbol
-@code{__Xxmac_d16}.
+@code{__Xxmac_d16}.  This option is deprecated.
 
 @item -mmac-24
 @opindex mmac-24
 Passed down to the assembler.  Also sets the preprocessor symbol
-@code{__Xxmac_24}.
+@code{__Xxmac_24}.  This option is deprecated.
 
 @c ARC700 4.10 extension instruction
 @item -mrtsc
 @opindex mrtsc
 Passed down to the assembler to enable the 64-bit Time-Stamp Counter
 extension instruction.  Also sets the preprocessor symbol
-@code{__Xrtsc}.
+@code{__Xrtsc}.  This option is deprecated.
 
 @c ARC700 4.10 extension instruction
 @item -mswape
@@ -14466,7 +14524,7 @@ extension instruction.  Also sets the preprocessor symbol
 @opindex mtelephony
 Passed down to the assembler to enable dual and single operand
 instructions for telephony.  Also sets the preprocessor symbol
-@code{__Xtelephony}.
+@code{__Xtelephony}.  This option is deprecated.
 
 @item -mxy
 @opindex mxy
@@ -15040,12 +15098,14 @@ is unsuccessful the option has no effect.
 @item -mfpu=@var{name}
 @opindex mfpu
 This specifies what floating-point hardware (or hardware emulation) is
-available on the target.  Permissible names are: @samp{vfp}, @samp{vfpv3},
+available on the target.  Permissible names are: @samp{vfpv2}, @samp{vfpv3},
 @samp{vfpv3-fp16}, @samp{vfpv3-d16}, @samp{vfpv3-d16-fp16}, @samp{vfpv3xd},
-@samp{vfpv3xd-fp16}, @samp{neon}, @samp{neon-fp16}, @samp{vfpv4},
+@samp{vfpv3xd-fp16}, @samp{neon-vfpv3}, @samp{neon-fp16}, @samp{vfpv4},
 @samp{vfpv4-d16}, @samp{fpv4-sp-d16}, @samp{neon-vfpv4},
 @samp{fpv5-d16}, @samp{fpv5-sp-d16},
 @samp{fp-armv8}, @samp{neon-fp-armv8} and @samp{crypto-neon-fp-armv8}.
+Note that @samp{neon} is an alias for @samp{neon-vfpv3} and @samp{vfp}
+is an alias for @samp{vfpv2}.
 
 If @option{-msoft-float} is specified this specifies the format of
 floating-point values.
@@ -15316,6 +15376,13 @@ The default for this option is@tie{}@samp{avr2}.
 GCC supports the following AVR devices and ISAs:
 
 @include avr-mmcu.texi
+
+@item -mabsdata
+@opindex mabsdata
+
+Assume that all data in static storage can be accessed by LDS / STS
+instructions.  This option has only an effect on reduced Tiny devices like
+ATtiny40.
 
 @item -maccumulate-args
 @opindex maccumulate-args
@@ -20497,6 +20564,37 @@ offloading execution.
 @opindex moptimize
 Apply partitioned execution optimizations.  This is the default when any
 level of optimization is selected.
+
+@item -msoft-stack
+@opindex msoft-stack
+Generate code that does not use @code{.local} memory
+directly for stack storage. Instead, a per-warp stack pointer is
+maintained explicitly. This enables variable-length stack allocation (with
+variable-length arrays or @code{alloca}), and when global memory is used for
+underlying storage, makes it possible to access automatic variables from other
+threads, or with atomic instructions. This code generation variant is used
+for OpenMP offloading, but the option is exposed on its own for the purpose
+of testing the compiler; to generate code suitable for linking into programs
+using OpenMP offloading, use option @option{-mgomp}.
+
+@item -muniform-simt
+@opindex muniform-simt
+Switch to code generation variant that allows to execute all threads in each
+warp, while maintaining memory state and side effects as if only one thread
+in each warp was active outside of OpenMP SIMD regions.  All atomic operations
+and calls to runtime (malloc, free, vprintf) are conditionally executed (iff
+current lane index equals the master lane index), and the register being
+assigned is copied via a shuffle instruction from the master lane.  Outside of
+SIMD regions lane 0 is the master; inside, each thread sees itself as the
+master.  Shared memory array @code{int __nvptx_uni[]} stores all-zeros or
+all-ones bitmasks for each warp, indicating current mode (0 outside of SIMD
+regions).  Each thread can bitwise-and the bitmask at position @code{tid.y}
+with current lane index to compute the master lane index.
+
+@item -mgomp
+@opindex mgomp
+Generate code for use in OpenMP offloading: enables @option{-msoft-stack} and
+@option{-muniform-simt} options, and selects corresponding multilib variant.
 
 @end table
 

@@ -2533,6 +2533,7 @@ version_loop_for_if_conversion (struct loop *loop)
   struct loop *new_loop;
   gimple *g;
   gimple_stmt_iterator gsi;
+  unsigned int save_length;
 
   g = gimple_build_call_internal (IFN_LOOP_VECTORIZED, 2,
 				  build_int_cst (integer_type_node, loop->num),
@@ -2540,8 +2541,9 @@ version_loop_for_if_conversion (struct loop *loop)
   gimple_call_set_lhs (g, cond);
 
   /* Save BB->aux around loop_version as that uses the same field.  */
-  void **saved_preds = XALLOCAVEC (void *, loop->num_nodes);
-  for (unsigned i = 0; i < loop->num_nodes; i++)
+  save_length = loop->inner ? loop->inner->num_nodes : loop->num_nodes;
+  void **saved_preds = XALLOCAVEC (void *, save_length);
+  for (unsigned i = 0; i < save_length; i++)
     saved_preds[i] = ifc_bbs[i]->aux;
 
   initialize_original_copy_tables ();
@@ -2550,7 +2552,7 @@ version_loop_for_if_conversion (struct loop *loop)
 			   REG_BR_PROB_BASE, true);
   free_original_copy_tables ();
 
-  for (unsigned i = 0; i < loop->num_nodes; i++)
+  for (unsigned i = 0; i < save_length; i++)
     ifc_bbs[i]->aux = saved_preds[i];
 
   if (new_loop == NULL)
@@ -2562,6 +2564,40 @@ version_loop_for_if_conversion (struct loop *loop)
   gimple_call_set_arg (g, 1, build_int_cst (integer_type_node, new_loop->num));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
   update_ssa (TODO_update_ssa);
+  return true;
+}
+
+/* Return true when LOOP satisfies the follow conditions that will
+   allow it to be recognized by the vectorizer for outer-loop
+   vectorization:
+    - The loop is not the root node of the loop tree.
+    - The loop has exactly one inner loop.
+    - The loop has a single exit.
+    - The loop header has a single successor, which is the inner
+      loop header.
+    - The loop exit block has a single predecessor, which is the
+      inner loop's exit block.  */
+
+static bool
+versionable_outer_loop_p (struct loop *loop)
+{
+  if (!loop_outer (loop)
+      || !loop->inner
+      || loop->inner->next
+      || !single_exit (loop)
+      || !single_succ_p (loop->header)
+      || single_succ (loop->header) != loop->inner->header)
+    return false;
+  
+  basic_block outer_exit = single_pred (loop->latch);
+  basic_block inner_exit = single_pred (loop->inner->latch);
+
+  if (!single_pred_p (outer_exit) || single_pred (outer_exit) != inner_exit)
+    return false;
+
+  if (dump_file)
+    fprintf (dump_file, "Found vectorizable outer loop for versioning\n");
+
   return true;
 }
 
@@ -2734,7 +2770,7 @@ ifcvt_local_dce (basic_block bb)
    profitability analysis.  Returns non-zero todo flags when something
    changed.  */
 
-static unsigned int
+unsigned int
 tree_if_conversion (struct loop *loop)
 {
   unsigned int todo = 0;
@@ -2767,8 +2803,15 @@ tree_if_conversion (struct loop *loop)
 	  || loop->dont_vectorize))
     goto cleanup;
 
-  if ((any_pred_load_store || any_complicated_phi)
-      && !version_loop_for_if_conversion (loop))
+  /* Since we have no cost model, always version loops unless the user
+     specified -ftree-loop-if-convert.  Either version this loop, or if
+     the pattern is right for outer-loop vectorization, version the
+     outer loop.  In the latter case we will still if-convert the
+     original inner loop.  */
+  if (flag_tree_loop_if_convert != 1
+      && !version_loop_for_if_conversion
+      (versionable_outer_loop_p (loop_outer (loop))
+       ? loop_outer (loop) : loop))
     goto cleanup;
 
   /* Now all statements are if-convertible.  Combine all the basic
@@ -2831,8 +2874,7 @@ pass_if_conversion::gate (function *fun)
 {
   return (((flag_tree_loop_vectorize || fun->has_force_vectorize_loops)
 	   && flag_tree_loop_if_convert != 0)
-	  || flag_tree_loop_if_convert == 1
-	  || flag_tree_loop_if_convert_stores == 1);
+	  || flag_tree_loop_if_convert == 1);
 }
 
 unsigned int
@@ -2846,7 +2888,6 @@ pass_if_conversion::execute (function *fun)
 
   FOR_EACH_LOOP (loop, 0)
     if (flag_tree_loop_if_convert == 1
-	|| flag_tree_loop_if_convert_stores == 1
 	|| ((flag_tree_loop_vectorize || loop->force_vectorize)
 	    && !loop->dont_vectorize))
       todo |= tree_if_conversion (loop);

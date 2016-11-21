@@ -1229,7 +1229,7 @@ rewrite_debug_stmt_uses (gimple *stmt)
 		  def_temp = gimple_build_debug_source_bind (def, var, NULL);
 		  DECL_ARTIFICIAL (def) = 1;
 		  TREE_TYPE (def) = TREE_TYPE (var);
-		  DECL_MODE (def) = DECL_MODE (var);
+		  SET_DECL_MODE (def, DECL_MODE (var));
 		  gsi =
 		 gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 		  gsi_insert_before (&gsi, def_temp, GSI_SAME_STMT);
@@ -1378,12 +1378,20 @@ rewrite_add_phi_arguments (basic_block bb)
       for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  tree currdef, res;
+	  tree currdef, res, argvar;
 	  location_t loc;
 
 	  phi = gsi.phi ();
 	  res = gimple_phi_result (phi);
-	  currdef = get_reaching_def (SSA_NAME_VAR (res));
+	  /* If we have pre-existing PHI (via the GIMPLE FE) its args may
+	     be different vars than existing vars and they may be constants
+	     as well.  Note the following supports partial SSA for PHI args.  */
+	  argvar = gimple_phi_arg_def (phi, e->dest_idx);
+	  if (argvar && ! DECL_P (argvar))
+	    continue;
+	  if (!argvar)
+	    argvar = SSA_NAME_VAR (res);
+	  currdef = get_reaching_def (argvar);
 	  /* Virtual operand PHI args do not need a location.  */
 	  if (virtual_operand_p (res))
 	    loc = UNKNOWN_LOCATION;

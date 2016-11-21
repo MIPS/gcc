@@ -398,12 +398,12 @@ static const struct cpu_vector_cost cortexa57_vector_cost =
   1, /* scalar_stmt_cost  */
   4, /* scalar_load_cost  */
   1, /* scalar_store_cost  */
-  3, /* vec_stmt_cost  */
+  2, /* vec_stmt_cost  */
   3, /* vec_permute_cost  */
   8, /* vec_to_scalar_cost  */
   8, /* scalar_to_vec_cost  */
-  5, /* vec_align_load_cost  */
-  5, /* vec_unalign_load_cost  */
+  4, /* vec_align_load_cost  */
+  4, /* vec_unalign_load_cost  */
   1, /* vec_unalign_store_cost  */
   1, /* vec_store_cost  */
   1, /* cond_taken_branch_cost  */
@@ -7424,7 +7424,8 @@ cost_plus:
       break;
     }
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file
+      && flag_aarch64_verbose_cost)
     fprintf (dump_file,
       "\nFailed to cost RTX.  Assuming default cost.\n");
 
@@ -7440,7 +7441,8 @@ aarch64_rtx_costs_wrapper (rtx x, machine_mode mode, int outer,
 {
   bool result = aarch64_rtx_costs (x, mode, outer, param, cost, speed);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file
+      && flag_aarch64_verbose_cost)
     {
       print_rtl_single (dump_file, x);
       fprintf (dump_file, "\n%s cost: %d (%s)\n",
@@ -11474,8 +11476,8 @@ aarch64_emit_unlikely_jump (rtx insn)
 {
   int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
 
-  insn = emit_jump_insn (insn);
-  add_int_reg_note (insn, REG_BR_PROB, very_unlikely);
+  rtx_insn *jump = emit_jump_insn (insn);
+  add_int_reg_note (jump, REG_BR_PROB, very_unlikely);
 }
 
 /* Expand a compare and swap pattern.  */
@@ -13205,6 +13207,63 @@ aarch64_expand_movmem (rtx *operands)
 	  aarch64_copy_one_block_and_progress_pointers (&src, &dst, DImode);
 	}
     }
+
+  return true;
+}
+
+/* Split a DImode store of a CONST_INT SRC to MEM DST as two
+   SImode stores.  Handle the case when the constant has identical
+   bottom and top halves.  This is beneficial when the two stores can be
+   merged into an STP and we avoid synthesising potentially expensive
+   immediates twice.  Return true if such a split is possible.  */
+
+bool
+aarch64_split_dimode_const_store (rtx dst, rtx src)
+{
+  rtx lo = gen_lowpart (SImode, src);
+  rtx hi = gen_highpart_mode (SImode, DImode, src);
+
+  bool size_p = optimize_function_for_size_p (cfun);
+
+  if (!rtx_equal_p (lo, hi))
+    return false;
+
+  unsigned int orig_cost
+    = aarch64_internal_mov_immediate (NULL_RTX, src, false, DImode);
+  unsigned int lo_cost
+    = aarch64_internal_mov_immediate (NULL_RTX, lo, false, SImode);
+
+  /* We want to transform:
+     MOV	x1, 49370
+     MOVK	x1, 0x140, lsl 16
+     MOVK	x1, 0xc0da, lsl 32
+     MOVK	x1, 0x140, lsl 48
+     STR	x1, [x0]
+   into:
+     MOV	w1, 49370
+     MOVK	w1, 0x140, lsl 16
+     STP	w1, w1, [x0]
+   So we want to perform this only when we save two instructions
+   or more.  When optimizing for size, however, accept any code size
+   savings we can.  */
+  if (size_p && orig_cost <= lo_cost)
+    return false;
+
+  if (!size_p
+      && (orig_cost <= lo_cost + 1))
+    return false;
+
+  rtx mem_lo = adjust_address (dst, SImode, 0);
+  if (!aarch64_mem_pair_operand (mem_lo, SImode))
+    return false;
+
+  rtx tmp_reg = gen_reg_rtx (SImode);
+  aarch64_expand_mov_immediate (tmp_reg, lo);
+  rtx mem_hi = aarch64_move_pointer (mem_lo, GET_MODE_SIZE (SImode));
+  /* Don't emit an explicit store pair as this may not be always profitable.
+     Let the sched-fusion logic decide whether to merge them.  */
+  emit_move_insn (mem_lo, tmp_reg);
+  emit_move_insn (mem_hi, tmp_reg);
 
   return true;
 }

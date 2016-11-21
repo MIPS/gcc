@@ -140,19 +140,33 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
            || !COMPLEX_FLOAT_TYPE_P (type)))
    (negate @0)))
 
-/* Make sure to preserve divisions by zero.  This is the reason why
-   we don't simplify x / x to 1 or 0 / x to 0.  */
+/* X * 1, X / 1 -> X.  */
 (for op (mult trunc_div ceil_div floor_div round_div exact_div)
   (simplify
     (op @0 integer_onep)
     (non_lvalue @0)))
 
+/* Preserve explicit divisions by 0: the C++ front-end wants to detect
+   undefined behavior in constexpr evaluation, and assuming that the division
+   traps enables better optimizations than these anyway.  */
 (for div (trunc_div ceil_div floor_div round_div exact_div)
+ /* 0 / X is always zero.  */
+ (simplify
+  (div integer_zerop@0 @1)
+  /* But not for 0 / 0 so that we can get the proper warnings and errors.  */
+  (if (!integer_zerop (@1))
+   @0))
   /* X / -1 is -X.  */
  (simplify
    (div @0 integer_minus_onep@1)
    (if (!TYPE_UNSIGNED (type))
     (negate @0)))
+ /* X / X is one.  */
+ (simplify
+  (div @0 @0)
+  /* But not for 0 / 0 so that we can get the proper warnings and errors.  */
+  (if (!integer_zerop (@0))
+   { build_one_cst (type); }))
  /* X / abs (X) is X < 0 ? -1 : 1.  */ 
  (simplify
    (div:C @0 (abs @0))
@@ -276,8 +290,6 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
       (if (inverse)
        (mult @0 { inverse; } ))))))))
 
-/* Same applies to modulo operations, but fold is inconsistent here
-   and simplifies 0 % x to 0, only preserving literal 0 % 0.  */
 (for mod (ceil_mod floor_mod round_mod trunc_mod)
  /* 0 % X is always zero.  */
  (simplify
@@ -293,6 +305,12 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (simplify
   (mod @0 integer_minus_onep@1)
   (if (!TYPE_UNSIGNED (type))
+   { build_zero_cst (type); }))
+ /* X % X is zero.  */
+ (simplify
+  (mod @0 @0)
+  /* But not for 0 % 0 so that we can get the proper warnings and errors.  */
+  (if (!integer_zerop (@0))
    { build_zero_cst (type); }))
  /* (X % Y) % Y is just X % Y.  */
  (simplify
@@ -2333,6 +2351,36 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 	   (ge @0 { build_real (TREE_TYPE (@0), dconst0); })
 	   (cmp @0 { build_real (TREE_TYPE (@0), c2); }))))))))))))
 
+/* Fold A /[ex] B CMP C to A CMP B * C.  */
+(for cmp (eq ne)
+ (simplify
+  (cmp (exact_div @0 @1) INTEGER_CST@2)
+  (if (!integer_zerop (@1))
+   (if (wi::eq_p (@2, 0))
+    (cmp @0 @2)
+    (if (TREE_CODE (@1) == INTEGER_CST)
+     (with
+      {
+	bool ovf;
+	wide_int prod = wi::mul (@2, @1, TYPE_SIGN (TREE_TYPE (@1)), &ovf);
+      }
+      (if (ovf)
+       { constant_boolean_node (cmp == NE_EXPR, type); }
+       (cmp @0 { wide_int_to_tree (TREE_TYPE (@0), prod); }))))))))
+(for cmp (lt le gt ge)
+ (simplify
+  (cmp (exact_div @0 INTEGER_CST@1) INTEGER_CST@2)
+  (if (wi::gt_p (@1, 0, TYPE_SIGN (TREE_TYPE (@1))))
+   (with
+    {
+      bool ovf;
+      wide_int prod = wi::mul (@2, @1, TYPE_SIGN (TREE_TYPE (@1)), &ovf);
+    }
+    (if (ovf)
+     { constant_boolean_node (wi::lt_p (@2, 0, TYPE_SIGN (TREE_TYPE (@2)))
+			      != (cmp == LT_EXPR || cmp == LE_EXPR), type); }
+     (cmp @0 { wide_int_to_tree (TREE_TYPE (@0), prod); }))))))
+
 /* Unordered tests if either argument is a NaN.  */
 (simplify
  (bit_ior (unordered @0 @0) (unordered @1 @1))
@@ -2547,8 +2595,15 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
     (with
      {
        int equal = 2;
-       if (decl_in_symtab_p (base0)
-	   && decl_in_symtab_p (base1))
+       /* Punt in GENERIC on variables with value expressions;
+	  the value expressions might point to fields/elements
+	  of other vars etc.  */
+       if (GENERIC
+	   && ((VAR_P (base0) && DECL_HAS_VALUE_EXPR_P (base0))
+	       || (VAR_P (base1) && DECL_HAS_VALUE_EXPR_P (base1))))
+	 ;
+       else if (decl_in_symtab_p (base0)
+		&& decl_in_symtab_p (base1))
          equal = symtab_node::get_create (base0)
 	           ->equal_address_to (symtab_node::get_create (base1));
        else if ((DECL_P (base0)

@@ -121,6 +121,7 @@ if test "$with_libffi" != no; then
 fi
 AC_SUBST(LIBFFI)
 AC_SUBST(LIBFFIINCS)
+AM_CONDITIONAL(USE_LIBFFI, test "$with_liffi" != "no")
 
 # See if the user wants to configure without libatomic. This is useful if we are
 # on an architecture for which libgo does not need an atomic support library and
@@ -230,7 +231,6 @@ case ${host} in
     GOARCH_FAMILY=ARM
     GOARCH_CACHELINESIZE=32
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
     GOARCH_MINFRAMESIZE=4
     ;;
 changequote(,)dnl
@@ -262,7 +262,7 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     GOARCH_BIGENDIAN=1
     GOARCH_CACHELINESIZE=16
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
+    GOARCH_INT64ALIGN=2
     ;;
   mips*-*-*)
     AC_COMPILE_IFELSE([
@@ -296,7 +296,6 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     case "$mips_abi" in
     "o32" | "n32")
         GOARCH_FAMILY=MIPS
-	GOARCH_INT64ALIGN=4
 	GOARCH_MINFRAMESIZE=4
         ;;
     "n64" | "o64")
@@ -323,7 +322,6 @@ GOARCH_HUGEPAGESIZE="1 << 21"
 [GOARCH=ppc
 GOARCH_FAMILY=PPC
 GOARCH_BIGENDIAN=1
-GOARCH_INT64ALIGN=4
 ],
     [
 GOARCH_FAMILY=PPC64
@@ -347,7 +345,6 @@ GOARCH_BIGENDIAN=1
 #endif],
 [GOARCH=s390
 GOARCH_FAMILY=S390
-GOARCH_INT64ALIGN=4
 GOARCH_MINFRAMESIZE=4
 ], [GOARCH=s390x
 GOARCH_FAMILY=S390X

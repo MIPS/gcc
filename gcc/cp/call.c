@@ -375,10 +375,18 @@ build_call_a (tree function, int n, tree *argarray)
 
   TREE_HAS_CONSTRUCTOR (function) = (decl && DECL_CONSTRUCTOR_P (decl));
 
+  if (current_function_decl && decl
+      && flag_new_inheriting_ctors
+      && DECL_INHERITED_CTOR (current_function_decl)
+      && (DECL_INHERITED_CTOR (current_function_decl)
+	  == DECL_CLONED_FUNCTION (decl)))
+    /* Pass arguments directly to the inherited constructor.  */
+    CALL_FROM_THUNK_P (function) = true;
+
   /* Don't pass empty class objects by value.  This is useful
      for tags in STL, which are used to control overload resolution.
      We don't need to handle other cases of copying empty classes.  */
-  if (! decl || ! DECL_BUILT_IN (decl))
+  else if (! decl || ! DECL_BUILT_IN (decl))
     for (i = 0; i < n; i++)
       {
 	tree arg = CALL_EXPR_ARG (function, i);
@@ -4146,8 +4154,16 @@ static void
 print_error_for_call_failure (tree fn, vec<tree, va_gc> *args,
 			      struct z_candidate *candidates)
 {
+  tree targs = NULL_TREE;
+  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+    {
+      targs = TREE_OPERAND (fn, 1);
+      fn = TREE_OPERAND (fn, 0);
+    }
   tree name = DECL_NAME (OVL_CURRENT (fn));
   location_t loc = location_of (name);
+  if (targs)
+    name = lookup_template_function (name, targs);
 
   if (!any_strictly_viable (candidates))
     error_at (loc, "no matching function for call to %<%D(%A)%>",
@@ -4215,8 +4231,6 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
 	    return cp_build_function_call_vec (candidates->fn, args, complain);
 
 	  // Otherwise, emit notes for non-viable candidates.
-	  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-	    fn = TREE_OPERAND (fn, 0);
 	  print_error_for_call_failure (fn, *args, candidates);
 	}
       result = error_mark_node;
@@ -6838,8 +6852,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	 constructor.  */
       if (current_function_decl
 	  && flag_new_inheriting_ctors
-	  && DECL_INHERITED_CTOR (current_function_decl)
-	  && TREE_ADDRESSABLE (totype))
+	  && DECL_INHERITED_CTOR (current_function_decl))
 	return expr;
 
       /* Fall through.  */
@@ -8088,13 +8101,6 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       /* build_new_op_1 will clear this when appropriate.  */
       CALL_EXPR_ORDERED_ARGS (c) = true;
     }
-  if (current_function_decl
-      && flag_new_inheriting_ctors
-      && DECL_INHERITED_CTOR (current_function_decl)
-      && cand->num_convs)
-    /* Don't introduce copies when passing arguments along to the inherited
-       constructor.  */
-    CALL_FROM_THUNK_P (call) = true;
   return call;
 }
 
@@ -8311,7 +8317,8 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
       if (!reference_related_p (class_type, TREE_TYPE (arg)))
 	arg = perform_implicit_conversion_flags (class_type, arg,
 						 tf_warning, flags);
-      if (TREE_CODE (arg) == TARGET_EXPR
+      if ((TREE_CODE (arg) == TARGET_EXPR
+	   || TREE_CODE (arg) == CONSTRUCTOR)
 	  && (same_type_ignoring_top_level_qualifiers_p
 	      (class_type, TREE_TYPE (arg))))
 	{
@@ -8649,19 +8656,20 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 		   TREE_TYPE (instance));
 	  else
 	    {
-	      char *pretty_name;
-	      bool free_p;
-	      tree arglist;
-
-	      pretty_name = name_as_c_string (name, basetype, &free_p);
-	      arglist = build_tree_list_vec (user_args);
+	      tree arglist = build_tree_list_vec (user_args);
+	      tree errname = name;
+	      if (IDENTIFIER_CTOR_OR_DTOR_P (errname))
+		{
+		  tree fn = DECL_ORIGIN (get_first_fn (fns));
+		  errname = DECL_NAME (fn);
+		}
+	      if (explicit_targs)
+		errname = lookup_template_function (errname, explicit_targs);
 	      if (skip_first_for_error)
 		arglist = TREE_CHAIN (arglist);
-	      error ("no matching function for call to %<%T::%s(%A)%#V%>",
-		     basetype, pretty_name, arglist,
+	      error ("no matching function for call to %<%T::%E(%A)%#V%>",
+		     basetype, errname, arglist,
 		     TREE_TYPE (instance));
-	      if (free_p)
-		free (pretty_name);
 	    }
 	  print_z_candidates (location_of (name), candidates);
 	}

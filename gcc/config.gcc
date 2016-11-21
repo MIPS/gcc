@@ -318,6 +318,7 @@ arc*-*-*)
 	cpu_type=arc
 	c_target_objs="arc-c.o"
 	cxx_target_objs="arc-c.o"
+	extra_options="${extra_options} arc/arc-tables.opt"
 	;;
 arm*-*-*)
 	cpu_type=arm
@@ -373,8 +374,8 @@ i[34567]86-*-*)
 		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
 		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h
 		       avx512ifmaintrin.h avx512ifmavlintrin.h avx512vbmiintrin.h
-		       avx512vbmivlintrin.h clwbintrin.h mwaitxintrin.h
-		       clzerointrin.h pkuintrin.h"
+		       avx512vbmivlintrin.h avx5124fmapsintrin.h avx5124vnniwintrin.h
+		       clwbintrin.h mwaitxintrin.h clzerointrin.h pkuintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
@@ -395,8 +396,8 @@ x86_64-*-*)
 		       xsavesintrin.h avx512dqintrin.h avx512bwintrin.h
 		       avx512vlintrin.h avx512vlbwintrin.h avx512vldqintrin.h
 		       avx512ifmaintrin.h avx512ifmavlintrin.h avx512vbmiintrin.h
-		       avx512vbmivlintrin.h clwbintrin.h mwaitxintrin.h
-		       clzerointrin.h pkuintrin.h"
+		       avx512vbmivlintrin.h avx5124fmapsintrin.h avx5124vnniwintrin.h
+		       clwbintrin.h mwaitxintrin.h clzerointrin.h pkuintrin.h"
 	;;
 ia64-*-*)
 	extra_headers=ia64intrin.h
@@ -767,6 +768,7 @@ case ${target} in
   tmake_file="t-slibgcc"
   gas=yes
   gnu_ld=yes
+  use_gcc_stdint=wrap
 
   # NetBSD 2.0 and later get POSIX threads enabled by default.
   # Allow them to be explicitly enabled on any other version.
@@ -999,13 +1001,12 @@ alpha*-dec-*vms*)
 	;;
 arc*-*-elf*)
 	extra_headers="arc-simd.h"
-	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
-	tmake_file="arc/t-arc-newlib arc/t-arc"
-	case x"${with_cpu}" in
-	  xarc600|xarc601|xarc700)
-		target_cpu_default="TARGET_CPU_$with_cpu"
-		;;
-	esac
+	tm_file="arc/arc-arch.h dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
+	tmake_file="arc/t-multilib arc/t-arc"
+	extra_gcc_objs="driver-arc.o"
+	if test "x$with_cpu" != x; then
+		tm_defines="${tm_defines} TARGET_CPU_BUILD=PROCESSOR_$with_cpu"
+	fi
 	if test x${with_endian} = x; then
 		case ${target} in
 		arc*be-*-* | arc*eb-*-*)	with_endian=big ;;
@@ -1022,15 +1023,14 @@ arc*-*-elf*)
 	;;
 arc*-*-linux-uclibc*)
 	extra_headers="arc-simd.h"
-	tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file}"
-	tmake_file="${tmake_file} arc/t-arc-uClibc arc/t-arc"
+	tm_file="arc/arc-arch.h dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file}"
+	tmake_file="${tmake_file} arc/t-uClibc arc/t-arc"
 	tm_defines="${tm_defines} TARGET_SDATA_DEFAULT=0"
 	tm_defines="${tm_defines} TARGET_MMEDIUM_CALLS_DEFAULT=1"
-	case x"${with_cpu}" in
-	  xarc600|xarc601|xarc700)
-		target_cpu_default="TARGET_CPU_$with_cpu"
-		;;
-	esac
+	extra_gcc_objs="driver-arc.o"
+	if test "x$with_cpu" != x; then
+		tm_defines="${tm_defines} TARGET_CPU_BUILD=PROCESSOR_$with_cpu"
+	fi
 	if test x${with_endian} = x; then
 		case ${target} in
 		arc*be-*-* | arc*eb-*-*)	with_endian=big ;;
@@ -1455,11 +1455,11 @@ x86_64-*-freebsd*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ${fbsd_tm_file} i386/x86-64.h i386/freebsd.h i386/freebsd64.h"
 	;;
 i[34567]86-*-netbsdelf*)
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/netbsd-elf.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-stdint.h netbsd-elf.h i386/netbsd-elf.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
 x86_64-*-netbsd*)
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h netbsd.h netbsd-stdint.h netbsd-elf.h i386/x86-64.h i386/netbsd64.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
 i[34567]86-*-openbsd*)
@@ -3624,15 +3624,19 @@ case "${target}" in
 		done
 		;;
 
-	arc*-*-*) # was:	arc*-*-linux-uclibc)
+	arc*-*-*)
 		supported_defaults="cpu"
-		case $with_cpu in
-		  arc600|arc601|arc700)
-			;;
-		  *) echo "Unknown cpu type"
-			exit 1
-			;;
-		esac
+
+		if [ x"$with_cpu" = x ] \
+		    || grep "^ARC_CPU ($with_cpu," \
+		       ${srcdir}/config/arc/arc-cpus.def \
+		       > /dev/null; then
+		 # Ok
+		 true
+		else
+		 echo "Unknown cpu used in --with-cpu=$with_cpu" 1>&2
+		 exit 1
+		fi
 		;;
 
 	arm*-*-*)

@@ -435,6 +435,8 @@ const struct c_common_resword c_common_reswords[] =
   { "__underlying_type", RID_UNDERLYING_TYPE, D_CXXONLY },
   { "__volatile",	RID_VOLATILE,	0 },
   { "__volatile__",	RID_VOLATILE,	0 },
+  { "__GIMPLE",		RID_GIMPLE,	D_CONLY },
+  { "__PHI",		RID_PHI,	D_CONLY },
   { "alignas",		RID_ALIGNAS,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "alignof",		RID_ALIGNOF,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "asm",		RID_ASM,	D_ASM },
@@ -4966,19 +4968,19 @@ c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
       if (high_value)
 	{
 	  error_at (loc, "duplicate (or overlapping) case value");
-	  error_at (DECL_SOURCE_LOCATION (duplicate),
-		    "this is the first entry overlapping that value");
+	  inform (DECL_SOURCE_LOCATION (duplicate),
+		  "this is the first entry overlapping that value");
 	}
       else if (low_value)
 	{
 	  error_at (loc, "duplicate case value") ;
-	  error_at (DECL_SOURCE_LOCATION (duplicate), "previously used here");
+	  inform (DECL_SOURCE_LOCATION (duplicate), "previously used here");
 	}
       else
 	{
 	  error_at (loc, "multiple default labels in one switch");
-	  error_at (DECL_SOURCE_LOCATION (duplicate),
-		    "this is the first default label");
+	  inform (DECL_SOURCE_LOCATION (duplicate),
+		  "this is the first default label");
 	}
       goto error_out;
     }

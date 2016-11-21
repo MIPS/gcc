@@ -1866,9 +1866,18 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 	}
       else if (current_attr.allocatable == 0)
 	{
-      gfc_error ("Component at %C must have the POINTER attribute");
-      return false;
+	  gfc_error ("Component at %C must have the POINTER attribute");
+	  return false;
+	}
     }
+
+  /* F03:C437.  */
+  if (current_ts.type == BT_CLASS
+      && !(current_attr.pointer || current_attr.allocatable))
+    {
+      gfc_error ("Component %qs with CLASS at %C must be allocatable "
+                 "or pointer", name);
+      return false;
     }
 
   if (gfc_current_block ()->attr.pointer && (*as)->rank != 0)
@@ -3198,13 +3207,11 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	      upe->attr.zero_comp = 1;
 	      if (!gfc_add_flavor (&upe->attr, FL_DERIVED, NULL,
 				   &gfc_current_locus))
-	  return MATCH_ERROR;
-	}
+	      return MATCH_ERROR;
+	    }
 	  else
 	    {
-	      st = gfc_find_symtree (gfc_current_ns->sym_root, "STAR");
-	      if (st == NULL)
-		st = gfc_new_symtree (&gfc_current_ns->sym_root, "STAR");
+	      st = gfc_get_tbp_symtree (&gfc_current_ns->sym_root, "STAR");
 	      st->n.sym = upe;
 	      upe->refs++;
 	    }
@@ -9617,6 +9624,8 @@ match_procedure_in_type (void)
 			    false))
 	return MATCH_ERROR;
       gfc_set_sym_referenced (stree->n.tb->u.specific->n.sym);
+      gfc_add_flavor(&stree->n.tb->u.specific->n.sym->attr, FL_PROCEDURE,
+		     target, &stree->n.tb->u.specific->n.sym->declared_at);
 
       if (gfc_match_eos () == MATCH_YES)
 	return MATCH_YES;
@@ -9731,14 +9740,7 @@ gfc_match_generic (void)
 	gfc_symtree* st;
 
 	st = gfc_find_symtree (is_op ? ns->tb_uop_root : ns->tb_sym_root, name);
-	if (st)
-	  {
-	    tb = st->n.tb;
-	    gcc_assert (tb);
-	  }
-	else
-	  tb = NULL;
-
+	tb = st ? st->n.tb : NULL;
 	break;
       }
 
@@ -9783,10 +9785,8 @@ gfc_match_generic (void)
 	case INTERFACE_USER_OP:
 	  {
 	    const bool is_op = (op_type == INTERFACE_USER_OP);
-	    gfc_symtree* st;
-
-	    st = gfc_new_symtree (is_op ? &ns->tb_uop_root : &ns->tb_sym_root,
-				  name);
+	    gfc_symtree* st = gfc_get_tbp_symtree (is_op ? &ns->tb_uop_root :
+						   &ns->tb_sym_root, name);
 	    gcc_assert (st);
 	    st->n.tb = tb;
 

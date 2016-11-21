@@ -1911,7 +1911,7 @@ size_of_discr_value (dw_discr_value *discr_value)
     return size_of_sleb128 (discr_value->v.sval);
 }
 
-/* Return the size of the value in a DW_discr_list attribute.  */
+/* Return the size of the value in a DW_AT_discr_list attribute.  */
 
 static int
 size_of_discr_list (dw_discr_list_ref discr_list)
@@ -8550,6 +8550,11 @@ optimize_external_refs (dw_die_ref die)
 /* First abbrev_id that can be optimized based on usage.  */
 static unsigned int abbrev_opt_start;
 
+/* Maximum abbrev_id of a base type plus one (we can't optimize DIEs with
+   abbrev_id smaller than this, because they must be already sized
+   during build_abbrev_table).  */
+static unsigned int abbrev_opt_base_type_end;
+
 /* Vector of usage counts during build_abbrev_table.  Indexed by
    abbrev_id - abbrev_opt_start.  */
 static vec<unsigned int> abbrev_usage_count;
@@ -8648,12 +8653,16 @@ die_abbrev_cmp (const void *p1, const void *p2)
   gcc_checking_assert (die1->die_abbrev >= abbrev_opt_start);
   gcc_checking_assert (die2->die_abbrev >= abbrev_opt_start);
 
-  if (abbrev_usage_count[die1->die_abbrev - abbrev_opt_start]
-      > abbrev_usage_count[die2->die_abbrev - abbrev_opt_start])
-    return -1;
-  if (abbrev_usage_count[die1->die_abbrev - abbrev_opt_start]
-      < abbrev_usage_count[die2->die_abbrev - abbrev_opt_start])
-    return 1;
+  if (die1->die_abbrev >= abbrev_opt_base_type_end
+      && die2->die_abbrev >= abbrev_opt_base_type_end)
+    {
+      if (abbrev_usage_count[die1->die_abbrev - abbrev_opt_start]
+	  > abbrev_usage_count[die2->die_abbrev - abbrev_opt_start])
+	return -1;
+      if (abbrev_usage_count[die1->die_abbrev - abbrev_opt_start]
+	  < abbrev_usage_count[die2->die_abbrev - abbrev_opt_start])
+	return 1;
+    }
 
   /* Stabilize the sort.  */
   if (die1->die_abbrev < die2->die_abbrev)
@@ -8731,10 +8740,12 @@ optimize_abbrev_table (void)
       sorted_abbrev_dies.qsort (die_abbrev_cmp);
 
       unsigned int abbrev_id = abbrev_opt_start - 1;
-      unsigned int first_id = 0;
+      unsigned int first_id = ~0U;
       unsigned int last_abbrev_id = 0;
       unsigned int i;
       dw_die_ref die;
+      if (abbrev_opt_base_type_end > abbrev_opt_start)
+	abbrev_id = abbrev_opt_base_type_end - 1;
       /* Reassign abbreviation ids from abbrev_opt_start above, so that
 	 most commonly used abbreviations come first.  */
       FOR_EACH_VEC_ELT (sorted_abbrev_dies, i, die)
@@ -8742,10 +8753,15 @@ optimize_abbrev_table (void)
 	  dw_attr_node *a;
 	  unsigned ix;
 
+	  /* If calc_base_type_die_sizes has been called, the CU and
+	     base types after it can't be optimized, because we've already
+	     calculated their DIE offsets.  We've sorted them first.  */
+	  if (die->die_abbrev < abbrev_opt_base_type_end)
+	    continue;
 	  if (die->die_abbrev != last_abbrev_id)
 	    {
 	      last_abbrev_id = die->die_abbrev;
-	      if (dwarf_version >= 5 && i)
+	      if (dwarf_version >= 5 && first_id != ~0U)
 		optimize_implicit_const (first_id, i, implicit_consts);
 	      abbrev_id++;
 	      (*abbrev_die_table)[abbrev_id] = die;
@@ -8785,11 +8801,12 @@ optimize_abbrev_table (void)
 	  die->die_abbrev = abbrev_id;
 	}
       gcc_assert (abbrev_id == vec_safe_length (abbrev_die_table) - 1);
-      if (dwarf_version >= 5)
+      if (dwarf_version >= 5 && first_id != ~0U)
 	optimize_implicit_const (first_id, i, implicit_consts);
     }
 
   abbrev_opt_start = 0;
+  abbrev_opt_base_type_end = 0;
   abbrev_usage_count.release ();
   sorted_abbrev_dies.release ();
 }
@@ -9043,6 +9060,9 @@ calc_base_type_die_sizes (void)
 		  && base_type->die_abbrev);
       prev = base_type;
 #endif
+      if (abbrev_opt_start
+	  && base_type->die_abbrev >= abbrev_opt_base_type_end)
+	abbrev_opt_base_type_end = base_type->die_abbrev + 1;
       base_type->die_offset = die_offset;
       die_offset += size_of_die (base_type);
     }
@@ -9550,10 +9570,8 @@ output_loc_list (dw_loc_list_ref list_head)
   ASM_OUTPUT_LABEL (asm_out_file, list_head->ll_symbol);
 
   dw_loc_list_ref curr = list_head;
-#ifdef HAVE_AS_LEB128
   const char *last_section = NULL;
   const char *base_label = NULL;
-#endif
 
   /* Walk the location list, and output each range + expression.  */
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
@@ -9588,8 +9606,7 @@ output_loc_list (dw_loc_list_ref list_head)
 					    "Location list length (%s)",
 					    list_head->ll_symbol);
 	    }
-#ifdef HAVE_AS_LEB128
-	  else if (!have_multiple_function_sections)
+	  else if (!have_multiple_function_sections && HAVE_AS_LEB128)
 	    {
 	      /* If all code is in .text section, the base address is
 		 already provided by the CU attributes.  Use
@@ -9605,7 +9622,7 @@ output_loc_list (dw_loc_list_ref list_head)
 					    "Location list end address (%s)",
 					    list_head->ll_symbol);
 	    }
-	  else
+	  else if (HAVE_AS_LEB128)
 	    {
 	      /* Otherwise, find out how many consecutive entries could share
 		 the same base entry.  If just one, emit DW_LLE_start_length,
@@ -9668,7 +9685,6 @@ output_loc_list (dw_loc_list_ref list_head)
 						"(%s)", list_head->ll_symbol);
 		}
 	    }
-#else
 	  /* The assembler does not support .uleb128 directive.  Emit
 	     DW_LLE_start_end with a pair of absolute addresses.  */
 	  else
@@ -9683,7 +9699,6 @@ output_loc_list (dw_loc_list_ref list_head)
 				   "Location list end address (%s)",
 				   list_head->ll_symbol);
 	    }
-#endif
 	}
       else if (dwarf_split_debug_info)
 	{
@@ -11054,9 +11069,7 @@ output_rnglists (void)
   dw_ranges *r;
   char l1[MAX_ARTIFICIAL_LABEL_BYTES];
   char l2[MAX_ARTIFICIAL_LABEL_BYTES];
-#ifdef HAVE_AS_LEB128
   char basebuf[MAX_ARTIFICIAL_LABEL_BYTES];
-#endif
 
   switch_to_section (debug_ranges_section);
   ASM_OUTPUT_LABEL (asm_out_file, ranges_section_label);
@@ -11090,10 +11103,8 @@ output_rnglists (void)
     }
 
   const char *lab = "";
-#ifdef HAVE_AS_LEB128
   unsigned int len = vec_safe_length (ranges_table);
   const char *base = NULL;
-#endif
   FOR_EACH_VEC_SAFE_ELT (ranges_table, i, r)
     {
       int block_num = r->num;
@@ -11103,10 +11114,8 @@ output_rnglists (void)
 	  ASM_OUTPUT_LABEL (asm_out_file, r->label);
 	  lab = r->label;
 	}
-#ifdef HAVE_AS_LEB128
-      if (r->label || r->maybe_new_sec)
+      if (HAVE_AS_LEB128 && (r->label || r->maybe_new_sec))
 	base = NULL;
-#endif
       if (block_num > 0)
 	{
 	  char blabel[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -11115,62 +11124,65 @@ output_rnglists (void)
 	  ASM_GENERATE_INTERNAL_LABEL (blabel, BLOCK_BEGIN_LABEL, block_num);
 	  ASM_GENERATE_INTERNAL_LABEL (elabel, BLOCK_END_LABEL, block_num);
 
-#ifdef HAVE_AS_LEB128
-	  /* If all code is in the text section, then the compilation
-	     unit base address defaults to DW_AT_low_pc, which is the
-	     base of the text section.  */
-	  if (!have_multiple_function_sections)
+	  if (HAVE_AS_LEB128)
 	    {
-	      dw2_asm_output_data (1, DW_RLE_offset_pair,
-				   "DW_RLE_offset_pair (%s)", lab);
-	      dw2_asm_output_delta_uleb128 (blabel, text_section_label,
-					    "Range begin address (%s)", lab);
-	      dw2_asm_output_delta_uleb128 (elabel, text_section_label,
-					    "Range end address (%s)", lab);
-	      continue;
-	    }
-	  if (base == NULL)
-	    {
-	      dw_ranges *r2 = NULL;
-	      if (i < len - 1)
-		r2 = &(*ranges_table)[i + 1];
-	      if (r2
-		  && r2->num != 0
-		  && r2->label == NULL
-		  && !r2->maybe_new_sec)
+	      /* If all code is in the text section, then the compilation
+		 unit base address defaults to DW_AT_low_pc, which is the
+		 base of the text section.  */
+	      if (!have_multiple_function_sections)
 		{
-		  dw2_asm_output_data (1, DW_RLE_base_address,
-				       "DW_RLE_base_address (%s)", lab);
-		  dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
-				       "Base address (%s)", lab);
-		  strcpy (basebuf, blabel);
-		  base = basebuf;
+		  dw2_asm_output_data (1, DW_RLE_offset_pair,
+				       "DW_RLE_offset_pair (%s)", lab);
+		  dw2_asm_output_delta_uleb128 (blabel, text_section_label,
+						"Range begin address (%s)", lab);
+		  dw2_asm_output_delta_uleb128 (elabel, text_section_label,
+						"Range end address (%s)", lab);
+		  continue;
 		}
+	      if (base == NULL)
+		{
+		  dw_ranges *r2 = NULL;
+		  if (i < len - 1)
+		    r2 = &(*ranges_table)[i + 1];
+		  if (r2
+		      && r2->num != 0
+		      && r2->label == NULL
+		      && !r2->maybe_new_sec)
+		    {
+		      dw2_asm_output_data (1, DW_RLE_base_address,
+					   "DW_RLE_base_address (%s)", lab);
+		      dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
+					   "Base address (%s)", lab);
+		      strcpy (basebuf, blabel);
+		      base = basebuf;
+		    }
+		}
+	      if (base)
+		{
+		  dw2_asm_output_data (1, DW_RLE_offset_pair,
+				       "DW_RLE_offset_pair (%s)", lab);
+		  dw2_asm_output_delta_uleb128 (blabel, base,
+						"Range begin address (%s)", lab);
+		  dw2_asm_output_delta_uleb128 (elabel, base,
+						"Range end address (%s)", lab);
+		  continue;
+		}
+	      dw2_asm_output_data (1, DW_RLE_start_length,
+				   "DW_RLE_start_length (%s)", lab);
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
+				   "Range begin address (%s)", lab);
+	      dw2_asm_output_delta_uleb128 (elabel, blabel,
+					    "Range length (%s)", lab);
 	    }
-	  if (base)
+	  else
 	    {
-	      dw2_asm_output_data (1, DW_RLE_offset_pair,
-				   "DW_RLE_offset_pair (%s)", lab);
-	      dw2_asm_output_delta_uleb128 (blabel, base,
-					    "Range begin address (%s)", lab);
-	      dw2_asm_output_delta_uleb128 (elabel, base,
-					    "Range end address (%s)", lab);
-	      continue;
+	      dw2_asm_output_data (1, DW_RLE_start_end,
+				   "DW_RLE_start_end (%s)", lab);
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
+				   "Range begin address (%s)", lab);
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE, elabel,
+				   "Range end address (%s)", lab);
 	    }
-	  dw2_asm_output_data (1, DW_RLE_start_length,
-			       "DW_RLE_start_length (%s)", lab);
-	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
-			       "Range begin address (%s)", lab);
-	  dw2_asm_output_delta_uleb128 (elabel, blabel,
-					"Range length (%s)", lab);
-#else
-	  dw2_asm_output_data (1, DW_RLE_start_end,
-			       "DW_RLE_start_end (%s)", lab);
-	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
-			       "Range begin address (%s)", lab);
-	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, elabel,
-			       "Range end address (%s)", lab);
-#endif
 	}
 
       /* Negative block_num stands for an index into ranges_by_label.  */
@@ -11182,21 +11194,24 @@ output_rnglists (void)
 
 	  if (!have_multiple_function_sections)
 	    gcc_unreachable ();
-#ifdef HAVE_AS_LEB128
-	  dw2_asm_output_data (1, DW_RLE_start_length,
-			       "DW_RLE_start_length (%s)", lab);
-	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
-			       "Range begin address (%s)", lab);
-	  dw2_asm_output_delta_uleb128 (elabel, blabel,
-					"Range length (%s)", lab);
-#else
-	  dw2_asm_output_data (1, DW_RLE_start_end,
-			       "DW_RLE_start_end (%s)", lab);
-	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
-			       "Range begin address (%s)", lab);
-	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, elabel,
-			       "Range end address (%s)", lab);
-#endif
+	  if (HAVE_AS_LEB128)
+	    {
+	      dw2_asm_output_data (1, DW_RLE_start_length,
+				   "DW_RLE_start_length (%s)", lab);
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
+				   "Range begin address (%s)", lab);
+	      dw2_asm_output_delta_uleb128 (elabel, blabel,
+					    "Range length (%s)", lab);
+	    }
+	  else
+	    {
+	      dw2_asm_output_data (1, DW_RLE_start_end,
+				   "DW_RLE_start_end (%s)", lab);
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE, blabel,
+				   "Range begin address (%s)", lab);
+	      dw2_asm_output_addr (DWARF2_ADDR_SIZE, elabel,
+				   "Range end address (%s)", lab);
+	    }
 	}
       else
 	dw2_asm_output_data (1, DW_RLE_end_of_list,
@@ -14981,7 +14996,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       if ((!dwarf_strict || dwarf_version >= 5)
 	  && SCALAR_INT_MODE_P (mode))
 	{
-	  if (GET_MODE_CLASS (mode) > DWARF2_ADDR_SIZE)
+	  if (GET_MODE_SIZE (mode) > DWARF2_ADDR_SIZE)
 	    {
 	      op = DW_OP_div;
 	      goto do_binop;
@@ -15132,7 +15147,7 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
 	  mem_loc_result->dw_loc_oprnd2.val_class
 	    = dw_val_class_wide_int;
 	  mem_loc_result->dw_loc_oprnd2.v.val_wide = ggc_alloc<wide_int> ();
-	  *mem_loc_result->dw_loc_oprnd2.v.val_wide = std::make_pair (rtl, mode);
+	  *mem_loc_result->dw_loc_oprnd2.v.val_wide = rtx_mode_t (rtl, mode);
 	}
       break;
 
@@ -15675,7 +15690,7 @@ loc_descriptor (rtx rtl, machine_mode mode,
 				      GET_MODE_SIZE (mode), 0);
 	  loc_result->dw_loc_oprnd2.val_class = dw_val_class_wide_int;
 	  loc_result->dw_loc_oprnd2.v.val_wide = ggc_alloc<wide_int> ();
-	  *loc_result->dw_loc_oprnd2.v.val_wide = std::make_pair (rtl, mode);
+	  *loc_result->dw_loc_oprnd2.v.val_wide = rtx_mode_t (rtl, mode);
 	}
       break;
 
@@ -15700,7 +15715,7 @@ loc_descriptor (rtx rtl, machine_mode mode,
 	      for (i = 0, p = array; i < length; i++, p += elt_size)
 		{
 		  rtx elt = CONST_VECTOR_ELT (rtl, i);
-		  insert_wide_int (std::make_pair (elt, imode), p, elt_size);
+		  insert_wide_int (rtx_mode_t (elt, imode), p, elt_size);
 		}
 	      break;
 
@@ -18362,7 +18377,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 
     case CONST_WIDE_INT:
       {
-	wide_int w1 = std::make_pair (rtl, MAX_MODE_INT);
+	wide_int w1 = rtx_mode_t (rtl, MAX_MODE_INT);
 	unsigned int prec = MIN (wi::min_precision (w1, UNSIGNED),
 				 (unsigned int)CONST_WIDE_INT_NUNITS (rtl) * HOST_BITS_PER_WIDE_INT);
 	wide_int w = wi::zext (w1, prec);
@@ -18409,7 +18424,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	    for (i = 0, p = array; i < length; i++, p += elt_size)
 	      {
 		rtx elt = CONST_VECTOR_ELT (rtl, i);
-		insert_wide_int (std::make_pair (elt, imode), p, elt_size);
+		insert_wide_int (rtx_mode_t (elt, imode), p, elt_size);
 	      }
 	    break;
 

@@ -1094,7 +1094,7 @@ requirements of the license of GCC.
     </para></listitem></varlistentry>
 
     <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2583">2583</link>:
-       <emphasis>There is no way to supply an allocator for <code> basic_string(str, pos)</code>
+       <emphasis>There is no way to supply an allocator for <code>basic_string(str, pos)</code>
        </emphasis>
     </term>
     <listitem><para>Add new constructor
@@ -1105,6 +1105,15 @@ requirements of the license of GCC.
        </emphasis>
     </term>
     <listitem><para>Define the <code>value_compare</code> typedef.
+    </para></listitem></varlistentry>
+
+    <varlistentry><term><link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="../ext/lwg-defects.html#2770">2770</link>:
+       <emphasis><code>tuple_size&lt;const T&gt;</code> specialization is not
+	 SFINAE compatible and breaks decomposition declarations
+       </emphasis>
+    </term>
+    <listitem><para>Safely detect <code>tuple_size&lt;T&gt;::value</code> and
+      only use it if valid.
     </para></listitem></varlistentry>
 
   </variablelist>
