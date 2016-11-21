@@ -1,7 +1,7 @@
 ! { dg-do run }
 !
 ! Test that pr78395 is fixed.
-! Contributed by Chris and Janus Weil
+! Contributed by Chris MacMackin and Janus Weil
 
 module types_mod
   implicit none

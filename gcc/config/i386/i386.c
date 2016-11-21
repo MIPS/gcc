@@ -6845,7 +6845,7 @@ ix86_valid_target_attribute_tree (tree args,
 				     | OPTION_MASK_ABI_64
 				     | OPTION_MASK_ABI_X32
 				     | OPTION_MASK_CODE16);
-	  opts->x_ix86_isa_flags &= 0;
+	  opts->x_ix86_isa_flags2 = 0;
 	}
       else if (!orig_arch_specified)
 	opts->x_ix86_arch_string = NULL;
@@ -6981,13 +6981,13 @@ ix86_can_inline_p (tree caller, tree callee)
       struct cl_target_option *caller_opts = TREE_TARGET_OPTION (caller_tree);
       struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
 
-      /* Callee's isa options should a subset of the caller's, i.e. a SSE4 function
-	 can inline a SSE2 function but a SSE2 function can't inline a SSE4
-	 function.  */
+      /* Callee's isa options should be a subset of the caller's, i.e. a SSE4
+	 function can inline a SSE2 function but a SSE2 function can't inline
+	 a SSE4 function.  */
       if (((caller_opts->x_ix86_isa_flags & callee_opts->x_ix86_isa_flags)
-	  != callee_opts->x_ix86_isa_flags) &
-	  ((caller_opts->x_ix86_isa_flags2 & callee_opts->x_ix86_isa_flags2)
-	  != callee_opts->x_ix86_isa_flags2))
+	   != callee_opts->x_ix86_isa_flags)
+	  || ((caller_opts->x_ix86_isa_flags2 & callee_opts->x_ix86_isa_flags2)
+	      != callee_opts->x_ix86_isa_flags2))
 	ret = false;
 
       /* See if we have the same non-isa options.  */
@@ -14742,7 +14742,7 @@ ix86_expand_split_stack_prologue (void)
   HOST_WIDE_INT allocate;
   unsigned HOST_WIDE_INT args_size;
   rtx_code_label *label;
-  rtx limit, current, jump_insn, allocate_rtx, call_insn, call_fusage;
+  rtx limit, current, allocate_rtx, call_insn, call_fusage;
   rtx scratch_reg = NULL_RTX;
   rtx_code_label *varargs_label = NULL;
   rtx fn;
@@ -14802,7 +14802,7 @@ ix86_expand_split_stack_prologue (void)
     }
 
   ix86_expand_branch (GEU, current, limit, label);
-  jump_insn = get_last_insn ();
+  rtx_insn *jump_insn = get_last_insn ();
   JUMP_LABEL (jump_insn) = label;
 
   /* Mark the jump as very likely to be taken.  */
@@ -18696,7 +18696,7 @@ split_double_mode (machine_mode mode, rtx operands[],
 #endif
 
 const char *
-output_387_binary_op (rtx insn, rtx *operands)
+output_387_binary_op (rtx_insn *insn, rtx *operands)
 {
   static char buf[40];
   const char *p;
@@ -19434,7 +19434,7 @@ output_387_ffreep (rtx *operands ATTRIBUTE_UNUSED, int opno)
    should be used.  UNORDERED_P is true when fucom should be used.  */
 
 const char *
-output_fp_compare (rtx insn, rtx *operands, bool eflags_p, bool unordered_p)
+output_fp_compare (rtx_insn *insn, rtx *operands, bool eflags_p, bool unordered_p)
 {
   int stack_top_dies;
   rtx cmp_op0, cmp_op1;
@@ -22817,7 +22817,7 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
 		      rtx target1, rtx target2, rtx tmp)
 {
   rtx condition;
-  rtx i;
+  rtx_insn *i;
 
   if (target2 != pc_rtx)
     {
@@ -25876,7 +25876,7 @@ ix86_split_lshr (rtx *operands, rtx scratch, machine_mode mode)
 static void
 predict_jump (int prob)
 {
-  rtx insn = get_last_insn ();
+  rtx_insn *insn = get_last_insn ();
   gcc_assert (JUMP_P (insn));
   add_int_reg_note (insn, REG_BR_PROB, prob);
 }
@@ -30924,7 +30924,7 @@ def_builtin (HOST_WIDE_INT mask, const char *name,
 	 means that *both* cpuid bits must be set for the built-in to be available.
 	 Handle this here.  */
       if (mask & ix86_isa_flags & OPTION_MASK_ISA_AVX512VL)
-	  mask &= ~OPTION_MASK_ISA_AVX512VL;
+	mask &= ~OPTION_MASK_ISA_AVX512VL;
 
       mask &= ~OPTION_MASK_ISA_64BIT;
       if (mask == 0
@@ -30976,8 +30976,8 @@ def_builtin_const (HOST_WIDE_INT mask, const char *name,
 
 static inline tree
 def_builtin2 (HOST_WIDE_INT mask, const char *name,
-	     enum ix86_builtin_func_type tcode,
-	     enum ix86_builtins code)
+	      enum ix86_builtin_func_type tcode,
+	      enum ix86_builtins code)
 {
   tree decl = NULL_TREE;
 
@@ -30992,8 +30992,8 @@ def_builtin2 (HOST_WIDE_INT mask, const char *name,
       tree type = ix86_get_builtin_func_type (tcode);
       decl = add_builtin_function (name, type, code, BUILT_IN_MD,
 				   NULL, NULL_TREE);
-	  ix86_builtins[(int) code] = decl;
-	  ix86_builtins_isa[(int) code].set_and_not_built_p = false;
+      ix86_builtins[(int) code] = decl;
+      ix86_builtins_isa[(int) code].set_and_not_built_p = false;
     }
   else
     {
@@ -31016,7 +31016,7 @@ def_builtin2 (HOST_WIDE_INT mask, const char *name,
 
 static inline tree
 def_builtin_const2 (HOST_WIDE_INT mask, const char *name,
-		   enum ix86_builtin_func_type tcode, enum ix86_builtins code)
+		    enum ix86_builtin_func_type tcode, enum ix86_builtins code)
 {
   tree decl = def_builtin2 (mask, name, tcode, code);
   if (decl)
@@ -31034,8 +31034,8 @@ def_builtin_const2 (HOST_WIDE_INT mask, const char *name,
 static void
 ix86_add_new_builtins (HOST_WIDE_INT isa, HOST_WIDE_INT isa2)
 {
-  if (((isa & deferred_isa_values) == 0)
-      && ((isa2 & deferred_isa_values2) == 0))
+  if ((isa & deferred_isa_values) == 0
+      && (isa2 & deferred_isa_values2) == 0)
     return;
 
   /* Bits in ISA value can be removed from potential isa values.  */
@@ -31048,7 +31048,8 @@ ix86_add_new_builtins (HOST_WIDE_INT isa, HOST_WIDE_INT isa2)
 
   for (i = 0; i < (int)IX86_BUILTIN_MAX; i++)
     {
-      if ((((ix86_builtins_isa[i].isa & isa) != 0) || ((ix86_builtins_isa[i].isa2 & isa2) != 0))
+      if (((ix86_builtins_isa[i].isa & isa) != 0
+	   || (ix86_builtins_isa[i].isa2 & isa2) != 0)
 	  && ix86_builtins_isa[i].set_and_not_built_p)
 	{
 	  tree decl, type;
@@ -36549,7 +36550,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
      whether it is supported.  */
   if ((ix86_builtins_isa[fcode].isa
        && !(ix86_builtins_isa[fcode].isa & ix86_isa_flags))
-      && (ix86_builtins_isa[fcode].isa2
+      || (ix86_builtins_isa[fcode].isa2
 	  && !(ix86_builtins_isa[fcode].isa2 & ix86_isa_flags2)))
     {
       char *opts = ix86_target_string (ix86_builtins_isa[fcode].isa,
@@ -38220,14 +38221,12 @@ rdseed_step:
       rtx (*fcn) (rtx, rtx, rtx, rtx);
       rtx (*fcn_mask) (rtx, rtx, rtx, rtx, rtx);
       rtx (*fcn_maskz) (rtx, rtx, rtx, rtx, rtx, rtx);
-      rtx (*msk_mov) (rtx, rtx, rtx, rtx);
       int masked = 1;
       machine_mode mode, wide_mode, nar_mode;
 
       nar_mode  = V4SFmode;
       mode      = V16SFmode;
       wide_mode = V64SFmode;
-      msk_mov   = gen_avx512f_loadv16sf_mask;
       fcn_mask  = gen_avx5124fmaddps_4fmaddps_mask;
       fcn_maskz = gen_avx5124fmaddps_4fmaddps_maskz;
 
@@ -38270,7 +38269,6 @@ rdseed_step:
 	  wide_mode = V64SImode;
 	  fcn_mask  = gen_avx5124vnniw_vp4dpwssd_mask;
 	  fcn_maskz = gen_avx5124vnniw_vp4dpwssd_maskz;
-	  msk_mov   = gen_avx512f_loadv16si_mask;
 	  goto v4fma_expand;
 
 	case IX86_BUILTIN_4DPWSSDS_MASK:
@@ -38279,7 +38277,6 @@ rdseed_step:
 	  wide_mode = V64SImode;
 	  fcn_mask  = gen_avx5124vnniw_vp4dpwssds_mask;
 	  fcn_maskz = gen_avx5124vnniw_vp4dpwssds_maskz;
-	  msk_mov   = gen_avx512f_loadv16si_mask;
 	  goto v4fma_expand;
 
 	case IX86_BUILTIN_4FMAPS_MASK:
@@ -38295,11 +38292,11 @@ v4fma_expand:
 	    wide_reg = gen_reg_rtx (wide_mode);
 	    for (i = 0; i < 4; i++)
 	      {
-	        args[i] = CALL_EXPR_ARG (exp, i);
+		args[i] = CALL_EXPR_ARG (exp, i);
 		ops[i] = expand_normal (args[i]);
 
-		emit_move_insn (gen_rtx_SUBREG (mode, wide_reg, (i) * 64),
-				  ops[i]);
+		emit_move_insn (gen_rtx_SUBREG (mode, wide_reg, i * 64),
+				ops[i]);
 	      }
 
 	    accum = expand_normal (CALL_EXPR_ARG (exp, 4));
@@ -38318,7 +38315,7 @@ v4fma_expand:
 	      emit_insn (fcn (target, accum, wide_reg, mem));
 	    else
 	      {
-	        rtx merge, mask;
+		rtx merge, mask;
 		merge = expand_normal (CALL_EXPR_ARG (exp, 6));
 
 		mask = expand_normal (CALL_EXPR_ARG (exp, 7));
@@ -38340,18 +38337,16 @@ v4fma_expand:
 		    merge = force_reg (mode, merge);
 		    emit_insn (fcn_mask (target, wide_reg, mem, merge, mask));
 		  }
-	        /* Merge with something unknown might happen if we z-mask w/ -O0.  */
+		/* Merge with something unknown might happen if we z-mask w/ -O0.  */
 		else
 		  {
-		    rtx tmp = target;
-		    emit_insn (fcn_mask (tmp, wide_reg, mem, tmp, mask));
-
-		    target = force_reg (mode, merge);
-		    emit_insn (msk_mov (target, tmp, target, mask));
+		    target = gen_reg_rtx (mode);
+		    emit_move_insn (target, merge);
+		    emit_insn (fcn_mask (target, wide_reg, mem, target, mask));
 		  }
 	      }
-	      return target;
-	    }
+	    return target;
+	  }
 
 	case IX86_BUILTIN_4FNMASS:
 	  fcn = gen_avx5124fmaddps_4fnmaddss;
@@ -38366,7 +38361,6 @@ v4fma_expand:
 	case IX86_BUILTIN_4FNMASS_MASK:
 	  fcn_mask = gen_avx5124fmaddps_4fnmaddss_mask;
 	  fcn_maskz = gen_avx5124fmaddps_4fnmaddss_maskz;
-	  msk_mov   = gen_avx512vl_loadv4sf_mask;
 	  goto s4fma_expand;
 
 	case IX86_BUILTIN_4FMASS_MASK:
@@ -38380,22 +38374,21 @@ v4fma_expand:
 
 	    fcn_mask = gen_avx5124fmaddps_4fmaddss_mask;
 	    fcn_maskz = gen_avx5124fmaddps_4fmaddss_maskz;
-	    msk_mov   = gen_avx512vl_loadv4sf_mask;
 
 s4fma_expand:
 	    mode = V4SFmode;
 	    wide_reg = gen_reg_rtx (V64SFmode);
 	    for (i = 0; i < 4; i++)
 	      {
-		 rtx tmp;
-		 args[i] = CALL_EXPR_ARG (exp, i);
-		 ops[i] = expand_normal (args[i]);
+		rtx tmp;
+		args[i] = CALL_EXPR_ARG (exp, i);
+		ops[i] = expand_normal (args[i]);
 
-		 tmp = gen_reg_rtx (SFmode);
-		 emit_move_insn (tmp, gen_rtx_SUBREG (SFmode, ops[i], 0));
+		tmp = gen_reg_rtx (SFmode);
+		emit_move_insn (tmp, gen_rtx_SUBREG (SFmode, ops[i], 0));
 
-		 emit_move_insn (gen_rtx_SUBREG (V16SFmode, wide_reg, i * 64),
-				  gen_rtx_SUBREG (V16SFmode, tmp, 0));
+		emit_move_insn (gen_rtx_SUBREG (V16SFmode, wide_reg, i * 64),
+				gen_rtx_SUBREG (V16SFmode, tmp, 0));
 	      }
 
 	    accum = expand_normal (CALL_EXPR_ARG (exp, 4));
@@ -38414,37 +38407,37 @@ s4fma_expand:
 	      emit_insn (fcn (target, accum, wide_reg, mem));
 	    else
 	      {
-		 rtx merge, mask;
-		 merge = expand_normal (CALL_EXPR_ARG (exp, 6));
+		rtx merge, mask;
+		merge = expand_normal (CALL_EXPR_ARG (exp, 6));
 
-		 mask = expand_normal (CALL_EXPR_ARG (exp, 7));
+		mask = expand_normal (CALL_EXPR_ARG (exp, 7));
 
-		 if (CONST_INT_P (mask))
-		   mask = fixup_modeless_constant (mask, QImode);
+		if (CONST_INT_P (mask))
+		  mask = fixup_modeless_constant (mask, QImode);
 
-		 mask = force_reg (QImode, mask);
+		mask = force_reg (QImode, mask);
 
-		 if (GET_MODE (mask) != QImode)
-		   mask = gen_rtx_SUBREG (QImode, mask, 0);
+		if (GET_MODE (mask) != QImode)
+		  mask = gen_rtx_SUBREG (QImode, mask, 0);
 
-		 /* If merge is 0 then we're about to emit z-masked variant.  */
-		 if (const0_operand (merge, mode))
-		   emit_insn (fcn_maskz (target, accum, wide_reg, mem, merge, mask));
-		 /* If merge is the same as accum then emit merge-masked variant.  */
-		 else if (CALL_EXPR_ARG (exp, 6) == CALL_EXPR_ARG (exp, 4))
-		   {
-		     merge = force_reg (mode, merge);
-		     emit_insn (fcn_mask (target, wide_reg, mem, merge, mask));
-		   }
-		 /* Merge with something unknown might happen if we z-mask w/ -O0.  */
-		 else
-		   {
-		     rtx tmp = target;
-		     emit_insn (fcn_mask (tmp, wide_reg, mem, tmp, mask));
-
-		     target = force_reg (mode, merge);
-		     emit_insn (msk_mov (target, tmp, target, mask));
-		   }
+		/* If merge is 0 then we're about to emit z-masked variant.  */
+		if (const0_operand (merge, mode))
+		  emit_insn (fcn_maskz (target, accum, wide_reg, mem, merge, mask));
+		/* If merge is the same as accum then emit merge-masked
+		   variant.  */
+		else if (CALL_EXPR_ARG (exp, 6) == CALL_EXPR_ARG (exp, 4))
+		  {
+		    merge = force_reg (mode, merge);
+		    emit_insn (fcn_mask (target, wide_reg, mem, merge, mask));
+		  }
+		/* Merge with something unknown might happen if we z-mask
+		   w/ -O0.  */
+		else
+		  {
+		    target = gen_reg_rtx (mode);
+		    emit_move_insn (target, merge);
+		    emit_insn (fcn_mask (target, wide_reg, mem, target, mask));
+		  }
 		}
 	      return target;
 	    }
@@ -38514,7 +38507,7 @@ static tree ix86_get_builtin (enum ix86_builtins code)
   opts = TREE_TARGET_OPTION (target_tree);
 
   if ((ix86_builtins_isa[(int) code].isa & opts->x_ix86_isa_flags)
-	&& (ix86_builtins_isa[(int) code].isa2 & opts->x_ix86_isa_flags2))
+      || (ix86_builtins_isa[(int) code].isa2 & opts->x_ix86_isa_flags2))
     return ix86_builtin_decl (code, true);
   else
     return NULL_TREE;
@@ -44200,7 +44193,7 @@ ix86_reverse_condition (enum rtx_code code, machine_mode mode)
    to OPERANDS[0].  */
 
 const char *
-output_387_reg_move (rtx insn, rtx *operands)
+output_387_reg_move (rtx_insn *insn, rtx *operands)
 {
   if (REG_P (operands[0]))
     {

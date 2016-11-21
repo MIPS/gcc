@@ -1,3 +1,21 @@
+2016-11-18  Jason Merrill  <jason@redhat.com>
+
+	PR objc++/78418 - ICE in string tests on darwin
+	* tree.c (lvalue_kind): Guard DECL_HAS_VALUE_EXPR_P.
+
+2016-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77285
+	* mangle.c (mangle_tls_init_fn, mangle_tls_wrapper_fn): Call
+	check_abi_tags.
+
+2016-11-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67631 - list-init and explicit conversions
+	* semantics.c (finish_compound_literal): Call digest_init_flags.
+	* typeck2.c (digest_init_flags): Add complain parm.
+	(store_init_value): Pass it.
+
 2016-11-18  Richard Sandiford  <richard.sandiford@arm.com>
  	    Alan Hayward  <alan.hayward@arm.com>
  	    David Sherwood  <david.sherwood@arm.com>

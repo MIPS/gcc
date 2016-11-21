@@ -1,3 +1,274 @@
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* rtl.h: Adjust prototype.
+	* rtlanal.c (dead_or_set_p): Change argument type to rtx_insn *.
+	(dead_or_set_regno_p): Likewise.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* rtl.h: Adjust prototype.
+	* rtlanal.c (add_int_reg_note): Change argument type to rtx_insn *.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* function.c (contains): Change argument type to rtx_insn *.
+	(prologue_contains): Likewise.
+	(epilogue_contains): Likewise.
+	(prologue_epilogue_contains): Likewise.
+	* function.h: Adjust prototype.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* optabs.c (emit_libcall_block): Change argument type to
+	rtx_insn *.
+	* optabs.h: Adjust prototype.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* cfgrtl.c (delete_insn): Change argument type to rtx_insn *.
+	(fixup_reorder_chain): Adjust.
+	* cfgrtl.h: Adjust prototype.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* rtl.h: Adjust prototype.
+	* rtlanal.c (replace_label_in_insn): Change argument type to
+	rtx_insn *.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/v850/v850.c (expand_prologue): Adjust.
+	(expand_epilogue): Likewise.
+	* expr.c (init_expr_target): Likewise.
+	* genrecog.c (print_subroutine): Always make the argument type
+	rtx_insn *.
+	* recog.h: Adjust prototype.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/aarch64/aarch64.c (aarch64_emit_unlikely_jump): split
+	up variables to make some rtx_insn *.
+	* config/alpha/alpha.c (emit_unlikely_jump): Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/mn10300/mn10300.c (mn10300_legitimize_pic_address):
+	Likewise.
+	* config/rs6000/rs6000.c (rs6000_expand_split_stack_prologue):
+	Likewise.
+	* config/spu/spu.c (spu_emit_branch_hint): Likewise.
+
+2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/arm/arm.c (legitimize_pic_address): Change to use
+	rtx_insn * as the type of variables.
+	(arm_pic_static_addr): Likewise.
+	(arm_emit_movpair): Likewise.
+	* config/c6x/c6x.c (reorg_split_calls): Likewise.
+	* config/darwin.c (machopic_legitimize_pic_address): Likewise.
+	* config/frv/frv.c (frv_optimize_membar_local): Likewise.
+	* config/frv/frv.md: Likewise.
+	* config/i386/i386-protos.h: Likewise.
+	* config/i386/i386.c (ix86_expand_split_stack_prologue):
+	Likewise.
+	(ix86_split_fp_branch): Likewise.
+	(predict_jump): Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/mcore/mcore.c: Likewise.
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address):
+	Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/s390/s390.md: Likewise.
+	* config/spu/spu.md: Likewise.
+	* config/tilegx/tilegx.c (tilegx_legitimize_tls_address):
+	Likewise.
+	* lower-subreg.c (resolve_simple_move): Likewise.
+
+2016-11-20  Jeff Law  <law@redhat.com>
+
+	PR target/48551
+	* reload.h (struct target_reload): Make x_double_reg_address_ok
+	be per-mode rather.
+	* reload.c (find_reloads_address): Check if double_reg_address_ok
+	is true for the mode of the memory reference.
+	* reload1.c (init_reload): Initialize double_reg_address_ok for
+	each mode.
+
+2016-11-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/61409
+	* tree-ssa-uninit.c: Define new global max_phi_args.
+	(compute_uninit_opnds_pos): Use max_phi_args.
+	(prune_uninit_phi_opnds): Same.
+	(use_pred_not_overlap_with_undef_path_pred): Remove reference to
+	missing NUM_PREDS in function comment.
+	(can_one_predicate_be_invalidated_p): New.
+	(can_chain_union_be_invalidated_p): New.
+	(flatten_out_predicate_chains): New.
+	(uninit_ops_invalidate_phi_use): New.
+	(is_use_properly_guarded): Call uninit_ops_invalidate_phi_use.
+
+2016-11-20  Marc Glisse  <marc.glisse@inria.fr>
+
+	* fold-const.c (fold_comparison): Ignore EXACT_DIV_EXPR.
+	* match.pd (A /[ex] B CMP C): New simplifications.
+
+2016-11-20  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd (0 / X, X / X, X % X): New simplifications.
+
+2016-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_can_inline_p): Use || instead of &
+	when checking if callee's isa flags are subset of caller's isa flags.
+	Fix comment wording.
+
+	* config/i386/i386.c (ix86_valid_target_attribute_tree): Don't
+	clear opts->x_ix86_isa_flags, clear opts->x_ix86_isa_flags2
+	instead and using = 0 instead of &= 0.
+
+	* config/i386/i386.c (def_builtin, def_builtin2, def_builtin_const2,
+	ix86_add_new_builtins): Formatting fixes.
+	(ix86_expand_builtin): Use || instead of && for isa vs. isa2.
+	(ix86_get_builtin): Likewise.
+
+	* config/i386/i386.c (ix86_expand_builtin): Remove msk_mov variable,
+	don't initialize it, don't use it for the case where it isn't
+	provable %{z} nor using the same argument, instead move merge
+	argument into a new pseudo and use that as target.  Formatting fixes.
+
+2016-11-19  Jeff Law  <law@redhat.com>
+
+	PR target/25111
+	* config/m68k/m68k.md (bsetdreg): New pattern.
+	(bchgdreg, bclrdreg): Likewise.
+
+2016-11-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/78426
+	* config/sh/sh-mem.cc (sh_expand_cmpnstr): Use copy_to_mode_reg
+	instead of force_reg.
+	(sh_expand_setmem): Likewise.
+
+2016-11-19  Krister Walfridsson  <krister.walfridsson@gmail.com>
+
+	* config.gcc (*-*-netbsd): Set use_gcc_stdint=wrap.
+
+2016-11-18  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (tilegx_gen_bundles): Preserve
+	  end-of-bundle marker for consecutive barriers.
+
+2016-11-18  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (clzsi2): Fix for big-endian.
+
+2016-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/78419
+	* multiple_target.c (get_attr_len): Start with argnum and increment
+	argnum on every arg.  Use strchr in a loop instead of counting commas
+	manually.
+	(get_attr_str): Increment argnum for every comma in the string.
+	(separate_attrs): Use for instead of while loop, simplify.
+	(expand_target_clones): Rename defenition argument to definition.
+	Free attrs and attr_str even when diagnosing errors.  Temporarily
+	change input_location around targetm.target_option.valid_attribute_p
+	calls.  Don't emit warning or errors if that function fails.
+
+	* dwarf2out.c (size_of_discr_list): Fix typo in function comment.
+
+	PR debug/78191
+	* dwarf2out.c (abbrev_opt_base_type_end): New variable.
+	(die_abbrev_cmp): Sort dies with die_abbrev smaller than
+	abbrev_opt_base_type_end only by increasing die_abbrev, before
+	any other dies.
+	(optimize_abbrev_table): Don't change abbrev numbers of
+	base types and CU or optimize implicit consts in them if
+	calc_base_type_die_sizes has been called during build_abbrev_table.
+	(calc_base_type_die_sizes): If abbrev_opt_start, set
+	abbrev_opt_base_type_end to one plus largest base type's
+	die_abbrev.
+
+2016-11-18  Jeff Law  <law@redhat.com>
+
+	PR target/25112
+	* config/m68k/m68k.c (moveq feeding equality comparison): New
+	peepholes.
+	* config/m68k/predicates.md (addq_subq_operand): New predicate.
+	(equality_comparison_operator): Likewise.
+
+2016-11-18  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* rtlanal.c (load_extend_op): Move to...
+	* rtl.h: ...here and make inline.
+
+2016-11-18  Terry Guo  <terry.guo@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* common/config/arm/arm-common.c (arm_target_thumb_only): New function.
+	* config/arm/arm-opts.h: Include arm-flags.h.
+	(struct arm_arch_core_flag): Define.
+	(arm_arch_core_flags): Define.
+	* config/arm/arm-protos.h: Include arm-flags.h
+	(FL_NONE, FL_ANY, FL_CO_PROC, FL_ARCH3M, FL_MODE26, FL_MODE32,
+	FL_ARCH4, FL_ARCH5, FL_THUMB, FL_LDSCHED, FL_STRONG, FL_ARCH5E,
+	FL_XSCALE, FL_ARCH6, FL_VFPV2, FL_WBUF, FL_ARCH6K, FL_THUMB2, FL_NOTM,
+	FL_THUMB_DIV, FL_VFPV3, FL_NEON, FL_ARCH7EM, FL_ARCH7, FL_ARM_DIV,
+	FL_ARCH8, FL_CRC32, FL_SMALLMUL, FL_NO_VOLATILE_CE, FL_IWMMXT,
+	FL_IWMMXT2, FL_ARCH6KZ, FL2_ARCH8_1, FL2_ARCH8_2, FL2_FP16INST,
+	FL_TUNE, FL_FOR_ARCH2, FL_FOR_ARCH3, FL_FOR_ARCH3M, FL_FOR_ARCH4,
+	FL_FOR_ARCH4T, FL_FOR_ARCH5, FL_FOR_ARCH5T, FL_FOR_ARCH5E,
+	FL_FOR_ARCH5TE, FL_FOR_ARCH5TEJ, FL_FOR_ARCH6, FL_FOR_ARCH6J,
+	FL_FOR_ARCH6K, FL_FOR_ARCH6Z, FL_FOR_ARCH6ZK, FL_FOR_ARCH6KZ,
+	FL_FOR_ARCH6T2, FL_FOR_ARCH6M, FL_FOR_ARCH7, FL_FOR_ARCH7A,
+	FL_FOR_ARCH7VE, FL_FOR_ARCH7R, FL_FOR_ARCH7M, FL_FOR_ARCH7EM,
+	FL_FOR_ARCH8A, FL2_FOR_ARCH8_1A, FL2_FOR_ARCH8_2A, FL_FOR_ARCH8M_BASE,
+	FL_FOR_ARCH8M_MAIN, arm_feature_set, ARM_FSET_MAKE,
+	ARM_FSET_MAKE_CPU1, ARM_FSET_MAKE_CPU2, ARM_FSET_CPU1, ARM_FSET_CPU2,
+	ARM_FSET_EMPTY, ARM_FSET_ANY, ARM_FSET_HAS_CPU1, ARM_FSET_HAS_CPU2,
+	ARM_FSET_HAS_CPU, ARM_FSET_ADD_CPU1, ARM_FSET_ADD_CPU2,
+	ARM_FSET_DEL_CPU1, ARM_FSET_DEL_CPU2, ARM_FSET_UNION, ARM_FSET_INTER,
+	ARM_FSET_XOR, ARM_FSET_EXCLUDE, ARM_FSET_IS_EMPTY,
+	ARM_FSET_CPU_SUBSET): Move to ...
+	* config/arm/arm-flags.h: This new file.
+	* config/arm/arm.h (TARGET_MODE_SPEC_FUNCTIONS): Define.
+	(EXTRA_SPEC_FUNCTIONS): Add TARGET_MODE_SPEC_FUNCTIONS to its value.
+	(TARGET_MODE_SPECS): Define.
+	(DRIVER_SELF_SPECS): Add TARGET_MODE_SPECS to its value.
+
+2016-11-18  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-protos.h (FL_NONE, FL_ANY, FL_CO_PROC, FL_ARCH3M,
+	FL_MODE26, FL_MODE32, FL_ARCH4, FL_ARCH5, FL_THUMB, FL_LDSCHED,
+	FL_STRONG, FL_ARCH5E, FL_XSCALE, FL_ARCH6, FL_VFPV2, FL_WBUF,
+	FL_ARCH6K, FL_THUMB2, FL_NOTM, FL_THUMB_DIV, FL_VFPV3, FL_NEON,
+	FL_ARCH7EM, FL_ARCH7, FL_ARM_DIV, FL_ARCH8, FL_CRC32, FL_SMALLMUL,
+	FL_NO_VOLATILE_CE, FL_IWMMXT, FL_IWMMXT2, FL_ARCH6KZ, FL2_ARCH8_1,
+	FL2_ARCH8_2, FL2_FP16INST): Reindent comment, add final dot when
+	missing and make value unsigned.
+	(arm_feature_set): Use unsigned entries instead of unsigned long.
+
+2016-11-18  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	Re-apply after PR bootstrap/77359 is fixed:
+	2016-08-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+        * explow.c (get_dynamic_stack_size): Take known alignment of stack
+        pointer + STACK_DYNAMIC_OFFSET into account when calculating the
+        size needed.
+
+2016-11-18  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR bootstrap/77359
+	* config/rs6000/rs6000.c (rs6000_stack_info): Properly align local
+	variables in functions calling alloca.  Also update the ASCII
+	drawings.
+	* config/rs6000/rs6000.h (STARTING_FRAME_OFFSET)
+	(STACK_DYNAMIC_OFFSET): Likewise.
+	* config/rs6000/aix.h (STARTING_FRAME_OFFSET)
+	(STACK_DYNAMIC_OFFSET): Copy AIX specific versions of the rs6000.h
+	macros to aix.h.
+
 2016-11-18  Richard Sandiford  <richard.sandiford@arm.com>
 	    Alan Hayward  <alan.hayward@arm.com>
 	    David Sherwood  <david.sherwood@arm.com>

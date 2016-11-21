@@ -1945,7 +1945,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
    by INSN.  */
 
 int
-dead_or_set_p (const_rtx insn, const_rtx x)
+dead_or_set_p (const rtx_insn *insn, const_rtx x)
 {
   unsigned int regno, end_regno;
   unsigned int i;
@@ -2019,7 +2019,7 @@ covers_regno_p (const_rtx dest, unsigned int test_regno)
 /* Utility function for dead_or_set_p to check an individual register. */
 
 int
-dead_or_set_regno_p (const_rtx insn, unsigned int test_regno)
+dead_or_set_regno_p (const rtx_insn *insn, unsigned int test_regno)
 {
   const_rtx pattern;
 
@@ -2288,7 +2288,7 @@ add_reg_note (rtx insn, enum reg_note kind, rtx datum)
 /* Add an integer register note with kind KIND and datum DATUM to INSN.  */
 
 void
-add_int_reg_note (rtx insn, enum reg_note kind, int datum)
+add_int_reg_note (rtx_insn *insn, enum reg_note kind, int datum)
 {
   gcc_checking_assert (int_reg_note_p (kind));
   REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode) kind,
@@ -3081,8 +3081,8 @@ replace_label (rtx *loc, rtx old_label, rtx new_label, bool update_label_nuses)
 }
 
 void
-replace_label_in_insn (rtx_insn *insn, rtx old_label, rtx new_label,
-		       bool update_label_nuses)
+replace_label_in_insn (rtx_insn *insn, rtx_insn *old_label,
+		       rtx_insn *new_label, bool update_label_nuses)
 {
   rtx insn_as_rtx = insn;
   replace_label (&insn_as_rtx, old_label, new_label, update_label_nuses);
@@ -3861,19 +3861,6 @@ subreg_nregs_with_regno (unsigned int regno, const_rtx x)
   subreg_get_info (regno, GET_MODE (subreg), SUBREG_BYTE (x), GET_MODE (x),
 		   &info);
   return info.nregs;
-}
-
-/* If loads from memories of mode MODE always sign or zero extend,
-   return SIGN_EXTEND or ZERO_EXTEND as appropriate.  Return UNKNOWN
-   otherwise.  */
-
-rtx_code
-load_extend_op (machine_mode mode)
-{
-  if (SCALAR_INT_MODE_P (mode)
-      && GET_MODE_PRECISION (mode) < BITS_PER_WORD)
-    return LOAD_EXTEND_OP (mode);
-  return UNKNOWN;
 }
 
 struct parms_set_data
