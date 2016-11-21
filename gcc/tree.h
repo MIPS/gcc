@@ -792,6 +792,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    computed gotos.  */
 #define FORCED_LABEL(NODE) (LABEL_DECL_CHECK (NODE)->base.side_effects_flag)
 
+/* Whether a case or a user-defined label is allowed to fall through to.
+   This is used to implement -Wimplicit-fallthrough.  */
+#define FALLTHROUGH_LABEL_P(NODE) \
+  (LABEL_DECL_CHECK (NODE)->base.private_flag)
+
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
@@ -992,6 +997,16 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    themselves are rewritten or transformed.  */
 #define REF_REVERSE_STORAGE_ORDER(NODE) \
   (TREE_CHECK2 (NODE, BIT_FIELD_REF, MEM_REF)->base.default_def_flag)
+
+  /* In an ADDR_EXPR, indicates that this is a pointer to nested function
+   represented by a descriptor instead of a trampoline.  */
+#define FUNC_ADDR_BY_DESCRIPTOR(NODE) \
+  (TREE_CHECK (NODE, ADDR_EXPR)->base.default_def_flag)
+
+/* In a CALL_EXPR, indicates that this is an indirect call for which
+   pointers to nested function are descriptors instead of trampolines.  */
+#define CALL_EXPR_BY_DESCRIPTOR(NODE) \
+  (TREE_CHECK (NODE, CALL_EXPR)->base.default_def_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) \
@@ -1773,6 +1788,10 @@ extern void protected_set_expr_location (tree, location_t);
 /* True if BLOCK has the same ranges as its BLOCK_SUPERCONTEXT.  */
 #define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->base.u.bits.nameless_flag)
 
+/* True if BLOCK appears in cold section.  */
+#define BLOCK_IN_COLD_SECTION_P(NODE) \
+  (BLOCK_CHECK (NODE)->base.u.bits.atomic_flag)
+
 /* An index number for this block.  These values are not guaranteed to
    be unique across functions -- whether or not they are depends on
    the debugging output format in use.  */
@@ -2452,6 +2471,8 @@ extern tree get_block_factor (const tree);
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.mode)
+#define SET_DECL_MODE(NODE, MODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.mode = (MODE))
 
 /* For FUNCTION_DECL, if it is built-in, this identifies which built-in
    operation it is.  Note, however, that this field is overloaded, with
@@ -2559,8 +2580,7 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
    if transformations have made this more complicated than evaluating the
-   decl itself.  This should only be used for debugging; once this field has
-   been set, the decl itself may not legitimately appear in the function.  */
+   decl itself.  */
 #define DECL_HAS_VALUE_EXPR_P(NODE) \
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, RESULT_DECL) \
    ->decl_common.decl_flag_2)
@@ -3773,6 +3793,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
+/* The C type `const struct tm *'.  */
+#define const_tm_ptr_type_node		global_trees[TI_CONST_TM_PTR_TYPE]
 #define pointer_sized_int_node		global_trees[TI_POINTER_SIZED_TYPE]
 
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
@@ -4169,7 +4191,7 @@ extern tree build_varargs_function_type_array (tree, int, tree *);
 extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
-extern tree build_complex_type (tree);
+extern tree build_complex_type (tree, bool named = false);
 extern tree array_type_nelts (const_tree);
 
 extern tree value_member (tree, tree);
@@ -4326,6 +4348,11 @@ extern tree merge_dllimport_decl_attributes (tree, tree);
 
 /* Handle a "dllimport" or "dllexport" attribute.  */
 extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
+
+/* Returns true iff CAND and BASE have equivalent language-specific
+   qualifiers.  */
+
+extern bool check_lang_type (const_tree cand, const_tree base);
 
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
@@ -4808,69 +4835,6 @@ extern void assign_assembler_name_if_neeeded (tree);
 extern void warn_deprecated_use (tree, tree);
 extern void cache_integer_cst (tree);
 extern const char *combined_fn_name (combined_fn);
-
-/* Return the memory model from a host integer.  */
-static inline enum memmodel
-memmodel_from_int (unsigned HOST_WIDE_INT val)
-{
-  return (enum memmodel) (val & MEMMODEL_MASK);
-}
-
-/* Return the base memory model from a host integer.  */
-static inline enum memmodel
-memmodel_base (unsigned HOST_WIDE_INT val)
-{
-  return (enum memmodel) (val & MEMMODEL_BASE_MASK);
-}
-
-/* Return TRUE if the memory model is RELAXED.  */
-static inline bool
-is_mm_relaxed (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELAXED;
-}
-
-/* Return TRUE if the memory model is CONSUME.  */
-static inline bool
-is_mm_consume (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_CONSUME;
-}
-
-/* Return TRUE if the memory model is ACQUIRE.  */
-static inline bool
-is_mm_acquire (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQUIRE;
-}
-
-/* Return TRUE if the memory model is RELEASE.  */
-static inline bool
-is_mm_release (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELEASE;
-}
-
-/* Return TRUE if the memory model is ACQ_REL.  */
-static inline bool
-is_mm_acq_rel (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQ_REL;
-}
-
-/* Return TRUE if the memory model is SEQ_CST.  */
-static inline bool
-is_mm_seq_cst (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_SEQ_CST;
-}
-
-/* Return TRUE if the memory model is a SYNC variant.  */
-static inline bool
-is_mm_sync (enum memmodel model)
-{
-  return (model & MEMMODEL_SYNC);
-}
 
 /* Compare and hash for any structure which begins with a canonical
    pointer.  Assumes all pointers are interchangeable, which is sort
@@ -5482,6 +5446,11 @@ template <typename T>
 bool
 wi::fits_to_tree_p (const T &x, const_tree type)
 {
+  /* Short-circuit boolean types since various transformations assume that
+     they can only take values 0 and 1.  */
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
+    return eq_p (x, 0) || eq_p (x, 1);
+
   if (TYPE_SIGN (type) == UNSIGNED)
     return eq_p (x, zext (x, TYPE_PRECISION (type)));
   else

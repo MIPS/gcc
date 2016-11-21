@@ -1,3 +1,428 @@
+2016-11-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/71973
+	* c.opt (-Wbuiltin-declaration-mismatch): New warning.
+	* c-common.c (c_common_nodes_and_builtins): Initialize
+	const_tm_ptr_type_node.
+
+2016-11-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/78285
+	* c-common.c (c_add_case_label): Turn error_at calls into inform.
+
+2016-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_structured_bindings.
+
+2016-11-14  Prasad Ghangal  <prasad.ghangal@gmail.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	* c-common.h (c_common_resword): Add RID_GIMPLE, RID_PHI types.
+	* c-common.h (enum rid): Add RID_GIMPLE, RID_PHI.
+	* c.opt (fgimple): New option.
+
+2016-11-13  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR c/35503
+	* c-common.h (warn_for_restrict): Declare.
+	* c-warn.c: Include gcc-rich-location.h.
+	(warn_for_restrict): New function.
+	* c-format.c (gcc_tdiag_char_table): Add entry for "Z" specifier.
+	(gcc_cdiag_char_table): Likewise.
+	(gcc_cxxdiag_char_table): Likewise.
+	* c.opt (Wrestrict): New option.
+
+2016-11-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.c (print_ada_declaration): For typedef declarations, look
+	for nested types only if the type is a record or union and dump SLOC.
+
+2016-11-09  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_template_auto.
+
+2016-11-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Handle split
+	-fsanitize=shift-base and -fsanitize=shift-exponent.
+
+2016-11-07  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wc++1z-compat): New.
+	* c-cppbuiltin.c (c_cpp_builtins): Add __cpp_noexcept_function_type.
+
+2016-11-07  Martin Liska  <mliska@suse.cz>
+
+	* c-warn.c (warn_for_unused_label): Save all labels used
+	in goto or in &label.
+
+2016-11-03  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Correct
+	__cpp_inheriting_constructors.
+
+2016-11-01  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Update
+	__cpp_inheriting_constructors.
+
+	* c.opt (-fnew-inheriting-ctors): New.
+	* c-opts.c: Default to on for ABI 11+.
+
+2016-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77948
+	* c.opt (fext-numeric-literals): Add Var and Init.
+	* c-opts.c (c_common_handle_option): Don't clear
+	cpp_opts->ext_numeric_literals for -std=c++{11,14,1z}.
+	(c_common_post_options): Clear it here if not set
+	explicitly.
+
+2016-10-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR debug/77773
+	* c-pretty-print.c (simple_type_specifier): Do not dereference `t'
+	if NULL.
+
+2016-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (enum rid): Add RID_BUILTIN_LAUNDER.
+	* c-common.c (c_common_reswords): Add __builtin_launder.
+
+2016-10-24  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Warn for
+	multiplications in boolean context.  Fix the quoting of '<<' and '<'
+	in the shift warning.
+
+2016-10-20  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Fix the comment.
+
+2016-10-20  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Update __cpp_concepts value.
+
+2016-10-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Warn only for signed
+	integer shift ops in boolean context.
+
+2016-10-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c.opt (Walloca): New.
+	(Walloca-larger-than=): New.
+	(Wvla-larger-than=): New.
+
+2016-10-17  Marek Polacek  <polacek@redhat.com>
+
+	* c-warn.c (find_array_ref_with_const_idx_r): Remove parameter names.
+	Return immediately when finding a match.
+	(warn_tautological_cmp): Remove a boolean variable that is no longer
+	needed.
+
+2016-10-17  Marek Polacek  <polacek@redhat.com>
+
+	* c-attribs.c: New file.
+	* c-common.c: Move attributes handling to c-attribs.c.
+	(get_nonnull_operand): No longer static.
+	* c-common.h: Move the declarations from c-attribs.c to its own section.
+
+2016-10-14  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_aggregate_bases
+	and __cpp_deduction_guides.
+
+2016-10-13  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Add __cpp_inline_variables.
+
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* c-cppbuiltin.c: Include memmodel.h.
+	* c-opts.c: Likewise.
+	* c-pragma.c: Likewise.
+	* c-warn.c: Likewise.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c.opt (Wextra): Add as C/C++/ObjC/ObjC++ option.
+	(Wimplicit-fallthrough=): Enable for these languages by -Wextra.
+	* c-opts.c (sanitize_cpp_opts): Initialize
+	cpp_opts->cpp_warn_implicit_fallthrough.
+
+2016-10-11  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (warning_candidate_p): Change the return type to bool
+	and return true/false instead of 1/0.
+	(vector_mode_valid_p): Likewise.
+
+2016-10-11  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (fold_for_warn): No longer static.
+	(bool_promoted_to_int_p): Likewise.
+	(c_common_get_narrower): Likewise.
+	(constant_expression_warning): Move to c-warn.c.
+	(constant_expression_error): Likewise.
+	(overflow_warning): Likewise.
+	(warn_logical_operator): Likewise.
+	(find_array_ref_with_const_idx_r): Likewise.
+	(warn_tautological_cmp): Likewise.
+	(expr_has_boolean_operands_p): Likewise.
+	(warn_logical_not_parentheses): Likewise.
+	(warn_if_unused_value): Likewise.
+	(strict_aliasing_warning): Likewise.
+	(sizeof_pointer_memaccess_warning): Likewise.
+	(check_main_parameter_types): Likewise.
+	(conversion_warning): Likewise.
+	(warnings_for_convert_and_check): Likewise.
+	(match_case_to_enum_1): Likewise.
+	(match_case_to_enum): Likewise.
+	(c_do_switch_warnings): Likewise.
+	(warn_for_omitted_condop): Likewise.
+	(readonly_error): Likewise.
+	(lvalue_error): Likewise.
+	(invalid_indirection_error): Likewise.
+	(warn_array_subscript_with_type_char): Likewise.
+	(warn_about_parentheses): Likewise.
+	(warn_for_unused_label): Likewise.
+	(warn_for_div_by_zero): Likewise.
+	(warn_for_memset): Likewise.
+	(warn_for_sign_compare): Likewise.
+	(do_warn_double_promotion): Likewise.
+	(do_warn_unused_parameter): Likewise.
+	(record_locally_defined_typedef): Likewise.
+	(maybe_record_typedef_use): Likewise.
+	(maybe_warn_unused_local_typedefs): Likewise.
+	(maybe_warn_bool_compare): Likewise.
+	(maybe_warn_shift_overflow): Likewise.
+	(warn_duplicated_cond_add_or_warn): Likewise.
+	(diagnose_mismatched_attributes): Likewise.
+	* c-common.h: Move the declarations from c-warn.c to its own section.
+	* c-warn.c: New file.
+
+2016-10-08  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (c_common_truthvalue_conversion): Don't distribute
+	into COND_EXPR in C++.
+
+2016-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-lex.c (c_lex_with_flags) <case CPP_COMMENT>: For CPP_COMMENT
+	token with PREV_FALLTHROUGH, skip all following CPP_PADDING and
+	CPP_COMMENT tokens and set add_flags to PREV_FALLTHROUGH afterwards.
+
+2016-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement LWG2296 helper intrinsic
+	* c-common.h (enum rid): Add RID_ADDRESSOF.
+	* c-common.c (c_common_reswords): Add __builtin_addressof.
+
+2016-10-07  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77700
+	* c-common.c (c_common_truthvalue_conversion): Warn also for
+	suspicious enum values in boolean context.
+
+2016-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0258R2 - helper for C++17
+	std::has_unique_object_representations trait
+	* c-common.h (enum rid): Add RID_HAS_UNIQUE_OBJ_REPRESENTATIONS.
+	* c-common.c (c_common_reswords): Add
+	__has_unique_object_representations.
+
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/66343
+	* c-ubsan.c (ubsan_instrument_return): Don't call
+	initialize_sanitizer_builtins here.
+
+2016-10-05  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Warn also for suspicious
+	conditional expression in boolean context when only one arm is
+	non-boolean.
+
+2016-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/77823
+	* c-ubsan.c (ubsan_instrument_shift): Return NULL_TREE if type0
+	is not integral.
+
+	* c-common.c (c_common_reswords): Update comment for C++11.
+
+2016-10-04  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (make_tree_vector_from_ctor): New.
+	* c-common.h: Declare it.
+
+2016-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Don't define
+	__LIBGCC_JCR_SECTION_NAME__.
+
+2016-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Warn for suspicious
+	left shift in boolean context.
+
+2016-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Implement P0001R1 - C++17 removal of register storage class specifier
+	* c.opt (Wregister): New warning.
+	* c-opts.c (c_common_post_options): Enable -Wregister by
+	default for C++17.
+
+2016-09-29  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* c-opts.c (c_common_post_options): Remove special case for
+	TARGET_FLT_EVAL_METHOD_NON_DEFAULT with -fexcess-precision=standard
+	in C++.
+
+2016-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_capture_star_this for
+	-std=c++1z.
+
+	* c-ada-spec.c (print_ada_declaration): Remove break after return.
+
+2016-09-26  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* c-common.c: Include memmodel.h.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	* c-lex.c (c_common_has_attribute): Handle attribute fallthrough.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* c-common.c (c_common_attribute_table): Add fallthrough attribute.
+	(handle_fallthrough_attribute): New function.
+	(attribute_fallthrough_p): New function.
+	* c-common.h (attribute_fallthrough_p): Declare.
+
+2016-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77490
+	* c.opt (Wbool-operation): New.
+
+2016-09-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-common.c (c_common_truthvalue_conversion): Inhibit
+	Wint-in-bool-context warning with from_macro_definition_at.
+	Mention the expression will always evaluate to true.
+
+2016-09-21  Martin Sebor  <msebor@redhat.com>
+
+	PR bootstrap/77676
+	* c.opt (fprintf-return-value): Temporarily initialize to zero
+	to unblock bootstrap failures.
+
+2016-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77651
+	* c.opt (Waligned-new=): Add RejectNegative.
+	(faligned-new=): Likewise.  Spelling fix - change
+	aligned_new_threshhold to aligned_new_threshold.
+	* c-cppbuiltin.c (c_cpp_builtins): Change aligned_new_threshhold
+	to aligned_new_threshold.
+
+2016-09-20  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/49905
+	* c.opt: Add -Wformat-length and -fprintf-return-value.
+
+2016-09-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77434
+	* c.opt (Wint-in-bool-context): New warning.
+	* c-common.c (c_common_truthvalue_conversion): Warn on integer
+	constants in boolean context.
+
+2016-09-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.c (max_align_t_align): Also consider alignment of
+	float128_type_node.
+
+2016-09-15  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (check_cxx_fundamental_alignment_constraints): Check
+	DECL_EXTERNAL.
+
+2016-09-14  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (check_cxx_fundamental_alignment_constraints): Don't
+	limit FIELD_DECL, either.
+
+2016-09-14  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.c (c_common_truthvalue_conversion): Use false instead of 0.
+	* c-common.h (build_unary_op): Change nonconvert parameter type to bool.
+	* c-omp.c (c_finish_omp_atomic): Use false instead of 0.
+
+2016-09-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (warn_logical_not_parentheses): Replace
+	rich_location::add_fixit_insert calls with add_fixit_insert_before
+	and add_fixit_insert_after, eliminating the "next_loc" calculation.
+
+2016-09-13  Jason Merrill  <jason@redhat.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	PR c++/77427
+	* c-common.c (set_underlying_type): Don't treat array as builtin type.
+
+2016-09-13  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (check_cxx_fundamental_alignment_constraints): Don't
+	limit types at all.
+
+2016-09-12  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (check_cxx_fundamental_alignment_constraints): Fix
+	bit/byte confusion, allow large alignment for types.
+
+2016-09-12  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77496
+	* c-common.c (warn_for_omitted_condop): Also warn for boolean data.
+
+2016-09-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/72858
+	* c-format.c (argument_parser::check_argument_type): Add params
+	"type_start" and "conversion_char".  Use the former to generate
+	offset_to_type_start and pass it and conversion_char to
+	check_format_types.
+	(check_format_info_main): Capture the start of the type
+	information as "type_start", and pass it an format_char
+	to arg_parser.check_argument_type.
+	(check_format_types): Provide an example in the leading comment.
+	Add params "offset_to_type_start" and "conversion_char"; pass
+	them to format_type_warning calls.
+	(test_get_modifier_for_format_len): Likewise.
+	(matching_type_p): New function.
+	(get_format_for_type): Add param "conversion_char" and move
+	implementation into...
+	(get_format_for_type_1): ...new function, called twice.
+	Use new function matching_type_p rather than checking for
+	TYPE_CANONICAL equality.
+	(get_corrected_substring): New function.
+	(format_type_warning): Provide an example in the leading comment.
+	Add params "offset_to_type_start" and "conversion_char".  Replace
+	call to get_format_for_type with call to get_corrected_substring
+	and move rejection of hints for widths/precisions there.
+	(assert_format_for_type_streq): Add param "conversion_char".
+	(ASSERT_FORMAT_FOR_TYPE_STREQ): Add param CONVERSION_CHAR.
+	(test_get_format_for_type_printf): Add conversion chars to the
+	tests, adding coverage for various combinations of integer
+	vs double conversions, and for preserving octal and hexadecimal
+	conversions.
+	(test_get_format_for_type_scanf): Add conversion chars to the
+	tests.
+
 2016-09-10  Tom de Vries  <tom@codesourcery.com>
 
 	PR C/71602
@@ -192,7 +617,7 @@
 	Use a copy when emitting warnings, setting the caret index from TYPE.
 
 2016-08-16  Eric Botcazou  <ebotcazou@adacore.com>
-            Arnaud Charlet  <charlet@adacore.com>
+	    Arnaud Charlet  <charlet@adacore.com>
 
 	* c-ada-spec.c (dump_number): New function.
 	(handle_escape_character): Likewise.
@@ -2113,7 +2538,7 @@
 	before trying to figure out whether we have a flexible array member.
 
 2015-03-06  Eric Botcazou  <ebotcazou@adacore.com>
-            Jonathan Wakely  <jwakely.gcc@gmail.com>
+	    Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	* c-ada-spec.c (dump_ada_double_name): Fix pasto.
 
@@ -3338,7 +3763,7 @@
 
 2014-03-08  Paulo Matos  <paulo@matos-sorge.com>
 
-    * c.opt: Enable LTO FE for fshort-double.
+	* c.opt: Enable LTO FE for fshort-double.
 
 2014-03-07  Jason Merrill  <jason@redhat.com>
 
@@ -3635,15 +4060,15 @@
 	that lower floating point number precision or about the other
 	kinds of conversions.
 	* c-common.h (enum conversion_safety): New enumeration.
- 	(unsafe_conversion_p): switching return type to
- 	conversion_safety enumeration.
+	(unsafe_conversion_p): switching return type to
+	conversion_safety enumeration.
 	* c.opt: Adding new warning -Wfloat-conversion and
 	enabling it with -Wconversion.
 
 2013-11-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
-        * c-opts.c: Include plugin.h.
-        (cb_file_change): Invoke plugin event PLUGIN_INCLUDE_FILE.
+	* c-opts.c: Include plugin.h.
+	(cb_file_change): Invoke plugin event PLUGIN_INCLUDE_FILE.
 
 2013-11-19  Marek Polacek  <polacek@redhat.com>
 
@@ -3863,7 +4288,7 @@
 
 2013-10-31  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
-        Implement C++14 digit separators.
+	Implement C++14 digit separators.
 	* c-lex.c (interpret_float): Remove digit separators from scratch string
 	before building real literal.
 
@@ -4431,7 +4856,7 @@
 	__GXX_EXPERIMENTAL_CXX1Y__.
 
 2013-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
-            Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	* c.opt ([Wpointer-arith]): Enabled by -Wpedantic, as documented.
 	* c-common.c (pointer_int_sum): Change -Wpointer-arith pedwarns
@@ -4572,7 +4997,7 @@
 
 	PR 55139
 	* c-common.c (get_atomic_generic_size): Mask with
-        MEMMODEL_MASK
+	MEMMODEL_MASK
 
 2012-11-07  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
@@ -4586,16 +5011,16 @@
 	* c-opts.c (c_common_handle_option): Do not handle Wformat here.
 	* c-format.c (set_Wformat): Delete.
 	(decode_format_attr): Replace OPT_Wformat with OPT_Wformat_.
-        (maybe_read_dollar_number):  Likewise.
-        (avoid_dollar_number):  Likewise.
-        (finish_dollar_format_checking):  Likewise.
-        (check_format_info):  Likewise.
-        (check_format_info_main):  Likewise.
-        (check_format_types):  Likewise.
-        (format_type_warning):  Likewise.
-        * c-common.c (int):  Likewise.
-        (check_function_sentinel):  Likewise.
-        * c-common.h (warn_format,set_Wformat): Do not declare here.
+	(maybe_read_dollar_number):  Likewise.
+	(avoid_dollar_number):  Likewise.
+	(finish_dollar_format_checking):  Likewise.
+	(check_format_info):  Likewise.
+	(check_format_info_main):  Likewise.
+	(check_format_types):  Likewise.
+	(format_type_warning):  Likewise.
+	* c-common.c (int):  Likewise.
+	(check_function_sentinel):  Likewise.
+	* c-common.h (warn_format,set_Wformat): Do not declare here.
 
 2012-11-07  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 

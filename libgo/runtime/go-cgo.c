@@ -6,11 +6,11 @@
 
 #include "runtime.h"
 #include "go-alloc.h"
-#include "interface.h"
 #include "go-panic.h"
 #include "go-type.h"
 
-extern void __go_receive (ChanType *, Hchan *, byte *);
+extern void chanrecv1 (ChanType *, Hchan *, void *)
+  __asm__ (GOSYM_PREFIX "runtime.chanrecv1");
 
 /* Prepare to call from code written in Go to code written in C or
    C++.  This takes the current goroutine out of the Go scheduler, as
@@ -45,7 +45,7 @@ syscall_cgocall ()
   m = runtime_m ();
   ++m->ncgocall;
   ++m->ncgo;
-  runtime_entersyscall ();
+  runtime_entersyscall (0);
 }
 
 /* Prepare to return to Go code from C/C++ code.  */
@@ -69,7 +69,7 @@ syscall_cgocalldone ()
   /* If we are invoked because the C function called _cgo_panic, then
      _cgo_panic will already have exited syscall mode.  */
   if (g->atomicstatus == _Gsyscall)
-    runtime_exitsyscall ();
+    runtime_exitsyscall (0);
 
   runtime_unlockOSThread();
 }
@@ -89,7 +89,7 @@ syscall_cgocallback ()
       mp->dropextram = true;
     }
 
-  runtime_exitsyscall ();
+  runtime_exitsyscall (0);
 
   if (runtime_m ()->ncgo == 0)
     {
@@ -97,7 +97,7 @@ syscall_cgocallback ()
 	 Go.  In the case of -buildmode=c-archive or c-shared, this
 	 call may be coming in before package initialization is
 	 complete.  Wait until it is.  */
-      __go_receive (NULL, runtime_main_init_done, NULL);
+      chanrecv1 (NULL, runtime_main_init_done, NULL);
     }
 
   mp = runtime_m ();
@@ -115,7 +115,7 @@ syscall_cgocallbackdone ()
 {
   M *mp;
 
-  runtime_entersyscall ();
+  runtime_entersyscall (0);
   mp = runtime_m ();
   if (mp->dropextram && mp->ncgo == 0)
     {
@@ -154,9 +154,9 @@ _cgo_allocate (size_t n)
 {
   void *ret;
 
-  runtime_exitsyscall ();
+  runtime_exitsyscall (0);
   ret = alloc_saved (n);
-  runtime_entersyscall ();
+  runtime_entersyscall (0);
   return ret;
 }
 
@@ -169,17 +169,19 @@ _cgo_panic (const char *p)
   intgo len;
   unsigned char *data;
   String *ps;
-  struct __go_empty_interface e;
+  Eface e;
+  const struct __go_type_descriptor *td;
 
-  runtime_exitsyscall ();
+  runtime_exitsyscall (0);
   len = __builtin_strlen (p);
   data = alloc_saved (len);
   __builtin_memcpy (data, p, len);
   ps = alloc_saved (sizeof *ps);
   ps->str = data;
   ps->len = len;
-  e.__type_descriptor = &string_type_descriptor;
-  e.__object = ps;
+  td = &string_type_descriptor;
+  memcpy(&e._type, &td, sizeof td); /* This is a const_cast.  */
+  e.data = ps;
 
   /* We don't call runtime_entersyscall here, because normally what
      will happen is that we will walk up the stack to a Go deferred

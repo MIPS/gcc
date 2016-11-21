@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <mpfr.h>
 
 #include "go-c.h"
+#include "go-gcc.h"
 
 /* Language-dependent contents of a type.  */
 
@@ -111,6 +112,8 @@ go_langhook_init (void)
   args.check_divide_overflow = go_check_divide_overflow;
   args.compiling_runtime = go_compiling_runtime;
   args.debug_escape_level = go_debug_escape_level;
+  args.linemap = go_get_linemap();
+  args.backend = go_get_backend();
   go_create_gogo (&args);
 
   build_common_builtin_nodes ();
@@ -370,10 +373,9 @@ go_langhook_type_for_mode (machine_mode mode, int unsignedp)
       return NULL_TREE;
     }
 
-  // FIXME: This static_cast should be in machmode.h.
-  enum mode_class mc = static_cast<enum mode_class>(GET_MODE_CLASS(mode));
+  enum mode_class mc = GET_MODE_CLASS (mode);
   if (mc == MODE_INT)
-    return go_langhook_type_for_size(GET_MODE_BITSIZE(mode), unsignedp);
+    return go_langhook_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
   else if (mc == MODE_FLOAT)
     {
       switch (GET_MODE_BITSIZE (mode))

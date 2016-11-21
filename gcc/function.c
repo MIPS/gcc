@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "expmed.h"
@@ -141,7 +142,7 @@ extern tree debug_find_var_in_block_tree (tree, tree);
    can always export `prologue_epilogue_contains'.  */
 static void record_insns (rtx_insn *, rtx, hash_table<insn_cache_hasher> **)
      ATTRIBUTE_UNUSED;
-static bool contains (const_rtx, hash_table<insn_cache_hasher> *);
+static bool contains (const rtx_insn *, hash_table<insn_cache_hasher> *);
 static void prepare_function_start (void);
 static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
@@ -1826,8 +1827,7 @@ instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  if (TREE_CODE (t) == PARM_DECL && DECL_NAMELESS (t)
 	      && DECL_INCOMING_RTL (t))
 	    instantiate_decl_rtl (DECL_INCOMING_RTL (t));
-	  if ((TREE_CODE (t) == VAR_DECL
-	       || TREE_CODE (t) == RESULT_DECL)
+	  if ((VAR_P (t) || TREE_CODE (t) == RESULT_DECL)
 	      && DECL_HAS_VALUE_EXPR_P (t))
 	    {
 	      tree v = DECL_VALUE_EXPR (t);
@@ -1850,7 +1850,7 @@ instantiate_decls_1 (tree let)
     {
       if (DECL_RTL_SET_P (t))
 	instantiate_decl_rtl (DECL_RTL (t));
-      if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
+      if (VAR_P (t) && DECL_HAS_VALUE_EXPR_P (t))
 	{
 	  tree v = DECL_VALUE_EXPR (t);
 	  walk_tree (&v, instantiate_expr, NULL, NULL);
@@ -2333,7 +2333,7 @@ split_complex_args (vec<tree> *args)
 	  p = copy_node (p);
 	  TREE_TYPE (p) = subtype;
 	  DECL_ARG_TYPE (p) = TREE_TYPE (DECL_ARG_TYPE (p));
-	  DECL_MODE (p) = VOIDmode;
+	  SET_DECL_MODE (p, VOIDmode);
 	  DECL_SIZE (p) = NULL;
 	  DECL_SIZE_UNIT (p) = NULL;
 	  /* If this arg must go in memory, put it in a pseudo here.
@@ -2727,7 +2727,7 @@ assign_parm_find_stack_rtl (tree parm, struct assign_parm_data_one *data)
   else if (CONST_INT_P (offset_rtx))
     {
       align = INTVAL (offset_rtx) * BITS_PER_UNIT | boundary;
-      align = align & -align;
+      align = least_bit_hwi (align);
     }
   set_mem_align (stack_parm, align);
 
@@ -4392,7 +4392,7 @@ setjmp_vars_warning (bitmap setjmp_crosses, tree block)
 
   for (decl = BLOCK_VARS (block); decl; decl = DECL_CHAIN (decl))
     {
-      if (TREE_CODE (decl) == VAR_DECL
+      if (VAR_P (decl)
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
 	  && regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
@@ -5077,7 +5077,10 @@ stack_protect_epilogue (void)
   rtx_insn *seq;
 
   x = expand_normal (crtl->stack_protect_guard);
-  y = expand_normal (guard_decl);
+  if (guard_decl)
+    y = expand_normal (guard_decl);
+  else
+    y = const0_rtx;
 
   /* Allow the target to compare Y with X without leaking either into
      a register.  */
@@ -5748,7 +5751,7 @@ maybe_copy_prologue_epilogue_insn (rtx insn, rtx copy)
    we can be running after reorg, SEQUENCE rtl is possible.  */
 
 static bool
-contains (const_rtx insn, hash_table<insn_cache_hasher> *hash)
+contains (const rtx_insn *insn, hash_table<insn_cache_hasher> *hash)
 {
   if (hash == NULL)
     return false;
@@ -5763,11 +5766,23 @@ contains (const_rtx insn, hash_table<insn_cache_hasher> *hash)
       return false;
     }
 
-  return hash->find (const_cast<rtx> (insn)) != NULL;
+  return hash->find (const_cast<rtx_insn *> (insn)) != NULL;
 }
 
 int
-prologue_epilogue_contains (const_rtx insn)
+prologue_contains (const rtx_insn *insn)
+{
+  return contains (insn, prologue_insn_hash);
+}
+
+int
+epilogue_contains (const rtx_insn *insn)
+{
+  return contains (insn, epilogue_insn_hash);
+}
+
+int
+prologue_epilogue_contains (const rtx_insn *insn)
 {
   if (contains (insn, prologue_insn_hash))
     return 1;
@@ -5776,6 +5791,17 @@ prologue_epilogue_contains (const_rtx insn)
   return 0;
 }
 
+void
+record_prologue_seq (rtx_insn *seq)
+{
+  record_insns (seq, NULL, &prologue_insn_hash);
+}
+
+void
+record_epilogue_seq (rtx_insn *seq)
+{
+  record_insns (seq, NULL, &epilogue_insn_hash);
+}
 
 /* Set JUMP_LABEL for a return insn.  */
 
@@ -5945,9 +5971,24 @@ thread_prologue_and_epilogue_insns (void)
   /* Try to perform a kind of shrink-wrapping, making sure the
      prologue/epilogue is emitted only around those parts of the
      function that require it.  */
-
   try_shrink_wrapping (&entry_edge, prologue_seq);
 
+  /* If the target can handle splitting the prologue/epilogue into separate
+     components, try to shrink-wrap these components separately.  */
+  try_shrink_wrapping_separate (entry_edge->dest);
+
+  /* If that did anything for any component we now need the generate the
+     "main" prologue again.  Because some targets require some of these
+     to be called in a specific order (i386 requires the split prologue
+     to be first, for example), we create all three sequences again here.
+     If this does not work for some target, that target should not enable
+     separate shrink-wrapping.  */
+  if (crtl->shrink_wrapped_separate)
+    {
+      split_prologue_seq = make_split_prologue_seq ();
+      prologue_seq = make_prologue_seq ();
+      epilogue_seq = make_epilogue_seq ();
+    }
 
   rtl_profile_for_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 
@@ -6599,7 +6640,7 @@ match_asm_constraints_1 (rtx_insn *insn, rtx *p_sets, int noutputs)
 void
 add_local_decl (struct function *fun, tree d)
 {
-  gcc_assert (TREE_CODE (d) == VAR_DECL);
+  gcc_assert (VAR_P (d));
   vec_safe_push (fun->local_decls, d);
 }
 

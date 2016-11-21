@@ -1350,7 +1350,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
   else if (TREE_CODE (stmt) == DECL_EXPR)
     {
       tree d = DECL_EXPR_DECL (stmt);
-      if (TREE_CODE (d) == VAR_DECL)
+      if (VAR_P (d))
 	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL
@@ -1570,14 +1570,11 @@ cp_ubsan_maybe_instrument_return (tree fndecl)
     }
   if (t == NULL_TREE)
     return;
-  t = DECL_SAVED_TREE (fndecl);
-  if (TREE_CODE (t) == BIND_EXPR
-      && TREE_CODE (BIND_EXPR_BODY (t)) == STATEMENT_LIST)
-    {
-      tree_stmt_iterator i = tsi_last (BIND_EXPR_BODY (t));
-      t = ubsan_instrument_return (DECL_SOURCE_LOCATION (fndecl));
-      tsi_link_after (&i, t, TSI_NEW_STMT);
-    }
+  tree *p = &DECL_SAVED_TREE (fndecl);
+  if (TREE_CODE (*p) == BIND_EXPR)
+    p = &BIND_EXPR_BODY (*p);
+  t = ubsan_instrument_return (DECL_SOURCE_LOCATION (fndecl));
+  append_to_statement_list (t, p);
 }
 
 void
@@ -1980,7 +1977,8 @@ cp_fold_maybe_rvalue (tree x, bool rval)
   while (true)
     {
       x = cp_fold (x);
-      if (rval && DECL_P (x))
+      if (rval && DECL_P (x)
+	  && TREE_CODE (TREE_TYPE (x)) != REFERENCE_TYPE)
 	{
 	  tree v = decl_constant_value (x);
 	  if (v != x && v != error_mark_node)
@@ -2255,6 +2253,15 @@ cp_fold (tree x)
       op0 = cp_fold_rvalue (TREE_OPERAND (x, 0));
       op1 = cp_fold (TREE_OPERAND (x, 1));
       op2 = cp_fold (TREE_OPERAND (x, 2));
+
+      if (TREE_CODE (TREE_TYPE (x)) == BOOLEAN_TYPE)
+	{
+	  warning_sentinel s (warn_int_in_bool_context);
+	  if (!VOID_TYPE_P (TREE_TYPE (op1)))
+	    op1 = cp_truthvalue_conversion (op1);
+	  if (!VOID_TYPE_P (TREE_TYPE (op2)))
+	    op2 = cp_truthvalue_conversion (op2);
+	}
 
       if (op0 != TREE_OPERAND (x, 0)
 	  || op1 != TREE_OPERAND (x, 1)

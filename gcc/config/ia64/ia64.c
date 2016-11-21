@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "cfghooks.h"
 #include "df.h"
 #include "tm_p.h"
@@ -310,7 +311,6 @@ static rtx ia64_struct_value_rtx (tree, int);
 static tree ia64_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool ia64_scalar_mode_supported_p (machine_mode mode);
 static bool ia64_vector_mode_supported_p (machine_mode mode);
-static bool ia64_libgcc_floating_mode_supported_p (machine_mode mode);
 static bool ia64_legitimate_constant_p (machine_mode, rtx);
 static bool ia64_legitimate_address_p (machine_mode, rtx, bool);
 static bool ia64_cannot_force_const_mem (machine_mode, rtx);
@@ -594,14 +594,13 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ia64_vector_mode_supported_p
 
-#undef TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P
-#define TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P \
-  ia64_libgcc_floating_mode_supported_p
-
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P ia64_legitimate_constant_p
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P ia64_legitimate_address_p
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ia64_cannot_force_const_mem
@@ -649,6 +648,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P
 #define TARGET_ATTRIBUTE_TAKES_IDENTIFIER_P ia64_attribute_takes_identifier_p
+
+#undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 0
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1801,7 +1803,7 @@ ia64_expand_compare (rtx *expr, rtx *op0, rtx *op1)
       };
       int magic;
       enum rtx_code ncode;
-      rtx ret, insns;
+      rtx ret;
       
       gcc_assert (cmptf_libfunc && GET_MODE (*op1) == TFmode);
       switch (code)
@@ -1840,7 +1842,7 @@ ia64_expand_compare (rtx *expr, rtx *op0, rtx *op1)
       emit_insn (gen_rtx_SET (cmp, gen_rtx_fmt_ee (ncode, BImode,
 						   ret, const0_rtx)));
 
-      insns = get_insns ();
+      rtx_insn *insns = get_insns ();
       end_sequence ();
 
       emit_libcall_block (insns, cmp, cmp,
@@ -5546,7 +5548,7 @@ ia64_print_operand (FILE * file, rtx x, int code)
     case POST_DEC:
     case POST_MODIFY:
       x = XEXP (x, 0);
-      /* ... fall through ...  */
+      /* fall through */
 
     case REG:
       fputs (reg_names [REGNO (x)], file);
@@ -7236,7 +7238,7 @@ ia64_adjust_cost (rtx_insn *insn, int dep_type1, rtx_insn *dep_insn,
    ??? When cycle display notes are implemented, update this.  */
 
 static void
-ia64_emit_insn_before (rtx insn, rtx before)
+ia64_emit_insn_before (rtx insn, rtx_insn *before)
 {
   emit_insn_before (insn, before);
 }
@@ -10998,36 +11000,6 @@ ia64_vector_mode_supported_p (machine_mode mode)
 
     case V2SFmode:
       return true;
-
-    default:
-      return false;
-    }
-}
-
-/* Implement TARGET_LIBGCC_FLOATING_MODE_SUPPORTED_P.  */
-
-static bool
-ia64_libgcc_floating_mode_supported_p (machine_mode mode)
-{
-  switch (mode)
-    {
-    case SFmode:
-    case DFmode:
-      return true;
-
-    case XFmode:
-#ifdef IA64_NO_LIBGCC_XFMODE
-      return false;
-#else
-      return true;
-#endif
-
-    case TFmode:
-#ifdef IA64_NO_LIBGCC_TFMODE
-      return false;
-#else
-      return true;
-#endif
 
     default:
       return false;

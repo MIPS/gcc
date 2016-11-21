@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "predict.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "expmed.h"
 #include "optabs.h"
@@ -127,10 +128,10 @@ init_expmed_one_conv (struct init_expmed_rtl *all, machine_mode to_mode,
      comparison purposes here, reduce the bit size by one in that
      case.  */
   if (GET_MODE_CLASS (to_mode) == MODE_PARTIAL_INT
-      && exact_log2 (to_size) != -1)
+      && pow2p_hwi (to_size))
     to_size --;
   if (GET_MODE_CLASS (from_mode) == MODE_PARTIAL_INT
-      && exact_log2 (from_size) != -1)
+      && pow2p_hwi (from_size))
     from_size --;
   
   /* Assume cost of zero-extend and sign-extend is the same.  */
@@ -2247,11 +2248,13 @@ expand_dec (rtx target, rtx dec)
    and AMOUNT the rtx for the amount to shift by.
    Store the result in the rtx TARGET, if that is convenient.
    If UNSIGNEDP is nonzero, do a logical shift; otherwise, arithmetic.
-   Return the rtx for where the value is.  */
+   Return the rtx for where the value is.
+   If that cannot be done, abort the compilation unless MAY_FAIL is true,
+   in which case 0 is returned.  */
 
 static rtx
 expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
-		rtx amount, rtx target, int unsignedp)
+		rtx amount, rtx target, int unsignedp, bool may_fail = false)
 {
   rtx op1, temp = 0;
   int left = (code == LSHIFT_EXPR || code == LROTATE_EXPR);
@@ -2448,7 +2451,7 @@ expand_shift_1 (enum tree_code code, machine_mode mode, rtx shifted,
 	 define_expand for lshrsi3 was added to vax.md.  */
     }
 
-  gcc_assert (temp);
+  gcc_assert (temp != NULL_RTX || may_fail);
   return temp;
 }
 
@@ -2465,6 +2468,16 @@ expand_shift (enum tree_code code, machine_mode mode, rtx shifted,
 {
   return expand_shift_1 (code, mode,
 			 shifted, GEN_INT (amount), target, unsignedp);
+}
+
+/* Likewise, but return 0 if that cannot be done.  */
+
+static rtx
+maybe_expand_shift (enum tree_code code, machine_mode mode, rtx shifted,
+		    int amount, rtx target, int unsignedp)
+{
+  return expand_shift_1 (code, mode,
+			 shifted, GEN_INT (amount), target, unsignedp, true);
 }
 
 /* Output a shift instruction for expression code CODE,
@@ -2635,7 +2648,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
   if ((t & 1) == 0)
     {
     do_alg_shift:
-      m = floor_log2 (t & -t);	/* m = number of low zero bits */
+      m = ctz_or_zero (t); /* m = number of low zero bits */
       if (m < maxm)
 	{
 	  q = t >> m;
@@ -2872,9 +2885,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
     {
     do_alg_add_t2_m:
       q = t - 1;
-      q = q & -q;
-      m = exact_log2 (q);
-      if (m >= 0 && m < maxm)
+      m = ctz_hwi (q);
+      if (q && m < maxm)
 	{
 	  op_cost = shiftadd_cost (speed, mode, m);
 	  new_limit.cost = best_cost.cost - op_cost;
@@ -2896,9 +2908,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 
     do_alg_sub_t2_m:
       q = t + 1;
-      q = q & -q;
-      m = exact_log2 (q);
-      if (m >= 0 && m < maxm)
+      m = ctz_hwi (q);
+      if (q && m < maxm)
 	{
 	  op_cost = shiftsub0_cost (speed, mode, m);
 	  new_limit.cost = best_cost.cost - op_cost;
@@ -3265,7 +3276,7 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
       else if (CONST_DOUBLE_AS_INT_P (scalar_op1))
 #endif
 	{
-	  int shift = wi::exact_log2 (std::make_pair (scalar_op1, mode));
+	  int shift = wi::exact_log2 (rtx_mode_t (scalar_op1, mode));
 	  /* Perfect power of 2 (other than 1, which is handled above).  */
 	  if (shift > 0)
 	    return expand_shift (LSHIFT_EXPR, mode, op0,
@@ -4214,7 +4225,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 			   initial right shift.  */
 			if (mh != 0 && (d & 1) == 0)
 			  {
-			    pre_shift = floor_log2 (d & -d);
+			    pre_shift = ctz_or_zero (d);
 			    mh = choose_multiplier (d >> pre_shift, size,
 						    size - pre_shift,
 						    &ml, &post_shift, &dummy);
@@ -4872,7 +4883,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 	    int pre_shift;
 	    rtx t1;
 
-	    pre_shift = floor_log2 (d & -d);
+	    pre_shift = ctz_or_zero (d);
 	    ml = invert_mod2n (d >> pre_shift, size);
 	    t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
 			       pre_shift, NULL_RTX, unsignedp);
@@ -5081,7 +5092,7 @@ make_tree (tree type, rtx x)
     {
     case CONST_INT:
     case CONST_WIDE_INT:
-      t = wide_int_to_tree (type, std::make_pair (x, TYPE_MODE (type)));
+      t = wide_int_to_tree (type, rtx_mode_t (x, TYPE_MODE (type)));
       return t;
 
     case CONST_DOUBLE:
@@ -5755,11 +5766,12 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
       if (rtx_equal_p (subtarget, op0))
 	subtarget = 0;
 
-      tem = expand_shift (RSHIFT_EXPR, mode, op0,
-			  GET_MODE_BITSIZE (mode) - 1,
-			  subtarget, 0);
-      tem = expand_binop (mode, sub_optab, tem, op0, subtarget, 0,
-			  OPTAB_WIDEN);
+      tem = maybe_expand_shift (RSHIFT_EXPR, mode, op0,
+				GET_MODE_BITSIZE (mode) - 1,
+				subtarget, 0);
+      if (tem)
+	tem = expand_binop (mode, sub_optab, tem, op0, subtarget, 0,
+			    OPTAB_WIDEN);
     }
 
   if (code == EQ || code == NE)
@@ -5821,9 +5833,9 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
     }
 
   if (tem && normalizep)
-    tem = expand_shift (RSHIFT_EXPR, mode, tem,
-			GET_MODE_BITSIZE (mode) - 1,
-			subtarget, normalizep == 1);
+    tem = maybe_expand_shift (RSHIFT_EXPR, mode, tem,
+			      GET_MODE_BITSIZE (mode) - 1,
+			      subtarget, normalizep == 1);
 
   if (tem)
     {

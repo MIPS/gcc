@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"
 #include "regs.h"
@@ -981,7 +982,7 @@ eliminate_regs_in_insn (rtx_insn *insn, bool replace_p, bool first_p,
 		      }
 		    lra_update_insn_recog_data (insn);
 		    /* Add offset note for future updates.  */
-		    add_reg_note (insn, REG_EQUAL, src);
+		    add_reg_note (insn, REG_EQUAL, copy_rtx (src));
 		    return;
 		  }
 	      }

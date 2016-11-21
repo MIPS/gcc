@@ -2206,7 +2206,7 @@ check_alloc_comp_init (gfc_expr *e)
   gfc_constructor *ctor;
 
   gcc_assert (e->expr_type == EXPR_STRUCTURE);
-  gcc_assert (e->ts.type == BT_DERIVED);
+  gcc_assert (e->ts.type == BT_DERIVED || e->ts.type == BT_CLASS);
 
   for (comp = e->ts.u.derived->components,
        ctor = gfc_constructor_first (e->value.constructor);
@@ -2794,12 +2794,12 @@ external_spec_function (gfc_expr *e)
       return false;
     }
 
-  if (f->attr.recursive)
-    {
-      gfc_error ("Specification function %qs at %L cannot be RECURSIVE",
-		 f->name, &e->where);
+  /* F08:7.1.11.6. */
+  if (f->attr.recursive
+      && !gfc_notify_std (GFC_STD_F2003,
+			  "Specification function '%s' "
+			  "at %L cannot be RECURSIVE",  f->name, &e->where))
       return false;
-    }
 
 function_allowed:
   return restricted_args (e->value.function.actual);
@@ -3128,10 +3128,14 @@ gfc_check_conformance (gfc_expr *op1, gfc_expr *op2, const char *optype_msgid, .
 
 
 /* Given an assignable expression and an arbitrary expression, make
-   sure that the assignment can take place.  */
+   sure that the assignment can take place.  Only add a call to the intrinsic
+   conversion routines, when allow_convert is set.  When this assign is a
+   coarray call, then the convert is done by the coarray routine implictly and
+   adding the intrinsic conversion would do harm in most cases.  */
 
 bool
-gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
+gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform,
+		  bool allow_convert)
 {
   gfc_symbol *sym;
   gfc_ref *ref;
@@ -3245,7 +3249,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
   if (rvalue->is_boz && lvalue->ts.type != BT_INTEGER
       && lvalue->symtree->n.sym->attr.data
       && !gfc_notify_std (GFC_STD_GNU, "BOZ literal at %L used to "
-			  "initialize non-integer variable %qs", 
+			  "initialize non-integer variable %qs",
 			  &rvalue->where, lvalue->symtree->n.sym->name))
     return false;
   else if (rvalue->is_boz && !lvalue->symtree->n.sym->attr.data
@@ -3309,11 +3313,14 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
      kind values can be converted into one another.  */
   if (lvalue->ts.type == BT_CHARACTER && rvalue->ts.type == BT_CHARACTER)
     {
-      if (lvalue->ts.kind != rvalue->ts.kind)
+      if (lvalue->ts.kind != rvalue->ts.kind && allow_convert)
 	gfc_convert_chartype (rvalue, &lvalue->ts);
 
       return true;
     }
+
+  if (!allow_convert)
+    return true;
 
   return gfc_convert_type (rvalue, &lvalue->ts, 1);
 }
@@ -3371,7 +3378,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	    }
 
 	  if (!gfc_notify_std (GFC_STD_F2003, "Bounds specification "
-			       "for %qs in pointer assignment at %L", 
+			       "for %qs in pointer assignment at %L",
 			       lvalue->symtree->n.sym->name, &lvalue->where))
 	    return false;
 
@@ -3438,7 +3445,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
     {
       char err[200];
       gfc_symbol *s1,*s2;
-      gfc_component *comp;
+      gfc_component *comp1, *comp2;
       const char *name;
 
       attr = gfc_expr_attr (rvalue);
@@ -3542,9 +3549,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	    }
 	}
 
-      comp = gfc_get_proc_ptr_comp (lvalue);
-      if (comp)
-	s1 = comp->ts.interface;
+      comp1 = gfc_get_proc_ptr_comp (lvalue);
+      if (comp1)
+	s1 = comp1->ts.interface;
       else
 	{
 	  s1 = lvalue->symtree->n.sym;
@@ -3552,18 +3559,18 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	    s1 = s1->ts.interface;
 	}
 
-      comp = gfc_get_proc_ptr_comp (rvalue);
-      if (comp)
+      comp2 = gfc_get_proc_ptr_comp (rvalue);
+      if (comp2)
 	{
 	  if (rvalue->expr_type == EXPR_FUNCTION)
 	    {
-	      s2 = comp->ts.interface->result;
+	      s2 = comp2->ts.interface->result;
 	      name = s2->name;
 	    }
 	  else
 	    {
-	      s2 = comp->ts.interface;
-	      name = comp->name;
+	      s2 = comp2->ts.interface;
+	      name = comp2->name;
 	    }
 	}
       else if (rvalue->expr_type == EXPR_FUNCTION)
@@ -3583,6 +3590,15 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 
       if (s2 && s2->attr.proc_pointer && s2->ts.interface)
 	s2 = s2->ts.interface;
+
+      /* Special check for the case of absent interface on the lvalue.
+       * All other interface checks are done below. */
+      if (!s1 && comp1 && comp1->attr.subroutine && s2 && s2->attr.function)
+	{
+	  gfc_error ("Interface mismatch in procedure pointer assignment "
+		     "at %L: '%s' is not a subroutine", &rvalue->where, name);
+	  return false;
+	}
 
       if (s1 == s2 || !s1 || !s2)
 	return true;
@@ -4124,6 +4140,26 @@ gfc_apply_init (gfc_typespec *ts, symbol_attribute *attr, gfc_expr *init)
 }
 
 
+/* Check whether an expression is a structure constructor and whether it has
+   other values than NULL.  */
+
+bool
+is_non_empty_structure_constructor (gfc_expr * e)
+{
+  if (e->expr_type != EXPR_STRUCTURE)
+    return false;
+
+  gfc_constructor *cons = gfc_constructor_first (e->value.constructor);
+  while (cons)
+    {
+      if (!cons->expr || cons->expr->expr_type != EXPR_NULL)
+	return true;
+      cons = gfc_constructor_next (cons);
+    }
+  return false;
+}
+
+
 /* Check for default initializer; sym->value is not enough
    as it is also set for EXPR_NULL of allocatables.  */
 
@@ -4137,7 +4173,10 @@ gfc_has_default_initializer (gfc_symbol *der)
     if (gfc_bt_struct (c->ts.type))
       {
         if (!c->attr.pointer && !c->attr.proc_pointer
-	     && gfc_has_default_initializer (c->ts.u.derived))
+	     && !(c->attr.allocatable && der == c->ts.u.derived)
+	     && ((c->initializer
+		  && is_non_empty_structure_constructor (c->initializer))
+		 || gfc_has_default_initializer (c->ts.u.derived)))
 	  return true;
 	if (c->attr.pointer && c->initializer)
 	  return true;
@@ -4151,6 +4190,60 @@ gfc_has_default_initializer (gfc_symbol *der)
   return false;
 }
 
+
+/*
+   Generate an initializer expression which initializes the entirety of a union.
+   A normal structure constructor is insufficient without undue effort, because
+   components of maps may be oddly aligned/overlapped. (For example if a
+   character is initialized from one map overtop a real from the other, only one
+   byte of the real is actually initialized.)  Unfortunately we don't know the
+   size of the union right now, so we can't generate a proper initializer, but
+   we use a NULL expr as a placeholder and do the right thing later in
+   gfc_trans_subcomponent_assign.
+ */
+static gfc_expr *
+generate_union_initializer (gfc_component *un)
+{
+  if (un == NULL || un->ts.type != BT_UNION)
+    return NULL;
+
+  gfc_expr *placeholder = gfc_get_null_expr (&un->loc);
+  placeholder->ts = un->ts;
+  return placeholder;
+}
+
+
+/* Get the user-specified initializer for a union, if any. This means the user
+   has said to initialize component(s) of a map.  For simplicity's sake we
+   only allow the user to initialize the first map.  We don't have to worry
+   about overlapping initializers as they are released early in resolution (see
+   resolve_fl_struct).   */
+
+static gfc_expr *
+get_union_initializer (gfc_symbol *union_type, gfc_component **map_p)
+{
+  gfc_component *map;
+  gfc_expr *init=NULL;
+
+  if (!union_type || union_type->attr.flavor != FL_UNION)
+    return NULL;
+
+  for (map = union_type->components; map; map = map->next)
+    {
+      if (gfc_has_default_initializer (map->ts.u.derived))
+        {
+          init = gfc_default_initializer (&map->ts);
+          if (map_p)
+            *map_p = map;
+          break;
+        }
+    }
+
+  if (map_p && !init)
+    *map_p = NULL;
+
+  return init;
+}
 
 /* Fetch or generate an initializer for the given component.
    Only generate an initializer if generate is true.  */
@@ -4168,6 +4261,43 @@ component_initializer (gfc_typespec *ts, gfc_component *c, bool generate)
   /* Recursively handle derived type components.  */
   if (c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
     init = gfc_generate_initializer (&c->ts, true);
+
+  else if (c->ts.type == BT_UNION && c->ts.u.derived->components)
+    {
+      gfc_component *map = NULL;
+      gfc_constructor *ctor;
+      gfc_expr *user_init;
+
+      /* If we don't have a user initializer and we aren't generating one, this
+         union has no initializer.  */
+      user_init = get_union_initializer (c->ts.u.derived, &map);
+      if (!user_init && !generate)
+        return NULL;
+
+      /* Otherwise use a structure constructor.  */
+      init = gfc_get_structure_constructor_expr (c->ts.type, c->ts.kind,
+                                                 &c->loc);
+      init->ts = c->ts;
+
+      /* If we are to generate an initializer for the union, add a constructor
+         which initializes the whole union first.  */
+      if (generate)
+        {
+          ctor = gfc_constructor_get ();
+          ctor->expr = generate_union_initializer (c);
+          gfc_constructor_append (&init->value.constructor, ctor);
+        }
+
+      /* If we found an initializer in one of our maps, apply it.  Note this
+         is applied _after_ the entire-union initializer above if any.  */
+      if (user_init)
+        {
+          ctor = gfc_constructor_get ();
+          ctor->expr = user_init;
+          ctor->n.component = map;
+          gfc_constructor_append (&init->value.constructor, ctor);
+        }
+    }
 
   /* Treat simple components like locals.  */
   else
@@ -4189,7 +4319,7 @@ gfc_default_initializer (gfc_typespec *ts)
 }
 
 
-/* Get or generate an expression for a default initializer of a derived type. 
+/* Get or generate an expression for a default initializer of a derived type.
    If -finit-derived is specified, generate default initialization expressions
    for components that lack them when generate is set.  */
 
@@ -4246,6 +4376,7 @@ gfc_generate_initializer (gfc_typespec *ts, bool generate)
 	{
 	  ctor->expr = gfc_get_expr ();
 	  ctor->expr->expr_type = EXPR_NULL;
+	  ctor->expr->where = init->where;
 	  ctor->expr->ts = comp->ts;
 	}
 
@@ -5311,13 +5442,13 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 		{
 		  gfc_constructor *c, *n;
 		  gfc_expr *ec, *en;
-		  
+
 		  for (c = gfc_constructor_first (arr->value.constructor);
 		       c != NULL; c = gfc_constructor_next (c))
 		    {
 		      if (c == NULL || c->iterator != NULL)
 			continue;
-		      
+
 		      ec = c->expr;
 
 		      for (n = gfc_constructor_next (c); n != NULL;
@@ -5325,7 +5456,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 			{
 			  if (n->iterator != NULL)
 			    continue;
-			  
+
 			  en = n->expr;
 			  if (gfc_dep_compare_expr (ec, en) == 0)
 			    {
@@ -5342,6 +5473,6 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 		    }
 		}
 	    }
-  
+
   return true;
 }

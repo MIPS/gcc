@@ -248,7 +248,6 @@ enum aarch64_fusion_pairs_index
 #include "aarch64-fusion-pairs.def"
   AARCH64_FUSE_index_END
 };
-#undef AARCH64_FUSION_PAIR
 
 #define AARCH64_FUSION_PAIR(x, name) \
   AARCH64_FUSE_##name = (1u << AARCH64_FUSE_##name##_index),
@@ -259,7 +258,6 @@ enum aarch64_fusion_pairs
 #include "aarch64-fusion-pairs.def"
   AARCH64_FUSE_ALL = (1u << AARCH64_FUSE_index_END) - 1
 };
-#undef AARCH64_FUSION_PAIR
 
 #define AARCH64_EXTRA_TUNING_OPTION(x, name) \
   AARCH64_EXTRA_TUNE_##name##_index,
@@ -269,7 +267,6 @@ enum aarch64_extra_tuning_flags_index
 #include "aarch64-tuning-flags.def"
   AARCH64_EXTRA_TUNE_index_END
 };
-#undef AARCH64_EXTRA_TUNING_OPTION
 
 
 #define AARCH64_EXTRA_TUNING_OPTION(x, name) \
@@ -281,7 +278,6 @@ enum aarch64_extra_tuning_flags
 #include "aarch64-tuning-flags.def"
   AARCH64_EXTRA_TUNE_ALL = (1u << AARCH64_EXTRA_TUNE_index_END) - 1
 };
-#undef AARCH64_EXTRA_TUNING_OPTION
 
 /* Enum describing the various ways that the
    aarch64_parse_{arch,tune,cpu,extension} functions can fail.
@@ -341,6 +337,7 @@ bool aarch64_simd_scalar_immediate_valid_for_move (rtx, machine_mode);
 bool aarch64_simd_shift_imm_p (rtx, machine_mode, bool);
 bool aarch64_simd_valid_immediate (rtx, machine_mode, bool,
 				   struct simd_immediate_info *);
+bool aarch64_split_dimode_const_store (rtx, rtx);
 bool aarch64_symbolic_address_p (rtx);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
 bool aarch64_use_return_insn_p (void);
@@ -466,5 +463,7 @@ enum aarch64_parse_opt_result aarch64_parse_extension (const char *,
 						       unsigned long *);
 std::string aarch64_get_extension_string_for_isa_flags (unsigned long,
 							unsigned long);
+
+rtl_opt_pass *make_pass_fma_steering (gcc::context *ctxt);
 
 #endif /* GCC_AARCH64_PROTOS_H */

@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "predict.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"
 #include "regs.h"
@@ -447,11 +448,10 @@ init_reload (void)
       /* This way, we make sure that reg+reg is an offsettable address.  */
       tem = plus_constant (Pmode, tem, 4);
 
-      if (memory_address_p (QImode, tem))
-	{
-	  double_reg_address_ok = 1;
-	  break;
-	}
+      for (int mode = 0; mode < MAX_MACHINE_MODE; mode++)
+	if (!double_reg_address_ok[mode]
+	    && memory_address_p ((enum machine_mode)mode, tem))
+	  double_reg_address_ok[mode] = 1;
     }
 
   /* Initialize obstack for our rtl allocation.  */
@@ -2318,7 +2318,7 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
       if (LABEL_REF_NONLOCAL_P (x))
 	return;
 
-      x = LABEL_REF_LABEL (x);
+      x = label_ref_label (x);
 
       /* fall through */
 
@@ -2420,13 +2420,13 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
 	case IF_THEN_ELSE:
 	  tem = XEXP (SET_SRC (x), 1);
 	  if (GET_CODE (tem) == LABEL_REF)
-	    set_label_offsets (LABEL_REF_LABEL (tem), insn, initial_p);
+	    set_label_offsets (label_ref_label (tem), insn, initial_p);
 	  else if (GET_CODE (tem) != PC && GET_CODE (tem) != RETURN)
 	    break;
 
 	  tem = XEXP (SET_SRC (x), 2);
 	  if (GET_CODE (tem) == LABEL_REF)
-	    set_label_offsets (LABEL_REF_LABEL (tem), insn, initial_p);
+	    set_label_offsets (label_ref_label (tem), insn, initial_p);
 	  else if (GET_CODE (tem) != PC && GET_CODE (tem) != RETURN)
 	    break;
 	  return;
@@ -2818,18 +2818,16 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 
 	  if (MEM_P (new_rtx)
 	      && ((x_size < new_size
-#if WORD_REGISTER_OPERATIONS
-		   /* On these machines, combine can create rtl of the form
+		   /* On RISC machines, combine can create rtl of the form
 		      (set (subreg:m1 (reg:m2 R) 0) ...)
 		      where m1 < m2, and expects something interesting to
 		      happen to the entire word.  Moreover, it will use the
 		      (reg:m2 R) later, expecting all bits to be preserved.
 		      So if the number of words is the same, preserve the
 		      subreg so that push_reload can see it.  */
-		   && ! ((x_size - 1) / UNITS_PER_WORD
-			 == (new_size -1 ) / UNITS_PER_WORD)
-#endif
-		   )
+		   && !(WORD_REGISTER_OPERATIONS
+			&& (x_size - 1) / UNITS_PER_WORD
+			   == (new_size -1 ) / UNITS_PER_WORD))
 		  || x_size == new_size)
 	      )
 	    return adjust_address_nv (new_rtx, GET_MODE (x), SUBREG_BYTE (x));
@@ -3022,6 +3020,7 @@ elimination_effects (rtx x, machine_mode mem_mode)
 	break;
 
       /* Fall through to generic unary operation case.  */
+      gcc_fallthrough ();
     case STRICT_LOW_PART:
     case NEG:          case NOT:
     case SIGN_EXTEND:  case ZERO_EXTEND:
@@ -8701,7 +8700,6 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 #endif
   else if (REG_P (out) && UNARY_P (in))
     {
-      rtx insn;
       rtx op1;
       rtx out_moded;
       rtx_insn *set;
@@ -8726,13 +8724,13 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
       gen_reload (out_moded, op1, opnum, type);
 
-      insn = gen_rtx_SET (out, gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in),
-					      out_moded));
-      insn = emit_insn_if_valid_for_reload (insn);
+      rtx temp = gen_rtx_SET (out, gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in),
+						  out_moded));
+      rtx_insn *insn = emit_insn_if_valid_for_reload (temp);
       if (insn)
 	{
 	  set_unique_reg_note (insn, REG_EQUIV, in);
-	  return as_a <rtx_insn *> (insn);
+	  return insn;
 	}
 
       fatal_insn ("failure trying to reload:", set);

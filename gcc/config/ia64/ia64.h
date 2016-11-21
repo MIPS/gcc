@@ -896,7 +896,7 @@ enum reg_class
    RTL is either a `REG', indicating that the return value is saved in `REG',
    or a `MEM' representing a location in the stack.  This enables DWARF2
    unwind info for C++ EH.  */
-#define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, BR_REG (0))
+#define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, BR_REG (0))
 
 /* A C expression whose value is an integer giving the offset, in bytes, from
    the value of the stack pointer register to the top of the stack frame at the
@@ -1581,11 +1581,14 @@ do {									\
 /* Use section-relative relocations for debugging offsets.  Unlike other
    targets that fake this by putting the section VMA at 0, IA-64 has
    proper relocations for them.  */
-#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
+#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, OFFSET, SECTION) \
   do {								\
     fputs (integer_asm_op (SIZE, FALSE), FILE);			\
     fputs ("@secrel(", FILE);					\
     assemble_name (FILE, LABEL);				\
+    if ((OFFSET) != 0)						\
+      fprintf (FILE, "+" HOST_WIDE_INT_PRINT_DEC,		\
+	       (HOST_WIDE_INT) (OFFSET));			\
     fputc (')', FILE);						\
   } while (0)
 

@@ -1507,9 +1507,6 @@ initialize_inline_failed (struct cgraph_edge *e)
     e->inline_failed = CIF_BODY_NOT_AVAILABLE;
   else if (callee->local.redefined_extern_inline)
     e->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
-  else if (cfun && fn_contains_cilk_spawn_p (cfun))
-    /* We can't inline if the function is spawing a function.  */
-    e->inline_failed = CIF_CILK_SPAWN;
   else
     e->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
   gcc_checking_assert (!e->call_stmt_cannot_inline_p
@@ -2398,9 +2395,7 @@ find_foldable_builtin_expect (basic_block bb)
     {
       gimple *stmt = gsi_stmt (bsi);
       if (gimple_call_builtin_p (stmt, BUILT_IN_EXPECT)
-	  || (is_gimple_call (stmt)
-	      && gimple_call_internal_p (stmt)
-	      && gimple_call_internal_fn (stmt) == IFN_BUILTIN_EXPECT))
+	  || gimple_call_internal_p (stmt, IFN_BUILTIN_EXPECT))
         {
           tree var = gimple_call_lhs (stmt);
           tree arg = gimple_call_arg (stmt, 0);

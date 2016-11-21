@@ -267,8 +267,9 @@ read_sf_internal (st_parameter_dt *dtp, int * length)
 
   dtp->u.p.current_unit->bytes_left -= *length;
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) *length;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) *length;
 
   return base;
 
@@ -315,7 +316,8 @@ read_sf (st_parameter_dt *dtp, int * length)
       q = fbuf_getc (dtp->u.p.current_unit);
       if (q == EOF)
 	break;
-      else if (q == '\n' || q == '\r')
+      else if (dtp->u.p.current_unit->flags.cc != CC_NONE
+	       && (q == '\n' || q == '\r'))
 	{
 	  /* Unexpected end of line. Set the position.  */
 	  dtp->u.p.sf_seen_eor = 1;
@@ -397,8 +399,9 @@ read_sf (st_parameter_dt *dtp, int * length)
 
   dtp->u.p.current_unit->bytes_left -= n;
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) n;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) n;
 
   /* We can't call fbuf_getptr before the loop doing fbuf_getc, because
      fbuf_getc might reallocate the buffer.  So return current pointer
@@ -478,8 +481,9 @@ read_block_form (st_parameter_dt *dtp, int * nbytes)
   source = fbuf_read (dtp->u.p.current_unit, nbytes);
   fbuf_seek (dtp->u.p.current_unit, *nbytes, SEEK_CUR);
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) *nbytes;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) *nbytes;
 
   if (norig != *nbytes)
     {
@@ -536,8 +540,9 @@ read_block_form4 (st_parameter_dt *dtp, int * nbytes)
 
   dtp->u.p.current_unit->bytes_left -= *nbytes;
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) *nbytes;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) *nbytes;
 
   return source;
 }
@@ -737,7 +742,7 @@ write_block (st_parameter_dt *dtp, int length)
 
   if (is_internal_unit (dtp))
     {
-      if (dtp->common.unit) /* char4 internel unit.  */
+      if (is_char4_unit(dtp)) /* char4 internel unit.  */
 	{
 	  gfc_char4_t *dest4;
 	  dest4 = mem_alloc_w4 (dtp->u.p.current_unit->s, &length);
@@ -770,8 +775,9 @@ write_block (st_parameter_dt *dtp, int length)
 	}
     }
 
-  if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used += (GFC_IO_INT) length;
+  if (((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0) ||
+      dtp->u.p.current_unit->has_size)
+    dtp->u.p.current_unit->size_used += (GFC_IO_INT) length;
 
   dtp->u.p.current_unit->strm_pos += (gfc_offset) length;
 
@@ -1573,7 +1579,8 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
               dtp->u.p.current_unit->bytes_left -= dtp->u.p.sf_seen_eor;
               dtp->u.p.skips -= dtp->u.p.sf_seen_eor;
 	      bytes_used = pos;
-	      dtp->u.p.sf_seen_eor = 0;
+	      if (dtp->u.p.pending_spaces == 0)
+		dtp->u.p.sf_seen_eor = 0;
 	    }
 	  if (dtp->u.p.skips < 0)
 	    {
@@ -2593,27 +2600,27 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   dtp->u.p.ionml = ionml;
   dtp->u.p.mode = read_flag ? READING : WRITING;
 
+  dtp->u.p.cc.len = 0;
+
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
 
-  if ((cf & IOPARM_DT_HAS_SIZE) != 0)
-    dtp->u.p.size_used = 0;  /* Initialize the count.  */
-
   dtp->u.p.current_unit = get_unit (dtp, 1);
 
-  if (dtp->u.p.current_unit->s == NULL)
+  if (dtp->u.p.current_unit == NULL)
+    {
+      /* This means we tried to access an external unit < 0 without
+	 having opened it first with NEWUNIT=.  */
+      generate_error (&dtp->common, LIBERROR_BAD_OPTION,
+		      "Unit number is negative and unit was not already "
+		      "opened with OPEN(NEWUNIT=...)");
+      return;
+    }
+  else if (dtp->u.p.current_unit->s == NULL)
     {  /* Open the unit with some default flags.  */
        st_parameter_open opp;
        unit_convert conv;
 
-      if (dtp->common.unit < 0)
-	{
-	  close_unit (dtp->u.p.current_unit);
-	  dtp->u.p.current_unit = NULL;
-	  generate_error (&dtp->common, LIBERROR_BAD_OPTION,
-			  "Bad unit number in statement");
-	  return;
-	}
       memset (&u_flags, '\0', sizeof (u_flags));
       u_flags.access = ACCESS_SEQUENTIAL;
       u_flags.action = ACTION_READWRITE;
@@ -2633,6 +2640,9 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       u_flags.async = ASYNC_UNSPECIFIED;
       u_flags.round = ROUND_UNSPECIFIED;
       u_flags.sign = SIGN_UNSPECIFIED;
+      u_flags.share = SHARE_UNSPECIFIED;
+      u_flags.cc = CC_UNSPECIFIED;
+      u_flags.readonly = 0;
 
       u_flags.status = STATUS_UNKNOWN;
 
@@ -2671,6 +2681,18 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       dtp->common.flags |= (opp.common.flags & IOPARM_COMMON_MASK);
       if (dtp->u.p.current_unit == NULL)
 	return;
+    }
+
+  if (dtp->u.p.current_unit->child_dtio == 0)
+    {
+      if ((cf & IOPARM_DT_HAS_SIZE) != 0)
+	{
+	  dtp->u.p.current_unit->has_size = true;
+	  /* Initialize the count.  */
+	  dtp->u.p.current_unit->size_used = 0;
+	}
+      else
+	dtp->u.p.current_unit->has_size = false;
     }
 
   /* Check the action.  */
@@ -3011,20 +3033,13 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	  return;
 	}
 
-      /* TODO: This is required to maintain compatibility between
-         4.3 and 4.4 runtime. Remove when ABI changes from 4.3 */
-
-      if (is_stream_io (dtp))
-        dtp->u.p.current_unit->strm_pos = dtp->rec;
-
-      /* TODO: Un-comment this code when ABI changes from 4.3.
       if (dtp->u.p.current_unit->flags.access == ACCESS_STREAM)
        {
          generate_error (&dtp->common, LIBERROR_OPTION_CONFLICT,
                      "Record number not allowed for stream access "
                      "data transfer");
          return;
-       }  */
+       }
     }
 
   /* Bugware for badly written mixed C-Fortran I/O.  */
@@ -3341,7 +3356,7 @@ next_record_r (st_parameter_dt *dtp, int done)
 	    }
 	  break;
 	}
-      else
+      else if (dtp->u.p.current_unit->flags.cc != CC_NONE)
 	{
 	  do
 	    {
@@ -3523,6 +3538,30 @@ sset (stream * s, int c, ssize_t nbyte)
 }
 
 
+/* Finish up a record according to the legacy carriagecontrol type, based
+   on the first character in the record.  */
+
+static void
+next_record_cc (st_parameter_dt *dtp)
+{
+  /* Only valid with CARRIAGECONTROL=FORTRAN.  */
+  if (dtp->u.p.current_unit->flags.cc != CC_FORTRAN)
+    return;
+
+  fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
+  if (dtp->u.p.cc.len > 0)
+    {
+      char * p = fbuf_alloc (dtp->u.p.current_unit, dtp->u.p.cc.len);
+      if (!p)
+	generate_error (&dtp->common, LIBERROR_OS, NULL);
+
+      /* Output CR for the first character with default CC setting.  */
+      *(p++) = dtp->u.p.cc.u.end;
+      if (dtp->u.p.cc.len > 1)
+	*p = dtp->u.p.cc.u.end;
+    }
+}
+
 /* Position to the next record in write mode.  */
 
 static void
@@ -3669,21 +3708,30 @@ next_record_w (st_parameter_dt *dtp, int done)
 		}
 	    }
 	}
+      /* Handle legacy CARRIAGECONTROL line endings.  */
+      else if (dtp->u.p.current_unit->flags.cc == CC_FORTRAN)
+	next_record_cc (dtp);
       else
 	{
+	  /* Skip newlines for CC=CC_NONE.  */
+	  const int len = (dtp->u.p.current_unit->flags.cc == CC_NONE)
+	    ? 0
 #ifdef HAVE_CRLF
-	  const int len = 2;
+	    : 2;
 #else
-	  const int len = 1;
+	    : 1;
 #endif
-          fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
-          char * p = fbuf_alloc (dtp->u.p.current_unit, len);
-          if (!p)
-            goto io_error;
+	  fbuf_seek (dtp->u.p.current_unit, 0, SEEK_END);
+	  if (dtp->u.p.current_unit->flags.cc != CC_NONE)
+	    {
+	      char * p = fbuf_alloc (dtp->u.p.current_unit, len);
+	      if (!p)
+		goto io_error;
 #ifdef HAVE_CRLF
-          *(p++) = '\r';
+	      *(p++) = '\r';
 #endif
-          *p = '\n';
+	      *p = '\n';
+	    }
 	  if (is_stream_io (dtp))
 	    {
 	      dtp->u.p.current_unit->strm_pos += len;
@@ -3720,6 +3768,8 @@ next_record (st_parameter_dt *dtp, int done)
   else
     next_record_w (dtp, done);
 
+  fbuf_flush (dtp->u.p.current_unit, dtp->u.p.mode);
+
   if (!is_stream_io (dtp))
     {
       /* Since we have changed the position, set it to unspecified so
@@ -3733,8 +3783,8 @@ next_record (st_parameter_dt *dtp, int done)
 	  fp = stell (dtp->u.p.current_unit->s);
 	  /* Calculate next record, rounding up partial records.  */
 	  dtp->u.p.current_unit->last_record =
-	    (fp + dtp->u.p.current_unit->recl - 1) /
-	      dtp->u.p.current_unit->recl;
+	    (fp + dtp->u.p.current_unit->recl) /
+	      dtp->u.p.current_unit->recl - 1;
 	}
       else
 	dtp->u.p.current_unit->last_record++;
@@ -3743,7 +3793,6 @@ next_record (st_parameter_dt *dtp, int done)
   if (!done)
     pre_position (dtp);
 
-  fbuf_flush (dtp->u.p.current_unit, dtp->u.p.mode);
   smarkeor (dtp->u.p.current_unit->s);
 }
 
@@ -3767,10 +3816,17 @@ finalize_transfer (st_parameter_dt *dtp)
     }
 
   if (dtp->u.p.current_unit && (dtp->u.p.current_unit->child_dtio  > 0))
-    return;
+    {
+      if (cf & IOPARM_DT_HAS_FORMAT)
+        {
+	  free (dtp->u.p.fmt);
+	  free (dtp->format);
+	}
+      return;
+    }
 
   if ((dtp->common.flags & IOPARM_DT_HAS_SIZE) != 0)
-    *dtp->size = dtp->u.p.size_used;
+    *dtp->size = dtp->u.p.current_unit->size_used;
 
   if (dtp->u.p.eor_condition)
     {
@@ -3943,18 +3999,33 @@ st_read_done (st_parameter_dt *dtp)
 {
   finalize_transfer (dtp);
 
-  if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
-    {
-      free_format_data (dtp->u.p.fmt);
-      free_format (dtp);
-    }
-
   free_ionml (dtp);
 
-  if (dtp->u.p.current_unit != NULL)
-    unlock_unit (dtp->u.p.current_unit);
-
-  free_internal_unit (dtp);
+  /* If this is a parent READ statement we do not need to retain the
+     internal unit structure for child use.  Free it and stash the unit
+     number for reuse.  */
+  if (dtp->u.p.current_unit != NULL
+      && dtp->u.p.current_unit->child_dtio == 0)
+    {
+      if (is_internal_unit (dtp) &&
+	  (dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
+        {
+	  free (dtp->u.p.current_unit->filename);
+	  dtp->u.p.current_unit->filename = NULL;
+	  free (dtp->u.p.current_unit->s);
+	  dtp->u.p.current_unit->s = NULL;
+	  if (dtp->u.p.current_unit->ls)
+	    free (dtp->u.p.current_unit->ls);
+	  dtp->u.p.current_unit->ls = NULL;
+	  stash_internal_unit (dtp);
+	}
+      if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
+	{
+	  free_format_data (dtp->u.p.fmt);
+	  free_format (dtp);
+	}
+      unlock_unit (dtp->u.p.current_unit);
+    }
 
   library_end ();
 }
@@ -3977,43 +4048,54 @@ st_write_done (st_parameter_dt *dtp)
 {
   finalize_transfer (dtp);
 
-  /* Deal with endfile conditions associated with sequential files.  */
-
   if (dtp->u.p.current_unit != NULL
-      && dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL
       && dtp->u.p.current_unit->child_dtio == 0)
-    switch (dtp->u.p.current_unit->endfile)
-      {
-      case AT_ENDFILE:		/* Remain at the endfile record.  */
-	break;
-
-      case AFTER_ENDFILE:
-	dtp->u.p.current_unit->endfile = AT_ENDFILE;	/* Just at it now.  */
-	break;
-
-      case NO_ENDFILE:
-	/* Get rid of whatever is after this record.  */
-        if (!is_internal_unit (dtp))
-          unit_truncate (dtp->u.p.current_unit,
-                         stell (dtp->u.p.current_unit->s),
-                         &dtp->common);
-	dtp->u.p.current_unit->endfile = AT_ENDFILE;
-	break;
-      }
-
-  if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
     {
-      free_format_data (dtp->u.p.fmt);
-      free_format (dtp);
+      /* Deal with endfile conditions associated with sequential files.  */
+      if (dtp->u.p.current_unit->flags.access == ACCESS_SEQUENTIAL)
+	switch (dtp->u.p.current_unit->endfile)
+	  {
+	  case AT_ENDFILE:		/* Remain at the endfile record.  */
+	    break;
+
+	  case AFTER_ENDFILE:
+	    dtp->u.p.current_unit->endfile = AT_ENDFILE; /* Just at it now.  */
+	    break;
+
+	  case NO_ENDFILE:
+	    /* Get rid of whatever is after this record.  */
+	    if (!is_internal_unit (dtp))
+	      unit_truncate (dtp->u.p.current_unit,
+			     stell (dtp->u.p.current_unit->s),
+			     &dtp->common);
+	    dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	    break;
+	  }
+
+      free_ionml (dtp);
+
+      /* If this is a parent WRITE statement we do not need to retain the
+	 internal unit structure for child use.  Free it and stash the
+	 unit number for reuse.  */
+      if (is_internal_unit (dtp) &&
+	  (dtp->common.flags & IOPARM_DT_HAS_UDTIO) == 0)
+	{
+	  free (dtp->u.p.current_unit->filename);
+	  dtp->u.p.current_unit->filename = NULL;
+	  free (dtp->u.p.current_unit->s);
+	  dtp->u.p.current_unit->s = NULL;
+	  if (dtp->u.p.current_unit->ls)
+	    free (dtp->u.p.current_unit->ls);
+	  dtp->u.p.current_unit->ls = NULL;
+	  stash_internal_unit (dtp);
+	}
+      if (is_internal_unit (dtp) || dtp->u.p.format_not_saved)
+	{
+	  free_format_data (dtp->u.p.fmt);
+	  free_format (dtp);
+	}
+      unlock_unit (dtp->u.p.current_unit);
     }
-
-  free_ionml (dtp);
-
-  if (dtp->u.p.current_unit != NULL)
-    unlock_unit (dtp->u.p.current_unit);
-
-  free_internal_unit (dtp);
-
   library_end ();
 }
 

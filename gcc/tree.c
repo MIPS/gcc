@@ -735,7 +735,7 @@ set_decl_section_name (tree node, const char *value)
       if (!snode)
 	return;
     }
-  else if (TREE_CODE (node) == VAR_DECL)
+  else if (VAR_P (node))
     snode = varpool_node::get_create (node);
   else
     snode = cgraph_node::get_create (node);
@@ -1038,8 +1038,8 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	{
 	  if (code == FUNCTION_DECL)
 	    {
-	      SET_DECL_ALIGN (t, FUNCTION_BOUNDARY);
-	      DECL_MODE (t) = FUNCTION_MODE;
+	      SET_DECL_ALIGN (t, FUNCTION_ALIGNMENT (FUNCTION_BOUNDARY));
+	      SET_DECL_MODE (t, FUNCTION_MODE);
 	    }
 	  else
 	    SET_DECL_ALIGN (t, 1);
@@ -1175,19 +1175,19 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  if (DECL_PT_UID_SET_P (node))
 	    SET_DECL_PT_UID (t, DECL_PT_UID (node));
 	}
-      if ((TREE_CODE (node) == PARM_DECL || TREE_CODE (node) == VAR_DECL)
+      if ((TREE_CODE (node) == PARM_DECL || VAR_P (node))
 	  && DECL_HAS_VALUE_EXPR_P (node))
 	{
 	  SET_DECL_VALUE_EXPR (t, DECL_VALUE_EXPR (node));
 	  DECL_HAS_VALUE_EXPR_P (t) = 1;
 	}
       /* DECL_DEBUG_EXPR is copied explicitely by callers.  */
-      if (TREE_CODE (node) == VAR_DECL)
+      if (VAR_P (node))
 	{
 	  DECL_HAS_DEBUG_EXPR_P (t) = 0;
 	  t->decl_with_vis.symtab_node = NULL;
 	}
-      if (TREE_CODE (node) == VAR_DECL && DECL_HAS_INIT_PRIORITY_P (node))
+      if (VAR_P (node) && DECL_HAS_INIT_PRIORITY_P (node))
 	{
 	  SET_DECL_INIT_PRIORITY (t, DECL_INIT_PRIORITY (node));
 	  DECL_HAS_INIT_PRIORITY_P (t) = 1;
@@ -5389,8 +5389,7 @@ need_assembler_name_p (tree decl)
       && !variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
     return !DECL_ASSEMBLER_NAME_SET_P (decl);
   /* Only FUNCTION_DECLs and VAR_DECLs are considered.  */
-  if (TREE_CODE (decl) != FUNCTION_DECL
-      && TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (decl))
     return false;
 
   /* If DECL already has its assembler name set, it does not need a
@@ -5405,7 +5404,7 @@ need_assembler_name_p (tree decl)
 
   /* For VAR_DECLs, only static, public and external symbols need an
      assembler name.  */
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && !TREE_STATIC (decl)
       && !TREE_PUBLIC (decl)
       && !DECL_EXTERNAL (decl))
@@ -5519,7 +5518,7 @@ free_lang_data_in_decl (tree decl)
       if (DECL_VINDEX (decl) && !tree_fits_shwi_p (DECL_VINDEX (decl)))
 	DECL_VINDEX (decl) = NULL_TREE;
     }
-  else if (TREE_CODE (decl) == VAR_DECL)
+  else if (VAR_P (decl))
     {
       if ((DECL_EXTERNAL (decl)
 	   && (!TREE_STATIC (decl) || !TREE_READONLY (decl)))
@@ -5691,7 +5690,7 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	  fld_worklist_push (DECL_FCONTEXT (t), fld);
 	}
 
-      if ((TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == PARM_DECL)
+      if ((VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 	  && DECL_HAS_VALUE_EXPR_P (t))
 	fld_worklist_push (DECL_VALUE_EXPR (t), fld);
 
@@ -6066,6 +6065,7 @@ free_lang_data (void)
   /* Create gimple variants for common types.  */
   ptrdiff_type_node = integer_type_node;
   fileptr_type_node = ptr_type_node;
+  const_tm_ptr_type_node = const_ptr_type_node;
 
   /* Reset some langhooks.  Do not reset types_compatible_p, it may
      still be used indirectly via the get_alias_set langhook.  */
@@ -6388,14 +6388,13 @@ merge_dllimport_decl_attributes (tree old, tree new_tree)
 	      decl may already have had TREE_CONSTANT computed.
 	      We still remove the attribute so that assembler code refers
 	      to '&foo rather than '_imp__foo'.  */
-	  if (TREE_CODE (old) == VAR_DECL && TREE_ADDRESSABLE (old))
+	  if (VAR_P (old) && TREE_ADDRESSABLE (old))
 	    DECL_DLLIMPORT_P (new_tree) = 1;
 	}
 
       /* Let an inline definition silently override the external reference,
 	 but otherwise warn about attribute inconsistency.  */
-      else if (TREE_CODE (new_tree) == VAR_DECL
-	       || !DECL_DECLARED_INLINE_P (new_tree))
+      else if (VAR_P (new_tree) || !DECL_DECLARED_INLINE_P (new_tree))
 	warning (OPT_Wattributes, "%q+D redeclared without dllimport attribute: "
 		  "previous dllimport ignored", new_tree);
     }
@@ -6446,9 +6445,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	}
     }
 
-  if (TREE_CODE (node) != FUNCTION_DECL
-      && TREE_CODE (node) != VAR_DECL
-      && TREE_CODE (node) != TYPE_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (node) && TREE_CODE (node) != TYPE_DECL)
     {
       *no_add_attrs = true;
       warning (OPT_Wattributes, "%qE attribute ignored",
@@ -6491,7 +6488,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	  *no_add_attrs = true;
 	}
 
-     else if (TREE_CODE (node) == VAR_DECL)
+     else if (VAR_P (node))
 	{
 	  if (DECL_INITIAL (node))
 	    {
@@ -6519,9 +6516,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
     DECL_EXTERNAL (node) = 0;
 
   /*  Report error if symbol is not accessible at global scope.  */
-  if (!TREE_PUBLIC (node)
-      && (TREE_CODE (node) == VAR_DECL
-	  || TREE_CODE (node) == FUNCTION_DECL))
+  if (!TREE_PUBLIC (node) && VAR_OR_FUNCTION_DECL_P (node))
     {
       error ("external linkage required for symbol %q+D because of "
 	     "%qE attribute", node, name);
@@ -6568,6 +6563,21 @@ set_type_quals (tree type, int type_quals, tree block_factor)
     SET_TYPE_BLOCK_FACTOR (type, block_factor);
 }
 
+/* Returns true iff CAND and BASE have equivalent language-specific
+   qualifiers.  */
+
+bool
+check_lang_type (const_tree cand, const_tree base)
+{
+  if (lang_hooks.types.type_hash_eq == NULL)
+    return true;
+  /* type_hash_eq currently only applies to these types.  */
+  if (TREE_CODE (cand) != FUNCTION_TYPE
+      && TREE_CODE (cand) != METHOD_TYPE)
+    return true;
+  return lang_hooks.types.type_hash_eq (cand, base);
+}
+
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
 bool
@@ -6592,7 +6602,8 @@ check_qualified_type (const_tree cand, const_tree base,
 {
   return (TYPE_QUALS (cand) == type_quals
 	  && TYPE_BLOCK_FACTOR (cand) == block_factor
-	  && check_base_type (cand, base));
+	  && check_base_type (cand, base)
+	  && check_lang_type (cand, base));
 }
 
 /* Returns true iff CAND is equivalent to BASE with ALIGN.  */
@@ -6609,7 +6620,8 @@ check_aligned_type (const_tree cand, const_tree base, unsigned int align)
 	  /* Check alignment.  */
 	  && TYPE_ALIGN (cand) == align
 	  && attribute_list_equal (TYPE_ATTRIBUTES (cand),
-				   TYPE_ATTRIBUTES (base)));
+				   TYPE_ATTRIBUTES (base))
+	  && check_lang_type (cand, base));
 }
 
 /* This function checks to see if TYPE matches the size one of the built-in 
@@ -6896,7 +6908,7 @@ decl_init_priority_insert (tree decl, priority_type priority)
       if (!snode)
 	return;
     }
-  else if (TREE_CODE (decl) == VAR_DECL)
+  else if (VAR_P (decl))
     snode = varpool_node::get_create (decl);
   else
     snode = cgraph_node::get_create (decl);
@@ -8842,10 +8854,15 @@ build_offset_type (tree basetype, tree type)
   return t;
 }
 
-/* Create a complex type whose components are COMPONENT_TYPE.  */
+/* Create a complex type whose components are COMPONENT_TYPE.
+
+   If NAMED is true, the type is given a TYPE_NAME.  We do not always
+   do so because this creates a DECL node and thus make the DECL_UIDs
+   dependent on the type canonicalization hashtable, which is GC-ed,
+   so the DECL_UIDs would not be stable wrt garbage collection.  */
 
 tree
-build_complex_type (tree component_type)
+build_complex_type (tree component_type, bool named)
 {
   tree t;
   inchash::hash hstate;
@@ -8872,11 +8889,11 @@ build_complex_type (tree component_type)
 	SET_TYPE_STRUCTURAL_EQUALITY (t);
       else if (TYPE_CANONICAL (component_type) != component_type)
 	TYPE_CANONICAL (t)
-	  = build_complex_type (TYPE_CANONICAL (component_type));
+	  = build_complex_type (TYPE_CANONICAL (component_type), named);
     }
 
   /* We need to create a name, since complex is a fundamental type.  */
-  if (! TYPE_NAME (t))
+  if (!TYPE_NAME (t) && named)
     {
       const char *name;
       if (component_type == char_type_node)
@@ -9150,8 +9167,8 @@ get_narrower (tree op, int *unsignedp_ptr)
   return win;
 }
 
-/* Returns true if integer constant C has a value that is permissible
-   for type TYPE (an INTEGER_TYPE).  */
+/* Return true if integer constant C has a value that is permissible
+   for TYPE, an integral type.  */
 
 bool
 int_fits_type_p (const_tree c, const_tree type)
@@ -9159,6 +9176,11 @@ int_fits_type_p (const_tree c, const_tree type)
   tree type_low_bound, type_high_bound;
   bool ok_for_low_bound, ok_for_high_bound;
   signop sgn_c = TYPE_SIGN (TREE_TYPE (c));
+
+  /* Short-circuit boolean types since various transformations assume that
+     they can only take values 0 and 1.  */
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
+    return integer_zerop (c) || integer_onep (c);
 
 retry:
   type_low_bound = TYPE_MIN_VALUE (type);
@@ -9280,7 +9302,7 @@ bool
 auto_var_in_fn_p (const_tree var, const_tree fn)
 {
   return (DECL_P (var) && DECL_CONTEXT (var) == fn
-	  && ((((TREE_CODE (var) == VAR_DECL && ! DECL_EXTERNAL (var))
+	  && ((((VAR_P (var) && ! DECL_EXTERNAL (var))
 		|| TREE_CODE (var) == PARM_DECL)
 	       && ! TREE_STATIC (var))
 	      || TREE_CODE (var) == LABEL_DECL
@@ -10395,6 +10417,7 @@ build_common_tree_nodes (bool signed_char)
   const_ptr_type_node
     = build_pointer_type (build_type_variant (void_type_node, 1, 0));
   fileptr_type_node = ptr_type_node;
+  const_tm_ptr_type_node = const_ptr_type_node;
 
   pointer_sized_int_node = build_nonstandard_integer_type (POINTER_SIZE, 1);
 
@@ -10462,10 +10485,11 @@ build_common_tree_nodes (bool signed_char)
   SET_TYPE_MODE (dfloat128_type_node, TDmode);
   dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
 
-  complex_integer_type_node = build_complex_type (integer_type_node);
-  complex_float_type_node = build_complex_type (float_type_node);
-  complex_double_type_node = build_complex_type (double_type_node);
-  complex_long_double_type_node = build_complex_type (long_double_type_node);
+  complex_integer_type_node = build_complex_type (integer_type_node, true);
+  complex_float_type_node = build_complex_type (float_type_node, true);
+  complex_double_type_node = build_complex_type (double_type_node, true);
+  complex_long_double_type_node = build_complex_type (long_double_type_node,
+						      true);
 
   for (i = 0; i < NUM_FLOATN_NX_TYPES; i++)
     {
@@ -10686,11 +10710,18 @@ build_common_builtin_nodes (void)
 			BUILT_IN_INIT_HEAP_TRAMPOLINE,
 			"__builtin_init_heap_trampoline",
 			ECF_NOTHROW | ECF_LEAF);
+  local_define_builtin ("__builtin_init_descriptor", ftype,
+			BUILT_IN_INIT_DESCRIPTOR,
+			"__builtin_init_descriptor", ECF_NOTHROW | ECF_LEAF);
 
   ftype = build_function_type_list (ptr_type_node, ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_adjust_trampoline", ftype,
 			BUILT_IN_ADJUST_TRAMPOLINE,
 			"__builtin_adjust_trampoline",
+			ECF_CONST | ECF_NOTHROW);
+  local_define_builtin ("__builtin_adjust_descriptor", ftype,
+			BUILT_IN_ADJUST_DESCRIPTOR,
+			"__builtin_adjust_descriptor",
 			ECF_CONST | ECF_NOTHROW);
 
   ftype = build_function_type_list (void_type_node,
@@ -13240,7 +13271,7 @@ array_at_struct_end_p (tree ref)
       && (!size || (DECL_SIZE (ref) != NULL
 		    && operand_equal_p (DECL_SIZE (ref), size, 0)))
       && !(flag_unconstrained_commons
-	   && TREE_CODE (ref) == VAR_DECL && DECL_COMMON (ref)))
+	   && VAR_P (ref) && DECL_COMMON (ref)))
     return false;
 
   return true;
@@ -13361,12 +13392,10 @@ verify_type_variant (const_tree t, tree tv)
 	verify_variant_match (TYPE_SIZE);
       if (TREE_CODE (TYPE_SIZE_UNIT (t)) != PLACEHOLDER_EXPR
 	  && TREE_CODE (TYPE_SIZE_UNIT (tv)) != PLACEHOLDER_EXPR
-	  && TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv)
-	  /* FIXME: ideally we should compare pointer equality, but java FE
-	     produce variants where size is INTEGER_CST of different type (int
-	     wrt size_type) during libjava biuld.  */
-	  && !operand_equal_p (TYPE_SIZE_UNIT (t), TYPE_SIZE_UNIT (tv), 0))
+	  && TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv))
 	{
+	  gcc_assert (!operand_equal_p (TYPE_SIZE_UNIT (t),
+					TYPE_SIZE_UNIT (tv), 0));
 	  error ("type variant has different TYPE_SIZE_UNIT");
 	  debug_tree (tv);
 	  error ("type variant's TYPE_SIZE_UNIT");
@@ -14072,7 +14101,7 @@ verify_type (const_tree t)
 	    ;
 	  else if (TREE_CODE (fld) == CONST_DECL)
 	    ;
-	  else if (TREE_CODE (fld) == VAR_DECL)
+	  else if (VAR_P (fld))
 	    ;
 	  else if (TREE_CODE (fld) == TEMPLATE_DECL)
 	    ;

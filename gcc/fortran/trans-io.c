@@ -1123,6 +1123,14 @@ gfc_trans_open (gfc_code * code)
     mask |= set_parameter_ref (&block, &post_block, var, IOPARM_open_newunit,
 			       p->newunit);
 
+  if (p->cc)
+    mask |= set_string (&block, &post_block, var, IOPARM_open_cc, p->cc);
+
+  if (p->share)
+    mask |= set_string (&block, &post_block, var, IOPARM_open_share, p->share);
+
+  mask |= set_parameter_const (&block, var, IOPARM_open_readonly, p->readonly);
+
   set_parameter_const (&block, var, IOPARM_common_flags, mask);
 
   if (p->unit)
@@ -1450,6 +1458,13 @@ gfc_trans_inquire (gfc_code * code)
     mask2 |= set_string (&block, &post_block, var, IOPARM_inquire_iqstream,
 			 p->iqstream);
 
+  if (p->share)
+    mask2 |= set_string (&block, &post_block, var, IOPARM_inquire_share,
+			 p->share);
+
+  if (p->cc)
+    mask2 |= set_string (&block, &post_block, var, IOPARM_inquire_cc, p->cc);
+
   if (mask2)
     mask |= set_parameter_const (&block, var, IOPARM_inquire_flags2, mask2);
 
@@ -1573,10 +1588,10 @@ nml_get_addr_expr (gfc_symbol * sym, gfc_component * c,
   else
     decl = c->backend_decl;
 
-  gcc_assert (decl && ((TREE_CODE (decl) == FIELD_DECL
-		     || TREE_CODE (decl) == VAR_DECL
-		     || TREE_CODE (decl) == PARM_DECL)
-		     || TREE_CODE (decl) == COMPONENT_REF));
+  gcc_assert (decl && (TREE_CODE (decl) == FIELD_DECL
+		       || VAR_P (decl)
+		       || TREE_CODE (decl) == PARM_DECL
+		       || TREE_CODE (decl) == COMPONENT_REF));
 
   tmp = decl;
 
@@ -1808,7 +1823,8 @@ build_dt (tree function, gfc_code * code)
 	  mask |= set_internal_unit (&block, &post_iu_block,
 				     var, dt->io_unit);
 	  set_parameter_const (&block, var, IOPARM_common_unit,
-			       dt->io_unit->ts.kind == 1 ? 0 : -1);
+			       dt->io_unit->ts.kind == 1 ?
+			        GFC_INTERNAL_UNIT : GFC_INTERNAL_UNIT4);
 	}
     }
   else
@@ -1891,6 +1907,12 @@ build_dt (tree function, gfc_code * code)
       if (dt->size)
 	mask |= set_parameter_ref (&block, &post_end_block, var,
 				   IOPARM_dt_size, dt->size);
+
+      if (dt->udtio)
+	mask |= IOPARM_dt_dtio;
+
+      if (dt->default_exp)
+	mask |= IOPARM_dt_default_exp;
 
       if (dt->namelist)
 	{
@@ -2321,7 +2343,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr,
 	  if (derived->attr.has_dtio_procs)
 	    arg2 = get_dtio_proc (ts, code, &dtio_sub);
 
-	  if (dtio_sub != NULL)
+	  if ((dtio_sub != NULL) && (last_dt != IOLENGTH))
 	    {
 	      tree decl;
 	      decl = build_fold_indirect_ref_loc (input_location,
@@ -2380,6 +2402,7 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr,
 	    }
 	  /* If a CLASS object gets through to here, fall through and ICE.  */
 	}
+      gcc_fallthrough ();
     default:
       gfc_internal_error ("Bad IO basetype (%d)", ts->type);
     }

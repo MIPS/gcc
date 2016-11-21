@@ -39,13 +39,20 @@ static inline void*
 aligned_alloc (std::size_t al, std::size_t sz)
 {
   void *ptr;
+  // The value of alignment shall be a power of two multiple of sizeof(void *).
+  if (al < sizeof(void*))
+    al = sizeof(void*);
   int ret = posix_memalign (&ptr, al, sz);
   if (ret == 0)
     return ptr;
   return nullptr;
 }
 #elif _GLIBCXX_HAVE_MEMALIGN
+#if _GLIBCXX_HOSTED
 #include <malloc.h>
+#else
+extern "C" void *memalign(std::size_t boundary, std::size_t size);
+#endif
 #define aligned_alloc memalign
 #else
 // The C library doesn't provide any aligned allocation functions, declare
@@ -58,13 +65,19 @@ _GLIBCXX_WEAK_DEFINITION void *
 operator new (std::size_t sz, std::align_val_t al)
 {
   void *p;
+  std::size_t align = (std::size_t)al;
 
   /* malloc (0) is unpredictable; avoid it.  */
   if (sz == 0)
     sz = 1;
 
-  while (__builtin_expect ((p = aligned_alloc ((std::size_t)al, sz)) == 0,
-			   false))
+#if _GLIBCXX_HAVE_ALIGNED_ALLOC
+  /* C11: the value of size shall be an integral multiple of alignment.  */
+  if (std::size_t rem = sz & (align - 1))
+    sz += align - rem;
+#endif
+
+  while (__builtin_expect ((p = aligned_alloc (align, sz)) == 0, false))
     {
       new_handler handler = std::get_new_handler ();
       if (! handler)

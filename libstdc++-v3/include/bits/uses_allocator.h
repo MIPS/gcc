@@ -126,9 +126,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : __is_uses_allocator_predicate<is_constructible, _Tp, _Alloc, _Args...>
     { };
 
+#if __cplusplus >= 201402L
   template<typename _Tp, typename _Alloc, typename... _Args>
     constexpr bool __is_uses_allocator_constructible_v =
       __is_uses_allocator_constructible<_Tp, _Alloc, _Args...>::value;
+#endif // C++14
 
   template<typename _Tp, typename _Alloc, typename... _Args>
     struct __is_nothrow_uses_allocator_constructible
@@ -137,31 +139,36 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 
 
+#if __cplusplus >= 201402L
   template<typename _Tp, typename _Alloc, typename... _Args>
     constexpr bool __is_nothrow_uses_allocator_constructible_v =
       __is_nothrow_uses_allocator_constructible<_Tp, _Alloc, _Args...>::value;
+#endif // C++14
 
   template<typename _Tp, typename... _Args>
     void __uses_allocator_construct_impl(__uses_alloc0 __a, _Tp* __ptr,
 					 _Args&&... __args)
-    { new (__ptr) _Tp(forward<_Args>(__args)...); }
+    { ::new ((void*)__ptr) _Tp(std::forward<_Args>(__args)...); }
 
   template<typename _Tp, typename _Alloc, typename... _Args>
     void __uses_allocator_construct_impl(__uses_alloc1<_Alloc> __a, _Tp* __ptr,
 					 _Args&&... __args)
-    { new (__ptr) _Tp(allocator_arg, *__a._M_a, forward<_Args>(__args)...); }
+    {
+      ::new ((void*)__ptr) _Tp(allocator_arg, *__a._M_a,
+			       std::forward<_Args>(__args)...);
+    }
 
   template<typename _Tp, typename _Alloc, typename... _Args>
     void __uses_allocator_construct_impl(__uses_alloc2<_Alloc> __a, _Tp* __ptr,
 					 _Args&&... __args)
-    { new (__ptr) _Tp(forward<_Args>(__args)..., *__a._M_a); }
+    { ::new ((void*)__ptr) _Tp(std::forward<_Args>(__args)..., *__a._M_a); }
 
   template<typename _Tp, typename _Alloc, typename... _Args>
     void __uses_allocator_construct(const _Alloc& __a, _Tp* __ptr,
 				    _Args&&... __args)
     {
       __uses_allocator_construct_impl(__use_alloc<_Tp, _Alloc, _Args...>(__a),
-				      __ptr, forward<_Args>(__args)...);
+				      __ptr, std::forward<_Args>(__args)...);
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

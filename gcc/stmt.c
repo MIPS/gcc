@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "predict.h"
 #include "alloc-pool.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"
 #include "regs.h"
@@ -458,7 +459,7 @@ decl_overlaps_hard_reg_set_p (tree *declp, int *walk_subtrees ATTRIBUTE_UNUSED,
   tree decl = *declp;
   const HARD_REG_SET *const regs = (const HARD_REG_SET *) data;
 
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     {
       if (DECL_HARD_REGISTER (decl)
 	  && REG_P (DECL_RTL (decl))

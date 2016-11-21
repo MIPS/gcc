@@ -1,3 +1,34 @@
+2016-11-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/71973
+	* lto-lang.c (lto_init): Assert const_tm_ptr_type_node is sane.
+
+2016-11-18  Richard Sandiford  <richard.sandiford@arm.com>
+	    Alan Hayward  <alan.hayward@arm.com>
+	    David Sherwood  <david.sherwood@arm.com>
+
+	* lto.c (offload_handle_link_vars): Use SET_DECL_MODE.
+
+2016-10-31  Richard Biener  <rguenther@suse.de>
+
+	PR lto/78129
+	* lto.c (do_whole_program_analysis): Bail out after errors
+	from WPA analysis.
+
+2016-09-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* lto-partition.c: Include tree-vrp.h.
+	* lto.c: Likewise.
+
+2016-09-20  Richard Biener  <rguenther@suse.de>
+
+	* lto.c (lto_main): Call early_finish with "<artificial>" as
+	filename.
+
+2016-09-19  Richard Biener  <rguenther@suse.de>
+
+	* lto.c (lto_main): Invoke early_finish debug hook.
+
 2016-07-25  Richard Biener  <rguenther@suse.de>
 
 	* lto.c (compare_tree_sccs_1): Remove streamer_handle_as_builtin_p uses.

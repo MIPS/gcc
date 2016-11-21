@@ -639,7 +639,8 @@
   [(set (pc) (if_then_else
 	      (EQL (zero_extract:DI (match_operand:GPI 0 "register_operand" "r")
 				    (const_int 1)
-				    (match_operand 1 "const_int_operand" "n"))
+				    (match_operand 1
+				      "aarch64_simd_shift_imm_<mode>" "n"))
 		   (const_int 0))
 	     (label_ref (match_operand 2 "" ""))
 	     (pc)))
@@ -1010,6 +1011,11 @@
 	(match_operand:GPI 1 "general_operand" ""))]
   ""
   "
+    if (MEM_P (operands[0]) && CONST_INT_P (operands[1])
+	&& <MODE>mode == DImode
+	&& aarch64_split_dimode_const_store (operands[0], operands[1]))
+      DONE;
+
     if (GET_CODE (operands[0]) == MEM && operands[1] != const0_rtx)
       operands[1] = force_reg (<MODE>mode, operands[1]);
 
@@ -1605,25 +1611,12 @@
 	      (match_operand:GPI 2 "aarch64_pluslong_operand" "")))]
   ""
 {
-  if (aarch64_pluslong_strict_immedate (operands[2], <MODE>mode))
-    {
-      /* Give CSE the opportunity to share this constant across additions.  */
-      if (!cse_not_expected && can_create_pseudo_p ())
-        operands[2] = force_reg (<MODE>mode, operands[2]);
-
-      /* Split will refuse to operate on a modification to the stack pointer.
-	 Aid the prologue and epilogue expanders by splitting this now.  */
-      else if (reload_completed && operands[0] == stack_pointer_rtx)
-	{
-	  HOST_WIDE_INT i = INTVAL (operands[2]);
-	  HOST_WIDE_INT s = (i >= 0 ? i & 0xfff : -(-i & 0xfff));
-	  emit_insn (gen_rtx_SET (operands[0],
-				  gen_rtx_PLUS (<MODE>mode, operands[1],
-						GEN_INT (i - s))));
-	  operands[1] = operands[0];
-	  operands[2] = GEN_INT (s);
-	}
-    }
+  /* If the constant is too large for a single instruction and isn't frame
+     based, split off the immediate so it is available for CSE.  */
+  if (!aarch64_plus_immediate (operands[2], <MODE>mode)
+      && can_create_pseudo_p ()
+      && !REGNO_PTR_FRAME_P (REGNO (operands[1])))
+    operands[2] = force_reg (<MODE>mode, operands[2]);
 })
 
 (define_insn "*add<mode>3_aarch64"
@@ -3967,7 +3960,7 @@
    shl\t%<rtn>0<vas>, %<rtn>1<vas>, %2
    ushl\t%<rtn>0<vas>, %<rtn>1<vas>, %<rtn>2<vas>"
   [(set_attr "simd" "no,no,yes,yes")
-   (set_attr "type" "bfm,shift_reg,neon_shift_imm<q>, neon_shift_reg<q>")]
+   (set_attr "type" "bfx,shift_reg,neon_shift_imm<q>, neon_shift_reg<q>")]
 )
 
 ;; Logical right shift using SISD or Integer instruction
@@ -3984,7 +3977,7 @@
    #
    #"
   [(set_attr "simd" "no,no,yes,yes,yes")
-   (set_attr "type" "bfm,shift_reg,neon_shift_imm<q>,neon_shift_reg<q>,neon_shift_reg<q>")]
+   (set_attr "type" "bfx,shift_reg,neon_shift_imm<q>,neon_shift_reg<q>,neon_shift_reg<q>")]
 )
 
 (define_split
@@ -4031,7 +4024,7 @@
    #
    #"
   [(set_attr "simd" "no,no,yes,yes,yes")
-   (set_attr "type" "bfm,shift_reg,neon_shift_imm<q>,neon_shift_reg<q>,neon_shift_reg<q>")]
+   (set_attr "type" "bfx,shift_reg,neon_shift_imm<q>,neon_shift_reg<q>,neon_shift_reg<q>")]
 )
 
 (define_split
@@ -4141,7 +4134,7 @@
   "@
    <shift>\\t%w0, %w1, %2
    <shift>\\t%w0, %w1, %w2"
-  [(set_attr "type" "bfm,shift_reg")]
+  [(set_attr "type" "bfx,shift_reg")]
 )
 
 (define_insn "*<optab><mode>3_insn"
@@ -4153,7 +4146,7 @@
   operands[3] = GEN_INT (<sizen> - UINTVAL (operands[2]));
   return "<bfshift>\t%w0, %w1, %2, %3";
 }
-  [(set_attr "type" "bfm")]
+  [(set_attr "type" "bfx")]
 )
 
 (define_insn "*extr<mode>5_insn"
@@ -4246,7 +4239,7 @@
   operands[3] = GEN_INT (<SHORT:sizen> - UINTVAL (operands[2]));
   return "<su>bfiz\t%<GPI:w>0, %<GPI:w>1, %2, %3";
 }
-  [(set_attr "type" "bfm")]
+  [(set_attr "type" "bfx")]
 )
 
 (define_insn "*zero_extend<GPI:mode>_lshr<SHORT:mode>"
@@ -4259,7 +4252,7 @@
   operands[3] = GEN_INT (<SHORT:sizen> - UINTVAL (operands[2]));
   return "ubfx\t%<GPI:w>0, %<GPI:w>1, %2, %3";
 }
-  [(set_attr "type" "bfm")]
+  [(set_attr "type" "bfx")]
 )
 
 (define_insn "*extend<GPI:mode>_ashr<SHORT:mode>"
@@ -4272,7 +4265,7 @@
   operands[3] = GEN_INT (<SHORT:sizen> - UINTVAL (operands[2]));
   return "sbfx\\t%<GPI:w>0, %<GPI:w>1, %2, %3";
 }
-  [(set_attr "type" "bfm")]
+  [(set_attr "type" "bfx")]
 )
 
 ;; -------------------------------------------------------------------
@@ -4281,21 +4274,30 @@
 
 (define_expand "<optab>"
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(ANY_EXTRACT:DI (match_operand:DI 1 "register_operand" "r")
-			(match_operand 2 "const_int_operand" "n")
-			(match_operand 3 "const_int_operand" "n")))]
+	(ANY_EXTRACT:DI (match_operand:DI 1 "register_operand")
+			(match_operand 2
+			  "aarch64_simd_shift_imm_offset_di")
+			(match_operand 3 "aarch64_simd_shift_imm_di")))]
   ""
-  ""
+  {
+    if (!IN_RANGE (INTVAL (operands[2]) + INTVAL (operands[3]),
+		   1, GET_MODE_BITSIZE (DImode) - 1))
+     FAIL;
+  }
 )
+
 
 (define_insn "*<optab><mode>"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(ANY_EXTRACT:GPI (match_operand:GPI 1 "register_operand" "r")
-			 (match_operand 2 "const_int_operand" "n")
-			 (match_operand 3 "const_int_operand" "n")))]
-  ""
+			 (match_operand 2
+			   "aarch64_simd_shift_imm_offset_<mode>" "n")
+			 (match_operand 3
+			   "aarch64_simd_shift_imm_<mode>" "n")))]
+  "IN_RANGE (INTVAL (operands[2]) + INTVAL (operands[3]),
+	     1, GET_MODE_BITSIZE (<MODE>mode) - 1)"
   "<su>bfx\\t%<w>0, %<w>1, %3, %2"
-  [(set_attr "type" "bfm")]
+  [(set_attr "type" "bfx")]
 )
 
 ;; Bitfield Insert (insv)
@@ -4377,7 +4379,7 @@
 	      : GEN_INT (<GPI:sizen> - UINTVAL (operands[2]));
   return "<su>bfiz\t%<GPI:w>0, %<GPI:w>1, %2, %3";
 }
-  [(set_attr "type" "bfm")]
+  [(set_attr "type" "bfx")]
 )
 
 ;; XXX We should match (any_extend (ashift)) here, like (and (ashift)) below
@@ -4389,7 +4391,7 @@
 		 (match_operand 3 "const_int_operand" "n")))]
   "aarch64_mask_and_shift_for_ubfiz_p (<MODE>mode, operands[3], operands[2])"
   "ubfiz\\t%<w>0, %<w>1, %2, %P3"
-  [(set_attr "type" "bfm")]
+  [(set_attr "type" "bfx")]
 )
 
 (define_insn "bswap<mode>2"

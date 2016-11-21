@@ -585,13 +585,32 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	{ _M_construct(__beg, __end); }
 
 #if __cplusplus > 201402L
+      template<typename _Tp, typename _Res>
+	using _If_sv = enable_if_t<
+	  __and_<is_convertible<const _Tp&, __sv_type>,
+		 __not_<is_convertible<const _Tp&, const _CharT*>>>::value,
+	  _Res>;
+
+      /**
+       *  @brief  Construct string from a substring of a string_view.
+       *  @param  __t   Source string view.
+       *  @param  __pos The index of the first character to copy from __t.
+       *  @param  __n   The number of characters to copy from __t.
+       *  @param  __a   Allocator to use.
+       */
+      template<typename _Tp, typename = _If_sv<_Tp, void>>
+	basic_string(const _Tp& __t, size_type __pos, size_type __n,
+		     const _Alloc& __a = _Alloc())
+	: basic_string(__sv_type(__t).substr(__pos, __n), __a) { }
+
       /**
        *  @brief  Construct string from a string_view.
        *  @param  __sv  Source string view.
        *  @param  __a  Allocator to use (default is default allocator).
        */
-      explicit basic_string(__sv_type __sv, const _Alloc& __a = _Alloc())
-	: basic_string(__sv.data(), __sv.size(), __a) {}
+      explicit
+      basic_string(__sv_type __sv, const _Alloc& __a = _Alloc())
+      : basic_string(__sv.data(), __sv.size(), __a) { }
 #endif // C++17
 
       /**
@@ -1237,12 +1256,6 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       append(__sv_type __sv)
       { return this->append(__sv.data(), __sv.size()); }
 
-      template<typename _Tp, typename _Res>
-	using _If_sv = enable_if_t<
-	  __and_<is_convertible<const _Tp&, __sv_type>,
-		 __not_<is_convertible<const _Tp&, const _CharT*>>>::value,
-	  _Res>;
-
       /**
        *  @brief  Append a range of characters from a string_view.
        *  @param __sv  The string_view to be appended from.
@@ -1709,8 +1722,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       basic_string&
       erase(size_type __pos = 0, size_type __n = npos)
       {
-	this->_M_erase(_M_check(__pos, "basic_string::erase"),
-		       _M_limit(__pos, __n));
+	_M_check(__pos, "basic_string::erase");
+	if (__n == npos)
+	  this->_M_set_length(__pos);
+	else if (__n != 0)
+	  this->_M_erase(__pos, _M_limit(__pos, __n));
 	return *this;
       }
 
@@ -1747,7 +1763,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
 	_GLIBCXX_DEBUG_PEDASSERT(__first >= begin() && __first <= __last
 				 && __last <= end());
         const size_type __pos = __first - begin();
-	this->_M_erase(__pos, __last - __first);
+	if (__last == end())
+	  this->_M_set_length(__pos);
+	else
+	  this->_M_erase(__pos, __last - __first);
 	return iterator(this->_M_data() + __pos);
       }
 
@@ -3684,10 +3703,24 @@ _GLIBCXX_END_NAMESPACE_CXX11
       /**
        *  Erases the string, making it empty.
        */
+#if _GLIBCXX_FULLY_DYNAMIC_STRING == 0
+      void
+      clear() _GLIBCXX_NOEXCEPT
+      {
+	if (_M_rep()->_M_is_shared())
+	  {
+	    _M_rep()->_M_dispose(this->get_allocator());
+	    _M_data(_S_empty_rep()._M_refdata());
+	  }
+	else
+	  _M_rep()->_M_set_length_and_sharable(0);
+      }
+#else
       // PR 56166: this should not throw.
       void
       clear()
       { _M_mutate(0, this->size(), 0); }
+#endif
 
       /**
        *  Returns true if the %string is empty.  Equivalent to 
@@ -6071,6 +6104,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 #endif
 
+_GLIBCXX_END_NAMESPACE_VERSION
+
 #if __cplusplus > 201103L
 
 #define __cpp_lib_string_udls 201304
@@ -6079,6 +6114,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   {
   inline namespace string_literals
   {
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     _GLIBCXX_DEFAULT_ABI_TAG
     inline basic_string<char>
@@ -6104,12 +6140,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { return basic_string<char32_t>{__str, __len}; }
 #endif
 
+_GLIBCXX_END_NAMESPACE_VERSION
   } // inline namespace string_literals
   } // inline namespace literals
 
 #endif // __cplusplus > 201103L
 
-_GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std
 
 #endif // C++11

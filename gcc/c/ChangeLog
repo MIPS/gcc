@@ -1,3 +1,146 @@
+2016-11-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/71973
+	* c-decl.c (diagnose_mismatched_decls): Use
+	OPT_Wbuiltin_declaration_mismatch here too.
+
+2016-11-18  Richard Sandiford  <richard.sandiford@arm.com>
+	    Alan Hayward  <alan.hayward@arm.com>
+	    David Sherwood  <david.sherwood@arm.com>
+
+	* c-decl.c (merge_decls): Use SET_DECL_MODE.
+	(make_label, finish_struct): Likewise.
+
+2016-11-14  Prasad Ghangal  <prasad.ghangal@gmail.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	* Make-lang.in (C_AND_OBJC_OBJS): Add gimple-parser.o.
+	* config-lang.in (gtfiles): Add c/c-parser.h.
+	* c-tree.h (enum c_declspec_word): Add cdw_gimple.
+	(struct c_declspecs): Add gimple_pass member and gimple_p flag.
+	* c-parser.c (enum c_id_kind, struct c_token,
+	c_parser_next_token_is, c_parser_next_token_is_not,
+	c_parser_next_token_is_keyword,
+	enum c_lookahead_kind, enum c_dtr_syn, enum c_parser_prec):
+	Split out to ...
+	* c-parser.h: ... new header.
+	* c-parser.c: Include c-parser.h and gimple-parser.h.
+	(c_parser_peek_token, c_parser_peek_2nd_token,
+	c_token_starts_typename, c_parser_next_token_starts_declspecs,
+	c_parser_next_tokens_start_declaration, c_parser_consume_token,
+	c_parser_error, c_parser_require, c_parser_skip_until_found,
+	c_parser_declspecs, c_parser_declarator, c_parser_peek_nth_token,
+	c_parser_type_name): Export.
+	(c_parser_tokens_buf): New function.
+	(c_parser_error): Likewise.
+	(c_parser_set_error): Likewise.
+	(c_parser_declspecs): Handle RID_GIMPLE.
+	(c_parser_declaration_or_fndef): Parse __GIMPLE marked body
+	via c_parser_parse_gimple_body.
+	* c-parser.h (c_parser_peek_token, c_parser_peek_2nd_token,
+	c_token_starts_typename, c_parser_next_token_starts_declspecs,
+	c_parser_next_tokens_start_declaration, c_parser_consume_token,
+	c_parser_error, c_parser_require, c_parser_skip_until_found,
+	c_parser_declspecs, c_parser_declarator, c_parser_peek_nth_token,
+	c_parser_type_name): Declare.
+	(struct c_parser): Declare forward.
+	(c_parser_tokens_buf): Declare.
+	(c_parser_error): Likewise.
+	(c_parser_set_error): Likewise.
+	* gimple-parser.c: New file.
+	* gimple-parser.h: Likewise.
+
+2016-11-13  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR c/35503
+	* c-parser.c (c_parser_postfix_expression_after_primary): Call
+	warn_for_restrict.
+
+2016-09-11  Le-Chun Wu  <lcwu@google.com>
+	    Mark Wielaard  <mjw@redhat.com>
+
+	* c-decl.c (warn_if_shadowing): Use the warning code corresponding
+	to the given -Wshadow= variant.
+
+2016-10-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* c-typeck.c: Include memmodel.h.
+
+2016-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/77957
+	* c-objc-common.h (LANG_HOOKS_GETDECLS): Use hook_tree_void_null
+	instead of lhd_return_null_tree_v.
+
+2016-10-07  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c++/69733
+	* c-decl.c (smallest_type_quals_location): New static function.
+	(grokdeclarator): Try to find the correct location for an ignored
+	qualifier.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* c-decl.c (pop_scope): Add gcc_fallthrough.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* c-parser.c (struct c_token): Add flags field.
+	(c_lex_one_token): Pass it to c_lex_with_flags.
+	(c_parser_declaration_or_fndef): Turn __attribute__((fallthrough));
+	into IFN_FALLTHROUGH.
+	(c_parser_label): Set FALLTHROUGH_LABEL_P on labels.  Handle
+	attribute fallthrough after a case label or default label.
+	(c_parser_statement_after_labels): Handle RID_ATTRIBUTE.
+
+2016-09-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/77490
+	* c-typeck.c (build_unary_op): Warn about bit not on expressions that
+	have boolean value.  Warn about ++/-- on booleans.
+
+2016-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (incomplete_record_decls): Remove unnecessary
+	= vNULL initialization of file scope vec.
+
+2016-09-16  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (lvalue_p): Use true and false instead of 1 and 0.
+
+2016-09-14  Marek Polacek  <polacek@redhat.com>
+
+	* c-array-notation.c (create_cmp_incr): Use false instead of 0.
+	(fix_array_notation_expr): Likewise.
+	* c-decl.c (finish_decl): Likewise.
+	* c-parser.c (c_parser_postfix_expression_after_primary): Likewise.
+	* c-typeck.c (array_to_pointer_conversion): Use true instead of 1.
+	(function_to_pointer_conversion): Use false instead of 0.
+	(convert_lvalue_to_rvalue): Likewise.
+	(parser_build_unary_op): Likewise.
+	(build_atomic_assign): Likewise.
+	(build_unary_op): Change nonconvert parameter type to bool, use
+	true/false instead of 1/0.
+	(build_binary_op): Use true instead of 1.
+
+2016-09-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_declaration_or_fndef): Update for renaming
+	of add_fixit_insert to add_fixit_insert_before.
+
+2016-09-13  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (build_unary_op): Rename FLAG parameter to NOCONVERT.  Use
+	it.
+
+2016-09-12  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/77496
+	* c-parser.c (c_parser_conditional_expression): Pass the rightmost
+	COMPOUND_EXPR to warn_for_omitted_condop.
+
 2016-09-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* c-lang.c (LANG_HOOKS_GET_SUBSTRING_LOCATION): Use
@@ -2035,13 +2178,13 @@
 2014-12-20  Martin Uecker  <uecker@eecs.berkeley.edu>
 
 	* c-typeck.c: New behavious for pointers to arrays with qualifiers
-        (common-pointer-type): For pointers to arrays take qualifiers from
+	(common-pointer-type): For pointers to arrays take qualifiers from
 	element type.
-        (build_conditional_expr): Add warnings for lost qualifiers.
+	(build_conditional_expr): Add warnings for lost qualifiers.
 	(comp-target-types): Allow pointers to arrays with different qualifiers.
-        (convert-for-assignment): Adapt warnings for discarded qualifiers. Add
+	(convert-for-assignment): Adapt warnings for discarded qualifiers. Add
 	WARNING_FOR_QUALIFIERS macro and rename WARN_FOR_QUALIFIERS
-        to PEDWARN_FOR_QUALIFIERS.
+	to PEDWARN_FOR_QUALIFIERS.
 
 2014-12-17  Jakub Jelinek  <jakub@redhat.com>
 
@@ -2214,9 +2357,9 @@
 
 2014-10-13  Anthony Brandon  <anthony.brandon@gmail.com>
 
-        * c-parser.c (c_parser_all_labels): New function to replace
+	* c-parser.c (c_parser_all_labels): New function to replace
 	the duplicate code.
-        (c_parser_statement): Call the new function.
+	(c_parser_statement): Call the new function.
 
 2014-10-09  Marek Polacek  <polacek@redhat.com>
 

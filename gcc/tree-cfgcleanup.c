@@ -230,6 +230,8 @@ cleanup_control_flow_bb (basic_block bb, bool first_p)
 	 edges which do not go to the right block.  For the one
 	 edge which goes to the right block, fix up its flags.  */
       label = TREE_OPERAND (gimple_goto_dest (stmt), 0);
+      if (DECL_CONTEXT (label) != cfun->decl)
+	return retval;
       target_block = label_to_block (label);
       for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
@@ -838,6 +840,11 @@ remove_forwarder_block_with_phi (basic_block bb)
      However it may happen that the infinite loop is created
      afterwards due to removal of forwarders.  */
   if (dest == bb)
+    return false;
+
+  /* Removal of forwarders may expose new natural loops and thus
+     a block may turn into a loop header.  */
+  if (current_loops && bb_loop_header_p (bb))
     return false;
 
   /* If the destination block consists of a nonlocal label, do not

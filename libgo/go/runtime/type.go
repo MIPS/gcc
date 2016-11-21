@@ -16,13 +16,29 @@ type _type struct {
 	size       uintptr
 	hash       uint32
 
-	hashfn  func(unsafe.Pointer, uintptr) uintptr
+	hashfn  func(unsafe.Pointer, uintptr, uintptr) uintptr
 	equalfn func(unsafe.Pointer, unsafe.Pointer, uintptr) bool
 
 	gc     unsafe.Pointer
 	string *string
-	*uncommonType
+	*uncommontype
 	ptrToThis *_type
+}
+
+// Return whether two type descriptors are equal.
+// This is gccgo-specific, as gccgo, unlike gc, permits multiple
+// independent descriptors for a single type.
+func eqtype(t1, t2 *_type) bool {
+	switch {
+	case t1 == t2:
+		return true
+	case t1 == nil || t2 == nil:
+		return false
+	case t1.kind != t2.kind || t1.hash != t2.hash:
+		return false
+	default:
+		return *t1.string == *t2.string
+	}
 }
 
 type method struct {
@@ -33,7 +49,7 @@ type method struct {
 	tfn     unsafe.Pointer
 }
 
-type uncommonType struct {
+type uncommontype struct {
 	name    *string
 	pkgPath *string
 	methods []method
@@ -45,25 +61,34 @@ type imethod struct {
 	typ     *_type
 }
 
-type interfaceType struct {
+type interfacetype struct {
 	typ     _type
 	methods []imethod
 }
 
-type mapType struct {
-	typ  _type
-	key  *_type
-	elem *_type
+type maptype struct {
+	typ           _type
+	key           *_type
+	elem          *_type
+	bucket        *_type // internal type representing a hash bucket
+	hmap          *_type // internal type representing a hmap
+	keysize       uint8  // size of key slot
+	indirectkey   bool   // store ptr to key instead of key itself
+	valuesize     uint8  // size of value slot
+	indirectvalue bool   // store ptr to value instead of value itself
+	bucketsize    uint16 // size of bucket
+	reflexivekey  bool   // true if k==k for all keys
+	needkeyupdate bool   // true if we need to update key on an overwrite
 }
 
-type arrayType struct {
+type arraytype struct {
 	typ   _type
 	elem  *_type
 	slice *_type
 	len   uintptr
 }
 
-type chanType struct {
+type chantype struct {
 	typ  _type
 	elem *_type
 	dir  uintptr

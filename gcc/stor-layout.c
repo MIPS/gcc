@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "regs.h"
@@ -615,7 +616,7 @@ layout_decl (tree decl, unsigned int known_align)
 
   DECL_UNSIGNED (decl) = TYPE_UNSIGNED (type);
   if (DECL_MODE (decl) == VOIDmode)
-    DECL_MODE (decl) = TYPE_MODE (type);
+    SET_DECL_MODE (decl, TYPE_MODE (type));
 
   if (lang_hooks.decls.layout_decl_p (decl, type))
     {
@@ -685,7 +686,7 @@ layout_decl (tree decl, unsigned int known_align)
 		  && (known_align == 0 || known_align >= xalign))
 		{
 		  SET_DECL_ALIGN (decl, MAX (xalign, DECL_ALIGN (decl)));
-		  DECL_MODE (decl) = xmode;
+		  SET_DECL_MODE (decl, xmode);
 		  DECL_BIT_FIELD (decl) = 0;
 		}
 	    }
@@ -779,7 +780,7 @@ void
 relayout_decl (tree decl)
 {
   DECL_SIZE (decl) = DECL_SIZE_UNIT (decl) = 0;
-  DECL_MODE (decl) = VOIDmode;
+  SET_DECL_MODE (decl, VOIDmode);
   if (!DECL_USER_ALIGN (decl))
     SET_DECL_ALIGN (decl, 0);
   if (DECL_RTL_SET_P (decl))
@@ -1141,7 +1142,7 @@ place_field (record_layout_info rli, tree field)
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
      it *after* the record is laid out.  */
-  if (TREE_CODE (field) == VAR_DECL)
+  if (VAR_P (field))
     {
       vec_safe_push (rli->pending_statics, field);
       return;
@@ -1173,14 +1174,12 @@ place_field (record_layout_info rli, tree field)
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
   if (! integer_zerop (rli->bitpos))
-    known_align = (tree_to_uhwi (rli->bitpos)
-		   & - tree_to_uhwi (rli->bitpos));
+    known_align = least_bit_hwi (tree_to_uhwi (rli->bitpos));
   else if (integer_zerop (rli->offset))
     known_align = 0;
   else if (tree_fits_uhwi_p (rli->offset))
     known_align = (BITS_PER_UNIT
-		   * (tree_to_uhwi (rli->offset)
-		      & - tree_to_uhwi (rli->offset)));
+		   * least_bit_hwi (tree_to_uhwi (rli->offset)));
   else
     known_align = rli->offset_align;
 
@@ -1483,14 +1482,12 @@ place_field (record_layout_info rli, tree field)
      approximate this by seeing if its position changed), lay out the field
      again; perhaps we can use an integral mode for it now.  */
   if (! integer_zerop (DECL_FIELD_BIT_OFFSET (field)))
-    actual_align = (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
-		    & - tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field)));
+    actual_align = least_bit_hwi (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field)));
   else if (integer_zerop (DECL_FIELD_OFFSET (field)))
     actual_align = MAX (BIGGEST_ALIGNMENT, rli->record_align);
   else if (tree_fits_uhwi_p (DECL_FIELD_OFFSET (field)))
     actual_align = (BITS_PER_UNIT
-		   * (tree_to_uhwi (DECL_FIELD_OFFSET (field))
-		      & - tree_to_uhwi (DECL_FIELD_OFFSET (field))));
+		    * least_bit_hwi (tree_to_uhwi (DECL_FIELD_OFFSET (field))));
   else
     actual_align = DECL_OFFSET_ALIGN (field);
   /* ACTUAL_ALIGN is still the actual alignment *within the record* .
@@ -1913,7 +1910,7 @@ finish_bitfield_representative (tree repr, tree field)
 	 [0, 15] HImode for a and b, [8, 23] HImode for c.  */
       DECL_SIZE (repr) = bitsize_int (bitsize);
       DECL_SIZE_UNIT (repr) = size_int (bitsize / BITS_PER_UNIT);
-      DECL_MODE (repr) = BLKmode;
+      SET_DECL_MODE (repr, BLKmode);
       TREE_TYPE (repr) = build_array_type_nelts (unsigned_char_type_node,
 						 bitsize / BITS_PER_UNIT);
     }
@@ -1922,7 +1919,7 @@ finish_bitfield_representative (tree repr, tree field)
       unsigned HOST_WIDE_INT modesize = GET_MODE_BITSIZE (mode);
       DECL_SIZE (repr) = bitsize_int (modesize);
       DECL_SIZE_UNIT (repr) = size_int (modesize / BITS_PER_UNIT);
-      DECL_MODE (repr) = mode;
+      SET_DECL_MODE (repr, mode);
       TREE_TYPE (repr) = lang_hooks.types.type_for_mode (mode, 1);
     }
 

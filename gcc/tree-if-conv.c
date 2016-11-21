@@ -1050,7 +1050,6 @@ if_convertible_stmt_p (gimple *stmt, vec<data_reference_p> refs)
 	  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	}
       return false;
-      break;
     }
 
   return true;
@@ -1310,6 +1309,38 @@ predicate_bbs (loop_p loop)
 	      && bb_predicate_gimplified_stmts (loop->latch) == NULL);
 }
 
+/* Build region by adding loop pre-header and post-header blocks.  */
+
+static vec<basic_block>
+build_region (struct loop *loop)
+{
+  vec<basic_block> region = vNULL;
+  basic_block exit_bb = NULL;
+
+  gcc_assert (ifc_bbs);
+  /* The first element is loop pre-header.  */
+  region.safe_push (loop_preheader_edge (loop)->src);
+
+  for (unsigned int i = 0; i < loop->num_nodes; i++)
+    {
+      basic_block bb = ifc_bbs[i];
+      region.safe_push (bb);
+      /* Find loop postheader.  */
+      edge e;
+      edge_iterator ei;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	if (loop_exit_edge_p (loop, e))
+	  {
+	      exit_bb = e->dest;
+	      break;
+	  }
+    }
+  /* The last element is loop post-header.  */
+  gcc_assert (exit_bb);
+  region.safe_push (exit_bb);
+  return region;
+}
+
 /* Return true when LOOP is if-convertible.  This is a helper function
    for if_convertible_loop_p.  REFS and DDRS are initialized and freed
    in if_convertible_loop_p.  */
@@ -1319,6 +1350,7 @@ if_convertible_loop_p_1 (struct loop *loop, vec<data_reference_p> *refs)
 {
   unsigned int i;
   basic_block exit_bb = NULL;
+  vec<basic_block> region;
 
   if (find_data_references_in_loop (loop, refs) == chrec_dont_know)
     return false;
@@ -1371,8 +1403,15 @@ if_convertible_loop_p_1 (struct loop *loop, vec<data_reference_p> *refs)
 	  = new hash_map<innermost_loop_behavior_hash, data_reference_p>;
   baseref_DR_map = new hash_map<tree_operand_hash, data_reference_p>;
 
-  calculate_dominance_info (CDI_POST_DOMINATORS);
+  /* Compute post-dominator tree locally.  */
+  region = build_region (loop);
+  calculate_dominance_info_for_region (CDI_POST_DOMINATORS, region);
+
   predicate_bbs (loop);
+
+  /* Free post-dominator tree since it is not used after predication.  */
+  free_dominance_info_for_region (cfun, CDI_POST_DOMINATORS, region);
+  region.release ();
 
   for (i = 0; refs->iterate (i, &dr); i++)
     {
@@ -2494,6 +2533,7 @@ version_loop_for_if_conversion (struct loop *loop)
   struct loop *new_loop;
   gimple *g;
   gimple_stmt_iterator gsi;
+  unsigned int save_length;
 
   g = gimple_build_call_internal (IFN_LOOP_VECTORIZED, 2,
 				  build_int_cst (integer_type_node, loop->num),
@@ -2501,8 +2541,9 @@ version_loop_for_if_conversion (struct loop *loop)
   gimple_call_set_lhs (g, cond);
 
   /* Save BB->aux around loop_version as that uses the same field.  */
-  void **saved_preds = XALLOCAVEC (void *, loop->num_nodes);
-  for (unsigned i = 0; i < loop->num_nodes; i++)
+  save_length = loop->inner ? loop->inner->num_nodes : loop->num_nodes;
+  void **saved_preds = XALLOCAVEC (void *, save_length);
+  for (unsigned i = 0; i < save_length; i++)
     saved_preds[i] = ifc_bbs[i]->aux;
 
   initialize_original_copy_tables ();
@@ -2511,7 +2552,7 @@ version_loop_for_if_conversion (struct loop *loop)
 			   REG_BR_PROB_BASE, true);
   free_original_copy_tables ();
 
-  for (unsigned i = 0; i < loop->num_nodes; i++)
+  for (unsigned i = 0; i < save_length; i++)
     ifc_bbs[i]->aux = saved_preds[i];
 
   if (new_loop == NULL)
@@ -2523,6 +2564,44 @@ version_loop_for_if_conversion (struct loop *loop)
   gimple_call_set_arg (g, 1, build_int_cst (integer_type_node, new_loop->num));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
   update_ssa (TODO_update_ssa);
+  return true;
+}
+
+/* Return true when LOOP satisfies the follow conditions that will
+   allow it to be recognized by the vectorizer for outer-loop
+   vectorization:
+    - The loop is not the root node of the loop tree.
+    - The loop has exactly one inner loop.
+    - The loop has a single exit.
+    - The loop header has a single successor, which is the inner
+      loop header.
+    - Each of the inner and outer loop latches have a single
+      predecessor.
+    - The loop exit block has a single predecessor, which is the
+      inner loop's exit block.  */
+
+static bool
+versionable_outer_loop_p (struct loop *loop)
+{
+  if (!loop_outer (loop)
+      || !loop->inner
+      || loop->inner->next
+      || !single_exit (loop)
+      || !single_succ_p (loop->header)
+      || single_succ (loop->header) != loop->inner->header
+      || !single_pred_p (loop->latch)
+      || !single_pred_p (loop->inner->latch))
+    return false;
+  
+  basic_block outer_exit = single_pred (loop->latch);
+  basic_block inner_exit = single_pred (loop->inner->latch);
+
+  if (!single_pred_p (outer_exit) || single_pred (outer_exit) != inner_exit)
+    return false;
+
+  if (dump_file)
+    fprintf (dump_file, "Found vectorizable outer loop for versioning\n");
+
   return true;
 }
 
@@ -2695,7 +2774,7 @@ ifcvt_local_dce (basic_block bb)
    profitability analysis.  Returns non-zero todo flags when something
    changed.  */
 
-static unsigned int
+unsigned int
 tree_if_conversion (struct loop *loop)
 {
   unsigned int todo = 0;
@@ -2728,8 +2807,15 @@ tree_if_conversion (struct loop *loop)
 	  || loop->dont_vectorize))
     goto cleanup;
 
-  if ((any_pred_load_store || any_complicated_phi)
-      && !version_loop_for_if_conversion (loop))
+  /* Since we have no cost model, always version loops unless the user
+     specified -ftree-loop-if-convert.  Either version this loop, or if
+     the pattern is right for outer-loop vectorization, version the
+     outer loop.  In the latter case we will still if-convert the
+     original inner loop.  */
+  if (flag_tree_loop_if_convert != 1
+      && !version_loop_for_if_conversion
+      (versionable_outer_loop_p (loop_outer (loop))
+       ? loop_outer (loop) : loop))
     goto cleanup;
 
   /* Now all statements are if-convertible.  Combine all the basic
@@ -2753,7 +2839,6 @@ tree_if_conversion (struct loop *loop)
       free (ifc_bbs);
       ifc_bbs = NULL;
     }
-  free_dominance_info (CDI_POST_DOMINATORS);
 
   return todo;
 }
@@ -2793,8 +2878,7 @@ pass_if_conversion::gate (function *fun)
 {
   return (((flag_tree_loop_vectorize || fun->has_force_vectorize_loops)
 	   && flag_tree_loop_if_convert != 0)
-	  || flag_tree_loop_if_convert == 1
-	  || flag_tree_loop_if_convert_stores == 1);
+	  || flag_tree_loop_if_convert == 1);
 }
 
 unsigned int
@@ -2806,22 +2890,11 @@ pass_if_conversion::execute (function *fun)
   if (number_of_loops (fun) <= 1)
     return 0;
 
-  /* If there are infinite loops, during CDI_POST_DOMINATORS computation
-     we can pick pretty much random bb inside of the infinite loop that
-     has the fake edge.  If we are unlucky enough, this can confuse the
-     add_to_predicate_list post-dominator check to optimize as if that
-     bb or some other one is a join block when it actually is not.
-     See PR70916.  */
-  connect_infinite_loops_to_exit ();
-
   FOR_EACH_LOOP (loop, 0)
     if (flag_tree_loop_if_convert == 1
-	|| flag_tree_loop_if_convert_stores == 1
 	|| ((flag_tree_loop_vectorize || loop->force_vectorize)
 	    && !loop->dont_vectorize))
       todo |= tree_if_conversion (loop);
-
-  remove_fake_exit_edges ();
 
   if (flag_checking)
     {

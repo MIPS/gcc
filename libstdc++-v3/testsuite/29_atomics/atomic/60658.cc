@@ -1,5 +1,5 @@
-// { dg-require-atomic-builtins "" }
 // { dg-do run { target c++11 } }
+// { dg-require-atomic-builtins "" }
 
 // Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
@@ -34,8 +34,6 @@ struct Bar {
 int
 main ()
 {
-  bool test __attribute__((unused)) = true;
-
   std::atomic<Foo*> a;
   std::atomic<Bar*> b;
 

@@ -7,6 +7,7 @@
 #include "go-system.h"
 
 #include "go-c.h"
+#include "go-diagnostics.h"
 
 #include "lex.h"
 #include "parse.h"
@@ -23,8 +24,7 @@ void
 go_create_gogo(const struct go_create_gogo_args* args)
 {
   go_assert(::gogo == NULL);
-  Linemap* linemap = go_get_linemap();
-  ::gogo = new Gogo(go_get_backend(), linemap, args->int_type_size,
+  ::gogo = new Gogo(args->backend, args->linemap, args->int_type_size,
 		    args->pointer_size);
 
   if (args->pkgpath != NULL)
@@ -68,8 +68,8 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
 	{
 	  file = fopen(filename, "r");
 	  if (file == NULL)
-	    fatal_error(Linemap::unknown_location(),
-			"cannot open %s: %m", filename);
+	    go_fatal_error(Linemap::unknown_location(),
+			   "cannot open %s: %m", filename);
 	}
 
       Lex lexer(filename, file, ::gogo->linemap());
@@ -88,9 +88,9 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
 	      for (Lex::Linknames::const_iterator p = linknames->begin();
 		   p != linknames->end();
 		   ++p)
-		error_at(p->second.loc,
-			 ("//go:linkname only allowed in Go files that "
-			  "import \"unsafe\""));
+		go_error_at(p->second.loc,
+			    ("//go:linkname only allowed in Go files that "
+			     "import \"unsafe\""));
 	    }
 	  all_linknames.insert(linknames->begin(), linknames->end());
 	}

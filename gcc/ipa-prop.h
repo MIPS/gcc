@@ -143,17 +143,6 @@ struct GTY(()) ipa_agg_jump_function
 
 typedef struct ipa_agg_jump_function *ipa_agg_jump_function_p;
 
-/* Info about pointer alignments. */
-struct GTY(()) ipa_alignment
-{
-  /* The data fields below are valid only if known is true.  */
-  bool known;
-  /* See ptr_info_def and get_pointer_alignment_1 for description of these
-     two.  */
-  unsigned align;
-  unsigned misalign;
-};
-
 /* Information about zero/non-zero bits.  */
 struct GTY(()) ipa_bits
 {
@@ -167,6 +156,16 @@ struct GTY(()) ipa_bits
   bool known;
 };
 
+/* Info about value ranges.  */
+struct GTY(()) ipa_vr
+{
+  /* The data fields below are valid only if known is true.  */
+  bool known;
+  enum value_range_type type;
+  wide_int min;
+  wide_int max;
+};
+
 /* A jump function for a callsite represents the values passed as actual
    arguments of the callsite. See enum jump_func_type for the various
    types of jump functions supported.  */
@@ -176,11 +175,12 @@ struct GTY (()) ipa_jump_func
      description.  */
   struct ipa_agg_jump_function agg;
 
-  /* Information about alignment of pointers. */
-  struct ipa_alignment alignment;
-
   /* Information about zero/non-zero bits.  */
   struct ipa_bits bits;
+
+  /* Information about value range.  */
+  bool vr_known;
+  value_range m_vr;
 
   enum jump_func_type type;
   /* Represents a value of a jump function.  pass_through is used only in jump
@@ -517,10 +517,10 @@ struct GTY(()) ipcp_transformation_summary
 {
   /* Linked list of known aggregate values.  */
   ipa_agg_replacement_value *agg_values;
-  /* Alignment information for pointers.  */
-  vec<ipa_alignment, va_gc> *alignments;
   /* Known bits information.  */
   vec<ipa_bits, va_gc> *bits;
+  /* Value range information.  */
+  vec<ipa_vr, va_gc> *m_vr;
 };
 
 void ipa_set_node_agg_value_chain (struct cgraph_node *node,
@@ -818,6 +818,7 @@ ipa_parm_adjustment *ipa_get_adjustment_candidate (tree **, bool *,
 						   ipa_parm_adjustment_vec,
 						   bool);
 void ipa_release_body_info (struct ipa_func_body_info *);
+tree ipa_get_callee_param_type (struct cgraph_edge *e, int i);
 
 /* From tree-sra.c:  */
 tree build_ref_for_offset (location_t, tree, HOST_WIDE_INT, bool, tree,

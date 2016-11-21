@@ -267,7 +267,7 @@ next_char_internal (st_parameter_dt *dtp)
 
   /* Get the next character and handle end-of-record conditions.  */
 
-  if (dtp->common.unit) /* Check for kind=4 internal unit.  */
+  if (is_char4_unit(dtp)) /* Check for kind=4 internal unit.  */
    length = sread (dtp->u.p.current_unit->s, &c, 1);
   else
    {
@@ -390,7 +390,7 @@ eat_spaces (st_parameter_dt *dtp)
       gfc_offset offset = stell (dtp->u.p.current_unit->s);
       gfc_offset i;
 
-      if (dtp->common.unit) /* kind=4 */
+      if (is_char4_unit(dtp)) /* kind=4 */
 	{
 	  for (i = 0; i < dtp->u.p.current_unit->bytes_left; i++)
 	    {
@@ -1374,7 +1374,16 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
 
  exp2:
   if (!isdigit (c))
-    goto bad_exponent;
+    {
+      /* Extension: allow default exponent of 0 when omitted.  */
+      if (dtp->common.flags & IOPARM_DT_DEFAULT_EXP)
+	{
+	  push_char (dtp, '0');
+	  goto done;
+	}
+      else
+	goto bad_exponent;
+    }
 
   push_char (dtp, c);
 
@@ -1816,7 +1825,16 @@ read_real (st_parameter_dt *dtp, void * dest, int length)
 
  exp2:
   if (!isdigit (c))
-    goto bad_exponent;
+    {
+      /* Extension: allow default exponent of 0 when omitted.  */
+      if (dtp->common.flags & IOPARM_DT_DEFAULT_EXP)
+	{
+	  push_char (dtp, '0');
+	  goto done;
+	}
+      else
+	goto bad_exponent;
+    }
 
   push_char (dtp, c);
 

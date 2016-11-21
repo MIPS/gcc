@@ -301,7 +301,7 @@ class Gogo
   // the declarations are added to the global scope.
   void
   import_package(const std::string& filename, const std::string& local_name,
-		 bool is_local_name_exported, Location);
+		 bool is_local_name_exported, bool must_exist, Location);
 
   // Whether we are the global binding level.
   bool
@@ -669,6 +669,11 @@ class Gogo
   // Build thunks for functions which call recover.
   void
   build_recover_thunks();
+
+  // Return a declaration for __builtin_return_address or
+  // __builtin_frame_address.
+  static Named_object*
+  declare_builtin_rf_address(const char* name);
 
   // Simplify statements which might use thunks: go and defer
   // statements.

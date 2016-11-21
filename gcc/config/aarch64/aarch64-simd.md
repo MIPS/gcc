@@ -2443,7 +2443,7 @@
 	  comparison = gen_aarch64_cmlt<mode>;
 	  break;
 	}
-      /* Else, fall through.  */
+      /* Fall through.  */
     case UNGE:
       std::swap (operands[2], operands[3]);
       /* Fall through.  */
@@ -2457,7 +2457,7 @@
 	  comparison = gen_aarch64_cmle<mode>;
 	  break;
 	}
-      /* Else, fall through.  */
+      /* Fall through.  */
     case UNGT:
       std::swap (operands[2], operands[3]);
       /* Fall through.  */
@@ -5701,6 +5701,26 @@
                        "register_operand" "w")]
          UNSPEC_SHA1H))]
   "TARGET_SIMD && TARGET_CRYPTO"
+  "sha1h\\t%s0, %s1"
+  [(set_attr "type" "crypto_sha1_fast")]
+)
+
+(define_insn "aarch64_crypto_sha1hv4si"
+  [(set (match_operand:SI 0 "register_operand" "=w")
+	(unspec:SI [(vec_select:SI (match_operand:V4SI 1 "register_operand" "w")
+		     (parallel [(const_int 0)]))]
+	 UNSPEC_SHA1H))]
+  "TARGET_SIMD && TARGET_CRYPTO && !BYTES_BIG_ENDIAN"
+  "sha1h\\t%s0, %s1"
+  [(set_attr "type" "crypto_sha1_fast")]
+)
+
+(define_insn "aarch64_be_crypto_sha1hv4si"
+  [(set (match_operand:SI 0 "register_operand" "=w")
+	(unspec:SI [(vec_select:SI (match_operand:V4SI 1 "register_operand" "w")
+		     (parallel [(const_int 3)]))]
+	 UNSPEC_SHA1H))]
+  "TARGET_SIMD && TARGET_CRYPTO && BYTES_BIG_ENDIAN"
   "sha1h\\t%s0, %s1"
   [(set_attr "type" "crypto_sha1_fast")]
 )

@@ -234,6 +234,9 @@ struct GTY(()) function {
   /* The loops in this function.  */
   struct loops *x_current_loops;
 
+  /* Filled by the GIMPLE FE, pass to start compilation with.  */
+  char *pass_startwith;
+
   /* The stack usage of this function.  */
   struct stack_usage *su;
 
@@ -628,7 +631,11 @@ extern void clobber_return_register (void);
 extern void expand_function_end (void);
 extern rtx get_arg_pointer_save_area (void);
 extern void maybe_copy_prologue_epilogue_insn (rtx, rtx);
-extern int prologue_epilogue_contains (const_rtx);
+extern int prologue_contains (const rtx_insn *);
+extern int epilogue_contains (const rtx_insn *);
+extern int prologue_epilogue_contains (const rtx_insn *);
+extern void record_prologue_seq (rtx_insn *);
+extern void record_epilogue_seq (rtx_insn *);
 extern void emit_return_into_block (bool simple_p, basic_block bb);
 extern void set_return_jump_label (rtx_insn *);
 extern bool active_insn_between (rtx_insn *head, rtx_insn *tail);

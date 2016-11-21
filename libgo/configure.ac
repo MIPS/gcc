@@ -121,6 +121,7 @@ if test "$with_libffi" != no; then
 fi
 AC_SUBST(LIBFFI)
 AC_SUBST(LIBFFIINCS)
+AM_CONDITIONAL(USE_LIBFFI, test "$with_liffi" != "no")
 
 # See if the user wants to configure without libatomic. This is useful if we are
 # on an architecture for which libgo does not need an atomic support library and
@@ -222,7 +223,7 @@ case ${host} in
     GOARCH_FAMILY=ARM64
     GOARCH_CACHELINESIZE=32
     GOARCH_PHYSPAGESIZE=65536
-    GOARCH_PCQUANTUm=4
+    GOARCH_PCQUANTUM=4
     GOARCH_MINFRAMESIZE=8
     ;;
   arm*-*-* | strongarm*-*-* | ep9312*-*-* | xscale-*-*)
@@ -230,7 +231,6 @@ case ${host} in
     GOARCH_FAMILY=ARM
     GOARCH_CACHELINESIZE=32
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
     GOARCH_MINFRAMESIZE=4
     ;;
 changequote(,)dnl
@@ -254,7 +254,7 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     GOARCH=ia64
     GOARCH_FAMILY=IA64
     GOARCH_CACHELINESIZE=16384
-    GOARCH_PHYSPAGESIZE=8192
+    GOARCH_PHYSPAGESIZE=65536
     ;;
   m68k*-*-*)
     GOARCH=m68k
@@ -262,7 +262,7 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     GOARCH_BIGENDIAN=1
     GOARCH_CACHELINESIZE=16
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
+    GOARCH_INT64ALIGN=2
     ;;
   mips*-*-*)
     AC_COMPILE_IFELSE([
@@ -296,7 +296,6 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     case "$mips_abi" in
     "o32" | "n32")
         GOARCH_FAMILY=MIPS
-	GOARCH_INT64ALIGN=4
 	GOARCH_MINFRAMESIZE=4
         ;;
     "n64" | "o64")
@@ -323,7 +322,6 @@ GOARCH_HUGEPAGESIZE="1 << 21"
 [GOARCH=ppc
 GOARCH_FAMILY=PPC
 GOARCH_BIGENDIAN=1
-GOARCH_INT64ALIGN=4
 ],
     [
 GOARCH_FAMILY=PPC64
@@ -347,7 +345,6 @@ GOARCH_BIGENDIAN=1
 #endif],
 [GOARCH=s390
 GOARCH_FAMILY=S390
-GOARCH_INT64ALIGN=4
 GOARCH_MINFRAMESIZE=4
 ], [GOARCH=s390x
 GOARCH_FAMILY=S390X
@@ -364,7 +361,6 @@ GOARCH_MINFRAMESIZE=8
 #endif],
 [GOARCH=sparc
 GOARCH_FAMILY=SPARC
-GOARCH_INT64ALIGN=4
 ],
 [GOARCH=sparc64
 GOARCH_FAMILY=SPARC64
@@ -447,9 +443,9 @@ EOF
 cat > conftest2.c << EOF
 void f() {}
 EOF
-$CC -c -fsplit-stack $CFLAGS $CPPFLAGS conftest1.c
-$CC -c $CFLAGS $CPPFLAGS conftest2.c
-if $CC -o conftest conftest1.$ac_objext conftest2.$ac_objext; then
+$CC -c -fsplit-stack $CFLAGS $CPPFLAGS conftest1.c >/dev/null 2>&1
+$CC -c $CFLAGS $CPPFLAGS conftest2.c > /dev/null 2>&1
+if $CC -o conftest conftest1.$ac_objext conftest2.$ac_objext > /dev/null 2>&1; then
   libgo_cv_c_linker_split_non_split=yes
 else
   libgo_cv_c_linker_split_non_split=no
@@ -570,7 +566,7 @@ AC_C_BIGENDIAN
 
 GCC_CHECK_UNWIND_GETIPINFO
 
-AC_CHECK_HEADERS(sched.h sys/file.h sys/mman.h syscall.h sys/epoll.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h)
+AC_CHECK_HEADERS(port.h sched.h semaphore.h sys/file.h sys/mman.h syscall.h sys/epoll.h sys/event.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h)
 
 AC_CHECK_HEADERS([linux/filter.h linux/if_addr.h linux/if_ether.h linux/if_tun.h linux/netlink.h linux/rtnetlink.h], [], [],
 [#ifdef HAVE_SYS_SOCKET_H

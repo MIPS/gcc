@@ -699,6 +699,8 @@ struct GTY(()) location_adhoc_data_map {
 
 /* A set of chronological line_map structures.  */
 struct GTY(()) line_maps {
+
+  ~line_maps ();
   
   maps_info_ordinary info_ordinary;
 
@@ -977,7 +979,6 @@ LINEMAPS_LAST_ALLOCATED_MACRO_MAP (const line_maps *set)
   return (line_map_macro *)LINEMAPS_LAST_ALLOCATED_MAP (set, true);
 }
 
-extern void location_adhoc_data_fini (struct line_maps *);
 extern source_location get_combined_adhoc_loc (struct line_maps *,
 					       source_location,
 					       source_range,
@@ -1086,11 +1087,15 @@ const char* linemap_map_get_macro_name (const line_map_macro *);
 int linemap_location_in_system_header_p (struct line_maps *,
 					 source_location);
 
-/* Return TRUE if LOCATION is a source code location of a token coming
-   from a macro replacement-list at a macro expansion point, FALSE
-   otherwise.  */
+/* Return TRUE if LOCATION is a source code location of a token that is part of
+   a macro expansion, FALSE otherwise.  */
 bool linemap_location_from_macro_expansion_p (const struct line_maps *,
 					      source_location);
+
+/* TRUE if LOCATION is a source code location of a token that is part of the
+   definition of a macro, FALSE otherwise.  */
+bool linemap_location_from_macro_definition_p (struct line_maps *,
+					       source_location);
 
 /* With the precondition that LOCATION is the locus of a token that is
    an argument of a function-like macro MACRO_MAP and appears in the
@@ -1484,7 +1489,86 @@ class fixit_hint;
    - range 0 is at the "%s" with start = caret = "%" and finish at
      the "s".
    - range 1 has start/finish covering the "101" and is not flagged for
-     caret printing; it is perhaps at the start of "101".  */
+     caret printing; it is perhaps at the start of "101".
+
+
+   Fix-it hints
+   ------------
+
+   Rich locations can also contain "fix-it hints", giving suggestions
+   for the user on how to edit their code to fix a problem.  These
+   can be expressed as insertions, replacements, and removals of text.
+   The edits by default are relative to the zeroth range within the
+   rich_location, but optionally they can be expressed relative to
+   other locations (using various overloaded methods of the form
+   rich_location::add_fixit_*).
+
+   For example:
+
+   Example F: fix-it hint: insert_before
+   *************************************
+      ptr = arr[0];
+	    ^~~~~~
+	    &
+   This rich location has a single range (range 0) covering "arr[0]",
+   with the caret at the start.  The rich location has a single
+   insertion fix-it hint, inserted before range 0, added via
+     richloc.add_fixit_insert_before ("&");
+
+   Example G: multiple fix-it hints: insert_before and insert_after
+   ****************************************************************
+      #define FN(ARG0, ARG1, ARG2) fn(ARG0, ARG1, ARG2)
+				      ^~~~  ^~~~  ^~~~
+				      (   ) (   ) (   )
+   This rich location has three ranges, covering "arg0", "arg1",
+   and "arg2", all with caret-printing enabled.
+   The rich location has 6 insertion fix-it hints: each arg
+   has a pair of insertion fix-it hints, suggesting wrapping
+   them with parentheses: one a '(' inserted before,
+   the other a ')' inserted after, added via
+     richloc.add_fixit_insert_before (LOC, "(");
+   and
+     richloc.add_fixit_insert_after (LOC, ")");
+
+   Example H: fix-it hint: removal
+   *******************************
+     struct s {int i};;
+		      ^
+		      -
+   This rich location has a single range at the stray trailing
+   semicolon, along with a single removal fix-it hint, covering
+   the same range, added via:
+     richloc.add_fixit_remove ();
+
+   Example I: fix-it hint: replace
+   *******************************
+      c = s.colour;
+	    ^~~~~~
+	    color
+   This rich location has a single range (range 0) covering "colour",
+   and a single "replace" fix-it hint, covering the same range,
+   added via
+     richloc.add_fixit_replace ("color");
+
+   Adding a fix-it hint can fail: for example, attempts to insert content
+   at the transition between two line maps may fail due to there being no
+   source_location (aka location_t) value to express the new location.
+
+   Attempts to add a fix-it hint within a macro expansion will fail.
+
+   We do not yet support newlines in fix-it text; attempts to do so will fail.
+
+   The rich_location API handles these failures gracefully, so that
+   diagnostics can attempt to add fix-it hints without each needing
+   extensive checking.
+
+   Fix-it hints within a rich_location are "atomic": if any hints can't
+   be applied, none of them will be (tracked by the m_seen_impossible_fixit
+   flag), and no fix-its hints will be displayed for that rich_location.
+   This implies that diagnostic messages need to be worded in such a way
+   that they make sense whether or not the fix-it hints are displayed,
+   or that richloc.seen_impossible_fixit_p () should be checked before
+   issuing the diagnostics.  */
 
 class rich_location
 {
@@ -1522,14 +1606,25 @@ class rich_location
 
   /* Methods for adding insertion fix-it hints.  */
 
-  /* Suggest inserting NEW_CONTENT at the primary range's caret.  */
+  /* Suggest inserting NEW_CONTENT immediately before the primary
+     range's start.  */
   void
-  add_fixit_insert (const char *new_content);
+  add_fixit_insert_before (const char *new_content);
 
-  /* Suggest inserting NEW_CONTENT at WHERE.  */
+  /* Suggest inserting NEW_CONTENT immediately before the start of WHERE.  */
   void
-  add_fixit_insert (source_location where,
-		    const char *new_content);
+  add_fixit_insert_before (source_location where,
+			   const char *new_content);
+
+  /* Suggest inserting NEW_CONTENT immediately after the end of the primary
+     range.  */
+  void
+  add_fixit_insert_after (const char *new_content);
+
+  /* Suggest inserting NEW_CONTENT immediately after the end of WHERE.  */
+  void
+  add_fixit_insert_after (source_location where,
+			  const char *new_content);
 
   /* Methods for adding removal fix-it hints.  */
 
@@ -1571,6 +1666,7 @@ class rich_location
 
 private:
   bool reject_impossible_fixit (source_location where);
+  void stop_supporting_fixits ();
   void add_fixit (fixit_hint *hint);
 
 public:

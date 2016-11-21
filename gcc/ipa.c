@@ -32,9 +32,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "ipa-utils.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "dbgcnt.h"
+#include "debug.h"
 
 
 /* Return true when NODE has ADDR reference.  */
@@ -127,7 +129,7 @@ process_references (symtab_node *snode,
 		  /* We use variable constructors during late compilation for
 		     constant folding.  Keep references alive so partitioning
 		     knows about potential references.  */
-		  || (TREE_CODE (node->decl) == VAR_DECL
+		  || (VAR_P (node->decl)
 		      && flag_wpa
 		      && ctor_for_folding (node->decl)
 		         != error_mark_node))))
@@ -621,6 +623,12 @@ symbol_table::remove_unreachable_nodes (FILE *file)
 	  if (file)
 	    fprintf (file, " %s/%i", vnode->name (), vnode->order);
           vnext = next_variable (vnode);
+	  /* Signal removal to the debug machinery.  */
+	  if (! flag_wpa)
+	    {
+	      vnode->definition = false;
+	      (*debug_hooks->late_global_decl) (vnode->decl);
+	    }
 	  vnode->remove ();
 	  changed = true;
 	}

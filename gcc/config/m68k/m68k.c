@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
@@ -288,6 +289,9 @@ static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL m68k_output_dwarf_dtprel
 #endif
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_false
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	m68k_legitimate_address_p
@@ -634,10 +638,12 @@ m68k_option_override (void)
     }
 #endif
 
-  if (stack_limit_rtx != NULL_RTX && !TARGET_68020)
+  if ((opt_fstack_limit_symbol_arg != NULL || opt_fstack_limit_register_no >= 0)
+      && !TARGET_68020)
     {
       warning (0, "-fstack-limit- options are not supported on this cpu");
-      stack_limit_rtx = NULL_RTX;
+      opt_fstack_limit_symbol_arg = NULL;
+      opt_fstack_limit_register_no = -1;
     }
 
   SUBTARGET_OVERRIDE_OPTIONS;
@@ -1199,6 +1205,7 @@ m68k_expand_epilogue (bool sibcall_p)
 	     stack-based restore.  */
 	  emit_move_insn (gen_rtx_REG (Pmode, A1_REG),
 			  GEN_INT (-(current_frame.offset + fsize)));
+	  emit_insn (gen_blockage ());
 	  emit_insn (gen_addsi3 (stack_pointer_rtx,
 				 gen_rtx_REG (Pmode, A1_REG),
 				 frame_pointer_rtx));
@@ -1300,6 +1307,7 @@ m68k_expand_epilogue (bool sibcall_p)
 			 current_frame.fpu_mask, false, false);
     }
 
+  emit_insn (gen_blockage ());
   if (frame_pointer_needed)
     emit_insn (gen_unlink (frame_pointer_rtx));
   else if (fsize_with_regs)
@@ -4544,6 +4552,7 @@ m68k_get_reloc_decoration (enum m68k_reloc reloc)
 		}
 	    }
 	}
+      gcc_unreachable ();
 
     case RELOC_TLSGD:
       return "@TLSGD";

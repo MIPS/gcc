@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "memmodel.h"
 #include "backend.h"
 #include "target.h"
 #include "rtl.h"
@@ -1964,7 +1965,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       get_object_alignment_1 (t, &obj_align, &obj_bitpos);
       obj_bitpos = (obj_bitpos - bitpos) & (obj_align - 1);
       if (obj_bitpos != 0)
-	obj_align = (obj_bitpos & -obj_bitpos);
+	obj_align = least_bit_hwi (obj_bitpos);
       attrs.align = MAX (attrs.align, obj_align);
     }
 
@@ -2298,7 +2299,7 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
      if zero.  */
   if (offset != 0)
     {
-      max_align = (offset & -offset) * BITS_PER_UNIT;
+      max_align = least_bit_hwi (offset) * BITS_PER_UNIT;
       attrs.align = MIN (attrs.align, max_align);
     }
 
@@ -3301,9 +3302,8 @@ previous_insn (rtx_insn *insn)
    look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_insn (rtx uncast_insn)
+next_nonnote_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3337,10 +3337,8 @@ next_nonnote_insn_bb (rtx_insn *insn)
    not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_insn (rtx uncast_insn)
+prev_nonnote_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3356,9 +3354,8 @@ prev_nonnote_insn (rtx uncast_insn)
    not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_insn_bb (rtx uncast_insn)
+prev_nonnote_insn_bb (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
 
   while (insn)
     {
@@ -3376,10 +3373,8 @@ prev_nonnote_insn_bb (rtx uncast_insn)
    routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nondebug_insn (rtx uncast_insn)
+next_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3394,10 +3389,8 @@ next_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nondebug_insn (rtx uncast_insn)
+prev_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3412,10 +3405,8 @@ prev_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-next_nonnote_nondebug_insn (rtx uncast_insn)
+next_nonnote_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3430,10 +3421,8 @@ next_nonnote_nondebug_insn (rtx uncast_insn)
    This routine does not look inside SEQUENCEs.  */
 
 rtx_insn *
-prev_nonnote_nondebug_insn (rtx uncast_insn)
+prev_nonnote_nondebug_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3468,10 +3457,8 @@ next_real_insn (rtx uncast_insn)
    SEQUENCEs.  */
 
 rtx_insn *
-prev_real_insn (rtx uncast_insn)
+prev_real_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3503,7 +3490,7 @@ last_call_insn (void)
    standalone USE and CLOBBER insn.  */
 
 int
-active_insn_p (const_rtx insn)
+active_insn_p (const rtx_insn *insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
 	  || JUMP_TABLE_DATA_P (insn) /* FIXME */
@@ -3514,10 +3501,8 @@ active_insn_p (const_rtx insn)
 }
 
 rtx_insn *
-next_active_insn (rtx uncast_insn)
+next_active_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = NEXT_INSN (insn);
@@ -3533,10 +3518,8 @@ next_active_insn (rtx uncast_insn)
    standalone USE and CLOBBER insn.  */
 
 rtx_insn *
-prev_active_insn (rtx uncast_insn)
+prev_active_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   while (insn)
     {
       insn = PREV_INSN (insn);
@@ -3557,10 +3540,8 @@ prev_active_insn (rtx uncast_insn)
    Return 0 if we can't find the insn.  */
 
 rtx_insn *
-next_cc0_user (rtx uncast_insn)
+next_cc0_user (rtx_insn *insn)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
-
   rtx note = find_reg_note (insn, REG_CC_USER, NULL_RTX);
 
   if (note)
@@ -3619,8 +3600,8 @@ mark_label_nuses (rtx x)
   const char *fmt;
 
   code = GET_CODE (x);
-  if (code == LABEL_REF && LABEL_P (LABEL_REF_LABEL (x)))
-    LABEL_NUSES (LABEL_REF_LABEL (x))++;
+  if (code == LABEL_REF && LABEL_P (label_ref_label (x)))
+    LABEL_NUSES (label_ref_label (x))++;
 
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
@@ -4831,7 +4812,7 @@ emit_pattern_before (rtx pattern, rtx uncast_before, bool skip_debug_insns,
 				       insnp, make_raw);
   else
     return emit_pattern_before_noloc (pattern, before,
-                                      insnp ? before : NULL_RTX,
+				      insnp ? before : NULL_RTX,
                                       NULL, make_raw);
 }
 
@@ -6187,17 +6168,19 @@ emit_copy_of_insn_after (rtx_insn *insn, rtx_insn *after)
      which may be duplicated by the basic block reordering code.  */
   RTX_FRAME_RELATED_P (new_rtx) = RTX_FRAME_RELATED_P (insn);
 
+  /* Locate the end of existing REG_NOTES in NEW_RTX.  */
+  rtx *ptail = &REG_NOTES (new_rtx);
+  while (*ptail != NULL_RTX)
+    ptail = &XEXP (*ptail, 1);
+
   /* Copy all REG_NOTES except REG_LABEL_OPERAND since mark_jump_label
      will make them.  REG_LABEL_TARGETs are created there too, but are
      supposed to be sticky, so we copy them.  */
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
     if (REG_NOTE_KIND (link) != REG_LABEL_OPERAND)
       {
-	if (GET_CODE (link) == EXPR_LIST)
-	  add_reg_note (new_rtx, REG_NOTE_KIND (link),
-			copy_insn_1 (XEXP (link, 0)));
-	else
-	  add_shallow_copy_of_reg_note (new_rtx, link);
+	*ptail = duplicate_reg_note (link);
+	ptail = &XEXP (*ptail, 1);
       }
 
   INSN_CODE (new_rtx) = INSN_CODE (insn);

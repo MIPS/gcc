@@ -211,8 +211,12 @@ imm_dom_path_with_freeing_call (basic_block bb, basic_block dom)
       for (gsi = gsi_start_bb (e->src); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple *stmt = gsi_stmt (gsi);
+	  gasm *asm_stmt;
 
-	  if (is_gimple_call (stmt) && !nonfreeing_call_p (stmt))
+	  if ((is_gimple_call (stmt) && !nonfreeing_call_p (stmt))
+	      || ((asm_stmt = dyn_cast <gasm *> (stmt))
+		  && (gimple_asm_clobbers_memory_p (asm_stmt)
+		      || gimple_asm_volatile_p (asm_stmt))))
 	    {
 	      pred_info->has_freeing_call_p = true;
 	      break;
@@ -686,8 +690,7 @@ pass_sanopt::execute (function *fun)
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
 	    gimple *stmt = gsi_stmt (gsi);
-	    if (is_gimple_call (stmt) && gimple_call_internal_p (stmt)
-		&& gimple_call_internal_fn (stmt) == IFN_ASAN_CHECK)
+	    if (gimple_call_internal_p (stmt, IFN_ASAN_CHECK))
 	      ++asan_num_accesses;
 	  }
     }
@@ -728,6 +731,9 @@ pass_sanopt::execute (function *fun)
 		  break;
 		case IFN_ASAN_CHECK:
 		  no_next = asan_expand_check_ifn (&gsi, use_calls);
+		  break;
+		case IFN_ASAN_MARK:
+		  no_next = asan_expand_mark_ifn (&gsi);
 		  break;
 		default:
 		  break;

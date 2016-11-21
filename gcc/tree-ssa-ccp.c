@@ -591,7 +591,15 @@ get_value_for_expr (tree expr, bool for_bits_p)
 
   if (TREE_CODE (expr) == SSA_NAME)
     {
-      val = *get_value (expr);
+      ccp_prop_value_t *val_ = get_value (expr);
+      if (val_)
+	val = *val_;
+      else
+	{
+	  val.lattice_val = VARYING;
+	  val.value = NULL_TREE;
+	  val.mask = -1;
+	}
       if (for_bits_p
 	  && val.lattice_val == CONSTANT
 	  && TREE_CODE (val.value) == ADDR_EXPR)
@@ -673,12 +681,12 @@ likely_value (gimple *stmt)
     {
       ccp_prop_value_t *val = get_value (use);
 
-      if (val->lattice_val == UNDEFINED)
+      if (val && val->lattice_val == UNDEFINED)
 	has_undefined_operand = true;
       else
 	all_undefined_operands = false;
 
-      if (val->lattice_val == CONSTANT)
+      if (val && val->lattice_val == CONSTANT)
 	has_constant_operand = true;
 
       if (SSA_NAME_IS_DEFAULT_DEF (use)
@@ -898,24 +906,23 @@ ccp_finalize (bool nonzero_p)
 {
   bool something_changed;
   unsigned i;
+  tree name;
 
   do_dbg_cnt ();
 
   /* Derive alignment and misalignment information from partially
      constant pointers in the lattice or nonzero bits from partially
      constant integers.  */
-  for (i = 1; i < num_ssa_names; ++i)
+  FOR_EACH_SSA_NAME (i, name, cfun)
     {
-      tree name = ssa_name (i);
       ccp_prop_value_t *val;
       unsigned int tem, align;
 
-      if (!name
-	  || (!POINTER_TYPE_P (TREE_TYPE (name))
-	      && (!INTEGRAL_TYPE_P (TREE_TYPE (name))
-		  /* Don't record nonzero bits before IPA to avoid
-		     using too much memory.  */
-		  || !nonzero_p)))
+      if (!POINTER_TYPE_P (TREE_TYPE (name))
+	  && (!INTEGRAL_TYPE_P (TREE_TYPE (name))
+	      /* Don't record nonzero bits before IPA to avoid
+		 using too much memory.  */
+	      || !nonzero_p))
 	continue;
 
       val = get_value (name);
@@ -929,7 +936,7 @@ ccp_finalize (bool nonzero_p)
 	  /* Trailing mask bits specify the alignment, trailing value
 	     bits the misalignment.  */
 	  tem = val->mask.to_uhwi ();
-	  align = (tem & -tem);
+	  align = least_bit_hwi (tem);
 	  if (align > 1)
 	    set_ptr_info_alignment (get_ptr_info (name), align,
 				    (TREE_INT_CST_LOW (val->value)
@@ -946,8 +953,7 @@ ccp_finalize (bool nonzero_p)
     }
 
   /* Perform substitutions based on the known constant values.  */
-  something_changed = substitute_and_fold (get_constant_value,
-					   ccp_fold_stmt, true);
+  something_changed = substitute_and_fold (get_constant_value, ccp_fold_stmt);
 
   free (const_val);
   const_val = NULL;
@@ -1740,11 +1746,11 @@ evaluate_stmt (gimple *stmt)
       simplified = ccp_fold (stmt);
       if (simplified && TREE_CODE (simplified) == SSA_NAME)
 	{
-	  val = *get_value (simplified);
-	  if (val.lattice_val != VARYING)
+	  ccp_prop_value_t *val = get_value (simplified);
+	  if (val && val->lattice_val != VARYING)
 	    {
 	      fold_undefer_overflow_warnings (true, stmt, 0);
-	      return val;
+	      return *val;
 	    }
 	}
       is_constant = simplified && is_gimple_min_invariant (simplified);
@@ -2128,7 +2134,7 @@ fold_builtin_alloca_with_align (gimple *stmt)
       {
 	bool singleton_p;
 	unsigned uid;
-	singleton_p = pt_solution_singleton_p (&pi->pt, &uid);
+	singleton_p = pt_solution_singleton_or_null_p (&pi->pt, &uid);
 	gcc_assert (singleton_p);
 	SET_DECL_PT_UID (var, uid);
       }
@@ -2818,7 +2824,7 @@ optimize_atomic_bit_test_and (gimple_stmt_iterator *gsip,
   FOR_EACH_IMM_USE_STMT (g, iter, use_lhs)
     {
       enum tree_code code = ERROR_MARK;
-      tree op0, op1;
+      tree op0 = NULL_TREE, op1 = NULL_TREE;
       if (is_gimple_debug (g))
 	{
 	  has_debug_uses = true;
@@ -2899,7 +2905,7 @@ optimize_atomic_bit_test_and (gimple_stmt_iterator *gsip,
       tree temp = make_node (DEBUG_EXPR_DECL);
       DECL_ARTIFICIAL (temp) = 1;
       TREE_TYPE (temp) = TREE_TYPE (lhs);
-      DECL_MODE (temp) = TYPE_MODE (TREE_TYPE (lhs));
+      SET_DECL_MODE (temp, TYPE_MODE (TREE_TYPE (lhs)));
       tree t = build2 (LSHIFT_EXPR, TREE_TYPE (lhs), new_lhs, bit);
       g = gimple_build_debug_bind (temp, t, g);
       gsi_insert_after (&gsi, g, GSI_NEW_STMT);

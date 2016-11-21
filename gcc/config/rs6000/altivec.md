@@ -141,6 +141,7 @@
    UNSPEC_VMRGH_DIRECT
    UNSPEC_VMRGL_DIRECT
    UNSPEC_VSPLT_DIRECT
+   UNSPEC_VMRGEW_DIRECT
    UNSPEC_VSUMSWS_DIRECT
    UNSPEC_VADDCUQ
    UNSPEC_VADDEUQM
@@ -162,9 +163,7 @@
    UNSPECV_DSS
   ])
 
-;; Vec int modes
-(define_mode_iterator VI [V4SI V8HI V16QI])
-;; Like VI, but add ISA 2.07 integer vector ops
+;; Like VI, defined in vector.md, but add ISA 2.07 integer vector ops
 (define_mode_iterator VI2 [V4SI V8HI V16QI V2DI])
 ;; Short vec in modes
 (define_mode_iterator VIshort [V8HI V16QI])
@@ -1338,6 +1337,15 @@
   else
     return "vmrgew %0,%2,%1";
 }
+  [(set_attr "type" "vecperm")])
+
+(define_insn "p8_vmrgew_v4sf_direct"
+  [(set (match_operand:V4SF 0 "register_operand" "=v")
+	(unspec:V4SF [(match_operand:V4SF 1 "register_operand" "v")
+		      (match_operand:V4SF 2 "register_operand" "v")]
+		     UNSPEC_VMRGEW_DIRECT))]
+  "TARGET_P8_VECTOR"
+  "vmrgew %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
 (define_expand "vec_widen_umult_even_v16qi"
@@ -2777,7 +2785,7 @@
   rtx vtmp1 = gen_reg_rtx (V4SImode);
   rtx vtmp2 = gen_reg_rtx (<MODE>mode);
   rtx dest = gen_lowpart (V4SImode, vtmp2);
-  int elt = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (<MODE>mode) - 1 : 0;
+  int elt = VECTOR_ELT_ORDER_BIG ? GET_MODE_NUNITS (<MODE>mode) - 1 : 0;
 
   emit_insn (gen_altivec_vspltisw (vzero, const0_rtx));
   emit_insn (gen_altivec_vsum4s<VI_char>s (vtmp1, operands[1], vzero));

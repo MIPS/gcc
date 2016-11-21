@@ -1332,7 +1332,7 @@ pop_scope (void)
 		set_type_context (TREE_TYPE (p), context);
 	    }
 
-	  /* Fall through.  */
+	  gcc_fallthrough ();
 	  /* Parameters go in DECL_ARGUMENTS, not BLOCK_VARS, and have
 	     already been put there by store_parm_decls.  Unused-
 	     parameter warnings are handled by function.c.
@@ -1871,7 +1871,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	      /* If types don't match for a built-in, throw away the
 		 built-in.  No point in calling locate_old_decl here, it
 		 won't print anything.  */
-	      warning (0, "conflicting types for built-in function %q+D",
+	      warning (OPT_Wbuiltin_declaration_mismatch,
+		       "conflicting types for built-in function %q+D",
 		       newdecl);
 	      return false;
 	    }
@@ -2377,7 +2378,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       /* Since the type is OLDDECL's, make OLDDECL's size go with.  */
       DECL_SIZE (newdecl) = DECL_SIZE (olddecl);
       DECL_SIZE_UNIT (newdecl) = DECL_SIZE_UNIT (olddecl);
-      DECL_MODE (newdecl) = DECL_MODE (olddecl);
+      SET_DECL_MODE (newdecl, DECL_MODE (olddecl));
       if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
 	{
 	  SET_DECL_ALIGN (newdecl, DECL_ALIGN (olddecl));
@@ -2746,7 +2747,9 @@ warn_if_shadowing (tree new_decl)
   struct c_binding *b;
 
   /* Shadow warnings wanted?  */
-  if (!warn_shadow
+  if (!(warn_shadow
+        || warn_shadow_local
+        || warn_shadow_compatible_local)
       /* No shadow warnings for internally generated vars.  */
       || DECL_IS_BUILTIN (new_decl)
       /* No shadow warnings for vars made for inlining.  */
@@ -2770,9 +2773,23 @@ warn_if_shadowing (tree new_decl)
 	    break;
 	  }
 	else if (TREE_CODE (old_decl) == PARM_DECL)
-	  warned = warning (OPT_Wshadow,
-			    "declaration of %q+D shadows a parameter",
-			    new_decl);
+	  {
+	    enum opt_code warning_code;
+
+	    /* If '-Wshadow=compatible-local' is specified without other
+	       -Wshadow= flags, we will warn only when the types of the
+	       shadowing variable (i.e. new_decl) and the shadowed variable
+	       (old_decl) are compatible.  */
+	    if (warn_shadow)
+	      warning_code = OPT_Wshadow;
+	    else if (comptypes (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
+	      warning_code = OPT_Wshadow_compatible_local;
+	    else
+	      warning_code = OPT_Wshadow_local;
+	    warned = warning_at (DECL_SOURCE_LOCATION (new_decl), warning_code,
+				 "declaration of %qD shadows a parameter",
+				 new_decl);
+	  }
 	else if (DECL_FILE_SCOPE_P (old_decl))
 	  {
 	    /* Do not warn if a variable shadows a function, unless
@@ -2795,8 +2812,23 @@ warn_if_shadowing (tree new_decl)
 	    break;
 	  }
 	else
-	  warned = warning (OPT_Wshadow, "declaration of %q+D shadows a "
-			    "previous local", new_decl);
+	  {
+	    enum opt_code warning_code;
+
+	    /* If '-Wshadow=compatible-local' is specified without other
+	       -Wshadow= flags, we will warn only when the types of the
+	       shadowing variable (i.e. new_decl) and the shadowed variable
+	       (old_decl) are compatible.  */
+	    if (warn_shadow)
+	      warning_code = OPT_Wshadow;
+	    else if (comptypes (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
+	      warning_code = OPT_Wshadow_compatible_local;
+	    else
+	      warning_code = OPT_Wshadow_local;
+	    warned = warning_at (DECL_SOURCE_LOCATION (new_decl), warning_code,
+				 "declaration of %qD shadows a previous local",
+				 new_decl);
+	  }
 
 	if (warned)
 	  inform (DECL_SOURCE_LOCATION (old_decl),
@@ -3505,7 +3537,7 @@ make_label (location_t location, tree name, bool defining,
 {
   tree label = build_decl (location, LABEL_DECL, name, void_type_node);
   DECL_CONTEXT (label) = current_function_decl;
-  DECL_MODE (label) = VOIDmode;
+  SET_DECL_MODE (label, VOIDmode);
 
   c_label_vars *label_vars = ggc_alloc<c_label_vars> ();
   label_vars->shadowed = NULL;
@@ -5141,7 +5173,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	  vec<tree, va_gc> *v;
 
 	  /* Build "cleanup(&decl)" for the destructor.  */
-	  cleanup = build_unary_op (input_location, ADDR_EXPR, decl, 0);
+	  cleanup = build_unary_op (input_location, ADDR_EXPR, decl, false);
 	  vec_alloc (v, 1);
 	  v->quick_push (cleanup);
 	  cleanup = c_build_function_call_vec (DECL_SOURCE_LOCATION (decl),
@@ -5485,6 +5517,27 @@ warn_defaults_to (location_t location, int opt, const char *gmsgid, ...)
   diagnostic.option_index = opt;
   report_diagnostic (&diagnostic);
   va_end (ap);
+}
+
+/* Returns the smallest location != UNKNOWN_LOCATION in LOCATIONS,
+   considering only those c_declspec_words found in LIST, which
+   must be terminated by cdw_number_of_elements.  */
+
+static location_t
+smallest_type_quals_location (const location_t *locations,
+			      const c_declspec_word *list)
+{
+  location_t loc = UNKNOWN_LOCATION;
+  while (*list != cdw_number_of_elements)
+    {
+      location_t newloc = locations[*list];
+      if (loc == UNKNOWN_LOCATION
+	  || (newloc != UNKNOWN_LOCATION && newloc < loc))
+	loc = newloc;
+      list++;
+    }
+
+  return loc;
 }
 
 /* Given declspecs and a declarator,
@@ -6381,7 +6434,19 @@ grokdeclarator (const struct c_declarator *declarator,
 	       qualify the return type, not the function type.  */
 	    if (type_quals)
 	      {
-		int quals_used = type_quals;
+		const enum c_declspec_word ignored_quals_list[] =
+		  {
+		    cdw_const, cdw_volatile, cdw_restrict, cdw_address_space,
+		    cdw_atomic, cdw_number_of_elements
+		  };
+		location_t specs_loc
+		  = smallest_type_quals_location (declspecs->locations,
+						  ignored_quals_list);
+		if (specs_loc == UNKNOWN_LOCATION)
+		  specs_loc = declspecs->locations[cdw_typedef];
+		if (specs_loc == UNKNOWN_LOCATION)
+		  specs_loc = loc;
+
 		/* Type qualifiers on a function return type are
 		   normally permitted by the standard but have no
 		   effect, so give a warning at -Wreturn-type.
@@ -6391,10 +6456,11 @@ grokdeclarator (const struct c_declarator *declarator,
 		   DR#423 means qualifiers (other than _Atomic) are
 		   actually removed from the return type when
 		   determining the function type.  */
+		int quals_used = type_quals;
 		if (flag_isoc11)
 		  quals_used &= TYPE_QUAL_ATOMIC;
 		if (quals_used && VOID_TYPE_P (type) && really_funcdef)
-		  pedwarn (loc, 0,
+		  pedwarn (specs_loc, 0,
 			   "function definition has qualified void return type");
                 else if (type_quals & TYPE_QUAL_SHARED)
                   {
@@ -6403,7 +6469,7 @@ grokdeclarator (const struct c_declarator *declarator,
                                     | TYPE_QUAL_RELAXED);
                   }
 		else
-		  warning_at (loc, OPT_Wignored_qualifiers,
+		  warning_at (specs_loc, OPT_Wignored_qualifiers,
 			   "type qualifiers ignored on function return type");
 
 		/* Ensure an error for restrict on invalid types; the
@@ -8117,7 +8183,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	    {
 	      TREE_TYPE (field)
 		= c_build_bitfield_integer_type (width, TYPE_UNSIGNED (type));
-	      DECL_MODE (field) = TYPE_MODE (TREE_TYPE (field));
+	      SET_DECL_MODE (field, TYPE_MODE (TREE_TYPE (field)));
 	    }
 	  DECL_INITIAL (field) = 0;
 	}

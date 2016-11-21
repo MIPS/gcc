@@ -1148,7 +1148,10 @@ static const char *cc1_options =
  %{-help=*:--help=%*}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{coverage:-fprofile-arcs -ftest-coverage}";
+ %{coverage:-fprofile-arcs -ftest-coverage}\
+ %{fprofile-arcs|fprofile-generate*|coverage:\
+   %{!fprofile-update=single:\
+     %{pthread:-fprofile-update=prefer-atomic}}}";
 
 static const char *upc_options =
  "-fupc %{!fno-upc-pre-include:-include gcc-upc.h}";
@@ -4446,7 +4449,12 @@ process_command (unsigned int decoded_options_count,
 	    fname = xstrdup (arg);
 
           if (strcmp (fname, "-") != 0 && access (fname, F_OK) < 0)
-	    perror_with_name (fname);
+	    {
+	      if (fname[0] == '@' && access (fname + 1, F_OK) < 0)
+		perror_with_name (fname + 1);
+	      else
+		perror_with_name (fname);
+	    }
           else
 	    add_infile (arg, spec_lang);
 

@@ -29,7 +29,6 @@
 void
 test01()
 {
-  bool test __attribute__((unused)) = false;
   using std::experimental::filesystem::copy_options;
   std::error_code ec;
 
@@ -74,6 +73,9 @@ test01()
   VERIFY( !ec );
   VERIFY( exists(to) );
   VERIFY( file_size(to) == file_size(from) );
+
+  remove(from);
+  remove(to);
 }
 
 int

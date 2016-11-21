@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "memmodel.h"
 #include "target.h"
 #include "function.h"
 #include "bitmap.h"
@@ -1920,7 +1921,7 @@ array_to_pointer_conversion (location_t loc, tree exp)
 		    "is ill-formed in C++");
     }
 
-  adr = build_unary_op (loc, ADDR_EXPR, exp, 1);
+  adr = build_unary_op (loc, ADDR_EXPR, exp, true);
   return convert (ptrtype, adr);
 }
 
@@ -1937,7 +1938,7 @@ function_to_pointer_conversion (location_t loc, tree exp)
   if (TREE_NO_WARNING (orig_exp))
     TREE_NO_WARNING (exp) = 1;
 
-  return build_unary_op (loc, ADDR_EXPR, exp, 0);
+  return build_unary_op (loc, ADDR_EXPR, exp, false);
 }
 
 /* Mark EXP as read, not just set, for set but not used -Wunused
@@ -2082,7 +2083,7 @@ convert_lvalue_to_rvalue (location_t loc, struct c_expr exp,
       vec<tree, va_gc> *params;
       tree nonatomic_type, tmp, tmp_addr, fndecl, func_call;
       tree expr_type = TREE_TYPE (exp.value);
-      tree expr_addr = build_unary_op (loc, ADDR_EXPR, exp.value, 0);
+      tree expr_addr = build_unary_op (loc, ADDR_EXPR, exp.value, false);
       tree seq_cst = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
 
       gcc_assert (TYPE_ATOMIC (expr_type));
@@ -2095,7 +2096,7 @@ convert_lvalue_to_rvalue (location_t loc, struct c_expr exp,
 	 create the VAL temp variable to hold the RHS.  */
       nonatomic_type = build_qualified_type (expr_type, TYPE_UNQUALIFIED);
       tmp = create_tmp_var_raw (nonatomic_type);
-      tmp_addr = build_unary_op (loc, ADDR_EXPR, tmp, 0);
+      tmp_addr = build_unary_op (loc, ADDR_EXPR, tmp, false);
       TREE_ADDRESSABLE (tmp) = 1;
       TREE_NO_WARNING (tmp) = 1;
 
@@ -3631,7 +3632,7 @@ parser_build_unary_op (location_t loc, enum tree_code code, struct c_expr arg)
     }
   else
     {
-      result.value = build_unary_op (loc, code, arg.value, 0);
+      result.value = build_unary_op (loc, code, arg.value, false);
 
       if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
 	overflow_warning (loc, result.value);
@@ -3949,7 +3950,7 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   tree loop_label, loop_decl, done_label, done_decl;
 
   tree lhs_type = TREE_TYPE (lhs);
-  tree lhs_addr = build_unary_op (loc, ADDR_EXPR, lhs, 0);
+  tree lhs_addr = build_unary_op (loc, ADDR_EXPR, lhs, false);
   tree seq_cst = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
   tree rhs_type = TREE_TYPE (rhs);
 
@@ -3986,7 +3987,7 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   if (modifycode == NOP_EXPR)
     {
       /* Build __atomic_store (&lhs, &val, SEQ_CST)  */
-      rhs = build_unary_op (loc, ADDR_EXPR, val, 0);
+      rhs = build_unary_op (loc, ADDR_EXPR, val, false);
       fndecl = builtin_decl_explicit (BUILT_IN_ATOMIC_STORE);
       params->quick_push (lhs_addr);
       params->quick_push (rhs);
@@ -4091,12 +4092,12 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
 cas_loop:
   /* Create the variables and labels required for the op= form.  */
   old = create_tmp_var_raw (nonatomic_lhs_type);
-  old_addr = build_unary_op (loc, ADDR_EXPR, old, 0);
+  old_addr = build_unary_op (loc, ADDR_EXPR, old, false);
   TREE_ADDRESSABLE (old) = 1;
   TREE_NO_WARNING (old) = 1;
 
   newval = create_tmp_var_raw (nonatomic_lhs_type);
-  newval_addr = build_unary_op (loc, ADDR_EXPR, newval, 0);
+  newval_addr = build_unary_op (loc, ADDR_EXPR, newval, false);
   TREE_ADDRESSABLE (newval) = 1;
   TREE_NO_WARNING (newval) = 1;
 
@@ -4189,17 +4190,17 @@ cas_loop:
 /* Construct and perhaps optimize a tree representation
    for a unary operation.  CODE, a tree_code, specifies the operation
    and XARG is the operand.
-   For any CODE other than ADDR_EXPR, FLAG nonzero suppresses
-   the default promotions (such as from short to int).
-   For ADDR_EXPR, the default promotions are not applied; FLAG nonzero
-   allows non-lvalues; this is only used to handle conversion of non-lvalue
-   arrays to pointers in C99.
+   For any CODE other than ADDR_EXPR, NOCONVERT suppresses the default
+   promotions (such as from short to int).
+   For ADDR_EXPR, the default promotions are not applied; NOCONVERT allows
+   non-lvalues; this is only used to handle conversion of non-lvalue arrays
+   to pointers in C99.
 
    LOCATION is the location of the operator.  */
 
 tree
-build_unary_op (location_t location,
-		enum tree_code code, tree xarg, int flag)
+build_unary_op (location_t location, enum tree_code code, tree xarg,
+		bool noconvert)
 {
   /* No default_conversion here.  It causes trouble for ADDR_EXPR.  */
   tree arg = xarg;
@@ -4208,7 +4209,6 @@ build_unary_op (location_t location,
   tree val;
   tree ret = error_mark_node;
   tree eptype = NULL_TREE;
-  int noconvert = flag;
   const char *invalid_op_diag;
   bool int_operands;
 
@@ -4274,6 +4274,22 @@ build_unary_op (location_t location,
 	  || (typecode == VECTOR_TYPE
 	      && !VECTOR_FLOAT_TYPE_P (TREE_TYPE (arg))))
 	{
+	  tree e = arg;
+
+	  /* Warn if the expression has boolean value.  */
+	  while (TREE_CODE (e) == COMPOUND_EXPR)
+	    e = TREE_OPERAND (e, 1);
+
+	  if ((TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE
+	       || truth_value_p (TREE_CODE (e)))
+	      && warning_at (location, OPT_Wbool_operation,
+			     "%<~%> on a boolean expression"))
+	    {
+	      gcc_rich_location richloc (location);
+	      richloc.add_fixit_insert_before (location, "!");
+	      inform_at_rich_loc (&richloc, "did you mean to use logical "
+				  "not?");
+	    }
 	  if (!noconvert)
 	    arg = default_conversion (arg);
 	}
@@ -4353,7 +4369,8 @@ build_unary_op (location_t location,
       if (TREE_CODE (arg) == C_MAYBE_CONST_EXPR)
 	{
 	  tree inner = build_unary_op (location, code,
-				       C_MAYBE_CONST_EXPR_EXPR (arg), flag);
+				       C_MAYBE_CONST_EXPR_EXPR (arg),
+				       noconvert);
 	  if (inner == error_mark_node)
 	    return error_mark_node;
 	  ret = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (inner),
@@ -4383,6 +4400,16 @@ build_unary_op (location_t location,
 			"decrement of enumeration value is invalid in C++");
 	}
 
+      if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
+	{
+	  if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
+	    warning_at (location, OPT_Wbool_operation,
+			"increment of a boolean expression");
+	  else
+	    warning_at (location, OPT_Wbool_operation,
+			"decrement of a boolean expression");
+	}
+
       /* Ensure the argument is fully folded inside any SAVE_EXPR.  */
       arg = c_fully_fold (arg, false, NULL);
 
@@ -4401,9 +4428,11 @@ build_unary_op (location_t location,
 	  if (!atomic_op)
 	    {
 	      arg = stabilize_reference (arg);
-	      real = build_unary_op (EXPR_LOCATION (arg), REALPART_EXPR, arg, 1);
-	      imag = build_unary_op (EXPR_LOCATION (arg), IMAGPART_EXPR, arg, 1);
-	      real = build_unary_op (EXPR_LOCATION (arg), code, real, 1);
+	      real = build_unary_op (EXPR_LOCATION (arg), REALPART_EXPR, arg,
+				     true);
+	      imag = build_unary_op (EXPR_LOCATION (arg), IMAGPART_EXPR, arg,
+				     true);
+	      real = build_unary_op (EXPR_LOCATION (arg), code, real, true);
 	      if (real == error_mark_node || imag == error_mark_node)
 		return error_mark_node;
 	      ret = build2 (COMPLEX_EXPR, TREE_TYPE (arg),
@@ -4568,7 +4597,7 @@ build_unary_op (location_t location,
 
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
-      if (typecode != FUNCTION_TYPE && !flag
+      if (typecode != FUNCTION_TYPE && !noconvert
 	  && !lvalue_or_else (location, arg, lv_addressof))
 	return error_mark_node;
 
@@ -4577,7 +4606,8 @@ build_unary_op (location_t location,
       if (TREE_CODE (arg) == C_MAYBE_CONST_EXPR)
 	{
 	  tree inner = build_unary_op (location, code,
-				       C_MAYBE_CONST_EXPR_EXPR (arg), flag);
+				       C_MAYBE_CONST_EXPR_EXPR (arg),
+				       noconvert);
 	  ret = build2 (C_MAYBE_CONST_EXPR, TREE_TYPE (inner),
 			C_MAYBE_CONST_EXPR_PRE (arg), inner);
 	  gcc_assert (!C_MAYBE_CONST_EXPR_INT_OPERANDS (arg));
@@ -4714,7 +4744,7 @@ lvalue_p (const_tree ref)
 
     case COMPOUND_LITERAL_EXPR:
     case STRING_CST:
-      return 1;
+      return true;
 
     case INDIRECT_REF:
     case ARRAY_REF:
@@ -4730,7 +4760,7 @@ lvalue_p (const_tree ref)
       return TREE_CODE (TREE_TYPE (ref)) == ARRAY_TYPE;
 
     default:
-      return 0;
+      return false;
     }
 }
 
@@ -11838,9 +11868,9 @@ build_binary_op (location_t location, enum tree_code code,
 	    {
 	      op0 = c_save_expr (op0);
 	      real = build_unary_op (EXPR_LOCATION (orig_op0), REALPART_EXPR,
-				     op0, 1);
+				     op0, true);
 	      imag = build_unary_op (EXPR_LOCATION (orig_op0), IMAGPART_EXPR,
-				     op0, 1);
+				     op0, true);
 	      switch (code)
 		{
 		case MULT_EXPR:
@@ -11860,9 +11890,9 @@ build_binary_op (location_t location, enum tree_code code,
 	    {
 	      op1 = c_save_expr (op1);
 	      real = build_unary_op (EXPR_LOCATION (orig_op1), REALPART_EXPR,
-				     op1, 1);
+				     op1, true);
 	      imag = build_unary_op (EXPR_LOCATION (orig_op1), IMAGPART_EXPR,
-				     op1, 1);
+				     op1, true);
 	      switch (code)
 		{
 		case MULT_EXPR:

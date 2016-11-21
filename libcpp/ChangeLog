@@ -1,3 +1,114 @@
+2016-11-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* charset.c (cpp_interpret_string_1): Skip locations from
+	loc_reader when advancing 'p' when handling raw strings.
+
+2016-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/72823
+	* configure.ac (ENABLE_ASSERT_CHECKING): Define if gcc configure
+	would define that macro.
+	* configure: Regenerated.
+	* config.in: Regenerated.
+
+2016-11-08  Richard Earnshaw  <rearnsha@arm.com>
+
+	* lex.c (search_line_fast): New implementation for AArch64.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* files.c (destroy_cpp_file): Free file->path.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (line_maps::~line_maps): New dtor.
+	(location_adhoc_data_fini): Delete decl.
+	* line-map.c (line_maps::~line_maps): New dtor.
+	(location_adhoc_data_fini): Delete.
+
+2016-10-21  Andris Pavenis  <andris.pavenis@iki.fi>
+
+	PR preprocessor/71681
+	* files.c (remap_filename): Fix handling -remap in subdirectories.
+
+2016-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/cpplib.h (struct cpp_options): Add
+	cpp_warn_implicit_fallthrough.
+	* init.c (cpp_create_reader): Initialize it to 0.
+	* lex.c (fallthrough_comment_p): Handle different
+	cpp_warn_implicit_fallthrough levels.  Whitespace fixes.
+
+2016-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* lex.c (fallthrough_comment_p): Accept Else, fallthrough.
+
+	* lex.c (fallthrough_comment_p): Extend to handle more common FALLTHRU
+	comment styles.
+
+	* lex.c (fallthrough_comment_p): Fix off-by-one size comparison
+	errors, cleanup.
+	(_cpp_lex_direct): Allow arbitrary comments in between
+	fallthrough_comment_p comment and following token.
+
+2016-10-04  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/77847
+	* lex.c (search_line_fast): Add a FALLTHROUGH comment to correct
+	compiler error in the version of this function that is
+	conditionally compiled when GCC_VERSION >= 4005 and both
+	__ALTIVEC__ and __BIG_ENDIAN__ symbols are defined.
+
+2016-09-26  Marek Polacek  <polacek@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/7652
+	* include/cpplib.h (PREV_FALLTHROUGH): Define.
+	* internal.h (CPP_FALLTHRU): Define.
+	* lex.c (fallthrough_comment_p): New function.
+	(_cpp_lex_direct): Set PREV_FALLTHROUGH on tokens succeeding a falls
+	through comment.
+
+2016-09-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/77672
+	* charset.c (cpp_interpret_string_1): Add a source_range for the
+	NUL-terminator, using the location of the trailing quote of the
+	final string.
+
+2016-09-21  Jason Merrill  <jason@redhat.com>
+
+	* line-map.c (linemap_location_from_macro_definition_p): New.
+	* line-map.h: Declare it.
+
+2016-09-15  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (class rich_location): Note that newlines
+	aren't supported in fix-it text.
+	* line-map.c (rich_location::add_fixit_insert_before): Reject
+	attempts to add fix-its containing newlines.
+	(rich_location::add_fixit_replace): Likewise.
+
+2016-09-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (class rich_location): Add description of
+	fix-it hints to leading comment.
+	(rich_location::add_fixit_insert): Rename both overloaded methods
+	to..
+	(rich_location::add_fixit_insert_before): ...this, updating their
+	comments.
+	(rich_location::add_fixit_insert_after): Two new overloaded
+	methods.
+	(rich_location::stop_supporting_fixits): New method.
+	* line-map.c (rich_location::add_fixit_insert): Rename both
+	overloaded methods to..
+	(rich_location::add_fixit_insert_before): ...this, updating their
+	comments.
+	(rich_location::add_fixit_insert_after): Two new methods.
+	(rich_location::reject_impossible_fixit): Split out
+	failure-handling into...
+	(rich_location::stop_supporting_fixits): New method.
+
 2016-09-02  David Malcolm  <dmalcolm@redhat.com>
 
 	* include/line-map.h (rich_location::seen_impossible_fixit_p): New

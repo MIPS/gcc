@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "selftest.h"
 #include "tree.h"
+#include "target.h"
 #include "langhooks.h"
 
 /* This function needed to be split out from selftest.c as it references
@@ -77,8 +78,20 @@ selftest::run_tests ()
   /* This one relies on most of the above.  */
   function_tests_c_tests ();
 
+  /* Run any target-specific selftests.  */
+  if (targetm.run_target_selftests)
+    targetm.run_target_selftests ();
+
+  store_merging_c_tests ();
+
   /* Run any lang-specific selftests.  */
   lang_hooks.run_lang_selftests ();
+
+  /* Force a GC at the end of the selftests, to shake out GC-related
+     issues.  For example, if any GC-managed items have buggy (or missing)
+     finalizers, this last collection will ensure that things that were
+     failed to be finalized can be detected by valgrind.  */
+  forcibly_ggc_collect ();
 
   /* Finished running tests.  */
   long finish_time = get_run_time ();

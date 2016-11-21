@@ -146,6 +146,18 @@ class line_table_test
 extern void
 for_each_line_table_case (void (*testcase) (const line_table_case &));
 
+/* Read the contents of PATH into memory, returning a 0-terminated buffer
+   that must be freed by the caller.
+   Fail (and abort) if there are any problems, with LOC as the reported
+   location of the failure.  */
+
+extern char *read_file (const location &loc, const char *path);
+
+/* A helper function for writing tests that interact with the
+   garbage collector.  */
+
+extern void forcibly_ggc_collect ();
+
 /* Declarations for specific families of tests (by source file), in
    alphabetical order.  */
 extern void bitmap_c_tests ();
@@ -167,6 +179,7 @@ extern void selftest_c_tests ();
 extern void spellcheck_c_tests ();
 extern void spellcheck_tree_c_tests ();
 extern void sreal_c_tests ();
+extern void store_merging_c_tests ();
 extern void typed_splay_tree_c_tests ();
 extern void tree_c_tests ();
 extern void tree_cfg_c_tests ();

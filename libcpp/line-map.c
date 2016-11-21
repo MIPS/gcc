@@ -57,6 +57,14 @@ static source_location linemap_macro_loc_to_exp_point (struct line_maps *,
 extern unsigned num_expanded_macros_counter;
 extern unsigned num_macro_tokens_counter;
 
+/* Destructor for class line_maps.
+   Ensure non-GC-managed memory is released.  */
+
+line_maps::~line_maps ()
+{
+  htab_delete (location_adhoc_data_map.htab);
+}
+
 /* Hash function for location_adhoc_data hashtable.  */
 
 static hashval_t
@@ -331,13 +339,6 @@ get_pure_location (line_maps *set, source_location loc)
   const line_map_ordinary *ordmap = linemap_check_ordinary (map);
 
   return loc & ~((1 << ordmap->m_range_bits) - 1);
-}
-
-/* Finalize the location_adhoc_data structure.  */
-void
-location_adhoc_data_fini (struct line_maps *set)
-{
-  htab_delete (set->location_adhoc_data_map.htab);
 }
 
 /* Initialize a line map set.  */
@@ -1223,9 +1224,8 @@ linemap_location_in_system_header_p (struct line_maps *set,
   return false;
 }
 
-/* Return TRUE if LOCATION is a source code location of a token coming
-   from a macro replacement-list at a macro expansion point, FALSE
-   otherwise.  */
+/* Return TRUE if LOCATION is a source code location of a token that is part of
+   a macro expansion, FALSE otherwise.  */
 
 bool
 linemap_location_from_macro_expansion_p (const struct line_maps *set,
@@ -1568,6 +1568,37 @@ linemap_resolve_location (struct line_maps *set,
       abort ();
     }
   return loc;
+}
+
+/* TRUE if LOCATION is a source code location of a token that is part of the
+   definition of a macro, FALSE otherwise.  */
+
+bool
+linemap_location_from_macro_definition_p (struct line_maps *set,
+					  source_location loc)
+{
+  if (IS_ADHOC_LOC (loc))
+    loc = get_location_from_adhoc_loc (set, loc);
+
+  if (!linemap_location_from_macro_expansion_p (set, loc))
+    return false;
+
+  while (true)
+    {
+      const struct line_map_macro *map
+	= linemap_check_macro (linemap_lookup (set, loc));
+
+      source_location s_loc
+	= linemap_macro_map_loc_unwind_toward_spelling (set, map, loc);
+      if (linemap_location_from_macro_expansion_p (set, s_loc))
+	loc = s_loc;
+      else
+	{
+	  source_location def_loc
+	    = linemap_macro_map_loc_to_def_point (map, loc);
+	  return s_loc == def_loc;
+	}
+    }
 }
 
 /* 
@@ -2109,26 +2140,67 @@ rich_location::set_range (line_maps * /*set*/, unsigned int idx,
 /* Methods for adding insertion fix-it hints.  */
 
 /* Add a fixit-hint, suggesting insertion of NEW_CONTENT
-   at the primary range's caret location.  */
+   immediately before the primary range's start location.  */
 
 void
-rich_location::add_fixit_insert (const char *new_content)
+rich_location::add_fixit_insert_before (const char *new_content)
 {
-  add_fixit_insert (get_loc (), new_content);
+  add_fixit_insert_before (get_loc (), new_content);
 }
 
 /* Add a fixit-hint, suggesting insertion of NEW_CONTENT
-   at WHERE.  */
+   immediately before the start of WHERE.  */
 
 void
-rich_location::add_fixit_insert (source_location where,
-				 const char *new_content)
+rich_location::add_fixit_insert_before (source_location where,
+					const char *new_content)
 {
-  where = get_pure_location (m_line_table, where);
+  source_location start = get_range_from_loc (m_line_table, where).m_start;
 
-  if (reject_impossible_fixit (where))
+  if (reject_impossible_fixit (start))
     return;
-  add_fixit (new fixit_insert (where, new_content));
+  /* We do not yet support newlines within fix-it hints.  */
+  if (strchr (new_content, '\n'))
+    {
+      stop_supporting_fixits ();
+      return;
+    }
+  add_fixit (new fixit_insert (start, new_content));
+}
+
+/* Add a fixit-hint, suggesting insertion of NEW_CONTENT
+   immediately after the primary range's end-point.  */
+
+void
+rich_location::add_fixit_insert_after (const char *new_content)
+{
+  add_fixit_insert_after (get_loc (), new_content);
+}
+
+/* Add a fixit-hint, suggesting insertion of NEW_CONTENT
+   immediately after the end-point of WHERE.  */
+
+void
+rich_location::add_fixit_insert_after (source_location where,
+				       const char *new_content)
+{
+  source_location finish = get_range_from_loc (m_line_table, where).m_finish;
+
+  if (reject_impossible_fixit (finish))
+    return;
+
+  source_location next_loc
+    = linemap_position_for_loc_and_offset (m_line_table, finish, 1);
+
+  /* linemap_position_for_loc_and_offset can fail, if so, it returns
+     its input value.  */
+  if (next_loc == finish)
+    {
+      stop_supporting_fixits ();
+      return;
+    }
+
+  add_fixit (new fixit_insert (next_loc, new_content));
 }
 
 /* Methods for adding removal fix-it hints.  */
@@ -2236,6 +2308,13 @@ rich_location::add_fixit_replace (source_range src_range,
   if (reject_impossible_fixit (src_range.m_finish))
     return;
 
+  /* We do not yet support newlines within fix-it hints.  */
+  if (strchr (new_content, '\n'))
+    {
+      stop_supporting_fixits ();
+      return;
+    }
+
   /* Consolidate neighboring fixits.  */
   fixit_hint *prev = get_last_fixit_hint ();
   if (prev)
@@ -2278,14 +2357,22 @@ rich_location::reject_impossible_fixit (source_location where)
   /* Otherwise we have an attempt to add a fix-it with an "awkward"
      location: either one that we can't obtain column information
      for (within an ordinary map), or one within a macro expansion.  */
+  stop_supporting_fixits ();
+  return true;
+}
+
+/* Mark this rich_location as not supporting fixits, purging any that were
+   already added.  */
+
+void
+rich_location::stop_supporting_fixits ()
+{
   m_seen_impossible_fixit = true;
 
   /* Purge the rich_location of any fix-its that were already added. */
   for (unsigned int i = 0; i < m_fixit_hints.count (); i++)
     delete get_fixit_hint (i);
   m_fixit_hints.truncate (0);
-
-  return true;
 }
 
 /* Add HINT to the fix-it hints in this rich_location.  */

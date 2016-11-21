@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "c-target.h"
 #include "c-common.h"
+#include "memmodel.h"
 #include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
 #include "diagnostic.h"
 #include "c-pragma.h"
@@ -494,6 +495,16 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       cpp_opts->warn_num_sign_change = value;
       break;
 
+    case OPT_Walloca_larger_than_:
+      if (!value)
+	inform (loc, "-Walloca-larger-than=0 is meaningless");
+      break;
+
+    case OPT_Wvla_larger_than_:
+      if (!value)
+	inform (loc, "-Wvla-larger-than=0 is meaningless");
+      break;
+
     case OPT_Wunknown_pragmas:
       /* Set to greater than 1, so that even unknown pragmas in
 	 system headers will be warned about.  */
@@ -739,31 +750,19 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     case OPT_std_c__11:
     case OPT_std_gnu__11:
       if (!preprocessing_asm_p)
-	{
-	  set_std_cxx11 (code == OPT_std_c__11 /* ISO */);
-	  if (code == OPT_std_c__11)
-	    cpp_opts->ext_numeric_literals = 0;
-	}
+	set_std_cxx11 (code == OPT_std_c__11 /* ISO */);
       break;
 
     case OPT_std_c__14:
     case OPT_std_gnu__14:
       if (!preprocessing_asm_p)
-	{
-	  set_std_cxx14 (code == OPT_std_c__14 /* ISO */);
-	  if (code == OPT_std_c__14)
-	    cpp_opts->ext_numeric_literals = 0;
-	}
+	set_std_cxx14 (code == OPT_std_c__14 /* ISO */);
       break;
 
     case OPT_std_c__1z:
     case OPT_std_gnu__1z:
       if (!preprocessing_asm_p)
-	{
-	  set_std_cxx1z (code == OPT_std_c__1z /* ISO */);
-	  if (code == OPT_std_c__1z)
-	    cpp_opts->ext_numeric_literals = 0;
-	}
+	set_std_cxx1z (code == OPT_std_c__1z /* ISO */);
       break;
 
     case OPT_std_c90:
@@ -896,8 +895,7 @@ c_common_post_options (const char **pfilename)
      support.  */
   if (c_dialect_cxx ())
     {
-      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
-	  && TARGET_FLT_EVAL_METHOD_NON_DEFAULT)
+      if (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD)
 	sorry ("-fexcess-precision=standard for C++");
       flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
     }
@@ -997,6 +995,10 @@ c_common_post_options (const char **pfilename)
     warn_shift_negative_value = (extra_warnings
 				 && (cxx_dialect >= cxx11 || flag_isoc99));
 
+  /* -Wregister is enabled by default in C++17.  */
+  if (!global_options_set.x_warn_register)
+    warn_register = cxx_dialect >= cxx1z;
+
   /* Declone C++ 'structors if -Os.  */
   if (flag_declone_ctor_dtor == -1)
     flag_declone_ctor_dtor = optimize_size;
@@ -1026,6 +1028,12 @@ c_common_post_options (const char **pfilename)
   if (flag_abi_version == 0)
     flag_abi_version = 11;
 
+  /* By default, enable the new inheriting constructor semantics along with ABI
+     11.  New and old should coexist fine, but it is a change in what
+     artificial symbols are generated.  */
+  if (!global_options_set.x_flag_new_inheriting_ctors)
+    flag_new_inheriting_ctors = abi_version_at_least (11);
+
   if (cxx_dialect >= cxx11)
     {
       /* If we're allowing C++0x constructs, don't warn about C++98
@@ -1035,6 +1043,11 @@ c_common_post_options (const char **pfilename)
 
       if (warn_narrowing == -1)
 	warn_narrowing = 1;
+
+      /* Unless -f{,no-}ext-numeric-literals has been used explicitly,
+	 for -std=c++{11,14,1z} default to -fno-ext-numeric-literals.  */
+      if (flag_iso && !global_options_set.x_flag_ext_numeric_literals)
+	cpp_opts->ext_numeric_literals = 0;
     }
   else if (warn_narrowing == -1)
     warn_narrowing = 0;
@@ -1404,6 +1417,11 @@ sanitize_cpp_opts (void)
      actually output the current directory?  */
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
+
+  if (warn_implicit_fallthrough < 5)
+    cpp_opts->cpp_warn_implicit_fallthrough = warn_implicit_fallthrough;
+  else
+    cpp_opts->cpp_warn_implicit_fallthrough = 0;
 
   if (cpp_opts->directives_only)
     {

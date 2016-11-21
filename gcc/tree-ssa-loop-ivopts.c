@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "cfghooks.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "ssa.h"
 #include "expmed.h"
@@ -1885,8 +1886,8 @@ find_deriving_biv_for_expr (struct ivopts_data *data, tree expr)
       iv = find_deriving_biv_for_expr (data, e2);
       if (iv)
 	return iv;
+      gcc_fallthrough ();
 
-      /* Fallthru.  */
     CASE_CONVERT:
       /* Casts are simple.  */
       return find_deriving_biv_for_expr (data, e1);
@@ -4383,7 +4384,7 @@ force_expr_to_var_cost (tree expr, bool speed)
 	{
 	  tree obj = TREE_OPERAND (expr, 0);
 
-	  if (TREE_CODE (obj) == VAR_DECL
+	  if (VAR_P (obj)
 	      || TREE_CODE (obj) == PARM_DECL
 	      || TREE_CODE (obj) == RESULT_DECL)
 	    return comp_cost (symbol_cost [speed], 0);
@@ -4530,7 +4531,7 @@ split_address_cost (struct ivopts_data *data,
   if (toffset != 0
       || bitpos % BITS_PER_UNIT != 0
       || reversep
-      || TREE_CODE (core) != VAR_DECL)
+      || !VAR_P (core))
     {
       *symbol_present = false;
       *var_present = true;
@@ -7588,9 +7589,9 @@ remove_unused_ivs (struct ivopts_data *data)
 		  DECL_ARTIFICIAL (vexpr) = 1;
 		  TREE_TYPE (vexpr) = TREE_TYPE (comp);
 		  if (SSA_NAME_VAR (def))
-		    DECL_MODE (vexpr) = DECL_MODE (SSA_NAME_VAR (def));
+		    SET_DECL_MODE (vexpr, DECL_MODE (SSA_NAME_VAR (def)));
 		  else
-		    DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (vexpr));
+		    SET_DECL_MODE (vexpr, TYPE_MODE (TREE_TYPE (vexpr)));
 		  gdebug *def_temp
 		    = gimple_build_debug_bind (vexpr, comp, NULL);
 		  gimple_stmt_iterator gsi;
