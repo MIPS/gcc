@@ -1,6 +1,14 @@
 2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
+	2016-05-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config.gcc: Error out when conflicting multilib is detected.  Do not
+	loop over multilibs since no combination is legal.
+
+2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
 	2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	PR target/77904
