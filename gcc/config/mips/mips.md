@@ -121,6 +121,8 @@
 
   ;; MIPS16 constant pools.
   UNSPEC_ALIGN
+  UNSPEC_CONSTTABLE
+  UNSPEC_CONSTTABLE_END
   UNSPEC_CONSTTABLE_INT
   UNSPEC_CONSTTABLE_FLOAT
 
@@ -152,6 +154,9 @@
 
   ;; Stack checking.
   UNSPEC_PROBE_STACK_RANGE
+
+  ;; The `.insn' pseudo-op.
+  UNSPEC_INSN_PSEUDO
 ])
 
 (define_constants
@@ -7473,6 +7478,14 @@
       return "#nop";
   }
   [(set_attr "type"	"nop")])
+
+;; The `.insn' pseudo-op.
+(define_insn "insn_pseudo"
+  [(unspec_volatile [(const_int 0)] UNSPEC_INSN_PSEUDO)]
+  ""
+  ".insn"
+  [(set_attr "mode" "none")
+   (set_attr "insn_count" "0")])
 
 ;; MIPS4 Conditional move instructions.
 
@@ -7640,6 +7653,22 @@
 ;;
 ;;  ....................
 ;;
+
+(define_insn "consttable"
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "")]
+		    UNSPEC_CONSTTABLE)]
+  ""
+  ""
+  [(set_attr "mode" "none")
+   (set_attr "insn_count" "0")])
+
+(define_insn "consttable_end"
+  [(unspec_volatile [(match_operand 0 "const_int_operand" "")]
+		    UNSPEC_CONSTTABLE_END)]
+  ""
+  ""
+  [(set_attr "mode" "none")
+   (set_attr "insn_count" "0")])
 
 (define_insn "consttable_tls_reloc"
   [(unspec_volatile [(match_operand 0 "tls_reloc_operand" "")
