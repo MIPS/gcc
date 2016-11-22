@@ -1,6 +1,17 @@
 2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
+	2016-11-22 Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config.gcc: Allow new rmprofile value for configure option
+	--with-multilib-list.
+	* config/arm/t-rmprofile: New file.
+	* doc/install.texi (--with-multilib-list): Document new rmprofile value
+	for ARM.
+
+2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
 	2016-05-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* config.gcc: Error out when conflicting multilib is detected.  Do not
