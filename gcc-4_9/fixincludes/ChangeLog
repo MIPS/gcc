@@ -1,3 +1,18 @@
+2016-08-03  Release Manager
+
+	* GCC 4.9.4 released.
+
+2016-02-01  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/68741
+	* inclhack.def (hpux_vsscanf): New fix.
+	* fixincl.x: Regenerated.
+	* tests/base/stdio.h [HPUX_VSSCANF_CHECK]: New test.
+
+2015-06-26  Release Manager
+
+	* GCC 4.9.3 released.
+
 2014-10-30  Release Manager
 
 	* GCC 4.9.2 released.

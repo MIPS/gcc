@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM RS/6000.
-   Copyright (C) 1991-2014 Free Software Foundation, Inc.
+   Copyright (C) 1991-2015 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -3092,6 +3092,10 @@ rs6000_option_override_internal (bool global_init_p)
     = ((global_init_p || target_option_default_node == NULL)
        ? NULL : TREE_TARGET_OPTION (target_option_default_node));
 
+  /* Print defaults.  */
+  if ((TARGET_DEBUG_REG || TARGET_DEBUG_TARGET) && global_init_p)
+    rs6000_print_isa_options (stderr, 0, "TARGET_DEFAULT", TARGET_DEFAULT);
+
   /* Remember the explicit arguments.  */
   if (global_init_p)
     rs6000_isa_flags_explicit = global_options_set.x_rs6000_isa_flags;
@@ -3168,7 +3172,13 @@ rs6000_option_override_internal (bool global_init_p)
     }
   else
     {
-      const char *default_cpu = (TARGET_POWERPC64 ? "powerpc64" : "powerpc");
+      /* PowerPC 64-bit LE requires at least ISA 2.07.  */
+      const char *default_cpu = ((!TARGET_POWERPC64)
+				 ? "powerpc"
+				 : ((BYTES_BIG_ENDIAN)
+				    ? "powerpc64"
+				    : "powerpc64le"));
+
       rs6000_cpu_index = cpu_index = rs6000_cpu_name_lookup (default_cpu);
       have_cpu = false;
     }
@@ -3187,15 +3197,18 @@ rs6000_option_override_internal (bool global_init_p)
 			   & set_masks);
     }
   else
-    rs6000_isa_flags |= (processor_target_table[cpu_index].target_enable
-			 & ~rs6000_isa_flags_explicit);
+    {
+      /* If no -mcpu=<xxx>, inherit any default options that were cleared via
+	 POWERPC_MASKS.  Originally, TARGET_DEFAULT was used to initialize
+	 target_flags via the TARGET_DEFAULT_TARGET_FLAGS hook.  When we switched
+	 to using rs6000_isa_flags, we need to do the initialization here.
 
-  /* If no -mcpu=<xxx>, inherit any default options that were cleared via
-     POWERPC_MASKS.  Originally, TARGET_DEFAULT was used to initialize
-     target_flags via the TARGET_DEFAULT_TARGET_FLAGS hook.  When we switched
-     to using rs6000_isa_flags, we need to do the initialization here.  */
-  if (!have_cpu)
-    rs6000_isa_flags |= (TARGET_DEFAULT & ~rs6000_isa_flags_explicit);
+	 If there is a TARGET_DEFAULT, use that.  Otherwise fall back to using
+	 -mcpu=powerpc, -mcpu=powerpc64, or -mcpu=powerpc64le defaults.  */
+      HOST_WIDE_INT flags = ((TARGET_DEFAULT) ? TARGET_DEFAULT
+			     : processor_target_table[cpu_index].target_enable);
+      rs6000_isa_flags |= (flags & ~rs6000_isa_flags_explicit);
+    }
 
   if (rs6000_tune_index >= 0)
     tune_index = rs6000_tune_index;
@@ -3481,6 +3494,45 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize_function_for_speed_p (cfun)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
+
+  /* Set -mallow-movmisalign to explicitly on if we have full ISA 2.07
+     support. If we only have ISA 2.06 support, and the user did not specify
+     the switch, leave it set to -1 so the movmisalign patterns are enabled,
+     but we don't enable the full vectorization support  */
+  if (TARGET_ALLOW_MOVMISALIGN == -1 && TARGET_P8_VECTOR && TARGET_DIRECT_MOVE)
+    TARGET_ALLOW_MOVMISALIGN = 1;
+
+  else if (TARGET_ALLOW_MOVMISALIGN && !TARGET_VSX)
+    {
+      if (TARGET_ALLOW_MOVMISALIGN > 0)
+	error ("-mallow-movmisalign requires -mvsx");
+
+      TARGET_ALLOW_MOVMISALIGN = 0;
+    }
+
+  /* Determine when unaligned vector accesses are permitted, and when
+     they are preferred over masked Altivec loads.  Note that if
+     TARGET_ALLOW_MOVMISALIGN has been disabled by the user, then
+     TARGET_EFFICIENT_UNALIGNED_VSX must be as well.  The converse is
+     not true.  */
+  if (TARGET_EFFICIENT_UNALIGNED_VSX)
+    {
+      if (!TARGET_VSX)
+	{
+	  if (rs6000_isa_flags_explicit & OPTION_MASK_EFFICIENT_UNALIGNED_VSX)
+	    error ("-mefficient-unaligned-vsx requires -mvsx");
+
+	  rs6000_isa_flags &= ~OPTION_MASK_EFFICIENT_UNALIGNED_VSX;
+	}
+
+      else if (!TARGET_ALLOW_MOVMISALIGN)
+	{
+	  if (rs6000_isa_flags_explicit & OPTION_MASK_EFFICIENT_UNALIGNED_VSX)
+	    error ("-mefficient-unaligned-vsx requires -mallow-movmisalign");
+
+	  rs6000_isa_flags &= ~OPTION_MASK_EFFICIENT_UNALIGNED_VSX;
+	}
+    }
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
@@ -4047,12 +4099,8 @@ rs6000_option_override_internal (bool global_init_p)
      target_flags.  */
   rs6000_builtin_mask = rs6000_builtin_mask_calculate ();
   if (TARGET_DEBUG_BUILTIN || TARGET_DEBUG_TARGET)
-    {
-      fprintf (stderr,
-	       "new builtin mask = " HOST_WIDE_INT_PRINT_HEX ", ",
-	       rs6000_builtin_mask);
-      rs6000_print_builtin_options (stderr, 0, NULL, rs6000_builtin_mask);
-    }
+    rs6000_print_builtin_options (stderr, 0, "builtin mask",
+				  rs6000_builtin_mask);
 
   /* Initialize all of the registers.  */
   rs6000_init_hard_regno_mode_ok (global_init_p);
@@ -4093,7 +4141,9 @@ rs6000_option_override (void)
 static tree
 rs6000_builtin_mask_for_load (void)
 {
-  if (TARGET_ALTIVEC || TARGET_VSX)
+  /* Don't use lvsl/vperm for P8 and similarly efficient machines.  */
+  if ((TARGET_ALTIVEC && !TARGET_VSX)
+      || (TARGET_VSX && !TARGET_EFFICIENT_UNALIGNED_VSX))
     return altivec_builtin_mask_for_load;
   else
     return 0;
@@ -4172,6 +4222,9 @@ rs6000_builtin_support_vector_misalignment (enum machine_mode mode,
 {
   if (TARGET_VSX)
     {
+      if (TARGET_EFFICIENT_UNALIGNED_VSX)
+	return true;
+
       /* Return if movmisalign pattern is not supported for this mode.  */
       if (optab_handler (movmisalign_optab, mode) == CODE_FOR_nothing)
         return false;
@@ -4235,6 +4288,9 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 3;
 
       case unaligned_load:
+	if (TARGET_EFFICIENT_UNALIGNED_VSX)
+	  return 1;
+
         if (TARGET_VSX && TARGET_ALLOW_MOVMISALIGN)
           {
             elements = TYPE_VECTOR_SUBPARTS (vectype);
@@ -4270,6 +4326,9 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 2;
 
       case unaligned_store:
+	if (TARGET_EFFICIENT_UNALIGNED_VSX)
+	  return 1;
+
         if (TARGET_VSX && TARGET_ALLOW_MOVMISALIGN)
           {
             elements = TYPE_VECTOR_SUBPARTS (vectype);
@@ -4931,6 +4990,28 @@ rs6000_file_start (void)
       switch_to_section (toc_section);
       switch_to_section (text_section);
     }
+
+#ifdef USING_ELFOS_H
+  if (rs6000_default_cpu == 0 || rs6000_default_cpu[0] == '\0'
+      || !global_options_set.x_rs6000_cpu_index)
+    {
+      fputs ("\t.machine ", asm_out_file);
+      if ((rs6000_isa_flags & OPTION_MASK_DIRECT_MOVE) != 0)
+	fputs ("power8\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_POPCNTD) != 0)
+	fputs ("power7\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_CMPB) != 0)
+	fputs ("power6\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_POPCNTB) != 0)
+	fputs ("power5\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_MFCRF) != 0)
+	fputs ("power4\n", asm_out_file);
+      else if ((rs6000_isa_flags & OPTION_MASK_POWERPC64) != 0)
+	fputs ("ppc64\n", asm_out_file);
+      else
+	fputs ("ppc\n", asm_out_file);
+    }
+#endif
 }
 
 
@@ -8150,6 +8231,11 @@ void
 rs6000_emit_le_vsx_store (rtx dest, rtx source, enum machine_mode mode)
 {
   rtx tmp, permute_src, permute_tmp;
+
+  /* This should never be called during or after reload, because it does
+     not re-permute the source register.  It is intended only for use
+     during expand.  */
+  gcc_assert (!reload_in_progress && !lra_in_progress && !reload_completed);
 
   /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
      V1TImode).  */
@@ -12348,9 +12434,9 @@ static inline enum insn_code
 rs6000_htm_spr_icode (bool nonvoid)
 {
   if (nonvoid)
-    return (TARGET_64BIT) ? CODE_FOR_htm_mfspr_di : CODE_FOR_htm_mfspr_si;
+    return (TARGET_POWERPC64) ? CODE_FOR_htm_mfspr_di : CODE_FOR_htm_mfspr_si;
   else
-    return (TARGET_64BIT) ? CODE_FOR_htm_mtspr_di : CODE_FOR_htm_mtspr_si;
+    return (TARGET_POWERPC64) ? CODE_FOR_htm_mtspr_di : CODE_FOR_htm_mtspr_si;
 }
 
 /* Expand the HTM builtin in EXP and store the result in TARGET.
@@ -12364,7 +12450,17 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
   const struct builtin_description *d;
   size_t i;
 
-  *expandedp = false;
+  *expandedp = true;
+
+  if (!TARGET_POWERPC64
+      && (fcode == HTM_BUILTIN_TABORTDC
+	  || fcode == HTM_BUILTIN_TABORTDCI))
+    {
+      size_t uns_fcode = (size_t)fcode;
+      const char *name = rs6000_builtin_info[uns_fcode].name;
+      error ("builtin %s is only valid in 64-bit mode", name);
+      return const0_rtx;
+    }
 
   /* Expand the HTM builtins.  */
   d = bdesc_htm;
@@ -12377,26 +12473,29 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	call_expr_arg_iterator iter;
 	unsigned attr = rs6000_builtin_info[fcode].attr;
 	enum insn_code icode = d->icode;
+	const struct insn_operand_data *insn_op;
+	bool uses_spr = (attr & RS6000_BTC_SPR);
+	rtx cr = NULL_RTX;
 
-	if (attr & RS6000_BTC_SPR)
+	if (uses_spr)
 	  icode = rs6000_htm_spr_icode (nonvoid);
+        insn_op = &insn_data[icode].operand[0];
 
 	if (nonvoid)
 	  {
-	    enum machine_mode tmode = insn_data[icode].operand[0].mode;
+	    machine_mode tmode = (uses_spr) ? insn_op->mode : SImode;
 	    if (!target
 		|| GET_MODE (target) != tmode
-		|| !(*insn_data[icode].operand[0].predicate) (target, tmode))
+		|| (uses_spr && !(*insn_op->predicate) (target, tmode)))
 	      target = gen_reg_rtx (tmode);
-	    op[nopnds++] = target;
+	    if (uses_spr)
+	      op[nopnds++] = target;
 	  }
 
 	FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	{
-	  const struct insn_operand_data *insn_op;
-
 	  if (arg == error_mark_node || nopnds >= MAX_HTM_OPERANDS)
-	    return NULL_RTX;
+	    return const0_rtx;
 
 	  insn_op = &insn_data[icode].operand[nopnds];
 
@@ -12443,10 +12542,17 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 
 	/* If this builtin accesses SPRs, then pass in the appropriate
 	   SPR number and SPR regno as the last two operands.  */
-	if (attr & RS6000_BTC_SPR)
+	if (uses_spr)
 	  {
-	    op[nopnds++] = gen_rtx_CONST_INT (Pmode, htm_spr_num (fcode));
-	    op[nopnds++] = gen_rtx_REG (Pmode, htm_spr_regno (fcode));
+	    machine_mode mode = (TARGET_POWERPC64) ? DImode : SImode;
+	    op[nopnds++] = gen_rtx_CONST_INT (mode, htm_spr_num (fcode));
+	    op[nopnds++] = gen_rtx_REG (mode, htm_spr_regno (fcode));
+	  }
+	/* If this builtin accesses a CR, then pass in a scratch
+	   CR as the last operand.  */
+	else if (attr & RS6000_BTC_CR)
+	  { cr = gen_reg_rtx (CCmode);
+	    op[nopnds++] = cr;
 	  }
 
 #ifdef ENABLE_CHECKING
@@ -12459,7 +12565,7 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	  expected_nopnds = 3;
 	if (!(attr & RS6000_BTC_VOID))
 	  expected_nopnds += 1;
-	if (attr & RS6000_BTC_SPR)
+	if (uses_spr)
 	  expected_nopnds += 2;
 
 	gcc_assert (nopnds == expected_nopnds && nopnds <= MAX_HTM_OPERANDS);
@@ -12486,12 +12592,41 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	  return NULL_RTX;
 	emit_insn (pat);
 
-	*expandedp = true;
+	if (attr & RS6000_BTC_CR)
+	  {
+	    if (fcode == HTM_BUILTIN_TBEGIN)
+	      {
+		/* Emit code to set TARGET to true or false depending on
+		   whether the tbegin. instruction successfully or failed
+		   to start a transaction.  We do this by placing the 1's
+		   complement of CR's EQ bit into TARGET.  */
+		rtx scratch = gen_reg_rtx (SImode);
+		emit_insn (gen_rtx_SET (VOIDmode, scratch,
+					gen_rtx_EQ (SImode, cr,
+						     const0_rtx)));
+		emit_insn (gen_rtx_SET (VOIDmode, target,
+					gen_rtx_XOR (SImode, scratch,
+						     GEN_INT (1))));
+	      }
+	    else
+	      {
+		/* Emit code to copy the 4-bit condition register field
+		   CR into the least significant end of register TARGET.  */
+		rtx scratch1 = gen_reg_rtx (SImode);
+		rtx scratch2 = gen_reg_rtx (SImode);
+		rtx subreg = simplify_gen_subreg (CCmode, scratch1, SImode, 0);
+		emit_insn (gen_movcc (subreg, cr));
+		emit_insn (gen_lshrsi3 (scratch2, scratch1, GEN_INT (28)));
+		emit_insn (gen_andsi3 (target, scratch2, GEN_INT (0xf)));
+	      }
+	  }
+
 	if (nonvoid)
 	  return target;
 	return const0_rtx;
       }
 
+  *expandedp = false;
   return NULL_RTX;
 }
 
@@ -14982,8 +15117,31 @@ htm_init_builtins (void)
       bool void_func = (attr & RS6000_BTC_VOID);
       int attr_args = (attr & RS6000_BTC_TYPE_MASK);
       int nopnds = 0;
-      tree argtype = (attr & RS6000_BTC_SPR) ? long_unsigned_type_node
-					     : unsigned_type_node;
+      tree gpr_type_node;
+      tree rettype;
+      tree argtype;
+
+      if (TARGET_32BIT && TARGET_POWERPC64)
+	gpr_type_node = long_long_unsigned_type_node;
+      else
+	gpr_type_node = long_unsigned_type_node;
+
+      if (attr & RS6000_BTC_SPR)
+	{
+	  rettype = gpr_type_node;
+	  argtype = gpr_type_node;
+	}
+      else if (d->code == HTM_BUILTIN_TABORTDC
+	       || d->code == HTM_BUILTIN_TABORTDCI)
+	{
+	  rettype = unsigned_type_node;
+	  argtype = gpr_type_node;
+	}
+      else
+	{
+	  rettype = unsigned_type_node;
+	  argtype = unsigned_type_node;
+	}
 
       if ((mask & builtin_mask) != mask)
 	{
@@ -15000,7 +15158,7 @@ htm_init_builtins (void)
 	  continue;
 	}
 
-      op[nopnds++] = (void_func) ? void_type_node : argtype;
+      op[nopnds++] = (void_func) ? void_type_node : rettype;
 
       if (attr_args == RS6000_BTC_UNARY)
 	op[nopnds++] = argtype;
@@ -17066,8 +17224,21 @@ rs6000_secondary_reload_gpr (rtx reg, rtx mem, rtx scratch, bool store_p)
 
   if (GET_CODE (addr) == PRE_MODIFY)
     {
+      gcc_assert (REG_P (XEXP (addr, 0))
+		  && GET_CODE (XEXP (addr, 1)) == PLUS
+		  && XEXP (XEXP (addr, 1), 0) == XEXP (addr, 0));
       scratch_or_premodify = XEXP (addr, 0);
-      gcc_assert (REG_P (scratch_or_premodify));
+      if (!HARD_REGISTER_P (scratch_or_premodify))
+	/* If we have a pseudo here then reload will have arranged
+	   to have it replaced, but only in the original insn.
+	   Use the replacement here too.  */
+	scratch_or_premodify = find_replacement (&XEXP (addr, 0));
+
+      /* RTL emitted by rs6000_secondary_reload_gpr uses RTL
+	 expressions from the original insn, without unsharing them.
+	 Any RTL that points into the original insn will of course
+	 have register replacements applied.  That is why we don't
+	 need to look for replacements under the PLUS.  */
       addr = XEXP (addr, 1);
     }
   gcc_assert (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM);
@@ -20081,6 +20252,9 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   else if (reg_overlap_mentioned_p (retval, oldval))
     oldval = copy_to_reg (oldval);
 
+  if (mode != TImode && !reg_or_short_operand (oldval, mode))
+    oldval = copy_to_mode_reg (mode, oldval);
+
   mem = rs6000_pre_atomic_barrier (mem, mod_s);
 
   label1 = NULL_RTX;
@@ -20095,10 +20269,8 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
 
   x = retval;
   if (mask)
-    {
-      x = expand_simple_binop (SImode, AND, retval, mask,
-			       NULL_RTX, 1, OPTAB_LIB_WIDEN);
-    }
+    x = expand_simple_binop (SImode, AND, retval, mask,
+			     NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
   cond = gen_reg_rtx (CCmode);
   /* If we have TImode, synthesize a comparison.  */
@@ -20692,7 +20864,7 @@ compute_vrsave_mask (void)
      them in again.  More importantly, the mask we compute here is
      used to generate CLOBBERs in the set_vrsave insn, and we do not
      wish the argument registers to die.  */
-  for (i = crtl->args.info.vregno - 1; i >= ALTIVEC_ARG_MIN_REG; --i)
+  for (i = ALTIVEC_ARG_MIN_REG; i < (unsigned) crtl->args.info.vregno; i++)
     mask &= ~ALTIVEC_REG_BIT (i);
 
   /* Similarly, remove the return value from the set.  */
@@ -21101,6 +21273,9 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 static rs6000_stack_t *
 rs6000_stack_info (void)
 {
+  /* We should never be called for thunks, we are not set up for that.  */
+  gcc_assert (!cfun->is_thunk);
+
   rs6000_stack_t *info_ptr = &stack_info;
   int reg_size = TARGET_32BIT ? 4 : 8;
   int ehrd_size;
@@ -21694,6 +21869,7 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp)
       || ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
 	  && decl
 	  && !DECL_EXTERNAL (decl)
+	  && !DECL_WEAK (decl)
 	  && (*targetm.binds_local_p) (decl))
       || (DEFAULT_ABI == ABI_V4
 	  && (!TARGET_SECURE_PLT
@@ -22255,7 +22431,7 @@ output_probe_stack_range (rtx reg1, rtx reg2)
 
 static rtx
 rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
-		      rtx reg2, rtx rreg, rtx split_reg)
+		      rtx reg2, rtx rreg)
 {
   rtx real, temp;
 
@@ -22345,11 +22521,6 @@ rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
 	    RTX_FRAME_RELATED_P (set) = 1;
 	  }
     }
-
-  /* If a store insn has been split into multiple insns, the
-     true source register is given by split_reg.  */
-  if (split_reg != NULL_RTX)
-    real = gen_rtx_SET (VOIDmode, SET_DEST (real), split_reg);
 
   RTX_FRAME_RELATED_P (insn) = 1;
   add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
@@ -22458,7 +22629,7 @@ emit_frame_save (rtx frame_reg, enum machine_mode mode,
   reg = gen_rtx_REG (mode, regno);
   insn = emit_insn (gen_frame_store (reg, frame_reg, offset));
   return rs6000_frame_related (insn, frame_reg, frame_reg_to_sp,
-			       NULL_RTX, NULL_RTX, NULL_RTX);
+			       NULL_RTX, NULL_RTX);
 }
 
 /* Emit an offset memory reference suitable for a frame store, while
@@ -23038,7 +23209,7 @@ rs6000_emit_prologue (void)
 
       insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
       rs6000_frame_related (insn, frame_reg_rtx, sp_off - frame_off,
-			    treg, GEN_INT (-info->total_size), NULL_RTX);
+			    treg, GEN_INT (-info->total_size));
       sp_off = frame_off = info->total_size;
     }
 
@@ -23123,7 +23294,7 @@ rs6000_emit_prologue (void)
 
 	  insn = emit_move_insn (mem, reg);
 	  rs6000_frame_related (insn, frame_reg_rtx, sp_off - frame_off,
-				NULL_RTX, NULL_RTX, NULL_RTX);
+				NULL_RTX, NULL_RTX);
 	  END_USE (0);
 	}
     }
@@ -23179,7 +23350,7 @@ rs6000_emit_prologue (void)
 				     info->lr_save_offset,
 				     DFmode, sel);
       rs6000_frame_related (insn, ptr_reg, sp_off,
-			    NULL_RTX, NULL_RTX, NULL_RTX);
+			    NULL_RTX, NULL_RTX);
       if (lr)
 	END_USE (0);
     }
@@ -23258,7 +23429,7 @@ rs6000_emit_prologue (void)
 					 SAVRES_SAVE | SAVRES_GPR);
 
 	  rs6000_frame_related (insn, spe_save_area_ptr, sp_off - save_off,
-				NULL_RTX, NULL_RTX, NULL_RTX);
+				NULL_RTX, NULL_RTX);
 	}
 
       /* Move the static chain pointer back.  */
@@ -23308,7 +23479,7 @@ rs6000_emit_prologue (void)
 				     info->lr_save_offset + ptr_off,
 				     reg_mode, sel);
       rs6000_frame_related (insn, ptr_reg, sp_off - ptr_off,
-			    NULL_RTX, NULL_RTX, NULL_RTX);
+			    NULL_RTX, NULL_RTX);
       if (lr)
 	END_USE (0);
     }
@@ -23324,7 +23495,7 @@ rs6000_emit_prologue (void)
 			     info->gp_save_offset + frame_off + reg_size * i);
       insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
       rs6000_frame_related (insn, frame_reg_rtx, sp_off - frame_off,
-			    NULL_RTX, NULL_RTX, NULL_RTX);
+			    NULL_RTX, NULL_RTX);
     }
   else if (!WORLD_SAVE_P (info))
     {
@@ -23647,7 +23818,7 @@ rs6000_emit_prologue (void)
 				     info->altivec_save_offset + ptr_off,
 				     0, V4SImode, SAVRES_SAVE | SAVRES_VR);
       rs6000_frame_related (insn, scratch_reg, sp_off - ptr_off,
-			    NULL_RTX, NULL_RTX, NULL_RTX);
+			    NULL_RTX, NULL_RTX);
       if (REGNO (frame_reg_rtx) == REGNO (scratch_reg))
 	{
 	  /* The oddity mentioned above clobbered our frame reg.  */
@@ -23663,7 +23834,7 @@ rs6000_emit_prologue (void)
       for (i = info->first_altivec_reg_save; i <= LAST_ALTIVEC_REGNO; ++i)
 	if (info->vrsave_mask & ALTIVEC_REG_BIT (i))
 	  {
-	    rtx areg, savereg, mem, split_reg;
+	    rtx areg, savereg, mem;
 	    int offset;
 
 	    offset = (info->altivec_save_offset + frame_off
@@ -23679,20 +23850,13 @@ rs6000_emit_prologue (void)
 	    mem = gen_frame_mem (V4SImode,
 				 gen_rtx_PLUS (Pmode, frame_reg_rtx, areg));
 
-	    insn = emit_move_insn (mem, savereg);
-
-	    /* When we split a VSX store into two insns, we need to make
-	       sure the DWARF info knows which register we are storing.
-	       Pass it in to be used on the appropriate note.  */
-	    if (!BYTES_BIG_ENDIAN
-		&& GET_CODE (PATTERN (insn)) == SET
-		&& GET_CODE (SET_SRC (PATTERN (insn))) == VEC_SELECT)
-	      split_reg = savereg;
-	    else
-	      split_reg = NULL_RTX;
+	    /* Rather than emitting a generic move, force use of the stvx
+	       instruction, which we always want.  In particular we don't
+	       want xxpermdi/stxvd2x for little endian.  */
+	    insn = emit_insn (gen_altivec_stvx_v4si_internal (mem, savereg));
 
 	    rs6000_frame_related (insn, frame_reg_rtx, sp_off - frame_off,
-				  areg, GEN_INT (offset), split_reg);
+				  areg, GEN_INT (offset));
 	  }
     }
 
@@ -23822,11 +23986,10 @@ rs6000_emit_prologue (void)
     }
 }
 
-/* Write function prologue.  */
+/* Output .extern statements for the save/restore routines we use.  */
 
 static void
-rs6000_output_function_prologue (FILE *file,
-				 HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+rs6000_output_savres_externs (FILE *file)
 {
   rs6000_stack_t *info = rs6000_stack_info ();
 
@@ -23858,6 +24021,16 @@ rs6000_output_function_prologue (FILE *file,
 	  fprintf (file, "\t.extern %s\n", name);
 	}
     }
+}
+
+/* Write function prologue.  */
+
+static void
+rs6000_output_function_prologue (FILE *file,
+				 HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+{
+  if (!cfun->is_thunk)
+    rs6000_output_savres_externs (file);
 
   /* ELFv2 ABI r2 setup code and local entry point.  This must follow
      immediately after the global entry point label.  */
@@ -24325,7 +24498,10 @@ rs6000_emit_epilogue (int sibcall)
 		mem = gen_frame_mem (V4SImode, addr);
 
 		reg = gen_rtx_REG (V4SImode, i);
-		emit_move_insn (reg, mem);
+		/* Rather than emitting a generic move, force use of the
+		   lvx instruction, which we always want.  In particular
+		   we don't want lxvd2x/xxpermdi for little endian.  */
+		(void) emit_insn (gen_altivec_lvx_v4si_internal (reg, mem));
 	      }
 	}
 
@@ -24523,7 +24699,10 @@ rs6000_emit_epilogue (int sibcall)
 		mem = gen_frame_mem (V4SImode, addr);
 
 		reg = gen_rtx_REG (V4SImode, i);
-		emit_move_insn (reg, mem);
+		/* Rather than emitting a generic move, force use of the
+		   lvx instruction, which we always want.  In particular
+		   we don't want lxvd2x/xxpermdi for little endian.  */
+		(void) emit_insn (gen_altivec_lvx_v4si_internal (reg, mem));
 	      }
 	}
 
@@ -31426,6 +31605,8 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
+  { "efficient-unaligned-vsx",	OPTION_MASK_EFFICIENT_UNALIGNED_VSX,
+								false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
@@ -31444,10 +31625,11 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "quad-memory",		OPTION_MASK_QUAD_MEMORY,	false, true  },
   { "quad-memory-atomic",	OPTION_MASK_QUAD_MEMORY_ATOMIC,	false, true  },
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
+  { "save-toc-indirect",	OPTION_MASK_SAVE_TOC_INDIRECT,	false, true  },
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
-  { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, false },
-  { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, false },
+  { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, true  },
+  { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
   { "vsx-timode",		OPTION_MASK_VSX_TIMODE,		false, true  },
 #ifdef OPTION_MASK_64BIT
@@ -31520,6 +31702,42 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
   { "longcall",
     offsetof (struct gcc_options, x_rs6000_default_long_calls),
     offsetof (struct cl_target_option, x_rs6000_default_long_calls), },
+  { "optimize-swaps",
+    offsetof (struct gcc_options, x_rs6000_optimize_swaps),
+    offsetof (struct cl_target_option, x_rs6000_optimize_swaps), },
+  { "allow-movmisalign",
+    offsetof (struct gcc_options, x_TARGET_ALLOW_MOVMISALIGN),
+    offsetof (struct cl_target_option, x_TARGET_ALLOW_MOVMISALIGN), },
+  { "allow-df-permute",
+    offsetof (struct gcc_options, x_TARGET_ALLOW_DF_PERMUTE),
+    offsetof (struct cl_target_option, x_TARGET_ALLOW_DF_PERMUTE), },
+  { "sched-groups",
+    offsetof (struct gcc_options, x_TARGET_SCHED_GROUPS),
+    offsetof (struct cl_target_option, x_TARGET_SCHED_GROUPS), },
+  { "always-hint",
+    offsetof (struct gcc_options, x_TARGET_ALWAYS_HINT),
+    offsetof (struct cl_target_option, x_TARGET_ALWAYS_HINT), },
+  { "align-branch-targets",
+    offsetof (struct gcc_options, x_TARGET_ALIGN_BRANCH_TARGETS),
+    offsetof (struct cl_target_option, x_TARGET_ALIGN_BRANCH_TARGETS), },
+  { "vectorize-builtins",
+    offsetof (struct gcc_options, x_TARGET_VECTORIZE_BUILTINS),
+    offsetof (struct cl_target_option, x_TARGET_VECTORIZE_BUILTINS), },
+  { "tls-markers",
+    offsetof (struct gcc_options, x_tls_markers),
+    offsetof (struct cl_target_option, x_tls_markers), },
+  { "sched-prolog",
+    offsetof (struct gcc_options, x_TARGET_SCHED_PROLOG),
+    offsetof (struct cl_target_option, x_TARGET_SCHED_PROLOG), },
+  { "sched-epilog",
+    offsetof (struct gcc_options, x_TARGET_SCHED_PROLOG),
+    offsetof (struct cl_target_option, x_TARGET_SCHED_PROLOG), },
+  { "gen-cell-microcode",
+    offsetof (struct gcc_options, x_rs6000_gen_cell_microcode),
+    offsetof (struct cl_target_option, x_rs6000_gen_cell_microcode), },
+  { "warn-cell-microcode",
+    offsetof (struct gcc_options, x_rs6000_warn_cell_microcode),
+    offsetof (struct cl_target_option, x_rs6000_warn_cell_microcode), },
 };
 
 /* Inner function to handle attribute((target("..."))) and #pragma GCC target
@@ -31593,9 +31811,15 @@ rs6000_inner_target_options (tree args, bool attr_p)
 			rs6000_isa_flags_explicit |= mask;
 
 			/* VSX needs altivec, so -mvsx automagically sets
-			   altivec.  */
-			if (mask == OPTION_MASK_VSX && !invert)
-			  mask |= OPTION_MASK_ALTIVEC;
+			   altivec and disables -mavoid-indexed-addresses.  */
+			if (!invert)
+			  {
+			    if (mask == OPTION_MASK_VSX)
+			      {
+				mask |= OPTION_MASK_ALTIVEC;
+				TARGET_AVOID_XFORM = 0;
+			      }
+			  }
 
 			if (rs6000_opt_masks[i].invert)
 			  invert = !invert;
@@ -31616,6 +31840,7 @@ rs6000_inner_target_options (tree args, bool attr_p)
 			size_t j = rs6000_opt_vars[i].global_offset;
 			*((int *) ((char *)&global_options + j)) = !invert;
 			error_p = false;
+			not_valid_p = false;
 			break;
 		      }
 		}
@@ -33457,7 +33682,8 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	   order-dependent element, so additional fixup code would be
 	   needed to make those work.  Vector set and non-immediate-form
 	   vector splat are element-order sensitive.  A few of these
-	   cases might be workable with special handling if required.  */
+	   cases might be workable with special handling if required.
+	   Adding cost modeling would be appropriate in some cases.  */
 	int val = XINT (op, 1);
 	switch (val)
 	  {
@@ -33496,12 +33722,6 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  case UNSPEC_VUPKLPX:
 	  case UNSPEC_VUPKLS_V4SF:
 	  case UNSPEC_VUPKLU_V4SF:
-	  /* The following could be handled as an idiom with XXSPLTW.
-	     These place a scalar in BE element zero, but the XXSPLTW
-	     will currently expect it in BE element 2 in a swapped
-	     region.  When one of these feeds an XXSPLTW with no other
-	     defs/uses either way, we can avoid the lane change for
-	     XXSPLTW and things will be correct.  TBD.  */
 	  case UNSPEC_VSX_CVDPSPN:
 	  case UNSPEC_VSX_CVSPDP:
 	  case UNSPEC_VSX_CVSPDPN:
@@ -33524,10 +33744,11 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
       {
 	unsigned int special_op = SH_NONE;
 	ok &= rtx_is_swappable_p (XEXP (op, i), &special_op);
+	if (special_op == SH_NONE)
+	  continue;
 	/* Ensure we never have two kinds of special handling
 	   for the same insn.  */
-	if (*special != SH_NONE && special_op != SH_NONE
-	    && *special != special_op)
+	if (*special != SH_NONE && *special != special_op)
 	  return 0;
 	*special = special_op;
       }
@@ -33536,10 +33757,11 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	{
 	  unsigned int special_op = SH_NONE;
 	  ok &= rtx_is_swappable_p (XVECEXP (op, i, j), &special_op);
+	if (special_op == SH_NONE)
+	  continue;
 	  /* Ensure we never have two kinds of special handling
 	     for the same insn.  */
-	  if (*special != SH_NONE && special_op != SH_NONE
-	      && *special != special_op)
+	  if (*special != SH_NONE && *special != special_op)
 	    return 0;
 	  *special = special_op;
 	}
@@ -33588,6 +33810,36 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 	}
       else
 	return 0;
+    }
+
+  /* A convert to single precision can be left as is provided that
+     all of its uses are in xxspltw instructions that splat BE element
+     zero.  */
+  if (GET_CODE (body) == SET
+      && GET_CODE (SET_SRC (body)) == UNSPEC
+      && XINT (SET_SRC (body), 1) == UNSPEC_VSX_CVDPSPN)
+    {
+      df_ref *def_rec;
+
+      for (def_rec = DF_INSN_UID_DEFS (i); *def_rec; def_rec++)
+	{
+	  df_ref def = *def_rec;
+	  struct df_link *link = DF_REF_CHAIN (def);
+	  if (!link)
+	    return 0;
+
+	  for (; link; link = link->next) {
+	    rtx use_insn = DF_REF_INSN (link->ref);
+	    rtx use_body = PATTERN (use_insn);
+	    if (GET_CODE (use_body) != SET
+		|| GET_CODE (SET_SRC (use_body)) != UNSPEC
+		|| XINT (SET_SRC (use_body), 1) != UNSPEC_VSX_XXSPLTW
+		|| XEXP (XEXP (SET_SRC (use_body), 0), 1) != const0_rtx)
+	      return 0;
+	  }
+	}
+
+      return 1;
     }
 
   /* Otherwise check the operands for vector lane violations.  */
@@ -33845,7 +34097,10 @@ permute_store (rtx insn)
 static void
 adjust_extract (rtx insn)
 {
-  rtx src = SET_SRC (PATTERN (insn));
+  rtx pattern = PATTERN (insn);
+  if (GET_CODE (pattern) == PARALLEL)
+    pattern = XVECEXP (pattern, 0, 0);
+  rtx src = SET_SRC (pattern);
   /* The vec_select may be wrapped in a vec_duplicate for a splat, so
      account for that.  */
   rtx sel = GET_CODE (src) == VEC_DUPLICATE ? XEXP (src, 0) : src;

@@ -612,7 +612,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
   int ix;
   bool is_template;
   tree pushed_scope;
-
+  
   if (DECL_USE_TEMPLATE (function)
       && !(TREE_CODE (function) == TEMPLATE_DECL
 	   && DECL_TEMPLATE_SPECIALIZATION (function))
@@ -721,7 +721,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	    pop_scope (pushed_scope);
 	  return OVL_CURRENT (fndecls);
 	}
-
+      
       error_at (DECL_SOURCE_LOCATION (function),
 		"prototype for %q#D does not match any in class %qT",
 		function, ctype);
@@ -1393,7 +1393,8 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   /* Add implicit "omp declare target" attribute if requested.  */
   if (scope_chain->omp_declare_target_attribute
-      && ((TREE_CODE (*decl) == VAR_DECL && TREE_STATIC (*decl))
+      && ((TREE_CODE (*decl) == VAR_DECL
+	   && (TREE_STATIC (*decl) || DECL_EXTERNAL (*decl)))
 	  || TREE_CODE (*decl) == FUNCTION_DECL))
     {
       if (TREE_CODE (*decl) == VAR_DECL
@@ -1586,7 +1587,7 @@ coerce_new_type (tree type)
       if (TREE_PURPOSE (args))
 	{
 	  /* [basic.stc.dynamic.allocation]
-
+	     
 	     The first parameter shall not have an associated default
 	     argument.  */
 	  error ("the first parameter of %<operator new%> cannot "
@@ -2133,9 +2134,12 @@ constrain_visibility_for_template (tree decl, tree targs)
       tree arg = TREE_VEC_ELT (args, i-1);
       if (TYPE_P (arg))
 	vis = type_visibility (arg);
-      else if (TREE_TYPE (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
+      else
 	{
-	  STRIP_NOPS (arg);
+	  if (REFERENCE_REF_P (arg))
+	    arg = TREE_OPERAND (arg, 0);
+	  if (TREE_TYPE (arg))
+	    STRIP_NOPS (arg);
 	  if (TREE_CODE (arg) == ADDR_EXPR)
 	    arg = TREE_OPERAND (arg, 0);
 	  if (VAR_OR_FUNCTION_DECL_P (arg))
@@ -2225,7 +2229,7 @@ determine_visibility (tree decl)
 	  if (DECL_VISIBILITY_SPECIFIED (fn))
 	    {
 	      DECL_VISIBILITY (decl) = DECL_VISIBILITY (fn);
-	      DECL_VISIBILITY_SPECIFIED (decl) =
+	      DECL_VISIBILITY_SPECIFIED (decl) = 
 		DECL_VISIBILITY_SPECIFIED (fn);
 	    }
 	  else
@@ -2306,7 +2310,7 @@ determine_visibility (tree decl)
       tree attribs = (TREE_CODE (decl) == TYPE_DECL
 		      ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
 		      : DECL_ATTRIBUTES (decl));
-
+      
       if (args != error_mark_node)
 	{
 	  tree pattern = DECL_TEMPLATE_RESULT (TI_TEMPLATE (tinfo));
@@ -3018,7 +3022,7 @@ set_guard (tree guard)
   guard_init = integer_one_node;
   if (!same_type_p (TREE_TYPE (guard_init), TREE_TYPE (guard)))
     guard_init = convert (TREE_TYPE (guard), guard_init);
-  return cp_build_modify_expr (guard, NOP_EXPR, guard_init,
+  return cp_build_modify_expr (guard, NOP_EXPR, guard_init, 
 			       tf_warning_or_error);
 }
 
@@ -3521,7 +3525,7 @@ get_priority_info (int priority)
    some optimizers (enabled by -O2 -fprofile-arcs) might crash
    when trying to refer to a temporary variable that does not have
    it's DECL_CONTECT() properly set.  */
-static tree
+static tree 
 fix_temporary_vars_context_r (tree *node,
 			      int  * /*unused*/,
 			      void * /*unused1*/)
@@ -3568,7 +3572,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
   /* Make sure temporary variables in the initialiser all have
      their DECL_CONTEXT() set to a value different from NULL_TREE.
      This can happen when global variables initialisers are built.
-     In that case, the DECL_CONTEXT() of the global variables _AND_ of all
+     In that case, the DECL_CONTEXT() of the global variables _AND_ of all 
      the temporary variables that might have been generated in the
      accompagning initialisers is NULL_TREE, meaning the variables have been
      declared in the global namespace.
@@ -4040,19 +4044,19 @@ cpp_check (tree t, cpp_operation op)
 
 /* Collect source file references recursively, starting from NAMESPC.  */
 
-static void
-collect_source_refs (tree namespc)
+static void 
+collect_source_refs (tree namespc) 
 {
   tree t;
 
-  if (!namespc)
+  if (!namespc) 
     return;
 
   /* Iterate over names in this name space.  */
   for (t = NAMESPACE_LEVEL (namespc)->names; t; t = TREE_CHAIN (t))
     if (!DECL_IS_BUILTIN (t) )
       collect_source_ref (DECL_SOURCE_FILE (t));
-
+  
   /* Dump siblings, if any */
   collect_source_refs (TREE_CHAIN (namespc));
 

@@ -1095,6 +1095,15 @@ ia64_expand_load_address (rtx dest, rtx src)
     emit_insn (gen_load_fptr (dest, src));
   else if (sdata_symbolic_operand (src, VOIDmode))
     emit_insn (gen_load_gprel (dest, src));
+  else if (local_symbolic_operand64 (src, VOIDmode))
+    {
+      /* We want to use @gprel rather than @ltoff relocations for local
+	 symbols:
+	  - @gprel does not require dynamic linker
+	  - and does not use .sdata section
+	 https://gcc.gnu.org/bugzilla/60465 */
+      emit_insn (gen_load_gprel64 (dest, src));
+    }
   else
     {
       HOST_WIDE_INT addend = 0;
@@ -11490,7 +11499,10 @@ expand_vec_perm_interleave_2 (struct expand_vec_perm_d *d)
       gcc_assert (e < nelt);
       dfinal.perm[i] = e;
     }
-  dfinal.op0 = gen_reg_rtx (dfinal.vmode);
+  if (d->testing_p)
+    dfinal.op0 = gen_raw_REG (dfinal.vmode, LAST_VIRTUAL_REGISTER + 1);
+  else
+    dfinal.op0 = gen_reg_rtx (dfinal.vmode);
   dfinal.op1 = dfinal.op0;
   dfinal.one_operand_p = true;
   dremap.target = dfinal.op0;

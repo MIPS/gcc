@@ -6680,6 +6680,9 @@ coerce_template_parameter_pack (tree parms,
               if (invalid_nontype_parm_type_p (t, complain))
                 return error_mark_node;
             }
+	  /* We don't know how many args we have yet, just
+	     use the unconverted ones for now.  */
+	  return NULL_TREE;
         }
 
       packed_args = make_tree_vec (TREE_VEC_LENGTH (packed_parms));
@@ -11170,6 +11173,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* The initializer must not be expanded until it is required;
 	   see [temp.inst].  */
 	DECL_INITIAL (r) = NULL_TREE;
+	if (VAR_P (r))
+	  DECL_MODE (r) = VOIDmode;
 	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
 	  SET_DECL_RTL (r, NULL);
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
@@ -12396,9 +12401,10 @@ tsubst_baselink (tree baselink, tree object_type,
     /* Add back the template arguments, if present.  */
     if (BASELINK_P (baselink) && template_id_p)
       BASELINK_FUNCTIONS (baselink)
-	= build_nt (TEMPLATE_ID_EXPR,
-		    BASELINK_FUNCTIONS (baselink),
-		    template_args);
+	= build2 (TEMPLATE_ID_EXPR,
+		  unknown_type_node,
+		  BASELINK_FUNCTIONS (baselink),
+		  template_args);
     /* Update the conversion operator type.  */
     BASELINK_OPTYPE (baselink) = optype;
 
@@ -13918,7 +13924,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       tmp = tsubst_omp_clauses (OMP_TARGET_UPDATE_CLAUSES (t), false,
 				args, complain, in_decl);
       t = copy_node (t);
-      OMP_CLAUSES (t) = tmp;
+      OMP_TARGET_UPDATE_CLAUSES (t) = tmp;
       add_stmt (t);
       break;
 
@@ -16775,7 +16781,7 @@ resolve_overloaded_unification (tree tparms,
    lvalue for the function template specialization.  */
 
 tree
-resolve_nondeduced_context (tree orig_expr)
+resolve_nondeduced_context (tree orig_expr, tsubst_flags_t complain)
 {
   tree expr, offset, baselink;
   bool addr;
@@ -16858,16 +16864,16 @@ resolve_nondeduced_context (tree orig_expr)
 	    {
 	      tree base
 		= TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (offset, 0)));
-	      expr = build_offset_ref (base, expr, addr, tf_warning_or_error);
+	      expr = build_offset_ref (base, expr, addr, complain);
 	    }
 	  if (addr)
-	    expr = cp_build_addr_expr (expr, tf_warning_or_error);
+	    expr = cp_build_addr_expr (expr, complain);
 	  return expr;
 	}
-      else if (good == 0 && badargs)
+      else if (good == 0 && badargs && (complain & tf_error))
 	/* There were no good options and at least one bad one, so let the
 	   user know what the problem is.  */
-	instantiate_template (badfn, badargs, tf_warning_or_error);
+	instantiate_template (badfn, badargs, complain);
     }
   return orig_expr;
 }
@@ -18875,6 +18881,7 @@ most_general_template (tree decl)
 	break;
 
       if (CLASS_TYPE_P (TREE_TYPE (decl))
+	  && !TYPE_DECL_ALIAS_P (TYPE_NAME (TREE_TYPE (decl)))
 	  && CLASSTYPE_TEMPLATE_SPECIALIZATION (TREE_TYPE (decl)))
 	break;
 
@@ -19796,13 +19803,18 @@ instantiate_decl (tree d, int defer_ok,
 			      args,
 			      tf_warning_or_error, NULL_TREE,
 			      /*integral_constant_expression_p=*/false);
-	  /* Make sure the initializer is still constant, in case of
-	     circular dependency (template/instantiate6.C). */
-	  const_init
-	    = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (code_pattern);
-	  cp_finish_decl (d, init, /*init_const_expr_p=*/const_init,
-			  /*asmspec_tree=*/NULL_TREE,
-			  LOOKUP_ONLYCONVERTING);
+	  /* If instantiating the initializer involved instantiating this
+	     again, don't call cp_finish_decl twice.  */
+	  if (!DECL_INITIAL (d))
+	    {
+	      /* Make sure the initializer is still constant, in case of
+		 circular dependency (template/instantiate6.C). */
+	      const_init
+		= DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (code_pattern);
+	      cp_finish_decl (d, init, /*init_const_expr_p=*/const_init,
+			      /*asmspec_tree=*/NULL_TREE,
+			      LOOKUP_ONLYCONVERTING);
+	    }
 	  pop_nested_class ();
 	  pop_nested_namespace (ns);
 	}
@@ -21741,7 +21753,7 @@ do_auto_deduction (tree type, tree init, tree auto_node)
   if (BRACE_ENCLOSED_INITIALIZER_P (init))
     type = listify_autos (type, auto_node);
 
-  init = resolve_nondeduced_context (init);
+  init = resolve_nondeduced_context (init, tf_warning_or_error);
 
   targs = make_tree_vec (1);
   if (AUTO_IS_DECLTYPE (auto_node))

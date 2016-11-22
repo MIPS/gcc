@@ -546,7 +546,8 @@
 
 ;; Pointer size override for scalar modes (Intel asm dialect)
 (define_mode_attr iptr
-  [(V32QI "b") (V16HI "w") (V8SI "k") (V4DI "q")
+  [(V16SI "k") (V8DI "q")
+   (V32QI "b") (V16HI "w") (V8SI "k") (V4DI "q")
    (V16QI "b") (V8HI "w") (V4SI "k") (V2DI "q")
    (V8SF "k") (V4DF "q")
    (V4SF "k") (V2DF "q")
@@ -655,7 +656,7 @@
 
 (define_insn "*mov<mode>_internal"
   [(set (match_operand:VMOVE 0 "nonimmediate_operand"               "=v,v ,m")
-	(match_operand:VMOVE 1 "nonimmediate_or_sse_const_operand"  "C ,vm,v"))]
+	(match_operand:VMOVE 1 "nonimmediate_or_sse_const_operand"  "BC,vm,v"))]
   "TARGET_SSE
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
@@ -872,9 +873,9 @@
       /* The DImode arrived in a pair of integral registers (e.g. %edx:%eax).
 	 Assemble the 64-bit DImode value in an xmm register.  */
       emit_insn (gen_sse2_loadld (operands[0], CONST0_RTX (V4SImode),
-				  gen_rtx_SUBREG (SImode, operands[1], 0)));
+				  gen_lowpart (SImode, operands[1])));
       emit_insn (gen_sse2_loadld (operands[2], CONST0_RTX (V4SImode),
-				  gen_rtx_SUBREG (SImode, operands[1], 4)));
+				  gen_highpart (SImode, operands[1])));
       emit_insn (gen_vec_interleave_lowv4si (operands[0], operands[0],
 					     operands[2]));
    }
@@ -4385,7 +4386,7 @@
 (define_expand "vec_unpacks_hi_v8sf"
   [(set (match_dup 2)
 	(vec_select:V4SF
-	  (match_operand:V8SF 1 "nonimmediate_operand")
+	  (match_operand:V8SF 1 "register_operand")
 	  (parallel [(const_int 4) (const_int 5)
 		     (const_int 6) (const_int 7)])))
    (set (match_operand:V4DF 0 "register_operand")
@@ -4397,7 +4398,7 @@
 (define_expand "vec_unpacks_hi_v16sf"
   [(set (match_dup 2)
 	(vec_select:V8SF
-	  (match_operand:V16SF 1 "nonimmediate_operand")
+	  (match_operand:V16SF 1 "register_operand")
 	  (parallel [(const_int 8) (const_int 9)
 		     (const_int 10) (const_int 11)
 		     (const_int 12) (const_int 13)
@@ -5890,7 +5891,8 @@
   "TARGET_AVX512F
    && (INTVAL (operands[2]) == (INTVAL (operands[3]) - 1)
        && INTVAL (operands[3]) == (INTVAL (operands[4]) - 1)
-       && INTVAL (operands[4]) == (INTVAL (operands[5]) - 1))"
+       && INTVAL (operands[4]) == (INTVAL (operands[5]) - 1))
+   && rtx_equal_p (operands[6], operands[0])"
 {
   operands[2] = GEN_INT ((INTVAL (operands[2])) >> 2);
   return "vextract<shuffletype>32x4\t{%2, %1, %0%{%7%}|%0%{%7%}, %1, %2}";
@@ -5985,8 +5987,9 @@
 	      (const_int 2) (const_int 3)]))
 	  (match_operand:<ssehalfvecmode> 2 "memory_operand" "0")
 	  (match_operand:QI 3 "register_operand" "Yk")))]
-  "TARGET_AVX512F"
-"vextract<shuffletype>64x4\t{$0x0, %1, %0%{%3%}|%0%{%3%}, %1, 0x0}"
+  "TARGET_AVX512F
+   && rtx_equal_p (operands[2], operands[0])"
+  "vextract<shuffletype>64x4\t{$0x0, %1, %0%{%3%}|%0%{%3%}, %1, 0x0}"
   [(set_attr "type" "sselog")
    (set_attr "prefix_extra" "1")
    (set_attr "length_immediate" "1")
@@ -6025,7 +6028,8 @@
 	      (const_int 6) (const_int 7)]))
 	  (match_operand:<ssehalfvecmode> 2 "memory_operand" "0")
 	  (match_operand:QI 3 "register_operand" "Yk")))]
-  "TARGET_AVX512F"
+  "TARGET_AVX512F
+   && rtx_equal_p (operands[2], operands[0])"
   "vextract<shuffletype>64x4\t{$0x1, %1, %0%{%3%}|%0%{%3%}, %1, 0x1}"
   [(set_attr "type" "sselog")
    (set_attr "prefix_extra" "1")
@@ -9752,13 +9756,13 @@
 {
   int mask = INTVAL (operands[3]);
   if (mask == 0)
-    emit_insn (gen_vec_set_lo_<mode>_mask
-      (operands[0], operands[1], operands[2],
-       operands[4], operands[5]));
+    emit_insn (gen_vec_set_lo_<mode>_mask (operands[0], operands[1],
+					   operands[2], operands[4],
+					   operands[5]));
   else
-    emit_insn (gen_vec_set_hi_<mode>_mask
-      (operands[0], operands[1], operands[2],
-       operands[4], operands[5]));
+    emit_insn (gen_vec_set_hi_<mode>_mask (operands[0], operands[1],
+					   operands[2], operands[4],
+					   operands[5]));
   DONE;
 })
 
@@ -9769,7 +9773,7 @@
 	  (vec_select:<ssehalfvecmode>
 	    (match_operand:V8FI 1 "register_operand" "v")
 	    (parallel [(const_int 4) (const_int 5)
-              (const_int 6) (const_int 7)]))))]
+		       (const_int 6) (const_int 7)]))))]
   "TARGET_AVX512F"
   "vinsert<shuffletype>64x4\t{$0x0, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, $0x0}"
   [(set_attr "type" "sselog")
@@ -9780,11 +9784,11 @@
 (define_insn "vec_set_hi_<mode><mask_name>"
   [(set (match_operand:V8FI 0 "register_operand" "=v")
 	(vec_concat:V8FI
-	  (match_operand:<ssehalfvecmode> 2 "nonimmediate_operand" "vm")
 	  (vec_select:<ssehalfvecmode>
 	    (match_operand:V8FI 1 "register_operand" "v")
 	    (parallel [(const_int 0) (const_int 1)
-              (const_int 2) (const_int 3)]))))]
+		       (const_int 2) (const_int 3)]))
+	  (match_operand:<ssehalfvecmode> 2 "nonimmediate_operand" "vm")))]
   "TARGET_AVX512F"
   "vinsert<shuffletype>64x4\t{$0x1, %2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2, $0x1}"
   [(set_attr "type" "sselog")
@@ -10333,7 +10337,7 @@
    movss\t{%2, %0|%0, %2}
    movss\t{%2, %0|%0, %2}
    vmovss\t{%2, %1, %0|%0, %1, %2}"
-  [(set_attr "isa" "sse2,*,noavx,noavx,avx")
+  [(set_attr "isa" "sse2,sse2,noavx,noavx,avx")
    (set_attr "type" "ssemov")
    (set_attr "prefix" "maybe_vex,maybe_vex,orig,orig,vex")
    (set_attr "mode" "TI,TI,V4SF,SF,SF")])
@@ -10864,10 +10868,12 @@
    (set_attr "atom_sse_attr" "fence")
    (set_attr "memory" "unknown")])
 
-
+;; As per AMD and Intel ISA manuals, the first operand is extensions
+;; and it goes to %ecx. The second operand received is hints and it goes
+;; to %eax.
 (define_insn "sse3_mwait"
-  [(unspec_volatile [(match_operand:SI 0 "register_operand" "a")
-		     (match_operand:SI 1 "register_operand" "c")]
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "c")
+		     (match_operand:SI 1 "register_operand" "a")]
 		    UNSPECV_MWAIT)]
   "TARGET_SSE3"
 ;; 64bit version is "mwait %rax,%rcx". But only lower 32bits are used.

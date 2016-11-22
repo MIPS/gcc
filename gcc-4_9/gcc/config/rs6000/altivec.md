@@ -2436,7 +2436,7 @@
 	  (match_operand:VM2 1 "memory_operand" "Z"))
      (unspec [(const_int 0)] UNSPEC_SET_VSCR)])]
   "TARGET_ALTIVEC"
-  "lvx %0,%y1"
+  "lvxl %0,%y1"
   [(set_attr "type" "vecload")])
 
 (define_expand "altivec_lvx_<mode>"
@@ -2453,7 +2453,7 @@
     }
 })
 
-(define_insn "*altivec_lvx_<mode>_internal"
+(define_insn "altivec_lvx_<mode>_internal"
   [(parallel
     [(set (match_operand:VM2 0 "register_operand" "=v")
 	  (match_operand:VM2 1 "memory_operand" "Z"))
@@ -2476,7 +2476,7 @@
     }
 })
 
-(define_insn "*altivec_stvx_<mode>_internal"
+(define_insn "altivec_stvx_<mode>_internal"
   [(parallel
     [(set (match_operand:VM2 0 "memory_operand" "=Z")
 	  (match_operand:VM2 1 "register_operand" "v"))

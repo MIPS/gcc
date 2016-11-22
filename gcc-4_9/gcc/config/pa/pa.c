@@ -119,6 +119,7 @@ static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static int pa_adjust_cost (rtx, rtx, rtx, int);
 static int pa_adjust_priority (rtx, int);
 static int pa_issue_rate (void);
+static int pa_reloc_rw_mask (void);
 static void pa_som_asm_init_sections (void) ATTRIBUTE_UNUSED;
 static section *pa_som_tm_clone_table_section (void) ATTRIBUTE_UNUSED;
 static section *pa_select_section (tree, int, unsigned HOST_WIDE_INT)
@@ -293,6 +294,9 @@ static size_t n_deferred_plabels = 0;
 #else
 #define TARGET_ASM_FILE_END output_deferred_plabels
 #endif
+
+#undef TARGET_ASM_RELOC_RW_MASK
+#define TARGET_ASM_RELOC_RW_MASK pa_reloc_rw_mask
 
 #undef TARGET_PRINT_OPERAND_PUNCT_VALID_P
 #define TARGET_PRINT_OPERAND_PUNCT_VALID_P pa_print_operand_punct_valid_p
@@ -1659,78 +1663,114 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 
   /* Handle secondary reloads for loads/stores of FP registers from
      REG+D addresses where D does not fit in 5 or 14 bits, including
-     (subreg (mem (addr))) cases.  */
+     (subreg (mem (addr))) cases, and reloads for other unsupported
+     memory operands.  */
   if (scratch_reg
-      && fp_reg_operand (operand0, mode)
+      && FP_REG_P (operand0)
       && (MEM_P (operand1)
 	  || (GET_CODE (operand1) == SUBREG
-	      && MEM_P (XEXP (operand1, 0))))
-      && !floating_point_store_memory_operand (operand1, mode))
+	      && MEM_P (XEXP (operand1, 0)))))
     {
-      if (GET_CODE (operand1) == SUBREG)
-	operand1 = XEXP (operand1, 0);
+      rtx op1 = operand1;
 
-      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
-	 it in WORD_MODE regardless of what mode it was originally given
-	 to us.  */
-      scratch_reg = force_mode (word_mode, scratch_reg);
+      if (GET_CODE (op1) == SUBREG)
+	op1 = XEXP (op1, 0);
 
-      /* D might not fit in 14 bits either; for such cases load D into
-	 scratch reg.  */
-      if (reg_plus_base_memory_operand (operand1, mode)
-	  && !(TARGET_PA_20
-	       && !TARGET_ELF32
-	       && INT_14_BITS (XEXP (XEXP (operand1, 0), 1))))
+      if (reg_plus_base_memory_operand (op1, GET_MODE (op1)))
 	{
-	  emit_move_insn (scratch_reg, XEXP (XEXP (operand1, 0), 1));
-	  emit_move_insn (scratch_reg,
-			  gen_rtx_fmt_ee (GET_CODE (XEXP (operand1, 0)),
-					  Pmode,
-					  XEXP (XEXP (operand1, 0), 0),
-					  scratch_reg));
+	  if (!(TARGET_PA_20
+		&& !TARGET_ELF32
+		&& INT_14_BITS (XEXP (XEXP (op1, 0), 1)))
+	      && !INT_5_BITS (XEXP (XEXP (op1, 0), 1)))
+	    {
+	      /* SCRATCH_REG will hold an address and maybe the actual data.
+		 We want it in WORD_MODE regardless of what mode it was
+		 originally given to us.  */
+	      scratch_reg = force_mode (word_mode, scratch_reg);
+
+	      /* D might not fit in 14 bits either; for such cases load D
+		 into scratch reg.  */
+	      if (!INT_14_BITS (XEXP (XEXP (op1, 0), 1)))
+		{
+		  emit_move_insn (scratch_reg, XEXP (XEXP (op1, 0), 1));
+		  emit_move_insn (scratch_reg,
+				  gen_rtx_fmt_ee (GET_CODE (XEXP (op1, 0)),
+						  Pmode,
+						  XEXP (XEXP (op1, 0), 0),
+						  scratch_reg));
+		}
+	      else
+		emit_move_insn (scratch_reg, XEXP (op1, 0));
+	      emit_insn (gen_rtx_SET (VOIDmode, operand0,
+				  replace_equiv_address (op1, scratch_reg)));
+	      return 1;
+	    }
 	}
-      else
-	emit_move_insn (scratch_reg, XEXP (operand1, 0));
-      emit_insn (gen_rtx_SET (VOIDmode, operand0,
-			      replace_equiv_address (operand1, scratch_reg)));
-      return 1;
+      else if ((!INT14_OK_STRICT && symbolic_memory_operand (op1, VOIDmode))
+	       || IS_LO_SUM_DLT_ADDR_P (XEXP (op1, 0))
+	       || IS_INDEX_ADDR_P (XEXP (op1, 0)))
+	{
+	  /* Load memory address into SCRATCH_REG.  */
+	  scratch_reg = force_mode (word_mode, scratch_reg);
+	  emit_move_insn (scratch_reg, XEXP (op1, 0));
+	  emit_insn (gen_rtx_SET (VOIDmode, operand0,
+				  replace_equiv_address (op1, scratch_reg)));
+	  return 1;
+	}
     }
   else if (scratch_reg
-	   && fp_reg_operand (operand1, mode)
+	   && FP_REG_P (operand1)
 	   && (MEM_P (operand0)
 	       || (GET_CODE (operand0) == SUBREG
-		   && MEM_P (XEXP (operand0, 0))))
-	   && !floating_point_store_memory_operand (operand0, mode))
+		   && MEM_P (XEXP (operand0, 0)))))
     {
-      if (GET_CODE (operand0) == SUBREG)
-	operand0 = XEXP (operand0, 0);
+      rtx op0 = operand0;
 
-      /* SCRATCH_REG will hold an address and maybe the actual data.  We want
-	 it in WORD_MODE regardless of what mode it was originally given
-	 to us.  */
-      scratch_reg = force_mode (word_mode, scratch_reg);
+      if (GET_CODE (op0) == SUBREG)
+	op0 = XEXP (op0, 0);
 
-      /* D might not fit in 14 bits either; for such cases load D into
-	 scratch reg.  */
-      if (reg_plus_base_memory_operand (operand0, mode)
-	  && !(TARGET_PA_20
-	       && !TARGET_ELF32
-	       && INT_14_BITS (XEXP (XEXP (operand0, 0), 1))))
+      if (reg_plus_base_memory_operand (op0, GET_MODE (op0)))
 	{
-	  emit_move_insn (scratch_reg, XEXP (XEXP (operand0, 0), 1));
-	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand0,
-								        0)),
-						       Pmode,
-						       XEXP (XEXP (operand0, 0),
-								   0),
-						       scratch_reg));
+	  if (!(TARGET_PA_20
+		&& !TARGET_ELF32
+		&& INT_14_BITS (XEXP (XEXP (op0, 0), 1)))
+	      && !INT_5_BITS (XEXP (XEXP (op0, 0), 1)))
+	    {
+	      /* SCRATCH_REG will hold an address and maybe the actual data.
+		 We want it in WORD_MODE regardless of what mode it was
+		 originally given to us.  */
+	      scratch_reg = force_mode (word_mode, scratch_reg);
+
+	      /* D might not fit in 14 bits either; for such cases load D
+		 into scratch reg.  */
+	      if (!INT_14_BITS (XEXP (XEXP (op0, 0), 1)))
+		{
+		  emit_move_insn (scratch_reg, XEXP (XEXP (op0, 0), 1));
+		  emit_move_insn (scratch_reg,
+				  gen_rtx_fmt_ee (GET_CODE (XEXP (op0, 0)),
+						  Pmode,
+						  XEXP (XEXP (op0, 0), 0),
+						  scratch_reg));
+		}
+	      else
+		emit_move_insn (scratch_reg, XEXP (op0, 0));
+	      emit_insn (gen_rtx_SET (VOIDmode,
+				      replace_equiv_address (op0, scratch_reg),
+				      operand1));
+	      return 1;
+	    }
 	}
-      else
-	emit_move_insn (scratch_reg, XEXP (operand0, 0));
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      replace_equiv_address (operand0, scratch_reg),
-			      operand1));
-      return 1;
+      else if ((!INT14_OK_STRICT && symbolic_memory_operand (op0, VOIDmode))
+	       || IS_LO_SUM_DLT_ADDR_P (XEXP (op0, 0))
+	       || IS_INDEX_ADDR_P (XEXP (op0, 0)))
+	{
+	  /* Load memory address into SCRATCH_REG.  */
+	  emit_move_insn (scratch_reg, XEXP (op0, 0));
+	  emit_insn (gen_rtx_SET (VOIDmode,
+				  replace_equiv_address (op0, scratch_reg),
+				  operand1));
+	  return 1;
+	}
     }
   /* Handle secondary reloads for loads of FP registers from constant
      expressions by forcing the constant into memory.  For the most part,
@@ -1739,7 +1779,7 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
      Use scratch_reg to hold the address of the memory location.  */
   else if (scratch_reg
 	   && CONSTANT_P (operand1)
-	   && fp_reg_operand (operand0, mode))
+	   && FP_REG_P (operand0))
     {
       rtx const_mem, xoperands[2];
 
@@ -1784,12 +1824,11 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	  scratch_reg = force_mode (word_mode, scratch_reg);
 
 	  emit_move_insn (scratch_reg, XEXP (XEXP (operand1, 0), 1));
-	  emit_move_insn (scratch_reg, gen_rtx_fmt_ee (GET_CODE (XEXP (operand1,
-								        0)),
-						       Pmode,
-						       XEXP (XEXP (operand1, 0),
-						       0),
-						       scratch_reg));
+	  emit_move_insn (scratch_reg,
+			  gen_rtx_fmt_ee (GET_CODE (XEXP (operand1, 0)),
+					  Pmode,
+					  XEXP (XEXP (operand1, 0), 0),
+					  scratch_reg));
 
 	  /* Now we are going to load the scratch register from memory,
 	     we want to load it in the same width as the original MEM,
@@ -1815,8 +1854,9 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
       emit_move_insn (operand0, scratch_reg);
       return 1;
     }
+
   /* Handle the most common case: storing into a register.  */
-  else if (register_operand (operand0, mode))
+  if (register_operand (operand0, mode))
     {
       /* Legitimize TLS symbol references.  This happens for references
 	 that aren't a legitimate constant.  */
@@ -2201,11 +2241,11 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 					  gen_rtx_HIGH (mode, operand1)));
 		  emit_move_insn (temp, gen_rtx_LO_SUM (mode, temp, operand1));
 		  if (mode == DImode)
-		    emit_insn (gen_insvdi (operand0, GEN_INT (32),
-					   const0_rtx, temp));
+		    insn = emit_insn (gen_insvdi (operand0, GEN_INT (32),
+						  const0_rtx, temp));
 		  else
-		    emit_insn (gen_insvsi (operand0, GEN_INT (32),
-					   const0_rtx, temp));
+		    insn = emit_insn (gen_insvsi (operand0, GEN_INT (32),
+						  const0_rtx, temp));
 		}
 	      else
 		{
@@ -2227,11 +2267,15 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 			}
 
 		      if (mode == DImode)
-			emit_insn (gen_insvdi (operand0, GEN_INT (len),
-					       GEN_INT (pos), GEN_INT (v5)));
+			insn = emit_insn (gen_insvdi (operand0,
+						      GEN_INT (len),
+						      GEN_INT (pos),
+						      GEN_INT (v5)));
 		      else
-			emit_insn (gen_insvsi (operand0, GEN_INT (len),
-					       GEN_INT (pos), GEN_INT (v5)));
+			insn = emit_insn (gen_insvsi (operand0,
+						      GEN_INT (len),
+						      GEN_INT (pos),
+						      GEN_INT (v5)));
 
 		      len = pos > 0 && pos < 5 ? pos : 5;
 		      pos -= len;
@@ -2427,6 +2471,7 @@ pa_output_move_double (rtx *operands)
   enum { REGOP, OFFSOP, MEMOP, CNSTOP, RNDOP } optype0, optype1;
   rtx latehalf[2];
   rtx addreg0 = 0, addreg1 = 0;
+  int highonly = 0;
 
   /* First classify both operands.  */
 
@@ -2583,28 +2628,29 @@ pa_output_move_double (rtx *operands)
 	       && GET_CODE (XEXP (addr, 0)) == MULT)
 	{
 	  rtx xoperands[4];
-	  rtx high_reg = gen_rtx_SUBREG (SImode, operands[0], 0);
 
-	  if (!reg_overlap_mentioned_p (high_reg, addr))
-	    {
-	      xoperands[0] = high_reg;
-	      xoperands[1] = XEXP (addr, 1);
-	      xoperands[2] = XEXP (XEXP (addr, 0), 0);
-	      xoperands[3] = XEXP (XEXP (addr, 0), 1);
-	      output_asm_insn ("{sh%O3addl %2,%1,%0|shladd,l %2,%O3,%1,%0}",
-			       xoperands);
-	      return "ldw 4(%0),%R0\n\tldw 0(%0),%0";
-	    }
-	  else
-	    {
-	      xoperands[0] = high_reg;
-	      xoperands[1] = XEXP (addr, 1);
-	      xoperands[2] = XEXP (XEXP (addr, 0), 0);
-	      xoperands[3] = XEXP (XEXP (addr, 0), 1);
-	      output_asm_insn ("{sh%O3addl %2,%1,%R0|shladd,l %2,%O3,%1,%R0}",
-			       xoperands);
-	      return "ldw 0(%R0),%0\n\tldw 4(%R0),%R0";
-	    }
+	  /* Load address into left half of destination register.  */
+	  xoperands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
+	  xoperands[1] = XEXP (addr, 1);
+	  xoperands[2] = XEXP (XEXP (addr, 0), 0);
+	  xoperands[3] = XEXP (XEXP (addr, 0), 1);
+	  output_asm_insn ("{sh%O3addl %2,%1,%0|shladd,l %2,%O3,%1,%0}",
+			   xoperands);
+	  return "ldw 4(%0),%R0\n\tldw 0(%0),%0";
+	}
+      else if (GET_CODE (addr) == PLUS
+	       && REG_P (XEXP (addr, 0))
+	       && REG_P (XEXP (addr, 1)))
+	{
+	  rtx xoperands[3];
+
+	  /* Load address into left half of destination register.  */
+	  xoperands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
+	  xoperands[1] = XEXP (addr, 0);
+	  xoperands[2] = XEXP (addr, 1);
+	  output_asm_insn ("{addl|add,l} %1,%2,%0",
+			   xoperands);
+	  return "ldw 4(%0),%R0\n\tldw 0(%0),%0";
 	}
     }
 
@@ -2636,7 +2682,14 @@ pa_output_move_double (rtx *operands)
   else if (optype1 == OFFSOP)
     latehalf[1] = adjust_address_nv (operands[1], SImode, 4);
   else if (optype1 == CNSTOP)
-    split_double (operands[1], &operands[1], &latehalf[1]);
+    {
+      if (GET_CODE (operands[1]) == HIGH)
+	{
+	  operands[1] = XEXP (operands[1], 0);
+	  highonly = 1;
+	}
+      split_double (operands[1], &operands[1], &latehalf[1]);
+    }
   else
     latehalf[1] = operands[1];
 
@@ -2690,8 +2743,11 @@ pa_output_move_double (rtx *operands)
   if (addreg1)
     output_asm_insn ("ldo 4(%0),%0", &addreg1);
 
-  /* Do that word.  */
-  output_asm_insn (pa_singlemove_string (latehalf), latehalf);
+  /* Do high-numbered word.  */
+  if (highonly)
+    output_asm_insn ("ldil L'%1,%0", latehalf);
+  else
+    output_asm_insn (pa_singlemove_string (latehalf), latehalf);
 
   /* Undo the adds we just did.  */
   if (addreg0)
@@ -5405,6 +5461,7 @@ pa_output_global_address (FILE *file, rtx x, int round_constant)
 
       switch (GET_CODE (XEXP (XEXP (x, 0), 0)))
 	{
+	case LABEL_REF:
 	case SYMBOL_REF:
 	  base = XEXP (XEXP (x, 0), 0);
 	  output_addr_const (file, base);
@@ -5418,6 +5475,7 @@ pa_output_global_address (FILE *file, rtx x, int round_constant)
 
       switch (GET_CODE (XEXP (XEXP (x, 0), 1)))
 	{
+	case LABEL_REF:
 	case SYMBOL_REF:
 	  base = XEXP (XEXP (x, 0), 1);
 	  output_addr_const (file, base);
@@ -6013,18 +6071,15 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 	{
 	  x = XEXP (x, 0);
 
-	  /* We don't need an intermediate for indexed and LO_SUM DLT
-	     memory addresses.  When INT14_OK_STRICT is true, it might
-	     appear that we could directly allow register indirect
-	     memory addresses.  However, this doesn't work because we
-	     don't support SUBREGs in floating-point register copies
-	     and reload doesn't tell us when it's going to use a SUBREG.  */
-	  if (IS_INDEX_ADDR_P (x)
-	      || IS_LO_SUM_DLT_ADDR_P (x))
-	    return NO_REGS;
+	  /* We don't need a secondary reload for indexed memory addresses.
 
-	  /* Request intermediate general register.  */
-	  return GENERAL_REGS;
+	     When INT14_OK_STRICT is true, it might appear that we could
+	     directly allow register indirect memory addresses.  However,
+	     this doesn't work because we don't support SUBREGs in
+	     floating-point register copies and reload doesn't tell us
+	     when it's going to use a SUBREG.  */
+	  if (IS_INDEX_ADDR_P (x))
+	    return NO_REGS;
 	}
 
       /* Request a secondary reload with a general scratch register
@@ -8531,14 +8586,6 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (TARGET_PORTABLE_RUNTIME)
     return false;
 
-  /* Sibcalls are ok for TARGET_ELF32 as along as the linker is used in
-     single subspace mode and the call is not indirect.  As far as I know,
-     there is no operating system support for the multiple subspace mode.
-     It might be possible to support indirect calls if we didn't use
-     $$dyncall (see the indirect sequence generated in pa_output_call).  */
-  if (TARGET_ELF32)
-    return (decl != NULL_TREE);
-
   /* Sibcalls are not ok because the arg pointer register is not a fixed
      register.  This prevents the sibcall optimization from occurring.  In
      addition, there are problems with stub placement using GNU ld.  This
@@ -9818,6 +9865,19 @@ pa_select_section (tree exp, int reloc,
     return som_one_only_data_section;
   else
     return data_section;
+}
+
+/* Implement pa_reloc_rw_mask.  */
+
+static int
+pa_reloc_rw_mask (void)
+{
+  /* We force (const (plus (symbol) (const_int))) to memory when the
+     const_int doesn't fit in a 14-bit integer.  The SOM linker can't
+     handle this construct in read-only memory and we want to avoid
+     this for ELF.  So, we always force an RTX needing relocation to
+     the data section.  */
+  return 3;
 }
 
 static void

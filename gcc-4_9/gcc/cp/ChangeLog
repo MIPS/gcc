@@ -1,3 +1,254 @@
+2016-08-03  Release Manager
+
+	* GCC 4.9.4 released.
+
+2016-07-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69223
+	* semantics.c (apply_deduced_return_type): Call
+	complete_type_or_else before building the new RESULT_DECL.
+
+	PR c++/71913
+	* call.c (unsafe_copy_elision_p): It's OK to elide when
+	initializing an unknown object.
+
+2016-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71909
+	* parser.c (cp_parser_save_member_function_body): Consume
+	__transaction_relaxed or __transaction_atomic with optional
+	attribute.  Only skip catch with block if try keyword is seen.
+
+2016-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71871
+	* typeck.c (build_x_conditional_expr): Revert the 2012-10-25 change.
+
+2016-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67767
+	* parser.c (cp_parser_std_attribute_spec_seq): Don't assume
+	attr_spec is always single element chain, chain all the attributes
+	properly together in the right order.
+
+2016-05-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70505
+	* pt.c (tsubst_baselink): Give the new TEMPLATE_ID_EXPR
+	unknown_type_node, too.
+
+2016-04-13  Alan Modra  <amodra@gmail.com>
+
+	Backport from mainline
+	2016-03-22  Patrick Palka  <ppalka@gcc.gnu.org>
+	PR target/70107
+	PR c++/70096
+	* pt.c (tsubst_decl): Clear the DECL_MODE of the new decl.
+
+2016-03-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backported from mainline
+	2014-12-19  Kai Tietz  <ktietz@redhat.com>
+
+	PR c++/61198
+	* pt.c (most_general_template): Don't break for template-alias.
+
+2016-03-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65061
+	* parser.c (cp_parser_template_name): Call strip_using_decl.
+
+2016-02-25  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Backported from mainline
+	2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+		    Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* Make-lang.in: Invoke gperf with -L C++.
+	* cfns.gperf: Remove prototypes for hash and libc_name_p
+	inlines.
+	* cfns.h: Regenerated.
+	* except.c (nothrow_libfn_p): Adjust.
+
+2016-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59627
+	* parser.c (cp_parser_omp_declare_reduction): Set assembler name
+	of the DECL_OMP_DECLARE_REDUCTION_P decls.
+
+2016-02-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68926
+	* pt.c (resolve_nondeduced_context): Add complain parm.
+	(do_auto_deduction): Pass it.
+	* cvt.c (convert_to_void): Likewise.
+	* decl.c (cp_finish_decl): Likewise.
+	* init.c (build_new): Likewise.
+	* rtti.c (get_tinfo_decl_dynamic): Likewise.
+	* semantics.c (finish_decltype_type): Likewise.
+	* typeck.c (decay_conversion): Likewise.
+	* cp-tree.h: Adjust declaration.
+
+2016-01-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68983
+	PR c++/67557
+	* call.c (unsafe_copy_elision_p): Look through COMPOUND_EXPR.
+
+2015-12-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66921
+	* decl.c (cp_complete_array_type): Allow an initializer that
+	already has array type.
+
+2015-12-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67576
+	PR c++/25466
+	* rtti.c (build_typeid): Use save_expr, not stabilize_reference.
+
+	PR c++/67557
+	* call.c (is_base_field_ref): New.
+	(unsafe_copy_elision_p): New.
+	(build_over_call): Use it.
+
+2015-12-04  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/67337
+	* mangle.c (write_template_prefix): Guard against context==NULL.
+
+2015-08-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66957
+	* search.c (protected_accessible_p): Revert fix for 38579.
+
+	PR c++/58063
+	* tree.c (bot_manip): Remap SAVE_EXPR.
+
+2015-07-16  Marek Polacek  <polacek@redhat.com>
+
+	2015-07-08  Marek Polacek  <polacek@redhat.com>
+	Backported from mainline
+
+	PR c++/66748
+	* tree.c (handle_abi_tag_attribute): Check for CLASS_TYPE_P before
+	accessing TYPE_LANG_SPECIFIC node.
+
+2015-06-26  Release Manager
+
+	* GCC 4.9.3 released.
+
+2015-06-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66501
+	* init.c (vec_copy_assign_is_trivial): New.
+	(build_vec_init): Use it.
+
+2015-06-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65879
+	* tree.c (no_linkage_check): Skip the 'this' pointer.
+
+2015-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2015-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl2.c (cplus_decl_attributes): Also add "omp declare target"
+	attribute for DECL_EXTERNAL VAR_DECLs.
+
+2015-04-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport from trunk r222564:
+
+	2015-04-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* pt.c (tsubst_expr) <OMP_TARGET_UPDATE>: Use
+	OMP_TARGET_UPDATE_CLAUSES instead of OMP_CLAUSES.
+
+2015-04-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/65727
+	* lambda.c (maybe_resolve_dummy): Handle null return.
+
+2015-04-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65695
+	* cvt.c (cp_fold_convert): Avoid wrapping PTRMEM_CST in NOP_EXPR.
+
+	PR c++/65721
+	* name-lookup.c (do_class_using_decl): Complain about specifying
+	the current class even if there are dependent bases.
+
+2015-04-23  David Krauss  <david_work@me.com>
+
+	PR c++/59766
+	* decl.c (grokdeclarator): Do not flag friends with deduced return.
+
+2015-03-26  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c++/65154
+	* init.c (build_vec_init): Fix initializing aggregates
+	with empty init list.
+
+2015-03-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65209
+	PR c++/65309
+	* decl2.c (constrain_visibility_for_template): Handle reference
+	arguments.
+
+2015-02-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62255
+	* pt.c (instantiate_decl): Handle recursive instantiation of
+	static data member.
+
+	* decl.c (begin_destructor_body): Condition clobber on
+	-flifetime-dse.
+
+2015-02-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62017
+	* decl.c (begin_destructor_body): Only clobber the as-base part of
+	*this.
+
+2015-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2015-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/64824
+	PR c/64868
+	* parser.c (cp_parser_omp_atomic): Handle RDIV_EXPR.
+
+2015-02-04  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/64901
+	* decl.c (duplicate_decls): Also duplicate DECL_FINAL_P and
+	DECL_OVERRIDE_P.
+
+2015-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64521
+	* repo.c (repo_emit_p): It's OK for a clone to be extern at this
+	point.
+
+2015-01-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/64514
+	* pt.c (coerce_template_parameter_pack): Return NULL for a
+	zero-length fixed parameter pack with a pack expansion arg.
+
 2015-01-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/64487

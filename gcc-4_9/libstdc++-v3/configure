@@ -683,6 +683,8 @@ GLIBCXX_BUILD_DEBUG_TRUE
 DEBUG_FLAGS
 GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE
 GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE
+GLIBCXX_C_HEADERS_C_GOOGLE_FALSE
+GLIBCXX_C_HEADERS_C_GOOGLE_TRUE
 GLIBCXX_C_HEADERS_C_GLOBAL_FALSE
 GLIBCXX_C_HEADERS_C_GLOBAL_TRUE
 GLIBCXX_C_HEADERS_C_STD_FALSE
@@ -16300,7 +16302,7 @@ $as_echo "$enable_libstdcxx_allocator_flag" >&6; }
 if test "${enable_cheaders+set}" = set; then :
   enableval=$enable_cheaders;
       case "$enableval" in
-       c|c_std|c_global) ;;
+       c|c_std|c_global|c_google) ;;
        *) as_fn_error "Unknown argument to enable/disable cheaders" "$LINENO" 5 ;;
 	  	        esac
 
@@ -16315,7 +16317,7 @@ $as_echo "$as_me: \"C\" header strategy set to $enable_cheaders" >&6;}
   C_INCLUDE_DIR='${glibcxx_srcdir}/include/'$enable_cheaders
 
   # Allow overrides to configure.host here.
-  if test $enable_cheaders = c_global; then
+  if test $enable_cheaders = c_global || test $enable_cheaders = c_google; then
      c_compatibility=yes
   fi
 
@@ -17497,6 +17499,68 @@ $as_echo "#define HAVE_GETS 1" >>confdefs.h
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibcxx_cv_gets" >&5
 $as_echo "$glibcxx_cv_gets" >&6; }
 
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+
+
+  ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -std=c++11"
+
+  case "$host" in
+    *-*-solaris2.*)
+      # Solaris 12 introduced the C++11 <math.h> overloads.  A backport to
+      # a Solaris 11.3 SRU is likely, maybe even a Solaris 10 patch.
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C++11 <math.h> overloads" >&5
+$as_echo_n "checking for C++11 <math.h> overloads... " >&6; }
+      if test "${glibcxx_cv_math11_overload+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <math.h>
+	   #undef isfinite
+	   namespace std {
+	     inline bool isfinite(float __x)
+	     { return __builtin_isfinite(__x); }
+	   }
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  glibcxx_cv_math11_overload=no
+else
+  glibcxx_cv_math11_overload=yes
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+      # autoheader cannot handle indented templates.
+
+
+      if test $glibcxx_cv_math11_overload = yes; then
+        $as_echo "#define __CORRECT_ISO_CPP11_MATH_H_PROTO 1" >>confdefs.h
+
+      fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibcxx_cv_math11_overload" >&5
+$as_echo "$glibcxx_cv_math11_overload" >&6; }
+      ;;
+  esac
+
+  CXXFLAGS="$ac_save_CXXFLAGS"
   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -79239,6 +79303,15 @@ else
 fi
 
 
+    if test $enable_cheaders = c_google; then
+  GLIBCXX_C_HEADERS_C_GOOGLE_TRUE=
+  GLIBCXX_C_HEADERS_C_GOOGLE_FALSE='#'
+else
+  GLIBCXX_C_HEADERS_C_GOOGLE_TRUE='#'
+  GLIBCXX_C_HEADERS_C_GOOGLE_FALSE=
+fi
+
+
     if test $c_compatibility = yes; then
   GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE=
   GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE='#'
@@ -79714,6 +79787,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${GLIBCXX_C_HEADERS_C_GLOBAL_TRUE}" && test -z "${GLIBCXX_C_HEADERS_C_GLOBAL_FALSE}"; then
   as_fn_error "conditional \"GLIBCXX_C_HEADERS_C_GLOBAL\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${GLIBCXX_C_HEADERS_C_GOOGLE_TRUE}" && test -z "${GLIBCXX_C_HEADERS_C_GOOGLE_FALSE}"; then
+  as_fn_error "conditional \"GLIBCXX_C_HEADERS_C_GOOGLE\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${GLIBCXX_C_HEADERS_COMPATIBILITY_TRUE}" && test -z "${GLIBCXX_C_HEADERS_COMPATIBILITY_FALSE}"; then

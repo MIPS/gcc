@@ -384,7 +384,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       template<class _Iterator>
         static void
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
-	_GLIBCXX_NOEXCEPT
         {
 	  for (; __k1 != __k2; ++__k1, ++__p)
 	    traits_type::assign(*__p, *__k1); // These types are off.
@@ -2844,8 +2843,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 
-#if ((__cplusplus >= 201103L) && defined(_GLIBCXX_USE_C99) \
-     && !defined(_GLIBCXX_HAVE_BROKEN_VSWPRINTF))
+#if __cplusplus >= 201103L && defined(_GLIBCXX_USE_C99)
 
 #include <ext/string_conversions.h>
 
@@ -2995,6 +2993,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   stold(const wstring& __str, size_t* __idx = 0)
   { return __gnu_cxx::__stoa(&std::wcstold, "stold", __str.c_str(), __idx); }
 
+#ifndef _GLIBCXX_HAVE_BROKEN_VSWPRINTF
   // DR 1261.
   inline wstring
   to_wstring(int __val)
@@ -3056,6 +3055,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     return __gnu_cxx::__to_xstring<wstring>(&std::vswprintf, __n,
 					    L"%Lf", __val);
   }
+#endif // _GLIBCXX_HAVE_BROKEN_VSWPRINTF
 #endif
 
 _GLIBCXX_END_NAMESPACE_VERSION

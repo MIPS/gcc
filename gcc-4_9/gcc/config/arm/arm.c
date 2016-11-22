@@ -9844,7 +9844,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 
 	  *cost = COSTS_N_INSNS (1);
 
-	  if (GET_CODE (op0) == NEG)
+	  if (GET_CODE (op0) == NEG && !flag_rounding_math)
 	    op0 = XEXP (op0, 0);
 
 	  if (speed_p)
@@ -9920,6 +9920,13 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       if (TARGET_HARD_FLOAT && GET_MODE_CLASS (mode) == MODE_FLOAT
 	  && (mode == SFmode || !TARGET_VFP_SINGLE))
 	{
+	  if (GET_CODE (XEXP (x, 0)) == MULT)
+	    {
+	      /* FNMUL.  */
+	      *cost = rtx_cost (XEXP (x, 0), NEG, 0, speed_p);
+	      return true;
+	    }
+
 	  *cost = COSTS_N_INSNS (1);
 	  if (speed_p)
 	    *cost += extra_cost->fp[mode != SFmode].neg;
@@ -13951,9 +13958,9 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
   HOST_WIDE_INT srcoffset, dstoffset;
   HOST_WIDE_INT src_autoinc, dst_autoinc;
   rtx mem, addr;
-
+  
   gcc_assert (1 <= interleave_factor && interleave_factor <= 4);
-
+  
   /* Use hard registers if we have aligned source or destination so we can use
      load/store multiple with contiguous registers.  */
   if (dst_aligned || src_aligned)
@@ -13967,7 +13974,7 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
   src = copy_addr_to_reg (XEXP (srcbase, 0));
 
   srcoffset = dstoffset = 0;
-
+  
   /* Calls to arm_gen_load_multiple and arm_gen_store_multiple update SRC/DST.
      For copying the last bytes we want to subtract this offset again.  */
   src_autoinc = dst_autoinc = 0;
@@ -14021,14 +14028,14 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
 
       remaining -= block_size_bytes;
     }
-
+  
   /* Copy any whole words left (note these aren't interleaved with any
      subsequent halfword/byte load/stores in the interests of simplicity).  */
-
+  
   words = remaining / UNITS_PER_WORD;
 
   gcc_assert (words < interleave_factor);
-
+  
   if (src_aligned && words > 1)
     {
       emit_insn (arm_gen_load_multiple (regnos, words, src, TRUE, srcbase,
@@ -14068,11 +14075,11 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
     }
 
   remaining -= words * UNITS_PER_WORD;
-
+  
   gcc_assert (remaining < 4);
-
+  
   /* Copy a halfword if necessary.  */
-
+  
   if (remaining >= 2)
     {
       halfword_tmp = gen_reg_rtx (SImode);
@@ -14096,11 +14103,11 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
       remaining -= 2;
       srcoffset += 2;
     }
-
+  
   gcc_assert (remaining < 2);
-
+  
   /* Copy last byte.  */
-
+  
   if ((remaining & 1) != 0)
     {
       byte_tmp = gen_reg_rtx (SImode);
@@ -14121,9 +14128,9 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
       remaining--;
       srcoffset++;
     }
-
+  
   /* Store last halfword if we haven't done so already.  */
-
+  
   if (halfword_tmp)
     {
       addr = plus_constant (Pmode, dst, dstoffset - dst_autoinc);
@@ -14142,7 +14149,7 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
       emit_move_insn (mem, gen_lowpart (QImode, byte_tmp));
       dstoffset++;
     }
-
+  
   gcc_assert (remaining == 0 && srcoffset == dstoffset);
 }
 
@@ -14161,7 +14168,7 @@ arm_adjust_block_mem (rtx mem, HOST_WIDE_INT length, rtx *loop_reg,
 		      rtx *loop_mem)
 {
   *loop_reg = copy_addr_to_reg (XEXP (mem, 0));
-
+  
   /* Although the new mem does not refer to a known location,
      it does keep up to LENGTH bytes of alignment.  */
   *loop_mem = change_address (mem, BLKmode, *loop_reg);
@@ -14181,14 +14188,14 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 {
   rtx label, src_reg, dest_reg, final_src, test;
   HOST_WIDE_INT leftover;
-
+  
   leftover = length % bytes_per_iter;
   length -= leftover;
-
+  
   /* Create registers and memory references for use within the loop.  */
   arm_adjust_block_mem (src, bytes_per_iter, &src_reg, &src);
   arm_adjust_block_mem (dest, bytes_per_iter, &dest_reg, &dest);
-
+  
   /* Calculate the value that SRC_REG should have after the last iteration of
      the loop.  */
   final_src = expand_simple_binop (Pmode, PLUS, src_reg, GEN_INT (length),
@@ -14197,7 +14204,7 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Emit the start of the loop.  */
   label = gen_label_rtx ();
   emit_label (label);
-
+  
   /* Emit the loop body.  */
   arm_block_move_unaligned_straight (dest, src, bytes_per_iter,
 				     interleave_factor);
@@ -14205,11 +14212,11 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Move on to the next block.  */
   emit_move_insn (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
   emit_move_insn (dest_reg, plus_constant (Pmode, dest_reg, bytes_per_iter));
-
+  
   /* Emit the loop condition.  */
   test = gen_rtx_NE (VOIDmode, src_reg, final_src);
   emit_jump_insn (gen_cbranchsi4 (test, src_reg, final_src, label));
-
+  
   /* Mop up any left-over bytes.  */
   if (leftover)
     arm_block_move_unaligned_straight (dest, src, leftover, interleave_factor);
@@ -14223,7 +14230,7 @@ static int
 arm_movmemqi_unaligned (rtx *operands)
 {
   HOST_WIDE_INT length = INTVAL (operands[2]);
-
+  
   if (optimize_size)
     {
       bool src_aligned = MEM_ALIGN (operands[1]) >= BITS_PER_WORD;
@@ -14234,7 +14241,7 @@ arm_movmemqi_unaligned (rtx *operands)
 	 resulting code can be smaller.  */
       unsigned int interleave_factor = (src_aligned || dst_aligned) ? 2 : 1;
       HOST_WIDE_INT bytes_per_iter = (src_aligned || dst_aligned) ? 8 : 4;
-
+      
       if (length > 12)
 	arm_block_move_unaligned_loop (operands[0], operands[1], length,
 				       interleave_factor, bytes_per_iter);
@@ -14252,7 +14259,7 @@ arm_movmemqi_unaligned (rtx *operands)
       else
 	arm_block_move_unaligned_straight (operands[0], operands[1], length, 4);
     }
-
+  
   return 1;
 }
 
@@ -16297,7 +16304,7 @@ dump_minipool (rtx scan)
 	      fputc ('\n', dump_file);
 	    }
 
-	  switch (mp->fix_size)
+	  switch (GET_MODE_SIZE (mp->mode))
 	    {
 #ifdef HAVE_consttable_1
 	    case 1:
@@ -18624,6 +18631,14 @@ output_ascii_pseudo_op (FILE *stream, const unsigned char *p, int len)
   fputs ("\"\n", stream);
 }
 
+/* Whether a register is callee saved or not.  This is necessary because high
+   registers are marked as caller saved when optimizing for size on Thumb-1
+   targets despite being callee saved in order to avoid using them.  */
+#define callee_saved_reg_p(reg) \
+  (!call_used_regs[reg] \
+   || (TARGET_THUMB1 && optimize_size \
+       && reg >= FIRST_HI_REGNUM && reg <= LAST_HI_REGNUM))
+
 /* Compute the register save mask for registers 0 through 12
    inclusive.  This code is used by arm_compute_save_reg_mask.  */
 
@@ -18684,7 +18699,7 @@ arm_compute_save_reg0_reg12_mask (void)
       /* In the normal case we only need to save those registers
 	 which are call saved and which are used by this function.  */
       for (reg = 0; reg <= 11; reg++)
-	if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
+	if (df_regs_ever_live_p (reg) && callee_saved_reg_p (reg))
 	  save_reg_mask |= (1 << reg);
 
       /* Handle the frame pointer as a special case.  */
@@ -18847,7 +18862,7 @@ thumb1_compute_save_reg_mask (void)
 
   mask = 0;
   for (reg = 0; reg < 12; reg ++)
-    if (df_regs_ever_live_p (reg) && !call_used_regs[reg])
+    if (df_regs_ever_live_p (reg) && callee_saved_reg_p (reg))
       mask |= 1 << reg;
 
   if (flag_pic
@@ -18880,7 +18895,7 @@ thumb1_compute_save_reg_mask (void)
       if (reg * UNITS_PER_WORD <= (unsigned) arm_size_return_regs ())
 	reg = LAST_LO_REGNUM;
 
-      if (! call_used_regs[reg])
+      if (callee_saved_reg_p (reg))
 	mask |= 1 << reg;
     }
 
@@ -20693,7 +20708,11 @@ arm_expand_prologue (void)
 
   /* Naked functions don't have prologues.  */
   if (IS_NAKED (func_type))
-    return;
+    {
+      if (flag_stack_usage_info)
+	current_function_static_stack_size = 0;
+      return;
+    }
 
   /* Make a copy of c_f_p_a_s as we may need to modify it locally.  */
   args_to_push = crtl->args.pretend_args_size;
@@ -22636,12 +22655,19 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
     }
 
   /* We allow almost any value to be stored in the general registers.
-     Restrict doubleword quantities to even register pairs so that we can
-     use ldrd.  Do not allow very large Neon structure opaque modes in
-     general registers; they would use too many.  */
+     Restrict doubleword quantities to even register pairs in ARM state
+     so that we can use ldrd.  Do not allow very large Neon structure
+     opaque modes in general registers; they would use too many.  */
   if (regno <= LAST_ARM_REGNUM)
-    return !(TARGET_LDRD && GET_MODE_SIZE (mode) > 4 && (regno & 1) != 0)
-      && ARM_NUM_REGS (mode) <= 4;
+    {
+      if (ARM_NUM_REGS (mode) > 4)
+	  return FALSE;
+
+      if (TARGET_THUMB2)
+	return TRUE;
+
+      return !(TARGET_LDRD && GET_MODE_SIZE (mode) > 4 && (regno & 1) != 0);
+    }
 
   if (regno == FRAME_POINTER_REGNUM
       || regno == ARG_POINTER_REGNUM)
@@ -26714,7 +26740,11 @@ thumb1_expand_prologue (void)
 
   /* Naked functions don't have prologues.  */
   if (IS_NAKED (func_type))
-    return;
+    {
+      if (flag_stack_usage_info)
+	current_function_static_stack_size = 0;
+      return;
+    }
 
   if (IS_INTERRUPT (func_type))
     {
@@ -29706,8 +29736,7 @@ arm_conditional_register_usage (void)
       /* When optimizing for size on Thumb-1, it's better not
         to use the HI regs, because of the overhead of
         stacking them.  */
-      for (regno = FIRST_HI_REGNUM;
-	   regno <= LAST_HI_REGNUM; ++regno)
+      for (regno = FIRST_HI_REGNUM; regno <= LAST_HI_REGNUM; ++regno)
 	fixed_regs[regno] = call_used_regs[regno] = 1;
     }
 
@@ -29835,12 +29864,13 @@ int
 vfp3_const_double_for_fract_bits (rtx operand)
 {
   REAL_VALUE_TYPE r0;
-
+  
   if (!CONST_DOUBLE_P (operand))
     return 0;
-
+  
   REAL_VALUE_FROM_CONST_DOUBLE (r0, operand);
-  if (exact_real_inverse (DFmode, &r0))
+  if (exact_real_inverse (DFmode, &r0)
+      && !REAL_VALUE_NEGATIVE (r0))
     {
       if (exact_real_truncate (DFmode, &r0))
 	{
@@ -29853,25 +29883,36 @@ vfp3_const_double_for_fract_bits (rtx operand)
   return 0;
 }
 
+/* If X is a CONST_DOUBLE with a value that is a power of 2 whose
+   log2 is in [1, 32], return that log2.  Otherwise return -1.
+   This is used in the patterns for vcvt.s32.f32 floating-point to
+   fixed-point conversions.  */
+
 int
-vfp3_const_double_for_bits (rtx operand)
+vfp3_const_double_for_bits (rtx x)
 {
-  REAL_VALUE_TYPE r0;
+  if (!CONST_DOUBLE_P (x))
+    return -1;
 
-  if (!CONST_DOUBLE_P (operand))
-    return 0;
+  REAL_VALUE_TYPE r;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r0, operand);
-  if (exact_real_truncate (DFmode, &r0))
-    {
-      HOST_WIDE_INT value = real_to_integer (&r0);
-      value = value & 0xffffffff;
-      if ((value != 0) && ( (value & (value - 1)) == 0))
-	return int_log2 (value);
-    }
+  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+  if (REAL_VALUE_NEGATIVE (r)
+      || REAL_VALUE_ISNAN (r)
+      || REAL_VALUE_ISINF (r)
+      || !real_isinteger (&r, SFmode))
+    return -1;
 
-  return 0;
+  HOST_WIDE_INT hwint = exact_log2 (real_to_integer (&r));
+
+  /* The exact_log2 above will have returned -1 if this is
+     not an exact log2.  */
+  if (!IN_RANGE (hwint, 1, 32))
+    return -1;
+
+  return hwint;
 }
+
 
 /* Emit a memory barrier around an atomic sequence according to MODEL.  */
 
@@ -30832,7 +30873,7 @@ arm_autoinc_modes_ok_p (enum machine_mode mode, enum arm_auto_incmodes code)
 	  else
 	    return false;
 	}
-
+      
       return true;
 
     case ARM_POST_DEC:
@@ -30849,10 +30890,10 @@ arm_autoinc_modes_ok_p (enum machine_mode mode, enum arm_auto_incmodes code)
 	return false;
 
       return true;
-
+     
     default:
       return false;
-
+      
     }
 
   return false;
@@ -30863,7 +30904,7 @@ arm_autoinc_modes_ok_p (enum machine_mode mode, enum arm_auto_incmodes code)
    Additionally, the default expansion code is not available or suitable
    for post-reload insn splits (this can occur when the register allocator
    chooses not to do a shift in NEON).
-
+   
    This function is used in both initial expand and post-reload splits, and
    handles all kinds of 64-bit shifts.
 
@@ -31108,6 +31149,38 @@ arm_emit_coreregs_64bit_shift (enum rtx_code code, rtx out, rtx in,
   #undef BRANCH
 }
 
+/* Returns true if the pattern is a valid symbolic address, which is either a
+   symbol_ref or (symbol_ref + addend).
+
+   According to the ARM ELF ABI, the initial addend of REL-type relocations
+   processing MOVW and MOVT instructions is formed by interpreting the 16-bit
+   literal field of the instruction as a 16-bit signed value in the range
+   -32768 <= A < 32768.  */
+
+bool
+arm_valid_symbolic_address_p (rtx addr)
+{
+  rtx xop0, xop1 = NULL_RTX;
+  rtx tmp = addr;
+
+  if (GET_CODE (tmp) == SYMBOL_REF || GET_CODE (tmp) == LABEL_REF)
+    return true;
+
+  /* (const (plus: symbol_ref const_int))  */
+  if (GET_CODE (addr) == CONST)
+    tmp = XEXP (addr, 0);
+
+  if (GET_CODE (tmp) == PLUS)
+    {
+      xop0 = XEXP (tmp, 0);
+      xop1 = XEXP (tmp, 1);
+
+      if (GET_CODE (xop0) == SYMBOL_REF && CONST_INT_P (xop1))
+	  return IN_RANGE (INTVAL (xop1), -0x8000, 0x7fff);
+    }
+
+  return false;
+}
 
 /* Returns true if a valid comparison operation and makes
    the operands in a form that is valid.  */
@@ -31116,7 +31189,7 @@ arm_validize_comparison (rtx *comparison, rtx * op1, rtx * op2)
 {
   enum rtx_code code = GET_CODE (*comparison);
   int code_int;
-  enum machine_mode mode = (GET_MODE (*op1) == VOIDmode)
+  enum machine_mode mode = (GET_MODE (*op1) == VOIDmode) 
     ? GET_MODE (*op2) : GET_MODE (*op1);
 
   gcc_assert (GET_MODE (*op1) != VOIDmode || GET_MODE (*op2) != VOIDmode);
@@ -31170,7 +31243,7 @@ arm_asan_shadow_offset (void)
 
 /* This is a temporary fix for PR60655.  Ideally we need
    to handle most of these cases in the generic part but
-   currently we reject minus (..) (sym_ref).  We try to
+   currently we reject minus (..) (sym_ref).  We try to 
    ameliorate the case with minus (sym_ref1) (sym_ref2)
    where they are in the same section.  */
 

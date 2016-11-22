@@ -500,7 +500,7 @@ static void
 print_version (void)
 {
   fnotice (stdout, "gcov %s%s\n", pkgversion_string, version_string);
-  fprintf (stdout, "Copyright %s 2014 Free Software Foundation, Inc.\n",
+  fprintf (stdout, "Copyright %s 2015 Free Software Foundation, Inc.\n",
 	   _("(C)"));
   fnotice (stdout,
 	   _("This is free software; see the source for copying conditions.\n"
@@ -1227,7 +1227,6 @@ read_graph_file (void)
 	  *fns_end = fn;
 	  fns_end = &fn->next;
 	  current_tag = tag;
-
 	}
       else if (fn && tag == GCOV_TAG_BLOCKS)
 	{
@@ -1338,7 +1337,6 @@ read_graph_file (void)
 		      line_nos[ix++] = src_idx;
 		    }
 		  line_nos[ix++] = lineno;
-
 		}
 	      else
 		{

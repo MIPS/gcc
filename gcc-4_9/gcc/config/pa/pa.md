@@ -699,67 +699,6 @@
 (include "predicates.md")
 (include "constraints.md")
 
-;; Atomic instructions
-
-;; All memory loads and stores access storage atomically except
-;; for one exception.  The STORE BYTES, STORE DOUBLE BYTES, and
-;; doubleword loads and stores are not guaranteed to be atomic
-;; when referencing the I/O address space.
-
-;; Implement atomic DImode load using 64-bit floating point load and copy.
-
-(define_expand "atomic_loaddi"
-  [(match_operand:DI 0 "register_operand")              ;; val out
-   (match_operand:DI 1 "memory_operand")                ;; memory
-   (match_operand:SI 2 "const_int_operand")]            ;; model
-  "!TARGET_64BIT && !TARGET_SOFT_FLOAT"
-{
-  enum memmodel model = (enum memmodel) INTVAL (operands[2]);
-  operands[1] = force_reg (SImode, XEXP (operands[1], 0));
-  operands[2] = gen_reg_rtx (DImode);
-  expand_mem_thread_fence (model);
-  emit_insn (gen_atomic_loaddi_1 (operands[0], operands[1], operands[2]));
-  if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST)
-    expand_mem_thread_fence (model);
-  DONE;
-})
-
-(define_insn "atomic_loaddi_1"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-        (mem:DI (match_operand:SI 1 "register_operand" "r")))
-   (clobber (match_operand:DI 2 "register_operand" "=&f"))]
-  "!TARGET_64BIT && !TARGET_SOFT_FLOAT"
-  "{fldds|fldd} 0(%1),%2\;{fstds|fstd} %2,-16(%%sp)\;{ldws|ldw} -16(%%sp),%0\;{ldws|ldw} -12(%%sp),%R0"
-  [(set_attr "type" "move")
-   (set_attr "length" "16")])
-
-;; Implement atomic DImode store using copy and 64-bit floating point store.
-
-(define_expand "atomic_storedi"
-  [(match_operand:DI 0 "memory_operand")                ;; memory
-   (match_operand:DI 1 "register_operand")              ;; val out
-   (match_operand:SI 2 "const_int_operand")]            ;; model
-  "!TARGET_64BIT && !TARGET_SOFT_FLOAT"
-{
-  enum memmodel model = (enum memmodel) INTVAL (operands[2]);
-  operands[0] = force_reg (SImode, XEXP (operands[0], 0));
-  operands[2] = gen_reg_rtx (DImode);
-  expand_mem_thread_fence (model);
-  emit_insn (gen_atomic_storedi_1 (operands[0], operands[1], operands[2]));
-  if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST)
-    expand_mem_thread_fence (model);
-  DONE;
-})
-
-(define_insn "atomic_storedi_1"
-  [(set (mem:DI (match_operand:SI 0 "register_operand" "r"))
-        (match_operand:DI 1 "register_operand" "r"))
-   (clobber (match_operand:DI 2 "register_operand" "=&f"))]
-  "!TARGET_64BIT && !TARGET_SOFT_FLOAT"
-  "{stws|stw} %1,-16(%%sp)\;{stws|stw} %R1,-12(%%sp)\;{fldds|fldd} -16(%%sp),%2\;{fstds|fstd} %2,0(%0)"
-  [(set_attr "type" "move")
-   (set_attr "length" "16")])
-
 ;; Compare instructions.
 ;; This controls RTL generation and register allocation.
 
@@ -2677,6 +2616,29 @@
    && TARGET_64BIT
    && flag_pic"
   "addil LT'%G2,%1"
+  [(set_attr "type" "binary")
+   (set_attr "length" "4")])
+
+(define_insn ""
+ [(set (match_operand:SI 0 "register_operand" "=r")
+       (lo_sum:SI (match_operand:SI 1 "register_operand" "r")
+		  (unspec:SI [(match_operand 2 "" "")] UNSPEC_DLTIND14R)))]
+  "symbolic_operand (operands[2], Pmode)
+   && ! function_label_operand (operands[2], Pmode)
+   && flag_pic"
+  "ldo RT'%G2(%1),%0"
+  [(set_attr "type" "binary")
+   (set_attr "length" "4")])
+
+(define_insn ""
+ [(set (match_operand:DI 0 "register_operand" "=r")
+       (lo_sum:DI (match_operand:DI 1 "register_operand" "r")
+		  (unspec:DI [(match_operand 2 "" "")] UNSPEC_DLTIND14R)))]
+  "symbolic_operand (operands[2], Pmode)
+   && ! function_label_operand (operands[2], Pmode)
+   && TARGET_64BIT
+   && flag_pic"
+  "ldo RT'%G2(%1),%0"
   [(set_attr "type" "binary")
    (set_attr "length" "4")])
 
@@ -6910,8 +6872,8 @@
 
 ;;; Hope this is only within a function...
 (define_insn "indirect_jump"
-  [(set (pc) (match_operand 0 "register_operand" "r"))]
-  "GET_MODE (operands[0]) == word_mode"
+  [(set (pc) (match_operand 0 "pmode_register_operand" "r"))]
+  ""
   "bv%* %%r0(%0)"
   [(set_attr "type" "branch")
    (set_attr "length" "4")])
@@ -7506,7 +7468,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 (define_insn "call_reg_64bit"
   [(call (mem:SI (match_operand:DI 0 "register_operand" "r"))
 	 (match_operand 1 "" "i"))
-   (clobber (reg:DI 1))
    (clobber (reg:DI 2))
    (clobber (match_operand 2))
    (use (reg:DI 27))
@@ -7527,7 +7488,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 (define_split
   [(parallel [(call (mem:SI (match_operand 0 "register_operand" ""))
 		    (match_operand 1 "" ""))
-	      (clobber (reg:DI 1))
 	      (clobber (reg:DI 2))
 	      (clobber (match_operand 2))
 	      (use (reg:DI 27))
@@ -7538,7 +7498,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set (match_dup 2) (reg:DI 27))
    (parallel [(call (mem:SI (match_dup 0))
 		    (match_dup 1))
-	      (clobber (reg:DI 1))
 	      (clobber (reg:DI 2))
 	      (use (reg:DI 27))
 	      (use (reg:DI 29))
@@ -7548,7 +7507,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 (define_split
   [(parallel [(call (mem:SI (match_operand 0 "register_operand" ""))
 		    (match_operand 1 "" ""))
-	      (clobber (reg:DI 1))
 	      (clobber (reg:DI 2))
 	      (clobber (match_operand 2))
 	      (use (reg:DI 27))
@@ -7558,7 +7516,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set (match_dup 2) (reg:DI 27))
    (parallel [(call (mem:SI (match_dup 0))
 		    (match_dup 1))
-	      (clobber (reg:DI 1))
 	      (clobber (reg:DI 2))
 	      (use (reg:DI 27))
 	      (use (reg:DI 29))
@@ -7569,7 +7526,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 (define_insn "*call_reg_64bit_post_reload"
   [(call (mem:SI (match_operand:DI 0 "register_operand" "r"))
 	 (match_operand 1 "" "i"))
-   (clobber (reg:DI 1))
    (clobber (reg:DI 2))
    (use (reg:DI 27))
    (use (reg:DI 29))
@@ -9832,3 +9788,72 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   "addil LR'%1-$tls_leoff$,%2\;ldo RR'%1-$tls_leoff$(%%r1),%0"
   [(set_attr "type" "multi")
    (set_attr "length" "8")])
+
+;; Atomic instructions
+
+;; All memory loads and stores access storage atomically except
+;; for one exception.  The STORE BYTES, STORE DOUBLE BYTES, and
+;; doubleword loads and stores are not guaranteed to be atomic
+;; when referencing the I/O address space.
+
+;; Implement atomic DImode load using 64-bit floating point load and copy.
+
+(define_expand "atomic_loaddi"
+  [(match_operand:DI 0 "register_operand")              ;; val out
+   (match_operand:DI 1 "memory_operand")                ;; memory
+   (match_operand:SI 2 "const_int_operand")]            ;; model
+  ""
+{
+  enum memmodel model = (enum memmodel) INTVAL (operands[2]);
+
+  if (TARGET_64BIT || TARGET_DISABLE_FPREGS || TARGET_SOFT_FLOAT)
+    FAIL;
+
+  operands[1] = force_reg (SImode, XEXP (operands[1], 0));
+  operands[2] = gen_reg_rtx (DImode);
+  expand_mem_thread_fence (model);
+  emit_insn (gen_atomic_loaddi_1 (operands[0], operands[1], operands[2]));
+  if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST)
+    expand_mem_thread_fence (model);
+  DONE;
+})
+
+(define_insn "atomic_loaddi_1"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+        (mem:DI (match_operand:SI 1 "register_operand" "r")))
+   (clobber (match_operand:DI 2 "register_operand" "=&f"))]
+  "!TARGET_64BIT && !TARGET_DISABLE_FPREGS && !TARGET_SOFT_FLOAT"
+  "{fldds|fldd} 0(%1),%2\;{fstds|fstd} %2,-16(%%sp)\;{ldws|ldw} -16(%%sp),%0\;{ldws|ldw} -12(%%sp),%R0"
+  [(set_attr "type" "move")
+   (set_attr "length" "16")])
+
+;; Implement atomic DImode store using copy and 64-bit floating point store.
+
+(define_expand "atomic_storedi"
+  [(match_operand:DI 0 "memory_operand")                ;; memory
+   (match_operand:DI 1 "register_operand")              ;; val out
+   (match_operand:SI 2 "const_int_operand")]            ;; model
+  ""
+{
+  enum memmodel model = (enum memmodel) INTVAL (operands[2]);
+
+  if (TARGET_64BIT || TARGET_DISABLE_FPREGS || TARGET_SOFT_FLOAT)
+    FAIL;
+
+  operands[0] = force_reg (SImode, XEXP (operands[0], 0));
+  operands[2] = gen_reg_rtx (DImode);
+  expand_mem_thread_fence (model);
+  emit_insn (gen_atomic_storedi_1 (operands[0], operands[1], operands[2]));
+  if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST)
+    expand_mem_thread_fence (model);
+  DONE;
+})
+
+(define_insn "atomic_storedi_1"
+  [(set (mem:DI (match_operand:SI 0 "register_operand" "r"))
+        (match_operand:DI 1 "register_operand" "r"))
+   (clobber (match_operand:DI 2 "register_operand" "=&f"))]
+  "!TARGET_64BIT && !TARGET_DISABLE_FPREGS && !TARGET_SOFT_FLOAT"
+  "{stws|stw} %1,-16(%%sp)\;{stws|stw} %R1,-12(%%sp)\;{fldds|fldd} -16(%%sp),%2\;{fstds|fstd} %2,0(%0)"
+  [(set_attr "type" "move")
+   (set_attr "length" "16")])

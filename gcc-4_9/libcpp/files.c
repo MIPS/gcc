@@ -291,11 +291,13 @@ pch_open_file (cpp_reader *pfile, _cpp_file *file, bool *invalid_pch)
 
   /* If the file is not included as first include from either the toplevel
      file or the command-line it is not a valid use of PCH.  */
-  if (pfile->all_files
-      && pfile->all_files->next_file
-      && !(pfile->all_files->implicit_preinclude
-	   || pfile->all_files->next_file->implicit_preinclude))
-    return false;
+  for (_cpp_file *f = pfile->all_files; f; f = f->next_file)
+    if (f->implicit_preinclude)
+      continue;
+    else if (f->main_file)
+      break;
+    else
+      return false;
 
   flen = strlen (path);
   len = flen + sizeof (extension);
@@ -514,7 +516,10 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
     return entry->u.file;
 
   file = make_cpp_file (pfile, start_dir, fname);
-  file->implicit_preinclude = implicit_preinclude;
+  file->implicit_preinclude
+    = (implicit_preinclude
+       || (pfile->buffer
+	   && pfile->buffer->file->implicit_preinclude));
 
   /* Try each path in the include chain.  */
   for (; !fake ;)
@@ -707,7 +712,7 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
 
   if (count < 0)
     {
-      cpp_errno (pfile, CPP_DL_ERROR, file->path);
+      cpp_errno_filename (pfile, CPP_DL_ERROR, file->path);
       free (buf);
       return false;
     }
@@ -1033,7 +1038,8 @@ open_file_failed (cpp_reader *pfile, _cpp_file *file, int angle_brackets)
       /* If the preprocessor output (other than dependency information) is
          being used, we must also flag an error.  */
       if (CPP_OPTION (pfile, deps.need_preprocessor_output))
-	cpp_errno (pfile, CPP_DL_FATAL, file->path);
+	cpp_errno_filename (pfile, CPP_DL_FATAL,
+			    file->path ? file->path : file->name);
     }
   else
     {
@@ -1047,9 +1053,11 @@ open_file_failed (cpp_reader *pfile, _cpp_file *file, int angle_brackets)
       if (CPP_OPTION (pfile, deps.style) == DEPS_NONE
           || print_dep
           || CPP_OPTION (pfile, deps.need_preprocessor_output))
-	cpp_errno (pfile, CPP_DL_FATAL, file->path);
+	cpp_errno_filename (pfile, CPP_DL_FATAL,
+			    file->path ? file->path : file->name);
       else
-	cpp_errno (pfile, CPP_DL_WARNING, file->path);
+	cpp_errno_filename (pfile, CPP_DL_WARNING,
+			    file->path ? file->path : file->name);
     }
 }
 

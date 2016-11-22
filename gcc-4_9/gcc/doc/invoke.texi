@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -8,7 +8,7 @@
 @c man end
 
 @c man begin COPYRIGHT
-Copyright @copyright{} 1988-2014 Free Software Foundation, Inc.
+Copyright @copyright{} 1988-2015 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -934,7 +934,7 @@ See RS/6000 and PowerPC Options.
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
 -msave-toc-indirect -mno-save-toc-indirect @gol
 -mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vector @gol
--mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
+-mcrypto -mno-crypto -mhtm -mno-htm -mdirect-move -mno-direct-move @gol
 -mquad-memory -mno-quad-memory @gol
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm}
@@ -962,7 +962,7 @@ See RS/6000 and PowerPC Options.
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
 -mwarn-framesize  -mwarn-dynamicstack  -mstack-size -mstack-guard @gol
--mhotpatch[=@var{halfwords}] -mno-hotpatch}
+-mhotpatch=@var{halfwords},@var{halfwords}}
 
 @emph{Score Options}
 @gccoptlist{-meb -mel @gol
@@ -5433,25 +5433,26 @@ many times it is given.  This is mainly intended to be used with
 Enable AddressSanitizer, a fast memory error detector.
 Memory access instructions will be instrumented to detect
 out-of-bounds and use-after-free bugs.
-See @uref{http://code.google.com/p/address-sanitizer/} for
+See @uref{https://github.com/google/sanitizers/wiki/AddressSanitizer} for
 more details.  The run-time behavior can be influenced using the
-@env{ASAN_OPTIONS} environment variable; see
-@url{https://code.google.com/p/address-sanitizer/wiki/Flags#Run-time_flags} for
-a list of supported options.
+@env{ASAN_OPTIONS} environment variable.  When set to @code{help=1},
+the available options are shown at startup of the instrumended program. See
+@url{https://github.com/google/sanitizers/wiki/AddressSanitizerFlags#run-time-flags}
+for a list of supported options.
 
 @item -fsanitize=kernel-address
 @opindex fsanitize=kernel-address
 Enable AddressSanitizer for Linux kernel.
-See @uref{http://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel} for more details.
+See @uref{https://github.com/google/sanitizers/wiki#threadsanitizer} for more details.
 
 @item -fsanitize=thread
 @opindex fsanitize=thread
 Enable ThreadSanitizer, a fast data race detector.
 Memory access instructions will be instrumented to detect
-data race bugs.  See @uref{http://code.google.com/p/thread-sanitizer/} for more
+data race bugs.  See @uref{https://github.com/google/sanitizers/wiki/ThreadSanitizerFlags} for more
 details. The run-time behavior can be influenced using the @env{TSAN_OPTIONS}
 environment variable; see
-@url{https://code.google.com/p/thread-sanitizer/wiki/Flags} for a list of
+@url{https://github.com/google/sanitizers/wiki/ThreadSanitizerFlags} for a list of
 supported options.
 
 @item -fsanitize=leak
@@ -5461,7 +5462,7 @@ This option only matters for linking of executables and if neither
 @option{-fsanitize=address} nor @option{-fsanitize=thread} is used.  In that
 case it will link the executable against a library that overrides @code{malloc}
 and other allocator functions.  See
-@uref{https://code.google.com/p/address-sanitizer/wiki/LeakSanitizer} for more
+@uref{https://github.com/google/sanitizers/wiki/AddressSanitizerLeakSanitizer} for more
 details.  The run-time behavior can be influenced using the
 @env{LSAN_OPTIONS} environment variable.
 
@@ -19343,12 +19344,13 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{e6500}, @samp{ec603e}, @samp{G3}, @samp{G4}, @samp{G5},
 @samp{titan}, @samp{power3}, @samp{power4}, @samp{power5}, @samp{power5+},
 @samp{power6}, @samp{power6x}, @samp{power7}, @samp{power8}, @samp{powerpc},
-@samp{powerpc64}, and @samp{rs64}.
+@samp{powerpc64}, @samp{powerpc64le}, and @samp{rs64}.
 
-@option{-mcpu=powerpc}, and @option{-mcpu=powerpc64} specify pure 32-bit
-PowerPC and 64-bit PowerPC architecture machine
-types, with an appropriate, generic processor model assumed for
-scheduling purposes.
+@option{-mcpu=powerpc}, @option{-mcpu=powerpc64}, and
+@option{-mcpu=powerpc64le} specify pure 32-bit PowerPC (either
+endian), 64-bit big endian PowerPC and 64-bit little endian PowerPC
+architecture machine types, with an appropriate, generic processor
+model assumed for scheduling purposes.
 
 The other options specify a specific processor.  Code generated under
 those options runs best on that processor, and may not run at all on
@@ -19361,7 +19363,7 @@ following options:
 -mpopcntb -mpopcntd  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
 -msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
--mcrypto -mdirect-move -mpower8-fusion -mpower8-vector @gol
+-mcrypto -mdirect-move -mhtm -mpower8-fusion -mpower8-vector @gol
 -mquad-memory -mquad-memory-atomic}
 
 The particular options set for any particular CPU varies between
@@ -19527,6 +19529,14 @@ access to the cryptographic instructions that were added in version
 Generate code that uses (does not use) the instructions to move data
 between the general purpose registers and the vector/scalar (VSX)
 registers that were added in version 2.07 of the PowerPC ISA.
+
+@item -mhtm
+@itemx -mno-htm
+@opindex mhtm
+@opindex mno-htm
+Enable (disable) the use of the built-in functions that allow direct
+access to the Hardware Transactional Memory (HTM) instructions that
+were added in version 2.07 of the PowerPC ISA.
 
 @item -mpower8-fusion
 @itemx -mno-power8-fusion
@@ -20636,13 +20646,13 @@ The default is to not print debug information.
 
 @item -march=@var{cpu-type}
 @opindex march
-Generate code that runs on @var{cpu-type}, which is the name of a system
-representing a certain processor type.  Possible values for
+Generate code that runs on @var{cpu-type}, which is the name of a
+system representing a certain processor type.  Possible values for
 @var{cpu-type} are @samp{g5}, @samp{g6}, @samp{z900}, @samp{z990},
-@samp{z9-109}, @samp{z9-ec} and @samp{z10}.
-When generating code using the instructions available on z/Architecture,
-the default is @option{-march=z900}.  Otherwise, the default is
-@option{-march=g5}.
+@samp{z9-109}, @samp{z9-ec}, @samp{z10}, @samp{z196}, and
+@samp{zEC12}.  When generating code using the instructions available
+on z/Architecture, the default is @option{-march=z900}.  Otherwise,
+the default is @option{-march=g5}.
 
 @item -mtune=@var{cpu-type}
 @opindex mtune
@@ -20698,17 +20708,17 @@ In order to be efficient the extra code makes the assumption that the stack star
 at an address aligned to the value given by @var{stack-size}.
 The @var{stack-guard} option can only be used in conjunction with @var{stack-size}.
 
-@item -mhotpatch[=@var{halfwords}]
-@itemx -mno-hotpatch
+@item -mhotpatch=@var{pre-halfwords},@var{post-halfwords}
 @opindex mhotpatch
 If the hotpatch option is enabled, a ``hot-patching'' function
 prologue is generated for all functions in the compilation unit.
 The funtion label is prepended with the given number of two-byte
-Nop instructions (@var{halfwords}, maximum 1000000) or 12 Nop
-instructions if no argument is present.  Functions with a
-hot-patching prologue are never inlined automatically, and a
-hot-patching prologue is never generated for functions functions
-that are explicitly inline.
+NOP instructions (@var{pre-halfwords}, maximum 1000000).  After
+the label, 2 * @var{post-halfwords} bytes are appended, using the
+largest NOP like instructions the architecture allows (maximum
+1000000).
+
+If both arguments are zero, hotpatching is disabled.
 
 This option can be overridden for individual functions with the
 @code{hotpatch} attribute.
@@ -21470,8 +21480,8 @@ in a performance loss, especially for floating-point code.
 @opindex muser-mode
 @opindex mno-user-mode
 Do not generate code that can only run in supervisor mode.  This is relevant
-only for the @code{casa} instruction emitted for the LEON3 processor.  The
-default is @option{-mno-user-mode}.
+only for the @code{casa} instruction emitted for the LEON3 processor.  This
+is the default.
 
 @item -mno-faster-structs
 @itemx -mfaster-structs

@@ -672,6 +672,21 @@ c_base_headers = \
 	${c_base_srcdir}/cwchar \
 	${c_base_srcdir}/cwctype
 
+if GLIBCXX_C_HEADERS_C_GOOGLE
+c_base_headers += \
+	${c_base_srcdir}/ctype.h \
+	${c_base_srcdir}/locale.h \
+	${c_base_srcdir}/math.h \
+	${c_base_srcdir}/setjmp.h \
+	${c_base_srcdir}/signal.h \
+	${c_base_srcdir}/stdio.h \
+	${c_base_srcdir}/stdlib.h \
+	${c_base_srcdir}/string.h \
+	${c_base_srcdir}/time.h \
+	${c_base_srcdir}/wchar.h \
+	${c_base_srcdir}/wctype.h
+endif
+
 # "C" compatibility headers.
 c_compatibility_srcdir = ${glibcxx_srcdir}/include/c_compatibility
 c_compatibility_builddir = .
@@ -681,6 +696,13 @@ c_compatibility_headers =
 endif
 
 if GLIBCXX_C_HEADERS_C_GLOBAL
+c_compatibility_headers = \
+	${c_compatibility_srcdir}/complex.h \
+	${c_compatibility_srcdir}/fenv.h \
+	${c_compatibility_srcdir}/tgmath.h
+endif
+
+if GLIBCXX_C_HEADERS_C_GOOGLE
 c_compatibility_headers = \
 	${c_compatibility_srcdir}/complex.h \
 	${c_compatibility_srcdir}/fenv.h \

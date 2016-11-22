@@ -2342,6 +2342,7 @@ gfc_get_derived_type (gfc_symbol * derived)
   gfc_component *c;
   gfc_dt_list *dt;
   gfc_namespace *ns;
+  tree tmp;
 
   if (derived->attr.unlimited_polymorphic)
     return ptr_type_node;
@@ -2415,9 +2416,24 @@ gfc_get_derived_type (gfc_symbol * derived)
       /* Its components' backend_decl have been built or we are
 	 seeing recursion through the formal arglist of a procedure
 	 pointer component.  */
-      if (TYPE_FIELDS (derived->backend_decl)
-	    || derived->attr.proc_pointer_comp)
+      if (TYPE_FIELDS (derived->backend_decl))
         return derived->backend_decl;
+      else if (derived->attr.abstract
+	       && derived->attr.proc_pointer_comp)
+	{
+	  /* If an abstract derived type with procedure pointer
+	     components has no other type of component, return the
+	     backend_decl. Otherwise build the components if any of the
+	     non-procedure pointer components have no backend_decl.  */
+	  for (c = derived->components; c; c = c->next)
+	    {
+	      if (!c->attr.proc_pointer && c->backend_decl == NULL)
+		break;
+	      else if (c->next == NULL)
+		return derived->backend_decl;
+	    }
+	  typenode = derived->backend_decl;
+	}
       else
         typenode = derived->backend_decl;
     }
@@ -2475,8 +2491,19 @@ gfc_get_derived_type (gfc_symbol * derived)
      node as DECL_CONTEXT of each FIELD_DECL.  */
   for (c = derived->components; c; c = c->next)
     {
-      if (c->attr.proc_pointer)
+      /* Prevent infinite recursion, when the procedure pointer type is
+	 the same as derived, by forcing the procedure pointer component to
+	 be built as if the explicit interface does not exist.  */
+      if (c->attr.proc_pointer
+	  && ((c->ts.type != BT_DERIVED && c->ts.type != BT_CLASS)
+	       || (c->ts.u.derived
+		   && !gfc_compare_derived_types (derived, c->ts.u.derived))))
 	field_type = gfc_get_ppc_type (c);
+      else if (c->attr.proc_pointer && derived->backend_decl)
+	{
+	  tmp = build_function_type_list (derived->backend_decl, NULL_TREE);
+	  field_type = build_pointer_type (tmp);
+	}
       else if (c->ts.type == BT_DERIVED || c->ts.type == BT_CLASS)
         field_type = c->ts.u.derived->backend_decl;
       else

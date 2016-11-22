@@ -4091,6 +4091,36 @@ void g<1>(A<1>&, B<static_cast<bool>(1)>&)
 _ZNKSt7complexIiE4realB5cxx11Ev
 std::complex<int>::real[abi:cxx11]() const
 #
+# Some more crashes revealed by fuzz-testing:
+# Check for NULL pointer when demangling trinary operators
+--format=gnu-v3
+_Z1fAv32_f
+_Z1fAv32_f
+# Do not overflow when decoding identifier length
+--format=gnu-v3
+_Z11111111111
+_Z11111111111
+# Check out-of-bounds access when decoding braced initializer list
+--format=gnu-v3
+_ZDTtl
+_ZDTtl
+# Check for NULL pointer when demangling DEMANGLE_COMPONENT_LOCAL_NAME
+--format=gnu-v3
+_ZZN1fEEd_lEv
+_ZZN1fEEd_lEv
+# Handle DEMANGLE_COMPONENT_FIXED_TYPE in d_find_pack
+--format=gnu-v3
+_Z1fDpDFT_
+_Z1fDpDFT_
+# Likewise, DEMANGLE_COMPONENT_DEFAULT_ARG
+--format=gnu-v3
+_Z1fIDpZ1fEd_E
+_Z1fIDpZ1fEd_E
+# Likewise, DEMANGLE_COMPONENT_NUMBER
+--format=gnu-v3
+_Z1fDpDv1_c
+f((char __vector(1))...)
+#
 # Ada (GNAT) tests.
 #
 # Simple test.
@@ -4344,6 +4374,16 @@ cereal::detail::InputBindingMap<cereal::JSONInputArchive>::Serializers cereal::p
 _ZNSt9_Any_data9_M_accessIPZ4postISt8functionIFvvEEEvOT_EUlvE_EERS5_v
 void post<std::function<void ()> >(std::function<void ()>&&)::{lambda()#1}*& std::_Any_data::_M_access<void post<std::function<void ()> >(void post<std::function<void ()> >(std::function<void ()>&&)::{lambda()#1}*&&)::{lambda()#1}*>()
 #
+--format=auto --no-params
+_Z3xxxDFyuVb
+xxx(unsigned long long _Fract, bool volatile)
+xxx
+# https://sourceware.org/bugzilla/show_bug.cgi?id=16817
+--format=auto --no-params
+_QueueNotification_QueueController__$4PPPPPPPM_A_INotice___Z
+_QueueNotification_QueueController__$4PPPPPPPM_A_INotice___Z
+_QueueNotification_QueueController__$4PPPPPPPM_A_INotice___Z
+#
 # These two are from gcc PR61321, and gcc PR61233 / gdb PR16957
 #
 --format=gnu-v3
@@ -4366,3 +4406,23 @@ void baz<int>(A<sizeof (foo((int)(), (floatcomplex )00000000_00000000))>*)
 --format=gnu-v3
 _Z3fooI1FEN1XIXszdtcl1PclcvT__EEE5arrayEE4TypeEv
 X<sizeof ((P(((F)())())).array)>::Type foo<F>()
+#
+# Tests a use-after-free problem PR70481
+
+_Q.__0
+::Q.(void)
+#
+# Tests a use-after-free problem PR70481
+
+_Q10-__9cafebabe.
+cafebabe.::-(void)
+#
+# Tests integer overflow problem PR70492
+
+__vt_90000000000cafebabe
+__vt_90000000000cafebabe
+#
+# Tests write access violation PR70498
+
+_Z80800000000000000000000
+_Z80800000000000000000000

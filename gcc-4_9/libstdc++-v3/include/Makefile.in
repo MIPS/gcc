@@ -940,6 +940,19 @@ c_base_headers = \
 	${c_base_srcdir}/cwctype
 
 
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@c_base_headers += \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/ctype.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/locale.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/math.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/setjmp.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/signal.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/stdio.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/stdlib.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/string.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/time.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/wchar.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_base_srcdir}/wctype.h
+
 # "C" compatibility headers.
 c_compatibility_srcdir = ${glibcxx_srcdir}/include/c_compatibility
 c_compatibility_builddir = .
@@ -947,6 +960,11 @@ c_compatibility_builddir = .
 @GLIBCXX_C_HEADERS_C_GLOBAL_TRUE@	${c_compatibility_srcdir}/complex.h \
 @GLIBCXX_C_HEADERS_C_GLOBAL_TRUE@	${c_compatibility_srcdir}/fenv.h \
 @GLIBCXX_C_HEADERS_C_GLOBAL_TRUE@	${c_compatibility_srcdir}/tgmath.h
+
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@c_compatibility_headers = \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_compatibility_srcdir}/complex.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_compatibility_srcdir}/fenv.h \
+@GLIBCXX_C_HEADERS_C_GOOGLE_TRUE@	${c_compatibility_srcdir}/tgmath.h
 
 @GLIBCXX_C_HEADERS_C_STD_TRUE@c_compatibility_headers = 
 @GLIBCXX_C_HEADERS_C_TRUE@c_compatibility_headers = \

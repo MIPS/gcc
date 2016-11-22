@@ -28,11 +28,12 @@ void test01()
   bool test __attribute__((unused)) = true;
 
   __gnu_cxx::__vstring vs(100, 'a');
-  vs.push_back('b');
-  vs.push_back('b');
-  VERIFY( vs.size() < vs.capacity() );
+  // vstring rounds capacity up to 16 bytes, so ensure that we actually grow it.
+  for (int i = 0; i < 32; i++)
+    vs.push_back('b');
+  VERIFY( vs.size() + 16 < vs.capacity() );
   vs.shrink_to_fit();
-  VERIFY( vs.size() == vs.capacity() );
+  VERIFY( vs.size() + 16 >= vs.capacity() );
 }
 
 int main()

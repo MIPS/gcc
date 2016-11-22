@@ -347,6 +347,7 @@ gfc_wrapped_block;
 /* Class API functions.  */
 tree gfc_class_data_get (tree);
 tree gfc_class_vptr_get (tree);
+tree gfc_class_len_get (tree);
 void gfc_reset_vptr (stmtblock_t *, gfc_expr *);
 tree gfc_class_set_static_fields (tree, tree, tree);
 tree gfc_vtable_hash_get (tree);
@@ -981,7 +982,9 @@ extern const char gfc_msg_wrong_return[];
 					   construct is not workshared.  */
 #define OMPWS_SCALARIZER_WS	4	/* Set if scalarizer should attempt
 					   to create parallel loops.  */
-#define OMPWS_NOWAIT		8	/* Use NOWAIT on OMP_FOR.  */
+#define OMPWS_SCALARIZER_BODY	8	/* Set if handling body of potential
+					   parallel loop.  */
+#define OMPWS_NOWAIT		16	/* Use NOWAIT on OMP_FOR.  */
 extern int ompws_flags;
 
 #endif /* GFC_TRANS_H */

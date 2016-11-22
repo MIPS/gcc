@@ -352,6 +352,13 @@
 	push __zero_reg__"
   [(set_attr "length" "1,1")])
 
+(define_insn "pushhi1_insn"
+  [(set (mem:HI (post_dec:HI (reg:HI REG_SP)))
+        (match_operand:HI 0 "register_operand" "r"))]
+  ""
+  "push %B0\;push %A0"
+  [(set_attr "length" "2")])
+
 ;; All modes for a multi-byte push.  We must include complex modes here too,
 ;; lest emit_single_push_insn "helpfully" create the auto-inc itself.
 (define_mode_iterator MPUSH
@@ -367,17 +374,42 @@
   [(match_operand:MPUSH 0 "" "")]
   ""
   {
-    int i;
-
-    // Avoid (subreg (mem)) for non-generic address spaces below.  Because
-    // of the poor addressing capabilities of these spaces it's better to
-    // load them in one chunk.  And it avoids PR61443.
-
     if (MEM_P (operands[0])
         && !ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (operands[0])))
-      operands[0] = copy_to_mode_reg (<MODE>mode, operands[0]);
+      {
+        // Avoid (subreg (mem)) for non-generic address spaces.  Because
+        // of the poor addressing capabilities of these spaces it's better to
+        // load them in one chunk.  And it avoids PR61443.
 
-    for (i = GET_MODE_SIZE (<MODE>mode) - 1; i >= 0; --i)
+        operands[0] = copy_to_mode_reg (<MODE>mode, operands[0]);
+      }
+    else if (REG_P (operands[0])
+             && IN_RANGE (REGNO (operands[0]), FIRST_VIRTUAL_REGISTER,
+                          LAST_VIRTUAL_REGISTER))
+      {
+        // Byte-wise pushing of virtual regs might result in something like
+        //
+        //     (set (mem:QI (post_dec:HI (reg:HI 32 SP)))
+        //          (subreg:QI (plus:HI (reg:HI 28)
+        //                              (const_int 17)) 0))
+        //
+        // after elimination.  This cannot be handled by reload, cf. PR64452.
+        // Reload virtuals in one chunk.  That way it's possible to reload
+        // above situation and finally
+        //
+        //    (set (reg:HI **)
+        //         (const_int 17))
+        //    (set (reg:HI **)
+        //         (plus:HI (reg:HI **)
+        //                  (reg:HI 28)))
+        //    (set (mem:HI (post_dec:HI (reg:HI 32 SP))
+        //         (reg:HI **)))
+ 
+        emit_insn (gen_pushhi1_insn (operands[0]));
+        DONE;
+      }
+
+    for (int i = GET_MODE_SIZE (<MODE>mode) - 1; i >= 0; --i)
       {
         rtx part = simplify_gen_subreg (QImode, operands[0], <MODE>mode, i);
         if (part != const0_rtx)
@@ -588,6 +620,22 @@
 
     if (avr_mem_flash_p (dest))
       DONE;
+
+    if (QImode == <MODE>mode
+        && SUBREG == GET_CODE (src)
+        && CONSTANT_ADDRESS_P (SUBREG_REG (src))
+        && can_create_pseudo_p())
+      {
+        // store_bitfield may want to store a SYMBOL_REF or CONST in a
+        // structure that's represented as PSImode.  As the upper 16 bits
+        // of PSImode cannot be expressed as an HImode subreg, the rhs is
+        // decomposed into QImode (word_mode) subregs of SYMBOL_REF,
+        // CONST or LABEL_REF; cf. PR71103.
+
+        rtx const_addr = SUBREG_REG (src);
+        operands[1] = src = copy_rtx (src);
+        SUBREG_REG (src) = copy_to_mode_reg (GET_MODE (const_addr), const_addr);
+      }
 
     /* One of the operands has to be in a register.  */
     if (!register_operand (dest, <MODE>mode)

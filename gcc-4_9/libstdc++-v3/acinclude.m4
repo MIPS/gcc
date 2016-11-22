@@ -1897,6 +1897,52 @@ AC_DEFUN([GLIBCXX_CHECK_STDIO_PROTO], [
 ])
 
 dnl
+dnl Check whether required C++11 overloads are present in <math.h>.
+dnl
+AC_DEFUN([GLIBCXX_CHECK_MATH11_PROTO], [
+
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -std=c++11"
+
+  case "$host" in
+    *-*-solaris2.*)
+      # Solaris 12 introduced the C++11 <math.h> overloads.  A backport to
+      # a Solaris 11.3 SRU is likely, maybe even a Solaris 10 patch.
+      AC_MSG_CHECKING([for C++11 <math.h> overloads])
+      AC_CACHE_VAL(glibcxx_cv_math11_overload, [
+	AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+	  [#include <math.h>
+	   #undef isfinite
+	   namespace std {
+	     inline bool isfinite(float __x)
+	     { return __builtin_isfinite(__x); }
+	   }
+	])],
+	[glibcxx_cv_math11_overload=no],
+	[glibcxx_cv_math11_overload=yes]
+      )])
+
+      # autoheader cannot handle indented templates.
+      AH_VERBATIM([__CORRECT_ISO_CPP11_MATH_H_PROTO],
+        [/* Define if all C++11 overloads are available in <math.h>.  */
+#if __cplusplus >= 201103L
+#undef __CORRECT_ISO_CPP11_MATH_H_PROTO
+#endif])
+
+      if test $glibcxx_cv_math11_overload = yes; then
+        AC_DEFINE(__CORRECT_ISO_CPP11_MATH_H_PROTO)
+      fi
+      AC_MSG_RESULT([$glibcxx_cv_math11_overload])
+      ;;
+  esac
+
+  CXXFLAGS="$ac_save_CXXFLAGS"
+  AC_LANG_RESTORE
+])
+
+dnl
 dnl Check whether macros, etc are present for <system_error>
 dnl
 AC_DEFUN([GLIBCXX_CHECK_SYSTEM_ERROR], [
@@ -1935,13 +1981,13 @@ dnl       Where DEFAULT is either 'c' or 'c_std' or 'c_global'.
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_CHEADERS], [
   GLIBCXX_ENABLE(cheaders,$1,[[[=KIND]]],
-    [construct "C" headers for g++], [permit c|c_std|c_global])
+    [construct "C" headers for g++], [permit c|c_std|c_global|c_google])
   AC_MSG_NOTICE("C" header strategy set to $enable_cheaders)
 
   C_INCLUDE_DIR='${glibcxx_srcdir}/include/'$enable_cheaders
 
   # Allow overrides to configure.host here.
-  if test $enable_cheaders = c_global; then
+  if test $enable_cheaders = c_global || test $enable_cheaders = c_google; then
      c_compatibility=yes
   fi
 
@@ -1949,6 +1995,7 @@ AC_DEFUN([GLIBCXX_ENABLE_CHEADERS], [
   GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C, test $enable_cheaders = c)
   GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C_STD, test $enable_cheaders = c_std)
   GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C_GLOBAL, test $enable_cheaders = c_global)
+  GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_C_GOOGLE, test $enable_cheaders = c_google)
   GLIBCXX_CONDITIONAL(GLIBCXX_C_HEADERS_COMPATIBILITY, test $c_compatibility = yes)
 ])
 

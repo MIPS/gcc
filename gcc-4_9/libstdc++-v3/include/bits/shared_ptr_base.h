@@ -153,8 +153,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    // See http://gcc.gnu.org/ml/libstdc++/2005-11/msg00136.html
 	    if (_Mutex_base<_Lp>::_S_need_barriers)
 	      {
-	        _GLIBCXX_READ_MEM_BARRIER;
-	        _GLIBCXX_WRITE_MEM_BARRIER;
+	        __atomic_thread_fence (__ATOMIC_ACQ_REL);
 	      }
 
             // Be race-detector-friendly.  For more info see bits/c++config.
@@ -184,8 +183,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      {
 	        // See _M_release(),
 	        // destroy() must observe results of dispose()
-	        _GLIBCXX_READ_MEM_BARRIER;
-	        _GLIBCXX_WRITE_MEM_BARRIER;
+	        __atomic_thread_fence (__ATOMIC_ACQ_REL);
 	      }
 	    _M_destroy();
 	  }
@@ -1506,19 +1504,25 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_M_weak_assign(_Tp1* __p, const __shared_count<_Lp>& __n) const noexcept
 	{ _M_weak_this._M_assign(__p, __n); }
 
-      template<typename _Tp1>
+      template<_Lock_policy _Lp1, typename _Tp1, typename _Tp2>
 	friend void
-	__enable_shared_from_this_helper(const __shared_count<_Lp>& __pn,
-					 const __enable_shared_from_this* __pe,
-					 const _Tp1* __px) noexcept
-	{
-	  if (__pe != 0)
-	    __pe->_M_weak_assign(const_cast<_Tp1*>(__px), __pn);
-	}
+	__enable_shared_from_this_helper(const __shared_count<_Lp1>&,
+					 const __enable_shared_from_this<_Tp1,
+					 _Lp1>*, const _Tp2*) noexcept;
 
       mutable __weak_ptr<_Tp, _Lp>  _M_weak_this;
     };
 
+  template<_Lock_policy _Lp1, typename _Tp1, typename _Tp2>
+    inline void
+    __enable_shared_from_this_helper(const __shared_count<_Lp1>& __pn,
+				     const __enable_shared_from_this<_Tp1,
+				     _Lp1>* __pe,
+				     const _Tp2* __px) noexcept
+    {
+      if (__pe != nullptr)
+	__pe->_M_weak_assign(const_cast<_Tp2*>(__px), __pn);
+    }
 
   template<typename _Tp, _Lock_policy _Lp, typename _Alloc, typename... _Args>
     inline __shared_ptr<_Tp, _Lp>

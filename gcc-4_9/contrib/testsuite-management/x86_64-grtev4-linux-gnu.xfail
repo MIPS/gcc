@@ -19,9 +19,9 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 FAIL: 17_intro/headers/c++1998/complex.cc (test for excess errors)
 FAIL: 26_numerics/complex/c99.cc (test for excess errors)
 
-# Google b/14140971.  Flaky because these only occur in some test configurations.
-flaky | FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
-flaky | FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
+# New (2016-08-15) failure due to stdlib; doesn't happen elsewhere in testsuite.
+FAIL: 17_intro/freestanding.cc (test for excess errors)
+UNRESOLVED: 17_intro/freestanding.cc compilation failed to produce executable
 
 # Google b/4094190: we disable libquadmath support, causing these failures:
 FAIL: gfortran.dg/erf_3.F90 -O0  execution test

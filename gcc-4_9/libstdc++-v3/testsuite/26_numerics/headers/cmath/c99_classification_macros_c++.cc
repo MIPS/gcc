@@ -58,18 +58,18 @@ template <typename _Tp>
     fp_type f2 = 3.0;
     int res = 0;
     
-    res = std::fpclassify(f1);
-    res = std::isfinite(f2);
-    res = std::isinf(f1);
-    res = std::isnan(f2);
-    res = std::isnormal(f1);
-    res = std::signbit(f2);
-    res = std::isgreater(f1, f2);
-    res = std::isgreaterequal(f1, f2);
-    res = std::isless(f1, f2);
-    res = std::islessequal(f1,f2);
-    res = std::islessgreater(f1, f2);
-    res = std::isunordered(f1, f2);
+    res = ::fpclassify(f1);
+    res = ::isfinite(f2);
+    res = ::isinf(f1);
+    res = ::isnan(f2);
+    res = ::isnormal(f1);
+    res = ::signbit(f2);
+    res = ::isgreater(f1, f2);
+    res = ::isgreaterequal(f1, f2);
+    res = ::isless(f1, f2);
+    res = ::islessequal(f1,f2);
+    res = ::islessgreater(f1, f2);
+    res = ::isunordered(f1, f2);
     res = res; // Suppress unused warning.
   }
 #endif

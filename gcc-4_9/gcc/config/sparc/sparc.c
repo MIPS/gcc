@@ -4752,10 +4752,14 @@ enum sparc_mode_class {
 #define CCFP_MODES (1 << (int) CCFP_MODE)
 
 /* Value is 1 if register/mode pair is acceptable on sparc.
+
    The funny mixture of D and T modes is because integer operations
    do not specially operate on tetra quantities, so non-quad-aligned
    registers can hold quadword quantities (except %o4 and %i4 because
-   they cross fixed registers).  */
+   they cross fixed registers).
+
+   ??? Note that, despite the settings, non-double-aligned parameter
+   registers can hold double-word quantities in 32-bit mode.  */
 
 /* This points to either the 32 bit or the 64 bit version.  */
 const int *hard_regno_mode_classes;
@@ -4973,13 +4977,18 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function)
 
   /* Calculate space needed for global registers.  */
   if (TARGET_ARCH64)
-    for (i = 0; i < 8; i++)
-      if (save_global_or_fp_reg_p (i, 0))
-	n_global_fp_regs += 2;
+    {
+      for (i = 0; i < 8; i++)
+	if (save_global_or_fp_reg_p (i, 0))
+	  n_global_fp_regs += 2;
+    }
   else
-    for (i = 0; i < 8; i += 2)
-      if (save_global_or_fp_reg_p (i, 0) || save_global_or_fp_reg_p (i + 1, 0))
-	n_global_fp_regs += 2;
+    {
+      for (i = 0; i < 8; i += 2)
+	if (save_global_or_fp_reg_p (i, 0)
+	    || save_global_or_fp_reg_p (i + 1, 0))
+	  n_global_fp_regs += 2;
+    }
 
   /* In the flat window model, find out which local and in registers need to
      be saved.  We don't reserve space in the current frame for them as they
@@ -7377,9 +7386,10 @@ sparc_function_value_1 (const_tree type, enum machine_mode mode,
 	mode = word_mode;
     }
 
-  /* We should only have pointer and integer types at this point.  This must
-     match sparc_promote_function_mode.  */
+  /* We should only have pointer and integer types at this point, except with
+     -freg-struct-return.  This must match sparc_promote_function_mode.  */
   else if (TARGET_ARCH32
+	   && !(type && AGGREGATE_TYPE_P (type))
 	   && mclass == MODE_INT
 	   && GET_MODE_SIZE (mode) < UNITS_PER_WORD)
     mode = word_mode;
@@ -7420,7 +7430,7 @@ sparc_libcall_value (enum machine_mode mode,
 static bool
 sparc_function_value_regno_p (const unsigned int regno)
 {
-  return (regno == 8 || regno == 32);
+  return (regno == 8 || (TARGET_FPU && regno == 32));
 }
 
 /* Do what is necessary for `va_start'.  We look at the current function

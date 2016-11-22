@@ -544,6 +544,7 @@ ira_create_allocno (int regno, bool cap_p,
   ALLOCNO_BAD_SPILL_P (a) = false;
   ALLOCNO_ASSIGNED_P (a) = false;
   ALLOCNO_MODE (a) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
+  ALLOCNO_WMODE (a) = ALLOCNO_MODE (a);
   ALLOCNO_PREFS (a) = NULL;
   ALLOCNO_COPIES (a) = NULL;
   ALLOCNO_HARD_REG_COSTS (a) = NULL;
@@ -913,6 +914,7 @@ create_cap_allocno (ira_allocno_t a)
   parent = ALLOCNO_LOOP_TREE_NODE (a)->parent;
   cap = ira_create_allocno (ALLOCNO_REGNO (a), true, parent);
   ALLOCNO_MODE (cap) = ALLOCNO_MODE (a);
+  ALLOCNO_WMODE (cap) = ALLOCNO_WMODE (a);
   aclass = ALLOCNO_CLASS (a);
   ira_set_allocno_class (cap, aclass);
   ira_create_allocno_objects (cap);
@@ -1946,9 +1948,9 @@ static basic_block curr_bb;
 
 /* This recursive function creates allocnos corresponding to
    pseudo-registers containing in X.  True OUTPUT_P means that X is
-   a lvalue.  */
+   an lvalue.  PARENT corresponds to the parent expression of X.  */
 static void
-create_insn_allocnos (rtx x, bool output_p)
+create_insn_allocnos (rtx x, rtx outer, bool output_p)
 {
   int i, j;
   const char *fmt;
@@ -1963,7 +1965,15 @@ create_insn_allocnos (rtx x, bool output_p)
 	  ira_allocno_t a;
 
 	  if ((a = ira_curr_regno_allocno_map[regno]) == NULL)
-	    a = ira_create_allocno (regno, false, ira_curr_loop_tree_node);
+	    {
+	      a = ira_create_allocno (regno, false, ira_curr_loop_tree_node);
+	      if (outer != NULL && GET_CODE (outer) == SUBREG)
+		{
+		  enum machine_mode wmode = GET_MODE (outer);
+		  if (GET_MODE_SIZE (wmode) > GET_MODE_SIZE (ALLOCNO_WMODE (a)))
+		    ALLOCNO_WMODE (a) = wmode;
+		}
+	    }
 
 	  ALLOCNO_NREFS (a)++;
 	  ALLOCNO_FREQ (a) += REG_FREQ_FROM_BB (curr_bb);
@@ -1974,25 +1984,25 @@ create_insn_allocnos (rtx x, bool output_p)
     }
   else if (code == SET)
     {
-      create_insn_allocnos (SET_DEST (x), true);
-      create_insn_allocnos (SET_SRC (x), false);
+      create_insn_allocnos (SET_DEST (x), NULL, true);
+      create_insn_allocnos (SET_SRC (x), NULL, false);
       return;
     }
   else if (code == CLOBBER)
     {
-      create_insn_allocnos (XEXP (x, 0), true);
+      create_insn_allocnos (XEXP (x, 0), NULL, true);
       return;
     }
   else if (code == MEM)
     {
-      create_insn_allocnos (XEXP (x, 0), false);
+      create_insn_allocnos (XEXP (x, 0), NULL, false);
       return;
     }
   else if (code == PRE_DEC || code == POST_DEC || code == PRE_INC ||
 	   code == POST_INC || code == POST_MODIFY || code == PRE_MODIFY)
     {
-      create_insn_allocnos (XEXP (x, 0), true);
-      create_insn_allocnos (XEXP (x, 0), false);
+      create_insn_allocnos (XEXP (x, 0), NULL, true);
+      create_insn_allocnos (XEXP (x, 0), NULL, false);
       return;
     }
 
@@ -2000,10 +2010,10 @@ create_insn_allocnos (rtx x, bool output_p)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	create_insn_allocnos (XEXP (x, i), output_p);
+	create_insn_allocnos (XEXP (x, i), x, output_p);
       else if (fmt[i] == 'E')
 	for (j = 0; j < XVECLEN (x, i); j++)
-	  create_insn_allocnos (XVECEXP (x, i, j), output_p);
+	  create_insn_allocnos (XVECEXP (x, i, j), x, output_p);
     }
 }
 
@@ -2022,7 +2032,7 @@ create_bb_allocnos (ira_loop_tree_node_t bb_node)
   ira_assert (bb != NULL);
   FOR_BB_INSNS_REVERSE (bb, insn)
     if (NONDEBUG_INSN_P (insn))
-      create_insn_allocnos (PATTERN (insn), false);
+      create_insn_allocnos (PATTERN (insn), NULL, false);
   /* It might be a allocno living through from one subloop to
      another.  */
   EXECUTE_IF_SET_IN_REG_SET (df_get_live_in (bb), FIRST_PSEUDO_REGISTER, i, bi)
@@ -2357,7 +2367,7 @@ mark_loops_for_removal (void)
 	     );
       }
   qsort (sorted_loops, n, sizeof (ira_loop_tree_node_t), loop_compare_func);
-  for (i = 0; n - i + 1 > IRA_MAX_LOOPS_NUM; i++)
+  for (i = 0; i < n - IRA_MAX_LOOPS_NUM; i++)
     {
       sorted_loops[i]->to_remove_p = true;
       if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)

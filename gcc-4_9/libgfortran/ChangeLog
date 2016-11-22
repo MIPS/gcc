@@ -1,3 +1,80 @@
+2016-08-03  Release Manager
+
+	* GCC 4.9.4 released.
+
+2016-05-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk.
+	PR libgfortran/70684
+	* io/list_read (next_char): Add '\r' to check for end of line.
+	factor. (two places)
+
+2016-04-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libgfortran/70235
+	* io/write_float.def: Fix PF format for negative values of the scale
+	factor.
+
+2016-02-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from gcc-5-branch.
+	PR libgfortran/69668
+	* io/list_read.c (read_character): Remove code related to DELIM_NONE.
+
+2015-08-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from gcc-5-branch.
+	2015-08-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* configure.ac: Define HAVE_FTRUNCATE for ARM/AArch64/SH newlib
+	builds.
+	* configure: Regenerate.
+
+2015-08-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/66936
+	* io/unix.c (__MINGW32__): Undefine HAVE_UMASK.
+
+2015-07-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libgfortran/66650
+	* libgfortran.h (GFC_DTYPE_SIZE_MASK): Rewrite to avoid
+	"left shift of negative value" warning.
+
+2015-06-26  Release Manager
+
+	* GCC 4.9.3 released.
+
+2015-03-30 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* io/transfer.c (data_transfer_init): Fix whitespace.
+
+2015-03-30 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/59513
+	* io/transfer.c (data_transfer_init): Do not error for
+	-std=legacy.
+
+2015-03-28 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65596
+	* io/transfer.c (data_transfer_init): If in namelist mode and
+	delimiter is not specified, set it to DELIM_QUOTE, independent
+	of -std.
+
+2015-03-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/60956
+	Backport from mainline
+	* io/fbuf.c (fbuf_flush_list): New function that only flushes
+	if current fbuf position exceeds a limit.
+	* io/fbuf.h: Declare the new function.
+	* io/io.h (enum unit_mode): Add two new modes.
+	* io/list_read.c (list_formatted_read_scalar): Call new function.
+	* io/write.c: Include fbuf.h. (list_formatted_write_scalar):
+	Call new function.
+
 2014-10-30  Release Manager
 
 	* GCC 4.9.2 released.

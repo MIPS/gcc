@@ -659,6 +659,10 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
     case SYMBOL_SMALL_TPREL:
       {
 	rtx tp = aarch64_load_tp (NULL);
+
+	if (GET_MODE (dest) != Pmode)
+	  tp = gen_lowpart (GET_MODE (dest), tp);
+
 	emit_insn (gen_tlsle_small (dest, tp, imm));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
@@ -915,7 +919,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	 before we start classifying the symbol.  */
       split_const (imm, &base, &offset);
 
-      sty = aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR);
+      sty = aarch64_classify_symbol (base, offset, SYMBOL_CONTEXT_ADR);
       switch (sty)
 	{
 	case SYMBOL_FORCE_TO_MEM:
@@ -2783,7 +2787,7 @@ aarch64_cannot_force_const_mem (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
   split_const (x, &base, &offset);
   if (GET_CODE (base) == SYMBOL_REF || GET_CODE (base) == LABEL_REF)
     {
-      if (aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR)
+      if (aarch64_classify_symbol (base, offset, SYMBOL_CONTEXT_ADR)
 	  != SYMBOL_FORCE_TO_MEM)
 	return true;
       else
@@ -3182,7 +3186,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	  rtx sym, offs;
 	  split_const (info->offset, &sym, &offs);
 	  if (GET_CODE (sym) == SYMBOL_REF
-	      && (aarch64_classify_symbol (sym, SYMBOL_CONTEXT_MEM)
+	      && (aarch64_classify_symbol (sym, offs, SYMBOL_CONTEXT_MEM)
 		  == SYMBOL_SMALL_ABSOLUTE))
 	    {
 	      /* The symbol and offset must be aligned to the access size.  */
@@ -3239,7 +3243,7 @@ aarch64_classify_symbolic_expression (rtx x,
   rtx offset;
 
   split_const (x, &x, &offset);
-  return aarch64_classify_symbol (x, context);
+  return aarch64_classify_symbol (x, offset, context);
 }
 
 
@@ -3874,7 +3878,7 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	switch (GET_CODE (x))
 	  {
 	  case PRE_INC:
-	    asm_fprintf (f, "[%s,%d]!", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s,%d]!", reg_names [REGNO (addr.base)], 
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case POST_INC:
@@ -5384,7 +5388,7 @@ aarch64_classify_tls_symbol (rtx x)
    LABEL_REF X in context CONTEXT.  */
 
 enum aarch64_symbol_type
-aarch64_classify_symbol (rtx x,
+aarch64_classify_symbol (rtx x, rtx offset,
 			 enum aarch64_symbol_context context ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (x) == LABEL_REF)
@@ -5418,12 +5422,25 @@ aarch64_classify_symbol (rtx x,
       switch (aarch64_cmodel)
 	{
 	case AARCH64_CMODEL_TINY:
-	  if (SYMBOL_REF_WEAK (x))
+	  /* When we retreive symbol + offset address, we have to make sure
+	     the offset does not cause overflow of the final address.  But
+	     we have no way of knowing the address of symbol at compile time
+	     so we can't accurately say if the distance between the PC and
+	     symbol + offset is outside the addressible range of +/-1M in the
+	     TINY code model.  So we rely on images not being greater than
+	     1M and cap the offset at 1M and anything beyond 1M will have to
+	     be loaded using an alternative mechanism.  */
+	  if (SYMBOL_REF_WEAK (x)
+	      || INTVAL (offset) < -1048575 || INTVAL (offset) > 1048575)
 	    return SYMBOL_FORCE_TO_MEM;
 	  return SYMBOL_TINY_ABSOLUTE;
 
 	case AARCH64_CMODEL_SMALL:
-	  if (SYMBOL_REF_WEAK (x))
+	  /* Same reasoning as the tiny code model, but the offset cap here is
+	     4G.  */
+	  if (SYMBOL_REF_WEAK (x)
+	      || INTVAL (offset) < (HOST_WIDE_INT) -4294967263
+	      || INTVAL (offset) > (HOST_WIDE_INT) 4294967264)
 	    return SYMBOL_FORCE_TO_MEM;
 	  return SYMBOL_SMALL_ABSOLUTE;
 
@@ -6561,7 +6578,7 @@ aarch64_madd_needs_nop (rtx insn)
   if (!aarch64_fix_a53_err835769)
     return false;
 
-  if (recog_memoized (insn) < 0)
+  if (!INSN_P (insn) || recog_memoized (insn) < 0)
     return false;
 
   attr_type = get_attr_type (insn);
@@ -7192,7 +7209,7 @@ aarch64_expand_vector_init (rtx target, rtx vals)
   x = XVECEXP (vals, 0, 0);
   if (!CONST_INT_P (x) && !CONST_DOUBLE_P (x))
     n_var = 1, one_var = 0;
-
+  
   for (i = 1; i < n_elts; ++i)
     {
       x = XVECEXP (vals, 0, i);
@@ -8402,6 +8419,18 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
 				  enum machine_mode to,
 				  enum reg_class rclass)
 {
+  /* We cannot allow word_mode subregs of full vector modes.
+     Otherwise the middle-end will assume it's ok to store to
+     (subreg:DI (reg:TI 100) 0) in order to modify only the low 64 bits
+     of the 128-bit register.  However, after reload the subreg will
+     be dropped leaving a plain DImode store.  See PR67609 for a more
+     detailed dicussion.  In some other cases we can be permissive and
+     return false.  */
+  if (reg_classes_intersect_p (FP_REGS, rclass)
+      && GET_MODE_SIZE (to) == UNITS_PER_WORD
+      && GET_MODE_SIZE (from) > UNITS_PER_WORD)
+    return true;
+
   /* Full-reg subregs are allowed on general regs or any class if they are
      the same size.  */
   if (GET_MODE_SIZE (from) == GET_MODE_SIZE (to)

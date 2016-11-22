@@ -1217,7 +1217,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       _H1, _H2, _Hash, _RehashPolicy, _Traits>::
     ~_Hashtable() noexcept
     {
-      clear();
+      this->_M_deallocate_nodes(_M_begin());
       if (_M_buckets)
 	_M_deallocate_buckets();
     }

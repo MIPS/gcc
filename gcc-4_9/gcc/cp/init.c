@@ -763,8 +763,8 @@ perform_member_init (tree member, tree init)
 						tf_warning_or_error);
 
       if (init)
-          finish_expr_stmt (cp_build_modify_expr (decl, INIT_EXPR, init,
-                                                  tf_warning_or_error));
+	finish_expr_stmt (cp_build_modify_expr (decl, INIT_EXPR, init,
+						tf_warning_or_error));
     }
 
   if (type_build_dtor_call (type))
@@ -3035,7 +3035,7 @@ build_new (vec<tree, va_gc> **placement, tree type, tree nelts,
       if (auto_node)
 	{
 	  tree d_init = (**init)[0];
-	  d_init = resolve_nondeduced_context (d_init);
+	  d_init = resolve_nondeduced_context (d_init, complain);
 	  type = do_auto_deduction (type, d_init, auto_node);
 	}
     }
@@ -3387,6 +3387,21 @@ get_temp_regvar (tree type, tree init)
   return decl;
 }
 
+/* Subroutine of build_vec_init.  Returns true if assigning to an array of
+   INNER_ELT_TYPE from INIT is trivial.  */
+
+static bool
+vec_copy_assign_is_trivial (tree inner_elt_type, tree init)
+{
+  if (!CLASS_TYPE_P (inner_elt_type))
+    return true;
+  if (cxx_dialect >= cxx11
+      && !real_lvalue_p (init)
+      && type_has_move_assign (inner_elt_type))
+    return !TYPE_HAS_COMPLEX_MOVE_ASSIGN (inner_elt_type);
+  return TYPE_HAS_TRIVIAL_COPY_ASSIGN (inner_elt_type);
+}
+
 /* `build_vec_init' returns tree structure that performs
    initialization of a vector of aggregate types.
 
@@ -3468,8 +3483,7 @@ build_vec_init (tree base, tree maxindex, tree init,
       && TREE_CODE (atype) == ARRAY_TYPE
       && TREE_CONSTANT (maxindex)
       && (from_array == 2
-	  ? (!CLASS_TYPE_P (inner_elt_type)
-	     || !TYPE_HAS_COMPLEX_COPY_ASSIGN (inner_elt_type))
+	  ? vec_copy_assign_is_trivial (inner_elt_type, init)
 	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
@@ -3742,11 +3756,7 @@ build_vec_init (tree base, tree maxindex, tree init,
 	{
 	  if (cxx_dialect >= cxx11 && AGGREGATE_TYPE_P (type))
 	    {
-	      if (BRACE_ENCLOSED_INITIALIZER_P (init)
-		  && CONSTRUCTOR_NELTS (init) == 0)
-		/* Reuse it.  */;
-	      else
-		init = build_constructor (init_list_type_node, NULL);
+	      init = build_constructor (init_list_type_node, NULL);
 	      CONSTRUCTOR_IS_DIRECT_INIT (init) = true;
 	    }
 	  else

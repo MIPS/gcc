@@ -18,13 +18,6 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 
-# Also xfailed in x86; Google b/20184248
-FAIL: 17_intro/headers/c++1998/complex.cc (test for excess errors)
-FAIL: 26_numerics/complex/c99.cc (test for excess errors)
-
-# PPCle-specific.  From PR33512, still failing in truck despite resolved PR.
-FAIL: gcc.dg/and-1.c scan-assembler-not nand
-
 # PPCle-specific.  Test error; Power should be handled like MIPS for same reason.
 FAIL: gcc.dg/tree-ssa/ssa-dom-thread-4.c scan-tree-dump-times dom1 "Threaded" 3
 
@@ -34,34 +27,14 @@ FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times vrp1 "[xy][^ ]* !=" 0
 # PPCle-specific.  Artifact of Google test environment with SSH (but not QEMU).
 flaky | FAIL: gcc.dg/di-sync-multithread.c execution test
 
-# PPCle-specific, recent.  TODO: Needs investigation.  (This is not PR52614)
-FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
-
 # PPCle-specific, test bug fixed on trunk: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60173
 FAIL: gcc.dg/binop-xor1.c scan-tree-dump-times optimized "\\^" 1
-
-# PPCle- and Gold-specific, patch proposed: http://gcc.gnu.org/ml/gcc-patches/2014-02/msg00237.html
-FAIL: gcc.dg/vect/no-vfa-vect-depend-2.c scan-tree-dump-times vect "vectorized 1 loops" 1
-FAIL: gcc.dg/vect/no-vfa-vect-depend-3.c scan-tree-dump-times vect "vectorized 1 loops" 4
-
-# PPCle-specific, not yet analyzed.
-FAIL: gcc.dg/tree-ssa/loop-19.c scan-tree-dump-times optimized "MEM.(base: &|symbol: )a," 2
-FAIL: gcc.dg/tree-ssa/loop-19.c scan-tree-dump-times optimized "MEM.(base: &|symbol: )c," 2
 
 # Downloading of output from target is not currently supported in our dejagnu board file.
 flaky | UNRESOLVED: gcc.dg/pr47793.c scan-file .
 
 # PPCle-specific execution failures.  Not yet analyzed.  Some may be QEMU-related.
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O0  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O1  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -g  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -Os  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+
 FAIL: gcc.dg/vect/pr57741-2.c execution test
 FAIL: gcc.dg/vect/pr57741-2.c -flto -ffat-lto-objects execution test
 FAIL: gcc.dg/vect/pr57741-3.c execution test
@@ -133,8 +106,131 @@ flaky | FAIL: g++.dg/init/placement2.C -std=c++1y execution test
 flaky | FAIL: g++.dg/init/ref9.C -std=c++98 execution test
 flaky | FAIL: g++.dg/init/ref9.C -std=c++11 execution test
 
-# AArch64 and PowerPC64LE failure (new 2014-07-31) 
-FAIL: gcc.dg/tree-prof/crossmodule-indircall-1.c execution,    -fprofile-use -D_PROFILE_USE
+# PPC-specific known bug new with 4.9.4 merge; Google b/30810439
+FAIL: gcc.dg/tree-ssa/pr23546.c (internal compiler error)
+FAIL: gcc.dg/tree-ssa/pr23546.c (test for excess errors)
+
+# PPC-specific failure new with 4.9.4 merge; Google b/30812084
+FAIL: g++.dg/tree-ssa/pr53844.C -std=gnu++98  scan-tree-dump-times optimized "VDEF" 1
+FAIL: g++.dg/tree-ssa/pr53844.C -std=gnu++11  scan-tree-dump-times optimized "VDEF" 1
+FAIL: g++.dg/tree-ssa/pr53844.C -std=gnu++1y  scan-tree-dump-times optimized "VDEF" 1
+
+# PPC-specific failure new with 4.9.4 merge; related to ICE fixed in Google b/30811305
+FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2
+FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+
+# PPC-specific fails also seen in upstream 4.9.4.
+FAIL: gcc.c-torture/execute/pr28982a.c execution,  -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/execute/pr28982a.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+FAIL: gcc.c-torture/execute/pr28982a.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+FAIL: gcc.c-torture/execute/pr28982a.c execution,  -O3 -g
+FAIL: gcc.c-torture/execute/pr28982b.c execution,  -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/execute/pr28982b.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+FAIL: gcc.c-torture/execute/pr28982b.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+FAIL: gcc.c-torture/execute/pr28982b.c execution,  -O3 -g
+FAIL: gcc.dg/builtins-58.c scan-assembler-not pow
+FAIL: gcc.dg/pr46728-6.c scan-assembler-not pow
+FAIL: gcc.dg/sms-3.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.dg/sms-4.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.dg/sms-6.c scan-rtl-dump-times sms "SMS succeeded" 3
+FAIL: gcc.dg/torture/vec-cvt-1.c -O2  execution test
+FAIL: gcc.dg/torture/vec-cvt-1.c -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/torture/vec-cvt-1.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gcc.dg/torture/vec-cvt-1.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gcc.dg/torture/vec-cvt-1.c -O3 -g  execution test
+FAIL: gcc.dg/torture/vec-cvt-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+FAIL: gcc.dg/torture/vec-cvt-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: gcc.target/powerpc/recip-7.c execution test
+
+# PPC-specific timeouts also seen in upstream 4.9.4; Google b/30811718
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O0  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O1  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O2  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -O3 -g  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-2.c -Os  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O0  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O1  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O2  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -g  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -Os  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O0  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O1  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O2  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -O3 -g  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-4.c -Os  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O0  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O1  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -g  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -Os  execution test
+
+# PPC-specific "invalid" instructions occurring under QEMU.
+flaky | FAIL: c-c++-common/dfp/pr36800.c -std=c++98 execution test
+flaky | FAIL: c-c++-common/dfp/pr36800.c -std=c++11 execution test
+flaky | FAIL: c-c++-common/dfp/pr36800.c -std=c++1y execution test
+flaky | FAIL: c-c++-common/dfp/pr36800.c execution test
+flaky | FAIL: c-c++-common/dfp/pr39034.c -std=gnu++98 execution test
+flaky | FAIL: c-c++-common/dfp/pr39034.c -std=gnu++11 execution test
+flaky | FAIL: c-c++-common/dfp/pr39034.c -std=gnu++1y execution test
+flaky | FAIL: c-c++-common/dfp/pr39034.c execution test
+flaky | FAIL: c-c++-common/dfp/pr39035.c -std=gnu++98 execution test
+flaky | FAIL: c-c++-common/dfp/pr39035.c -std=gnu++11 execution test
+flaky | FAIL: c-c++-common/dfp/pr39035.c -std=gnu++1y execution test
+flaky | FAIL: c-c++-common/dfp/pr39035.c execution test
+flaky | FAIL: g++.dg/compat/decimal/pass-1 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/pass-2 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/pass-3 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/pass-4 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/pass-5 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/pass-6 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/return-1 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/return-2 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/return-3 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/return-4 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/return-5 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: g++.dg/compat/decimal/return-6 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O0
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O1
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O2
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O3 -fomit-frame-pointer
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O3 -fomit-frame-pointer -funroll-loops
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O3 -g
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -Os
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -Og -g
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none
+flaky | FAIL: gcc.c-torture/execute/builtin-bitops-1.c execution,  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+flaky | FAIL: gcc.dg/torture/pr62031.c -O0  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O1  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O2  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O3 -fomit-frame-pointer  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O3 -g  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -Os  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+flaky | FAIL: gcc.dg/torture/pr62031.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
 
 
 # *** g++:
@@ -151,14 +247,9 @@ FAIL: g++.dg/eh/ppc64-sighandle-cr.C -std=gnu++1y execution test
 
 # Fortran failures are not important to us so far.
 # *** gfortran:
-FAIL: gfortran.dg/bessel_7.f90 -O0  execution test
-FAIL: gfortran.dg/bessel_7.f90 -O1  execution test
-FAIL: gfortran.dg/bessel_7.f90 -O2  execution test
-FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/bessel_7.f90 -O3 -g  execution test
-FAIL: gfortran.dg/bessel_7.f90 -Os  execution test
+FAIL: gfortran.dg/alloc_comp_assign_12.f03 -O2  execution test
+FAIL: gfortran.dg/popcnt_poppar_1.F90 -O0  execution test
+FAIL: gfortran.dg/popcnt_poppar_2.F90 -O0  execution test
 
 
 # Targets that occasionally time out at compile time:

@@ -46,18 +46,17 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /* Kernel helper for compare-and-exchange a 32-bit value.  */
 static inline long
-__kernel_cmpxchg (int oldval, int newval, int *mem)
+__kernel_cmpxchg (int *mem, int oldval, int newval)
 {
   register unsigned long lws_mem asm("r26") = (unsigned long) (mem);
-  register long lws_ret   asm("r28");
-  register long lws_errno asm("r21");
   register int lws_old asm("r25") = oldval;
   register int lws_new asm("r24") = newval;
+  register long lws_ret   asm("r28");
+  register long lws_errno asm("r21");
   asm volatile (	"ble	0xb0(%%sr2, %%r0)	\n\t"
-			"ldi	%5, %%r20		\n\t"
-	: "=r" (lws_ret), "=r" (lws_errno), "=r" (lws_mem),
-	  "=r" (lws_old), "=r" (lws_new)
-	: "i" (LWS_CAS), "2" (lws_mem), "3" (lws_old), "4" (lws_new)
+			"ldi	%2, %%r20		\n\t"
+	: "=r" (lws_ret), "=r" (lws_errno)
+	: "i" (LWS_CAS), "r" (lws_mem), "r" (lws_old), "r" (lws_new)
 	: "r1", "r20", "r22", "r23", "r29", "r31", "memory"
   );
   if (__builtin_expect (lws_errno == -EFAULT || lws_errno == -ENOSYS, 0))
@@ -73,26 +72,33 @@ __kernel_cmpxchg (int oldval, int newval, int *mem)
 }
 
 static inline long
-__kernel_cmpxchg2 (void * oldval, void * newval, void *mem, int val_size)
+__kernel_cmpxchg2 (void *mem, const void *oldval, const void *newval,
+		   int val_size)
 {
   register unsigned long lws_mem asm("r26") = (unsigned long) (mem);
-  register long lws_ret   asm("r28");
-  register long lws_errno asm("r21");
   register unsigned long lws_old asm("r25") = (unsigned long) oldval;
   register unsigned long lws_new asm("r24") = (unsigned long) newval;
   register int lws_size asm("r23") = val_size;
+  register long lws_ret   asm("r28");
+  register long lws_errno asm("r21");
   asm volatile (	"ble	0xb0(%%sr2, %%r0)	\n\t"
-			"ldi	%2, %%r20		\n\t"
-	: "=r" (lws_ret), "=r" (lws_errno)
-	: "i" (2), "r" (lws_mem), "r" (lws_old), "r" (lws_new), "r" (lws_size)
+			"ldi	%6, %%r20		\n\t"
+	: "=r" (lws_ret), "=r" (lws_errno), "+r" (lws_mem),
+	  "+r" (lws_old), "+r" (lws_new), "+r" (lws_size)
+	: "i" (2)
 	: "r1", "r20", "r22", "r29", "r31", "fr4", "memory"
   );
+
+  /* If the kernel LWS call is successful, lws_ret contains 0.  */
+  if (__builtin_expect (lws_ret == 0, 1))
+    return 0;
+
   if (__builtin_expect (lws_errno == -EFAULT || lws_errno == -ENOSYS, 0))
     __builtin_trap ();
 
-  /* If the kernel LWS call fails, retrun EBUSY */
-  if (!lws_errno && lws_ret)
-    lws_errno = -EBUSY;
+  /* If the kernel LWS call fails with no error, return -EBUSY */
+  if (__builtin_expect (!lws_errno, 0))
+    return -EBUSY;
 
   return lws_errno;
 }
@@ -110,12 +116,12 @@ __kernel_cmpxchg2 (void * oldval, void * newval, void *mem, int val_size)
   __sync_fetch_and_##OP##_##WIDTH (TYPE *ptr, TYPE val)			\
   {									\
     TYPE tmp, newval;							\
-    int failure;							\
+    long failure;							\
 									\
     do {								\
-      tmp = *ptr;							\
+      tmp = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);			\
       newval = PFX_OP (tmp INF_OP val);					\
-      failure = __kernel_cmpxchg2 (&tmp, &newval, ptr, INDEX);		\
+      failure = __kernel_cmpxchg2 (ptr, &tmp, &newval, INDEX);		\
     } while (failure != 0);						\
 									\
     return tmp;								\
@@ -147,12 +153,12 @@ FETCH_AND_OP_2 (nand, ~, &, signed char, 1, 0)
   __sync_##OP##_and_fetch_##WIDTH (TYPE *ptr, TYPE val)			\
   {									\
     TYPE tmp, newval;							\
-    int failure;							\
+    long failure;							\
 									\
     do {								\
-      tmp = *ptr;							\
+      tmp = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);			\
       newval = PFX_OP (tmp INF_OP val);					\
-      failure = __kernel_cmpxchg2 (&tmp, &newval, ptr, INDEX);		\
+      failure = __kernel_cmpxchg2 (ptr, &tmp, &newval, INDEX);		\
     } while (failure != 0);						\
 									\
     return PFX_OP (tmp INF_OP val);					\
@@ -183,11 +189,12 @@ OP_AND_FETCH_2 (nand, ~, &, signed char, 1, 0)
   int HIDDEN								\
   __sync_fetch_and_##OP##_4 (int *ptr, int val)				\
   {									\
-    int failure, tmp;							\
+    int tmp;								\
+    long failure;							\
 									\
     do {								\
-      tmp = *ptr;							\
-      failure = __kernel_cmpxchg (tmp, PFX_OP (tmp INF_OP val), ptr);	\
+      tmp = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);			\
+      failure = __kernel_cmpxchg (ptr, tmp, PFX_OP (tmp INF_OP val));	\
     } while (failure != 0);						\
 									\
     return tmp;								\
@@ -204,11 +211,12 @@ FETCH_AND_OP_WORD (nand, ~, &)
   int HIDDEN								\
   __sync_##OP##_and_fetch_4 (int *ptr, int val)				\
   {									\
-    int tmp, failure;							\
+    int tmp;								\
+    long failure;							\
 									\
     do {								\
-      tmp = *ptr;							\
-      failure = __kernel_cmpxchg (tmp, PFX_OP (tmp INF_OP val), ptr);	\
+      tmp = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);			\
+      failure = __kernel_cmpxchg (ptr, tmp, PFX_OP (tmp INF_OP val));	\
     } while (failure != 0);						\
 									\
     return PFX_OP (tmp INF_OP val);					\
@@ -229,28 +237,28 @@ typedef unsigned char bool;
 				       TYPE newval)			\
   {									\
     TYPE actual_oldval;							\
-    int fail;								\
+    long fail;								\
 									\
     while (1)								\
       {									\
-	actual_oldval = *ptr;						\
+	actual_oldval = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);	\
 									\
 	if (__builtin_expect (oldval != actual_oldval, 0))		\
 	  return actual_oldval;						\
 									\
-	fail = __kernel_cmpxchg2 (&actual_oldval, &newval, ptr, INDEX);	\
+	fail = __kernel_cmpxchg2 (ptr, &actual_oldval, &newval, INDEX);	\
 									\
 	if (__builtin_expect (!fail, 1))				\
 	  return actual_oldval;						\
-    }									\
+      }									\
   }									\
 									\
   bool HIDDEN								\
   __sync_bool_compare_and_swap_##WIDTH (TYPE *ptr, TYPE oldval,		\
 					TYPE newval)			\
   {									\
-    int failure = __kernel_cmpxchg2 (&oldval, &newval, ptr, INDEX);	\
-    return (failure != 0);						\
+    long failure = __kernel_cmpxchg2 (ptr, &oldval, &newval, INDEX);	\
+    return (failure == 0);						\
   }
 
 COMPARE_AND_SWAP_2 (long long, 8, 3)
@@ -260,16 +268,17 @@ COMPARE_AND_SWAP_2 (char, 1, 0)
 int HIDDEN
 __sync_val_compare_and_swap_4 (int *ptr, int oldval, int newval)
 {
-  int actual_oldval, fail;
+  long fail;
+  int actual_oldval;
     
   while (1)
     {
-      actual_oldval = *ptr;
+      actual_oldval = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);
 
       if (__builtin_expect (oldval != actual_oldval, 0))
 	return actual_oldval;
 
-      fail = __kernel_cmpxchg (actual_oldval, newval, ptr);
+      fail = __kernel_cmpxchg (ptr, actual_oldval, newval);
   
       if (__builtin_expect (!fail, 1))
 	return actual_oldval;
@@ -279,7 +288,7 @@ __sync_val_compare_and_swap_4 (int *ptr, int oldval, int newval)
 bool HIDDEN
 __sync_bool_compare_and_swap_4 (int *ptr, int oldval, int newval)
 {
-  int failure = __kernel_cmpxchg (oldval, newval, ptr);
+  long failure = __kernel_cmpxchg (ptr, oldval, newval);
   return (failure == 0);
 }
 
@@ -288,11 +297,11 @@ TYPE HIDDEN								\
   __sync_lock_test_and_set_##WIDTH (TYPE *ptr, TYPE val)		\
   {									\
     TYPE oldval;							\
-    int failure;							\
+    long failure;							\
 									\
     do {								\
-      oldval = *ptr;							\
-      failure = __kernel_cmpxchg2 (&oldval, &val, ptr, INDEX);		\
+      oldval = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);			\
+      failure = __kernel_cmpxchg2 (ptr, &oldval, &val, INDEX);		\
     } while (failure != 0);						\
 									\
     return oldval;							\
@@ -305,11 +314,12 @@ SYNC_LOCK_TEST_AND_SET_2 (signed char, 1, 0)
 int HIDDEN
 __sync_lock_test_and_set_4 (int *ptr, int val)
 {
-  int failure, oldval;
+  long failure;
+  int oldval;
 
   do {
-    oldval = *ptr;
-    failure = __kernel_cmpxchg (oldval, val, ptr);
+    oldval = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);
+    failure = __kernel_cmpxchg (ptr, oldval, val);
   } while (failure != 0);
 
   return oldval;
@@ -319,11 +329,12 @@ __sync_lock_test_and_set_4 (int *ptr, int val)
   void HIDDEN							\
   __sync_lock_release_##WIDTH (TYPE *ptr)			\
   {								\
-    TYPE failure, oldval, zero = 0;				\
+    TYPE oldval, zero = 0;					\
+    long failure;						\
 								\
     do {							\
-      oldval = *ptr;						\
-      failure = __kernel_cmpxchg2 (&oldval, &zero, ptr, INDEX);	\
+      oldval = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);		\
+      failure = __kernel_cmpxchg2 (ptr, &oldval, &zero, INDEX);	\
     } while (failure != 0);					\
   }
 
@@ -334,10 +345,11 @@ SYNC_LOCK_RELEASE_2 (signed char, 1, 0)
 void HIDDEN
 __sync_lock_release_4 (int *ptr)
 {
-  int failure, oldval;
+  long failure;
+  int oldval;
 
   do {
-    oldval = *ptr;
-    failure = __kernel_cmpxchg (oldval, 0, ptr);
+    oldval = __atomic_load_n (ptr, __ATOMIC_SEQ_CST);
+    failure = __kernel_cmpxchg (ptr, oldval, 0);
   } while (failure != 0);
 }

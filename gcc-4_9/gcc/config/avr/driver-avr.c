@@ -60,7 +60,10 @@ avr_device_to_as (int argc, const char **argv)
 
   return concat ("-mmcu=", avr_current_arch->arch_name,
     avr_current_device->dev_attribute & AVR_ERRATA_SKIP ? "" : " -mno-skip-bug",
-    avr_current_device->dev_attribute & AVR_ISA_RMW ? " -mrmw" : "", NULL);
+#ifdef HAVE_AS_AVR_MRMW_OPTION
+    avr_current_device->dev_attribute & AVR_ISA_RMW ? " -mrmw" : "",
+#endif // have as -mrmw
+    NULL);
 }
 
 /* Returns command line parameters to pass to ld.  */
@@ -98,7 +101,7 @@ avr_device_to_data_start (int argc, const char **argv)
   snprintf (data_section_start_str, sizeof(data_section_start_str) - 1,
             "0x%lX", data_section_start);
   
-  return concat ("-Tdata ", data_section_start_str, NULL);    
+  return concat ("%{!Tdata:-Tdata ", data_section_start_str, "}", NULL);
 }
 
 /* Returns command line parameters that describe the device startfile.  */

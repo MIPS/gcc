@@ -10173,9 +10173,24 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 		   && CONST_INT_P (XEXP (varop, 0))
 		   && !CONST_INT_P (XEXP (varop, 1)))
 	    {
+	      /* For ((unsigned) (cstULL >> count)) >> cst2 we have to make
+		 sure the result will be masked.  See PR70222.  */
+	      if (code == LSHIFTRT
+		  && mode != result_mode
+		  && !merge_outer_ops (&outer_op, &outer_const, AND,
+				       GET_MODE_MASK (result_mode)
+				       >> orig_count, result_mode,
+				       &complement_p))
+		break;
+	      /* For ((int) (cstLL >> count)) >> cst2 just give up.  Queuing
+		 up outer sign extension (often left and right shift) is
+		 hardly more efficient than the original.  See PR70429.  */
+	      if (code == ASHIFTRT && mode != result_mode)
+		break;
+
 	      rtx new_rtx = simplify_const_binary_operation (code, mode,
-							 XEXP (varop, 0),
-							 GEN_INT (count));
+							     XEXP (varop, 0),
+							     GEN_INT (count));
 	      varop = gen_rtx_fmt_ee (code, mode, new_rtx, XEXP (varop, 1));
 	      count = 0;
 	      continue;
@@ -11655,14 +11670,15 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	      continue;
 	    }
 
-	  /* If this is (and:M1 (subreg:M2 X 0) (const_int C1)) where C1
+	  /* If this is (and:M1 (subreg:M1 X:M2 0) (const_int C1)) where C1
 	     fits in both M1 and M2 and the SUBREG is either paradoxical
 	     or represents the low part, permute the SUBREG and the AND
 	     and try again.  */
-	  if (GET_CODE (XEXP (op0, 0)) == SUBREG)
+	  if (GET_CODE (XEXP (op0, 0)) == SUBREG
+	      && CONST_INT_P (XEXP (op0, 1)))
 	    {
-	      unsigned HOST_WIDE_INT c1;
 	      tmode = GET_MODE (SUBREG_REG (XEXP (op0, 0)));
+	      unsigned HOST_WIDE_INT c1 = INTVAL (XEXP (op0, 1));
 	      /* Require an integral mode, to avoid creating something like
 		 (AND:SF ...).  */
 	      if (SCALAR_INT_MODE_P (tmode)
@@ -11672,18 +11688,22 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		     have a defined value due to the AND operation.
 		     However, if we commute the AND inside the SUBREG then
 		     they no longer have defined values and the meaning of
-		     the code has been changed.  */
+		     the code has been changed.
+		     Also C1 should not change value in the smaller mode,
+		     see PR67028 (a positive C1 can become negative in the
+		     smaller mode, so that the AND does no longer mask the
+		     upper bits).  */
 		  && (0
 #ifdef WORD_REGISTER_OPERATIONS
 		      || (mode_width > GET_MODE_PRECISION (tmode)
-			  && mode_width <= BITS_PER_WORD)
+			  && mode_width <= BITS_PER_WORD
+			  && trunc_int_for_mode (c1, tmode) == (HOST_WIDE_INT) c1)
 #endif
 		      || (mode_width <= GET_MODE_PRECISION (tmode)
 			  && subreg_lowpart_p (XEXP (op0, 0))))
-		  && CONST_INT_P (XEXP (op0, 1))
 		  && mode_width <= HOST_BITS_PER_WIDE_INT
 		  && HWI_COMPUTABLE_MODE_P (tmode)
-		  && ((c1 = INTVAL (XEXP (op0, 1))) & ~mask) == 0
+		  && (c1 & ~mask) == 0
 		  && (c1 & ~GET_MODE_MASK (tmode)) == 0
 		  && c1 != mask
 		  && c1 != GET_MODE_MASK (tmode))

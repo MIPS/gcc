@@ -34,8 +34,9 @@
    %{static:-Bstatic}				\
    %{shared:-shared}				\
    %{symbolic:-Bsymbolic}			\
-   %{rdynamic:-export-dynamic}			\
-   -dynamic-linker " GNU_USER_DYNAMIC_LINKER "	\
+   %{!static:					\
+     %{rdynamic:-export-dynamic}		\
+     %{!shared:-dynamic-linker " GNU_USER_DYNAMIC_LINKER "}} \
    -X						\
    %{mbig-endian:-EB} %{mlittle-endian:-EL}     \
    -maarch64linux%{mbig-endian:b}"
@@ -59,8 +60,6 @@
 #define LINK_SPEC LINUX_TARGET_LINK_SPEC \
                   CA53_ERR_835769_SPEC \
                   CA53_ERR_843419_SPEC
-
-#define LINK_SPEC LINUX_TARGET_LINK_SPEC
 
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\

@@ -562,7 +562,6 @@ poplevel (int keep, int reverse, int functionbody)
   cp_label_binding *label_bind;
 
   bool subtime = timevar_cond_start (TV_NAME_LOOKUP);
-
  restart:
 
   block = NULL_TREE;
@@ -871,7 +870,7 @@ walk_namespaces (walk_namespaces_fn f, void* data)
    wrapup_global_declarations for this NAMESPACE.  */
 
 int
-wrapup_globals_for_namespace (tree name_space, void *data)
+wrapup_globals_for_namespace (tree name_space, void* data)
 {
   cp_binding_level *level = NAMESPACE_LEVEL (name_space);
   vec<tree, va_gc> *statics = level->static_decls;
@@ -1790,6 +1789,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
       DECL_INVALID_OVERRIDER_P (newdecl) |= DECL_INVALID_OVERRIDER_P (olddecl);
+      DECL_FINAL_P (newdecl) |= DECL_FINAL_P (olddecl);
+      DECL_OVERRIDE_P (newdecl) |= DECL_OVERRIDE_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -6247,7 +6248,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       if (TREE_CODE (d_init) == TREE_LIST)
 	d_init = build_x_compound_expr_from_list (d_init, ELK_INIT,
 						  tf_warning_or_error);
-      d_init = resolve_nondeduced_context (d_init);
+      d_init = resolve_nondeduced_context (d_init, tf_warning_or_error);
       type = TREE_TYPE (decl) = do_auto_deduction (type, d_init,
 						   auto_node);
       if (type == error_mark_node)
@@ -7162,7 +7163,8 @@ cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 
   /* Don't get confused by a CONSTRUCTOR for some other type.  */
   if (initial_value && TREE_CODE (initial_value) == CONSTRUCTOR
-      && !BRACE_ENCLOSED_INITIALIZER_P (initial_value))
+      && !BRACE_ENCLOSED_INITIALIZER_P (initial_value)
+      && TREE_CODE (TREE_TYPE (initial_value)) != ARRAY_TYPE)
     return 1;
 
   if (initial_value)
@@ -10472,7 +10474,7 @@ grokdeclarator (const cp_declarator *declarator,
       }
     else if (decl_context == FIELD)
       {
-	if (!staticp && TREE_CODE (type) != METHOD_TYPE
+	if (!staticp && !friendp && TREE_CODE (type) != METHOD_TYPE
 	    && type_uses_auto (type))
 	  {
 	    error ("non-static data member declared %<auto%>");
@@ -13692,15 +13694,18 @@ begin_destructor_body (void)
       finish_compound_stmt (compound_stmt);
 
       if (flag_lifetime_dse)
-        {
-          /* Insert a cleanup to let the back end know that the object is dead
-             when we exit the destructor, either normally or via exception.  */
-          tree clobber = build_constructor (current_class_type, NULL);
-          TREE_THIS_VOLATILE (clobber) = true;
-          tree exprstmt = build2 (MODIFY_EXPR, current_class_type,
-                                  current_class_ref, clobber);
-          finish_decl_cleanup (NULL_TREE, exprstmt);
-        }
+	{
+	  /* Insert a cleanup to let the back end know that the object is dead
+	     when we exit the destructor, either normally or via exception.  */
+	  tree btype = CLASSTYPE_AS_BASE (current_class_type);
+	  tree clobber = build_constructor (btype, NULL);
+	  TREE_THIS_VOLATILE (clobber) = true;
+	  tree bref = build_nop (build_reference_type (btype),
+				 current_class_ptr);
+	  bref = convert_from_reference (bref);
+	  tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
+	  finish_decl_cleanup (NULL_TREE, exprstmt);
+	}
 
       /* And insert cleanups for our bases and members so that they
 	 will be properly destroyed if we throw.  */

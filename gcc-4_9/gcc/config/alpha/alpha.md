@@ -3754,7 +3754,8 @@
 
 ;; BUGCHK is documented common to OSF/1 and VMS PALcode.
 (define_insn "trap"
-  [(trap_if (const_int 1) (const_int 0))]
+  [(trap_if (const_int 1) (const_int 0))
+   (use (reg:DI 29))]
   ""
   "call_pal 0x81"
   [(set_attr "type" "callpal")])
@@ -4496,8 +4497,8 @@
 (define_insn_and_split "reload_out<mode>_aligned"
   [(set (match_operand:I12MODE 0 "memory_operand" "=m")
         (match_operand:I12MODE 1 "register_operand" "r"))
-   (clobber (match_operand:SI 2 "register_operand" "=r"))
-   (clobber (match_operand:SI 3 "register_operand" "=r"))]
+   (clobber (match_operand:SI 2 "register_operand" "=&r"))
+   (clobber (match_operand:SI 3 "register_operand" "=&r"))]
   "!TARGET_BWX && (reload_in_progress || reload_completed)"
   "#"
   "!TARGET_BWX && reload_completed"
@@ -5174,7 +5175,7 @@
   "TARGET_ABI_OSF"
 {
   if (TARGET_EXPLICIT_RELOCS)
-    return "ldah $29,0($26)\t\t!gpdisp!%*\;lda $29,0($29)\t\t!gpdisp!%*";
+    return "#";
   else
     return "ldgp $29,0($26)";
 }
