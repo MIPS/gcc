@@ -8160,7 +8160,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 
       if ((purpose == COPY_ALLOC_COMP || purpose == COPY_ONLY_ALLOC_COMP)
 	  && (caf_mode & GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY) == 0)
-        {
+	{
 	  tmp = build_fold_indirect_ref_loc (input_location,
 					 gfc_conv_array_data (dest));
 	  dref = gfc_build_array_ref (tmp, index, NULL);
@@ -8168,7 +8168,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				       COPY_ALLOC_COMP, 0);
 	}
       else
-        tmp = structure_alloc_comps (der_type, vref, NULL_TREE, rank, purpose,
+	tmp = structure_alloc_comps (der_type, vref, NULL_TREE, rank, purpose,
 				     caf_mode);
 
       gfc_add_expr_to_block (&loopbody, tmp);
@@ -8245,12 +8245,12 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	    {
 	      /* Allocatable arrays or coarray'ed components (scalar or
 		 array).  */
-	      int caf_dereg_mode =
-		  ((caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0
-		   || c->attr.codimension)
+	      int caf_dereg_mode
+		  = ((caf_mode & GFC_STRUCTURE_CAF_MODE_IN_COARRAY) != 0
+		  || c->attr.codimension)
 		  ? ((caf_mode & GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY) != 0
-		     ? GFC_CAF_COARRAY_DEALLOCATE_ONLY
-		     : GFC_CAF_COARRAY_DEREGISTER)
+		  ? GFC_CAF_COARRAY_DEALLOCATE_ONLY
+		  : GFC_CAF_COARRAY_DEREGISTER)
 		  : GFC_CAF_COARRAY_NOCOARRAY;
 	      if (comp == NULL_TREE)
 		comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
@@ -8399,7 +8399,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 				      TREE_TYPE (tmp), comp, tmp, NULL_TREE);
 
 	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (comp)))
-	        tmp = gfc_trans_dealloc_allocated (comp, NULL,
+		tmp = gfc_trans_dealloc_allocated (comp, NULL,
 						CLASS_DATA (c)->attr.codimension
 						? GFC_CAF_COARRAY_DEREGISTER
 						: GFC_CAF_COARRAY_NOCOARRAY);
@@ -8570,7 +8570,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 					  GFC_CAF_COARRAY_ALLOC_REGISTER_ONLY);
 	    }
 
-          if (cmp_has_alloc_comps)
+	  if (cmp_has_alloc_comps)
 	    {
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);

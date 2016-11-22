@@ -50,7 +50,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define STAT_STOPPED_IMAGE 	6000
 #endif
 
-/* Describes what type of array we are registerring. Keep in sync with
+/* Describes what type of array we are registerring.  Keep in sync with
    gcc/fortran/trans.h.  */
 typedef enum caf_register_t {
   CAF_REGTYPE_COARRAY_STATIC,
@@ -65,7 +65,7 @@ typedef enum caf_register_t {
 }
 caf_register_t;
 
-/* Describes the action to take on _caf_deregister. Keep in sync with
+/* Describes the action to take on _caf_deregister.  Keep in sync with
    gcc/fortran/trans.h.  */
 typedef enum caf_deregister_t {
   CAF_DEREGTYPE_COARRAY_DEREGISTER,

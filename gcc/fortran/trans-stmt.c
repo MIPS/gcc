@@ -6433,9 +6433,9 @@ gfc_trans_deallocate (gfc_code *code)
 
 	      /* When the expression to deallocate is referencing a
 		 component, then only deallocate it, but do not deregister.  */
-	      caf_mode = GFC_STRUCTURE_CAF_MODE_IN_COARRAY |
-		  (comp_ref && !caf_attr.coarray_comp
-		   ? GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY : 0);
+	      caf_mode = GFC_STRUCTURE_CAF_MODE_IN_COARRAY
+		  | (comp_ref && !caf_attr.coarray_comp
+		     ? GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY : 0);
 	    }
 	}
       else if (flag_coarray == GFC_FCOARRAY_SINGLE)
@@ -6481,14 +6481,14 @@ gfc_trans_deallocate (gfc_code *code)
 	      gfc_coarray_deregtype caf_dtype;
 
 	      if (is_coarray)
-		caf_dtype = (caf_mode & GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY) == 0
+		caf_dtype
+		    = (caf_mode & GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY) == 0
 		    ? GFC_CAF_COARRAY_DEREGISTER
 		    : GFC_CAF_COARRAY_DEALLOCATE_ONLY;
 	      else
 		caf_dtype = GFC_CAF_COARRAY_NOCOARRAY;
 	      tmp = gfc_array_deallocate (se.expr, pstat, errmsg, errlen,
-				          label_finish, expr,
-					  caf_dtype);
+					  label_finish, expr, caf_dtype);
 	      gfc_add_expr_to_block (&se.pre, tmp);
 	    }
 	  else if (TREE_CODE (se.expr) == COMPONENT_REF

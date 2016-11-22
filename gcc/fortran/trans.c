@@ -1298,7 +1298,7 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
       if (coarray_dealloc_mode == GFC_CAF_COARRAY_ANALYZE)
 	{
 	  bool comp_ref;
-	  if (expr && !gfc_caf_attr(expr, false, &comp_ref).coarray_comp
+	  if (expr && !gfc_caf_attr (expr, false, &comp_ref).coarray_comp
 	      && comp_ref)
 	    caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
 	  // else do a deregister as set by default.
@@ -1538,13 +1538,14 @@ gfc_deallocate_scalar_with_status (tree pointer, tree status, tree label_finish,
 	  tree cond2;
 
 	  cond2 = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
-				   status, build_int_cst (TREE_TYPE (status), 0));
+				   status,
+				   build_int_cst (TREE_TYPE (status), 0));
 	  tmp = fold_build2_loc (input_location, MODIFY_EXPR, status_type,
 				 fold_build1_loc (input_location, INDIRECT_REF,
 						  status_type, status),
 				 build_int_cst (status_type, 0));
-	  tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node, cond2,
-				 tmp, build_empty_stmt (input_location));
+	  tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
+				 cond2, tmp, build_empty_stmt (input_location));
 	  gfc_add_expr_to_block (&non_null, tmp);
 	}
     }
@@ -1571,7 +1572,7 @@ gfc_deallocate_scalar_with_status (tree pointer, tree status, tree label_finish,
 				 pstat, null_pointer_node, integer_zero_node);
       gfc_add_expr_to_block (&non_null, tmp);
 
-      /* It guarantees memory consistency within the same segment */
+      /* It guarantees memory consistency within the same segment.  */
       tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
       tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
 			gfc_build_string_const (1, ""), NULL_TREE, NULL_TREE,

@@ -121,13 +121,13 @@ enum gfc_coarray_regtype
 };
 
 
-/* Describes the action to take on _caf_deregister. Keep in sync with
+/* Describes the action to take on _caf_deregister.  Keep in sync with
    gcc/fortran/trans.h.  The negative values are not valid for the library and
    are used by the drivers for building the correct call.  */
 enum gfc_coarray_deregtype {
-  /* This is no coarray, i.e. build a call to a free().  */
+  /* This is no coarray, i.e. build a call to a free ().  */
   GFC_CAF_COARRAY_NOCOARRAY = -2,
-  /* The driver is to analyze which _caf_deregister()-call to generate.  */
+  /* The driver is to analyze which _caf_deregister ()-call to generate.  */
   GFC_CAF_COARRAY_ANALYZE = -1,
   GFC_CAF_COARRAY_DEREGISTER = 0,
   GFC_CAF_COARRAY_DEALLOCATE_ONLY
@@ -156,7 +156,7 @@ enum gfc_caf_array_ref_t {
 };
 
 
-/* trans-array(structure_alloc_comps) caf_mode bits.  */
+/* trans-array (structure_alloc_comps) caf_mode bits.  */
 enum gfc_structure_caf_mode_t {
   GFC_STRUCTURE_CAF_MODE_ENABLE_COARRAY = 1 << 0,
   GFC_STRUCTURE_CAF_MODE_IN_COARRAY = 1 << 1,
