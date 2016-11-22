@@ -783,7 +783,7 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size,
   tree tmp, null_mem, alloc, error;
   tree type = TREE_TYPE (mem);
   symbol_attribute caf_attr;
-  bool need_assign = false;
+  bool need_assign = false, refs_comp = false;
   gfc_coarray_regtype caf_alloc_type = GFC_CAF_COARRAY_ALLOC;
 
   size = fold_convert (size_type_node, size);
@@ -797,7 +797,7 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size,
   gfc_start_block (&alloc_block);
 
   if (flag_coarray == GFC_FCOARRAY_LIB)
-    caf_attr = gfc_caf_attr (expr, true);
+    caf_attr = gfc_caf_attr (expr, true, &refs_comp);
 
   if (flag_coarray == GFC_FCOARRAY_LIB
       && (corank > 0 || caf_attr.codimension))
@@ -820,7 +820,9 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size,
 	  compute_special_caf_types_size = true;
 	  caf_alloc_type = GFC_CAF_EVENT_ALLOC;
 	}
-      else if (gfc_is_coarray_sub_component (expr))
+      else if (!caf_attr.coarray_comp && refs_comp)
+	/* Only allocatable components in a derived type coarray can be
+	   allocate only.  */
 	caf_alloc_type = GFC_CAF_COARRAY_ALLOC_ALLOCATE_ONLY;
 
       gfc_init_se (&se, NULL);
@@ -1295,7 +1297,9 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
       STRIP_NOPS (pointer);
       if (coarray_dealloc_mode == GFC_CAF_COARRAY_ANALYZE)
 	{
-	  if (expr && gfc_is_coarray_sub_component (expr))
+	  bool comp_ref;
+	  if (expr && !gfc_caf_attr(expr, false, &comp_ref).coarray_comp
+	      && comp_ref)
 	    caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
 	  // else do a deregister as set by default.
 	}
@@ -1460,10 +1464,11 @@ gfc_deallocate_scalar_with_status (tree pointer, tree status, tree label_finish,
 {
   stmtblock_t null, non_null;
   tree cond, tmp, error;
-  bool finalizable;
+  bool finalizable, comp_ref;
   gfc_coarray_deregtype caf_dereg_type = GFC_CAF_COARRAY_DEREGISTER;
 
-  if (coarray && expr && gfc_is_coarray_sub_component (expr))
+  if (coarray && expr && !gfc_caf_attr (expr, false, &comp_ref).coarray_comp
+      && comp_ref)
     caf_dereg_type = GFC_CAF_COARRAY_DEALLOCATE_ONLY;
 
   cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node, pointer,

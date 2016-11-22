@@ -7968,8 +7968,8 @@ gfc_duplicate_allocatable_nocopy (tree dest, tree src, tree type, int rank)
 
 
 static tree
-duplicate_allocatable_coarray (tree dest, tree dest_tok, tree src, tree src_tok,
-			       tree type, int rank, int caf_mode)
+duplicate_allocatable_coarray (tree dest, tree dest_tok, tree src,
+			       tree type, int rank)
 {
   tree tmp;
   tree size;
@@ -7992,9 +7992,6 @@ duplicate_allocatable_coarray (tree dest, tree dest_tok, tree src, tree src_tok,
       gfc_init_se (&se, NULL);
       dummy_desc = gfc_conv_scalar_to_descriptor (&se, dest, attr);
       gfc_add_block_to_block (&globalblock, &se.pre);
-      //      if (str_sz != NULL_TREE)
-      //	size = str_sz;
-      //      else
       size = TYPE_SIZE_UNIT (TREE_TYPE (type));
 
       gfc_add_modify (&block, dest, fold_convert (type, null_pointer_node));
@@ -8006,22 +8003,16 @@ duplicate_allocatable_coarray (tree dest, tree dest_tok, tree src, tree src_tok,
 
       gfc_init_block (&block);
 
-//      if (!no_malloc)
-//	{
       gfc_allocate_using_caf_lib (&block, dummy_desc,
 				  fold_convert (size_type_node, size),
 				  gfc_build_addr_expr (NULL_TREE, dest_tok),
 				  NULL_TREE, NULL_TREE, NULL_TREE,
 				  GFC_CAF_COARRAY_ALLOC);
-//	}
 
-//      if (!no_memcpy)
-//	{
-	  tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
-	  tmp = build_call_expr_loc (input_location, tmp, 3, dest, src,
-				     fold_convert (size_type_node, size));
-	  gfc_add_expr_to_block (&block, tmp);
-//	}
+      tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
+      tmp = build_call_expr_loc (input_location, tmp, 3, dest, src,
+				 fold_convert (size_type_node, size));
+      gfc_add_expr_to_block (&block, tmp);
     }
   else
     {
@@ -8034,11 +8025,8 @@ duplicate_allocatable_coarray (tree dest, tree dest_tok, tree src, tree src_tok,
       else
 	nelems = integer_one_node;
 
-//      if (str_sz != NULL_TREE)
-//	tmp = fold_convert (gfc_array_index_type, str_sz);
-//      else
-	tmp = fold_convert (size_type_node,
-			    TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+      tmp = fold_convert (size_type_node,
+			  TYPE_SIZE_UNIT (gfc_get_element_type (type)));
       size = fold_build2_loc (input_location, MULT_EXPR, size_type_node,
 			      fold_convert (size_type_node, nelems), tmp);
 
@@ -8051,33 +8039,24 @@ duplicate_allocatable_coarray (tree dest, tree dest_tok, tree src, tree src_tok,
       null_data = gfc_finish_block (&block);
 
       gfc_init_block (&block);
-//      if (!no_malloc)
-//	{
       gfc_allocate_using_caf_lib (&block, dest,
 				  fold_convert (size_type_node, size),
 				  gfc_build_addr_expr (NULL_TREE, dest_tok),
 				  NULL_TREE, NULL_TREE, NULL_TREE,
 				  GFC_CAF_COARRAY_ALLOC);
-//	}
 
-      /* We know the temporary and the value will be the same length,
-	 so can use memcpy.  */
-//      if (!no_memcpy)
-//	{
-	  tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
-	  tmp = build_call_expr_loc (input_location, tmp, 3,
-				     gfc_conv_descriptor_data_get (dest),
-				     gfc_conv_descriptor_data_get (src),
-				     fold_convert (size_type_node, size));
-	  gfc_add_expr_to_block (&block, tmp);
-//	}
+      tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
+      tmp = build_call_expr_loc (input_location, tmp, 3,
+				 gfc_conv_descriptor_data_get (dest),
+				 gfc_conv_descriptor_data_get (src),
+				 fold_convert (size_type_node, size));
+      gfc_add_expr_to_block (&block, tmp);
     }
 
-//  gfc_add_expr_to_block (&block, add_when_allocated);
   tmp = gfc_finish_block (&block);
 
   /* Null the destination if the source is null; otherwise do
-     the allocate and copy.  */
+     the register and copy.  */
   if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (src)))
     null_cond = src;
   else
@@ -8331,10 +8310,6 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      tree is_allocated;
 	      tree ubound;
 	      tree cdesc;
-	      tree zero = gfc_index_zero_node;
-	      // TODO: DELETE: build_int_cst (gfc_array_index_type, 0);
-	      tree unity = gfc_index_one_node;
-	      // TODO: DELETE: build_int_cst (gfc_array_index_type, 1);
 	      tree data;
 	      stmtblock_t dealloc_block;
 
@@ -8356,8 +8331,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 		  ubound = build_int_cst (gfc_array_index_type, 1);
 		}
 
-	      cdesc = gfc_get_array_type_bounds (tmp, 1, 0,
-						 &unity, &ubound, 1,
+	      cdesc = gfc_get_array_type_bounds (tmp, 1, 0, &gfc_index_one_node,
+						 &ubound, 1,
 						 GFC_ARRAY_ALLOCATABLE, false);
 
 	      cdesc = gfc_create_var (cdesc, "cdesc");
@@ -8366,11 +8341,13 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      gfc_add_modify (&dealloc_block, gfc_conv_descriptor_dtype (cdesc),
 			      gfc_get_dtype_rank_type (1, tmp));
 	      gfc_conv_descriptor_lbound_set (&dealloc_block, cdesc,
-					      zero, unity);
+					      gfc_index_zero_node,
+					      gfc_index_one_node);
 	      gfc_conv_descriptor_stride_set (&dealloc_block, cdesc,
-					      zero, unity);
+					      gfc_index_zero_node,
+					      gfc_index_one_node);
 	      gfc_conv_descriptor_ubound_set (&dealloc_block, cdesc,
-					      zero, ubound);
+					      gfc_index_zero_node, ubound);
 
 	      if (c->attr.dimension)
 		data = gfc_conv_descriptor_data_get (comp);
@@ -8775,8 +8752,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 							  c->caf_token,
 							  NULL_TREE);
 		  tmp = duplicate_allocatable_coarray (dcmp, dst_tok, comp,
-						       NULL_TREE, ctype, rank,
-						       caf_mode);
+						       ctype, rank);
 		}
 	      else
 		tmp = gfc_duplicate_allocatable (dcmp, comp, ctype, rank,

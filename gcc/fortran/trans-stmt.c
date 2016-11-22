@@ -6423,17 +6423,19 @@ gfc_trans_deallocate (gfc_code *code)
 
       if (flag_coarray == GFC_FCOARRAY_LIB)
 	{
-	  symbol_attribute caf_attr = gfc_caf_attr (expr);
+	  bool comp_ref;
+	  symbol_attribute caf_attr = gfc_caf_attr (expr, false, &comp_ref);
 	  if (caf_attr.codimension)
 	    {
-	      bool ref_to_component = gfc_is_coarray_sub_component (al->expr);
 	      is_coarray = true;
-	      is_coarray_array = caf_attr.dimension || !ref_to_component;
+	      is_coarray_array = caf_attr.dimension || !comp_ref
+		  || caf_attr.coarray_comp;
 
 	      /* When the expression to deallocate is referencing a
 		 component, then only deallocate it, but do not deregister.  */
 	      caf_mode = GFC_STRUCTURE_CAF_MODE_IN_COARRAY |
-		  (ref_to_component ? GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY : 0);
+		  (comp_ref && !caf_attr.coarray_comp
+		   ? GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY : 0);
 	    }
 	}
       else if (flag_coarray == GFC_FCOARRAY_SINGLE)
@@ -6443,7 +6445,8 @@ gfc_trans_deallocate (gfc_code *code)
 	{
 	  gfc_ref *ref;
 
-	  if (gfc_bt_struct (expr->ts.type) && expr->ts.u.derived->attr.alloc_comp
+	  if (gfc_bt_struct (expr->ts.type)
+	      && expr->ts.u.derived->attr.alloc_comp
 	      && !gfc_is_finalizable (expr->ts.u.derived, NULL))
 	    {
 	      gfc_ref *last = NULL;
@@ -6457,8 +6460,8 @@ gfc_trans_deallocate (gfc_code *code)
 	      if (!(last && last->u.c.component->attr.pointer)
 		    && !(!last && expr->symtree->n.sym->attr.pointer))
 		{
-		  if (is_coarray && (!last
-				     || !last->u.c.component->attr.dimension))
+		  if (is_coarray && expr->rank == 0
+		      && (!last || !last->u.c.component->attr.dimension))
 		    {
 		      /* Add the ref to the data member only, when this is not
 			 a regular array or deallocate_alloc_comp will try to
