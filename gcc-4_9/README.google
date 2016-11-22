@@ -1,0 +1,158 @@
+Patches applied to google/gcc-4_9.
+
+Please include a change to this file with each patch, *and* each
+subsequent modification of the patch.  Do NOT combine patch
+checkins, keep them separate.
+
+Append new entries to the end of this file. Each entry shall include:
+ * The list of files modified by the patch,
+ * The status of the patch. Should be one of:
+   - already upstream (indicate upstream revision),
+   - not yet upstream, or
+   - google-local (not applicable upstream).
+ * The local 'owner' responsible for the patch, and
+ * A description of the patch (preferably including bug numbers).
+
+Please include entries for both local patches and for patches which
+have been checked in to (or back-ported from) the upstream sources.
+When checking in changes made upstream, add an entry to this file but
+DO NOT add entries to the GNU ChangeLog files.
+
+libgcc/Makefile.in
+  Build libgcc with -ffp-contract=on, which is standard conforming.
+  (timshen, google-local)
+
+libstdc++-v3/include/bits/hashtable.h
+  Avoid calling memset via _Hashtable::clear() from _Hashtable::~_Hashtable.
+  (ckennelly, google-local)
+
+gcc/google/gcc-4_9/gcc/gcov.c
+gcc/google/gcc-4_9/gcc/config/aarch64/aarch64.c
+gcc/google/gcc-4_9/gcc/config/arm/arm.c
+gcc/google/gcc-4_9/gcc/config/i386/i386.c
+gcc/google/gcc-4_9/gcc/cp/decl.c
+gcc/google/gcc-4_9/gcc/cp/decl2.c
+gcc/google/gcc-4_9/gcc/cp/init.c
+  Adjust whitespace to match upstream GCC 4.9, to make diffs cleaner.
+  (bmoses, already upstream)
+
+gcc/config/aarch64/aarch64-linux.h
+  Fix a bad merge from upstream that caused us to omit Cortex-A53 fixes.
+  (bmoses, already upstream)
+
+[971 files, not listed individually]
+  Bulk integrate from upstream GCC 4.9.4 release.
+  (bmoses, already upstream)
+
+libstdc++-v3/include/Makefile.am
+libstdc++-v3/include/Makefile.in
+libstdc++-v3/include/c_google/cctype
+libstdc++-v3/include/c_google/clocale
+libstdc++-v3/include/c_google/cmath
+libstdc++-v3/include/c_google/csetjmp
+libstdc++-v3/include/c_google/csignal
+libstdc++-v3/include/c_google/cstdio
+libstdc++-v3/include/c_google/cstdlib
+libstdc++-v3/include/c_google/cstring
+libstdc++-v3/include/c_google/ctime
+libstdc++-v3/include/c_google/ctype.h
+libstdc++-v3/include/c_google/cwchar
+libstdc++-v3/include/c_google/cwctype
+libstdc++-v3/include/c_google/locale.h
+libstdc++-v3/include/c_google/math.h
+libstdc++-v3/include/c_google/setjmp.h
+libstdc++-v3/include/c_google/signal.h
+libstdc++-v3/include/c_google/stdio.h
+libstdc++-v3/include/c_google/stdlib.h
+libstdc++-v3/include/c_google/string.h
+libstdc++-v3/include/c_google/time.h
+libstdc++-v3/include/c_google/wchar.h
+libstdc++-v3/include/c_google/wctype.h
+  Move logic for fixing up C headers when included in C++ code into wrapper
+  headers, for C headers not provided by the C++ standard library.
+  (chandlerc, google-local)
+
+libstdc++-v3/include/c_google/math.h
+  Integrate a fix for ::signbit from the 4.9.4 bulk merge into the c_google
+  header set.
+  (bmoses, google-local)
+
+libstdc++-v3/include/tr1/complex
+libstdc++-v3/testsuite/26_numerics/headers/cmath/60637.cc
+libstdc++-v3/testsuite/26_numerics/headers/cmath/c99_classification_macros_c++.cc
+libstdc++-v3/testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc
+  Fix up erroneous usage of std:: functions in C++98 mode that we now no longer
+  support, and de-xfail a now-passing test.
+  (bmoses, google-local)
+
+gcc/config/rs6000/rs6000.c
+  Remove erroneously-added TARGET_RELAXED_ORDERING block from 4.9.4 bulk merge.
+  (bmoses, already upstream)
+
+gcc/config/aarch64/aarch64.c
+gcc/testsuite/g++.dg/abi/aarch64_guard1.C
+libstdc++-v3/configure.host
+libstdc++-v3/config/cpu/aarch64/atomic_word.h
+  Revert the import of r224524 from upstream 4.9 branch (which was part of the
+  bulk integrate from 4.9.4), as it is incompatible with our backport of
+  r224118 from trunk.
+  (bmoses, already upstream)
+
+libstdc++-v3/config/cpu/generic/atomic_word.h
+libstdc++-v3/include/bits/shared_ptr_base.h
+libstdc++-v3/include/ext/atomicity.h
+libstdc++-v3/include/tr1/shared_ptr.h
+libstdc++-v3/libsupc++/guard.cc
+libstdc++-v3/testsuite/20_util/shared_ptr/cons/43820_neg.cc
+libstdc++-v3/testsuite/20_util/shared_ptr/cons/void_neg.cc
+libstdc++-v3/testsuite/tr1/2_general_utilities/shared_ptr/cons/43820_neg.cc
+  Backport r224411 from trunk, replacing the libstdc++ atomic support for
+  aarch64 that was removed in the previous reversion (and providing general
+  improvements to the implementation).
+  (bmoses, already upstream)
+
+contrib/testsuite-management/aarch64-grtev4-linux-gnu.xfail
+contrib/testsuite-management/powerpc64le-grtev4-linux-gnu.xfail
+  Remove no-longer-failing tests from ARM and PPC xfail files.
+  (bmoses, google-local)
+
+gcc/config/rs6000/vector.md
+  Correct inverted vector_uneq pattern.
+  (carrot, not yet upstream)
+
+libgcc/config.host
+  Replace an odd bit of an upstream merge.
+  (bmoses, already upstream)
+
+libstdc++-v3/include/bits/regex_compiler.tcc
+libstdc++-v3/include/bits/regex_scanner.h
+libstdc++-v3/include/bits/regex_scanner.tcc
+libstdc++-v3/testsuite/28_regex/regression.cc
+  Backport fix to support escape in regex bracket expression.
+  https://gcc.gnu.org/ml/libstdc++/2016-08/msg00151.html
+  (timshen, already upstream)
+
+libstdc++-v3/testsuite/29_atomics/atomic/cons/user_pod.cc
+libstdc++-v3/testsuite/29_atomics/atomic_flag/test_and_set/explicit-hle.cc
+contrib/testsuite-management/x86_64-grtev4-linux-gnu.xfail
+  Hardcode a couple of atomic tests to use -O2.
+  (bmoses, google-local)
+
+libstdc++-v3/include/std/array
+libstdc++-v3/testsuite/23_containers/array/tuple_interface/get_neg.cc
+libstdc++-v3/testsuite/23_containers/array/tuple_interface/tuple_element_neg.cc
+  Fix __google_stl_debug_array implementation after bulk 4.9.4 merge.
+  (bmoses, google-local)
+
+libstdc++-v3/include/std/array
+  Fix __google_stl_debug_array implementation better.
+  (bmoses, google-local)
+
+libstdc++-v3/include/ext/sso_string_base.h
+libstdc++-v3/testsuite/ext/vstring/capacity/shrink_to_fit.cc
+  Round up sso_string buffer to a multiple of 16 bytes.
+  (dvyukov, google-local, b/29107032)
+
+libstdc++-v3/include/debug/array
+  Fix debug version of std::swap(std::array).
+  (bmoses, google-local, b/32284447)
