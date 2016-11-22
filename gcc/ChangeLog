@@ -1,3 +1,182 @@
+2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config.gcc: Allow new rmprofile value for configure option
+	--with-multilib-list.
+	* config/arm/t-rmprofile: New file.
+	* doc/install.texi (--with-multilib-list): Document new rmprofile value
+	for ARM.
+
+2016-11-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/78439
+	* config/arm/vfp.md (*movdi_vfp_cortexa8): Use 'q' constraints for the
+	register operand in alternatives 4,5,6.
+
+2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR target/77904
+	* config/arm/arm.c (thumb1_compute_save_reg_mask): Mark frame pointer
+	in save register mask if it is needed.
+
+2016-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/78436
+	* gimple-ssa-store-merging.c (zero_char_buf): Removed.
+	(shift_bytes_in_array, shift_bytes_in_array_right,
+	merged_store_group::apply_stores): Formatting fixes.
+	(clear_bit_region): Likewise.  Use memset.
+	(encode_tree_to_bitpos): Formatting fixes.  Fix comment typos - EPXR
+	instead of EXPR and inerted instead of inserted.  Use memset instead
+	of zero_char_buf.  For !BYTES_BIG_ENDIAN decrease byte_size by 1
+	if shift_amnt is 0.
+
+	PR middle-end/78416
+	* expmed.c (expand_divmod): Use wide_int for computation of
+	op1_is_pow2.  Don't set it if op1 is 0.  Formatting fixes.
+	Use size <= HOST_BITS_PER_WIDE_INT instead of
+	HOST_BITS_PER_WIDE_INT >= size.
+
+	PR tree-optimization/78445
+	* tree-if-conv.c (tree_if_conversion): If any_pred_load_store or
+	any_complicated_phi, version loop even if flag_tree_loop_if_convert is
+	1.  Formatting fix.
+
+2016-11-22  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/78309
+	* ipa-icf.c (void sem_item::set_hash): Update m_hash_set.
+	(sem_function::get_hash): Use the new field.
+	(sem_function::parse): Remove an argument from ctor.
+	(sem_variable::parse): Likewise.
+	(sem_variable::get_hash): Use the new field.
+	(sem_item_optimizer::read_section): Use new ctor and set hash.
+	* ipa-icf.h: _hash is removed from sem_item::sem_item,
+	sem_variable::sem_variable, sem_function::sem_function.
+
+2016-11-21  Jeff Law  <law@redhat.com>
+
+	PR target/68538
+	* config/cris/cris.md: Don't call copy_to_mode_reg unless
+	can_create_pseudo_p is true.
+
+2016-11-21  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/68803
+	* config/rs6000/rs6000.md (*rotlsi3_insert_5, *rotldi3_insert_6,
+	*rotldi3_insert_7): New define_insns.
+
+2016-11-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (movdi_internal32): Change constraints
+	so that DImode can be allocated to FP/vector registers in more
+	cases, and we can avoid direct move operations.  If the register
+	needs reloading, prefer GPRs over FP/vector registers.  In the
+	case of FPR vs. Altivec registers, prefer FPR registers unless we
+	have the ISA 3.0 reg+offset scalar instructions.
+	(movdi_internal64): Likewise.
+
+2016-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/67335
+	* omp-simd-clone.c (simd_clone_adjust_argument_types): Use NULL prefix
+	for tmp simd array if DECL_NAME (parm) is NULL.
+
+2016-11-20  Jeff Law  <law@redhat.com>
+
+	PR target/25128
+	* config/m68k/predicates.md (swap_peephole_relational_operator): New
+	predicate.
+	* config/m68k/m68k.md (relational tests against 65535/65536): New
+	peephole2.
+
+2016-11-21  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* tree-ssa-loop-prefetch.c: Delete FIXME after the includes.
+
+2016-11-21  Martin Sebor  <msebor@redhat.com>
+
+	* doc/invoke.texi (-fprintf-return-value): Document that option
+	is enabled by default.
+
+2016-11-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr-c.c (avr_register_target_pragmas): Use C++
+	for-loop declaration of loop variable.
+	(avr_register_target_pragmas, avr_cpu_cpp_builtins): Same.
+	* config/avr/avr.c (avr_popcount_each_byte)
+	(avr_init_expanders, avr_regs_to_save, sequent_regs_live)
+	(get_sequence_length, avr_prologue_setup_frame, avr_map_metric)
+	(avr_expand_epilogue, avr_function_arg_advance)
+	(avr_out_compare, avr_out_plus_1, avr_out_bitop, avr_out_fract)
+	(avr_rotate_bytes, _reg_unused_after, avr_assemble_integer)
+	(avr_adjust_reg_alloc_order, output_reload_in_const)
+	(avr_conditional_register_usage, avr_find_unused_d_reg)
+	(avr_map_decompose, avr_fold_builtin): Same.
+
+2016-11-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (avr_popcount): Remove static function.
+	(avr_popcount_each_byte, avr_out_bitop): Use popcount_hwi instead.
+
+2016-11-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.opt (mapcs-float): Delete option.
+	* arm.c (arm_option_override): Remove hunk relating to
+	TARGET_APCS_FLOAT.
+	* doc/invoke.texi (arm options): Remove documentation for -mapcs-float.
+
+2016-11-21  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-tailcall.c (process_assignment): Simplify the check for
+	a valid copy, allowing the source to be a local variable as
+	well as an SSA name.
+	(find_tail_calls): Allow copies between local variables to follow
+	the call.  Allow the result to be stored in any local variable,
+	even if it's an aggregate.
+	(eliminate_tail_call): Check whether the result is an SSA name
+	before updating its SSA_NAME_DEF_STMT.
+
+2016-11-21  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/78324
+	* input.c (get_substring_ranges_for_loc): Fail gracefully if
+	-ftrack-macro-expansion has a value other than 2.
+
+2016-11-21  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/78400
+	* shrink-wrap.c (try_shrink_wrapping_separate): Call
+	df_update_entry_exit_and_calls instead of df_update_entry_block_defs
+	and df_update_exit_block_uses.
+
+2016-11-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/71973
+	* doc/invoke.texi (-Wno-builtin-declaration-mismatch): Document the
+	new default-enabled warning..
+	* builtin-types.def (BT_CONST_TM_PTR): New primitive type.
+	(BT_PTR_CONST_STRING): Updated.
+	(BT_FN_SIZE_STRING_SIZE_CONST_STRING_CONST_PTR): Removed.
+	(BT_FN_SIZE_STRING_SIZE_CONST_STRING_CONST_TM_PTR): New function type.
+	* builtins.def (DEF_TM_BUILTIN): Disable BOTH_P for TM builtins.
+	(strftime): Update builtin function.
+	* tree-core.h (TI_CONST_TM_PTR_TYPE): New enum value.
+	* tree.h (const_tm_ptr_type_node): New type node.
+	* tree.c (free_lang_data, build_common_tree_nodes): Initialize
+	const_tm_ptr_type_node.
+
+2016-11-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/78413
+	* tree-if-conv.c (versionable_outer_loop_p): Require that both
+	inner and outer loop latches have single predecessors.
+
+2016-11-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/78093
+	* config/avr/avr.c (avr_decl_maybe_lds_p): New static function.
+	(avr_encode_section_info) [TARGET_ABSDATA && AVR_TINY]: Use it.
+
 2016-11-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
 
 	* rtl.h: Adjust prototype.

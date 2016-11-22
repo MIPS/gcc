@@ -3187,9 +3187,6 @@ arm_option_override (void)
   if (TARGET_APCS_REENT)
     warning (0, "APCS reentrant code not supported.  Ignored");
 
-  if (TARGET_APCS_FLOAT)
-    warning (0, "passing floating point arguments in fp regs not yet supported");
-
   /* Initialize boolean versions of the flags, for use in the arm.md file.  */
   arm_arch3m = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH3M);
   arm_arch4 = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH4);
@@ -18277,6 +18274,10 @@ thumb1_compute_save_reg_mask (void)
   for (reg = 0; reg < 12; reg ++)
     if (df_regs_ever_live_p (reg) && callee_saved_reg_p (reg))
       mask |= 1 << reg;
+
+  /* Handle the frame pointer as a special case.  */
+  if (frame_pointer_needed)
+    mask |= 1 << HARD_FRAME_POINTER_REGNUM;
 
   if (flag_pic
       && !TARGET_SINGLE_PIC_BASE
