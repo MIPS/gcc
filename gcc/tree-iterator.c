@@ -281,8 +281,10 @@ tsi_delink (tree_stmt_iterator *i)
   i->ptr = next;
 }
 
-/* Return the first expression in a sequence of COMPOUND_EXPRs,
-   or in a STATEMENT_LIST.  */
+/* Return the first expression in a sequence of COMPOUND_EXPRs, or in
+   a STATEMENT_LIST, disregarding DEBUG_BEGIN_STMTs, and recursing if
+   there are only DEBUG_BEGIN_STMTs and one STATEMENT_LIST in an
+   enclosing STATEMENT_LIST.  */
 
 tree
 expr_first (tree expr)
@@ -293,7 +295,30 @@ expr_first (tree expr)
   if (TREE_CODE (expr) == STATEMENT_LIST)
     {
       struct tree_statement_list_node *n = STATEMENT_LIST_HEAD (expr);
-      return n ? n->stmt : NULL_TREE;
+      if (!n)
+	return NULL_TREE;
+      while (TREE_CODE (n->stmt) == DEBUG_BEGIN_STMT)
+	{
+	  n = n->next;
+	  if (!n)
+	    return NULL_TREE;
+	}
+      /* If the first non-debug stmt is not a statement list, we
+	 already know it's what we're looking for.  */
+      if (TREE_CODE (n->stmt) != STATEMENT_LIST)
+	return n->stmt;
+
+      struct tree_statement_list_node *s = n->next;
+      while (s && TREE_CODE (s->stmt) == DEBUG_BEGIN_STMT)
+	s = s->next;
+      /* If we couldn't find another non-debug stmt, then we have a
+	 single STATEMENT_LIST among debug stmts, and we should
+	 recurse into it because this list wouldn't be here if it
+	 weren't for the debug stmts.  Otherwise, the non-debug stmt
+	 we found before was what we were looking for.  */
+      if (s)
+	return n->stmt;
+      return expr_first (n->stmt);
     }
 
   while (TREE_CODE (expr) == COMPOUND_EXPR)
@@ -302,8 +327,10 @@ expr_first (tree expr)
   return expr;
 }
 
-/* Return the last expression in a sequence of COMPOUND_EXPRs,
-   or in a STATEMENT_LIST.  */
+/* Return the last expression in a sequence of COMPOUND_EXPRs, or in a
+   STATEMENT_LIST, disregarding DEBUG_BEGIN_STMTs, and recursing if
+   there are only DEBUG_BEGIN_STMTs and one STATEMENT_LIST in an
+   enclosing STATEMENT_LIST.  */
 
 tree
 expr_last (tree expr)
@@ -316,12 +343,26 @@ expr_last (tree expr)
       struct tree_statement_list_node *n = STATEMENT_LIST_TAIL (expr);
       if (!n)
 	return NULL_TREE;
-      struct tree_statement_list_node *f = STATEMENT_LIST_HEAD (expr);
-      if (f->next != n)
-	return n->stmt;
-      if (TREE_CODE (f->stmt) != DEBUG_BEGIN_STMT)
-	return n->stmt;
+      while (TREE_CODE (n->stmt) == DEBUG_BEGIN_STMT)
+	{
+	  n = n->prev;
+	  if (!n)
+	    return NULL_TREE;
+	}
+      /* If the last non-debug stmt is not a statement list, we
+	 already know it's what we're looking for.  */
       if (TREE_CODE (n->stmt) != STATEMENT_LIST)
+	return n->stmt;
+
+      struct tree_statement_list_node *p = n->prev;
+      while (p && TREE_CODE (p->stmt) == DEBUG_BEGIN_STMT)
+	p = p->prev;
+      /* If we couldn't find another non-debug stmt, then we have a
+	 single STATEMENT_LIST among debug stmts, and we should
+	 recurse into it because this list wouldn't be here if it
+	 weren't for the debug stmts.  Otherwise, the non-debug stmt
+	 we found before was what we were looking for.  */
+      if (p)
 	return n->stmt;
       return expr_last (n->stmt);
     }
