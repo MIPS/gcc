@@ -10,7 +10,6 @@ mipsel-r6-hard-newlib/lib64
 mipsel-r6-soft-newlib/lib
 mipsel-r6-soft-newlib/lib32
 mipsel-r6-soft-newlib/lib64
-mipsel-r6-singleshort-newlib/lib
 micromips-r6-hard-newlib/lib
 micromipsel-r6-hard-newlib/lib
 micromips-r6-soft-newlib/lib
