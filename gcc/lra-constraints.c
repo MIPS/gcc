@@ -5081,10 +5081,11 @@ inherit_reload_reg (bool def_p, int original_regno,
       lra_update_insn_regno_info (as_a <rtx_insn *> (usage_insn));
       if (lra_dump_file != NULL)
 	{
+	  basic_block bb = BLOCK_FOR_INSN (usage_insn);
 	  fprintf (lra_dump_file,
 		   "    Inheritance reuse change %d->%d (bb%d):\n",
 		   original_regno, REGNO (new_reg),
-		   BLOCK_FOR_INSN (usage_insn)->index);
+		   bb ? bb->index : -1);
 	  dump_insn_slim (lra_dump_file, as_a <rtx_insn *> (usage_insn));
 	}
     }
