@@ -2557,6 +2557,13 @@ stmt_starts_bb_p (gimple *stmt, gimple *prev_stmt)
   if (stmt == NULL)
     return false;
 
+  /* PREV_STMT is only set to a debug stmt if the debug stmt is before
+     any nondebug stmts in the block.  We don't want to start another
+     block in this case: the debug stmt will already have started the
+     one STMT would start if we weren't outputting debug stmts.  */
+  if (prev_stmt && is_gimple_debug (prev_stmt))
+    return false;
+
   /* Labels start a new basic block only if the preceding statement
      wasn't a label of the same type.  This prevents the creation of
      consecutive blocks that have nothing but a single label.  */
@@ -2576,8 +2583,6 @@ stmt_starts_bb_p (gimple *stmt, gimple *prev_stmt)
 	  cfg_stats.num_merged_labels++;
 	  return false;
 	}
-      else if (prev_stmt && is_gimple_debug (prev_stmt))
-	return false;
       else
 	return true;
     }
