@@ -1,3 +1,8 @@
+2016-11-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.gcc (powerpc*-*-linux*): Set gnu-indirect-function by
+	default on Power server linux systems.
+
 2016-11-23  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (*<any_or:code>hi_1): Fix operand 2 constraints.
