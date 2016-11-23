@@ -9919,6 +9919,47 @@ vt_init_cfa_base (void)
   cselib_preserve_cfa_base_value (val, REGNO (cfa_base_rtx));
 }
 
+/* Evaluate to TRUE if INSN is a debug insn that denotes a variable
+   location/value tracking annotation.  */
+#define VTA_DEBUG_INSN_P(INSN)			\
+  (DEBUG_INSN_P (INSN)				\
+   && INSN_VAR_LOCATION_DECL (insn))
+/* Evaluate to TRUE if INSN is a debug insn that denotes a program
+   source location marker.  */
+#define MARKER_DEBUG_INSN_P(INSN)		\
+  (DEBUG_INSN_P (INSN)				\
+   && !INSN_VAR_LOCATION_DECL (insn))
+/* Evaluate to the marker kind.  Currently the only kind is
+   BEGIN_STMT.  */
+#define INSN_DEBUG_MARKER_KIND(insn) 0
+
+/* Reemit INSN, a MARKER_DEBUG_INSN, as a note.  */
+
+static rtx_insn *
+reemit_marker_as_note (rtx_insn *insn)
+{
+  gcc_checking_assert (MARKER_DEBUG_INSN_P (insn));
+  /* FIXME: we could use loc and status for other kinds of markers, or
+     for additional information in them.  */
+  gcc_checking_assert (VAR_LOC_UNKNOWN_P (INSN_VAR_LOCATION_LOC (insn)));
+  gcc_checking_assert (INSN_VAR_LOCATION_STATUS (insn)
+		       == VAR_INIT_STATUS_INITIALIZED);
+
+  switch (INSN_DEBUG_MARKER_KIND (insn))
+    {
+    case 0:
+      {
+	rtx_insn *note = emit_note_before (NOTE_INSN_BEGIN_STMT, insn);
+	NOTE_BEGIN_STMT_LOCATION (note) = INSN_LOCATION (insn);
+	delete_insn (insn);
+	return note;
+      }
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Allocate and initialize the data structures for variable tracking
    and parse the RTL to get the micro operations.  */
 
@@ -10134,7 +10175,7 @@ vt_initialize (void)
 		      /* Reset debug insns between basic blocks.
 			 Their location is not reliable, because they
 			 were probably not maintained up to date.  */
-		      if (INSN_VAR_LOCATION_DECL (insn))
+		      if (VTA_DEBUG_INSN_P (insn))
 			INSN_VAR_LOCATION_LOC (insn)
 			  = gen_rtx_UNKNOWN_VAR_LOC ();
 		    }
@@ -10162,17 +10203,9 @@ vt_initialize (void)
 		  adjust_insn (bb, insn);
 		  if (MAY_HAVE_DEBUG_INSNS)
 		    {
-		      if (DEBUG_INSN_P (insn)
-			  && !INSN_VAR_LOCATION_DECL (insn))
+		      if (MARKER_DEBUG_INSN_P (insn))
 			{
-			  rtx_insn *note;
-			  gcc_checking_assert (INSN_VAR_LOCATION_STATUS (insn)
-					       == VAR_INIT_STATUS_INITIALIZED);
-			  note = emit_note_before (NOTE_INSN_BEGIN_STMT,
-						   insn);
-			  NOTE_BEGIN_STMT_LOCATION (note) = INSN_LOCATION (insn);
-			  delete_insn (insn);
-			  insn = note;
+			  insn = reemit_marker_as_note (insn);
 			  BLOCK_FOR_INSN (insn) = save_bb;
 			  continue;
 			}
@@ -10271,11 +10304,13 @@ delete_vta_debug_insns (void)
 	   insn = next)
 	if (DEBUG_INSN_P (insn))
 	  {
+	    if (MARKER_DEBUG_INSN_P (insn))
+	      {
+		insn = reemit_marker_as_note (insn);
+		continue;
+	      }
+
 	    tree decl = INSN_VAR_LOCATION_DECL (insn);
-	    /* This is a program location marker (e.g. begin stmt),
-	       so leave it alone.  */
-	    if (!decl)
-	      continue;
 	    if (TREE_CODE (decl) == LABEL_DECL
 		&& DECL_NAME (decl)
 		&& !DECL_RTL_SET_P (decl))
