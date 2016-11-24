@@ -1,3 +1,12 @@
+2016-11-24  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (grid_expand_omp_for_loop): Use XALLOCAVEC instead of
+	simple alloca.
+	(pass_data_diagnose_omp_blocks): Change to OPTGROUP_OPENMP
+	optimization group.
+	(pass_data_oacc_device_lower): Likewise.
+	(pass_data_omp_target_link): Likewise.
+
 2016-11-15  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (grid references): Replace GPGPU in the function

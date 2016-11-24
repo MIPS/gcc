@@ -1,3 +1,15 @@
+2016-11-24  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Likewise.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+	* plugin/Makefrag.am: Compile hsa plugin with _GNU_SOURCE
+	* plugin/configfrag.ac: Detect secure_getenv.
+	* plugin/plugin-hsa.c: Use secure_getenv, attempt to provide a
+	poor's man implementation if not available but possible.
+	* testsuite/Makefile.in: Regenerated.
+
 2016-11-15  Martin Jambor  <mjambor@suse.cz>
 
 	* plugin/plugin-hsa.c: Prefixed incldes of hsa headers with plugin/

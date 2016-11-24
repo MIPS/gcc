@@ -40,6 +40,32 @@
 #include "libgomp-plugin.h"
 #include "gomp-constants.h"
 
+/* Secure getenv() which returns NULL if running as SUID/SGID.  */
+#ifndef HAVE_SECURE_GETENV
+#ifdef HAVE___SECURE_GETENV
+#define secure_getenv __secure_getenv
+#elif defined (HAVE_UNISTD_H) && defined(HAVE_GETUID) && defined(HAVE_GETEUID) \
+  && defined(HAVE_GETGID) && defined(HAVE_GETEGID)
+
+#include <unistd.h>
+
+/* Implementation of secure_getenv() for targets where it is not provided but
+   we have at least means to test real and effective IDs. */
+
+static char *
+secure_getenv (const char *name)
+{
+  if ((getuid () == geteuid ()) && (getgid () == getegid ()))
+    return getenv (name);
+  else
+    return NULL;
+}
+
+#else
+#define secure_getenv getenv
+#endif
+#endif
+
 /* As an HSA runtime is dlopened, following structure defines function
    pointers utilized by the HSA plug-in.  */
 
@@ -231,21 +257,21 @@ static bool support_cpu_devices;
 static void
 init_enviroment_variables (void)
 {
-  if (getenv ("HSA_DEBUG"))
+  if (secure_getenv ("HSA_DEBUG"))
     debug = true;
   else
     debug = false;
 
-  if (getenv ("HSA_SUPPRESS_HOST_FALLBACK"))
+  if (secure_getenv ("HSA_SUPPRESS_HOST_FALLBACK"))
     suppress_host_fallback = true;
   else
     suppress_host_fallback = false;
 
-  hsa_runtime_lib = getenv ("HSA_RUNTIME_LIB");
+  hsa_runtime_lib = secure_getenv ("HSA_RUNTIME_LIB");
   if (hsa_runtime_lib == NULL)
     hsa_runtime_lib = HSA_RUNTIME_LIB "libhsa-runtime64.so";
 
-  support_cpu_devices = getenv ("HSA_SUPPORT_CPU_DEVICES");
+  support_cpu_devices = secure_getenv ("HSA_SUPPORT_CPU_DEVICES");
 }
 
 /* Print a logging message with PREFIX to stderr if HSA_DEBUG value

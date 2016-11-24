@@ -13614,10 +13614,8 @@ grid_expand_omp_for_loop (struct omp_region *kfor, bool intra_group)
 		       == GF_OMP_FOR_KIND_GRID_LOOP);
   size_t collapse = gimple_omp_for_collapse (for_stmt);
   struct omp_for_data_loop *loops
-    = (struct omp_for_data_loop *)
-    alloca (gimple_omp_for_collapse (for_stmt)
-	    * sizeof (struct omp_for_data_loop));
-
+    = XALLOCAVEC (struct omp_for_data_loop,
+                  gimple_omp_for_collapse (for_stmt));
   struct omp_for_data fd;
 
   remove_edge (BRANCH_EDGE (kfor->entry));
@@ -19200,7 +19198,7 @@ const pass_data pass_data_diagnose_omp_blocks =
 {
   GIMPLE_PASS, /* type */
   "*diagnose_omp_blocks", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
+  OPTGROUP_OPENMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   0, /* properties_provided */
@@ -20631,7 +20629,7 @@ const pass_data pass_data_oacc_device_lower =
 {
   GIMPLE_PASS, /* type */
   "oaccdevlow", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
+  OPTGROUP_OPENMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */
   0 /* Possibly PROP_gimple_eomp.  */, /* properties_provided */
@@ -20673,7 +20671,7 @@ const pass_data pass_data_omp_target_link =
 {
   GIMPLE_PASS,			/* type */
   "omptargetlink",		/* name */
-  OPTGROUP_NONE,		/* optinfo_flags */
+  OPTGROUP_OPENMP,		/* optinfo_flags */
   TV_NONE,			/* tv_id */
   PROP_ssa,			/* properties_required */
   0,				/* properties_provided */
