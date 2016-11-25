@@ -2030,7 +2030,9 @@ FP_ASM_SPEC "\
 #define GP_REG_P(REGNO)	\
   ((unsigned int) ((int) (REGNO) - GP_REG_FIRST) < GP_REG_NUM)
 #define M16_REG_P(REGNO) \
-  (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 16 || (REGNO) == 17)
+  (TARGET_MICROMIPS_R7 \
+   ? ((REGNO) >= 4 && (REGNO) <= 7) || ((REGNO) >= 16 || (REGNO) <= 19) \
+   : ((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 16 || (REGNO) == 17)
 #define M16_4X4_REG_P(REGNO) \
   (((REGNO) >= 0 && (REGNO) <= 7) || ((REGNO) >= 16 && (REGNO) <= 23))
 #define M16STORE_REG_P(REGNO) \
@@ -2384,6 +2386,8 @@ enum reg_class
   160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,	\
   182,183,184,185,186,187						\
 }
+
+#define ADJUST_REG_ALLOC_ORDER mips_adjust_reg_alloc_order ()
 
 /* True if VALUE is an unsigned 6-bit number.  */
 
