@@ -132,14 +132,6 @@
       else
 	return "sdbbp16 6 # movep\t%2,%0,%z3,%z1";
     }
-  else if (TARGET_MICROMIPS_R7)
-    {
-      if ((REGNO (operands[0]) < REGNO (operands[2]))
-	  || (REGNO (operands[0]) == 7 && REGNO (operands[2]) == 4))
-	return "movep\t%0,%2,%z1,%z3";
-      else
-	return "movep\t%2,%0,%z3,%z1";
-    }
   else
     {
       if (REGNO (operands[0]) < REGNO (operands[2]))
