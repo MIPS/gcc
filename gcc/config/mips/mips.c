@@ -11520,9 +11520,6 @@ static const unsigned char mips16e_a0_a3_regs[] = {
 static const unsigned char umipsr7_s0_s7_regs[] = {
   23, 22, 21, 20, 19, 18, 17, 16
 };
-static const unsigned char umipsr7_s0_s7_v0_v1_regs[] = {
-  23, 22, 21, 20, 19, 18, 17, 16, 3, 2
-};
 
 /* A list of the registers that can be saved by the MIPS16e SAVE instruction,
    ordered from the uppermost in memory to the lowest in memory.  */
@@ -11534,9 +11531,6 @@ static const unsigned char mips16e_save_restore_regs[] = {
    ordered from the uppermost in memory to the lowest in memory.  */
 static const unsigned char umipsr7_save_restore_regs[] = {
   31, 30, 28, 23, 22, 21, 20, 19, 18, 17, 16
-};
-static const unsigned char umipsr7_v0v1_save_restore_regs[] = {
-  31, 30, 28, 23, 22, 21, 20, 19, 18, 17, 16, 3, 2
 };
 
 static const unsigned char umipsr7_savef_restoref_regs[] = {
@@ -11734,21 +11728,10 @@ static int
 mips_valid_save_restore_p (unsigned int mask, bool compressed_p)
 {
   int n, nregs = 0;
-  int size;
 
-  if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-    {
-      for (unsigned int i = 0;
-	   i < ARRAY_SIZE (umipsr7_v0v1_save_restore_regs); i++)
-	if (BITSET_P (mask, umipsr7_v0v1_save_restore_regs[i]))
-	  nregs++;
-    }
-  else
-    {
-      for (unsigned int i = 0; i < ARRAY_SIZE (umipsr7_save_restore_regs); i++)
-	if (BITSET_P (mask, umipsr7_save_restore_regs[i]))
-	  nregs++;
-    }
+  for (unsigned int i = 0; i < ARRAY_SIZE (umipsr7_save_restore_regs); i++)
+    if (BITSET_P (mask, umipsr7_save_restore_regs[i]))
+      nregs++;
 
   n = nregs;
 
@@ -11761,24 +11744,15 @@ mips_valid_save_restore_p (unsigned int mask, bool compressed_p)
   if (((compressed_p && n == 9) || !compressed_p)
       && BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)) n--;
 
-  if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-    size = (int) ARRAY_SIZE (umipsr7_s0_s7_v0_v1_regs);
-  else
-    size = (int) ARRAY_SIZE (umipsr7_s0_s7_regs);
-
-  if (n > size)
+  if (n > (int) ARRAY_SIZE (umipsr7_s0_s7_regs))
     return false;
 
-  for (unsigned int i = size - n; i < size; i++)
-    {
-      if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED
-	  && BITSET_P (mask, umipsr7_s0_s7_v0_v1_regs[i]))
-	n--;
-      else if (BITSET_P (mask, umipsr7_s0_s7_regs[i]))
-	n--;
-      else
-	break;
-    }
+  for (unsigned int i = ARRAY_SIZE (umipsr7_s0_s7_regs) - n;
+       i < ARRAY_SIZE (umipsr7_s0_s7_regs); i++)
+    if (BITSET_P (mask, umipsr7_s0_s7_regs[i]))
+      n--;
+    else
+      break;
 
   return n == 0 ? nregs : 0;
 }
@@ -11935,19 +11909,6 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 		}
 	    }
 	}
-      else if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-	for (i = 0; i < ARRAY_SIZE (umipsr7_v0v1_save_restore_regs); i++)
-	  {
-	    regno = umipsr7_v0v1_save_restore_regs[i];
-	    if (BITSET_P (*mask_ptr, regno))
-	      {
-		offset -= UNITS_PER_WORD;
-		set = mips_save_restore_insn_reg (Pmode, restore_p, false,
-						  offset, regno);
-		XVECEXP (pattern, 0, n++) = set;
-		*mask_ptr &= ~(1 << regno);
-	      }
-	  }
       else
 	for (i = 0; i < ARRAY_SIZE (umipsr7_save_restore_regs); i++)
 	  {
@@ -12069,12 +12030,6 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 		    if (i == ARRAY_SIZE (umipsr7_savef_restoref_regs))
 		     return false;
 		}
-	      else if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-		{
-		  while (umipsr7_v0v1_save_restore_regs[i++] != REGNO (reg))
-		    if (i == ARRAY_SIZE (umipsr7_v0v1_save_restore_regs))
-		      return false;
-		}
 	      else
 		{
 		  while (umipsr7_save_restore_regs[i++] != REGNO (reg))
@@ -12178,18 +12133,9 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 
   if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7 && !fp_p)
     {
-      if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-	{
-	  for (i = 0; i < ARRAY_SIZE (umipsr7_s0_s7_v0_v1_regs); i++)
-	    if (BITSET_P (info.mask, umipsr7_s0_s7_v0_v1_regs[i]))
-	      nregs++;
-	}
-      else
-	{
-	  for (i = 0; i < ARRAY_SIZE (umipsr7_s0_s7_regs); i++)
-	    if (BITSET_P (info.mask, umipsr7_s0_s7_regs[i]))
-	      nregs++;
-	}
+      for (i = 0; i < ARRAY_SIZE (umipsr7_s0_s7_regs); i++)
+	if (BITSET_P (info.mask, umipsr7_s0_s7_regs[i]))
+	  nregs++;
 
       if (ISA_HAS_XLP
 	  && (BITSET_P (info.mask, RETURN_ADDR_REGNUM)
@@ -12207,15 +12153,6 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 	insn16_p = true;
     }
 
-  bool v0v1_p = false;
-  if (ISA_HAS_SAVE_RESTORE
-      && TARGET_MICROMIPS_R7
-      && TARGET_RET_IN_ARGS
-      && TARGET_V0_V1_CALLEE_SAVED
-      && (BITSET_P (info.mask, 2)
-	  || BITSET_P (info.mask, 3)))
-    v0v1_p = true;
-
   /* Add the mnemonic.  */
   if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
@@ -12230,12 +12167,7 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
     }
   else
     {
-      int insn_mode = insn16_p && ISA_HAS_XLP ? 16 : 32;
-
       s = buffer;
-      if (v0v1_p)
-	s += sprintf (s, "sdbbp%d %d # ", insn_mode, jrc_p ? 2 : 1);
-
       s += sprintf (s, "%s", restore_p ? "restore" : "save");
       s += sprintf (s, "%s\t", jrc_p ? ".jrc" : "");
     }
@@ -12280,23 +12212,8 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 	  s += sprintf (s, ",%s", reg_names[umipsr7_savef_restoref_regs[i]]);
     }
   else
-    {
-      if (ISA_HAS_SAVE_RESTORE
-	  && TARGET_MICROMIPS_R7
-	  && TARGET_RET_IN_ARGS
-	  && TARGET_V0_V1_CALLEE_SAVED
-	  && BITSET_P (info.mask, 2))
-	s += sprintf (s, ",%s", reg_names[2]);
-
-      if (ISA_HAS_SAVE_RESTORE
-	  && TARGET_MICROMIPS_R7
-	  && TARGET_RET_IN_ARGS
-	  && TARGET_V0_V1_CALLEE_SAVED
-	  && BITSET_P (info.mask, 3))
-	s += sprintf (s, ",%s", reg_names[3]);
-      s = mips_output_register_range (s, info.mask, umipsr7_s0_s7_regs,
-				      ARRAY_SIZE (umipsr7_s0_s7_regs));
-    }
+    s = mips_output_register_range (s, info.mask, umipsr7_s0_s7_regs,
+				    ARRAY_SIZE (umipsr7_s0_s7_regs));
 
   /* Save or restore $30.  */
   if (ISA_HAS_SAVE_RESTORE
@@ -12795,12 +12712,6 @@ mips_safe_to_use_save_restore_p (struct mips_frame_info *frame)
 					   ARRAY_SIZE (mips16e_a0_a3_regs),
 					   frame);
     }
-  else if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7
-	   && TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-    safe_p &=
-      mips_global_and_local_regs_used_p (umipsr7_s0_s7_v0_v1_regs,
-					 ARRAY_SIZE (umipsr7_s0_s7_v0_v1_regs),
-					 frame);
   else if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7)
     safe_p &=
       mips_global_and_local_regs_used_p (umipsr7_s0_s7_regs,
@@ -13020,13 +12931,8 @@ mips_compute_frame_info (void)
   else if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7
 	   && cfun->machine->safe_to_use_save_restore)
     {
-      if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-	mips_mask_registers (&frame->mask, umipsr7_s0_s7_v0_v1_regs,
-			     ARRAY_SIZE (umipsr7_s0_s7_v0_v1_regs),
-			     &frame->num_gp);
-      else
-	mips_mask_registers (&frame->mask, umipsr7_s0_s7_regs,
-			     ARRAY_SIZE (umipsr7_s0_s7_regs), &frame->num_gp);
+      mips_mask_registers (&frame->mask, umipsr7_s0_s7_regs,
+			   ARRAY_SIZE (umipsr7_s0_s7_regs), &frame->num_gp);
     }
 
   /* Move above the GPR save area.  */
@@ -23541,10 +23447,6 @@ mips_option_override (void)
 	target_flags |= MASK_64BIT;
     }
 
-  if (TARGET_MICROMIPS_R7
-      && TARGET_V0_V1_CALLEE_SAVED && TARGET_NEW_GPR3)
-    error ("unsupported combination: %s", "-mret-callee-saved -mnew-gpr3");
-
   if ((target_flags_explicit & MASK_FLOAT64) != 0)
     {
       if (mips_isa_rev >= 6 && !TARGET_FLOAT64)
@@ -24205,14 +24107,6 @@ mips_conditional_register_usage (void)
       mips_swap_registers (MD_REG_FIRST);
       for (regno = DSP_ACC_REG_FIRST; regno <= DSP_ACC_REG_LAST; regno += 2)
 	mips_swap_registers (regno);
-    }
-  if (mips_isa_rev >=7
-      && (mips_base_compression_flags & MASK_MICROMIPS)
-      && TARGET_RET_IN_ARGS
-      && TARGET_V0_V1_CALLEE_SAVED)
-    {
-      call_really_used_regs[2] = call_used_regs[2] = 0;
-      call_really_used_regs[3] = call_used_regs[3] = 0;
     }
 }
 
@@ -26521,21 +26415,6 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
   return false;
 }
-
-static const int umipsr7_v0v1_alloc_order[] =
-{
-  64, 65,176,177,178,179,180,181,
-  /* Call-clobbered GPRs.  */
-  1,  4,  5,  6,  7,
-  31,
-  28,
-  /* Call-saved GPRs.  */
-  2,  3, 16, 17, 18, 19, 20, 21, 22, 23, 30,
-  /* Call-clobbered GPRs.  */
-  8,  9, 10, 11, 12, 13, 14, 15,
-  24, 25,
-};
-
 static const int umipsr7_new_gpr3_alloc_order[] =
 {
   64, 65,176,177,178,179,180,181,
@@ -26555,9 +26434,6 @@ mips_adjust_reg_alloc_order ()
 {
   const int mips_reg_alloc_order[] = REG_ALLOC_ORDER;
   memcpy (reg_alloc_order, mips_reg_alloc_order, sizeof (reg_alloc_order));
-  if (TARGET_RET_IN_ARGS && TARGET_V0_V1_CALLEE_SAVED)
-    memcpy (reg_alloc_order, umipsr7_v0v1_alloc_order,
-	    sizeof (umipsr7_v0v1_alloc_order));
   if (TARGET_MICROMIPS_R7 && TARGET_NEW_GPR3)
     memcpy (reg_alloc_order, umipsr7_new_gpr3_alloc_order,
 	    sizeof (umipsr7_new_gpr3_alloc_order));
