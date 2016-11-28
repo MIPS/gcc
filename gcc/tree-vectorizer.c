@@ -540,6 +540,7 @@ vectorize_loops (void)
 	     || loop->force_vectorize)
       {
 	loop_vec_info loop_vinfo, orig_loop_vinfo = NULL;
+	gimple *loop_vectorized_call = vect_loop_vectorized_call (loop);
 vectorize_epilogue:
 	vect_location = find_loop_location (loop);
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOCATION
@@ -558,6 +559,42 @@ vectorize_epilogue:
 	    if (loop_constraint_set_p (loop, LOOP_C_FINITE))
 	      vect_free_loop_info_assumptions (loop);
 
+	    /* If we applied if-conversion then try to vectorize the
+	       BB of innermost loops.
+	       ???  Ideally BB vectorization would learn to vectorize
+	       control flow by applying if-conversion on-the-fly, the
+	       following retains the if-converted loop body even when
+	       only non-if-converted parts took part in BB vectorization.  */
+	    if (flag_tree_slp_vectorize != 0
+		&& loop_vectorized_call
+		&& ! loop->inner)
+	      {
+		basic_block bb = loop->header;
+		bool has_mask_load_store = false;
+		for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+		     !gsi_end_p (gsi); gsi_next (&gsi))
+		  {
+		    gimple *stmt = gsi_stmt (gsi);
+		    if (is_gimple_call (stmt)
+			&& gimple_call_internal_p (stmt)
+			&& (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
+			    || gimple_call_internal_fn (stmt) == IFN_MASK_STORE))
+		      {
+			has_mask_load_store = true;
+			break;
+		      }
+		    gimple_set_uid (stmt, -1);
+		    gimple_set_visited (stmt, false);
+		  }
+		if (! has_mask_load_store && vect_slp_bb (bb))
+		  {
+		    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+				     "basic block vectorized\n");
+		    fold_loop_vectorized_call (loop_vectorized_call,
+					       boolean_true_node);
+		    ret |= TODO_cleanup_cfg;
+		  }
+	      }
 	    continue;
 	  }
 
@@ -575,7 +612,6 @@ vectorize_epilogue:
 	    break;
 	  }
 
-	gimple *loop_vectorized_call = vect_loop_vectorized_call (loop);
 	if (loop_vectorized_call)
 	  set_uid_loop_bbs (loop_vinfo, loop_vectorized_call);
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOCATION

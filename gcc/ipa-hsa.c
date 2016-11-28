@@ -96,8 +96,8 @@ process_hsa_functions (void)
 	  hsa_summaries->link_functions (clone, node, s->m_kind, false);
 
 	  if (dump_file)
-	    fprintf (dump_file, "Created a new HSA clone: %s, type: %s\n",
-		     clone->name (),
+	    fprintf (dump_file, "Created a new HSA clone: %s/%i, type: %s\n",
+		     clone->name (), clone->order,
 		     s->m_kind == HSA_KERNEL ? "kernel" : "function");
 	}
       else if (hsa_callable_function_p (node->decl))
@@ -115,8 +115,8 @@ process_hsa_functions (void)
 	  hsa_summaries->link_functions (clone, node, HSA_FUNCTION, false);
 
 	  if (dump_file)
-	    fprintf (dump_file, "Created a new HSA function clone: %s\n",
-		     clone->name ());
+	    fprintf (dump_file, "Created a new HSA function clone: %s/%i\n",
+		     clone->name (), clone->order);
 	}
     }
 

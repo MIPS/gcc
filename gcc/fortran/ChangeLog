@@ -1,3 +1,46 @@
+2016-11-25  Andre Vehreschild  <vehre@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78293
+	* trans-expr.c (gfc_conv_procedure_call): Prepend deallocation
+	of alloctable components to post, rather than adding to
+	se->post.
+	* trans-stmt.c (gfc_trans_allocate): Move deallocation of expr3
+	allocatable components so that all expr3s are visited.
+
+2016-11-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78293
+	* gfortran.dg/allocatable_function_10.f90: New test.
+	* gfortran.dg/class_array_15.f03: Increase builtin_free count
+	from 11 to 12.
+
+2016-11-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78500
+	* expr.c (gfc_check_vardef_contextm): Fix NULL pointer dereference.
+	* interface.c (matching_typebound_op): Ditto.
+
+2016-11-23  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78297
+	* trans-common.c (finish_equivalences): Do not dereference a NULL pointer.
+
+2016-11-23  Martin Jambor  <mjambor@suse.cz>
+
+	* f95-lang.c (DEF_HSA_BUILTIN): New macro.
+
+2016-11-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78479
+	* expr.c (gfc_apply_init):  Allocate a charlen if needed.
+
+2016-11-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/78443
+	* class.c (add_proc_comp): Add a vtype component for non-overridable
+	procedures that are overriding.
+
 2016-11-20  Harald Anlauf  <anlauf@gmx.de>
 
 	PR fortran/69741

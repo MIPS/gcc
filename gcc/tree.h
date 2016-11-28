@@ -3672,6 +3672,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
+/* The C type `const struct tm *'.  */
+#define const_tm_ptr_type_node		global_trees[TI_CONST_TM_PTR_TYPE]
 #define pointer_sized_int_node		global_trees[TI_POINTER_SIZED_TYPE]
 
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
@@ -5294,6 +5296,9 @@ wi::extended_tree <N>::get_len () const
 namespace wi
 {
   template <typename T>
+  bool fits_to_boolean_p (const T &x, const_tree);
+
+  template <typename T>
   bool fits_to_tree_p (const T &x, const_tree);
 
   wide_int min_value (const_tree);
@@ -5303,14 +5308,21 @@ namespace wi
 
 template <typename T>
 bool
+wi::fits_to_boolean_p (const T &x, const_tree type)
+{
+  return eq_p (x, 0) || eq_p (x, TYPE_UNSIGNED (type) ? 1 : -1);
+}
+
+template <typename T>
+bool
 wi::fits_to_tree_p (const T &x, const_tree type)
 {
-  /* Short-circuit boolean types since various transformations assume that
-     they can only take values 0 and 1.  */
+  /* Non-standard boolean types can have arbitrary precision but various
+     transformations assume that they can only take values 0 and +/-1.  */
   if (TREE_CODE (type) == BOOLEAN_TYPE)
-    return eq_p (x, 0) || eq_p (x, 1);
+    return fits_to_boolean_p (x, type);
 
-  if (TYPE_SIGN (type) == UNSIGNED)
+  if (TYPE_UNSIGNED (type))
     return eq_p (x, zext (x, TYPE_PRECISION (type)));
   else
     return eq_p (x, sext (x, TYPE_PRECISION (type)));

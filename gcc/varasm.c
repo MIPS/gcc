@@ -1792,8 +1792,15 @@ assemble_start_function (tree decl, const char *fnname)
       && optimize_function_for_speed_p (cfun))
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
-      ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file,
-				 align_functions_log, align_functions - 1);
+      int align_log = align_functions_log;
+#endif
+      int max_skip = align_functions - 1;
+      if (flag_limit_function_alignment && crtl->max_insn_address > 0
+	  && max_skip >= crtl->max_insn_address)
+	max_skip = crtl->max_insn_address - 1;
+
+#ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
+      ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file, align_log, max_skip);
 #else
       ASM_OUTPUT_ALIGN (asm_out_file, align_functions_log);
 #endif
@@ -2547,7 +2554,7 @@ assemble_name (FILE *file, const char *name)
 rtx
 assemble_static_space (unsigned HOST_WIDE_INT size)
 {
-  char name[16];
+  char name[17];
   const char *namestring;
   rtx x;
 

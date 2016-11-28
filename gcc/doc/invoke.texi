@@ -178,6 +178,7 @@ in the following sections.
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
 @gccoptlist{-ansi  -std=@var{standard}  -fgnu89-inline @gol
+-fpermitted-flt-eval-methods=@var{standard} @gol
 -aux-info @var{filename} -fallow-parameterless-variadic-functions @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} -fgimple@gol
 -fhosted  -ffreestanding -fopenacc -fopenmp -fopenmp-simd @gol
@@ -259,6 +260,7 @@ Objective-C and Objective-C++ Dialects}.
 -Walloca -Walloca-larger-than=@var{n} @gol
 -Wno-aggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
 -Wno-attributes -Wbool-compare -Wbool-operation @gol
+-Wno-builtin-declaration-mismatch @gol
 -Wno-builtin-macro-redefined -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
@@ -371,7 +373,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-ira-share-spill-slots @gol
 -fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute @gol
 -fivopts -fkeep-inline-functions -fkeep-static-functions @gol
--fkeep-static-consts -flive-range-shrinkage @gol
+-fkeep-static-consts -flimit-function-alignment -flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine @gol
 -floop-unroll-and-jam -floop-nest-optimize @gol
 -floop-parallelize-all -flra-remat -flto -flto-compression-level @gol
@@ -380,11 +382,12 @@ Objective-C and Objective-C++ Dialects}.
 -fmove-loop-invariants -fno-branch-count-reg @gol
 -fno-defer-pop -fno-fp-int-builtin-inexact -fno-function-cse @gol
 -fno-guess-branch-probability -fno-inline -fno-math-errno -fno-peephole @gol
--fno-peephole2 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
+-fno-peephole2 -fno-printf-return-value -fno-sched-interblock @gol
+-fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-sibling-calls @gol
 -fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
--fprefetch-loop-arrays -fprintf-return-value @gol
+-fprefetch-loop-arrays @gol
 -fprofile-correction @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
 -fprofile-reorder-functions @gol
@@ -620,7 +623,6 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mapcs-frame  -mno-apcs-frame @gol
 -mabi=@var{name} @gol
 -mapcs-stack-check  -mno-apcs-stack-check @gol
--mapcs-float  -mno-apcs-float @gol
 -mapcs-reentrant  -mno-apcs-reentrant @gol
 -msched-prolog  -mno-sched-prolog @gol
 -mlittle-endian  -mbig-endian @gol
@@ -1865,6 +1867,30 @@ The preprocessor macros @code{__GNUC_GNU_INLINE__} and
 @code{__GNUC_STDC_INLINE__} may be used to check which semantics are
 in effect for @code{inline} functions.  @xref{Common Predefined
 Macros,,,cpp,The C Preprocessor}.
+
+@item -fpermitted-flt-eval-methods=@var{style}
+@opindex fpermitted-flt-eval-methods
+@opindex fpermitted-flt-eval-methods=c11
+@opindex fpermitted-flt-eval-methods=ts-18661-3
+ISO/IEC TS 18661-3 defines new permissible values for
+@code{FLT_EVAL_METHOD} that indicate that operations and constants with
+a semantic type that is an interchange or extended format should be
+evaluated to the precision and range of that type.  These new values are
+a superset of those permitted under C99/C11, which does not specify the
+meaning of other positive values of @code{FLT_EVAL_METHOD}.  As such, code
+conforming to C11 may not have been written expecting the possibility of
+the new values.
+
+@option{-fpermitted-flt-eval-methods} specifies whether the compiler
+should allow only the values of @code{FLT_EVAL_METHOD} specified in C99/C11,
+or the extended set of values specified in ISO/IEC TS 18661-3.
+
+@var{style} is either @code{c11} or @code{ts-18661-3} as appropriate.
+
+The default when in a standards compliant mode (@option{-std=c11} or similar)
+is @option{-fpermitted-flt-eval-methods=c11}.  The default when in a GNU
+dialect (@option{-std=gnu11} or similar) is
+@option{-fpermitted-flt-eval-methods=ts-18661-3}.
 
 @item -aux-info @var{filename}
 @opindex aux-info
@@ -5319,6 +5345,11 @@ Warn when a declaration is found after a statement in a block.  This
 construct, known from C++, was introduced with ISO C99 and is by default
 allowed in GCC@.  It is not supported by ISO C90.  @xref{Mixed Declarations}.
 
+@item -Wexpansion-to-defined
+@opindex Wexpansion-to-defined
+Warn whenever @samp{defined} is encountered in the expansion of a macro.
+This warning is also enabled by @option{-Wpedantic} and @option{-Wextra}.
+
 @item -Wundef
 @opindex Wundef
 @opindex Wno-undef
@@ -5924,6 +5955,12 @@ Do not warn if an unexpected @code{__attribute__} is used, such as
 unrecognized attributes, function attributes applied to variables,
 etc.  This does not stop errors for incorrect use of supported
 attributes.
+
+@item -Wno-builtin-declaration-mismatch
+@opindex Wno-builtin-declaration-mismatch
+@opindex Wbuiltin-declaration-mismatch
+Warn if a built-in function is declared with the wrong signature.
+This warning is enabled by default.
 
 @item -Wno-builtin-macro-redefined
 @opindex Wno-builtin-macro-redefined
@@ -8268,18 +8305,19 @@ dependent on the structure of loops within the source code.
 
 Disabled at level @option{-Os}.
 
-@item -fprintf-return-value
-@opindex fprintf-return-value
-Substitute constants for known return value of formatted output functions
-such as @code{sprintf}, @code{snprintf}, @code{vsprintf}, and @code{vsnprintf}
-(but not @code{printf} of @code{fprintf}).  This transformation allows GCC
-to optimize or even eliminate branches based on the known return value of
-these functions called with arguments that are either constant, or whose
-values are known to be in a range that makes determining the exact return
-value possible.  For example, both the branch and the body of the @code{if}
-statement (but not the call to @code{snprint}) can be optimized away when
-@code{i} is a 32-bit or smaller integer because the return value is guaranteed
-to be at most 8.
+@item -fno-printf-return-value
+@opindex fno-printf-return-value
+Do not substitute constants for known return value of formatted output
+functions such as @code{sprintf}, @code{snprintf}, @code{vsprintf}, and
+@code{vsnprintf} (but not @code{printf} of @code{fprintf}).  This
+transformation allows GCC to optimize or even eliminate branches based
+on the known return value of these functions called with arguments that
+are either constant, or whose values are known to be in a range that
+makes determining the exact return value possible.  For example, when
+@option{-fprintf-return-value} is in effect, both the branch and the
+body of the @code{if} statement (but not the call to @code{snprint})
+can be optimized away when @code{i} is a 32-bit or smaller integer
+because the return value is guaranteed to be at most 8.
 
 @smallexample
 char buf[9];
@@ -8290,7 +8328,7 @@ if (snprintf (buf, "%08x", i) >= sizeof buf)
 The @option{-fprintf-return-value} option relies on other optimizations
 and yields best results with @option{-O2}.  It works in tandem with the
 @option{-Wformat-length} option.  The @option{-fprintf-return-value}
-option is disabled by default.
+option is enabled by default.
 
 @item -fno-peephole
 @itemx -fno-peephole2
@@ -8474,6 +8512,12 @@ in that case, it is rounded up.
 If @var{n} is not specified or is zero, use a machine-dependent default.
 
 Enabled at levels @option{-O2}, @option{-O3}.
+
+@item -flimit-function-alignment
+If this option is enabled, the compiler tries to avoid unnecessarily
+overaligning functions. It attempts to instruct the assembler to align
+by the amount specified by @option{-falign-functions}, but not to
+skip more bytes than the size of the function.
 
 @item -falign-labels
 @itemx -falign-labels=@var{n}
@@ -8949,15 +8993,14 @@ them to store all pertinent intermediate computations into variables.
 @item -fexcess-precision=@var{style}
 @opindex fexcess-precision
 This option allows further control over excess precision on machines
-where floating-point registers have more precision than the IEEE
-@code{float} and @code{double} types and the processor does not
-support operations rounding to those types.  By default,
-@option{-fexcess-precision=fast} is in effect; this means that
-operations are carried out in the precision of the registers and that
-it is unpredictable when rounding to the types specified in the source
-code takes place.  When compiling C, if
-@option{-fexcess-precision=standard} is specified then excess
-precision follows the rules specified in ISO C99; in particular,
+where floating-point operations occur in a format with more precision or
+range than the IEEE standard and interchange floating-point types.  By
+default, @option{-fexcess-precision=fast} is in effect; this means that
+operations may be carried out in a wider precision than the types specified
+in the source if that would result in faster code, and it is unpredictable
+when rounding to the types specified in the source code takes place.
+When compiling C, if @option{-fexcess-precision=standard} is specified then
+excess precision follows the rules specified in ISO C99; in particular,
 both casts and assignments cause values to be rounded to their
 semantic types (whereas @option{-ffloat-store} only affects
 assignments).  This option is enabled by default for C if a strict
@@ -14896,16 +14939,6 @@ insufficient space available then either the function
 called, depending upon the amount of stack space required.  The runtime
 system is required to provide these functions.  The default is
 @option{-mno-apcs-stack-check}, since this produces smaller code.
-
-@c not currently implemented
-@item -mapcs-float
-@opindex mapcs-float
-Pass floating-point arguments using the floating-point registers.  This is
-one of the variants of the APCS@.  This option is recommended if the
-target hardware has a floating-point unit or if a lot of floating-point
-arithmetic is going to be performed by the code.  The default is
-@option{-mno-apcs-float}, since the size of integer-only code is 
-slightly increased if @option{-mapcs-float} is used.
 
 @c not currently implemented
 @item -mapcs-reentrant

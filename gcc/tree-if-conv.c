@@ -1749,6 +1749,14 @@ gen_phi_arg_condition (gphi *phi, vec<int> *occur,
   return cond;
 }
 
+/* Local valueization callback that follows all-use SSA edges.  */
+
+static tree
+ifcvt_follow_ssa_use_edges (tree val)
+{
+  return val;
+}
+
 /* Replace a scalar PHI node with a COND_EXPR using COND as condition.
    This routine can handle PHI nodes with more than two arguments.
 
@@ -1844,6 +1852,8 @@ predicate_scalar_phi (gphi *phi, gimple_stmt_iterator *gsi)
 				    arg0, arg1);
       new_stmt = gimple_build_assign (res, rhs);
       gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
+      gimple_stmt_iterator new_gsi = gsi_for_stmt (new_stmt);
+      fold_stmt (&new_gsi, ifcvt_follow_ssa_use_edges);
       update_stmt (new_stmt);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2575,6 +2585,8 @@ version_loop_for_if_conversion (struct loop *loop)
     - The loop has a single exit.
     - The loop header has a single successor, which is the inner
       loop header.
+    - Each of the inner and outer loop latches have a single
+      predecessor.
     - The loop exit block has a single predecessor, which is the
       inner loop's exit block.  */
 
@@ -2586,7 +2598,9 @@ versionable_outer_loop_p (struct loop *loop)
       || loop->inner->next
       || !single_exit (loop)
       || !single_succ_p (loop->header)
-      || single_succ (loop->header) != loop->inner->header)
+      || single_succ (loop->header) != loop->inner->header
+      || !single_pred_p (loop->latch)
+      || !single_pred_p (loop->inner->latch))
     return false;
   
   basic_block outer_exit = single_pred (loop->latch);
@@ -2804,15 +2818,20 @@ tree_if_conversion (struct loop *loop)
     goto cleanup;
 
   /* Since we have no cost model, always version loops unless the user
-     specified -ftree-loop-if-convert.  Either version this loop, or if
-     the pattern is right for outer-loop vectorization, version the
-     outer loop.  In the latter case we will still if-convert the
-     original inner loop.  */
-  if (flag_tree_loop_if_convert != 1
-      && !version_loop_for_if_conversion
-      (versionable_outer_loop_p (loop_outer (loop))
-       ? loop_outer (loop) : loop))
-    goto cleanup;
+     specified -ftree-loop-if-convert or unless versioning is required.
+     Either version this loop, or if the pattern is right for outer-loop
+     vectorization, version the outer loop.  In the latter case we will
+     still if-convert the original inner loop.  */
+  if (any_pred_load_store
+      || any_complicated_phi
+      || flag_tree_loop_if_convert != 1)
+    {
+      struct loop *vloop
+	= (versionable_outer_loop_p (loop_outer (loop))
+	   ? loop_outer (loop) : loop);
+      if (!version_loop_for_if_conversion (vloop))
+	goto cleanup;
+    }
 
   /* Now all statements are if-convertible.  Combine all the basic
      blocks into one huge basic block doing the if-conversion

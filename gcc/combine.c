@@ -8089,12 +8089,17 @@ make_compound_operation_int (machine_mode mode, rtx *x_ptr,
 	/* If the SUBREG is masking of a logical right shift,
 	   make an extraction.  */
 	if (GET_CODE (inner) == LSHIFTRT
+	    && CONST_INT_P (XEXP (inner, 1))
 	    && GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (inner))
 	    && subreg_lowpart_p (x))
 	  {
 	    new_rtx = make_compound_operation (XEXP (inner, 0), next_code);
+	    int width = GET_MODE_PRECISION (GET_MODE (inner))
+			- INTVAL (XEXP (inner, 1));
+	    if (width > mode_width)
+	      width = mode_width;
 	    new_rtx = make_extraction (mode, new_rtx, 0, XEXP (inner, 1),
-				       mode_width, 1, 0, in_code == COMPARE);
+				       width, 1, 0, in_code == COMPARE);
 	    break;
 	  }
 
@@ -11225,7 +11230,8 @@ change_zero_ext (rtx pat)
       else if (GET_CODE (x) == ZERO_EXTEND
 	       && SCALAR_INT_MODE_P (mode)
 	       && REG_P (XEXP (x, 0))
-	       && HARD_REGISTER_P (XEXP (x, 0)))
+	       && HARD_REGISTER_P (XEXP (x, 0))
+	       && can_change_dest_mode (XEXP (x, 0), 0, mode))
 	{
 	  size = GET_MODE_PRECISION (GET_MODE (XEXP (x, 0)));
 	  x = gen_rtx_REG (mode, REGNO (XEXP (x, 0)));

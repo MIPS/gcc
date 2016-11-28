@@ -1097,6 +1097,20 @@ gimple_stmt_nonzero_warnv_p (gimple *stmt, bool *strict_overflow_p)
 	    lookup_attribute ("returns_nonnull",
 			      TYPE_ATTRIBUTES (gimple_call_fntype (stmt))))
 	  return true;
+
+	gcall *call_stmt = as_a<gcall *> (stmt);
+	unsigned rf = gimple_call_return_flags (call_stmt);
+	if (rf & ERF_RETURNS_ARG)
+	  {
+	    unsigned argnum = rf & ERF_RETURN_ARG_MASK;
+	    if (argnum < gimple_call_num_args (call_stmt))
+	      {
+		tree arg = gimple_call_arg (call_stmt, argnum);
+		if (SSA_VAR_P (arg)
+		    && infer_nonnull_range_by_attribute (stmt, arg))
+		  return true;
+	      }
+	  }
 	return gimple_alloca_call_p (stmt);
       }
     default:
@@ -4013,6 +4027,21 @@ extract_range_basic (value_range *vr, gimple *stmt)
 			          : vrp_val_max (type), NULL);
 	  }
 	  return;
+	case CFN_BUILT_IN_STRLEN:
+	  if (tree lhs = gimple_call_lhs (stmt))
+	    if (ptrdiff_type_node
+		&& (TYPE_PRECISION (ptrdiff_type_node)
+		    == TYPE_PRECISION (TREE_TYPE (lhs))))
+	      {
+		tree type = TREE_TYPE (lhs);
+		tree max = vrp_val_max (ptrdiff_type_node);
+		wide_int wmax = wi::to_wide (max, TYPE_PRECISION (TREE_TYPE (max)));
+		tree range_min = build_zero_cst (type);
+		tree range_max = wide_int_to_tree (type, wmax - 1);
+		set_value_range (vr, VR_RANGE, range_min, range_max, NULL);
+		return;
+	      }
+	  break;
 	default:
 	  break;
 	}

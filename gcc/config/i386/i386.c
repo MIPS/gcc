@@ -38218,7 +38218,7 @@ rdseed_step:
       && fcode <= IX86_BUILTIN__BDESC_ARGS2_LAST)
     {
       i = fcode - IX86_BUILTIN__BDESC_ARGS2_FIRST;
-      rtx (*fcn) (rtx, rtx, rtx, rtx);
+      rtx (*fcn) (rtx, rtx, rtx, rtx) = NULL;
       rtx (*fcn_mask) (rtx, rtx, rtx, rtx, rtx);
       rtx (*fcn_maskz) (rtx, rtx, rtx, rtx, rtx, rtx);
       int masked = 1;
@@ -40293,6 +40293,7 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
   enum rtx_code code = GET_CODE (x);
   enum rtx_code outer_code = (enum rtx_code) outer_code_i;
   const struct processor_costs *cost = speed ? ix86_cost : &ix86_size_cost;
+  int src_cost;
 
   switch (code)
     {
@@ -40303,7 +40304,23 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
 	  *total = ix86_set_reg_reg_cost (GET_MODE (SET_DEST (x)));
 	  return true;
 	}
-      return false;
+
+      if (register_operand (SET_SRC (x), VOIDmode))
+	/* Avoid potentially incorrect high cost from rtx_costs
+	   for non-tieable SUBREGs.  */
+	src_cost = 0;
+      else
+	{
+	  src_cost = rtx_cost (SET_SRC (x), mode, SET, 1, speed);
+
+	  if (CONSTANT_P (SET_SRC (x)))
+	    /* Constant costs assume a base value of COSTS_N_INSNS (1) and add
+	       a small value, possibly zero for cheap constants.  */
+	    src_cost += COSTS_N_INSNS (1);
+	}
+
+      *total = src_cost + rtx_cost (SET_DEST (x), mode, SET, 0, speed);
+      return true;
 
     case CONST_INT:
     case CONST:
@@ -51002,6 +51019,53 @@ ix86_expand_divmod_libfunc (rtx libfunc, machine_mode mode,
   *rem_p = rem;
 }
 
+/* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
+   FPU, assume that the fpcw is set to extended precision; when using
+   only SSE, rounding is correct; when using both SSE and the FPU,
+   the rounding precision is indeterminate, since either may be chosen
+   apparently at random.  */
+
+static enum flt_eval_method
+ix86_excess_precision (enum excess_precision_type type)
+{
+  switch (type)
+    {
+      case EXCESS_PRECISION_TYPE_FAST:
+	/* The fastest type to promote to will always be the native type,
+	   whether that occurs with implicit excess precision or
+	   otherwise.  */
+	return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+      case EXCESS_PRECISION_TYPE_STANDARD:
+      case EXCESS_PRECISION_TYPE_IMPLICIT:
+	/* Otherwise, the excess precision we want when we are
+	   in a standards compliant mode, and the implicit precision we
+	   provide would be identical were it not for the unpredictable
+	   cases.  */
+	if (!TARGET_80387)
+	  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+	else if (!TARGET_MIX_SSE_I387)
+	  {
+	    if (!TARGET_SSE_MATH)
+	      return FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE;
+	    else if (TARGET_SSE2)
+	      return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+	  }
+
+	/* If we are in standards compliant mode, but we know we will
+	   calculate in unpredictable precision, return
+	   FLT_EVAL_METHOD_FLOAT.  There is no reason to introduce explicit
+	   excess precision if the target can't guarantee it will honor
+	   it.  */
+	return (type == EXCESS_PRECISION_TYPE_STANDARD
+		? FLT_EVAL_METHOD_PROMOTE_TO_FLOAT
+		: FLT_EVAL_METHOD_UNPREDICTABLE);
+      default:
+	gcc_unreachable ();
+    }
+
+  return FLT_EVAL_METHOD_UNPREDICTABLE;
+}
+
 /* Target-specific selftests.  */
 
 #if CHECKING_P
@@ -51233,6 +51297,8 @@ ix86_run_selftests (void)
 #undef TARGET_MD_ASM_ADJUST
 #define TARGET_MD_ASM_ADJUST ix86_md_asm_adjust
 
+#undef TARGET_C_EXCESS_PRECISION
+#define TARGET_C_EXCESS_PRECISION ix86_excess_precision
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 #undef TARGET_SETUP_INCOMING_VARARGS

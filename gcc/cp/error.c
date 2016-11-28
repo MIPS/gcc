@@ -1217,7 +1217,10 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
       if (! DECL_LANG_SPECIFIC (t))
 	{
 	  if (DECL_ABSTRACT_ORIGIN (t))
-	    dump_decl (pp, DECL_ABSTRACT_ORIGIN (t), flags);
+	    {
+	      gcc_assert (DECL_ABSTRACT_ORIGIN (t) != t);
+	      dump_decl (pp, DECL_ABSTRACT_ORIGIN (t), flags);
+	    }
 	  else
 	    pp_string (pp, M_("<built-in>"));
 	}
