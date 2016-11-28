@@ -5065,10 +5065,6 @@
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "23")
 		    (match_test "!(TARGET_MICROMIPS_R7 /*&& TARGET_LI48*/)"))
-		  (const_string "no")
-	       (and (eq_attr "alternative" "25")
-		    (ior (not (match_test "TARGET_MICROMIPS_R7"))
-			 (not (match_test "TARGET_ADD_SW4X4"))))
 		  (const_string "no")]
 	      (const_string "yes")))])
 

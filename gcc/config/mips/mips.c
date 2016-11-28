@@ -6165,13 +6165,6 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      return dbl_p ? retval : retval + 1;
 	    }
 	}
-      if (TARGET_MICROMIPS_R7
-	  && dest_code == MEM
-	  && GET_MODE_SIZE (mode) == 4
-	  && M16_4X4_REG_P (REGNO (src))
-	  && TARGET_ADD_SW4X4
-	  && lw4x4_sw4x4_operand (dest, GET_MODE (dest)))
-	return "sdbbp16 5 # sw4x4\t%z1,%0";
 
       if (dest_code == MEM)
 	switch (GET_MODE_SIZE (mode))
@@ -21816,7 +21809,7 @@ micromips_movep_opt ()
 	      rtx src = SET_SRC (pattern);
 	      rtx dest = SET_DEST (pattern);
 
-	      if (movep_src_operand (src, GET_MODE (src))
+	      if (movep_operand (src, GET_MODE (src))
 		  && movep_dest_operand (dest, GET_MODE (dest)))
 	        {
 		  /* MOVEP.  */
@@ -21854,8 +21847,8 @@ micromips_movep_opt ()
 
 	          /* Redundent though fool proof.  */
 	          if (umips_movep_target_p (dest1, dest2)
-	              && movep_src_operand (src1, GET_MODE (src1))
-	              && movep_src_operand (src2, GET_MODE (src2))
+	              && movep_operand (src1, GET_MODE (src1))
+	              && movep_operand (src2, GET_MODE (src2))
 	              && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
 	            {
 	              rtx movep_insn = gen_movep (dest1, src1, dest2,
@@ -21876,8 +21869,7 @@ micromips_movep_opt ()
 	              move[i2] = NULL;
 	            }
 		}
-	      else if (TARGET_ADD_MOVEP_REVERSED
-		       && movep_src_operand_rev (dest, GET_MODE (dest))
+	      else if (movep_operand (dest, GET_MODE (dest))
 		       && movep_dest_operand (src, GET_MODE (src)))
 		{
 		  /* Reverse MOVEP.  */
@@ -21913,8 +21905,8 @@ micromips_movep_opt ()
 
 		  /* Redundent though fool proof.  */
 		  if (umips_movep_target_p (src1, src2)
-		      && movep_src_operand_rev (dest1, GET_MODE (dest1))
-		      && movep_src_operand_rev (dest2, GET_MODE (dest2))
+		      && movep_operand (dest1, GET_MODE (dest1))
+		      && movep_operand (dest2, GET_MODE (dest2))
 		      && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
 		    {
 		      rtx movep_insn = gen_movep (dest1, src1, dest2,
@@ -22218,8 +22210,8 @@ micromips_move_balc_opt ()
 	      rtx dest2 = SET_DEST (set2);
 
 	      if (!umips_movep_target_p (dest1, dest2)
-		  && !movep_src_operand (src1, GET_MODE (src1))
-		  && !movep_src_operand (src2, GET_MODE (src2)))
+		  && !movep_operand (src1, GET_MODE (src1))
+		  && !movep_operand (src2, GET_MODE (src2)))
 		continue;
 
 	      if (find_reg_fusage (call_insn, USE, dest1)
@@ -22277,7 +22269,7 @@ mips_reorg (void)
       free_bb_for_insn ();
     }
 
-  if (TARGET_MICROMIPS_R7 && (TARGET_OPT_MOVEP || TARGET_ADD_MOVEP_REVERSED))
+  if (TARGET_MICROMIPS_R7 && TARGET_OPT_MOVEP)
     micromips_movep_opt ();
 
   if (TARGET_MICROMIPS_R7 && (TARGET_OPT_MOVEBALC || TARGET_ADD_MOVEP_BALC))
@@ -24804,12 +24796,6 @@ umips_movep_target_p (rtx reg1, rtx reg2)
     0x000000c0, /* 6, 7 */
     0x00000180, /* 7, 8 */
   };
-  static const int matchr7_23[10] = {
-    0x0000000c, /* 2, 3 */
-    0x00000030, /* 4, 5 */
-    0x00000060, /* 5, 6 */
-    0x000000c0, /* 6, 7 */
-  };
 
   if (!ISA_HAS_XLP)
     return false;
@@ -24827,16 +24813,9 @@ umips_movep_target_p (rtx reg1, rtx reg2)
 
  if (TARGET_MICROMIPS_R7)
     {
-      if (TARGET_ADD_NEW_MOVEP23)
-	{
-	  for (i = 0; i < ARRAY_SIZE (matchr7_23); i++)
-	    if (pair == matchr7_23[i])
-	      return true;
-	}
-      else
-	for (i = 0; i < ARRAY_SIZE (matchr7); i++)
-	  if (pair == matchr7[i])
-	    return true;
+      for (i = 0; i < ARRAY_SIZE (matchr7); i++)
+	if (pair == matchr7[i])
+	  return true;
     }
   else
     for (i = 0; i < ARRAY_SIZE (match); i++)

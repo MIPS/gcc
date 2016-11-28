@@ -102,7 +102,7 @@
   "A register suitable for use in a sibling call.  This will always be
    @code{$25} for @option{-mabicalls}.")
 
-(define_register_constraint "kd" "M16_4X4_REGS"
+(define_register_constraint "kd" "TARGET_MICROMIPS_R7 ? M16_4X4_REGS : GR_REGS"
   "@internal")
 
 (define_constraint "kf"
