@@ -1,3 +1,107 @@
+2016-11-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78474
+	* module.c (gfc_match_submodule): If there is more than one
+	colon, it is a syntax error.
+
+	PR fortran/78331
+	* module.c (gfc_use_module): If an smod file does not exist it
+	is either because the module does not have a module procedure
+	interface or there is an error in the module.
+
+2016-11-25  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* intrinsic.texi: Fix ptrdiff_t typo in ISO_C_BINDING constants
+	table.
+
+2016-11-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60853
+	* interface.c (gfc_compare_interfaces): Remove bad special case for
+	unlimited polymorphism. Refactor for loop.
+
+2016-11-25  Andre Vehreschild  <vehre@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78293
+	* trans-expr.c (gfc_conv_procedure_call): Prepend deallocation
+	of alloctable components to post, rather than adding to
+	se->post.
+	* trans-stmt.c (gfc_trans_allocate): Move deallocation of expr3
+	allocatable components so that all expr3s are visited.
+
+2016-11-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/78293
+	* gfortran.dg/allocatable_function_10.f90: New test.
+	* gfortran.dg/class_array_15.f03: Increase builtin_free count
+	from 11 to 12.
+
+2016-11-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78500
+	* expr.c (gfc_check_vardef_contextm): Fix NULL pointer dereference.
+	* interface.c (matching_typebound_op): Ditto.
+
+2016-11-23  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78297
+	* trans-common.c (finish_equivalences): Do not dereference a NULL pointer.
+
+2016-11-23  Martin Jambor  <mjambor@suse.cz>
+
+	* f95-lang.c (DEF_HSA_BUILTIN): New macro.
+
+2016-11-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/78479
+	* expr.c (gfc_apply_init):  Allocate a charlen if needed.
+
+2016-11-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/78443
+	* class.c (add_proc_comp): Add a vtype component for non-overridable
+	procedures that are overriding.
+
+2016-11-20  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/69741
+	* resolve.c (gfc_resolve_forall): Check for nonscalar index variables.
+
+2016-11-20  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78395
+	* resolve.c (resolve_typebound_function): Prevent stripping of refs,
+	when the base-expression is a class' typed one.
+
+2016-11-18  Richard Sandiford  <richard.sandiford@arm.com>
+ 	    Alan Hayward  <alan.hayward@arm.com>
+ 	    David Sherwood  <david.sherwood@arm.com>
+
+	* trans-common.c (build_common_decl): Use SET_DECL_MODE.
+	* trans-decl.c (gfc_build_label_decl): Likewise.
+	* trans-types.c (gfc_get_array_descr_info): Likewise.
+
+2016-11-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/66227
+	* simplify.c (gfc_simplify_extends_type_of): Fix missed optimization.
+	Prevent over-simplification. Fix a comment. Add a comment.
+
+2016-11-16  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/58001
+	* io.c (next_char_not_space): Update handling of a 'tab' in a FORMAT.
+ 	(format_lex): Adjust invocations of next_char_not_space().
+
+2016-11-16  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78356
+	* class.c (gfc_is_class_scalar_expr): Prevent taking an array ref for
+	a component ref.
+	* trans-expr.c (gfc_trans_assignment_1): Ensure a reference to the
+	object to copy is generated, when assigning class objects.
+
 2016-11-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	* dump-parse-tree.c (show_code):  Add prototype.

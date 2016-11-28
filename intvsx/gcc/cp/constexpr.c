@@ -3153,6 +3153,10 @@ non_const_var_error (tree r)
       else
 	gcc_unreachable ();
     }
+  else if (TREE_CODE (type) == REFERENCE_TYPE)
+    inform (DECL_SOURCE_LOCATION (r),
+	    "%qD was not initialized with a constant "
+	    "expression", r);
   else
     {
       if (cxx_dialect >= cxx11 && !DECL_DECLARED_CONSTEXPR_P (r))
@@ -4222,7 +4226,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	  {
 	    if (same_type_ignoring_top_level_qualifiers_p (type,
 							   TREE_TYPE (op)))
-	      STRIP_NOPS (t);
+	      return cp_fold_convert (type, op);
 	    else
 	      {
 		if (!ctx->quiet)

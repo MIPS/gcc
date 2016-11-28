@@ -4807,7 +4807,7 @@ get_scaled_computation_cost_at (ivopts_data *data, gimple *at, iv_cand *cand,
 				comp_cost cost)
 {
    int loop_freq = data->current_loop->header->frequency;
-   int bb_freq = at->bb->frequency;
+   int bb_freq = gimple_bb (at)->frequency;
    if (loop_freq != 0)
      {
        gcc_assert (cost.scratch <= cost.cost);
@@ -7589,9 +7589,9 @@ remove_unused_ivs (struct ivopts_data *data)
 		  DECL_ARTIFICIAL (vexpr) = 1;
 		  TREE_TYPE (vexpr) = TREE_TYPE (comp);
 		  if (SSA_NAME_VAR (def))
-		    DECL_MODE (vexpr) = DECL_MODE (SSA_NAME_VAR (def));
+		    SET_DECL_MODE (vexpr, DECL_MODE (SSA_NAME_VAR (def)));
 		  else
-		    DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (vexpr));
+		    SET_DECL_MODE (vexpr, TYPE_MODE (TREE_TYPE (vexpr)));
 		  gdebug *def_temp
 		    = gimple_build_debug_bind (vexpr, comp, NULL);
 		  gimple_stmt_iterator gsi;
