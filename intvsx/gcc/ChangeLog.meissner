@@ -1,3 +1,12 @@
+2016-11-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (zero_extendqi<mode>2): Use ^ instead of
+	?* on vector register constraints.
+	(zero_extendhi<mode>2): Likewise.
+	(floatuns<QHI:mode><FP_ISA3:mode>2_internal): Do not allow FPR
+	registers in the first alternative.  Deal with scratch operand not
+	having a register.
+
 2016-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/78101
