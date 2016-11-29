@@ -3077,9 +3077,7 @@ while (0)
    asm (SECTION_OP "\n\
 	.set push\n\
 	.set nomips16\n\
-	.set noreorder\n\
 	bal 1f\n\
-	.set reorder\n\
 1:	.cpsetup $31, $2, 1b\n\
 	la $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
@@ -3091,7 +3089,6 @@ while (0)
 	.set push\n\
 	.set nomips16\n\
 	bal 1f\n\
-	.set reorder\n\
 1:	.cpsetup $31, $2, 1b\n\
 	dla $25, " USER_LABEL_PREFIX #FUNC "\n\
 	jalr $25\n\
