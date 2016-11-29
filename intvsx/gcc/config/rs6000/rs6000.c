@@ -7523,19 +7523,25 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
 
 	  if (mode == V16QImode)
 	    insn = (VECTOR_ELT_ORDER_BIG
-		    ? gen_vextubrx (dest_si, element_si, src_v16qi)
-		    : gen_vextublx (dest_si, element_si, src_v16qi));
+		    ? gen_vextublx (dest_si, element_si, src_v16qi)
+		    : gen_vextubrx (dest_si, element_si, src_v16qi));
 
 	  else if (mode == V8HImode)
-	    insn = (VECTOR_ELT_ORDER_BIG
-		    ? gen_vextuhrx (dest_si, element_si, src_v16qi)
-		    : gen_vextuhlx (dest_si, element_si, src_v16qi));
+	    {
+	      emit_insn (gen_ashlsi3 (dest_si, element_si, const1_rtx));
+	      insn = (VECTOR_ELT_ORDER_BIG
+		      ? gen_vextuhlx (dest_si, dest_si, src_v16qi)
+		      : gen_vextuhrx (dest_si, dest_si, src_v16qi));
+	    }
 
 
 	  else if (mode == V4SImode)
-	    insn = (VECTOR_ELT_ORDER_BIG
-		    ? gen_vextuwrx (dest_si, element_si, src_v16qi)
-		    : gen_vextuwlx (dest_si, element_si, src_v16qi));
+	    {
+	      emit_insn (gen_ashlsi3 (dest_si, element_si, const2_rtx));
+	      insn = (VECTOR_ELT_ORDER_BIG
+		      ? gen_vextuwlx (dest_si, dest_si, src_v16qi)
+		      : gen_vextuwrx (dest_si, dest_si, src_v16qi));
+	    }
 
 	  else
 	    gcc_unreachable ();

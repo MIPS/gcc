@@ -1,3 +1,10 @@
+2016-11-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_vec_extract_var): Fix up
+	thinks in previous code.
+	* config/rs6000/vsx.md (vec_extract V16QImode/V8HImode/V4SImode
+	splitter): Likewise.
+
 2016-11-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_split_vec_extract_var): Add
