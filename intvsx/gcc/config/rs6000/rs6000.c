@@ -7257,6 +7257,8 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	  convert_move (tmp, elt, 0);
 	  elt = tmp;
 	}
+      else if (!REG_P (elt))
+	elt = force_reg (DImode, elt);
 
       switch (mode)
 	{
