@@ -14,13 +14,12 @@ int extract_short_3 (vector short a) { return vec_extract (a, 7); }
 int extract_schar_0 (vector signed char a) { return vec_extract (a, 0); }
 int extract_schar_3 (vector signed char a) { return vec_extract (a, 15); }
 
-/* { dg-final { scan-assembler     "vextractub"  } } */
-/* { dg-final { scan-assembler     "vextractuh"  } } */
-/* { dg-final { scan-assembler     "xxextractuw" } } */
-/* { dg-final { scan-assembler     "mfvsr"       } } */
-/* { dg-final { scan-assembler-not "stxvd2x"     } } */
-/* { dg-final { scan-assembler-not "stxv"        } } */
-/* { dg-final { scan-assembler-not "lwa"         } } */
-/* { dg-final { scan-assembler-not "lwz"         } } */
-/* { dg-final { scan-assembler-not "lha"         } } */
-/* { dg-final { scan-assembler-not "lhz"         } } */
+/* { dg-final { scan-assembler     "vextub\[lr\]x" } } */
+/* { dg-final { scan-assembler     "vextuh\[lr\]x" } } */
+/* { dg-final { scan-assembler     "vextuw\[lr\]x" } } */
+/* { dg-final { scan-assembler-not "stxvd2x"       } } */
+/* { dg-final { scan-assembler-not "stxv"          } } */
+/* { dg-final { scan-assembler-not "lwa"           } } */
+/* { dg-final { scan-assembler-not "lwz"           } } */
+/* { dg-final { scan-assembler-not "lha"           } } */
+/* { dg-final { scan-assembler-not "lhz"           } } */

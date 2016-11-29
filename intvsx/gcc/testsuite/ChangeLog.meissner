@@ -1,5 +1,8 @@
 2016-11-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/p9-extract-1.c: Fix tests to expect
+	VEXTU{B,H,W}{L,R}X instead of VEXTRACTU{B,H} or XXEXTRACTUW.
+
 	* gcc.target/powerpc/vec-extract.h: Add tracing if DO_TRACE is
 	defined.
 	* gcc.target/powerpc/vec-extract-v4sf.c: If we are tracing, print
