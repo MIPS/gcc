@@ -1,5 +1,18 @@
 2016-11-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_split_vec_extract_var): Add
+	support for generating the variable byte, half-word, and word
+	instructions on ISA 3.0 that take the shift count in a GPR and
+	deposit the value in a GPR.  If this is a constant extract, prefer
+	using these instructions instead of using the VEXTRACT*
+	instructions that leave the result in a vector register.
+	* config/rs6000/vsx.md (vsx_extract_<mode>_p9): Ditto.
+	(vec_extract V16QImode/V8HImode/V4SImode splitter): Likewise.
+	(vsx_extract_<mode>_di_p9): Likewise.
+	(vsx_extract_<VSX_EXTRACT_I:mode>_<SDI:mode>_var): Add combiner to
+	eliminate needing to zero extend a value after doing a vector
+	extract instruction.
+
 	Merge up to 242932.
 	* REVISION: Update subversion id.
 

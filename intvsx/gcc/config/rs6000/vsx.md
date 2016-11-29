@@ -2535,36 +2535,62 @@
 })
 
 (define_insn "vsx_extract_<mode>_p9"
-  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=<VSX_EX>")
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=r,<VSX_EX>")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "<VSX_EX>")
-	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")])))]
+	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "wK,<VSX_EX>")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n,n")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEXTRACTUB
    && TARGET_VSX_SMALL_INTEGER"
 {
-  HOST_WIDE_INT elt = INTVAL (operands[2]);
-  HOST_WIDE_INT elt_adj = (!VECTOR_ELT_ORDER_BIG
-			   ? GET_MODE_NUNITS (<MODE>mode) - 1 - elt
-			   : elt);
+  if (which_alternative == 0)
+    return "#";
 
-  HOST_WIDE_INT unit_size = GET_MODE_UNIT_SIZE (<MODE>mode);
-  HOST_WIDE_INT offset = unit_size * elt_adj;
-
-  operands[2] = GEN_INT (offset);
-  if (unit_size == 4)
-    return "xxextractuw %x0,%x1,%2";
   else
-    return "vextractu<wd> %0,%1,%2";
+    {
+      HOST_WIDE_INT elt = INTVAL (operands[2]);
+      HOST_WIDE_INT elt_adj = (!VECTOR_ELT_ORDER_BIG
+			       ? GET_MODE_NUNITS (<MODE>mode) - 1 - elt
+			       : elt);
+
+      HOST_WIDE_INT unit_size = GET_MODE_UNIT_SIZE (<MODE>mode);
+      HOST_WIDE_INT offset = unit_size * elt_adj;
+
+      operands[2] = GEN_INT (offset);
+      if (unit_size == 4)
+	return "xxextractuw %x0,%x1,%2";
+      else
+	return "vextractu<wd> %0,%1,%2";
+    }
 }
   [(set_attr "type" "vecsimple")])
 
+(define_split
+  [(set (match_operand:<VS_scalar> 0 "int_reg_operand" "")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_EXTRACT_I 1 "altivec_register_operand" "")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "")])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEXTRACTUB
+   && TARGET_VSX_SMALL_INTEGER && reload_completed"
+  [(const_int 0)]
+{
+  rtx op0_si = gen_rtx_REG (SImode, REGNO (operands[0]));
+  rtx op1_v16qi = gen_rtx_REG (V16QImode, REGNO (operands[1]));
+
+  emit_move_insn (op0_si, operands[2]);
+  if (VECTOR_ELT_ORDER_BIG)
+    emit_insn (gen_vextu<wd>rx (op0_si, op0_si, op1_v16qi));
+  else
+    emit_insn (gen_vextu<wd>lx (op0_si, op0_si, op1_v16qi));
+  DONE;
+})
+
 ;; Optimize zero extracts to eliminate the AND after the extract.
 (define_insn_and_split "*vsx_extract_<mode>_di_p9"
-  [(set (match_operand:DI 0 "gpc_reg_operand" "=<VSX_EX>")
+  [(set (match_operand:DI 0 "gpc_reg_operand" "=r,<VSX_EX>")
 	(zero_extend:DI
 	 (vec_select:<VS_scalar>
-	  (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "<VSX_EX>")
-	  (parallel [(match_operand:QI 2 "const_int_operand" "n")]))))]
+	  (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "wK,<VSX_EX>")
+	  (parallel [(match_operand:QI 2 "const_int_operand" "n,n")]))))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEXTRACTUB
    && TARGET_VSX_SMALL_INTEGER"
   "#"
@@ -2721,19 +2747,40 @@
 
 ;; Variable V16QI/V8HI/V4SI extract
 (define_insn_and_split "vsx_extract_<mode>_var"
-  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=r,r")
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=r,r,r")
 	(unspec:<VS_scalar>
-	 [(match_operand:VSX_EXTRACT_I 1 "input_operand" "v,m")
-	  (match_operand:DI 2 "gpc_reg_operand" "r,r")]
+	 [(match_operand:VSX_EXTRACT_I 1 "input_operand" "wK,v,m")
+	  (match_operand:DI 2 "gpc_reg_operand" "r,r,r")]
 	 UNSPEC_VSX_EXTRACT))
-   (clobber (match_scratch:DI 3 "=r,&b"))
-   (clobber (match_scratch:V2DI 4 "=&v,X"))]
+   (clobber (match_scratch:DI 3 "=X,r,&b"))
+   (clobber (match_scratch:V2DI 4 "=X,&v,X"))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
   "#"
   "&& reload_completed"
   [(const_int 0)]
 {
   rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
+})
+
+(define_insn_and_split "*vsx_extract_<VSX_EXTRACT_I:mode>_<SDI:mode>_var"
+  [(set (match_operand:SDI 0 "gpc_reg_operand" "=r,r,r")
+	(zero_extend:SDI
+	 (unspec:<VSX_EXTRACT_I:VS_scalar>
+	  [(match_operand:VSX_EXTRACT_I 1 "input_operand" "wK,v,m")
+	   (match_operand:DI 2 "gpc_reg_operand" "r,r,r")]
+	  UNSPEC_VSX_EXTRACT)))
+   (clobber (match_scratch:DI 3 "=X,r,&b"))
+   (clobber (match_scratch:V2DI 4 "=X,&v,X"))]
+  "VECTOR_MEM_VSX_P (<VSX_EXTRACT_I:MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  machine_mode smode = <VSX_EXTRACT_I:MODE>mode;
+  rs6000_split_vec_extract_var (gen_rtx_REG (smode, REGNO (operands[0])),
+				operands[1], operands[2],
 				operands[3], operands[4]);
   DONE;
 })
