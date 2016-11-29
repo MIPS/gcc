@@ -2,11 +2,43 @@
 #include <stddef.h>
 #include <altivec.h>
 
+#ifdef DO_TRACE
+#include <stdio.h>
+
+#define TRACE(STRING, NUM)						\
+do									\
+  {									\
+    fprintf (stderr, "%s%s: %2d\n", (NUM == 0) ? "\n" : "",		\
+	     STRING, (int)NUM);						\
+    fflush (stderr);							\
+  }									\
+while (0)
+
+#ifndef FAIL_FORMAT
+#define FAIL_FORMAT "%ld"
+#define FAIL_CAST(X) ((long)(X))
+#endif
+
+#define FAIL(EXP, GOT)							\
+do									\
+  {									\
+    fprintf (stderr, "Expected: " FAIL_FORMAT ", got " FAIL_FORMAT "\n", \
+	     FAIL_CAST (EXP), FAIL_CAST (GOT));				\
+    fflush (stderr);							\
+    abort ();								\
+  }									\
+while (0)
+
+#else
+#define TRACE(STRING, NUM)
+#define FAIL(EXP, GOT) abort ()
+#endif
+
 static void
 check (TYPE expected, TYPE got)
 {
   if (expected != got)
-    abort ();
+    FAIL (expected, got);
 }
 
 static vector TYPE  deoptimize     (vector TYPE)	__attribute__((__noinline__));
@@ -173,7 +205,10 @@ do_auto (vector TYPE a)
   size_t i;
 
   for (i = 0; i < sizeof (get_auto_const) / sizeof (get_auto_const[0]); i++)
-    check (get_auto_n (a, i),  (get_auto_const[i]) (a));
+    {
+      TRACE ("auto", i);
+      check (get_auto_n (a, i),  (get_auto_const[i]) (a));
+    }
 }
 
 
@@ -327,6 +362,7 @@ do_store (vector TYPE a)
 
   for (i = 0; i < sizeof (get_store_const) / sizeof (get_store_const[0]); i++)
     {
+      TRACE ("store", i);
       get_store_n (&result_var, a, i);
       (get_store_const[i]) (&result_const, a);
       check (result_var, result_const);
@@ -481,7 +517,10 @@ do_pointer (vector TYPE *p)
   size_t i;
 
   for (i = 0; i < sizeof (get_pointer_const) / sizeof (get_pointer_const[0]); i++)
-    check (get_pointer_n (p, i),  (get_pointer_const[i]) (p));
+    {
+      TRACE ("pointer", i);
+      check (get_pointer_n (p, i),  (get_pointer_const[i]) (p));
+    }
 }
 
 
@@ -633,7 +672,10 @@ do_indexed (vector TYPE *p, size_t x)
   size_t i;
 
   for (i = 0; i < sizeof (get_indexed_const) / sizeof (get_indexed_const[0]); i++)
-    check (get_indexed_n (p, x, i),  (get_indexed_const[i]) (p, x));
+    {
+      TRACE ("indexed", i);
+      check (get_indexed_n (p, x, i),  (get_indexed_const[i]) (p, x));
+    }
 }
 
 
@@ -785,7 +827,10 @@ do_ptr_plus1 (vector TYPE *p)
   size_t i;
 
   for (i = 0; i < sizeof (get_ptr_plus1_const) / sizeof (get_ptr_plus1_const[0]); i++)
-    check (get_ptr_plus1_n (p, i),  (get_ptr_plus1_const[i]) (p));
+    {
+      TRACE ("ptr_plus1", i);
+      check (get_ptr_plus1_n (p, i),  (get_ptr_plus1_const[i]) (p));
+    }
 }
 
 
@@ -937,7 +982,10 @@ do_static (void)
   size_t i;
 
   for (i = 0; i < sizeof (get_static_const) / sizeof (get_static_const[0]); i++)
-    check (get_static_n (i),  (get_static_const[i]) ());
+    {
+      TRACE ("static", i);
+      check (get_static_n (i),  (get_static_const[i]) ());
+    }
 }
 
 
@@ -1089,7 +1137,10 @@ do_global (void)
   size_t i;
 
   for (i = 0; i < sizeof (get_global_const) / sizeof (get_global_const[0]); i++)
-    check (get_global_n (i),  (get_global_const[i]) ());
+    {
+      TRACE ("global", i);
+      check (get_global_n (i),  (get_global_const[i]) ());
+    }
 }
 
 
