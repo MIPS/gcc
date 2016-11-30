@@ -1233,6 +1233,8 @@
 (define_int_iterator FMAXMINV [UNSPEC_FMAXV UNSPEC_FMINV
 			       UNSPEC_FMAXNMV UNSPEC_FMINNMV])
 
+(define_int_iterator FMAXMINNMV [UNSPEC_FMAXNMV UNSPEC_FMINNMV])
+
 (define_int_iterator BITWISEV [UNSPEC_ANDV UNSPEC_IORV UNSPEC_XORV])
 
 (define_int_iterator LOGICALF [UNSPEC_ANDF UNSPEC_IORF UNSPEC_XORF])
@@ -1390,6 +1392,11 @@
 				 (UNSPEC_FMINV "fmin")
 				 (UNSPEC_FMAXNM "fmaxnm")
 				 (UNSPEC_FMINNM "fminnm")])
+
+(define_int_attr fmaxmin [(UNSPEC_FMAXNM "fmax")
+			  (UNSPEC_FMINNM "fmin")
+			  (UNSPEC_FMAXNMV "fmax")
+			  (UNSPEC_FMINNMV "fmin")])
 
 (define_int_attr bit_reduc [(UNSPEC_ANDV "and")
 		 	    (UNSPEC_IORV "ior")

@@ -1378,6 +1378,18 @@
   "<maxmin_uns_op>v\t%<Vetype>0, %1, %2.<Vetype>"
 )
 
+;; reduc_f{max,min}_scal: reuse the patterns defined above for FMAXMINV.
+(define_expand "reduc_<fmaxmin>_scal_<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand")
+	(unspec:<VEL> [(match_dup 2)
+		       (match_operand:SVE_F 1 "register_operand")]
+		      FMAXMINNMV))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
 (define_expand "reduc_<bit_reduc>_scal_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand")
 	(unspec:<VEL> [(match_dup 2)
