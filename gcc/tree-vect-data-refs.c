@@ -4530,7 +4530,7 @@ vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr)
 			    DR_TARGET_ALIGNMENT (dr), misalign);
 }
 
-/* Function vect_create_addr_base_for_vector_ref.
+/* Function vect_create_addr_base_for_vector_ref_1.
 
    Create an expression that computes the address of the first memory location
    that will be accessed for a data reference.
@@ -4538,23 +4538,8 @@ vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr)
    Input:
    STMT: The statement containing the data reference.
    NEW_STMT_LIST: Must be initialized to NULL_TREE or a statement list.
-   OFFSET: Optional. If supplied, it is be added to the initial address.
-   LOOP:    Specify relative to which loop-nest should the address be computed.
-            For example, when the dataref is in an inner-loop nested in an
-	    outer-loop that is now being vectorized, LOOP can be either the
-	    outer-loop, or the inner-loop.  The first memory location accessed
-	    by the following dataref ('in' points to short):
-
-		for (i=0; i<N; i++)
-		   for (j=0; j<M; j++)
-		     s += in[i+j]
-
-	    is as follows:
-	    if LOOP=i_loop:	&in		(relative to i_loop)
-	    if LOOP=j_loop: 	&in+i*2B	(relative to j_loop)
-   BYTE_OFFSET: Optional, defaulted to NULL.  If supplied, it is added to the
-	    initial address.  Unlike OFFSET, which is number of elements to
-	    be added, BYTE_OFFSET is measured in bytes.
+   ADDR_INFO: A structure that contains information about the address to be
+	      created, such as the base and offsets.
 
    Output:
    1. Return an SSA_NAME whose value is the address of the memory location of
@@ -4564,11 +4549,10 @@ vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr)
 
    FORNOW: We are only handling array accesses with step 1.  */
 
-tree
-vect_create_addr_base_for_vector_ref (gimple *stmt,
-				      gimple_seq *new_stmt_list,
-				      tree offset,
-				      tree byte_offset)
+static tree
+vect_create_addr_base_for_vector_ref_1 (gimple *stmt,
+					gimple_seq *new_stmt_list,
+					vect_addr_base_info *addr_info)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
@@ -4579,26 +4563,14 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
   tree vect_ptr_type;
   tree step = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  innermost_loop_behavior *drb = vect_dr_behavior (dr);
 
-  tree data_ref_base = unshare_expr (drb->base_address);
-  tree base_offset = unshare_expr (drb->offset);
-  tree init = unshare_expr (drb->init);
-
-  if (loop_vinfo)
-    base_name = get_name (data_ref_base);
-  else
-    {
-      base_offset = ssize_int (0);
-      init = ssize_int (0);
-      base_name = get_name (DR_REF (dr));
-    }
+  base_name = get_name (loop_vinfo ? addr_info->dr_base : DR_REF (dr));
 
   /* Create base_offset */
-  base_offset = size_binop (PLUS_EXPR,
-			    fold_convert (sizetype, base_offset),
-			    fold_convert (sizetype, init));
-
+  tree base_offset = size_binop (PLUS_EXPR,
+				 fold_convert (sizetype, addr_info->dr_offset),
+				 fold_convert (sizetype, addr_info->dr_init));
+  tree offset = addr_info->arg_offset;
   if (offset)
     {
       offset = fold_build2 (MULT_EXPR, sizetype,
@@ -4606,6 +4578,8 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
       base_offset = fold_build2 (PLUS_EXPR, sizetype,
 				 base_offset, offset);
     }
+
+  tree byte_offset = addr_info->arg_byte_offset;
   if (byte_offset)
     {
       byte_offset = fold_convert (sizetype, byte_offset);
@@ -4615,7 +4589,7 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
 
   /* base + base_offset */
   if (loop_vinfo)
-    addr_base = fold_build_pointer_plus (data_ref_base, base_offset);
+    addr_base = fold_build_pointer_plus (addr_info->dr_base, base_offset);
   else
     {
       addr_base = build1 (ADDR_EXPR,
@@ -4645,6 +4619,183 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
     }
 
   return addr_base;
+}
+
+hashval_t
+vect_addr_base_hasher::hash (const vect_addr_base_info *x)
+{
+  inchash::hash h;
+  inchash::add_expr (x->dr_base, h);
+  inchash::add_expr (x->dr_offset, h);
+  inchash::add_expr (x->dr_init, h);
+  /* TODO: Do we really need to hash offset2 and byte_offset2 as these are
+     rarely non-NULL?  */
+  return h.end ();
+}
+
+bool
+vect_addr_base_hasher::equal (const vect_addr_base_info *x,
+			      const vect_addr_base_info *y)
+{
+  if (bool (x->arg_offset) != bool (y->arg_offset)
+      || bool (x->arg_byte_offset) != bool (y->arg_byte_offset))
+    return false;
+
+  if (x->arg_offset && !operand_equal_p (x->arg_offset, y->arg_offset, 0))
+    return false;
+
+  if (x->arg_byte_offset
+      && !operand_equal_p (x->arg_byte_offset, y->arg_byte_offset, 0))
+    return false;
+
+  return (operand_equal_p (x->dr_base, y->dr_base, 0)
+	  && operand_equal_p (x->dr_offset, y->dr_offset, 0)
+	  && operand_equal_p (x->dr_init, y->dr_init, 0));
+}
+
+/* Function fill_vect_addr_base_info.
+
+   This function fills in the vect_addr_base_info structure pointed to by INFO,
+   which will be used to first attempt a lookup in the data reference cache and
+   if not found a new base address will be created.
+
+   Input:
+   STMT: The statement containing the data reference.
+   OFFSET: Optional.  If supplied, it is be added to the initial address.
+   LOOP:    Specify relative to which loop-nest should the address be computed.
+	    For example, when the dataref is in an inner-loop nested in an
+	    outer-loop that is now being vectorized, LOOP can be either the
+	    outer-loop, or the inner-loop.  The first memory location accessed
+	    by the following dataref ('in' points to short):
+
+		for (i=0; i<N; i++)
+		  for (j=0; j<M; j++)
+		    s += in[i+j]
+
+	    is as follows:
+	    if LOOP=i_loop:	&in		(relative to i_loop)
+	    if LOOP=j_loop: 	&in+i*2B	(relative to j_loop)
+   BYTE_OFFSET: Optional, defaulted to NULL.  If supplied, it is added to the
+	    initial address.  Unlike OFFSET, which is number of elements to
+	    be added, BYTE_OFFSET is measured in bytes.
+   INFO: Will be filled in with information required to perform a cache
+	 table lookup.  */
+
+static bool
+fill_vect_addr_base_info (gimple *stmt, tree offset,
+			  tree byte_offset, vect_addr_base_info *info)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
+  innermost_loop_behavior *drb = vect_dr_behavior (dr);
+
+  info->dr_base = unshare_expr (drb->base_address);
+  info->dr_offset = unshare_expr (drb->offset);
+  info->dr_init = unshare_expr (drb->init);
+
+  if (!loop_vinfo)
+    info->dr_offset = info->dr_init = ssize_int (0);
+
+  info->arg_offset = offset;
+  info->arg_byte_offset = byte_offset;
+
+  /* For now we only do caching of SSA names if we have a vectorizable loop -
+     in theory I can't see why we couldn't do this for SLP too.  However, so
+     far the only need for caching comes from loops containing memory addresses
+     that are aligned via masking rather than peeling.  */
+  return loop_vinfo;
+}
+
+tree
+get_copy_for_caching (tree val)
+{
+  if (!val)
+    return val;
+
+  if (TREE_CODE (val) == SSA_NAME)
+    return val;
+
+  return unshare_expr (val);
+}
+
+/* Function copy_vect_addr_base_info.
+
+   Copy tree nodes from SRC to DEST, ensuring that we keep copies of nodes that
+   are not SSA_NAME types as future calls to force_gimple_operand will overwrite
+   those nodes and replace them an SSA_NAME.  */
+
+static void
+copy_vect_addr_base_info (vect_addr_base_info *dest, vect_addr_base_info *src)
+{
+  dest->dr_base = get_copy_for_caching (src->dr_base);
+  dest->dr_offset = get_copy_for_caching (src->dr_offset);
+  dest->dr_init = get_copy_for_caching (src->dr_init);
+  dest->arg_offset = get_copy_for_caching (src->arg_offset);
+  dest->arg_byte_offset = get_copy_for_caching (src->arg_byte_offset);
+}
+
+/* Function vect_create_addr_base_for_vector_ref.
+
+   Create or find a cached expression that computes the address of the first
+   memory location that will be accessed for a data reference.
+
+   Input:
+   STMT: The statement containing the data reference.
+   NEW_STMT_LIST: Must be initialized to NULL_TREE or a statement list.
+   OFFSET:  Optional.  If supplied, it is be added to the initial address.
+   LOOP:    Specify relative to which loop-nest should the address be computed.
+	    For example, when the dataref is in an inner-loop nested in an
+	    outer-loop that is now being vectorized, LOOP can be either the
+	    outer-loop, or the inner-loop.  The first memory location accessed
+	    by the following dataref ('in' points to short):
+
+		for (i=0; i<N; i++)
+		   for (j=0; j<M; j++)
+		     s += in[i+j]
+
+	    is as follows:
+	    if LOOP=i_loop:	&in		(relative to i_loop)
+	    if LOOP=j_loop: 	&in+i*2B	(relative to j_loop)
+   BYTE_OFFSET: Optional, defaulted to NULL.  If supplied, it is added to the
+	    initial address.  Unlike OFFSET, which is number of elements to
+	    be added, BYTE_OFFSET is measured in bytes.
+
+   Output:
+   1.  Return an SSA_NAME whose value is the address of the memory location of
+       the first vector of the data reference.
+   2.  If new_stmt_list is not NULL_TREE after return then the caller must
+       insert these statement(s) which define the returned SSA_NAME.
+
+   FORNOW: We are only handling array accesses with step 1.  */
+
+tree
+vect_create_addr_base_for_vector_ref (gimple *stmt,
+				      gimple_seq *new_stmt_list,
+				      tree offset,
+				      tree byte_offset)
+{
+  vect_addr_base_info info;
+
+  if (!fill_vect_addr_base_info (stmt, offset, byte_offset, &info))
+    return vect_create_addr_base_for_vector_ref_1 (stmt, new_stmt_list, &info);
+
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+
+  vect_addr_base_info **slot =
+    LOOP_VINFO_ADDR_CACHE (loop_vinfo).find_slot (&info, INSERT);
+  if (*slot)
+    return (*slot)->final_addr;
+
+  vect_addr_base_info *entry = XNEW (struct vect_addr_base_info);
+  copy_vect_addr_base_info (entry, &info);
+
+  entry->final_addr =
+    vect_create_addr_base_for_vector_ref_1 (stmt, new_stmt_list, &info);
+  *slot = entry;
+
+  return entry->final_addr;
 }
 
 

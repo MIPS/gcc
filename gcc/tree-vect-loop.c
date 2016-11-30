@@ -841,7 +841,8 @@ _loop_vec_info::_loop_vec_info (struct loop *loop_in)
     no_data_dependencies (false),
     has_mask_store (false),
     scalar_loop (NULL),
-    orig_loop_info (NULL)
+    orig_loop_info (NULL),
+    vect_addr_base_htab (31)
 {
   /* Create/Update stmt_info for all stmts in the loop.  */
   basic_block *body = get_loop_body (loop);

@@ -238,6 +238,29 @@ is_a_helper <_bb_vec_info *>::test (vec_info *i)
 }
 
 
+struct vect_addr_base_info
+{
+  /* Map from.  */
+  tree dr_base;
+  tree dr_offset;
+  tree dr_init;
+  tree arg_offset;
+  tree arg_byte_offset;
+
+  /* Map to.  */
+  tree final_addr;
+};
+
+/* Vector base address hashtable helpers.  */
+
+struct vect_addr_base_hasher : free_ptr_hash <vect_addr_base_info>
+{
+  typedef vect_addr_base_info *value_type;
+  typedef vect_addr_base_info *compare_type;
+  static hashval_t hash (const vect_addr_base_info *);
+  static bool equal (const vect_addr_base_info *, const vect_addr_base_info *);
+};
+
 /* In general, we can divide the vector statements in a vectorized loop
    into related groups ("rgroups") and say that for each rgroup there is
    some nS such that the rgroup operates on nS values from one scalar
@@ -504,6 +527,8 @@ typedef struct _loop_vec_info : public vec_info {
      this points to the original vectorized loop.  Otherwise NULL.  */
   _loop_vec_info *orig_loop_info;
 
+  /* A hash table used for caching vector base addresses.  */
+  hash_table<vect_addr_base_hasher> vect_addr_base_htab;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -554,6 +579,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 #define LOOP_VINFO_ORIG_LOOP_INFO(L)       (L)->orig_loop_info
+#define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -1554,6 +1580,7 @@ extern tree vect_get_new_ssa_name (tree, enum vect_var_kind,
 				   const char * = NULL);
 extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 						  tree, tree = NULL_TREE);
+extern tree get_copy_for_caching (tree);
 
 /* In tree-vect-loop.c.  */
 /* FORNOW: Used in tree-parloops.c.  */
