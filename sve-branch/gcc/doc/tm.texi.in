@@ -8159,6 +8159,8 @@ and the associated definitions of those functions.
 
 @hook TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 
+@hook TARGET_GATHER_SCATTER_SUPPORTS_SCALE_P
+
 @hook TARGET_RECORD_OFFLOAD_SYMBOL
 
 @hook TARGET_OFFLOAD_OPTIONS

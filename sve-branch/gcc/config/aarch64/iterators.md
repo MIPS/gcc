@@ -815,6 +815,16 @@
 			(V8SI  "v32si")  (V8SF  "v32sf")
 			(V4DI  "v16di")  (V4DF  "v16df")])
 
+;; SVE gather
+(define_mode_attr gather_unscaled_mods [(V8SI ", sxtw") (V8SF ", sxtw")
+					(V4DI "") (V4DF "")])
+(define_mode_attr gather_scaled_mods [(V8SI ", sxtw 2") (V8SF ", sxtw 2")
+				      (V4DI ", lsl 3") (V4DF ", lsl 3")])
+(define_mode_attr gather_unscaled_modu [(V8SI ", uxtw") (V8SF ", uxtw")
+					(V4DI "") (V4DF "")])
+(define_mode_attr gather_scaled_modu [(V8SI ", uxtw 2") (V8SF ", uxtw 2")
+				      (V4DI ", lsl 3") (V4DF ", lsl 3")])
+
 ;; Mode for atomic operation suffixes
 (define_mode_attr atomic_sfx
   [(QI "b") (HI "h") (SI "") (DI "")])

@@ -4710,6 +4710,15 @@ for a memory operand 0 and register operand 1.
 
 This pattern is not allowed to @code{FAIL}.
 
+@cindex @code{vec_gather_load@var{m}} instruction pattern
+@item @samp{vec_gather_load@var{m}}
+Load several memory locations into a vector. Operand 2 contains a vector of offsets to be loaded consecutively from the base address in Operand 0. Operands 0 and 1 are vectors with mode m. The operation is equivalent to:
+
+@smallexample
+  for (int i=0; i<count; i++)
+    Operand0[i] = Operand1[Operand2[i]];
+@end smallexample
+
 @cindex @code{vec_set@var{m}} instruction pattern
 @item @samp{vec_set@var{m}}
 Set given field in the vector value.  Operand 0 is the vector to modify,

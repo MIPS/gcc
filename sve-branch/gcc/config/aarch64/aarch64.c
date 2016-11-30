@@ -14831,6 +14831,16 @@ aarch64_asan_shadow_offset (void)
   return (HOST_WIDE_INT_1 << 36);
 }
 
+/* Implement the TARGET_GATHER_SCATTER_SUPPORTS_SCALE_P hook */
+
+static bool
+aarch64_gather_scatter_supports_scale_p (bool gather_p ATTRIBUTE_UNUSED,
+					 unsigned int offset_bitsize,
+					 unsigned int scale)
+{
+  return offset_bitsize == scale * 8 || scale == 1;
+}
+
 static bool
 aarch64_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
 					unsigned int align,
@@ -16126,6 +16136,10 @@ aarch64_dwarf_poly_indeterminate_value (unsigned int i, unsigned int *factor,
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS aarch64_legitimize_address
+
+#undef TARGET_GATHER_SCATTER_SUPPORTS_SCALE_P
+#define TARGET_GATHER_SCATTER_SUPPORTS_SCALE_P \
+  aarch64_gather_scatter_supports_scale_p
 
 #undef TARGET_USE_BY_PIECES_INFRASTRUCTURE_P
 #define TARGET_USE_BY_PIECES_INFRASTRUCTURE_P \

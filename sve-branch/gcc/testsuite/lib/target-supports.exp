@@ -6464,6 +6464,26 @@ proc check_effective_target_vect_call_roundf { } {
     return $et_vect_call_roundf_saved($et_index)
 }
 
+# Return 1 if the target supports vector gather operations.
+
+proc check_effective_target_vect_gather { } {
+    return [check_effective_target_aarch64_sve]
+}
+
+# Return 1 if the target supports vector scatter operations.
+
+proc check_effective_target_vect_scatter { } {
+    return [check_effective_target_aarch64_sve]
+}
+
+# Return 1 if the target supports both vector gather and vector scatter
+# operations.
+
+proc check_effective_target_vect_gather_scatter { } {
+    return [expr { [check_effective_target_vect_gather]
+		   && [check_effective_target_vect_scatter] }]
+}
+
 # Return 1 if the target supports a non-reassociating form of floating-point
 # addition reduction, i.e. one that is suitable for -fno-associative-math.
 

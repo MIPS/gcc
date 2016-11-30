@@ -196,4 +196,6 @@ extern internal_fn get_conditional_internal_fn (tree_code, tree);
 extern void expand_internal_call (gcall *);
 extern void expand_internal_call (internal_fn, gcall *);
 
+extern internal_fn get_gather_scatter_internal_fn (bool, tree, tree, bool);
+
 #endif

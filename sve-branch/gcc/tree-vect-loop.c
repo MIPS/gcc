@@ -1141,6 +1141,8 @@ vect_fixup_reduc_chain (gimple *stmt)
   gcc_assert (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (firstp))
 	      && GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)));
   GROUP_SIZE (vinfo_for_stmt (firstp)) = GROUP_SIZE (vinfo_for_stmt (stmt));
+  GROUP_NUM_STMTS (vinfo_for_stmt (firstp))
+    = GROUP_NUM_STMTS (vinfo_for_stmt (stmt));
   do
     {
       stmtp = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (stmt));
@@ -1367,6 +1369,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_PEELING_FOR_NITER (res) = false;
   LOOP_VINFO_OPERANDS_SWAPPED (res) = false;
   LOOP_VINFO_ADDR_CACHE (res) = NULL;
+  LOOP_VINFO_GATHER_SCATTER_CACHE (res) = NULL;
   LOOP_VINFO_VF_MULT_MAP (res) = NULL;
   LOOP_VINFO_SUNK_DATAREFS (res) = vNULL;
 
@@ -1451,8 +1454,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   loop_vinfo->scalar_cost_vec.release ();
 
   delete LOOP_VINFO_ADDR_CACHE (loop_vinfo);
-  LOOP_VINFO_ADDR_CACHE (loop_vinfo) = NULL;
-
+  delete LOOP_VINFO_GATHER_SCATTER_CACHE (loop_vinfo);
   delete LOOP_VINFO_VF_MULT_MAP (loop_vinfo);
 
   LOOP_VINFO_MASK_ARRAY (loop_vinfo).release ();
@@ -3058,6 +3060,7 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
   first = GROUP_FIRST_ELEMENT (vinfo_for_stmt (current_stmt));
   LOOP_VINFO_REDUCTION_CHAINS (loop_info).safe_push (first);
   GROUP_SIZE (vinfo_for_stmt (first)) = size;
+  GROUP_NUM_STMTS (vinfo_for_stmt (first)) = size;
 
   return true;
 }
@@ -8106,11 +8109,13 @@ vect_transform_loop (loop_vec_info loop_vinfo)
             {
 	      if (STMT_VINFO_GROUPED_ACCESS (stmt_info))
 		{
-		  /* Interleaving. If IS_STORE is TRUE, the vectorization of the
-		     interleaving chain was completed - free all the stores in
-		     the chain.  */
+		  /* Remove all the stores once we've vectorized the
+		     whole group.  */
 		  gsi_next (&si);
-		  vect_remove_stores (GROUP_FIRST_ELEMENT (stmt_info));
+		  gimple *first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
+		  if (GROUP_STORE_COUNT (vinfo_for_stmt (first_stmt))
+		      == GROUP_NUM_STMTS (vinfo_for_stmt (first_stmt)))
+		    vect_remove_stores (first_stmt);
 		}
 	      else
 		{

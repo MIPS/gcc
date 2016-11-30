@@ -76,9 +76,11 @@ init_internal_fns ()
 #define mask_load_direct { -1, 2, false }
 #define load_lanes_direct { -1, -1, false }
 #define mask_load_lanes_direct { -1, -1, false }
+#define gather_load_direct { -1, -1, false }
 #define mask_store_direct { 3, 2, false }
 #define store_lanes_direct { 0, 0, false }
 #define mask_store_lanes_direct { 0, 0, false }
+#define scatter_store_direct { 3, 3, false }
 #define unary_direct { 0, 0, true }
 #define binary_direct { 0, 0, true }
 #define cond_binary_direct { 1, 1, true }
@@ -2263,6 +2265,92 @@ expand_LAUNDER (internal_fn, gcall *call)
   expand_assignment (lhs, gimple_call_arg (call, 0), false);
 }
 
+/* Expand {MASK_,}SCATTER_STORE{S,U} call CALL using optab OPTAB.  */
+
+static void
+expand_scatter_store_optab_fn (internal_fn, gcall *stmt, direct_optab optab)
+{
+  struct expand_operand ops[5];
+  tree idxtype, rhs[4];
+  rtx addr, indexes;
+  enum insn_code icode;
+
+  rhs[0] = gimple_call_arg (stmt, 0);
+  rhs[1] = gimple_call_arg (stmt, 1);
+  rhs[2] = gimple_call_arg (stmt, 2);
+  rhs[3] = gimple_call_arg (stmt, 3);
+
+  addr = expand_normal (rhs[0]);
+
+  idxtype = TREE_TYPE (rhs[1]);
+  indexes = expand_normal (rhs[1]);
+
+  gcc_assert (TREE_CODE (rhs[2]) == INTEGER_CST);
+
+  int i = 0;
+  create_address_operand (&ops[i++], addr);
+  create_input_operand (&ops[i++], indexes, TYPE_MODE (idxtype));
+  create_integer_operand (&ops[i++], TREE_INT_CST_LOW (rhs[2]));
+
+  machine_mode mode = TYPE_MODE (TREE_TYPE (rhs[3]));
+  rtx src = expand_normal (rhs[3]);
+  create_input_operand (&ops[i++], src, mode);
+
+  if (optab == vec_mask_scatter_stores_optab
+      || optab == vec_mask_scatter_storeu_optab)
+    {
+      tree mask_tree = gimple_call_arg (stmt, 4);
+      rtx mask_rtx = expand_normal (mask_tree);
+      create_input_operand (&ops[i++], mask_rtx,
+			    TYPE_MODE (TREE_TYPE (mask_tree)));
+    }
+
+  icode = direct_optab_handler (optab, mode);
+  expand_insn (icode, i, ops);
+}
+
+/* Expand {MASK_,}GATHER_LOAD{S,U} call CALL using optab OPTAB.  */
+
+static void
+expand_gather_load_optab_fn (internal_fn, gcall *stmt, direct_optab optab)
+{
+  struct expand_operand ops[5];
+  tree type, idxtype, lhs, rhs[3];
+  rtx target, addr, indexes;
+  enum insn_code icode;
+
+  lhs = gimple_call_lhs (stmt);
+  rhs[0] = gimple_call_arg (stmt, 0);
+  rhs[1] = gimple_call_arg (stmt, 1);
+  rhs[2] = gimple_call_arg (stmt, 2);
+
+  type = TREE_TYPE (lhs);
+  target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+
+  addr = expand_normal (rhs[0]);
+
+  idxtype = TREE_TYPE (rhs[1]);
+  indexes = expand_normal (rhs[1]);
+
+  gcc_assert (TREE_CODE (rhs[2]) == INTEGER_CST);
+
+  int i = 0;
+  create_output_operand (&ops[i++], target, TYPE_MODE (type));
+  create_address_operand (&ops[i++], addr);
+  create_input_operand (&ops[i++], indexes, TYPE_MODE (idxtype));
+  create_integer_operand (&ops[i++], TREE_INT_CST_LOW (rhs[2]));
+  if (optab == vec_mask_gather_loads_optab
+      || optab == vec_mask_gather_loadu_optab)
+    {
+      tree mask_tree = gimple_call_arg (stmt, 3);
+      rtx mask_rtx = expand_normal (mask_tree);
+      create_input_operand (&ops[i++], mask_rtx,
+			    TYPE_MODE (TREE_TYPE (mask_tree)));
+    }
+  icode = direct_optab_handler (optab, TYPE_MODE (type));
+  expand_insn (icode, i, ops);
+}
+
 /* Expand a call to FN using the operands in STMT.  FN has a single
    output operand and NARGS input operands.  */
 
@@ -2449,9 +2537,11 @@ multi_vector_optab_supported_p (convert_optab optab, tree_pair types,
 #define direct_mask_load_optab_supported_p direct_optab_supported_p
 #define direct_load_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_load_lanes_optab_supported_p multi_vector_optab_supported_p
+#define direct_gather_load_optab_supported_p direct_optab_supported_p
 #define direct_mask_store_optab_supported_p direct_optab_supported_p
 #define direct_store_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_store_lanes_optab_supported_p multi_vector_optab_supported_p
+#define direct_scatter_store_optab_supported_p direct_optab_supported_p
 #define direct_while_optab_supported_p convert_optab_supported_p
 #define direct_clastb_optab_supported_p direct_optab_supported_p
 
@@ -2568,4 +2658,46 @@ void
 expand_internal_call (gcall *stmt)
 {
   expand_internal_call (gimple_call_internal_fn (stmt), stmt);
+}
+
+/* Determine whether the target can perform a gather load (if GATHER_P)
+   or scatter store (if !GATHER_P) in cases where:
+   - the data being loaded or stored has type TYPE
+   - the individual offsets have type OFFSET_TYPE and
+   - individual operations are conditional if HAS_MASK_P
+   Return the function to use if so, otherwise return IFN_LAST.  */
+
+internal_fn
+get_gather_scatter_internal_fn (bool gather_p, tree type, tree offset_type,
+				bool has_mask_p)
+{
+  internal_fn ifn;
+  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
+  machine_mode address_mode = targetm.addr_space.address_mode (as);
+  scalar_int_mode offset_mode = SCALAR_INT_TYPE_MODE (offset_type);
+  bool offset_unsigned = TYPE_UNSIGNED (offset_type);
+
+  /* Always used signed when the offset does not need extending.  */
+  if (GET_MODE_BITSIZE (offset_mode) >= GET_MODE_UNIT_BITSIZE (address_mode))
+    offset_unsigned = false;
+
+  if (gather_p)
+    {
+      if (offset_unsigned)
+	ifn = has_mask_p ? IFN_MASK_GATHER_LOADU : IFN_GATHER_LOADU;
+      else
+	ifn = has_mask_p ? IFN_MASK_GATHER_LOADS : IFN_GATHER_LOADS;
+    }
+  else
+    {
+      if (offset_unsigned)
+	ifn = has_mask_p ? IFN_MASK_SCATTER_STOREU : IFN_SCATTER_STOREU;
+      else
+	ifn = has_mask_p ? IFN_MASK_SCATTER_STORES : IFN_SCATTER_STORES;
+    }
+
+  if (!direct_internal_fn_supported_p (ifn, type, OPTIMIZE_FOR_SPEED))
+    return IFN_LAST;
+
+  return ifn;
 }

@@ -109,4 +109,4 @@ int main (int argc, const char* argv[])
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "gaps requires scalar epilogue loop" 0 "vect" } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { xfail vect_gather_scatter } } } */

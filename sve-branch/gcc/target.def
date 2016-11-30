@@ -4201,6 +4201,15 @@ supported by the target.",
  unsigned HOST_WIDE_INT, (void),
  NULL)
 
+DEFHOOK
+(gather_scatter_supports_scale_p,
+ "Return true if it is possible to plant a gather load or scatter store, with\n\
+@var{gather_p} choosing between them.  @var{offset_bitsize} if the size in bits\n\
+of the offset type and @var{scale} is the amount by which the offset is\n\
+multiplied.",
+ bool, (bool gather_p, unsigned int offset_bitsize, unsigned int scale),
+ hook_bool_bool_uint_uint_false)
+
 /* Functions relating to calls - argument passing, returns, etc.  */
 /* Members of struct call have no special macro prefix.  */
 HOOK_VECTOR (TARGET_CALLS, calls)

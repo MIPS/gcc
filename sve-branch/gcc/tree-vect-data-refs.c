@@ -2312,20 +2312,21 @@ vect_analyze_group_access_1 (struct data_reference *dr)
     groupsize = 0;
 
   /* Not consecutive access is possible only if it is a part of interleaving.  */
-  if (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
+  if (!GROUP_FIRST_ELEMENT (stmt_info))
     {
       /* Check if it this DR is a part of interleaving, and is a single
 	 element of the group that is accessed in the loop.  */
 
       /* Gaps are supported only for loads. STEP must be a multiple of the type
-	 size.  The size of the group must be a power of 2.  */
+	 size.  */
       if (DR_IS_READ (dr)
 	  && (dr_step % type_size) == 0
 	  && groupsize > 0
 	  && pow2p_hwi (groupsize))
 	{
-	  GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = stmt;
-	  GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
+	  GROUP_FIRST_ELEMENT (stmt_info) = stmt;
+	  GROUP_SIZE (stmt_info) = groupsize;
+	  GROUP_NUM_STMTS (stmt_info) = 1;
 	  GROUP_GAP (stmt_info) = groupsize - 1;
 	  if (dump_enabled_p ())
 	    {
@@ -2359,10 +2360,10 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       return true;
     }
 
-  if (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt)
+  if (GROUP_FIRST_ELEMENT (stmt_info) == stmt)
     {
       /* First stmt in the interleaving chain. Check the chain.  */
-      gimple *next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
+      gimple *next = GROUP_NEXT_ELEMENT (stmt_info);
       struct data_reference *data_ref = dr;
       unsigned int count = 1;
       tree prev_init = DR_INIT (data_ref);
@@ -2413,13 +2414,6 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	    {
 	      /* FORNOW: SLP of accesses with gaps is not supported.  */
 	      slp_impossible = true;
-	      if (DR_IS_WRITE (data_ref))
-		{
-                  if (dump_enabled_p ())
-                    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                                     "interleaved store with gaps\n");
-		  return false;
-		}
 
               gaps += diff - 1;
 	    }
@@ -2449,22 +2443,16 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 
       /* Check that the size of the interleaving is equal to count for stores,
          i.e., that there are no gaps.  */
-      if (groupsize != count
-	  && !DR_IS_READ (dr))
-        {
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "interleaved store with gaps\n");
-	  return false;
-	}
+      if (groupsize != count && !DR_IS_READ (dr))
+	slp_impossible = true;
 
       /* If there is a gap after the last load in the group it is the
 	 difference between the groupsize and the last accessed
 	 element.
 	 When there is no gap, this difference should be 0.  */
-      GROUP_GAP (vinfo_for_stmt (stmt)) = groupsize - last_accessed_element;
-
-      GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
+      GROUP_GAP (stmt_info) = groupsize - last_accessed_element;
+      GROUP_NUM_STMTS (stmt_info) = count;
+      GROUP_SIZE (stmt_info) = groupsize;
       if (dump_enabled_p ())
 	{
 	  dump_printf_loc (MSG_NOTE, vect_location,
@@ -2476,10 +2464,10 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	  dump_printf (MSG_NOTE, "of size %u starting with ",
 		       (unsigned)groupsize);
 	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-	  if (GROUP_GAP (vinfo_for_stmt (stmt)) != 0)
+	  if (GROUP_GAP (stmt_info) != 0)
 	    dump_printf_loc (MSG_NOTE, vect_location,
 			     "There is a gap of %u elements after the group\n",
-			     GROUP_GAP (vinfo_for_stmt (stmt)));
+			     GROUP_GAP (stmt_info));
 	}
 
       /* SLP: create an SLP data structure for every interleaving group of
@@ -3425,11 +3413,13 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 }
 
 /* Return true if a non-affine read or write in STMT is suitable for a
-   gather load or scatter store.  Describe the operation in *INFO if so.  */
+   gather load or scatter store.  Describe the operation in *INFO if so.
+
+   MASKED_P says whether the load or store must be masked.   */
 
 bool
 vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
-			   gather_scatter_info *info)
+			   gather_scatter_info *info, bool masked_p)
 {
   HOST_WIDE_INT scale = 1;
   poly_int64 pbitpos, pbitsize;
@@ -3437,7 +3427,8 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree offtype = NULL_TREE;
-  tree decl, base, off;
+  tree decl = NULL_TREE;
+  tree base, off;
   machine_mode pmode;
   int punsignedp, reversep, pvolatilep = 0;
 
@@ -3623,19 +3614,50 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
   if (offtype == NULL_TREE)
     offtype = TREE_TYPE (off);
 
-  if (DR_IS_READ (dr))
-    decl = targetm.vectorize.builtin_gather (STMT_VINFO_VECTYPE (stmt_info),
-					     offtype, scale);
-  else
-    decl = targetm.vectorize.builtin_scatter (STMT_VINFO_VECTYPE (stmt_info),
-					      offtype, scale);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  if (DR_IS_READ (dr)
+      ? targetm.vectorize.builtin_gather
+      : targetm.vectorize.builtin_scatter)
+    {
+      if (DR_IS_READ (dr))
+        decl = targetm.vectorize.builtin_gather (vectype, offtype, scale);
+      else
+	decl = targetm.vectorize.builtin_scatter (vectype, offtype, scale);
 
-  if (decl == NULL_TREE)
-    return false;
+      if (!decl)
+	return false;
+    }
+  else
+    {
+      machine_mode vecmode = TYPE_MODE (vectype);
+      bool off_unsigned = TYPE_UNSIGNED (offtype);
+
+      /* The offset will eventually need to be converted into the same mode as
+	 the vector mode before it can be used in the gather/scatter.  */
+
+      scalar_int_mode offmode;
+      if (!int_mode_for_mode (GET_MODE_INNER (vecmode)).exists (&offmode))
+	return false;
+
+      unsigned int offmode_bitsize = GET_MODE_BITSIZE (offmode);
+      if (!targetm.gather_scatter_supports_scale_p
+	     (DR_IS_READ (dr), offmode_bitsize, scale))
+	return false;
+
+      offtype = (off_unsigned
+		 ? make_unsigned_type (offmode_bitsize)
+		 : make_signed_type (offmode_bitsize));
+
+      if (get_gather_scatter_internal_fn (DR_IS_READ (dr), vectype,
+					  offtype, masked_p) == IFN_LAST)
+	return false;
+    }
 
   info->decl = decl;
   info->base = base;
-  info->offset = off;
+  info->u.offset = off;
+  info->offset_type = TREE_TYPE (off);
+  info->widened_offset_type = offtype;
   info->offset_dt = vect_unknown_def_type;
   info->offset_vectype = NULL_TREE;
   info->scale = scale;
@@ -3719,11 +3741,13 @@ again:
 	  bool maybe_gather
 	    = DR_IS_READ (dr)
 	      && !TREE_THIS_VOLATILE (DR_REF (dr))
-	      && targetm.vectorize.builtin_gather != NULL;
+	      && (targetm.vectorize.builtin_gather != NULL
+                  || supports_vec_gather_load_p ());
 	  bool maybe_scatter
 	    = DR_IS_WRITE (dr)
 	      && !TREE_THIS_VOLATILE (DR_REF (dr))
-	      && targetm.vectorize.builtin_scatter != NULL;
+	      && (targetm.vectorize.builtin_scatter != NULL
+		  || supports_vec_scatter_store_p ());
 	  bool maybe_simd_lane_access
 	    = is_a <loop_vec_info> (vinfo) && loop->simduid;
 
@@ -4118,8 +4142,8 @@ again:
 	{
 	  gather_scatter_info gs_info;
 	  if (!vect_check_gather_scatter (stmt, as_a <loop_vec_info> (vinfo),
-					  &gs_info)
-	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.offset)))
+					  &gs_info, false)
+	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.u.offset)))
 	    {
 	      STMT_VINFO_DATA_REF (stmt_info) = NULL;
 	      free_data_ref (dr);

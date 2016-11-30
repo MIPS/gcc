@@ -246,6 +246,27 @@ struct vect_addr_base_hasher : free_ptr_hash <vect_addr_base_info>
   static bool equal (const vect_addr_base_info *, const vect_addr_base_info *);
 };
 
+struct gather_scatter_indices
+{
+  /* Map from.  */
+  tree type;
+  tree step;
+
+  /* Map to.  */
+  tree indices;
+};
+
+/* Gather/scatter hashtable helpers.  */
+
+struct gather_scatter_hasher : free_ptr_hash <gather_scatter_indices>
+{
+  typedef gather_scatter_indices *value_type;
+  typedef gather_scatter_indices *compare_type;
+  static hashval_t hash (const gather_scatter_indices *);
+  static bool equal (const gather_scatter_indices *,
+		     const gather_scatter_indices *);
+};
+
 /*-----------------------------------------------------------------*/
 /* Info on vectorized loops.                                       */
 /*-----------------------------------------------------------------*/
@@ -419,6 +440,9 @@ typedef struct _loop_vec_info : public vec_info {
   /* A hash table used for caching vector base addresses.  */
   hash_table<vect_addr_base_hasher> *vect_addr_base_htab;
 
+  /* A hash table used for caching gather/scatter indices.  */
+  hash_table<gather_scatter_hasher> *gather_scatter_htab;
+
   /* A map from X to a precomputed gimple_val containing
      CAPPED_VECTORIZATION_FACTOR * X.  */
   hash_map<tree, tree> *vf_mult_map;
@@ -477,6 +501,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
+#define LOOP_VINFO_GATHER_SCATTER_CACHE(L) (L)->gather_scatter_htab
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
 #define LOOP_VINFO_SUNK_DATAREFS(L)        (L)->sunk_datarefs
 
@@ -767,6 +792,9 @@ typedef struct _stmt_vec_info {
 
   /* The number of scalar stmt references from active SLP instances.  */
   unsigned int num_slp_uses;
+
+  /* Number of real statements in a group.  */
+  unsigned int num_stmts;
 } *stmt_vec_info;
 
 /* Information about a gather/scatter call.  */
@@ -777,8 +805,24 @@ struct gather_scatter_info {
   /* The loop-invariant base value.  */
   tree base;
 
-  /* The original scalar offset, which is a non-loop-invariant SSA_NAME.  */
-  tree offset;
+  union
+  {
+    /* If the offset needs to be vectorized, this is the original
+       original scalar offset, which is a non-loop-invariant SSA_NAME.  */
+    tree offset;
+
+    /* If the offset should be [0, STEP, STEP*2, ...], then this is
+       the step value.  */
+    tree step;
+  } u;
+
+  /* The type of the scalar offset.  If OFFSET is nonnull then this
+     is TREE_TYPE (OFFSET).  */
+  tree offset_type;
+
+  /* The type to which OFFSET_TYPE must be widened, or OFFSET_TYPE
+     itself if no widening is necessary.  */
+  tree widened_offset_type;
 
   /* Each offset element should be multiplied by this amount before
      being added to the base.  */
@@ -839,6 +883,7 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_VINFO_GROUP_STORE_COUNT(S)    (S)->store_count
 #define STMT_VINFO_GROUP_GAP(S)            (S)->gap
 #define STMT_VINFO_GROUP_SAME_DR_STMT(S)   (S)->same_dr_stmt
+#define STMT_VINFO_GROUP_NUM_STMTS(S)      (S)->num_stmts
 #define STMT_VINFO_GROUPED_ACCESS(S)      ((S)->first_element != NULL && (S)->data_ref_info)
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_BASE_UNCHANGED(S) (S)->loop_phi_evolution_base_unchanged
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_PART(S) (S)->loop_phi_evolution_part
@@ -851,6 +896,7 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define GROUP_STORE_COUNT(S)            (S)->store_count
 #define GROUP_GAP(S)                    (S)->gap
 #define GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
+#define GROUP_NUM_STMTS(S)              (S)->num_stmts
 
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_scope)
 
@@ -1348,7 +1394,7 @@ extern bool vect_slp_analyze_and_verify_instance_alignment (slp_instance);
 extern bool vect_analyze_data_ref_accesses (vec_info *);
 extern bool vect_prune_runtime_alias_test_list (loop_vec_info);
 extern bool vect_check_gather_scatter (gimple *, loop_vec_info,
-				       gather_scatter_info *);
+				       gather_scatter_info *, bool);
 extern bool vect_analyze_data_refs (vec_info *, poly_uint64 *);
 extern tree vect_create_data_ref_ptr (gimple *, tree, unsigned int,
 				      struct loop *, tree,

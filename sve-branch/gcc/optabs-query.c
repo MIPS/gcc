@@ -607,3 +607,52 @@ lshift_cheap_p (bool speed_p)
 
   return cheap[speed_p];
 }
+
+/* Return TRUE if at least one mode is available for optab OP.  */
+
+static bool
+supports_at_least_one_mode_p (optab op)
+{
+  for (int i = 0; i < NUM_MACHINE_MODES; ++i)
+    if (direct_optab_handler (op, machine_mode_enum (i)) != CODE_FOR_nothing)
+      return true;
+
+  return false;
+}
+
+/* Return TRUE if vec_gather_load is available for at least one vector
+   mode.  */
+
+bool
+supports_vec_gather_load_p ()
+{
+  if (this_fn_optabs->supports_vec_gather_load_cached)
+    return this_fn_optabs->supports_vec_gather_load;
+
+  this_fn_optabs->supports_vec_gather_load_cached = true;
+
+  this_fn_optabs->supports_vec_gather_load
+    = supports_at_least_one_mode_p (vec_gather_loads_optab)
+      || supports_at_least_one_mode_p (vec_gather_loadu_optab);
+
+  return this_fn_optabs->supports_vec_gather_load;
+}
+
+/* Return TRUE if vec_scatter_store is available for at least one vector
+   mode.  */
+
+bool
+supports_vec_scatter_store_p ()
+{
+  if (this_fn_optabs->supports_vec_scatter_store_cached)
+    return this_fn_optabs->supports_vec_scatter_store;
+
+  this_fn_optabs->supports_vec_scatter_store_cached = true;
+
+  this_fn_optabs->supports_vec_scatter_store
+    = supports_at_least_one_mode_p (vec_scatter_stores_optab)
+      || supports_at_least_one_mode_p (vec_scatter_storeu_optab);
+
+  return this_fn_optabs->supports_vec_scatter_store;
+}
+

@@ -303,6 +303,130 @@
    index\t%0.<Vetype>, %<vw>1, #%2"
 )
 
+(define_expand "vec_gather_loads<mode>"
+  [(set (match_operand:SVE_SD 0 "register_operand")
+	(unspec:SVE_SD
+	  [(match_dup 4)
+	   (match_operand:DI 1 "aarch64_reg_or_zero")
+	   (match_operand:<V_INT_EQUIV> 2 "register_operand")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<Vetype>")
+	   (mem:BLK (scratch))]
+	  UNSPEC_GATHER_LOADS))]
+  "TARGET_SVE"
+  {
+    operands[4] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_gather_loads<mode>"
+  [(set (match_operand:SVE_SD 0 "register_operand" "=w, w, w")
+	(unspec:SVE_SD
+	  [(match_operand:<VPRED> 4 "register_operand" "Upl, Upl, Upl")
+	   (match_operand:DI 1 "aarch64_reg_or_zero" "rk, Z, rk")
+	   (match_operand:<V_INT_EQUIV> 2 "register_operand" "w, w, w")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<Vetype>" "Ui1, Ui1, i")
+	   (mem:BLK (scratch))]
+	  UNSPEC_GATHER_LOADS))]
+  "TARGET_SVE"
+  "@
+   ld1<Vesize>\t%0.<Vetype>, %4/z, [%1, %2.<Vetype><gather_unscaled_mods>]
+   ld1<Vesize>\t%0.<Vetype>, %4/z, [%2.<Vetype>]
+   ld1<Vesize>\t%0.<Vetype>, %4/z, [%1, %2.<Vetype><gather_scaled_mods>]"
+)
+
+(define_expand "vec_gather_loadu<mode>"
+  [(set (match_operand:SVE_SD 0 "register_operand")
+	(unspec:SVE_SD
+	  [(match_dup 4)
+	   (match_operand:DI 1 "aarch64_reg_or_zero")
+	   (match_operand:<V_INT_EQUIV> 2 "register_operand")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<Vetype>")
+	   (mem:BLK (scratch))]
+	  UNSPEC_GATHER_LOADU))]
+  "TARGET_SVE"
+  {
+    operands[4] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_gather_loadu<mode>"
+  [(set (match_operand:SVE_SD 0 "register_operand" "=w, w, w")
+	(unspec:SVE_SD
+	  [(match_operand:<VPRED> 4 "register_operand" "Upl, Upl, Upl")
+	   (match_operand:DI 1 "aarch64_reg_or_zero" "rk, Z, rk")
+	   (match_operand:<V_INT_EQUIV> 2 "register_operand" "w, w, w")
+	   (match_operand:DI 3 "aarch64_gather_scale_operand_<Vetype>" "Ui1, Ui1, i")
+	   (mem:BLK (scratch))]
+	  UNSPEC_GATHER_LOADU))]
+  "TARGET_SVE"
+  "@
+   ld1<Vesize>\t%0.<Vetype>, %4/z, [%1, %2.<Vetype><gather_unscaled_modu>]
+   ld1<Vesize>\t%0.<Vetype>, %4/z, [%2.<Vetype>]
+   ld1<Vesize>\t%0.<Vetype>, %4/z, [%1, %2.<Vetype><gather_scaled_modu>]"
+)
+
+(define_expand "vec_scatter_stores<mode>"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_dup 4)
+	   (match_operand:DI 0 "aarch64_reg_or_zero")
+	   (match_operand:<V_INT_EQUIV> 1 "register_operand")
+	   (match_operand:DI 2 "aarch64_gather_scale_operand_<Vetype>")
+	   (match_operand:SVE_SD 3 "register_operand")]
+	  UNSPEC_SCATTER_STORES))]
+  "TARGET_SVE"
+  {
+    operands[4] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_scatter_stores<mode>"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:<VPRED> 4 "register_operand" "Upl, Upl, Upl")
+	   (match_operand:DI 0 "aarch64_reg_or_zero" "rk, Z, rk")
+	   (match_operand:<V_INT_EQUIV> 1 "register_operand" "w, w, w")
+	   (match_operand:DI 2 "aarch64_gather_scale_operand_<Vetype>" "Ui1, Ui1, i")
+	   (match_operand:SVE_SD 3 "register_operand" "w, w, w")]
+	  UNSPEC_SCATTER_STORES))]
+  "TARGET_SVE"
+  "@
+   st1<Vesize>\t%3.<Vetype>, %4, [%0, %1.<Vetype><gather_unscaled_mods>]
+   st1<Vesize>\t%3.<Vetype>, %4, [%1.<Vetype>]
+   st1<Vesize>\t%3.<Vetype>, %4, [%0, %1.<Vetype><gather_scaled_mods>]"
+)
+
+(define_expand "vec_scatter_storeu<mode>"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_dup 4)
+	   (match_operand:DI 0 "aarch64_reg_or_zero")
+	   (match_operand:<V_INT_EQUIV> 1 "register_operand")
+	   (match_operand:DI 2 "aarch64_gather_scale_operand_<Vetype>")
+	   (match_operand:SVE_SD 3 "register_operand")]
+	  UNSPEC_SCATTER_STOREU))]
+  "TARGET_SVE"
+  {
+    operands[4] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "vec_mask_scatter_storeu<mode>"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK
+	  [(match_operand:<VPRED> 4 "register_operand" "Upl, Upl, Upl")
+	   (match_operand:DI 0 "aarch64_reg_or_zero" "rk, Z, rk")
+	   (match_operand:<V_INT_EQUIV> 1 "register_operand" "w, w, w")
+	   (match_operand:DI 2 "aarch64_gather_scale_operand_<Vetype>" "Ui1, Ui1, i")
+	   (match_operand:SVE_SD 3 "register_operand" "w, w, w")]
+	  UNSPEC_SCATTER_STOREU))]
+  "TARGET_SVE"
+  "@
+   st1<Vesize>\t%3.<Vetype>, %4, [%0, %1.<Vetype><gather_unscaled_modu>]
+   st1<Vesize>\t%3.<Vetype>, %4, [%1.<Vetype>]
+   st1<Vesize>\t%3.<Vetype>, %4, [%0, %1.<Vetype><gather_scaled_modu>]"
+)
+
 (define_insn "*vec_series<mode>_plus"
   [(set (match_operand:SVE_I 0 "register_operand" "=w")
 	(plus:SVE_I
