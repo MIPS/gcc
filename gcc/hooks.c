@@ -474,6 +474,16 @@ hook_bool_reg_class_t_false (reg_class_t regclass ATTRIBUTE_UNUSED)
   return false;
 }
 
+/* Generic hook that takes a bool and two unsigned ints and returns false.  */
+
+bool
+hook_bool_bool_uint_uint_false (bool a ATTRIBUTE_UNUSED,
+				unsigned int b ATTRIBUTE_UNUSED,
+				unsigned int c ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 /* Generic hook that takes a mode and an unsigned HOST_WIDE_INT and
    returns BLKmode.  */
 

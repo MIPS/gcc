@@ -1824,6 +1824,7 @@ vect_split_slp_store_group (gimple *first_stmt, unsigned group1_size)
   int group2_size = GROUP_SIZE (first_vinfo) - group1_size;
   gcc_assert (group2_size > 0);
   GROUP_SIZE (first_vinfo) = group1_size;
+  GROUP_NUM_STMTS (first_vinfo) = group1_size;
 
   gimple *stmt = first_stmt;
   for (unsigned i = group1_size; i > 1; i--)
@@ -1836,8 +1837,10 @@ vect_split_slp_store_group (gimple *first_stmt, unsigned group1_size)
   GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt)) = 0;
 
   GROUP_SIZE (vinfo_for_stmt (group2)) = group2_size;
+  GROUP_NUM_STMTS (vinfo_for_stmt (group2)) = 0;
   for (stmt = group2; stmt; stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt)))
     {
+      GROUP_NUM_STMTS (vinfo_for_stmt (group2)) += 1;
       GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = group2;
       gcc_assert (GROUP_GAP (vinfo_for_stmt (stmt)) == 1);
     }
