@@ -8,5 +8,6 @@
 
 #include "sve_speculative_15.c"
 
-/* { dg-final { scan-tree-dump-times "not vectorized: can't calculate required alignment for data ref" 10 "vect" } } */
+/* { dg-final { scan-tree-dump-times "unknown alignment, setting loop as first faulting" 20 "vect" } } */
+/* { dg-final { scan-tree-dump-times "Not allowing first faulting" 10 "vect" } } */
 /* { dg-final { scan-tree-dump-not "LOOP VECTORIZED" "vect" } } */

@@ -479,6 +479,14 @@ typedef struct _loop_vec_info : public vec_info {
   /* The loop exit value of the speculative mask.  */
   gphi *speculative_exit_phi;
 
+  /* Is the loop executing using first faulting loads?  */
+  bool firstfaulting_execution;
+
+  /* Number of iterations the vectorized loop should increase, in mask and
+     integer forms.  */
+  tree firstfaulting_mask;
+  tree firstfaulting_iter;
+
   /* True if at least one statement needs the nonspeculative masks.  */
   bool needs_nonspeculative_masks;
 
@@ -547,6 +555,9 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
 #define LOOP_VINFO_SPECULATIVE_EXIT_PHI(L)  (L)->speculative_exit_phi
 #define LOOP_VINFO_EXIT_MASKS(L)            (L)->exit_masks
+#define LOOP_VINFO_FIRSTFAULTING_EXECUTION(L) (L)->firstfaulting_execution
+#define LOOP_VINFO_FIRSTFAULTING_MASK(L)      (L)->firstfaulting_mask
+#define LOOP_VINFO_FIRSTFAULTING_ITER(L)      (L)->firstfaulting_iter
 #define LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS(L) \
   (L)->needs_nonspeculative_masks
 #define LOOP_VINFO_NONSPECULATIVE_MASKS(L)    (L)->nonspeculative_masks
@@ -1301,7 +1312,8 @@ static inline bool
 vect_use_loop_mask_for_alignment_p (loop_vec_info loop_vinfo)
 {
   return (LOOP_VINFO_MASK_TYPE (loop_vinfo)
-	  && LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo));
+	  && LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo)
+	  && !LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
 }
 
 /* Return the number of vectors of type VECTYPE that are needed to get

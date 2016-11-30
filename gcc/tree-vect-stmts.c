@@ -7793,6 +7793,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   poly_uint64 vf;
   tree aggr_type;
   gather_scatter_info gs_info;
+  bool firstfaulting_p = false;
   vec_info *vinfo = stmt_info->vinfo;
   tree ref_type;
 
@@ -7833,6 +7834,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       loop = LOOP_VINFO_LOOP (loop_vinfo);
       nested_in_vect_loop = nested_in_vect_loop_p (loop, stmt);
       vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+      firstfaulting_p = LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo);
     }
   else
     vf = 1;
@@ -7945,6 +7947,14 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 			    &memory_access_type, &gs_info))
     return false;
 
+  if (firstfaulting_p && memory_access_type != VMAT_CONTIGUOUS)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			"Non-contiguous not supported for first faulting\n");
+      return false;
+    }
+
   wgather_info wgather = DEFAULT_WGATHER_INFO;
   if (memory_access_type == VMAT_GATHER_SCATTER)
     {
@@ -7953,6 +7963,9 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  && !widened_gather_support_p (vectype, &gs_info, stmt, &wgather))
 	return false;
     }
+
+  if (firstfaulting_p)
+    gcc_assert (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -8263,6 +8276,12 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
     }
 
   alignment_support_scheme = vect_supportable_dr_alignment (first_dr, false);
+
+  /* TODO: This is icky.  For firstfaulting, force the known alignment.
+     Maybe instead add extra checks elsewhere below.  */
+  if (firstfaulting_p)
+    alignment_support_scheme = dr_unaligned_supported;
+
   gcc_assert (alignment_support_scheme);
   bool masked_loop_p = (loop_vinfo && LOOP_VINFO_MASK_TYPE (loop_vinfo));
   /* Targets with load-lane instructions or support for fully-masked loops
@@ -8522,9 +8541,19 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		      align = least_bit_hwi (misalign);
 		    if (mask)
 		      {
+			/* At present we always start a first-faulting
+			   load at the first element.  */
+			gcc_assert (!firstfaulting_p);
 			tree ptr = build_int_cst (ref_type, align);
 			new_stmt = gimple_build_call_internal
 			  (IFN_MASK_LOAD, 3, dataref_ptr, ptr, mask);
+			gimple_call_set_lhs (new_stmt, vec_dest);
+		      }
+		    else if (firstfaulting_p)
+		      {
+			tree ptr = build_int_cst (ref_type, align);
+			new_stmt = gimple_build_call_internal
+			  (IFN_FIRSTFAULT_LOAD, 2, dataref_ptr, ptr);
 			gimple_call_set_lhs (new_stmt, vec_dest);
 		      }
 		    else
@@ -9421,8 +9450,10 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
   else
     mask = NULL_TREE;
 
-  bool masked_speculative_p = (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
-			       && LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo));
+  bool masked_speculative_p
+    = (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
+       && (LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo)
+	   || LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo)));
 
   /* Pick an array of masks to use as the comparison results that feed
      a GIMPLE_COND.  If all input elements are valid, we can operate
@@ -9550,6 +9581,8 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
       tree mask;
       if (!masked_speculative_p)
 	mask = build_minus_one_cst (TREE_TYPE (cmp_res));
+      else if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
+	mask = LOOP_VINFO_FIRSTFAULTING_MASK (loop_vinfo);
       else
 	mask = vect_get_loop_mask (loop_vinfo,
 				   LOOP_VINFO_MASK_ARRAY (loop_vinfo), 1);
