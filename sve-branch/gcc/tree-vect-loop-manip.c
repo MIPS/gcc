@@ -336,6 +336,7 @@ slpeel_set_speculative_mask (struct loop *loop, loop_vec_info loop_vinfo)
   tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
 
   tree skip_elems = LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo);
+  gcc_assert (skip_elems || LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
 
   /* Create a mask before the loop.  */
   tree init_mask;
@@ -360,6 +361,19 @@ slpeel_set_speculative_mask (struct loop *loop, loop_vec_info loop_vinfo)
       edge pe = loop_preheader_edge (loop);
       basic_block new_bb = gsi_insert_seq_on_edge_immediate (pe, seq);
       gcc_assert (!new_bb);
+    }
+
+  if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
+    {
+      /* At the start of each iteration, set the no fault detected mask to
+	 be full.  */
+      basic_block *bbs = get_loop_body (loop);
+      gimple_stmt_iterator loop_gsi = gsi_after_labels (bbs[0]);
+      tree initial_ffr = build_int_cst (TREE_TYPE (mask_type), 1);
+      initial_ffr = build_vector_from_val (mask_type, initial_ffr);
+      tmp_stmt = gimple_build_call_internal (IFN_WRITE_NF, 1,
+					     initial_ffr);
+      gsi_insert_before (&loop_gsi, tmp_stmt, GSI_SAME_STMT);
     }
 }
 

@@ -201,6 +201,16 @@
   "st1<Vesize>\t%1.<Vetype>, %2, %0"
 )
 
+(define_insn "firstfault_load<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
+	(unspec:SVE_ALL
+	  [(match_operand:SVE_ALL 1 "aarch64_sve_ldff1_operand" "Utf")
+	   (match_operand:<VPRED> 2 "register_operand" "Upl")]
+	  UNSPEC_LDFF1))]
+  "TARGET_SVE"
+  "ldff1<Vesize>\t%0.<Vetype>, %2/z, %j1";
+)
+
 (define_insn "*aarch64_sve_mov<mode>"
   [(set (match_operand:PRED_ALL 0 "nonimmediate_operand" "=Upa, m, Upa, Upa, Upa")
 	(match_operand:PRED_ALL 1 "general_operand" "Upa, Upa, m, Dz, Dm"))]
@@ -2186,6 +2196,23 @@
   "@
    lastb\t%<vwcore>0, %2, %1.<Vetype>
    lastb\t%<Vetype>0, %2, %1.<Vetype>"
+)
+
+(define_insn "read_nf<mode>"
+  [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(unspec:PRED_ALL [(reg:SI FFRT_REGNUM)] UNSPEC_READ_NF))
+   (set (reg:SI FFRT_REGNUM) (const_int 0))]
+  "TARGET_SVE"
+  "rdffr\t%0.b"
+)
+
+(define_insn "write_nf<mode>"
+  [(set (reg:SI FFRT_REGNUM)
+	(unspec:SI [(match_operand:PRED_ALL 0 "register_operand" "Upa")
+		    (reg:SI FFRT_REGNUM)]
+	 UNSPEC_WRITE_NF))]
+  "TARGET_SVE"
+  "wrffr\t%0.b"
 )
 
 (define_expand "mask_popcount<mode>"

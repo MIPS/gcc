@@ -1073,11 +1073,11 @@ verify_data_ref_alignment (data_reference_p dr)
 	{
 	  if (DR_IS_READ (dr))
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: unsupported unaligned load.");
+			     "not vectorized: unsupported unaligned load: ");
 	  else
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "not vectorized: unsupported unaligned "
-			     "store.");
+			     "store: ");
 
 	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
 			     DR_REF (dr));
@@ -1104,6 +1104,10 @@ vect_verify_datarefs_alignment (loop_vec_info vinfo)
   vec<data_reference_p> datarefs = vinfo->datarefs;
   struct data_reference *dr;
   unsigned int i;
+
+  /* No need to align for first faulting.  */
+  if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (vinfo))
+    return true;
 
   FOR_EACH_VEC_ELT (datarefs, i, dr)
     {
@@ -1570,28 +1574,110 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   /* While cost model enhancements are expected in the future, the high level
      view of the code at this time is as follows:
 
-     A) If there is a misaligned access then see if peeling to align
+     A) If first faulting has already been set then that means for at least one
+	data ref the required alignment cannot be calculated.  Therefore we can
+	have to use first faulting or fail vectorisation.
+
+     B) If there is a misaligned access then see if peeling to align
         this access can make all data references satisfy
         vect_supportable_dr_alignment.  If so, update data structures
         as needed and return true.
 
-     B) If peeling wasn't possible and there is a data reference with an
+     C) If peeling wasn't possible and there is a data reference with an
         unknown misalignment that does not satisfy vect_supportable_dr_alignment
         then see if loop versioning checks can be used to make all data
         references satisfy vect_supportable_dr_alignment.  If so, update
         data structures as needed and return true.
 
-     C) If neither peeling nor versioning were successful then return false if
+     D) If neither peeling nor versioning were successful then return false if
         any data reference does not satisfy vect_supportable_dr_alignment.
 
-     D) Return true (all data references satisfy vect_supportable_dr_alignment).
+     E) Return true (all data references satisfy vect_supportable_dr_alignment).
 
      Note, Possibility 3 above (which is peeling and versioning together) is not
      being done at this time.  */
 
-  /* (1) Peeling to force alignment.  */
 
-  /* (1.1) Decide whether to perform peeling, and how many iterations to peel:
+  /* (A) Check for first faulting load support.  */
+
+  /* TODO WARNING: We do not yet know if we will be able to create a
+     fully-masked loop.  If we cannot use a fully-masked loop then FF
+     vectorization will fail later.  This is bad because there is a
+     chance the loop might have been vectorizable using versioning.
+     A later patch will introduce versioning with FF - we will plant
+     with a vectorized aligned version and scalar unaligned version (how
+     gcc works now) and then attempt to vectorize the scalar unaligned
+     version using FF.  */
+  if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
+    {
+      gcc_assert (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
+
+      /* When first faulting, we currently require ALL data refs to use it.  */
+      FOR_EACH_VEC_ELT (datarefs, i, dr)
+	{
+	  stmt = DR_STMT (dr);
+	  stmt_info = vinfo_for_stmt (stmt);
+	  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+
+	  if (!STMT_VINFO_RELEVANT_P (stmt_info))
+	    continue;
+
+	  if (!DR_IS_READ (dr))
+	    {
+	      if (dump_enabled_p ())
+		{
+		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				   "Not allowing first faulting: "
+				   "stmt is store: ");
+		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt,
+				    0);
+		}
+	      LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo) = false;
+	      break;
+	    }
+
+	  if (!direct_internal_fn_supported_p (IFN_FIRSTFAULT_LOAD, vectype,
+					       OPTIMIZE_FOR_SPEED))
+	    {
+	      if (dump_enabled_p ())
+		{
+		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				   "Not allowing first faulting: "
+				   "no target support for load: ");
+		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt,
+				    0);
+		}
+	      LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo) = false;
+	      break;
+	    }
+
+	  if (!operand_equal_p (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr))),
+				DR_STEP (dr), 0))
+	    {
+	      if (dump_enabled_p ())
+		{
+		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				   "Not allowing first faulting: "
+				   "load step is invalid: ");
+		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt,
+				    0);
+		}
+	      LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo) = false;
+	      break;
+	    }
+	}
+
+      if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
+	{
+	  LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo).truncate (0);
+	  return true;
+	}
+      return false;
+    }
+
+  /* (B) Peeling to force alignment.  */
+
+  /* Decide whether to perform peeling, and how many iterations to peel:
      Considerations:
      + How many accesses will become aligned due to the peeling
      - How many accesses will become unaligned due to the peeling,
@@ -1967,7 +2053,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
       if (do_peeling)
         {
-          /* (1.2) Update the DR_MISALIGNMENT of each data reference DR_i.
+	  /* Update the DR_MISALIGNMENT of each data reference DR_i.
              If the misalignment of DR_i is identical to that of dr0 then set
              DR_MISALIGNMENT (DR_i) to zero.  If the misalignment of DR_i and
              dr0 are known at compile time then increment DR_MISALIGNMENT (DR_i)
@@ -2014,7 +2100,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
   body_cost_vec.release ();
 
-  /* (2) Versioning to force alignment.  */
+  /* (C) Versioning to force alignment.  */
 
   /* Try versioning if:
      1) optimize loop for speed
@@ -2251,31 +2337,47 @@ vect_analyze_data_refs_alignment (loop_vec_info vinfo)
     {
       stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
 
-      if (STMT_VINFO_VECTORIZABLE (stmt_info)
-	  && !can_get_vect_data_ref_required_alignment (dr, NULL))
+      if (STMT_VINFO_VECTORIZABLE (stmt_info))
 	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: can't calculate required "
-			     "alignment for data ref.\n");
-	  return false;
-	}
+	  if (!can_get_vect_data_ref_required_alignment (dr, NULL))
+	    {
+	      if (LOOP_VINFO_SPECULATIVE_EXECUTION (vinfo))
+		{
+		  if (dump_enabled_p ())
+		    {
+		      dump_printf_loc (MSG_NOTE, vect_location,
+				       "unknown alignment, setting loop as "
+				       "first faulting: ");
+		      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr));
+		      dump_printf (MSG_NOTE, "\n");
+		    }
 
-      if (STMT_VINFO_VECTORIZABLE (stmt_info)
-	  && !vect_compute_data_ref_alignment (dr))
-	{
-	  /* Strided accesses perform only component accesses, misalignment
-	     information is irrelevant for them.  */
-	  if (STMT_VINFO_STRIDED_P (stmt_info)
-	      && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
-	    continue;
+		  SET_DR_MISALIGNMENT (dr, -1);
+		  LOOP_VINFO_FIRSTFAULTING_EXECUTION (vinfo) = true;
+		}
+	      else
+		{
+		  if (dump_enabled_p ())
+		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				     "not vectorized: can't calculate required "
+				     "alignment for data ref.\n");
+		  return false;
+		}
+	    }
+	  else if (!vect_compute_data_ref_alignment (dr))
+	    {
+	      /* Strided accesses perform only component accesses, misalignment
+		 information is irrelevant for them.  */
+	      if (STMT_VINFO_STRIDED_P (stmt_info)
+		  && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
+		continue;
 
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: can't calculate alignment "
-			     "for data ref.\n");
-
-	  return false;
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "not vectorized: can't calculate alignment "
+				 "for data ref.\n");
+	      return false;
+	    }
 	}
     }
 
@@ -4986,8 +5088,21 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
     aptr = aggr_ptr_init;
   else
     {
+      standard_iv_increment_position (loop, &incr_gsi, &insert_after);
+
       tree iv_step;
-      if (*inv_p)
+      if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
+	{
+	  /* The step is the first faulting iter multiplied by the type
+	     size.  */
+	  gimple_seq seq = NULL;
+	  iv_step = gimple_build (&seq, MULT_EXPR, sizetype,
+				  LOOP_VINFO_FIRSTFAULTING_ITER (loop_vinfo),
+				  TYPE_SIZE_UNIT (TREE_TYPE (aggr_type)));
+
+	  gsi_insert_seq_before (&incr_gsi, seq, GSI_SAME_STMT);
+	}
+      else if (*inv_p)
 	iv_step = size_zero_node;
       else
 	{
@@ -5006,8 +5121,6 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
 	    iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step),
 				   iv_step);
 	}
-
-      standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
       create_iv (aggr_ptr_init, iv_step, aggr_ptr, loop, &incr_gsi,
 		 insert_after, &indx_before_incr, &indx_after_incr);

@@ -444,6 +444,12 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_sve_struct_memory_operand")))
 
+;; Like memory_operand, but restricted to addresses that are valid for
+;; SVE LDFF1 instructions.
+(define_predicate "aarch64_sve_ldff1_operand"
+  (and (match_code "mem")
+       (match_test "aarch64_sve_ldff1_operand_p (op)")))
+
 ;; Doesn't include immediates, since those are handled by the move
 ;; patterns instead.
 (define_predicate "aarch64_sve_dup_operand"

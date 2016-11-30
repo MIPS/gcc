@@ -403,4 +403,7 @@ OPTAB_DC (vec_series_optab, "vec_series$a", VEC_SERIES)
 
 OPTAB_D (clastb_optab, "clastb$a")
 OPTAB_D (mask_popcount_optab, "mask_popcount$a")
+OPTAB_D (firstfault_load_optab, "firstfault_load$a")
+OPTAB_D (read_nf_optab, "read_nf$a")
+OPTAB_D (write_nf_optab, "write_nf$a")
 OPTAB_D (vec_shl_insert_optab, "vec_shl_insert_$a")

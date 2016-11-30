@@ -5889,6 +5889,38 @@ aarch64_print_operand (FILE *f, rtx x, int code)
       }
       break;
 
+   case 'j':
+      {
+	/* Print the memory format used in ldff1.  */
+	struct aarch64_address_info addr;
+	int lsl_shift = exact_log2 (GET_MODE_UNIT_SIZE (GET_MODE (x)));
+
+	if (aarch64_classify_address (&addr, XEXP (x, 0), GET_MODE (x),
+				      ADDR_QUERY_ANY, true))
+	  switch (addr.type)
+	    {
+	    case ADDRESS_REG_IMM:
+	      if (!must_eq (addr.const_offset, 0))
+		gcc_unreachable ();
+
+	      asm_fprintf (f, "[%s, xzr, lsl %u]",
+			   reg_names [REGNO (addr.base)], lsl_shift);
+	      break;
+
+	    case ADDRESS_REG_REG:
+	      asm_fprintf (f, "[%s, %s, lsl %u]",
+			   reg_names [REGNO (addr.base)],
+			   reg_names [REGNO (addr.offset)], lsl_shift);
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+	else
+	  gcc_unreachable ();
+      }
+      break;
+
     default:
       output_operand_lossage ("invalid operand prefix '%%%c'", code);
       return;
@@ -12426,6 +12458,25 @@ aarch64_sve_ldr_operand_p (rtx op)
 	  && aarch64_classify_address (&addr, XEXP (op, 0), GET_MODE (op),
 				       ADDR_QUERY_ANY, false)
 	  && addr.type == ADDRESS_REG_IMM);
+}
+
+/* Return true if OP is a valid MEM operand for an SVE LDFF1 instruction.  */
+bool
+aarch64_sve_ldff1_operand_p (rtx op)
+{
+  struct aarch64_address_info addr;
+  machine_mode mode = GET_MODE (op);
+
+  if (MEM_P (op)
+      && aarch64_classify_address (&addr, XEXP (op, 0), mode,
+				   ADDR_QUERY_M, false))
+    {
+      if (addr.type == ADDRESS_REG_IMM && INTVAL (addr.offset) == 0)
+	return true;
+      else if (addr.type == ADDRESS_REG_REG)
+	return true;
+    }
+  return false;
 }
 
 /* Return true if OP is a valid MEM operand for an SVE_STRUCT mode.

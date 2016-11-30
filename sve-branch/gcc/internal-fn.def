@@ -101,6 +101,9 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 DEF_INTERNAL_OPTAB_FN (MASK_LOAD, ECF_PURE, maskload, mask_load)
+DEF_INTERNAL_OPTAB_FN (FIRSTFAULT_LOAD, ECF_PURE, firstfault_load, firstfault_load)
+DEF_INTERNAL_OPTAB_FN (READ_NF, 0, read_nf, read_nf)
+DEF_INTERNAL_OPTAB_FN (WRITE_NF, 0, write_nf, write_nf)
 DEF_INTERNAL_OPTAB_FN (MASK_POPCOUNT, ECF_CONST, mask_popcount, unary)
 
 DEF_INTERNAL_OPTAB_FN (LOAD_LANES, ECF_CONST, vec_load_lanes, load_lanes)

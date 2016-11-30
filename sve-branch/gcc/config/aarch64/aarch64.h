@@ -263,6 +263,7 @@ extern unsigned aarch64_architecture_version;
     1, 1, 1,			/* SFP, AP, CC */	\
     0, 0, 0, 0,   0, 0, 0, 0,   /* P0 - P7 */           \
     0, 0, 0, 0,   0, 0, 0, 0,   /* P8 - P15 */          \
+    1,				/* FFRT */		\
   }
 
 #define CALL_USED_REGISTERS				\
@@ -278,6 +279,7 @@ extern unsigned aarch64_architecture_version;
     1, 1, 1,			/* SFP, AP, CC */	\
     1, 1, 1, 1,   1, 1, 1, 1,	/* P0 - P7 */		\
     1, 1, 1, 1,   1, 1, 1, 1,	/* P8 - P15 */		\
+    1,				/* FFRT */		\
   }
 
 #define REGISTER_NAMES						\
@@ -293,6 +295,7 @@ extern unsigned aarch64_architecture_version;
     "sfp", "ap",  "cc",						\
     "p0",  "p1",  "p2",  "p3",  "p4",  "p5",  "p6",  "p7",	\
     "p8",  "p9",  "p10", "p11", "p12", "p13", "p14", "p15",	\
+    "ffrt",							\
   }
 
 /* Generate the register aliases for core register N */
@@ -346,7 +349,7 @@ extern unsigned aarch64_architecture_version;
 #define FRAME_POINTER_REGNUM		SFP_REGNUM
 #define STACK_POINTER_REGNUM		SP_REGNUM
 #define ARG_POINTER_REGNUM		AP_REGNUM
-#define FIRST_PSEUDO_REGISTER		(P15_REGNUM + 1)
+#define FIRST_PSEUDO_REGISTER		(FFRT_REGNUM + 1)
 
 /* The number of (integer) argument register available.  */
 #define NUM_ARG_REGS			8
@@ -493,7 +496,7 @@ enum reg_class
   { 0xffffffff, 0xffffffff, 0x00000003 },	/* POINTER_AND_FP_REGS */\
   { 0x00000000, 0x00000000, 0x000007f8 },	/* PR_LO_REGS */	\
   { 0x00000000, 0x00000000, 0x0007fff8 },	/* PR_REGS */		\
-  { 0xffffffff, 0xffffffff, 0x0007ffff }	/* ALL_REGS */		\
+  { 0xffffffff, 0xffffffff, 0x000fffff }	/* ALL_REGS */		\
 }
 
 #define REGNO_REG_CLASS(REGNO)	aarch64_regno_regclass (REGNO)

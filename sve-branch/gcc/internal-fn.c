@@ -86,6 +86,9 @@ init_internal_fns ()
 #define cond_binary_direct { 1, 1, true }
 #define while_direct { 0, 2, false }
 #define clastb_direct { 2, 2, false }
+#define firstfault_load_direct { -1, -1, false }
+#define read_nf_direct { -1, -1, false }
+#define write_nf_direct { 1, 1, false }
 
 const direct_internal_fn_info direct_internal_fn_array[IFN_LAST + 1] = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) not_direct,
@@ -2034,6 +2037,63 @@ expand_mask_load_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
 
 #define expand_mask_load_lanes_optab_fn expand_mask_load_optab_fn
 
+static void
+expand_firstfault_load_optab_fn (internal_fn, gcall *stmt, direct_optab optab)
+{
+  struct expand_operand ops[3];
+  tree type, lhs, rhs, maskt;
+  rtx mem, target, mask;
+
+  maskt = gimple_call_arg (stmt, 2);
+  lhs = gimple_call_lhs (stmt);
+  type = TREE_TYPE (lhs);
+  rhs = expand_call_mem_ref (type, stmt, 0);
+
+  mem = expand_expr (rhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  gcc_assert (MEM_P (mem));
+  mask = expand_normal (maskt);
+  target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  create_output_operand (&ops[0], target, TYPE_MODE (type));
+  create_fixed_operand (&ops[1], mem);
+  create_input_operand (&ops[2], mask, TYPE_MODE (TREE_TYPE (maskt)));
+  expand_insn (direct_optab_handler (optab, TYPE_MODE (type)),
+	       3, ops);
+  if (!rtx_equal_p (target, ops[0].value))
+    emit_move_insn (target, ops[0].value);
+}
+
+static void
+expand_read_nf_optab_fn (internal_fn, gcall *stmt, direct_optab optab)
+{
+  struct expand_operand ops[1];
+
+  tree lhs = gimple_call_lhs (stmt);
+  if (lhs == NULL_TREE)
+    return;
+  tree lhs_type = TREE_TYPE (lhs);
+  rtx lhs_rtx = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  create_output_operand (&ops[0], lhs_rtx, TYPE_MODE (lhs_type));
+
+  insn_code icode = direct_optab_handler (optab, TYPE_MODE (lhs_type));
+  expand_insn (icode, 1, ops);
+  if (!rtx_equal_p (lhs_rtx, ops[0].value))
+    emit_move_insn (lhs_rtx, ops[0].value);
+}
+
+static void
+expand_write_nf_optab_fn (internal_fn, gcall *stmt, direct_optab optab)
+{
+  struct expand_operand ops[1];
+
+  tree rhs = gimple_call_arg (stmt, 0);
+  tree rhs_type = TREE_TYPE (rhs);
+  rtx rhs_rtx = expand_normal (rhs);
+  create_input_operand (&ops[0], rhs_rtx, TYPE_MODE (rhs_type));
+
+  insn_code icode = direct_optab_handler (optab, TYPE_MODE (rhs_type));
+  expand_insn (icode, 1, ops);
+}
+
 /* Expand MASK_STORE{,_LANES} call STMT using optab OPTAB.  */
 
 static void
@@ -2544,6 +2604,9 @@ multi_vector_optab_supported_p (convert_optab optab, tree_pair types,
 #define direct_scatter_store_optab_supported_p direct_optab_supported_p
 #define direct_while_optab_supported_p convert_optab_supported_p
 #define direct_clastb_optab_supported_p direct_optab_supported_p
+#define direct_firstfault_load_optab_supported_p direct_optab_supported_p
+#define direct_read_nf_optab_supported_p direct_optab_supported_p
+#define direct_write_nf_optab_supported_p direct_optab_supported_p
 
 /* Return true if FN is supported for the types in TYPES when the
    optimization type is OPT_TYPE.  The types are those associated with
