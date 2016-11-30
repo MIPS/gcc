@@ -246,13 +246,28 @@ slpeel_setup_loop_masks (struct loop *loop, loop_vec_info loop_vinfo,
 			 tree init_mask)
 {
   vec<tree> &mask_array = LOOP_VINFO_MASK_ARRAY (loop_vinfo);
-  gphi *phi = create_phi_node (mask_array[0], loop->header);
+  tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
+  tree uncapped_mask;
+  tree cap_mask = LOOP_VINFO_CAP_MASK (loop_vinfo);
+  if (cap_mask)
+    uncapped_mask = make_temp_ssa_name (mask_type, NULL, "uncapped_mask");
+  else
+    uncapped_mask = mask_array[0];
+  gphi *phi = create_phi_node (uncapped_mask, loop->header);
   add_phi_arg (phi, init_mask, loop_preheader_edge (loop), UNKNOWN_LOCATION);
   add_phi_arg (phi, LOOP_VINFO_NEXT_MASK (loop_vinfo),
 	       loop_latch_edge (loop), UNKNOWN_LOCATION);
 
   basic_block *bbs = get_loop_body (loop);
   gimple_stmt_iterator gsi = gsi_after_labels (bbs[0]);
+
+  /* Apply the cap mask, if any.  */
+  if (cap_mask)
+    {
+      gimple *stmt = gimple_build_assign (mask_array[0], BIT_AND_EXPR,
+					  uncapped_mask, cap_mask);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+    }
 
   /* Create unpacked masks at each level required.  */
   int mask_count = 1;
@@ -352,7 +367,6 @@ slpeel_iterate_loop_ntimes_while (struct loop *loop, loop_vec_info loop_vinfo,
   unsigned int ni_actual_precision = TYPE_PRECISION (ni_actual_type);
 
   tree zero_index = build_int_cst (compare_type, 0);
-  tree step = build_int_cst (compare_type, vect_factor);
 
   widest_int ni;
   bool known_max_iters = max_loop_iterations (loop, &ni);
@@ -364,6 +378,8 @@ slpeel_iterate_loop_ntimes_while (struct loop *loop, loop_vec_info loop_vinfo,
   /* Convert nscalariters to the same size as the compare.  */
   gimple_seq seq = NULL;
   nscalariters = gimple_convert (&seq, compare_type, nscalariters);
+  tree step = gimple_convert (&seq, compare_type,
+			      LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo));
 
   if (compare_precision > ni_actual_precision
       && (!known_max_iters
@@ -1517,8 +1533,8 @@ vect_gen_vector_loop_niters (loop_vec_info loop_vinfo, tree niters,
   bool final_iter_may_be_partial
     = (LOOP_VINFO_MASK_TYPE (loop_vinfo) != NULL_TREE);
 
-  vf = build_int_cst (TREE_TYPE (niters),
-		      LOOP_VINFO_VECT_FACTOR (loop_vinfo));
+  vf = fold_convert (TREE_TYPE (niters),
+		     LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo));
 
   /* If epilogue loop is required because of data accesses with gaps, we
      subtract one iteration from the total number of iterations here for
@@ -1589,7 +1605,7 @@ vect_gen_vector_loop_niters_mult_vf (loop_vec_info loop_vinfo,
   tree type = TREE_TYPE (niters_vector);
   basic_block exit_bb = single_exit (loop)->dest;
 
-  vf = build_int_cst (type, LOOP_VINFO_VECT_FACTOR (loop_vinfo));
+  vf = fold_convert (type, LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo));
 
   gcc_assert (niters_vector_mult_vf_ptr != NULL);
   tree niters_vector_mult_vf = fold_build2 (MULT_EXPR, type,
@@ -1997,6 +2013,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
   int bound_prolog = 0;
   poly_uint64 bound_scalar = 0;
   int estimated_vf;
+  tree vf = LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo);
   int prolog_peeling = 0;
   if (!vect_use_loop_mask_for_alignment_p (loop_vinfo))
     prolog_peeling = LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo);
@@ -2013,7 +2030,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
     estimated_vf = 3;
   prob_prolog = (estimated_vf - 1) * REG_BR_PROB_BASE / estimated_vf;
   prob_epilog = prob_prolog;
-  poly_uint64 vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  poly_uint64 max_vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 
   struct loop *prolog, *epilog, *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *first_loop = loop;
@@ -2032,13 +2049,13 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
   /* Skip to epilog if scalar loop may be preferred.  It's only used when
      we peel for epilog loop.  */
   bool skip_vector = (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-		      || !vf.is_constant ());
+		      || TREE_CODE (vf) != INTEGER_CST);
   /* Epilog loop must be executed if the number of iterations for epilog
      loop is known at compile time, otherwise we need to add a check at
      the end of vector loop and skip to the end of epilog loop.  */
   bool skip_epilog = (prolog_peeling < 0
 		      || !LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-		      || !vf.is_constant ());
+		      || TREE_CODE (vf) != INTEGER_CST);
   /* PEELING_FOR_GAPS is special because epilog loop must be executed.  */
   if (LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo))
     skip_epilog = false;
@@ -2140,7 +2157,9 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  bool peel_for_gaps = LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo);
 	  tree t = vect_gen_scalar_loop_niters (niters_prolog, prolog_peeling,
 						bound_prolog,
-						peel_for_gaps ? vf : vf - 1,
+						peel_for_gaps
+						? max_vf
+						: max_vf - 1,
 						th, &bound_scalar,
 						check_profitability);
 	  /* Build guard against NITERSM1 since NITERS may overflow.  */
@@ -2192,7 +2211,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	slpeel_update_phi_nodes_for_lcssa (epilog);
 
       unsigned HOST_WIDE_INT bound1, bound2;
-      if (vf.is_constant (&bound1) && bound_scalar.is_constant (&bound2))
+      if (max_vf.is_constant (&bound1) && bound_scalar.is_constant (&bound2))
 	{
 	  bound1 -= LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo) ? 1 : 2;
 	  if (bound2)

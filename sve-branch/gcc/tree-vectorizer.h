@@ -272,9 +272,23 @@ typedef struct _loop_vec_info : public vec_info {
   /* Unrolling factor  */
   poly_uint64 vectorization_factor;
 
+  /* Maximum runtime vectorization factor, or MAX_VECTORIZATION_FACTOR
+     if there is no particular limit.  */
+  unsigned HOST_WIDE_INT max_vectorization_factor;
+
+  /* A gimple value representing the actual runtime vectorization
+     factor, which is the minimum of VECTORIZATION_FACTOR and
+     MAX_VECTORIZATION_FACTOR.  The value has type sizetype.  */
+  tree capped_vectorization_factor;
+
   /* The mask type used to control the vectorized loop, or null if we
      haven't yet decided to use a fully-masked loop.  */
   tree mask_type;
+
+  /* A mask that needs to be applied to the loop control mask in order
+     to limit the vectorization factor to CAPPED_VECTORIZATION_FACTOR.
+     The mask is null if no cap needs to be applied.  */
+  tree cap_mask;
 
   /* A balanced tree of masks, where each row or level in the array
      corresponds to a set of masks unpacked from the previous level, i.e.
@@ -396,6 +410,10 @@ typedef struct _loop_vec_info : public vec_info {
 
   /* A hash table used for caching vector base addresses.  */
   hash_table<vect_addr_base_hasher> *vect_addr_base_htab;
+
+  /* A map from X to a precomputed gimple_val containing
+     CAPPED_VECTORIZATION_FACTOR * X.  */
+  hash_map<tree, tree> *vf_mult_map;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -412,7 +430,10 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_VECTORIZABLE_P(L)       (L)->vectorizable
 #define LOOP_VINFO_CAN_FULLY_MASK_P(L)     (L)->can_fully_mask_p
 #define LOOP_VINFO_VECT_FACTOR(L)          (L)->vectorization_factor
+#define LOOP_VINFO_MAX_VECT_FACTOR(L)      (L)->max_vectorization_factor
+#define LOOP_VINFO_CAPPED_VECT_FACTOR(L)   (L)->capped_vectorization_factor
 #define LOOP_VINFO_MASK_TYPE(L)            (L)->mask_type
+#define LOOP_VINFO_CAP_MASK(L)             (L)->cap_mask
 #define LOOP_VINFO_MASK(L) \
   ((L)->mask_array.is_empty () ? NULL : (L)->mask_array[0])
 #define LOOP_VINFO_MASK_ARRAY(L)           (L)->mask_array
@@ -445,6 +466,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
+#define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -1088,6 +1110,19 @@ unlimited_cost_model (loop_p loop)
   return (flag_vect_cost_model == VECT_COST_MODEL_UNLIMITED);
 }
 
+/* Return true if the loop needs to use a vectorization factor that
+   is capped at run time.  */
+
+static inline bool
+use_capped_vf (loop_vec_info loop_vinfo)
+{
+  return (loop_vinfo
+	  && (LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo)
+	      != MAX_VECTORIZATION_FACTOR)
+	  && may_lt (LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo),
+		     LOOP_VINFO_VECT_FACTOR (loop_vinfo)));
+}
+
 /* Return true if the loop described by LOOP_VINFO is fully-masked and
    if the first iteration should use a partial mask in order to achieve
    alignment.  */
@@ -1294,7 +1329,8 @@ extern bool vect_prune_runtime_alias_test_list (loop_vec_info);
 extern bool vect_check_gather_scatter (gimple *, loop_vec_info,
 				       gather_scatter_info *);
 extern bool vect_analyze_data_refs (vec_info *, poly_uint64 *);
-extern tree vect_create_data_ref_ptr (gimple *, tree, struct loop *, tree,
+extern tree vect_create_data_ref_ptr (gimple *, tree, unsigned int,
+				      struct loop *, tree,
 				      tree *, gimple_stmt_iterator *,
 				      gimple **, bool, bool *,
 				      tree = NULL_TREE);

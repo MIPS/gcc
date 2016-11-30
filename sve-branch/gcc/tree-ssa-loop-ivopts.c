@@ -2095,6 +2095,7 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
   enum tree_code code;
   unsigned precision = TYPE_PRECISION (TREE_TYPE (top));
   widest_int res, p0, p1;
+  gassign *assign;
 
   STRIP_NOPS (top);
   STRIP_NOPS (bot);
@@ -2145,6 +2146,24 @@ constant_multiple_of (tree top, tree bot, widest_int *mul)
       return (TREE_CODE (bot) == POLY_CST
 	      && constant_multiple_p (tree_to_poly_widest_int (top),
 				      tree_to_poly_widest_int (bot), mul));
+
+    case SSA_NAME:
+      /* Handle one important special case: TOP is an SSA_NAME defined
+	 to be BOT * CST.  This triggers in vector loops with variable
+	 vectorization factors.  */
+      assign = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (top));
+      if (assign && gimple_assign_rhs_code (assign) == MULT_EXPR)
+	{
+	  tree new_top = gimple_assign_rhs1 (assign);
+	  mby = gimple_assign_rhs2 (assign);
+	  if (TREE_CODE (mby) == INTEGER_CST
+	      && constant_multiple_of (new_top, bot, &res))
+	    {
+	      *mul = wi::sext (res * wi::to_widest (mby), precision);
+	      return true;
+	    }
+	}
+      return false;
 
     default:
       return false;

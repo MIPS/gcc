@@ -1959,6 +1959,26 @@
   "<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>"
 )
 
+(define_expand "mask_popcount<mode>"
+  [(set (match_operand:DI 0 "register_operand")
+	(unspec:DI [(match_dup 2)
+		    (match_operand:PRED_ALL 1 "register_operand")]
+		   UNSPEC_CNTP))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<MODE>mode, CONSTM1_RTX (<MODE>mode));
+  }
+)
+
+(define_insn "*mask_popcount<mode>"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:PRED_ALL 1 "register_operand" "Upa")
+		    (match_operand:PRED_ALL 2 "register_operand" "Upa")]
+		   UNSPEC_CNTP))]
+  "TARGET_SVE"
+  "cntp\t%0, %1, %2.<Vetype>"
+)
+
 (define_insn "vec_shl_insert_<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w, w")
 	(unspec:SVE_ALL

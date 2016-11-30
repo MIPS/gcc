@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "params.h"
 #include "internal-fn.h"
+#include "gimple-fold.h"
 
 /* Return true if load- or store-lanes optab OPTAB is implemented for
    COUNT vectors of type VECTYPE.  NAME is the name of OPTAB.  */
@@ -4552,6 +4553,28 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
   return entry->final_addr;
 }
 
+/* Return a tree that represents STEP multiplied by the vectorization
+   factor.  */
+
+static tree
+vect_mult_by_vf (loop_vec_info loop_vinfo, tree step)
+{
+  hash_map<tree, tree> *map = LOOP_VINFO_VF_MULT_MAP (loop_vinfo);
+  if (!map)
+    map = LOOP_VINFO_VF_MULT_MAP (loop_vinfo) = new hash_map<tree, tree> ();
+  bool existed;
+  tree &entry = map->get_or_insert (step, &existed);
+  if (!existed)
+    {
+      gimple_seq seq = NULL;
+      tree vf = LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo);
+      vf = gimple_convert (&seq, TREE_TYPE (step), vf);
+      entry = gimple_build (&seq, MULT_EXPR, TREE_TYPE (step), vf, step);
+      edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
+      gsi_insert_seq_on_edge_immediate (pe, seq);
+    }
+  return entry;
+}
 
 /* Function vect_create_data_ref_ptr.
 
@@ -4562,19 +4585,37 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
    the callers to this function to create a memory reference expression for
    vector load/store access.
 
+   Some loops operate on more than one consecutive instance of AGGR_TYPE.
+   There are two approaches to updating ap in this case.  The usual one
+   is to advance ap by only one AGGR_TYPE at first and leave callers
+   to use bump_vector_ptr both to access other AGGR_TYPEs and to adjust
+   the increment of ap.  See the comment above bump_vector_ptr for details.
+   The advantage of this approach is that only one pointer is live at once.
+   ivopts can later introduce multiple pointers if that's more efficient,
+   but we don't have enough information to make that decision during
+   vectorization.
+
+   However, when using a runtime-capped VF, the increment of ap
+   depends on the runtime VF and we can't easily defer parts of it to
+   bump_vector_ptr.  In this case we emit the full increment now.
+   The GROUP_SIZE parameter exists for this case.
+
    Input:
    1. STMT: a stmt that references memory. Expected to be of the form
          GIMPLE_ASSIGN <name, data-ref> or
 	 GIMPLE_ASSIGN <data-ref, name>.
    2. AGGR_TYPE: the type of the reference, which should be either a vector
         or an array.
-   3. AT_LOOP: the loop where the vector memref is to be created.
-   4. OFFSET (optional): an offset to be added to the initial address accessed
+   3. GROUP_SIZE: how many consecutive vectors the loop accesses.
+	The loop should advance ap by GROUP_SIZE * VF elements of
+	type TREE_TYPE (AGGR_TYPE).
+   4. AT_LOOP: the loop where the vector memref is to be created.
+   5. OFFSET (optional): an offset to be added to the initial address accessed
         by the data-ref in STMT.
-   5. BSI: location where the new stmts are to be placed if there is no loop
-   6. ONLY_INIT: indicate if ap is to be updated in the loop, or remain
+   6. BSI: location where the new stmts are to be placed if there is no loop
+   7. ONLY_INIT: indicate if ap is to be updated in the loop, or remain
         pointing to the initial address.
-   7. BYTE_OFFSET (optional, defaults to NULL): a byte offset to be added
+   8. BYTE_OFFSET (optional, defaults to NULL): a byte offset to be added
 	to the initial address accessed by the data-ref in STMT.  This is
 	similar to OFFSET, but OFFSET is counted in elements, while BYTE_OFFSET
 	in bytes.
@@ -4607,7 +4648,8 @@ vect_create_addr_base_for_vector_ref (gimple *stmt,
    4. Return the pointer.  */
 
 tree
-vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
+vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
+			  unsigned int group_size, struct loop *at_loop,
 			  tree offset, tree *initial_address,
 			  gimple_stmt_iterator *gsi, gimple **ptr_incr,
 			  bool only_init, bool *inv_p, tree byte_offset)
@@ -4636,6 +4678,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 
   gcc_assert (TREE_CODE (aggr_type) == ARRAY_TYPE
 	      || TREE_CODE (aggr_type) == VECTOR_TYPE);
+  gcc_assert (only_init || !loop_vinfo || group_size != 0);
 
   if (loop_vinfo)
     {
@@ -4779,14 +4822,26 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
     aptr = aggr_ptr_init;
   else
     {
-      /* The step of the aggregate pointer is the type size.  */
-      tree iv_step = TYPE_SIZE_UNIT (aggr_type);
-      /* One exception to the above is when the scalar step of the load in
-	 LOOP is zero. In this case the step here is also zero.  */
+      tree iv_step;
       if (*inv_p)
 	iv_step = size_zero_node;
-      else if (tree_int_cst_sgn (step) == -1)
-	iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step), iv_step);
+      else
+	{
+	  if (LOOP_VINFO_CAP_MASK (loop_vinfo))
+	    {
+	      gcc_assert (group_size != 0);
+	      tree elt_type = TREE_TYPE (aggr_type);
+	      iv_step = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (elt_type),
+				    size_int (group_size));
+	      iv_step = vect_mult_by_vf (loop_vinfo, iv_step);
+	    }
+	  else
+	    /* The step of the aggregate pointer is the type size.  */
+	    iv_step = TYPE_SIZE_UNIT (aggr_type);
+	  if (tree_int_cst_sgn (step) == -1)
+	    iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step),
+				   iv_step);
+	}
 
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
@@ -4906,7 +4961,7 @@ bump_vector_ptr (tree dataref_ptr, gimple *ptr_incr, gimple_stmt_iterator *gsi,
       mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (new_dataref_ptr));
     }
 
-  if (!ptr_incr)
+  if (!ptr_incr || LOOP_VINFO_CAP_MASK (STMT_VINFO_LOOP_VINFO (stmt_info)))
     return new_dataref_ptr;
 
   /* Update the vector-pointer's cross-iteration increment.  */
@@ -5471,7 +5526,8 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
 
       gcc_assert (!compute_in_loop);
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      ptr = vect_create_data_ref_ptr (stmt, vectype, loop_for_initial_load,
+      ptr = vect_create_data_ref_ptr (stmt, vectype, 0,
+				      loop_for_initial_load,
 				      NULL_TREE, &init_addr, NULL, &inc,
 				      true, &inv_p);
       if (TREE_CODE (ptr) == SSA_NAME)

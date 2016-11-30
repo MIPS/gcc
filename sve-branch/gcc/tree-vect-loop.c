@@ -1174,7 +1174,10 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_CAN_FULLY_MASK_P (res) = true;
   LOOP_VINFO_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
+  LOOP_VINFO_MAX_VECT_FACTOR (res) = 0;
+  LOOP_VINFO_CAPPED_VECT_FACTOR (res) = NULL_TREE;
   LOOP_VINFO_MASK_TYPE (res) = NULL;
+  LOOP_VINFO_CAP_MASK (res) = NULL_TREE;
   LOOP_VINFO_MASK_ARRAY (res).create (0);
   LOOP_VINFO_MASKED_SKIP_ELEMS (res) = NULL;
   LOOP_VINFO_NEXT_MASK (res) = NULL;
@@ -1195,6 +1198,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_PEELING_FOR_NITER (res) = false;
   LOOP_VINFO_OPERANDS_SWAPPED (res) = false;
   LOOP_VINFO_ADDR_CACHE (res) = NULL;
+  LOOP_VINFO_VF_MULT_MAP (res) = NULL;
 
   return res;
 }
@@ -1279,12 +1283,75 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   delete LOOP_VINFO_ADDR_CACHE (loop_vinfo);
   LOOP_VINFO_ADDR_CACHE (loop_vinfo) = NULL;
 
+  delete LOOP_VINFO_VF_MULT_MAP (loop_vinfo);
+
   LOOP_VINFO_MASK_ARRAY (loop_vinfo).release ();
 
   free (loop_vinfo);
   loop->aux = NULL;
 }
 
+/* Return true if the target can calculate the vectorization factor
+   for LOOP_VINFO, which might involve a runtime computation.  This is
+   closely tied to vect_build_capped_vf.  */
+
+static bool
+vect_can_build_capped_vf_p (loop_vec_info loop_vinfo)
+{
+  if (!use_capped_vf (loop_vinfo))
+    return true;
+
+  /* We checked when we chose the compare type that WHILE_ULT was
+     supported.  */
+  tree compare_type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
+  tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
+  gcc_checking_assert (direct_internal_fn_supported_p (IFN_WHILE_ULT,
+						       compare_type, mask_type,
+						       OPTIMIZE_FOR_SPEED));
+
+  if (!direct_internal_fn_supported_p (IFN_MASK_POPCOUNT, mask_type,
+				       OPTIMIZE_FOR_SPEED))
+    return false;
+
+  return true;
+}
+
+/* Return a tree representing the actual runtime vectorization factor.  */
+
+static tree
+vect_build_capped_vf (loop_vec_info loop_vinfo)
+{
+  gcc_checking_assert (vect_can_build_capped_vf_p (loop_vinfo));
+
+  if (!use_capped_vf (loop_vinfo))
+    return size_int (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
+
+  gimple_seq seq = NULL;
+
+  tree compare_type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
+  tree zero_index = build_int_cst (compare_type, 0);
+  tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
+  tree zero_mask = build_zero_cst (mask_type);
+  tree max_vf = build_int_cst (compare_type,
+			       LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo));
+  tree cap_mask = make_temp_ssa_name (mask_type, NULL, "cap_mask");
+  gcall *stmt = gimple_build_call_internal (IFN_WHILE_ULT, 3, zero_index,
+					    max_vf, zero_mask);
+  gimple_call_set_lhs (stmt, cap_mask);
+  gimple_seq_add_stmt (&seq, stmt);
+
+  LOOP_VINFO_CAP_MASK (loop_vinfo) = cap_mask;
+
+  tree vf = make_temp_ssa_name (sizetype, NULL, "vf");
+  stmt = gimple_build_call_internal (IFN_MASK_POPCOUNT, 1, cap_mask);
+  gimple_call_set_lhs (stmt, vf);
+  gimple_seq_add_stmt (&seq, stmt);
+
+  edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
+  gsi_insert_seq_on_edge_immediate (pe, seq);
+
+  return vf;
+}
 
 /* Calculate the cost of one scalar iteration of the loop.  */
 static void
@@ -2063,18 +2130,22 @@ vect_analyze_loop_2 (loop_vec_info loop_vinfo, bool &fatal)
   /* Analyze data dependences between the data-refs in the loop
      and adjust the maximum vectorization factor according to
      the dependences.
-     FORNOW: fail at the first data dependence that we encounter.  */
+
+     We might be able to cope with max_vf that are smaller than the full
+     vector width by using a fully-masked loop.  Postpone that decision
+     until we know whether full masking is possible.  Of course, it might
+     not be a win to use vectors in this situation even if it is supported,
+     but that's a decision for the cost model.  */
 
   ok = vect_analyze_data_ref_dependences (loop_vinfo, &max_vf);
-  if (!ok
-      || (max_vf != MAX_VECTORIZATION_FACTOR
-	  && may_lt (max_vf, min_vf)))
+  if (!ok || max_vf <= 1)
     {
       if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "bad data dependence.\n");
       return false;
     }
+  LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo) = max_vf;
 
   ok = vect_determine_vectorization_factor (loop_vinfo);
   if (!ok)
@@ -2082,14 +2153,6 @@ vect_analyze_loop_2 (loop_vec_info loop_vinfo, bool &fatal)
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			 "can't determine vectorization factor.\n");
-      return false;
-    }
-  if (max_vf != MAX_VECTORIZATION_FACTOR
-      && may_lt (max_vf, LOOP_VINFO_VECT_FACTOR (loop_vinfo)))
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "bad data dependence.\n");
       return false;
     }
 
@@ -2223,6 +2286,30 @@ start_over:
 			     " peeling for gaps.\n");
 	  return false;
 	}
+    }
+
+  if (!LOOP_VINFO_MASK_TYPE (loop_vinfo)
+      && use_capped_vf (loop_vinfo))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "Need to cap the runtime vectorization factor to "
+			 HOST_WIDE_INT_PRINT_DEC " but cannot fully mask"
+			 " the loop.\n",
+			 LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo));
+      /* Undoing SLP might allow us to use a mask.  */
+      goto again;
+    }
+
+  if (!vect_can_build_capped_vf_p (loop_vinfo))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "Need to cap the runtime vectorization factor to "
+			 HOST_WIDE_INT_PRINT_DEC " but the target doesn't"
+			 " support the operations needed to do that.\n",
+			 LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo));
+      return false;
     }
 
   if (dump_enabled_p ())
@@ -3955,7 +4042,7 @@ get_initial_def_for_induction (gimple *iv_phi)
   gphi *induction_phi;
   tree induc_def, vec_def, vec_dest;
   tree init_expr, step_expr;
-  poly_uint64 vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  tree vf = LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo);
   unsigned int i;
   unsigned int ncopies;
   tree expr;
@@ -4115,12 +4202,9 @@ get_initial_def_for_induction (gimple *iv_phi)
 	  vec_step = [VF*S, VF*S, VF*S, VF*S]  */
       gimple_seq seq = NULL;
       if (SCALAR_FLOAT_TYPE_P (TREE_TYPE (step_expr)))
-	{
-	  expr = build_int_cst (integer_type_node, vf);
-	  expr = gimple_build (&seq, FLOAT_EXPR, TREE_TYPE (step_expr), expr);
-	}
+	expr = gimple_build (&seq, FLOAT_EXPR, TREE_TYPE (step_expr), vf);
       else
-	expr = build_int_cst (TREE_TYPE (step_expr), vf);
+	expr = gimple_convert (&seq, TREE_TYPE (step_expr), vf);
       new_name = gimple_build (&seq, MULT_EXPR, TREE_TYPE (step_expr),
 			       expr, step_expr);
       if (seq)
@@ -7149,7 +7233,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   int i;
   tree niters_vector = NULL;
   poly_uint64 vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  unsigned int lowest_vf = constant_lower_bound (vf);
+  unsigned int lowest_vf;
   bool grouped_store;
   bool slp_scheduled = false;
   gimple *stmt, *pattern_stmt;
@@ -7160,6 +7244,9 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   unsigned int th;
   /* Record number of iterations before we started tampering with the profile. */
   gcov_type expected_iterations = expected_loop_iterations_unbounded (loop);
+
+  lowest_vf = constant_lower_bound (vf);
+  lowest_vf = MIN (lowest_vf, LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo));
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location, "=== vec_transform_loop ===\n");
@@ -7218,6 +7305,9 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	    dump_printf (MSG_NOTE, "split exit edge of scalar loop\n");
 	}
     }
+
+  tree capped_vf = vect_build_capped_vf (loop_vinfo);
+  LOOP_VINFO_CAPPED_VECT_FACTOR (loop_vinfo) = capped_vf;
 
   tree niters = vect_build_loop_niters (loop_vinfo);
   LOOP_VINFO_NITERS_UNCHANGED (loop_vinfo) = niters;

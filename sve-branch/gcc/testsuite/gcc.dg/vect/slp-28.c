@@ -49,8 +49,7 @@ main1 ()
         abort ();
     }
   
-  /* Not vectorizable because of data dependencies: distance 3 is greater than 
-     the actual VF with SLP (2), but the analysis fail to detect that for now.  */
+  /* Vectorizable with a fully-masked loop or if VF==8.  */
   for (i = 3; i < N/4; i++)
     {
       in3[i*4] = in3[(i-3)*4] + 5;
@@ -80,6 +79,7 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect"  } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect" { target { ! vect_variable_length } } } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { target vect_variable_length } } } */
   
