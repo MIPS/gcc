@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-skip-if "" { *-*-* } { "-O0" } { "" } }
 ! { dg-options "-ffrontend-optimize" }
 ! Do not move common functions out of implicit DO loop constructors.
 program test

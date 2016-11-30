@@ -58,6 +58,7 @@ int main (void)
       arr[i].c = 17;
       arr[i].d = i+34;
       arr[i].e = i * 3 + 5;
+      __asm__ volatile ("" : : : "memory");
       if (arr[i].a == 178)
          abort(); 
     } 
@@ -68,5 +69,5 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { xfail vect_variable_length } } } */
   

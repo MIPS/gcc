@@ -5,6 +5,8 @@
 
 #define N 128
 
+volatile int z;
+
 __attribute__((noinline, noclone)) void
 foo (short * __restrict__ a, int * __restrict__ b, int stride)
 {
@@ -20,6 +22,9 @@ foo (short * __restrict__ a, int * __restrict__ b, int stride)
      a[5] = b[5] ? 6 : 0;
      a[6] = b[6] ? 7 : 0;
      a[7] = b[7] ? 8 : 0;
+     /* Disable loop vectorization (which is possible because of the
+	unlimited cost model).  */
+     z += 1;
    }
 }
 

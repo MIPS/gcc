@@ -1,3 +1,4 @@
+// { dg-skip-if "" { *-*-* } { "*" } { "" } }
 // 2007-02-04  Edward Smith-Rowland <3dw4rd@verizon.net>
 //
 // Copyright (C) 2007-2016 Free Software Foundation, Inc.

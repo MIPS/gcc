@@ -1,4 +1,4 @@
-! { dg-do run }
+! { dg-do run { target { ! aarch64*-*-* } } }
 ! { dg-timeout-factor 2.0 }
 
   call test

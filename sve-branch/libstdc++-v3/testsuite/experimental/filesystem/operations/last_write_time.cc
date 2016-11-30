@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-options "-lstdc++fs" }
-// { dg-do run { target c++11 } }
+// { dg-do run { target c++11 xfail aarch64-*-* } }
 // { dg-require-filesystem-ts "" }
 
 // 15.25 Permissions [fs.op.last_write_time]

@@ -1,4 +1,5 @@
 // { dg-do run { target c++11 } }
+// { dg-skip-if "" { *-*-* } { "*" } { "" } }
 // { dg-options "-D__STDCPP_WANT_MATH_SPEC_FUNCS__" }
 //
 // Copyright (C) 2016 Free Software Foundation, Inc.

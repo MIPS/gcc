@@ -106,6 +106,6 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect"  {target {{! { vect_uintfloat_cvt}} && {! {vect_int_mult}}} } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" { target { { vect_uintfloat_cvt && vect_int_mult } && { ! { vect_variable_length && vect_load_lanes } } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect"  {target {{! { vect_uintfloat_cvt}} && vect_int_mult} } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { target { vect_variable_length && vect_load_lanes } } } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect" { target { vect_variable_length && vect_load_lanes } } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  {target {{! { vect_uintfloat_cvt}} && {! {vect_int_mult}}} } } } */
   

@@ -1,3 +1,4 @@
+! { dg-skip-if "" { *-*-* } { "-O" } { "" } }
 ! { dg-options "-std=legacy -floop-nest-optimize -O2" }
 
 MODULE dbcsr_mm_accdrv

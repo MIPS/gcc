@@ -14,3 +14,5 @@ fn1 ()
       e = d;
     }
 }
+
+/* { dg-final { scan-tree-dump-times "LOOP VECTORIZED" 1 "vect" { xfail { ! vect_int } } } } */

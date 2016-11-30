@@ -137,5 +137,5 @@ int main (void)
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target { { vect_interleave && vect_extract_even_odd } && { ! vect_gather_scatter } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect" { target vect_gather_scatter } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" { xfail *-*-* }  } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" { xfail vect_variable_length } } } */
 

@@ -6097,28 +6097,6 @@ foreach N {2 3 4 8} {
     }]
 }
 
-# Return 1 if the target supports multiple vector sizes
-
-proc check_effective_target_vect_multiple_sizes { } {
-    global et_vect_multiple_sizes_saved
-    global et_index
-
-    set et_vect_multiple_sizes_saved($et_index) 0
-    if { ([istarget aarch64*-*-*]
-	  || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok])) } {
-       set et_vect_multiple_sizes_saved($et_index) 1
-    }
-    if { ([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
-      if { ([check_avx_available] && ![check_prefer_avx128]) } {
-	set et_vect_multiple_sizes_saved($et_index) 1
-      }
-    }
-
-    verbose "check_effective_target_vect_multiple_sizes:\
-	     returning $et_vect_multiple_sizes_saved($et_index)" 2
-    return $et_vect_multiple_sizes_saved($et_index)
-}
-
 # Return 1 if the target supports vectors of 64 bits.
 
 proc check_effective_target_vect64 { } {
@@ -7311,6 +7289,37 @@ proc check_effective_target_vect_sizes_32B_16B { } {
 
 proc check_effective_target_vect_variable_length { } {
     return [check_effective_target_aarch64_sve]
+}
+
+# Return true if exactly 3 distinct vector widths are supported.
+
+proc check_effective_target_vect_3_widths { } {
+    return [check_effective_target_aarch64_sve]
+}
+
+# Return true if exactly 2 distinct vector widths are supported.
+
+proc check_effective_target_vect_2_widths { } {
+    if { [check_effective_target_vect_3_widths] } {
+	return 0
+    }
+    return [expr { [check_effective_target_vect_sizes_32B_16B]
+		   || [istarget aarch64*-*-*]
+		   || ([istarget arm*-*-*]
+		       && [check_effective_target_arm_neon_ok]) }]
+}
+
+# Return true if exactly 1 distinct vector width is supported.
+
+proc check_effective_target_vect_1_width { } {
+    return [expr { ![check_effective_target_vect_3_widths]
+		   && ![check_effective_target_vect_2_widths] }]
+}
+
+# Return 1 if the target supports multiple vector sizes.
+
+proc check_effective_target_vect_multiple_sizes { } {
+    return [expr { ![check_effective_target_vect_1_width] }]
 }
 
 # Return true if 128-bits vectors are preferred even if 256-bits vectors
