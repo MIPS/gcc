@@ -2904,7 +2904,7 @@
   if (!VECTOR_ELT_ORDER_BIG)
     ele = nunits - 1 - ele;
 
-  operands[3] = GEN_INT (nunits * ele);
+  operands[3] = GEN_INT (GET_MODE_SIZE (<VS_scalar>mode) * ele);
   if (<MODE>mode == V4SImode)
     return "xxinsertw %x0,%x2,%3";
   else
