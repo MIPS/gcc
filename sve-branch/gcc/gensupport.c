@@ -52,6 +52,9 @@ static int split_sequence_num;
 /* Counter for define_peephole2s.  */
 static int peephole2_sequence_num;
 
+/* Counter for define_simplificationss.  */
+static int simplification_sequence_num;
+
 static int predicable_default;
 static const char *predicable_true;
 static const char *predicable_false;
@@ -2631,6 +2634,10 @@ read_md_rtx (md_rtx_info *info)
       counter = &peephole2_sequence_num;
       break;
 
+    case DEFINE_SIMPLIFICATION:
+      counter = &simplification_sequence_num;
+      break;
+
     default:
       counter = NULL;
       break;
@@ -2687,6 +2694,7 @@ get_c_test (rtx x)
     case DEFINE_SPLIT:
     case DEFINE_PEEPHOLE:
     case DEFINE_PEEPHOLE2:
+    case DEFINE_SIMPLIFICATION:
       return XSTR (x, 1);
 
     default:
@@ -3025,29 +3033,50 @@ get_pattern_stats_1 (struct pattern_stats *stats, rtx x)
     }
 }
 
-/* Make STATS describe the operands that appear in instruction pattern
-   PATTERN.  */
+/* Initialize STATS before its first use.  */
 
-void
-get_pattern_stats (struct pattern_stats *stats, rtvec pattern)
+static void
+init_pattern_stats (struct pattern_stats *stats)
 {
-  int i, len;
-
   stats->max_opno = -1;
   stats->max_dup_opno = -1;
   stats->max_scratch_opno = -1;
   stats->num_dups = 0;
+}
 
-  len = GET_NUM_ELEM (pattern);
-  for (i = 0; i < len; i++)
-    get_pattern_stats_1 (stats, RTVEC_ELT (pattern, i));
+/* Finalize STATS after a recursive walk of the rtx(es) it describes.  */
 
+static void
+finish_pattern_stats (struct pattern_stats *stats)
+{
   stats->num_generator_args = stats->max_opno + 1;
   stats->num_insn_operands = MAX (stats->max_opno,
 				  stats->max_scratch_opno) + 1;
   stats->num_operand_vars = MAX (stats->max_opno,
 				  MAX (stats->max_dup_opno,
 				       stats->max_scratch_opno)) + 1;
+}
+
+/* Make STATS describe the operands that appear in instruction pattern
+   PATTERN.  */
+
+void
+get_pattern_stats (struct pattern_stats *stats, rtvec pattern)
+{
+  init_pattern_stats (stats);
+  for (int i = 0, len = GET_NUM_ELEM (pattern); i < len; i++)
+    get_pattern_stats_1 (stats, RTVEC_ELT (pattern, i));
+  finish_pattern_stats (stats);
+}
+
+/* Make STATS describe the operands that appear in single rtx PATTERN.  */
+
+void
+get_pattern_stats (struct pattern_stats *stats, rtx pattern)
+{
+  init_pattern_stats (stats);
+  get_pattern_stats_1 (stats, pattern);
+  finish_pattern_stats (stats);
 }
 
 /* Return the emit_* function that should be used for pattern X, or NULL

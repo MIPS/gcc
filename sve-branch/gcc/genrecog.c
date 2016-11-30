@@ -247,7 +247,7 @@ struct position
 };
 
 enum routine_type {
-  SUBPATTERN, RECOG, SPLIT, PEEPHOLE2
+  SUBPATTERN, RECOG, SPLIT, PEEPHOLE2, SIMPLIFICATION
 };
 
 /* The root position (x0).  */
@@ -4293,6 +4293,7 @@ single_statement_p (const acceptance_type &acceptance)
     {
     case SUBPATTERN:
     case SPLIT:
+    case SIMPLIFICATION:
       return true;
 
     case RECOG:
@@ -4320,6 +4321,7 @@ get_failure_return (routine_type type)
 
     case SPLIT:
     case PEEPHOLE2:
+    case SIMPLIFICATION:
       return "NULL";
     }
   gcc_unreachable ();
@@ -4511,7 +4513,13 @@ print_test_rtx (output_state *os, const rtx_test &test)
   if (test.pos_operand >= 0)
     printf ("operands[%d]", test.pos_operand);
   else
-    printf ("x%d", os->id_to_var[test.pos->id]);
+    {
+      int id = os->id_to_var[test.pos->id];
+      if (os->type == SIMPLIFICATION && id == 1)
+	printf ("const_cast <rtx> (x%d)", id);
+      else
+	printf ("x%d", id);
+    }
 }
 
 /* Print the C expression for non-boolean test TEST.  */
@@ -4753,6 +4761,10 @@ print_subroutine_call (const acceptance_type &acceptance)
       printf ("peephole2_%d (x1, insn, pmatch_len_)",
 	      acceptance.u.subroutine_id);
       return "!= NULL_RTX";
+
+    case SIMPLIFICATION:
+      printf ("simplify_%d (x1)", acceptance.u.subroutine_id);
+      return "!= NULL_RTX";
     }
   gcc_unreachable ();
 }
@@ -4820,6 +4832,11 @@ print_acceptance (const acceptance_type &acceptance, unsigned int indent,
 	  printf_indent (indent + 2, "return res;\n");
 	  return ES_FALLTHROUGH;
 	}
+
+    case SIMPLIFICATION:
+      printf_indent (indent, "return gen_simplification_%d (operands);\n",
+		     acceptance.u.full.code);
+      return ES_RETURNED;
     }
   gcc_unreachable ();
 }
@@ -5176,9 +5193,18 @@ print_subroutine (output_state *os, state *s, int proc_id)
 	      "\trtx_insn *insn ATTRIBUTE_UNUSED,\n"
 	      "\tint *pmatch_len_ ATTRIBUTE_UNUSED)\n");
       break;
+
+    case SIMPLIFICATION:
+      if (proc_id)
+	printf ("static rtx\nsimplify_%d", proc_id);
+      else
+	printf ("rtx\nsimplify_rtx_autogen");
+      printf (" (const_rtx x1 ATTRIBUTE_UNUSED)\n");
+      insn_param = NULL;
+      break;
     }
   print_subroutine_start (os, s, &root_pos);
-  if (proc_id == 0)
+  if (proc_id == 0 && insn_param)
     {
       printf ("  recog_data.insn = NULL;\n");
       if (os->type == RECOG)
@@ -5285,7 +5311,7 @@ remove_clobbers (acceptance_type *acceptance_ptr, rtx *pattern_ptr)
 int
 main (int argc, const char **argv)
 {
-  state insn_root, split_root, peephole2_root;
+  state insn_root, split_root, peephole2_root, simplify_root;
 
   progname = "genrecog";
 
@@ -5349,6 +5375,17 @@ main (int argc, const char **argv)
 		  info.index);
 	  break;
 
+	case DEFINE_SIMPLIFICATION:
+	  acceptance.type = SIMPLIFICATION;
+	  pattern = XEXP (def, 0);
+	  validate_pattern (pattern, &info, NULL_RTX, 0);
+	  match_pattern (&simplify_root, &info, pattern, acceptance);
+
+	  /* Declare the gen_simplification routine that we'll call if the
+	     pattern matches.  The definition comes from insn-emit.c.  */
+	  printf ("extern rtx gen_simplification_%d (rtx *);\n", info.index);
+	  break;
+
 	default:
 	  /* do nothing */;
 	}
@@ -5363,6 +5400,7 @@ main (int argc, const char **argv)
   optimize_subroutine_group ("recog", &insn_root);
   optimize_subroutine_group ("split_insns", &split_root);
   optimize_subroutine_group ("peephole2_insns", &peephole2_root);
+  optimize_subroutine_group ("simplify_rtx_autogen", &simplify_root);
 
   output_state os;
   os.id_to_var.safe_grow_cleared (num_positions);
@@ -5374,6 +5412,7 @@ main (int argc, const char **argv)
       states.safe_push (&insn_root);
       states.safe_push (&split_root);
       states.safe_push (&peephole2_root);
+      states.safe_push (&simplify_root);
       split_out_patterns (states);
 
       /* Print out the routines that we just created.  */
@@ -5387,6 +5426,7 @@ main (int argc, const char **argv)
   print_subroutine_group (&os, RECOG, &insn_root);
   print_subroutine_group (&os, SPLIT, &split_root);
   print_subroutine_group (&os, PEEPHOLE2, &peephole2_root);
+  print_subroutine_group (&os, SIMPLIFICATION, &simplify_root);
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);

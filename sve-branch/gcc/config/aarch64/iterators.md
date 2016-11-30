@@ -1055,6 +1055,8 @@
 						  and ior xor])
 (define_code_iterator sve_predicated_comm_fp_op [plus])
 
+(define_code_iterator NONZERO_TEST_CODE [ne lt gt gtu])
+
 ;; SVE integer unary operations.
 (define_code_iterator SVE_INT_UNARY [neg not popcount])
 
@@ -1226,6 +1228,11 @@
 			     (neg "fneg")
 			     (abs "fabs")
 			     (sqrt "fsqrt")])
+
+(define_code_attr nonzero_test_op [(ne "!= 0")
+				  (lt "< 0")
+				  (gt "> 0")
+				  (gtu "!= 0")])
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators.

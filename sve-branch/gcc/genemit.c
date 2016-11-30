@@ -627,6 +627,48 @@ gen_split (md_rtx_info *info)
   free (used);
 }
 
+/* Generate the `gen_...' function for a DEFINE_SIMPLIFICATION.  */
+
+static void
+gen_simplification (md_rtx_info *info)
+{
+  /* Find out how many operands this function has.  */
+  struct pattern_stats stats;
+  rtx pattern = info->def;
+  get_pattern_stats (&stats, XEXP (pattern, 2));
+
+  /* Output the function name and argument declarations.  */
+  printf ("rtx\ngen_simplification_%d (", info->index);
+  if (stats.num_operand_vars)
+    printf ("rtx *operands");
+  else
+    printf ("void");
+  printf (")\n");
+  printf ("{\n");
+
+  /* Record in the dump file that this simplification has triggered.  */
+  printf ("  if (dump_file)\n");
+  printf ("    fprintf (dump_file, \"Using gen_simplification_%d\\n\");\n",
+	  info->index);
+
+  /* Do any preparation statements.  */
+  if (XSTR (pattern, 3))
+    {
+      rtx_reader_ptr->print_md_ptr_loc (XSTR (pattern, 3));
+      printf ("%s\n", XSTR (pattern, 3));
+    }
+
+  /* Output code to copy the arguments back out of `operands'.  */
+  for (int i = 0; i < stats.num_operand_vars; i++)
+    printf ("  rtx operand%d = operands[%d];\n", i, i);
+
+  char *used = XCNEWVEC (char, stats.num_operand_vars);
+  printf ("  return ");
+  gen_exp (XEXP (pattern, 2), DEFINE_SIMPLIFICATION, used);
+  printf (";\n}\n\n");
+  XDELETEVEC (used);
+}
+
 /* Write a function, `add_clobbers', that is given a PARALLEL of sufficient
    size for the insn and an INSN_CODE, and inserts the required CLOBBERs at
    the end of the vector.  */
@@ -828,6 +870,11 @@ from the machine description file `md'.  */\n\n");
       case DEFINE_PEEPHOLE2:
 	printf ("/* %s:%d */\n", info.loc.filename, info.loc.lineno);
 	gen_split (&info);
+	break;
+
+      case DEFINE_SIMPLIFICATION:
+	printf ("/* %s:%d */\n", info.loc.filename, info.loc.lineno);
+	gen_simplification (&info);
 	break;
 
       default:

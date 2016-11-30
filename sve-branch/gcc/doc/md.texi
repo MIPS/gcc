@@ -41,6 +41,7 @@ See the next chapter for information on the C header file.
 * Insn Splitting::      Splitting Instructions into Multiple Instructions.
 * Including Patterns::  Including Patterns in Machine Descriptions.
 * Peephole Definitions::Defining machine-specific peephole optimizations.
+* RTL Simplifications:: Rules for simplifying RTL expressions
 * Insn Attributes::     Specifying the value of attributes for generated insns.
 * Conditional Execution::Generating @code{define_insn} patterns for
                          predication.
@@ -8274,6 +8275,61 @@ If we had not added the @code{(match_dup 4)} in the middle of the input
 sequence, it might have been the case that the register we chose at the
 beginning of the sequence is killed by the first or second @code{set}.
 
+@end ifset
+@ifset INTERNALS
+@node RTL Simplifications
+@section Rules for simplifying RTL expressions
+@cindex rtx simplification
+@cindex simplifying rtxes
+@findex define_simplification
+You can use the machine description construct @code{define_simplification}
+to specify that one RTL expression should be simplified into a different
+form.  The syntax is very similar to @code{define_split}
+(@pxref{Insn Splitting}):
+
+@smallexample
+(define_simplification
+  @var{original-expression}
+  "@var{condition}"
+  @var{new-expression}
+  "@var{preparation-statements}")
+@end smallexample
+
+@var{original-expression} is a pattern that matches the original,
+untransformed expression.  It can use constructs like @code{match_operand}
+in the normal way.  The expression does not need to be a full instruction
+pattern; it is usually an arithmetic expression, a logical expression,
+or some form of @code{unspec}.
+
+@var{condition}, if not empty, specifies an additional C++ test that
+the compiler must check after a successful match.  This condition
+might for example check whether a particular relationship holds
+between two constant operands, or whether one mode is wider than
+another.
+
+If an expression matches @var{original-expression} and satisfies
+@var{condition}, the C++ code in the optional @var{preparation-statements}
+does some preparation work for the new, simplified expression.
+These statements can pass values to @var{new-expression} by storing
+them in @samp{operands[@var{N}]}; @var{new-expression} can then refer
+to them using @samp{(match_dup @var{N})}.  For example, these statements
+might perform some arithmetic on constant operands and cache the
+result for use by the new expression.
+
+Finally, @var{new-expression} specifies the simplified form of the
+expression.  It can use @code{match_dup} to refer to operands of
+@var{original-expression} or to values created by @var{preparation-statements}.
+
+For example:
+
+@smallexample
+(define_simplification
+  (neg (neg (match_operand 0)))
+  ""
+  (match_dup 0))
+@end smallexample
+
+specifies that double negation has no effect.
 @end ifset
 @ifset INTERNALS
 @node Insn Attributes

@@ -1081,6 +1081,25 @@
   "fcmuo\t%0.<Vetype>, %4/z, %2.<Vetype>, %3.<Vetype>"
 )
 
+;; (fn (sel pred C 0) 0) is simply pred if (fn C 0) is true and
+;; (fn 0 0) is false.  We don't expect to see cases where (fn C 0)
+;; == (fn 0 0) -- that should have been optimized earlier -- so there
+;; is no pattern for that case.  We could add a pattern with reversed
+;; sel operands if we find a case where it's needed.
+(define_simplification
+  (NONZERO_TEST_CODE:PRED_ALL
+    (unspec:SVE_I
+      [(match_operand 0)
+       (match_operand:SVE_I 1 "aarch64_constant_vector_operand")
+       (match_operand:SVE_I 2 "aarch64_simd_imm_zero")]
+      UNSPEC_SEL)
+    (match_dup 2))
+  "TARGET_SVE
+   && is_const_vec_duplicate (operands[1], &operands[3])
+   && CONST_INT_P (operands[3])
+   && INTVAL (operands[3]) <nonzero_test_op>"
+  (match_dup 0))
+
 ;; vcond_mask operand order: true, false, mask
 ;; UNSPEC_SEL operand order: mask, true, false (as for VEC_COND_EXPR)
 ;; SEL operand order:        mask, true, false

@@ -904,6 +904,15 @@ DEF_RTL_EXPR(DEFINE_PEEPHOLE, "define_peephole", "EsTV", RTX_EXTRA)
 	(`operands' is an alias here for `recog_data.operand').  */
 DEF_RTL_EXPR(DEFINE_SPLIT, "define_split", "EsES", RTX_EXTRA)
 
+/* Definition of an rtl simplification rule.
+   1st operand: rtl expression to match
+   2nd operand: C expression that must be true
+   3rd operand: simplified expression
+   4th operand: optionally, some C code to execute before generating the
+	3rd operand.  This might, for example, create some RTXes and store
+	them in elements of `operands' for use in match_dups.  */
+DEF_RTL_EXPR(DEFINE_SIMPLIFICATION, "define_simplification", "eseS", RTX_EXTRA)
+
 /* Definition of an insn and associated split.
    This is the concatenation, with a few modifications, of a define_insn
    and a define_split which share the same pattern.

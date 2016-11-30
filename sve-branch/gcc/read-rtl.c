@@ -454,6 +454,7 @@ add_condition_to_rtx (rtx x, const char *extra)
     case DEFINE_PEEPHOLE:
     case DEFINE_PEEPHOLE2:
     case DEFINE_COND_EXEC:
+    case DEFINE_SIMPLIFICATION:
       XSTR (x, 1) = add_condition_to_string (XSTR (x, 1), extra);
       break;
 
