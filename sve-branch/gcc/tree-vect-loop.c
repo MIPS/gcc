@@ -7412,18 +7412,20 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     }
   /* In these calculations the "- 1" converts loop iteration counts
      back to latch counts.  */
-  loop->nb_iterations_upper_bound
-    = (final_iter_may_be_partial
-       ? wi::udiv_ceil (loop->nb_iterations_upper_bound + bias_for_lowest,
-			lowest_vf) - 1
-       : wi::udiv_floor (loop->nb_iterations_upper_bound + bias_for_lowest,
-			 lowest_vf) - 1);
-  loop->nb_iterations_likely_upper_bound
-    = (final_iter_may_be_partial
-       ? wi::udiv_ceil (loop->nb_iterations_likely_upper_bound
-			+ bias_for_lowest, lowest_vf) - 1
-       : wi::udiv_floor (loop->nb_iterations_likely_upper_bound
-			 + bias_for_lowest, lowest_vf) - 1);
+  if (loop->any_upper_bound)
+    loop->nb_iterations_upper_bound
+      = (final_iter_may_be_partial
+	 ? wi::udiv_ceil (loop->nb_iterations_upper_bound + bias_for_lowest,
+			  lowest_vf) - 1
+	 : wi::udiv_floor (loop->nb_iterations_upper_bound + bias_for_lowest,
+			   lowest_vf) - 1);
+  if (loop->any_likely_upper_bound)
+    loop->nb_iterations_likely_upper_bound
+      = (final_iter_may_be_partial
+	 ? wi::udiv_ceil (loop->nb_iterations_likely_upper_bound
+			  + bias_for_lowest, lowest_vf) - 1
+	 : wi::udiv_floor (loop->nb_iterations_likely_upper_bound
+			   + bias_for_lowest, lowest_vf) - 1);
   if (loop->any_estimate)
     loop->nb_iterations_estimate
       = (final_iter_may_be_partial
