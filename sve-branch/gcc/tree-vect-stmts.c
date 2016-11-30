@@ -286,7 +286,7 @@ is_simple_and_all_uses_invariant (gimple *stmt, loop_vec_info loop_vinfo)
    A stmt is considered "relevant for vectorization" if:
    - it has uses outside the loop.
    - it has vdefs (it alters memory).
-   - control stmts in the loop (except for the exit condition).
+   - control stmts in the loop (including the exit condition).
 
    CHECKME: what other side effects would the vectorizer allow?  */
 
@@ -305,8 +305,9 @@ vect_stmt_relevant_p (gimple *stmt, loop_vec_info loop_vinfo,
 
   /* cond stmt other than loop exit cond.  */
   if (is_ctrl_stmt (stmt)
-      && STMT_VINFO_TYPE (vinfo_for_stmt (stmt))
-         != loop_exit_ctrl_vec_info_type)
+      && (STMT_VINFO_TYPE (vinfo_for_stmt (stmt))
+	  != loop_exit_ctrl_vec_info_type
+	  || LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)))
     *relevant = vect_used_in_scope;
 
   /* changing memory.  */
@@ -654,6 +655,12 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	    vect_mark_relevant (&worklist, stmt, relevant, live_p);
 	}
     }
+
+  /* The exit condition is relevant for speculative loops.  */
+  if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
+      && !vect_stmt_relevant_p (get_loop_exit_condition (loop),
+				loop_vinfo, &relevant, &live_p))
+    gcc_unreachable ();
 
   /* 2. Process_worklist */
   while (worklist.length () > 0)
@@ -2999,7 +3006,8 @@ get_group_load_store_type (gimple *stmt, tree vectype, bool slp,
   bool can_overrun_p = (!masked_p
 			&& vls_type == VLS_LOAD
 			&& loop_vinfo
-			&& !loop->inner);
+			&& !loop->inner
+			&& !LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
 
   if (vls_type != VLS_LOAD)
     {
@@ -3504,6 +3512,14 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 
   if (slp_node != NULL)
     return false;
+
+  if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "Speculative loop mask load/stores not supported\n");
+      return false;
+    }
 
   ncopies = vect_get_num_copies (loop_vinfo, vectype);
   gcc_assert (ncopies >= 1);
@@ -6871,6 +6887,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 
   if (loop_vinfo)
     {
+      gcc_assert (!LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
       loop = LOOP_VINFO_LOOP (loop_vinfo);
       vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
     }
@@ -7695,12 +7712,24 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   gcc_assert (ncopies >= 1);
 
   /* FORNOW. This restriction should be relaxed.  */
-  if (nested_in_vect_loop && ncopies > 1)
+  if (ncopies > 1)
     {
-      if (dump_enabled_p ())
-        dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                         "multiple types in nested loop.\n");
-      return false;
+      if (nested_in_vect_loop)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "multiple types in nested loop.\n");
+	  return false;
+	}
+
+      if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "multiple copies not supported for speculative "
+			     "loops.\n");
+	  return false;
+	}
     }
 
   /* Invalidate assumptions made by dependence analysis when vectorization
@@ -8345,11 +8374,11 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 				       ? dataref_offset
 				       : build_int_cst (ref_type, 0));
 
-		    align = (vect_data_ref_required_alignment (first_dr)
-			     / BITS_PER_UNIT);
 		    if (alignment_support_scheme == dr_aligned)
 		      {
 			gcc_assert (aligned_access_p (first_dr));
+			align = (vect_data_ref_required_alignment (first_dr)
+				 / BITS_PER_UNIT);
 			misalign = 0;
 		      }
 		    else if (DR_MISALIGNMENT (first_dr) == -1)
@@ -8362,7 +8391,11 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 			misalign = 0;
 		      }
 		    else
-		      misalign = DR_MISALIGNMENT (first_dr);
+		      {
+			align = (vect_data_ref_required_alignment (first_dr)
+				 / BITS_PER_UNIT);
+			misalign = DR_MISALIGNMENT (first_dr);
+		      }
 		    if (dataref_offset == NULL_TREE
 			&& TREE_CODE (dataref_ptr) == SSA_NAME)
 		      set_ptr_info_alignment (get_ptr_info (dataref_ptr),
@@ -8954,16 +8987,15 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 			 gimple **vec_stmt, tree reduc_def,
 			 slp_tree slp_node)
 {
-  tree lhs, rhs1, rhs2;
+  tree rhs1, rhs2;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   tree vectype1 = NULL_TREE, vectype2 = NULL_TREE;
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree vec_rhs1 = NULL_TREE, vec_rhs2 = NULL_TREE;
-  tree new_temp;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   enum vect_def_type dts[2] = {vect_unknown_def_type, vect_unknown_def_type};
   poly_uint64 nunits;
-  int ncopies;
+  int ncopies, mask_level = -1;
   enum tree_code code, bitop1 = NOP_EXPR, bitop2 = NOP_EXPR;
   stmt_vec_info prev_stmt_info = NULL;
   int i, j;
@@ -8989,6 +9021,9 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
     ncopies = vect_get_num_copies (loop_vinfo, vectype);
   gcc_assert (ncopies >= 1);
 
+  if (LOOP_VINFO_MASK (loop_vinfo))
+    mask_level = vect_get_mask_level (ncopies);
+
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_internal_def
       && !(STMT_VINFO_DEF_TYPE (stmt_info) == vect_nested_cycle
 	   && reduc_def))
@@ -9002,16 +9037,55 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
       return false;
     }
 
-  if (!is_gimple_assign (stmt))
-    return false;
+  if (is_gimple_assign (stmt))
+    {
+      code = gimple_assign_rhs_code (stmt);
+      rhs1 = gimple_assign_rhs1 (stmt);
+      rhs2 = gimple_assign_rhs2 (stmt);
+    }
+  else if (gimple_code (stmt) == GIMPLE_COND)
+    {
+      gcc_assert (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
 
-  code = gimple_assign_rhs_code (stmt);
+      /* TODO: Support more complex loops with more than one gcond stmt.  */
+      struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+      gcc_assert (stmt == get_loop_exit_condition (loop));
+
+      rhs1 = gimple_cond_lhs (stmt);
+      rhs2 = gimple_cond_rhs (stmt);
+
+      bool honor_nans = FLOAT_TYPE_P (TREE_TYPE (rhs1));
+
+      /* We want to invert the code and generate a mask such that if any
+	 bit is true the exit condition is met.  */
+      code = gimple_cond_code (stmt);
+      code = invert_tree_comparison (code, honor_nans);
+
+      if (code == ERROR_MARK)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Cannot invert condition code.  Loop cannot be "
+			     "speculatively executed.\n");
+	  return false;
+	}
+
+      if (optab_handler (cbranch_optab, TYPE_MODE (vectype))
+	  == CODE_FOR_nothing)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Target does not support testing a mask.\n");
+	  return false;
+	}
+
+      LOOP_VINFO_NUM_SPECULATIVE_MASKS (loop_vinfo) = ncopies;
+    }
+  else
+    return false;
 
   if (TREE_CODE_CLASS (code) != tcc_comparison)
     return false;
-
-  rhs1 = gimple_assign_rhs1 (stmt);
-  rhs2 = gimple_assign_rhs2 (stmt);
 
   if (!vect_is_simple_use (rhs1, stmt_info->vinfo, &def_stmt,
 			   &dts[0], &vectype1))
@@ -9086,6 +9160,13 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 
   if (!vec_stmt)
     {
+      /* Multiple ncopies are only required for fully-masked speculative
+	 loops.  */
+      if (ncopies > 1
+	  && LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo)
+	  && LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
+	vect_update_num_mask_levels (loop_vinfo, ncopies);
+
       STMT_VINFO_TYPE (stmt_info) = comparison_vec_info_type;
       vect_model_simple_cost (stmt_info, ncopies * (1 + (bitop2 != NOP_EXPR)),
 			      dts, NULL, NULL);
@@ -9118,8 +9199,16 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
     }
 
   /* Handle def.  */
-  lhs = gimple_assign_lhs (stmt);
-  mask = vect_create_destination_var (lhs, mask_type);
+  if (is_gimple_assign (stmt))
+    {
+      tree lhs = gimple_assign_lhs (stmt);
+      mask = vect_create_destination_var (lhs, mask_type);
+    }
+  else
+    mask = NULL_TREE;
+
+  bool masked_speculative_p = (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
+			       && LOOP_VINFO_MASK (loop_vinfo));
 
   /* Handle cmp expr.  */
   for (j = 0; j < ncopies; j++)
@@ -9163,32 +9252,52 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 	{
 	  vec_rhs2 = vec_oprnds1[i];
 
-	  new_temp = make_ssa_name (mask);
+	  tree final_res = (mask
+			    ? make_ssa_name (mask)
+			    : vect_get_speculative_mask (loop_vinfo, j));
+	  tree cmp_res = (masked_speculative_p
+			  ? make_ssa_name (TREE_TYPE (final_res))
+			  : final_res);
+
 	  if (bitop1 == NOP_EXPR)
 	    {
-	      new_stmt = gimple_build_assign (new_temp, code,
+	      new_stmt = gimple_build_assign (cmp_res, code,
 					      vec_rhs1, vec_rhs2);
 	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
 	    }
 	  else
 	    {
+	      tree bitop1_res = (bitop2 == NOP_EXPR
+				 ? cmp_res
+				 : make_ssa_name (TREE_TYPE (cmp_res)));
 	      if (bitop1 == BIT_NOT_EXPR)
-		new_stmt = gimple_build_assign (new_temp, bitop1, vec_rhs2);
+		new_stmt = gimple_build_assign (bitop1_res, bitop1, vec_rhs2);
 	      else
-		new_stmt = gimple_build_assign (new_temp, bitop1, vec_rhs1,
+		new_stmt = gimple_build_assign (bitop1_res, bitop1, vec_rhs1,
 						vec_rhs2);
 	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
 	      if (bitop2 != NOP_EXPR)
 		{
-		  tree res = make_ssa_name (mask);
 		  if (bitop2 == BIT_NOT_EXPR)
-		    new_stmt = gimple_build_assign (res, bitop2, new_temp);
+		    new_stmt = gimple_build_assign (cmp_res, bitop2,
+						    bitop1_res);
 		  else
-		    new_stmt = gimple_build_assign (res, bitop2, vec_rhs1,
-						    new_temp);
+		    new_stmt = gimple_build_assign (cmp_res, bitop2,
+						    vec_rhs1, bitop1_res);
 		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		}
 	    }
+
+	  /* For fully-masked speculative loops, AND the result with the loop
+	     mask to ensure we only check the valid lanes.  */
+	  if (masked_speculative_p)
+	    {
+	      tree loop_mask = vect_get_loop_mask (loop_vinfo, mask_level, j);
+	      new_stmt = gimple_build_assign (final_res, BIT_AND_EXPR,
+					      cmp_res, loop_mask);
+	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	    }
+
 	  if (slp_node)
 	    SLP_TREE_VEC_STMTS (slp_node).quick_push (new_stmt);
 	}
@@ -9206,6 +9315,81 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 
   vec_oprnds0.release ();
   vec_oprnds1.release ();
+
+  if (gimple_code (stmt) == GIMPLE_COND)
+    {
+      gcc_assert (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
+
+      struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+      gcond *orig_cond = get_loop_exit_condition (loop);
+      gcc_assert (orig_cond);
+      gimple_stmt_iterator loop_cond_gsi = gsi_for_stmt (orig_cond);
+
+      int nmasks0 = LOOP_VINFO_SPECULATIVE_MASKS (loop_vinfo).length ();
+      tree mask_res;
+      gimple *tmp_stmt;
+      if (nmasks0 == 1)
+	mask_res = vect_get_speculative_mask (loop_vinfo, 0);
+      else
+	{
+	  /* We need to pack all the masks together.  */
+	  int ntransitions = exact_log2 (nmasks0);
+	  gcc_assert (ntransitions != -1);
+
+	  auto_vec<tree> masks;
+	  masks.reserve (vect_get_num_array_masks (ntransitions + 1));
+
+	  for (int i = 0; i < nmasks0; i++)
+	    masks.quick_push (vect_get_speculative_mask (loop_vinfo, i));
+
+	  poly_uint64 nunits_this_level
+	    = TYPE_VECTOR_SUBPARTS (TREE_TYPE (masks[0]));
+	  int nmasks_this_level = nmasks0;
+	  for (int i = 1; i < ntransitions; i++)
+	    {
+	      nunits_this_level *= 2;
+	      nmasks_this_level >>= 1;
+	      tree mask_type = build_truth_vector_type (nunits_this_level,
+							current_vector_size);
+
+	      for (int j = 0; j < nmasks_this_level; j++)
+		masks.quick_push (vect_get_new_ssa_name (mask_type,
+							 vect_mask_var, NULL));
+	    }
+
+	  gphi *exit_phi = LOOP_VINFO_SPECULATIVE_EXIT_PHI (loop_vinfo);
+	  mask_res = gimple_phi_arg_def (exit_phi, 0);
+	  masks.quick_push (mask_res);
+
+	  nmasks_this_level = nmasks0;
+	  int mask_count1 = 0;
+	  int mask_count2 = nmasks0;
+	  int nlevels = ntransitions + 1;
+	  for (int i = 1; i < nlevels; i++)
+	    {
+	      nmasks_this_level >>= 1;
+	      for (int j = 0; j < nmasks_this_level; j++)
+		{
+		  tree op0 = masks[mask_count1++];
+		  tree op1 = masks[mask_count1++];
+		  tree res = masks[mask_count2++];
+		  tmp_stmt = gimple_build_assign (res, VEC_PACK_TRUNC_EXPR,
+						  op0, op1);
+		  gsi_insert_before (&loop_cond_gsi, tmp_stmt, GSI_SAME_STMT);
+		}
+	    }
+	}
+
+      /* Get a boolean result that tells us whether to iterate.  */
+      edge exit_edge = single_exit (loop);
+      tree_code code = (exit_edge->flags & EDGE_TRUE_VALUE) ? NE_EXPR : EQ_EXPR;
+      tree zero_mask = build_zero_cst (TREE_TYPE (mask_res));
+      gcond *cond_stmt = gimple_build_cond (code, mask_res, zero_mask,
+					    NULL_TREE, NULL_TREE);
+      gsi_insert_before (&loop_cond_gsi, cond_stmt, GSI_SAME_STMT);
+
+      /* The loop exit gcond statement will be removed later.  */
+    }
 
   return true;
 }
@@ -9969,23 +10153,38 @@ vect_get_loop_mask_type (loop_vec_info loop_vinfo, tree *cmp_type_ptr)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   unsigned int min_ni_width;
+  unsigned HOST_WIDE_INT const_vf;
 
-  tree ni = LOOP_VINFO_NITERS (loop_vinfo);
-  tree ni_type = TREE_TYPE (ni);
-
-  /* Handle the case where NI starts out as 0 and is decremented to the
-     maximum unsigned value before being compared.  */
-  min_ni_width = GET_MODE_BITSIZE (SCALAR_TYPE_MODE (ni_type));
-  if (TYPE_UNSIGNED (ni_type))
-    min_ni_width++;
-
-  /* Get a more refined estimate for the number of iterations.  */
-  widest_int max_back_edges;
-  if (max_loop_iterations (loop, &max_back_edges))
+  /* Get the number of bits needed to hold the number of iterations
+     as an unsigned value.  */
+  if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
     {
-      unsigned int max_iters_width = wi::min_precision (max_back_edges + 1,
-							UNSIGNED);
-      min_ni_width = MIN (min_ni_width, max_iters_width);
+      /* For speculative loops, we only need to count the number of iterations
+	 before the vector loop.  */
+      if (LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&const_vf))
+	min_ni_width = wi::min_precision (const_vf, UNSIGNED);
+      else
+	min_ni_width = POINTER_SIZE;
+    }
+  else
+    {
+      tree ni = LOOP_VINFO_NITERS (loop_vinfo);
+      tree ni_type = TREE_TYPE (ni);
+
+      /* Handle the case where NI starts out as 0 and is decremented to the
+	 maximum unsigned value before being compared.  */
+      min_ni_width = GET_MODE_BITSIZE (SCALAR_TYPE_MODE (ni_type));
+      if (TYPE_UNSIGNED (ni_type))
+	min_ni_width++;
+
+      /* Get a more refined estimate for the number of iterations.  */
+      widest_int max_back_edges;
+      if (max_loop_iterations (loop, &max_back_edges))
+	{
+	  unsigned int max_iters_width = wi::min_precision (max_back_edges + 1,
+							    UNSIGNED);
+	  min_ni_width = MIN (min_ni_width, max_iters_width);
+	}
     }
 
   /* Get the type that we should use for the controlling mask.  */

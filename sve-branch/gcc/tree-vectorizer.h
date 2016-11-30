@@ -455,6 +455,18 @@ typedef struct _loop_vec_info : public vec_info {
 
   /* All data references for sunk stmts.  */
   vec<data_reference_p> sunk_datarefs;
+
+  /* Is this a speculative loop?  */
+  bool speculative_execution;
+
+  /* Speculative masks defined inside the loop.  */
+  vec<tree> speculative_masks;
+
+  /* Number of speculative masks required in the loop.  */
+  int num_speculative_masks;
+
+  /* The loop exit value of the speculative mask.  */
+  gphi *speculative_exit_phi;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -511,6 +523,10 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_GATHER_SCATTER_CACHE(L) (L)->gather_scatter_htab
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
 #define LOOP_VINFO_SUNK_DATAREFS(L)        (L)->sunk_datarefs
+#define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
+#define LOOP_VINFO_SPECULATIVE_MASKS(L)     (L)->speculative_masks
+#define LOOP_VINFO_NUM_SPECULATIVE_MASKS(L) (L)->num_speculative_masks
+#define LOOP_VINFO_SPECULATIVE_EXIT_PHI(L)  (L)->speculative_exit_phi
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -1250,6 +1266,12 @@ vect_update_num_mask_levels (loop_vec_info loop_vinfo, int ncopies)
     = MAX (LOOP_VINFO_NUM_MASK_LEVELS (loop_vinfo), nlevels);
 }
 
+static inline tree
+vect_get_speculative_mask (loop_vec_info loop_vinfo, int index)
+{
+  return LOOP_VINFO_SPECULATIVE_MASKS (loop_vinfo) [index];
+}
+
 /* Return the number of vectors of type VECTYPE that are needed to get
    NUNITS elements.  NUNITS should be based on the vectorization factor,
    so it is always a known multiple of the number of elements in VECTYPE.  */
@@ -1430,6 +1452,8 @@ extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 						  tree, struct loop *,
 						  tree = NULL_TREE);
 extern tree get_copy_for_caching (tree);
+extern bool can_get_vect_data_ref_required_alignment (struct data_reference *,
+						      unsigned int *);
 extern unsigned int vect_data_ref_required_alignment (struct data_reference *);
 
 /* In tree-vect-loop.c.  */
