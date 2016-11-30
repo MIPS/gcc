@@ -6470,6 +6470,12 @@ proc check_effective_target_vect_logical_reduc { } {
     return [check_effective_target_aarch64_sve]
 }
 
+# Return 1 if the target supports last-selected-element reduction.
+
+proc check_effective_target_vect_last_reduc { } {
+    return [check_effective_target_aarch64_sve]
+}
+
 # Return 1 if the target supports section-anchors
 
 proc check_effective_target_section_anchors { } {

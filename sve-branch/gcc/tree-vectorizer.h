@@ -66,8 +66,16 @@ enum vect_reduction_type {
   TREE_CODE_REDUCTION,
   COND_REDUCTION,
   INTEGER_INDUC_COND_REDUCTION,
-  CONST_COND_REDUCTION
+  CONST_COND_REDUCTION,
+  COND_REDUCTION_CLASTB
 };
+
+/* Any type of condition reduction.  */
+#define REDUCTION_IS_COND_REDUCTION_P(R) (R != TREE_CODE_REDUCTION)
+
+/* Any standard condition reduction.  */
+#define REDUCTION_IS_FULL_COND_REDUCTION_P(R) (R == COND_REDUCTION	      \
+					       || R == COND_REDUCTION_CLASTB)
 
 #define VECTORIZABLE_CYCLE_DEF(D) (((D) == vect_reduction_def)           \
                                    || ((D) == vect_double_reduction_def) \

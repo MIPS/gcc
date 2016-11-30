@@ -9,7 +9,7 @@ extern void abort (void) __attribute__ ((noreturn));
 /* Condition reduction with maximum possible loop size.  Will fail to
    vectorize because the vectorisation requires a slot for default values.  */
 
-char
+char __attribute__((noinline))
 condition_reduction (char *a, char min_v)
 {
   char last = -72;
@@ -42,5 +42,8 @@ main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-not "LOOP VECTORIZED" "vect" } } */
-/* { dg-final { scan-tree-dump "loop size is greater than data size" "vect" { xfail { ! vect_max_reduc } } } } */
+/* { dg-final { scan-tree-dump-not "LOOP VECTORIZED" "vect" { target { ! vect_last_reduc } } } } */
+/* { dg-final { scan-tree-dump-times "LOOP VECTORIZED" "vect" 1 { target vect_last_reduc } } } */
+/* { dg-final { scan-tree-dump "loop size is greater than data size" "vect" { xfail { { ! vect_max_reduc } || vect_last_reduc } } } } */
+/* { dg-final { scan-tree-dump-times "Optimizing condition reduction with CLASTB" 2 "vect" { target vect_last_reduc } } } */
+/* { dg-final { scan-tree-dump-not "Optimizing condition reduction" "vect" { target { ! vect_last_reduc } } } } */

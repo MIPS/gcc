@@ -83,6 +83,7 @@ init_internal_fns ()
 #define binary_direct { 0, 0, true }
 #define cond_binary_direct { 1, 1, true }
 #define while_direct { 0, 2, false }
+#define clastb_direct { 2, 2, false }
 
 const direct_internal_fn_info direct_internal_fn_array[IFN_LAST + 1] = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) not_direct,
@@ -2368,6 +2369,9 @@ expand_while_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
 #define expand_cond_binary_optab_fn(FN, STMT, OPTAB) \
   expand_direct_optab_fn (FN, STMT, OPTAB, 3)
 
+#define expand_clastb_optab_fn(FN, STMT, OPTAB) \
+  expand_direct_optab_fn (FN, STMT, OPTAB, 3)
+
 /* RETURN_TYPE and ARGS are a return type and argument list that are
    in principle compatible with FN (which satisfies direct_internal_fn_p).
    Return the types that should be used to determine whether the
@@ -2449,6 +2453,7 @@ multi_vector_optab_supported_p (convert_optab optab, tree_pair types,
 #define direct_store_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_store_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_while_optab_supported_p convert_optab_supported_p
+#define direct_clastb_optab_supported_p direct_optab_supported_p
 
 /* Return true if FN is supported for the types in TYPES when the
    optimization type is OPT_TYPE.  The types are those associated with

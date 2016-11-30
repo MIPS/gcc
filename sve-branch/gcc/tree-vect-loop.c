@@ -3942,8 +3942,10 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 					      vect_epilogue);
 	    }
 	}
-      else
+      else if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
+	       != COND_REDUCTION_CLASTB)
 	{
+	  /* Enforced by vectorizable_reduction.  */
 	  int vec_size_in_bits = tree_to_uhwi (TYPE_SIZE (vectype));
 	  tree bitsize =
 	    TYPE_SIZE (TREE_TYPE (gimple_assign_lhs (orig_stmt)));
@@ -4565,7 +4567,8 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
 	if (adjustment_def)
           {
 	    *adjustment_def = NULL_TREE;
-	    if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_vinfo) != COND_REDUCTION)
+	    if (! REDUCTION_IS_FULL_COND_REDUCTION_P
+			(STMT_VINFO_VEC_REDUCTION_TYPE (stmt_vinfo)))
 	      {
 		init_def = vect_get_vec_def_for_operand (init_val, stmt);
 		break;
@@ -4653,7 +4656,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 				  int ncopies, enum tree_code reduc_code,
 				  vec<gimple *> reduction_phis,
                                   int reduc_index, bool double_reduc, 
-				  slp_tree slp_node, tree induction_index,
+				  slp_tree slp_node, tree cond_reduc_res,
 				  tree scalar_identity)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -4992,14 +4995,14 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
     {
       /* For condition reductions, we have a vector (NEW_PHI_RESULT) containing
 	 various data values where the condition matched and another vector
-	 (INDUCTION_INDEX) containing all the indexes of those matches.  We
+	 (COND_REDUC_RES) containing all the indexes of those matches.  We
 	 need to extract the last matching index (which will be the index with
 	 highest value) and use this to index into the data vector.
 	 For the case where there were no matches, the data vector will contain
 	 all default values and the index vector will be all zeros.  */
 
       /* Get various versions of the type of the vector of indexes.  */
-      tree index_vec_type = TREE_TYPE (induction_index);
+      tree index_vec_type = TREE_TYPE (cond_reduc_res);
       gcc_checking_assert (TYPE_UNSIGNED (index_vec_type));
       tree index_scalar_type = TREE_TYPE (index_vec_type);
       tree index_vec_cmp_type = build_same_sized_truth_vector_type
@@ -5027,7 +5030,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       /* Find maximum value from the vector of found indexes.  */
       tree max_index = make_ssa_name (index_scalar_type);
       gimple *max_index_stmt = gimple_build_assign (max_index, REDUC_MAX_EXPR,
-						    induction_index);
+						    cond_reduc_res);
       gsi_insert_before (&exit_gsi, max_index_stmt, GSI_SAME_STMT);
 
       /* Vector of {max_index, max_index, max_index,...}.  */
@@ -5039,7 +5042,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       gsi_insert_before (&exit_gsi, max_index_vec_stmt, GSI_SAME_STMT);
 
       /* Next we compare the new vector (MAX_INDEX_VEC) full of max indexes
-	 with the vector (INDUCTION_INDEX) of found indexes, choosing values
+	 with the vector (COND_REDUC_RES) of found indexes, choosing values
 	 from the data vector (NEW_PHI_RESULT) for matches, 0 (ZERO_VEC)
 	 otherwise.  Only one value should match, resulting in a vector
 	 (VEC_COND) with one data value and the rest zeros.
@@ -5051,7 +5054,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 	 the position of the max value.  */
       tree vec_compare = make_ssa_name (index_vec_cmp_type);
       gimple *vec_compare_stmt = gimple_build_assign (vec_compare, EQ_EXPR,
-						      induction_index,
+						      cond_reduc_res,
 						      max_index_vec);
       gsi_insert_before (&exit_gsi, vec_compare_stmt, GSI_SAME_STMT);
 
@@ -5095,13 +5098,19 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 	 result.  */
       tree data_reduc_cast = build1 (VIEW_CONVERT_EXPR, scalar_type,
 				     data_reduc);
-      epilog_stmt = gimple_build_assign (new_scalar_dest, data_reduc_cast);
+
+      cond_reduc_res = data_reduc_cast;
+    }
+
+  if (REDUCTION_IS_FULL_COND_REDUCTION_P
+	(STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)))
+    {
+      epilog_stmt = gimple_build_assign (new_scalar_dest, cond_reduc_res);
       new_temp = make_ssa_name (new_scalar_dest, epilog_stmt);
       gimple_assign_set_lhs (epilog_stmt, new_temp);
       gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
       scalar_results.safe_push (new_temp);
     }
-
   /* 2.3 Create the reduction code, using one of the three schemes described
          above. In SLP we simply need to extract all the elements from the 
          vector (without reducing them), so we use scalar shifts.  */
@@ -6020,16 +6029,6 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   /* If we have a condition reduction, see if we can simplify it further.  */
   if (v_reduc_type == COND_REDUCTION)
     {
-      if (cond_reduc_dt == vect_induction_def)
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, vect_location,
-			     "condition expression based on "
-			     "integer induction.\n");
-	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
-	    = INTEGER_INDUC_COND_REDUCTION;
-	}
-
       /* Loop peeling modifies initial value of reduction PHI, which
 	 makes the reduction stmt to be transformed different to the
 	 original stmt analyzed.  We need to record reduction code for
@@ -6041,6 +6040,23 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	  /* Also set the reduction type to CONST_COND_REDUCTION.  */
 	  gcc_assert (cond_reduc_dt == vect_constant_def);
 	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = CONST_COND_REDUCTION;
+	}
+      else if (direct_internal_fn_supported_p (IFN_CLASTB, vectype_in,
+					       OPTIMIZE_FOR_SPEED))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Optimizing condition reduction with CLASTB.\n");
+	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) = COND_REDUCTION_CLASTB;
+	}
+      else if (cond_reduc_dt == vect_induction_def)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, vect_location,
+			     "Optimizing condition reduction based on "
+			     "integer induction.\n");
+	  STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
+	    = INTEGER_INDUC_COND_REDUCTION;
 	}
       else if (cond_reduc_dt == vect_constant_def)
 	{
@@ -6195,12 +6211,11 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
           (and also the same tree-code) when generating the epilog code and
           when generating the code inside the loop.  */
 
-  if (orig_stmt)
+  if (orig_stmt
+      && STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == TREE_CODE_REDUCTION)
     {
       /* This is a reduction pattern: get the vectype from the type of the
          reduction variable, and get the tree-code from orig_stmt.  */
-      gcc_assert (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
-		  == TREE_CODE_REDUCTION);
       orig_code = gimple_assign_rhs_code (orig_stmt);
       gcc_assert (vectype_out);
       vec_mode = TYPE_MODE (vectype_out);
@@ -6245,7 +6260,9 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
   epilog_reduc_code = ERROR_MARK;
 
-  if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) != COND_REDUCTION)
+  if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == TREE_CODE_REDUCTION
+      || STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
+		== INTEGER_INDUC_COND_REDUCTION)
     {
       if (reduction_code_for_scalar_code (orig_code, &epilog_reduc_code))
 	{
@@ -6305,7 +6322,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	  return false;
 	}
     }
-  else
+  else if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
     {
       int scalar_precision
 	= GET_MODE_PRECISION (SCALAR_TYPE_MODE (scalar_type));
@@ -6713,81 +6730,132 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       new_temp = gimple_get_lhs (*vec_stmt);
       vect_defs[0] = new_temp;
 
-      /* For cond reductions we want to create a new vector (INDEX_COND_EXPR)
-	 which is updated with the current index of the loop for every match of
-	 the original loop's cond_expr (VEC_STMT).  This results in a vector
-	 containing the last time the condition passed for that vector lane.
-	 The first match will be a 1 to allow 0 to be used for non-matching
-	 indexes.  If there are no matches at all then the vector will be all
-	 zeroes.  */
-      if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
+      if (REDUCTION_IS_FULL_COND_REDUCTION_P
+		(STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)))
 	{
 	  poly_uint64 nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
 
 	  gcc_assert (gimple_assign_rhs_code (*vec_stmt) == VEC_COND_EXPR);
 
-	  /* First we create a simple vector induction variable which starts
-	     with the values {1,2,3,...} (SERIES_VECT) and increments by the
-	     vector size (STEP).  */
-
-	  /* Create a {1,2,3,...} vector.  */
-	  tree series_vect = build_index_vector (cr_index_vector_type, 1, 1);
-
-	  /* Create a vector of the step value.  */
-	  tree step = build_int_cst (cr_index_scalar_type, nunits_out);
-	  tree vec_step = build_vector_from_val (cr_index_vector_type, step);
-
-	  /* Create an induction variable.  */
-	  gimple_stmt_iterator incr_gsi;
-	  bool insert_after;
-	  standard_iv_increment_position (loop, &incr_gsi, &insert_after);
-	  create_iv (series_vect, vec_step, NULL_TREE, loop, &incr_gsi,
-		     insert_after, &indx_before_incr, &indx_after_incr);
-
-	  /* Next create a new phi node vector (NEW_PHI_TREE) which starts
-	     filled with zeros (VEC_ZERO).  */
-
-	  /* Create a vector of 0s.  */
-	  tree zero = build_zero_cst (cr_index_scalar_type);
-	  tree vec_zero = build_vector_from_val (cr_index_vector_type, zero);
-
-	  /* Create a vector phi node.  */
-	  tree new_phi_tree = make_ssa_name (cr_index_vector_type);
-	  new_phi = create_phi_node (new_phi_tree, loop->header);
-	  set_vinfo_for_stmt (new_phi,
-			      new_stmt_vec_info (new_phi, loop_vinfo));
-	  add_phi_arg (new_phi, vec_zero, loop_preheader_edge (loop),
-		       UNKNOWN_LOCATION);
-
-	  /* Now take the condition from the loops original cond_expr
-	     (VEC_STMT) and produce a new cond_expr (INDEX_COND_EXPR) which for
-	     every match uses values from the induction variable
-	     (INDEX_BEFORE_INCR) otherwise uses values from the phi node
-	     (NEW_PHI_TREE).
-	     Finally, we update the phi (NEW_PHI_TREE) to take the value of
-	     the new cond_expr (INDEX_COND_EXPR).  */
-
 	  /* Duplicate the condition from vec_stmt.  */
 	  tree ccompare = unshare_expr (gimple_assign_rhs1 (*vec_stmt));
 
-	  /* Create a conditional, where the condition is taken from vec_stmt
-	     (CCOMPARE), then is the induction index (INDEX_BEFORE_INCR) and
-	     else is the phi (NEW_PHI_TREE).  */
-	  tree index_cond_expr = build3 (VEC_COND_EXPR, cr_index_vector_type,
-					 ccompare, indx_before_incr,
-					 new_phi_tree);
-	  cond_name = make_ssa_name (cr_index_vector_type);
-	  gimple *index_condition = gimple_build_assign (cond_name,
-							 index_cond_expr);
-	  gsi_insert_before (&incr_gsi, index_condition, GSI_SAME_STMT);
-	  stmt_vec_info index_vec_info = new_stmt_vec_info (index_condition,
-							    loop_vinfo);
-	  STMT_VINFO_VECTYPE (index_vec_info) = cr_index_vector_type;
-	  set_vinfo_for_stmt (index_condition, index_vec_info);
+	  /* For cond reductions where clastb is supported, the clastb will
+	     take care of keeping track of the final scalar result.  */
+	  if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
+	      == COND_REDUCTION_CLASTB)
+	    {
+	      /* Turn the condition from vec_stmt into an ssa name.  */
+	      gimple_stmt_iterator vec_stmt_gsi = gsi_for_stmt (*vec_stmt);
+	      tree ccompare_name = make_ssa_name (TREE_TYPE (ccompare));
+	      gimple *ccompare_stmt = gimple_build_assign (ccompare_name,
+							   ccompare);
+	      gsi_insert_before (&vec_stmt_gsi, ccompare_stmt, GSI_SAME_STMT);
 
-	  /* Update the phi with the vec cond.  */
-	  add_phi_arg (new_phi, cond_name, loop_latch_edge (loop),
-		       UNKNOWN_LOCATION);
+	      /* Get the vectorized candidate values from vec_stmt.  */
+	      tree result_vect = gimple_assign_rhs2 (*vec_stmt);
+
+	      /* Create a new phi node (CLASTB_PHI_TREE) which starts
+		 as the original value (INITIAL_DEF).  */
+
+	      tree initial_def = PHI_ARG_DEF_FROM_EDGE
+		(def_stmt, loop_preheader_edge (loop));
+
+	      tree clastb_phi_tree = make_ssa_name (scalar_type);
+	      gphi *clastb_phi = create_phi_node (clastb_phi_tree,
+						  loop->header);
+	      set_vinfo_for_stmt (clastb_phi,
+				  new_stmt_vec_info (clastb_phi, loop_vinfo));
+	      add_phi_arg (clastb_phi, initial_def, loop_preheader_edge (loop),
+			   UNKNOWN_LOCATION);
+
+	      /* Use CLASTB to select the last matching result from
+		 RESULT_VECT, using COMPARE_NAME (the result of the compare
+		 from VEC_STMT) as the mask.  */
+	      cond_name = make_ssa_name (scalar_type);
+	      gimple *clastb_stmt = gimple_build_call_internal
+		(IFN_CLASTB, 3, ccompare_name, clastb_phi_tree, result_vect);
+	      gimple_call_set_lhs (clastb_stmt, cond_name);
+	      gsi_insert_before (&vec_stmt_gsi, clastb_stmt, GSI_SAME_STMT);
+
+	      /* Update the phi with the result of the clastb.  */
+	      add_phi_arg (clastb_phi, cond_name, loop_latch_edge (loop),
+			   UNKNOWN_LOCATION);
+	    }
+
+	  /* For cond reductions we want to create a new vector
+	     (INDEX_COND_EXPR) which is updated with the current index of the
+	     loop for every match of the original loop's cond_expr (VEC_STMT).
+	     This results in a vector containing the last time the condition
+	     passed for that vector lane.  The first match will be a 1 to allow
+	     0 to be used for non-matching indexes.  If there are no matches at
+	     all then the vector will be all zeroes.  */
+	  else
+	    {
+	      /* First we create a simple vector induction variable which
+		 starts with the values {1,2,3,...} (SERIES_VECT) and
+		 increments by the vector size (STEP).  */
+
+	      /* Create a {1,2,3,...} vector.  */
+	      tree series_vect = build_index_vector (cr_index_vector_type,
+						     1, 1);
+
+	      /* Create a vector of the step value.  */
+	      tree step = build_int_cst (cr_index_scalar_type, nunits_out);
+	      tree vec_step = build_vector_from_val (cr_index_vector_type,
+						     step);
+
+	      /* Create an induction variable.  */
+	      gimple_stmt_iterator incr_gsi;
+	      bool insert_after;
+	      standard_iv_increment_position (loop, &incr_gsi, &insert_after);
+	      create_iv (series_vect, vec_step, NULL_TREE, loop, &incr_gsi,
+			 insert_after, &indx_before_incr, &indx_after_incr);
+
+	      /* Next create a new phi node vector (NEW_PHI_TREE) which starts
+		 filled with zeros (VEC_ZERO).  */
+
+	      /* Create a vector of 0s.  */
+	      tree zero = build_zero_cst (cr_index_scalar_type);
+	      tree vec_zero = build_vector_from_val (cr_index_vector_type,
+						     zero);
+
+	      /* Create a vector phi node.  */
+	      tree new_phi_tree = make_ssa_name (cr_index_vector_type);
+	      new_phi = create_phi_node (new_phi_tree, loop->header);
+	      set_vinfo_for_stmt (new_phi,
+				  new_stmt_vec_info (new_phi, loop_vinfo));
+	      add_phi_arg (new_phi, vec_zero, loop_preheader_edge (loop),
+			   UNKNOWN_LOCATION);
+
+	      /* Now take the condition from the loops original cond_expr
+		 (VEC_STMT) and produce a new cond_expr (INDEX_COND_EXPR)
+		 which for every match uses values from the induction variable
+		 (INDEX_BEFORE_INCR) otherwise uses values from the phi node
+		 (NEW_PHI_TREE).
+		 Finally, we update the phi (NEW_PHI_TREE) to take the value of
+		 the new cond_expr (INDEX_COND_EXPR).  */
+
+	      /* Create a conditional, where the condition is taken from
+		 vec_stmt (CCOMPARE), then is the induction index
+		 (INDEX_BEFORE_INCR) and else is the phi (NEW_PHI_TREE).  */
+	      tree index_cond_expr = build3 (VEC_COND_EXPR,
+					     cr_index_vector_type,
+					     ccompare, indx_before_incr,
+					     new_phi_tree);
+	      cond_name = make_ssa_name (cr_index_vector_type);
+	      gimple *index_condition = gimple_build_assign (cond_name,
+							     index_cond_expr);
+	      gsi_insert_before (&incr_gsi, index_condition, GSI_SAME_STMT);
+	      stmt_vec_info index_vec_info = new_stmt_vec_info
+		(index_condition, loop_vinfo);
+	      STMT_VINFO_VECTYPE (index_vec_info) = cr_index_vector_type;
+	      set_vinfo_for_stmt (index_condition, index_vec_info);
+
+	      /* Update the phi with the vec cond.  */
+	      add_phi_arg (new_phi, cond_name, loop_latch_edge (loop),
+			   UNKNOWN_LOCATION);
+	    }
 	}
     }
 

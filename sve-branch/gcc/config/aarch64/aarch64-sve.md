@@ -1320,6 +1320,19 @@
   "<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>"
 )
 
+(define_insn "clastb<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand" "=r, w")
+	(unspec:<VEL>
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl, Upl")
+	   (match_operand:<VEL> 2 "register_operand" "0, 0")
+	   (match_operand:SVE_ALL 3 "register_operand" "w, w")]
+	  UNSPEC_CLASTB))]
+  "TARGET_SVE"
+  "@
+   clastb\t%<vwcore>0, %1, %<vwcore>0, %3.<Vetype>
+   clastb\t%<vw>0, %1, %<vw>0, %3.<Vetype>"
+)
+
 (define_expand "reduc_plus_scal_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand")
 	(unspec:<VEL> [(match_dup 2)
