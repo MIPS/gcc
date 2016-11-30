@@ -2258,6 +2258,20 @@ vect_create_cond_for_niters_checks (loop_vec_info loop_vinfo, tree *cond_expr)
     *cond_expr = part_cond_expr;
 }
 
+/* Set *COND_EXPR to a tree that is true when both the original *COND_EXPR
+   and PART_COND_EXPR are true.  Treat a null *COND_EXPR as "true".  */
+
+static void
+chain_cond_expr (tree *cond_expr, tree part_cond_expr)
+{
+  if (*cond_expr)
+    *cond_expr = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+			      *cond_expr, part_cond_expr);
+  else
+    *cond_expr = part_cond_expr;
+}
+
+
 /* Function vect_create_cond_for_align_checks.
 
    Create a conditional expression that represents the alignment checks for
@@ -2369,12 +2383,110 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   ptrsize_zero = build_int_cst (int_ptrsize_type, 0);
   part_cond_expr = fold_build2 (EQ_EXPR, boolean_type_node,
 				and_tmp_name, ptrsize_zero);
-  if (*cond_expr)
-    *cond_expr = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
-			      *cond_expr, part_cond_expr);
-  else
-    *cond_expr = part_cond_expr;
+  chain_cond_expr (cond_expr, part_cond_expr);
 }
+
+/* Set up *SEQ_MIN_OUT and *SEQ_MAX_OUT so that for every address A
+   accessed by D, *SEQ_MIN_OUT <= A < *SEQ_MAX_OUT.  */
+
+static void
+get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
+		     tree *seg_max_out)
+{
+  /* Each access has the following pattern:
+
+	  <- |seg_len| ->
+	  <--- A: -ve step --->
+	  +-----+-------+-----+-------+-----+
+	  | n-1 | ,.... |  0  | ..... | n-1 |
+	  +-----+-------+-----+-------+-----+
+			<--- B: +ve step --->
+			<- |seg_len| ->
+			|
+		   base address
+
+     where "n" is the number of scalar iterations covered by the segment.
+     (This should be VF for a particular pair if we know that both steps
+     are the same, otherwise it will be the full number of scalar loop
+     iterations.)
+
+     A is the range of bytes accessed when the step is negative,
+     B is the range when the step is positive.
+
+     If the access size is "final_size" bytes, the lowest addressed byte is:
+
+         base + (step < 0 ? seg_len : 0)
+
+     and the highest addressed byte is always below:
+
+         base + (step < 0 ? 0 : seg_len) + final_size
+
+     We don't try to simplify beyond this (e.g. by using MIN and MAX
+     based on whether seg_len rather than the stride is negative)
+     because it is possible for the absolute size of the segment
+     to overflow the range of a ssize_t.
+
+     Keeping the pointer_plus outside of the cond_expr should allow
+     the cond_exprs to be shared with other alias checks.  */
+  tree indicator = dr_direction_indicator (d.dr);
+  tree neg_step = fold_build2 (LT_EXPR, boolean_type_node,
+			       fold_convert (ssizetype, indicator),
+			       ssize_int (0));
+  tree addr_base = fold_build_pointer_plus (DR_BASE_ADDRESS (d.dr),
+					    DR_OFFSET (d.dr));
+  tree seg_len = fold_convert (sizetype, d.seg_len);
+
+  tree min_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
+				seg_len, size_zero_node);
+  tree max_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
+				size_zero_node, seg_len);
+
+  tree final_type;
+  if (STMT_VINFO_VEC_STMT (vinfo_for_stmt (DR_STMT (d.dr)))
+      && vect_supportable_dr_alignment (d.dr, false)
+	 == dr_explicit_realign_optimized)
+    /* We might access a full vector's worth.  */
+    final_type = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (d.dr)));
+  else
+    final_type = TREE_TYPE (DR_REF (d.dr));
+  max_reach = fold_build2 (PLUS_EXPR, sizetype, max_reach,
+			   TYPE_SIZE_UNIT (final_type));
+
+  *seg_min_out = fold_build_pointer_plus (addr_base, min_reach);
+  *seg_max_out = fold_build_pointer_plus (addr_base, max_reach);
+}
+
+
+/* Function vect_create_cond_for_alias_checks.
+
+   Create a conditional expression that represents the run-time checks for
+   values (steps) that need to be nonzero.
+
+   Input:
+   COND_EXPR  - input conditional expression.  New conditions will be chained
+		with logical AND operation.
+   LOOP_VINFO - field LOOP_VINFO_CHECK_NONZERO contains the list of values
+		to be checked.
+
+   Output:
+   COND_EXPR - conditional expression.
+
+   The returned COND_EXPR is the conditional expression to be used in the if
+   statement that controls which version of the loop gets executed at runtime.
+*/
+
+static void
+vect_create_cond_for_zero_checks (loop_vec_info loop_vinfo, tree *cond_expr)
+{
+  vec<tree> check_nonzero = LOOP_VINFO_CHECK_NONZERO (loop_vinfo);
+  for (unsigned int i = 0; i < check_nonzero.length (); ++i)
+    {
+      tree part_cond_expr = fold_build2 (NE_EXPR, boolean_type_node,
+					 check_nonzero[i], ssize_int (0));
+      chain_cond_expr (cond_expr, part_cond_expr);
+    }
+}
+
 
 /* Given two data references and segment lengths described by DR_A and DR_B,
    create expression checking if the two addresses ranges intersect with
@@ -2527,8 +2639,6 @@ create_intersect_range_checks (loop_vec_info loop_vinfo, tree *cond_expr,
   if (create_intersect_range_checks_index (loop_vinfo, cond_expr, dr_a, dr_b))
     return;
 
-  tree segment_length_a = dr_a.seg_len;
-  tree segment_length_b = dr_b.seg_len;
   tree addr_base_a = DR_BASE_ADDRESS (dr_a.dr);
   tree addr_base_b = DR_BASE_ADDRESS (dr_b.dr);
   tree offset_a = DR_OFFSET (dr_a.dr), offset_b = DR_OFFSET (dr_b.dr);
@@ -2540,30 +2650,27 @@ create_intersect_range_checks (loop_vec_info loop_vinfo, tree *cond_expr,
   addr_base_a = fold_build_pointer_plus (addr_base_a, offset_a);
   addr_base_b = fold_build_pointer_plus (addr_base_b, offset_b);
 
-  tree seg_a_min = addr_base_a;
-  tree seg_a_max = fold_build_pointer_plus (addr_base_a, segment_length_a);
-  /* For negative step, we need to adjust address range by TYPE_SIZE_UNIT
-     bytes, e.g., int a[3] -> a[1] range is [a+4, a+16) instead of
-     [a, a+12) */
-  if (tree_int_cst_compare (DR_STEP (dr_a.dr), size_zero_node) < 0)
-    {
-      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr_a.dr)));
-      seg_a_min = fold_build_pointer_plus (seg_a_max, unit_size);
-      seg_a_max = fold_build_pointer_plus (addr_base_a, unit_size);
-    }
+  tree seg_a_min, seg_a_max, seg_b_min, seg_b_max;
+  get_segment_min_max (dr_a, &seg_a_min, &seg_a_max);
+  get_segment_min_max (dr_b, &seg_b_min, &seg_b_max);
 
-  tree seg_b_min = addr_base_b;
-  tree seg_b_max = fold_build_pointer_plus (addr_base_b, segment_length_b);
-  if (tree_int_cst_compare (DR_STEP (dr_b.dr), size_zero_node) < 0)
-    {
-      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr_b.dr)));
-      seg_b_min = fold_build_pointer_plus (seg_b_max, unit_size);
-      seg_b_max = fold_build_pointer_plus (addr_base_b, unit_size);
-    }
+  /* Calculate the minimum alignment shared by all four pointers.  */
+  tree type_a = TREE_TYPE (DR_REF (dr_a.dr));
+  tree type_b = TREE_TYPE (DR_REF (dr_b.dr));
+  unsigned HOST_WIDE_INT min_align = MIN (TYPE_ALIGN_UNIT (type_a),
+					  TYPE_ALIGN_UNIT (type_b));
+
+  /* We can convert "max <= min" tests into "max - min_align < min"
+     tests.  This is cumulative with the "+ final_size" addition
+     applied to the max value.  In the best (and common) case,
+     the two cancel each other out.  In the worst case we're
+     simply adding a smaller number than before.  */
+  seg_a_max = fold_build_pointer_plus_hwi (seg_a_max, -min_align);
+  seg_b_max = fold_build_pointer_plus_hwi (seg_b_max, -min_align);
   *cond_expr
     = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
-	fold_build2 (LE_EXPR, boolean_type_node, seg_a_max, seg_b_min),
-	fold_build2 (LE_EXPR, boolean_type_node, seg_b_max, seg_a_min));
+	fold_build2 (LT_EXPR, boolean_type_node, seg_a_max, seg_b_min),
+	fold_build2 (LT_EXPR, boolean_type_node, seg_b_max, seg_a_min));
 }
 
 /* Function vect_create_cond_for_alias_checks.
@@ -2613,11 +2720,7 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
 
       /* Create condition expression for each pair data references.  */
       create_intersect_range_checks (loop_vinfo, &part_cond_expr, dr_a, dr_b);
-      if (*cond_expr)
-	*cond_expr = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
-				  *cond_expr, part_cond_expr);
-      else
-	*cond_expr = part_cond_expr;
+      chain_cond_expr (cond_expr, part_cond_expr);
     }
 
   if (dump_enabled_p ())
@@ -2686,7 +2789,10 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
 				       &cond_expr_stmt_list);
 
   if (version_alias)
-    vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr);
+    {
+      vect_create_cond_for_zero_checks (loop_vinfo, &cond_expr);
+      vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr);
+    }
 
   cond_expr = force_gimple_operand_1 (cond_expr, &gimplify_stmt_list,
 				      is_gimple_condexpr, NULL_TREE);

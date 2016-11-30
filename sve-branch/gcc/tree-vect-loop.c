@@ -1460,6 +1460,8 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   LOOP_VINFO_MASK_ARRAY (loop_vinfo).release ();
   LOOP_VINFO_SUNK_DATAREFS (loop_vinfo).release ();
 
+  LOOP_VINFO_CHECK_NONZERO (loop_vinfo).release ();
+
   free (loop_vinfo);
   loop->aux = NULL;
 }

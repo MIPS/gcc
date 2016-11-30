@@ -189,20 +189,28 @@ vect_mark_for_runtime_alias_test (ddr_p ddr, loop_vec_info loop_vinfo)
       return false;
     }
 
-  /* FORNOW: We don't support creating runtime alias tests for non-constant
-     step.  */
-  if (TREE_CODE (DR_STEP (DDR_A (ddr))) != INTEGER_CST
-      || TREE_CODE (DR_STEP (DDR_B (ddr))) != INTEGER_CST)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                         "versioning not yet supported for non-constant "
-                         "step\n");
-      return false;
-    }
-
   LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo).safe_push (ddr);
   return true;
+}
+
+/* If VALUE is not an integer, record that loop LOOP_VINFO needs to
+   check that VALUE is nonzero.  */
+
+static void
+check_nonzero_value (loop_vec_info loop_vinfo, tree value)
+{
+  vec<tree> checks = LOOP_VINFO_CHECK_NONZERO (loop_vinfo);
+  for (unsigned int i = 0; i < checks.length(); ++i)
+    if (checks[i] == value)
+      return;
+
+  if (dump_enabled_p ())
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "need run-time check that ");
+      dump_generic_expr (MSG_NOTE, TDF_SLIM, value);
+      dump_printf (MSG_NOTE, " is nonzero\n");
+    }
+  LOOP_VINFO_CHECK_NONZERO (loop_vinfo).safe_push (value);
 }
 
 
@@ -406,6 +414,19 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 		}
 	    }
 
+	  if (!loop->force_vectorize)
+	    {
+	      tree indicator = dr_zero_step_indicator (dra);
+	      if (TREE_CODE (indicator) != INTEGER_CST)
+		check_nonzero_value (loop_vinfo, indicator);
+	      else if (integer_zerop (indicator))
+		{
+		  if (dump_enabled_p ())
+		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "access also has a zero step\n");
+		  return true;
+		}
+	    }
 	  continue;
 	}
 
@@ -3038,38 +3059,56 @@ comp_dr_with_seg_len_pair (const void *pa_, const void *pb_)
 
 /* Function vect_vfa_segment_size.
 
-   Create an expression that computes the size of segment
-   that will be accessed for a data reference.  The functions takes into
-   account that realignment loads may access one more vector.
-
    Input:
      DR: The data reference.
      LENGTH_FACTOR: segment length to consider.
 
-   Return an expression whose value is the size of segment which will be
-   accessed by DR.  */
+   Return a value suitable for the dr_with_seg_len::seg_len field.
+   This is the "distance travelled" by the pointer from the first
+   iteration in the segment to the last.  Note that it does not include
+   the size of the access; in effect it only describes the first byte.  */
 
 static tree
 vect_vfa_segment_size (struct data_reference *dr, tree length_factor)
 {
-  tree segment_length;
+  length_factor = size_binop (MINUS_EXPR,
+			      fold_convert (sizetype, length_factor),
+			      size_one_node);
+  return size_binop (MULT_EXPR, fold_convert (sizetype, DR_STEP (dr)),
+		     length_factor);
+}
 
-  if (integer_zerop (DR_STEP (dr)))
-    segment_length = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
-  else
-    segment_length = size_binop (MULT_EXPR,
-				 fold_convert (sizetype, DR_STEP (dr)),
-				 fold_convert (sizetype, length_factor));
+/* Return the minimum absolute length of D's segment, given that the
+   minimum length factor (as passed to vect_vfa_segment_size) is
+   LENGTH_FACTOR.  This includes all bytes in the reference,
+   unlike dr_with_seg_len::seg_len.  */
 
-  if (vect_supportable_dr_alignment (dr, false)
-	== dr_explicit_realign_optimized)
+static poly_uint64
+get_min_abs_segment_length (dr_with_seg_len *d,
+			    poly_uint64 length_factor)
+{
+  HOST_WIDE_INT size = int_size_in_bytes_hwi (TREE_TYPE (DR_REF (d->dr)));
+  if (size < 0)
+    size = 1;
+  if (tree_fits_shwi_p (DR_STEP (d->dr)))
     {
-      tree vector_size = TYPE_SIZE_UNIT
-			  (STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr))));
-
-      segment_length = size_binop (PLUS_EXPR, segment_length, vector_size);
+      HOST_WIDE_INT step = tree_to_shwi (DR_STEP (d->dr));
+      if (tree_fits_shwi_p (d->seg_len))
+	{
+	  /* seg_len is the gap between the final iteration and the first.
+	     Get its absolute value and add the number of bytes accessed
+	     by the highest pointer in the segment.  */
+	  unsigned HOST_WIDE_INT len = tree_to_shwi (d->seg_len);
+	  return (step < 0 ? -len : len) + size;
+	}
+      /* length_factor is the minimum number of iterations that we're
+	 testing.  Convert it into a segment length and use the same
+	 calculation as above.  */
+      return (length_factor - 1) * (step < 0 ? -step : step) + size;
     }
-  return segment_length;
+  /* If the step is unknown, it could be zero, in which case the access
+     size is the best estimate we have.  */
+  return size;
 }
 
 /* Function vect_no_alias_p.
@@ -3137,7 +3176,6 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
   vec<dr_with_seg_len_pair_t>& comp_alias_ddrs =
     LOOP_VINFO_COMP_ALIAS_DDRS (loop_vinfo);
   poly_uint64 vect_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  unsigned int assumed_vf = vect_vf_for_cost (loop_vinfo);
   tree scalar_loop_iters = LOOP_VINFO_NITERS (loop_vinfo);
 
   ddr_p ddr;
@@ -3296,12 +3334,30 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	      std::swap (dr_a2, dr_b2);
 	    }
 
+	  /* For simplicity, only consider cases where both steps are
+	     known to be nonnegative.
+
+	     ??? There are three other combinations we could handle
+	     in principle:
+
+	     - (-ve A1, +ve A2): moving in opposte directions, no overlap
+	     - (+ve A1, -ve A2): moving towards each other, possible overlap
+	     - (-ve A1, -ve A2): moving in the same direction, possible overlap
+	         (in this case the new reference should be based on
+		  A2 rather than A1)
+
+	     but this would significantly complicate the logic.
+
+	     We can't do anything if either polarity is unknown, since
+	     we would need to swich between the four cases at runtime.  */
 	  if (!operand_equal_p (DR_BASE_ADDRESS (dr_a1->dr),
 				DR_BASE_ADDRESS (dr_a2->dr), 0)
 	      || !operand_equal_p (DR_OFFSET (dr_a1->dr),
 				   DR_OFFSET (dr_a2->dr), 0)
 	      || !tree_fits_shwi_p (DR_INIT (dr_a1->dr))
-	      || !tree_fits_shwi_p (DR_INIT (dr_a2->dr)))
+	      || !tree_fits_shwi_p (DR_INIT (dr_a2->dr))
+	      || !dr_known_forward_stride_p (dr_a1->dr)
+	      || !dr_known_forward_stride_p (dr_a2->dr))
 	    continue;
 
 	  /* Make sure dr_a1 starts left of dr_a2.  */
@@ -3309,6 +3365,7 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	    std::swap (*dr_a1, *dr_a2);
 
 	  bool do_remove = false;
+	  /* This is always positive due to the sort order.  */
 	  unsigned HOST_WIDE_INT diff
 	    = (tree_to_shwi (DR_INIT (dr_a2->dr))
                - tree_to_shwi (DR_INIT (dr_a1->dr)));
@@ -3335,34 +3392,23 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	      dr_a1->seg_len = size_int (MAX (seg_len_a1, diff + seg_len_a2));
 	      do_remove = true;
 	    }
-	  /* Now we check if the following condition is satisfied:
+	  /* Now we check whether it is impossible for the whole of B
+	     to come between A1 and A2, using the condition:
 
-	     DIFF - SEGMENT_LENGTH_A < SEGMENT_LENGTH_B
+	     DIFF - abs(SEGMENT_LENGTH_A) < abs(SEGMENT_LENGTH_B)
 
-	     where DIFF = DR_A2_INIT - DR_A1_INIT.  However,
-	     SEGMENT_LENGTH_A or SEGMENT_LENGTH_B may not be constant so we
-	     have to make a best estimation.  We can get the minimum value
-	     of SEGMENT_LENGTH_B as a constant, represented by MIN_SEG_LEN_B,
-	     then either of the following two conditions can guarantee the
-	     one above:
-
-	     1: DIFF <= MIN_SEG_LEN_B
-	     2: DIFF - SEGMENT_LENGTH_A < MIN_SEG_LEN_B
-
-	     Merging is always safe, just potentially suboptimal, since
-	     it could lead to us assuming an alias where none actually
-	     exists.  Therefore, for variable vectorization factors,
-	     we decide based on the the most likely runtime value.  */
+	     where DIFF = DR_A2->OFFSET - DR_A1->OFFSET.  However,
+	     SEGMENT_LENGTH_A or SEGMENT_LENGTH_B may not be constant
+	     so we have to make a best estimation.  */
 	  else
 	    {
-	      unsigned HOST_WIDE_INT min_seg_len_b
-		= (tree_fits_uhwi_p (dr_b1->seg_len)
-		   ? tree_to_uhwi (dr_b1->seg_len)
-		   : assumed_vf);
+	      poly_uint64 min_seg_len_a
+		= get_min_abs_segment_length (dr_a1, vect_factor);
+	      poly_uint64 min_seg_len_b
+		= get_min_abs_segment_length (dr_b1, vect_factor);
 
-	      if (diff <= min_seg_len_b
-		  || (tree_fits_uhwi_p (dr_a1->seg_len)
-		      && diff - tree_to_uhwi (dr_a1->seg_len) < min_seg_len_b))
+	      if (may_le (diff, min_seg_len_a)
+		  || may_lt (diff - min_seg_len_a, min_seg_len_b))
 		{
 		  dr_a1->seg_len = size_binop (PLUS_EXPR,
 					       dr_a2->seg_len, size_int (diff));

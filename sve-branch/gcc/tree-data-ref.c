@@ -94,6 +94,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "tree-affine.h"
 #include "params.h"
+#include "stringpool.h"
+#include "tree-vrp.h"
+#include "tree-ssanames.h"
 
 static struct datadep_stats
 {
@@ -4258,4 +4261,91 @@ free_data_refs (vec<data_reference_p> datarefs)
   FOR_EACH_VEC_ELT (datarefs, i, dr)
     free_data_ref (dr);
   datarefs.release ();
+}
+
+/* Common routine implementing both dr_direction_indicator and
+   dr_zero_step_indicator.  Return USEFUL_MIN if the indicator
+   is known to be >= USEFUL_MIN and -1 if the indicator is
+   known to be negative.  */
+
+static tree
+dr_step_indicator (struct data_reference *dr, int useful_min)
+{
+  tree step = DR_STEP (dr);
+  STRIP_NOPS (step);
+  /* Look for cases where the step is scaled by a positive constant
+     integer, which will often be the access size.  If the multiplication
+     doesn't change the sign (due to overflow effects) then we can
+     test the unscaled value instead.  */
+  if (TREE_CODE (step) == MULT_EXPR
+      && TREE_CODE (TREE_OPERAND (step, 1)) == INTEGER_CST
+      && tree_int_cst_sgn (TREE_OPERAND (step, 1)) > 0)
+    {
+      tree factor = TREE_OPERAND (step, 1);
+      step = TREE_OPERAND (step, 0);
+
+      /* Strip widening and truncating conversions as well as nops.  */
+      if (CONVERT_EXPR_P (step)
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (step, 0))))
+	step = TREE_OPERAND (step, 0);
+      tree type = TREE_TYPE (step);
+
+      /* Get the range of step values that would not cause overflow.  */
+      widest_int minv = (wi::to_widest (TYPE_MIN_VALUE (ssizetype))
+			 / wi::to_widest (factor));
+      widest_int maxv = (wi::to_widest (TYPE_MAX_VALUE (ssizetype))
+			 / wi::to_widest (factor));
+
+      /* Get the range of values that the unconverted step actually has.  */
+      wide_int step_min, step_max;
+      if (TREE_CODE (step) != SSA_NAME
+	  || get_range_info (step, &step_min, &step_max) != VR_RANGE)
+	{
+	  step_min = TYPE_MIN_VALUE (type);
+	  step_max = TYPE_MAX_VALUE (type);
+	}
+
+      /* Check whether the unconverted step has an acceptable range.  */
+      signop sgn = TYPE_SIGN (type);
+      if (wi::les_p (minv, widest_int::from (step_min, sgn))
+	  && wi::ges_p (maxv, widest_int::from (step_max, sgn)))
+	{
+	  if (wi::ge_p (step_min, useful_min, sgn))
+	    return ssize_int (useful_min);
+	  else if (wi::lt_p (step_max, 0, sgn))
+	    return ssize_int (-1);
+	  else
+	    return fold_convert (ssizetype, step);
+	}
+    }
+  return DR_STEP (dr);
+}
+
+/* Return a value that is negative iff DR has a negative step.  */
+
+tree
+dr_direction_indicator (struct data_reference *dr)
+{
+  return dr_step_indicator (dr, 0);
+}
+
+/* Return a value that is zero iff DR has a zero step.  */
+
+tree
+dr_zero_step_indicator (struct data_reference *dr)
+{
+  return dr_step_indicator (dr, 1);
+}
+
+/* Return true if DR is known to have a nonnegative (but possibly zero)
+   step.  */
+
+bool
+dr_known_forward_stride_p (struct data_reference *dr)
+{
+  tree indicator = dr_direction_indicator (dr);
+  tree neg_step_val = fold_binary (LT_EXPR, boolean_type_node,
+				   fold_convert (ssizetype, indicator),
+				   ssize_int (0));
+  return neg_step_val && integer_zerop (neg_step_val);
 }

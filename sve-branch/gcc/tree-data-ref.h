@@ -341,6 +341,9 @@ extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
 extern bool dr_equal_offsets_p (struct data_reference *,
                                 struct data_reference *);
+extern tree dr_direction_indicator (struct data_reference *);
+extern tree dr_zero_step_indicator (struct data_reference *);
+extern bool dr_known_forward_stride_p (struct data_reference *);
 
 /* Return true when the base objects of data references A and B are
    the same memory object.  */

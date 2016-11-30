@@ -8,7 +8,8 @@ foo (double *x, int m)
     x[i * m] += x[i * m];
 }
 
+/* { dg-final { scan-assembler-times {\tcbz\tw1,} 1 } } */
 /* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, } 1 } } */
 /* { dg-final { scan-assembler-times {\tst1d\tz[0-9]+\.d, } 1 } } */
-/* { dg-final { scan-assembler-not {\tldr\t} } } */
-/* { dg-final { scan-assembler-not {\tstr\t} } } */
+/* { dg-final { scan-assembler-times {\tldr\t} 1 } } */
+/* { dg-final { scan-assembler-times {\tstr\t} 1 } } */

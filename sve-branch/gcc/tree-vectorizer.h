@@ -164,6 +164,8 @@ struct dr_with_seg_len
     : dr (d), seg_len (len) {}
 
   data_reference_p dr;
+  /* The offset of the last access that needs to be checked minus
+     the offset of the first.  */
   tree seg_len;
 };
 
@@ -375,6 +377,10 @@ typedef struct _loop_vec_info : public vec_info {
      lengths from which the run-time aliasing check is built.  */
   vec<dr_with_seg_len_pair_t> comp_alias_ddrs;
 
+  /* List of values that are required to be nonzero.  This is used to check
+     whether things like "x[i * n] += 1;" are safe.  */
+  vec<tree> check_nonzero;
+
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
   vec<gimple *> may_misalign_stmts;
@@ -486,6 +492,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_MAY_MISALIGN_STMTS(L)   (L)->may_misalign_stmts
 #define LOOP_VINFO_MAY_ALIAS_DDRS(L)       (L)->may_alias_ddrs
 #define LOOP_VINFO_COMP_ALIAS_DDRS(L)      (L)->comp_alias_ddrs
+#define LOOP_VINFO_CHECK_NONZERO(L)        (L)->check_nonzero
 #define LOOP_VINFO_GROUPED_STORES(L)       (L)->grouped_stores
 #define LOOP_VINFO_SLP_INSTANCES(L)        (L)->slp_instances
 #define LOOP_VINFO_SLP_UNROLLING_FACTOR(L) (L)->slp_unrolling_factor
@@ -508,7 +515,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIAS(L)		\
-  ((L)->may_alias_ddrs.length () > 0)
+  ((L)->may_alias_ddrs.length () > 0 || (L)->check_nonzero.length () > 0)
 #define LOOP_REQUIRES_VERSIONING_FOR_NITERS(L)		\
   (LOOP_VINFO_NITERS_ASSUMPTIONS (L))
 #define LOOP_REQUIRES_VERSIONING(L)			\
