@@ -6696,7 +6696,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      /* Arguments are ready.  Create the new vector stmt.  */
 	      if (masked_loop_p)
 		{
-		  tree ptr = build_int_cst (ref_type, misalign);
+		  tree ptr = build_int_cst (ref_type, align);
 		  new_stmt = gimple_build_call_internal
 		    (IFN_MASK_STORE, 4, dataref_ptr, ptr, mask, vec_oprnd);
 		}
