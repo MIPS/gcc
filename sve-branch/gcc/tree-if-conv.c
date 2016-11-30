@@ -2527,7 +2527,7 @@ combine_blocks (struct loop *loop)
    loop to execute.  The vectorizer pass will fold this
    internal call into either true or false.  */
 
-static bool
+bool
 version_loop_for_if_conversion (struct loop *loop)
 {
   basic_block cond_bb;

@@ -483,21 +483,41 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo,
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_ref_dependences ===\n");
 
-  LOOP_VINFO_DDRS (loop_vinfo)
-    .create (LOOP_VINFO_DATAREFS (loop_vinfo).length ()
-	     * LOOP_VINFO_DATAREFS (loop_vinfo).length ());
+  auto_vec<data_reference_p, 13> tmp_data_refs;
+  vec<data_reference_p> *data_refs;
+  unsigned int num_sunk_datarefs
+    = LOOP_VINFO_SUNK_DATAREFS (loop_vinfo).length ();
+  unsigned int total = LOOP_VINFO_DATAREFS (loop_vinfo).length ();
+  if (num_sunk_datarefs > 0)
+    {
+      total += num_sunk_datarefs;
+
+      tmp_data_refs.reserve_exact (total);
+      tmp_data_refs.splice (LOOP_VINFO_DATAREFS (loop_vinfo));
+      tmp_data_refs.splice (LOOP_VINFO_SUNK_DATAREFS (loop_vinfo));
+      data_refs = &tmp_data_refs;
+    }
+  else
+    data_refs = &LOOP_VINFO_DATAREFS (loop_vinfo);
+
+  LOOP_VINFO_DDRS (loop_vinfo).create (total * total);
   LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = true;
+
+  bool res = true;
   /* We need read-read dependences to compute STMT_VINFO_SAME_ALIGN_REFS.  */
-  if (!compute_all_dependences (LOOP_VINFO_DATAREFS (loop_vinfo),
+  if (!compute_all_dependences (*data_refs,
 				&LOOP_VINFO_DDRS (loop_vinfo),
 				LOOP_VINFO_LOOP_NEST (loop_vinfo), true))
-    return false;
+    res = false;
+  else
+    FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
+      if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, max_vf))
+	{
+	  res = false;
+	  break;
+	}
 
-  FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
-    if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, max_vf))
-      return false;
-
-  return true;
+  return res;
 }
 
 

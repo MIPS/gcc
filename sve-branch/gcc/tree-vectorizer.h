@@ -422,6 +422,9 @@ typedef struct _loop_vec_info : public vec_info {
   /* A map from X to a precomputed gimple_val containing
      CAPPED_VECTORIZATION_FACTOR * X.  */
   hash_map<tree, tree> *vf_mult_map;
+
+  /* All data references for sunk stmts.  */
+  vec<data_reference_p> sunk_datarefs;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -475,6 +478,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
+#define LOOP_VINFO_SUNK_DATAREFS(L)        (L)->sunk_datarefs
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -861,6 +865,13 @@ struct dataref_aux {
   /* If true we know the base is at least vector element alignment aligned.  */
   bool base_element_aligned;
   tree base_decl;
+};
+
+struct sink_info
+{
+  vec<gimple *> sunk_stmts;
+  bool scanned;
+  gimple *loop_vectorized_call;
 };
 
 #define DR_VECT_AUX(dr) ((dataref_aux *)(dr)->aux)
@@ -1259,6 +1270,7 @@ extern void vect_do_peeling (loop_vec_info, tree, tree,
 extern void vect_prepare_for_masked_peels (loop_vec_info);
 extern source_location find_loop_location (struct loop *);
 extern bool vect_can_advance_ivs_p (loop_vec_info);
+extern gphi *create_lcssa_for_virtual_phi (struct loop *);
 
 /* In tree-vect-stmts.c.  */
 extern poly_uint64 current_vector_size;
@@ -1373,12 +1385,12 @@ extern void destroy_loop_vec_info (loop_vec_info, bool);
 extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *, bool,
 					    bool *, bool *, bool);
 /* Drive for loop analysis stage.  */
-extern loop_vec_info vect_analyze_loop (struct loop *);
+extern loop_vec_info vect_analyze_loop (struct loop *, struct sink_info *);
 extern tree vect_build_loop_niters (loop_vec_info);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *, bool);
 /* Drive for loop transformation stage.  */
 extern void vect_transform_loop (loop_vec_info);
-extern loop_vec_info vect_analyze_loop_form (struct loop *);
+extern loop_vec_info vect_analyze_loop_form (struct loop *, struct sink_info *);
 extern bool vectorizable_live_operation (gimple *, gimple_stmt_iterator *,
 					 slp_tree, int, gimple **);
 extern bool vectorizable_reduction (gimple *, gimple_stmt_iterator *,
@@ -1420,5 +1432,9 @@ unsigned vectorize_loops (void);
 void vect_destroy_datarefs (vec_info *);
 bool vect_stmt_in_region_p (vec_info *, gimple *);
 void vect_free_loop_info_assumptions (struct loop *);
+gimple *vect_loop_vectorized_call (struct loop *);
+
+/* In tree-if-conv.c.  */
+bool version_loop_for_if_conversion (struct loop *);
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

@@ -21,5 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_PARLOOPS_H
 
 extern bool parallelized_function_p (tree);
+extern void replace_uses_in_bb_by (tree, tree, basic_block);
 
 #endif /* GCC_TREE_PARLOOPS_H */

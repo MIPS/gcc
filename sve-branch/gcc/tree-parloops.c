@@ -1502,7 +1502,7 @@ create_loop_fn (location_t loc)
 
 /* Replace uses of NAME by VAL in block BB.  */
 
-static void
+void
 replace_uses_in_bb_by (tree name, tree val, basic_block bb)
 {
   gimple *use_stmt;
@@ -2518,7 +2518,7 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
   if (!stmt_vec_info_vec.exists ())
     init_stmt_vec_info_vec ();
 
-  simple_loop_info = vect_analyze_loop_form (loop);
+  simple_loop_info = vect_analyze_loop_form (loop, NULL);
   if (simple_loop_info == NULL)
     goto gather_done;
 
@@ -2550,7 +2550,7 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
 
 	  if (!simple_inner_loop_info)
 	    {
-	      simple_inner_loop_info = vect_analyze_loop_form (loop->inner);
+	      simple_inner_loop_info = vect_analyze_loop_form (loop->inner, NULL);
 	      if (!simple_inner_loop_info)
 		{
 		  allow_double_reduc = false;

@@ -414,7 +414,7 @@ vect_stmt_in_region_p (vec_info *vinfo, gimple *stmt)
 /* If LOOP has been versioned during ifcvt, return the internal call
    guarding it.  */
 
-static gimple *
+gimple *
 vect_loop_vectorized_call (struct loop *loop)
 {
   basic_block bb = loop_preheader_edge (loop)->src;
@@ -546,8 +546,22 @@ vectorize_loops (void)
                        LOCATION_FILE (vect_location),
 		       LOCATION_LINE (vect_location));
 
-	loop_vinfo = vect_analyze_loop (loop);
+	/* FORNOW: Disable Sink functionality, as it is currently broken.  */
+#if 0
+	gimple *loop_vectorized_call = vect_loop_vectorized_call (loop);
+        struct sink_info sink_info = { vNULL, false, loop_vectorized_call };
+	loop_vinfo = vect_analyze_loop (loop, &sink_info);
+#else
+	loop_vinfo = vect_analyze_loop (loop, NULL);
+#endif
 	loop->aux = loop_vinfo;
+
+#if 0
+        if (sink_info.sunk_stmts.length () > 0)
+	  any_ifcvt_loops = true;
+
+        sink_info.sunk_stmts.release ();
+#endif
 
 	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	  {
@@ -573,7 +587,11 @@ vectorize_loops (void)
 	    break;
 	  }
 
+#if 0
+	loop_vectorized_call = sink_info.loop_vectorized_call;
+#else
 	gimple *loop_vectorized_call = vect_loop_vectorized_call (loop);
+#endif
 	if (loop_vectorized_call)
 	  set_uid_loop_bbs (loop_vinfo, loop_vectorized_call);
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOCATION
@@ -614,6 +632,9 @@ vectorize_loops (void)
                      num_vectorized_loops);
 
   /*  ----------- Finalize. -----------  */
+
+  /* The number of loops could have changed due to statements being sunk.  */
+  vect_loops_num = number_of_loops (cfun);
 
   if (any_ifcvt_loops)
     for (i = 1; i < vect_loops_num; i++)

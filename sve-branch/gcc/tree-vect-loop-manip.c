@@ -889,7 +889,7 @@ slpeel_can_duplicate_loop_p (const struct loop *loop, const_edge e)
    in the same form).  Doing this early simplifies the checking what
    uses should be renamed.  */
 
-static void
+gphi *
 create_lcssa_for_virtual_phi (struct loop *loop)
 {
   gphi_iterator gsi;
@@ -902,27 +902,25 @@ create_lcssa_for_virtual_phi (struct loop *loop)
 	for (gsi = gsi_start_phis (exit_e->dest);
 	     !gsi_end_p (gsi); gsi_next (&gsi))
 	  if (virtual_operand_p (gimple_phi_result (gsi_stmt (gsi))))
-	    break;
-	if (gsi_end_p (gsi))
-	  {
-	    tree new_vop = copy_ssa_name (PHI_RESULT (phi));
-	    gphi *new_phi = create_phi_node (new_vop, exit_e->dest);
-	    tree vop = PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0));
-	    imm_use_iterator imm_iter;
-	    gimple *stmt;
-	    use_operand_p use_p;
+	    return gsi.phi ();
 
-	    add_phi_arg (new_phi, vop, exit_e, UNKNOWN_LOCATION);
-	    gimple_phi_set_result (new_phi, new_vop);
-	    FOR_EACH_IMM_USE_STMT (stmt, imm_iter, vop)
-	      if (stmt != new_phi
-		  && !flow_bb_inside_loop_p (loop, gimple_bb (stmt)))
-		FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
-		  SET_USE (use_p, new_vop);
-	  }
-	break;
+	tree new_vop = copy_ssa_name (PHI_RESULT (phi));
+	gphi *new_phi = create_phi_node (new_vop, exit_e->dest);
+	tree vop = PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0));
+	imm_use_iterator imm_iter;
+	gimple *stmt;
+	use_operand_p use_p;
+
+	add_phi_arg (new_phi, vop, exit_e, UNKNOWN_LOCATION);
+	gimple_phi_set_result (new_phi, new_vop);
+	FOR_EACH_IMM_USE_STMT (stmt, imm_iter, vop)
+	  if (stmt != new_phi
+	      && !flow_bb_inside_loop_p (loop, gimple_bb (stmt)))
+	    FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	      SET_USE (use_p, new_vop);
+	return new_phi;
       }
-
+  return NULL;
 }
 
 /* Function vect_get_loop_location.

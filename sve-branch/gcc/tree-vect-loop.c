@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "internal-fn.h"
+#include "tree-parloops.h"
 
 /* Loop Vectorization Pass.
 
@@ -965,6 +966,171 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
     vect_analyze_scalar_cycles_1 (loop_vinfo, loop->inner);
 }
 
+/* For a given LOOP try to find statements that we can sink out of the loop.
+   The conditions for sinking a statement are that
+      1. The statement must be a gimple assignment.
+      2. The LHS of the statement must be a loop-invariant memory reference.
+      3. The RHS of the statement is an SSA NAME.
+   If any statements can be sunk, store the list of statements in SINK_INFO.  */
+
+void
+vect_sink_stmts (struct loop *loop, loop_vec_info loop_vinfo, struct sink_info *info)
+{
+  if (info->scanned)
+    return;
+
+  /* We don't consider inner loops yet.  */
+  if (loop->inner)
+    {
+      info->scanned = true;
+      return;
+    }
+
+  basic_block *bbs = get_loop_body (loop);
+
+  /* Walk through all basic blocks in the loop looking for opportunities to sink
+     statements where the LHS is a memory reference and is invariant in the
+     loop.  */
+  unsigned int i;
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      basic_block bb = bbs[i];
+      gimple_stmt_iterator gsi;
+
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple *stmt = gsi_stmt (gsi);
+	  tree lhs;
+
+	  if (is_gimple_assign (stmt)
+	      && TREE_CODE (lhs = gimple_assign_lhs (stmt)) == MEM_REF
+	      /* TODO: We could consider cases such as *val = x * y, but would
+		 mean generating additional statements in the loop, i.e.
+		   new_val = x * y
+		   ... outside loop ...
+		   *val = new_val.  */
+	      && gimple_assign_rhs_code (stmt) == SSA_NAME
+	      && expr_invariant_in_loop_p (loop, TREE_OPERAND (lhs, 0))
+	      && expr_invariant_in_loop_p (loop, TREE_OPERAND (lhs, 1)))
+	    info->sunk_stmts.safe_push (stmt);
+	}
+    }
+
+  info->scanned = true;
+
+  if (info->sunk_stmts.length() == 0)
+    return;
+
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_NOTE, vect_location,
+		     "Analyzing data refs for sinking\n");
+
+  /* The if conversion pass might have already versioned the loop so we need
+     to check that first.  */
+  if (!info->loop_vectorized_call)
+    {
+      if (!version_loop_for_if_conversion (loop))
+	{
+	  /* If we can't version the loop then we can't sink anything.  */
+	  info->sunk_stmts.release ();
+	  return;
+	}
+      info->loop_vectorized_call = vect_loop_vectorized_call (loop);
+      gcc_assert (info->loop_vectorized_call);
+    }
+
+  /* Add all data references from the sunk statements.  */
+
+  gimple *stmt;
+  FOR_EACH_VEC_ELT (info->sunk_stmts, i, stmt)
+    {
+      gimple_set_uid (stmt, 0);
+      set_vinfo_for_stmt (stmt, new_stmt_vec_info (stmt, loop_vinfo));
+
+      if (!find_data_references_in_stmt
+	     (loop, stmt, &LOOP_VINFO_SUNK_DATAREFS (loop_vinfo)))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "not vectorized: sunk statements contain data "
+			     "references that cannot be analyzed\n");
+	  info->sunk_stmts.release ();
+	  return;
+	}
+    }
+
+  edge orig_exit_edge = single_exit (loop);
+  basic_block orig_exit_bb = orig_exit_edge->dest;
+
+  basic_block exit_bb = split_edge (orig_exit_edge);
+  edge exit_edge = EDGE_SUCC (exit_bb, 0);
+  gimple_stmt_iterator exit_gsi = gsi_after_labels (exit_bb);
+  basic_block first_bb = gimple_bb (info->sunk_stmts[0]);
+
+  /* Make sure there is a virtual phi in the original exit block as well as the
+     main loop.  */
+  gphi *new_vphi = create_lcssa_for_virtual_phi (loop);
+  tree incoming_vuse = PHI_RESULT (new_vphi);
+
+  FOR_EACH_VEC_ELT (info->sunk_stmts, i, stmt)
+    {
+      gcc_assert (first_bb == gimple_bb (stmt));
+
+      if (dump_enabled_p ())
+	{
+	  dump_printf_loc (MSG_NOTE, vect_location, "sink stmt: ");
+	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM | TDF_VOPS, stmt, 0);
+	}
+
+      replace_uses_by (gimple_vdef (stmt), gimple_vuse (stmt));
+
+      /* Create phis in new block.  */
+      tree def = gimple_assign_rhs1 (stmt);
+      tree new_def = copy_ssa_name (def);
+
+      gphi *new_phi = create_phi_node (new_def, exit_bb);
+      add_phi_arg (new_phi, def, orig_exit_edge, UNKNOWN_LOCATION);
+
+      /* We only want to replace uses of def in the old exit block.  */
+      replace_uses_in_bb_by (def, new_def, exit_edge->dest);
+
+      SET_USE (gimple_vuse_op (stmt), incoming_vuse);
+      incoming_vuse = gimple_vdef (stmt);
+
+      /* Remove stmt from loop and add outside loop, replacing the rhs with the
+	 phi result.  */
+      gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+      gsi_remove (&gsi, false);
+
+      gimple_assign_set_rhs1 (stmt, PHI_RESULT (new_phi));
+      gsi_insert_before (&exit_gsi, stmt, GSI_SAME_STMT);
+    }
+
+  /* In addition, the original exit block may have had some other phis that now
+     need tying up with our new block.  */
+  for (gphi_iterator gpi = gsi_start_phis (orig_exit_bb);
+       !gsi_end_p (gpi); gsi_next (&gpi))
+    {
+      if (virtual_operand_p (gimple_phi_result (gpi.phi ())))
+        SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (gpi.phi (), exit_edge),
+		 incoming_vuse);
+      else
+	{
+	  tree arg = PHI_ARG_DEF_FROM_EDGE (gpi.phi (), exit_edge);
+	  gimple *arg_def = SSA_NAME_DEF_STMT (arg);
+	  basic_block arg_def_bb = gimple_bb (arg_def);
+	  if (arg_def_bb != exit_bb)
+	    {
+	      tree new_arg = copy_ssa_name (arg);
+	      gphi *new_phi = create_phi_node (new_arg, exit_bb);
+	      add_phi_arg (new_phi, arg, orig_exit_edge, UNKNOWN_LOCATION);
+	      SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (gpi.phi (), exit_edge),
+		       new_arg);
+	    }
+	}
+    }
+}
+
 /* Transfer group and reduction information from STMT to its pattern stmt.  */
 
 static void
@@ -1202,6 +1368,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_OPERANDS_SWAPPED (res) = false;
   LOOP_VINFO_ADDR_CACHE (res) = NULL;
   LOOP_VINFO_VF_MULT_MAP (res) = NULL;
+  LOOP_VINFO_SUNK_DATAREFS (res) = vNULL;
 
   return res;
 }
@@ -1289,6 +1456,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   delete LOOP_VINFO_VF_MULT_MAP (loop_vinfo);
 
   LOOP_VINFO_MASK_ARRAY (loop_vinfo).release ();
+  LOOP_VINFO_SUNK_DATAREFS (loop_vinfo).release ();
 
   free (loop_vinfo);
   loop->aux = NULL;
@@ -1628,7 +1796,7 @@ vect_analyze_loop_form_1 (struct loop *loop, gcond **loop_cond,
 /* Analyze LOOP form and return a loop_vec_info if it is of suitable form.  */
 
 loop_vec_info
-vect_analyze_loop_form (struct loop *loop)
+vect_analyze_loop_form (struct loop *loop, struct sink_info *sink_info)
 {
   tree assumptions, number_of_iterations, number_of_iterationsm1;
   gcond *loop_cond, *inner_loop_cond = NULL;
@@ -1639,6 +1807,10 @@ vect_analyze_loop_form (struct loop *loop)
     return NULL;
 
   loop_vec_info loop_vinfo = new_loop_vec_info (loop);
+
+  if (sink_info)
+    vect_sink_stmts (loop, loop_vinfo, sink_info);
+
   LOOP_VINFO_NITERSM1 (loop_vinfo) = number_of_iterationsm1;
   LOOP_VINFO_NITERS (loop_vinfo) = number_of_iterations;
   LOOP_VINFO_NITERS_UNCHANGED (loop_vinfo) = number_of_iterations;
@@ -2488,7 +2660,7 @@ again:
    for it.  The different analyses will record information in the
    loop_vec_info struct.  */
 loop_vec_info
-vect_analyze_loop (struct loop *loop)
+vect_analyze_loop (struct loop *loop, struct sink_info *sink_info)
 {
   loop_vec_info loop_vinfo;
   auto_vec<poly_uint64, 8> vector_sizes;
@@ -2516,7 +2688,7 @@ vect_analyze_loop (struct loop *loop)
   while (1)
     {
       /* Check the CFG characteristics of the loop (nesting, entry/exit).  */
-      loop_vinfo = vect_analyze_loop_form (loop);
+      loop_vinfo = vect_analyze_loop_form (loop, sink_info);
       if (!loop_vinfo)
 	{
 	  if (dump_enabled_p ())
