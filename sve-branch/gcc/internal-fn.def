@@ -49,7 +49,7 @@ along with GCC; see the file COPYING3.  If not see
    - mask_load_lanes: currently just vec_mask_load_lanes
 
    - mask_store: currently just maskstore
-   - store_lanes: currently just vec_{,mask_}store_lanes
+   - store_lanes: currently just vec_store_lanes
    - mask_store_lanes: currently just vec_mask_store_lanes
 
    - binary: a normal binary optab, such as add<mode>3

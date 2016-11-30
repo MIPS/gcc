@@ -1671,8 +1671,8 @@ vect_analyze_slp_cost (slp_instance instance, void *data)
   unsigned group_size = SLP_INSTANCE_GROUP_SIZE (instance);
   slp_tree node = SLP_INSTANCE_TREE (instance);
   stmt_vec_info stmt_info = vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (node)[0]);
-  /* Get the esimated vectorization factor, which is always one for basic-block
-     vectorization.  */
+  /* Get the estimated vectorization factor, which is always one for
+     basic-block vectorization.  */
   unsigned int assumed_vf;
   if (STMT_VINFO_LOOP_VINFO (stmt_info))
     assumed_vf = vect_vf_for_cost (STMT_VINFO_LOOP_VINFO (stmt_info));
