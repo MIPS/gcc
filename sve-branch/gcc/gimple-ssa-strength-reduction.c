@@ -656,7 +656,7 @@ alloc_cand_and_find_basis (enum cand_kind kind, gimple *gs, tree base,
 static int
 stmt_cost (gimple *gs, bool speed)
 {
-  tree lhs, rhs1, rhs2;
+  tree lhs, rhs1, rhs2, rhs1_type;
   machine_mode lhs_mode;
 
   gcc_assert (is_gimple_assign (gs));
@@ -684,7 +684,11 @@ stmt_cost (gimple *gs, bool speed)
       return neg_cost (speed, lhs_mode);
 
     CASE_CONVERT:
-      return convert_cost (lhs_mode, TYPE_MODE (TREE_TYPE (rhs1)), speed);
+      {
+	rhs1_type = TREE_TYPE (rhs1);
+	return convert_cost (lhs_mode, TYPE_MODE (rhs1_type),
+			     TYPE_SIGN (rhs1_type), speed);
+      }
 
     /* Note that we don't assign costs to copies that in most cases
        will go away.  */

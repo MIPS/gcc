@@ -188,7 +188,7 @@ struct target_expmed {
   /* Conversion costs are only defined between two scalar integer modes
      of different sizes.  The first machine mode is the destination mode,
      and the second is the source mode.  */
-  int x_convert_cost[2][NUM_MODE_IP_INT][NUM_MODE_IP_INT];
+  int x_convert_cost[2][2][NUM_MODE_IP_INT][NUM_MODE_IP_INT];
 };
 
 extern struct target_expmed default_target_expmed;
@@ -646,7 +646,7 @@ mul_highpart_cost (bool speed, machine_mode mode)
 
 static inline int *
 convert_cost_ptr (machine_mode to_mode, machine_mode from_mode,
-		  bool speed)
+		  signop sign_ext, bool speed)
 {
   int to_idx = expmed_mode_index (to_mode);
   int from_idx = expmed_mode_index (from_mode);
@@ -654,17 +654,17 @@ convert_cost_ptr (machine_mode to_mode, machine_mode from_mode,
   gcc_assert (IN_RANGE (to_idx, 0, NUM_MODE_IP_INT - 1));
   gcc_assert (IN_RANGE (from_idx, 0, NUM_MODE_IP_INT - 1));
 
-  return &this_target_expmed->x_convert_cost[speed][to_idx][from_idx];
+  return &this_target_expmed->x_convert_cost[speed][sign_ext][to_idx][from_idx];
 }
 
-/* Set the COST for converting from FROM_MODE to TO_MODE when optimizing
-   for SPEED.  */
+/* Set the COST for converting from FROM_MODE to TO_MODE, with sign extension
+   SIGN_EXT when optimizing for SPEED.  */
 
 static inline void
 set_convert_cost (machine_mode to_mode, machine_mode from_mode,
-		  bool speed, int cost)
+		  signop sign_ext, bool speed, int cost)
 {
-  *convert_cost_ptr (to_mode, from_mode, speed) = cost;
+  *convert_cost_ptr (to_mode, from_mode, sign_ext, speed) = cost;
 }
 
 /* Return the cost for converting from FROM_MODE to TO_MODE when optimizing
@@ -672,9 +672,9 @@ set_convert_cost (machine_mode to_mode, machine_mode from_mode,
 
 static inline int
 convert_cost (machine_mode to_mode, machine_mode from_mode,
-	      bool speed)
+	      signop sign_ext, bool speed)
 {
-  return *convert_cost_ptr (to_mode, from_mode, speed);
+  return *convert_cost_ptr (to_mode, from_mode, sign_ext, speed);
 }
 
 extern int mult_by_coeff_cost (HOST_WIDE_INT, machine_mode, bool);

@@ -118,6 +118,7 @@ struct init_expmed_rtl
   rtx shift_sub0;
   rtx shift_sub1;
   rtx zext;
+  rtx sgnext;
   rtx trunc;
 
   rtx pow2[MAX_BITS_PER_WORD];
@@ -128,8 +129,7 @@ static void
 init_expmed_one_conv (struct init_expmed_rtl *all, scalar_int_mode to_mode,
 		      scalar_int_mode from_mode, bool speed)
 {
-  int to_size, from_size;
-  rtx which;
+  int to_size, from_size, cost;
 
   to_size = GET_MODE_PRECISION (to_mode);
   from_size = GET_MODE_PRECISION (from_mode);
@@ -144,13 +144,22 @@ init_expmed_one_conv (struct init_expmed_rtl *all, scalar_int_mode to_mode,
   if (GET_MODE_CLASS (from_mode) == MODE_PARTIAL_INT
       && pow2p_hwi (from_size))
     from_size --;
-  
-  /* Assume cost of zero-extend and sign-extend is the same.  */
-  which = (to_size < from_size ? all->trunc : all->zext);
 
   PUT_MODE (all->reg, from_mode);
-  set_convert_cost (to_mode, from_mode, speed,
-		    set_src_cost (which, to_mode, speed));
+
+  if (to_size < from_size)
+    {
+      cost = set_src_cost (all->trunc, to_mode, speed);
+      set_convert_cost (to_mode, from_mode, UNSIGNED, speed, cost);
+      set_convert_cost (to_mode, from_mode, SIGNED, speed, cost);
+    }
+  else
+    {
+      set_convert_cost (to_mode, from_mode, UNSIGNED, speed,
+			set_src_cost (all->zext, to_mode, speed));
+      set_convert_cost (to_mode, from_mode, SIGNED, speed,
+			set_src_cost (all->sgnext, to_mode, speed));
+    }
 }
 
 static void
@@ -177,6 +186,7 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
   PUT_MODE (all->shift_sub0, mode);
   PUT_MODE (all->shift_sub1, mode);
   PUT_MODE (all->zext, mode);
+  PUT_MODE (all->sgnext, mode);
   PUT_MODE (all->trunc, mode);
 
   set_add_cost (speed, mode, set_src_cost (all->plus, mode, speed));
@@ -263,6 +273,7 @@ init_expmed (void)
   all.sdiv_32 = gen_rtx_DIV (mode, all.reg, all.pow2[5]);
   all.smod_32 = gen_rtx_MOD (mode, all.reg, all.pow2[5]);
   all.zext = gen_rtx_ZERO_EXTEND (mode, all.reg);
+  all.sgnext = gen_rtx_SIGN_EXTEND (mode, all.reg);
   all.wide_mult = gen_rtx_MULT (mode, all.zext, all.zext);
   all.wide_lshr = gen_rtx_LSHIFTRT (mode, all.wide_mult, all.reg);
   all.wide_trunc = gen_rtx_TRUNCATE (mode, all.wide_lshr);
@@ -312,6 +323,7 @@ init_expmed (void)
   ggc_free (all.wide_lshr);
   ggc_free (all.wide_mult);
   ggc_free (all.zext);
+  ggc_free (all.sgnext);
   ggc_free (all.smod_32);
   ggc_free (all.sdiv_32);
   ggc_free (all.udiv);

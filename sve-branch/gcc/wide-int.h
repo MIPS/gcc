@@ -488,7 +488,7 @@ namespace wi
   UNARY_FUNCTION bit_not (const T &);
   UNARY_FUNCTION neg (const T &);
   UNARY_FUNCTION neg (const T &, bool *);
-  UNARY_FUNCTION abs (const T &);
+  UNARY_FUNCTION abs (const T &, signop = SIGNED);
   UNARY_FUNCTION ext (const T &, unsigned int, signop);
   UNARY_FUNCTION sext (const T &, unsigned int);
   UNARY_FUNCTION zext (const T &, unsigned int);
@@ -2045,12 +2045,12 @@ wi::neg (const T &x, bool *overflow)
   return sub (0, x);
 }
 
-/* Return the absolute value of x.  */
+/* Return the absolute value of x. */
 template <typename T>
 inline WI_UNARY_RESULT (T)
-wi::abs (const T &x)
+wi::abs (const T &x, signop sgn)
 {
-  return neg_p (x) ? neg (x) : WI_UNARY_RESULT (T) (x);
+  return neg_p (x, sgn) ? neg (x) : WI_UNARY_RESULT (T) (x);
 }
 
 /* Return the result of sign-extending the low OFFSET bits of X.  */

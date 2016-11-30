@@ -4579,7 +4579,8 @@ force_expr_to_var_cost (tree expr, bool speed)
 	outer_mode = TREE_TYPE (expr);
 	inner_mode = TREE_TYPE (op0);
 	cost = comp_cost (convert_cost (TYPE_MODE (outer_mode),
-				       TYPE_MODE (inner_mode), speed), 0);
+					TYPE_MODE (inner_mode),
+					TYPE_SIGN (inner_mode), speed), 0);
       }
       break;
 
