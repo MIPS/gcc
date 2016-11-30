@@ -4621,10 +4621,8 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type, struct loop *at_loop,
 
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
-      create_iv (aggr_ptr_init,
-		 fold_convert (aggr_ptr_type, iv_step),
-		 aggr_ptr, loop, &incr_gsi, insert_after,
-		 &indx_before_incr, &indx_after_incr);
+      create_iv (aggr_ptr_init, iv_step, aggr_ptr, loop, &incr_gsi,
+		 insert_after, &indx_before_incr, &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
       set_vinfo_for_stmt (incr, new_stmt_vec_info (incr, loop_vinfo));
 
