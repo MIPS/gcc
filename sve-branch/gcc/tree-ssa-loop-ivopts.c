@@ -4241,11 +4241,10 @@ get_address_cost (bool symbol_present, bool var_present,
 	  seq = get_insns ();
 	  end_sequence ();
 
-	  acost = seq_cost (seq, speed);
-	  acost += address_cost (addr, mem_mode, as, speed);
-
+	  acost = address_cost (addr, mem_mode, as, speed);
 	  if (!acost)
 	    acost = 1;
+	  acost += seq_cost (seq, speed);
 	  data->costs[sym_p][var_p][off_p][rat_p] = acost;
 	}
 
