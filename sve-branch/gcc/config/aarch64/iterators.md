@@ -391,6 +391,7 @@
     UNSPEC_ANDF		; Used in aarch64-sve.md.
     UNSPEC_IORF		; Used in aarch64-sve.md.
     UNSPEC_XORF		; Used in aarch64-sve.md.
+    UNSPEC_FADDA	; Used in aarch64-sve.md.
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SMAX	; Used in aarch64-sve.md.
     UNSPEC_COND_UMAX	; Used in aarch64-sve.md.

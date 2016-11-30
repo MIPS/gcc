@@ -3125,6 +3125,7 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       break;
 
     case VEC_SERIES_EXPR:
+    case STRICT_REDUC_PLUS_EXPR:
     case VEC_WIDEN_MULT_HI_EXPR:
     case VEC_WIDEN_MULT_LO_EXPR:
     case VEC_WIDEN_MULT_EVEN_EXPR:
@@ -3520,6 +3521,7 @@ op_code_prio (enum tree_code code)
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
+    case STRICT_REDUC_PLUS_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
     case VEC_UNPACK_FLOAT_HI_EXPR:
@@ -3640,6 +3642,9 @@ op_symbol_code (enum tree_code code)
 
     case REDUC_PLUS_EXPR:
       return "r+";
+
+    case STRICT_REDUC_PLUS_EXPR:
+      return "strictr+";
 
     case WIDEN_SUM_EXPR:
       return "w+";

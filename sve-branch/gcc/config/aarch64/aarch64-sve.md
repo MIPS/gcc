@@ -1445,6 +1445,45 @@
   "<bit_reduc_op>\t%<Vetype>0, %1, %2.<Vetype>"
 )
 
+;; Strict FP reductions, i.e. in order as opposed to the tree based
+;; reductions used when -ffast-math is enabled
+(define_expand "strict_reduc_plus_scal_<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand")
+	(unspec:<VEL> [(match_dup 3)
+		       (match_operand:<VEL> 1 "register_operand")
+		       (match_operand:SVE_F 2 "register_operand")]
+		      UNSPEC_FADDA))]
+  "TARGET_SVE"
+  {
+    operands[3] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "*strict_reduc_plus_scal_<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand" "=w")
+	(unspec:<VEL> [(match_operand:<VPRED> 1 "register_operand" "Upl")
+		       (match_operand:<VEL> 2 "register_operand" "0")
+		       (match_operand:SVE_F 3 "register_operand" "w")]
+		      UNSPEC_FADDA))]
+  "TARGET_SVE"
+  "fadda\t%<Vetype>0, %1, %<Vetype>0, %3.<Vetype>"
+)
+
+;; Predicated form of the above strict FP reduction.
+(define_insn "strict_reduc_plus_pred_scal_<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand" "=w")
+	(unspec:<VEL>
+	  [(match_operand:<VEL> 1 "register_operand" "0")
+	   (unspec:SVE_F
+	     [(match_operand:<VPRED> 2 "register_operand" "Upl")
+	      (match_operand:SVE_F 3 "register_operand" "w")
+	      (match_operand:SVE_F 4 "aarch64_constant_vector_operand")]
+	     UNSPEC_SEL)]
+	  UNSPEC_FADDA))]
+  "TARGET_SVE && aarch64_simd_identity_value (PLUS, <MODE>mode, operands[4])"
+  "fadda\t%<Vetype>0, %2, %<Vetype>0, %3.<Vetype>"
+)
+
 (define_expand "add<mode>3"
   [(set (match_operand:SVE_F 0 "register_operand")
 	(unspec:SVE_F

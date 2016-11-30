@@ -9337,6 +9337,33 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
         return target;
       }
 
+    case STRICT_REDUC_PLUS_EXPR:
+      {
+	op0 = expand_normal (treeop0);
+	op1 = expand_normal (treeop1);
+	this_optab = optab_for_tree_code (code, type, optab_default);
+	machine_mode vec_mode = TYPE_MODE (TREE_TYPE (treeop1));
+	insn_code icode = optab_handler (this_optab, vec_mode);
+
+	if (icode != CODE_FOR_nothing)
+	  {
+	    struct expand_operand ops[3];
+	    create_output_operand (&ops[0], target, mode);
+	    create_input_operand (&ops[1], op0, mode);
+	    create_input_operand (&ops[2], op1, vec_mode);
+	    if (maybe_expand_insn (icode, 3, ops))
+	      {
+		target = ops[0].value;
+		if (GET_MODE (target) != mode)
+		  return gen_lowpart (tmode, target);
+		return target;
+	      }
+	  }
+
+	/* Nothing to fall back to.  */
+	gcc_unreachable ();
+      }
+
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:

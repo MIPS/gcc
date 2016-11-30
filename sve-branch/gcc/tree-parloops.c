@@ -2535,10 +2535,11 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
       if (simple_iv (loop, loop, res, &iv, true))
 	continue;
 
+      bool strict_reduc;
       gimple *reduc_stmt
 	= vect_force_simple_reduction (simple_loop_info, phi, true,
-				       &double_reduc, true);
-      if (!reduc_stmt)
+				       &double_reduc, &strict_reduc, true);
+      if (!reduc_stmt || strict_reduc)
 	continue;
 
       if (double_reduc)
@@ -2568,11 +2569,13 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
 			 &iv, true))
 	    continue;
 
+	  bool strict_reduc;
 	  gimple *inner_reduc_stmt
 	    = vect_force_simple_reduction (simple_inner_loop_info, inner_phi,
-					   true, &double_reduc, true);
+					   true, &double_reduc,
+					   &strict_reduc, true);
 	  gcc_assert (!double_reduc);
-	  if (inner_reduc_stmt == NULL)
+	  if (inner_reduc_stmt == NULL || strict_reduc)
 	    continue;
 	}
 

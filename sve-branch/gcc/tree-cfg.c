@@ -3959,6 +3959,19 @@ verify_gimple_assign_binary (gassign *stmt)
       /* Continue with generic binary expression handling.  */
       break;
 
+    case STRICT_REDUC_PLUS_EXPR:
+      if (!VECTOR_TYPE_P (rhs2_type)
+	  || !useless_type_conversion_p (lhs_type, TREE_TYPE (rhs2_type))
+	  || !useless_type_conversion_p (lhs_type, rhs1_type))
+	{
+	  error ("reduction should convert from vector to element type");
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  debug_generic_expr (rhs2_type);
+	  return true;
+	}
+      return false;
+
     case VEC_SERIES_EXPR:
       if (!useless_type_conversion_p (rhs1_type, rhs2_type))
 	{

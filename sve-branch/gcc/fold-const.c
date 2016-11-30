@@ -1505,6 +1505,37 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
 	return NULL_TREE;
       return build1 (VEC_DUPLICATE_EXPR, TREE_TYPE (arg1), sub);
     }
+
+  if ((TREE_CODE (arg1) == INTEGER_CST || TREE_CODE (arg1) == REAL_CST)
+      && TREE_CODE (arg2) == VECTOR_CST)
+    {
+      tree_code subcode;
+
+      switch (code)
+	{
+	case STRICT_REDUC_PLUS_EXPR:
+	  subcode = PLUS_EXPR;
+	  break;
+	default:
+	  return NULL_TREE;
+	}
+
+      int nelts = VECTOR_CST_NELTS (arg2);
+      tree *elts = XALLOCAVEC (tree, nelts);
+      if (!vec_cst_ctor_to_array (arg2, nelts, elts))
+	return NULL_TREE;
+
+      tree accum = arg1;
+
+      for (int i = 0; i < nelts; i++)
+	{
+	  accum = const_binop (subcode, accum, elts[i]);
+	  if (accum == NULL_TREE || !constant_tree_p (accum))
+	    return NULL_TREE;
+	}
+
+      return accum;
+    }
   return NULL_TREE;
 }
 

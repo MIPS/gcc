@@ -166,6 +166,9 @@ optab_for_tree_code (enum tree_code code, const_tree type,
     case REDUC_XOR_EXPR:
       return reduc_xor_scal_optab;
 
+    case STRICT_REDUC_PLUS_EXPR:
+      return strict_reduc_plus_scal_optab;
+
     case VEC_WIDEN_MULT_HI_EXPR:
       return TYPE_UNSIGNED (type) ?
 	vec_widen_umult_hi_optab : vec_widen_smult_hi_optab;
@@ -259,6 +262,25 @@ optab_for_tree_code (enum tree_code code, const_tree type,
     default:
       return unknown_optab;
     }
+}
+
+/* Return true if appropriate vector instructions are available to perform a
+   strict reduction operation (i.e. in order) CODE for mode MODE.  */
+bool
+strict_reduction_support (tree_code code, tree type)
+{
+  optab optab;
+
+  switch (code)
+    {
+    case STRICT_REDUC_PLUS_EXPR:
+      optab = strict_reduc_plus_scal_optab;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  return optab_handler (optab, TYPE_MODE (type)) != CODE_FOR_nothing;
 }
 
 /* Function supportable_convert_operation

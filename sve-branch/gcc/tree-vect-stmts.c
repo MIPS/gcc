@@ -1587,6 +1587,50 @@ vect_get_vec_defs (tree op0, tree op1, gimple *stmt,
     }
 }
 
+/* Function vect_finish_stmt_generation_1.
+
+   Helper function called by vect_finish_replace_stmt and
+   vect_finish_stmt_generation.  */
+
+static void
+vect_finish_stmt_generation_1 (gimple *stmt, gimple *vec_stmt)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  vec_info *vinfo = stmt_info->vinfo;
+
+  set_vinfo_for_stmt (vec_stmt, new_stmt_vec_info (vec_stmt, vinfo));
+
+  if (dump_enabled_p ())
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "add new stmt: ");
+      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, vec_stmt, 0);
+    }
+
+  gimple_set_location (vec_stmt, gimple_location (stmt));
+
+  /* While EH edges will generally prevent vectorization, stmt might
+     e.g. be in a must-not-throw region.  Ensure newly created stmts
+     that could throw are part of the same region.  */
+  int lp_nr = lookup_stmt_eh_lp (stmt);
+  if (lp_nr != 0 && stmt_could_throw_p (vec_stmt))
+    add_stmt_to_eh_lp (vec_stmt, lp_nr);
+}
+
+/* Function vect_finish_replace_stmt.
+
+   Replace the scalar statement STMT with a new vector statement VEC_STMT.  */
+
+void
+vect_finish_replace_stmt (gimple *stmt, gimple *vec_stmt)
+{
+  gcc_assert (gimple_code (stmt) != GIMPLE_LABEL);
+  gcc_assert (gimple_assign_lhs (stmt) == gimple_assign_lhs (vec_stmt));
+
+  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+  gsi_replace (&gsi, vec_stmt, false);
+
+  vect_finish_stmt_generation_1 (stmt, vec_stmt);
+}
 
 /* Function vect_finish_stmt_generation.
 
@@ -1596,9 +1640,6 @@ void
 vect_finish_stmt_generation (gimple *stmt, gimple *vec_stmt,
 			     gimple_stmt_iterator *gsi)
 {
-  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  vec_info *vinfo = stmt_info->vinfo;
-
   gcc_assert (gimple_code (stmt) != GIMPLE_LABEL);
 
   if (!gsi_end_p (*gsi)
@@ -1629,22 +1670,7 @@ vect_finish_stmt_generation (gimple *stmt, gimple *vec_stmt,
     }
   gsi_insert_before (gsi, vec_stmt, GSI_SAME_STMT);
 
-  set_vinfo_for_stmt (vec_stmt, new_stmt_vec_info (vec_stmt, vinfo));
-
-  if (dump_enabled_p ())
-    {
-      dump_printf_loc (MSG_NOTE, vect_location, "add new stmt: ");
-      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, vec_stmt, 0);
-    }
-
-  gimple_set_location (vec_stmt, gimple_location (stmt));
-
-  /* While EH edges will generally prevent vectorization, stmt might
-     e.g. be in a must-not-throw region.  Ensure newly created stmts
-     that could throw are part of the same region.  */
-  int lp_nr = lookup_stmt_eh_lp (stmt);
-  if (lp_nr != 0 && stmt_could_throw_p (vec_stmt))
-    add_stmt_to_eh_lp (vec_stmt, lp_nr);
+  vect_finish_stmt_generation_1 (stmt, vec_stmt);
 }
 
 /* We want to vectorize a call to combined function CFN with function
@@ -5562,6 +5588,9 @@ vectorizable_operation (gimple *stmt, gimple_stmt_iterator *gsi,
     return false;
 
   code = gimple_assign_rhs_code (stmt);
+  /* Mask out operations that mix scalar and vector input operands.  */
+  if (code == STRICT_REDUC_PLUS_EXPR)
+    return false;
 
   /* For pointer addition, we should use the normal plus for
      the vector addition.  */
