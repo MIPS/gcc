@@ -4358,13 +4358,13 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
   tree def_for_init;
   tree init_def;
   tree *elts;
-  int i;
+  unsigned int i;
   bool nested_in_vect_loop = false;
   REAL_VALUE_TYPE real_init_val = dconst0;
   int int_init_val = 0;
   gimple *def_stmt = NULL;
   gimple_seq stmts = NULL;
-  int count;
+  unsigned HOST_WIDE_INT count;
 
   gcc_assert (vectype);
   nunits = TYPE_VECTOR_SUBPARTS (vectype);
@@ -4439,14 +4439,21 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
 	    break;
 	  }
 
-	/* Enforced by vectorizable_reduction (which disallows double
-	   reductions with variable-length vectors).  */
-	count = nunits.to_constant ();
+	if (!nunits.is_constant (&count))
+	  {
+	    init_def = build_vector_from_val (vectype, def_for_init);
+	    gcall *call = gimple_build_call_internal (IFN_VEC_SHL_INSERT,
+						      2, init_def, init_val);
+	    init_def = make_ssa_name (vectype);
+	    gimple_call_set_lhs (call, init_def);
+	    gsi_insert_on_edge_immediate (loop_preheader_edge (loop), call);
+	    break;
+	  }
 
 	/* Create a vector of '0' or '1' except the first element.  */
 	elts = XALLOCAVEC (tree, count);
-	for (i = count - 2; i >= 0; --i)
-	  elts[i + 1] = def_for_init;
+	for (i = count - 1; i > 0; --i)
+	  elts[i] = def_for_init;
 
         /* Option2: the first element is INIT_VAL.  */
 	elts[0] = init_val;
@@ -4512,6 +4519,7 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
      first one in this group is STMT.
    INDUCTION_INDEX is the index of the loop for condition reductions.
      Otherwise it is undefined.
+   SCALAR_IDENTITY is the reduction identity value, or null if none.
 
    This function:
    1. Creates the reduction def-use cycles: sets the arguments for 
@@ -4557,7 +4565,8 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 				  int ncopies, enum tree_code reduc_code,
 				  vec<gimple *> reduction_phis,
                                   int reduc_index, bool double_reduc, 
-				  slp_tree slp_node, tree induction_index)
+				  slp_tree slp_node, tree induction_index,
+				  tree scalar_identity)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   stmt_vec_info prev_phi_info;
@@ -4593,6 +4602,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
   auto_vec<tree> vec_initial_defs;
   auto_vec<gimple *> phis;
   bool slp_reduc = false;
+  bool direct_slp_reduc;
   tree new_phi_result;
   gimple *inner_phi = NULL;
 
@@ -4848,6 +4858,12 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
      b2 = operation (b1)  */
   slp_reduc = (slp_node && !GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)));
 
+  /* True if we should implement SLP_REDUC using native reduction operations
+     instead of scalar operations.  */
+  direct_slp_reduc = (reduc_code != ERROR_MARK
+		      && slp_reduc
+		      && !TYPE_VECTOR_SUBPARTS (vectype).is_constant ());
+
   /* In case of reduction chain, e.g.,
      # a1 = phi <a3, a0>
      a2 = operation (a1)
@@ -4855,7 +4871,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 
      we may end up with more than one vector result.  Here we reduce them to
      one vector.  */
-  if (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
+  if (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) || direct_slp_reduc)
     {
       tree first_vect = PHI_RESULT (new_phis[0]);
       tree tmp;
@@ -5051,6 +5067,55 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
 	}
 
       scalar_results.safe_push (new_temp);
+    }
+  else if (direct_slp_reduc)
+    {
+      /* Enforced by vectorizable_reduction.  */
+      gcc_assert (new_phis.length () == 1);
+      gcc_assert (scalar_identity);
+      gcc_assert (pow2p_hwi (group_size));
+
+      gimple_seq seq = NULL;
+      tree index = build_index_vector (vectype, 0, 1);
+      tree index_type = TREE_TYPE (index);
+      tree index_elt_type = TREE_TYPE (index_type);
+      tree mask_type = build_same_sized_truth_vector_type (index_type);
+
+      /* Create a vector that, for each element, identifies which of
+	 the GROUP_SIZE results should use it.  */
+      tree index_mask = build_int_cst (index_elt_type, group_size - 1);
+      index = gimple_build (&seq, BIT_AND_EXPR, index_type, index,
+			    build_vector_from_val (index_type, index_mask));
+
+      tree vector_identity = build_vector_from_val (vectype, scalar_identity);
+      for (unsigned int i = 0; i < group_size; ++i)
+	{
+	  /* Calculate the equivalent of:
+
+	     sel = (index == i);
+
+	     which selects the elements of NEW_PHI_RESULT that should
+	     be included in the result.  */
+	  tree compare_val = build_int_cst (index_elt_type, i);
+	  compare_val = build_vector_from_val (index_type, compare_val);
+	  tree sel = gimple_build (&seq, EQ_EXPR, mask_type,
+				   index, compare_val);
+
+	  /* Calculate the equivalent of:
+
+	     vec = seq ? new_phi_result : vector_identity;
+
+	     VEC is now suitable for a full vector reduction.  */
+	  tree vec = gimple_build (&seq, VEC_COND_EXPR, vectype,
+				   sel, new_phi_result, vector_identity);
+
+	  /* Do the reduction and convert it to the appropriate type.  */
+	  tree scalar = gimple_build (&seq, reduc_code,
+				      TREE_TYPE (vectype), vec);
+	  scalar = gimple_convert (&seq, scalar_type, scalar);
+	  scalar_results.safe_push (scalar);
+	}
+      gsi_insert_seq_before (&exit_gsi, seq, GSI_SAME_STMT);
     }
   else
     {
@@ -6184,15 +6249,18 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       return false;
     }
 
-  if (double_reduc && !TYPE_VECTOR_SUBPARTS (reduc_vectype).is_constant ())
+  if ((double_reduc
+       || (STMT_SLP_TYPE (stmt_info)
+	   && !GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt))))
+      && !TYPE_VECTOR_SUBPARTS (reduc_vectype).is_constant ()
+      && !direct_internal_fn_supported_p (IFN_VEC_SHL_INSERT,
+					  reduc_vectype, OPTIMIZE_FOR_SPEED))
     {
-      /* One problem here is that we need to create a specific vector
-	 during vect_create_epilog_for_reduction.  */
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "Double reduction not supported for variable-length"
-			 " vectors.\n");
-
+			 "Reduction on variable-length vectors requires"
+			 " target support for a vector-shift-and-insert"
+			 " operation.\n");
       return false;
     }
 
@@ -6214,6 +6282,36 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
           return false;
         }
+    }
+
+  /* SLP reduction for variable-width vectors requires target support
+     for the reduction code (checked above).  The current implementation
+     also requires the vector size to be a multiple of the number of results
+     and needs to replace selected elements with a safe identity value.  */
+  tree scalar_identity = reduction_identity_for_code (code, scalar_type);
+  if (STMT_SLP_TYPE (stmt_info)
+      && !GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt))
+      && !TYPE_VECTOR_SUBPARTS (reduc_vectype).is_constant ())
+    {
+      if (!scalar_identity)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Unsupported form of SLP reduction for"
+			     " variable-width vectors: no identity"
+			     " value is available.\n");
+	  return false;
+	}
+      if (!multiple_p (TYPE_VECTOR_SUBPARTS (reduc_vectype),
+		       SLP_TREE_SCALAR_STMTS (slp_node).length ()))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Unsupported form of SLP reduction for"
+			     " variable-width vectors: the vector size"
+			     " is not a multiple of the number of results.\n");
+	  return false;
+	}
     }
 
   if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info) == COND_REDUCTION)
@@ -6244,7 +6342,6 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	}
     }
 
-  tree scalar_identity = reduction_identity_for_code (code, scalar_type);
   internal_fn cond_fn = get_conditional_internal_fn (code, scalar_type);
 
   if (!vec_stmt) /* transformation not required.  */
@@ -6608,7 +6705,8 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
   vect_create_epilog_for_reduction (vect_defs, stmt, epilog_copies,
                                     epilog_reduc_code, phis, reduc_index,
-				    double_reduc, slp_node, cond_name);
+				    double_reduc, slp_node, cond_name,
+				    scalar_identity);
 
   return true;
 }

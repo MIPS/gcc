@@ -446,23 +446,7 @@ again:
 	{
 	case vect_constant_def:
 	case vect_external_def:
-	  break;
-
         case vect_reduction_def:
-	  /* We must already have set a vector size by now.  */
-	  gcc_checking_assert (must_ne (current_vector_size, 0U));
-	  if (!current_vector_size.is_constant ())
-	    {
-	      if (dump_enabled_p ())
-		{
-		  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				   "Build SLP failed: invalid type of def "
-				   "for variable-length SLP ");
-		  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, oprnd);
-		  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
-		}
-	      return -1;
-	    }
 	  break;
 
 	case vect_internal_def:
@@ -3325,6 +3309,24 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 		/* Build the vector directly from ELTS.  */
 		vec_cst = gimple_build_vector (&ctor_seq, vector_type,
 					       nunits, elts);
+	      else if (neutral_op)
+		{
+		  vec_cst = gimple_build_vector_from_val (&ctor_seq,
+							  vector_type,
+							  neutral_op);
+		  int k = nunits;
+		  while (k > 0 && elts[k - 1] == neutral_op)
+		    k -= 1;
+		  while (k > 0)
+		    {
+		      k -= 1;
+		      gcall *call = gimple_build_call_internal
+			(IFN_VEC_SHL_INSERT, 2, vec_cst, elts[k]);
+		      vec_cst = make_ssa_name (vector_type);
+		      gimple_call_set_lhs (call, vec_cst);
+		      gimple_seq_add_stmt (&ctor_seq, call);
+		    }
+		}
 	      else
 		{
 		  if (vec_oprnds->is_empty ())

@@ -158,6 +158,7 @@
     UNSPEC_FLOAT_CONVERT
     UNSPEC_WHILE_LO
     UNSPEC_PRED_MOVE
+    UNSPEC_INSR
 ])
 
 (define_c_enum "unspecv" [
