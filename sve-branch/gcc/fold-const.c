@@ -1557,7 +1557,7 @@ const_binop (enum tree_code code, tree type, tree arg1, tree arg2)
 	    elts[i] = fold_convert_const (code == VEC_PACK_TRUNC_EXPR
 					  ? NOP_EXPR : FIX_TRUNC_EXPR,
 					  TREE_TYPE (type), elts[i]);
-	    if (elts[i] == NULL_TREE || !CONSTANT_CLASS_P (elts[i]))
+	    if (elts[i] == NULL_TREE || !constant_tree_p (elts[i]))
 	      return NULL_TREE;
 	  }
 
@@ -1606,7 +1606,7 @@ const_binop (enum tree_code code, tree type, tree arg1, tree arg2)
 	    if (t1 == NULL_TREE || t2 == NULL_TREE)
 	      return NULL_TREE;
 	    elts[out] = const_binop (MULT_EXPR, t1, t2);
-	    if (elts[out] == NULL_TREE || !CONSTANT_CLASS_P (elts[out]))
+	    if (elts[out] == NULL_TREE || !constant_tree_p (elts[out]))
 	      return NULL_TREE;
 	  }
 
@@ -1667,7 +1667,7 @@ const_unop (enum tree_code code, tree type, tree arg0)
 	   handle all cases and we might not be able to negate some
 	   constants.  */
 	tree tem = fold_negate_expr (UNKNOWN_LOCATION, arg0);
-	if (tem && CONSTANT_CLASS_P (tem))
+	if (tem && constant_tree_p (tem))
 	  return tem;
 	break;
       }
@@ -1769,7 +1769,7 @@ const_unop (enum tree_code code, tree type, tree arg0)
 	for (i = 0; i < out_nelts; i++)
 	  {
 	    elts[i] = fold_convert_const (subcode, TREE_TYPE (type), elts[i]);
-	    if (elts[i] == NULL_TREE || !CONSTANT_CLASS_P (elts[i]))
+	    if (elts[i] == NULL_TREE || !constant_tree_p (elts[i]))
 	      return NULL_TREE;
 	  }
 
@@ -1809,7 +1809,7 @@ const_unop (enum tree_code code, tree type, tree arg0)
 	for (i = 1; i < nelts; i++)
 	  {
 	    elts[0] = const_binop (subcode, elts[0], elts[i]);
-	    if (elts[0] == NULL_TREE || !CONSTANT_CLASS_P (elts[0]))
+	    if (elts[0] == NULL_TREE || !constant_tree_p (elts[0]))
 	      return NULL_TREE;
 	  }
 
@@ -4311,7 +4311,7 @@ simple_operand_p (const_tree exp)
   /* Strip any conversions that don't change the machine mode.  */
   STRIP_NOPS (exp);
 
-  return (CONSTANT_CLASS_P (exp)
+  return (constant_tree_p (exp)
   	  || TREE_CODE (exp) == SSA_NAME
 	  || (DECL_P (exp)
 	      && ! TREE_ADDRESSABLE (exp)
@@ -6936,9 +6936,9 @@ reorder_operands_p (const_tree arg0, const_tree arg1)
 bool
 tree_swap_operands_p (const_tree arg0, const_tree arg1, bool reorder)
 {
-  if (CONSTANT_CLASS_P (arg1))
+  if (constant_tree_p (arg1))
     return 0;
-  if (CONSTANT_CLASS_P (arg0))
+  if (constant_tree_p (arg0))
     return 1;
 
   STRIP_NOPS (arg0);
@@ -7761,7 +7761,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	  STRIP_NOPS (arg0);
 	}
 
-      if (CONSTANT_CLASS_P (arg0))
+      if (constant_tree_p (arg0))
 	{
 	  tree tem = const_unop (code, type, arg0);
 	  if (tem)
@@ -9315,7 +9315,7 @@ fold_binary_loc (location_t loc,
 
   /* Note that TREE_CONSTANT isn't enough: static var addresses are
      constant but we can't do arithmetic on them.  */
-  if (CONSTANT_CLASS_P (arg0) && CONSTANT_CLASS_P (arg1))
+  if (constant_tree_p (arg0) && constant_tree_p (arg1))
     {
       tem = const_binop (code, type, arg0, arg1);
       if (tem != NULL_TREE)

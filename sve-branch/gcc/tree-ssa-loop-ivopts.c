@@ -4511,13 +4511,13 @@ force_expr_to_var_cost (tree expr, bool speed)
     }
 
   if (op0 == NULL_TREE
-      || TREE_CODE (op0) == SSA_NAME || CONSTANT_CLASS_P (op0))
+      || TREE_CODE (op0) == SSA_NAME || constant_tree_p (op0))
     cost0 = no_cost;
   else
     cost0 = force_expr_to_var_cost (op0, speed);
 
   if (op1 == NULL_TREE
-      || TREE_CODE (op1) == SSA_NAME || CONSTANT_CLASS_P (op1))
+      || TREE_CODE (op1) == SSA_NAME || constant_tree_p (op1))
     cost1 = no_cost;
   else
     cost1 = force_expr_to_var_cost (op1, speed);

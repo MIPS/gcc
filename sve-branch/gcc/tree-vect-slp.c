@@ -3263,7 +3263,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 	  tree orig_op = op;
 	  if (!types_compatible_p (TREE_TYPE (vector_type), TREE_TYPE (op)))
 	    {
-	      if (CONSTANT_CLASS_P (op))
+	      if (constant_tree_p (op))
 		{
 		  if (VECTOR_BOOLEAN_TYPE_P (vector_type))
 		    {
@@ -3280,7 +3280,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 		  else
 		    op = fold_unary (VIEW_CONVERT_EXPR,
 				     TREE_TYPE (vector_type), op);
-		  gcc_assert (op && CONSTANT_CLASS_P (op));
+		  gcc_assert (op && constant_tree_p (op));
 		}
 	      else
 		{

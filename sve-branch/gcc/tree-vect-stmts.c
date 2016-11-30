@@ -1278,7 +1278,7 @@ vect_init_vector (gimple *stmt, tree val, tree type, gimple_stmt_iterator *gsi)
 	      tree true_val = build_all_ones_cst (TREE_TYPE (type));
 	      tree false_val = build_zero_cst (TREE_TYPE (type));
 
-	      if (CONSTANT_CLASS_P (val))
+	      if (constant_tree_p (val))
 		val = integer_zerop (val) ? false_val : true_val;
 	      else
 		{
@@ -1289,7 +1289,7 @@ vect_init_vector (gimple *stmt, tree val, tree type, gimple_stmt_iterator *gsi)
 		  val = new_temp;
 		}
 	    }
-	  else if (CONSTANT_CLASS_P (val))
+	  else if (constant_tree_p (val))
 	    val = fold_convert (TREE_TYPE (type), val);
 	  else
 	    {
@@ -4445,7 +4445,7 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
       gcc_assert (code == WIDEN_MULT_EXPR || code == WIDEN_LSHIFT_EXPR);
       /* For WIDEN_MULT_EXPR, if OP0 is a constant, use the type of
 	 OP1.  */
-      if (CONSTANT_CLASS_P (op0))
+      if (constant_tree_p (op0))
 	ok = vect_is_simple_use (op1, vinfo, &def_stmt, &dt[1], &vectype_in);
       else
 	ok = vect_is_simple_use (op1, vinfo, &def_stmt, &dt[1]);
@@ -4668,9 +4668,9 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
 
   if (op_type == binary_op)
     {
-      if (CONSTANT_CLASS_P (op0))
+      if (constant_tree_p (op0))
 	op0 = fold_convert (TREE_TYPE (op1), op0);
-      else if (CONSTANT_CLASS_P (op1))
+      else if (constant_tree_p (op1))
 	op1 = fold_convert (TREE_TYPE (op0), op1);
     }
 
@@ -9476,7 +9476,7 @@ vect_is_simple_use (tree operand, vec_info *vinfo,
       dump_printf (MSG_NOTE, "\n");
     }
 
-  if (CONSTANT_CLASS_P (operand))
+  if (constant_tree_p (operand))
     {
       *dt = vect_constant_def;
       return true;

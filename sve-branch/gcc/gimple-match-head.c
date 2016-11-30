@@ -61,7 +61,7 @@ static bool gimple_simplify (code_helper *, tree *,
 static inline bool
 constant_for_folding (tree t)
 {
-  return (CONSTANT_CLASS_P (t)
+  return (constant_tree_p (t)
 	  /* The following is only interesting to string builtins.  */
 	  || (TREE_CODE (t) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST));
@@ -87,7 +87,7 @@ gimple_resimplify1 (gimple_seq *seq,
       else
 	tem = fold_const_call (combined_fn (*res_code), type, res_ops[0]);
       if (tem != NULL_TREE
-	  && CONSTANT_CLASS_P (tem))
+	  && constant_tree_p (tem))
 	{
 	  if (TREE_OVERFLOW_P (tem))
 	    tem = drop_tree_overflow (tem);
@@ -134,7 +134,7 @@ gimple_resimplify2 (gimple_seq *seq,
 	tem = fold_const_call (combined_fn (*res_code), type,
 			       res_ops[0], res_ops[1]);
       if (tem != NULL_TREE
-	  && CONSTANT_CLASS_P (tem))
+	  && constant_tree_p (tem))
 	{
 	  if (TREE_OVERFLOW_P (tem))
 	    tem = drop_tree_overflow (tem);
@@ -196,7 +196,7 @@ gimple_resimplify3 (gimple_seq *seq,
 	tem = fold_const_call (combined_fn (*res_code), type,
 			       res_ops[0], res_ops[1], res_ops[2]);
       if (tem != NULL_TREE
-	  && CONSTANT_CLASS_P (tem))
+	  && constant_tree_p (tem))
 	{
 	  if (TREE_OVERFLOW_P (tem))
 	    tem = drop_tree_overflow (tem);
@@ -401,7 +401,7 @@ gimple_simplify (enum tree_code code, tree type,
     {
       tree res = const_unop (code, type, op0);
       if (res != NULL_TREE
-	  && CONSTANT_CLASS_P (res))
+	  && constant_tree_p (res))
 	return res;
     }
 
@@ -424,7 +424,7 @@ gimple_simplify (enum tree_code code, tree type,
     {
       tree res = const_binop (code, type, op0, op1);
       if (res != NULL_TREE
-	  && CONSTANT_CLASS_P (res))
+	  && constant_tree_p (res))
 	return res;
     }
 
@@ -459,7 +459,7 @@ gimple_simplify (enum tree_code code, tree type,
     {
       tree res = fold_ternary/*_to_constant */ (code, type, op0, op1, op2);
       if (res != NULL_TREE
-	  && CONSTANT_CLASS_P (res))
+	  && constant_tree_p (res))
 	return res;
     }
 
@@ -487,7 +487,7 @@ gimple_simplify (enum built_in_function fn, tree type,
   if (constant_for_folding (arg0))
     {
       tree res = fold_const_call (as_combined_fn (fn), type, arg0);
-      if (res && CONSTANT_CLASS_P (res))
+      if (res && constant_tree_p (res))
 	return res;
     }
 
@@ -510,7 +510,7 @@ gimple_simplify (enum built_in_function fn, tree type,
       && constant_for_folding (arg1))
     {
       tree res = fold_const_call (as_combined_fn (fn), type, arg0, arg1);
-      if (res && CONSTANT_CLASS_P (res))
+      if (res && constant_tree_p (res))
 	return res;
     }
 
@@ -534,7 +534,7 @@ gimple_simplify (enum built_in_function fn, tree type,
       && constant_for_folding (arg2))
     {
       tree res = fold_const_call (as_combined_fn (fn), type, arg0, arg1, arg2);
-      if (res && CONSTANT_CLASS_P (res))
+      if (res && constant_tree_p (res))
 	return res;
     }
 

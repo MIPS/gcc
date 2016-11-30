@@ -4248,7 +4248,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	     functions which do nothing else than computing a value from
 	     the arguments they are passed.  This makes it possible to
 	     fold partially or entirely the replacement expression.  */
-	  if (CONSTANT_CLASS_P (r) && code == CALL_EXPR)
+	  if (constant_tree_p (r) && code == CALL_EXPR)
 	    {
 	      tree t = maybe_inline_call_in_expr (exp);
 	      if (t)
@@ -4796,7 +4796,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
         if (TREE_SIDE_EFFECTS (arg##N))		\
 	  side_effects = 1;			\
         if (!TREE_READONLY (arg##N)		\
-	    && !CONSTANT_CLASS_P (arg##N))	\
+	    && !constant_tree_p (arg##N))	\
 	  (void) (read_only = 0);		\
         if (!TREE_CONSTANT (arg##N))		\
 	  (void) (constant = 0);		\

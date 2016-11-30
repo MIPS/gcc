@@ -413,7 +413,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
 	 are deferred to a debug temp, although we could avoid temps
 	 at the expense of duplication of expressions.  */
 
-      if (CONSTANT_CLASS_P (value)
+      if (constant_tree_p (value)
 	  || gimple_code (def_stmt) == GIMPLE_PHI
 	  || (usecount == 1
 	      && (!gimple_assign_single_p (def_stmt)

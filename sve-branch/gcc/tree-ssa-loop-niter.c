@@ -1802,7 +1802,7 @@ simplify_replace_tree (tree expr, tree old, tree new_tree)
     return NULL_TREE;
 
   /* Do not bother to replace constants.  */
-  if (CONSTANT_CLASS_P (old))
+  if (constant_tree_p (old))
     return expr;
 
   if (expr == old

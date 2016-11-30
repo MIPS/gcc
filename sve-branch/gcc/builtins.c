@@ -7132,7 +7132,7 @@ fold_builtin_constant_p (tree arg)
   STRIP_NOPS (arg);
 
   /* If we know this is a constant, emit the constant of one.  */
-  if (CONSTANT_CLASS_P (arg)
+  if (constant_tree_p (arg)
       || (TREE_CODE (arg) == CONSTRUCTOR
 	  && TREE_CONSTANT (arg)))
     return integer_one_node;

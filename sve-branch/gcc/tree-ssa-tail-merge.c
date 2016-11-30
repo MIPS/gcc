@@ -363,8 +363,8 @@ gvn_uses_equal (tree val1, tree val2)
   if (vn_valueize (val1) != vn_valueize (val2))
     return false;
 
-  return ((TREE_CODE (val1) == SSA_NAME || CONSTANT_CLASS_P (val1))
-	  && (TREE_CODE (val2) == SSA_NAME || CONSTANT_CLASS_P (val2)));
+  return ((TREE_CODE (val1) == SSA_NAME || constant_tree_p (val1))
+	  && (TREE_CODE (val2) == SSA_NAME || constant_tree_p (val2)));
 }
 
 /* Prints E to FILE.  */
