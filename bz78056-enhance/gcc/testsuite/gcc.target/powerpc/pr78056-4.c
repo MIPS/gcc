@@ -16,5 +16,5 @@ __attribute__((target("cpu=power8")))
 char
 char_fetch_add_relaxed (char *ptr, int value)
 { /* { dg-warning "lacks power8 support" } */
-  return __atomic_fetch_add (ptr, value, __ATOMIC_RELAXED); /* { dg-warning "implicit declaration" } */
+  return __atomic_fetch_add (ptr, value, __ATOMIC_RELAXED);
 }
