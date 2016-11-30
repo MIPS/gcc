@@ -1682,9 +1682,9 @@ backend_init_target (void)
 static void
 backend_init (void)
 {
+  init_rtlanal ();
   init_emit_once ();
 
-  init_rtlanal ();
   init_inline_once ();
   init_varasm_once ();
   save_register_info ();
