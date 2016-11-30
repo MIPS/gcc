@@ -1047,6 +1047,11 @@
 ;; Unsigned comparison operators.
 (define_code_iterator FAC_COMPARISONS [lt le ge gt])
 
+;; Predicated commutative SVE ops
+(define_code_iterator sve_predicated_comm_int_op [plus smin smax umin umax
+						  and ior xor])
+(define_code_iterator sve_predicated_comm_fp_op [plus])
+
 ;; SVE integer unary operations.
 (define_code_iterator SVE_INT_UNARY [neg not popcount])
 

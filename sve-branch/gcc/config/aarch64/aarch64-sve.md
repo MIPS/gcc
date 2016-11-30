@@ -1285,6 +1285,19 @@
   "<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
 )
 
+(define_insn "*<optab><mode>3_cond"
+  [(set (match_operand:SVE_I 0 "register_operand" "=w")
+	(sve_predicated_comm_int_op:SVE_I
+	  (unspec:SVE_I
+	    [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	     (match_operand:SVE_I 2 "register_operand" "w")
+	     (match_operand:SVE_I 3 "aarch64_constant_vector_operand")]
+	    UNSPEC_SEL)
+	  (match_operand:SVE_I 4 "register_operand" "0")))]
+  "TARGET_SVE && aarch64_simd_identity_value (<CODE>, <MODE>mode, operands[3])"
+  "<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>"
+)
+
 (define_expand "reduc_plus_scal_<mode>"
   [(set (match_operand:<VEL> 0 "register_operand")
 	(unspec:<VEL> [(match_dup 2)
@@ -1919,6 +1932,19 @@
 	  SVE_COND_FP_OP))]
   "TARGET_SVE"
   "<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+)
+
+(define_insn "*<optab><mode>3_cond"
+  [(set (match_operand:SVE_F 0 "register_operand" "=w")
+	(sve_predicated_comm_fp_op:SVE_F
+	  (unspec:SVE_F
+	    [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	     (match_operand:SVE_F 2 "register_operand" "w")
+	     (match_operand:SVE_F 3 "aarch64_constant_vector_operand")]
+	    UNSPEC_SEL)
+	  (match_operand:SVE_F 4 "register_operand" "0")))]
+  "TARGET_SVE && aarch64_simd_identity_value (<CODE>, <MODE>mode, operands[3])"
+  "<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>"
 )
 
 (define_insn "vec_shl_insert_<mode>"

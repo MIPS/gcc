@@ -5394,6 +5394,45 @@ static const int aarch64_nzcv_codes[] =
   0		/* NV, Any.  */
 };
 
+/* CODE is an rtx operation for which there is some identity I such that
+   (CODE:MODE V I) == (CODE:MODE I V) == V for all V of vector mode MODE.
+   Return true if X, which also has mode MODE, is that identity.  */
+
+bool
+aarch64_simd_identity_value (enum rtx_code code, machine_mode mode, rtx x)
+{
+  scalar_mode inner_mode = GET_MODE_INNER (mode);
+  rtx elt;
+  switch (code)
+    {
+    case PLUS:
+    case UMAX:
+    case IOR:
+    case XOR:
+      return x == CONST0_RTX (mode);
+
+    case UMIN:
+    case AND:
+      return x == CONSTM1_RTX (mode);
+
+    case SMIN:
+      return (is_const_vec_duplicate (x, &elt)
+	      && CONST_INT_P (elt)
+	      && wi::eq_p (rtx_mode_t (elt, inner_mode),
+			   wi::max_value (inner_mode, SIGNED)));
+
+    case SMAX:
+      return (is_const_vec_duplicate (x, &elt)
+	      && CONST_INT_P (elt)
+	      && wi::eq_p (rtx_mode_t (elt, inner_mode),
+			   wi::min_value (inner_mode, SIGNED)));
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+
 /* Print floating-point vector immediate operand X to F, negating it
    first if NEGATE is true.  Return true on success, false if it isn't
    a constant we can handle.  */
