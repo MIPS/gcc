@@ -11,10 +11,12 @@
 #define ogt(A, B) ((A) > (B))
 #define ordered(A, B) (!__builtin_isunordered (A, B))
 #define unordered(A, B) (__builtin_isunordered (A, B))
+#define ueq(A, B) (!__builtin_islessgreater (A, B))
 #define ult(A, B) (__builtin_isless (A, B))
 #define ule(A, B) (__builtin_islessequal (A, B))
 #define uge(A, B) (__builtin_isgreaterequal (A, B))
 #define ugt(A, B) (__builtin_isgreater (A, B))
+#define nueq(A, B) (__builtin_islessgreater (A, B))
 #define nult(A, B) (!__builtin_isless (A, B))
 #define nule(A, B) (!__builtin_islessequal (A, B))
 #define nuge(A, B) (!__builtin_isgreaterequal (A, B))
@@ -75,10 +77,12 @@ TEST_CMP (oge)
 TEST_CMP (ogt)
 TEST_CMP (ordered)
 TEST_CMP (unordered)
+TEST_CMP (ueq)
 TEST_CMP (ult)
 TEST_CMP (ule)
 TEST_CMP (uge)
 TEST_CMP (ugt)
+TEST_CMP (nueq)
 TEST_CMP (nult)
 TEST_CMP (nule)
 TEST_CMP (nuge)
@@ -87,8 +91,9 @@ TEST_CMP (nugt)
 /* { dg-final { scan-assembler-times {\tfcmeq\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, #0\.0\n} 5 } } */
 /* { dg-final { scan-assembler-times {\tfcmeq\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 10 } } */
 
-/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, #0\.0\n} 5 } } */
-/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 10 } } */
+/* 5 for ne, 5 for ueq and 5 for nueq.  */
+/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, #0\.0\n} 15 } } */
+/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 30 } } */
 
 /* 5 for lt, 5 for ult and 5 for nult.  */
 /* { dg-final { scan-assembler-times {\tfcmlt\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, #0\.0\n} 15 } } */
@@ -107,14 +112,14 @@ TEST_CMP (nugt)
 /* { dg-final { scan-assembler-times {\tfcmge\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 30 } } */
 
 /* { dg-final { scan-assembler-not {\tfcmuo\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, #0\.0\n} } } */
-/* 3 loops * 5 invocations for all 10 unordered comparisons.  */
-/* { dg-final { scan-assembler-times {\tfcmuo\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 150 } } */
+/* 3 loops * 5 invocations for all 12 unordered comparisons.  */
+/* { dg-final { scan-assembler-times {\tfcmuo\tp[0-9]+\.s, p[0-7]/z, z[0-9]+\.s, z[0-9]+\.s\n} 180 } } */
 
 /* { dg-final { scan-assembler-times {\tfcmeq\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, #0\.0\n} 7 } } */
 /* { dg-final { scan-assembler-times {\tfcmeq\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 14 } } */
 
-/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, #0\.0\n} 7 } } */
-/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 14 } } */
+/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, #0\.0\n} 21 } } */
+/* { dg-final { scan-assembler-times {\tfcmne\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 42 } } */
 
 /* { dg-final { scan-assembler-times {\tfcmlt\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, #0\.0\n} 21 } } */
 /* { dg-final { scan-assembler-times {\tfcmlt\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 42 } } */
@@ -130,5 +135,5 @@ TEST_CMP (nugt)
 
 /* { dg-final { scan-assembler-not {\tfcmuo\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, #0\.0\n} } } */
 /* 3 loops * 5 invocations, with 2 invocations having ncopies == 2,
-   for all 10 unordered comparisons.  */
-/* { dg-final { scan-assembler-times {\tfcmuo\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 210 } } */
+   for all 12 unordered comparisons.  */
+/* { dg-final { scan-assembler-times {\tfcmuo\tp[0-9]+\.d, p[0-7]/z, z[0-9]+\.d, z[0-9]+\.d\n} 252 } } */

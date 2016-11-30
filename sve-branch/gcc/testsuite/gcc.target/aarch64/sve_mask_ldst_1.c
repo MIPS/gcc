@@ -44,8 +44,6 @@ DEF_MASK_STORE (uint64_t)
 /* No scalar memory accesses.  */
 /* { dg-final { scan-assembler-not {\tand\t} } } */
 
-/* { dg-final { scan-assembler-times {\tld1b\tz[0-9]+\.b, p[0-7]/z} 6 } } */
-/* { dg-final { scan-assembler-times {\tld1h\tz[0-9]+\.h, p[0-7]/z} 6 } } */
 /* { dg-final { scan-assembler-times {\tld1w\tz[0-9]+\.s, p[0-7]/z} 6 } } */
 /* { dg-final { scan-assembler-times {\tld1d\tz[0-9]+\.d, p[0-7]/z} 6 } } */
 

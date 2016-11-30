@@ -2,6 +2,10 @@
 /* { dg-options "-O2 -ftree-vectorize -march=armv8-a+sve" } */
 /* { dg-require-effective-target fenv_exceptions } */
 
+#ifndef TEST_EXCEPTIONS
+#define TEST_EXCEPTIONS 1
+#endif
+
 #include <fenv.h>
 
 extern void abort (void) __attribute__ ((noreturn));
@@ -34,7 +38,8 @@ extern void abort (void) __attribute__ ((noreturn));
     test_##TYPE1##_##TYPE2##_##CMP##_var (dest1, src, 11, a, b, N);	\
     test_##TYPE1##_##TYPE2##_##CMP##_zero (dest2, src, 22, a, N);	\
     test_##TYPE1##_##TYPE2##_##CMP##_sel (dest3, 33, 44, a, 9, N);	\
-    if (!fetestexcept (FE_INVALID) != !(EXPECT_INVALID))	        \
+    if (TEST_EXCEPTIONS							\
+	&& !fetestexcept (FE_INVALID) != !(EXPECT_INVALID))		\
       abort ();								\
     for (int i = 0; i < N; ++i)						\
       {									\
@@ -70,10 +75,12 @@ main (void)
   RUN_CMP (ogt, 1)
   RUN_CMP (ordered, 0)
   RUN_CMP (unordered, 0)
+  RUN_CMP (ueq, 0)
   RUN_CMP (ult, 0)
   RUN_CMP (ule, 0)
   RUN_CMP (uge, 0)
   RUN_CMP (ugt, 0)
+  RUN_CMP (nueq, 0)
   RUN_CMP (nult, 0)
   RUN_CMP (nule, 0)
   RUN_CMP (nuge, 0)
