@@ -4302,7 +4302,9 @@ get_address_cost (bool symbol_present, bool var_present,
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "<Address Costs>:\n");
+	  fprintf (dump_file, "Address costs for mode %s with ratio "
+		   HOST_WIDE_INT_PRINT_DEC ":\n",
+		   GET_MODE_NAME (mem_mode), rat);
 
 	  for (i = 0; i < 16; i++)
 	    {

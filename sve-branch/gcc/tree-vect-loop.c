@@ -6788,9 +6788,21 @@ vectorizable_live_operation (gimple *stmt,
   if (STMT_VINFO_DEF_TYPE (stmt_info) == vect_reduction_def)
     return false;
 
+  if (dump_enabled_p () && !vec_stmt)
+    {
+      dump_printf_loc (MSG_NOTE, vect_location,
+		       "vectorizable_live_operation: ");
+      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
+    }
+
   /* FORNOW.  CHECKME.  */
   if (nested_in_vect_loop_p (loop, stmt))
-    return false;
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+		         "Not vectorized: stmt is nested.\n");
+      return false;
+    }
 
   /* If STMT is not relevant and it is a simple assignment and its inputs are
      invariant then it can remain in place, unvectorized.  The original last

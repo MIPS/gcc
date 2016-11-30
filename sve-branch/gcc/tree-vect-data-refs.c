@@ -2031,8 +2031,11 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
           dr = STMT_VINFO_DATA_REF (stmt_info);
 	  SET_DR_MISALIGNMENT (dr, 0);
 	  if (dump_enabled_p ())
-            dump_printf_loc (MSG_NOTE, vect_location,
-                             "Alignment of access forced using versioning.\n");
+	    {
+              dump_printf_loc (MSG_NOTE, vect_location,
+			       "Alignment of access forced by versioning: ");
+	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
+	    }
         }
 
       if (dump_enabled_p ())
