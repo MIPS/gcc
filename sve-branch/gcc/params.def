@@ -81,7 +81,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 	  "max-inline-insns-auto",
 	  "The maximum number of instructions when automatically inlining.",
-	  40, 0, 0)
+	  75, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_RECURSIVE,
 	  "max-inline-insns-recursive",
@@ -553,10 +553,12 @@ DEFPARAM(PARAM_VECT_MAX_VERSION_FOR_ALIGNMENT_CHECKS,
          "Bound on number of runtime checks inserted by the vectorizer's loop versioning for alignment check.",
          6, 0, 0)
 
+/* FIXME: Changed locally because it makes a significant difference for
+   our internal benchmarks.  Not intended to go upstream.  */
 DEFPARAM(PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS,
          "vect-max-version-for-alias-checks",
          "Bound on number of runtime checks inserted by the vectorizer's loop versioning for alias check.",
-         10, 0, 0)
+         50, 0, 0)
 
 DEFPARAM(PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT,
          "vect-max-peeling-for-alignment",
