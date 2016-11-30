@@ -259,8 +259,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      if (dump_enabled_p ())
 		{
 		  dump_printf_loc (MSG_NOTE, vect_location, "nunits = ");
-		  print_dec (nunits, dump_file, SIGNED);
-		  fprintf (dump_file, "\n");
+		  dump_dec (MSG_NOTE, nunits);
+		  dump_printf (MSG_NOTE, "\n");
 		}
 
 	      if (must_eq (vectorization_factor, 0U))
@@ -560,8 +560,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	  if (dump_enabled_p ())
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location, "nunits = ");
-	      print_dec (nunits, dump_file, SIGNED);
-	      fprintf (dump_file, "\n");
+	      dump_dec (MSG_NOTE, nunits);
+	      dump_printf (MSG_NOTE, "\n");
 	    }
 
 	  if (must_eq (vectorization_factor, 0U))
@@ -582,8 +582,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   if (dump_enabled_p ())
     {
       dump_printf_loc (MSG_NOTE, vect_location, "vectorization factor = ");
-      print_dec (vectorization_factor, dump_file, SIGNED);
-      fprintf (dump_file, "\n");
+      dump_dec (MSG_NOTE, vectorization_factor);
+      dump_printf (MSG_NOTE, "\n");
     }
 
   if (must_le (vectorization_factor, 1U))
@@ -1664,8 +1664,8 @@ vect_update_vf_for_slp (loop_vec_info loop_vinfo)
     {
       dump_printf_loc (MSG_NOTE, vect_location,
 		       "Updating vectorization factor to ");
-      print_dec (vectorization_factor, dump_file, SIGNED);
-      fprintf (dump_file, ".\n");
+      dump_dec (MSG_NOTE, vectorization_factor);
+      dump_printf (MSG_NOTE, ".\n");
     }
 }
 
@@ -2124,9 +2124,9 @@ start_over:
     {
       dump_printf_loc (MSG_NOTE, vect_location,
 		       "vectorization_factor = ");
-      print_dec (vectorization_factor, dump_file, SIGNED);
-      fprintf (dump_file, ", niters = " HOST_WIDE_INT_PRINT_DEC "\n",
-	       LOOP_VINFO_INT_NITERS (loop_vinfo));
+      dump_dec (MSG_NOTE, vectorization_factor);
+      dump_printf (MSG_NOTE, ", niters = " HOST_WIDE_INT_PRINT_DEC "\n",
+		   LOOP_VINFO_INT_NITERS (loop_vinfo));
     }
 
   HOST_WIDE_INT max_niter
@@ -2460,8 +2460,8 @@ vect_analyze_loop (struct loop *loop)
 	  dump_printf_loc (MSG_NOTE, vect_location,
 			   "***** Re-trying analysis with "
 			   "vector size ");
-	  print_dec (current_vector_size, dump_file, SIGNED);
-	  fprintf (dump_file, "\n");
+	  dump_dec (MSG_NOTE, current_vector_size);
+	  dump_printf (MSG_NOTE, "\n");
 	}
     }
 }

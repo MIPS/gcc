@@ -2143,8 +2143,8 @@ vect_make_slp_decision (loop_vec_info loop_vinfo)
       dump_printf_loc (MSG_NOTE, vect_location,
 		       "Decided to SLP %d instances. Unrolling factor ",
 		       decided_to_slp);
-      print_dec (unrolling_factor, dump_file, SIGNED);
-      fprintf (dump_file, "\n");
+      dump_dec (MSG_NOTE, unrolling_factor);
+      dump_printf (MSG_NOTE, "\n");
     }
 
   return (decided_to_slp > 0);
@@ -2874,8 +2874,8 @@ vect_slp_bb (basic_block bb)
 	      dump_printf_loc (MSG_NOTE, vect_location,
 			       "***** Re-trying analysis with "
 			       "vector size ");
-	      print_dec (current_vector_size, dump_file, SIGNED);
-	      fprintf (dump_file, "\n");
+	      dump_dec (MSG_NOTE, current_vector_size);
+	      dump_printf (MSG_NOTE, "\n");
 	    }
 
 	  /* Start over.  */

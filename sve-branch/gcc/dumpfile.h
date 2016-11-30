@@ -142,6 +142,9 @@ extern void dump_gimple_stmt (int, int, gimple *, int);
 extern void print_combine_total_stats (void);
 extern bool enable_rtl_dump_file (void);
 
+template<unsigned int N, typename C>
+void dump_dec (int, const poly_int<N, C> &);
+
 /* In tree-dump.c  */
 extern void dump_node (const_tree, int, FILE *);
 
