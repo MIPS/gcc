@@ -3250,6 +3250,8 @@ add_standard_iv_candidates (struct ivopts_data *data)
 }
 
 
+#define MAX_STEP_ITERATE 5
+
 /* Adds candidates bases on the old induction variable IV.  */
 
 static void
@@ -3420,12 +3422,35 @@ add_iv_candidate_derived_from_uses (struct ivopts_data *data)
 static void
 add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
 {
+  struct iv *iv = use->iv;
   poly_uint64 offset;
   tree base;
-  tree basetype;
-  struct iv *iv = use->iv;
+  tree basetype = TREE_TYPE (iv->base);
 
   add_candidate (data, iv->base, iv->step, false, use);
+
+  /* The same, but with all the different allowed step values.  */
+  if (address_p (use->type)
+      && POINTER_TYPE_P (basetype)
+      && TREE_CODE (iv->step) == INTEGER_CST)
+    for (int i = 0; i < MAX_STEP_ITERATE; i++)
+      {
+	HOST_WIDE_INT stepvalue = 1 << i;
+
+	if (!wi::multiple_of_p (iv->step, stepvalue, SIGNED))
+	  break;
+	if (multiplier_allowed_in_address_p (stepvalue,
+					     TYPE_MODE (use->mem_type),
+					     TYPE_ADDR_SPACE (basetype)))
+	  {
+	    tree ctype = TREE_TYPE (iv->step);
+	    tree newstep = wide_int_to_tree
+	      (ctype, wi::div_trunc (iv->step, stepvalue, SIGNED));
+
+	    add_candidate (data, build_int_cst (ctype, 0), newstep,
+			   true, use);
+	  }
+      }
 
   /* Record common candidate for use in case it can be shared by others.  */
   record_common_cand (data, iv->base, iv->step, use);
