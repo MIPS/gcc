@@ -1,3 +1,109 @@
+2016-11-29  Martin Sebor  <msebor@redhat.com>
+
+	avoid false positives on ILP32 targets.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: Same.
+
+2016-11-29  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/78512
+	* gcc.dg/tree-ssa/builtin-sprintf-6.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Remove test cases.
+
+2016-11-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/avx512f-kmovw-1.c (avx512f_test):
+	Force value through k register.
+
+2016-11-29  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/72774
+	PR c++/72786
+	PR c++/77922
+	PR c++/78313
+	* g++.dg/spellcheck-c++-11-keyword.C: New test case.
+	* g++.dg/spellcheck-macro-ordering.C: New test case.
+	* g++.dg/spellcheck-pr78313.C: New test case.
+
+2016-11-29  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h
+	(AARCH64_ONLY, CHECK_CRYPTO): New macros.
+	(Poly64x1_t, Poly64x2_t): Added types.
+	* gcc.target/aarch64/advsimd-intrinsics/p64_p128.c
+	(vmov_n_p64, vmovq_n_p64): Added.
+	(vld2_lane_p64, vld2q_lane_p64): Likewise.
+	(vld3_lane_p64, vld3q_lane_p64): Likewise.
+	(vld4_lane_p64, vld4q_lane_p64): Likewise.
+	(vst2_lane_p64, vst2q_lane_p64): Likewise.
+	(vst3_lane_p64, vst3q_lane_p64): Likewise.
+	(vst4_lane_p64, vst4q_lane_p64): Likewise.
+	(vget_lane_p64, vgetq_lane_p64): Likewise.
+	(vget_high_p64): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p128.c:
+	Added AArch64 flags.
+	(vreint_vector, vreint_vector_res): Moved to header.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p64.c:
+	Added Aarch64 flags.
+	(vreint_vector, vreint_vector_res): Moved to header.
+
+2016-11-29  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58175
+	* gfortran.dg/finalize_30.f90: New test case.
+
+2016-11-29  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/78582
+	* gcc.dg/pr78582.c: New test.
+
+2016-11-29  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* testsuite/gcc.dg/pr31096-1.c: Use __{U,}INT32_TYPE__ for
+	targets with sizeof(int) < 4.
+
+2016-11-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/78546
+	* gcc.dg/tree-ssa/forwprop-36.c: New testcase.
+
+2016-11-29  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.target/powerpc/rldic-0.c: New testcase.
+	* gcc.target/powerpc/rldic-1.c: New testcase.
+	* gcc.target/powerpc/rldic-2.c: New testcase.
+	* gcc.target/powerpc/rldicl-0.c: New testcase.
+	* gcc.target/powerpc/rldicl-1.c: New testcase.
+	* gcc.target/powerpc/rldicl-2.c: New testcase.
+	* gcc.target/powerpc/rldicr-0.c: New testcase.
+	* gcc.target/powerpc/rldicr-1.c: New testcase.
+	* gcc.target/powerpc/rldicr-2.c: New testcase.
+	* gcc.target/powerpc/rldicx.h: New file.
+	* gcc.target/powerpc/rldimi-0.c: New testcase.
+	* gcc.target/powerpc/rldimi-1.c: New testcase.
+	* gcc.target/powerpc/rldimi-2.c: New testcase.
+	* gcc.target/powerpc/rldimi.h: New file.
+	* gcc.target/powerpc/rlwimi-0.c: New testcase.
+	* gcc.target/powerpc/rlwimi-1.c: New testcase.
+	* gcc.target/powerpc/rlwimi-2.c: New testcase.
+	* gcc.target/powerpc/rlwimi.h: New file.
+	* gcc.target/powerpc/rlwinm-0.c: New testcase.
+	* gcc.target/powerpc/rlwinm-1.c: New testcase.
+	* gcc.target/powerpc/rlwinm-2.c: New testcase.
+	* gcc.target/powerpc/rlwinm.h: New file.
+
+2016-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/78540
+	* gcc.dg/pr78540.c: New test.
+
+2016-11-28  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78520
+	* gcc.dg/tree-ssa/builtin-sprintf-5.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-6.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Add test cases.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c: Add test cases.
+
 2016-11-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/72808
