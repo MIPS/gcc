@@ -437,6 +437,16 @@ copy_cfi_row (dw_cfi_row *src)
   return dst;
 }
 
+/* Return a copy of an existing CFA location.  */
+
+static dw_cfa_location *
+copy_cfa (dw_cfa_location *src)
+{
+  dw_cfa_location *dst = ggc_alloc<dw_cfa_location> ();
+  *dst = *src;
+  return dst;
+}
+
 /* Generate a new label for the CFI info to refer to.  */
 
 static char *
@@ -635,7 +645,10 @@ lookup_cfa_1 (dw_cfi_ref cfi, dw_cfa_location *loc, dw_cfa_location *remember)
       loc->offset = cfi->dw_cfi_oprnd2.dw_cfi_offset;
       break;
     case DW_CFA_def_cfa_expression:
-      get_cfa_from_loc_descr (loc, cfi->dw_cfi_oprnd1.dw_cfi_loc);
+      if (cfi->dw_cfi_oprnd2.dw_cfi_cfa_loc)
+	*loc = *cfi->dw_cfi_oprnd2.dw_cfi_cfa_loc;
+      else
+	get_cfa_from_loc_descr (loc, cfi->dw_cfi_oprnd1.dw_cfi_loc);
       break;
 
     case DW_CFA_remember_state:
@@ -684,6 +697,8 @@ cfi_oprnd_equal_p (enum dw_cfi_oprnd_type t, dw_cfi_oprnd *a, dw_cfi_oprnd *b)
 	      || strcmp (a->dw_cfi_addr, b->dw_cfi_addr) == 0);
     case dw_cfi_oprnd_loc:
       return loc_descr_equal_p (a->dw_cfi_loc, b->dw_cfi_loc);
+    case dw_cfi_oprnd_cfa_loc:
+      return cfa_equal_p (a->dw_cfi_cfa_loc, b->dw_cfi_cfa_loc);
     }
   gcc_unreachable ();
 }
@@ -816,6 +831,11 @@ def_cfa_0 (dw_cfa_location *old_cfa, dw_cfa_location *new_cfa)
       cfi->dw_cfi_opc = DW_CFA_def_cfa_expression;
       loc_list = build_cfa_loc (new_cfa, 0);
       cfi->dw_cfi_oprnd1.dw_cfi_loc = loc_list;
+      if (!new_cfa->offset.is_constant ()
+	  || !new_cfa->base_offset.is_constant ())
+	/* It's hard to reconstruct the CFA location for a polynomial
+	   expression, so just cache it instead.  */
+	cfi->dw_cfi_oprnd2.dw_cfi_cfa_loc = copy_cfa (new_cfa);
     }
 
   return cfi;

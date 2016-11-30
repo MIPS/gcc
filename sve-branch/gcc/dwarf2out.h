@@ -43,7 +43,8 @@ enum dw_cfi_oprnd_type {
   dw_cfi_oprnd_reg_num,
   dw_cfi_oprnd_offset,
   dw_cfi_oprnd_addr,
-  dw_cfi_oprnd_loc
+  dw_cfi_oprnd_loc,
+  dw_cfi_oprnd_cfa_loc
 };
 
 typedef union GTY(()) {
@@ -51,6 +52,8 @@ typedef union GTY(()) {
   HOST_WIDE_INT GTY ((tag ("dw_cfi_oprnd_offset"))) dw_cfi_offset;
   const char * GTY ((tag ("dw_cfi_oprnd_addr"))) dw_cfi_addr;
   struct dw_loc_descr_node * GTY ((tag ("dw_cfi_oprnd_loc"))) dw_cfi_loc;
+  struct dw_cfa_location * GTY ((tag ("dw_cfi_oprnd_cfa_loc")))
+    dw_cfi_cfa_loc;
 } dw_cfi_oprnd;
 
 struct GTY(()) dw_cfi_node {
