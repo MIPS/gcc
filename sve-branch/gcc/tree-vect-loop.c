@@ -7023,20 +7023,49 @@ vectorizable_live_operation (gimple *stmt,
 	}
     }
 
-  if (!vec_stmt)
+  /* Check if required operations can be supported.  */
+
+  if (!direct_internal_fn_supported_p (IFN_EXTRACT_LAST, vectype,
+				       OPTIMIZE_FOR_SPEED))
     {
       if (LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "Can't use a fully-masked loop because "
-			     "a value is live outside the loop.\n");
+			     "the target doesn't support extract last "
+			     "reduction.\n");
 	  LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
+	  /* Don't return - we can still vectorize without masking.  */
 	}
-
-      /* No transformation required.  */
-      return true;
     }
+
+  if (slp_node && LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "Can't use a fully-masked loop; "
+			 "SLP statement is live after the loop.\n");
+      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
+      /* Don't return - we can still vectorize without masking.  */
+    }
+
+  if (ncopies > 1)
+    {
+      if (LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "Can't use a fully-masked loop because"
+			     " ncopies is greater than 1.\n");
+	  LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
+	  /* Don't return - we can still vectorize without masking.  */
+	}
+    }
+
+  if (!vec_stmt)
+    /* No transformation required.  */
+    return true;
 
   /* If stmt has a related stmt, then use that for getting the lhs.  */
   if (is_pattern_stmt_p (stmt_info))
@@ -7055,6 +7084,8 @@ vectorizable_live_operation (gimple *stmt,
   tree vec_lhs, bitstart;
   if (slp_node)
     {
+      gcc_assert (!LOOP_VINFO_MASK_TYPE (loop_vinfo));
+
       /* The code above set vec_entry and vec_index to the number of whole
 	 vectors and elements that we'll need to count back from the end.
 	 Convert them to count from the beginning, now that the number of
@@ -7074,6 +7105,8 @@ vectorizable_live_operation (gimple *stmt,
     {
       enum vect_def_type dt = STMT_VINFO_DEF_TYPE (stmt_info);
       vec_lhs = vect_get_vec_def_for_operand_1 (stmt, dt);
+      gcc_checking_assert (ncopies == 1
+			   || !LOOP_VINFO_MASK_TYPE (loop_vinfo));
 
       /* For multiple copies, get the last copy.  */
       for (int i = 1; i < ncopies; ++i)
@@ -7084,13 +7117,36 @@ vectorizable_live_operation (gimple *stmt,
       bitstart = int_const_binop (MINUS_EXPR, vec_bitsize, bitsize);
     }
 
-  /* Create a new vectorized stmt for the uses of STMT and insert outside the
-     loop.  */
+  /* Create a new vectorized stmt for the uses of STMT and insert outside
+     the loop.  */
   gimple_seq stmts = NULL;
-  tree new_tree = build3 (BIT_FIELD_REF, TREE_TYPE (vectype), vec_lhs, bitsize,
-			  bitstart);
-  new_tree = force_gimple_operand (fold_convert (lhs_type, new_tree), &stmts,
-				   true, NULL_TREE);
+  tree new_tree;
+  if (LOOP_VINFO_MASK_TYPE (loop_vinfo))
+    {
+      tree scalar_type = TREE_TYPE (STMT_VINFO_VECTYPE (stmt_info));
+      tree scalar_res = make_ssa_name (scalar_type);
+      tree mask;
+      gimple *new_stmt;
+
+      mask = LOOP_VINFO_MASK (loop_vinfo);
+
+      new_stmt = gimple_build_call_internal (IFN_EXTRACT_LAST, 2, vec_lhs,
+					     mask);
+      gimple_call_set_lhs (new_stmt, scalar_res);
+      gimple_seq_add_stmt (&stmts, new_stmt);
+
+      new_tree = gimple_convert (&stmts, lhs_type, scalar_res);
+    }
+  else
+    {
+      /* Create a new vectorized stmt for the uses of STMT and insert
+	 outside the loop.  */
+      new_tree = build3 (BIT_FIELD_REF, TREE_TYPE (vectype),
+			 vec_lhs, bitsize, bitstart);
+      new_tree = force_gimple_operand (fold_convert (lhs_type, new_tree),
+				       &stmts, true, NULL_TREE);
+    }
+
   if (stmts)
     gsi_insert_seq_on_edge_immediate (single_exit (loop), stmts);
 

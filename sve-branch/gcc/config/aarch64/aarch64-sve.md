@@ -821,6 +821,28 @@
   "<logical_nn>\t%0.b, %1/z, %2.b, %3.b"
 )
 
+(define_insn "aarch64_brka_<mode>"
+  [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
+	(unspec:PRED_ALL
+	  [(match_operand:PRED_ALL 1 "register_operand" "Upa")
+	   (match_operand:PRED_ALL 2 "register_operand" "Upa")]
+	  UNSPEC_BRKA))]
+  "TARGET_SVE"
+  "brka\t%0.b, %1/z, %2.b"
+)
+
+(define_expand "break_after_<mode>"
+  [(set (match_operand:PRED_ALL 0 "register_operand")
+	(unspec:PRED_ALL
+	  [(match_dup 2)
+	   (match_operand:PRED_ALL 1 "register_operand")]
+	  UNSPEC_BRKA))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<MODE>mode, CONSTM1_RTX (<MODE>mode));
+  }
+)
+
 (define_expand "v<optab><mode>3"
   [(set (match_operand:SVE_I 0 "register_operand")
 	(unspec:SVE_I
@@ -1957,6 +1979,18 @@
 	  (match_operand:SVE_F 4 "register_operand" "0")))]
   "TARGET_SVE && aarch64_simd_identity_value (<CODE>, <MODE>mode, operands[3])"
   "<sve_fp_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %2.<Vetype>"
+)
+
+(define_insn "extract_last_<mode>"
+  [(set (match_operand:<VEL> 0 "register_operand" "=r, w")
+	(unspec:<VEL>
+	  [(match_operand:SVE_ALL 1 "register_operand" "w, w")
+	   (match_operand:<VPRED> 2 "register_operand" "Upl, Upl")]
+	  UNSPEC_LASTB))]
+  "TARGET_SVE"
+  "@
+   lastb\t%<vwcore>0, %2, %1.<Vetype>
+   lastb\t%<Vetype>0, %2, %1.<Vetype>"
 )
 
 (define_expand "mask_popcount<mode>"
