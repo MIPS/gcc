@@ -2139,7 +2139,9 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   /* Still incomplete => don't allocate it; treat the tentative defn
      (which is what it must have been) as an `extern' reference.  */
 
-  if (!dont_output_data && DECL_SIZE (decl) == 0)
+  if (!dont_output_data
+      && (DECL_SIZE (decl) == 0
+	  || TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST))
     {
       error ("storage size of %q+D isn%'t known", decl);
       TREE_ASM_WRITTEN (decl) = 1;
