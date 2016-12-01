@@ -1,17 +1,12 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power5" } } */
-/* Is desirable to require-effective-target to be p5_ok, but there's
+
+/* It is desirable to require-effective-target to be p5_ok, but there's
    no such effective target, so we're just assuming that the effective
    target is at minimum power5 ok.  This test will fail if the
    effective target is not power 5 ok, but there is no dg directive to
    "unsupport" this test on such a platform.  */
-/* dfp_hw represents power 6 */
-
-/* kelvin is just tinkering here.  dejagnu seems to be ignoring my
- * Power-specific dfp_hw selector.  Maybe it will do better with this
- * target-independent selector, which appears to be "equivalent",
- */
-/* { dg-skip-if "" { hard_dfp } } */
+/* dfp_hw represents support for power 6 */
 /* { dg-skip-if "" { dfp_hw } } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
 /* { dg-options "-mcpu=power5" } */
