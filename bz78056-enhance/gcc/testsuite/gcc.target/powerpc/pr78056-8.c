@@ -11,7 +11,7 @@
  * Power-specific dfp_hw selector.  Maybe it will do better with this
  * target-independent selector, which appears to be "equivalent",
  */
-/* { dg-skip-if "" { hard-dfp } } */
+/* { dg-skip-if "" { hard_dfp } } */
 /* { dg-skip-if "" { dfp_hw } } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
 /* { dg-options "-mcpu=power5" } */
