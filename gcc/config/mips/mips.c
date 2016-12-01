@@ -1127,7 +1127,20 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (36),           /* int_div_di */
 		    2,            /* branch_cost */
 		    4             /* memory_latency */
-  }
+   },
+   { /* M6200 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (34),           /* int_div_si */
+    COSTS_N_INSNS (68),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+   }
 };
 
 static rtx mips_find_pic_call_symbol (rtx_insn *, rtx, bool);
