@@ -1,5 +1,10 @@
 2016-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 243131.
+	* REVISION: Update subversion id.
+
+2016-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/constraints.md (wW constraint): Delete, code never
 	worked.
 	* config/rs6000/predicates.md (vextract_shift_operand): Likewise.

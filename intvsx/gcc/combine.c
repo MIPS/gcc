@@ -4627,6 +4627,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       basic_block bb = BLOCK_FOR_INSN (i3);
       gcc_assert (bb);
       remove_edge (split_block (bb, i3));
+      emit_barrier_after_bb (bb);
       *new_direct_jump_p = 1;
     }
 
@@ -4637,6 +4638,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       basic_block bb = BLOCK_FOR_INSN (undobuf.other_insn);
       gcc_assert (bb);
       remove_edge (split_block (bb, undobuf.other_insn));
+      emit_barrier_after_bb (bb);
       *new_direct_jump_p = 1;
     }
 
@@ -9176,7 +9178,7 @@ if_then_else_cond (rtx x, rtx *ptrue, rtx *pfalse)
   /* If X is known to be either 0 or -1, those are the true and
      false values when testing X.  */
   else if (x == constm1_rtx || x == const0_rtx
-	   || (mode != VOIDmode
+	   || (mode != VOIDmode && mode != BLKmode
 	       && num_sign_bit_copies (x, mode) == GET_MODE_PRECISION (mode)))
     {
       *ptrue = constm1_rtx, *pfalse = const0_rtx;
@@ -11251,6 +11253,7 @@ change_zero_ext (rtx pat)
       else if (GET_CODE (x) == ZERO_EXTEND
 	       && SCALAR_INT_MODE_P (mode)
 	       && GET_CODE (XEXP (x, 0)) == SUBREG
+	       && SCALAR_INT_MODE_P (GET_MODE (SUBREG_REG (XEXP (x, 0))))
 	       && !paradoxical_subreg_p (XEXP (x, 0))
 	       && subreg_lowpart_p (XEXP (x, 0)))
 	{
@@ -12558,7 +12561,8 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		  if (GET_CODE (op0) == LSHIFTRT)
 		    code = unsigned_condition (code);
 
-		  const_op <<= INTVAL (XEXP (op0, 1));
+		  const_op = (unsigned HOST_WIDE_INT) const_op
+			      << INTVAL (XEXP (op0, 1));
 		  if (low_bits != 0
 		      && (code == GT || code == GTU
 			  || code == LE || code == LEU))
