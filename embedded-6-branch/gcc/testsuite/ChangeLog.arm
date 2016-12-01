@@ -1,3 +1,13 @@
+2016-12-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2016-11-30  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (add_options_for_arm_arch_v6m): Add
+	-mfloat-abi=soft option.
+	(add_options_for_arm_arch_v8m_base): Likewise.  Reindent containing
+	foreach loop.
+
 2016-11-22  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	Backport from mainline
