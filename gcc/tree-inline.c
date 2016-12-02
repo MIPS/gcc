@@ -156,7 +156,7 @@ insert_debug_decl_map (copy_body_data *id, tree key, tree value)
   if (!gimple_in_ssa_p (id->src_cfun))
     return;
 
-  if (!opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
+  if (!flag_var_tracking_assignments)
     return;
 
   if (!target_for_debug_bind (key))
@@ -1345,8 +1345,7 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
   bool skip_first = false;
   gimple_seq stmts = NULL;
 
-  if (is_gimple_debug (stmt)
-      && !opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
+  if (is_gimple_debug (stmt) && flag_var_tracking_assignments)
     return stmts;
 
   /* Begin by recognizing trees that we'll completely rewrite for the
@@ -3035,7 +3034,7 @@ insert_init_debug_bind (copy_body_data *id,
   if (!gimple_in_ssa_p (id->src_cfun))
     return NULL;
 
-  if (!opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
+  if (!flag_var_tracking_assignments)
     return NULL;
 
   tracked_var = target_for_debug_bind (var);
@@ -4368,7 +4367,7 @@ reset_debug_bindings (copy_body_data *id, gimple_stmt_iterator gsi)
   if (!gimple_in_ssa_p (id->src_cfun))
     return;
 
-  if (!opt_for_fn (id->dst_fn, flag_var_tracking_assignments))
+  if (!flag_var_tracking_assignments)
     return;
 
   for (var = DECL_ARGUMENTS (id->src_fn);
