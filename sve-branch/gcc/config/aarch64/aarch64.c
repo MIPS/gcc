@@ -13884,7 +13884,6 @@ emit_unspec2 (rtx target, int code, rtx op0, rtx op1)
 void
 aarch64_expand_sve_vec_perm (rtx target, rtx op0, rtx op1, rtx sel)
 {
-  rtx base, step;
   machine_mode data_mode = GET_MODE (target);
   machine_mode sel_mode = GET_MODE (sel);
   /* Enforced by the pattern condition.  */
