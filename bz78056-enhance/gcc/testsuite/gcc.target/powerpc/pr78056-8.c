@@ -18,7 +18,7 @@
 __attribute__((target("cpu=power6")))
 /* fabs/fnabs/fsel */
 double normal1 (double a, double b)
-{ /* { dg-warning "lacks power9 support" } */
+{ /* { dg-warning "lacks power6 support" } */
   return __builtin_copysign (a, b); /* { dg-warning "implicit declaration" } */
 }
 
