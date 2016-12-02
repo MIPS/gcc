@@ -6214,7 +6214,9 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
       bitsize /= 2;
       small_val = splat_val >> bitsize;
       mask >>= bitsize;
-      if (splat_val != ((small_val << bitsize) | (small_val & mask)))
+      if (splat_val != ((HOST_WIDE_INT)
+          ((unsigned HOST_WIDE_INT) small_val << bitsize)
+          | (small_val & mask)))
 	return false;
       splat_val = small_val;
     }
@@ -7103,6 +7105,8 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
   int width = GET_MODE_SIZE (inner_mode);
   int i;
 
+  val = force_reg (GET_MODE (val), val);
+
   if (VECTOR_MEM_VSX_P (mode))
     {
       rtx insn = NULL_RTX;
@@ -7255,6 +7259,8 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	  convert_move (tmp, elt, 0);
 	  elt = tmp;
 	}
+      else if (!REG_P (elt))
+	elt = force_reg (DImode, elt);
 
       switch (mode)
 	{
@@ -8443,14 +8449,13 @@ rs6000_legitimate_offset_address_p (machine_mode mode, rtx x,
     case TFmode:
     case IFmode:
     case KFmode:
-      if (TARGET_E500_DOUBLE)
-	return (SPE_CONST_OFFSET_OK (offset)
-		&& SPE_CONST_OFFSET_OK (offset + 8));
-      /* fall through */
-
     case TDmode:
     case TImode:
     case PTImode:
+      if (TARGET_E500_DOUBLE)
+	return (SPE_CONST_OFFSET_OK (offset)
+		&& SPE_CONST_OFFSET_OK (offset + 8));
+
       extra = 8;
       if (!worst_case)
 	break;
@@ -16793,8 +16798,8 @@ rs6000_init_builtins (void)
     {
       ibm128_float_type_node = make_node (REAL_TYPE);
       TYPE_PRECISION (ibm128_float_type_node) = 128;
-      layout_type (ibm128_float_type_node);
       SET_TYPE_MODE (ibm128_float_type_node, IFmode);
+      layout_type (ibm128_float_type_node);
 
       lang_hooks.types.register_builtin_type (ibm128_float_type_node,
 					      "__ibm128");
@@ -16813,8 +16818,8 @@ rs6000_init_builtins (void)
     {
       ieee128_float_type_node = make_node (REAL_TYPE);
       TYPE_PRECISION (ibm128_float_type_node) = 128;
-      layout_type (ieee128_float_type_node);
       SET_TYPE_MODE (ieee128_float_type_node, KFmode);
+      layout_type (ieee128_float_type_node);
 
       /* If we are not exporting the __float128/_Float128 keywords, we need a
 	 keyword to get the types created.  Use __ieee128 as the dummy
@@ -25455,7 +25460,7 @@ rs6000_reg_live_or_pic_offset_p (int reg)
       if (TARGET_TOC && TARGET_MINIMAL_TOC
 	  && (crtl->calls_eh_return
 	      || df_regs_ever_live_p (reg)
-	      || get_pool_size ()))
+	      || get_pool_size_upper_bound ()))
 	return true;
 
       if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN)
@@ -26261,7 +26266,7 @@ rs6000_stack_info (void)
 #ifdef TARGET_RELOCATABLE
       || (DEFAULT_ABI == ABI_V4
 	  && (TARGET_RELOCATABLE || flag_pic > 1)
-	  && get_pool_size () != 0)
+	  && get_pool_size_upper_bound () != 0)
 #endif
       || rs6000_ra_ever_killed ())
     info->lr_save_p = 1;
@@ -27169,6 +27174,7 @@ rs6000_frame_related (rtx_insn *insn, rtx reg, HOST_WIDE_INT val,
      Call simplify_replace_rtx on the SETs rather than the whole insn
      so as to leave the other stuff alone (for example USE of r12).  */
 
+  set_used_flags (pat);
   if (GET_CODE (pat) == SET)
     {
       if (repl)
@@ -27202,8 +27208,7 @@ rs6000_frame_related (rtx_insn *insn, rtx reg, HOST_WIDE_INT val,
     gcc_unreachable ();
 
   RTX_FRAME_RELATED_P (insn) = 1;
-  if (repl || reg2)
-    add_reg_note (insn, REG_FRAME_RELATED_EXPR, pat);
+  add_reg_note (insn, REG_FRAME_RELATED_EXPR, copy_rtx_if_shared (pat));
 
   return insn;
 }
@@ -27533,7 +27538,11 @@ rs6000_emit_stack_reset (rs6000_stack_t *info,
 			 rtx frame_reg_rtx, HOST_WIDE_INT frame_off,
 			 unsigned updt_regno)
 {
-  rtx updt_reg_rtx;
+  /* If there is nothing to do, don't do anything.  */
+  if (frame_off == 0 && REGNO (frame_reg_rtx) == updt_regno)
+    return NULL_RTX;
+
+  rtx updt_reg_rtx = gen_rtx_REG (Pmode, updt_regno);
 
   /* This blockage is needed so that sched doesn't decide to move
      the sp change before the register restores.  */
@@ -27541,18 +27550,17 @@ rs6000_emit_stack_reset (rs6000_stack_t *info,
       || (TARGET_SPE_ABI
 	  && info->spe_64bit_regs_used != 0
 	  && info->first_gp_reg_save != 32))
-    rs6000_emit_stack_tie (frame_reg_rtx, frame_pointer_needed);
+    return emit_insn (gen_stack_restore_tie (updt_reg_rtx, frame_reg_rtx,
+					     GEN_INT (frame_off)));
 
   /* If we are restoring registers out-of-line, we will be using the
      "exit" variants of the restore routines, which will reset the
      stack for us.  But we do need to point updt_reg into the
      right place for those routines.  */
-  updt_reg_rtx = gen_rtx_REG (Pmode, updt_regno);
-
   if (frame_off != 0)
     return emit_insn (gen_add3_insn (updt_reg_rtx,
 				     frame_reg_rtx, GEN_INT (frame_off)));
-  else if (REGNO (frame_reg_rtx) != updt_regno)
+  else
     return emit_move_insn (updt_reg_rtx, frame_reg_rtx);
 
   return NULL_RTX;
@@ -28035,7 +28043,8 @@ rs6000_emit_prologue (void)
       cfun->machine->r2_setup_needed = df_regs_ever_live_p (TOC_REGNUM);
 
       /* With -mminimal-toc we may generate an extra use of r2 below.  */
-      if (TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
+      if (TARGET_TOC && TARGET_MINIMAL_TOC
+	  && get_pool_size_upper_bound () != 0)
 	cfun->machine->r2_setup_needed = true;
     }
 
@@ -28890,7 +28899,8 @@ rs6000_emit_prologue (void)
 
   /* If we are using RS6000_PIC_OFFSET_TABLE_REGNUM, we need to set it up.  */
   if (!TARGET_SINGLE_PIC_BASE
-      && ((TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
+      && ((TARGET_TOC && TARGET_MINIMAL_TOC
+	   && get_pool_size_upper_bound () != 0)
 	  || (DEFAULT_ABI == ABI_V4
 	      && (flag_pic == 1 || (flag_pic && TARGET_SECURE_PLT))
 	      && df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM))))
@@ -30235,11 +30245,15 @@ rs6000_output_function_epilogue (FILE *file,
 {
 #if TARGET_MACHO
   macho_branch_islands ();
-  /* Mach-O doesn't support labels at the end of objects, so if
-     it looks like we might want one, insert a NOP.  */
+
   {
     rtx_insn *insn = get_last_insn ();
     rtx_insn *deleted_debug_label = NULL;
+
+    /* Mach-O doesn't support labels at the end of objects, so if
+       it looks like we might want one, take special action.
+
+       First, collect any sequence of deleted debug labels.  */
     while (insn
 	   && NOTE_P (insn)
 	   && NOTE_KIND (insn) != NOTE_INSN_DELETED_LABEL)
@@ -30252,11 +30266,40 @@ rs6000_output_function_epilogue (FILE *file,
 	  deleted_debug_label = insn;
 	insn = PREV_INSN (insn);
       }
-    if (insn
-	&& (LABEL_P (insn)
+
+    /* Second, if we have:
+       label:
+	 barrier
+       then this needs to be detected, so skip past the barrier.  */
+
+    if (insn && BARRIER_P (insn))
+      insn = PREV_INSN (insn);
+
+    /* Up to now we've only seen notes or barriers.  */
+    if (insn)
+      {
+	if (LABEL_P (insn)
 	    || (NOTE_P (insn)
-		&& NOTE_KIND (insn) == NOTE_INSN_DELETED_LABEL)))
-      fputs ("\tnop\n", file);
+		&& NOTE_KIND (insn) == NOTE_INSN_DELETED_LABEL))
+	  /* Trailing label: <barrier>.  */
+	  fputs ("\tnop\n", file);
+	else
+	  {
+	    /* Lastly, see if we have a completely empty function body.  */
+	    while (insn && ! INSN_P (insn))
+	      insn = PREV_INSN (insn);
+	    /* If we don't find any insns, we've got an empty function body;
+	       I.e. completely empty - without a return or branch.  This is
+	       taken as the case where a function body has been removed
+	       because it contains an inline __builtin_unreachable().  GCC
+	       states that reaching __builtin_unreachable() means UB so we're
+	       not obliged to do anything special; however, we want
+	       non-zero-sized function bodies.  To meet this, and help the
+	       user out, let's trap the case.  */
+	    if (insn == NULL)
+	      fputs ("\ttrap\n", file);
+	  }
+      }
     else if (deleted_debug_label)
       for (insn = deleted_debug_label; insn; insn = NEXT_INSN (insn))
 	if (NOTE_KIND (insn) == NOTE_INSN_DELETED_DEBUG_LABEL)
@@ -34924,7 +34967,7 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
   if (DEFAULT_ABI == ABI_V4
       && (TARGET_RELOCATABLE || flag_pic > 1)
       && !TARGET_SECURE_PLT
-      && (get_pool_size () != 0 || crtl->profile)
+      && (get_pool_size_upper_bound () != 0 || crtl->profile)
       && uses_TOC ())
     {
       char buf[256];
@@ -37407,10 +37450,11 @@ static bool
 rs6000_can_eliminate (const int from, const int to)
 {
   return (from == ARG_POINTER_REGNUM && to == STACK_POINTER_REGNUM
-          ? ! frame_pointer_needed
-          : from == RS6000_PIC_OFFSET_TABLE_REGNUM
-            ? ! TARGET_MINIMAL_TOC || TARGET_NO_TOC || get_pool_size () == 0
-            : true);
+	  ? ! frame_pointer_needed
+	  : from == RS6000_PIC_OFFSET_TABLE_REGNUM
+	    ? ! TARGET_MINIMAL_TOC || TARGET_NO_TOC
+		|| get_pool_size_upper_bound () == 0
+	    : true);
 }
 
 /* Define the offset between two registers, FROM to be eliminated and its
@@ -38946,7 +38990,7 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
   if (!TARGET_SINGLE_PIC_BASE
       && TARGET_TOC
       && TARGET_MINIMAL_TOC
-      && get_pool_size () != 0)
+      && get_pool_size_upper_bound () != 0)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
   if (cfun->machine->split_stack_argp_used)
     add_to_hard_reg_set (&set->set, Pmode, 12);
@@ -40634,7 +40678,7 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 	    if (GET_CODE (use_body) != SET
 		|| GET_CODE (SET_SRC (use_body)) != UNSPEC
 		|| XINT (SET_SRC (use_body), 1) != UNSPEC_VSX_XXSPLTW
-		|| XEXP (XEXP (SET_SRC (use_body), 0), 1) != const0_rtx)
+		|| XVECEXP (SET_SRC (use_body), 0, 1) != const0_rtx)
 	      return 0;
 	  }
 	}

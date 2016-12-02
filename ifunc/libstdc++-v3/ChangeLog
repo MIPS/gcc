@@ -1,3 +1,137 @@
+2016-12-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	* testsuite/26_numerics/headers/cmath/hypot.cc: XFAIL on AIX.
+
+2016-12-01  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2766,
+	Swapping non-swappable types and LWG 2749,
+	swappable traits for variants.
+	* include/bits/move.h (swap(_Tp&, _Tp&)): Constrain
+	with __is_tuple_like.
+	* include/bits/stl_pair.h (swap(pair<_T1, _T2>&, pair<_T1, _T2>&)):
+	Add a deleted overload.
+	* include/bits/unique_ptr.h
+	(swap(unique_ptr<_Tp, _Dp>&, unique_ptr<_Tp, _Dp>&)): Likewise.
+	* include/std/array
+	(swap(array<_Tp, _Nm>&, array<_Tp, _Nm>&)): Likewise.
+	* include/std/optional
+	(swap(optional<_Tp>&, optional<_Tp>&)): Likewise.
+	* include/std/tuple (__is_tuple_like_impl, __is_tuple_like):
+	Move to type_traits.
+	(swap(tuple<_Elements...>&, tuple<_Elements...>&)): Add a deleted
+	overload.
+	* include/std/type_traits (__is_tuple_like_impl, __is_tuple_like):
+	New.
+	(swap(_Tp&, _Tp&)): Constrain with __is_tuple_like.
+	* include/std/utility (__is_tuple_like_impl): Move to type_traits.
+	* include/std/variant
+	(swap(variant<_Types...>&, variant<_Types...>&)):
+	Add a deleted overload.
+	* testsuite/20_util/optional/swap/2.cc: Add tests for disabled
+	swaps.
+	* testsuite/20_util/pair/swap_cxx17.cc: New.
+	* testsuite/20_util/tuple/swap_cxx17.cc: Likewise.
+	* testsuite/20_util/unique_ptr/specialized_algorithms/swap_cxx17.cc:
+	Likewise.
+	* testsuite/20_util/variant/compile.cc: Add tests for disabled
+	swaps.
+	* testsuite/23_containers/array/specialized_algorithms/swap_cxx17.cc:
+	New.
+	* testsuite/23_containers/array/tuple_interface/get_neg.cc: Adjust.
+	* testsuite/23_containers/array/tuple_interface/tuple_element_neg.cc:
+	Likewise.
+
+2016-12-01  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	The convertible_to traits need to use a variadic catch-all for the
+	false-cases.
+	* include/std/istream (__is_convertible_to_basic_istream):
+	Change the parameter of the false-case of __check to a variadic.
+	* include/std/ostream (__is_convertible_to_basic_ostream):
+	Likewise.
+
+2016-12-01  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* crossconfig.m4 (*-linux*): Add link-check for memalign.
+	* configure: Regenerated.
+
+2016-12-01  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/71500
+	* include/bits/regex.h (basic_regex::basic_regex): Use ECMAScript
+	when the syntax is not specified.
+	* include/bits/regex_compiler.h (_RegexTranslator,
+	_RegexTranslatorBase): Partially support icase in ranges.
+	* include/bits/regex_compiler.tcc (_BracketMatcher::_M_apply):
+	Refactor _M_apply to make the control flow easier to follow, and
+	call _M_translator._M_match_range as added previously.
+	* testsuite/28_regex/traits/char/icase.cc: Add new tests.
+	* testsuite/28_regex/traits/char/user_defined.cc: Add new tests.
+
+2016-11-30  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Fix testsuite failures caused by the patch implementing LWG 2534.
+	* include/std/istream (__is_convertible_to_basic_istream):
+	Change the return types of __check, introduce istream_type.
+	(operator>>(_Istream&&, _Tp&&)):
+	Use __is_convertible_to_basic_istream::istream_type as the return type.
+	* include/std/ostream (__is_convertible_to_basic_ostream):
+	Change the return types of __check, introduce ostream_type.
+	(operator>>(_Ostream&&, _Tp&&)):
+	Use __is_convertible_to_basic_ostream::ostream_type as the return type.
+
+2016-11-30  Tim Shen  <timshen@google.com>
+
+	* include/bits/shared_ptr_base.h
+	(__shared_ptr_access<T, L, true, false>::operator*()): Fix assertion.
+
+2016-11-30  David Edelsohn  <dje.gcc@gmail.com>
+
+	* testsuite/18_support/50594.cc: XFAIL on AIX.
+	* testsuite/ext/mt_allocator/check_new.cc: Same.
+	* testsuite/ext/pool_allocator/check_new.cc: Same.
+	* testsuite/27_io/ios_base/storage/11584.cc: Same.
+
+2016-11-30  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2534, Constrain rvalue stream operators.
+	* include/std/istream (__is_convertible_to_basic_istream): New.
+	(__is_extractable): Likewise.
+	(operator>>(basic_istream<_CharT, _Traits>&&, _Tp&&)):
+	Turn the stream parameter into a template parameter
+	and constrain.
+	* include/std/ostream (__is_convertible_to_basic_ostream): New.
+	(__is_insertable): Likewise.
+	(operator<<(basic_ostream<_CharT, _Traits>&&, const _Tp&)):
+	Turn the stream parameter into a template parameter
+	and constrain.
+	* testsuite/27_io/basic_istream/extractors_other/char/4.cc: New.
+	* testsuite/27_io/basic_istream/extractors_other/wchar_t/4.cc:
+	Likewise.
+	* testsuite/27_io/basic_ostream/inserters_other/char/6.cc: Likewise.
+	* testsuite/27_io/basic_ostream/inserters_other/wchar_t/6.cc: Likewise.
+
+2016-11-30  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* testsuite/experimental/type_erased_allocator/2.cc: Add
+	dg-require-thread-fence.
+
+2016-11-29  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR libstdc++/68838
+	* testsuite/lib/libstdc++.exp (DEFAULT_CXXFLAGS): Add -Wl,-bmaxdata on
+	AIX.
+	* testsuite/23_containers/vector/profile/vector.cc: Remove
+	dg-additional-options.
+
+2016-11-26  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/78441
+	* include/std/variant: Propagate cv qualifications to types returned
+	by variant_alternative.
+	* testsuite/20_util/variant/compile.cc: Tests.
+
 2016-11-23  Felix Morgner  <felix.morgner@gmail.com>
 	    Jonathan Wakely  <jwakely@redhat.com>
 

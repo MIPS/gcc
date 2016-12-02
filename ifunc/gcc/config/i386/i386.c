@@ -2826,6 +2826,9 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
 	return false;
       break;
 
+    case NOT:
+      break;
+
     case REG:
       return true;
 
@@ -2848,7 +2851,8 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
 
   if ((GET_MODE (XEXP (src, 0)) != DImode
        && !CONST_INT_P (XEXP (src, 0)))
-      || (GET_MODE (XEXP (src, 1)) != DImode
+      || (GET_CODE (src) != NOT
+	  && GET_MODE (XEXP (src, 1)) != DImode
 	  && !CONST_INT_P (XEXP (src, 1))))
     return false;
 
@@ -3415,6 +3419,8 @@ dimode_scalar_chain::compute_convert_gain ()
 	  if (CONST_INT_P (XEXP (src, 1)))
 	    gain -= vector_const_cost (XEXP (src, 1));
 	}
+      else if (GET_CODE (src) == NOT)
+	gain += ix86_cost->add - COSTS_N_INSNS (1);
       else if (GET_CODE (src) == COMPARE)
 	{
 	  /* Assume comparison cost is the same.  */
@@ -3723,7 +3729,7 @@ dimode_scalar_chain::convert_op (rtx *op, rtx_insn *insn)
 	  emit_insn_before (seq, insn);
 	}
 
-      emit_insn_before (gen_move_insn (tmp, vec_cst), insn);
+      emit_insn_before (gen_move_insn (copy_rtx (tmp), vec_cst), insn);
       *op = tmp;
     }
   else
@@ -3768,6 +3774,14 @@ dimode_scalar_chain::convert_insn (rtx_insn *insn)
       convert_op (&XEXP (src, 0), insn);
       convert_op (&XEXP (src, 1), insn);
       PUT_MODE (src, V2DImode);
+      break;
+
+    case NOT:
+      src = XEXP (src, 0);
+      convert_op (&src, insn);
+      subreg = gen_reg_rtx (V2DImode);
+      emit_insn_before (gen_move_insn (subreg, CONSTM1_RTX (V2DImode)), insn);
+      src = gen_rtx_XOR (V2DImode, src, subreg);
       break;
 
     case MEM:
@@ -3831,30 +3845,32 @@ timode_scalar_chain::fix_debug_reg_uses (rtx reg)
   if (!flag_var_tracking)
     return;
 
-  df_ref ref;
-  for (ref = DF_REG_USE_CHAIN (REGNO (reg));
-       ref;
-       ref = DF_REF_NEXT_REG (ref))
+  df_ref ref, next;
+  for (ref = DF_REG_USE_CHAIN (REGNO (reg)); ref; ref = next)
     {
       rtx_insn *insn = DF_REF_INSN (ref);
+      /* Make sure the next ref is for a different instruction,
+         so that we're not affected by the rescan.  */
+      next = DF_REF_NEXT_REG (ref);
+      while (next && DF_REF_INSN (next) == insn)
+	next = DF_REF_NEXT_REG (next);
+
       if (DEBUG_INSN_P (insn))
 	{
 	  /* It may be a debug insn with a TImode variable in
 	     register.  */
-	  rtx val = PATTERN (insn);
-	  if (GET_MODE (val) != TImode)
-	    continue;
-	  gcc_assert (GET_CODE (val) == VAR_LOCATION);
-	  rtx loc = PAT_VAR_LOCATION_LOC (val);
-	  /* It may have been converted to TImode already.  */
-	  if (GET_MODE (loc) == TImode)
-	    continue;
-	  gcc_assert (REG_P (loc)
-		      && GET_MODE (loc) == V1TImode);
-	  /* Convert V1TImode register, which has been updated by a SET
-	     insn before, to SUBREG TImode.  */
-	  PAT_VAR_LOCATION_LOC (val) = gen_rtx_SUBREG (TImode, loc, 0);
-	  df_insn_rescan (insn);
+	  bool changed = false;
+	  for (; ref != next; ref = DF_REF_NEXT_REG (ref))
+	    {
+	      rtx *loc = DF_REF_LOC (ref);
+	      if (REG_P (*loc) && GET_MODE (*loc) == V1TImode)
+		{
+		  *loc = gen_rtx_SUBREG (TImode, *loc, 0);
+		  changed = true;
+		}
+	    }
+	  if (changed)
+	    df_insn_rescan (insn);
 	}
     }
 }
@@ -4073,6 +4089,28 @@ convert_scalars_to_vector ()
 	crtl->stack_alignment_needed = 128;
       if (crtl->stack_alignment_estimated < 128)
 	crtl->stack_alignment_estimated = 128;
+      /* Fix up DECL_RTL/DECL_INCOMING_RTL of arguments.  */
+      if (TARGET_64BIT)
+	for (tree parm = DECL_ARGUMENTS (current_function_decl);
+	     parm; parm = DECL_CHAIN (parm))
+	  {
+	    if (TYPE_MODE (TREE_TYPE (parm)) != TImode)
+	      continue;
+	    if (DECL_RTL_SET_P (parm)
+		&& GET_MODE (DECL_RTL (parm)) == V1TImode)
+	      {
+		rtx r = DECL_RTL (parm);
+		if (REG_P (r))
+		  SET_DECL_RTL (parm, gen_rtx_SUBREG (TImode, r, 0));
+	      }
+	    if (DECL_INCOMING_RTL (parm)
+		&& GET_MODE (DECL_INCOMING_RTL (parm)) == V1TImode)
+	      {
+		rtx r = DECL_INCOMING_RTL (parm);
+		if (REG_P (r))
+		  DECL_INCOMING_RTL (parm) = gen_rtx_SUBREG (TImode, r, 0);
+	      }
+	  }
     }
 
   return 0;
@@ -11886,7 +11924,7 @@ ix86_code_end (void)
 #if TARGET_MACHO
       if (TARGET_MACHO)
 	{
-	  switch_to_section (darwin_sections[text_coal_section]);
+	  switch_to_section (darwin_sections[picbase_thunk_section]);
 	  fputs ("\t.weak_definition\t", asm_out_file);
 	  assemble_name (asm_out_file, name);
 	  fputs ("\n\t.private_extern\t", asm_out_file);
@@ -11920,6 +11958,9 @@ ix86_code_end (void)
       current_function_decl = decl;
       allocate_struct_function (decl, false);
       init_function_start (decl);
+      /* We're about to hide the function body from callees of final_* by
+	 emitting it directly; tell them we're a thunk, if they care.  */
+      cfun->is_thunk = true;
       first_function_block_is_cold = false;
       /* Make sure unwind info is emitted for the thunk if needed.  */
       final_start_function (emit_barrier (), asm_out_file, 1);
@@ -14625,36 +14666,68 @@ ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED, HOST_WIDE_INT)
   if (pic_offset_table_rtx
       && !ix86_use_pseudo_pic_reg ())
     SET_REGNO (pic_offset_table_rtx, REAL_PIC_OFFSET_TABLE_REGNUM);
-#if TARGET_MACHO
-  /* Mach-O doesn't support labels at the end of objects, so if
-     it looks like we might want one, insert a NOP.  */
-  {
-    rtx_insn *insn = get_last_insn ();
-    rtx_insn *deleted_debug_label = NULL;
-    while (insn
-	   && NOTE_P (insn)
-	   && NOTE_KIND (insn) != NOTE_INSN_DELETED_LABEL)
-      {
-	/* Don't insert a nop for NOTE_INSN_DELETED_DEBUG_LABEL
-	   notes only, instead set their CODE_LABEL_NUMBER to -1,
-	   otherwise there would be code generation differences
-	   in between -g and -g0.  */
-	if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_DELETED_DEBUG_LABEL)
-	  deleted_debug_label = insn;
-	insn = PREV_INSN (insn);
-      }
-    if (insn
-	&& (LABEL_P (insn)
-	    || (NOTE_P (insn)
-		&& NOTE_KIND (insn) == NOTE_INSN_DELETED_LABEL)))
-      fputs ("\tnop\n", file);
-    else if (deleted_debug_label)
-      for (insn = deleted_debug_label; insn; insn = NEXT_INSN (insn))
-	if (NOTE_KIND (insn) == NOTE_INSN_DELETED_DEBUG_LABEL)
-	  CODE_LABEL_NUMBER (insn) = -1;
-  }
-#endif
 
+  if (TARGET_MACHO)
+    {
+      rtx_insn *insn = get_last_insn ();
+      rtx_insn *deleted_debug_label = NULL;
+
+      /* Mach-O doesn't support labels at the end of objects, so if
+         it looks like we might want one, take special action.
+        First, collect any sequence of deleted debug labels.  */
+      while (insn
+	     && NOTE_P (insn)
+	     && NOTE_KIND (insn) != NOTE_INSN_DELETED_LABEL)
+	{
+	  /* Don't insert a nop for NOTE_INSN_DELETED_DEBUG_LABEL
+	     notes only, instead set their CODE_LABEL_NUMBER to -1,
+	     otherwise there would be code generation differences
+	     in between -g and -g0.  */
+	  if (NOTE_P (insn) && NOTE_KIND (insn)
+	      == NOTE_INSN_DELETED_DEBUG_LABEL)
+	    deleted_debug_label = insn;
+	  insn = PREV_INSN (insn);
+	}
+
+      /* If we have:
+	 label:
+	    barrier
+	  then this needs to be detected, so skip past the barrier.  */
+
+      if (insn && BARRIER_P (insn))
+	insn = PREV_INSN (insn);
+
+      /* Up to now we've only seen notes or barriers.  */
+      if (insn)
+	{
+	  if (LABEL_P (insn)
+	      || (NOTE_P (insn)
+		  && NOTE_KIND (insn) == NOTE_INSN_DELETED_LABEL))
+	    /* Trailing label.  */
+	    fputs ("\tnop\n", file);
+	  else if (cfun && ! cfun->is_thunk)
+	    {
+	      /* See if we have a completely empty function body, skipping
+	         the special case of the picbase thunk emitted as asm.  */
+	      while (insn && ! INSN_P (insn))
+		insn = PREV_INSN (insn);
+	      /* If we don't find any insns, we've got an empty function body;
+		 I.e. completely empty - without a return or branch.  This is
+		 taken as the case where a function body has been removed
+		 because it contains an inline __builtin_unreachable().  GCC
+		 declares that reaching __builtin_unreachable() means UB so
+		 we're not obliged to do anything special; however, we want
+		 non-zero-sized function bodies.  To meet this, and help the
+		 user out, let's trap the case.  */
+	      if (insn == NULL)
+		fputs ("\tud2\n", file);
+	    }
+	}
+      else if (deleted_debug_label)
+	for (insn = deleted_debug_label; insn; insn = NEXT_INSN (insn))
+	  if (NOTE_KIND (insn) == NOTE_INSN_DELETED_DEBUG_LABEL)
+	    CODE_LABEL_NUMBER (insn) = -1;
+    }
 }
 
 /* Return a scratch register to use in the split stack prologue.  The
@@ -40293,6 +40366,7 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
   enum rtx_code code = GET_CODE (x);
   enum rtx_code outer_code = (enum rtx_code) outer_code_i;
   const struct processor_costs *cost = speed ? ix86_cost : &ix86_size_cost;
+  int src_cost;
 
   switch (code)
     {
@@ -40303,7 +40377,23 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
 	  *total = ix86_set_reg_reg_cost (GET_MODE (SET_DEST (x)));
 	  return true;
 	}
-      return false;
+
+      if (register_operand (SET_SRC (x), VOIDmode))
+	/* Avoid potentially incorrect high cost from rtx_costs
+	   for non-tieable SUBREGs.  */
+	src_cost = 0;
+      else
+	{
+	  src_cost = rtx_cost (SET_SRC (x), mode, SET, 1, speed);
+
+	  if (CONSTANT_P (SET_SRC (x)))
+	    /* Constant costs assume a base value of COSTS_N_INSNS (1) and add
+	       a small value, possibly zero for cheap constants.  */
+	    src_cost += COSTS_N_INSNS (1);
+	}
+
+      *total = src_cost + rtx_cost (SET_DEST (x), mode, SET, 0, speed);
+      return true;
 
     case CONST_INT:
     case CONST:
@@ -51022,17 +51112,26 @@ ix86_excess_precision (enum excess_precision_type type)
       case EXCESS_PRECISION_TYPE_IMPLICIT:
 	/* Otherwise, the excess precision we want when we are
 	   in a standards compliant mode, and the implicit precision we
-	   provide can be identical.  */
+	   provide would be identical were it not for the unpredictable
+	   cases.  */
 	if (!TARGET_80387)
 	  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
-	else if (TARGET_MIX_SSE_I387)
-	  return FLT_EVAL_METHOD_UNPREDICTABLE;
-	else if (!TARGET_SSE_MATH)
-	  return FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE;
-	else if (TARGET_SSE2)
-	  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
-	else
-	  return FLT_EVAL_METHOD_UNPREDICTABLE;
+	else if (!TARGET_MIX_SSE_I387)
+	  {
+	    if (!TARGET_SSE_MATH)
+	      return FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE;
+	    else if (TARGET_SSE2)
+	      return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
+	  }
+
+	/* If we are in standards compliant mode, but we know we will
+	   calculate in unpredictable precision, return
+	   FLT_EVAL_METHOD_FLOAT.  There is no reason to introduce explicit
+	   excess precision if the target can't guarantee it will honor
+	   it.  */
+	return (type == EXCESS_PRECISION_TYPE_STANDARD
+		? FLT_EVAL_METHOD_PROMOTE_TO_FLOAT
+		: FLT_EVAL_METHOD_UNPREDICTABLE);
       default:
 	gcc_unreachable ();
     }

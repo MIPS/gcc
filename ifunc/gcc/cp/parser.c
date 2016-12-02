@@ -11503,8 +11503,8 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl,
 	      for (unsigned int i = 0; i < decomp_cnt; i++, d = DECL_CHAIN (d))
 		{
 		  tree name = DECL_NAME (d);
-		  names.quick_push (name);
-		  bindings.quick_push (IDENTIFIER_BINDING (name));
+		  names.safe_push (name);
+		  bindings.safe_push (IDENTIFIER_BINDING (name));
 		  IDENTIFIER_BINDING (name)
 		    = IDENTIFIER_BINDING (name)->previous;
 		}
@@ -11513,8 +11513,8 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl,
       if (names.is_empty ())
 	{
 	  tree name = DECL_NAME (range_decl);
-	  names.quick_push (name);
-	  bindings.quick_push (IDENTIFIER_BINDING (name));
+	  names.safe_push (name);
+	  bindings.safe_push (IDENTIFIER_BINDING (name));
 	  IDENTIFIER_BINDING (name) = IDENTIFIER_BINDING (name)->previous;
 	}
     }
@@ -36175,23 +36175,18 @@ static tree
 cp_parser_oacc_enter_exit_data (cp_parser *parser, cp_token *pragma_tok,
 				bool enter)
 {
+  location_t loc = pragma_tok->location;
   tree stmt, clauses;
+  const char *p = "";
 
-  if (cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA_EOL)
-     || cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
-    {
-      cp_parser_error (parser, enter
-		       ? "expected %<data%> in %<#pragma acc enter data%>"
-		       : "expected %<data%> in %<#pragma acc exit data%>");
-      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
-      return NULL_TREE;
-    }
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    p = IDENTIFIER_POINTER (cp_lexer_peek_token (parser->lexer)->u.value);
 
-  const char *p =
-    IDENTIFIER_POINTER (cp_lexer_peek_token (parser->lexer)->u.value);
   if (strcmp (p, "data") != 0)
     {
-      cp_parser_error (parser, "invalid pragma");
+      error_at (loc, enter
+		? "expected %<data%> after %<#pragma acc enter%>"
+		: "expected %<data%> after %<#pragma acc exit%>");
       cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
@@ -36207,8 +36202,8 @@ cp_parser_oacc_enter_exit_data (cp_parser *parser, cp_token *pragma_tok,
 
   if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
     {
-      error_at (pragma_tok->location,
-		"%<#pragma acc enter data%> has no data movement clause");
+      error_at (loc, "%<#pragma acc %s data%> has no data movement clause",
+		enter ? "enter" : "exit");
       return NULL_TREE;
     }
 
@@ -38083,6 +38078,30 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
       cp_parser_oacc_declare (parser, pragma_tok);
       return false;
 
+    case PRAGMA_OACC_ENTER_DATA:
+      if (context == pragma_stmt)
+	{
+	  cp_parser_error (parser, "%<#pragma acc enter data%> may only be "
+			   "used in compound statements");
+	  break;
+	}
+      else if (context != pragma_compound)
+	goto bad_stmt;
+      cp_parser_omp_construct (parser, pragma_tok, if_p);
+      return true;
+
+    case PRAGMA_OACC_EXIT_DATA:
+      if (context == pragma_stmt)
+	{
+	  cp_parser_error (parser, "%<#pragma acc exit data%> may only be "
+			   "used in compound statements");
+	  break;
+	}
+      else if (context != pragma_compound)
+	goto bad_stmt;
+      cp_parser_omp_construct (parser, pragma_tok, if_p);
+      return true;
+
     case PRAGMA_OACC_ROUTINE:
       if (context != pragma_external)
 	{
@@ -38093,17 +38112,37 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
       cp_parser_oacc_routine (parser, pragma_tok, context);
       return false;
 
+    case PRAGMA_OACC_UPDATE:
+      if (context == pragma_stmt)
+	{
+	  cp_parser_error (parser, "%<#pragma acc update%> may only be "
+			   "used in compound statements");
+	  break;
+	}
+      else if (context != pragma_compound)
+	goto bad_stmt;
+      cp_parser_omp_construct (parser, pragma_tok, if_p);
+      return true;
+
+    case PRAGMA_OACC_WAIT:
+      if (context == pragma_stmt)
+	{
+	  cp_parser_error (parser, "%<#pragma acc wait%> may only be "
+			   "used in compound statements");
+	  break;
+	}
+      else if (context != pragma_compound)
+	goto bad_stmt;
+      cp_parser_omp_construct (parser, pragma_tok, if_p);
+      return true;
+
     case PRAGMA_OACC_ATOMIC:
     case PRAGMA_OACC_CACHE:
     case PRAGMA_OACC_DATA:
-    case PRAGMA_OACC_ENTER_DATA:
-    case PRAGMA_OACC_EXIT_DATA:
     case PRAGMA_OACC_HOST_DATA:
     case PRAGMA_OACC_KERNELS:
     case PRAGMA_OACC_PARALLEL:
     case PRAGMA_OACC_LOOP:
-    case PRAGMA_OACC_UPDATE:
-    case PRAGMA_OACC_WAIT:
     case PRAGMA_OMP_ATOMIC:
     case PRAGMA_OMP_CRITICAL:
     case PRAGMA_OMP_DISTRIBUTE:

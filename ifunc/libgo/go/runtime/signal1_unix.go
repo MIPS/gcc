@@ -65,6 +65,11 @@ var signalsOK bool
 //go:nosplit
 //go:nowritebarrierrec
 func initsig(preinit bool) {
+	if preinit {
+		// preinit is only passed as true if isarchive should be true.
+		isarchive = true
+	}
+
 	if !preinit {
 		// It's now OK for signal handlers to run.
 		signalsOK = true
@@ -93,7 +98,7 @@ func initsig(preinit bool) {
 		}
 
 		t.flags |= _SigHandling
-		setsig(i, funcPC(sigtramp), true)
+		setsig(i, getSigtramp(), true)
 	}
 }
 
@@ -137,7 +142,7 @@ func sigenable(sig uint32) {
 		if t.flags&_SigHandling == 0 {
 			t.flags |= _SigHandling
 			fwdSig[sig] = getsig(int32(sig))
-			setsig(int32(sig), funcPC(sigtramp), true)
+			setsig(int32(sig), getSigtramp(), true)
 		}
 	}
 }
@@ -265,7 +270,7 @@ func raisebadsignal(sig int32, c *sigctxt) {
 	// We may receive another instance of the signal before we
 	// restore the Go handler, but that is not so bad: we know
 	// that the Go program has been ignoring the signal.
-	setsig(sig, funcPC(sigtramp), true)
+	setsig(sig, getSigtramp(), true)
 }
 
 func crash() {

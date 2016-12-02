@@ -219,6 +219,21 @@ void test_relational()
   }
 }
 
+// Not swappable, and variant<C> not swappable via the generic std::swap.
+struct C { };
+void swap(C&, C&) = delete;
+
+static_assert( !std::is_swappable_v<variant<C>> );
+static_assert( !std::is_swappable_v<variant<int, C>> );
+static_assert( !std::is_swappable_v<variant<C, int>> );
+
+// Not swappable, and variant<D> not swappable via the generic std::swap.
+struct D { D(D&&) = delete; };
+
+static_assert( !std::is_swappable_v<variant<D>> );
+static_assert( !std::is_swappable_v<variant<int, D>> );
+static_assert( !std::is_swappable_v<variant<D, int>> );
+
 void test_swap()
 {
   variant<int, string> a, b;
@@ -329,4 +344,13 @@ void test_adl()
    variant<X> v7{allocator_arg, a, in_place_index<0>, il, x};
    variant<X> v8{allocator_arg, a, in_place_type<X>, il, x};
    variant<X> v9{allocator_arg, a, in_place_type<X>, 1};
+}
+
+void test_variant_alternative() {
+  static_assert(is_same_v<variant_alternative_t<0, variant<int, string>>, int>, "");
+  static_assert(is_same_v<variant_alternative_t<1, variant<int, string>>, string>, "");
+
+  static_assert(is_same_v<variant_alternative_t<0, const variant<int>>, const int>, "");
+  static_assert(is_same_v<variant_alternative_t<0, volatile variant<int>>, volatile int>, "");
+  static_assert(is_same_v<variant_alternative_t<0, const volatile variant<int>>, const volatile int>, "");
 }

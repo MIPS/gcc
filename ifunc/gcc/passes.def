@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_ubsan);
       NEXT_PASS (pass_early_warn_uninitialized);
       NEXT_PASS (pass_nothrow);
+      NEXT_PASS (pass_rebuild_cgraph_edges);
   POP_INSERT_PASSES ()
 
   NEXT_PASS (pass_chkp_instrumentation_passes);
@@ -271,6 +272,9 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_tree_unswitch);
 	  NEXT_PASS (pass_scev_cprop);
 	  NEXT_PASS (pass_loop_split);
+	  /* All unswitching, final value replacement and splitting can expose
+	     empty loops.  Remove them now.  */
+	  NEXT_PASS (pass_cd_dce);
 	  NEXT_PASS (pass_record_bounds);
 	  NEXT_PASS (pass_loop_distribution);
 	  NEXT_PASS (pass_copy_prop);

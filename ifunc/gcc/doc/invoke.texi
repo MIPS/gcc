@@ -373,7 +373,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-ira-share-spill-slots @gol
 -fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute @gol
 -fivopts -fkeep-inline-functions -fkeep-static-functions @gol
--fkeep-static-consts -flive-range-shrinkage @gol
+-fkeep-static-consts -flimit-function-alignment -flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine @gol
 -floop-unroll-and-jam -floop-nest-optimize @gol
 -floop-parallelize-all -flra-remat -flto -flto-compression-level @gol
@@ -649,7 +649,8 @@ Objective-C and Objective-C++ Dialects}.
 -mslow-flash-data @gol
 -masm-syntax-unified @gol
 -mrestrict-it @gol
--mpure-code}
+-mpure-code @gol
+-mcmse}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -mabsdata -maccumulate-args @gol
@@ -8513,6 +8514,12 @@ If @var{n} is not specified or is zero, use a machine-dependent default.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
+@item -flimit-function-alignment
+If this option is enabled, the compiler tries to avoid unnecessarily
+overaligning functions. It attempts to instruct the assembler to align
+by the amount specified by @option{-falign-functions}, but not to
+skip more bytes than the size of the function.
+
 @item -falign-labels
 @itemx -falign-labels=@var{n}
 @opindex falign-labels
@@ -8915,8 +8922,8 @@ which are generally profitable only with profile feedback available:
 @option{-ftree-vectorize}, and @option{ftree-loop-distribute-patterns}.
 
 Before you can use this option, you must first generate profiling information.
-@xref{Optimize Options}, for information about the @option{-fprofile-generate}
-option.
+@xref{Instrumentation Options}, for information about the
+@option{-fprofile-generate} option.
 
 By default, GCC emits an error message if the feedback profiles do not
 match the source code.  This error can be turned into a warning by using
@@ -15372,6 +15379,11 @@ Additionally, when compiling for ELF object format give all text sections the
 ELF processor-specific section attribute @code{SHF_ARM_PURECODE}.  This option
 is only available when generating non-pic code for ARMv7-M targets.
 
+@item -mcmse
+@opindex mcmse
+Generate secure code as per the "ARMv8-M Security Extensions: Requirements on
+Development Tools Engineering Specification", which can be found on
+@url{http://infocenter.arm.com/help/topic/com.arm.doc.ecm0359818/ECM0359818_armv8m_security_extensions_reqs_on_dev_tools_1_0.pdf}.
 @end table
 
 @node AVR Options
@@ -15396,7 +15408,8 @@ GCC supports the following AVR devices and ISAs:
 
 Assume that all data in static storage can be accessed by LDS / STS
 instructions.  This option has only an effect on reduced Tiny devices like
-ATtiny40.
+ATtiny40.  See also the @code{absdata}
+@ref{AVR Variable Attributes,variable attribute}.
 
 @item -maccumulate-args
 @opindex maccumulate-args

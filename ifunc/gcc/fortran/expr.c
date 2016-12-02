@@ -3314,9 +3314,9 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform,
   if (lvalue->ts.type == BT_CHARACTER && rvalue->ts.type == BT_CHARACTER)
     {
       if (lvalue->ts.kind != rvalue->ts.kind && allow_convert)
-	gfc_convert_chartype (rvalue, &lvalue->ts);
-
-      return true;
+	return gfc_convert_chartype (rvalue, &lvalue->ts);
+      else
+	return true;
     }
 
   if (!allow_convert)
@@ -5291,7 +5291,8 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
      component.  Note that (normal) assignment to procedure pointers is not
      possible.  */
   check_intentin = !own_scope;
-  ptr_component = (sym->ts.type == BT_CLASS && CLASS_DATA (sym))
+  ptr_component = (sym->ts.type == BT_CLASS && sym->ts.u.derived
+		   && CLASS_DATA (sym))
 		  ? CLASS_DATA (sym)->attr.class_pointer : sym->attr.pointer;
   for (ref = e->ref; ref && check_intentin; ref = ref->next)
     {

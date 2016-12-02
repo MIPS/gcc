@@ -1,3 +1,48 @@
+2016-12-02  Cesar Philippidis  <cesar@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_enter_exit_data): Update diagnostics.
+	(cp_parser_pragma): Error when PRAGMA_OACC_{ENTER_DATA,
+	EXIT_DATA,WAIT} are not used in compound statements.
+
+2016-12-01  Jason Merrill  <jason@redhat.com>
+
+	* call.c (add_function_candidate): Also exclude inherited ctors
+	that take a type reference-related to the derived class.
+
+	* call.c (add_function_candidate): Exclude inherited copy/move
+	ctors.
+
+2016-11-29  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/77922
+	* name-lookup.c (lookup_name_fuzzy): Filter out reserved words
+	that were filtered out by init_reswords.
+
+2016-11-28  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/72808
+	* decl.c (finish_enum_value_list): Call fixup_type_variants on
+	current_class_type after
+	insert_late_enum_def_into_classtype_sorted_fields.
+
+2016-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/77591
+	* typeck.c (maybe_warn_about_returning_address_of_local): Optimize
+	whats_returned through fold_for_warn.
+
+2016-11-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77907
+	* constexpr.c (cxx_eval_constant_expression): Use cp_fold_convert.
+
+2016-11-24  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/78493
+	* parser.c (cp_parser_range_for): Use safe_push instead of quick_push.
+
 2016-11-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/77907
@@ -186,7 +231,7 @@
 	IMAGPART_EXPR can be lvalues.
 
 	DR 374
-	PR c++/56840
+	PR c++/56480
 	* pt.c (check_specialization_namespace): Allow any enclosing
 	namespace.
 	(check_unqualified_spec_or_inst): New.
