@@ -7494,6 +7494,27 @@ adjust_iv_update_pos (struct iv_cand *cand, struct iv_use *use)
   cand->incremented_at = use->stmt;
 }
 
+/* Return the alias pointer type that should be used for a MEM_REF
+   associated with USE, which has type USE_PTR_ADDRESS.  */
+
+static tree
+get_alias_ptr_type_for_ptr_address (iv_use *use)
+{
+  gcall *call = as_a <gcall *> (use->stmt);
+  switch (gimple_call_internal_fn (call))
+    {
+    case IFN_MASK_LOAD:
+    case IFN_MASK_STORE:
+      /* The second argument contains the correct alias type.  */
+      gcc_assert (use->op_p = gimple_call_arg_ptr (call, 0));
+      return TREE_TYPE (gimple_call_arg (call, 1));
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+
 /* Rewrites USE (address that is an iv) using candidate CAND.  */
 
 static void
@@ -7503,7 +7524,7 @@ rewrite_use_address (struct ivopts_data *data,
   aff_tree aff;
   gimple_stmt_iterator bsi = gsi_for_stmt (use->stmt);
   tree base_hint = NULL_TREE;
-  tree ref, iv;
+  tree ref, iv, alias_ptr_type;
   bool ok;
 
   adjust_iv_update_pos (cand, use);
@@ -7528,12 +7549,15 @@ rewrite_use_address (struct ivopts_data *data,
     base_hint = var_at_stmt (data->current_loop, cand, use->stmt);
 
   iv = var_at_stmt (data->current_loop, cand, use->stmt);
-  if (use->type != USE_PTR_ADDRESS)
-    gcc_assert (use->mem_type == TREE_TYPE (*use->op_p));
-  ref = create_mem_ref (&bsi, use->mem_type, &aff,
-			reference_alias_ptr_type (*use->op_p),
+  if (use->type == USE_PTR_ADDRESS)
+    alias_ptr_type = get_alias_ptr_type_for_ptr_address (use);
+  else
+    {
+      gcc_assert (use->mem_type == TREE_TYPE (*use->op_p));
+      alias_ptr_type = reference_alias_ptr_type (*use->op_p);
+    }
+  ref = create_mem_ref (&bsi, use->mem_type, &aff, alias_ptr_type,
 			iv, base_hint, data->speed);
-  copy_ref_info (ref, *use->op_p);
   if (use->type == USE_PTR_ADDRESS)
     {
       ref = fold_build1 (ADDR_EXPR, build_pointer_type (use->mem_type), ref);
@@ -7541,6 +7565,8 @@ rewrite_use_address (struct ivopts_data *data,
       ref = force_gimple_operand_gsi (&bsi, ref, true, NULL_TREE,
 				      true, GSI_SAME_STMT);
     }
+  else
+    copy_ref_info (ref, *use->op_p);
 
   *use->op_p = ref;
 }
