@@ -1,7 +1,12 @@
+2016-12-01  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 243130.
+	* REVISION: Update subversion id.
+
 2016-12-01  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
 
 	Backport from mainline
-        2016-09-23  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+	2016-09-23  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (cmpmemsi): New define_expand.
 	* config/rs6000/rs6000.c (expand_block_compare): New function used by
