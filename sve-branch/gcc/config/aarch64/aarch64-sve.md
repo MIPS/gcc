@@ -2244,5 +2244,5 @@
   "TARGET_SVE"
   "@
    insr\t%0.<Vetype>, %<vwcore>2
-   insr\t%0.<Vetype>, %<vw>2"
+   insr\t%0.<Vetype>, %<Vetype>2"
 )
