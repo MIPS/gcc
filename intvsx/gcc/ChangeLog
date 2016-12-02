@@ -1,3 +1,411 @@
+2016-12-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78639
+	* config/rs6000/rs6000.md (movdi_internal64): Fix typo in
+	subversion id 242679 that causes the wrong store instruction to be
+	generated if a DImode is in an Altivec register using REG+REG
+	addressing.
+
+2016-12-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/70322
+	* config/i386/i386.md (*andndi3_doubleword): Add non-BMI alternative
+	and corresponding post-reload splitter.
+
+2016-12-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.h (machine_function): Add
+	reg_is_wrapped_separately field.
+	* config/aarch64/aarch64.md (LAST_SAVED_REGNUM): Define new constant.
+	* config/aarch64/aarch64.c (emit_set_insn): Change return type to
+	rtx_insn *.
+	(aarch64_save_callee_saves): Don't save registers that are wrapped
+	separately.
+	(aarch64_restore_callee_saves): Don't restore registers that are
+	wrapped separately.
+	(offset_9bit_signed_unscaled_p, offset_12bit_unsigned_scaled_p,
+	aarch64_offset_7bit_signed_scaled_p): Move earlier in the file.
+	(aarch64_get_separate_components): New function.
+	(aarch64_get_next_set_bit): Likewise.
+	(aarch64_components_for_bb): Likewise.
+	(aarch64_disqualify_components): Likewise.
+	(aarch64_emit_prologue_components): Likewise.
+	(aarch64_emit_epilogue_components): Likewise.
+	(aarch64_set_handled_components): Likewise.
+	(aarch64_process_components): Likewise.
+	(TARGET_SHRINK_WRAP_GET_SEPARATE_COMPONENTS,
+	TARGET_SHRINK_WRAP_COMPONENTS_FOR_BB,
+	TARGET_SHRINK_WRAP_DISQUALIFY_COMPONENTS,
+	TARGET_SHRINK_WRAP_EMIT_PROLOGUE_COMPONENTS,
+	TARGET_SHRINK_WRAP_EMIT_EPILOGUE_COMPONENTS,
+	TARGET_SHRINK_WRAP_SET_HANDLED_COMPONENTS): Define.
+
+2016-12-02  Martin Jambor  <mjambor@suse.cz>
+
+	* passes.def: Move pass_rebuild_cgraph_edges to the end of
+	pass_build_ssa_passes.
+
+2016-12-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.md (exception_receiver): Copy
+	alpha_gp_ave_rtx return value.
+
+2016-12-02  Tadek Kijkowski  <tkijkowski@gmail.com>
+
+	* Makefile.in (PREPROCESSOR_DEFINES): Add a level of indirection
+	for several include directories that may be relative to sysroot.
+	* config/i386/x-mingw32 (gplus_includedir): Define.
+	(gplus_tool_includedir, gplus_backward_include_dir): Likewise.
+	(native_system_includedir): Likewise.
+	* config/i386/mingw32.h (STANDARD_STARTFILE_PREFIX_1): Do not
+	override if TARGET_SYSTEM_ROOT is defined.
+	(NATIVE_SYSTEM_HEADER_DIR): Likewise.
+
+2016-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70322
+	* config/i386/i386.c (dimode_scalar_to_vector_candidate_p): Handle NOT.
+	(dimode_scalar_chain::compute_convert_gain): Likewise.
+	(dimode_scalar_chain::convert_insn): Likewise.
+	* config/i386/i386.md (*one_cmpldi2_doubleword): New
+	define_insn_and_split.
+	(one_cmpl<mode>2): Use SWIM1248x iterator instead of SWIM.
+
+	PR target/78614
+	* rtl.c (copy_rtx): Don't clear used flag here.
+	(shallow_copy_rtx_stat): Clear used flag here unless code the rtx
+	is shareable.
+	* simplify-rtx.c (simplify_replace_fn_rtx): When copying rtx with
+	'E' in format, copy all vectors.
+	* emit-rtl.c (copy_insn_1): Don't clear used flag here.
+	* valtrack.c (cleanup_auto_inc_dec): Likewise.
+	* config/rs6000/rs6000.c (rs6000_frame_related): Likewise.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-builtins.c (arm_builtins): Define
+	ARM_BUILTIN_CMSE_NONSECURE_CALLER.
+	(bdesc_2arg): Add line for cmse_nonsecure_caller.
+	(arm_init_builtins): Handle cmse_nonsecure_caller.
+	(arm_expand_builtin): Likewise.
+	* config/arm/arm_cmse.h (cmse_nonsecure_caller): New.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (detect_cmse_nonsecure_call): New.
+	(cmse_nonsecure_call_clear_caller_saved): New.
+	(arm_reorg): Use cmse_nonsecure_call_clear_caller_saved.
+	(arm_function_ok_for_sibcall): Disable sibcalls for
+	cmse_nonsecure_call.
+	* config/arm/arm-protos.h (detect_cmse_nonsecure_call): New.
+	* config/arm/arm.md (call): Handle cmse_nonsecure_entry.
+	(call_value): Likewise.
+	(nonsecure_call_internal): New.
+	(nonsecure_call_value_internal): New.
+	* config/arm/thumb1.md (*nonsecure_call_reg_thumb1_v5): New.
+	(*nonsecure_call_value_reg_thumb1_v5): New.
+	* config/arm/thumb2.md (*nonsecure_call_reg_thumb2): New.
+	(*nonsecure_call_value_reg_thumb2): New.
+	* config/arm/unspecs.md (UNSPEC_NONSECURE_MEM): New.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (gimplify.h): New include.
+	(arm_handle_cmse_nonsecure_call): New.
+	(arm_attribute_table): Added cmse_nonsecure_call.
+	(arm_comp_type_attributes): Deny compatibility of function types
+	with without the cmse_nonsecure_call attribute.
+	* doc/extend.texi (ARM ARMv8-M Security Extensions): New attribute.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (output_return_instruction): Clear
+	registers.
+	(thumb2_expand_return): Likewise.
+	(thumb1_expand_epilogue): Likewise.
+	(thumb_exit): Likewise.
+	(arm_expand_epilogue): Likewise.
+	(cmse_nonsecure_entry_clear_before_return): New.
+	(comp_not_to_clear_mask_str_un): New.
+	(compute_not_to_clear_mask): New.
+	* config/arm/thumb1.md (*epilogue_insns): Change length attribute.
+	* config/arm/thumb2.md (*thumb2_return): Disable for
+	cmse_nonsecure_entry functions.
+	(*thumb2_cmse_entry_return): Duplicate thumb2_return pattern for
+	cmse_nonsecure_entry functions.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (use_return_insn): Change to return with  bxns
+	when cmse_nonsecure_entry.
+	(output_return_instruction): Likewise.
+	(arm_output_function_prologue): Likewise.
+	(thumb_pop): Likewise.
+	(thumb_exit): Likewise.
+	(thumb2_expand_return): Assert that entry functions always have simple
+	returns.
+	(arm_expand_epilogue): Handle entry functions.
+	(arm_function_ok_for_sibcall): Disable sibcall for entry functions.
+	(arm_asm_declare_function_name): New.
+	* config/arm/arm-protos.h (arm_asm_declare_function_name): New.
+	* config/arm/elf.h (ASM_DECLARE_FUNCTION_NAME): Redefine to
+	use arm_asm_declare_function_name.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (arm_handle_cmse_nonsecure_entry): New.
+	(arm_attribute_table): Added cmse_nonsecure_entry
+	(arm_compute_func_type): Handle cmse_nonsecure_entry.
+	(cmse_func_args_or_return_in_stack): New.
+	(arm_handle_cmse_nonsecure_entry): New.
+	* config/arm/arm.h (ARM_FT_CMSE_ENTRY): New macro define.
+	(IS_CMSE_ENTRY): Likewise.
+	* doc/extend.texi (ARM ARMv8-M Security Extensions): New attribute.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config.gcc (extra_headers): Added arm_cmse.h.
+	* config/arm/arm-arches.def (ARM_ARCH):
+	(armv8-m): Add FL2_CMSE.
+	(armv8-m.main): Likewise.
+	(armv8-m.main+dsp): Likewise.
+	* config/arm/arm-c.c
+	(arm_cpu_builtins): Added __ARM_FEATURE_CMSE macro.
+	* config/arm/arm-flags.h: Define FL2_CMSE.
+	* config/arm.c (arm_arch_cmse): New.
+	(arm_option_override): New error for unsupported cmse target.
+	* config/arm/arm.h (arm_arch_cmse): New.
+	* config/arm/arm.opt (mcmse): New.
+	* config/arm/arm_cmse.h: New file.
+	* doc/invoke.texi (ARM Options): Add -mcmse.
+	* doc/sourcebuild.texi (arm_cmse_ok): Add new effective target.
+	* doc/extend.texi: Add ARMv8-M Security Extensions entry.
+
+2016-12-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c: Fix coding rule glitches.
+
+2016-12-02  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (hsa_callable_function_p): Return false for artificial
+	functions.
+
+2016-12-02  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR rtl-optimization/78561
+	* varasm.c (recompute_pool_offsets): New.
+	(output_constant_pool): Call it.
+
+2016-12-02  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR rtl-optimization/78561
+	* config/rs6000/rs6000.c (rs6000_reg_live_or_pic_offset_p) Rename
+	get_pool_size to get_pool_size_upper_bound.
+	(rs6000_stack_info): Likewise.
+	(rs6000_emit_prologue): Likewise.
+	(rs6000_elf_declare_function_name): Likewise.
+	(rs6000_set_up_by_prologue): Likewise.
+	(rs6000_can_eliminate): Likewise, reformat spaces to tabs.
+	* output.h (get_pool_size): Rename to...
+	(get_pool_size_upper_bound): ...This.
+	* varasm.c (get_pool_size): Rename to...
+	(get_pool_size_upper_bound): ...This.
+
+2016-12-02  Bin Cheng  <bin.cheng@arm.com>
+
+	* match.pd: Add new pattern:
+	(cond (cmp (convert? x) c1) (op x c2) c3) -> (op (minmax x c1) c2).
+
+2016-12-02  Nathan Sidwell  <nathan@acm.org>
+
+	* diagnostic.c (diagnostic_report_diagnostic): Remove extraneous
+	braces.
+
+2016-12-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/78328
+	* gimple-ssa-warn-alloca.c (alloca_call_type): Handle
+	VR_ANTI_RANGE.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_save_gprs_to_fprs): Fix RTL sharing
+	problem.
+
+2016-12-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr-arch.h (avr_mcu_t) [n_flash]: Remove field.
+	* config/avr/avr-devices.c (AVR_MCU): Remove N_FLASH macro argument.
+	* config/avr/avr-mcus.def (AVR_MCU): Remove initializer for n_flash.
+	* config/avr/avr.c (avr_set_core_architecture) [avr_n_flash]: Use
+	avr_mcu_types.flash_size to compute default value.
+	* config/avr/gen-avr-mmcu-specs.c (print_mcu) [cc1_n_flash]: Use
+	mcu->flash_size to compute value for spec.
+
+2016-12-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	* doc/invoke.texi (AVR Options) [-mabsdata]: Point to absdata.
+	* doc/extend.texi (AVR Variable Attributes) [progmem]: Hint
+	about linker description to avoid progmem altogether.
+	[absdata]: Point to -mabsdata option.
+
+2016-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/78547
+	* emit-rtl.c (unshare_all_rtl): Make sure DECL_RTL and
+	DECL_INCOMING_RTL is not shared.
+	* config/i386/i386.c (convert_scalars_to_vectors): If any
+	insns have been converted, adjust all parameter's DEC_RTL and
+	DECL_INCOMING_RTL back from V1TImode to TImode if the parameters have
+	TImode.
+
+	PR rtl-optimization/78575
+	* config/i386/i386.c (timode_scalar_chain::fix_debug_reg_uses): Use
+	DF infrastructure to wrap all V1TImode reg uses into TImode subreg
+	if not already wrapped in a subreg.  Make sure df_insn_rescan does not
+	affect further iterations.
+
+2016-12-02  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/78555
+	* sreal.c (sreal::to_int): Make absolute value before shifting.
+	(sreal::operator/): Likewise.
+	(sreal_verify_negative_division): New test.
+	(void sreal_c_tests): Call the new test.
+	* sreal.h (sreal::normalize_up): Use new SREAL_ABS and
+	SREAL_SIGN macros.
+	(sreal::normalize_down): Likewise.
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* combine.c (combine_simplify_rtx):  Suppress replacement of
+	"(and (reg) (const_int bit))" with "if_then_else".
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/77822
+	* config/s390/s390.md ("extzv")
+	("*extzv<mode><clobbercc_or_nocc>")
+	("*extzvdi<clobbercc_or_nocc>_lshiftrt")
+	("*<risbg_n>_ior_and_sr_ze")
+	("*extract1bitdi<clobbercc_or_nocc>")
+	("*insv<mode><clobbercc_or_nocc>", "*insv_rnsbg_noshift")
+	("*insv_rnsbg_srl", "*insv<mode>_mem_reg")
+	("*insvdi_mem_reghigh", "*insvdi_reg_imm"): Use EXTRACT_ARGS_IN_RANGE
+	to validate the arguments of zero_extract and sign_extract.
+
+2016-12-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/77822
+	* rtl.h (EXTRACT_ARGS_IN_RANGE): New.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc/config/s390/s390.c (s390_builtin_vectorization_cost): New
+	function.
+	(TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST): Define target
+	macro.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vector.md (vec_halfhalf): New mode iterator.
+	("vec_pack_trunc_<mode>", "vec_pack_ssat_<mode>")
+	("vec_pack_usat_<mode>", "vec_unpacks_hi_v16qi")
+	("vec_unpacks_low_v16qi", "vec_unpacku_hi_v16qi")
+	("vec_unpacku_low_v16qi", "vec_unpacks_hi_v8hi")
+	("vec_unpacks_lo_v8hi", "vec_unpacku_hi_v8hi")
+	("vec_unpacku_lo_v8hi", "vec_unpacks_hi_v4si")
+	("vec_unpacks_lo_v4si", "vec_unpacku_hi_v4si")
+	("vec_unpacku_lo_v4si"): New pattern definitions.
+	* config/s390/vx-builtins.md: Move VI_HW_HSD mode iterator to
+	vector.md.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-protos.h (s390_reverse_condition): New
+	prototype.
+	* config/s390/s390.c (s390_canonicalize_comparison): Fold compares
+	of CC mode values.
+	(s390_reverse_condition): New function.
+	* config/s390/s390.h (REVERSE_CC_MODE, REVERSE_CONDITION): Define
+	target macros.
+
+2016-12-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-modes.def (CCVEQANY, CCVH, CCVHANY, CCVHU)
+	(CCVHUANY): Remove modes.
+	(CCVIH, CCVIHU, CCVIALL, CCVIANY, CCVFALL, CCVFANY): Add modes and
+	documentation.
+	* config/s390/s390.c (s390_match_ccmode_set): Rename cc modes.
+	(s390_expand_vec_compare_scalar): Pick one of the cc consumer
+	modes.
+	(s390_branch_condition_mask): Adjust to use the new cc consumer
+	modes.  The new modes allow for proper reversal in the middle-end.
+	(s390_expand_vec_compare_cc): Determine the proper cc producer and
+	consumer modes for a comparison.
+	* config/s390/s390.md: Rename CCVH to CCVIH and CCVHU to CCVIHU
+	throughout the file.
+	* config/s390/vx-builtins.md: Likewise.
+
+2016-12-02  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	* asan.c (asan_global_struct): Refactor.
+	(create_odr_indicator): New function.
+	(asan_needs_odr_indicator_p): Likewise.
+	(is_odr_indicator): Likewise.
+	(asan_add_global): Introduce odr_indicator_ptr. Pass it into global's
+	constructor.
+	(asan_protect_global): Do not protect odr indicators.
+
+2016-12-01  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts_at_dest): Avoid temporary
+	propagation of operands if there are no operands.
+
+2016-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/78586
+	* gimple-ssa-sprintf.c (format_integer): Don't handle NOP_EXPR,
+	CONVERT_EXPR or COMPONENT_REF here.  Formatting fix.  For
+	SSA_NAME_DEF_STMT with NOP_EXPR only change argtype if the rhs1's
+	type is INTEGER_TYPE or POINTER_TYPE.
+
+2016-12-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR target/78577
+	* config/rs6000/vsx.md (vextuhlx): Revise mode of operand 2.
+	(vextuhrx): Likewise.
+	(vextuwlx): Likewise.
+	(vextuwrx): Likewise.
+
+2016-12-01  David Malcolm  <dmalcolm@redhat.com>
+
+	* dwarf2out.c (dwarf2out_c_finalize): Reset early_dwarf and
+	early_dwarf_finished.
+
+2016-12-01  Eric Botcazou  <ebotcazou@adacore.com>
+	    David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.opt (mlra): New target option.
+	* config/sparc/sparc.c (TARGET_LRA_P): Define to...
+	(sparc_lra_p): ...this.  New function.
+	(D_MODES, DF_MODES): Add missing cast.
+	* config/sparc/sparc.md (*movsi_lo_sum, *movsi_high): Do not
+	provide these insns when flag_pic.
+	(sethi_di_medlow, losum_di_medlow, seth44, setm44, setl44, sethh,
+	setlm, sethm, setlo, embmedany_sethi, embmedany_losum,
+	embmedany_brsum, embmedany_textuhi, embmedany_texthi,
+	embmedany_textulo, embmedany_textlo): Likewise.
+	(sethi_di_medlow_embmedany_pic): Provide it only with flag_pic.
+
 2016-12-01  David Edelsohn  <dje.gcc@gmail.com>
 
 	PR debug/66419
