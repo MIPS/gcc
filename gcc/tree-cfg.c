@@ -935,7 +935,11 @@ make_edges (void)
 	      tree target;
 
 	      if (!label_stmt)
-		break;
+		{
+		  if (is_gimple_debug (gsi_stmt (gsi)))
+		    continue;
+		  break;
+		}
 
 	      target = gimple_label_label (label_stmt);
 
