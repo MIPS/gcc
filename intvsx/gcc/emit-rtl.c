@@ -2668,6 +2668,14 @@ unsigned int
 unshare_all_rtl (void)
 {
   unshare_all_rtl_1 (get_insns ());
+
+  for (tree decl = DECL_ARGUMENTS (cfun->decl); decl; decl = DECL_CHAIN (decl))
+    {
+      if (DECL_RTL_SET_P (decl))
+	SET_DECL_RTL (decl, copy_rtx_if_shared (DECL_RTL (decl)));
+      DECL_INCOMING_RTL (decl) = copy_rtx_if_shared (DECL_INCOMING_RTL (decl));
+    }
+
   return 0;
 }
 
@@ -5543,10 +5551,6 @@ copy_insn_1 (rtx orig)
      not be copied.  That is the sensible default behavior, and forces
      us to explicitly document why we are *not* copying a flag.  */
   copy = shallow_copy_rtx (orig);
-
-  /* We do not copy the USED flag, which is used as a mark bit during
-     walks over the RTL.  */
-  RTX_FLAG (copy, used) = 0;
 
   /* We do not copy JUMP, CALL, or FRAME_RELATED for INSNs.  */
   if (INSN_P (orig))

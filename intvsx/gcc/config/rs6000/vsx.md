@@ -3696,7 +3696,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
-	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
+	  (match_operand:V8HI 2 "altivec_register_operand" "v")]
 	 UNSPEC_VEXTUHLX))]
   "TARGET_P9_VECTOR"
   "vextuhlx %0,%1,%2"
@@ -3707,7 +3707,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
-	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
+	  (match_operand:V8HI 2 "altivec_register_operand" "v")]
 	 UNSPEC_VEXTUHRX))]
   "TARGET_P9_VECTOR"
   "vextuhrx %0,%1,%2"
@@ -3718,7 +3718,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
-	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
+	  (match_operand:V4SI 2 "altivec_register_operand" "v")]
 	 UNSPEC_VEXTUWLX))]
   "TARGET_P9_VECTOR"
   "vextuwlx %0,%1,%2"
@@ -3729,7 +3729,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(unspec:SI
 	 [(match_operand:SI 1 "register_operand" "r")
-	  (match_operand:V16QI 2 "altivec_register_operand" "v")]
+	  (match_operand:V4SI 2 "altivec_register_operand" "v")]
 	 UNSPEC_VEXTUWRX))]
   "TARGET_P9_VECTOR"
   "vextuwrx %0,%1,%2"
