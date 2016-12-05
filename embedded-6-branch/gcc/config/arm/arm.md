@@ -11518,6 +11518,25 @@
   [(set_attr "length" "4")
    (set_attr "type" "coproc")])
 
+(define_insn "*ldcstc"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
+		     (match_operand:SI 1 "immediate_operand")
+		     (match_operand:SI 2 "memory_operand" "Uz")] LDCSTCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<LDCSTC>)"
+{
+  arm_const_bounds (operands[0], 0, 16);
+  arm_const_bounds (operands[1], 0, (1 << 5));
+  return "<ldcstc>\\tp%c0, CR%c1, %2";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_expand "<ldcstc>"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
+		     (match_operand:SI 1 "immediate_operand")
+		     (mem:SI (match_operand:SI 2 "s_register_operand"))] LDCSTCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<LDCSTC>)")
+
 ;; Vector bits common to IWMMXT and Neon
 (include "vec-common.md")
 ;; Load the Intel Wireless Multimedia Extension patterns
