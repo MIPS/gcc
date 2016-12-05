@@ -1,3 +1,20 @@
+2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-11-23  Richard Biener  <rguenther@suse.de>
+
+	PR lto/78472
+	* lto.c (hash_canonical_type): Ignore zero-sized fields.
+
+2016-11-02  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-10-31  Richard Biener  <rguenther@suse.de>
+
+	PR lto/78129
+	* lto.c (do_whole_program_analysis): Bail out after errors
+	from WPA analysis.
+
 2016-08-22  Release Manager
 
 	* GCC 6.2.0 released.

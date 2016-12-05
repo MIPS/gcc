@@ -1,3 +1,36 @@
+2016-11-18  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline
+	2016-11-18  Walter Lee  <walt@tilera.com>
+	
+	* config.host (tilepro*-*-linux*): Add t-slibgcc-libgcc to
+	tmake_file.
+
+2016-11-16  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	Backport from mainline
+	2016-11-11  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config.host (i[3456]86-*-musl*, x86_64-*-musl*): Use
+	i386/t-cpuinfo-static instead of i386/t-cpuinfo.
+	* config/i386/t-cpuinfo-static: New.
+
+2016-11-07  Florian Weimer  <fweimer@redhat.com>
+
+	Backport from mainline
+	2016-10-24  Florian Weimer  <fweimer@redhat.com>
+
+	PR libgcc/78064
+	* unwind-c.c: Include auto-target.h.
+
+2016-09-28  Joseph Myers  <joseph@codesourcery.com>
+
+	Backport from mainline
+	2016-09-07  Joseph Myers  <joseph@codesourcery.com>
+
+	PR libgcc/77519
+	* libgcc2.c (NOTRUNC): Invert settings.
+
 2016-08-31  Jakub Sejdak  <jakub.sejdak@phoesys.com>
 
 	* config.host: Add support for arm*-*-phoenix* targets.

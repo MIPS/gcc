@@ -372,7 +372,9 @@ hash_canonical_type (tree type)
       tree f;
 
       for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
-	if (TREE_CODE (f) == FIELD_DECL)
+	if (TREE_CODE (f) == FIELD_DECL
+	    && (! DECL_SIZE (f)
+		|| ! integer_zerop (DECL_SIZE (f))))
 	  {
 	    iterative_hash_canonical_type (TREE_TYPE (f), hstate);
 	    nf++;
@@ -3098,6 +3100,10 @@ do_whole_program_analysis (void)
   symtab->state = IPA_SSA;
 
   execute_ipa_pass_list (g->get_passes ()->all_regular_ipa_passes);
+
+  /* When WPA analysis raises errors, do not bother to output anything.  */
+  if (seen_error ())
+    return;
 
   if (symtab->dump_file)
     {

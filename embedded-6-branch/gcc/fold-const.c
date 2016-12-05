@@ -458,13 +458,13 @@ negate_expr_p (tree t)
       if (TYPE_UNSIGNED (type))
 	break;
       /* INT_MIN/n * n doesn't overflow while negating one operand it does
-         if n is a power of two.  */
+         if n is a (negative) power of two.  */
       if (INTEGRAL_TYPE_P (TREE_TYPE (t))
 	  && ! TYPE_OVERFLOW_WRAPS (TREE_TYPE (t))
 	  && ! ((TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST
-		 && ! integer_pow2p (TREE_OPERAND (t, 0)))
+		 && wi::popcount (wi::abs (TREE_OPERAND (t, 0))) != 1)
 		|| (TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST
-		    && ! integer_pow2p (TREE_OPERAND (t, 1)))))
+		    && wi::popcount (wi::abs (TREE_OPERAND (t, 1))) != 1)))
 	break;
 
       /* Fall through.  */
@@ -837,15 +837,16 @@ split_tree (location_t loc, tree in, tree type, enum tree_code code,
 	  var = negate_expr (var);
 	}
     }
+  else if (TREE_CONSTANT (in))
+    *conp = in;
   else if (TREE_CODE (in) == BIT_NOT_EXPR
 	   && code == PLUS_EXPR)
     {
-      /* -X - 1 is folded to ~X, undo that here.  */
+      /* -X - 1 is folded to ~X, undo that here.  Do _not_ do this
+         when IN is constant.  */
       *minus_litp = build_one_cst (TREE_TYPE (in));
       var = negate_expr (TREE_OPERAND (in, 0));
     }
-  else if (TREE_CONSTANT (in))
-    *conp = in;
   else
     var = in;
 
@@ -3786,11 +3787,11 @@ make_bit_field_ref (location_t loc, tree inner, tree orig_inner, tree type,
 {
   tree result, bftype;
 
-  if (get_alias_set (inner) != get_alias_set (orig_inner))
+  alias_set_type iset = get_alias_set (orig_inner);
+  if (iset == 0 && get_alias_set (inner) != iset)
     inner = fold_build2 (MEM_REF, TREE_TYPE (inner),
 			 build_fold_addr_expr (inner),
-			 build_int_cst
-			  (reference_alias_ptr_type (orig_inner), 0));
+			 build_int_cst (ptr_type_node, 0));
 
   if (bitpos == 0 && !reversep)
     {

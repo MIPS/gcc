@@ -517,7 +517,8 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
   if (derived1 == derived2)
     return 1;
 
-  gcc_assert (derived1 && derived2);
+  if (!derived1 || !derived2)
+    gfc_internal_error ("gfc_compare_derived_types: invalid derived type");
 
   /* MAP and anonymous STRUCTURE types have internal names of the form
      mM* and sS* (we can get away this this because source names are converted
@@ -1604,14 +1605,23 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
   f1 = gfc_sym_get_dummy_args (s1);
   f2 = gfc_sym_get_dummy_args (s2);
 
+  /* Special case: No arguments.  */
   if (f1 == NULL && f2 == NULL)
-    return 1;			/* Special case: No arguments.  */
+    return 1;
 
   if (generic_flag)
     {
       if (count_types_test (f1, f2, p1, p2)
 	  || count_types_test (f2, f1, p2, p1))
 	return 0;
+
+      /* Special case: alternate returns.  If both f1->sym and f2->sym are
+	 NULL, then the leading formal arguments are alternate returns.  
+	 The previous conditional should catch argument lists with 
+	 different number of argument.  */
+      if (f1 && f1->sym == NULL && f2 && f2->sym == NULL)
+	return 1;
+
       if (generic_correspondence (f1, f2, p1, p2)
 	  || generic_correspondence (f2, f1, p2, p1))
 	return 0;
@@ -1779,13 +1789,15 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
 				       generic_flag, 0, NULL, 0, NULL, NULL))
 	  {
 	    if (referenced)
-	      gfc_error ("Ambiguous interfaces %qs and %qs in %s at %L",
-			 p->sym->name, q->sym->name, interface_name,
-			 &p->where);
+	      gfc_error ("Ambiguous interfaces in %s for %qs at %L "
+			 "and %qs at %L", interface_name,
+			 q->sym->name, &q->sym->declared_at,
+			 p->sym->name, &p->sym->declared_at);
 	    else if (!p->sym->attr.use_assoc && q->sym->attr.use_assoc)
-	      gfc_warning (0, "Ambiguous interfaces %qs and %qs in %s at %L",
-			   p->sym->name, q->sym->name, interface_name,
-			   &p->where);
+	      gfc_warning (0, "Ambiguous interfaces in %s for %qs at %L "
+			 "and %qs at %L", interface_name,
+			 q->sym->name, &q->sym->declared_at,
+			 p->sym->name, &p->sym->declared_at);
 	    else
 	      gfc_warning (0, "Although not referenced, %qs has ambiguous "
 			   "interfaces at %L", interface_name, &p->where);
@@ -2146,7 +2158,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
     {
       if (where)
 	gfc_error ("Type mismatch in argument %qs at %L; passed %s to %s",
-		   formal->name, &actual->where, gfc_typename (&actual->ts),
+		   formal->name, where, gfc_typename (&actual->ts),
 		   gfc_typename (&formal->ts));
       return 0;
     }
@@ -3770,7 +3782,7 @@ matching_typebound_op (gfc_expr** tb_base,
 
 	if (base->expr->ts.type == BT_CLASS)
 	  {
-	    if (CLASS_DATA (base->expr) == NULL
+	    if (!base->expr->ts.u.derived || CLASS_DATA (base->expr) == NULL
 		|| !gfc_expr_attr (base->expr).class_ok)
 	      continue;
 	    derived = CLASS_DATA (base->expr)->ts.u.derived;

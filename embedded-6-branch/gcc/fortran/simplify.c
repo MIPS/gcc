@@ -489,6 +489,8 @@ simplify_transformation_to_scalar (gfc_expr *result, gfc_expr *array, gfc_expr *
 	}
 
       result = op (result, gfc_copy_expr (a));
+      if (!result)
+	return result;
     }
 
   return result;
@@ -1840,7 +1842,7 @@ gfc_simplify_cshift (gfc_expr *array, gfc_expr *shift, gfc_expr *dim)
       shft = shft < 0 ? 1 - shft : shft;
 
       /* Special case: Shift to the original order!  */
-      if (shft % sz == 0)
+      if (sz == 0 || shft % sz == 0)
 	return a;
 
       result = gfc_copy_expr (a);
@@ -2371,7 +2373,7 @@ gfc_simplify_extends_type_of (gfc_expr *a, gfc_expr *mold)
   if (UNLIMITED_POLY (a) || UNLIMITED_POLY (mold))
     return NULL;
 
-  /* Return .false. if the dynamic type can never be the same.  */
+  /* Return .false. if the dynamic type can never be an extension.  */
   if ((a->ts.type == BT_CLASS && mold->ts.type == BT_CLASS
        && !gfc_type_is_extension_of
 			(mold->ts.u.derived->components->ts.u.derived,
@@ -2381,18 +2383,19 @@ gfc_simplify_extends_type_of (gfc_expr *a, gfc_expr *mold)
 			 mold->ts.u.derived->components->ts.u.derived))
       || (a->ts.type == BT_DERIVED && mold->ts.type == BT_CLASS
 	  && !gfc_type_is_extension_of
-			(a->ts.u.derived,
-			 mold->ts.u.derived->components->ts.u.derived)
-	  && !gfc_type_is_extension_of
 			(mold->ts.u.derived->components->ts.u.derived,
 			 a->ts.u.derived))
       || (a->ts.type == BT_CLASS && mold->ts.type == BT_DERIVED
 	  && !gfc_type_is_extension_of
 			(mold->ts.u.derived,
-			 a->ts.u.derived->components->ts.u.derived)))
+			 a->ts.u.derived->components->ts.u.derived)
+	  && !gfc_type_is_extension_of
+			(a->ts.u.derived->components->ts.u.derived,
+			 mold->ts.u.derived)))
     return gfc_get_logical_expr (gfc_default_logical_kind, &a->where, false);
 
-  if (mold->ts.type == BT_DERIVED
+  /* Return .true. if the dynamic type is guaranteed to be an extension.  */
+  if (a->ts.type == BT_CLASS && mold->ts.type == BT_DERIVED
       && gfc_type_is_extension_of (mold->ts.u.derived,
 				   a->ts.u.derived->components->ts.u.derived))
     return gfc_get_logical_expr (gfc_default_logical_kind, &a->where, true);
@@ -7043,9 +7046,17 @@ gfc_simplify_compiler_version (void)
 gfc_expr *
 simplify_ieee_selected_real_kind (gfc_expr *expr)
 {
-  gfc_actual_arglist *arg = expr->value.function.actual;
-  gfc_expr *p = arg->expr, *q = arg->next->expr,
-	   *rdx = arg->next->next->expr;
+  gfc_actual_arglist *arg;
+  gfc_expr *p = NULL, *q = NULL, *rdx = NULL;
+
+  arg = expr->value.function.actual;
+  p = arg->expr;
+  if (arg->next)
+    {
+      q = arg->next->expr;
+      if (arg->next->next)
+	rdx = arg->next->next->expr;
+    }
 
   /* Currently, if IEEE is supported and this module is built, it means
      all our floating-point types conform to IEEE. Hence, we simply handle

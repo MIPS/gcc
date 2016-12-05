@@ -5105,6 +5105,11 @@ resolve_variable (gfc_expr *e)
 
   if (sym->ts.type != BT_UNKNOWN)
     gfc_variable_attr (e, &e->ts);
+  else if (sym->attr.flavor == FL_PROCEDURE
+	   && sym->attr.function && sym->result
+	   && sym->result->ts.type != BT_UNKNOWN
+	   && sym->result->attr.proc_pointer)
+    e->ts = sym->result->ts;
   else
     {
       /* Must be a simple variable reference.  */
@@ -6508,15 +6513,15 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok, bool own_scope)
   /* Convert start, end, and step to the same type as var.  */
   if (iter->start->ts.kind != iter->var->ts.kind
       || iter->start->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->start, &iter->var->ts, 2);
+    gfc_convert_type (iter->start, &iter->var->ts, 1);
 
   if (iter->end->ts.kind != iter->var->ts.kind
       || iter->end->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->end, &iter->var->ts, 2);
+    gfc_convert_type (iter->end, &iter->var->ts, 1);
 
   if (iter->step->ts.kind != iter->var->ts.kind
       || iter->step->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->step, &iter->var->ts, 2);
+    gfc_convert_type (iter->step, &iter->var->ts, 1);
 
   if (iter->start->expr_type == EXPR_CONSTANT
       && iter->end->expr_type == EXPR_CONSTANT
@@ -8244,6 +8249,18 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
   /* Mark this as an associate variable.  */
   sym->attr.associate_var = 1;
 
+  /* Fix up the type-spec for CHARACTER types.  */
+  if (sym->ts.type == BT_CHARACTER && !sym->attr.select_type_temporary)
+    {
+      if (!sym->ts.u.cl)
+	sym->ts.u.cl = target->ts.u.cl;
+
+      if (!sym->ts.u.cl->length)
+	sym->ts.u.cl->length
+	  = gfc_get_int_expr (gfc_default_integer_kind,
+			      NULL, target->value.character.length);
+    }
+
   /* If the target is a good class object, so is the associate variable.  */
   if (sym->ts.type == BT_CLASS && gfc_expr_attr (target).class_ok)
     sym->attr.class_ok = 1;
@@ -8936,7 +8953,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
   if (label->defined == ST_LABEL_UNKNOWN)
     {
       gfc_error ("Label %d referenced at %L is never defined", label->value,
-		 &label->where);
+		 &code->loc);
       return;
     }
 
@@ -9301,16 +9318,15 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
   static gfc_expr **var_expr;
   static int total_var = 0;
   static int nvar = 0;
-  int old_nvar, tmp;
+  int i, old_nvar, tmp;
   gfc_forall_iterator *fa;
-  int i;
 
   old_nvar = nvar;
 
   /* Start to resolve a FORALL construct   */
   if (forall_save == 0)
     {
-      /* Count the total number of FORALL index in the nested FORALL
+      /* Count the total number of FORALL indices in the nested FORALL
          construct in order to allocate the VAR_EXPR with proper size.  */
       total_var = gfc_count_forall_iterators (code);
 
@@ -9318,19 +9334,25 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
       var_expr = XCNEWVEC (gfc_expr *, total_var);
     }
 
-  /* The information about FORALL iterator, including FORALL index start, end
-     and stride. The FORALL index can not appear in start, end or stride.  */
+  /* The information about FORALL iterator, including FORALL indices start, end
+     and stride.  An outer FORALL indice cannot appear in start, end or stride.  */
   for (fa = code->ext.forall_iterator; fa; fa = fa->next)
     {
+      /* Fortran 20008: C738 (R753).  */
+      if (fa->var->ref && fa->var->ref->type == REF_ARRAY)
+	{
+	  gfc_error ("FORALL index-name at %L must be a scalar variable "
+		     "of type integer", &fa->var->where);
+	  continue;
+	}
+
       /* Check if any outer FORALL index name is the same as the current
 	 one.  */
       for (i = 0; i < nvar; i++)
 	{
 	  if (fa->var->symtree->n.sym == var_expr[i]->symtree->n.sym)
-	    {
-	      gfc_error ("An outer FORALL construct already has an index "
-			 "with this name %L", &fa->var->where);
-	    }
+	    gfc_error ("An outer FORALL construct already has an index "
+			"with this name %L", &fa->var->where);
 	}
 
       /* Record the current FORALL index.  */
@@ -11495,6 +11517,27 @@ resolve_fl_variable_derived (gfc_symbol *sym, int no_init_flag)
 }
 
 
+/* F2008, C402 (R401):  A colon shall not be used as a type-param-value
+   except in the declaration of an entity or component that has the POINTER
+   or ALLOCATABLE attribute.  */
+
+static bool
+deferred_requirements (gfc_symbol *sym)
+{
+  if (sym->ts.deferred
+      && !(sym->attr.pointer
+	   || sym->attr.allocatable
+	   || sym->attr.omp_udr_artificial_var))
+    {
+      gfc_error ("Entity %qs at %L has a deferred type parameter and "
+		 "requires either the POINTER or ALLOCATABLE attribute",
+		 sym->name, &sym->declared_at);
+      return false;
+    }
+  return true;
+}
+
+
 /* Resolve symbols with flavor variable.  */
 
 static bool
@@ -11534,19 +11577,10 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
     }
 
   /* Constraints on deferred type parameter.  */
-  if (sym->ts.deferred
-      && !(sym->attr.pointer
-	   || sym->attr.allocatable
-	   || sym->attr.omp_udr_artificial_var))
-    {
-      gfc_error ("Entity %qs at %L has a deferred type parameter and "
-		 "requires either the pointer or allocatable attribute",
-		     sym->name, &sym->declared_at);
-      specification_expr = saved_specification_expr;
-      return false;
-    }
+  if (!deferred_requirements (sym))
+    return false;
 
-  if (sym->ts.type == BT_CHARACTER)
+  if (sym->ts.type == BT_CHARACTER && !sym->attr.associate_var)
     {
       /* Make sure that character string variables with assumed length are
 	 dummy arguments.  */
@@ -12498,7 +12532,17 @@ resolve_typebound_intrinsic_op (gfc_symbol* derived, gfc_intrinsic_op op,
 	  && p->access != ACCESS_PRIVATE && derived->ns == gfc_current_ns)
 	{
 	  gfc_interface *head, *intr;
-	  if (!gfc_check_new_interface (derived->ns->op[op], target_proc, p->where))
+
+	  /* Preempt 'gfc_check_new_interface' for submodules, where the
+	     mechanism for handling module procedures winds up resolving
+	     operator interfaces twice and would otherwise cause an error.  */
+	  for (intr = derived->ns->op[op]; intr; intr = intr->next)
+	    if (intr->sym == target_proc
+		&& target_proc->attr.used_in_submodule)
+	      return true;
+
+	  if (!gfc_check_new_interface (derived->ns->op[op],
+					target_proc, p->where))
 	    return false;
 	  head = derived->ns->op[op];
 	  intr = gfc_get_interface ();
@@ -13662,6 +13706,10 @@ resolve_fl_parameter (gfc_symbol *sym)
 		 "or of deferred shape", sym->name, &sym->declared_at);
       return false;
     }
+
+  /* Constraints on deferred type parameter.  */
+  if (!deferred_requirements (sym))
+    return false;
 
   /* Make sure a parameter that has been implicitly typed still
      matches the implicit type, since PARAMETER statements can precede

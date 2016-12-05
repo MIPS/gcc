@@ -14,7 +14,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a moved_to of the GNU General Public License along
+// You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
@@ -22,8 +22,8 @@
 
 using std::experimental::propagate_const;
 
-// { dg-error "requires a class or a pointer to an object type" "" { target *-*-* } 104 }
-// { dg-error "invalid type" "" { target *-*-* } 65 }
-// { dg-error "uninitialized reference member" "" { target *-*-* } 111 }
+// { dg-error "requires a class or a pointer to an object type" "" { target *-*-* } 105 }
+// { dg-error "invalid type" "" { target *-*-* } 66 }
+// { dg-error "uninitialized reference member" "" { target *-*-* } 112 }
 
 propagate_const<int&> test1; // { dg-error "use of deleted function" }

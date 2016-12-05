@@ -77,6 +77,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "case-cfn-macros.h"
 #include "regrename.h"
 #include "dojump.h"
+#include "fold-const-call.h"
+#include "tree-ssanames.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -3785,7 +3787,6 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mxsaves",	OPTION_MASK_ISA_XSAVES },
     { "-mmpx",          OPTION_MASK_ISA_MPX },
     { "-mclwb",		OPTION_MASK_ISA_CLWB },
-    { "-mpcommit",	OPTION_MASK_ISA_PCOMMIT },
     { "-mmwaitx",	OPTION_MASK_ISA_MWAITX  },
     { "-mclzero",	OPTION_MASK_ISA_CLZERO  },
     { "-mpku",		OPTION_MASK_ISA_PKU  },
@@ -4340,11 +4341,10 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_AVX512IFMA		(HOST_WIDE_INT_1 << 53)
 #define PTA_AVX512VBMI		(HOST_WIDE_INT_1 << 54)
 #define PTA_CLWB		(HOST_WIDE_INT_1 << 55)
-#define PTA_PCOMMIT		(HOST_WIDE_INT_1 << 56)
-#define PTA_MWAITX		(HOST_WIDE_INT_1 << 57)
-#define PTA_CLZERO		(HOST_WIDE_INT_1 << 58)
-#define PTA_NO_80387		(HOST_WIDE_INT_1 << 59)
-#define PTA_PKU		(HOST_WIDE_INT_1 << 60)
+#define PTA_MWAITX		(HOST_WIDE_INT_1 << 56)
+#define PTA_CLZERO		(HOST_WIDE_INT_1 << 57)
+#define PTA_NO_80387		(HOST_WIDE_INT_1 << 58)
+#define PTA_PKU		(HOST_WIDE_INT_1 << 59)
 
 #define PTA_CORE2 \
   (PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3 \
@@ -4928,9 +4928,6 @@ ix86_option_override_internal (bool main_args_p,
 	if (processor_alias_table[i].flags & PTA_PREFETCHWT1
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_PREFETCHWT1))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PREFETCHWT1;
-	if (processor_alias_table[i].flags & PTA_PCOMMIT
-	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_PCOMMIT))
-	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PCOMMIT;
 	if (processor_alias_table[i].flags & PTA_CLWB
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_CLWB))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_CLWB;
@@ -5976,7 +5973,6 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("avx512vbmi",	OPT_mavx512vbmi),
     IX86_ATTR_ISA ("avx512ifma",	OPT_mavx512ifma),
     IX86_ATTR_ISA ("clwb",	OPT_mclwb),
-    IX86_ATTR_ISA ("pcommit",	OPT_mpcommit),
     IX86_ATTR_ISA ("mwaitx",	OPT_mmwaitx),
     IX86_ATTR_ISA ("clzero",    OPT_mclzero),
     IX86_ATTR_ISA ("pku",	OPT_mpku),
@@ -15514,7 +15510,9 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	  base = get_thread_pointer (tp_mode,
 				     for_mov || !TARGET_TLS_DIRECT_SEG_REFS);
 	  off = force_reg (tp_mode, off);
-	  return gen_rtx_PLUS (tp_mode, base, off);
+	  dest = gen_rtx_PLUS (tp_mode, base, off);
+	  if (tp_mode != Pmode)
+	    dest = convert_to_mode (Pmode, dest, 1);
 	}
       else
 	{
@@ -32161,9 +32159,6 @@ enum ix86_builtins
   /* CLWB instructions.  */
   IX86_BUILTIN_CLWB,
 
-  /* PCOMMIT instructions.  */
-  IX86_BUILTIN_PCOMMIT,
-
   /* CLFLUSHOPT instructions.  */
   IX86_BUILTIN_CLFLUSHOPT,
 
@@ -32364,7 +32359,10 @@ enum ix86_builtins
   IX86_BUILTIN_LWPINS32,
   IX86_BUILTIN_LWPINS64,
 
-  IX86_BUILTIN_CLZS,
+  /* LZCNT */
+  IX86_BUILTIN_LZCNT16,
+  IX86_BUILTIN_LZCNT32,
+  IX86_BUILTIN_LZCNT64,
 
   /* RTM */
   IX86_BUILTIN_XBEGIN,
@@ -32388,7 +32386,9 @@ enum ix86_builtins
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
   IX86_BUILTIN_BEXTR64,
-  IX86_BUILTIN_CTZS,
+  IX86_BUILTIN_TZCNT16,
+  IX86_BUILTIN_TZCNT32,
+  IX86_BUILTIN_TZCNT64,
 
   /* TBM instructions.  */
   IX86_BUILTIN_BEXTRI32,
@@ -32966,9 +32966,6 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_ss_truncatev4siv4hi2_mask_store, "__builtin_ia32_pmovsdw128mem_mask", IX86_BUILTIN_PMOVSDW128_MEM, UNKNOWN, (int) VOID_FTYPE_PV8HI_V4SI_UQI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_us_truncatev8siv8hi2_mask_store, "__builtin_ia32_pmovusdw256mem_mask", IX86_BUILTIN_PMOVUSDW256_MEM, UNKNOWN, (int) VOID_FTYPE_PV8HI_V8SI_UQI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_us_truncatev4siv4hi2_mask_store, "__builtin_ia32_pmovusdw128mem_mask", IX86_BUILTIN_PMOVUSDW128_MEM, UNKNOWN, (int) VOID_FTYPE_PV8HI_V4SI_UQI },
-
-  /* PCOMMIT.  */
-  { OPTION_MASK_ISA_PCOMMIT, CODE_FOR_pcommit, "__builtin_ia32_pcommit", IX86_BUILTIN_PCOMMIT, UNKNOWN, (int) VOID_FTYPE_VOID },
 
   /* RDPKRU and WRPKRU.  */
   { OPTION_MASK_ISA_PKU, CODE_FOR_rdpkru,  "__builtin_ia32_rdpkru", IX86_BUILTIN_RDPKRU, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
@@ -33779,12 +33776,18 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshrvv8si, "__builtin_ia32_psrlv8si", IX86_BUILTIN_PSRLVV8SI, UNKNOWN, (int) V8SI_FTYPE_V8SI_V8SI },
   { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshrvv4si, "__builtin_ia32_psrlv4si", IX86_BUILTIN_PSRLVV4SI, UNKNOWN, (int) V4SI_FTYPE_V4SI_V4SI },
 
-  { OPTION_MASK_ISA_LZCNT, CODE_FOR_clzhi2_lzcnt,   "__builtin_clzs",   IX86_BUILTIN_CLZS,    UNKNOWN,     (int) UINT16_FTYPE_UINT16 },
+  /* LZCNT */
+  { OPTION_MASK_ISA_LZCNT, CODE_FOR_lzcnt_hi, "__builtin_ia32_lzcnt_u16", IX86_BUILTIN_LZCNT16, UNKNOWN, (int) UINT16_FTYPE_UINT16 },
+  { OPTION_MASK_ISA_LZCNT, CODE_FOR_lzcnt_si, "__builtin_ia32_lzcnt_u32", IX86_BUILTIN_LZCNT32, UNKNOWN, (int) UINT_FTYPE_UINT },
+  { OPTION_MASK_ISA_LZCNT | OPTION_MASK_ISA_64BIT, CODE_FOR_lzcnt_di, "__builtin_ia32_lzcnt_u64", IX86_BUILTIN_LZCNT64, UNKNOWN, (int) UINT64_FTYPE_UINT64 },
 
   /* BMI */
   { OPTION_MASK_ISA_BMI, CODE_FOR_bmi_bextr_si, "__builtin_ia32_bextr_u32", IX86_BUILTIN_BEXTR32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
   { OPTION_MASK_ISA_BMI | OPTION_MASK_ISA_64BIT, CODE_FOR_bmi_bextr_di, "__builtin_ia32_bextr_u64", IX86_BUILTIN_BEXTR64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
-  { OPTION_MASK_ISA_BMI, CODE_FOR_ctzhi2,       "__builtin_ctzs",           IX86_BUILTIN_CTZS,    UNKNOWN, (int) UINT16_FTYPE_UINT16 },
+
+  { OPTION_MASK_ISA_BMI, CODE_FOR_bmi_tzcnt_hi, "__builtin_ia32_tzcnt_u16", IX86_BUILTIN_TZCNT16, UNKNOWN, (int) UINT16_FTYPE_UINT16 },
+  { OPTION_MASK_ISA_BMI, CODE_FOR_bmi_tzcnt_si, "__builtin_ia32_tzcnt_u32", IX86_BUILTIN_TZCNT32, UNKNOWN, (int) UINT_FTYPE_UINT },
+  { OPTION_MASK_ISA_BMI | OPTION_MASK_ISA_64BIT, CODE_FOR_bmi_tzcnt_di, "__builtin_ia32_tzcnt_u64", IX86_BUILTIN_TZCNT64, UNKNOWN, (int) UINT64_FTYPE_UINT64 },
 
   /* TBM */
   { OPTION_MASK_ISA_TBM, CODE_FOR_tbm_bextri_si, "__builtin_ia32_bextri_u32", IX86_BUILTIN_BEXTRI32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
@@ -37557,11 +37560,49 @@ ix86_fold_builtin (tree fndecl, int n_args,
     {
       enum ix86_builtins fn_code = (enum ix86_builtins)
 				   DECL_FUNCTION_CODE (fndecl);
-      if (fn_code ==  IX86_BUILTIN_CPU_IS
-	  || fn_code == IX86_BUILTIN_CPU_SUPPORTS)
+      switch (fn_code)
 	{
+	case IX86_BUILTIN_CPU_IS:
+	case IX86_BUILTIN_CPU_SUPPORTS:
 	  gcc_assert (n_args == 1);
           return fold_builtin_cpu (fndecl, args);
+
+	case IX86_BUILTIN_TZCNT16:
+	case IX86_BUILTIN_TZCNT32:
+	case IX86_BUILTIN_TZCNT64:
+	  gcc_assert (n_args == 1);
+	  if (TREE_CODE (args[0]) == INTEGER_CST)
+	    {
+	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	      tree arg = args[0];
+	      if (fn_code == IX86_BUILTIN_TZCNT16)
+		arg = fold_convert (short_unsigned_type_node, arg);
+	      if (integer_zerop (arg))
+		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));
+	      else
+		return fold_const_call (CFN_CTZ, type, arg);
+	    }
+	  break;
+
+	case IX86_BUILTIN_LZCNT16:
+	case IX86_BUILTIN_LZCNT32:
+	case IX86_BUILTIN_LZCNT64:
+	  gcc_assert (n_args == 1);
+	  if (TREE_CODE (args[0]) == INTEGER_CST)
+	    {
+	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	      tree arg = args[0];
+	      if (fn_code == IX86_BUILTIN_LZCNT16)
+		arg = fold_convert (short_unsigned_type_node, arg);
+	      if (integer_zerop (arg))
+		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));
+	      else
+		return fold_const_call (CFN_CLZ, type, arg);
+	    }
+	  break;
+
+	default:
+	  break;
 	}
     }
 
@@ -37570,6 +37611,70 @@ ix86_fold_builtin (tree fndecl, int n_args,
 #endif
 
   return NULL_TREE;
+}
+
+/* Fold a MD builtin (use ix86_fold_builtin for folding into
+   constant) in GIMPLE.  */
+
+bool
+ix86_gimple_fold_builtin (gimple_stmt_iterator *gsi)
+{
+  gimple *stmt = gsi_stmt (*gsi);
+  tree fndecl = gimple_call_fndecl (stmt);
+  gcc_checking_assert (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD);
+  int n_args = gimple_call_num_args (stmt);
+  enum ix86_builtins fn_code = (enum ix86_builtins) DECL_FUNCTION_CODE (fndecl);
+  tree decl = NULL_TREE;
+  tree arg0;
+
+  switch (fn_code)
+    {
+    case IX86_BUILTIN_TZCNT32:
+      decl = builtin_decl_implicit (BUILT_IN_CTZ);
+      goto fold_tzcnt_lzcnt;
+
+    case IX86_BUILTIN_TZCNT64:
+      decl = builtin_decl_implicit (BUILT_IN_CTZLL);
+      goto fold_tzcnt_lzcnt;
+
+    case IX86_BUILTIN_LZCNT32:
+      decl = builtin_decl_implicit (BUILT_IN_CLZ);
+      goto fold_tzcnt_lzcnt;
+
+    case IX86_BUILTIN_LZCNT64:
+      decl = builtin_decl_implicit (BUILT_IN_CLZLL);
+      goto fold_tzcnt_lzcnt;
+
+    fold_tzcnt_lzcnt:
+      gcc_assert (n_args == 1);
+      arg0 = gimple_call_arg (stmt, 0);
+      if (TREE_CODE (arg0) == SSA_NAME && decl && gimple_call_lhs (stmt))
+	{
+	  int prec = TYPE_PRECISION (TREE_TYPE (arg0));
+	  /* If arg0 is provably non-zero, optimize into generic
+	     __builtin_c[tl]z{,ll} function the middle-end handles
+	     better.  */
+	  if (!expr_not_equal_to (arg0, wi::zero (prec)))
+	    return false;
+
+	  location_t loc = gimple_location (stmt);
+	  gimple *g = gimple_build_call (decl, 1, arg0);
+	  gimple_set_location (g, loc);
+	  tree lhs = make_ssa_name (integer_type_node);
+	  gimple_call_set_lhs (g, lhs);
+	  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+	  g = gimple_build_assign (gimple_call_lhs (stmt), NOP_EXPR, lhs);
+	  gimple_set_location (g, loc);
+	  gsi_replace (gsi, g, false);
+	  return true;
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  return false;
 }
 
 /* Make builtins to detect cpu type and features supported.  NAME is
@@ -38533,8 +38638,10 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case FLOAT128_FTYPE_FLOAT128:
     case FLOAT_FTYPE_FLOAT:
     case INT_FTYPE_INT:
-    case UINT64_FTYPE_INT:
+    case UINT_FTYPE_UINT:
     case UINT16_FTYPE_UINT16:
+    case UINT64_FTYPE_INT:
+    case UINT64_FTYPE_UINT64:
     case INT64_FTYPE_INT64:
     case INT64_FTYPE_V4SF:
     case INT64_FTYPE_V2DF:
@@ -53643,9 +53750,7 @@ ix86_preferred_simd_mode (machine_mode mode)
 	return V4SFmode;
 
     case DFmode:
-      if (!TARGET_VECTORIZE_DOUBLE)
-	return word_mode;
-      else if (TARGET_AVX512F)
+      if (TARGET_AVX512F)
 	return V8DFmode;
       else if (TARGET_AVX && !TARGET_PREFER_AVX128)
 	return V4DFmode;
@@ -53730,9 +53835,14 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
   int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
 
+  /* Penalize DFmode vector operations for !TARGET_VECTORIZE_DOUBLE.  */
+  if (kind == vector_stmt && !TARGET_VECTORIZE_DOUBLE
+      && vectype && GET_MODE_INNER (TYPE_MODE (vectype)) == DFmode)
+    stmt_cost *= 5;  /* FIXME: The value here is arbitrary.  */
+
   /* Statements in an inner loop relative to the loop being
      vectorized are weighted more heavily.  The value here is
-      arbitrary and could potentially be improved with analysis.  */
+     arbitrary and could potentially be improved with analysis.  */
   if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
     count *= 50;  /* FIXME.  */
 
@@ -54595,6 +54705,9 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_FOLD_BUILTIN
 #define TARGET_FOLD_BUILTIN ix86_fold_builtin
+
+#undef TARGET_GIMPLE_FOLD_BUILTIN
+#define TARGET_GIMPLE_FOLD_BUILTIN ix86_gimple_fold_builtin
 
 #undef TARGET_COMPARE_VERSION_PRIORITY
 #define TARGET_COMPARE_VERSION_PRIORITY ix86_compare_version_priority

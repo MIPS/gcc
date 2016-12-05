@@ -4006,7 +4006,7 @@ extern tree build_varargs_function_type_array (tree, int, tree *);
 extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
-extern tree build_complex_type (tree);
+extern tree build_complex_type (tree, bool named = false);
 extern tree array_type_nelts (const_tree);
 
 extern tree value_member (tree, tree);
@@ -5215,6 +5215,9 @@ wi::extended_tree <N>::get_len () const
 namespace wi
 {
   template <typename T>
+  bool fits_to_boolean_p (const T &x, const_tree);
+
+  template <typename T>
   bool fits_to_tree_p (const T &x, const_tree);
 
   wide_int min_value (const_tree);
@@ -5224,9 +5227,21 @@ namespace wi
 
 template <typename T>
 bool
+wi::fits_to_boolean_p (const T &x, const_tree type)
+{
+  return eq_p (x, 0) || eq_p (x, TYPE_UNSIGNED (type) ? 1 : -1);
+}
+
+template <typename T>
+bool
 wi::fits_to_tree_p (const T &x, const_tree type)
 {
-  if (TYPE_SIGN (type) == UNSIGNED)
+  /* Non-standard boolean types can have arbitrary precision but various
+     transformations assume that they can only take values 0 and +/-1.  */
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
+    return fits_to_boolean_p (x, type);
+
+  if (TYPE_UNSIGNED (type))
     return eq_p (x, zext (x, TYPE_PRECISION (type)));
   else
     return eq_p (x, sext (x, TYPE_PRECISION (type)));
