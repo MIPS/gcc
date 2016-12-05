@@ -5747,6 +5747,18 @@ contains (const_rtx insn, hash_table<insn_cache_hasher> *hash)
 }
 
 int
+prologue_contains (const_rtx insn)
+{
+  return contains (insn, prologue_insn_hash);
+}
+
+int
+epilogue_contains (const_rtx insn)
+{
+  return contains (insn, epilogue_insn_hash);
+}
+
+int
 prologue_epilogue_contains (const_rtx insn)
 {
   if (contains (insn, prologue_insn_hash))
@@ -5756,6 +5768,17 @@ prologue_epilogue_contains (const_rtx insn)
   return 0;
 }
 
+void
+record_prologue_seq (rtx_insn *seq)
+{
+  record_insns (seq, NULL, &prologue_insn_hash);
+}
+
+void
+record_epilogue_seq (rtx_insn *seq)
+{
+  record_insns (seq, NULL, &epilogue_insn_hash);
+}
 
 /* Set JUMP_LABEL for a return insn.  */
 
@@ -5925,9 +5948,24 @@ thread_prologue_and_epilogue_insns (void)
   /* Try to perform a kind of shrink-wrapping, making sure the
      prologue/epilogue is emitted only around those parts of the
      function that require it.  */
-
   try_shrink_wrapping (&entry_edge, prologue_seq);
 
+  /* If the target can handle splitting the prologue/epilogue into separate
+     components, try to shrink-wrap these components separately.  */
+  try_shrink_wrapping_separate (entry_edge->dest);
+
+  /* If that did anything for any component we now need the generate the
+     "main" prologue again.  Because some targets require some of these
+     to be called in a specific order (i386 requires the split prologue
+     to be first, for example), we create all three sequences again here.
+     If this does not work for some target, that target should not enable
+     separate shrink-wrapping.  */
+  if (crtl->shrink_wrapped_separate)
+    {
+      split_prologue_seq = make_split_prologue_seq ();
+      prologue_seq = make_prologue_seq ();
+      epilogue_seq = make_epilogue_seq ();
+    }
 
   rtl_profile_for_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 
