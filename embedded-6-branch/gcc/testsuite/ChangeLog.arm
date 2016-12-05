@@ -1,5 +1,12 @@
 2016-12-05  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
+	* gcc.target/arm/acle/mcr.c: New.
+	* gcc.target/arm/acle/mrc.c: New.
+	* gcc.target/arm/acle/mcr2.c: New.
+	* gcc.target/arm/acle/mrc2.c: New.
+
+2016-12-05  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
 	* gcc.target/arm/acle/ldc: New.
 	* gcc.target/arm/acle/ldc2: New.
 	* gcc.target/arm/acle/ldcl: New.
