@@ -1,5 +1,10 @@
 2016-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 243270.
+	* REVISION: Update subversion id.
+
+2016-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 243257.
 	* REVISION: Update subversion id.
 
