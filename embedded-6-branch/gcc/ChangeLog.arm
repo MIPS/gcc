@@ -1,5 +1,26 @@
 2016-12-05  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
+	* config/arm/arm-builtins.c (neon_builtin_datum): Rename to ...
+	(arm_builtin_datum): ... this.
+	(arm_init_neon_builtin): Rename to ...
+	(arm_init_builtin): ... this. Add a new parameter PREFIX.
+	(NEON_MAX_BUILTIN_ARGS): Remove, it was unused.
+	(arm_init_neon_builtins): Replace 'arm_init_neon_builtin' with
+	'arm_init_builtin'. Replace type 'neon_builtin_datum' with
+	'arm_builtin_datum'.
+	(builtin_arg): Rename enum's replacing 'NEON_ARG' with
+	'ARG_BUILTIN' and add a 'ARG_BUILTIN_NEON_MEMORY.
+	(arm_expand_neon_args): Rename to ...
+	(arm_expand_builtin_args): ... this. Rename builtin_arg
+	enum values and differentiate between ARG_BUILTIN_MEMORY
+	and ARG_BUILTIN_NEON_MEMORY.
+	(arm_expand_neon_builtin_1): Rename to ...
+	(arm_expand_builtin_1): ... this. Rename builtin_arg enum
+	values, arm_expand_builtin_args.
+	(arm_expand_neon_builtin): Use arm_expand_builtin_1.
+
+2016-12-05  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
 	Backport from mainline
 	2016-09-23  Matthew Wahab  <matthew.wahab@arm.com>
 

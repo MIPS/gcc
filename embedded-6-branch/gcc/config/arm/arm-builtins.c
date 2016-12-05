@@ -199,7 +199,7 @@ typedef struct {
   const enum insn_code code;
   unsigned int fcode;
   enum arm_type_qualifiers *qualifiers;
-} neon_builtin_datum;
+} arm_builtin_datum;
 
 #define CF(N,X) CODE_FOR_neon_##N##X
 
@@ -239,14 +239,14 @@ typedef struct {
   VAR11 (T, N, A, B, C, D, E, F, G, H, I, J, K) \
   VAR1 (T, N, L)
 
-/* The NEON builtin data can be found in arm_neon_builtins.def.
+/* The builtin data can be found in arm_neon_builtins.def.
    The mode entries in the following table correspond to the "key" type of the
    instruction variant, i.e. equivalent to that which would be specified after
    the assembler mnemonic, which usually refers to the last vector operand.
    The modes listed per instruction should be the same as those defined for
    that instruction's pattern in neon.md.  */
 
-static neon_builtin_datum neon_builtin_data[] =
+static arm_builtin_datum neon_builtin_data[] =
 {
 #include "arm_neon_builtins.def"
 };
@@ -897,11 +897,15 @@ arm_init_simd_builtin_scalar_types (void)
 					     "__builtin_neon_uti");
 }
 
-/* Set up a NEON builtin.  */
+/* Set up a builtin.  It will use information stored in the argument struct D to
+   derive the builtin's type signature and name.  It will append the name in D
+   to the PREFIX passed and use these to create a builtin declaration that is
+   then stored in 'arm_builtin_decls' under index FCODE.  This FCODE is also
+   written back to D for future use.  */
 
 static void
-arm_init_neon_builtin (unsigned int fcode,
-		       neon_builtin_datum *d)
+arm_init_builtin (unsigned int fcode, arm_builtin_datum *d,
+		  const char * prefix)
 {
   bool print_type_signature_p = false;
   char type_signature[SIMD_MAX_BUILTIN_ARGS] = { 0 };
@@ -989,12 +993,13 @@ arm_init_neon_builtin (unsigned int fcode,
 
   gcc_assert (ftype != NULL);
 
-  if (print_type_signature_p)
-    snprintf (namebuf, sizeof (namebuf), "__builtin_neon_%s_%s",
-	      d->name, type_signature);
+  if (print_type_signature_p
+      && IN_RANGE (fcode, ARM_BUILTIN_NEON_BASE, ARM_BUILTIN_MAX - 1))
+    snprintf (namebuf, sizeof (namebuf), "%s_%s_%s",
+	      prefix, d->name, type_signature);
   else
-    snprintf (namebuf, sizeof (namebuf), "__builtin_neon_%s",
-	      d->name);
+    snprintf (namebuf, sizeof (namebuf), "%s_%s",
+	      prefix, d->name);
 
   fndecl = add_builtin_function (namebuf, ftype, fcode, BUILT_IN_MD,
 				 NULL, NULL_TREE);
@@ -1030,8 +1035,8 @@ arm_init_neon_builtins (void)
 
   for (i = 0; i < ARRAY_SIZE (neon_builtin_data); i++, fcode++)
     {
-      neon_builtin_datum *d = &neon_builtin_data[i];
-      arm_init_neon_builtin (fcode, d);
+      arm_builtin_datum *d = &neon_builtin_data[i];
+      arm_init_builtin (fcode, d, "__builtin_neon");
     }
 }
 
@@ -1995,15 +2000,15 @@ arm_expand_unop_builtin (enum insn_code icode,
 }
 
 typedef enum {
-  NEON_ARG_COPY_TO_REG,
-  NEON_ARG_CONSTANT,
-  NEON_ARG_LANE_INDEX,
-  NEON_ARG_STRUCT_LOAD_STORE_LANE_INDEX,
-  NEON_ARG_MEMORY,
-  NEON_ARG_STOP
+  ARG_BUILTIN_COPY_TO_REG,
+  ARG_BUILTIN_CONSTANT,
+  ARG_BUILTIN_LANE_INDEX,
+  ARG_BUILTIN_STRUCT_LOAD_STORE_LANE_INDEX,
+  ARG_BUILTIN_NEON_MEMORY,
+  ARG_BUILTIN_MEMORY,
+  ARG_BUILTIN_STOP
 } builtin_arg;
 
-#define NEON_MAX_BUILTIN_ARGS 5
 
 /* EXP is a pointer argument to a Neon load or store intrinsic.  Derive
    and return an expression for the accessed memory.
@@ -2053,9 +2058,9 @@ neon_dereference_pointer (tree exp, tree type, machine_mode mem_mode,
 		      build_int_cst (build_pointer_type (array_type), 0));
 }
 
-/* Expand a Neon builtin.  */
+/* Expand a builtin.  */
 static rtx
-arm_expand_neon_args (rtx target, machine_mode map_mode, int fcode,
+arm_expand_builtin_args (rtx target, machine_mode map_mode, int fcode,
 		      int icode, int have_retval, tree exp,
 		      builtin_arg *args)
 {
@@ -2079,14 +2084,14 @@ arm_expand_neon_args (rtx target, machine_mode map_mode, int fcode,
     {
       builtin_arg thisarg = args[argc];
 
-      if (thisarg == NEON_ARG_STOP)
+      if (thisarg == ARG_BUILTIN_STOP)
 	break;
       else
 	{
 	  int opno = argc + have_retval;
 	  arg[argc] = CALL_EXPR_ARG (exp, argc);
 	  mode[argc] = insn_data[icode].operand[opno].mode;
-          if (thisarg == NEON_ARG_MEMORY)
+	  if (thisarg == ARG_BUILTIN_NEON_MEMORY)
             {
               machine_mode other_mode
 		= insn_data[icode].operand[1 - opno].mode;
@@ -2096,15 +2101,17 @@ arm_expand_neon_args (rtx target, machine_mode map_mode, int fcode,
 						    map_mode);
             }
 
-	  /* Use EXPAND_MEMORY for NEON_ARG_MEMORY to ensure a MEM_P
-	     be returned.  */
+	  /* Use EXPAND_MEMORY for ARG_BUILTIN_MEMORY and
+	     ARG_BUILTIN_NEON_MEMORY to ensure a MEM_P be returned.  */
 	  op[argc] = expand_expr (arg[argc], NULL_RTX, VOIDmode,
-				  (thisarg == NEON_ARG_MEMORY
+				  ((thisarg == ARG_BUILTIN_MEMORY
+				    || thisarg == ARG_BUILTIN_NEON_MEMORY)
 				   ? EXPAND_MEMORY : EXPAND_NORMAL));
 
 	  switch (thisarg)
 	    {
-	    case NEON_ARG_COPY_TO_REG:
+	    case ARG_BUILTIN_MEMORY:
+	    case ARG_BUILTIN_COPY_TO_REG:
 	      if (POINTER_TYPE_P (TREE_TYPE (arg[argc])))
 		op[argc] = convert_memory_address (Pmode, op[argc]);
 	      /*gcc_assert (GET_MODE (op[argc]) == mode[argc]); */
@@ -2113,7 +2120,7 @@ arm_expand_neon_args (rtx target, machine_mode map_mode, int fcode,
 		op[argc] = copy_to_mode_reg (mode[argc], op[argc]);
 	      break;
 
-	    case NEON_ARG_STRUCT_LOAD_STORE_LANE_INDEX:
+	    case ARG_BUILTIN_STRUCT_LOAD_STORE_LANE_INDEX:
 	      gcc_assert (argc > 1);
 	      if (CONST_INT_P (op[argc]))
 		{
@@ -2125,7 +2132,7 @@ arm_expand_neon_args (rtx target, machine_mode map_mode, int fcode,
 		}
 	      goto constant_arg;
 
-	    case NEON_ARG_LANE_INDEX:
+	    case ARG_BUILTIN_LANE_INDEX:
 	      /* Previous argument must be a vector, which this indexes.  */
 	      gcc_assert (argc > 0);
 	      if (CONST_INT_P (op[argc]))
@@ -2133,10 +2140,9 @@ arm_expand_neon_args (rtx target, machine_mode map_mode, int fcode,
 		  enum machine_mode vmode = mode[argc - 1];
 		  neon_lane_bounds (op[argc], 0, GET_MODE_NUNITS (vmode), exp);
 		}
-	      /* Fall through - if the lane index isn't a constant then
-		 the next case will error.  */
-
-	    case NEON_ARG_CONSTANT:
+	      /* Fall through - If the lane index isn't a constant then the next
+		 case will error.  */
+	    case ARG_BUILTIN_CONSTANT:
 constant_arg:
 	      if (!(*insn_data[icode].operand[opno].predicate)
 		  (op[argc], mode[argc]))
@@ -2147,7 +2153,7 @@ constant_arg:
 		}
 	      break;
 
-            case NEON_ARG_MEMORY:
+	      case ARG_BUILTIN_NEON_MEMORY:
 	      /* Check if expand failed.  */
 	      if (op[argc] == const0_rtx)
 		return 0;
@@ -2164,7 +2170,7 @@ constant_arg:
 			     copy_to_mode_reg (Pmode, XEXP (op[argc], 0))));
               break;
 
-	    case NEON_ARG_STOP:
+	    case ARG_BUILTIN_STOP:
 	      gcc_unreachable ();
 	    }
 
@@ -2233,21 +2239,24 @@ constant_arg:
   return target;
 }
 
-/* Expand a neon builtin.  This is also used for vfp builtins, which behave in
-   the same way.  These builtins are "special" because they don't have symbolic
-   constants defined per-instruction or per instruction-variant.  Instead, the
-   required info is looked up in the NEON_BUILTIN_DATA record that is passed
-   into the function.  */
+/* Expand a builtin.  These builtins are "special" because they don't have
+   symbolic constants defined per-instruction or per instruction-variant.
+   Instead, the required info is looked up in the ARM_BUILTIN_DATA record that
+   is passed into the function.  */
 
 static rtx
-arm_expand_neon_builtin_1 (int fcode, tree exp, rtx target,
-			   neon_builtin_datum *d)
+arm_expand_builtin_1 (int fcode, tree exp, rtx target,
+			   arm_builtin_datum *d)
 {
   enum insn_code icode = d->code;
   builtin_arg args[SIMD_MAX_BUILTIN_ARGS + 1];
   int num_args = insn_data[d->code].n_operands;
   int is_void = 0;
   int k;
+  bool neon = false;
+
+  if (IN_RANGE (fcode, ARM_BUILTIN_NEON_BASE, ARM_BUILTIN_MAX - 1))
+    neon = true;
 
   is_void = !!(d->qualifiers[0] & qualifier_void);
 
@@ -2267,11 +2276,11 @@ arm_expand_neon_builtin_1 (int fcode, tree exp, rtx target,
       int expr_args_k = k - 1;
 
       if (d->qualifiers[qualifiers_k] & qualifier_lane_index)
-	args[k] = NEON_ARG_LANE_INDEX;
+	args[k] = ARG_BUILTIN_LANE_INDEX;
       else if (d->qualifiers[qualifiers_k] & qualifier_struct_load_store_lane_index)
-	args[k] = NEON_ARG_STRUCT_LOAD_STORE_LANE_INDEX;
+	args[k] = ARG_BUILTIN_STRUCT_LOAD_STORE_LANE_INDEX;
       else if (d->qualifiers[qualifiers_k] & qualifier_immediate)
-	args[k] = NEON_ARG_CONSTANT;
+	args[k] = ARG_BUILTIN_CONSTANT;
       else if (d->qualifiers[qualifiers_k] & qualifier_maybe_immediate)
 	{
 	  rtx arg
@@ -2282,18 +2291,23 @@ arm_expand_neon_builtin_1 (int fcode, tree exp, rtx target,
 	    (CONST_INT_P (arg)
 	     && (*insn_data[icode].operand[operands_k].predicate)
 	     (arg, insn_data[icode].operand[operands_k].mode));
-	  args[k] = op_const_int_p ? NEON_ARG_CONSTANT : NEON_ARG_COPY_TO_REG;
+	  args[k] = op_const_int_p ? ARG_BUILTIN_CONSTANT : ARG_BUILTIN_COPY_TO_REG;
 	}
       else if (d->qualifiers[qualifiers_k] & qualifier_pointer)
-	args[k] = NEON_ARG_MEMORY;
+	{
+	  if (neon)
+	    args[k] = ARG_BUILTIN_NEON_MEMORY;
+	  else
+	    args[k] = ARG_BUILTIN_MEMORY;
+	}
       else
-	args[k] = NEON_ARG_COPY_TO_REG;
+	args[k] = ARG_BUILTIN_COPY_TO_REG;
     }
-  args[k] = NEON_ARG_STOP;
+  args[k] = ARG_BUILTIN_STOP;
 
-  /* The interface to arm_expand_neon_args expects a 0 if
+  /* The interface to arm_expand_builtin_args expects a 0 if
      the function is void, and a 1 if it is not.  */
-  return arm_expand_neon_args
+  return arm_expand_builtin_args
     (target, d->mode, fcode, icode, !is_void, exp,
      &args[1]);
 }
@@ -2331,10 +2345,10 @@ arm_expand_neon_builtin (int fcode, tree exp, rtx target)
       return const0_rtx;
     }
 
-  neon_builtin_datum *d
+  arm_builtin_datum *d
     = &neon_builtin_data[fcode - ARM_BUILTIN_NEON_PATTERN_START];
 
-  return arm_expand_neon_builtin_1 (fcode, exp, target, d);
+  return arm_expand_builtin_1 (fcode, exp, target, d);
 }
 
 /* Expand an expression EXP that calls a built-in function,
