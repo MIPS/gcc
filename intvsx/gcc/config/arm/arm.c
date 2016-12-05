@@ -595,8 +595,9 @@ static const struct attribute_spec arm_attribute_table[] =
 #undef TARGET_ASM_EMIT_EXCEPT_PERSONALITY
 #define TARGET_ASM_EMIT_EXCEPT_PERSONALITY arm_asm_emit_except_personality
 
-#undef TARGET_ASM_INIT_SECTIONS
 #endif /* ARM_UNWIND_INFO */
+
+#undef TARGET_ASM_INIT_SECTIONS
 #define TARGET_ASM_INIT_SECTIONS arm_asm_init_sections
 
 #undef TARGET_DWARF_REGISTER_SPAN
@@ -6774,7 +6775,7 @@ arm_handle_cmse_nonsecure_call (tree *node, tree name,
 				 bool *no_add_attrs)
 {
   tree decl = NULL_TREE, fntype = NULL_TREE;
-  tree main_variant, type;
+  tree type;
 
   if (!use_cmse)
     {

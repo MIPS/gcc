@@ -5,9 +5,9 @@
 --                               S Y S T E M                                --
 --                                                                          --
 --                                 S p e c                                  --
---                          (Darwin/PPC Version)                            --
+--                         (GNU/Linux/m68k Version)                         --
 --                                                                          --
---          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 2014-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -40,9 +40,6 @@ package System is
    --  this unit Pure instead of Preelaborable; see RM 13.7.1(15). In Ada
    --  2005, this is Pure in any case (AI-362).
 
-   pragma No_Elaboration_Code_All;
-   --  Allow the use of that restriction in units that WITH this unit
-
    type Name is (SYSTEM_NAME_GNAT);
    System_Name : constant Name := SYSTEM_NAME_GNAT;
 
@@ -60,7 +57,7 @@ package System is
    Max_Mantissa          : constant := 63;
    Fine_Delta            : constant := 2.0 ** (-Max_Mantissa);
 
-   Tick                  : constant := 0.01;
+   Tick                  : constant := 0.000_001;
 
    --  Storage-related Declarations
 
@@ -69,8 +66,8 @@ package System is
    Null_Address : constant Address;
 
    Storage_Unit : constant := 8;
-   Word_Size    : constant := Standard'Word_Size;
-   Memory_Size  : constant := 2 ** Word_Size;
+   Word_Size    : constant := 32;
+   Memory_Size  : constant := 2 ** 32;
 
    --  Address comparison
 
@@ -94,40 +91,24 @@ package System is
 
    --  Priority-related Declarations (RM D.1)
 
-   --  The values defined here are derived from the following Darwin
-   --  sources:
+   --  Is the following actually true for GNU/Linux/m68k?
    --
-   --  Libc/pthreads/pthread.c
-   --    pthread_init calls host_info to retrieve the HOST_PRIORITY_INFO.
-   --    This file includes "pthread_internals".
-   --  Libc/pthreads/pthread_internals.h
-   --    This file includes <mach/mach.h>.
-   --  xnu/osfmk/mach/mach.h
-   --    This file includes <mach/mach_types.h>.
-   --  xnu/osfmk/mach/mach_types.h
-   --    This file includes <mach/host_info.h>.
-   --  xnu/osfmk/mach/host_info.h
-   --    This file contains the definition of the host_info_t data structure
-   --    and the function prototype for host_info.
-   --  xnu/osfmk/kern/host.c
-   --    This file defines the function host_info which sets the
-   --    priority_info field of struct host_info_t. This file includes
-   --    <kern/processor.h>.
-   --  xnu/osfmk/kern/processor.h
-   --    This file includes <kern/sched.h>.
-   --  xnu/osfmk/kern/sched.h
-   --    This file defines the values for each level of priority.
+   --  0 .. 98 corresponds to the system priority range 1 .. 99.
+   --
+   --  If the scheduling policy is SCHED_FIFO or SCHED_RR the runtime makes use
+   --  of the entire range provided by the system.
+   --
+   --  If the scheduling policy is SCHED_OTHER the only valid system priority
+   --  is 1 and other values are simply ignored.
 
-   Max_Interrupt_Priority : constant Positive := 63;
-   Max_Priority           : constant Positive := Max_Interrupt_Priority - 1;
+   Max_Priority           : constant Positive := 97;
+   Max_Interrupt_Priority : constant Positive := 98;
 
-   subtype Any_Priority is Integer range 0 .. Max_Interrupt_Priority;
-   subtype Priority is Any_Priority range 0 .. Max_Priority;
-   subtype Interrupt_Priority is Any_Priority
-     range Priority'Last + 1 .. Max_Interrupt_Priority;
+   subtype Any_Priority       is Integer      range  0 .. 98;
+   subtype Priority           is Any_Priority range  0 .. 97;
+   subtype Interrupt_Priority is Any_Priority range 98 .. 98;
 
-   Default_Priority : constant Priority :=
-                        (Priority'Last - Priority'First) / 2;
+   Default_Priority : constant Priority := 48;
 
 private
 
@@ -145,7 +126,7 @@ private
    --  of the individual switch values.
 
    Backend_Divide_Checks     : constant Boolean := False;
-   Backend_Overflow_Checks   : constant Boolean := True;
+   Backend_Overflow_Checks   : constant Boolean := False;
    Command_Line_Args         : constant Boolean := True;
    Configurable_Run_Time     : constant Boolean := False;
    Denorm                    : constant Boolean := True;
@@ -161,7 +142,7 @@ private
    Stack_Check_Probes        : constant Boolean := False;
    Stack_Check_Limits        : constant Boolean := False;
    Support_Aggregates        : constant Boolean := True;
-   Support_Atomic_Primitives : constant Boolean := Word_Size = 64;
+   Support_Atomic_Primitives : constant Boolean := True;
    Support_Composite_Assign  : constant Boolean := True;
    Support_Composite_Compare : constant Boolean := True;
    Support_Long_Shifts       : constant Boolean := True;
