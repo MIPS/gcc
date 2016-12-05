@@ -67,6 +67,7 @@
 #define FL_ARCH6KZ    (1U << 31)	/* ARMv6KZ architecture.  */
 
 #define FL2_ARCH8_1   (1U << 0)		/* Architecture 8.1.  */
+#define FL2_CMSE      (1U << 3)		/* ARMv8-M Security Extensions.  */
 
 /* Flags that only effect tuning, not available instructions.  */
 #define FL_TUNE		(FL_WBUF | FL_VFPV2 | FL_STRONG | FL_LDSCHED \
