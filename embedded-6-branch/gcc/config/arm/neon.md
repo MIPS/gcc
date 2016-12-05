@@ -3100,7 +3100,7 @@ if (BYTES_BIG_ENDIAN)
 			  VCVT_US_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vcvt.<sup>%#32.f32\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_fp_to_int_<V_elem_ch><q>")]
@@ -3113,7 +3113,7 @@ if (BYTES_BIG_ENDIAN)
 			  VCVT_US_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vcvt.f32.<sup>%#32\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_int_to_fp_<V_elem_ch><q>")]
@@ -3682,7 +3682,7 @@ if (BYTES_BIG_ENDIAN)
                      UNSPEC_VEXT))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 0, GET_MODE_NUNITS (<MODE>mode));
+  arm_const_bounds (operands[3], 0, GET_MODE_NUNITS (<MODE>mode));
   return "vext.<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_ext<q>")]
@@ -3779,7 +3779,7 @@ if (BYTES_BIG_ENDIAN)
                       VSHR_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) + 1);
   return "v<shift_op>.<sup>%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_shift_imm<q>")]
@@ -3793,7 +3793,7 @@ if (BYTES_BIG_ENDIAN)
                            VSHRN_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
   return "v<shift_op>.<V_if_elem>\t%P0, %q1, %2";
 }
   [(set_attr "type" "neon_shift_imm_narrow_q")]
@@ -3807,7 +3807,7 @@ if (BYTES_BIG_ENDIAN)
                            VQSHRN_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
   return "v<shift_op>.<sup>%#<V_sz_elem>\t%P0, %q1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm_narrow_q")]
@@ -3821,7 +3821,7 @@ if (BYTES_BIG_ENDIAN)
                            VQSHRUN_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
   return "v<shift_op>.<V_s_elem>\t%P0, %q1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm_narrow_q")]
@@ -3834,7 +3834,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VSHL_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
   return "vshl.<V_if_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_shift_imm<q>")]
@@ -3847,7 +3847,7 @@ if (BYTES_BIG_ENDIAN)
                       VQSHL_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
   return "vqshl.<sup>%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm<q>")]
@@ -3860,7 +3860,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VQSHLU_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
   return "vqshlu.<V_s_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm<q>")]
@@ -3874,7 +3874,7 @@ if (BYTES_BIG_ENDIAN)
   "TARGET_NEON"
 {
   /* The boundaries are: 0 < imm <= size.  */
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode) + 1);
   return "vshll.<sup>%#<V_sz_elem>\t%q0, %P1, %2";
 }
   [(set_attr "type" "neon_shift_imm_long")]
@@ -3889,7 +3889,7 @@ if (BYTES_BIG_ENDIAN)
                       VSRA_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
   return "v<shift_op>.<sup>%#<V_sz_elem>\t%<V_reg>0, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_shift_acc<q>")]
@@ -3903,7 +3903,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VSRI))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
   return "vsri.<V_sz_elem>\t%<V_reg>0, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_shift_reg<q>")]
@@ -3917,7 +3917,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VSLI))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[3], 0, neon_element_bits (<MODE>mode));
   return "vsli.<V_sz_elem>\t%<V_reg>0, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_shift_reg<q>")]

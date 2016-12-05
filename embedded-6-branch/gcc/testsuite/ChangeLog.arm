@@ -1,5 +1,19 @@
 2016-12-05  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
+	* gcc.target/arm/acle/acle.exp: Run tests for different options
+	and make sure fat-lto-objects is used such that we can still do
+	assemble scans.
+	* gcc.target/arm/acle/cdp.c: New.
+	* gcc.target/arm/acle/cdp2.c: New.
+	* lib/target-supports.exp (check_effective_target_arm_coproc1_ok): New.
+	(check_effective_target_arm_coproc1_ok_nocache): New.
+	(check_effective_target_arm_coproc2_ok): New.
+	(check_effective_target_arm_coproc2_ok_nocache): New.
+	(check_effective_target_arm_coproc3_ok): New.
+	(check_effective_target_arm_coproc3_ok_nocache): New.
+
+2016-12-05  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
 	Backport from mainline
 	2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 		    Thomas Preud'homme	<thomas.preudhomme@arm.com>

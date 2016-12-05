@@ -847,3 +847,8 @@
 
 ;; Attributes for VQRDMLAH/VQRDMLSH
 (define_int_attr neon_rdma_as [(UNSPEC_VQRDMLAH "a") (UNSPEC_VQRDMLSH "s")])
+
+;; An iterator for the CDP coprocessor instructions
+(define_int_iterator CDPI [VUNSPEC_CDP VUNSPEC_CDP2])
+(define_int_attr cdp [(VUNSPEC_CDP "cdp") (VUNSPEC_CDP2 "cdp2")])
+(define_int_attr CDP [(VUNSPEC_CDP "CDP") (VUNSPEC_CDP2 "CDP2")])
