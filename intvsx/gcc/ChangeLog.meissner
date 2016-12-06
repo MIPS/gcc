@@ -4,12 +4,14 @@
 	* config/rs6000/rs6000.md (zero_extendqi<mode>2): Use ^ instead of
 	?* constraints for the ISA 3.0 patterns, so the register allocator
 	is more likely to allocate QImode/HImode to vector registers for
-	conversion to floating point point unless a reload is needed.
+	conversion to floating point unless a reload is needed.
 	(zero_extendhi<mode>2): Likewise.
 	(float<QHI:mode><FP_ISA3:mode>2_internal): Properly deal with the
 	first alternative which is converting QImode/HImode to floating
 	point and the QImode/HImode value is in a vector register, and
-	does not allocate the second temorary.
+	does not allocate the second pseudo register.  Remove zero
+	extending into traditional floating point registers, since the
+	instruction used only works on traditional altivec registers.
 	(floatuns<QHI:mode><FP_ISA3:mode>2_internal): Likewise.
 
 2016-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
