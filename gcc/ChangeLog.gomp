@@ -1,3 +1,8 @@
+2016-12-06  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Link ACC new clauses
+	with the old ones.
+
 2016-11-10  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Remove

@@ -7992,6 +7992,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 	  gimplify_expr (&OMP_CLAUSE_SIZE (nc),
 			 pre_p, NULL, is_gimple_val, fb_rvalue);
 	  gimplify_omp_ctxp = ctx;
+	  OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (clause);
 	  OMP_CLAUSE_CHAIN (clause) = nc;
 	}
       else if (DECL_SIZE (decl)
