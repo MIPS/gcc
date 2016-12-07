@@ -724,17 +724,22 @@
 (define_predicate "mips_movcc_comparison_operator"
   (match_code "eq,ne,lt,ltu,le,leu,ge,geu,gt,gtu")
 {
-  if (XEXP (op, 1) == const0_rtx)
-    return true;
-
   if (TARGET_MICROMIPS_R7
-      && cmove_operand (XEXP (op, 1), mode)
-      && (GET_CODE (op) == LT || GET_CODE (op) == LTU
-	  || GET_CODE (op) == GE || GET_CODE (op) == GEU))
-    return true;
+      && TARGET_ADD_CONDMOVES)
+    {
+      if (XEXP (op, 1) == const0_rtx)
+	return true;
 
-  if (CONST_INT_P (XEXP (op, 1)))
-    return false;
+      if (TARGET_MICROMIPS_R7
+	  && (GET_CODE (op) == LT || GET_CODE (op) == LTU
+	      || GET_CODE (op) == GE || GET_CODE (op) == GEU))
+	return true;
+
+      if (CONST_INT_P (XEXP (op, 1)))
+	return false;
+    }
+  else if (equality_operator (op, mode))
+    return true;
 
   return false;
 })
