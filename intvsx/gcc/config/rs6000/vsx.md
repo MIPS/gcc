@@ -2574,14 +2574,14 @@
   [(const_int 0)]
 {
   rtx op0_si = gen_rtx_REG (SImode, REGNO (operands[0]));
-  rtx op1_v16qi = gen_rtx_REG (V16QImode, REGNO (operands[1]));
+  rtx op1 = operands[1];
   HOST_WIDE_INT offset = INTVAL (operands[2]) * GET_MODE_UNIT_SIZE (<MODE>mode);
 
   emit_move_insn (op0_si, GEN_INT (offset));
   if (VECTOR_ELT_ORDER_BIG)
-    emit_insn (gen_vextu<wd>lx (op0_si, op0_si, op1_v16qi));
+    emit_insn (gen_vextu<wd>lx (op0_si, op0_si, op1));
   else
-    emit_insn (gen_vextu<wd>rx (op0_si, op0_si, op1_v16qi));
+    emit_insn (gen_vextu<wd>rx (op0_si, op0_si, op1));
   DONE;
 })
 
