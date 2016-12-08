@@ -1,3 +1,31 @@
+2016-12-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_vec_extract_var): On ISA
+	3.0/power9, add support to use the VEXTU{B,H,W}{L,R}X extract
+	instructions.
+
+	* config/rs6000/vsx.md (VSr2): Add IEEE 128-bit floating point
+	type constraint registers.
+	(VSr3): Likewise.
+	(vsx_extract_<mode>_p9): Add support for the ISA 3.0/power9
+	VEXTU{B,H,W}{L,R}X extract instructions.
+	(vsx_extract_<mode>_p9 splitter): Add splitter to load up the
+	extract byte position into the GPR if we are using the
+	VEXTU{B,H,W}{L,R}X extract instructions.
+	(vsx_extract_<mode>_di_p9): Support extracts to GPRs.
+	(vsx_extract_<mode>_var): Likewise.
+	(vsx_extract_<VSX_EXTRACT_I:mode>_<SDI:mode>_var): New combiner
+	insn to combine vector extracts with zero_extend.
+	(vsx_ext_<VSX_EXTRACT_I:VS_scalar>_fl_<FL_CONV:mode>): Optimize
+	extracting a small integer vector element and converting it to a
+	floating point type.
+	(vsx_ext_<VSX_EXTRACT_I:VS_scalar>_ufl_<FL_CONV:mode>): Likewise.
+
+	* config/rs6000/rs6000.md (mov<mode>_internal): Change some ?*
+	constraints for ISA 3.0 instructions to ^ to allow the register
+	allocator to allocate QImode and HImode to vector registers more
+	often.
+
 2016-12-08   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 243449

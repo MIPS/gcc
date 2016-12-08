@@ -1,3 +1,21 @@
+2016-12-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v4si-df.c: If
+	DO_TRACE is defined, add tracing of the various extracts to
+	stderr.  Add support for tests that convert the result to another
+	type.  Add new tests that do an extract and then convert the
+	values double.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v2df.c: Likewise.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v4siu-df.c: Likewise.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v16qiu-df.c: Likewise.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v16qi-df.c: Likewise.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v8hiu-df.c: Likewise.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v8hi-df.c: Likewise.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract-v4sf.c: Likewise.
+	* gcc/testsuite/gcc.target/powerpc/vec-extract.h: Likewise.
+	* gcc.target/powerpc/p9-extract-1.c: Update test to test for both
+	VEXTRACTU{B,H}, XXEXTRACTUW and VEXTU{B,H,W}{L,R}X instructions.
+
 2016-12-08   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 243449

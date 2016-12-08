@@ -7528,6 +7528,49 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
     {
       int bit_shift = byte_shift + 3;
       rtx element2;
+      int dest_regno = regno_or_subregno (dest);
+      int src_regno = regno_or_subregno (src);
+      int element_regno = regno_or_subregno (element);
+
+      if (TARGET_P9_VECTOR
+	  && (mode == V16QImode || mode == V8HImode || mode == V4SImode)
+	  && INT_REGNO_P (dest_regno)
+	  && ALTIVEC_REGNO_P (src_regno)
+	  && INT_REGNO_P (element_regno))
+	{
+	  rtx insn = NULL_RTX;
+	  rtx dest_si = gen_rtx_REG (SImode, dest_regno);
+	  rtx element_si = gen_rtx_REG (SImode, element_regno);
+
+	  if (mode == V16QImode)
+	    insn = (VECTOR_ELT_ORDER_BIG
+		    ? gen_vextublx (dest_si, element_si, src)
+		    : gen_vextubrx (dest_si, element_si, src));
+
+	  else if (mode == V8HImode)
+	    {
+	      emit_insn (gen_ashlsi3 (dest_si, element_si, const1_rtx));
+	      insn = (VECTOR_ELT_ORDER_BIG
+		      ? gen_vextuhlx (dest_si, dest_si, src)
+		      : gen_vextuhrx (dest_si, dest_si, src));
+	    }
+
+
+	  else if (mode == V4SImode)
+	    {
+	      emit_insn (gen_ashlsi3 (dest_si, element_si, const2_rtx));
+	      insn = (VECTOR_ELT_ORDER_BIG
+		      ? gen_vextuwlx (dest_si, dest_si, src)
+		      : gen_vextuwrx (dest_si, dest_si, src));
+	    }
+
+	  else
+	    gcc_unreachable ();
+
+	  emit_insn (insn);
+	  return;
+	}
+
 
       gcc_assert (REG_P (tmp_gpr) && REG_P (tmp_altivec));
 
