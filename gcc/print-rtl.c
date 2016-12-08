@@ -1644,6 +1644,12 @@ print_insn (pretty_printer *pp, const rtx_insn *x, int verbose)
 
     case DEBUG_INSN:
       {
+	if (!INSN_VAR_LOCATION_DECL (x))
+	  {
+	    pp_string (pp, "debug begin stmt marker");
+	    break;
+	  }
+
 	const char *name = "?";
 
 	if (DECL_P (INSN_VAR_LOCATION_DECL (x)))
