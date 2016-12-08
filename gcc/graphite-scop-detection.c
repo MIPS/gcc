@@ -261,7 +261,7 @@ trivially_empty_bb_p (basic_block bb)
   gimple_stmt_iterator gsi;
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    if (gimple_code (gsi_stmt (gsi)) != GIMPLE_DEBUG)
+    if (!is_gimple_debug (gsi_stmt (gsi)))
       return false;
 
   return true;
