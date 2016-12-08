@@ -11,6 +11,13 @@
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
 /* { dg-options "-mcpu=power5" } */
 
+/* This test follow the pattern of pr78056-2.c, which has been
+ * exercised with binutils 2.25.  This test, however, has not
+ * been exercised because the author of the test does not have access
+ * to a development environment that succesfully bootstraps gcc
+ * while at the same lacking assembler support for power 6.
+ */
+
 /* This test should succeed on both 32- and 64-bit configurations.  */
 /* Though the command line specifies power5 target, this function is
    to support power6. Expect an error message here because this target

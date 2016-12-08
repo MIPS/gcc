@@ -3,10 +3,6 @@
 /* powerpc_vsx_ok represents power7 */
 /* { dg-require-effective-target powerpc_vsx_ok } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
-/* There is an "incompatibility" between power6 flags and power7 which
-   is not resolved with the __attribute__ directive below, so we'll
-   test the __attribute__ directive using a -mcpu=power5 command
-   line.  */
 /* { dg-options "-mcpu=power5" } */
 
 /* Though the command line specifies power5 target, this function is
