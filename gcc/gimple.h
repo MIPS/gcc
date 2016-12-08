@@ -4731,6 +4731,17 @@ gimple_debug_source_bind_set_value (gimple *dbg, tree value)
   gimple_set_op (dbg, 1, value);
 }
 
+/* Return true if S is a GIMPLE_DEBUG BEGIN_STMT statement.  */
+
+static inline bool
+gimple_debug_begin_stmt_p (const gimple *s)
+{
+  if (is_gimple_debug (s))
+    return s->subcode == GIMPLE_DEBUG_BEGIN_STMT;
+
+  return false;
+}
+
 /* Return the line number for EXPR, or return -1 if we have no line
    number information for it.  */
 static inline int
@@ -4754,17 +4765,6 @@ static inline gimple_seq *
 gimple_omp_body_ptr (gimple *gs)
 {
   return &static_cast <gimple_statement_omp *> (gs)->body;
-}
-
-/* Return true if S is a GIMPLE_DEBUG BEGIN_STMT statement.  */
-
-static inline bool
-gimple_debug_begin_stmt_p (const gimple *s)
-{
-  if (is_gimple_debug (s))
-    return s->subcode == GIMPLE_DEBUG_BEGIN_STMT;
-
-  return false;
 }
 
 /* Return the body for the OMP statement GS.  */

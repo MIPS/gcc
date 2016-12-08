@@ -382,6 +382,10 @@ struct GTY(()) function {
 
   /* Set when the tail call has been identified.  */
   unsigned int tail_call_marked : 1;
+
+  /* Set when the function was compiled with generation of debug begin
+     stmt markers enabled.  */
+  unsigned int begin_stmt_markers : 1;
 };
 
 /* Add the decl D to the local_decls list of FUN.  */

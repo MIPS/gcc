@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "gimple-iterator.h"
 #include "gimple-low.h"
-#include "langhooks.h"
 
 /* The differences between High GIMPLE and Low GIMPLE are the
    following:
@@ -296,7 +295,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       break;
 
     case GIMPLE_DEBUG:
-      gcc_checking_assert (MAY_HAVE_DEBUG_STMTS && lang_hooks.emits_begin_stmt);
+      gcc_checking_assert (MAY_HAVE_DEBUG_STMTS && cfun->begin_stmt_markers);
       /* Propagate fallthruness.  */
       gsi_next (gsi);
       return;

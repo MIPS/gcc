@@ -4938,6 +4938,8 @@ allocate_struct_function (tree fndecl, bool abstract_p)
       if (!profile_flag && !flag_instrument_function_entry_exit)
 	DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fndecl) = 1;
     }
+
+  cfun->begin_stmt_markers = lang_hooks.emits_begin_stmt;
 }
 
 /* This is like allocate_struct_function, but pushes a new cfun for FNDECL

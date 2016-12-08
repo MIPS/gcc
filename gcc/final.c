@@ -2397,7 +2397,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_BEGIN_STMT:
-	  gcc_checking_assert (lang_hooks.emits_begin_stmt);
+	  gcc_checking_assert (cfun->begin_stmt_markers);
 	  if (!DECL_IGNORED_P (current_function_decl)
 	      && notice_source_line (insn, NULL))
 	    (*debug_hooks->source_line) (last_linenum, last_filename,
@@ -2493,7 +2493,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	const char *templ;
 	bool is_stmt, *is_stmt_p;
 
-	if (MAY_HAVE_DEBUG_INSNS && lang_hooks.emits_begin_stmt)
+	if (MAY_HAVE_DEBUG_INSNS && cfun->begin_stmt_markers)
 	  {
 	    is_stmt = false;
 	    is_stmt_p = NULL;
