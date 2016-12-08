@@ -10,7 +10,7 @@
 /* This test should succeed on both 32- and 64-bit configurations.  */
 #include <altivec.h>
 
-/* This test follow the pattern of pr78056-2.c, which has been
+/* This test follows the pattern of pr78056-2.c, which has been
  * exercised with binutils 2.25.  This test, however, has not
  * been exercised because the author of the test does not have access
  * to a development environment that succesfully bootstraps gcc
