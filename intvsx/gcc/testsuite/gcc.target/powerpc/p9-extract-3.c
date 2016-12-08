@@ -89,8 +89,8 @@ fpcvt_uchar_15 (vector unsigned char a)
   return (double)b;
 }
 
-/* { dg-final { scan-assembler     "vextub\[lr\]x" } } */
-/* { dg-final { scan-assembler     "vextuh\[lr\]x" } } */
+/* { dg-final { scan-assembler     "vextractub"    } } */
+/* { dg-final { scan-assembler     "vextractuh"    } } */
 /* { dg-final { scan-assembler     "vextsb2d"      } } */
 /* { dg-final { scan-assembler     "vextsh2d"      } } */
 /* { dg-final { scan-assembler     "vspltw"        } } */
