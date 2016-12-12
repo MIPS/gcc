@@ -2050,7 +2050,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
       if (m != MATCH_YES)
 	return MATCH_ERROR;
 
-      if (sym->f2k_derived)
+      if (sym && sym->f2k_derived)
 	tbp = gfc_find_typebound_proc (sym, &t, name, false, &gfc_current_locus);
       else
 	tbp = NULL;
@@ -2222,7 +2222,15 @@ check_substring:
 	}
     }
 
-  /* F2008, C727.  */
+  /* F08:C611.  */
+  if (primary->ts.type == BT_DERIVED && primary->ref
+      && primary->ts.u.derived && primary->ts.u.derived->attr.abstract)
+    {
+      gfc_error ("Nonpolymorphic reference to abstract type at %C");
+      return MATCH_ERROR;
+    }
+
+  /* F08:C727.  */
   if (primary->expr_type == EXPR_PPC && gfc_is_coindexed (primary))
     {
       gfc_error ("Coindexed procedure-pointer component at %C");
@@ -2418,10 +2426,15 @@ gfc_expr_attr (gfc_expr *e)
    attribute is.  This routine is similar to gfc_variable_attr with
    parts of gfc_expr_attr, but focuses more on the needs of
    coarrays.  For coarrays a codimension attribute is kind of
-   "infectious" being propagated once set and never cleared.  */
+   "infectious" being propagated once set and never cleared.
+   The coarray_comp is only set, when the expression refs a coarray
+   component.  REFS_COMP is set when present to true only, when this EXPR
+   refs a (non-_data) component.  To check whether EXPR refs an allocatable
+   component in a derived type coarray *refs_comp needs to be set and
+   coarray_comp has to false.  */
 
 static symbol_attribute
-caf_variable_attr (gfc_expr *expr, bool in_allocate)
+caf_variable_attr (gfc_expr *expr, bool in_allocate, bool *refs_comp)
 {
   int dimension, codimension, pointer, allocatable, target, coarray_comp,
       alloc_comp;
@@ -2436,13 +2449,15 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
   sym = expr->symtree->n.sym;
   gfc_clear_attr (&attr);
 
+  if (refs_comp)
+    *refs_comp = 0;
+
   if (sym->ts.type == BT_CLASS && sym->attr.class_ok)
     {
       dimension = CLASS_DATA (sym)->attr.dimension;
       codimension = CLASS_DATA (sym)->attr.codimension;
       pointer = CLASS_DATA (sym)->attr.class_pointer;
       allocatable = CLASS_DATA (sym)->attr.allocatable;
-      coarray_comp = CLASS_DATA (sym)->attr.coarray_comp;
       alloc_comp = CLASS_DATA (sym)->ts.u.derived->attr.alloc_comp;
     }
   else
@@ -2451,12 +2466,11 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
       codimension = sym->attr.codimension;
       pointer = sym->attr.pointer;
       allocatable = sym->attr.allocatable;
-      coarray_comp = sym->attr.coarray_comp;
       alloc_comp = sym->ts.type == BT_DERIVED
 	  ? sym->ts.u.derived->attr.alloc_comp : 0;
     }
 
-  target = attr.target;
+  target = coarray_comp = 0;
   if (pointer || attr.proc_pointer)
     target = 1;
 
@@ -2494,18 +2508,25 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
 
 	if (comp->ts.type == BT_CLASS)
 	  {
+	    /* Set coarray_comp only, when this component introduces the
+	       coarray.  */
+	    coarray_comp = !codimension && CLASS_DATA (comp)->attr.codimension;
 	    codimension |= CLASS_DATA (comp)->attr.codimension;
 	    pointer = CLASS_DATA (comp)->attr.class_pointer;
 	    allocatable = CLASS_DATA (comp)->attr.allocatable;
-	    coarray_comp |= CLASS_DATA (comp)->attr.coarray_comp;
 	  }
 	else
 	  {
+	    /* Set coarray_comp only, when this component introduces the
+	       coarray.  */
+	    coarray_comp = !codimension && comp->attr.codimension;
 	    codimension |= comp->attr.codimension;
 	    pointer = comp->attr.pointer;
 	    allocatable = comp->attr.allocatable;
-	    coarray_comp |= comp->attr.coarray_comp;
 	  }
+
+	if (refs_comp && strcmp (comp->name, "_data") != 0)
+	  *refs_comp = 1;
 
 	if (pointer || attr.proc_pointer)
 	  target = 1;
@@ -2531,14 +2552,14 @@ caf_variable_attr (gfc_expr *expr, bool in_allocate)
 
 
 symbol_attribute
-gfc_caf_attr (gfc_expr *e, bool in_allocate)
+gfc_caf_attr (gfc_expr *e, bool in_allocate, bool *refs_comp)
 {
   symbol_attribute attr;
 
   switch (e->expr_type)
     {
     case EXPR_VARIABLE:
-      attr = caf_variable_attr (e, in_allocate);
+      attr = caf_variable_attr (e, in_allocate, refs_comp);
       break;
 
     case EXPR_FUNCTION:
@@ -2557,7 +2578,7 @@ gfc_caf_attr (gfc_expr *e, bool in_allocate)
 	    }
 	}
       else if (e->symtree)
-	attr = caf_variable_attr (e, in_allocate);
+	attr = caf_variable_attr (e, in_allocate, refs_comp);
       else
 	gfc_clear_attr (&attr);
       break;
@@ -3284,6 +3305,15 @@ gfc_match_rvalue (gfc_expr **result)
 
       if (sym->result == NULL)
 	sym->result = sym;
+
+      gfc_gobble_whitespace ();
+      /* F08:C612.  */
+      if (gfc_peek_ascii_char() == '%')
+	{
+	  gfc_error ("The leftmost part-ref in a data-ref can not be a "
+		     "function reference at %C");
+	  m = MATCH_ERROR;
+	}
 
       m = MATCH_YES;
       break;

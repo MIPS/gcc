@@ -1,3 +1,38 @@
+2016-12-03  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/78379
+	* config/i386/cpuinfo.c:  Move denums for processor vendors,
+	processor type, processor subtypes and declaration of
+	struct __processor_model into
+	* config/i386/cpuinfo.h:  New header file.
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/cmse_nonsecure_call.S: New.
+	* config/arm/t-arm: Compile cmse_nonsecure_call.S
+
+2016-12-02  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/t-arm (HAVE_CMSE): New.
+	* config/arm/cmse.c: New.
+
+2016-11-28  Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+
+	PR gcc/74748
+	* libgcc/config/bfin/libgcc-glibc.ver, libgcc/config/bfin/t-linux:
+	use generic linker version information on Blackfin.
+
+	PR gcc/74748
+	* libgcc/mkmap-symver.awk: add support for skip_underscore
+
+2016-11-27  Iain Sandoe  <iain@codesourcery.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/67710
+	*  config/t-darwin: Default builds to 10.5 codegen.
+
 2016-11-24  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* config/aarch64/sfp-machine.h (_FP_NANFRAC_H): Define.

@@ -198,6 +198,47 @@ read_file (const location &loc, const char *path)
   return result;
 }
 
+/* Selftests for libiberty.  */
+
+/* Verify that xstrndup generates EXPECTED when called on SRC and N.  */
+
+static void
+assert_xstrndup_eq (const char *expected, const char *src, size_t n)
+{
+  char *buf = xstrndup (src, n);
+  ASSERT_STREQ (expected, buf);
+  free (buf);
+}
+
+/* Verify that xstrndup works as expected.  */
+
+static void
+test_xstrndup ()
+{
+  assert_xstrndup_eq ("", "test", 0);
+  assert_xstrndup_eq ("t", "test", 1);
+  assert_xstrndup_eq ("te", "test", 2);
+  assert_xstrndup_eq ("tes", "test", 3);
+  assert_xstrndup_eq ("test", "test", 4);
+  assert_xstrndup_eq ("test", "test", 5);
+
+  /* Test on an string without zero termination.  */
+  const char src[4] = {'t', 'e', 's', 't'};
+  assert_xstrndup_eq ("", src, 0);
+  assert_xstrndup_eq ("t", src, 1);
+  assert_xstrndup_eq ("te", src, 2);
+  assert_xstrndup_eq ("tes", src, 3);
+  assert_xstrndup_eq ("test", src, 4);
+}
+
+/* Run selftests for libiberty.  */
+
+static void
+test_libiberty ()
+{
+  test_xstrndup ();
+}
+
 /* Selftests for the selftest system itself.  */
 
 /* Sanity-check the ASSERT_ macros with various passing cases.  */
@@ -245,6 +286,7 @@ test_read_file ()
 void
 selftest_c_tests ()
 {
+  test_libiberty ();
   test_assertions ();
   test_named_temp_file ();
   test_read_file ();

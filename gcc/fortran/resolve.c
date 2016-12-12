@@ -12395,6 +12395,9 @@ gfc_resolve_finalizers (gfc_symbol* derived, bool *finalizable)
       /* Skip this finalizer if we already resolved it.  */
       if (list->proc_tree)
 	{
+	  if (list->proc_tree->n.sym->formal->sym->as == NULL
+	      || list->proc_tree->n.sym->formal->sym->as->rank == 0)
+	    seen_scalar = true;
 	  prev_link = &(list->next);
 	  continue;
 	}
@@ -12489,7 +12492,7 @@ gfc_resolve_finalizers (gfc_symbol* derived, bool *finalizable)
 	}
 
 	/* Is this the/a scalar finalizer procedure?  */
-	if (!arg->as || arg->as->rank == 0)
+	if (my_rank == 0)
 	  seen_scalar = true;
 
 	/* Find the symtree for this procedure.  */
@@ -12514,7 +12517,7 @@ error:
   /* Warn if we haven't seen a scalar finalizer procedure (but we know there
      were nodes in the list, must have been for arrays.  It is surely a good
      idea to have a scalar version there if there's something to finalize.  */
-  if (warn_surprising && result && !seen_scalar)
+  if (warn_surprising && derived->f2k_derived->finalizers && !seen_scalar)
     gfc_warning (OPT_Wsurprising,
 		 "Only array FINAL procedures declared for derived type %qs"
 		 " defined at %L, suggest also scalar one",

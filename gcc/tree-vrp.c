@@ -7132,17 +7132,31 @@ vrp_visit_assignment_or_call (gimple *stmt, tree *output_p, value_range *vr)
 	   && TYPE_MAX_VALUE (TREE_TYPE (lhs)))
 	  || POINTER_TYPE_P (TREE_TYPE (lhs))))
     {
+      *output_p = lhs;
+
       /* Try folding the statement to a constant first.  */
       tree tem = gimple_fold_stmt_to_constant_1 (stmt, vrp_valueize,
 						 vrp_valueize_1);
-      if (tem && is_gimple_min_invariant (tem))
-	set_value_range_to_value (vr, tem, NULL);
+      if (tem)
+	{
+	  if (TREE_CODE (tem) == SSA_NAME
+	      && (SSA_NAME_IS_DEFAULT_DEF (tem)
+		  || ! prop_simulate_again_p (SSA_NAME_DEF_STMT (tem))))
+	    {
+	      extract_range_from_ssa_name (vr, tem);
+	      return;
+	    }
+	  else if (is_gimple_min_invariant (tem))
+	    {
+	      set_value_range_to_value (vr, tem, NULL);
+	      return;
+	    }
+	}
       /* Then dispatch to value-range extracting functions.  */
-      else if (code == GIMPLE_CALL)
+      if (code == GIMPLE_CALL)
 	extract_range_basic (vr, stmt);
       else
 	extract_range_from_assignment (vr, as_a <gassign *> (stmt));
-      *output_p = lhs;
     }
 }
 
@@ -10211,7 +10225,7 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	     in divide by zero, new_rhs1 / new_rhs will be NULL_TREE.  */
 	  if (new_rhs1 && new_rhs2)
 	    {
-	      tree cond = build2 (EQ_EXPR, TREE_TYPE (cmp_var), cmp_var, val1);
+	      tree cond = build2 (EQ_EXPR, boolean_type_node, cmp_var, val1);
 	      gimple_assign_set_rhs_with_ops (gsi,
 					      COND_EXPR, cond,
 					      new_rhs1,
