@@ -8513,3 +8513,26 @@
 	      (set (match_dup 2)
 		   (any_extend:SI (match_dup 3)))])]
   "")
+
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+	(match_operand:SI 1 "register_operand"))
+   (set (match_dup 0)
+	(and:SI (match_dup 0)
+		(const_int -256)))
+   (set (match_dup 1)
+	(zero_extract:SI (match_dup 1)
+			 (const_int 8)
+			 (const_int 8)))
+   (set (match_dup 1)
+	(ior:SI (match_dup 0)
+		(match_dup 1)))]
+  "TARGET_NANOMIPS"
+  [(set (match_dup 0)
+	(zero_extract:SI (match_dup 1)
+			 (const_int 8)
+			 (const_int 8)))
+   (set (zero_extract:SI (match_dup 1)
+			 (const_int 8)
+			 (const_int 0))
+	(match_dup 0))])
