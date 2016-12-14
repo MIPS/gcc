@@ -22,3 +22,5 @@ fn3 ()
   a[1] = b;
   fn1 (a);
 }
+
+/* { dg-final { scan-assembler-not "\\.(float|l\\?double|\d?byte|short|int|long|quad|word)\\s+\[^.\]" } } */

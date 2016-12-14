@@ -12,3 +12,4 @@ foo (void)
 }
 
 /* { dg-final { scan-assembler-not "#1\\.0e\\+0" } } */
+/* { dg-final { scan-assembler-not "\\.(float|l\\?double|\d?byte|short|int|long|quad|word)\\s+\[^.\]" } } */

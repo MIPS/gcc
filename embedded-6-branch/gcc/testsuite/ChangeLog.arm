@@ -1,5 +1,10 @@
 2016-12-14  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
+	* gcc.target/arm/thumb2-slow-flash-data-3.c: Add extra scan.
+	* gcc.target/arm/thumb2-slow-flash-data-5.c: Likewise.
+
+2016-12-14  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
 	* gcc.target/arm/cmse/mainline/hard/cmse-13.c: Fix testsuite.
 	* gcc.target/arm/cmse/mainline/hard/cmse-7.c: Likewise.
 	* gcc.target/arm/cmse/mainline/hard/cmse-8.c: Likewise.

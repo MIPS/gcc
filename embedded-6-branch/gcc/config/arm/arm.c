@@ -308,7 +308,6 @@ static section *arm_function_section (tree, enum node_frequency, bool, bool);
 static bool arm_asm_elf_flags_numeric (unsigned int flags, unsigned int *num);
 static unsigned int arm_elf_section_type_flags (tree decl, const char *name,
 						int reloc);
-static bool arm_use_blocks_for_constant_p (machine_mode var, const_rtx x);
 
 
 /* Table of machine attributes.  */
@@ -758,9 +757,6 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS arm_elf_section_type_flags
-
-#undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
-#define TARGET_USE_BLOCKS_FOR_CONSTANT_P arm_use_blocks_for_constant_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -31604,16 +31600,5 @@ bool arm_coproc_ldc_stc_legitimate_address (rtx op)
 	gcc_unreachable ();
     }
   return false;
-}
-
-/* Implements the TARGET_USE_BLOCKS_FOR_CONSTANT_P hook.
-
-   If we have disabled the generation of constants inside a literal pool, then
-   this function returns false.  Otherwise, return true.  */
-
-static bool
-arm_use_blocks_for_constant_p (machine_mode /* var */, const_rtx /* x */)
-{
-  return !arm_disable_literal_pool;
 }
 #include "gt-arm.h"
