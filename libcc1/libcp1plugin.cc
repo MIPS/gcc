@@ -1960,12 +1960,9 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
   gcc_assert (is_new_type);
 
   source_location loc = ctx->get_source_location (filename, line_number);
-  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
-  TYPE_NAME (type) = type_decl;
-  TYPE_STUB_DECL (type) = type_decl;
-  DECL_CONTEXT (type_decl) = TYPE_CONTEXT (type);
-
-  safe_pushtag (DECL_NAME (type_decl), type, ts_current);
+  tree type_decl = TYPE_NAME (type);
+  DECL_SOURCE_LOCATION (type_decl) = loc;
+  SET_OPAQUE_ENUM_P (type, false);
 
   set_access_flags (type_decl, flags);
 
