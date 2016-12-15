@@ -8878,7 +8878,7 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	  LW/SWL/SWR sequence.  This is often better than the 4 LIs and
 	  4 SBs that we would generate when storing by pieces.  */
   if (align <= BITS_PER_UNIT)
-    return size < 4;
+    return size < 4 || !ISA_HAS_LWL_LWR;
 
   /* If the data is 2-byte aligned, then:
 
@@ -8913,7 +8913,9 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
      (c4) A block move of 8 bytes can use two LW/SW sequences or a single
 	  LD/SD sequence, and in these cases we've traditionally preferred
 	  the memory copy over the more bulky constant moves.  */
-  return size < 8;
+  return (size < 8
+	  || (align < 4 * BITS_PER_UNIT
+	      && !ISA_HAS_LWL_LWR));
 }
 
 /* Emit straight-line code to move LENGTH bytes from SRC to DEST.
