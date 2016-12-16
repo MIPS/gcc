@@ -1345,7 +1345,10 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
   bool skip_first = false;
   gimple_seq stmts = NULL;
 
-  if (is_gimple_debug (stmt) && flag_var_tracking_assignments)
+  if (is_gimple_debug (stmt)
+      && (gimple_debug_begin_stmt_p (stmt)
+	  ? !cfun->begin_stmt_markers
+	  : !flag_var_tracking_assignments))
     return stmts;
 
   /* Begin by recognizing trees that we'll completely rewrite for the
@@ -1733,7 +1736,8 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
       gimple_set_block (copy, *n);
     }
 
-  if (gimple_debug_bind_p (copy) || gimple_debug_source_bind_p (copy))
+  if (gimple_debug_bind_p (copy) || gimple_debug_source_bind_p (copy)
+      || gimple_debug_begin_stmt_p (copy))
     {
       gimple_seq_add_stmt (&stmts, copy);
       return stmts;
