@@ -836,6 +836,8 @@ def_cfa_0 (dw_cfa_location *old_cfa, dw_cfa_location *new_cfa)
 	/* It's hard to reconstruct the CFA location for a polynomial
 	   expression, so just cache it instead.  */
 	cfi->dw_cfi_oprnd2.dw_cfi_cfa_loc = copy_cfa (new_cfa);
+      else
+	cfi->dw_cfi_oprnd2.dw_cfi_cfa_loc = NULL;
     }
 
   return cfi;
