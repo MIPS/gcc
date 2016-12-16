@@ -239,24 +239,26 @@ adjust_phi_and_debug_stmts (gimple *update_phi, edge e, tree new_def)
 
 /* Set up the controlling mask for loop LOOP, which has been vectorized
    as described by LOOP_VINFO.  INIT_MASK is the value that the mask
-   should have during the first iteration.  */
+   should have during the first iteration and NEXT_MASK is the value
+   that it should have on subsequent iterations.  */
 
 static void
 slpeel_setup_loop_masks (struct loop *loop, loop_vec_info loop_vinfo,
-			 tree init_mask)
+			 tree init_mask, tree next_mask)
 {
-  vec<tree> &mask_array = LOOP_VINFO_MASK_ARRAY (loop_vinfo);
+  tree final_res = vect_get_loop_mask (loop_vinfo,
+				       LOOP_VINFO_MASK_ARRAY (loop_vinfo),
+				       1);
   tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
   tree uncapped_mask;
   tree cap_mask = LOOP_VINFO_CAP_MASK (loop_vinfo);
   if (cap_mask)
     uncapped_mask = make_temp_ssa_name (mask_type, NULL, "uncapped_mask");
   else
-    uncapped_mask = mask_array[0];
+    uncapped_mask = final_res;
   gphi *phi = create_phi_node (uncapped_mask, loop->header);
   add_phi_arg (phi, init_mask, loop_preheader_edge (loop), UNKNOWN_LOCATION);
-  add_phi_arg (phi, LOOP_VINFO_NEXT_MASK (loop_vinfo),
-	       loop_latch_edge (loop), UNKNOWN_LOCATION);
+  add_phi_arg (phi, next_mask, loop_latch_edge (loop), UNKNOWN_LOCATION);
 
   basic_block *bbs = get_loop_body (loop);
   gimple_stmt_iterator gsi = gsi_after_labels (bbs[0]);
@@ -264,36 +266,14 @@ slpeel_setup_loop_masks (struct loop *loop, loop_vec_info loop_vinfo,
   /* Apply the cap mask, if any.  */
   if (cap_mask)
     {
-      gimple *stmt = gimple_build_assign (mask_array[0], BIT_AND_EXPR,
+      gimple *stmt = gimple_build_assign (final_res, BIT_AND_EXPR,
 					  uncapped_mask, cap_mask);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
 
   /* Create unpacked masks at each level required.  */
-  int mask_count = 1;
-  for (int i = 1; i < LOOP_VINFO_NUM_MASK_LEVELS (loop_vinfo); i++)
-    {
-      /* Number of masks in the previous level.  */
-      int num_masks_prev_level = 1 << (i - 1);
-      for (int j = 0; j < num_masks_prev_level; j++)
-	{
-	  gimple *tmp_stmt;
-	  tree mask_unpk;
-
-	  tree packed_mask = vect_get_loop_mask (loop_vinfo, i - 1, j);
-
-	  /* The mask variables have already been created.  */
-	  mask_unpk = mask_array[mask_count++];
-	  tmp_stmt = gimple_build_assign (mask_unpk, VEC_UNPACK_LO_EXPR,
-					  packed_mask);
-	  gsi_insert_before (&gsi, tmp_stmt, GSI_SAME_STMT);
-
-	  mask_unpk = mask_array[mask_count++];
-	  tmp_stmt = gimple_build_assign (mask_unpk, VEC_UNPACK_HI_EXPR,
-					  packed_mask);
-	  gsi_insert_before (&gsi, tmp_stmt, GSI_SAME_STMT);
-	}
-    }
+  vect_populate_mask_array (loop_vinfo, LOOP_VINFO_MASK_ARRAY (loop_vinfo),
+			    1, &gsi);
 }
 
 
@@ -349,12 +329,10 @@ slpeel_set_speculative_mask (struct loop *loop, loop_vec_info loop_vinfo)
   else
     /* First iteration is always full.  */
     init_mask = build_minus_one_cst (mask_type);
-  slpeel_setup_loop_masks (loop, loop_vinfo, init_mask);
 
   /* For subsequent iterations of the loop, always use a full mask.  */
-  tmp_stmt = gimple_build_assign (LOOP_VINFO_NEXT_MASK (loop_vinfo),
-				  build_minus_one_cst (mask_type));
-  gimple_seq_add_stmt (&seq, tmp_stmt);
+  slpeel_setup_loop_masks (loop, loop_vinfo, init_mask,
+			   build_minus_one_cst (mask_type));
 
   if (seq)
     {
@@ -503,7 +481,8 @@ slpeel_iterate_loop_ntimes_while (struct loop *loop, loop_vec_info loop_vinfo,
 	}
     }
 
-  slpeel_setup_loop_masks (loop, loop_vinfo, init_mask);
+  tree next_mask = make_temp_ssa_name (mask_type, NULL, "next_mask");
+  slpeel_setup_loop_masks (loop, loop_vinfo, init_mask, next_mask);
 
   /* Create an induction variable that counts scalar iterations.  */
   standard_iv_increment_position (loop, &incr_gsi, &insert_after);
@@ -545,15 +524,14 @@ slpeel_iterate_loop_ntimes_while (struct loop *loop, loop_vec_info loop_vinfo,
 
   /* Compare the scalar iteration count against the number of scalar
      iterations to get the mask for the next iteration.  */
-  tree cmp_res = LOOP_VINFO_NEXT_MASK (loop_vinfo);
   gimple *cmp_stmt = gimple_build_call_internal
     (IFN_WHILE_ULT, 3, test_index, loop_max_iters, zero_mask);
-  gimple_call_set_lhs (cmp_stmt, cmp_res);
+  gimple_call_set_lhs (cmp_stmt, next_mask);
   gsi_insert_before (test_gsi, cmp_stmt, GSI_SAME_STMT);
 
   /* Get a boolean result that tells us whether to iterate.  */
   code = (exit_edge->flags & EDGE_TRUE_VALUE) ? EQ_EXPR : NE_EXPR;
-  cond_stmt = gimple_build_cond (code, cmp_res, zero_mask,
+  cond_stmt = gimple_build_cond (code, next_mask, zero_mask,
 				 NULL_TREE, NULL_TREE);
   gsi_insert_before (&loop_cond_gsi, cond_stmt, GSI_SAME_STMT);
 

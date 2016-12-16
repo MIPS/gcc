@@ -321,24 +321,9 @@ typedef struct _loop_vec_info : public vec_info {
      The mask is null if no cap needs to be applied.  */
   tree cap_mask;
 
-  /* A balanced tree of masks, where each row or level in the array
-     corresponds to a set of masks unpacked from the previous level, i.e.
-
-	Level 0 -    P0
-		   /    \
-	Level 1 - P1    P2
-		 /  \  /  \
-	etc.
-
-     In the absence of any widening or narrowing of vector element types
-     there should be precisely one level and one mask in total.  */
+  /* A balanced tree of masks, in the form described by
+     vect_get_loop_mask.  */
   vec<tree> mask_array;
-
-  /* This is the top-level mask value for the next iteration of the loop.  */
-  tree next_mask;
-
-  /* Number of levels in MASK_ARRAY.  */
-  int num_mask_levels;
 
   /* If we are using a loop mask to align memory addresses, this variable
      contains the number of vector elements that we should skip in the
@@ -459,11 +444,12 @@ typedef struct _loop_vec_info : public vec_info {
   /* Is this a speculative loop?  */
   bool speculative_execution;
 
-  /* Speculative masks defined inside the loop.  */
-  vec<tree> speculative_masks;
-
-  /* Number of speculative masks required in the loop.  */
-  int num_speculative_masks;
+  /* A balanced tree of masks representing the exit condition of a
+     speculative loop, in the form described by vect_get_loop_mask.
+     The loop exits when at least one element from at least one mask
+     is true.  More than one element may be true, in which case the
+     first true element represents the actual stop point.  */
+  vec<tree> exit_masks;
 
   /* The loop exit value of the speculative mask.  */
   gphi *speculative_exit_phi;
@@ -496,11 +482,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_CAPPED_VECT_FACTOR(L)   (L)->capped_vectorization_factor
 #define LOOP_VINFO_MASK_TYPE(L)            (L)->mask_type
 #define LOOP_VINFO_CAP_MASK(L)             (L)->cap_mask
-#define LOOP_VINFO_MASK(L) \
-  ((L)->mask_array.is_empty () ? NULL : (L)->mask_array[0])
 #define LOOP_VINFO_MASK_ARRAY(L)           (L)->mask_array
-#define LOOP_VINFO_NEXT_MASK(L)            (L)->next_mask
-#define LOOP_VINFO_NUM_MASK_LEVELS(L)      (L)->num_mask_levels
 #define LOOP_VINFO_MASKED_SKIP_ELEMS(L)    (L)->masked_skip_elems
 #define LOOP_VINFO_MASK_COMPARE_TYPE(L)    (L)->mask_compare_type
 #define LOOP_VINFO_PTR_MASK(L)             (L)->ptr_mask
@@ -533,9 +515,8 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
 #define LOOP_VINFO_SUNK_DATAREFS(L)        (L)->sunk_datarefs
 #define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
-#define LOOP_VINFO_SPECULATIVE_MASKS(L)     (L)->speculative_masks
-#define LOOP_VINFO_NUM_SPECULATIVE_MASKS(L) (L)->num_speculative_masks
 #define LOOP_VINFO_SPECULATIVE_EXIT_PHI(L)  (L)->speculative_exit_phi
+#define LOOP_VINFO_EXIT_MASKS(L)            (L)->exit_masks
 #define LOOP_VINFO_FIRSTFAULTING_EXECUTION(L) (L)->firstfaulting_execution
 #define LOOP_VINFO_FIRSTFAULTING_MASK(L)      (L)->firstfaulting_mask
 #define LOOP_VINFO_FIRSTFAULTING_ITER(L)      (L)->firstfaulting_iter
@@ -1235,56 +1216,6 @@ vect_use_loop_mask_for_alignment_p (loop_vec_info loop_vinfo)
 	  && !LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
 }
 
-/* Return the size of LOOP_VINFO_MASK_ARRAY in cases where
-   LOOP_VINFO_NUM_MASK_LEVELS is equal to NLEVELS.  */
-
-static inline int
-vect_get_num_array_masks (int nlevels)
-{
-  return (1 << nlevels) - 1;
-}
-
-/* Return the level of LOOP_VINFO_MASK_ARRAY to use if we need to generate
-   NCOPIES copies of a vectorized statement.  */
-
-static inline int
-vect_get_mask_level (int ncopies)
-{
-  int mask_level = exact_log2 (ncopies);
-  gcc_assert (mask_level != -1);
-  return mask_level;
-}
-
-/* Return mask number INDEX for level LEVEL of LOOP_VINFO's
-   LOOP_VINFO_MASK_ARRAY.  INDEX corresponds to the statement
-   copy number in cases where 1 << LEVEL copies are needed.  */
-
-static inline tree
-vect_get_loop_mask (loop_vec_info loop_vinfo, int level, int index)
-{
-  index += vect_get_num_array_masks (level);
-  return LOOP_VINFO_MASK_ARRAY (loop_vinfo) [index];
-}
-
-/* Record that we would need to generate NCOPIES copies of a vectorized
-   statement in LOOP_VINFO, and that that statement would need to be masked
-   in a fully-masked lopp.  This is used to calculate the number of masks
-   needed if we do decide to create a fully-masked loop.  */
-
-static inline void
-vect_update_num_mask_levels (loop_vec_info loop_vinfo, int ncopies)
-{
-  int nlevels = vect_get_mask_level (ncopies) + 1;
-  LOOP_VINFO_NUM_MASK_LEVELS (loop_vinfo)
-    = MAX (LOOP_VINFO_NUM_MASK_LEVELS (loop_vinfo), nlevels);
-}
-
-static inline tree
-vect_get_speculative_mask (loop_vec_info loop_vinfo, int index)
-{
-  return LOOP_VINFO_SPECULATIVE_MASKS (loop_vinfo) [index];
-}
-
 /* Return the number of vectors of type VECTYPE that are needed to get
    NUNITS elements.  NUNITS should be based on the vectorization factor,
    so it is always a known multiple of the number of elements in VECTYPE.  */
@@ -1478,6 +1409,10 @@ extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *, bool,
 extern loop_vec_info vect_analyze_loop (struct loop *, struct sink_info *);
 extern tree vect_build_loop_niters (loop_vec_info);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *, bool);
+extern tree vect_get_loop_mask (loop_vec_info, vec<tree> &, unsigned int);
+extern void vect_populate_mask_array (loop_vec_info, vec<tree> &,
+				      unsigned int, gimple_stmt_iterator *);
+
 /* Drive for loop transformation stage.  */
 extern void vect_transform_loop (loop_vec_info);
 extern loop_vec_info vect_analyze_loop_form (struct loop *, struct sink_info *);
