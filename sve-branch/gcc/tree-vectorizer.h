@@ -462,6 +462,17 @@ typedef struct _loop_vec_info : public vec_info {
   tree firstfaulting_mask;
   tree firstfaulting_iter;
 
+  /* True if at least one statement needs the nonspeculative masks.  */
+  bool needs_nonspeculative_masks;
+
+  /* A balanced tree of masks for instructions that cannot be executed
+     speculatively, in the form described by vect_get_loop_mask.  */
+  vec<tree> nonspeculative_masks;
+
+  /* Statements in a speculative loop that depend on nonspeculative masks.
+     These statements can only be executed after the exit condition has
+     been evaluated.  */
+  gimple_seq nonspeculative_seq;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -520,6 +531,10 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_FIRSTFAULTING_EXECUTION(L) (L)->firstfaulting_execution
 #define LOOP_VINFO_FIRSTFAULTING_MASK(L)      (L)->firstfaulting_mask
 #define LOOP_VINFO_FIRSTFAULTING_ITER(L)      (L)->firstfaulting_iter
+#define LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS(L) \
+  (L)->needs_nonspeculative_masks
+#define LOOP_VINFO_NONSPECULATIVE_MASKS(L)    (L)->nonspeculative_masks
+#define LOOP_VINFO_NONSPECULATIVE_SEQ(L)      (L)->nonspeculative_seq
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -1410,6 +1425,7 @@ extern loop_vec_info vect_analyze_loop (struct loop *, struct sink_info *);
 extern tree vect_build_loop_niters (loop_vec_info);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *, bool);
 extern tree vect_get_loop_mask (loop_vec_info, vec<tree> &, unsigned int);
+extern tree vect_get_load_mask (loop_vec_info, unsigned int);
 extern void vect_populate_mask_array (loop_vec_info, vec<tree> &,
 				      unsigned int, gimple_stmt_iterator *);
 

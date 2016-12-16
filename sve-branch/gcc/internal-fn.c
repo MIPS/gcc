@@ -2040,24 +2040,20 @@ expand_mask_load_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
 static void
 expand_firstfault_load_optab_fn (internal_fn, gcall *stmt, direct_optab optab)
 {
-  struct expand_operand ops[3];
-  tree type, lhs, rhs, maskt;
-  rtx mem, target, mask;
+  struct expand_operand ops[2];
+  tree type, lhs, rhs;
+  rtx mem, target;
 
-  maskt = gimple_call_arg (stmt, 2);
   lhs = gimple_call_lhs (stmt);
   type = TREE_TYPE (lhs);
   rhs = expand_call_mem_ref (type, stmt, 0);
 
   mem = expand_expr (rhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
   gcc_assert (MEM_P (mem));
-  mask = expand_normal (maskt);
   target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
   create_output_operand (&ops[0], target, TYPE_MODE (type));
   create_fixed_operand (&ops[1], mem);
-  create_input_operand (&ops[2], mask, TYPE_MODE (TREE_TYPE (maskt)));
-  expand_insn (direct_optab_handler (optab, TYPE_MODE (type)),
-	       3, ops);
+  expand_insn (direct_optab_handler (optab, TYPE_MODE (type)), 2, ops);
   if (!rtx_equal_p (target, ops[0].value))
     emit_move_insn (target, ops[0].value);
 }

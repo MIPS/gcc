@@ -1398,6 +1398,9 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_FIRSTFAULTING_EXECUTION (res) = false;
   LOOP_VINFO_FIRSTFAULTING_MASK (res) = NULL;
   LOOP_VINFO_FIRSTFAULTING_ITER (res) = NULL;
+  LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS (res) = false;
+  LOOP_VINFO_NONSPECULATIVE_MASKS (res).create (0);
+  LOOP_VINFO_NONSPECULATIVE_SEQ (res) = NULL;
 
   return res;
 }
@@ -1488,6 +1491,8 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   LOOP_VINFO_EXIT_MASKS (loop_vinfo).release ();
 
   LOOP_VINFO_CHECK_NONZERO (loop_vinfo).release ();
+
+  LOOP_VINFO_NONSPECULATIVE_MASKS (loop_vinfo).release ();
 
   free (loop_vinfo);
   loop->aux = NULL;
@@ -2515,6 +2520,7 @@ start_over:
       && !LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo)
       && LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
       && !LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo)
+      && !LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS (loop_vinfo)
       && !use_capped_vf (loop_vinfo))
     {
       LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
@@ -2530,6 +2536,19 @@ start_over:
   if (LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo))
     LOOP_VINFO_MASK_TYPE (loop_vinfo) = vect_get_loop_mask_type
       (loop_vinfo, &LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo));
+
+  if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
+      && LOOP_VINFO_MASK_TYPE (loop_vinfo)
+      && LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS (loop_vinfo)
+      && !direct_internal_fn_supported_p (IFN_BREAK_AFTER,
+					  LOOP_VINFO_MASK_TYPE (loop_vinfo),
+					  OPTIMIZE_FOR_SPEED))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "Not vectorized: Break after not supported.\n");
+      return false;
+    }
 
   /* If epilog loop is required because of data accesses with gaps,
      one additional iteration needs to be peeled.  Check if there is
@@ -6060,7 +6079,8 @@ vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 			     gimple *reduc_def_stmt,
 			     tree_code code, tree_code reduc_code,
 			     int op_type, tree ops[3], tree vectype_in,
-			     int reduc_index, tree scalar_identity)
+			     int reduc_index, tree scalar_identity,
+			     vec<tree> *mask_array)
 {
   int i;
   int ncopies;
@@ -6121,8 +6141,7 @@ vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
     {
       gcc_assert (scalar_identity);
       vector_identity = build_vector_from_val (vectype_out, scalar_identity);
-      mask = vect_get_loop_mask (loop_vinfo,
-				 LOOP_VINFO_MASK_ARRAY (loop_vinfo), 1);
+      mask = vect_get_loop_mask (loop_vinfo, *mask_array, 1);
     }
 
   FOR_EACH_VEC_ELT (vec_oprnds0, i, def0)
@@ -7037,6 +7056,10 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 				 " conditional operation is available.\n");
 	      LOOP_VINFO_CAN_FULLY_MASK_P (loop_vinfo) = false;
 	    }
+	  /* In a speculative loop, the update must be predicated on the
+	     nonspeculative masks, so that we don't include speculatively
+	     loaded elements from beyond the end of the original loop.  */
+	  LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS (loop_vinfo) = true;
 	}
       STMT_VINFO_TYPE (stmt_info) = reduc_vec_info_type;
       return true;
@@ -7051,11 +7074,25 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   if (code == COND_EXPR)
     gcc_assert (ncopies == 1);
 
+  bool masked_loop_p = LOOP_VINFO_MASK_TYPE (loop_vinfo) != NULL_TREE;
+
+  /* In a speculative loop, the update must be predicated on the
+     nonspeculative masks, so that we don't include speculatively
+     loaded elements from beyond the end of the original loop.  */
+  vec<tree> *mask_array = &LOOP_VINFO_MASK_ARRAY (loop_vinfo);
+  gimple_stmt_iterator nonspeculative_gsi
+    = gsi_end (LOOP_VINFO_NONSPECULATIVE_SEQ (loop_vinfo));
+  if (masked_loop_p && LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
+    {
+      gsi = &nonspeculative_gsi;
+      mask_array = &LOOP_VINFO_NONSPECULATIVE_MASKS (loop_vinfo);
+    }
+
   if (is_strict_reduc)
     return vectorized_strict_reduction
       (stmt, gsi, vec_stmt, slp_node, reduc_def_stmt, code,
        epilog_reduc_code, op_type, ops, vectype_in, reduc_index,
-       scalar_identity);
+       scalar_identity, mask_array);
 
   /* Create the destination vector  */
   vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
@@ -7111,8 +7148,6 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   vect_defs.create (vec_num);
   if (!slp_node)
     vect_defs.quick_push (NULL_TREE);
-
-  bool masked_loop_p = LOOP_VINFO_MASK_TYPE (loop_vinfo) != NULL_TREE;
 
   for (j = 0; j < ncopies; j++)
     {
@@ -7213,9 +7248,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 
 	  tree mask = NULL;
 	  if (masked_loop_p)
-	    mask = vect_get_loop_mask (loop_vinfo,
-				       LOOP_VINFO_MASK_ARRAY (loop_vinfo),
-				       ncopies + j);
+	    mask = vect_get_loop_mask (loop_vinfo, *mask_array, ncopies + j);
 
           def1 = ((op_type == ternary_op)
                   ? vec_oprnds1[i] : NULL);
@@ -7796,10 +7829,11 @@ vectorizable_live_operation (gimple *stmt,
 	     instance.  */
 	  gphi *exit_phi = LOOP_VINFO_SPECULATIVE_EXIT_PHI (loop_vinfo);
 	  tree orig_mask = PHI_RESULT (exit_phi);
+	  tree all_ones = build_minus_one_cst (TREE_TYPE (orig_mask));
 
 	  mask = make_ssa_name (TREE_TYPE (orig_mask));
-	  new_stmt = gimple_build_call_internal (IFN_BREAK_AFTER, 1,
-						 orig_mask);
+	  new_stmt = gimple_build_call_internal (IFN_BREAK_AFTER, 2,
+						 all_ones, orig_mask);
 	  gimple_call_set_lhs (new_stmt, mask);
 	  gimple_seq_add_stmt (&stmts, new_stmt);
 	}
@@ -7960,6 +7994,23 @@ vect_get_loop_mask (loop_vec_info loop_vinfo, vec<tree> &masks,
       masks[index] = make_temp_ssa_name (type, NULL, "loop_mask");
     }
   return masks[index];
+}
+
+/* Get the mask to use for loads in LOOP_VINFO, or null if loads don't
+   need to be masked.  INDEX is as for vect_get_loop_mask.  */
+
+tree
+vect_get_load_mask (loop_vec_info loop_vinfo, unsigned int index)
+{
+  /* At present all loads in a speculative loop are speculative.
+     They need to be masked iff we are using masking to reach
+     alignment.  */
+  if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
+      && !LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo))
+    return NULL_TREE;
+
+  return vect_get_loop_mask (loop_vinfo,
+			     LOOP_VINFO_MASK_ARRAY (loop_vinfo), index);
 }
 
 /* MASKS is a balanced tree of masks, as described by vect_get_loop_mask.

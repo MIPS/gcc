@@ -316,23 +316,19 @@ slpeel_set_speculative_mask (struct loop *loop, loop_vec_info loop_vinfo)
   tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
 
   tree skip_elems = LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo);
-  gcc_assert (skip_elems || LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
-
-  /* Create a mask before the loop.  */
-  tree init_mask;
   if (skip_elems)
     {
       /* Convert skip_elems to the right type.  */
       skip_elems = gimple_convert (&seq, compare_type, skip_elems);
-      init_mask = slpeel_insert_peeled_mask (&seq, loop_vinfo, skip_elems);
+      tree init_mask = slpeel_insert_peeled_mask (&seq, loop_vinfo,
+						  skip_elems);
+
+      /* For subsequent iterations of the loop, always use a full mask.  */
+      slpeel_setup_loop_masks (loop, loop_vinfo, init_mask,
+			       build_minus_one_cst (mask_type));
     }
   else
-    /* First iteration is always full.  */
-    init_mask = build_minus_one_cst (mask_type);
-
-  /* For subsequent iterations of the loop, always use a full mask.  */
-  slpeel_setup_loop_masks (loop, loop_vinfo, init_mask,
-			   build_minus_one_cst (mask_type));
+    gcc_assert (LOOP_VINFO_MASK_ARRAY (loop_vinfo).is_empty ());
 
   if (seq)
     {
@@ -601,6 +597,9 @@ slpeel_finalize_loop_iterations (struct loop *loop, loop_vec_info loop_vinfo,
 
   if (speculation_p)
     {
+      gimple_seq late_seq = LOOP_VINFO_NONSPECULATIVE_SEQ (loop_vinfo);
+      if (late_seq)
+	gsi_insert_seq_before (&loop_cond_gsi, late_seq, GSI_SAME_STMT);
       if (masked_p)
 	slpeel_set_speculative_mask (loop, loop_vinfo);
     }
@@ -612,9 +611,12 @@ slpeel_finalize_loop_iterations (struct loop *loop, loop_vec_info loop_vinfo,
     cond_stmt = slpeel_iterate_loop_ntimes_unmasked (loop, niters,
 						     loop_cond_gsi);
 
-  /* Remove old loop exit test.  */
-  gsi_remove (&loop_cond_gsi, true);
-  free_stmt_vec_info (orig_cond);
+  if (!speculation_p)
+    {
+      /* Remove old loop exit test.  */
+      gsi_remove (&loop_cond_gsi, true);
+      free_stmt_vec_info (orig_cond);
+    }
 
   if (dump_enabled_p () && cond_stmt)
     {

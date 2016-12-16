@@ -8344,9 +8344,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 
       tree mask = NULL;
       if (masked_loop_p)
-	mask = vect_get_loop_mask (loop_vinfo,
-				   LOOP_VINFO_MASK_ARRAY (loop_vinfo),
-				   ncopies + j);
+	mask = vect_get_load_mask (loop_vinfo, ncopies + j);
 
       if (memory_access_type == VMAT_LOAD_STORE_LANES)
 	do_load_lanes (stmt, gsi, group_size, vectype, aggr_type,
@@ -8401,15 +8399,21 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 					      align, misalign);
 		    if (misalign)
 		      align = least_bit_hwi (misalign);
-		    if (masked_loop_p)
+		    if (mask)
+		      {
+			/* At present we always start a first-faulting
+			   load at the first element.  */
+			gcc_assert (!firstfaulting_p);
+			tree ptr = build_int_cst (ref_type, align);
+			new_stmt = gimple_build_call_internal
+			  (IFN_MASK_LOAD, 3, dataref_ptr, ptr, mask);
+			gimple_call_set_lhs (new_stmt, vec_dest);
+		      }
+		    else if (firstfaulting_p)
 		      {
 			tree ptr = build_int_cst (ref_type, align);
-			enum internal_fn fn = firstfaulting_p
-					      ? IFN_FIRSTFAULT_LOAD
-					      : IFN_MASK_LOAD;
-			new_stmt = gimple_build_call_internal (fn, 3,
-							       dataref_ptr,
-							       ptr, mask);
+			new_stmt = gimple_build_call_internal
+			  (IFN_FIRSTFAULT_LOAD, 2, dataref_ptr, ptr);
 			gimple_call_set_lhs (new_stmt, vec_dest);
 		      }
 		    else
@@ -9198,8 +9202,10 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
   else
     mask = NULL_TREE;
 
-  bool masked_speculative_p = (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
-			       && LOOP_VINFO_MASK_TYPE (loop_vinfo));
+  bool masked_speculative_p
+    = (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
+       && (LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo)
+	   || LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo)));
 
   /* Pick an array of masks to use as the comparison results that feed
      a GIMPLE_COND.  If all input elements are valid, we can operate
@@ -9315,23 +9321,45 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
       gcc_assert (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
 
       struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-      gcond *orig_cond = get_loop_exit_condition (loop);
-      gcc_assert (orig_cond);
-      gimple_stmt_iterator loop_cond_gsi = gsi_for_stmt (orig_cond);
+      gcond *cond = get_loop_exit_condition (loop);
+      gcc_assert (cond);
+      gimple_stmt_iterator loop_cond_gsi = gsi_for_stmt (cond);
 
       tree cmp_res = vect_get_loop_mask (loop_vinfo, *speculative_masks, 1);
       vect_populate_mask_array (loop_vinfo, *speculative_masks,
 				ncopies, &loop_cond_gsi);
 
+      /* Work out which elements of the unmasked result are valid.  */
+      tree mask;
+      if (!masked_speculative_p)
+	mask = build_minus_one_cst (TREE_TYPE (cmp_res));
+      else if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
+	mask = LOOP_VINFO_FIRSTFAULTING_MASK (loop_vinfo);
+      else
+	mask = vect_get_loop_mask (loop_vinfo,
+				   LOOP_VINFO_MASK_ARRAY (loop_vinfo), 1);
+
+      if (LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS (loop_vinfo))
+	{
+	  /* At this point the active part of MASK_RES is nonzero if the
+	     end of the loop has been reached and zero otherwise.  Use a
+	     BREAK_AFTER operation to generate a mask of elements that
+	     form part of the original loop.  */
+	  vec<tree> &nonspeculative_masks
+	    = LOOP_VINFO_NONSPECULATIVE_MASKS (loop_vinfo);
+	  tree nonspeculative_mask
+	    = vect_get_loop_mask (loop_vinfo, nonspeculative_masks, 1);
+	  gimple *tmp_stmt = gimple_build_call_internal (IFN_BREAK_AFTER, 2,
+							 mask, cmp_res);
+	  gimple_call_set_lhs (tmp_stmt, nonspeculative_mask);
+	  gsi_insert_before (&loop_cond_gsi, tmp_stmt, GSI_SAME_STMT);
+
+	  vect_populate_mask_array (loop_vinfo, nonspeculative_masks,
+				    1, &loop_cond_gsi);
+	}
+
       if (masked_speculative_p)
 	{
-	  /* Work out which elements of the unmasked result are valid.  */
-	  tree mask;
-	  if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
-	    mask = LOOP_VINFO_FIRSTFAULTING_MASK (loop_vinfo);
-	  else
-	    mask = vect_get_loop_mask (loop_vinfo,
-				       LOOP_VINFO_MASK_ARRAY (loop_vinfo), 1);
 
 	  /* Get the mask of values that actually matter.  */
 	  tree masked_res = vect_get_loop_mask
@@ -9348,15 +9376,14 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 	  cmp_res = masked_res;
 	}
 
-      /* Get a boolean result that tells us whether to iterate.  */
+      /* Get a boolean result that tells us whether to iterate.  It's easier
+	 to modify the condition in-place than to generate a new one and
+	 delete the old one.  */
       edge exit_edge = single_exit (loop);
       tree_code code = (exit_edge->flags & EDGE_TRUE_VALUE) ? NE_EXPR : EQ_EXPR;
       tree zero_mask = build_zero_cst (TREE_TYPE (cmp_res));
-      gcond *cond_stmt = gimple_build_cond (code, cmp_res, zero_mask,
-					    NULL_TREE, NULL_TREE);
-      gsi_insert_before (&loop_cond_gsi, cond_stmt, GSI_SAME_STMT);
-
-      /* The loop exit gcond statement will be removed later.  */
+      gimple_cond_set_condition (cond, code, cmp_res, zero_mask);
+      update_stmt (cond);
     }
 
   return true;

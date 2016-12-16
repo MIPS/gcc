@@ -201,7 +201,20 @@
   "st1<Vesize>\t%1.<Vetype>, %2, %0"
 )
 
-(define_insn "firstfault_load<mode>"
+(define_expand "firstfault_load<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand")
+	(unspec:SVE_ALL
+	  [(match_operand:SVE_ALL 1 "aarch64_sve_ldff1_operand")
+	   (match_dup 2)
+	   (reg:SI FFRT_REGNUM)]
+	  UNSPEC_LDFF1))]
+  "TARGET_SVE"
+  {
+    operands[2] = force_reg (<VPRED>mode, CONSTM1_RTX (<VPRED>mode));
+  }
+)
+
+(define_insn "*firstfault_load<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(unspec:SVE_ALL
 	  [(match_operand:SVE_ALL 1 "aarch64_sve_ldff1_operand" "Utf")
@@ -956,7 +969,7 @@
   "<logical_nn>\t%0.b, %1/z, %2.b, %3.b"
 )
 
-(define_insn "aarch64_brka_<mode>"
+(define_insn "break_after_<mode>"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(unspec:PRED_ALL
 	  [(match_operand:PRED_ALL 1 "register_operand" "Upa")
@@ -964,18 +977,6 @@
 	  UNSPEC_BRKA))]
   "TARGET_SVE"
   "brka\t%0.b, %1/z, %2.b"
-)
-
-(define_expand "break_after_<mode>"
-  [(set (match_operand:PRED_ALL 0 "register_operand")
-	(unspec:PRED_ALL
-	  [(match_dup 2)
-	   (match_operand:PRED_ALL 1 "register_operand")]
-	  UNSPEC_BRKA))]
-  "TARGET_SVE"
-  {
-    operands[2] = force_reg (<MODE>mode, CONSTM1_RTX (<MODE>mode));
-  }
 )
 
 (define_expand "v<optab><mode>3"

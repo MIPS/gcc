@@ -152,6 +152,22 @@ gsi_last_1 (gimple_seq *seq)
 
 #define gsi_last(x) gsi_last_1 (&(x))
 
+/* Return a new iterator initially pointing at the end of SEQ.  */
+
+static inline gimple_stmt_iterator
+gsi_end_1 (gimple_seq *seq)
+{
+  gimple_stmt_iterator i;
+
+  i.ptr = NULL;
+  i.seq = seq;
+  i.bb = i.ptr ? gimple_bb (i.ptr) : NULL;
+
+  return i;
+}
+
+#define gsi_end(x) gsi_end_1 (&(x))
+
 /* Return a new iterator pointing to the last statement in basic block BB.  */
 
 static inline gimple_stmt_iterator
