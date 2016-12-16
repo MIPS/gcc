@@ -205,7 +205,8 @@
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(unspec:SVE_ALL
 	  [(match_operand:SVE_ALL 1 "aarch64_sve_ldff1_operand" "Utf")
-	   (match_operand:<VPRED> 2 "register_operand" "Upl")]
+	   (match_operand:<VPRED> 2 "register_operand" "Upl")
+	   (reg:SI FFRT_REGNUM)]
 	  UNSPEC_LDFF1))]
   "TARGET_SVE"
   "ldff1<Vesize>\t%0.<Vetype>, %2/z, %j1";
