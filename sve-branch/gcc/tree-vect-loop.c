@@ -4633,7 +4633,8 @@ get_initial_def_for_induction (gimple *iv_phi)
       /* FORNOW. This restriction should be relaxed.  */
       gcc_assert (!nested_in_vect_loop);
 
-      gcc_assert (!LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo));
+      if (LOOP_VINFO_FIRSTFAULTING_EXECUTION (loop_vinfo))
+	si = gsi_after_labels (bb);
 
       /* Create the vector that holds the step of the induction.  */
       if (SCALAR_FLOAT_TYPE_P (TREE_TYPE (step_expr)))
