@@ -10403,7 +10403,10 @@ variable_tracking_main_1 (void)
 {
   bool success;
 
-  if (flag_var_tracking_assignments < 0
+  /* We won't be called as a separate pass if flag_var_tracking is not
+     set, but final may call us to turn debug markers into notes.  */
+  if ((!flag_var_tracking && MAY_HAVE_DEBUG_INSNS)
+      || flag_var_tracking_assignments < 0
       /* Var-tracking right now assumes the IR doesn't contain
 	 any pseudos at this point.  */
       || targetm.no_register_allocation)
@@ -10411,6 +10414,9 @@ variable_tracking_main_1 (void)
       delete_vta_debug_insns ();
       return 0;
     }
+
+  if (!flag_var_tracking)
+    return 0;
 
   if (n_basic_blocks_for_fn (cfun) > 500 &&
       n_edges_for_fn (cfun) / n_basic_blocks_for_fn (cfun) >= 20)

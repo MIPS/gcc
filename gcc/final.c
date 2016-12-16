@@ -4500,6 +4500,10 @@ rest_of_handle_final (void)
 {
   const char *fnname = get_fnname_from_decl (current_function_decl);
 
+  /* Turn debug markers into notes.  */
+  if (!flag_var_tracking && MAY_HAVE_DEBUG_INSNS)
+    variable_tracking_main ();
+
   assemble_start_function (current_function_decl, fnname);
   final_start_function (get_insns (), asm_out_file, optimize);
   final (get_insns (), asm_out_file, optimize);
