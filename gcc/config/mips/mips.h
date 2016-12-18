@@ -831,7 +831,7 @@ struct mips_cpu_info {
 
 /* Infer a -mnan=2008 setting from a -mips argument.  */
 #define MIPS_ISA_NAN2008_SPEC \
-  "%{mnan*:;mips32r6|mips64r6:-mnan=2008;march=m51*: \
+  "%{mnan*:;mips32r6|mips64r6:-mnan=2008;mmicromips|march=m51*: \
 					 %{!msoft-float:-mnan=2008}}"
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
