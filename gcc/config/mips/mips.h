@@ -1413,6 +1413,7 @@ struct mips_cpu_info {
 %{mmsa} %{mno-msa} \
 %{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
+%{mmxu} %{mno-mxu} \
 %{mfix-rm7000} %{mno-fix-rm7000} \
 %{mfix-vr4120} %{mfix-vr4130} \
 %{mfix-24k} \
