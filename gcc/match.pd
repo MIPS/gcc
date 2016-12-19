@@ -3052,3 +3052,28 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (SIGNBIT @0)
  (if (!HONOR_SIGNED_ZEROS (@0))
   (convert (lt @0 { build_real (TREE_TYPE (@0), dconst0); }))))
+
+(simplify
+  /* (x & 0xff00) | ((x >> 8) & 0x00ff)
+     (x & 0xffff0000) | ((x >> 8) & 0x0000ffff) */
+ (bit_ior:c (bit_and:c @0 INTEGER_CST@1)
+	    (convert (rshift @2 INTEGER_CST@3)))
+ (with
+  {
+    HOST_WIDE_INT mask;
+    HOST_WIDE_INT zerobits;
+    unsigned int mask_prec = TYPE_PRECISION (TREE_TYPE (@1));
+    unsigned int shift = tree_to_shwi (@3);
+
+    zerobits = ~(unsigned HOST_WIDE_INT) 0;
+    mask = zerobits << shift;
+  }
+ (if ((mask_prec == 16 || mask_prec == 32)
+      && (sext_hwi (tree_to_shwi (@1), mask_prec) & mask) == mask)
+  (with { tree inswidth = (mask_prec == 16 ? intQI_type_node
+					   : intHI_type_node); }
+  (BIT_INSERT_EXPR
+    @0 (convert:inswidth (BIT_FIELD_REF
+			  @2 { build_int_cst (TREE_TYPE (@1), shift); }
+			     { build_int_cst (TREE_TYPE (@1), shift); }))
+    { build_int_cst (TREE_TYPE (@1), 0); })))))
