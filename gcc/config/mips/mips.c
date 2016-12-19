@@ -19752,13 +19752,31 @@ mips_option_override (void)
     warning (0, "the %qs architecture does not support branch-likely"
 	     " instructions", mips_arch_info->name);
 
+  /* If TARGET_DSPR2, enable TARGET_DSP.  */
+  if (TARGET_DSPR2)
+    TARGET_DSP = true;
+
+  if (is_micromips && mips_isa_rev >= 6
+      && (TARGET_DSP || TARGET_DSPR2)
+      && !TARGET_DSPR3)
+    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
+	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
+
+  if (TARGET_DSPR3)
+    {
+      TARGET_DSP = true;
+      TARGET_DSPR2 = true;
+    }
+
   /* If the user hasn't specified -mimadd or -mno-imadd set
      MASK_IMADD based on the target architecture and tuning
      flags.  */
   if ((target_flags_explicit & MASK_IMADD) == 0)
     {
-      if (ISA_HAS_MADD_MSUB &&
-          (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+      if ((ISA_HAS_MADD_MSUB &&
+	   (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+	  /* Enable for DSP by default */
+	  || TARGET_DSP)
 	target_flags |= MASK_IMADD;
       else
 	target_flags &= ~MASK_IMADD;
@@ -19947,18 +19965,6 @@ mips_option_override (void)
       error ("%qs requires a target that provides the %qs instruction",
 	     "-mr10k-cache-barrier", "cache");
       mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
-    }
-
-  /* If TARGET_DSPR2, enable TARGET_DSP.  */
-  if (TARGET_DSPR2)
-    TARGET_DSP = true;
-
-  if (TARGET_DSP && mips_isa_rev >= 6)
-    {
-      error ("the %qs architecture does not support DSP instructions",
-	     mips_arch_info->name);
-      TARGET_DSP = false;
-      TARGET_DSPR2 = false;
     }
 
   /* .eh_frame addresses should be the same width as a C pointer.
@@ -22185,6 +22191,12 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
      instructions that say integer mode values must be placed in FPRs.  */
   if (INTEGRAL_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
     return GR_REGS;
+
+  /* Likewise for the mirror case of floating mode pseudos being allocated in
+     a GPR.  */
+  if (FLOAT_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
+    return FP_REGS;
+
   return allocno_class;
 }
 

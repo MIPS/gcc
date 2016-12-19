@@ -2244,7 +2244,7 @@
 	   (mult:DI
 	      (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
 	      (any_extend:DI (match_operand:SI 2 "register_operand" "d")))))]
-  "!TARGET_64BIT && (ISA_HAS_MSAC || GENERATE_MADD_MSUB || ISA_HAS_DSP)"
+  "!TARGET_64BIT && (ISA_HAS_MSAC || GENERATE_MADD_MSUB)"
 {
   if (ISA_HAS_DSP_MULT)
     return "msub<u>\t%q0,%1,%2";
@@ -2518,7 +2518,7 @@
 	 (mult:DI (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		  (any_extend:DI (match_operand:SI 2 "register_operand" "d")))
 	 (match_operand:DI 3 "muldiv_target_operand" "0")))]
-  "(TARGET_MAD || ISA_HAS_MACC || GENERATE_MADD_MSUB || ISA_HAS_DSP)
+  "(TARGET_MAD || ISA_HAS_MACC || GENERATE_MADD_MSUB)
    && !TARGET_64BIT"
 {
   if (TARGET_MAD)
@@ -7412,29 +7412,9 @@
 ;; MIPS 32r2 specification, but we use it on any architecture because
 ;; we expect it to be emulated.  Use .set to force the assembler to
 ;; accept it.
-;;
-;; We do not use a constraint to force the destination to be $3
-;; because $3 can appear explicitly as a function return value.
-;; If we leave the use of $3 implicit in the constraints until
-;; reload, we may end up making a $3 return value live across
-;; the instruction, leading to a spill failure when reloading it.
-(define_insn_and_split "tls_get_tp_<mode>"
-  [(set (match_operand:P 0 "register_operand" "=d")
-	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))
-   (clobber (reg:P TLS_GET_TP_REGNUM))]
-  "HAVE_AS_TLS && !TARGET_MIPS16"
-  "#"
-  "&& reload_completed"
-  [(set (reg:P TLS_GET_TP_REGNUM)
-	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))
-   (set (match_dup 0) (reg:P TLS_GET_TP_REGNUM))]
-  ""
-  [(set_attr "type" "unknown")
-   (set_attr "mode" "<MODE>")
-   (set_attr "insn_count" "2")])
 
-(define_insn "*tls_get_tp_<mode>_split"
-  [(set (reg:P TLS_GET_TP_REGNUM)
+(define_insn "tls_get_tp_<mode>"
+  [(set (match_operand:P 0 "register_operand" "=v")
 	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))]
   "HAVE_AS_TLS && !TARGET_MIPS16"
   {
@@ -7444,7 +7424,7 @@
     return ".set\tpush\;.set\tmips32r2\t\;rdhwr\t$3,$29\;.set\tpop";
   }
   [(set_attr "type" "unknown")
-   ; Since rdhwr always generates a trap for now, putting it in a delay
+   ; Since rdhwr may generate a trap, putting it in a delay
    ; slot would make the kernel's emulation of it much slower.
    (set_attr "can_delay" "no")
    (set_attr "mode" "<MODE>")])
