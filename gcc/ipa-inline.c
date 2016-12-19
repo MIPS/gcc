@@ -595,7 +595,7 @@ want_early_inline_function_p (struct cgraph_edge *e)
       if (growth <= 0)
 	;
       else if (!e->maybe_hot_p ()
-	       && growth > 0)
+	       && growth > PARAM_VALUE (PARAM_EARLY_INLINING_INSNS_COLD))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "  will not early inline: %s/%i->%s/%i, "
@@ -805,6 +805,7 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
 	}
       /* If call is cold, do not inline when function body would grow. */
       else if (!e->maybe_hot_p ()
+	       && growth > PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SMALL_AND_COLD)
 	       && (growth >= MAX_INLINE_INSNS_SINGLE
 		   || growth_likely_positive (callee, growth)))
 	{
