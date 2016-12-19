@@ -53,4 +53,11 @@ enum mips_cb_setting {
   MIPS_CB_OPTIMAL,
   MIPS_CB_ALWAYS
 };
+
+/* Enumerates the setting of the -mclib= option.  */
+enum mips_lib_setting {
+  MIPS_LIB_NEWLIB,
+  MIPS_LIB_SMALL,
+  MIPS_LIB_TINY
+};
 #endif
