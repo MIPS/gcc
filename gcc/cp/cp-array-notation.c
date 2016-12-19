@@ -780,6 +780,31 @@ error:
   return error_mark_node;
 }
 
+/* Return a location associated with stmt.  If it is an expresion,
+   that's the expression's location.  If it is a STATEMENT_LIST,
+   instead of no location, use expr_first to skip any debug stmts and
+   take the location of the first nondebug stmt found.  */
+
+static location_t
+stmt_location (tree stmt)
+{
+  location_t loc = UNKNOWN_LOCATION;
+
+  if (!stmt)
+    return loc;
+
+  loc = EXPR_LOCATION (stmt);
+
+  if (loc != UNKNOWN_LOCATION || TREE_CODE (stmt) != STATEMENT_LIST)
+    return loc;
+
+  stmt = expr_first (stmt);
+  if (stmt)
+    loc = EXPR_LOCATION (stmt);
+
+  return loc;
+}
+
 /* Helper function for expand_conditonal_array_notations.  Encloses the
    conditional statement passed in ORIG_STMT with a loop around it and
    replaces the condition in STMT with a ARRAY_REF tree-node to the array.  
@@ -835,10 +860,12 @@ cp_expand_cond_array_notations (tree orig_stmt)
       tree cond = IF_COND (orig_stmt);
       if (!find_rank (EXPR_LOCATION (cond), cond, cond, true, &cond_rank)
 	  || (yes_expr
-	      && !find_rank (EXPR_LOCATION (yes_expr), yes_expr, yes_expr, true,
+	      && !find_rank (stmt_location (yes_expr),
+			     yes_expr, yes_expr, true,
 			     &yes_rank))
 	  || (no_expr
-	      && !find_rank (EXPR_LOCATION (no_expr), no_expr, no_expr, true,
+	      && !find_rank (stmt_location (no_expr),
+			     no_expr, no_expr, true,
 			     &no_rank)))
 	return error_mark_node;
 
@@ -847,13 +874,15 @@ cp_expand_cond_array_notations (tree orig_stmt)
 	return orig_stmt;
       else if (cond_rank != yes_rank && yes_rank != 0)
 	{
-	  error_at (EXPR_LOCATION (yes_expr), "rank mismatch with controlling"
+	  error_at (stmt_location (yes_expr),
+		    "rank mismatch with controlling"
 		    " expression of parent if-statement");
 	  return error_mark_node;
 	}
       else if (cond_rank != no_rank && no_rank != 0)
 	{
-	  error_at (EXPR_LOCATION (no_expr), "rank mismatch with controlling "
+	  error_at (stmt_location (no_expr),
+		    "rank mismatch with controlling "
 		    "expression of parent if-statement");
 	  return error_mark_node;
 	}
