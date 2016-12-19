@@ -71,6 +71,7 @@
   m5100
   i6400
   m6200
+  p6600
 ])
 
 (define_c_enum "unspec" [
@@ -805,6 +806,7 @@
 (define_mode_iterator MOVEP2 [SI SF])
 (define_mode_iterator JOIN_MODE [HI
 				 SI
+				 (DI "TARGET_64BIT")
 				 (SF "TARGET_HARD_FLOAT")
 				 (DF "TARGET_HARD_FLOAT
 				      && TARGET_DOUBLE_FLOAT")])
@@ -1161,6 +1163,7 @@
 (include "p5600.md")
 (include "m5100.md")
 (include "m6200.md")
+(include "p6600.md")
 (include "4k.md")
 (include "5k.md")
 (include "20kc.md")
