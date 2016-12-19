@@ -1,4 +1,4 @@
-/* { dg-lto-do link } */
+/* { dg-lto-do link { target { ! { mips*-*-* } } } } */
 
 extern int printf (const char *__restrict __format, ...);
 typedef long int __time_t;
