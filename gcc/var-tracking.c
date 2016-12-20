@@ -10342,10 +10342,12 @@ delete_vta_debug_insns (void)
    handled as well..  */
 
 static void
-vt_debug_insns_local (bool skipped ATTRIBUTE_UNUSED)
+vt_debug_insns_local (bool skipped)
 {
-  cfun->begin_stmt_markers = 0;
-  /* ??? Just skip it all for now.  */
+  /* ??? Just skip it all for now.  If we skipped the global pass,
+     arrange for stmt markers to be dropped as well.  */
+  if (skipped)
+    cfun->begin_stmt_markers = 0;
   delete_vta_debug_insns ();
 }
 
