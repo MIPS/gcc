@@ -1,6 +1,6 @@
 /* { dg-do compile { target { ! { *-*-darwin* hppa*-*-* } } } } */
 /* { dg-options "-fpie" } */
-/* { dg-options "-fpie -mabicalls" { target mips*-*-* } } */
+/* { dg-options "-fpie -mabicalls -mno-gpopt" { target mips*-*-* } } */
 
 #if __PIC__ != 1
 # error __PIC__ is not 1!
