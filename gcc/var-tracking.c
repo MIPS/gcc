@@ -9949,8 +9949,12 @@ reemit_marker_as_note (rtx_insn *insn)
     {
     case 0:
       {
-	rtx_insn *note = emit_note_before (NOTE_INSN_BEGIN_STMT, insn);
-	NOTE_BEGIN_STMT_LOCATION (note) = INSN_LOCATION (insn);
+	rtx_insn *note = NULL;
+	if (cfun->begin_stmt_markers)
+	  {
+	    note = emit_note_before (NOTE_INSN_BEGIN_STMT, insn);
+	    NOTE_BEGIN_STMT_LOCATION (note) = INSN_LOCATION (insn);
+	  }
 	delete_insn (insn);
 	return note;
       }
@@ -10161,9 +10165,11 @@ vt_initialize (void)
 	     insns that might be before it too.  Unfortunately,
 	     BB_HEADER and BB_FOOTER are not set while we run this
 	     pass.  */
-	  for (insn = get_first_insn (bb);
-	       insn != BB_HEAD (bb->next_bb);
-	       insn = NEXT_INSN (insn))
+	  insn = get_first_insn (bb);
+	  for (rtx_insn *next;
+	       insn != BB_HEAD (bb->next_bb)
+		 ? next = NEXT_INSN (insn), true : false;
+	       insn = next)
 	    {
 	      if (INSN_P (insn))
 		{
@@ -10206,7 +10212,8 @@ vt_initialize (void)
 		      if (MARKER_DEBUG_INSN_P (insn))
 			{
 			  insn = reemit_marker_as_note (insn);
-			  BLOCK_FOR_INSN (insn) = save_bb;
+			  if (insn)
+			    BLOCK_FOR_INSN (insn) = save_bb;
 			  continue;
 			}
 
@@ -10337,6 +10344,7 @@ delete_vta_debug_insns (void)
 static void
 vt_debug_insns_local (bool skipped ATTRIBUTE_UNUSED)
 {
+  cfun->begin_stmt_markers = 0;
   /* ??? Just skip it all for now.  */
   delete_vta_debug_insns ();
 }
@@ -10438,6 +10446,8 @@ variable_tracking_main_1 (void)
   if (!success && flag_var_tracking_assignments > 0)
     {
       vt_finalize ();
+
+      cfun->begin_stmt_markers = 0;
 
       delete_vta_debug_insns ();
 
