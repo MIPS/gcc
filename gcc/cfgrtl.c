@@ -3374,6 +3374,9 @@ skip_insns_after_block (basic_block bb)
 	  last_insn = insn;
 	  continue;
 
+	case DEBUG_INSN:
+	  continue;
+
 	case NOTE:
 	  switch (NOTE_KIND (insn))
 	    {
