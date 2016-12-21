@@ -5700,6 +5700,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		  else
 		    value = NULL_TREE;
 		}
+	      else if (gimple_debug_begin_stmt_p (stmt)
+		       && !cfun->begin_stmt_markers)
+		goto delink_debug_stmt;
 	      else
 		{
 		  gcc_assert (gimple_debug_begin_stmt_p (stmt));
@@ -6391,6 +6394,10 @@ pass_expand::execute (function *fun)
      remaining edges later.  */
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (fun)->succs)
     e->flags &= ~EDGE_EXECUTABLE;
+
+  /* If the function has too many markers, drop them while expanding.  */
+  if (cfun->debug_marker_count >= PARAM_MAX_DEBUG_MARKER_COUNT)
+    cfun->begin_stmt_markers = false;
 
   lab_rtx_for_bb = new hash_map<basic_block, rtx_code_label *>;
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR_FOR_FN (fun),

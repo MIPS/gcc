@@ -848,6 +848,7 @@ gimple_build_debug_begin_stmt_stat (tree block, location_t location
 
   gimple_set_block (p, block);
   gimple_set_location (p, location);
+  cfun->debug_marker_count++;
 
   return p;
 }
@@ -1890,6 +1891,9 @@ gimple_copy (gimple *stmt)
       /* SSA operands need to be updated.  */
       gimple_set_modified (copy, true);
     }
+
+  if (gimple_debug_begin_stmt_p (stmt))
+    cfun->debug_marker_count++;
 
   return copy;
 }

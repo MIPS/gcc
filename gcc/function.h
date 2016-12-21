@@ -279,6 +279,12 @@ struct GTY(()) function {
   /* Last statement uid.  */
   int last_stmt_uid;
 
+  /* Debug marker counter.  Count begin stmt markers.  We don't have
+     to keep it exact, it's more of a rough estimate to enable us to
+     decide whether they are too many to copy during inlining, or when
+     expanding to RTL.  */
+  int debug_marker_count;
+
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
 
