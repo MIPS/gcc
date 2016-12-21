@@ -1071,13 +1071,8 @@ next_free (void)
 	    }
 
 	  if (gfc_match_eos () == MATCH_YES)
-	    {
-	      gfc_warning_now (0, "Ignoring statement label in empty statement "
-			       "at %L", &label_locus);
-	      gfc_free_st_label (gfc_statement_label);
-	      gfc_statement_label = NULL;
-	      return ST_NONE;
-	    }
+	    gfc_error_now ("Statement label without statement at %L",
+			   &label_locus);
 	}
     }
   else if (c == '!')
@@ -1333,8 +1328,7 @@ next_fixed (void)
 
 blank_line:
   if (digit_flag)
-    gfc_warning_now (0, "Ignoring statement label in empty statement at %L",
-		     &label_locus);
+    gfc_error_now ("Statement label without statement at %L", &label_locus);
 
   gfc_current_locus.lb->truncated = 0;
   gfc_advance_line ();
@@ -3565,17 +3559,18 @@ loop:
     /* Fortran 2008, C1116.  */
     switch (st)
       {
-        case ST_DATA_DECL:
+	case ST_ATTR_DECL:
 	case ST_COMMON:
 	case ST_DATA:
-	case ST_TYPE:
+	case ST_DATA_DECL:
+	case ST_DERIVED_DECL:
 	case ST_END_BLOCK_DATA:
-	case ST_ATTR_DECL:
 	case ST_EQUIVALENCE:
-	case ST_PARAMETER:
 	case ST_IMPLICIT:
 	case ST_IMPLICIT_NONE:
-	case ST_DERIVED_DECL:
+	case ST_PARAMETER:
+	case ST_STRUCTURE_DECL:
+	case ST_TYPE:
 	case ST_USE:
 	  break;
 

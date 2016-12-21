@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "tree-cfgcleanup.h"
 #include "langhooks.h"
+#include "alias.h"
 
 /* TODO:
 
@@ -2027,9 +2028,17 @@ prune_clobbered_mems (bitmap_set_t set, basic_block block)
 {
   bitmap_iterator bi;
   unsigned i;
+  pre_expr to_remove = NULL;
 
   FOR_EACH_EXPR_ID_IN_SET (set, i, bi)
     {
+      /* Remove queued expr.  */
+      if (to_remove)
+	{
+	  bitmap_remove_from_set (set, to_remove);
+	  to_remove = NULL;
+	}
+
       pre_expr expr = expression_for_id (i);
       if (expr->kind == REFERENCE)
 	{
@@ -2043,7 +2052,7 @@ prune_clobbered_mems (bitmap_set_t set, basic_block block)
 					   block, gimple_bb (def_stmt)))
 		      || (gimple_bb (def_stmt) == block
 			  && value_dies_in_block_x (expr, block))))
-		bitmap_remove_from_set (set, expr);
+		to_remove = expr;
 	    }
 	}
       else if (expr->kind == NARY)
@@ -2055,9 +2064,13 @@ prune_clobbered_mems (bitmap_set_t set, basic_block block)
 	     as the available expression might be after the exit point.  */
 	  if (BB_MAY_NOTRETURN (block)
 	      && vn_nary_may_trap (nary))
-	    bitmap_remove_from_set (set, expr);
+	    to_remove = expr;
 	}
     }
+
+  /* Remove queued expr.  */
+  if (to_remove)
+    bitmap_remove_from_set (set, to_remove);
 }
 
 static sbitmap has_abnormal_preds;
@@ -2896,7 +2909,24 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
       gimple_seq_discard (forced_stmts);
       return folded;
     }
-
+  /* Likewise if we simplified to sth not queued for insertion.  */
+  bool found = false;
+  gsi = gsi_last (forced_stmts);
+  for (; !gsi_end_p (gsi); gsi_prev (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+      tree forcedname = gimple_get_lhs (stmt);
+      if (forcedname == folded)
+	{
+	  found = true;
+	  break;
+	}
+    }
+  if (! found)
+    {
+      gimple_seq_discard (forced_stmts);
+      return folded;
+    }
   gcc_assert (TREE_CODE (folded) == SSA_NAME);
 
   /* If we have any intermediate expressions to the value sets, add them
@@ -4207,26 +4237,36 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	  && !is_gimple_reg (gimple_assign_lhs (stmt))
 	  && (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
 	      || is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
-        {
-          tree val;
+	{
+	  tree val;
 	  tree rhs = gimple_assign_rhs1 (stmt);
-          val = vn_reference_lookup (gimple_assign_lhs (stmt),
-                                     gimple_vuse (stmt), VN_WALK, NULL, false);
-          if (TREE_CODE (rhs) == SSA_NAME)
-            rhs = VN_INFO (rhs)->valnum;
-          if (val
-              && operand_equal_p (val, rhs, 0))
-            {
-              if (dump_file && (dump_flags & TDF_DETAILS))
-                {
-                  fprintf (dump_file, "Deleted redundant store ");
-                  print_gimple_stmt (dump_file, stmt, 0, 0);
-                }
+	  vn_reference_t vnresult;
+	  val = vn_reference_lookup (lhs, gimple_vuse (stmt), VN_WALKREWRITE,
+				     &vnresult, false);
+	  if (TREE_CODE (rhs) == SSA_NAME)
+	    rhs = VN_INFO (rhs)->valnum;
+	  if (val
+	      && operand_equal_p (val, rhs, 0))
+	    {
+	      /* We can only remove the later store if the former aliases
+		 at least all accesses the later one does or if the store
+		 was to readonly memory storing the same value.  */
+	      alias_set_type set = get_alias_set (lhs);
+	      if (! vnresult
+		  || vnresult->set == set
+		  || alias_set_subset_of (set, vnresult->set))
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "Deleted redundant store ");
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		    }
 
-              /* Queue stmt for removal.  */
-              el_to_remove.safe_push (stmt);
-	      continue;
-            }
+		  /* Queue stmt for removal.  */
+		  el_to_remove.safe_push (stmt);
+		  continue;
+		}
+	    }
 	}
 
       /* If this is a control statement value numbering left edges
