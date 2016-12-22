@@ -7009,7 +7009,10 @@
 	(any_le:GPR2 (match_operand:GPR 1 "register_operand" "d")
 		     (match_operand:GPR 2 "sle_operand" "")))]
   "!TARGET_MIPS16"
-  "slt<u>\t%0,%1,%2"
+{
+  operands[2] = GEN_INT (INTVAL (operands[2]) + 1);
+  return "slt<u>\t%0,%1,%2";
+}
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
 
