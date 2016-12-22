@@ -1,5 +1,6 @@
 /* { dg-options "-mbranch-cost=1 (HAS_MOVN)" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "rtx costing for cond move" { *-*-* } { "*" } { "" } } */
 NOMIPS16 int
 foo (int x, int y, int z, int k)
 {
