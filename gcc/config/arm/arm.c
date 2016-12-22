@@ -6704,7 +6704,7 @@ arm_function_ok_for_sibcall (tree decl, tree exp)
 
   /* The PIC register is live on entry to VxWorks PLT entries, so we
      must make the call before restoring the PIC register.  */
-  if (TARGET_VXWORKS_RTP && flag_pic && !targetm.binds_local_p (decl))
+  if (TARGET_VXWORKS_RTP && flag_pic && decl && !targetm.binds_local_p (decl))
     return false;
 
   /* If we are interworking and the function is not declared static
@@ -12386,7 +12386,6 @@ neon_valid_immediate (rtx op, machine_mode mode, int inverse,
   if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
     {
       rtx el0 = CONST_VECTOR_ELT (op, 0);
-      const REAL_VALUE_TYPE *r0;
 
       if (!vfp3_const_double_rtx (el0) && el0 != CONST0_RTX (GET_MODE (el0)))
         return -1;
@@ -12395,14 +12394,10 @@ neon_valid_immediate (rtx op, machine_mode mode, int inverse,
       if (GET_MODE_INNER (mode) == HFmode)
 	return -1;
 
-      r0 = CONST_DOUBLE_REAL_VALUE (el0);
-
-      for (i = 1; i < n_elts; i++)
-        {
-          rtx elt = CONST_VECTOR_ELT (op, i);
-          if (!real_equal (r0, CONST_DOUBLE_REAL_VALUE (elt)))
-            return -1;
-        }
+      /* All elements in the vector must be the same.  Note that 0.0 and -0.0
+	 are distinct in this context.  */
+      if (!const_vec_duplicate_p (op))
+	return -1;
 
       if (modconst)
         *modconst = CONST_VECTOR_ELT (op, 0);
@@ -17755,6 +17750,7 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
   int num_saves = XVECLEN (operands[0], 0);
   unsigned int regno;
   unsigned int regno_base = REGNO (operands[1]);
+  bool interrupt_p = IS_INTERRUPT (arm_current_func_type ());
 
   offset = 0;
   offset += update ? 1 : 0;
@@ -17772,20 +17768,16 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
     }
 
   conditional = reverse ? "%?%D0" : "%?%d0";
-  if ((regno_base == SP_REGNUM) && update)
-    {
-      sprintf (pattern, "pop%s\t{", conditional);
-    }
+  /* Can't use POP if returning from an interrupt.  */
+  if ((regno_base == SP_REGNUM) && update && !(interrupt_p && return_pc))
+    sprintf (pattern, "pop%s\t{", conditional);
   else
     {
       /* Output ldmfd when the base register is SP, otherwise output ldmia.
          It's just a convention, their semantics are identical.  */
       if (regno_base == SP_REGNUM)
-	  /* update is never true here, hence there is no need to handle
-	     pop here.  */
-	sprintf (pattern, "ldmfd%s", conditional);
-
-      if (update)
+	sprintf (pattern, "ldmfd%s\t", conditional);
+      else if (update)
 	sprintf (pattern, "ldmia%s\t", conditional);
       else
 	sprintf (pattern, "ldm%s\t", conditional);
@@ -17811,7 +17803,7 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
 
   strcat (pattern, "}");
 
-  if (IS_INTERRUPT (arm_current_func_type ()) && return_pc)
+  if (interrupt_p && return_pc)
     strcat (pattern, "^");
 
   output_asm_insn (pattern, &cond);
@@ -19398,6 +19390,10 @@ thumb1_compute_save_reg_mask (void)
     if (df_regs_ever_live_p (reg) && callee_saved_reg_p (reg))
       mask |= 1 << reg;
 
+  /* Handle the frame pointer as a special case.  */
+  if (frame_pointer_needed)
+    mask |= 1 << HARD_FRAME_POINTER_REGNUM;
+
   if (flag_pic
       && !TARGET_SINGLE_PIC_BASE
       && arm_pic_register != INVALID_REGNUM
@@ -19622,8 +19618,12 @@ output_return_instruction (rtx operand, bool really_return, bool reverse,
 		  sprintf (instr, "ldmfd%s\t%%|sp, {", conditional);
 		}
 	    }
+	  /* For interrupt returns we have to use an LDM rather than
+	     a POP so that we can use the exception return variant.  */
+	  else if (IS_INTERRUPT (func_type))
+	    sprintf (instr, "ldmfd%s\t%%|sp!, {", conditional);
 	  else
-	      sprintf (instr, "pop%s\t{", conditional);
+	    sprintf (instr, "pop%s\t{", conditional);
 
 	  p = instr + strlen (instr);
 
@@ -21461,7 +21461,11 @@ arm_expand_prologue (void)
 
   /* Naked functions don't have prologues.  */
   if (IS_NAKED (func_type))
-    return;
+    {
+      if (flag_stack_usage_info)
+	current_function_static_stack_size = 0;
+      return;
+    }
 
   /* Make a copy of c_f_p_a_s as we may need to modify it locally.  */
   args_to_push = crtl->args.pretend_args_size;
@@ -24710,12 +24714,17 @@ thumb1_expand_prologue (void)
   unsigned long live_regs_mask;
   unsigned long l_mask;
   unsigned high_regs_pushed = 0;
+  bool lr_needs_saving;
 
   func_type = arm_current_func_type ();
 
   /* Naked functions don't have prologues.  */
   if (IS_NAKED (func_type))
-    return;
+    {
+      if (flag_stack_usage_info)
+	current_function_static_stack_size = 0;
+      return;
+    }
 
   if (IS_INTERRUPT (func_type))
     {
@@ -24728,6 +24737,7 @@ thumb1_expand_prologue (void)
 
   offsets = arm_get_frame_offsets ();
   live_regs_mask = offsets->saved_regs_mask;
+  lr_needs_saving = live_regs_mask & (1 << LR_REGNUM);
 
   /* Extract a mask of the ones we can give to the Thumb's push instruction.  */
   l_mask = live_regs_mask & 0x40ff;
@@ -24794,6 +24804,7 @@ thumb1_expand_prologue (void)
 	{
 	  insn = thumb1_emit_multi_reg_push (l_mask, l_mask);
 	  RTX_FRAME_RELATED_P (insn) = 1;
+	  lr_needs_saving = false;
 
 	  offset = bit_count (l_mask) * UNITS_PER_WORD;
 	}
@@ -24858,12 +24869,13 @@ thumb1_expand_prologue (void)
      be a push of LR and we can combine it with the push of the first high
      register.  */
   else if ((l_mask & 0xff) != 0
-	   || (high_regs_pushed == 0 && l_mask))
+	   || (high_regs_pushed == 0 && lr_needs_saving))
     {
       unsigned long mask = l_mask;
       mask |= (1 << thumb1_extra_regs_pushed (offsets, true)) - 1;
       insn = thumb1_emit_multi_reg_push (mask, mask);
       RTX_FRAME_RELATED_P (insn) = 1;
+      lr_needs_saving = false;
     }
 
   if (high_regs_pushed)
@@ -24881,7 +24893,9 @@ thumb1_expand_prologue (void)
       /* Here we need to mask out registers used for passing arguments
 	 even if they can be pushed.  This is to avoid using them to stash the high
 	 registers.  Such kind of stash may clobber the use of arguments.  */
-      pushable_regs = l_mask & (~arg_regs_mask) & 0xff;
+      pushable_regs = l_mask & (~arg_regs_mask);
+      if (lr_needs_saving)
+	pushable_regs &= ~(1 << LR_REGNUM);
 
       if (pushable_regs == 0)
 	pushable_regs = 1 << thumb_find_work_register (live_regs_mask);
@@ -24889,8 +24903,9 @@ thumb1_expand_prologue (void)
       while (high_regs_pushed > 0)
 	{
 	  unsigned long real_regs_mask = 0;
+	  unsigned long push_mask = 0;
 
-	  for (regno = LAST_LO_REGNUM; regno >= 0; regno --)
+	  for (regno = LR_REGNUM; regno >= 0; regno --)
 	    {
 	      if (pushable_regs & (1 << regno))
 		{
@@ -24899,6 +24914,7 @@ thumb1_expand_prologue (void)
 
 		  high_regs_pushed --;
 		  real_regs_mask |= (1 << next_hi_reg);
+		  push_mask |= (1 << regno);
 
 		  if (high_regs_pushed)
 		    {
@@ -24908,23 +24924,20 @@ thumb1_expand_prologue (void)
 			  break;
 		    }
 		  else
-		    {
-		      pushable_regs &= ~((1 << regno) - 1);
-		      break;
-		    }
+		    break;
 		}
 	    }
 
 	  /* If we had to find a work register and we have not yet
 	     saved the LR then add it to the list of regs to push.  */
-	  if (l_mask == (1 << LR_REGNUM))
+	  if (lr_needs_saving)
 	    {
-	      pushable_regs |= l_mask;
-	      real_regs_mask |= l_mask;
-	      l_mask = 0;
+	      push_mask |= 1 << LR_REGNUM;
+	      real_regs_mask |= 1 << LR_REGNUM;
+	      lr_needs_saving = false;
 	    }
 
-	  insn = thumb1_emit_multi_reg_push (pushable_regs, real_regs_mask);
+	  insn = thumb1_emit_multi_reg_push (push_mask, real_regs_mask);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
     }

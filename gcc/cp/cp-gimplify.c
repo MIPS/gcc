@@ -37,7 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 
 static tree cp_genericize_r (tree *, int *, void *);
 static tree cp_fold_r (tree *, int *, void *);
-static void cp_genericize_tree (tree*);
+static void cp_genericize_tree (tree*, bool);
 static tree cp_fold (tree);
 
 /* Local declarations.  */
@@ -592,7 +592,9 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 				  init, VEC_INIT_EXPR_VALUE_INIT (*expr_p),
 				  from_array,
 				  tf_warning_or_error);
-	cp_genericize_tree (expr_p);
+	hash_set<tree> pset;
+	cp_walk_tree (expr_p, cp_fold_r, &pset, NULL);
+	cp_genericize_tree (expr_p, false);
 	ret = GS_OK;
 	input_location = loc;
       }
@@ -922,6 +924,7 @@ struct cp_genericize_data
   struct cp_genericize_omp_taskreg *omp_ctx;
   tree try_block;
   bool no_sanitize_p;
+  bool handle_invisiref_parm_p;
 };
 
 /* Perform any pre-gimplification folding of C++ front end trees to
@@ -938,6 +941,17 @@ cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
   enum tree_code code;
 
   *stmt_p = stmt = cp_fold (*stmt_p);
+
+  if (((hash_set<tree> *) data)->add (stmt))
+    {
+      /* Don't walk subtrees of stmts we've already walked once, otherwise
+	 we can have exponential complexity with e.g. lots of nested
+	 SAVE_EXPRs or TARGET_EXPRs.  cp_fold uses a cache and will return
+	 always the same tree, which the first time cp_fold_r has been
+	 called on it had the subtrees walked.  */
+      *walk_subtrees = 0;
+      return NULL;
+    }
 
   code = TREE_CODE (stmt);
   if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE
@@ -996,7 +1010,8 @@ cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 void
 cp_fold_function (tree fndecl)
 {
-  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, NULL, NULL);
+  hash_set<tree> pset;
+  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, &pset, NULL);
 }
 
 /* Perform any pre-gimplification lowering of C++ front end trees to
@@ -1026,7 +1041,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     }
 
   /* Otherwise, do dereference invisible reference parms.  */
-  if (is_invisiref_parm (stmt))
+  if (wtd->handle_invisiref_parm_p && is_invisiref_parm (stmt))
     {
       *stmt_p = convert_from_reference (stmt);
       *walk_subtrees = 0;
@@ -1266,7 +1281,15 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     {
       tree d = DECL_EXPR_DECL (stmt);
       if (TREE_CODE (d) == VAR_DECL)
-	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
+	{
+	  gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
+	  /* User var initializers should be genericized during containing
+	     BIND_EXPR genericization when walk_tree walks DECL_INITIAL
+	     of BIND_EXPR_VARS.  Artificial temporaries might not be
+	     mentioned there though, so walk them now.  */
+	  if (DECL_ARTIFICIAL (d) && !TREE_STATIC (d) && DECL_INITIAL (d))
+	    cp_walk_tree (&DECL_INITIAL (d), cp_genericize_r, data, NULL);
+	}
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL
 	   || TREE_CODE (stmt) == OMP_TASK
@@ -1426,7 +1449,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 /* Lower C++ front end trees to GENERIC in T_P.  */
 
 static void
-cp_genericize_tree (tree* t_p)
+cp_genericize_tree (tree* t_p, bool handle_invisiref_parm_p)
 {
   struct cp_genericize_data wtd;
 
@@ -1435,6 +1458,7 @@ cp_genericize_tree (tree* t_p)
   wtd.omp_ctx = NULL;
   wtd.try_block = NULL_TREE;
   wtd.no_sanitize_p = false;
+  wtd.handle_invisiref_parm_p = handle_invisiref_parm_p;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
   delete wtd.p_set;
   wtd.bind_expr_stack.release ();
@@ -1485,14 +1509,11 @@ cp_ubsan_maybe_instrument_return (tree fndecl)
     }
   if (t == NULL_TREE)
     return;
-  t = DECL_SAVED_TREE (fndecl);
-  if (TREE_CODE (t) == BIND_EXPR
-      && TREE_CODE (BIND_EXPR_BODY (t)) == STATEMENT_LIST)
-    {
-      tree_stmt_iterator i = tsi_last (BIND_EXPR_BODY (t));
-      t = ubsan_instrument_return (DECL_SOURCE_LOCATION (fndecl));
-      tsi_link_after (&i, t, TSI_NEW_STMT);
-    }
+  tree *p = &DECL_SAVED_TREE (fndecl);
+  if (TREE_CODE (*p) == BIND_EXPR)
+    p = &BIND_EXPR_BODY (*p);
+  t = ubsan_instrument_return (DECL_SOURCE_LOCATION (fndecl));
+  append_to_statement_list (t, p);
 }
 
 void
@@ -1547,15 +1568,22 @@ cp_genericize (tree fndecl)
   if (DECL_CLONED_FUNCTION_P (fndecl))
     return;
 
+  /* Allow cp_genericize calls to be nested.  */
+  tree save_bc_label[2];
+  save_bc_label[bc_break] = bc_label[bc_break];
+  save_bc_label[bc_continue] = bc_label[bc_continue];
+  bc_label[bc_break] = NULL_TREE;
+  bc_label[bc_continue] = NULL_TREE;
+
   /* Expand all the array notations here.  */
   if (flag_cilkplus 
       && contains_array_notation_expr (DECL_SAVED_TREE (fndecl)))
-    DECL_SAVED_TREE (fndecl) = 
-      expand_array_notation_exprs (DECL_SAVED_TREE (fndecl));
+    DECL_SAVED_TREE (fndecl)
+      = expand_array_notation_exprs (DECL_SAVED_TREE (fndecl));
 
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */
-  cp_genericize_tree (&DECL_SAVED_TREE (fndecl));
+  cp_genericize_tree (&DECL_SAVED_TREE (fndecl), true);
 
   if (flag_sanitize & SANITIZE_RETURN
       && do_ubsan_in_current_function ())
@@ -1566,6 +1594,8 @@ cp_genericize (tree fndecl)
 
   gcc_assert (bc_label[bc_break] == NULL);
   gcc_assert (bc_label[bc_continue] == NULL);
+  bc_label[bc_break] = save_bc_label[bc_break];
+  bc_label[bc_continue] = save_bc_label[bc_continue];
 }
 
 /* Build code to apply FN to each member of ARG1 and ARG2.  FN may be
@@ -1877,13 +1907,21 @@ cp_fully_fold (tree x)
 static tree
 cp_fold_maybe_rvalue (tree x, bool rval)
 {
-  if (rval && DECL_P (x))
+  while (true)
     {
-      tree v = decl_constant_value (x);
-      if (v != error_mark_node)
-	x = v;
+      x = cp_fold (x);
+      if (rval && DECL_P (x))
+	{
+	  tree v = decl_constant_value (x);
+	  if (v != x && v != error_mark_node)
+	    {
+	      x = v;
+	      continue;
+	    }
+	}
+      break;
     }
-  return cp_fold (x);
+  return x;
 }
 
 /* Fold expression X which is used as an rvalue.  */
@@ -1995,6 +2033,15 @@ cp_fold (tree x)
 
       break;
 
+    case INDIRECT_REF:
+      /* We don't need the decltype(auto) obfuscation anymore.  */
+      if (REF_PARENTHESIZED_P (x))
+	{
+	  tree p = maybe_undo_parenthesized_ref (x);
+	  return cp_fold (p);
+	}
+      goto unary;
+
     case ADDR_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
@@ -2007,7 +2054,7 @@ cp_fold (tree x)
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case FIXED_CONVERT_EXPR:
-    case INDIRECT_REF:
+    unary:
 
       loc = EXPR_LOCATION (x);
       op0 = cp_fold_maybe_rvalue (TREE_OPERAND (x, 0), rval_ops);
@@ -2017,7 +2064,16 @@ cp_fold (tree x)
 	  if (op0 == error_mark_node)
 	    x = error_mark_node;
 	  else
-	    x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	    {
+	      x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	      if (code == INDIRECT_REF
+		  && (INDIRECT_REF_P (x) || TREE_CODE (x) == MEM_REF))
+		{
+		  TREE_READONLY (x) = TREE_READONLY (org_x);
+		  TREE_SIDE_EFFECTS (x) = TREE_SIDE_EFFECTS (org_x);
+		  TREE_THIS_VOLATILE (x) = TREE_THIS_VOLATILE (org_x);
+		}
+	    }
 	}
       else
 	x = fold (x);
@@ -2294,7 +2350,12 @@ cp_fold (tree x)
 	      || op3 == error_mark_node)
 	    x = error_mark_node;
 	  else
-	    x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+	    {
+	      x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+	      TREE_READONLY (x) = TREE_READONLY (org_x);
+	      TREE_SIDE_EFFECTS (x) = TREE_SIDE_EFFECTS (org_x);
+	      TREE_THIS_VOLATILE (x) = TREE_THIS_VOLATILE (org_x);
+	    }
 	}
 
       x = fold (x);

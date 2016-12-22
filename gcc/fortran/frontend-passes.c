@@ -125,6 +125,7 @@ gfc_run_passes (gfc_namespace *ns)
   doloop_level = 0;
   doloop_warn (ns);
   doloop_list.release ();
+  int w, e;
 
   if (flag_frontend_optimize)
     {
@@ -135,6 +136,10 @@ gfc_run_passes (gfc_namespace *ns)
 
       expr_array.release ();
     }
+
+  gfc_get_errors (&w, &e);
+  if (e > 0)
+   return;
 
   if (flag_realloc_lhs)
     realloc_strings (ns);
@@ -159,24 +164,48 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
   gfc_expr *expr1, *expr2;
   gfc_code *co = *c;
   gfc_expr *n;
+  gfc_ref *ref;
+  bool found_substr;
 
   if (co->op != EXEC_ASSIGN)
     return 0;
 
   expr1 = co->expr1;
   if (expr1->ts.type != BT_CHARACTER || expr1->rank != 0
-      || !expr1->symtree->n.sym->attr.allocatable)
+      || !gfc_expr_attr(expr1).allocatable
+      || !expr1->ts.deferred)
     return 0;
 
   expr2 = gfc_discard_nops (co->expr2);
   if (expr2->expr_type != EXPR_VARIABLE)
     return 0;
 
+  found_substr = false;
+  for (ref = expr2->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_SUBSTRING)
+	{
+	  found_substr = true;
+	  break;
+	}
+    }
+  if (!found_substr)
+    return 0;
+
   if (!gfc_check_dependency (expr1, expr2, true))
     return 0;
-  
+
+  /* gfc_check_dependency doesn't always pick up identical expressions.
+     However, eliminating the above sends the compiler into an infinite
+     loop on valid expressions.  Without this check, the gimplifier emits
+     an ICE for a = a, where a is deferred character length.  */
+  if (!gfc_dep_compare_expr (expr1, expr2))
+    return 0;
+
   current_code = c;
-  n = create_var (expr2, "trim");
+  inserted_block = NULL;
+  changed_statement = NULL;
+  n = create_var (expr2, "realloc_string");
   co->expr2 = n;
   return 0;
 }
@@ -602,6 +631,7 @@ create_var (gfc_expr * e, const char *vname)
   gfc_code *n;
   gfc_namespace *ns;
   int i;
+  bool deferred;
 
   if (e->expr_type == EXPR_CONSTANT || is_fe_temp (e))
     return gfc_copy_expr (e);
@@ -652,18 +682,20 @@ create_var (gfc_expr * e, const char *vname)
 	}
     }
 
+  deferred = 0;
   if (e->ts.type == BT_CHARACTER && e->rank == 0)
     {
       gfc_expr *length;
 
+      symbol->ts.u.cl = gfc_new_charlen (ns, NULL);
       length = constant_string_length (e);
       if (length)
-	{
-	  symbol->ts.u.cl = gfc_new_charlen (ns, NULL);
-	  symbol->ts.u.cl->length = length;
-	}
+	symbol->ts.u.cl->length = length;
       else
-	symbol->attr.allocatable = 1;
+	{
+	  symbol->attr.allocatable = 1;
+	  deferred = 1;
+	}
     }
 
   symbol->attr.flavor = FL_VARIABLE;
@@ -675,6 +707,7 @@ create_var (gfc_expr * e, const char *vname)
   result = gfc_get_expr ();
   result->expr_type = EXPR_VARIABLE;
   result->ts = e->ts;
+  result->ts.deferred = deferred;
   result->rank = e->rank;
   result->shape = gfc_copy_shape (e->shape, e->rank);
   result->symtree = symtree;
@@ -1043,6 +1076,9 @@ optimize_binop_array_assignment (gfc_code *c, gfc_expr **rhs, bool seen_op)
 {
   gfc_expr *e;
 
+  if (!*rhs)
+    return false;
+
   e = *rhs;
   if (e->expr_type == EXPR_OP)
     {
@@ -1119,6 +1155,8 @@ remove_trim (gfc_expr *rhs)
   bool ret;
 
   ret = false;
+  if (!rhs)
+    return ret;
 
   /* Check for a // b // trim(c).  Looping is probably not
      necessary because the parser usually generates
@@ -1248,8 +1286,16 @@ combine_array_constructor (gfc_expr *e)
   if (forall_level > 0)
     return false;
 
+  /* Inside an iterator, things can get hairy; we are likely to create
+     an invalid temporary variable.  */
+  if (iterator_level > 0)
+    return false;
+
   op1 = e->value.op.op1;
   op2 = e->value.op.op2;
+
+  if (!op1 || !op2)
+    return false;
 
   if (op1->expr_type == EXPR_ARRAY && op2->rank == 0)
     scalar_first = false;
@@ -2810,6 +2856,17 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
     return 0;
 
   if (in_where)
+    return 0;
+
+  /* The BLOCKS generated for the temporary variables and FORALL don't
+     mix.  */
+  if (forall_level > 0)
+    return 0;
+
+  /* For now don't do anything in OpenMP workshare, it confuses
+     its translation, which expects only the allowed statements in there.
+     We should figure out how to parallelize this eventually.  */
+  if (in_omp_workshare)
     return 0;
 
   expr1 = co->expr1;

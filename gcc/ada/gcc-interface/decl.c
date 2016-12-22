@@ -349,7 +349,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
      must be specified unless it was specified by the programmer.  Exceptions
      are for access-to-protected-subprogram types and all access subtypes, as
      another GNAT type is used to lay out the GCC type for them.  */
-  gcc_assert (!Unknown_Esize (gnat_entity)
+  gcc_assert (!is_type
+	      || Known_Esize (gnat_entity)
 	      || Has_Size_Clause (gnat_entity)
 	      || (!IN (kind, Numeric_Kind)
 		  && !IN (kind, Enumeration_Kind)
@@ -966,6 +967,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		 && !call_is_atomic_load (inner))
 		|| TREE_CODE (inner) == ADDR_EXPR
 		|| TREE_CODE (inner) == NULL_EXPR
+		|| TREE_CODE (inner) == PLUS_EXPR
 		|| TREE_CODE (inner) == CONSTRUCTOR
 		|| CONSTANT_CLASS_P (inner)
 		/* We need to detect the case where a temporary is created to
@@ -1809,8 +1811,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       TYPE_BIASED_REPRESENTATION_P (gnu_type)
 	= Has_Biased_Representation (gnat_entity);
 
-      /* Set TYPE_STRING_FLAG for Character and Wide_Character subtypes.  */
-      TYPE_STRING_FLAG (gnu_type) = TYPE_STRING_FLAG (TREE_TYPE (gnu_type));
+      /* Do the same processing for Character subtypes as for types.  */
+      if (TYPE_STRING_FLAG (TREE_TYPE (gnu_type)))
+	{
+	  TYPE_NAME (gnu_type) = gnu_entity_name;
+	  TYPE_STRING_FLAG (gnu_type) = 1;
+	  TYPE_ARTIFICIAL (gnu_type) = artificial_p;
+	  finish_character_type (gnu_type);
+	}
 
       /* Inherit our alias set from what we're a subtype of.  Subtypes
 	 are not different types and a pointer can designate any instance
@@ -2321,10 +2329,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  gnat_name = Packed_Array_Impl_Type (gnat_entity);
 	else
 	  gnat_name = gnat_entity;
-	if (gnat_encodings != DWARF_GNAT_ENCODINGS_MINIMAL)
-	  gnu_entity_name = create_concat_name (gnat_name, "XUP");
-	create_type_decl (gnu_entity_name, gnu_fat_type, artificial_p,
-			  debug_info_p, gnat_entity);
+	tree xup_name
+	  = (gnat_encodings == DWARF_GNAT_ENCODINGS_MINIMAL)
+	    ? get_entity_name (gnat_name)
+	    : create_concat_name (gnat_name, "XUP");
+	create_type_decl (xup_name, gnu_fat_type, artificial_p, debug_info_p,
+			  gnat_entity);
 
 	/* Create the type to be designated by thin pointers: a record type for
 	   the array and its template.  We used to shift the fields to have the
@@ -2334,11 +2344,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   Note that GDB can handle standard DWARF information for them, so we
 	   don't have to name them as a GNAT encoding, except if specifically
 	   asked to.  */
-	if (gnat_encodings != DWARF_GNAT_ENCODINGS_MINIMAL)
-	  gnu_entity_name = create_concat_name (gnat_name, "XUT");
-	else
-	  gnu_entity_name = get_entity_name (gnat_name);
-	tem = build_unc_object_type (gnu_template_type, tem, gnu_entity_name,
+	tree xut_name
+	  = (gnat_encodings == DWARF_GNAT_ENCODINGS_MINIMAL)
+	    ? get_entity_name (gnat_name)
+	    : create_concat_name (gnat_name, "XUT");
+	tem = build_unc_object_type (gnu_template_type, tem, xut_name,
 				     debug_info_p);
 
 	SET_TYPE_UNCONSTRAINED_ARRAY (tem, gnu_type);

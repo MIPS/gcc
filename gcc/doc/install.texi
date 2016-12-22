@@ -1241,7 +1241,7 @@ This option is only supported on some targets, including ARC, ARM, i386, M68k,
 PowerPC, and SPARC@.  It is mandatory for ARC@.  The @option{--with-cpu-32} and
 @option{--with-cpu-64} options specify separate default CPUs for
 32-bit and 64-bit modes; these options are only supported for i386,
-x86-64 and PowerPC.
+x86-64, PowerPC, and SPARC@.
 
 @item --with-schedule=@var{cpu}
 @itemx --with-arch=@var{cpu}
@@ -2130,6 +2130,36 @@ When you use this option, you should ensure that @var{dir} includes
 tools.
 @end table
 
+@subsubheading Overriding @command{configure} test results
+
+Sometimes, it might be necessary to override the result of some
+@command{configure} test, for example in order to ease porting to a new
+system or work around a bug in a test.  The toplevel @command{configure}
+script provides three variables for this:
+
+@table @code
+
+@item build_configargs
+@cindex @code{build_configargs}
+The contents of this variable is passed to all build @command{configure}
+scripts.
+
+@item host_configargs
+@cindex @code{host_configargs}
+The contents of this variable is passed to all host @command{configure}
+scripts.
+
+@item target_configargs
+@cindex @code{target_configargs}
+The contents of this variable is passed to all target @command{configure}
+scripts.
+
+@end table
+
+In order to avoid shell and @command{make} quoting issues for complex
+overrides, you can pass a setting for @env{CONFIG_SITE} and set
+variables in the site file.
+
 @subheading Java-Specific Options
 
 The following option applies to the build of the Java front end.
@@ -2364,35 +2394,6 @@ Do not try to compile and run a test libart program.
 
 @end table
 
-@subsubheading Overriding @command{configure} test results
-
-Sometimes, it might be necessary to override the result of some
-@command{configure} test, for example in order to ease porting to a new
-system or work around a bug in a test.  The toplevel @command{configure}
-script provides three variables for this:
-
-@table @code
-
-@item build_configargs
-@cindex @code{build_configargs}
-The contents of this variable is passed to all build @command{configure}
-scripts.
-
-@item host_configargs
-@cindex @code{host_configargs}
-The contents of this variable is passed to all host @command{configure}
-scripts.
-
-@item target_configargs
-@cindex @code{target_configargs}
-The contents of this variable is passed to all target @command{configure}
-scripts.
-
-@end table
-
-In order to avoid shell and @command{make} quoting issues for complex
-overrides, you can pass a setting for @env{CONFIG_SITE} and set
-variables in the site file.
 
 @html
 <hr />
@@ -3217,7 +3218,7 @@ HP-UX:
 Solaris 2 (SPARC, Intel):
 @itemize
 @item
-@uref{http://www.opencsw.org/,,OpenCSW}
+@uref{https://www.opencsw.org/,,OpenCSW}
 
 @item
 @uref{http://jupiterrise.com/tgcware/,,TGCware}
@@ -4503,7 +4504,7 @@ supported as cross-compilation target only.
 @c alone is too unspecific and must be avoided.
 @anchor{x-x-solaris2}
 @heading *-*-solaris2*
-Support for Solaris 9 has been removed in GCC 4.10.  Support for Solaris
+Support for Solaris 9 has been removed in GCC 5.  Support for Solaris
 8 has been removed in GCC 4.8.  Support for Solaris 7 has been removed
 in GCC 4.6.
 
@@ -4575,11 +4576,14 @@ features, so better stay with Solaris @command{ld}.  To use the LTO linker
 plugin (@option{-fuse-linker-plugin}) with GNU @command{ld}, GNU
 binutils @emph{must} be configured with @option{--enable-largefile}.
 
-To enable symbol versioning in @samp{libstdc++} with Solaris @command{ld},
+To enable symbol versioning in @samp{libstdc++} with the Solaris linker,
 you need to have any version of GNU @command{c++filt}, which is part of
 GNU binutils.  @samp{libstdc++} symbol versioning will be disabled if no
-appropriate version is found.  Solaris @command{c++filt} from the Solaris Studio
-compilers does @emph{not} work.
+appropriate version is found.  Solaris @command{c++filt} from the Solaris
+Studio compilers does @emph{not} work.
+
+GNU @command{make} version 3.81 or later is required to build libjava
+with the Solaris linker.
 
 Sun bug 4927647 sometimes causes random spurious testsuite failures
 related to missing diagnostic output.  This bug doesn't affect GCC

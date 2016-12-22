@@ -234,7 +234,8 @@
    niagara,
    niagara2,
    niagara3,
-   niagara4"
+   niagara4,
+   niagara7"
   (const (symbol_ref "sparc_cpu_attr")))
 
 ;; Attribute for the instruction set.
@@ -247,15 +248,17 @@
 	 (symbol_ref "TARGET_SPARCLET") (const_string "sparclet")]
 	(const_string "v7"))))
 
-(define_attr "cpu_feature" "none,fpu,fpunotv9,v9,vis,vis3" (const_string "none"))
+(define_attr "cpu_feature" "none,fpu,fpunotv9,v9,vis,vis3,vis4"
+  (const_string "none"))
 
 (define_attr "enabled" ""
   (cond [(eq_attr "cpu_feature" "none") (const_int 1)
          (eq_attr "cpu_feature" "fpu") (symbol_ref "TARGET_FPU")
-	 (eq_attr "cpu_feature" "fpunotv9") (symbol_ref "TARGET_FPU && ! TARGET_V9")
+         (eq_attr "cpu_feature" "fpunotv9") (symbol_ref "TARGET_FPU && !TARGET_V9")
          (eq_attr "cpu_feature" "v9") (symbol_ref "TARGET_V9")
          (eq_attr "cpu_feature" "vis") (symbol_ref "TARGET_VIS")
-         (eq_attr "cpu_feature" "vis3") (symbol_ref "TARGET_VIS3")]
+         (eq_attr "cpu_feature" "vis3") (symbol_ref "TARGET_VIS3")
+         (eq_attr "cpu_feature" "vis4") (symbol_ref "TARGET_VIS4")]
         (const_int 0)))
 
 ;; Insn type.
@@ -274,7 +277,7 @@
    fga,visl,vismv,fgm_pack,fgm_mul,pdist,pdistn,edge,edgen,gsr,array,
    cmove,
    ialuX,
-   multi,savew,flushw,iflush,trap"
+   multi,savew,flushw,iflush,trap,lzd"
   (const_string "ialu"))
 
 ;; True if branch/call has empty delay slot and will emit a nop in it
@@ -476,6 +479,9 @@
 	   (const_string "true")
 	] (const_string "false")))
 
+;; True if the instruction executes in the V3 pipeline, in M7 and later processors.
+(define_attr "v3pipe" "false,true" (const_string "false"))
+
 (define_delay (eq_attr "type" "call")
   [(eq_attr "in_call_delay" "true") (nil) (nil)])
 
@@ -504,6 +510,7 @@
 (include "niagara.md")
 (include "niagara2.md")
 (include "niagara4.md")
+(include "niagara7.md")
 
 
 ;; Operand and operator predicates and constraints
@@ -1457,7 +1464,8 @@
    fzeros\t%0
    fones\t%0"
   [(set_attr "type" "*,*,load,store,vismv,vismv,fpmove,fpload,fpstore,visl,visl")
-   (set_attr "cpu_feature" "*,*,*,*,vis3,vis3,*,*,*,vis,vis")])
+   (set_attr "cpu_feature" "*,*,*,*,vis3,vis3,*,*,*,vis,vis")
+   (set_attr "v3pipe" "*,*,*,*,true,true,*,*,*,true,true")])
 
 (define_insn "*movsi_lo_sum"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -1624,7 +1632,8 @@
   [(set_attr "type" "store,store,store,load,*,*,*,*,fpstore,fpload,*,*,fpmove,*,*,*,fpload,fpstore,visl,visl")
    (set_attr "length" "*,2,*,*,2,2,2,2,*,*,2,2,*,2,2,2,*,*,*,*")
    (set_attr "fptype" "*,*,*,*,*,*,*,*,*,*,*,*,double,*,*,*,*,*,double,double")
-   (set_attr "cpu_feature" "v9,*,*,*,*,*,*,*,fpu,fpu,fpu,fpu,v9,fpunotv9,vis3,vis3,fpu,fpu,vis,vis")])
+   (set_attr "cpu_feature" "v9,*,*,*,*,*,*,*,fpu,fpu,fpu,fpu,v9,fpunotv9,vis3,vis3,fpu,fpu,vis,vis")
+   (set_attr "v3pipe" "*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,true,true")])
 
 (define_insn "*movdi_insn_sp64"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,r, m, r,*e,?*e,?*e,?W,b,b")
@@ -1646,7 +1655,8 @@
    fone\t%0"
   [(set_attr "type" "*,*,load,store,vismv,vismv,fpmove,fpload,fpstore,visl,visl")
    (set_attr "fptype" "*,*,*,*,*,*,double,*,*,double,double")
-   (set_attr "cpu_feature" "*,*,*,*,vis3,vis3,*,*,*,vis,vis")])
+   (set_attr "cpu_feature" "*,*,*,*,vis3,vis3,*,*,*,vis,vis")
+   (set_attr "v3pipe" "*,*,*,*,*,*,*,*,*,true,true")])
 
 (define_expand "movdi_pic_label_ref"
   [(set (match_dup 3) (high:DI
@@ -2208,7 +2218,8 @@
     }
 }
   [(set_attr "type" "visl,visl,fpmove,*,*,*,vismv,vismv,fpload,load,fpstore,store")
-   (set_attr "cpu_feature" "vis,vis,fpu,*,*,*,vis3,vis3,fpu,*,fpu,*")])
+   (set_attr "cpu_feature" "vis,vis,fpu,*,*,*,vis3,vis3,fpu,*,fpu,*")
+   (set_attr "v3pipe" "true,true,*,*,*,*,true,true,*,*,*,*")])
 
 ;; The following 3 patterns build SFmode constants in integer registers.
 
@@ -2278,7 +2289,8 @@
   [(set_attr "type" "visl,visl,fpmove,*,*,*,fpload,store,fpstore,load,store,*,*,*,*")
    (set_attr "length" "*,*,*,2,2,2,*,*,*,*,*,2,2,2,2")
    (set_attr "fptype" "double,double,double,*,*,*,*,*,*,*,*,*,*,*,*")
-   (set_attr "cpu_feature" "vis,vis,v9,fpunotv9,vis3,vis3,fpu,v9,fpu,*,*,fpu,*,*,fpu")])
+   (set_attr "cpu_feature" "vis,vis,v9,fpunotv9,vis3,vis3,fpu,v9,fpu,*,*,fpu,*,*,fpu")
+   (set_attr "v3pipe" "true,true,*,*,*,*,*,*,*,*,*,*,*,*,*")])
 
 (define_insn "*movdf_insn_sp64"
   [(set (match_operand:DF 0 "nonimmediate_operand" "=b,b,e,*r, e,  e,W, *r,*r,  m,*r")
@@ -2301,7 +2313,8 @@
   [(set_attr "type" "visl,visl,fpmove,vismv,vismv,load,store,*,load,store,*")
    (set_attr "length" "*,*,*,*,*,*,*,*,*,*,2")
    (set_attr "fptype" "double,double,double,double,double,*,*,*,*,*,*")
-   (set_attr "cpu_feature" "vis,vis,fpu,vis3,vis3,fpu,fpu,*,*,*,*")])
+   (set_attr "cpu_feature" "vis,vis,fpu,vis3,vis3,fpu,fpu,*,*,*,*")
+   (set_attr "v3pipe" "true,true,*,*,*,*,*,*,*,*,*")])
 
 ;; This pattern builds DFmode constants in integer registers.
 (define_split
@@ -2980,7 +2993,8 @@
    lduw\t%1, %0
    movstouw\t%1, %0"
   [(set_attr "type" "shift,load,*")
-   (set_attr "cpu_feature" "*,*,vis3")])
+   (set_attr "cpu_feature" "*,*,vis3")
+   (set_attr "v3pipe" "*,*,true")])
 
 (define_insn_and_split "*zero_extendsidi2_insn_sp32"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -3295,7 +3309,8 @@
   movstosw\t%1, %0"
   [(set_attr "type" "shift,sload,*")
    (set_attr "us3load_type" "*,3cycle,*")
-   (set_attr "cpu_feature" "*,*,vis3")])
+   (set_attr "cpu_feature" "*,*,vis3")
+   (set_attr "v3pipe" "*,*,true")])
 
 
 ;; Special pattern for optimizing bit-field compares.  This is needed
@@ -6770,7 +6785,8 @@
   [(set (match_operand:DI 0 "register_operand" "=r")
         (clz:DI (match_operand:DI 1 "register_operand" "r")))]
   "TARGET_VIS3 && TARGET_ARCH64"
-  "lzd\t%1, %0")
+  "lzd\t%1, %0"
+  [(set_attr "type" "lzd")])
 
 (define_insn "clzdi_v8plus"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6811,7 +6827,8 @@
         (truncate:SI
           (clz:DI (match_operand:DI 1 "register_operand" "r"))))]
   "TARGET_VIS3 && TARGET_ARCH64"
-  "lzd\t%1, %0")
+  "lzd\t%1, %0"
+  [(set_attr "type" "lzd")])
 
 (define_insn "clzsi_v8plus"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -7777,7 +7794,8 @@
 (define_mode_iterator VM64 [V1DI V2SI V4HI V8QI])
 (define_mode_iterator VMALL [V1SI V2HI V4QI V1DI V2SI V4HI V8QI])
 
-(define_mode_attr vbits [(V2SI "32") (V4HI "16") (V1SI "32s") (V2HI "16s")])
+(define_mode_attr vbits [(V2SI "32") (V4HI "16") (V1SI "32s") (V2HI "16s")
+			 (V8QI "8")])
 (define_mode_attr vconstr [(V1SI "f") (V2HI "f") (V4QI "f")
 			   (V1DI "e") (V2SI "e") (V4HI "e") (V8QI "e")])
 (define_mode_attr vfptype [(V1SI "single") (V2HI "single") (V4QI "single")
@@ -7812,7 +7830,8 @@
   movstouw\t%1, %0
   movwtos\t%1, %0"
   [(set_attr "type" "visl,visl,vismv,fpload,fpstore,store,load,store,*,vismv,vismv")
-   (set_attr "cpu_feature" "vis,vis,vis,*,*,*,*,*,*,vis3,vis3")])
+   (set_attr "cpu_feature" "vis,vis,vis,*,*,*,*,*,*,vis3,vis3")
+   (set_attr "v3pipe" "true,true,true,*,*,*,*,*,*,true,true")])
 
 (define_insn "*mov<VM64:mode>_insn_sp64"
   [(set (match_operand:VM64 0 "nonimmediate_operand" "=e,e,e,e,m,m,*r, m,*r, e,*r")
@@ -7834,7 +7853,8 @@
   movxtod\t%1, %0
   mov\t%1, %0"
   [(set_attr "type" "visl,visl,vismv,fpload,fpstore,store,load,store,vismv,vismv,*")
-   (set_attr "cpu_feature" "vis,vis,vis,*,*,*,*,*,vis3,vis3,*")])
+   (set_attr "cpu_feature" "vis,vis,vis,*,*,*,*,*,vis3,vis3,*")
+   (set_attr "v3pipe" "true,true,true,*,*,*,*,*,*,*,*")])
 
 (define_insn "*mov<VM64:mode>_insn_sp32"
   [(set (match_operand:VM64 0 "nonimmediate_operand" "=e,e,e,*r, f,e,m,m,U,T, o,*r")
@@ -7858,7 +7878,8 @@
   #"
   [(set_attr "type" "visl,visl,vismv,*,*,fpload,fpstore,store,load,store,*,*")
    (set_attr "length" "*,*,*,2,2,*,*,*,*,*,2,2")
-   (set_attr "cpu_feature" "vis,vis,vis,vis3,vis3,*,*,*,*,*,*,*")])
+   (set_attr "cpu_feature" "vis,vis,vis,vis3,vis3,*,*,*,*,*,*,*")
+   (set_attr "v3pipe" "true,true,true,*,*,*,*,*,*,*,*,*")])
 
 (define_split
   [(set (match_operand:VM64 0 "memory_operand" "")
@@ -7936,7 +7957,8 @@
   "TARGET_VIS"
   "fp<plusminus_insn><vbits>\t%1, %2, %0"
   [(set_attr "type" "fga")
-   (set_attr "fptype" "<vfptype>")])
+   (set_attr "fptype" "<vfptype>")
+   (set_attr "v3pipe" "true")])
 
 (define_mode_iterator VL [V1SI V2HI V4QI V1DI V2SI V4HI V8QI])
 (define_mode_attr vlsuf [(V1SI "s") (V2HI "s") (V4QI "s")
@@ -7952,7 +7974,8 @@
   "TARGET_VIS"
   "f<vlinsn><vlsuf>\t%1, %2, %0"
   [(set_attr "type" "visl")
-   (set_attr "fptype" "<vfptype>")])
+   (set_attr "fptype" "<vfptype>")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "*not_<code><mode>3"
   [(set (match_operand:VL 0 "register_operand" "=<vconstr>")
@@ -7961,7 +7984,8 @@
   "TARGET_VIS"
   "f<vlninsn><vlsuf>\t%1, %2, %0"
   [(set_attr "type" "visl")
-   (set_attr "fptype" "<vfptype>")])
+   (set_attr "fptype" "<vfptype>")
+   (set_attr "v3pipe" "true")])
 
 ;; (ior (not (op1)) (not (op2))) is the canonical form of NAND.
 (define_insn "*nand<mode>_vis"
@@ -7971,7 +7995,8 @@
   "TARGET_VIS"
   "fnand<vlsuf>\t%1, %2, %0"
   [(set_attr "type" "visl")
-   (set_attr "fptype" "<vfptype>")])
+   (set_attr "fptype" "<vfptype>")
+   (set_attr "v3pipe" "true")])
 
 (define_code_iterator vlnotop [ior and])
 
@@ -7982,7 +8007,8 @@
   "TARGET_VIS"
   "f<vlinsn>not1<vlsuf>\t%1, %2, %0"
   [(set_attr "type" "visl")
-   (set_attr "fptype" "<vfptype>")])
+   (set_attr "fptype" "<vfptype>")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "*<code>_not2<mode>_vis"
   [(set (match_operand:VL 0 "register_operand" "=<vconstr>")
@@ -7991,7 +8017,8 @@
   "TARGET_VIS"
   "f<vlinsn>not2<vlsuf>\t%1, %2, %0"
   [(set_attr "type" "visl")
-   (set_attr "fptype" "<vfptype>")])
+   (set_attr "fptype" "<vfptype>")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "one_cmpl<mode>2"
   [(set (match_operand:VL 0 "register_operand" "=<vconstr>")
@@ -7999,7 +8026,8 @@
   "TARGET_VIS"
   "fnot1<vlsuf>\t%1, %0"
   [(set_attr "type" "visl")
-   (set_attr "fptype" "<vfptype>")])
+   (set_attr "fptype" "<vfptype>")
+   (set_attr "v3pipe" "true")])
 
 ;; Hard to generate VIS instructions.  We have builtins for these.
 
@@ -8225,7 +8253,8 @@
   "TARGET_VIS"
   "faligndata\t%1, %2, %0"
   [(set_attr "type" "fga")
-   (set_attr "fptype" "double")])
+   (set_attr "fptype" "double")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "alignaddrsi_vis"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -8235,7 +8264,8 @@
         (zero_extend:DI (plus:SI (match_dup 1) (match_dup 2))))]
   "TARGET_VIS"
   "alignaddr\t%r1, %r2, %0"
-  [(set_attr "type" "gsr")])
+  [(set_attr "type" "gsr")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "alignaddrdi_vis"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -8245,7 +8275,8 @@
         (plus:DI (match_dup 1) (match_dup 2)))]
   "TARGET_VIS"
   "alignaddr\t%r1, %r2, %0"
-  [(set_attr "type" "gsr")])
+  [(set_attr "type" "gsr")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "alignaddrlsi_vis"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -8256,7 +8287,8 @@
                 (const_int 7)))]
   "TARGET_VIS"
   "alignaddrl\t%r1, %r2, %0"
-  [(set_attr "type" "gsr")])
+  [(set_attr "type" "gsr")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "alignaddrldi_vis"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -8267,7 +8299,8 @@
                 (const_int 7)))]
   "TARGET_VIS"
   "alignaddrl\t%r1, %r2, %0"
-  [(set_attr "type" "gsr")])
+  [(set_attr "type" "gsr")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "pdist_vis"
   [(set (match_operand:DI 0 "register_operand" "=e")
@@ -8360,6 +8393,17 @@
   "TARGET_VIS"
   "fcmp<code><GCM:gcm_name>\t%1, %2, %0"
   [(set_attr "type" "visl")
+   (set_attr "fptype" "double")
+   (set_attr "v3pipe" "true")])
+
+(define_insn "fpcmp<code>8<P:mode>_vis"
+  [(set (match_operand:P 0 "register_operand" "=r")
+  	(unspec:P [(gcond:V8QI (match_operand:V8QI 1 "register_operand" "e")
+		               (match_operand:V8QI 2 "register_operand" "e"))]
+	 UNSPEC_FCMP))]
+  "TARGET_VIS4"
+  "fpcmp<code>8\t%1, %2, %0"
+  [(set_attr "type" "visl")
    (set_attr "fptype" "double")])
 
 (define_expand "vcond<mode><mode>"
@@ -8425,9 +8469,10 @@
                  (match_operand:DI 2 "register_or_zero_operand" "rJ")))
    (set (zero_extract:DI (reg:DI GSR_REG) (const_int 32) (const_int 32))
         (plus:DI (match_dup 1) (match_dup 2)))]
-  "TARGET_VIS2"
+  "TARGET_VIS2 && TARGET_ARCH64"
   "bmask\t%r1, %r2, %0"
-  [(set_attr "type" "array")])
+  [(set_attr "type" "array")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "bmasksi_vis"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -8437,7 +8482,8 @@
         (zero_extend:DI (plus:SI (match_dup 1) (match_dup 2))))]
   "TARGET_VIS2"
   "bmask\t%r1, %r2, %0"
-  [(set_attr "type" "array")])
+  [(set_attr "type" "array")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "bshuffle<VM64:mode>_vis"
   [(set (match_operand:VM64 0 "register_operand" "=e")
@@ -8448,7 +8494,8 @@
   "TARGET_VIS2"
   "bshuffle\t%1, %2, %0"
   [(set_attr "type" "fga")
-   (set_attr "fptype" "double")])
+   (set_attr "fptype" "double")
+   (set_attr "v3pipe" "true")])
 
 ;; The rtl expanders will happily convert constant permutations on other
 ;; modes down to V8QI.  Rely on this to avoid the complexity of the byte
@@ -8467,7 +8514,7 @@
     mask |= (INTVAL (XVECEXP (sel, 0, i)) & 0xf) << (28 - i*4);
   sel = force_reg (SImode, gen_int_mode (mask, SImode));
 
-  emit_insn (gen_bmasksi_vis (gen_rtx_REG (SImode, 0), sel, const0_rtx));
+  emit_insn (gen_bmasksi_vis (gen_reg_rtx (SImode), sel, const0_rtx));
   emit_insn (gen_bshufflev8qi_vis (operands[0], operands[1], operands[2]));
   DONE;
 })
@@ -8550,7 +8597,8 @@
                    UNSPEC_CMASK8))]
   "TARGET_VIS3"
   "cmask8\t%r0"
-  [(set_attr "type" "fga")])
+  [(set_attr "type" "fga")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "cmask16<P:mode>_vis"
   [(set (reg:DI GSR_REG)
@@ -8559,7 +8607,8 @@
                    UNSPEC_CMASK16))]
   "TARGET_VIS3"
   "cmask16\t%r0"
-  [(set_attr "type" "fga")])
+  [(set_attr "type" "fga")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "cmask32<P:mode>_vis"
   [(set (reg:DI GSR_REG)
@@ -8568,7 +8617,8 @@
                    UNSPEC_CMASK32))]
   "TARGET_VIS3"
   "cmask32\t%r0"
-  [(set_attr "type" "fga")])
+  [(set_attr "type" "fga")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "fchksm16_vis"
   [(set (match_operand:V4HI 0 "register_operand" "=e")
@@ -8601,7 +8651,8 @@
   "TARGET_VIS3"
   "pdistn\t%1, %2, %0"
   [(set_attr "type" "pdistn")
-   (set_attr "fptype" "double")])
+   (set_attr "fptype" "double")
+   (set_attr "v3pipe" "true")])
 
 (define_insn "fmean16_vis"
   [(set (match_operand:V4HI 0 "register_operand" "=e")
@@ -8628,6 +8679,14 @@
   "fp<plusminus_insn>64\t%1, %2, %0"
   [(set_attr "type" "fga")])
 
+(define_insn "<plusminus_insn>v8qi3"
+  [(set (match_operand:V8QI 0 "register_operand" "=e")
+        (plusminus:V8QI (match_operand:V8QI 1 "register_operand" "e")
+                        (match_operand:V8QI 2 "register_operand" "e")))]
+  "TARGET_VIS4"
+  "fp<plusminus_insn>8\t%1, %2, %0"
+  [(set_attr "type" "fga")])
+
 (define_mode_iterator VASS [V4HI V2SI V2HI V1SI])
 (define_code_iterator vis3_addsub_ss [ss_plus ss_minus])
 (define_code_attr vis3_addsub_ss_insn
@@ -8641,7 +8700,62 @@
                              (match_operand:VASS 2 "register_operand" "<vconstr>")))]
   "TARGET_VIS3"
   "<vis3_addsub_ss_insn><vbits>\t%1, %2, %0"
+  [(set_attr "type" "fga")
+   (set_attr "v3pipe" "true")])
+
+(define_mode_iterator VMMAX [V8QI V4HI V2SI])
+(define_code_iterator vis4_minmax [smin smax])
+(define_code_attr vis4_minmax_insn
+  [(smin "fpmin") (smax "fpmax")])
+(define_code_attr vis4_minmax_patname
+  [(smin "min") (smax "max")])
+
+(define_insn "<vis4_minmax_patname><mode>3"
+  [(set (match_operand:VMMAX 0 "register_operand" "=<vconstr>")
+        (vis4_minmax:VMMAX (match_operand:VMMAX 1 "register_operand" "<vconstr>")
+                           (match_operand:VMMAX 2 "register_operand" "<vconstr>")))]
+  "TARGET_VIS4"
+  "<vis4_minmax_insn><vbits>\t%1, %2, %0"
   [(set_attr "type" "fga")])
+
+(define_code_iterator vis4_uminmax [umin umax])
+(define_code_attr vis4_uminmax_insn
+  [(umin "fpminu") (umax "fpmaxu")])
+(define_code_attr vis4_uminmax_patname
+ [(umin "minu") (umax "maxu")])
+
+(define_insn "<vis4_uminmax_patname><mode>3"
+  [(set (match_operand:VMMAX 0 "register_operand" "=<vconstr>")
+        (vis4_uminmax:VMMAX (match_operand:VMMAX 1 "register_operand" "<vconstr>")
+                            (match_operand:VMMAX 2 "register_operand" "<vconstr>")))]
+  "TARGET_VIS4"
+  "<vis4_uminmax_insn><vbits>\t%1, %2, %0"
+  [(set_attr "type" "fga")])
+
+;; The use of vis3_addsub_ss_patname in the VIS4 instruction below is
+;; intended.
+(define_insn "<vis3_addsub_ss_patname>v8qi3"
+  [(set (match_operand:V8QI 0 "register_operand" "=e")
+        (vis3_addsub_ss:V8QI (match_operand:V8QI 1 "register_operand" "e")
+                             (match_operand:V8QI 2 "register_operand" "e")))]
+  "TARGET_VIS4"
+  "<vis3_addsub_ss_insn>8\t%1, %2, %0"
+  [(set_attr "type" "fga")])
+
+(define_mode_iterator VAUS [V4HI V8QI])
+(define_code_iterator vis4_addsub_us [us_plus us_minus])
+(define_code_attr vis4_addsub_us_insn
+  [(us_plus "fpaddus") (us_minus "fpsubus")])
+(define_code_attr vis4_addsub_us_patname
+  [(us_plus "usadd") (us_minus "ussub")])
+
+(define_insn "<vis4_addsub_us_patname><mode>3"
+ [(set (match_operand:VAUS 0 "register_operand" "=<vconstr>")
+       (vis4_addsub_us:VAUS (match_operand:VAUS 1 "register_operand" "<vconstr>")
+                            (match_operand:VAUS 2 "register_operand" "<vconstr>")))]
+ "TARGET_VIS4"
+ "<vis4_addsub_us_insn><vbits>\t%1, %2, %0"
+ [(set_attr "type" "fga")])
 
 (define_insn "fucmp<code>8<P:mode>_vis"
   [(set (match_operand:P 0 "register_operand" "=r")
@@ -8650,7 +8764,18 @@
 	 UNSPEC_FUCMP))]
   "TARGET_VIS3"
   "fucmp<code>8\t%1, %2, %0"
-  [(set_attr "type" "visl")])
+  [(set_attr "type" "visl")
+   (set_attr "v3pipe" "true")])
+
+(define_insn "fpcmpu<code><GCM:gcm_name><P:mode>_vis"
+  [(set (match_operand:P 0 "register_operand" "=r")
+  	(unspec:P [(gcond:GCM (match_operand:GCM 1 "register_operand" "e")
+		              (match_operand:GCM 2 "register_operand" "e"))]
+	 UNSPEC_FUCMP))]
+  "TARGET_VIS4"
+  "fpcmpu<code><GCM:gcm_name>\t%1, %2, %0"
+  [(set_attr "type" "visl")
+   (set_attr "fptype" "double")])
 
 (define_insn "*naddsf3"
   [(set (match_operand:SF 0 "register_operand" "=f")
