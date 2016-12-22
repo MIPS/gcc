@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-march=octeon -mbranch-likely -fno-unroll-loops" } */
-/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-O1" } { "" } } */
 /* { dg-final { scan-assembler "\tbbit\[01\]\t" } } */
 /* { dg-final { scan-assembler-not "\tbbit\[01\]l\t" } } */
 /* { dg-final { scan-assembler "\tbnel\t" } } */
