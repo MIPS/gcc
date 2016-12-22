@@ -1,5 +1,6 @@
 /* { dg-do run } */
-/* { dg-options "-mmicromips" } */
+/* Note that this test does not need headers but needs runtime support */
+/* { dg-options "-mmicromips (REQUIRES_STDLIB)" } */
 
 int __attribute__ ((noinline))
 frob (int i)
