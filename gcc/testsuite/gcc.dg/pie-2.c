@@ -1,5 +1,6 @@
-/* { dg-do compile } */
+/* { dg-do compile { target { ! { mips*-*-* } } } } */
 /* { dg-options "-fPIE" } */
+/* { dg-options "-fPIE -mabicalls" { target mips*-*-* } } */
 
 #if __PIC__ != 2
 # error __PIC__ is not 2!
