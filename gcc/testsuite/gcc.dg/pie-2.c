@@ -1,5 +1,6 @@
-/* { dg-do compile } */
+/* { dg-do compile { target { ! { mips*-*-* } } } } */
 /* { dg-options "-fPIE" } */
+/* { dg-options "-fPIE -mabicalls" { target mips*-*-* } } */
 /* { dg-require-effective-target pie } */
 /* { dg-skip-if "__PIC__ is always 1 for MIPS" { mips*-*-* } } */
 

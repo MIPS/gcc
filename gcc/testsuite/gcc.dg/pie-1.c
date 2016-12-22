@@ -1,5 +1,6 @@
 /* { dg-do compile { target { ! { *-*-darwin* hppa*-*-* } } } } */
 /* { dg-options "-fpie" } */
+/* { dg-options "-fpie -mabicalls -mno-gpopt" { target mips*-*-* } } */
 /* { dg-require-effective-target pie } */
 
 #if __PIC__ != 1
