@@ -702,3 +702,6 @@ Enum(mips_arch_opt_value) String(xlp) Value(103) Canonical
 EnumValue
 Enum(mips_arch_opt_value) String(i6400) Value(104) Canonical
 
+EnumValue
+Enum(mips_arch_opt_value) String(p6600) Value(103) Canonical
+
