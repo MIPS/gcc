@@ -1,3 +1,77 @@
+2016-12-21  Release Manager
+
+	* GCC 6.3.0 released.
+
+2016-12-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* fr.po: Update.
+
+2016-12-15  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-12-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-12-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-12-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po, fr.po: Update.
+
+2016-12-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-11-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-11-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po, fr.po: Update.
+
+2016-11-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po, fr.po: Update.
+
+2016-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-11-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* fr.po: Update.
+
+2016-11-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-11-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* es.po: Update.
+
+2016-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-09-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* sv.po: Update.
+
+2016-08-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* be.po, da.po, de.po, el.po, es.po, fi.po, fr.po, hr.po, id.po,
+	ja.po, nl.po, ru.po, sr.po, sv.po, tr.po, uk.po, vi.po, zh_CN.po,
+	zh_TW.po: Update.
+
 2016-08-22  Release Manager
 
 	* GCC 6.2.0 released.

@@ -402,6 +402,13 @@ arm*-*-uclinux*)		# ARM ucLinux
 	unwind_header=config/arm/unwind-arm.h
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
+arm*-*-phoenix*)
+	tmake_file="t-hardfp t-softfp arm/t-arm arm/t-elf arm/t-softfp arm/t-phoenix"
+	tmake_file="${tmake_file} arm/t-bpabi"
+	tm_file="$tm_file arm/bpabi-lib.h"
+	extra_parts="crtbegin.o crtend.o crti.o crtn.o"
+	unwind_header=config/arm/unwind-arm.h
+	;;
 arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
 	tmake_file="${tmake_file} arm/t-arm arm/t-elf t-fixedpoint-gnu-prefix"
 	tm_file="$tm_file arm/bpabi-lib.h"
@@ -1279,7 +1286,7 @@ tilegx*-*-linux*)
 	md_unwind_header=tilepro/linux-unwind.h
         ;;
 tilepro*-*-linux*)
-	tmake_file="${tmake_file} tilepro/t-crtstuff t-softfp-sfdf t-softfp tilepro/t-tilepro"
+	tmake_file="${tmake_file} tilepro/t-crtstuff t-softfp-sfdf t-softfp tilepro/t-tilepro t-slibgcc-libgcc"
 	md_unwind_header=tilepro/linux-unwind.h
         ;;
 v850*-*-*)
@@ -1336,7 +1343,14 @@ esac
 
 case ${host} in
 i[34567]86-*-* | x86_64-*-*)
-	tmake_file="${tmake_file} i386/t-cpuinfo"
+	case ${host} in
+	*-musl*)
+		tmake_file="${tmake_file} i386/t-cpuinfo-static"
+		;;
+	*)
+		tmake_file="${tmake_file} i386/t-cpuinfo"
+		;;
+	esac
 	;;
 esac
 

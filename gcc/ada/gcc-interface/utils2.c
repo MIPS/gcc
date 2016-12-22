@@ -210,27 +210,40 @@ find_common_type (tree t1, tree t2)
      calling into build_binary_op), some others are really expected and we
      have to be careful.  */
 
+  const bool variable_record_on_lhs
+    = (TREE_CODE (t1) == RECORD_TYPE
+       && TREE_CODE (t2) == RECORD_TYPE
+       && get_variant_part (t1)
+       && !get_variant_part (t2));
+
+  const bool variable_array_on_lhs
+    = (TREE_CODE (t1) == ARRAY_TYPE
+       && TREE_CODE (t2) == ARRAY_TYPE
+       && !TREE_CONSTANT (TYPE_MIN_VALUE (TYPE_DOMAIN (t1)))
+       && TREE_CONSTANT (TYPE_MIN_VALUE (TYPE_DOMAIN (t2))));
+
   /* We must avoid writing more than what the target can hold if this is for
      an assignment and the case of tagged types is handled in build_binary_op
      so we use the lhs type if it is known to be smaller or of constant size
      and the rhs type is not, whatever the modes.  We also force t1 in case of
      constant size equality to minimize occurrences of view conversions on the
-     lhs of an assignment, except for the case of record types with a variant
-     part on the lhs but not on the rhs to make the conversion simpler.  */
+     lhs of an assignment, except for the case of types with a variable part
+     on the lhs but not on the rhs to make the conversion simpler.  */
   if (TREE_CONSTANT (TYPE_SIZE (t1))
       && (!TREE_CONSTANT (TYPE_SIZE (t2))
 	  || tree_int_cst_lt (TYPE_SIZE (t1), TYPE_SIZE (t2))
 	  || (TYPE_SIZE (t1) == TYPE_SIZE (t2)
-	      && !(TREE_CODE (t1) == RECORD_TYPE
-		   && TREE_CODE (t2) == RECORD_TYPE
-		   && get_variant_part (t1)
-		   && !get_variant_part (t2)))))
+	      && !variable_record_on_lhs
+	      && !variable_array_on_lhs)))
     return t1;
 
-  /* Otherwise, if the lhs type is non-BLKmode, use it.  Note that we know
-     that we will not have any alignment problems since, if we did, the
-     non-BLKmode type could not have been used.  */
-  if (TYPE_MODE (t1) != BLKmode)
+  /* Otherwise, if the lhs type is non-BLKmode, use it, except for the case of
+     a non-BLKmode rhs and array types with a variable part on the lhs but not
+     on the rhs to make sure the conversion is preserved during gimplification.
+     Note that we know that we will not have any alignment problems since, if
+     we did, the non-BLKmode type could not have been used.  */
+  if (TYPE_MODE (t1) != BLKmode
+      && (TYPE_MODE (t2) == BLKmode || !variable_array_on_lhs))
     return t1;
 
   /* If the rhs type is of constant size, use it whatever the modes.  At
@@ -2552,6 +2565,12 @@ gnat_protect_expr (tree exp)
       return t;
     }
 
+  /* Likewise if we're indirectly referencing part of something.  */
+  if (code == COMPONENT_REF
+      && TREE_CODE (TREE_OPERAND (exp, 0)) == INDIRECT_REF)
+    return build3 (code, type, gnat_protect_expr (TREE_OPERAND (exp, 0)),
+		   TREE_OPERAND (exp, 1), NULL_TREE);
+
   /* If this is a COMPONENT_REF of a fat pointer, save the entire fat pointer.
      This may be more efficient, but will also allow us to more easily find
      the match for the PLACEHOLDER_EXPR.  */
@@ -2571,9 +2590,7 @@ gnat_protect_expr (tree exp)
   /* Otherwise reference, protect the address and dereference.  */
   return
     build_unary_op (INDIRECT_REF, type,
-		    save_expr (build_unary_op (ADDR_EXPR,
-					       build_reference_type (type),
-					       exp)));
+		    save_expr (build_unary_op (ADDR_EXPR, NULL_TREE, exp)));
 }
 
 /* This is equivalent to stabilize_reference_1 in tree.c but we take an extra

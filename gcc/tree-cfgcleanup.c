@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "gimple-match.h"
 #include "gimple-fold.h"
+#include "tree-ssa-loop-niter.h"
 
 
 /* The set of blocks in that at least one of the following changes happened:
@@ -602,10 +603,15 @@ fixup_noreturn_call (gimple *stmt)
   /* If there is an LHS, remove it, but only if its type has fixed size.
      The LHS will need to be recreated during RTL expansion and creating
      temporaries of variable-sized types is not supported.  Also don't
-     do this with TREE_ADDRESSABLE types, as assign_temp will abort.  */
+     do this with TREE_ADDRESSABLE types, as assign_temp will abort.
+     Drop LHS regardless of TREE_ADDRESSABLE, if the function call
+     has been changed into a call that does not return a value, like
+     __builtin_unreachable or __cxa_pure_virtual.  */
   tree lhs = gimple_call_lhs (stmt);
-  if (lhs && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST
-      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))
+  if (lhs
+      && ((TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST
+	   && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))
+	  || VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (stmt)))))
     {
       gimple_call_set_lhs (stmt, NULL_TREE);
 
@@ -872,6 +878,18 @@ remove_forwarder_block_with_phi (basic_block bb)
 	     splitting E so that we can merge PHI arguments on E to
 	     DEST.  */
 	  e = single_succ_edge (split_edge (e));
+	}
+      else
+	{
+	  /* If we merge the forwarder into a loop header verify if we
+	     are creating another loop latch edge.  If so, reset
+	     number of iteration information of the loop.  */
+	  if (dest->loop_father->header == dest
+	      && dominated_by_p (CDI_DOMINATORS, e->src, dest))
+	    {
+	      dest->loop_father->any_upper_bound = false;
+	      free_numbers_of_iterations_estimates_loop (dest->loop_father);
+	    }
 	}
 
       s = redirect_edge_and_branch (e, dest);
