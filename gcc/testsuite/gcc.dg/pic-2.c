@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do compile { target { ! { mips*-*-* } } } } */
 /* { dg-options "-fPIC" } */
 
 #if __PIC__ != 2
