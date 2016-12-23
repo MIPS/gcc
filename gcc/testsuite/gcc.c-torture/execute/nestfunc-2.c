@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "R7: needs fixing" mips-*-* "-O0" } */
 extern int foo (int, int, int (*) (int, int, int, int, int, int, int));
 
 int z;

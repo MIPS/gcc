@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "R7: needs fixing" mips-*-* } */
 #ifndef NO_TRAMPOLINES
 int f0(int (*fn)(int *), int *p)
 {

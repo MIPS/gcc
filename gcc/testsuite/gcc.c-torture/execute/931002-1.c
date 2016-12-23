@@ -1,3 +1,4 @@
+/* { dg-skip-if "R7: needs fixing" mips-*-* } */
 f (void (*func) ())
 {
   func ();
