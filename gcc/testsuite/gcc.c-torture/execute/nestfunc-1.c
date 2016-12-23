@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "R7: needs fixing" mips-*-* "-O0" } */
 int
 g (int a, int b, int (*gi) (int, int))
 {

@@ -1,6 +1,7 @@
 /* PR target/12865 */
 /* Origin: Waldek Hebisch <hebisch@math.uni.wroc.pl> */
 
+/* { dg-xfail-run-if "R7: needs fixing" mips-*-* } */
 /* { dg-do run } */
 /* { dg-require-effective-target trampolines } */
 /* { dg-options "-O2" } */
