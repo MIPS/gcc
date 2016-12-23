@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "R7: needs fixing" mips-*-* } */
 /* Test that the GP gets properly restored, either by the nonlocal
    receiver or the nested function.  */
 

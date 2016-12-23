@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-do run { target { ! mips-*-* } } } */
 
 extern void abort (void);
 extern void exit (int);

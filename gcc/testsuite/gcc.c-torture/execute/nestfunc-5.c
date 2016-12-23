@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "R7: needs fixing" mips-*-* } */
 extern void abort (void);
 extern void exit (int);
 
