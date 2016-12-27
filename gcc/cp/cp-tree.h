@@ -1117,6 +1117,8 @@ enum cp_tree_index
     CPTI_PFN_IDENTIFIER,
     CPTI_VPTR_IDENTIFIER,
     CPTI_STD_IDENTIFIER,
+    CPTI_AUTO_IDENTIFIER,
+    CPTI_DECLTYPE_AUTO_IDENTIFIER,
 
     CPTI_LANG_NAME_C,
     CPTI_LANG_NAME_CPLUSPLUS,
@@ -1200,6 +1202,9 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 #define vptr_identifier			cp_global_trees[CPTI_VPTR_IDENTIFIER]
 /* The name of the std namespace.  */
 #define std_identifier			cp_global_trees[CPTI_STD_IDENTIFIER]
+/* auto and declspec(auto) identifiers.  */
+#define auto_identifier			cp_global_trees[CPTI_AUTO_IDENTIFIER]
+#define decltype_auto_identifier	cp_global_trees[CPTI_DECLTYPE_AUTO_IDENTIFIER]
 /* The name of a C++17 deduction guide.  */
 #define lang_name_c			cp_global_trees[CPTI_LANG_NAME_C]
 #define lang_name_cplusplus		cp_global_trees[CPTI_LANG_NAME_CPLUSPLUS]
@@ -3033,23 +3038,30 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    ->template_info)
 
 /* Template information for an ENUMERAL_, RECORD_, UNION_TYPE, or
-   BOUND_TEMPLATE_TEMPLATE_PARM type.  Note that if NODE is a
-   specialization of an alias template, this accessor returns the
-   template info for the alias template, not the one (if any) for the
-   template of the underlying type.  */
+   BOUND_TEMPLATE_TEMPLATE_PARM type.  This ignores any alias
+   templateness of NODE.  */
 #define TYPE_TEMPLATE_INFO(NODE)					\
-  ((TYPE_ALIAS_P (NODE) && DECL_LANG_SPECIFIC (TYPE_NAME (NODE)))	\
-   ? (DECL_LANG_SPECIFIC (TYPE_NAME (NODE))				\
-      ? DECL_TEMPLATE_INFO (TYPE_NAME (NODE))				\
-      : NULL_TREE)							\
-   : ((TREE_CODE (NODE) == ENUMERAL_TYPE)				\
-      ? ENUM_TEMPLATE_INFO (NODE)					\
-      : ((TREE_CODE (NODE) == BOUND_TEMPLATE_TEMPLATE_PARM)		\
-	 ? TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (NODE)			\
-	 : (CLASS_TYPE_P (NODE)						\
-	    ? CLASSTYPE_TEMPLATE_INFO (NODE)				\
-	    : NULL_TREE))))
+  (TREE_CODE (NODE) == ENUMERAL_TYPE					\
+   ? ENUM_TEMPLATE_INFO (NODE)						\
+   : (TREE_CODE (NODE) == BOUND_TEMPLATE_TEMPLATE_PARM			\
+      ? TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (NODE)			\
+      : (CLASS_TYPE_P (NODE)						\
+	 ? CLASSTYPE_TEMPLATE_INFO (NODE)				\
+	 : NULL_TREE)))
 
+/* Template information (if any) for an alias type.  */
+#define TYPE_ALIAS_TEMPLATE_INFO(NODE)					\
+  (DECL_LANG_SPECIFIC (TYPE_NAME (NODE))				\
+   ? DECL_TEMPLATE_INFO (TYPE_NAME (NODE))				\
+   : NULL_TREE)
+
+/* If NODE is a type alias, this accessor returns the template info
+   for the alias template (if any).  Otherwise behave as
+   TYPE_TEMPLATE_INFO.  */
+#define TYPE_TEMPLATE_INFO_MAYBE_ALIAS(NODE)				\
+  (TYPE_ALIAS_P (NODE)							\
+   ? TYPE_ALIAS_TEMPLATE_INFO (NODE)					\
+   : TYPE_TEMPLATE_INFO (NODE))
 
 /* Set the template information for an ENUMERAL_, RECORD_, or
    UNION_TYPE to VAL.  */

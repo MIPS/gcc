@@ -5388,7 +5388,10 @@ check_nonnull_arg (void *ctx, tree param, unsigned HOST_WIDE_INT param_num)
   if (TREE_CODE (TREE_TYPE (param)) != POINTER_TYPE)
     return;
 
-  if (integer_zerop (param))
+  /* When not optimizing diagnose the simple cases of null arguments.
+     When optimization is enabled defer the checking until expansion
+     when more cases can be detected.  */
+  if (!optimize && integer_zerop (param))
     warning_at (*ploc, OPT_Wnonnull, "null argument where non-null required "
 		"(argument %lu)", (unsigned long) param_num);
 }
@@ -5558,6 +5561,8 @@ parse_optimize_options (tree args, bool attr_p)
 bool
 attribute_fallthrough_p (tree attr)
 {
+  if (attr == error_mark_node)
+   return false;
   tree t = lookup_attribute ("fallthrough", attr);
   if (t == NULL_TREE)
     return false;

@@ -1866,19 +1866,19 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
    On RS/6000, this is r3, fp1, and v2 (for AltiVec).  */
 #define FUNCTION_VALUE_REGNO_P(N)					\
   ((N) == GP_ARG_RETURN							\
-   || ((N) >= FP_ARG_RETURN && (N) <= FP_ARG_MAX_RETURN			\
+   || (IN_RANGE ((N), FP_ARG_RETURN, FP_ARG_MAX_RETURN)			\
        && TARGET_HARD_FLOAT && TARGET_FPRS)				\
-   || ((N) >= ALTIVEC_ARG_RETURN && (N) <= ALTIVEC_ARG_MAX_RETURN	\
+   || (IN_RANGE ((N), ALTIVEC_ARG_RETURN, ALTIVEC_ARG_MAX_RETURN)	\
        && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI))
 
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.
    On AltiVec, v2 - v13 are used for passing vectors.  */
 #define FUNCTION_ARG_REGNO_P(N)						\
-  ((unsigned) (N) - GP_ARG_MIN_REG < GP_ARG_NUM_REG			\
-   || ((unsigned) (N) - ALTIVEC_ARG_MIN_REG < ALTIVEC_ARG_NUM_REG	\
+  (IN_RANGE ((N), GP_ARG_MIN_REG, GP_ARG_MAX_REG)			\
+   || (IN_RANGE ((N), ALTIVEC_ARG_MIN_REG, ALTIVEC_ARG_MAX_REG)		\
        && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)				\
-   || ((unsigned) (N) - FP_ARG_MIN_REG < FP_ARG_NUM_REG			\
+   || (IN_RANGE ((N), FP_ARG_MIN_REG, FP_ARG_MAX_REG)			\
        && TARGET_HARD_FLOAT && TARGET_FPRS))
 
 /* Define a data type for recording info about an argument list
@@ -2199,14 +2199,15 @@ do {									     \
 
 /* The cntlzw and cntlzd instructions return 32 and 64 for input of zero.  */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = ((MODE) == SImode ? 32 : 64), 1)
+  ((VALUE) = GET_MODE_BITSIZE (MODE), 2)
 
 /* The CTZ patterns that are implemented in terms of CLZ return -1 for input of
-   zero.  The hardware instructions added in Power9 return 32 or 64.  */
+   zero.  The hardware instructions added in Power9 and the sequences using
+   popcount return 32 or 64.  */
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)				\
-  ((!TARGET_CTZ)							\
-   ? ((VALUE) = -1, 1)							\
-   : ((VALUE) = ((MODE) == SImode ? 32 : 64), 1))
+  (TARGET_CTZ || TARGET_POPCNTD						\
+   ? ((VALUE) = GET_MODE_BITSIZE (MODE), 2)				\
+   : ((VALUE) = -1, 2))
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction

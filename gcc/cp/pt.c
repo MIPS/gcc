@@ -940,10 +940,11 @@ maybe_process_partial_specialization (tree type)
 
   if (TYPE_ALIAS_P (type))
     {
-      if (TYPE_TEMPLATE_INFO (type)
-	  && DECL_ALIAS_TEMPLATE_P (TYPE_TI_TEMPLATE (type)))
+      tree tinfo = TYPE_ALIAS_TEMPLATE_INFO (type);
+
+      if (tinfo && DECL_ALIAS_TEMPLATE_P (TI_TEMPLATE (tinfo)))
 	error ("specialization of alias template %qD",
-	       TYPE_TI_TEMPLATE (type));
+	       TI_TEMPLATE (tinfo));
       else
 	error ("explicit specialization of non-template %qT", type);
       return error_mark_node;
@@ -1829,7 +1830,7 @@ iterative_hash_template_arg (tree arg, hashval_t val)
 	  // left alone, or untouched specializations because
 	  // coerce_template_parms returns the unconverted template
 	  // arguments if it sees incomplete argument packs.
-	  tree ti = TYPE_TEMPLATE_INFO (arg);
+	  tree ti = TYPE_ALIAS_TEMPLATE_INFO (arg);
 	  return hash_tmpl_and_args (TI_TEMPLATE (ti), TI_ARGS (ti));
 	}
       if (TYPE_CANONICAL (arg))
@@ -3459,8 +3460,8 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
   /* Handle type aliases/typedefs.  */
   if (TYPE_ALIAS_P (t))
     {
-      if (TYPE_TEMPLATE_INFO (t))
-	cp_walk_tree (&TYPE_TI_ARGS (t),
+      if (tree tinfo = TYPE_ALIAS_TEMPLATE_INFO (t))
+	cp_walk_tree (&TI_ARGS (tinfo),
 		      &find_parameter_packs_r,
 		      ppd, ppd->visited);
       *walk_subtrees = 0;
@@ -5794,15 +5795,9 @@ alias_template_specialization_p (const_tree t)
   /* It's an alias template specialization if it's an alias and its
      TYPE_NAME is a specialization of a primary template.  */
   if (TYPE_ALIAS_P (t))
-    {
-      tree name = TYPE_NAME (t);
-      if (DECL_LANG_SPECIFIC (name))
-	if (tree ti = DECL_TEMPLATE_INFO (name))
-	  {
-	    tree tmpl = TI_TEMPLATE (ti);
-	    return PRIMARY_TEMPLATE_P (tmpl);
-	  }
-    }
+    if (tree tinfo = TYPE_ALIAS_TEMPLATE_INFO (t))
+      return PRIMARY_TEMPLATE_P (TI_TEMPLATE (tinfo));
+
   return false;
 }
 
@@ -5854,10 +5849,18 @@ complex_alias_template_p (const_tree tmpl)
 bool
 dependent_alias_template_spec_p (const_tree t)
 {
-  return (alias_template_specialization_p (t)
-	  && TEMPLATE_DECL_COMPLEX_ALIAS_P (DECL_TI_TEMPLATE (TYPE_NAME (t)))
-	  && (any_dependent_template_arguments_p
-	      (INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (t)))));
+  if (!alias_template_specialization_p (t))
+    return false;
+
+  tree tinfo = TYPE_ALIAS_TEMPLATE_INFO (t);
+  if (!TEMPLATE_DECL_COMPLEX_ALIAS_P (TI_TEMPLATE (tinfo)))
+    return false;
+
+  tree args = INNERMOST_TEMPLATE_ARGS (TI_ARGS (tinfo));
+  if (!any_dependent_template_arguments_p (args))
+    return false;
+
+  return true;
 }
 
 /* Return the number of innermost template parameters in TMPL.  */
@@ -5879,26 +5882,27 @@ get_underlying_template (tree tmpl)
   gcc_assert (TREE_CODE (tmpl) == TEMPLATE_DECL);
   while (DECL_ALIAS_TEMPLATE_P (tmpl))
     {
-      tree result = DECL_ORIGINAL_TYPE (DECL_TEMPLATE_RESULT (tmpl));
-      if (TYPE_TEMPLATE_INFO (result))
-	{
-	  tree sub = TYPE_TI_TEMPLATE (result);
-	  if (PRIMARY_TEMPLATE_P (sub)
-	      && (num_innermost_template_parms (tmpl)
-		  == num_innermost_template_parms (sub)))
-	    {
-	      tree alias_args = INNERMOST_TEMPLATE_ARGS
-		(template_parms_to_args (DECL_TEMPLATE_PARMS (tmpl)));
-	      if (!comp_template_args (TYPE_TI_ARGS (result), alias_args))
-		break;
-	      /* The alias type is equivalent to the pattern of the
-		 underlying template, so strip the alias.  */
-	      tmpl = sub;
-	      continue;
-	    }
-	}
-      break;
+      /* Determine if the alias is equivalent to an underlying template.  */
+      tree orig_type = DECL_ORIGINAL_TYPE (DECL_TEMPLATE_RESULT (tmpl));
+      tree tinfo = TYPE_TEMPLATE_INFO_MAYBE_ALIAS (orig_type);
+      if (!tinfo)
+	break;
+
+      tree underlying = TI_TEMPLATE (tinfo);
+      if (!PRIMARY_TEMPLATE_P (underlying)
+	  || (num_innermost_template_parms (tmpl)
+	      != num_innermost_template_parms (underlying)))
+	break;
+
+      tree alias_args = INNERMOST_TEMPLATE_ARGS
+	(template_parms_to_args (DECL_TEMPLATE_PARMS (tmpl)));
+      if (!comp_template_args (TI_ARGS (tinfo), alias_args))
+	break;
+
+      /* Alias is equivalent.  Strip it and repeat.  */
+      tmpl = underlying;
     }
+
   return tmpl;
 }
 
@@ -8375,9 +8379,8 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	     TEMPLATE will be `template <class T> template
 	     <class U> struct S1<T>::S2'.  We must fill in the missing
 	     arguments.  */
-	  arglist
-	    = add_outermost_template_args (TYPE_TI_ARGS (TREE_TYPE (templ)),
-					   arglist);
+	  tree ti = TYPE_TEMPLATE_INFO_MAYBE_ALIAS (TREE_TYPE (templ));
+	  arglist = add_outermost_template_args (TI_ARGS (ti), arglist);
 	  arg_depth = TMPL_ARGS_DEPTH (arglist);
 	}
 
@@ -8407,13 +8410,15 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 
 	 the `C<T>' is just the same as `C'.  Outside of the
 	 class, however, such a reference is an instantiation.  */
-      if ((entering_scope
-	   || !PRIMARY_TEMPLATE_P (gen_tmpl)
-	   || currently_open_class (template_type))
-	  /* comp_template_args is expensive, check it last.  */
-	  && comp_template_args (TYPE_TI_ARGS (template_type),
-				 arglist))
-	return template_type;
+      if (entering_scope
+	  || !PRIMARY_TEMPLATE_P (gen_tmpl)
+	  || currently_open_class (template_type))
+	{
+	  tree tinfo = TYPE_TEMPLATE_INFO_MAYBE_ALIAS (template_type);
+
+	  if (comp_template_args (TI_ARGS (tinfo), arglist))
+	    return template_type;
+	}
 
       /* If we already have this specialization, return it.  */
       elt.tmpl = gen_tmpl;
@@ -8641,12 +8646,11 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	  && CLASS_TYPE_P (context)
 	  && !same_type_p (context, DECL_CONTEXT (gen_tmpl)))
 	{
-	  tree partial_inst_args;
 	  TREE_VEC_LENGTH (arglist)--;
 	  ++processing_template_decl;
-	  partial_inst_args =
-	    tsubst (INNERMOST_TEMPLATE_ARGS
-			(TYPE_TI_ARGS (TREE_TYPE (gen_tmpl))),
+	  tree tinfo = TYPE_TEMPLATE_INFO_MAYBE_ALIAS (TREE_TYPE (gen_tmpl));
+	  tree partial_inst_args =
+	    tsubst (INNERMOST_TEMPLATE_ARGS (TI_ARGS (tinfo)),
 		    arglist, complain, NULL_TREE);
 	  --processing_template_decl;
 	  TREE_VEC_LENGTH (arglist)++;
@@ -8678,11 +8682,11 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	     for parameters in the TYPE_DECL of the alias template
 	     done earlier.  So be careful while getting the template
 	     of FOUND.  */
-	  found = TREE_CODE (found) == TEMPLATE_DECL
-	    ? found
-	    : TREE_CODE (found) == TYPE_DECL
-	    ? TYPE_TI_TEMPLATE (TREE_TYPE (found))
-	    : CLASSTYPE_TI_TEMPLATE (found);
+	  found = (TREE_CODE (found) == TEMPLATE_DECL
+		   ? found
+		   : (TREE_CODE (found) == TYPE_DECL
+		      ? DECL_TI_TEMPLATE (found)
+		      : CLASSTYPE_TI_TEMPLATE (found)));
 	}
 
       // Build template info for the new specialization.
@@ -13795,22 +13799,23 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case TYPE_ARGUMENT_PACK:
     case NONTYPE_ARGUMENT_PACK:
       {
-        tree r = TYPE_P (t) ? cxx_make_type (code) : make_node (code);
-        tree packed_out = 
-          tsubst_template_args (ARGUMENT_PACK_ARGS (t), 
-                                args,
-                                complain,
-                                in_decl);
-        SET_ARGUMENT_PACK_ARGS (r, packed_out);
+        tree r;
 
-        /* For template nontype argument packs, also substitute into
-           the type.  */
-        if (code == NONTYPE_ARGUMENT_PACK)
-          TREE_TYPE (r) = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	if (code == NONTYPE_ARGUMENT_PACK)
+	  {
+	    r = make_node (code);
+	    /* Set the already-substituted type.  */
+	    TREE_TYPE (r) = type;
+	  }
+	else
+	  r = cxx_make_type (code);
 
-        return r;
+	tree pack_args = ARGUMENT_PACK_ARGS (t);
+	pack_args = tsubst_template_args (pack_args, args, complain, in_decl);
+	SET_ARGUMENT_PACK_ARGS (r, pack_args);
+
+	return r;
       }
-      break;
 
     case VOID_CST:
     case INTEGER_CST:
@@ -18986,14 +18991,19 @@ type_unification_real (tree tparms,
 	  if (DECL_P (parm))
 	    input_location = DECL_SOURCE_LOCATION (parm);
 	  arg = tsubst_template_arg (arg, full_targs, complain, NULL_TREE);
-	  arg = convert_template_argument (parm, arg, full_targs, complain,
-					   i, NULL_TREE);
+	  if (!uses_template_parms (arg))
+	    arg = convert_template_argument (parm, arg, full_targs, complain,
+					     i, NULL_TREE);
+	  else if (saw_undeduced < 2)
+	    arg = NULL_TREE;
+	  else
+	    arg = error_mark_node;
 	  input_location = save_loc;
 	  *checks = get_deferred_access_checks ();
 	  pop_deferring_access_checks ();
 	  if (arg == error_mark_node)
 	    return 1;
-	  else
+	  else if (arg)
 	    {
 	      TREE_VEC_ELT (targs, i) = arg;
 	      /* The position of the first default template argument,
@@ -19001,7 +19011,6 @@ type_unification_real (tree tparms,
 		 Record that.  */
 	      if (!NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs))
 		SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, i);
-	      continue;
 	    }
 	}
 
@@ -20034,9 +20043,6 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	    return unify_template_deduction_failure (explain_p, parm, arg);
 	  {
 	    tree parmvec = TYPE_TI_ARGS (parm);
-	    /* An alias template name is never deduced.  */
-	    if (TYPE_ALIAS_P (arg))
-	      arg = strip_typedefs (arg);
 	    tree argvec = INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (arg));
 	    tree full_argvec = add_to_template_args (targs, argvec);
 	    tree parm_parms 
@@ -24302,13 +24308,13 @@ make_auto_1 (tree name, bool set_canonical)
 tree
 make_decltype_auto (void)
 {
-  return make_auto_1 (get_identifier ("decltype(auto)"), true);
+  return make_auto_1 (decltype_auto_identifier, true);
 }
 
 tree
 make_auto (void)
 {
-  return make_auto_1 (get_identifier ("auto"), true);
+  return make_auto_1 (auto_identifier, true);
 }
 
 /* Return a C++17 deduction placeholder for class template TMPL.  */
@@ -24330,7 +24336,7 @@ make_template_placeholder (tree tmpl)
 tree
 make_constrained_auto (tree con, tree args)
 {
-  tree type = make_auto_1 (get_identifier ("auto"), false);
+  tree type = make_auto_1 (auto_identifier, false);
 
   /* Build the constraint. */
   tree tmpl = DECL_TI_TEMPLATE (con);
@@ -25016,8 +25022,8 @@ bool
 is_auto (const_tree type)
 {
   if (TREE_CODE (type) == TEMPLATE_TYPE_PARM
-      && (TYPE_IDENTIFIER (type) == get_identifier ("auto")
-	  || TYPE_IDENTIFIER (type) == get_identifier ("decltype(auto)")
+      && (TYPE_IDENTIFIER (type) == auto_identifier
+	  || TYPE_IDENTIFIER (type) == decltype_auto_identifier
 	  || CLASS_PLACEHOLDER_TEMPLATE (type)))
     return true;
   else

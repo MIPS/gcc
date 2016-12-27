@@ -2864,9 +2864,9 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
     return 0;
 
   m = wrhs.to_shwi ();
-  /* There's no ABS for HOST_WIDE_INT, so here we go. It also takes care
-     of the asymmetric range of the integer type.  */
-  n = (unsigned HOST_WIDE_INT) (m < 0 ? -m : m);
+  /* Use the wide_int's routine to reliably get the absolute value on all
+     platforms.  Then convert it to a HOST_WIDE_INT like above.  */
+  n = wi::abs (wrhs).to_shwi ();
 
   type = TREE_TYPE (lhs);
   sgn = tree_int_cst_sgn (rhs);
@@ -4115,6 +4115,16 @@ gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping *mapping)
 
       new_expr = gfc_copy_expr (arg1->ts.u.cl->length);
       break;
+
+    case GFC_ISYM_LEN_TRIM:
+      new_expr = gfc_copy_expr (arg1);
+      gfc_apply_interface_mapping_to_expr (mapping, new_expr);
+
+      if (!new_expr)
+	return false;
+
+      gfc_replace_expr (arg1, new_expr);
+      return true;
 
     case GFC_ISYM_SIZE:
       if (!sym->as || sym->as->rank == 0)
@@ -5441,8 +5451,12 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 		{
 		  tmp = build_fold_indirect_ref_loc (input_location,
 						     parmse.expr);
-		  tmp = gfc_trans_dealloc_allocated (tmp, e,
-						     GFC_CAF_COARRAY_NOCOARRAY);
+		  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+		    tmp = gfc_conv_descriptor_data_get (tmp);
+		  tmp = gfc_deallocate_with_status (tmp, NULL_TREE, NULL_TREE,
+						    NULL_TREE, NULL_TREE, true,
+						    e,
+						    GFC_CAF_COARRAY_NOCOARRAY);
 		  if (fsym->attr.optional
 		      && e->expr_type == EXPR_VARIABLE
 		      && e->symtree->n.sym->attr.optional)
@@ -6484,10 +6498,18 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
 			      builtin_decl_explicit (BUILT_IN_MEMMOVE),
 			      3, dest, src, slen);
 
+  /* Wstringop-overflow appears at -O3 even though this warning is not
+     explicitly available in fortran nor can it be switched off. If the
+     source length is a constant, its negative appears as a very large
+     postive number and triggers the warning in BUILTIN_MEMSET. Fixing
+     the result of the MINUS_EXPR suppresses this spurious warning.  */
+  tmp = fold_build2_loc (input_location, MINUS_EXPR,
+			 TREE_TYPE(dlen), dlen, slen);
+  if (slength && TREE_CONSTANT (slength))
+    tmp = gfc_evaluate_now (tmp, block);
+
   tmp4 = fold_build_pointer_plus_loc (input_location, dest, slen);
-  tmp4 = fill_with_spaces (tmp4, chartype,
-			   fold_build2_loc (input_location, MINUS_EXPR,
-					    TREE_TYPE(dlen), dlen, slen));
+  tmp4 = fill_with_spaces (tmp4, chartype, tmp);
 
   gfc_init_block (&tempblock);
   gfc_add_expr_to_block (&tempblock, tmp3);
@@ -9696,7 +9718,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   bool scalar_to_array;
   tree string_length;
   int n;
-  bool maybe_workshare = false;
+  bool maybe_workshare = false, lhs_refs_comp = false, rhs_refs_comp = false;
   symbol_attribute lhs_caf_attr, rhs_caf_attr, lhs_attr;
   bool is_poly_assign;
 
@@ -9736,8 +9758,8 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
      mode.  */
   if (flag_coarray == GFC_FCOARRAY_LIB)
     {
-      lhs_caf_attr = gfc_caf_attr (expr1);
-      rhs_caf_attr = gfc_caf_attr (expr2);
+      lhs_caf_attr = gfc_caf_attr (expr1, false, &lhs_refs_comp);
+      rhs_caf_attr = gfc_caf_attr (expr2, false, &rhs_refs_comp);
     }
 
   if (lss != gfc_ss_terminator)
@@ -9937,10 +9959,19 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
   else if (flag_coarray == GFC_FCOARRAY_LIB
 	   && lhs_caf_attr.codimension && rhs_caf_attr.codimension
-	   && lhs_caf_attr.alloc_comp && rhs_caf_attr.alloc_comp)
+	   && ((lhs_caf_attr.allocatable && lhs_refs_comp)
+	       || (rhs_caf_attr.allocatable && rhs_refs_comp)))
     {
+      /* Only detour to caf_send[get][_by_ref] () when the lhs or rhs is an
+	 allocatable component, because those need to be accessed via the
+	 caf-runtime.  No need to check for coindexes here, because resolve
+	 has rewritten those already.  */
       gfc_code code;
       gfc_actual_arglist a1, a2;
+      /* Clear the structures to prevent accessing garbage.  */
+      memset (&code, '\0', sizeof (gfc_code));
+      memset (&a1, '\0', sizeof (gfc_actual_arglist));
+      memset (&a2, '\0', sizeof (gfc_actual_arglist));
       a1.expr = expr1;
       a1.next = &a2;
       a2.expr = expr2;

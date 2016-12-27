@@ -693,13 +693,16 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Whether to allow x87 floating-point arithmetic on MODE (one of
    SFmode, DFmode and XFmode) in the current excess precision
    configuration.  */
-#define X87_ENABLE_ARITH(MODE) \
-  (flag_excess_precision == EXCESS_PRECISION_FAST || (MODE) == XFmode)
+#define X87_ENABLE_ARITH(MODE)				\
+  (flag_unsafe_math_optimizations			\
+   || flag_excess_precision == EXCESS_PRECISION_FAST	\
+   || (MODE) == XFmode)
 
 /* Likewise, whether to allow direct conversions from integer mode
    IMODE (HImode, SImode or DImode) to MODE.  */
 #define X87_ENABLE_FLOAT(MODE, IMODE)			\
-  (flag_excess_precision == EXCESS_PRECISION_FAST	\
+  (flag_unsafe_math_optimizations			\
+   || flag_excess_precision == EXCESS_PRECISION_FAST	\
    || (MODE) == XFmode					\
    || ((MODE) == DFmode && (IMODE) == SImode)		\
    || (IMODE) == HImode)
@@ -1080,22 +1083,19 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    applied to them.  */
 
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
-  (STACK_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
-   || MASK_REGNO_P (REGNO) || BND_REGNO_P (REGNO)			\
-   ? (COMPLEX_MODE_P (MODE) ? 2 :					\
-      (((MODE == V64SFmode) || (MODE == V64SImode)) ? 4 : 1))		\
-   : ((MODE) == XFmode							\
+  (GENERAL_REGNO_P (REGNO)						\
+   ? ((MODE) == XFmode							\
       ? (TARGET_64BIT ? 2 : 3)						\
       : ((MODE) == XCmode						\
 	 ? (TARGET_64BIT ? 4 : 6)					\
-	 : CEIL (GET_MODE_SIZE (MODE), UNITS_PER_WORD))))
+	 : CEIL (GET_MODE_SIZE (MODE), UNITS_PER_WORD)))		\
+   : (COMPLEX_MODE_P (MODE) ? 2 :					\
+      (((MODE == V64SFmode) || (MODE == V64SImode)) ? 4 : 1)))
 
 #define HARD_REGNO_NREGS_HAS_PADDING(REGNO, MODE)			\
-  ((TARGET_128BIT_LONG_DOUBLE && !TARGET_64BIT)				\
-   ? (STACK_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO) \
-      ? 0								\
-      : ((MODE) == XFmode || (MODE) == XCmode))				\
-   : 0)
+  (TARGET_128BIT_LONG_DOUBLE && !TARGET_64BIT				\
+   && GENERAL_REGNO_P (REGNO)						\
+   && ((MODE) == XFmode || (MODE) == XCmode))
 
 #define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
@@ -2400,6 +2400,7 @@ enum ix86_stack_slot
   SLOT_CW_FLOOR,
   SLOT_CW_CEIL,
   SLOT_CW_MASK_PM,
+  SLOT_STV_TEMP,
   MAX_386_STACK_LOCALS
 };
 

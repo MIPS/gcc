@@ -62,8 +62,9 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-@GOC_IS_LLGO_TRUE@am__append_1 = libgo-llgo.la libgobegin-llgo.a
-@GOC_IS_LLGO_FALSE@am__append_2 = libgo.la libgobegin.a
+@USING_SPLIT_STACK_TRUE@am__append_1 = -XCClinker $(SPLIT_STACK)
+@GOC_IS_LLGO_TRUE@am__append_2 = libgo-llgo.la libgobegin-llgo.a
+@GOC_IS_LLGO_FALSE@am__append_3 = libgo.la libgobegin.a
 subdir = .
 DIST_COMMON = README $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
@@ -71,6 +72,7 @@ DIST_COMMON = README $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/../depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/depstand.m4 \
+	$(top_srcdir)/../config/hwcaps.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/override.m4 \
@@ -189,7 +191,7 @@ libgo_llgo_la_DEPENDENCIES = $(am__DEPENDENCIES_4)
 @LIBGO_IS_DARWIN_TRUE@@LIBGO_IS_LINUX_FALSE@am__objects_4 =  \
 @LIBGO_IS_DARWIN_TRUE@@LIBGO_IS_LINUX_FALSE@	getncpu-bsd.lo
 @LIBGO_IS_LINUX_TRUE@am__objects_4 = getncpu-linux.lo
-am__objects_5 = go-assert.lo go-breakpoint.lo go-caller.lo \
+am__objects_5 = aeshash.lo go-assert.lo go-breakpoint.lo go-caller.lo \
 	go-callers.lo go-cdiv.lo go-cgo.lo go-construct-map.lo \
 	go-ffi.lo go-fieldtrack.lo go-matherr.lo go-memclr.lo \
 	go-memcmp.lo go-memequal.lo go-memmove.lo go-nanotime.lo \
@@ -319,6 +321,7 @@ GO_SPLIT_STACK = @GO_SPLIT_STACK@
 GO_SYSCALL_OS_ARCH_FILE = @GO_SYSCALL_OS_ARCH_FILE@
 GO_SYSCALL_OS_FILE = @GO_SYSCALL_OS_FILE@
 GREP = @GREP@
+HWCAP_LDFLAGS = @HWCAP_LDFLAGS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -460,7 +463,7 @@ AM_CFLAGS = -fexceptions -fnon-call-exceptions -fplan9-extensions \
 	-I $(srcdir)/../libgcc -I $(srcdir)/../libbacktrace \
 	-I $(MULTIBUILDTOP)../../gcc/include
 
-@USING_SPLIT_STACK_TRUE@AM_LDFLAGS = -XCClinker $(SPLIT_STACK)
+AM_LDFLAGS = $(HWCAP_LDFLAGS) $(am__append_1)
 
 # Multilib support.
 MAKEOVERRIDES = 
@@ -767,6 +770,7 @@ toolexeclibgounicode_DATA = \
 @LIBGO_IS_DARWIN_TRUE@@LIBGO_IS_LINUX_FALSE@runtime_getncpu_file = runtime/getncpu-bsd.c
 @LIBGO_IS_LINUX_TRUE@runtime_getncpu_file = runtime/getncpu-linux.c
 runtime_files = \
+	runtime/aeshash.c \
 	runtime/go-assert.c \
 	runtime/go-breakpoint.c \
 	runtime/go-caller.c \
@@ -1116,7 +1120,7 @@ CHECK_DEPS = $(toolexeclibgo_DATA) $(toolexeclibgoarchive_DATA) \
 	$(toolexeclibgorpc_DATA) $(toolexeclibgoruntime_DATA) \
 	$(toolexeclibgosync_DATA) $(toolexeclibgotesting_DATA) \
 	$(toolexeclibgotext_DATA) $(toolexeclibgotexttemplate_DATA) \
-	$(toolexeclibgounicode_DATA) $(am__append_1) $(am__append_2)
+	$(toolexeclibgounicode_DATA) $(am__append_2) $(am__append_3)
 
 # Pass -ffp-contract=off, or 386-specific options, when building the
 # math package.  MATH_FLAG is defined in configure.ac.
@@ -1446,6 +1450,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aeshash.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env_posix.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getncpu-bsd.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getncpu-irix.Plo@am__quote@
@@ -1572,6 +1577,13 @@ libgolibbegin_a-go-libmain.obj: runtime/go-libmain.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='runtime/go-libmain.c' object='libgolibbegin_a-go-libmain.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libgolibbegin_a_CFLAGS) $(CFLAGS) -c -o libgolibbegin_a-go-libmain.obj `if test -f 'runtime/go-libmain.c'; then $(CYGPATH_W) 'runtime/go-libmain.c'; else $(CYGPATH_W) '$(srcdir)/runtime/go-libmain.c'; fi`
+
+aeshash.lo: runtime/aeshash.c
+@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT aeshash.lo -MD -MP -MF $(DEPDIR)/aeshash.Tpo -c -o aeshash.lo `test -f 'runtime/aeshash.c' || echo '$(srcdir)/'`runtime/aeshash.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/aeshash.Tpo $(DEPDIR)/aeshash.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='runtime/aeshash.c' object='aeshash.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o aeshash.lo `test -f 'runtime/aeshash.c' || echo '$(srcdir)/'`runtime/aeshash.c
 
 go-assert.lo: runtime/go-assert.c
 @am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT go-assert.lo -MD -MP -MF $(DEPDIR)/go-assert.Tpo -c -o go-assert.lo `test -f 'runtime/go-assert.c' || echo '$(srcdir)/'`runtime/go-assert.c
@@ -3164,7 +3176,7 @@ s-sigtab: $(srcdir)/mksigtab.sh gen-sysinfo.go
 runtime.inc: s-runtime-inc; @true
 s-runtime-inc: runtime.lo Makefile
 	rm -f runtime.inc.tmp2
-	grep -v "#define _" runtime.inc.tmp | grep -v "#define c[01] " > runtime.inc.tmp2
+	grep -v "#define _" runtime.inc.tmp | grep -v "#define [cm][01234] " > runtime.inc.tmp2
 	for pattern in '_[GP][a-z]' _Max _Lock _Sig _Trace _MHeap _Num; do \
 	  grep "#define $$pattern" runtime.inc.tmp >> runtime.inc.tmp2; \
 	done

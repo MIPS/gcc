@@ -82,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "selftest.h"
 #include "selftest-rtl.h"
+#include "print-rtl.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -2808,10 +2809,9 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
     {
     case ASHIFT:
     case LSHIFTRT:
-      /* Consider only non-variable shifts narrower
-	 than general register width.  */
-      if (!(CONST_INT_P (XEXP (src, 1))
-	    && IN_RANGE (INTVAL (XEXP (src, 1)), 0, 31)))
+      /* FIXME: consider also variable shifts.  */
+      if (!CONST_INT_P (XEXP (src, 1))
+	  || !IN_RANGE (INTVAL (XEXP (src, 1)), 0, 63))
 	return false;
       break;
 
@@ -3408,6 +3408,9 @@ dimode_scalar_chain::compute_convert_gain ()
 	  gain += ix86_cost->add;
     	  if (CONST_INT_P (XEXP (src, 0)))
 	    gain -= vector_const_cost (XEXP (src, 0));
+	  if (CONST_INT_P (XEXP (src, 1))
+	      && INTVAL (XEXP (src, 1)) >= 32)
+	    gain -= COSTS_N_INSNS (1);
 	}
       else if (GET_CODE (src) == PLUS
 	       || GET_CODE (src) == MINUS
@@ -3416,6 +3419,11 @@ dimode_scalar_chain::compute_convert_gain ()
 	       || GET_CODE (src) == AND)
 	{
 	  gain += ix86_cost->add;
+	  /* Additional gain for andnot for targets without BMI.  */
+	  if (GET_CODE (XEXP (src, 0)) == NOT
+	      && !TARGET_BMI)
+	    gain += 2 * ix86_cost->add;
+
 	  if (CONST_INT_P (XEXP (src, 0)))
 	    gain -= vector_const_cost (XEXP (src, 0));
 	  if (CONST_INT_P (XEXP (src, 1)))
@@ -3428,7 +3436,7 @@ dimode_scalar_chain::compute_convert_gain ()
 	{
 	  /* Assume comparison cost is the same.  */
 	}
-      else if (GET_CODE (src) == CONST_INT)
+      else if (CONST_INT_P (src))
 	{
 	  if (REG_P (dst))
 	    gain += COSTS_N_INSNS (2);
@@ -3552,7 +3560,7 @@ dimode_scalar_chain::make_vector_copies (unsigned regno)
 	  }
 	else
 	  {
-	    rtx tmp = assign_386_stack_local (DImode, SLOT_TEMP);
+	    rtx tmp = assign_386_stack_local (DImode, SLOT_STV_TEMP);
 	    emit_move_insn (adjust_address (tmp, SImode, 0),
 			    gen_rtx_SUBREG (SImode, reg, 0));
 	    emit_move_insn (adjust_address (tmp, SImode, 4),
@@ -3629,7 +3637,7 @@ dimode_scalar_chain::convert_reg (unsigned regno)
 	    }
 	  else
 	    {
-	      rtx tmp = assign_386_stack_local (DImode, SLOT_TEMP);
+	      rtx tmp = assign_386_stack_local (DImode, SLOT_STV_TEMP);
 	      emit_move_insn (tmp, reg);
 	      emit_move_insn (gen_rtx_SUBREG (SImode, scopy, 0),
 			      adjust_address (tmp, SImode, 0));
@@ -33565,6 +33573,7 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	  }
 
 	case IX86_BUILTIN_TZCNT16:
+	case IX86_BUILTIN_CTZS:
 	case IX86_BUILTIN_TZCNT32:
 	case IX86_BUILTIN_TZCNT64:
 	  gcc_assert (n_args == 1);
@@ -33572,7 +33581,8 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	    {
 	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
 	      tree arg = args[0];
-	      if (fn_code == IX86_BUILTIN_TZCNT16)
+	      if (fn_code == IX86_BUILTIN_TZCNT16
+		  || fn_code == IX86_BUILTIN_CTZS)
 		arg = fold_convert (short_unsigned_type_node, arg);
 	      if (integer_zerop (arg))
 		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));
@@ -33582,6 +33592,7 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	  break;
 
 	case IX86_BUILTIN_LZCNT16:
+	case IX86_BUILTIN_CLZS:
 	case IX86_BUILTIN_LZCNT32:
 	case IX86_BUILTIN_LZCNT64:
 	  gcc_assert (n_args == 1);
@@ -33589,7 +33600,8 @@ ix86_fold_builtin (tree fndecl, int n_args,
 	    {
 	      tree type = TREE_TYPE (TREE_TYPE (fndecl));
 	      tree arg = args[0];
-	      if (fn_code == IX86_BUILTIN_LZCNT16)
+	      if (fn_code == IX86_BUILTIN_LZCNT16
+		  || fn_code == IX86_BUILTIN_CLZS)
 		arg = fold_convert (short_unsigned_type_node, arg);
 	      if (integer_zerop (arg))
 		return build_int_cst (type, TYPE_PRECISION (TREE_TYPE (arg)));
@@ -34842,7 +34854,12 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V4DI_FTYPE_V8HI:
     case V4DI_FTYPE_V4SI:
     case V4DI_FTYPE_V2DI:
+    case UQI_FTYPE_UQI:
     case UHI_FTYPE_UHI:
+    case USI_FTYPE_USI:
+    case USI_FTYPE_UQI:
+    case USI_FTYPE_UHI:
+    case UDI_FTYPE_UDI:
     case UHI_FTYPE_V16QI:
     case USI_FTYPE_V32QI:
     case UDI_FTYPE_V64QI:
@@ -34976,6 +34993,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case UINT_FTYPE_UINT_UCHAR:
     case UINT16_FTYPE_UINT16_INT:
     case UINT8_FTYPE_UINT8_INT:
+    case UQI_FTYPE_UQI_UQI:
     case UHI_FTYPE_UHI_UHI:
     case USI_FTYPE_USI_USI:
     case UDI_FTYPE_UDI_UDI:
@@ -35023,6 +35041,10 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V4DI_FTYPE_V8DI_INT:
     case QI_FTYPE_V4SF_INT:
     case QI_FTYPE_V2DF_INT:
+    case UQI_FTYPE_UQI_INT:
+    case UHI_FTYPE_UHI_INT:
+    case USI_FTYPE_USI_INT:
+    case UDI_FTYPE_UDI_INT:
       nargs = 2;
       nargs_constant = 1;
       break;
@@ -51165,12 +51187,37 @@ ix86_test_dumping_hard_regs ()
   ASSERT_RTL_DUMP_EQ ("(reg:SI dx)", gen_raw_REG (SImode, 1));
 }
 
+/* Test dumping an insn with repeated references to the same SCRATCH,
+   to verify the rtx_reuse code.  */
+
+static void
+ix86_test_dumping_memory_blockage ()
+{
+  set_new_first_and_last_insn (NULL, NULL);
+
+  rtx pat = gen_memory_blockage ();
+  rtx_reuse_manager r;
+  r.preprocess (pat);
+
+  /* Verify that the repeated references to the SCRATCH show use
+     reuse IDS.  The first should be prefixed with a reuse ID,
+     and the second should be dumped as a "reuse_rtx" of that ID.
+     The expected string assumes Pmode == DImode.  */
+  if (Pmode == DImode)
+    ASSERT_RTL_DUMP_EQ_WITH_REUSE
+      ("(cinsn 1 (set (mem/v:BLK (0|scratch:DI) [0  A8])\n"
+       "        (unspec:BLK [\n"
+       "                (mem/v:BLK (reuse_rtx 0) [0  A8])\n"
+       "            ] UNSPEC_MEMORY_BLOCKAGE)))\n", pat, &r);
+}
+
 /* Run all target-specific selftests.  */
 
 static void
 ix86_run_selftests (void)
 {
   ix86_test_dumping_hard_regs ();
+  ix86_test_dumping_memory_blockage ();
 }
 
 } // namespace selftest

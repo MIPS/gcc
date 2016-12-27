@@ -141,6 +141,10 @@ static bool aarch64_vector_mode_supported_p (machine_mode);
 static bool aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
 						 const unsigned char *sel);
 static int aarch64_address_cost (rtx, machine_mode, addr_space_t, bool);
+static bool aarch64_builtin_support_vector_misalignment (machine_mode mode,
+							 const_tree type,
+							 int misalignment,
+							 bool is_packed);
 
 /* Major revision number of the ARM Architecture implemented by the target.  */
 unsigned aarch64_architecture_version;
@@ -1298,7 +1302,8 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	    emit_move_insn (gp_rtx, gen_rtx_HIGH (Pmode, s));
 
 	    if (mode != GET_MODE (gp_rtx))
-	      gp_rtx = simplify_gen_subreg (mode, gp_rtx, GET_MODE (gp_rtx), 0);
+             gp_rtx = gen_lowpart (mode, gp_rtx);
+
 	  }
 
 	if (mode == ptr_mode)
@@ -1374,10 +1379,14 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
     case SYMBOL_SMALL_TLSGD:
       {
 	rtx_insn *insns;
-	rtx result = gen_rtx_REG (Pmode, R0_REGNUM);
+	machine_mode mode = GET_MODE (dest);
+	rtx result = gen_rtx_REG (mode, R0_REGNUM);
 
 	start_sequence ();
-	aarch64_emit_call_insn (gen_tlsgd_small (result, imm));
+	if (TARGET_ILP32)
+	  aarch64_emit_call_insn (gen_tlsgd_small_si (result, imm));
+	else
+	  aarch64_emit_call_insn (gen_tlsgd_small_di (result, imm));
 	insns = get_insns ();
 	end_sequence ();
 
@@ -4264,8 +4273,11 @@ aarch64_classify_address (struct aarch64_address_info *info,
   enum rtx_code code = GET_CODE (x);
   rtx op0, op1;
 
-  /* On BE, we use load/store pair for all large int mode load/stores.  */
+  /* On BE, we use load/store pair for all large int mode load/stores.
+     TI/TFmode may also use a load/store pair.  */
   bool load_store_pair_p = (outer_code == PARALLEL
+			    || mode == TImode
+			    || mode == TFmode
 			    || (BYTES_BIG_ENDIAN
 				&& aarch64_vect_struct_mode_p (mode)));
 
@@ -4326,7 +4338,8 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	     instruction memory accesses.  */
 	  if (mode == TImode || mode == TFmode)
 	    return (aarch64_offset_7bit_signed_scaled_p (DImode, offset)
-		    && offset_9bit_signed_unscaled_p (mode, offset));
+		    && (offset_9bit_signed_unscaled_p (mode, offset)
+			|| offset_12bit_unsigned_scaled_p (mode, offset)));
 
 	  /* A 7bit offset check because OImode will emit a ldp/stp
 	     instruction (only big endian will get here).
@@ -4530,18 +4543,19 @@ aarch64_legitimate_address_p (machine_mode mode, rtx x,
 /* Split an out-of-range address displacement into a base and offset.
    Use 4KB range for 1- and 2-byte accesses and a 16KB range otherwise
    to increase opportunities for sharing the base address of different sizes.
-   For TI/TFmode and unaligned accesses use a 256-byte range.  */
+   For unaligned accesses and TI/TF mode use the signed 9-bit range.  */
 static bool
 aarch64_legitimize_address_displacement (rtx *disp, rtx *off, machine_mode mode)
 {
-  HOST_WIDE_INT mask = GET_MODE_SIZE (mode) < 4 ? 0xfff : 0x3fff;
+  HOST_WIDE_INT offset = INTVAL (*disp);
+  HOST_WIDE_INT base = offset & ~(GET_MODE_SIZE (mode) < 4 ? 0xfff : 0x3ffc);
 
-  if (mode == TImode || mode == TFmode ||
-      (INTVAL (*disp) & (GET_MODE_SIZE (mode) - 1)) != 0)
-    mask = 0xff;
+  if (mode == TImode || mode == TFmode
+      || (offset & (GET_MODE_SIZE (mode) - 1)) != 0)
+    base = (offset + 0x100) & ~0x1ff;
 
-  *off = GEN_INT (INTVAL (*disp) & ~mask);
-  *disp = GEN_INT (INTVAL (*disp) & mask);
+  *off = GEN_INT (base);
+  *disp = GEN_INT (offset - base);
   return true;
 }
 
@@ -5408,12 +5422,10 @@ aarch64_legitimize_address (rtx x, rtx /* orig_x  */, machine_mode mode)
 	  x = gen_rtx_PLUS (Pmode, base, offset_rtx);
 	}
 
-      /* Does it look like we'll need a load/store-pair operation?  */
+      /* Does it look like we'll need a 16-byte load/store-pair operation?  */
       HOST_WIDE_INT base_offset;
-      if (GET_MODE_SIZE (mode) > 16
-	  || mode == TImode)
-	base_offset = ((offset + 64 * GET_MODE_SIZE (mode))
-		       & ~((128 * GET_MODE_SIZE (mode)) - 1));
+      if (GET_MODE_SIZE (mode) > 16)
+	base_offset = (offset + 0x400) & ~0x7f0;
       /* For offsets aren't a multiple of the access size, the limit is
 	 -256...255.  */
       else if (offset & (GET_MODE_SIZE (mode) - 1))
@@ -5427,6 +5439,8 @@ aarch64_legitimize_address (rtx x, rtx /* orig_x  */, machine_mode mode)
       /* Small negative offsets are supported.  */
       else if (IN_RANGE (offset, -256, 0))
 	base_offset = 0;
+      else if (mode == TImode || mode == TFmode)
+	base_offset = (offset + 0x100) & ~0x1ff;
       /* Use 12-bit offset by access size.  */
       else
 	base_offset = offset & (~0xfff * GET_MODE_SIZE (mode));
@@ -11412,6 +11426,37 @@ aarch64_simd_vector_alignment_reachable (const_tree type, bool is_packed)
   return true;
 }
 
+/* Return true if the vector misalignment factor is supported by the
+   target.  */
+static bool
+aarch64_builtin_support_vector_misalignment (machine_mode mode,
+					     const_tree type, int misalignment,
+					     bool is_packed)
+{
+  if (TARGET_SIMD && STRICT_ALIGNMENT)
+    {
+      /* Return if movmisalign pattern is not supported for this mode.  */
+      if (optab_handler (movmisalign_optab, mode) == CODE_FOR_nothing)
+        return false;
+
+      if (misalignment == -1)
+	{
+	  /* Misalignment factor is unknown at compile time but we know
+	     it's word aligned.  */
+	  if (aarch64_simd_vector_alignment_reachable (type, is_packed))
+            {
+              int element_size = TREE_INT_CST_LOW (TYPE_SIZE (type));
+
+              if (element_size != 64)
+                return true;
+            }
+	  return false;
+	}
+    }
+  return default_builtin_support_vector_misalignment (mode, type, misalignment,
+						      is_packed);
+}
+
 /* If VALS is a vector constant that can be loaded into a register
    using DUP, generate instructions to do so and return an RTX to
    assign to the register.  Otherwise return NULL_RTX.  */
@@ -14823,6 +14868,10 @@ aarch64_libgcc_floating_mode_supported_p
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P aarch64_vector_mode_supported_p
+
+#undef TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
+#define TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT \
+  aarch64_builtin_support_vector_misalignment
 
 #undef TARGET_ARRAY_MODE_SUPPORTED_P
 #define TARGET_ARRAY_MODE_SUPPORTED_P aarch64_array_mode_supported_p

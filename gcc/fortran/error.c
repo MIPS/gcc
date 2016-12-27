@@ -1160,6 +1160,24 @@ gfc_warning_now (int opt, const char *gmsgid, ...)
   return ret;
 }
 
+/* Internal warning, do not buffer.  */
+
+bool
+gfc_warning_internal (int opt, const char *gmsgid, ...)
+{
+  va_list argp;
+  diagnostic_info diagnostic;
+  rich_location rich_loc (line_table, UNKNOWN_LOCATION);
+  bool ret;
+
+  va_start (argp, gmsgid);
+  diagnostic_set_info (&diagnostic, gmsgid, &argp, &rich_loc,
+		       DK_WARNING);
+  diagnostic.option_index = opt;
+  ret = report_diagnostic (&diagnostic);
+  va_end (argp);
+  return ret;
+}
 
 /* Immediate error (i.e. do not buffer).  */
 
@@ -1226,6 +1244,7 @@ gfc_warning_check (void)
       diagnostic_action_after_output (global_dc,
 				      warningcount_buffered
 				      ? DK_WARNING : DK_ERROR);
+      diagnostic_check_max_errors (global_dc, true);
     }
 }
 
@@ -1370,6 +1389,7 @@ gfc_error_check (void)
       gcc_assert (gfc_output_buffer_empty_p (pp_error_buffer));
       pp->buffer = tmp_buffer;
       diagnostic_action_after_output (global_dc, DK_ERROR);
+      diagnostic_check_max_errors (global_dc, true);
       return true;
     }
 
