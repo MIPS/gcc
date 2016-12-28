@@ -1,3 +1,34 @@
+2016-12-16  Richard Biener  <rguenther@suse.de>
+
+	PR c++/71694
+	* cp-objcp-common.h (cp_unit_size_without_reusable_padding): Declare.
+	(LANG_HOOKS_UNIT_SIZE_WITHOUT_REUSABLE_PADDING): Define.
+	* cp-objcp-common.c (cp_unit_size_without_reusable_padding): New.
+
+2016-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	P0490R0 GB 20: decomposition declaration should commit to tuple
+	interpretation early
+	* decl.c (get_tuple_size): Make static.  If inst is error_mark_node
+	or non-complete type, return NULL_TREE, otherwise if
+	lookup_qualified_name fails or doesn't fold into INTEGER_CST, return
+	error_mark_node.
+	(get_tuple_element_type, get_tuple_decomp_init): Make static.
+	(cp_finish_decomp): Pass LOC to get_tuple_size.  If it returns
+	error_mark_node, complain and fail.
+
+2016-12-15  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77585
+	* pt.c (instantiate_decl): Push to class scope lambda resides
+	within when instantiating a generic lambda function.
+
+2016-12-14  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/78774
+	* pt.c (convert_template_argument): Avoid assuming operand type
+	is non-null since that of SCOPE_REF is not.
+
 2016-12-14  Martin Jambor  <mjambor@suse.cz>
 
 	* parser.c: Include omp-general.h and omp-offload.h instead of

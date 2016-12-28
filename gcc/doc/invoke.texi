@@ -611,7 +611,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcrc -mdsp-packa -mdvbf -mlock -mmac-d16 -mmac-24 -mrtsc -mswape @gol
 -mtelephony -mxy -misize -mannotate-align -marclinux -marclinux_prof @gol
 -mlong-calls -mmedium-calls -msdata @gol
--mucb-mcount -mvolatile-cache -mtp-regno=@var{regno} @gol
+-mvolatile-cache -mtp-regno=@var{regno} @gol
 -malign-call -mauto-modify-reg -mbbit-peephole -mno-brcc @gol
 -mcase-vector-pcrel -mcompact-casesi -mno-cond-exec -mearly-cbranchsi @gol
 -mexpand-adddi -mindexed-loads -mlra -mlra-priority-none @gol
@@ -7262,8 +7262,8 @@ release to an another.
 @opindex fno-keep-inline-dllexport
 This is a more fine-grained version of @option{-fkeep-inline-functions},
 which applies only to functions that are declared using the @code{dllexport}
-attribute or declspec (@xref{Function Attributes,,Declaring Attributes of
-Functions}.)
+attribute or declspec.  @xref{Function Attributes,,Declaring Attributes of
+Functions}.
 
 @item -fkeep-inline-functions
 @opindex fkeep-inline-functions
@@ -14037,8 +14037,9 @@ Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
 @samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57},
 @samp{cortex-a72}, @samp{cortex-a73}, @samp{exynos-m1}, @samp{falkor},
-@samp{qdf24xx}, @samp{thunderx}, @samp{xgene1}, @samp{vulcan},
-@samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
+@samp{qdf24xx}, @samp{xgene1}, @samp{vulcan}, @samp{thunderx},
+@samp{thunderxt88}, @samp{thunderxt88p1}, @samp{thunderxt81},
+@samp{thunderxt83}, @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
 @samp{cortex-a73.cortex-a35}, @samp{cortex-a73.cortex-a53}, @samp{native}.
 
 The values @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
@@ -14737,12 +14738,6 @@ for @w{@code{arc-linux-uclibc}} and @w{@code{arceb-linux-uclibc}} targets.
 Do not generate sdata references.  This is the default for tool chains
 built for @w{@code{arc-linux-uclibc}} and @w{@code{arceb-linux-uclibc}}
 targets.
-
-@item -mucb-mcount
-@opindex mucb-mcount
-Instrument with mcount calls as used in UCB code.  I.e. do the
-counting in the callee, not the caller.  By default ARC instrumentation
-counts in the caller.
 
 @item -mvolatile-cache
 @opindex mvolatile-cache

@@ -23,6 +23,8 @@
 #define GCC_ARM_PROTOS_H
 
 #include "arm-flags.h"
+#include "arm-isa.h"
+#include "sbitmap.h"
 
 extern enum unwind_info_type arm_except_unwind_info (struct gcc_options *);
 extern int use_return_insn (int, rtx);
@@ -222,6 +224,9 @@ extern bool arm_change_mode_p (tree);
 
 extern tree arm_valid_target_attribute_tree (tree, struct gcc_options *,
 					     struct gcc_options *);
+extern void arm_configure_build_target (struct arm_build_target *,
+					struct cl_target_option *,
+					struct gcc_options *, bool);
 extern void arm_pr_long_calls (struct cpp_reader *);
 extern void arm_pr_no_long_calls (struct cpp_reader *);
 extern void arm_pr_long_calls_off (struct cpp_reader *);
@@ -352,13 +357,9 @@ extern void arm_cpu_cpp_builtins (struct cpp_reader *);
 
 extern bool arm_is_constant_pool_ref (rtx);
 
-/* The bits in this mask specify which
-   instructions we are allowed to generate.  */
-extern arm_feature_set insn_flags;
-
 /* The bits in this mask specify which instruction scheduling options should
    be used.  */
-extern arm_feature_set tune_flags;
+extern unsigned int tune_flags;
 
 /* Nonzero if this chip supports the ARM Architecture 3M extensions.  */
 extern int arm_arch3m;
@@ -389,6 +390,9 @@ extern int arm_arch6m;
 
 /* Nonzero if this chip supports the ARM 7 extensions.  */
 extern int arm_arch7;
+
+/* Nonzero if this chip supports the ARM 7ve extensions.  */
+extern int arm_arch7ve;
 
 /* Nonzero if instructions not present in the 'M' profile can be used.  */
 extern int arm_arch_notm;
@@ -448,6 +452,31 @@ extern int arm_arch_no_volatile_ce;
    than core registers.  */
 extern int prefer_neon_for_64bits;
 
+/* Structure defining the current overall architectural target and tuning.  */
+struct arm_build_target
+{
+  /* Name of the target CPU, if known, or NULL if the target CPU was not
+     specified by the user (and inferred from the -march option).  */
+  const char *core_name;
+  /* Name of the target ARCH.  NULL if there is a selected CPU.  */
+  const char *arch_name;
+  /* Preprocessor substring (never NULL).  */
+  const char *arch_pp_name;
+  /* CPU identifier for the core we're compiling for (architecturally).  */
+  enum processor_type arch_core;
+  /* The base architecture value.  */
+  enum base_architecture base_arch;
+  /* Bitmap encapsulating the isa_bits for the target environment.  */
+  sbitmap isa;
+  /* Flags used for tuning.  Long term, these move into tune_params.  */
+  unsigned int tune_flags;
+  /* Tables with more detailed tuning information.  */
+  const struct tune_params *tune;
+  /* CPU identifier for the tuning target.  */
+  enum processor_type tune_core;
+};
+
+extern struct arm_build_target arm_active_target;
 
 
 #endif /* ! GCC_ARM_PROTOS_H */

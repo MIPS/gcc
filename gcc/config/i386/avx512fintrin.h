@@ -9986,6 +9986,41 @@ _mm512_maskz_expandloadu_epi32 (__mmask16 __U, void const *__P)
 
 extern __inline __mmask16
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_kadd_mask16 (__mmask16 __A, __mmask16 __B)
+{
+  return (__mmask16) __builtin_ia32_kaddhi ((__mmask16) __A, (__mmask16) __B);
+}
+
+extern __inline unsigned int
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_cvtmask16_u32 (__mmask16 __A)
+{
+  return (unsigned int) __builtin_ia32_kmovw ((__mmask16 ) __A);
+}
+
+extern __inline __mmask16
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_cvtu32_mask16 (unsigned int __A)
+{
+  return (__mmask16) __builtin_ia32_kmovw ((__mmask16 ) __A);
+}
+
+extern __inline __mmask16
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_load_mask16 (__mmask16 *__A)
+{
+  return (__mmask16) __builtin_ia32_kmovw (*(__mmask16 *) __A);
+}
+
+extern __inline void
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_store_mask16 (__mmask16 *__A, __mmask16 __B)
+{
+  *(__mmask16 *) __A = __builtin_ia32_kmovw (__B);
+}
+
+extern __inline __mmask16
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_kand (__mmask16 __A, __mmask16 __B)
 {
   return (__mmask16) __builtin_ia32_kandhi ((__mmask16) __A, (__mmask16) __B);
@@ -12948,7 +12983,7 @@ extern __inline __mmask16
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
 _mm512_kmov (__mmask16 __A)
 {
-  return __builtin_ia32_kmov16 (__A);
+  return __builtin_ia32_kmovw (__A);
 }
 
 extern __inline __m512
