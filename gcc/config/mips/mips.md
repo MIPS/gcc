@@ -4376,12 +4376,11 @@
 	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
 		     (match_operand:QI 2 "memory_operand" "ZC")]
 		    UNSPEC_STORE_LEFT))]
-  "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
+  "!TARGET_MIPS16
    && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
   "<store>l\t%z1,%2"
   [(set_attr "move_type" "store")
-   (set_attr "mode" "<MODE>")
-   (set_attr "extended_mips16" "yes")])
+   (set_attr "mode" "<MODE>")])
 
 (define_insn "mov_<store>r"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
@@ -4389,9 +4388,33 @@
 		     (match_operand:QI 2 "memory_operand" "ZC")
 		     (match_dup 0)]
 		    UNSPEC_STORE_RIGHT))]
-  "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
+  "!TARGET_MIPS16
    && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
   "<store>r\t%z1,%2"
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "mov_<store>l_mips16e2"
+  [(set (match_operand:BLK 0 "memory_operand" "=m")
+	(unspec:BLK [(match_operand:GPR 1 "register_operand" "d")
+		     (match_operand:QI 2 "memory_operand" "ZC")]
+		    UNSPEC_STORE_LEFT))]
+  "TARGET_MIPS16 && ISA_HAS_MIPS16E2
+   && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
+  "<store>l\t%1,%2"
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "yes")])
+
+(define_insn "mov_<store>r_mips16e2"
+  [(set (match_operand:BLK 0 "memory_operand" "+m")
+	(unspec:BLK [(match_operand:GPR 1 "register_operand" "d")
+		     (match_operand:QI 2 "memory_operand" "ZC")
+		     (match_dup 0)]
+		    UNSPEC_STORE_RIGHT))]
+  "TARGET_MIPS16 && ISA_HAS_MIPS16E2
+   && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
+  "<store>r\t%1,%2"
   [(set_attr "move_type" "store")
    (set_attr "mode" "<MODE>")
    (set_attr "extended_mips16" "yes")])
