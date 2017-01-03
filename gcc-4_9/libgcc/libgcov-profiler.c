@@ -237,7 +237,9 @@ extern gcov_unsigned_t __gcov_lipo_sampling_period;
 
 #ifdef L_gcov_indirect_call_topn_profiler
 
+#ifdef __GTHREAD_MUTEX_INIT
 #include "gthr.h"
+#endif
 
 #ifdef __GTHREAD_MUTEX_INIT
 __thread int in_profiler;
@@ -296,8 +298,8 @@ __gcov_topn_value_profiler_body (gcov_type *counters, gcov_type value,
 
    if (found)
      {
-       in_profiler = 0;
 #ifdef __GTHREAD_MUTEX_INIT
+       in_profiler = 0;
        __gthread_mutex_unlock (&__indir_topn_val_mx);
 #endif
        return;
@@ -387,8 +389,9 @@ __gcov_indirect_call_topn_profiler (void *cur_func,
     {
       if (++__gcov_indirect_call_sampling_counter >= __gcov_lipo_sampling_period)
         {
+          gcov_type global_id;
           __gcov_indirect_call_sampling_counter = 0;
-          gcov_type global_id
+          global_id
               = ((struct gcov_info *) cur_module_gcov_info)->mod_info->ident;
           global_id = GEN_FUNC_GLOBAL_ID (global_id, cur_func_id);
           __gcov_topn_value_profiler_body (counter, global_id, GCOV_ICALL_TOPN_VAL);
@@ -424,8 +427,9 @@ __gcov_direct_call_profiler (void *cur_func,
     {
       if (++__gcov_direct_call_sampling_counter >= __gcov_lipo_sampling_period)
         {
+          gcov_type global_id;
           __gcov_direct_call_sampling_counter = 0;
-          gcov_type global_id
+          global_id
               = ((struct gcov_info *) cur_module_gcov_info)->mod_info->ident;
           global_id = GEN_FUNC_GLOBAL_ID (global_id, cur_func_id);
           __gcov_direct_call_counters[0] = global_id;

@@ -404,7 +404,7 @@ static int run_accounted = 0;
 /* This funtions computes the program level summary and the histo-gram.
    It computes and returns CRC32 and stored summary in THIS_PRG.  */
 
-#if !IN_GCOV_TOOL
+#if !defined(IN_GCOV_TOOL)
 static 
 #endif
 gcov_unsigned_t
