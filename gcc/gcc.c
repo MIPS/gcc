@@ -1,5 +1,5 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -7733,6 +7733,17 @@ driver::build_option_suggestions (void)
 	  {
 	    for (int j = 0; sanitizer_opts[j].name != NULL; ++j)
 	      {
+		struct cl_option optb;
+		/* -fsanitize=all is not valid, only -fno-sanitize=all.
+		   So don't register the positive misspelling candidates
+		   for it.  */
+		if (sanitizer_opts[j].flag == ~0U && i == OPT_fsanitize_)
+		  {
+		    optb = *option;
+		    optb.opt_text = opt_text = "-fno-sanitize=";
+		    optb.cl_reject_negative = true;
+		    option = &optb;
+		  }
 		/* Get one arg at a time e.g. "-fsanitize=address".  */
 		char *with_arg = concat (opt_text,
 					 sanitizer_opts[j].name,
@@ -7939,7 +7950,7 @@ driver::maybe_print_and_exit () const
     {
       printf (_("%s %s%s\n"), progname, pkgversion_string,
 	      version_string);
-      printf ("Copyright %s 2016 Free Software Foundation, Inc.\n",
+      printf ("Copyright %s 2017 Free Software Foundation, Inc.\n",
 	      _("(C)"));
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),

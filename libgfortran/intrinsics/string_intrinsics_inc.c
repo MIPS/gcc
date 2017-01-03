@@ -1,5 +1,5 @@
 /* String intrinsics helper functions.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran runtime library (libgfortran).
 
@@ -224,14 +224,15 @@ string_len_trim (gfc_charlen_type len, const CHARTYPE *s)
 	      break;
 	    }
 	}
-
-      /* Now continue for the last characters with naive approach below.  */
-      assert (i >= 0);
     }
 
   /* Simply look for the first non-blank character.  */
-  while (i >= 0 && s[i] == ' ')
-    --i;
+  while (s[i] == ' ')
+    {
+      if (i == 0)
+	return 0;
+      --i;
+    }
   return i + 1;
 }
 
@@ -327,12 +328,12 @@ string_scan (gfc_charlen_type slen, const CHARTYPE *str,
 
   if (back)
     {
-      for (i = slen - 1; i >= 0; i--)
+      for (i = slen; i != 0; i--)
 	{
 	  for (j = 0; j < setlen; j++)
 	    {
-	      if (str[i] == set[j])
-		return (i + 1);
+	      if (str[i - 1] == set[j])
+		return i;
 	    }
 	}
     }

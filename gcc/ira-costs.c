@@ -1,5 +1,5 @@
 /* IRA hard register and memory cost calculation for allocnos or pseudos.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1846,14 +1846,19 @@ find_costs_and_classes (FILE *dump_file)
 	       short in -O0 code and so register pressure tends to be low.
 
 	       Avoid that by ignoring the alternative class if the best
-	       class has plenty of registers.  */
-	    regno_aclass[i] = best;
+	       class has plenty of registers.
+
+	       The union class arrays give important classes and only
+	       part of it are allocno classes.  So translate them into
+	       allocno classes.  */
+	    regno_aclass[i] = ira_allocno_class_translate[best];
 	  else
 	    {
 	      /* Make the common class the biggest class of best and
-		 alt_class.  */
-	      regno_aclass[i]
-		= ira_reg_class_superunion[best][alt_class];
+		 alt_class.  Translate the common class into an
+		 allocno class too.  */
+	      regno_aclass[i] = (ira_allocno_class_translate
+				 [ira_reg_class_superunion[best][alt_class]]);
 	      ira_assert (regno_aclass[i] != NO_REGS
 			  && ira_reg_allocno_class_p[regno_aclass[i]]);
 	    }

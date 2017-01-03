@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -40,6 +40,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "config.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stddef.h>
 #include <float.h>
 #include <stdarg.h>
@@ -249,7 +250,7 @@ typedef GFC_INTEGER_4 GFC_IO_INT;
 typedef ptrdiff_t index_type;
 
 /* The type used for the lengths of character variables.  */
-typedef GFC_INTEGER_4 gfc_charlen_type;
+typedef size_t gfc_charlen_type;
 
 /* Definitions of CHARACTER data types:
      - CHARACTER(KIND=1) corresponds to the C char type,

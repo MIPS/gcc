@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -32,8 +32,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "format.h"
 #include "unix.h"
 #include <string.h>
-#include <assert.h>
-#include <stdlib.h>
 #include <errno.h>
 
 
@@ -95,17 +93,17 @@ export_proto(transfer_logical);
 extern void transfer_logical_write (st_parameter_dt *, void *, int);
 export_proto(transfer_logical_write);
 
-extern void transfer_character (st_parameter_dt *, void *, int);
+extern void transfer_character (st_parameter_dt *, void *, gfc_charlen_type);
 export_proto(transfer_character);
 
-extern void transfer_character_write (st_parameter_dt *, void *, int);
+extern void transfer_character_write (st_parameter_dt *, void *, gfc_charlen_type);
 export_proto(transfer_character_write);
 
-extern void transfer_character_wide (st_parameter_dt *, void *, int, int);
+extern void transfer_character_wide (st_parameter_dt *, void *, gfc_charlen_type, int);
 export_proto(transfer_character_wide);
 
 extern void transfer_character_wide_write (st_parameter_dt *,
-					   void *, int, int);
+					   void *, gfc_charlen_type, int);
 export_proto(transfer_character_wide_write);
 
 extern void transfer_complex (st_parameter_dt *, void *, int);
@@ -2274,7 +2272,7 @@ transfer_logical_write (st_parameter_dt *dtp, void *p, int kind)
 }
 
 void
-transfer_character (st_parameter_dt *dtp, void *p, int len)
+transfer_character (st_parameter_dt *dtp, void *p, gfc_charlen_type len)
 {
   static char *empty_string[0];
 
@@ -2292,13 +2290,13 @@ transfer_character (st_parameter_dt *dtp, void *p, int len)
 }
 
 void
-transfer_character_write (st_parameter_dt *dtp, void *p, int len)
+transfer_character_write (st_parameter_dt *dtp, void *p, gfc_charlen_type len)
 {
   transfer_character (dtp, p, len);
 }
 
 void
-transfer_character_wide (st_parameter_dt *dtp, void *p, int len, int kind)
+transfer_character_wide (st_parameter_dt *dtp, void *p, gfc_charlen_type len, int kind)
 {
   static char *empty_string[0];
 
@@ -2316,7 +2314,7 @@ transfer_character_wide (st_parameter_dt *dtp, void *p, int len, int kind)
 }
 
 void
-transfer_character_wide_write (st_parameter_dt *dtp, void *p, int len, int kind)
+transfer_character_wide_write (st_parameter_dt *dtp, void *p, gfc_charlen_type len, int kind)
 {
   transfer_character_wide (dtp, p, len, kind);
 }
@@ -2353,7 +2351,7 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
     return;
 
   iotype = (bt) GFC_DESCRIPTOR_TYPE (desc);
-  size = iotype == BT_CHARACTER ? charlen : GFC_DESCRIPTOR_SIZE (desc);
+  size = iotype == BT_CHARACTER ? (index_type) charlen : GFC_DESCRIPTOR_SIZE (desc);
 
   rank = GFC_DESCRIPTOR_RANK (desc);
   for (n = 0; n < rank; n++)

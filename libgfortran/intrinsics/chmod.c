@@ -1,5 +1,5 @@
 /* Implementation of the CHMOD intrinsic.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by François-Xavier Coudert <coudert@clipper.ens.fr>
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -27,8 +27,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #if defined(HAVE_SYS_STAT_H)
 
-#include <string.h>	/* For memcpy. */
-#include <stdlib.h>	/* For free.  */
 #include <sys/stat.h>	/* For stat, chmod and umask.  */
 
 
@@ -66,7 +64,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 static int
 chmod_internal (char *file, char *mode, gfc_charlen_type mode_len)
 {
-  int i;
   bool ugo[3];
   bool rwxXstugo[9];
   int set_mode, part;
@@ -106,7 +103,7 @@ chmod_internal (char *file, char *mode, gfc_charlen_type mode_len)
   honor_umask = false;
 #endif
 
-  for (i = 0; i < mode_len; i++)
+  for (gfc_charlen_type i = 0; i < mode_len; i++)
     {
       if (!continue_clause)
 	{

@@ -1,5 +1,5 @@
 /* Definitions for C++ parsing and type checking.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1140,6 +1140,8 @@ enum cp_tree_index
 
     CPTI_ALIGN_TYPE,
 
+    CPTI_ANY_TARG,
+
     CPTI_MAX
 };
 
@@ -1244,6 +1246,9 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
    emitted in this translation unit.  */
 
 #define keyed_classes			cp_global_trees[CPTI_KEYED_CLASSES]
+
+/* A node which matches any template argument.  */
+#define any_targ_node			cp_global_trees[CPTI_ANY_TARG]
 
 /* Node to indicate default access. This must be distinct from the
    access nodes in tree.h.  */

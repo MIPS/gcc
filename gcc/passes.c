@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2321,7 +2321,10 @@ execute_one_pass (opt_pass *pass)
       && (cfun->curr_properties & PROP_ssa))
     {
       size_t namelen = strlen (pass->name);
-      if (! strncmp (pass->name, cfun->pass_startwith, namelen))
+      /* We have to at least start when we leave SSA.  */
+      if (pass->properties_destroyed & PROP_ssa)
+	cfun->pass_startwith = NULL;
+      else if (! strncmp (pass->name, cfun->pass_startwith, namelen))
 	{
 	  /* The following supports starting with the Nth invocation
 	     of a pass (where N does not necessarily is equal to the
@@ -2338,6 +2341,9 @@ execute_one_pass (opt_pass *pass)
 	      return true;
 	    }
 	}
+      /* And also run any property provider.  */
+      else if (pass->properties_provided != 0)
+	;
       else
 	return true;
     }

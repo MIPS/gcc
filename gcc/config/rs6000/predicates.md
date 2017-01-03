@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2017 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -211,9 +211,9 @@
        (match_test "IN_RANGE (INTVAL (op), 0, 7)")))
 
 ;; Match op = 0..11
-(define_predicate "const_0_to_11_operand"
+(define_predicate "const_0_to_12_operand"
   (and (match_code "const_int")
-       (match_test "IN_RANGE (INTVAL (op), 0, 11)")))
+       (match_test "IN_RANGE (INTVAL (op), 0, 12)")))
 
 ;; Match op = 0..15
 (define_predicate "const_0_to_15_operand"

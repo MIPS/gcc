@@ -1,5 +1,5 @@
 /* OpenMP directive translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -38,6 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "omp-general.h"
 #include "omp-low.h"
+#undef GCC_DIAG_STYLE
+#define GCC_DIAG_STYLE __gcc_tdiag__
+#include "diagnostic-core.h"
+#undef GCC_DIAG_STYLE
+#define GCC_DIAG_STYLE __gcc_gfc__
 
 int ompws_flags;
 
@@ -1039,6 +1044,21 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
     return;
 
   tree decl = OMP_CLAUSE_DECL (c);
+
+  /* Assumed-size arrays can't be mapped implicitly, they have to be
+     mapped explicitly using array sections.  */
+  if (TREE_CODE (decl) == PARM_DECL
+      && GFC_ARRAY_TYPE_P (TREE_TYPE (decl))
+      && GFC_TYPE_ARRAY_AKIND (TREE_TYPE (decl)) == GFC_ARRAY_UNKNOWN
+      && GFC_TYPE_ARRAY_UBOUND (TREE_TYPE (decl),
+				GFC_TYPE_ARRAY_RANK (TREE_TYPE (decl)) - 1)
+	 == NULL)
+    {
+      error_at (OMP_CLAUSE_LOCATION (c),
+		"implicit mapping of assumed size array %qD", decl);
+      return;
+    }
+
   tree c2 = NULL_TREE, c3 = NULL_TREE, c4 = NULL_TREE;
   if (POINTER_TYPE_P (TREE_TYPE (decl)))
     {

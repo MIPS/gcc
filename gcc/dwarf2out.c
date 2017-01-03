@@ -1,5 +1,5 @@
 /* Output Dwarf2 format symbol table information from GCC.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -20930,6 +20930,11 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	  if (ENUM_IS_OPAQUE (type))
 	    add_AT_flag (type_die, DW_AT_declaration, 1);
 	}
+      if (!dwarf_strict)
+	add_AT_unsigned (type_die, DW_AT_encoding,
+			 TYPE_UNSIGNED (type)
+			 ? DW_ATE_unsigned
+			 : DW_ATE_signed);
     }
   else if (! TYPE_SIZE (type))
     return type_die;

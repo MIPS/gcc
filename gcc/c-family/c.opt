@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003-2016 Free Software Foundation, Inc.
+; Copyright (C) 2003-2017 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -1207,7 +1207,13 @@ narrowing is on, field bounds are used.  Otherwise full object bounds are used.
 fchkp-narrow-to-innermost-array
 C ObjC C++ ObjC++ LTO RejectNegative Report Var(flag_chkp_narrow_to_innermost_arrray)
 Forces Pointer Bounds Checker to use bounds of the innermost arrays in case of
-nested static arryas access.  By default outermost array is used.
+nested static arrays access.  By default outermost array is used.
+
+fchkp-flexible-struct-trailing-arrays
+C ObjC C++ ObjC++ LTO Report Var(flag_chkp_flexible_struct_trailing_arrays)
+Forces Pointer Bounds Checker to treat all trailing arrays in structures as
+possibly flexible.  By default only arrays fields with zero length or that are
+marked with attribute bnd_variable_size are treated as flexible.
 
 fchkp-optimize
 C ObjC C++ ObjC++ LTO Report Var(flag_chkp_optimize) Init(-1)
@@ -1443,6 +1449,10 @@ C++ ObjC++ Joined Ignore Warn(switch %qs is no longer supported)
 fnew-abi
 C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 
+fnew-ttp-matching
+C++ ObjC++ Var(flag_new_ttp)
+Implement resolution of DR 150 for matching of template template arguments.
+
 fnext-runtime
 ObjC ObjC++ LTO Report RejectNegative Var(flag_next_runtime)
 Generate code for NeXT (Apple Mac OS X) runtime environment.
@@ -1645,7 +1655,7 @@ Follow the C++17 evaluation order requirements for assignment expressions,
 shift, member function calls, etc.
 
 fstrong-eval-order=
-C++ ObjC++ Common Var(flag_strong_eval_order) Joined Enum(strong_eval_order) Init(-1)
+C++ ObjC++ Common Var(flag_strong_eval_order) Joined Enum(strong_eval_order) RejectNegative Init(-1)
 Follow the C++17 evaluation order requirements for assignment expressions,
 shift, member function calls, etc.
 

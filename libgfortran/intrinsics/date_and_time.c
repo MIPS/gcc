@@ -1,5 +1,5 @@
 /* Implementation of the DATE_AND_TIME intrinsic.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Steven Bosscher.
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -26,7 +26,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "libgfortran.h"
 #include <string.h>
 #include <assert.h>
-#include <stdlib.h>
 
 #include "time_1.h"
 

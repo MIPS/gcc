@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 Free Software Foundation, Inc.
+/* Copyright (C) 2016-2017 Free Software Foundation, Inc.
    Contributed by Martin Sebor <msebor@redhat.com>.
 
 This file is part of GCC.
@@ -131,7 +131,7 @@ public:
   void handle_gimple_call (gimple_stmt_iterator*);
 
   struct call_info;
-  bool compute_format_length (const call_info &, format_result *);
+  bool compute_format_length (call_info &, format_result *);
 };
 
 bool
@@ -710,7 +710,8 @@ struct pass_sprintf_length::call_info
 
   /* True for bounded functions like snprintf that specify a zero-size
      buffer as a request to compute the size of output without actually
-     writing any.  */
+     writing any.  NOWRITE is cleared in response to the %n directive
+     which has side-effects similar to writing output.  */
   bool nowrite;
 };
 
@@ -2357,7 +2358,7 @@ add_bytes (const pass_sprintf_length::call_info &info,
    that caused the processing to be terminated early).  */
 
 bool
-pass_sprintf_length::compute_format_length (const call_info &info,
+pass_sprintf_length::compute_format_length (call_info &info,
 					    format_result *res)
 {
   /* The variadic argument counter.  */
@@ -2624,6 +2625,9 @@ pass_sprintf_length::compute_format_length (const call_info &info,
 	  return false;
 
 	case 'n':
+	  /* %n has side-effects even when nothing is actually printed to
+	     any buffer.  */
+	  info.nowrite = false;
 	  break;
 
 	case 'c':
@@ -2696,9 +2700,15 @@ try_substitute_return_value (gimple_stmt_iterator *gsi,
      the output overflows the destination object (but leave it enabled
      when the function is bounded because then the behavior is well-
      defined).  */
-  if (lhs && res.bounded && res.under4k
+  if (lhs
+      && res.bounded
+      && res.under4k
       && (info.bounded || res.number_chars <= info.objsize)
-      && res.number_chars - 1 <= target_int_max ())
+      && res.number_chars - 1 <= target_int_max ()
+      /* Not prepared to handle possibly throwing calls here; they shouldn't
+	 appear in non-artificial testcases, except when the __*_chk routines
+	 are badly declared.  */
+      && !stmt_ends_bb_p (info.callstmt))
     {
       tree cst = build_int_cst (integer_type_node, res.number_chars - 1);
 
