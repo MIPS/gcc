@@ -8,5 +8,5 @@
 NOMIPS16 unsigned
 f (unsigned i)
 {
-  return i & 0x7fff;
+  return i & 0x7ff;
 }

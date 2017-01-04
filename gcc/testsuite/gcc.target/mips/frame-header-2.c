@@ -6,7 +6,7 @@
 /* { dg-do compile } */
 /* { dg-options "-mframe-header-opt -mabi=32 -mno-abicalls" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
-/* { dg-final { scan-assembler "\taddiu\t\\\$sp,\\\$sp,-8" } } */
+/* { dg-final { scan-assembler "\taddiu\t\\\$sp,\\\$sp,-8|\tsave\t8" } } */
 
 NOMIPS16 void __attribute__((noinline))
 bar (int* a)
