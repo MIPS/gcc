@@ -1,5 +1,7 @@
 /* { dg-options "-mbranch-cost=1 isa>=4" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "R7: needs revising" { *-*-* } { "-mips32r7 -mmicromips" } { "" } } */
+
 NOMIPS16 int
 foo (int x, int y, int z, int k)
 {
