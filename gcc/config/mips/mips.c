@@ -15088,6 +15088,7 @@ mips_can_use_return_insn (void)
 		 && mips_unsigned_immediate_p (size, 9, 3)))
 	 && BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM)
 	 && !cfun->machine->interrupt_handler_p
+	 && !frame_pointer_needed
 	 && mips_valid_save_restore_p (cfun->machine->frame.mask,
 				       mips_return == MIPS_RETURN_OPTIMAL
 				       ? true : false);
