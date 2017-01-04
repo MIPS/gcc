@@ -3102,7 +3102,10 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
       /* Make sure that the offset refers to something within the
 	 same object block.  This should guarantee that the final
 	 PC- or GP-relative offset is within the 16-bit limit.  */
-      return offset_within_block_p (x, INTVAL (offset));
+      return TARGET_MICROMIPS_R7
+	     ? (INTVAL (offset) % 4 == 0
+	       && offset_within_block_p (x, INTVAL (offset)))
+	     : offset_within_block_p (x, INTVAL (offset));
 
     case SYMBOL_GOT_PAGE_OFST:
     case SYMBOL_GOTOFF_PAGE:
