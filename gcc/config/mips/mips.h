@@ -219,7 +219,9 @@ struct mips_cpu_info {
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 /* Generate mips16e register save/restore sequences.  */
 #define GENERATE_MIPS16E_SAVE_RESTORE ((GENERATE_MIPS16E \
-					|| (TARGET_USE_SAVE_RESTORE && TARGET_SOFT_FLOAT)) \
+					|| (TARGET_USE_SAVE_RESTORE \
+					    && !TARGET_MICROMIPS \
+					    && TARGET_SOFT_FLOAT)) \
 				       && mips_abi == ABI_32)
 
 /* True if we're generating a form of MIPS16 code in which general
