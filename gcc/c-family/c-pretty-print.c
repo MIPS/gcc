@@ -2399,8 +2399,7 @@ pp_c_tree_decl_identifier (c_pretty_printer *pp, tree t)
     name = IDENTIFIER_POINTER (DECL_NAME (t));
   else
     {
-      /* xname[8] would do, but at -O1 we can't tell it's enough.  */
-      static char xname[12];
+      static char xname[8];
       sprintf (xname, "<U%4x>", ((unsigned)((uintptr_t)(t) & 0xffff)));
       name = xname;
     }
