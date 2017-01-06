@@ -2176,7 +2176,7 @@ fix = {
  */
 fix = {
     hackname = hpux_vsscanf;
-    mach    = "*-*-hpux*";
+    mach    = "*-hp-hpux*";
     files   = stdio.h;
     select  = '(extern int vsscanf\()char';
     c_fix   = format;
