@@ -610,8 +610,7 @@ simplify_transformation_to_array (gfc_expr *result, gfc_expr *array, gfc_expr *d
 	  n++;
 	  if (n < result->rank)
 	    {
-	      gcc_checking_assert (n < GFC_MAX_DIMENSIONS);
-	      count[n]++;
+	      count [n]++;
 	      base += sstride[n];
 	      dest += dstride[n];
 	    }
