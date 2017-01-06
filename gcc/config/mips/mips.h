@@ -448,6 +448,9 @@ struct mips_cpu_info {
       if (mips_base_compression_flags & MASK_MIPS16)			\
 	builtin_define ("__mips16");					\
 									\
+      if (TARGET_MIPS16E2)						\
+	builtin_define ("__mips_mips16e2");				\
+									\
       if (TARGET_MIPS3D)						\
 	builtin_define ("__mips3d");					\
 									\
