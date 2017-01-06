@@ -4813,13 +4813,33 @@ mips_small_data_pattern_1 (rtx *loc, void *data)
 
   /* Ignore things like "g" constraints in asms.  We make no particular
      guarantee about which symbolic constants are acceptable as asm operands
-     versus which must be forced into a GPR.  */
-  if (GET_CODE (*loc) == LO_SUM || GET_CODE (*loc) == ASM_OPERANDS)
+     versus which must be forced into a GPR.  However, for MIPS16e2 there
+     is no assembly support for direct load/store from a symbol so these
+     must be converted to a gp_rel.  */
+  if (GET_CODE (*loc) == LO_SUM
+      || (!(MIPS16_GP_LOADS && TARGET_MIPS16)
+	  && GET_CODE (*loc) == ASM_OPERANDS))
     return -1;
 
   if (MEM_P (*loc))
     {
       if (for_each_rtx (&XEXP (*loc, 0), mips_small_data_pattern_1, *loc))
+	return 1;
+      return -1;
+    }
+
+  if (GET_CODE (*loc) == ASM_OPERANDS)
+    {
+      int j;
+      bool found = false;
+      for (j = 0; j < ASM_OPERANDS_INPUT_LENGTH (*loc); j++)
+	{
+	  if (!strchr (ASM_OPERANDS_INPUT_CONSTRAINT (*loc, j), 'm'))
+	    continue;
+	  if (mips_small_data_pattern_1 (&ASM_OPERANDS_INPUT (*loc, j), NULL) == 1)
+	    found = true;
+	}
+      if (found)
 	return 1;
       return -1;
     }
@@ -4848,6 +4868,18 @@ mips_rewrite_small_data_1 (rtx *loc, void *data)
   if (MEM_P (*loc))
     {
       for_each_rtx (&XEXP (*loc, 0), mips_rewrite_small_data_1, *loc);
+      return -1;
+    }
+
+  if (GET_CODE (*loc) == ASM_OPERANDS)
+    {
+      int j;
+      for (j = 0; j < ASM_OPERANDS_INPUT_LENGTH (*loc); j++)
+	{
+	  if (!strchr (ASM_OPERANDS_INPUT_CONSTRAINT (*loc, j), 'm'))
+	    continue;
+	  mips_rewrite_small_data_1 (&ASM_OPERANDS_INPUT (*loc, j), NULL);
+	}
       return -1;
     }
 
