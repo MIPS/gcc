@@ -9607,7 +9607,7 @@ gen_mips16_copy_peep (rtx *operands, int n)
 	 This is disabled by default and only enabled for more aggressive
 	 optimization.  It will not be a win if all intermediates
 	 are needed.  */
-      if (!peep2_reg_dead_p (i, operands[i * 3]))
+      if (!peep2_reg_dead_p (n * 2, operands[i * 3]))
 	return false;
 
       /* We can only convert multiple loads/stores into COPYW if the offsets
