@@ -2400,7 +2400,8 @@ pp_c_tree_decl_identifier (c_pretty_printer *pp, tree t)
   else
     {
       static char xname[8];
-      sprintf (xname, "<U%4x>", ((unsigned)((uintptr_t)(t) & 0xffff)));
+      sprintf (xname, "<U%4hx>", ((unsigned short) ((uintptr_t) (t)
+						    & 0xffff)));
       name = xname;
     }
 
