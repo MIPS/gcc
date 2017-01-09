@@ -1,4 +1,4 @@
-/* { dg-options "-mips16 -mmips16e2" } */
+/* { dg-options "-mno-abicalls -mgpopt -G8 -mabi=32 -mips16 -mmips16e2" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 /* Test MOVN.  */

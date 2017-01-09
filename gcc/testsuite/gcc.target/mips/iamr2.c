@@ -1,4 +1,4 @@
-/* { dg-options "-march=interaptiv-mr2 -mips16 -mmips16e2 -mno-memcpy" } */
+/* { dg-options "-march=interaptiv-mr2 -mno-abicalls -mgpopt -G8 -mabi=32 -mips16 -mmips16e2 -mno-memcpy" } */
 
 /* Test UCOPYW.  */
 
