@@ -100,9 +100,9 @@ test08 (void)
 /* Test LBU[GP].  */
 
 /* { dg-final { scan-assembler "test09:.*\tlbu\t.*\\\$28.*test09\n" } } */
-char uc09;
+unsigned char uc09;
 
-char
+unsigned char
 test09 (void)
 {
   return uc09;
