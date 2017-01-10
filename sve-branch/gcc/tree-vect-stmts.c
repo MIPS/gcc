@@ -1938,6 +1938,17 @@ replace_mask_load (gimple *stmt, gimple_stmt_iterator *gsi)
 	}
       while (group_stmt);
     }
+  else if (GROUP_FIRST_ELEMENT (stmt_info))
+    {
+      /* Otherwise redirect the GROUP_NEXT_ELEMENT.  It would be more
+	 efficient if these pointers were to the stmt_vec_info rather
+	 than the gimple statements themselves, but this is by no means
+	 the only quadractic loop for groups.  */
+      gimple *group_stmt = GROUP_FIRST_ELEMENT (stmt_info);
+      while (GROUP_NEXT_ELEMENT (vinfo_for_stmt (group_stmt)) != stmt)
+	group_stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (group_stmt));
+      GROUP_NEXT_ELEMENT (vinfo_for_stmt (group_stmt)) = new_stmt;
+    }
   gsi_replace (gsi, new_stmt, true);
 }
 
