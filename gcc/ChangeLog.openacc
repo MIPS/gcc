@@ -1,3 +1,31 @@
+2017-01-10  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR other/76739
+	* gimplify.c (gimplify_scan_omp_clauses): For dynamic array map kinds,
+	make sure bias in each dimension are put into firstprivate variables.
+	* tree-pretty-print.c (dump_omp_clauses): Add cases for printing
+	GOMP_MAP_DYNAMIC_ARRAY map kinds.
+	* omp-low.c (struct omp_context):
+	Add 'hash_map<tree_operand_hash, tree> *dynamic_arrays' field, also
+	added include of "tree-hash-traits.h".
+	(append_field_to_record_type): New function.
+	(create_dynamic_array_descr_type): Likewise.
+	(create_dynamic_array_descr_init_code): Likewise.
+	(new_omp_context): Add initialize of dynamic_arrays field.
+	(delete_omp_context): Add delete of dynamic_arrays field.
+	(scan_sharing_clauses): For dynamic array map kinds, check for
+	supported dimension structure, and install dynamic array variable into
+	current omp_context.
+	(lower_omp_target): Add handling for dynamic array map kinds.
+	(dynamic_array_lookup): New function.
+	(dynamic_array_reference_start): Likewise.
+	(scan_for_op): Likewise.
+	(scan_for_reference): Likewise.
+	(da_create_bias): Likewise.
+	(da_dimension_peel): Likewise.
+	(lower_omp_1): Add case to look for start of dynamic array reference,
+	and handle bias adjustments for the code sequence.
+
 2016-11-10  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Update handling of ACC

@@ -1,0 +1,22 @@
+2017-01-10  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR other/76739
+	* gomp-constants.h (GOMP_MAP_FLAG_SPECIAL_3): Define.
+	(enum gomp_map_kind): Add GOMP_MAP_DYNAMIC_ARRAY,
+	GOMP_MAP_DYNAMIC_ARRAY_TO, GOMP_MAP_DYNAMIC_ARRAY_FROM,
+	GOMP_MAP_DYNAMIC_ARRAY_TOFROM, GOMP_MAP_DYNAMIC_ARRAY_FORCE_TO,
+	GOMP_MAP_DYNAMIC_ARRAY_FORCE_FROM, GOMP_MAP_DYNAMIC_ARRAY_FORCE_TOFROM,
+	GOMP_MAP_DYNAMIC_ARRAY_ALLOC, GOMP_MAP_DYNAMIC_ARRAY_FORCE_ALLOC,
+	GOMP_MAP_DYNAMIC_ARRAY_FORCE_PRESENT.
+	(GOMP_MAP_DYNAMIC_ARRAY_P): Define.
+
+Copyright (C) 2017 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.openacc"
+End:

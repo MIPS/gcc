@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "gimple-pretty-print.h"
 #include "hsa-common.h"
+#include "tree-hash-traits.h"
 
 /* Lowering of OMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
@@ -126,6 +127,9 @@ struct omp_context
 
   /* True if this construct can be cancelled.  */
   bool cancellable;
+
+  /* Hash map of dynamic arrays in this context.  */
+  hash_map<tree_operand_hash, tree> *dynamic_arrays;
 };
 
 static splay_tree all_contexts;
@@ -843,6 +847,136 @@ omp_copy_decl (tree var, copy_body_data *cb)
   return error_mark_node;
 }
 
+/* Helper function for create_dynamic_array_descr_type(), to append a new field
+   to a record type.  */
+
+static void
+append_field_to_record_type (tree record_type, tree fld_ident, tree fld_type)
+{
+  tree *p, fld = build_decl (UNKNOWN_LOCATION, FIELD_DECL, fld_ident, fld_type);
+  DECL_CONTEXT (fld) = record_type;
+
+  for (p = &TYPE_FIELDS (record_type); *p; p = &DECL_CHAIN (*p))
+    ;
+  *p = fld;
+}
+
+/* Create type for dynamic array descriptor. Returns created type, and
+   returns the number of dimensions in *DIM_NUM.  */
+
+static tree
+create_dynamic_array_descr_type (tree decl, tree dims, int *dim_num)
+{
+  int n = 0;
+  tree da_descr_type, name, x;
+  gcc_assert (TREE_CODE (dims) == TREE_LIST);
+
+  da_descr_type = lang_hooks.types.make_type (RECORD_TYPE);
+  name = create_tmp_var_name (".omp_dynamic_array_descr_type");
+  name = build_decl (UNKNOWN_LOCATION, TYPE_DECL, name, da_descr_type);
+  DECL_ARTIFICIAL (name) = 1;
+  DECL_NAMELESS (name) = 1;
+  TYPE_NAME (da_descr_type) = name;
+  TYPE_ARTIFICIAL (da_descr_type) = 1;
+
+  /* Main starting pointer/array.  */
+  tree main_var_type = TREE_TYPE (decl);
+  if (TREE_CODE (main_var_type) == REFERENCE_TYPE)
+    main_var_type = TREE_TYPE (main_var_type);
+  append_field_to_record_type (da_descr_type, DECL_NAME (decl),
+			       (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE
+				? main_var_type
+				: build_pointer_type (main_var_type)));
+  /* Number of dimensions.  */
+  append_field_to_record_type (da_descr_type, get_identifier ("$dim_num"),
+			       sizetype);
+
+  for (x = dims; x; x = TREE_CHAIN (x), n++)
+    {
+      char *fldname;
+      /* One for the start index.  */
+      ASM_FORMAT_PRIVATE_NAME (fldname, "$dim_base", n);
+      append_field_to_record_type (da_descr_type, get_identifier (fldname),
+				   sizetype);
+      /* One for the length.  */
+      ASM_FORMAT_PRIVATE_NAME (fldname, "$dim_length", n);
+      append_field_to_record_type (da_descr_type, get_identifier (fldname),
+				   sizetype);
+      /* One for the element size.  */
+      ASM_FORMAT_PRIVATE_NAME (fldname, "$dim_elem_size", n);
+      append_field_to_record_type (da_descr_type, get_identifier (fldname),
+				   sizetype);
+      /* One for is_array flag.  */
+      ASM_FORMAT_PRIVATE_NAME (fldname, "$dim_is_array", n);
+      append_field_to_record_type (da_descr_type, get_identifier (fldname),
+				   sizetype);
+    }
+
+  layout_type (da_descr_type);
+  *dim_num = n;
+  return da_descr_type;
+}
+
+/* Generate code sequence for initializing dynamic array descriptor.  */
+
+static void
+create_dynamic_array_descr_init_code (tree da_descr, tree da_var,
+				      tree dimensions, int da_dim_num,
+				      gimple_seq *ilist)
+{
+  tree fld, fldref;
+  tree da_descr_type = TREE_TYPE (da_descr);
+  tree dim_type = TREE_TYPE (da_var);
+
+  fld = TYPE_FIELDS (da_descr_type);
+  fldref = omp_build_component_ref (da_descr, fld);
+  gimplify_assign (fldref, (TREE_CODE (dim_type) == ARRAY_TYPE
+			    ? build_fold_addr_expr (da_var) : da_var), ilist);
+
+  if (TREE_CODE (dim_type) == REFERENCE_TYPE)
+    dim_type = TREE_TYPE (dim_type);
+
+  fld = TREE_CHAIN (fld);
+  fldref = omp_build_component_ref (da_descr, fld);
+  gimplify_assign (fldref, build_int_cst (sizetype, da_dim_num), ilist);
+
+  while (dimensions)
+    {
+      tree dim_base = fold_convert (sizetype, TREE_PURPOSE (dimensions));
+      tree dim_length = fold_convert (sizetype, TREE_VALUE (dimensions));
+      tree dim_elem_size = TYPE_SIZE_UNIT (TREE_TYPE (dim_type));
+      tree dim_is_array = (TREE_CODE (dim_type) == ARRAY_TYPE
+			   ? integer_one_node : integer_zero_node);
+      /* Set base.  */
+      fld = TREE_CHAIN (fld);
+      fldref = omp_build_component_ref (da_descr, fld);
+      dim_base = fold_build2 (MULT_EXPR, sizetype, dim_base, dim_elem_size);
+      gimplify_assign (fldref, dim_base, ilist);
+
+      /* Set length.  */
+      fld = TREE_CHAIN (fld);
+      fldref = omp_build_component_ref (da_descr, fld);
+      dim_length = fold_build2 (MULT_EXPR, sizetype, dim_length, dim_elem_size);
+      gimplify_assign (fldref, dim_length, ilist);
+
+      /* Set elem_size.  */
+      fld = TREE_CHAIN (fld);
+      fldref = omp_build_component_ref (da_descr, fld);
+      dim_elem_size = fold_convert (sizetype, dim_elem_size);
+      gimplify_assign (fldref, dim_elem_size, ilist);
+
+      /* Set is_array flag.  */
+      fld = TREE_CHAIN (fld);
+      fldref = omp_build_component_ref (da_descr, fld);
+      dim_is_array = fold_convert (sizetype, dim_is_array);
+      gimplify_assign (fldref, dim_is_array, ilist);
+
+      dimensions = TREE_CHAIN (dimensions);
+      dim_type = TREE_TYPE (dim_type);
+    }
+  gcc_assert (TREE_CHAIN (fld) == NULL_TREE);
+}
+
 /* Create a new context, with OUTER_CTX being the surrounding context.  */
 
 static omp_context *
@@ -876,6 +1010,8 @@ new_omp_context (gimple *stmt, omp_context *outer_ctx)
     }
 
   ctx->cb.decl_map = new hash_map<tree, tree>;
+
+  ctx->dynamic_arrays = new hash_map<tree_operand_hash, tree>;
 
   return ctx;
 }
@@ -950,6 +1086,8 @@ delete_omp_context (splay_tree_value value)
 
   if (is_task_ctx (ctx))
     finalize_task_copyfn (as_a <gomp_task *> (ctx->stmt));
+
+  delete ctx->dynamic_arrays;
 
   XDELETE (ctx);
 }
@@ -1261,6 +1399,42 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	      install_var_local (decl, ctx);
 	      break;
 	    }
+
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+	      && GOMP_MAP_DYNAMIC_ARRAY_P (OMP_CLAUSE_MAP_KIND (c)))
+	    {
+	      tree da_decl = OMP_CLAUSE_DECL (c);
+	      tree da_dimensions = OMP_CLAUSE_SIZE (c);
+	      tree da_type = TREE_TYPE (da_decl);
+	      bool by_ref = (TREE_CODE (da_type) == ARRAY_TYPE
+			     ? true : false);
+
+	      /* Checking code to ensure we only have arrays at top dimension.
+		 This limitation might be lifted in the future.  */
+	      if (TREE_CODE (da_type) == REFERENCE_TYPE)
+		da_type = TREE_TYPE (da_type);
+	      tree t = da_type, prev_t = NULL_TREE;
+	      while (t)
+		{
+		  if (TREE_CODE (t) == ARRAY_TYPE && prev_t)
+		    {
+		      error_at (gimple_location (ctx->stmt), "array types are"
+				" only allowed at outermost dimension of"
+				" dynamic array");
+		      break;
+		    }
+		  prev_t = t;
+		  t = TREE_TYPE (t);
+		}
+
+	      install_var_field (da_decl, by_ref, 3, ctx);
+	      tree new_var = install_var_local (da_decl, ctx);
+
+	      bool existed = ctx->dynamic_arrays->put (new_var, da_dimensions);
+	      gcc_assert (!existed);
+	      break;
+	    }
+
 	  if (DECL_P (decl))
 	    {
 	      if (DECL_SIZE (decl)
@@ -7644,6 +7818,15 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case GOMP_MAP_FORCE_PRESENT:
 	  case GOMP_MAP_FORCE_DEVICEPTR:
 	  case GOMP_MAP_DEVICE_RESIDENT:
+	  case GOMP_MAP_DYNAMIC_ARRAY_TO:
+	  case GOMP_MAP_DYNAMIC_ARRAY_FROM:
+	  case GOMP_MAP_DYNAMIC_ARRAY_TOFROM:
+	  case GOMP_MAP_DYNAMIC_ARRAY_FORCE_TO:
+	  case GOMP_MAP_DYNAMIC_ARRAY_FORCE_FROM:
+	  case GOMP_MAP_DYNAMIC_ARRAY_FORCE_TOFROM:
+	  case GOMP_MAP_DYNAMIC_ARRAY_ALLOC:
+	  case GOMP_MAP_DYNAMIC_ARRAY_FORCE_ALLOC:
+	  case GOMP_MAP_DYNAMIC_ARRAY_FORCE_PRESENT:
 	  case GOMP_MAP_LINK:
 	    gcc_assert (is_gimple_omp_oacc (stmt));
 	    break;
@@ -7706,7 +7889,14 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	if (offloaded && !(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 			   && OMP_CLAUSE_MAP_IN_REDUCTION (c)))
 	  {
-	    x = build_receiver_ref (var, true, ctx);
+	    tree var_type = TREE_TYPE (var);
+	    bool rcv_by_ref =
+	      (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+	       && GOMP_MAP_DYNAMIC_ARRAY_P (OMP_CLAUSE_MAP_KIND (c))
+	       && TREE_CODE (var_type) != ARRAY_TYPE
+	       ? false : true);
+
+	    x = build_receiver_ref (var, rcv_by_ref, ctx);
 	    tree new_var = lookup_decl (var, ctx);
 
 	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
@@ -7950,6 +8140,25 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
 		  }
+		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+			 && (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_DYNAMIC_ARRAY))
+		  {
+		    int da_dim_num;
+		    tree dimensions = OMP_CLAUSE_SIZE (c);
+
+		    tree da_descr_type =
+		      create_dynamic_array_descr_type (OMP_CLAUSE_DECL (c),
+						       dimensions, &da_dim_num);
+		    tree da_descr =
+		      create_tmp_var_raw (da_descr_type, ".$omp_da_descr");
+		    gimple_add_tmp_var (da_descr);
+
+		    create_dynamic_array_descr_init_code
+		      (da_descr, ovar, dimensions, da_dim_num, &ilist);
+
+		    gimplify_assign (x, build_fold_addr_expr (da_descr),
+				     &ilist);
+		  }
 		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
 		  {
 		    gcc_assert (is_gimple_omp_oacc (ctx->stmt));
@@ -8010,6 +8219,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  s = TREE_TYPE (s);
 		s = TYPE_SIZE_UNIT (s);
 	      }
+	    else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		     && (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_DYNAMIC_ARRAY))
+	      s = NULL_TREE;
 	    else
 	      s = OMP_CLAUSE_SIZE (c);
 	    if (s == NULL_TREE)
@@ -8691,6 +8903,201 @@ lower_omp_grid_body (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		       gimple_build_omp_return (false));
 }
 
+/* Helper to lookup dynamic array through nested omp contexts. Returns
+   TREE_LIST of dimensions, and the CTX where it was found in *CTX_P.  */
+
+static tree
+dynamic_array_lookup (tree t, omp_context **ctx_p)
+{
+  omp_context *c = *ctx_p;
+  while (c)
+    {
+      tree *dims = c->dynamic_arrays->get (t);
+      if (dims)
+	{
+	  *ctx_p = c;
+	  return *dims;
+	}
+      c = c->outer;
+    }
+  return NULL_TREE;
+}
+
+/* Tests if this gimple STMT is the start of a dynamic array access sequence.
+   Returns true if found, and also returns the gimple operand ptr and
+   dimensions tree list through *OUT_REF and *OUT_DIMS respectively.  */
+
+static bool
+dynamic_array_reference_start (gimple *stmt, omp_context **ctx_p,
+			       tree **out_ref, tree *out_dims)
+{
+  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+    for (unsigned i = 1; i < gimple_num_ops (stmt); i++)
+      {
+	tree *op = gimple_op_ptr (stmt, i), dims;
+	if (TREE_CODE (*op) == ARRAY_REF)
+	  op = &TREE_OPERAND (*op, 0);
+	if (TREE_CODE (*op) == MEM_REF)
+	  op = &TREE_OPERAND (*op, 0);
+	if ((dims = dynamic_array_lookup (*op, ctx_p)) != NULL_TREE)
+	  {
+	    *out_ref = op;
+	    *out_dims = dims;
+	    return true;
+	  }
+      }
+  return false;
+}
+
+static tree
+scan_for_op (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  tree t = *tp;
+  tree op = (tree) wi->info;
+  *walk_subtrees = 1;
+  if (operand_equal_p (t, op, 0))
+    {
+      wi->info = tp;
+      return t;
+    }
+  return NULL_TREE;
+}
+
+static tree *
+scan_for_reference (gimple *stmt, tree op)
+{
+  struct walk_stmt_info wi;
+  memset (&wi, 0, sizeof (wi));
+  wi.info = op;
+  if (walk_gimple_op (stmt, scan_for_op, &wi))
+    return (tree *) wi.info;
+  return NULL;
+}
+
+static tree
+da_create_bias (tree orig_bias, tree unit_type)
+{
+  return build2 (MULT_EXPR, sizetype, fold_convert (sizetype, orig_bias),
+		 TYPE_SIZE_UNIT (unit_type));
+}
+
+/* Main worker for adjusting dynamic array accesses, handles the adjustment
+   of many cases of statement forms, and called multiple times to 'peel' away
+   each dimension.  */
+
+static gimple_stmt_iterator
+da_dimension_peel (omp_context *da_ctx,
+		   gimple_stmt_iterator da_gsi, tree orig_da,
+		   tree *da_op_p, tree *da_type_p, tree *da_dims_p)
+{
+  gimple *stmt = gsi_stmt (da_gsi);
+  tree lhs = gimple_assign_lhs (stmt);
+  tree rhs = gimple_assign_rhs1 (stmt);
+
+  if (gimple_num_ops (stmt) == 2
+      && TREE_CODE (rhs) == MEM_REF
+      && operand_equal_p (*da_op_p, TREE_OPERAND (rhs, 0), 0)
+      && !operand_equal_p (orig_da, TREE_OPERAND (rhs, 0), 0)
+      && (TREE_OPERAND (rhs, 1) == NULL_TREE
+	  || integer_zerop (TREE_OPERAND (rhs, 1))))
+    {
+      gcc_assert (TREE_CODE (TREE_TYPE (*da_type_p)) == POINTER_TYPE);
+      *da_type_p = TREE_TYPE (*da_type_p);
+    }
+  else 
+    {
+      gimple *g;
+      gimple_seq ilist = NULL;
+      tree bias, t;
+      tree op = *da_op_p;
+      tree orig_type = *da_type_p;
+      tree orig_bias = TREE_PURPOSE (*da_dims_p);
+      bool by_ref = false;
+
+      if (TREE_CODE (orig_bias) != INTEGER_CST)
+	orig_bias = lookup_decl (orig_bias, da_ctx);
+
+      if (gimple_num_ops (stmt) == 2)
+	{
+	  if (TREE_CODE (rhs) == ADDR_EXPR)
+	    {
+	      rhs = TREE_OPERAND (rhs, 0);
+	      *da_dims_p = NULL_TREE;
+	    }
+
+	  if (TREE_CODE (rhs) == ARRAY_REF
+	      && TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF
+	      && operand_equal_p (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0),
+				  *da_op_p, 0))
+	    {
+	      bias = da_create_bias (orig_bias,
+				     TREE_TYPE (TREE_TYPE (orig_type)));
+	      *da_type_p = TREE_TYPE (TREE_TYPE (orig_type));
+	    }
+	  else if (TREE_CODE (rhs) == ARRAY_REF
+		   && TREE_CODE (TREE_OPERAND (rhs, 0)) == VAR_DECL
+		   && operand_equal_p (TREE_OPERAND (rhs, 0), *da_op_p, 0))
+	    {
+	      tree ptr_type = build_pointer_type (orig_type);
+	      op = create_tmp_var (ptr_type);
+	      gimplify_assign (op, build_fold_addr_expr (TREE_OPERAND (rhs, 0)),
+			       &ilist);
+	      bias = da_create_bias (orig_bias, TREE_TYPE (orig_type));
+	      *da_type_p = TREE_TYPE (orig_type);
+	      orig_type = ptr_type;
+	      by_ref = true;
+	    }
+	  else if (TREE_CODE (rhs) == MEM_REF
+		   && operand_equal_p (*da_op_p, TREE_OPERAND (rhs, 0), 0)
+		   && TREE_OPERAND (rhs, 1) != NULL_TREE)
+	    {
+	      bias = da_create_bias (orig_bias, TREE_TYPE (orig_type));
+	      *da_type_p = TREE_TYPE (orig_type);
+	    }
+	  else if (TREE_CODE (lhs) == MEM_REF
+		   && operand_equal_p (*da_op_p, TREE_OPERAND (lhs, 0), 0))
+	    {
+	      if (*da_dims_p != NULL_TREE)
+		{
+		  gcc_assert (TREE_CHAIN (*da_dims_p) == NULL_TREE);
+		  bias = da_create_bias (orig_bias, TREE_TYPE (orig_type));
+		  *da_type_p = TREE_TYPE (orig_type);
+		}
+	      else
+		/* This should be the end of the dynamic array access
+		   sequence.  */
+		return da_gsi;
+	    }
+	  else
+	    gcc_unreachable ();
+	}
+      else if (gimple_num_ops (stmt) == 3
+	       && gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
+	       && operand_equal_p (*da_op_p, rhs, 0))
+	{
+	  bias = da_create_bias (orig_bias, TREE_TYPE (orig_type));
+	}
+      else
+	gcc_unreachable ();
+
+      bias = fold_build1 (NEGATE_EXPR, sizetype, bias);
+      bias = fold_build2 (POINTER_PLUS_EXPR, orig_type, op, bias);
+
+      t = create_tmp_var (by_ref ? build_pointer_type (orig_type) : orig_type);
+
+      g = gimplify_assign (t, bias, &ilist);
+      gsi_insert_seq_before (&da_gsi, ilist, GSI_NEW_STMT);
+      *da_op_p = gimple_assign_lhs (g);
+
+      if (by_ref)
+	*da_op_p = build2 (MEM_REF, TREE_TYPE (orig_type), *da_op_p,
+			   build_int_cst (orig_type, 0));
+      *da_dims_p = TREE_CHAIN (*da_dims_p);
+    }
+
+  return da_gsi;
+}
 
 /* Callback for lower_omp_1.  Return non-NULL if *tp needs to be
    regimplified.  If DATA is non-NULL, lower_omp_1 is outside
@@ -8965,6 +9372,51 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  }
       /* FALLTHRU */
     default:
+
+      /* If we detect the start of a dynamic array reference sequence, scan
+	 and do the needed adjustments.  */
+      tree da_dims, *da_op_p;
+      omp_context *da_ctx = ctx;
+      if (da_ctx && dynamic_array_reference_start (stmt, &da_ctx,
+						   &da_op_p, &da_dims))
+	{
+	  bool started = false;
+	  tree orig_da = *da_op_p;
+	  tree da_type = TREE_TYPE (orig_da);
+	  tree next_da_op;
+
+	  gimple_stmt_iterator da_gsi = *gsi_p, new_gsi;
+	  while (da_op_p)
+	    {
+	      if (!is_gimple_assign (gsi_stmt (da_gsi))
+		  || ((gimple_assign_single_p (gsi_stmt (da_gsi))
+		       || gimple_assign_cast_p (gsi_stmt (da_gsi)))
+		      && *da_op_p == gimple_assign_rhs1 (gsi_stmt (da_gsi))))
+		break;
+
+	      new_gsi = da_dimension_peel (da_ctx, da_gsi, orig_da,
+					   da_op_p, &da_type, &da_dims);
+	      if (!started)
+		{
+		  /* Point 'stmt' to the start of the newly added
+		     sequence.  */
+		  started = true;
+		  *gsi_p = new_gsi;
+		  stmt = gsi_stmt (*gsi_p);
+		}
+	      if (!da_dims)
+		break;
+
+	      next_da_op = gimple_assign_lhs (gsi_stmt (da_gsi));
+
+	      do {
+		gsi_next (&da_gsi);
+		da_op_p = scan_for_reference (gsi_stmt (da_gsi), next_da_op);
+	      }
+	      while (!da_op_p);
+	    }
+	}
+
       if ((ctx || task_shared_vars)
 	  && walk_gimple_op (stmt, lower_omp_regimplify_p,
 			     ctx ? NULL : &wi))
