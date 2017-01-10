@@ -1,3 +1,11 @@
+2017-01-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport from gcc-6-branch r244264:
+	2017-01-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR tree-optimization/78024
+	* omp-low.c (oacc_loop_discovery): Call clear_bb_flags.
+
 2017-01-10  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): For dynamic array map kinds,
