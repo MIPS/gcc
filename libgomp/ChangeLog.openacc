@@ -1,3 +1,21 @@
+2017-01-10  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR other/76739
+	* target.c (struct da_dim): New struct declaration.
+	(struct da_descr_type): Likewise.
+	(struct da_info): Likewise.
+	(gomp_dynamic_array_count_rows): New function.
+	(gomp_dynamic_array_compute_info): Likewise.
+	(gomp_dynamic_array_fill_rows_1): Likewise.
+	(gomp_dynamic_array_fill_rows): Likewise.
+	(gomp_dynamic_array_create_ptrblock): Likewise.
+	(gomp_map_vars): Add code to handle dynamic array map kinds.
+	* testsuite/libgomp.oacc-c-c++-common/da-1.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/da-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/da-3.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/da-4.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/da-utils.h: New test.
+
 2016-11-18  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* plugin/plugin-nvptx.c (struct cuda_map): New.
