@@ -1,5 +1,7 @@
 2017-01-10  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Clean up.
+
 	Backport from gcc-6-branch r244264:
 	2017-01-10  Thomas Schwinge  <thomas@codesourcery.com>
 

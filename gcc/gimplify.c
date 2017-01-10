@@ -8064,15 +8064,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 	  OMP_CLAUSE_CHAIN (clause) = nc;
 	}
       else
-	{
-	  if (gimplify_omp_ctxp->outer_context)
-	    {
-	      struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp->outer_context;
-	      splay_tree_node on
-		    = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
-	    }
-	  OMP_CLAUSE_SIZE (clause) = DECL_SIZE_UNIT (decl);
-	}
+	OMP_CLAUSE_SIZE (clause) = DECL_SIZE_UNIT (decl);
     }
   if (code == OMP_CLAUSE_FIRSTPRIVATE && (flags & GOVD_LASTPRIVATE) != 0)
     {
