@@ -5115,6 +5115,11 @@ resolve_variable (gfc_expr *e)
 
   if (sym->ts.type != BT_UNKNOWN)
     gfc_variable_attr (e, &e->ts);
+  else if (sym->attr.flavor == FL_PROCEDURE
+	   && sym->attr.function && sym->result
+	   && sym->result->ts.type != BT_UNKNOWN
+	   && sym->result->attr.proc_pointer)
+    e->ts = sym->result->ts;
   else
     {
       /* Must be a simple variable reference.  */
@@ -9323,16 +9328,15 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
   static gfc_expr **var_expr;
   static int total_var = 0;
   static int nvar = 0;
-  int old_nvar, tmp;
+  int i, old_nvar, tmp;
   gfc_forall_iterator *fa;
-  int i;
 
   old_nvar = nvar;
 
   /* Start to resolve a FORALL construct   */
   if (forall_save == 0)
     {
-      /* Count the total number of FORALL index in the nested FORALL
+      /* Count the total number of FORALL indices in the nested FORALL
          construct in order to allocate the VAR_EXPR with proper size.  */
       total_var = gfc_count_forall_iterators (code);
 
@@ -9340,19 +9344,25 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
       var_expr = XCNEWVEC (gfc_expr *, total_var);
     }
 
-  /* The information about FORALL iterator, including FORALL index start, end
-     and stride. The FORALL index can not appear in start, end or stride.  */
+  /* The information about FORALL iterator, including FORALL indices start, end
+     and stride.  An outer FORALL indice cannot appear in start, end or stride.  */
   for (fa = code->ext.forall_iterator; fa; fa = fa->next)
     {
+      /* Fortran 20008: C738 (R753).  */
+      if (fa->var->ref && fa->var->ref->type == REF_ARRAY)
+	{
+	  gfc_error ("FORALL index-name at %L must be a scalar variable "
+		     "of type integer", &fa->var->where);
+	  continue;
+	}
+
       /* Check if any outer FORALL index name is the same as the current
 	 one.  */
       for (i = 0; i < nvar; i++)
 	{
 	  if (fa->var->symtree->n.sym == var_expr[i]->symtree->n.sym)
-	    {
-	      gfc_error ("An outer FORALL construct already has an index "
-			 "with this name %L", &fa->var->where);
-	    }
+	    gfc_error ("An outer FORALL construct already has an index "
+			"with this name %L", &fa->var->where);
 	}
 
       /* Record the current FORALL index.  */
@@ -12532,7 +12542,17 @@ resolve_typebound_intrinsic_op (gfc_symbol* derived, gfc_intrinsic_op op,
 	  && p->access != ACCESS_PRIVATE && derived->ns == gfc_current_ns)
 	{
 	  gfc_interface *head, *intr;
-	  if (!gfc_check_new_interface (derived->ns->op[op], target_proc, p->where))
+
+	  /* Preempt 'gfc_check_new_interface' for submodules, where the
+	     mechanism for handling module procedures winds up resolving
+	     operator interfaces twice and would otherwise cause an error.  */
+	  for (intr = derived->ns->op[op]; intr; intr = intr->next)
+	    if (intr->sym == target_proc
+		&& target_proc->attr.used_in_submodule)
+	      return true;
+
+	  if (!gfc_check_new_interface (derived->ns->op[op],
+					target_proc, p->where))
 	    return false;
 	  head = derived->ns->op[op];
 	  intr = gfc_get_interface ();

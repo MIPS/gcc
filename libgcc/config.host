@@ -333,6 +333,11 @@ aarch64*-*-elf | aarch64*-*-rtems*)
 	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
 	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp t-crtfm"
 	;;
+aarch64*-*-freebsd*)
+	extra_parts="$extra_parts crtfastmath.o"
+	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
+	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp t-crtfm"
+	;;
 aarch64*-*-linux*)
 	extra_parts="$extra_parts crtfastmath.o"
 	md_unwind_header=aarch64/linux-unwind.h
@@ -1286,7 +1291,7 @@ tilegx*-*-linux*)
 	md_unwind_header=tilepro/linux-unwind.h
         ;;
 tilepro*-*-linux*)
-	tmake_file="${tmake_file} tilepro/t-crtstuff t-softfp-sfdf t-softfp tilepro/t-tilepro"
+	tmake_file="${tmake_file} tilepro/t-crtstuff t-softfp-sfdf t-softfp tilepro/t-tilepro t-slibgcc-libgcc"
 	md_unwind_header=tilepro/linux-unwind.h
         ;;
 v850*-*-*)
@@ -1343,7 +1348,14 @@ esac
 
 case ${host} in
 i[34567]86-*-* | x86_64-*-*)
-	tmake_file="${tmake_file} i386/t-cpuinfo"
+	case ${host} in
+	*-musl*)
+		tmake_file="${tmake_file} i386/t-cpuinfo-static"
+		;;
+	*)
+		tmake_file="${tmake_file} i386/t-cpuinfo"
+		;;
+	esac
 	;;
 esac
 

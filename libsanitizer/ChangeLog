@@ -1,3 +1,12 @@
+2016-12-21  Release Manager
+
+	* GCC 6.3.0 released.
+
+2016-11-16  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR sanitizer/78294
+	* tsan/tsan_rtl.cc: Add missing attribute.
+
 2016-09-16  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
