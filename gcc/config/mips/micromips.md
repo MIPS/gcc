@@ -104,9 +104,9 @@
 ;; For MOVEP.
 (define_peephole2
   [(set (match_operand 0 "register_operand" "")
-        (match_operand 1 "movep_src_operand" ""))
+	(match_operand 1 "movep_operand" ""))
    (set (match_operand 2 "register_operand" "")
-        (match_operand 3 "movep_src_operand" ""))]
+	(match_operand 3 "movep_operand" ""))]
   "TARGET_MICROMIPS
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
@@ -117,40 +117,29 @@
 ;; The behavior of the MOVEP insn is undefined if placed in a delay slot.
 (define_insn "*movep"
   [(set (match_operand 0 "register_operand")
-	(match_operand 1 "movep_src_operand"))
+	(match_operand 1 "movep_operand"))
    (set (match_operand 2 "register_operand")
-	(match_operand 3 "movep_src_operand"))]
+	(match_operand 3 "movep_operand"))]
   "TARGET_MICROMIPS
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
    && umips_movep_target_p (operands[0], operands[2])"
 {
-  if (TARGET_ADD_NEW_MOVEP23)
-    {
-      if (REGNO (operands[0]) < REGNO (operands[2]))
-	return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
-      else
-	return "sdbbp16 6 # movep\t%2,%0,%z3,%z1";
-    }
+  if (REGNO (operands[0]) < REGNO (operands[2]))
+    return "movep\t%0,%2,%z1,%z3";
   else
-    {
-      if (REGNO (operands[0]) < REGNO (operands[2]))
-	return "movep\t%0,%2,%z1,%z3";
-      else
-	return "movep\t%2,%0,%z3,%z1";
-    }
+    return "movep\t%2,%0,%z3,%z1";
 }
   [(set_attr "type" "move")
    (set_attr "can_delay" "no")])
 
 ;; MOVEP reversed, the pair is now a source rather than destination
 (define_peephole2
-  [(set (match_operand:MOVEP1 0 "movep_src_operand_rev" "")
+  [(set (match_operand:MOVEP1 0 "movep_rev_operand" "")
 	(match_operand:MOVEP1 1 "register_operand" ""))
-   (set (match_operand:MOVEP2 2 "movep_src_operand_rev" "")
+   (set (match_operand:MOVEP2 2 "movep_rev_operand" "")
 	(match_operand:MOVEP2 3 "register_operand" ""))]
   "TARGET_MICROMIPS_R7
-   && TARGET_ADD_MOVEP_REVERSED
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
     && umips_movep_target_p (operands[1], operands[3])"
@@ -158,20 +147,19 @@
 	      (set (match_dup 2) (match_dup 3))])])
 
 (define_insn "*movep<MOVEP1:mode><MOVEP2:mode>_rev"
-  [(parallel [(set (match_operand:MOVEP1 0 "movep_src_operand_rev")
+  [(parallel [(set (match_operand:MOVEP1 0 "movep_rev_operand")
 		   (match_operand:MOVEP1 1 "register_operand"))
-	      (set (match_operand:MOVEP2 2 "movep_src_operand_rev")
+	      (set (match_operand:MOVEP2 2 "movep_rev_operand")
 		   (match_operand:MOVEP2 3 "register_operand"))])]
   "TARGET_MICROMIPS_R7
-   && TARGET_ADD_MOVEP_REVERSED
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
     && umips_movep_target_p (operands[1], operands[3])"
 {
   if (REGNO (operands[1]) < REGNO (operands[3]))
-    return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
+    return "movep\t%0,%2,%z1,%z3";
   else
-    return "sdbbp16 6 # movep\t%2,%0,%z3,%z1";
+    return "movep\t%2,%0,%z3,%z1";
 }
   [(set_attr "type" "move")
    (set_attr "mode" "<MODE>")
@@ -263,9 +251,9 @@
 		   (call (mem:SI (match_operand 4 "" ""))
 			 (match_operand 5 "" "")))
 	      (set (match_operand 0 "register_operand")
-		   (match_operand 1 "movep_src_operand"))
+		   (match_operand 1 "movep_operand"))
 	      (set (match_operand 2 "register_operand")
-		   (match_operand 3 "movep_src_operand"))
+		   (match_operand 3 "movep_operand"))
 	      (use (match_dup 0))
 	      (use (match_dup 2))
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
@@ -285,9 +273,9 @@
   [(parallel [(call (mem:SI (match_operand 4 "" ""))
 		    (match_operand 5 "" ""))
 	      (set (match_operand 0 "register_operand")
-		   (match_operand 1 "movep_src_operand"))
+		   (match_operand 1 "movep_operand"))
 	      (set (match_operand 2 "register_operand")
-		   (match_operand 3 "movep_src_operand"))
+		   (match_operand 3 "movep_operand"))
 	      (use (match_dup 0))
 	      (use (match_dup 2))
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]

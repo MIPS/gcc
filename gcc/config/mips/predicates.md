@@ -401,22 +401,21 @@
 		      (match_test "INTVAL (op) == 0xff")
 		      (match_test "INTVAL (op) == 0xffff"))))))
 
-(define_predicate "movep_src_register"
+(define_predicate "movep_register"
   (and (match_code "reg")
        (ior (and (not (match_test "TARGET_MICROMIPS_R7"))
 		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
 		      (match_test ("IN_RANGE (REGNO (op), 16, 20)"))))
 	    (and (match_test "TARGET_MICROMIPS_R7")
-		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 7)"))
+		 (ior (match_test ("IN_RANGE (REGNO (op), 0, 7)"))
 		      (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))))
 
-(define_predicate "movep_src_operand"
+(define_predicate "movep_operand"
   (ior (match_operand 0 "const_0_operand")
-       (match_operand 0 "movep_src_register")))
+       (match_operand 0 "movep_register")))
 
-;; We don't load into the zero register
-(define_predicate "movep_src_operand_rev"
-  (match_operand 0 "movep_src_register"))
+(define_predicate "movep_rev_operand"
+  (match_operand 0 "movep_register"))
 
 (define_predicate "lo_operand"
   (and (match_code "reg")
