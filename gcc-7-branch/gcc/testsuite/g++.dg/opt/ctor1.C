@@ -1,6 +1,6 @@
 // http://bugzilla.redhat.com/show_bug.cgi?id=547286
 // { dg-do compile }
-// { dg-options "-Os" }
+// { dg-options "-Os -w" }
 
 struct A
 {
