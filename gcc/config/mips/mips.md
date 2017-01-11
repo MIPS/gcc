@@ -4759,28 +4759,6 @@
   [(set_attr "alu_type" "add")
    (set_attr "mode" "<MODE>")])
 
-(define_split
-  [(set (match_operand:SI 0 "register_operand")
-	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
-		   (const:SI (plus:SI (match_operand 1 "symbol_ref_operand")
-				      (match_operand 2 "const_int_operand")))))]
-  "TARGET_MICROMIPS_R7
-   && (INTVAL (operands[2]) % GET_MODE_SIZE (SImode) != 0)"
-  [(set (match_dup 0)
-	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
-		   (const:SI (plus:SI (match_dup 1)
-				      (match_dup 3)))))
-   (set (match_dup 0)
-	(plus:SI (match_dup 0)
-		 (match_dup 4)))]
-{
-  HOST_WIDE_INT val = INTVAL (operands[2]);
-  int leftover = val % GET_MODE_SIZE (SImode);
-
-  operands[3] = GEN_INT (val - leftover);
-  operands[4] = GEN_INT (leftover);
-})
-
 (define_insn "*lowsi_mips16_gp"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
