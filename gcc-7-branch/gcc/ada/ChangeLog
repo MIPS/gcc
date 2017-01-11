@@ -1,0 +1,601 @@
+2017-01-09  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.ads, einfo.adb: Remove uses of flags Has_Default_Init_Cond,
+	Is_Default_Init_Cond_Procedure, and
+	Has_Inherited_Default_Init_Cond.  Add uses of flags
+	Has_Own_DIC, Is_DIC_Procedure, and Has_Inherited_DIC.
+	(Default_Init_Cond_Procedure): Removed.
+	(DIC_Procedure): New routine.
+	(Has_Default_Init_Cond): Removed.
+	(Has_DIC): New routine.
+	(Has_Inheritable_Invariants): The attribute applies to the base type.
+	(Has_Inherited_Default_Init_Cond): Removed.
+	(Has_Inherited_DIC): New routine.
+	(Has_Inherited_Invariants): The attribute applies to the base type.
+	(Has_Own_DIC): New routine.
+	(Has_Own_Invariants): The attribute applies to the base type.
+	(Is_Default_Init_Cond_Procedure): Removed.
+	(Is_DIC_Procedure): New routine.
+	(Set_Default_Init_Cond_Procedure): Removed.
+	(Set_DIC_Procedure): New routine.
+	(Set_Has_Default_Init_Cond): Removed.
+	(Set_Has_Inheritable_Invariants): The attribute applies
+	to the base type.
+	(Set_Has_Inherited_Default_Init_Cond): Removed.
+	(Set_Has_Inherited_DIC): New routine.
+	(Set_Has_Inherited_Invariants): The attribute applies to the base type.
+	(Set_Has_Own_DIC): New routine.
+	(Set_Has_Own_Invariants): The attribute applies to the base type.
+	(Set_Is_Default_Init_Cond_Procedure): Removed.
+	(Set_Is_DIC_Procedure): New routine.
+	(Write_Entity_Flags): Update the output of all flags related to
+	default initial condition.
+	* exp_ch3.adb (Expand_N_Object_Declaration): Update the generation
+	of the call to the DIC procedure.
+	(Freeze_Type): Generate the body of the DIC procedure.
+	* exp_ch7.adb (Build_Invariant_Procedure_Body): Replace
+	all occurrences of Create_Append with Append_New_To. Do
+	not generate an invariant procedure for a class-wide type.
+	The generated body acts as a freeze action of the working type.
+	(Build_Invariant_Procedure_Declaration): Do not generate an
+	invariant procedure for a class-wide type.
+	(Create_Append): Removed.
+	* exp_util.adb: Add with and use clauses for Sem_Ch3, sem_ch6,
+	sem_Ch12, Sem_Disp, and GNAT.HTable. Move the handling of
+	class-wide pre/postcondition description and data structures from
+	Sem_Prag.
+	(Build_Class_Wide_Expression): Moved from Sem_Prag.
+	(Build_DIC_Call): New routine.
+	(Build_DIC_Procedure_Body): New routine.
+	(Build_DIC_Procedure_Declaration): New routine.
+	(Entity_Hash): Moved from Sem_Prag.
+	(Find_DIC_Type): New routine.
+	(Update_Primitives_Mapping): Reimplemented.
+	(Update_Primitives_Mapping_Of_Types): New routine.
+	* exp_util.ads (Build_Class_Wide_Expression): Moved from Sem_Prag.
+	(Build_DIC_Call): New routine.
+	(Build_DIC_Procedure_Body): New routine.
+	(Build_DIC_Procedure_Declaration): New routine.
+	(Update_Primitives_Mapping): Moved from Sem_Prag.
+	(Update_Primitives_Mapping_Of_Types): New routine.
+	* nlists.adb (Append_New): New routine.
+	(Append_New_To): New routine.
+	* nlists.ads (Append_New): New routine.
+	(Append_New_To): New routine.
+	* sem_ch3.adb (Analyze_Declarations): Do not generate the bodies
+	of DIC procedures here. This is now done at the end of the
+	visible declarations, private declarations, and at the freeze
+	point of a type.
+	(Analyze_Private_Extension_Declaration):
+	A private extension inherits the DIC pragma of a parent type.
+	(Analyze_Subtype_Declaration): No need to propagate invariant
+	attributes to a subtype as those apply to the base type.
+	(Build_Derived_Record_Type): No need to inherit invariants here
+	as this is now done in Build_Derived_Type.
+	(Build_Derived_Type): Inherit both the DIC pragma and invariants from
+	a parent type.
+	(Process_Full_View): Update the propagation of DIC attributes.
+	(Propagate_Default_Init_Cond_Attributes): Removed.
+	* sem_ch7.adb Add with and use clauses for Exp_Util.
+	(Analyze_Package_Specification): Create the body of the DIC
+	procedure at the end of the visible and private declarations.
+	(Preserve_Full_Attributes): Propagate DIC attributes.
+	* sem_ch9.adb (Analyze_Protected_Type_Declaration): Propagate
+	DIC attributes.
+	(Analyze_Task_Type_Declaration): Propagate DIC attributes.
+	* sem_elab.adb (Check_A_Call): Update the call to
+	Is_Nontrivial_Default_Init_Cond_Procedure.
+	* sem_prag.adb Remove the with and use clauses for
+	GNAT.HTable. Move the handling of class- wide pre/postcondition
+	description and data structures to Exp_Util.
+	(Analyze_Pragma): Create the declaration of the DIC procedure. There
+	is no need to propagate invariant-related attributes at this point
+	as this is done in Build_Invariant_Procedure_Declaration.
+	(Build_Class_Wide_Expression): Moved to Exp_Util.
+	(Entity_Hash): Moved to Exp_Util.
+	(Update_Primitives_Mapping): Moved to Exp_Util.
+	* sem_prag.ads (Build_Class_Wide_Expression): Moved to Exp_Util.
+	(Update_Primitives_Mapping): Moved to Exp_Util.
+	* sem_util.adb: Remove with and use clauses for Ghost
+	and Sem_Ch13.
+	(Build_Default_Init_Cond_Call): Removed.
+	(Build_Default_Init_Cond_Procedure_Bodies): Removed.
+	(Build_Default_Init_Cond_Procedure_Declaration): Removed.
+	(Get_Views): Reimplemented.
+	(Has_Full_Default_Initialization): Reimplement the section on DIC.
+	(Inherit_Default_Init_Cond_Procedure): Removed.
+	(Is_Nontrivial_Default_Init_Cond_Procedure): Removed.
+	(Is_Nontrivial_DIC_Procedure): New routine.
+	(Is_Verifiable_DIC_Pragma): New routine.
+	(Propagate_DIC_Attributes): New routine.
+	* sem_util.ads (Build_Default_Init_Cond_Call): Removed.
+	(Build_Default_Init_Cond_Procedure_Bodies): Removed.
+	(Build_Default_Init_Cond_Procedure_Declaration): Removed.
+	(Inherit_Default_Init_Cond_Procedure): Removed.
+	(Is_Nontrivial_Default_Init_Cond_Procedure): Removed.
+	(Is_Nontrivial_DIC_Procedure): New routine.
+	(Is_Verifiable_DIC_Pragma): New routine.
+	(Propagate_DIC_Attributes): New routine.
+	* sem_warn.adb (Is_OK_Fully_Initialized): Reimplement the section
+	on DIC.
+	* sinfo.ads, sinfo.adb: Add new attribute Expression_Copy along with
+	usage in nodes.
+	(Expression_Copy): New routine along with pragma Inline.
+	(Set_Expression_Copy): New routine along with pragma Inline.
+
+2017-01-06  Bob Duff  <duff@adacore.com>
+
+	* bindgen.adb (Gen_Adainit, Gen_Adafinal): Change
+	"Bind_Main_Program" to "not Bind_For_Library", because otherwise
+	we won't generate the call to s_stalib_adafinal when the main
+	is not written in Ada.
+
+2017-01-06  Bob Duff  <duff@adacore.com>
+
+	* sem_prag.adb: Minor: remove pragma Warnings.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* Makefile.rtl: Do not compile s-stchop by default.
+
+2017-01-06  Patrick Bernardi  <bernardi@adacore.com>
+
+	* aspects.adb, aspects.ads, exp_ch3.adb, exp_ch9.adb, par-prag.adb,
+	sem_ch13.adb, sem_prag.adb, sem_prag.ads, snames.adb-tmpl,
+	snames.ads-tmpl, s-secsta.adb, s-secsta.ads, s-tarest.adb,
+	s-tarest.ads, s-taskin.adb, s-taskin.ads, s-tassta.adb, s-tassta.ads:
+	Reverted previous change for now.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch3.adb (Build_Initialization_Call): Apply predicate
+	check to default discriminant value if checks are enabled.
+	(Build_Assignment): If type of component has static predicate,
+	apply check to its default value, if any.
+
+2017-01-06  Patrick Bernardi  <bernardi@adacore.com>
+
+	* aspect.adb, aspect.ads: Added new aspect Secondary_Stack_Size.
+	* exp_ch3.adb (Build_Init_Statements): As part of initialising
+	the value record of a task, set its _Secondary_Stack_Size field
+	if present.
+	* exp_ch9.adb (Expand_N_Task_Type_Declaration): Create
+	a _Secondary_Stack_Size field in the value record of
+	the task if a Secondary_Stack_Size rep item is present.
+	(Make_Task_Create_Call): Include secondary stack size
+	parameter. If No_Secondary_Stack restriction is in place, passes
+	stack size of 0.
+	* par-prag.adb, sem_prag.adb, sem_prag.ads: Added new pragma
+	Secondary_Stack_Size.
+	* s-secsta.adb, s-secsta.ads (Minimum_Secondary_Stack_Size): New
+	function to define the overhead of the secondary stack.
+	* s-tarest.adb (Create_Restricted_Task,
+	Create_Restricted_Task_Sequential): Functions now include
+	Secondary_Stack_Size parameter to pass to Initialize_ATCB.
+	* s-tarest.adb (Create_Restricted_Task,
+	Create_Restricted_Task_Sequential): Calls to Initialize_ATCB
+	now include Secondary_Stack_Size parameter.
+	(Task_Wrapper):
+	Secondary stack now allocated to the size specified by the
+	Secondary_Stack_Size parameter in the task's ATCB.
+	* s-taskin.adb, s-taskin.adb (Common_ATCB, Initialise_ATCB): New
+	Secondary_Stack_Size component.
+	* s-tassta.adb, s-tassta.ads (Create_Restricted_Task,
+	Create_Restricted_Task_Sequential): Function now include
+	Secondary_Stack_Size parameter.
+	(Task_Wrapper): Secondary stack
+	now allocated to the size specified by the Secondary_Stack_Size
+	parameter in the task's ATCB.
+	* sem_ch13.adb (Analyze_Aspect_Specification): Add support
+	for Secondary_Stack_Size aspect, turning the aspect into its
+	corresponding internal attribute.
+	(Analyze_Attribute_Definition):
+	Process Secondary_Stack_Size attribute.
+	* snames.adb-tmpl, snames.ads-tmpl: Added names
+	Name_Secondary_Stack_Size, Name_uSecondary_Stack_Size,
+	Attribute_Secondary_Stack_Size and Pragma_Secondary_Stack_Size.
+
+2017-01-06  Pascal Obry  <obry@adacore.com>
+
+	* a-direio.adb, a-direio.ads, a-sequio.adb, a-sequio.ads: Add Flush to
+	Sequential_IO and Direct_IO.
+
+2017-01-06  Bob Duff  <duff@adacore.com>
+
+	* snames.ads-tmpl (Renamed): New name for the pragma argument.
+	* par-ch2.adb: Allow the new pragma (with analysis deferred
+	to Sem_Prag).
+	* sinfo.ads, sinfo.adb (Map_Pragma_Name, Pragma_Name_Mapped):
+	Keep a mapping from new pragma names to old names.
+	* sem_prag.adb: Check legality of pragma Rename_Pragma, and
+	implement it by calling Map_Pragma_Name.
+	* checks.adb, contracts.adb, einfo.adb, errout.adb,
+	* exp_attr.adb, exp_ch3.adb, exp_ch6.adb, exp_ch7.adb, exp_ch9.adb,
+	* exp_prag.adb, exp_util.adb, freeze.adb, frontend.adb, ghost.adb,
+	* inline.adb, lib-writ.adb, scans.adb, scans.ads, sem_attr.adb,
+	* sem_aux.adb, sem_ch10.adb, sem_ch13.adb, sem_ch6.adb, sem_ch9.adb,
+	* sem_elab.adb, sem_res.adb, sem_util.adb, sem_util.ads,
+	* sem_warn.adb: Call Pragma_Name_Mapped instead of Pragma_Name
+	as appropriate.
+
+2017-01-06  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch9.adb: Minor reformatting.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* exp_ch9.ads, exp_ch9.adb (Build_Entry_Names): Remove (unused).
+	* rtsfind.ads (RE_Task_Entry_Names_Array, RO_ST_Set_Entry_Names)
+	(RE_Protected_Entry_Names_Array, RO_PE_Set_Entry_Names): Remove
+	(unused).
+	* s-taskin.ads, s-taskin.adb (Set_Entry_Names,
+	Task_Entry_Names_Array, Task_Entry_Names_Access): Remove.
+	* s-tpoben.ads, s-tpoben.adb (Set_Entry_Names,
+	Protected_Entry_Names_Array, Protected_Entry_Names_Access): Remove.
+
+2017-01-06  Bob Duff  <duff@adacore.com>
+
+	* sinfo.ads, sinfo.adb (Map_Pragma_Name): Preparation work,
+	dummy implementation of Map_Pragma_Name.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* exp_ch9.adb (Expand_N_Protected_Type_Declaration): Make the
+	entry_body variable constant.
+	* s-taprob.ads (Entry_Body_Access): Move to s-tposen.
+	* s-tpoben.ads (Protected_Entry_Body_Access): Now access
+	to constant.
+	* s-tposen.ads (Entry_Body_Access): Moved from s-taprob,
+	now access to constant.
+
+2017-01-06  Gary Dismukes  <dismukes@adacore.com>
+
+	* einfo.ads, sem_res.adb, sem_attr.adb, sem_ch6.adb: Minor
+	reformatting and typo fixes.
+
+2017-01-06  Bob Duff  <duff@adacore.com>
+
+	* snames.ads-tmpl: New names for pragma renaming.
+	* snames.adb-tmpl (Is_Configuration_Pragma_Name): Minor cleanup.
+	* par-prag.adb: Add new pragma name to case statement.
+	* sem_prag.adb (Rename_Pragma): Initial cut at semantic analysis
+	of the pragma.
+	* sinfo.ads, sinfo.adb (Pragma_Name_Mapped): Preparation work,
+	Dummy implementation of Pragma_Name_Mapped.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch6.adb (Expand_Protected_Subprogram_Call): Add guard to
+	better detect call within an entry_wrapper.
+	* sem_res.adb (Resolve_Call): A protected call within an
+	entity_wrapper is analyzed in the context of the protected
+	object but corresponds to a pre-analysis and is not an access
+	before elaboration.
+	* sem_attr.adb: Minor reformatting.
+
+2017-01-06  Justin Squirek  <squirek@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute): Modify semantic checks for
+	Finalization_Size to allow a prefix of any non-class-wide type.
+	* sem_attr.ads Modify comment for Finalization_Size to include
+	definite type use case.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* einfo.ads, einfo.adb (Is_Entry_Wrapper): New flag, defined
+	on procedures that are wrappers created for entries that have
+	preconditions.
+	* sem_ch6.adb (Analyze_Subrogram_Body_Helper): If the subprogram
+	body is an entry_wrapper, compile it in the context of the
+	synchronized type, because a precondition may refer to funtions
+	of the type.
+	* exp_ch9.adb (Build_Contract_Wrapper): Set Is_Entry_Wrapper on
+	body entity.
+	* exp_ch6.adb (Expand_Protected_Subprogram_Call): if the call is
+	within an Entry_Wrapper this is an external call whose target
+	is the synchronized object that is the actual in the call to
+	the wrapper.
+
+2017-01-06  Yannick Moy  <moy@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute/Attribute_Loop_Entry): Analyze node
+	in tree, which means not analyzing the previous prefix if the node has
+	been rewritten into its prefix.
+
+2017-01-06  Gary Dismukes  <dismukes@adacore.com>
+
+	* s-tpobop.adb: Minor reformatting.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* checks.adb (Ensure_Valid): Do not generate a validity check
+	within a generated predicate function, validity checks will have
+	been applied earlier when required.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* s-tpoben.ads (Protection_Entries): Add comment and reorder
+	components for performances.
+	* s-tpobop.adb (PO_Do_Or_Queue): Implement Max_Queue_Length runtime
+	semantic.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_eval.adb (Check_Expression_Against_Static_Predicate):
+	If expression is compile-time known and obeys a static predicate
+	it must be labelled as static, to prevent spurious warnings and
+	run-time errors, e.g. in case statements. This is relevant when
+	the expression is the result of constant-folding a type conversion
+	whose expression is a variable with a known static value.
+
+2017-01-06  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_attr.adb, sem_attr.ads: Minor reformatting.
+
+2017-01-06  Justin Squirek  <squirek@adacore.com>
+
+	* exp_attr.adb (Expand_N_Attribute_Reference): Add entry for
+	expansion of Finalization_Size attribute.
+	* sem_attr.adb (Analyze_Attribute): Add entry to check the
+	semantics of Finalization_Size.
+	(Eval_Attribute): Add null entry for Finalization_Size.
+	* sem_attr.ads: Add Finalization_Size to the implementation
+	dependent attribute list.
+	* snames.ads-tmpl: Add name entry for Finalization_Size attribute.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch5.adb (Analyze_Loop_Statement): If the loop includes an
+	iterator specification with a serious syntactic error, transform
+	construct into an infinite loop in order to continue analysis
+	and prevent a compiler abort.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* exp_ch9.adb (Expand_N_Protected_Type_Declaration): Do not generate
+	max_queue_lengths_array if unused.
+
+2017-01-06  Bob Duff  <duff@adacore.com>
+
+	* errout.adb (Set_Msg_Text): Protect against out-of-bounds
+	array access, in case "\" is at the end of Text.
+	* stylesw.adb (Set_Style_Check_Options): Don't include input
+	characters in the error message template, because they could
+	be control characters such as "\", which Errout will try to
+	interpret.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb (Find_Indexing_Operations, Inspect_Declarations):
+	For a private type examine the visible declarations that follow
+	the partial view, not just the private declarations that follow
+	the full view.
+
+2017-01-06  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch5.adb, sem_ch3.adb, checks.adb: Minor reformatting and
+	code cleanup.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch5.adb (Get_Default_Iterator): For a derived type, the
+	alias of the inherited op is the parent iterator, no need to
+	examine dispatch table positions which might not be established
+	yet if type is not frozen.
+	* sem_disp.adb (Check_Controlling_Formals): The formal of a
+	predicate function may be a subtype of a tagged type.
+	* sem_ch3.adb (Complete_Private_Subtype): Adjust inheritance
+	of representation items for the completion of a type extension
+	where a predicate applies to the partial view.
+	* checks.ads, checks.adb (Apply_Predicate_Check): Add optional
+	parameter that designates function whose actual receives a
+	predicate check, to improve warning message when the check will
+	lead to infinite recursion.
+	* sem_res.adb (Resolve_Actuals): Pass additional parameter to
+	Apply_Predicate_Check.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* s-rident.ads (Profile_Info): Remove No_Entry_Queue from
+	Gnat_Extended_Ravenscar.
+	* exp_ch9.adb, s-tpoben.adb, s-tpoben.ads: Fix spelling.
+
+2017-01-06  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_util.ads: Minor typo fix and reformatting.
+
+2017-01-06  Yannick Moy  <moy@adacore.com>
+
+	* ghost.adb Minor fixing of references to SPARK RM.
+	(Check_Ghost_Context): Check whether reference is to a lvalue
+	before issuing an error about violation of SPARK RM 6.9(13)
+	when declaration has Ghost policy Check and reference has Ghost
+	policy Ignore.
+	* sem_util.adb Minor indentation.
+	* sem_ch10.adb (Analyze_Package_Body_Stub, Analyze_Protected_Body_Stub,
+	Analyze_Task_Body_Stub): Set Ekind of the defining identifier.
+	* sem_util.ads (Unique_Defining_Entity): Document the result
+	for package body stubs.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* raise-gcc.c (abort): Macro to call Abort_Propagation.
+	* s-tpoben.ads (Protected_Entry_Queue_Max_Access): Make it access
+	constant.
+	* exp_ch9.adb (Expand_N_Protected_Type_Declaration):
+	Do not generate the Entry_Max_Queue_Lengths_Array if all default
+	values.
+	* exp_util.adb (Corresponding_Runtime_Package): Consider
+	Max_Queue_Length pragma.
+
+2017-01-06  Justin Squirek  <squirek@adacore.com>
+
+	* exp_ch9.adb (Expand_N_Protected_Type_Declaration):
+	Remove declaration generation in the case of
+	System_Tasking_Protected_Objects_Single_Entry being used,
+	and add a warning message when this is detected to occur.
+	(Make_Initialize_Protection): Remove reference pass in the case
+	of System_Tasking_Protected_Objects_Single_Entry.
+	* rtsfind.ads: Remove RE_Protected_Entry_Queue_Max
+	* s-tposen.adb (Initialize_Protection_Entry): Remove
+	Entry_Queue_Max parameter.
+	* s-tposen.ads: Remove the types use to store the entry queue
+	maximum.
+	* sem_prag.adb (Analyze_Pragma): Remove entry families restriction
+
+2017-01-06  Yannick Moy  <moy@adacore.com>
+
+	* sem_util.adb, sem_util.ads (Get_Enum_Lit_From_Pos): Strengthen
+	behavior of function, to also accept out of range positions
+	and raise Constraint_Error in such case, and to copy sloc from
+	literal if No_Location passed as location.
+	* uintp.adb, uintp.ads (UI_To_Int, UI_To_CC): Strengthen behavior
+	of functions to raise Constraint_Error in case of value not in
+	appropriate range.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* sem_util.adb, s-taprop-linux.adb (Finalize_TCB): Remove call to
+	Invalidate_Stack_Cache.
+
+2017-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* s-os_lib.adb: Minor fix to the signature of Readlink.
+
+2017-01-06  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch6.adb (Conforming_Types): Handle another
+	confusion between views in a nested instance with an actual
+	private type whose full view is not in scope.
+
+2017-01-06  Arnaud Charlet  <charlet@adacore.com>
+
+	* exp_ch5.adb (Expand_N_If_Statement): Obey existing comment and
+	mark a rewritten if statement as explicit (Comes_From_Source).
+
+2017-01-06  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_prag.adb, rtsfind.adb, sem_util.adb: Minor typo fixes.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* ada.ads, a-unccon.ads: Add pragma No_Elaboration_Code_All.
+
+2017-01-06  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_case.adb: Minor reformatting.
+
+2017-01-06  Thomas Quinot  <quinot@adacore.com>
+
+	* g-socthi-mingw.adb: Remove now extraneous USE TYPE clause
+
+2017-01-06  Justin Squirek  <squirek@adacore.com>
+
+	* aspects.adb: Register aspect in Canonical_Aspect.
+	* aspects.ads: Associate qualities of Aspect_Max_Queue_Length
+	into respective tables.
+	* einfo.ads, einfo.adb: Add a new attribute for
+	handling the parameters for Pragma_Max_Entry_Queue
+	(Entry_Max_Queue_Lengths_Array) in E_Protected_Type. Subprograms
+	for accessing and setting were added as well.
+	* par-prag.adb (Prag): Register Pramga_Max_Entry_Queue.
+	* exp_ch9.adb (Expand_N_Protected_Type_Declaration): Emit
+	declaration for pramga arguments and store them in the protected
+	type node.
+	(Make_Initialize_Protection): Pass a reference to
+	the Entry_Max_Queue_Lengths_Array in the protected type node to
+	the runtime.
+	* rtsfind.adb: Minor grammar fix.
+	* rtsfind.ads: Register new types taken from the
+	runtime libraries RE_Protected_Entry_Queue_Max and
+	RE_Protected_Entry_Queue_Max_Array
+	* s-tposen.adb, s-tpoben.adb
+	(Initialize_Protection_Entry/Initialize_Protection_Entries):
+	Add extra parameter and add assignment to local object.
+	* s-tposen.ads, s-tpoben.ads: Add new types to
+	store entry queue maximums and a field to the entry object record.
+	* sem_ch13.adb (Analyze_Aspect_Specifications): Add case statement
+	for Aspect_Max_Queue_Length.
+	(Check_Aspect_At_Freeze_Point):
+	Add aspect to list of aspects that don't require delayed analysis.
+	* sem_prag.adb (Analyze_Pragma): Add case statement for
+	Pragma_Max_Queue_Length, check semantics, and register arugments
+	in the respective entry nodes.
+	* sem_util.adb, sem_util.ads Add functions Get_Max_Queue_Length
+	and Has_Max_Queue_Length
+	* snames.ads-tmpl: Add constant for the new aspect-name
+	Name_Max_Queue_Length and corrasponding pragma.
+
+2017-01-06  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_util.adb (Is_Controlled_Function_Call):
+	Reimplemented. Consider any node which has an entity as the
+	function call may appear in various ways.
+
+2017-01-06  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_attr.adb (Rewrite_Stream_Proc_Call): Use
+	an unchecked type conversion when performing a view conversion
+	to/from a private type. In all other cases use a regular type
+	conversion to ensure that any relevant checks are properly
+	installed.
+
+2017-01-06  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_prag.adb, sem_ch8.adb: Minor reformatting.
+
+2017-01-06  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_case.adb (Explain_Non_Static_Bound): Suppress cascaded
+	error on case expression that is an entity, when coverage is
+	incomplete and entity has a static value obtained by local
+	propagation.
+	(Handle_Static_Predicate): New procedure, subsidiary of
+	Check_Choices, to handle case alternatives that are either
+	subtype names or subtype indications involving subtypes that
+	have static predicates.
+
+2017-01-06  Thomas Quinot  <quinot@adacore.com>
+
+	* s-oscons-tmplt.c, g-socket.adb, g-socket.ads, g-sothco.ads:
+	(GNAT.Socket): Add support for Busy_Polling and Generic_Option
+
+2017-01-06  Bob Duff  <duff@adacore.com>
+
+	* sem_elab.adb (Activate_Elaborate_All_Desirable): Don't add
+	Elaborate_All(P) to P itself. That could happen in obscure cases,
+	and always introduced a cycle (P body must be elaborated before
+	P body).
+	* lib-writ.ads: Comment clarification.
+	* ali-util.ads: Minor comment fix.
+	* ali.adb: Minor reformatting.
+
+2017-01-06  Tristan Gingold  <gingold@adacore.com>
+
+	* a-exexpr-gcc.adb: Improve comment.
+
+2017-01-03  James Cowgill  <James.Cowgill@imgtec.com>
+
+	* s-linux-mips.ads: Use correct signal and errno constants.
+	(sa_handler_pos, sa_mask_pos): Fix offsets for 64-bit MIPS.
+
+2017-01-03  James Cowgill  <James.Cowgill@imgtec.com>
+
+	* s-linux-mips.ads: Rename from s-linux-mipsel.ads.
+	* gcc-interface/Makefile.in (MIPS/Linux): Merge mips and mipsel
+	sections.
+
+2017-01-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnatvsn.ads: Bump copyright year.
+
+2017-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gnat_ugn.texi: Bump @copying's copyright year.
+	* gnat_rm.texi: Likewise.
+
+Copyright (C) 2017 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

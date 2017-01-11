@@ -1,0 +1,234 @@
+2017-01-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/18_support/exception_ptr/60612-unexpected.cc: Adjust
+	effective target selector to prevent running in C++17 mode.
+
+	PR libstdc++/77528
+	* include/bits/stl_queue.h (queue::c): Add default member initializer.
+	(queue::queue()): Add constructor and define as defaulted.
+	(queue::queue(_Sequence&&)): Remove default argument.
+	(priority_queue::c, priority_queue::comp): Add default member
+	initializers.
+	(priority_queue::priority_queue()): Add constructor and define as
+	defaulted.
+	(priority_queue::priority_queue(const _Compare&, _Sequence&&)):
+	Remove default argument for first parameter.
+	* include/bits/stl_stack.h (stack::c): Add default member initializer.
+	(stack::stack()): Add constructor and define as defaulted.
+	(stack::stack(const _Sequence&)): Remove default argument.
+	* testsuite/23_containers/priority_queue/requirements/
+	explicit_instantiation/1.cc: Test explicit instantiation with
+	non-DefaultConstructible sequence.
+	* testsuite/23_containers/priority_queue/77528.cc: New test.
+	* testsuite/23_containers/priority_queue/requirements/
+	explicit_instantiation/1_c++0x.cc: Replace with 1_c++98.cc.
+	* testsuite/23_containers/queue/77528.cc: New test.
+	* testsuite/23_containers/queue/requirements/explicit_instantiation/
+	1.cc: Test explicit instantiation with non-DefaultConstructible
+	sequence.
+	* testsuite/23_containers/queue/requirements/explicit_instantiation/
+	1_c++0x.cc: Replace with 1_c++98.cc.
+	* testsuite/23_containers/stack/77528.cc: New test.
+	* testsuite/23_containers/stack/requirements/explicit_instantiation/
+	1.cc: Test explicit instantiation with non-DefaultConstructible
+	sequence.
+	* testsuite/23_containers/stack/requirements/explicit_instantiation/
+	1_c++0x.cc: Replace with 1_c++98.cc.
+
+2017-01-10  Felipe Magno de Almeida <felipe@expertisesolutions.com.br>
+
+	* include/bits/locale_facets_nonio.tcc
+	(time_get::_M_extract_via_format): Avoid compilation errors with
+	non-standard struct tm.
+
+2017-01-10  François Dumont  <fdumont@gcc.gnu.org>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (_versioned_namespace): Define.
+	(is_specialization, strip_versioned_namespace): New helpers functions
+	to work with symbols in the versioned namespace.
+	(Printer.add_version): Add second name using versioned namespace.
+	(add_one_template_type_printer, add_one_type_printer): Add second
+	type printers using versioned namespace.
+	(register_type_printers): Add template type printer for basic_string.
+	(build_libstdcxx_dictionary): Remove dead code.
+	* python/libstdcxx/v6/xmethods.py: Make all matchers look for
+	versioned namespace.
+	* testsuite/libstdc++-prettyprinters/48362.cc: Adjust expected
+	results.
+	* testsuite/libstdc++-prettyprinters/whatis.cc: Likewise.
+
+2017-01-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/79017
+	* acinclude.m4 (GLIBCXX_CHECK_C99_TR1): Check for llrint and llround
+	functions separately on darwin and if they're missing define
+	_GLIBCXX_NO_C99_ROUNDING_FUNCS.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* include/c_global/cmath [_GLIBCXX_NO_C99_ROUNDING_FUNCS] (llrint)
+	(llrintf, llrintl, llround, llroundf, llroundl): Do not define.
+
+	* testsuite/30_threads/condition_variable/members/3.cc: Use new macro
+	to detect correct thread_local destructors.
+	* testsuite/util/testsuite_hooks.h (CORRECT_THREAD_LOCAL_DTORS):
+	Define.
+
+2017-01-09  Jonathan Wakely  <jwakely@redhat.com>
+	    Aditya Kumar  <hiraditya@msn.com>
+
+	PR libstdc++/66414
+	* include/bits/basic_string.tcc
+	(basic_string::find(const CharT*, size_type, size_type)): Optimize.
+
+2017-01-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/21_strings/basic_string/operations/find/char/6.cc: New.
+	* testsuite/21_strings/basic_string/operations/find/wchar_t/6.cc: New.
+
+	* testsuite/util/performance/priority_queue/mem_usage/pop_test.hpp:
+	Include <cassert> header.
+
+	PR libstdc++/78968
+	* crossconfig.m4: Check for __cxa_thread_atexit on *-*-freebsd*.
+	* configure: Regenerate.
+
+2017-01-06  Barrett Adair  <barrettellisadair@gmail.com>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/variant (variant, swap): Replace __and_ usage with fold
+	expressions.
+
+2017-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR go/78978
+	* acinclude.m4 (GLIBCXX_CHECK_ASSEMBLER_HWCAP): Remove.
+	* configure.ac: Call GCC_CHECK_ASSEMBLER_HWCAP instead of
+	GLIBCXX_CHECK_ASSEMBLER_HWCAP.
+	* fragment.am (CONFIG_CXXFLAGS): Use HWCAP_CFLAGS instead of
+	HWCAP_FLAGS.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in, doc/Makefile.in, include/Makefile.in,
+	libsupc++/Makefile.in, po/Makefile.in, python/Makefile.in,
+	src/Makefile.in, src/c++11/Makefile.in, src/c++98/Makefile.in,
+	src/filesystem/Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2017-01-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/c++config (_GLIBCXX_ASSERTIONS): Avoid redefinition.
+
+	PR libstdc++/78991
+	* include/bits/predefined_ops.h (_Iter_comp_iter, _Iter_comp_val)
+	(_Val_comp_iter, _Iter_equals_val, _Iter_pred, _Iter_comp_to_val)
+	(_Iter_comp_to_iter, _Iter_negate): Make constructors explicit and
+	move function objects.
+	(__iter_comp_iter, __iter_comp_val, __val_comp_iter, __pred_iter)
+	(__iter_comp_val, __iter_comp_iter, __negate): Move function objects.
+	* testsuite/25_algorithms/sort/78991.cc: New test.
+
+2017-01-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/std_function.h (function::_Signature_type): Remove.
+	(function::function(_Functor)): Adjust.
+
+2017-01-05  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/78996
+	* include/std/variant (__gen_vtable_impl): rename __unused to
+	__dimensions to avoid naming conflict.
+
+2017-01-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/78968
+	* config.h.in: Regenerate.
+	* configure: Likewise.
+	* configure.ac: Check for __cxa_thread_atexit.
+	* libsupc++/atexit_thread.cc [_GLIBCXX_HAVE___CXA_THREAD_ATEXIT]:
+	Don't define __cxa_thread_atexit if libc provides it.
+
+2017-01-04  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement 2801, Default-constructibility of unique_ptr.
+	* include/bits/unique_ptr.h (__uniq_ptr_impl::_DeleterConstraint): New.
+	(unique_ptr::_DeleterConstraint): Likewise.
+	(unique_ptr()): Constrain.
+	(unique_ptr(pointer)): Likewise.
+	(unique_ptr(nullptr_t)): Likewise.
+	(unique_ptr<_Tp[], _Dp>::_DeleterConstraint): New.
+	(unique_ptr<_Tp[], _Dp>::unique_ptr()): Constrain.
+	(unique_ptr<_Tp[], _Dp>::unique_ptr(_Up)): Likewise.
+	(unique_ptr<_Tp[], _Dp>::unique_ptr(nullptr_t)): Likewise.
+	* testsuite/20_util/unique_ptr/assign/48635_neg.cc: Adjust.
+	* testsuite/20_util/unique_ptr/cons/cv_qual_neg.cc: Likewise.
+	* testsuite/20_util/unique_ptr/cons/default.cc: New.
+	* testsuite/20_util/unique_ptr/cons/ptr_deleter_neg.cc: Adjust.
+
+2017-01-04  Pauli Nieminen  <suokkos@gmail.com>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/64735
+	* acinclude.m4 (GLIBCXX_CHECK_EXCEPTION_PTR_SYMVER): Define.
+	* config.h.in: Regenerate.
+	* config/abi/pre/gnu.ver [HAVE_EXCEPTION_PTR_SINCE_GCC46]
+	(GLIBCXX_3.4.15, GLIBCXX_3.4.21, CXXABI_1.3.3, CXXABI_1.3.5): Make
+	exports for exception_ptr, nested_exception, and future conditional.
+	[HAVE_EXCEPTION_PTR_SINCE_GCC46] (GLIBCXX_3.4.23, CXXABI_1.3.11): Add
+	exports for exception_ptr, nested_exception, and future conditional.
+	* configure: Regenerate.
+	* configure.ac: Use GLIBCXX_CHECK_EXCEPTION_PTR_SYMVER.
+	* include/std/future: Remove check for ATOMIC_INT_LOCK_FREE
+	* libsupc++/eh_atomics.h: New file for internal use only.
+	(__eh_atomic_inc, __eh_atomic_dec): New.
+	* libsupc++/eh_ptr.cc (exception_ptr::_M_addref)
+	(exception_ptr::_M_release) (__gxx_dependent_exception_cleanup)
+	(rethrow_exception): Use eh_atomics.h reference counting helpers.
+	* libsupc++/eh_throw.cc (__gxx_exception_cleanup): Likewise.
+	* libsupc++/eh_tm.cc (free_any_cxa_exception): Likewise.
+	* libsupc++/exception: Remove check for ATOMIC_INT_LOCK_FREE.
+	* libsupc++/exception_ptr.h: Likewise.
+	* libsupc++/guard.cc: Include header for ATOMIC_INT_LOCK_FREE macro.
+	* libsupc++/nested_exception.cc: Remove check for
+	ATOMIC_INT_LOCK_FREE.
+	* libsupc++/nested_exception.h: Likewise.
+	* src/c++11/future.cc: Likewise.
+	* testsuite/18_support/exception_ptr/*: Remove atomic builtins checks.
+	* testsuite/18_support/nested_exception/*: Likewise.
+	* testsuite/30_threads/async/*: Likewise.
+	* testsuite/30_threads/future/*: Likewise.
+	* testsuite/30_threads/headers/future/types_std_c++0x.cc: Likewise.
+	* testsuite/30_threads/packaged_task/*: Likewise.
+	* testsuite/30_threads/promise/*: Likewise.
+	* testsuite/30_threads/shared_future/*: Likewise.
+
+2017-01-03  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/documentation_hacking.xml: sourceforge.net now
+	defaults to https; adjust reference.
+
+2017-01-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/78956
+	* include/std/thread (thread(const thread&&)): Add deleted
+	constructor.
+	* testsuite/30_threads/thread/cons/lwg2097.cc: New test.
+
+	* doc/xml/manual/spine.xml: Update copyright years.
+	* doc/xml/manual/build_hacking.xml: Fix spelling of libbuilddir.
+	* doc/xml/manual/test.xml: Likewise.
+	* doc/html/*: Regenerate.
+
+2017-01-01  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/faq.xml: Update address of C++ ABI link.
+	* doc/xml/manual/abi.xml: Ditto.
+	
+2017-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+Copyright (C) 2017 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
