@@ -5400,7 +5400,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	    }
 	}
 
-      if (!TARGET_COST_TWEAK && TARGET_MICROMIPS_R7
+      if (0&&!TARGET_COST_TWEAK && TARGET_MICROMIPS_R7
 	  && mips_valid_base_register_p (XEXP (x, 1), mode, false)
 	  && ((mips_index_scaled_address_p (x, mode)
 	       && mips_valid_index_register_p (XEXP (XEXP (x, 0), 0), false))
