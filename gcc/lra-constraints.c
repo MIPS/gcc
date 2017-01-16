@@ -4086,7 +4086,9 @@ curr_insn_transform (bool check_only_p)
 			  && (goal_alt[i] == NO_REGS
 			      || (simplify_subreg_regno
 				  (ira_class_hard_regs[goal_alt[i]][0],
-				   GET_MODE (reg), byte, mode) >= 0)))))
+				   GET_MODE (reg), byte, mode) >= 0)))
+		      || (GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (reg))
+			  && WORD_REGISTER_OPERATIONS)))
 		{
 		  if (type == OP_OUT)
 		    type = OP_INOUT;
