@@ -1,3 +1,125 @@
+2017-01-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78337 - ICE on invalid with generic lambda
+	* semantics.c (process_outer_var_ref): Check if containing_function
+	is null.  Move inform call under complain test.
+
+2017-01-11  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77812
+	* name-lookup.c (set_namespace_binding_1): An overload of 1 decl
+	is a new overload.
+
+2017-01-11  Nathan Sidwell  <nathan@acm.org>
+
+	* name-lookup.c (push_overloaded_decl_1): Refactor OVERLOAD creation.
+
+2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78341
+	* parser.c (cp_parser_std_attribute_spec): Remove over-eager
+	assertion.  Formatting fix.
+
+	PR c++/72813
+	* decl2.c (c_parse_final_cleanups): Set flag_syntax_only to 1 after
+	writing PCH file.
+
+2017-01-10  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/77949
+	* parser.c (cp_parser_class_specifier_1): Only suggest inserting
+	a missing semicolon if we have a valid insertion location for
+	the fix-it hint.
+
+2017-01-10  Jason Merrill  <jason@redhat.com>
+
+	FI 20, decomposition declaration with parenthesized initializer.
+	* parser.c (cp_parser_decomposition_declaration): Use
+	cp_parser_initializer.
+
+2017-01-09  Jason Merrill  <jason@redhat.com>
+
+	Implement P0195R2, C++17 variadic using.
+	* parser.c (cp_parser_using_declaration): Handle ellipsis and comma.
+	* pt.c (tsubst_decl): Handle pack expansion in USING_DECL_SCOPE.
+	* error.c (dump_decl): Likewise.
+
+2017-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/79019
+	PR translation/79020
+	* semantics.c (finish_omp_clauses): Add missing whitespace to
+	translatable strings.
+	* cp-cilkplus.c (cpp_validate_cilk_plus_loop_aux): Fix comment typo.
+
+2017-01-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78948 - instantiation from discarded statement
+	* parser.h (struct cp_parser): Remove in_discarded_stmt field.
+	* cp-tree.h (in_discarded_stmt): Declare it.
+	(struct saved_scope): Add discarded_stmt bitfield.
+	(in_discarded_stmt): New macro.
+	* decl2.c (mark_used): Check it.
+	* parser.c (cp_parser_selection_statement): Adjust.
+	(cp_parser_jump_statement): Adjust.
+
+2017-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78931
+	* decl.c (cp_finish_decomp): Remove probe variable, if tt is
+	REFERENCE_REF_P, set tt to its operand.
+
+	PR c++/78890
+	* class.c (check_field_decls): Diagnose REFERENCE_TYPE fields in
+	unions even for C++11 and later.
+
+2017-01-05  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/78765
+	* pt.c (convert_nontype_argument): Don't try and see if integral
+	or enum expressions are constants prematurely.
+
+2017-01-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/64767
+	* typeck.c (cp_build_binary_op): Warn when a pointer is compared with
+	a zero character literal.
+
+2017-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78949
+	* typeck.c (cp_build_unary_op): Call mark_rvalue_use on arg if it has
+	vector type.
+
+	PR c++/78693
+	* parser.c (cp_parser_simple_declaration): Only complain about
+	inconsistent auto deduction if auto_result doesn't use auto.
+
+	* parser.c (cp_parser_simple_declaration): Diagnose function
+	declaration among more than one init-declarators with auto
+	specifier.
+
+	PR c++/71182
+	* parser.c (cp_lexer_previous_token): Use vec_safe_address in the
+	assertion, as lexer->buffer may be NULL.
+
+2017-01-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/77545
+	PR c++/77284
+	* constexpr.c (potential_constant_expression_1): Handle CLEANUP_STMT.
+
+2017-01-04  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/66735
+	* cp-tree.h (DECLTYPE_FOR_REF_CAPTURE): New.
+	(lambda_capture_field_type): Update prototype.
+	* lambda.c (lambda_capture_field_type): Add is_reference parm.
+	Add referenceness here.
+	(add_capture): Adjust lambda_capture_field_type call, refactor
+	error checking.
+	* pt.c (tsubst): Adjust lambda_capture_field_type call.
+
 2017-01-01  Jakub Jelinek  <jakub@redhat.com>
 
 	Update copyright years.

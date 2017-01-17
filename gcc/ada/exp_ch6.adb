@@ -44,7 +44,6 @@ with Exp_Pakd;  use Exp_Pakd;
 with Exp_Tss;   use Exp_Tss;
 with Exp_Util;  use Exp_Util;
 with Freeze;    use Freeze;
-with Ghost;     use Ghost;
 with Inline;    use Inline;
 with Lib;       use Lib;
 with Namet;     use Namet;
@@ -219,6 +218,10 @@ package body Exp_Ch6 is
    --  as a regular call. The list of actuals must be expanded to contain a
    --  reference to the object itself, and the call becomes a call to the
    --  corresponding protected subprogram.
+
+   function Expression_Of_Expression_Function
+     (Subp : Entity_Id) return Node_Id;
+   --  Return the expression of the expression function Subp
 
    function Has_Unconstrained_Access_Discriminants
      (Subtyp : Entity_Id) return Boolean;
@@ -590,17 +593,22 @@ package body Exp_Ch6 is
    function BIP_Formal_Suffix (Kind : BIP_Formal_Kind) return String is
    begin
       case Kind is
-         when BIP_Alloc_Form          =>
+         when BIP_Alloc_Form =>
             return "BIPalloc";
-         when BIP_Storage_Pool        =>
+
+         when BIP_Storage_Pool =>
             return "BIPstoragepool";
+
          when BIP_Finalization_Master =>
             return "BIPfinalizationmaster";
-         when BIP_Task_Master         =>
+
+         when BIP_Task_Master =>
             return "BIPtaskmaster";
-         when BIP_Activation_Chain    =>
+
+         when BIP_Activation_Chain =>
             return "BIPactivationchain";
-         when BIP_Object_Access       =>
+
+         when BIP_Object_Access =>
             return "BIPaccess";
       end case;
    end BIP_Formal_Suffix;
@@ -2264,6 +2272,12 @@ package body Exp_Ch6 is
       --  expression for the value of the actual, EF is the entity for the
       --  extra formal.
 
+      procedure Add_View_Conversion_Invariants
+        (Formal : Entity_Id;
+         Actual : Node_Id);
+      --  Adds invariant checks for every intermediate type between the range
+      --  of a view converted argument to its ancestor (from parent to child).
+
       function Inherited_From_Formal (S : Entity_Id) return Entity_Id;
       --  Within an instance, a type derived from an untagged formal derived
       --  type inherits from the original parent, not from the actual. The
@@ -2349,6 +2363,64 @@ package body Exp_Ch6 is
             Set_Is_Accessibility_Actual (Parent (Expr));
          end if;
       end Add_Extra_Actual;
+
+      ------------------------------------
+      -- Add_View_Conversion_Invariants --
+      ------------------------------------
+
+      procedure Add_View_Conversion_Invariants
+        (Formal : Entity_Id;
+         Actual : Node_Id)
+      is
+         Arg        : Entity_Id;
+         Curr_Typ   : Entity_Id;
+         Inv_Checks : List_Id;
+         Par_Typ    : Entity_Id;
+
+      begin
+         Inv_Checks := No_List;
+
+         --  Extract the argument from a potentially nested set of view
+         --  conversions.
+
+         Arg := Actual;
+         while Nkind (Arg) = N_Type_Conversion loop
+            Arg := Expression (Arg);
+         end loop;
+
+         --  Move up the derivation chain starting with the type of the formal
+         --  parameter down to the type of the actual object.
+
+         Curr_Typ := Empty;
+         Par_Typ  := Etype (Arg);
+         while Par_Typ /= Etype (Formal) and Par_Typ /= Curr_Typ loop
+            Curr_Typ := Par_Typ;
+
+            if Has_Invariants (Curr_Typ)
+              and then Present (Invariant_Procedure (Curr_Typ))
+            then
+               --  Verify the invariate of the current type. Generate:
+
+               --    <Curr_Typ>Invariant (Curr_Typ (Arg));
+
+               Prepend_New_To (Inv_Checks,
+                 Make_Procedure_Call_Statement (Loc,
+                   Name                   =>
+                     New_Occurrence_Of
+                       (Invariant_Procedure (Curr_Typ), Loc),
+                   Parameter_Associations => New_List (
+                     Make_Type_Conversion (Loc,
+                       Subtype_Mark => New_Occurrence_Of (Curr_Typ, Loc),
+                       Expression   => New_Copy_Tree (Arg)))));
+            end if;
+
+            Par_Typ := Base_Type (Etype (Curr_Typ));
+         end loop;
+
+         if not Is_Empty_List (Inv_Checks) then
+            Insert_Actions_After (N, Inv_Checks);
+         end if;
+      end Add_View_Conversion_Invariants;
 
       ---------------------------
       -- Inherited_From_Formal --
@@ -2973,7 +3045,6 @@ package body Exp_Ch6 is
 
             else
                case Nkind (Prev_Orig) is
-
                   when N_Attribute_Reference =>
                      case Get_Attribute_Id (Attribute_Name (Prev_Orig)) is
 
@@ -3017,8 +3088,9 @@ package body Exp_Ch6 is
 
                         --  Treat the unchecked attributes as library-level
 
-                        when Attribute_Unchecked_Access |
-                           Attribute_Unrestricted_Access =>
+                        when Attribute_Unchecked_Access
+                           | Attribute_Unrestricted_Access
+                        =>
                            Add_Extra_Actual
                              (Make_Integer_Literal (Loc,
                                 Intval => Scope_Depth (Standard_Standard)),
@@ -3233,6 +3305,20 @@ package body Exp_Ch6 is
                 Duplicate_Subexpr_Move_Checks (Actual)));
          end if;
 
+         --  Perform invariant checks for all intermediate types in a view
+         --  conversion after successful return from a call that passes the
+         --  view conversion as an IN OUT or OUT parameter (RM 7.3.2 (12/3,
+         --  13/3, 14/3)). Consider only source conversion in order to avoid
+         --  generating spurious checks on complex expansion such as object
+         --  initialization through an extension aggregate.
+
+         if Comes_From_Source (N)
+           and then Ekind (Formal) /= E_In_Parameter
+           and then Nkind (Actual) = N_Type_Conversion
+         then
+            Add_View_Conversion_Invariants (Formal, Actual);
+         end if;
+
          --  This label is required when skipping extra actual generation for
          --  Unchecked_Union parameters.
 
@@ -3290,7 +3376,9 @@ package body Exp_Ch6 is
 
                   Defer := True;
 
-               when N_Object_Declaration | N_Object_Renaming_Declaration =>
+               when N_Object_Declaration
+                  | N_Object_Renaming_Declaration
+               =>
                   declare
                      Def_Id : constant Entity_Id :=
                                 Defining_Identifier (Ancestor);
@@ -3327,8 +3415,8 @@ package body Exp_Ch6 is
                      Level :=
                        New_Occurrence_Of
                          (Extra_Accessibility_Of_Result
-                            (Return_Applies_To
-                               (Return_Statement_Entity (Ancestor))), Loc);
+                           (Return_Applies_To
+                             (Return_Statement_Entity (Ancestor))), Loc);
                   end if;
 
                when others =>
@@ -3345,8 +3433,9 @@ package body Exp_Ch6 is
                   --  calls to subps whose enclosing scope is unknown (e.g.,
                   --  Anon_Access_To_Subp_Param.all)?
 
-                  Level := Make_Integer_Literal (Loc,
-                             Scope_Depth (Current_Scope) + 1);
+                  Level :=
+                    Make_Integer_Literal (Loc,
+                      Intval => Scope_Depth (Current_Scope) + 1);
                end if;
 
                Add_Extra_Actual
@@ -3852,6 +3941,14 @@ package body Exp_Ch6 is
 
          if not Is_Inlined (Subp) then
             null;
+
+         --  Frontend inlining of expression functions (performed also when
+         --  backend inlining is enabled)
+
+         elsif Is_Inlinable_Expression_Function (Subp) then
+            Rewrite (N, New_Copy (Expression_Of_Expression_Function (Subp)));
+            Analyze (N);
+            return;
 
          --  Handle frontend inlining
 
@@ -5110,17 +5207,8 @@ package body Exp_Ch6 is
    ---------------------------------------
 
    procedure Expand_N_Procedure_Call_Statement (N : Node_Id) is
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
-
    begin
-      --  The procedure call is Ghost when the name is Ghost. Set the mode now
-      --  to ensure that any nodes generated during expansion are properly set
-      --  as Ghost.
-
-      Set_Ghost_Mode (N);
-
       Expand_Call (N);
-      Ghost_Mode := Save_Ghost_Mode;
    end Expand_N_Procedure_Call_Statement;
 
    --------------------------------------
@@ -5142,16 +5230,17 @@ package body Exp_Ch6 is
       --  Distinguish the function and non-function cases:
 
       case Ekind (Return_Applies_To (Return_Statement_Entity (N))) is
-
-         when E_Function          |
-              E_Generic_Function  =>
+         when E_Function
+            | E_Generic_Function
+         =>
             Expand_Simple_Function_Return (N);
 
-         when E_Procedure         |
-              E_Generic_Procedure |
-              E_Entry             |
-              E_Entry_Family      |
-              E_Return_Statement =>
+         when E_Entry
+            | E_Entry_Family
+            | E_Generic_Procedure
+            | E_Procedure
+            | E_Return_Statement
+         =>
             Expand_Non_Function_Return (N);
 
          when others =>
@@ -5280,8 +5369,6 @@ package body Exp_Ch6 is
 
       --  Local variables
 
-      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
-
       Except_H : Node_Id;
       L        : List_Id;
       Spec_Id  : Entity_Id;
@@ -5311,13 +5398,6 @@ package body Exp_Ch6 is
             Set_Is_Pure (Body_Id, Is_Pure (Spec_Id));
          end if;
       end if;
-
-      --  The subprogram body is Ghost when it is stand alone and subject to
-      --  pragma Ghost or the corresponding spec is Ghost. To accomodate both
-      --  cases, set the mode now to ensure that any nodes generated during
-      --  expansion are marked as Ghost.
-
-      Set_Ghost_Mode (N, Spec_Id);
 
       --  Set L to either the list of declarations if present, or to the list
       --  of statements if no declarations are present. This is used to insert
@@ -5440,7 +5520,6 @@ package body Exp_Ch6 is
               Make_Handled_Sequence_Of_Statements (Loc,
                 Statements => New_List (Make_Null_Statement (Loc))));
 
-            Ghost_Mode := Save_Ghost_Mode;
             return;
          end if;
       end if;
@@ -5465,7 +5544,7 @@ package body Exp_Ch6 is
       begin
          if not Acts_As_Spec (N)
            and then Nkind (Parent (Parent (Spec_Id))) /=
-             N_Subprogram_Body_Stub
+                      N_Subprogram_Body_Stub
          then
             null;
 
@@ -5553,8 +5632,6 @@ package body Exp_Ch6 is
       --  Set to encode entity names in package body before gigi is called
 
       Qualify_Entity_Names (N);
-
-      Ghost_Mode := Save_Ghost_Mode;
    end Expand_N_Subprogram_Body;
 
    -----------------------------------
@@ -5618,7 +5695,7 @@ package body Exp_Ch6 is
 
          elsif Present (Next (N))
            and then Nkind (Next (N)) = N_Pragma
-           and then Get_Pragma_Id (Pragma_Name (Next (N))) = Pragma_Import
+           and then Get_Pragma_Id (Next (N)) = Pragma_Import
          then
             --  In SPARK, subprogram declarations are also permitted in
             --  declarative parts when immediately followed by a corresponding
@@ -6006,6 +6083,7 @@ package body Exp_Ch6 is
       --  case this must be handled as an inter-object call.
 
       if not In_Open_Scopes (Scop)
+        or else Is_Entry_Wrapper (Current_Scope)
         or else not Is_Entity_Name (Name (N))
       then
          if Nkind (Name (N)) = N_Selected_Component then
@@ -6013,6 +6091,19 @@ package body Exp_Ch6 is
 
          elsif Nkind (Name (N)) = N_Indexed_Component then
             Rec := Prefix (Prefix (Name (N)));
+
+         --  If this is a call within an entry wrapper, it appears within a
+         --  precondition that calls another primitive of the synchronized
+         --  type. The target object of the call is the first actual on the
+         --  wrapper. Note that this is an external call, because the wrapper
+         --  is called outside of the synchronized object. This means that
+         --  an entry call to an entry with preconditions involves two
+         --  synchronized operations.
+
+         elsif Ekind (Current_Scope) = E_Procedure
+           and then Is_Entry_Wrapper (Current_Scope)
+         then
+            Rec := New_Occurrence_Of (First_Entity (Current_Scope), Sloc (N));
 
          else
             --  If the context is the initialization procedure for a protected
@@ -6665,7 +6756,6 @@ package body Exp_Ch6 is
 
             case Nkind (Discrim_Source) is
                when N_Defining_Identifier =>
-
                   pragma Assert (Is_Composite_Type (Discrim_Source)
                                   and then Has_Discriminants (Discrim_Source)
                                   and then Is_Constrained (Discrim_Source));
@@ -6691,8 +6781,9 @@ package body Exp_Ch6 is
                      end loop;
                   end;
 
-               when N_Aggregate | N_Extension_Aggregate =>
-
+               when N_Aggregate
+                  | N_Extension_Aggregate
+               =>
                   --  Unimplemented: extension aggregate case where discrims
                   --  come from ancestor part, not extension part.
 
@@ -6787,7 +6878,6 @@ package body Exp_Ch6 is
                   null;
 
                when others =>
-
                   declare
                      Level : constant Node_Id :=
                                Make_Integer_Literal (Loc,
@@ -6805,7 +6895,6 @@ package body Exp_Ch6 is
                      Set_Etype (Level, Standard_Natural);
                      Check_Against_Result_Level (Level);
                   end;
-
             end case;
          end;
       end if;
@@ -6880,6 +6969,36 @@ package body Exp_Ch6 is
          Analyze_And_Resolve (Exp);
       end if;
    end Expand_Simple_Function_Return;
+
+   ---------------------------------------
+   -- Expression_Of_Expression_Function --
+   ---------------------------------------
+
+   function Expression_Of_Expression_Function
+     (Subp : Entity_Id) return Node_Id
+   is
+      Expr_Func : Node_Id;
+
+   begin
+      pragma Assert (Is_Expression_Function_Or_Completion (Subp));
+
+      if Nkind (Original_Node (Subprogram_Spec (Subp)))
+           = N_Expression_Function
+      then
+         Expr_Func := Original_Node (Subprogram_Spec (Subp));
+
+      elsif Nkind (Original_Node (Subprogram_Body (Subp)))
+              = N_Expression_Function
+      then
+         Expr_Func := Original_Node (Subprogram_Body (Subp));
+
+      else
+         pragma Assert (False);
+         null;
+      end if;
+
+      return Original_Node (Expression (Expr_Func));
+   end Expression_Of_Expression_Function;
 
    --------------------------------------------
    -- Has_Unconstrained_Access_Discriminants --
@@ -7208,6 +7327,39 @@ package body Exp_Ch6 is
       end if;
    end Freeze_Subprogram;
 
+   --------------------------------------
+   -- Is_Inlinable_Expression_Function --
+   --------------------------------------
+
+   function Is_Inlinable_Expression_Function (Subp : Entity_Id) return Boolean
+   is
+      Return_Expr : Node_Id;
+
+   begin
+      if Is_Expression_Function_Or_Completion (Subp)
+        and then Has_Pragma_Inline_Always (Subp)
+        and then Needs_No_Actuals (Subp)
+        and then No (Contract (Subp))
+        and then not Is_Dispatching_Operation (Subp)
+        and then Needs_Finalization (Etype (Subp))
+        and then not Is_Class_Wide_Type (Etype (Subp))
+        and then not (Has_Invariants (Etype (Subp)))
+        and then Present (Subprogram_Body (Subp))
+        and then Was_Expression_Function (Subprogram_Body (Subp))
+      then
+         Return_Expr := Expression_Of_Expression_Function (Subp);
+
+         --  The returned object must not have a qualified expression and its
+         --  nominal subtype must be statically compatible with the result
+         --  subtype of the expression function.
+
+         return Nkind (Return_Expr) = N_Identifier
+           and then Etype (Return_Expr) = Etype (Subp);
+      end if;
+
+      return False;
+   end Is_Inlinable_Expression_Function;
+
    -----------------------
    -- Is_Null_Procedure --
    -----------------------
@@ -7515,6 +7667,14 @@ package body Exp_Ch6 is
       Return_Obj_Id   : Entity_Id;
       Return_Obj_Decl : Entity_Id;
 
+      Definite : Boolean;
+      --  True if result subtype is definite, or has a size that does not
+      --  require secondary stack usage (i.e. no variant part or components
+      --  whose type depends on discriminants). In particular, untagged types
+      --  with only access discriminants do not require secondary stack use.
+      --  Note that if the return type is tagged we must always use the sec.
+      --  stack because the call may dispatch on result.
+
    begin
       --  Step past qualification, type conversion (which can occur in actual
       --  parameter contexts), and unchecked conversion (which can occur in
@@ -7554,6 +7714,10 @@ package body Exp_Ch6 is
       end if;
 
       Result_Subt := Etype (Function_Id);
+      Definite :=
+        (Is_Definite_Subtype (Underlying_Type (Result_Subt))
+             and then not Is_Tagged_Type (Result_Subt))
+          or else not Requires_Transient_Scope (Underlying_Type (Result_Subt));
 
       --  If the build-in-place function returns a controlled object, then the
       --  object needs to be finalized immediately after the context. Since
@@ -7592,10 +7756,10 @@ package body Exp_Ch6 is
             Analyze (Function_Call);
          end;
 
-      --  When the result subtype is constrained, an object of the subtype is
+      --  When the result subtype is definite, an object of the subtype is
       --  declared and an access value designating it is passed as an actual.
 
-      elsif Is_Constrained (Underlying_Type (Result_Subt)) then
+      elsif Definite then
 
          --  Create a temporary object to hold the function result
 
@@ -8296,9 +8460,20 @@ package body Exp_Ch6 is
       pragma Assert (Is_Build_In_Place_Function (Func_Id));
       Func_Typ : constant Entity_Id := Underlying_Type (Etype (Func_Id));
    begin
+      --  A formal giving the finalization master is needed for build-in-place
+      --  functions whose result type needs finalization or is a tagged type.
+      --  Tagged primitive build-in-place functions need such a formal because
+      --  they can be called by a dispatching call, and extensions may require
+      --  finalization even if the root type doesn't. This means they're also
+      --  needed for tagged nonprimitive build-in-place functions with tagged
+      --  results, since such functions can be called via access-to-function
+      --  types, and those can be used to call primitives, so masters have to
+      --  be passed to all such build-in-place functions, primitive or not.
+
       return
         not Restriction_Active (No_Finalization)
-          and then Needs_Finalization (Func_Typ);
+          and then (Needs_Finalization (Func_Typ)
+                     or else Is_Tagged_Type (Func_Typ));
    end Needs_BIP_Finalization_Master;
 
    --------------------------

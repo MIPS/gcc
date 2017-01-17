@@ -137,6 +137,20 @@ package Exp_Ch6 is
    --  that requires handling as a build-in-place call or is a qualified
    --  expression applied to such a call; otherwise returns False.
 
+   function Is_Inlinable_Expression_Function (Subp : Entity_Id) return Boolean;
+   --  Return True if Subp is an expression function that fulfills all the
+   --  following requirements for inlining:
+   --     1. pragma/aspect Inline_Always
+   --     2. No formals
+   --     3. No contracts
+   --     4. No dispatching primitive
+   --     5. Result subtype controlled (or with controlled components)
+   --     6. Result subtype not subject to type-invariant checks
+   --     7. Result subtype not a class-wide type
+   --     8. Return expression naming an object global to the function
+   --     9. Nominal subtype of the returned object statically compatible
+   --        with the result subtype of the expression function.
+
    function Is_Null_Procedure (Subp : Entity_Id) return Boolean;
    --  Predicate to recognize stubbed procedures and null procedures, which
    --  can be inlined unconditionally in all cases.
@@ -201,7 +215,9 @@ package Exp_Ch6 is
 
    function Needs_BIP_Finalization_Master (Func_Id : Entity_Id) return Boolean;
    --  Ada 2005 (AI-318-02): Return True if the result subtype of function
-   --  Func_Id needs finalization actions.
+   --  Func_Id might need finalization actions. This includes build-in-place
+   --  functions with tagged result types, since they can be invoked via
+   --  dispatching calls, and descendant types may require finalization.
 
    function Needs_Result_Accessibility_Level
      (Func_Id : Entity_Id) return Boolean;

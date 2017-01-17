@@ -1,3 +1,25 @@
+2017-01-13  Joe Seymour  <joe.s@somniumtech.com>
+
+	* config/msp430/t-msp430 (libmul_none.a, libmul_16.a, libmul_32.a,
+	libmul_f5.a): Filter archived prerequisites.
+
+2017-01-10  Andrew Senkevich  <andrew.senkevich@intel.com>
+
+	* config/i386/cpuinfo.h (processor_features): Add
+	FEATURE_AVX512VPOPCNTDQ.
+	* config/i386/cpuinfo.c (get_available_features): Habdle new
+	feature.
+
+2017-01-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/sfp-machine.h (_FP_CHOOSENAN): Always preserve NaN
+	payload if [__mips_nan2008].
+
+2017-01-04  Alan Modra  <amodra@gmail.com>
+
+	* Makefile.in (configure_deps): Update.
+	* configure: Regenerate.
+
 2017-01-01  Jakub Jelinek  <jakub@redhat.com>
 
 	Update copyright years.

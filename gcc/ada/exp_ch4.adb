@@ -632,6 +632,13 @@ package body Exp_Ch4 is
                       Make_Explicit_Dereference (Loc, New_Copy (Obj_Ref)),
                     Typ     => DesigT);
 
+               --  Guard against a missing [Deep_]Finalize when the designated
+               --  type was not properly frozen.
+
+               if No (Fin_Call) then
+                  Fin_Call := Make_Null_Statement (Loc);
+               end if;
+
                --  When the target or profile supports deallocation, wrap the
                --  finalization call in a block to ensure proper deallocation
                --  even if finalization fails. Generate:
@@ -722,6 +729,7 @@ package body Exp_Ch4 is
       Aggr_In_Place : constant Boolean   := Is_Delayed_Aggregate (Exp);
       Indic         : constant Node_Id   := Subtype_Mark (Expression (N));
       T             : constant Entity_Id := Entity (Indic);
+      Adj_Call      : Node_Id;
       Node          : Node_Id;
       Tag_Assign    : Node_Id;
       Temp          : Entity_Id;
@@ -1060,13 +1068,17 @@ package body Exp_Ch4 is
             --  the designated type can be an ancestor of the subtype mark of
             --  the allocator.
 
-            Insert_Action (N,
+            Adj_Call :=
               Make_Adjust_Call
                 (Obj_Ref =>
                    Unchecked_Convert_To (T,
                      Make_Explicit_Dereference (Loc,
                        Prefix => New_Occurrence_Of (Temp, Loc))),
-                 Typ     => T));
+                 Typ     => T);
+
+            if Present (Adj_Call) then
+               Insert_Action (N, Adj_Call);
+            end if;
          end if;
 
          --  Note: the accessibility check must be inserted after the call to
@@ -2128,47 +2140,47 @@ package body Exp_Ch4 is
 
       if Llo /= No_Uint and then Rlo /= No_Uint then
          case N_Op_Compare (Nkind (N)) is
-         when N_Op_Eq =>
-            if Llo = Lhi and then Rlo = Rhi and then Llo = Rlo then
-               Set_True;
-            elsif Llo > Rhi or else Lhi < Rlo then
-               Set_False;
-            end if;
+            when N_Op_Eq =>
+               if Llo = Lhi and then Rlo = Rhi and then Llo = Rlo then
+                  Set_True;
+               elsif Llo > Rhi or else Lhi < Rlo then
+                  Set_False;
+               end if;
 
-         when N_Op_Ge =>
-            if Llo >= Rhi then
-               Set_True;
-            elsif Lhi < Rlo then
-               Set_False;
-            end if;
+            when N_Op_Ge =>
+               if Llo >= Rhi then
+                  Set_True;
+               elsif Lhi < Rlo then
+                  Set_False;
+               end if;
 
-         when N_Op_Gt =>
-            if Llo > Rhi then
-               Set_True;
-            elsif Lhi <= Rlo then
-               Set_False;
-            end if;
+            when N_Op_Gt =>
+               if Llo > Rhi then
+                  Set_True;
+               elsif Lhi <= Rlo then
+                  Set_False;
+               end if;
 
-         when N_Op_Le =>
-            if Llo > Rhi then
-               Set_False;
-            elsif Lhi <= Rlo then
-               Set_True;
-            end if;
+            when N_Op_Le =>
+               if Llo > Rhi then
+                  Set_False;
+               elsif Lhi <= Rlo then
+                  Set_True;
+               end if;
 
-         when N_Op_Lt =>
-            if Llo >= Rhi then
-               Set_False;
-            elsif Lhi < Rlo then
-               Set_True;
-            end if;
+            when N_Op_Lt =>
+               if Llo >= Rhi then
+                  Set_False;
+               elsif Lhi < Rlo then
+                  Set_True;
+               end if;
 
-         when N_Op_Ne =>
-            if Llo = Lhi and then Rlo = Rhi and then Llo = Rlo then
-               Set_False;
-            elsif Llo > Rhi or else Lhi < Rlo then
-               Set_True;
-            end if;
+            when N_Op_Ne =>
+               if Llo = Lhi and then Rlo = Rhi and then Llo = Rlo then
+                  Set_False;
+               elsif Llo > Rhi or else Lhi < Rlo then
+                  Set_True;
+               end if;
          end case;
 
          --  All done if we did the rewrite
@@ -4315,6 +4327,7 @@ package body Exp_Ch4 is
          Discr     : Elmt_Id;
          Init      : Entity_Id;
          Init_Arg1 : Node_Id;
+         Init_Call : Node_Id;
          Temp_Decl : Node_Id;
          Temp_Type : Entity_Id;
 
@@ -4635,10 +4648,17 @@ package body Exp_Ch4 is
                   --  Generate:
                   --    [Deep_]Initialize (Init_Arg1);
 
-                  Insert_Action (N,
+                  Init_Call :=
                     Make_Init_Call
                       (Obj_Ref => New_Copy_Tree (Init_Arg1),
-                       Typ     => T));
+                       Typ     => T);
+
+                  --  Guard against a missing [Deep_]Initialize when the
+                  --  designated type was not properly frozen.
+
+                  if Present (Init_Call) then
+                     Insert_Action (N, Init_Call);
+                  end if;
                end if;
 
                Rewrite (N, New_Occurrence_Of (Temp, Loc));
@@ -7671,7 +7691,11 @@ package body Exp_Ch4 is
          --  the case of 0.0 ** (negative) even if Machine_Overflows = False.
          --  See ACVC test C4A012B, and it is not worth generating the test.
 
-         if Expv >= 0 and then Expv <= 4 then
+         --  For small negative exponents, we return the reciprocal of
+         --  the folding of the exponentiation for the opposite (positive)
+         --  exponent, as required by Ada RM 4.5.6(11/3).
+
+         if abs Expv <= 4 then
 
             --  X ** 0 = 1 (or 1.0)
 
@@ -7722,8 +7746,7 @@ package body Exp_Ch4 is
             --  in
             --    En * En
 
-            else
-               pragma Assert (Expv = 4);
+            elsif Expv = 4 then
                Temp := Make_Temporary (Loc, 'E', Base);
 
                Xnode :=
@@ -7746,6 +7769,27 @@ package body Exp_Ch4 is
                        Make_Op_Multiply (Loc,
                          Left_Opnd  => New_Occurrence_Of (Temp, Loc),
                          Right_Opnd => New_Occurrence_Of (Temp, Loc))));
+
+            --  X ** N = 1.0 / X ** (-N)
+            --  N in -4 .. -1
+
+            else
+               pragma Assert
+                 (Expv = -1 or Expv = -2 or Expv = -3 or Expv = -4);
+
+               Xnode :=
+                 Make_Op_Divide (Loc,
+                   Left_Opnd  =>
+                     Make_Float_Literal (Loc,
+                       Radix       => Uint_1,
+                       Significand => Uint_1,
+                       Exponent    => Uint_0),
+                   Right_Opnd =>
+                     Make_Op_Expon (Loc,
+                       Left_Opnd  => Duplicate_Subexpr (Base),
+                       Right_Opnd =>
+                         Make_Integer_Literal (Loc,
+                           Intval => -Expv)));
             end if;
 
             Rewrite (N, Xnode);
@@ -13150,56 +13194,57 @@ package body Exp_Ch4 is
 
          begin
             case N_Op_Compare (Nkind (N)) is
-            when N_Op_Eq =>
-               True_Result  := Res = EQ;
-               False_Result := Res = LT or else Res = GT or else Res = NE;
+               when N_Op_Eq =>
+                  True_Result  := Res = EQ;
+                  False_Result := Res = LT or else Res = GT or else Res = NE;
 
-            when N_Op_Ge =>
-               True_Result  := Res in Compare_GE;
-               False_Result := Res = LT;
+               when N_Op_Ge =>
+                  True_Result  := Res in Compare_GE;
+                  False_Result := Res = LT;
 
-               if Res = LE
-                 and then Constant_Condition_Warnings
-                 and then Comes_From_Source (Original_Node (N))
-                 and then Nkind (Original_Node (N)) = N_Op_Ge
-                 and then not In_Instance
-                 and then Is_Integer_Type (Etype (Left_Opnd (N)))
-                 and then not Has_Warnings_Off (Etype (Left_Opnd (N)))
-               then
-                  Error_Msg_N
-                    ("can never be greater than, could replace by ""'=""?c?",
-                     N);
-                  Warning_Generated := True;
-               end if;
+                  if Res = LE
+                    and then Constant_Condition_Warnings
+                    and then Comes_From_Source (Original_Node (N))
+                    and then Nkind (Original_Node (N)) = N_Op_Ge
+                    and then not In_Instance
+                    and then Is_Integer_Type (Etype (Left_Opnd (N)))
+                    and then not Has_Warnings_Off (Etype (Left_Opnd (N)))
+                  then
+                     Error_Msg_N
+                       ("can never be greater than, could replace by "
+                        & """'=""?c?", N);
+                     Warning_Generated := True;
+                  end if;
 
-            when N_Op_Gt =>
-               True_Result  := Res = GT;
-               False_Result := Res in Compare_LE;
+               when N_Op_Gt =>
+                  True_Result  := Res = GT;
+                  False_Result := Res in Compare_LE;
 
-            when N_Op_Lt =>
-               True_Result  := Res = LT;
-               False_Result := Res in Compare_GE;
+               when N_Op_Lt =>
+                  True_Result  := Res = LT;
+                  False_Result := Res in Compare_GE;
 
-            when N_Op_Le =>
-               True_Result  := Res in Compare_LE;
-               False_Result := Res = GT;
+               when N_Op_Le =>
+                  True_Result  := Res in Compare_LE;
+                  False_Result := Res = GT;
 
-               if Res = GE
-                 and then Constant_Condition_Warnings
-                 and then Comes_From_Source (Original_Node (N))
-                 and then Nkind (Original_Node (N)) = N_Op_Le
-                 and then not In_Instance
-                 and then Is_Integer_Type (Etype (Left_Opnd (N)))
-                 and then not Has_Warnings_Off (Etype (Left_Opnd (N)))
-               then
-                  Error_Msg_N
-                    ("can never be less than, could replace by ""'=""?c?", N);
-                  Warning_Generated := True;
-               end if;
+                  if Res = GE
+                    and then Constant_Condition_Warnings
+                    and then Comes_From_Source (Original_Node (N))
+                    and then Nkind (Original_Node (N)) = N_Op_Le
+                    and then not In_Instance
+                    and then Is_Integer_Type (Etype (Left_Opnd (N)))
+                    and then not Has_Warnings_Off (Etype (Left_Opnd (N)))
+                  then
+                     Error_Msg_N
+                       ("can never be less than, could replace by ""'=""?c?",
+                        N);
+                     Warning_Generated := True;
+                  end if;
 
-            when N_Op_Ne =>
-               True_Result  := Res = NE or else Res = GT or else Res = LT;
-               False_Result := Res = EQ;
+               when N_Op_Ne =>
+                  True_Result  := Res = NE or else Res = GT or else Res = LT;
+                  False_Result := Res = EQ;
             end case;
 
             --  If this is the first iteration, then we actually convert the

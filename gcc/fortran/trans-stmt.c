@@ -112,7 +112,7 @@ gfc_trans_label_assign (gfc_code * code)
       || code->label1->defined == ST_LABEL_DO_TARGET)
     {
       label_tree = gfc_build_addr_expr (pvoid_type_node, label_tree);
-      len_tree = build_int_cst (gfc_charlen_type_node, -1);
+      len_tree = integer_minus_one_node;
     }
   else
     {
@@ -125,7 +125,7 @@ gfc_trans_label_assign (gfc_code * code)
       label_tree = gfc_build_addr_expr (pvoid_type_node, label_tree);
     }
 
-  gfc_add_modify (&se.pre, len, fold_convert (TREE_TYPE (len), len_tree));
+  gfc_add_modify (&se.pre, len, len_tree);
   gfc_add_modify (&se.pre, addr, label_tree);
 
   return gfc_finish_block (&se.pre);
@@ -2750,7 +2750,7 @@ gfc_trans_character_select (gfc_code *code)
     {
       for (d = cp; d; d = d->right)
 	{
-	  gfc_charlen_t i;
+	  int i;
 	  if (d->low)
 	    {
 	      gcc_assert (d->low->expr_type == EXPR_CONSTANT
@@ -2955,7 +2955,7 @@ gfc_trans_character_select (gfc_code *code)
       if (d->low == NULL)
         {
           CONSTRUCTOR_APPEND_ELT (node, ss_string1[k], null_pointer_node);
-          CONSTRUCTOR_APPEND_ELT (node, ss_string1_len[k], build_zero_cst (gfc_charlen_type_node));
+          CONSTRUCTOR_APPEND_ELT (node, ss_string1_len[k], integer_zero_node);
         }
       else
         {
@@ -2968,7 +2968,7 @@ gfc_trans_character_select (gfc_code *code)
       if (d->high == NULL)
         {
           CONSTRUCTOR_APPEND_ELT (node, ss_string2[k], null_pointer_node);
-          CONSTRUCTOR_APPEND_ELT (node, ss_string2_len[k], build_zero_cst (gfc_charlen_type_node));
+          CONSTRUCTOR_APPEND_ELT (node, ss_string2_len[k], integer_zero_node);
         }
       else
         {
@@ -5640,7 +5640,7 @@ gfc_trans_allocate (gfc_code * code)
 	{
 	  gfc_init_se (&se, NULL);
 	  temp_var_needed = false;
-	  expr3_len = build_zero_cst (gfc_charlen_type_node);
+	  expr3_len = integer_zero_node;
 	  e3_is = E3_MOLD;
 	}
       /* Prevent aliasing, i.e., se.expr may be already a
@@ -6036,8 +6036,7 @@ gfc_trans_allocate (gfc_code * code)
 		     e.g., a string.  */
 		  memsz = fold_build2_loc (input_location, GT_EXPR,
 					   boolean_type_node, expr3_len,
-					   build_zero_cst
-					   (TREE_TYPE (expr3_len)));
+					   integer_zero_node);
 		  memsz = fold_build3_loc (input_location, COND_EXPR,
 					 TREE_TYPE (expr3_esize),
 					 memsz, tmp, expr3_esize);
@@ -6300,6 +6299,40 @@ gfc_trans_allocate (gfc_code * code)
 	  gfc_add_expr_to_block (&block, tmp);
 	}
 
+      /* Nullify all pointers in derived type coarrays.  This registers a
+	 token for them which allows their allocation.  */
+      if (is_coarray)
+	{
+	  gfc_symbol *type = NULL;
+	  symbol_attribute caf_attr;
+	  int rank = 0;
+	  if (code->ext.alloc.ts.type == BT_DERIVED
+	      && code->ext.alloc.ts.u.derived->attr.pointer_comp)
+	    {
+	      type = code->ext.alloc.ts.u.derived;
+	      rank = type->attr.dimension ? type->as->rank : 0;
+	      gfc_clear_attr (&caf_attr);
+	    }
+	  else if (expr->ts.type == BT_DERIVED
+		   && expr->ts.u.derived->attr.pointer_comp)
+	    {
+	      type = expr->ts.u.derived;
+	      rank = expr->rank;
+	      caf_attr = gfc_caf_attr (expr, true);
+	    }
+
+	  /* Initialize the tokens of pointer components in derived type
+	     coarrays.  */
+	  if (type)
+	    {
+	      tmp = (caf_attr.codimension && !caf_attr.dimension)
+		  ? gfc_conv_descriptor_data_get (se.expr) : se.expr;
+	      tmp = gfc_nullify_alloc_comp (type, tmp, rank,
+					    GFC_STRUCTURE_CAF_MODE_IN_COARRAY);
+	      gfc_add_expr_to_block (&block, tmp);
+	    }
+	}
+
       gfc_free_expr (expr);
     } // for-loop
 
@@ -6333,7 +6366,7 @@ gfc_trans_allocate (gfc_code * code)
 		gfc_build_addr_expr (pchar_type_node,
 			gfc_build_localized_cstring_const (msg)));
 
-      slen = build_int_cst (gfc_charlen_type_node, strlen (msg));
+      slen = build_int_cst (gfc_charlen_type_node, ((int) strlen (msg)));
       dlen = gfc_get_expr_charlen (code->expr2);
       slen = fold_build2_loc (input_location, MIN_EXPR,
 			      TREE_TYPE (slen), dlen, slen);
@@ -6444,7 +6477,8 @@ gfc_trans_deallocate (gfc_code *code)
       se.descriptor_only = 1;
       gfc_conv_expr (&se, expr);
 
-      if (flag_coarray == GFC_FCOARRAY_LIB)
+      if (flag_coarray == GFC_FCOARRAY_LIB
+	  || flag_coarray == GFC_FCOARRAY_SINGLE)
 	{
 	  bool comp_ref;
 	  symbol_attribute caf_attr = gfc_caf_attr (expr, false, &comp_ref);
@@ -6454,15 +6488,15 @@ gfc_trans_deallocate (gfc_code *code)
 	      is_coarray_array = caf_attr.dimension || !comp_ref
 		  || caf_attr.coarray_comp;
 
-	      /* When the expression to deallocate is referencing a
-		 component, then only deallocate it, but do not deregister.  */
-	      caf_mode = GFC_STRUCTURE_CAF_MODE_IN_COARRAY
-		  | (comp_ref && !caf_attr.coarray_comp
-		     ? GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY : 0);
+	      if (flag_coarray == GFC_FCOARRAY_LIB)
+		/* When the expression to deallocate is referencing a
+		   component, then only deallocate it, but do not
+		   deregister.  */
+		caf_mode = GFC_STRUCTURE_CAF_MODE_IN_COARRAY
+		    | (comp_ref && !caf_attr.coarray_comp
+		       ? GFC_STRUCTURE_CAF_MODE_DEALLOC_ONLY : 0);
 	    }
 	}
-      else if (flag_coarray == GFC_FCOARRAY_SINGLE)
-	is_coarray = is_coarray_array = gfc_caf_attr (expr).codimension;
 
       if (expr->rank || is_coarray_array)
 	{
@@ -6614,7 +6648,7 @@ gfc_trans_deallocate (gfc_code *code)
       gfc_add_modify (&errmsg_block, errmsg_str,
 		gfc_build_addr_expr (pchar_type_node,
                         gfc_build_localized_cstring_const (msg)));
-      slen = build_int_cst (gfc_charlen_type_node, strlen (msg));
+      slen = build_int_cst (gfc_charlen_type_node, ((int) strlen (msg)));
       dlen = gfc_get_expr_charlen (code->expr2);
 
       gfc_trans_string_copy (&errmsg_block, dlen, errmsg, code->expr2->ts.kind,

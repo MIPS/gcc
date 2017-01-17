@@ -39,6 +39,7 @@ with Exp_Ch7;   use Exp_Ch7;
 with Exp_Disp;  use Exp_Disp;
 with Exp_Dist;  use Exp_Dist;
 with Exp_Dbug;  use Exp_Dbug;
+with Exp_Util;  use Exp_Util;
 with Freeze;    use Freeze;
 with Ghost;     use Ghost;
 with Lib;       use Lib;
@@ -191,6 +192,10 @@ package body Sem_Ch7 is
    ---------------------------------
    -- Analyze_Package_Body_Helper --
    ---------------------------------
+
+   --  WARNING: This routine manages Ghost regions. Return statements must be
+   --  replaced by gotos which jump to the end of the routine and restore the
+   --  Ghost mode.
 
    procedure Analyze_Package_Body_Helper (N : Node_Id) is
       procedure Hide_Public_Entities (Decls : List_Id);
@@ -536,10 +541,10 @@ package body Sem_Ch7 is
 
       --  Local variables
 
-      Save_Ghost_Mode  : constant Ghost_Mode_Type := Ghost_Mode;
       Body_Id          : Entity_Id;
       HSS              : Node_Id;
       Last_Spec_Entity : Entity_Id;
+      Mode             : Ghost_Mode_Type;
       New_N            : Node_Id;
       Pack_Decl        : Node_Id;
       Spec_Id          : Entity_Id;
@@ -642,7 +647,7 @@ package body Sem_Ch7 is
       --  the mode now to ensure that any nodes generated during analysis and
       --  expansion are properly flagged as ignored Ghost.
 
-      Set_Ghost_Mode (N, Spec_Id);
+      Mark_And_Set_Ghost_Body (N, Spec_Id, Mode);
 
       Set_Is_Compilation_Unit (Body_Id, Is_Compilation_Unit (Spec_Id));
       Style.Check_Identifier (Body_Id, Spec_Id);
@@ -735,19 +740,6 @@ package body Sem_Ch7 is
          Set_SPARK_Aux_Pragma           (Body_Id, SPARK_Mode_Pragma);
          Set_SPARK_Pragma_Inherited     (Body_Id);
          Set_SPARK_Aux_Pragma_Inherited (Body_Id);
-      end if;
-
-      --  Inherit the "ghostness" of the package spec. Note that this property
-      --  is not directly inherited as the body may be subject to a different
-      --  Ghost assertion policy.
-
-      if Ghost_Mode > None or else Is_Ghost_Entity (Spec_Id) then
-         Set_Is_Ghost_Entity (Body_Id);
-
-         --  The Ghost policy in effect at the point of declaration and at the
-         --  point of completion must match (SPARK RM 6.9(14)).
-
-         Check_Ghost_Completion (Spec_Id, Body_Id);
       end if;
 
       Set_Categorization_From_Pragmas (N);
@@ -941,7 +933,7 @@ package body Sem_Ch7 is
          end if;
       end if;
 
-      Ghost_Mode := Save_Ghost_Mode;
+      Restore_Ghost_Mode (Mode);
    end Analyze_Package_Body_Helper;
 
    ---------------------------------
@@ -950,7 +942,6 @@ package body Sem_Ch7 is
 
    procedure Analyze_Package_Declaration (N : Node_Id) is
       Id  : constant Node_Id := Defining_Entity (N);
-      Par : constant Node_Id := Parent_Spec (N);
 
       Is_Comp_Unit : constant Boolean :=
                        Nkind (Parent (N)) = N_Compilation_Unit;
@@ -980,16 +971,6 @@ package body Sem_Ch7 is
          Set_SPARK_Aux_Pragma           (Id, SPARK_Mode_Pragma);
          Set_SPARK_Pragma_Inherited     (Id);
          Set_SPARK_Aux_Pragma_Inherited (Id);
-      end if;
-
-      --  A package declared within a Ghost refion is automatically Ghost. A
-      --  child package is Ghost when its parent is Ghost (SPARK RM 6.9(2)).
-
-      if Ghost_Mode > None
-        or else (Present (Par)
-                  and then Is_Ghost_Entity (Defining_Entity (Unit (Par))))
-      then
-         Set_Is_Ghost_Entity (Id);
       end if;
 
       --  Analyze aspect specifications immediately, since we need to recognize
@@ -1453,19 +1434,12 @@ package body Sem_Ch7 is
 
          if Is_Type (E) then
 
-            --  Each private type subject to pragma Default_Initial_Condition
-            --  declares a specialized procedure which verifies the assumption
-            --  of the pragma. The declaration appears in the visible part of
-            --  the package to allow for being called from the outside.
+            --  Preanalyze and resolve the Default_Initial_Condition assertion
+            --  expression at the end of the visible declarations to catch any
+            --  errors.
 
-            if Has_Default_Init_Cond (E) then
-               Build_Default_Init_Cond_Procedure_Declaration (E);
-
-            --  A private extension inherits the default initial condition
-            --  procedure from its parent type.
-
-            elsif Has_Inherited_Default_Init_Cond (E) then
-               Inherit_Default_Init_Cond_Procedure (E);
+            if Has_DIC (E) then
+               Build_DIC_Procedure_Body (E);
             end if;
 
             --  Preanalyze and resolve the invariants of a private type at the
@@ -1661,18 +1635,28 @@ package body Sem_Ch7 is
               ("full view of & does not have preelaborable initialization", E);
          end if;
 
-         --  Preanalyze and resolve the invariants of a private type's full
-         --  view at the end of the private declarations in case freezing did
-         --  not take place either due to errors or because the context is a
-         --  generic unit.
+         if Is_Type (E) and then Serious_Errors_Detected > 0 then
 
-         if Is_Type (E)
-           and then not Is_Private_Type (E)
-           and then Has_Private_Declaration (E)
-           and then Has_Invariants (E)
-           and then Serious_Errors_Detected > 0
-         then
-            Build_Invariant_Procedure_Body (E);
+            --  Preanalyze and resolve the Default_Initial_Condition assertion
+            --  expression at the end of the private declarations when freezing
+            --  did not take place due to errors or because the context is a
+            --  generic unit.
+
+            if Has_DIC (E) then
+               Build_DIC_Procedure_Body (E);
+            end if;
+
+            --  Preanalyze and resolve the invariants of a private type's full
+            --  view at the end of the private declarations in case freezing
+            --  did not take place either due to errors or because the context
+            --  is a generic unit.
+
+            if not Is_Private_Type (E)
+              and then Has_Private_Declaration (E)
+              and then Has_Invariants (E)
+            then
+               Build_Invariant_Procedure_Body (E);
+            end if;
          end if;
 
          Next_Entity (E);
@@ -1788,13 +1772,6 @@ package body Sem_Ch7 is
 
       New_Private_Type (N, Id, N);
       Set_Depends_On_Private (Id);
-
-      --  A type declared within a Ghost region is automatically Ghost
-      --  (SPARK RM 6.9(2)).
-
-      if Ghost_Mode > None then
-         Set_Is_Ghost_Entity (Id);
-      end if;
 
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications (N, Id);
@@ -2629,6 +2606,16 @@ package body Sem_Ch7 is
          end if;
 
          Set_Freeze_Node (Priv, Freeze_Node (Full));
+
+         --  Propagate Default_Initial_Condition-related attributes from the
+         --  base type of the full view to the full view and vice versa. This
+         --  may seem strange, but is necessary depending on which type
+         --  triggered the generation of the DIC procedure body. As a result,
+         --  both the full view and its base type carry the same DIC-related
+         --  information.
+
+         Propagate_DIC_Attributes (Full, From_Typ => Full_Base);
+         Propagate_DIC_Attributes (Full_Base, From_Typ => Full);
 
          --  Propagate invariant-related attributes from the base type of the
          --  full view to the full view and vice versa. This may seem strange,

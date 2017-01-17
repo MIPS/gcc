@@ -1123,7 +1123,8 @@ conv_expr_ref_to_caf_ref (stmtblock_t *block, gfc_expr *expr)
   if (expr->symtree)
     {
       last_component_ref_tree = expr->symtree->n.sym->backend_decl;
-      ref_static_array = !expr->symtree->n.sym->attr.allocatable;
+      ref_static_array = !expr->symtree->n.sym->attr.allocatable
+	  && !expr->symtree->n.sym->attr.pointer;
     }
 
   /* Prevent uninit-warning.  */
@@ -1219,7 +1220,8 @@ conv_expr_ref_to_caf_ref (stmtblock_t *block, gfc_expr *expr)
 	  tmp = fold_build3_loc (input_location, COMPONENT_REF,
 				 TREE_TYPE (field), inner_struct, field,
 				 NULL_TREE);
-	  if (ref->u.c.component->attr.allocatable
+	  if ((ref->u.c.component->attr.allocatable
+	       || ref->u.c.component->attr.pointer)
 	      && ref->u.c.component->attr.dimension)
 	    {
 	      tree arr_desc_token_offset;
@@ -1243,7 +1245,8 @@ conv_expr_ref_to_caf_ref (stmtblock_t *block, gfc_expr *expr)
 
 	  /* Remember whether this ref was to a non-allocatable/non-pointer
 	     component so the next array ref can be tailored correctly.  */
-	  ref_static_array = !ref->u.c.component->attr.allocatable;
+	  ref_static_array = !ref->u.c.component->attr.allocatable
+	      && !ref->u.c.component->attr.pointer;
 	  last_component_ref_tree = ref_static_array
 	      ? ref->u.c.component->backend_decl : NULL_TREE;
 	  break;
@@ -1627,7 +1630,7 @@ gfc_conv_intrinsic_caf_get (gfc_se *se, gfc_expr *expr, tree lhs, tree lhs_kind,
 
   /* Only use the new get_by_ref () where it is necessary.  I.e., when the lhs
      is reallocatable or the right-hand side has allocatable components.  */
-  if (caf_attr->alloc_comp || may_realloc)
+  if (caf_attr->alloc_comp || caf_attr->pointer_comp || may_realloc)
     {
       /* Get using caf_get_by_ref.  */
       caf_reference = conv_expr_ref_to_caf_ref (&se->pre, array_expr);
@@ -1876,7 +1879,8 @@ conv_caf_send (gfc_code *code) {
       lhs_se.expr = gfc_conv_scalar_to_descriptor (&lhs_se, lhs_se.expr, attr);
       lhs_se.expr = gfc_build_addr_expr (NULL_TREE, lhs_se.expr);
     }
-  else if (lhs_caf_attr.alloc_comp && lhs_caf_attr.codimension)
+  else if ((lhs_caf_attr.alloc_comp || lhs_caf_attr.pointer_comp)
+	   && lhs_caf_attr.codimension)
     {
       lhs_se.want_pointer = 1;
       gfc_conv_expr_descriptor (&lhs_se, lhs_expr);
@@ -1930,12 +1934,13 @@ conv_caf_send (gfc_code *code) {
      temporary and a loop.  */
   if (!gfc_is_coindexed (lhs_expr)
       && (!lhs_caf_attr.codimension
-	  || !(lhs_expr->rank > 0 && lhs_caf_attr.allocatable)))
+	  || !(lhs_expr->rank > 0
+	       && (lhs_caf_attr.allocatable || lhs_caf_attr.pointer))))
     {
       bool lhs_may_realloc = lhs_expr->rank > 0 && lhs_caf_attr.allocatable;
       gcc_assert (gfc_is_coindexed (rhs_expr));
       gfc_init_se (&rhs_se, NULL);
-      if (lhs_expr->rank == 0 && gfc_expr_attr (lhs_expr).allocatable)
+      if (lhs_expr->rank == 0 && lhs_caf_attr.allocatable)
 	{
 	  gfc_se scal_se;
 	  gfc_init_se (&scal_se, NULL);
@@ -1997,7 +2002,8 @@ conv_caf_send (gfc_code *code) {
       rhs_se.expr = gfc_conv_scalar_to_descriptor (&rhs_se, rhs_se.expr, attr);
       rhs_se.expr = gfc_build_addr_expr (NULL_TREE, rhs_se.expr);
     }
-  else if (rhs_caf_attr.alloc_comp && rhs_caf_attr.codimension)
+  else if ((rhs_caf_attr.alloc_comp || rhs_caf_attr.pointer_comp)
+	   && rhs_caf_attr.codimension)
     {
       tree tmp2;
       rhs_se.want_pointer = 1;
@@ -2065,7 +2071,7 @@ conv_caf_send (gfc_code *code) {
 
   if (!gfc_is_coindexed (rhs_expr))
     {
-      if (lhs_caf_attr.alloc_comp)
+      if (lhs_caf_attr.alloc_comp || lhs_caf_attr.pointer_comp)
 	{
 	  tree reference, dst_realloc;
 	  reference = conv_expr_ref_to_caf_ref (&block, lhs_expr);
@@ -2100,7 +2106,7 @@ conv_caf_send (gfc_code *code) {
 	caf_decl = build_fold_indirect_ref_loc (input_location, caf_decl);
       rhs_image_index = gfc_caf_get_image_index (&block, rhs_expr, caf_decl);
       tmp = rhs_se.expr;
-      if (rhs_caf_attr.alloc_comp)
+      if (rhs_caf_attr.alloc_comp || rhs_caf_attr.pointer_comp)
 	{
 	  tmp_stat = gfc_find_stat_co (lhs_expr);
 
@@ -7491,12 +7497,10 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 
       nonzero_charlen = NULL_TREE;
       if (arg1->expr->ts.type == BT_CHARACTER)
-	nonzero_charlen
-	  = fold_build2_loc (input_location, NE_EXPR,
-			     boolean_type_node,
-			     arg1->expr->ts.u.cl->backend_decl,
-			     build_zero_cst
-			     (TREE_TYPE (arg1->expr->ts.u.cl->backend_decl)));
+	nonzero_charlen = fold_build2_loc (input_location, NE_EXPR,
+					   boolean_type_node,
+					   arg1->expr->ts.u.cl->backend_decl,
+					   integer_zero_node);
       if (scalar)
         {
 	  /* A pointer to a scalar.  */
@@ -7786,11 +7790,11 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
 
   /* We store in charsize the size of a character.  */
   i = gfc_validate_kind (BT_CHARACTER, expr->ts.kind, false);
-  size = build_int_cst (sizetype, gfc_character_kinds[i].bit_size / 8);
+  size = build_int_cst (size_type_node, gfc_character_kinds[i].bit_size / 8);
 
   /* Get the arguments.  */
   gfc_conv_intrinsic_function_args (se, expr, args, 3);
-  slen = fold_convert (sizetype, gfc_evaluate_now (args[0], &se->pre));
+  slen = fold_convert (size_type_node, gfc_evaluate_now (args[0], &se->pre));
   src = args[1];
   ncopies = gfc_evaluate_now (args[2], &se->pre);
   ncopies_type = TREE_TYPE (ncopies);
@@ -7807,7 +7811,7 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
      is valid, and nothing happens.  */
   n = gfc_create_var (ncopies_type, "ncopies");
   cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node, slen,
-			  size_zero_node);
+			  build_int_cst (size_type_node, 0));
   tmp = fold_build3_loc (input_location, COND_EXPR, ncopies_type, cond,
 			 build_int_cst (ncopies_type, 0), ncopies);
   gfc_add_modify (&se->pre, n, tmp);
@@ -7817,17 +7821,17 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
      (or equal to) MAX / slen, where MAX is the maximal integer of
      the gfc_charlen_type_node type.  If slen == 0, we need a special
      case to avoid the division by zero.  */
-  max = fold_build2_loc (input_location, TRUNC_DIV_EXPR, sizetype,
-			 fold_convert (sizetype,
-				       TYPE_MAX_VALUE (gfc_charlen_type_node)),
-			 slen);
-  largest = TYPE_PRECISION (sizetype) > TYPE_PRECISION (ncopies_type)
-	      ? sizetype : ncopies_type;
+  i = gfc_validate_kind (BT_INTEGER, gfc_charlen_int_kind, false);
+  max = gfc_conv_mpz_to_tree (gfc_integer_kinds[i].huge, gfc_charlen_int_kind);
+  max = fold_build2_loc (input_location, TRUNC_DIV_EXPR, size_type_node,
+			  fold_convert (size_type_node, max), slen);
+  largest = TYPE_PRECISION (size_type_node) > TYPE_PRECISION (ncopies_type)
+	      ? size_type_node : ncopies_type;
   cond = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
 			  fold_convert (largest, ncopies),
 			  fold_convert (largest, max));
   tmp = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node, slen,
-			 size_zero_node);
+			 build_int_cst (size_type_node, 0));
   cond = fold_build3_loc (input_location, COND_EXPR, boolean_type_node, tmp,
 			  boolean_false_node, cond);
   gfc_trans_runtime_check (true, false, cond, &se->pre, &expr->where,
@@ -7844,8 +7848,8 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
        for (i = 0; i < ncopies; i++)
          memmove (dest + (i * slen * size), src, slen*size);  */
   gfc_start_block (&block);
-  count = gfc_create_var (sizetype, "count");
-  gfc_add_modify (&block, count, size_zero_node);
+  count = gfc_create_var (ncopies_type, "count");
+  gfc_add_modify (&block, count, build_int_cst (ncopies_type, 0));
   exit_label = gfc_build_label_decl (NULL_TREE);
 
   /* Start the loop body.  */
@@ -7853,7 +7857,7 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
 
   /* Exit the loop if count >= ncopies.  */
   cond = fold_build2_loc (input_location, GE_EXPR, boolean_type_node, count,
-			  fold_convert (sizetype, ncopies));
+			  ncopies);
   tmp = build1_v (GOTO_EXPR, exit_label);
   TREE_USED (exit_label) = 1;
   tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node, cond, tmp,
@@ -7861,22 +7865,25 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
   gfc_add_expr_to_block (&body, tmp);
 
   /* Call memmove (dest + (i*slen*size), src, slen*size).  */
-  tmp = fold_build2_loc (input_location, MULT_EXPR, sizetype, slen,
-			 count);
-  tmp = fold_build2_loc (input_location, MULT_EXPR, sizetype, tmp,
-			 size);
+  tmp = fold_build2_loc (input_location, MULT_EXPR, gfc_charlen_type_node,
+			 fold_convert (gfc_charlen_type_node, slen),
+			 fold_convert (gfc_charlen_type_node, count));
+  tmp = fold_build2_loc (input_location, MULT_EXPR, gfc_charlen_type_node,
+			 tmp, fold_convert (gfc_charlen_type_node, size));
   tmp = fold_build_pointer_plus_loc (input_location,
 				     fold_convert (pvoid_type_node, dest), tmp);
   tmp = build_call_expr_loc (input_location,
 			     builtin_decl_explicit (BUILT_IN_MEMMOVE),
 			     3, tmp, src,
 			     fold_build2_loc (input_location, MULT_EXPR,
-					      size_type_node, slen, size));
+					      size_type_node, slen,
+					      fold_convert (size_type_node,
+							    size)));
   gfc_add_expr_to_block (&body, tmp);
 
   /* Increment count.  */
-  tmp = fold_build2_loc (input_location, PLUS_EXPR, sizetype,
-			 count, size_one_node);
+  tmp = fold_build2_loc (input_location, PLUS_EXPR, ncopies_type,
+			 count, build_int_cst (TREE_TYPE (count), 1));
   gfc_add_modify (&body, count, tmp);
 
   /* Build the loop.  */

@@ -250,7 +250,7 @@ gfc_class_len_or_zero_get (tree decl)
   return len != NULL_TREE ? fold_build3_loc (input_location, COMPONENT_REF,
 					     TREE_TYPE (len), decl, len,
 					     NULL_TREE)
-    : build_zero_cst (gfc_charlen_type_node);
+			  : integer_zero_node;
 }
 
 
@@ -884,8 +884,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 		{
 		  /* Amazingly all data is present to compute the length of a
 		   constant string, but the expression is not yet there.  */
-		  e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER,
-							      gfc_charlen_int_kind,
+		  e->ts.u.cl->length = gfc_get_constant_expr (BT_INTEGER, 4,
 							      &e->where);
 		  mpz_set_ui (e->ts.u.cl->length->value.integer,
 			      e->value.character.length);
@@ -903,7 +902,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
       else
 	tmp = integer_zero_node;
 
-      gfc_add_modify (&parmse->pre, ctree, fold_convert (TREE_TYPE (ctree), tmp));
+      gfc_add_modify (&parmse->pre, ctree, tmp);
     }
   else if (class_ts.type == BT_CLASS
 	   && class_ts.u.derived->components
@@ -1042,7 +1041,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
       if (DECL_LANG_SPECIFIC (tmp) && GFC_DECL_SAVED_DESCRIPTOR (tmp))
 	tmp = GFC_DECL_SAVED_DESCRIPTOR (tmp);
 
-      slen = build_zero_cst (size_type_node);
+      slen = integer_zero_node;
     }
   else
     {
@@ -1089,7 +1088,7 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
 	  tmp = slen;
 	}
       else
-	tmp = build_zero_cst (size_type_node);
+	tmp = integer_zero_node;
       gfc_add_modify (&parmse->pre, ctree,
 		      fold_convert (TREE_TYPE (ctree), tmp));
 
@@ -1228,7 +1227,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
       if (from != NULL_TREE && unlimited)
 	from_len = gfc_class_len_or_zero_get (from);
       else
-	from_len = build_zero_cst (size_type_node);
+	from_len = integer_zero_node;
     }
 
   if (GFC_CLASS_TYPE_P (TREE_TYPE (to)))
@@ -1340,7 +1339,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 
 	  tmp = fold_build2_loc (input_location, GT_EXPR,
 				 boolean_type_node, from_len,
-				 build_zero_cst (TREE_TYPE (from_len)));
+				 integer_zero_node);
 	  tmp = fold_build3_loc (input_location, COND_EXPR,
 				 void_type_node, tmp, extcopy, stdcopy);
 	  gfc_add_expr_to_block (&body, tmp);
@@ -1368,7 +1367,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	  extcopy = build_call_vec (fcn_type, fcn, args);
 	  tmp = fold_build2_loc (input_location, GT_EXPR,
 				 boolean_type_node, from_len,
-				 build_zero_cst (TREE_TYPE (from_len)));
+				 integer_zero_node);
 	  tmp = fold_build3_loc (input_location, COND_EXPR,
 				 void_type_node, tmp, extcopy, stdcopy);
 	}
@@ -1839,6 +1838,10 @@ gfc_get_tree_for_caf_expr (gfc_expr *expr)
 		     "component at %L is not supported", &expr->where);
       }
 
+  /* Make sure the backend_decl is present before accessing it.  */
+  if (expr->symtree->n.sym->backend_decl == NULL_TREE)
+    expr->symtree->n.sym->backend_decl
+	= gfc_get_symbol_decl (expr->symtree->n.sym);
   caf_decl = expr->symtree->n.sym->backend_decl;
   gcc_assert (caf_decl);
   if (expr->symtree->n.sym->ts.type == BT_CLASS)
@@ -2196,7 +2199,7 @@ gfc_conv_string_length (gfc_charlen * cl, gfc_expr * expr, stmtblock_t * pblock)
 
   gfc_conv_expr_type (&se, cl->length, gfc_charlen_type_node);
   se.expr = fold_build2_loc (input_location, MAX_EXPR, gfc_charlen_type_node,
-			     se.expr, build_zero_cst (TREE_TYPE (se.expr)));
+			     se.expr, build_int_cst (gfc_charlen_type_node, 0));
   gfc_add_block_to_block (pblock, &se.pre);
 
   if (cl->backend_decl)
@@ -2268,7 +2271,7 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
       /* Check lower bound.  */
       fault = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 			       start.expr,
-			       build_one_cst (TREE_TYPE (start.expr)));
+			       build_int_cst (gfc_charlen_type_node, 1));
       fault = fold_build2_loc (input_location, TRUTH_ANDIF_EXPR,
 			       boolean_type_node, nonempty, fault);
       if (name)
@@ -2304,9 +2307,9 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
   if (ref->u.ss.end
       && gfc_dep_difference (ref->u.ss.end, ref->u.ss.start, &length))
     {
-      HOST_WIDE_INT i_len;
+      int i_len;
 
-      i_len = gfc_mpz_get_hwi (length) + 1;
+      i_len = mpz_get_si (length) + 1;
       if (i_len < 0)
 	i_len = 0;
 
@@ -2316,8 +2319,7 @@ gfc_conv_substring (gfc_se * se, gfc_ref * ref, int kind,
   else
     {
       tmp = fold_build2_loc (input_location, MINUS_EXPR, gfc_charlen_type_node,
-			     fold_convert (gfc_charlen_type_node, end.expr),
-			     fold_convert (gfc_charlen_type_node, start.expr));
+			     end.expr, start.expr);
       tmp = fold_build2_loc (input_location, PLUS_EXPR, gfc_charlen_type_node,
 			     build_int_cst (gfc_charlen_type_node, 1), tmp);
       tmp = fold_build2_loc (input_location, MAX_EXPR, gfc_charlen_type_node,
@@ -3117,10 +3119,9 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
     {
       /* Create a temporary variable to hold the result.  */
       tmp = fold_build2_loc (input_location, MINUS_EXPR,
-			     gfc_charlen_type_node,
-			     fold_convert (gfc_charlen_type_node, len),
+			     gfc_charlen_type_node, len,
 			     build_int_cst (gfc_charlen_type_node, 1));
-      tmp = build_range_type (gfc_charlen_type_node, gfc_index_zero_node, tmp);
+      tmp = build_range_type (gfc_array_index_type, gfc_index_zero_node, tmp);
 
       if (TREE_CODE (TREE_TYPE (type)) == ARRAY_TYPE)
 	tmp = build_array_type (TREE_TYPE (TREE_TYPE (type)), tmp);
@@ -3183,9 +3184,7 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
     {
       len = fold_build2_loc (input_location, PLUS_EXPR,
 			     TREE_TYPE (lse.string_length),
-			     lse.string_length,
-			     fold_convert (TREE_TYPE (lse.string_length),
-					   rse.string_length));
+			     lse.string_length, rse.string_length);
     }
 
   type = build_pointer_type (type);
@@ -5877,7 +5876,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  tmp = fold_convert (gfc_charlen_type_node, parmse.expr);
 	  tmp = fold_build2_loc (input_location, MAX_EXPR,
 				 gfc_charlen_type_node, tmp,
-				 build_zero_cst (TREE_TYPE (tmp)));
+				 build_int_cst (gfc_charlen_type_node, 0));
 	  cl.backend_decl = tmp;
 	}
 
@@ -7206,8 +7205,7 @@ alloc_scalar_allocatable_for_subcomponent_assignment (stmtblock_t *block,
 
   if (cm->ts.type == BT_CHARACTER && cm->ts.deferred)
     /* Update the lhs character length.  */
-    gfc_add_modify (block, lhs_cl_size,
-		    fold_convert (TREE_TYPE (lhs_cl_size), size));
+    gfc_add_modify (block, lhs_cl_size, size);
 }
 
 
@@ -7446,8 +7444,7 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr,
 				     1, size);
 	  gfc_add_modify (&block, dest,
 			  fold_convert (TREE_TYPE (dest), tmp));
-	  gfc_add_modify (&block, strlen,
-			  fold_convert (TREE_TYPE (strlen), se.string_length));
+	  gfc_add_modify (&block, strlen, se.string_length);
 	  tmp = gfc_build_memcpy_call (dest, se.expr, size);
 	  gfc_add_expr_to_block (&block, tmp);
 	}
@@ -7513,7 +7510,8 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr, bool init, bool coarray)
 	 Register only allocatable components, that are not coarray'ed
 	 components (%comp[*]).  Only register when the constructor is not the
 	 null-expression.  */
-      if (coarray && !cm->attr.codimension && cm->attr.allocatable
+      if (coarray && !cm->attr.codimension
+	  && (cm->attr.allocatable || cm->attr.pointer)
 	  && (!c->expr || c->expr->expr_type == EXPR_NULL))
 	{
 	  tree token, desc, size;
@@ -8113,7 +8111,7 @@ trans_class_vptr_len_assignment (stmtblock_t *block, gfc_expr * le,
 		  from_len = gfc_evaluate_now (se.expr, block);
 		}
 	      else
-		from_len = build_zero_cst (gfc_charlen_type_node);
+		from_len = integer_zero_node;
 	    }
 	  gfc_add_modify (pre, to_len, fold_convert (TREE_TYPE (to_len),
 						     from_len));
@@ -8126,6 +8124,52 @@ trans_class_vptr_len_assignment (stmtblock_t *block, gfc_expr * le,
   if (from_lenp)
     *from_lenp = from_len;
   return lhs_vptr;
+}
+
+
+/* Assign tokens for pointer components.  */
+
+static void
+trans_caf_token_assign (gfc_se *lse, gfc_se *rse, gfc_expr *expr1,
+			gfc_expr *expr2)
+{
+  symbol_attribute lhs_attr, rhs_attr;
+  tree tmp, lhs_tok, rhs_tok;
+  /* Flag to indicated component refs on the rhs.  */
+  bool rhs_cr;
+
+  lhs_attr = gfc_caf_attr (expr1);
+  if (expr2->expr_type != EXPR_NULL)
+    {
+      rhs_attr = gfc_caf_attr (expr2, false, &rhs_cr);
+      if (lhs_attr.codimension && rhs_attr.codimension)
+	{
+	  lhs_tok = gfc_get_ultimate_alloc_ptr_comps_caf_token (lse, expr1);
+	  lhs_tok = build_fold_indirect_ref (lhs_tok);
+
+	  if (rhs_cr)
+	    rhs_tok = gfc_get_ultimate_alloc_ptr_comps_caf_token (rse, expr2);
+	  else
+	    {
+	      tree caf_decl;
+	      caf_decl = gfc_get_tree_for_caf_expr (expr2);
+	      gfc_get_caf_token_offset (rse, &rhs_tok, NULL, caf_decl,
+					NULL_TREE, NULL);
+	    }
+	  tmp = build2_loc (input_location, MODIFY_EXPR, void_type_node,
+			    lhs_tok,
+			    fold_convert (TREE_TYPE (lhs_tok), rhs_tok));
+	  gfc_prepend_expr_to_block (&lse->post, tmp);
+	}
+    }
+  else if (lhs_attr.codimension)
+    {
+      lhs_tok = gfc_get_ultimate_alloc_ptr_comps_caf_token (lse, expr1);
+      lhs_tok = build_fold_indirect_ref (lhs_tok);
+      tmp = build2_loc (input_location, MODIFY_EXPR, void_type_node,
+			lhs_tok, null_pointer_node);
+      gfc_prepend_expr_to_block (&lse->post, tmp);
+    }
 }
 
 /* Indentify class valued proc_pointer assignments.  */
@@ -8242,11 +8286,16 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	    gfc_add_modify (&block, lse.string_length, rse.string_length);
 	  else if (lse.string_length != NULL)
 	    gfc_add_modify (&block, lse.string_length,
-			    build_zero_cst (TREE_TYPE (lse.string_length)));
+			    build_int_cst (gfc_charlen_type_node, 0));
 	}
 
       gfc_add_modify (&block, lse.expr,
 		      fold_convert (TREE_TYPE (lse.expr), rse.expr));
+
+      /* Also set the tokens for pointer components in derived typed
+	 coarrays.  */
+      if (flag_coarray == GFC_FCOARRAY_LIB)
+	trans_caf_token_assign (&lse, &rse, expr1, expr2);
 
       gfc_add_block_to_block (&block, &rse.post);
       gfc_add_block_to_block (&block, &lse.post);
@@ -9497,9 +9546,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
   if (expr1->ts.type == BT_CHARACTER && expr1->ts.deferred)
     {
       cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
-			      lse.string_length,
-			      fold_convert (TREE_TYPE (lse.string_length),
-					    size));
+			      lse.string_length, size);
       /* Jump past the realloc if the lengths are the same.  */
       tmp = build3_v (COND_EXPR, cond,
 		      build1_v (GOTO_EXPR, jump_label2),
@@ -9516,8 +9563,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
 
       /* Update the lhs character length.  */
       size = string_length;
-      gfc_add_modify (block, lse.string_length,
-		      fold_convert (TREE_TYPE (lse.string_length), size));
+      gfc_add_modify (block, lse.string_length, size);
     }
 }
 
@@ -9699,7 +9745,7 @@ trans_class_assignment (stmtblock_t *block, gfc_expr *lhs, gfc_expr *rhs,
 
 	  tmp = fold_build2_loc (input_location, GT_EXPR,
 				 boolean_type_node, from_len,
-				 build_zero_cst (TREE_TYPE (from_len)));
+				 integer_zero_node);
 	  return fold_build3_loc (input_location, COND_EXPR,
 				  void_type_node, tmp,
 				  extcopy, stdcopy);

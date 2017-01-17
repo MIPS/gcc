@@ -1,83 +1,92 @@
-2017-01-03  Janne Blomqvist  <jb@gcc.gnu.org>
+2017-01-13  Andre Vehreschild  <vehre@gcc.gnu.org>
 
-        PR fortran/78534
-        PR fortran/66310
-        * class.c (gfc_find_derived_vtab): Use gfc_size_kind instead of
-        hardcoded kind.
-        (find_intrinsic_vtab): Likewise.
-        * expr.c (gfc_get_character_expr): Length parameter of type
-        gfc_charlen_t.
-        (gfc_get_int_expr): Value argument of type HOST_WIDE_INT.
-        (gfc_extract_hwi): New function.
-        (simplify_const_ref): Make string_len of type gfc_charlen_t.
-        (gfc_simplify_expr): Use HOST_WIDE_INT for substring refs.
-        * gfortran.h (gfc_mpz_get_hwi): New prototype.
-        (gfc_mpz_set_hwi): Likewise.
-        (gfc_charlen_t): New typedef.
-        (gfc_expr): Use gfc_charlen_t for character lengths.
-        (gfc_size_kind): New extern variable.
-        (gfc_extract_hwi): New prototype.
-        (gfc_get_character_expr): Use gfc_charlen_t for character length.
-        (gfc_get_int_expr): Use HOST_WIDE_INT type for value argument.
-        * iresolve.c (gfc_resolve_repeat): Pass string length directly without
-        temporary, use gfc_charlen_int_kind.
-        * match.c (select_intrinsic_set_tmp): Use HOST_WIDE_INT for charlen.
-        * misc.c (gfc_mpz_get_hwi): New function.
-        (gfc_mpz_set_hwi): New function.
-        * module.c (atom_int): Change type from int to HOST_WIDE_INT.
-        (parse_integer): Don't complain about large integers.
-        (write_atom): Use HOST_WIDE_INT for integers.
-        (mio_integer): Handle integer type mismatch.
-        (mio_hwi): New function.
-        (mio_intrinsic_op): Use HOST_WIDE_INT.
-        (mio_array_ref): Likewise.
-        (mio_expr): Likewise.
-        * resolve.c (resolve_select_type): Use HOST_WIDE_INT for charlen,
-        use snprintf.
-        (resolve_charlen): Use mpz_sgn to determine sign.
-        * simplify.c (gfc_simplify_repeat): Use HOST_WIDE_INT/gfc_charlen_t
-        instead of long.
-        * target-memory.c (size_character): Length argument of type
-        gfc_charlen_t.
-        (gfc_encode_character): Likewise.
-        (gfc_interpret_character): Use gfc_charlen_t.
-        * target-memory.h (gfc_encode_character): Modify prototype.
-        * trans-array.c (get_array_ctor_var_strlen): Use
-        gfc_conv_mpz_to_tree_type.
-        * trans-const.c (gfc_conv_mpz_to_tree_type): New function.
-        * trans-const.h (gfc_conv_mpz_to_tree_type): New prototype.
-        * trans-expr.c (gfc_class_len_or_zero_get): Build const of type
-        gfc_charlen_type_node.
-        (gfc_conv_intrinsic_to_class): Use gfc_charlen_int_kind instead of
-        4, fold_convert to correct type.
-        (gfc_conv_class_to_class): Build const of type size_type_node for
-        size.
-        (gfc_copy_class_to_class): Likewise.
-        (gfc_conv_string_length): Use same type in expression.
-        (gfc_conv_substring): Likewise, use HOST_WIDE_INT for charlen.
-        (gfc_conv_string_tmp): Make sure len is of the right type.
-        (gfc_conv_concat_op): Use same type in expression.
-        (gfc_conv_procedure_call): Likewise.
-        (alloc_scalar_allocatable_for_subcomponent_assignment):
-        fold_convert to right type.
-        (gfc_trans_subcomponent_assign): Likewise.
-        (trans_class_vptr_len_assignment): Build const of correct type.
-        (gfc_trans_pointer_assignment): Likewise.
-        (alloc_scalar_allocatable_for_assignment): fold_convert to right
-        type in expr.
-        (trans_class_assignment): Build const of correct type.
-        * trans-intrinsic.c (gfc_conv_associated): Likewise.
-        (gfc_conv_intrinsic_repeat): Do calculation in sizetype.
-        * trans-io.c (gfc_build_io_library_fndecls): Use
-        gfc_charlen_type_node for character lengths.
-        * trans-stmt.c (gfc_trans_label_assign): Build const of
-        gfc_charlen_type_node.
-        (gfc_trans_character_select): Likewise.
-        (gfc_trans_allocate): Likewise, don't typecast strlen result.
-        (gfc_trans_deallocate): Don't typecast strlen result.
-        * trans-types.c (gfc_size_kind): New variable.
-        (gfc_init_types): Determine gfc_charlen_int_kind and gfc_size_kind
-        from size_type_node.
+	PR fortran/70697
+	* resolve.c (resolve_lock_unlock_event): Resolve the expression for
+	event's until_count.
+
+2017-01-13  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70696
+	* trans-expr.c (gfc_get_tree_for_caf_expr): Ensure the backend_decl
+	is valid before accessing it.
+
+2017-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR translation/79019
+	PR translation/79020
+	* decl.c (attr_decl1): Fix spelling in translatable string.
+	* intrinsic.texi: Fix spelling - invokation -> invocation.
+	* lang.opt (faggressive-function-elimination, gfc_convert): Fix
+	typos in descriptions.
+	* openmp.c (resolve_omp_clauses): Add missing whitespace to
+	translatable strings.
+
+2017-01-08  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/78913
+	PR middle-end/77708
+	* trans-common.c (build_equiv_decl): Increase buffer size to avoid
+	truncation for any argument.
+	* trans-types.c (gfc_build_logical_type): Same.
+
+2017-01-07  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/78781
+	PR fortran/78935
+	* expr.c (gfc_check_pointer_assign): Return the same error message for
+	rewritten coarray pointer assignments like for plain ones.
+	* gfortran.h: Change prototype.
+	* primary.c (caf_variable_attr): Set attributes used ones only only
+	ones.  Add setting of pointer_comp attribute.
+	(gfc_caf_attr): Add setting of pointer_comp attribute.
+	* trans-array.c (gfc_array_allocate): Add flag that the component to
+	allocate is not an ultimate coarray component.  Add allocation of
+	pointer arrays.
+	(structure_alloc_comps): Extend nullify to treat pointer components in
+	coarrays correctly.  Restructure nullify to remove redundant code.
+	(gfc_nullify_alloc_comp): Allow setting caf_mode flags.
+	* trans-array.h: Change prototype of gfc_nullify_alloc_comp ().
+	* trans-decl.c (generate_coarray_sym_init): Call nullify_alloc_comp for
+	derived type coarrays with pointer components.
+	* trans-expr.c (gfc_trans_structure_assign): Also treat pointer
+	components.
+	(trans_caf_token_assign): Handle assignment of token of scalar pointer
+	components.
+	(gfc_trans_pointer_assignment): Call above routine.
+	* trans-intrinsic.c (conv_expr_ref_to_caf_ref): Add treating pointer
+	components.
+	(gfc_conv_intrinsic_caf_get): Likewise.
+	(conv_caf_send): Likewise.
+	* trans-stmt.c (gfc_trans_allocate): After allocating a derived type in
+	a coarray pre-register the tokens.
+	(gfc_trans_deallocate): Simply determining the coarray type (scalar or
+	array) and deregistering it correctly.
+	* trans-types.c (gfc_typenode_for_spec): Replace in_coarray flag by the
+	actual codim to allow lookup of array types in the cache.
+	(gfc_build_array_type): Likewise.
+	(gfc_get_array_descriptor_base): Likewise.
+	(gfc_get_array_type_bounds): Likewise.
+	(gfc_get_derived_type): Likewise.
+	* trans-types.h: Likewise.
+	* trans.c (gfc_deallocate_with_status): Enable deregistering of all kind
+	of coarray components.
+	(gfc_deallocate_scalar_with_status): Use free() in fcoarray_single mode
+	instead of caf_deregister.
+
+2017-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* simplify.c (simplify_transformation_to_array): Use
+	GCC_DIAGNOSTIC_PUSH_IGNORED and GCC_DIAGNOSTIC_POP instead of
+	#pragma GCC diagnostic {push,ignored,pop}.
+
+2017-01-06  Alexandre Oliva <aoliva@redhat.com>
+
+	* simplify.c (simplify_transformation_to_array): Silence
+	array bounds warning.  Fix whitespace.
+
+2017-01-04  Alexandre Oliva <aoliva@redhat.com>
+
+	* module.c (load_omp_udrs): Initialize name.
 
 2017-01-02  Janne Blomqvist  <jb@gcc.gnu.org>
 

@@ -23,3 +23,13 @@
 #include <queue>
 
 template class std::priority_queue<int>;
+
+struct NonDefaultConstructible : std::vector<int> {
+  NonDefaultConstructible(int) { }
+};
+struct Cmp : std::less<int> {
+  Cmp(int) { }
+};
+template class std::priority_queue<int, NonDefaultConstructible>;
+template class std::priority_queue<int, NonDefaultConstructible, Cmp>;
+template class std::priority_queue<int, std::vector<int>, Cmp>;
