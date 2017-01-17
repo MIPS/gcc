@@ -2034,7 +2034,7 @@ FP_ASM_SPEC "\
   ((unsigned int) ((int) (REGNO) - GP_REG_FIRST) < GP_REG_NUM)
 #define M16_REG_P(REGNO) \
   (TARGET_MICROMIPS_R7 \
-   ? ((REGNO) >= 4 && (REGNO) <= 7) || ((REGNO) >= 16 || (REGNO) <= 19) \
+   ? ((REGNO) >= 4 && (REGNO) <= 7) || ((REGNO) >= 16 && (REGNO) <= 19) \
    : ((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 16 || (REGNO) == 17)
 #define M16_4X4_REG_P(REGNO) \
   (((REGNO) >= 0 && (REGNO) <= 7) || ((REGNO) >= 16 && (REGNO) <= 23))
