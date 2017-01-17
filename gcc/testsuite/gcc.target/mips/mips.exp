@@ -310,6 +310,7 @@ foreach option {
     nan
     r10k-cache-barrier
     tune
+    unique-sections
 } {
     lappend mips_option_groups $option "-m$option=.*"
 }
@@ -988,6 +989,23 @@ proc mips-dg-options { args } {
 	} else {
 	    mips_make_test_option options $option $all_but_p
 	}
+    }
+
+    # Pass an absolute file path to -munique-sections=.
+    set unq_sec_test_option_p [mips_test_option_p options unique-sections]
+
+    if { $unq_sec_test_option_p } {
+	set unq_sec [mips_option options unique-sections]
+	if { ![regexp {=.*$} $unq_sec filename] } {
+		error "Unrecognized specification: $unq_sec"
+	}
+	set filename [string trimleft $filename "="]
+
+	global srcdir
+	global subdir
+	set new_unq_sec "-munique-sections=$srcdir/$subdir/$filename"
+
+	set options(option,[mips_option_group $new_unq_sec]) $new_unq_sec
     }
 
     # Handle dependencies between the test options and the optimization ones.
