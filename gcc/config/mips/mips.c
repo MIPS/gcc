@@ -6217,7 +6217,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 			   ? "shx\t%z1,%0"
 			   : "sh\t%z1,%0";
 	  case 4: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
-			 ? " swxs\t%z1,%0"
+			 ? "swxs\t%z1,%0"
 			 : mips_index_address_p (XEXP (dest, 0), mode)
 			   ? "swx\t%z1,%0"
 			   : "sw\t%z1,%0";
