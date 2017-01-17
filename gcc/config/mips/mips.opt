@@ -500,6 +500,10 @@ msdata-opt-list=
 Target RejectNegative Joined Var(mips_sdata_opt_list_file)
 msdata-opt-list=FILE    Use to specify variables to go in the .sdata section.
 
+munique-sections=
+Target RejectNegative Joined Var(mips_unique_sections_file)
+munique-sections=FILE   Use to specify sections that should be made unique.
+
 mblockmov-limit=
 Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
 

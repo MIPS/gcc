@@ -632,9 +632,10 @@ struct mips_sdata_entry
 };
 
 static struct mips_sdata_entry *mips_sdata_opt_list;
+static struct mips_sdata_entry *mips_unique_sections_list;
 
 static struct mips_sdata_entry *
-mips_read_list (const char * filename)
+mips_read_list (const char * filename, const char *opt_name)
 {
   FILE *fd;
   char line[256];
@@ -646,7 +647,7 @@ mips_read_list (const char * filename)
   fd = fopen (filename, "r");
   if (fd == NULL)
     {
-      error ("Bad filename for -msdata-opt-list: %s\n", filename);
+      error ("Bad filename for %s: %s\n", opt_name, filename);
       return NULL;
     }
 
@@ -9572,16 +9573,57 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
     }
 }
 
+/* This should be the same as ultimate_transparent_alias_target from
+   gcc/varasm.c.  */
+
+static inline tree
+ultimate_transparent_alias_target (tree *alias)
+{
+  tree target = *alias;
+
+  if (IDENTIFIER_TRANSPARENT_ALIAS (target))
+    {
+      gcc_assert (TREE_CHAIN (target));
+      target = ultimate_transparent_alias_target (&TREE_CHAIN (target));
+      gcc_assert (! IDENTIFIER_TRANSPARENT_ALIAS (target)
+		  && ! TREE_CHAIN (target));
+      *alias = target;
+    }
+
+  return target;
+}
+
 /* Implement TARGET_ASM_UNIQUE_SECTION.  */
 
 void
 mips_asm_unique_section (tree decl, int reloc)
 {
+  const char *old_secname = DECL_SECTION_NAME (decl);
+
+  if (old_secname != NULL
+      && mips_find_list (old_secname, mips_unique_sections_list))
+    {
+      tree id = DECL_ASSEMBLER_NAME (decl);
+      ultimate_transparent_alias_target (&id);
+      const char *name = IDENTIFIER_POINTER (id);
+      name = targetm.strip_name_encoding (name);
+
+      /* We may end up here twice for data symbols,
+	 so we need to prevent renaming sections twice.  */
+      char *suffix = ACONCAT ((".", name, NULL));
+      if (strstr (old_secname, suffix) == NULL)
+	{
+	  char *new_secname = ACONCAT ((old_secname, suffix, NULL));
+	  set_decl_section_name (decl, new_secname);
+	}
+    }
+
   default_unique_section (decl, reloc);
 
   const char *name = DECL_SECTION_NAME (decl);
 
-  if (mips_sdata_section_num > -1
+  if (old_secname == NULL
+      && mips_sdata_section_num > -1
       && (strncmp (".sdata", name, 6) == 0
 	  || strncmp (".sbss", name, 5) == 0))
     {
@@ -20514,7 +20556,11 @@ mips_option_override (void)
   if (TARGET_FLIP_MIPS16)
     TARGET_INTERLINK_COMPRESSED = 1;
 
-  mips_sdata_opt_list = mips_read_list (mips_sdata_opt_list_file);
+  mips_sdata_opt_list = mips_read_list (mips_sdata_opt_list_file,
+					"-msdata-opt-list");
+
+  mips_unique_sections_list = mips_read_list (mips_unique_sections_file,
+					      "-munique-sections");
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value

@@ -462,6 +462,12 @@ resolve_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED,
 	symtab_node::get (decl)->call_for_symbol_and_aliases
 	  (set_implicit_section, NULL, true);
     }
+
+  /* Allow target specific handling of unique sections even if an explicit
+     section name is used.  */
+  if (DECL_SECTION_NAME (decl) != NULL
+      && targetm_common.have_named_sections)
+	targetm.asm_out.unique_section (decl, reloc);
 }
 
 #ifdef BSS_SECTION_ASM_OP
@@ -6761,6 +6767,11 @@ default_unique_section (tree decl, int reloc)
   const char *prefix, *name, *linkonce;
   char *string;
   tree id;
+
+  /* If the symbol has a section name assigned at this point, then it is the
+     name of a user-specified unique section and we should leave it alone.  */
+  if (DECL_SECTION_NAME (decl) != NULL)
+    return;
 
   switch (categorize_decl_for_section (decl, reloc))
     {
