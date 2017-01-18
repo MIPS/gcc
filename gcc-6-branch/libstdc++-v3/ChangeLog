@@ -1,3 +1,53 @@
+2017-01-16  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+	2017-01-16  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/78389
+	* include/bits/list.tcc (merge(list&&)): Fix backwards size adjustments.
+	(merge(list&&, _StrictWeakOrdering)): Likewise.
+	* testsuite/23_containers/list/operations/78389.cc: Add
+	better test for the sizes.
+
+2017-01-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+        2017-01-13  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/78389
+	* include/bits/list.tcc (merge(list&&)):
+	Adjust list sizes if the comparator throws.
+	(merge(list&&, _StrictWeakOrdering)): Likewise.
+	* testsuite/23_containers/list/operations/78389.cc: New.
+
+2017-01-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Backport from mainline
+        2016-12-19  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Make the perfect-forwarding constructor of a two-element tuple
+	sfinae away when the first argument is an allocator_arg.
+	* include/std/tuple (tuple(_U1&&, _U2&&)): Constrain.
+	* testsuite/20_util/tuple/cons/allocator_with_any.cc: New.
+
+2017-01-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2017-01-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/78956
+	* include/std/thread (thread(const thread&&)): Add deleted
+	constructor.
+	* testsuite/30_threads/thread/cons/lwg2097.cc: New test.
+
+2017-01-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/78991
+	* include/bits/predefined_ops.h (_Iter_comp_iter, _Iter_comp_val)
+	(_Val_comp_iter, _Iter_equals_val, _Iter_pred, _Iter_comp_to_val)
+	(_Iter_comp_to_iter, _Iter_negate): Make constructors explicit.
+	* testsuite/25_algorithms/sort/78991.cc: New test.
+
 2016-12-21  Release Manager
 
 	* GCC 6.3.0 released.

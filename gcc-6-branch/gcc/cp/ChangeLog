@@ -1,3 +1,32 @@
+2017-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78341
+	* parser.c (cp_parser_std_attribute_spec): Remove over-eager
+	assertion.  Formatting fix.
+
+	2017-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/78949
+	* typeck.c (cp_build_unary_op): Call mark_rvalue_use on arg if it has
+	vector type.
+
+	PR c++/78693
+	* parser.c (cp_parser_simple_declaration): Only complain about
+	inconsistent auto deduction if auto_result doesn't use auto.
+
+	PR c++/71182
+	* parser.c (cp_lexer_previous_token): Use vec_safe_address in the
+	assertion, as lexer->buffer may be NULL.
+
+2017-01-11  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/77812
+	* name-lookup.c (set_namespace_binding_1): An overload of 1 decl
+	is a new overload.
+
 2016-12-21  Release Manager
 
 	* GCC 6.3.0 released.
