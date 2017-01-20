@@ -1,3 +1,52 @@
+2017-01-20  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79495
+	* g++.dg/cpp1z/inh-ctor38.C: New.
+
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/79152
+	* c-c++-common/Wimplicit-fallthrough-35.c: New test.
+
+2017-01-20  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (check_configured_with): New procedure.
+	(check_effective_target_default_mode): new effective target.
+	* gcc.target/arm/optional_thumb-1.c: Skip if GCC was configured with a
+	default mode.  Fix dg-skip-if target selector syntax.
+	* gcc.target/arm/optional_thumb-2.c: Likewise.
+	* gcc.target/arm/optional_thumb-3.c: Fix dg-skip-if target selector
+	syntax.
+
+2017-01-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/77829
+	PR c++/78656
+	* g++.dg/spellcheck-pr77829.C: New test case.
+	* g++.dg/spellcheck-pr78656.C: New test case.
+
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64279
+	* c-c++-common/Wduplicated-branches-1.c: New test.
+	* c-c++-common/Wduplicated-branches-10.c: New test.
+	* c-c++-common/Wduplicated-branches-11.c: New test.
+	* c-c++-common/Wduplicated-branches-12.c: New test.
+	* c-c++-common/Wduplicated-branches-2.c: New test.
+	* c-c++-common/Wduplicated-branches-3.c: New test.
+	* c-c++-common/Wduplicated-branches-4.c: New test.
+	* c-c++-common/Wduplicated-branches-5.c: New test.
+	* c-c++-common/Wduplicated-branches-6.c: New test.
+	* c-c++-common/Wduplicated-branches-7.c: New test.
+	* c-c++-common/Wduplicated-branches-8.c: New test.
+	* c-c++-common/Wduplicated-branches-9.c: New test.
+	* c-c++-common/Wimplicit-fallthrough-7.c: Coalesce dg-warning.
+	* g++.dg/cpp0x/lambda/lambda-switch.C: Move dg-warning.
+	* g++.dg/ext/builtin-object-size3.C: Likewise.
+	* g++.dg/gomp/loop-1.C: Likewise.
+	* g++.dg/warn/Wduplicated-branches1.C: New test.
+	* g++.dg/warn/Wduplicated-branches2.C: New test.
+
 2017-01-20  Martin Liska  <mliska@suse.cz>
 
 	PR lto/69188

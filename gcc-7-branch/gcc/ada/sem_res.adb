@@ -2465,9 +2465,10 @@ package body Sem_Res is
                --  with a name that is an explicit dereference, there is
                --  nothing to be done at this point.
 
-               elsif Nkind_In (N, N_Explicit_Dereference,
-                                  N_Attribute_Reference,
+               elsif Nkind_In (N, N_Attribute_Reference,
                                   N_And_Then,
+                                  N_Explicit_Dereference,
+                                  N_Identifier,
                                   N_Indexed_Component,
                                   N_Or_Else,
                                   N_Range,
@@ -2626,7 +2627,9 @@ package body Sem_Res is
                            --  replaced by the appropriate call during late
                            --  expansion.
 
-                           if not Box_Present (Elmt) then
+                           if Nkind (Elmt) /= N_Iterated_Component_Association
+                             and then not Box_Present (Elmt)
+                           then
                               Check_Elmt (Expression (Elmt));
                            end if;
 
@@ -6058,12 +6061,16 @@ package body Sem_Res is
          end;
 
       else
-         --  If the function returns the limited view of type, the call must
-         --  appear in a context in which the non-limited view is available.
-         --  As is done in Try_Object_Operation, use the available view to
-         --  prevent back-end confusion.
+         --  If the called function is not declared in the main unit and it
+         --  returns the limited view of type then use the available view (as
+         --  is done in Try_Object_Operation) to prevent back-end confusion;
+         --  the call must appear in a context where the nonlimited view is
+         --  available. If the called function is in the extended main unit
+         --  then no action is needed, because the back end handles this case.
 
-         if From_Limited_With (Etype (Nam)) then
+         if not In_Extended_Main_Code_Unit (Nam)
+           and then From_Limited_With (Etype (Nam))
+         then
             Set_Etype (Nam, Available_View (Etype (Nam)));
          end if;
 

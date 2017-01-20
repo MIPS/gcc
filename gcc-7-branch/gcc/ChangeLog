@@ -1,3 +1,69 @@
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/79152
+	* gimplify.c (should_warn_for_implicit_fallthrough): Handle consecutive
+	non-case labels.
+
+2017-01-20  Alexander Monakov  <amonakov@ispras.ru>
+
+	* omp-expand.c (expand_omp_simd): Clear PROP_gimple_lomp_dev regardless
+	of safelen status.
+	* omp-offload.c (pass_omp_device_lower::gate): Use PROP_gimple_lomp_dev.
+	* passes.c (dump_properties): Handle PROP_gimple_lomp_dev.
+	* tree-inline.c (expand_call_inline): Propagate PROP_gimple_lomp_dev.
+
+2017-01-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/71270
+	* config/arm/arm.c (neon_valid_immediate): Reject vector constants
+	in big-endian mode when they are not a single duplicated value.
+
+2017-01-20  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Bump to 7.0.1.
+
+2017-01-20  Alexander Monakov  <amonakov@ispras.ru>
+
+	* omp-low.c (omplow_simd_context): New struct.  Use it...
+	(lower_rec_simd_input_clauses): ...here and...
+	(lower_rec_input_clauses): ...here to hold common data.  Adjust all
+	references to idx, lane, max_vf, is_simt.
+
+2017-01-20  Graham Markall  <graham.markall@embecosm.com>
+
+	* config/arc/arc.h (LINK_SPEC): Use arclinux_nps emulation when
+	mcpu=nps400.
+
+2017-01-20  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h: Renaed to hsa-common.h.  Adjusted a comment.
+	* hsa.c: Renaed to hsa-common.c.  Change include of gt-hsa.h to
+	gt-hsa-common.h.
+	* Makefile.in (OBJS): Rename hsa.o to hsa-common.o.
+	(GTFILES): Rename hsa.c to hsa-common.c.
+	* hsa-brig.c: Change include of hsa.h to hsa-common.h.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+	* ipa-hsa.c: Likewise.
+	* omp-expand.c: Likewise.
+	* omp-low.c: Likewise.
+	* toplev.c: Likewise.
+
+2017-01-20  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64279
+	* doc/invoke.texi: Document -Wduplicated-branches.
+	* fold-const.c (operand_equal_p): Handle MODIFY_EXPR, INIT_EXPR,
+	COMPOUND_EXPR, PREDECREMENT_EXPR, PREINCREMENT_EXPR,
+	POSTDECREMENT_EXPR, POSTINCREMENT_EXPR, CLEANUP_POINT_EXPR, EXPR_STMT,
+	STATEMENT_LIST, and RETURN_EXPR.  For non-pure non-const functions
+	return 0 only when not OEP_LEXICOGRAPHIC.
+	(fold_build_cleanup_point_expr): Use the expression
+	location when building CLEANUP_POINT_EXPR.
+	* tree-core.h (enum operand_equal_flag): Add OEP_LEXICOGRAPHIC.
+	* tree.c (add_expr): Handle error_mark_node.
+
 2017-01-20  Martin Liska  <mliska@suse.cz>
 
 	PR lto/69188

@@ -1333,7 +1333,9 @@ package body Sem_Ch3 is
       if Nkind (S) /= N_Subtype_Indication then
          Analyze (S);
 
-         if Ekind (Root_Type (Entity (S))) = E_Incomplete_Type then
+         if Present (Entity (S))
+           and then Ekind (Root_Type (Entity (S))) = E_Incomplete_Type
+         then
             Set_Directly_Designated_Type (T, Entity (S));
 
             --  If the designated type is a limited view, we cannot tell if
@@ -2568,7 +2570,7 @@ package body Sem_Ch3 is
                --  rejected. Pending notification we restrict this call to
                --  ASIS mode.
 
-               if ASIS_Mode then
+               if False and then ASIS_Mode then -- ????
                   Resolve_Aspects;
                end if;
 
@@ -2781,44 +2783,48 @@ package body Sem_Ch3 is
       ----------------------------------
 
       procedure Check_Nonoverridable_Aspects is
-         Prev_Aspects   : constant List_Id :=
-                            Aspect_Specifications (Parent (Def_Id));
-         Par_Type       : Entity_Id;
-
-         function Has_Aspect_Spec
-           (Specs : List_Id;
-            Aspect_Name : Name_Id) return Boolean;
+         function Get_Aspect_Spec
+           (Specs       : List_Id;
+            Aspect_Name : Name_Id) return Node_Id;
          --  Check whether a list of aspect specifications includes an entry
          --  for a specific aspect. The list is either that of a partial or
          --  a full view.
 
          ---------------------
-         -- Has_Aspect_Spec --
+         -- Get_Aspect_Spec --
          ---------------------
 
-         function Has_Aspect_Spec
-           (Specs : List_Id;
-            Aspect_Name : Name_Id) return Boolean
+         function Get_Aspect_Spec
+           (Specs       : List_Id;
+            Aspect_Name : Name_Id) return Node_Id
          is
             Spec : Node_Id;
+
          begin
             Spec := First (Specs);
             while Present (Spec) loop
                if Chars (Identifier (Spec)) = Aspect_Name then
-                  return True;
+                  return Spec;
                end if;
                Next (Spec);
             end loop;
-            return False;
-         end Has_Aspect_Spec;
+
+            return Empty;
+         end Get_Aspect_Spec;
+
+         --  Local variables
+
+         Prev_Aspects   : constant List_Id :=
+                            Aspect_Specifications (Parent (Def_Id));
+         Par_Type       : Entity_Id;
+         Prev_Aspect    : Node_Id;
 
       --  Start of processing for Check_Nonoverridable_Aspects
 
       begin
-
-         --  Get parent type of derived type. Note that Prev is the entity
-         --  in the partial declaration, but its contents are now those of
-         --  full view, while Def_Id reflects the partial view.
+         --  Get parent type of derived type. Note that Prev is the entity in
+         --  the partial declaration, but its contents are now those of full
+         --  view, while Def_Id reflects the partial view.
 
          if Is_Private_Type (Def_Id) then
             Par_Type := Etype (Full_View (Def_Id));
@@ -2834,8 +2840,13 @@ package body Sem_Ch3 is
            and then Present (Discriminant_Specifications (Parent (Prev)))
            and then Present (Get_Reference_Discriminant (Par_Type))
          then
-            if
-              not Has_Aspect_Spec (Prev_Aspects, Name_Implicit_Dereference)
+            Prev_Aspect :=
+              Get_Aspect_Spec (Prev_Aspects, Name_Implicit_Dereference);
+
+            if No (Prev_Aspect)
+              and then Present
+                         (Discriminant_Specifications
+                           (Original_Node (Parent (Prev))))
             then
                Error_Msg_N
                  ("type does not inherit implicit dereference", Prev);
@@ -2845,13 +2856,27 @@ package body Sem_Ch3 is
                --  is consistent with that of the parent.
 
                declare
-                  Par_Discr : constant Entity_Id :=
+                  Par_Discr  : constant Entity_Id :=
                                 Get_Reference_Discriminant (Par_Type);
-                  Cur_Discr : constant Entity_Id :=
+                  Cur_Discr  : constant Entity_Id :=
                                 Get_Reference_Discriminant (Prev);
+
                begin
                   if Corresponding_Discriminant (Cur_Discr) /= Par_Discr then
                      Error_Msg_N ("aspect incosistent with that of parent", N);
+                  end if;
+
+                  --  Check that specification in partial view matches the
+                  --  inherited aspect. Compare names directly because aspect
+                  --  expression may not be analyzed.
+
+                  if Present (Prev_Aspect)
+                    and then Nkind (Expression (Prev_Aspect)) = N_Identifier
+                    and then Chars (Expression (Prev_Aspect)) /=
+                               Chars (Cur_Discr)
+                  then
+                     Error_Msg_N
+                       ("aspect incosistent with that of parent", N);
                   end if;
                end;
             end if;
@@ -7444,6 +7469,7 @@ package body Sem_Ch3 is
                   Set_Full_View (Derived_Type, Full_Der);
                else
                   Set_Underlying_Full_View (Derived_Type, Full_Der);
+                  Set_Is_Underlying_Full_View (Full_Der);
                end if;
 
                if not Is_Base_Type (Derived_Type) then
@@ -7501,6 +7527,7 @@ package body Sem_Ch3 is
             Set_Full_View (Derived_Type, Full_Der);
          else
             Set_Underlying_Full_View (Derived_Type, Full_Der);
+            Set_Is_Underlying_Full_View (Full_Der);
          end if;
 
          --  In any case, the primitive operations are inherited from the
@@ -7607,6 +7634,7 @@ package body Sem_Ch3 is
             else
                Build_Full_Derivation;
                Set_Underlying_Full_View (Derived_Type, Full_Der);
+               Set_Is_Underlying_Full_View (Full_Der);
             end if;
 
             --  The full view will be used to swap entities on entry/exit to
@@ -8970,6 +8998,9 @@ package body Sem_Ch3 is
 
       --  STEP 5a: Copy the parent record declaration for untagged types
 
+      Set_Has_Implicit_Dereference
+        (Derived_Type, Has_Implicit_Dereference (Parent_Type));
+
       if not Is_Tagged then
 
          --  Discriminant_Constraint (Derived_Type) has been properly
@@ -9012,8 +9043,6 @@ package body Sem_Ch3 is
             Set_Stored_Constraint
               (Derived_Type, Expand_To_Stored_Constraint (Parent_Type, Discs));
             Replace_Components (Derived_Type, New_Decl);
-            Set_Has_Implicit_Dereference
-              (Derived_Type, Has_Implicit_Dereference (Parent_Type));
          end if;
 
          --  Insert the new derived type declaration
@@ -9632,12 +9661,19 @@ package body Sem_Ch3 is
             --  If any of the discriminant constraints is given by a
             --  discriminant and we are in a derived type declaration we
             --  have a discriminant renaming. Establish link between new
-            --  and old discriminant.
+            --  and old discriminant. The new discriminant has an implicit
+            --  dereference if the old one does.
 
             if Denotes_Discriminant (Discr_Expr (J)) then
                if Derived_Def then
-                  Set_Corresponding_Discriminant
-                    (Entity (Discr_Expr (J)), Discr);
+                  declare
+                     New_Discr : constant Entity_Id := Entity (Discr_Expr (J));
+
+                  begin
+                     Set_Corresponding_Discriminant (New_Discr, Discr);
+                     Set_Has_Implicit_Dereference (New_Discr,
+                       Has_Implicit_Dereference (Discr));
+                  end;
                end if;
 
             --  Force the evaluation of non-discriminant expressions.
@@ -9653,9 +9689,8 @@ package body Sem_Ch3 is
                   null;
 
                elsif Nkind (Parent (Parent (Def))) = N_Component_Declaration
-                 and then
-                   Has_Per_Object_Constraint
-                     (Defining_Identifier (Parent (Parent (Def))))
+                 and then Has_Per_Object_Constraint
+                            (Defining_Identifier (Parent (Parent (Def))))
                then
                   null;
 
@@ -9675,7 +9710,7 @@ package body Sem_Ch3 is
 
             if Ekind (Etype (Discr)) = E_Anonymous_Access_Type
               and then not Is_Class_Wide_Type
-                         (Designated_Type (Etype (Discr)))
+                             (Designated_Type (Etype (Discr)))
               and then Etype (Discr_Expr (J)) /= Any_Type
               and then Is_Class_Wide_Type
                          (Designated_Type (Etype (Discr_Expr (J))))
@@ -9689,7 +9724,7 @@ package body Sem_Ch3 is
             then
                Error_Msg_NE
                  ("constraint for discriminant& must be access to variable",
-                    Def, Discr);
+                  Def, Discr);
             end if;
          end if;
 
@@ -10018,6 +10053,7 @@ package body Sem_Ch3 is
 
       Analyze (Indic);
       Set_Underlying_Full_View (Typ, Full_View (Subt));
+      Set_Is_Underlying_Full_View (Full_View (Subt));
    end Build_Underlying_Full_View;
 
    -------------------------------
@@ -11893,12 +11929,22 @@ package body Sem_Ch3 is
       --  already frozen. We skip this processing if the type is an anonymous
       --  subtype of a record component, or is the corresponding record of a
       --  protected type, since these are processed when the enclosing type
-      --  is frozen.
+      --  is frozen. If the parent type is declared in a nested package then
+      --  the freezing of the private and full views also happens later.
 
       if not Is_Type (Scope (Full)) then
-         Set_Has_Delayed_Freeze (Full,
-           Has_Delayed_Freeze (Full_Base)
-             and then (not Is_Frozen (Full_Base)));
+         if Is_Itype (Priv)
+           and then In_Same_Source_Unit (Full, Full_Base)
+           and then Scope (Full_Base) /= Scope (Full)
+         then
+            Set_Has_Delayed_Freeze (Full);
+            Set_Has_Delayed_Freeze (Priv);
+
+         else
+            Set_Has_Delayed_Freeze (Full,
+              Has_Delayed_Freeze (Full_Base)
+                and then (not Is_Frozen (Full_Base)));
+         end if;
       end if;
 
       Set_Freeze_Node (Full, Empty);

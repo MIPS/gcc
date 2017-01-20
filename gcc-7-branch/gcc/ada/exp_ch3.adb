@@ -5901,7 +5901,7 @@ package body Exp_Ch3 is
          --  would otherwise make two copies. The RM allows removing redunant
          --  Adjust/Finalize calls, but does not allow insertion of extra ones.
 
-         --  This part is disabled for now, because it breaks CodePeer runs
+         --  This part is disabled for now, because it breaks GPS builds
 
          return (False -- ???
              and then Nkind (Expr_Q) = N_Explicit_Dereference

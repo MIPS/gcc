@@ -1015,17 +1015,23 @@ package body Sem_Cat is
          Item := First (Context_Items (P));
          while Present (Item) loop
             if Nkind (Item) = N_With_Clause
-              and then not (Implicit_With (Item)
-                             or else Limited_Present (Item)
+              and then
+                not (Implicit_With (Item)
+                      or else Limited_Present (Item)
 
-                             --  Skip if error already posted on the WITH
-                             --  clause (in which case the Name attribute
-                             --  may be invalid). In particular, this fixes
-                             --  the problem of hanging in the presence of a
-                             --  WITH clause on a child that is an illegal
-                             --  generic instantiation.
+                      --  Skip if error already posted on the WITH clause (in
+                      --  which case the Name attribute may be invalid). In
+                      --  particular, this fixes the problem of hanging in the
+                      --  presence of a WITH clause on a child that is an
+                      --  illegal generic instantiation.
 
-                             or else Error_Posted (Item))
+                      or else Error_Posted (Item))
+              and then
+                not (Try_Semantics
+
+                      --  Skip processing malformed trees
+
+                      and then Nkind (Name (Item)) not in N_Has_Entity)
             then
                Entity_Of_Withed := Entity (Name (Item));
                Check_Categorization_Dependencies
@@ -2171,11 +2177,14 @@ package body Sem_Cat is
       --  Error if the name is a primary in an expression. The parent must not
       --  be an operator, or a selected component or an indexed component that
       --  is itself a primary. Entities that are actuals do not need to be
-      --  checked, because the call itself will be diagnosed.
+      --  checked, because the call itself will be diagnosed. Entities in a
+      --  generic unit or within a preanalyzed expression are not checked:
+      --  only their use in executable code matters.
 
       if Is_Primary (N)
         and then (not Inside_A_Generic
                    or else Present (Enclosing_Generic_Body (N)))
+        and then not In_Spec_Expression
       then
          if Ekind (Entity (N)) = E_Variable
            or else Ekind (Entity (N)) in Formal_Object_Kind

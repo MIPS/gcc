@@ -1688,9 +1688,6 @@ package body Freeze is
    --  as they are generated.
 
    procedure Freeze_All (From : Entity_Id; After : in out Node_Id) is
-      E     : Entity_Id;
-      Decl  : Node_Id;
-
       procedure Freeze_All_Ent (From : Entity_Id; After : in out Node_Id);
       --  This is the internal recursive routine that does freezing of entities
       --  (but NOT the analysis of default expressions, which should not be
@@ -1863,10 +1860,10 @@ package body Freeze is
                   --  current package, but this body does not freeze incomplete
                   --  types that may be declared in this private part.
 
-                  if (Nkind_In (Bod, N_Subprogram_Body,
-                                     N_Entry_Body,
+                  if (Nkind_In (Bod, N_Entry_Body,
                                      N_Package_Body,
                                      N_Protected_Body,
+                                     N_Subprogram_Body,
                                      N_Task_Body)
                         or else Nkind (Bod) in N_Body_Stub)
                     and then
@@ -1884,6 +1881,12 @@ package body Freeze is
             Next_Entity (E);
          end loop;
       end Freeze_All_Ent;
+
+      --  Local variables
+
+      Decl : Node_Id;
+      E    : Entity_Id;
+      Item : Entity_Id;
 
    --  Start of processing for Freeze_All
 
@@ -1925,33 +1928,28 @@ package body Freeze is
                elsif Nkind (Decl) = N_Subprogram_Declaration
                  and then Present (Corresponding_Body (Decl))
                  and then
-                   Nkind (Unit_Declaration_Node (Corresponding_Body (Decl)))
-                                          = N_Subprogram_Renaming_Declaration
+                   Nkind (Unit_Declaration_Node (Corresponding_Body (Decl))) =
+                     N_Subprogram_Renaming_Declaration
                then
                   Build_And_Analyze_Renamed_Body
                     (Decl, Corresponding_Body (Decl), After);
                end if;
             end if;
 
-         elsif Ekind (E) in Task_Kind
-           and then Nkind_In (Parent (E), N_Task_Type_Declaration,
-                                          N_Single_Task_Declaration)
-         then
-            declare
-               Ent : Entity_Id;
+         --  Freeze the default expressions of entries, entry families, and
+         --  protected subprograms.
 
-            begin
-               Ent := First_Entity (E);
-               while Present (Ent) loop
-                  if Is_Entry (Ent)
-                    and then not Default_Expressions_Processed (Ent)
-                  then
-                     Process_Default_Expressions (Ent, After);
-                  end if;
+         elsif Is_Concurrent_Type (E) then
+            Item := First_Entity (E);
+            while Present (Item) loop
+               if (Is_Entry (Item) or else Is_Subprogram (Item))
+                 and then not Default_Expressions_Processed (Item)
+               then
+                  Process_Default_Expressions (Item, After);
+               end if;
 
-                  Next_Entity (Ent);
-               end loop;
-            end;
+               Next_Entity (Item);
+            end loop;
          end if;
 
          --  Historical note: We used to create a finalization master for an
@@ -2086,6 +2084,12 @@ package body Freeze is
       function Has_Boolean_Aspect_Import (E : Entity_Id) return Boolean;
       --  Determine whether an arbitrary entity is subject to Boolean aspect
       --  Import and its value is specified as True.
+
+      procedure Inherit_Freeze_Node
+        (Fnod : Node_Id;
+         Typ  : Entity_Id);
+      --  Set type Typ's freeze node to refer to Fnode. This routine ensures
+      --  that any attributes attached to Typ's original node are preserved.
 
       procedure Wrap_Imported_Subprogram (E : Entity_Id);
       --  If E is an entity for an imported subprogram with pre/post-conditions
@@ -4726,6 +4730,60 @@ package body Freeze is
          return False;
       end Has_Boolean_Aspect_Import;
 
+      -------------------------
+      -- Inherit_Freeze_Node --
+      -------------------------
+
+      procedure Inherit_Freeze_Node
+        (Fnod : Node_Id;
+         Typ  : Entity_Id)
+      is
+         Typ_Fnod : constant Node_Id := Freeze_Node (Typ);
+
+      begin
+         Set_Freeze_Node (Typ, Fnod);
+         Set_Entity (Fnod, Typ);
+
+         --  The input type had an existing node. Propagate relevant attributes
+         --  from the old freeze node to the inherited freeze node.
+
+         --  ??? if both freeze nodes have attributes, would they differ?
+
+         if Present (Typ_Fnod) then
+
+            --  Attribute Access_Types_To_Process
+
+            if Present (Access_Types_To_Process (Typ_Fnod))
+              and then No (Access_Types_To_Process (Fnod))
+            then
+               Set_Access_Types_To_Process (Fnod,
+                 Access_Types_To_Process (Typ_Fnod));
+            end if;
+
+            --  Attribute Actions
+
+            if Present (Actions (Typ_Fnod)) and then No (Actions (Fnod)) then
+               Set_Actions (Fnod, Actions (Typ_Fnod));
+            end if;
+
+            --  Attribute First_Subtype_Link
+
+            if Present (First_Subtype_Link (Typ_Fnod))
+              and then No (First_Subtype_Link (Fnod))
+            then
+               Set_First_Subtype_Link (Fnod, First_Subtype_Link (Typ_Fnod));
+            end if;
+
+            --  Attribute TSS_Elist
+
+            if Present (TSS_Elist (Typ_Fnod))
+              and then No (TSS_Elist (Fnod))
+            then
+               Set_TSS_Elist (Fnod, TSS_Elist (Typ_Fnod));
+            end if;
+         end if;
+      end Inherit_Freeze_Node;
+
       ------------------------------
       -- Wrap_Imported_Subprogram --
       ------------------------------
@@ -5776,9 +5834,9 @@ package body Freeze is
                         F_Node := Freeze_Node (Full);
 
                         if Present (F_Node) then
-                           Set_Freeze_Node (Full_View (E), F_Node);
-                           Set_Entity (F_Node, Full_View (E));
-
+                           Inherit_Freeze_Node
+                             (Fnod => F_Node,
+                              Typ  => Full_View (E));
                         else
                            Set_Has_Delayed_Freeze (Full_View (E), False);
                            Set_Freeze_Node (Full_View (E), Empty);
@@ -5789,9 +5847,9 @@ package body Freeze is
                         F_Node := Freeze_Node (Full_View (E));
 
                         if Present (F_Node) then
-                           Set_Freeze_Node (E, F_Node);
-                           Set_Entity (F_Node, E);
-
+                           Inherit_Freeze_Node
+                             (Fnod => F_Node,
+                              Typ  => E);
                         else
                            --  {Incomplete,Private}_Subtypes with Full_Views
                            --  constrained by discriminants.
@@ -5847,9 +5905,9 @@ package body Freeze is
                   F_Node := Freeze_Node (Underlying_Full_View (E));
 
                   if Present (F_Node) then
-                     Set_Freeze_Node (E, F_Node);
-                     Set_Entity (F_Node, E);
-
+                     Inherit_Freeze_Node
+                       (Fnod => F_Node,
+                        Typ  => E);
                   else
                      Set_Has_Delayed_Freeze (E, False);
                      Set_Freeze_Node (E, Empty);

@@ -34,6 +34,7 @@ with Elists;    use Elists;
 with Fname;     use Fname;
 with Fname.UF;  use Fname.UF;
 with Freeze;    use Freeze;
+with Ghost;     use Ghost;
 with Impunit;   use Impunit;
 with Inline;    use Inline;
 with Lib;       use Lib;
@@ -2826,6 +2827,8 @@ package body Sem_Ch10 is
                Set_Fatal_Error (Current_Sem_Unit, Error_Ignored);
             end if;
       end case;
+
+      Mark_Ghost_Clause (N);
    end Analyze_With_Clause;
 
    ------------------------------
@@ -4202,13 +4205,18 @@ package body Sem_Ch10 is
 
          --  Do not install private_with_clauses declaration, unless unit
          --  is itself a private child unit, or is a body. Note that for a
-         --  subprogram body the private_with_clause does not take effect until
-         --  after the specification.
+         --  subprogram body the private_with_clause does not take effect
+         --  until after the specification.
 
          if Nkind (Item) /= N_With_Clause
            or else Implicit_With (Item)
            or else Limited_Present (Item)
            or else Error_Posted (Item)
+
+            --  Skip processing malformed trees
+
+           or else (Try_Semantics
+                     and then Nkind (Name (Item)) not in N_Has_Entity)
          then
             null;
 
@@ -6116,6 +6124,14 @@ package body Sem_Ch10 is
                if Nkind (CI) = N_With_Clause
                  and then not
                    No_Elab_Code_All (Get_Source_Unit (Library_Unit (CI)))
+
+                 --  In GNATprove mode, some runtime units are implicitly
+                 --  loaded to make their entities available for analysis. In
+                 --  this case, ignore violations of No_Elaboration_Code_All
+                 --  for this special analysis mode.
+
+                 and then not
+                   (GNATprove_Mode and then Implicit_With (CI))
                then
                   Error_Msg_Sloc := Sloc (No_Elab_Code_All_Pragma);
                   Error_Msg_N

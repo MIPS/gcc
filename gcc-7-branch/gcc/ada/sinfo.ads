@@ -700,7 +700,10 @@ package Sinfo is
    --  analysis, on expression nodes that may trigger the corresponding
    --  check. The front end then inserts or not the check during expansion. In
    --  particular, these flags should also be correctly set in ASIS mode and
-   --  GNATprove mode.
+   --  GNATprove mode. As a special case, the front end does not insert a
+   --  Do_Division_Check flag on float exponentiation expressions, for the case
+   --  where the value is 0.0 and the exponent is negative, although this case
+   --  does lead to a division check failure.
 
    --  Note: the expander always takes care of the Do_Range check case,
    --  so this flag will never be set in the expanded tree passed to the
@@ -1560,10 +1563,10 @@ package Sinfo is
 
    --  Implicit_With (Flag16-Sem)
    --    This flag is set in the N_With_Clause node that is implicitly
-   --    generated for runtime units that are loaded by the expander, and also
-   --    for package System, if it is loaded implicitly by a use of the
-   --    'Address or 'Tag attribute. ???There are other implicit with clauses
-   --    as well.
+   --    generated for runtime units that are loaded by the expander or in
+   --    GNATprove mode, and also for package System, if it is loaded
+   --    implicitly by a use of the 'Address or 'Tag attribute.
+   --    ??? There are other implicit with clauses as well.
 
    --  Implicit_With_From_Instantiation (Flag12-Sem)
    --     Set in N_With_Clause nodes from generic instantiations.
@@ -1687,7 +1690,7 @@ package Sinfo is
    --    actuals to support a build-in-place style of call have been added to
    --    the call.
 
-   --  Is_Finalization_Wrapper (Flag9-Sem);
+   --  Is_Finalization_Wrapper (Flag9-Sem)
    --    This flag is present in N_Block_Statement nodes. It is set when the
    --    block acts as a wrapper of a handled construct which has controlled
    --    objects. The wrapper prevents interference between exception handlers
@@ -2474,8 +2477,8 @@ package Sinfo is
       --  Original_Entity (Node2-Sem) If not Empty, holds Named_Number that
       --  has been constant-folded into its literal value.
       --  Intval (Uint3) contains integer value of literal
-      --  plus fields for expression
       --  Print_In_Hex (Flag13-Sem)
+      --  plus fields for expression
 
       --  N_Real_Literal
       --  Sloc points to literal
@@ -3364,7 +3367,7 @@ package Sinfo is
       --  N_Discriminant_Association
       --  Sloc points to first token of discriminant association
       --  Selector_Names (List1) (always non-empty, since if no selector
-      --   names are present, this node is not used, see comment above)
+      --    names are present, this node is not used, see comment above)
       --  Expression (Node3)
 
       ---------------------------------
@@ -3902,7 +3905,6 @@ package Sinfo is
       --  Must_Be_Byte_Aligned (Flag14-Sem)
       --  Non_Aliased_Prefix (Flag18-Sem)
       --  Redundant_Use (Flag13-Sem)
-
       --  plus fields for expression
 
       --  Note: in Modify_Tree_For_C mode, Max and Min attributes are expanded
@@ -4428,8 +4430,8 @@ package Sinfo is
       --  plus fields for expression
 
       --  N_Op_Expon
-      --  Is_Power_Of_2_For_Shift (Flag13-Sem)
       --  Sloc points to **
+      --  Is_Power_Of_2_For_Shift (Flag13-Sem)
       --  plus fields for binary operator
       --  plus fields for expression
 
@@ -4651,8 +4653,8 @@ package Sinfo is
       --  Sloc points to apostrophe
       --  Subtype_Mark (Node4)
       --  Expression (Node3) expression or aggregate
-      --  plus fields for expression
       --  Is_Qualified_Universal_Literal (Flag4-Sem)
+      --  plus fields for expression
 
       --------------------
       -- 4.8  Allocator --
