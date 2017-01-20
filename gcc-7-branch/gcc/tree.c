@@ -508,6 +508,8 @@ initialize_tree_contains_struct (void)
 	{
 	case TS_TYPED:
 	case TS_BLOCK:
+	case TS_OPTIMIZATION:
+	case TS_TARGET_OPTION:
 	  MARK_TS_BASE (code);
 	  break;
 
@@ -532,8 +534,6 @@ initialize_tree_contains_struct (void)
 	case TS_VEC:
 	case TS_BINFO:
 	case TS_OMP_CLAUSE:
-	case TS_OPTIMIZATION:
-	case TS_TARGET_OPTION:
 	  MARK_TS_COMMON (code);
 	  break;
 
@@ -4758,7 +4758,10 @@ vec<tree, va_gc> *all_translation_units;
 tree
 build_translation_unit_decl (tree name)
 {
-  tree tu = build_decl (UNKNOWN_LOCATION, TRANSLATION_UNIT_DECL,
+  linemap_add (line_table, LC_ENTER, false, main_input_filename, 1);
+  location_t loc = linemap_line_start (line_table, 1, 0);
+  linemap_add (line_table, LC_LEAVE, false, NULL, 0);
+  tree tu = build_decl (loc, TRANSLATION_UNIT_DECL,
 			name, NULL_TREE);
   TRANSLATION_UNIT_LANGUAGE (tu) = lang_hooks.name;
   vec_safe_push (all_translation_units, tu);

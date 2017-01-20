@@ -112,6 +112,9 @@ package body Sem_Elab is
       --  The current scope of the call. This is restored when we complete the
       --  delayed call, so that we do this in the right scope.
 
+      From_SPARK_Code : Boolean;
+      --  Save indication of whether this call is under SPARK_Mode => On
+
       From_Elab_Code : Boolean;
       --  Save indication of whether this call is from elaboration code
 
@@ -304,7 +307,7 @@ package body Sem_Elab is
     (Call : Node_Id;
      Subp : Entity_Id;
      Scop : Entity_Id);
-   --  The current unit U may depend semantically on some unit P which is not
+   --  The current unit U may depend semantically on some unit P that is not
    --  in the current context. If there is an elaboration call that reaches P,
    --  we need to indicate that P requires an Elaborate_All, but this is not
    --  effective in U's ali file, if there is no with_clause for P. In this
@@ -926,7 +929,7 @@ package body Sem_Elab is
 
       --  If the call is in an instance, and the called entity is not
       --  defined in the same instance, then the elaboration issue focuses
-      --  around the unit containing the template, it is this unit which
+      --  around the unit containing the template, it is this unit that
       --  requires an Elaborate_All.
 
       --  However, if we are doing dynamic elaboration, we need to chase the
@@ -974,7 +977,7 @@ package body Sem_Elab is
       --  For the case where N is not an instance, and is not a call within
       --  instance to other than a generic formal, we recompute E_Scope
       --  for the error message, since we do NOT want to go to the unit
-      --  which has the ultimate declaration in the case of renaming and
+      --  that has the ultimate declaration in the case of renaming and
       --  derivation and we also want to go to the generic unit in the
       --  case of an instance, and no further.
 
@@ -1191,7 +1194,7 @@ package body Sem_Elab is
             null;
 
          --  Do not generate an Elaborate_All for finalization routines
-         --  which perform partial clean up as part of initialization.
+         --  that perform partial clean up as part of initialization.
 
          elsif In_Init_Proc and then Is_Finalization_Procedure (Ent) then
             null;
@@ -1396,7 +1399,7 @@ package body Sem_Elab is
          return;
       end if;
 
-      --  Here we have a reference at elaboration time which must be checked
+      --  Here we have a reference at elaboration time that must be checked
 
       if Debug_Flag_LL then
          Write_Str ("  Check_Elab_Ref: ");
@@ -1941,13 +1944,17 @@ package body Sem_Elab is
    ----------------------
 
    procedure Check_Elab_Calls is
+      Save_SPARK_Mode : SPARK_Mode_Type;
+
    begin
-      --  If expansion is disabled, do not generate any checks. Also skip
+      --  If expansion is disabled, do not generate any checks, unless we
+      --  are in GNATprove mode, so that errors are issued in GNATprove for
+      --  violations of static elaboration rules in SPARK code. Also skip
       --  checks if any subunits are missing because in either case we lack the
       --  full information that we need, and no object file will be created in
       --  any case.
 
-      if not Expander_Active
+      if (not Expander_Active and not GNATprove_Mode)
         or else Is_Generic_Unit (Cunit_Entity (Main_Unit))
         or else Subunits_Missing
       then
@@ -1964,12 +1971,21 @@ package body Sem_Elab is
             Push_Scope (Delay_Check.Table (J).Curscop);
             From_Elab_Code := Delay_Check.Table (J).From_Elab_Code;
 
+            --  Set appropriate value of SPARK_Mode
+
+            Save_SPARK_Mode := SPARK_Mode;
+
+            if Delay_Check.Table (J).From_SPARK_Code then
+               SPARK_Mode := On;
+            end if;
+
             Check_Internal_Call_Continue (
               N           => Delay_Check.Table (J).N,
               E           => Delay_Check.Table (J).E,
               Outer_Scope => Delay_Check.Table (J).Outer_Scope,
               Orig_Ent    => Delay_Check.Table (J).Orig_Ent);
 
+            SPARK_Mode := Save_SPARK_Mode;
             Pop_Scope;
          end loop;
 
@@ -2099,7 +2115,7 @@ package body Sem_Elab is
          Par := Call;
          while Present (Par) loop
             if Nkind (Par) = N_Pragma then
-               Nam := Pragma_Name_Mapped (Par);
+               Nam := Pragma_Name (Par);
 
                --  Pragma Initial_Condition appears in its alternative from as
                --  Check (Initial_Condition, ...).
@@ -2223,12 +2239,13 @@ package body Sem_Elab is
 
       if Delaying_Elab_Checks then
          Delay_Check.Append (
-           (N              => N,
-            E              => E,
-            Orig_Ent       => Orig_Ent,
-            Curscop        => Current_Scope,
-            Outer_Scope    => Outer_Scope,
-            From_Elab_Code => From_Elab_Code));
+           (N               => N,
+            E               => E,
+            Orig_Ent        => Orig_Ent,
+            Curscop         => Current_Scope,
+            Outer_Scope     => Outer_Scope,
+            From_Elab_Code  => From_Elab_Code,
+            From_SPARK_Code => SPARK_Mode = On));
          return;
 
       --  Otherwise, call phase 2 continuation right now
@@ -2485,7 +2502,7 @@ package body Sem_Elab is
                --  Or, in the case of an initial condition, specifically by a
                --  Check pragma specifying an Initial_Condition check.
 
-               elsif Pragma_Name_Mapped (O) = Name_Check
+               elsif Pragma_Name (O) = Name_Check
                  and then
                    Chars
                      (Expression (First (Pragma_Argument_Associations (O)))) =
@@ -2696,7 +2713,7 @@ package body Sem_Elab is
       procedure Collect_Tasks (Decls : List_Id);
       --  Collect the types of the tasks that are to be activated in the given
       --  list of declarations, in order to perform elaboration checks on the
-      --  corresponding task procedures which are called implicitly here.
+      --  corresponding task procedures that are called implicitly here.
 
       function Outer_Unit (E : Entity_Id) return Entity_Id;
       --  find enclosing compilation unit of Entity, ignoring subunits, or
@@ -3716,7 +3733,7 @@ package body Sem_Elab is
          Item := First (Context_Items (CU));
          while Present (Item) loop
             if Nkind (Item) = N_Pragma
-              and then Pragma_Name_Mapped (Item) = Name_Elaborate_All
+              and then Pragma_Name (Item) = Name_Elaborate_All
             then
                --  Return if some previous error on the pragma itself. The
                --  pragma may be unanalyzed, because of a previous error, or

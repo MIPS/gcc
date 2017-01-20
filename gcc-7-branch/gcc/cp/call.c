@@ -7899,6 +7899,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	 could handle this by open-coding the inherited constructor rather than
 	 defining it, but let's not bother now.  */
       if (!cp_unevaluated_operand
+	  && cand->num_convs
 	  && cand->convs[cand->num_convs-1]->ellipsis_p)
 	{
 	  if (complain & tf_error)
@@ -9630,6 +9631,18 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
       winner = compare_ics (cand1->second_conv, cand2->second_conv);
       if (winner)
 	return winner;
+    }
+
+  /* F1 is generated from a deduction-guide (13.3.1.8) and F2 is not */
+  if (deduction_guide_p (cand1->fn))
+    {
+      gcc_assert (deduction_guide_p (cand2->fn));
+      /* We distinguish between candidates from an explicit deduction guide and
+	 candidates built from a constructor based on DECL_ARTIFICIAL.  */
+      int art1 = DECL_ARTIFICIAL (cand1->fn);
+      int art2 = DECL_ARTIFICIAL (cand2->fn);
+      if (art1 != art2)
+	return art2 - art1;
     }
 
   /* or, if not that,

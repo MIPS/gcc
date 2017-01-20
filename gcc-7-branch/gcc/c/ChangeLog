@@ -1,3 +1,30 @@
+2017-01-13  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_compound_statement): Handle
+	nops.
+
+2017-01-13  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_postfix_expression): Parse
+	_Literal ( type-name ) number.
+
+2017-01-12  Richard Biener  <rguenther@suse.de>
+
+	* gimple-parser.c (c_parser_gimple_postfix_expression): Parse
+	__MEM.
+
+2017-01-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/72813
+	* c-decl.c (pop_file_scope): Set flag_syntax_only to 1 after writing
+	PCH file.
+
+2017-01-11  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/79052
+	* gimple-parser.c (c_parser_gimple_switch_stmt): Add missing
+	returns on parse errors.
+
 2017-01-04  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/64767

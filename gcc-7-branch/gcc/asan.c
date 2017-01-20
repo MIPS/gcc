@@ -2360,7 +2360,32 @@ create_odr_indicator (tree decl, tree type)
 static bool
 asan_needs_odr_indicator_p (tree decl)
 {
-  return !DECL_ARTIFICIAL (decl) && !DECL_WEAK (decl) && TREE_PUBLIC (decl);
+  /* Don't emit ODR indicators for kernel because:
+     a) Kernel is written in C thus doesn't need ODR indicators.
+     b) Some kernel code may have assumptions about symbols containing specific
+        patterns in their names.  Since ODR indicators contain original names
+        of symbols they are emitted for, these assumptions would be broken for
+        ODR indicator symbols.  */
+  return (!(flag_sanitize & SANITIZE_KERNEL_ADDRESS)
+	  && !DECL_ARTIFICIAL (decl)
+	  && !DECL_WEAK (decl)
+	  && TREE_PUBLIC (decl));
+}
+
+/* For given DECL return its corresponding TRANSLATION_UNIT_DECL.  */
+
+static const_tree
+get_translation_unit_decl (tree decl)
+{
+  const_tree context = decl;
+  while (context && TREE_CODE (context) != TRANSLATION_UNIT_DECL)
+    {
+      if (TREE_CODE (context) == BLOCK)
+	context = BLOCK_SUPERCONTEXT (context);
+      else
+	context = get_containing_scope (context);
+    }
+  return context;
 }
 
 /* Append description of a single global DECL into vector V.
@@ -2382,7 +2407,14 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
     pp_string (&asan_pp, "<unknown>");
   str_cst = asan_pp_string (&asan_pp);
 
-  pp_string (&module_name_pp, main_input_filename);
+  const char *filename = main_input_filename;
+  if (in_lto_p)
+    {
+      const_tree translation_unit_decl = get_translation_unit_decl (decl);
+      if (translation_unit_decl)
+	filename = DECL_SOURCE_FILE (translation_unit_decl);
+    }
+  pp_string (&module_name_pp, filename);
   module_name_cst = asan_pp_string (&module_name_pp);
 
   if (asan_needs_local_alias (decl))

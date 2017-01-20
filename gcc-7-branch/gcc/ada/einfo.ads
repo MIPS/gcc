@@ -393,9 +393,11 @@ package Einfo is
 --       attribute is applied directly to the entity, i.e. the entity is the
 --       entity of the prefix of the attribute reference. Also set if the
 --       entity is the second argument of an Asm_Input or Asm_Output attribute,
---       as the construct may entail taking its address. Used by the backend to
---       make sure that the address can be meaningfully taken, and also in the
---       case of subprograms to control output of certain warnings.
+--       as the construct may entail taking its address. And also set if the
+--       entity is a subprogram and the Access or Unchecked_Access attribute is
+--       applied. Used by the backend to make sure that the address can be
+--       meaningfully taken, and also in the case of subprograms to control
+--       output of certain warnings.
 
 --    Aft_Value (synthesized)
 --       Applies to fixed and decimal types. Computes a universal integer that
@@ -668,14 +670,13 @@ package Einfo is
 --       stored in a non-standard way, see body for details.
 
 --    Component_Bit_Offset (Uint11)
---       Defined in record components (E_Component, E_Discriminant) if a
---       component clause applies to the component. First bit position of
---       given component, computed from the first bit and position values
---       given in the component clause. A value of No_Uint means that the
---       value is not yet known. The value can be set by the appearance of
---       an explicit component clause in a record representation clause,
---       or it can be set by the front-end in package Layout, or it can be
---       set by the backend. By the time backend processing is completed,
+--       Defined in record components (E_Component, E_Discriminant). First
+--       bit position of given component, computed from the first bit and
+--       position values given in the component clause. A value of No_Uint
+--       means that the value is not yet known. The value can be set by the
+--       appearance of an explicit component clause in a record representation
+--       clause, or it can be set by the front-end in package Layout, or it can
+--       be set by the backend. By the time backend processing is completed,
 --       this field is always set. A negative value is used to represent
 --       a value which is not known at compile time, and must be computed
 --       at run-time (this happens if fields of a record have variable
@@ -927,7 +928,7 @@ package Einfo is
 --       when the type is subject to pragma Default_Initial_Condition (DIC), or
 --       when the type inherits a DIC pragma from a parent type. Points to the
 --       entity of a procedure which takes a single argument of the given type
---       and verifies the assertion expression of the DIC pragma at runtime.
+--       and verifies the assertion expression of the DIC pragma at run time.
 
 --       Note: the reason this is marked as a synthesized attribute is that the
 --       way this is stored is as an element of the Subprograms_For_Type field.
@@ -1760,7 +1761,7 @@ package Einfo is
 --       Defined in functions and generic functions. Set if there is one or
 --       more missing return statements in the function. This is used to
 --       control wrapping of the body in Exp_Ch6 to ensure that the program
---       error exception is correctly raised in this case at runtime.
+--       error exception is correctly raised in this case at run time.
 
 --    Has_Nested_Block_With_Handler (Flag101)
 --       Defined in scope entities. Set if there is a nested block within the
@@ -2370,7 +2371,7 @@ package Einfo is
 --       Defined in record types and subtypes. Set if the type was created
 --       by the expander to represent a task or protected type. For every
 --       concurrent type, such as record type is constructed, and task and
---       protected objects are instances of this record type at runtime
+--       protected objects are instances of this record type at run time
 --       (The backend will replace declarations of the concurrent type using
 --       the declarations of the corresponding record type). See Exp_Ch9 for
 --       further details.
@@ -2432,7 +2433,7 @@ package Einfo is
 --    Is_DIC_Procedure (Flag132)
 --       Defined in functions and procedures. Set for a generated procedure
 --       which verifies the assumption of pragma Default_Initial_Condition at
---       runtime.
+--       run time.
 
 --    Is_Discrete_Or_Fixed_Point_Type (synthesized)
 --       Applies to all entities, true for all discrete types and subtypes
@@ -3646,8 +3647,8 @@ package Einfo is
 --       depends on discriminants. In this case, the Normalized_Position_Max
 --       field represents the maximum possible value of Normalized_Position
 --       assuming min/max values for discriminant subscripts in all fields.
---       This is used by Layout in front end layout mode to properly computed
---       the maximum size such records (needed for allocation purposes when
+--       This is used by Layout in front end layout mode to properly compute
+--       the maximum size of such records (needed for allocation purposes when
 --       there are default discriminants, and also for the 'Size value).
 
 --    Number_Dimensions (synthesized)
@@ -3956,7 +3957,7 @@ package Einfo is
 --       the expanded N_Procedure_Call_Statement node for this call. It
 --       is used for Import/Export_Exception processing to modify the
 --       register call to make appropriate entries in the special tables
---       used for handling these pragmas at runtime.
+--       used for handling these pragmas at run time.
 
 --    Related_Array_Object (Node25)
 --       Defined in array types and subtypes. Used only for the base type

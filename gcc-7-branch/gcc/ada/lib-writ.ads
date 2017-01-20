@@ -192,8 +192,8 @@ package Lib.Writ is
    --              the units in this file, where x is the first character
    --              (upper case) of the policy name (e.g. 'C' for Concurrent).
 
-   --         FX  Units in this file use front-end exceptions, with explicit
-   --             handlers to trigger AT-END actions on exception paths.
+   --         FX   Units in this file use front-end exceptions, with explicit
+   --              handlers to trigger AT-END actions on exception paths.
 
    --         GP   Set if this compilation was done in GNATprove mode, either
    --              from direct use of GNATprove, or from use of -gnatdF.
@@ -240,12 +240,12 @@ package Lib.Writ is
    --              (upper case) of the corresponding policy name (e.g. 'F'
    --              for FIFO_Within_Priorities).
 
-   --         UA  Unreserve_All_Interrupts pragma was processed in one or
-   --             more units in this file
+   --         UA   Unreserve_All_Interrupts pragma was processed in one or
+   --              more units in this file
 
-   --         ZX  Units in this file use zero-cost exceptions and have
-   --             generated exception tables. If ZX is not present, the
-   --             longjmp/setjmp exception scheme is in use.
+   --         ZX   Units in this file use zero-cost exceptions and have
+   --              generated exception tables. If ZX is not present, the
+   --              longjmp/setjmp exception scheme is in use.
 
    --      Note that language defined units never output policy (Lx, Tx, Qx)
    --      parameters. Language defined units must correctly handle all
@@ -570,22 +570,22 @@ package Lib.Writ is
    --             code is required. Set if N_Compilation_Unit node has flag
    --             Has_No_Elaboration_Code set.
 
-   --         OL   The units in this file are compiled with a local pragma
-   --              Optimize_Alignment, so no consistency requirement applies
-   --              to these units. All internal units have this status since
-   --              they have an automatic default of Optimize_Alignment (Off).
+   --         OL  The units in this file are compiled with a local pragma
+   --             Optimize_Alignment, so no consistency requirement applies
+   --             to these units. All internal units have this status since
+   --             they have an automatic default of Optimize_Alignment (Off).
    --
-   --         OO   Optimize_Alignment (Off) is the default setting for all
-   --              units in this file. All files in the partition that specify
-   --              a default must specify the same default.
+   --         OO  Optimize_Alignment (Off) is the default setting for all
+   --             units in this file. All files in the partition that specify
+   --             a default must specify the same default.
 
-   --         OS   Optimize_Alignment (Space) is the default setting for all
-   --              units in this file. All files in the partition that specify
-   --              a default must specify the same default.
+   --         OS  Optimize_Alignment (Space) is the default setting for all
+   --             units in this file. All files in the partition that specify
+   --             a default must specify the same default.
 
-   --         OT   Optimize_Alignment (Time) is the default setting for all
-   --              units in this file. All files in the partition that specify
-   --              a default must specify the same default.
+   --         OT  Optimize_Alignment (Time) is the default setting for all
+   --             units in this file. All files in the partition that specify
+   --             a default must specify the same default.
 
    --         PF  The unit has a library-level (package) finalizer
 
@@ -649,10 +649,8 @@ package Lib.Writ is
    --        AD  Elaborate_All_Desirable set for this unit, which means that
    --            there is no Elaborate_All, but the analysis suggests that
    --            Program_Error may be raised if the Elaborate_All conditions
-   --            cannot be satisfied. In dynamic elaboration mode, the binder
-   --            will attempt to treat AD as EA if it can. In static
-   --            elaboration mode, the binder will treat AD as EA, even if it
-   --            introduces cycles.
+   --            cannot be satisfied. The binder will attempt to treat AD as
+   --            EA if it can.
 
    --      The parameter source-name and lib-name are omitted for the case of a
    --      generic unit compiled with earlier versions of GNAT which did not
