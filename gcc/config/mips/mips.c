@@ -5272,6 +5272,14 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		    + set_src_cost (XEXP (XEXP (x, 1), 0), mode, speed));
 	  return true;
 	}
+
+      if (low_bitmask_operand (XEXP (x, 1), mode)
+	  || bit_clear_operand (XEXP (x, 1), mode))
+	{
+	  *total = (COSTS_N_INSNS (1)
+		    + set_src_cost (XEXP (x, 0), mode, speed));
+	  return true;
+	}
 	    
       /* Fall through.  */
 
