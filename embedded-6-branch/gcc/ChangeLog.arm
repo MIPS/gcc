@@ -1,3 +1,28 @@
+2017-01-24  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* config/arm/arm.md (*ldcstc): Split into ...
+	(*ldc): ... this and ...
+	(*stc): ... this.
+	(ldcstc): Split into ...
+	(ldc): ... this and ...
+	(stc): ... this.
+	(cdp,*ldc,*stc,mrc,mcr,mrrc,mcrr): Add operand constraints.
+	(mrc, mrrc): Add source mode to coprocessor pattern SETs.
+	* config/arm/arm.c (arm_coproc_builtin_available): Put function name on
+	new line and fix availability of MCRR2 and MRRC2 builtins.
+	(arm_coproc_ldc_stc_legitimate_address): Put function name on new line.
+	* config/arm/arm-builtins.c (arm_type_qualifiers): Style fix.
+	* config/arm/arm_acle.h: Fix availability of __arm_mcrr2 and
+	__arm_mrrc2 intrinsics.
+	* config/arm/constraints.md (Uz): Finish sentence explaining the
+	constraint.
+	* config/arm/iterators.md (LDCSTCI,LDCSTC,ldcstc): Split into ...
+	(LDCI,LDC,ldc): ... this and ...
+	(STCI,STC,stc): ... this.
+	* gcc/doc/sourcebuild.texi (arm_coproc2_ok,arm_coproc3_ok): Fix
+	language.
+	(arm_coproc4_ok): New.
+
 2016-12-14  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	* config/arm/arm.c (TARGET_USE_BLOCKS_FOR_CONSTANT_P): Remove.

@@ -11496,12 +11496,12 @@
 })
 
 (define_insn "<cdp>"
-  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
-		     (match_operand:SI 1 "immediate_operand")
-		     (match_operand:SI 2 "immediate_operand")
-		     (match_operand:SI 3 "immediate_operand")
-		     (match_operand:SI 4 "immediate_operand")
-		     (match_operand:SI 5 "immediate_operand")] CDPI)]
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "immediate_operand" "n")
+		     (match_operand:SI 3 "immediate_operand" "n")
+		     (match_operand:SI 4 "immediate_operand" "n")
+		     (match_operand:SI 5 "immediate_operand" "n")] CDPI)]
   "arm_coproc_builtin_available (VUNSPEC_<CDP>)"
 {
   arm_const_bounds (operands[0], 0, 16);
@@ -11515,32 +11515,51 @@
   [(set_attr "length" "4")
    (set_attr "type" "coproc")])
 
-(define_insn "*ldcstc"
-  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
-		     (match_operand:SI 1 "immediate_operand")
-		     (match_operand:SI 2 "memory_operand" "Uz")] LDCSTCI)]
-  "arm_coproc_builtin_available (VUNSPEC_<LDCSTC>)"
+(define_insn "*stc"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "memory_operand" "=Uz")] STCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<STC>)"
 {
   arm_const_bounds (operands[0], 0, 16);
   arm_const_bounds (operands[1], 0, (1 << 5));
-  return "<ldcstc>\\tp%c0, CR%c1, %2";
+  return "<stc>\\tp%c0, CR%c1, %2";
 }
   [(set_attr "length" "4")
    (set_attr "type" "coproc")])
 
-(define_expand "<ldcstc>"
+(define_expand "<stc>"
   [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
 		     (match_operand:SI 1 "immediate_operand")
-		     (mem:SI (match_operand:SI 2 "s_register_operand"))] LDCSTCI)]
-  "arm_coproc_builtin_available (VUNSPEC_<LDCSTC>)")
+		     (mem:SI (match_operand:SI 2 "s_register_operand"))] STCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<STC>)")
+
+(define_insn "*ldc"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "memory_operand" "Uz")] LDCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<LDC>)"
+{
+  arm_const_bounds (operands[0], 0, 16);
+  arm_const_bounds (operands[1], 0, (1 << 5));
+  return "<ldc>\\tp%c0, CR%c1, %2";
+}
+  [(set_attr "length" "4")
+   (set_attr "type" "coproc")])
+
+(define_expand "<ldc>"
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
+		     (match_operand:SI 1 "immediate_operand")
+		     (mem:SI (match_operand:SI 2 "s_register_operand"))] LDCI)]
+  "arm_coproc_builtin_available (VUNSPEC_<LDC>)")
 
 (define_insn "<mcr>"
-  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
-		     (match_operand:SI 1 "immediate_operand")
-		     (match_operand:SI 2 "s_register_operand")
-		     (match_operand:SI 3 "immediate_operand")
-		     (match_operand:SI 4 "immediate_operand")
-		     (match_operand:SI 5 "immediate_operand")] MCRI)
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:SI 2 "s_register_operand" "r")
+		     (match_operand:SI 3 "immediate_operand" "n")
+		     (match_operand:SI 4 "immediate_operand" "n")
+		     (match_operand:SI 5 "immediate_operand" "n")] MCRI)
    (use (match_dup 2))]
   "arm_coproc_builtin_available (VUNSPEC_<MCR>)"
 {
@@ -11555,12 +11574,12 @@
    (set_attr "type" "coproc")])
 
 (define_insn "<mrc>"
-  [(set (match_operand:SI 0 "s_register_operand")
-	(unspec_volatile [(match_operand:SI 1 "immediate_operand")
-			  (match_operand:SI 2 "immediate_operand")
-			  (match_operand:SI 3 "immediate_operand")
-			  (match_operand:SI 4 "immediate_operand")
-			  (match_operand:SI 5 "immediate_operand")] MRCI))]
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(unspec_volatile:SI [(match_operand:SI 1 "immediate_operand" "n")
+			  (match_operand:SI 2 "immediate_operand" "n")
+			  (match_operand:SI 3 "immediate_operand" "n")
+			  (match_operand:SI 4 "immediate_operand" "n")
+			  (match_operand:SI 5 "immediate_operand" "n")] MRCI))]
   "arm_coproc_builtin_available (VUNSPEC_<MRC>)"
 {
   arm_const_bounds (operands[1], 0, 16);
@@ -11574,10 +11593,10 @@
    (set_attr "type" "coproc")])
 
 (define_insn "<mcrr>"
-  [(unspec_volatile [(match_operand:SI 0 "immediate_operand")
-		     (match_operand:SI 1 "immediate_operand")
-		     (match_operand:DI 2 "s_register_operand")
-		     (match_operand:SI 3 "immediate_operand")] MCRRI)
+  [(unspec_volatile [(match_operand:SI 0 "immediate_operand" "n")
+		     (match_operand:SI 1 "immediate_operand" "n")
+		     (match_operand:DI 2 "s_register_operand" "r")
+		     (match_operand:SI 3 "immediate_operand" "n")] MCRRI)
    (use (match_dup 2))]
   "arm_coproc_builtin_available (VUNSPEC_<MCRR>)"
 {
@@ -11590,10 +11609,10 @@
    (set_attr "type" "coproc")])
 
 (define_insn "<mrrc>"
-  [(set (match_operand:DI 0 "s_register_operand")
-	(unspec_volatile [(match_operand:SI 1 "immediate_operand")
-			  (match_operand:SI 2 "immediate_operand")
-			  (match_operand:SI 3 "immediate_operand")] MRRCI))]
+  [(set (match_operand:DI 0 "s_register_operand" "=r")
+	(unspec_volatile:DI [(match_operand:SI 1 "immediate_operand" "n")
+			  (match_operand:SI 2 "immediate_operand" "n")
+			  (match_operand:SI 3 "immediate_operand" "n")] MRRCI))]
   "arm_coproc_builtin_available (VUNSPEC_<MRRC>)"
 {
   arm_const_bounds (operands[1], 0, 16);

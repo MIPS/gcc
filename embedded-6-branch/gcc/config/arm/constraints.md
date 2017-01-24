@@ -449,7 +449,7 @@
 
 (define_memory_constraint "Uz"
  "@internal
-  A memory access that is accessible"
+  A memory access that is accessible as an LDC/STC operand"
  (and (match_code "mem")
       (match_test "arm_coproc_ldc_stc_legitimate_address (op)")))
 

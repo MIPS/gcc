@@ -49,7 +49,7 @@ enum arm_type_qualifiers
   qualifier_const = 0x2, /* 1 << 1  */
   /* T *foo.  */
   qualifier_pointer = 0x4, /* 1 << 2  */
-  /* const T * foo */
+  /* const T * foo.  */
   qualifier_const_pointer = 0x6,
   /* Used when expanding arguments if an operand could
      be an immediate.  */

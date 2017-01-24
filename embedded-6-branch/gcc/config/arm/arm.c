@@ -31516,7 +31516,8 @@ arm_elf_section_type_flags (tree decl, const char *name, int reloc)
     false otherwise.  If a BUILTIN is passed for which this function has not
     been implemented it will cause an exception.  */
 
-bool arm_coproc_builtin_available (enum unspecv builtin)
+bool
+arm_coproc_builtin_available (enum unspecv builtin)
 {
   /* None of these builtins are available in Thumb mode if the target only
      supports Thumb-1.  */
@@ -31548,12 +31549,15 @@ bool arm_coproc_builtin_available (enum unspecv builtin)
 	  return true;
 	break;
       case VUNSPEC_MCRR:
-      case VUNSPEC_MCRR2:
       case VUNSPEC_MRRC:
-      case VUNSPEC_MRRC2:
 	/* Only present in ARMv5TE, ARMv6 (but not ARMv6-M), ARMv7* and
 	   ARMv8-{A,M}.  */
 	if (arm_arch6 || arm_arch5te)
+	  return true;
+	break;
+      case VUNSPEC_MCRR2:
+      case VUNSPEC_MRRC2:
+	if (arm_arch6)
 	  return true;
 	break;
       default:
@@ -31565,7 +31569,8 @@ bool arm_coproc_builtin_available (enum unspecv builtin)
 /* This function returns true if OP is a valid memory operand for the ldc and
    stc coprocessor instructions and false otherwise.  */
 
-bool arm_coproc_ldc_stc_legitimate_address (rtx op)
+bool
+arm_coproc_ldc_stc_legitimate_address (rtx op)
 {
   int range;
   /* Has to be a memory operand.  */
@@ -31595,7 +31600,7 @@ bool arm_coproc_ldc_stc_legitimate_address (rtx op)
 	  range = INTVAL (op);
 
 	  /* Within the range of [-1020,1020].  */
-	  if (range < -1020 || range > 1020)
+	  if (!IN_RANGE (range, -1020, 1020))
 	    return false;
 
 	  /* And a multiple of 4.  */

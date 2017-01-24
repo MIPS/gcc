@@ -1,3 +1,9 @@
+2017-01-24  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* lib/target-supports.exp (arm_coproc2_ok,arm_coproc3_ok): Fix language
+	in comments.
+	(arm_coproc4_ok): New.
+
 2016-12-14  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	* gcc.target/arm/thumb2-slow-flash-data-3.c: Add extra scan.
