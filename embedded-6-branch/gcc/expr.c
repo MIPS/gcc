@@ -120,7 +120,8 @@ static tree clear_storage_libcall_fn (int);
 static rtx_insn *compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
 static void store_constructor_field (rtx, unsigned HOST_WIDE_INT,
-				     HOST_WIDE_INT, machine_mode,
+				     HOST_WIDE_INT, unsigned HOST_WIDE_INT,
+				     unsigned HOST_WIDE_INT, machine_mode,
 				     tree, int, alias_set_type, bool);
 static void store_constructor (tree, rtx, int, HOST_WIDE_INT, bool);
 static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT,
@@ -5932,7 +5933,10 @@ all_zeros_p (const_tree exp)
 
 static void
 store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
-			 HOST_WIDE_INT bitpos, machine_mode mode,
+			 HOST_WIDE_INT bitpos,
+			 unsigned HOST_WIDE_INT bitregion_start,
+			 unsigned HOST_WIDE_INT bitregion_end,
+			 machine_mode mode,
 			 tree exp, int cleared,
 			 alias_set_type alias_set, bool reverse)
 {
@@ -5967,8 +5971,8 @@ store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
 			 reverse);
     }
   else
-    store_field (target, bitsize, bitpos, 0, 0, mode, exp, alias_set, false,
-		 reverse);
+    store_field (target, bitsize, bitpos, bitregion_start, bitregion_end, mode,
+		 exp, alias_set, false, reverse);
 }
 
 
@@ -6003,6 +6007,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 {
   tree type = TREE_TYPE (exp);
   HOST_WIDE_INT exp_size = int_size_in_bytes (type);
+  HOST_WIDE_INT bitregion_end = size > 0 ? size * BITS_PER_UNIT - 1 : 0;
 
   switch (TREE_CODE (type))
     {
@@ -6081,7 +6086,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 	    if (tree_fits_uhwi_p (DECL_SIZE (field)))
 	      bitsize = tree_to_uhwi (DECL_SIZE (field));
 	    else
-	      bitsize = -1;
+	      gcc_unreachable ();
 
 	    mode = DECL_MODE (field);
 	    if (DECL_BIT_FIELD (field))
@@ -6092,31 +6097,10 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		&& tree_fits_shwi_p (bit_position (field)))
 	      {
 		bitpos = int_bit_position (field);
-		offset = 0;
+		offset = NULL_TREE;
 	      }
 	    else
-	      bitpos = tree_to_shwi (DECL_FIELD_BIT_OFFSET (field));
-
-	    if (offset)
-	      {
-	        machine_mode address_mode;
-		rtx offset_rtx;
-
-		offset
-		  = SUBSTITUTE_PLACEHOLDER_IN_EXPR (offset,
-						    make_tree (TREE_TYPE (exp),
-							       target));
-
-		offset_rtx = expand_normal (offset);
-		gcc_assert (MEM_P (to_rtx));
-
-		address_mode = get_address_mode (to_rtx);
-		if (GET_MODE (offset_rtx) != address_mode)
-		  offset_rtx = convert_to_mode (address_mode, offset_rtx, 0);
-
-		to_rtx = offset_address (to_rtx, offset_rtx,
-					 highest_pow2_factor (offset));
-	      }
+	      gcc_unreachable ();
 
 	    /* If this initializes a field that is smaller than a
 	       word, at the start of a word, try to widen it to a full
@@ -6164,7 +6148,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		MEM_KEEP_ALIAS_SET_P (to_rtx) = 1;
 	      }
 
-	    store_constructor_field (to_rtx, bitsize, bitpos, mode,
+	    store_constructor_field (to_rtx, bitsize, bitpos,
+				     0, bitregion_end, mode,
 				     value, cleared,
 				     get_alias_set (TREE_TYPE (field)),
 				     reverse);
@@ -6324,7 +6309,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 			  }
 
 			store_constructor_field
-			  (target, bitsize, bitpos, mode, value, cleared,
+			  (target, bitsize, bitpos, 0, bitregion_end,
+			   mode, value, cleared,
 			   get_alias_set (elttype), reverse);
 		      }
 		  }
@@ -6427,7 +6413,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		    target = copy_rtx (target);
 		    MEM_KEEP_ALIAS_SET_P (target) = 1;
 		  }
-		store_constructor_field (target, bitsize, bitpos, mode, value,
+		store_constructor_field (target, bitsize, bitpos, 0,
+					 bitregion_end, mode, value,
 					 cleared, get_alias_set (elttype),
 					 reverse);
 	      }
@@ -6561,7 +6548,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		  ? TYPE_MODE (TREE_TYPE (value))
 		  : eltmode;
 		bitpos = eltpos * elt_size;
-		store_constructor_field (target, bitsize, bitpos, value_mode,
+		store_constructor_field (target, bitsize, bitpos, 0,
+					 bitregion_end, value_mode,
 					 value, cleared, alias, reverse);
 	      }
 	  }
@@ -8941,9 +8929,9 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 
 	/* Left shift optimization when shifting across word_size boundary.
 
-	   If mode == GET_MODE_WIDER_MODE (word_mode), then normally there isn't
-	   native instruction to support this wide mode left shift.  Given below
-	   scenario:
+	   If mode == GET_MODE_WIDER_MODE (word_mode), then normally
+	   there isn't native instruction to support this wide mode
+	   left shift.  Given below scenario:
 
 	    Type A = (Type) B  << C
 
@@ -8952,10 +8940,11 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 
 			 | word_size |
 
-	   If the shift amount C caused we shift B to across the word size
-	   boundary, i.e part of B shifted into high half of destination
-	   register, and part of B remains in the low half, then GCC will use
-	   the following left shift expand logic:
+	   If the shift amount C caused we shift B to across the word
+	   size boundary, i.e part of B shifted into high half of
+	   destination register, and part of B remains in the low
+	   half, then GCC will use the following left shift expand
+	   logic:
 
 	   1. Initialize dest_low to B.
 	   2. Initialize every bit of dest_high to the sign bit of B.
@@ -8965,20 +8954,30 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	   5. Logic right shift D by (word_size - C).
 	   6. Or the result of 4 and 5 to finalize dest_high.
 
-	   While, by checking gimple statements, if operand B is coming from
-	   signed extension, then we can simplify above expand logic into:
+	   While, by checking gimple statements, if operand B is
+	   coming from signed extension, then we can simplify above
+	   expand logic into:
 
 	      1. dest_high = src_low >> (word_size - C).
 	      2. dest_low = src_low << C.
 
-	   We can use one arithmetic right shift to finish all the purpose of
-	   steps 2, 4, 5, 6, thus we reduce the steps needed from 6 into 2.  */
+	   We can use one arithmetic right shift to finish all the
+	   purpose of steps 2, 4, 5, 6, thus we reduce the steps
+	   needed from 6 into 2.
+
+	   The case is similar for zero extension, except that we
+	   initialize dest_high to zero rather than copies of the sign
+	   bit from B.  Furthermore, we need to use a logical right shift
+	   in this case.
+
+	   The choice of sign-extension versus zero-extension is
+	   determined entirely by whether or not B is signed and is
+	   independent of the current setting of unsignedp.  */
 
 	temp = NULL_RTX;
 	if (code == LSHIFT_EXPR
 	    && target
 	    && REG_P (target)
-	    && ! unsignedp
 	    && mode == GET_MODE_WIDER_MODE (word_mode)
 	    && GET_MODE_SIZE (mode) == 2 * GET_MODE_SIZE (word_mode)
 	    && TREE_CONSTANT (treeop1)
@@ -8999,6 +8998,8 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 		    rtx_insn *seq, *seq_old;
 		    unsigned int high_off = subreg_highpart_offset (word_mode,
 								    mode);
+		    bool extend_unsigned
+		      = TYPE_UNSIGNED (TREE_TYPE (gimple_assign_rhs1 (def)));
 		    rtx low = lowpart_subreg (word_mode, op0, mode);
 		    rtx dest_low = lowpart_subreg (word_mode, target, mode);
 		    rtx dest_high = simplify_gen_subreg (word_mode, target,
@@ -9010,7 +9011,8 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 		    start_sequence ();
 		    /* dest_high = src_low >> (word_size - C).  */
 		    temp = expand_variable_shift (RSHIFT_EXPR, word_mode, low,
-						  rshift, dest_high, unsignedp);
+						  rshift, dest_high,
+						  extend_unsigned);
 		    if (temp != dest_high)
 		      emit_move_insn (dest_high, temp);
 
@@ -10272,10 +10274,36 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	if (GET_CODE (op0) == CONCAT && !must_force_mem)
 	  {
 	    if (bitpos == 0
-		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
+		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0))
+		&& COMPLEX_MODE_P (mode1)
+		&& COMPLEX_MODE_P (GET_MODE (op0))
+		&& (GET_MODE_PRECISION (GET_MODE_INNER (mode1))
+		    == GET_MODE_PRECISION (GET_MODE_INNER (GET_MODE (op0)))))
 	      {
 		if (reversep)
 		  op0 = flip_storage_order (GET_MODE (op0), op0);
+		if (mode1 != GET_MODE (op0))
+		  {
+		    rtx parts[2];
+		    for (int i = 0; i < 2; i++)
+		      {
+			rtx op = read_complex_part (op0, i != 0);
+			if (GET_CODE (op) == SUBREG)
+			  op = force_reg (GET_MODE (op), op);
+			rtx temp = gen_lowpart_common (GET_MODE_INNER (mode1),
+						       op);
+			if (temp)
+			  op = temp;
+			else
+			  {
+			    if (!REG_P (op) && !MEM_P (op))
+			      op = force_reg (GET_MODE (op), op);
+			    op = gen_lowpart (GET_MODE_INNER (mode1), op);
+			  }
+			parts[i] = op;
+		      }
+		    op0 = gen_rtx_CONCAT (mode1, parts[0], parts[1]);
+		  }
 		return op0;
 	      }
 	    if (bitpos == 0

@@ -5848,6 +5848,8 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	errstring = _("wrong type argument to bit-complement");
       else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
 	arg = cp_perform_integral_promotions (arg, complain);
+      else if (!noconvert && VECTOR_TYPE_P (TREE_TYPE (arg)))
+	arg = mark_rvalue_use (arg);
       break;
 
     case ABS_EXPR:
@@ -8552,7 +8554,8 @@ static bool
 maybe_warn_about_returning_address_of_local (tree retval)
 {
   tree valtype = TREE_TYPE (DECL_RESULT (current_function_decl));
-  tree whats_returned = retval;
+  tree whats_returned = c_fully_fold (retval, /*for_init*/false,
+				      /*maybe_constp*/NULL);
 
   for (;;)
     {
