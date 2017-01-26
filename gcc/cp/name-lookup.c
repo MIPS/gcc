@@ -98,15 +98,16 @@ cp_binding_oracle_function *cp_binding_oracle;
 static inline void
 query_oracle (tree name)
 {
-  // FIXME: we need a more space-efficient representation for
-  // oracle_looked_up.
-  if (cp_binding_oracle && !LANG_IDENTIFIER_CAST (name)->oracle_looked_up)
-    {
-      LANG_IDENTIFIER_CAST (name)->oracle_looked_up = true;
-      // FIXME: unify CP_ORACLE_SYMBOL and CP_ORACLE_TAG for C++.
-      cp_binding_oracle (CP_ORACLE_SYMBOL, name);
-      cp_binding_oracle (CP_ORACLE_TAG, name);
-    }
+  if (!cp_binding_oracle)
+    return;
+
+  /* LOOKED_UP holds the set of identifiers that we have already
+     looked up with the oracle.  */
+  static hash_set<tree> looked_up;
+  if (looked_up.add (name))
+    return;
+
+  cp_binding_oracle (CP_ORACLE_IDENTIFIER, name);
 }
 
 /* Create a binding_entry object for (NAME, TYPE).  */

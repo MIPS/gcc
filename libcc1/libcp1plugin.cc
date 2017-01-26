@@ -245,14 +245,8 @@ plugin_binding_oracle (enum cp_oracle_request kind, tree identifier)
 
   switch (kind)
     {
-    case CP_ORACLE_SYMBOL:
-      request = GCC_CP_ORACLE_SYMBOL;
-      break;
-    case CP_ORACLE_TAG:
-      request = GCC_CP_ORACLE_TAG;
-      break;
-    case CP_ORACLE_LABEL:
-      request = GCC_CP_ORACLE_LABEL;
+    case CP_ORACLE_IDENTIFIER:
+      request = GCC_CP_ORACLE_IDENTIFIER;
       break;
     default:
       abort ();
@@ -866,7 +860,7 @@ plugin_push_function (cc1_plugin::connection *,
 }
 
 int
-plugin_pop_namespace (cc1_plugin::connection *)
+plugin_pop_binding_level (cc1_plugin::connection *)
 {
   pop_scope ();
   return 1;
@@ -919,7 +913,7 @@ get_current_scope ()
 }
 
 gcc_decl
-plugin_get_current_binding_level (cc1_plugin::connection *)
+plugin_get_current_binding_level_decl (cc1_plugin::connection *)
 {
   tree decl = get_current_scope ();
 
@@ -927,9 +921,36 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
 }
 
 int
-plugin_using_namespace (cc1_plugin::connection *,
-			gcc_decl used_ns_in,
-			int inline_p)
+plugin_make_namespace_inline (cc1_plugin::connection *)
+{
+  tree inline_ns = current_namespace;
+
+  gcc_assert (toplevel_bindings_p ());
+  gcc_assert (inline_ns != global_namespace);
+
+  tree parent_ns = CP_DECL_CONTEXT (inline_ns);
+
+  if (purpose_member (DECL_NAMESPACE_ASSOCIATIONS (inline_ns),
+		      parent_ns))
+    return 0;
+
+  pop_namespace ();
+
+  gcc_assert (current_namespace == parent_ns);
+
+  DECL_NAMESPACE_ASSOCIATIONS (inline_ns)
+    = tree_cons (parent_ns, 0,
+		 DECL_NAMESPACE_ASSOCIATIONS (inline_ns));
+  do_using_directive (inline_ns);
+
+  push_namespace (DECL_NAME (inline_ns));
+
+  return 1;
+}
+
+int
+plugin_add_using_namespace (cc1_plugin::connection *,
+			    gcc_decl used_ns_in)
 {
   tree used_ns = convert_in (used_ns_in);
 
@@ -937,26 +958,11 @@ plugin_using_namespace (cc1_plugin::connection *,
 
   do_using_directive (used_ns);
 
-  /* ??? Should we build the attribute and call parse_using_directive
-     instead, to avoid logic duplication?  */
-  if (inline_p)
-    {
-      /* Make sure other values are not used; we might want to make it
-	 an enum bitfield in the future.  */
-      gcc_assert (inline_p == 1);
-
-      gcc_assert (toplevel_bindings_p ());
-      gcc_assert (is_ancestor (current_namespace, used_ns));
-      DECL_NAMESPACE_ASSOCIATIONS (used_ns)
-	= tree_cons (current_namespace, 0,
-		     DECL_NAMESPACE_ASSOCIATIONS (used_ns));
-    }
-
   return 1;
 }
 
 int
-plugin_new_namespace_alias (cc1_plugin::connection *,
+plugin_add_namespace_alias (cc1_plugin::connection *,
 			    const char *id,
 			    gcc_decl target_in)
 {
@@ -995,7 +1001,7 @@ set_access_flags (tree decl, enum gcc_cp_symbol_kind flags)
 }
 
 int
-plugin_new_using_decl (cc1_plugin::connection *,
+plugin_add_using_decl (cc1_plugin::connection *,
 		       enum gcc_cp_symbol_kind flags,
 		       gcc_decl target_in)
 {
@@ -1019,9 +1025,6 @@ plugin_new_using_decl (cc1_plugin::connection *,
   if (class_member_p)
     {
       tree decl = do_class_using_decl (tcontext, identifier);
-
-      if (DECL_DECLARES_TYPE_P (target))
-	USING_DECL_TYPENAME_P (decl);
 
       set_access_flags (decl, flags);
 
@@ -1059,14 +1062,14 @@ build_named_class_type (enum tree_code code,
 #define TP_PARM_LIST TREE_TYPE (current_template_parms)
 
 gcc_decl
-plugin_new_decl (cc1_plugin::connection *self,
-		 const char *name,
-		 enum gcc_cp_symbol_kind sym_kind,
-		 gcc_type sym_type_in,
-		 const char *substitution_name,
-		 gcc_address address,
-		 const char *filename,
-		 unsigned int line_number)
+plugin_build_decl (cc1_plugin::connection *self,
+		   const char *name,
+		   enum gcc_cp_symbol_kind sym_kind,
+		   gcc_type sym_type_in,
+		   const char *substitution_name,
+		   gcc_address address,
+		   const char *filename,
+		   unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   gcc_assert (!name || !strchr (name, ':')); // FIXME: this can go eventually.
@@ -1096,13 +1099,6 @@ plugin_new_decl (cc1_plugin::connection *self,
       code = TYPE_DECL;
       gcc_assert (!sym_flags);
       break;
-
-    case GCC_CP_SYMBOL_LABEL:
-      // FIXME: we aren't ready to handle labels yet.
-      // It isn't clear how to translate them properly
-      // and in any case a "goto" isn't likely to work.
-      gcc_assert (!sym_flags);
-      return convert_out (error_mark_node);
 
     case GCC_CP_SYMBOL_CLASS:
       code = RECORD_TYPE;
@@ -1654,7 +1650,7 @@ plugin_define_cdtor_clone (cc1_plugin::connection *self,
 }
 
 int
-plugin_new_friend (cc1_plugin::connection * /* self */,
+plugin_add_friend (cc1_plugin::connection * /* self */,
 		   gcc_decl decl_in,
 		   gcc_type type_in)
 {
@@ -1758,11 +1754,11 @@ start_class_def (tree type,
 }
 
 gcc_type
-plugin_start_class_definition (cc1_plugin::connection *self,
-			       gcc_decl typedecl_in,
-			       const gcc_vbase_array *base_classes,
-			       const char *filename,
-			       unsigned int line_number)
+plugin_start_class_type (cc1_plugin::connection *self,
+			 gcc_decl typedecl_in,
+			 const gcc_vbase_array *base_classes,
+			 const char *filename,
+			 unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   source_location loc = ctx->get_source_location (filename, line_number);
@@ -1780,12 +1776,12 @@ plugin_start_class_definition (cc1_plugin::connection *self,
 }
 
 gcc_type
-plugin_start_new_closure_type (cc1_plugin::connection *self,
-			       int discriminator,
-			       gcc_decl extra_scope_in,
-			       enum gcc_cp_symbol_kind flags,
-			       const char *filename,
-			       unsigned int line_number)
+plugin_start_closure_class_type (cc1_plugin::connection *self,
+				 int discriminator,
+				 gcc_decl extra_scope_in,
+				 enum gcc_cp_symbol_kind flags,
+				 const char *filename,
+				 unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree extra_scope = convert_in (extra_scope_in);
@@ -1842,8 +1838,8 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_get_lambda_expr (cc1_plugin::connection *self,
-			gcc_type closure_type_in)
+plugin_build_lambda_expr (cc1_plugin::connection *self,
+			  gcc_type closure_type_in)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree closure_type = convert_in (closure_type_in);
@@ -1858,12 +1854,12 @@ plugin_get_lambda_expr (cc1_plugin::connection *self,
 }
 
 gcc_decl
-plugin_new_field (cc1_plugin::connection *,
-		  const char *field_name,
-		  gcc_type field_type_in,
-		  enum gcc_cp_symbol_kind flags,
-		  unsigned long bitsize,
-		  unsigned long bitpos)
+plugin_build_field (cc1_plugin::connection *,
+		    const char *field_name,
+		    gcc_type field_type_in,
+		    enum gcc_cp_symbol_kind flags,
+		    unsigned long bitsize,
+		    unsigned long bitpos)
 {
   tree record_or_union_type = current_class_type;
   tree field_type = convert_in (field_type_in);
@@ -1914,8 +1910,8 @@ plugin_new_field (cc1_plugin::connection *,
 }
 
 int
-plugin_finish_record_or_union (cc1_plugin::connection *,
-			       unsigned long size_in_bytes)
+plugin_finish_class_type (cc1_plugin::connection *,
+			  unsigned long size_in_bytes)
 {
   tree record_or_union_type = current_class_type;
 
@@ -1930,12 +1926,12 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
 }
 
 gcc_type
-plugin_start_new_enum_type (cc1_plugin::connection *self,
-			    const char *name,
-			    gcc_type underlying_int_type_in,
-			    enum gcc_cp_symbol_kind flags,
-			    const char *filename,
-			    unsigned int line_number)
+plugin_start_enum_type (cc1_plugin::connection *self,
+			const char *name,
+			gcc_type underlying_int_type_in,
+			enum gcc_cp_symbol_kind flags,
+			const char *filename,
+			unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree underlying_int_type = convert_in (underlying_int_type_in);
@@ -1970,10 +1966,10 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
 }
 
 gcc_decl
-plugin_build_add_enum_constant (cc1_plugin::connection *,
-				gcc_type enum_type_in,
-				const char *name,
-				unsigned long value)
+plugin_build_enum_constant (cc1_plugin::connection *,
+			    gcc_type enum_type_in,
+			    const char *name,
+			    unsigned long value)
 {
   tree enum_type = convert_in (enum_type_in);
 
@@ -2025,6 +2021,8 @@ plugin_build_function_type (cc1_plugin::connection *self,
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
 }
+
+#if 0
 
 gcc_type
 plugin_add_function_default_args (cc1_plugin::connection *self,
@@ -2112,6 +2110,8 @@ plugin_set_deferred_function_default_args (cc1_plugin::connection *,
 
   return 1;
 }
+
+#endif
 
 gcc_decl
 plugin_get_function_parameter_decl (cc1_plugin::connection *,
@@ -2221,7 +2221,7 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
 }
 
 int
-plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
+plugin_start_template_decl (cc1_plugin::connection *)
 {
   begin_template_parm_list ();
 
@@ -2231,8 +2231,8 @@ plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
 }
 
 gcc_decl
-plugin_type_decl (cc1_plugin::connection *,
-		  gcc_type type_in)
+plugin_get_type_decl (cc1_plugin::connection *,
+		      gcc_type type_in)
 {
   tree type = convert_in (type_in);
 
@@ -2243,8 +2243,8 @@ plugin_type_decl (cc1_plugin::connection *,
 }
 
 gcc_type
-plugin_decl_type (cc1_plugin::connection *,
-		  gcc_decl decl_in)
+plugin_get_decl_type (cc1_plugin::connection *,
+		      gcc_decl decl_in)
 {
   tree decl = convert_in (decl_in);
 
@@ -2255,12 +2255,12 @@ plugin_decl_type (cc1_plugin::connection *,
 }
 
 gcc_type
-plugin_new_template_typename_parm (cc1_plugin::connection *self,
-				   const char *id,
-				   int /* bool */ pack_p,
-				   gcc_type default_type,
-				   const char *filename,
-				   unsigned int line_number)
+plugin_build_type_template_parameter (cc1_plugin::connection *self,
+				      const char *id,
+				      int /* bool */ pack_p,
+				      gcc_type default_type,
+				      const char *filename,
+				      unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   source_location loc = ctx->get_source_location (filename, line_number);
@@ -2285,12 +2285,12 @@ plugin_new_template_typename_parm (cc1_plugin::connection *self,
 }
 
 gcc_utempl
-plugin_new_template_template_parm (cc1_plugin::connection *self,
-				   const char *id,
-				   int /* bool */ pack_p,
-				   gcc_utempl default_templ,
-				   const char *filename,
-				   unsigned int line_number)
+plugin_build_template_template_parameter (cc1_plugin::connection *self,
+					  const char *id,
+					  int /* bool */ pack_p,
+					  gcc_utempl default_templ,
+					  const char *filename,
+					  unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   source_location loc = ctx->get_source_location (filename, line_number);
@@ -2320,12 +2320,12 @@ plugin_new_template_template_parm (cc1_plugin::connection *self,
 }
 
 gcc_decl
-plugin_new_template_value_parm (cc1_plugin::connection *self,
-				gcc_type type,
-				const char *id,
-				gcc_expr default_value,
-				const char *filename,
-				unsigned int line_number)
+plugin_build_value_template_parameter (cc1_plugin::connection *self,
+				       gcc_type type,
+				       const char *id,
+				       gcc_expr default_value,
+				       const char *filename,
+				       unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   source_location loc = ctx->get_source_location (filename, line_number);
@@ -2390,10 +2390,10 @@ targlist (const gcc_cp_template_args *targs)
 }
 
 gcc_type
-plugin_new_dependent_typename (cc1_plugin::connection *self,
-			       gcc_type enclosing_type,
-			       const char *id,
-			       const gcc_cp_template_args *targs)
+plugin_build_dependent_typename (cc1_plugin::connection *self,
+				 gcc_type enclosing_type,
+				 const char *id,
+				 const gcc_cp_template_args *targs)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (enclosing_type);
@@ -2407,9 +2407,9 @@ plugin_new_dependent_typename (cc1_plugin::connection *self,
 }
 
 gcc_utempl
-plugin_new_dependent_class_template (cc1_plugin::connection *self,
-				     gcc_type enclosing_type,
-				     const char *id)
+plugin_build_dependent_class_template (cc1_plugin::connection *self,
+				       gcc_type enclosing_type,
+				       const char *id)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (enclosing_type);
@@ -2420,9 +2420,9 @@ plugin_new_dependent_class_template (cc1_plugin::connection *self,
 }
 
 gcc_type
-plugin_new_dependent_typespec (cc1_plugin::connection *self,
-			       gcc_utempl template_decl,
-			       const gcc_cp_template_args *targs)
+plugin_build_dependent_type_template_id (cc1_plugin::connection *self,
+					 gcc_utempl template_decl,
+					 const gcc_cp_template_args *targs)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (template_decl);
@@ -2432,12 +2432,12 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_new_dependent_value_expr (cc1_plugin::connection *self,
-				 gcc_decl enclosing_scope,
-				 enum gcc_cp_symbol_kind flags,
-				 const char *name,
-				 gcc_type conv_type_in,
-				 const gcc_cp_template_args *targs)
+plugin_build_dependent_expr (cc1_plugin::connection *self,
+			     gcc_decl enclosing_scope,
+			     enum gcc_cp_symbol_kind flags,
+			     const char *name,
+			     gcc_type conv_type_in,
+			     const gcc_cp_template_args *targs)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree scope = convert_in (enclosing_scope);
@@ -2691,8 +2691,8 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_literal_expr (cc1_plugin::connection *self,
-		     gcc_type type, unsigned long value)
+plugin_build_literal_expr (cc1_plugin::connection *self,
+			   gcc_type type, unsigned long value)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree t = convert_in (type);
@@ -2701,9 +2701,9 @@ plugin_literal_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_decl_expr (cc1_plugin::connection *self,
-		  gcc_decl decl_in,
-		  int qualified_p)
+plugin_build_decl_expr (cc1_plugin::connection *self,
+			gcc_decl decl_in,
+			int qualified_p)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree decl = convert_in (decl_in);
@@ -2719,7 +2719,7 @@ plugin_decl_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_unary_value_expr (cc1_plugin::connection *self,
+plugin_build_unary_expr (cc1_plugin::connection *self,
 			 const char *unary_op,
 			 gcc_expr operand)
 {
@@ -2860,7 +2860,7 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_binary_value_expr (cc1_plugin::connection *self,
+plugin_build_binary_expr (cc1_plugin::connection *self,
 			  const char *binary_op,
 			  gcc_expr operand1,
 			  gcc_expr operand2)
@@ -2985,7 +2985,7 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_ternary_value_expr (cc1_plugin::connection *self,
+plugin_build_ternary_expr (cc1_plugin::connection *self,
 			   const char *ternary_op,
 			   gcc_expr operand1,
 			   gcc_expr operand2,
@@ -3017,9 +3017,9 @@ plugin_ternary_value_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_unary_type_expr (cc1_plugin::connection *self,
-			const char *unary_op,
-			gcc_type operand)
+plugin_build_unary_type_expr (cc1_plugin::connection *self,
+			      const char *unary_op,
+			      gcc_type operand)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (operand);
@@ -3080,7 +3080,7 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_type_value_expr (cc1_plugin::connection *self,
+plugin_build_cast_expr (cc1_plugin::connection *self,
 			const char *binary_op,
 			gcc_type operand1,
 			gcc_expr operand2)
@@ -3162,10 +3162,10 @@ args_to_ctor_elts (const struct gcc_cp_function_args *args_in)
 }
 
 gcc_expr
-plugin_values_expr (cc1_plugin::connection *self,
-		    const char *conv_op,
-		    gcc_type type_in,
-		    const struct gcc_cp_function_args *values_in)
+plugin_build_expression_list_expr (cc1_plugin::connection *self,
+				   const char *conv_op,
+				   gcc_type type_in,
+				   const struct gcc_cp_function_args *values_in)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (type_in);
@@ -3203,11 +3203,11 @@ plugin_values_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_alloc_expr (cc1_plugin::connection *self,
-		   const char *new_op,
-		   const struct gcc_cp_function_args *placement_in,
-		   gcc_type type_in,
-		   const struct gcc_cp_function_args *initializer_in)
+plugin_build_new_expr (cc1_plugin::connection *self,
+		       const char *new_op,
+		       const struct gcc_cp_function_args *placement_in,
+		       gcc_type type_in,
+		       const struct gcc_cp_function_args *initializer_in)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (type_in);
@@ -3291,9 +3291,9 @@ plugin_alloc_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_call_expr (cc1_plugin::connection *self,
-		  gcc_expr callable_in, int qualified_p,
-		  const struct gcc_cp_function_args *args_in)
+plugin_build_call_expr (cc1_plugin::connection *self,
+			gcc_expr callable_in, int qualified_p,
+			const struct gcc_cp_function_args *args_in)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree callable = convert_in (callable_in);
@@ -3352,8 +3352,8 @@ plugin_call_expr (cc1_plugin::connection *self,
 }
 
 gcc_type
-plugin_expr_type (cc1_plugin::connection *self,
-		  gcc_expr operand)
+plugin_get_expr_type (cc1_plugin::connection *self,
+		      gcc_expr operand)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree op0 = convert_in (operand);
@@ -3369,12 +3369,12 @@ plugin_expr_type (cc1_plugin::connection *self,
 }
 
 gcc_decl
-plugin_specialize_function_template (cc1_plugin::connection *self,
-				     gcc_decl template_decl,
-				     const gcc_cp_template_args *targs,
-				     gcc_address address,
-				     const char *filename,
-				     unsigned int line_number)
+plugin_build_function_template_specialization (cc1_plugin::connection *self,
+					       gcc_decl template_decl,
+					       const gcc_cp_template_args *targs,
+					       gcc_address address,
+					       const char *filename,
+					       unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   source_location loc = ctx->get_source_location (filename, line_number);
@@ -3390,11 +3390,11 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
 }
 
 gcc_decl
-plugin_specialize_class_template (cc1_plugin::connection *self,
-				  gcc_decl template_decl,
-				  const gcc_cp_template_args *args,
-				  const char *filename,
-				  unsigned int line_number)
+plugin_build_class_template_specialization (cc1_plugin::connection *self,
+					    gcc_decl template_decl,
+					    const gcc_cp_template_args *args,
+					    const char *filename,
+					    unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   source_location loc = ctx->get_source_location (filename, line_number);
@@ -3427,9 +3427,9 @@ safe_lookup_builtin_type (const char *builtin_name)
 }
 
 gcc_type
-plugin_int_type (cc1_plugin::connection *self,
-		 int is_unsigned, unsigned long size_in_bytes,
-		 const char *builtin_name)
+plugin_get_int_type (cc1_plugin::connection *self,
+		     int is_unsigned, unsigned long size_in_bytes,
+		     const char *builtin_name)
 {
   tree result;
 
@@ -3457,15 +3457,15 @@ plugin_int_type (cc1_plugin::connection *self,
 }
 
 gcc_type
-plugin_char_type (cc1_plugin::connection *)
+plugin_get_char_type (cc1_plugin::connection *)
 {
   return convert_out (char_type_node);
 }
 
 gcc_type
-plugin_float_type (cc1_plugin::connection *,
-		   unsigned long size_in_bytes,
-		   const char *builtin_name)
+plugin_get_float_type (cc1_plugin::connection *,
+		       unsigned long size_in_bytes,
+		       const char *builtin_name)
 {
   if (builtin_name)
     {
@@ -3490,13 +3490,13 @@ plugin_float_type (cc1_plugin::connection *,
 }
 
 gcc_type
-plugin_void_type (cc1_plugin::connection *)
+plugin_get_void_type (cc1_plugin::connection *)
 {
   return convert_out (void_type_node);
 }
 
 gcc_type
-plugin_bool_type (cc1_plugin::connection *)
+plugin_get_bool_type (cc1_plugin::connection *)
 {
   return convert_out (boolean_type_node);
 }
@@ -3643,7 +3643,7 @@ plugin_error (cc1_plugin::connection *,
 }
 
 int
-plugin_new_static_assert (cc1_plugin::connection *self,
+plugin_add_static_assert (cc1_plugin::connection *self,
 			  gcc_expr condition_in,
 			  const char *errormsg,
 			  const char *filename,

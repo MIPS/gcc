@@ -6858,9 +6858,7 @@ extern tree strip_using_decl                    (tree);
 
 enum cp_oracle_request
 {
-  CP_ORACLE_SYMBOL,
-  CP_ORACLE_TAG,
-  CP_ORACLE_LABEL
+  CP_ORACLE_IDENTIFIER
 };
 
 /* If this is non-NULL, then it is a "binding oracle" which can lazily
