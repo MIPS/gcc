@@ -1338,6 +1338,9 @@ traditional preprocessor).
 @item @var{file}.go
 Go source code.
 
+@item @var{file}.brig
+BRIG files (binary representation of HSAIL).
+
 @item @var{file}.ads
 Ada source code file that contains a library unit declaration (a
 declaration of a package, subprogram, or generic, or a generic
@@ -1386,6 +1389,7 @@ assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input f95  f95-cpp-input
 go
+brig
 @end smallexample
 
 @item -x none
@@ -3080,7 +3084,7 @@ classes that indirectly use multiple inheritance.
 
 @item -Wvirtual-inheritance
 @opindex Wvirtual-inheritance
-Warn when a class is defined with a virtual direct base classe.  Some
+Warn when a class is defined with a virtual direct base class.  Some
 coding rules disallow multiple inheritance, and this may be used to
 enforce that rule.  The warning is inactive inside a system header file,
 such as the STL, so one can still use the STL.  One may also define
@@ -7012,7 +7016,6 @@ compilation time.
 -fsplit-wide-types @gol
 -fssa-backprop @gol
 -fssa-phiopt @gol
--fstore-merging @gol
 -ftree-bit-ccp @gol
 -ftree-ccp @gol
 -ftree-ch @gol
@@ -7072,6 +7075,7 @@ also turns on the following optimization flags:
 -frerun-cse-after-loop  @gol
 -fsched-interblock  -fsched-spec @gol
 -fschedule-insns  -fschedule-insns2 @gol
+-fstore-merging @gol
 -fstrict-aliasing -fstrict-overflow @gol
 -ftree-builtin-call-dce @gol
 -ftree-switch-conversion -ftree-tail-merge @gol
@@ -8342,7 +8346,7 @@ early.  This flag is enabled by default at @option{-O} and higher.
 Perform merging of narrow stores to consecutive memory addresses.  This pass
 merges contiguous stores of immediate values narrower than a word into fewer
 wider stores to reduce the number of instructions.  This is enabled by default
-at @option{-O} and higher.
+at @option{-O2} and higher as well as @option{-Os}.
 
 @item -ftree-ter
 @opindex ftree-ter
@@ -12471,7 +12475,7 @@ The default if @option{-fvisibility} isn't specified is
 A good explanation of the benefits offered by ensuring ELF
 symbols have the correct visibility is given by ``How To Write
 Shared Libraries'' by Ulrich Drepper (which can be found at
-@w{@uref{http://www.akkadia.org/drepper/}})---however a superior
+@w{@uref{https://www.akkadia.org/drepper/}})---however a superior
 solution made possible by this option to marking things hidden when
 the default is public is to make the default hidden and mark things
 public.  This is the norm with DLLs on Windows and with @option{-fvisibility=hidden}

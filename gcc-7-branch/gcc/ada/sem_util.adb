@@ -71,35 +71,6 @@ with GNAT.HTable; use GNAT.HTable;
 
 package body Sem_Util is
 
-   ----------------------------------------
-   -- Global Variables for New_Copy_Tree --
-   ----------------------------------------
-
-   --  These global variables are used by New_Copy_Tree. See description of the
-   --  body of this subprogram for details. Global variables can be safely used
-   --  by New_Copy_Tree, since there is no case of a recursive call from the
-   --  processing inside New_Copy_Tree.
-
-   NCT_Hash_Threshold : constant := 20;
-   --  If there are more than this number of pairs of entries in the map, then
-   --  Hash_Tables_Used will be set, and the hash tables will be initialized
-   --  and used for the searches.
-
-   NCT_Hash_Tables_Used : Boolean := False;
-   --  Set to True if hash tables are in use
-
-   NCT_Table_Entries : Nat := 0;
-   --  Count entries in table to see if threshold is reached
-
-   NCT_Hash_Table_Setup : Boolean := False;
-   --  Set to True if hash table contains data. We set this True if we setup
-   --  the hash table with data, and leave it set permanently from then on,
-   --  this is a signal that second and subsequent users of the hash table
-   --  must clear the old entries before reuse.
-
-   subtype NCT_Header_Num is Int range 0 .. 511;
-   --  Defines range of headers in hash tables (512 headers)
-
    -----------------------
    -- Local Subprograms --
    -----------------------
@@ -1993,9 +1964,9 @@ package body Sem_Util is
          function Contains (List : Elist_Id; N : Node_Id) return Boolean;
          --  Returns True if List has a node whose Entity is Entity (N)
 
-         -------------------------
-         -- Check_Function_Call --
-         -------------------------
+         ----------------
+         -- Check_Node --
+         ----------------
 
          function Check_Node (N : Node_Id) return Traverse_Result is
             Is_Writable_Actual : Boolean := False;
@@ -5006,6 +4977,7 @@ package body Sem_Util is
    procedure Copy_SPARK_Mode_Aspect (From : Node_Id; To : Node_Id) is
       pragma Assert (not Has_Aspects (To));
       Asp : Node_Id;
+
    begin
       if Has_Aspects (From) then
          Asp := Find_Aspect (Defining_Entity (From), Aspect_SPARK_Mode);
@@ -5266,6 +5238,7 @@ package body Sem_Util is
             | N_Full_Type_Declaration
             | N_Implicit_Label_Declaration
             | N_Incomplete_Type_Declaration
+            | N_Iterator_Specification
             | N_Loop_Parameter_Specification
             | N_Number_Declaration
             | N_Object_Declaration
@@ -9117,12 +9090,54 @@ package body Sem_Util is
      (Item_Id  : Entity_Id;
       Property : Name_Id) return Boolean
    is
+      function Protected_Object_Has_Enabled_Property return Boolean;
+      --  Determine whether a protected object denoted by Item_Id has the
+      --  property enabled.
+
       function State_Has_Enabled_Property return Boolean;
       --  Determine whether a state denoted by Item_Id has the property enabled
 
       function Variable_Has_Enabled_Property return Boolean;
       --  Determine whether a variable denoted by Item_Id has the property
       --  enabled.
+
+      -------------------------------------------
+      -- Protected_Object_Has_Enabled_Property --
+      -------------------------------------------
+
+      function Protected_Object_Has_Enabled_Property return Boolean is
+         Constits     : constant Elist_Id := Part_Of_Constituents (Item_Id);
+         Constit_Elmt : Elmt_Id;
+         Constit_Id   : Entity_Id;
+
+      begin
+         --  Protected objects always have the properties Async_Readers and
+         --  Async_Writers (SPARK RM 7.1.2(16)).
+
+         if Property = Name_Async_Readers
+           or else Property = Name_Async_Writers
+         then
+            return True;
+
+         --  Protected objects that have Part_Of components also inherit their
+         --  properties Effective_Reads and Effective_Writes
+         --  (SPARK RM 7.1.2(16)).
+
+         elsif Present (Constits) then
+            Constit_Elmt := First_Elmt (Constits);
+            while Present (Constit_Elmt) loop
+               Constit_Id := Node (Constit_Elmt);
+
+               if Has_Enabled_Property (Constit_Id, Property) then
+                  return True;
+               end if;
+
+               Next_Elmt (Constit_Elmt);
+            end loop;
+         end if;
+
+         return False;
+      end Protected_Object_Has_Enabled_Property;
 
       --------------------------------
       -- State_Has_Enabled_Property --
@@ -9301,7 +9316,11 @@ package body Sem_Util is
          --  The implicit case lacks all property pragmas
 
          elsif No (AR) and then No (AW) and then No (ER) and then No (EW) then
-            return True;
+            if Is_Protected_Type (Etype (Item_Id)) then
+               return Protected_Object_Has_Enabled_Property;
+            else
+               return True;
+            end if;
 
          else
             return False;
@@ -9319,6 +9338,14 @@ package body Sem_Util is
 
       elsif Ekind (Item_Id) = E_Variable then
          return Variable_Has_Enabled_Property;
+
+      --  By default, protected objects only have the properties Async_Readers
+      --  and Async_Writers. If they have Part_Of components, they also inherit
+      --  their properties Effective_Reads and Effective_Writes
+      --  (SPARK RM 7.1.2(16)).
+
+      elsif Ekind (Item_Id) = E_Protected_Object then
+         return Protected_Object_Has_Enabled_Property;
 
       --  Otherwise a property is enabled when the related item is effectively
       --  volatile.
@@ -13350,6 +13377,60 @@ package body Sem_Util is
       end if;
    end Is_Local_Variable_Reference;
 
+   -----------------------
+   -- Is_Name_Reference --
+   -----------------------
+
+   function Is_Name_Reference (N : Node_Id) return Boolean is
+   begin
+      if Is_Entity_Name (N) then
+         return Present (Entity (N)) and then Is_Object (Entity (N));
+      end if;
+
+      case Nkind (N) is
+         when N_Indexed_Component
+            | N_Slice
+         =>
+            return
+              Is_Name_Reference (Prefix (N))
+                or else Is_Access_Type (Etype (Prefix (N)));
+
+         --  Attributes 'Input, 'Old and 'Result produce objects
+
+         when N_Attribute_Reference =>
+            return
+              Nam_In (Attribute_Name (N), Name_Input, Name_Old, Name_Result);
+
+         when N_Selected_Component =>
+            return
+              Is_Name_Reference (Selector_Name (N))
+                and then
+                  (Is_Name_Reference (Prefix (N))
+                    or else Is_Access_Type (Etype (Prefix (N))));
+
+         when N_Explicit_Dereference =>
+            return True;
+
+         --  A view conversion of a tagged name is a name reference
+
+         when N_Type_Conversion =>
+            return
+              Is_Tagged_Type (Etype (Subtype_Mark (N)))
+                and then Is_Tagged_Type (Etype (Expression (N)))
+                and then Is_Name_Reference (Expression (N));
+
+         --  An unchecked type conversion is considered to be a name if the
+         --  operand is a name (this construction arises only as a result of
+         --  expansion activities).
+
+         when N_Unchecked_Type_Conversion =>
+            return Is_Name_Reference (Expression (N));
+
+         when others =>
+            return False;
+      end case;
+   end Is_Name_Reference;
+
    ---------------------------------
    -- Is_Nontrivial_DIC_Procedure --
    ---------------------------------
@@ -16089,7 +16170,10 @@ package body Sem_Util is
    begin
       --  Ada 2005 or later, and formals present
 
-      if Ada_Version >= Ada_2005 and then Present (First_Formal (E)) then
+      if Ada_Version >= Ada_2005
+        and then Present (First_Formal (E))
+        and then No (Default_Value (First_Formal (E)))
+      then
          Formal := Next_Formal (First_Formal (E));
          while Present (Formal) loop
             if No (Default_Value (Formal)) then
@@ -16133,71 +16217,6 @@ package body Sem_Util is
       end if;
    end New_Copy_List_Tree;
 
-   --------------------------------------------------
-   -- New_Copy_Tree Auxiliary Data and Subprograms --
-   --------------------------------------------------
-
-   use Atree.Unchecked_Access;
-   use Atree_Private_Part;
-
-   --  Our approach here requires a two pass traversal of the tree. The
-   --  first pass visits all nodes that eventually will be copied looking
-   --  for defining Itypes. If any defining Itypes are found, then they are
-   --  copied, and an entry is added to the replacement map. In the second
-   --  phase, the tree is copied, using the replacement map to replace any
-   --  Itype references within the copied tree.
-
-   --  The following hash tables are used if the Map supplied has more
-   --  than hash threshold entries to speed up access to the map. If
-   --  there are fewer entries, then the map is searched sequentially
-   --  (because setting up a hash table for only a few entries takes
-   --  more time than it saves.
-
-   function New_Copy_Hash (E : Entity_Id) return NCT_Header_Num;
-   --  Hash function used for hash operations
-
-   -------------------
-   -- New_Copy_Hash --
-   -------------------
-
-   function New_Copy_Hash (E : Entity_Id) return NCT_Header_Num is
-   begin
-      return Nat (E) mod (NCT_Header_Num'Last + 1);
-   end New_Copy_Hash;
-
-   ---------------
-   -- NCT_Assoc --
-   ---------------
-
-   --  The hash table NCT_Assoc associates old entities in the table with their
-   --  corresponding new entities (i.e. the pairs of entries presented in the
-   --  original Map argument are Key-Element pairs).
-
-   package NCT_Assoc is new Simple_HTable (
-     Header_Num => NCT_Header_Num,
-     Element    => Entity_Id,
-     No_Element => Empty,
-     Key        => Entity_Id,
-     Hash       => New_Copy_Hash,
-     Equal      => Types."=");
-
-   ---------------------
-   -- NCT_Itype_Assoc --
-   ---------------------
-
-   --  The hash table NCT_Itype_Assoc contains entries only for those old
-   --  nodes which have a non-empty Associated_Node_For_Itype set. The key
-   --  is the associated node, and the element is the new node itself (NOT
-   --  the associated node for the new node).
-
-   package NCT_Itype_Assoc is new Simple_HTable (
-     Header_Num => NCT_Header_Num,
-     Element    => Entity_Id,
-     No_Element => Empty,
-     Key        => Entity_Id,
-     Hash       => New_Copy_Hash,
-     Equal      => Types."=");
-
    -------------------
    -- New_Copy_Tree --
    -------------------
@@ -16208,22 +16227,71 @@ package body Sem_Util is
       New_Sloc  : Source_Ptr := No_Location;
       New_Scope : Entity_Id  := Empty) return Node_Id
    is
-      Actual_Map : Elist_Id := Map;
-      --  This is the actual map for the copy. It is initialized with the
-      --  given elements, and then enlarged as required for Itypes that are
-      --  copied during the first phase of the copy operation. The visit
-      --  procedures add elements to this map as Itypes are encountered.
-      --  The reason we cannot use Map directly, is that it may well be
-      --  (and normally is) initialized to No_Elist, and if we have mapped
-      --  entities, we have to reset it to point to a real Elist.
+      ------------------------------------
+      -- Auxiliary Data and Subprograms --
+      ------------------------------------
+
+      use Atree.Unchecked_Access;
+      use Atree_Private_Part;
+
+      --  Our approach here requires a two pass traversal of the tree. The
+      --  first pass visits all nodes that eventually will be copied looking
+      --  for defining Itypes. If any defining Itypes are found, then they are
+      --  copied, and an entry is added to the replacement map. In the second
+      --  phase, the tree is copied, using the replacement map to replace any
+      --  Itype references within the copied tree.
+
+      --  The following hash tables are used if the Map supplied has more than
+      --  hash threshold entries to speed up access to the map. If there are
+      --  fewer entries, then the map is searched sequentially (because setting
+      --  up a hash table for only a few entries takes more time than it saves.
+
+      subtype NCT_Header_Num is Int range 0 .. 511;
+      --  Defines range of headers in hash tables (512 headers)
+
+      function New_Copy_Hash (E : Entity_Id) return NCT_Header_Num;
+      --  Hash function used for hash operations
+
+      ---------------
+      -- NCT_Assoc --
+      ---------------
+
+      --  The hash table NCT_Assoc associates old entities in the table with
+      --  their corresponding new entities (i.e. the pairs of entries presented
+      --  in the original Map argument are Key-Element pairs).
+
+      package NCT_Assoc is new Simple_HTable (
+        Header_Num => NCT_Header_Num,
+        Element    => Entity_Id,
+        No_Element => Empty,
+        Key        => Entity_Id,
+        Hash       => New_Copy_Hash,
+        Equal      => Types."=");
+
+      ---------------------
+      -- NCT_Itype_Assoc --
+      ---------------------
+
+      --  The hash table NCT_Itype_Assoc contains entries only for those old
+      --  nodes which have a non-empty Associated_Node_For_Itype set. The key
+      --  is the associated node, and the element is the new node itself (NOT
+      --  the associated node for the new node).
+
+      package NCT_Itype_Assoc is new Simple_HTable (
+        Header_Num => NCT_Header_Num,
+        Element    => Entity_Id,
+        No_Element => Empty,
+        Key        => Entity_Id,
+        Hash       => New_Copy_Hash,
+        Equal      => Types."=");
 
       function Assoc (N : Node_Or_Entity_Id) return Node_Id;
       --  Called during second phase to map entities into their corresponding
-      --  copies using Actual_Map. If the argument is not an entity, or is not
-      --  in Actual_Map, then it is returned unchanged.
+      --  copies using the hash table. If the argument is not an entity, or is
+      --  not in the hash table, then it is returned unchanged.
 
       procedure Build_NCT_Hash_Tables;
-      --  Builds hash tables (number of elements >= threshold value)
+      --  Builds hash tables.
 
       function Copy_Elist_With_Replacement
         (Old_Elist : Elist_Id) return Elist_Id;
@@ -16265,33 +16333,18 @@ package body Sem_Util is
       -----------
 
       function Assoc (N : Node_Or_Entity_Id) return Node_Id is
-         E   : Elmt_Id;
          Ent : Entity_Id;
 
       begin
-         if not Has_Extension (N) or else No (Actual_Map) then
+         if Nkind (N) not in N_Entity then
             return N;
 
-         elsif NCT_Hash_Tables_Used then
+         else
             Ent := NCT_Assoc.Get (Entity_Id (N));
 
             if Present (Ent) then
                return Ent;
-            else
-               return N;
             end if;
-
-         --  No hash table used, do serial search
-
-         else
-            E := First_Elmt (Actual_Map);
-            while Present (E) loop
-               if Node (E) = N then
-                  return Node (Next_Elmt (E));
-               else
-                  E := Next_Elmt (Next_Elmt (E));
-               end if;
-            end loop;
          end if;
 
          return N;
@@ -16306,12 +16359,11 @@ package body Sem_Util is
          Ent  : Entity_Id;
 
       begin
-         if NCT_Hash_Table_Setup then
-            NCT_Assoc.Reset;
-            NCT_Itype_Assoc.Reset;
+         if No (Map) then
+            return;
          end if;
 
-         Elmt := First_Elmt (Actual_Map);
+         Elmt := First_Elmt (Map);
          while Present (Elmt) loop
             Ent := Node (Elmt);
 
@@ -16339,9 +16391,6 @@ package body Sem_Util is
 
             Next_Elmt (Elmt);
          end loop;
-
-         NCT_Hash_Tables_Used := True;
-         NCT_Hash_Table_Setup := True;
       end Build_NCT_Hash_Tables;
 
       ---------------------------------
@@ -16590,7 +16639,7 @@ package body Sem_Util is
          if Old_Node <= Empty_Or_Error then
             return Old_Node;
 
-         elsif Has_Extension (Old_Node) then
+         elsif Nkind (Old_Node) in N_Entity then
             return Assoc (Old_Node);
 
          else
@@ -16600,39 +16649,14 @@ package body Sem_Util is
             --  previously copied Itype, then adjust the associated node
             --  of the copy of that Itype accordingly.
 
-            if Present (Actual_Map) then
-               declare
-                  E   : Elmt_Id;
-                  Ent : Entity_Id;
+            declare
+               Ent : constant Entity_Id := NCT_Itype_Assoc.Get (Old_Node);
 
-               begin
-                  --  Case of hash table used
-
-                  if NCT_Hash_Tables_Used then
-                     Ent := NCT_Itype_Assoc.Get (Old_Node);
-
-                     if Present (Ent) then
-                        Set_Associated_Node_For_Itype (Ent, New_Node);
-                     end if;
-
-                  --  Case of no hash table used
-
-                  else
-                     E := First_Elmt (Actual_Map);
-                     while Present (E) loop
-                        if Is_Itype (Node (E))
-                          and then
-                            Old_Node = Associated_Node_For_Itype (Node (E))
-                        then
-                           Set_Associated_Node_For_Itype
-                             (Node (Next_Elmt (E)), New_Node);
-                        end if;
-
-                        E := Next_Elmt (Next_Elmt (E));
-                     end loop;
-                  end if;
-               end;
-            end if;
+            begin
+               if Present (Ent) then
+                  Set_Associated_Node_For_Itype (Ent, New_Node);
+               end if;
+            end;
 
             --  Recursively copy descendants
 
@@ -16702,6 +16726,15 @@ package body Sem_Util is
          return New_Node;
       end Copy_Node_With_Replacement;
 
+      -------------------
+      -- New_Copy_Hash --
+      -------------------
+
+      function New_Copy_Hash (E : Entity_Id) return NCT_Header_Num is
+      begin
+         return Nat (E) mod (NCT_Header_Num'Last + 1);
+      end New_Copy_Hash;
+
       -----------------
       -- Visit_Elist --
       -----------------
@@ -16749,7 +16782,7 @@ package body Sem_Util is
             --  would catch it, but it is a common case (Etype pointing to
             --  itself for an Itype that is a base type).
 
-            elsif Has_Extension (Node_Id (F))
+            elsif Nkind (Node_Id (F)) in N_Entity
               and then Is_Itype (Entity_Id (F))
               and then Node_Id (F) /= N
             then
@@ -16787,7 +16820,6 @@ package body Sem_Util is
 
       procedure Visit_Itype (Old_Itype : Entity_Id) is
          New_Itype : Entity_Id;
-         E         : Elmt_Id;
          Ent       : Entity_Id;
 
       begin
@@ -16816,50 +16848,23 @@ package body Sem_Util is
          --  node of some previously copied Itype, then we set the right
          --  pointer in the other direction.
 
-         if Present (Actual_Map) then
+         Ent := NCT_Assoc.Get (Associated_Node_For_Itype (Old_Itype));
 
-            --  Case of hash tables used
+         if Present (Ent) then
+            Set_Associated_Node_For_Itype (New_Itype, Ent);
+         end if;
 
-            if NCT_Hash_Tables_Used then
-               Ent := NCT_Assoc.Get (Associated_Node_For_Itype (Old_Itype));
+         Ent := NCT_Itype_Assoc.Get (Old_Itype);
 
-               if Present (Ent) then
-                  Set_Associated_Node_For_Itype (New_Itype, Ent);
-               end if;
+         if Present (Ent) then
+            Set_Associated_Node_For_Itype (Ent, New_Itype);
 
-               Ent := NCT_Itype_Assoc.Get (Old_Itype);
+         --  If the hash table has no association for this Itype and its
+         --  associated node, enter one now.
 
-               if Present (Ent) then
-                  Set_Associated_Node_For_Itype (Ent, New_Itype);
-
-               --  If the hash table has no association for this Itype and its
-               --  associated node, enter one now.
-
-               else
-                  NCT_Itype_Assoc.Set
-                    (Associated_Node_For_Itype (Old_Itype), New_Itype);
-               end if;
-
-            --  Case of hash tables not used
-
-            else
-               E := First_Elmt (Actual_Map);
-               while Present (E) loop
-                  if Associated_Node_For_Itype (Old_Itype) = Node (E) then
-                     Set_Associated_Node_For_Itype
-                       (New_Itype, Node (Next_Elmt (E)));
-                  end if;
-
-                  if Is_Type (Node (E))
-                    and then Old_Itype = Associated_Node_For_Itype (Node (E))
-                  then
-                     Set_Associated_Node_For_Itype
-                       (Node (Next_Elmt (E)), New_Itype);
-                  end if;
-
-                  E := Next_Elmt (Next_Elmt (E));
-               end loop;
-            end if;
+         else
+            NCT_Itype_Assoc.Set
+              (Associated_Node_For_Itype (Old_Itype), New_Itype);
          end if;
 
          if Present (Freeze_Node (New_Itype)) then
@@ -16869,23 +16874,7 @@ package body Sem_Util is
 
          --  Add new association to map
 
-         if No (Actual_Map) then
-            Actual_Map := New_Elmt_List;
-         end if;
-
-         Append_Elmt (Old_Itype, Actual_Map);
-         Append_Elmt (New_Itype, Actual_Map);
-
-         if NCT_Hash_Tables_Used then
-            NCT_Assoc.Set (Old_Itype, New_Itype);
-
-         else
-            NCT_Table_Entries := NCT_Table_Entries + 1;
-
-            if NCT_Table_Entries > NCT_Hash_Threshold then
-               Build_NCT_Hash_Tables;
-            end if;
-         end if;
+         NCT_Assoc.Set (Old_Itype, New_Itype);
 
          --  If a record subtype is simply copied, the entity list will be
          --  shared. Thus cloned_Subtype must be set to indicate the sharing.
@@ -16944,36 +16933,14 @@ package body Sem_Util is
       begin
          --  Handle case of an Itype, which must be copied
 
-         if Has_Extension (N) and then Is_Itype (N) then
+         if Nkind (N) in N_Entity and then Is_Itype (N) then
 
             --  Nothing to do if already in the list. This can happen with an
             --  Itype entity that appears more than once in the tree. Note that
             --  we do not want to visit descendants in this case.
 
-            --  Test for already in list when hash table is used
-
-            if NCT_Hash_Tables_Used then
-               if Present (NCT_Assoc.Get (Entity_Id (N))) then
-                  return;
-               end if;
-
-            --  Test for already in list when hash table not used
-
-            else
-               declare
-                  E : Elmt_Id;
-               begin
-                  if Present (Actual_Map) then
-                     E := First_Elmt (Actual_Map);
-                     while Present (E) loop
-                        if Node (E) = N then
-                           return;
-                        else
-                           E := Next_Elmt (Next_Elmt (E));
-                        end if;
-                     end loop;
-                  end if;
-               end;
+            if Present (NCT_Assoc.Get (Entity_Id (N))) then
+               return;
             end if;
 
             Visit_Itype (N);
@@ -16991,34 +16958,7 @@ package body Sem_Util is
    --  Start of processing for New_Copy_Tree
 
    begin
-      Actual_Map := Map;
-
-      --  See if we should use hash table
-
-      if No (Actual_Map) then
-         NCT_Hash_Tables_Used := False;
-
-      else
-         declare
-            Elmt : Elmt_Id;
-
-         begin
-            NCT_Table_Entries := 0;
-
-            Elmt := First_Elmt (Actual_Map);
-            while Present (Elmt) loop
-               NCT_Table_Entries := NCT_Table_Entries + 1;
-               Next_Elmt (Elmt);
-               Next_Elmt (Elmt);
-            end loop;
-
-            if NCT_Table_Entries > NCT_Hash_Threshold then
-               Build_NCT_Hash_Tables;
-            else
-               NCT_Hash_Tables_Used := False;
-            end if;
-         end;
-      end if;
+      Build_NCT_Hash_Tables;
 
       --  Hash table set up if required, now start phase one by visiting top
       --  node (we will recursively visit the descendants).
@@ -17028,28 +16968,32 @@ package body Sem_Util is
       --  Now the second phase of the copy can start. First we process all the
       --  mapped entities, copying their descendants.
 
-      if Present (Actual_Map) then
-         declare
-            Elmt      : Elmt_Id;
-            New_Itype : Entity_Id;
-         begin
-            Elmt := First_Elmt (Actual_Map);
-            while Present (Elmt) loop
-               Next_Elmt (Elmt);
-               New_Itype := Node (Elmt);
+      declare
+         Old_E : Entity_Id := Empty;
+         New_E : Entity_Id;
 
-               if Is_Itype (New_Itype) then
-                  Copy_Itype_With_Replacement (New_Itype);
-               end if;
+      begin
+         NCT_Assoc.Get_First (Old_E, New_E);
+         while Present (New_E) loop
+            if Is_Itype (New_E) then
+               Copy_Itype_With_Replacement (New_E);
+            end if;
 
-               Next_Elmt (Elmt);
-            end loop;
-         end;
-      end if;
+            NCT_Assoc.Get_Next (Old_E, New_E);
+         end loop;
+      end;
 
       --  Now we can copy the actual tree
 
-      return Copy_Node_With_Replacement (Source);
+      declare
+         Result : constant Node_Id := Copy_Node_With_Replacement (Source);
+
+      begin
+         NCT_Assoc.Reset;
+         NCT_Itype_Assoc.Reset;
+
+         return Result;
+      end;
    end New_Copy_Tree;
 
    -------------------------
@@ -19375,7 +19319,7 @@ package body Sem_Util is
 
       function Clear_Analyzed (N : Node_Id) return Traverse_Result is
       begin
-         if not Has_Extension (N) then
+         if Nkind (N) not in N_Entity then
             Set_Analyzed (N, False);
          end if;
 

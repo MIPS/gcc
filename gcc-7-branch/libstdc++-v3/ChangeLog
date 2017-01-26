@@ -1,3 +1,71 @@
+2017-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* libsupc++/eh_atomics.h: Update copyright years.
+	* testsuite/20_util/unique_ptr/cons/default.cc: Update copyright years.
+
+2017-01-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61791
+	PR libstdc++/70607
+	* include/std/complex (real(T), imag(T)): Add _GLIBCXX_CONSTEXPR.
+	(proj(T), conj(T)): Change return types per DR 1522.
+	* include/tr1/complex (conj): Remove overloads and use std::conj.
+	* testsuite/26_numerics/complex/dr781_dr1137.cc: Rename to...
+	* testsuite/26_numerics/complex/dr781.cc: ... this, and update.
+	* testsuite/26_numerics/complex/value_operations/constexpr2.cc: Test
+	real(T) and imag(T). Allow testing for C++11 too.
+
+2017-01-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/79206
+	* include/experimental/string_view (operator==): Check sizes first.
+	* include/std/string_view (operator==): Likewise.
+
+2017-01-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/experimental/array/make_array.cc: Restore <functional>
+	inclusion.
+
+2017-01-23  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* testsuite/29_atomics/atomic/69301.cc: Require atomic builtins.
+
+2017-01-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/79195
+	* include/experimental/array (__make_array_elem): New class template
+	and partial specialization.
+	(__is_reference_wrapper): Move into __make_array_elem specialization.
+	(make_array): Use __make_array_elem to determine element type and move
+	static assertion into specialization. Qualify std::forward call.
+	(to_array): Add exception specifiation.
+	* testsuite/experimental/array/make_array.cc: Test argument types
+	without a common type.
+	* testsuite/experimental/array/neg.cc: Adjust expected error message.
+
+2017-01-22  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/debug.xml: code.google.com uses https now.
+
+2017-01-22  Gerald Pfeifer  <gerald@pfeifer.com>
+	
+	* doc/xml/manual/test.xml: Fix link into gccint online manual.
+
+2017-01-21  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Make poisoned hashes SFINAE away the call operator of the hash.
+	* include/bits/functional_hash.h
+	(__poison_hash::__enable_hash_call): New.
+	* include/std/optional (__optional_hash_call_base): New.
+	(hash<optional<_Tp>>): Derive from the new base,
+	move the hash function into that base.
+	* include/std/variant (__variant_hash_call_base_impl): New.
+	(__variant_hash_call_base): Likewise.
+	(hash<variant<_Types...>>): Derive from the new base,
+	move the hash function into that base.
+	* testsuite/20_util/optional/hash.cc: Add tests for is_callable.
+	* testsuite/20_util/variant/hash.cc: Likewise.
+
 2017-01-20  Joe Seymour  <joe.s@somniumtech.com>
 
 	* acinclude.m4 (GLIBCXX_CHECK_SIZE_T_MANGLING): Support uint20_t.

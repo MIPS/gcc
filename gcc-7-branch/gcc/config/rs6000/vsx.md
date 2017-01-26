@@ -2323,7 +2323,7 @@
 ;; Optimize storing a single scalar element that is the right location to
 ;; memory
 (define_insn "*vsx_extract_<mode>_store"
-  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,o")
+  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,wY")
 	(vec_select:<VS_scalar>
 	 (match_operand:VSX_D 1 "register_operand" "d,wv,wb")
 	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
@@ -3420,6 +3420,16 @@
 (define_insn "xsiexpdp"
   [(set (match_operand:DF 0 "vsx_register_operand" "=wa")
 	(unspec:DF [(match_operand:DI 1 "register_operand" "r")
+		    (match_operand:DI 2 "register_operand" "r")]
+	 UNSPEC_VSX_SIEXPDP))]
+  "TARGET_P9_VECTOR && TARGET_64BIT"
+  "xsiexpdp %x0,%1,%2"
+  [(set_attr "type" "fpsimple")])
+
+;; VSX Scalar Insert Exponent Double-Precision Floating Point Argument
+(define_insn "xsiexpdpf"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=wa")
+	(unspec:DF [(match_operand:DF 1 "register_operand" "r")
 		    (match_operand:DI 2 "register_operand" "r")]
 	 UNSPEC_VSX_SIEXPDP))]
   "TARGET_P9_VECTOR && TARGET_64BIT"

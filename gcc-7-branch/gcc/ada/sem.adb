@@ -199,6 +199,9 @@ package body Sem is
          when N_Delay_Until_Statement =>
             Analyze_Delay_Until (N);
 
+         when N_Delta_Aggregate =>
+            Analyze_Aggregate (N);
+
          when N_Entry_Body =>
             Analyze_Entry_Body (N);
 
@@ -562,6 +565,9 @@ package body Sem is
 
          when N_Subunit =>
             Analyze_Subunit (N);
+
+         when N_Target_Name =>
+            Analyze_Target_Name (N);
 
          when N_Task_Body =>
             Analyze_Task_Body (N);

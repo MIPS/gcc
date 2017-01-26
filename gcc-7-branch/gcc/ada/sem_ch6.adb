@@ -381,17 +381,26 @@ package body Sem_Ch6 is
 
          --  An entity can only be frozen if it is complete, so if the type
          --  is still unfrozen it must still be incomplete in some way, e.g.
-         --  a privte type without a full view, or a type derived from such
-         --  in an enclosing scope. Except in a generic context, such an
-         --  incomplete type is an error.
+         --  a private type without a full view, or a type derived from such
+         --  in an enclosing scope. Except in a generic context, such use of
+         --  an incomplete type is an error. On the other hand, if this is a
+         --  limited view of a type, the type is declared in another unit and
+         --  frozen there. We must be in a context seeing the nonlimited view
+         --  of the type, which will be installed when the body is compiled.
 
          if not Is_Frozen (Ret_Type)
            and then not Is_Generic_Type (Ret_Type)
            and then not Inside_A_Generic
          then
-            Error_Msg_NE
-              ("premature use of private type&",
-               Result_Definition (Specification (N)), Ret_Type);
+            if From_Limited_With (Ret_Type)
+              and then Present (Non_Limited_View (Ret_Type))
+            then
+               null;
+            else
+               Error_Msg_NE
+                 ("premature use of private type&",
+                  Result_Definition (Specification (N)), Ret_Type);
+            end if;
          end if;
 
          if Is_Access_Type (Etype (Prev)) then
@@ -4870,6 +4879,12 @@ package body Sem_Ch6 is
       --  in the message, and also provides the location for posting the
       --  message in the absence of a specified Err_Loc location.
 
+      function Conventions_Match
+        (Id1 : Entity_Id;
+         Id2 : Entity_Id) return Boolean;
+      --  Determine whether the conventions of arbitrary entities Id1 and Id2
+      --  match.
+
       -----------------------
       -- Conformance_Error --
       -----------------------
@@ -4928,6 +4943,35 @@ package body Sem_Ch6 is
             Error_Msg_NE (Msg, Enode, N);
          end if;
       end Conformance_Error;
+
+      -----------------------
+      -- Conventions_Match --
+      -----------------------
+
+      function Conventions_Match
+        (Id1 : Entity_Id;
+         Id2 : Entity_Id) return Boolean
+      is
+      begin
+         --  Ignore the conventions of anonymous access-to-subprogram types
+         --  and subprogram types because these are internally generated and
+         --  the only way these may receive a convention is if they inherit
+         --  the convention of a related subprogram.
+
+         if Ekind_In (Id1, E_Anonymous_Access_Subprogram_Type,
+                           E_Subprogram_Type)
+              or else
+            Ekind_In (Id2, E_Anonymous_Access_Subprogram_Type,
+                           E_Subprogram_Type)
+         then
+            return True;
+
+         --  Otherwise compare the conventions directly
+
+         else
+            return Convention (Id1) = Convention (Id2);
+         end if;
+      end Conventions_Match;
 
       --  Local Variables
 
@@ -5015,7 +5059,7 @@ package body Sem_Ch6 is
       --  entity is inherited.
 
       if Ctype >= Subtype_Conformant then
-         if Convention (Old_Id) /= Convention (New_Id) then
+         if not Conventions_Match (Old_Id, New_Id) then
             if not Is_Frozen (New_Id) then
                null;
 
