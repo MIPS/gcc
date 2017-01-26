@@ -1,5 +1,5 @@
 /* Library interface to C++ front end.
-   Copyright (C) 2014-2016 Free Software Foundation, Inc.
+   Copyright (C) 2014-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.  As it interacts with GDB through libcc1,
    they all become a single program as regards the GNU GPL's requirements.
@@ -1355,7 +1355,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 		    id = xstrndup (id, len);
 		    freeid = true;
 		  }
-		identifier = ansi_litopname (id);
+		identifier = cp_literal_operator_id (id);
 		if (freeid)
 		  free (id);
 	      }
@@ -1368,9 +1368,9 @@ plugin_new_decl (cc1_plugin::connection *self,
 	  if (opcode != ERROR_MARK)
 	    {
 	      if (assop)
-		identifier = ansi_assopname (opcode);
+		identifier = cp_assignment_operator_id (opcode);
 	      else
-		identifier = ansi_opname (opcode);
+		identifier = cp_operator_id (opcode);
 	    }
 	}
       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
@@ -2645,7 +2645,7 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
 		id = xstrndup (id, len);
 		freeid = true;
 	      }
-	    identifier = ansi_litopname (id);
+	    identifier = cp_literal_operator_id (id);
 	    if (freeid)
 	      free (id);
 	  }
@@ -2660,9 +2660,9 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
       if (opcode != ERROR_MARK)
 	{
 	  if (assop)
-	    identifier = ansi_assopname (opcode);
+	    identifier = cp_assignment_operator_id (opcode);
 	  else
-	    identifier = ansi_opname (opcode);
+	    identifier = cp_operator_id (opcode);
 	}
 
       gcc_assert (identifier);

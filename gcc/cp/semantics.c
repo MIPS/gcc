@@ -5095,7 +5095,7 @@ omp_reduction_id (enum tree_code reduction_code, tree reduction_id, tree type)
     case BIT_IOR_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-      reduction_id = ansi_opname (reduction_code);
+      reduction_id = cp_operator_id (reduction_code);
       break;
     case MIN_EXPR:
       p = "min";
@@ -8984,7 +8984,7 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
   if (assign_p)
     {
       int ix;
-      ix = lookup_fnfields_1 (type, ansi_assopname (NOP_EXPR));
+      ix = lookup_fnfields_1 (type, cp_assignment_operator_id (NOP_EXPR));
       if (ix < 0)
 	return false;
       fns = (*CLASSTYPE_METHOD_VEC (type))[ix];

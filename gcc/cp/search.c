@@ -1667,7 +1667,7 @@ lookup_fnfields_1 (tree type, tree name)
 	  if (CLASSTYPE_LAZY_MOVE_CTOR (type))
 	    lazily_declare_fn (sfk_move_constructor, type);
 	}
-      else if (name == ansi_assopname (NOP_EXPR))
+      else if (name == cp_assignment_operator_id (NOP_EXPR))
 	{
 	  if (CLASSTYPE_LAZY_COPY_ASSIGN (type))
 	    lazily_declare_fn (sfk_copy_assignment, type);
