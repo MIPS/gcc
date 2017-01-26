@@ -567,7 +567,7 @@ plugin_pragma_push_user_expression (cpp_reader *)
   /* Make the function containing the user expression a global
      friend, so as to bypass access controls in it.  */
   if (at_function_scope_p ())
-    add_to_global_friend_list (current_function_decl);
+    set_global_friend (current_function_decl);
 
   gcc_assert (at_function_scope_p ());
   function *save_cfun = cfun;
