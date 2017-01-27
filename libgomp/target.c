@@ -295,6 +295,39 @@ gomp_map_pointer (struct target_mem_desc *tgt, uintptr_t host_ptr,
 		      (void *) &cur_node.tgt_offset, sizeof (void *));
 }
 
+static uintptr_t
+gomp_map_pset (struct target_mem_desc *tgt, uintptr_t host_ptr,
+	       uintptr_t target_offset, uintptr_t bias)
+{
+  struct gomp_device_descr *devicep = tgt->device_descr;
+  struct splay_tree_s *mem_map = &devicep->mem_map;
+  struct splay_tree_key_s cur_node;
+
+  cur_node.host_start = host_ptr;
+  if (cur_node.host_start == (uintptr_t) NULL)
+    return (uintptr_t) 0;
+
+  /* Add bias to the pointer value.  */
+  cur_node.host_start += bias;
+  cur_node.host_end = cur_node.host_start;
+  splay_tree_key n = gomp_map_lookup (mem_map, &cur_node);
+  if (n == NULL)
+    {
+      gomp_mutex_unlock (&devicep->lock);
+      gomp_fatal ("Pointer target of array section wasn't mapped");
+    }
+
+  cur_node.host_start -= n->host_start;
+  cur_node.tgt_offset
+    = n->tgt->tgt_start + n->tgt_offset + cur_node.host_start;
+  /* At this point tgt_offset is target address of the
+     array section.  Now subtract bias to get what we want
+     to initialize the pointer with.  */
+  cur_node.tgt_offset -= bias;
+
+  return cur_node.tgt_offset;
+}
+
 static void
 gomp_map_fields_existing (struct target_mem_desc *tgt, splay_tree_key n,
 			  size_t first, size_t i, void **hostaddrs,
@@ -984,36 +1017,46 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		    break;
 		  case GOMP_MAP_TO_PSET:
 		    /* FIXME: see above FIXME comment.  */
-		    gomp_copy_host2dev (devicep,
-					(void *) (tgt->tgt_start
-						  + k->tgt_offset),
-					(void *) k->host_start,
-					k->host_end - k->host_start);
-
-		    for (j = i + 1; j < mapnum; j++)
-		      if (!GOMP_MAP_POINTER_P (get_kind (short_mapkind, kinds,
-							 j)
-					       & typemask))
-			break;
-		      else if ((uintptr_t) hostaddrs[j] < k->host_start
-			       || ((uintptr_t) hostaddrs[j] + sizeof (void *)
-				   > k->host_end))
-			break;
-		      else
-			{
-			  tgt->list[j].key = k;
-			  tgt->list[j].copy_from = false;
-			  tgt->list[j].always_copy_from = false;
-			  if (k->refcount != REFCOUNT_INFINITY)
-			    k->refcount++;
-			  gomp_map_pointer (tgt,
-					    (uintptr_t) *(void **) hostaddrs[j],
-					    k->tgt_offset
-					    + ((uintptr_t) hostaddrs[j]
-					       - k->host_start),
-					    sizes[j]);
-			  i++;
-			}
+		    {
+		      bool found_pointer = false;
+		      for (j = i + 1; j < mapnum; j++)
+			if (!GOMP_MAP_POINTER_P (get_kind (short_mapkind, kinds,
+							   j)
+						 & typemask))
+			  break;
+			else if ((uintptr_t) hostaddrs[j] < k->host_start
+				 || ((uintptr_t) hostaddrs[j] + sizeof (void *)
+				     > k->host_end))
+			  break;
+			else
+			  {
+			    uintptr_t tptr = 0;
+			    uintptr_t toffset =
+			      gomp_map_pset (tgt,
+					     (uintptr_t) *(void **)
+					     hostaddrs[j],
+					     k->tgt_offset
+					     + ((uintptr_t) hostaddrs[j]
+						- k->host_start),
+					     sizes[j]);
+			    tptr = *(uintptr_t *) hostaddrs[i];
+			    *(uintptr_t *) hostaddrs[i]= toffset;
+			    gomp_copy_host2dev (devicep,
+						(void *) (tgt->tgt_start
+							  + k->tgt_offset),
+						(void *) k->host_start,
+						k->host_end - k->host_start);
+			    *(uintptr_t *) hostaddrs[i] = tptr;
+			    i++;
+			    found_pointer = true;
+			  }
+		      if (!found_pointer)
+			gomp_copy_host2dev (devicep,
+					    (void *) (tgt->tgt_start
+						      + k->tgt_offset),
+					    (void *) k->host_start,
+					    k->host_end - k->host_start);
+		    }
 		    break;
 		  case GOMP_MAP_FORCE_PRESENT:
 		    {
