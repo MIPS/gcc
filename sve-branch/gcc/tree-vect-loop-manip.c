@@ -2440,12 +2440,21 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   chain_cond_expr (cond_expr, part_cond_expr);
 }
 
-/* Set up *SEQ_MIN_OUT and *SEQ_MAX_OUT so that for every address A
-   accessed by D, *SEQ_MIN_OUT <= A < *SEQ_MAX_OUT.  */
+/* If ALIGN is nonzero, set up *SEQ_MIN_OUT and *SEQ_MAX_OUT so that for
+   every address ADDR accessed by D:
+
+     *SEQ_MIN_OUT <= ADDR (== ADDR & -ALIGN) <= *SEQ_MAX_OUT
+
+   In this case, every element accessed by D is aligned to at least
+   ALIGN bytes.
+
+   If ALIGN is zero then instead set *SEG_MAX_OUT so that:
+
+     *SEQ_MIN_OUT <= ADDR < *SEQ_MAX_OUT.  */
 
 static void
 get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
-		     tree *seg_max_out)
+		     tree *seg_max_out, HOST_WIDE_INT align)
 {
   /* Each access has the following pattern:
 
@@ -2467,18 +2476,30 @@ get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
      A is the range of bytes accessed when the step is negative,
      B is the range when the step is positive.
 
-     If the access size is "final_size" bytes, the lowest addressed byte is:
+     If the access size is "access_size" bytes, the lowest addressed byte is:
 
-         base + (step < 0 ? seg_len : 0)
+	 base + (step < 0 ? seg_len : 0)   [LB]
 
      and the highest addressed byte is always below:
 
-         base + (step < 0 ? 0 : seg_len) + final_size
+	 base + (step < 0 ? 0 : seg_len) + access_size   [UB]
 
-     We don't try to simplify beyond this (e.g. by using MIN and MAX
-     based on whether seg_len rather than the stride is negative)
-     because it is possible for the absolute size of the segment
-     to overflow the range of a ssize_t.
+     Thus:
+
+	 LB <= ADDR < UB
+
+     If ALIGN is nonzero, all three values are aligned to at least ALIGN
+     bytes, so:
+
+	 LB <= ADDR <= UB - ALIGN
+
+     where "- ALIGN" folds naturally with the "+ access_size" and often
+     cancels it out.
+
+     We don't try to simplify LB and UB beyond this (e.g. by using
+     MIN and MAX based on whether seg_len rather than the stride is
+     negative) because it is possible for the absolute size of the
+     segment to overflow the range of a ssize_t.
 
      Keeping the pointer_plus outside of the cond_expr should allow
      the cond_exprs to be shared with other alias checks.  */
@@ -2488,23 +2509,15 @@ get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
 			       ssize_int (0));
   tree addr_base = fold_build_pointer_plus (DR_BASE_ADDRESS (d.dr),
 					    DR_OFFSET (d.dr));
+  addr_base = fold_build_pointer_plus (addr_base, DR_INIT (d.dr));
   tree seg_len = fold_convert (sizetype, d.seg_len);
 
   tree min_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
 				seg_len, size_zero_node);
   tree max_reach = fold_build3 (COND_EXPR, sizetype, neg_step,
 				size_zero_node, seg_len);
-
-  tree final_type;
-  if (STMT_VINFO_VEC_STMT (vinfo_for_stmt (DR_STMT (d.dr)))
-      && vect_supportable_dr_alignment (d.dr, false)
-	 == dr_explicit_realign_optimized)
-    /* We might access a full vector's worth.  */
-    final_type = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (d.dr)));
-  else
-    final_type = TREE_TYPE (DR_REF (d.dr));
   max_reach = fold_build2 (PLUS_EXPR, sizetype, max_reach,
-			   TYPE_SIZE_UNIT (final_type));
+			   size_int (d.access_size - align));
 
   *seg_min_out = fold_build_pointer_plus (addr_base, min_reach);
   *seg_max_out = fold_build_pointer_plus (addr_base, max_reach);
@@ -2595,8 +2608,11 @@ create_intersect_range_checks_index (loop_vec_info loop_vinfo, tree *cond_expr,
   unsigned HOST_WIDE_INT abs_step
     = absu_hwi (tree_to_shwi (DR_STEP (dr_a.dr)));
 
-  unsigned HOST_WIDE_INT seg_len1 = tree_to_uhwi (dr_a.seg_len);
-  unsigned HOST_WIDE_INT seg_len2 = tree_to_uhwi (dr_b.seg_len);
+  unsigned HOST_WIDE_INT seg_len1 = (tree_to_uhwi (dr_a.seg_len)
+				     + dr_a.access_size);
+  unsigned HOST_WIDE_INT seg_len2 = (tree_to_uhwi (dr_b.seg_len)
+				     + dr_b.access_size);
+
   /* Infer the number of iterations with which the memory segment is accessed
      by DR.  In other words, alias is checked if memory segment accessed by
      DR_A in some iterations intersect with memory segment accessed by DR_B
@@ -2693,38 +2709,48 @@ create_intersect_range_checks (loop_vec_info loop_vinfo, tree *cond_expr,
   if (create_intersect_range_checks_index (loop_vinfo, cond_expr, dr_a, dr_b))
     return;
 
-  tree addr_base_a = DR_BASE_ADDRESS (dr_a.dr);
-  tree addr_base_b = DR_BASE_ADDRESS (dr_b.dr);
-  tree offset_a = DR_OFFSET (dr_a.dr), offset_b = DR_OFFSET (dr_b.dr);
+  unsigned HOST_WIDE_INT min_align;
+  tree_code cmp_code;
+  if (TREE_CODE (DR_STEP (dr_a.dr)) == INTEGER_CST
+      && TREE_CODE (DR_STEP (dr_b.dr)) == INTEGER_CST)
+    {
+      /* In this case adding access_size to seg_len is likely to give
+	 a simple X * step, where X is either the number of scalar
+	 iterations or the vectorization factor.  We're better off
+	 keeping that, rather than subtracting an alignment from it.
 
-  offset_a = fold_build2 (PLUS_EXPR, TREE_TYPE (offset_a),
-			  offset_a, DR_INIT (dr_a.dr));
-  offset_b = fold_build2 (PLUS_EXPR, TREE_TYPE (offset_b),
-			  offset_b, DR_INIT (dr_b.dr));
-  addr_base_a = fold_build_pointer_plus (addr_base_a, offset_a);
-  addr_base_b = fold_build_pointer_plus (addr_base_b, offset_b);
+	 In this case the maximum values are exclusive and so there is
+	 no alias if the maximum of one segment equals the minimum
+	 of another.  */
+      min_align = 0;
+      cmp_code = LE_EXPR;
+    }
+  else
+    {
+      /* Calculate the minimum alignment shared by all four pointers,
+	 then arrange for this alignment to be subtracted from the
+	 exclusive maximum values to get inclusive maximum values.
+	 This "- min_align" is cumulative with a "+ access_size"
+	 in the calculation of the maximum values.  In the best
+	 (and common) case, the two cancel each other out, leaving
+	 us with an inclusive bound based only on seg_len.  In the
+	 worst case we're simply adding a smaller number than before.
+
+	 Because the maximum values are inclusive, there is an alias
+	 if the maximum value of one segment is equal to the minimum
+	 value of the other.  */
+      min_align = MIN (dr_a.align, dr_b.align);
+      cmp_code = LT_EXPR;
+    }
 
   tree seg_a_min, seg_a_max, seg_b_min, seg_b_max;
-  get_segment_min_max (dr_a, &seg_a_min, &seg_a_max);
-  get_segment_min_max (dr_b, &seg_b_min, &seg_b_max);
+  get_segment_min_max (dr_a, &seg_a_min, &seg_a_max, min_align);
+  get_segment_min_max (dr_b, &seg_b_min, &seg_b_max, min_align);
 
-  /* Calculate the minimum alignment shared by all four pointers.  */
-  tree type_a = TREE_TYPE (DR_REF (dr_a.dr));
-  tree type_b = TREE_TYPE (DR_REF (dr_b.dr));
-  unsigned HOST_WIDE_INT min_align = MIN (TYPE_ALIGN_UNIT (type_a),
-					  TYPE_ALIGN_UNIT (type_b));
-
-  /* We can convert "max <= min" tests into "max - min_align < min"
-     tests.  This is cumulative with the "+ final_size" addition
-     applied to the max value.  In the best (and common) case,
-     the two cancel each other out.  In the worst case we're
-     simply adding a smaller number than before.  */
-  seg_a_max = fold_build_pointer_plus_hwi (seg_a_max, -min_align);
-  seg_b_max = fold_build_pointer_plus_hwi (seg_b_max, -min_align);
   *cond_expr
     = fold_build2 (TRUTH_OR_EXPR, boolean_type_node,
-	fold_build2 (LT_EXPR, boolean_type_node, seg_a_max, seg_b_min),
-	fold_build2 (LT_EXPR, boolean_type_node, seg_b_max, seg_a_min));
+	fold_build2 (cmp_code, boolean_type_node, seg_a_max, seg_b_min),
+	fold_build2 (cmp_code, boolean_type_node, seg_b_max, seg_a_min));
 }
 
 /* Function vect_create_cond_for_alias_checks.

@@ -3172,11 +3172,13 @@ static bool
 operator == (const dr_with_seg_len& d1,
 	     const dr_with_seg_len& d2)
 {
-  return operand_equal_p (DR_BASE_ADDRESS (d1.dr),
-			  DR_BASE_ADDRESS (d2.dr), 0)
-	   && compare_tree (DR_OFFSET (d1.dr), DR_OFFSET (d2.dr)) == 0
-	   && compare_tree (DR_INIT (d1.dr), DR_INIT (d2.dr)) == 0
-	   && compare_tree (d1.seg_len, d2.seg_len) == 0;
+  return (operand_equal_p (DR_BASE_ADDRESS (d1.dr),
+			   DR_BASE_ADDRESS (d2.dr), 0)
+	  && compare_tree (DR_OFFSET (d1.dr), DR_OFFSET (d2.dr)) == 0
+	  && compare_tree (DR_INIT (d1.dr), DR_INIT (d2.dr)) == 0
+	  && compare_tree (d1.seg_len, d2.seg_len) == 0
+	  && d1.access_size == d2.access_size
+	  && d1.align == d2.align);
 }
 
 /* Function comp_dr_with_seg_len_pair.
@@ -3239,6 +3241,37 @@ vect_vfa_segment_size (struct data_reference *dr, tree length_factor)
 			      size_one_node);
   return size_binop (MULT_EXPR, fold_convert (sizetype, DR_STEP (dr)),
 		     length_factor);
+}
+
+/* Return a value that, when added to abs (vect_vfa_segment_size (dr)),
+   gives the worst-case number of bytes covered by the segment.  */
+
+static unsigned HOST_WIDE_INT
+vect_vfa_access_size (data_reference *dr)
+{
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (DR_STMT (dr));
+  tree ref_type = TREE_TYPE (DR_REF (dr));
+  unsigned HOST_WIDE_INT ref_size = tree_to_uhwi (TYPE_SIZE_UNIT (ref_type));
+  unsigned HOST_WIDE_INT access_size = ref_size;
+  if (GROUP_FIRST_ELEMENT (stmt_vinfo))
+    {
+      gcc_assert (GROUP_FIRST_ELEMENT (stmt_vinfo) == DR_STMT (dr));
+      access_size *= GROUP_SIZE (stmt_vinfo) - GROUP_GAP (stmt_vinfo);
+    }
+  if (STMT_VINFO_VEC_STMT (stmt_vinfo)
+      && (vect_supportable_dr_alignment (dr, false)
+	  == dr_explicit_realign_optimized))
+    /* We might access a full vector's worth.  */
+    access_size += tree_to_uhwi (STMT_VINFO_VECTYPE (stmt_vinfo)) - ref_size;
+  return access_size;
+}
+
+/* Get the minimum alignment for all the scalar accesses that DR describes.  */
+
+static unsigned int
+vect_vfa_align (const data_reference *dr)
+{
+  return TYPE_ALIGN_UNIT (TREE_TYPE (DR_REF (dr)));
 }
 
 /* Return the minimum absolute length of D's segment, given that the
@@ -3389,6 +3422,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
       struct data_reference *dr_a, *dr_b;
       gimple *dr_group_first_a, *dr_group_first_b;
       tree segment_length_a, segment_length_b;
+      unsigned HOST_WIDE_INT access_size_a, access_size_b;
+      unsigned int align_a, align_b;
       gimple *stmt_a, *stmt_b;
 
       dr_a = DDR_A (ddr);
@@ -3425,6 +3460,10 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	length_factor = size_int (vect_factor);
       segment_length_a = vect_vfa_segment_size (dr_a, length_factor);
       segment_length_b = vect_vfa_segment_size (dr_b, length_factor);
+      access_size_a = vect_vfa_access_size (dr_a);
+      access_size_b = vect_vfa_access_size (dr_b);
+      align_a = vect_vfa_align (dr_a);
+      align_b = vect_vfa_align (dr_b);
 
       comp_res = compare_tree (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b));
       if (comp_res == 0)
@@ -3448,8 +3487,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	}
 
       dr_with_seg_len_pair_t dr_with_seg_len_pair
-	  (dr_with_seg_len (dr_a, segment_length_a),
-	   dr_with_seg_len (dr_b, segment_length_b));
+	(dr_with_seg_len (dr_a, segment_length_a, access_size_a, align_a),
+	 dr_with_seg_len (dr_b, segment_length_b, access_size_b, align_b));
 
       /* Canonicalize pairs by sorting the two DR members.  */
       if (comp_res > 0)
@@ -3546,11 +3585,15 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  /* If the left segment does not extend beyond the start of the
 	     right segment the new segment length is that of the right
 	     plus the segment distance.  */
-	  if (tree_fits_uhwi_p (dr_a1->seg_len)
-	      && compare_tree_int (dr_a1->seg_len, diff) <= 0)
+	  if (diff >= dr_a1->access_size
+	      && tree_fits_uhwi_p (dr_a1->seg_len)
+	      && compare_tree_int (dr_a1->seg_len,
+				   diff - dr_a1->access_size) <= 0)
 	    {
 	      dr_a1->seg_len = size_binop (PLUS_EXPR, dr_a2->seg_len,
 					   size_int (diff));
+	      dr_a1->access_size = dr_a2->access_size;
+	      dr_a1->align = MIN (dr_a1->align, dr_a2->align);
 	      do_remove = true;
 	    }
 	  /* Generally the new segment length is the maximum of the
@@ -3560,9 +3603,16 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  else if (tree_fits_uhwi_p (dr_a1->seg_len)
 		   && tree_fits_uhwi_p (dr_a2->seg_len))
 	    {
-	      unsigned HOST_WIDE_INT seg_len_a1 = tree_to_uhwi (dr_a1->seg_len);
-	      unsigned HOST_WIDE_INT seg_len_a2 = tree_to_uhwi (dr_a2->seg_len);
-	      dr_a1->seg_len = size_int (MAX (seg_len_a1, diff + seg_len_a2));
+	      unsigned HOST_WIDE_INT width1
+		= tree_to_uhwi (dr_a1->seg_len) + dr_a1->access_size;
+	      unsigned HOST_WIDE_INT width2
+		= diff + tree_to_uhwi (dr_a2->seg_len) + dr_a2->access_size;
+	      unsigned HOST_WIDE_INT width = MAX (width1, width2);
+	      /* The divison between access_size and seg_len is a little
+		 arbitrary in this case.  */
+	      dr_a1->align = MIN (dr_a1->align, dr_a2->align);
+	      dr_a1->access_size = dr_a1->align;
+	      dr_a1->seg_len = size_int (width - dr_a1->access_size);
 	      do_remove = true;
 	    }
 	  /* Now we check whether it is impossible for the whole of B
@@ -3585,6 +3635,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 		{
 		  dr_a1->seg_len = size_binop (PLUS_EXPR,
 					       dr_a2->seg_len, size_int (diff));
+		  dr_a1->access_size = dr_a2->access_size;
+		  dr_a1->align = MIN (dr_a1->align, dr_a2->align);
 		  do_remove = true;
 		}
 	    }

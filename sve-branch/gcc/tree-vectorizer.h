@@ -160,13 +160,20 @@ typedef struct _slp_instance {
 
 struct dr_with_seg_len
 {
-  dr_with_seg_len (data_reference_p d, tree len)
-    : dr (d), seg_len (len) {}
+  dr_with_seg_len (data_reference_p d, tree len, unsigned HOST_WIDE_INT size,
+		   unsigned int a)
+    : dr (d), seg_len (len), access_size (size), align (a) {}
 
   data_reference_p dr;
   /* The offset of the last access that needs to be checked minus
      the offset of the first.  */
   tree seg_len;
+  /* A value that, when added to abs (SEG_LEN), gives the total number of
+     bytes in the segment.  */
+  unsigned HOST_WIDE_INT access_size;
+  /* The minimum common alignment of DR's start address, SEG_LEN and
+     ACCESS_SIZE.  */
+  unsigned int align;
 };
 
 /* This struct contains two dr_with_seg_len objects with aliasing data
