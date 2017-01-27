@@ -5161,7 +5161,7 @@ vect_create_data_ref_ptr (gimple *stmt, tree aggr_type,
 	  if (LOOP_VINFO_CAP_MASK (loop_vinfo))
 	    {
 	      gcc_assert (group_size != 0);
-	      tree elt_type = TREE_TYPE (aggr_type);
+	      tree elt_type = TREE_TYPE (DR_REF (dr));
 	      iv_step = size_binop (MULT_EXPR, TYPE_SIZE_UNIT (elt_type),
 				    size_int (group_size));
 	      iv_step = vect_mult_by_vf (loop_vinfo, iv_step);

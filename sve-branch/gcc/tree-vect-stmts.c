@@ -3704,7 +3704,7 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 	      gcc_assert (useless_type_conversion_p (vectype,
 						     TREE_TYPE (vec_rhs)));
 	      dataref_ptr = vect_create_data_ref_ptr (first_stmt, aggr_type,
-						      group_size * ncopies,
+						      group_size,
 						      NULL, NULL_TREE, &dummy,
 						      gsi, &ptr_incr, false,
 						      &inv_p);
@@ -3794,8 +3794,8 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 	      gcc_assert (mask == gimple_call_arg (first_stmt, 2));
 	      vec_mask = vect_get_vec_def_for_operand (mask, stmt);
 	      dataref_ptr = vect_create_data_ref_ptr (first_stmt, aggr_type,
-						      group_size * ncopies,
-						      NULL, NULL_TREE, &dummy,
+						      group_size, NULL,
+						      NULL_TREE, &dummy,
 						      gsi, &ptr_incr, false,
 						      &inv_p);
 	      gcc_assert (!inv_p);
@@ -7339,8 +7339,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	    }
 	  else
 	    dataref_ptr
-	      = vect_create_data_ref_ptr (first_stmt, aggr_type,
-					  vec_num * ncopies,
+	      = vect_create_data_ref_ptr (first_stmt, aggr_type, vec_num,
 					  simd_lane_access_p ? loop : NULL,
 					  offset, &dummy, gsi, &ptr_incr,
 					  simd_lane_access_p, &inv_p);
@@ -8338,7 +8337,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  else
 	    dataref_ptr
 	      = vect_create_data_ref_ptr (first_stmt, aggr_type,
-					  vec_num * ncopies, at_loop,
+					  vec_num, at_loop,
 					  offset, &dummy, gsi, &ptr_incr,
 					  simd_lane_access_p, &inv_p,
 					  byte_offset);
