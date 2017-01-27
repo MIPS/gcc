@@ -3866,7 +3866,7 @@ output_constant_pool_2 (fixed_size_mode mode, rtx x, unsigned int align)
 	scalar_int_mode int_mode = *int_mode_for_size (int_bits, 0);
 
 	/* Build the constant up one integer at a time.  */
-	unsigned int elts_per_int = elt_bits / int_bits;
+	unsigned int elts_per_int = int_bits / elt_bits;
 	for (unsigned int i = 0; i < nelts; i += elts_per_int)
 	  {
 	    unsigned HOST_WIDE_INT value = 0;
