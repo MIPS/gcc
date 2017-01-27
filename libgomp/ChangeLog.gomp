@@ -1,5 +1,10 @@
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/deviceptr-1.f90: Add -foffload-force.
+	* testsuite/libgomp.oacc-fortran/non-scalar-data.f90: Likewise.
+
+2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* target.c (gomp_map_pset): New function.
 	(gomp_map_vars): Update GOMP_MAP_POINTER with GOMP_MAP_TO_PSET, when
 	possible.

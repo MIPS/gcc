@@ -2,6 +2,7 @@
 ! offloaded regions are properly mapped using present_or_copy.
 
 ! { dg-do run }
+! { dg-additional-options "-foffload-force" }
 
 program main
   implicit none

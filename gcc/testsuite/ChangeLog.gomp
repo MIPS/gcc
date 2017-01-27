@@ -1,5 +1,9 @@
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* gfortran.dg/goacc/kernels-loop-n.f95: Xfail test.
+
+2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gfortran.dg/goacc/implicitly-private.f90: New test.
 
 2017-01-10  Thomas Schwinge  <thomas@codesourcery.com>

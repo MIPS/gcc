@@ -3,6 +3,7 @@
 ! the deviceptr variable is implied.
 
 ! { dg-do run }
+! { dg-additional-options "-foffload-force" }
 
 subroutine subr1 (a, b)
   implicit none

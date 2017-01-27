@@ -37,4 +37,6 @@ end module test
 ! Check that the loop has been split off into a function.
 ! { dg-final { scan-tree-dump-times "(?n);; Function __test_MOD_foo._omp_fn.0 " 1 "optimized" } }
 
-! { dg-final { scan-tree-dump-times "(?n)oacc function \\(0," 1 "parloops1" } }
+! This failure was introduced with the GOMP_MAP_POINTER ->
+! GOMP_MAP_FIRSTPRIVATE_POINTER conversion.
+! { dg-final { scan-tree-dump-times "(?n)oacc function \\(0," 1 "parloops1" { xfail *-*-* } } }

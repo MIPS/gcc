@@ -6589,6 +6589,37 @@ find_decl_expr (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+static void
+demote_firstprivate_pointer (tree decl, gimplify_omp_ctx *ctx)
+{
+  if (!lang_GNU_Fortran ())
+    return;
+
+  while (ctx)
+    {
+      if (ctx->region_type == ORT_ACC_PARALLEL
+	  || ctx->region_type == ORT_ACC_KERNELS)
+	break;
+      ctx = ctx->outer_context;
+    }
+
+  if (ctx == NULL)
+    return;
+
+  tree clauses = ctx->clauses;
+
+  for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+	  && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
+	  && OMP_CLAUSE_DECL (c) == decl)
+	{
+	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_POINTER);
+	  return;
+	}
+    }
+}
+
 /* Scan the OMP clauses in *LIST_P, installing mappings into a new
    and previous omp contexts.  */
 
@@ -6605,11 +6636,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
   ctx = new_omp_context (region_type);
   ctx->clauses = *list_p;
   outer_ctx = ctx->outer_context;
-  if (code == OMP_TARGET && !lang_GNU_Fortran ())
+  if (code == OMP_TARGET && !(lang_GNU_Fortran () && !(region_type & ORT_ACC)))
     {
-      ctx->target_map_pointers_as_0len_arrays = true;
-      /* FIXME: For Fortran we want to set this too, when
-	 the Fortran FE is updated to OpenMP 4.5.  */
+      if (!lang_GNU_Fortran () || region_type & ORT_ACC)
+	ctx->target_map_pointers_as_0len_arrays = true;
       ctx->target_map_scalars_firstprivate = true;
     }
   if (!lang_GNU_Fortran ())
@@ -6717,6 +6747,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  if (!(region_type & ORT_ACC))
 	    check_non_private = "reduction";
 	  decl = OMP_CLAUSE_DECL (c);
+	  demote_firstprivate_pointer (decl, ctx->outer_context);
 	  if (TREE_CODE (decl) == MEM_REF)
 	    {
 	      tree type = TREE_TYPE (decl);
@@ -8254,11 +8285,16 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 		      && kind != GOMP_MAP_FORCE_PRESENT
 		      && kind != GOMP_MAP_POINTER)
 		    {
-		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
-				  "incompatible data clause with reduction "
-				  "on %qE; promoting to present_or_copy",
-				  DECL_NAME (t));
-		      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
+		      if (lang_hooks.decls.omp_privatize_by_reference (decl))
+			OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_POINTER);
+		      else
+			{
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "incompatible data clause with reduction "
+				      "on %qE; promoting to present_or_copy",
+				      DECL_NAME (t));
+			  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
+			}
 		    }
 		}
 	    }
