@@ -1,5 +1,11 @@
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* target.c (gomp_map_pset): New function.
+	(gomp_map_vars): Update GOMP_MAP_POINTER with GOMP_MAP_TO_PSET, when
+	possible.
+
+2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* plugin/plugin-nvptx.c (nvptx_exec): Make aware of
 	GOMP_MAP_FIRSTPRIVATE_INT host addresses.
 	* testsuite/libgomp.oacc-c++/firstprivate-int.C: New test.
