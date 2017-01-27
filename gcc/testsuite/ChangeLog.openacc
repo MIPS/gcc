@@ -1,3 +1,8 @@
+2017-07-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.dg/goacc/kernels-alias-3.f95: XFAIL one tree scanning
+	test.
+
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/implicitly-private.f90: New test.

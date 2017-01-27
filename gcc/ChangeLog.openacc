@@ -1,5 +1,15 @@
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* gimplify.c (demote_firstprivate_pointer): New function.
+	(gimplify_scan_omp_clauses): Enable target_map_pointers_as_0len_arrays
+	and target_map_scalars_firstprivate in OpenACC and gfortran.
+	(gimplify_adjust_omp_clauses): Demote FIRSTPRIVATE_POINTERS for OpenACC
+	retuction variables.
+	* omp-low.c (lower_omp_target): Adjust receiver reference of decls for
+	fortran dummy arguments.
+
+2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* omp-low.c (maybe_lookup_field_in_outer_ctx): New function.
 	(convert_to_firstprivate_int): New function.
 	(convert_from_firstprivate_int): New function.

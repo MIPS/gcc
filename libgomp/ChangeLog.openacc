@@ -1,3 +1,12 @@
+2017-07-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/deviceptr-1.f90: XFAIL some more.
+	* testsuite/libgomp.oacc-fortran/non-scalar-data.f90: Likewise.
+
+2017-02-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/assumed-array.f90: New test.
+
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* target.c (gomp_map_pset): New function.

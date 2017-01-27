@@ -1,3 +1,15 @@
+2017-02-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_omp_finish_clause): Don't emit
+	GOMP_MAP_FIRSTPRIVATE_POINTER for pointers to reference types.
+	(gfc_trans_omp_clauses_1): Likewise.
+
+2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_omp_finish_clause): Use GOMP_MAP_POINTER
+	for POINTER_TYPE decls.
+	(gfc_trans_omp_clauses_1): Likewise.
+
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (gfc_resolve_oacc_blocks): Populate list of private
