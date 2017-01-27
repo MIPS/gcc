@@ -1081,7 +1081,7 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 	return;
       tree orig_decl = decl;
       c4 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_SET_MAP_KIND (c4, GOMP_MAP_POINTER);
+      OMP_CLAUSE_SET_MAP_KIND (c4, GOMP_MAP_FIRSTPRIVATE_POINTER);
       OMP_CLAUSE_DECL (c4) = decl;
       OMP_CLAUSE_SIZE (c4) = size_int (0);
       decl = build_fold_indirect_ref (decl);
@@ -1097,7 +1097,10 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 	  OMP_CLAUSE_SIZE (c3) = size_int (0);
 	  decl = build_fold_indirect_ref (decl);
 	  OMP_CLAUSE_DECL (c) = decl;
+	  OMP_CLAUSE_SET_MAP_KIND (c4, GOMP_MAP_POINTER);
 	}
+      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (decl)))
+	OMP_CLAUSE_SET_MAP_KIND (c4, GOMP_MAP_POINTER);
     }
   if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (decl)))
     {
@@ -2196,7 +2199,7 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      tree orig_decl = decl;
 		      node4 = build_omp_clause (input_location,
 						OMP_CLAUSE_MAP);
-		      OMP_CLAUSE_SET_MAP_KIND (node4, GOMP_MAP_POINTER);
+		      OMP_CLAUSE_SET_MAP_KIND (node4, GOMP_MAP_FIRSTPRIVATE_POINTER);
 		      OMP_CLAUSE_DECL (node4) = decl;
 		      OMP_CLAUSE_SIZE (node4) = size_int (0);
 		      decl = build_fold_indirect_ref (decl);
@@ -2210,7 +2213,10 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 			  OMP_CLAUSE_DECL (node3) = decl;
 			  OMP_CLAUSE_SIZE (node3) = size_int (0);
 			  decl = build_fold_indirect_ref (decl);
+			  OMP_CLAUSE_SET_MAP_KIND (node4, GOMP_MAP_POINTER);
 			}
+		      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (decl)))
+			OMP_CLAUSE_SET_MAP_KIND (node4, GOMP_MAP_POINTER);
 		    }
 		  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (decl)))
 		    {
