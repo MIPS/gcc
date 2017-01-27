@@ -721,7 +721,7 @@
 ;; the byte index.
 (define_insn "aarch64_ext<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
-	(unspec:SVE_ALL [(match_operand:SVE_ALL 1 "register_operand" "w")
+	(unspec:SVE_ALL [(match_operand:SVE_ALL 1 "register_operand" "0")
 			 (match_operand:SVE_ALL 2 "register_operand" "w")
 			 (match_operand:SI 3 "const_int_operand" "i")]
 			UNSPEC_EXT))]
