@@ -4442,7 +4442,11 @@ get_initial_def_for_induction (gimple *iv_phi)
   tree skip_elems = LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo);
   if (skip_elems)
     {
-      skip_elems = gimple_convert (&stmts, TREE_TYPE (vectype), skip_elems);
+      if (FLOAT_TYPE_P (vectype))
+	skip_elems = gimple_build (&stmts, FLOAT_EXPR, TREE_TYPE (vectype),
+				   skip_elems);
+      else
+	skip_elems = gimple_convert (&stmts, TREE_TYPE (vectype), skip_elems);
       tree skip_step = gimple_build (&stmts, MULT_EXPR, TREE_TYPE (vectype),
 				     skip_elems, step_expr);
       init_expr = gimple_build (&stmts, MINUS_EXPR, TREE_TYPE (vectype),
