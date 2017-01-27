@@ -1,3 +1,7 @@
+2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/implicitly-private.f90: New test.
+
 2016-12-06  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/acc-data-chain.c: New test.
