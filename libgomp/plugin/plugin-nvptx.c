@@ -1018,7 +1018,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   /* Copy the array of arguments to the mapped page.  */
   hp = alloca(sizeof(void *) * mapnum);
   for (i = 0; i < mapnum; i++)
-    ((void **) hp)[i] = devaddrs[i];
+    ((void **) hp)[i] = devaddrs[i] != 0 ? devaddrs[i] : hostaddrs[i];
 
   /* Copy the (device) pointers to arguments to the device (dp and hp might in
      fact have the same value on a unified-memory system).  */
