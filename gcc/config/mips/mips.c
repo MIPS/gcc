@@ -66,6 +66,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-rtl.h"
 #include "ira.h"
 #include "ira-int.h"
+#include "attribs.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -26627,7 +26628,7 @@ static const int umipsr7_alloc_order[] =
 {
   64, 65,176,177,178,179,180,181,
   /* Call-clobbered GPRs.  */
-  1,  4,  5,  6,  7,
+  1,  7,  6,  5,  4,
   31,
   28,
   /* Call-saved GPRs.  */
