@@ -372,8 +372,6 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
-  debug_nothing_tree_tree,		 /* aliased_decl */
-  debug_nothing_tree_tree,		 /* trampoline_decl */
   debug_nothing_rtx_code_label,	         /* label */
   dbxout_handle_pch,		         /* handle_pch */
   debug_nothing_rtx_insn,	         /* var_location */
@@ -414,8 +412,6 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
-  debug_nothing_tree_tree,		 /* aliased_decl */
-  debug_nothing_tree_tree,		 /* trampoline_decl */
   debug_nothing_rtx_code_label,	         /* label */
   dbxout_handle_pch,		         /* handle_pch */
   debug_nothing_rtx_insn,	         /* var_location */
