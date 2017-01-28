@@ -6118,6 +6118,7 @@ extern bool maybe_clone_body			(tree);
 /* In parser.c */
 extern tree cp_convert_range_for (tree, tree, tree, tree, unsigned int, bool);
 extern bool parsing_nsdmi (void);
+extern bool parsing_default_capturing_generic_lambda_in_template (void);
 extern void inject_this_parameter (tree, cp_cv_quals);
 
 /* in pt.c */
@@ -6487,7 +6488,7 @@ extern tree finish_underlying_type	        (tree);
 extern tree calculate_bases                     (tree);
 extern tree finish_bases                        (tree, bool);
 extern tree calculate_direct_bases              (tree);
-extern tree finish_offsetof			(tree, location_t);
+extern tree finish_offsetof			(tree, tree, location_t);
 extern void finish_decl_cleanup			(tree, tree);
 extern void finish_eh_cleanup			(tree);
 extern void emit_associated_thunks		(tree);

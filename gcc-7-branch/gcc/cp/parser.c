@@ -9498,11 +9498,12 @@ cp_parser_builtin_offsetof (cp_parser *parser)
   token = cp_lexer_peek_token (parser->lexer);
 
   /* Build the (type *)null that begins the traditional offsetof macro.  */
-  expr = build_static_cast (build_pointer_type (type), null_pointer_node,
-                            tf_warning_or_error);
+  tree object_ptr
+    = build_static_cast (build_pointer_type (type), null_pointer_node,
+			 tf_warning_or_error);
 
   /* Parse the offsetof-member-designator.  We begin as if we saw "expr->".  */
-  expr = cp_parser_postfix_dot_deref_expression (parser, CPP_DEREF, expr,
+  expr = cp_parser_postfix_dot_deref_expression (parser, CPP_DEREF, object_ptr,
 						 true, &dummy, token->location);
   while (true)
     {
@@ -9554,7 +9555,7 @@ cp_parser_builtin_offsetof (cp_parser *parser)
   loc = make_location (loc, start_loc, finish_loc);
   /* The result will be an INTEGER_CST, so we need to explicitly
      preserve the location.  */
-  expr = cp_expr (finish_offsetof (expr, loc), loc);
+  expr = cp_expr (finish_offsetof (object_ptr, expr, loc), loc);
 
  failure:
   parser->integral_constant_expression_p = save_ice_p;
@@ -20451,6 +20452,33 @@ parsing_nsdmi (void)
       && DECL_CONTEXT (current_class_ptr) == NULL_TREE)
     return true;
   return false;
+}
+
+/* Return true iff our current scope is a default capturing generic lambda
+   defined within a template.  FIXME: This is part of a workaround (see
+   semantics.c) to handle building lambda closure types correctly in templates
+   which we ultimately want to defer to instantiation time. */
+
+bool
+parsing_default_capturing_generic_lambda_in_template (void)
+{
+  if (!processing_template_decl || !current_class_type)
+    return false;
+
+  tree lam = CLASSTYPE_LAMBDA_EXPR (current_class_type);
+  if (!lam || LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lam) == CPLD_NONE)
+    return false;
+
+  tree callop = lambda_function (lam);
+  if (!callop)
+    return false;
+
+  return (DECL_TEMPLATE_INFO (callop)
+	  && (DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (callop)) == callop)
+	  && ((current_nonlambda_class_type ()
+	       && CLASSTYPE_TEMPLATE_INFO (current_nonlambda_class_type ()))
+	      || ((current_nonlambda_function ()
+		   && DECL_TEMPLATE_INFO (current_nonlambda_function ())))));
 }
 
 /* Parse a late-specified return type, if any.  This is not a separate

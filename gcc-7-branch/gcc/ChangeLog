@@ -1,3 +1,170 @@
+2017-01-27  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/79194
+	* cprop.c (one_cprop_pass): Move deletion of code after unconditional
+	traps before call to bypass_conditional_jumps.
+
+2017-01-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR tree-optimization/71374
+	* lra-constraints.c (check_conflict_input_operands): New.
+	(match_reload): Use it.
+
+2017-01-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/79131
+	* lra-assigns.c (find_hard_regno_for_1): Take endianess for into
+	account to calculate conflict_set.
+
+2017-01-27  Bin Cheng  <bin.cheng@arm.com>
+
+	PR rtl-optimization/78559
+	* combine.c (try_combine): Discard REG_EQUAL and REG_EQUIV for
+	other_insn in combine.
+
+2017-01-27  Pekka Jääskeläinen  <pekka.jaaskelainen@parmance.com>
+
+	* builtin-types.def: Use unsigned_char_type_node for BT_UINT8.  Use
+	uint16_type_node for BT_UINT16.
+
+2017-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* doc/sourcebuild.texi (Testsuites): Add "GIMPLE Tests" and
+	"RTL Tests" to menu.
+	(GIMPLE Tests): New node.
+	(RTL Tests): New node.
+
+2017-01-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79245
+	* tree-loop-distribution.c (distribute_loop): Apply cost
+	modeling also to detected patterns.
+
+2017-01-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71433
+	* tree-vrp.c (register_new_assert_for): Revert earlier changes.
+	(compare_assert_loc): New function.
+	(process_assert_insertions): Sort and optimize assert locations
+	to remove duplicates and push down identical assertions on
+	edges to their destination block.
+
+2017-01-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79244
+	* tree-vrp.c (remove_range_assertions): Forcefully propagate
+	out SSA names even if abnormal.
+
+2017-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* realmpfr.h: Poison MPFR_RND{N,Z,U,D}.
+	* gimple-ssa-sprintf.c (format_floating_max): Use GMP_RNDN
+	instead of MPFR_RNDN.
+
+2017-01-27  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/79239
+        * arm.c (arm_option_override): Don't call build_target_option_node
+        until after doing all option overrides.
+        (arm_valid_target_attribute_tree): Likewise.
+
+2017-01-27  Martin Liska  <mliska@suse.cz>
+
+	* doc/invoke.texi (-fprofile-arcs): Document profiling support
+	for {cd}tors and C++ {cd}tors.
+
+2017-01-27  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("*setmem_long_and")
+	("*setmem_long_and_31z"): Use zero_extend instead of and.
+
+2017-01-26  Martin Sebor  <msebor@redhat.com>
+
+	* gimple-ssa-sprintf.c (format_floating): Simplify the computation
+	of precision.
+
+2017-01-26  Martin Sebor  <msebor@redhat.com>
+
+	* gimple-ssa-sprintf.c (format_floating): Test HAVE_XFmode and
+	HAVE_DFmode before using XFmode or DFmode.
+	(parse_directive): Avoid using the z length modifier to avoid
+	the ISO C++98 does not support the ‘z’ gnu_printf length modifier.
+
+	PR middle-end/78703
+	* gimple-ssa-sprintf.c (adjust_for_width_or_precision): Change
+	to accept adjustment as an array.
+	(get_int_range): New function.
+	(struct directive): Make width and prec arrays.
+	(directive::set_width, directive::set_precision): Call get_int_range.
+	(format_integer, format_floating): Handle width and precision ranges.
+	(format_string, parse_directive): Same.
+
+2017-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/79129
+	* dwarf2out.c (generate_skeleton_bottom_up): For children with
+	comdat_type_p set, just clone them, but keep the children in the
+	original DIE.
+
+	PR debug/78835
+	* dwarf2out.c (prune_unused_types): Mark all functions with DIEs
+	which have direct callers with -fvar-tracking-assignments enabled
+	in the current TU.
+	(resolve_addr): Avoid adding skeleton DIEs for DW_AT_call_origin
+	inside of type units.
+
+2017-01-26  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/78703
+	* gimple-ssa-sprintf.c (struct result_range): Add likely and
+	unlikely counters.
+	(struct format_result): Replace number_chars, number_chars_min,
+	and number_chars_max with a single member of struct result_range.
+	Remove bounded.
+	(format_result::operator+=): Adjust.
+	(struct fmtresult): Remove bounded.  Handle likely and unlikely
+	counters.
+	(fmtresult::adjust_for_width_or_precision): New function.
+	(fmtresult:type_max_digits): New function.
+	(bytes_remaining): Handle likely and unlikely counters.
+	(min_bytes_remaining): Remove.
+	(format_percent): Simplify.
+	(format_integer, format_floating): Set likely and unlikely counters.
+	(get_string_length, format_character, format_string): Same.
+	(format_plain, should_warn_p): New function.
+	(maybe_warn): Call should_warn_p.  Update diagnostic messages
+	and handle those for all directives, including plain strings.
+	(format_directive): Handle likely and unlikely counters.
+	Remove unnecessary quoting from diagnostics.  Add an informational
+	note.
+	(add_bytes): Remove.
+	(pass_sprintf_length::compute_format_length): Simplify.
+	(try_substitute_return_value): Handle likely and unlikely counters.
+
+2017-01-26  Carl Love  <cel@us.ibm.com>
+
+	* config/rs6000/rs6000-c (altivec_overloaded_builtins): Remove
+	bogus entries for the P8V_BUILTIN_VEC_VGBBD built-ins
+
+2017-01-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/79131
+	* lra-assigns.c (setup_live_pseudos_and_spill_after_risky): Take
+	endianess for subregs into account.
+	* lra-constraints.c (lra_constraints): Do risky transformations
+	always on the first iteration.
+	* lra-lives.c (check_pseudos_live_through_calls): Add arg
+	last_call_used_reg_set.
+	(process_bb_lives): Define and use last_call_used_reg_set.
+	* lra.c (lra): Always continue after lra_constraints on the first
+	iteration.
+
+2017-01-26  Kirill Yukhin  <kirill.yukhin@gmail.com>
+
+	* gcc.target/i386/avx512bw-kshiftlq-2.c: Use unsigned long long
+	constant.
+	* gcc.target/i386/avx512bw-kshiftrq-2.c: Ditto.
+
 2017-01-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/avx512fintrin.h (_ktest_mask16_u8,
