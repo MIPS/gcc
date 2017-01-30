@@ -56,7 +56,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cilk.h"
 #include "gomp-constants.h"
 #include "gimple-pretty-print.h"
-#include "hsa.h"
+#include "hsa-common.h"
+#include "debug.h"
 
 
 /* OMP region information.  Every parallel and workshare
@@ -1305,6 +1306,11 @@ expand_omp_taskreg (struct omp_region *region)
       else
 	block = gimple_block (entry_stmt);
 
+      /* Make sure to generate early debug for the function before
+         outlining anything.  */
+      if (! gimple_in_ssa_p (cfun))
+	(*debug_hooks->early_global_decl) (cfun->decl);
+
       new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb, block);
       if (exit_bb)
 	single_succ_edge (new_bb)->flags = EDGE_FALLTHRU;
@@ -1350,7 +1356,7 @@ expand_omp_taskreg (struct omp_region *region)
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
       if (need_asm)
-	assign_assembler_name_if_neeeded (child_fn);
+	assign_assembler_name_if_needed (child_fn);
 
       if (optimize)
 	optimize_omp_library_calls (entry_stmt);
@@ -4590,13 +4596,16 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
     }
   tree step = fd->loop.step;
 
-  bool is_simt = (safelen_int > 1
-		  && omp_find_clause (gimple_omp_for_clauses (fd->for_stmt),
-				      OMP_CLAUSE__SIMT_));
-  tree simt_lane = NULL_TREE, simt_maxlane = NULL_TREE;
+  bool is_simt = omp_find_clause (gimple_omp_for_clauses (fd->for_stmt),
+				  OMP_CLAUSE__SIMT_);
   if (is_simt)
     {
       cfun->curr_properties &= ~PROP_gimple_lomp_dev;
+      is_simt = safelen_int > 1;
+    }
+  tree simt_lane = NULL_TREE, simt_maxlane = NULL_TREE;
+  if (is_simt)
+    {
       simt_lane = create_tmp_var (unsigned_type_node);
       gimple *g = gimple_build_call_internal (IFN_GOMP_SIMT_LANE, 0);
       gimple_call_set_lhs (g, simt_lane);
@@ -7013,6 +7022,11 @@ expand_omp_target (struct omp_region *region)
 	  gsi_remove (&gsi, true);
 	}
 
+      /* Make sure to generate early debug for the function before
+         outlining anything.  */
+      if (! gimple_in_ssa_p (cfun))
+	(*debug_hooks->early_global_decl) (cfun->decl);
+
       /* Move the offloading region into CHILD_CFUN.  */
 
       block = gimple_block (entry_stmt);
@@ -7058,7 +7072,7 @@ expand_omp_target (struct omp_region *region)
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
       if (need_asm)
-	assign_assembler_name_if_neeeded (child_fn);
+	assign_assembler_name_if_needed (child_fn);
       cgraph_edge::rebuild_edges ();
 
       /* Some EH regions might become dead, see PR34608.  If
@@ -7585,6 +7599,11 @@ grid_expand_target_grid_body (struct omp_region *target)
   cfun->function_end_locus = gimple_location (tgt_stmt);
   init_tree_ssa (cfun);
   pop_cfun ();
+
+  /* Make sure to generate early debug for the function before
+     outlining anything.  */
+  if (! gimple_in_ssa_p (cfun))
+    (*debug_hooks->early_global_decl) (cfun->decl);
 
   tree old_parm_decl = DECL_ARGUMENTS (kern_fndecl);
   gcc_assert (!DECL_CHAIN (old_parm_decl));

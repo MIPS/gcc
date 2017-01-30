@@ -700,7 +700,10 @@ package Sinfo is
    --  analysis, on expression nodes that may trigger the corresponding
    --  check. The front end then inserts or not the check during expansion. In
    --  particular, these flags should also be correctly set in ASIS mode and
-   --  GNATprove mode.
+   --  GNATprove mode. As a special case, the front end does not insert a
+   --  Do_Division_Check flag on float exponentiation expressions, for the case
+   --  where the value is 0.0 and the exponent is negative, although this case
+   --  does lead to a division check failure.
 
    --  Note: the expander always takes care of the Do_Range check case,
    --  so this flag will never be set in the expanded tree passed to the
@@ -789,6 +792,11 @@ package Sinfo is
    --    Aggregates are only kept unexpanded for object declarations, otherwise
    --    they are systematically expanded into loops (for arrays) and
    --    individual assignments (for records).
+
+   --    Unconstrained array types are handled by means of fat pointers.
+
+   --    Postconditions are inlined by the frontend since their body may have
+   --    references to itypes defined in the enclosing subprogram.
 
    ------------------------------------
    -- Description of Semantic Fields --
@@ -1530,6 +1538,10 @@ package Sinfo is
    --    A flag present in an N_Task_Definition node to flag the presence of a
    --    Storage_Size pragma.
 
+   --  Has_Target_Names (Flag8-Sem)
+   --    Present in assignment statements. Indicates that the RHS contains
+   --    target names (see AI12-0125-3) and must be expanded accordingly.
+
    --  Has_Wide_Character (Flag11-Sem)
    --    Present in string literals, set if any wide character (i.e. character
    --    code outside the Character range but within Wide_Character range)
@@ -1555,10 +1567,10 @@ package Sinfo is
 
    --  Implicit_With (Flag16-Sem)
    --    This flag is set in the N_With_Clause node that is implicitly
-   --    generated for runtime units that are loaded by the expander, and also
-   --    for package System, if it is loaded implicitly by a use of the
-   --    'Address or 'Tag attribute. ???There are other implicit with clauses
-   --    as well.
+   --    generated for runtime units that are loaded by the expander or in
+   --    GNATprove mode, and also for package System, if it is loaded
+   --    implicitly by a use of the 'Address or 'Tag attribute.
+   --    ??? There are other implicit with clauses as well.
 
    --  Implicit_With_From_Instantiation (Flag12-Sem)
    --     Set in N_With_Clause nodes from generic instantiations.
@@ -1682,7 +1694,7 @@ package Sinfo is
    --    actuals to support a build-in-place style of call have been added to
    --    the call.
 
-   --  Is_Finalization_Wrapper (Flag9-Sem);
+   --  Is_Finalization_Wrapper (Flag9-Sem)
    --    This flag is present in N_Block_Statement nodes. It is set when the
    --    block acts as a wrapper of a handled construct which has controlled
    --    objects. The wrapper prevents interference between exception handlers
@@ -2469,8 +2481,8 @@ package Sinfo is
       --  Original_Entity (Node2-Sem) If not Empty, holds Named_Number that
       --  has been constant-folded into its literal value.
       --  Intval (Uint3) contains integer value of literal
-      --  plus fields for expression
       --  Print_In_Hex (Flag13-Sem)
+      --  plus fields for expression
 
       --  N_Real_Literal
       --  Sloc points to literal
@@ -3359,7 +3371,7 @@ package Sinfo is
       --  N_Discriminant_Association
       --  Sloc points to first token of discriminant association
       --  Selector_Names (List1) (always non-empty, since if no selector
-      --   names are present, this node is not used, see comment above)
+      --    names are present, this node is not used, see comment above)
       --  Expression (Node3)
 
       ---------------------------------
@@ -3897,7 +3909,6 @@ package Sinfo is
       --  Must_Be_Byte_Aligned (Flag14-Sem)
       --  Non_Aliased_Prefix (Flag18-Sem)
       --  Redundant_Use (Flag13-Sem)
-
       --  plus fields for expression
 
       --  Note: in Modify_Tree_For_C mode, Max and Min attributes are expanded
@@ -4121,6 +4132,15 @@ package Sinfo is
 
       --  Note that Box_Present is always False, but it is intentionally added
       --  for completeness.
+
+      ----------------------------
+      --  4.3.4 Delta Aggregate --
+      ----------------------------
+
+      --  N_Delta_Aggregate
+      --  Sloc points to left parenthesis
+      --  Expression (Node3)
+      --  Component_Associations (List2)
 
       --------------------------------------------------
       -- 4.4  Expression/Relation/Term/Factor/Primary --
@@ -4423,8 +4443,8 @@ package Sinfo is
       --  plus fields for expression
 
       --  N_Op_Expon
-      --  Is_Power_Of_2_For_Shift (Flag13-Sem)
       --  Sloc points to **
+      --  Is_Power_Of_2_For_Shift (Flag13-Sem)
       --  plus fields for binary operator
       --  plus fields for expression
 
@@ -4646,8 +4666,8 @@ package Sinfo is
       --  Sloc points to apostrophe
       --  Subtype_Mark (Node4)
       --  Expression (Node3) expression or aggregate
-      --  plus fields for expression
       --  Is_Qualified_Universal_Literal (Flag4-Sem)
+      --  plus fields for expression
 
       --------------------
       -- 4.8  Allocator --
@@ -4787,6 +4807,7 @@ package Sinfo is
       --  Forwards_OK (Flag5-Sem)
       --  Backwards_OK (Flag6-Sem)
       --  No_Ctrl_Actions (Flag7-Sem)
+      --  Has_Target_Names (Flag8-Sem)
       --  Componentwise_Assignment (Flag14-Sem)
       --  Suppress_Assignment_Checks (Flag18-Sem)
 
@@ -4800,6 +4821,19 @@ package Sinfo is
       --  might cause the back end to generate separate assignments). In this
       --  case the front end must generate an extra temporary and initialize
       --  this temporary as required (the temporary itself is not atomic).
+
+      ------------------
+      --  Target_Name --
+      ------------------
+
+      --  N_Target_Name
+      --  Sloc points to @
+      --  Etype (Node5-Sem)
+
+      --  Note (Ada 2020): node is used during analysis as a placeholder for
+      --  the value of the LHS of the enclosing assignment statement. Node is
+      --  eventually rewritten together with enclosing assignment, and backends
+      --  are not aware of it.
 
       -----------------------
       -- 5.3  If Statement --
@@ -8450,12 +8484,14 @@ package Sinfo is
       N_Aggregate,
       N_Allocator,
       N_Case_Expression,
+      N_Delta_Aggregate,
       N_Extension_Aggregate,
       N_Raise_Expression,
       N_Range,
       N_Reference,
       N_Selected_Component,
       N_Slice,
+      N_Target_Name,
       N_Type_Conversion,
       N_Unchecked_Expression,
       N_Unchecked_Type_Conversion,
@@ -9377,6 +9413,9 @@ package Sinfo is
 
    function Has_Storage_Size_Pragma
      (N : Node_Id) return Boolean;    -- Flag5
+
+   function Has_Target_Names
+     (N : Node_Id) return Boolean;    -- Flag8
 
    function Has_Wide_Character
      (N : Node_Id) return Boolean;    -- Flag11
@@ -10430,6 +10469,9 @@ package Sinfo is
 
    procedure Set_Has_Storage_Size_Pragma
      (N : Node_Id; Val : Boolean := True);    -- Flag5
+
+   procedure Set_Has_Target_Names
+     (N : Node_Id; Val : Boolean := True);    -- Flag8
 
    procedure Set_Has_Wide_Character
      (N : Node_Id; Val : Boolean := True);    -- Flag11
@@ -11492,6 +11534,13 @@ package Sinfo is
         4 => True,    --  Discrete_Choices (List4)
         5 => False),  --  unused
 
+     N_Delta_Aggregate =>
+       (1 => False,   --  Expressions (List1)
+        2 => True,    --  Component_Associations (List2)
+        3 => True,    --  Expression (Node3)
+        4 => False,   --  Unused
+        5 => False),  --  Etype (Node5-Sem)
+
      N_Extension_Aggregate =>
        (1 => True,    --  Expressions (List1)
         2 => True,    --  Component_Associations (List2)
@@ -11729,6 +11778,13 @@ package Sinfo is
         3 => True,    --  Expression (Node3)
         4 => False,   --  unused
         5 => False),  --  unused
+
+     N_Target_Name =>
+       (1 => False,   --  unused
+        2 => False,   --  unused
+        3 => False,   --  unused
+        4 => False,   --  unused
+        5 => False),  --  Etype (Node5-Sem)
 
      N_If_Statement =>
        (1 => True,    --  Condition (Node1)
@@ -12937,6 +12993,7 @@ package Sinfo is
    pragma Inline (Has_Private_View);
    pragma Inline (Has_Relative_Deadline_Pragma);
    pragma Inline (Has_Storage_Size_Pragma);
+   pragma Inline (Has_Target_Names);
    pragma Inline (Has_Wide_Character);
    pragma Inline (Has_Wide_Wide_Character);
    pragma Inline (Header_Size_Added);
@@ -13285,6 +13342,7 @@ package Sinfo is
    pragma Inline (Set_Has_Self_Reference);
    pragma Inline (Set_Has_SP_Choice);
    pragma Inline (Set_Has_Storage_Size_Pragma);
+   pragma Inline (Set_Has_Target_Names);
    pragma Inline (Set_Has_Wide_Character);
    pragma Inline (Set_Has_Wide_Wide_Character);
    pragma Inline (Set_Header_Size_Added);

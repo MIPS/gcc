@@ -203,6 +203,7 @@ package body Sem_Res is
    procedure Resolve_Short_Circuit             (N : Node_Id; Typ : Entity_Id);
    procedure Resolve_Slice                     (N : Node_Id; Typ : Entity_Id);
    procedure Resolve_String_Literal            (N : Node_Id; Typ : Entity_Id);
+   procedure Resolve_Target_Name               (N : Node_Id; Typ : Entity_Id);
    procedure Resolve_Type_Conversion           (N : Node_Id; Typ : Entity_Id);
    procedure Resolve_Unary_Op                  (N : Node_Id; Typ : Entity_Id);
    procedure Resolve_Unchecked_Expression      (N : Node_Id; Typ : Entity_Id);
@@ -2465,9 +2466,10 @@ package body Sem_Res is
                --  with a name that is an explicit dereference, there is
                --  nothing to be done at this point.
 
-               elsif Nkind_In (N, N_Explicit_Dereference,
-                                  N_Attribute_Reference,
+               elsif Nkind_In (N, N_Attribute_Reference,
                                   N_And_Then,
+                                  N_Explicit_Dereference,
+                                  N_Identifier,
                                   N_Indexed_Component,
                                   N_Or_Else,
                                   N_Range,
@@ -2626,7 +2628,9 @@ package body Sem_Res is
                            --  replaced by the appropriate call during late
                            --  expansion.
 
-                           if not Box_Present (Elmt) then
+                           if Nkind (Elmt) /= N_Iterated_Component_Association
+                             and then not Box_Present (Elmt)
+                           then
                               Check_Elmt (Expression (Elmt));
                            end if;
 
@@ -2866,6 +2870,9 @@ package body Sem_Res is
             when N_Character_Literal =>
                Resolve_Character_Literal         (N, Ctx_Type);
 
+            when N_Delta_Aggregate =>
+               Resolve_Delta_Aggregate           (N, Ctx_Type);
+
             when N_Expanded_Name =>
                Resolve_Entity_Name               (N, Ctx_Type);
 
@@ -2981,6 +2988,9 @@ package body Sem_Res is
 
             when N_String_Literal =>
                Resolve_String_Literal            (N, Ctx_Type);
+
+            when N_Target_Name =>
+               Resolve_Target_Name               (N, Ctx_Type);
 
             when N_Type_Conversion =>
                Resolve_Type_Conversion           (N, Ctx_Type);
@@ -5971,7 +5981,12 @@ package body Sem_Res is
       --  component type of that array type, the node is really an indexing of
       --  the parameterless call. Resolve as such. A pathological case occurs
       --  when the type of the component is an access to the array type. In
-      --  this case the call is truly ambiguous.
+      --  this case the call is truly ambiguous. If the call is to an intrinsic
+      --  subprogram, it can't be an indexed component. This check is necessary
+      --  because if it's Unchecked_Conversion, and we have "type T_Ptr is
+      --  access T;" and "type T is array (...) of T_Ptr;" (i.e. an array of
+      --  pointers to the same array), the compiler gets confused and does an
+      --  infinite recursion.
 
       elsif (Needs_No_Actuals (Nam) or else Needs_One_Actual (Nam))
         and then
@@ -5981,7 +5996,8 @@ package body Sem_Res is
              (Is_Access_Type (Etype (Nam))
                and then Is_Array_Type (Designated_Type (Etype (Nam)))
                and then
-                 Covers (Typ, Component_Type (Designated_Type (Etype (Nam))))))
+                 Covers (Typ, Component_Type (Designated_Type (Etype (Nam))))
+               and then not Is_Intrinsic_Subprogram (Entity (Subp))))
       then
          declare
             Index_Node : Node_Id;
@@ -6058,12 +6074,16 @@ package body Sem_Res is
          end;
 
       else
-         --  If the function returns the limited view of type, the call must
-         --  appear in a context in which the non-limited view is available.
-         --  As is done in Try_Object_Operation, use the available view to
-         --  prevent back-end confusion.
+         --  If the called function is not declared in the main unit and it
+         --  returns the limited view of type then use the available view (as
+         --  is done in Try_Object_Operation) to prevent back-end confusion;
+         --  the call must appear in a context where the nonlimited view is
+         --  available. If the called function is in the extended main unit
+         --  then no action is needed, because the back end handles this case.
 
-         if From_Limited_With (Etype (Nam)) then
+         if not In_Extended_Main_Code_Unit (Nam)
+           and then From_Limited_With (Etype (Nam))
+         then
             Set_Etype (Nam, Available_View (Etype (Nam)));
          end if;
 
@@ -9604,8 +9624,14 @@ package body Sem_Res is
 
    begin
       Set_Etype (N, Typ);
+
+      --  The lower bound should be in Typ. The higher bound can be in Typ's
+      --  base type if the range is null. It may still be invalid if it is
+      --  higher than the lower bound. This is checked later in the context in
+      --  which the range appears.
+
       Resolve (L, Typ);
-      Resolve (H, Typ);
+      Resolve (H, Base_Type (Typ));
 
       --  Check for inappropriate range on unordered enumeration type
 
@@ -10619,6 +10645,15 @@ package body Sem_Res is
       end;
    end Resolve_String_Literal;
 
+   -------------------------
+   -- Resolve_Target_Name --
+   -------------------------
+
+   procedure Resolve_Target_Name (N : Node_Id; Typ : Entity_Id) is
+   begin
+      Set_Etype (N, Typ);
+   end Resolve_Target_Name;
+
    -----------------------------
    -- Resolve_Type_Conversion --
    -----------------------------
@@ -11022,7 +11057,7 @@ package body Sem_Res is
       --  remove side effects in order to store the result of the conversion
       --  into a temporary.
 
-      if Generate_C_Code
+      if Modify_Tree_For_C
         and then Nkind (N) = N_Type_Conversion
         and then Nkind (Parent (N)) /= N_Object_Declaration
         and then Is_Access_Type (Etype (N))

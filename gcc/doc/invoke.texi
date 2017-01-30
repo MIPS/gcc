@@ -529,7 +529,7 @@ Objective-C and Objective-C++ Dialects}.
 @item Developer Options
 @xref{Developer Options,,GCC Developer Options}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
--fchecking  -fchecking=@var{n}  -fdbg-cnt-list @gol
+-dumpfullversion  -fchecking  -fchecking=@var{n}  -fdbg-cnt-list @gol
 -fdbg-cnt=@var{counter-value-list} @gol
 -fdisable-ipa-@var{pass_name} @gol
 -fdisable-rtl-@var{pass_name} @gol
@@ -909,6 +909,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcompact-branches=@var{policy} @gol
 -mfp-exceptions  -mno-fp-exceptions @gol
 -mvr4130-align  -mno-vr4130-align  -msynci  -mno-synci @gol
+-mlxc1-sxc1 -mno-lxc1-sxc1 -mmadd4 -mno-madd4 @gol
 -mrelax-pic-calls  -mno-relax-pic-calls  -mmcount-ra-address @gol
 -mframe-header-opt  -mno-frame-header-opt}
 
@@ -1041,6 +1042,8 @@ See RS/6000 and PowerPC Options.
 -mupper-regs  -mno-upper-regs @gol
 -mfloat128  -mno-float128  -mfloat128-hardware  -mno-float128-hardware @gol
 -mgnu-attribute  -mno-gnu-attribute @gol
+-mstack-protector-guard=@var{guard} -mstack-protector-guard-reg=@var{reg} @gol
+-mstack-protector-guard-offset=@var{offset} @gol
 -mlra  -mno-lra}
 
 @emph{RX Options}
@@ -1335,6 +1338,9 @@ traditional preprocessor).
 @item @var{file}.go
 Go source code.
 
+@item @var{file}.brig
+BRIG files (binary representation of HSAIL).
+
 @item @var{file}.ads
 Ada source code file that contains a library unit declaration (a
 declaration of a package, subprogram, or generic, or a generic
@@ -1383,6 +1389,7 @@ assembler  assembler-with-cpp
 ada
 f77  f77-cpp-input f95  f95-cpp-input
 go
+brig
 @end smallexample
 
 @item -x none
@@ -2250,8 +2257,10 @@ attributes that affect type identity, such as ia32 calling convention
 attributes (e.g. @samp{stdcall}).
 
 Version 11, which first appeared in G++ 7, corrects the mangling of
-sizeof... expressions.  It also implies
-@option{-fnew-inheriting-ctors}.
+sizeof... expressions and operator names.  For multiple entities with
+the same name within a function, that are declared in different scopes,
+the mangling now changes starting with the twelfth occurrence.  It also
+implies @option{-fnew-inheriting-ctors}.
 
 See also @option{-Wabi}.
 
@@ -3075,7 +3084,7 @@ classes that indirectly use multiple inheritance.
 
 @item -Wvirtual-inheritance
 @opindex Wvirtual-inheritance
-Warn when a class is defined with a virtual direct base classe.  Some
+Warn when a class is defined with a virtual direct base class.  Some
 coding rules disallow multiple inheritance, and this may be used to
 enforce that rule.  The warning is inactive inside a system header file,
 such as the STL, so one can still use the STL.  One may also define
@@ -3729,7 +3738,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Warray-bounds=1 @r{(only with} @option{-O2}@r{)}  @gol
 -Wbool-compare  @gol
 -Wbool-operation  @gol
--Wc++11-compat  -Wc++14-compat@gol
+-Wc++11-compat  -Wc++14-compat  @gol
 -Wchar-subscripts  @gol
 -Wcomment  @gol
 -Wduplicate-decl-specifier @r{(C and Objective-C only)} @gol
@@ -5257,6 +5266,22 @@ which rarely makes sense.  (In C++, decrementing a boolean is always invalid.
 Incrementing a boolean is invalid in C++1z, and deprecated otherwise.)
 
 This warning is enabled by @option{-Wall}.
+
+@item -Wduplicated-branches
+@opindex Wno-duplicated-branches
+@opindex Wduplicated-branches
+Warn when an if-else has identical branches.  This warning detects cases like
+@smallexample
+if (p != NULL)
+  return 0;
+else
+  return 0;
+@end smallexample
+It doesn't warn when both branches contain just a null statement.  This warning
+also warn for conditional operators:
+@smallexample
+  int i = x ? *p : *p;
+@end smallexample
 
 @item -Wduplicated-cond
 @opindex Wno-duplicated-cond
@@ -6991,7 +7016,6 @@ compilation time.
 -fsplit-wide-types @gol
 -fssa-backprop @gol
 -fssa-phiopt @gol
--fstore-merging @gol
 -ftree-bit-ccp @gol
 -ftree-ccp @gol
 -ftree-ch @gol
@@ -7051,6 +7075,7 @@ also turns on the following optimization flags:
 -frerun-cse-after-loop  @gol
 -fsched-interblock  -fsched-spec @gol
 -fschedule-insns  -fschedule-insns2 @gol
+-fstore-merging @gol
 -fstrict-aliasing -fstrict-overflow @gol
 -ftree-builtin-call-dce @gol
 -ftree-switch-conversion -ftree-tail-merge @gol
@@ -8321,7 +8346,7 @@ early.  This flag is enabled by default at @option{-O} and higher.
 Perform merging of narrow stores to consecutive memory addresses.  This pass
 merges contiguous stores of immediate values narrower than a word into fewer
 wider stores to reduce the number of instructions.  This is enabled by default
-at @option{-O} and higher.
+at @option{-O2} and higher as well as @option{-Os}.
 
 @item -ftree-ter
 @opindex ftree-ter
@@ -10570,7 +10595,12 @@ linking.
 @opindex fprofile-arcs
 Add code so that program flow @dfn{arcs} are instrumented.  During
 execution the program records how many times each branch and call is
-executed and how many times it is taken or returns.  When the compiled
+executed and how many times it is taken or returns.  On targets that support
+constructors with priority support, profiling properly handles constructors,
+destructors and C++ constructors (and destructors) of classes which are used
+as a type of a global variable.
+
+When the compiled
 program exits it saves this data to a file called
 @file{@var{auxname}.gcda} for each source file.  The data may be used for
 profile-directed optimizations (@option{-fbranch-probabilities}), or for
@@ -12461,7 +12491,7 @@ The default if @option{-fvisibility} isn't specified is
 A good explanation of the benefits offered by ensuring ELF
 symbols have the correct visibility is given by ``How To Write
 Shared Libraries'' by Ulrich Drepper (which can be found at
-@w{@uref{http://www.akkadia.org/drepper/}})---however a superior
+@w{@uref{https://www.akkadia.org/drepper/}})---however a superior
 solution made possible by this option to marking things hidden when
 the default is public is to make the default hidden and mark things
 public.  This is the norm with DLLs on Windows and with @option{-fvisibility=hidden}
@@ -13785,8 +13815,17 @@ Print the compiler's target machine (for example,
 
 @item -dumpversion
 @opindex dumpversion
-Print the compiler version (for example, @code{3.0})---and don't do
-anything else.
+Print the compiler version (for example, @code{3.0}, @code{6.3.0} or @code{7})---and don't do
+anything else.  This is the compiler version used in filesystem paths,
+specs, can be depending on how the compiler has been configured just
+a single number (major version), two numbers separated by dot (major and
+minor version) or three numbers separated by dots (major, minor and patchlevel
+version).
+
+@item -dumpfullversion
+@opindex dumpfullversion
+Print the full compiler version, always 3 numbers separated by dots,
+major, minor and patchlevel version.
 
 @item -dumpspecs
 @opindex dumpspecs
@@ -14010,7 +14049,10 @@ more feature modifiers.  This option has the form
 @option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}.
 
 The permissible values for @var{arch} are @samp{armv8-a},
-@samp{armv8.1-a}, @samp{armv8.2-a} or @var{native}.
+@samp{armv8.1-a}, @samp{armv8.2-a}, @samp{armv8.3-a} or @var{native}.
+
+The value @samp{armv8.3-a} implies @samp{armv8.2-a} and enables compiler
+support for the ARMv8.3-A architecture extensions.
 
 The value @samp{armv8.2-a} implies @samp{armv8.1-a} and enables compiler
 support for the ARMv8.2-A architecture extensions.
@@ -14095,6 +14137,14 @@ Enable PC-relative literal loads.  With this option literal pools are
 accessed using a single instruction and emitted after each function.  This
 limits the maximum size of functions to 1MB.  This is enabled by default for
 @option{-mcmodel=tiny}.
+
+@item -msign-return-address=@var{scope}
+@opindex msign-return-address
+Select the function scope on which return address signing will be applied.
+Permissible values are @samp{none}, which disables return address signing,
+@samp{non-leaf}, which enables pointer signing for functions which are not leaf
+functions, and @samp{all}, which enables pointer signing for all functions.  The
+default value is @samp{none}.
 
 @end table
 
@@ -19932,6 +19982,18 @@ it is unused.
 
 This optimization is off by default at all optimization levels.
 
+@item -mlxc1-sxc1
+@itemx -mno-lxc1-sxc1
+@opindex mlxc1-sxc1
+When applicable, enable (disable) the generation of @code{lwxc1},
+@code{swxc1}, @code{ldxc1}, @code{sdxc1} instructions.  Enabled by default.
+
+@item -mmadd4
+@itemx -mno-madd4
+@opindex mmadd4
+When applicable, enable (disable) the generation of 4-operand @code{madd.s},
+@code{madd.d} and related instructions.  Enabled by default.
+
 @end table
 
 @node MMIX Options
@@ -22206,6 +22268,23 @@ that is compatible with functions compiled with older versions of
 GCC.
 
 The @option{-mno-compat-align-parm} option is the default.
+
+@item -mstack-protector-guard=@var{guard}
+@itemx -mstack-protector-guard-reg=@var{reg}
+@itemx -mstack-protector-guard-offset=@var{offset}
+@opindex mstack-protector-guard
+@opindex mstack-protector-guard-reg
+@opindex mstack-protector-guard-offset
+Generate stack protection code using canary at @var{guard}.  Supported
+locations are @samp{global} for global canary or @samp{tls} for per-thread
+canary in the TLS block (the default with GNU libc version 2.4 or later).
+
+With the latter choice the options
+@option{-mstack-protector-guard-reg=@var{reg}} and
+@option{-mstack-protector-guard-offset=@var{offset}} furthermore specify
+which register to use as base register for reading the canary, and from what
+offset from that base register. The default for those is as specified in the
+relevant ABI.
 @end table
 
 @node RX Options

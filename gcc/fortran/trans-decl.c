@@ -971,6 +971,10 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
 	  DECL_CONTEXT (token) = sym->ns->proc_name->backend_decl;
 	  gfc_module_add_decl (cur_module, token);
 	}
+      else if (sym->attr.host_assoc
+	       && TREE_CODE (DECL_CONTEXT (current_function_decl))
+	       != TRANSLATION_UNIT_DECL)
+	gfc_add_decl_to_parent_function (token);
       else
 	gfc_add_decl_to_function (token);
     }
@@ -4645,7 +4649,7 @@ gfc_find_module (const char *name)
     {
       module_htab_entry *entry = ggc_cleared_alloc<module_htab_entry> ();
 
-      entry->name = gfc_get_string (name);
+      entry->name = gfc_get_string ("%s", name);
       entry->decls = hash_table<module_decl_hasher>::create_ggc (10);
       *slot = entry;
     }

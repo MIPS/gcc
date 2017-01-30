@@ -106,7 +106,7 @@ package body Debug is
    --  d.m  For -gnatl, print full source only for main unit
    --  d.n  Print source file names
    --  d.o  Conservative elaboration order for indirect calls
-   --  d.p
+   --  d.p  Use original Ada 95 semantics for Bit_Order (disable AI95-0133)
    --  d.q
    --  d.r  Enable OK_To_Reorder_Components in non-variant records
    --  d.s
@@ -160,7 +160,7 @@ package body Debug is
    --  d.3  Output debugging information from Exp_Unst
    --  d.4  Do not delete generated C file in case of errors
    --  d.5  Do not generate imported subprogram definitions in C code
-   --  d.6
+   --  d.6  Do not avoid declaring unreferenced itypes in C code
    --  d.7
    --  d.8
    --  d.9
@@ -182,7 +182,7 @@ package body Debug is
    --  dm
    --  dn  List details of manipulation of Num_Pred values
    --  do  Use older preference for elaboration order
-   --  dp  Use new preference for elaboration order
+   --  dp  Use old preference for elaboration order
    --  dq
    --  dr
    --  ds
@@ -558,6 +558,10 @@ package body Debug is
    --  d.o  Conservative elaboration order for indirect calls. This causes
    --       P'Access to be treated as a call in more cases.
 
+   --  d.p  In Ada 95 (or 83) mode, use original Ada 95 behavior for the
+   --       interpretation of component clauses crossing byte boundaries when
+   --       using the non-default bit order (i.e. ignore AI95-0133).
+
    --  d.r  Forces the flag OK_To_Reorder_Components to be set in all record
    --       base types that have no discriminants.
 
@@ -777,6 +781,10 @@ package body Debug is
    --       This debug flag disables this generation when generating C code,
    --       assuming a proper #include will be used instead.
 
+   --  d.6  By default the C back-end avoids declaring itypes that are not
+   --       referenced by the generated C code. This debug flag restores the
+   --       output of all the itypes.
+
    ------------------------------------------
    -- Documentation for Binder Debug Flags --
    ------------------------------------------
@@ -813,16 +821,15 @@ package body Debug is
    --      prefer specs with no bodies to specs with bodies, and between two
    --      specs with bodies, prefers the one whose body is closer to being
    --      able to be elaborated. This is a clear improvement, but we provide
-   --      this debug flag in case of regressions.
+   --      this debug flag in case of regressions. Note: -do is even older than
+   --      -dp.
 
-   --  dp  Use new elaboration order preference. The new preference rules
+   --  dp  Use old elaboration order preference. The new preference rules
    --      elaborate all units within a strongly connected component together,
    --      with no other units in between. In particular, if a spec/body pair
    --      can be elaborated together, it will be. In the new order, the binder
    --      behaves as if every pragma Elaborate_All that would be legal is
-   --      present, even if it does not appear in the source code. NOTE: We
-   --      intend to reverse the sense of this switch at some point, so the new
-   --      preference is the default.
+   --      present, even if it does not appear in the source code.
 
    --  du  List unit name and file name for each unit as it is read in
 

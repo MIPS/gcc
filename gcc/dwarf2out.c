@@ -7918,6 +7918,19 @@ generate_skeleton_bottom_up (skeleton_chain_node *parent)
 	    add_child_die (parent->new_die, c);
 	    c = prev;
 	  }
+	else if (c->comdat_type_p)
+	  {
+	    /* This is the skeleton of earlier break_out_comdat_types
+	       type.  Clone the existing DIE, but keep the children
+	       under the original (which is in the main CU).  */
+	    dw_die_ref clone = clone_die (c);
+
+	    replace_child (c, clone, prev);
+	    generate_skeleton_ancestor_tree (parent);
+	    add_child_die (parent->new_die, c);
+	    c = clone;
+	    continue;
+	  }
 	else
 	  {
 	    /* Clone the existing DIE, move the original to the skeleton
@@ -7936,6 +7949,7 @@ generate_skeleton_bottom_up (skeleton_chain_node *parent)
 	    replace_child (c, clone, prev);
 	    generate_skeleton_ancestor_tree (parent);
 	    add_child_die (parent->new_die, c);
+	    node.old_die = clone;
 	    node.new_die = c;
 	    c = clone;
 	  }
@@ -10286,7 +10300,7 @@ output_compilation_unit_header (enum dwarf_unit_type ut)
 	case DW_UT_split_type: name = "DW_UT_split_type"; break;
 	default: gcc_unreachable ();
 	}
-      dw2_asm_output_data (1, ut, name);
+      dw2_asm_output_data (1, ut, "%s", name);
       dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "Pointer Size (in bytes)");
     }
   dw2_asm_output_offset (DWARF_OFFSET_SIZE, abbrev_section_label,
@@ -11551,7 +11565,8 @@ output_file_names (void)
       if (DWARF5_USE_DEBUG_LINE_STR)
 	str_form = DW_FORM_line_strp;
       dw2_asm_output_data_uleb128 (DW_LNCT_path, "DW_LNCT_path");
-      dw2_asm_output_data_uleb128 (str_form, get_DW_FORM_name (str_form));
+      dw2_asm_output_data_uleb128 (str_form, "%s",
+				   get_DW_FORM_name (str_form));
       dw2_asm_output_data_uleb128 (ndirs + idx_offset, "Directories count");
       if (str_form == DW_FORM_string)
 	{
@@ -11631,10 +11646,12 @@ output_file_names (void)
       dw2_asm_output_data (1, 2, "File name entry format count");
 #endif
       dw2_asm_output_data_uleb128 (DW_LNCT_path, "DW_LNCT_path");
-      dw2_asm_output_data_uleb128 (str_form, get_DW_FORM_name (str_form));
+      dw2_asm_output_data_uleb128 (str_form, "%s",
+				   get_DW_FORM_name (str_form));
       dw2_asm_output_data_uleb128 (DW_LNCT_directory_index,
 				   "DW_LNCT_directory_index");
-      dw2_asm_output_data_uleb128 (idx_form, get_DW_FORM_name (idx_form));
+      dw2_asm_output_data_uleb128 (idx_form, "%s",
+				   get_DW_FORM_name (idx_form));
 #ifdef VMS_DEBUGGING_INFO
       dw2_asm_output_data_uleb128 (DW_LNCT_timestamp, "DW_LNCT_timestamp");
       dw2_asm_output_data_uleb128 (DW_FORM_udata, "DW_FORM_udata");
@@ -17980,10 +17997,6 @@ static dw_loc_descr_ref
 field_byte_offset (const_tree decl, struct vlr_context *ctx,
 		   HOST_WIDE_INT *cst_offset)
 {
-  offset_int object_offset_in_bits;
-  offset_int object_offset_in_bytes;
-  offset_int bitpos_int;
-  bool is_byte_offset_cst, is_bit_offset_cst;
   tree tree_result;
   dw_loc_list_ref loc_result;
 
@@ -17994,20 +18007,21 @@ field_byte_offset (const_tree decl, struct vlr_context *ctx,
   else
     gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
-  is_bit_offset_cst = TREE_CODE (DECL_FIELD_BIT_OFFSET (decl)) != INTEGER_CST;
-  is_byte_offset_cst = TREE_CODE (DECL_FIELD_OFFSET (decl)) != INTEGER_CST;
-
   /* We cannot handle variable bit offsets at the moment, so abort if it's the
      case.  */
-  if (is_bit_offset_cst)
+  if (TREE_CODE (DECL_FIELD_BIT_OFFSET (decl)) != INTEGER_CST)
     return NULL;
 
 #ifdef PCC_BITFIELD_TYPE_MATTERS
   /* We used to handle only constant offsets in all cases.  Now, we handle
      properly dynamic byte offsets only when PCC bitfield type doesn't
      matter.  */
-  if (PCC_BITFIELD_TYPE_MATTERS && is_byte_offset_cst && is_bit_offset_cst)
+  if (PCC_BITFIELD_TYPE_MATTERS
+      && TREE_CODE (DECL_FIELD_OFFSET (decl)) == INTEGER_CST)
     {
+      offset_int object_offset_in_bits;
+      offset_int object_offset_in_bytes;
+      offset_int bitpos_int;
       tree type;
       tree field_size_tree;
       offset_int deepest_bitpos;
@@ -18102,13 +18116,23 @@ field_byte_offset (const_tree decl, struct vlr_context *ctx,
 	  object_offset_in_bits
 	    = round_up_to_align (object_offset_in_bits, decl_align_in_bits);
 	}
-    }
-#endif /* PCC_BITFIELD_TYPE_MATTERS */
 
-  tree_result = byte_position (decl);
+      object_offset_in_bytes
+	= wi::lrshift (object_offset_in_bits, LOG2_BITS_PER_UNIT);
+      if (ctx->variant_part_offset == NULL_TREE)
+	{
+	  *cst_offset = object_offset_in_bytes.to_shwi ();
+	  return NULL;
+	}
+      tree_result = wide_int_to_tree (sizetype, object_offset_in_bytes);
+    }
+  else
+#endif /* PCC_BITFIELD_TYPE_MATTERS */
+    tree_result = byte_position (decl);
+
   if (ctx->variant_part_offset != NULL_TREE)
-    tree_result = fold (build2 (PLUS_EXPR, TREE_TYPE (tree_result),
-				ctx->variant_part_offset, tree_result));
+    tree_result = fold_build2 (PLUS_EXPR, TREE_TYPE (tree_result),
+			       ctx->variant_part_offset, tree_result);
 
   /* If the byte offset is a constant, it's simplier to handle a native
      constant rather than a DWARF expression.  */
@@ -18272,6 +18296,23 @@ add_data_member_location_attribute (dw_die_ref die,
 
   if (! loc_descr)
     {
+      /* While DW_AT_data_bit_offset has been added already in DWARF4,
+	 e.g. GDB only added support to it in November 2016.  For DWARF5
+	 we need newer debug info consumers anyway.  We might change this
+	 to dwarf_version >= 4 once most consumers catched up.  */
+      if (dwarf_version >= 5
+	  && TREE_CODE (decl) == FIELD_DECL
+	  && DECL_BIT_FIELD_TYPE (decl))
+	{
+	  tree off = bit_position (decl);
+	  if (tree_fits_uhwi_p (off) && get_AT (die, DW_AT_bit_size))
+	    {
+	      remove_AT (die, DW_AT_byte_size);
+	      remove_AT (die, DW_AT_bit_offset);
+	      add_AT_unsigned (die, DW_AT_data_bit_offset, tree_to_uhwi (off));
+	      return;
+	    }
+	}
       if (dwarf_version > 2)
 	{
 	  /* Don't need to output a location expression, just the constant. */
@@ -23727,14 +23768,12 @@ analyze_variants_discr (tree variant_part_decl,
 
 	      if (!lower_cst_included)
 		lower_cst
-		  = fold (build2 (PLUS_EXPR, TREE_TYPE (lower_cst),
-				  lower_cst,
-				  build_int_cst (TREE_TYPE (lower_cst), 1)));
+		  = fold_build2 (PLUS_EXPR, TREE_TYPE (lower_cst), lower_cst,
+				 build_int_cst (TREE_TYPE (lower_cst), 1));
 	      if (!upper_cst_included)
 		upper_cst
-		  = fold (build2 (MINUS_EXPR, TREE_TYPE (upper_cst),
-				  upper_cst,
-				  build_int_cst (TREE_TYPE (upper_cst), 1)));
+		  = fold_build2 (MINUS_EXPR, TREE_TYPE (upper_cst), upper_cst,
+				 build_int_cst (TREE_TYPE (upper_cst), 1));
 
 	      if (!get_discr_value (lower_cst,
 				    &new_node->dw_discr_lower_bound)
@@ -23905,8 +23944,8 @@ gen_variant_part (tree variant_part_decl, struct vlr_context *vlr_ctx,
 		 we recurse.  */
 
 	      vlr_sub_ctx.variant_part_offset
-	        = fold (build2 (PLUS_EXPR, TREE_TYPE (variant_part_offset),
-				variant_part_offset, byte_position (member)));
+		= fold_build2 (PLUS_EXPR, TREE_TYPE (variant_part_offset),
+			       variant_part_offset, byte_position (member));
 	      gen_variant_part (member, &vlr_sub_ctx, variant_die);
 	    }
 	  else
@@ -27768,6 +27807,25 @@ prune_unused_types (void)
   for (i = 0; base_types.iterate (i, &base_type); i++)
     prune_unused_types_mark (base_type, 1);
 
+  /* For -fvar-tracking-assignments, also set the mark on nodes that could be
+     referenced by DW_TAG_call_site DW_AT_call_origin (i.e. direct call
+     callees).  */
+  cgraph_node *cnode;
+  FOR_EACH_FUNCTION (cnode)
+    if (cnode->referred_to_p (false))
+      {
+	dw_die_ref die = lookup_decl_die (cnode->decl);
+	if (die == NULL || die->die_mark)
+	  continue;
+	for (cgraph_edge *e = cnode->callers; e; e = e->next_caller)
+	  if (e->caller != cnode
+	      && opt_for_fn (e->caller->decl, flag_var_tracking_assignments))
+	    {
+	      prune_unused_types_mark (die, 1);
+	      break;
+	    }
+      }
+
   if (debug_str_hash)
     debug_str_hash->empty ();
   if (skeleton_debug_str_hash)
@@ -28669,16 +28727,27 @@ resolve_addr (dw_die_ref die)
 		&& DECL_ABSTRACT_ORIGIN (tdecl) == NULL_TREE
 		&& (cdie = lookup_context_die (DECL_CONTEXT (tdecl))))
 	      {
-		/* Creating a full DIE for tdecl is overly expensive and
-		   at this point even wrong when in the LTO phase
-		   as it can end up generating new type DIEs we didn't
-		   output and thus optimize_external_refs will crash.  */
-		tdie = new_die (DW_TAG_subprogram, cdie, NULL_TREE);
-		add_AT_flag (tdie, DW_AT_external, 1);
-		add_AT_flag (tdie, DW_AT_declaration, 1);
-		add_linkage_attr (tdie, tdecl);
-		add_name_and_src_coords_attributes (tdie, tdecl);
-		equate_decl_number_to_die (tdecl, tdie);
+		dw_die_ref pdie = cdie;
+		/* Make sure we don't add these DIEs into type units.
+		   We could emit skeleton DIEs for context (namespaces,
+		   outer structs/classes) and a skeleton DIE for the
+		   innermost context with DW_AT_signature pointing to the
+		   type unit.  See PR78835.  */
+		while (pdie && pdie->die_tag != DW_TAG_type_unit)
+		  pdie = pdie->die_parent;
+		if (pdie == NULL)
+		  {
+		    /* Creating a full DIE for tdecl is overly expensive and
+		       at this point even wrong when in the LTO phase
+		       as it can end up generating new type DIEs we didn't
+		       output and thus optimize_external_refs will crash.  */
+		    tdie = new_die (DW_TAG_subprogram, cdie, NULL_TREE);
+		    add_AT_flag (tdie, DW_AT_external, 1);
+		    add_AT_flag (tdie, DW_AT_declaration, 1);
+		    add_linkage_attr (tdie, tdecl);
+		    add_name_and_src_coords_attributes (tdie, tdecl);
+		    equate_decl_number_to_die (tdecl, tdie);
+		  }
 	      }
 	    if (tdie)
 	      {

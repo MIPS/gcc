@@ -1839,11 +1839,10 @@ gfc_get_tree_for_caf_expr (gfc_expr *expr)
       }
 
   /* Make sure the backend_decl is present before accessing it.  */
-  if (expr->symtree->n.sym->backend_decl == NULL_TREE)
-    expr->symtree->n.sym->backend_decl
-	= gfc_get_symbol_decl (expr->symtree->n.sym);
-  caf_decl = expr->symtree->n.sym->backend_decl;
-  gcc_assert (caf_decl);
+  caf_decl = expr->symtree->n.sym->backend_decl == NULL_TREE
+      ? gfc_get_symbol_decl (expr->symtree->n.sym)
+      : expr->symtree->n.sym->backend_decl;
+
   if (expr->symtree->n.sym->ts.type == BT_CLASS)
     {
       if (expr->ref && expr->ref->type == REF_ARRAY)
@@ -2545,8 +2544,10 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
       if (se_expr)
 	se->expr = se_expr;
 
-      /* Procedure actual arguments.  */
-      else if (sym->attr.flavor == FL_PROCEDURE
+      /* Procedure actual arguments.  Look out for temporary variables
+	 with the same attributes as function values.  */
+      else if (!sym->attr.temporary
+	       && sym->attr.flavor == FL_PROCEDURE
 	       && se->expr != current_function_decl)
 	{
 	  if (!sym->attr.dummy && !sym->attr.proc_pointer)

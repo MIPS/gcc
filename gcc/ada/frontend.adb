@@ -420,7 +420,10 @@ begin
             Instantiate_Bodies;
          end if;
 
-         if Operating_Mode = Generate_Code then
+         --  Analyze inlined bodies and check elaboration rules in GNATprove
+         --  mode as well as during compilation.
+
+         if Operating_Mode = Generate_Code or else GNATprove_Mode then
             if Inline_Processing_Required then
                Analyze_Inlined_Bodies;
             end if;
@@ -458,20 +461,6 @@ begin
          Sem_Warn.Check_Unused_Withs;
          Sem_Warn.Output_Unused_Warnings_Off_Warnings;
       end if;
-   end if;
-
-   --  In GNATprove mode, force the loading of a few RTE units
-
-   if GNATprove_Mode then
-      declare
-         Unused : Entity_Id;
-
-      begin
-         --  Ensure that System.Interrupt_Priority is available to GNATprove
-         --  for the generation of VCs related to ceiling priority.
-
-         Unused := RTE (RE_Interrupt_Priority);
-      end;
    end if;
 
    --  Qualify all entity names in inner packages, package bodies, etc

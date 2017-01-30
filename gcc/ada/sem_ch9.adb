@@ -1154,6 +1154,7 @@ package body Sem_Ch9 is
 
    procedure Analyze_Delay_Relative (N : Node_Id) is
       E : constant Node_Id := Expression (N);
+
    begin
       Tasking_Used := True;
       Check_SPARK_05_Restriction ("delay statement is not allowed", N);
@@ -1162,6 +1163,19 @@ package body Sem_Ch9 is
       Check_Potentially_Blocking_Operation (N);
       Analyze_And_Resolve (E, Standard_Duration);
       Check_Restriction (No_Fixed_Point, E);
+
+      --  In SPARK mode the relative delay statement introduces an implicit
+      --  dependency on the Ada.Real_Time.Clock_Time abstract state, so we must
+      --  force the loading of the Ada.Real_Time package.
+
+      if GNATprove_Mode then
+         declare
+            Unused : Entity_Id;
+
+         begin
+            Unused := RTE (RO_RT_Time);
+         end;
+      end if;
    end Analyze_Delay_Relative;
 
    -------------------------
@@ -2243,6 +2257,19 @@ package body Sem_Ch9 is
             Process_Full_View (N, T, Def_Id);
          end if;
       end if;
+
+      --  In GNATprove mode, force the loading of a Interrupt_Priority, which
+      --  is required for the ceiling priority protocol checks trigerred by
+      --  calls originating from protected subprograms and entries.
+
+      if GNATprove_Mode then
+         declare
+            Unused : Entity_Id;
+
+         begin
+            Unused := RTE (RE_Interrupt_Priority);
+         end;
+      end if;
    end Analyze_Protected_Type_Declaration;
 
    ---------------------
@@ -3181,6 +3208,19 @@ package body Sem_Ch9 is
             Expand_N_Task_Type_Declaration (N);
             Process_Full_View (N, T, Def_Id);
          end if;
+      end if;
+
+      --  In GNATprove mode, force the loading of a Interrupt_Priority, which
+      --  is required for the ceiling priority protocol checks trigerred by
+      --  calls originating from tasks.
+
+      if GNATprove_Mode then
+         declare
+            Unused : Entity_Id;
+
+         begin
+            Unused := RTE (RE_Interrupt_Priority);
+         end;
       end if;
    end Analyze_Task_Type_Declaration;
 

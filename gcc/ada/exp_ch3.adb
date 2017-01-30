@@ -4590,7 +4590,7 @@ package body Exp_Ch3 is
               Discrete_Subtype_Definitions => New_List (
                 Make_Subtype_Indication (Loc,
                   Subtype_Mark => New_Occurrence_Of (Standard_Natural, Loc),
-                  Constraint =>
+                  Constraint   =>
                     Make_Range_Constraint (Loc,
                       Range_Expression =>
                         Make_Range (Loc,
@@ -4809,6 +4809,8 @@ package body Exp_Ch3 is
       if not Debug_Generated_Code then
          Set_Debug_Info_Off (Fent);
       end if;
+
+      Set_Is_Inlined (Fent);
 
    exception
       when RE_Not_Available =>
@@ -5463,6 +5465,13 @@ package body Exp_Ch3 is
       --  value, it may be possible to build an equivalent aggregate instead,
       --  and prevent an actual call to the initialization procedure.
 
+      procedure Check_Large_Modular_Array;
+      --  Check that the size of the array can be computed without overflow,
+      --  and generate a Storage_Error otherwise. This is only relevant for
+      --  array types whose index in a (mod 2**64) type, where wrap-around
+      --  arithmetic might yield a meaningless value for the length of the
+      --  array, or its corresponding attribute.
+
       procedure Default_Initialize_Object (After : Node_Id);
       --  Generate all default initialization actions for object Def_Id. Any
       --  new code is inserted after node After.
@@ -5599,6 +5608,61 @@ package body Exp_Ch3 is
             return False;
          end if;
       end Build_Equivalent_Aggregate;
+
+      -------------------------------
+      -- Check_Large_Modular_Array --
+      -------------------------------
+
+      procedure Check_Large_Modular_Array is
+         Index_Typ : Entity_Id;
+
+      begin
+         if Is_Array_Type (Typ)
+           and then Is_Modular_Integer_Type (Etype (First_Index (Typ)))
+         then
+            --  To prevent arithmetic overflow with large values, we raise
+            --  Storage_Error under the following guard:
+
+            --    (Arr'Last / 2 - Arr'First / 2) > (2 ** 30)
+
+            --  This takes care of the boundary case, but it is preferable to
+            --  use a smaller limit, because even on 64-bit architectures an
+            --  array of more than 2 ** 30 bytes is likely to raise
+            --  Storage_Error.
+
+            Index_Typ := Etype (First_Index (Typ));
+
+            if RM_Size (Index_Typ) = RM_Size (Standard_Long_Long_Integer) then
+               Insert_Action (N,
+                 Make_Raise_Storage_Error (Loc,
+                   Condition =>
+                     Make_Op_Ge (Loc,
+                       Left_Opnd  =>
+                         Make_Op_Subtract (Loc,
+                           Left_Opnd  =>
+                             Make_Op_Divide (Loc,
+                               Left_Opnd  =>
+                                 Make_Attribute_Reference (Loc,
+                                   Prefix         =>
+                                     New_Occurrence_Of (Typ, Loc),
+                                   Attribute_Name => Name_Last),
+                               Right_Opnd =>
+                                 Make_Integer_Literal (Loc, Uint_2)),
+                           Right_Opnd =>
+                             Make_Op_Divide (Loc,
+                               Left_Opnd =>
+                                 Make_Attribute_Reference (Loc,
+                                   Prefix         =>
+                                     New_Occurrence_Of (Typ, Loc),
+                                   Attribute_Name => Name_First),
+                               Right_Opnd =>
+                                 Make_Integer_Literal (Loc, Uint_2))),
+                       Right_Opnd =>
+                         Make_Integer_Literal (Loc, (Uint_2 ** 30))),
+                   Reason    => SE_Object_Too_Large));
+            end if;
+         end if;
+      end Check_Large_Modular_Array;
 
       -------------------------------
       -- Default_Initialize_Object --
@@ -6009,6 +6073,8 @@ package body Exp_Ch3 is
          Build_Activation_Chain_Entity (N);
          Build_Master_Entity (Def_Id);
       end if;
+
+      Check_Large_Modular_Array;
 
       --  Default initialization required, and no expression present
 

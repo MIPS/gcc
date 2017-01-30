@@ -986,13 +986,16 @@ package body Sem_Aggr is
 
       elsif Is_Array_Type (Typ) then
 
-         --  First a special test, for the case of a positional aggregate
-         --  of characters which can be replaced by a string literal.
+         --  First a special test, for the case of a positional aggregate of
+         --  characters which can be replaced by a string literal.
 
-         --  Do not perform this transformation if this was a string literal to
-         --  start with, whose components needed constraint checks, or if the
-         --  component type is non-static, because it will require those checks
-         --  and be transformed back into an aggregate.
+         --  Do not perform this transformation if this was a string literal
+         --  to start with, whose components needed constraint checks, or if
+         --  the component type is non-static, because it will require those
+         --  checks and be transformed back into an aggregate. If the index
+         --  type is not Integer the aggregate may represent a user-defined
+         --  string type but the context might need the original type so we
+         --  do not perform the transformation at this point.
 
          if Number_Dimensions (Typ) = 1
            and then Is_Standard_Character_Type (Component_Type (Typ))
@@ -1002,6 +1005,8 @@ package body Sem_Aggr is
            and then not Is_Bit_Packed_Array (Typ)
            and then Nkind (Original_Node (Parent (N))) /= N_String_Literal
            and then Is_OK_Static_Subtype (Component_Type (Typ))
+           and then Base_Type (Etype (First_Index (Typ))) =
+                      Base_Type (Standard_Integer)
          then
             declare
                Expr : Node_Id;
@@ -1673,10 +1678,16 @@ package body Sem_Aggr is
          Set_Etype  (Ent, Standard_Void_Type);
          Set_Parent (Ent, Parent (N));
 
-         Enter_Name (Id);
-         Set_Etype (Id, Index_Typ);
-         Set_Ekind (Id, E_Variable);
-         Set_Scope (Id, Ent);
+         --  Decorate the index variable in the current scope. The association
+         --  may have several choices, each one leading to a loop, so we create
+         --  this variable only once to prevent homonyms in this scope.
+
+         if No (Scope (Id)) then
+            Enter_Name (Id);
+            Set_Etype (Id, Index_Typ);
+            Set_Ekind (Id, E_Variable);
+            Set_Scope (Id, Ent);
+         end if;
 
          Push_Scope (Ent);
          Dummy := Resolve_Aggr_Expr (Expression (N), False);
@@ -2077,6 +2088,9 @@ package body Sem_Aggr is
                      return Failure;
                   end if;
 
+               elsif Nkind (Assoc) = N_Iterated_Component_Association then
+                  null;   --  handled above, in a loop context.
+
                elsif not Resolve_Aggr_Expr
                            (Expression (Assoc), Single_Elmt => Single_Choice)
                then
@@ -2277,7 +2291,22 @@ package body Sem_Aggr is
                               if Lo_Dup > Hi_Dup then
                                  null;
 
-                              --  Otherwise place proper message
+                              --  Otherwise place proper message. Because
+                              --  of the missing expansion of subtypes with
+                              --  predicates in ASIS mode, do not report
+                              --  spurious overlap errors.
+
+                              elsif ASIS_Mode
+                                and then
+                                   ((Is_Type (Entity (Table (J).Choice))
+                                       and then Has_Predicates
+                                         (Entity (Table (J).Choice)))
+                                  or else
+                                    (Is_Type (Entity (Table (K).Choice))
+                                       and then Has_Predicates
+                                         (Entity (Table (K).Choice))))
+                              then
+                                 null;
 
                               else
                                  --  We place message on later choice, with a
@@ -2705,6 +2734,150 @@ package body Sem_Aggr is
 
       return Success;
    end Resolve_Array_Aggregate;
+
+   -----------------------------
+   -- Resolve_Delta_Aggregate --
+   -----------------------------
+
+   procedure Resolve_Delta_Aggregate (N : Node_Id; Typ : Entity_Id) is
+      Base   : constant Node_Id := Expression (N);
+      Deltas : constant List_Id := Component_Associations (N);
+
+      function Get_Component_Type (Nam : Node_Id) return Entity_Id;
+
+      ------------------------
+      -- Get_Component_Type --
+      ------------------------
+
+      function Get_Component_Type (Nam : Node_Id) return Entity_Id is
+         Comp : Entity_Id;
+
+      begin
+         Comp := First_Entity (Typ);
+
+         while Present (Comp) loop
+            if Chars (Comp) = Chars (Nam) then
+               if Ekind (Comp) = E_Discriminant then
+                  Error_Msg_N ("delta cannot apply to discriminant", Nam);
+               end if;
+
+               return Etype (Comp);
+            end if;
+
+            Comp := Next_Entity (Comp);
+         end loop;
+
+         Error_Msg_NE ("type& has no component with this name", Nam, Typ);
+         return Any_Type;
+      end Get_Component_Type;
+
+      --  Local variables
+
+      Assoc      : Node_Id;
+      Choice     : Node_Id;
+      Comp_Type  : Entity_Id;
+      Index_Type : Entity_Id;
+
+   --  Start of processing for Resolve_Delta_Aggregate
+
+   begin
+      if not Is_Composite_Type (Typ) then
+         Error_Msg_N ("not a composite type", N);
+      end if;
+
+      Analyze_And_Resolve (Base, Typ);
+
+      if Is_Array_Type (Typ) then
+         Index_Type := Etype (First_Index (Typ));
+         Assoc := First (Deltas);
+         while Present (Assoc) loop
+            if Nkind (Assoc) = N_Iterated_Component_Association then
+               Choice := First (Choice_List (Assoc));
+               while Present (Choice) loop
+                  if Nkind (Choice) = N_Others_Choice then
+                     Error_Msg_N
+                       ("others not allowed in delta aggregate", Choice);
+
+                  else
+                     Analyze_And_Resolve (Choice, Index_Type);
+                  end if;
+
+                  Next (Choice);
+               end loop;
+
+               declare
+                  Id  : constant Entity_Id := Defining_Identifier (Assoc);
+                  Ent : constant Entity_Id :=
+                          New_Internal_Entity
+                            (E_Loop, Current_Scope, Sloc (Assoc), 'L');
+
+               begin
+                  Set_Etype  (Ent, Standard_Void_Type);
+                  Set_Parent (Ent, Assoc);
+
+                  if No (Scope (Id)) then
+                     Enter_Name (Id);
+                     Set_Etype (Id, Index_Type);
+                     Set_Ekind (Id, E_Variable);
+                     Set_Scope (Id, Ent);
+                  end if;
+
+                  Push_Scope (Ent);
+                  Analyze_And_Resolve
+                    (New_Copy_Tree (Expression (Assoc)), Component_Type (Typ));
+                  End_Scope;
+               end;
+
+            else
+               Choice := First (Choice_List (Assoc));
+               while Present (Choice) loop
+                  if Nkind (Choice) = N_Others_Choice then
+                     Error_Msg_N
+                       ("others not allowed in delta aggregate", Choice);
+
+                  else
+                     Analyze (Choice);
+                     if Is_Entity_Name (Choice)
+                       and then Is_Type (Entity (Choice))
+                     then
+                        --  Choice covers a range of values.
+                        if Base_Type (Entity (Choice)) /=
+                           Base_Type (Index_Type)
+                        then
+                           Error_Msg_NE
+                             ("choice does mat match index type of",
+                              Choice, Typ);
+                        end if;
+                     else
+                        Resolve (Choice, Index_Type);
+                     end if;
+                  end if;
+
+                  Next (Choice);
+               end loop;
+
+               Analyze_And_Resolve (Expression (Assoc), Component_Type (Typ));
+            end if;
+
+            Next (Assoc);
+         end loop;
+
+      else
+         Assoc := First (Deltas);
+         while Present (Assoc) loop
+            Choice := First (Choice_List (Assoc));
+            while Present (Choice) loop
+               Comp_Type := Get_Component_Type (Choice);
+               Next (Choice);
+            end loop;
+
+            Analyze_And_Resolve (Expression (Assoc), Comp_Type);
+            Next (Assoc);
+         end loop;
+      end if;
+
+      Set_Etype (N, Typ);
+   end Resolve_Delta_Aggregate;
 
    ---------------------------------
    -- Resolve_Extension_Aggregate --

@@ -404,9 +404,15 @@ build_target_expr (tree decl, tree value, tsubst_flags_t complain)
 		       || useless_type_conversion_p (TREE_TYPE (decl),
 						     TREE_TYPE (value)));
 
-  t = cxx_maybe_build_cleanup (decl, complain);
-  if (t == error_mark_node)
-    return error_mark_node;
+  if (complain & tf_no_cleanup)
+    /* The caller is building a new-expr and does not need a cleanup.  */
+    t = NULL_TREE;
+  else
+    {
+      t = cxx_maybe_build_cleanup (decl, complain);
+      if (t == error_mark_node)
+	return error_mark_node;
+    }
   t = build4 (TARGET_EXPR, type, decl, value, t, NULL_TREE);
   if (EXPR_HAS_LOCATION (value))
     SET_EXPR_LOCATION (t, EXPR_LOCATION (value));
@@ -4411,6 +4417,14 @@ decl_linkage (tree decl)
   /* Things that are TREE_PUBLIC have external linkage.  */
   if (TREE_PUBLIC (decl))
     return lk_external;
+
+  /* maybe_thunk_body clears TREE_PUBLIC on the maybe-in-charge 'tor variants,
+     check one of the "clones" for the real linkage.  */
+  if ((DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl)
+       || DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl))
+      && DECL_CHAIN (decl)
+      && DECL_CLONED_FUNCTION (DECL_CHAIN (decl)))
+    return decl_linkage (DECL_CHAIN (decl));
 
   if (TREE_CODE (decl) == NAMESPACE_DECL)
     return lk_external;

@@ -1101,7 +1101,7 @@ package body Exp_Ch4 is
       --  generating C code, to simplify the work in the code generator.
 
       elsif Aggr_In_Place
-        or else (Generate_C_Code and then Nkind (Exp) = N_Aggregate)
+        or else (Modify_Tree_For_C and then Nkind (Exp) = N_Aggregate)
       then
          Temp := Make_Temporary (Loc, 'P', N);
          Temp_Decl :=
@@ -3286,9 +3286,12 @@ package body Exp_Ch4 is
       --  very weird cases, so in the general case we need an overflow check on
       --  the high bound. We can avoid this for the common case of string types
       --  and other types whose index is Positive, since we chose a wider range
-      --  for the arithmetic type.
+      --  for the arithmetic type. If checks are suppressed we do not set the
+      --  flag, and possibly superfluous warnings will be omitted.
 
-      if Istyp /= Standard_Positive then
+      if Istyp /= Standard_Positive
+        and then not Overflow_Checks_Suppressed (Istyp)
+      then
          Activate_Overflow_Check (High_Bound);
       end if;
 

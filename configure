@@ -641,6 +641,7 @@ CXXFLAGS_FOR_TARGET
 CFLAGS_FOR_TARGET
 DEBUG_PREFIX_CFLAGS_FOR_TARGET
 SYSROOT_CFLAGS_FOR_TARGET
+get_gcc_base_ver
 extra_host_zlib_configure_flags
 extra_host_libiberty_configure_flags
 stage1_languages
@@ -786,6 +787,7 @@ enable_objc_gc
 with_target_bdw_gc
 with_target_bdw_gc_include
 with_target_bdw_gc_lib
+with_gcc_major_version_only
 with_build_sysroot
 with_debug_prefix_map
 with_build_config
@@ -1562,6 +1564,8 @@ Optional Packages:
                           files
   --with-target-bdw-gc-lib=PATHLIST
                           specify directories for installed bdw-gc library
+  --with-gcc-major-version-only
+                          use only GCC major number in filesystem paths
   --with-build-sysroot=SYSROOT
                           use sysroot as the system root during the build
   --with-debug-prefix-map='A=B C=D ...'
@@ -2750,6 +2754,7 @@ target_libraries="target-libgcc \
 		target-libgomp \
 		target-libcilkrts \
 		target-liboffloadmic \
+		target-libhsail-rt \
 		target-libatomic \
 		target-libitm \
 		target-libstdc++-v3 \
@@ -3299,6 +3304,26 @@ $as_echo "yes" >&6; }
     fi
 fi
 
+# Disable libhsail-rt on unsupported systems.
+if test -d ${srcdir}/libhsail-rt; then
+    if test x$enable_libhsail_rt = x; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libhsail-rt support" >&5
+$as_echo_n "checking for libhsail-rt support... " >&6; }
+        if (srcdir=${srcdir}/libhsail-rt; \
+                . ${srcdir}/configure.tgt; \
+                test -n "$UNSUPPORTED")
+        then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+            unsupported_languages="$unsupported_languages brig"
+            # This implicitly disables also target-libhsail-rt as it won't
+            # get added to the build without BRIG FE.
+        else
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+        fi
+    fi
+fi
 
 
 # Disable libquadmath for some systems.
@@ -6619,6 +6644,20 @@ if test "${PATH_SEPARATOR+set}" != set; then
 fi
 
 
+  get_gcc_base_ver="cat"
+
+# Check whether --with-gcc-major-version-only was given.
+if test "${with_gcc_major_version_only+set}" = set; then :
+  withval=$with_gcc_major_version_only; if test x$with_gcc_major_version_only = xyes ; then
+        get_gcc_base_ver="sed -e 's/^\([0-9]*\).*\$\$/\1/'"
+      fi
+
+fi
+
+
+
+
+
 
 if test "x$exec_prefix" = xNONE; then
         if test "x$prefix" = xNONE; then
@@ -6634,7 +6673,11 @@ fi
 # case, if there is no compiler in the tree nobody should use
 # AS_FOR_TARGET and LD_FOR_TARGET.
 if test x$host = x$build && test -f $srcdir/gcc/BASE-VER; then
-    gcc_version=`cat $srcdir/gcc/BASE-VER`
+    if test x$with_gcc_major_version_only = xyes ; then
+                gcc_version=`sed -e 's/^\([0-9]*\).*$/\1/' $srcdir/gcc/BASE-VER`
+            else
+        gcc_version=`cat $srcdir/gcc/BASE-VER`
+    fi
     gcc_cv_tool_dirs="$gcc_cv_tool_prefix/libexec/gcc/$target_noncanonical/$gcc_version$PATH_SEPARATOR"
     gcc_cv_tool_dirs="$gcc_cv_tool_dirs$gcc_cv_tool_prefix/libexec/gcc/$target_noncanonical$PATH_SEPARATOR"
     gcc_cv_tool_dirs="$gcc_cv_tool_dirs/usr/lib/gcc/$target_noncanonical/$gcc_version$PATH_SEPARATOR"

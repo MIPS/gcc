@@ -1206,8 +1206,21 @@ asan_poison_variables (hash_set<tree> *variables, bool poison, gimple_seq *seq_p
 
   sorted_variables.qsort (sort_by_decl_uid);
 
-  for (unsigned i = 0; i < sorted_variables.length (); i++)
-    asan_poison_variable (sorted_variables[i], poison, seq_p);
+  unsigned i;
+  tree var;
+  FOR_EACH_VEC_ELT (sorted_variables, i, var)
+    {
+      asan_poison_variable (var, poison, seq_p);
+
+      /* Add use_after_scope_memory attribute for the variable in order
+	 to prevent re-written into SSA.  */
+      if (!lookup_attribute (ASAN_USE_AFTER_SCOPE_ATTRIBUTE,
+			     DECL_ATTRIBUTES (var)))
+	DECL_ATTRIBUTES (var)
+	  = tree_cons (get_identifier (ASAN_USE_AFTER_SCOPE_ATTRIBUTE),
+		       integer_one_node,
+		       DECL_ATTRIBUTES (var));
+    }
 }
 
 /* Gimplify a BIND_EXPR.  Just voidify and recurse.  */
@@ -1985,7 +1998,7 @@ should_warn_for_implicit_fallthrough (gimple_stmt_iterator *gsi_p, tree label)
   if (FALLTHROUGH_LABEL_P (label))
     return false;
 
-  /* Don't warn for a non-case label followed by a statement:
+  /* Don't warn for non-case labels followed by a statement:
        case 0:
 	 foo ();
        label:
@@ -1993,7 +2006,12 @@ should_warn_for_implicit_fallthrough (gimple_stmt_iterator *gsi_p, tree label)
      as these are likely intentional.  */
   if (!case_label_p (&gimplify_ctxp->case_labels, label))
     {
-      gsi_next (&gsi);
+      tree l;
+      while (!gsi_end_p (gsi)
+	     && gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL
+	     && (l = gimple_label_label (as_a <glabel *> (gsi_stmt (gsi))))
+	     && !case_label_p (&gimplify_ctxp->case_labels, l))
+	gsi_next (&gsi);
       if (gsi_end_p (gsi) || gimple_code (gsi_stmt (gsi)) != GIMPLE_LABEL)
 	return false;
     }
@@ -4586,8 +4604,8 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     }
 
   object = TREE_OPERAND (*expr_p, 0);
-  ctor = TREE_OPERAND (*expr_p, 1) =
-    optimize_compound_literals_in_ctor (TREE_OPERAND (*expr_p, 1));
+  ctor = TREE_OPERAND (*expr_p, 1)
+    = optimize_compound_literals_in_ctor (TREE_OPERAND (*expr_p, 1));
   type = TREE_TYPE (ctor);
   elts = CONSTRUCTOR_ELTS (ctor);
   ret = GS_ALL_DONE;
@@ -4911,6 +4929,8 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     {
       tree lhs = TREE_OPERAND (*expr_p, 0);
       tree rhs = TREE_OPERAND (*expr_p, 1);
+      if (want_value && object == lhs)
+	lhs = unshare_expr (lhs);
       gassign *init = gimple_build_assign (lhs, rhs);
       gimplify_seq_add_stmt (pre_p, init);
     }
@@ -7132,7 +7152,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	  gcc_assert (DECL_P (t));
 	  n2 = splay_tree_lookup (ctx->variables, (splay_tree_key) t);
 	  if (n2)
-	    n2->value |= GOVD_SEEN;
+	    omp_notice_variable (ctx, t, true);
 	}
     }
 

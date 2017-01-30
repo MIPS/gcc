@@ -5332,7 +5332,7 @@ cp_parser_primary_expression (cp_parser *parser,
 		 template_p, done, address_p,
 		 template_arg_p,
 		 &error_msg,
-                 id_expr_token->location));
+		 id_expression.get_location ()));
 	if (error_msg)
 	  cp_parser_error (parser, error_msg);
 	decl.set_location (id_expr_token->location);
@@ -5425,7 +5425,7 @@ cp_parser_id_expression (cp_parser *parser,
       tree saved_scope;
       tree saved_object_scope;
       tree saved_qualifying_scope;
-      tree unqualified_id;
+      cp_expr unqualified_id;
       bool is_template;
 
       /* See if the next token is the `template' keyword.  */
@@ -6971,6 +6971,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 			|| type_dependent_expression_p (fn)
 			|| any_type_dependent_arguments_p (args)))
 		  {
+		    maybe_generic_this_capture (instance, fn);
 		    postfix_expression
 		      = build_nt_call_vec (postfix_expression, args);
 		    release_tree_vector (args);
@@ -9497,11 +9498,12 @@ cp_parser_builtin_offsetof (cp_parser *parser)
   token = cp_lexer_peek_token (parser->lexer);
 
   /* Build the (type *)null that begins the traditional offsetof macro.  */
-  expr = build_static_cast (build_pointer_type (type), null_pointer_node,
-                            tf_warning_or_error);
+  tree object_ptr
+    = build_static_cast (build_pointer_type (type), null_pointer_node,
+			 tf_warning_or_error);
 
   /* Parse the offsetof-member-designator.  We begin as if we saw "expr->".  */
-  expr = cp_parser_postfix_dot_deref_expression (parser, CPP_DEREF, expr,
+  expr = cp_parser_postfix_dot_deref_expression (parser, CPP_DEREF, object_ptr,
 						 true, &dummy, token->location);
   while (true)
     {
@@ -9553,7 +9555,7 @@ cp_parser_builtin_offsetof (cp_parser *parser)
   loc = make_location (loc, start_loc, finish_loc);
   /* The result will be an INTEGER_CST, so we need to explicitly
      preserve the location.  */
-  expr = cp_expr (finish_offsetof (expr, loc), loc);
+  expr = cp_expr (finish_offsetof (object_ptr, expr, loc), loc);
 
  failure:
   parser->integral_constant_expression_p = save_ice_p;
@@ -10173,6 +10175,9 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
 	pedwarn (parser->lexer->next_token->location, 0,
 		 "lambda templates are only available with "
 		 "-std=c++14 or -std=gnu++14");
+      else
+	pedwarn (parser->lexer->next_token->location, OPT_Wpedantic,
+		 "ISO C++ does not support lambda templates");
 
       cp_lexer_consume_token (parser->lexer);
 
@@ -13025,9 +13030,6 @@ cp_parser_decomposition_declaration (cp_parser *parser,
       *init_loc = cp_lexer_peek_token (parser->lexer)->location;
       tree initializer = cp_parser_initializer (parser, &is_direct_init,
 						&non_constant_p);
-      if (TREE_CODE (initializer) == TREE_LIST)
-	initializer = build_x_compound_expr_from_list (initializer, ELK_INIT,
-						       tf_warning_or_error);
 
       if (decl != error_mark_node)
 	{
@@ -20450,6 +20452,33 @@ parsing_nsdmi (void)
       && DECL_CONTEXT (current_class_ptr) == NULL_TREE)
     return true;
   return false;
+}
+
+/* Return true iff our current scope is a default capturing generic lambda
+   defined within a template.  FIXME: This is part of a workaround (see
+   semantics.c) to handle building lambda closure types correctly in templates
+   which we ultimately want to defer to instantiation time. */
+
+bool
+parsing_default_capturing_generic_lambda_in_template (void)
+{
+  if (!processing_template_decl || !current_class_type)
+    return false;
+
+  tree lam = CLASSTYPE_LAMBDA_EXPR (current_class_type);
+  if (!lam || LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lam) == CPLD_NONE)
+    return false;
+
+  tree callop = lambda_function (lam);
+  if (!callop)
+    return false;
+
+  return (DECL_TEMPLATE_INFO (callop)
+	  && (DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (callop)) == callop)
+	  && ((current_nonlambda_class_type ()
+	       && CLASSTYPE_TEMPLATE_INFO (current_nonlambda_class_type ()))
+	      || ((current_nonlambda_function ()
+		   && DECL_TEMPLATE_INFO (current_nonlambda_function ())))));
 }
 
 /* Parse a late-specified return type, if any.  This is not a separate

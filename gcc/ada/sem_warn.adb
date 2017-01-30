@@ -4323,7 +4323,12 @@ package body Sem_Warn is
                   begin
                      --  Don't give this for OUT and IN OUT formals, since
                      --  clearly caller may reference the assigned value. Also
-                     --  never give such warnings for internal variables.
+                     --  never give such warnings for internal variables. In
+                     --  either case, word the warning in a conditional way,
+                     --  because in the case of a component of a controlled
+                     --  type, the assigned value might be referenced in the
+                     --  Finalize operation, so we can't make a definitive
+                     --  statement that it's never referenced.
 
                      if Ekind (Ent) = E_Variable
                        and then not Is_Internal_Name (Chars (Ent))
@@ -4331,17 +4336,17 @@ package body Sem_Warn is
                         --  Give appropriate message, distinguishing between
                         --  assignment statements and out parameters.
 
-                        if Nkind_In (Parent (LA), N_Procedure_Call_Statement,
-                                                  N_Parameter_Association)
+                        if Nkind_In (Parent (LA), N_Parameter_Association,
+                                                  N_Procedure_Call_Statement)
                         then
                            Error_Msg_NE
-                             ("?m?& modified by call, but value never "
+                             ("?m?& modified by call, but value might not be "
                               & "referenced", LA, Ent);
 
                         else
                            Error_Msg_NE -- CODEFIX
-                             ("?m?useless assignment to&, value never "
-                              & "referenced!", LA, Ent);
+                             ("?m?possibly useless assignment to&, value "
+                              & "might not be referenced!", LA, Ent);
                         end if;
                      end if;
                   end;

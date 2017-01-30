@@ -84,6 +84,9 @@ package body Exp_Aggr is
    --  expression with actions, which becomes the Initialization_Statements for
    --  Obj.
 
+   procedure Expand_Delta_Array_Aggregate  (N : Node_Id; Deltas : List_Id);
+   procedure Expand_Delta_Record_Aggregate (N : Node_Id; Deltas : List_Id);
+
    function Has_Default_Init_Comps (N : Node_Id) return Boolean;
    --  N is an aggregate (record or array). Checks the presence of default
    --  initialization (<>) in any component (Ada 2005: AI-287).
@@ -3657,7 +3660,7 @@ package body Exp_Aggr is
                   end if;
                end if;
 
-               if Generate_C_Code
+               if Modify_Tree_For_C
                  and then Nkind (Expr_Q) = N_Aggregate
                  and then Is_Array_Type (Etype (Expr_Q))
                  and then Present (First_Index (Etype (Expr_Q)))
@@ -6245,7 +6248,7 @@ package body Exp_Aggr is
          if (In_Place_Assign_OK_For_Declaration or else Maybe_In_Place_OK)
            and then not AAMP_On_Target
            and then not CodePeer_Mode
-           and then not Generate_C_Code
+           and then not Modify_Tree_For_C
            and then not Possible_Bit_Aligned_Component (Target)
            and then not Is_Possibly_Unaligned_Slice (Target)
            and then Aggr_Assignment_OK_For_Backend (N)
@@ -6436,6 +6439,165 @@ package body Exp_Aggr is
          return;
    end Expand_N_Aggregate;
 
+   ------------------------------
+   -- Expand_N_Delta_Aggregate --
+   ------------------------------
+
+   procedure Expand_N_Delta_Aggregate (N : Node_Id) is
+      Loc  : constant Source_Ptr := Sloc (N);
+      Typ  : constant Entity_Id  := Etype (N);
+      Decl : Node_Id;
+
+   begin
+      Decl :=
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Make_Temporary (Loc, 'T'),
+          Object_Definition   => New_Occurrence_Of (Typ, Loc),
+          Expression          => New_Copy_Tree (Expression (N)));
+
+      if Is_Array_Type (Etype (N)) then
+         Expand_Delta_Array_Aggregate (N, New_List (Decl));
+      else
+         Expand_Delta_Record_Aggregate (N, New_List (Decl));
+      end if;
+   end Expand_N_Delta_Aggregate;
+
+   ----------------------------------
+   -- Expand_Delta_Array_Aggregate --
+   ----------------------------------
+
+   procedure Expand_Delta_Array_Aggregate (N : Node_Id; Deltas : List_Id) is
+      Loc   : constant Source_Ptr := Sloc (N);
+      Temp  : constant Entity_Id  := Defining_Identifier (First (Deltas));
+      Assoc : Node_Id;
+
+      function Generate_Loop (C : Node_Id) return Node_Id;
+      --  Generate a loop containing individual component assignments for
+      --  choices that are ranges, subtype indications, subtype names, and
+      --  iterated component associations.
+
+      -------------------
+      -- Generate_Loop --
+      -------------------
+
+      function Generate_Loop (C : Node_Id) return Node_Id is
+         Sl : constant Source_Ptr := Sloc (C);
+         Ix : Entity_Id;
+
+      begin
+         if Nkind (Parent (C)) = N_Iterated_Component_Association then
+            Ix :=
+              Make_Defining_Identifier (Loc,
+                Chars => (Chars (Defining_Identifier (Parent (C)))));
+         else
+            Ix := Make_Temporary (Sl, 'I');
+         end if;
+
+         return
+           Make_Loop_Statement (Loc,
+             Iteration_Scheme =>
+               Make_Iteration_Scheme (Sl,
+                 Loop_Parameter_Specification =>
+                   Make_Loop_Parameter_Specification (Sl,
+                     Defining_Identifier         => Ix,
+                     Discrete_Subtype_Definition => New_Copy_Tree (C))),
+
+              Statements      => New_List (
+                Make_Assignment_Statement (Sl,
+                  Name       =>
+                    Make_Indexed_Component (Sl,
+                      Prefix      => New_Occurrence_Of (Temp, Sl),
+                      Expressions => New_List (New_Occurrence_Of (Ix, Sl))),
+                  Expression => New_Copy_Tree (Expression (Assoc)))),
+              End_Label       => Empty);
+      end Generate_Loop;
+
+      --  Local variables
+
+      Choice : Node_Id;
+
+   --  Start of processing for Expand_Delta_Array_Aggregate
+
+   begin
+      Assoc := First (Component_Associations (N));
+      while Present (Assoc) loop
+         Choice := First (Choice_List (Assoc));
+         if Nkind (Assoc) = N_Iterated_Component_Association then
+            while Present (Choice) loop
+               Append_To (Deltas, Generate_Loop (Choice));
+               Next (Choice);
+            end loop;
+
+         else
+            while Present (Choice) loop
+
+               --  Choice can be given by a range, a subtype indication, a
+               --  subtype name, a scalar value, or an entity.
+
+               if Nkind (Choice) = N_Range
+                 or else (Is_Entity_Name (Choice)
+                           and then Is_Type (Entity (Choice)))
+               then
+                  Append_To (Deltas, Generate_Loop (Choice));
+
+               elsif Nkind (Choice) = N_Subtype_Indication then
+                  Append_To (Deltas,
+                    Generate_Loop (Range_Expression (Constraint (Choice))));
+
+               else
+                  Append_To (Deltas,
+                    Make_Assignment_Statement (Sloc (Choice),
+                      Name       =>
+                        Make_Indexed_Component (Sloc (Choice),
+                          Prefix      => New_Occurrence_Of (Temp, Loc),
+                          Expressions => New_List (New_Copy_Tree (Choice))),
+                      Expression => New_Copy_Tree (Expression (Assoc))));
+               end if;
+
+               Next (Choice);
+            end loop;
+         end if;
+
+         Next (Assoc);
+      end loop;
+
+      Insert_Actions (N, Deltas);
+      Rewrite (N, New_Occurrence_Of (Temp, Loc));
+   end Expand_Delta_Array_Aggregate;
+
+   -----------------------------------
+   -- Expand_Delta_Record_Aggregate --
+   -----------------------------------
+
+   procedure Expand_Delta_Record_Aggregate (N : Node_Id; Deltas : List_Id) is
+      Loc    : constant Source_Ptr := Sloc (N);
+      Temp   : constant Entity_Id  := Defining_Identifier (First (Deltas));
+      Assoc  : Node_Id;
+      Choice : Node_Id;
+
+   begin
+      Assoc := First (Component_Associations (N));
+
+      while Present (Assoc) loop
+         Choice := First (Choice_List (Assoc));
+         while Present (Choice) loop
+            Append_To (Deltas,
+              Make_Assignment_Statement (Sloc (Choice),
+                Name       =>
+                  Make_Selected_Component (Sloc (Choice),
+                    Prefix        => New_Occurrence_Of (Temp, Loc),
+                    Selector_Name => Make_Identifier (Loc, Chars (Choice))),
+                Expression => New_Copy_Tree (Expression (Assoc))));
+            Next (Choice);
+         end loop;
+
+         Next (Assoc);
+      end loop;
+
+      Insert_Actions (N, Deltas);
+      Rewrite (N, New_Occurrence_Of (Temp, Loc));
+   end Expand_Delta_Record_Aggregate;
+
    ----------------------------------
    -- Expand_N_Extension_Aggregate --
    ----------------------------------
@@ -6507,6 +6669,9 @@ package body Exp_Aggr is
       --  and the aggregate can be constructed statically and handled by
       --  the back-end.
 
+      procedure Build_Back_End_Aggregate;
+      --  Build a proper aggregate to be handled by the back-end
+
       function Compile_Time_Known_Composite_Value (N : Node_Id) return Boolean;
       --  Returns true if N is an expression of composite type which can be
       --  fully evaluated at compile time without raising constraint error.
@@ -6548,6 +6713,321 @@ package body Exp_Aggr is
       function Top_Level_Aggregate (N : Node_Id) return Node_Id;
       --  For nested aggregates return the ultimate enclosing aggregate; for
       --  non-nested aggregates return N.
+
+      ------------------------------
+      -- Build_Back_End_Aggregate --
+      ------------------------------
+
+      procedure Build_Back_End_Aggregate is
+         Comp      : Entity_Id;
+         New_Comp  : Node_Id;
+         Tag_Value : Node_Id;
+
+      begin
+         if Nkind (N) = N_Aggregate then
+
+            --  If the aggregate is static and can be handled by the back-end,
+            --  nothing left to do.
+
+            if Static_Components then
+               Set_Compile_Time_Known_Aggregate (N);
+               Set_Expansion_Delayed (N, False);
+            end if;
+         end if;
+
+         --  If no discriminants, nothing special to do
+
+         if not Has_Discriminants (Typ) then
+            null;
+
+         --  Case of discriminants present
+
+         elsif Is_Derived_Type (Typ) then
+
+            --  For untagged types, non-stored discriminants are replaced with
+            --  stored discriminants, which are the ones that gigi uses to
+            --  describe the type and its components.
+
+            Generate_Aggregate_For_Derived_Type : declare
+               procedure Prepend_Stored_Values (T : Entity_Id);
+               --  Scan the list of stored discriminants of the type, and add
+               --  their values to the aggregate being built.
+
+               ---------------------------
+               -- Prepend_Stored_Values --
+               ---------------------------
+
+               procedure Prepend_Stored_Values (T : Entity_Id) is
+                  Discr      : Entity_Id;
+                  First_Comp : Node_Id := Empty;
+
+               begin
+                  Discr := First_Stored_Discriminant (T);
+                  while Present (Discr) loop
+                     New_Comp :=
+                       Make_Component_Association (Loc,
+                         Choices    => New_List (
+                           New_Occurrence_Of (Discr, Loc)),
+                         Expression =>
+                           New_Copy_Tree
+                             (Get_Discriminant_Value
+                                (Discr,
+                                 Typ,
+                                 Discriminant_Constraint (Typ))));
+
+                     if No (First_Comp) then
+                        Prepend_To (Component_Associations (N), New_Comp);
+                     else
+                        Insert_After (First_Comp, New_Comp);
+                     end if;
+
+                     First_Comp := New_Comp;
+                     Next_Stored_Discriminant (Discr);
+                  end loop;
+               end Prepend_Stored_Values;
+
+               --  Local variables
+
+               Constraints : constant List_Id := New_List;
+
+               Discr    : Entity_Id;
+               Decl     : Node_Id;
+               Num_Disc : Nat := 0;
+               Num_Gird : Nat := 0;
+
+            --  Start of processing for Generate_Aggregate_For_Derived_Type
+
+            begin
+               --  Remove the associations for the discriminant of derived type
+
+               declare
+                  First_Comp : Node_Id;
+
+               begin
+                  First_Comp := First (Component_Associations (N));
+                  while Present (First_Comp) loop
+                     Comp := First_Comp;
+                     Next (First_Comp);
+
+                     if Ekind (Entity (First (Choices (Comp)))) =
+                          E_Discriminant
+                     then
+                        Remove (Comp);
+                        Num_Disc := Num_Disc + 1;
+                     end if;
+                  end loop;
+               end;
+
+               --  Insert stored discriminant associations in the correct
+               --  order. If there are more stored discriminants than new
+               --  discriminants, there is at least one new discriminant that
+               --  constrains more than one of the stored discriminants. In
+               --  this case we need to construct a proper subtype of the
+               --  parent type, in order to supply values to all the
+               --  components. Otherwise there is one-one correspondence
+               --  between the constraints and the stored discriminants.
+
+               Discr := First_Stored_Discriminant (Base_Type (Typ));
+               while Present (Discr) loop
+                  Num_Gird := Num_Gird + 1;
+                  Next_Stored_Discriminant (Discr);
+               end loop;
+
+               --  Case of more stored discriminants than new discriminants
+
+               if Num_Gird > Num_Disc then
+
+                  --  Create a proper subtype of the parent type, which is the
+                  --  proper implementation type for the aggregate, and convert
+                  --  it to the intended target type.
+
+                  Discr := First_Stored_Discriminant (Base_Type (Typ));
+                  while Present (Discr) loop
+                     New_Comp :=
+                       New_Copy_Tree
+                         (Get_Discriminant_Value
+                            (Discr,
+                             Typ,
+                             Discriminant_Constraint (Typ)));
+
+                     Append (New_Comp, Constraints);
+                     Next_Stored_Discriminant (Discr);
+                  end loop;
+
+                  Decl :=
+                    Make_Subtype_Declaration (Loc,
+                      Defining_Identifier => Make_Temporary (Loc, 'T'),
+                      Subtype_Indication  =>
+                        Make_Subtype_Indication (Loc,
+                          Subtype_Mark =>
+                            New_Occurrence_Of (Etype (Base_Type (Typ)), Loc),
+                          Constraint   =>
+                            Make_Index_Or_Discriminant_Constraint
+                              (Loc, Constraints)));
+
+                  Insert_Action (N, Decl);
+                  Prepend_Stored_Values (Base_Type (Typ));
+
+                  Set_Etype (N, Defining_Identifier (Decl));
+                  Set_Analyzed (N);
+
+                  Rewrite (N, Unchecked_Convert_To (Typ, N));
+                  Analyze (N);
+
+               --  Case where we do not have fewer new discriminants than
+               --  stored discriminants, so in this case we can simply use the
+               --  stored discriminants of the subtype.
+
+               else
+                  Prepend_Stored_Values (Typ);
+               end if;
+            end Generate_Aggregate_For_Derived_Type;
+         end if;
+
+         if Is_Tagged_Type (Typ) then
+
+            --  In the tagged case, _parent and _tag component must be created
+
+            --  Reset Null_Present unconditionally. Tagged records always have
+            --  at least one field (the tag or the parent).
+
+            Set_Null_Record_Present (N, False);
+
+            --  When the current aggregate comes from the expansion of an
+            --  extension aggregate, the parent expr is replaced by an
+            --  aggregate formed by selected components of this expr.
+
+            if Present (Parent_Expr) and then Is_Empty_List (Comps) then
+               Comp := First_Component_Or_Discriminant (Typ);
+               while Present (Comp) loop
+
+                  --  Skip all expander-generated components
+
+                  if not Comes_From_Source (Original_Record_Component (Comp))
+                  then
+                     null;
+
+                  else
+                     New_Comp :=
+                       Make_Selected_Component (Loc,
+                         Prefix        =>
+                           Unchecked_Convert_To (Typ,
+                             Duplicate_Subexpr (Parent_Expr, True)),
+                         Selector_Name => New_Occurrence_Of (Comp, Loc));
+
+                     Append_To (Comps,
+                       Make_Component_Association (Loc,
+                         Choices    => New_List (
+                           New_Occurrence_Of (Comp, Loc)),
+                         Expression => New_Comp));
+
+                     Analyze_And_Resolve (New_Comp, Etype (Comp));
+                  end if;
+
+                  Next_Component_Or_Discriminant (Comp);
+               end loop;
+            end if;
+
+            --  Compute the value for the Tag now, if the type is a root it
+            --  will be included in the aggregate right away, otherwise it will
+            --  be propagated to the parent aggregate.
+
+            if Present (Orig_Tag) then
+               Tag_Value := Orig_Tag;
+
+            elsif not Tagged_Type_Expansion then
+               Tag_Value := Empty;
+
+            else
+               Tag_Value :=
+                 New_Occurrence_Of
+                   (Node (First_Elmt (Access_Disp_Table (Typ))), Loc);
+            end if;
+
+            --  For a derived type, an aggregate for the parent is formed with
+            --  all the inherited components.
+
+            if Is_Derived_Type (Typ) then
+               declare
+                  First_Comp   : Node_Id;
+                  Parent_Comps : List_Id;
+                  Parent_Aggr  : Node_Id;
+                  Parent_Name  : Node_Id;
+
+               begin
+                  --  Remove the inherited component association from the
+                  --  aggregate and store them in the parent aggregate
+
+                  First_Comp   := First (Component_Associations (N));
+                  Parent_Comps := New_List;
+                  while Present (First_Comp)
+                    and then
+                      Scope (Original_Record_Component
+                               (Entity (First (Choices (First_Comp))))) /=
+                                                                    Base_Typ
+                  loop
+                     Comp := First_Comp;
+                     Next (First_Comp);
+                     Remove (Comp);
+                     Append (Comp, Parent_Comps);
+                  end loop;
+
+                  Parent_Aggr :=
+                    Make_Aggregate (Loc,
+                      Component_Associations => Parent_Comps);
+                  Set_Etype (Parent_Aggr, Etype (Base_Type (Typ)));
+
+                  --  Find the _parent component
+
+                  Comp := First_Component (Typ);
+                  while Chars (Comp) /= Name_uParent loop
+                     Comp := Next_Component (Comp);
+                  end loop;
+
+                  Parent_Name := New_Occurrence_Of (Comp, Loc);
+
+                  --  Insert the parent aggregate
+
+                  Prepend_To (Component_Associations (N),
+                    Make_Component_Association (Loc,
+                      Choices    => New_List (Parent_Name),
+                      Expression => Parent_Aggr));
+
+                  --  Expand recursively the parent propagating the right Tag
+
+                  Expand_Record_Aggregate
+                    (Parent_Aggr, Tag_Value, Parent_Expr);
+
+                  --  The ancestor part may be a nested aggregate that has
+                  --  delayed expansion: recheck now.
+
+                  if Component_Not_OK_For_Backend then
+                     Convert_To_Assignments (N, Typ);
+                  end if;
+               end;
+
+            --  For a root type, the tag component is added (unless compiling
+            --  for the VMs, where tags are implicit).
+
+            elsif Tagged_Type_Expansion then
+               declare
+                  Tag_Name  : constant Node_Id :=
+                                New_Occurrence_Of
+                                  (First_Tag_Component (Typ), Loc);
+                  Typ_Tag   : constant Entity_Id := RTE (RE_Tag);
+                  Conv_Node : constant Node_Id :=
+                                Unchecked_Convert_To (Typ_Tag, Tag_Value);
+
+               begin
+                  Set_Etype (Conv_Node, Typ_Tag);
+                  Prepend_To (Component_Associations (N),
+                    Make_Component_Association (Loc,
+                      Choices    => New_List (Tag_Name),
+                      Expression => Conv_Node));
+               end;
+            end if;
+         end if;
+      end Build_Back_End_Aggregate;
 
       ----------------------------------------
       -- Compile_Time_Known_Composite_Value --
@@ -6733,8 +7213,8 @@ package body Exp_Aggr is
       begin
          Aggr := N;
          while Present (Parent (Aggr))
-           and then Nkind_In (Parent (Aggr), N_Component_Association,
-                                             N_Aggregate)
+           and then Nkind_In (Parent (Aggr), N_Aggregate,
+                                             N_Component_Association)
          loop
             Aggr := Parent (Aggr);
          end loop;
@@ -6745,9 +7225,6 @@ package body Exp_Aggr is
       --  Local variables
 
       Top_Level_Aggr : constant Node_Id := Top_Level_Aggregate (N);
-      Tag_Value      : Node_Id;
-      Comp           : Entity_Id;
-      New_Comp       : Node_Id;
 
    --  Start of processing for Expand_Record_Aggregate
 
@@ -6777,8 +7254,8 @@ package body Exp_Aggr is
       --  aggregates for C++ imported types must be expanded.
 
       if Ada_Version >= Ada_2005 and then Is_Limited_View (Typ) then
-         if not Nkind_In (Parent (N), N_Object_Declaration,
-                                      N_Component_Association)
+         if not Nkind_In (Parent (N), N_Component_Association,
+                                      N_Object_Declaration)
          then
             Convert_To_Assignments (N, Typ);
 
@@ -6793,9 +7270,11 @@ package body Exp_Aggr is
          then
             Convert_To_Assignments (N, Typ);
 
+         --  In all other cases, build a proper aggregate to be handled by
+         --  the back-end
+
          else
-            Set_Compile_Time_Known_Aggregate (N);
-            Set_Expansion_Delayed (N, False);
+            Build_Back_End_Aggregate;
          end if;
 
       --  Gigi doesn't properly handle temporaries of variable size so we
@@ -6872,300 +7351,8 @@ package body Exp_Aggr is
       --  In all other cases, build a proper aggregate to be handled by gigi
 
       else
-         if Nkind (N) = N_Aggregate then
-
-            --  If the aggregate is static and can be handled by the back-end,
-            --  nothing left to do.
-
-            if Static_Components then
-               Set_Compile_Time_Known_Aggregate (N);
-               Set_Expansion_Delayed (N, False);
-            end if;
-         end if;
-
-         --  If no discriminants, nothing special to do
-
-         if not Has_Discriminants (Typ) then
-            null;
-
-         --  Case of discriminants present
-
-         elsif Is_Derived_Type (Typ) then
-
-            --  For untagged types, non-stored discriminants are replaced
-            --  with stored discriminants, which are the ones that gigi uses
-            --  to describe the type and its components.
-
-            Generate_Aggregate_For_Derived_Type : declare
-               Constraints  : constant List_Id := New_List;
-               First_Comp   : Node_Id;
-               Discriminant : Entity_Id;
-               Decl         : Node_Id;
-               Num_Disc     : Nat := 0;
-               Num_Gird     : Nat := 0;
-
-               procedure Prepend_Stored_Values (T : Entity_Id);
-               --  Scan the list of stored discriminants of the type, and add
-               --  their values to the aggregate being built.
-
-               ---------------------------
-               -- Prepend_Stored_Values --
-               ---------------------------
-
-               procedure Prepend_Stored_Values (T : Entity_Id) is
-               begin
-                  Discriminant := First_Stored_Discriminant (T);
-                  while Present (Discriminant) loop
-                     New_Comp :=
-                       Make_Component_Association (Loc,
-                         Choices    =>
-                           New_List (New_Occurrence_Of (Discriminant, Loc)),
-
-                         Expression =>
-                           New_Copy_Tree
-                             (Get_Discriminant_Value
-                                (Discriminant,
-                                 Typ,
-                                 Discriminant_Constraint (Typ))));
-
-                     if No (First_Comp) then
-                        Prepend_To (Component_Associations (N), New_Comp);
-                     else
-                        Insert_After (First_Comp, New_Comp);
-                     end if;
-
-                     First_Comp := New_Comp;
-                     Next_Stored_Discriminant (Discriminant);
-                  end loop;
-               end Prepend_Stored_Values;
-
-            --  Start of processing for Generate_Aggregate_For_Derived_Type
-
-            begin
-               --  Remove the associations for the discriminant of derived type
-
-               First_Comp := First (Component_Associations (N));
-               while Present (First_Comp) loop
-                  Comp := First_Comp;
-                  Next (First_Comp);
-
-                  if Ekind (Entity (First (Choices (Comp)))) = E_Discriminant
-                  then
-                     Remove (Comp);
-                     Num_Disc := Num_Disc + 1;
-                  end if;
-               end loop;
-
-               --  Insert stored discriminant associations in the correct
-               --  order. If there are more stored discriminants than new
-               --  discriminants, there is at least one new discriminant that
-               --  constrains more than one of the stored discriminants. In
-               --  this case we need to construct a proper subtype of the
-               --  parent type, in order to supply values to all the
-               --  components. Otherwise there is one-one correspondence
-               --  between the constraints and the stored discriminants.
-
-               First_Comp := Empty;
-
-               Discriminant := First_Stored_Discriminant (Base_Type (Typ));
-               while Present (Discriminant) loop
-                  Num_Gird := Num_Gird + 1;
-                  Next_Stored_Discriminant (Discriminant);
-               end loop;
-
-               --  Case of more stored discriminants than new discriminants
-
-               if Num_Gird > Num_Disc then
-
-                  --  Create a proper subtype of the parent type, which is the
-                  --  proper implementation type for the aggregate, and convert
-                  --  it to the intended target type.
-
-                  Discriminant := First_Stored_Discriminant (Base_Type (Typ));
-                  while Present (Discriminant) loop
-                     New_Comp :=
-                       New_Copy_Tree
-                         (Get_Discriminant_Value
-                            (Discriminant,
-                             Typ,
-                             Discriminant_Constraint (Typ)));
-                     Append (New_Comp, Constraints);
-                     Next_Stored_Discriminant (Discriminant);
-                  end loop;
-
-                  Decl :=
-                    Make_Subtype_Declaration (Loc,
-                      Defining_Identifier => Make_Temporary (Loc, 'T'),
-                      Subtype_Indication  =>
-                        Make_Subtype_Indication (Loc,
-                          Subtype_Mark =>
-                            New_Occurrence_Of (Etype (Base_Type (Typ)), Loc),
-                          Constraint   =>
-                            Make_Index_Or_Discriminant_Constraint
-                              (Loc, Constraints)));
-
-                  Insert_Action (N, Decl);
-                  Prepend_Stored_Values (Base_Type (Typ));
-
-                  Set_Etype (N, Defining_Identifier (Decl));
-                  Set_Analyzed (N);
-
-                  Rewrite (N, Unchecked_Convert_To (Typ, N));
-                  Analyze (N);
-
-               --  Case where we do not have fewer new discriminants than
-               --  stored discriminants, so in this case we can simply use the
-               --  stored discriminants of the subtype.
-
-               else
-                  Prepend_Stored_Values (Typ);
-               end if;
-            end Generate_Aggregate_For_Derived_Type;
-         end if;
-
-         if Is_Tagged_Type (Typ) then
-
-            --  In the tagged case, _parent and _tag component must be created
-
-            --  Reset Null_Present unconditionally. Tagged records always have
-            --  at least one field (the tag or the parent).
-
-            Set_Null_Record_Present (N, False);
-
-            --  When the current aggregate comes from the expansion of an
-            --  extension aggregate, the parent expr is replaced by an
-            --  aggregate formed by selected components of this expr.
-
-            if Present (Parent_Expr) and then Is_Empty_List (Comps) then
-               Comp := First_Component_Or_Discriminant (Typ);
-               while Present (Comp) loop
-
-                  --  Skip all expander-generated components
-
-                  if not Comes_From_Source (Original_Record_Component (Comp))
-                  then
-                     null;
-
-                  else
-                     New_Comp :=
-                       Make_Selected_Component (Loc,
-                         Prefix        =>
-                           Unchecked_Convert_To (Typ,
-                             Duplicate_Subexpr (Parent_Expr, True)),
-                         Selector_Name => New_Occurrence_Of (Comp, Loc));
-
-                     Append_To (Comps,
-                       Make_Component_Association (Loc,
-                         Choices    =>
-                           New_List (New_Occurrence_Of (Comp, Loc)),
-                         Expression => New_Comp));
-
-                     Analyze_And_Resolve (New_Comp, Etype (Comp));
-                  end if;
-
-                  Next_Component_Or_Discriminant (Comp);
-               end loop;
-            end if;
-
-            --  Compute the value for the Tag now, if the type is a root it
-            --  will be included in the aggregate right away, otherwise it will
-            --  be propagated to the parent aggregate.
-
-            if Present (Orig_Tag) then
-               Tag_Value := Orig_Tag;
-            elsif not Tagged_Type_Expansion then
-               Tag_Value := Empty;
-            else
-               Tag_Value :=
-                 New_Occurrence_Of
-                   (Node (First_Elmt (Access_Disp_Table (Typ))), Loc);
-            end if;
-
-            --  For a derived type, an aggregate for the parent is formed with
-            --  all the inherited components.
-
-            if Is_Derived_Type (Typ) then
-
-               declare
-                  First_Comp   : Node_Id;
-                  Parent_Comps : List_Id;
-                  Parent_Aggr  : Node_Id;
-                  Parent_Name  : Node_Id;
-
-               begin
-                  --  Remove the inherited component association from the
-                  --  aggregate and store them in the parent aggregate
-
-                  First_Comp := First (Component_Associations (N));
-                  Parent_Comps := New_List;
-                  while Present (First_Comp)
-                    and then
-                      Scope (Original_Record_Component
-                               (Entity (First (Choices (First_Comp))))) /=
-                                                                    Base_Typ
-                  loop
-                     Comp := First_Comp;
-                     Next (First_Comp);
-                     Remove (Comp);
-                     Append (Comp, Parent_Comps);
-                  end loop;
-
-                  Parent_Aggr :=
-                    Make_Aggregate (Loc,
-                      Component_Associations => Parent_Comps);
-                  Set_Etype (Parent_Aggr, Etype (Base_Type (Typ)));
-
-                  --  Find the _parent component
-
-                  Comp := First_Component (Typ);
-                  while Chars (Comp) /= Name_uParent loop
-                     Comp := Next_Component (Comp);
-                  end loop;
-
-                  Parent_Name := New_Occurrence_Of (Comp, Loc);
-
-                  --  Insert the parent aggregate
-
-                  Prepend_To (Component_Associations (N),
-                    Make_Component_Association (Loc,
-                      Choices    => New_List (Parent_Name),
-                      Expression => Parent_Aggr));
-
-                  --  Expand recursively the parent propagating the right Tag
-
-                  Expand_Record_Aggregate
-                    (Parent_Aggr, Tag_Value, Parent_Expr);
-
-                  --  The ancestor part may be a nested aggregate that has
-                  --  delayed expansion: recheck now.
-
-                  if Component_Not_OK_For_Backend then
-                     Convert_To_Assignments (N, Typ);
-                  end if;
-               end;
-
-            --  For a root type, the tag component is added (unless compiling
-            --  for the VMs, where tags are implicit).
-
-            elsif Tagged_Type_Expansion then
-               declare
-                  Tag_Name  : constant Node_Id :=
-                    New_Occurrence_Of (First_Tag_Component (Typ), Loc);
-                  Typ_Tag   : constant Entity_Id := RTE (RE_Tag);
-                  Conv_Node : constant Node_Id :=
-                    Unchecked_Convert_To (Typ_Tag, Tag_Value);
-
-               begin
-                  Set_Etype (Conv_Node, Typ_Tag);
-                  Prepend_To (Component_Associations (N),
-                    Make_Component_Association (Loc,
-                      Choices    => New_List (Tag_Name),
-                      Expression => Conv_Node));
-               end;
-            end if;
-         end if;
+         Build_Back_End_Aggregate;
       end if;
-
    end Expand_Record_Aggregate;
 
    ----------------------------

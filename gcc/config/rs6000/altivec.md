@@ -150,12 +150,15 @@
    UNSPEC_VSUBEUQM
    UNSPEC_VSUBECUQ
    UNSPEC_VBPERMQ
+   UNSPEC_VBPERMD
    UNSPEC_BCDADD
    UNSPEC_BCDSUB
    UNSPEC_BCD_OVERFLOW
    UNSPEC_CMPRB
    UNSPEC_CMPRB2
    UNSPEC_CMPEQB
+   UNSPEC_VRLMI
+   UNSPEC_VRLNM
 ])
 
 (define_c_enum "unspecv"
@@ -168,8 +171,10 @@
 
 ;; Like VI, defined in vector.md, but add ISA 2.07 integer vector ops
 (define_mode_iterator VI2 [V4SI V8HI V16QI V2DI])
-;; Short vec in modes
+;; Short vec int modes
 (define_mode_iterator VIshort [V8HI V16QI])
+;; Longer vec int modes for rotate/mask ops
+(define_mode_iterator VIlong [V2DI V4SI])
 ;; Vec float modes
 (define_mode_iterator VF [V4SF])
 ;; Vec modes, pity mode iterators are not composable
@@ -1627,6 +1632,25 @@
   "vrl<VI_char> %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
+(define_insn "altivec_vrl<VI_char>mi"
+  [(set (match_operand:VIlong 0 "register_operand" "=v")
+        (unspec:VIlong [(match_operand:VIlong 1 "register_operand" "0")
+	                (match_operand:VIlong 2 "register_operand" "v")
+		        (match_operand:VIlong 3 "register_operand" "v")]
+		       UNSPEC_VRLMI))]
+  "TARGET_P9_VECTOR"
+  "vrl<VI_char>mi %0,%2,%3"
+  [(set_attr "type" "veclogical")])
+
+(define_insn "altivec_vrl<VI_char>nm"
+  [(set (match_operand:VIlong 0 "register_operand" "=v")
+        (unspec:VIlong [(match_operand:VIlong 1 "register_operand" "v")
+		        (match_operand:VIlong 2 "register_operand" "v")]
+		       UNSPEC_VRLNM))]
+  "TARGET_P9_VECTOR"
+  "vrl<VI_char>nm %0,%1,%2"
+  [(set_attr "type" "veclogical")])
+
 (define_insn "altivec_vsl"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
@@ -2741,6 +2765,33 @@
 })
 
 ;; Generate
+;;    vspltisw SCRATCH1,0
+;;    vsubu?m SCRATCH2,SCRATCH1,%1
+;;    vmins? %0,%1,SCRATCH2"
+(define_expand "nabs<mode>2"
+  [(set (match_dup 2) (match_dup 3))
+   (set (match_dup 4)
+        (minus:VI2 (match_dup 2)
+		   (match_operand:VI2 1 "register_operand" "v")))
+   (set (match_operand:VI2 0 "register_operand" "=v")
+        (smin:VI2 (match_dup 1) (match_dup 4)))]
+  "<VI_unit>"
+{
+  int i;
+  int n_elt = GET_MODE_NUNITS (<MODE>mode);
+
+  rtvec v = rtvec_alloc (n_elt);
+
+  /* Create an all 0 constant.  */
+  for (i = 0; i < n_elt; ++i)
+    RTVEC_ELT (v, i) = const0_rtx;
+
+  operands[2] = gen_reg_rtx (<MODE>mode);
+  operands[3] = gen_rtx_CONST_VECTOR (<MODE>mode, v);
+  operands[4] = gen_reg_rtx (<MODE>mode);
+})
+
+;; Generate
 ;;    vspltisw SCRATCH1,-1
 ;;    vslw SCRATCH2,SCRATCH1,SCRATCH1
 ;;    vandc %0,%1,SCRATCH2
@@ -3629,8 +3680,26 @@
 		     UNSPEC_VBPERMQ))]
   "TARGET_P8_VECTOR"
   "vbpermq %0,%1,%2"
-  [(set_attr "length" "4")
-   (set_attr "type" "vecsimple")])
+  [(set_attr "type" "vecperm")])
+
+; One of the vector API interfaces requires returning vector unsigned char.
+(define_insn "altivec_vbpermq2"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")
+		       (match_operand:V16QI 2 "register_operand" "v")]
+		      UNSPEC_VBPERMQ))]
+  "TARGET_P8_VECTOR"
+  "vbpermq %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "altivec_vbpermd"
+  [(set (match_operand:V2DI 0 "register_operand" "=v")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "v")
+		      (match_operand:V16QI 2 "register_operand" "v")]
+		     UNSPEC_VBPERMD))]
+  "TARGET_P9_VECTOR"
+  "vbpermd %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
 
 ;; Decimal Integer operations
 (define_int_iterator UNSPEC_BCD_ADD_SUB [UNSPEC_BCDADD UNSPEC_BCDSUB])

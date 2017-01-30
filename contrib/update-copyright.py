@@ -28,13 +28,13 @@
 # output has been vetted.  You can instead pass the names of individual
 # directories, including those that haven't been approved.  So:
 #
-#    update-copyright.pl --this-year
+#    update-copyright.py --this-year
 #
 # is the command that would be used at the beginning of a year to update
 # all copyright notices (and possibly at other times to check whether
 # new files have been added with old years).  On the other hand:
 #
-#    update-copyright.pl --this-year libitm
+#    update-copyright.py --this-year libitm
 #
 # would run the script on just libitm/.
 #
@@ -611,29 +611,6 @@ class LibGCCFilter (GenericFilter):
                 'soft-fp',
                 ])
 
-class LibJavaFilter (GenericFilter):
-    def __init__ (self):
-        GenericFilter.__init__ (self)
-
-        self.skip_dirs |= set ([
-                # Handled separately.
-                'testsuite',
-
-                # Not really part of the library
-                'contrib',
-
-                # Imported from upstream
-                'classpath',
-                'libltdl',
-                ])
-
-    def get_line_filter (self, dir, filename):
-        if filename == 'NameDecoder.h':
-            return re.compile ('.*NAME_COPYRIGHT')
-        if filename == 'ICC_Profile.h':
-            return re.compile ('.*icSigCopyrightTag')
-        return GenericFilter.get_line_filter (self, dir, filename)
-
 class LibStdCxxFilter (GenericFilter):
     def __init__ (self):
         GenericFilter.__init__ (self)
@@ -686,6 +663,7 @@ class GCCCopyright (Copyright):
         self.add_external_author ('Florida State University')
         self.add_external_author ('Greg Colvin and Beman Dawes.')
         self.add_external_author ('Hewlett-Packard Company')
+        self.add_external_author ('Intel Corporation')
         self.add_external_author ('Information Technology Industry Council.')
         self.add_external_author ('James Theiler, Brian Gough')
         self.add_external_author ('Makoto Matsumoto and Takuji Nishimura,')
@@ -733,6 +711,7 @@ class GCCCmdLine (CmdLine):
         self.add_dir ('libgfortran')
         # libgo is imported from upstream.
         self.add_dir ('libgomp')
+        self.add_dir ('libhsail-rt')
         self.add_dir ('libiberty')
         self.add_dir ('libitm')
         self.add_dir ('libobjc')
@@ -758,6 +737,7 @@ class GCCCmdLine (CmdLine):
             'libgcc',
             'libgfortran',
             'libgomp',
+            'libhsail-rt',
             'libiberty',
             'libitm',
             'libobjc',

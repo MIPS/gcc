@@ -67,6 +67,8 @@
 )
 
 (define_c_enum "unspec" [
+    UNSPEC_AUTI1716
+    UNSPEC_AUTISP
     UNSPEC_CASESI
     UNSPEC_CRC32B
     UNSPEC_CRC32CB
@@ -106,6 +108,8 @@
     UNSPEC_LD4_LANE
     UNSPEC_MB
     UNSPEC_NOP
+    UNSPEC_PACI1716
+    UNSPEC_PACISP
     UNSPEC_PRLG_STK
     UNSPEC_RBIT
     UNSPEC_SCVTF
@@ -135,6 +139,7 @@
     UNSPEC_RSQRTE
     UNSPEC_RSQRTS
     UNSPEC_NZCV
+    UNSPEC_XPACLRI
 ])
 
 (define_c_enum "unspecv" [
@@ -575,7 +580,14 @@
 (define_insn "*do_return"
   [(return)]
   ""
-  "ret"
+  {
+    if (aarch64_return_address_signing_enabled ()
+	&& TARGET_ARMV8_3
+	&& !crtl->calls_eh_return)
+      return "retaa";
+
+    return "ret";
+  }
   [(set_attr "type" "branch")]
 )
 
@@ -590,25 +602,6 @@
   ""
   "ret"
   [(set_attr "type" "branch")]
-)
-
-(define_insn "eh_return"
-  [(unspec_volatile [(match_operand:DI 0 "register_operand" "r")]
-    UNSPECV_EH_RETURN)]
-  ""
-  "#"
-  [(set_attr "type" "branch")]
-
-)
-
-(define_split
-  [(unspec_volatile [(match_operand:DI 0 "register_operand" "")]
-    UNSPECV_EH_RETURN)]
-  "reload_completed"
-  [(set (match_dup 1) (match_dup 0))]
-  {
-    operands[1] = aarch64_final_eh_return_addr ();
-  }
 )
 
 (define_insn "*cb<optab><mode>1"
@@ -5025,7 +5018,7 @@
  [(set (match_operand:GPF_TF 0 "register_operand" "=w")
        (mem:GPF_TF (match_operand 1 "aarch64_constant_pool_symref" "S")))
   (clobber (match_operand:P 2 "register_operand" "=&r"))]
- "TARGET_FLOAT && aarch64_nopcrelative_literal_loads"
+ "TARGET_FLOAT"
  {
    aarch64_expand_mov_immediate (operands[2], XEXP (operands[1], 0));
    emit_move_insn (operands[0], gen_rtx_MEM (<GPF_TF:MODE>mode, operands[2]));
@@ -5038,7 +5031,7 @@
  [(set (match_operand:VALL 0 "register_operand" "=w")
        (mem:VALL (match_operand 1 "aarch64_constant_pool_symref" "S")))
   (clobber (match_operand:P 2 "register_operand" "=&r"))]
- "TARGET_FLOAT && aarch64_nopcrelative_literal_loads"
+ "TARGET_FLOAT"
  {
    aarch64_expand_mov_immediate (operands[2], XEXP (operands[1], 0));
    emit_move_insn (operands[0], gen_rtx_MEM (<VALL:MODE>mode, operands[2]));
@@ -5339,6 +5332,39 @@
   ""
   ""
   [(set_attr "length" "0")]
+)
+
+;; Pointer authentication patterns are always provided.  In architecture
+;; revisions prior to ARMv8.3-A these HINT instructions operate as NOPs.
+;; This lets the user write portable software which authenticates pointers
+;; when run on something which implements ARMv8.3-A, and which runs
+;; correctly, but does not authenticate pointers, where ARMv8.3-A is not
+;; implemented.
+
+;; Signing/Authenticating R30 using SP as the salt.
+
+(define_insn "<pauth_mnem_prefix>sp"
+  [(set (reg:DI R30_REGNUM)
+	(unspec:DI [(reg:DI R30_REGNUM) (reg:DI SP_REGNUM)] PAUTH_LR_SP))]
+  ""
+  "hint\t<pauth_hint_num_a> // <pauth_mnem_prefix>asp";
+)
+
+;; Signing/Authenticating X17 using X16 as the salt.
+
+(define_insn "<pauth_mnem_prefix>1716"
+  [(set (reg:DI R17_REGNUM)
+	(unspec:DI [(reg:DI R17_REGNUM) (reg:DI R16_REGNUM)] PAUTH_17_16))]
+  ""
+  "hint\t<pauth_hint_num_a> // <pauth_mnem_prefix>a1716";
+)
+
+;; Stripping the signature in R30.
+
+(define_insn "xpaclri"
+  [(set (reg:DI R30_REGNUM) (unspec:DI [(reg:DI R30_REGNUM)] UNSPEC_XPACLRI))]
+  ""
+  "hint\t7 // xpaclri"
 )
 
 ;; UNSPEC_VOLATILE is considered to use and clobber all hard registers and

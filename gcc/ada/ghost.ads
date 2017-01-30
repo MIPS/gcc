@@ -94,6 +94,10 @@ package Ghost is
    --  Determine whether arbitrary node N denotes a procedure call invoking a
    --  Ghost procedure.
 
+   function Is_Ignored_Ghost_Unit (N : Node_Id) return Boolean;
+   --  Determine whether compilation unit N is subject to pragma Ghost with
+   --  policy Ignore.
+
    procedure Lock;
    --  Lock internal tables before calling backend
 
@@ -182,6 +186,11 @@ package Ghost is
    --  Install the Ghost mode of the procedure call. Mode is the Ghost mode
    --  prior to processing the procedure call. This routine starts a Ghost
    --  region and must be used in conjunction with Restore_Ghost_Mode.
+
+   procedure Mark_Ghost_Clause (N : Node_Id);
+   --  Mark use package, use type, or with clause N as Ghost when:
+   --
+   --    * The clause mentions a Ghost entity
 
    procedure Mark_Ghost_Pragma
      (N  : Node_Id;
