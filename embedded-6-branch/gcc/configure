@@ -916,6 +916,7 @@ enable_rpath
 with_libiconv_prefix
 enable_sjlj_exceptions
 enable_secureplt
+enable_mingw_wildcard
 enable_leading_mingw64_underscores
 enable_cld
 enable_frame_pointer
@@ -1627,6 +1628,8 @@ Optional Features:
   --enable-sjlj-exceptions
                           arrange to use setjmp/longjmp exception handling
   --enable-secureplt      enable -msecure-plt by default for PowerPC
+  --enable-mingw-wildcard Set whether to expand wildcard on command-line.
+                          Default to platform configuration
   --enable-leading-mingw64-underscores
                           enable leading underscores on 64 bit mingw targets
   --enable-cld            enable -mcld by default for 32bit x86
@@ -11969,6 +11972,21 @@ if test "${enable_secureplt+set}" = set; then :
 fi
 
 
+# Check whether --enable-mingw-wildcard was given.
+if test "${enable_mingw_wildcard+set}" = set; then :
+  enableval=$enable_mingw_wildcard;
+else
+  enable_mingw_wildcard=platform
+fi
+
+if test x"$enable_mingw_wildcard" != xplatform ; then :
+
+cat >>confdefs.h <<_ACEOF
+#define MINGW_DOWILDCARD $(test x"$enable_mingw_wildcard" = xno; echo $?)
+_ACEOF
+
+fi
+
 # Check whether --enable-leading-mingw64-underscores was given.
 if test "${enable_leading_mingw64_underscores+set}" = set; then :
   enableval=$enable_leading_mingw64_underscores;
@@ -18460,7 +18478,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18463 "configure"
+#line 18481 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18566,7 +18584,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18569 "configure"
+#line 18587 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

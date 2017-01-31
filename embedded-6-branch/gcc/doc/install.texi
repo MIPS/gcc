@@ -1708,6 +1708,18 @@ Using the GNU Compiler Collection (GCC)},
 See ``i386 and x86-64 Options'' in the main manual
 @end ifhtml
 
+@item --enable-mingw-wildcard
+@itemx --disable-mingw-wildcard
+The @option{--enable-mingw-wildcard} option enables Microsoft Windows-hosted
+GCC to perform wildcard expansion of its arguments, irregardless of the default
+configuration of MinGW runtime.  Conversely, @option{--disable-mingw-wildcard}
+option disables wildcard expansion. When none of these options is specified,
+wildcard expansion will be decided according to the way the MinGW runtime was
+configured.
+
+Note that this option only affects wildcard expansion for GCC itself.  It does
+not affect wildcard expansion of executables built by the resulting GCC.
+
 @item --enable-win32-registry
 @itemx --enable-win32-registry=@var{key}
 @itemx --disable-win32-registry
