@@ -1,3 +1,117 @@
+2017-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79267
+	* value-prof.c (gimple_ic): Only drop lhs for noreturn calls
+	if should_remove_lhs_p is true.
+
+2017-01-30  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/63238
+	* dwarf2out.c (clone_as_declaration): Drop DW_AT_alignment.
+	(add_alignment_attribute): New.
+	(base_type_die): Add alignment attribute.
+	(subrange_type_die): Likewise.
+	(modified_type_die): Likewise.
+	(gen_array_type_die): Likewise.
+	(gen_descr_array_type_die: Likewise.
+	(gen_enumeration_type_die): Likewise.
+	(gen_subprogram_die): Likewise.
+	(gen_variable_die): Likewise.
+	(gen_field_die): Likewise.
+	(gen_ptr_to_mbr_type_die): Likewise.
+	(gen_struct_or_union_type_die): Likewise.
+	(gen_subroutine_type_die): Likewise.
+	(gen_typedef_die): Likewise.
+	(base_type_cmp): Compare alignment attribute.
+
+2017-01-30  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/79170
+	* config/rs6000/altivec.md (*setb_internal): Rename to setb_signed.
+	(setb_unsigned) New pattern for setb with CCUNS.
+	* config/rs6000/rs6000.c (expand_block_compare): Use a different
+	subfc./subfe sequence to avoid overflow problems.  Generate a
+	shorter sequence with cmpld/setb for power9.
+	* config/rs6000/rs6000.md (subf<mode>3_carry_dot2): Add a new pattern
+	for generating subfc. instruction.
+	(cmpstrsi): Add TARGET_POPCNTD predicate as the generate sequence
+	now uses this instruction.
+
+2017-01-30  Ian Lance Taylor  <iant@google.com>
+
+	PR debug/79289
+	* dwarf2out.c (gen_type_die_with_usage): When picking a variant
+	for FUNCTION_TYPE/METHOD_TYPE, use the first matching one.
+
+2017-01-30  Martin Sebor  <msebor@redhat.com>
+
+	* gimple-ssa-sprintf.c (fmtresult::adjust_for_width_or_precision):
+	Move constant to the right of a relational operator.
+	(get_mpfr_format_length, format_character, format_string): Ditto.
+	(should_warn_p, maybe_warn): Same.
+
+	* doc/invoke.texi (-Wformat-truncation=1): Fix typo.
+
+2017-01-30  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR lto/79061
+	* asan.c (get_translation_unit_decl): Remove function.
+	(asan_add_global): Force has_dynamic_init to zero in LTO mode.
+
+2017-01-30  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/79259
+	* opts.c (common_handle_option): Enable flag_ipa_bit_cp w/
+	-fprofile-generate.
+
+2017-01-30  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/78985
+	* config/aarch64/cortex-a57-fma-steering.c (func_fma_steering::analyze):
+	Initialize variables with NULL value.
+
+2017-01-30  Richard Earnshaw  <rearnsh@arm.com>
+
+	PR target/79260
+	* config.gcc (arm*-*-*): Add arm/arm-flags.h and arm/arm-isa.h to
+	tm_p_file.
+	* arm/arm-protos.h: Don't directly include arm-flags.h and arm-isa.h.
+
+2017-01-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79276
+	* tree-vrp.c (process_assert_insertions): Properly adjust common
+	when removing a duplicate.
+
+	* gcc.dg/torture/pr79276.c: New testcase.
+
+2017-01-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79256
+	* targhooks.c (default_builtin_vector_alignment_reachable): Honor
+	BIGGEST_FIELD_ALIGNMENT and ADJUST_FIELD_ALIGN to fix up bogus
+	alignment on TYPE.
+	* tree.c (build_aligned_type): Set TYPE_USER_ALIGN.
+
+2017-01-30  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/79240
+	* config/s390/s390.md ("*r<noxa>sbg_<mode>_srl_bitmask")
+	("*r<noxa>sbg_<mode>_sll_bitmask")
+	("*extzv_<mode>_srl<clobbercc_or_nocc>")
+	("*extzv_<mode>_sll<clobbercc_or_nocc>"):
+	Use contiguous_bitmask_nowrap_operand.
+
+2017-01-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/79268
+	* config/rs6000/altivec.h (vec_xl): Revise #define.
+	(vec_xst): Likewise.
+
+2017-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (print_reg): Use REGNO instead of true_regnum.
+
 2017-01-27  Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR rtl-optimization/79194
