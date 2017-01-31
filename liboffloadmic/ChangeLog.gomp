@@ -1,3 +1,12 @@
+2017-01-31  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport from trunk r245062:
+	2017-01-31  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* plugin/libgomp-plugin-intelmic.cpp (GOMP_OFFLOAD_get_type): Fix
+	return type.
+	(GOMP_OFFLOAD_load_image): Fix argument types.
+
 2016-11-16  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:

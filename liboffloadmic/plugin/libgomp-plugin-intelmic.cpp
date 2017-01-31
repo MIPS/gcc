@@ -190,7 +190,7 @@ GOMP_OFFLOAD_get_caps (void)
   return res;
 }
 
-extern "C" enum offload_target_type
+extern "C" int
 GOMP_OFFLOAD_get_type (void)
 {
   enum offload_target_type res = OFFLOAD_TARGET_TYPE_INTEL_MIC;
@@ -376,7 +376,7 @@ GOMP_OFFLOAD_version (void)
 
 extern "C" int
 GOMP_OFFLOAD_load_image (int device, const unsigned version,
-			 void *target_image, addr_pair **result)
+			 const void *target_image, addr_pair **result)
 {
   TRACE ("(device = %d, target_image = %p)", device, target_image);
 

@@ -666,7 +666,7 @@ destroy_hsa_program (struct agent_info *agent)
    in TARGET_TABLE.  */
 
 int
-GOMP_OFFLOAD_load_image (int ord, unsigned version, void *target_data,
+GOMP_OFFLOAD_load_image (int ord, unsigned version, const void *target_data,
 			 struct addr_pair **target_table)
 {
   if (GOMP_VERSION_DEV (version) > GOMP_VERSION_HSA)
@@ -1455,7 +1455,7 @@ destroy_module (struct module_info *module)
    TRUE on success.  */
 
 bool
-GOMP_OFFLOAD_unload_image (int n, unsigned version, void *target_data)
+GOMP_OFFLOAD_unload_image (int n, unsigned version, const void *target_data)
 {
   if (GOMP_VERSION_DEV (version) > GOMP_VERSION_HSA)
     {
