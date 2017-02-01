@@ -1,3 +1,11 @@
+2017-02-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (convert_to_firstprivate_pointer): Use TYPE_SIZE instead
+	of TYPE_PRECISION when determining if a firstprivate variable may be
+	casted into a pointer.
+	(convert_from_firstprivate_pointer): Likewise.
+	(lower_omp_target): Likewise.
+
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (demote_firstprivate_pointer): New function.

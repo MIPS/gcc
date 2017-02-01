@@ -16480,7 +16480,7 @@ convert_to_firstprivate_pointer (tree var, gimple_seq *gs)
     return fold_convert (pointer_sized_int_node, var);
   }
 
-  switch (TYPE_PRECISION (type))
+  switch (tree_to_uhwi (TYPE_SIZE (type)))
     {
     case 1: case 2: case 4: case 8: new_type = unsigned_char_type_node; break;
     case 16: new_type = short_unsigned_type_node; break;
@@ -16520,7 +16520,7 @@ convert_from_firstprivate_pointer (tree var, bool is_ref, gimple_seq *gs)
   if (INTEGRAL_TYPE_P (var) || POINTER_TYPE_P (type))
     return fold_convert (type, var);
 
-  switch (TYPE_PRECISION (type))
+  switch (tree_to_uhwi (TYPE_SIZE (type)))
     {
     case 1: case 2: case 4: case 8: new_type = unsigned_char_type_node; break;
     case 16: new_type = short_unsigned_type_node; break;
@@ -16732,7 +16732,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		&& (TREE_CODE (inner_type) == REAL_TYPE
 		    || (!is_reference (var) && INTEGRAL_TYPE_P (inner_type))
 		    || TREE_CODE (inner_type) == INTEGER_TYPE)
-		&& TYPE_PRECISION (inner_type) <= POINTER_SIZE
+		&& tree_to_uhwi (TYPE_SIZE (inner_type)) <= POINTER_SIZE
 		&& TYPE_PRECISION (inner_type) != 0
 		&& !maybe_lookup_field_in_outer_ctx (var, ctx))
 	      oacc_firstprivate_int = true;
@@ -17012,7 +17012,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			 || (!is_reference (var)
 			     && INTEGRAL_TYPE_P (inner_type))
 			 || TREE_CODE (inner_type) == INTEGER_TYPE)
-			&& TYPE_PRECISION (inner_type) <= POINTER_SIZE
+			&& tree_to_uhwi (TYPE_SIZE (inner_type)) <= POINTER_SIZE
 			&& TYPE_PRECISION (inner_type) != 0
 			&& !maybe_lookup_field_in_outer_ctx (var, ctx))
 		      {
@@ -17200,7 +17200,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    if (is_reference (ovar))
 	      type = TREE_TYPE (type);
 	    if ((INTEGRAL_TYPE_P (type)
-		 && TYPE_PRECISION (type) <= POINTER_SIZE)
+		 && tree_to_uhwi (TYPE_SIZE (type)) <= POINTER_SIZE)
 		|| TREE_CODE (type) == POINTER_TYPE)
 	      {
 		tkind = GOMP_MAP_FIRSTPRIVATE_INT;
@@ -17355,7 +17355,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		if (is_reference (var))
 		  type = TREE_TYPE (type);
 		if ((INTEGRAL_TYPE_P (type)
-		     && TYPE_PRECISION (type) <= POINTER_SIZE)
+		     && tree_to_uhwi (TYPE_SIZE (type)) <= POINTER_SIZE)
 		    || TREE_CODE (type) == POINTER_TYPE)
 		  {
 		    x = build_receiver_ref (var, false, ctx);
