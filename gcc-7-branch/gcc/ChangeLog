@@ -1,3 +1,100 @@
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79315
+	* tree-cfg.c (move_stmt_op): Never set TREE_BLOCK when it
+	was not set before.
+
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71824
+	* graphite-scop-detection.c (scop_detection::build_scop_breadth):
+	Verify the loops are valid in the merged SESE region.
+	(scop_detection::can_represent_loop_1): Check analyzing the
+	evolution of the number of iterations in the region succeeds.
+
+2017-01-31  Ian Lance Taylor  <iant@golang.org>
+
+	* config/i386/i386.c (ix86_expand_split_stack_prologue): Add
+	REG_ARGS_SIZE note to 32-bit push insns and call insn.
+
+2017-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/79210
+	* input.c (get_substring_ranges_for_loc): Replace line_width
+	assertion with error-handling.
+
+2017-01-31  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/77318
+	* graphite-sese-to-poly.c (extract_affine): Fix assert.
+	(create_pw_aff_from_tree): Take loop parameter.
+	(add_condition_to_pbb): Pass loop of the condition to
+	create_pw_aff_from_tree.
+
+2017-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/s390/s390.c (s390_asan_shadow_offset): New function.
+	(TARGET_ASAN_SHADOW_OFFSET): Redefine.
+
+2017-01-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/78597
+	PR target/79038
+	* config/rs6000/rs6000-protos.h (convert_float128_to_int): Delete,
+	no longer used.
+	(convert_int_to_float128): Likewise.
+	* config/rs6000/rs6000.c (convert_float128_to_int): Likewise.
+	(convert_int_to_float128): Likewise.
+	* config/rs6000/rs6000.md (UNSPEC_IEEE128_MOVE): Likewise.
+	(UNSPEC_IEEE128_CONVERT): Likewise.
+	(floatsi<mode>2, FLOAT128 iterator): Bypass calling
+	rs6000_expand_float128_convert if we have IEEE 128-bit hardware.
+	Use local variables for IBM extended format.
+	(fix_trunc<mode>si2, FLOAT128 iterator): Likewise.
+	(fix_trunc<mode>si2_fprs): Likewise.
+	(fixuns_trunc<IEEE128:mode><SDI:mode>2): Likewise.
+	(floatuns<IEEE128:mode>2, IEEE128 iterator): Likewise.
+	(fix<uns>_<mode>si2_hw): Rework the IEEE 128-bt hardware support
+	to know that we can now have integers of all sizes in vector
+	registers.
+	(fix<uns>_<mode>di2_hw): Likewise.
+	(float<uns>_<mode>si2_hw): Likewise.
+	(fix_<mode>si2_hw): Likewise.
+	(fixuns_<mode>si2_hw): Likewise.
+	(float<uns>_<mode>di2_hw): Likewise.
+	(float_<mode>di2_hw): Likewise.
+	(float_<mode>si2_hw): Likewise.
+	(floatuns_<mode>di2_hw): Likewise.
+	(floatuns_<mode>si2_hw): Likewise.
+	(xscvqp<su>wz_<mode>): Delete, no longer used.
+	(xscvqp<su>dz_<mode>): Likewise.
+	(xscv<su>dqp_<mode>): Likewise.
+	(ieee128_mfvsrd_64bit): Likewise.
+	(ieee128_mfvsrd_32bit): Likewise.
+	(ieee128_mfvsrwz): Likewise.
+	(ieee128_mtvsrw): Likewise.
+	(ieee128_mtvsrd_64bit): Likewise.
+	(ieee128_mtvsrd_32bit): Likewise.
+
+2017-01-31  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/79285
+	* ipa-prop.c (ipa_free_all_node_params): Call release method
+	instead of ~sumbol_summary to not to trigger double times
+	dtor of hash_map.
+
+2017-01-31  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR tree-optimization/71691
+	* bitmap.h (class auto_bitmap): New.
+	* tree-ssa-loop-unswitch.c (tree_may_unswitch_on): Call
+	is_maybe_undefined instead of ssa_undefined_value_p.
+
+2017-01-31  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-c.c (s390_cpu_cpp_builtins_internal): Rename
+	__S390_ARCH_LEVEL__ to __ARCH__.
+
 2017-01-31  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/79267

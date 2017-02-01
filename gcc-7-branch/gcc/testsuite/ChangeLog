@@ -1,3 +1,60 @@
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79315
+	* gfortran.dg/pr79315.f90: New testcase.
+
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71824
+	* gcc.dg/graphite/pr71824.c: New testcase.
+
+2017-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79304
+	* g++.dg/diagnostic/pr79304.C: New test.
+
+2017-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/79298
+	* g++.dg/spellcheck-pr79298.C: New test case.
+
+2017-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/79210
+	* gcc.dg/format/pr79210.c: New test case.
+	* gcc.dg/plugin/diagnostic-test-string-literals-2.c (test_pr79210):
+	New function.
+
+2017-01-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79290
+	* g++.dg/warn/pr79290.C: New.
+
+	PR c++/67273
+	PR c++/79253
+	* g++.dg/cpp1y/pr67273.C: New.
+	* g++.dg/cpp1y/pr79253.C: New.
+
+2017-01-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79264
+	* g++.dg/cpp1y/pr61636-1.C: Augment.
+
+2017-01-31  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.dg/memcmp-1.c (static void test_driver_memcmp): Call
+	rand() instead of random().
+
+2017-01-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR tree-optimization/71691
+	* gcc.dg/loop-unswitch-5.c: Test that we actually unswitch a loop.
+
+2017-01-31  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/s390.exp: Rename __S390_ARCH_LEVEL__ to
+	__ARCH__.
+
 2017-01-31  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/79267
