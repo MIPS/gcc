@@ -1986,9 +1986,10 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 					     TREE_TYPE (field), decl, field,
 					     NULL_TREE);
 		  type = TREE_TYPE (scratch);
-		  ptr = gfc_create_var (build_pointer_type (void_type_node),
-					NULL);
-		  gfc_add_modify (block, ptr, build_fold_addr_expr (scratch));
+		  ptr = gfc_create_var (pvoid_type_node, NULL);
+		  scratch = fold_convert (pvoid_type_node,
+					  build_fold_addr_expr (scratch));
+		  gfc_add_modify (block, ptr, scratch);
 		  OMP_CLAUSE_SIZE (node) = TYPE_SIZE_UNIT (type);
 		  OMP_CLAUSE_DECL (node) = build_fold_indirect_ref (ptr);
 		}
@@ -2111,6 +2112,7 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 			  tree t = gfc_create_var (build_pointer_type
 						   (void_type_node),
 						   NULL);
+			  ptr = fold_convert (pvoid_type_node, ptr);
 			  gfc_add_modify (block, t, ptr);
 			  ptr = t;
 			  type = TREE_TYPE (type);

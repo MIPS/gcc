@@ -1,3 +1,10 @@
+2017-02-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_variable_list): Eliminate a warning when
+	checking for derived types.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Don't cast derived type
+	pointers to void pointers.
+
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_omp_finish_clause): Use GOMP_MAP_POINTER
