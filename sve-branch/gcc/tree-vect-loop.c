@@ -6182,12 +6182,17 @@ vectorized_strict_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       if (i == vec_num - 1)
         {
           SSA_NAME_DEF_STMT (reduc_var) = new_stmt;
-          /* For chained SLP stmt is the first statement in the group and
-             gsi points to the last statement in the group.  For non SLP stmt
-             points to the same location as gsi. In either case tmp_gsi and gsi
-             should both point to the same insertion point.  */
-          gcc_assert (scalar_dest_def == gsi_stmt (*gsi));
-          vect_finish_replace_stmt (scalar_dest_def, new_stmt);
+	  if (scalar_dest_def == gsi_stmt (*gsi))
+	    vect_finish_replace_stmt (scalar_dest_def, new_stmt);
+	  else
+	    {
+	      /* In this case we're moving the definition to later in the
+		 block.  That doesn't matter because the only uses of the
+		 lhs are in phi statements.  */
+	      gimple_stmt_iterator old_gsi = gsi_for_stmt (scalar_dest_def);
+	      gsi_remove (&old_gsi, true);
+	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	    }
         }
       else
         {
