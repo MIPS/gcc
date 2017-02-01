@@ -9068,20 +9068,22 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
       rhs1 = gimple_cond_lhs (stmt);
       rhs2 = gimple_cond_rhs (stmt);
 
-      bool honor_nans = FLOAT_TYPE_P (TREE_TYPE (rhs1));
-
-      /* We want to invert the code and generate a mask such that if any
-	 bit is true the exit condition is met.  */
       code = gimple_cond_code (stmt);
-      code = invert_tree_comparison (code, honor_nans);
-
-      if (code == ERROR_MARK)
+      edge exit_edge = single_exit (loop);
+      if (exit_edge->flags & EDGE_FALSE_VALUE)
 	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Cannot invert condition code.  Loop cannot be "
-			     "speculatively executed.\n");
-	  return false;
+	  /* We want to invert the code and generate a mask such that if any
+	     bit is true the exit condition is met.  */
+	  bool honor_nans = FLOAT_TYPE_P (TREE_TYPE (rhs1));
+	  code = invert_tree_comparison (code, honor_nans);
+	  if (code == ERROR_MARK)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "Cannot invert condition code.  Loop cannot "
+				 "be speculatively executed.\n");
+	      return false;
+	    }
 	}
 
       if (optab_handler (cbranch_optab, TYPE_MODE (vectype))
@@ -9370,7 +9372,6 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 
       if (masked_speculative_p)
 	{
-
 	  /* Get the mask of values that actually matter.  */
 	  tree masked_res = vect_get_loop_mask
 	    (loop_vinfo, LOOP_VINFO_EXIT_MASKS (loop_vinfo), 1);
