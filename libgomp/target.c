@@ -304,6 +304,8 @@ gomp_map_pset (struct target_mem_desc *tgt, uintptr_t host_ptr,
   struct splay_tree_key_s cur_node;
 
   cur_node.host_start = host_ptr;
+  if (cur_node.host_start == (uintptr_t) NULL)
+    return (uintptr_t) 0;
 
   /* Add bias to the pointer value.  */
   cur_node.host_start += bias;
