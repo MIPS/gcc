@@ -2448,6 +2448,7 @@ enum reg_class
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
 #define UMIPS_12BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -2048, 2047))
 #define MIPS_9BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -256, 255))
+#define LI32_INT(X) (!LUI_INT (X) && !SMALL_INT (X) && !SMALL_INT_UNSIGNED (X))
 
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the
