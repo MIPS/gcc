@@ -15620,6 +15620,9 @@ mips_register_priority (int hard_regno)
     return 1;
   if (TARGET_MICROMIPS_R7
       && TEST_HARD_REG_BIT (reg_class_contents[M16R7_REGS], hard_regno))
+    return 2;
+  if (TARGET_MICROMIPS_R7
+      && TEST_HARD_REG_BIT (reg_class_contents[M16_4X4_REGS], hard_regno))
     return 1;
   return 0;
 }
