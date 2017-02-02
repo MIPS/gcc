@@ -5753,6 +5753,43 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
     }
 }
 
+const char *rtx_code_name[] =  {
+
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
+#include "rtl.def"		/* rtl expressions are documented here */
+#undef DEF_RTL_EXPR
+
+  "last_rtx_code_name"
+};
+
+static bool
+mips_rtx_costs_wrapper (rtx x, machine_mode mode, int outer_code,
+			int opno, int *total, bool speed)
+{
+  bool result = mips_rtx_costs (x, mode, outer_code, opno, total, speed);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      print_rtl_single (dump_file, x);
+      fprintf (dump_file, "%s cost: %d (%s), code=%s, opno=%d, outer_code=%s\n\n",
+	       speed ? "Hot" : "Cold",
+	       *total, result ? "final" : "partial",
+	       rtx_code_name[GET_CODE (x)], opno, rtx_code_name[outer_code]);
+    }
+#if 0
+  else
+    {
+      print_rtl_single (stdout, x);
+      fprintf (stdout, "%s cost: %d (%s), code=%s, opno=%d, outer_code=%s\n\n",
+	       speed ? "Hot" : "Cold",
+	       *total, result ? "final" : "partial",
+	       rtx_code_name[GET_CODE (x)], opno, rtx_code_name[outer_code]);
+    }
+#endif
+
+  return result;
+}
+
 /* Implement TARGET_ADDRESS_COST.  */
 
 static int
@@ -5761,6 +5798,29 @@ mips_address_cost (rtx addr, machine_mode mode,
 		   bool speed ATTRIBUTE_UNUSED)
 {
   return mips_address_insns (addr, mode, false);
+}
+
+static int
+mips_address_cost_wrapper (rtx addr, machine_mode mode, addr_space_t as,
+			    bool speed)
+{
+  int result = mips_address_cost (addr, mode, as, speed);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      print_rtl_single (dump_file, addr);
+      fprintf (dump_file, "%s address cost: %d\n\n",
+	       speed ? "Hot" : "Cold", result);
+    }
+#if 0
+  else
+    {
+      print_rtl_single (stdout, addr);
+      fprintf (stdout, "%s address cost: %d\n\n",
+	       speed ? "Hot" : "Cold", result);
+    }
+#endif
+
+  return result;
 }
 
 /* Implement TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P.  */
@@ -28072,9 +28132,9 @@ void nanomips_expand_64bit_shift (enum rtx_code code, rtx out, rtx in,
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST mips_memory_move_cost
 #undef TARGET_RTX_COSTS
-#define TARGET_RTX_COSTS mips_rtx_costs
+#define TARGET_RTX_COSTS mips_rtx_costs_wrapper
 #undef TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST mips_address_cost
+#define TARGET_ADDRESS_COST mips_address_cost_wrapper
 
 #undef TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P
 #define TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P mips_no_speculation_in_delay_slots_p
