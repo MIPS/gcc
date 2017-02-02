@@ -1733,9 +1733,9 @@ GOMP_OFFLOAD_host2dev (int ord, void *dst, const void *src, size_t n)
 void (*device_run) (int n, void *fn_ptr, void *vars) = NULL;
 
 void
-GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,
-			       void **hostaddrs, void **devaddrs,
-			       int async, unsigned *dims, void *targ_mem_desc)
+GOMP_OFFLOAD_openacc_exec (void (*fn) (void *), size_t mapnum,
+			   void **hostaddrs, void **devaddrs,
+			   int async, unsigned *dims, void *targ_mem_desc)
 {
   nvptx_exec (fn, mapnum, hostaddrs, devaddrs, async, dims, targ_mem_desc);
 }
@@ -1825,13 +1825,13 @@ GOMP_OFFLOAD_openacc_destroy_thread_data (void *data)
 }
 
 void *
-GOMP_OFFLOAD_openacc_get_current_cuda_device (void)
+GOMP_OFFLOAD_openacc_cuda_get_current_device (void)
 {
   return nvptx_get_current_cuda_device ();
 }
 
 void *
-GOMP_OFFLOAD_openacc_get_current_cuda_context (void)
+GOMP_OFFLOAD_openacc_cuda_get_current_context (void)
 {
   return nvptx_get_current_cuda_context ();
 }
@@ -1839,7 +1839,7 @@ GOMP_OFFLOAD_openacc_get_current_cuda_context (void)
 /* NOTE: This returns a CUstream, not a ptx_stream pointer.  */
 
 void *
-GOMP_OFFLOAD_openacc_get_cuda_stream (int async)
+GOMP_OFFLOAD_openacc_cuda_get_stream (int async)
 {
   return nvptx_get_cuda_stream (async);
 }
@@ -1847,7 +1847,7 @@ GOMP_OFFLOAD_openacc_get_cuda_stream (int async)
 /* NOTE: This takes a CUstream, not a ptx_stream pointer.  */
 
 int
-GOMP_OFFLOAD_openacc_set_cuda_stream (int async, void *stream)
+GOMP_OFFLOAD_openacc_cuda_set_stream (int async, void *stream)
 {
   return nvptx_set_cuda_stream (async, stream);
 }
