@@ -22822,10 +22822,20 @@ mips_set_compression_mode (unsigned int compression_mode)
 	    align_functions = 8;
 	}
 
-      targetm.min_anchor_offset = -32768;
-      targetm.max_anchor_offset = 32767;
+      if (TARGET_MICROMIPS_R7)
+	{
+	  targetm.min_anchor_offset = 0;
+	  targetm.max_anchor_offset = 4095;
 
-      targetm.const_anchor = 0x8000;
+	  targetm.const_anchor = 0x100;
+	}
+      else
+	{
+	  targetm.min_anchor_offset = -32768;
+	  targetm.max_anchor_offset = 32767;
+
+	  targetm.const_anchor = 0x8000;
+	}
     }
 
   /* (Re)initialize MIPS target internals for new ISA.  */
