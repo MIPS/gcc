@@ -1971,4 +1971,10 @@ default_optab_supported_p (int, machine_mode, machine_mode, optimization_type)
   return true;
 }
 
+void
+default_adjust_costs (void*, int)
+{
+  return;
+}
+
 #include "gt-targhooks.h"
