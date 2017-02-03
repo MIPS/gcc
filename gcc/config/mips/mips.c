@@ -6205,6 +6205,48 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 }
 
 const char *
+mips_output_load_store (rtx dest, rtx src, machine_mode mode,
+			bool zero_extend_p, bool load_p)
+{
+  char *sz[] = { "b", "h", "w", "d" };
+  bool fp_p = load_p ? FP_REG_P (REGNO (dest)) : FP_REG_P (REGNO (src));
+  rtx addr = load_p ? XEXP (src, 0) : XEXP (dest, 0);
+  bool indexed_scaled_p = mips_index_scaled_address_p (addr, mode);
+  bool indexed_p = mips_index_address_p (addr, mode);
+
+  static char buffer[50];
+  char *s;
+  int pos;
+
+  pos = exact_log2 (GET_MODE_SIZE (mode));
+  gcc_assert (pos >= 0);
+
+  s = buffer;
+
+  if (load_p
+      && GET_MODE_SIZE (mode) == 4
+      && !indexed_scaled_p
+      && !indexed_p
+      && TARGET_MICROMIPS_R7
+      && GET_CODE (addr) == CONST)
+    s += sprintf (s, "%s", fp_p
+			   ? "sdbbp32 10 # "
+			   : (M16_REG_P (REGNO (dest))
+			      ? "sdbbp16 7 # " : "sdbbp32 4 # "));
+
+  s += sprintf (s, "%s", load_p ? "l" : "s");
+  s += sprintf (s, "%s", sz[pos]);
+  if (fp_p)
+    s += sprintf (s, "%s", "c1");
+  if (load_p && zero_extend_p && !fp_p)
+    s += sprintf (s, "u");
+  s += sprintf (s, "%s", indexed_scaled_p ? "xs" : (indexed_p ? "x" : ""));
+  s += sprintf (s, "%s", load_p ? "\t%0,%1" : (fp_p ? "\t%1,%0" : "\t%z1,%0"));
+
+  return buffer;
+}
+
+const char *
 mips_output_move (rtx insn, rtx dest, rtx src)
 {
   enum rtx_code dest_code = GET_CODE (dest);
@@ -6281,24 +6323,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	}
 
       if (dest_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  case 1: return mips_index_address_p (XEXP (dest, 0), mode)
-			 ? "sbx\t%z1,%0"
-			 : "sb\t%z1,%0";
-	  case 2: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
-			 ? "shxs\t%z1,%0"
-			 : mips_index_address_p (XEXP (dest, 0), mode)
-			   ? "shx\t%z1,%0"
-			   : "sh\t%z1,%0";
-	  case 4: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
-			 ? "swxs\t%z1,%0"
-			 : mips_index_address_p (XEXP (dest, 0), mode)
-			   ? "swx\t%z1,%0"
-			   : "sw\t%z1,%0";
-	  case 8: return "sd\t%z1,%0";
-	  default: gcc_unreachable ();
-	  }
+	return mips_output_load_store (dest, src, mode, false, false);
     }
   if (dest_code == REG && GP_REG_P (REGNO (dest)))
     {
@@ -6358,30 +6383,9 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      default: gcc_unreachable ();
 	      }
 	  else
-	    switch (GET_MODE_SIZE (mode))
-	      {
-	      case 1: return mips_index_address_p (XEXP (src, 0), mode)
-			     ? "lbux\t%0,%1"
-			     : "lbu\t%0,%1";
-	      case 2: return mips_index_scaled_address_p (XEXP (src, 0), mode)
-			     ? "lhuxs\t%0,%1"
-			     : mips_index_address_p (XEXP (src, 0), mode)
-			       ? "lhux\t%0,%1"
-			       : "lhu\t%0,%1";
-	      case 4: return mips_index_scaled_address_p (XEXP (src, 0), mode)
-			     ? "lwxs\t%0,%1"
-			     : mips_index_address_p (XEXP (src, 0), mode)
-			       ? "lwx\t%0,%1"
-			       : TARGET_MICROMIPS_R7
-				 && GET_CODE (XEXP (src, 0)) == CONST
-				 ? (((REGNO(dest) >= 2 && REGNO(dest) <= 7)
-				     || REGNO(dest) == 16 || REGNO(dest) == 17)
-				    ? "sdbbp16 7 # lw\t%0,%1"
-				    : "sdbbp32 4; # lw\t%0,%1")
-				 : "lw\t%0,%1";
-	      case 8: return "ld\t%0,%1";
-	      default: gcc_unreachable ();
-	      }
+	    return mips_output_load_store (dest, src, mode,
+					   (GET_MODE_SIZE (mode) < 4
+					   ? true : false), true);
 	}
 
       if (src_code == CONST_INT)
@@ -6468,16 +6472,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (msa_p)
 	    return "st.%v1\t%w1,%0";
 
-	  if (TARGET_MICROMIPS_R7
-	      && mips_index_scaled_address_p (XEXP (dest, 0), mode))
-	    return dbl_p ? "sdc1xs\t%1,%0"
-			 : "swc1xs\t%1,%0";
-	  else if (TARGET_MICROMIPS_R7
-		   && mips_index_address_p (XEXP (dest, 0), mode))
-	    return dbl_p ? "sdc1x\t%1,%0"
-			 : "swc1x\t%1,%0";
-
-	  return dbl_p ? "sdc1\t%1,%0" : "swc1\t%1,%0";
+	  return mips_output_load_store (dest, src, mode, false, false);
 	}
     }
   if (dest_code == REG && FP_REG_P (REGNO (dest)))
@@ -6487,19 +6482,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (msa_p)
 	    return "ld.%v0\t%w0,%1";
 
-	  if (TARGET_MICROMIPS_R7
-	      && mips_index_scaled_address_p (XEXP (src, 0), mode))
-	    return dbl_p ? "ldc1xs\t%0,%1"
-			 : "lwc1xs\t%0,%1";
-	  else if (TARGET_MICROMIPS_R7
-		   && mips_index_address_p (XEXP (src, 0), mode))
-	    return dbl_p ? "ldc1x\t%0,%1"
-			 : "lwc1x\t%0,%1";
-
-	  if (GET_CODE (XEXP (src, 0)) == CONST)
-	    return dbl_p ? "sdbbp32 10; # ldc1\t%0,%1" : "sdbbp32 10 # lwc1\t%0,%1";
-
-	  return dbl_p ? "ldc1\t%0,%1" : "lwc1\t%0,%1";
+	  return mips_output_load_store (dest, src, mode, false, true);
 	}
     }
   if (dest_code == REG && ALL_COP_REG_P (REGNO (dest)) && src_code == MEM)
