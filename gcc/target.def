@@ -5774,6 +5774,13 @@ DEFHOOK
  void, (struct hard_reg_set_container *),
  NULL)
 
+/* Targets should define this target hook if there is a need to modify register
+   costs just before allocation.  */
+DEFHOOK_UNDOC
+(adjust_costs,
+"Change register costs before and during allocation.",
+void, (void*, int), default_adjust_costs)
+
 /* For targets that have attributes that can affect whether a
    function's return statements need checking.  For instance a 'naked'
    function attribute.  */
