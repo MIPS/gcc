@@ -846,6 +846,12 @@
 		(const_string "yes")
 		(const_string "no")))
 
+;; Attribute that describes instruction parameters and marks instructions
+;; that do have 16-bit equivalents.
+(define_attr "has_16bit_ver" "no,yes,rr,rrr,ri_li,rri_load,rri_store,rri_and,
+  rri_sll,rri_beqzc, rri_beqc,rri_add"
+  (const_string "no"))
+
 ;; Describe a user's asm statement.
 (define_asm_attributes
   [(set_attr "type" "multi")
@@ -1556,7 +1562,8 @@
   "<d>subu\t%0,%1,%2"
   [(set_attr "alu_type" "sub")
    (set_attr "compress_as" "micro_or_nano32,*")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "has_16bit_ver" "rrr")])
 
 (define_insn "*subsi3_extended"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -1703,6 +1710,7 @@
     return "<d>mul\t%0,%1,%2";
 }
   [(set_attr "type" "imul3nc")
+   (set_attr "has_16bit_ver" "no,yes")
    (set_attr "mode" "<MODE>")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "0")
@@ -3318,7 +3326,8 @@
 }
   [(set_attr "alu_type" "not")
    (set_attr "compress_as" "micro_or_nano,*")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "has_16bit_ver" "rr")])
 
 ;;
 ;;  ....................
@@ -3403,6 +3412,7 @@
   [(set_attr "move_type" "load,load,load,andi,andi,andi,andi,ext_ins,shift_shift,logical,logical,ext_ins")
    (set_attr "compress_as" "*,*,*,micro_or_nano,micro_or_nano,micro_or_nano,*,*,*,micro_or_nano,*,*")
    (set_attr "mode" "<MODE>")
+   (set_attr "has_16bit_ver" "rri_load,rri_load,rri_load,rri_and,rri_and,rri_and,rri_and,no,no,rr,rr,no")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "3,4")
 		    (not (match_test "TARGET_NANOMIPS")))
@@ -3485,7 +3495,8 @@
    ori\t%0,%1,%x2"
   [(set_attr "alu_type" "or")
    (set_attr "compress_as" "micro_or_nano,*,*")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "has_16bit_ver" "rrr,rrr,no")])
 
 (define_insn "*ior<mode>3_mips16_asmacro"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
@@ -3526,7 +3537,8 @@
    xori\t%0,%1,%x2"
   [(set_attr "alu_type" "xor")
    (set_attr "compress_as" "micro_or_nano,*,*")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "has_16bit_ver" "rrr,rrr,no")])
 
 ;; We increase statically the cost of the output register for XORI
 ;; to counterweight LRA cost calculation as XORI tends to be chosen
@@ -3733,6 +3745,7 @@
   [(set_attr "move_type" "andi,andi,andi,load")
    (set_attr "compress_as" "micro_or_nano,micro_or_nano,*,*")
    (set_attr "mode" "<GPR:MODE>")
+   (set_attr "has_16bit_ver" "rr,rr,rr,rri_load")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "1")
 		    (not (match_test "TARGET_NANOMIPS")))
@@ -3785,7 +3798,8 @@
     }
 }
   [(set_attr "move_type" "andi,load")
-   (set_attr "mode" "HI")])
+   (set_attr "mode" "HI")
+   (set_attr "has_16bit_ver" "rr,rri_load")])
 
 (define_insn "*zero_extendqihi2_mips16"
   [(set (match_operand:HI 0 "register_operand" "=d")
@@ -3908,7 +3922,9 @@
 				   false/*zero_extend_p*/, true/*load_p*/);
 }
   [(set_attr "move_type" "signext,load")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set_attr "has_16bit_ver" "rr, rri_load")
+   ])
 
 (define_expand "extendqihi2"
   [(set (match_operand:HI 0 "register_operand")
@@ -5103,6 +5119,7 @@
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,move,load,store")
    (set_attr "compress_as" "all,micro_or_nano,micro_or_nano,*,*,micro_or_nano,micro_or_nano,*,micro_or_nano,micro_or_nano,*,*,*,*,*,*,*,*,*,*,*,*,*,*,micro_or_nano,micro_or_nano")
+   (set_attr "has_16bit_ver" "no,no,ri_li,ri_li,ri_li,yes,yes,rri_load,yes,yes,rri_store,no,no,no,no,no,no,no,no,no,no,no,no,no,yes,yes")
    (set_attr "mode" "SI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "23")
@@ -5287,7 +5304,8 @@
   "ISA_HAS_LWXS"
   "lwxs\t%0,%1(%2)"
   [(set_attr "type"	"load")
-   (set_attr "mode"	"SI")])
+   (set_attr "mode"	"SI")
+   (set_attr "has_16bit_ver" "rrr")])
 
 (define_insn "*lwuxs"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -5413,6 +5431,7 @@
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo,move")
    (set_attr "compress_as" "all,micro_or_nano,*,micro_or_nano,*,micro_or_nano,*,*,*,*")
    (set_attr "mode" "HI")
+   (set_attr "has_16bit_ver" "no,ri_li,ri_li,rri_load,rri_load,rri_store,rri_store,no,no,no")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "9")
 		    (match_test "!(TARGET_NANOMIPS /*&& TARGET_LI48*/)"))
@@ -5493,7 +5512,8 @@
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo")
    (set_attr "compress_as" "all,micro_or_nano,*,micro_or_nano,*,micro_or_nano,*,*,*")
-   (set_attr "mode" "QI")])
+   (set_attr "mode" "QI")
+   (set_attr "has_16bit_ver" "no,ri_li,ri_li,rri_load,rri_load,rri_store,rri_store,no,no")])
 
 (define_insn "*movqi_mips16"
   [(set (match_operand:QI 0 "nonimmediate_operand" "=d,y,d,d,d,d,m,*d")
@@ -6200,7 +6220,8 @@
 }
   [(set_attr "type" "shift")
    (set_attr "compress_as" "<shift_compression>,none")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "has_16bit_ver" "yes,rri_sll")])
 
 (define_insn "*<optab>si3_extend"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -6474,6 +6495,7 @@
   [(set_attr "type" "branch")
    (set_attr "cbranch_cmp_op" "zero,reg,imm")
    (set_attr "compact_form" "maybe,always,always")
+   (set_attr "has_16bit_ver" "rri_beqzc")
    (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
 					   (match_test "TARGET_NANOMIPS"))
 				      (const_string "none")
@@ -6492,6 +6514,7 @@
   [(set_attr "type" "branch")
    (set_attr "cbranch_cmp_op" "zero,reg,imm")
    (set_attr "compact_form" "maybe,always,always")
+   (set_attr "has_16bit_ver" "rri_beqzc")
    (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
 					   (match_test "TARGET_NANOMIPS"))
 				      (const_string "none")
@@ -6512,6 +6535,7 @@
   [(set_attr "type" "branch")
    (set_attr "cbranch_cmp_op" "reg,zero,imm")
    (set_attr "compact_form" "maybe")
+   (set_attr "has_16bit_ver" "rri_beqc")
    (set (attr "hazard") (if_then_else (match_test "TARGET_NANOMIPS")
 				      (const_string "none")
 				      (const_string "forbidden_slot")))])
@@ -6530,6 +6554,7 @@
    (set_attr "cbranch_cmp_op" "reg,zero,imm")
    (set_attr "compact_form" "maybe")
    (set_attr "hazard" "forbidden_slot")
+   (set_attr "has_16bit_ver" "rri_beqc")
    (set (attr "hazard") (if_then_else (match_test "TARGET_NANOMIPS")
 				      (const_string "none")
 				      (const_string "forbidden_slot")))])

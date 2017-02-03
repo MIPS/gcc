@@ -41,6 +41,7 @@
 }
   [(set_attr "alu_type" "add")
    (set_attr "compression" "nanomips32,*,nanomips32,nanomips32,nanomips32,nanomips32,nanomips32,nanomips32,nanomips")
+   (set_attr "has_16bit_ver" "yes,yes,yes,rri_add,yes,no,no,no,yes")
    (set_attr "mode" "<MODE>")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "4,6,8")
