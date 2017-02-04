@@ -1,3 +1,167 @@
+2017-02-03  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gfortran.dg/coarray_43.f90: Add "-latomic" option if
+	libatomic_available.
+
+	* gcc.dg/pr77587.c: Require alias support.
+	* gcc.dg/pr77587a.c: Likewise.
+
+	* g++.dg/pr78112-2.C: Skip on hppa*-*-hpux*.
+	* gcc.c-torture/execute/pr78622.c: Likewise.
+
+	* c-c++-common/Wunused-var-15.c: Add -fno-common additional option on
+	hppa*-*-hpux*.
+	* c-c++-common/Wunused-var-16.c: Likewise.
+	* c-c++-common/builtin-shuffle-1.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-[1-6].c Likewise.
+	* gcc.dg/debug/dwarf2/align-as-1.c: Likewise.
+
+2017-02-03  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/79327
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c: Adjust.
+	* gcc/testsuite/gcc.dg/tree-ssa/builtin-sprintf-warn-13.c: New test.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr79327-2.c: Ditto.
+
+2017-02-03  Jakub Jelinek  <jakub@redhat.com>
+	    Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/79327
+	* gcc.dg/tree-ssa/pr79327.c: New test.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-1.c
+	(test_sprintf_chk_hh_nonconst): Don't expect 2 bogus warnings.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-3.c
+	(test_sprintf_chk_range_schar): Adjust dg-message.
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-12.c: New test.
+	* gcc.c-torture/execute/pr79327.c: New test.
+
+2017-02-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79354
+	* gcc.target/powerpc/pr79354.c: New test.
+	* gcc.c-torture/execute/pr79354.c: New test.
+
+2017-02-03  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/79352
+	* gcc.dg/tree-ssa/pr79352.c: New test.
+
+2017-02-03  Martin Liska  <mliska@suse.cz>
+
+	PR lto/66295
+	* gcc.target/i386/mvc9.c: New test.
+
+2017-02-03  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/79158
+	* gcc.target/powerpc/pr70669.c: Use 'r' in an expression to force back
+	to VSX reg.
+
+2017-02-02  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/ssa-ifcombine-1.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-2.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-3.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-4.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-5.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-6.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-7.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-8.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-9.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-10.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-11.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-12.c: Check for no profile mismatches.
+	* gcc.dg/tree-ssa/ssa-ifcombine-13.c: Check for no profile mismatches.
+
+2017-02-02  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/79275
+	* gcc.dg/tree-ssa/builtin-sprintf-warn-11.c: New test.
+	* gcc.dg/tree-ssa/pr79275.c: New test.
+
+2017-02-02  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+        * gcc.dg/sms-8.c: Update options for powerpc*-*-*.
+
+2017-02-02  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR middle-end/77445
+	* gcc.dg/tree-ssa/pr77445-2.c: Update testcase to check that all
+	threading is done.
+
+2017-02-02  Tamar Christina  <tamar.christina@arm.com>
+
+	PR middle-end/78142
+	* gcc.target/aarch64/vector_initialization_nostack.c
+	(f12): Use one vector
+
+2017-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/asan/pr63316.c: Use dg-skip-if instead of dg-options.
+	* c-c++-common/asan/misalign-1.c: Likewise.
+	* c-c++-common/asan/misalign-2.c: Likewise.
+	* g++.dg/asan/pr69276.C: Add dg-skip-if, remove dg-additional-options.
+	* gcc.dg/asan/pr66314.c: Remove -Os from dg-options, add dg-skip-if.
+	* gcc.dg/asan/use-after-scope-3.c: Use dg-skip-if instead of dg-options.
+	* gcc.dg/asan/use-after-scope-9.c: Add dg-skip-if, remove -O2 and
+	add -ffat-lto-objects from/to dg-additional-options.
+	* gcc.dg/asan/use-after-scope-10.c: Add dg-skip-if, remove -O2 from
+	dg-additional-options.
+
+	PR target/79197
+	* gcc.target/powerpc/pr79197.c: New test.
+	* gcc.c-torture/compile/pr79197.c: New test.
+
+2017-02-02  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/pr71078-3.c: Do not rely on math.h.
+
+2017-02-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69637
+	* g++.dg/cpp0x/pr69637-1.C: New.
+	* g++.dg/cpp0x/pr69637-2.C: Likewise.
+
+2017-02-02  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/s390.exp: Rename __S390_VX__ to __VX__.
+
+2017-02-01  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70012
+	* gcc.dg/vect/costmodel/ppc/costmodel-vect-33.c: Adjust test
+	conditions.
+
+2017-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/79324
+	* gcc.dg/debug/dwarf2/align-1.c: Add -gno-strict-dwarf to dg-options.
+	* gcc.dg/debug/dwarf2/align-2.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-3.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-4.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-5.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-6.c: Likewise.
+	* gcc.dg/debug/dwarf2/align-as-1.c: Likewise.
+	* g++.dg/debug/dwarf2/align-1.C: Likewise.
+	* g++.dg/debug/dwarf2/align-2.C: Likewise.
+	* g++.dg/debug/dwarf2/align-3.C: Likewise.
+	* g++.dg/debug/dwarf2/align-4.C: Likewise.
+	* g++.dg/debug/dwarf2/align-5.C: Likewise.
+	* g++.dg/debug/dwarf2/align-6.C: Likewise.
+
+2017-02-01  Martin Liska  <mliska@suse.cz>
+
+	PR testsuite/79272
+	* gcc.dg/ipa/pr77653.c: Add dg-require-alias to the test.
+
+2017-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/76957
+	* gcc.dg/graphite/scop-dsyr2k-2.c: New testcase.
+	* gcc.dg/graphite/scop-dsyrk-2.c: Likewise.
+	* gcc.dg/graphite/scop-dsyr2k.c: XFAIL.
+	* gcc.dg/graphite/scop-dsyrk.c: Likewise.
+
 2017-02-01  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/79315
