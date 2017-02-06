@@ -1090,13 +1090,22 @@
   DONE;
 })
 
+(define_code_attr zero_ext [(sign_extend "false") (zero_extend "true")])
+
 (define_insn "mips_l<SHORT:size><u>x_ext<GPR:mode>_<P:mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d")
    	(any_extend:GPR
 	  (mem:SHORT (plus:P (match_operand:P 1 "register_operand" "d")
 			     (match_operand:P 2 "register_operand" "d")))))]
   "ISA_HAS_L<SHORT:SIZE><U>X"
-  "l<SHORT:size><u>x\t%0,%2(%1)"
+;;  "l<SHORT:size><u>x\t%0,%2(%1)"
+{
+  return mips_output_load_store (operands[0],
+				 XEXP (SET_SRC (single_set (insn)), 0),
+					       <SHORT:MODE>mode,
+					       <zero_ext>, true,
+					       "\t%0,%2(%1)");
+}
   [(set_attr "type"	"load")
    (set_attr "mode"	"<GPR:MODE>")])
 
@@ -1129,7 +1138,14 @@
 	(mem:GPR (plus:P (match_operand:P 1 "register_operand" "d")
 			 (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_L<GPR:SIZE>X"
-  "l<GPR:size>x\t%0,%2(%1)"
+;;  "l<GPR:size>x\t%0,%2(%1)"
+{
+  return mips_output_load_store (operands[0],
+				 SET_SRC (single_set (insn)),
+					       <GPR:MODE>mode,
+					       false, true,
+					       "\t%0,%2(%1)");
+}
   [(set_attr "type"	"load")
    (set_attr "mode"	"<GPR:MODE>")])
 

@@ -3676,7 +3676,7 @@
 	return "andi\t%0,%1,<SHORT:mask>";
     case 3: return mips_output_load_store (operands[0], operands[1],
 					   <MODE>mode, true/*zero_extend_p*/,
-					   true/*load_p*/);
+					   true/*load_p*/, NULL/*fmt*/);
     default:
       gcc_unreachable ();
     }
@@ -3730,7 +3730,7 @@
     case 0: return "andi\t%0,%1,0x00ff";
     case 1: return mips_output_load_store (operands[0], operands[1], QImode,
 					   true/*zero_extend_p*/,
-					   true/*load_p*/);
+					   true/*load_p*/, NULL/*fmt*/);
     default:
       gcc_unreachable ();
     }
@@ -3853,7 +3853,8 @@
     return "se<SHORT:size>\t%0,%1";
   else
     return mips_output_load_store (operands[0], operands[1], <MODE>mode,
-				   false/*zero_extend_p*/, true/*load_p*/);
+				   false/*zero_extend_p*/, true/*load_p*/,
+				   NULL/*fmt*/);
 }
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "<GPR:MODE>")])
@@ -3904,7 +3905,7 @@
     case 0: return "seb\t%0,%1";
     case 1: return mips_output_load_store (operands[0], operands[1], QImode,
 					   false/*zero_extend_p*/,
-					   true/*load_p*/);
+					   true/*load_p*/, NULL/*fmt*/);
     default:
       gcc_unreachable ();
     }

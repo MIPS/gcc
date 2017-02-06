@@ -6204,9 +6204,11 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 	  && CONSTANT_POOL_ADDRESS_P (x));
 }
 
+#define GPR3_SRC_STORE_REG_P(REGNO) \
+  (((REGNO) >= 4 && (REGNO) <= 7) || ((REGNO) >= 17 && (REGNO) <= 19))
 const char *
 mips_output_load_store (rtx dest, rtx src, machine_mode mode,
-			bool zero_extend_p, bool load_p)
+			bool zero_extend_p, bool load_p, const char *fmt)
 {
   char *sz[] = { "b", "h", "w", "d" };
   bool fp_p = load_p ? FP_REG_P (REGNO (dest)) : FP_REG_P (REGNO (src));
@@ -6234,6 +6236,32 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
 			   : (M16_REG_P (REGNO (dest))
 			      ? "sdbbp16 7 # " : "sdbbp32 4 # "));
 
+  if (TARGET_IDX_LDST_X16
+      && indexed_p
+      && (load_p
+	  ? M16_REG_P (REGNO (dest))
+	  : (CONST_INT_P (src) && INTVAL (src) == 0
+	     || GPR3_SRC_STORE_REG_P (REGNO (src))))
+      && M16_REG_P (REGNO (XEXP (addr, 0)))
+      && M16_REG_P (REGNO (XEXP (addr, 1))))
+    {
+      s += sprintf (s, "sdbbp16 2 #");
+    }
+
+  if (TARGET_IDX_LDST_XS16
+      && indexed_scaled_p
+      && (load_p
+	  ? M16_REG_P (REGNO (dest))
+	  : (CONST_INT_P (src) && INTVAL (src) == 0
+	     || GPR3_SRC_STORE_REG_P (REGNO (src))))
+      && M16_REG_P (REGNO (XEXP (XEXP (addr, 0), 0)))
+      && CONST_INT_P (XEXP (XEXP (addr, 0), 1))
+      && IN_RANGE (exact_log2 (INTVAL (XEXP (XEXP (addr, 0), 1))), 0, 3)
+      && M16_REG_P (REGNO (XEXP (addr, 1))))
+    {
+      s += sprintf (s, "sdbbp16 3 #");
+    }
+
   s += sprintf (s, "%s", load_p ? "l" : "s");
   s += sprintf (s, "%s", sz[pos]);
   if (fp_p)
@@ -6241,7 +6269,8 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
   if (load_p && zero_extend_p && !fp_p)
     s += sprintf (s, "u");
   s += sprintf (s, "%s", indexed_scaled_p ? "xs" : (indexed_p ? "x" : ""));
-  s += sprintf (s, "%s", load_p ? "\t%0,%1" : (fp_p ? "\t%1,%0" : "\t%z1,%0"));
+  s += sprintf (s, "%s", load_p ? (fmt ? fmt : "\t%0,%1")
+				: (fp_p ? "\t%1,%0" : "\t%z1,%0"));
 
   return buffer;
 }
@@ -6323,7 +6352,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	}
 
       if (dest_code == MEM)
-	return mips_output_load_store (dest, src, mode, false, false);
+	return mips_output_load_store (dest, src, mode, false, false, NULL);
     }
   if (dest_code == REG && GP_REG_P (REGNO (dest)))
     {
@@ -6385,7 +6414,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  else
 	    return mips_output_load_store (dest, src, mode,
 					   (GET_MODE_SIZE (mode) < 4
-					   ? true : false), true);
+					   ? true : false), true, NULL);
 	}
 
       if (src_code == CONST_INT)
@@ -6472,7 +6501,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (msa_p)
 	    return "st.%v1\t%w1,%0";
 
-	  return mips_output_load_store (dest, src, mode, false, false);
+	  return mips_output_load_store (dest, src, mode, false, false, NULL);
 	}
     }
   if (dest_code == REG && FP_REG_P (REGNO (dest)))
@@ -6482,7 +6511,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (msa_p)
 	    return "ld.%v0\t%w0,%1";
 
-	  return mips_output_load_store (dest, src, mode, false, true);
+	  return mips_output_load_store (dest, src, mode, false, true, NULL);
 	}
     }
   if (dest_code == REG && ALL_COP_REG_P (REGNO (dest)) && src_code == MEM)
