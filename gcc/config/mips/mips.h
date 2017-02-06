@@ -896,7 +896,6 @@ struct mips_cpu_info {
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"tune_32", "%{" OPT_ARCH32 ":%{!mtune=*:-mtune=%(VALUE)}}" }, \
   {"tune_64", "%{" OPT_ARCH64 ":%{!mtune=*:-mtune=%(VALUE)}}" }, \
-  {"micromips", "%{!mmicromips:%{!mno-micromips:-mmicromips}}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
   {"fpu", "%{!msoft-float:%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}}" }, \
@@ -915,7 +914,8 @@ struct mips_cpu_info {
    -mdsp setting from a -march argument.  */
 #define BASE_DRIVER_SELF_SPECS \
   MIPS_ISA_NAN2008_SPEC,       \
-  "%{mips32r7: %{!mcode-readable*: -mcode-readable=no} \
+  "%{mips32r7: %{!mno-micromips: -mmicromips} \
+	       %{!mcode-readable*: -mcode-readable=no} \
 	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
 	       %{!mcheck-zero-division: -mno-check-zero-division}}" \
   "%{!mno-dsp: \

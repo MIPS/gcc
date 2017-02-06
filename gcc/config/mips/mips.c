@@ -23697,6 +23697,9 @@ mips_option_override (void)
   if (mips_arch_info == 0)
     mips_set_architecture (mips_default_arch ());
 
+  if (mips_isa_rev == 7 && !is_micromips)
+    error ("unsupported combination: %s", "-mips32r7 -mno-micromips");
+
   if (ABI_NEEDS_64BIT_REGS && !ISA_HAS_64BIT_REGS)
     error ("%<-march=%s%> is not compatible with the selected ABI",
 	   mips_arch_info->name);
