@@ -4794,6 +4794,23 @@ nvptx_vector_reduction (location_t loc, gimple_stmt_iterator *gsi,
   return new_var;
 }
 
+/* Dummy reduction vars that have GOMP_MAP_FIRSTPRIVATE_POINTER data
+   mappings gets retyped to (void *).  Adjust the type of VAR to TYPE
+   as appropriate.  */
+
+static tree
+nvptx_adjust_reduction_type (tree var, tree type, gimple_seq *seq)
+{
+  if (TREE_TYPE (TREE_TYPE (var)) == type)
+    return var;
+
+  tree ptype = build_pointer_type (type);
+  tree t = make_ssa_name (ptype);
+  tree expr = fold_build1 (NOP_EXPR, ptype, var);
+  gimple_seq_add_stmt (seq, gimple_build_assign (t, expr));
+  return t;
+}
+
 /* NVPTX implementation of GOACC_REDUCTION_SETUP.  */
 
 static void
@@ -4813,7 +4830,11 @@ nvptx_goacc_reduction_setup (gcall *call)
       tree ref_to_res = gimple_call_arg (call, 1);
 
       if (!integer_zerop (ref_to_res))
-	var = build_simple_mem_ref (ref_to_res);
+	{
+	  ref_to_res = nvptx_adjust_reduction_type (ref_to_res, TREE_TYPE (var),
+						    &seq);
+	  var = build_simple_mem_ref (ref_to_res);
+	}
     }
   
   if (level == GOMP_DIM_WORKER)
@@ -4954,7 +4975,11 @@ nvptx_goacc_reduction_fini (gcall *call)
       else if (integer_zerop (ref_to_res))
 	r = var;
       else
-	accum = ref_to_res;
+	{
+	  ref_to_res = nvptx_adjust_reduction_type (ref_to_res, TREE_TYPE (var),
+						    &seq);
+	  accum = ref_to_res;
+	}
 
       if (accum)
 	{
@@ -5003,7 +5028,11 @@ nvptx_goacc_reduction_teardown (gcall *call)
       tree ref_to_res = gimple_call_arg (call, 1);
 
       if (!integer_zerop (ref_to_res))
-	gimplify_assign (build_simple_mem_ref (ref_to_res), var, &seq);
+	{
+	  ref_to_res = nvptx_adjust_reduction_type (ref_to_res, TREE_TYPE (var),
+						    &seq);
+	  gimplify_assign (build_simple_mem_ref (ref_to_res), var, &seq);
+	}
     }
 
   if (lhs)

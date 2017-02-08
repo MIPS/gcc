@@ -5818,6 +5818,7 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	tree ref_to_res = NULL_TREE;
 	tree incoming, outgoing, v1, v2, v3;
 	bool is_private = false;
+	bool is_fpp = false;
 
 	enum tree_code rcode = OMP_CLAUSE_REDUCTION_CODE (c);
 	if (rcode == MINUS_EXPR)
@@ -5876,19 +5877,37 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 		      is_private = true;
 		      goto do_lookup;
 		    }
+		  else if (OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_MAP
+			   && (OMP_CLAUSE_MAP_KIND (cls)
+			       == GOMP_MAP_FIRSTPRIVATE_POINTER)
+			   && orig == OMP_CLAUSE_DECL (cls))
+		    {
+		      is_fpp = true;
+		      goto do_lookup;
+		    }
 	      }
 
 	  do_lookup:
 	    /* This is the outermost construct with this reduction,
 	       see if there's a mapping for it.  */
 	    if (gimple_code (outer->stmt) == GIMPLE_OMP_TARGET
-		&& maybe_lookup_field (orig, outer) && !is_private)
+		&& (maybe_lookup_field (orig, outer) || is_fpp) && !is_private)
 	      {
-		ref_to_res = build_receiver_ref (orig, false, outer);
-		if (is_reference (orig))
-		  ref_to_res = build_simple_mem_ref (ref_to_res);
-
 		tree type = TREE_TYPE (var);
+
+		if (is_fpp)
+		  {
+		    tree x = create_tmp_var (type);
+		    gimplify_assign (x, lookup_decl (orig, outer), fork_seq);
+		    ref_to_res = x;
+		  }
+		else
+		  {
+		    ref_to_res = build_receiver_ref (orig, false, outer);
+		    if (is_reference (orig))
+		      ref_to_res = build_simple_mem_ref (ref_to_res);
+		  }
+
 		if (POINTER_TYPE_P (type))
 		  type = TREE_TYPE (type);
 
@@ -16460,7 +16479,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
    mappings. */
 
 static tree
-convert_to_firstprivate_pointer (tree var, gimple_seq *gs)
+convert_to_firstprivate_int (tree var, gimple_seq *gs)
 {
   tree type = TREE_TYPE (var), new_type = NULL_TREE;
   tree tmp = NULL_TREE;
@@ -16504,10 +16523,10 @@ convert_to_firstprivate_pointer (tree var, gimple_seq *gs)
   return var;
 }
 
-/* Like convert_to_firstprivate_pointer, but restore the original type.  */
+/* Like convert_to_firstprivate_int, but restore the original type.  */
 
 static tree
-convert_from_firstprivate_pointer (tree var, bool is_ref, gimple_seq *gs)
+convert_from_firstprivate_int (tree var, bool is_ref, gimple_seq *gs)
 {
   tree type = TREE_TYPE (var);
   tree new_type = NULL_TREE;
@@ -16747,8 +16766,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      {
 		gcc_assert (is_gimple_omp_oacc (ctx->stmt));
 		if (oacc_firstprivate_int)
-		  x = convert_from_firstprivate_pointer (x, is_reference (var),
-							 &fplist);
+		  x = convert_from_firstprivate_int (x, is_reference (var),
+						     &fplist);
 		else if (is_reference (new_var)
 		    && TREE_CODE (var_type) != POINTER_TYPE)
 		  {
@@ -17020,7 +17039,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			if (is_gimple_reg (var)
 			    && OMP_CLAUSE_FIRSTPRIVATE_IMPLICIT (c))
 			  TREE_NO_WARNING (var) = 1;
-			var = convert_to_firstprivate_pointer (var, &ilist);
+			var = convert_to_firstprivate_int (var, &ilist);
 		      }
 		    else if (!is_reference (var))
 		      {
@@ -20939,6 +20958,17 @@ default_goacc_reduction (gcall *call)
       
       if (!integer_zerop (ref_to_res))
 	{
+	  /* Dummy reduction vars that have GOMP_MAP_FIRSTPRIVATE_POINTER data
+	     mappings gets retyped to (void *).  Adjust the type of ref_to_res
+	     as appropriate.  */
+	  if (TREE_TYPE (TREE_TYPE (ref_to_res)) != TREE_TYPE (var))
+	    {
+	      tree ptype = build_pointer_type (TREE_TYPE (var));
+	      tree t = make_ssa_name (ptype);
+	      tree expr = fold_build1 (NOP_EXPR, ptype, ref_to_res);
+	      gimple_seq_add_stmt (&seq, gimple_build_assign (t, expr));
+	      ref_to_res = t;
+	    }
 	  tree dst = build_simple_mem_ref (ref_to_res);
 	  tree src = var;
 	  

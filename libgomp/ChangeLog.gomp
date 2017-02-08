@@ -1,3 +1,7 @@
+2017-02-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/reduction-9.f90: New test.
+
 2017-02-02  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* target.c (gomp_map_pset): Handle PSETs to uninitialized arrays.
