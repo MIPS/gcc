@@ -3311,13 +3311,15 @@ get_min_abs_segment_length (dr_with_seg_len *d,
 
    Given data references A and B with equal base and offset, the alias
    relation can be decided at compilation time, return TRUE if they do
-   not alias to each other; return FALSE otherwise.  SEGMENT_LENGTH_A
-   and SEGMENT_LENGTH_B are the memory lengths accessed by A and B
-   respectively.  */
+   not alias to each other; return FALSE otherwise.  SEGMENT_LENGTH_A,
+   SEGMENT_LENGTH_B, ACCESS_SIZE_A and ACCESS_SIZE_B are the equivalent
+   of dr_with_seg_len::{seg_len,access_size} for A and B.  */
 
 static bool
 vect_no_alias_p (struct data_reference *a, struct data_reference *b,
-                 tree segment_length_a, tree segment_length_b)
+		 tree segment_length_a, tree segment_length_b,
+		 unsigned HOST_WIDE_INT access_size_a,
+		 unsigned HOST_WIDE_INT access_size_b)
 {
   gcc_assert (TREE_CODE (DR_INIT (a)) == INTEGER_CST
 	      && TREE_CODE (DR_INIT (b)) == INTEGER_CST);
@@ -3331,24 +3333,20 @@ vect_no_alias_p (struct data_reference *a, struct data_reference *b,
      bytes, e.g., int a[3] -> a[1] range is [a+4, a+16) instead of
      [a, a+12) */
   if (tree_int_cst_compare (DR_STEP (a), size_zero_node) < 0)
-    {
-      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (a)));
-      seg_a_min = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_a_max),
-			       seg_a_max, unit_size);
-      seg_a_max = fold_build2 (PLUS_EXPR, TREE_TYPE (DR_INIT (a)),
-			       DR_INIT (a), unit_size);
-    }
+    std::swap (seg_a_min, seg_a_max);
+
   tree seg_b_min = DR_INIT (b);
   tree seg_b_max = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_b_min),
 				seg_b_min, segment_length_b);
   if (tree_int_cst_compare (DR_STEP (b), size_zero_node) < 0)
-    {
-      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (b)));
-      seg_b_min = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_b_max),
-			       seg_b_max, unit_size);
-      seg_b_max = fold_build2 (PLUS_EXPR, TREE_TYPE (DR_INIT (b)),
-			       DR_INIT (b), unit_size);
-    }
+    std::swap (seg_b_min, seg_b_max);
+
+  seg_a_max = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_a_max), seg_a_max,
+			   build_int_cstu (TREE_TYPE (seg_a_max),
+					   access_size_a));
+  seg_b_max = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_b_max), seg_b_max,
+			   build_int_cstu (TREE_TYPE (seg_b_max),
+					   access_size_b));
 
   if (tree_int_cst_le (seg_a_max, seg_b_min)
       || tree_int_cst_le (seg_b_max, seg_a_min))
@@ -3476,7 +3474,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  && TREE_CODE (segment_length_a) == INTEGER_CST
 	  && TREE_CODE (segment_length_b) == INTEGER_CST)
 	{
-	  if (vect_no_alias_p (dr_a, dr_b, segment_length_a, segment_length_b))
+	  if (vect_no_alias_p (dr_a, dr_b, segment_length_a, segment_length_b,
+			       access_size_a, access_size_b))
 	    continue;
 
 	  if (dump_enabled_p ())
