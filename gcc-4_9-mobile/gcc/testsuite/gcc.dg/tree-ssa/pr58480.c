@@ -1,5 +1,5 @@
 /* { dg-do compile { target { ! keeps_null_pointer_checks } } } */
-/* { dg-options "-O2 -fdump-tree-vrp1" } */
+/* { dg-options "-O2 -fdump-tree-vrp" } */
 
 extern void eliminate (void);
 extern void* f1 (void *a, void *b) __attribute__((nonnull));
@@ -15,5 +15,5 @@ void g2 (void*p, void*q){
     eliminate ();
 }
 
-/* { dg-final { scan-tree-dump-times "Folding predicate\[^\\n\]*to 0" 2 "vrp1" } } */
-/* { dg-final { cleanup-tree-dump "vrp1" } } */
+/* { dg-final { scan-tree-dump-times "Folding predicate\[^\\n\]*to 0" 2 "vrp" } } */
+/* { dg-final { cleanup-tree-dump "vrp" } } */

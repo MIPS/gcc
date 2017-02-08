@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-vrp1" } */
+/* { dg-options "-O2 -fdump-tree-vrp" } */
 
 struct foo1 {
   int i:1;
@@ -44,5 +44,5 @@ int test4 (struct foo2 *x)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "Folding" 3 "vrp1" } } */
-/* { dg-final { cleanup-tree-dump "vrp1" } } */
+/* { dg-final { scan-tree-dump-times "Folding" 3 "vrp" } } */
+/* { dg-final { cleanup-tree-dump "vrp" } } */

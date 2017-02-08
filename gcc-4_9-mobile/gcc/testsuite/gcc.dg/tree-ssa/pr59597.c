@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-Ofast -fdump-tree-vrp1-details" } */
+/* { dg-options "-Ofast -fdump-tree-vrp-details" } */
 
 typedef unsigned short u16;
 typedef unsigned char u8;
@@ -53,6 +53,5 @@ main (int argc, char argv[])
   return crc;
 }
 
-/* { dg-final { scan-tree-dump "Cancelling" "vrp1" } } */
-/* { dg-final { cleanup-tree-dump "vrp1" } } */
-
+/* { dg-final { scan-tree-dump "Cancelling" "vrp" { xfail *-*-* } } } */
+/* { dg-final { cleanup-tree-dump "vrp" } } */

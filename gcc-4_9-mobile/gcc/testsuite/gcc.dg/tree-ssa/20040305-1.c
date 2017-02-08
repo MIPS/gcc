@@ -28,5 +28,6 @@ void foo(int edx, int eax)
 
 /* After cddce we should have two IF statements remaining as the other
    two tests can be threaded.  */
-/* { dg-final { scan-tree-dump-times "if " 2 "cddce2"} } */
-/* { dg-final { cleanup-tree-dump "cddce2" } } */
+/* { dg-final { scan-tree-dump-times " == " 2 "cddce2"} } */
+/* { dg-final { scan-tree-dump-times " & " 1 "cddce2"} } */
+/* { dg-final { cleanup-tree-dump "cddce1" } } */

@@ -1,6 +1,6 @@
 /* PR tree-optimization/49039 */
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-vrp1" } */
+/* { dg-options "-O2 -fdump-tree-vrp" } */
 
 extern void bar (void);
 
@@ -24,8 +24,8 @@ foo (unsigned int x, unsigned int y)
     bar ();
 }
 
-/* { dg-final { scan-tree-dump "Folding predicate minv_\[0-9\]* == 5 to 0" "vrp1" } } */
-/* { dg-final { scan-tree-dump "Folding predicate minv_\[0-9\]* == 6 to 0" "vrp1" } } */
-/* { dg-final { scan-tree-dump "Folding predicate maxv_\[0-9\]* == 5 to 0" "vrp1" } } */
-/* { dg-final { scan-tree-dump "Folding predicate maxv_\[0-9\]* == 6 to 0" "vrp1" } } */
-/* { dg-final { cleanup-tree-dump "vrp1" } } */
+/* { dg-final { scan-tree-dump "Folding predicate minv_\[0-9\]* == 5 to 0" "vrp" } } */
+/* { dg-final { scan-tree-dump "Folding predicate minv_\[0-9\]* == 6 to 0" "vrp" } } */
+/* { dg-final { scan-tree-dump "Folding predicate maxv_\[0-9\]* == 5 to 0" "vrp" } } */
+/* { dg-final { scan-tree-dump "Folding predicate maxv_\[0-9\]* == 6 to 0" "vrp" } } */
+/* { dg-final { cleanup-tree-dump "vrp" } } */

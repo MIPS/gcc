@@ -97,6 +97,11 @@ typedef struct value_range_d value_range_t;
    for still active basic-blocks.  */
 static sbitmap *live;
 
+/* Certain VRP actions should not be done in the early VRP pass.  This
+   variable indicates whether or not we are in the early VRP pass, and
+   is used to control those actions.  */
+static bool is_early_vrp = false;
+
 /* Return true if the SSA name NAME is live on the edge E.  */
 
 static bool
@@ -3594,7 +3599,8 @@ extract_range_basic (value_range_t *vr, gimple stmt)
 	     array bound warnings.
 	     ???  We could do this as early as inlining is finished.  */
 	  arg = gimple_call_arg (stmt, 0);
-	  if (TREE_CODE (arg) == SSA_NAME
+	  if (!is_early_vrp
+              && TREE_CODE (arg) == SSA_NAME
 	      && SSA_NAME_IS_DEFAULT_DEF (arg)
 	      && TREE_CODE (SSA_NAME_VAR (arg)) == PARM_DECL)
 	    {
@@ -6216,6 +6222,9 @@ check_array_ref (location_t location, tree ref, bool ignore_off_by_one)
   tree base;
 
   if (TREE_NO_WARNING (ref))
+    return;
+
+  if (is_early_vrp)
     return;
 
   low_sub = up_sub = TREE_OPERAND (ref, 1);
@@ -9821,11 +9830,13 @@ vrp_finalize (void)
    probabilities to aid branch prediction.  */
 
 static unsigned int
-execute_vrp (void)
+execute_vrp (bool early_pass)
 {
   int i;
   edge e;
   switch_update *su;
+
+  is_early_vrp = early_pass;
 
   loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
@@ -9925,6 +9936,23 @@ const pass_data pass_data_vrp =
     | TODO_verify_flow ), /* todo_flags_finish */
 };
 
+const pass_data pass_data_early_vrp =
+{
+  GIMPLE_PASS, /* type */
+  "vrp", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_VRP, /* tv_id */
+  PROP_ssa, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_cleanup_cfg | TODO_update_ssa
+    | TODO_verify_ssa
+    | TODO_verify_flow ), /* todo_flags_finish */
+};
+
 class pass_vrp : public gimple_opt_pass
 {
 public:
@@ -9935,9 +9963,23 @@ public:
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_vrp (m_ctxt); }
   bool gate () { return gate_vrp (); }
-  unsigned int execute () { return execute_vrp (); }
+  unsigned int execute () { return execute_vrp (false); }
 
 }; // class pass_vrp
+
+class pass_early_vrp : public gimple_opt_pass
+{
+public:
+  pass_early_vrp (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_vrp, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_early_vrp (m_ctxt); }
+  bool gate () { return gate_vrp (); }
+  unsigned int execute () { return execute_vrp (true); }
+
+}; // class pass_early_vrp
 
 } // anon namespace
 
@@ -9945,4 +9987,10 @@ gimple_opt_pass *
 make_pass_vrp (gcc::context *ctxt)
 {
   return new pass_vrp (ctxt);
+}
+
+gimple_opt_pass *
+make_pass_early_vrp (gcc::context *ctxt)
+{
+  return new pass_early_vrp (ctxt);
 }

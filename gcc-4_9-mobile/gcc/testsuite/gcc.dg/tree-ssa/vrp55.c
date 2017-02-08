@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-vrp1-blocks-vops-details" } */
+/* { dg-options "-O2 -fdump-tree-vrp-blocks-vops-details" } */
 
 fu (char *p, int x)
 {
@@ -9,7 +9,6 @@ fu (char *p, int x)
     arf ();
 }
 
-/* { dg-final { scan-tree-dump-times "Threaded jump" 1 "vrp1" { target { ! keeps_null_pointer_checks } } } } */
-/* { dg-final { scan-tree-dump-times "Threaded jump" 0 "vrp1" { target {   keeps_null_pointer_checks } } } } */
-/* { dg-final { cleanup-tree-dump "vrp1" } } */
-
+/* { dg-final { scan-tree-dump-times "Threaded jump" 1 "vrp" { target { ! keeps_null_pointer_checks } } } } */
+/* { dg-final { scan-tree-dump-times "Threaded jump" 0 "vrp" { target {   keeps_null_pointer_checks } } } } */
+/* { dg-final { cleanup-tree-dump "vrp" } } */

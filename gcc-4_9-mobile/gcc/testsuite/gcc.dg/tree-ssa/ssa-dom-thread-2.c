@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O2 -fdump-tree-vrp1-stats -fdump-tree-dom1-stats" } */
+/* { dg-options "-O2 -fdump-tree-vrp-stats -fdump-tree-dom1-stats" } */
 
 void foo();
 void bla();
@@ -111,9 +111,9 @@ void dont_thread_4 (int a, int nfirst)
     } while (i++ < 100);
 }
 
-/* { dg-final { scan-tree-dump-times "Jumps threaded: 1" 1 "vrp1"} } */
-/* { dg-final { scan-tree-dump-times "Jumps threaded: 2" 0 "vrp1"} } */
+/* { dg-final { scan-tree-dump-times "Jumps threaded: 1" 1 "vrp"} } */
+/* { dg-final { scan-tree-dump-times "Jumps threaded: 2" 0 "vrp"} } */
 /* { dg-final { scan-tree-dump-times "Jumps threaded: 1" 0 "dom1"} } */
 /* { dg-final { scan-tree-dump-times "Jumps threaded: 2" 1 "dom1"} } */
 /* { dg-final { cleanup-tree-dump "dom1" } } */
-/* { dg-final { cleanup-tree-dump "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "vrp" } } */

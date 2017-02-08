@@ -4,7 +4,7 @@
    immediate successors of the basic block.  */
 
 /* { dg-do compile } */
-/* { dg-options "-O2 -fno-tree-dominator-opts -fdump-tree-vrp1-details" } */
+/* { dg-options "-O2 -fno-tree-dominator-opts -fdump-tree-vrp-details" } */
 
 extern void bar (int);
 
@@ -26,6 +26,6 @@ foo (int *p, int b)
 }
 
 /* Target with fno-delete-null-pointer-checks should not fold checks */
-/* { dg-final { scan-tree-dump-times "Folding predicate" 1 "vrp1" { target { ! keeps_null_pointer_checks } } } } */
-/* { dg-final { scan-tree-dump-times "Folding predicate" 0 "vrp1" { target {   keeps_null_pointer_checks } } } } */
-/* { dg-final { cleanup-tree-dump "vrp1" } } */
+/* { dg-final { scan-tree-dump-times "Folding predicate" 1 "vrp" { target { ! keeps_null_pointer_checks } } } } */
+/* { dg-final { scan-tree-dump-times "Folding predicate" 0 "vrp" { target {   keeps_null_pointer_checks } } } } */
+/* { dg-final { cleanup-tree-dump "vrp" } } */

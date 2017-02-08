@@ -49,6 +49,7 @@ get_alias_set (t)
   
 /* There should be one IF statement (the complex return statement should
    collapse down to a simple return 0 without any conditionals).  */
-/* { dg-final { scan-tree-dump-times "if " 1 "cddce2"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "cddce2"} } */
+/* { dg-final { scan-tree-dump-times "0B ? " 1 "cddce2"} } */
 
 /* { dg-final { cleanup-tree-dump "cddce2" } } */

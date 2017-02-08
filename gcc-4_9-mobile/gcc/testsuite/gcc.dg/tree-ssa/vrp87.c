@@ -2,7 +2,7 @@
    when evaluating an && condition.  VRP is not able to optimize this.  */
 /* { dg-do compile { target { ! { logical_op_short_circuit || { m68k*-*-* mmix*-*-* mep*-*-* bfin*-*-* v850*-*-* picochip*-*-* moxie*-*-* cris*-*-* m32c*-*-* fr30*-*-* mcore*-*-* powerpc*-*-* xtensa*-*-* hppa*-*-* } } } } } */
 
-/* { dg-options "-O2 -fdump-tree-vrp2-details -fdump-tree-cddce2-details" } */
+/* { dg-options "-O2 -fdump-tree-vrp1-details -fdump-tree-cddce1-details" } */
 
 struct bitmap_head_def;
 typedef struct bitmap_head_def *bitmap;
@@ -75,10 +75,9 @@ bitmap_ior_into (bitmap a, const_bitmap b)
 }
 
 /* Verify that VRP simplified an "if" statement.  */
-/* { dg-final { scan-tree-dump "Folded into: if.*" "vrp2"} } */
-/* Verify that DCE after VRP2 eliminates a dead conversion
+/* { dg-final { scan-tree-dump "Folded into: if.*" "vrp1"} } */
+/* Verify that DCE after VRP1 eliminates a dead conversion
    to a (Bool).  */
-/* { dg-final { scan-tree-dump "Deleting.*_Bool.*;" "cddce2"} } */
-/* { dg-final { cleanup-tree-dump "vrp2" } } */
-/* { dg-final { cleanup-tree-dump "cddce2" } } */
-
+/* { dg-final { scan-tree-dump "Deleting.*_Bool.*;" "cddce1"} } */
+/* { dg-final { cleanup-tree-dump "vrp1" } } */
+/* { dg-final { cleanup-tree-dump "cddce1" } } */
