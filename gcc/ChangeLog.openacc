@@ -1,3 +1,14 @@
+2017-02-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_adjust_reduction_type): New function.
+	(nvptx_goacc_reduction_setup): Use it to adjust the type of ref_to_res.
+	(nvptx_goacc_reduction_fini): Likewise.
+	(nvptx_goacc_reduction_teardown): Likewise.
+	* omp-low.c (lower_oacc_reductions): Handle reduction decls mapped
+	with GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* omp-offload.c (default_goacc_reduction): Retype ref_to_res as
+	necessary.
+
 2017-01-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (demote_firstprivate_pointer): New function.
