@@ -3121,8 +3121,11 @@ do {									\
 #define TEXT_SECTION_ASM_OP	"\t.text"	/* instructions */
 #define DATA_SECTION_ASM_OP	"\t.data"	/* large data */
 
+/* nanoMIPS removes the use of the non-standard .rdata section name.  */
+#ifndef NANOMIPS_SUPPORT
 #undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION_ASM_OP	"\t.rdata"	/* read-only data */
+#endif
 
 #define ASM_OUTPUT_REG_PUSH(STREAM,REGNO)				\
 do									\
