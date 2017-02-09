@@ -1,3 +1,410 @@
+2017-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-offload.c (oacc_loop_auto_partitions): Use || instead of |
+	to avoid warning.
+
+	PR c/79413
+	* gimplify.h (is_gimple_sizepos): Only test for INTEGER_CST constants,
+	not arbitrary TREE_CONSTANT.
+
+	PR c/79431
+	* gimplify.c (gimplify_adjust_omp_clauses): Ignore
+	"omp declare target link" attribute unless is_global_var.
+	* omp-offload.c (find_link_var_op): Likewise.
+
+2017-02-09  Nathan Sidwell  <nathan@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): No special handling for
+	OMP_CLAUSE_TILE.
+	(gimplify_adjust_omp_clauses): Don't delete TILE.
+	(gimplify_omp_for): Deal with TILE.
+	* internal-fn.c (expand_GOACC_TILE): New function.
+	* internal-fn.def (GOACC_DIM_POS): Comment may be overly conservative.
+	(GOACC_TILE): New.
+	* omp-expand.c (struct oacc_collapse): Add tile and outer fields.
+	(expand_oacc_collapse_init): Add LOC paramter.  Initialize tile
+	element fields.
+	(expand_oacc_collapse_vars): Add INNER parm, adjust for tiling,
+	avoid DIV for outermost collapse var.
+	(expand_oacc_for): Insert tile element loop as needed.  Adjust.
+	Remove out of date comments, fix whitespace.
+	* omp-general.c (omp_extract_for_data): Deal with tiling.
+	* omp-general.h (enum oacc_loop_flags): Add OLF_TILE flag,
+	adjust OLF_DIM_BASE value.
+	(struct omp_for_data): Add tiling field.
+	* omp-low.c (scan_sharing_clauses): Allow OMP_CLAUSE_TILE.
+	(lower_oacc_head_mark): Add OLF_TILE as appropriate.  Ensure 2 levels
+	for auto loops.  Remove default auto determining, moved to
+	oacc_loop_fixed_partitions.
+	* omp-offload.c (struct oacc_loop): Change 'ifns' to vector of call
+	stmts, add e_mask field.
+	(oacc_dim_call): New function, abstracted out from oacc_thread_numbers.
+	(oacc_thread_numbers): Use oacc_dim_call.
+	(oacc_xform_tile): New.
+	(new_oacc_loop_raw): Initialize e_mask, adjust for ifns vector.
+	(finish_oacc_loop): Adjust for ifns vector.
+	(oacc_loop_discover_walk): Append loop abstraction sites to list,
+	add case for GOACC_TILE fns.
+	(oacc_loop_xform_loop): Delete.
+	(oacc_loop_process): Iterate over call list directly, and add
+	handling for GOACC_TILE fns.
+	(oacc_loop_fixed_partitions): Determine default auto, deal with TILE,
+	dump partitioning.
+	(oacc_loop_auto_partitions): Add outer_assign parm. Assign all but
+	vector partitioning to outer loops.  Assign 2 partitions to loops
+	when available. Add TILE handling.
+	(oacc_loop_partition): Adjust oacc_loop_auto_partitions call.
+	(execite_oacc_device_lower): Process GOACC_TILE fns, ignore unknown specs.
+	* tree-nested.c (convert_nonlocal_omp_clauses): Allow OMP_CLAUSE_TILE.
+	* tree.c (omp_clause_num_ops): Adjust TILE ops.
+	* tree.h (OMP_CLAUSE_TILE_ITERVAR, OMP_CLAUSE_TILE_COUNT): New.
+
+2017-02-09  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* configure.ac (ACX_BUGURL): Update.
+	* configure: Regenerate.
+
+2017-02-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69823
+	* graphite-scop-detection.c (scop_detection::harmful_loop_in_region):
+	Properly enumerate all BBs in the region.  Use auto_vec/auto_bitmap.
+
+2017-02-09  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc-c.def: Add __NPS400__ definition.
+	* config/arc/arc.h (CPP_SPEC): Don't define __NPS400__ here.
+	(TARGET_NPS400): Define.
+
+2017-02-09  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc-arch.h (arc_arch_t): Move unchanged to earlier in
+	file.
+	(arc_cpu_t): Change base_architecture field, arch, to a arc_arc_t
+	pointer, arch_info.
+	(arc_cpu_types): Fill the arch_info field with a pointer into the
+	arc_arch_types table.
+	(arc_selected_cpu): Declare.
+	* config/arc/arc.c (arc_selected_cpu): Make global.
+	(arc_selected_arch): Delete.
+	(arc_base_cpu): Delete.
+	(arc_override_options): Remove references to deleted variables,
+	update access to arch information.
+	(ARC_OPT): Update access to arch information.
+	(ARC_OPTX): Likewise.
+	* config/arc/arc.h (arc_base_cpu): Remove declaration.
+	(TARGET_ARC600): Update access to arch information.
+	(TARGET_ARC601): Likewise.
+	(TARGET_ARC700): Likewise.
+	(TARGET_EM): Likewise.
+	(TARGET_HS): Likewise.
+	* config/arc/driver-arc.c (arc_cpu_to_as): Update access to arch
+	information.
+
+2017-02-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/78604
+	* config/rs6000/rs6000.c (rs6000_emit_vector_cond_expr): Invert
+	condition/operands for integer GE/LE/GEU/LEU operations.
+
+2017-02-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR translation/79397
+	* config/rs6000/rs6000.opt (maltivec=le, maltivec=be): Fix spelling
+	of AltiVec.
+
+2017-02-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/79375
+	* ipa-prop.c (ipa_alloc_node_params): Make static, return bool
+	whether allocation happened.
+	(ipa_initialize_node_params): Do not call ipa_alloc_node_params if
+	nothing was allocated.
+
+2017-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79408
+	* tree-vrp.c (simplify_div_or_mod_using_ranges): If op1 is not
+	constant, but SSA_NAME with a known integer range, use the minimum
+	of that range instead of op1 to determine if modulo can be replaced
+	with its first operand.
+
+2016-02-08  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/riscv/riscv.c (riscv_build_integer_1): Avoid use of INT16_MAX.
+
+2017-02-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71824
+	* graphite-scop-detection.c (scop_detection::build_scop_breadth):
+	Check all loops contained in the merged region.
+
+2017-02-07  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (popcount<mode>2): New pattern.
+
+2017-02-07  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def (thunderx): Disable LSE.
+	(thunderxt88): Likewise.
+	(thunderxt81): Disable LSE and change v8.1 to v8.
+	(thunderxt83): Likewise.
+
+2017-02-07  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79399
+	* ira-int.h (struct target_ira_int): Change x_max_struct_costs_size
+	type from int to size_t.
+	* ira-costs.c (struct_costs_size): Change type from int to size_t.
+
+2017-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/79386
+	* cprop.c (bypass_conditional_jumps): Initialize
+	bypass_last_basic_block already before splitting bbs after
+	unconditional traps...
+	(bypass_conditional_jumps): ... rather than here.
+
+	PR target/79299
+	* config/i386/sse.md (xtg_mode, gatherq_mode): New mode attrs.
+	(*avx512f_gathersi<mode>, *avx512f_gathersi<mode>_2,
+	*avx512f_gatherdi<mode>, *avx512f_gatherdi<mode>_2): Use them,
+	fix -masm=intel patterns.
+
+2017-02-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79256
+	PR middle-end/79278
+	* builtins.c (get_object_alignment_2): Use min_align_of_type
+	to extract alignment for MEM_REFs to honor BIGGEST_FIELD_ALIGNMENT
+	and ADJUST_FIELD_ALIGN.
+
+	* doc/tm.texi.in (ADJUST_FIELD_ALIGN): Adjust to take additional
+	type parameter.
+	* doc/tm.texi: Regenerate.
+	* stor-layout.c (layout_decl): Adjust.
+	(update_alignment_for_field): Likewise.
+	(place_field): Likewise.
+	(min_align_of_type): Likewise.
+	* config/arc/arc.h (ADJUST_FIELD_ALIGN): Adjust.
+	* config/epiphany/epiphany.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/epiphany/epiphany.c (epiphany_adjust_field_align): Likewise.
+	* config/frv/frv.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/frv/frv.c (frv_adjust_field_align): Likewise.
+	* config/i386/i386.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/i386/i386.c (x86_field_alignment): Likewise.
+	* config/rs6000/aix.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/darwin.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/freebsd64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/linux64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/sysv4.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/rs6000.c (rs6000_special_adjust_field_align_p):
+	 Likewise.
+
+	Revert
+	2017-01-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79256
+	* targhooks.c (default_builtin_vector_alignment_reachable): Honor
+	BIGGEST_FIELD_ALIGNMENT and ADJUST_FIELD_ALIGN to fix up bogus
+	alignment on TYPE.
+
+2017-02-07  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* config/mips/mips.c (mips_expand_builtin_insn): Convert the QImode
+	argument of the pshufh, psllh, psllw, psrah, psraw, psrlh, psrlw
+	builtins to SImode and emit a zero-extend, if necessary.
+
+2017-02-06  Palmer Dabbelt  <palmer@dabbelt.com>
+
+	* docs/invoke.texi (RISC-V Options): Alphabetize.
+
+2017-02-06  Palmer Dabbelt  <palmer@dabbelt.com>
+
+	* doc/invoke.texi (RISC-V Options): Use two spaces to separate
+	options.
+
+2017-02-06  Palmer Dabbelt  <palmer@dabbelt.com>
+
+	* config/riscv/riscv.c: New file.
+	* gcc/common/config/riscv/riscv-common.c: Likewise.
+	* config.gcc: Likewise.
+	* config/riscv/constraints.md: Likewise.
+	* config/riscv/elf.h: Likewise.
+	* config/riscv/generic.md: Likewise.
+	* config/riscv/linux.h: Likewise.
+	* config/riscv/multilib-generator: Likewise.
+	* config/riscv/peephole.md: Likewise.
+	* config/riscv/pic.md: Likewise.
+	* config/riscv/predicates.md: Likewise.
+	* config/riscv/riscv-builtins.c: Likewise.
+	* config/riscv/riscv-c.c: Likewise.
+	* config/riscv/riscv-ftypes.def: Likewise.
+	* config/riscv/riscv-modes.def: Likewise.
+	* config/riscv/riscv-opts.h: Likewise.
+	* config/riscv/riscv-protos.h: Likewise.
+	* config/riscv/riscv.h: Likewise.
+	* config/riscv/riscv.md: Likewise.
+	* config/riscv/riscv.opt: Likewise.
+	* config/riscv/sync.md: Likewise.
+	* config/riscv/t-elf-multilib: Likewise.
+	* config/riscv/t-linux: Likewise.
+	* config/riscv/t-linux-multilib: Likewise.
+	* config/riscv/t-riscv: Likewise.
+	* configure.ac: Likewise.
+	* doc/contrib.texi: Add Kito Cheng, Palmer Dabbelt, and Andrew
+	Waterman as RISC-V maintainers.
+	* doc/install.texi: Add RISC-V entries.
+	* doc/invoke.texi: Add RISC-V options section.
+	* doc/md.texi: Add RISC-V constraints section.
+	* configure: Regenerated.
+
+2017-02-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/66144
+	* config/rs6000/vector.md (vcond<mode><mode>): Allow the true and
+	false values to be constant vectors with all 0 or all 1 bits set.
+	(vcondu<mode><mode>): Likewise.
+	* config/rs6000/predicates.md (vector_int_reg_or_same_bit): New
+	predicate.
+	(fpmask_comparison_operator): Update comment.
+	(vecint_comparison_operator): New predicate.
+	* config/rs6000/rs6000.c (rs6000_emit_vector_cond_expr): Optimize
+	vector conditionals when the true and false values are constant
+	vectors with all 0 bits or all 1 bits set.
+
+2017-02-06  Martin Sebor  <msebor@redhat.com>
+
+	PR  tree-optimization/79376
+	* gimple-fold.c (get_range_strlen): Set the minimum length to zero.
+
+2017-02-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (vector modes -> vec_extract* splitter): Use
+	explicit subreg RTX with operand 1.  Use VECTOR_MODE_P predicate
+	to simplify split condition.
+
+2017-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-expand.c (oxpand_omp_atomic_fetch_op,
+	expand_omp_atomic_pipeline): Return false if can_atomic_load_p is
+	false.
+
+2017-02-06  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/68664
+	* target.def (can_speculate_insn): New hook.
+	* doc/tm.texi.in (TARGET_SCHED_CAN_SPECULATE_INSN): New hook.
+	* doc/tm.texi: Regenerate.
+	* sched-rgn.c (can_schedule_ready_p): Use the new hook.
+	* config/rs6000/rs6000.c (TARGET_SCHED_CAN_SPECULATE_INSN): New macro.
+	(rs6000_sched_can_speculate_insn): New function.
+
+2017-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79284
+	* tree-vectorizer.h (VECT_SCALAR_BOOLEAN_TYPE_P): Define.
+	* tree-vect-stmts.c (vect_get_vec_def_for_operand,
+	vectorizable_mask_load_store, vectorizable_operation,
+	vect_is_simple_cond, get_same_sized_vectype): Use it instead
+	of comparing TREE_CODE of a type against BOOLEAN_TYPE.
+	* tree-vect-patterns.c (check_bool_pattern, search_type_for_mask_1,
+	vect_recog_bool_pattern, vect_recog_mask_conversion_pattern): Likewise.
+	* tree-vect-slp.c (vect_get_constant_vectors): Likewise.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Likewise.
+	Remove redundant gimple_code (stmt) == GIMPLE_ASSIGN test after
+	is_gimple_assign (stmt).  Replace another such test with
+	is_gimple_assign (stmt).
+
+2017-02-06  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/78883
+	* config/avr/avr.c (rtl-iter.h): Include it.
+	(TARGET_LEGITIMATE_COMBINED_INSN): New hook define...
+	(avr_legitimate_combined_insn): ...and implementation.
+
+2017-02-06  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/predicates.md ("larl_operand"): Use macros from hwint.h.
+	* config/s390/s390.c (s390_const_operand_ok)
+	(s390_canonicalize_comparison, s390_extract_part)
+	(s390_single_part, s390_contiguous_bitmask_nowrap_p)
+	(s390_contiguous_bitmask_p, s390_rtx_costs)
+	(legitimize_pic_address): Likewise.
+	* config/s390/s390.md ("clzdi2", "clztidi2"): Likewise.
+	* config/s390/vx-builtins.md ("vec_genbytemaskv16qi")
+	("vec_permi<mode>", "vfae<mode>", "*vfaes<mode>", "vstrc<mode>")
+	("*vstrcs<mode>"): Use UINTVAL() to set unsigned HOST_WIDE_INT.
+	* config/s390/vector.md ("vec_vfenes<mode>"): Likewise.
+
+2017-02-06  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.md (*addhi3_zero_extend): Add alternative where
+	REGNO($0) == REGNO($1).
+
+2017-02-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/linux.h(SIZE_TYPE): Add comment.
+
+2017-02-06  Julian Brown  <julian@codesourcery.com>
+	    Naveen H.S  <Naveen.Hurugalawadi@cavium.com>
+	    Virendra Pathak  <virendra.pathak@broadcom.com>
+
+	* config/aarch64/aarch64-cores.def: Change the scheduler
+	to Thunderx2t99.
+	* config/aarch64/aarch64.md: Include thunderx2t99.md.
+	* config/aarch64/thunderx2t99.md: New file.
+
+2017-02-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/standards.texi (Go Language): Update link to language
+	standard.
+
+2017-02-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-eh.c (lower_resx): Sanitize profile.
+	(cleanup_empty_eh_move_lp): Likewise.
+
+2017-02-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-ssa/79347
+	* cfgloopmanip.c (lv_adjust_loop_entry_edge, loop_version): Add
+	ELSE_PROB.
+	* cfgloopmanip.h (loop_version): Update prototype.
+	* modulo-sched.c (sms_schedule): Update call of loop_version.
+	* tree-if-conv.c(version_loop_for_if_conversion): Likewise.
+	* tree-parloops.c (gen_parallel_loop): Likewise.
+	* tree-ssa-loop-manip.c (tree_transform_and_unroll_loop): Likewise.
+	* tree-ssa-loop-split.c (split_loop): Likewise.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_loop): Likewise.
+	* tree-vect-loop-manip.c (vect_loop_versioning): Likewise.
+
+2017-02-05  Martin Liska  <mliska@suse.cz>
+
+	PR bootstrap/78985
+	* config/s390/s390.c (s390_gimplify_va_arg): Initialize local
+	variable to NULL.
+	(print_operand_address): Initialize a struct to zero.
+
+2017-02-05  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Refer to Hans Boehm's
+	garbage collector only in textual form.
+
+2017-02-05  Gerald Pfeifer  <gerald@pfeifer.com>
+	
+	* doc/extend.texi (x86 specific memory model extensions for
+	transactional memory): Simplify a phrase.
+
+2017-02-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/79353
+	* config/sparc/sync.md (atomic_loaddi_1): Replace 'U' constraint with
+	'r', 'm' constraint with 'T' and !TARGET_ARCH64 with TARGET_ARCH32.
+	(atomic_storedi_1): Likewise.
+
 2017-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/79338

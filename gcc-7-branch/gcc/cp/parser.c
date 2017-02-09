@@ -7309,7 +7309,7 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 
   /* Enter the scope corresponding to the type of the object
      given by the POSTFIX_EXPRESSION.  */
-  if (!dependent_p && TREE_TYPE (postfix_expression) != NULL_TREE)
+  if (!dependent_p)
     {
       scope = TREE_TYPE (postfix_expression);
       /* According to the standard, no expression should ever have
@@ -7324,26 +7324,50 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	 required to be of complete type for purposes of class member
 	 access (5.2.5) outside the member function body.  */
       if (postfix_expression != current_class_ref
+	  && scope != error_mark_node
 	  && !(processing_template_decl
 	       && current_class_type
 	       && (same_type_ignoring_top_level_qualifiers_p
 		   (scope, current_class_type))))
-	scope = complete_type_or_else (scope, postfix_expression);
-      /* Let the name lookup machinery know that we are processing a
-	 class member access expression.  */
-      parser->context->object_type = scope;
-      /* If something went wrong, we want to be able to discern that case,
-	 as opposed to the case where there was no SCOPE due to the type
-	 of expression being dependent.  */
-      if (!scope)
-	scope = error_mark_node;
-      /* If the SCOPE was erroneous, make the various semantic analysis
-	 functions exit quickly -- and without issuing additional error
-	 messages.  */
-      if (scope == error_mark_node)
-	postfix_expression = error_mark_node;
+	{
+	  scope = complete_type (scope);
+	  if (!COMPLETE_TYPE_P (scope))
+	    {
+	      /* In a template, be permissive by treating an object expression
+		 of incomplete type as dependent (after a pedwarn).  */
+	      diagnostic_t kind = (processing_template_decl
+				   ? DK_PEDWARN
+				   : DK_ERROR);
+	      cxx_incomplete_type_diagnostic
+		(location_of (postfix_expression),
+		 postfix_expression, scope, kind);
+	      if (processing_template_decl)
+		{
+		  dependent_p = true;
+		  scope = TREE_TYPE (postfix_expression) = NULL_TREE;
+		}
+	    }
+	}
+
+      if (!dependent_p)
+	{
+	  /* Let the name lookup machinery know that we are processing a
+	     class member access expression.  */
+	  parser->context->object_type = scope;
+	  /* If something went wrong, we want to be able to discern that case,
+	     as opposed to the case where there was no SCOPE due to the type
+	     of expression being dependent.  */
+	  if (!scope)
+	    scope = error_mark_node;
+	  /* If the SCOPE was erroneous, make the various semantic analysis
+	     functions exit quickly -- and without issuing additional error
+	     messages.  */
+	  if (scope == error_mark_node)
+	    postfix_expression = error_mark_node;
+	}
     }
-  else
+
+  if (dependent_p)
     /* Tell cp_parser_lookup_name that there was an object, even though it's
        type-dependent.  */
     parser->context->object_type = unknown_type_node;
@@ -31250,30 +31274,33 @@ cp_parser_oacc_clause_tile (cp_parser *parser, location_t clause_loc, tree list)
   tree c, expr = error_mark_node;
   tree tile = NULL_TREE;
 
+  /* Collapse and tile are mutually exclusive.  (The spec doesn't say
+     so, but the spec authors never considered such a case and have
+     differing opinions on what it might mean, including 'not
+     allowed'.)  */
   check_no_duplicate_clause (list, OMP_CLAUSE_TILE, "tile", clause_loc);
+  check_no_duplicate_clause (list, OMP_CLAUSE_COLLAPSE, "collapse",
+			     clause_loc);
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
 
   do
     {
+      if (tile && !cp_parser_require (parser, CPP_COMMA, RT_COMMA))
+	return list;
+      
       if (cp_lexer_next_token_is (parser->lexer, CPP_MULT)
 	  && (cp_lexer_nth_token_is (parser->lexer, 2, CPP_COMMA)
 	      || cp_lexer_nth_token_is (parser->lexer, 2, CPP_CLOSE_PAREN)))
 	{
 	  cp_lexer_consume_token (parser->lexer);
-	  expr = integer_minus_one_node;
+	  expr = integer_zero_node;
 	}
       else
-	expr = cp_parser_assignment_expression (parser, NULL, false, false);
-
-      if (expr == error_mark_node)
-	return list;
+	expr = cp_parser_constant_expression (parser);
 
       tile = tree_cons (NULL_TREE, expr, tile);
-
-      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
-	cp_lexer_consume_token (parser->lexer);
     }
   while (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN));
 
@@ -31386,6 +31413,7 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list, location_t location
     }
 
   check_no_duplicate_clause (list, OMP_CLAUSE_COLLAPSE, "collapse", location);
+  check_no_duplicate_clause (list, OMP_CLAUSE_TILE, "tile", location);
   c = build_omp_clause (loc, OMP_CLAUSE_COLLAPSE);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
@@ -34392,10 +34420,16 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
   int i, collapse = 1, ordered = 0, count, nbraces = 0;
   vec<tree, va_gc> *for_block = make_tree_vector ();
   auto_vec<tree, 4> orig_inits;
+  bool tiling = false;
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
       collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (cl));
+    else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_TILE)
+      {
+	tiling = true;
+	collapse = list_length (OMP_CLAUSE_TILE_LIST (cl));
+      }
     else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_ORDERED
 	     && OMP_CLAUSE_ORDERED_EXPR (cl))
       {
@@ -34425,7 +34459,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	  pc = &OMP_CLAUSE_CHAIN (*pc);
     }
 
-  gcc_assert (collapse >= 1 && ordered >= 0);
+  gcc_assert (tiling || (collapse >= 1 && ordered >= 0));
   count = ordered ? ordered : collapse;
 
   declv = make_tree_vec (count);
@@ -34444,13 +34478,15 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
       if (code != CILK_FOR
 	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
 	{
-	  cp_parser_error (parser, "for statement expected");
+	  if (!collapse_err)
+	    cp_parser_error (parser, "for statement expected");
 	  return NULL;
 	}
       if (code == CILK_FOR
 	  && !cp_lexer_next_token_is_keyword (parser->lexer, RID_CILK_FOR))
 	{
-	  cp_parser_error (parser, "_Cilk_for statement expected");
+	  if (!collapse_err)
+	    cp_parser_error (parser, "_Cilk_for statement expected");
 	  return NULL;
 	}
       loc = cp_lexer_consume_token (parser->lexer)->location;
@@ -34610,7 +34646,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	 nested.  Hopefully the final version clarifies this.
 	 For now handle (multiple) {'s and empty statements.  */
       cp_parser_parse_tentatively (parser);
-      do
+      for (;;)
 	{
 	  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
 	    break;
@@ -34625,14 +34661,13 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	  else
 	    {
 	      loc = cp_lexer_peek_token (parser->lexer)->location;
-	      error_at (loc, "not enough collapsed for loops");
+	      error_at (loc, "not enough for loops to collapse");
 	      collapse_err = true;
 	      cp_parser_abort_tentative_parse (parser);
 	      declv = NULL_TREE;
 	      break;
 	    }
 	}
-      while (1);
 
       if (declv)
 	{
@@ -34898,13 +34933,6 @@ cp_parser_omp_ordered (cp_parser *parser, cp_token *pragma_tok,
 		       enum pragma_context context, bool *if_p)
 {
   location_t loc = pragma_tok->location;
-
-  if (context != pragma_stmt && context != pragma_compound)
-    {
-      cp_parser_error (parser, "expected declaration specifiers");
-      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
-      return false;
-    }
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
@@ -35811,13 +35839,6 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 {
   tree *pc = NULL, stmt;
 
-  if (context != pragma_stmt && context != pragma_compound)
-    {
-      cp_parser_error (parser, "expected declaration specifiers");
-      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
-      return false;
-    }
-
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
@@ -36195,7 +36216,7 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 	    id = get_identifier ("omp declare target");
 
 	  DECL_ATTRIBUTES (decl)
-			   = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (decl));
+	    = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (decl));
 	  if (global_bindings_p ())
 	    {
 	      symtab_node *node = symtab_node::get (decl);
@@ -36735,8 +36756,11 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
 	}
       if (!at1)
 	{
-	  symtab_node *node = symtab_node::get (t);
 	  DECL_ATTRIBUTES (t) = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (t));
+	  if (TREE_CODE (t) != FUNCTION_DECL && !is_global_var (t))
+	    continue;
+
+	  symtab_node *node = symtab_node::get (t);
 	  if (node != NULL)
 	    {
 	      node->offloadable = 1;
@@ -38245,12 +38269,16 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
       return true;
 
     case PRAGMA_OMP_ORDERED:
+      if (context != pragma_stmt && context != pragma_compound)
+	goto bad_stmt;
       stmt = push_omp_privatization_clauses (false);
       ret = cp_parser_omp_ordered (parser, pragma_tok, context, if_p);
       pop_omp_privatization_clauses (stmt);
       return ret;
 
     case PRAGMA_OMP_TARGET:
+      if (context != pragma_stmt && context != pragma_compound)
+	goto bad_stmt;
       stmt = push_omp_privatization_clauses (false);
       ret = cp_parser_omp_target (parser, pragma_tok, context, if_p);
       pop_omp_privatization_clauses (stmt);
