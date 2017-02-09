@@ -20,7 +20,7 @@ extern void exit (int);
 
 /* Sibcalls are not supported in MIPS16 mode, which has direct calls but
    not direct jumps.  */
-#ifdef __mips
+#if defined (__mips) && !defined (__nanomips__)
 #define ATTR __attribute__((nomips16))
 #else
 #define ATTR
