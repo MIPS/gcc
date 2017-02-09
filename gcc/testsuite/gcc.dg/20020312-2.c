@@ -45,7 +45,7 @@ extern void abort (void);
 /* No pic register.  */
 #elif defined(__MICROBLAZE__)
 # define PIC_REG "r20"
-#elif defined(__mips__)
+#elif (defined(__mips__) || defined(__nanomips__))
 /* PIC register is $28, but is used even without -fpic.  */
 #elif defined(__MMIX__)
 /* No pic register.  */

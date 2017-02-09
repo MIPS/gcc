@@ -480,11 +480,13 @@ proc check_effective_target_trampolines { } {
     if [target_info exists no_trampolines] {
       return 0
     }
+    # FIXME: remove this once the support is added to nanoMIPS
     if { [istarget avr-*-*]
 	 || [istarget msp430-*-*]
 	 || [istarget nvptx-*-*]
 	 || [istarget hppa2.0w-hp-hpux11.23]
-	 || [istarget hppa64-hp-hpux11.23] } {
+	 || [istarget hppa64-hp-hpux11.23]
+         || [istarget nanomips*-*-*] } {
 	return 0;
     }
     return 1
@@ -575,6 +577,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget m68k-*-uclinux*]
 	     || [istarget mep-*-elf]
 	     || [istarget mips*-*-elf*]
+	     || [istarget nanomips*-*-elf*]
 	     || [istarget mmix-*-*]
 	     || [istarget mn10300-*-elf*]
 	     || [istarget moxie-*-elf*]
@@ -990,6 +993,9 @@ proc check_effective_target_freorder {} {
 # out of scope for this test.
 
 proc check_effective_target_fpic { } {
+    if { [istarget nanomips*-*-elf] } {
+	return 0
+    }
     # Note that M68K has a multilib that supports -fpic but not
     # -fPIC, so we need to check both.  We test with a program that
     # requires GOT references.
@@ -1085,7 +1091,7 @@ proc check_effective_target_mpaired_single { } {
 # Return true if the target has access to FPU instructions.
 
 proc check_effective_target_hard_float { } {
-    if { [istarget mips*-*-*] } {
+    if { [istarget mips*-*-*] || [istarget nanomips*-*-*] } {
 	return [check_no_compiler_messages hard_float assembly {
 		#if (defined __mips_soft_float || defined __mips16)
 		#error __mips_soft_float || __mips16
@@ -1437,6 +1443,14 @@ proc check_effective_target_static_libgfortran { } {
 	print *, 'test'
 	end
     } "-static"]
+}
+
+# Return 1 if we can use the -rdynamic option, 0 otherwise.
+
+proc check_effective_target_rdynamic { } {
+  return [check_no_compiler_messages rdynamic executable {
+     int main() { return 0; }
+  } "-rdynamic"]
 }
 
 # Return 1 if cilk-plus is supported by the target, 0 otherwise.
@@ -6642,6 +6656,9 @@ proc add_options_for_double_vectors { flags } {
 # Return 1 if the target provides a full C99 runtime.
 
 proc check_effective_target_c99_runtime { } {
+    if { [istarget nanomips*-linux-musl] } {
+	return 0
+    }
     return [check_cached_effective_target c99_runtime {
 	global srcdir
 
@@ -7332,6 +7349,7 @@ proc check_effective_target_tiny {} {
 
 proc check_effective_target_logical_op_short_circuit {} {
     if { [istarget mips*-*-*]
+         || [istarget nanomips*-*-*]
 	 || [istarget arc*-*-*]
 	 || [istarget avr*-*-*]
 	 || [istarget crisv32-*-*] || [istarget cris-*-*]

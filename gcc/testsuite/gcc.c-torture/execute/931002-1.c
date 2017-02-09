@@ -1,3 +1,4 @@
+/* { dg-skip-if "nanoMIPS: needs fixing" nanomips-*-* } */
 f (void (*func) ())
 {
   func ();
