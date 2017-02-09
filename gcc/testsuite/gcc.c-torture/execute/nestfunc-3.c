@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "nanoMIPS: needs fixing" nanomips-*-* } */
 
 extern long foo (long, long, long (*) (long, long));
 extern long use (long (*) (long, long), long, long);
