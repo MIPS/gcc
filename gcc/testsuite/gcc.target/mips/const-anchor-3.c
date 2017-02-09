@@ -1,5 +1,6 @@
 /* Derive a constant (0x1233ffff) from an intermediate value
    (0x1234000) used to build another constant.  */
+/* { dg-options "isa_rev<=6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* See PR61926 for the XFAILs.  */
 /* { dg-final { scan-assembler-not "0x12330000|305332224" { xfail *-*-* } } } */

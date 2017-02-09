@@ -1,4 +1,5 @@
 /* Derive a constant (0x30001) from another constant.  */
+/* { dg-options "isa_rev<=6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* See PR61926 for the XFAILs.  */
 /* { dg-final { scan-assembler-not "0x300000|196608" { xfail *-*-* } } } */

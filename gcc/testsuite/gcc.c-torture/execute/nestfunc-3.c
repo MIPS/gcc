@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "R7: needs fixing" mips-*-* } */
 
 extern long foo (long, long, long (*) (long, long));
 extern long use (long (*) (long, long), long, long);

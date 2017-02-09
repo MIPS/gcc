@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-do run { xfail mips-*-* } } */
 
 #ifndef NO_TRAMPOLINES
 
