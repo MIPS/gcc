@@ -5212,7 +5212,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	      && TARGET_COST_TWEAK
 	      && TARGET_MICROMIPS_R7
 	      && LI32_INT (x))
-	    *total = COSTS_N_INSNS (1) + 2;
+	    *total = outer_code == PLUS ? 0 : COSTS_N_INSNS (1) + 2;
 	  else if (cost == 1
 		   && TARGET_COST_TWEAK
 		   && !speed
@@ -5408,6 +5408,20 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  else
 	    *total = mips_cost->fp_add;
 	  return false;
+	}
+
+      if (code == PLUS
+	  && (CONST_INT_P (XEXP (x, 1))
+	      || mips_string_constant_p (XEXP (x, 1)))
+	  && LI32_INT (XEXP (x, 1))
+	  && TARGET_COST_TWEAK
+	  && TARGET_MICROMIPS_R7
+	  /* Let's ignore here small immediates as we may use 16-bit ADD.  */
+	  && !IN_RANGE (INTVAL (XEXP (x, 1)), -8, 7))
+	{
+	  *total = (COSTS_N_INSNS (1) + 2
+		    + set_src_cost (XEXP (x, 0), mode, speed));
+	  return true;
 	}
 
       /* If it's an add + mult (which is equivalent to shift left) and

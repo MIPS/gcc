@@ -1292,6 +1292,17 @@
   [(set_attr "type" "fadd")
    (set_attr "mode" "<UNITMODE>")])
 
+(define_insn "*mips_addsi3_48"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(plus:SI (match_operand:SI 1 "register_operand" "0")
+		 (match_operand:SI 2 "s32_operand" "i")))]
+  "TARGET_MICROMIPS_R7"
+  "addiu\t%0,%1,%2 # ADDIU48";
+  [(set_attr "alu_type" "add")
+   (set_attr "compression" "micromips32")
+   (set_attr "length" "6")
+   (set_attr "mode" "SI")])
+
 (define_expand "add<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(plus:GPR (match_operand:GPR 1 "register_operand")

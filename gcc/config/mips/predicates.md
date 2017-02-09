@@ -317,6 +317,10 @@
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 8, 3)")))
 
+(define_predicate "s32_operand"
+  (and (match_code "const_int")
+       (match_test "LI32_INT (op)")))
+
 (define_predicate "ub2_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 0)")))
