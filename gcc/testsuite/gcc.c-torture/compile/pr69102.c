@@ -1,5 +1,6 @@
 /* { dg-options "-Og -fPIC -fschedule-insns2 -fselective-scheduling2 -fno-tree-fre --param=max-sched-extend-regions-iters=10" } */
 /* { dg-options "-Og -fPIC -mabicalls -mno-gpopt -fschedule-insns2 -fselective-scheduling2 -fno-tree-fre --param=max-sched-extend-regions-iters=10" { target mips*-*-* } } */
+/* { dg-require-effective-target fpic } */
 void bar (unsigned int);
 
 void

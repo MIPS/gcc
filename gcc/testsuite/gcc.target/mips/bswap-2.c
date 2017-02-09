@@ -1,4 +1,4 @@
-/* { dg-options "isa_rev>=2" } */
+/* { dg-options "isa_rev>=2 -mxlp" } */
 
 NOMIPS16 unsigned short
 foo (unsigned short x)

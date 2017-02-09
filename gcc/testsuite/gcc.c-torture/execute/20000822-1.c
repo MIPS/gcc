@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "nanoMIPS: needs fixing" nanomips-*-* } */
 #ifndef NO_TRAMPOLINES
 int f0(int (*fn)(int *), int *p)
 {

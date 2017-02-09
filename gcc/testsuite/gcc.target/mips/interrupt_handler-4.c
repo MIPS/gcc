@@ -1,7 +1,7 @@
 /* Test optional argument for interrupt and use_shadow_register_set
    attributes.  */
 /* { dg-do compile } */
-/* { dg-options "isa_rev>=2" } */
+/* { dg-options "isa_rev>=2 -mxlp" } */
 /* { dg-final { scan-assembler "e0:.*ins\t\\\$27,\\\$26,10,6.*\.end\te0" } } */
 /* { dg-final { scan-assembler-times "mfc0\t\\\$26,\\\$13" 3 } } */
 /* { dg-final { scan-assembler-times "mfc0\t\\\$27,\\\$14" 11 } } */

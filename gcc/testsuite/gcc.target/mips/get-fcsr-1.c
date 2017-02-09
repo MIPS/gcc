@@ -1,4 +1,5 @@
 /* { dg-options "-mhard-float" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 NOMIPS16 unsigned int
 foo (void)

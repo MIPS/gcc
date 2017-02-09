@@ -299,6 +299,7 @@ foreach option {
     odd-spreg
     msa
     mips16e2
+    xlp
 } {
     lappend mips_option_groups $option "-m(no-|)$option"
 }
@@ -477,7 +478,7 @@ proc mips_arch_info { arch prop } {
     set arch [mips_canonicalize_option $arch]
     if { ![info exists mips_arch_info($arch,$prop)] } {
 	mips_push_test_options saved_options {}
-	set output [mips_preprocess [list "additional_flags=$arch -mabi=32"] {
+	set output [mips_preprocess [list "additional_flags=$arch"] {
 	    int isa = __mips;
 	    #ifdef __mips_isa_rev
 	    int isa_rev = __mips_isa_rev;
@@ -621,7 +622,8 @@ proc mips_64bit_arch_p { option } {
 # Return true if the given abi-group option implicitly requires -mgp32.
 proc mips_32bit_abi_p { option } {
     switch -glob -- $option {
-	-mabi=32 {
+	-mabi=32 -
+	-mabi=p32 {
 	    return 1
 	}
     }
@@ -633,7 +635,8 @@ proc mips_64bit_abi_p { option } {
     switch -glob -- $option {
 	-mabi=o64 -
 	-mabi=n32 -
-	-mabi=64 {
+	-mabi=64 -
+	-mabi=p64 {
 	    return 1
 	}
     }
@@ -725,6 +728,10 @@ proc mips-dg-init {} {
 	    "-mabi=o64",
 	    #elif _MIPS_SIM==_ABIN32
 	    "-mabi=n32",
+	    #elif _MIPS_SIM==_ABIP32
+	    "-mabi=p32",
+	    #elif _MIPS_SIM==_ABIP64
+	    "-mabi=p64",
 	    #else
 	    "-mabi=64",
 	    #endif
@@ -854,9 +861,15 @@ proc mips-dg-init {} {
 	    #endif
 
 	    #ifdef __mips_msa
-	    "-mmsa"
+	    "-mmsa",
 	    #else
-	    "-mno-msa"
+	    "-mno-msa",
+	    #endif
+
+	    #ifdef __mips_xlp
+	    "-mxlp",
+	    #else
+	    "-mno-xlp",
 	    #endif
 
 	    0
@@ -1148,11 +1161,33 @@ proc mips-dg-options { args } {
     # Handle dependencies between the pre-arch options and the arch option.
     # This should mirror the arch and post-arch code below.
     if { !$arch_test_option_p } {
-	# We need a revision 6 or better ISA for:
-	#
-	#   - When the LSA instruction is required
-	#   - When only using compact branches
-	if { $isa_rev < 6
+
+    # Check whether we need to switch from mips*r7 down to mips*r5 due
+    # to options that are incompatible with mips*r7.
+    #   - -mips16 option
+    if { $isa_rev > 6
+         && [mips_have_test_option_p options "-mips16"] } {
+        if { $gp_size == 32 } {
+        mips_make_test_option options "-mips32r5"
+        } else {
+        mips_make_test_option options "-mips64r5"
+        }
+    # Check whether we need to switch from mips*r7 down to mips*r6 due
+    # to options that are incompatible with mips*r7.
+    #   - -mno-micromips option
+    } elseif { $isa_rev > 6
+         && ([mips_have_option_p options "-mno-micromips"]
+         || [mips_have_option_p options "-mmsa"]) } {
+        if { $gp_size == 32 } {
+        mips_make_test_option options "-mips32r6"
+        } else {
+        mips_make_test_option options "-mips64r6"
+        }
+    # We need a revision 6 or better ISA for:
+    #
+    #   - When the LSA instruction is required
+    #   - When only using compact branches
+    } elseif { $isa_rev < 6
 	     && ([mips_have_test_option_p options "HAS_LSA"]
 		 || [mips_have_test_option_p options "-mcompact-branches=always"]) } {
 	    if { $gp_size == 32 } {
@@ -1410,7 +1445,8 @@ proc mips-dg-options { args } {
 		mips_make_test_option options "-mcompact-branches=optimal"
 	    }
 	}
-        if { $isa_rev > 5 } {
+    # This should work be correct for r7 too (?)
+    if { $isa_rev > 5 } {
 	    mips_make_test_option options "-mno-mips16"
 	    if { [mips_have_test_option_p options "-mdsp"] } {
 		mips_make_test_option options "-mfp64"
@@ -1421,6 +1457,10 @@ proc mips-dg-options { args } {
 	    mips_make_test_option options "-mabs=2008"
 	    mips_make_test_option options "-mno-branch-likely"
 	}
+    # We are not going to have non-micromips version of R7 (?)
+    if { $isa_rev > 6 } {
+        mips_make_test_option options "-mmicromips"
+    }
 	if { [regexp {^-march=(octeon|loongson)} $arch] } {
 	    mips_make_test_option options "-mno-micromips"
 	}
