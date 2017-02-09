@@ -53,7 +53,9 @@ static ftype *pf4a = &Af4a;
 
 int
 main() {
-#ifdef __mips
+#if defined (__nanomips__)
+  asm volatile ("lw $t4,%0\n\tlw $t4,%1" : : "m" (pv4a), "m" (pf4a) : "$t4");
+#elif defined (__mips)
   /* Use real asm for MIPS, to stop the assembler warning about
      orphaned high-part relocations.  */
   asm volatile ("lw $2,%0\n\tlw $2,%1" : : "m" (pv4a), "m" (pf4a) : "$2");

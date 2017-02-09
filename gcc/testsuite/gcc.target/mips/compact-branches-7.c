@@ -1,4 +1,4 @@
-/* { dg-options "-mhard-float -mcompact-branches=always isa_rev>=6 -mno-micromips" } */
+/* { dg-options "-mhard-float -mcompact-branches=always isa_rev=6 -mno-micromips" } */
 int bar;
 
 void

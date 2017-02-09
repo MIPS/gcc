@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-options "isa_rev<=6" } */
 /* { dg-final { scan-assembler-times "\tsltu\t|\tsltiu\t" 4 } } */
 
 #define TEST(N, LHS, REL, RHS) \

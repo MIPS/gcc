@@ -40,6 +40,8 @@
 #  else
 #    define SIZE 248
 #  endif
+#elif defined(__nanomips__)
+#    define SIZE 240
 #elif defined (__nds32__)
 #  define SIZE 248 /* 256 - 8 bytes, only $fp and padding bytes are saved in
                       the register save area under O0 optimization level.  */

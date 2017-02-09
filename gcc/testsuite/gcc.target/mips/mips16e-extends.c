@@ -1,5 +1,5 @@
 /* -mlong32 added because of PR target/38595.  */
-/* { dg-options "(-mips16) isa_rev>=1 -mlong32" } */
+/* { dg-options "(-mips16) isa_rev=1-5 -mlong32" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 extern int validate ();

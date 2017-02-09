@@ -6,7 +6,7 @@ void abort (void);
 int *a;
 /* Fails on MIPS16 because equality checks are implemented using XOR.
    It's unlikely MIPS16 users would want unrolling anyway.  */
-#ifdef __mips
+#if defined (__mips) && !defined (__nanomips__)
 __attribute__((nomips16))
 #endif
 int t()
@@ -17,7 +17,7 @@ int t()
       return 1;
   return 0;
 }
-#ifdef __mips
+#if defined (__mips) && !defined (__nanomips__)
 __attribute__((nomips16))
 #endif
 int t2()

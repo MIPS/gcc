@@ -1,4 +1,4 @@
-/* { dg-do compile { target { ! { mips*-*-* } } } } */
+/* { dg-do compile { target { { ! { mips*-*-* } }  && { ! { nanomips*-*-* } } } } } */
 /* { dg-options "-fPIC" } */
 
 #if __PIC__ != 2
