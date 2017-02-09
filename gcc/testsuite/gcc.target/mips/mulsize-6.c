@@ -1,4 +1,4 @@
-/* { dg-options "(HAS_LSA)" } */
+/* { dg-options "(HAS_LSA) isa_rev<=6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\t.globl\tf17" } } */
 /* { dg-final { scan-assembler "\tlsa\t" } } */

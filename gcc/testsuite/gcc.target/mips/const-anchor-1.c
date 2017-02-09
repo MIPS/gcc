@@ -1,5 +1,6 @@
 /* Derive a constant (0x1233ffff) from an intermediate value
    (0x1234000) used to build another constant.  */
+/* { dg-options "isa_rev<=6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-not "0x12330000|305332224" } } */
 /* { dg-final { scan-assembler "\td?addiu\t\\\$4,\\\$\[0-9\]*,-1" } } */

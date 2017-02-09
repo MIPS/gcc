@@ -1,4 +1,4 @@
-/* { dg-options "isa>=2 -mgp32 -mips16" } */
+/* { dg-options "isa=2-4 -mgp32 -mips16" } */
 
 #ifndef __GCC_HAVE_SYNC_COMPARE_AND_SWAP_1
 #error nonono
