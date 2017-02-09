@@ -1,7 +1,6 @@
 /* PR target/12865 */
 /* Origin: Waldek Hebisch <hebisch@math.uni.wroc.pl> */
 
-/* { dg-do run } */
 /* { dg-require-effective-target trampolines } */
 /* { dg-options "-O2" } */
 

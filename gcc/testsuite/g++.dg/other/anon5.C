@@ -5,6 +5,8 @@
 // { dg-prune-output "obtain more information" } */
 // Ignore additional messages on Linux/x86 with PIE
 // { dg-prune-output "\[Bb\]ad value" } */
+// Ignore additional messages on nanoMIPS
+// { dg-prune-output "relocation overflow" } */
 
 namespace {
   struct c
