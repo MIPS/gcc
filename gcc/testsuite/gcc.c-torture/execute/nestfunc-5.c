@@ -1,3 +1,4 @@
+/* { dg-xfail-run-if "nanoMIPS: needs fixing" nanomips-*-* } */
 extern void abort (void);
 extern void exit (int);
 
