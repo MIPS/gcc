@@ -1,4 +1,4 @@
-/* { dg-options "isa_rev>=2" } */
+/* { dg-options "isa_rev>=2 -mxlp" } */
 /* { dg-skip-if "bswap recognition needs expensive optimizations" { *-*-* } { "-O0" "-O1" } { "" } } */
 
 NOMIPS16 unsigned short
