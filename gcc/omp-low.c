@@ -16531,7 +16531,6 @@ convert_from_firstprivate_int (tree var, bool is_ref, gimple_seq *gs)
   tree type = TREE_TYPE (var);
   tree new_type = NULL_TREE;
   tree tmp = NULL_TREE;
-  tree inner_type = NULL_TREE;
 
   gcc_assert (TREE_CODE (var) == MEM_REF);
   var = TREE_OPERAND (var, 0);
