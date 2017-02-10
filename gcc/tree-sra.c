@@ -299,7 +299,7 @@ struct uid_decl_hasher : nofree_ptr_hash <tree_node>
 inline hashval_t
 uid_decl_hasher::hash (const tree_node *item)
 {
-  return item->decl_minimal.uid;
+  return item->u.decl_minimal.uid;
 }
 
 /* Return true if the DECL_UID in both trees are equal.  */
@@ -307,7 +307,7 @@ uid_decl_hasher::hash (const tree_node *item)
 inline bool
 uid_decl_hasher::equal (const tree_node *a, const tree_node *b)
 {
-  return (a->decl_minimal.uid == b->decl_minimal.uid);
+  return (a->u.decl_minimal.uid == b->u.decl_minimal.uid);
 }
 
 /* Set of candidates.  */
@@ -320,7 +320,7 @@ static inline tree
 candidate (unsigned uid)
 {
  tree_node t;
- t.decl_minimal.uid = uid;
+ t.u.decl_minimal.uid = uid;
  return candidates->find_with_hash (&t, static_cast <hashval_t> (uid));
 }
 

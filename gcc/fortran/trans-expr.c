@@ -1283,7 +1283,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	  tree from_len;
 
 	  if (DECL_P (to))
-	    name = (const char *)(DECL_NAME (to)->identifier.id.str);
+	    name = IDENTIFIER_POINTER (DECL_NAME (to));
 
 	  from_len = gfc_conv_descriptor_size (from_data, 1);
 	  tmp = fold_build2_loc (input_location, NE_EXPR,

@@ -814,7 +814,7 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	    temp.op1 = array_ref_low_bound (ref);
 	    /* But record element size in units of the type alignment.  */
 	    temp.op2 = TREE_OPERAND (ref, 3);
-	    temp.align = eltype->type_common.align;
+	    temp.align = TYPE_ALIGN_RAW (eltype);
 	    if (! temp.op2)
 	      temp.op2 = size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (eltype),
 				     size_int (TYPE_ALIGN_UNIT (eltype)));

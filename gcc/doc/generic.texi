@@ -867,20 +867,20 @@ should go in the appropriate @file{.def} file.
 For @code{DECL} nodes that are part of the middle-end, the enumerator
 values are specified in @file{treestruct.def}.
 
-@item Update @code{union tree_node}
+@item Update @code{union tree_node_u}
 In order to make your new structure type usable, it must be added to
-@code{union tree_node}.
+@code{union tree_node_u}.
 For language specific @code{DECL} nodes, a new entry should be added
 to the appropriate @file{.h} file of the form
 @smallexample
   struct tree_foo_decl GTY ((tag ("TS_VAR_DECL"))) foo_decl;
 @end smallexample
 For @code{DECL} nodes that are part of the middle-end, the additional
-member goes directly into @code{union tree_node} in @file{tree.h}.
+member goes directly into @code{union tree_node_u} in @file{tree.h}.
 
 @item Update dynamic checking info
 In order to be able to check whether accessing a named portion of
-@code{union tree_node} is legal, and whether a certain @code{DECL} node
+@code{union tree_node_u} is legal, and whether a certain @code{DECL} node
 contains one of the enumerated @code{DECL} node structures in the
 hierarchy, a simple lookup table is used.
 This lookup table needs to be kept up to date with the tree structure

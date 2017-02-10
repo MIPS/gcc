@@ -1157,7 +1157,7 @@ adjust_field_rtx_def (type_p t, options_p ARG_UNUSED (opt))
 
   rtx_tp = create_pointer (find_structure ("rtx_def", TYPE_STRUCT));
   rtvec_tp = create_pointer (find_structure ("rtvec_def", TYPE_STRUCT));
-  tree_tp = create_pointer (find_structure ("tree_node", TYPE_UNION));
+  tree_tp = create_pointer (find_structure ("tree_node", TYPE_STRUCT));
   mem_attrs_tp = create_pointer (find_structure ("mem_attrs", TYPE_STRUCT));
   reg_attrs_tp = 
     create_pointer (find_structure ("reg_attrs", TYPE_STRUCT));

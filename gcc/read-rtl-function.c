@@ -556,7 +556,7 @@ function_reader::parse_param ()
   /* Parse DECL_RTL.  */
   require_char_ws ('(');
   require_word_ws ("DECL_RTL");
-  DECL_WRTL_CHECK (t_param)->decl_with_rtl.rtl = parse_rtx ();
+  DECL_RTL_RAW (t_param) = parse_rtx ();
   require_char_ws (')');
 
   /* Parse DECL_RTL_INCOMING.  */
