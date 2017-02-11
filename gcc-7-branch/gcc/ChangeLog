@@ -1,3 +1,68 @@
+2017-02-11  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/contrib.texi (Contributors): Remove broken link into
+	the Mauve CVS repository.
+
+2017-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/79454
+	* internal-fn.c (expand_vector_ubsan_overflow): Use piece-wise
+	result computation whenever lhs doesn't have vector mode, not
+	just when it has BLKmode.
+
+2017-02-10  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/makefile.texi (profiledbootstrap): Refer to the
+	installation instructions only in textual form.
+
+2017-02-10  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/79295
+	* config/rs6000/altivec.md (bcd<bcd_add_sub>): Fix constraints.
+
+2017-02-10  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (Specific): Use https for blackfin.uclinux.org.
+	(Specific): Update mingw-w64 reference.
+	(Binaries): Ditto.
+	(Specific): Remove broken link to Renesas RX processor.
+
+2017-02-10  Richard Biener  <rguenther@suse.de>
+
+	* toplev.c (process_options): Do not mention obsolete graphite
+	options when printing sorry message about missing graphite support.
+	Mention -floop-nest-optimize.
+
+2017-02-10  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/aarch64/arm_neon.h (vtst_p8): Rewrite without asm.
+	(vtst_p16): Likewise.
+	(vtstq_p8): Likewise.
+	(vtstq_p16): Likewise.
+	(vtst_p64): New.
+	(vtstq_p64): Likewise.
+	* config/arm/arm_neon.h (vgetq_lane_p64): New.
+	(vset_lane_p64): New.
+	(vsetq_lane_p64): New.
+
+2017-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79411
+	* tree-ssa-reassoc.c (is_reassociable_op): Return false if
+	stmt operands are SSA_NAMEs used in abnormal phis.
+	(can_reassociate_p): Return false if op is SSA_NAME used in abnormal
+	phis.
+
+2017-02-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/70795
+	* cgraphunit.c (cgraph_node::add_new_function): Set externally_visible
+	flag if needed.
+
+2017-02-09  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-unswitch.c (hoist_guard): Update profile.
+
 2017-02-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-offload.c (oacc_loop_auto_partitions): Use || instead of |
