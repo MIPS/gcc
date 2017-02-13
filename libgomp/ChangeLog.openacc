@@ -1,3 +1,23 @@
+2017-02-17  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (struct ptx_device): Add
+	max_threads_per_block, warp_size, max_threads_per_multiprocessor,
+	max_shared_memory_per_multiprocessor, binary_version,
+	register_allocation_unit_size, register_allocation_granularity
+	members.
+	(nvptx_open_device): Initialze the new ptx_device variables.
+	(nvptx_exec): Don't probe the CUDA runtime for the hardware info.
+	Use the new variables inside targ_fn_descriptor and ptx_device instead.
+	(GOMP_OFFLOAD_load_image): Set num_gangs,
+	register_allocation_{unit_size,granularity}.
+
+2017-02-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Adjust the default num_gangs.
+	Add diagnostic when the hardware cannot support the requested
+	num_workers.
+
 2017-02-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp.map: Add OACC_2.5 version, and add acc_copyin_async,
