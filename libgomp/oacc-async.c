@@ -105,3 +105,28 @@ acc_wait_all_async (int async)
 
   thr->dev->openacc.async_wait_all_async_func (async);
 }
+
+int
+acc_get_default_async (void)
+{
+  struct goacc_thread *thr = goacc_thread ();
+
+  if (!thr || !thr->dev)
+    gomp_fatal ("no device active");
+
+  return thr->default_async;
+}
+
+void
+acc_set_default_async (int async)
+{
+  if (async < acc_async_sync)
+    gomp_fatal ("invalid async argument: %d", async);
+
+  struct goacc_thread *thr = goacc_thread ();
+
+  if (!thr || !thr->dev)
+    gomp_fatal ("no device active");
+
+  thr->default_async = async;
+}

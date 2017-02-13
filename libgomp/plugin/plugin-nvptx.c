@@ -516,13 +516,10 @@ select_stream_for_async (int async, pthread_t thread, bool create,
   struct ptx_stream *stream = NULL;
   int orig_async = async;
 
-  /* The special value acc_async_noval (-1) maps (for now) to an
-     implicitly-created stream, which is then handled the same as any other
-     numbered async stream.  Other options are available, e.g. using the null
-     stream for anonymous async operations, or choosing an idle stream from an
-     active set.  But, stick with this for now.  */
-  if (async > acc_async_sync)
-    async++;
+  /* The special value acc_async_noval (-1) maps to the thread-specific
+     default async stream.  */
+  if (async == acc_async_noval)
+    async = GOMP_PLUGIN_acc_thread_default_async ();
 
   if (create)
     pthread_mutex_lock (&ptx_dev->stream_lock);

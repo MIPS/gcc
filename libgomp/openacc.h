@@ -63,6 +63,7 @@ typedef enum acc_device_t {
 
 typedef enum acc_async_t {
   /* Keep in sync with include/gomp-constants.h.  */
+  acc_async_default = 0,
   acc_async_noval = -1,
   acc_async_sync  = -2
 } acc_async_t;
@@ -72,6 +73,8 @@ void acc_set_device_type (acc_device_t) __GOACC_NOTHROW;
 acc_device_t acc_get_device_type (void) __GOACC_NOTHROW;
 void acc_set_device_num (int, acc_device_t) __GOACC_NOTHROW;
 int acc_get_device_num (acc_device_t) __GOACC_NOTHROW;
+void acc_set_default_async (int) __GOACC_NOTHROW;
+int acc_get_default_async (void) __GOACC_NOTHROW;
 int acc_async_test (int) __GOACC_NOTHROW;
 int acc_async_test_all (void) __GOACC_NOTHROW;
 void acc_wait (int) __GOACC_NOTHROW;
@@ -104,6 +107,16 @@ void *acc_hostptr (void *) __GOACC_NOTHROW;
 int acc_is_present (void *, size_t) __GOACC_NOTHROW;
 void acc_memcpy_to_device (void *, void *, size_t) __GOACC_NOTHROW;
 void acc_memcpy_from_device (void *, void *, size_t) __GOACC_NOTHROW;
+
+/* Async functions, specified in OpenACC 2.5.  */
+void acc_copyin_async (void *, size_t, int) __GOACC_NOTHROW;
+void acc_create_async (void *, size_t, int) __GOACC_NOTHROW;
+void acc_copyout_async (void *, size_t, int) __GOACC_NOTHROW;
+void acc_delete_async (void *, size_t, int) __GOACC_NOTHROW;
+void acc_update_device_async (void *, size_t, int) __GOACC_NOTHROW;
+void acc_update_self_async (void *, size_t, int) __GOACC_NOTHROW;
+void acc_memcpy_to_device_async (void *, void *, size_t, int) __GOACC_NOTHROW;
+void acc_memcpy_from_device_async (void *, void *, size_t, int) __GOACC_NOTHROW;
 
 /* Old names.  OpenACC does not specify whether these can or must
    not be macros, inlines or aliases for the new names.  */
