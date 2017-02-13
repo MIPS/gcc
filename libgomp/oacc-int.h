@@ -73,6 +73,9 @@ struct goacc_thread
 
   /* Target-specific data (used by plugin).  */
   void *target_tls;
+
+  /* Default OpenACC async queue for current thread, exported to plugin.  */
+  int default_async;
 };
 
 #if defined HAVE_TLS || defined USE_EMUTLS

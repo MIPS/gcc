@@ -437,6 +437,8 @@ goacc_attach_host_thread_to_device (int ord)
   
   thr->target_tls
     = acc_dev->openacc.create_thread_data_func (ord);
+
+  thr->default_async = acc_async_default;
   
   acc_dev->openacc.async_set_async_func (acc_async_sync);
 }
