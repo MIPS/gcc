@@ -49,3 +49,12 @@ GOMP_PLUGIN_acc_thread (void)
   struct goacc_thread *thr = goacc_thread ();
   return thr ? thr->target_tls : NULL;
 }
+
+/* Return the default async number from the TLS data for the current thread.  */
+
+int
+GOMP_PLUGIN_acc_thread_default_async (void)
+{
+  struct goacc_thread *thr = goacc_thread ();
+  return thr ? thr->default_async : acc_async_default;
+}

@@ -183,6 +183,7 @@ enum gomp_map_kind
 /* Asynchronous behavior.  Keep in sync with
    libgomp/{openacc.h,openacc.f90,openacc_lib.h}:acc_async_t.  */
 
+#define GOMP_ASYNC_DEFAULT		0
 #define GOMP_ASYNC_NOVAL		-1
 #define GOMP_ASYNC_SYNC			-2
 

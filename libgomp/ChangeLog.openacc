@@ -1,3 +1,65 @@
+2017-02-14  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp.map: Add OACC_2.5 version, and add acc_copyin_async,
+	acc_copyin_async_32_h_, acc_copyin_async_64_h_,
+	acc_copyin_async_array_h_, acc_copyout_async,
+	acc_copyout_async_32_h_, acc_copyout_async_64_h_,
+	acc_copyout_async_array_h_, acc_create_async,
+	acc_create_async_32_h_, acc_create_async_64_h_,
+	acc_create_async_array_h_, acc_delete_async,
+	acc_delete_async_32_h_, acc_delete_async_64_h_,
+	acc_delete_async_array_h_, acc_get_default_async,
+	acc_get_default_async_h_, acc_memcpy_from_device_async,
+	acc_memcpy_to_device_async, acc_set_default_async,
+	acc_set_default_async_h_, acc_update_device_async,
+	acc_update_device_async_32_h_, acc_update_device_async_64_h_,
+	acc_update_device_async_array_h_, acc_update_self_async,
+	acc_update_self_async_32_h_, acc_update_self_async_64_h_, and
+	acc_update_self_async_array_h_.  Add GOMP_PLUGIN_1.2 version, and
+	add GOMP_PLUGIN_acc_thread_default_async.
+
+2017-02-13  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* oacc-async.c (acc_get_default_async): New API function.
+	(acc_set_default_async): Likewise.
+	* oacc-init.c ():
+	* oacc-int.h (struct goacc_thread): Add default_async field.
+	* oacc-mem.c (memcpy_tofrom_device): New function, combined from
+	acc_memcpy_to/from_device functions, now with async parameter.
+	(acc_memcpy_to_device): Modify to use memcpy_tofrom_device.
+	(acc_memcpy_from_device): Likewise.
+	(acc_memcpy_to_device_async): New API function.
+	(acc_memcpy_from_device_async): Likewise.
+	(present_create_copy): Add async parameter.
+	(acc_create): Adjust present_create_copy call.
+	(acc_copyin): Likewise.
+	(acc_present_or_create): Likewise.
+	(acc_present_or_copyin): Likewise.
+	(acc_create_async): New API function.
+	(acc_copyin_async): New API function.
+	(delete_copyout): Add async parameter.
+	(acc_delete): Adjust delete_copyout call.
+	(acc_copyout): Likewise.
+	(acc_delete_async): New API function.
+	(acc_copyout_async): Likewise.
+	(update_dev_host): Add async parameter.
+	(acc_update_device): Adjust update_dev_host call.
+	(acc_update_self): Likewise.
+	(acc_update_device_async): New API function.
+	(acc_update_self_async): Likewise.
+	* oacc-plugin.c (GOMP_PLUGIN_acc_thread_default_async): New function.
+	* oacc-plugin.h (GOMP_PLUGIN_acc_thread_default_async): Declare.
+	* openacc.f90 (acc_async_default): Declare.
+	(acc_set_default_async): Likewise.
+	(acc_get_default_async): Likewise.
+	* openacc_lib.h (acc_async_default): Declare.
+	(acc_set_default_async): Likewise.
+	(acc_get_default_async): Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/asyncwait-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/lib-94.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/lib-95.c: New test.
+	* testsuite/libgomp.oacc-fortran/lib-16.f90: New test.
+
 2017-02-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/reduction-9.f90: New test.
