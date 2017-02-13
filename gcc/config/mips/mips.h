@@ -1152,7 +1152,8 @@ struct mips_cpu_info {
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
 #define ISA_HAS_UALW_UASW	(mips_isa_rev >= 7 && ISA_HAS_XLP)
 
-#define ISA_HAS_LWP_SWP		(TARGET_MICROMIPS && mips_isa_rev < 7)
+#define ISA_HAS_LWP_SWP		(TARGET_MICROMIPS && mips_isa_rev < 7 \
+				 || TARGET_LWP_SWP)
 
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 

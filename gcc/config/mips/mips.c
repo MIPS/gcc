@@ -25070,9 +25070,11 @@ umips_output_load_store_pair_1 (bool load_p, rtx reg, rtx mem)
   rtx ops[] = {reg, mem};
 
   if (load_p)
-    output_asm_insn ("lwp\t%0,%1", ops);
+    output_asm_insn (TARGET_LWP_SWP ? "sdbbp32 31 # lwp\t%0,%1"
+				    : "lwp\t%0,%1", ops);
   else
-    output_asm_insn ("swp\t%0,%1", ops);
+    output_asm_insn (TARGET_LWP_SWP ? "sdbbp32 32 # swp\t%0,%1"
+				    : "swp\t%0,%1", ops);
 }
 
 /* Output the assembly instruction for a microMIPS LWP or SWP instruction.
