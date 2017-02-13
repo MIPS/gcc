@@ -257,9 +257,12 @@
 		    ? M16_REG_P (REGNO (op))
 		    : GP_REG_P (REGNO (op))")))
 
-(define_predicate "ualw_uasw_operand"
+(define_predicate "lwm_swm_operand"
   (and (match_code "mem")
-       (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")))
+       (ior (match_test "TARGET_NANOMIPS
+			 && mips_9bit_offset_address_p (XEXP (op, 0), mode)")
+	    (match_test "!TARGET_NANOMIPS
+			 && memory_operand (op, mode)"))))
 
 (define_predicate "lwsp_swsp_operand"
   (and (match_code "mem")
@@ -783,3 +786,15 @@
 (define_predicate "reg_or_vector_same_uimm6_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm6_operand")))
+
+(define_special_predicate "load_multiple_operation"
+  (match_code "parallel")
+{
+  return mips_word_multiple_pattern_p (false, op);
+})
+
+(define_special_predicate "store_multiple_operation"
+  (match_code "parallel")
+{
+  return mips_word_multiple_pattern_p (true, op);
+})
