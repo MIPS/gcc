@@ -1357,7 +1357,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
       if (POINTER_TYPE_P (type))
 	{
 	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
-	  tree (*fn)(tree, machine_mode, bool);
+	  ttype *(*fn)(ttype_p, machine_mode, bool);
 
 	  if (!targetm.addr_space.valid_pointer_mode (mode, as))
 	    {

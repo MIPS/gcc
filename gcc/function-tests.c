@@ -87,7 +87,7 @@ namespace selftest {
 /* Helper function for selftests of function-creation.  */
 
 static tree
-make_fndecl (tree return_type,
+make_fndecl (ttype *return_type,
 	     const char *name,
 	     vec <tree> &param_types,
 	     bool is_variadic = false)

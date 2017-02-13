@@ -160,6 +160,7 @@ machine_mode c_default_pointer_mode = VOIDmode;
 */
 
 tree c_global_trees[CTI_MAX];
+ttype *c_global_types[CTPI_MAX];
 
 /* Switches common to the C front ends.  */
 
@@ -1200,9 +1201,9 @@ int_safely_convertible_to_real_p (const_tree from_type, const_tree to_type)
   tree type_low_bound = TYPE_MIN_VALUE (from_type);
   tree type_high_bound = TYPE_MAX_VALUE (from_type);
   REAL_VALUE_TYPE real_low_bound =
-	  real_value_from_int_cst (0, type_low_bound);
+	  real_value_from_int_cst (NULL_TYPE, type_low_bound);
   REAL_VALUE_TYPE real_high_bound =
-	  real_value_from_int_cst (0, type_high_bound);
+	  real_value_from_int_cst (NULL_TYPE, type_high_bound);
 
   return exact_real_truncate (TYPE_MODE (to_type), &real_low_bound)
 	 && exact_real_truncate (TYPE_MODE (to_type), &real_high_bound);
@@ -1276,7 +1277,7 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	  /* Warn for an integer constant that does not fit into real type.  */
 	  if (TREE_CODE (expr_type) == INTEGER_TYPE)
 	    {
-	      REAL_VALUE_TYPE a = real_value_from_int_cst (0, expr);
+	      REAL_VALUE_TYPE a = real_value_from_int_cst (NULL_TYPE, expr);
 	      if (!exact_real_truncate (TYPE_MODE (type), &a))
 		give_warning = UNSAFE_REAL;
 	    }
@@ -1359,7 +1360,7 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	       && TREE_CODE (type) == INTEGER_TYPE)
 	{
 	  /* Don't warn about unsigned char y = 0xff, x = (int) y;  */
-	  expr = get_unwidened (expr, 0);
+	  expr = get_unwidened (expr, NULL_TYPE);
 	  expr_type = TREE_TYPE (expr);
 
 	  /* Don't warn for short y; short x = ((int)y & 0xff);  */
@@ -1428,7 +1429,7 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	       && TREE_CODE (type) == REAL_TYPE)
 	{
 	  /* Don't warn about char y = 0xff; float x = (int) y;  */
-	  expr = get_unwidened (expr, 0);
+	  expr = get_unwidened (expr, NULL_TYPE);
 	  expr_type = TREE_TYPE (expr);
 
 	  if (!int_safely_convertible_to_real_p (expr_type, type))
@@ -3897,7 +3898,7 @@ typedef enum c_builtin_type builtin_type;
 
 /* A temporary array for c_common_nodes_and_builtins.  Used in
    communication with def_fn_type.  */
-static tree builtin_types[(int) BT_LAST + 1];
+static ttype *builtin_types[(int) BT_LAST + 1];
 
 /* A helper function for c_common_nodes_and_builtins.  Build function type
    for DEF with return type RET and N arguments.  If VAR is true, then the
@@ -3911,7 +3912,7 @@ static tree builtin_types[(int) BT_LAST + 1];
 static void
 def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
 {
-  tree t;
+  ttype *t;
   tree *args = XALLOCAVEC (tree, n);
   va_list list;
   int i;
@@ -3943,7 +3944,7 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
    frontends.  */
 
 static void
-c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
+c_define_builtins (ttype *va_list_ref_type_node, ttype *va_list_arg_type_node)
 {
 #define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
   builtin_types[ENUM] = VALUE;
@@ -4026,7 +4027,7 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #undef DEF_FUNCTION_TYPE_VAR_6
 #undef DEF_FUNCTION_TYPE_VAR_7
 #undef DEF_POINTER_TYPE
-  builtin_types[(int) BT_LAST] = NULL_TREE;
+  builtin_types[(int) BT_LAST] = NULL;
 
   c_init_attributes ();
 
@@ -4058,6 +4059,12 @@ c_get_ident (const char *id)
   return get_identifier (id);
 }
 
+static inline ttype *
+identifier_global_type (tree t)
+{
+  return TTYPE (TREE_TYPE (identifier_global_value (t)));
+}
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -4067,10 +4074,11 @@ c_common_nodes_and_builtins (void)
   int char16_type_size;
   int char32_type_size;
   int wchar_type_size;
-  tree array_domain_type;
-  tree va_list_ref_type_node;
-  tree va_list_arg_type_node;
+  ttype *array_domain_type;
+  ttype *va_list_ref_type_node;
+  ttype *va_list_arg_type_node;
   int i;
+  tree t;
 
   build_common_tree_nodes (flag_signed_char);
 
@@ -4175,10 +4183,9 @@ c_common_nodes_and_builtins (void)
 					 TYPE_DECL, NULL_TREE,
 					 widest_unsigned_literal_type_node));
 
-  signed_size_type_node = c_common_signed_type (size_type_node);
+  signed_size_type_node = TTYPE (c_common_signed_type (size_type_node));
 
-  pid_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (PID_TYPE)));
+  pid_type_node = identifier_global_type (get_identifier (PID_TYPE));
 
   record_builtin_type (RID_FLOAT, NULL, float_type_node);
   record_builtin_type (RID_DOUBLE, NULL, double_type_node);
@@ -4310,7 +4317,7 @@ c_common_nodes_and_builtins (void)
     tree void_name = TYPE_NAME (void_type_node);
     TYPE_NAME (void_type_node) = NULL_TREE;
     TYPE_NAME (build_qualified_type (void_type_node, TYPE_QUAL_CONST))
-      = void_name;
+	       = void_name;
     TYPE_NAME (void_type_node) = void_name;
   }
 
@@ -4335,8 +4342,8 @@ c_common_nodes_and_builtins (void)
 			  (char_type_node, TYPE_QUAL_CONST));
 
   /* This is special for C++ so functions can be overloaded.  */
-  wchar_type_node = get_identifier (MODIFIED_WCHAR_TYPE);
-  wchar_type_node = TREE_TYPE (identifier_global_value (wchar_type_node));
+  t = get_identifier (MODIFIED_WCHAR_TYPE);
+  wchar_type_node = identifier_global_type (t);
   wchar_type_size = TYPE_PRECISION (wchar_type_node);
   underlying_wchar_type_node = wchar_type_node;
   if (c_dialect_cxx ())
@@ -4353,8 +4360,8 @@ c_common_nodes_and_builtins (void)
     = build_array_type (wchar_type_node, array_domain_type);
 
   /* Define 'char16_t'.  */
-  char16_type_node = get_identifier (CHAR16_TYPE);
-  char16_type_node = TREE_TYPE (identifier_global_value (char16_type_node));
+  t = get_identifier (CHAR16_TYPE);
+  char16_type_node = identifier_global_type (t);
   char16_type_size = TYPE_PRECISION (char16_type_node);
   if (c_dialect_cxx ())
     {
@@ -4369,8 +4376,8 @@ c_common_nodes_and_builtins (void)
     = build_array_type (char16_type_node, array_domain_type);
 
   /* Define 'char32_t'.  */
-  char32_type_node = get_identifier (CHAR32_TYPE);
-  char32_type_node = TREE_TYPE (identifier_global_value (char32_type_node));
+  t = get_identifier (CHAR32_TYPE);
+  char32_type_node = identifier_global_type (t);
   char32_type_size = TYPE_PRECISION (char32_type_node);
   if (c_dialect_cxx ())
     {
@@ -4384,99 +4391,97 @@ c_common_nodes_and_builtins (void)
   char32_array_type_node
     = build_array_type (char32_type_node, array_domain_type);
 
-  wint_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (WINT_TYPE)));
+  wint_type_node = identifier_global_type (get_identifier (WINT_TYPE));
 
-  intmax_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (INTMAX_TYPE)));
-  uintmax_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (UINTMAX_TYPE)));
+  intmax_type_node = identifier_global_type (get_identifier (INTMAX_TYPE));
+  uintmax_type_node = identifier_global_type (get_identifier (UINTMAX_TYPE));
 
   if (SIG_ATOMIC_TYPE)
     sig_atomic_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (SIG_ATOMIC_TYPE)));
+      identifier_global_type (c_get_ident (SIG_ATOMIC_TYPE));
   if (INT8_TYPE)
     int8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT8_TYPE)));
+      identifier_global_type (c_get_ident (INT8_TYPE));
   if (INT16_TYPE)
     int16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT16_TYPE)));
+      identifier_global_type (c_get_ident (INT16_TYPE));
   if (INT32_TYPE)
     int32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT32_TYPE)));
+      identifier_global_type (c_get_ident (INT32_TYPE));
   if (INT64_TYPE)
     int64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT64_TYPE)));
+      identifier_global_type (c_get_ident (INT64_TYPE));
   if (UINT8_TYPE)
     uint8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT8_TYPE)));
+      identifier_global_type (c_get_ident (UINT8_TYPE));
   if (UINT16_TYPE)
     c_uint16_type_node = uint16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT16_TYPE)));
+      identifier_global_type (c_get_ident (UINT16_TYPE));
   if (UINT32_TYPE)
     c_uint32_type_node = uint32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT32_TYPE)));
+      identifier_global_type (c_get_ident (UINT32_TYPE));
   if (UINT64_TYPE)
     c_uint64_type_node = uint64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT64_TYPE)));
+      identifier_global_type (c_get_ident (UINT64_TYPE));
   if (INT_LEAST8_TYPE)
     int_least8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST8_TYPE)));
+      identifier_global_type (c_get_ident (INT_LEAST8_TYPE));
   if (INT_LEAST16_TYPE)
     int_least16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST16_TYPE)));
+      identifier_global_type (c_get_ident (INT_LEAST16_TYPE));
   if (INT_LEAST32_TYPE)
     int_least32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST32_TYPE)));
+      identifier_global_type (c_get_ident (INT_LEAST32_TYPE));
   if (INT_LEAST64_TYPE)
     int_least64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST64_TYPE)));
+      identifier_global_type (c_get_ident (INT_LEAST64_TYPE));
   if (UINT_LEAST8_TYPE)
     uint_least8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST8_TYPE)));
+      identifier_global_type (c_get_ident (UINT_LEAST8_TYPE));
   if (UINT_LEAST16_TYPE)
     uint_least16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST16_TYPE)));
+      identifier_global_type (c_get_ident (UINT_LEAST16_TYPE));
   if (UINT_LEAST32_TYPE)
     uint_least32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST32_TYPE)));
+      identifier_global_type (c_get_ident (UINT_LEAST32_TYPE));
   if (UINT_LEAST64_TYPE)
     uint_least64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST64_TYPE)));
+      identifier_global_type (c_get_ident (UINT_LEAST64_TYPE));
   if (INT_FAST8_TYPE)
     int_fast8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST8_TYPE)));
+      identifier_global_type (c_get_ident (INT_FAST8_TYPE));
   if (INT_FAST16_TYPE)
     int_fast16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST16_TYPE)));
+      identifier_global_type (c_get_ident (INT_FAST16_TYPE));
   if (INT_FAST32_TYPE)
     int_fast32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST32_TYPE)));
+      identifier_global_type (c_get_ident (INT_FAST32_TYPE));
   if (INT_FAST64_TYPE)
     int_fast64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST64_TYPE)));
+      identifier_global_type (c_get_ident (INT_FAST64_TYPE));
   if (UINT_FAST8_TYPE)
     uint_fast8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST8_TYPE)));
+      identifier_global_type (c_get_ident (UINT_FAST8_TYPE));
   if (UINT_FAST16_TYPE)
     uint_fast16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST16_TYPE)));
+      identifier_global_type (c_get_ident (UINT_FAST16_TYPE));
   if (UINT_FAST32_TYPE)
     uint_fast32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST32_TYPE)));
+      identifier_global_type (c_get_ident (UINT_FAST32_TYPE));
   if (UINT_FAST64_TYPE)
     uint_fast64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST64_TYPE)));
+      identifier_global_type (c_get_ident (UINT_FAST64_TYPE));
   if (INTPTR_TYPE)
     intptr_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INTPTR_TYPE)));
+      identifier_global_type (c_get_ident (INTPTR_TYPE));
   if (UINTPTR_TYPE)
     uintptr_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINTPTR_TYPE)));
+      identifier_global_type (c_get_ident (UINTPTR_TYPE));
 
   default_function_type
     = build_varargs_function_type_list (integer_type_node, NULL_TREE);
-  unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
+  unsigned_ptrdiff_type_node 
+			  = TTYPE (c_common_unsigned_type (ptrdiff_type_node));
 
   lang_hooks.decls.pushdecl
     (build_decl (UNKNOWN_LOCATION,
@@ -6348,7 +6353,8 @@ fold_offsetof (tree expr)
 int
 complete_array_type (tree *ptype, tree initial_value, bool do_default)
 {
-  tree maxindex, type, main_type, elt, unqual_elt;
+  tree maxindex, type, elt, unqual_elt;
+  ttype *main_type;
   int failure = 0, quals;
   hashval_t hashcode = 0;
   bool overflow_p = false;

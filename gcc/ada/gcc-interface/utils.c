@@ -5509,7 +5509,7 @@ builtin_decl_for (tree name)
 
 /* Standard data types to be used in builtin argument declarations.  */
 
-enum c_tree_index
+enum c_type_index
 {
     CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
     CTI_STRING_TYPE,
@@ -5518,11 +5518,11 @@ enum c_tree_index
     CTI_MAX
 };
 
-static tree c_global_trees[CTI_MAX];
+static ttype *c_global_types[CTI_MAX];
 
-#define signed_size_type_node	c_global_trees[CTI_SIGNED_SIZE_TYPE]
-#define string_type_node	c_global_trees[CTI_STRING_TYPE]
-#define const_string_type_node	c_global_trees[CTI_CONST_STRING_TYPE]
+#define signed_size_type_node	c_global_types[CTI_SIGNED_SIZE_TYPE]
+#define string_type_node	c_global_types[CTI_STRING_TYPE]
+#define const_string_type_node	c_global_types[CTI_CONST_STRING_TYPE]
 
 /* ??? In addition some attribute handlers, we currently don't support a
    (small) number of builtin-types, which in turns inhibits support for a
@@ -5549,7 +5549,7 @@ builtin_type_for_size (int size, bool unsignedp)
 static void
 install_builtin_elementary_types (void)
 {
-  signed_size_type_node = gnat_signed_type_for (size_type_node);
+  signed_size_type_node = TTYPE (gnat_signed_type_for (size_type_node));
   pid_type_node = integer_type_node;
 
   string_type_node = build_pointer_type (char_type_node);
@@ -5626,7 +5626,7 @@ enum c_builtin_type
 typedef enum c_builtin_type builtin_type;
 
 /* A temporary array used in communication with def_fn_type.  */
-static GTY(()) tree builtin_types[(int) BT_LAST + 1];
+static GTY(()) ttype *builtin_types[(int) BT_LAST + 1];
 
 /* A helper function for install_builtin_types.  Build function type
    for DEF with return type RET and N arguments.  If VAR is true, then the
@@ -5640,7 +5640,7 @@ static GTY(()) tree builtin_types[(int) BT_LAST + 1];
 static void
 def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
 {
-  tree t;
+  ttype *t;
   tree *args = XALLOCAVEC (tree, n);
   va_list list;
   int i;
@@ -5674,8 +5674,8 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
 static void
 install_builtin_function_types (void)
 {
-  tree va_list_ref_type_node;
-  tree va_list_arg_type_node;
+  ttype *va_list_ref_type_node;
+  ttype *va_list_arg_type_node;
 
   if (TREE_CODE (va_list_type_node) == ARRAY_TYPE)
     {
@@ -5769,7 +5769,7 @@ install_builtin_function_types (void)
 #undef DEF_FUNCTION_TYPE_VAR_6
 #undef DEF_FUNCTION_TYPE_VAR_7
 #undef DEF_POINTER_TYPE
-  builtin_types[(int) BT_LAST] = NULL_TREE;
+  builtin_types[(int) BT_LAST] = NULL;
 }
 
 /* ----------------------------------------------------------------------- *

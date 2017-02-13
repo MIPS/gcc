@@ -138,6 +138,7 @@ static void expand_static_init (tree, tree);
 	tree tinfo_var_id;  */
 
 tree cp_global_trees[CPTI_MAX];
+ttype *cp_global_types[CPTPI_MAX];
 
 /* Indicates that there is a type value in some namespace, although
    that is not necessarily in scope at the moment.  */
@@ -4120,7 +4121,7 @@ cxx_init_decl_processing (void)
 
   /* C++ extensions */
 
-  unknown_type_node = make_node (LANG_TYPE);
+  unknown_type_node = make_type_node (LANG_TYPE);
   record_unknown_type (unknown_type_node, "unknown type");
 
   /* Indirecting an UNKNOWN_TYPE node yields an UNKNOWN_TYPE node.  */
@@ -4131,13 +4132,13 @@ cxx_init_decl_processing (void)
   TYPE_POINTER_TO (unknown_type_node) = unknown_type_node;
   TYPE_REFERENCE_TO (unknown_type_node) = unknown_type_node;
 
-  init_list_type_node = make_node (LANG_TYPE);
+  init_list_type_node = make_type_node (LANG_TYPE);
   record_unknown_type (init_list_type_node, "init list");
 
   {
     /* Make sure we get a unique function type, so we can give
        its pointer type a name.  (This wins for gdb.) */
-    tree vfunc_type = make_node (FUNCTION_TYPE);
+    tree vfunc_type = make_type_node (FUNCTION_TYPE);
     TREE_TYPE (vfunc_type) = integer_type_node;
     TYPE_ARG_TYPES (vfunc_type) = NULL_TREE;
     layout_type (vfunc_type);
@@ -4147,9 +4148,10 @@ cxx_init_decl_processing (void)
   record_builtin_type (RID_MAX, VTBL_PTR_TYPE, vtable_entry_type);
 
   vtbl_type_node
-    = build_cplus_array_type (vtable_entry_type, NULL_TREE);
+    = TTYPE (build_cplus_array_type (vtable_entry_type, NULL_TREE));
   layout_type (vtbl_type_node);
-  vtbl_type_node = cp_build_qualified_type (vtbl_type_node, TYPE_QUAL_CONST);
+  vtbl_type_node 
+    = TTYPE (cp_build_qualified_type (vtbl_type_node, TYPE_QUAL_CONST));
   record_builtin_type (RID_MAX, NULL, vtbl_type_node);
   vtbl_ptr_type_node = build_pointer_type (vtable_entry_type);
   layout_type (vtbl_ptr_type_node);
@@ -4159,7 +4161,7 @@ cxx_init_decl_processing (void)
   abi_node = current_namespace;
   pop_namespace ();
 
-  global_type_node = make_node (LANG_TYPE);
+  global_type_node = make_type_node (LANG_TYPE);
   record_unknown_type (global_type_node, "global type");
 
   any_targ_node = make_node (LANG_TYPE);
@@ -4250,8 +4252,9 @@ cxx_init_decl_processing (void)
       {
 	push_namespace (std_identifier);
 	tree align_id = get_identifier ("align_val_t");
-	align_type_node = start_enum (align_id, NULL_TREE, size_type_node,
-				      NULL_TREE, /*scoped*/true, NULL);
+	align_type_node 
+		 = TTYPE (start_enum (align_id, NULL_TREE, size_type_node,
+				      NULL_TREE, /*scoped*/true, NULL));
 	pop_namespace ();
 
 	/* operator new (size_t, align_val_t); */
@@ -4287,7 +4290,7 @@ cxx_init_decl_processing (void)
 	  }
       }
 
-    nullptr_type_node = make_node (NULLPTR_TYPE);
+    nullptr_type_node = make_type_node (NULLPTR_TYPE);
     TYPE_SIZE (nullptr_type_node) = bitsize_int (GET_MODE_BITSIZE (ptr_mode));
     TYPE_SIZE_UNIT (nullptr_type_node) = size_int (GET_MODE_SIZE (ptr_mode));
     TYPE_UNSIGNED (nullptr_type_node) = 1;

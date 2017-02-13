@@ -6416,7 +6416,7 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (simd)
     {
       x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_START, 1,
-				      build_int_cst (NULL_TREE, threads));
+				      build_int_cst (NULL_TYPE, threads));
       cfun->has_simduid_loops = true;
     }
   else
@@ -6476,7 +6476,7 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     }
   if (simd)
     x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_END, 1,
-				    build_int_cst (NULL_TREE, threads));
+				    build_int_cst (NULL_TYPE, threads));
   else
     x = gimple_build_call (builtin_decl_explicit (BUILT_IN_GOMP_ORDERED_END),
 			   0);

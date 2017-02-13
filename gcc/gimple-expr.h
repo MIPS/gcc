@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GIMPLE_EXPR_H
 #define GCC_GIMPLE_EXPR_H
 
-extern bool useless_type_conversion_p (tree, tree);
+extern bool useless_type_conversion_p (const_tree, const_tree);
 
 
 extern void gimple_set_body (tree, gimple_seq);
