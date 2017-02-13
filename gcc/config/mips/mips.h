@@ -256,7 +256,8 @@ struct mips_cpu_info {
 #define SAVE_RESTORE_SHIFT	4
 #define ISA_HAS_SAVEF_RESTOREF	(TARGET_NANOMIPS && TARGET_HARD_FLOAT \
 				 && TARGET_SAVEF_RESTOREF)
-#define ISA_HAS_LWM_SWM		(TARGET_MICROMIPS || TARGET_NANOMIPS)
+#define ISA_HAS_LWM_SWM		(TARGET_MICROMIPS)
+#define ISA_HAS_NEW_LWM_SWM	(TARGET_NANOMIPS == NANOMIPS_NMF)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
@@ -1208,6 +1209,8 @@ struct mips_cpu_info {
 #define ISA_HAS_UNALIGNED_SCALARS					\
 				(TARGET_UNALIGNED_SCALARS		\
 				 && mips_isa_rev >= 6)
+
+#define ISA_HAS_LWP_SWP		(TARGET_MICROMIPS && mips_isa_rev <= 6)
 
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 

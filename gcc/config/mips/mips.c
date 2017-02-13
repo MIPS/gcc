@@ -9288,9 +9288,9 @@ static void
 mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 			  HOST_WIDE_INT alignment ATTRIBUTE_UNUSED)
 {
-  HOST_WIDE_INT offset, delta;
+  HOST_WIDE_INT offset, o_base, delta;
   unsigned HOST_WIDE_INT bits;
-  int i;
+  int i, i_base;
   machine_mode mode;
   rtx *regs;
 
@@ -9321,33 +9321,61 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Allocate a buffer for the temporary registers.  */
   regs = XALLOCAVEC (rtx, length / delta);
 
-  /* Load as many BITS-sized chunks as possible.  Use a normal load if
-     the source has enough alignment, otherwise use left/right pairs.  */
-  for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
+  for (offset = 0, i = 0; offset + delta <= length; )
     {
-      regs[i] = gen_reg_rtx (mode);
-      if (MEM_ALIGN (src) >= bits)
-	mips_emit_move (regs[i], adjust_address (src, mode, offset));
-      else
+      HOST_WIDE_INT this_length = (MIN (length - offset,
+					delta * mips_memcpy_interleave)
+				   + offset);
+
+      if (mips_use_multi_memcpy
+	  && MIN (MEM_ALIGN (src), MEM_ALIGN (dest)) >= BITS_PER_WORD)
 	{
 	  rtx part = adjust_address (src, BLKmode, offset);
-	  set_mem_size (part, delta);
-	  if (!mips_expand_ext_as_unaligned_load (regs[i], part, bits, 0, 0))
-	    gcc_unreachable ();
+	  set_mem_size (part, ((this_length - offset) / delta)*delta);
+	  move_block_to_reg (GP_REG_FIRST + 12, part,
+			     (this_length - offset) / delta, BLKmode);
+	  part = adjust_address (dest, BLKmode, offset);
+	  set_mem_size (part, ((this_length - offset) / delta) * delta);
+	  move_block_from_reg (GP_REG_FIRST + 12, part,
+			       (this_length - offset) / delta);
+	  for (; offset + delta <= this_length; offset += delta, i++);
+	}
+      else
+	{
+	  /* Load as many BITS-sized chunks as possible.  Use a normal load if
+	     the source has enough alignment, otherwise use left/right pairs.  */
+	  for (o_base = offset, i_base = i;
+	       o_base + delta <= this_length;
+	       o_base += delta, i_base++)
+	    {
+	      regs[i_base] = gen_reg_rtx (mode);
+	      if (MEM_ALIGN (src) >= bits)
+		mips_emit_move (regs[i_base],
+				adjust_address (src, mode, o_base));
+	      else
+		{
+		  rtx part = adjust_address (src, BLKmode, o_base);
+		  set_mem_size (part, delta);
+		  if (!mips_expand_ext_as_unaligned_load (regs[i_base], part,
+							  bits, 0, 0))
+		    gcc_unreachable ();
+		}
+	    }
+
+	  /* Copy the chunks to the destination.  */
+	  for (; offset + delta <= this_length; offset += delta, i++)
+	    if (MEM_ALIGN (dest) >= bits)
+	      mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
+	    else
+	      {
+		rtx part = adjust_address (dest, BLKmode, offset);
+		set_mem_size (part, delta);
+		if (!mips_expand_ins_as_unaligned_store (part, regs[i],
+							 bits, 0))
+		  gcc_unreachable ();
+	      }
 	}
     }
-
-  /* Copy the chunks to the destination.  */
-  for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
-    if (MEM_ALIGN (dest) >= bits)
-      mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
-    else
-      {
-	rtx part = adjust_address (dest, BLKmode, offset);
-	set_mem_size (part, delta);
-	if (!mips_expand_ins_as_unaligned_store (part, regs[i], bits, 0))
-	  gcc_unreachable ();
-      }
 
   /* Mop up any left-over bytes.  */
   if (offset < length)
@@ -25073,17 +25101,82 @@ mips_mulsidi3_gen_fn (enum rtx_code ext_code)
     }
 }
 
+/* Return true if PATTERN matches the nanoMIPS LWM/SWM instructions.  SAVE_P
+   is true for store.  */
+
+bool
+nanomips_word_multiple_pattern_p (bool store_p, rtx pattern)
+{
+  int n;
+  unsigned int i;
+  HOST_WIDE_INT first_offset = 0;
+  rtx first_base = 0;
+  unsigned int first_reg = 0;
+
+  for (n = 0; n < XVECLEN (pattern, 0); n++)
+    {
+      rtx set, reg, mem, this_base;
+      HOST_WIDE_INT this_offset;
+
+      /* Check that we have a SET.  */
+      set = XVECEXP (pattern, 0, n);
+      if (GET_CODE (set) != SET)
+	return false;
+
+      /* Check that the SET is a load (if restoring) or a store
+	 (if saving).  */
+      mem = store_p ? SET_DEST (set) : SET_SRC (set);
+      if (!MEM_P (mem) || MEM_VOLATILE_P (mem))
+	return false;
+
+      /* Check that the address is the sum of base and a possibly-zero
+	 constant offset.  Determine if the offset is in range.  */
+      mips_split_plus (XEXP (mem, 0), &this_base, &this_offset);
+      if (!REG_P (this_base))
+	return false;
+
+      /* Check that SET's other operand is a register.  */
+      reg = store_p ? SET_SRC (set) : SET_DEST (set);
+      if (!REG_P (reg))
+	return false;
+
+      if (n == 0)
+	{
+	  if (!MIPS_9BIT_OFFSET_P (this_offset))
+	    return false;
+	  first_base = this_base;
+	  first_offset = this_offset;
+	  first_reg = REGNO (reg);
+	}
+      else
+	{
+	  /* Check that the save slots and registers are consecutive.  Also
+	     check no more than 8 registers are used.  */
+	  if (REGNO (this_base) != REGNO (first_base)
+	      || this_offset != first_offset + UNITS_PER_WORD * n
+	      || REGNO (reg) != first_reg + n
+	      || REGNO (reg) - first_reg >= 8)
+	    return false;
+	}
+    }
+
+  return true;
+}
+
 /* Return true if PATTERN matches the kind of instruction generated by
    umips_build_word_multiple.  SAVE_P is true for store.  */
 
 bool
-umips_word_multiple_pattern_p (bool store_p, rtx pattern)
+mips_word_multiple_pattern_p (bool store_p, rtx pattern)
 {
   int n;
   unsigned int i;
   HOST_WIDE_INT first_offset = 0;
   rtx first_base = 0;
   unsigned int regmask = 0;
+
+  if (ISA_HAS_NEW_LWM_SWM)
+    return nanomips_word_multiple_pattern_p (store_p, pattern);
 
   for (n = 0; n < XVECLEN (pattern, 0); n++)
     {
@@ -25137,11 +25230,29 @@ umips_word_multiple_pattern_p (bool store_p, rtx pattern)
   return false;
 }
 
-/* Return the assembly instruction for microMIPS LWM or SWM.
-   SAVE_P and PATTERN are as for umips_word_multiple_pattern_p.  */
+/* Return the assembly instruction for nanoMIPS LWM or SWM.
+   SAVE_P and PATTERN are as for nanomips_word_multiple_pattern_p.  */
 
 const char *
-umips_output_word_multiple (bool store_p, rtx pattern)
+nanomips_output_word_multiple (bool store_p, rtx pattern)
+{
+  static char buffer[300];
+  int n;
+
+  /* Parse the pattern.  */
+//  gcc_assert (nanomips_word_multiple_pattern_p (store_p, pattern));
+
+  n = XVECLEN (pattern, 0);
+  sprintf (buffer, store_p ? "swm\t%%2, %%1, %d" : "lwm\t%%1, %%2, %d", n);
+
+  return buffer;
+}
+
+/* Return the assembly instruction for microMIPS LWM or SWM.
+   SAVE_P and PATTERN are as for mips_word_multiple_pattern_p.  */
+
+const char *
+mips_output_word_multiple (bool store_p, rtx pattern)
 {
   static char buffer[300];
   char *s;
@@ -25149,8 +25260,11 @@ umips_output_word_multiple (bool store_p, rtx pattern)
   HOST_WIDE_INT offset;
   rtx base, mem, set, last_set, last_reg;
 
+  if (ISA_HAS_NEW_LWM_SWM)
+    return nanomips_output_word_multiple (store_p, pattern);
+
   /* Parse the pattern.  */
-  gcc_assert (umips_word_multiple_pattern_p (store_p, pattern));
+  gcc_assert (mips_word_multiple_pattern_p (store_p, pattern));
 
   s = strcpy (buffer, store_p ? "swm\t" : "lwm\t");
   s += strlen (s);
@@ -25222,7 +25336,10 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
   if (offset2 != offset1 + 4)
     return false;
 
-  if (!UMIPS_12BIT_OFFSET_P (offset1))
+  if (ISA_HAS_NEW_LWM_SWM && !MIPS_9BIT_OFFSET_P (offset1))
+    return false;
+
+  if (ISA_HAS_LWP_SWP && !UMIPS_12BIT_OFFSET_P (offset1))
     return false;
 
   return true;
@@ -25531,10 +25648,10 @@ mips_load_store_bond_insns ()
 }
 
 /* OPERANDS describes the operands to a pair of SETs, in the order
-   dest1, src1, dest2, src2.  Return true if the operands can be used
+   dest1, src1, dest2, src2.  Return non-zero if the operands can be used
    in an LWP or SWP instruction; LOAD_P says which.  */
 
-bool
+int
 umips_load_store_pair_p (bool load_p, rtx *operands)
 {
   rtx reg1, reg2, mem1, mem2;
@@ -25554,11 +25671,15 @@ umips_load_store_pair_p (bool load_p, rtx *operands)
       mem2 = operands[2];
     }
 
-  if (REGNO (reg2) == REGNO (reg1) + 1)
-    return umips_load_store_pair_p_1 (load_p, false, reg1, mem1, mem2);
+  /* Return 1 if operands are valid without swapping instructions,
+     return 2 otherwise.  */
+  if (REGNO (reg2) == REGNO (reg1) + 1
+      && umips_load_store_pair_p_1 (load_p, false, reg1, mem1, mem2))
+    return 1;
 
-  if (REGNO (reg1) == REGNO (reg2) + 1)
-    return umips_load_store_pair_p_1 (load_p, true, reg2, mem2, mem1);
+  if (REGNO (reg1) == REGNO (reg2) + 1
+      && umips_load_store_pair_p_1 (load_p, true, reg2, mem2, mem1))
+    return 2;
 
   return false;
 }
@@ -25572,10 +25693,20 @@ umips_output_load_store_pair_1 (bool load_p, rtx reg, rtx mem)
 {
   rtx ops[] = {reg, mem};
 
-  if (load_p)
-    output_asm_insn ("lwp\t%0,%1", ops);
+  if (ISA_HAS_NEW_LWM_SWM)
+    {
+      if (load_p)
+	output_asm_insn ("lwm\t%0,%1, 2", ops);
+      else
+	output_asm_insn ("swm\t%0,%1, 2", ops);
+    }
   else
-    output_asm_insn ("swp\t%0,%1", ops);
+    {
+      if (load_p)
+	output_asm_insn ("lwp\t%0,%1", ops);
+      else
+	output_asm_insn ("swp\t%0,%1", ops);
+    }
 }
 
 /* Output the assembly instruction for a microMIPS LWP or SWP instruction.

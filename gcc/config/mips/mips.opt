@@ -569,3 +569,9 @@ Target Undocumented Var(TARGET_OPT_MOVEP) Init(1)
 
 mxlp
 Target Var(TARGET_EXLP) Init(0)
+
+mmemcpy-interleave=
+Target Undocumented RejectNegative Joined UInteger Var(mips_memcpy_interleave) Init(16)
+
+mmulti-memcpy
+Target Undocumented Var(mips_use_multi_memcpy) Init(0)
