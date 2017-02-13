@@ -1,3 +1,9 @@
+2017-02-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Adjust the default num_gangs.
+	Add diagnostic when the hardware cannot support the requested
+	num_workers.
+
 2017-02-13  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* oacc-async.c (acc_get_default_async): New API function.

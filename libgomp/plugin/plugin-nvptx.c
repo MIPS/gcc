@@ -899,6 +899,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   CUdeviceptr dp;
   struct nvptx_thread *nvthd = nvptx_thread ();
   const char *maybe_abort_msg = "(perhaps abort was called)";
+  static int warp_size, block_size, dev_size, cpu_size, rf_size, sm_size;
 
   function = targ_fn->fn;
 
@@ -917,90 +918,145 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 	seen_zero = 1;
     }
 
-  if (seen_zero)
+  /* Both reg_granuarlity and warp_granuularity were extracted from
+     the "Register Allocation Granularity" in Nvidia's CUDA Occupancy
+     Calculator spreadsheet.  Specifically, this required SM_30+
+     targets.  */
+  const int reg_granularity = 256;
+  const int warp_granularity = 4;
+
+  /* See if the user provided GOMP_OPENACC_DIM environment variable to
+     specify runtime defaults. */
+  static int default_dims[GOMP_DIM_MAX];
+
+  pthread_mutex_lock (&ptx_dev_lock);
+  if (!default_dims[0])
     {
-      /* See if the user provided GOMP_OPENACC_DIM environment
-	 variable to specify runtime defaults. */
-      static int default_dims[GOMP_DIM_MAX];
-
-      pthread_mutex_lock (&ptx_dev_lock);
-      if (!default_dims[0])
+      /* We only read the environment variable once.  You can't
+	 change it in the middle of execution.  The syntax  is
+	 the same as for the -fopenacc-dim compilation option.  */
+      const char *env_var = getenv ("GOMP_OPENACC_DIM");
+      if (env_var)
 	{
-	  /* We only read the environment variable once.  You can't
-	     change it in the middle of execution.  The syntax  is
-	     the same as for the -fopenacc-dim compilation option.  */
-	  const char *env_var = getenv ("GOMP_OPENACC_DIM");
-	  if (env_var)
+	  const char *pos = env_var;
+
+	  for (i = 0; *pos && i != GOMP_DIM_MAX; i++)
 	    {
-	      const char *pos = env_var;
-
-	      for (i = 0; *pos && i != GOMP_DIM_MAX; i++)
+	      if (i && *pos++ != ':')
+		break;
+	      if (*pos != ':')
 		{
-		  if (i && *pos++ != ':')
-		    break;
-		  if (*pos != ':')
-		    {
-		      const char *eptr;
+		  const char *eptr;
 
-		      errno = 0;
-		      long val = strtol (pos, (char **)&eptr, 10);
-		      if (errno || val < 0 || (unsigned)val != val)
-			break;
-		      default_dims[i] = (int)val;
-		      pos = eptr;
-		    }
+		  errno = 0;
+		  long val = strtol (pos, (char **)&eptr, 10);
+		  if (errno || val < 0 || (unsigned)val != val)
+		    break;
+		  default_dims[i] = (int)val;
+		  pos = eptr;
 		}
 	    }
-
-	  int warp_size, block_size, dev_size, cpu_size;
-	  CUdevice dev = nvptx_thread()->ptx_dev->dev;
-	  /* 32 is the default for known hardware.  */
-	  int gang = 0, worker = 32, vector = 32;
-	  CUdevice_attribute cu_tpb, cu_ws, cu_mpc, cu_tpm;
-
-	  cu_tpb = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK;
-	  cu_ws = CU_DEVICE_ATTRIBUTE_WARP_SIZE;
-	  cu_mpc = CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT;
-	  cu_tpm  = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR;
-
-	  if (cuDeviceGetAttribute (&block_size, cu_tpb, dev) == CUDA_SUCCESS
-	      && cuDeviceGetAttribute (&warp_size, cu_ws, dev) == CUDA_SUCCESS
-	      && cuDeviceGetAttribute (&dev_size, cu_mpc, dev) == CUDA_SUCCESS
-	      && cuDeviceGetAttribute (&cpu_size, cu_tpm, dev)  == CUDA_SUCCESS)
-	    {
-	      GOMP_PLUGIN_debug (0, " warp_size=%d, block_size=%d,"
-				 " dev_size=%d, cpu_size=%d\n",
-				 warp_size, block_size, dev_size, cpu_size);
-	      gang = (cpu_size / block_size) * dev_size;
-	      worker = block_size / warp_size;
-	      vector = warp_size;
-	    }
-
-	  /* There is no upper bound on the gang size.  The best size
-	     matches the hardware configuration.  Logical gangs are
-	     scheduled onto physical hardware.  To maximize usage, we
-	     should guess a large number.  */
-	  if (default_dims[GOMP_DIM_GANG] < 1)
-	    default_dims[GOMP_DIM_GANG] = gang ? gang : 1024;
-	  /* The worker size must not exceed the hardware.  */
-	  if (default_dims[GOMP_DIM_WORKER] < 1
-	      || (default_dims[GOMP_DIM_WORKER] > worker && gang))
-	    default_dims[GOMP_DIM_WORKER] = worker;
-	  /* The vector size must exactly match the hardware.  */
-	  if (default_dims[GOMP_DIM_VECTOR] < 1
-	      || (default_dims[GOMP_DIM_VECTOR] != vector && gang))
-	    default_dims[GOMP_DIM_VECTOR] = vector;
-
-	  GOMP_PLUGIN_debug (0, " default dimensions [%d,%d,%d]\n",
-			     default_dims[GOMP_DIM_GANG],
-			     default_dims[GOMP_DIM_WORKER],
-			     default_dims[GOMP_DIM_VECTOR]);
 	}
-      pthread_mutex_unlock (&ptx_dev_lock);
 
+      CUdevice dev = nvptx_thread()->ptx_dev->dev;
+      /* 32 is the default for known hardware.  */
+      int gang = 0, worker = 32, vector = 32;
+      CUdevice_attribute cu_tpb, cu_ws, cu_mpc, cu_tpm, cu_rf, cu_sm;
+
+      cu_tpb = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK;
+      cu_ws = CU_DEVICE_ATTRIBUTE_WARP_SIZE;
+      cu_mpc = CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT;
+      cu_tpm  = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR;
+      cu_rf  = CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_MULTIPROCESSOR;
+      cu_sm  = CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_MULTIPROCESSOR;
+
+      if (cuDeviceGetAttribute (&block_size, cu_tpb, dev) == CUDA_SUCCESS
+	  && cuDeviceGetAttribute (&warp_size, cu_ws, dev) == CUDA_SUCCESS
+	  && cuDeviceGetAttribute (&dev_size, cu_mpc, dev) == CUDA_SUCCESS
+	  && cuDeviceGetAttribute (&cpu_size, cu_tpm, dev) == CUDA_SUCCESS
+	  && cuDeviceGetAttribute (&rf_size, cu_rf, dev)  == CUDA_SUCCESS
+	  && cuDeviceGetAttribute (&sm_size, cu_sm, dev)  == CUDA_SUCCESS)
+	{
+	  GOMP_PLUGIN_debug (0, " warp_size=%d, block_size=%d,"
+			     " dev_size=%d, cpu_size=%d, regfile_size=%d,"
+			     " smem_size=%d\n",
+			     warp_size, block_size, dev_size, cpu_size,
+			     rf_size, sm_size);
+	  gang = (cpu_size / block_size) * dev_size;
+	  worker = block_size / warp_size;
+	  vector = warp_size;
+	}
+
+      /* There is no upper bound on the gang size.  The best size
+	 matches the hardware configuration.  Logical gangs are
+	 scheduled onto physical hardware.  To maximize usage, we
+	 should guess a large number.  */
+      /* The worker size must not exceed the hardware.  */
+      if (default_dims[GOMP_DIM_WORKER] < 1
+	  || (default_dims[GOMP_DIM_WORKER] > worker && gang))
+	default_dims[GOMP_DIM_WORKER] = worker;
+      /* The vector size must exactly match the hardware.  */
+      if (default_dims[GOMP_DIM_VECTOR] < 1
+	  || (default_dims[GOMP_DIM_VECTOR] != vector && gang))
+	default_dims[GOMP_DIM_VECTOR] = vector;
+
+      GOMP_PLUGIN_debug (0, " default dimensions [%d,%d,%d]\n",
+			 default_dims[GOMP_DIM_GANG],
+			 default_dims[GOMP_DIM_WORKER],
+			 default_dims[GOMP_DIM_VECTOR]);
+    }
+  pthread_mutex_unlock (&ptx_dev_lock);
+
+  int reg_used = -1;  /* Dummy value.  */
+  cuFuncGetAttribute (&reg_used, CU_FUNC_ATTRIBUTE_NUM_REGS, function);
+
+  int reg_per_warp = ((reg_used * warp_size + reg_granularity - 1)
+		      / reg_granularity) * reg_granularity;
+
+  int threads_per_sm = (rf_size / reg_per_warp / warp_granularity)
+    * warp_granularity * warp_size;
+
+  if (threads_per_sm > cpu_size)
+    threads_per_sm = cpu_size;
+
+  if (seen_zero)
+    {
       for (i = 0; i != GOMP_DIM_MAX; i++)
 	if (!dims[i])
-	  dims[i] = default_dims[i];
+	  {
+	    if (default_dims[i] > 0)
+	      dims[i] = default_dims[i];
+	    else
+	      switch (i) {
+	      case GOMP_DIM_GANG:
+		dims[i] = 2 * threads_per_sm / warp_size * dev_size;
+		break;
+	      case GOMP_DIM_WORKER:
+	      case GOMP_DIM_VECTOR:
+		dims[i] = warp_size;
+		break;
+	      default:
+		abort ();
+	      }
+	  }
+    }
+
+  /* Check if the accelerator has sufficient hardware resources to
+     launch the offloaded kernel.  */
+  if (dims[GOMP_DIM_WORKER] > 1)
+    {
+      int threads_per_block = threads_per_sm > block_size
+	? block_size : threads_per_sm;
+
+      threads_per_block /= warp_size;
+
+      if (dims[GOMP_DIM_WORKER] > threads_per_block)
+	GOMP_PLUGIN_fatal ("The Nvidia accelerator has insufficient resources "
+			   "to launch '%s'; recompile the program with "
+			   "'num_workers = %d' on that offloaded region or "
+			   "'-fopenacc-dim=-:%d'.\n",
+			   targ_fn->launch->fn, threads_per_block,
+			   threads_per_block);
     }
 
   /* This reserves a chunk of a pre-allocated page of memory mapped on both
