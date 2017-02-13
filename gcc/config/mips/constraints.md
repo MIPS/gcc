@@ -401,9 +401,9 @@
 
 (define_memory_constraint "ZA"
   "@internal
-   A microMIPS memory operand for use with the UALW/UASW insns."
+   A memory operand for use with the LWM/SWM insns."
   (and (match_code "mem")
-       (match_operand 0 "ualw_uasw_operand")))
+       (match_operand 0 "lwm_swm_operand")))
 
 (define_memory_constraint "ZE"
   "@internal
@@ -440,6 +440,20 @@
 		(if_then_else (match_test "TARGET_MICROMIPS")
 		  (match_test "umips_12bit_offset_address_p (op, mode)")
 		  (match_test "mips_address_insns (op, mode, false)"))))
+
+(define_memory_constraint "ZO"
+  "@internal
+   A microMIPS memory operand 1 for use with the LWP/SWP insns."
+  (and (match_code "mem")
+       (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")))
+
+(define_memory_constraint "ZP"
+  "@internal
+   A microMIPS memory operand 2 for use with the LWP/SWP insns.
+   It is a 12-bit signed offset + one consecutive element."
+  (and (match_code "mem")
+       (match_test "umips_12bit_offset_address_memop2_p (XEXP (op, 0),
+							mode)")))
 
 (define_memory_constraint "ZR"
  "@internal

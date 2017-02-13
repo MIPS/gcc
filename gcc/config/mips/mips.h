@@ -1184,6 +1184,9 @@ struct mips_cpu_info {
 #define ISA_HAS_MOVEP_REV	(TARGET_NANOMIPS && ISA_HAS_XLP)
 #define ISA_HAS_UALW_UASW	(TARGET_NANOMIPS && ISA_HAS_XLP)
 
+#define ISA_HAS_LWP_SWP		(TARGET_MICROMIPS && mips_isa_rev <= 6 \
+				 || TARGET_LWP_SWP)
+
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 
 #define ISA_HAS_IEEE_754_2008	(mips_isa_rev >= 2)
