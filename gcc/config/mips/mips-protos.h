@@ -190,6 +190,8 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+extern void nanomips_expand_movmemsi_multireg (rtx, rtx, unsigned int);
+extern void nanomips_load_store_multiple_split (rtx, rtx, unsigned int);
 extern void mips_adjust_reg_alloc_order (void);
 extern rtl_opt_pass * make_pass_optimize_multi_refs (gcc::context *);
 extern bool mips_string_constant_p (rtx);
@@ -376,15 +378,17 @@ extern void mips_expand_vec_minmax (rtx, rtx, rtx,
 extern int mips_ldst_scaled_shift (machine_mode);
 extern bool mips_signed_immediate_p (unsigned HOST_WIDE_INT, int, int);
 extern bool mips_unsigned_immediate_p (unsigned HOST_WIDE_INT, int, int);
-extern const char *umips_output_word_multiple (bool, rtx);
-extern bool umips_word_multiple_pattern_p (bool, rtx);
-extern bool umips_load_store_pair_p (bool, rtx *);
+extern const char *mips_output_word_multiple (bool, rtx);
+extern bool mips_word_multiple_pattern_p (bool, rtx);
+extern int umips_load_store_pair_p (bool, rtx *);
 extern void umips_output_load_store_pair (bool, rtx *);
 extern bool nanomips_move_balc_p (rtx *);
 extern bool mips_movep_target_p (rtx, rtx);
 extern bool mips_movep_no_overlap_p (rtx, rtx, rtx, rtx);
 extern bool umips_12bit_offset_address_p (rtx, machine_mode);
+extern bool umips_12bit_offset_address_memop2_p (rtx, machine_mode);
 extern bool mips_9bit_offset_address_p (rtx, machine_mode);
+extern bool mips_9bit_offset_address_memop2_p (rtx, machine_mode);
 extern bool lwsp_swsp_address_p (rtx, machine_mode);
 extern bool m16_based_address_p (rtx, machine_mode,
 			         int (*)(rtx_def*, machine_mode)); 

@@ -553,3 +553,9 @@ Target Undocumented Var(TARGET_OPTIMIZE_MULTIPLE_REFS) Init(0)
 
 mopt-movep
 Target Undocumented Var(TARGET_OPT_MOVEP) Init(1)
+
+mmemcpy-interleave=
+Target Undocumented RejectNegative Joined UInteger Var(mips_memcpy_interleave) Init(16)
+
+mmulti-memcpy
+Target Undocumented Var(mips_use_multi_memcpy) Init(0)
