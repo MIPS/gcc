@@ -24236,6 +24236,10 @@ mips_option_override (void)
   if ((TARGET_EPI || mips_epi) && TARGET_USE_SAVE_RESTORE)
     error ("unsupported combination: %s", "-mepi -muse-save-restore");
 
+  /* Switch off shrink wrapping for micromips R7 if optimizing for size.  */
+  if (mips_isa_rev == 7 && is_micromips && optimize_size)
+    flag_shrink_wrap = false;
+
   mips_register_frame_header_opt ();
 
   new_pass = make_pass_shrink_mips_offsets (g);
