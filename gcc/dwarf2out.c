@@ -10822,6 +10822,9 @@ output_one_line_info_table (dw_line_info_table *table)
   bool current_is_stmt = DWARF_LINE_DEFAULT_IS_STMT_START;
   dw_line_info_entry *ent, *prev_addr;
   size_t i;
+  unsigned int view;
+
+  RESET_NEXT_VIEW (view);
 
   FOR_EACH_VEC_SAFE_ELT (table->entries, i, ent)
     {
@@ -10838,7 +10841,10 @@ output_one_line_info_table (dw_line_info_table *table)
 
 	  /* This can handle any delta.  This takes
 	     4+DWARF2_ADDR_SIZE bytes.  */
-	  dw2_asm_output_data (1, 0, "set address %s", line_label);
+	  dw2_asm_output_data (1, 0, "set address %s%s", line_label,
+			       debug_variable_location_views
+			       ? ", reset view to 0" : "");
+	  view = 0;
 	  dw2_asm_output_data_uleb128 (1 + DWARF2_ADDR_SIZE, NULL);
 	  dw2_asm_output_data (1, DW_LNE_set_address, NULL);
 	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, line_label, NULL);
@@ -10852,7 +10858,8 @@ output_one_line_info_table (dw_line_info_table *table)
 	    char prev_label[MAX_ARTIFICIAL_LABEL_BYTES];
 	    ASM_GENERATE_INTERNAL_LABEL (prev_label, LINE_CODE_LABEL, prev_addr->val);
 	  
-	    dw2_asm_output_data (1, DW_LNS_fixed_advance_pc, "fixed advance PC");
+	    gcc_assert (!RESETTING_VIEW_P (view));
+	    dw2_asm_output_data (1, DW_LNS_fixed_advance_pc, "fixed advance PC, increment view to %i", ++view);
 	    dw2_asm_output_delta (2, line_label, prev_label,
 				  "from %s to %s", prev_label, line_label);
 
@@ -25400,10 +25407,13 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 
       targetm.asm_out.internal_label (asm_out_file, LINE_CODE_LABEL, label_num);
 
-      if (debug_variable_location_views && table->view++)
+      if (debug_variable_location_views && ++table->view)
 	push_dw_line_info_entry (table, LI_adv_address, label_num);
       else
 	push_dw_line_info_entry (table, LI_set_address, label_num);
+      if (debug_variable_location_views && flag_debug_asm)
+	fprintf (asm_out_file, "\t%s view %d\n",
+		 ASM_COMMENT_START, table->view);
       if (file_num != table->file_num)
 	push_dw_line_info_entry (table, LI_set_file, file_num);
       if (discriminator != table->discrim_num)
