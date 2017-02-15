@@ -1377,6 +1377,8 @@ dw_val_equal_p (dw_val_node *a, dw_val_node *b)
       return a->v.val_loc == b->v.val_loc;
     case dw_val_class_loc_list:
       return a->v.val_loc_list == b->v.val_loc_list;
+    case dw_val_class_view_list:
+      return a->v.val_view_list == b->v.val_view_list;
     case dw_val_class_die_ref:
       return a->v.val_die_ref.die == b->v.val_die_ref.die;
     case dw_val_class_fde_ref:
@@ -3199,6 +3201,9 @@ static inline dw_loc_descr_ref AT_loc (dw_attr_node *);
 static void add_AT_loc_list (dw_die_ref, enum dwarf_attribute,
 			     dw_loc_list_ref);
 static inline dw_loc_list_ref AT_loc_list (dw_attr_node *);
+static void add_AT_view_list (dw_die_ref, enum dwarf_attribute,
+			      dw_val_node*);
+static inline dw_loc_list_ref AT_loc_list (dw_attr_node *);
 static addr_table_entry *add_addr_table_entry (void *, enum ate_kind);
 static void remove_addr_table_entry (addr_table_entry *);
 static void add_AT_addr (dw_die_ref, enum dwarf_attribute, rtx, bool);
@@ -4345,11 +4350,37 @@ AT_loc_list (dw_attr_node *a)
   return a->dw_attr_val.v.val_loc_list;
 }
 
+static inline void
+add_AT_view_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_val_node *loc_list_node_ptr)
+{
+  dw_attr_node attr;
+
+  if (XCOFF_DEBUGGING_INFO && !HAVE_XCOFF_DWARF_EXTRAS)
+    return;
+
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_view_list;
+  attr.dw_attr_val.val_entry = NULL;
+  attr.dw_attr_val.v.val_view_list = loc_list_node_ptr;
+  add_dwarf_attr (die, &attr);
+  gcc_assert (have_location_lists);
+}
+
 static inline dw_loc_list_ref *
 AT_loc_list_ptr (dw_attr_node *a)
 {
-  gcc_assert (a && AT_class (a) == dw_val_class_loc_list);
-  return &a->dw_attr_val.v.val_loc_list;
+  gcc_assert (a);
+  switch (AT_class (a))
+    {
+    case dw_val_class_loc_list:
+      return &a->dw_attr_val.v.val_loc_list;
+    case dw_val_class_view_list:
+      gcc_assert (a->dw_attr_val.v.val_view_list->val_class
+		  == dw_val_class_loc_list);
+      return &a->dw_attr_val.v.val_view_list->v.val_loc_list;
+    default:
+      gcc_unreachable ();
+    }
 }
 
 struct addr_hasher : ggc_ptr_hash<addr_table_entry>
@@ -5622,6 +5653,12 @@ print_dw_val (dw_val_node *val, bool recurse, FILE *outfile)
     case dw_val_class_loc_list:
       fprintf (outfile, "location list -> label:%s",
 	       val->v.val_loc_list->ll_symbol);
+      break;
+    case dw_val_class_view_list:
+      gcc_assert (val->v.val_view_list->val_class == dw_val_class_loc_list);
+      fprintf (outfile, "location list with views -> labels:%s and %s",
+	       val->v.val_view_list->v.val_loc_list->ll_symbol,
+	       val->v.val_view_list->v.val_loc_list->vl_symbol);
       break;
     case dw_val_class_range_list:
       fprintf (outfile, "range list");
@@ -8439,6 +8476,7 @@ size_of_die (dw_die_ref die)
 	  }
 	  break;
 	case dw_val_class_loc_list:
+	case dw_val_class_view_list:
           if (dwarf_split_debug_info && AT_index (a) != NOT_INDEXED)
             {
               gcc_assert (AT_index (a) != NO_INDEX_ASSIGNED);
@@ -8792,6 +8830,7 @@ value_format (dw_attr_node *a)
 	}
     case dw_val_class_range_list:
     case dw_val_class_loc_list:
+    case dw_val_class_view_list:
       if (dwarf_version >= 4)
 	return DW_FORM_sec_offset;
       /* FALLTHRU */
@@ -9098,6 +9137,18 @@ gen_llsym (dw_loc_list_ref list)
   list->vl_symbol = gen_internal_sym ("LVUS");
 }
 
+/* Generate a symbol for the list, but only if we really want to emit
+   it as a list.  */
+
+static inline void
+maybe_gen_llsym (dw_loc_list_ref list)
+{
+  if (!list || (!list->dw_loc_next && !loc_list_has_views (list)))
+    return;
+
+  gen_llsym (list);
+}
+
 /* Determine whether or not to skip loc_list entry CURR.  If we're not
    to skip it, and SIZEP is non-null, store the size of CURR->expr's
    representation in *SIZEP.  */
@@ -9296,6 +9347,22 @@ output_loc_list_offset (dw_attr_node *a)
                            "%s", dwarf_attr_name (a->dw_attr));
 }
 
+/* Output the offset into the debug_loc section.  */
+
+static void
+output_view_list_offset (dw_attr_node *a)
+{
+  char *sym = (*AT_loc_list_ptr (a))->vl_symbol;
+
+  gcc_assert (sym);
+  if (dwarf_split_debug_info)
+    dw2_asm_output_delta (DWARF_OFFSET_SIZE, sym, loc_section_label,
+                          "%s", dwarf_attr_name (a->dw_attr));
+  else
+    dw2_asm_output_offset (DWARF_OFFSET_SIZE, sym, debug_loc_section,
+                           "%s", dwarf_attr_name (a->dw_attr));
+}
+
 /* Output an attribute's index or value appropriately.  */
 
 static void
@@ -9319,6 +9386,9 @@ output_attr_index_or_value (dw_attr_node *a)
         break;
       case dw_val_class_loc_list:
         output_loc_list_offset (a);
+        break;
+      case dw_val_class_view_list:
+        output_view_list_offset (a);
         break;
       default:
         gcc_unreachable ();
@@ -9512,6 +9582,7 @@ output_die (dw_die_ref die)
 	  break;
 
 	case dw_val_class_loc_list:
+	case dw_val_class_view_list:
           output_attr_index_or_value (a);
 	  break;
 
@@ -15214,8 +15285,7 @@ dw_loc_list (var_loc_list *loc_list, tree decl, int want_address)
      representable, we don't want to pretend a single entry that was
      applies to the entire scope in which the variable is
      available.  */
-  if (list && loc_list->first->next)
-    gen_llsym (list);
+  maybe_gen_llsym (list);
 
   return list;
 }
@@ -17055,7 +17125,13 @@ add_AT_location_description (dw_die_ref die, enum dwarf_attribute attr_kind,
   if (single_element_loc_list_p (descr))
     add_AT_loc (die, attr_kind, descr->expr);
   else
-    add_AT_loc_list (die, attr_kind, descr);
+    {
+      add_AT_loc_list (die, attr_kind, descr);
+      gcc_assert (descr->ll_symbol);
+      if (attr_kind == DW_AT_location && descr->vl_symbol)
+	add_AT_view_list (die, DW_AT_GNU_locviews,
+			  &die->die_attr->last ().dw_attr_val);
+    }
 }
 
 /* Add DW_AT_accessibility attribute to DIE if needed.  */
@@ -18273,8 +18349,7 @@ convert_cfa_to_fb_loc_list (HOST_WIDE_INT offset)
 			     ? fde->dw_fde_second_end : fde->dw_fde_end, 0,
 			     section);
 
-  if (list && list->dw_loc_next)
-    gen_llsym (list);
+  maybe_gen_llsym (list);
 
   return list;
 }
@@ -26259,6 +26334,11 @@ prune_unused_types_walk_attribs (dw_die_ref die)
 	    prune_unused_types_walk_loc_descr (list->expr);
 	  break;
 
+	case dw_val_class_view_list:
+	  /* This points to a loc_list in another attribute, so it's
+	     already covered.  */
+	  break;
+
 	case dw_val_class_die_ref:
 	  /* A reference to another DIE.
 	     Make sure that it will get emitted.
@@ -27256,6 +27336,8 @@ optimize_string_length (dw_attr_node *a)
 	if (d->expr && non_dwarf_expression (d->expr))
 	  non_dwarf_expr = true;
       break;
+    case dw_val_class_view_list:
+      gcc_unreachable ();
     case dw_val_class_loc:
       lv = AT_loc (av);
       if (lv == NULL)
@@ -28027,7 +28109,7 @@ index_location_lists (dw_die_ref die)
             /* Don't index an entry that has already been indexed
                or won't be output.  */
             if (curr->begin_entry != NULL
-                || (strcmp (curr->begin, curr->end) == 0 && !curr->force))
+                || skip_loc_list_entry (curr))
               continue;
 
             curr->begin_entry
