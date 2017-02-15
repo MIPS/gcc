@@ -1258,6 +1258,8 @@ struct GTY((for_user)) addr_table_entry {
   GTY ((desc ("%1.kind"))) addr;
 };
 
+typedef unsigned int var_loc_view;
+
 /* Location lists are ranges + location descriptions for that range,
    so you can track variables that are in different places over
    their entire life.  */
@@ -2628,7 +2630,15 @@ enum dw_line_info_opcode {
   LI_set_epilogue_begin,
 
   /* Emit a DW_LNE_set_discriminator.  */
-  LI_set_discriminator
+  LI_set_discriminator,
+
+  /* Output a Fixed Advance PC; the target PC is the label index; the
+     base PC is the previous LI_adv_address or LI_set_address entry.
+     We only use this when emitting debug views without assembler
+     support, at explicit user request.  Ideally, we should only use
+     it when the offset might be zero but we can't tell: it's the only
+     way to maybe change the PC without resetting the view number.  */
+  LI_adv_address
 };
 
 typedef struct GTY(()) dw_line_info_struct {
@@ -2649,6 +2659,23 @@ struct GTY(()) dw_line_info_table {
   int discrim_num;
   bool is_stmt;
   bool in_use;
+
+  /* This denotes a view number.
+
+     If it is 0, it is known to be the first view at the given PC.
+     If it is -1, we've advanced PC but we haven't emitted a line location yet,
+     so we shouldn't use this view number.
+
+     The meaning of other nonzero values depends on whether we're
+     computing views internally or leaving it for the assembler to do
+     so.  If we're emitting them internally, view denotes the view
+     number since the last known advance of PC.  If we're leaving it
+     for the assembler, it denotes the LVU label number that we're
+     going to ask the assembler to assign.  */
+  var_loc_view view;
+
+#define RESET_NEXT_VIEW(x) ((x) = (var_loc_view)-1)
+#define RESETTING_VIEW_P(x) ((x) == (var_loc_view)-1)
 
   vec<dw_line_info_entry, va_gc> *entries;
 };
@@ -10596,7 +10623,7 @@ output_one_line_info_table (dw_line_info_table *table)
   char line_label[MAX_ARTIFICIAL_LABEL_BYTES];
   unsigned int current_line = 1;
   bool current_is_stmt = DWARF_LINE_DEFAULT_IS_STMT_START;
-  dw_line_info_entry *ent;
+  dw_line_info_entry *ent, *prev_addr;
   size_t i;
 
   FOR_EACH_VEC_SAFE_ELT (table->entries, i, ent)
@@ -10618,7 +10645,23 @@ output_one_line_info_table (dw_line_info_table *table)
 	  dw2_asm_output_data_uleb128 (1 + DWARF2_ADDR_SIZE, NULL);
 	  dw2_asm_output_data (1, DW_LNE_set_address, NULL);
 	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, line_label, NULL);
+
+	  prev_addr = ent;
 	  break;
+
+	case LI_adv_address:
+	  {
+	    ASM_GENERATE_INTERNAL_LABEL (line_label, LINE_CODE_LABEL, ent->val);
+	    char prev_label[MAX_ARTIFICIAL_LABEL_BYTES];
+	    ASM_GENERATE_INTERNAL_LABEL (prev_label, LINE_CODE_LABEL, prev_addr->val);
+	  
+	    dw2_asm_output_data (1, DW_LNS_fixed_advance_pc, "fixed advance PC");
+	    dw2_asm_output_delta (2, line_label, prev_label,
+				  "from %s to %s", prev_label, line_label);
+
+	    prev_addr = ent;
+	    break;
+	  }
 
 	case LI_set_line:
 	  if (ent->val == current_line)
@@ -24590,11 +24633,13 @@ dwarf2out_var_location (rtx_insn *loc_note)
   static rtx_insn *expected_next_loc_note;
   tree decl;
   bool var_loc_p;
+  var_loc_view view = 0;
 
   if (!NOTE_P (loc_note))
     {
       if (CALL_P (loc_note))
 	{
+	  RESET_NEXT_VIEW (cur_line_info_table->view);
 	  call_site_count++;
 	  if (SIBLING_CALL_P (loc_note))
 	    tail_call_site_count++;
@@ -24628,6 +24673,18 @@ dwarf2out_var_location (rtx_insn *loc_note)
 		}
 	    }
 	}
+      else if (!debug_variable_location_views)
+	gcc_unreachable ();
+      else if (JUMP_TABLE_DATA_P (loc_note))
+	RESET_NEXT_VIEW (cur_line_info_table->view);
+#ifdef HAVE_attr_length
+      else if (get_attr_min_length (loc_note) > 0)
+	RESET_NEXT_VIEW (cur_line_info_table->view);
+#endif
+      else if (!(GET_CODE (loc_note) == ASM_INPUT
+		 || asm_noperands (loc_note) >= 0))
+	RESET_NEXT_VIEW (cur_line_info_table->view);
+
       return;
     }
 
@@ -24862,6 +24919,7 @@ new_line_info_table (void)
   table->file_num = 1;
   table->line_num = 1;
   table->is_stmt = DWARF_LINE_DEFAULT_IS_STMT_START;
+  RESET_NEXT_VIEW (table->view);
 
   return table;
 }
@@ -25102,6 +25160,23 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 	  fputs (" discriminator ", asm_out_file);
 	  fprint_ul (asm_out_file, (unsigned long) discriminator);
 	}
+      if (debug_variable_location_views)
+	{
+	  static var_loc_view lvugid;
+	  if (RESETTING_VIEW_P (table->view))
+	    {
+	      table->view = 0;
+	      fputs (" view 0", asm_out_file);
+	    }
+	  else
+	    {
+	      table->view = lvugid++;
+	      fputs (" view ", asm_out_file);
+	      char label[MAX_ARTIFICIAL_LABEL_BYTES];
+	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", table->view);
+	      fputs (label, asm_out_file);
+	    }
+	}
       putc ('\n', asm_out_file);
     }
   else
@@ -25110,7 +25185,10 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 
       targetm.asm_out.internal_label (asm_out_file, LINE_CODE_LABEL, label_num);
 
-      push_dw_line_info_entry (table, LI_set_address, label_num);
+      if (debug_variable_location_views && table->view++)
+	push_dw_line_info_entry (table, LI_adv_address, label_num);
+      else
+	push_dw_line_info_entry (table, LI_set_address, label_num);
       if (file_num != table->file_num)
 	push_dw_line_info_entry (table, LI_set_file, file_num);
       if (discriminator != table->discrim_num)

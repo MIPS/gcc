@@ -2597,6 +2597,10 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
 	    switch_to_section (current_function_section ());
 
+	    if (debug_variable_location_views
+		&& !DECL_IGNORED_P (current_function_decl))
+	      debug_hooks->var_location (insn);
+
 	    break;
 	  }
 	/* Output this line note if it is the first or the last line
@@ -3081,7 +3085,8 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	/* Let the debug info back-end know about this call.  We do this only
 	   after the instruction has been emitted because labels that may be
 	   created to reference the call instruction must appear after it.  */
-	if (call_insn != NULL && !DECL_IGNORED_P (current_function_decl))
+	if ((debug_variable_location_views || call_insn != NULL)
+	    && !DECL_IGNORED_P (current_function_decl))
 	  debug_hooks->var_location (insn);
 
 	current_output_insn = debug_insn = 0;
