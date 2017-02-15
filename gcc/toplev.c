@@ -1494,6 +1494,14 @@ process_options (void)
     debug_statement_frontiers = debug_info_level >= DINFO_LEVEL_NORMAL
       && (write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG);
 
+  if (debug_variable_location_views == AUTODETECT_VALUE)
+    {
+      debug_variable_location_views = flag_var_tracking
+	&& debug_info_level >= DINFO_LEVEL_NORMAL
+	&& (write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
+	&& !dwarf_strict;
+    }
+
   if (flag_tree_cselim == AUTODETECT_VALUE)
     {
       if (HAVE_conditional_move)

@@ -2831,6 +2831,14 @@ gtoggle
 Common Report Var(flag_gtoggle)
 Toggle debug information generation.
 
+gno-variable-location-views
+Common RejectNegative Var(debug_variable_location_views, 0) Init(2)
+Don't augment variable location lists with progressive views.
+
+gvariable-location-views
+Common RejectNegative Var(debug_variable_location_views, 1)
+Augment variable location lists with progressive views.
+
 gvms
 Common JoinedOrMissing Negative(gxcoff)
 Generate debug information in VMS format.
