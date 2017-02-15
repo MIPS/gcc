@@ -6310,8 +6310,13 @@
 	(symbol_ref "mips_load_store_insns (operands[1], insn) + 2"))])
 
 (define_special_predicate "shiftable_operator"
-  (and (match_code "ior,xor,and")
+  (and (match_code "ior,xor,and,plus,minus")
        (match_test "mode == GET_MODE (op)")))
+
+(define_code_attr arith_shift_insn
+  [(plus "add") (minus "sub") (ior "or") (xor "xor") (and "and")])
+
+(define_code_iterator SHIFTABLE_OPS [plus minus ior xor and])
 
 (define_special_predicate "shift_operator"
   (and (ior (and (match_code "rotate")
@@ -6322,87 +6327,376 @@
 			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
        (match_test "mode == GET_MODE (op)")))
 
-(define_insn "*arith_shiftsi"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(match_operator:SI 1 "shiftable_operator"
-	    [(match_operator:SI 3 "shift_operator"
-		[(match_operand:SI 4 "register_operand" "r")
-		 (match_operand:SI 5 "immediate_operand" "I")])
-		(match_operand:SI 2 "register_operand" "r")]))]
+(define_special_predicate "shift_operator2"
+  (and (ior (and (match_code "rotate")
+		 (match_test "0&&CONST_INT_P (XEXP (op, 1))
+			      && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32"))
+	    (and (match_code "ashift,rotatert")
+		 (match_test "!CONST_INT_P (XEXP (op, 1))
+			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
+       (match_test "mode == GET_MODE (op)")))
+
+(define_insn "*<arith_shift_insn>_arith_shiftsi"
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
+	(SHIFTABLE_OPS:SI
+	    (match_operator:SI 2 "shift_operator"
+		[(match_operand:SI 3 "register_operand" "d,d")
+		 (match_operand:SI 4 "reg_or_uimm5_operand" "I,d")])
+		(match_operand:SI 1 "register_operand" "d,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_FLEXOP2"
+  "sdbbp32 300 # <arith_shift_insn> %0,%1,<%S2,%3,%4>"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*<arith_shift_insn>_arith_shiftsi2"
+  [(set (match_operand:SI 0 "register_operand" "=d,r")
+	(SHIFTABLE_OPS:SI
+	    (match_operator:SI 2 "shift_operator2"
+		[(match_operand:SI 3 "register_operand" "d,r")
+		 (match_operand:SI 4 "reg_or_uimm5_operand" "I,r")])
+		(match_operand:SI 1 "register_operand" "r,r")))]
+  "TARGET_MICROMIPS_R7 && TARGET_FLEXOP2_2"
+  "sdbbp32 300 # <arith_shift_insn> %0,%1,<%S2,%3,%4>"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*rot.xor"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(xor:SI	(rotate:SI (match_operand:SI 1 "register_operand" "d")
+			   (match_operand:SI 2 "immediate_operand" "I"))
+		(match_operand:SI 3 "register_operand" "0")))]
   "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
-  "sdbbp32 300 #"
+{
+  return "sdbbp32 100 # ins.xor\t%0,%1,%2,32";
+}
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])
 
 (define_insn "*rotr.xor"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(xor:SI	(rotatert:SI (match_operand:SI 1 "register_operand" "d")
-			     (match_operand:SI 2 "immediate_operand" "I"))
-		(match_operand:SI 3 "register_operand" "0")))]
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(xor:SI	(rotatert:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			     (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
   "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
 {
-  return "sdbbp32 101 # ins.xor\t%0,%1,%2,32";
+  if (which_alternative == 0)
+    return "sdbbp32 104 # ins.xor\t%0,%1,%2,32";
+  else if (which_alternative == 1)
+    return "sdbbp32 105 # ins.xor\t%0,%1,%2,32";
+  else if (which_alternative == 2)
+    return "sdbbp32 106 # ins.xor\t%0,%1,%2,32";
+  else
+    return "sdbbp32 107 # ins.xor\t%0,%1,%2,32";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])
-(define_insn "*rotr.ior"
+
+(define_insn "*rot.add"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(ior:SI	(rotatert:SI (match_operand:SI 1 "register_operand" "d")
-			     (match_operand:SI 2 "immediate_operand" "I"))
+	(plus:SI (rotate:SI (match_operand:SI 1 "register_operand" "d")
+			    (match_operand:SI 2 "immediate_operand" "I"))
 		(match_operand:SI 3 "register_operand" "0")))]
   "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
 {
-  return "sdbbp32 101 # ins.ior\t%0,%1,%2,32";
+  return "sdbbp32 108 # ins.add\t%0,%1,%2,32";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*rotr.add"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(plus:SI (rotatert:SI (match_operand:SI 1 "register_operand" "d")
+			      (match_operand:SI 2 "immediate_operand" "I"))
+		(match_operand:SI 3 "register_operand" "0")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  return "sdbbp32 112 # ins.add\t%0,%1,%2,32";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])
 
 (define_insn "*shift.ior"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(ior:SI	(ashift:SI (match_operand:SI 1 "register_operand" "d")
-			   (match_operand:SI 2 "immediate_operand" "I"))
-		(match_operand:SI 3 "register_operand" "0")))]
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(ior:SI	(ashift:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
   "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
 {
-  return "sdbbp32 101 # ins.ior\t%0,%1,%2,xx";
+  if (which_alternative == 0)
+    return "sdbbp32 116 # ins.ior\t%0,%1,%2,xx";
+  if (which_alternative == 1)
+    return "sdbbp32 117 # ins.ior\t%0,%1,%2,xx";
+  if (which_alternative == 2)
+    return "sdbbp32 118 # ins.ior\t%0,%1,%2,xx";
+  else
+    return "sdbbp32 119 # ins.ior\t%0,%1,%2,xx";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftra.ior"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(ior:SI	(ashiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 120 # ins.ior\t%0,%1,%2,xx";
+  if (which_alternative == 1)
+    return "sdbbp32 121 # ins.ior\t%0,%1,%2,xx";
+  if (which_alternative == 2)
+    return "sdbbp32 122 # ins.ior\t%0,%1,%2,xx";
+  else
+    return "sdbbp32 123 # ins.ior\t%0,%1,%2,xx";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftrl.ior"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(ior:SI	(lshiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 124 # ins.ior\t%0,%1,%2,xx";
+  if (which_alternative == 1)
+    return "sdbbp32 125 # ins.ior\t%0,%1,%2,xx";
+  if (which_alternative == 2)
+    return "sdbbp32 126 # ins.ior\t%0,%1,%2,xx";
+  else
+    return "sdbbp32 127 # ins.ior\t%0,%1,%2,xx";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])
 
 (define_insn "*shift.and"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(and:SI	(ashift:SI (match_operand:SI 1 "register_operand" "d")
-			   (match_operand:SI 2 "immediate_operand" "I"))
-		(match_operand:SI 3 "register_operand" "0")))]
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(and:SI	(ashift:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
   "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
 {
-  return "sdbbp32 101 # ins.and\t%0,%1,%2,xx";
+  if (which_alternative == 0)
+    return "sdbbp32 128 # ins.and\t%0,%1,%2,xx";
+  if (which_alternative == 1)
+    return "sdbbp32 129 # ins.and\t%0,%1,%2,xx";
+  if (which_alternative == 2)
+    return "sdbbp32 130 # ins.and\t%0,%1,%2,xx";
+  else
+    return "sdbbp32 131 # ins.and\t%0,%1,%2,xx";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftra.and"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(and:SI	(ashiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 132 # ins.and\t%0,%1,%2,xx";
+  if (which_alternative == 1)
+    return "sdbbp32 133 # ins.and\t%0,%1,%2,xx";
+  if (which_alternative == 2)
+    return "sdbbp32 134 # ins.and\t%0,%1,%2,xx";
+  else
+    return "sdbbp32 135 # ins.and\t%0,%1,%2,xx";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftrl.and"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(and:SI	(lshiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 136 # ins.and\t%0,%1,%2,xx";
+  if (which_alternative == 1)
+    return "sdbbp32 137 # ins.and\t%0,%1,%2,xx";
+  if (which_alternative == 2)
+    return "sdbbp32 138 # ins.and\t%0,%1,%2,xx";
+  else
+    return "sdbbp32 139 # ins.and\t%0,%1,%2,xx";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])
 
 (define_insn "*shift.xor"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(xor:SI	(ashift:SI (and:SI (match_operand:SI 1 "register_operand" "d")
-				   (match_operand:SI 2 "any_low_bitmask_operand" "I"))
-			   (match_operand:SI 3 "immediate_operand" "I"))
-		(match_operand:SI 4 "register_operand" "0")))]
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(xor:SI	(ashift:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
   "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
 {
-  return "sdbbp32 101 # ins.xor\t%0,%1,%3,log2(%4)";
+  if (which_alternative == 0)
+    return "sdbbp32 140 # ins.xor\t%0,%1,%3,log2(%2)";
+  if (which_alternative == 1)
+    return "sdbbp32 141 # ins.xor\t%0,%1,%3,log2(%2)";
+  if (which_alternative == 2)
+    return "sdbbp32 142 # ins.xor\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 143 # ins.xor\t%0,%1,%3,log2(%2)";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])
 
-(define_insn "*shift.or"
+(define_insn "*shiftra.xor"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(xor:SI	(ashiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 144 # ins.xor\t%0,%1,%3,log2(%2)";
+  if (which_alternative == 1)
+    return "sdbbp32 145 # ins.xor\t%0,%1,%3,log2(%2)";
+  if (which_alternative == 2)
+    return "sdbbp32 146 # ins.xor\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 147 # ins.xor\t%0,%1,%3,log2(%2)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftrl.xor"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(xor:SI	(lshiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			   (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 148 # ins.xor\t%0,%1,%3,log2(%2)";
+  if (which_alternative == 1)
+    return "sdbbp32 149 # ins.xor\t%0,%1,%3,log2(%2)";
+  if (which_alternative == 2)
+    return "sdbbp32 150 # ins.xor\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 151 # ins.xor\t%0,%1,%3,log2(%2)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shift.or.and"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(ior:SI	(ashift:SI (and:SI (match_operand:SI 1 "register_operand" "d")
 				   (match_operand:SI 2 "any_low_bitmask_operand" "I"))
-			   (match_operand:SI 3 "immediate_operand" "I"))
+			   (match_operand:SI 3 "reg_or_uimm5_operand" "d"))
 		(match_operand:SI 4 "register_operand" "0")))]
   "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
 {
-  return "sdbbp32 101 # ins.or\t%0,%1,%3,log2(%4)";
+  return "sdbbp32 152 # ins.or\t%0,%1,%4,log2(%3)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shift.add"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(plus:SI (ashift:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			    (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 200 # ins.add\t%0,%1,%3,log2(%2)";
+  else if (which_alternative == 1)
+    return "sdbbp32 201 # ins.add\t%0,%1,%3,log2(%2)";
+  else if (which_alternative == 2)
+    return "sdbbp32 202 # ins.add\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 203 # ins.add\t%0,%1,%3,log2(%2)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftra.add"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(plus:SI (ashiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			    (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 204 # ins.add\t%0,%1,%3,log2(%2)";
+  else if (which_alternative == 1)
+    return "sdbbp32 205 # ins.add\t%0,%1,%3,log2(%2)";
+  else if (which_alternative == 2)
+    return "sdbbp32 206 # ins.add\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 207 # ins.add\t%0,%1,%3,log2(%2)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftrl.add"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(plus:SI (lshiftrt:SI (match_operand:SI 1 "register_operand" "d,d,d,d")
+			    (match_operand:SI 2 "reg_or_uimm5_operand" "I,I,d,d"))
+		(match_operand:SI 3 "register_operand" "0,d,0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 208 # ins.add\t%0,%1,%3,log2(%2)";
+  else if (which_alternative == 1)
+    return "sdbbp32 209 # ins.add\t%0,%1,%3,log2(%2)";
+  else if (which_alternative == 2)
+    return "sdbbp32 210 # ins.add\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 211 # ins.add\t%0,%1,%3,log2(%2)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shift.sub"
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
+	(minus:SI (ashift:SI (match_operand:SI 1 "register_operand" "d,d")
+			     (match_operand:SI 2 "immediate_operand" "I,I"))
+		(match_operand:SI 3 "register_operand" "0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 212 # ins.sub\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 213 # ins.sub\t%0,%1,%3,log2(%2)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftra.sub"
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
+	(minus:SI (ashiftrt:SI (match_operand:SI 1 "register_operand" "d,d")
+			     (match_operand:SI 2 "immediate_operand" "I,I"))
+		(match_operand:SI 3 "register_operand" "0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 216 # ins.sub\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 217 # ins.sub\t%0,%1,%3,log2(%2)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shiftrl.sub"
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
+	(minus:SI (lshiftrt:SI (match_operand:SI 1 "register_operand" "d,d")
+			     (match_operand:SI 2 "immediate_operand" "I,I"))
+		(match_operand:SI 3 "register_operand" "0,d")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  if (which_alternative == 0)
+    return "sdbbp32 220 # ins.sub\t%0,%1,%3,log2(%2)";
+  else
+    return "sdbbp32 221 # ins.sub\t%0,%1,%3,log2(%2)";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])

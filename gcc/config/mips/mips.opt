@@ -608,3 +608,9 @@ Target Undocumented Var(TARGET_IDX_LDST_XS16) Init (0)
 
 madd-lwp-swp
 Target Undocumented Var(TARGET_LWP_SWP) Init (0)
+
+madd-flexop2
+Target Undocumented Var(TARGET_FLEXOP2) Init (0)
+
+madd-flexop2-limit
+Target Undocumented Var(TARGET_FLEXOP2_2) Init (0)

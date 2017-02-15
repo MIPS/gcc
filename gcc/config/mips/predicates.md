@@ -162,6 +162,10 @@
 	    (match_operand 0 "const_uimm7_operand"))
        (match_operand 0 "reg_or_0_operand")))
 
+(define_predicate "reg_or_uimm5_operand"
+  (ior (match_operand 0 "const_uimm5_operand")
+       (match_operand 0 "register_operand")))
+
 (define_predicate "const_1_operand"
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONST1_RTX (GET_MODE (op))")))

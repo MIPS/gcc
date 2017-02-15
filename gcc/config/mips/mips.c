@@ -10771,6 +10771,21 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	}
       break;
 
+    case 'S':
+      {
+	enum rtx_code code = GET_CODE (op);
+	switch (code)
+	  {
+	  case ROTATE: fprintf (file, "rot"); break;
+	  case ROTATERT: fprintf (file, "rotr"); break;
+	  case ASHIFT: fprintf (file, "sll"); break;
+	  case ASHIFTRT: fprintf (file, "sra"); break;
+	  case LSHIFTRT: fprintf (file, "srl"); break;
+	  default: gcc_unreachable();
+	  }
+      }
+      return;
+
     default:
       switch (code)
 	{
@@ -22863,6 +22878,10 @@ mips_set_compression_mode (unsigned int compression_mode)
 	  targetm.max_anchor_offset = 4095;
 
 	  targetm.const_anchor = 0x100;
+	  /* Disable shrink-wrap when optimizing for size as it tends to
+	     generate multiple return paths.  */
+	  if (optimize_size)
+	    flag_shrink_wrap = 0;
 	}
       else
 	{
