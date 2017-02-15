@@ -2811,6 +2811,14 @@ gstabs+
 Common JoinedOrMissing Negative(gvms)
 Generate debug information in extended STABS format.
 
+gno-statement-frontiers
+Common RejectNegative Var(debug_statement_frontiers, 0) Init(2)
+Don't enforce progressive recommended breakpoint locations.
+
+gstatement-frontiers
+Common RejectNegative Var(debug_statement_frontiers, 1)
+Emit progressive recommended breakpoint locations.
+
 gno-strict-dwarf
 Common RejectNegative Var(dwarf_strict,0) Init(0)
 Emit DWARF additions beyond selected version.

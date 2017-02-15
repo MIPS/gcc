@@ -328,7 +328,8 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Debugging Options,,Options for Debugging Your Program}.
 @gccoptlist{-g  -g@var{level}  -gcoff  -gdwarf -gdwarf-@var{version} @gol
 -ggdb  -grecord-gcc-switches  -gno-record-gcc-switches @gol
--gstabs  -gstabs+  -gstrict-dwarf  -gno-strict-dwarf @gol
+-gstabs  -gstabs+  -gstatement-frontiers  -gno-statement-frontiers @gol
+-gstrict-dwarf  -gno-strict-dwarf @gol
 -gvms  -gxcoff  -gxcoff+ -gz@r{[}=@var{type}@r{]} @gol
 -fdebug-prefix-map=@var{old}=@var{new} -fdebug-types-section @gol
 -feliminate-dwarf2-dups -fno-eliminate-unused-debug-types @gol
@@ -6552,6 +6553,16 @@ the compiler version.
 It is enabled by default.
 See also @option{-frecord-gcc-switches} for another
 way of storing compiler options into the object file.  
+
+@item -gstatement-frontiers
+@item -gno-statement-frontiers
+@opindex gstatement-frontiers
+@opindex gno-statement-frontiers
+This option causes GCC to create markers in the internal representation
+at the beginning of statements, and to keep them roughly in place
+throughout compilation, using them to guide the output of @code{is_stmt}
+markers in the line number table.  This is enabled by default when
+outputting DWARF 2 debug information at the normal level.
 
 @item -gstrict-dwarf
 @opindex gstrict-dwarf

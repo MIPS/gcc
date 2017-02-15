@@ -4942,7 +4942,8 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   /* Don't enable begin stmt markers if var-tracking at assignments is
      disabled.  The markers make little sense without the variable
      binding annotations among them.  */
-  cfun->begin_stmt_markers = lang_hooks.emits_begin_stmt && MAY_HAVE_DEBUG_STMTS;
+  cfun->begin_stmt_markers = lang_hooks.emits_begin_stmt
+    && debug_statement_frontiers && MAY_HAVE_DEBUG_STMTS;
 }
 
 /* This is like allocate_struct_function, but pushes a new cfun for FNDECL

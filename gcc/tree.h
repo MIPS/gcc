@@ -1124,7 +1124,8 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   ((int)TREE_INT_CST_LOW (VL_EXP_CHECK (NODE)->exp.operands[0]))
 
 /* Nonzero if is_gimple_debug() may possibly hold.  */
-#define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
+#define MAY_HAVE_DEBUG_STMTS					\
+  (flag_var_tracking_assignments || debug_statement_frontiers)
 
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
