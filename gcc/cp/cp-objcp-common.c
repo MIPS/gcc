@@ -126,7 +126,7 @@ cp_var_mod_type_p (tree type, tree fn)
    in contexts where erroneously returning 0 causes problems.  */
 
 int
-cxx_types_compatible_p (tree x, tree y)
+cxx_types_compatible_p (ttype_p x, ttype_p y)
 {
   return same_type_ignoring_top_level_qualifiers_p (x, y);
 }
@@ -134,14 +134,14 @@ cxx_types_compatible_p (tree x, tree y)
 /* Return a type to use in the debug info instead of TYPE, or NULL_TREE to
    keep TYPE.  */
 
-tree
-cp_get_debug_type (const_tree type)
+ttype *
+cp_get_debug_type (const ttype_p type)
 {
   if (TYPE_PTRMEMFUNC_P (type) && !typedef_variant_p (type))
     return build_offset_type (TYPE_PTRMEMFUNC_OBJECT_TYPE (type),
 			      TREE_TYPE (TYPE_PTRMEMFUNC_FN_TYPE (type)));
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return -1 if dwarf ATTR shouldn't be added for DECL, or the attribute

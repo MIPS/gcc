@@ -210,8 +210,9 @@ require_complete_type (location_t loc, tree value)
    the error.  */
 
 void
-c_incomplete_type_error (location_t loc, const_tree value, const_tree type)
+c_incomplete_type_error (location_t loc, const_tree value, const ttype_p t)
 {
+  const_tree type = t;
   /* Avoid duplicate error message.  */
   if (TREE_CODE (type) == ERROR_MARK)
     return;
@@ -263,10 +264,10 @@ c_incomplete_type_error (location_t loc, const_tree value, const_tree type)
 /* Given a type, apply default promotions wrt unnamed function
    arguments and return the new type.  */
 
-tree
-c_type_promotes_to (tree type)
+ttype *
+c_type_promotes_to (ttype_p type)
 {
-  tree ret = NULL_TREE;
+  ttype *ret = NULL;
 
   if (TYPE_MAIN_VARIANT (type) == float_type_node)
     ret = double_type_node;
@@ -280,9 +281,9 @@ c_type_promotes_to (tree type)
 	ret = integer_type_node;
     }
 
-  if (ret != NULL_TREE)
+  if (ret != NULL)
     return (TYPE_ATOMIC (type)
-	    ? c_build_qualified_type (ret, TYPE_QUAL_ATOMIC)
+	    ? TTYPE (c_build_qualified_type (ret, TYPE_QUAL_ATOMIC))
 	    : ret);
 
   return type;

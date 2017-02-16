@@ -40,6 +40,9 @@ extern bool hook_bool_mode_uhwi_false (machine_mode,
 				       unsigned HOST_WIDE_INT);
 extern bool hook_bool_tree_false (tree);
 extern bool hook_bool_const_tree_false (const_tree);
+#ifdef GCC_TREE_H
+extern bool hook_bool_const_type_false (const ttype_p);
+#endif
 extern bool hook_bool_tree_true (tree);
 extern bool hook_bool_const_tree_true (const_tree);
 extern bool hook_bool_gsiptr_false (gimple_stmt_iterator *);

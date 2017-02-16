@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* In cp/objcp-common.c, cp/cp-lang.c and objcp/objcp-lang.c.  */
 
-extern tree cp_get_debug_type (const_tree);
+extern ttype *cp_get_debug_type (const ttype_p);
 extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 					 tree, bool);
 

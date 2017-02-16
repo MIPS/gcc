@@ -574,7 +574,7 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
    and TYPE is the type that was invalid.  */
 
 void
-cxx_incomplete_type_error (location_t loc, const_tree value, const_tree type)
+cxx_incomplete_type_error (location_t loc, const_tree value, const ttype_p type)
 {
   cxx_incomplete_type_diagnostic (loc, value, type, DK_ERROR);
 }

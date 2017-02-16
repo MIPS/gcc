@@ -871,7 +871,7 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
    If the mode is a fixed-point mode,
    then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
-static tree
+static ttype *
 lto_type_for_mode (machine_mode mode, int unsigned_p)
 {
   tree t;
@@ -1063,9 +1063,9 @@ lto_type_for_mode (machine_mode mode, int unsigned_p)
 
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
     if (TYPE_MODE (TREE_VALUE (t)) == mode)
-      return TREE_VALUE (t);
+      return TREE_VALUE_TYPE (t);
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return true if we are in the global binding level.  */
@@ -1122,7 +1122,7 @@ lto_builtin_function (tree decl)
 }
 
 static void
-lto_register_builtin_type (tree type, const char *name)
+lto_register_builtin_type (ttype_p type, const char *name)
 {
   tree decl;
 
