@@ -266,6 +266,9 @@ struct targ_fn_descriptor
 {
   CUfunction fn;
   const struct targ_fn_launch *launch;
+
+  /* Cuda function properties.  */
+  int num_regs;
 };
 
 /* A loaded PTX image.  */
@@ -301,6 +304,20 @@ struct ptx_device
   bool concur;
   int  mode;
   bool mkern;
+  int max_threads_per_block;
+  int warp_size;
+  int multiprocessor_count;
+  int max_threads_per_multiprocessor;
+  int max_registers_per_multiprocessor;
+  int max_shared_memory_per_multiprocessor;
+
+  int binary_version;
+
+  /* register_allocation_unit_size and register_allocation_granularity
+     were extracted from the "Register Allocation Granularity" in
+     Nvidia's CUDA Occupancy Calculator spreadsheet.  */
+  int register_allocation_unit_size;
+  int register_allocation_granularity;
 
   struct ptx_image_data *images;  /* Images loaded on device.  */
   pthread_mutex_t image_lock;     /* Lock for above list.  */
@@ -600,6 +617,9 @@ nvptx_open_device (int n)
   ptx_dev->ord = n;
   ptx_dev->dev = dev;
   ptx_dev->ctx_shared = false;
+  ptx_dev->binary_version = 0;
+  ptx_dev->register_allocation_unit_size = 0;
+  ptx_dev->register_allocation_granularity = 0;
 
   r = cuCtxGetDevice (&ctx_dev);
   if (r != CUDA_SUCCESS && r != CUDA_ERROR_INVALID_CONTEXT)
@@ -643,6 +663,33 @@ nvptx_open_device (int n)
 		  &pi, CU_DEVICE_ATTRIBUTE_INTEGRATED, dev);
   ptx_dev->mkern = pi;
 
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, dev);
+  ptx_dev->max_threads_per_block = pi;
+
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi, CU_DEVICE_ATTRIBUTE_WARP_SIZE, dev);
+  ptx_dev->warp_size = pi;
+
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
+  ptx_dev->multiprocessor_count = pi;
+
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR, dev);
+  ptx_dev->max_threads_per_multiprocessor = pi;
+
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi, CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_MULTIPROCESSOR,
+		  dev);
+  ptx_dev->max_registers_per_multiprocessor = pi;
+
+  CUDA_CALL_ERET (NULL, cuDeviceGetAttribute,
+		  &pi,
+		  CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_MULTIPROCESSOR,
+		  dev);
+  ptx_dev->max_shared_memory_per_multiprocessor = pi;
+
   r = cuDeviceGetAttribute (&async_engines,
 			    CU_DEVICE_ATTRIBUTE_ASYNC_ENGINE_COUNT, dev);
   if (r != CUDA_SUCCESS)
@@ -650,6 +697,22 @@ nvptx_open_device (int n)
 
   ptx_dev->images = NULL;
   pthread_mutex_init (&ptx_dev->image_lock, NULL);
+
+  GOMP_PLUGIN_debug (0, "Nvidia device %d:\n\tGPU_OVERLAP = %d\n"
+		     "\tCAN_MAP_HOST_MEMORY = %d\n\tCONCURRENT_KERNELS = %d\n"
+		     "\tCOMPUTE_MODE = %d\n\tINTEGRATED = %d\n"
+		     "\tMAX_THREADS_PER_BLOCK = %d\n\tWARP_SIZE = %d\n"
+		     "\tMULTIPROCESSOR_COUNT = %d\n"
+		     "\tMAX_THREADS_PER_MULTIPROCESSOR = %d\n"
+		     "\tMAX_REGISTERS_PER_MULTIPROCESSOR = %d\n"
+		     "\tMAX_SHARED_MEMORY_PER_MULTIPROCESSOR = %d\n",
+		     ptx_dev->ord, ptx_dev->overlap, ptx_dev->map,
+		     ptx_dev->concur, ptx_dev->mode, ptx_dev->mkern,
+		     ptx_dev->max_threads_per_block, ptx_dev->warp_size,
+		     ptx_dev->multiprocessor_count,
+		     ptx_dev->max_threads_per_multiprocessor,
+		     ptx_dev->max_registers_per_multiprocessor,
+		     ptx_dev->max_shared_memory_per_multiprocessor);
 
   if (!init_streams_for_device (ptx_dev, async_engines))
     return NULL;
@@ -899,7 +962,14 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   CUdeviceptr dp;
   struct nvptx_thread *nvthd = nvptx_thread ();
   const char *maybe_abort_msg = "(perhaps abort was called)";
-  static int warp_size, block_size, dev_size, cpu_size, rf_size, sm_size;
+  int cpu_size = nvptx_thread ()->ptx_dev->max_threads_per_multiprocessor;
+  int block_size = nvptx_thread ()->ptx_dev->max_threads_per_block;
+  int dev_size = nvptx_thread ()->ptx_dev->multiprocessor_count;
+  int warp_size = nvptx_thread ()->ptx_dev->warp_size;
+  int rf_size =  nvptx_thread ()->ptx_dev->max_registers_per_multiprocessor;
+  int reg_unit_size = nvptx_thread ()->ptx_dev->register_allocation_unit_size;
+  int reg_granularity = nvptx_thread ()->ptx_dev
+    ->register_allocation_granularity;
 
   function = targ_fn->fn;
 
@@ -917,13 +987,6 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
       if (!dims[i])
 	seen_zero = 1;
     }
-
-  /* Both reg_granuarlity and warp_granuularity were extracted from
-     the "Register Allocation Granularity" in Nvidia's CUDA Occupancy
-     Calculator spreadsheet.  Specifically, this required SM_30+
-     targets.  */
-  const int reg_granularity = 256;
-  const int warp_granularity = 4;
 
   /* See if the user provided GOMP_OPENACC_DIM environment variable to
      specify runtime defaults. */
@@ -958,39 +1021,17 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 	    }
 	}
 
-      CUdevice dev = nvptx_thread()->ptx_dev->dev;
       /* 32 is the default for known hardware.  */
       int gang = 0, worker = 32, vector = 32;
-      CUdevice_attribute cu_tpb, cu_ws, cu_mpc, cu_tpm, cu_rf, cu_sm;
 
-      cu_tpb = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK;
-      cu_ws = CU_DEVICE_ATTRIBUTE_WARP_SIZE;
-      cu_mpc = CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT;
-      cu_tpm  = CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR;
-      cu_rf  = CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_MULTIPROCESSOR;
-      cu_sm  = CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_MULTIPROCESSOR;
+      gang = (cpu_size / block_size) * dev_size;
+      worker = block_size / warp_size;
+      vector = warp_size;
 
-      if (cuDeviceGetAttribute (&block_size, cu_tpb, dev) == CUDA_SUCCESS
-	  && cuDeviceGetAttribute (&warp_size, cu_ws, dev) == CUDA_SUCCESS
-	  && cuDeviceGetAttribute (&dev_size, cu_mpc, dev) == CUDA_SUCCESS
-	  && cuDeviceGetAttribute (&cpu_size, cu_tpm, dev) == CUDA_SUCCESS
-	  && cuDeviceGetAttribute (&rf_size, cu_rf, dev)  == CUDA_SUCCESS
-	  && cuDeviceGetAttribute (&sm_size, cu_sm, dev)  == CUDA_SUCCESS)
-	{
-	  GOMP_PLUGIN_debug (0, " warp_size=%d, block_size=%d,"
-			     " dev_size=%d, cpu_size=%d, regfile_size=%d,"
-			     " smem_size=%d\n",
-			     warp_size, block_size, dev_size, cpu_size,
-			     rf_size, sm_size);
-	  gang = (cpu_size / block_size) * dev_size;
-	  worker = block_size / warp_size;
-	  vector = warp_size;
-	}
-
-      /* There is no upper bound on the gang size.  The best size
-	 matches the hardware configuration.  Logical gangs are
-	 scheduled onto physical hardware.  To maximize usage, we
-	 should guess a large number.  */
+      /* If the user hasn't specified the number of gangs, determine
+	 it dynamically based on the hardware configuration.  */
+      if (default_dims[GOMP_DIM_GANG] == 0)
+	default_dims[GOMP_DIM_GANG] = -1;
       /* The worker size must not exceed the hardware.  */
       if (default_dims[GOMP_DIM_WORKER] < 1
 	  || (default_dims[GOMP_DIM_WORKER] > worker && gang))
@@ -1007,14 +1048,12 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
     }
   pthread_mutex_unlock (&ptx_dev_lock);
 
-  int reg_used = -1;  /* Dummy value.  */
-  cuFuncGetAttribute (&reg_used, CU_FUNC_ATTRIBUTE_NUM_REGS, function);
-
-  int reg_per_warp = ((reg_used * warp_size + reg_granularity - 1)
-		      / reg_granularity) * reg_granularity;
-
-  int threads_per_sm = (rf_size / reg_per_warp / warp_granularity)
-    * warp_granularity * warp_size;
+  /* Calculate the optimal number of gangs for the current device.  */
+  int reg_used = targ_fn->num_regs;
+  int reg_per_warp = ((reg_used * warp_size + reg_unit_size - 1)
+		      / reg_unit_size) * reg_unit_size;
+  int threads_per_sm = (rf_size / reg_per_warp / reg_granularity)
+    * reg_granularity * warp_size;
 
   if (threads_per_sm > cpu_size)
     threads_per_sm = cpu_size;
@@ -1029,7 +1068,13 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 	    else
 	      switch (i) {
 	      case GOMP_DIM_GANG:
-		dims[i] = 2 * threads_per_sm / warp_size * dev_size;
+		/* The constant 2 was emperically.  The justification
+		   behind it is to prevent the hardware from idling by
+		   throwing twice the amount of work that it can
+		   physically handle.  */
+		dims[i] = (reg_granularity > 0)
+		  ? 2 * threads_per_sm / warp_size * dev_size
+		  : 2 * dev_size;
 		break;
 	      case GOMP_DIM_WORKER:
 	      case GOMP_DIM_VECTOR:
@@ -1050,7 +1095,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 
       threads_per_block /= warp_size;
 
-      if (dims[GOMP_DIM_WORKER] > threads_per_block)
+      if (reg_granularity > 0 && dims[GOMP_DIM_WORKER] > threads_per_block)
 	GOMP_PLUGIN_fatal ("The Nvidia accelerator has insufficient resources "
 			   "to launch '%s'; recompile the program with "
 			   "'num_workers = %d' on that offloaded region or "
@@ -1695,12 +1740,49 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version, const void *target_data,
   for (i = 0; i < fn_entries; i++, targ_fns++, targ_tbl++)
     {
       CUfunction function;
+      int val;
 
       CUDA_CALL_ERET (-1, cuModuleGetFunction, &function, module,
 		      fn_descs[i].fn);
 
       targ_fns->fn = function;
       targ_fns->launch = &fn_descs[i];
+
+      CUDA_CALL_ERET (-1, cuFuncGetAttribute, &val,
+		      CU_FUNC_ATTRIBUTE_NUM_REGS, function);
+      targ_fns->num_regs = val;
+
+      if (!dev->binary_version)
+	{
+	  CUDA_CALL_ERET (-1, cuFuncGetAttribute, &val,
+			  CU_FUNC_ATTRIBUTE_BINARY_VERSION, function);
+	  dev->binary_version = val;
+
+	  /* These values were obtained from the CUDA Occupancy Calculator
+	     spreadsheet.  */
+	  if (dev->binary_version == 20
+	      || dev->binary_version == 21)
+	    {
+	    dev->register_allocation_unit_size = 128;
+	    dev->register_allocation_granularity = 2;
+	    }
+	  else if (dev->binary_version == 60)
+	    {
+	      dev->register_allocation_unit_size = 256;
+	      dev->register_allocation_granularity = 2;
+	    }
+	  else if (dev->binary_version <= 62)
+	    {
+	      dev->register_allocation_unit_size = 256;
+	      dev->register_allocation_granularity = 4;
+	    }
+	  else
+	    {
+	      /* Fallback to -1 to for unknown targets.  */
+	      dev->register_allocation_unit_size = -1;
+	      dev->register_allocation_granularity = -1;
+	    }
+	}
 
       targ_tbl->start = (uintptr_t) targ_fns;
       targ_tbl->end = targ_tbl->start + 1;
