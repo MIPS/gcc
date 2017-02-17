@@ -589,11 +589,11 @@ build_builtin_fntypes (tree *fntype, tree type)
 }
 
 
-static tree
+static ttype *
 builtin_type_for_size (int size, bool unsignedp)
 {
   tree type = gfc_type_for_size (size, unsignedp);
-  return type ? type : error_mark_node;
+  return TTYPE (type ? type : error_mark_node);
 }
 
 /* Initialization of builtin function nodes.  */

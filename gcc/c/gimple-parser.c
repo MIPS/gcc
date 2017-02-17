@@ -977,7 +977,7 @@ c_parser_gimple_postfix_expression_after_primary (c_parser *parser,
 		if (TREE_CODE (field) != FIELD_DECL)
 		  expr.original_type = NULL;
 		else
-		  expr.original_type = DECL_BIT_FIELD_TYPE (field);
+		  expr.original_type = TTYPE (DECL_BIT_FIELD_TYPE (field));
 	      }
 	    break;
 	  }
@@ -1017,7 +1017,7 @@ c_parser_gimple_postfix_expression_after_primary (c_parser *parser,
 		if (TREE_CODE (field) != FIELD_DECL)
 		  expr.original_type = NULL;
 		else
-		  expr.original_type = DECL_BIT_FIELD_TYPE (field);
+		  expr.original_type = TTYPE (DECL_BIT_FIELD_TYPE (field));
 	      }
 	    break;
 	  }

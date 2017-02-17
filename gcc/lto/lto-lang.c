@@ -568,11 +568,11 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
    The later results in segfaults even when a decl using the type doesn't
    get invoked.  */
 
-static tree
+static ttype *
 builtin_type_for_size (int size, bool unsignedp)
 {
   tree type = lang_hooks.types.type_for_size (size, unsignedp);
-  return type ? type : error_mark_node;
+  return TTYPE (type ? type : error_mark_node);
 }
 
 /* Support for DEF_BUILTIN.  */

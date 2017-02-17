@@ -3535,7 +3535,7 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
       struct c_expr dimen;
       dimen.value = NULL_TREE;
       dimen.original_code = ERROR_MARK;
-      dimen.original_type = NULL_TREE;
+      dimen.original_type = NULL;
       c_parser_consume_token (parser);
       c_parser_declspecs (parser, quals_attrs, false, false, true,
 			  false, false, cla_prefer_id);
@@ -5710,7 +5710,7 @@ c_parser_switch_statement (c_parser *parser, bool *if_p)
     {
       switch_cond_loc = UNKNOWN_LOCATION;
       expr = error_mark_node;
-      ce.original_type = error_mark_node;
+      ce.original_type = error_type_node;
     }
   c_start_case (switch_loc, switch_cond_loc, expr, explicit_cast_p);
   save_break = c_break_label;
@@ -6534,12 +6534,12 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after,
 	 remember the enum types we started with.  */
       t1 = exp1.original_type ? exp1.original_type : TREE_TYPE (exp1.value);
       t2 = exp2.original_type ? exp2.original_type : TREE_TYPE (exp2.value);
-      ret.original_type = ((t1 != error_mark_node
-			    && t2 != error_mark_node
-			    && (TYPE_MAIN_VARIANT (t1)
-				== TYPE_MAIN_VARIANT (t2)))
-			   ? t1
-			   : NULL);
+      ret.original_type = TTYPE (((t1 != error_mark_node
+				   && t2 != error_mark_node
+				   && (TYPE_MAIN_VARIANT (t1)
+				       == TYPE_MAIN_VARIANT (t2)))
+				 ? t1
+				 : NULL));
     }
   set_c_expr_source_range (&ret, start, exp2.get_finish ());
   return ret;
@@ -8495,7 +8495,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	      if (TREE_CODE (field) != FIELD_DECL)
 		expr.original_type = NULL;
 	      else
-		expr.original_type = DECL_BIT_FIELD_TYPE (field);
+		expr.original_type = TTYPE (DECL_BIT_FIELD_TYPE (field));
 	    }
 	  break;
 	case CPP_DEREF:
@@ -8535,7 +8535,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	      if (TREE_CODE (field) != FIELD_DECL)
 		expr.original_type = NULL;
 	      else
-		expr.original_type = DECL_BIT_FIELD_TYPE (field);
+		expr.original_type = TTYPE (DECL_BIT_FIELD_TYPE (field));
 	    }
 	  break;
 	case CPP_PLUS_PLUS:
@@ -8732,7 +8732,7 @@ c_parser_expr_list (c_parser *parser, bool convert_p, bool fold_p,
 	expr.value = c_fully_fold (expr.value, false, NULL);
       vec_safe_push (ret, expr.value);
       if (orig_types)
-	vec_safe_push (orig_types, expr.original_type);
+	vec_safe_push (orig_types, TREE_CAST (expr.original_type));
       if (locations)
 	locations->safe_push (loc);
       if (++idx < 3
@@ -18071,7 +18071,7 @@ c_parser_transaction_expression (c_parser *parser, enum rid keyword)
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       tree expr = c_parser_expression (parser).value;
-      ret.original_type = TREE_TYPE (expr);
+      ret.original_type = TTYPE (TREE_TYPE (expr));
       ret.value = build1 (TRANSACTION_EXPR, ret.original_type, expr);
       if (this_in & TM_STMT_ATTR_RELAXED)
 	TRANSACTION_EXPR_RELAXED (ret.value) = 1;

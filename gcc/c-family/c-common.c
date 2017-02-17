@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "substring-locations.h"
 #include "spellcheck.h"
+#include "ttype.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -304,7 +305,7 @@ const struct fname_var_t fname_vars[] =
 struct visibility_flags visibility_options;
 
 static tree check_case_value (location_t, tree);
-static bool check_case_bounds (location_t, tree, tree, tree *, tree *,
+static bool check_case_bounds (location_t, ttype_p, ttype_p, tree *, tree *,
 			       bool *);
 
 
@@ -734,7 +735,7 @@ fix_string_type (tree value)
 {
   int length = TREE_STRING_LENGTH (value);
   int nchars;
-  tree e_type, i_type, a_type;
+  ttype *e_type, *i_type, *a_type;
 
   /* Compute the number of elements, for the array type.  */
   if (TREE_TYPE (value) == char_array_type_node || !TREE_TYPE (value))
@@ -824,7 +825,7 @@ get_cpp_ttype_from_string_type (tree string_type)
   if (TREE_CODE (string_type) != ARRAY_TYPE)
     return CPP_OTHER;
 
-  tree element_type = TREE_TYPE (string_type);
+  ttype *element_type = TREE_TYPE (string_type);
   if (TREE_CODE (element_type) != INTEGER_TYPE)
     return CPP_OTHER;
 
@@ -903,7 +904,7 @@ bool_promoted_to_int_p (tree t)
    each other without an explicit cast.  Only returns true for opaque
    vector types.  */
 bool
-vector_targets_convertible_p (const_tree t1, const_tree t2)
+vector_targets_convertible_p (const ttype_p t1, const ttype_p t2)
 {
   if (VECTOR_TYPE_P (t1) && VECTOR_TYPE_P (t2)
       && (TYPE_VECTOR_OPAQUE (t1) || TYPE_VECTOR_OPAQUE (t2))
@@ -930,7 +931,8 @@ vector_targets_convertible_p (const_tree t1, const_tree t2)
    in effect, emit a note telling the user about that option if such
    a note has not previously been emitted.  */
 bool
-vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
+vector_types_convertible_p (const ttype_p t1, const ttype_p t2,
+			    bool emit_lax_note)
 {
   static bool emitted_lax_note = false;
   bool convertible_lax;
@@ -1099,13 +1101,13 @@ c_common_get_narrower (tree op, int *unsignedp_ptr)
    Eg, (short)-1 | (unsigned short)-1 is (int)-1
    but calculated in (unsigned short) it would be (unsigned short)-1.
 */
-tree
-shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise)
+ttype *
+shorten_binary_op (ttype_p result_type, tree op0, tree op1, bool bitwise)
 {
   int unsigned0, unsigned1;
   tree arg0, arg1;
   int uns;
-  tree type;
+  ttype *type;
 
   /* Cast OP0 and OP1 to RESULT_TYPE.  Doing so prevents
      excessive narrowing when we call get_narrower below.  For
@@ -1196,7 +1198,8 @@ shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise)
    real of type TO_TYPE.  This is a helper function for unsafe_conversion_p.  */
 
 static bool
-int_safely_convertible_to_real_p (const_tree from_type, const_tree to_type)
+int_safely_convertible_to_real_p (const ttype_p from_type,
+				  const ttype_p to_type)
 {
   tree type_low_bound = TYPE_MIN_VALUE (from_type);
   tree type_high_bound = TYPE_MAX_VALUE (from_type);
@@ -1230,10 +1233,11 @@ int_safely_convertible_to_real_p (const_tree from_type, const_tree to_type)
    to TYPE.  */
 
 enum conversion_safety
-unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
+unsafe_conversion_p (location_t loc, ttype_p type, tree expr,
+		     bool produce_warns)
 {
   enum conversion_safety give_warning = SAFE_CONVERSION; /* is 0 or false */
-  tree expr_type = TREE_TYPE (expr);
+  ttype *expr_type = TREE_TYPE (expr);
   loc = expansion_point_location_if_in_system_header (loc);
 
   if (TREE_CODE (expr) == REAL_CST || TREE_CODE (expr) == INTEGER_CST)
@@ -1448,8 +1452,8 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	{
 	  /* Extract underlying types (i.e., type of real and imaginary
 	     parts) of expr_type and type.  */
-	  tree from_type = TREE_TYPE (expr_type);
-	  tree to_type = TREE_TYPE (type);
+	  ttype *from_type = TREE_TYPE (expr_type);
+	  ttype *to_type = TREE_TYPE (type);
 
 	  /* Warn for real types converted to integer types.  */
 	  if (TREE_CODE (from_type) == REAL_TYPE
@@ -1504,7 +1508,7 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
    i.e. because of language rules and not because of an explicit cast.  */
 
 tree
-convert_and_check (location_t loc, tree type, tree expr)
+convert_and_check (location_t loc, ttype_p type, tree expr)
 {
   tree result;
   tree expr_for_warning;
@@ -1998,7 +2002,7 @@ check_case_value (location_t loc, tree value)
    untouched) or false if the label is out of range.  */
 
 static bool
-check_case_bounds (location_t loc, tree type, tree orig_type,
+check_case_bounds (location_t loc, ttype_p type, ttype_p orig_type,
 		   tree *case_low_p, tree *case_high_p,
 		   bool *outside_range_p)
 {
@@ -2007,7 +2011,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
   tree case_high = case_high_p ? *case_high_p : case_low;
 
   /* If there was a problem with the original type, do nothing.  */
-  if (orig_type == error_mark_node)
+  if (orig_type == error_type_node)
     return true;
 
   min_value = TYPE_MIN_VALUE (orig_type);
@@ -2117,7 +2121,7 @@ c_common_type_for_size (unsigned int bits, int unsignedp)
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed;
    and saturating if SATP is nonzero, otherwise not saturating.  */
 
-tree
+ttype *
 c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
 				    int unsignedp, int satp)
 {
@@ -2230,7 +2234,7 @@ c_common_type_for_mode (machine_mode mode, int unsignedp)
   if (COMPLEX_MODE_P (mode))
     {
       machine_mode inner_mode;
-      tree inner_type;
+      ttype *inner_type;
 
       if (mode == TYPE_MODE (complex_float_type_node))
 	return complex_float_type_node;
@@ -2249,13 +2253,13 @@ c_common_type_for_mode (machine_mode mode, int unsignedp)
 
       inner_mode = GET_MODE_INNER (mode);
       inner_type = c_common_type_for_mode (inner_mode, unsignedp);
-      if (inner_type != NULL_TREE)
+      if (inner_type != NULL)
 	return build_complex_type (inner_type);
     }
   else if (VECTOR_MODE_P (mode))
     {
       machine_mode inner_mode = GET_MODE_INNER (mode);
-      tree inner_type = c_common_type_for_mode (inner_mode, unsignedp);
+      ttype *inner_type = c_common_type_for_mode (inner_mode, unsignedp);
       if (inner_type != NULL_TREE)
 	return build_vector_type_for_mode (inner_type, mode);
     }
@@ -2357,23 +2361,23 @@ c_common_type_for_mode (machine_mode mode, int unsignedp)
     }
 
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
-    if (TYPE_MODE (TREE_VALUE (t)) == mode
-	&& !!unsignedp == !!TYPE_UNSIGNED (TREE_VALUE (t)))
+    if (TYPE_MODE (TREE_VALUE_TYPE (t)) == mode
+	&& !!unsignedp == !!TYPE_UNSIGNED (TREE_VALUE_TYPE (t)))
       return TREE_VALUE_TYPE (t);
 
   return 0;
 }
 
-tree
-c_common_unsigned_type (tree type)
+ttype *
+c_common_unsigned_type (ttype_p type)
 {
   return c_common_signed_or_unsigned_type (1, type);
 }
 
 /* Return a signed type the same as TYPE in other respects.  */
 
-tree
-c_common_signed_type (tree type)
+ttype *
+c_common_signed_type (ttype_p type)
 {
   return c_common_signed_or_unsigned_type (0, type);
 }
@@ -2381,10 +2385,10 @@ c_common_signed_type (tree type)
 /* Return a type the same as TYPE except unsigned or
    signed according to UNSIGNEDP.  */
 
-tree
-c_common_signed_or_unsigned_type (int unsignedp, tree type)
+ttype *
+c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
 {
-  tree type1;
+  ttype *type1;
   int i;
 
   /* This block of code emulates the behavior of the old
@@ -2704,9 +2708,9 @@ expr_original_type (tree expr)
 
 tree
 shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
-		 tree *restype_ptr, enum tree_code *rescode_ptr)
+		 ttype_pp restype_ptr, enum tree_code *rescode_ptr)
 {
-  tree type;
+  ttype *type;
   tree op0 = *op0_ptr;
   tree op1 = *op1_ptr;
   int unsignedp0, unsignedp1;
@@ -3394,8 +3398,8 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 
     CASE_CONVERT:
       {
-	tree totype = TREE_TYPE (expr);
-	tree fromtype = TREE_TYPE (TREE_OPERAND (expr, 0));
+	ttype *totype = TREE_TYPE (expr);
+	ttype *fromtype = TREE_TYPE (TREE_OPERAND (expr, 0));
 
 	if (POINTER_TYPE_P (totype)
 	    && !c_inhibit_evaluation_warnings
@@ -3489,7 +3493,7 @@ static void def_builtin_1  (enum built_in_function fncode,
 void
 c_apply_type_quals_to_decl (int type_quals, tree decl)
 {
-  tree type = TREE_TYPE (decl);
+  ttype *type = TREE_TYPE (decl);
 
   if (type == error_mark_node)
     return;
@@ -3518,10 +3522,10 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
     }
 }
 
-struct c_type_hasher : ggc_ptr_hash<tree_node>
+struct c_type_hasher : ggc_ptr_hash<ttype>
 {
-  static hashval_t hash (tree);
-  static bool equal (tree, tree);
+  static hashval_t hash (ttype *);
+  static bool equal (ttype *, ttype *);
 };
 
 /* Hash function for the problem of multiple type definitions in
@@ -3530,7 +3534,7 @@ struct c_type_hasher : ggc_ptr_hash<tree_node>
    on some of the simple stuff and leaves the details to comptypes.  */
 
 hashval_t
-c_type_hasher::hash (tree t)
+c_type_hasher::hash (ttype *t)
 {
   int n_elements;
   int shift, size;
@@ -3572,7 +3576,7 @@ c_type_hasher::hash (tree t)
 }
 
 bool
-c_type_hasher::equal (tree t1, tree t2)
+c_type_hasher::equal (ttype *t1, ttype *t2)
 {
   return lang_hooks.types_compatible_p (t1, t2);
 }
@@ -3583,20 +3587,16 @@ static GTY(()) hash_table<c_type_hasher> *type_hash_table;
    or a type.  Return -1 if we don't do anything special.  */
 
 alias_set_type
-c_common_get_alias_set (tree t)
+c_common_get_alias_set_type (ttype *t)
 {
   /* For VLAs, use the alias set of the element type rather than the
      default of alias set 0 for types compared structurally.  */
-  if (TYPE_P (t) && TYPE_STRUCTURAL_EQUALITY_P (t))
+  if (TYPE_STRUCTURAL_EQUALITY_P (t))
     {
       if (TREE_CODE (t) == ARRAY_TYPE)
 	return get_alias_set (TREE_TYPE (t));
       return -1;
     }
-
-  /* That's all the expressions we handle specially.  */
-  if (!TYPE_P (t))
-    return -1;
 
   /* The C standard guarantees that any object may be accessed via an
      lvalue that has character type.  */
@@ -3610,7 +3610,7 @@ c_common_get_alias_set (tree t)
      variant as canonical.  */
   if (TREE_CODE (t) == INTEGER_TYPE && TYPE_UNSIGNED (t))
     {
-      tree t1 = c_common_signed_type (t);
+      ttype *t1 = c_common_signed_type (t);
 
       /* t1 == t can happen for boolean nodes which are always unsigned.  */
       if (t1 != t)
@@ -3635,7 +3635,7 @@ c_common_get_alias_set (tree t)
      needs special handling (below).  */
   if (TREE_CODE (t) == POINTER_TYPE)
     {
-      tree t2;
+      ttype *t2;
       /* Find bottom type under any nested POINTERs.  */
       for (t2 = TREE_TYPE (t);
 	   TREE_CODE (t2) == POINTER_TYPE;
@@ -3660,16 +3660,25 @@ c_common_get_alias_set (tree t)
      alias set is recorded in the table.  */
   if (!type_hash_table)
     type_hash_table = hash_table<c_type_hasher>::create_ggc (1021);
-  tree *slot = type_hash_table->find_slot (t, INSERT);
+  ttype **slot = type_hash_table->find_slot (t, INSERT);
   if (*slot != NULL)
     {
-      TYPE_ALIAS_SET (t) = TYPE_ALIAS_SET ((tree)*slot);
-      return TYPE_ALIAS_SET ((tree)*slot);
+      TYPE_ALIAS_SET (t) = TYPE_ALIAS_SET (*slot);
+      return TYPE_ALIAS_SET (*slot);
     }
   else
     /* Our caller will assign and record (in t) a new alias set; all we need
        to do is remember t in the hash table.  */
     *slot = t;
+
+  return -1;
+}
+
+alias_set_type
+c_common_get_alias_set (tree t)
+{
+  if (TYPE_P (t))
+    return c_common_get_alias_set_type (TTYPE (t));
 
   return -1;
 }
@@ -3684,7 +3693,7 @@ c_common_get_alias_set (tree t)
 
 tree
 c_sizeof_or_alignof_type (location_t loc,
-			  tree type, bool is_sizeof, bool min_alignof,
+			  ttype_p type, bool is_sizeof, bool min_alignof,
 			  int complain)
 {
   const char *op_name;
@@ -3922,13 +3931,13 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
     {
       builtin_type a = (builtin_type) va_arg (list, int);
       t = builtin_types[a];
-      if (t == error_mark_node)
+      if (t == error_type_node)
 	goto egress;
       args[i] = t;
     }
 
   t = builtin_types[ret];
-  if (t == error_mark_node)
+  if (t == error_type_node)
     goto egress;
   if (var)
     t = build_varargs_function_type_array (t, n, args);
@@ -4062,7 +4071,7 @@ c_get_ident (const char *id)
 static inline ttype *
 identifier_global_type (tree t)
 {
-  return TTYPE (TREE_TYPE (identifier_global_value (t)));
+  return TREE_TYPE (identifier_global_value (t));
 }
 
 /* Build tree nodes and builtin functions common to both C and C++ language
@@ -4183,7 +4192,7 @@ c_common_nodes_and_builtins (void)
 					 TYPE_DECL, NULL_TREE,
 					 widest_unsigned_literal_type_node));
 
-  signed_size_type_node = TTYPE (c_common_signed_type (size_type_node));
+  signed_size_type_node = c_common_signed_type (size_type_node);
 
   pid_type_node = identifier_global_type (get_identifier (PID_TYPE));
 
@@ -4480,8 +4489,7 @@ c_common_nodes_and_builtins (void)
 
   default_function_type
     = build_varargs_function_type_list (integer_type_node, NULL_TREE);
-  unsigned_ptrdiff_type_node 
-			  = TTYPE (c_common_unsigned_type (ptrdiff_type_node));
+  unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
 
   lang_hooks.decls.pushdecl
     (build_decl (UNKNOWN_LOCATION,
@@ -4491,9 +4499,11 @@ c_common_nodes_and_builtins (void)
     {
       int l;
       const char *pname;
-      tree ptype;
+      ttype *ptype;
 
-      for (l = 0; targetm.enum_va_list_p (l, &pname, &ptype); ++l)
+      for (l = 0;
+	   targetm.enum_va_list_p (l, &pname, TREE_PTR_CAST (&ptype));
+	   ++l)
 	{
 	  lang_hooks.decls.pushdecl
 	    (build_decl (UNKNOWN_LOCATION,
@@ -4547,7 +4557,7 @@ set_compound_literal_name (tree decl)
    TYPE and operand OP.  */
 
 static tree
-build_va_arg_1 (location_t loc, tree type, tree op)
+build_va_arg_1 (location_t loc, ttype *type, tree op)
 {
   tree expr = build1 (VA_ARG_EXPR, type, op);
   SET_EXPR_LOCATION (expr, loc);
@@ -4558,23 +4568,23 @@ build_va_arg_1 (location_t loc, tree type, tree op)
    va_arg (EXPR, TYPE) at source location LOC.  */
 
 tree
-build_va_arg (location_t loc, tree expr, tree type)
+build_va_arg (location_t loc, tree expr, ttype_p type)
 {
-  tree va_type = TREE_TYPE (expr);
-  tree canon_va_type = (va_type == error_mark_node
-			? error_mark_node
-			: targetm.canonical_va_list_type (va_type));
+  ttype *va_type = TREE_TYPE (expr);
+  ttype *canon_va_type = (va_type == error_type_node
+			  ? error_type_node
+			  : TTYPE (targetm.canonical_va_list_type (va_type)));
 
-  if (va_type == error_mark_node
-      || canon_va_type == NULL_TREE)
+  if (va_type == error_type_node
+      || canon_va_type == NULL)
     {
-      if (canon_va_type == NULL_TREE)
+      if (canon_va_type == NULL)
 	error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
 
       /* Let's handle things neutrallly, if expr:
 	 - has undeclared type, or
 	 - is not an va_list type.  */
-      return build_va_arg_1 (loc, type, error_mark_node);
+      return build_va_arg_1 (loc, type, error_type_node);
     }
 
   if (TREE_CODE (canon_va_type) != ARRAY_TYPE)
@@ -4650,8 +4660,8 @@ build_va_arg (location_t loc, tree expr, tree type)
 		     expr);
 
       /* Verify that &ap is still recognized as having va_list type.  */
-      tree canon_expr_type
-	= targetm.canonical_va_list_type (TREE_TYPE (expr));
+      ttype *canon_expr_type
+	= TTYPE (targetm.canonical_va_list_type (TREE_TYPE (expr)));
       gcc_assert (canon_expr_type != NULL_TREE);
     }
   else
@@ -4757,7 +4767,7 @@ def_builtin_1 (enum built_in_function fncode,
    integral promotions defined in ISO C99 6.3.1.1/2.  */
 
 bool
-c_promoting_integer_type_p (const_tree t)
+c_promoting_integer_type_p (const ttype_p t)
 {
   switch (TREE_CODE (t))
     {
@@ -4792,9 +4802,9 @@ self_promoting_args_p (const_tree parms)
   const_tree t;
   for (t = parms; t; t = TREE_CHAIN (t))
     {
-      tree type = TREE_VALUE (t);
+      ttype *type = TREE_VALUE_TYPE (t);
 
-      if (type == error_mark_node)
+      if (type == error_type_node)
 	continue;
 
       if (TREE_CHAIN (t) == 0 && type != void_type_node)
@@ -4813,8 +4823,8 @@ self_promoting_args_p (const_tree parms)
 }
 
 /* Recursively remove any '*' or '&' operator from TYPE.  */
-tree
-strip_pointer_operator (tree t)
+ttype *
+strip_pointer_operator (ttype_p t)
 {
   while (POINTER_TYPE_P (t))
     t = TREE_TYPE (t);
@@ -4822,8 +4832,8 @@ strip_pointer_operator (tree t)
 }
 
 /* Recursively remove pointer or array type from TYPE. */
-tree
-strip_pointer_or_array_types (tree t)
+ttype *
+strip_pointer_or_array_types (ttype_p t)
 {
   while (TREE_CODE (t) == ARRAY_TYPE || POINTER_TYPE_P (t))
     t = TREE_TYPE (t);
@@ -4860,10 +4870,11 @@ case_compare (splay_tree_key k1, splay_tree_key k2)
    created, or ERROR_MARK_NODE if no CASE_LABEL_EXPR is created.  */
 
 tree
-c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
-		  tree low_value, tree high_value, bool *outside_range_p)
+c_add_case_label (location_t loc, splay_tree cases, tree cond,
+		  ttype_p orig_type, tree low_value, tree high_value,
+		  bool *outside_range_p)
 {
-  tree type;
+  ttype *type;
   tree label;
   tree case_label;
   splay_tree_node node;
@@ -5320,7 +5331,7 @@ check_function_nonnull (location_t loc, tree attrs, int nargs, tree *argarray)
    array ARGARRAY.  */
 
 static void
-check_function_sentinel (const_tree fntype, int nargs, tree *argarray)
+check_function_sentinel (const ttype_p fntype, int nargs, tree *argarray)
 {
   tree attr = lookup_attribute ("sentinel", TYPE_ATTRIBUTES (fntype));
 
@@ -5610,7 +5621,7 @@ attribute_fallthrough_p (tree attr)
    There are NARGS arguments in the array ARGARRAY.  LOC should be used for
    diagnostics.  Return true if -Wnonnull warning has been diagnosed.  */
 bool
-check_function_arguments (location_t loc, const_tree fntype, int nargs,
+check_function_arguments (location_t loc, const ttype_p fntype, int nargs,
 			  tree *argarray)
 {
   bool warned_p = false;
@@ -5653,7 +5664,7 @@ check_function_arguments_recurse (void (*callback)
 
   if (TREE_CODE (param) == CALL_EXPR)
     {
-      tree type = TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (param)));
+      ttype *type = TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (param)));
       tree attrs;
       bool found_format_arg = false;
 
@@ -6351,9 +6362,10 @@ fold_offsetof (tree expr)
    2 if INITIAL_VALUE was NULL, and 3 if INITIAL_VALUE was empty.  */
 
 int
-complete_array_type (tree *ptype, tree initial_value, bool do_default)
+complete_array_type (ttype_pp ptype, tree initial_value, bool do_default)
 {
-  tree maxindex, type, elt, unqual_elt;
+  tree maxindex;
+  ttype *type, *elt, *unqual_elt;
   ttype *main_type;
   int failure = 0, quals;
   hashval_t hashcode = 0;
@@ -6483,7 +6495,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
       error ("size of array is too large");
       /* If we proceed with the array type as it is, we'll eventually
 	 crash in tree_to_[su]hwi().  */
-      type = error_mark_node;
+      type = error_type_node;
     }
 
   *ptype = type;
@@ -6510,11 +6522,11 @@ c_common_mark_addressable_vec (tree t)
    The later results in segfaults even when a decl using the type doesn't
    get invoked.  */
 
-tree
+ttype *
 builtin_type_for_size (int size, bool unsignedp)
 {
-  tree type = c_common_type_for_size (size, unsignedp);
-  return type ? type : error_mark_node;
+  ttype *type = c_common_type_for_size (size, unsignedp);
+  return type ? type : error_type_node;
 }
 
 /* A helper function for resolve_overloaded_builtin in resolving the
@@ -6528,9 +6540,9 @@ static int
 sync_resolve_size (tree function, vec<tree, va_gc> *params, bool fetch)
 {
   /* Type of the argument.  */
-  tree argtype;
+  ttype *argtype;
   /* Type the argument points to.  */
-  tree type;
+  ttype *type;
   int size;
 
   if (vec_safe_is_empty (params))
@@ -6564,7 +6576,7 @@ sync_resolve_size (tree function, vec<tree, va_gc> *params, bool fetch)
  incompatible:
   /* Issue the diagnostic only if the argument is valid, otherwise
      it would be redundant at best and could be misleading.  */
-  if (argtype != error_mark_node)
+  if (argtype != error_type_node)
     error ("operand type %qT is incompatible with argument %d of %qE",
 	   argtype, 1, function);
   return 0;
@@ -6580,7 +6592,7 @@ sync_resolve_params (location_t loc, tree orig_function, tree function,
 		     vec<tree, va_gc> *params, bool orig_format)
 {
   function_args_iterator iter;
-  tree ptype;
+  ttype *ptype;
   unsigned int parmnum;
 
   function_args_iter_init (&iter, TREE_TYPE (function));
@@ -6596,7 +6608,8 @@ sync_resolve_params (location_t loc, tree orig_function, tree function,
   parmnum = 0;
   while (1)
     {
-      tree val, arg_type;
+      tree val;
+      ttype *arg_type;
 
       arg_type = function_args_iter_cond (&iter);
       /* XXX void_type_node belies the abstraction.  */
@@ -6652,8 +6665,8 @@ sync_resolve_params (location_t loc, tree orig_function, tree function,
 static tree
 sync_resolve_return (tree first_param, tree result, bool orig_format)
 {
-  tree ptype = TREE_TYPE (TREE_TYPE (first_param));
-  tree rtype = TREE_TYPE (result);
+  ttype *ptype = TREE_TYPE (TREE_TYPE (first_param));
+  ttype *rtype = TREE_TYPE (result);
   ptype = TYPE_MAIN_VARIANT (ptype);
 
   /* New format doesn't require casting unless the types are the same size.  */
@@ -6743,7 +6756,7 @@ get_atomic_generic_size (location_t loc, tree function,
   for (x = 0; x < n_param - n_model; x++)
     {
       int size;
-      tree type = TREE_TYPE ((*params)[x]);
+      ttype *type = TREE_TYPE ((*params)[x]);
       /* __atomic_compare_exchange has a bool in the 4th position, skip it.  */
       if (n_param == 6 && x == 3)
         continue;
@@ -6877,7 +6890,7 @@ resolve_overloaded_atomic_exchange (location_t loc, tree function,
 				    vec<tree, va_gc> *params, tree *new_return)
 {	
   tree p0, p1, p2, p3;
-  tree I_type, I_type_ptr;
+  ttype *I_type, *I_type_ptr;
   int n = get_atomic_generic_size (loc, function, params);
 
   /* Size of 0 is an error condition.  */
@@ -6942,7 +6955,7 @@ resolve_overloaded_atomic_compare_exchange (location_t loc, tree function,
 					    tree *new_return)
 {	
   tree p0, p1, p2;
-  tree I_type, I_type_ptr;
+  ttype *I_type, *I_type_ptr;
   int n = get_atomic_generic_size (loc, function, params);
 
   /* Size of 0 is an error condition.  */
@@ -7018,7 +7031,7 @@ resolve_overloaded_atomic_load (location_t loc, tree function,
 				vec<tree, va_gc> *params, tree *new_return)
 {	
   tree p0, p1, p2;
-  tree I_type, I_type_ptr;
+  ttype *I_type, *I_type_ptr;
   int n = get_atomic_generic_size (loc, function, params);
 
   /* Size of 0 is an error condition.  */
@@ -7078,7 +7091,7 @@ resolve_overloaded_atomic_store (location_t loc, tree function,
 				 vec<tree, va_gc> *params, tree *new_return)
 {	
   tree p0, p1;
-  tree I_type, I_type_ptr;
+  ttype *I_type, *I_type_ptr;
   int n = get_atomic_generic_size (loc, function, params);
 
   /* Size of 0 is an error condition.  */
@@ -7325,7 +7338,7 @@ resolve_overloaded_builtin (location_t loc, tree function,
    except for the element count.  */
 
 bool
-vector_types_compatible_elements_p (tree t1, tree t2)
+vector_types_compatible_elements_p (ttype_p t1, ttype_p t2)
 {
   bool opaque = TYPE_VECTOR_OPAQUE (t1) || TYPE_VECTOR_OPAQUE (t2);
   t1 = TREE_TYPE (t1);
@@ -7356,9 +7369,9 @@ vector_types_compatible_elements_p (tree t1, tree t2)
    attribute.  */
 
 bool
-check_missing_format_attribute (tree ltype, tree rtype)
+check_missing_format_attribute (ttype_p ltype, ttype_p rtype)
 {
-  tree const ttr = TREE_TYPE (rtype), ttl = TREE_TYPE (ltype);
+  const ttype *ttr = TREE_TYPE (rtype), *ttl = TREE_TYPE (ltype);
   tree ra;
 
   for (ra = TYPE_ATTRIBUTES (ttr); ra; ra = TREE_CHAIN (ra))
@@ -7426,10 +7439,10 @@ set_underlying_type (tree x)
       if (TYPE_NAME (TREE_TYPE (x)) == 0)
 	TYPE_NAME (TREE_TYPE (x)) = x;
     }
-  else if (TREE_TYPE (x) != error_mark_node
+  else if (TREE_TYPE (x) != error_type_node
 	   && DECL_ORIGINAL_TYPE (x) == NULL_TREE)
     {
-      tree tt = TREE_TYPE (x);
+      ttype *tt = TREE_TYPE (x);
       DECL_ORIGINAL_TYPE (x) = tt;
       tt = build_variant_type_copy (tt);
       TYPE_STUB_DECL (tt) = TYPE_STUB_DECL (DECL_ORIGINAL_TYPE (x));
@@ -7703,7 +7716,7 @@ convert_vector_to_array_for_subscript (location_t loc,
   bool ret = false;
   if (VECTOR_TYPE_P (TREE_TYPE (*vecp)))
     {
-      tree type = TREE_TYPE (*vecp);
+      ttype *type = TREE_TYPE (*vecp);
 
       ret = !lvalue_p (*vecp);
 
@@ -7731,8 +7744,8 @@ enum stv_conv
 scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
 		  bool complain)
 {
-  tree type0 = TREE_TYPE (op0);
-  tree type1 = TREE_TYPE (op1);
+  ttype *type0 = TREE_TYPE (op0);
+  ttype *type1 = TREE_TYPE (op1);
   bool integer_only_op = false;
   enum stv_conv ret = stv_firstarg;
 
@@ -7862,7 +7875,7 @@ cxx_fundamental_alignment_p (unsigned align)
 /* Return true if T is a pointer to a zero-sized aggregate.  */
 
 bool
-pointer_to_zero_sized_aggr_p (tree t)
+pointer_to_zero_sized_aggr_p (ttype_p t)
 {
   if (!POINTER_TYPE_P (t))
     return false;
@@ -7914,9 +7927,9 @@ reject_gcc_builtin (const_tree expr, location_t loc /* = UNKNOWN_LOCATION */)
    the name of the array, or NULL_TREE for unnamed arrays.  */
 
 bool
-valid_array_size_p (location_t loc, tree type, tree name)
+valid_array_size_p (location_t loc, ttype_p type, tree name)
 {
-  if (type != error_mark_node
+  if (type != error_type_node
       && COMPLETE_TYPE_P (type)
       && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
       && !valid_constant_size_p (TYPE_SIZE_UNIT (type)))

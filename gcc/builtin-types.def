@@ -142,11 +142,11 @@ DEF_PRIMITIVE_TYPE (BT_DFLOAT128_PTR, dfloat128_ptr_type_node)
 DEF_PRIMITIVE_TYPE (BT_VALIST_REF, va_list_ref_type_node)
 DEF_PRIMITIVE_TYPE (BT_VALIST_ARG, va_list_arg_type_node)
 
-DEF_PRIMITIVE_TYPE (BT_I1, TTYPE (builtin_type_for_size (BITS_PER_UNIT*1, 1)))
-DEF_PRIMITIVE_TYPE (BT_I2, TTYPE (builtin_type_for_size (BITS_PER_UNIT*2, 1)))
-DEF_PRIMITIVE_TYPE (BT_I4, TTYPE (builtin_type_for_size (BITS_PER_UNIT*4, 1)))
-DEF_PRIMITIVE_TYPE (BT_I8, TTYPE (builtin_type_for_size (BITS_PER_UNIT*8, 1)))
-DEF_PRIMITIVE_TYPE (BT_I16, TTYPE (builtin_type_for_size (BITS_PER_UNIT*16, 1)))
+DEF_PRIMITIVE_TYPE (BT_I1, builtin_type_for_size (BITS_PER_UNIT*1, 1))
+DEF_PRIMITIVE_TYPE (BT_I2, builtin_type_for_size (BITS_PER_UNIT*2, 1))
+DEF_PRIMITIVE_TYPE (BT_I4, builtin_type_for_size (BITS_PER_UNIT*4, 1))
+DEF_PRIMITIVE_TYPE (BT_I8, builtin_type_for_size (BITS_PER_UNIT*8, 1))
+DEF_PRIMITIVE_TYPE (BT_I16, builtin_type_for_size (BITS_PER_UNIT*16, 1))
 
 DEF_PRIMITIVE_TYPE (BT_BND, pointer_bounds_type_node)
 

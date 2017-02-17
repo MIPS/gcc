@@ -5542,11 +5542,11 @@ static ttype *c_global_types[CTI_MAX];
    The later results in segfaults even when a decl using the type doesn't
    get invoked.  */
 
-static tree
+static ttype *
 builtin_type_for_size (int size, bool unsignedp)
 {
   tree type = gnat_type_for_size (size, unsignedp);
-  return type ? type : error_mark_node;
+  return TTYPE (type ? type : error_mark_node);
 }
 
 /* Build/push the elementary type decls that builtin functions/types
