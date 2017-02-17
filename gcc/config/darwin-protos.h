@@ -82,7 +82,7 @@ extern void darwin_asm_lto_end (void);
 
 extern void darwin_mark_decl_preserved (const char *);
 
-extern tree darwin_handle_kext_attribute (tree *, tree, tree, int, bool *);
+extern tree darwin_handle_kext_attribute (ttype **, tree, tree, int, bool *);
 extern tree darwin_handle_weak_import_attribute (tree *node, tree name,
 						 tree args, int flags,
 						 bool * no_add_attrs);

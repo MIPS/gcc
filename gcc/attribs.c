@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "langhooks.h"
 #include "plugin.h"
+#include "ttype.h"
 
 /* Table of the tables of attributes (common, language, format, machine)
    searched.  */
@@ -94,7 +95,7 @@ static bool attributes_initialized = false;
 
 static const struct attribute_spec empty_attribute_table[] =
 {
-  { NULL, 0, 0, false, false, false, NULL, false }
+  { NULL, 0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Return base name of the attribute.  Ie '__attr__' is turned into 'attr'.
@@ -343,6 +344,223 @@ get_attribute_namespace (const_tree attr)
   return get_identifier ("gnu");
 }
 
+/* Process the attributes listed in ATTRIBUTES and install them in *NODE,
+   which is a TYPE.  A copy should be created unless ATTR_FLAG_TYPE_IN_PLACE
+   is set in FLAGS.  FLAGS gives further
+   information, in the form of a bitwise OR of flags in enum attribute_flags
+   from tree.h.  Depending on these flags, some attributes may be
+   returned to be applied at a later stage (for example, to apply
+   a decl attribute to the declaration rather than to its type).  */
+
+static tree
+process_type_attribute (ttype **node, tree a, int flags, tree returned_attrs)
+{
+  tree ns = get_attribute_namespace (a);
+  tree name = get_attribute_name (a);
+  tree args = TREE_VALUE (a);
+  ttype **anode = node;
+  const struct attribute_spec *spec =
+    lookup_scoped_attribute_spec (ns, name);
+  bool no_add_attrs = 0;
+  int fn_ptr_quals = 0;
+  ttype *fn_ptr_tmp = NULL;
+
+  if (spec == NULL)
+    {
+      if (!(flags & (int) ATTR_FLAG_BUILT_IN))
+	{
+	  if (ns == NULL_TREE || !cxx11_attribute_p (a))
+	    warning (OPT_Wattributes, "%qE attribute directive ignored",
+		     name);
+	  else
+	    warning (OPT_Wattributes,
+		     "%<%E::%E%> scoped attribute directive ignored",
+		     ns, name);
+	}
+      return returned_attrs;
+    }
+  else if (list_length (args) < spec->min_length
+	   || (spec->max_length >= 0
+	       && list_length (args) > spec->max_length))
+    {
+      error ("wrong number of arguments specified for %qE attribute",
+	     name);
+      return returned_attrs;
+    }
+
+  gcc_assert (is_attribute_p (spec->name, name));
+
+  if (cxx11_attribute_p (a) && !(flags & ATTR_FLAG_TYPE_IN_PLACE))
+    {
+      /* This is a c++11 attribute that appertains to a
+	 type-specifier, outside of the definition of, a class
+	 type.  Ignore it.  */
+      if (warning (OPT_Wattributes, "attribute ignored"))
+	inform (input_location,
+		"an attribute that appertains to a type-specifier "
+		"is ignored");
+      return returned_attrs;
+    }
+
+  if (spec->decl_required)
+    {
+      if (flags & ((int) ATTR_FLAG_DECL_NEXT
+		   | (int) ATTR_FLAG_FUNCTION_NEXT
+		   | (int) ATTR_FLAG_ARRAY_NEXT))
+	{
+	  /* Pass on this attribute to be tried again.  */
+	  returned_attrs = tree_cons (name, args, returned_attrs);
+	  return returned_attrs;
+	}
+      else
+	{
+	  warning (OPT_Wattributes, "%qE attribute does not apply to types",
+		   name);
+	  return returned_attrs;
+	}
+    }
+
+
+  if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
+      && TREE_CODE (*anode) != METHOD_TYPE)
+    {
+      if (TREE_CODE (*anode) == POINTER_TYPE
+	  && (TREE_CODE (TREE_TYPE (*anode)) == FUNCTION_TYPE
+	      || TREE_CODE (TREE_TYPE (*anode)) == METHOD_TYPE))
+	{
+	  /* OK, this is a bit convoluted.  We can't just make a copy
+	     of the pointer type and modify its TREE_TYPE, because if
+	     we change the attributes of the target type the pointer
+	     type needs to have a different TYPE_MAIN_VARIANT.  So we
+	     pull out the target type now, frob it as appropriate, and
+	     rebuild the pointer type later.
+
+	     This would all be simpler if attributes were part of the
+	     declarator, grumble grumble.  */
+	  fn_ptr_tmp = TREE_TYPE (*anode);
+	  fn_ptr_quals = TYPE_QUALS (*anode);
+	  anode = &fn_ptr_tmp;
+	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
+	}
+      else if (flags & (int) ATTR_FLAG_FUNCTION_NEXT)
+	{
+	  /* Pass on this attribute to be tried again.  */
+	  returned_attrs = tree_cons (name, args, returned_attrs);
+	  return returned_attrs;
+	}
+
+      if (TREE_CODE (*anode) != FUNCTION_TYPE
+	  && TREE_CODE (*anode) != METHOD_TYPE)
+	{
+	  warning (OPT_Wattributes,
+		   "%qE attribute only applies to function types",
+		   name);
+	  return returned_attrs;
+	}
+    }
+
+  if ((flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
+      && TYPE_SIZE (*anode) != NULL_TREE)
+    {
+      warning (OPT_Wattributes, "type attributes ignored after type is already defined");
+      return returned_attrs;
+    }
+
+  if (spec->type_handler != NULL)
+    {
+      int cxx11_flag =
+	cxx11_attribute_p (a) ? ATTR_FLAG_CXX11 : 0;
+
+      returned_attrs = chainon ((*spec->type_handler) (anode, name, args,
+						       flags|cxx11_flag,
+						       &no_add_attrs),
+				returned_attrs);
+    }
+
+  if (!no_add_attrs)
+    {
+      tree old_attrs;
+      tree a;
+
+      old_attrs = TYPE_ATTRIBUTES (*anode);
+
+      for (a = lookup_attribute (spec->name, old_attrs);
+	   a != NULL_TREE;
+	   a = lookup_attribute (spec->name, TREE_CHAIN (a)))
+	{
+	  if (simple_cst_equal (TREE_VALUE (a), args) == 1)
+	    break;
+	}
+
+      if (a == NULL_TREE)
+	{
+	  /* This attribute isn't already in the list.  */
+	  if (flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
+	    {
+	      TYPE_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
+	      /* If this is the main variant, also push the attributes
+		 out to the other variants.  */
+	      if (*anode == TYPE_MAIN_VARIANT (*anode))
+		{
+		  ttype *variant;
+		  for (variant = *anode; variant;
+		       variant = TYPE_NEXT_VARIANT (variant))
+		    {
+		      if (TYPE_ATTRIBUTES (variant) == old_attrs)
+			TYPE_ATTRIBUTES (variant)
+			  = TYPE_ATTRIBUTES (*anode);
+		      else if (!lookup_attribute
+			       (spec->name, TYPE_ATTRIBUTES (variant)))
+			TYPE_ATTRIBUTES (variant) = tree_cons
+			  (name, args, TYPE_ATTRIBUTES (variant));
+		    }
+		}
+	    }
+	  else
+	    *anode = build_type_attribute_variant (*anode,
+						   tree_cons (name, args,
+							      old_attrs));
+	}
+    }
+
+  if (fn_ptr_tmp)
+    {
+      /* Rebuild the function pointer type and put it in the
+	 appropriate place.  */
+      fn_ptr_tmp = build_pointer_type (fn_ptr_tmp);
+      if (fn_ptr_quals)
+	fn_ptr_tmp = build_qualified_type (fn_ptr_tmp, fn_ptr_quals);
+      gcc_assert (TREE_CODE (*node) == POINTER_TYPE);
+      *node = fn_ptr_tmp;
+    }
+
+  return returned_attrs;
+}
+
+
+tree
+type_attributes (ttype_pp node, tree attributes, int flags)
+{
+  tree a;
+  tree returned_attrs = NULL_TREE;
+
+  if (TREE_TYPE (*node) == error_type_node || attributes == error_mark_node)
+    return NULL_TREE;
+
+  if (!attributes_initialized)
+    init_attributes ();
+
+  targetm.insert_attributes (*node, &attributes);
+
+  for (a = attributes; a; a = TREE_CHAIN (a))
+    {
+      returned_attrs = process_type_attribute (node, a, flags, returned_attrs);
+    }
+
+  return returned_attrs;
+}
+
+
 
 /* Process the attributes listed in ATTRIBUTES and install them in *NODE,
    which is either a DECL (including a TYPE_DECL) or a TYPE.  If a DECL,
@@ -359,7 +577,9 @@ decl_attributes (tree *node, tree attributes, int flags)
   tree a;
   tree returned_attrs = NULL_TREE;
 
-  if (TREE_TYPE (*node) == error_mark_node || attributes == error_mark_node)
+  gcc_assert (DECL_P (*node));
+
+  if (TREE_TYPE (*node) == error_type_node || attributes == error_mark_node)
     return NULL_TREE;
 
   if (!attributes_initialized)
@@ -425,8 +645,6 @@ decl_attributes (tree *node, tree attributes, int flags)
       const struct attribute_spec *spec =
 	lookup_scoped_attribute_spec (ns, name);
       bool no_add_attrs = 0;
-      int fn_ptr_quals = 0;
-      tree fn_ptr_tmp = NULL_TREE;
 
       if (spec == NULL)
 	{
@@ -452,107 +670,32 @@ decl_attributes (tree *node, tree attributes, int flags)
 	}
       gcc_assert (is_attribute_p (spec->name, name));
 
-      if (TYPE_P (*node)
-	  && cxx11_attribute_p (a)
-	  && !(flags & ATTR_FLAG_TYPE_IN_PLACE))
-	{
-	  /* This is a c++11 attribute that appertains to a
-	     type-specifier, outside of the definition of, a class
-	     type.  Ignore it.  */
-	  if (warning (OPT_Wattributes, "attribute ignored"))
-	    inform (input_location,
-		    "an attribute that appertains to a type-specifier "
-		    "is ignored");
-	  continue;
-	}
-
-      if (spec->decl_required && !DECL_P (*anode))
-	{
-	  if (flags & ((int) ATTR_FLAG_DECL_NEXT
-		       | (int) ATTR_FLAG_FUNCTION_NEXT
-		       | (int) ATTR_FLAG_ARRAY_NEXT))
-	    {
-	      /* Pass on this attribute to be tried again.  */
-	      returned_attrs = tree_cons (name, args, returned_attrs);
-	      continue;
-	    }
-	  else
-	    {
-	      warning (OPT_Wattributes, "%qE attribute does not apply to types",
-		       name);
-	      continue;
-	    }
-	}
-
       /* If we require a type, but were passed a decl, set up to make a
 	 new type and update the one in the decl.  ATTR_FLAG_TYPE_IN_PLACE
 	 would have applied if we'd been passed a type, but we cannot modify
 	 the decl's type in place here.  */
-      if (spec->type_required && DECL_P (*anode))
+      if (spec->type_required)
 	{
-	  anode = &TREE_TYPE (*anode);
-	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
-	}
-
-      if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
-	  && TREE_CODE (*anode) != METHOD_TYPE)
-	{
-	  if (TREE_CODE (*anode) == POINTER_TYPE
-	      && (TREE_CODE (TREE_TYPE (*anode)) == FUNCTION_TYPE
-		  || TREE_CODE (TREE_TYPE (*anode)) == METHOD_TYPE))
-	    {
-	      /* OK, this is a bit convoluted.  We can't just make a copy
-		 of the pointer type and modify its TREE_TYPE, because if
-		 we change the attributes of the target type the pointer
-		 type needs to have a different TYPE_MAIN_VARIANT.  So we
-		 pull out the target type now, frob it as appropriate, and
-		 rebuild the pointer type later.
-
-		 This would all be simpler if attributes were part of the
-		 declarator, grumble grumble.  */
-	      fn_ptr_tmp = TREE_TYPE (*anode);
-	      fn_ptr_quals = TYPE_QUALS (*anode);
-	      anode = &fn_ptr_tmp;
-	      flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
-	    }
-	  else if (flags & (int) ATTR_FLAG_FUNCTION_NEXT)
-	    {
-	      /* Pass on this attribute to be tried again.  */
-	      returned_attrs = tree_cons (name, args, returned_attrs);
-	      continue;
-	    }
-
-	  if (TREE_CODE (*anode) != FUNCTION_TYPE
-	      && TREE_CODE (*anode) != METHOD_TYPE)
-	    {
-	      warning (OPT_Wattributes,
-		       "%qE attribute only applies to function types",
-		       name);
-	      continue;
-	    }
-	}
-
-      if (TYPE_P (*anode)
-	  && (flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
-	  && TYPE_SIZE (*anode) != NULL_TREE)
-	{
-	  warning (OPT_Wattributes, "type attributes ignored after type is already defined");
+	  int f = (flags & ~(int) ATTR_FLAG_TYPE_IN_PLACE);
+	  process_type_attribute (&TREE_TYPE (*anode), a, f, returned_attrs);
 	  continue;
 	}
 
-      if (spec->handler != NULL)
+
+      if (spec->decl_handler != NULL)
 	{
 	  int cxx11_flag =
 	    cxx11_attribute_p (a) ? ATTR_FLAG_CXX11 : 0;
 
-	  returned_attrs = chainon ((*spec->handler) (anode, name, args,
-						      flags|cxx11_flag,
-						      &no_add_attrs),
+	  returned_attrs = chainon ((*spec->decl_handler) (anode, name, args,
+							   flags|cxx11_flag,
+							   &no_add_attrs),
 				    returned_attrs);
 	}
 
+
       /* Layout the decl in case anything changed.  */
-      if (spec->type_required && DECL_P (*node)
+      if (spec->type_required
 	  && (VAR_P (*node)
 	      || TREE_CODE (*node) == PARM_DECL
 	      || TREE_CODE (*node) == RESULT_DECL))
@@ -563,10 +706,7 @@ decl_attributes (tree *node, tree attributes, int flags)
 	  tree old_attrs;
 	  tree a;
 
-	  if (DECL_P (*anode))
-	    old_attrs = DECL_ATTRIBUTES (*anode);
-	  else
-	    old_attrs = TYPE_ATTRIBUTES (*anode);
+	  old_attrs = DECL_ATTRIBUTES (*anode);
 
 	  for (a = lookup_attribute (spec->name, old_attrs);
 	       a != NULL_TREE;
@@ -579,49 +719,7 @@ decl_attributes (tree *node, tree attributes, int flags)
 	  if (a == NULL_TREE)
 	    {
 	      /* This attribute isn't already in the list.  */
-	      if (DECL_P (*anode))
-		DECL_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
-	      else if (flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
-		{
-		  TYPE_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
-		  /* If this is the main variant, also push the attributes
-		     out to the other variants.  */
-		  if (*anode == TYPE_MAIN_VARIANT (*anode))
-		    {
-		      tree variant;
-		      for (variant = *anode; variant;
-			   variant = TYPE_NEXT_VARIANT (variant))
-			{
-			  if (TYPE_ATTRIBUTES (variant) == old_attrs)
-			    TYPE_ATTRIBUTES (variant)
-			      = TYPE_ATTRIBUTES (*anode);
-			  else if (!lookup_attribute
-				   (spec->name, TYPE_ATTRIBUTES (variant)))
-			    TYPE_ATTRIBUTES (variant) = tree_cons
-			      (name, args, TYPE_ATTRIBUTES (variant));
-			}
-		    }
-		}
-	      else
-		*anode = build_type_attribute_variant (*anode,
-						       tree_cons (name, args,
-								  old_attrs));
-	    }
-	}
-
-      if (fn_ptr_tmp)
-	{
-	  /* Rebuild the function pointer type and put it in the
-	     appropriate place.  */
-	  fn_ptr_tmp = build_pointer_type (fn_ptr_tmp);
-	  if (fn_ptr_quals)
-	    fn_ptr_tmp = build_qualified_type (fn_ptr_tmp, fn_ptr_quals);
-	  if (DECL_P (*node))
-	    TREE_TYPE (*node) = fn_ptr_tmp;
-	  else
-	    {
-	      gcc_assert (TREE_CODE (*node) == POINTER_TYPE);
-	      *node = fn_ptr_tmp;
+	      DECL_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
 	    }
 	}
     }
@@ -670,7 +768,7 @@ get_attribute_name (const_tree attr)
 void
 apply_tm_attr (tree fndecl, tree attr)
 {
-  decl_attributes (&TREE_TYPE (fndecl), tree_cons (attr, NULL, NULL), 0);
+  type_attributes (&TREE_TYPE (fndecl), tree_cons (attr, NULL, NULL), 0);
 }
 
 /* Makes a function attribute of the form NAME(ARG_NAME) and chains

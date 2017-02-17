@@ -9424,6 +9424,26 @@ avr_class_likely_spilled_p (reg_class_t c)
    naked     -  Don't generate function prologue/epilogue and RET
                 instruction.  */
 
+static tree
+avr_ignore_type_attribute (ttype **node ATTRIBUTE_UNUSED,
+			   tree name ATTRIBUTE_UNUSED,
+			   tree args ATTRIBUTE_UNUSED,
+			   int flags ATTRIBUTE_UNUSED,
+			   bool *no_add_attrs ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+static tree
+avr_warning_type_attribute (ttype **node ATTRIBUTE_UNUSED, tree name,
+			   tree args ATTRIBUTE_UNUSED,
+			   int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  warning (OPT_Wattributes, "%qE attribute does not apply to types",
+	   name);
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
 /* Handle a "progmem" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -9483,7 +9503,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 }
 
 static tree
-avr_handle_fntype_attribute (tree *node, tree name,
+avr_handle_fntype_attribute (ttype **node, tree name,
                              tree args ATTRIBUTE_UNUSED,
                              int flags ATTRIBUTE_UNUSED,
                              bool *no_add_attrs)
@@ -9611,29 +9631,29 @@ avr_eval_addr_attrib (rtx x)
 static const struct attribute_spec
 avr_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
   { "progmem",   0, 0, false, false, false,  avr_handle_progmem_attribute,
-    false },
+    avr_ignore_type_attribute, false },
   { "signal",    0, 0, true,  false, false,  avr_handle_fndecl_attribute,
-    false },
+    avr_warning_type_attribute, false },
   { "interrupt", 0, 0, true,  false, false,  avr_handle_fndecl_attribute,
+    avr_warning_type_attribute, false },
+  { "naked",     0, 0, false, true,  true, NULL,  avr_handle_fntype_attribute,
     false },
-  { "naked",     0, 0, false, true,  true,   avr_handle_fntype_attribute,
+  { "OS_task",   0, 0, false, true,  true, NULL,  avr_handle_fntype_attribute,
     false },
-  { "OS_task",   0, 0, false, true,  true,   avr_handle_fntype_attribute,
-    false },
-  { "OS_main",   0, 0, false, true,  true,   avr_handle_fntype_attribute,
+  { "OS_main",   0, 0, false, true,  true, NULL,   avr_handle_fntype_attribute,
     false },
   { "io",        0, 1, false, false, false,  avr_handle_addr_attribute,
-    false },
+    avr_warning_type_attribute, false },
   { "io_low",    0, 1, false, false, false,  avr_handle_addr_attribute,
-    false },
+    avr_warning_type_attribute, false },
   { "address",   1, 1, false, false, false,  avr_handle_addr_attribute,
-    false },
+    avr_warning_type_attribute, false },
   { "absdata",   0, 0, true, false, false,  avr_handle_absdata_attribute,
-    false },
-  { NULL,        0, 0, false, false, false, NULL, false }
+    avr_warning_type_attribute, false },
+  { NULL,        0, 0, false, false, false, NULL, NULL, false }
 };
 
 

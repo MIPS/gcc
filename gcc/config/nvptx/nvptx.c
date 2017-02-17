@@ -4183,9 +4183,11 @@ static const struct attribute_spec nvptx_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
-  { "kernel", 0, 0, true, false,  false, nvptx_handle_kernel_attribute, false },
-  { "shared", 0, 0, true, false,  false, nvptx_handle_shared_attribute, false },
-  { NULL, 0, 0, false, false, false, NULL, false }
+  { "kernel", 0, 0, true, false,  false, nvptx_handle_kernel_attribute, NULL,
+    false },
+  { "shared", 0, 0, true, false,  false, nvptx_handle_shared_attribute, NULL,
+    false },
+  { NULL, 0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Limit vector alignments to BIGGEST_ALIGNMENT.  */

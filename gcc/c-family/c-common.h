@@ -826,8 +826,8 @@ extern bool check_builtin_function_arguments (location_t, vec<location_t>,
 					      tree, int, tree *);
 extern void check_function_format (tree, int, tree *);
 extern bool attribute_fallthrough_p (tree);
-extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
-extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
+extern tree handle_format_attribute (ttype **, tree, tree, int, bool *);
+extern tree handle_format_arg_attribute (ttype **, tree, tree, int, bool *);
 extern bool c_common_handle_option (size_t, const char *, int, int, location_t,
 				    const struct cl_option_handlers *);
 extern bool default_handle_c_option (size_t, const char *, int);
@@ -1553,7 +1553,8 @@ extern tree do_warn_duplicated_branches_r (tree *, int *, void *);
 
 /* In c-attribs.c.  */
 extern bool attribute_takes_identifier_p (const_tree);
-extern tree handle_unused_attribute (tree *, tree, tree, int, bool *);
+extern tree handle_unused_decl_attribute (tree *, tree, tree, int, bool *);
+extern tree handle_unused_type_attribute (ttype **, tree, tree, int, bool *);
 extern int parse_tm_stmt_attr (tree, int);
 extern int tm_attr_to_mask (tree);
 extern tree tm_mask_to_attr (int);

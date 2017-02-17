@@ -6414,37 +6414,81 @@ merge_dllimport_decl_attributes (tree old, tree new_tree)
    struct attribute_spec.handler.  */
 
 tree
-handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
+handle_dll_type_attribute (ttype **pnode, tree name, tree args, int flags,
+			   bool *no_add_attrs)
+{
+  ttype *node = *pnode;
+  tree tn = NULL_TREE;
+  bool is_dllimport;
+
+  /* These attributes may apply to structure and union types being created,
+     but otherwise should pass to the declaration involved.  */
+
+  if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
+	       | (int) ATTR_FLAG_ARRAY_NEXT))
+    {
+      *no_add_attrs = true;
+      return tree_cons (name, args, NULL_TREE);
+    }
+
+  if (TREE_CODE (node) != RECORD_TYPE
+      && TREE_CODE (node) != UNION_TYPE)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored",
+	       name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  tn = TYPE_NAME (node);
+  if (!tn)
+    return NULL_TREE;
+
+  is_dllimport = is_attribute_p ("dllimport", name);
+
+  /* Report error on dllimport ambiguities seen now before they cause
+     any damage.  */
+  if (is_dllimport)
+    {
+      /* Honor any target-specific overrides. */
+      if (!targetm.valid_dllimport_attribute_p (tn))
+	*no_add_attrs = true;
+
+      if (*no_add_attrs == false)
+        DECL_DLLIMPORT_P (tn) = 1;
+    }
+
+  /* A dllexport'd entity must have default visibility so that other
+     program units (shared libraries or the main executable) can see
+     it.  A dllimport'd entity must have default visibility so that
+     the linker knows that undefined references within this program
+     unit can be resolved by the dynamic linker.  */
+  if (!*no_add_attrs)
+    {
+      if (DECL_VISIBILITY_SPECIFIED (tn)
+	  && DECL_VISIBILITY (tn) != VISIBILITY_DEFAULT)
+	error ("%qE implies default visibility, but %qD has already "
+	       "been declared with a different visibility",
+	       name, tn);
+      DECL_VISIBILITY (tn) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (tn) = 1;
+    }
+
+  return NULL_TREE;
+}
+
+
+/* Handle a "dllimport" or "dllexport" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+tree
+handle_dll_attribute (tree *pnode, tree name, tree args, int flags,
 		      bool *no_add_attrs)
 {
   tree node = *pnode;
   bool is_dllimport;
 
-  /* These attributes may apply to structure and union types being created,
-     but otherwise should pass to the declaration involved.  */
-  if (!DECL_P (node))
-    {
-      if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
-		   | (int) ATTR_FLAG_ARRAY_NEXT))
-	{
-	  *no_add_attrs = true;
-	  return tree_cons (name, args, NULL_TREE);
-	}
-      if (TREE_CODE (node) == RECORD_TYPE
-	  || TREE_CODE (node) == UNION_TYPE)
-	{
-	  node = TYPE_NAME (node);
-	  if (!node)
-	    return NULL_TREE;
-	}
-      else
-	{
-	  warning (OPT_Wattributes, "%qE attribute ignored",
-		   name);
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
-    }
+  gcc_assert (DECL_P (node));
 
   if (!VAR_OR_FUNCTION_DECL_P (node) && TREE_CODE (node) != TYPE_DECL)
     {
@@ -11010,7 +11054,7 @@ reconstruct_complex_type (ttype_p type, ttype_p bottom)
       outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
     }
   else
-    return bottom;
+    return TTYPE (bottom);
 
   return build_type_attribute_qual_variant (outer, TYPE_ATTRIBUTES (type),
 					    TYPE_QUALS (type));
