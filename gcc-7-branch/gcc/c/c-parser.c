@@ -13817,7 +13817,7 @@ c_parser_oacc_declare (c_parser *parser)
 	       || !DECL_EXTERNAL (decl)))
 	    {
 	      error_at (loc,
-			"%qD must be a global variable in"
+			"%qD must be a global variable in "
 			"%<#pragma acc declare link%>",
 			decl);
 	      error = true;
@@ -16504,6 +16504,11 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context, bool *if_p)
 	  c_parser_consume_token (parser);
 	  return c_parser_omp_target_update (loc, parser, context);
 	}
+    }
+  if (!flag_openmp) /* flag_openmp_simd  */
+    {
+      c_parser_skip_to_pragma_eol (parser, false);
+      return false;
     }
 
   stmt = make_node (OMP_TARGET);

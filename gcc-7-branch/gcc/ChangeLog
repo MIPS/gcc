@@ -1,3 +1,491 @@
+2017-02-19  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gimple-pretty-print.c (dump_ternary_rhs): Adjust gimple dump format
+	for FMA_EXPR.
+
+2017-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* final.c (last_columnnum, override_columnnum): New variables.
+	(final_start_function): Set last_columnnum, pass it to begin_prologue
+	hook and pass 0 to dwarf2out_begin_prologue.
+	(final_scan_insn): Update override_columnnum.  Pass last_columnnum
+	to source_line debug hook.
+	(notice_source_line): Compute last_columnnum and for debug_column_info
+	return true on column changes.
+	* debug.h (struct gcc_debug_hooks): Add column argument to
+	source_line and begin_prologue hooks.
+	(debug_nothing_int_charstar_int_bool): Remove prototype.
+	(debug_nothing_int_int_charstar,
+	debug_nothing_int_int_charstar_int_bool): New prototypes.
+	(dwarf2out_begin_prologue): Add column argument.
+	* debug.c (do_nothing_debug_hooks): Adjust source_line and
+	begin_prologue hooks.
+	(debug_nothing_int_charstar_int_bool): Remove.
+	(debug_nothing_int_int_charstar,
+	debug_nothing_int_int_charstar_int_bool): New functions.
+	* dwarf2out.c (dwarf2out_begin_prologue): Add column argument, pass it
+	through to dwarf2out_source_line.
+	(dwarf2_lineno_debug_hooks): Adjust begin_prologue hook.
+	(dwarf2out_source_line): Add column argument, emit it if requested.
+	* sdbout.c (sdbout_source_line, sdbout_begin_prologue): Add column
+	arguments.
+	* xcoffout.h (xcoffout_begin_prologue, xcoffout_source_line): Likewise.
+	* xcoffout.c (xcoffout_begin_prologue, xcoffout_source_line): Likewise.
+	* vmsdbgout.c (vmsdbgout_begin_prologue): Add column argument, pass it
+	through to dwarf2out_begin_prologue.
+	(vmsdbgout_source_line): Add column argument, pass it through to
+	dwarf2out_source_line.
+	* dbxout.c (dbxout_begin_prologue): Add column argument, adjust
+	dbxout_source_line caller.
+	(dbxout_source_line): Add column argument.
+
+	* common.opt (gno-column-info, gcolumn-info): New options.
+	* dwarf2out.c (dwarf2_lineno_debug_hooks): Formatting fix.
+	(check_die): Also test for multiple DW_AT_decl_column attributes.
+	(add_src_coords_attributes, dwarf2out_imported_module_or_decl_1): Add
+	DW_AT_decl_column if requested.
+	(gen_subprogram_die): Compare and/or add also DW_AT_decl_column
+	if requested.
+	(gen_variable_die): Likewise.
+	(add_call_src_coords_attributes): Add DW_AT_call_column if requested.
+	* doc/invoke.texi (-gcolumn-info, -gno-column-info): Document.
+
+	PR target/79569
+	* config/i386/i386.opt (m3dnowa): Replace Undocumented with Report.
+	* common/config/i386/i386-common.c (OPTION_MASK_ISA_3DNOW_A_SET): Define.
+	(ix86_handle_option): Handle OPT_m3dnowa.
+	* doc/invoke.texi (-m3dnowa): Document.
+	* doc/extend.texi (__builtin_ia32_pmulhuw, __builtin_ia32_pf2iw): Use
+	-m3dnowa instead of -m3dnow -march=athlon.
+
+	PR target/79559
+	* config/i386/i386.c (ix86_print_operand): Use output_operand_lossage
+	instead of gcc_assert for K, r and R code checks.  Formatting fixes.
+
+2017-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/79261
+	* config/rs6000/rs6000.c (rs6000_expand_ternop_builtin): Add
+	support for CODE_FOR_vsx_xxpermdi_v2d[fi]_be.
+	* config/rs6000/rs6000.md (reload_gpr_from_vsx<mode>): Call
+	generator for vsx_xxpermdi_<mode>_be.
+	* config/rs6000/vsx.md (vsx_xxpermdi_<mode>): Remove logic to
+	force big-endian semantics.
+	(vsx_xxpermdi_<mode>_be): New define_expand with same
+	implementation as previous version of vsx_xxpermdi_<mode>.
+
+2017-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79327
+	* gimple-ssa-sprintf.c (format_integer): Remove likely_adjust
+	variable, its initialization and use.
+
+2017-02-17  Julia Koval  <julia.koval@intel.com>
+
+	* common/config/i386/i386-common.c (OPTION_MASK_ISA_RDPID_SET): New.
+	(OPTION_MASK_ISA_PKU_UNSET): New.
+	(ix86_handle_option): Handle -mrdpid.
+	* config/i386/cpuid.h (bit_RDPID): New.
+	* config/i386/driver-i386.c (host_detect_local_cpu):
+	Detect RDPID feature.
+	* config/i386/i386-builtin.def (__builtin_ia32_rdpid): New.
+	* config/i386/i386-c.c (ix86_target_macros_internal):
+	Handle RDPID flag.
+	* config/i386/i386.c (ix86_target_string): Add -mrdpid to isa2_opts.
+	(ix86_valid_target_attribute_inner_p): Add "rdpid".
+	(ix86_expand_builtin): Handle IX86_BUILTIN_RDPID.
+	* config/i386/i386.h (TARGET_RDPID, TARGET_RDPID_P): New.
+	* config/i386/i386.md (define_insn "rdpid"): New.
+	* config/i386/i386.opt Add -mrdpid.
+	* config/i386/immintrin.h (_rdpid_u32): New.
+
+2017-02-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/79541
+	* lra-constraints.c (curr_insn_transform): Remove wrong asm insn
+	instead of transforming it into USE.
+
+2017-02-17  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.md (extendsfdf2): Remove default arguments.
+	If HONOR_SNANS (SFmode) force the input to a register.
+	(*extendsfdf2_fpr): Add !HONOR_SNANS (SFmode) condition.
+	(*extendsfdf2_snan): New pattern, used when using SNaNs; it generates
+	an frsp or similar insn.
+
+2017-02-17  Martin Liska  <mliska@suse.cz>
+
+	PR rtl-optimization/79577
+	* params.def (selsched-max-sched-times): Increase minimum to 1.
+
+2017-02-17  Martin Liska  <mliska@suse.cz>
+
+	PR rtl-optimization/79574
+	* gcse.c (want_to_gcse_p): Prevent integer overflow.
+
+2017-02-17  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/79529
+	* tree-ssa-loop-unswitch.c (is_maybe_undefined): Use
+	ssa_defined_default_def_p to handle cases which are implicitly
+	defined.
+	* tree-ssa.c (ssa_defined_default_def_p): New function.
+	(ssa_undefined_value_p): Use ssa_defined_default_def_p to handle cases
+	which are implicitly defined.
+	* tree-ssa.h (ssa_defined_default_def_p): Declare.
+
+2017-02-17  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79576
+	* params.def (max-ssa-name-query-depth): Limit to 10.
+
+2017-02-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79552
+	* tree-ssa-structalias.c (visit_loadstore): Properly verify
+	default defs.
+
+2017-02-17  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/79567
+	* genmatch.c (output_line_directive): Handle DIR_SEPARATOR_2.
+
+2017-02-17  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/79536
+	* fold-const.c (fold_negate_expr_1): Renamed from fold_negate_expr.
+	(fold_negate_expr): New wrapper.
+
+2017-02-16  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi (C++ Dialect Options) [-Wno-non-template-friend]: 
+	Correct terminology and de-emphasize pre-standard behavior.
+
+2017-02-16  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/79286
+	* ira.c (def_dominates_uses): New function.
+	(update_equiv_regs): Don't create an equivalence for insns that
+	may trap where the register def does not dominate the use.
+
+2017-02-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/78127
+	* lra.c (lra): Call lra_eliminate before finish the loop after
+	lra_constraint.
+
+2017-02-16  Richard Biener  <rguenther@suse.de>
+
+	* graphite.h: Do not include isl/isl_val_gmp.h, instead include
+	isl/isl_val.h.
+	* graphite-isl-ast-to-gimple.c (gmp_cst_to_tree): Remove.
+	(gcc_expression_from_isl_expr_int): Use generic isl_val interface.
+	* graphite-sese-to-poly.c: Do not include isl/isl_val_gmp.h.
+	(isl_val_int_from_wi): New function.
+	(extract_affine_gmp): Rename to ...
+	(extract_affine_wi): ... this, take a widest_int.
+	(extract_affine_int): Just wrap extract_affine_wi.
+	(add_param_constraints): Use isl_val_int_from_wi.
+	(add_loop_constraints): Likewise, and extract_affine_wi.
+
+2017-02-15 Jeff Law  <law@redhat.com>
+
+	PR middle-end/79521
+	* ira-costs.c (scan_one_insn): Check have_regs_of_mode before calling
+	ira_init_register_move_cost_if_necessary.
+
+2017-02-15  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/32003
+	* doc/invoke.texi (-fdump-final-insns): Replace option accidentally
+	removed in a prior commit.
+
+2017-02-15  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/79347
+	* tree-vect-loop-manip.c (vect_do_peeling): Maintain profile
+	counters during peeling.
+
+2017-02-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* Makefile.in (site.exp): Remove "set ISLVER".
+
+2017-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79487
+	* real.c (real_from_integer): Call real_convert even for decimal.
+
+2017-02-15  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/79421
+	* config/s390/s390.c: define TARGET_CUSTOM_FUNCTION_DESCRIPTORS.
+
+2017-02-14  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def (thunderx2t99): Move to under 'C"
+	cores and change the partno/implementer to be correct.
+	(thunderx2t99p1): New core which replaces thunderx2t99 and still has
+	the 'B" as the implementer.
+	* config/aarch64/aarch64-tune.md: Regenerate.
+
+2017-02-14  Carl Love  <cel@us.ibm.com>
+
+	* config/rs6000/rs6000.c: Add case statement entry to make the
+	xvcvuxdsp built-in argument unsigned.
+	* config/rs6000/vsx.md: Fix the source and return operand types so they
+	match the instruction definitions from the ISA document.  Fix typo
+	in the instruction generation for the (define_insn "vsx_xvcvuxdsp"
+	statement.
+
+2017-02-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/79282
+	* lra-int.h (struct lra_operand_data, struct lra_insn_reg): Add
+	member early_clobber_alts.
+	* lra-lives.c (reg_early_clobber_p): New.
+	(process_bb_lives): Use it.
+	* lra.c (new_insn_reg): New arg early_clobber_alts.  Use it.
+	(debug_operand_data): Initialize early_clobber_alts.
+	(setup_operand_alternative): Set up early_clobber_alts.
+	(collect_non_operand_hard_regs): Ditto.  Pass early clobber
+	alternatives to new_insn_reg.
+	(add_regs_to_insn_regno_info): Add arg early_clobber_alts.  Use
+	it.
+	(lra_update_insn_regno_info): Pass the new arg.
+
+2017-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/79505
+	* omp-offload.c (free_oacc_loop): Release loop->ifns vector.
+	(new_oacc_loop_raw): Don't clear already cleared fields.
+
+	PR target/79481
+	* config/i386/avx512pfintrin.h (_mm512_prefetch_i32gather_pd,
+	_mm512_prefetch_i32gather_ps, _mm512_prefetch_i64gather_pd,
+	_mm512_prefetch_i64gather_ps): New inline functions and macros.
+
+2017-02-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/79495
+	* config/i386/i386.md (*movxf_internal): Add (o,rC) alternative.
+
+2017-02-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/79498
+	* config/i386/i386.c (timode_scalar_chain::convert_insn): Insert
+	the extra instruction to the right place to store 128-bit constant
+	when needed.
+
+2017-02-14  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/79448
+	* gimple-ssa-sprintf.c (format_directive): Avoid issuing INT_MAX
+	  warning for strings of unknown length.
+
+2017-02-13  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config.gcc (supported_defaults) [powerpc*-*-*]: Update.
+
+2017-02-14 Jeff Law  <law@redhat.com>
+
+	PR target/79404
+	* ira-costs.c (scan_one_insn): Initialize register move costs
+	for pseudos seen in USE/CLOBBER insns.
+
+	PR tree-optimization/79095
+	* tree-vrp.c (extract_range_from_binary_expr_1): For EXACT_DIV_EXPR,
+	if the numerator has the range ~[0,0] make the resultant range ~[0,0].
+	(extract_range_from_binary_expr): For MINUS_EXPR with no derived range,
+	if the operands are known to be not equal, then the resulting range
+	is ~[0,0].
+	(intersect_ranges): If the new range is ~[0,0] and the old range is
+	wide, then prefer ~[0,0].
+	* tree-vrp.c (overflow_comparison_p_1): New function.
+	(overflow_comparison_p): New function.
+	* tree-vrp.c (register_edge_assert_for_2): Register additional asserts
+	if NAME is used in an overflow test.
+	(vrp_evaluate_conditional_warnv_with_ops): If the ops represent an
+	overflow check that can be expressed as an equality test, then adjust
+	ops to be that equality test.
+
+2017-02-14  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-builtin-types.def: Remove flags argument.
+	* config/s390/s390.c (s390_init_builtins): Likewise.
+
+2017-02-14  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-loop-unswitch.c (hoist_guard): Release get_loop_body
+	vector.  Fix trailing white spaces.
+
+2017-02-14  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_container_mode): Handle
+	HFmode.
+
+2017-02-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68664
+	* config/arm/arm.c (arm_sched_can_speculate_insn):
+	New function.  Declare prototype.
+	(TARGET_SCHED_CAN_SPECULATE_INSN): Define.
+
+2017-02-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68664
+	* config/aarch64/aarch64.c (aarch64_sched_can_speculate_insn):
+	New function.
+	(TARGET_SCHED_CAN_SPECULATE_INSN): Define.
+
+2017-02-14  Amit Pawar  <amit.pawar@amd.com>
+
+	* config/i386/i386.c (znver1_cost): Fix the alignment for function and
+	max skip bytes for function, loop and jump.
+
+2017-02-14  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gimple-pretty-print.c (dump_unary_rhs): Adjust dump format for
+	ABS_EXPR for gimple dump.
+
+2017-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79462
+	* config/sh/sh.c (expand_cbranchdi4): Don't clear operands[4].
+
+	PR tree-optimization/79408
+	* tree-vrp.c (simplify_div_or_mod_using_ranges): Handle also the
+	case when on TRUNC_MOD_EXPR op0 is INTEGER_CST.
+	(simplify_stmt_using_ranges): Call simplify_div_or_mod_using_ranges
+	also if rhs1 is INTEGER_CST.
+
+2017-02-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79432
+	* tree-into-ssa.c (insert_phi_nodes): When the function can
+	have abnormal edges rewrite SSA names with broken use-def
+	dominance out of SSA and register them for PHI insertion.
+
+2017-02-13  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/79496
+	* gimple-ssa-sprintf.c (pass_sprintf_length::handle_gimple_call): Avoid
+	clearing info.nowrite flag when snprintf size argument is a range.
+
+2017-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* cprop.c (cprop_jump): Add missing space in string literal.
+	* tree-ssa-structalias.c (rewrite_constraints): Likewise.
+	(get_constraint_for_component_ref): Likewise.
+	* df-core.c (df_worklist_dataflow_doublequeue): Likewise.
+	* tree-outof-ssa.c (insert_partition_copy_on_edge): Likewise.
+	* lra-constraints.c (process_alt_operands): Likewise.
+	* ipa-inline.c (inline_small_functions): Likewise.
+	* tree-ssa-sccvn.c (visit_reference_op_store): Likewise.
+	* cgraph.c (cgraph_edge::redirect_call_stmt_to_callee): Likewise.
+	* trans-mem.c (diagnose_tm_1_op): Likewise.
+	* omp-grid.c (grid_find_single_omp_among_assignments): Likewise.
+	(grid_parallel_clauses_gridifiable): Likewise.
+
+	* config/nvptx/mkoffload.c (process): Add space in between
+	, and %d.
+
+	* config/i386/i386.h (REG_CLASS_NAMES): Add , in between
+	"MOD4_SSE_REGS" and "ALL_REGS".
+
+	* spellcheck.c (test_data): Add , in between "foo" and "food".
+
+2017-02-13  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
+
+	PR target/79449
+	* config/rs6000/rs6000.c (expand_block_compare): Make sure runtime
+	boundary crossing check and subsequent code generation agree.
+
+2017-02-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (has_memory_op): Delete.
+	(aarch64_madd_needs_nop): Use contains_mem_rtx_p instead of
+	has_memory_op.
+
+2017-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/79388
+	PR rtl-optimization/79450
+	* combine.c (distribute_notes): When removing TEM_INSN for which
+	corresponding dest has last value recorded, invalidate that last
+	value.
+
+2017-02-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (arm_print_tune_info): Use ASM_COMMENT_START instead
+	of explicit '@'.  Add missing assembly comment marker on branch costs
+	printout.
+
+2017-02-13  Nathan Sidwell  <nathan@acm.org>
+
+	* gengtype-lex.l (<in_struct>): Add '/'.
+
+2017-02-13  Martin Liska  <mliska@suse.cz>
+
+	PR c/79471
+	* calls.c (expand_call): Replace XALLOCAVEC with XCNEWVEC.
+
+2017-02-13  Richard Biener  <rguenther@suse.de>
+
+	* configure.ac (HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS):
+	Remove.
+	* configure: Re-generate.
+	* config.in: Likewise.
+	* graphite-dependences.c: Simplify as if
+	HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS was defined.
+	* graphite-isl-ast-to-gimple.c: Likewise.
+	* graphite-optimize-isl.c: Likewise.
+	* graphite-poly.c: Likewise.
+	* graphite-sese-to-poly.c: Likewise.
+	* graphite.h: Likewise.
+	* toplev.c: Include isl/version.h and use isl_version () for
+	printing the ISL version.
+	* doc/install.texi: Update ISL requirement.
+
+2017-02-12  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/standards.texi (Standards): Update reference to
+	Objective-C 2.0.
+
+2017-02-12  Gerald Pfeifer  <gerald@pfeifer.com>
+	
+	* doc/extend.texi (Named Address Spaces): sourceware.org now
+	defaults to https.
+	* doc/install.texi (Binaries): Ditto.
+	(Specific): Ditto.
+
+2017-02-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/cpp.texi: Replace "stringify"/"stringification" with C 
+	standard terminology "stringize"/"stringizing" throughout.
+	* doc/cppinternals.texi: Likewise.
+
+2017-02-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi: Fix some spelling mistakes and typos.
+	* doc/invoke.texi: Likewise.
+
+2017-02-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/79224
+	* params.def (inline-min-speedup) Change from 10 to 8.
+
+2017-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/invoke.texi (fopenmp): Bump OpenMP version from 4.0 to
+	4.5.
+
+2017-02-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/79224
+	* ipa-inline-analysis.c (get_minimal_bb): New function.
+	(record_modified): Use it.
+	(remap_edge_change_prob): Handle also ancestor functions.
+
 2017-02-11  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/contrib.texi (Contributors): Remove broken link into
@@ -606,7 +1094,7 @@
 	* doc/invoke.texi (-maccumulate-args): Fix bad grammar.
 
 	PR middle-end/32003
-	* doc/invoke.texi (-fdump-rtl-): Remove pass-specific options from
+	* doc/invoke.texi (-fdump-tree-): Remove pass-specific options from
 	index.
 	(-fdump-tree-@var): Add to index and document how to come up
 	with pass-specific option and dump file names.

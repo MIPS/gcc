@@ -134,9 +134,7 @@ is_maybe_undefined (const tree name, gimple *stmt, struct loop *loop)
       if (ssa_undefined_value_p (t, true))
 	return true;
 
-      /* A PARM_DECL will not have an SSA_NAME_DEF_STMT.  Parameters
-	 get their initial value from function entry.  */
-      if (SSA_NAME_VAR (t) && TREE_CODE (SSA_NAME_VAR (t)) == PARM_DECL)
+      if (ssa_defined_default_def_p (t))
 	continue;
 
       gimple *def = SSA_NAME_DEF_STMT (t);
@@ -820,7 +818,7 @@ hoist_guard (struct loop *loop, edge guard)
   /* Create new loop pre-header.  */
   e = split_block (pre_header, last_stmt (pre_header));
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "  Moving guard %i->%i (prob %i) to bb %i, "	
+    fprintf (dump_file, "  Moving guard %i->%i (prob %i) to bb %i, "
 	     "new preheader is %i\n",
 	     guard->src->index, guard->dest->index, guard->probability,
 	     e->src->index, e->dest->index);
@@ -879,7 +877,7 @@ hoist_guard (struct loop *loop, edge guard)
   /* ... finally scale everything in the loop except for guarded basic blocks
      where profile does not change.  */
   basic_block *body = get_loop_body (loop);
-  
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "  Scaling nonguarded BBs in loop:");
   for (unsigned int i = 0; i < loop->num_nodes; i++)
@@ -920,6 +918,8 @@ hoist_guard (struct loop *loop, edge guard)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n  guard hoisted.\n");
+
+  free (body);
 }
 
 /* Return true if phi argument for exit edge can be used

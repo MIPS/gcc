@@ -93,7 +93,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gdb/gdb-index.h"
 #include "rtl-iter.h"
 
-static void dwarf2out_source_line (unsigned int, const char *, int, bool);
+static void dwarf2out_source_line (unsigned int, unsigned int, const char *,
+				   int, bool);
 static rtx_insn *last_var_location_insn;
 static rtx_insn *cached_next_real_insn;
 static void dwarf2out_decl (tree);
@@ -1023,6 +1024,7 @@ dwarf2out_alloc_current_fde (void)
 
 void
 dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
+			  unsigned int column ATTRIBUTE_UNUSED,
 			  const char *file ATTRIBUTE_UNUSED)
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -1073,7 +1075,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
      prologue case, not the eh frame case.  */
 #ifdef DWARF2_DEBUGGING_INFO
   if (file)
-    dwarf2out_source_line (line, file, 0, true);
+    dwarf2out_source_line (line, column, file, 0, true);
 #endif
 
   if (dwarf2out_do_cfi_asm ())
@@ -1099,7 +1101,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
 
 void
 dwarf2out_vms_end_prologue (unsigned int line ATTRIBUTE_UNUSED,
-			const char *file ATTRIBUTE_UNUSED)
+			    const char *file ATTRIBUTE_UNUSED)
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
@@ -2732,8 +2734,8 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
   debug_nothing_int_int,	         /* begin_block */
   debug_nothing_int_int,	         /* end_block */
   debug_true_const_tree,	         /* ignore_block */
-  dwarf2out_source_line,	 /* source_line */
-  debug_nothing_int_charstar,	         /* begin_prologue */
+  dwarf2out_source_line,		 /* source_line */
+  debug_nothing_int_int_charstar,	 /* begin_prologue */
   debug_nothing_int_charstar,	         /* end_prologue */
   debug_nothing_int_charstar,	         /* begin_epilogue */
   debug_nothing_int_charstar,	         /* end_epilogue */
@@ -6109,7 +6111,7 @@ check_die (dw_die_ref die)
   dw_attr_node *a;
   bool inline_found = false;
   int n_location = 0, n_low_pc = 0, n_high_pc = 0, n_artificial = 0;
-  int n_decl_line = 0, n_decl_file = 0;
+  int n_decl_line = 0, n_decl_column = 0, n_decl_file = 0;
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
     {
       switch (a->dw_attr)
@@ -6130,6 +6132,9 @@ check_die (dw_die_ref die)
 	case DW_AT_artificial:
 	  ++n_artificial;
 	  break;
+        case DW_AT_decl_column:
+	  ++n_decl_column;
+	  break;
 	case DW_AT_decl_line:
 	  ++n_decl_line;
 	  break;
@@ -6141,7 +6146,7 @@ check_die (dw_die_ref die)
 	}
     }
   if (n_location > 1 || n_low_pc > 1 || n_high_pc > 1 || n_artificial > 1
-      || n_decl_line > 1 || n_decl_file > 1)
+      || n_decl_column > 1 || n_decl_line > 1 || n_decl_file > 1)
     {
       fprintf (stderr, "Duplicate attributes in DIE:\n");
       debug_dwarf_die (die);
@@ -20190,6 +20195,8 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
   s = expand_location (DECL_SOURCE_LOCATION (decl));
   add_AT_file (die, DW_AT_decl_file, lookup_filename (s.file));
   add_AT_unsigned (die, DW_AT_decl_line, s.line);
+  if (debug_column_info && s.column)
+    add_AT_unsigned (die, DW_AT_decl_column, s.column);
 }
 
 /* Add DW_AT_{,MIPS_}linkage_name attribute for the given decl.  */
@@ -21936,7 +21943,11 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	   && (DECL_ARTIFICIAL (decl)
 	       || (get_AT_file (old_die, DW_AT_decl_file) == file_index
 		   && (get_AT_unsigned (old_die, DW_AT_decl_line)
-		       == (unsigned) s.line))))
+		       == (unsigned) s.line)
+		   && (!debug_column_info
+		       || s.column == 0
+		       || (get_AT_unsigned (old_die, DW_AT_decl_column)
+			   == (unsigned) s.column)))))
 	{
 	  subr_die = old_die;
 
@@ -21963,10 +21974,15 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    add_AT_file (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line) != (unsigned) s.line)
 	    add_AT_unsigned (subr_die, DW_AT_decl_line, s.line);
+	  if (debug_column_info
+	      && s.column
+	      && (get_AT_unsigned (old_die, DW_AT_decl_column)
+		  != (unsigned) s.column))
+	    add_AT_unsigned (subr_die, DW_AT_decl_column, s.column);
 
 	  /* If the prototype had an 'auto' or 'decltype(auto)' return type,
 	     emit the real type on the definition die.  */
-	  if (is_cxx() && debug_info_level > DINFO_LEVEL_TERSE)
+	  if (is_cxx () && debug_info_level > DINFO_LEVEL_TERSE)
 	    {
 	      dw_die_ref die = get_AT_ref (old_die, DW_AT_type);
 	      if (die == auto_die || die == decltype_auto_die)
@@ -22838,6 +22854,12 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line) != (unsigned) s.line)
 	    add_AT_unsigned (var_die, DW_AT_decl_line, s.line);
 
+	  if (debug_column_info
+	      && s.column
+	      && (get_AT_unsigned (old_die, DW_AT_decl_column)
+		  != (unsigned) s.column))
+	    add_AT_unsigned (var_die, DW_AT_decl_column, s.column);
+
 	  if (old_die->die_tag == DW_TAG_member)
 	    add_linkage_name (var_die, decl);
 	}
@@ -23011,6 +23033,8 @@ add_call_src_coords_attributes (tree stmt, dw_die_ref die)
     {
       add_AT_file (die, DW_AT_call_file, lookup_filename (s.file));
       add_AT_unsigned (die, DW_AT_call_line, s.line);
+      if (debug_column_info && s.column)
+	add_AT_unsigned (die, DW_AT_call_column, s.column);
     }
 }
 
@@ -25547,6 +25571,8 @@ dwarf2out_imported_module_or_decl_1 (tree decl,
 
   add_AT_file (imported_die, DW_AT_decl_file, lookup_filename (xloc.file));
   add_AT_unsigned (imported_die, DW_AT_decl_line, xloc.line);
+  if (debug_column_info && xloc.column)
+    add_AT_unsigned (imported_die, DW_AT_decl_column, xloc.column);
   if (name)
     add_AT_string (imported_die, DW_AT_name,
 		   IDENTIFIER_POINTER (name));
@@ -26510,7 +26536,8 @@ push_dw_line_info_entry (dw_line_info_table *table,
 /* ??? The discriminator parameter ought to be unsigned.  */
 
 static void
-dwarf2out_source_line (unsigned int line, const char *filename,
+dwarf2out_source_line (unsigned int line, unsigned int column,
+		       const char *filename,
                        int discriminator, bool is_stmt)
 {
   unsigned int file_num;
@@ -26523,6 +26550,9 @@ dwarf2out_source_line (unsigned int line, const char *filename,
      by simply removing it if we're not supposed to output it.  */
   if (dwarf_version < 4 && dwarf_strict)
     discriminator = 0;
+
+  if (!debug_column_info)
+    column = 0;
 
   table = cur_line_info_table;
   file_num = maybe_emit_file (lookup_filename (filename));
@@ -26543,6 +26573,7 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 
   if (0 && file_num == table->file_num
       && line == table->line_num
+      && column == table->column_num
       && discriminator == table->discrim_num
       && is_stmt == table->is_stmt)
     return;
@@ -26551,7 +26582,14 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 
   /* If requested, emit something human-readable.  */
   if (flag_debug_asm)
-    fprintf (asm_out_file, "\t%s %s:%d\n", ASM_COMMENT_START, filename, line);
+    {
+      if (debug_column_info)
+	fprintf (asm_out_file, "\t%s %s:%d:%d\n", ASM_COMMENT_START,
+		 filename, line, column);
+      else
+	fprintf (asm_out_file, "\t%s %s:%d\n", ASM_COMMENT_START,
+		 filename, line);
+    }
 
   if (DWARF2_ASM_LINE_DEBUG_INFO)
     {
@@ -26563,7 +26601,10 @@ dwarf2out_source_line (unsigned int line, const char *filename,
       putc (' ', asm_out_file);
       fprint_ul (asm_out_file, line);
       putc (' ', asm_out_file);
-      putc ('0', asm_out_file);
+      if (debug_column_info)
+	fprint_ul (asm_out_file, column);
+      else
+	putc ('0', asm_out_file);
 
       if (is_stmt != table->is_stmt)
 	{
@@ -26592,10 +26633,13 @@ dwarf2out_source_line (unsigned int line, const char *filename,
       if (is_stmt != table->is_stmt)
 	push_dw_line_info_entry (table, LI_negate_stmt, 0);
       push_dw_line_info_entry (table, LI_set_line, line);
+      if (debug_column_info)
+	push_dw_line_info_entry (table, LI_set_column, column);
     }
 
   table->file_num = file_num;
   table->line_num = line;
+  table->column_num = column;
   table->discrim_num = discriminator;
   table->is_stmt = is_stmt;
   table->in_use = true;
@@ -27959,7 +28003,9 @@ move_linkage_attr (dw_die_ref die)
     {
       dw_attr_node *prev = &(*die->die_attr)[ix - 1];
 
-      if (prev->dw_attr == DW_AT_decl_line || prev->dw_attr == DW_AT_name)
+      if (prev->dw_attr == DW_AT_decl_line
+	  || prev->dw_attr == DW_AT_decl_column
+	  || prev->dw_attr == DW_AT_name)
 	break;
     }
 

@@ -338,6 +338,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-@var{version} @gol
 -ggdb  -grecord-gcc-switches  -gno-record-gcc-switches @gol
 -gstabs  -gstabs+  -gstrict-dwarf  -gno-strict-dwarf @gol
+-gcolumn-info  -gno-column-info @gol
 -gvms  -gxcoff  -gxcoff+  -gz@r{[}=@var{type}@r{]} @gol
 -fdebug-prefix-map=@var{old}=@var{new}  -fdebug-types-section @gol
 -feliminate-dwarf2-dups  -fno-eliminate-unused-debug-types @gol
@@ -543,6 +544,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-passes @gol
 -fdump-rtl-@var{pass}  -fdump-rtl-@var{pass}=@var{filename} @gol
 -fdump-statistics @gol
+-fdump-final-insns@r{[}=@var{file}@r{]}
 -fdump-tree-all @gol
 -fdump-tree-@var{switch} @gol
 -fdump-tree-@var{switch}-@var{options} @gol
@@ -1187,9 +1189,9 @@ See RS/6000 and PowerPC Options.
 -mavx512bw  -mavx512dq  -mavx512ifma  -mavx512vbmi  -msha  -maes @gol
 -mpclmul  -mfsgsbase  -mrdrnd  -mf16c  -mfma @gol
 -mprefetchwt1  -mclflushopt  -mxsavec  -mxsaves @gol
--msse4a  -m3dnow  -mpopcnt  -mabm  -mbmi  -mtbm  -mfma4  -mxop  -mlzcnt @gol
--mbmi2  -mfxsr  -mxsave  -mxsaveopt  -mrtm  -mlwp  -mmpx  -mmwaitx @gol
--mclzero  -mpku  -mthreads @gol
+-msse4a  -m3dnow  -m3dnowa  -mpopcnt  -mabm  -mbmi  -mtbm  -mfma4  -mxop @gol
+-mlzcnt  -mbmi2  -mfxsr  -mxsave  -mxsaveopt  -mrtm  -mlwp  -mmpx  @gol
+-mmwaitx  -mclzero  -mpku  -mthreads @gol
 -mms-bitfields  -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically  -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy}  -mmemset-strategy=@var{strategy} @gol
@@ -2042,7 +2044,7 @@ can be omitted, to use a target-specific default value.
 Enable handling of OpenMP directives @code{#pragma omp} in C/C++ and
 @code{!$omp} in Fortran.  When @option{-fopenmp} is specified, the
 compiler generates parallel code according to the OpenMP Application
-Program Interface v4.0 @w{@uref{http://www.openmp.org/}}.  This option
+Program Interface v4.5 @w{@uref{http://www.openmp.org/}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
 have support for @option{-pthread}. @option{-fopenmp} implies
 @option{-fopenmp-simd}.
@@ -2995,19 +2997,13 @@ But this use is not portable across different compilers.
 @item -Wno-non-template-friend @r{(C++ and Objective-C++ only)}
 @opindex Wno-non-template-friend
 @opindex Wnon-template-friend
-Disable warnings when non-templatized friend functions are declared
-within a template.  Since the advent of explicit template specification
-support in G++, if the name of the friend is an unqualified-id (i.e.,
-@samp{friend foo(int)}), the C++ language specification demands that the
-friend declare or define an ordinary, nontemplate function.  (Section
-14.5.3).  Before G++ implemented explicit specification, unqualified-ids
-could be interpreted as a particular specialization of a templatized
-function.  Because this non-conforming behavior is no longer the default
-behavior for G++, @option{-Wnon-template-friend} allows the compiler to
-check existing code for potential trouble spots and is on by default.
-This new compiler behavior can be turned off with
-@option{-Wno-non-template-friend}, which keeps the conformant compiler code
-but disables the helpful warning.
+Disable warnings when non-template friend functions are declared
+within a template.  In very old versions of GCC that predate implementation
+of the ISO standard, declarations such as 
+@samp{friend int foo(int)}, where the name of the friend is an unqualified-id,
+could be interpreted as a particular specialization of a template
+function; the warning exists to diagnose compatibility problems, 
+and is enabled by default.
 
 @item -Wold-style-cast @r{(C++ and Objective-C++ only)}
 @opindex Wold-style-cast
@@ -4309,7 +4305,7 @@ fallthrough comments, only attributes disable the warning.
 @end itemize
 
 The comment needs to be followed after optional whitespace and other comments
-by @code{case} or @code{default} keywords or by a user label that preceeds some
+by @code{case} or @code{default} keywords or by a user label that precedes some
 @code{case} or @code{default} label.
 
 @smallexample
@@ -5145,7 +5141,7 @@ or where the result of the size computation in an integer type with infinite
 precision would exceed @code{SIZE_MAX / 2}.  The option argument @var{n}
 may end in one of the standard suffixes designating a multiple of bytes
 such as @code{kB} and @code{KiB} for kilobyte and kibibyte, respectively,
-@code{MB} and @code{MiB} for magabyte and mebibyte, and so on.
+@code{MB} and @code{MiB} for megabyte and mebibyte, and so on.
 @xref{Function Attributes}.
 
 @item -Walloca
@@ -5935,7 +5931,7 @@ while} statement.  This warning is also enabled by @option{-Wextra}.
 @opindex Wenum-compare
 @opindex Wno-enum-compare
 Warn about a comparison between values of different enumerated types.
-In C++ enumeral mismatches in conditional expressions are also
+In C++ enumerated type mismatches in conditional expressions are also
 diagnosed and the warning is enabled by default.  In C this warning is 
 enabled by @option{-Wall}.
 
@@ -6820,6 +6816,14 @@ DWARF extensions from later standard versions is allowed.
 @opindex gno-strict-dwarf
 Allow using extensions of later DWARF standard version than selected with
 @option{-gdwarf-@var{version}}.
+
+@item -gcolumn-info
+@item -gno-column-info
+@opindex gcolumn-info
+@opindex gno-column-info
+Emit location column information into DWARF debugging information, rather
+than just file and line.
+This option is disabled by default.
 
 @item -gz@r{[}=@var{type}@r{]}
 @opindex gz
@@ -9685,7 +9689,7 @@ The default value is 40.
 
 @item inline-min-speedup
 When estimated performance improvement of caller + callee runtime exceeds this
-threshold (in precent), the function can be inlined regardless the limit on
+threshold (in percent), the function can be inlined regardless of the limit on
 @option{--param max-inline-insns-single} and @option{--param
 max-inline-insns-auto}.
 
@@ -10483,14 +10487,14 @@ E.g. to disable inline code use
 @option{--param asan-instrumentation-with-call-threshold=0}.
 
 @item use-after-scope-direct-emission-threshold
-If size of a local variables in bytes is smaller of equal to this number,
+If size of a local variable in bytes is smaller or equal to this number,
 direct instruction emission is utilized to poison and unpoison local variables.
 Default value in 256.
 
 @item chkp-max-ctor-size
 Static constructors generated by Pointer Bounds Checker may become very
 large and significantly increase compile time at optimization level
-@option{-O1} and higher.  This parameter is a maximum nubmer of statements
+@option{-O1} and higher.  This parameter is a maximum number of statements
 in a single generated constructor.  Default value is 5000.
 
 @item max-fsm-thread-path-insns
@@ -15707,7 +15711,7 @@ Alternatively, @code{func_4} can be defined in the linker script.
 @cindex @code{RAMPZ}
 Some AVR devices support memories larger than the 64@tie{}KiB range
 that can be accessed with 16-bit pointers.  To access memory locations
-outside this 64@tie{}KiB range, the contentent of a @code{RAMP}
+outside this 64@tie{}KiB range, the content of a @code{RAMP}
 register is used as high part of the address:
 The @code{X}, @code{Y}, @code{Z} address register is concatenated
 with the @code{RAMPX}, @code{RAMPY}, @code{RAMPZ} special function
@@ -25003,6 +25007,9 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -m3dnow
 @opindex m3dnow
 @need 200
+@itemx -m3dnowa
+@opindex m3dnowa
+@need 200
 @itemx -mpopcnt
 @opindex mpopcnt
 @need 200
@@ -25052,7 +25059,7 @@ These switches enable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 SHA, AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM,
 AVX512VL, AVX512BW, AVX512DQ, AVX512IFMA AVX512VBMI, BMI, BMI2, FXSR,
-XSAVE, XSAVEOPT, LZCNT, RTM, MPX, MWAITX, PKU or 3DNow!@:
+XSAVE, XSAVEOPT, LZCNT, RTM, MPX, MWAITX, PKU, 3DNow!@: or enhanced 3DNow!@:
 extended instruction sets.  Each has a corresponding @option{-mno-} option
 to disable use of these instructions.
 

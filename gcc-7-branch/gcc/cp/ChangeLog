@@ -1,3 +1,123 @@
+2017-02-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/79508 - lookup error with member template
+	* parser.c (cp_parser_template_name): Clear
+	parser->context->object_type if we aren't doing lookup.
+
+	PR c++/78690 - ICE with using and global type with same name
+	* pt.c (type_dependent_object_expression_p): True for
+	IDENTIFIER_NODE.
+
+	PR c++/79549 - C++17 ICE with non-type auto template parameter pack
+	* pt.c (convert_template_argument): Just return an auto arg pack.
+	(tsubst_template_args): Don't tsubst an auto pack type.
+
+	PR c++/79556 - C++17 ICE with non-type auto
+	* pt.c (do_auto_deduction): Don't try to deduce from null type.
+
+	PR c++/79533 - C++17 ICE with temporary cast to reference
+	* call.c (build_over_call): Conversion to a reference prevents copy
+	elision.
+
+2017-02-16  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/79502 - lost nodiscard attribute
+	* pt.c (apply_late_template_attributes): Do apply non-dependent
+	attributes to types.
+
+2017-02-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/78572 - ICE with self-modifying array initializer
+	* constexpr.c (cxx_eval_store_expression): The object we're
+	initializing is outside the constant-expression.
+	(cxx_eval_call_expression): Set ctx->call.
+
+	PR c++/79050 - ICE with undeduced auto and LTO
+	* decl.c (poplevel): Remove undeduced auto decls.
+
+2017-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79512
+	* parser.c (cp_parser_omp_target): For -fopenmp-simd
+	ignore #pragma omp target even when not followed by identifier.
+
+2017-02-15  Jason Merrill  <jason@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79464 - ICE in IPA with omitted constructor parms
+	* class.c (build_clone): Also omit parms from TYPE_ARG_TYPES.
+	(adjust_clone_args): Adjust.
+	(add_method): Remember omitted parms.
+	* call.c (add_function_candidate): Likewise.
+	* mangle.c (write_method_parms): Likewise.
+	* method.c (ctor_omit_inherited_parms): Return false if there are no
+	parms to omit.
+
+2017-02-15  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/79363
+	* init.c (maybe_reject_flexarray_init): New function.
+	(perform_member_init): Call it.
+
+2017-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/79301
+	* parser.c (cp_parser_std_attribute): Don't pedwarn about
+	[[deprecated]] with -std=c++11 and [[fallthrough]] with
+	-std=c++11 and -std=c++14.
+
+	PR c++/79288
+	* decl.c (grokdeclarator): For static data members, handle thread_p
+	only after handling inline.
+
+2017-02-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/79420
+	PR c++/79463
+	* parser.c (cp_parser_postfix_dot_deref_expression): Avoid
+	clobbering if the postfix expression isn't an EXPR_P.
+
+2017-02-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/79461 - ICE with lambda in constexpr constructor
+	* constexpr.c (build_data_member_initialization): Ignore
+	initialization of a local variable.
+
+2017-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* init.c (warn_placement_new_too_small): Add missing space in
+	diagnostics.
+	* parser.c (cp_parser_oacc_declare): Likewise.
+	* mangle.c (maybe_check_abi_tags): Likewise.
+
+	PR c++/79232
+	* typeck.c (cp_build_modify_expr): Handle properly COMPOUND_EXPRs
+	on lhs that have {PRE{DEC,INC}REMENT,MODIFY,MIN,MAX,COND}_EXPR
+	in the rightmost operand.
+
+2017-02-13  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/79296 - ICE mangling localized template instantiation
+	* decl2.c (determine_visibility): Use template fn context for
+	local class instantiations.
+
+2017-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/77659 - ICE with new and C++14 aggregate NSDMI
+	* init.c (build_new): Make backups of any CONSTRUCTORs in init.
+	(build_new_1): Use replace_placeholders.
+	* tree.c (replace_placeholders_t): Also track whether we've seen a
+	placeholder.
+	(replace_placeholders, replace_placeholders_r): Adjust.
+	* cp-tree.h: Adjust.
+
+	PR c++/77790 - ICE with auto function in C++11 mode
+	* decl.c (undeduced_auto_decl): Remove C++14 limitation.
+	(require_deduced_type): Add complain parm, return bool.
+	* cp-tree.h: Adjust.
+	* decl2.c (mark_used): Use require_deduced_type.
+
 2017-02-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/78908 - template ops and bitfields
