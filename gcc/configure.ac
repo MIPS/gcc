@@ -4775,7 +4775,8 @@ if test x"$insn" != x; then
 	.loc 1 3 0 view .LVU1
 	$insn
 .LVEXT:
-	.uleb128 .LVU1 * 2, .LVU1 * 2
+	.uleb128 .LVU1
+	.uleb128 .LVU1
 "
 	gcc_GAS_CHECK_FEATURE([dwarf2 debug_view support],
 	  gcc_cv_as_dwarf2_debug_view,
