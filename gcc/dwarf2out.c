@@ -24964,7 +24964,7 @@ create_label:
       view = cur_line_info_table->view;
       if (RESETTING_VIEW_P (view))
 	{
-	  gcc_assert (!last_label);
+	  gcc_assert (!last_label || !debug_variable_location_views);
 	  view = 0;
 	}
       decl = NOTE_VAR_LOCATION_DECL (loc_note);
@@ -25396,7 +25396,7 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 	      fputs (" view ", asm_out_file);
 	      char label[MAX_ARTIFICIAL_LABEL_BYTES];
 	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", table->view);
-	      fputs (label, asm_out_file);
+	      assemble_name (asm_out_file, label);
 	    }
 	}
       putc ('\n', asm_out_file);
