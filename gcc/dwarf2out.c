@@ -24905,12 +24905,12 @@ dwarf2out_var_location (rtx_insn *loc_note)
 	gcc_unreachable ();
       else if (JUMP_TABLE_DATA_P (loc_note))
 	RESET_NEXT_VIEW (cur_line_info_table->view);
-#ifdef HAVE_attr_length
+      else if (GET_CODE (loc_note) == USE
+	       || GET_CODE (loc_note) == CLOBBER
+	       || GET_CODE (loc_note) == ASM_INPUT
+	       || asm_noperands (loc_note) >= 0)
+	;
       else if (get_attr_min_length (loc_note) > 0)
-	RESET_NEXT_VIEW (cur_line_info_table->view);
-#endif
-      else if (!(GET_CODE (loc_note) == ASM_INPUT
-		 || asm_noperands (loc_note) >= 0))
 	RESET_NEXT_VIEW (cur_line_info_table->view);
 
       return;
@@ -25020,8 +25020,8 @@ create_label:
 		else if (GET_CODE (body) == ASM_INPUT
 			 || asm_noperands (body) >= 0)
 		  continue;
-#ifdef HAVE_attr_length
-		else if (get_attr_min_length (insn) == 0)
+#ifdef HAVE_ATTR_length /* ??? We don't include insn-attr.h.  */
+		else if (HAVE_ATTR_length && get_attr_min_length (insn) == 0)
 		  continue;
 #endif
 		else
