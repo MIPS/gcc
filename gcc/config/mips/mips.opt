@@ -617,3 +617,12 @@ Target Undocumented Var(TARGET_FLEXOP2_2) Init (0)
 
 mopt-restorejrc
 Target Undocumented Var(TARGET_RESTORE_JRC) Init(0)
+
+mlwgp16
+Target Undocumented Var(TARGET_LWGP16) Init (0)
+
+mswgp16
+Target Undocumented Var(TARGET_SWGP16) Init (0)
+
+mgp16-opt-list=
+Target Undocumented RejectNegative Joined Var(mips_gp16_opt_list_file)
