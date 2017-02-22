@@ -3201,8 +3201,7 @@ static inline dw_loc_descr_ref AT_loc (dw_attr_node *);
 static void add_AT_loc_list (dw_die_ref, enum dwarf_attribute,
 			     dw_loc_list_ref);
 static inline dw_loc_list_ref AT_loc_list (dw_attr_node *);
-static void add_AT_view_list (dw_die_ref, enum dwarf_attribute,
-			      dw_val_node*);
+static void add_AT_view_list (dw_die_ref, enum dwarf_attribute);
 static inline dw_loc_list_ref AT_loc_list (dw_attr_node *);
 static addr_table_entry *add_addr_table_entry (void *, enum ate_kind);
 static void remove_addr_table_entry (addr_table_entry *);
@@ -4351,7 +4350,7 @@ AT_loc_list (dw_attr_node *a)
 }
 
 static inline void
-add_AT_view_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_val_node *loc_list_node_ptr)
+add_AT_view_list (dw_die_ref die, enum dwarf_attribute attr_kind)
 {
   dw_attr_node attr;
 
@@ -4361,8 +4360,9 @@ add_AT_view_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_val_node *l
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_view_list;
   attr.dw_attr_val.val_entry = NULL;
-  attr.dw_attr_val.v.val_view_list = loc_list_node_ptr;
+  attr.dw_attr_val.v.val_view_list = die;
   add_dwarf_attr (die, &attr);
+  gcc_checking_assert (get_AT (die, DW_AT_location));
   gcc_assert (have_location_lists);
 }
 
@@ -4375,12 +4375,29 @@ AT_loc_list_ptr (dw_attr_node *a)
     case dw_val_class_loc_list:
       return &a->dw_attr_val.v.val_loc_list;
     case dw_val_class_view_list:
-      gcc_assert (a->dw_attr_val.v.val_view_list->val_class
-		  == dw_val_class_loc_list);
-      return &a->dw_attr_val.v.val_view_list->v.val_loc_list;
+      {
+	dw_attr_node *l;
+	l = get_AT (a->dw_attr_val.v.val_view_list, DW_AT_location);
+	if (!l)
+	  return NULL;
+	gcc_checking_assert (l + 1 == a);
+	return AT_loc_list_ptr (l);
+      }
     default:
       gcc_unreachable ();
     }
+}
+
+static inline dw_val_node *
+view_list_to_loc_list_val_node (dw_val_node *val)
+{
+  gcc_assert (val->val_class == dw_val_class_view_list);
+  dw_attr_node *loc = get_AT (val->v.val_view_list, DW_AT_location);
+  if (!loc)
+    return NULL;
+  gcc_checking_assert (&(loc + 1)->dw_attr_val == val);
+  gcc_assert (AT_class (loc) == dw_val_class_loc_list);
+  return &loc->dw_attr_val;
 }
 
 struct addr_hasher : ggc_ptr_hash<addr_table_entry>
@@ -5655,10 +5672,10 @@ print_dw_val (dw_val_node *val, bool recurse, FILE *outfile)
 	       val->v.val_loc_list->ll_symbol);
       break;
     case dw_val_class_view_list:
-      gcc_assert (val->v.val_view_list->val_class == dw_val_class_loc_list);
+      val = view_list_to_loc_list_val_node (val);
       fprintf (outfile, "location list with views -> labels:%s and %s",
-	       val->v.val_view_list->v.val_loc_list->ll_symbol,
-	       val->v.val_view_list->v.val_loc_list->vl_symbol);
+	       val->v.val_loc_list->ll_symbol,
+	       val->v.val_loc_list->vl_symbol);
       break;
     case dw_val_class_range_list:
       fprintf (outfile, "range list");
@@ -17136,8 +17153,7 @@ add_AT_location_description (dw_die_ref die, enum dwarf_attribute attr_kind,
       add_AT_loc_list (die, attr_kind, descr);
       gcc_assert (descr->ll_symbol);
       if (attr_kind == DW_AT_location && descr->vl_symbol)
-	add_AT_view_list (die, DW_AT_GNU_locviews,
-			  &die->die_attr->last ().dw_attr_val);
+	add_AT_view_list (die, DW_AT_GNU_locviews);
     }
 }
 
@@ -27472,6 +27488,16 @@ resolve_addr (dw_die_ref die)
 	    ix--;
 	  }
 	break;
+      case dw_val_class_view_list:
+	{
+	  gcc_checking_assert (a->dw_attr == DW_AT_GNU_locviews);
+	  if (!view_list_to_loc_list_val_node (&a->dw_attr_val))
+	    {
+	      remove_AT (die, a->dw_attr);
+	      ix--;
+	    }
+	  break;
+	}
       case dw_val_class_loc:
 	{
 	  dw_loc_descr_ref l = AT_loc (a);
