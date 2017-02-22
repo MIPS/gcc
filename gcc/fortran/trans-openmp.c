@@ -1947,7 +1947,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 			  && n->expr->ref->next->u.ar.type == AR_FULL)))
 		{
 		  gfc_ref *ref = n->expr->ref;
-		  tree orig_decl = decl;
 		  gfc_component *c = ref->u.c.component;
 		  tree field;
 		  tree context;
