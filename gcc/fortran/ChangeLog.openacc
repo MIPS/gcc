@@ -1,3 +1,8 @@
+2017-02-22  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_oacc_combined_directive): Set the
+	location of combined acc loops.
+
 2017-02-02  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_omp_finish_clause): Don't emit
