@@ -25403,7 +25403,7 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 	    }
 	  else
 	    {
-	      table->view = lvugid++;
+	      table->view = ++lvugid;
 	      fputs (" view ", asm_out_file);
 	      char label[MAX_ARTIFICIAL_LABEL_BYTES];
 	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", table->view);
