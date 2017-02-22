@@ -24961,12 +24961,7 @@ create_label:
     {
       const char *label = NOTE_DURING_CALL_P (loc_note)
 	? last_postcall_label : last_label;
-      view = cur_line_info_table->view;
-      if (RESETTING_VIEW_P (view))
-	{
-	  gcc_assert (!last_label || !debug_variable_location_views);
-	  view = 0;
-	}
+      view = cur_line_info_table->view + 1;
       decl = NOTE_VAR_LOCATION_DECL (loc_note);
       newloc = add_var_loc_to_decl (decl, loc_note, label, view);
       if (newloc == NULL)
