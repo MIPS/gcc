@@ -24738,7 +24738,8 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
   if (offset2 != offset1 + 4)
     return false;
 
-  if (!UMIPS_12BIT_OFFSET_P (offset1))
+  if (!UMIPS_12BIT_OFFSET_P (offset1)
+      || !UMIPS_12BIT_OFFSET_P (offset2))
     return false;
 
   return true;
