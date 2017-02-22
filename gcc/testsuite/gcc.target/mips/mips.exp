@@ -1076,11 +1076,27 @@ proc mips-dg-options { args } {
 		set arch "-march=p5600"
 	    }
 	} else {
-	    if { ![regexp {^(isa(?:|_rev))(=|<=|>=)([0-9]*)$} \
-		       $spec dummy prop relation value nocpus] } {
+	    if { ![regexp {^(isa(?:|_rev))(=|<=|>=)([0-9]*)(-*)([0-9]*)$} \
+		       $spec dummy prop relation value isrange upper_value] } {
 		error "Unrecognized isa specification: $spec"
 	    }
 	    set current [mips_arch_info $arch $prop]
+
+	    if { [string length $isrange] } {
+		if { ![string equal $relation "="] } {
+		    error "Ranges in $prop need to be used with '=': $spec"
+		}
+
+		# If it's in the range, then skip resetting the arch by setting
+		# "value" to "$current". If not, reset the architecture to the
+		# newest arch possible.
+		if { $current >= $value && $current <= $upper_value } {
+		    set value $current
+		} else {
+		    set value $upper_value
+		}
+	    }
+
 	    if { $force_generic_isa_p
 		 || ($current < $value && ![string equal $relation "<="])
 		 || ($current > $value && ![string equal $relation ">="])
