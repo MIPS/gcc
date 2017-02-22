@@ -25398,6 +25398,15 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 	  static var_loc_view lvugid;
 	  if (RESETTING_VIEW_P (table->view))
 	    {
+	      /* Introduce a gap in the LVU label sequence, as if we
+		 had emitted a zero.  This will catch incorrect
+		 references to a subsequent label.  We can drop this
+		 increment eventually.  In fact, we could use
+		 assembler-computed views only, but explicit "view 0"
+		 helps catch cases in which the compiler thinks an
+		 insn is non-zero-sized, but the assembler finds
+		 otherwise.  */
+	      ++lvugid;
 	      table->view = 0;
 	      fputs (" view 0", asm_out_file);
 	    }
