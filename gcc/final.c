@@ -1753,9 +1753,11 @@ get_some_local_dynamic_name ()
      test and compare insns.  */
 
 void
-final_start_function (rtx_insn *first, FILE *file,
+final_start_function (rtx_insn **firstp, FILE *file,
 		      int optimize_p ATTRIBUTE_UNUSED)
 {
+  rtx_insn *first = *firstp;
+
   block_depth = 0;
 
   this_is_asm_operands = 0;
@@ -1772,7 +1774,23 @@ final_start_function (rtx_insn *first, FILE *file,
     asan_function_start ();
 
   if (!DECL_IGNORED_P (current_function_decl))
-    debug_hooks->begin_prologue (last_linenum, last_filename);
+    {
+      /* Emit param bindings (before the first begin_stmt) in the
+	 initial view.  */
+      if (debug_variable_location_views)
+	{
+	  int seen = 0;
+	  rtx_insn *insn;
+	  for (insn = first;
+	       insn && GET_CODE (insn) == NOTE
+		 && NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION;
+	       insn = NEXT_INSN (insn))
+	    final_scan_insn (insn, file, 0, 0, &seen);
+	  *firstp = insn;
+	  gcc_assert (seen == 0);
+	}
+      debug_hooks->begin_prologue (last_linenum, last_filename);
+    }
 
   if (!dwarf2_debug_info_emitted_p (current_function_decl))
     dwarf2out_begin_prologue (0, NULL);
@@ -4510,8 +4528,9 @@ rest_of_handle_final (void)
     variable_tracking_main ();
 
   assemble_start_function (current_function_decl, fnname);
-  final_start_function (get_insns (), asm_out_file, optimize);
-  final (get_insns (), asm_out_file, optimize);
+  rtx_insn *first = get_insns ();
+  final_start_function (&first, asm_out_file, optimize);
+  final (first, asm_out_file, optimize);
   if (flag_ipa_ra)
     collect_fn_hard_reg_usage ();
   final_end_function ();

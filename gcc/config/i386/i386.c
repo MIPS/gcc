@@ -11865,8 +11865,9 @@ ix86_code_end (void)
       allocate_struct_function (decl, false);
       init_function_start (decl);
       first_function_block_is_cold = false;
+      rtx_insn *first = emit_barrier ();
       /* Make sure unwind info is emitted for the thunk if needed.  */
-      final_start_function (emit_barrier (), asm_out_file, 1);
+      final_start_function (&first, asm_out_file, 1);
 
       /* Pad stack IP move with 4 instructions (two NOPs count
 	 as one instruction).  */
@@ -41017,7 +41018,7 @@ x86_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
      Note that use_thunk calls assemble_start_function et al.  */
   insn = get_insns ();
   shorten_branches (insn);
-  final_start_function (insn, file, 1);
+  final_start_function (&insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
 }
