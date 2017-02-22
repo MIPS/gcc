@@ -4774,7 +4774,7 @@ if test x"$insn" != x; then
 	.file 1 \"conftest.s\"
 	.loc 1 3 0 view .LVU1
 	$insn
-.LVEXT:
+	.data
 	.uleb128 .LVU1
 	.uleb128 .LVU1
 "
