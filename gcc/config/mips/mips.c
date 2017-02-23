@@ -3822,6 +3822,22 @@ umips_12bit_offset_address_p (rtx x, machine_mode mode)
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
+/* Return true if X is a legitimate address with a 12-bit offset + one
+   consecutive element.
+   MODE is the mode of the value being accessed.  */
+
+bool
+umips_12bit_offset_address_memop2_p (rtx x, machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && CONST_INT_P (addr.offset)
+	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)
+				   - GET_MODE_SIZE (mode)));
+}
+
 /* Return true if X is a legitimate address with a 9-bit offset.
    MODE is the mode of the value being accessed.  */
 
