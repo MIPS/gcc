@@ -1,3 +1,10 @@
+2017-02-22  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/combined-directives-3.c: New test.
+	* c-c++-common/goacc/loop-2-kernels.c (void K): Adjust test.
+	* c-c++-common/goacc/loop-2-parallel.c (void P): Adjust test.
+	* c-c++-common/goacc/loop-3.c (void p2): Adjust test.
+
 2017-07-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gfortran.dg/goacc/kernels-alias-3.f95: XFAIL one tree scanning
