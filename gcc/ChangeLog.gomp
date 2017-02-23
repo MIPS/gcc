@@ -1,5 +1,8 @@
 2017-02-23  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* omp-low.c (inform_oacc_loop): New function.
+	(execute_oacc_device_lower): Use it to display loop parallelism.
+
 	Backport from trunk:
 	2016-11-23  Martin Jambor  <mjambor@suse.cz>
 		    Martin Liska  <mliska@suse.cz>
