@@ -972,7 +972,7 @@ cprop_jump (basic_block bb, rtx_insn *setcc, rtx_insn *jump, rtx from, rtx src)
   if (dump_file != NULL)
     {
       fprintf (dump_file,
-	       "GLOBAL CONST-PROP: Replacing reg %d in jump_insn %d with"
+	       "GLOBAL CONST-PROP: Replacing reg %d in jump_insn %d with "
 	       "constant ", REGNO (from), INSN_UID (jump));
       print_rtl (dump_file, src);
       fprintf (dump_file, "\n");
@@ -1697,7 +1697,6 @@ bypass_conditional_jumps (void)
   if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return 0;
 
-  bypass_last_basic_block = last_basic_block_for_fn (cfun);
   mark_dfs_back_edges ();
 
   changed = 0;
@@ -1862,6 +1861,11 @@ one_cprop_pass (void)
 		  }
 	      }
 	}
+
+      /* Make sure bypass_conditional_jumps will ignore not just its new
+	 basic blocks, but also the ones after unconditional traps (those are
+	 unreachable and will be eventually removed as such).  */
+      bypass_last_basic_block = last_basic_block_for_fn (cfun);
 
       while (!uncond_traps.is_empty ())
 	{
