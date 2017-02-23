@@ -1,3 +1,8 @@
+2017-02-23  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-offload.c (inform_oacc_loop): New function.
+	(execute_oacc_device_lower): Use it to display loop parallelism.
+
 2017-02-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_adjust_reduction_type): New function.
