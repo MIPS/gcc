@@ -431,9 +431,17 @@
 
 (define_memory_constraint "ZO"
   "@internal
-   A microMIPS R7 memory operand for use with the LWP/SWP insns."
+   A microMIPS R7 memory operand 1 for use with the LWP/SWP insns."
   (and (match_code "mem")
        (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")))
+
+(define_memory_constraint "ZP"
+  "@internal
+   A microMIPS R7 memory operand 2 for use with the LWP/SWP insns.
+   It is a 12-bit signed offset + one consecutive element."
+  (and (match_code "mem")
+       (match_test "umips_12bit_offset_address_memop2_p (XEXP (op, 0),
+							 mode)")))
 
 (define_memory_constraint "ZR"
  "@internal

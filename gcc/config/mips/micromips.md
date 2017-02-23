@@ -117,7 +117,7 @@
   [(parallel [(set (match_operand:SI 0 "register_operand" "=d")
 		   (match_operand:SI 1 "non_volatile_mem_operand" "ZO"))
 	      (set (match_operand:SI 2 "register_operand" "=d")
-		   (match_operand:SI 3 "non_volatile_mem_operand" "ZO"))])]
+		   (match_operand:SI 3 "non_volatile_mem_operand" "ZP"))])]
 
   "ISA_HAS_LWP_SWP && umips_load_store_pair_p (true, operands)"
 {
@@ -142,7 +142,7 @@
 (define_insn "*swp"
   [(set (match_operand:SI 0 "non_volatile_mem_operand" "=ZO")
 	(match_operand:SI 1 "register_operand" "d"))
-   (set (match_operand:SI 2 "non_volatile_mem_operand" "=ZO")
+   (set (match_operand:SI 2 "non_volatile_mem_operand" "=ZP")
 	(match_operand:SI 3 "register_operand" "d"))]
   "ISA_HAS_LWP_SWP && umips_load_store_pair_p (false, operands)"
 {
