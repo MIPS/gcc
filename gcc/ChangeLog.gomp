@@ -1,3 +1,21 @@
+2017-02-23  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk:
+	2016-11-23  Martin Jambor  <mjambor@suse.cz>
+		    Martin Liska  <mliska@suse.cz>
+
+	* doc/optinfo.texi (Optimization groups): Document OPTGROUP_OPENMP.
+	* dumpfile.c (optgroup_options): Added OPTGROUP_OPENMP.
+	* dumpfile.h (OPTGROUP_OPENMP): Define.
+	* omp-low.c (pass_data_expand_omp): Changed optinfo_flags to
+	OPTGROUP_OPENMP.
+	(pass_data_expand_omp_ssa): Likewise.
+	(pass_data_omp_device_lower): Likewsie.
+	(pass_data_lower_omp): Likewise.
+	(pass_data_diagnose_omp_blocks): Likewise.
+	(pass_data_oacc_device_lower): Likewise.
+	(pass_data_omp_target_link): Likewise.
+
 2017-02-10  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (convert_from_firstprivate_int): Remove unused variable.
