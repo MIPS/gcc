@@ -1,4 +1,15 @@
 micromips-r7-hard-newlib/lib
+micromips-r7-hard-small/lib
+micromips-r7-hard-tiny/lib
 micromips-r7-soft-newlib/lib
+micromips-r7-soft-small/lib
+micromips-r7-soft-tiny/lib
 micromipsel-r7-hard-newlib/lib
+micromipsel-r7-hard-small/lib
+micromipsel-r7-hard-tiny/lib
 micromipsel-r7-soft-newlib/lib
+micromipsel-r7-soft-small/lib
+micromipsel-r7-soft-tiny/lib
+micromipsel-r7-soft-newlib-noxlp/lib
+micromipsel-r7-soft-small-noxlp/lib
+micromipsel-r7-soft-tiny-noxlp/lib
