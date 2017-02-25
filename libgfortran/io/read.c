@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -28,9 +28,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "format.h"
 #include "unix.h"
 #include <string.h>
-#include <errno.h>
 #include <ctype.h>
-#include <stdlib.h>
 #include <assert.h>
 
 typedef unsigned char uchar;
@@ -1087,7 +1085,13 @@ exponent:
      the d parameter before explict conversion takes place.  */
 
   if (w == 0)
-    goto bad_float;
+    {
+      /* Extension: allow default exponent of 0 when omitted.  */
+      if (dtp->common.flags & IOPARM_DT_DEFAULT_EXP)
+	goto done;
+      else
+	goto bad_float;
+    }
 
   if (dtp->u.p.blank_status == BLANK_UNSPECIFIED)
     {

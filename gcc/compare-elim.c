@@ -1,5 +1,5 @@
 /* Post-reload compare elimination.
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -627,7 +627,7 @@ try_eliminate_compare (struct comparison *cmp)
   /* We've reached PREV_CLOBBER without finding a modification of IN_A.
      Validate that PREV_CLOBBER itself does in fact refer to IN_A.  Do
      recall that we've already validated the shape of PREV_CLOBBER.  */
-  rtx insn = cmp->prev_clobber;
+  rtx_insn *insn = cmp->prev_clobber;
   x = XVECEXP (PATTERN (insn), 0, 0);
   if (rtx_equal_p (SET_DEST (x), in_a))
     cmp_src = SET_SRC (x);

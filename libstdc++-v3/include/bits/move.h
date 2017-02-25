@@ -1,6 +1,6 @@
 // Move, forward and identity for C++11 + swap -*- C++ -*-
 
-// Copyright (C) 2007-2016 Free Software Foundation, Inc.
+// Copyright (C) 2007-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -137,6 +137,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     addressof(_Tp& __r) noexcept
     { return std::__addressof(__r); }
 
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // 2598. addressof works on temporaries
+  template<typename _Tp>
+    const _Tp* addressof(const _Tp&&) = delete;
+
   // C++11 version of std::exchange for internal use.
   template <typename _Tp, typename _Up = _Tp>
     inline _Tp
@@ -176,7 +181,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp>
     inline
 #if __cplusplus >= 201103L
-    typename enable_if<__and_<is_move_constructible<_Tp>,
+    typename enable_if<__and_<__not_<__is_tuple_like<_Tp>>,
+			      is_move_constructible<_Tp>,
 			      is_move_assignable<_Tp>>::value>::type
     swap(_Tp& __a, _Tp& __b)
     noexcept(__and_<is_nothrow_move_constructible<_Tp>,

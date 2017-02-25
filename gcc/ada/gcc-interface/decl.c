@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2016, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -34,6 +34,7 @@
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tree-inline.h"
+#include "demangle.h"
 
 #include "ada.h"
 #include "types.h"
@@ -388,7 +389,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
      must be specified unless it was specified by the programmer.  Exceptions
      are for access-to-protected-subprogram types and all access subtypes, as
      another GNAT type is used to lay out the GCC type for them.  */
-  gcc_assert (!Unknown_Esize (gnat_entity)
+  gcc_assert (!is_type
+	      || Known_Esize (gnat_entity)
 	      || Has_Size_Clause (gnat_entity)
 	      || (!IN (kind, Numeric_Kind)
 		  && !IN (kind, Enumeration_Kind)
@@ -644,7 +646,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	  }
 
 	/* Get the type after elaborating the renamed object.  */
-	if (Convention (gnat_entity) == Convention_C
+	if (Has_Foreign_Convention (gnat_entity)
 	    && Is_Descendant_Of_Address (gnat_type))
 	  gnu_type = ptr_type_node;
 	else
@@ -671,6 +673,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 				   VAR_DECL, gnu_entity_name, gnu_type);
 	    SET_DECL_VALUE_EXPR (gnu_decl, value);
 	    DECL_HAS_VALUE_EXPR_P (gnu_decl) = 1;
+	    TREE_STATIC (gnu_decl) = global_bindings_p ();
 	    gnat_pushdecl (gnu_decl, gnat_entity);
 	    break;
 	  }
@@ -1836,7 +1839,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
 	  && esize == CHAR_TYPE_SIZE
 	  && flag_signed_char)
 	gnu_type = make_signed_type (CHAR_TYPE_SIZE);
-      else if (Is_Unsigned_Type (Etype (gnat_entity))
+      else if (Is_Unsigned_Type (Underlying_Type (Etype (gnat_entity)))
 	       || (Esize (Etype (gnat_entity)) != Esize (gnat_entity)
 		   && Is_Unsigned_Type (gnat_entity))
 	       || Has_Biased_Representation (gnat_entity))
@@ -1858,8 +1861,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, bool definition)
       TYPE_BIASED_REPRESENTATION_P (gnu_type)
 	= Has_Biased_Representation (gnat_entity);
 
-      /* Set TYPE_STRING_FLAG for Character and Wide_Character subtypes.  */
-      TYPE_STRING_FLAG (gnu_type) = TYPE_STRING_FLAG (TREE_TYPE (gnu_type));
+      /* Do the same processing for Character subtypes as for types.  */
+      if (TYPE_STRING_FLAG (TREE_TYPE (gnu_type)))
+	{
+	  TYPE_NAME (gnu_type) = gnu_entity_name;
+	  TYPE_STRING_FLAG (gnu_type) = 1;
+	  TYPE_ARTIFICIAL (gnu_type) = artificial_p;
+	  finish_character_type (gnu_type);
+	}
 
       /* Inherit our alias set from what we're a subtype of.  Subtypes
 	 are not different types and a pointer can designate any instance
@@ -5085,16 +5094,16 @@ get_unpadded_type (Entity_Id gnat_entity)
 bool
 is_cplusplus_method (Entity_Id gnat_entity)
 {
-  /* Check that the subprogram has C++ convention.  */
-  if (Convention (gnat_entity) != Convention_CPP)
-    return false;
-
   /* A constructor is a method on the C++ side.  We deal with it now because
      it is declared without the 'this' parameter in the sources and, although
      the front-end will create a version with the 'this' parameter for code
      generation purposes, we want to return true for both versions.  */
   if (Is_Constructor (gnat_entity))
     return true;
+
+  /* Check that the subprogram has C++ convention.  */
+  if (Convention (gnat_entity) != Convention_CPP)
+    return false;
 
   /* And that the type of the first parameter (indirectly) has it too.  */
   Entity_Id gnat_first = First_Formal (gnat_entity);
@@ -5107,19 +5116,75 @@ is_cplusplus_method (Entity_Id gnat_entity)
   if (Convention (gnat_type) != Convention_CPP)
     return false;
 
-  /* This is the main case: C++ method imported as a primitive operation.
-     Note that a C++ class with no virtual functions can be imported as a
-     limited record type so the operation is not necessarily dispatching.  */
-  if (Is_Primitive (gnat_entity))
+  /* This is the main case: a C++ virtual method imported as a primitive
+     operation of a tagged type.  */
+  if (Is_Dispatching_Operation (gnat_entity))
+    return true;
+
+  /* This is set on the E_Subprogram_Type built for a dispatching call.  */
+  if (Is_Dispatch_Table_Entity (gnat_entity))
     return true;
 
   /* A thunk needs to be handled like its associated primitive operation.  */
   if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
     return true;
 
-  /* This is set on the E_Subprogram_Type built for a dispatching call.  */
-  if (Is_Dispatch_Table_Entity (gnat_entity))
-    return true;
+  /* Now on to the annoying case: a C++ non-virtual method, imported either
+     as a non-primitive operation of a tagged type or as a primitive operation
+     of an untagged type.  We cannot reliably differentiate these cases from
+     their static member or regular function equivalents in Ada, so we ask
+     the C++ side through the mangled name of the function, as the implicit
+     'this' parameter is not encoded in the mangled name of a method.  */
+  if (Is_Subprogram (gnat_entity) && Present (Interface_Name (gnat_entity)))
+    {
+      String_Pointer sp = { NULL, NULL };
+      Get_External_Name (gnat_entity, false, sp);
+
+      void *mem;
+      struct demangle_component *cmp
+	= cplus_demangle_v3_components (Name_Buffer,
+					DMGL_GNU_V3
+					| DMGL_TYPES
+					| DMGL_PARAMS
+					| DMGL_RET_DROP,
+					&mem);
+      if (!cmp)
+	return false;
+
+      /* We need to release MEM once we have a successful demangling.  */
+      bool ret = false;
+
+      if (cmp->type == DEMANGLE_COMPONENT_TYPED_NAME
+	  && cmp->u.s_binary.right->type == DEMANGLE_COMPONENT_FUNCTION_TYPE
+	  && (cmp = cmp->u.s_binary.right->u.s_binary.right) != NULL
+	  && cmp->type == DEMANGLE_COMPONENT_ARGLIST)
+	{
+	  /* Make sure there is at least one parameter in C++ too.  */
+	  if (cmp->u.s_binary.left)
+	    {
+	      unsigned int n_ada_args = 0;
+	      do {
+		n_ada_args++;
+		gnat_first = Next_Formal (gnat_first);
+	      } while (Present (gnat_first));
+
+	      unsigned int n_cpp_args = 0;
+	      do {
+		n_cpp_args++;
+		cmp = cmp->u.s_binary.right;
+	      } while (cmp);
+
+	      if (n_cpp_args < n_ada_args)
+		ret = true;
+	    }
+	  else
+	    ret = true;
+	}
+
+      free (mem);
+
+      return ret;
+    }
 
   return false;
 }
@@ -5396,12 +5461,6 @@ gnat_to_gnu_param (Entity_Id gnat_param, tree gnu_param_type, bool first,
   if (foreign && TREE_CODE (gnu_param_type) == UNCONSTRAINED_ARRAY_TYPE)
     gnu_param_type
       = TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_param_type))));
-
-  /* For GCC builtins, pass Address integer types as (void *)  */
-  if (Convention (gnat_subprog) == Convention_Intrinsic
-      && Present (Interface_Name (gnat_subprog))
-      && Is_Descendant_Of_Address (gnat_param_type))
-    gnu_param_type = ptr_type_node;
 
   /* Arrays are passed as pointers to element type for foreign conventions.  */
   if (foreign && mech != By_Copy && TREE_CODE (gnu_param_type) == ARRAY_TYPE)
@@ -5777,7 +5836,9 @@ gnat_to_gnu_subprog_type (Entity_Id gnat_subprog, bool definition,
 
   else
     {
-      if (Convention (gnat_subprog) == Convention_C
+      /* For foreign convention subprograms, return System.Address as void *
+	 or equivalent.  Note that this comprises GCC builtins.  */
+      if (Has_Foreign_Convention (gnat_subprog)
 	  && Is_Descendant_Of_Address (gnat_return_type))
 	gnu_return_type = ptr_type_node;
       else
@@ -5942,7 +6003,9 @@ gnat_to_gnu_subprog_type (Entity_Id gnat_subprog, bool definition,
 	{
 	  Entity_Id gnat_param_type = Etype (gnat_param);
 
-	  if (Convention (gnat_subprog) == Convention_C
+	  /* For foreign convention subprograms, pass System.Address as void *
+	     or equivalent.  Note that this comprises GCC builtins.  */
+	  if (Has_Foreign_Convention (gnat_subprog)
 	      && Is_Descendant_Of_Address (gnat_param_type))
 	    gnu_param_type = ptr_type_node;
 	  else
@@ -6968,6 +7031,7 @@ static tree
 gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 		   bool definition, bool debug_info_p)
 {
+  const Entity_Id gnat_record_type = Underlying_Type (Scope (gnat_field));
   const Entity_Id gnat_field_type = Etype (gnat_field);
   const bool is_aliased
     = Is_Aliased (gnat_field);
@@ -7054,8 +7118,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
   if (Present (Component_Clause (gnat_field)))
     {
       Node_Id gnat_clause = Component_Clause (gnat_field);
-      Entity_Id gnat_parent
-	= Parent_Subtype (Underlying_Type (Scope (gnat_field)));
+      Entity_Id gnat_parent = Parent_Subtype (gnat_record_type);
 
       gnu_pos = UI_To_gnu (Component_Bit_Offset (gnat_field), bitsizetype);
       gnu_size = validate_size (Esize (gnat_field), gnu_field_type,
@@ -7174,7 +7237,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 
   /* If the record has rep clauses and this is the tag field, make a rep
      clause for it as well.  */
-  else if (Has_Specified_Layout (Scope (gnat_field))
+  else if (Has_Specified_Layout (gnat_record_type)
 	   && Chars (gnat_field) == Name_uTag)
     {
       gnu_pos = bitsize_zero_node;
@@ -7211,11 +7274,14 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       /* If the field's type is justified modular, we would need to remove
 	 the wrapper to (better) meet the layout requirements.  However we
 	 can do so only if the field is not aliased to preserve the unique
-	 layout and if the prescribed size is not greater than that of the
-	 packed array to preserve the justification.  */
+	 layout, if it has the same storage order as the enclosing record
+	 and if the prescribed size is not greater than that of the packed
+	 array to preserve the justification.  */
       if (!needs_strict_alignment
 	  && TREE_CODE (gnu_field_type) == RECORD_TYPE
 	  && TYPE_JUSTIFIED_MODULAR_P (gnu_field_type)
+	  && TYPE_REVERSE_STORAGE_ORDER (gnu_field_type)
+	     == Reverse_Storage_Order (gnat_record_type)
 	  && tree_int_cst_compare (gnu_size, TYPE_ADA_SIZE (gnu_field_type))
 	       <= 0)
 	gnu_field_type = TREE_TYPE (TYPE_FIELDS (gnu_field_type));
@@ -8022,6 +8088,14 @@ annotate_value (tree gnu_size)
   switch (TREE_CODE (gnu_size))
     {
     case INTEGER_CST:
+      /* For negative values, build NEGATE_EXPR of the opposite.  Such values
+	 can appear for discriminants in expressions for variants.  */
+      if (tree_int_cst_sgn (gnu_size) < 0)
+	{
+	  tree t = wide_int_to_tree (sizetype, wi::neg (gnu_size));
+	  return annotate_value (build1 (NEGATE_EXPR, sizetype, t));
+	}
+
       return TREE_OVERFLOW (gnu_size) ? No_Uint : UI_From_gnu (gnu_size);
 
     case COMPONENT_REF:
@@ -8894,10 +8968,6 @@ intrin_return_compatible_p (intrin_binding_t * inb)
   if (VOID_TYPE_P (ada_return_type)
       && !VOID_TYPE_P (btin_return_type))
     return true;
-
-  /* If return type is Address (integer type), map it to void *.  */
-  if (Is_Descendant_Of_Address (Etype (inb->gnat_entity)))
-    ada_return_type = ptr_type_node;
 
   /* Check return types compatibility otherwise.  Note that this
      handles void/void as well.  */

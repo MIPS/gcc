@@ -1,5 +1,5 @@
 /* If-conversion for vectorizer.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
 
 This file is part of GCC.
@@ -1749,6 +1749,14 @@ gen_phi_arg_condition (gphi *phi, vec<int> *occur,
   return cond;
 }
 
+/* Local valueization callback that follows all-use SSA edges.  */
+
+static tree
+ifcvt_follow_ssa_use_edges (tree val)
+{
+  return val;
+}
+
 /* Replace a scalar PHI node with a COND_EXPR using COND as condition.
    This routine can handle PHI nodes with more than two arguments.
 
@@ -1844,6 +1852,8 @@ predicate_scalar_phi (gphi *phi, gimple_stmt_iterator *gsi)
 				    arg0, arg1);
       new_stmt = gimple_build_assign (res, rhs);
       gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
+      gimple_stmt_iterator new_gsi = gsi_for_stmt (new_stmt);
+      fold_stmt (&new_gsi, ifcvt_follow_ssa_use_edges);
       update_stmt (new_stmt);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2523,9 +2533,13 @@ combine_blocks (struct loop *loop)
    will be if-converted, the new copy of the loop will not,
    and the LOOP_VECTORIZED internal call will be guarding which
    loop to execute.  The vectorizer pass will fold this
-   internal call into either true or false.  */
+   internal call into either true or false. 
 
-static bool
+   Note that this function intentionally invalidates profile.  Both edges
+   out of LOOP_VECTORIZED must have 100% probability so the profile remains
+   consistent after the condition is folded in the vectorizer.  */
+
+static struct loop *
 version_loop_for_if_conversion (struct loop *loop)
 {
   basic_block cond_bb;
@@ -2533,6 +2547,7 @@ version_loop_for_if_conversion (struct loop *loop)
   struct loop *new_loop;
   gimple *g;
   gimple_stmt_iterator gsi;
+  unsigned int save_length;
 
   g = gimple_build_call_internal (IFN_LOOP_VECTORIZED, 2,
 				  build_int_cst (integer_type_node, loop->num),
@@ -2540,21 +2555,24 @@ version_loop_for_if_conversion (struct loop *loop)
   gimple_call_set_lhs (g, cond);
 
   /* Save BB->aux around loop_version as that uses the same field.  */
-  void **saved_preds = XALLOCAVEC (void *, loop->num_nodes);
-  for (unsigned i = 0; i < loop->num_nodes; i++)
+  save_length = loop->inner ? loop->inner->num_nodes : loop->num_nodes;
+  void **saved_preds = XALLOCAVEC (void *, save_length);
+  for (unsigned i = 0; i < save_length; i++)
     saved_preds[i] = ifc_bbs[i]->aux;
 
   initialize_original_copy_tables ();
+  /* At this point we invalidate porfile confistency until IFN_LOOP_VECTORIZED
+     is re-merged in the vectorizer.  */
   new_loop = loop_version (loop, cond, &cond_bb,
 			   REG_BR_PROB_BASE, REG_BR_PROB_BASE,
-			   REG_BR_PROB_BASE, true);
+			   REG_BR_PROB_BASE, REG_BR_PROB_BASE, true);
   free_original_copy_tables ();
 
-  for (unsigned i = 0; i < loop->num_nodes; i++)
+  for (unsigned i = 0; i < save_length; i++)
     ifc_bbs[i]->aux = saved_preds[i];
 
   if (new_loop == NULL)
-    return false;
+    return NULL;
 
   new_loop->dont_vectorize = true;
   new_loop->force_vectorize = false;
@@ -2562,6 +2580,45 @@ version_loop_for_if_conversion (struct loop *loop)
   gimple_call_set_arg (g, 1, build_int_cst (integer_type_node, new_loop->num));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
   update_ssa (TODO_update_ssa);
+  return new_loop;
+}
+
+/* Return true when LOOP satisfies the follow conditions that will
+   allow it to be recognized by the vectorizer for outer-loop
+   vectorization:
+    - The loop is not the root node of the loop tree.
+    - The loop has exactly one inner loop.
+    - The loop has a single exit.
+    - The loop header has a single successor, which is the inner
+      loop header.
+    - Each of the inner and outer loop latches have a single
+      predecessor.
+    - The loop exit block has a single predecessor, which is the
+      inner loop's exit block.  */
+
+static bool
+versionable_outer_loop_p (struct loop *loop)
+{
+  if (!loop_outer (loop)
+      || loop->dont_vectorize
+      || !loop->inner
+      || loop->inner->next
+      || !single_exit (loop)
+      || !single_succ_p (loop->header)
+      || single_succ (loop->header) != loop->inner->header
+      || !single_pred_p (loop->latch)
+      || !single_pred_p (loop->inner->latch))
+    return false;
+
+  basic_block outer_exit = single_pred (loop->latch);
+  basic_block inner_exit = single_pred (loop->inner->latch);
+
+  if (!single_pred_p (outer_exit) || single_pred (outer_exit) != inner_exit)
+    return false;
+
+  if (dump_file)
+    fprintf (dump_file, "Found vectorizable outer loop for versioning\n");
+
   return true;
 }
 
@@ -2734,12 +2791,15 @@ ifcvt_local_dce (basic_block bb)
    profitability analysis.  Returns non-zero todo flags when something
    changed.  */
 
-static unsigned int
+unsigned int
 tree_if_conversion (struct loop *loop)
 {
   unsigned int todo = 0;
   bool aggressive_if_conv;
+  struct loop *rloop;
 
+ again:
+  rloop = NULL;
   ifc_bbs = NULL;
   any_pred_load_store = false;
   any_complicated_phi = false;
@@ -2767,9 +2827,44 @@ tree_if_conversion (struct loop *loop)
 	  || loop->dont_vectorize))
     goto cleanup;
 
-  if ((any_pred_load_store || any_complicated_phi)
-      && !version_loop_for_if_conversion (loop))
-    goto cleanup;
+  /* Since we have no cost model, always version loops unless the user
+     specified -ftree-loop-if-convert or unless versioning is required.
+     Either version this loop, or if the pattern is right for outer-loop
+     vectorization, version the outer loop.  In the latter case we will
+     still if-convert the original inner loop.  */
+  if (any_pred_load_store
+      || any_complicated_phi
+      || flag_tree_loop_if_convert != 1)
+    {
+      struct loop *vloop
+	= (versionable_outer_loop_p (loop_outer (loop))
+	   ? loop_outer (loop) : loop);
+      struct loop *nloop = version_loop_for_if_conversion (vloop);
+      if (nloop == NULL)
+	goto cleanup;
+      if (vloop != loop)
+	{
+	  /* If versionable_outer_loop_p decided to version the
+	     outer loop, version also the inner loop of the non-vectorized
+	     loop copy.  So we transform:
+	      loop1
+		loop2
+	     into:
+	      if (LOOP_VECTORIZED (1, 3))
+		{
+		  loop1
+		    loop2
+		}
+	      else
+		loop3 (copy of loop1)
+		  if (LOOP_VECTORIZED (4, 5))
+		    loop4 (copy of loop2)
+		  else
+		    loop5 (copy of loop4)  */
+	  gcc_assert (nloop->inner && nloop->inner->next == NULL);
+	  rloop = nloop->inner;
+	}
+    }
 
   /* Now all statements are if-convertible.  Combine all the basic
      blocks into one huge basic block doing the if-conversion
@@ -2791,6 +2886,11 @@ tree_if_conversion (struct loop *loop)
 
       free (ifc_bbs);
       ifc_bbs = NULL;
+    }
+  if (rloop != NULL)
+    {
+      loop = rloop;
+      goto again;
     }
 
   return todo;
@@ -2831,8 +2931,7 @@ pass_if_conversion::gate (function *fun)
 {
   return (((flag_tree_loop_vectorize || fun->has_force_vectorize_loops)
 	   && flag_tree_loop_if_convert != 0)
-	  || flag_tree_loop_if_convert == 1
-	  || flag_tree_loop_if_convert_stores == 1);
+	  || flag_tree_loop_if_convert == 1);
 }
 
 unsigned int
@@ -2846,7 +2945,6 @@ pass_if_conversion::execute (function *fun)
 
   FOR_EACH_LOOP (loop, 0)
     if (flag_tree_loop_if_convert == 1
-	|| flag_tree_loop_if_convert_stores == 1
 	|| ((flag_tree_loop_vectorize || loop->force_vectorize)
 	    && !loop->dont_vectorize))
       todo |= tree_if_conversion (loop);

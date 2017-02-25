@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -191,10 +191,6 @@ extern bool default_libc_has_function (enum function_class);
 extern bool no_c99_libc_has_function (enum function_class);
 extern bool gnu_libc_has_function (enum function_class);
 
-extern const char* default_printf_pointer_format (tree, const char **);
-extern const char* linux_printf_pointer_format (tree, const char **);
-extern const char* solaris_printf_pointer_format (tree, const char **);
-
 extern tree default_builtin_tm_load_store (tree);
 
 extern int default_memory_move_cost (machine_mode, reg_class_t, bool);
@@ -260,7 +256,10 @@ extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE
 						  int second_time ATTRIBUTE_UNUSED);
 extern bool default_optab_supported_p (int, machine_mode, machine_mode,
 				       optimization_type);
-
 extern unsigned int default_max_noce_ifcvt_seq_cost (edge);
+extern unsigned int default_min_arithmetic_precision (void);
+
+extern enum flt_eval_method
+default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED);
 
 #endif /* GCC_TARGHOOKS_H */

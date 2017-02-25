@@ -1,6 +1,6 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
-   Copyright (C) 1991-2016 Free Software Foundation, Inc.
+   Copyright (C) 1991-2017 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GCC.
@@ -81,7 +81,7 @@ call_ ## FUNC (void)					\
 #endif
 
 #if defined(TARGET_DL_ITERATE_PHDR) && \
-   (defined(__DragonFly__) || defined(__FreeBSD__))
+   (defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__))
 #define BSD_DL_ITERATE_PHDR_AVAILABLE
 #endif
  
@@ -280,7 +280,10 @@ deregister_tm_clones (void)
   void (*fn) (void *);
 
 #ifdef HAVE_GAS_HIDDEN
-  if (__TMC_END__ - __TMC_LIST__ == 0)
+  func_ptr *end = __TMC_END__;
+  // Do not optimize the comparison to false.
+  __asm ("" : "+g" (end));
+  if (__TMC_LIST__ == end)
     return;
 #else
   if (__TMC_LIST__[0] == NULL)
@@ -300,7 +303,10 @@ register_tm_clones (void)
   size_t size;
 
 #ifdef HAVE_GAS_HIDDEN
-  size = (__TMC_END__ - __TMC_LIST__) / 2;
+  func_ptr *end = __TMC_END__;
+  // Do not optimize the comparison to false.
+  __asm ("" : "+g" (end));
+  size = (end - __TMC_LIST__) / 2;
 #else
   for (size = 0; __TMC_LIST__[size * 2] != NULL; size++)
     continue;

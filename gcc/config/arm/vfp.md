@@ -1,5 +1,5 @@
 ;; ARM VFP instruction patterns
-;; Copyright (C) 2003-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2017 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -306,7 +306,7 @@
 (define_insn "*movdi_vfp"
   [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,q,q,m,w,r,w,w, Uv")
        (match_operand:DI 1 "di_operand"              "r,rDa,Db,Dc,mi,mi,q,r,w,w,Uvi,w"))]
-  "TARGET_32BIT && TARGET_HARD_FLOAT && arm_tune != cortexa8
+  "TARGET_32BIT && TARGET_HARD_FLOAT && arm_tune != TARGET_CPU_cortexa8
    && (   register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))
    && !(TARGET_NEON && CONST_INT_P (operands[1])
@@ -355,9 +355,9 @@
 )
 
 (define_insn "*movdi_vfp_cortexa8"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,r,r,m,w,!r,w,w, Uv")
-       (match_operand:DI 1 "di_operand"              "r,rDa,Db,Dc,mi,mi,r,r,w,w,Uvi,w"))]
-  "TARGET_32BIT && TARGET_HARD_FLOAT && arm_tune == cortexa8
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,q,q,m,w,!r,w,w, Uv")
+	(match_operand:DI 1 "di_operand"		"r,rDa,Db,Dc,mi,mi,q,r,w,w,Uvi,w"))]
+  "TARGET_32BIT && TARGET_HARD_FLOAT && arm_tune == TARGET_CPU_cortexa8
     && (   register_operand (operands[0], DImode)
         || register_operand (operands[1], DImode))
     && !(TARGET_NEON && CONST_INT_P (operands[1])
@@ -1507,6 +1507,26 @@
    (set_attr "type" "f_cvt")]
 )
 
+(define_insn "*truncdfhf2"
+  [(set (match_operand:HF		   0 "s_register_operand" "=t")
+	(float_truncate:HF (match_operand:DF 1 "s_register_operand" "w")))]
+  "TARGET_32BIT && TARGET_FP16_TO_DOUBLE"
+  "vcvtb%?.f16.f64\\t%0, %P1"
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "f_cvt")]
+)
+
+(define_insn "*extendhfdf2"
+  [(set (match_operand:DF		   0 "s_register_operand" "=w")
+	(float_extend:DF (match_operand:HF 1 "s_register_operand" "t")))]
+  "TARGET_32BIT && TARGET_FP16_TO_DOUBLE"
+  "vcvtb%?.f64.f16\\t%P0, %1"
+  [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "f_cvt")]
+)
+
 (define_insn "truncsfhf2"
   [(set (match_operand:HF		   0 "s_register_operand" "=t")
 	(float_truncate:HF (match_operand:SF 1 "s_register_operand" "t")))]
@@ -1866,7 +1886,7 @@
   (float_truncate:HF (float:SF (match_dup 0))))]
  "TARGET_VFP_FP16INST"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vcvt.f16.<sup>32\t%0, %0, %2\;vmov.f32\t%3, %0";
 }
   [(set_attr "conds" "unconditional")
@@ -1883,7 +1903,7 @@
 {
   rtx op1 = gen_reg_rtx (SImode);
 
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
 
   emit_move_insn (op1, operands[1]);
   emit_insn (gen_neon_vcvth<sup>_nhf_unspec (op1, op1, operands[2],
@@ -1907,7 +1927,7 @@
     VCVT_SI_US_N))]
  "TARGET_VFP_FP16INST"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vmov.f32\t%0, %1\;vcvt.<sup>%#32.f16\t%0, %0, %2";
 }
   [(set_attr "conds" "unconditional")
@@ -1925,7 +1945,7 @@
 {
   rtx op1 = gen_reg_rtx (SImode);
 
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   emit_insn (gen_neon_vcvth<sup>_nsi_unspec (op1, operands[1], operands[2]));
   emit_move_insn (operands[0], op1);
   DONE;

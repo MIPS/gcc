@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -466,3 +466,11 @@ hook_bool_uint_uintp_false (unsigned int, unsigned int *)
 {
   return false;
 }
+
+/* Generic hook that takes a register class and returns false.  */
+bool
+hook_bool_reg_class_t_false (reg_class_t regclass ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+

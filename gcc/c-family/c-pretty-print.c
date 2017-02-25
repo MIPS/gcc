@@ -1,5 +1,5 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -344,14 +344,17 @@ c_pretty_printer::simple_type_specifier (tree t)
       else
 	{
 	  int prec = TYPE_PRECISION (t);
+	  tree common_t;
 	  if (ALL_FIXED_POINT_MODE_P (TYPE_MODE (t)))
-	    t = c_common_type_for_mode (TYPE_MODE (t), TYPE_SATURATING (t));
+	    common_t = c_common_type_for_mode (TYPE_MODE (t),
+					       TYPE_SATURATING (t));
 	  else
-	    t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
-	  if (TYPE_NAME (t))
+	    common_t = c_common_type_for_mode (TYPE_MODE (t),
+					       TYPE_UNSIGNED (t));
+	  if (common_t && TYPE_NAME (common_t))
 	    {
-	      simple_type_specifier (t);
-	      if (TYPE_PRECISION (t) != prec)
+	      simple_type_specifier (common_t);
+	      if (TYPE_PRECISION (common_t) != prec)
 		{
 		  pp_colon (this);
 		  pp_decimal_int (this, prec);
@@ -901,15 +904,6 @@ pp_c_void_constant (c_pretty_printer *pp)
 static void
 pp_c_integer_constant (c_pretty_printer *pp, tree i)
 {
-  int idx;
-
-  /* We are going to compare the type of I to other types using
-     pointer comparison so we need to use its canonical type.  */
-  tree type =
-    TYPE_CANONICAL (TREE_TYPE (i))
-    ? TYPE_CANONICAL (TREE_TYPE (i))
-    : TREE_TYPE (i);
-
   if (tree_fits_shwi_p (i))
     pp_wide_integer (pp, tree_to_shwi (i));
   else if (tree_fits_uhwi_p (i))
@@ -926,24 +920,6 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
       print_hex (wi, pp_buffer (pp)->digit_buffer);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
-  if (TYPE_UNSIGNED (type))
-    pp_character (pp, 'u');
-  if (type == long_integer_type_node || type == long_unsigned_type_node)
-    pp_character (pp, 'l');
-  else if (type == long_long_integer_type_node
-	   || type == long_long_unsigned_type_node)
-    pp_string (pp, "ll");
-  else for (idx = 0; idx < NUM_INT_N_ENTS; idx ++)
-    if (int_n_enabled_p[idx])
-      {
-	char buf[2+20];
-	if (type == int_n_trees[idx].signed_type
-	    || type == int_n_trees[idx].unsigned_type)
-	  {
-	    sprintf (buf, "I%d", int_n_data[idx].bitsize);
-	    pp_string (pp, buf);
-	  }
-      }
 }
 
 /* Print out a CHARACTER literal.  */

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist input contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -29,7 +29,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "fbuf.h"
 #include "unix.h"
 #include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
 
 typedef unsigned char uchar;
@@ -1374,7 +1373,16 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
 
  exp2:
   if (!isdigit (c))
-    goto bad_exponent;
+    {
+      /* Extension: allow default exponent of 0 when omitted.  */
+      if (dtp->common.flags & IOPARM_DT_DEFAULT_EXP)
+	{
+	  push_char (dtp, '0');
+	  goto done;
+	}
+      else
+	goto bad_exponent;
+    }
 
   push_char (dtp, c);
 
@@ -1816,7 +1824,16 @@ read_real (st_parameter_dt *dtp, void * dest, int length)
 
  exp2:
   if (!isdigit (c))
-    goto bad_exponent;
+    {
+      /* Extension: allow default exponent of 0 when omitted.  */
+      if (dtp->common.flags & IOPARM_DT_DEFAULT_EXP)
+	{
+	  push_char (dtp, '0');
+	  goto done;
+	}
+      else
+	goto bad_exponent;
+    }
 
   push_char (dtp, c);
 

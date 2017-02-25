@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -514,7 +514,6 @@ match
 gfc_match_small_int (int *value)
 {
   gfc_expr *expr;
-  const char *p;
   match m;
   int i;
 
@@ -522,14 +521,9 @@ gfc_match_small_int (int *value)
   if (m != MATCH_YES)
     return m;
 
-  p = gfc_extract_int (expr, &i);
+  if (gfc_extract_int (expr, &i, 1))
+    m = MATCH_ERROR;
   gfc_free_expr (expr);
-
-  if (p != NULL)
-    {
-      gfc_error (p);
-      m = MATCH_ERROR;
-    }
 
   *value = i;
   return m;
@@ -547,7 +541,6 @@ gfc_match_small_int (int *value)
 match
 gfc_match_small_int_expr (int *value, gfc_expr **expr)
 {
-  const char *p;
   match m;
   int i;
 
@@ -555,13 +548,8 @@ gfc_match_small_int_expr (int *value, gfc_expr **expr)
   if (m != MATCH_YES)
     return m;
 
-  p = gfc_extract_int (*expr, &i);
-
-  if (p != NULL)
-    {
-      gfc_error (p);
-      m = MATCH_ERROR;
-    }
+  if (gfc_extract_int (*expr, &i, 1))
+    m = MATCH_ERROR;
 
   *value = i;
   return m;
@@ -2787,21 +2775,25 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
 	  || o->head->op == EXEC_OMP_DO_SIMD
 	  || o->head->op == EXEC_OMP_PARALLEL_DO_SIMD))
     {
-      int collapse = 1;
+      int count = 1;
       gcc_assert (o->head->next != NULL
 		  && (o->head->next->op == EXEC_DO
 		      || o->head->next->op == EXEC_DO_WHILE)
 		  && o->previous != NULL
 		  && o->previous->tail->op == o->head->op);
-      if (o->previous->tail->ext.omp_clauses != NULL
-	  && o->previous->tail->ext.omp_clauses->collapse > 1)
-	collapse = o->previous->tail->ext.omp_clauses->collapse;
-      if (st == ST_EXIT && cnt <= collapse)
+      if (o->previous->tail->ext.omp_clauses != NULL)
+	{
+	  if (o->previous->tail->ext.omp_clauses->collapse > 1)
+	    count = o->previous->tail->ext.omp_clauses->collapse;
+	  if (o->previous->tail->ext.omp_clauses->orderedc)
+	    count = o->previous->tail->ext.omp_clauses->orderedc;
+	}
+      if (st == ST_EXIT && cnt <= count)
 	{
 	  gfc_error ("EXIT statement at %C terminating !$OMP DO loop");
 	  return MATCH_ERROR;
 	}
-      if (st == ST_CYCLE && cnt < collapse)
+      if (st == ST_CYCLE && cnt < count)
 	{
 	  gfc_error ("CYCLE statement at %C to non-innermost collapsed"
 		     " !$OMP DO loop");
@@ -5882,6 +5874,7 @@ gfc_match_select_type (void)
   char name[GFC_MAX_SYMBOL_LEN];
   bool class_array;
   gfc_symbol *sym;
+  gfc_namespace *ns = gfc_current_ns;
 
   m = gfc_match_label ();
   if (m == MATCH_ERROR)
@@ -5891,11 +5884,13 @@ gfc_match_select_type (void)
   if (m != MATCH_YES)
     return m;
 
+  gfc_current_ns = gfc_build_block_ns (ns);
   m = gfc_match (" %n => %e", name, &expr2);
   if (m == MATCH_YES)
     {
-      expr1 = gfc_get_expr();
+      expr1 = gfc_get_expr ();
       expr1->expr_type = EXPR_VARIABLE;
+      expr1->where = expr2->where;
       if (gfc_get_sym_tree (name, NULL, &expr1->symtree, false))
 	{
 	  m = MATCH_ERROR;
@@ -5916,7 +5911,11 @@ gfc_match_select_type (void)
     {
       m = gfc_match (" %e ", &expr1);
       if (m != MATCH_YES)
-	return m;
+	{
+	  std::swap (ns, gfc_current_ns);
+	  gfc_free_namespace (ns);
+	  return m;
+	}
     }
 
   m = gfc_match (" )%t");
@@ -5932,19 +5931,19 @@ gfc_match_select_type (void)
      allowed by the standard.
      TODO: see if it is sufficient to exclude component and substring
      references.  */
-  class_array = expr1->expr_type == EXPR_VARIABLE
-		  && expr1->ts.type == BT_CLASS
-		  && CLASS_DATA (expr1)
-		  && (strcmp (CLASS_DATA (expr1)->name, "_data") == 0)
-		  && (CLASS_DATA (expr1)->attr.dimension
-		      || CLASS_DATA (expr1)->attr.codimension)
-		  && expr1->ref
-		  && expr1->ref->type == REF_ARRAY
-		  && expr1->ref->next == NULL;
+  class_array = (expr1->expr_type == EXPR_VARIABLE
+		 && expr1->ts.type == BT_CLASS
+		 && CLASS_DATA (expr1)
+		 && (strcmp (CLASS_DATA (expr1)->name, "_data") == 0)
+		 && (CLASS_DATA (expr1)->attr.dimension
+		     || CLASS_DATA (expr1)->attr.codimension)
+		 && expr1->ref
+		 && expr1->ref->type == REF_ARRAY
+		 && expr1->ref->next == NULL);
 
   /* Check for F03:C811.  */
   if (!expr2 && (expr1->expr_type != EXPR_VARIABLE
-		  || (!class_array && expr1->ref != NULL)))
+		 || (!class_array && expr1->ref != NULL)))
     {
       gfc_error ("Selector in SELECT TYPE at %C is not a named variable; "
 		 "use associate-name=>");
@@ -5958,12 +5957,16 @@ gfc_match_select_type (void)
   new_st.ext.block.ns = gfc_current_ns;
 
   select_type_push (expr1->symtree->n.sym);
+  gfc_current_ns = ns;
 
   return MATCH_YES;
 
 cleanup:
   gfc_free_expr (expr1);
   gfc_free_expr (expr2);
+  gfc_undo_symbols ();
+  std::swap (ns, gfc_current_ns);
+  gfc_free_namespace (ns);
   return m;
 }
 
@@ -6209,6 +6212,7 @@ match_simple_where (void)
 
   c->next = XCNEW (gfc_code);
   *c->next = new_st;
+  c->next->loc = gfc_current_locus;
   gfc_clear_new_st ();
 
   new_st.op = EXEC_WHERE;
@@ -6265,8 +6269,12 @@ gfc_match_where (gfc_statement *st)
   c = gfc_get_code (EXEC_WHERE);
   c->expr1 = expr;
 
+  /* Put in the assignment.  It will not be processed by add_statement, so we
+     need to copy the location here. */
+
   c->next = XCNEW (gfc_code);
   *c->next = new_st;
+  c->next->loc = gfc_current_locus;
   gfc_clear_new_st ();
 
   new_st.op = EXEC_WHERE;

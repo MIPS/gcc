@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -922,7 +922,8 @@ char_len_param_value (gfc_expr **expr, bool *deferred)
 
       if (!t && e->ts.type == BT_UNKNOWN
 	  && e->symtree->n.sym->attr.untyped == 1
-	  && (e->symtree->n.sym->ns->seen_implicit_none == 1
+	  && (flag_implicit_none
+	      || e->symtree->n.sym->ns->seen_implicit_none == 1
 	      || e->symtree->n.sym->ns->parent->seen_implicit_none == 1))
 	{
 	  gfc_free_expr (e);
@@ -1119,12 +1120,12 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
     {
       /* Create a partially populated interface symbol to carry the
 	 characteristics of the procedure and the result.  */
-      sym->ts.interface = gfc_new_symbol (name, sym->ns);
-      gfc_add_type (sym->ts.interface, &(sym->ts),
+      sym->tlink = gfc_new_symbol (name, sym->ns);
+      gfc_add_type (sym->tlink, &(sym->ts),
 		    &gfc_current_locus);
-      gfc_copy_attr (&sym->ts.interface->attr, &sym->attr, NULL);
+      gfc_copy_attr (&sym->tlink->attr, &sym->attr, NULL);
       if (sym->attr.dimension)
-	sym->ts.interface->as = gfc_copy_array_spec (sym->as);
+	sym->tlink->as = gfc_copy_array_spec (sym->as);
 
       /* Ideally, at this point, a copy would be made of the formal
 	 arguments and their namespace. However, this does not appear
@@ -1133,12 +1134,12 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 
       if (sym->result && sym->result != sym)
 	{
-	  sym->ts.interface->result = sym->result;
+	  sym->tlink->result = sym->result;
 	  sym->result = NULL;
 	}
       else if (sym->result)
 	{
-	  sym->ts.interface->result = sym->ts.interface;
+	  sym->tlink->result = sym->tlink;
 	}
     }
   else if (sym && !sym->gfc_new
@@ -1498,7 +1499,7 @@ gfc_set_constant_character_len (int len, gfc_expr *expr, int check_len)
 
   if (expr->ts.type != BT_CHARACTER)
     return;
- 
+
   if (expr->expr_type != EXPR_CONSTANT)
     {
       gfc_error_now ("CHARACTER length must be a constant at %L", &expr->where);
@@ -1850,7 +1851,6 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 {
   gfc_state_data *s;
   gfc_component *c;
-  bool t = true;
 
   /* F03:C438/C439. If the current symbol is of the same derived type that we're
      constructing, it must have the pointer attribute.  */
@@ -1866,9 +1866,18 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 	}
       else if (current_attr.allocatable == 0)
 	{
-      gfc_error ("Component at %C must have the POINTER attribute");
-      return false;
+	  gfc_error ("Component at %C must have the POINTER attribute");
+	  return false;
+	}
     }
+
+  /* F03:C437.  */
+  if (current_ts.type == BT_CLASS
+      && !(current_attr.pointer || current_attr.allocatable))
+    {
+      gfc_error ("Component %qs with CLASS at %C must be allocatable "
+                 "or pointer", name);
+      return false;
     }
 
   if (gfc_current_block ()->attr.pointer && (*as)->rank != 0)
@@ -1943,7 +1952,7 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 	{
 	  gfc_error ("Pointer array component of structure at %C must have a "
 		     "deferred shape");
-	  t = false;
+	  return false;
 	}
     }
   else if (c->attr.allocatable)
@@ -1952,7 +1961,7 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 	{
 	  gfc_error ("Allocatable component of structure at %C must have a "
 		     "deferred shape");
-	  t = false;
+	  return false;
 	}
     }
   else
@@ -1961,20 +1970,15 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 	{
 	  gfc_error ("Array component of structure at %C must have an "
 		     "explicit shape");
-	  t = false;
+	  return false;
 	}
     }
 
 scalar:
   if (c->ts.type == BT_CLASS)
-    {
-      bool t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as);
+    return gfc_build_class_symbol (&c->ts, &c->attr, &c->as);
 
-      if (t)
-	t = t2;
-    }
-
-  return t;
+  return true;
 }
 
 
@@ -2536,7 +2540,6 @@ gfc_match_kind_spec (gfc_typespec *ts, bool kind_expr_only)
   gfc_expr *e;
   match m, n;
   char c;
-  const char *msg;
 
   m = MATCH_NO;
   n = MATCH_YES;
@@ -2594,11 +2597,8 @@ kind_expr:
       goto no_match;
     }
 
-  msg = gfc_extract_int (e, &ts->kind);
-
-  if (msg != NULL)
+  if (gfc_extract_int (e, &ts->kind, 1))
     {
-      gfc_error (msg);
       m = MATCH_ERROR;
       goto no_match;
     }
@@ -2696,7 +2696,7 @@ match_char_kind (int * kind, int * is_iso_c)
   locus where;
   gfc_expr *e;
   match m, n;
-  const char *msg;
+  bool fail;
 
   m = MATCH_NO;
   e = NULL;
@@ -2726,11 +2726,10 @@ match_char_kind (int * kind, int * is_iso_c)
       goto no_match;
     }
 
-  msg = gfc_extract_int (e, kind);
+  fail = gfc_extract_int (e, kind, 1);
   *is_iso_c = e->ts.is_iso_c;
-  if (msg != NULL)
+  if (fail)
     {
-      gfc_error (msg);
       m = MATCH_ERROR;
       goto no_match;
     }
@@ -3198,13 +3197,11 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 	      upe->attr.zero_comp = 1;
 	      if (!gfc_add_flavor (&upe->attr, FL_DERIVED, NULL,
 				   &gfc_current_locus))
-	  return MATCH_ERROR;
-	}
+	      return MATCH_ERROR;
+	    }
 	  else
 	    {
-	      st = gfc_find_symtree (gfc_current_ns->sym_root, "STAR");
-	      if (st == NULL)
-		st = gfc_new_symtree (&gfc_current_ns->sym_root, "STAR");
+	      st = gfc_get_tbp_symtree (&gfc_current_ns->sym_root, "STAR");
 	      st->n.sym = upe;
 	      upe->refs++;
 	    }
@@ -3300,7 +3297,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
 
       /* Use upper case to save the actual derived-type symbol.  */
       gfc_get_symbol (dt_name, NULL, &dt_sym);
-      dt_sym->name = gfc_get_string (sym->name);
+      dt_sym->name = gfc_get_string ("%s", sym->name);
       head = sym->generic;
       intr = gfc_get_interface ();
       intr->sym = dt_sym;
@@ -4901,7 +4898,28 @@ ok:
     }
 
   if (!gfc_error_flag_test ())
-    gfc_error ("Syntax error in data declaration at %C");
+    {
+      /* An anonymous structure declaration is unambiguous; if we matched one
+	 according to gfc_match_structure_decl, we need to return MATCH_YES
+	 here to avoid confusing the remaining matchers, even if there was an
+	 error during variable_decl.  We must flush any such errors.  Note this
+	 causes the parser to gracefully continue parsing the remaining input
+	 as a structure body, which likely follows.  */
+      if (current_ts.type == BT_DERIVED && current_ts.u.derived
+	  && gfc_fl_struct (current_ts.u.derived->attr.flavor))
+	{
+	  gfc_error_now ("Syntax error in anonymous structure declaration"
+			 " at %C");
+	  /* Skip the bad variable_decl and line up for the start of the
+	     structure body.  */
+	  gfc_error_recovery ();
+	  m = MATCH_YES;
+	  goto cleanup;
+	}
+
+      gfc_error ("Syntax error in data declaration at %C");
+    }
+
   m = MATCH_ERROR;
 
   gfc_free_data_all (gfc_current_ns);
@@ -6041,7 +6059,6 @@ gfc_match_function_decl (void)
 	  sym->result = result;
 	}
 
-
       /* Warn if this procedure has the same name as an intrinsic.  */
       do_warn_intrinsic_shadow (sym, true);
 
@@ -6739,7 +6756,7 @@ gfc_match_end (gfc_statement *st)
   match m;
   gfc_namespace *parent_ns, *ns, *prev_ns;
   gfc_namespace **nsp;
-  bool abreviated_modproc_decl;
+  bool abreviated_modproc_decl = false;
   bool got_matching_end = false;
 
   old_loc = gfc_current_locus;
@@ -6763,15 +6780,17 @@ gfc_match_end (gfc_statement *st)
       state = gfc_state_stack->previous->state;
       block_name = gfc_state_stack->previous->sym == NULL
 		 ? NULL : gfc_state_stack->previous->sym->name;
+      abreviated_modproc_decl = gfc_state_stack->previous->sym
+		&& gfc_state_stack->previous->sym->abr_modproc_decl;
       break;
 
     default:
       break;
     }
 
-  abreviated_modproc_decl
-	= gfc_current_block ()
-	  && gfc_current_block ()->abr_modproc_decl;
+  if (!abreviated_modproc_decl)
+    abreviated_modproc_decl = gfc_current_block ()
+			      && gfc_current_block ()->abr_modproc_decl;
 
   switch (state)
     {
@@ -7105,7 +7124,7 @@ attr_decl1 (void)
       if (current_attr.dimension && sym->value)
 	{
 	  gfc_error ("Dimensions specified for %s at %L after its "
-		     "initialisation", sym->name, &var_locus);
+		     "initialization", sym->name, &var_locus);
 	  m = MATCH_ERROR;
 	  goto cleanup;
 	}
@@ -7549,6 +7568,21 @@ access_attr_decl (gfc_statement st)
 
 	case INTERFACE_GENERIC:
 	case INTERFACE_DTIO:
+
+	  if (type == INTERFACE_DTIO
+	      && gfc_current_ns->proc_name
+	      && gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
+	    {
+	      gfc_find_symbol (name, gfc_current_ns, 0, &sym);
+	      if (sym == NULL)
+		{
+		  gfc_error ("The GENERIC DTIO INTERFACE at %C is not "
+			     "present in the MODULE '%s'",
+			     gfc_current_ns->proc_name->name);
+		  return MATCH_ERROR;
+		}
+	    }
+
 	  if (gfc_get_symbol (name, NULL, &sym))
 	    goto done;
 
@@ -7821,10 +7855,16 @@ cleanup:
 match
 gfc_match_parameter (void)
 {
+  const char *term = " )%t";
   match m;
 
   if (gfc_match_char ('(') == MATCH_NO)
-    return MATCH_NO;
+    {
+      /* With legacy PARAMETER statements, don't expect a terminating ')'.  */
+      if (!gfc_notify_std (GFC_STD_LEGACY, "PARAMETER without '()' at %C"))
+	return MATCH_NO;
+      term = " %t";
+    }
 
   for (;;)
     {
@@ -7832,7 +7872,7 @@ gfc_match_parameter (void)
       if (m != MATCH_YES)
 	break;
 
-      if (gfc_match (" )%t") == MATCH_YES)
+      if (gfc_match (term) == MATCH_YES)
 	break;
 
       if (gfc_match_char (',') != MATCH_YES)
@@ -8226,11 +8266,11 @@ gfc_match_submod_proc (void)
 
   /* Make sure that the result field is appropriately filled, even though
      the result symbol will be replaced later on.  */
-  if (sym->ts.interface && sym->ts.interface->attr.function)
+  if (sym->tlink && sym->tlink->attr.function)
     {
-      if (sym->ts.interface->result
-	  && sym->ts.interface->result != sym->ts.interface)
-	sym->result= sym->ts.interface->result;
+      if (sym->tlink->result
+	  && sym->tlink->result != sym->tlink)
+	sym->result= sym->tlink->result;
       else
 	sym->result = sym;
     }
@@ -8591,31 +8631,31 @@ get_struct_decl (const char *name, sym_flavor fl, locus *decl,
 match
 gfc_match_map (void)
 {
-    /* Counter used to give unique internal names to map structures. */
-    static unsigned int gfc_map_id = 0;
-    char name[GFC_MAX_SYMBOL_LEN + 1];
-    gfc_symbol *sym;
-    locus old_loc;
+  /* Counter used to give unique internal names to map structures. */
+  static unsigned int gfc_map_id = 0;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_symbol *sym;
+  locus old_loc;
 
-    old_loc = gfc_current_locus;
+  old_loc = gfc_current_locus;
 
-    if (gfc_match_eos () != MATCH_YES)
-      {
-          gfc_error ("Junk after MAP statement at %C");
-          gfc_current_locus = old_loc;
-          return MATCH_ERROR;
-      }
+  if (gfc_match_eos () != MATCH_YES)
+    {
+	gfc_error ("Junk after MAP statement at %C");
+	gfc_current_locus = old_loc;
+	return MATCH_ERROR;
+    }
 
-    /* Map blocks are anonymous so we make up unique names for the symbol table
-       which are invalid Fortran identifiers.  */
-    snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "MM$%u", gfc_map_id++);
+  /* Map blocks are anonymous so we make up unique names for the symbol table
+     which are invalid Fortran identifiers.  */
+  snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "MM$%u", gfc_map_id++);
 
-    if (!get_struct_decl (name, FL_STRUCT, &old_loc, &sym))
-      return MATCH_ERROR;
+  if (!get_struct_decl (name, FL_STRUCT, &old_loc, &sym))
+    return MATCH_ERROR;
 
-    gfc_new_block = sym;
+  gfc_new_block = sym;
 
-    return MATCH_YES;
+  return MATCH_YES;
 }
 
 
@@ -8624,31 +8664,31 @@ gfc_match_map (void)
 match
 gfc_match_union (void)
 {
-    /* Counter used to give unique internal names to union types. */
-    static unsigned int gfc_union_id = 0;
-    char name[GFC_MAX_SYMBOL_LEN + 1];
-    gfc_symbol *sym;
-    locus old_loc;
+  /* Counter used to give unique internal names to union types. */
+  static unsigned int gfc_union_id = 0;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_symbol *sym;
+  locus old_loc;
 
-    old_loc = gfc_current_locus;
+  old_loc = gfc_current_locus;
 
-    if (gfc_match_eos () != MATCH_YES)
-      {
-          gfc_error ("Junk after UNION statement at %C");
-          gfc_current_locus = old_loc;
-          return MATCH_ERROR;
-      }
+  if (gfc_match_eos () != MATCH_YES)
+    {
+	gfc_error ("Junk after UNION statement at %C");
+	gfc_current_locus = old_loc;
+	return MATCH_ERROR;
+    }
 
-    /* Unions are anonymous so we make up unique names for the symbol table
-       which are invalid Fortran identifiers.  */
-    snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "UU$%u", gfc_union_id++);
+  /* Unions are anonymous so we make up unique names for the symbol table
+     which are invalid Fortran identifiers.  */
+  snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "UU$%u", gfc_union_id++);
 
-    if (!get_struct_decl (name, FL_UNION, &old_loc, &sym))
-      return MATCH_ERROR;
+  if (!get_struct_decl (name, FL_UNION, &old_loc, &sym))
+    return MATCH_ERROR;
 
-    gfc_new_block = sym;
+  gfc_new_block = sym;
 
-    return MATCH_YES;
+  return MATCH_YES;
 }
 
 
@@ -8660,67 +8700,66 @@ gfc_match_union (void)
 match
 gfc_match_structure_decl (void)
 {
-    /* Counter used to give unique internal names to anonymous structures.  */
-    static unsigned int gfc_structure_id = 0;
-    char name[GFC_MAX_SYMBOL_LEN + 1];
-    gfc_symbol *sym;
-    match m;
-    locus where;
+  /* Counter used to give unique internal names to anonymous structures.  */
+  static unsigned int gfc_structure_id = 0;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_symbol *sym;
+  match m;
+  locus where;
 
-    if(!flag_dec_structure)
-      {
-          gfc_error ("STRUCTURE at %C is a DEC extension, enable with "
-                     "-fdec-structure");
-          return MATCH_ERROR;
-      }
-
-    name[0] = '\0';
-
-    m = gfc_match (" /%n/", name);
-    if (m != MATCH_YES)
-      {
-          /* Non-nested structure declarations require a structure name.  */
-          if (!gfc_comp_struct (gfc_current_state ()))
-            {
-                gfc_error ("Structure name expected in non-nested structure "
-                           "declaration at %C");
-                return MATCH_ERROR;
-            }
-          /* This is an anonymous structure; make up a unique name for it
-             (upper-case letters never make it to symbol names from the source).
-             The important thing is initializing the type variable
-             and setting gfc_new_symbol, which is immediately used by
-             parse_structure () and variable_decl () to add components of
-             this type.  */
-          snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "SS$%u", gfc_structure_id++);
-      }
-
-    where = gfc_current_locus;
-    /* No field list allowed after non-nested structure declaration.  */
-    if (!gfc_comp_struct (gfc_current_state ())
-        && gfc_match_eos () != MATCH_YES)
-      {
-          gfc_error ("Junk after non-nested STRUCTURE statement at %C");
-          return MATCH_ERROR;
-      }
-
-    /* Make sure the name is not the name of an intrinsic type.  */
-    if (gfc_is_intrinsic_typename (name))
-      {
-        gfc_error ("Structure name '%s' at %C cannot be the same as an"
-                   " intrinsic type", name);
-        return MATCH_ERROR;
-      }
-
-    /* Store the actual type symbol for the structure with an upper-case first
-       letter (an invalid Fortran identifier).  */
-
-    sprintf (name, gfc_dt_upper_string (name));
-    if (!get_struct_decl (name, FL_STRUCT, &where, &sym))
+  if (!flag_dec_structure)
+    {
+      gfc_error ("STRUCTURE at %C is a DEC extension, enable with "
+		 "-fdec-structure");
       return MATCH_ERROR;
+    }
 
-    gfc_new_block = sym;
-    return MATCH_YES;
+  name[0] = '\0';
+
+  m = gfc_match (" /%n/", name);
+  if (m != MATCH_YES)
+    {
+      /* Non-nested structure declarations require a structure name.  */
+      if (!gfc_comp_struct (gfc_current_state ()))
+	{
+	    gfc_error ("Structure name expected in non-nested structure "
+		       "declaration at %C");
+	    return MATCH_ERROR;
+	}
+      /* This is an anonymous structure; make up a unique name for it
+	 (upper-case letters never make it to symbol names from the source).
+	 The important thing is initializing the type variable
+	 and setting gfc_new_symbol, which is immediately used by
+	 parse_structure () and variable_decl () to add components of
+	 this type.  */
+      snprintf (name, GFC_MAX_SYMBOL_LEN + 1, "SS$%u", gfc_structure_id++);
+    }
+
+  where = gfc_current_locus;
+  /* No field list allowed after non-nested structure declaration.  */
+  if (!gfc_comp_struct (gfc_current_state ())
+      && gfc_match_eos () != MATCH_YES)
+    {
+      gfc_error ("Junk after non-nested STRUCTURE statement at %C");
+      return MATCH_ERROR;
+    }
+
+  /* Make sure the name is not the name of an intrinsic type.  */
+  if (gfc_is_intrinsic_typename (name))
+    {
+      gfc_error ("Structure name '%s' at %C cannot be the same as an"
+		 " intrinsic type", name);
+      return MATCH_ERROR;
+    }
+
+  /* Store the actual type symbol for the structure with an upper-case first
+     letter (an invalid Fortran identifier).  */
+
+  if (!get_struct_decl (gfc_dt_upper_string (name), FL_STRUCT, &where, &sym))
+    return MATCH_ERROR;
+
+  gfc_new_block = sym;
+  return MATCH_YES;
 }
 
 
@@ -8909,7 +8948,7 @@ gfc_match_derived_decl (void)
     {
       /* Use upper case to save the actual derived-type symbol.  */
       gfc_get_symbol (gfc_dt_upper_string (gensym->name), NULL, &sym);
-      sym->name = gfc_get_string (gensym->name);
+      sym->name = gfc_get_string ("%s", gensym->name);
       head = gensym->generic;
       intr = gfc_get_interface ();
       intr->sym = sym;
@@ -9329,7 +9368,7 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
 	      if (m == MATCH_ERROR)
 		goto error;
 	      if (m == MATCH_YES)
-		ba->pass_arg = gfc_get_string (arg);
+		ba->pass_arg = gfc_get_string ("%s", arg);
 	      gcc_assert ((m == MATCH_YES) == (ba->pass_arg != NULL));
 
 	      found_passing = true;
@@ -9590,6 +9629,8 @@ match_procedure_in_type (void)
 			    false))
 	return MATCH_ERROR;
       gfc_set_sym_referenced (stree->n.tb->u.specific->n.sym);
+      gfc_add_flavor(&stree->n.tb->u.specific->n.sym->attr, FL_PROCEDURE,
+		     target, &stree->n.tb->u.specific->n.sym->declared_at);
 
       if (gfc_match_eos () == MATCH_YES)
 	return MATCH_YES;
@@ -9704,14 +9745,7 @@ gfc_match_generic (void)
 	gfc_symtree* st;
 
 	st = gfc_find_symtree (is_op ? ns->tb_uop_root : ns->tb_sym_root, name);
-	if (st)
-	  {
-	    tb = st->n.tb;
-	    gcc_assert (tb);
-	  }
-	else
-	  tb = NULL;
-
+	tb = st ? st->n.tb : NULL;
 	break;
       }
 
@@ -9756,10 +9790,8 @@ gfc_match_generic (void)
 	case INTERFACE_USER_OP:
 	  {
 	    const bool is_op = (op_type == INTERFACE_USER_OP);
-	    gfc_symtree* st;
-
-	    st = gfc_new_symtree (is_op ? &ns->tb_uop_root : &ns->tb_sym_root,
-				  name);
+	    gfc_symtree* st = gfc_get_tbp_symtree (is_op ? &ns->tb_uop_root :
+						   &ns->tb_sym_root, name);
 	    gcc_assert (st);
 	    st->n.tb = tb;
 

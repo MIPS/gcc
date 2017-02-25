@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -32,8 +32,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "format.h"
 #include "unix.h"
 #include <string.h>
-#include <assert.h>
-#include <stdlib.h>
 #include <errno.h>
 
 
@@ -1246,6 +1244,26 @@ require_type (st_parameter_dt *dtp, bt expected, bt actual, const fnode *f)
 }
 
 
+/* Check that the dtio procedure required for formatted IO is present.  */
+
+static int
+check_dtio_proc (st_parameter_dt *dtp, const fnode *f)
+{
+  char buffer[BUFLEN];
+
+  if (dtp->u.p.fdtio_ptr != NULL)
+    return 0;
+
+  snprintf (buffer, BUFLEN,
+	    "Missing DTIO procedure or intrinsic type passed for item %d "
+	    "in formatted transfer",
+	    dtp->u.p.item_count - 1);
+
+  format_error (dtp, f, buffer);
+  return 1;
+}
+
+
 static int
 require_numeric_type (st_parameter_dt *dtp, bt actual, const fnode *f)
 {
@@ -1262,6 +1280,33 @@ require_numeric_type (st_parameter_dt *dtp, bt actual, const fnode *f)
 
   format_error (dtp, f, buffer);
   return 1;
+}
+
+static char *
+get_dt_format (char *p, gfc_charlen_type *length)
+{
+  char delim = p[-1];  /* The delimiter is always the first character back.  */
+  char c, *q, *res;
+  gfc_charlen_type len = *length; /* This length already correct, less 'DT'.  */
+
+  res = q = xmalloc (len + 2);
+
+  /* Set the beginning of the string to 'DT', length adjusted below.  */
+  *q++ = 'D';
+  *q++ = 'T';
+
+  /* The string may contain doubled quotes so scan and skip as needed.  */
+  for (; len > 0; len--)
+    {
+      c = *q++ = *p++;
+      if (c == delim)
+	p++;  /* Skip the doubled delimiter.  */
+    }
+
+  /* Adjust the string length by two now that we are done.  */
+  *length += 2;
+
+  return res;
 }
 
 
@@ -1411,6 +1456,9 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 	case FMT_DT:
 	  if (n == 0)
 	    goto need_read_data;
+
+	  if (check_dtio_proc (dtp, f))
+	    return;
 	  if (require_type (dtp, BT_CLASS, type, f))
 	    return;
 	  int unit = dtp->u.p.current_unit->unit_number;
@@ -1420,7 +1468,7 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 	  gfc_charlen_type child_iomsg_len;
 	  int noiostat;
 	  int *child_iostat = NULL;
-	  char *iotype = f->u.udf.string;
+	  char *iotype;
 	  gfc_charlen_type iotype_len = f->u.udf.string_len;
 
 	  /* Build the iotype string.  */
@@ -1430,13 +1478,7 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
 	      iotype = dt;
 	    }
 	  else
-	    {
-	      iotype_len += 2;
-	      iotype = xmalloc (iotype_len);
-	      iotype[0] = dt[0];
-	      iotype[1] = dt[1];
-	      memcpy (iotype + 2, f->u.udf.string, f->u.udf.string_len);
-	    }
+	    iotype = get_dt_format (f->u.udf.string, &iotype_len);
 
 	  /* Set iostat, intent(out).  */
 	  noiostat = 0;
@@ -1579,7 +1621,8 @@ formatted_transfer_scalar_read (st_parameter_dt *dtp, bt type, void *p, int kind
               dtp->u.p.current_unit->bytes_left -= dtp->u.p.sf_seen_eor;
               dtp->u.p.skips -= dtp->u.p.sf_seen_eor;
 	      bytes_used = pos;
-	      dtp->u.p.sf_seen_eor = 0;
+	      if (dtp->u.p.pending_spaces == 0)
+		dtp->u.p.sf_seen_eor = 0;
 	    }
 	  if (dtp->u.p.skips < 0)
 	    {
@@ -1889,7 +1932,7 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
 	  gfc_charlen_type child_iomsg_len;
 	  int noiostat;
 	  int *child_iostat = NULL;
-	  char *iotype = f->u.udf.string;
+	  char *iotype;
 	  gfc_charlen_type iotype_len = f->u.udf.string_len;
 
 	  /* Build the iotype string.  */
@@ -1899,13 +1942,7 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
 	      iotype = dt;
 	    }
 	  else
-	    {
-	      iotype_len += 2;
-	      iotype = xmalloc (iotype_len);
-	      iotype[0] = dt[0];
-	      iotype[1] = dt[1];
-	      memcpy (iotype + 2, f->u.udf.string, f->u.udf.string_len);
-	    }
+	    iotype = get_dt_format (f->u.udf.string, &iotype_len);
 
 	  /* Set iostat, intent(out).  */
 	  noiostat = 0;
@@ -1924,8 +1961,12 @@ formatted_transfer_scalar_write (st_parameter_dt *dtp, bt type, void *p, int kin
 	      child_iomsg_len = IOMSG_LEN;
 	    }
 
+	  if (check_dtio_proc (dtp, f))
+	    return;
+
 	  /* Call the user defined formatted WRITE procedure.  */
 	  dtp->u.p.current_unit->child_dtio++;
+
 	  dtp->u.p.fdtio_ptr (p, &unit, iotype, f->u.udf.vlist,
 			      child_iostat, child_iomsg,
 			      iotype_len, child_iomsg_len);

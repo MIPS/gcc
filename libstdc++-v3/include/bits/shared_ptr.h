@@ -1,6 +1,6 @@
 // shared_ptr and weak_ptr implementation -*- C++ -*-
 
-// Copyright (C) 2007-2016 Free Software Foundation, Inc.
+// Copyright (C) 2007-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -276,6 +276,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       typename = _Constructible<unique_ptr<_Yp, _Del>>>
 	shared_ptr(unique_ptr<_Yp, _Del>&& __r)
 	: __shared_ptr<_Tp>(std::move(__r)) { }
+
+#if __cplusplus <= 201402L && _GLIBCXX_USE_DEPRECATED
+      // This non-standard constructor exists to support conversions that
+      // were possible in C++11 and C++14 but are ill-formed in C++17.
+      // If an exception is thrown this constructor has no effect.
+      template<typename _Yp, typename _Del,
+		_Constructible<unique_ptr<_Yp, _Del>, __sp_array_delete>* = 0>
+	shared_ptr(unique_ptr<_Yp, _Del>&& __r)
+	: __shared_ptr<_Tp>(std::move(__r), __sp_array_delete()) { }
+#endif
 
       /**
        *  @brief  Construct an empty %shared_ptr.
@@ -692,7 +702,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       size_t
       operator()(const shared_ptr<_Tp>& __s) const noexcept
-      { return std::hash<_Tp*>()(__s.get()); }
+      {
+	return std::hash<typename shared_ptr<_Tp>::element_type*>()(__s.get());
+      }
     };
 
   // @} group pointer_abstractions

@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Vitesse IQ2000 processors
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1244,7 +1244,7 @@ iq2000_function_arg (cumulative_args_t cum_v, machine_mode mode,
       gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
 		  || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
 
-      /* Drops through.  */
+      /* FALLTHRU */
     case BLKmode:
       if (type != NULL_TREE && TYPE_ALIGN (type) > (unsigned) BITS_PER_WORD)
 	cum->arg_words += (cum->arg_words & 1);
@@ -2620,6 +2620,7 @@ expand_one_builtin (enum insn_code icode, rtx target, tree exp,
     {
     case 0:
 	pat = GEN_FCN (icode) (target);
+	break;
     case 1:
       if (target)
 	pat = GEN_FCN (icode) (target, op[0]);
@@ -3308,7 +3309,7 @@ iq2000_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
 	int num_words = (GET_MODE_SIZE (mode) > UNITS_PER_WORD) ? 2 : 1;
 
 	if (simple_memory_operand (x, mode))
-	  return COSTS_N_INSNS (num_words);
+	  return COSTS_N_INSNS (num_words) != 0;
 
 	* total = COSTS_N_INSNS (2 * num_words);
 	break;

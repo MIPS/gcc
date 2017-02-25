@@ -1,5 +1,5 @@
 /* Internal functions.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -178,5 +178,6 @@ extern bool set_edom_supported_p (void);
 
 extern void expand_internal_call (gcall *);
 extern void expand_internal_call (internal_fn, gcall *);
+extern void expand_PHI (internal_fn, gcall *);
 
 #endif

@@ -1,5 +1,5 @@
 /* SSA Jump Threading
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
    Contributed by Jeff Law  <law@redhat.com>
 
 This file is part of GCC.
@@ -328,9 +328,10 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 	     SSA_NAME_VALUE in addition to its own lattice.  */
 	  cached_lhs = gimple_fold_stmt_to_constant_1 (stmt,
 						       threadedge_valueize);
-          if (!cached_lhs
-              || (TREE_CODE (cached_lhs) != SSA_NAME
-                  && !is_gimple_min_invariant (cached_lhs)))
+          if (NUM_SSA_OPERANDS (stmt, SSA_OP_ALL_USES) != 0
+	      && (!cached_lhs
+                  || (TREE_CODE (cached_lhs) != SSA_NAME
+                      && !is_gimple_min_invariant (cached_lhs))))
 	    {
 	      /* We're going to temporarily copy propagate the operands
 		 and see if that allows us to simplify this statement.  */
@@ -564,7 +565,7 @@ simplify_control_stmt_condition_1 (edge e,
      example, op0 might be a constant while op1 is an
      SSA_NAME.  Failure to canonicalize will cause us to
      miss threading opportunities.  */
-  if (tree_swap_operands_p (op0, op1, false))
+  if (tree_swap_operands_p (op0, op1))
     {
       cond_code = swap_tree_comparison (cond_code);
       std::swap (op0, op1);

@@ -1,5 +1,5 @@
 /* GCC core type declarations.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -177,7 +177,8 @@ enum offload_abi {
 /* Types of profile update methods.  */
 enum profile_update {
   PROFILE_UPDATE_SINGLE,
-  PROFILE_UPDATE_ATOMIC
+  PROFILE_UPDATE_ATOMIC,
+  PROFILE_UPDATE_PREFER_ATOMIC
 };
 
 /* Types of unwind/exception handling info that can be generated.  */
@@ -329,6 +330,24 @@ enum symbol_visibility
   VISIBILITY_PROTECTED,
   VISIBILITY_HIDDEN,
   VISIBILITY_INTERNAL
+};
+
+/* enums used by the targetm.excess_precision hook.  */
+
+enum flt_eval_method
+{
+  FLT_EVAL_METHOD_UNPREDICTABLE = -1,
+  FLT_EVAL_METHOD_PROMOTE_TO_FLOAT = 0,
+  FLT_EVAL_METHOD_PROMOTE_TO_DOUBLE = 1,
+  FLT_EVAL_METHOD_PROMOTE_TO_LONG_DOUBLE = 2,
+  FLT_EVAL_METHOD_PROMOTE_TO_FLOAT16 = 16
+};
+
+enum excess_precision_type
+{
+  EXCESS_PRECISION_TYPE_IMPLICIT,
+  EXCESS_PRECISION_TYPE_STANDARD,
+  EXCESS_PRECISION_TYPE_FAST
 };
 
 /* Support for user-provided GGC and PCH markers.  The first parameter

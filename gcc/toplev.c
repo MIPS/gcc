@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -76,8 +76,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-prop.h"
 #include "gcse.h"
 #include "tree-chkp.h"
-#include "omp-low.h"
-#include "hsa.h"
+#include "omp-offload.h"
+#include "hsa-common.h"
 #include "edit-context.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
@@ -91,6 +91,10 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #include "selftest.h"
+
+#ifdef HAVE_isl
+#include <isl/version.h>
+#endif
 
 static void general_init (const char *, bool);
 static void do_compile ();
@@ -150,11 +154,6 @@ HOST_WIDE_INT random_seed;
    At present, the rtx may be either a REG or a SYMBOL_REF, although
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
-
-/* True if the user has tagged the function with the 'section'
-   attribute.  */
-
-bool user_defined_section_attribute = false;
 
 struct target_flag_state default_target_flag_state;
 #if SWITCHABLE_TARGET
@@ -683,10 +682,8 @@ print_version (FILE *file, const char *indent, bool show_global_state)
 	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING, MPC_VERSION_STRING,
 #ifndef HAVE_isl
 	   "none"
-#elif HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
-	   "0.15"
 #else
-	   "0.14 or 0.13"
+	   isl_version ()
 #endif
 	   );
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
@@ -1263,10 +1260,9 @@ process_options (void)
       || flag_loop_nest_optimize
       || flag_graphite_identity
       || flag_loop_parallelize_all)
-    sorry ("Graphite loop optimizations cannot be used (isl is not available)"
-	   "(-fgraphite, -fgraphite-identity, -floop-block, "
-	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
-	   "-floop-unroll-and-jam, and -ftree-loop-linear)");
+    sorry ("Graphite loop optimizations cannot be used (isl is not available) "
+	   "(-fgraphite, -fgraphite-identity, -floop-nest-optimize, "
+	   "-floop-parallelize-all)");
 #endif
 
   if (flag_check_pointer_bounds)
@@ -1697,41 +1693,17 @@ backend_init (void)
   init_regs ();
 }
 
-/* Initialize excess precision settings.  */
+/* Initialize excess precision settings.
+
+   We have no need to modify anything here, just keep track of what the
+   user requested.  We'll figure out any appropriate relaxations
+   later.  */
+
 static void
 init_excess_precision (void)
 {
-  /* Adjust excess precision handling based on the target options.  If
-     the front end cannot handle it, flag_excess_precision_cmdline
-     will already have been set accordingly in the post_options
-     hook.  */
   gcc_assert (flag_excess_precision_cmdline != EXCESS_PRECISION_DEFAULT);
   flag_excess_precision = flag_excess_precision_cmdline;
-  if (flag_unsafe_math_optimizations)
-    flag_excess_precision = EXCESS_PRECISION_FAST;
-  if (flag_excess_precision == EXCESS_PRECISION_STANDARD)
-    {
-      int flt_eval_method = TARGET_FLT_EVAL_METHOD;
-      switch (flt_eval_method)
-	{
-	case -1:
-	case 0:
-	  /* Either the target acts unpredictably (-1) or has all the
-	     operations required not to have excess precision (0).  */
-	  flag_excess_precision = EXCESS_PRECISION_FAST;
-	  break;
-	case 1:
-	case 2:
-	  /* In these cases, predictable excess precision makes
-	     sense.  */
-	  break;
-	default:
-	  /* Any other implementation-defined FLT_EVAL_METHOD values
-	     require the compiler to handle the associated excess
-	     precision rules in excess_precision_type.  */
-	  gcc_unreachable ();
-	}
-    }
 }
 
 /* Initialize things that are both lang-dependent and target-dependent.

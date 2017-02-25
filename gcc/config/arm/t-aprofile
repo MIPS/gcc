@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2016 Free Software Foundation, Inc.
+# Copyright (C) 2012-2017 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -92,6 +92,7 @@ MULTILIB_MATCHES       += march?armv8-a=mcpu?cortex-a73
 MULTILIB_MATCHES       += march?armv8-a=mcpu?cortex-a73.cortex-a35
 MULTILIB_MATCHES       += march?armv8-a=mcpu?cortex-a73.cortex-a53
 MULTILIB_MATCHES       += march?armv8-a=mcpu?exynos-m1
+MULTILIB_MATCHES       += march?armv8-a=mcpu?falkor
 MULTILIB_MATCHES       += march?armv8-a=mcpu?qdf24xx
 MULTILIB_MATCHES       += march?armv8-a=mcpu?xgene1
 
@@ -111,6 +112,8 @@ MULTILIB_MATCHES       += mfpu?vfpv4-d16=mfpu?vfpv4
 MULTILIB_MATCHES       += mfpu?vfpv4-d16=mfpu?fpv5-d16
 MULTILIB_MATCHES       += mfpu?vfpv4-d16=mfpu?fp-armv8
 MULTILIB_MATCHES       += mfpu?neon-fp-armv8=mfpu?crypto-neon-fp-armv8
+MULTILIB_MATCHES       += mfpu?vfp=mfpu?vfpv2
+MULTILIB_MATCHES       += mfpu?neon=mfpu?neon-vfpv3
 
 
 # Map all requests for vfpv3 with a later CPU to vfpv3-d16 v7-a.

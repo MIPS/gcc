@@ -1,5 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -119,6 +119,9 @@ rtx_insn *current_output_insn;
 /* Line number of last NOTE.  */
 static int last_linenum;
 
+/* Column number of last NOTE.  */
+static int last_columnnum;
+
 /* Last discriminator written to assembly.  */
 static int last_discriminator;
 
@@ -134,9 +137,10 @@ static int high_function_linenum;
 /* Filename of last NOTE.  */
 static const char *last_filename;
 
-/* Override filename and line number.  */
+/* Override filename, line and column number.  */
 static const char *override_filename;
 static int override_linenum;
+static int override_columnnum;
 
 /* Whether to force emission of a line note before the next insn.  */
 static bool force_source_line = false;
@@ -215,7 +219,7 @@ static void leaf_renumber_regs (rtx_insn *);
 static int alter_cond (rtx);
 #endif
 #ifndef ADDR_VEC_ALIGN
-static int final_addr_vec_align (rtx);
+static int final_addr_vec_align (rtx_insn *);
 #endif
 static int align_fuzz (rtx, rtx, int, unsigned);
 static void collect_fn_hard_reg_usage (void);
@@ -514,7 +518,7 @@ default_jump_align_max_skip (rtx_insn *insn ATTRIBUTE_UNUSED)
 
 #ifndef ADDR_VEC_ALIGN
 static int
-final_addr_vec_align (rtx addr_vec)
+final_addr_vec_align (rtx_insn *addr_vec)
 {
   int align = GET_MODE_SIZE (GET_MODE (PATTERN (addr_vec)));
 
@@ -1464,7 +1468,7 @@ shorten_branches (rtx_insn *first)
       if (!increasing)
 	break;
     }
-
+  crtl->max_insn_address = insn_current_address;
   free (varying_length);
 }
 
@@ -1766,6 +1770,7 @@ final_start_function (rtx_insn **firstp, FILE *file,
 
   last_filename = LOCATION_FILE (prologue_location);
   last_linenum = LOCATION_LINE (prologue_location);
+  last_columnnum = LOCATION_COLUMN (prologue_location);
   last_discriminator = discriminator = 0;
 
   high_block_linenum = high_function_linenum = last_linenum;
@@ -1789,11 +1794,12 @@ final_start_function (rtx_insn **firstp, FILE *file,
 	  *firstp = insn;
 	  gcc_assert (seen == 0);
 	}
-      debug_hooks->begin_prologue (last_linenum, last_filename);
+      debug_hooks->begin_prologue (last_linenum, last_columnnum,
+				   last_filename);
     }
 
   if (!dwarf2_debug_info_emitted_p (current_function_decl))
-    dwarf2out_begin_prologue (0, NULL);
+    dwarf2out_begin_prologue (0, 0, NULL);
 
 #ifdef LEAF_REG_REMAP
   if (crtl->uses_only_leaf_regs)
@@ -2342,6 +2348,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
 	      /* Mark this block as output.  */
 	      TREE_ASM_WRITTEN (NOTE_BLOCK (insn)) = 1;
+	      BLOCK_IN_COLD_SECTION_P (NOTE_BLOCK (insn)) = in_cold_section_p;
 	    }
 	  if (write_symbols == DBX_DEBUG
 	      || write_symbols == SDB_DEBUG)
@@ -2353,6 +2360,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		{
 		  override_filename = LOCATION_FILE (*locus_ptr);
 		  override_linenum = LOCATION_LINE (*locus_ptr);
+		  override_columnnum = LOCATION_COLUMN (*locus_ptr);
 		}
 	    }
 	  break;
@@ -2374,6 +2382,8 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
 	      if (!DECL_IGNORED_P (current_function_decl))
 		debug_hooks->end_block (high_block_linenum, n);
+	      gcc_assert (BLOCK_IN_COLD_SECTION_P (NOTE_BLOCK (insn))
+			  == in_cold_section_p);
 	    }
 	  if (write_symbols == DBX_DEBUG
 	      || write_symbols == SDB_DEBUG)
@@ -2386,11 +2396,13 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		{
 		  override_filename = LOCATION_FILE (*locus_ptr);
 		  override_linenum = LOCATION_LINE (*locus_ptr);
+		  override_columnnum = LOCATION_COLUMN (*locus_ptr);
 		}
 	      else
 		{
 		  override_filename = NULL;
 		  override_linenum = 0;
+		  override_columnnum = 0;
 		}
 	    }
 	  break;
@@ -2628,8 +2640,9 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  {
 	    if (flag_verbose_asm)
 	      asm_show_source (last_filename, last_linenum);
-	    (*debug_hooks->source_line) (last_linenum, last_filename,
-					 last_discriminator, is_stmt);
+	    (*debug_hooks->source_line) (last_linenum, last_columnnum,
+					 last_filename, last_discriminator,
+					 is_stmt);
 	  }
 
 	if (DEBUG_INSN_P (insn))
@@ -3121,7 +3134,7 @@ static bool
 notice_source_line (rtx_insn *insn, bool *is_stmt)
 {
   const char *filename;
-  int linenum;
+  int linenum, columnnum;
 
   if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_BEGIN_STMT)
     {
@@ -3135,17 +3148,20 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
     {
       filename = override_filename;
       linenum = override_linenum;
+      columnnum = override_columnnum;
     }
   else if (INSN_HAS_LOCATION (insn))
     {
       expanded_location xloc = insn_location (insn);
       filename = xloc.file;
       linenum = xloc.line;
+      columnnum = xloc.column;
     }
   else
     {
       filename = NULL;
       linenum = 0;
+      columnnum = 0;
     }
 
   if (filename == NULL)
@@ -3153,11 +3169,13 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
 
   if (force_source_line
       || filename != last_filename
-      || last_linenum != linenum)
+      || last_linenum != linenum
+      || (debug_column_info && last_columnnum != columnnum))
     {
       force_source_line = false;
       last_filename = filename;
       last_linenum = linenum;
+      last_columnnum = columnnum;
       last_discriminator = discriminator;
       if (is_stmt)
 	*is_stmt = true;
@@ -4542,8 +4560,6 @@ rest_of_handle_final (void)
 
   assemble_end_function (current_function_decl, fnname);
 
-  user_defined_section_attribute = false;
-
   /* Free up reg info memory.  */
   free_reg_info ();
 
@@ -4760,7 +4776,8 @@ rest_of_clean_state (void)
 
   free_bb_for_insn ();
 
-  delete_tree_ssa (cfun);
+  if (cfun->gimple_df)
+    delete_tree_ssa (cfun);
 
   /* We can reduce stack alignment on call site only when we are sure that
      the function body just produced will be actually used in the final

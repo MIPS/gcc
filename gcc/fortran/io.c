@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -200,23 +200,14 @@ unget_char (void)
 /* Eat up the spaces and return a character.  */
 
 static char
-next_char_not_space (bool *error)
+next_char_not_space ()
 {
   char c;
   do
     {
       error_element = c = next_char (NONSTRING);
       if (c == '\t')
-	{
-	  if (gfc_option.allow_std & GFC_STD_GNU)
-	    gfc_warning (0, "Extension: Tab character in format at %C");
-	  else
-	    {
-	      gfc_error ("Extension: Tab character in format at %C");
-	      *error = true;
-	      return c;
-	    }
-	}
+	gfc_warning (OPT_Wtabs, "Nonconforming tab character in format at %C");
     }
   while (gfc_is_whitespace (c));
   return c;
@@ -234,7 +225,6 @@ format_lex (void)
   char c, delim;
   int zflag;
   int negative_flag;
-  bool error = false;
 
   if (saved_token != FMT_NONE)
     {
@@ -243,7 +233,7 @@ format_lex (void)
       return token;
     }
 
-  c = next_char_not_space (&error);
+  c = next_char_not_space ();
   
   negative_flag = 0;
   switch (c)
@@ -253,7 +243,7 @@ format_lex (void)
       /* Falls through.  */
 
     case '+':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (!ISDIGIT (c))
 	{
 	  token = FMT_UNKNOWN;
@@ -264,7 +254,7 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space (&error);
+	  c = next_char_not_space ();
 	  if (ISDIGIT (c))
 	    value = 10 * value + c - '0';
 	}
@@ -294,7 +284,7 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space (&error);
+	  c = next_char_not_space ();
 	  if (ISDIGIT (c))
 	    {
 	      value = 10 * value + c - '0';
@@ -329,7 +319,7 @@ format_lex (void)
       break;
 
     case 'T':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       switch (c)
 	{
 	case 'L':
@@ -357,7 +347,7 @@ format_lex (void)
       break;
 
     case 'S':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c != 'P' && c != 'S')
 	unget_char ();
 
@@ -365,7 +355,7 @@ format_lex (void)
       break;
 
     case 'B':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c == 'N' || c == 'Z')
 	token = FMT_BLANK;
       else
@@ -427,7 +417,7 @@ format_lex (void)
       break;
 
     case 'E':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c == 'N' )
 	token = FMT_EN;
       else if (c == 'S')
@@ -457,7 +447,7 @@ format_lex (void)
       break;
 
     case 'D':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       if (c == 'P')
 	{
 	  if (!gfc_notify_std (GFC_STD_F2003, "DP format "
@@ -478,7 +468,7 @@ format_lex (void)
 	      "specifier not allowed at %C"))
 	    return FMT_ERROR;
 	  token = FMT_DT;
-	  c = next_char_not_space (&error);
+	  c = next_char_not_space ();
 	  if (c == '\'' || c == '"')
 	    {
 	      delim = c;
@@ -496,12 +486,13 @@ format_lex (void)
 		  if (c == delim)
 		    {
 		      c = next_char (NONSTRING);
-
 		      if (c == '\0')
 			{
 			  token = FMT_END;
 			  break;
 			}
+		      if (c == delim)
+			continue;
 		      unget_char ();
 		      break;
 		    }
@@ -518,7 +509,7 @@ format_lex (void)
       break;
 
     case 'R':
-      c = next_char_not_space (&error);
+      c = next_char_not_space ();
       switch (c)
 	{
 	case 'C':
@@ -559,9 +550,6 @@ format_lex (void)
       break;
     }
 
-  if (error)
-    return FMT_ERROR;
-
   return token;
 }
 
@@ -601,7 +589,7 @@ check_format (bool is_input)
   const char *unexpected_end	  = _("Unexpected end of format string");
   const char *zero_width	  = _("Zero width in format descriptor");
 
-  const char *error;
+  const char *error = NULL;
   format_token t, u;
   int level;
   int repeat;
@@ -867,27 +855,31 @@ data_desc:
 	goto fail;
       if (t == FMT_POSINT)
 	break;
-
-      switch (gfc_notification_std (GFC_STD_GNU))
+      if (mode != MODE_FORMAT)
+	format_locus.nextc += format_string_pos;
+      if (t == FMT_ZERO)
 	{
-	  case WARNING:
-	    if (mode != MODE_FORMAT)
-	      format_locus.nextc += format_string_pos;
-	    gfc_warning (0, "Extension: Missing positive width after L "
-			 "descriptor at %L", &format_locus);
-	    saved_token = t;
-	    break;
-
-	  case ERROR:
-	    error = posint_required;
-	    goto syntax;
-
-	  case SILENT:
-	    saved_token = t;
-	    break;
-
-	  default:
-	    gcc_unreachable ();
+	  switch (gfc_notification_std (GFC_STD_GNU))
+	    {
+	      case WARNING:
+		gfc_warning (0, "Extension: Zero width after L "
+			     "descriptor at %L", &format_locus);
+		break;
+	      case ERROR:
+		gfc_error ("Extension: Zero width after L "
+			     "descriptor at %L", &format_locus);
+		goto fail;
+	      case SILENT:
+		break;
+	      default:
+		gcc_unreachable ();
+	    }
+	}
+      else
+	{
+	  saved_token = t;
+	  gfc_notify_std (GFC_STD_GNU, "Missing positive width after "
+			  "L descriptor at %L", &format_locus);
 	}
       break;
 
@@ -4162,6 +4154,10 @@ get_io_list:
       if (m == MATCH_NO)
 	goto syntax;
     }
+
+  /* See if we want to use defaults for missing exponents in real transfers.  */
+  if (flag_dec)
+    dt->default_exp = 1;
 
   /* A full IO statement has been matched.  Check the constraints.  spec_end is
      supplied for cases where no locus is supplied.  */

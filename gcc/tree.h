@@ -1,5 +1,5 @@
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1655,6 +1655,10 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_CLAUSE_TILE_LIST(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 0)
+#define OMP_CLAUSE_TILE_ITERVAR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 1)
+#define OMP_CLAUSE_TILE_COUNT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 2)
 
 #define OMP_CLAUSE__GRIDDIM__DIMENSION(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_)\
@@ -1665,6 +1669,11 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_), 1)
 
 /* SSA_NAME accessors.  */
+
+/* Whether SSA_NAME NODE is a virtual operand.  This simply caches the
+   information in the underlying SSA_NAME_VAR for efficiency.  */
+#define SSA_NAME_IS_VIRTUAL_OPERAND(NODE) \
+  SSA_NAME_CHECK (NODE)->base.public_flag
 
 /* Returns the IDENTIFIER_NODE giving the SSA name a name or NULL_TREE
    if there is no name associated with it.  */
@@ -1684,7 +1693,16 @@ extern void protected_set_expr_location (tree, location_t);
    ? NULL_TREE : (NODE)->ssa_name.var)
 
 #define SET_SSA_NAME_VAR_OR_IDENTIFIER(NODE,VAR) \
-  do { SSA_NAME_CHECK (NODE)->ssa_name.var = (VAR); } while (0)
+  do \
+    { \
+      tree var_ = (VAR); \
+      SSA_NAME_CHECK (NODE)->ssa_name.var = var_; \
+      SSA_NAME_IS_VIRTUAL_OPERAND (NODE) \
+	= (var_ \
+	   && TREE_CODE (var_) == VAR_DECL \
+	   && VAR_DECL_IS_VIRTUAL_OPERAND (var_)); \
+    } \
+  while (0)
 
 /* Returns the statement which defines this SSA name.  */
 #define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
@@ -1757,6 +1775,10 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* True if BLOCK has the same ranges as its BLOCK_SUPERCONTEXT.  */
 #define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->base.u.bits.nameless_flag)
+
+/* True if BLOCK appears in cold section.  */
+#define BLOCK_IN_COLD_SECTION_P(NODE) \
+  (BLOCK_CHECK (NODE)->base.u.bits.atomic_flag)
 
 /* An index number for this block.  These values are not guaranteed to
    be unique across functions -- whether or not they are depends on
@@ -2347,6 +2369,8 @@ extern machine_mode element_mode (const_tree t);
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.mode)
+#define SET_DECL_MODE(NODE, MODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.mode = (MODE))
 
 /* For FUNCTION_DECL, if it is built-in, this identifies which built-in
    operation it is.  Note, however, that this field is overloaded, with
@@ -2454,8 +2478,7 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
    if transformations have made this more complicated than evaluating the
-   decl itself.  This should only be used for debugging; once this field has
-   been set, the decl itself may not legitimately appear in the function.  */
+   decl itself.  */
 #define DECL_HAS_VALUE_EXPR_P(NODE) \
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, RESULT_DECL) \
    ->decl_common.decl_flag_2)
@@ -3668,6 +3691,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
+/* The C type `const struct tm *'.  */
+#define const_tm_ptr_type_node		global_trees[TI_CONST_TM_PTR_TYPE]
 #define pointer_sized_int_node		global_trees[TI_POINTER_SIZED_TYPE]
 
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
@@ -4211,6 +4236,11 @@ extern tree merge_dllimport_decl_attributes (tree, tree);
 /* Handle a "dllimport" or "dllexport" attribute.  */
 extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
 
+/* Returns true iff CAND and BASE have equivalent language-specific
+   qualifiers.  */
+
+extern bool check_lang_type (const_tree cand, const_tree base);
+
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
 extern bool check_base_type (const_tree cand, const_tree base);
@@ -4681,7 +4711,7 @@ extern tree tree_strip_nop_conversions (tree);
 extern tree tree_strip_sign_nop_conversions (tree);
 extern const_tree strip_invariant_refs (const_tree);
 extern tree lhd_gcc_personality (void);
-extern void assign_assembler_name_if_neeeded (tree);
+extern void assign_assembler_name_if_needed (tree);
 extern void warn_deprecated_use (tree, tree);
 extern void cache_integer_cst (tree);
 extern const char *combined_fn_name (combined_fn);
@@ -4830,8 +4860,10 @@ extern tree array_ref_low_bound (tree);
 
 /* Returns true if REF is an array reference to an array at the end of
    a structure.  If this is the case, the array may be allocated larger
-   than its upper bound implies.  */
-extern bool array_at_struct_end_p (tree);
+   than its upper bound implies.  When second argument is true considers
+   REF when it's a COMPONENT_REF in addition ARRAY_REF and
+   ARRAY_RANGE_REF.  */
+extern bool array_at_struct_end_p (tree, bool = false);
 
 /* Return a tree representing the offset, in bytes, of the field referenced
    by EXP.  This does not include any offset in DECL_FIELD_BIT_OFFSET.  */
@@ -4844,6 +4876,8 @@ extern void DEBUG_FUNCTION verify_type (const_tree t);
 extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
 						 bool trust_type_canonical = true);
 extern bool type_with_interoperable_signedness (const_tree);
+extern bitmap get_nonnull_args (const_tree);
+extern int get_range_pos_neg (tree);
 
 /* Return simplified tree code of type that is used for canonical type
    merging.  */
@@ -5285,6 +5319,9 @@ wi::extended_tree <N>::get_len () const
 namespace wi
 {
   template <typename T>
+  bool fits_to_boolean_p (const T &x, const_tree);
+
+  template <typename T>
   bool fits_to_tree_p (const T &x, const_tree);
 
   wide_int min_value (const_tree);
@@ -5294,14 +5331,21 @@ namespace wi
 
 template <typename T>
 bool
+wi::fits_to_boolean_p (const T &x, const_tree type)
+{
+  return eq_p (x, 0) || eq_p (x, TYPE_UNSIGNED (type) ? 1 : -1);
+}
+
+template <typename T>
+bool
 wi::fits_to_tree_p (const T &x, const_tree type)
 {
-  /* Short-circuit boolean types since various transformations assume that
-     they can only take values 0 and 1.  */
+  /* Non-standard boolean types can have arbitrary precision but various
+     transformations assume that they can only take values 0 and +/-1.  */
   if (TREE_CODE (type) == BOOLEAN_TYPE)
-    return eq_p (x, 0) || eq_p (x, 1);
+    return fits_to_boolean_p (x, type);
 
-  if (TYPE_SIGN (type) == UNSIGNED)
+  if (TYPE_UNSIGNED (type))
     return eq_p (x, zext (x, TYPE_PRECISION (type)));
   else
     return eq_p (x, sext (x, TYPE_PRECISION (type)));

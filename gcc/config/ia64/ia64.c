@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999-2016 Free Software Foundation, Inc.
+   Copyright (C) 1999-2017 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -1803,7 +1803,7 @@ ia64_expand_compare (rtx *expr, rtx *op0, rtx *op1)
       };
       int magic;
       enum rtx_code ncode;
-      rtx ret, insns;
+      rtx ret;
       
       gcc_assert (cmptf_libfunc && GET_MODE (*op1) == TFmode);
       switch (code)
@@ -1842,7 +1842,7 @@ ia64_expand_compare (rtx *expr, rtx *op0, rtx *op1)
       emit_insn (gen_rtx_SET (cmp, gen_rtx_fmt_ee (ncode, BImode,
 						   ret, const0_rtx)));
 
-      insns = get_insns ();
+      rtx_insn *insns = get_insns ();
       end_sequence ();
 
       emit_libcall_block (insns, cmp, cmp,
@@ -7138,7 +7138,7 @@ static char mem_ops_in_group[4];
 static int current_cycle;
 
 static rtx ia64_single_set (rtx_insn *);
-static void ia64_emit_insn_before (rtx, rtx);
+static void ia64_emit_insn_before (rtx, rtx_insn *);
 
 /* Map a bundle number to its pseudo-op.  */
 
@@ -7238,7 +7238,7 @@ ia64_adjust_cost (rtx_insn *insn, int dep_type1, rtx_insn *dep_insn,
    ??? When cycle display notes are implemented, update this.  */
 
 static void
-ia64_emit_insn_before (rtx insn, rtx before)
+ia64_emit_insn_before (rtx insn, rtx_insn *before)
 {
   emit_insn_before (insn, before);
 }

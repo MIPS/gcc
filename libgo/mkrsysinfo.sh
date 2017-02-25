@@ -18,6 +18,7 @@ echo 'package runtime' > ${OUT}
 # will all have a leading underscore.
 grep -v '^// ' gen-sysinfo.go | \
   grep -v '^func' | \
+  grep -v '^var ' | \
   grep -v '^type _timeval ' | \
   grep -v '^type _timespec_t ' | \
   grep -v '^type _timespec ' | \
@@ -41,6 +42,11 @@ echo $timeval | \
   sed -e 's/type _timeval /type timeval /' \
       -e 's/tv_sec *[a-zA-Z0-9_]*/tv_sec timeval_sec_t/' \
       -e 's/tv_usec *[a-zA-Z0-9_]*/tv_usec timeval_usec_t/' >> ${OUT}
+echo >> ${OUT}
+echo "func (tv *timeval) set_usec(x int32) {" >> ${OUT}
+echo "	tv.tv_usec = timeval_usec_t(x)" >> ${OUT}
+echo "}" >> ${OUT}
+
 timespec=`grep '^type _timespec ' gen-sysinfo.go || true`
 if test "$timespec" = ""; then
   # IRIX 6.5 has __timespec instead.
@@ -78,7 +84,7 @@ if grep '^const _epoll_data_offset ' ${OUT} >/dev/null 2>&1; then
   fi
 fi
 # Make sure EPOLLET is positive.
-if grep '^const _EPOLLET = [0-9]' gen-sysinfo.go; then
+if grep '^const _EPOLLET = [0-9]' gen-sysinfo.go > /dev/null 2>&1; then
   echo "const _EPOLLETpos = _EPOLLET" >> ${OUT}
 else
   echo "const _EPOLLETpos = 0x80000000" >> ${OUT}

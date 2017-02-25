@@ -1,5 +1,5 @@
 /* Calculate branch probabilities, and basic block execution counts.
-   Copyright (C) 1990-2016 Free Software Foundation, Inc.
+   Copyright (C) 1990-2017 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -192,15 +192,9 @@ instrument_values (histogram_values values)
 	  gimple_gen_ior_profiler (hist, t, 0);
 	  break;
 
-  case HIST_TYPE_TIME_PROFILE:
-    {
-      basic_block bb =
-     split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
-      gimple_stmt_iterator gsi = gsi_start_bb (bb);
-
-      gimple_gen_time_profiler (t, 0, gsi);
-      break;
-    }
+	case HIST_TYPE_TIME_PROFILE:
+	  gimple_gen_time_profiler (t, 0);
+	  break;
 
 	default:
 	  gcc_unreachable ();
@@ -1305,7 +1299,7 @@ branch_prob (void)
     {
       unsigned n_instrumented;
 
-      gimple_init_edge_profiler ();
+      gimple_init_gcov_profiler ();
 
       n_instrumented = instrument_edges (el);
 
