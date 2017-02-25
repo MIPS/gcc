@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "cilk.h"
 #include "builtins.h"
+#include "gimplify.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -1272,8 +1273,8 @@ check_redeclaration_exception_specification (tree new_decl,
   if (! DECL_IS_BUILTIN (old_decl)
       && !comp_except_specs (new_exceptions, old_exceptions, ce_normal))
     {
-      const char *msg
-	= "declaration of %qF has a different exception specifier";
+      const char *const msg
+	= G_("declaration of %qF has a different exception specifier");
       bool complained = true;
       location_t new_loc = DECL_SOURCE_LOCATION (new_decl);
       if (DECL_IN_SYSTEM_HEADER (old_decl))
@@ -6662,6 +6663,9 @@ type_dependent_init_p (tree init)
   else if (TREE_CODE (init) == CONSTRUCTOR)
   /* A brace-enclosed initializer, e.g.: int i = { 3 }; ? */
     {
+      if (dependent_type_p (TREE_TYPE (init)))
+	return true;
+
       vec<constructor_elt, va_gc> *elts;
       size_t nelts;
       size_t i;
@@ -7382,7 +7386,6 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	    }
 	  first = DECL_CHAIN (first);
 	}
-      TREE_TYPE (decl) = error_mark_node;
       if (DECL_P (decl) && DECL_NAMESPACE_SCOPE_P (decl))
 	SET_DECL_ASSEMBLER_NAME (decl, get_identifier ("<decomp>"));
       return;
@@ -7467,7 +7470,7 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	{
 	  TREE_TYPE (v[i]) = eltype;
 	  layout_decl (v[i], 0);
-	  tree t = dexp;
+	  tree t = unshare_expr (dexp);
 	  t = build4_loc (DECL_SOURCE_LOCATION (v[i]), ARRAY_REF,
 			  eltype, t, size_int (i), NULL_TREE,
 			  NULL_TREE);
@@ -7486,7 +7489,7 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	{
 	  TREE_TYPE (v[i]) = eltype;
 	  layout_decl (v[i], 0);
-	  tree t = dexp;
+	  tree t = unshare_expr (dexp);
 	  t = build1_loc (DECL_SOURCE_LOCATION (v[i]),
 			  i ? IMAGPART_EXPR : REALPART_EXPR, eltype,
 			  t);
@@ -7504,7 +7507,7 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	{
 	  TREE_TYPE (v[i]) = eltype;
 	  layout_decl (v[i], 0);
-	  tree t = dexp;
+	  tree t = unshare_expr (dexp);
 	  convert_vector_to_array_for_subscript (DECL_SOURCE_LOCATION (v[i]),
 						 &t, size_int (i));
 	  t = build4_loc (DECL_SOURCE_LOCATION (v[i]), ARRAY_REF,
@@ -7603,7 +7606,8 @@ cp_finish_decomp (tree decl, tree first, unsigned int count)
 	  continue;
 	else
 	  {
-	    tree tt = finish_non_static_data_member (field, t, NULL_TREE);
+	    tree tt = finish_non_static_data_member (field, unshare_expr (t),
+						     NULL_TREE);
 	    if (REFERENCE_REF_P (tt))
 	      tt = TREE_OPERAND (tt, 0);
 	    TREE_TYPE (v[i]) = TREE_TYPE (tt);

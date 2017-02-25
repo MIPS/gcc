@@ -2057,7 +2057,9 @@ add_function_candidate (struct z_candidate **candidates,
     {
       tree ptype = non_reference (TREE_VALUE (parmlist));
       tree dtype = DECL_CONTEXT (fn);
-      if (reference_related_p (ptype, dtype))
+      tree btype = DECL_INHERITED_CTOR_BASE (fn);
+      if (reference_related_p (ptype, dtype)
+	  && reference_related_p (btype, ptype))
 	{
 	  viable = false;
 	  reason = inherited_ctor_rejection ();
@@ -6223,10 +6225,10 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	 allocation function, the program is ill-formed."  */
       if (second_parm_is_size_t (fn))
 	{
-	  const char *msg1
+	  const char *const msg1
 	    = G_("exception cleanup for this placement new selects "
 		 "non-placement operator delete");
-	  const char *msg2
+	  const char *const msg2
 	    = G_("%qD is a usual (non-placement) deallocation "
 		 "function in C++14 (or with -fsized-deallocation)");
 
@@ -7836,12 +7838,13 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       if (flags & LOOKUP_NO_CONVERSION)
 	conv->user_conv_p = true;
 
-      val = convert_like_with_context (conv, arg, fn, i - is_method,
-				       conversion_warning
-				       ? complain
-				       : complain & (~tf_warning));
+      tsubst_flags_t arg_complain = complain & (~tf_no_cleanup);
+      if (!conversion_warning)
+	arg_complain &= ~tf_warning;
 
-      val = convert_for_arg_passing (type, val, complain);
+      val = convert_like_with_context (conv, arg, fn, i - is_method,
+				       arg_complain);
+      val = convert_for_arg_passing (type, val, arg_complain);
 	
       if (val == error_mark_node)
         return error_mark_node;
@@ -7900,14 +7903,17 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
      the check_function_arguments function might warn about something.  */
 
   bool warned_p = false;
-  if (warn_nonnull || warn_format || warn_suggest_attribute_format)
+  if (warn_nonnull
+      || warn_format
+      || warn_suggest_attribute_format
+      || warn_restrict)
     {
       tree *fargs = (!nargs ? argarray
 			    : (tree *) alloca (nargs * sizeof (tree)));
       for (j = 0; j < nargs; j++)
 	fargs[j] = maybe_constant_value (argarray[j]);
 
-      warned_p = check_function_arguments (input_location, TREE_TYPE (fn),
+      warned_p = check_function_arguments (input_location, fn, TREE_TYPE (fn),
 					   nargs, fargs);
     }
 
@@ -8354,9 +8360,15 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
       /* FIXME P0135 doesn't say how to handle direct initialization from a
 	 type with a suitable conversion operator.  Let's handle it like
 	 copy-initialization, but allowing explict conversions.  */
+      tsubst_flags_t sub_complain = tf_warning;
+      if (!is_dummy_object (instance))
+	/* If we're using this to initialize a non-temporary object, don't
+	   require the destructor to be accessible.  */
+	sub_complain |= tf_no_cleanup;
       if (!reference_related_p (class_type, TREE_TYPE (arg)))
 	arg = perform_implicit_conversion_flags (class_type, arg,
-						 tf_warning, flags);
+						 sub_complain,
+						 flags);
       if ((TREE_CODE (arg) == TARGET_EXPR
 	   || TREE_CODE (arg) == CONSTRUCTOR)
 	  && (same_type_ignoring_top_level_qualifiers_p

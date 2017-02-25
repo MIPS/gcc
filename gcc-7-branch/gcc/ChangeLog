@@ -1,3 +1,440 @@
+2017-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/79396
+	* tree-eh.c (operation_could_trap_p, stmt_could_throw_1_p): Handle
+	FMA_EXPR like tcc_binary or tcc_unary.
+
+	* tree-ssa-loop-niter.c (number_of_iterations_exit): Simplify warning.
+
+	PR debug/77589
+	* dwarf2out.c (struct dw_loc_list_struct): Add noted_variable_value
+	bitfield.
+	(size_of_loc_descr): Handle DW_OP_GNU_variable_value.
+	(output_loc_operands): Handle DW_OP_call_ref and
+	DW_OP_GNU_variable_value.
+	(struct variable_value_struct): New type.
+	(struct variable_value_hasher): Likewise.
+	(variable_value_hash): New variable.
+	(string_types): Remove.
+	(copy_loc_descr): New function.
+	(add_loc_descr_to_each): Clarify comment.  Use copy_loc_descr.
+	(prepend_loc_descr_to_each): New function.
+	(add_loc_list): Fix comment typo.  Use prepend_loc_descr_to_each
+	instead of add_loc_descr_to_each if the first argument is single
+	location list and the second has multiple.
+	(resolve_args_picking_1): Handle DW_OP_GNU_variable_value.
+	(loc_list_from_tree_1): For early_dwarf, emit DW_OP_GNU_variable_value
+	when looking for variable value which doesn't have other location info.
+	(loc_list_from_tree): Formatting fix.
+	(gen_array_type_die): Simplify DW_AT_string_length handling.
+	(adjust_string_types): Remove.
+	(gen_subprogram_die): Don't call adjust_string_types nor test/set
+	string_types.  Call resolve_variable_values.
+	(prune_unused_types_walk_loc_descr): Handle DW_OP_GNU_variable_value.
+	(resolve_addr_in_expr): Likewise.  Add A argument.
+	(copy_deref_exprloc): Remove deref argument.  Adjust for the
+	original expression being DW_OP_GNU_variable_value with optionally
+	DW_OP_stack_value after it instead of DW_OP_call4 with DW_OP_deref
+	optionally after it.
+	(optimize_string_length): Rework for DW_OP_GNU_variable_value.
+	(resolve_addr): Adjust optimize_string_length and resolve_addr_in_expr
+	callers.  Set remove_AT_byte_size if removing DW_AT_string_length.
+	(variable_value_hasher::hash, variable_value_hasher::equal): New
+	methods.
+	(resolve_variable_value_in_expr, resolve_variable_value,
+	resolve_variable_values, note_variable_value_in_expr,
+	note_variable_value): New functions.
+	(dwarf2out_early_finish): Call note_variable_value on all toplevel
+	DIEs.
+
+2017-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/79677
+	* opts.h (handle_generated_option): Add GENERATED_P argument.
+	* opts-common.c (handle_option): Adjust function comment.
+	(handle_generated_option): Add GENERATED_P argument, pass it to
+	handle_option.
+	(control_warning_option): Pass false to handle_generated_option
+	GENERATED_P.
+	* opts.c (maybe_default_option): Pass true to handle_generated_option
+	GENERATED_P.
+	* optc-gen.awk: Likewise.
+
+2017-02-24  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/sh/sh.md (tstsi_t): If operands[0] is a SUBREG instead of
+	a REG, look at the REG it is a SUBREG of.
+	(splitter for cmpeqsi_t): Ditto.
+
+2017-02-24  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/pa/pa.c (pa_combine_instructions): Do not share RTL.  Make
+	the special USEs with the pattern of the insn, not the insn itself.
+
+2017-02-24  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	PR target/79473
+	* doc/invoke.texi: Document -mload-store-pairs.
+
+2017-02-24  Segher Boessenkool  <segher@kernel.crashing.org>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/nios2/nios2.c (nios2_simple_const_p): Returns false if the
+	argument isn't a CONST_INT.
+	(nios2_alternate_compare_const): Assert op is a CONST_INT.
+	(nios2_valid_compare_const_p): Assert op is a CONST_INT.
+	(nios2_validate_compare): Bypass alternate compare logic if *op2
+	is not a CONST_INT.
+	(ldstwm_operation_p): Return false if first_base is not a REG or
+	if first_offset is not a CONST_INT.
+
+2017-02-24  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/cris/cris.md: Use correct operand in a define_peephole2.
+
+2017-02-24  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/c6x/c6x.c (predicate_insn): Do not incorrectly share RTL.
+
+2017-02-24  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/arc/arc.c (arc_ccfsm_advance): Only take the PATTERN of
+	this_insn if it is an INSN or JUMP_INSN.
+	(force_offsettable): Look at base, not at addr.
+	* config/arc/predicates.md (brcc_nolimm_operator): Don't call INTVAL
+	on things that aren't necessarily CONST_INTs.
+
+2017-02-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/invoke.texi (x86 Options, -mfpmath=sse): Mention that
+	-mfpmath=sse is the default also for x86-32 targets with SSE2
+	instruction set when @option{-ffast-math} is enabled
+
+2017-02-24  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimizatoin/79286
+	* ira.c (update_equiv_regs): Drop may_trap_p exception to
+	dominance test.
+
+2017-02-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79389
+	* gimple-ssa-split-paths.c (is_feasible_trace): Properly skip
+	debug insns.
+
+2017-02-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-loop-niter.c (number_of_iterations_exit): Update
+	function comment to reflect reality.
+	(loop_exits_before_overflow): Fix typo in function description.
+
+2017-02-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79389
+	* gimple-ssa-split-paths.c (is_feasible_trace): Verify more
+	properly that a threading opportunity exists.  Detect conditional
+	copy/constant propagation opportunities.
+
+2017-02-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.md (type): Add trap.
+	(b): New mode attribute.
+	(*btst): Rename into...
+	(*btst<mode>): ...this and adjust.
+	(*cbranchsi4_btst_insn): Rename into...
+	(*cbranch<mode>4_btst_insn): ...this and adjust.
+	(trap): New define_insn.
+
+2017-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/79389
+	* ifcvt.c (struct noce_if_info): Add rev_cond field.
+	(noce_reversed_cond_code): New function.
+	(noce_emit_store_flag): Use rev_cond if non-NULL instead of
+	reversed_comparison_code.  Formatting fix.
+	(noce_try_store_flag): Test rev_cond != NULL in addition to
+	reversed_comparison_code.
+	(noce_try_store_flag_constants): Likewise.
+	(noce_try_store_flag_mask): Likewise.
+	(noce_try_addcc): Use rev_cond if non-NULL instead of
+	reversed_comparison_code.
+	(noce_try_cmove_arith): Likewise.  Formatting fixes.
+	(noce_try_minmax, noce_try_abs): Clear rev_cond.
+	(noce_find_if_block): Initialize rev_cond.
+	(find_cond_trap): Call noce_get_condition with then_bb == trap_bb
+	instead of false as last argument never attempt to reverse it
+	afterwards.
+
+2017-02-23  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/79663
+	* tree-predcom.c (combine_chains): Process refs in reverse order
+	only for ZERO length chains, and add explaining comment.
+
+2017-02-23  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/79578
+	* tree-ssa-dse.c (clear_bytes_written_by): Use OEP_ADDRESS_OF
+	in call to operand_equal_p.
+
+2017-01-23  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR target/71017
+	* config/i386/cpuid.h: Fix another undefined behavior.
+
+2017-02-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79683
+	* tree-vect-stmts.c (vect_analyze_stmt): Do not overwrite
+	vector types for data-refs.
+
+2017-02-23  Martin Liska  <mliska@suse.cz>
+
+	* params.def (PARAM_MIN_NONDEBUG_INSN_UID): Change default to 0.
+
+2017-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/79665
+	* internal-fn.c (get_range_pos_neg): Moved to ...
+	* tree.c (get_range_pos_neg): ... here.  No longer static.
+	* tree.h (get_range_pos_neg): New prototype.
+	* expr.c (expand_expr_real_2) <case TRUNC_DIV_EXPR>: If both arguments
+	are known to be in between 0 and signed maximum inclusive, try to
+	expand both unsigned and signed divmod and use the cheaper one from
+	those.
+
+2017-02-22  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/79578
+	* tree-ssa-dse.c (clear_bytes_written_by): Use operand_equal_p
+	to compare base operands.
+
+2017-02-22  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/79211
+	* config/rs6000/rs6000.md (*fsel<SFDF:mode><SFDF2:mode>4): Use
+	gpc_reg_operand instead of fpr_reg_operand.
+
+2017-02-22  Sameera Deshpande  <sameera.deshpande@imgtec.com>
+
+	* config/mips/mips.c (mips_return_in_memory): Force FP
+	vector types to be returned in memory for o32 ABI.
+
+2017-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (gen_variable_die): For -gdwarf-5, use DW_TAG_variable
+	instead of DW_TAG_member for static data member declarations and don't
+	set no_linkage_name for static inline data members.
+	(gen_member_die): For -gdwarf-5 don't change DW_TAG_variable
+	to DW_TAG_member.
+
+2017-02-22  Martin Liska  <mliska@suse.cz>
+
+	* doc/invoke.texi: Replace inequality signs with square brackets
+	for -Wnormalized.
+
+2017-02-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/68644
+	* gcc.dg/tree-ssa/ivopts-lt-2.c: Skip for powerpc*-*-*.
+
+2017-02-22  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	PR target/78660
+	* lra-constraints.c (simplify_operand_subreg): Handle
+	WORD_REGISTER_OPERATIONS targets.
+
+2017-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70465
+	* reg-stack.c (emit_swap_insn): Treat (float_extend:?F (mem:?F))
+	and (const_double:?F) like (mem:?F) for the purpose of fxch %st(1)
+	elimination by swapping fld*.
+
+2017-02-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79673
+	* tree-ssa-pre.c (compute_avail): Use wide_int_to_tree to
+	convert the [TARGET_]MEM_REF offset INTEGER_CST, scrapping off
+	irrelevant address-space qualifiers and avoiding a
+	ADDR_SPACE_CONVERT_EXPR from fold_convert.
+
+2017-02-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79666
+	* tree-vrp.c (extract_range_from_binary_expr_1): Make sure
+	to not symbolically negate if that may introduce undefined
+	overflow.
+
+2017-02-22  Martin Liska  <mliska@suse.cz>
+
+	PR lto/79587
+	* data-streamer-in.c (streamer_read_gcov_count): Remove assert.
+	* data-streamer-out.c (streamer_write_gcov_count_stream):
+	Likewise.
+	* value-prof.c (stream_out_histogram_value): Make assert more
+	precise based on type of counter.
+
+2017-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/79593
+	* config/i386/i386.md (standard_x87sse_constant_load splitter):
+	Use nonimmediate_operand instead of memory_operand for operand 1.
+	(float-extend standard_x87sse_constant_load splitter): Ditto.
+
+2017-02-21 Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/79621
+	* gimple-ssa-isolate-paths.c (find_implicit_erroneous_behavior): Ignore
+	blocks with edges to themselves.
+
+2017-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79633
+	* tree-chkp-opt.c (chkp_optimize_string_function_calls): Use
+	is_gimple_call instead of comparing gimple_code with GIMPLE_CALL.
+	Use gimple_call_builtin_p.
+
+	PR target/79570
+	* sel-sched.c (moveup_expr_cached): Don't call sel_bb_head
+	on temporarily removed DEBUG_INSNs.
+
+	PR tree-optimization/79649
+	* tree-loop-distribution.c (classify_partition): Give up on
+	non-generic address space loads/stores.
+
+2017-02-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/loop.texi (Loop manipulation): Remove nonexistent
+	tree_ssa_loop_version from the documentation.
+	* cfgloopmanip.c (loop_version): Document CONDITION_BB argument.
+
+2017-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79494
+	* config/i386/i386.c (ix86_expand_split_stack_prologue): Call
+	make_reg_eh_region_note_nothrow_nononlocal on call_insn.
+	* config/rs6000/rs6000.c: Include except.h.
+	(rs6000_expand_split_stack_prologue): Call
+	make_reg_eh_region_note_nothrow_nononlocal on the call insn.
+
+2017-02-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/79579
+	* ipa-prop.c (ipa_prop_write_jump_functions): Bail out if no edges
+	have been analyzed.
+
+2017-02-21  Martin Jambor  <mjambor@suse.cz>
+
+	* common.opt (-fipa-cp-alignment): Mark as ignored and preserved
+	for backward compatibility only.
+	* doc/invoke.texi (Option Summary): Remove all references to
+	-fipa-cp-alignment.
+
+2017-02-21  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	PR target/78660
+	Revert:
+	2017-02-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* lra-constraints.c (curr_insn_transform): Handle
+	WORD_REGISTER_OPERATIONS requirements when reloading SUBREGs.
+
+2017-02-21  Martin Liska  <mliska@suse.cz>
+
+	* config/i386/i386.opt: Replace -masm-dialect with -masm.
+
+2017-02-21  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR translation/79638
+	* config/nvptx/nvptx.c (ENTRY_TEMPLATE): Single out "%ntid.y".
+
+2017-02-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/67205
+	* config/arm/arm.c (TARGET_CUSTOM_FUNCTION_DESCRIPTORS): Define.
+	(arm_function_ok_for_sibcall): Return false for an indirect call by
+	descriptor if all the argument registers are used.
+	(arm_relayout_function): Use FUNCTION_ALIGNMENT macro to adjust the
+	alignment of the function.
+
+2017-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/61441
+	* simplify-rtx.c (simplify_const_unary_operation): For
+	-fsignaling-nans and sNaN operand, return NULL_RTX rather than
+	the sNaN unmodified.
+
+2017-02-20  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* Makefile.in (BUILD_SYSTEM_HEADER_DIR): New make variabe.
+	(LIMITS_H_TEST, if_multiarch, stmp-fixinc): Use BUILD_SYSTEM_HEADER_DIR
+	instead of SYSTEM_HEADER_DIR.
+
+2017-02-20  Gerald Pfeifer  <gerald@pfeifer.com>
+	    Martin Liška  <mliska@suse.cz>
+
+	* doc/invoke.texi (use-after-scope-direct-emission-threshold):
+	Fix typos and grammar, use active voice, and clarify.
+
+2017-02-20  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/79537
+	* gimplify.c (gimplify_expr): Handle unused *&&L;.
+
+	PR sanitizer/79558
+	* ubsan.c (ubsan_type_descriptor): Check if TYPE_MAX_VALUE is null.
+
+2017-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/79568
+	* config/i386/i386.c (ix86_expand_builtin): Handle
+	OPTION_MASK_ISA_AVX512VL and OPTION_MASK_ISA_64BIT in
+	ix86_builtins_isa[fcode].isa as a requirement of those
+	flags and any other flag in the bitmask.
+	(ix86_init_mmx_sse_builtins): Use 0 instead of
+	~OPTION_MASK_ISA_64BIT as mask.
+	* config/i386/i386-builtin.def (__builtin_ia32_rdtsc,
+	__builtin_ia32_rdtscp, __builtin_ia32_pause, __builtin_ia32_bsrsi,
+	__builtin_ia32_rdpmc, __builtin_ia32_rolqi, __builtin_ia32_rolhi,
+	__builtin_ia32_rorqi, __builtin_ia32_rorhi): Likewise.
+
+2017-02-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	PR target/78012
+	* lra-constraints.c (split_reg): Check requested split mode
+	is supported by the register.
+
+2017-02-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* lra-constraints.c (simplify_operand_subreg): Remove early
+	return false.
+
+2017-02-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	PR target/78660
+	* lra-constraints.c (curr_insn_transform): Tighten condition
+	for converting SUBREG reloads from OP_OUT to OP_INOUT.
+
+2017-02-20  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	PR target/78660
+	* lra-constraints.c (curr_insn_transform): Handle
+	WORD_REGISTER_OPERATIONS requirements when reloading SUBREGs.
+
+2017-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2016-05-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sync.md (mfence_nosse): Use "lock orl $0, -4(%esp)".
+
+2017-02-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/69523
+	* doc/invoke.texi (C++ Dialect Options) [-Wliteral-suffix]: Update
+	description.
+
 2017-02-19  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
 	* gimple-pretty-print.c (dump_ternary_rhs): Adjust gimple dump format

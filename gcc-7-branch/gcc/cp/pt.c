@@ -1599,7 +1599,12 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
 	}
       else if (DECL_TEMPLATE_SPECIALIZATION (fn))
 	{
-	  if (!duplicate_decls (spec, fn, is_friend) && DECL_INITIAL (spec))
+	  tree dd = duplicate_decls (spec, fn, is_friend);
+	  if (dd == error_mark_node)
+	    /* We've already complained in duplicate_decls.  */
+	    return error_mark_node;
+
+	  if (dd == NULL_TREE && DECL_INITIAL (spec))
 	    /* Dup decl failed, but this is a new definition. Set the
 	       line number so any errors match this new
 	       definition.  */
@@ -3576,8 +3581,12 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       *walk_subtrees = 0;
       return NULL_TREE;
 
-    case CONSTRUCTOR:
     case TEMPLATE_DECL:
+      if (!DECL_TEMPLATE_TEMPLATE_PARM_P (t))
+	return NULL_TREE;
+      gcc_fallthrough();
+
+    case CONSTRUCTOR:
       cp_walk_tree (&TREE_TYPE (t),
 		    &find_parameter_packs_r, ppd, ppd->visited);
       return NULL_TREE;
@@ -4615,6 +4624,9 @@ process_partial_specialization (tree decl)
 
   /* If we aren't in a dependent class, we can actually try deduction.  */
   else if (tpd.level == 1
+	   /* FIXME we should be able to handle a partial specialization of a
+	      partial instantiation, but currently we can't (c++/41727).  */
+	   && TMPL_ARGS_DEPTH (specargs) == 1
 	   && !get_partial_spec_bindings (maintmpl, maintmpl, specargs))
     {
       if (permerror (input_location, "partial specialization %qD is not "
@@ -10005,6 +10017,8 @@ tsubst_attribute (tree t, tree *decl_p, tree args,
       /* An attribute pack expansion.  */
       tree purp = TREE_PURPOSE (t);
       tree pack = tsubst_pack_expansion (val, args, complain, in_decl);
+      if (pack == error_mark_node)
+	return error_mark_node;
       int len = TREE_VEC_LENGTH (pack);
       tree list = NULL_TREE;
       tree *q = &list;
@@ -15606,6 +15620,11 @@ tsubst_decomp_names (tree decl, tree pattern_decl, tree args,
        && DECL_NAME (decl2);
        decl2 = DECL_CHAIN (decl2))
     {
+      if (TREE_TYPE (decl2) == error_mark_node && *cnt == 0)
+	{
+	  gcc_assert (errorcount);
+	  return error_mark_node;
+	}
       (*cnt)++;
       gcc_assert (DECL_HAS_VALUE_EXPR_P (decl2));
       tree v = DECL_VALUE_EXPR (decl2);
@@ -20918,8 +20937,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
     case INDIRECT_REF:
       if (REFERENCE_REF_P (parm))
 	{
+	  bool pexp = PACK_EXPANSION_P (arg);
+	  if (pexp)
+	    arg = PACK_EXPANSION_PATTERN (arg);
 	  if (REFERENCE_REF_P (arg))
 	    arg = TREE_OPERAND (arg, 0);
+	  if (pexp)
+	    arg = make_pack_expansion (arg);
 	  return unify (tparms, targs, TREE_OPERAND (parm, 0), arg,
 			strict, explain_p);
 	}
@@ -25107,6 +25131,14 @@ do_class_deduction (tree ptype, tree tmpl, tree init, int flags,
 
   if (cands == NULL_TREE)
     {
+      if (args->length() == 0)
+	{
+	  /* Try tmpl<>.  */
+	  tree t = lookup_template_class (tmpl, NULL_TREE, NULL_TREE,
+					  NULL_TREE, false, tf_none);
+	  if (t != error_mark_node)
+	    return t;
+	}
       error ("cannot deduce template arguments for %qT, as it has "
 	     "no deduction guides or user-declared constructors", type);
       return error_mark_node;
@@ -25118,7 +25150,7 @@ do_class_deduction (tree ptype, tree tmpl, tree init, int flags,
     {
       tree t = cands;
       for (; t; t = OVL_NEXT (t))
-	if (DECL_NONCONVERTING_P (DECL_TEMPLATE_RESULT (OVL_CURRENT (t))))
+	if (DECL_NONCONVERTING_P (STRIP_TEMPLATE (OVL_CURRENT (t))))
 	  break;
       if (t)
 	{
@@ -25126,7 +25158,7 @@ do_class_deduction (tree ptype, tree tmpl, tree init, int flags,
 	  for (t = cands; t; t = OVL_NEXT (t))
 	    {
 	      tree f = OVL_CURRENT (t);
-	      if (!DECL_NONCONVERTING_P (DECL_TEMPLATE_RESULT (f)))
+	      if (!DECL_NONCONVERTING_P (STRIP_TEMPLATE (f)))
 		pruned = build_overload (f, pruned);
 	    }
 	  cands = pruned;
