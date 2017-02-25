@@ -3143,6 +3143,7 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
 	= expand_location (NOTE_BEGIN_STMT_LOCATION (insn));
       filename = xloc.file;
       linenum = xloc.line;
+      columnnum = xloc.column;
       force_source_line = true;
     }
   else if (override_filename)
