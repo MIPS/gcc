@@ -263,7 +263,7 @@ rtx_writer::print_rtx_operand_code_0 (const_rtx in_rtx ATTRIBUTE_UNUSED,
 	  {
 	    expanded_location xloc
 	      = expand_location (NOTE_BEGIN_STMT_LOCATION (in_rtx));
-	    fprintf (outfile, " %s:%i", xloc.file, xloc.line);
+	    fprintf (m_outfile, " %s:%i", xloc.file, xloc.line);
 	  }
 #endif
 	  break;

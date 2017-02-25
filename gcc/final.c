@@ -2430,8 +2430,9 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  gcc_checking_assert (cfun->begin_stmt_markers);
 	  if (!DECL_IGNORED_P (current_function_decl)
 	      && notice_source_line (insn, NULL))
-	    (*debug_hooks->source_line) (last_linenum, last_filename,
-					 last_discriminator, true);
+	    (*debug_hooks->source_line) (last_linenum, last_columnnum,
+					 last_filename, last_discriminator,
+					 true);
 	  break;
 
 	default:

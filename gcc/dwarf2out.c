@@ -9782,7 +9782,6 @@ skip_loc_list_entry (dw_loc_list_ref curr, unsigned long *sizep = 0)
 static void
 output_loc_list (dw_loc_list_ref list_head)
 {
-  dw_loc_list_ref curr = list_head;
   int vcount = 0, lcount = 0;
 
   if (list_head->emitted)
@@ -9793,7 +9792,8 @@ output_loc_list (dw_loc_list_ref list_head)
     {
       ASM_OUTPUT_LABEL (asm_out_file, list_head->vl_symbol);
 
-      for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
+      for (dw_loc_list_ref curr = list_head; curr != NULL;
+	   curr = curr->dw_loc_next)
 	{
 	  if (skip_loc_list_entry (curr))
 	    continue;
@@ -9840,12 +9840,12 @@ output_loc_list (dw_loc_list_ref list_head)
 
   ASM_OUTPUT_LABEL (asm_out_file, list_head->ll_symbol);
 
-  dw_loc_list_ref curr = list_head;
   const char *last_section = NULL;
   const char *base_label = NULL;
 
   /* Walk the location list, and output each range + expression.  */
-  for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
+  for (dw_loc_list_ref curr = list_head; curr != NULL;
+       curr = curr->dw_loc_next)
     {
       unsigned long size;
 
