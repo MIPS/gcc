@@ -1166,6 +1166,10 @@ vect_fixup_reduc_chain (gimple *stmt)
   GROUP_SIZE (vinfo_for_stmt (firstp)) = GROUP_SIZE (vinfo_for_stmt (stmt));
   GROUP_NUM_STMTS (vinfo_for_stmt (firstp))
     = GROUP_NUM_STMTS (vinfo_for_stmt (stmt));
+  GROUP_FIRST_UID (vinfo_for_stmt (firstp))
+    = GROUP_FIRST_UID (vinfo_for_stmt (stmt));
+  GROUP_LAST_UID (vinfo_for_stmt (firstp))
+    = GROUP_LAST_UID (vinfo_for_stmt (stmt));
   do
     {
       stmtp = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (stmt));
@@ -3107,8 +3111,13 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
      operand.  */
   lhs = PHI_RESULT (phi);
   next_stmt = GROUP_FIRST_ELEMENT (vinfo_for_stmt (current_stmt));
+  unsigned int first_uid = GROUP_FIRST_UID (vinfo_for_stmt (next_stmt));
+  unsigned int last_uid = GROUP_LAST_UID (vinfo_for_stmt (next_stmt));
   while (next_stmt)
     {
+      stmt_vec_info next_vinfo = vinfo_for_stmt (next_stmt);
+      first_uid = MIN (first_uid, STMT_VINFO_GROUP_FIRST_UID (next_vinfo));
+      last_uid = MAX (last_uid, STMT_VINFO_GROUP_LAST_UID (next_vinfo));
       if (gimple_assign_rhs2 (next_stmt) == lhs)
 	{
 	  tree op = gimple_assign_rhs1 (next_stmt);
@@ -3133,7 +3142,7 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
                       && !is_loop_header_bb_p (gimple_bb (def_stmt)))))
 	    {
 	      lhs = gimple_assign_lhs (next_stmt);
-	      next_stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (next_stmt));
+	      next_stmt = GROUP_NEXT_ELEMENT (next_vinfo);
  	      continue;
 	    }
 
@@ -3181,7 +3190,7 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
         }
 
       lhs = gimple_assign_lhs (next_stmt);
-      next_stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (next_stmt));
+      next_stmt = GROUP_NEXT_ELEMENT (next_vinfo);
     }
 
   /* Save the chain for further analysis in SLP detection.  */
@@ -3189,6 +3198,8 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
   LOOP_VINFO_REDUCTION_CHAINS (loop_info).safe_push (first);
   GROUP_SIZE (vinfo_for_stmt (first)) = size;
   GROUP_NUM_STMTS (vinfo_for_stmt (first)) = size;
+  GROUP_FIRST_UID (vinfo_for_stmt (first)) = first_uid;
+  GROUP_LAST_UID (vinfo_for_stmt (first)) = last_uid;
 
   return true;
 }
