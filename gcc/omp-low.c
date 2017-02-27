@@ -1172,7 +1172,19 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  if (OMP_CLAUSE_PRIVATE_OUTER_REF (c))
 	    goto do_private;
 	  else if (!is_variable_sized (decl))
-	    install_var_local (decl, ctx);
+	    {
+	      tree new_decl = install_var_local (decl, ctx);
+	      /* FIXME: The "oacc gangprivate" attribute conflicts with
+		 the privatization of acc loops.  Remove that attribute,
+		 if present.  */
+	      if (!is_oacc_parallel (ctx))
+		{
+		  tree attributes = DECL_ATTRIBUTES (new_decl);
+		  attributes = remove_attribute ("oacc gangprivate",
+						 attributes);
+		  DECL_ATTRIBUTES (new_decl) = attributes;
+		}
+	    }
 	  break;
 
 	case OMP_CLAUSE_SHARED:

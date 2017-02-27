@@ -6568,6 +6568,7 @@ extern bool parsing_nsdmi (void);
 extern bool parsing_default_capturing_generic_lambda_in_template (void);
 extern void inject_this_parameter (tree, cp_cv_quals);
 extern location_t defarg_location (tree);
+extern tree mark_vars_oacc_gangprivate (tree *, int *, void *);
 extern void maybe_show_extern_c_location (void);
 
 /* in pt.c */

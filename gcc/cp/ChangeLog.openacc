@@ -1,3 +1,12 @@
+2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* cp-tree.h (mark_vars_oacc_gangprivate): Declare.
+	* parser.c (mark_vars_oacc_gangprivate): New function.
+	(cp_parser_oacc_kernels_parallel): Call it to mark gang local variables
+	with attribute "oacc gangprivate".
+	* pt.c (tsubst_expr): Likewise.
+
 2017-02-22  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_kernels_parallel): Adjust EXPR_LOCATION

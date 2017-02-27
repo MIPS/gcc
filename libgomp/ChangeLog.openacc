@@ -1,3 +1,12 @@
+2018-05-01  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/85465
+	* testsuite/libgomp.oacc-c/pr85465.c: New test.
+
+2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/gang-private-1.c: New test.
+
 2017-02-17  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 
