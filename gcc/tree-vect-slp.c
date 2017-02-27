@@ -2087,21 +2087,31 @@ vect_split_slp_store_group (gimple *first_stmt, unsigned group1_size)
   gcc_assert (group1_size > 0);
   int group2_size = GROUP_SIZE (first_vinfo) - group1_size;
   gcc_assert (group2_size > 0);
+  unsigned int first_uid = gimple_uid (first_stmt);
+  unsigned int last_uid = first_uid;
   GROUP_SIZE (first_vinfo) = group1_size;
 
   gimple *stmt = first_stmt;
   for (unsigned i = group1_size; i > 1; i--)
     {
       stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
+      first_uid = MIN (first_uid, gimple_uid (stmt));
+      last_uid = MAX (last_uid, gimple_uid (stmt));
       gcc_assert (GROUP_GAP (vinfo_for_stmt (stmt)) == 1);
     }
+  GROUP_FIRST_UID (first_vinfo) = first_uid;
+  GROUP_LAST_UID (first_vinfo) = last_uid;
+
   /* STMT is now the last element of the first group.  */
   gimple *group2 = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
   GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt)) = 0;
 
+  first_uid = last_uid = gimple_uid (group2);
   GROUP_SIZE (vinfo_for_stmt (group2)) = group2_size;
   for (stmt = group2; stmt; stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt)))
     {
+      first_uid = MIN (first_uid, gimple_uid (stmt));
+      last_uid = MAX (last_uid, gimple_uid (stmt));
       GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = group2;
       gcc_assert (GROUP_GAP (vinfo_for_stmt (stmt)) == 1);
     }
@@ -2110,6 +2120,8 @@ vect_split_slp_store_group (gimple *first_stmt, unsigned group1_size)
      plus skipping over the first vector.  */
   GROUP_GAP (vinfo_for_stmt (group2)) =
     GROUP_GAP (first_vinfo) + group1_size;
+  GROUP_FIRST_UID (vinfo_for_stmt (group2)) = first_uid;
+  GROUP_LAST_UID (vinfo_for_stmt (group2)) = last_uid;
 
   /* GROUP_GAP of the first group now has to skip over the second group too.  */
   GROUP_GAP (first_vinfo) += group2_size;

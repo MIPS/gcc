@@ -200,9 +200,12 @@ vect_preserves_scalar_order_p (gimple *stmt_a, gimple *stmt_b)
   stmt_vec_info stmtinfo_a = vinfo_for_stmt (stmt_a);
   stmt_vec_info stmtinfo_b = vinfo_for_stmt (stmt_b);
 
-  /* Single statements are always kept in their original order.  */
-  if (!STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
-      && !STMT_VINFO_GROUPED_ACCESS (stmtinfo_b))
+  /* Check whether the groups that contain the statements overlap.  */
+  if (vect_group_first_uid (stmtinfo_a)
+      > vect_group_last_uid (stmtinfo_b))
+    return true;
+  if (vect_group_first_uid (stmtinfo_b)
+      > vect_group_last_uid (stmtinfo_a))
     return true;
 
   /* STMT_A and STMT_B belong to overlapping groups.  All loads in a
@@ -2539,6 +2542,12 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       /* By construction, all group members have INTEGER_CST DR_INITs.  */
       while (next)
         {
+	  unsigned int uid = gimple_uid (next);
+	  if (GROUP_FIRST_UID (stmt_info) > uid)
+	    GROUP_FIRST_UID (stmt_info) = uid;
+	  if (GROUP_LAST_UID (stmt_info) < uid)
+	    GROUP_LAST_UID (stmt_info) = uid;
+
           /* Skip same data-refs.  In case that two or more stmts share
              data-ref (supported only for loads), we vectorize only the first
              stmt, and the rest get their vectorized loads from the first
