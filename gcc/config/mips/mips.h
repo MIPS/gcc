@@ -434,6 +434,9 @@ struct mips_cpu_info {
     }								\
   while (0)
 
+/* ISA has instructions that can be excluded for low power from R7 onwards.  */
+#define ISA_HAS_XLP		(mips_isa_rev < 7 || TARGET_EXLP)
+
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()					\
   do									\
@@ -551,6 +554,8 @@ struct mips_cpu_info {
 	  builtin_define ("__mips=64");					\
 	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS64");		\
 	}								\
+      if (ISA_HAS_XLP)							\
+	  builtin_define ("__mips_xlp");				\
       if (mips_isa_rev > 0)						\
 	builtin_define_with_int_value ("__mips_isa_rev",		\
 				       mips_isa_rev);			\
@@ -956,9 +961,6 @@ struct mips_cpu_info {
 #define ABI_HAS_64BIT_SYMBOLS	(FILE_HAS_64BIT_SYMBOLS \
 				 && Pmode == DImode	\
 				 && !TARGET_SYM32)
-
-/* ISA has instructions that can be excluded for low power from R7 onwards.  */
-#define ISA_HAS_XLP		(mips_isa_rev < 7 || TARGET_EXLP)
 
 /* ISA has instructions for managing 64-bit fp and gp regs (e.g. mips3).  */
 #define ISA_HAS_64BIT_REGS	(ISA_MIPS3				\
