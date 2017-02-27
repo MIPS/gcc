@@ -783,6 +783,12 @@ typedef struct _stmt_vec_info {
 
   /* Number of real statements in a group.  */
   unsigned int num_stmts;
+
+  /* For GROUP_FIRST_ELEMENT statements, these fields give the UIDs of
+     the first and last statements in the group, otherwise both are
+     equal to the statement's UID.  */
+  unsigned int first_uid;
+  unsigned int last_uid;
 } *stmt_vec_info;
 
 /* Information about a gather/scatter call.  */
@@ -872,6 +878,8 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_VINFO_GROUP_GAP(S)            (S)->gap
 #define STMT_VINFO_GROUP_SAME_DR_STMT(S)   (S)->same_dr_stmt
 #define STMT_VINFO_GROUP_NUM_STMTS(S)      (S)->num_stmts
+#define STMT_VINFO_GROUP_FIRST_UID(S)      (S)->first_uid
+#define STMT_VINFO_GROUP_LAST_UID(S)       (S)->last_uid
 #define STMT_VINFO_GROUPED_ACCESS(S)      ((S)->first_element != NULL && (S)->data_ref_info)
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_BASE_UNCHANGED(S) (S)->loop_phi_evolution_base_unchanged
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_PART(S) (S)->loop_phi_evolution_part
@@ -885,6 +893,8 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define GROUP_GAP(S)                    (S)->gap
 #define GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
 #define GROUP_NUM_STMTS(S)              (S)->num_stmts
+#define GROUP_FIRST_UID(S)              (S)->first_uid
+#define GROUP_LAST_UID(S)               (S)->last_uid
 
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_scope)
 
@@ -956,6 +966,11 @@ set_vinfo_for_stmt (gimple *stmt, stmt_vec_info info)
       uid = stmt_vec_info_vec.length () + 1;
       gimple_set_uid (stmt, uid);
       stmt_vec_info_vec.safe_push (info);
+      if (GROUP_FIRST_UID (info) == 0)
+	{
+	  GROUP_FIRST_UID (info) = uid;
+	  GROUP_LAST_UID (info) = uid;
+	}
     }
   else
     {
@@ -1018,6 +1033,30 @@ get_later_stmt (gimple *stmt1, gimple *stmt2)
     return stmt1;
   else
     return stmt2;
+}
+
+/* If STMT is in a group, return the UID of the first statement in
+   the group, otherwise return STMT's own UID.  */
+
+static inline unsigned int
+vect_group_first_uid (stmt_vec_info stmt_info)
+{
+  if (GROUP_FIRST_ELEMENT (stmt_info))
+    stmt_info = vinfo_for_stmt (GROUP_FIRST_ELEMENT (stmt_info));
+  gcc_checking_assert (GROUP_FIRST_UID (stmt_info) != 0);
+  return GROUP_FIRST_UID (stmt_info);
+}
+
+/* If STMT is in a group, return the UID of the last statement in
+   the group, otherwise return STMT's own UID.  */
+
+static inline unsigned int
+vect_group_last_uid (stmt_vec_info stmt_info)
+{
+  if (GROUP_FIRST_ELEMENT (stmt_info))
+    stmt_info = vinfo_for_stmt (GROUP_FIRST_ELEMENT (stmt_info));
+  gcc_checking_assert (GROUP_LAST_UID (stmt_info) != 0);
+  return GROUP_LAST_UID (stmt_info);
 }
 
 /* Return TRUE if a statement represented by STMT_INFO is a part of a

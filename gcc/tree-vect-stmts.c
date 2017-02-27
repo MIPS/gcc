@@ -9984,6 +9984,8 @@ new_stmt_vec_info (gimple *stmt, vec_info *vinfo)
   GROUP_NEXT_ELEMENT (res) = NULL;
   GROUP_SIZE (res) = 0;
   GROUP_NUM_STMTS (res) = 0;
+  GROUP_FIRST_UID (res) = 0;
+  GROUP_LAST_UID (res) = 0;
   GROUP_STORE_COUNT (res) = 0;
   GROUP_GAP (res) = 0;
   GROUP_SAME_DR_STMT (res) = NULL;

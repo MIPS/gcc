@@ -390,8 +390,10 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 		... = a[i];
 		a[i+1] = ...;
 	     where loads from the group interleave with the store.  */
-	  if (STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
-	      || STMT_VINFO_GROUPED_ACCESS (stmtinfo_b))
+	  if ((vect_group_first_uid (stmtinfo_a)
+	       < vect_group_last_uid (stmtinfo_b))
+	      && (vect_group_first_uid (stmtinfo_b)
+		  < vect_group_last_uid (stmtinfo_a)))
 	    {
 	      gimple *earlier_stmt;
 	      earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
@@ -2388,6 +2390,12 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 
       while (next)
         {
+	  unsigned int uid = gimple_uid (next);
+	  if (GROUP_FIRST_UID (stmt_info) > uid)
+	    GROUP_FIRST_UID (stmt_info) = uid;
+	  if (GROUP_LAST_UID (stmt_info) < uid)
+	    GROUP_LAST_UID (stmt_info) = uid;
+
           /* Skip same data-refs.  In case that two or more stmts share
              data-ref (supported only for loads), we vectorize only the first
              stmt, and the rest get their vectorized loads from the first
