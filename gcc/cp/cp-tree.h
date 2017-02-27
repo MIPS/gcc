@@ -6015,6 +6015,8 @@ extern bool maybe_clone_body			(tree);
 extern tree cp_convert_range_for (tree, tree, tree, bool);
 extern bool parsing_nsdmi (void);
 extern void inject_this_parameter (tree, cp_cv_quals);
+extern tree mark_vars_oacc_gangprivate (tree *, int *, void *);
+
 
 /* in pt.c */
 extern bool check_template_shadow		(tree);

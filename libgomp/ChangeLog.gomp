@@ -1,3 +1,7 @@
+2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/gang-private-1.c: New test.
+
 2017-02-17  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* plugin/plugin-nvptx.c (struct targ_fn_descriptor): Add num_regs
