@@ -1,3 +1,24 @@
+2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (gangprivate_shared_size): New global variable.
+	(gangprivate_shared_align): Likewise.
+	(gangprivate_shared_sym): Likewise.
+	(gangprivate_shared_hmap): Likewise.
+	(nvptx_option_override): Initialize gangprivate_shared_sym.
+	(nvptx_file_end): Output gangprivate_shared_sym.
+	(nvptx_goacc_expand_accel_var): New function.
+	(nvptx_set_current_function): New function.
+	(TARGET_SET_CURRENT_FUNCTION): Define hook.
+	(TARGET_GOACC_EXPAND_ACCEL): Likewise.
+	* doc/tm.texi (TARGET_GOACC_EXPAND_ACCEL_VAR): Document new hook.
+	* doc/tm.texi.in (TARGET_GOACC_EXPAND_ACCEL_VAR): Likewise.
+	* expr.c (expand_expr_real_1): Remap decls marked with the
+	"oacc gangprivate" atttribute.
+	* omp-low.c (scan_sharing_clauses): Strip out any "oacc gangprivate"
+	attributes from acc loop private clauses.
+	* target.def (expand_accel_var): New hook.
+
 2017-02-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-offload.c (inform_oacc_loop): New function.

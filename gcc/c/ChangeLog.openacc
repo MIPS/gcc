@@ -1,3 +1,10 @@
+2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (mark_vars_oacc_gangprivate): New function.
+	(c_parser_oacc_kernels_parallel): Call it to mark gang local variables
+	with attribute "oacc gangprivate".
+
 2017-01-10  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	PR other/76739

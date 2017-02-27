@@ -16122,6 +16122,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       stmt = begin_omp_parallel ();
       RECUR (OMP_BODY (t));
       finish_omp_construct (TREE_CODE (t), stmt, tmp);
+      walk_tree_1 (&OMP_BODY (t), mark_vars_oacc_gangprivate, NULL, NULL, NULL);
       break;
 
     case OMP_PARALLEL:

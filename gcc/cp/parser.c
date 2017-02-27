@@ -36632,6 +36632,34 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_VECTOR_LENGTH)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT))
 
+tree
+mark_vars_oacc_gangprivate (tree *tp,
+			    int *walk_subtrees ATTRIBUTE_UNUSED,
+			    void *data ATTRIBUTE_UNUSED)
+{
+  /* We back away from nested OpenACC non-gang loop directives.  */
+  if (TREE_CODE (*tp) == OACC_LOOP
+      && omp_find_clause (OMP_FOR_CLAUSES (*tp), OMP_CLAUSE_GANG) == NULL_TREE)
+    {
+      return *tp;
+    }
+  if (TREE_CODE (*tp) == BIND_EXPR)
+    {
+      tree block = BIND_EXPR_BLOCK (*tp);
+      if (block == NULL)
+	return NULL;
+      for (tree var = BLOCK_VARS (block); var; var = DECL_CHAIN (var))
+	{
+	  gcc_assert (TREE_CODE (var) == VAR_DECL);
+	  DECL_ATTRIBUTES (var)
+	    = tree_cons (get_identifier ("oacc gangprivate"),
+			 NULL, DECL_ATTRIBUTES (var));
+	  cxx_mark_addressable (var);
+	}
+    }
+  return NULL;
+}
+
 static tree
 cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
 				 char *p_name, bool *if_p)
@@ -36668,7 +36696,9 @@ cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
 	  tree stmt = cp_parser_oacc_loop (parser, pragma_tok, p_name, mask,
 					   &clauses, if_p);
 	  protected_set_expr_location (stmt, pragma_tok->location);
-	  return finish_omp_construct (code, block, clauses);
+	  block =  finish_omp_construct (code, block, clauses);
+	  walk_tree_1 (&block, mark_vars_oacc_gangprivate, NULL, NULL, NULL);
+	  return block;
 	}
     }
 
@@ -36679,7 +36709,9 @@ cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
   unsigned int save = cp_parser_begin_omp_structured_block (parser);
   cp_parser_statement (parser, NULL_TREE, false, if_p);
   cp_parser_end_omp_structured_block (parser, save);
-  return finish_omp_construct (code, block, clauses);
+  block = finish_omp_construct (code, block, clauses);
+  walk_tree_1 (&block, mark_vars_oacc_gangprivate, NULL, NULL, NULL);
+  return block;
 }
 
 /* OpenACC 2.0:

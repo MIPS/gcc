@@ -14260,6 +14260,32 @@ c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT) )
 
 static tree
+mark_vars_oacc_gangprivate (tree *tp,
+			    int *walk_subtrees ATTRIBUTE_UNUSED,
+			    void *data ATTRIBUTE_UNUSED)
+{
+  /* We back away from nested OpenACC non-gang loop directives.  */
+  if (TREE_CODE (*tp) == OACC_LOOP
+      && omp_find_clause (OMP_FOR_CLAUSES (*tp), OMP_CLAUSE_GANG) == NULL_TREE)
+    {
+      return *tp;
+    }
+  if (TREE_CODE (*tp) == BIND_EXPR)
+    {
+      tree block = BIND_EXPR_BLOCK (*tp);
+      for (tree var = BLOCK_VARS (block); var; var = DECL_CHAIN (var))
+	{
+	  gcc_assert (TREE_CODE (var) == VAR_DECL);
+	  DECL_ATTRIBUTES (var)
+	    = tree_cons (get_identifier ("oacc gangprivate"),
+			 NULL, DECL_ATTRIBUTES (var));
+	  c_mark_addressable (var);
+	}
+    }
+  return NULL;
+}
+
+static tree
 c_parser_oacc_kernels_parallel (location_t loc, c_parser *parser,
 				enum pragma_kind p_kind, char *p_name,
 				bool *if_p)
@@ -14293,7 +14319,9 @@ c_parser_oacc_kernels_parallel (location_t loc, c_parser *parser,
 	  tree block = c_begin_omp_parallel ();
 	  tree clauses;
 	  c_parser_oacc_loop (loc, parser, p_name, mask, &clauses, if_p);
-	  return c_finish_omp_construct (loc, code, block, clauses);
+	  block = c_finish_omp_construct (loc, code, block, clauses);
+	  walk_tree_1 (&block, mark_vars_oacc_gangprivate, NULL, NULL, NULL);
+	  return block;
 	}
     }
 
@@ -14302,7 +14330,9 @@ c_parser_oacc_kernels_parallel (location_t loc, c_parser *parser,
   tree block = c_begin_omp_parallel ();
   add_stmt (c_parser_omp_structured_block (parser, if_p));
 
-  return c_finish_omp_construct (loc, code, block, clauses);
+  block = c_finish_omp_construct (loc, code, block, clauses);
+  walk_tree_1 (&block, mark_vars_oacc_gangprivate, NULL, NULL, NULL);
+  return block;
 }
 
 /* OpenACC 2.0:

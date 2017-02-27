@@ -4302,6 +4302,8 @@ address;  but often a machine-dependent strategy can generate better code.
 
 @hook TARGET_GOACC_REDUCTION
 
+@hook TARGET_GOACC_EXPAND_ACCEL_VAR
+
 @node Anchored Addresses
 @section Anchored Addresses
 @cindex anchored addresses
