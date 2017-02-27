@@ -856,6 +856,13 @@ extern UDItype __umulsidi3 (USItype, USItype);
 #define count_leading_zeros(COUNT,X)	((COUNT) = __builtin_clz (X))
 #define COUNT_LEADING_ZEROS_0 32
 #endif
+
+/* __mips_xlp is defined for R7.  */
+#if __mips_isa_rev >= 7 && ! defined (__mips_xlp)
+#undef count_leading_zeros
+#undef COUNT_LEADING_ZEROS_0
+#endif
+
 #endif /* __mips__ */
 
 #if defined (__ns32000__) && W_TYPE_SIZE == 32
