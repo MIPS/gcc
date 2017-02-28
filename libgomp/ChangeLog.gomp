@@ -1,3 +1,10 @@
+2017-02-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* oacc-init.c (goacc_register, acc_init, goacc_lazy_initialize):
+	Fix locking of cached_base_dev (guarded by acc_device_lock).
+	(goacc_lazy_initialize): Don't call acc_init; copy code here,
+	instead.
+
 2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/gang-private-1.c: New test.

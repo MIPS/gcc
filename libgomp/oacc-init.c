@@ -64,6 +64,10 @@ static gomp_mutex_t goacc_thread_lock;
    grouped by device in target.c:devices).  */
 static struct gomp_device_descr *dispatchers[_ACC_device_hwm] = { 0 };
 
+/* Register a device.
+
+   ACC_DEVICE_LOCK must be held before calling this function.  */
+
 attribute_hidden void
 goacc_register (struct gomp_device_descr *disp)
 {
@@ -71,15 +75,11 @@ goacc_register (struct gomp_device_descr *disp)
   if (disp->target_id != 0)
     return;
 
-  gomp_mutex_lock (&acc_device_lock);
-
   assert (acc_device_type (disp->type) != acc_device_none
 	  && acc_device_type (disp->type) != acc_device_default
 	  && acc_device_type (disp->type) != acc_device_not_host);
   assert (!dispatchers[disp->type]);
   dispatchers[disp->type] = disp;
-
-  gomp_mutex_unlock (&acc_device_lock);
 }
 
 /* OpenACC names some things a little differently.  */
@@ -449,13 +449,10 @@ goacc_attach_host_thread_to_device (int ord)
 void
 acc_init (acc_device_t d)
 {
+  gomp_mutex_lock (&acc_device_lock);
   if (!cached_base_dev)
     gomp_init_targets_once ();
-
-  gomp_mutex_lock (&acc_device_lock);
-
   cached_base_dev = acc_init_1 (d);
-
   gomp_mutex_unlock (&acc_device_lock);
   
   goacc_attach_host_thread_to_device (-1);
@@ -704,12 +701,16 @@ attribute_hidden void
 goacc_lazy_initialize (void)
 {
   struct goacc_thread *thr = goacc_thread ();
-
   if (thr && thr->dev)
     return;
 
+  gomp_mutex_lock (&acc_device_lock);
   if (!cached_base_dev)
-    acc_init (acc_device_default);
-  else
-    goacc_attach_host_thread_to_device (-1);
+    {
+      gomp_init_targets_once ();
+      cached_base_dev = acc_init_1 (acc_device_default);
+    }
+  gomp_mutex_unlock (&acc_device_lock);
+
+  goacc_attach_host_thread_to_device (-1);
 }
