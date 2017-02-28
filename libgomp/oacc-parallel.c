@@ -142,21 +142,78 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
   thr = goacc_thread ();
   acc_dev = thr->dev;
 
+  bool profiling_dispatch_p
+    = __builtin_expect (goacc_profiling_dispatch_p (), false);
+
+  acc_prof_info prof_info;
+  if (profiling_dispatch_p)
+    {
+      thr->prof_info = &prof_info;
+
+      prof_info.event_type = acc_ev_compute_construct_start;
+      prof_info.valid_bytes = _ACC_PROF_INFO_VALID_BYTES;
+      prof_info.version = _ACC_PROF_INFO_VERSION;
+      prof_info.device_type = acc_device_type (acc_dev->type);
+      prof_info.device_number = acc_dev->target_id;
+      prof_info.thread_id = -1; //TODO
+      prof_info.async = async;
+      /* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+      prof_info.async_queue = prof_info.async;
+      prof_info.src_file = NULL; //TODO
+      prof_info.func_name = NULL; //TODO
+      prof_info.line_no = -1; //TODO
+      prof_info.end_line_no = -1; //TODO
+      prof_info.func_line_no = -1; //TODO
+      prof_info.func_end_line_no = -1; //TODO
+    }
+  acc_event_info compute_construct_event_info;
+  if (profiling_dispatch_p)
+    {
+      compute_construct_event_info.other_event.event_type
+	= prof_info.event_type;
+      compute_construct_event_info.other_event.valid_bytes
+	= _ACC_OTHER_EVENT_INFO_VALID_BYTES;
+      compute_construct_event_info.other_event.parent_construct
+	= acc_construct_parallel; //TODO: kernels...
+      compute_construct_event_info.other_event.implicit = 0;
+      compute_construct_event_info.other_event.tool_info = NULL;
+    }
+  acc_api_info api_info;
+  if (profiling_dispatch_p)
+    {
+      thr->api_info = &api_info;
+
+      api_info.device_api = acc_device_api_none;
+      api_info.valid_bytes = _ACC_API_INFO_VALID_BYTES;
+      api_info.device_type = prof_info.device_type;
+      api_info.vendor = -1; //TODO
+      api_info.device_handle = NULL; //TODO
+      api_info.context_handle = NULL; //TODO
+      api_info.async_handle = NULL; //TODO
+    }
+
+  if (profiling_dispatch_p)
+    goacc_profiling_dispatch (&prof_info, &compute_construct_event_info,
+			      &api_info);
+
   handle_ftn_pointers (mapnum, hostaddrs, sizes, kinds);
 
   /* Host fallback if "if" clause is false or if the current device is set to
      the host.  */
   if (host_fallback)
     {
+      //TODO
+      prof_info.device_type = acc_device_host;
+      api_info.device_type = prof_info.device_type;
       goacc_save_and_set_bind (acc_device_host);
       fn (hostaddrs);
       goacc_restore_bind ();
-      return;
+      goto out;
     }
   else if (acc_device_type (acc_dev->type) == acc_device_host)
     {
       fn (hostaddrs);
-      return;
+      goto out;
     }
 
   /* Default: let the runtime choose.  */
@@ -190,6 +247,14 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 
 	    if (async == GOMP_LAUNCH_OP_MAX)
 	      async = va_arg (ap, unsigned);
+
+	    if (profiling_dispatch_p)
+	      {
+		prof_info.async = async;
+		/* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+		prof_info.async_queue = prof_info.async;
+	      }
+
 	    break;
 	  }
 
@@ -227,8 +292,31 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
   else
     tgt_fn = (void (*)) fn;
 
+  acc_event_info enter_exit_data_event_info;
+  if (profiling_dispatch_p)
+    {
+      prof_info.event_type = acc_ev_enter_data_start;
+      enter_exit_data_event_info.other_event.event_type
+	= prof_info.event_type;
+      enter_exit_data_event_info.other_event.valid_bytes
+	= _ACC_OTHER_EVENT_INFO_VALID_BYTES;
+      enter_exit_data_event_info.other_event.parent_construct
+	= compute_construct_event_info.other_event.parent_construct;
+      enter_exit_data_event_info.other_event.implicit = 1;
+      enter_exit_data_event_info.other_event.tool_info = NULL;
+      goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
+				&api_info);
+    }
   tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
 		       GOMP_MAP_VARS_OPENACC);
+  if (profiling_dispatch_p)
+    {
+      prof_info.event_type = acc_ev_enter_data_end;
+      enter_exit_data_event_info.other_event.event_type
+	= prof_info.event_type;
+      goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
+				&api_info);
+    }
 
   devaddrs = gomp_alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
@@ -246,11 +334,43 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 
   /* If running synchronously, unmap immediately.  */
   if (async < acc_async_noval)
-    gomp_unmap_vars (tgt, true);
+    {
+      if (profiling_dispatch_p)
+	{
+	  prof_info.event_type = acc_ev_exit_data_start;
+	  enter_exit_data_event_info.other_event.event_type
+	    = prof_info.event_type;
+	  enter_exit_data_event_info.other_event.tool_info = NULL;
+	  goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
+				    &api_info);
+	}
+      gomp_unmap_vars (tgt, true);
+      if (profiling_dispatch_p)
+	{
+	  prof_info.event_type = acc_ev_exit_data_end;
+	  enter_exit_data_event_info.other_event.event_type
+	    = prof_info.event_type;
+	  goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
+				    &api_info);
+	}
+    }
   else
     tgt->device_descr->openacc.register_async_cleanup_func (tgt, async);
 
   acc_dev->openacc.async_set_async_func (acc_async_sync);
+
+ out:
+  if (profiling_dispatch_p)
+    {
+      prof_info.event_type = acc_ev_compute_construct_end;
+      compute_construct_event_info.other_event.event_type
+	= prof_info.event_type;
+      goacc_profiling_dispatch (&prof_info, &compute_construct_event_info,
+				&api_info);
+
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 /* Legacy entry point, only provide host execution.  */

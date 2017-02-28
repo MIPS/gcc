@@ -1301,8 +1301,9 @@ initialize_env (void)
   parse_acc_device_type ();
 
   goacc_runtime_initialize ();
-}
 
+  goacc_profiling_initialize ();
+}
 
 /* The public OpenMP API routines that access these variables.  */
 

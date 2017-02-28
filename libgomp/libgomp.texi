@@ -111,6 +111,7 @@ changed to GNU Offloading and Multi Processing Runtime Library.
                                asynchronous operations.
 * OpenACC Library Interoperability:: OpenACC library interoperability with the
                                NVIDIA CUBLAS library.
+* OpenACC Profiling Interface::
 * The libgomp ABI::            Notes on the external ABI presented by libgomp.
 * Reporting Bugs::             How to report bugs in the GNU Offloading and
                                Multi Processing Runtime Library.
@@ -3081,6 +3082,251 @@ is called prior to a call to an OpenACC function, then you must call
 about @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM} can be found in
 sections 4.1 and 4.2 of the @uref{http://www.openacc.org/, OpenACC}
 Application Programming Interface”, Version 2.0.}
+
+
+
+@c ---------------------------------------------------------------------
+@c OpenACC Profiling Interface
+@c ---------------------------------------------------------------------
+
+@node OpenACC Profiling Interface
+@chapter OpenACC Profiling Interface
+
+@section Implementation Status and Implementation-Defined Behavior
+
+We're not yet implementing the whole Profiling Interface as defined by
+the OpenACC 2.5 specification.  Also, the specification doesn't
+clearly define some aspects of its Profiling Interface, so we're
+clarifying these as @emph{implementation-defined behavior} here.  We
+already have reported to the OpenACC Technical Committee some issues,
+and will report more, later on.
+
+This implementation of the OpenACC Profiling Interface is tuned to
+keep the performance impact as low as possible when it's not in use.
+This is relevant, as the Profiling Interface affects all the
+@emph{hot} code paths (in the target code, not in the offloaded code).
+Users of the OpenACC Profiling Interface can be expected to understand
+that performance will always be impacted to some degree: for example,
+because of the @emph{runtime} (libgomp) calling into a third-party
+@emph{library} for every event that has been registered.
+
+This implementation of the OpenACC Profiling Interface has not yet
+been validated for use in multi-threaded code.  This is a more general
+issue; see CSTS-110 @cite{Make sure all OpenACC entry points in
+libgomp are thread-safe}.
+
+The @code{acc_prof_lookup} interface is not implemented, and
+@code{acc_register_library} will receive @code{NULL} for its
+@code{lookup} parameter.
+
+Remarks about data provided to callbacks:
+
+@table @asis
+
+@item @code{acc_prof_info.event_type}
+It is not clear if for @emph{nested} event callbacks (for example,
+@code{acc_ev_enqueue_launch_start} as part of a parent compute
+construct), this should be set for the nested event
+(@code{acc_ev_enqueue_launch_start}), or if the value of the parent
+construct should remain (@code{acc_ev_compute_construct_start}).  In
+this implementation, the value will generally correspond to the
+innermost nested event type.
+
+@item @code{acc_prof_info.device_type}
+@itemize
+
+@item
+For @code{acc_ev_compute_construct_start}, and in presence of an
+@code{if} clause with @emph{false} argument, this will still refer to
+the offloading device type; unsure whether that's the expected
+behavior.
+
+@item
+Complementary to the item before, for
+@code{acc_ev_compute_construct_end}, this is set to
+@code{acc_device_host} in presence of an @code{if} clause with
+@emph{false} argument, unsure whether that's the expected behavior.
+
+@end itemize
+
+@item @code{acc_prof_info.thread_id}
+Always @code{-1}; not yet implemented.
+
+@item @code{acc_prof_info.async}
+@itemize
+
+@item
+Not yet implemented correctly for
+@code{acc_ev_compute_construct_start}.
+
+@item
+In a compute construct, for host-fallback
+execution/@code{acc_device_host} it will always be
+@code{acc_async_sync}; unsure if that is the expected behavior.
+
+@item
+For @code{acc_ev_device_init_start} and @code{acc_ev_device_init_end},
+it will always be @code{acc_async_sync}; unsure if that is the
+expected behavior.
+
+@end itemize
+
+@item @code{acc_prof_info.async_queue}
+There is no @cite{limited number of asynchronous queues} in libgomp.
+We define this to always have the same value as
+@code{acc_prof_info.async}.
+
+@item @code{acc_prof_info.file}
+Always @code{NULL}; not yet implemented.
+
+@item @code{acc_prof_info.func_name}
+Always @code{NULL}; not yet implemented.
+
+@item @code{acc_prof_info.line_no}
+Always @code{-1}; not yet implemented.
+
+@item @code{acc_prof_info.end_line_no}
+Always @code{-1}; not yet implemented.
+
+@item @code{acc_prof_info.func_line_no}
+Always @code{-1}; not yet implemented.
+
+@item @code{acc_prof_info.func_end_line_no}
+Always @code{-1}; not yet implemented.
+
+@item @code{acc_event_info.event_type}, @code{acc_event_info.*.event_type}
+Relating to @code{acc_prof_info.event_type} discussed above, in this
+implementation, this will always be the same value as
+@code{acc_prof_info.event_type}.
+
+@item @code{acc_event_info.*.parent_construct}
+@itemize
+
+@item
+Will be @code{acc_construct_parallel} for OpenACC kernels constructs;
+should be @code{acc_construct_kernels}.
+
+@item
+For implicit @code{acc_ev_device_init_start},
+@code{acc_ev_device_init_end}, and explicit as well as implicit
+@code{acc_ev_alloc}, @code{acc_ev_free},
+@code{acc_ev_enqueue_upload_start}, @code{acc_ev_enqueue_upload_end},
+@code{acc_ev_enqueue_download_start}, and
+@code{acc_ev_enqueue_download_end}, will be
+@code{acc_construct_parallel}; should reflect the real parent
+construct.
+
+@end itemize
+
+@item @code{acc_event_info.*.implicit}
+For @code{acc_ev_alloc}, @code{acc_ev_free},
+@code{acc_ev_enqueue_upload_start}, @code{acc_ev_enqueue_upload_end},
+@code{acc_ev_enqueue_download_start}, and
+@code{acc_ev_enqueue_download_end}, this currently will be @code{1}
+also for explicit usage.
+
+@item @code{acc_event_info.data_event.var_name}
+Always @code{NULL}; not yet implemented.
+
+@item @code{acc_event_info.data_event.host_ptr}
+For @code{acc_ev_alloc}, and @code{acc_ev_free}, this is always
+@code{NULL}.
+
+@item @code{typedef union acc_api_info}
+@dots{} as printed in @cite{5.2.3. Third Argument: API-Specific
+Information}, should obviously be @code{typedef @emph{struct}
+acc_api_info}.
+
+@item @code{acc_api_info.device_api}
+Possibly not yet implemented correctly for
+@code{acc_ev_compute_construct_start},
+@code{acc_ev_device_init_start}, @code{acc_ev_device_init_end}:
+will always be @code{acc_device_api_none} for these event types.
+For @code{acc_ev_enter_data_start}, it will be
+@code{acc_device_api_none} in some cases.
+
+@item @code{acc_api_info.device_type}
+Always the same as @code{acc_prof_info.device_type}.
+
+@item @code{acc_api_info.vendor}
+Always @code{-1}; not yet implemented.
+
+@item @code{acc_api_info.device_handle}
+Always @code{NULL}; not yet implemented.
+
+@item @code{acc_api_info.context_handle}
+Always @code{NULL}; not yet implemented.
+
+@item @code{acc_api_info.async_handle}
+Always @code{NULL}; not yet implemented.
+
+@end table
+
+Remarks about certain event types:
+
+@table @asis
+
+@item @code{acc_ev_device_init_start}, @code{acc_ev_device_init_end}
+@itemize
+
+@item
+@c See DEVICE_INIT_INSIDE_COMPUTE_CONSTRUCT in
+@c libgomp.oacc-c-c++-common/acc_prof-parallel-1.c.
+Whan a compute construct triggers implicit
+@code{acc_ev_device_init_start} and @code{acc_ev_device_init_end}
+events, they currently aren't @emph{nested within} the corresponding
+@code{acc_ev_compute_construct_start} and
+@code{acc_ev_compute_construct_end}, but they're currently observed
+@emph{before} @code{acc_ev_compute_construct_start}.  It is not clear
+what to do: the standard asks us provide a lot of details to the
+@code{acc_ev_compute_construct_start} callback, without (implicitly)
+initializing a device before?
+
+@item
+Callbacks for these event types will not be invoked for calls to the
+@code{acc_set_device_type} and @code{acc_set_device_num} functions;
+it's not clear if they should be.
+
+@end itemize
+
+@end table
+
+Callbacks for the following event types will be invoked, but dispatch
+and information provided therein has not yet been thoroughly reviewed:
+
+@itemize
+@item @code{acc_ev_alloc}
+@item @code{acc_ev_free}
+@item @code{acc_ev_enqueue_upload_start}, @code{acc_ev_enqueue_upload_end}
+@item @code{acc_ev_enqueue_download_start}, @code{acc_ev_enqueue_download_end}
+@end itemize
+
+During device initialization, and finalization, respectively,
+callbacks for the following event types will not yet be invoked:
+
+@itemize
+@item @code{acc_ev_alloc}
+@item @code{acc_ev_free}
+@end itemize
+
+Callbacks for the following event types will currently only be invoked
+for (implicit) events within compute constructs:
+
+@itemize
+@item @code{acc_ev_enter_data_start}, @code{acc_ev_enter_data_end}
+@item @code{acc_ev_exit_data_start}, @code{acc_ev_exit_data_end}
+@end itemize
+
+Callbacks for the following event types have not yet been implemented,
+so currently won't be invoked:
+
+@itemize
+@item @code{acc_ev_device_shutdown_start}, @code{acc_ev_device_shutdown_end}
+@item @code{acc_ev_runtime_shutdown}
+@item @code{acc_ev_create}, @code{acc_ev_delete}
+@item @code{acc_ev_update_start}, @code{acc_ev_update_end}
+@item @code{acc_ev_wait_start}, @code{acc_ev_wait_end}
+@end itemize
 
 
 

@@ -36,6 +36,7 @@
 #include "libgomp-plugin.h"
 #include "oacc-plugin.h"
 #include "gomp-constants.h"
+#include "oacc-int.h"
 
 #include <pthread.h>
 #include <cuda.h>
@@ -121,7 +122,7 @@ struct nvptx_thread
 };
 
 static struct cuda_map *
-cuda_map_create (size_t size)
+cuda_map_create (struct goacc_thread *thr, size_t size)
 {
   struct cuda_map *map = GOMP_PLUGIN_malloc (sizeof (struct cuda_map));
 
@@ -134,13 +135,72 @@ cuda_map_create (size_t size)
   CUDA_CALL_ERET (NULL, cuMemAlloc, &map->d, size);
   assert (map->d);
 
+  bool profiling_dispatch_p
+    = __builtin_expect (thr != NULL && thr->prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      acc_prof_info *prof_info = thr->prof_info;
+      acc_event_info data_event_info;
+      acc_api_info *api_info = thr->api_info;
+
+      prof_info->event_type = acc_ev_alloc;
+
+      data_event_info.data_event.event_type = prof_info->event_type;
+      data_event_info.data_event.valid_bytes
+	= _ACC_DATA_EVENT_INFO_VALID_BYTES;
+      data_event_info.data_event.parent_construct
+	= acc_construct_parallel; //TODO
+      /* Always implicit for "data mapping arguments for cuLaunchKernel".  */
+      data_event_info.data_event.implicit = 1;
+      data_event_info.data_event.tool_info = NULL;
+      data_event_info.data_event.var_name = NULL; //TODO
+      data_event_info.data_event.bytes = size;
+      data_event_info.data_event.host_ptr = NULL;
+      data_event_info.data_event.device_ptr = (void *) map->d;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
   return map;
 }
 
 static void
-cuda_map_destroy (struct cuda_map *map)
+cuda_map_destroy (struct goacc_thread *thr, struct cuda_map *map)
 {
   CUDA_CALL_ASSERT (cuMemFree, map->d);
+
+  bool profiling_dispatch_p
+    = __builtin_expect (thr != NULL && thr->prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      acc_prof_info *prof_info = thr->prof_info;
+      acc_event_info data_event_info;
+      acc_api_info *api_info = thr->api_info;
+
+      prof_info->event_type = acc_ev_free;
+
+      data_event_info.data_event.event_type = prof_info->event_type;
+      data_event_info.data_event.valid_bytes
+	= _ACC_DATA_EVENT_INFO_VALID_BYTES;
+      data_event_info.data_event.parent_construct
+	= acc_construct_parallel; //TODO
+      /* Always implicit for "data mapping arguments for cuLaunchKernel".  */
+      data_event_info.data_event.implicit = 1;
+      data_event_info.data_event.tool_info = NULL;
+      data_event_info.data_event.var_name = NULL; //TODO
+      data_event_info.data_event.bytes = map->size;
+      data_event_info.data_event.host_ptr = NULL;
+      data_event_info.data_event.device_ptr = (void *) map->d;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
   free (map);
 }
 
@@ -156,30 +216,30 @@ cuda_map_destroy (struct cuda_map *map)
    GOMP_OFFLOAD_fini_device, respectively.  */
 
 static bool
-map_init (struct ptx_stream *s)
+map_init (struct goacc_thread *thr, struct ptx_stream *s)
 {
   int size = getpagesize ();
 
   assert (s);
 
-  s->map = cuda_map_create (size);
+  s->map = cuda_map_create (thr, size);
 
   return true;
 }
 
 static bool
-map_fini (struct ptx_stream *s)
+map_fini (struct goacc_thread *thr, struct ptx_stream *s)
 {
   assert (s->map->next == NULL);
   assert (!s->map->active);
 
-  cuda_map_destroy (s->map);
+  cuda_map_destroy (thr, s->map);
 
   return true;
 }
 
 static void
-map_pop (struct ptx_stream *s)
+map_pop (struct goacc_thread *thr, struct ptx_stream *s)
 {
   struct cuda_map *next;
 
@@ -192,12 +252,12 @@ map_pop (struct ptx_stream *s)
     }
 
   next = s->map->next;
-  cuda_map_destroy (s->map);
+  cuda_map_destroy (thr, s->map);
   s->map = next;
 }
 
 static CUdeviceptr
-map_push (struct ptx_stream *s, size_t size)
+map_push (struct goacc_thread *thr, struct ptx_stream *s, size_t size)
 {
   struct cuda_map *map = NULL, *t = NULL;
 
@@ -209,7 +269,7 @@ map_push (struct ptx_stream *s, size_t size)
      cuda_map and push it to the end of the list.  */
   if (s->map->active)
     {
-      map = cuda_map_create (size);
+      map = cuda_map_create (thr, size);
 
       for (t = s->map; t->next != NULL; t = t->next)
 	;
@@ -218,8 +278,8 @@ map_push (struct ptx_stream *s, size_t size)
     }
   else if (s->map->size < size)
     {
-      cuda_map_destroy (s->map);
-      map = cuda_map_create (size);
+      cuda_map_destroy (thr, s->map);
+      map = cuda_map_create (thr, size);
     }
   else
     map = s->map;
@@ -365,7 +425,7 @@ init_streams_for_device (struct ptx_device *ptx_dev, int concurrency)
   null_stream->stream = NULL;
   null_stream->host_thread = pthread_self ();
   null_stream->multithreaded = true;
-  if (!map_init (null_stream))
+  if (!map_init (NULL, null_stream))
     return false;
 
   ptx_dev->null_stream = null_stream;
@@ -399,7 +459,7 @@ fini_streams_for_device (struct ptx_device *ptx_dev)
       struct ptx_stream *s = ptx_dev->active_streams;
       ptx_dev->active_streams = ptx_dev->active_streams->next;
 
-      ret &= map_fini (s);
+      ret &= map_fini (NULL, s);
 
       CUresult r = cuStreamDestroy (s->stream);
       if (r != CUDA_SUCCESS)
@@ -410,7 +470,7 @@ fini_streams_for_device (struct ptx_device *ptx_dev)
       free (s);
     }
 
-  ret &= map_fini (ptx_dev->null_stream);
+  ret &= map_fini (NULL, ptx_dev->null_stream);
   free (ptx_dev->null_stream);
   return ret;
 }
@@ -425,7 +485,8 @@ static struct ptx_stream *
 select_stream_for_async (int async, pthread_t thread, bool create,
 			 CUstream existing)
 {
-  struct nvptx_thread *nvthd = nvptx_thread ();
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  struct nvptx_thread *nvthd = (struct nvptx_thread *) thr->target_tls;
   /* Local copy of TLS variable.  */
   struct ptx_device *ptx_dev = nvthd->ptx_dev;
   struct ptx_stream *stream = NULL;
@@ -495,7 +556,7 @@ select_stream_for_async (int async, pthread_t thread, bool create,
 	  s->host_thread = thread;
 	  s->multithreaded = false;
 
-	  if (!map_init (s))
+	  if (!map_init (thr, s))
 	    {
 	      pthread_mutex_unlock (&ptx_dev->stream_lock);
 	      GOMP_PLUGIN_fatal ("map_init fail");
@@ -840,7 +901,8 @@ event_gc (bool memmap_lockable)
 {
   struct ptx_event *ptx_event = ptx_events;
   struct ptx_event *async_cleanups = NULL;
-  struct nvptx_thread *nvthd = nvptx_thread ();
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  struct nvptx_thread *nvthd = (struct nvptx_thread *) thr->target_tls;
 
   pthread_mutex_lock (&ptx_event_lock);
 
@@ -869,7 +931,7 @@ event_gc (bool memmap_lockable)
 	      break;
 
 	    case PTX_EVT_KNL:
-	      map_pop (e->addr);
+	      map_pop (thr, e->addr);
 	      break;
 
 	    case PTX_EVT_ASYNC_CLEANUP:
@@ -960,7 +1022,8 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   void *kargs[1];
   void *hp;
   CUdeviceptr dp;
-  struct nvptx_thread *nvthd = nvptx_thread ();
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  struct nvptx_thread *nvthd = (struct nvptx_thread *) thr->target_tls;
   const char *maybe_abort_msg = "(perhaps abort was called)";
   int cpu_size = nvptx_thread ()->ptx_dev->max_threads_per_multiprocessor;
   int block_size = nvptx_thread ()->ptx_dev->max_threads_per_block;
@@ -1108,7 +1171,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
      the host and the device. HP is a host pointer to the new chunk, and DP is
      the corresponding device pointer.  */
   pthread_mutex_lock (&ptx_event_lock);
-  dp = map_push (dev_str, mapnum * sizeof (void *));
+  dp = map_push (thr, dev_str, mapnum * sizeof (void *));
   pthread_mutex_unlock (&ptx_event_lock);
 
   GOMP_PLUGIN_debug (0, "  %s: prepare mappings\n", __FUNCTION__);
@@ -1120,8 +1183,45 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 
   /* Copy the (device) pointers to arguments to the device (dp and hp might in
      fact have the same value on a unified-memory system).  */
+
+  acc_prof_info *prof_info = thr->prof_info;
+  acc_event_info data_event_info;
+  acc_api_info *api_info = thr->api_info;
+  bool profiling_dispatch_p = __builtin_expect (prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_upload_start;
+
+      data_event_info.data_event.event_type = prof_info->event_type;
+      data_event_info.data_event.valid_bytes
+	= _ACC_DATA_EVENT_INFO_VALID_BYTES;
+      data_event_info.data_event.parent_construct
+	= acc_construct_parallel; //TODO
+      /* Always implicit for "data mapping arguments for cuLaunchKernel".  */
+      data_event_info.data_event.implicit = 1;
+      data_event_info.data_event.tool_info = NULL;
+      data_event_info.data_event.var_name = NULL; //TODO
+      data_event_info.data_event.bytes = mapnum * sizeof (void *);
+      data_event_info.data_event.host_ptr = hp;
+      data_event_info.data_event.device_ptr = (void *) dp;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
   CUDA_CALL_ASSERT (cuMemcpyHtoD, dp, hp,
 		    mapnum * sizeof (void *));
+
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_upload_end;
+      data_event_info.data_event.event_type = prof_info->event_type;
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
   GOMP_PLUGIN_debug (0, "  %s: kernel %s: launch"
 		     " gangs=%u, workers=%u, vectors=%u\n",
 		     __FUNCTION__, targ_fn->launch->fn, dims[GOMP_DIM_GANG],
@@ -1133,11 +1233,47 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   // num_workers	ntid.y
   // vector length	ntid.x
 
+  acc_event_info enqueue_launch_event_info;
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_launch_start;
+
+      enqueue_launch_event_info.launch_event.event_type
+	= prof_info->event_type;
+      enqueue_launch_event_info.launch_event.valid_bytes
+	= _ACC_LAUNCH_EVENT_INFO_VALID_BYTES;
+      enqueue_launch_event_info.launch_event.parent_construct
+	/* TODO = compute_construct_event_info.other_event.parent_construct */
+	= acc_construct_parallel; //TODO: kernels...
+      enqueue_launch_event_info.launch_event.implicit = 1;
+      enqueue_launch_event_info.launch_event.tool_info = NULL;
+      enqueue_launch_event_info.launch_event.kernel_name
+	= /* TODO */ (char *) /* TODO */ targ_fn->launch->fn;
+      enqueue_launch_event_info.launch_event.num_gangs
+	= dims[GOMP_DIM_GANG];
+      enqueue_launch_event_info.launch_event.num_workers
+	= dims[GOMP_DIM_WORKER];
+      enqueue_launch_event_info.launch_event.vector_length
+	= dims[GOMP_DIM_VECTOR];
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &enqueue_launch_event_info,
+					    api_info);
+    }
   kargs[0] = &dp;
   CUDA_CALL_ASSERT (cuLaunchKernel, function,
 		    dims[GOMP_DIM_GANG], 1, 1,
 		    dims[GOMP_DIM_VECTOR], dims[GOMP_DIM_WORKER], 1,
 		    0, dev_str->stream, kargs, 0);
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_launch_end;
+      enqueue_launch_event_info.launch_event.event_type
+	= prof_info->event_type;
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &enqueue_launch_event_info,
+					    api_info);
+    }
 
 #ifndef DISABLE_ASYNC
   if (async < acc_async_noval)
@@ -1183,7 +1319,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 #ifndef DISABLE_ASYNC
   if (async < acc_async_noval)
 #endif
-    map_pop (dev_str);
+    map_pop (thr, dev_str);
 }
 
 void * openacc_get_current_cuda_context (void);
@@ -1194,6 +1330,34 @@ nvptx_alloc (size_t s)
   CUdeviceptr d;
 
   CUDA_CALL_ERET (NULL, cuMemAlloc, &d, s);
+
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  acc_prof_info *prof_info = thr->prof_info;
+  acc_api_info *api_info = thr->api_info;
+  bool profiling_dispatch_p = __builtin_expect (prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_alloc;
+
+      acc_event_info data_event_info;
+      data_event_info.data_event.event_type = prof_info->event_type;
+      data_event_info.data_event.valid_bytes
+	= _ACC_DATA_EVENT_INFO_VALID_BYTES;
+      data_event_info.data_event.parent_construct
+	= acc_construct_parallel; //TODO
+      data_event_info.data_event.implicit = 1; //TODO
+      data_event_info.data_event.tool_info = NULL;
+      data_event_info.data_event.var_name = NULL; //TODO
+      data_event_info.data_event.bytes = s;
+      data_event_info.data_event.host_ptr = NULL;
+      data_event_info.data_event.device_ptr = (void *) d;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
   return (void *) d;
 }
 
@@ -1211,6 +1375,34 @@ nvptx_free (void *p)
     }
 
   CUDA_CALL (cuMemFree, (CUdeviceptr) p);
+
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  acc_prof_info *prof_info = thr->prof_info;
+  acc_api_info *api_info = thr->api_info;
+  bool profiling_dispatch_p = __builtin_expect (prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_free;
+
+      acc_event_info data_event_info;
+      data_event_info.data_event.event_type = prof_info->event_type;
+      data_event_info.data_event.valid_bytes
+	= _ACC_DATA_EVENT_INFO_VALID_BYTES;
+      data_event_info.data_event.parent_construct
+	= acc_construct_parallel; //TODO
+      data_event_info.data_event.implicit = 1; //TODO
+      data_event_info.data_event.tool_info = NULL;
+      data_event_info.data_event.var_name = NULL; //TODO
+      data_event_info.data_event.bytes = ps;
+      data_event_info.data_event.host_ptr = NULL;
+      data_event_info.data_event.device_ptr = p;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
   return true;
 }
 
@@ -1220,7 +1412,8 @@ nvptx_host2dev (void *d, const void *h, size_t s)
 {
   CUdeviceptr pb;
   size_t ps;
-  struct nvptx_thread *nvthd = nvptx_thread ();
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  struct nvptx_thread *nvthd = (struct nvptx_thread *) thr->target_tls;
 
   if (!s)
     return true;
@@ -1251,6 +1444,32 @@ nvptx_host2dev (void *d, const void *h, size_t s)
     {
       GOMP_PLUGIN_error ("invalid size");
       return false;
+    }
+
+  acc_prof_info *prof_info = thr->prof_info;
+  acc_event_info data_event_info;
+  acc_api_info *api_info = thr->api_info;
+  bool profiling_dispatch_p = __builtin_expect (prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_upload_start;
+
+      data_event_info.data_event.event_type = prof_info->event_type;
+      data_event_info.data_event.valid_bytes
+	= _ACC_DATA_EVENT_INFO_VALID_BYTES;
+      data_event_info.data_event.parent_construct
+	= acc_construct_parallel; //TODO
+      data_event_info.data_event.implicit = 1; //TODO
+      data_event_info.data_event.tool_info = NULL;
+      data_event_info.data_event.var_name = NULL; //TODO
+      data_event_info.data_event.bytes = s;
+      data_event_info.data_event.host_ptr = /* TODO */ (void *) h;
+      data_event_info.data_event.device_ptr = d;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
     }
 
 #ifndef DISABLE_ASYNC
@@ -1268,6 +1487,14 @@ nvptx_host2dev (void *d, const void *h, size_t s)
 #endif
     CUDA_CALL (cuMemcpyHtoD, (CUdeviceptr) d, h, s);
 
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_upload_end;
+      data_event_info.data_event.event_type = prof_info->event_type;
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
   return true;
 }
 
@@ -1276,7 +1503,8 @@ nvptx_dev2host (void *h, const void *d, size_t s)
 {
   CUdeviceptr pb;
   size_t ps;
-  struct nvptx_thread *nvthd = nvptx_thread ();
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  struct nvptx_thread *nvthd = (struct nvptx_thread *) thr->target_tls;
 
   if (!s)
     return true;
@@ -1309,6 +1537,32 @@ nvptx_dev2host (void *h, const void *d, size_t s)
       return false;
     }
 
+  acc_prof_info *prof_info = thr->prof_info;
+  acc_event_info data_event_info;
+  acc_api_info *api_info = thr->api_info;
+  bool profiling_dispatch_p = __builtin_expect (prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_download_start;
+
+      data_event_info.data_event.event_type = prof_info->event_type;
+      data_event_info.data_event.valid_bytes
+	= _ACC_DATA_EVENT_INFO_VALID_BYTES;
+      data_event_info.data_event.parent_construct
+	= acc_construct_parallel; //TODO
+      data_event_info.data_event.implicit = 1; //TODO
+      data_event_info.data_event.tool_info = NULL;
+      data_event_info.data_event.var_name = NULL; //TODO
+      data_event_info.data_event.bytes = s;
+      data_event_info.data_event.host_ptr = h;
+      data_event_info.data_event.device_ptr = /* TODO */ (void *) d;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
+
 #ifndef DISABLE_ASYNC
   if (nvthd->current_stream != nvthd->ptx_dev->null_stream)
     {
@@ -1323,6 +1577,14 @@ nvptx_dev2host (void *h, const void *d, size_t s)
   else
 #endif
     CUDA_CALL (cuMemcpyDtoH, h, (CUdeviceptr) d, s);
+
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_enqueue_download_end;
+      data_event_info.data_event.event_type = prof_info->event_type;
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &data_event_info,
+					    api_info);
+    }
 
   return true;
 }
@@ -1555,7 +1817,8 @@ nvptx_set_cuda_stream (int async, void *stream)
 {
   struct ptx_stream *oldstream;
   pthread_t self = pthread_self ();
-  struct nvptx_thread *nvthd = nvptx_thread ();
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  struct nvptx_thread *nvthd = (struct nvptx_thread *) thr->target_tls;
 
   if (async < 0)
     GOMP_PLUGIN_fatal ("bad async %d", async);
@@ -1586,7 +1849,7 @@ nvptx_set_cuda_stream (int async, void *stream)
 
       CUDA_CALL_ASSERT (cuStreamDestroy, oldstream->stream);
 
-      if (!map_fini (oldstream))
+      if (!map_fini (thr, oldstream))
 	GOMP_PLUGIN_fatal ("error when freeing host memory");
 
       free (oldstream);
