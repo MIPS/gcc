@@ -1,6 +1,6 @@
-! Test the output of -fopt-info-note-openmp.
+! Test the output of -fopt-info-note-omp.
 
-! { dg-additional-options "-fopt-info-note-openmp" }
+! { dg-additional-options "-fopt-info-note-omp" }
 
 program test
   implicit none

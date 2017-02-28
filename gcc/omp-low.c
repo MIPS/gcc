@@ -14783,7 +14783,7 @@ const pass_data pass_data_expand_omp =
 {
   GIMPLE_PASS, /* type */
   "ompexp", /* name */
-  OPTGROUP_OPENMP, /* optinfo_flags */
+  OPTGROUP_OMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   PROP_gimple_eomp, /* properties_provided */
@@ -14830,7 +14830,7 @@ const pass_data pass_data_expand_omp_ssa =
 {
   GIMPLE_PASS, /* type */
   "ompexpssa", /* name */
-  OPTGROUP_OPENMP, /* optinfo_flags */
+  OPTGROUP_OMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg | PROP_ssa, /* properties_required */
   PROP_gimple_eomp, /* properties_provided */
@@ -19099,7 +19099,7 @@ const pass_data pass_data_lower_omp =
 {
   GIMPLE_PASS, /* type */
   "omplower", /* name */
-  OPTGROUP_OPENMP, /* optinfo_flags */
+  OPTGROUP_OMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   PROP_gimple_lomp, /* properties_provided */
@@ -19581,7 +19581,7 @@ const pass_data pass_data_diagnose_omp_blocks =
 {
   GIMPLE_PASS, /* type */
   "*diagnose_omp_blocks", /* name */
-  OPTGROUP_OPENMP, /* optinfo_flags */
+  OPTGROUP_OMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   0, /* properties_provided */
@@ -21264,7 +21264,7 @@ const pass_data pass_data_oacc_device_lower =
 {
   GIMPLE_PASS, /* type */
   "oaccdevlow", /* name */
-  OPTGROUP_OPENMP, /* optinfo_flags */
+  OPTGROUP_OMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */
   0 /* Possibly PROP_gimple_eomp.  */, /* properties_provided */
@@ -21309,7 +21309,7 @@ const pass_data pass_data_omp_target_link =
 {
   GIMPLE_PASS,			/* type */
   "omptargetlink",		/* name */
-  OPTGROUP_OPENMP,		/* optinfo_flags */
+  OPTGROUP_OMP,			/* optinfo_flags */
   TV_NONE,			/* tv_id */
   PROP_ssa,			/* properties_required */
   0,				/* properties_provided */
