@@ -29,6 +29,7 @@
 #include <stdlib.h>
 
 #include "libgomp.h"
+#include "oacc-int.h"
 #include "libgomp-plugin.h"
 
 void *
@@ -77,4 +78,12 @@ GOMP_PLUGIN_fatal (const char *msg, ...)
   va_start (ap, msg);
   gomp_vfatal (msg, ap);
   va_end (ap);
+}
+
+void
+GOMP_PLUGIN_goacc_profiling_dispatch (acc_prof_info *prof_info,
+				      acc_event_info *event_info,
+				      acc_api_info *api_info)
+{
+  goacc_profiling_dispatch (prof_info, event_info, api_info);
 }

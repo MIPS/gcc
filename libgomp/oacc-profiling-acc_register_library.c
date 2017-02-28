@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2017 Free Software Foundation, Inc.
+/* Copyright (C) 2017 Free Software Foundation, Inc.
 
    Contributed by Mentor Embedded.
 
@@ -24,14 +24,16 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-#ifndef OACC_PLUGIN_H
-#define OACC_PLUGIN_H 1
+/* This file provides an stub acc_register_library function.  It's in a
+   separate file so that this function can easily be overridden when linking
+   statically.  */
 
-#include "oacc-int.h"
+#include "libgomp.h"
+#include "acc_prof.h"
 
-extern void GOMP_PLUGIN_async_unmap_vars (void *, int);
-extern void *GOMP_PLUGIN_acc_thread (void);
-extern struct goacc_thread *GOMP_PLUGIN_goacc_thread (void);
-extern int GOMP_PLUGIN_acc_thread_default_async (void);
-
-#endif
+void
+acc_register_library (acc_prof_reg reg, acc_prof_reg unreg,
+		      acc_prof_lookup_func lookup)
+{
+  gomp_debug (0, "dummy %s\n", __FUNCTION__);
+}

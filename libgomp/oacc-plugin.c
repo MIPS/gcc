@@ -50,6 +50,19 @@ GOMP_PLUGIN_acc_thread (void)
   return thr ? thr->target_tls : NULL;
 }
 
+/* Return the TLS data for the current thread.  */
+/* TODO.  Should we be able to directly call (the static inline function)
+   goacc_thread from within plugin code?  I didn't manage to get the
+   "goacc_tls_data" symbol configured correctly: "[...]/ld:
+   .libs/libgomp-plugin-nvptx.so.1.0.0: hidden symbol `goacc_tls_data' isn't
+   defined".  */
+
+struct goacc_thread *
+GOMP_PLUGIN_goacc_thread (void)
+{
+  return goacc_thread ();
+}
+
 /* Return the default async number from the TLS data for the current thread.  */
 
 int

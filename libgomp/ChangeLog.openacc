@@ -1,3 +1,57 @@
+2017-02-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* acc_prof.h: New file.
+	* oacc-profiling-acc_register_library.c: Likewise.
+	* oacc-profiling.c: Likewise.
+	* Makefile.am (nodist_libsubinclude_HEADERS, libgomp_la_SOURCES):
+	Add these, respectively.
+	* Makefile.in: Regenerate.
+	* libgomp/config/nvptx/oacc-profiling-acc_register_library.c:
+	New empty file.
+	* libgomp/config/nvptx/oacc-profiling.c: Likewise.
+	* env.c (initialize_env): Call goacc_profiling_initialize.
+	* libgomp-plugin.c: New function
+	GOMP_PLUGIN_goacc_profiling_dispatch.
+	* libgomp-plugin.h: Declare function
+	GOMP_PLUGIN_goacc_profiling_dispatch.
+	* oacc-plugin.c: New function GOMP_PLUGIN_goacc_thread.
+	* oacc-plugin.h: Declare function GOMP_PLUGIN_goacc_thread.
+	* libgomp.map (OACC_2.5): Add acc_prof_lookup, acc_prof_register,
+	acc_prof_unregister, and acc_register_library.
+	Add GOMP_PLUGIN_goacc_profiling_dispatch, and
+	GOMP_PLUGIN_goacc_thread with new GOMP_PLUGIN_1.3 symbol version.
+	* oacc-int.h (struct goacc_thread): Add "acc_prof_info
+	*prof_info", "acc_api_info *api_info", and "bool
+	prof_callbacks_enabled" members.
+	Declare functions goacc_profiling_initialize,
+	goacc_profiling_dispatch_p, and goacc_profiling_dispatch.
+	* oacc-init.c (acc_init_1): Add "acc_construct_t", and "int"
+	formal parameters.  Adjust all users.
+	(goacc_lazy_initialize): Don't call acc_init; copy code here,
+	instead.
+	(acc_init_1, goacc_attach_host_thread_to_device, acc_init)
+	(goacc_lazy_initialize): Update for OpenACC Profiling Interface.
+	* oacc-parallel.c (GOACC_parallel_keyed): Likewise.
+	* plugin/plugin-nvptx.c (cuda_map_create, cuda_map_destroy)
+	(map_init, map_fini, map_pop, map_push): Add "struct goacc_thread
+	*" formal parameter.  Adjust all users.
+	(select_stream_for_async, event_gc, nvptx_exec, nvptx_host2dev)
+	(nvptx_dev2host, nvptx_set_cuda_stream): Call
+	GOMP_PLUGIN_goacc_thread instead of nvptx_thread.
+	(cuda_map_create, cuda_map_destroy, nvptx_exec, nvptx_alloc)
+	(nvptx_free, nvptx_host2dev, nvptx_dev2host): Update for OpenACC
+	Profiling Interface.
+	* libgomp.texi: New chapter "OpenACC Profiling Interface".
+	* testsuite/libgomp.oacc-c-c++-common/acc_prof-dispatch-1.c: New
+	file.
+	* testsuite/libgomp.oacc-c-c++-common/acc_prof-init-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/acc_prof-parallel-1.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/acc_prof-valid_bytes-1.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/acc_prof-version-1.c:
+	Likewise.
+
 2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/gang-private-1.c: New test.

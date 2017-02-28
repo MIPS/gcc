@@ -33,6 +33,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "acc_prof.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -73,6 +75,10 @@ extern void GOMP_PLUGIN_error (const char *, ...)
 	__attribute__ ((format (printf, 1, 2)));
 extern void GOMP_PLUGIN_fatal (const char *, ...)
 	__attribute__ ((noreturn, format (printf, 1, 2)));
+
+extern void GOMP_PLUGIN_goacc_profiling_dispatch (acc_prof_info *,
+						  acc_event_info *,
+						  acc_api_info *);
 
 /* Prototypes for functions implemented by libgomp plugins.  */
 extern const char *GOMP_OFFLOAD_get_name (void);

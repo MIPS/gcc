@@ -40,6 +40,7 @@
 
 #include "openacc.h"
 #include "config.h"
+#include "acc_prof.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -67,6 +68,12 @@ struct goacc_thread
   /* This is a linked list of data mapped by the "acc data" pragma, following
      strictly push/pop semantics according to lexical scope.  */
   struct target_mem_desc *mapped_data;
+
+  /* Data of the OpenACC Profiling Interface.  */
+  acc_prof_info *prof_info;
+  acc_api_info *api_info;
+  /* Per-thread toggle of OpenACC Profiling Interface callbacks.  */
+  bool prof_callbacks_enabled;
 
   /* These structures form a list: this is the next thread in that list.  */
   struct goacc_thread *next;
@@ -101,6 +108,11 @@ void goacc_save_and_set_bind (acc_device_t);
 void goacc_restore_bind (void);
 void goacc_lazy_initialize (void);
 void goacc_host_init (void);
+
+void goacc_profiling_initialize (void);
+bool goacc_profiling_dispatch_p (void);
+void goacc_profiling_dispatch (acc_prof_info *, acc_event_info *,
+			       acc_api_info *);
 
 #ifdef HAVE_ATTRIBUTE_VISIBILITY
 # pragma GCC visibility pop

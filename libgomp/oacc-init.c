@@ -218,8 +218,55 @@ acc_dev_num_out_of_range (acc_device_t d, int ord, int ndevs)
    held before calling this function.  */
 
 static struct gomp_device_descr *
-acc_init_1 (acc_device_t d)
+acc_init_1 (acc_device_t d, acc_construct_t parent_construct, int implicit)
 {
+  bool profiling_dispatch_p
+    = __builtin_expect (goacc_profiling_dispatch_p (), false);
+
+  acc_prof_info prof_info;
+  if (profiling_dispatch_p)
+    {
+      prof_info.event_type = acc_ev_device_init_start;
+      prof_info.valid_bytes = _ACC_PROF_INFO_VALID_BYTES;
+      prof_info.version = _ACC_PROF_INFO_VERSION;
+      prof_info.device_type = d;
+      prof_info.device_number = goacc_device_num;
+      prof_info.thread_id = -1; //TODO
+      prof_info.async = acc_async_sync; //TODO
+      /* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+      prof_info.async_queue = prof_info.async;
+      prof_info.src_file = NULL; //TODO
+      prof_info.func_name = NULL; //TODO
+      prof_info.line_no = -1; //TODO
+      prof_info.end_line_no = -1; //TODO
+      prof_info.func_line_no = -1; //TODO
+      prof_info.func_end_line_no = -1; //TODO
+    }
+  acc_event_info device_init_event_info;
+  if (profiling_dispatch_p)
+    {
+      device_init_event_info.other_event.event_type = prof_info.event_type;
+      device_init_event_info.other_event.valid_bytes
+	= _ACC_OTHER_EVENT_INFO_VALID_BYTES;
+      device_init_event_info.other_event.parent_construct = parent_construct;
+      device_init_event_info.other_event.implicit = implicit;
+      device_init_event_info.other_event.tool_info = NULL;
+    }
+  acc_api_info api_info;
+  if (profiling_dispatch_p)
+    {
+      api_info.device_api = acc_device_api_none; //TODO
+      api_info.valid_bytes = _ACC_API_INFO_VALID_BYTES;
+      api_info.device_type = prof_info.device_type;
+      api_info.vendor = -1; //TODO
+      api_info.device_handle = NULL; //TODO
+      api_info.context_handle = NULL; //TODO
+      api_info.async_handle = NULL; //TODO
+    }
+
+  if (profiling_dispatch_p)
+    goacc_profiling_dispatch (&prof_info, &device_init_event_info, &api_info);
+
   struct gomp_device_descr *base_dev, *acc_dev;
   int ndevs;
 
@@ -241,6 +288,14 @@ acc_init_1 (acc_device_t d)
 
   gomp_init_device (acc_dev);
   gomp_mutex_unlock (&acc_dev->lock);
+
+  if (profiling_dispatch_p)
+    {
+      prof_info.event_type = acc_ev_device_init_end;
+      device_init_event_info.other_event.event_type = prof_info.event_type;
+      goacc_profiling_dispatch (&prof_info, &device_init_event_info,
+				&api_info);
+    }
 
   return base_dev;
 }
@@ -434,7 +489,11 @@ goacc_attach_host_thread_to_device (int ord)
   thr->dev = acc_dev = &base_dev[ord];
   thr->saved_bound_dev = NULL;
   thr->mapped_data = NULL;
-  
+  thr->prof_info = NULL;
+  thr->api_info = NULL;
+  /* Initially, all callbacks for all events are enabled.  */
+  thr->prof_callbacks_enabled = true;
+
   thr->target_tls
     = acc_dev->openacc.create_thread_data_func (ord);
 
@@ -452,9 +511,7 @@ acc_init (acc_device_t d)
   gomp_init_targets_once ();
 
   gomp_mutex_lock (&acc_device_lock);
-
-  cached_base_dev = acc_init_1 (d);
-
+  cached_base_dev = acc_init_1 (d, acc_construct_runtime_api, 0);
   gomp_mutex_unlock (&acc_device_lock);
   
   goacc_attach_host_thread_to_device (-1);
@@ -700,12 +757,16 @@ attribute_hidden void
 goacc_lazy_initialize (void)
 {
   struct goacc_thread *thr = goacc_thread ();
-
   if (thr && thr->dev)
     return;
 
+  gomp_init_targets_once ();
+
+  gomp_mutex_lock (&acc_device_lock);
   if (!cached_base_dev)
-    acc_init (acc_device_default);
-  else
-    goacc_attach_host_thread_to_device (-1);
+    cached_base_dev = acc_init_1 (acc_device_default,
+				  /* TODO */ acc_construct_parallel, 1);
+  gomp_mutex_unlock (&acc_device_lock);
+
+  goacc_attach_host_thread_to_device (-1);
 }
