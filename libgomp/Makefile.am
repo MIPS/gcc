@@ -63,7 +63,8 @@ libgomp_la_SOURCES = alloc.c atomic.c barrier.c critical.c env.c error.c \
 	parallel.c sections.c single.c task.c team.c work.c lock.c mutex.c \
 	proc.c sem.c bar.c ptrlock.c time.c fortran.c affinity.c target.c \
 	splay-tree.c libgomp-plugin.c oacc-parallel.c oacc-host.c oacc-init.c \
-	oacc-mem.c oacc-async.c oacc-plugin.c oacc-cuda.c priority_queue.c
+	oacc-mem.c oacc-async.c oacc-plugin.c oacc-cuda.c priority_queue.c \
+	oacc-profiling.c oacc-profiling-acc_register_library.c
 
 include $(top_srcdir)/plugin/Makefrag.am
 
@@ -72,7 +73,7 @@ libgomp_la_SOURCES += openacc.f90
 endif
 
 nodist_noinst_HEADERS = libgomp_f.h
-nodist_libsubinclude_HEADERS = omp.h openacc.h
+nodist_libsubinclude_HEADERS = acc_prof.h omp.h openacc.h
 if USE_FORTRAN
 nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod \
 	openacc_lib.h openacc.f90 openacc.mod openacc_kinds.mod
