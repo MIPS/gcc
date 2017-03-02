@@ -6021,8 +6021,14 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
 	}
       else
 	{
-	  mips_emit_move (low_dest, mips_subword (src, false));
-	  mips_emit_move (mips_subword (dest, true), mips_subword (src, true));
+	  mips_emit_move (low_dest,
+			  mips_subword (src, false) == const0_rtx
+			  ? gen_rtx_REG (word_mode, 0)
+			  : mips_subword (src, false));
+	  mips_emit_move (mips_subword (dest, true),
+			  mips_subword (src, true) == const0_rtx
+			  ? gen_rtx_REG (word_mode, 0)
+			  : mips_subword (src, true));
 	}
     }
 }
@@ -13643,6 +13649,8 @@ mips_extra_live_on_entry (bitmap regs)
       /* See the comment above load_call<mode> for details.  */
       bitmap_set_bit (regs, GOT_VERSION_REGNUM);
     }
+  /* Make the register $0 live.  */
+  bitmap_set_bit (regs, 0);
 }
 
 /* Implement RETURN_ADDR_RTX.  We do not support moving back to a
@@ -15991,12 +15999,16 @@ mips_hard_regno_mode_ok_p (unsigned int regno, machine_mode mode)
 /* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
 
 bool
-mips_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
-			   unsigned int new_reg)
+mips_hard_regno_rename_ok (unsigned int old_reg, unsigned int new_reg)
 {
   /* Interrupt functions can only use registers that have already been
      saved by the prologue, even if they would normally be call-clobbered.  */
   if (cfun->machine->interrupt_handler_p && !df_regs_ever_live_p (new_reg))
+    return false;
+
+  /* We don't want to rename to/from register $0 as it cannot be used as
+     a generic register.  */
+  if (old_reg == 0 || new_reg == 0)
     return false;
 
   return true;
@@ -26044,7 +26056,8 @@ nanomips_move_balc_p (rtx *operands)
   if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
     return false;
   if (!IN_RANGE (REGNO (operands[1]), 16, 23)
-      && !const_0_operand (operands[1], GET_MODE (operands[1]))
+      && !(REGNO (operands[1]) == 0
+	  || const_0_operand (operands[1], GET_MODE (operands[1])))
       && !IN_RANGE (REGNO (operands[1]), 4, 10))
     return false;
   if (!satisfies_constraint_S (operands[2]))
