@@ -6863,7 +6863,7 @@
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
-   (set_attr "cbranch_cmp_op" "zero,reg,imm")
+   (set_attr "cbranch_cmp_op" "zero_ineq,reg,imm")
    (set_attr "compact_form" "maybe,always,always")
    (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
 					   (match_test "TARGET_MICROMIPS_R7"))
