@@ -292,6 +292,7 @@ foreach option {
     mcount-ra-address
     odd-spreg
     msa
+    xlp
 } {
     lappend mips_option_groups $option "-m(no-|)$option"
 }
@@ -838,9 +839,15 @@ proc mips-dg-init {} {
 	    #endif
 
 	    #ifdef __mips_msa
-	    "-mmsa"
+	    "-mmsa",
 	    #else
-	    "-mno-msa"
+	    "-mno-msa",
+	    #endif
+
+	    #ifdef __mips_xlp
+	    "-mxlp",
+	    #else
+	    "-mno-xlp",
 	    #endif
 
 	    0
