@@ -922,7 +922,8 @@ struct mips_cpu_info {
   "%{mips32r7: %{!mno-micromips: -mmicromips} \
 	       %{!mcode-readable*: -mcode-readable=no} \
 	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
-	       %{!mcheck-zero-division: -mno-check-zero-division}}" \
+	       %{!mcheck-zero-division: -mno-check-zero-division} \
+	       %{!-fuse-ld=*: -fuse-ld=gold}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
