@@ -103,6 +103,7 @@
   [p + 4B] (16-bit) := 0xabcd;     //  val & 0x00000000ffff;  */
 
 #include "config.h"
+#define INCLUDE_MAP
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
@@ -672,11 +673,12 @@ merged_store_group::apply_stores ()
 
 struct imm_store_chain_info
 {
+  unsigned seqno;
   tree base_addr;
   auto_vec<struct store_immediate_info *> m_store_info;
   auto_vec<merged_store_group *> m_merged_store_groups;
 
-  imm_store_chain_info (tree b_a) : base_addr (b_a) {}
+  imm_store_chain_info (unsigned seq, tree b_a) : seqno (seq), base_addr (b_a) {}
   bool terminate_and_process_chain ();
   bool coalesce_immediate_stores ();
   bool output_merged_store (merged_store_group *);
@@ -715,6 +717,18 @@ public:
 private:
   hash_map<tree_operand_hash, struct imm_store_chain_info *> m_stores;
 
+  /* Use m_store_seq to order elements in m_stores, and iterate over
+     them in a predictable way.  It maps sequence numbers to the base
+     addresses stored as keys in m_stores.  Using this order avoids
+     extraneous differences in the compiler output just because of
+     tree pointer variations (e.g. different chains end up in
+     different positions of m_stores, so they are handled in different
+     orders, so they allocate or release SSA names in different
+     orders, and when they get reused, subsequent passes end up
+     getting different SSA names, which may ultimately change
+     decisions when going out of SSA).  */
+  std::map<unsigned, tree> m_store_seq;
+
   bool terminate_and_process_all_chains ();
   bool terminate_all_aliasing_chains (imm_store_chain_info **,
 				      bool, gimple *);
@@ -727,11 +741,12 @@ private:
 bool
 pass_store_merging::terminate_and_process_all_chains ()
 {
-  hash_map<tree_operand_hash, struct imm_store_chain_info *>::iterator iter
-    = m_stores.begin ();
   bool ret = false;
-  for (; iter != m_stores.end (); ++iter)
-    ret |= terminate_and_release_chain ((*iter).second);
+  for (std::map<unsigned, tree>::iterator iter = m_store_seq.begin ();
+       iter != m_store_seq.end (); ++iter)
+    ret |= terminate_and_release_chain (*m_stores.get((*iter).second));
+  gcc_assert (m_stores.elements () == 0);
+  gcc_assert (m_store_seq.empty ());
 
   return ret;
 }
@@ -796,15 +811,13 @@ pass_store_merging::terminate_all_aliasing_chains (imm_store_chain_info
 	}
     }
 
-  hash_map<tree_operand_hash, struct imm_store_chain_info *>::iterator iter
-    = m_stores.begin ();
-
   /* Check for aliasing with all other store chains.  */
-  for (; iter != m_stores.end (); ++iter)
+  for (std::map<unsigned, tree>::iterator iter = m_store_seq.begin ();
+       iter != m_store_seq.end (); ++iter)
     {
       /* We already checked all the stores in chain_info and terminated the
 	 chain if necessary.  Skip it here.  */
-      if (chain_info && (*chain_info) == (*iter).second)
+      if (chain_info && (*chain_info)->seqno == (*iter).first)
 	continue;
 
       /* We can't use the base object here as that does not reliably exist.
@@ -812,11 +825,11 @@ pass_store_merging::terminate_all_aliasing_chains (imm_store_chain_info
 	 minimum and maximum offset and the maximum size we could improve
 	 things here).  */
       ao_ref chain_ref;
-      ao_ref_init_from_ptr_and_size (&chain_ref, (*iter).first, NULL_TREE);
+      ao_ref_init_from_ptr_and_size (&chain_ref, (*iter).second, NULL_TREE);
       if (ref_maybe_used_by_stmt_p (stmt, &chain_ref)
 	  || stmt_may_clobber_ref_p_1 (stmt, &chain_ref))
 	{
-	  terminate_and_release_chain ((*iter).second);
+	  terminate_and_release_chain (*m_stores.get ((*iter).second));
 	  ret = true;
 	}
     }
@@ -832,6 +845,7 @@ bool
 pass_store_merging::terminate_and_release_chain (imm_store_chain_info *chain_info)
 {
   bool ret = chain_info->terminate_and_process_chain ();
+  m_store_seq.erase (chain_info->seqno);
   m_stores.remove (chain_info->base_addr);
   delete chain_info;
   return ret;
@@ -1333,6 +1347,9 @@ pass_store_merging::execute (function *fun)
 	{
 	  gimple *stmt = gsi_stmt (gsi);
 
+	  if (is_gimple_debug (stmt))
+	    continue;
+
 	  if (gimple_has_volatile_ops (stmt))
 	    {
 	      /* Terminate all chains.  */
@@ -1342,9 +1359,6 @@ pass_store_merging::execute (function *fun)
 	      terminate_and_process_all_chains ();
 	      continue;
 	    }
-
-	  if (is_gimple_debug (stmt))
-	    continue;
 
 	  if (gimple_assign_single_p (stmt) && gimple_vdef (stmt)
 	      && !stmt_can_throw_internal (stmt)
@@ -1451,13 +1465,17 @@ pass_store_merging::execute (function *fun)
 
 		  /* Store aliases any existing chain?  */
 		  terminate_all_aliasing_chains (chain_info, false, stmt);
+		  unsigned next_seqno = m_store_seq.empty () ? 0
+		    : m_store_seq.rbegin()->first + 1;
 		  /* Start a new chain.  */
 		  struct imm_store_chain_info *new_chain
-		    = new imm_store_chain_info (base_addr);
+		    = new imm_store_chain_info (next_seqno, base_addr);
 		  info = new store_immediate_info (bitsize, bitpos,
 						   stmt, 0);
 		  new_chain->m_store_info.safe_push (info);
 		  m_stores.put (base_addr, new_chain);
+		  m_store_seq.insert (m_store_seq.end (),
+				      std::make_pair (new_chain->seqno, base_addr));
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
 		      fprintf (dump_file,
