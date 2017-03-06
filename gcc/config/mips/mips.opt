@@ -587,3 +587,6 @@ Document this
 
 mmulti-memcpy
 Target Undocumented Var(mips_use_multi_memcpy) Init (0)
+
+mopt-restorejrc
+Target Undocumented Var(TARGET_RESTORE_JRC) Init(1)
