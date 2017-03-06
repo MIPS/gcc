@@ -580,13 +580,13 @@ mcost-tweak
 Target Undocumented Var(TARGET_COST_TWEAK) Init(0)
 
 mopt-movebalc
-Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(0)
+Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(1)
 
 mopt-refs
 Target Undocumented Var(TARGET_OPTIMIZE_MULTIPLE_REFS) Init(0)
 
 mopt-movep
-Target Undocumented Var(TARGET_OPT_MOVEP) Init(0)
+Target Undocumented Var(TARGET_OPT_MOVEP) Init(1)
 
 mmovep-balc
 Target Undocumented Var(TARGET_ADD_MOVEP_BALC) Init(0)
@@ -616,7 +616,7 @@ madd-flexop2-limit
 Target Undocumented Var(TARGET_FLEXOP2_2) Init (0)
 
 mopt-restorejrc
-Target Undocumented Var(TARGET_RESTORE_JRC) Init(0)
+Target Undocumented Var(TARGET_RESTORE_JRC) Init(1)
 
 mlwgp16
 Target Undocumented Var(TARGET_LWGP16) Init (0)
