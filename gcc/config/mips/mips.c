@@ -23267,6 +23267,94 @@ nanomips_move_balc_opt ()
     }
 }
 
+/* Function for TARGET_MACHINE_DEPENDENT_REORG.
+
+   Find opportunities for and generate RESTORE.JRC.  */
+
+static void
+nanomips_restore_jrc_opt ()
+{
+  basic_block bb;
+  rtx_insn *insn, *prev, *restore_insn, *blockage_insn;
+
+  if (dump_file)
+    fprintf (dump_file, "restore_jrc optimization\n");
+
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
+    {
+      restore_insn = NULL;
+      blockage_insn = NULL;
+      FOR_BB_INSNS_SAFE (bb, insn, prev)
+	{
+	  rtx src = NULL_RTX;
+
+	  if (!INSN_P (insn))
+	    continue;
+
+	  rtx pattern = PATTERN (insn);
+
+	  if (GET_CODE (pattern) == PARALLEL
+	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SET
+	      && GET_CODE ((src = SET_SRC (XVECEXP (pattern, 0, 0)))) == PLUS
+	      && INTVAL (XEXP (src, 1)) > 0
+	      && mips_save_restore_pattern_p (pattern, INTVAL (XEXP (src, 1)),
+					      NULL, NULL, false))
+	    restore_insn = insn;
+
+	  if (restore_insn != NULL && blockage_insn == NULL
+	      && GET_CODE (pattern) == UNSPEC_VOLATILE
+	      && XINT (pattern, 1) == UNSPEC_BLOCKAGE)
+	    blockage_insn = insn;
+
+	  if (restore_insn != NULL && blockage_insn != NULL
+	      && restore_insn != insn && blockage_insn != insn)
+	    {
+	      subrtx_iterator::array_type array;
+	      FOR_EACH_SUBRTX (iter, array, pattern, NONCONST)
+		{
+		  const_rtx reg = *iter;
+		/* Cancel the merge if there is any use of the stack pointer
+		   between the restore and return.  */
+		if (REG_P (reg) && REGNO (reg) == STACK_POINTER_REGNUM)
+		  restore_insn = NULL;
+		}
+	    }
+
+	  if (restore_insn != NULL
+	      && blockage_insn != NULL
+	      && JUMP_P (insn)
+	      && GET_CODE ((pattern = PATTERN (insn))) == PARALLEL
+	      && GET_CODE (XVECEXP (pattern, 0, 0)) == SIMPLE_RETURN)
+	    {
+	      int n = XVECLEN (PATTERN (restore_insn), 0) + 1;
+	      rtx rjrc_insn = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
+
+	      XVECEXP (rjrc_insn, 0, 0) = ret_rtx;
+	      for (int i = 1; i < n; i++)
+		XVECEXP (rjrc_insn, 0, i) = XVECEXP (PATTERN (restore_insn),
+						     0, i - 1);
+	      rtx_insn *new_insn =
+		emit_jump_insn_after_setloc (rjrc_insn, insn,
+					     INSN_LOCATION (insn));
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "replacing\n");
+		  print_rtl_single (dump_file, restore_insn);
+		  print_rtl_single (dump_file, insn);
+		  fprintf (dump_file, "with\n");
+		  print_rtl_single (dump_file, new_insn);
+		}
+	      delete_insn (restore_insn);
+	      delete_insn (blockage_insn);
+	      delete_insn (insn);
+	      insn = NULL;
+	      restore_insn = NULL;
+	      blockage_insn = NULL;
+	    }
+	}
+    }
+}
+
 /* Implement TARGET_MACHINE_DEPENDENT_REORG.  */
 
 static void
@@ -23289,6 +23377,9 @@ mips_reorg (void)
 
   if (TARGET_NANOMIPS && TARGET_OPT_MOVEBALC)
     nanomips_move_balc_opt ();
+
+  if (ISA_HAS_RESTORE_JRC && TARGET_RESTORE_JRC)
+    nanomips_restore_jrc_opt ();
 }
 
 /* We use a machine specific pass to do a second machine dependent reorg
