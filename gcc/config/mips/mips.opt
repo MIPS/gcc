@@ -580,3 +580,6 @@ Target Var(TARGET_EXLP) Init(0)
 
 madd-lwp-swp
 Target Undocumented Var(TARGET_LWP_SWP) Init (0)
+
+mopt-restorejrc
+Target Undocumented Var(TARGET_RESTORE_JRC) Init(1)
