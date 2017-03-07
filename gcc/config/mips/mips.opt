@@ -565,3 +565,6 @@ Target Undocumented Var(mips_use_multi_memcpy) Init(0)
 
 mopt-restorejrc
 Target Undocumented Var(TARGET_RESTORE_JRC) Init(1)
+
+madd-addiupc32
+Target Undocumented Var(TARGET_ADDIUPC32) Init(0)
