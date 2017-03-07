@@ -2924,6 +2924,8 @@ mips_use_pic_fn_addr_reg_p (const_rtx x)
 static enum mips_symbol_type
 mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 {
+  const_tree decl;
+
   if (TARGET_RTP_PIC)
     return SYMBOL_GOT_DISP;
 
@@ -2995,6 +2997,16 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
       return SYMBOL_GOT_PAGE_OFST;
     }
+
+  if (TARGET_MICROMIPS_R7 && TARGET_ADDIUPC32
+      && context == SYMBOL_CONTEXT_LEA
+      && (decl = SYMBOL_REF_DECL (x))
+      && TREE_CODE (decl) == VAR_DECL
+      && TREE_READONLY (decl)
+      && !TREE_SIDE_EFFECTS (decl)
+      && DECL_INITIAL (decl)
+      && TREE_CONSTANT (DECL_INITIAL (decl)))
+    return SYMBOL_PC_RELATIVE;
 
   return SYMBOL_ABSOLUTE;
 }
@@ -5224,7 +5236,13 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		   && (outer_code == SET || GET_MODE (x) == VOIDmode))
 	    cost = 1;
 
-	  if ((CONST_INT_P (x)
+	  if (code == SYMBOL_REF
+	      && TARGET_COST_TWEAK
+	      && mips_classify_symbol (x, SYMBOL_CONTEXT_LEA)
+		 == SYMBOL_PC_RELATIVE
+	      && LI32_INT (x))
+	    *total = COSTS_N_INSNS (1);
+	  else if ((CONST_INT_P (x)
 	       || mips_string_constant_p (x))
 	      && TARGET_COST_TWEAK
 	      && TARGET_MICROMIPS_R7
@@ -6538,6 +6556,13 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (symbolic_operand (src, VOIDmode))
 	{
+	  if (TARGET_MICROMIPS_R7
+	      && TARGET_ADDIUPC32
+	      && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA,
+					   &symbol_type)
+	      && symbol_type == SYMBOL_PC_RELATIVE)
+	    return "sdbbp32 50 # addiupc\t%0,%1";
+
 	  if (mips_string_constant_p (src) && ISA_HAS_XLP)
 	    return "li\t%0,%1 # LI48";
 	  if (mips_string_constant_p (src) && TARGET_LI48_NOXLP)
