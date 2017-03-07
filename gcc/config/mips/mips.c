@@ -6472,9 +6472,13 @@ mips_function_value_regno_p (const unsigned int regno)
 static bool
 mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
-  return (TARGET_OLDABI
-	  ? TYPE_MODE (type) == BLKmode
-	  : !IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
+  if (TARGET_OLDABI)
+    /* Ensure that any floating point vector types are returned via memory
+       even if they are supported through a vector mode with some ASEs.  */
+    return (VECTOR_FLOAT_TYPE_P (type)
+	    || TYPE_MODE (type) == BLKmode);
+
+  return (!IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
 }
 
 /* Implement TARGET_SETUP_INCOMING_VARARGS.  */
@@ -21626,7 +21630,7 @@ mips_expand_vi_broadcast (machine_mode vmode, rtx target, rtx elt)
 /* Return a const_int vector of VAL with mode MODE.  */
 
 rtx
-mips_gen_const_int_vector (machine_mode mode, int val)
+mips_gen_const_int_vector (machine_mode mode, HOST_WIDE_INT val)
 {
   int nunits = GET_MODE_NUNITS (mode);
   rtvec v = rtvec_alloc (nunits);

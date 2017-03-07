@@ -6639,7 +6639,7 @@
 	(vec_select:V2SF
 	  (match_operand:V4SF 1 "nonimmediate_operand" "v,v,o")
 	  (parallel [(const_int 2) (const_int 3)])))]
-  "TARGET_SSE"
+  "TARGET_SSE && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "@
    %vmovhps\t{%1, %0|%q0, %1}
    %vmovhlps\t{%1, %d0|%d0, %1}
@@ -6692,7 +6692,7 @@
 	(vec_select:V2SF
 	  (match_operand:V4SF 1 "nonimmediate_operand" " v,v,m")
 	  (parallel [(const_int 0) (const_int 1)])))]
-  "TARGET_SSE"
+  "TARGET_SSE && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "@
    %vmovlps\t{%1, %0|%q0, %1}
    %vmovaps\t{%1, %0|%0, %1}
@@ -18592,7 +18592,7 @@
 	(unspec:AVX256MODE2P
 	  [(match_operand:<ssehalfvecmode> 1 "nonimmediate_operand" "xm,x")]
 	  UNSPEC_CAST))]
-  "TARGET_AVX"
+  "TARGET_AVX && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (match_dup 1))]
@@ -18873,7 +18873,7 @@
 		   (unspec:VEC_GATHER_MODE
 		     [(match_operand:VEC_GATHER_MODE 1 "register_operand")
 		      (mem:<ssescalarmode>
-			(match_par_dup 7
+			(match_par_dup 6
 			  [(match_operand 2 "vsib_address_operand")
 			   (match_operand:<VEC_GATHER_IDXSI>
 			      3 "register_operand")
@@ -18881,10 +18881,10 @@
 		      (mem:BLK (scratch))
 		      (match_operand:VEC_GATHER_MODE 4 "register_operand")]
 		     UNSPEC_GATHER))
-	      (clobber (match_scratch:VEC_GATHER_MODE 6))])]
+	      (clobber (match_scratch:VEC_GATHER_MODE 7))])]
   "TARGET_AVX2"
 {
-  operands[7]
+  operands[6]
     = gen_rtx_UNSPEC (Pmode, gen_rtvec (3, operands[2], operands[3],
 					operands[5]), UNSPEC_VSIBADDR);
 })
@@ -18934,7 +18934,7 @@
 		   (unspec:VEC_GATHER_MODE
 		     [(match_operand:<VEC_GATHER_SRCDI> 1 "register_operand")
 		      (mem:<ssescalarmode>
-			(match_par_dup 7
+			(match_par_dup 6
 			  [(match_operand 2 "vsib_address_operand")
 			   (match_operand:<VEC_GATHER_IDXDI>
 			      3 "register_operand")
@@ -18942,10 +18942,10 @@
 		      (mem:BLK (scratch))
 		      (match_operand:<VEC_GATHER_SRCDI> 4 "register_operand")]
 		     UNSPEC_GATHER))
-	      (clobber (match_scratch:VEC_GATHER_MODE 6))])]
+	      (clobber (match_scratch:VEC_GATHER_MODE 7))])]
   "TARGET_AVX2"
 {
-  operands[7]
+  operands[6]
     = gen_rtx_UNSPEC (Pmode, gen_rtvec (3, operands[2], operands[3],
 					operands[5]), UNSPEC_VSIBADDR);
 })
@@ -19506,7 +19506,7 @@
 	(unspec:AVX512MODE2P
 	  [(match_operand:<ssequartermode> 1 "nonimmediate_operand" "xm,x")]
 	  UNSPEC_CAST))]
-  "TARGET_AVX512F"
+  "TARGET_AVX512F && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (match_dup 1))]
@@ -19523,7 +19523,7 @@
 	(unspec:AVX512MODE2P
 	  [(match_operand:<ssehalfvecmode> 1 "nonimmediate_operand" "xm,x")]
 	  UNSPEC_CAST))]
-  "TARGET_AVX512F"
+  "TARGET_AVX512F && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (match_dup 1))]

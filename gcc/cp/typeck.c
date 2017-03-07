@@ -2175,8 +2175,7 @@ string_conv_p (const_tree totype, const_tree exp, int warn)
   if (warn)
     {
       if (cxx_dialect >= cxx11)
-	pedwarn (input_location,
-		 pedantic ? OPT_Wpedantic : OPT_Wwrite_strings,
+	pedwarn (input_location, OPT_Wwrite_strings,
 		 "ISO C++ forbids converting a string constant to %qT",
 		 totype);
       else
@@ -3667,7 +3666,7 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
   /* Check for errors in format strings and inappropriately
      null parameters.  */
-  bool warned_p = check_function_arguments (input_location, fntype,
+  bool warned_p = check_function_arguments (input_location, fndecl, fntype,
 					    nargs, argarray);
 
   ret = build_cxx_call (function, nargs, argarray, complain);
