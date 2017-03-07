@@ -3026,6 +3026,8 @@ mips_use_pic_fn_addr_reg_p (const_rtx x)
 static enum mips_symbol_type
 mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 {
+  const_tree decl;
+
   if (TARGET_RTP_PIC)
     return SYMBOL_GOT_DISP;
 
@@ -3097,6 +3099,16 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
       return SYMBOL_GOT_PAGE_OFST;
     }
+
+  if (TARGET_NANOMIPS && TARGET_ADDIUPC32
+      && context == SYMBOL_CONTEXT_LEA
+      && (decl = SYMBOL_REF_DECL (x))
+      && TREE_CODE (decl) == VAR_DECL
+      && TREE_READONLY (decl)
+      && !TREE_SIDE_EFFECTS (decl)
+      && DECL_INITIAL (decl)
+      && TREE_CONSTANT (DECL_INITIAL (decl)))
+    return SYMBOL_PC_RELATIVE;
 
   return SYMBOL_ABSOLUTE;
 }
@@ -5309,7 +5321,13 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		   && (outer_code == SET || GET_MODE (x) == VOIDmode))
 	    cost = 1;
 
-	  if ((CONST_INT_P (x)
+	  if (code == SYMBOL_REF
+	      && TARGET_COST_TWEAK
+	      && mips_classify_symbol (x, SYMBOL_CONTEXT_LEA)
+		 == SYMBOL_PC_RELATIVE
+	      && LI32_INT (x))
+	    *total = COSTS_N_INSNS (1);
+	  else if ((CONST_INT_P (x)
 	       || mips_string_constant_p (x))
 	      && TARGET_COST_TWEAK
 	      && TARGET_NANOMIPS
@@ -6506,6 +6524,13 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (symbolic_operand (src, VOIDmode))
 	{
+	  if (TARGET_NANOMIPS
+	      && TARGET_ADDIUPC32
+	      && mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA,
+					   &symbol_type)
+	      && symbol_type == SYMBOL_PC_RELATIVE)
+	    return "sdbbp32 50 # addiupc\t%0,%1";
+
 	  if (mips_string_constant_p (src))
 	    return "li\t%0,%1 # LI48";
 	  else
@@ -24294,7 +24319,7 @@ class pass_optimize_multi_refs : public rtl_opt_pass
     {
       return TARGET_NANOMIPS == NANOMIPS_NMF
 	     && TARGET_OPTIMIZE_MULTIPLE_REFS
-	     && TARGET_LI48;
+	     && (TARGET_LI48 || TARGET_ADDIUPC32);
     }
 
   virtual unsigned int execute (function *);
@@ -24307,6 +24332,7 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
   rtx_insn *insn;
   rtx set;
   refs_and_sregs_info_t ras_info;
+  enum mips_symbol_type type;
 
   hash_table <reference_entry_hasher_t> *ref_table =
    new hash_table<reference_entry_hasher_t> (10);
@@ -24330,8 +24356,10 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
 	{
 	  rtx src = SET_SRC (set);
 	  rtx dest = SET_DEST (set);
+	  mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &type);
 	  if (REG_P (dest)
-	      && absolute_symbolic_operand (src, VOIDmode))
+	      && symbolic_operand (src, VOIDmode)
+	      && (type == SYMBOL_ABSOLUTE || type == SYMBOL_PC_RELATIVE))
 	    {
 	      reference_entry **slot;
 	      reference_entry *entry;
@@ -24370,8 +24398,10 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
 	{
 	  rtx *src = &SET_SRC (set);
 	  rtx *dest = &SET_DEST (set);
+	  mips_symbolic_constant_p (*src, SYMBOL_CONTEXT_LEA, &type);
 	  if (REG_P (*dest)
-	      && absolute_symbolic_operand (*src, VOIDmode))
+	      && symbolic_operand (*src, VOIDmode)
+	      && (type == SYMBOL_ABSOLUTE || type == SYMBOL_PC_RELATIVE))
 	    {
 	      ref_info r;
 
