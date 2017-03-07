@@ -742,9 +742,13 @@ bool
 pass_store_merging::terminate_and_process_all_chains ()
 {
   bool ret = false;
-  for (std::map<unsigned, tree>::iterator iter = m_store_seq.begin ();
-       iter != m_store_seq.end (); ++iter)
-    ret |= terminate_and_release_chain (*m_stores.get((*iter).second));
+  for (std::map<unsigned, tree>::iterator next = m_store_seq.begin (),
+	 iter = next; iter != m_store_seq.end (); iter = next)
+    {
+      next++;
+      tree base_addr = (*iter).second;
+      ret |= terminate_and_release_chain (*m_stores.get (base_addr));
+    }
   gcc_assert (m_stores.elements () == 0);
   gcc_assert (m_store_seq.empty ());
 
@@ -812,12 +816,16 @@ pass_store_merging::terminate_all_aliasing_chains (imm_store_chain_info
     }
 
   /* Check for aliasing with all other store chains.  */
-  for (std::map<unsigned, tree>::iterator iter = m_store_seq.begin ();
-       iter != m_store_seq.end (); ++iter)
+  for (std::map<unsigned, tree>::iterator next = m_store_seq.begin (),
+	 iter = next; iter != m_store_seq.end (); iter = next)
     {
+      next++;
+      unsigned seqno = (*iter).first;
+      tree base_addr = (*iter).second;
+
       /* We already checked all the stores in chain_info and terminated the
 	 chain if necessary.  Skip it here.  */
-      if (chain_info && (*chain_info)->seqno == (*iter).first)
+      if (chain_info && (*chain_info)->seqno == seqno)
 	continue;
 
       /* We can't use the base object here as that does not reliably exist.
@@ -825,11 +833,11 @@ pass_store_merging::terminate_all_aliasing_chains (imm_store_chain_info
 	 minimum and maximum offset and the maximum size we could improve
 	 things here).  */
       ao_ref chain_ref;
-      ao_ref_init_from_ptr_and_size (&chain_ref, (*iter).second, NULL_TREE);
+      ao_ref_init_from_ptr_and_size (&chain_ref, base_addr, NULL_TREE);
       if (ref_maybe_used_by_stmt_p (stmt, &chain_ref)
 	  || stmt_may_clobber_ref_p_1 (stmt, &chain_ref))
 	{
-	  terminate_and_release_chain (*m_stores.get ((*iter).second));
+	  terminate_and_release_chain (*m_stores.get (base_addr));
 	  ret = true;
 	}
     }
