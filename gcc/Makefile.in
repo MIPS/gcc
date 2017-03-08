@@ -1458,6 +1458,7 @@ OBJS = \
 	sparseset.o \
 	spellcheck.o \
 	spellcheck-tree.o \
+	ssa-def-chain.o \
 	sreal.o \
 	stack-ptr-mod.o \
 	statistics.o \
