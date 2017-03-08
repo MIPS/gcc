@@ -1,3 +1,23 @@
+2017-03-03  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wnoexcept-type): New.
+
+2017-03-02  Richard Biener  <rguenther@suse.de>
+
+	PR c/79756
+	* c-common.c (c_common_mark_addressable_vec): Look through
+	C_MAYBE_CONST_EXPR.
+
+2017-02-28  Martin Liska  <mliska@suse.cz>
+
+	* c.opt: Replace space with tabular for options of <number>
+	type.
+
+2017-02-28  Martin Liska  <mliska@suse.cz>
+
+	* c.opt: Fix --help=option -Q for options which are of
+	an enum type.
+
 2017-02-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/79588
