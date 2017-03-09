@@ -847,6 +847,7 @@ Objective-C and Objective-C++ Dialects}.
 -mvirt -mno-virt @gol
 -mxpa -mno-xpa @gol
 -mmicromips -mno-micromips @gol
+-mmsa -mno-msa @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
@@ -861,6 +862,7 @@ Objective-C and Objective-C++ Dialects}.
 -mexplicit-relocs  -mno-explicit-relocs @gol
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mdivide-traps  -mdivide-breaks @gol
+-mload-store-pairs  -mno-load-store-pairs @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad -mno-mad -mimadd -mno-imadd -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-24k -mno-fix-24k @gol
@@ -871,10 +873,11 @@ Objective-C and Objective-C++ Dialects}.
 -mflush-func=@var{func}  -mno-flush-func @gol
 -mbranch-cost=@var{num}  -mbranch-likely  -mno-branch-likely @gol
 -mcompact-branches=@var{policy} @gol
--mfp-exceptions -mno-fp-exceptions @gol
--mvr4130-align -mno-vr4130-align -msynci -mno-synci @gol
--mrelax-pic-calls -mno-relax-pic-calls -mmcount-ra-address @gol
--mframe-header-opt -mno-frame-header-opt}
+-mfp-exceptions  -mno-fp-exceptions @gol
+-mvr4130-align  -mno-vr4130-align  -msynci  -mno-synci @gol
+-mlxc1-sxc1 -mno-lxc1-sxc1 -mmadd4 -mno-madd4 @gol
+-mrelax-pic-calls  -mno-relax-pic-calls  -mmcount-ra-address @gol
+-mframe-header-opt  -mno-frame-header-opt}
 
 @emph{MMIX Options}
 @gccoptlist{-mlibfuncs  -mno-libfuncs  -mepsilon  -mno-epsilon  -mabi=gnu @gol
@@ -18372,6 +18375,15 @@ overridden at configure time using @option{--with-divide=breaks}.
 Divide-by-zero checks can be completely disabled using
 @option{-mno-check-zero-division}.
 
+@item -mload-store-pairs
+@itemx -mno-load-store-pairs
+@opindex mload-store-pairs
+@opindex mno-load-store-pairs
+Enable (disable) an optimization that pairs consecutive load or store
+instructions to enable load/store bonding.  This option is enabled by
+default but only takes effect when the selected architecture is known
+to support bonding.
+
 @item -mmemcpy
 @itemx -mno-memcpy
 @opindex mmemcpy
@@ -18722,6 +18734,18 @@ will suppress the allocation of the frame header if it can be determined that
 it is unused.
 
 This optimization is off by default at all optimization levels.
+
+@item -mlxc1-sxc1
+@itemx -mno-lxc1-sxc1
+@opindex mlxc1-sxc1
+When applicable, enable (disable) the generation of @code{lwxc1},
+@code{swxc1}, @code{ldxc1}, @code{sdxc1} instructions.  Enabled by default.
+
+@item -mmadd4
+@itemx -mno-madd4
+@opindex mmadd4
+When applicable, enable (disable) the generation of 4-operand @code{madd.s},
+@code{madd.d} and related instructions.  Enabled by default.
 
 @end table
 
