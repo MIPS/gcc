@@ -1,3 +1,136 @@
+2017-03-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/79977
+	* graphite-scop-detection.c (scop_detection::merge_sese):
+	Handle the case of extra exits to blocks dominating the entry.
+
+2017-03-09  Toma Tabacu  <toma.tabacu@imgtec.com>
+
+	* doc/sourcebuild.texi (Effective-Target Keywords, Other attributes):
+	Document rdynamic.
+
+2017-03-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/79949
+	* lra-constraints.c (process_alt_operands): Check memory when
+	trying to predict a cycle.  Print about the overall increase.
+
+2017-03-09  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/79971
+	* gimple-expr.c (useless_type_conversion_p): Preserve
+	TYPE_SATURATING for fixed-point types.
+
+2017-03-09  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/79970
+	* ipa-prop.c (ipa_modify_formal_parameters): Avoid changing
+	alignment of BLKmode params.
+
+2017-03-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/79913
+	* config/aarch64/iterators.md (VALL_F16_NO_V2Q): New mode iterator.
+	(VALL_NO_V2Q): Likewise.
+	(VDQF_DF): Delete.
+	* config/aarch64/aarch64-simd.md
+	(aarch64_dup_lane_<vswap_width_name><mode>): Use VALL_F16_NO_V2Q
+	iterator.
+	(*aarch64_simd_vec_copy_lane_<vswap_width_name><mode>): Use
+	VALL_NO_V2Q mode iterator.
+	(*aarch64_vgetfmulx<mode>): Use VDQF iterator.
+
+2017-03-09  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/79631
+	* tree-chkp-opt.c (chkp_is_constant_addr): Call
+	tree_int_cst_sign_bit just for INTEGER constants.
+
+2017-03-09  Martin Liska  <mliska@suse.cz>
+
+	PR target/65705
+	PR target/69804
+	* toplev.c (process_options): Disable -fcheck-pointer-bounds with
+	sanitizers.
+
+2017-03-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/79672
+	* tree.c (inchash::add_expr): Handle TREE_VEC.
+
+2017-03-09  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/79764
+	(chkp_narrow_size_and_offset): New function.
+	(chkp_parse_array_and_component_ref): Support BIT_FIELD_REF.
+	(void chkp_parse_bit_field_ref): New function.
+	(chkp_make_addressed_object_bounds): Add case for BIT_FIELD_REF.
+	(chkp_process_stmt): Use chkp_parse_bit_field_ref.
+
+2017-03-09  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/79761
+	* tree-chkp.c (chkp_get_bound_for_parm): Get bounds for a param.
+	(chkp_find_bounds_1): Remove gcc_unreachable.
+
+2017-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/79944
+	* asan.c (get_mem_refs_of_builtin_call): For BUILT_IN_ATOMIC* and
+	BUILT_IN_SYNC*, determine the access type from the size suffix and
+	always build a MEM_REF with that type.  Handle forgotten
+	BUILT_IN_SYNC_FETCH_AND_NAND_16 and BUILT_IN_SYNC_NAND_AND_FETCH_16.
+
+	PR target/79932
+	* config/i386/avx512vlintrin.h (_mm256_cmpge_epi32_mask,
+	_mm256_cmpge_epi64_mask, _mm256_cmpge_epu32_mask,
+	_mm256_cmpge_epu64_mask, _mm256_cmple_epi32_mask,
+	_mm256_cmple_epi64_mask, _mm256_cmple_epu32_mask,
+	_mm256_cmple_epu64_mask, _mm256_cmplt_epi32_mask,
+	_mm256_cmplt_epi64_mask, _mm256_cmplt_epu32_mask,
+	_mm256_cmplt_epu64_mask, _mm256_cmpneq_epi32_mask,
+	_mm256_cmpneq_epi64_mask, _mm256_cmpneq_epu32_mask,
+	_mm256_cmpneq_epu64_mask, _mm256_mask_cmpge_epi32_mask,
+	_mm256_mask_cmpge_epi64_mask, _mm256_mask_cmpge_epu32_mask,
+	_mm256_mask_cmpge_epu64_mask, _mm256_mask_cmple_epi32_mask,
+	_mm256_mask_cmple_epi64_mask, _mm256_mask_cmple_epu32_mask,
+	_mm256_mask_cmple_epu64_mask, _mm256_mask_cmplt_epi32_mask,
+	_mm256_mask_cmplt_epi64_mask, _mm256_mask_cmplt_epu32_mask,
+	_mm256_mask_cmplt_epu64_mask, _mm256_mask_cmpneq_epi32_mask,
+	_mm256_mask_cmpneq_epi64_mask, _mm256_mask_cmpneq_epu32_mask,
+	_mm256_mask_cmpneq_epu64_mask, _mm_cmpge_epi32_mask,
+	_mm_cmpge_epi64_mask, _mm_cmpge_epu32_mask, _mm_cmpge_epu64_mask,
+	_mm_cmple_epi32_mask, _mm_cmple_epi64_mask, _mm_cmple_epu32_mask,
+	_mm_cmple_epu64_mask, _mm_cmplt_epi32_mask, _mm_cmplt_epi64_mask,
+	_mm_cmplt_epu32_mask, _mm_cmplt_epu64_mask, _mm_cmpneq_epi32_mask,
+	_mm_cmpneq_epi64_mask, _mm_cmpneq_epu32_mask, _mm_cmpneq_epu64_mask,
+	_mm_mask_cmpge_epi32_mask, _mm_mask_cmpge_epi64_mask,
+	_mm_mask_cmpge_epu32_mask, _mm_mask_cmpge_epu64_mask,
+	_mm_mask_cmple_epi32_mask, _mm_mask_cmple_epi64_mask,
+	_mm_mask_cmple_epu32_mask, _mm_mask_cmple_epu64_mask,
+	_mm_mask_cmplt_epi32_mask, _mm_mask_cmplt_epi64_mask,
+	_mm_mask_cmplt_epu32_mask, _mm_mask_cmplt_epu64_mask,
+	_mm_mask_cmpneq_epi32_mask, _mm_mask_cmpneq_epi64_mask,
+	_mm_mask_cmpneq_epu32_mask, _mm_mask_cmpneq_epu64_mask): Move
+	definitions outside of __OPTIMIZE__ guarded section.
+
+	PR target/79932
+	* config/i386/avx512bwintrin.h (_mm512_packs_epi32,
+	_mm512_maskz_packs_epi32, _mm512_mask_packs_epi32,
+	_mm512_packus_epi32, _mm512_maskz_packus_epi32,
+	_mm512_mask_packus_epi32): Move definitions outside of __OPTIMIZE__
+	guarded section.
+
+2017-03-09  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vx-builtins.md ("vfee<mode>", "vfeez<mode>")
+	("vfenez<mode>"): Add missing constraints.
+
+2017-03-08  Martin Sebor  <msebor@redhat.com>
+
+	PR target/79928
+	* config/nds32/nds32.c (nds32_option_override): 
+
 2017-03-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/79940
