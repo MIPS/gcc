@@ -110,10 +110,10 @@ set tmpdir "${tmpdir-`${PWDCMD-pwd}`}"
 set srcdir "${testsuite-${srcdir}/gcc/testsuite}"
 set CFLAGS ""
 set CXXFLAGS ""
-set GCC_UNDER_TEST "${GCC_UNDER_TEST-${prefix}${prefix+/bin/}gcc}"
-set GXX_UNDER_TEST "${GXX_UNDER_TEST-${prefix}${prefix+/bin/}g++}"
-set GFORTRAN_UNDER_TEST "${GFORTRAN_UNDER_TEST-${prefix}${prefix+/bin/}gfortran}"
-set OBJC_UNDER_TEST "${OBJC_UNDER_TEST-${prefix}${prefix+/bin/}gcc}"
+set GCC_UNDER_TEST "${GCC_UNDER_TEST-${prefix}${prefix+/bin/}${target+$target-}gcc}"
+set GXX_UNDER_TEST "${GXX_UNDER_TEST-${prefix}${prefix+/bin/}${target+$target-}g++}"
+set GFORTRAN_UNDER_TEST "${GFORTRAN_UNDER_TEST-${prefix}${prefix+/bin/}${target+$target-}gfortran}"
+set OBJC_UNDER_TEST "${OBJC_UNDER_TEST-${prefix}${prefix+/bin/}${target+$target-}gcc}"
 EOF
 if test x${target} != x; then
   echo "set target_triplet $target" >> site.exp
