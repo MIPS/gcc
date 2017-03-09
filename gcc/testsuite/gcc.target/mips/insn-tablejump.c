@@ -1,8 +1,7 @@
 /* { dg-do run } */
-/* Note that this test does not need headers but needs runtime support */
-/* { dg-options "-mmicromips (REQUIRES_STDLIB)" } */
+/* { dg-options "(-mmicromips) -mabi=32" } */
 
-int __attribute__ ((noinline))
+MICROMIPS int __attribute__ ((noinline))
 frob (int i)
 {
   switch (i)
@@ -23,7 +22,7 @@ frob (int i)
   return i;
 }
 
-int
+MICROMIPS int
 main (int argc, char **argv)
 {
   asm ("" : "+r" (argc));
