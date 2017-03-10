@@ -76,6 +76,8 @@ ssa_define_chain::operator[] (tree name)
 tree 
 ssa_define_chain::terminal_name (unsigned index)
 {
+  /* Ensure the terminal name has been set.  */
+  operator[] (index);
   return terminal[index];
 }
 

@@ -22,19 +22,39 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_SSA_DEF_CHAIN_H
 
 
-/* This class is used to maintain a definition chain of SSA_NAMEs that all
-   share the attribute that they are supported by the irange_operator
-   table.  This means they can be used to reevaluate expressions. ie
-   a_3 = b_6 + 4
-   c_7 = a_3 * 2
-   q_9 = -c_7
+/* This class is used to maintain a definition chain of SSA_NAMEs.
+   An SSA_NAME appears in a definition chain if it is used in a calcuation
+   that is is supported by the optimization using the data structure.
+   The routine "generate_def_chain" determines this.
 
-   If an ssa_name is in the definition_chain for another, then an expression
-   using one can be re-expressed in terms of the other.
+   Initially this is being utilized by the ssa range generator to determine  
+   which expressions can be re-expressed.
    
-   the definition chain for a_3 contains only b_6.
+   Assuming operators -,+ and * are understood, using the follwing snippet:
+
+	 b_6 = t_2 << 6
+	 a_3 = b_6 + 4
+	 c_7 = a_3 * 2
+	 q_9 = -c_7
+
+   the definition chain for a_3 contains only b_6.  
    the definition chain for c_7 contains both a_3 and b_6.
    the definition chain for q_9 contains c_7, a_3, and b_6.
+
+   The range operator class does not understand the << operator, so the
+   defintion chain is terminated when the stmt defining b_6 is encountered
+   using an unknow operator. 
+   
+   This means the "terminal" node in each of the chains shown is b_6. This is
+   the first value used wihch cannot be calculated.
+
+   If there is more than one possible terminal name, ie both b_6 and q_9 could
+   be considered terminal in this case:
+         q_9 = foo ()
+	 b_6 = t_2 << 6
+	 a_3 = b_6 + q_9 
+   the last confirmed single name is used... in this case a_3.
+   
    These are calculated on demand and cached.  */
    
 class ssa_define_chain
