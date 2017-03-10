@@ -103,7 +103,6 @@
   [p + 4B] (16-bit) := 0xabcd;     //  val & 0x00000000ffff;  */
 
 #include "config.h"
-#define INCLUDE_MAP
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
@@ -673,12 +672,34 @@ merged_store_group::apply_stores ()
 
 struct imm_store_chain_info
 {
-  unsigned seqno;
+  /* Doubly-linked list that imposes an order on chain processing.
+     PNXP (prev's next pointer) points to the head of a list, or to
+     the next field in the previous chain in the list.
+     See pass_store_merging::m_stores_head for more rationale.  */
+  imm_store_chain_info *next, **pnxp;
   tree base_addr;
   auto_vec<struct store_immediate_info *> m_store_info;
   auto_vec<merged_store_group *> m_merged_store_groups;
 
-  imm_store_chain_info (unsigned seq, tree b_a) : seqno (seq), base_addr (b_a) {}
+  imm_store_chain_info (imm_store_chain_info *&inspt, tree b_a)
+  : next (inspt), pnxp (&inspt), base_addr (b_a)
+  {
+    inspt = this;
+    if (next)
+      {
+	gcc_checking_assert (pnxp == next->pnxp);
+	next->pnxp = &next;
+      }
+  }
+  ~imm_store_chain_info ()
+  {
+    *pnxp = next;
+    if (next)
+      {
+	gcc_checking_assert (&next == next->pnxp);
+	next->pnxp = pnxp;
+      }
+  }
   bool terminate_and_process_chain ();
   bool coalesce_immediate_stores ();
   bool output_merged_store (merged_store_group *);
@@ -717,17 +738,16 @@ public:
 private:
   hash_map<tree_operand_hash, struct imm_store_chain_info *> m_stores;
 
-  /* Use m_store_seq to order elements in m_stores, and iterate over
-     them in a predictable way.  It maps sequence numbers to the base
-     addresses stored as keys in m_stores.  Using this order avoids
-     extraneous differences in the compiler output just because of
-     tree pointer variations (e.g. different chains end up in
+  /* Form a doubly-linked stack of the elements of m_stores, so that
+     we can iterate over them in a predictable way.  Using this order
+     avoids extraneous differences in the compiler output just because
+     of tree pointer variations (e.g. different chains end up in
      different positions of m_stores, so they are handled in different
      orders, so they allocate or release SSA names in different
      orders, and when they get reused, subsequent passes end up
      getting different SSA names, which may ultimately change
      decisions when going out of SSA).  */
-  std::map<unsigned, tree> m_store_seq;
+  imm_store_chain_info *m_stores_head;
 
   bool terminate_and_process_all_chains ();
   bool terminate_all_aliasing_chains (imm_store_chain_info **,
@@ -742,15 +762,10 @@ bool
 pass_store_merging::terminate_and_process_all_chains ()
 {
   bool ret = false;
-  for (std::map<unsigned, tree>::iterator next = m_store_seq.begin (),
-	 iter = next; iter != m_store_seq.end (); iter = next)
-    {
-      next++;
-      tree base_addr = (*iter).second;
-      ret |= terminate_and_release_chain (*m_stores.get (base_addr));
-    }
+  while (m_stores_head)
+    ret |= terminate_and_release_chain (m_stores_head);
   gcc_assert (m_stores.elements () == 0);
-  gcc_assert (m_store_seq.empty ());
+  gcc_assert (m_stores_head == NULL);
 
   return ret;
 }
@@ -816,16 +831,13 @@ pass_store_merging::terminate_all_aliasing_chains (imm_store_chain_info
     }
 
   /* Check for aliasing with all other store chains.  */
-  for (std::map<unsigned, tree>::iterator next = m_store_seq.begin (),
-	 iter = next; iter != m_store_seq.end (); iter = next)
+  for (imm_store_chain_info *next = m_stores_head, *cur = next; cur; cur = next)
     {
-      next++;
-      unsigned seqno = (*iter).first;
-      tree base_addr = (*iter).second;
+      next = cur->next;
 
       /* We already checked all the stores in chain_info and terminated the
 	 chain if necessary.  Skip it here.  */
-      if (chain_info && (*chain_info)->seqno == seqno)
+      if (chain_info && (*chain_info) == cur)
 	continue;
 
       /* We can't use the base object here as that does not reliably exist.
@@ -833,11 +845,11 @@ pass_store_merging::terminate_all_aliasing_chains (imm_store_chain_info
 	 minimum and maximum offset and the maximum size we could improve
 	 things here).  */
       ao_ref chain_ref;
-      ao_ref_init_from_ptr_and_size (&chain_ref, base_addr, NULL_TREE);
+      ao_ref_init_from_ptr_and_size (&chain_ref, cur->base_addr, NULL_TREE);
       if (ref_maybe_used_by_stmt_p (stmt, &chain_ref)
 	  || stmt_may_clobber_ref_p_1 (stmt, &chain_ref))
 	{
-	  terminate_and_release_chain (*m_stores.get (base_addr));
+	  terminate_and_release_chain (cur);
 	  ret = true;
 	}
     }
@@ -853,7 +865,6 @@ bool
 pass_store_merging::terminate_and_release_chain (imm_store_chain_info *chain_info)
 {
   bool ret = chain_info->terminate_and_process_chain ();
-  m_store_seq.erase (chain_info->seqno);
   m_stores.remove (chain_info->base_addr);
   delete chain_info;
   return ret;
@@ -1473,17 +1484,13 @@ pass_store_merging::execute (function *fun)
 
 		  /* Store aliases any existing chain?  */
 		  terminate_all_aliasing_chains (chain_info, false, stmt);
-		  unsigned next_seqno = m_store_seq.empty () ? 0
-		    : m_store_seq.rbegin()->first + 1;
 		  /* Start a new chain.  */
 		  struct imm_store_chain_info *new_chain
-		    = new imm_store_chain_info (next_seqno, base_addr);
+		    = new imm_store_chain_info (m_stores_head, base_addr);
 		  info = new store_immediate_info (bitsize, bitpos,
 						   stmt, 0);
 		  new_chain->m_store_info.safe_push (info);
 		  m_stores.put (base_addr, new_chain);
-		  m_store_seq.insert (m_store_seq.end (),
-				      std::make_pair (new_chain->seqno, base_addr));
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
 		      fprintf (dump_file,
