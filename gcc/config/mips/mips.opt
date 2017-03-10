@@ -131,7 +131,7 @@ mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
 
 mdebugd
-Target Var(TARGET_DEBUG_D_MODE) Undocumented
+Target Var(TARGET_DEBUG_D_MODE) Undocumented Init(1)
 
 meb
 Target Report RejectNegative Mask(BIG_ENDIAN)
@@ -380,6 +380,10 @@ msplit-addresses
 Target Report Mask(SPLIT_ADDRESSES)
 Optimize lui/addiu address loads.
 
+mmips16e2
+Target Report Var(TARGET_MIPS16E2) Init(0)
+Enable the MIPS16e V2 instructions.
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values.
@@ -432,6 +436,14 @@ mframe-header-opt
 Target Report Var(flag_frame_header_optimization) Optimization
 Optimize frame header.
 
+mgrow-frame-downwards
+Target Report Var(TARGET_FRAME_GROWS_DOWNWARDS) Init(1) Undocumented
+Change the behaviour to grow the frame downwards.
+
+mshrink-offsets
+Target Report Mask(SHRINK_OFFSETS)
+Shrink offsets in MIPS16/microMIPS code to avoid extended loads and stores.
+
 noasmopt
 Driver
 
@@ -475,3 +487,58 @@ Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
 
 mforbidden-slots
 Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
+mmips16-use-xsregs
+Target Var(mips16_xsregs) Report Init(0)
+Use additional callee saved registers in MIPS16 mode.
+
+mdead-loads
+Target Var(TARGET_DEAD_LOADS) Init(0)
+Redirect dead loads to $0 to avoid spurious output dependencies.
+
+msdata-num=
+Target RejectNegative Joined UInteger Var(mips_sdata_section_num) Init(-1)
+Place all gp relative data in sdata section number NUM.
+
+msdata-opt-list=
+Target RejectNegative Joined Var(mips_sdata_opt_list_file)
+msdata-opt-list=FILE    Use to specify variables to go in the .sdata section.
+
+mepi
+Target Report Var(TARGET_EPI) Init(0)
+Generate common epilogue.
+
+mepi=
+Target RejectNegative Joined Var(mips_epi)
+-mepi=SUFFIX  Generate common epilogue with suffix on the entry-point name.
+
+mfunc-opt-list=
+Target RejectNegative Joined Var(mips_func_opt_list_file) Init(0) Defer
+mfunc-opt-list=FILE	Use to specify per function optimizations.
+
+mblockmov-limit=
+Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
+
+mmips16-tail-indirect
+Target Var(TARGET_MIPS16_TAIL_INDIRECT) Init(0)
+Enable tail optimization using a long style call.
+
+mmips16-tail-branch
+Target Var(TARGET_MIPS16_TAIL_BRANCH) Init(0)
+Enable tail optimization using a branch.
+
+muse-save-restore
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
+
+muse-copyw-by-pieces
+Target Undocumented Var(TARGET_USE_COPYW_BY_PIECES) Init(1)
+
+mmips16-copy-peep
+Target Undocumented Var(TARGET_MIPS16_COPY_PEEP) Init(0)
+
+minline-intermix
+Target Report Var(TARGET_INLINE_INTERMIX)
+Allow inlining even if the compression flags differ between caller and callee.
+
+mmips16-ze-policy=
+Target Undocumented Joined UInteger Var(mips16e2_ze_policy) Init(0)
