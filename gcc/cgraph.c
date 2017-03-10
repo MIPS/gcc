@@ -1504,10 +1504,21 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
 
+  /* If changing the call to __cxa_pure_virtual or similar noreturn function,
+     adjust gimple_call_fntype too.  */
+  if (gimple_call_noreturn_p (new_stmt)
+      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (e->callee->decl)))
+      && TYPE_ARG_TYPES (TREE_TYPE (e->callee->decl))
+      && (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (e->callee->decl)))
+	  == void_type_node))
+    gimple_call_set_fntype (new_stmt, TREE_TYPE (e->callee->decl));
+
   /* If the call becomes noreturn, remove the LHS if possible.  */
   if (lhs
       && (gimple_call_flags (new_stmt) & ECF_NORETURN)
-      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
+      && (VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (new_stmt)))
+	  || (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST
+	      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))))
     {
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
@@ -1941,14 +1952,17 @@ cgraph_node::rtl_info (tree decl)
   cgraph_node *node = get (decl);
   if (!node)
     return NULL;
-  node = node->ultimate_alias_target ();
-  if (node->decl != current_function_decl
-      && !TREE_ASM_WRITTEN (node->decl))
+  enum availability avail;
+  node = node->ultimate_alias_target (&avail);
+  if (decl != current_function_decl
+      && (avail < AVAIL_AVAILABLE
+	  || (node->decl != current_function_decl
+	      && !TREE_ASM_WRITTEN (node->decl))))
     return NULL;
-  /* Allocate if it doesnt exist.  */
-  if (node->ultimate_alias_target ()->rtl == NULL)
-    node->ultimate_alias_target ()->rtl = ggc_cleared_alloc<cgraph_rtl_info> ();
-  return node->ultimate_alias_target ()->rtl;
+  /* Allocate if it doesn't exist.  */
+  if (node->rtl == NULL)
+    node->rtl = ggc_cleared_alloc<cgraph_rtl_info> ();
+  return node->rtl;
 }
 
 /* Return a string describing the failure REASON.  */

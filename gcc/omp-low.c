@@ -1279,7 +1279,8 @@ build_receiver_ref (tree var, bool by_ref, omp_context *ctx)
    this is some variable.  */
 
 static tree
-build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
+build_outer_var_ref (tree var, omp_context *ctx,
+		     enum omp_clause_code code = OMP_CLAUSE_ERROR)
 {
   tree x;
 
@@ -1288,7 +1289,7 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
   else if (is_variable_sized (var))
     {
       x = TREE_OPERAND (DECL_VALUE_EXPR (var), 0);
-      x = build_outer_var_ref (x, ctx, lastprivate);
+      x = build_outer_var_ref (x, ctx, code);
       x = build_simple_mem_ref (x);
     }
   else if (is_taskreg_ctx (ctx))
@@ -1296,11 +1297,17 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
       bool by_ref = use_pointer_for_field (var, NULL);
       x = build_receiver_ref (var, by_ref, ctx);
     }
-  else if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
-	   && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_SIMD)
+  else if ((gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
+	    && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_SIMD)
+	   || (code == OMP_CLAUSE_PRIVATE
+	       && (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
+		   || gimple_code (ctx->stmt) == GIMPLE_OMP_SECTIONS
+		   || gimple_code (ctx->stmt) == GIMPLE_OMP_SINGLE)))
     {
-      /* #pragma omp simd isn't a worksharing construct, and can reference even
-	 private vars in its linear etc. clauses.  */
+      /* #pragma omp simd isn't a worksharing construct, and can reference
+	 even private vars in its linear etc. clauses.
+	 Similarly for OMP_CLAUSE_PRIVATE with outer ref, that can refer
+	 to private vars in all worksharing constructs.  */
       x = NULL_TREE;
       if (ctx->outer && is_taskreg_ctx (ctx))
 	x = lookup_decl (var, ctx->outer);
@@ -1309,7 +1316,7 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
       if (x == NULL_TREE)
 	x = var;
     }
-  else if (lastprivate && is_taskloop_ctx (ctx))
+  else if (code == OMP_CLAUSE_LASTPRIVATE && is_taskloop_ctx (ctx))
     {
       gcc_assert (ctx->outer);
       splay_tree_node n
@@ -1346,7 +1353,7 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
 	  gcc_assert (outer
 		      && gimple_code (outer->stmt) != GIMPLE_OMP_GRID_BODY);
 	}
-	x = lookup_decl (var, outer);
+      x = lookup_decl (var, outer);
     }
   else if (is_reference (var))
     /* This can happen with orphaned constructs.  If var is reference, it is
@@ -2186,7 +2193,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
@@ -2200,10 +2206,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  break;
 
 	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__CACHE_:
-	  sorry ("Clause not supported yet");
-	  break;
-
 	default:
 	  gcc_unreachable ();
 	}
@@ -2360,7 +2364,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
@@ -2368,10 +2371,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  break;
 
 	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__CACHE_:
-	  sorry ("Clause not supported yet");
-	  break;
-
 	default:
 	  gcc_unreachable ();
 	}
@@ -4306,7 +4307,9 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 	{
 	  tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				    OMP_CLAUSE_SAFELEN);
-	  if (c && TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST)
+	  if (c
+	      && (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST
+		  || tree_int_cst_sgn (OMP_CLAUSE_SAFELEN_EXPR (c)) != 1))
 	    max_vf = 1;
 	  else if (c && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
 					  max_vf) == -1)
@@ -4481,8 +4484,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  if (new_var == NULL_TREE)
 		    new_var = maybe_lookup_decl_in_outer_ctx (var, ctx);
 		  x = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
-		  x = build_call_expr_loc (clause_loc, x, 2, new_var,
-					   omp_clause_aligned_alignment (c));
+		  tree alarg = omp_clause_aligned_alignment (c);
+		  alarg = fold_convert_loc (clause_loc, size_type_node, alarg);
+		  x = build_call_expr_loc (clause_loc, x, 2, new_var, alarg);
 		  x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
 		  x = build2 (MODIFY_EXPR, TREE_TYPE (new_var), new_var, x);
 		  gimplify_and_add (x, ilist);
@@ -4495,8 +4499,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  t = maybe_lookup_decl_in_outer_ctx (var, ctx);
 		  t = build_fold_addr_expr_loc (clause_loc, t);
 		  t2 = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
-		  t = build_call_expr_loc (clause_loc, t2, 2, t,
-					   omp_clause_aligned_alignment (c));
+		  tree alarg = omp_clause_aligned_alignment (c);
+		  alarg = fold_convert_loc (clause_loc, size_type_node, alarg);
+		  t = build_call_expr_loc (clause_loc, t2, 2, t, alarg);
 		  t = fold_convert_loc (clause_loc, ptype, t);
 		  x = create_tmp_var (ptype);
 		  t = build2 (MODIFY_EXPR, ptype, x, t);
@@ -4943,7 +4948,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  if (is_task_ctx (ctx))
 		    x = build_receiver_ref (var, false, ctx);
 		  else
-		    x = build_outer_var_ref (var, ctx);
+		    x = build_outer_var_ref (var, ctx, OMP_CLAUSE_PRIVATE);
 		}
 	      else
 		x = NULL;
@@ -5513,7 +5518,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 		x = ovar;
 	    }
 	  if (!x)
-	    x = build_outer_var_ref (var, ctx, true);
+	    x = build_outer_var_ref (var, ctx, OMP_CLAUSE_LASTPRIVATE);
 	  if (is_reference (var))
 	    new_var = build_simple_mem_ref_loc (clause_loc, new_var);
 	  x = lang_hooks.decls.omp_clause_assign_op (c, x, new_var);
@@ -9605,7 +9610,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   struct loop *loop = body_bb->loop_father;
   if (loop != entry_bb->loop_father)
     {
-      gcc_assert (loop->header == body_bb);
+      gcc_assert (broken_loop || loop->header == body_bb);
       gcc_assert (broken_loop
 		  || loop->latch == region->cont
 		  || single_pred (loop->latch) == region->cont);
@@ -13356,9 +13361,15 @@ expand_omp_target (struct omp_region *region)
       make_edge (else_bb, new_bb, EDGE_FALLTHRU);
 
       device = tmp_var;
+      gsi = gsi_last_bb (new_bb);
+    }
+  else
+    {
+      gsi = gsi_last_bb (new_bb);
+      device = force_gimple_operand_gsi (&gsi, device, true, NULL_TREE,
+					 true, GSI_SAME_STMT);
     }
 
-  gsi = gsi_last_bb (new_bb);
   t = gimple_omp_target_data_arg (entry_stmt);
   if (t == NULL)
     {
@@ -13680,6 +13691,9 @@ grid_expand_target_grid_body (struct omp_region *target)
   tree new_parm_decl = copy_node (DECL_ARGUMENTS (kern_fndecl));
   DECL_CONTEXT (new_parm_decl) = kern_fndecl;
   DECL_ARGUMENTS (kern_fndecl) = new_parm_decl;
+  gcc_assert (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (kern_fndecl))));
+  DECL_RESULT (kern_fndecl) = copy_node (DECL_RESULT (kern_fndecl));
+  DECL_CONTEXT (DECL_RESULT (kern_fndecl)) = kern_fndecl;
   struct function *kern_cfun = DECL_STRUCT_FUNCTION (kern_fndecl);
   kern_cfun->curr_properties = cfun->curr_properties;
 

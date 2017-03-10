@@ -532,10 +532,15 @@ get_init_field (segment_info *head, tree union_type, tree *field_init,
   memset (chk, '\0', (size_t)length);
   for (s = head; s; s = s->next)
     if (s->sym->value)
-      gfc_merge_initializers (s->sym->ts, s->sym->value,
+      {
+	locus *loc = NULL;
+	if (s->sym->ns->equiv && s->sym->ns->equiv->eq)
+	  loc = &s->sym->ns->equiv->eq->expr->where;
+	gfc_merge_initializers (s->sym->ts, s->sym->value, loc,
 			      &data[s->offset],
 			      &chk[s->offset],
 			     (size_t)s->length);
+      }
   
   for (i = 0; i < length; i++)
     CONSTRUCTOR_APPEND_ELT (v, NULL, build_int_cst (type, data[i]));
@@ -800,13 +805,21 @@ element_number (gfc_array_ref *ar)
       if (ar->dimen_type[i] != DIMEN_ELEMENT)
         gfc_internal_error ("element_number(): Bad dimension type");
 
-      mpz_sub (n, *get_mpz (ar->start[i]), *get_mpz (as->lower[i]));
+      if (as && as->lower[i])
+	mpz_sub (n, *get_mpz (ar->start[i]), *get_mpz (as->lower[i]));
+      else
+	mpz_sub_ui (n, *get_mpz (ar->start[i]), 1);
  
       mpz_mul (n, n, multiplier);
       mpz_add (offset, offset, n);
  
-      mpz_sub (extent, *get_mpz (as->upper[i]), *get_mpz (as->lower[i]));
-      mpz_add_ui (extent, extent, 1);
+      if (as && as->upper[i] && as->lower[i])
+	{
+	  mpz_sub (extent, *get_mpz (as->upper[i]), *get_mpz (as->lower[i]));
+	  mpz_add_ui (extent, extent, 1);
+	}
+      else
+	mpz_set_ui (extent, 0);
  
       if (mpz_sgn (extent) < 0)
         mpz_set_ui (extent, 0);
@@ -1229,8 +1242,12 @@ finish_equivalences (gfc_namespace *ns)
 	  {
 	    c = gfc_get_common_head ();
 	    /* We've lost the real location, so use the location of the
-	       enclosing procedure.  */
-	    c->where = ns->proc_name->declared_at;
+	       enclosing procedure.  If we're in a BLOCK DATA block, then
+	       use the location in the sym_root.  */
+	    if (ns->proc_name)
+	      c->where = ns->proc_name->declared_at;
+	    else if (ns->is_block_data)
+	      c->where = ns->sym_root->n.sym->declared_at;
 	    strcpy (c->name, z->module);
 	  }
 	else

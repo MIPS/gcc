@@ -34,14 +34,14 @@ test01()
   const auto p = __gnu_test::nonexistent_path();
   fs::directory_iterator iter(p, ec);
   VERIFY( ec );
-  VERIFY( iter != fs::directory_iterator() );
+  VERIFY( iter == end(iter) );
 
   // Test empty directory.
   create_directory(p, fs::current_path(), ec);
   VERIFY( !ec );
   iter = fs::directory_iterator(p, ec);
   VERIFY( !ec );
-  VERIFY( iter == fs::directory_iterator() );
+  VERIFY( iter == end(iter) );
 
   // Test non-empty directory.
   create_directory_symlink(p, p / "l", ec);
@@ -51,27 +51,98 @@ test01()
   VERIFY( iter != fs::directory_iterator() );
   VERIFY( iter->path() == p/"l" );
   ++iter;
-  VERIFY( iter == fs::directory_iterator() );
+  VERIFY( iter == end(iter) );
 
   // Test inaccessible directory.
   permissions(p, fs::perms::none, ec);
   VERIFY( !ec );
   iter = fs::directory_iterator(p, ec);
   VERIFY( ec );
-  VERIFY( iter != fs::directory_iterator() );
+  VERIFY( iter == end(iter) );
 
   // Test inaccessible directory, skipping permission denied.
   const auto opts = fs::directory_options::skip_permission_denied;
   iter = fs::directory_iterator(p, opts, ec);
   VERIFY( !ec );
-  VERIFY( iter == fs::directory_iterator() );
+  VERIFY( iter == end(iter) );
 
   permissions(p, fs::perms::owner_all, ec);
   remove_all(p, ec);
+}
+
+void
+test02()
+{
+  bool test __attribute__((unused)) = false;
+
+  std::error_code ec;
+  const auto p = __gnu_test::nonexistent_path();
+  create_directory(p, fs::current_path(), ec);
+  create_directory_symlink(p, p / "l", ec);
+  VERIFY( !ec );
+
+  // Test post-increment (libstdc++/71005)
+  auto iter = fs::directory_iterator(p, ec);
+  VERIFY( !ec );
+  VERIFY( iter != end(iter) );
+  const auto entry1 = *iter;
+  const auto entry2 = *iter++;
+  VERIFY( entry1 == entry2 );
+  VERIFY( entry1.path() == p/"l" );
+  VERIFY( iter == end(iter) );
+
+  remove_all(p, ec);
+}
+
+void
+test03()
+{
+  bool test __attribute__((unused)) = false;
+
+  std::error_code ec;
+  const auto p = __gnu_test::nonexistent_path();
+  create_directories(p / "longer_than_small_string_buffer", ec);
+  VERIFY( !ec );
+
+  // Test for no reallocation on each dereference (this is a GNU extension)
+  auto iter = fs::directory_iterator(p, ec);
+  const auto* s1 = iter->path().c_str();
+  const auto* s2 = iter->path().c_str();
+  VERIFY( s1 == s2 );
+
+  remove_all(p, ec);
+}
+
+void
+test04()
+{
+  bool test __attribute__((unused)) = false;
+
+  const fs::directory_iterator it;
+  VERIFY( it == fs::directory_iterator() );
+}
+
+void
+test05()
+{
+  bool test __attribute__((unused)) = false;
+
+  auto p = __gnu_test::nonexistent_path();
+  create_directory(p);
+  create_directory_symlink(p, p / "l");
+  fs::directory_iterator it(p), endit;
+  VERIFY( begin(it) == it );
+  static_assert( noexcept(begin(it)), "begin is noexcept" );
+  VERIFY( end(it) == endit );
+  static_assert( noexcept(end(it)), "end is noexcept" );
 }
 
 int
 main()
 {
   test01();
+  test02();
+  test03();
+  test04();
+  test05();
 }

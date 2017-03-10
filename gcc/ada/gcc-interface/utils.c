@@ -90,6 +90,8 @@ static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
+static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
+static tree handle_noclone_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
@@ -120,6 +122,10 @@ const struct attribute_spec gnat_internal_attribute_table[] =
   { "sentinel",     0, 1,  false, true,  true,  handle_sentinel_attribute,
     false },
   { "noreturn",     0, 0,  true,  false, false, handle_noreturn_attribute,
+    false },
+  { "noinline",     0, 0,  true,  false, false, handle_noinline_attribute,
+    false },
+  { "noclone",      0, 0,  true,  false, false, handle_noclone_attribute,
     false },
   { "leaf",         0, 0,  true,  false, false, handle_leaf_attribute,
     false },
@@ -1616,10 +1622,7 @@ record_builtin_type (const char *name, tree type, bool artificial_p)
   character subtypes with RM_Size = Esize = CHAR_TYPE_SIZE into signed
   types.  The idea is to ensure that the bit pattern contained in the
   Esize'd objects is not changed, even though the numerical value will
-  be interpreted differently depending on the signedness.
-
-  For character types, the bounds are implicit and, therefore, need to
-  be adjusted.  Morever, the debug info needs the unsigned version.  */
+  be interpreted differently depending on the signedness.  */
 
 void
 finish_character_type (tree char_type)
@@ -1633,11 +1636,32 @@ finish_character_type (tree char_type)
        ? unsigned_char_type_node
        : copy_type (gnat_unsigned_type_for (char_type)));
 
+  /* Create an unsigned version of the type and set it as debug type.  */
   TYPE_NAME (unsigned_char_type) = TYPE_NAME (char_type);
   TYPE_STRING_FLAG (unsigned_char_type) = TYPE_STRING_FLAG (char_type);
   TYPE_ARTIFICIAL (unsigned_char_type) = TYPE_ARTIFICIAL (char_type);
-
   SET_TYPE_DEBUG_TYPE (char_type, unsigned_char_type);
+
+  /* If this is a subtype, make the debug type a subtype of the debug type
+     of the base type and convert literal RM bounds to unsigned.  */
+  if (TREE_TYPE (char_type))
+    {
+      tree base_unsigned_char_type = TYPE_DEBUG_TYPE (TREE_TYPE (char_type));
+      tree min_value = TYPE_RM_MIN_VALUE (char_type);
+      tree max_value = TYPE_RM_MAX_VALUE (char_type);
+
+      if (TREE_CODE (min_value) == INTEGER_CST)
+	min_value = fold_convert (base_unsigned_char_type, min_value);
+      if (TREE_CODE (max_value) == INTEGER_CST)
+	max_value = fold_convert (base_unsigned_char_type, max_value);
+
+      TREE_TYPE (unsigned_char_type) = base_unsigned_char_type;
+      SET_TYPE_RM_MIN_VALUE (unsigned_char_type, min_value);
+      SET_TYPE_RM_MAX_VALUE (unsigned_char_type, max_value);
+    }
+
+  /* Adjust the RM bounds of the original type to unsigned; that's especially
+     important for types since they are implicit in this case.  */
   SET_TYPE_RM_MIN_VALUE (char_type, TYPE_MIN_VALUE (unsigned_char_type));
   SET_TYPE_RM_MAX_VALUE (char_type, TYPE_MAX_VALUE (unsigned_char_type));
 }
@@ -4204,12 +4228,15 @@ convert (tree type, tree expr)
       return convert (type, unpadded);
     }
 
-  /* If the input is a biased type, adjust first.  */
+  /* If the input is a biased type, convert first to the base type and add
+     the bias.  Note that the bias must go through a full conversion to the
+     base type, lest it is itself a biased value; this happens for subtypes
+     of biased types.  */
   if (ecode == INTEGER_TYPE && TYPE_BIASED_REPRESENTATION_P (etype))
     return convert (type, fold_build2 (PLUS_EXPR, TREE_TYPE (etype),
 				       fold_convert (TREE_TYPE (etype), expr),
-				       fold_convert (TREE_TYPE (etype),
-						     TYPE_MIN_VALUE (etype))));
+				       convert (TREE_TYPE (etype),
+						TYPE_MIN_VALUE (etype))));
 
   /* If the input is a justified modular type, we need to extract the actual
      object before converting it to any other type with the exceptions of an
@@ -4512,7 +4539,12 @@ convert (tree type, tree expr)
 	  && (ecode == ARRAY_TYPE || ecode == UNCONSTRAINED_ARRAY_TYPE
 	      || (ecode == RECORD_TYPE && TYPE_CONTAINS_TEMPLATE_P (etype))))
 	return unchecked_convert (type, expr, false);
-      else if (TYPE_BIASED_REPRESENTATION_P (type))
+
+      /* If the output is a biased type, convert first to the base type and
+	 subtract the bias.  Note that the bias itself must go through a full
+	 conversion to the base type, lest it is a biased value; this happens
+	 for subtypes of biased types.  */
+      if (TYPE_BIASED_REPRESENTATION_P (type))
 	return fold_convert (type,
 			     fold_build2 (MINUS_EXPR, TREE_TYPE (type),
 					  convert (TREE_TYPE (type), expr),
@@ -5968,6 +6000,51 @@ handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     {
       warning (OPT_Wattributes, "%qs attribute ignored",
 	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "noinline" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noinline_attribute (tree *node, tree name,
+			   tree ARG_UNUSED (args),
+			   int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with attribute %qs", name, "always_inline");
+	  *no_add_attrs = true;
+	}
+      else
+	DECL_UNINLINABLE (*node) = 1;
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "noclone" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_noclone_attribute (tree *node, tree name,
+			  tree ARG_UNUSED (args),
+			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 

@@ -1114,6 +1114,8 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
 	  /* Several OpenACC clauses have optional arguments.  Check if they
 	     are present.  */
 	  if (OMP_CLAUSE_OPERAND (clause, 0))
@@ -1197,8 +1199,22 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_AUTO:
 	  break;
 
+	case OMP_CLAUSE_TILE:
+	  /* OpenACC tile clauses are discarded during gimplification, so we
+	     don't expect to see anything here.  */
+	  gcc_unreachable ();
+
+	case OMP_CLAUSE__CACHE_:
+	  /* These clauses belong to the OpenACC cache directive, which is
+	     discarded during gimplification, so we don't expect to see
+	     anything here.  */
+	  gcc_unreachable ();
+
+	case OMP_CLAUSE_DEVICE_RESIDENT:
 	default:
 	  gcc_unreachable ();
 	}
@@ -1332,7 +1348,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	{
 	  wi->val_only = true;
 	  wi->is_lhs = false;
-	  *handled_ops_p = true;
+	  *handled_ops_p = false;
 	  return NULL_TREE;
 	}
       break;
@@ -1790,6 +1806,8 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WAIT:
 	  /* Several OpenACC clauses have optional arguments.  Check if they
 	     are present.  */
 	  if (OMP_CLAUSE_OPERAND (clause, 0))
@@ -1878,8 +1896,22 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_AUTO:
 	  break;
 
+	case OMP_CLAUSE_TILE:
+	  /* OpenACC tile clauses are discarded during gimplification, so we
+	     don't expect to see anything here.  */
+	  gcc_unreachable ();
+
+	case OMP_CLAUSE__CACHE_:
+	  /* These clauses belong to the OpenACC cache directive, which is
+	     discarded during gimplification, so we don't expect to see
+	     anything here.  */
+	  gcc_unreachable ();
+
+	case OMP_CLAUSE_DEVICE_RESIDENT:
 	default:
 	  gcc_unreachable ();
 	}
@@ -1946,6 +1978,8 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   struct nesting_info *info = (struct nesting_info *) wi->info;
   tree save_local_var_chain;
   bitmap save_suppress;
+  char save_static_chain_added;
+  bool frame_decl_added;
   gimple *stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
@@ -1953,29 +1987,44 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
       save_suppress = info->suppress_expansion;
+      frame_decl_added = false;
       if (convert_local_omp_clauses (gimple_omp_taskreg_clauses_ptr (stmt),
 	                             wi))
 	{
-	  tree c;
+	  tree c = build_omp_clause (gimple_location (stmt),
+				     OMP_CLAUSE_SHARED);
 	  (void) get_frame_type (info);
-	  c = build_omp_clause (gimple_location (stmt),
-				OMP_CLAUSE_SHARED);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
 	  gimple_omp_taskreg_set_clauses (stmt, c);
+	  info->static_chain_added |= 4;
+	  frame_decl_added = true;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
+      save_static_chain_added = info->static_chain_added;
       info->new_local_var_chain = NULL;
+      info->static_chain_added = 0;
 
       walk_body (convert_local_reference_stmt, convert_local_reference_op, info,
 	         gimple_omp_body_ptr (stmt));
 
+      if ((info->static_chain_added & 4) != 0 && !frame_decl_added)
+	{
+	  tree c = build_omp_clause (gimple_location (stmt),
+				     OMP_CLAUSE_SHARED);
+	  (void) get_frame_type (info);
+	  OMP_CLAUSE_DECL (c) = info->frame_decl;
+	  OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
+	  info->static_chain_added |= 4;
+	  gimple_omp_taskreg_set_clauses (stmt, c);
+	}
       if (info->new_local_var_chain)
 	declare_vars (info->new_local_var_chain,
 		      gimple_seq_first_stmt (gimple_omp_body (stmt)), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
+      info->static_chain_added |= save_static_chain_added;
       break;
 
     case GIMPLE_OMP_FOR:
@@ -2016,29 +2065,46 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	  break;
 	}
       save_suppress = info->suppress_expansion;
+      frame_decl_added = false;
       if (convert_local_omp_clauses (gimple_omp_target_clauses_ptr (stmt), wi))
 	{
-	  tree c;
+	  tree c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
 	  (void) get_frame_type (info);
-	  c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
 	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
 	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
 	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
+	  info->static_chain_added |= 4;
+	  frame_decl_added = true;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
+      save_static_chain_added = info->static_chain_added;
       info->new_local_var_chain = NULL;
+      info->static_chain_added = 0;
 
       walk_body (convert_local_reference_stmt, convert_local_reference_op, info,
 		 gimple_omp_body_ptr (stmt));
+
+      if ((info->static_chain_added & 4) != 0 && !frame_decl_added)
+	{
+	  tree c = build_omp_clause (gimple_location (stmt), OMP_CLAUSE_MAP);
+	  (void) get_frame_type (info);
+	  OMP_CLAUSE_DECL (c) = info->frame_decl;
+	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
+	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
+	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
+	  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt), c);
+	  info->static_chain_added |= 4;
+	}
 
       if (info->new_local_var_chain)
 	declare_vars (info->new_local_var_chain,
 		      gimple_seq_first_stmt (gimple_omp_body (stmt)), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
+      info->static_chain_added |= save_static_chain_added;
       break;
 
     case GIMPLE_OMP_TEAMS:
