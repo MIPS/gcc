@@ -2374,8 +2374,6 @@ lra (FILE *f)
 	  /* We need full live info -- see the comment above.  */
 	  lra_create_live_ranges (lra_reg_spill_p, true);
 	  live_p = true;
-	  if (! lra_need_for_spills_p ())
-	    break;
 	}
       lra_spill ();
       /* Assignment of stack slots changes elimination offsets for
