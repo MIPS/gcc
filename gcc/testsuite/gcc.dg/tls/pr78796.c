@@ -2,7 +2,7 @@
 /* { dg-do run } */
 /* { dg-options "-O2" } */
 /* { dg-additional-options "-mcmodel=large" { target aarch64-*-* } } */
-/* { dg-require-effective-target tls } */
+/* { dg-require-effective-target tls_runtime } */
 
 struct S { int a, b, c, d, e; };
 struct S t;
