@@ -1,4 +1,4 @@
-/* { dg-options "-mno-gpopt -msym32 addressing=absolute" } */
+/* { dg-options "-mabi=32 -mno-gpopt -msym32 addressing=absolute" } */
 
 int a, b, c, d;
 
