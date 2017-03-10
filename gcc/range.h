@@ -1,5 +1,5 @@
 /* Header file for range analysis.
-   Copyright (C) 2016 Free Software Foundation, Inc.
+   Copyright (C) 2017 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
    and Andrew Macleod <amacleod@redhat.com>.
 

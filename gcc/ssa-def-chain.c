@@ -1,6 +1,6 @@
 /* SSA definition Chains.
    Copyright (C) 2017 Free Software Foundation, Inc.
-   Contributed by Diego Novillo <dnovillo@redhat.com>.
+   Contributed by Andrew MacLeod <amacleod@redhat.com>.
 
 This file is part of GCC.
 

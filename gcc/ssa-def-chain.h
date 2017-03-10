@@ -1,5 +1,6 @@
 /* Header file for ssa definition chain.
-   Copyright (C) 2016 Free Software Foundation, Inc.
+   Copyright (C) 2017 Free Software Foundation, Inc.
+   Contributed by Andrew MacLeod <amacleod@redhat.com>.
 
 This file is part of GCC.
 
