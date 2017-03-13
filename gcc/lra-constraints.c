@@ -2614,7 +2614,8 @@ process_alt_operands (int only_alternative)
 		     constant into memory and it will then win since
 		     we don't want to have a different alternative
 		     match then.  */
-		  if (! (REG_P (op) && REGNO (op) >= FIRST_PSEUDO_REGISTER))
+		  if (! (REG_P (op) && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+		      && !CONSTANT_P (op))
 		    {
 		      if (lra_dump_file != NULL)
 			fprintf
@@ -2694,8 +2695,10 @@ process_alt_operands (int only_alternative)
 #endif
 	      /* Input reloads can be inherited more often than output
 		 reloads can be removed, so penalize output
-		 reloads.  */
-	      if (!REG_P (op) || curr_static_id->operand[nop].type != OP_IN)
+		 reloads and also input reloads that are not constants or
+		 registers.  */
+	      if ((!REG_P (op) && !CONSTANT_P (op))
+		  || curr_static_id->operand[nop].type != OP_IN)
 		{
 		  if (lra_dump_file != NULL)
 		    fprintf
@@ -4077,6 +4080,7 @@ curr_insn_transform (bool check_only_p)
 	      && (curr_insn_set == NULL_RTX
 		  || !((REG_P (SET_SRC (curr_insn_set))
 			|| MEM_P (SET_SRC (curr_insn_set))
+			|| GET_CODE (SET_SRC (curr_insn_set)) == CONST_INT
 			|| GET_CODE (SET_SRC (curr_insn_set)) == SUBREG)
 		       && (REG_P (SET_DEST (curr_insn_set))
 			   || MEM_P (SET_DEST (curr_insn_set))

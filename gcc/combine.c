@@ -8437,7 +8437,12 @@ gen_lowpart_or_truncate (machine_mode mode, rtx x)
     {
       /* Bit-cast X into an integer mode.  */
       if (!SCALAR_INT_MODE_P (GET_MODE (x)))
-	x = gen_lowpart (int_mode_for_mode (GET_MODE (x)), x);
+	{
+	  enum machine_mode imode = int_mode_for_mode (GET_MODE (x));
+	  if (imode == BLKmode)
+	    return gen_rtx_CLOBBER (mode, const0_rtx);
+	  x = gen_lowpart (imode, x);
+	}
       x = simplify_gen_unary (TRUNCATE, int_mode_for_mode (mode),
 			      x, GET_MODE (x));
     }
@@ -11441,6 +11446,11 @@ gen_lowpart_for_combine (machine_mode omode, rtx x)
 
   if (omode == imode)
     return x;
+
+  /* This can happen when there is no integer mode corresponding
+     to a size of vector mode.  */
+  if (omode == BLKmode)
+    goto fail;
 
   /* We can only support MODE being wider than a word if X is a
      constant integer or has a mode the same size.  */

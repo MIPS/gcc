@@ -189,9 +189,9 @@ struct lra_static_insn_data
   int commutative;
   /* Number of operands, duplications, and alternatives of the
      insn.  */
-  char n_operands;
-  char n_dups;
-  char n_alternatives;
+  unsigned char n_operands;
+  unsigned char n_dups;
+  unsigned char n_alternatives;
   /* Insns in machine description (or clobbers in asm) may contain
      explicit hard regs which are not operands.	 The following list
      describes such hard registers.  */

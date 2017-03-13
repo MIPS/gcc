@@ -311,6 +311,9 @@ alpha*-*-*)
 	cpu_type=alpha
 	extra_options="${extra_options} g.opt"
 	;;
+amdgcn*)
+	cpu_type=gcn
+	;;
 am33_2.0-*-linux*)
 	cpu_type=mn10300
 	;;
@@ -1255,6 +1258,12 @@ ft32-*-elf)
 	gnu_ld=yes
 	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
 	tmake_file="${tmake_file} ft32/t-ft32"
+	;;
+amdgcn-*-amdhsa)
+	tm_file="dbxelf.h elfos.h gcn/gcn-hsa.h gcn/gcn.h newlib-stdint.h"
+	tmake_file="gcn/t-gcn-hsa"
+	native_system_header_dir=/include
+	extra_modes=gcn/gcn-modes.def
 	;;
 moxie-*-elf)
 	gas=yes
@@ -3889,6 +3898,23 @@ case "${target}" in
 			with_cpu="mcpu=$with_cpu"
 			;;
 		esac
+		;;
+
+	amdgcn-*-*)
+		supported_defaults="arch tune"
+
+		for which in arch tune; do
+			eval "val=\$with_$which"
+			case ${val} in
+			"" | fiji)
+				# OK
+				;;
+			*)
+				echo "Unknown cpu used in --with-$which=$val." 1>&2
+				exit 1
+				;;
+			esac
+		done
 		;;
 
 	hppa*-*-*)

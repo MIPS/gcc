@@ -400,7 +400,14 @@ memory_address_addr_space (machine_mode mode, rtx x, addr_space_t as)
   /* By passing constant addresses through registers
      we get a chance to cse them.  */
   if (! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
-    x = force_reg (address_mode, x);
+    {
+      x = force_reg (address_mode, x);
+      /* Most usually register is fine for memory expression.
+	 For GCN scalar registers are not always valid way to address
+	 memory and needs to be converted to vector pointers.  */
+      if (!memory_address_addr_space_p (mode, x, as))
+	return memory_address_addr_space (mode, x, as);
+    }
 
   /* We get better cse by rejecting indirect addressing at this stage.
      Let the combiner create indirect addresses where appropriate.

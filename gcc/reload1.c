@@ -3602,7 +3602,7 @@ elimination_costs_in_insn (rtx_insn *insn)
   rtx old_set = single_set (insn);
   int i;
   rtx orig_operand[MAX_RECOG_OPERANDS];
-  rtx orig_dup[MAX_RECOG_OPERANDS];
+  rtx orig_dup[MAX_DUP_OPERANDS];
   struct elim_table *ep;
   rtx plus_src, plus_cst_src;
   bool sets_reg_p;

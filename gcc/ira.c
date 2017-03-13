@@ -1637,14 +1637,16 @@ ira_init_register_move_cost (machine_mode mode)
 		 *p2 != LIM_REG_CLASSES; p2++)
 	      if (ira_class_hard_regs_num[*p2] > 0
 		  && (ira_reg_class_max_nregs[*p2][mode]
-		      <= ira_class_hard_regs_num[*p2]))
+		      <= ira_class_hard_regs_num[*p2])
+		  && contains_reg_of_mode[*p2][mode])
 		cost = MAX (cost, ira_register_move_cost[mode][cl1][*p2]);
 	    
 	    for (p1 = &reg_class_subclasses[cl1][0];
 		 *p1 != LIM_REG_CLASSES; p1++)
 	      if (ira_class_hard_regs_num[*p1] > 0
 		  && (ira_reg_class_max_nregs[*p1][mode]
-		      <= ira_class_hard_regs_num[*p1]))
+		      <= ira_class_hard_regs_num[*p1])
+		  && contains_reg_of_mode[*p1][mode])
 		cost = MAX (cost, ira_register_move_cost[mode][*p1][cl2]);
 	    
 	    ira_assert (cost <= 65535);

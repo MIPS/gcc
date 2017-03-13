@@ -2143,7 +2143,13 @@ setup_allocno_class_and_costs (void)
 		  if (num < 0)
 		    {
 		      num = cost_classes_ptr->hard_regno_index[hard_regno];
-		      ira_assert (num >= 0);
+		      /* If the class cannot hold register of given mode,
+			 we do not care.  */
+		      if (num == -1)
+			{
+			  reg_costs[j] = 0;
+			  continue;
+			}
 		    }
 		  reg_costs[j] = COSTS (costs, i)->cost[num];
 		}

@@ -1688,6 +1688,9 @@ get_mem_align_offset (rtx mem, unsigned int align)
   tree expr;
   unsigned HOST_WIDE_INT offset;
 
+  if (MEM_ALIGN (mem) >= align)
+    return 0;
+
   /* This function can't use
      if (!MEM_EXPR (mem) || !MEM_OFFSET_KNOWN_P (mem)
 	 || (MAX (MEM_ALIGN (mem),

@@ -224,26 +224,16 @@ struct recog_data_d
 
   /* Gives the operand number that was duplicated in the Nth
      duplicate-appearance of an operand.  */
-  char dup_num[MAX_DUP_OPERANDS];
-
-  /* ??? Note that these are `char' instead of `unsigned char' to (try to)
-     avoid certain lossage from K&R C, wherein `unsigned char' default
-     promotes to `unsigned int' instead of `int' as in ISO C.  As of 1999,
-     the most common places to bootstrap from K&R C are SunOS and HPUX,
-     both of which have signed characters by default.  The only other
-     supported natives that have both K&R C and unsigned characters are
-     ROMP and Irix 3, and neither have been seen for a while, but do
-     continue to consider unsignedness when performing arithmetic inside
-     a comparison.  */
+  unsigned char dup_num[MAX_DUP_OPERANDS];
 
   /* The number of operands of the insn.  */
-  char n_operands;
+  unsigned char n_operands;
 
   /* The number of MATCH_DUPs in the insn.  */
-  char n_dups;
+  unsigned char n_dups;
 
   /* The number of alternatives in the constraints for the insn.  */
-  char n_alternatives;
+  unsigned char n_alternatives;
 
   /* True if insn is ASM_OPERANDS.  */
   bool is_asm;
@@ -368,10 +358,10 @@ struct insn_data_d
   const insn_gen_fn genfun;
   const struct insn_operand_data *const operand;
 
-  const char n_generator_args;
-  const char n_operands;
-  const char n_dups;
-  const char n_alternatives;
+  const unsigned char n_generator_args;
+  const unsigned char n_operands;
+  const unsigned char n_dups;
+  const unsigned char n_alternatives;
   const char output_format;
 };
 

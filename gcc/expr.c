@@ -10427,6 +10427,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 			      VOIDmode,
 			      modifier == EXPAND_SUM ? EXPAND_NORMAL : modifier,
 			      NULL, true);
+#if 0
+	/* FIXME: Deal with this in another way.  */
 
 	/* If the field has a mode, we want to access it in the
 	   field's mode, not the computed mode.
@@ -10439,6 +10441,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    else if (GET_MODE (op0) == VOIDmode)
 	      op0 = adjust_address (op0, BLKmode, 0);
 	  }
+#endif
 
 	mode2
 	  = CONSTANT_P (op0) ? TYPE_MODE (TREE_TYPE (tem)) : GET_MODE (op0);

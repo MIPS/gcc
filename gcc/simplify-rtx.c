@@ -5397,6 +5397,65 @@ simplify_cond_clz_ctz (rtx x, rtx_code cmp_code, rtx true_val, rtx false_val)
   return NULL_RTX;
 }
 
+/* X is an operand number OP of VEC_MERGE operation with MASK.
+   Try to simplify using knowledge that values outside of MASK
+   will not be used.  */
+
+rtx
+simplify_merge_mask (rtx x, rtx mask, int op)
+{
+  gcc_assert (VECTOR_MODE_P (GET_MODE (x)));
+  int nunits = GET_MODE_NUNITS (GET_MODE (x));
+  if (GET_CODE (x) == VEC_MERGE && rtx_equal_p (XEXP (x, 2), mask))
+    {
+      if (!side_effects_p (XEXP (x, 1 - op)))
+	return XEXP (x, op);
+    }
+  if (side_effects_p (x))
+    return NULL_RTX;
+  if (UNARY_P (x)
+      && VECTOR_MODE_P (GET_MODE (XEXP (x, 0)))
+      && GET_MODE_NUNITS (GET_MODE (XEXP (x, 0))) == nunits)
+    {
+      rtx top0 = simplify_merge_mask (XEXP (x, 0), mask, op);
+      if (top0)
+	return simplify_gen_unary (GET_CODE (x), GET_MODE (x), top0,
+				   GET_MODE (XEXP (x, 0)));
+    }
+  if (BINARY_P (x)
+      && VECTOR_MODE_P (GET_MODE (XEXP (x, 0)))
+      && GET_MODE_NUNITS (GET_MODE (XEXP (x, 0))) == nunits
+      && VECTOR_MODE_P (GET_MODE (XEXP (x, 1)))
+      && GET_MODE_NUNITS (GET_MODE (XEXP (x, 1))) == nunits)
+    {
+      rtx top0 = simplify_merge_mask (XEXP (x, 0), mask, op);
+      rtx top1 = simplify_merge_mask (XEXP (x, 1), mask, op);
+      if (top0 || top1)
+	return simplify_gen_binary (GET_CODE (x), GET_MODE (x),
+				    top0 ? top0 : XEXP (x, 0),
+				    top1 ? top1 : XEXP (x, 1));
+    }
+  if (GET_RTX_CLASS (GET_CODE (x)) == RTX_TERNARY
+      && VECTOR_MODE_P (GET_MODE (XEXP (x, 0)))
+      && GET_MODE_NUNITS (GET_MODE (XEXP (x, 0))) == nunits
+      && VECTOR_MODE_P (GET_MODE (XEXP (x, 1)))
+      && GET_MODE_NUNITS (GET_MODE (XEXP (x, 1))) == nunits
+      && VECTOR_MODE_P (GET_MODE (XEXP (x, 2)))
+      && GET_MODE_NUNITS (GET_MODE (XEXP (x, 2))) == nunits)
+    {
+      rtx top0 = simplify_merge_mask (XEXP (x, 0), mask, op);
+      rtx top1 = simplify_merge_mask (XEXP (x, 1), mask, op);
+      rtx top2 = simplify_merge_mask (XEXP (x, 2), mask, op);
+      if (top0 || top1)
+	return simplify_gen_ternary (GET_CODE (x), GET_MODE (x),
+				     GET_MODE (XEXP (x, 0)),
+				     top0 ? top0 : XEXP (x, 0),
+				     top1 ? top1 : XEXP (x, 1),
+				     top2 ? top2 : XEXP (x, 2));
+    }
+  return NULL_RTX;
+}
+
 
 /* Simplify CODE, an operation with result mode MODE and three operands,
    OP0, OP1, and OP2.  OP0_MODE was the mode of OP0 before it became
@@ -5677,6 +5736,28 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
       if (rtx_equal_p (op0, op1)
 	  && !side_effects_p (op2) && !side_effects_p (op1))
 	return op0;
+
+      if (!side_effects_p (op2))
+	{
+	  rtx top0 = simplify_merge_mask (op0, op2, 0);
+	  rtx top1 = simplify_merge_mask (op1, op2, 1);
+	  if (top0 || top1)
+	    return simplify_gen_ternary (code, mode, mode,
+					 top0 ? top0 : op0,
+					 top1 ? top1 : op1, op2);
+	}
+
+      if (GET_CODE (op0) == VEC_MERGE
+	  && rtx_equal_p (op2, XEXP (op0, 2))
+	  && !side_effects_p (XEXP (op0, 1)) && !side_effects_p (op2))
+	return simplify_gen_ternary (code, mode, mode,
+				     XEXP (op0, 0), op1, op2);
+
+      if (GET_CODE (op1) == VEC_MERGE
+	  && rtx_equal_p (op2, XEXP (op1, 2))
+	  && !side_effects_p (XEXP (op0, 0)) && !side_effects_p (op2))
+	return simplify_gen_ternary (code, mode, mode,
+				     XEXP (op0, 1), op1, op2);
 
       break;
 
