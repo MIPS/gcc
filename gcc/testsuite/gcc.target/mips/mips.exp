@@ -286,6 +286,7 @@ foreach option {
     long-calls
     lxc1-sxc1
     madd4
+    memcpy
     paired-single
     plt
     shared
@@ -296,6 +297,7 @@ foreach option {
     mcount-ra-address
     odd-spreg
     msa
+    mips16e2
 } {
     lappend mips_option_groups $option "-m(no-|)$option"
 }
@@ -308,6 +310,7 @@ foreach option {
     nan
     r10k-cache-barrier
     tune
+    unique-sections
 } {
     lappend mips_option_groups $option "-m$option=.*"
 }
@@ -779,6 +782,12 @@ proc mips-dg-init {} {
 	    "-mno-mips16",
 	    #endif
 
+	    #ifdef __mips_mips16e2
+	    "-mmips16e2",
+	    #else
+	    "-mno-mips16e2",
+	    #endif
+
 	    #ifdef __mips3d
 	    "-mips3d",
 	    #else
@@ -982,6 +991,23 @@ proc mips-dg-options { args } {
 	}
     }
 
+    # Pass an absolute file path to -munique-sections=.
+    set unq_sec_test_option_p [mips_test_option_p options unique-sections]
+
+    if { $unq_sec_test_option_p } {
+	set unq_sec [mips_option options unique-sections]
+	if { ![regexp {=.*$} $unq_sec filename] } {
+		error "Unrecognized specification: $unq_sec"
+	}
+	set filename [string trimleft $filename "="]
+
+	global srcdir
+	global subdir
+	set new_unq_sec "-munique-sections=$srcdir/$subdir/$filename"
+
+	set options(option,[mips_option_group $new_unq_sec]) $new_unq_sec
+    }
+
     # Handle dependencies between the test options and the optimization ones.
     mips_option_dependency options "-fno-unroll-loops" "-fno-unroll-all-loops"
     mips_option_dependency options "-pg" "-fno-omit-frame-pointer"
@@ -990,6 +1016,7 @@ proc mips-dg-options { args } {
     # dependency diagram.
     mips_option_dependency options "-mips16" "-mno-micromips"
     mips_option_dependency options "-mmicromips" "-mno-mips16"
+    mips_option_dependency options "-mmicromips" "-mno-mips16e2"
     mips_option_dependency options "-mips3d" "-mpaired-single"
     mips_option_dependency options "-mips3d" "-mno-micromips"
     mips_option_dependency options "-mpaired-single" "-mfp64"
@@ -1356,6 +1383,7 @@ proc mips-dg-options { args } {
 		mips_make_test_option options "-mfp32"
 	    }
 	    mips_make_test_option options "-mno-dsp"
+	    mips_make_test_option options "-mno-mips16e2"
 	    mips_make_test_option options "-mno-synci"
 	    mips_make_test_option options "-mno-micromips"
 	    mips_make_test_option options "-mnan=legacy"
@@ -1387,6 +1415,7 @@ proc mips-dg-options { args } {
 
     # Handle dependencies between options on the right of the diagram.
     mips_option_dependency options "-mno-dsp" "-mno-dspr2"
+    mips_option_dependency options "-mno-mips16" "-mno-mips16e2"
     mips_option_dependency options "-mno-explicit-relocs" "-mgpopt"
     switch -- [mips_test_option options small-data] {
 	"" -
