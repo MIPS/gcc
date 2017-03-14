@@ -546,3 +546,6 @@ Allow inlining even if the compression flags differ between caller and callee.
 
 mmips16-ze-policy=
 Target Undocumented Joined UInteger Var(mips16e2_ze_policy) Init(0)
+
+msched-weight
+Target Report Var(TARGET_SCHED_WEIGHT) Undocumented

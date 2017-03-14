@@ -768,6 +768,12 @@
 		(const_string "yes")
 		(const_string "no")))
 
+;; Can the instruction be put into a forbidden slot?
+(define_attr "can_forbidden" "no,yes"
+  (if_then_else (eq_attr "can_delay" "yes")
+		(const_string "yes")
+		(const_string "no")))
+
 ;; Attribute defining whether or not we can use the branch-likely
 ;; instructions.
 (define_attr "branch_likely" "no,yes"
@@ -7929,12 +7935,13 @@
    (set_attr "insn_count" "3")])
 
 ;; Match paired HI/SI/SF/DFmode load/stores.
-(define_insn "*join2_load_store<JOIN_MODE:mode>"
+(define_insn "join2_load_store<JOIN_MODE:mode>"
   [(set (match_operand:JOIN_MODE 0 "nonimmediate_operand" "=d,f,m,m")
-	(match_operand:JOIN_MODE 1 "nonimmediate_operand" "m,m,d,f"))
+	(match_operand:JOIN_MODE 1 "nonimmediate_or_0_operand" "m,m,dJ,f"))
    (set (match_operand:JOIN_MODE 2 "nonimmediate_operand" "=d,f,m,m")
-	(match_operand:JOIN_MODE 3 "nonimmediate_operand" "m,m,d,f"))]
-  "ENABLE_LD_ST_PAIRS && reload_completed"
+	(match_operand:JOIN_MODE 3 "nonimmediate_or_0_operand" "m,m,dJ,f"))]
+  "ENABLE_LD_ST_PAIRS
+   && mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode)"
   {
     bool load_p = (which_alternative == 0 || which_alternative == 1);
     /* Reg-renaming pass reuses base register if it is dead after bonded loads.
@@ -7957,6 +7964,7 @@
     return "";
   }
   [(set_attr "move_type" "load,fpload,store,fpstore")
+   (set_attr "can_forbidden" "yes")
    (set_attr "insn_count" "2,2,2,2")])
 
 ;; 2 HI/SI/SF/DF loads are joined.
@@ -7969,7 +7977,7 @@
    (set (match_operand:JOIN_MODE 2 "register_operand")
 	(match_operand:JOIN_MODE 3 "non_volatile_mem_operand"))]
   "ENABLE_LD_ST_PAIRS
-   && mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode, true)"
+   && mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode)"
   [(parallel [(set (match_dup 0)
 		   (match_dup 1))
 	      (set (match_dup 2)
@@ -7980,11 +7988,11 @@
 ;; P5600 does not support bonding of two SBs, hence QI mode is not included.
 (define_peephole2
   [(set (match_operand:JOIN_MODE 0 "memory_operand")
-	(match_operand:JOIN_MODE 1 "register_operand"))
+	(match_operand:JOIN_MODE 1 "reg_or_0_operand"))
    (set (match_operand:JOIN_MODE 2 "memory_operand")
-	(match_operand:JOIN_MODE 3 "register_operand"))]
+	(match_operand:JOIN_MODE 3 "reg_or_0_operand"))]
   "ENABLE_LD_ST_PAIRS
-   && mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode, false)"
+   && mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode)"
   [(parallel [(set (match_dup 0)
 		   (match_dup 1))
 	      (set (match_dup 2)
@@ -8016,6 +8024,7 @@
     return "";
   }
   [(set_attr "move_type" "load")
+   (set_attr "can_forbidden" "yes")
    (set_attr "insn_count" "2")])
 
 
@@ -8026,7 +8035,7 @@
    (set (match_operand:SI 2 "register_operand")
 	(any_extend:SI (match_operand:HI 3 "non_volatile_mem_operand")))]
   "ENABLE_LD_ST_PAIRS
-   && mips_load_store_bonding_p (operands, HImode, true)"
+   && mips_load_store_bonding_p (operands, HImode)"
   [(parallel [(set (match_dup 0)
 		   (any_extend:SI (match_dup 1)))
 	      (set (match_dup 2)
