@@ -3530,7 +3530,12 @@ parser_build_binary_op (location_t location, enum tree_code code,
   result.original_type = NULL;
 
   if (TREE_CODE (result.value) == ERROR_MARK)
-    return result;
+    {
+      set_c_expr_source_range (&result,
+			       arg1.get_start (),
+			       arg2.get_finish ());
+      return result;
+    }
 
   if (location != UNKNOWN_LOCATION)
     protected_set_expr_location (result.value, location);
@@ -5871,16 +5876,21 @@ error_init (location_t loc, const char *gmsgid)
    component name is taken from the spelling stack.  */
 
 static void
-pedwarn_init (location_t location, int opt, const char *gmsgid)
+pedwarn_init (location_t loc, int opt, const char *gmsgid)
 {
   char *ofwhat;
   bool warned;
 
+  /* Use the location where a macro was expanded rather than where
+     it was defined to make sure macros defined in system headers
+     but used incorrectly elsewhere are diagnosed.  */
+  source_location exploc = expansion_point_location_if_in_system_header (loc);
+
   /* The gmsgid may be a format string with %< and %>. */
-  warned = pedwarn (location, opt, gmsgid);
+  warned = pedwarn (exploc, opt, gmsgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat && warned)
-    inform (location, "(near initialization for %qs)", ofwhat);
+    inform (exploc, "(near initialization for %qs)", ofwhat);
 }
 
 /* Issue a warning for a bad initializer component.
@@ -5895,11 +5905,16 @@ warning_init (location_t loc, int opt, const char *gmsgid)
   char *ofwhat;
   bool warned;
 
+  /* Use the location where a macro was expanded rather than where
+     it was defined to make sure macros defined in system headers
+     but used incorrectly elsewhere are diagnosed.  */
+  source_location exploc = expansion_point_location_if_in_system_header (loc);
+
   /* The gmsgid may be a format string with %< and %>. */
-  warned = warning_at (loc, opt, gmsgid);
+  warned = warning_at (exploc, opt, gmsgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat && warned)
-    inform (loc, "(near initialization for %qs)", ofwhat);
+    inform (exploc, "(near initialization for %qs)", ofwhat);
 }
 
 /* If TYPE is an array type and EXPR is a parenthesized string
@@ -8480,6 +8495,8 @@ set_nonincremental_init_from_string (tree str,
 
   wchar_bytes = TYPE_PRECISION (TREE_TYPE (TREE_TYPE (str))) / BITS_PER_UNIT;
   charwidth = TYPE_PRECISION (char_type_node);
+  gcc_assert ((size_t) wchar_bytes * charwidth
+	      <= ARRAY_SIZE (val) * HOST_BITS_PER_WIDE_INT);
   type = TREE_TYPE (constructor_type);
   p = TREE_STRING_POINTER (str);
   end = p + TREE_STRING_LENGTH (str);
@@ -8505,7 +8522,7 @@ set_nonincremental_init_from_string (tree str,
 		bitpos = (wchar_bytes - byte - 1) * charwidth;
 	      else
 		bitpos = byte * charwidth;
-	      val[bitpos % HOST_BITS_PER_WIDE_INT]
+	      val[bitpos / HOST_BITS_PER_WIDE_INT]
 		|= ((unsigned HOST_WIDE_INT) ((unsigned char) *p++))
 		   << (bitpos % HOST_BITS_PER_WIDE_INT);
 	    }
@@ -13533,7 +13550,8 @@ c_build_qualified_type (tree type, int type_quals, tree orig_qual_type,
 		   : build_qualified_type (type, type_quals));
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
-  if (RECORD_OR_UNION_TYPE_P (var_type))
+  if (RECORD_OR_UNION_TYPE_P (var_type)
+      && TYPE_MAIN_VARIANT (var_type) != var_type)
     C_TYPE_INCOMPLETE_VARS (var_type) = 0;
   return var_type;
 }

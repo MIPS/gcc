@@ -106,7 +106,15 @@ plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
       if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
 	  && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)))
 	{
-	  tem = plus_constant (mode, get_pool_constant (XEXP (x, 0)), c);
+	  rtx cst = get_pool_constant (XEXP (x, 0));
+
+	  if (GET_CODE (cst) == CONST_VECTOR
+	      && GET_MODE_INNER (GET_MODE (cst)) == mode)
+	    {
+	      cst = gen_lowpart (mode, cst);
+	      gcc_assert (cst);
+	    }
+	  tem = plus_constant (mode, cst, c);
 	  tem = force_const_mem (GET_MODE (x), tem);
 	  /* Targets may disallow some constants in the constant pool, thus
 	     force_const_mem may return NULL_RTX.  */
@@ -484,9 +492,8 @@ memory_address_addr_space (machine_mode mode, rtx x, addr_space_t as)
   return x;
 }
 
-/* If REF is a MEM with an invalid address, change it into a valid address.
-   Pass through anything else unchanged.  REF must be an unshared rtx and
-   the function may modify it in-place.  */
+/* Convert a mem ref into one with a valid memory address.
+   Pass through anything else unchanged.  */
 
 rtx
 validize_mem (rtx ref)
@@ -498,7 +505,8 @@ validize_mem (rtx ref)
 				   MEM_ADDR_SPACE (ref)))
     return ref;
 
-  return replace_equiv_address (ref, XEXP (ref, 0), true);
+  /* Don't alter REF itself, since that is probably a stack slot.  */
+  return replace_equiv_address (ref, XEXP (ref, 0));
 }
 
 /* If X is a memory reference to a member of an object block, try rewriting

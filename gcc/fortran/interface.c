@@ -387,18 +387,147 @@ gfc_match_end_interface (void)
 }
 
 
+/* Compare components according to 4.4.2 of the Fortran standard.  */
+
+static int
+compare_components (gfc_component *cmp1, gfc_component *cmp2,
+    gfc_symbol *derived1, gfc_symbol *derived2)
+{
+  gfc_symbol *d1, *d2;
+  bool anonymous = false;
+
+  /* Unions, maps, and anonymous structures all have names like "[xX]X$\d+"
+     which should not be compared.  */
+  d1 = cmp1->ts.u.derived;
+  d2 = cmp2->ts.u.derived;
+  if (   (d1 && (d1->attr.flavor == FL_STRUCT || d1->attr.flavor == FL_UNION)
+          && ISUPPER (cmp1->name[1]))
+      || (d2 && (d2->attr.flavor == FL_STRUCT || d2->attr.flavor == FL_UNION)
+          && ISUPPER (cmp1->name[1])))
+    anonymous = true;
+
+  if (!anonymous && strcmp (cmp1->name, cmp2->name) != 0)
+    return 0;
+
+  if (cmp1->attr.access != cmp2->attr.access)
+    return 0;
+
+  if (cmp1->attr.pointer != cmp2->attr.pointer)
+    return 0;
+
+  if (cmp1->attr.dimension != cmp2->attr.dimension)
+    return 0;
+
+  if (cmp1->attr.allocatable != cmp2->attr.allocatable)
+    return 0;
+
+  if (cmp1->attr.dimension && gfc_compare_array_spec (cmp1->as, cmp2->as) == 0)
+    return 0;
+
+  /* Make sure that link lists do not put this function into an
+     endless recursive loop!  */
+  if (!(cmp1->ts.type == BT_DERIVED && derived1 == cmp1->ts.u.derived)
+      && !(cmp2->ts.type == BT_DERIVED && derived2 == cmp2->ts.u.derived)
+      && gfc_compare_types (&cmp1->ts, &cmp2->ts) == 0)
+    return 0;
+
+  else if ( (cmp1->ts.type == BT_DERIVED && derived1 == cmp1->ts.u.derived)
+        && !(cmp2->ts.type == BT_DERIVED && derived2 == cmp2->ts.u.derived))
+    return 0;
+
+  else if (!(cmp1->ts.type == BT_DERIVED && derived1 == cmp1->ts.u.derived)
+        &&  (cmp2->ts.type == BT_DERIVED && derived2 == cmp2->ts.u.derived))
+    return 0;
+
+  return 1;
+}
+
+
+/* Compare two union types by comparing the components of their maps.
+   Because unions and maps are anonymous their types get special internal
+   names; therefore the usual derived type comparison will fail on them.
+
+   Returns nonzero if equal, as with gfc_compare_derived_types. Also as with
+   gfc_compare_derived_types, 'equal' is closer to meaning 'duplicate
+   definitions' than 'equivalent structure'. */
+
+int
+gfc_compare_union_types (gfc_symbol *un1, gfc_symbol *un2)
+{
+  gfc_component *map1, *map2, *cmp1, *cmp2;
+
+  if (un1->attr.flavor != FL_UNION || un2->attr.flavor != FL_UNION)
+    return 0;
+
+  map1 = un1->components;
+  map2 = un2->components;
+
+  /* In terms of 'equality' here we are worried about types which are
+     declared the same in two places, not types that represent equivalent
+     structures. (This is common because of FORTRAN's weird scoping rules.)
+     Though two unions with their maps in different orders could be equivalent,
+     we will say they are not equal for the purposes of this test; therefore
+     we compare the maps sequentially. */
+  for (;;)
+  {
+    cmp1 = map1->ts.u.derived->components;
+    cmp2 = map2->ts.u.derived->components;
+    for (;;)
+    {
+      /* No two fields will ever point to the same map type unless they are
+         the same component, because one map field is created with its type
+         declaration. Therefore don't worry about recursion here. */
+      /* TODO: worry about recursion into parent types of the unions? */
+      if (compare_components (cmp1, cmp2,
+            map1->ts.u.derived, map2->ts.u.derived) == 0)
+        return 0;
+
+      cmp1 = cmp1->next;
+      cmp2 = cmp2->next;
+
+      if (cmp1 == NULL && cmp2 == NULL)
+        break;
+      if (cmp1 == NULL || cmp2 == NULL)
+        return 0;
+    }
+
+    map1 = map1->next;
+    map2 = map2->next;
+
+    if (map1 == NULL && map2 == NULL)
+      break;
+    if (map1 == NULL || map2 == NULL)
+      return 0;
+  }
+
+  return 1;
+}
+
+
+
 /* Compare two derived types using the criteria in 4.4.2 of the standard,
    recursing through gfc_compare_types for the components.  */
 
 int
 gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
 {
-  gfc_component *dt1, *dt2;
+  gfc_component *cmp1, *cmp2;
+  bool anonymous = false;
 
   if (derived1 == derived2)
     return 1;
 
-  gcc_assert (derived1 && derived2);
+  if (!derived1 || !derived2)
+    gfc_internal_error ("gfc_compare_derived_types: invalid derived type");
+
+  /* MAP and anonymous STRUCTURE types have internal names of the form
+     mM* and sS* (we can get away this this because source names are converted
+     to lowerase). Compare anonymous type names specially because each
+     gets a unique name when it is declared. */
+  anonymous = (derived1->name[0] == derived2->name[0]
+      && derived1->name[1] && derived2->name[1] && derived2->name[2]
+      && derived1->name[1] == (char) TOUPPER (derived1->name[0])
+      && derived2->name[2] == (char) TOUPPER (derived2->name[0]));
 
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is
@@ -409,9 +538,11 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
     return 1;
 
   /* Compare type via the rules of the standard.  Both types must have
-     the SEQUENCE or BIND(C) attribute to be equal.  */
+     the SEQUENCE or BIND(C) attribute to be equal. STRUCTUREs are special
+     because they can be anonymous; therefore two structures with different
+     names may be equal.  */
 
-  if (strcmp (derived1->name, derived2->name))
+  if (strcmp (derived1->name, derived2->name) != 0 && !anonymous)
     return 0;
 
   if (derived1->component_access == ACCESS_PRIVATE
@@ -422,53 +553,30 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
       && !(derived1->attr.is_bind_c && derived2->attr.is_bind_c))
     return 0;
 
-  dt1 = derived1->components;
-  dt2 = derived2->components;
+  /* Protect against null components.  */
+  if (derived1->attr.zero_comp != derived2->attr.zero_comp)
+    return 0;
+
+  if (derived1->attr.zero_comp)
+    return 1;
+
+  cmp1 = derived1->components;
+  cmp2 = derived2->components;
 
   /* Since subtypes of SEQUENCE types must be SEQUENCE types as well, a
      simple test can speed things up.  Otherwise, lots of things have to
      match.  */
   for (;;)
     {
-      if (strcmp (dt1->name, dt2->name) != 0)
-	return 0;
+      if (!compare_components (cmp1, cmp2, derived1, derived2))
+        return 0;
 
-      if (dt1->attr.access != dt2->attr.access)
-	return 0;
+      cmp1 = cmp1->next;
+      cmp2 = cmp2->next;
 
-      if (dt1->attr.pointer != dt2->attr.pointer)
-	return 0;
-
-      if (dt1->attr.dimension != dt2->attr.dimension)
-	return 0;
-
-     if (dt1->attr.allocatable != dt2->attr.allocatable)
-	return 0;
-
-      if (dt1->attr.dimension && gfc_compare_array_spec (dt1->as, dt2->as) == 0)
-	return 0;
-
-      /* Make sure that link lists do not put this function into an
-	 endless recursive loop!  */
-      if (!(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.u.derived)
-	    && !(dt2->ts.type == BT_DERIVED && derived2 == dt2->ts.u.derived)
-	    && gfc_compare_types (&dt1->ts, &dt2->ts) == 0)
-	return 0;
-
-      else if ((dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.u.derived)
-		&& !(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.u.derived))
-	return 0;
-
-      else if (!(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.u.derived)
-		&& (dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.u.derived))
-	return 0;
-
-      dt1 = dt1->next;
-      dt2 = dt2->next;
-
-      if (dt1 == NULL && dt2 == NULL)
+      if (cmp1 == NULL && cmp2 == NULL)
 	break;
-      if (dt1 == NULL || dt2 == NULL)
+      if (cmp1 == NULL || cmp2 == NULL)
 	return 0;
     }
 
@@ -509,18 +617,18 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
       && (ts1->u.derived->attr.sequence || ts1->u.derived->attr.is_bind_c))
     return 1;
 
+  if (ts1->type == BT_UNION && ts2->type == BT_UNION)
+    return gfc_compare_union_types (ts1->u.derived, ts2->u.derived);
+
   if (ts1->type != ts2->type
-      && ((ts1->type != BT_DERIVED && ts1->type != BT_CLASS)
-	  || (ts2->type != BT_DERIVED && ts2->type != BT_CLASS)))
+      && ((!gfc_bt_struct (ts1->type) && ts1->type != BT_CLASS)
+	  || (!gfc_bt_struct (ts2->type) && ts2->type != BT_CLASS)))
     return 0;
   if (ts1->type != BT_DERIVED && ts1->type != BT_CLASS)
     return (ts1->kind == ts2->kind);
 
   /* Compare derived types.  */
-  if (gfc_type_compatible (ts1, ts2))
-    return 1;
-
-  return gfc_compare_derived_types (ts1->u.derived ,ts2->u.derived);
+  return gfc_type_compatible (ts1, ts2);
 }
 
 
@@ -1497,14 +1605,23 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
   f1 = gfc_sym_get_dummy_args (s1);
   f2 = gfc_sym_get_dummy_args (s2);
 
+  /* Special case: No arguments.  */
   if (f1 == NULL && f2 == NULL)
-    return 1;			/* Special case: No arguments.  */
+    return 1;
 
   if (generic_flag)
     {
       if (count_types_test (f1, f2, p1, p2)
 	  || count_types_test (f2, f1, p2, p1))
 	return 0;
+
+      /* Special case: alternate returns.  If both f1->sym and f2->sym are
+	 NULL, then the leading formal arguments are alternate returns.  
+	 The previous conditional should catch argument lists with 
+	 different number of argument.  */
+      if (f1 && f1->sym == NULL && f2 && f2->sym == NULL)
+	return 1;
+
       if (generic_correspondence (f1, f2, p1, p2)
 	  || generic_correspondence (f2, f1, p2, p1))
 	return 0;
@@ -1585,7 +1702,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 	 functions or subroutines.  */
       if (((!p->sym->attr.function && !p->sym->attr.subroutine)
 	   || !p->sym->attr.if_source)
-	  && p->sym->attr.flavor != FL_DERIVED)
+	  && !gfc_fl_struct (p->sym->attr.flavor))
 	{
 	  if (p->sym->attr.external)
 	    gfc_error ("Procedure %qs in %s at %L has no explicit interface",
@@ -1599,14 +1716,14 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 
       /* Verify that procedures are either all SUBROUTINEs or all FUNCTIONs.  */
       if ((psave->sym->attr.function && !p->sym->attr.function
-	   && p->sym->attr.flavor != FL_DERIVED)
+	   && !gfc_fl_struct (p->sym->attr.flavor))
 	  || (psave->sym->attr.subroutine && !p->sym->attr.subroutine))
 	{
-	  if (p->sym->attr.flavor != FL_DERIVED)
+	  if (!gfc_fl_struct (p->sym->attr.flavor))
 	    gfc_error ("In %s at %L procedures must be either all SUBROUTINEs"
 		       " or all FUNCTIONs", interface_name,
 		       &p->sym->declared_at);
-	  else
+	  else if (p->sym->attr.flavor == FL_DERIVED)
 	    gfc_error ("In %s at %L procedures must be all FUNCTIONs as the "
 		       "generic name is also the name of a derived type",
 		       interface_name, &p->sym->declared_at);
@@ -1666,19 +1783,21 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
 	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
 
-	if (p->sym->attr.flavor != FL_DERIVED
-	    && q->sym->attr.flavor != FL_DERIVED
+	if (!gfc_fl_struct (p->sym->attr.flavor)
+	    && !gfc_fl_struct (q->sym->attr.flavor)
 	    && gfc_compare_interfaces (p->sym, q->sym, q->sym->name,
 				       generic_flag, 0, NULL, 0, NULL, NULL))
 	  {
 	    if (referenced)
-	      gfc_error ("Ambiguous interfaces %qs and %qs in %s at %L",
-			 p->sym->name, q->sym->name, interface_name,
-			 &p->where);
+	      gfc_error ("Ambiguous interfaces in %s for %qs at %L "
+			 "and %qs at %L", interface_name,
+			 q->sym->name, &q->sym->declared_at,
+			 p->sym->name, &p->sym->declared_at);
 	    else if (!p->sym->attr.use_assoc && q->sym->attr.use_assoc)
-	      gfc_warning (0, "Ambiguous interfaces %qs and %qs in %s at %L",
-			   p->sym->name, q->sym->name, interface_name,
-			   &p->where);
+	      gfc_warning (0, "Ambiguous interfaces in %s for %qs at %L "
+			 "and %qs at %L", interface_name,
+			 q->sym->name, &q->sym->declared_at,
+			 p->sym->name, &p->sym->declared_at);
 	    else
 	      gfc_warning (0, "Although not referenced, %qs has ambiguous "
 			   "interfaces at %L", interface_name, &p->where);
@@ -2006,7 +2125,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
     }
 
   ppc = gfc_get_proc_ptr_comp (actual);
-  if (ppc)
+  if (ppc && ppc->ts.interface)
     {
       if (!gfc_compare_interfaces (formal, ppc->ts.interface, ppc->name, 0, 1,
 				   err, sizeof(err), NULL, NULL))
@@ -2039,7 +2158,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
     {
       if (where)
 	gfc_error ("Type mismatch in argument %qs at %L; passed %s to %s",
-		   formal->name, &actual->where, gfc_typename (&actual->ts),
+		   formal->name, where, gfc_typename (&actual->ts),
 		   gfc_typename (&formal->ts));
       return 0;
     }
@@ -3550,7 +3669,7 @@ gfc_search_interface (gfc_interface *intr, int sub_flag,
 
   for (; intr; intr = intr->next)
     {
-      if (intr->sym->attr.flavor == FL_DERIVED)
+      if (gfc_fl_struct (intr->sym->attr.flavor))
 	continue;
       if (sub_flag && intr->sym->attr.function)
 	continue;
@@ -3663,7 +3782,7 @@ matching_typebound_op (gfc_expr** tb_base,
 
 	if (base->expr->ts.type == BT_CLASS)
 	  {
-	    if (CLASS_DATA (base->expr) == NULL
+	    if (!base->expr->ts.u.derived || CLASS_DATA (base->expr) == NULL
 		|| !gfc_expr_attr (base->expr).class_ok)
 	      continue;
 	    derived = CLASS_DATA (base->expr)->ts.u.derived;

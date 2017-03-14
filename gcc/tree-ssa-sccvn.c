@@ -1217,6 +1217,18 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	{
 	  auto_vec<vn_reference_op_s, 32> tem;
 	  copy_reference_ops_from_ref (TREE_OPERAND (addr, 0), &tem);
+	  /* Make sure to preserve TBAA info.  The only objects not
+	     wrapped in MEM_REFs that can have their address taken are
+	     STRING_CSTs.  */
+	  if (tem.length () >= 2
+	      && tem[tem.length () - 2].opcode == MEM_REF)
+	    {
+	      vn_reference_op_t new_mem_op = &tem[tem.length () - 2];
+	      new_mem_op->op0 = fold_convert (TREE_TYPE (mem_op->op0),
+					      new_mem_op->op0);
+	    }
+	  else
+	    gcc_assert (tem.last ().opcode == STRING_CST);
 	  ops->pop ();
 	  ops->pop ();
 	  ops->safe_splice (tem);
@@ -1976,11 +1988,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       /* We need to pre-pend vr->operands[0..i] to rhs.  */
       vec<vn_reference_op_s> old = vr->operands;
       if (i + 1 + rhs.length () > vr->operands.length ())
-	{
-	  vr->operands.safe_grow (i + 1 + rhs.length ());
-	  if (old == shared_lookup_references)
-	    shared_lookup_references = vr->operands;
-	}
+	vr->operands.safe_grow (i + 1 + rhs.length ());
       else
 	vr->operands.truncate (i + 1 + rhs.length ());
       FOR_EACH_VEC_ELT (rhs, j, vro)
@@ -2131,8 +2139,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	{
 	  vec<vn_reference_op_s> old = vr->operands;
 	  vr->operands.safe_grow_cleared (2);
-	  if (old == shared_lookup_references
-	      && vr->operands != old)
+	  if (old == shared_lookup_references)
 	    shared_lookup_references = vr->operands;
 	}
       else
@@ -3096,6 +3103,23 @@ set_ssa_val_to (tree from, tree to)
 	    }
 	  return false;
 	}
+      else if (currval != VN_TOP
+	       && ! is_gimple_min_invariant (currval)
+	       && is_gimple_min_invariant (to))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Forcing VARYING instead of changing "
+		       "value number of ");
+	      print_generic_expr (dump_file, from, 0);
+	      fprintf (dump_file, " from ");
+	      print_generic_expr (dump_file, currval, 0);
+	      fprintf (dump_file, " (non-constant) to ");
+	      print_generic_expr (dump_file, to, 0);
+	      fprintf (dump_file, " (constant)\n");
+	    }
+	  to = from;
+	}
       else if (TREE_CODE (to) == SSA_NAME
 	       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (to))
 	to = from;
@@ -3305,6 +3329,10 @@ visit_reference_op_call (tree lhs, gcall *stmt)
     {
       if (vnresult->result_vdef && vdef)
 	changed |= set_ssa_val_to (vdef, vnresult->result_vdef);
+      else if (vdef)
+	/* If the call was discovered to be pure or const reflect
+	   that as far as possible.  */
+	changed |= set_ssa_val_to (vdef, vuse_ssa_val (gimple_vuse (stmt)));
 
       if (!vnresult->result && lhs)
 	vnresult->result = lhs;
@@ -3451,7 +3479,7 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
 {
   bool changed = false;
   vn_reference_t vnresult = NULL;
-  tree result, assign;
+  tree assign;
   bool resultsame = false;
   tree vuse = gimple_vuse (stmt);
   tree vdef = gimple_vdef (stmt);
@@ -3475,31 +3503,40 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
      Otherwise, the vdefs for the store are used when inserting into
      the table, since the store generates a new memory state.  */
 
-  result = vn_reference_lookup (lhs, vuse, VN_NOWALK, NULL, false);
-
-  if (result)
+  vn_reference_lookup (lhs, vuse, VN_NOWALK, &vnresult, false);
+  if (vnresult
+      && vnresult->result)
     {
+      tree result = vnresult->result;
       if (TREE_CODE (result) == SSA_NAME)
 	result = SSA_VAL (result);
       resultsame = expressions_equal_p (result, op);
-    }
-
-  if ((!result || !resultsame)
-      /* Only perform the following when being called from PRE
-	 which embeds tail merging.  */
-      && default_vn_walk_kind == VN_WALK)
-    {
-      assign = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, op);
-      vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult, false);
-      if (vnresult)
+      if (resultsame)
 	{
-	  VN_INFO (vdef)->use_processed = true;
-	  return set_ssa_val_to (vdef, vnresult->result_vdef);
+	  /* If the TBAA state isn't compatible for downstream reads
+	     we cannot value-number the VDEFs the same.  */
+	  alias_set_type set = get_alias_set (lhs);
+	  if (vnresult->set != set
+	      && ! alias_set_subset_of (set, vnresult->set))
+	    resultsame = false;
 	}
     }
 
-  if (!result || !resultsame)
+  if (!resultsame)
     {
+      /* Only perform the following when being called from PRE
+	 which embeds tail merging.  */
+      if (default_vn_walk_kind == VN_WALK)
+	{
+	  assign = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, op);
+	  vn_reference_lookup (assign, vuse, VN_NOWALK, &vnresult, false);
+	  if (vnresult)
+	    {
+	      VN_INFO (vdef)->use_processed = true;
+	      return set_ssa_val_to (vdef, vnresult->result_vdef);
+	    }
+	}
+
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "No store match\n");
@@ -3512,9 +3549,7 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
       /* Have to set value numbers before insert, since insert is
 	 going to valueize the references in-place.  */
       if (vdef)
-	{
-	  changed |= set_ssa_val_to (vdef, vdef);
-	}
+	changed |= set_ssa_val_to (vdef, vdef);
 
       /* Do not insert structure copies into the tables.  */
       if (is_gimple_min_invariant (op)
