@@ -123,6 +123,30 @@ along with GCC; see the file COPYING3.  If not see
    These functions are now only used here in reorg.c, and have therefore
    been moved here to avoid inadvertent misuse elsewhere in the compiler.  */
 
+/* Return true iff a LABEL is followed by a BARRIER.  Ignore notes and debug
+   instructions.  */
+
+static bool
+label_with_barrier_p (rtx_insn *label)
+{
+  bool empty_bb = true;
+
+  if (GET_CODE (label) != CODE_LABEL)
+    empty_bb = false;
+  else
+    label = NEXT_INSN (label);
+
+  while (!BARRIER_P (label) && empty_bb)
+  {
+    if (!(DEBUG_INSN_P (label)
+	  || NOTE_P (label)))
+      empty_bb = false;
+    label = NEXT_INSN (label);
+  }
+
+  return empty_bb;
+}
+
 /* Return the last label to mark the same position as LABEL.  Return LABEL
    itself if it is null or any return rtx.  */
 
@@ -137,6 +161,8 @@ skip_consecutive_labels (rtx label_or_return)
   rtx_insn *label = as_a <rtx_insn *> (label_or_return);
 
   for (insn = label; insn != 0 && !INSN_P (insn); insn = NEXT_INSN (insn))
+    if (LABEL_P (insn) && label_with_barrier_p (insn))
+      break;
     if (LABEL_P (insn))
       label = insn;
 
@@ -242,6 +268,8 @@ first_active_target_insn (rtx insn)
 {
   if (ANY_RETURN_P (insn))
     return insn;
+  if (LABEL_P (insn) && label_with_barrier_p ((rtx_insn *)insn))
+    return NULL_RTX;
   return next_active_insn (as_a <rtx_insn *> (insn));
 }
 

@@ -55,3 +55,6 @@ CC_MODE (CCDSP);
 
 /* For floating point conditions in FP registers.  */
 CC_MODE (CCF);
+
+/* For implementation of vec_[load|store]_lanes with stride 3.  */
+INT_MODE (CI, 48);
