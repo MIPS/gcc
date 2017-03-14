@@ -451,3 +451,20 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+mclib=
+Target RejectNegative Joined Var(mips_c_lib) ToLower Enum(mips_lib_setting) Init(MIPS_LIB_NEWLIB)
+Specify the C library to use with this application.
+
+Enum
+Name(mips_lib_setting) Type(enum mips_lib_setting)
+Known MIPS C libraries (for use with the -mclib= option):
+
+EnumValue
+Enum(mips_lib_setting) String(newlib) Value(MIPS_LIB_NEWLIB)
+
+EnumValue
+Enum(mips_lib_setting) String(small) Value(MIPS_LIB_SMALL)
+
+EnumValue
+Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)

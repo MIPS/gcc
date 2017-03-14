@@ -579,6 +579,12 @@ struct mips_cpu_info {
       if (mips_nan == MIPS_IEEE_754_2008)				\
 	builtin_define ("__mips_nan2008");				\
 									\
+      if (mips_c_lib == MIPS_LIB_SMALL)					\
+	builtin_define ("__mips_clib_small");				\
+									\
+      if (mips_c_lib == MIPS_LIB_TINY)					\
+	builtin_define ("__mips_clib_tiny");				\
+									\
       if (TARGET_BIG_ENDIAN)						\
 	{								\
 	  builtin_define_std ("MIPSEB");				\
@@ -822,8 +828,8 @@ struct mips_cpu_info {
 
 /* Infer a -mnan=2008 setting from a -mips argument.  */
 #define MIPS_ISA_NAN2008_SPEC \
-  "%{mnan*:;mips32r6|mips64r6:-mnan=2008;march=m51*: \
-					 %{!msoft-float:-mnan=2008}}"
+  "%{mnan*:;mips32r6|mips64r6:-mnan=2008; \
+     march=m51*|mclib=small|mclib=tiny:%{!msoft-float:-mnan=2008}}"
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
      || MIPS_ABI_DEFAULT == ABI_N32 \
