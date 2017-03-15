@@ -23383,7 +23383,7 @@ mark_mem (rtx_insn *insn, rtx mem, basic_block bb,
       oi->offset = offset;
       oi->modified_offset = 0;
       oi->bb = bb;
-      oi->mode = GET_MODE (base);
+      oi->mode = GET_MODE (mem);
       oi->insn = insn;
       info->offsets.safe_push (oi);
     }
@@ -23523,7 +23523,7 @@ class pass_shrink_mips_offsets : public rtl_opt_pass
     {}
 
   /* opt_pass methods: */
-  virtual bool gate ()
+  virtual bool gate (function *)
    {
       return (TARGET_MIPS16 || TARGET_MICROMIPS) && TARGET_SHRINK_OFFSETS;
    }
