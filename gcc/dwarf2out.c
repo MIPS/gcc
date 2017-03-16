@@ -83,6 +83,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "md5.h"
 #include "tree-pretty-print.h"
+#include "print-rtl.h"
 #include "debug.h"
 #include "common/common-target.h"
 #include "langhooks.h"
@@ -2850,9 +2851,11 @@ struct GTY(()) dw_line_info_table {
   bool is_stmt;
   bool in_use;
 
-  /* This denotes a view number.
+  /* This denotes the NEXT view number.
 
-     If it is 0, it is known to be the first view at the given PC.
+     If it is 0, it is known that the NEXT view will be the first view
+     at the given PC.
+
      If it is -1, we've advanced PC but we haven't emitted a line location yet,
      so we shouldn't use this view number.
 
@@ -2864,8 +2867,8 @@ struct GTY(()) dw_line_info_table {
      going to ask the assembler to assign.  */
   var_loc_view view;
 
-#define RESET_NEXT_VIEW(x) ((x) = (var_loc_view)-1)
-#define RESETTING_VIEW_P(x) ((x) == (var_loc_view)-1)
+#define RESET_NEXT_VIEW(x) ((x) = (var_loc_view)0)
+#define RESETTING_VIEW_P(x) ((x) == (var_loc_view)0)
 
   vec<dw_line_info_entry, va_gc> *entries;
 };
@@ -3072,6 +3075,18 @@ skeleton_chain_node;
 #else
 #define DWARF2_ASM_VIEW_DEBUG_INFO 0
 #endif
+#endif
+
+#if DWARF2_ASM_VIEW_DEBUG_INFO
+/* A bit is set in ZERO_VIEW_P if we are using the assembler-supported
+   view computation, and it is refers to a view identifier for which
+   will not emit a label because it is known to map to a view number
+   zero.  */
+static GTY(()) bitmap zero_view_p;
+
+#define ZERO_VIEW_P(N) (zero_view_p && bitmap_bit_p (zero_view_p, (N)))
+#else
+#define ZERO_VIEW_P(N) ((N) == 0)
 #endif
 
 static bool
@@ -9711,12 +9726,8 @@ loc_list_has_views (dw_loc_list_ref list)
 
   for (dw_loc_list_ref loc = list;
        loc != NULL; loc = loc->dw_loc_next)
-    {
-      gcc_checking_assert (!RESETTING_VIEW_P (loc->vbegin));
-      gcc_checking_assert (!RESETTING_VIEW_P (loc->vend));
-      if (loc->vbegin || loc->vend)
-	return true;
-    }
+    if (!ZERO_VIEW_P (loc->vbegin) || !ZERO_VIEW_P (loc->vend))
+      return true;
 
   return false;
 }
@@ -9804,7 +9815,7 @@ output_loc_list (dw_loc_list_ref list_head)
 #if DWARF2_ASM_VIEW_DEBUG_INFO
 	  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
-	  if (curr->vbegin)
+	  if (!ZERO_VIEW_P (curr->vbegin))
 	    {
 	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", curr->vbegin);
 	      dw2_asm_output_symname_uleb128 (label,
@@ -9816,7 +9827,7 @@ output_loc_list (dw_loc_list_ref list_head)
 					 "View list begin (%s)",
 					 list_head->vl_symbol);
 
-	  if (curr->vend)
+	  if (!ZERO_VIEW_P (curr->vend))
 	    {
 	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", curr->vend);
 	      dw2_asm_output_symname_uleb128 (label,
@@ -26357,9 +26368,7 @@ dwarf2out_next_real_insn (rtx_insn *loc_note)
   rtx_insn *next_real = NEXT_INSN (loc_note);
 
   while (next_real)
-    if (INSN_P (next_real)
-	|| (NOTE_P (next_real)
-	    && NOTE_KIND (next_real) == NOTE_INSN_BEGIN_STMT))
+    if (INSN_P (next_real))
       break;
     else
       next_real = NEXT_INSN (next_real);
@@ -26459,6 +26468,7 @@ dwarf2out_var_location (rtx_insn *loc_note)
       || next_note->deleted ()
       || ! NOTE_P (next_note)
       || (NOTE_KIND (next_note) != NOTE_INSN_VAR_LOCATION
+	  && NOTE_KIND (next_note) != NOTE_INSN_BEGIN_STMT
 	  && NOTE_KIND (next_note) != NOTE_INSN_CALL_ARG_LOCATION))
     next_note = NULL;
 
@@ -26500,7 +26510,7 @@ create_label:
     {
       const char *label = NOTE_DURING_CALL_P (loc_note)
 	? last_postcall_label : last_label;
-      view = cur_line_info_table->view + 1;
+      view = cur_line_info_table->view;
       decl = NOTE_VAR_LOCATION_DECL (loc_note);
       newloc = add_var_loc_to_decl (decl, loc_note, label, view);
       if (newloc == NULL)
@@ -26625,6 +26635,22 @@ create_label:
 	}
       newloc->label = last_postcall_label;
       newloc->view = view;
+    }
+
+  if (var_loc_p && flag_debug_asm)
+    {
+      const char *name = NULL, *sep = " => ", *patstr = NULL;
+      if (decl && DECL_NAME (decl))
+	name = IDENTIFIER_POINTER (DECL_NAME (decl));
+      if (NOTE_VAR_LOCATION_LOC (loc_note))
+	patstr = str_pattern_slim (NOTE_VAR_LOCATION_LOC (loc_note));
+      else
+	{
+	  sep = " ";
+	  patstr = "RESET";
+	}
+      fprintf (asm_out_file, "\t%s DEBUG %s%s%s\n", ASM_COMMENT_START,
+	       name, sep, patstr);
     }
 
   last_var_location_insn = next_real;
@@ -26934,27 +26960,25 @@ dwarf2out_source_line (unsigned int line, unsigned int column,
       if (debug_variable_location_views)
 	{
 	  static var_loc_view lvugid;
+	  if (!lvugid)
+	    {
+	      gcc_assert (!zero_view_p);
+	      zero_view_p = BITMAP_GGC_ALLOC ();
+	      bitmap_set_bit (zero_view_p, 0);
+	    }
 	  if (RESETTING_VIEW_P (table->view))
 	    {
-	      /* Introduce a gap in the LVU label sequence, as if we
-		 had emitted a zero.  This will catch incorrect
-		 references to a subsequent label.  We can drop this
-		 increment eventually.  In fact, we could use
-		 assembler-computed views only, but explicit "view 0"
-		 helps catch cases in which the compiler thinks an
-		 insn is non-zero-sized, but the assembler finds
-		 otherwise.  */
-	      ++lvugid;
-	      table->view = 0;
 	      fputs (" view 0", asm_out_file);
+	      bitmap_set_bit (zero_view_p, lvugid);
+	      table->view = ++lvugid;
 	    }
 	  else
 	    {
-	      table->view = ++lvugid;
 	      fputs (" view ", asm_out_file);
 	      char label[MAX_ARTIFICIAL_LABEL_BYTES];
 	      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", table->view);
 	      assemble_name (asm_out_file, label);
+	      table->view = ++lvugid;
 	    }
 	}
       putc ('\n', asm_out_file);
@@ -26965,13 +26989,17 @@ dwarf2out_source_line (unsigned int line, unsigned int column,
 
       targetm.asm_out.internal_label (asm_out_file, LINE_CODE_LABEL, label_num);
 
-      if (debug_variable_location_views && ++table->view)
+      if (debug_variable_location_views && table->view)
 	push_dw_line_info_entry (table, LI_adv_address, label_num);
       else
 	push_dw_line_info_entry (table, LI_set_address, label_num);
-      if (debug_variable_location_views && flag_debug_asm)
-	fprintf (asm_out_file, "\t%s view %d\n",
-		 ASM_COMMENT_START, table->view);
+      if (debug_variable_location_views)
+	{
+	  if (flag_debug_asm)
+	    fprintf (asm_out_file, "\t%s view %d\n",
+		     ASM_COMMENT_START, table->view);
+	  table->view++;
+	}
       if (file_num != table->file_num)
 	push_dw_line_info_entry (table, LI_set_file, file_num);
       if (discriminator != table->discrim_num)
