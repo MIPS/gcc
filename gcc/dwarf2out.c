@@ -3077,17 +3077,24 @@ skeleton_chain_node;
 #endif
 #endif
 
-#if DWARF2_ASM_VIEW_DEBUG_INFO
 /* A bit is set in ZERO_VIEW_P if we are using the assembler-supported
    view computation, and it is refers to a view identifier for which
    will not emit a label because it is known to map to a view number
-   zero.  */
+   zero.  We won't allocate the bitmap if we're not using assembler
+   support for location views, but we have to make the variable
+   visible for GGC and for code that will be optimized out for lack of
+   support but that's still parsed and compiled.  We could abstract it
+   out with macros, but it's not worth it.  */
 static GTY(()) bitmap zero_view_p;
 
-#define ZERO_VIEW_P(N) (zero_view_p && bitmap_bit_p (zero_view_p, (N)))
-#else
-#define ZERO_VIEW_P(N) ((N) == 0)
-#endif
+/* Evaluate to TRUE iff N is known to identify the first location view
+   at its PC.  When not using assembler location view computation,
+   that must be view number zero.  Otherwise, ZERO_VIEW_P is allocated
+   and views label numbers recorded in it are the ones known to be
+   zero.  */
+#define ZERO_VIEW_P(N) (zero_view_p				\
+			? bitmap_bit_p (zero_view_p, (N))	\
+			: (N) == 0)
 
 static bool
 output_asm_line_debug_info (void)
