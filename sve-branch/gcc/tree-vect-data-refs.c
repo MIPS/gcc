@@ -213,6 +213,38 @@ check_nonzero_value (loop_vec_info loop_vinfo, tree value)
   LOOP_VINFO_CHECK_NONZERO (loop_vinfo).safe_push (value);
 }
 
+/* Return true if we know that the order of vectorized STMT_A and
+   vectorized STMT_B will be the same as the order of STMT_A and STMT_B.
+   At least one of the statements is a write.  */
+
+static bool
+vect_preserves_scalar_order_p (gimple *stmt_a, gimple *stmt_b)
+{
+  stmt_vec_info stmtinfo_a = vinfo_for_stmt (stmt_a);
+  stmt_vec_info stmtinfo_b = vinfo_for_stmt (stmt_b);
+
+  /* Check whether all statements grouped with STMT_A come after
+     all statements grouped with STMT_B.  In this case vectorized
+     STMT_A will come after vectorized STMT_B.  */
+  if (vect_group_first_uid (stmtinfo_a)
+      >= vect_group_last_uid (stmtinfo_b))
+    return true;
+
+  /* Likewise with the roles reversed.  */
+  if (vect_group_first_uid (stmtinfo_b)
+      >= vect_group_last_uid (stmtinfo_a))
+    return true;
+
+  /* STMT_A and STMT_B belong to overlapping groups.  All loads in a
+     group are emitted at the position of the first scalar load and all
+     stores in a group are emitted at the position of the last scalar store.
+     Thus writes will happen no earlier than their current position
+     (but could happen later) while reads will happen no later than their
+     current position (but could happen earlier).  Reordering is therefore
+     only possible if the first access is a write.  */
+  gimple *earlier_stmt = get_earlier_stmt (stmt_a, stmt_b);
+  return !DR_IS_WRITE (STMT_VINFO_DATA_REF (vinfo_for_stmt (earlier_stmt)));
+}
 
 /* Function vect_analyze_data_ref_dependence.
 
@@ -398,22 +430,12 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 		... = a[i];
 		a[i+1] = ...;
 	     where loads from the group interleave with the store.  */
-	  if ((vect_group_first_uid (stmtinfo_a)
-	       < vect_group_last_uid (stmtinfo_b))
-	      && (vect_group_first_uid (stmtinfo_b)
-		  < vect_group_last_uid (stmtinfo_a)))
+	  if (!vect_preserves_scalar_order_p (DR_STMT (dra), DR_STMT (drb)))
 	    {
-	      gimple *earlier_stmt;
-	      earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
-	      if (DR_IS_WRITE
-		    (STMT_VINFO_DATA_REF (vinfo_for_stmt (earlier_stmt))))
-		{
-		  if (dump_enabled_p ())
-		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				     "READ_WRITE dependence in interleaving."
-				     "\n");
-		  return true;
-		}
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "READ_WRITE dependence in interleaving.\n");
+	      return true;
 	    }
 
 	  if (!loop->force_vectorize)
@@ -3374,6 +3396,107 @@ vect_no_alias_p (struct data_reference *a, struct data_reference *b,
   return false;
 }
 
+/* Dump LOWER_BOUND using flags DUMP_KIND.  Dumps are known to be enabled.  */
+
+static void
+dump_lower_bound (int dump_kind, const vec_lower_bound &lower_bound)
+{
+  dump_printf (dump_kind, "%s (", lower_bound.unsigned_p ? "unsigned" : "abs");
+  dump_generic_expr (dump_kind, TDF_SLIM, lower_bound.expr);
+  dump_printf (dump_kind, ") >= ");
+  dump_dec (dump_kind, lower_bound.min_value);
+}
+
+/* Record that the vectorized loop requires the vec_lower_bound described
+   by EXPR, UNSIGNED_P and MIN_VALUE.  */
+
+static void
+check_lower_bound (loop_vec_info loop_vinfo, tree expr, bool unsigned_p,
+		   poly_uint64 min_value)
+{
+  vec<vec_lower_bound> lower_bounds = LOOP_VINFO_LOWER_BOUNDS (loop_vinfo);
+  for (unsigned int i = 0; i < lower_bounds.length (); ++i)
+    if (operand_equal_p (lower_bounds[i].expr, expr, 0))
+      {
+	unsigned_p &= lower_bounds[i].unsigned_p;
+	min_value = upper_bound (lower_bounds[i].min_value, min_value);
+	if (lower_bounds[i].unsigned_p != unsigned_p
+	    || may_lt (lower_bounds[i].min_value, min_value))
+	  {
+	    lower_bounds[i].unsigned_p = unsigned_p;
+	    lower_bounds[i].min_value = min_value;
+	    if (dump_enabled_p ())
+	      {
+		dump_printf_loc (MSG_NOTE, vect_location,
+				 "updating run-time check to ");
+		dump_lower_bound (MSG_NOTE, lower_bounds[i]);
+		dump_printf (MSG_NOTE, "\n");
+	      }
+	  }
+	return;
+      }
+
+  vec_lower_bound lower_bound (expr, unsigned_p, min_value);
+  if (dump_enabled_p ())
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "need a run-time check that ");
+      dump_lower_bound (MSG_NOTE, lower_bound);
+      dump_printf (MSG_NOTE, "\n");
+    }
+  LOOP_VINFO_LOWER_BOUNDS (loop_vinfo).safe_push (lower_bound);
+}
+
+/* Return true if it's unlikely that the step of the vectorized form of DR
+   will span fewer than GAP bytes.  */
+
+static bool
+vect_small_gap_p (loop_vec_info loop_vinfo, data_reference *dr, poly_int64 gap)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
+  HOST_WIDE_INT count
+    = estimated_poly_value (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
+  if (GROUP_FIRST_ELEMENT (stmt_info))
+    count *= GROUP_SIZE (vinfo_for_stmt (GROUP_FIRST_ELEMENT (stmt_info)));
+  return estimated_poly_value (gap) <= count * vect_get_dr_size (dr);
+}
+
+/* Return true if we know that there is no alias between DR_A and DR_B
+   when abs (DR_STEP (DR_A)) >= N for some N.  When returning true, set
+   *LOWER_BOUND_OUT to this N.  */
+
+static bool
+vectorizable_with_step_bound_p (data_reference *dr_a, data_reference *dr_b,
+				poly_uint64 *lower_bound_out)
+{
+  /* Check that there is a constant gap of known sign between DR_A
+     and DR_B.  */
+  poly_int64 init_a, init_b;
+  if (!operand_equal_p (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b), 0)
+      || !operand_equal_p (DR_OFFSET (dr_a), DR_OFFSET (dr_b), 0)
+      || !operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0)
+      || !poly_tree_p (DR_INIT (dr_a), &init_a)
+      || !poly_tree_p (DR_INIT (dr_b), &init_b)
+      || !ordered_p (init_a, init_b))
+    return false;
+
+  /* Sort DR_A and DR_B by the address they access.  */
+  if (may_lt (init_b, init_a))
+    {
+      std::swap (init_a, init_b);
+      std::swap (dr_a, dr_b);
+    }
+
+  /* If the two accesses could be dependent within a scalar iteration,
+     make sure that we'd retain their order.  */
+  if (may_gt (init_a + vect_get_dr_size (dr_a), init_b)
+      && !vect_preserves_scalar_order_p (DR_STMT (dr_a), DR_STMT (dr_b)))
+    return false;
+
+  /* There is no alias if abs (DR_STEP) >= GAP.  */
+  *lower_bound_out = init_b + vect_get_dr_size (dr_b) - init_a;
+  return true;
+}
+
 /* Function vect_prune_runtime_alias_test_list.
 
    Prune a list of ddrs to be tested at run-time by versioning for alias.
@@ -3398,6 +3521,19 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_prune_runtime_alias_test_list ===\n");
+
+  /* Step values are irrelevant for aliasing if the number of vector
+     iterations is equal to the number of scalar iterations (which can
+     happen for fully-SLP loops).  */
+  bool ignore_step_p = must_eq (LOOP_VINFO_VECT_FACTOR (loop_vinfo), 1U);
+
+  if (!ignore_step_p)
+    {
+      /* Convert the checks for nonzero steps into bound tests.  */
+      tree value;
+      FOR_EACH_VEC_ELT (LOOP_VINFO_CHECK_NONZERO (loop_vinfo), i, value)
+	check_lower_bound (loop_vinfo, value, true, 1);
+    }
 
   if (may_alias_ddrs.is_empty ())
     return true;
@@ -3436,6 +3572,7 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
   FOR_EACH_VEC_ELT (may_alias_ddrs, i, ddr)
     {
       int comp_res;
+      poly_uint64 lower_bound;
       struct data_reference *dr_a, *dr_b;
       gimple *dr_group_first_a, *dr_group_first_b;
       tree segment_length_a, segment_length_b;
@@ -3445,6 +3582,64 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 
       dr_a = DDR_A (ddr);
       stmt_a = DR_STMT (DDR_A (ddr));
+
+      dr_b = DDR_B (ddr);
+      stmt_b = DR_STMT (DDR_B (ddr));
+
+      /* Skip the pair if inter-iteration dependencies are irrelevant
+	 and intra-iteration dependencies are guaranteed to be honored.  */
+      if (ignore_step_p
+	  && (vect_preserves_scalar_order_p (stmt_a, stmt_b)
+	      || vectorizable_with_step_bound_p (dr_a, dr_b, &lower_bound)))
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "no need for alias check between ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
+	      dump_printf (MSG_NOTE, " and ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
+	      dump_printf (MSG_NOTE, " when VF is 1\n");
+	    }
+	  continue;
+	}
+
+      /* See whether we can handle the alias using a bounds check on
+	 the step, and whether that's likely to be the best approach.
+	 (It might not be, for example, if the minimum step is much larger
+	 than the number of bytes handled by one vector iteration.)  */
+      if (!ignore_step_p
+	  && TREE_CODE (DR_STEP (dr_a)) != INTEGER_CST
+	  && vectorizable_with_step_bound_p (dr_a, dr_b, &lower_bound)
+	  && (vect_small_gap_p (loop_vinfo, dr_a, lower_bound)
+	      || vect_small_gap_p (loop_vinfo, dr_b, lower_bound)))
+	{
+	  bool unsigned_p = dr_known_forward_stride_p (dr_a);
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location, "no alias between ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
+	      dump_printf (MSG_NOTE, " and ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
+	      dump_printf (MSG_NOTE, " when the step ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_STEP (dr_a));
+	      dump_printf (MSG_NOTE, " is outside ");
+	      if (unsigned_p)
+		dump_printf (MSG_NOTE, "[0");
+	      else
+		{
+		  dump_printf (MSG_NOTE, "(");
+		  dump_dec (MSG_NOTE, poly_int64 (-lower_bound));
+		}
+	      dump_printf (MSG_NOTE, ", ");
+	      dump_dec (MSG_NOTE, lower_bound);
+	      dump_printf (MSG_NOTE, ")\n");
+	    }
+	  check_lower_bound (loop_vinfo, DR_STEP (dr_a), unsigned_p,
+			     lower_bound);
+	  continue;
+	}
+
       dr_group_first_a = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt_a));
       if (dr_group_first_a)
 	{
@@ -3452,8 +3647,6 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  dr_a = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt_a));
 	}
 
-      dr_b = DDR_B (ddr);
-      stmt_b = DR_STMT (DDR_B (ddr));
       dr_group_first_b = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt_b));
       if (dr_group_first_b)
 	{
@@ -3461,22 +3654,30 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  dr_b = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt_b));
 	}
 
-      if (!operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0))
+      if (ignore_step_p)
 	{
-	  if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
-	    {
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				 "Cannot vectorize speculative loops with "
-				 "differing data reference step sizes.\n");
-	      return false;
-	    }
-	  length_factor = scalar_loop_iters;
+	  segment_length_a = size_zero_node;
+	  segment_length_b = size_zero_node;
 	}
       else
-	length_factor = size_int (vect_factor);
-      segment_length_a = vect_vfa_segment_size (dr_a, length_factor);
-      segment_length_b = vect_vfa_segment_size (dr_b, length_factor);
+	{
+	  if (!operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0))
+	    {
+	      if (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo))
+		{
+		  if (dump_enabled_p ())
+		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				     "Cannot vectorize speculative loops with "
+				     "differing data reference step sizes.\n");
+		  return false;
+		}
+	      length_factor = scalar_loop_iters;
+	    }
+	  else
+	    length_factor = size_int (vect_factor);
+	  segment_length_a = vect_vfa_segment_size (dr_a, length_factor);
+	  segment_length_b = vect_vfa_segment_size (dr_b, length_factor);
+	}
       access_size_a = vect_vfa_access_size (dr_a);
       access_size_b = vect_vfa_access_size (dr_b);
       align_a = vect_vfa_align (dr_a);
@@ -3493,8 +3694,23 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	  && TREE_CODE (segment_length_a) == INTEGER_CST
 	  && TREE_CODE (segment_length_b) == INTEGER_CST)
 	{
-	  if (vect_no_alias_p (dr_a, dr_b, segment_length_a, segment_length_b,
-			       access_size_a, access_size_b))
+	  bool no_alias_p = vect_no_alias_p (dr_a, dr_b, segment_length_a,
+					     segment_length_b, access_size_a,
+					     access_size_b);
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "can tell at compile time that ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
+	      dump_printf (MSG_NOTE, " and ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
+	      if (no_alias_p)
+		dump_printf (MSG_NOTE, " do not alias\n");
+	      else
+		dump_printf (MSG_NOTE, " alias\n");
+	    }
+
+	  if (no_alias_p)
 	    continue;
 
 	  if (dump_enabled_p ())
@@ -3693,10 +3909,6 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 			 PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS));
       return false;
     }
-
-  /* All alias checks have been resolved at compilation time.  */
-  if (!comp_alias_ddrs.length ())
-    LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo).truncate (0);
 
   return true;
 }

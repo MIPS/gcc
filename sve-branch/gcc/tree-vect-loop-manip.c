@@ -2576,32 +2576,27 @@ get_segment_min_max (const dr_with_seg_len &d, tree *seg_min_out,
 }
 
 
-/* Function vect_create_cond_for_alias_checks.
-
-   Create a conditional expression that represents the run-time checks for
-   values (steps) that need to be nonzero.
-
-   Input:
-   COND_EXPR  - input conditional expression.  New conditions will be chained
-		with logical AND operation.
-   LOOP_VINFO - field LOOP_VINFO_CHECK_NONZERO contains the list of values
-		to be checked.
-
-   Output:
-   COND_EXPR - conditional expression.
-
-   The returned COND_EXPR is the conditional expression to be used in the if
-   statement that controls which version of the loop gets executed at runtime.
-*/
+/* Create an expression that is true when all lower-bound conditions for
+   the vectorized loop are met.  Chain this condition with *COND_EXPR.  */
 
 static void
-vect_create_cond_for_zero_checks (loop_vec_info loop_vinfo, tree *cond_expr)
+vect_create_cond_for_lower_bounds (loop_vec_info loop_vinfo, tree *cond_expr)
 {
-  vec<tree> check_nonzero = LOOP_VINFO_CHECK_NONZERO (loop_vinfo);
-  for (unsigned int i = 0; i < check_nonzero.length (); ++i)
+  vec<vec_lower_bound> lower_bounds = LOOP_VINFO_LOWER_BOUNDS (loop_vinfo);
+  for (unsigned int i = 0; i < lower_bounds.length (); ++i)
     {
-      tree part_cond_expr = fold_build2 (NE_EXPR, boolean_type_node,
-					 check_nonzero[i], ssize_int (0));
+      tree expr = lower_bounds[i].expr;
+      tree type = unsigned_type_for (TREE_TYPE (expr));
+      expr = fold_convert (type, expr);
+      poly_uint64 bound = lower_bounds[i].min_value;
+      if (!lower_bounds[i].unsigned_p)
+	{
+	  expr = fold_build2 (PLUS_EXPR, type, expr,
+			      build_int_cstu (type, bound - 1));
+	  bound += bound - 1;
+	}
+      tree part_cond_expr = fold_build2 (GE_EXPR, boolean_type_node, expr,
+					 build_int_cstu (type, bound));
       chain_cond_expr (cond_expr, part_cond_expr);
     }
 }
@@ -2921,7 +2916,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
 
   if (version_alias)
     {
-      vect_create_cond_for_zero_checks (loop_vinfo, &cond_expr);
+      vect_create_cond_for_lower_bounds (loop_vinfo, &cond_expr);
       vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr);
     }
 
