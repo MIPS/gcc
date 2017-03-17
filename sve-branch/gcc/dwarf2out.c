@@ -13192,6 +13192,7 @@ int_loc_descriptor (poly_int64 poly_i)
 	      /* Add COEFF * ((REGNO / FACTOR) - BIAS) to the value:
 		 add COEFF * (REGNO / FACTOR) now and subtract
 		 COEFF * BIAS from the final constant part.  */
+	      constant -= coeff * bias;
 	      add_loc_descr (&ret, new_reg_loc_descr (regno, 0));
 	      if (coeff % factor == 0)
 		coeff /= factor;
@@ -13209,7 +13210,6 @@ int_loc_descriptor (poly_int64 poly_i)
 		}
 	      if (start)
 		add_loc_descr (&ret, new_loc_descr (DW_OP_plus, 0, 0));
-	      constant -= coeff * bias;
 	    }
 	}
       loc_descr_plus_const (&ret, constant);
