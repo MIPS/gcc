@@ -3082,10 +3082,6 @@ get_group_load_store_type (gimple *stmt, tree vectype, bool slp,
       /* If there is a gap at the end of the group then some of these
 	 optimizations would access excess elements in the last iteration.  */
       bool would_overrun_p = (gap != 0);
-      /* If the access is aligned an overrun is fine.  */
-      if (would_overrun_p
-	  && aligned_access_p (STMT_VINFO_DATA_REF (stmt_info)))
-	would_overrun_p = false;
 
       /* We can always handle this case using elementwise accesses,
 	 but see if something more efficient is available.  */
