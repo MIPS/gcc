@@ -26968,14 +26968,108 @@ mips_adjust_reg_alloc_order ()
 	    sizeof (umipsr7_alloc_order));
 }
 
-/* Returns true if given microMIPS++ instruction has 16-bit equivalent.  */
+/* Post ira recolor data and functions.  */
+
 
 static bool
-mips_insn_has_short_form_r7_p (rtx_insn *insn)
+mips_check_16b_add_imm (rtx reg_op1, rtx reg_op2, rtx const_op)
 {
-  attr_mode mode;
-  bool result = false;
-  rtx pattern;
+  if (!CONST_INT_P (const_op))
+    gcc_unreachable ();
+
+  if (rtx_equal_p (reg_op1, reg_op2)
+      && sb4_operand (const_op, GET_MODE (const_op)))
+    return true;
+  if (((REGNO (reg_op2) == STACK_POINTER_REGNUM)
+       || (REGNO (reg_op2) == ARG_POINTER_REGNUM)
+       || (REGNO (reg_op2) == FRAME_POINTER_REGNUM))
+      && addiusp_operand (const_op, GET_MODE (const_op)))
+    return true;
+  if (addiur2_operand (const_op, GET_MODE (const_op)))
+    return true;
+  return false;
+}
+
+static bool
+mips_check_16b_mem (rtx mem_op, attr_mode mode, bool load)
+{
+  struct mips_address_info addr;
+
+  if (!MEM_P (mem_op))
+    gcc_unreachable ();
+
+  if (!mips_classify_address (&addr, XEXP (mem_op, 0), GET_MODE (mem_op),
+			      false))
+    return false;
+
+  if (addr.type != ADDRESS_REG)
+    return false;
+
+  if (HARD_REGISTER_P (addr.reg))
+    {
+      switch (mode)
+	{
+	  case MODE_SI:
+	    if (lwsp_swsp_operand (mem_op, GET_MODE (mem_op)))
+	      return false;
+	    return lw16_sw16_operand (mem_op, GET_MODE (mem_op));
+	  case MODE_HI:
+	    return lhu16_sh16_operand (mem_op, GET_MODE (mem_op));
+	  case MODE_QI:
+	    if (load)
+	      return lbu16_operand (mem_op, GET_MODE (mem_op));
+	    else
+	      return sb16_operand (mem_op, GET_MODE (mem_op));
+	  default:
+	    return false;
+	}
+    }
+  else
+    {
+      switch (mode)
+	{
+	  case MODE_SI:
+	    if ((REGNO (addr.reg) == ARG_POINTER_REGNUM)
+		|| (REGNO (addr.reg) == FRAME_POINTER_REGNUM))
+	      return false;
+	    else
+	      return uw4_operand (addr.offset, GET_MODE (mem_op));
+	  case MODE_HI:
+	      return uh2_operand (addr.offset, GET_MODE (mem_op));
+	  case MODE_QI:
+	      return ub2_operand (addr.offset, GET_MODE (mem_op));
+	  default:
+	    return false;
+	}
+    }
+  return false;
+}
+
+/* Returns true if given register is short.  */
+
+static bool mips_short_reg_p (int reg_no)
+{
+  return M16_REG_P (reg_no);
+}
+
+/* Returns true if all assigned register operands are short.  */
+
+static bool
+mips_check_regs (rtx *opnds, int regs_num)
+{
+  for (int i = 0; i < regs_num; i++)
+    if (HARD_REGISTER_P (opnds[i]) && !mips_short_reg_p (REGNO (opnds[i])))
+      return false;
+  return true;
+}
+
+/* Returns true if given microMIPSr7 instruction has 16-bit equivalent.  */
+
+static bool
+mips_insn_has_short_form_r7_p_attr (rtx_insn *insn)
+{
+  attr_has_16bit_ver has_16bit_ver;
+  int imm_val;
 
   if (!INSN_P (insn) || DEBUG_INSN_P (insn))
     return false;
@@ -26986,280 +27080,46 @@ mips_insn_has_short_form_r7_p (rtx_insn *insn)
   if (GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
 
-  mode = get_attr_mode (insn);
+  has_16bit_ver = get_attr_has_16bit_ver (insn);
 
-  pattern = PATTERN (insn);
+  extract_insn (insn);
 
-  /* li16 rd, imm.  */
-  if ((GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && CONST_INT_P (XEXP (pattern, 1))
-      && INTVAL (XEXP (pattern, 1)) != 0
-      && INTVAL (XEXP (pattern, 1)) >= -1
-      && INTVAL (XEXP (pattern, 1)) <= 126))
-    result = true;
-
-  /* lw16 rt, offset(base).  */
-  if (GET_CODE (pattern) == SET
-      && MEM_P (XEXP (pattern, 1))
-      && ((mode == MODE_SI
-	   && GET_MODE (XEXP (pattern, 1)) == SImode)
-	  || (mode == MODE_SF
-	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
-      && REG_P (XEXP (pattern, 0))
-      && MEM_P (XEXP (pattern, 1))
-      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
-	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
-	      && (REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
-		  && (REGNO (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
-		      != STACK_POINTER_REGNUM)
-		  && (REGNO (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
-		      != ARG_POINTER_REGNUM))
-	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
-	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) & 3) == 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 60)))
-    result = true;
-
-  /* lwxs rd, rs(rt).  */
-  if (GET_CODE (pattern) == SET
-      && MEM_P (XEXP (pattern, 1))
-      && ((mode == MODE_SI
-	   && GET_MODE (XEXP (pattern, 1)) == SImode)
-	  || (mode == MODE_SF
-	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
-      && REG_P (XEXP (pattern, 0))
-      && MEM_P (XEXP (pattern, 1))
-      && (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == MULT
-	  && REG_P (XEXP ( XEXP (XEXP (XEXP (pattern, 1), 0), 0),0))
-	  && CONST_INT_P (XEXP ( XEXP (XEXP (XEXP (pattern, 1), 0), 0),1))
-	  && INTVAL (XEXP ( XEXP (XEXP (XEXP (pattern, 1), 0), 0),1)) == 4))
-    result = true;
-
-  /* SYMBOL_REF.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && GET_CODE (XEXP (pattern, 1)) == SYMBOL_REF)
-    result = true;
-
-  /* lwgp16 rt, offset(base).  */
-  if (GET_CODE (pattern) == SET
-      && MEM_P (XEXP (pattern, 1))
-      && ((mode == MODE_SI
-	   && GET_MODE (XEXP (pattern, 1)) == SImode)
-	  || (mode == MODE_SF
-	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
-      && REG_P (XEXP (pattern, 0))
-      && MEM_P (XEXP (pattern, 1))
-      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
-	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
-	      && REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
-	      && (REGNO ( (XEXP (XEXP (XEXP (pattern, 1), 0), 0))) == 28)
-	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
-	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) & 3) == 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 252)))
-    result = true;
-
-  /* sw16 rt, offset(base).  */
-  if (GET_CODE (pattern) == SET
-      && MEM_P (XEXP (pattern, 0))
-      && ((REG_P (XEXP (XEXP (pattern, 0), 0)))
-	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
-	      && (REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
-		  && REGNO (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
-		     != STACK_POINTER_REGNUM
-		  && REGNO (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
-		     != ARG_POINTER_REGNUM)
-	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
-	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 3) == 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 60)))
-    result = true;
-
-  /* addu16 rd, rs, rt. & subu16 rd, rs, rt.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && (GET_CODE (XEXP (pattern, 1)) == PLUS
-	  || GET_CODE (XEXP (pattern, 1)) == MINUS)
-      && REG_P (XEXP (XEXP (pattern, 1), 0))
-      && REG_P (XEXP (XEXP (pattern, 1), 1)))
-    result = true;
-
-  /* and16/xor16/or16 rd, rs, rt.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && (GET_CODE (XEXP (pattern, 1)) == XOR
-	  || GET_CODE (XEXP (pattern, 1)) == IOR
-	  || GET_CODE (XEXP (pattern, 1)) == AND
-	  || GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND))
-    result = true;
-
-  /* UNSPEC_LOAD_CALL.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && GET_CODE (XEXP (pattern, 1)) == UNSPEC
-      && XINT (XEXP (pattern, 1), 1) == UNSPEC_LOAD_CALL)
-    result = true;
-
-
-  /* addiur2 rd, rs, imm.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && GET_CODE (XEXP (pattern, 1)) == PLUS
-      && REG_P (XEXP (XEXP (pattern, 1), 0))
-      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
-      && (INTVAL (XEXP (XEXP (pattern, 1), 1)) & 3) == 0
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 0
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 28)
-    result = true;
-
-  /* andi16 rd, rs, imm.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && GET_CODE (XEXP (pattern, 1)) == AND
-      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
-      && ((INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 0
-	    && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 15
-	    && INTVAL (XEXP (XEXP (pattern, 1), 1)) != 12
-	    && INTVAL (XEXP (XEXP (pattern, 1), 1)) != 13)
-	  || (INTVAL (XEXP (XEXP (pattern, 1), 1)) == 0xff)
-	  || (INTVAL (XEXP (XEXP (pattern, 1), 1)) == 0xffff)))
-    result = true;
-
-  /* addiur1sp rd, $29, imm.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && GET_CODE (XEXP (pattern, 1)) == PLUS
-      && REG_P (XEXP (XEXP (pattern, 1), 0))
-      && (REGNO (XEXP (XEXP (pattern, 1), 0)) == FRAME_POINTER_REGNUM
-	  || REGNO (XEXP (XEXP (pattern, 1), 0)) == STACK_POINTER_REGNUM)
-      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
-      && (INTVAL (XEXP (XEXP (pattern, 1), 1)) & 3) == 0
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 0
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 252)
-    result = true;
-
-  /* not rt, rs.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && GET_CODE (XEXP (pattern, 1)) == NOT)
-    result = true;
-
-  /* lb16 rt, offset(base) and lbu16 rt, offset(base).  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && (GET_CODE (XEXP (pattern, 1)) == SIGN_EXTEND
-	  || GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND)
-      && MEM_P (XEXP (XEXP (pattern, 1), 0))
-      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == QImode
-      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
-	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
-	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
-	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
-	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (XEXP
-					     (pattern, 1), 0), 0), 1)) <= 3)))
-    result = true;
-
-  /* lh16 rt, offset(base) no sign/zero extend.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && MEM_P (XEXP (pattern, 1))
-      && GET_MODE (XEXP (pattern, 1)) == HImode
-      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
-	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
-	      && REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
-	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 6)))
-    result = true;
-
-  /* lh16 rt, offset(base) and lhu16 rt, offset(base).  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && (GET_CODE (XEXP (pattern, 1)) == SIGN_EXTEND
-	  || GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND)
-      && MEM_P (XEXP (XEXP (pattern, 1), 0))
-      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == HImode
-      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
-	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
-	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
-	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
-	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (XEXP
-					     (pattern, 1), 0), 0), 1)) <= 6)))
-    result = true;
-
-  /* sb16 rt, offset(base).  */
-  if (GET_CODE (pattern) == SET
-      && MEM_P (XEXP (pattern, 0))
-      && GET_MODE (XEXP (pattern, 0)) == QImode
-      && (REG_P (XEXP (XEXP (pattern, 0), 0))
-	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
-	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
-	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 3)))
-    result = true;
-
-  /* sh16 rt, offset(base).  */
-  if (GET_CODE (pattern) == SET
-      && MEM_P (XEXP (pattern, 0))
-      && GET_MODE (XEXP (pattern, 0)) == HImode
-      && (REG_P (XEXP (XEXP (pattern, 0), 0))
-	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
-	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
-	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
-	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 1) == 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
-	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 6)))
-    result = true;
-
-  /* sll16/srl16 rd, rt, sa.  */
-  if (GET_CODE (pattern) == SET
-      && REG_P (XEXP (pattern, 0))
-      && (GET_CODE (XEXP (pattern, 1)) == ASHIFT
-	  || GET_CODE (XEXP (pattern, 1)) == LSHIFTRT)
-      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 1
-      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 8)
-    result = true;
-
-  /* beqzc16/bnezc16 rs, offset.  */
-  if (JUMP_P (insn)
-      && GET_CODE (pattern) == SET
-      && GET_CODE (SET_DEST (pattern)) == PC
-      && GET_CODE (SET_SRC (pattern)) == IF_THEN_ELSE)
+  switch (has_16bit_ver)
     {
-      /* Check for the right kind of condition.  */
-      rtx cond = XEXP (SET_SRC (pattern), 0);
-      if ((GET_CODE (cond) == EQ || GET_CODE (cond) == NE)
-	  && REG_P (XEXP (cond, 0))
-	  && CONST_INT_P (XEXP (cond, 1))
-	  && (INTVAL (XEXP (cond, 1)) == 0))
-	result = true;
+      case HAS_16BIT_VER_YES:
+	return true;
+      case HAS_16BIT_VER_RR:
+	return mips_check_regs (recog_data.operand, 2);
+      case HAS_16BIT_VER_RRR:
+	return mips_check_regs (recog_data.operand, 3);
+      case HAS_16BIT_VER_RI_LI:
+	imm_val = INTVAL (recog_data.operand[1]);
+	if (imm_val >= -1 && imm_val <= 126)
+	  return true;
+	return false;
+      case HAS_16BIT_VER_RRI_LOAD:
+	return mips_check_16b_mem (recog_data.operand[1],
+				   get_attr_mode (insn), true);
+      case HAS_16BIT_VER_RRI_STORE:
+	return mips_check_16b_mem (recog_data.operand[0],
+				   get_attr_mode (insn), false);
+      case HAS_16BIT_VER_RRI_AND:
+	return andi16_operand (recog_data.operand[2],
+			       GET_MODE (recog_data.operand[2]));
+      case HAS_16BIT_VER_RRI_SLL:
+	return ib3_operand (recog_data.operand[2],
+			    GET_MODE (recog_data.operand[2]));
+      case HAS_16BIT_VER_RRI_BEQZC:
+      case HAS_16BIT_VER_RRI_BEQC:
+	return true;
+      case HAS_16BIT_VER_RRI_ADD:
+	return mips_check_16b_add_imm (recog_data.operand[0],
+				       recog_data.operand[1],
+				       recog_data.operand[2]);
+      default:
+	return false;
     }
-
-  /* beqc16/bnec16 rs, offset.  */
-  if (JUMP_P (insn)
-      && GET_CODE (pattern) == SET
-      && GET_CODE (SET_DEST (pattern)) == PC
-      && GET_CODE (SET_SRC (pattern)) == IF_THEN_ELSE)
-    {
-      /* Check for the right kind of condition.  */
-      rtx cond = XEXP (SET_SRC (pattern), 0);
-      if ((GET_CODE (cond) == EQ || GET_CODE (cond) == NE)
-	  && REG_P (XEXP (cond, 0))
-	  && REG_P (XEXP (cond, 1)))
-	result = true;
-    }
-
-  return result;
 }
-
-/* Post ira recolor data and functions.  */
 
 /* Number of instruction categories.  */
 #define INSN_CATEGORIES_NUM 6
@@ -27319,13 +27179,6 @@ typedef struct recolor_insn_data
   rtx regs[MAX_OPERAND_NUM];
 } insn_data_t;
 
-/* Returns true if given register is short.  */
-
-static bool mips_short_reg_p (int reg_no)
-{
-  return M16_REG_P (reg_no);
-}
-
 /* Coefficients used to calculate allocno rating (defines recoloring
    priority).   */
 static int recolor_coeffs[INSN_CATEGORIES_NUM] = {0, -3, -3, -3, -3, -3};
@@ -27374,7 +27227,7 @@ mips_get_insn_data (rtx_insn *insn, void *res)
   insn_data_t *i_data = (insn_data_t *)res;
 
   if (!INSN_P (insn) || (TARGET_MICROMIPS_R7
-			      && !mips_insn_has_short_form_r7_p (insn)))
+			      && !mips_insn_has_short_form_r7_p_attr (insn)))
     return -1;
 
   extract_insn (insn);
@@ -27509,7 +27362,7 @@ mips_collect_recolor_data (bool &s_regs_used)
 	  {
 	    /* Call corresponding function and increment category counter if
 	       needed.  */
-	    if (mips_insn_has_short_form_r7_p (insn))
+	    if (mips_insn_has_short_form_r7_p_attr (insn))
 	      {
 	      	bool short_insn = true;
 	      /* Update corresponding data in recolor_allocnos_data.  */
