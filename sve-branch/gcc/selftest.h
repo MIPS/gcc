@@ -1,5 +1,5 @@
 /* A self-testing framework, for use by -fself-test.
-   Copyright (C) 2015-2016 Free Software Foundation, Inc.
+   Copyright (C) 2015-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -158,6 +158,16 @@ extern char *read_file (const location &loc, const char *path);
 
 extern void forcibly_ggc_collect ();
 
+/* Convert a path relative to SRCDIR/gcc/testsuite/selftests
+   to a real path (either absolute, or relative to pwd).
+   The result should be freed by the caller.  */
+
+extern char *locate_file (const char *path);
+
+/* The path of SRCDIR/testsuite/selftests.  */
+
+extern const char *path_to_selftest_files;
+
 /* Declarations for specific families of tests (by source file), in
    alphabetical order.  */
 extern void bitmap_c_tests ();
@@ -174,11 +184,13 @@ extern void hash_map_tests_c_tests ();
 extern void hash_set_tests_c_tests ();
 extern void input_c_tests ();
 extern void pretty_print_c_tests ();
+extern void read_rtl_function_c_tests ();
 extern void rtl_tests_c_tests ();
 extern void selftest_c_tests ();
 extern void spellcheck_c_tests ();
 extern void spellcheck_tree_c_tests ();
 extern void sreal_c_tests ();
+extern void store_merging_c_tests ();
 extern void typed_splay_tree_c_tests ();
 extern void tree_c_tests ();
 extern void tree_cfg_c_tests ();
@@ -248,6 +260,25 @@ extern int num_passes;
     ::selftest::pass ((LOC), desc);			       \
   else							       \
     ::selftest::fail ((LOC), desc);			       \
+  SELFTEST_END_STMT
+
+/* Evaluate EXPECTED and ACTUAL and compare them with must_eq, calling
+   ::selftest::pass if they are always equal,
+   ::selftest::fail if they might be non-equal.  */
+
+#define ASSERT_MUST_EQ(EXPECTED, ACTUAL) \
+  ASSERT_MUST_EQ_AT ((SELFTEST_LOCATION), (EXPECTED), (ACTUAL))
+
+/* Like ASSERT_MUST_EQ, but treat LOC as the effective location of the
+   selftest.  */
+
+#define ASSERT_MUST_EQ_AT(LOC, EXPECTED, ACTUAL)			\
+  SELFTEST_BEGIN_STMT							\
+  const char *desc = "ASSERT_MUST_EQ (" #EXPECTED ", " #ACTUAL ")";	\
+  if (must_eq (EXPECTED, ACTUAL))					\
+    ::selftest::pass ((LOC), desc);					\
+  else									\
+    ::selftest::fail ((LOC), desc);					\
   SELFTEST_END_STMT
 
 /* Evaluate EXPECTED and ACTUAL and compare them with !=, calling

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996-2016 Free Software Foundation, Inc.
+   Copyright (C) 1996-2017 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -1862,6 +1862,7 @@ rtx
 mn10300_legitimize_pic_address (rtx orig, rtx reg)
 {
   rtx x;
+  rtx_insn *insn;
 
   if (GET_CODE (orig) == LABEL_REF
       || (GET_CODE (orig) == SYMBOL_REF
@@ -1875,7 +1876,7 @@ mn10300_legitimize_pic_address (rtx orig, rtx reg)
       x = gen_rtx_CONST (SImode, x);
       emit_move_insn (reg, x);
 
-      x = emit_insn (gen_addsi3 (reg, reg, pic_offset_table_rtx));
+      insn = emit_insn (gen_addsi3 (reg, reg, pic_offset_table_rtx));
     }
   else if (GET_CODE (orig) == SYMBOL_REF)
     {
@@ -1887,12 +1888,12 @@ mn10300_legitimize_pic_address (rtx orig, rtx reg)
       x = gen_rtx_PLUS (SImode, pic_offset_table_rtx, x);
       x = gen_const_mem (SImode, x);
 
-      x = emit_move_insn (reg, x);
+      insn = emit_move_insn (reg, x);
     }
   else
     return orig;
 
-  set_unique_reg_note (x, REG_EQUAL, orig);
+  set_unique_reg_note (insn, REG_EQUAL, orig);
   return reg;
 }
 
@@ -3165,7 +3166,7 @@ mn10300_bundle_liw (void)
    Insert a SETLB insn just before LABEL.  */
 
 static void
-mn10300_insert_setlb_lcc (rtx label, rtx branch)
+mn10300_insert_setlb_lcc (rtx_insn *label, rtx_insn *branch)
 {
   rtx lcc, comparison, cmp_reg;
 

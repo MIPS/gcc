@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -526,21 +526,23 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo,
   LOOP_VINFO_DDRS (loop_vinfo).create (total * total);
   LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = true;
 
-  bool res = true;
   /* We need read-read dependences to compute STMT_VINFO_SAME_ALIGN_REFS.  */
   if (!compute_all_dependences (*data_refs,
 				&LOOP_VINFO_DDRS (loop_vinfo),
 				LOOP_VINFO_LOOP_NEST (loop_vinfo), true))
-    res = false;
+    return false;
+
+  /* For epilogues we either have no aliases or alias versioning
+     was applied to original loop.  Therefore we may just get max_vf
+     using VF of original loop.  */
+  if (LOOP_VINFO_EPILOGUE_P (loop_vinfo))
+    *max_vf = LOOP_VINFO_ORIG_MAX_VECT_FACTOR (loop_vinfo);
   else
     FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
       if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, max_vf))
-	{
-	  res = false;
-	  break;
-	}
+	return false;
 
-  return res;
+  return true;
 }
 
 
@@ -639,6 +641,7 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
 	  if (!dr_b)
 	    return false;
 
+	  bool dependent = false;
 	  /* If we run into a store of this same instance (we've just
 	     marked those) then delay dependence checking until we run
 	     into the last store because this is where it will have
@@ -655,22 +658,21 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
 		    = STMT_VINFO_DATA_REF (vinfo_for_stmt (store));
 		  ddr_p ddr = initialize_data_dependence_relation
 				(dr_a, store_dr, vNULL);
-		  if (vect_slp_analyze_data_ref_dependence (ddr))
-		    {
-		      free_dependence_relation (ddr);
-		      return false;
-		    }
+		  dependent = vect_slp_analyze_data_ref_dependence (ddr);
 		  free_dependence_relation (ddr);
+		  if (dependent)
+		    break;
 		}
 	    }
-
-	  ddr_p ddr = initialize_data_dependence_relation (dr_a, dr_b, vNULL);
-	  if (vect_slp_analyze_data_ref_dependence (ddr))
+	  else
 	    {
+	      ddr_p ddr = initialize_data_dependence_relation (dr_a,
+							       dr_b, vNULL);
+	      dependent = vect_slp_analyze_data_ref_dependence (ddr);
 	      free_dependence_relation (ddr);
-	      return false;
 	    }
-	  free_dependence_relation (ddr);
+	  if (dependent)
+	    return false;
 	}
     }
   return true;
@@ -895,10 +897,23 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base = ref;
   while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
+  unsigned int base_alignment;
+  unsigned HOST_WIDE_INT base_bitpos;
+  get_object_alignment_1 (base, &base_alignment, &base_bitpos);
+  /* As data-ref analysis strips the MEM_REF down to its base operand
+     to form DR_BASE_ADDRESS and adds the offset to DR_INIT we have to
+     adjust things to make base_alignment valid as the alignment of
+     DR_BASE_ADDRESS.  */
+  poly_int64 diff = base_bitpos;
   if (TREE_CODE (base) == MEM_REF)
-    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
-		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
-  unsigned int base_alignment = get_object_alignment (base);
+    diff -= mem_ref_offset (base).force_shwi () * BITS_PER_UNIT;
+  if (may_ne (diff, 0))
+    base_alignment = MIN (base_alignment, known_alignment (diff));
+  /* Also look at the alignment of the base address DR analysis
+     computed.  */
+  unsigned int base_addr_alignment = get_pointer_alignment (base_addr);
+  if (base_addr_alignment > base_alignment)
+    base_alignment = base_addr_alignment;
 
   if (base_alignment >= TYPE_ALIGN (TREE_TYPE (vectype)))
     DR_VECT_AUX (dr)->base_element_aligned = true;
@@ -947,12 +962,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 
   if (base_alignment < bit_alignment)
     {
-      /* Strip an inner MEM_REF to a bare decl if possible.  */
-      if (TREE_CODE (base) == MEM_REF
-	  && integer_zerop (TREE_OPERAND (base, 1))
-	  && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
-	base = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
-
+      base = base_addr;
+      if (TREE_CODE (base) == ADDR_EXPR)
+	base = TREE_OPERAND (base, 0);
       if (!vect_can_force_dr_alignment_p (base, bit_alignment))
 	{
 	  if (dump_enabled_p ())
@@ -960,6 +972,19 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	      dump_printf_loc (MSG_NOTE, vect_location,
 	                       "can't force alignment of ref: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, ref);
+	      dump_printf (MSG_NOTE, "\n");
+	    }
+	  return true;
+	}
+
+      if (DECL_USER_ALIGN (base))
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "not forcing alignment of user-aligned "
+			       "variable: ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, base);
 	      dump_printf (MSG_NOTE, "\n");
 	    }
 	  return true;
@@ -1210,12 +1235,9 @@ vector_alignment_reachable_p (struct data_reference *dr)
       bool is_packed = not_size_aligned (DR_REF (dr));
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-	                 "Unknown misalignment, is_packed = %d\n",is_packed);
-      if ((TYPE_USER_ALIGN (type) && !is_packed)
-	  || targetm.vectorize.vector_alignment_reachable (type, is_packed))
-	return true;
-      else
-	return false;
+	                 "Unknown misalignment, %snaturally aligned\n",
+			 is_packed ? "not " : "");
+      return targetm.vectorize.vector_alignment_reachable (type, is_packed);
     }
 
   return true;
@@ -2625,7 +2647,9 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       if (groupsize == 0)
         groupsize = count + gaps;
 
-      if (groupsize > UINT_MAX)
+      /* This could be UINT_MAX but as we are generating code in a very
+         inefficient way we have to cap earlier.  See PR78699 for example.  */
+      if (groupsize > 4096)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6909,10 +6933,8 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-      if ((TYPE_USER_ALIGN (type) && !is_packed)
-	  || targetm.vectorize.
-	       support_vector_misalignment (mode, type,
-					    DR_MISALIGNMENT (dr), is_packed))
+      if (targetm.vectorize.support_vector_misalignment
+	    (mode, type, DR_MISALIGNMENT (dr), is_packed))
 	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
@@ -6924,10 +6946,8 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-     if ((TYPE_USER_ALIGN (type) && !is_packed)
-	 || targetm.vectorize.
-	      support_vector_misalignment (mode, type,
-					   DR_MISALIGNMENT (dr), is_packed))
+     if (targetm.vectorize.support_vector_misalignment
+	   (mode, type, DR_MISALIGNMENT (dr), is_packed))
        return dr_unaligned_supported;
     }
 

@@ -1,5 +1,5 @@
 /* C-family attributes handling.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -57,6 +57,8 @@ static tree handle_no_address_safety_analysis_attribute (tree *, tree, tree,
 							 int, bool *);
 static tree handle_no_sanitize_undefined_attribute (tree *, tree, tree, int,
 						    bool *);
+static tree handle_asan_odr_indicator_attribute (tree *, tree, tree, int,
+						 bool *);
 static tree handle_stack_protect_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noclone_attribute (tree *, tree, tree, int, bool *);
@@ -291,6 +293,9 @@ const struct attribute_spec c_common_attribute_table[] =
 			      false },
   { "no_sanitize_undefined",  0, 0, true, false, false,
 			      handle_no_sanitize_undefined_attribute,
+			      false },
+  { "asan odr indicator",     0, 0, true, false, false,
+			      handle_asan_odr_indicator_attribute,
 			      false },
   { "warning",		      1, 1, true,  false, false,
 			      handle_error_attribute, false },
@@ -588,6 +593,15 @@ handle_no_sanitize_undefined_attribute (tree *node, tree name, tree, int,
       *no_add_attrs = true;
     }
 
+  return NULL_TREE;
+}
+
+/* Handle an "asan odr indicator" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_asan_odr_indicator_attribute (tree *, tree, tree, int, bool *)
+{
   return NULL_TREE;
 }
 
@@ -1416,7 +1430,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	  return NULL_TREE;
 	}
 
-      *node = typefm;
+      *node = build_qualified_type (typefm, TYPE_QUALS (type));
     }
 
   return NULL_TREE;
@@ -1437,8 +1451,6 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 		"section attributes are not supported for this target");
       goto fail;
     }
-
-  user_defined_section_attribute = true;
 
   if (!VAR_OR_FUNCTION_DECL_P (decl))
     {

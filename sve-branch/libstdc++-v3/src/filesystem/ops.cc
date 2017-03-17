@@ -1,6 +1,6 @@
 // Filesystem operations -*- C++ -*-
 
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -142,7 +142,11 @@ fs::canonical(const path& p, const path& base, error_code& ec)
 #endif
 
   if (!exists(pa, ec))
-    return result;
+    {
+      if (!ec)
+	ec = make_error_code(std::errc::no_such_file_or_directory);
+      return result;
+    }
   // else: we know there are (currently) no unresolvable symlink loops
 
   result = pa.root_path();
@@ -440,7 +444,8 @@ namespace
       }
 
 #ifdef _GLIBCXX_USE_SENDFILE
-    const auto n = ::sendfile(out.fd, in.fd, nullptr, from_st->st_size);
+    off_t offset = 0;
+    const auto n = ::sendfile(out.fd, in.fd, &offset, from_st->st_size);
     if (n < 0 && (errno == ENOSYS || errno == EINVAL))
       {
 #endif
@@ -1049,7 +1054,7 @@ fs::is_empty(const path& p)
   error_code ec;
   bool e = is_empty(p, ec);
   if (ec)
-    _GLIBCXX_THROW_OR_ABORT(filesystem_error("cannot check is file is empty",
+    _GLIBCXX_THROW_OR_ABORT(filesystem_error("cannot check if file is empty",
 					     p, ec));
   return e;
 }

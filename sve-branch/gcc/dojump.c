@@ -1,5 +1,5 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
-   Copyright (C) 1988-2016 Free Software Foundation, Inc.
+   Copyright (C) 1988-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -705,6 +705,7 @@ do_jump_by_parts_greater_rtx (scalar_int_mode mode, int unsignedp, rtx op0,
       if_false_label = drop_through_label;
       drop_through_if_true = false;
       drop_through_if_false = true;
+      prob = inv (prob);
     }
 
   /* Compare a word at a time, high order first.  */

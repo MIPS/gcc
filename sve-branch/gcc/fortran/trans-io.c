@@ -1,5 +1,5 @@
 /* IO Code translation/library interface
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -1123,6 +1123,14 @@ gfc_trans_open (gfc_code * code)
     mask |= set_parameter_ref (&block, &post_block, var, IOPARM_open_newunit,
 			       p->newunit);
 
+  if (p->cc)
+    mask |= set_string (&block, &post_block, var, IOPARM_open_cc, p->cc);
+
+  if (p->share)
+    mask |= set_string (&block, &post_block, var, IOPARM_open_share, p->share);
+
+  mask |= set_parameter_const (&block, var, IOPARM_open_readonly, p->readonly);
+
   set_parameter_const (&block, var, IOPARM_common_flags, mask);
 
   if (p->unit)
@@ -1449,6 +1457,13 @@ gfc_trans_inquire (gfc_code * code)
   if (p->iqstream)
     mask2 |= set_string (&block, &post_block, var, IOPARM_inquire_iqstream,
 			 p->iqstream);
+
+  if (p->share)
+    mask2 |= set_string (&block, &post_block, var, IOPARM_inquire_share,
+			 p->share);
+
+  if (p->cc)
+    mask2 |= set_string (&block, &post_block, var, IOPARM_inquire_cc, p->cc);
 
   if (mask2)
     mask |= set_parameter_const (&block, var, IOPARM_inquire_flags2, mask2);
@@ -1896,6 +1911,9 @@ build_dt (tree function, gfc_code * code)
       if (dt->udtio)
 	mask |= IOPARM_dt_dtio;
 
+      if (dt->default_exp)
+	mask |= IOPARM_dt_default_exp;
+
       if (dt->namelist)
 	{
 	  if (dt->format_expr || dt->format_label)
@@ -2162,19 +2180,39 @@ get_dtio_proc (gfc_typespec * ts, gfc_code * code, gfc_symbol **dtio_sub)
       formatted = true;
     }
 
-  if (ts->type == BT_DERIVED)
-    derived = ts->u.derived;
-  else
+  if (ts->type == BT_CLASS)
     derived = ts->u.derived->components->ts.u.derived;
+  else
+    derived = ts->u.derived;
 
-  *dtio_sub = gfc_find_specific_dtio_proc (derived, last_dt == WRITE,
-					   formatted);
+  gfc_symtree *tb_io_st = gfc_find_typebound_dtio_proc (derived,
+						  last_dt == WRITE, formatted);
+  if (ts->type == BT_CLASS && tb_io_st)
+    {
+      // polymorphic DTIO call  (based on the dynamic type)
+      gfc_se se;
+      gfc_expr *expr = gfc_find_and_cut_at_last_class_ref (code->expr1);
+      gfc_add_vptr_component (expr);
+      gfc_add_component_ref (expr,
+			     tb_io_st->n.tb->u.generic->specific_st->name);
+      *dtio_sub = tb_io_st->n.tb->u.generic->specific->u.specific->n.sym;
+      gfc_init_se (&se, NULL);
+      se.want_pointer = 1;
+      gfc_conv_expr (&se, expr);
+      gfc_free_expr (expr);
+      return se.expr;
+    }
+  else
+    {
+      // non-polymorphic DTIO call (based on the declared type)
+      *dtio_sub = gfc_find_specific_dtio_proc (derived, last_dt == WRITE,
+					      formatted);
 
-  if (*dtio_sub)
-    return gfc_build_addr_expr (NULL, gfc_get_symbol_decl (*dtio_sub));
+      if (*dtio_sub)
+	return gfc_build_addr_expr (NULL, gfc_get_symbol_decl (*dtio_sub));
+    }
 
   return NULL_TREE;
-
 }
 
 /* Generate the call for a scalar transfer node.  */

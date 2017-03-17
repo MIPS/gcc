@@ -1,10 +1,10 @@
-@c Copyright (C) 2004-2016 Free Software Foundation, Inc.
+@c Copyright (C) 2004-2017 Free Software Foundation, Inc.
 @c This is part of the GNU Fortran manual.   
 @c For copying conditions, see the file gfortran.texi.
 
 @ignore
 @c man begin COPYRIGHT
-Copyright @copyright{} 2004-2016 Free Software Foundation, Inc.
+Copyright @copyright{} 2004-2017 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -124,6 +124,7 @@ by type.  Explanations are in the following sections.
 -fmax-identifier-length -fmodule-private -ffixed-form -fno-range-check @gol
 -fopenacc -fopenmp -freal-4-real-10 -freal-4-real-16 -freal-4-real-8 @gol
 -freal-8-real-10 -freal-8-real-16 -freal-8-real-4 -std=@var{std}
+-ftest-forall-temp
 }
 
 @item Preprocessing Options
@@ -141,7 +142,7 @@ by type.  Explanations are in the following sections.
 @item Error and Warning Options
 @xref{Error and Warning Options,,Options to request or suppress errors
 and warnings}.
-@gccoptlist{-Waliasing -Wall -Wampersand -Warray-bounds
+@gccoptlist{-Waliasing -Wall -Wampersand -Wargument-mismatch -Warray-bounds
 -Wc-binding-type -Wcharacter-truncation @gol
 -Wconversion -Wfunction-elimination -Wimplicit-interface @gol
 -Wimplicit-procedure -Wintrinsic-shadow -Wuse-without-only -Wintrinsics-std @gol
@@ -459,6 +460,10 @@ allows the Fortran 2008 standard including the additions of the
 Technical Specification (TS) 29113 on Further Interoperability of Fortran
 with C and TS 18508 on Additional Parallel Features in Fortran.
 
+@item -ftest-forall-temp
+@opindex @code{ftest-forall-temp}
+Enhance test coverage by forcing most forall assignments to use temporary.
+
 @end table
 
 @node Preprocessing Options
@@ -749,8 +754,10 @@ Check the code for syntax errors, but do not actually compile it.  This
 will generate module files for each module present in the code, but no
 other output file.
 
-@item -pedantic
+@item -Wpedantic
+@itemx -pedantic
 @opindex @code{pedantic}
+@opindex @code{Wpedantic}
 Issue warnings for uses of extensions to Fortran 95.
 @option{-pedantic} also applies to C-language constructs where they
 occur in GNU Fortran source files, such as use of @samp{\e} in a
@@ -820,6 +827,15 @@ given with @option{-Wampersand}, @option{-pedantic}, @option{-std=f95},
 given in a continued character constant, GNU Fortran assumes continuation
 at the first non-comment, non-whitespace character after the ampersand
 that initiated the continuation.
+
+@item -Wargument-mismatch
+@opindex @code{Wargument-mismatch}
+@cindex warnings, argument mismatch
+@cindex warnings, parameter mismatch
+@cindex warnings, interface mismatch
+Warn about type, rank, and other mismatches between formal parameters and actual
+arguments to functions and subroutines.  These warnings are recommended and
+thus enabled by default.
 
 @item -Warray-temporaries
 @opindex @code{Warray-temporaries}
@@ -1613,9 +1629,8 @@ for matrices with size up to @var{n}. If the matrices involved are not
 square, the size comparison is performed using the geometric mean of
 the dimensions of the argument and result matrices.
 
-The default value for @var{n} is the value specified for
-@code{-fblas-matmul-limit} if this option is specified, or unlimitited
-otherwise.
+The default value for @var{n} is 30.  The @code{-fblas-matmul-limit}
+can be used to change this value.
 
 @item -frecursive
 @opindex @code{frecursive}

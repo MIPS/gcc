@@ -1,5 +1,5 @@
 /* Tree based alias analysis and alias oracle.
-   Copyright (C) 2008-2016 Free Software Foundation, Inc.
+   Copyright (C) 2008-2017 Free Software Foundation, Inc.
    Contributed by Richard Guenther  <rguenther@suse.de>
 
    This file is part of GCC.
@@ -57,6 +57,8 @@ struct GTY(()) pt_solution
   /* Nonzero if the vars bitmap includes a anonymous variable used to
      represent storage pointed to by a restrict qualified pointer.  */
   unsigned int vars_contains_restrict : 1;
+  /* Nonzero if the vars bitmap includes an interposable variable.  */
+  unsigned int vars_contains_interposable : 1;
 
   /* Set of variables that this pointer may point to.  */
   bitmap vars;

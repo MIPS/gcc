@@ -13,7 +13,7 @@ For general information about GCC, please visit:
 
 To report problems in GCC, please visit:
 
-  http://gcc.gnu.org/bugs.html
+  http://gcc.gnu.org/bugs/
 
 Maintainers
 ===========
@@ -86,7 +86,6 @@ nds32 port		Shiva Chen		<shiva0217@gmail.com>
 nios2 port		Chung-Lin Tang		<cltang@codesourcery.com>
 nios2 port		Sandra Loosemore	<sandra@codesourcery.com>
 nvptx port		Bernd Schmidt		<bschmidt@redhat.com>
-nvptx port		Nathan Sidwell		<nathan@acm.org>
 pdp11 port		Paul Koning		<ni1d@arrl.net>
 picochip port		Daniel Towner		<dant@picochip.com>
 rl78 port		DJ Delorie		<dj@redhat.com>
@@ -144,6 +143,8 @@ C front end/ISO C99	Joseph Myers		<joseph@codesourcery.com>
 C front end/ISO C99	Richard Henderson	<rth@redhat.com>
 Ada front end		Arnaud Charlet		<charlet@adacore.com>
 Ada front end		Eric Botcazou		<ebotcazou@libertysurf.fr>
+BRIG (HSAIL) front end	Pekka Jääskeläinen	<pekka.jaaskelainen@parmance.com>
+BRIG (HSAIL) front end 	Martin Jambor		<mjambor@suse.cz>
 c++			Jason Merrill		<jason@redhat.com>
 c++			Nathan Sidwell		<nathan@acm.org>
 go			Ian Lance Taylor	<ian@airs.com>
@@ -171,6 +172,8 @@ libobjc			Andrew Pinski		<pinskia@gmail.com>
 libquadmath		Tobias Burnus		<burnus@net-b.de>
 libquadmath		Jakub Jelinek		<jakub@redhat.com>
 libvtv			Caroline Tice		<cmtice@google.com>
+libhsail-rt		Pekka Jääskeläinen	<pekka.jaaskelainen@parmance.com>
+libhsail-rt		Martin Jambor		<mjambor@suse.cz>
 line map		Dodji Seketeli		<dodji@redhat.com>
 soft-fp			Joseph Myers		<joseph@codesourcery.com>
 scheduler (+ haifa)	Jim Wilson		<wilson@tuliptree.org>
@@ -217,7 +220,6 @@ docstring relicensing	Joseph Myers		<joseph@codesourcery.com>
 predict.def		Jan Hubicka		<hubicka@ucw.cz>
 gcov			Jan Hubicka		<hubicka@ucw.cz>
 gcov			Nathan Sidwell		<nathan@acm.org>
-option handling		Neil Booth		<neil@daikokuya.co.uk>
 option handling		Joseph Myers		<joseph@codesourcery.com>
 middle-end		Jeff Law		<law@redhat.com>
 middle-end		Ian Lance Taylor	<ian@airs.com>
@@ -252,6 +254,7 @@ check in changes outside of the parts of the compiler they maintain.
 			Reviewers
 
 aarch64 port		James Greenhalgh	<james.greenhalgh@arm.com>
+arc port		Andrew Burgess		<andrew.burgess@embecosm.com>
 arc port		Claudiu Zissulescu	<claziss@synopsys.com>
 arm port		Kyrylo Tkachov		<kyrylo.tkachov@arm.com>
 C front end		Marek Polacek		<polacek@redhat.com>
@@ -348,7 +351,7 @@ Tamar Christina					<tamar.christina@arm.com>
 Eric Christopher				<echristo@gmail.com>
 William Cohen					<wcohen@redhat.com>
 Michael Collison				<michael.collison@arm.com>
-Josh Conner					<jconner@apple.com>
+Josh Conner					<joshconner@google.com>
 R. Kelley Cook					<kcook@gcc.gnu.org>
 Christian Cornelssen				<ccorn@cs.tu-berlin.de>
 Ludovic Courtès					<ludo@gnu.org>
@@ -388,6 +391,7 @@ Gary Funck					<gary@intrepid.com>
 Pompapathi V Gadad				<Pompapathi.V.Gadad@nsc.com>
 Gopalasubramanian Ganesh			<Ganesh.Gopalasubramanian@amd.com>
 Kaveh Ghazi					<ghazi@gcc.gnu.org>
+Doug Gilmore					<Doug.Gilmore@imgtec.com>
 Matthew Gingell					<gingell@gnat.com>
 Tristan Gingold					<gingold@adacore.com>
 Jan-Benedict Glaw				<jbglaw@lug-owl.de>
@@ -426,6 +430,7 @@ Andy Hutchinson					<hutchinsonandy@aim.com>
 Naveen H.S					<Naveen.Hurugalawadi@caviumnetworks.com>
 Meador Inge					<meadori@codesourcery.com>
 Bernardo Innocenti				<bernie@develer.com>
+Alexander Ivchenko				<aivchenk@gmail.com>
 Balaji V. Iyer					<bviyer@gmail.com>
 Daniel Jacobowitz				<drow@false.org>
 Andreas Jaeger					<aj@suse.de>
@@ -475,6 +480,7 @@ Ralph Loader					<rcl@ihug.co.nz>
 Gabor Loki					<loki@inf.u-szeged.hu>
 Sandra Loosemore				<sandra@codesourcery.com>
 Manuel López-Ibáñez				<manu@gcc.gnu.org>
+Carl Love					<cel@us.ibm.com>
 Martin v. Löwis					<loewis@informatik.hu-berlin.de>
 H.J. Lu						<hjl.tools@gmail.com>
 Christophe Lyon					<christophe.lyon@st.com>
@@ -584,6 +590,7 @@ Jeff Sturm					<jsturm@gcc.gnu.org>
 Robert Suchanek					<robert.suchanek@imgtec.com>
 Andrew Sutton					<andrew.n.sutton@gmail.com>
 Gabriele Svelto					<gabriele.svelto@st.com>
+Toma Tabacu					<toma.tabacu@imgtec.com>
 Sriraman Tallam					<tmsriram@google.com>
 Chung-Lin Tang					<cltang@codesourcery.com>
 Samuel Tardieu					<sam@rfc1149.net>
@@ -623,6 +630,7 @@ Carlo Wood					<carlo@alinoe.com>
 Chung-Ju Wu					<jasonwucj@gmail.com>
 Le-Chun Wu					<lcwu@google.com>
 Mingjie Xing					<mingjie.xing@gmail.com>
+Chenghua Xu					<paul.hua.gm@gmail.com>
 Canqun Yang					<canqun@nudt.edu.cn>
 Fei Yang					<felix.yang@huawei.com>
 Jeffrey Yasskin					<jyasskin@google.com>

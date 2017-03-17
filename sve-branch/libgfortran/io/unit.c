@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -27,7 +27,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "fbuf.h"
 #include "format.h"
 #include "unix.h"
-#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -652,6 +651,8 @@ init_units (void)
       u->flags.encoding = ENCODING_DEFAULT;
       u->flags.async = ASYNC_NO;
       u->flags.round = ROUND_UNSPECIFIED;
+      u->flags.share = SHARE_UNSPECIFIED;
+      u->flags.cc = CC_LIST;
 
       u->recl = options.default_recl;
       u->endfile = NO_ENDFILE;
@@ -681,6 +682,8 @@ init_units (void)
       u->flags.encoding = ENCODING_DEFAULT;
       u->flags.async = ASYNC_NO;
       u->flags.round = ROUND_UNSPECIFIED;
+      u->flags.share = SHARE_UNSPECIFIED;
+      u->flags.cc = CC_LIST;
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
@@ -709,6 +712,8 @@ init_units (void)
       u->flags.encoding = ENCODING_DEFAULT;
       u->flags.async = ASYNC_NO;
       u->flags.round = ROUND_UNSPECIFIED;
+      u->flags.share = SHARE_UNSPECIFIED;
+      u->flags.cc = CC_LIST;
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;

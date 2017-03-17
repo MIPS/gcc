@@ -1,5 +1,5 @@
 /* Vectorizer Specific Loop Manipulations
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -74,7 +74,7 @@ rename_use_op (use_operand_p op_p)
 }
 
 
-/* Renames the variables in basic block BB.  Allow renaming  of PHI argumnets
+/* Renames the variables in basic block BB.  Allow renaming  of PHI arguments
    on edges incoming from outer-block header if RENAME_FROM_OUTER_LOOP is
    true.  */
 
@@ -105,9 +105,25 @@ rename_variables_in_bb (basic_block bb, bool rename_from_outer_loop)
 
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
-      if (!flow_bb_inside_loop_p (loop, e->src)
-	  && (!rename_from_outer_loop || e->src != outer_loop->header))
-	continue;
+      if (!flow_bb_inside_loop_p (loop, e->src))
+	{
+	  if (!rename_from_outer_loop)
+	    continue;
+	  if (e->src != outer_loop->header)
+	    {
+	      if (outer_loop->inner->next)
+		{
+		  /* If outer_loop has 2 inner loops, allow there to
+		     be an extra basic block which decides which of the
+		     two loops to use using LOOP_VECTORIZED.  */
+		  if (!single_pred_p (e->src)
+		      || single_pred (e->src) != outer_loop->header)
+		    continue;
+		}
+	      else
+		continue;
+	    }
+	}
       for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
         rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (gsi.phi (), e));
@@ -2049,11 +2065,13 @@ slpeel_update_phi_nodes_for_lcssa (struct loop *epilog)
 
    Note this function peels prolog and epilog only if it's necessary,
    as well as guards.
+   Returns created epilogue or NULL.
 
    TODO: Guard for prefer_scalar_loop should be emitted along with
    versioning conditions if loop versioning is needed.  */
 
-void
+
+struct loop *
 vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 		 tree *niters_vector, int th, bool check_profitability,
 		 bool niters_no_overflow)
@@ -2073,7 +2091,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 			 || LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo));
 
   if (!prolog_peeling && !epilog_peeling)
-    return;
+    return NULL;
 
   type = TREE_TYPE (niters);
   prob_vector = 9 * REG_BR_PROB_BASE / 10;
@@ -2084,7 +2102,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
   prob_epilog = prob_prolog;
   poly_uint64 max_vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
 
-  struct loop *prolog, *epilog, *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  struct loop *prolog, *epilog = NULL, *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *first_loop = loop;
   create_lcssa_for_virtual_phi (loop);
   update_ssa (TODO_update_ssa_only_virtuals);
@@ -2116,7 +2134,19 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
      may be preferred.  */
   basic_block anchor = loop_preheader_edge (loop)->src;
   if (skip_vector)
-    split_edge (loop_preheader_edge (loop));
+    {
+      split_edge (loop_preheader_edge (loop));
+
+      /* Due to the order in which we peel prolog and epilog, we first
+	 propagate probability to the whole loop.  The purpose is to
+	 avoid adjusting probabilities of both prolog and vector loops
+	 separately.  Note in this case, the probability of epilog loop
+	 needs to be scaled back later.  */
+      basic_block bb_before_loop = loop_preheader_edge (loop)->src;
+      scale_bbs_frequencies_int (&bb_before_loop, 1, prob_vector,
+				 REG_BR_PROB_BASE);
+      scale_loop_profile (loop, prob_vector, 0);
+    }
 
   tree niters_prolog = build_int_cst (type, 0);
   source_location loop_loc = find_loop_location (loop);
@@ -2153,6 +2183,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_cond = fold_build2 (EQ_EXPR, boolean_type_node,
 				    niters_prolog, build_int_cst (type, 0));
 	  guard_bb = loop_preheader_edge (prolog)->src;
+	  basic_block bb_after_prolog = loop_preheader_edge (loop)->src;
 	  guard_to = split_edge (loop_preheader_edge (loop));
 	  guard_e = slpeel_add_loop_guard (guard_bb, guard_cond,
 					   guard_to, guard_bb,
@@ -2160,6 +2191,9 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  e = EDGE_PRED (guard_to, 0);
 	  e = (e != guard_e ? e : EDGE_PRED (guard_to, 1));
 	  slpeel_update_phi_nodes_for_guard1 (prolog, loop, guard_e, e);
+
+	  scale_bbs_frequencies_int (&bb_after_prolog, 1, prob_prolog,
+				     REG_BR_PROB_BASE);
 	  scale_loop_profile (prolog, prob_prolog, bound_prolog);
 	}
       /* Update init address of DRs.  */
@@ -2224,12 +2258,18 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  e = EDGE_PRED (guard_to, 0);
 	  e = (e != guard_e ? e : EDGE_PRED (guard_to, 1));
 	  slpeel_update_phi_nodes_for_guard1 (first_loop, epilog, guard_e, e);
-	  unsigned HOST_WIDE_INT bound;
-	  if (!bound_scalar.is_constant (&bound))
-	    bound = 0;
-	  scale_loop_profile (epilog, prob_vector, bound);
+
+	  /* Simply propagate profile info from guard_bb to guard_to which is
+	     a merge point of control flow.  */
+	  guard_to->frequency = guard_bb->frequency;
+	  guard_to->count = guard_bb->count;
+	  single_succ_edge (guard_to)->count = guard_to->count;
+	  /* Scale probability of epilog loop back.  */
+	  int scale_up = REG_BR_PROB_BASE * REG_BR_PROB_BASE / prob_vector;
+	  scale_loop_frequencies (epilog, scale_up, REG_BR_PROB_BASE);
 	}
 
+      basic_block bb_before_epilog = loop_preheader_edge (epilog)->src;
       tree niters_vector_mult_vf;
       /* If loop is peeled for non-zero constant times, now niters refers to
 	 orig_niters - prolog_peeling, it won't overflow even the orig_niters
@@ -2257,6 +2297,16 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 					   inverse_probability (prob_epilog));
 	  slpeel_update_phi_nodes_for_guard2 (loop, epilog, guard_e,
 					      single_exit (epilog));
+	  /* Only need to handle basic block before epilog loop if it's not
+	     the guard_bb, which is the case when skip_vector is true.  */
+	  if (guard_bb != bb_before_epilog)
+	    {
+	      prob_epilog = (combine_probabilities (prob_vector, prob_epilog)
+			     + inverse_probability (prob_vector));
+
+	      scale_bbs_frequencies_int (&bb_before_epilog, 1, prob_epilog,
+					 REG_BR_PROB_BASE);
+	    }
 	  scale_loop_profile (epilog, prob_epilog, 0);
 	}
       else
@@ -2278,6 +2328,8 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
     }
   adjust_vec.release ();
   free_original_copy_tables ();
+
+  return epilog;
 }
 
 /* Function vect_create_cond_for_niters_checks.
@@ -2648,8 +2700,7 @@ create_intersect_range_checks_index (loop_vec_info loop_vinfo, tree *cond_expr,
       /* Index must have const step, otherwise DR_STEP won't be constant.  */
       gcc_assert (TREE_CODE (idx_step) == INTEGER_CST);
       /* Index must evaluate in the same direction as DR.  */
-      gcc_assert (!neg_step
-		  || tree_int_cst_compare (idx_step, size_zero_node) < 0);
+      gcc_assert (!neg_step || tree_int_cst_sign_bit (idx_step) == 1);
 
       tree min1 = CHREC_LEFT (access1);
       tree min2 = CHREC_LEFT (access2);
@@ -2886,7 +2937,8 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
 
       /* We don't want to scale SCALAR_LOOP's frequencies, we need to
 	 scale LOOP's frequencies instead.  */
-      nloop = loop_version (scalar_loop, cond_expr, &condition_bb, prob,
+      nloop = loop_version (scalar_loop, cond_expr, &condition_bb,
+			    prob, REG_BR_PROB_BASE - prob,
 			    REG_BR_PROB_BASE, REG_BR_PROB_BASE - prob, true);
       scale_loop_frequencies (loop, prob, REG_BR_PROB_BASE);
       /* CONDITION_BB was created above SCALAR_LOOP's preheader,
@@ -2915,7 +2967,8 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
     }
   else
     nloop = loop_version (loop, cond_expr, &condition_bb,
-			  prob, prob, REG_BR_PROB_BASE - prob, true);
+			  prob, REG_BR_PROB_BASE - prob,
+			  prob, REG_BR_PROB_BASE - prob, true);
 
   if (version_niter)
     {

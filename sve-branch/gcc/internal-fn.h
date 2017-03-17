@@ -1,5 +1,5 @@
 /* Internal functions.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -195,6 +195,7 @@ extern internal_fn get_conditional_internal_fn (tree_code, tree);
 
 extern void expand_internal_call (gcall *);
 extern void expand_internal_call (internal_fn, gcall *);
+extern void expand_PHI (internal_fn, gcall *);
 
 extern internal_fn get_gather_scatter_internal_fn (bool, tree, tree, bool);
 

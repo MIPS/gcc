@@ -1,5 +1,5 @@
 ;; GCC machine description for i386 synchronization instructions.
-;; Copyright (C) 2005-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2017 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -98,7 +98,7 @@
 	(unspec:BLK [(match_dup 0)] UNSPEC_MFENCE))
    (clobber (reg:CC FLAGS_REG))]
   "!(TARGET_64BIT || TARGET_SSE2)"
-  "lock{%;} or{l}\t{$0, -4(%%esp)|DWORD PTR [esp-4], 0}"
+  "lock{%;} or{l}\t{$0, (%%esp)|DWORD PTR [esp], 0}"
   [(set_attr "memory" "unknown")])
 
 (define_expand "mem_thread_fence"

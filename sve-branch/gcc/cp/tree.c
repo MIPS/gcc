@@ -1,5 +1,5 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -142,6 +142,9 @@ lvalue_kind (const_tree ref)
 	return clk_none;
       /* FALLTHRU */
     case VAR_DECL:
+      if (VAR_P (ref) && DECL_HAS_VALUE_EXPR_P (ref))
+	return lvalue_kind (DECL_VALUE_EXPR (CONST_CAST_TREE (ref)));
+
       if (TREE_READONLY (ref) && ! TREE_STATIC (ref)
 	  && DECL_LANG_SPECIFIC (ref)
 	  && DECL_IN_AGGR_P (ref))
@@ -302,6 +305,14 @@ xvalue_p (const_tree ref)
   return (lvalue_kind (ref) == clk_rvalueref);
 }
 
+/* True if REF is a bit-field.  */
+
+bool
+bitfield_p (const_tree ref)
+{
+  return (lvalue_kind (ref) & clk_bitfield);
+}
+
 /* C++-specific version of stabilize_reference.  */
 
 tree
@@ -393,9 +404,15 @@ build_target_expr (tree decl, tree value, tsubst_flags_t complain)
 		       || useless_type_conversion_p (TREE_TYPE (decl),
 						     TREE_TYPE (value)));
 
-  t = cxx_maybe_build_cleanup (decl, complain);
-  if (t == error_mark_node)
-    return error_mark_node;
+  if (complain & tf_no_cleanup)
+    /* The caller is building a new-expr and does not need a cleanup.  */
+    t = NULL_TREE;
+  else
+    {
+      t = cxx_maybe_build_cleanup (decl, complain);
+      if (t == error_mark_node)
+	return error_mark_node;
+    }
   t = build4 (TARGET_EXPR, type, decl, value, t, NULL_TREE);
   if (EXPR_HAS_LOCATION (value))
     SET_EXPR_LOCATION (t, EXPR_LOCATION (value));
@@ -1012,6 +1029,13 @@ tree
 cp_build_reference_type (tree to_type, bool rval)
 {
   tree lvalue_ref, t;
+
+  if (TREE_CODE (to_type) == REFERENCE_TYPE)
+    {
+      rval = rval && TYPE_REF_IS_RVALUE (to_type);
+      to_type = TREE_TYPE (to_type);
+    }
+
   lvalue_ref = build_reference_type (to_type);
   if (!rval)
     return lvalue_ref;
@@ -1980,7 +2004,8 @@ static bool
 cp_check_qualified_type (const_tree cand, const_tree base, int type_quals,
 			 cp_ref_qualifier rqual, tree raises)
 {
-  return (check_qualified_type (cand, base, type_quals)
+  return (TYPE_QUALS (cand) == type_quals
+	  && check_base_type (cand, base)
 	  && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (cand),
 				ce_exact)
 	  && type_memfn_rqual (cand) == rqual);
@@ -2208,6 +2233,27 @@ cxx_printable_name_translate (tree decl, int v)
   return cxx_printable_name_internal (decl, v, true);
 }
 
+/* Return the canonical version of exception-specification RAISES for a C++17
+   function type, for use in type comparison and building TYPE_CANONICAL.  */
+
+tree
+canonical_eh_spec (tree raises)
+{
+  if (raises == NULL_TREE)
+    return raises;
+  else if (DEFERRED_NOEXCEPT_SPEC_P (raises)
+	   || uses_template_parms (raises)
+	   || uses_template_parms (TREE_PURPOSE (raises)))
+    /* Keep a dependent or deferred exception specification.  */
+    return raises;
+  else if (nothrow_spec_p (raises))
+    /* throw() -> noexcept.  */
+    return noexcept_true_spec;
+  else
+    /* For C++17 type matching, anything else -> nothing.  */
+    return NULL_TREE;
+}
+
 /* Build the FUNCTION_TYPE or METHOD_TYPE which may throw exceptions
    listed in RAISES.  */
 
@@ -2229,6 +2275,25 @@ build_exception_variant (tree type, tree raises)
   /* Need to build a new variant.  */
   v = build_variant_type_copy (type);
   TYPE_RAISES_EXCEPTIONS (v) = raises;
+
+  if (!flag_noexcept_type)
+    /* The exception-specification is not part of the canonical type.  */
+    return v;
+
+  /* Canonicalize the exception specification.  */
+  tree cr = canonical_eh_spec (raises);
+
+  if (TYPE_STRUCTURAL_EQUALITY_P (type))
+    /* Propagate structural equality. */
+    SET_TYPE_STRUCTURAL_EQUALITY (v);
+  else if (TYPE_CANONICAL (type) != type || cr != raises)
+    /* Build the underlying canonical type, since it is different
+       from TYPE. */
+    TYPE_CANONICAL (v) = build_exception_variant (TYPE_CANONICAL (type), cr);
+  else
+    /* T is its own canonical type. */
+    TYPE_CANONICAL (v) = v;
+
   return v;
 }
 
@@ -2663,13 +2728,20 @@ build_ctor_subob_ref (tree index, tree type, tree obj)
   return obj;
 }
 
+struct replace_placeholders_t
+{
+  tree obj;	    /* The object to be substituted for a PLACEHOLDER_EXPR.  */
+  bool seen;	    /* Whether we've encountered a PLACEHOLDER_EXPR.  */
+};
+
 /* Like substitute_placeholder_in_expr, but handle C++ tree codes and
    build up subexpressions as we go deeper.  */
 
 static tree
 replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 {
-  tree obj = static_cast<tree>(data_);
+  replace_placeholders_t *d = static_cast<replace_placeholders_t*>(data_);
+  tree obj = d->obj;
 
   if (TREE_CONSTANT (*t))
     {
@@ -2688,6 +2760,7 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 	  gcc_assert (TREE_CODE (x) == COMPONENT_REF);
 	*t = x;
 	*walk_subtrees = false;
+	d->seen = true;
       }
       break;
 
@@ -2713,9 +2786,10 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 		if (TREE_CODE (*valp) == TARGET_EXPR)
 		  valp = &TARGET_EXPR_INITIAL (*valp);
 	      }
-
+	    d->obj = subob;
 	    cp_walk_tree (valp, replace_placeholders_r,
-			  subob, NULL);
+			  data_, NULL);
+	    d->obj = obj;
 	  }
 	*walk_subtrees = false;
 	break;
@@ -2729,12 +2803,15 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
 }
 
 tree
-replace_placeholders (tree exp, tree obj)
+replace_placeholders (tree exp, tree obj, bool *seen_p)
 {
   tree *tp = &exp;
+  replace_placeholders_t data = { obj, false };
   if (TREE_CODE (exp) == TARGET_EXPR)
     tp = &TARGET_EXPR_INITIAL (exp);
-  cp_walk_tree (tp, replace_placeholders_r, obj, NULL);
+  cp_walk_tree (tp, replace_placeholders_r, &data, NULL);
+  if (seen_p)
+    *seen_p = data.seen;
   return exp;
 }
 
@@ -2819,7 +2896,7 @@ build_min_non_dep (enum tree_code code, tree non_dep, ...)
 
   t = make_node (code);
   length = TREE_CODE_LENGTH (code);
-  TREE_TYPE (t) = TREE_TYPE (non_dep);
+  TREE_TYPE (t) = unlowered_expr_type (non_dep);
   TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (non_dep);
 
   for (i = 0; i < length; i++)
@@ -2873,8 +2950,10 @@ build_min_non_dep_op_overload (enum tree_code op,
   nargs = call_expr_nargs (non_dep);
 
   expected_nargs = cp_tree_code_length (op);
-  if (op == POSTINCREMENT_EXPR
-      || op == POSTDECREMENT_EXPR)
+  if ((op == POSTINCREMENT_EXPR
+       || op == POSTDECREMENT_EXPR)
+      /* With -fpermissive non_dep could be operator++().  */
+      && (!flag_permissive || nargs != expected_nargs))
     expected_nargs += 1;
   gcc_assert (nargs == expected_nargs);
 
@@ -4080,9 +4159,7 @@ cp_build_type_attribute_variant (tree type, tree attributes)
 }
 
 /* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
-   Called only after doing all language independent checks.  Only
-   to check TYPE_RAISES_EXCEPTIONS for FUNCTION_TYPE, the rest is already
-   compared in type_hash_eq.  */
+   Called only after doing all language independent checks.  */
 
 bool
 cxx_type_hash_eq (const_tree typea, const_tree typeb)
@@ -4090,6 +4167,8 @@ cxx_type_hash_eq (const_tree typea, const_tree typeb)
   gcc_assert (TREE_CODE (typea) == FUNCTION_TYPE
 	      || TREE_CODE (typea) == METHOD_TYPE);
 
+  if (type_memfn_rqual (typea) != type_memfn_rqual (typeb))
+    return false;
   return comp_except_specs (TYPE_RAISES_EXCEPTIONS (typea),
 			    TYPE_RAISES_EXCEPTIONS (typeb), ce_exact);
 }
@@ -4282,7 +4361,7 @@ special_function_p (const_tree decl)
   /* Rather than doing all this stuff with magic names, we should
      probably have a field of type `special_function_kind' in
      DECL_LANG_SPECIFIC.  */
-  if (DECL_INHERITED_CTOR_BASE (decl))
+  if (DECL_INHERITED_CTOR (decl))
     return sfk_inheriting_constructor;
   if (DECL_COPY_CONSTRUCTOR_P (decl))
     return sfk_copy_constructor;
@@ -4307,6 +4386,8 @@ special_function_p (const_tree decl)
     return sfk_deleting_destructor;
   if (DECL_CONV_FN_P (decl))
     return sfk_conversion;
+  if (deduction_guide_p (decl))
+    return sfk_deduction_guide;
 
   return sfk_none;
 }
@@ -4352,6 +4433,14 @@ decl_linkage (tree decl)
   /* Things that are TREE_PUBLIC have external linkage.  */
   if (TREE_PUBLIC (decl))
     return lk_external;
+
+  /* maybe_thunk_body clears TREE_PUBLIC on the maybe-in-charge 'tor variants,
+     check one of the "clones" for the real linkage.  */
+  if ((DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl)
+       || DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl))
+      && DECL_CHAIN (decl)
+      && DECL_CLONED_FUNCTION (DECL_CHAIN (decl)))
+    return decl_linkage (DECL_CHAIN (decl));
 
   if (TREE_CODE (decl) == NAMESPACE_DECL)
     return lk_external;

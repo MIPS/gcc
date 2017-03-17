@@ -1,5 +1,5 @@
 /* real.c - software floating point emulation.
-   Copyright (C) 1993-2016 Free Software Foundation, Inc.
+   Copyright (C) 1993-2017 Free Software Foundation, Inc.
    Contributed by Stephen L. Moshier (moshier@world.std.com).
    Re-written by Richard Henderson <rth@redhat.com>
 
@@ -2266,7 +2266,7 @@ real_from_integer (REAL_VALUE_TYPE *r, format_helper fmt,
 
   if (fmt.decimal_p ())
     decimal_from_integer (r);
-  else if (fmt)
+  if (fmt)
     real_convert (r, fmt, r);
 }
 
@@ -2887,7 +2887,7 @@ real_hash (const REAL_VALUE_TYPE *r)
       return h;
 
     case rvc_normal:
-      h |= REAL_EXP (r) << 3;
+      h |= (unsigned int)REAL_EXP (r) << 3;
       break;
 
     case rvc_nan:

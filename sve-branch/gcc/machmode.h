@@ -1,5 +1,5 @@
 /* Machine mode definitions for GCC; included by rtl.h and tree.h.
-   Copyright (C) 1991-2016 Free Software Foundation, Inc.
+   Copyright (C) 1991-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -834,7 +834,7 @@ extern bool get_best_mode (int, int, poly_uint64, poly_uint64, unsigned int,
 
 /* Determine alignment, 1<=result<=BIGGEST_ALIGNMENT.  */
 
-extern CONST_MODE_BASE_ALIGN unsigned char mode_base_align[NUM_MACHINE_MODES];
+extern CONST_MODE_BASE_ALIGN unsigned short mode_base_align[NUM_MACHINE_MODES];
 
 extern unsigned get_mode_alignment (machine_mode);
 

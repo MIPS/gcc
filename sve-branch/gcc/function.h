@@ -1,5 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,6 +34,8 @@ struct GTY(()) sequence_stack {
 };
 
 struct GTY(()) emit_status {
+  void ensure_regno_capacity ();
+
   /* This is reset to LAST_VIRTUAL_REGISTER + 1 at the start of each function.
      After rtl generation, it is 1 plus the largest register number used.  */
   int x_reg_rtx_no;
@@ -234,6 +236,9 @@ struct GTY(()) function {
 
   /* The loops in this function.  */
   struct loops *x_current_loops;
+
+  /* Filled by the GIMPLE and RTL FEs, pass to start compilation with.  */
+  char *pass_startwith;
 
   /* The stack usage of this function.  */
   struct stack_usage *su;
@@ -607,7 +612,7 @@ extern tree block_chainon (tree, tree);
 extern void number_blocks (tree);
 
 /* cfun shouldn't be set directly; use one of these functions instead.  */
-extern void set_cfun (struct function *new_cfun);
+extern void set_cfun (struct function *new_cfun, bool force = false);
 extern void push_cfun (struct function *new_cfun);
 extern void pop_cfun (void);
 
@@ -629,7 +634,11 @@ extern void clobber_return_register (void);
 extern void expand_function_end (void);
 extern rtx get_arg_pointer_save_area (void);
 extern void maybe_copy_prologue_epilogue_insn (rtx, rtx);
-extern int prologue_epilogue_contains (const_rtx);
+extern int prologue_contains (const rtx_insn *);
+extern int epilogue_contains (const rtx_insn *);
+extern int prologue_epilogue_contains (const rtx_insn *);
+extern void record_prologue_seq (rtx_insn *);
+extern void record_epilogue_seq (rtx_insn *);
 extern void emit_return_into_block (bool simple_p, basic_block bb);
 extern void set_return_jump_label (rtx_insn *);
 extern bool active_insn_between (rtx_insn *head, rtx_insn *tail);

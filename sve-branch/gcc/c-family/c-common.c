@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -435,6 +435,9 @@ const struct c_common_resword c_common_reswords[] =
   { "__underlying_type", RID_UNDERLYING_TYPE, D_CXXONLY },
   { "__volatile",	RID_VOLATILE,	0 },
   { "__volatile__",	RID_VOLATILE,	0 },
+  { "__GIMPLE",		RID_GIMPLE,	D_CONLY },
+  { "__PHI",		RID_PHI,	D_CONLY },
+  { "__RTL",		RID_RTL,	D_CONLY },
   { "alignas",		RID_ALIGNAS,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "alignof",		RID_ALIGNOF,	D_CXXONLY | D_CXX11 | D_CXXWARN },
   { "asm",		RID_ASM,	D_ASM },
@@ -4302,9 +4305,13 @@ c_common_nodes_and_builtins (void)
 	}
 
   if (c_dialect_cxx ())
-    /* For C++, make fileptr_type_node a distinct void * type until
-       FILE type is defined.  */
-    fileptr_type_node = build_variant_type_copy (ptr_type_node);
+    {
+      /* For C++, make fileptr_type_node a distinct void * type until
+	 FILE type is defined.  */
+      fileptr_type_node = build_variant_type_copy (ptr_type_node);
+      /* Likewise for const struct tm*.  */
+      const_tm_ptr_type_node = build_variant_type_copy (const_ptr_type_node);
+    }
 
   record_builtin_type (RID_VOID, NULL, void_type_node);
 
@@ -4480,8 +4487,6 @@ c_common_nodes_and_builtins (void)
 
   default_function_type
     = build_varargs_function_type_list (integer_type_node, NULL_TREE);
-  ptrdiff_type_node
-    = TREE_TYPE (identifier_global_value (get_identifier (PTRDIFF_TYPE)));
   unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
 
   lang_hooks.decls.pushdecl
@@ -4977,19 +4982,19 @@ c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
       if (high_value)
 	{
 	  error_at (loc, "duplicate (or overlapping) case value");
-	  error_at (DECL_SOURCE_LOCATION (duplicate),
-		    "this is the first entry overlapping that value");
+	  inform (DECL_SOURCE_LOCATION (duplicate),
+		  "this is the first entry overlapping that value");
 	}
       else if (low_value)
 	{
 	  error_at (loc, "duplicate case value") ;
-	  error_at (DECL_SOURCE_LOCATION (duplicate), "previously used here");
+	  inform (DECL_SOURCE_LOCATION (duplicate), "previously used here");
 	}
       else
 	{
 	  error_at (loc, "multiple default labels in one switch");
-	  error_at (DECL_SOURCE_LOCATION (duplicate),
-		    "this is the first default label");
+	  inform (DECL_SOURCE_LOCATION (duplicate),
+		  "this is the first default label");
 	}
       goto error_out;
     }
@@ -5257,11 +5262,21 @@ c_determine_visibility (tree decl)
   return false;
 }
 
+/* Data to communicate through check_function_arguments_recurse between
+   check_function_nonnull and check_nonnull_arg.  */
+
+struct nonnull_arg_ctx
+{
+  location_t loc;
+  bool warned_p;
+};
+
 /* Check the argument list of a function call for null in argument slots
    that are marked as requiring a non-null pointer argument.  The NARGS
-   arguments are passed in the array ARGARRAY.  */
+   arguments are passed in the array ARGARRAY.  Return true if we have
+   warned.  */
 
-static void
+static bool
 check_function_nonnull (location_t loc, tree attrs, int nargs, tree *argarray)
 {
   tree a;
@@ -5269,7 +5284,7 @@ check_function_nonnull (location_t loc, tree attrs, int nargs, tree *argarray)
 
   attrs = lookup_attribute ("nonnull", attrs);
   if (attrs == NULL_TREE)
-    return;
+    return false;
 
   a = attrs;
   /* See if any of the nonnull attributes has no arguments.  If so,
@@ -5280,9 +5295,10 @@ check_function_nonnull (location_t loc, tree attrs, int nargs, tree *argarray)
       a = lookup_attribute ("nonnull", TREE_CHAIN (a));
     while (a != NULL_TREE && TREE_VALUE (a) != NULL_TREE);
 
+  struct nonnull_arg_ctx ctx = { loc, false };
   if (a != NULL_TREE)
     for (i = 0; i < nargs; i++)
-      check_function_arguments_recurse (check_nonnull_arg, &loc, argarray[i],
+      check_function_arguments_recurse (check_nonnull_arg, &ctx, argarray[i],
 					i + 1);
   else
     {
@@ -5298,10 +5314,11 @@ check_function_nonnull (location_t loc, tree attrs, int nargs, tree *argarray)
 	    }
 
 	  if (a != NULL_TREE)
-	    check_function_arguments_recurse (check_nonnull_arg, &loc,
+	    check_function_arguments_recurse (check_nonnull_arg, &ctx,
 					      argarray[i], i + 1);
 	}
     }
+  return ctx.warned_p;
 }
 
 /* Check that the Nth argument of a function call (counting backwards
@@ -5358,6 +5375,49 @@ check_function_sentinel (const_tree fntype, int nargs, tree *argarray)
     }
 }
 
+/* Check that the same argument isn't passed to restrict arguments
+   and other arguments.  */
+
+static void
+check_function_restrict (const_tree fndecl, const_tree fntype,
+			 int nargs, tree *argarray)
+{
+  int i;
+  tree parms;
+
+  if (fndecl
+      && TREE_CODE (fndecl) == FUNCTION_DECL
+      && DECL_ARGUMENTS (fndecl))
+    parms = DECL_ARGUMENTS (fndecl);
+  else
+    parms = TYPE_ARG_TYPES (fntype);
+
+  for (i = 0; i < nargs; i++)
+    TREE_VISITED (argarray[i]) = 0;
+
+  for (i = 0; i < nargs && parms && parms != void_list_node; i++)
+    {
+      tree type;
+      if (TREE_CODE (parms) == PARM_DECL)
+	{
+	  type = TREE_TYPE (parms);
+	  parms = DECL_CHAIN (parms);
+	}
+      else
+	{
+	  type = TREE_VALUE (parms);
+	  parms = TREE_CHAIN (parms);
+	}
+      if (POINTER_TYPE_P (type)
+	  && TYPE_RESTRICT (type)
+	  && !TYPE_READONLY (TREE_TYPE (type)))
+	warn_for_restrict (i, argarray, nargs);
+    }
+
+  for (i = 0; i < nargs; i++)
+    TREE_VISITED (argarray[i]) = 0;
+}
+
 /* Helper for check_function_nonnull; given a list of operands which
    must be non-null in ARGS, determine if operand PARAM_NUM should be
    checked.  */
@@ -5386,7 +5446,7 @@ nonnull_check_p (tree args, unsigned HOST_WIDE_INT param_num)
 static void
 check_nonnull_arg (void *ctx, tree param, unsigned HOST_WIDE_INT param_num)
 {
-  location_t *ploc = (location_t *) ctx;
+  struct nonnull_arg_ctx *pctx = (struct nonnull_arg_ctx *) ctx;
 
   /* Just skip checking the argument if it's not a pointer.  This can
      happen if the "nonnull" attribute was given without an operand
@@ -5395,9 +5455,15 @@ check_nonnull_arg (void *ctx, tree param, unsigned HOST_WIDE_INT param_num)
   if (TREE_CODE (TREE_TYPE (param)) != POINTER_TYPE)
     return;
 
+  /* When not optimizing diagnose the simple cases of null arguments.
+     When optimization is enabled defer the checking until expansion
+     when more cases can be detected.  */
   if (integer_zerop (param))
-    warning_at (*ploc, OPT_Wnonnull, "null argument where non-null required "
-		"(argument %lu)", (unsigned long) param_num);
+    {
+      warning_at (pctx->loc, OPT_Wnonnull, "null argument where non-null "
+		  "required (argument %lu)", (unsigned long) param_num);
+      pctx->warned_p = true;
+    }
 }
 
 /* Helper for nonnull attribute handling; fetch the operand number
@@ -5565,6 +5631,8 @@ parse_optimize_options (tree args, bool attr_p)
 bool
 attribute_fallthrough_p (tree attr)
 {
+  if (attr == error_mark_node)
+   return false;
   tree t = lookup_attribute ("fallthrough", attr);
   if (t == NULL_TREE)
     return false;
@@ -5589,16 +5657,19 @@ attribute_fallthrough_p (tree attr)
 
 /* Check for valid arguments being passed to a function with FNTYPE.
    There are NARGS arguments in the array ARGARRAY.  LOC should be used for
-   diagnostics.  */
-void
-check_function_arguments (location_t loc, const_tree fntype, int nargs,
-			  tree *argarray)
+   diagnostics.  Return true if -Wnonnull warning has been diagnosed.  */
+bool
+check_function_arguments (location_t loc, const_tree fndecl, const_tree fntype,
+			  int nargs, tree *argarray)
 {
+  bool warned_p = false;
+
   /* Check for null being passed in a pointer argument that must be
      non-null.  We also need to do this if format checking is enabled.  */
 
   if (warn_nonnull)
-    check_function_nonnull (loc, TYPE_ATTRIBUTES (fntype), nargs, argarray);
+    warned_p = check_function_nonnull (loc, TYPE_ATTRIBUTES (fntype),
+				       nargs, argarray);
 
   /* Check for errors in format strings.  */
 
@@ -5607,6 +5678,10 @@ check_function_arguments (location_t loc, const_tree fntype, int nargs,
 
   if (warn_format)
     check_function_sentinel (fntype, nargs, argarray);
+
+  if (warn_restrict)
+    check_function_restrict (fndecl, fntype, nargs, argarray);
+  return warned_p;
 }
 
 /* Generic argument checking recursion routine.  PARAM is the argument to
@@ -7953,6 +8028,88 @@ cb_get_suggestion (cpp_reader *, const char *goal,
   while (*candidates)
     bm.consider (*candidates++);
   return bm.get_best_meaningful_candidate ();
+}
+
+/* Return the latice point which is the wider of the two FLT_EVAL_METHOD
+   modes X, Y.  This isn't just  >, as the FLT_EVAL_METHOD values added
+   by C TS 18661-3 for interchange  types that are computed in their
+   native precision are larger than the C11 values for evaluating in the
+   precision of float/double/long double.  If either mode is
+   FLT_EVAL_METHOD_UNPREDICTABLE, return that.  */
+
+enum flt_eval_method
+excess_precision_mode_join (enum flt_eval_method x,
+			    enum flt_eval_method y)
+{
+  if (x == FLT_EVAL_METHOD_UNPREDICTABLE
+      || y == FLT_EVAL_METHOD_UNPREDICTABLE)
+    return FLT_EVAL_METHOD_UNPREDICTABLE;
+
+  /* GCC only supports one interchange type right now, _Float16.  If
+     we're evaluating _Float16 in 16-bit precision, then flt_eval_method
+     will be FLT_EVAL_METHOD_PROMOTE_TO_FLOAT16.  */
+  if (x == FLT_EVAL_METHOD_PROMOTE_TO_FLOAT16)
+    return y;
+  if (y == FLT_EVAL_METHOD_PROMOTE_TO_FLOAT16)
+    return x;
+
+  /* Other values for flt_eval_method are directly comparable, and we want
+     the maximum.  */
+  return MAX (x, y);
+}
+
+/* Return the value that should be set for FLT_EVAL_METHOD in the
+   context of ISO/IEC TS 18861-3.
+
+   This relates to the effective excess precision seen by the user,
+   which is the join point of the precision the target requests for
+   -fexcess-precision={standard,fast} and the implicit excess precision
+   the target uses.  */
+
+static enum flt_eval_method
+c_ts18661_flt_eval_method (void)
+{
+  enum flt_eval_method implicit
+    = targetm.c.excess_precision (EXCESS_PRECISION_TYPE_IMPLICIT);
+
+  enum excess_precision_type flag_type
+    = (flag_excess_precision_cmdline == EXCESS_PRECISION_STANDARD
+       ? EXCESS_PRECISION_TYPE_STANDARD
+       : EXCESS_PRECISION_TYPE_FAST);
+
+  enum flt_eval_method requested
+    = targetm.c.excess_precision (flag_type);
+
+  return excess_precision_mode_join (implicit, requested);
+}
+
+/* As c_cpp_ts18661_flt_eval_method, but clamps the expected values to
+   those that were permitted by C11.  That is to say, eliminates
+   FLT_EVAL_METHOD_PROMOTE_TO_FLOAT16.  */
+
+static enum flt_eval_method
+c_c11_flt_eval_method (void)
+{
+  return excess_precision_mode_join (c_ts18661_flt_eval_method (),
+				     FLT_EVAL_METHOD_PROMOTE_TO_FLOAT);
+}
+
+/* Return the value that should be set for FLT_EVAL_METHOD.
+   MAYBE_C11_ONLY_P is TRUE if we should check
+   FLAG_PERMITTED_EVAL_METHODS as to whether we should limit the possible
+   values we can return to those from C99/C11, and FALSE otherwise.
+   See the comments on c_ts18661_flt_eval_method for what value we choose
+   to set here.  */
+
+int
+c_flt_eval_method (bool maybe_c11_only_p)
+{
+  if (maybe_c11_only_p
+      && flag_permitted_flt_eval_methods
+	  == PERMITTED_FLT_EVAL_METHODS_C11)
+    return c_c11_flt_eval_method ();
+  else
+    return c_ts18661_flt_eval_method ();
 }
 
 #include "gt-c-family-c-common.h"

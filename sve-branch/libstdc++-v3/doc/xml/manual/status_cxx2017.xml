@@ -69,14 +69,13 @@ Feature-testing recommendations for C++</link>.
     </row>
 
     <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
       <entry> Core Issue 1776: Replacement of class objects containing reference members</entry>
       <entry>
 	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0137r1.html">
 	P0137R1
 	</link>
       </entry>
-      <entry align="center"> No </entry>
+      <entry align="center"> 7 </entry>
       <entry> <code>__cpp_lib_launder >= 201606</code> </entry>
     </row>
 
@@ -159,14 +158,13 @@ Feature-testing recommendations for C++</link>.
     </row>
 
     <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
       <entry> Library Fundamentals V1 TS Components: <code>shared_ptr&lt;T[]&gt;</code> </entry>
       <entry>
 	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0220r1.html">
 	P0220R1
 	</link>
       </entry>
-      <entry align="center"> No </entry>
+      <entry align="center"> 7 </entry>
       <entry> <code>__cpp_lib_shared_ptr_arrays >= 201603</code> </entry>
     </row>
 
@@ -281,7 +279,7 @@ Feature-testing recommendations for C++</link>.
 	N4089
 	</link>
       </entry>
-      <entry align="center"> 5 ? </entry>
+      <entry align="center"> 6 </entry>
       <entry/>
     </row>
 
@@ -292,7 +290,7 @@ Feature-testing recommendations for C++</link>.
 	  N4366
 	</link>
       </entry>
-      <entry align="center"> 5 ? </entry>
+      <entry align="center"> 6 </entry>
       <entry/>
     </row>
 
@@ -520,7 +518,7 @@ Feature-testing recommendations for C++</link>.
     <row>
       <entry>Contiguous Iterators </entry>
       <entry>
-	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4284.htm">
+	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4284.html">
 	  N4284
 	</link>
       </entry>

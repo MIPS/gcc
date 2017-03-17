@@ -1,5 +1,5 @@
 // go-gcc.cc -- Go frontend to gcc IR.
-// Copyright (C) 2011-2016 Free Software Foundation, Inc.
+// Copyright (C) 2011-2017 Free Software Foundation, Inc.
 // Contributed by Ian Lance Taylor, Google.
 
 // This file is part of GCC.
@@ -276,7 +276,7 @@ class Gcc_backend : public Backend
   { return this->make_expression(null_pointer_node); }
 
   Bexpression*
-  var_expression(Bvariable* var, Location);
+  var_expression(Bvariable* var, Varexpr_context, Location);
 
   Bexpression*
   indirect_expression(Btype*, Bexpression* expr, bool known_valid, Location);
@@ -325,8 +325,8 @@ class Gcc_backend : public Backend
   compound_expression(Bstatement*, Bexpression*, Location);
 
   Bexpression*
-  conditional_expression(Btype*, Bexpression*, Bexpression*, Bexpression*,
-                         Location);
+  conditional_expression(Bfunction*, Btype*, Bexpression*, Bexpression*,
+                         Bexpression*, Location);
 
   Bexpression*
   unary_expression(Operator, Bexpression*, Location);
@@ -361,21 +361,22 @@ class Gcc_backend : public Backend
   { return this->make_statement(error_mark_node); }
 
   Bstatement*
-  expression_statement(Bexpression*);
+  expression_statement(Bfunction*, Bexpression*);
 
   Bstatement*
-  init_statement(Bvariable* var, Bexpression* init);
+  init_statement(Bfunction*, Bvariable* var, Bexpression* init);
 
   Bstatement*
-  assignment_statement(Bexpression* lhs, Bexpression* rhs, Location);
+  assignment_statement(Bfunction*, Bexpression* lhs, Bexpression* rhs,
+		       Location);
 
   Bstatement*
   return_statement(Bfunction*, const std::vector<Bexpression*>&,
 		   Location);
 
   Bstatement*
-  if_statement(Bexpression* condition, Bblock* then_block, Bblock* else_block,
-	       Location);
+  if_statement(Bfunction*, Bexpression* condition, Bblock* then_block,
+	       Bblock* else_block, Location);
 
   Bstatement*
   switch_statement(Bfunction* function, Bexpression* value,
@@ -412,9 +413,8 @@ class Gcc_backend : public Backend
   { return new Bvariable(error_mark_node); }
 
   Bvariable*
-  global_variable(const std::string& package_name,
-		  const std::string& pkgpath,
-		  const std::string& name,
+  global_variable(const std::string& var_name,
+		  const std::string& asm_name,
 		  Btype* btype,
 		  bool is_external,
 		  bool is_hidden,
@@ -440,25 +440,27 @@ class Gcc_backend : public Backend
 		     Location, Bstatement**);
 
   Bvariable*
-  implicit_variable(const std::string&, Btype*, bool, bool, bool,
-		    int64_t);
+  implicit_variable(const std::string&, const std::string&, Btype*,
+                    bool, bool, bool, int64_t);
 
   void
   implicit_variable_set_init(Bvariable*, const std::string&, Btype*,
 			     bool, bool, bool, Bexpression*);
 
   Bvariable*
-  implicit_variable_reference(const std::string&, Btype*);
+  implicit_variable_reference(const std::string&, const std::string&, Btype*);
 
   Bvariable*
-  immutable_struct(const std::string&, bool, bool, Btype*, Location);
+  immutable_struct(const std::string&, const std::string&,
+                   bool, bool, Btype*, Location);
 
   void
   immutable_struct_set_init(Bvariable*, const std::string&, bool, bool, Btype*,
 			    Location, Bexpression*);
 
   Bvariable*
-  immutable_struct_reference(const std::string&, Btype*, Location);
+  immutable_struct_reference(const std::string&, const std::string&,
+                             Btype*, Location);
 
   // Labels.
 
@@ -548,102 +550,6 @@ static inline tree
 get_identifier_from_string(const std::string& str)
 {
   return get_identifier_with_length(str.data(), str.length());
-}
-
-// Return whether the character c is OK to use in the assembler.
-
-static bool
-char_needs_encoding(char c)
-{
-  switch (c)
-    {
-    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-    case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
-    case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
-    case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
-    case 'Y': case 'Z':
-    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-    case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
-    case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
-    case 's': case 't': case 'u': case 'v': case 'w': case 'x':
-    case 'y': case 'z':
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
-    case '_': case '.': case '$': case '/':
-      return false;
-    default:
-      return true;
-    }
-}
-
-// Return whether the identifier needs to be translated because it
-// contains non-ASCII characters.
-
-static bool
-needs_encoding(const std::string& str)
-{
-  for (std::string::const_iterator p = str.begin();
-       p != str.end();
-       ++p)
-    if (char_needs_encoding(*p))
-      return true;
-  return false;
-}
-
-// Pull the next UTF-8 character out of P and store it in *PC.  Return
-// the number of bytes read.
-
-static size_t
-fetch_utf8_char(const char* p, unsigned int* pc)
-{
-  unsigned char c = *p;
-  if ((c & 0x80) == 0)
-    {
-      *pc = c;
-      return 1;
-    }
-  size_t len = 0;
-  while ((c & 0x80) != 0)
-    {
-      ++len;
-      c <<= 1;
-    }
-  unsigned int rc = *p & ((1 << (7 - len)) - 1);
-  for (size_t i = 1; i < len; i++)
-    {
-      unsigned int u = p[i];
-      rc <<= 6;
-      rc |= u & 0x3f;
-    }
-  *pc = rc;
-  return len;
-}
-
-// Encode an identifier using ASCII characters.
-
-static std::string
-encode_id(const std::string id)
-{
-  std::string ret;
-  const char* p = id.c_str();
-  const char* pend = p + id.length();
-  while (p < pend)
-    {
-      unsigned int c;
-      size_t len = fetch_utf8_char(p, &c);
-      if (len == 1 && !char_needs_encoding(c))
-	ret += c;
-      else
-	{
-	  ret += "$U";
-	  char buf[30];
-	  snprintf(buf, sizeof buf, "%x", c);
-	  ret += buf;
-	  ret += "$";
-	}
-      p += len;
-    }
-  return ret;
 }
 
 // Define the built-in functions that are exposed to GCCGo.
@@ -827,6 +733,15 @@ Gcc_backend::Gcc_backend()
   // The runtime calls __builtin_frame_address for runtime.getcallersp.
   this->define_builtin(BUILT_IN_FRAME_ADDRESS, "__builtin_frame_address",
 		       NULL, t, false, false);
+
+  // The runtime calls __builtin_extract_return_addr when recording
+  // the address to which a function returns.
+  this->define_builtin(BUILT_IN_EXTRACT_RETURN_ADDR,
+		       "__builtin_extract_return_addr", NULL,
+		       build_function_type_list(ptr_type_node,
+						ptr_type_node,
+						NULL_TREE),
+		       false, false);
 
   // The compiler uses __builtin_trap for some exception handling
   // cases.
@@ -1329,7 +1244,7 @@ Gcc_backend::zero_expression(Btype* btype)
 // An expression that references a variable.
 
 Bexpression*
-Gcc_backend::var_expression(Bvariable* var, Location location)
+Gcc_backend::var_expression(Bvariable* var, Varexpr_context, Location location)
 {
   tree ret = var->get_tree(location);
   if (ret == error_mark_node)
@@ -1631,7 +1546,8 @@ Gcc_backend::compound_expression(Bstatement* bstat, Bexpression* bexpr,
 // ELSE_EXPR otherwise.
 
 Bexpression*
-Gcc_backend::conditional_expression(Btype* btype, Bexpression* condition,
+Gcc_backend::conditional_expression(Bfunction*, Btype* btype,
+                                    Bexpression* condition,
                                     Bexpression* then_expr,
                                     Bexpression* else_expr, Location location)
 {
@@ -2058,7 +1974,7 @@ Gcc_backend::stack_allocation_expression(int64_t size, Location location)
 // An expression as a statement.
 
 Bstatement*
-Gcc_backend::expression_statement(Bexpression* expr)
+Gcc_backend::expression_statement(Bfunction*, Bexpression* expr)
 {
   return this->make_statement(expr->get_tree());
 }
@@ -2066,7 +1982,7 @@ Gcc_backend::expression_statement(Bexpression* expr)
 // Variable initialization.
 
 Bstatement*
-Gcc_backend::init_statement(Bvariable* var, Bexpression* init)
+Gcc_backend::init_statement(Bfunction*, Bvariable* var, Bexpression* init)
 {
   tree var_tree = var->get_decl();
   tree init_tree = init->get_tree();
@@ -2099,8 +2015,8 @@ Gcc_backend::init_statement(Bvariable* var, Bexpression* init)
 // Assignment.
 
 Bstatement*
-Gcc_backend::assignment_statement(Bexpression* lhs, Bexpression* rhs,
-				  Location location)
+Gcc_backend::assignment_statement(Bfunction* bfn, Bexpression* lhs,
+				  Bexpression* rhs, Location location)
 {
   tree lhs_tree = lhs->get_tree();
   tree rhs_tree = rhs->get_tree();
@@ -2115,8 +2031,8 @@ Gcc_backend::assignment_statement(Bexpression* lhs, Bexpression* rhs,
   // anything anyhow.
   if (must_eq(int_size_in_bytes(TREE_TYPE(lhs_tree)), 0)
       || must_eq(int_size_in_bytes(TREE_TYPE(rhs_tree)), 0))
-    return this->compound_statement(this->expression_statement(lhs),
-				    this->expression_statement(rhs));
+    return this->compound_statement(this->expression_statement(bfn, lhs),
+				    this->expression_statement(bfn, rhs));
 
   // Sometimes the same unnamed Go type can be created multiple times
   // and thus have multiple tree representations.  Make sure this does
@@ -2280,8 +2196,9 @@ Gcc_backend::exception_handler_statement(Bstatement* bstat,
 // If.
 
 Bstatement*
-Gcc_backend::if_statement(Bexpression* condition, Bblock* then_block,
-			  Bblock* else_block, Location location)
+Gcc_backend::if_statement(Bfunction*, Bexpression* condition,
+			  Bblock* then_block, Bblock* else_block,
+			  Location location)
 {
   tree cond_tree = condition->get_tree();
   tree then_tree = then_block->get_tree();
@@ -2571,9 +2488,8 @@ Gcc_backend::non_zero_size_type(tree type)
 // Make a global variable.
 
 Bvariable*
-Gcc_backend::global_variable(const std::string& package_name,
-			     const std::string& pkgpath,
-			     const std::string& name,
+Gcc_backend::global_variable(const std::string& var_name,
+			     const std::string& asm_name,
 			     Btype* btype,
 			     bool is_external,
 			     bool is_hidden,
@@ -2589,9 +2505,6 @@ Gcc_backend::global_variable(const std::string& package_name,
   if ((is_external || !is_hidden) && must_eq(int_size_in_bytes(type_tree), 0))
     type_tree = this->non_zero_size_type(type_tree);
 
-  std::string var_name(package_name);
-  var_name.push_back('.');
-  var_name.append(name);
   tree decl = build_decl(location.gcc_location(), VAR_DECL,
 			 get_identifier_from_string(var_name),
 			 type_tree);
@@ -2602,17 +2515,12 @@ Gcc_backend::global_variable(const std::string& package_name,
   if (!is_hidden)
     {
       TREE_PUBLIC(decl) = 1;
-
-      std::string asm_name(pkgpath);
-      asm_name.push_back('.');
-      asm_name.append(name);
-      if (needs_encoding(asm_name))
-	asm_name = encode_id(asm_name);
       SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(asm_name));
     }
-  else if (needs_encoding(var_name))
-    SET_DECL_ASSEMBLER_NAME(decl,
-			    get_identifier_from_string(encode_id(var_name)));
+  else
+    {
+      SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(asm_name));
+    }
 
   TREE_USED(decl) = 1;
 
@@ -2795,8 +2703,9 @@ Gcc_backend::temporary_variable(Bfunction* function, Bblock* bblock,
   // Don't initialize VAR with BINIT, but still evaluate BINIT for
   // its side effects.
   if (this->type_size(btype) == 0 && init_tree != NULL_TREE)
-    *pstatement = this->compound_statement(this->expression_statement(binit),
-					   *pstatement);
+    *pstatement =
+      this->compound_statement(this->expression_statement(function, binit),
+			       *pstatement);
 
   return new Bvariable(var);
 }
@@ -2805,8 +2714,9 @@ Gcc_backend::temporary_variable(Bfunction* function, Bblock* bblock,
 // generating GC root variables and storing the values of a slice initializer.
 
 Bvariable*
-Gcc_backend::implicit_variable(const std::string& name, Btype* type,
-			       bool is_hidden, bool is_constant,
+Gcc_backend::implicit_variable(const std::string& name,
+                               const std::string& asm_name,
+                               Btype* type, bool is_hidden, bool is_constant,
 			       bool is_common, int64_t alignment)
 {
   tree type_tree = type->get_tree();
@@ -2848,8 +2758,8 @@ Gcc_backend::implicit_variable(const std::string& name, Btype* type,
       SET_DECL_ALIGN(decl, alignment * BITS_PER_UNIT);
       DECL_USER_ALIGN(decl) = 1;
     }
-  if (needs_encoding(name))
-    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(encode_id(name)));
+  if (! asm_name.empty())
+    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(asm_name));
 
   go_preserve_from_gc(decl);
   return new Bvariable(decl);
@@ -2890,7 +2800,9 @@ Gcc_backend::implicit_variable_set_init(Bvariable* var, const std::string&,
 // Return a reference to an implicit variable defined in another package.
 
 Bvariable*
-Gcc_backend::implicit_variable_reference(const std::string& name, Btype* btype)
+Gcc_backend::implicit_variable_reference(const std::string& name,
+                                         const std::string& asm_name,
+                                         Btype* btype)
 {
   tree type_tree = btype->get_tree();
   if (type_tree == error_mark_node)
@@ -2902,8 +2814,8 @@ Gcc_backend::implicit_variable_reference(const std::string& name, Btype* btype)
   TREE_PUBLIC(decl) = 1;
   TREE_STATIC(decl) = 1;
   DECL_ARTIFICIAL(decl) = 1;
-  if (needs_encoding(name))
-    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(encode_id(name)));
+  if (! asm_name.empty())
+    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(asm_name));
   go_preserve_from_gc(decl);
   return new Bvariable(decl);
 }
@@ -2911,7 +2823,9 @@ Gcc_backend::implicit_variable_reference(const std::string& name, Btype* btype)
 // Create a named immutable initialized data structure.
 
 Bvariable*
-Gcc_backend::immutable_struct(const std::string& name, bool is_hidden,
+Gcc_backend::immutable_struct(const std::string& name,
+                              const std::string& asm_name,
+                              bool is_hidden,
 			      bool is_common, Btype* btype, Location location)
 {
   tree type_tree = btype->get_tree();
@@ -2928,8 +2842,8 @@ Gcc_backend::immutable_struct(const std::string& name, bool is_hidden,
   DECL_ARTIFICIAL(decl) = 1;
   if (!is_hidden)
     TREE_PUBLIC(decl) = 1;
-  if (needs_encoding(name))
-    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(encode_id(name)));
+  if (! asm_name.empty())
+    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(asm_name));
 
   // When the initializer for one immutable_struct refers to another,
   // it needs to know the visibility of the referenced struct so that
@@ -2989,7 +2903,9 @@ Gcc_backend::immutable_struct_set_init(Bvariable* var, const std::string&,
 // defined in another package.
 
 Bvariable*
-Gcc_backend::immutable_struct_reference(const std::string& name, Btype* btype,
+Gcc_backend::immutable_struct_reference(const std::string& name,
+                                        const std::string& asm_name,
+                                        Btype* btype,
 					Location location)
 {
   tree type_tree = btype->get_tree();
@@ -3004,8 +2920,8 @@ Gcc_backend::immutable_struct_reference(const std::string& name, Btype* btype,
   DECL_ARTIFICIAL(decl) = 1;
   TREE_PUBLIC(decl) = 1;
   DECL_EXTERNAL(decl) = 1;
-  if (needs_encoding(name))
-    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(encode_id(name)));
+  if (! asm_name.empty())
+    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(asm_name));
   go_preserve_from_gc(decl);
   return new Bvariable(decl);
 }
@@ -3095,10 +3011,8 @@ Gcc_backend::function(Btype* fntype, const std::string& name,
     return this->error_function();
 
   tree decl = build_decl(location.gcc_location(), FUNCTION_DECL, id, functype);
-  if (!asm_name.empty())
+  if (! asm_name.empty())
     SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(asm_name));
-  else if (needs_encoding(name))
-    SET_DECL_ASSEMBLER_NAME(decl, get_identifier_from_string(encode_id(name)));
   if (is_visible)
     TREE_PUBLIC(decl) = 1;
   if (is_declaration)

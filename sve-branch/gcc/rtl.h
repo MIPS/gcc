@@ -1,5 +1,5 @@
 /* Register Transfer Language (RTL) definitions for GCC
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2203,8 +2203,22 @@ extern poly_int64 subreg_lsb (const_rtx);
 extern poly_int64 subreg_lsb_1 (machine_mode, machine_mode, poly_int64);
 extern poly_int64 subreg_size_offset_from_lsb (poly_int64, poly_int64,
 					       poly_int64);
-extern poly_int64 subreg_offset_from_lsb (machine_mode, machine_mode,
-					  poly_int64);
+
+/* Return the subreg byte offset for a subreg whose outer mode is
+   OUTER_MODE, whose inner mode is INNER_MODE, and where there are
+   LSB_SHIFT *bits* between the lsb of the outer value and the lsb of
+   the inner value.  This is the inverse of subreg_lsb_1 (which converts
+   byte offsets to bit shifts).  */
+
+inline poly_int64
+subreg_offset_from_lsb (machine_mode outer_mode,
+			machine_mode inner_mode,
+			unsigned int lsb_shift)
+{
+  return subreg_size_offset_from_lsb (GET_MODE_SIZE (outer_mode),
+				      GET_MODE_SIZE (inner_mode), lsb_shift);
+}
+
 extern unsigned int subreg_regno_offset	(unsigned int, machine_mode,
 					 poly_int64, machine_mode);
 extern bool subreg_offset_representable_p (unsigned int, machine_mode,
@@ -2703,6 +2717,16 @@ get_full_set_src_cost (rtx x, machine_mode mode, struct full_rtx_costs *c)
 }
 #endif
 
+/* A convenience macro to validate the arguments of a zero_extract
+   expression.  It determines whether SIZE lies inclusively within
+   [1, RANGE], POS lies inclusively within between [0, RANGE - 1]
+   and the sum lies inclusively within [1, RANGE].  RANGE must be
+   >= 1, but SIZE and POS may be negative.  */
+#define EXTRACT_ARGS_IN_RANGE(SIZE, POS, RANGE) \
+  (IN_RANGE ((POS), 0, (unsigned HOST_WIDE_INT) (RANGE) - 1) \
+   && IN_RANGE ((SIZE), 1, (unsigned HOST_WIDE_INT) (RANGE) \
+			   - (unsigned HOST_WIDE_INT)(POS)))
+
 /* In explow.c */
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, machine_mode);
 extern poly_int64 trunc_int_for_mode (poly_int64, machine_mode);
@@ -2815,9 +2839,27 @@ extern bool paradoxical_subreg_p (machine_mode, machine_mode);
 extern bool paradoxical_subreg_p (const_rtx);
 extern int subreg_lowpart_p (const_rtx);
 extern poly_int64 subreg_size_lowpart_offset (poly_int64, poly_int64);
-extern poly_int64 subreg_lowpart_offset (machine_mode, machine_mode);
+
+/* Return the SUBREG_BYTE for an OUTERMODE lowpart of an INNERMODE value.  */
+
+inline poly_int64
+subreg_lowpart_offset (machine_mode outermode, machine_mode innermode)
+{
+  return subreg_size_lowpart_offset (GET_MODE_SIZE (outermode),
+				     GET_MODE_SIZE (innermode));
+}
+
 extern poly_int64 subreg_size_highpart_offset (poly_int64, poly_int64);
-extern poly_int64 subreg_highpart_offset (machine_mode, machine_mode);
+
+/* Return the SUBREG_BYTE for an OUTERMODE highpart of an INNERMODE value.  */
+
+inline poly_int64
+subreg_highpart_offset (machine_mode outermode, machine_mode innermode)
+{
+  return subreg_size_highpart_offset (GET_MODE_SIZE (outermode),
+				      GET_MODE_SIZE (innermode));
+}
+
 extern poly_int64 byte_lowpart_offset (machine_mode, machine_mode);
 extern poly_int64 subreg_memory_offset (machine_mode, machine_mode,
 					poly_int64);
@@ -2913,7 +2955,7 @@ extern rtx_call_insn *last_call_insn (void);
 extern rtx_insn *previous_insn (rtx_insn *);
 extern rtx_insn *next_insn (rtx_insn *);
 extern rtx_insn *prev_nonnote_insn (rtx_insn *);
-extern rtx_insn *prev_nonnote_insn_bb (rtx);
+extern rtx_insn *prev_nonnote_insn_bb (rtx_insn *);
 extern rtx_insn *next_nonnote_insn (rtx_insn *);
 extern rtx_insn *next_nonnote_insn_bb (rtx_insn *);
 extern rtx_insn *prev_nondebug_insn (rtx_insn *);
@@ -3067,8 +3109,8 @@ extern void find_all_hard_regs (const_rtx, HARD_REG_SET *);
 extern void find_all_hard_reg_sets (const rtx_insn *, HARD_REG_SET *, bool);
 extern void note_stores (const_rtx, void (*) (rtx, const_rtx, void *), void *);
 extern void note_uses (rtx *, void (*) (rtx *, void *), void *);
-extern int dead_or_set_p (const_rtx, const_rtx);
-extern int dead_or_set_regno_p (const_rtx, unsigned int);
+extern int dead_or_set_p (const rtx_insn *, const_rtx);
+extern int dead_or_set_regno_p (const rtx_insn *, unsigned int);
 extern rtx find_reg_note (const_rtx, enum reg_note, const_rtx);
 extern rtx find_regno_note (const_rtx, enum reg_note, unsigned int);
 extern rtx find_reg_equal_equiv_note (const_rtx);
@@ -3077,11 +3119,12 @@ extern int find_reg_fusage (const_rtx, enum rtx_code, const_rtx);
 extern int find_regno_fusage (const_rtx, enum rtx_code, unsigned int);
 extern rtx alloc_reg_note (enum reg_note, rtx, rtx);
 extern void add_reg_note (rtx, enum reg_note, rtx);
-extern void add_int_reg_note (rtx, enum reg_note, int);
+extern void add_int_reg_note (rtx_insn *, enum reg_note, int);
 extern void add_args_size_note (rtx_insn *, poly_int64);
 extern void add_shallow_copy_of_reg_note (rtx_insn *, rtx);
-extern void remove_note (rtx, const_rtx);
-extern void remove_reg_equal_equiv_notes (rtx_insn *);
+extern rtx duplicate_reg_note (rtx);
+extern void remove_note (rtx_insn *, const_rtx);
+extern bool remove_reg_equal_equiv_notes (rtx_insn *);
 extern void remove_reg_equal_equiv_notes_for_regno (unsigned int);
 extern int side_effects_p (const_rtx);
 extern int volatile_refs_p (const_rtx);
@@ -3099,11 +3142,12 @@ extern void copy_reg_eh_region_note_backward (rtx, rtx_insn *, rtx);
 extern int inequality_comparisons_p (const_rtx);
 extern rtx replace_rtx (rtx, rtx, rtx, bool = false);
 extern void replace_label (rtx *, rtx, rtx, bool);
-extern void replace_label_in_insn (rtx_insn *, rtx, rtx, bool);
+extern void replace_label_in_insn (rtx_insn *, rtx_insn *, rtx_insn *, bool);
 extern bool rtx_referenced_p (const_rtx, const_rtx);
 extern bool tablejump_p (const rtx_insn *, rtx_insn **, rtx_jump_table_data **);
 extern int computed_jump_p (const rtx_insn *);
 extern bool tls_referenced_p (const_rtx);
+extern bool contains_mem_rtx_p (rtx x);
 
 /* Overload for refers_to_regno_p for checking a single register.  */
 inline bool
@@ -3369,7 +3413,7 @@ extern struct target_rtl *this_target_rtl;
 
 #ifndef GENERATOR_FILE
 /* Return the attributes of a MEM rtx.  */
-static inline struct mem_attrs *
+static inline const struct mem_attrs *
 get_mem_attrs (const_rtx x)
 {
   struct mem_attrs *attrs;
@@ -3726,7 +3770,9 @@ extern void init_varasm_once (void);
 extern rtx make_debug_expr_from_rtl (const_rtx);
 
 /* In read-rtl.c */
+#ifdef GENERATOR_FILE
 extern bool read_rtx (const char *, vec<rtx> *);
+#endif
 
 /* In alias.c */
 extern rtx canon_rtx (rtx);
@@ -3831,6 +3877,20 @@ struct GTY(()) cgraph_rtl_info {
   unsigned function_used_regs_valid: 1;
 };
 
+/* If loads from memories of mode MODE always sign or zero extend,
+   return SIGN_EXTEND or ZERO_EXTEND as appropriate.  Return UNKNOWN
+   otherwise.  */
+
+inline rtx_code
+load_extend_op (machine_mode mode)
+{
+  scalar_int_mode int_mode;
+  if (is_a <scalar_int_mode> (mode, &int_mode)
+      && GET_MODE_PRECISION (int_mode) < BITS_PER_WORD)
+    return LOAD_EXTEND_OP (int_mode);
+  return UNKNOWN;
+}
+
 /* If X is a PLUS of a base and a constant offset, add the constant to *OFFSET
    and return the base.  Return X otherwise.  */
 
@@ -3845,5 +3905,10 @@ strip_offset_and_add (rtx x, poly_int64 *offset)
     }
   return x;
 }
+
+/* gtype-desc.c.  */
+extern void gt_ggc_mx (rtx &);
+extern void gt_pch_nx (rtx &);
+extern void gt_pch_nx (rtx &, gt_pointer_operator, void *);
 
 #endif /* ! GCC_RTL_H */

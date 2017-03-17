@@ -1,5 +1,5 @@
 /* SSA name expresssons routines
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -78,7 +78,8 @@ extern bool ssa_name_has_boolean_range (tree);
 extern void init_ssanames (struct function *, int);
 extern void fini_ssanames (struct function *);
 extern void ssanames_print_statistics (void);
-extern tree make_ssa_name_fn (struct function *, tree, gimple *);
+extern tree make_ssa_name_fn (struct function *, tree, gimple *,
+			      unsigned int version = 0);
 extern void release_ssa_name_fn (struct function *, tree);
 extern bool get_ptr_info_alignment (struct ptr_info_def *, unsigned int *,
 				    unsigned int *);

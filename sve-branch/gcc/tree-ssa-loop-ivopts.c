@@ -1,5 +1,5 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1874,6 +1874,11 @@ find_deriving_biv_for_expr (struct ivopts_data *data, tree expr)
     {
       ssa_op_iter iter;
       use_operand_p use_p;
+      basic_block phi_bb = gimple_bb (phi);
+
+      /* Skip loop header PHI that doesn't define biv.  */
+      if (phi_bb->loop_father == data->current_loop)
+	return NULL;
 
       if (virtual_operand_p (gimple_phi_result (phi)))
 	return NULL;
@@ -4947,7 +4952,7 @@ get_scaled_computation_cost_at (ivopts_data *data, gimple *at, iv_cand *cand,
 				comp_cost cost)
 {
    int loop_freq = data->current_loop->header->frequency;
-   int bb_freq = at->bb->frequency;
+   int bb_freq = gimple_bb (at)->frequency;
    if (loop_freq != 0)
      {
        gcc_assert (cost.scratch <= cost.cost);

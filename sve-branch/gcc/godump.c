@@ -1,5 +1,5 @@
 /* Output Go language descriptions of types.
-   Copyright (C) 2008-2016 Free Software Foundation, Inc.
+   Copyright (C) 2008-2017 Free Software Foundation, Inc.
    Written by Ian Lance Taylor <iant@google.com>.
 
 This file is part of GCC.
@@ -721,10 +721,6 @@ go_format_type (struct godump_container *container, tree type,
 
   switch (TREE_CODE (type))
     {
-    case ENUMERAL_TYPE:
-      obstack_grow (ob, "int", 3);
-      break;
-
     case TYPE_DECL:
       {
 	void **slot;
@@ -740,6 +736,7 @@ go_format_type (struct godump_container *container, tree type,
       }
       break;
 
+    case ENUMERAL_TYPE:
     case INTEGER_TYPE:
       {
 	const char *s;
@@ -1005,14 +1002,9 @@ go_format_type (struct godump_container *container, tree type,
 	      }
 	  }
 	/* Padding.  */
-	{
-	  unsigned int align_unit;
-
-	  align_unit = (is_anon_record_or_union) ? 1 : TYPE_ALIGN_UNIT (type);
-	  *p_art_i = go_append_padding
-	    (ob, prev_field_end, TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type)),
-	     align_unit, *p_art_i, &prev_field_end);
-	}
+	*p_art_i = go_append_padding (ob, prev_field_end,
+				      TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type)),
+				      1, *p_art_i, &prev_field_end);
 	/* Alignment.  */
 	if (!is_anon_record_or_union
 	    && known_alignment < TYPE_ALIGN_UNIT (type))

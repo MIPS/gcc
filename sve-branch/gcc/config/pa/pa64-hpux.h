@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for HPs running
    HPUX using the 64bit runtime model.
-   Copyright (C) 1999-2016 Free Software Foundation, Inc.
+   Copyright (C) 1999-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -336,7 +336,7 @@ do {								\
 #undef INIT_SECTION_ASM_OP
 #define INIT_SECTION_ASM_OP ""
 #undef FINI_SECTION_ASM_OP
-#define FINI_SECTION_ASM_OP
+#define FINI_SECTION_ASM_OP ""
 
 /* We are using array initializers and don't want calls in the INIT
    and FINI sections.  */

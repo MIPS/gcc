@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -39,6 +39,8 @@
 #include "tree-dfa.h"
 #include "params.h"
 #include "gimple-walk.h"
+#include "varasm.h"
+
 
 /* The idea behind this analyzer is to generate set constraints from the
    program, then solve the resulting constraints in order to generate the
@@ -2562,7 +2564,7 @@ rewrite_constraints (constraint_graph_t graph,
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 
-	      fprintf (dump_file, "%s is a non-pointer variable,"
+	      fprintf (dump_file, "%s is a non-pointer variable, "
 		       "ignoring constraint:",
 		       get_varinfo (lhs.var)->name);
 	      dump_constraint (dump_file, c);
@@ -2577,7 +2579,7 @@ rewrite_constraints (constraint_graph_t graph,
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 
-	      fprintf (dump_file, "%s is a non-pointer variable,"
+	      fprintf (dump_file, "%s is a non-pointer variable, "
 		       "ignoring constraint:",
 		       get_varinfo (rhs.var)->name);
 	      dump_constraint (dump_file, c);
@@ -3293,7 +3295,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
       else if (must_eq (bitmaxsize, 0))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "Access to zero-sized part of variable,"
+	    fprintf (dump_file, "Access to zero-sized part of variable, "
 		     "ignoring\n");
 	}
       else
@@ -5571,7 +5573,7 @@ push_fields_onto_fieldstack (tree type, vec<fieldoff_s> *fieldstack,
 		&& offset + foff != 0)
 	      {
 		fieldoff_s e
-		  = {0, offset + foff, false, false, false, false, NULL_TREE};
+		  = {0, offset + foff, false, false, true, false, NULL_TREE};
 		pair = fieldstack->safe_push (e);
 	      }
 
@@ -6365,6 +6367,13 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
 		  && fndecl
 		  && ! auto_var_in_fn_p (vi->decl, fndecl)))
 	    pt->vars_contains_nonlocal = true;
+
+	  /* If we have a variable that is interposable record that fact
+	     for pointer comparison simplification.  */
+	  if (VAR_P (vi->decl)
+	      && (TREE_STATIC (vi->decl) || DECL_EXTERNAL (vi->decl))
+	      && ! decl_binds_to_current_def_p (vi->decl))
+	    pt->vars_contains_interposable = true;
 	}
 
       else if (TREE_CODE (vi->decl) == FUNCTION_DECL
@@ -7292,9 +7301,15 @@ visit_loadstore (gimple *, tree base, tree ref, void *data)
       || TREE_CODE (base) == TARGET_MEM_REF)
     {
       tree ptr = TREE_OPERAND (base, 0);
-      if (TREE_CODE (ptr) == SSA_NAME
-	  && ! SSA_NAME_IS_DEFAULT_DEF (ptr))
+      if (TREE_CODE (ptr) == SSA_NAME)
 	{
+	  /* For parameters, get at the points-to set for the actual parm
+	     decl.  */
+	  if (SSA_NAME_IS_DEFAULT_DEF (ptr)
+	      && (TREE_CODE (SSA_NAME_VAR (ptr)) == PARM_DECL
+		  || TREE_CODE (SSA_NAME_VAR (ptr)) == RESULT_DECL))
+	    ptr = SSA_NAME_VAR (ptr);
+
 	  /* We need to make sure 'ptr' doesn't include any of
 	     the restrict tags we added bases for in its points-to set.  */
 	  varinfo_t vi = lookup_vi_for_tree (ptr);
@@ -7597,7 +7612,8 @@ make_pass_build_ealias (gcc::context *ctxt)
 
 /* IPA PTA solutions for ESCAPED.  */
 struct pt_solution ipa_escaped_pt
-  = { true, false, false, false, false, false, false, false, false, NULL };
+  = { true, false, false, false, false,
+      false, false, false, false, false, NULL };
 
 /* Associate node with varinfo DATA. Worker for
    cgraph_for_symbol_thunks_and_aliases.  */

@@ -1,5 +1,5 @@
 /* RTL simplification functions for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -54,12 +54,17 @@ static rtx simplify_unary_operation_1 (enum rtx_code, machine_mode, rtx);
 static rtx simplify_binary_operation_1 (enum rtx_code, machine_mode,
 					rtx, rtx, rtx, rtx);
 
-/* Negate a CONST_INT rtx, truncating (because a conversion from a
-   maximally negative number can overflow).  */
+/* Negate a CONST_INT rtx.  */
 static rtx
 neg_const_int (machine_mode mode, const_rtx i)
 {
-  return gen_int_mode (-(unsigned HOST_WIDE_INT) INTVAL (i), mode);
+  unsigned HOST_WIDE_INT val = -UINTVAL (i);
+  
+  if (!HWI_COMPUTABLE_MODE_P (mode)
+      && val == UINTVAL (i))
+    return simplify_const_unary_operation (NEG, mode, CONST_CAST_RTX (i),
+					   mode);
+  return gen_int_mode (val, mode);
 }
 
 /* Test whether expression, X, is an immediate constant that represents
@@ -737,6 +742,37 @@ simplify_truncation (machine_mode mode, rtx op,
 	{
 	  mask_op = GEN_INT (trunc_int_for_mode (mask, mode));
 	  return simplify_gen_binary (AND, mode, op0, mask_op);
+	}
+    }
+
+  /* Turn (truncate:M1 (*_extract:M2 (reg:M2) (len) (pos))) into
+     (*_extract:M1 (truncate:M1 (reg:M2)) (len) (pos')) if possible without
+     changing len.  */
+  if ((GET_CODE (op) == ZERO_EXTRACT || GET_CODE (op) == SIGN_EXTRACT)
+      && REG_P (XEXP (op, 0))
+      && GET_MODE (XEXP (op, 0)) == GET_MODE (op)
+      && CONST_INT_P (XEXP (op, 1))
+      && CONST_INT_P (XEXP (op, 2)))
+    {
+      rtx op0 = XEXP (op, 0);
+      unsigned HOST_WIDE_INT len = UINTVAL (XEXP (op, 1));
+      unsigned HOST_WIDE_INT pos = UINTVAL (XEXP (op, 2));
+      if (BITS_BIG_ENDIAN && pos >= op_precision - precision)
+	{
+	  op0 = simplify_gen_unary (TRUNCATE, mode, op0, GET_MODE (op0));
+	  if (op0)
+	    {
+	      pos -= op_precision - precision;
+	      return simplify_gen_ternary (GET_CODE (op), mode, mode, op0,
+					   XEXP (op, 1), GEN_INT (pos));
+	    }
+	}
+      else if (!BITS_BIG_ENDIAN && precision >= len + pos)
+	{
+	  op0 = simplify_gen_unary (TRUNCATE, mode, op0, GET_MODE (op0));
+	  if (op0)
+	    return simplify_gen_ternary (GET_CODE (op), mode, mode, op0,
+					 XEXP (op, 1), XEXP (op, 2));
 	}
     }
 
@@ -1877,23 +1913,26 @@ simplify_const_unary_operation (enum rtx_code code, machine_mode mode,
 	case FLOAT_TRUNCATE:
 	  /* Don't perform the operation if flag_signaling_nans is on
 	     and the operand is a signaling NaN.  */
-	  if (!(HONOR_SNANS (mode) && REAL_VALUE_ISSIGNALING_NAN (d)))
-	    d = real_value_truncate (mode, d);
+	  if (HONOR_SNANS (mode) && REAL_VALUE_ISSIGNALING_NAN (d))
+	    return NULL_RTX;
+	  d = real_value_truncate (mode, d);
 	  break;
 	case FLOAT_EXTEND:
-	  /* All this does is change the mode, unless changing
-	     mode class.  */
 	  /* Don't perform the operation if flag_signaling_nans is on
 	     and the operand is a signaling NaN.  */
-	  if (GET_MODE_CLASS (mode) != GET_MODE_CLASS (GET_MODE (op))
-	      && !(HONOR_SNANS (mode) && REAL_VALUE_ISSIGNALING_NAN (d)))
+	  if (HONOR_SNANS (mode) && REAL_VALUE_ISSIGNALING_NAN (d))
+	    return NULL_RTX;
+	  /* All this does is change the mode, unless changing
+	     mode class.  */
+	  if (GET_MODE_CLASS (mode) != GET_MODE_CLASS (GET_MODE (op)))
 	    real_convert (&d, mode, &d);
 	  break;
 	case FIX:
 	  /* Don't perform the operation if flag_signaling_nans is on
 	     and the operand is a signaling NaN.  */
-	  if (!(HONOR_SNANS (mode) && REAL_VALUE_ISSIGNALING_NAN (d)))
-	    real_arithmetic (&d, FIX_TRUNC_EXPR, &d, NULL);
+	  if (HONOR_SNANS (mode) && REAL_VALUE_ISSIGNALING_NAN (d))
+	    return NULL_RTX;
+	  real_arithmetic (&d, FIX_TRUNC_EXPR, &d, NULL);
 	  break;
 	case NOT:
 	  {
@@ -2944,6 +2983,37 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 							    mode));
 		}
 	    }
+	}
+
+      /* If we have (xor (and (xor A B) C) A) with C a constant we can instead
+	 do (ior (and A ~C) (and B C)) which is a machine instruction on some
+	 machines, and also has shorter instruction path length.  */
+      if (GET_CODE (op0) == AND
+	  && GET_CODE (XEXP (op0, 0)) == XOR
+	  && CONST_INT_P (XEXP (op0, 1))
+	  && rtx_equal_p (XEXP (XEXP (op0, 0), 0), trueop1))
+	{
+	  rtx a = trueop1;
+	  rtx b = XEXP (XEXP (op0, 0), 1);
+	  rtx c = XEXP (op0, 1);
+	  rtx nc = simplify_gen_unary (NOT, mode, c, mode);
+	  rtx a_nc = simplify_gen_binary (AND, mode, a, nc);
+	  rtx bc = simplify_gen_binary (AND, mode, b, c);
+	  return simplify_gen_binary (IOR, mode, a_nc, bc);
+	}
+      /* Similarly, (xor (and (xor A B) C) B) as (ior (and A C) (and B ~C))  */
+      else if (GET_CODE (op0) == AND
+	  && GET_CODE (XEXP (op0, 0)) == XOR
+	  && CONST_INT_P (XEXP (op0, 1))
+	  && rtx_equal_p (XEXP (XEXP (op0, 0), 1), trueop1))
+	{
+	  rtx a = XEXP (XEXP (op0, 0), 0);
+	  rtx b = trueop1;
+	  rtx c = XEXP (op0, 1);
+	  rtx nc = simplify_gen_unary (NOT, mode, c, mode);
+	  rtx b_nc = simplify_gen_binary (AND, mode, b, nc);
+	  rtx ac = simplify_gen_binary (AND, mode, a, c);
+	  return simplify_gen_binary (IOR, mode, ac, b_nc);
 	}
 
       /* (xor (comparison foo bar) (const_int 1)) can become the reversed
@@ -4559,9 +4629,12 @@ simplify_plus_minus (enum rtx_code code, machine_mode mode, rtx op0,
       rtx value = ops[n_ops - 1].op;
       if (ops[n_ops - 1].neg ^ ops[n_ops - 2].neg)
 	value = neg_const_int (mode, value);
-      ops[n_ops - 2].op = plus_constant (mode, ops[n_ops - 2].op,
-					 INTVAL (value));
-      n_ops--;
+      if (CONST_INT_P (value))
+	{
+	  ops[n_ops - 2].op = plus_constant (mode, ops[n_ops - 2].op,
+					     INTVAL (value));
+	  n_ops--;
+	}
     }
 
   /* Put a non-negated operand first, if possible.  */
@@ -5801,8 +5874,9 @@ simplify_immed_subreg (fixed_size_mode outermode, rtx op,
 	  {
 	    rtx_mode_t val = rtx_mode_t (el, GET_MODE_INNER (innermode));
 	    unsigned char extend = wi::sign_mask (val);
+	    int prec = wi::get_precision (val);
 
-	    for (i = 0; i < elem_bitsize; i += value_bit)
+	    for (i = 0; i < prec && i < elem_bitsize; i += value_bit)
 	      *vp++ = wi::extract_uhwi (val, i, value_bit);
 	    for (; i < elem_bitsize; i += value_bit)
 	      *vp++ = extend;

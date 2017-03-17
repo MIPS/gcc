@@ -1,5 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -123,9 +123,8 @@ can_delete_label_p (const rtx_code_label *label)
 /* Delete INSN by patching it out.  */
 
 void
-delete_insn (rtx uncast_insn)
+delete_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
   rtx note;
   bool really_delete = true;
 
@@ -240,17 +239,15 @@ delete_insn_and_edges (rtx_insn *insn)
    insns that cannot be removed to NULL.  */
 
 void
-delete_insn_chain (rtx start, rtx finish, bool clear_bb)
+delete_insn_chain (rtx start, rtx_insn *finish, bool clear_bb)
 {
-  rtx_insn *prev, *current;
-
   /* Unchain the insns one by one.  It would be quicker to delete all of these
      with a single unchaining, rather than one at a time, but we need to keep
      the NOTE's.  */
-  current = safe_as_a <rtx_insn *> (finish);
+  rtx_insn *current = finish;
   while (1)
     {
-      prev = PREV_INSN (current);
+      rtx_insn *prev = PREV_INSN (current);
       if (NOTE_P (current) && !can_delete_note_p (as_a <rtx_note *> (current)))
 	;
       else
@@ -1797,6 +1794,10 @@ rtl_tidy_fallthru_edge (edge e)
 
       q = PREV_INSN (q);
     }
+  /* Unconditional jumps with side-effects (i.e. which we can't just delete
+     together with the barrier) should never have a fallthru edge.  */
+  else if (JUMP_P (q) && any_uncondjump_p (q))
+    return;
 
   /* Selectively unlink the sequence.  */
   if (q != PREV_INSN (BB_HEAD (c)))
@@ -1934,7 +1935,8 @@ rtl_split_edge (edge edge_in)
 	  if (last
 	      && JUMP_P (last)
 	      && edge_in->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	      && extract_asm_operands (PATTERN (last)) != NULL_RTX
+	      && (extract_asm_operands (PATTERN (last))
+		  || JUMP_LABEL (last) == before)
 	      && patch_jump_insn (last, before, bb))
 	    df_set_bb_dirty (edge_in->src);
 	}
@@ -3649,7 +3651,8 @@ relink_block_chain (bool stay_in_cfglayout_mode)
   /* Maybe reset the original copy tables, they are not valid anymore
      when we renumber the basic blocks in compact_blocks.  If we are
      are going out of cfglayout mode, don't re-allocate the tables.  */
-  free_original_copy_tables ();
+  if (original_copy_tables_initialized_p ())
+    free_original_copy_tables ();
   if (stay_in_cfglayout_mode)
     initialize_original_copy_tables ();
 
@@ -3819,7 +3822,7 @@ fixup_reorder_chain (void)
 		  update_br_prob_note (bb);
 		  if (LABEL_NUSES (ret_label) == 0
 		      && single_pred_p (e_taken->dest))
-		    delete_insn (ret_label);
+		    delete_insn (as_a<rtx_insn *> (ret_label));
 		  continue;
 		}
 	    }

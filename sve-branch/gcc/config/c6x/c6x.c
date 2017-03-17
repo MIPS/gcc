@@ -1,5 +1,5 @@
 /* Target Code for TI C6X
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Andrew Jenner <andrew@codesourcery.com>
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
@@ -3801,6 +3801,7 @@ predicate_insn (rtx_insn *insn, rtx cond, bool doit)
     {
       if (doit)
 	{
+	  cond = copy_rtx (cond);
 	  rtx newpat = gen_rtx_COND_EXEC (VOIDmode, cond, PATTERN (insn));
 	  PATTERN (insn) = newpat;
 	  INSN_CODE (insn) = -1;
@@ -4731,7 +4732,7 @@ c6x_gen_bundles (void)
 /* Emit a NOP instruction for CYCLES cycles after insn AFTER.  Return it.  */
 
 static rtx_insn *
-emit_nop_after (int cycles, rtx after)
+emit_nop_after (int cycles, rtx_insn *after)
 {
   rtx_insn *insn;
 
@@ -4858,7 +4859,7 @@ find_last_same_clock (rtx_insn *insn)
    the SEQUENCEs that represent execute packets.  */
 
 static void
-reorg_split_calls (rtx *call_labels)
+reorg_split_calls (rtx_insn **call_labels)
 {
   unsigned int reservation_mask = 0;
   rtx_insn *insn = get_insns ();
@@ -4880,7 +4881,7 @@ reorg_split_calls (rtx *call_labels)
 
       if (returning_call_p (insn))
 	{
-	  rtx label = gen_label_rtx ();
+	  rtx_code_label *label = gen_label_rtx ();
 	  rtx labelref = gen_rtx_LABEL_REF (Pmode, label);
 	  rtx reg = gen_rtx_REG (SImode, RETURN_ADDR_REGNO);
 
@@ -4996,7 +4997,8 @@ reorg_split_calls (rtx *call_labels)
 	      else
 		{
 		  rtx x1, x2;
-		  rtx after2 = find_next_cycle_insn (after1, this_clock + 2);
+		  rtx_insn *after2 = find_next_cycle_insn (after1,
+							   this_clock + 2);
 		  if (after2 == NULL_RTX)
 		    after2 = after1;
 		  x2 = gen_movsi_lo_sum (reg, reg, labelref);
@@ -5031,7 +5033,7 @@ reorg_split_calls (rtx *call_labels)
    scheduling was run earlier.  */
 
 static void
-reorg_emit_nops (rtx *call_labels)
+reorg_emit_nops (rtx_insn **call_labels)
 {
   bool first;
   rtx last_call;
@@ -5923,7 +5925,6 @@ static void
 c6x_reorg (void)
 {
   basic_block bb;
-  rtx *call_labels;
   bool do_selsched = (c6x_flag_schedule_insns2 && flag_selective_scheduling2
 		      && !maybe_skip_selective_scheduling ());
 
@@ -5969,7 +5970,7 @@ c6x_reorg (void)
     }
   sched_no_dce = false;
 
-  call_labels = XCNEWVEC (rtx, get_max_uid () + 1);
+  rtx_insn **call_labels = XCNEWVEC (rtx_insn *, get_max_uid () + 1);
 
   reorg_split_calls (call_labels);
 

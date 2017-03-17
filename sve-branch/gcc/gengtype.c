@@ -1,5 +1,5 @@
 /* Process source files and output type information.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -744,10 +744,11 @@ new_structure (const char *name, enum typekind kind, struct fileloc *pos,
   type_p s = NULL;
   lang_bitmap bitmap = get_lang_bitmap (pos->file);
   bool isunion = (kind == TYPE_UNION);
+  type_p *p = &structures;
 
   gcc_assert (union_or_struct_p (kind));
 
-  for (si = structures; si != NULL; si = si->next)
+  for (si = structures; si != NULL; p = &si->next, si = *p)
     if (strcmp (name, si->u.s.tag) == 0 && UNION_P (si) == isunion)
       {
 	type_p ls = NULL;
@@ -793,8 +794,7 @@ new_structure (const char *name, enum typekind kind, struct fileloc *pos,
       type_count++;
       s = XCNEW (struct type);
       s->state_number = -type_count;
-      s->next = structures;
-      structures = s;
+      *p = s;
     }
 
   if (s->u.s.lang_struct && (s->u.s.lang_struct->u.s.bitmap & bitmap))
@@ -829,21 +829,20 @@ find_structure (const char *name, enum typekind kind)
 {
   type_p s;
   bool isunion = (kind == TYPE_UNION);
+  type_p *p = &structures;
 
   gcc_assert (kind == TYPE_UNDEFINED || union_or_struct_p (kind));
 
-  for (s = structures; s != NULL; s = s->next)
+  for (s = structures; s != NULL; p = &s->next, s = *p)
     if (strcmp (name, s->u.s.tag) == 0 && UNION_P (s) == isunion)
       return s;
 
   type_count++;
   s = XCNEW (struct type);
-  s->next = structures;
   s->state_number = -type_count;
-  structures = s;
   s->kind = kind;
   s->u.s.tag = name;
-  structures = s;
+  *p = s;
   return s;
 }
 
@@ -1613,7 +1612,7 @@ static outf_p
 create_file (const char *name, const char *oname)
 {
   static const char *const hdr[] = {
-    "   Copyright (C) 2004-2016 Free Software Foundation, Inc.\n",
+    "   Copyright (C) 2004-2017 Free Software Foundation, Inc.\n",
     "\n",
     "This file is part of GCC.\n",
     "\n",
@@ -1725,7 +1724,7 @@ open_base_files (void)
       "tree-dfa.h", "tree-ssa.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
       "except.h", "output.h",  "cfgloop.h", "target.h", "lto-streamer.h",
       "target-globals.h", "ipa-ref.h", "cgraph.h", "symbol-summary.h",
-      "ipa-prop.h", "ipa-inline.h", "dwarf2out.h", "omp-low.h", NULL
+      "ipa-prop.h", "ipa-inline.h", "dwarf2out.h", "omp-offload.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -31,7 +31,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "format.h"
 #include <ctype.h>
 #include <string.h>
-#include <stdlib.h>
 
 
 static const fnode colon_node = { FMT_COLON, 0, NULL, NULL, {{ 0, 0, 0 }}, 0,
@@ -870,19 +869,25 @@ parse_format_list (st_parameter_dt *dtp, bool *seen_dd)
       t = format_lex (fmt);
       if (t != FMT_POSINT)
 	{
-	  if (notification_std(GFC_STD_GNU) == NOTIFICATION_ERROR)
+	  if (t == FMT_ZERO)
 	    {
-	      fmt->error = posint_required;
-	      goto finished;
+	      if (notification_std(GFC_STD_GNU) == NOTIFICATION_ERROR)
+		{
+		  fmt->error = "Extension: Zero width after L descriptor";
+		  goto finished;
+		}
+	      else
+		notify_std (&dtp->common, GFC_STD_GNU,
+			    "Zero width after L descriptor");
 	    }
 	  else
 	    {
 	      fmt->saved_token = t;
-	      fmt->value = 1;	/* Default width */
-	      notify_std (&dtp->common, GFC_STD_GNU, posint_required);
+	      notify_std (&dtp->common, GFC_STD_GNU,
+			  "Positive width required with L descriptor");
 	    }
+	  fmt->value = 1;	/* Default width */
 	}
-
       get_fnode (fmt, &head, &tail, FMT_L);
       tail->u.n = fmt->value;
       tail->repeat = repeat;

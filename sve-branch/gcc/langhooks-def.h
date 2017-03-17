@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -52,6 +52,7 @@ extern void lhd_print_error_function (diagnostic_context *,
 				      const char *, struct diagnostic_info *);
 extern void lhd_set_decl_assembler_name (tree);
 extern bool lhd_warn_unused_global_decl (const_tree);
+extern tree lhd_type_for_size (unsigned precision, int unsignedp);
 extern void lhd_incomplete_type_error (location_t, const_tree, const_tree);
 extern tree lhd_type_promotes_to (tree);
 extern void lhd_register_builtin_type (tree, const char *);
@@ -80,10 +81,12 @@ struct gimplify_omp_ctx;
 extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 					       tree);
 extern bool lhd_omp_mappable_type (tree);
+extern bool lhd_omp_scalar_p (tree);
 
 extern const char *lhd_get_substring_location (const substring_loc &,
 					       location_t *out_loc);
 extern int lhd_decl_dwarf_attribute (const_tree, int);
+extern int lhd_type_dwarf_attribute (const_tree, int);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -159,8 +162,11 @@ extern tree lhd_make_node (enum tree_code);
 
 /* Types hooks.  There are no reasonable defaults for most of them,
    so we create a compile-time error instead.  */
+extern tree lhd_unit_size_without_reusable_padding (tree);
+
 #define LANG_HOOKS_MAKE_TYPE lhd_make_node
 #define LANG_HOOKS_CLASSIFY_RECORD	NULL
+#define LANG_HOOKS_TYPE_FOR_SIZE	lhd_type_for_size
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_GENERIC_TYPE_P	hook_bool_const_tree_false
 #define LANG_HOOKS_GET_INNERMOST_GENERIC_PARMS hook_tree_const_tree_null
@@ -186,6 +192,8 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE lhd_enum_underlying_base_type
 #define LANG_HOOKS_GET_DEBUG_TYPE	NULL
 #define LANG_HOOKS_GET_FIXED_POINT_TYPE_INFO NULL
+#define LANG_HOOKS_TYPE_DWARF_ATTRIBUTE	lhd_type_dwarf_attribute
+#define LANG_HOOKS_UNIT_SIZE_WITHOUT_REUSABLE_PADDING lhd_unit_size_without_reusable_padding
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
   LANG_HOOKS_MAKE_TYPE, \
@@ -208,7 +216,9 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_RECONSTRUCT_COMPLEX_TYPE, \
   LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE, \
   LANG_HOOKS_GET_DEBUG_TYPE, \
-  LANG_HOOKS_GET_FIXED_POINT_TYPE_INFO \
+  LANG_HOOKS_GET_FIXED_POINT_TYPE_INFO, \
+  LANG_HOOKS_TYPE_DWARF_ATTRIBUTE, \
+  LANG_HOOKS_UNIT_SIZE_WITHOUT_REUSABLE_PADDING \
 }
 
 /* Declaration hooks.  */
@@ -231,6 +241,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_OMP_CLAUSE_LINEAR_CTOR NULL
 #define LANG_HOOKS_OMP_CLAUSE_DTOR hook_tree_tree_tree_null
 #define LANG_HOOKS_OMP_FINISH_CLAUSE lhd_omp_finish_clause
+#define LANG_HOOKS_OMP_SCALAR_P lhd_omp_scalar_p
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
@@ -254,7 +265,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP, \
   LANG_HOOKS_OMP_CLAUSE_LINEAR_CTOR, \
   LANG_HOOKS_OMP_CLAUSE_DTOR, \
-  LANG_HOOKS_OMP_FINISH_CLAUSE \
+  LANG_HOOKS_OMP_FINISH_CLAUSE, \
+  LANG_HOOKS_OMP_SCALAR_P \
 }
 
 /* LTO hooks.  */

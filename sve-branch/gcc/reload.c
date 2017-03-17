@@ -1,5 +1,5 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1085,22 +1085,18 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 		&& REGNO (SUBREG_REG (in)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (in)))
 	      && (paradoxical_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
-#ifdef LOAD_EXTEND_OP
 		  || (must_le (GET_MODE_SIZE (inmode), UNITS_PER_WORD)
 		      && is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (in)),
 						 &inner_int_mode)
 		      && GET_MODE_SIZE (inner_int_mode) <= UNITS_PER_WORD
 		      && paradoxical_subreg_p (inmode, inner_int_mode)
 		      && LOAD_EXTEND_OP (inner_int_mode) != UNKNOWN)
-#endif
-#if WORD_REGISTER_OPERATIONS
-		  || (partial_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
+		  || (WORD_REGISTER_OPERATIONS
+		      && partial_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
 		      && (known_equal_after_align_down
 			  (GET_MODE_SIZE (inmode) - 1,
 			   GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))) - 1,
-			   UNITS_PER_WORD)))
-#endif
-		  ))
+			   UNITS_PER_WORD)))))
 	  || (REG_P (SUBREG_REG (in))
 	      && REGNO (SUBREG_REG (in)) < FIRST_PSEUDO_REGISTER
 	      /* The case where out is nonzero
@@ -1126,14 +1122,15 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 #endif
       inloc = &SUBREG_REG (in);
       in = *inloc;
-#if ! defined (LOAD_EXTEND_OP)
+
       if (!WORD_REGISTER_OPERATIONS
+	  && LOAD_EXTEND_OP (GET_MODE (in)) == UNKNOWN
 	  && MEM_P (in))
 	/* This is supposed to happen only for paradoxical subregs made by
 	   combine.c.  (SUBREG (MEM)) isn't supposed to occur other ways.  */
 	gcc_assert (must_le (GET_MODE_SIZE (GET_MODE (in)),
 			     GET_MODE_SIZE (inmode)));
-#endif
+
       inmode = GET_MODE (in);
     }
 
@@ -1191,14 +1188,12 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 		&& REGNO (SUBREG_REG (out)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (out)))
 	      && (paradoxical_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
-#if WORD_REGISTER_OPERATIONS
-		  || (partial_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
+		  || (WORD_REGISTER_OPERATIONS
+		      && partial_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
 		      && (known_equal_after_align_down
 			  (GET_MODE_SIZE (outmode) - 1,
 			   GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))) - 1,
-			   UNITS_PER_WORD)))
-#endif
-		  ))
+			   UNITS_PER_WORD)))))
 	  || (REG_P (SUBREG_REG (out))
 	      && REGNO (SUBREG_REG (out)) < FIRST_PSEUDO_REGISTER
 	      /* The case of a word mode subreg
@@ -3142,9 +3137,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		  operand = SUBREG_REG (operand);
 		  /* Force reload if this is a constant or PLUS or if there may
 		     be a problem accessing OPERAND in the outer mode.  */
-#ifdef LOAD_EXTEND_OP
 		  scalar_int_mode int_mode;
-#endif
 		  if (CONSTANT_P (operand)
 		      || GET_CODE (operand) == PLUS
 		      /* We must force a reload of paradoxical SUBREGs
@@ -3174,13 +3167,12 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		      || ((MEM_P (operand)
 			   || (REG_P (operand)
 			       && REGNO (operand) >= FIRST_PSEUDO_REGISTER))
-#if !WORD_REGISTER_OPERATIONS
-			  && ((may_lt (GET_MODE_BITSIZE (GET_MODE (operand)),
-				       BIGGEST_ALIGNMENT)
-			       && paradoxical_subreg_p (operand_mode[i],
-							GET_MODE (operand)))
+			  && (WORD_REGISTER_OPERATIONS
+			      || ((may_lt (GET_MODE_BITSIZE (GET_MODE (operand)),
+					   BIGGEST_ALIGNMENT)
+				   && (paradoxical_subreg_p
+				       (operand_mode[i], GET_MODE (operand)))))
 			      || BYTES_BIG_ENDIAN
-#ifdef LOAD_EXTEND_OP
 			      || (must_le (GET_MODE_SIZE (operand_mode[i]),
 					   UNITS_PER_WORD)
 				  && (is_a <scalar_int_mode>
@@ -3189,11 +3181,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 				      <= UNITS_PER_WORD)
 				  && paradoxical_subreg_p (operand_mode[i],
 							   int_mode)
-				  && LOAD_EXTEND_OP (int_mode) != UNKNOWN)
-#endif
-			      )
-#endif
-			  )
+				  && LOAD_EXTEND_OP (int_mode) != UNKNOWN)))
 		      )
 		    force_reload = 1;
 		}
@@ -5134,7 +5122,7 @@ find_reloads_address (machine_mode mode, rtx *memrefloc, rtx ad,
 	    loc = &XEXP (*loc, 0);
 	}
 
-      if (double_reg_address_ok
+      if (double_reg_address_ok[mode]
 	  && regno_ok_for_base_p (REGNO (XEXP (ad, 0)), mode, as,
 				  PLUS, CONST_INT))
 	{

@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -512,10 +512,12 @@ default_floatn_mode (int n, bool extended)
       switch (n)
 	{
 	case 16:
-	  /* We do not use HFmode for _Float16 by default because the
-	     required excess precision support is not present and the
-	     interactions with promotion of the older __fp16 need to
-	     be worked out.  */
+	  /* Always enable _Float16 if we have basic support for the mode.
+	     Targets can control the range and precision of operations on
+	     the _Float16 type using TARGET_C_EXCESS_PRECISION.  */
+#ifdef HAVE_HFmode
+	  cand = HFmode;
+#endif
 	  break;
 
 	case 32:
@@ -1140,20 +1142,12 @@ default_preferred_vector_alignment (const_tree type)
   return TYPE_ALIGN (type);
 }
 
+/* By default assume vectors of element TYPE require a multiple of the natural
+   alignment of TYPE.  TYPE is naturally aligned if IS_PACKED is false.  */
 bool
-default_builtin_vector_alignment_reachable (const_tree type, bool is_packed)
+default_builtin_vector_alignment_reachable (const_tree /*type*/, bool is_packed)
 {
-  if (is_packed)
-    return false;
-
-  /* Assuming that types whose size is > pointer-size are not guaranteed to be
-     naturally aligned.  */
-  if (tree_int_cst_compare (TYPE_SIZE (type), bitsize_int (POINTER_SIZE)) > 0)
-    return false;
-
-  /* Assuming that types whose size is <= pointer-size
-     are naturally aligned.  */
-  return true;
+  return ! is_packed;
 }
 
 /* By default, assume that a target supports any factor of misalignment
@@ -1557,36 +1551,6 @@ bool
 no_c99_libc_has_function (enum function_class fn_class ATTRIBUTE_UNUSED)
 {
   return false;
-}
-
-/* Return the format string to which "%p" corresponds.  By default,
-   assume it corresponds to the C99 "%zx" format and set *FLAGS to
-   the empty string to indicate that format flags have no effect.
-   An example of an implementation that matches this description
-   is AIX.  */
-
-const char*
-default_printf_pointer_format (tree, const char **flags)
-{
-  *flags = "";
-
-  return "%zx";
-}
-
-/* For Glibc and uClibc targets also define the hook here because
-   otherwise it would have to be duplicated in each target's .c file
-   (such as in bfin/bfin.c and c6x/c6x.c, etc.)
-   Glibc and uClibc format pointers as if by "%zx" except for the null
-   pointer which outputs "(nil)".  It ignores the pound ('#') format
-   flag but interprets the space and plus flags the same as in the integer
-   directive.  */
-
-const char*
-linux_printf_pointer_format (tree arg, const char **flags)
-{
-  *flags = " +";
-
-  return arg && integer_zerop (arg) ? "(nil)" : "%#zx";
 }
 
 tree
@@ -2206,6 +2170,22 @@ default_max_noce_ifcvt_seq_cost (edge e)
     return PARAM_VALUE (param);
   else
     return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (3);
+}
+
+/* Default implementation of TARGET_MIN_ARITHMETIC_PRECISION.  */
+
+unsigned int
+default_min_arithmetic_precision (void)
+{
+  return WORD_REGISTER_OPERATIONS ? BITS_PER_WORD : BITS_PER_UNIT;
+}
+
+/* Default implementation of TARGET_C_EXCESS_PRECISION.  */
+
+enum flt_eval_method
+default_excess_precision (enum excess_precision_type ATTRIBUTE_UNUSED)
+{
+  return FLT_EVAL_METHOD_PROMOTE_TO_FLOAT;
 }
 
 #include "gt-targhooks.h"

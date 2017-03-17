@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-all -march=armv8-a" } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-all -fno-vect-cost-model -march=armv8-a" } */
 
 #define N 32
 

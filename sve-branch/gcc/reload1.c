@@ -1,5 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -448,11 +448,10 @@ init_reload (void)
       /* This way, we make sure that reg+reg is an offsettable address.  */
       tem = plus_constant (Pmode, tem, 4);
 
-      if (memory_address_p (QImode, tem))
-	{
-	  double_reg_address_ok = 1;
-	  break;
-	}
+      for (int mode = 0; mode < MAX_MACHINE_MODE; mode++)
+	if (!double_reg_address_ok[mode]
+	    && memory_address_p ((machine_mode_enum) mode, tem))
+	  double_reg_address_ok[mode] = 1;
     }
 
   /* Initialize obstack for our rtl allocation.  */
@@ -2831,18 +2830,17 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 
 	  if (MEM_P (new_rtx)
 	      && ((partial_subreg_p (GET_MODE (x), GET_MODE (new_rtx))
-#if WORD_REGISTER_OPERATIONS
-		   /* On these machines, combine can create rtl of the form
+		   /* On RISC machines, combine can create rtl of the form
 		      (set (subreg:m1 (reg:m2 R) 0) ...)
 		      where m1 < m2, and expects something interesting to
 		      happen to the entire word.  Moreover, it will use the
 		      (reg:m2 R) later, expecting all bits to be preserved.
 		      So if the number of words is the same, preserve the
 		      subreg so that push_reload can see it.  */
-		   && !known_equal_after_align_down (x_size - 1, new_size - 1,
-						     UNITS_PER_WORD)
-#endif
-		   )
+		   && !(WORD_REGISTER_OPERATIONS
+			&& known_equal_after_align_down (x_size - 1,
+							 new_size - 1,
+							 UNITS_PER_WORD)))
 		  || must_eq (x_size, new_size))
 	      )
 	    return adjust_address_nv (new_rtx, GET_MODE (x), SUBREG_BYTE (x));
@@ -8717,7 +8715,6 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 #endif
   else if (REG_P (out) && UNARY_P (in))
     {
-      rtx insn;
       rtx op1;
       rtx out_moded;
       rtx_insn *set;
@@ -8742,13 +8739,13 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 
       gen_reload (out_moded, op1, opnum, type);
 
-      insn = gen_rtx_SET (out, gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in),
-					      out_moded));
-      insn = emit_insn_if_valid_for_reload (insn);
+      rtx temp = gen_rtx_SET (out, gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in),
+						  out_moded));
+      rtx_insn *insn = emit_insn_if_valid_for_reload (temp);
       if (insn)
 	{
 	  set_unique_reg_note (insn, REG_EQUIV, in);
-	  return as_a <rtx_insn *> (insn);
+	  return insn;
 	}
 
       fatal_insn ("failure trying to reload:", set);

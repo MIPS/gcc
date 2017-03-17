@@ -3,7 +3,7 @@
 ;; expander, and the actual vector instructions will be in altivec.md and
 ;; vsx.md
 
-;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2017 Free Software Foundation, Inc.
 ;; Contributed by Michael Meissner <meissner@linux.vnet.ibm.com>
 
 ;; This file is part of GCC.
@@ -248,7 +248,15 @@
 	(div:VEC_F (match_operand:VEC_F 1 "vfloat_operand" "")
 		   (match_operand:VEC_F 2 "vfloat_operand" "")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "")
+{
+  if (RS6000_RECIP_AUTO_RE_P (<MODE>mode)
+      && can_create_pseudo_p () && flag_finite_math_only
+      && !flag_trapping_math && flag_reciprocal_math)
+    {
+      rs6000_emit_swdiv (operands[0], operands[1], operands[2], true);
+      DONE;
+    }
+})
 
 (define_expand "neg<mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
@@ -382,13 +390,13 @@
 }")
 
 (define_expand "vcond<mode><mode>"
-  [(set (match_operand:VEC_I 0 "vint_operand" "")
+  [(set (match_operand:VEC_I 0 "vint_operand")
 	(if_then_else:VEC_I
 	 (match_operator 3 "comparison_operator"
-			 [(match_operand:VEC_I 4 "vint_operand" "")
-			  (match_operand:VEC_I 5 "vint_operand" "")])
-	 (match_operand:VEC_I 1 "vint_operand" "")
-	 (match_operand:VEC_I 2 "vint_operand" "")))]
+			 [(match_operand:VEC_I 4 "vint_operand")
+			  (match_operand:VEC_I 5 "vint_operand")])
+	 (match_operand:VEC_I 1 "vector_int_reg_or_same_bit")
+	 (match_operand:VEC_I 2 "vector_int_reg_or_same_bit")))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "
 {
@@ -438,13 +446,13 @@
 }")
 
 (define_expand "vcondu<mode><mode>"
-  [(set (match_operand:VEC_I 0 "vint_operand" "")
+  [(set (match_operand:VEC_I 0 "vint_operand")
 	(if_then_else:VEC_I
 	 (match_operator 3 "comparison_operator"
-			 [(match_operand:VEC_I 4 "vint_operand" "")
-			  (match_operand:VEC_I 5 "vint_operand" "")])
-	 (match_operand:VEC_I 1 "vint_operand" "")
-	 (match_operand:VEC_I 2 "vint_operand" "")))]
+			 [(match_operand:VEC_I 4 "vint_operand")
+			  (match_operand:VEC_I 5 "vint_operand")])
+	 (match_operand:VEC_I 1 "vector_int_reg_or_same_bit")
+	 (match_operand:VEC_I 2 "vector_int_reg_or_same_bit")))]
   "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "
 {

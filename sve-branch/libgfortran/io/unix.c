@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -27,7 +27,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #include "io.h"
 #include "unix.h"
-#include <stdlib.h>
 #include <limits.h>
 
 #ifdef HAVE_UNISTD_H
@@ -36,7 +35,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <assert.h>
 
 #include <string.h>
 #include <errno.h>
@@ -1425,6 +1423,56 @@ regular_file2 (const char *path, st_parameter_open *opp, unit_flags *flags)
 }
 
 
+/* Lock the file, if necessary, based on SHARE flags.  */
+
+#if defined(HAVE_FCNTL) && defined(F_SETLK) && defined(F_UNLCK)
+static int
+open_share (st_parameter_open *opp, int fd, unit_flags *flags)
+{
+  int r = 0;
+  struct flock f;
+  if (fd == STDOUT_FILENO || fd == STDERR_FILENO || fd == STDIN_FILENO)
+    return 0;
+
+  f.l_start = 0;
+  f.l_len = 0;
+  f.l_whence = SEEK_SET;
+
+  switch (flags->share)
+  {
+    case SHARE_DENYNONE:
+      f.l_type = F_RDLCK;
+      r = fcntl (fd, F_SETLK, &f);
+      break;
+    case SHARE_DENYRW:
+      /* Must be writable to hold write lock.  */
+      if (flags->action == ACTION_READ)
+	{
+	  generate_error (&opp->common, LIBERROR_BAD_ACTION,
+	      "Cannot set write lock on file opened for READ");
+	  return -1;
+	}
+      f.l_type = F_WRLCK;
+      r = fcntl (fd, F_SETLK, &f);
+      break;
+    case SHARE_UNSPECIFIED:
+    default:
+      break;
+  }
+
+  return r;
+}
+#else
+static int
+open_share (st_parameter_open *opp __attribute__ ((unused)),
+    int fd __attribute__ ((unused)),
+    unit_flags *flags __attribute__ ((unused)))
+{
+  return 0;
+}
+#endif /* defined(HAVE_FCNTL) ... */
+
+
 /* Wrapper around regular_file2, to make sure we free the path after
    we're done.  */
 
@@ -1450,7 +1498,7 @@ open_external (st_parameter_open *opp, unit_flags *flags)
     {
       fd = tempfile (opp);
       if (flags->action == ACTION_UNSPECIFIED)
-	flags->action = ACTION_READWRITE;
+	flags->action = flags->readonly ? ACTION_READ : ACTION_READWRITE;
 
 #if HAVE_UNLINK_OPEN_FILE
       /* We can unlink scratch files now and it will go away when closed. */
@@ -1471,6 +1519,9 @@ open_external (st_parameter_open *opp, unit_flags *flags)
   if (fd < 0)
     return NULL;
   fd = fix_fd (fd);
+
+  if (open_share (opp, fd, flags) < 0)
+    return NULL;
 
   return fd_to_stream (fd, flags->form == FORM_UNFORMATTED);
 }
@@ -1749,6 +1800,40 @@ flush_all_units (void)
 	}
     }
   while (1);
+}
+
+
+/* Unlock the unit if necessary, based on SHARE flags.  */
+
+int
+close_share (gfc_unit *u __attribute__ ((unused)))
+{
+  int r = 0;
+#if defined(HAVE_FCNTL) && defined(F_SETLK) && defined(F_UNLCK)
+  unix_stream *s = (unix_stream *) u->s;
+  int fd = s->fd;
+  struct flock f;
+
+  switch (u->flags.share)
+  {
+    case SHARE_DENYRW:
+    case SHARE_DENYNONE:
+      if (fd != STDOUT_FILENO && fd != STDERR_FILENO && fd != STDIN_FILENO)
+	{
+	  f.l_start = 0;
+	  f.l_len = 0;
+	  f.l_whence = SEEK_SET;
+	  f.l_type = F_UNLCK;
+	  r = fcntl (fd, F_SETLK, &f);
+	}
+      break;
+    case SHARE_UNSPECIFIED:
+    default:
+      break;
+  }
+
+#endif
+  return r;
 }
 
 

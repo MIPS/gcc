@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -81,11 +81,6 @@ enum internal_test
    can support a given mode.  */
 char xtensa_hard_regno_mode_ok[(int) MAX_MACHINE_MODE][FIRST_PSEUDO_REGISTER];
 
-/* Current frame size calculated by compute_frame_size.  */
-unsigned xtensa_current_frame_size;
-/* Callee-save area size in the current frame calculated by compute_frame_size. */
-int xtensa_callee_save_size;
-
 /* Largest block move to handle in-line.  */
 #define LARGEST_MOVE_RATIO 15
 
@@ -97,6 +92,13 @@ struct GTY(()) machine_function
   bool vararg_a7;
   rtx vararg_a7_copy;
   rtx_insn *set_frame_ptr_insn;
+  /* Current frame size calculated by compute_frame_size.  */
+  unsigned current_frame_size;
+  /* Callee-save area size in the current frame calculated by
+     compute_frame_size.  */
+  int callee_save_size;
+  bool frame_laid_out;
+  bool epilogue_done;
 };
 
 /* Vector, indexed by hard register number, which contains 1 for a
@@ -2538,13 +2540,32 @@ xtensa_output_addr_const_extra (FILE *fp, rtx x)
   return false;
 }
 
+static void
+xtensa_output_integer_literal_parts (FILE *file, rtx x, int size)
+{
+  if (size > 4 && !(size & (size - 1)))
+    {
+      rtx first, second;
+
+      split_double (x, &first, &second);
+      xtensa_output_integer_literal_parts (file, first, size / 2);
+      fputs (", ", file);
+      xtensa_output_integer_literal_parts (file, second, size / 2);
+    }
+  else if (size == 4)
+    {
+      output_addr_const (file, x);
+    }
+  else
+    {
+      gcc_unreachable();
+    }
+}
 
 void
 xtensa_output_literal (FILE *file, rtx x, machine_mode mode, int labelno)
 {
   long value_long[2];
-  int size;
-  rtx first, second;
 
   fprintf (file, "\t.literal .LC%u, ", (unsigned) labelno);
 
@@ -2583,25 +2604,8 @@ xtensa_output_literal (FILE *file, rtx x, machine_mode mode, int labelno)
 
     case MODE_INT:
     case MODE_PARTIAL_INT:
-      size = GET_MODE_SIZE (mode);
-      switch (size)
-	{
-	case 4:
-	  output_addr_const (file, x);
-	  fputs ("\n", file);
-	  break;
-
-	case 8:
-	  split_double (x, &first, &second);
-	  output_addr_const (file, first);
-	  fputs (", ", file);
-	  output_addr_const (file, second);
-	  fputs ("\n", file);
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
+      xtensa_output_integer_literal_parts (file, x, GET_MODE_SIZE (mode));
+      fputs ("\n", file);
       break;
 
     default:
@@ -2637,24 +2641,29 @@ compute_frame_size (poly_int64 size)
 {
   int regno;
 
+  if (reload_completed && cfun->machine->frame_laid_out)
+    return cfun->machine->current_frame_size;
+
   /* Add space for the incoming static chain value.  */
   if (cfun->static_chain_decl != NULL)
     size += (1 * UNITS_PER_WORD);
 
-  xtensa_callee_save_size = 0;
+  cfun->machine->callee_save_size = 0;
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; ++regno)
     {
       if (xtensa_call_save_reg(regno))
-	xtensa_callee_save_size += UNITS_PER_WORD;
+	cfun->machine->callee_save_size += UNITS_PER_WORD;
     }
 
-  xtensa_current_frame_size =
+  cfun->machine->current_frame_size =
     XTENSA_STACK_ALIGN (size
-			+ xtensa_callee_save_size
+			+ cfun->machine->callee_save_size
 			+ crtl->outgoing_args_size
 			+ (WINDOW_SIZE * UNITS_PER_WORD));
-  xtensa_callee_save_size = XTENSA_STACK_ALIGN (xtensa_callee_save_size);
-  return xtensa_current_frame_size;
+  cfun->machine->callee_save_size =
+    XTENSA_STACK_ALIGN (cfun->machine->callee_save_size);
+  cfun->machine->frame_laid_out = true;
+  return cfun->machine->current_frame_size;
 }
 
 
@@ -2708,6 +2717,7 @@ xtensa_expand_prologue (void)
     {
       int regno;
       HOST_WIDE_INT offset = 0;
+      int callee_save_size = cfun->machine->callee_save_size;
 
       /* -128 is a limit of single addi instruction. */
       if (total_size > 0 && total_size <= 128)
@@ -2721,7 +2731,7 @@ xtensa_expand_prologue (void)
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, note_rtx);
 	  offset = total_size - UNITS_PER_WORD;
 	}
-      else if (xtensa_callee_save_size)
+      else if (callee_save_size)
 	{
 	  /* 1020 is maximal s32i offset, if the frame is bigger than that
 	   * we move sp to the end of callee-saved save area, save and then
@@ -2729,13 +2739,13 @@ xtensa_expand_prologue (void)
 	  if (total_size > 1024)
 	    {
 	      insn = emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
-					    GEN_INT (-xtensa_callee_save_size)));
+					    GEN_INT (-callee_save_size)));
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      note_rtx = gen_rtx_SET (stack_pointer_rtx,
 				      plus_constant (Pmode, stack_pointer_rtx,
-						     -xtensa_callee_save_size));
+						     -callee_save_size));
 	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, note_rtx);
-	      offset = xtensa_callee_save_size - UNITS_PER_WORD;
+	      offset = callee_save_size - UNITS_PER_WORD;
 	    }
 	  else
 	    {
@@ -2771,13 +2781,13 @@ xtensa_expand_prologue (void)
 	{
 	  rtx tmp_reg = gen_rtx_REG (Pmode, A9_REG);
 	  emit_move_insn (tmp_reg, GEN_INT (total_size -
-					    xtensa_callee_save_size));
+					    callee_save_size));
 	  insn = emit_insn (gen_subsi3 (stack_pointer_rtx,
 					stack_pointer_rtx, tmp_reg));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  note_rtx = gen_rtx_SET (stack_pointer_rtx,
 				  plus_constant (Pmode, stack_pointer_rtx,
-						 xtensa_callee_save_size -
+						 callee_save_size -
 						 total_size));
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, note_rtx);
 	}
@@ -2845,21 +2855,21 @@ xtensa_expand_epilogue (void)
       int regno;
       HOST_WIDE_INT offset;
 
-      if (xtensa_current_frame_size > (frame_pointer_needed ? 127 : 1024))
+      if (cfun->machine->current_frame_size > (frame_pointer_needed ? 127 : 1024))
 	{
 	  rtx tmp_reg = gen_rtx_REG (Pmode, A9_REG);
-	  emit_move_insn (tmp_reg, GEN_INT (xtensa_current_frame_size -
-					    xtensa_callee_save_size));
+	  emit_move_insn (tmp_reg, GEN_INT (cfun->machine->current_frame_size -
+					    cfun->machine->callee_save_size));
 	  emit_insn (gen_addsi3 (stack_pointer_rtx, frame_pointer_needed ?
 				 hard_frame_pointer_rtx : stack_pointer_rtx,
 				 tmp_reg));
-	  offset = xtensa_callee_save_size - UNITS_PER_WORD;
+	  offset = cfun->machine->callee_save_size - UNITS_PER_WORD;
 	}
       else
 	{
 	  if (frame_pointer_needed)
 	    emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
-	  offset = xtensa_current_frame_size - UNITS_PER_WORD;
+	  offset = cfun->machine->current_frame_size - UNITS_PER_WORD;
 	}
 
       /* Prevent reordering of saved a0 update and loading it back from
@@ -2879,16 +2889,16 @@ xtensa_expand_epilogue (void)
 	    }
 	}
 
-      if (xtensa_current_frame_size > 0)
+      if (cfun->machine->current_frame_size > 0)
 	{
 	  if (frame_pointer_needed || /* always reachable with addi */
-	      xtensa_current_frame_size > 1024 ||
-	      xtensa_current_frame_size <= 127)
+	      cfun->machine->current_frame_size > 1024 ||
+	      cfun->machine->current_frame_size <= 127)
 	    {
-	      if (xtensa_current_frame_size <= 127)
-		offset = xtensa_current_frame_size;
+	      if (cfun->machine->current_frame_size <= 127)
+		offset = cfun->machine->current_frame_size;
 	      else
-		offset = xtensa_callee_save_size;
+		offset = cfun->machine->callee_save_size;
 
 	      emit_insn (gen_addsi3 (stack_pointer_rtx,
 				     stack_pointer_rtx,
@@ -2897,7 +2907,8 @@ xtensa_expand_epilogue (void)
 	  else
 	    {
 	      rtx tmp_reg = gen_rtx_REG (Pmode, A9_REG);
-	      emit_move_insn (tmp_reg, GEN_INT (xtensa_current_frame_size));
+	      emit_move_insn (tmp_reg,
+			      GEN_INT (cfun->machine->current_frame_size));
 	      emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx,
 				     tmp_reg));
 	    }
@@ -2908,9 +2919,20 @@ xtensa_expand_epilogue (void)
 				  stack_pointer_rtx,
 				  EH_RETURN_STACKADJ_RTX));
     }
-  xtensa_current_frame_size = 0;
-  xtensa_callee_save_size = 0;
+  cfun->machine->epilogue_done = true;
   emit_jump_insn (gen_return ());
+}
+
+bool
+xtensa_use_return_instruction_p (void)
+{
+  if (!reload_completed)
+    return false;
+  if (TARGET_WINDOWED_ABI)
+    return true;
+  if (compute_frame_size (get_frame_size ()) == 0)
+    return true;
+  return cfun->machine->epilogue_done;
 }
 
 void
@@ -4150,7 +4172,10 @@ hwloop_optimize (hwloop_info loop)
       entry_after = BB_END (entry_bb);
       while (DEBUG_INSN_P (entry_after)
              || (NOTE_P (entry_after)
-                 && NOTE_KIND (entry_after) != NOTE_INSN_BASIC_BLOCK))
+                 && NOTE_KIND (entry_after) != NOTE_INSN_BASIC_BLOCK
+		 /* Make sure we don't split a call and its corresponding
+		    CALL_ARG_LOCATION note.  */
+                 && NOTE_KIND (entry_after) != NOTE_INSN_CALL_ARG_LOCATION))
         entry_after = PREV_INSN (entry_after);
 
       emit_insn_after (seq, entry_after);

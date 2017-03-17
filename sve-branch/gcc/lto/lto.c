@@ -1,5 +1,5 @@
 /* Top-level LTO routines.
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -373,7 +373,9 @@ hash_canonical_type (tree type)
       tree f;
 
       for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
-	if (TREE_CODE (f) == FIELD_DECL)
+	if (TREE_CODE (f) == FIELD_DECL
+	    && (! DECL_SIZE (f)
+		|| ! integer_zerop (DECL_SIZE (f))))
 	  {
 	    iterative_hash_canonical_type (TREE_TYPE (f), hstate);
 	    nf++;
@@ -2286,6 +2288,8 @@ do_stream_out (char *temp_filename, lto_symtab_encoder_t encoder)
 
   ipa_write_optimization_summaries (encoder);
 
+  free (CONST_CAST (char *, file->filename));
+
   lto_set_current_out_file (NULL);
   lto_obj_file_close (file);
   free (file);
@@ -3091,6 +3095,10 @@ do_whole_program_analysis (void)
   symtab->state = IPA_SSA;
 
   execute_ipa_pass_list (g->get_passes ()->all_regular_ipa_passes);
+
+  /* When WPA analysis raises errors, do not bother to output anything.  */
+  if (seen_error ())
+    return;
 
   if (symtab->dump_file)
     {

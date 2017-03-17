@@ -1,5 +1,5 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2017 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -390,6 +390,12 @@
 	     || mode == CC_DGEUmode
 	     || mode == CC_DGTUmode));
 })
+
+;; Any register, including CC
+(define_predicate "cc_register_operand"
+  (and (match_code "reg")
+       (ior (match_operand 0 "s_register_operand")
+	    (match_operand 0 "cc_register"))))
 
 (define_special_predicate "arm_extendqisi_mem_op"
   (and (match_operand 0 "memory_operand")

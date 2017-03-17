@@ -1,5 +1,5 @@
 /* Generate the machine mode enumeration and associated tables.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1047,6 +1047,7 @@ poly_uint16\n\
 mode_size_inline (machine_mode_enum mode)\n\
 {\n\
   extern %spoly_uint16_pod mode_size[NUM_MACHINE_MODES];\n\
+  gcc_assert (mode >= 0 && mode < NUM_MACHINE_MODES);\n\
   switch (mode)\n\
     {\n", adj_bytesize ? "" : "const ");
 
@@ -1627,7 +1628,7 @@ emit_mode_base_align (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("%sunsigned char",
+  print_maybe_const_decl ("%sunsigned short",
 			  "mode_base_align", "NUM_MACHINE_MODES",
 			  adj_alignment);
 

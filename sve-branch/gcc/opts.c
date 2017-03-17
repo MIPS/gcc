@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts-diagnostic.h"
 #include "insn-attr-common.h"
 #include "common/common-target.h"
+#include "spellcheck.h"
 
 static void set_Wstrict_aliasing (struct gcc_options *opts, int onoff);
 
@@ -402,13 +403,13 @@ maybe_default_option (struct gcc_options *opts,
     handle_generated_option (opts, opts_set, default_opt->opt_index,
 			     default_opt->arg, default_opt->value,
 			     lang_mask, DK_UNSPECIFIED, loc,
-			     handlers, dc);
+			     handlers, true, dc);
   else if (default_opt->arg == NULL
 	   && !option->cl_reject_negative)
     handle_generated_option (opts, opts_set, default_opt->opt_index,
 			     default_opt->arg, !default_opt->value,
 			     lang_mask, DK_UNSPECIFIED, loc,
-			     handlers, dc);
+			     handlers, true, dc);
 }
 
 /* As indicated by the optimization level LEVEL (-Os if SIZE is set,
@@ -521,6 +522,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_ra, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_flra_remat, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fstore_merging, NULL, 1 },
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
@@ -742,6 +744,14 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 		  "is disabled");
       opts->x_flag_toplevel_reorder = 0;
     }
+
+  /* -fself-test depends on the state of the compiler prior to
+     compiling anything.  Ideally it should be run on an empty source
+     file.  However, in case we get run with actual source, assume
+     -fsyntax-only which will inhibit any compiler initialization
+     which may confuse the self tests.  */
+  if (opts->x_flag_self_test)
+    opts->x_flag_syntax_only = 1;
 
   if (opts->x_flag_tm && opts->x_flag_non_call_exceptions)
     sorry ("transactional memory is not supported with non-call exceptions");
@@ -977,6 +987,25 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     {
       opts->x_flag_aggressive_loop_optimizations = 0;
       opts->x_flag_strict_overflow = 0;
+    }
+
+  /* Enable -fsanitize-address-use-after-scope if address sanitizer is
+     enabled.  */
+  if ((opts->x_flag_sanitize & SANITIZE_USER_ADDRESS)
+      && !opts_set->x_flag_sanitize_address_use_after_scope)
+    opts->x_flag_sanitize_address_use_after_scope = true;
+
+  /* Force -fstack-reuse=none in case -fsanitize-address-use-after-scope
+     is enabled.  */
+  if (opts->x_flag_sanitize_address_use_after_scope)
+    {
+      if (opts->x_flag_stack_reuse != SR_NONE
+	  && opts_set->x_flag_stack_reuse != SR_NONE)
+	error_at (loc,
+		  "-fsanitize-address-use-after-scope requires "
+		  "-fstack-reuse=none option");
+
+      opts->x_flag_stack_reuse = SR_NONE;
     }
 }
 
@@ -1451,12 +1480,14 @@ const struct sanitizer_opts_s sanitizer_opts[] =
 {
 #define SANITIZER_OPT(name, flags, recover) \
     { #name, flags, sizeof #name - 1, recover }
-  SANITIZER_OPT (address, SANITIZE_ADDRESS | SANITIZE_USER_ADDRESS, true),
-  SANITIZER_OPT (kernel-address, SANITIZE_ADDRESS | SANITIZE_KERNEL_ADDRESS,
+  SANITIZER_OPT (address, (SANITIZE_ADDRESS | SANITIZE_USER_ADDRESS), true),
+  SANITIZER_OPT (kernel-address, (SANITIZE_ADDRESS | SANITIZE_KERNEL_ADDRESS),
 		 true),
   SANITIZER_OPT (thread, SANITIZE_THREAD, false),
   SANITIZER_OPT (leak, SANITIZE_LEAK, false),
   SANITIZER_OPT (shift, SANITIZE_SHIFT, true),
+  SANITIZER_OPT (shift-base, SANITIZE_SHIFT_BASE, true),
+  SANITIZER_OPT (shift-exponent, SANITIZE_SHIFT_EXPONENT, true),
   SANITIZER_OPT (integer-divide-by-zero, SANITIZE_DIVIDE, true),
   SANITIZER_OPT (undefined, SANITIZE_UNDEFINED, true),
   SANITIZER_OPT (unreachable, SANITIZE_UNREACHABLE, false),
@@ -1480,6 +1511,65 @@ const struct sanitizer_opts_s sanitizer_opts[] =
 #undef SANITIZER_OPT
   { NULL, 0U, 0UL, false }
 };
+
+/* A struct for describing a run of chars within a string.  */
+
+struct string_fragment
+{
+  string_fragment (const char *start, size_t len)
+  : m_start (start), m_len (len) {}
+
+  const char *m_start;
+  size_t m_len;
+};
+
+/* Specialization of edit_distance_traits for string_fragment,
+   for use by get_closest_sanitizer_option.  */
+
+template <>
+struct edit_distance_traits<const string_fragment &>
+{
+  static size_t get_length (const string_fragment &fragment)
+  {
+    return fragment.m_len;
+  }
+
+  static const char *get_string (const string_fragment &fragment)
+  {
+    return fragment.m_start;
+  }
+};
+
+/* Given ARG, an unrecognized sanitizer option, return the best
+   matching sanitizer option, or NULL if there isn't one.
+   CODE is OPT_fsanitize_ or OPT_fsanitize_recover_.
+   VALUE is non-zero for the regular form of the option, zero
+   for the "no-" form (e.g. "-fno-sanitize-recover=").  */
+
+static const char *
+get_closest_sanitizer_option (const string_fragment &arg,
+			      enum opt_code code, int value)
+{
+  best_match <const string_fragment &, const char*> bm (arg);
+  for (int i = 0; sanitizer_opts[i].name != NULL; ++i)
+    {
+      /* -fsanitize=all is not valid, so don't offer it.  */
+      if (sanitizer_opts[i].flag == ~0U
+	  && code == OPT_fsanitize_
+	  && value)
+	continue;
+
+      /* For -fsanitize-recover= (and not -fno-sanitize-recover=),
+	 don't offer the non-recoverable options.  */
+      if (!sanitizer_opts[i].can_recover
+	  && code == OPT_fsanitize_recover_
+	  && value)
+	continue;
+
+      bm.consider (sanitizer_opts[i].name);
+    }
+  return bm.get_best_meaningful_candidate ();
+}
 
 /* Parse comma separated sanitizer suboptions from P for option SCODE,
    adjust previous FLAGS and return new ones.  If COMPLAIN is false,
@@ -1528,7 +1618,8 @@ parse_sanitizer_options (const char *p, location_t loc, int scode,
 		/* Do not enable -fsanitize-recover=unreachable and
 		   -fsanitize-recover=return if -fsanitize-recover=undefined
 		   is selected.  */
-		if (sanitizer_opts[i].flag == SANITIZE_UNDEFINED)
+		if (code == OPT_fsanitize_recover_
+		    && sanitizer_opts[i].flag == SANITIZE_UNDEFINED)
 		  flags |= (SANITIZE_UNDEFINED
 			    & ~(SANITIZE_UNREACHABLE | SANITIZE_RETURN));
 		else
@@ -1541,8 +1632,25 @@ parse_sanitizer_options (const char *p, location_t loc, int scode,
 	  }
 
       if (! found && complain)
-	error_at (loc, "unrecognized argument to -fsanitize%s= option: %q.*s",
-		  code == OPT_fsanitize_ ? "" : "-recover", (int) len, p);
+	{
+	  const char *hint
+	    = get_closest_sanitizer_option (string_fragment (p, len),
+					    code, value);
+
+	  if (hint)
+	    error_at (loc,
+		      "unrecognized argument to -f%ssanitize%s= option: %q.*s;"
+		      " did you mean %qs",
+		      value ? "" : "no-",
+		      code == OPT_fsanitize_ ? "" : "-recover",
+		      (int) len, p, hint);
+	  else
+	    error_at (loc,
+		      "unrecognized argument to -f%ssanitize%s= option: %q.*s",
+		      value ? "" : "no-",
+		      code == OPT_fsanitize_ ? "" : "-recover",
+		      (int) len, p);
+	}
 
       if (comma == NULL)
 	break;
@@ -1778,6 +1886,10 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_fasan_shadow_offset_:
       /* Deferred.  */
+      break;
+
+    case OPT_fsanitize_address_use_after_scope:
+      opts->x_flag_sanitize_address_use_after_scope = value;
       break;
 
     case OPT_fsanitize_recover:
@@ -2038,6 +2150,8 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_flag_profile_values = value;
       if (!opts_set->x_flag_inline_functions)
 	opts->x_flag_inline_functions = value;
+      if (!opts_set->x_flag_ipa_bit_cp)
+	opts->x_flag_ipa_bit_cp = value;
       /* FIXME: Instrumentation we insert makes ipa-reference bitmaps
 	 quadratic.  Disable the pass until better memory representation
 	 is done.  */
@@ -2307,6 +2421,10 @@ set_fast_math_flags (struct gcc_options *opts, int set)
     opts->x_flag_errno_math = !set;
   if (set)
     {
+      if (opts->frontend_set_flag_excess_precision_cmdline
+	  == EXCESS_PRECISION_DEFAULT)
+	opts->x_flag_excess_precision_cmdline
+	  = set ? EXCESS_PRECISION_FAST : EXCESS_PRECISION_DEFAULT;
       if (!opts->frontend_set_flag_signaling_nans)
 	opts->x_flag_signaling_nans = 0;
       if (!opts->frontend_set_flag_rounding_math)
@@ -2339,7 +2457,9 @@ fast_math_flags_set_p (const struct gcc_options *opts)
 	  && opts->x_flag_unsafe_math_optimizations
 	  && opts->x_flag_finite_math_only
 	  && !opts->x_flag_signed_zeros
-	  && !opts->x_flag_errno_math);
+	  && !opts->x_flag_errno_math
+	  && opts->x_flag_excess_precision_cmdline
+	     == EXCESS_PRECISION_FAST);
 }
 
 /* Return true iff flags are set as if -ffast-math but using the flags stored
@@ -2408,7 +2528,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
     {
       int argval = integral_argument (arg);
       if (argval == -1)
-	error_at (loc, "unrecognised debug output level %qs", arg);
+	error_at (loc, "unrecognized debug output level %qs", arg);
       else if (argval > 3)
 	error_at (loc, "debug output level %qs is too high", arg);
       else

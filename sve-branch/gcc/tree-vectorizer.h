@@ -1,5 +1,5 @@
 /* Vectorizer
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -435,6 +435,10 @@ typedef struct _loop_vec_info : public vec_info {
   /* Mark loops having masked stores.  */
   bool has_mask_store;
 
+  /* For loops being epilogues of already vectorized loops
+     this points to the original vectorized loop.  Otherwise NULL.  */
+  _loop_vec_info *orig_loop_info;
+
   /* A hash table used for caching vector base addresses.  */
   hash_table<vect_addr_base_hasher> *vect_addr_base_htab;
 
@@ -528,6 +532,7 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_HAS_MASK_STORE(L)       (L)->has_mask_store
 #define LOOP_VINFO_SCALAR_ITERATION_COST(L) (L)->scalar_cost_vec
 #define LOOP_VINFO_SINGLE_SCALAR_ITERATION_COST(L) (L)->single_scalar_iteration_cost
+#define LOOP_VINFO_ORIG_LOOP_INFO(L)       (L)->orig_loop_info
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
 #define LOOP_VINFO_GATHER_SCATTER_CACHE(L) (L)->gather_scatter_htab
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
@@ -556,6 +561,12 @@ typedef struct _loop_vec_info : public vec_info {
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)          \
   (tree_fits_shwi_p ((L)->num_iters) && tree_to_shwi ((L)->num_iters) > 0)
+
+#define LOOP_VINFO_EPILOGUE_P(L) \
+  (LOOP_VINFO_ORIG_LOOP_INFO (L) != NULL)
+
+#define LOOP_VINFO_ORIG_MAX_VECT_FACTOR(L) \
+  (LOOP_VINFO_MAX_VECT_FACTOR (LOOP_VINFO_ORIG_LOOP_INFO (L)))
 
 static inline loop_vec_info
 loop_vec_info_for_loop (struct loop *loop)
@@ -978,6 +989,18 @@ struct sink_info
 
 #define MAX_VECTORIZATION_FACTOR INT_MAX
 
+/* Nonzero if TYPE represents a (scalar) boolean type or type
+   in the middle-end compatible with it (unsigned precision 1 integral
+   types).  Used to determine which types should be vectorized as
+   VECTOR_BOOLEAN_TYPE_P.  */
+
+#define VECT_SCALAR_BOOLEAN_TYPE_P(TYPE) \
+  (TREE_CODE (TYPE) == BOOLEAN_TYPE		\
+   || ((TREE_CODE (TYPE) == INTEGER_TYPE	\
+	|| TREE_CODE (TYPE) == ENUMERAL_TYPE)	\
+       && TYPE_PRECISION (TYPE) == 1		\
+       && TYPE_UNSIGNED (TYPE)))
+
 extern vec<stmt_vec_info> stmt_vec_info_vec;
 
 void init_stmt_vec_info_vec (void);
@@ -1345,8 +1368,8 @@ extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
 struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *,
 						     struct loop *, edge);
 extern void vect_loop_versioning (loop_vec_info, unsigned int, bool);
-extern void vect_do_peeling (loop_vec_info, tree, tree,
-			     tree *, int, bool, bool);
+extern struct loop *vect_do_peeling (loop_vec_info, tree, tree,
+				     tree *, int, bool, bool);
 extern void vect_prepare_for_masked_peels (loop_vec_info);
 extern source_location find_loop_location (struct loop *);
 extern bool vect_can_advance_ivs_p (loop_vec_info);
@@ -1467,7 +1490,8 @@ extern void destroy_loop_vec_info (loop_vec_info, bool);
 extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *, bool,
 					    bool *, bool *, bool);
 /* Drive for loop analysis stage.  */
-extern loop_vec_info vect_analyze_loop (struct loop *, struct sink_info *);
+extern loop_vec_info vect_analyze_loop (struct loop *, loop_vec_info,
+					struct sink_info *);
 extern tree vect_build_loop_niters (loop_vec_info);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *, bool);
 extern tree vect_get_loop_mask (loop_vec_info, vec<tree> &, unsigned int);
@@ -1476,7 +1500,7 @@ extern void vect_populate_mask_array (loop_vec_info, vec<tree> &,
 				      unsigned int, gimple_stmt_iterator *);
 
 /* Drive for loop transformation stage.  */
-extern void vect_transform_loop (loop_vec_info);
+extern struct loop *vect_transform_loop (loop_vec_info);
 extern loop_vec_info vect_analyze_loop_form (struct loop *, struct sink_info *);
 extern bool vectorizable_live_operation (gimple *, gimple_stmt_iterator *,
 					 slp_tree, int, gimple **);
@@ -1493,7 +1517,7 @@ extern int vect_get_known_peeling_cost (loop_vec_info, int, int *,
 extern void vect_free_slp_instance (slp_instance);
 extern bool vect_transform_slp_perm_load (slp_tree, vec<tree> ,
 					  gimple_stmt_iterator *, poly_uint64,
-                                          slp_instance, bool);
+                                          slp_instance, bool, unsigned *);
 extern bool vect_slp_analyze_operations (vec<slp_instance> slp_instances,
 					 void *);
 extern bool vect_schedule_slp (vec_info *);

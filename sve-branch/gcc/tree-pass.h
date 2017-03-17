@@ -1,5 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -222,6 +222,7 @@ protected:
 						   of math functions; the
 						   current choices have
 						   been optimized.  */
+#define PROP_gimple_lomp_dev	(1 << 16)	/* done omp_device_lower */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
@@ -417,15 +418,18 @@ extern gimple_opt_pass *make_pass_expand_omp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_expand_omp_ssa (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_omp_target_link (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_oacc_device_lower (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_omp_device_lower (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_object_sizes (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_strlen (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_fold_builtins (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_post_ipa_warn (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_stdarg (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_early_warn_uninitialized (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_late_warn_uninitialized (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_cse_reciprocals (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_cse_sincos (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_optimize_bswap (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_store_merging (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_optimize_widening_mul (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_warn_function_return (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_warn_function_noreturn (gcc::context *ctxt);

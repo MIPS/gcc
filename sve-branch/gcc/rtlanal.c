@@ -1,5 +1,5 @@
 /* Analyze RTL for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -550,6 +550,8 @@ rtx_addr_can_trap_p_1 (const_rtx x, poly_int64 offset, poly_int64 size,
 
 	  if (!known_size_p)
 	    return 1;
+	  if (must_eq (size, 0))
+	    return 1;
 
 	  if (x == frame_pointer_rtx)
 	    {
@@ -689,6 +691,19 @@ int
 rtx_addr_can_trap_p (const_rtx x)
 {
   return rtx_addr_can_trap_p_1 (x, 0, 0, BLKmode, false);
+}
+
+/* Return true if X contains a MEM subrtx.  */
+
+bool
+contains_mem_rtx_p (rtx x)
+{
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    if (MEM_P (*iter))
+      return true;
+
+  return false;
 }
 
 /* Return true if X is an address that is known to not be zero.  */
@@ -2098,7 +2113,7 @@ note_uses (rtx *pbody, void (*fun) (rtx *, void *), void *data)
    by INSN.  */
 
 int
-dead_or_set_p (const_rtx insn, const_rtx x)
+dead_or_set_p (const rtx_insn *insn, const_rtx x)
 {
   unsigned int regno, end_regno;
   unsigned int i;
@@ -2168,7 +2183,7 @@ covers_regno_p (const_rtx dest, unsigned int test_regno)
 /* Utility function for dead_or_set_p to check an individual register. */
 
 int
-dead_or_set_regno_p (const_rtx insn, unsigned int test_regno)
+dead_or_set_regno_p (const rtx_insn *insn, unsigned int test_regno)
 {
   const_rtx pattern;
 
@@ -2437,7 +2452,7 @@ add_reg_note (rtx insn, enum reg_note kind, rtx datum)
 /* Add an integer register note with kind KIND and datum DATUM to INSN.  */
 
 void
-add_int_reg_note (rtx insn, enum reg_note kind, int datum)
+add_int_reg_note (rtx_insn *insn, enum reg_note kind, int datum)
 {
   gcc_checking_assert (int_reg_note_p (kind));
   REG_NOTES (insn) = gen_rtx_INT_LIST ((machine_mode_enum) kind,
@@ -2464,10 +2479,25 @@ add_shallow_copy_of_reg_note (rtx_insn *insn, rtx note)
     add_reg_note (insn, REG_NOTE_KIND (note), XEXP (note, 0));
 }
 
+/* Duplicate NOTE and return the copy.  */
+rtx
+duplicate_reg_note (rtx note)
+{
+  reg_note kind = REG_NOTE_KIND (note);
+
+  if (GET_CODE (note) == INT_LIST)
+    return gen_rtx_INT_LIST ((machine_mode_enum) kind, XINT (note, 0),
+			     NULL_RTX);
+  else if (GET_CODE (note) == EXPR_LIST)
+    return alloc_reg_note (kind, copy_insn_1 (XEXP (note, 0)), NULL_RTX);
+  else
+    return alloc_reg_note (kind, XEXP (note, 0), NULL_RTX);
+}
+
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
 
 void
-remove_note (rtx insn, const_rtx note)
+remove_note (rtx_insn *insn, const_rtx note)
 {
   rtx link;
 
@@ -2488,29 +2518,35 @@ remove_note (rtx insn, const_rtx note)
     {
     case REG_EQUAL:
     case REG_EQUIV:
-      df_notes_rescan (as_a <rtx_insn *> (insn));
+      df_notes_rescan (insn);
       break;
     default:
       break;
     }
 }
 
-/* Remove REG_EQUAL and/or REG_EQUIV notes if INSN has such notes.  */
+/* Remove REG_EQUAL and/or REG_EQUIV notes if INSN has such notes.
+   Return true if any note has been removed.  */
 
-void
+bool
 remove_reg_equal_equiv_notes (rtx_insn *insn)
 {
   rtx *loc;
+  bool ret = false;
 
   loc = &REG_NOTES (insn);
   while (*loc)
     {
       enum reg_note kind = REG_NOTE_KIND (*loc);
       if (kind == REG_EQUAL || kind == REG_EQUIV)
-	*loc = XEXP (*loc, 1);
+	{
+	  *loc = XEXP (*loc, 1);
+	  ret = true;
+	}
       else
 	loc = &XEXP (*loc, 1);
     }
+  return ret;
 }
 
 /* Remove all REG_EQUAL and REG_EQUIV notes referring to REGNO.  */
@@ -3225,8 +3261,8 @@ replace_label (rtx *loc, rtx old_label, rtx new_label, bool update_label_nuses)
 }
 
 void
-replace_label_in_insn (rtx_insn *insn, rtx old_label, rtx new_label,
-		       bool update_label_nuses)
+replace_label_in_insn (rtx_insn *insn, rtx_insn *old_label,
+		       rtx_insn *new_label, bool update_label_nuses)
 {
   rtx insn_as_rtx = insn;
   replace_label (&insn_as_rtx, old_label, new_label, update_label_nuses);
@@ -3674,23 +3710,25 @@ subreg_lsb (const_rtx x)
 }
 
 /* Return the subreg byte offset for a subreg whose outer value has
-   OUTER_BYTES bytes, whose inner value has INNER_BYTES bytes,
-   and where there are LSB bits between the lsb of the outer value
-   and the lsb of the inner value.  */
+   OUTER_BYTES bytes, whose inner value has INNER_BYTES bytes, and where
+   there are LSB_SHIFT *bits* between the lsb of the outer value and the
+   lsb of the inner value.  This is the inverse of the calculation
+   performed by subreg_lsb_1 (which converts byte offsets to bit shifts).  */
 
 poly_int64
-subreg_size_offset_from_lsb (poly_int64 outer_bytes, poly_int64 inner_bytes,
-			     poly_int64 lsb)
+subreg_size_offset_from_lsb (poly_int64 outer_bytes,
+			     poly_int64 inner_bytes,
+			     poly_int64 lsb_shift)
 {
   /* A paradoxical subreg begins at bit position 0.  */
   gcc_checking_assert (ordered_p (outer_bytes, inner_bytes));
   if (may_gt (outer_bytes, inner_bytes))
     {
-      gcc_checking_assert (must_eq (lsb, 0));
+      gcc_checking_assert (must_eq (lsb_shift, 0));
       return 0;
     }
 
-  poly_int64 lower_bytes = exact_div (lsb, BITS_PER_UNIT);
+  poly_int64 lower_bytes = exact_div (lsb_shift, BITS_PER_UNIT);
   poly_int64 upper_bytes = inner_bytes - (lower_bytes + outer_bytes);
   if (WORDS_BIG_ENDIAN && BYTES_BIG_ENDIAN)
     return upper_bytes;
@@ -3709,20 +3747,6 @@ subreg_size_offset_from_lsb (poly_int64 outer_bytes, poly_int64 inner_bytes,
       else
 	return lower_word_part + (upper_bytes - upper_word_part);
     }
-}
-
-/* Return the subreg byte offset for a subreg whose outer mode is
-   OUTER_MODE, whose inner mode is INNER_MODE, and where there are
-   LSB bits between the lsb of the outer value and the lsb of the
-   inner value.  This is the inverse of subreg_lsb_1.  */
-
-poly_int64
-subreg_offset_from_lsb (machine_mode outer_mode,
-			machine_mode inner_mode,
-			poly_int64 lsb)
-{
-  return subreg_size_offset_from_lsb (GET_MODE_SIZE (outer_mode),
-				      GET_MODE_SIZE (inner_mode), lsb);
 }
 
 /* Fill in information about a subreg of a hard register.
@@ -3755,12 +3779,12 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 
   poly_int64 xsize = GET_MODE_SIZE (xmode);
   poly_int64 ysize = GET_MODE_SIZE (ymode);
-
   bool rknown = false;
 
-  /* If there are holes in a non-scalar mode in registers, we expect
-     that it is made up of its units concatenated together.  Each scalar
-     unit occupies at least one register.  */
+  /* If the register representation of a non-scalar mode has holes in it,
+     we expect the scalar units to be concatenated together, with the holes
+     distributed evenly among the scalar units.  Each scalar unit must occupy
+     at least one register.  */
   if (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode))
     {
       /* As a consequence, we must be dealing with a constant number of
@@ -3806,13 +3830,13 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       /* If this is a big endian paradoxical subreg, which uses more
 	 actual hard registers than the original register, we must
 	 return a negative offset so that we find the proper highpart
-	 of the register.  */
-      if (REG_WORDS_BIG_ENDIAN != WORDS_BIG_ENDIAN
-	  /* In this case we must be able to tell at compile time whether
-	     the mode is bigger than a word.  */
-	  && paradoxical_subreg_p (ymode, word_mode)
-	  ? REG_WORDS_BIG_ENDIAN
-	  : may_ne (byte_lowpart_offset (ymode, xmode), 0))
+	 of the register.
+
+	 We assume that the ordering of registers within a multi-register
+	 value has a consistent endianness: if bytes and register words
+	 have different endianness, the hard registers that make up a
+	 multi-register value must be at least word-sized.  */
+      if (REG_WORDS_BIG_ENDIAN)
 	info->offset = (int) nregs_xmode - (int) nregs_ymode;
       else
 	info->offset = 0;
@@ -3862,7 +3886,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	  info->representable_p = true;
 	  info->nregs = nregs_ymode;
 	  info->offset = count;
-	  gcc_assert (info->offset + nregs_ymode <= nregs_xmode);
+	  gcc_assert (info->offset + info->nregs <= (int) nregs_xmode);
 	  return;
 	}
     }
@@ -3912,7 +3936,15 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       rknown = true;
     }
 
+  /* We assume that the ordering of registers within a multi-register
+     value has a consistent endianness: if bytes and register words
+     have different endianness, the hard registers that make up a
+     multi-register value must be at least word-sized.  */
   if (WORDS_BIG_ENDIAN != REG_WORDS_BIG_ENDIAN)
+    /* The block number we calculated above followed memory endianness.
+       Convert it to register endianness by counting back from the end.
+       (Note that, because of the assumption above, each block must be
+       at least word-sized.)  */
     info->offset = (num_blocks - block_number - 1) * nregs_ymode;
   else
     info->offset = block_number * nregs_ymode;
@@ -4049,20 +4081,6 @@ subreg_nregs_with_regno (unsigned int regno, const_rtx x)
   subreg_get_info (regno, GET_MODE (subreg), SUBREG_BYTE (x), GET_MODE (x),
 		   &info);
   return info.nregs;
-}
-
-/* If loads from memories of mode MODE always sign or zero extend,
-   return SIGN_EXTEND or ZERO_EXTEND as appropriate.  Return UNKNOWN
-   otherwise.  */
-
-rtx_code
-load_extend_op (machine_mode mode)
-{
-  scalar_int_mode int_mode;
-  if (is_a <scalar_int_mode> (mode, &int_mode)
-      && GET_MODE_PRECISION (int_mode) < BITS_PER_WORD)
-    return LOAD_EXTEND_OP (int_mode);
-  return UNKNOWN;
 }
 
 struct parms_set_data
@@ -4469,7 +4487,7 @@ cached_nonzero_bits (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 /* Given an expression, X, compute which bits in X can be nonzero.
    We don't care about bits outside of those defined in MODE.
 
-   For most X this is simply GET_MODE_MASK (GET_MODE (MODE)), but if X is
+   For most X this is simply GET_MODE_MASK (GET_MODE (X)), but if X is
    an arithmetic operation, we can do better.  */
 
 static unsigned HOST_WIDE_INT
@@ -4775,16 +4793,15 @@ nonzero_bits1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
       /* If this is a SUBREG formed for a promoted variable that has
 	 been zero-extended, we know that at least the high-order bits
 	 are zero, though others might be too.  */
-
       if (SUBREG_PROMOTED_VAR_P (x) && SUBREG_PROMOTED_UNSIGNED_P (x))
 	nonzero = GET_MODE_MASK (xmode)
 		  & cached_nonzero_bits (SUBREG_REG (x), xmode,
 					 known_x, known_mode, known_ret);
 
-      inner_mode = GET_MODE (SUBREG_REG (x));
       /* If the inner mode is a single word for both the host and target
 	 machines, we can compute this from which bits of the inner
 	 object might be nonzero.  */
+      inner_mode = GET_MODE (SUBREG_REG (x));
       if (GET_MODE_PRECISION (inner_mode).is_constant (&inner_width)
 	  && inner_width <= BITS_PER_WORD
 	  && inner_width <= HOST_BITS_PER_WIDE_INT)
@@ -4792,22 +4809,20 @@ nonzero_bits1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	  nonzero &= cached_nonzero_bits (SUBREG_REG (x), mode,
 					  known_x, known_mode, known_ret);
 
-	  /* If this is a typical RISC machine, we only have to worry
-	     about the way loads are extended.  */
+          /* On many CISC machines, accessing an object in a wider mode
+	     causes the high-order bits to become undefined.  So they are
+	     not known to be zero.  */
 	  rtx_code extend_op;
-	  if (!WORD_REGISTER_OPERATIONS
-	      || !MEM_P (SUBREG_REG (x))
-	      || ((extend_op = load_extend_op (inner_mode)) == SIGN_EXTEND
-		  ? val_signbit_known_set_p (inner_mode, nonzero)
-		  : extend_op != ZERO_EXTEND))
-	    {
-	      /* On many CISC machines, accessing an object in a wider mode
-		 causes the high-order bits to become undefined.  So they are
-		 not known to be zero.  */
-	      if (xmode_width > inner_width)
-		nonzero |= (GET_MODE_MASK (xmode)
-			    & ~GET_MODE_MASK (inner_mode));
-	    }
+	  if ((!WORD_REGISTER_OPERATIONS
+	       /* If this is a typical RISC machine, we only have to worry
+		  about the way loads are extended.  */
+	       || ((extend_op = load_extend_op (inner_mode)) == SIGN_EXTEND
+		   ? val_signbit_known_set_p (inner_mode, nonzero)
+		   : extend_op != ZERO_EXTEND)
+	       || (!MEM_P (SUBREG_REG (x)) && !REG_P (SUBREG_REG (x))))
+	      && xmode_width > inner_width)
+	    nonzero
+	      |= (GET_MODE_MASK (GET_MODE (x)) & ~GET_MODE_MASK (inner_mode));
 	}
       break;
 
@@ -5031,7 +5046,7 @@ num_sign_bit_copies1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 
   unsigned int xmode_width = GET_MODE_PRECISION (xmode);
 
-  /* For a smaller object, just ignore the high bits.  */
+  /* For a smaller mode, just ignore the high bits.  */
   if (bitwidth < xmode_width)
     {
       num0 = cached_num_sign_bit_copies (x, xmode,
@@ -5114,8 +5129,8 @@ num_sign_bit_copies1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	{
 	  num0 = cached_num_sign_bit_copies (SUBREG_REG (x), inner_mode,
 					     known_x, known_mode, known_ret);
-	  return MAX (1, num0 - (int) (GET_MODE_PRECISION (inner_mode)
-				       - bitwidth));
+	  return
+	    MAX (1, num0 - (int) (GET_MODE_PRECISION (inner_mode) - bitwidth));
 	}
 
       /* For paradoxical SUBREGs on machines where all register operations
@@ -5129,9 +5144,9 @@ num_sign_bit_copies1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	 to the stack.  */
 
       if (WORD_REGISTER_OPERATIONS
+	  && load_extend_op (inner_mode) == SIGN_EXTEND
 	  && paradoxical_subreg_p (x)
-	  && load_extend_op (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
-	  && MEM_P (SUBREG_REG (x)))
+	  && (MEM_P (SUBREG_REG (x)) || REG_P (SUBREG_REG (x))))
 	return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
 					   known_x, known_mode, known_ret);
       break;

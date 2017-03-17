@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -2723,6 +2723,7 @@ bfin_legitimate_address_p (machine_mode mode, rtx x, bool strict)
 	&& REG_P (XEXP (x, 0))
 	&& bfin_valid_reg_p (REGNO (XEXP (x, 0)), strict, mode, POST_INC))
       return true;
+    break;
   case PRE_DEC:
     if (LEGITIMATE_MODE_FOR_AUTOINC_P (mode)
 	&& XEXP (x, 0) == stack_pointer_rtx
@@ -3436,7 +3437,8 @@ hwloop_optimize (hwloop_info loop)
   basic_block bb;
   rtx_insn *insn, *last_insn;
   rtx loop_init, start_label, end_label;
-  rtx iter_reg, scratchreg, scratch_init, scratch_init_insn;
+  rtx iter_reg, scratchreg, scratch_init;
+  rtx_insn *scratch_init_insn;
   rtx lc_reg, lt_reg, lb_reg;
   rtx seq_end;
   rtx_insn *seq;
@@ -3457,7 +3459,7 @@ hwloop_optimize (hwloop_info loop)
 
   scratchreg = NULL_RTX;
   scratch_init = iter_reg;
-  scratch_init_insn = NULL_RTX;
+  scratch_init_insn = NULL;
   if (!PREG_P (iter_reg) && loop->incoming_src)
     {
       basic_block bb_in = loop->incoming_src;
@@ -3981,7 +3983,7 @@ bfin_gen_bundles (void)
       for (insn = BB_HEAD (bb);; insn = next)
 	{
 	  int at_end;
-	  rtx delete_this = NULL_RTX;
+	  rtx_insn *delete_this = NULL;
 
 	  if (NONDEBUG_INSN_P (insn))
 	    {

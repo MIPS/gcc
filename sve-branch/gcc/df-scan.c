@@ -1,5 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 1999-2016 Free Software Foundation, Inc.
+   Copyright (C) 1999-2017 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -2483,7 +2483,7 @@ df_ref_create_structure (enum df_ref_class cl,
 			 int ref_flags)
 {
   df_ref this_ref = NULL;
-  int regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
+  unsigned int regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) df_scan->problem_data;
 
@@ -3507,6 +3507,14 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 
   bitmap_clear (entry_block_defs);
 
+  /* For separate shrink-wrapping we use LIVE to analyze which basic blocks
+     need a prologue for some component to be executed before that block,
+     and we do not care about any other registers.  Hence, we do not want
+     any register for any component defined in the entry block, and we can
+     just leave all registers undefined.  */
+  if (df_scan->local_flags & DF_SCAN_EMPTY_ENTRY_EXIT)
+    return;
+
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (global_regs[i])
@@ -3665,6 +3673,14 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
   unsigned int picreg = PIC_OFFSET_TABLE_REGNUM;
 
   bitmap_clear (exit_block_uses);
+
+  /* For separate shrink-wrapping we use LIVE to analyze which basic blocks
+     need an epilogue for some component to be executed after that block,
+     and we do not care about any other registers.  Hence, we do not want
+     any register for any component seen as used in the exit block, and we
+     can just say no registers at all are used.  */
+  if (df_scan->local_flags & DF_SCAN_EMPTY_ENTRY_EXIT)
+    return;
 
   /* Stack pointer is always live at the exit.  */
   bitmap_set_bit (exit_block_uses, STACK_POINTER_REGNUM);

@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -31,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "debug.h"
 #include "output.h"
-#include "omp-low.h"
+#include "omp-offload.h"
 #include "context.h"
 
 const char * const tls_model_names[]={"none", "emulated",
@@ -149,11 +149,11 @@ varpool_node::get_create (tree decl)
   node = varpool_node::create_empty ();
   node->decl = decl;
 
-  if ((flag_openacc || flag_openmp) && !DECL_EXTERNAL (decl)
+  if ((flag_openacc || flag_openmp)
       && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
     {
       node->offloadable = 1;
-      if (ENABLE_OFFLOADING)
+      if (ENABLE_OFFLOADING && !DECL_EXTERNAL (decl))
 	{
 	  g->have_offload = true;
 	  if (!in_lto_p)

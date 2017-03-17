@@ -1,5 +1,5 @@
 /* Generate code from machine description to recognize rtl as insns.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -5155,11 +5155,6 @@ print_pattern (output_state *os, pattern_routine *routine)
 static void
 print_subroutine (output_state *os, state *s, int proc_id)
 {
-  /* For now, the top-level "recog" takes a plain "rtx", and performs a
-     checked cast to "rtx_insn *" for use throughout the rest of the
-     function and the code it calls.  */
-  const char *insn_param
-    = proc_id > 0 ? "rtx_insn *insn" : "rtx uncast_insn";
   printf ("\n");
   switch (os->type)
     {
@@ -5172,8 +5167,8 @@ print_subroutine (output_state *os, state *s, int proc_id)
       else
 	printf ("int\nrecog");
       printf (" (rtx x1 ATTRIBUTE_UNUSED,\n"
-	      "\t%s ATTRIBUTE_UNUSED,\n"
-	      "\tint *pnum_clobbers ATTRIBUTE_UNUSED)\n", insn_param);
+	      "\trtx_insn *insn ATTRIBUTE_UNUSED,\n"
+	      "\tint *pnum_clobbers ATTRIBUTE_UNUSED)\n");
       break;
 
     case SPLIT:
@@ -5200,18 +5195,12 @@ print_subroutine (output_state *os, state *s, int proc_id)
       else
 	printf ("rtx\nsimplify_rtx_autogen");
       printf (" (const_rtx x1 ATTRIBUTE_UNUSED)\n");
-      insn_param = NULL;
       break;
     }
   print_subroutine_start (os, s, &root_pos);
-  if (proc_id == 0 && insn_param)
+  if (proc_id == 0 && os->type != SIMPLIFICATION)
     {
       printf ("  recog_data.insn = NULL;\n");
-      if (os->type == RECOG)
-	{
-	  printf ("  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
-	  printf ("  insn = safe_as_a <rtx_insn *> (uncast_insn);\n");
-	}
     }
   print_state (os, s, 2, true);
   printf ("}\n");

@@ -1,5 +1,5 @@
 ;; Predicate definitions for Synopsys DesignWare ARC.
-;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2017 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -266,6 +266,7 @@
     case SYMBOL_REF :
       if (SYMBOL_REF_TLS_MODEL (op))
 	return 0;
+      return 1;
     case LABEL_REF :
       return 1;
     case CONST :
@@ -451,11 +452,16 @@
 (define_predicate "equality_comparison_operator"
   (match_code "eq, ne"))
 
+(define_predicate "ge_lt_comparison_operator"
+  (match_code "ge, lt"))
+
 (define_predicate "brcc_nolimm_operator"
   (ior (match_test "REG_P (XEXP (op, 1))")
        (and (match_code "eq, ne, lt, ge, ltu, geu")
+	    (match_test "CONST_INT_P (XEXP (op, 1))")
 	    (match_test "u6_immediate_operand (XEXP (op, 1), SImode)"))
        (and (match_code "le, gt, leu, gtu")
+	    (match_test "CONST_INT_P (XEXP (op, 1))")
 	    (match_test "UNSIGNED_INT6 (INTVAL (XEXP (op, 1)) + 1)"))))
 
 ;; Return TRUE if this is the condition code register, if we aren't given

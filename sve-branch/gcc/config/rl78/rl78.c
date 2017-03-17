@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Renesas RL78 processors.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -2780,7 +2780,7 @@ process_postponed_content_update (void)
    after WHERE.  If TO already contains FROM then do nothing.  Returns TO if
    BEFORE is true, FROM otherwise.  */
 static rtx
-gen_and_emit_move (rtx to, rtx from, rtx where, bool before)
+gen_and_emit_move (rtx to, rtx from, rtx_insn *where, bool before)
 {
   machine_mode mode = GET_MODE (to);
 
@@ -2835,7 +2835,7 @@ gen_and_emit_move (rtx to, rtx from, rtx where, bool before)
    copy it into NEWBASE and return the updated MEM.  Otherwise just
    return M.  Any needed insns are emitted before BEFORE.  */
 static rtx
-transcode_memory_rtx (rtx m, rtx newbase, rtx before)
+transcode_memory_rtx (rtx m, rtx newbase, rtx_insn *before)
 {
   rtx base, index, addendr;
   int addend = 0;
@@ -2936,7 +2936,7 @@ transcode_memory_rtx (rtx m, rtx newbase, rtx before)
 /* Copy SRC to accumulator (A or AX), placing any generated insns
    before BEFORE.  Returns accumulator RTX.  */
 static rtx
-move_to_acc (int opno, rtx before)
+move_to_acc (int opno, rtx_insn *before)
 {
   rtx src = OP (opno);
   machine_mode mode = GET_MODE (src);
@@ -2951,7 +2951,7 @@ move_to_acc (int opno, rtx before)
 }
 
 static void
-force_into_acc (rtx src, rtx before)
+force_into_acc (rtx src, rtx_insn *before)
 {
   machine_mode mode = GET_MODE (src);
   rtx move;
@@ -2970,7 +2970,7 @@ force_into_acc (rtx src, rtx before)
 /* Copy accumulator (A or AX) to DEST, placing any generated insns
    after AFTER.  Returns accumulator RTX.  */
 static rtx
-move_from_acc (unsigned int opno, rtx after)
+move_from_acc (unsigned int opno, rtx_insn *after)
 {
   rtx dest = OP (opno);
   machine_mode mode = GET_MODE (dest);
@@ -2984,7 +2984,7 @@ move_from_acc (unsigned int opno, rtx after)
 /* Copy accumulator (A or AX) to REGNO, placing any generated insns
    before BEFORE.  Returns reg RTX.  */
 static rtx
-move_acc_to_reg (rtx acc, int regno, rtx before)
+move_acc_to_reg (rtx acc, int regno, rtx_insn *before)
 {
   machine_mode mode = GET_MODE (acc);
   rtx reg;
@@ -2997,7 +2997,7 @@ move_acc_to_reg (rtx acc, int regno, rtx before)
 /* Copy SRC to X, placing any generated insns before BEFORE.
    Returns X RTX.  */
 static rtx
-move_to_x (int opno, rtx before)
+move_to_x (int opno, rtx_insn *before)
 {
   rtx src = OP (opno);
   machine_mode mode = GET_MODE (src);
@@ -3020,7 +3020,7 @@ move_to_x (int opno, rtx before)
 /* Copy OP (opno) to H or HL, placing any generated insns before BEFORE.
    Returns H/HL RTX.  */
 static rtx
-move_to_hl (int opno, rtx before)
+move_to_hl (int opno, rtx_insn *before)
 {
   rtx src = OP (opno);
   machine_mode mode = GET_MODE (src);
@@ -3043,7 +3043,7 @@ move_to_hl (int opno, rtx before)
 /* Copy OP (opno) to E or DE, placing any generated insns before BEFORE.
    Returns E/DE RTX.  */
 static rtx
-move_to_de (int opno, rtx before)
+move_to_de (int opno, rtx_insn *before)
 {
   rtx src = OP (opno);
   machine_mode mode = GET_MODE (src);
@@ -3865,6 +3865,7 @@ rtx_insn *insn;
 		 after this pass.  */
 	      break;
 	    }
+	  /* FALLTHRU */
 	case CALL_INSN:
 	  memset (dead, 0, sizeof (dead));
 	  break;
@@ -4659,7 +4660,7 @@ rl78_asm_ctor_dtor (rtx symbol, int priority, bool is_ctor)
     {
       /* This section of the function is based upon code copied
 	 from: gcc/varasm.c:get_cdtor_priority_section().  */
-      char buf[16];
+      char buf[18];
 
       sprintf (buf, "%s.%.5u", is_ctor ? ".ctors" : ".dtors",
 	       MAX_INIT_PRIORITY - priority);

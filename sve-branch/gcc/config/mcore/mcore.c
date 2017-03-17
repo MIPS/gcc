@@ -1,5 +1,5 @@
 /* Output routines for Motorola MCore processor
-   Copyright (C) 1993-2016 Free Software Foundation, Inc.
+   Copyright (C) 1993-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -100,7 +100,7 @@ static const char *     output_inline_const     (machine_mode, rtx *);
 static void       layout_mcore_frame            (struct mcore_frame *);
 static void       mcore_setup_incoming_varargs	(cumulative_args_t, machine_mode, tree, int *, int);
 static cond_type  is_cond_candidate             (rtx);
-static rtx_insn  *emit_new_cond_insn            (rtx, int);
+static rtx_insn  *emit_new_cond_insn            (rtx_insn *, int);
 static rtx_insn  *conditionalize_block          (rtx_insn *);
 static void       conditionalize_optimization   (void);
 static void       mcore_reorg                   (void);
@@ -613,7 +613,7 @@ mcore_gen_compare (enum rtx_code code, rtx op0, rtx op1)
     case EQ:	/* Use inverted condition, cmpne.  */
       code = NE;
       invert = true;
-      /* Drop through.  */
+      /* FALLTHRU */
       
     case NE:	/* Use normal condition, cmpne.  */
       if (GET_CODE (op1) == CONST_INT && ! CONST_OK_FOR_K (INTVAL (op1)))
@@ -623,7 +623,7 @@ mcore_gen_compare (enum rtx_code code, rtx op0, rtx op1)
     case LE:	/* Use inverted condition, reversed cmplt.  */
       code = GT;
       invert = true;
-      /* Drop through.  */
+      /* FALLTHRU */
       
     case GT:	/* Use normal condition, reversed cmplt.  */
       if (GET_CODE (op1) == CONST_INT)
@@ -633,7 +633,7 @@ mcore_gen_compare (enum rtx_code code, rtx op0, rtx op1)
     case GE:	/* Use inverted condition, cmplt.  */
       code = LT;
       invert = true;
-      /* Drop through.  */
+      /* FALLTHRU */
       
     case LT:	/* Use normal condition, cmplt.  */
       if (GET_CODE (op1) == CONST_INT && 
@@ -648,7 +648,7 @@ mcore_gen_compare (enum rtx_code code, rtx op0, rtx op1)
       gcc_assert (GET_CODE (op1) != CONST_INT || INTVAL (op1) != 0);
       code = LEU;
       invert = true;
-      /* Drop through.  */
+      /* FALLTHRU */
       
     case LEU:	/* Use normal condition, reversed cmphs.  */
       if (GET_CODE (op1) == CONST_INT && INTVAL (op1) != 0)
@@ -658,7 +658,7 @@ mcore_gen_compare (enum rtx_code code, rtx op0, rtx op1)
     case LTU:	/* Use inverted condition, cmphs.  */
       code = GEU;
       invert = true;
-      /* Drop through.  */
+      /* FALLTHRU */
       
     case GEU:	/* Use normal condition, cmphs.  */
       if (GET_CODE (op1) == CONST_INT && INTVAL (op1) != 0)
@@ -2329,7 +2329,7 @@ is_cond_candidate (rtx insn)
    new one.  Return the new insn if emitted.  */
 
 static rtx_insn *
-emit_new_cond_insn (rtx insn, int cond)
+emit_new_cond_insn (rtx_insn *insn, int cond)
 {
   rtx c_insn = 0;
   rtx pat, dst, src;

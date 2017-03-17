@@ -1,4 +1,5 @@
-! { dg-do run }
+! { dg-do run { xfail arm*-*-gnueabi arm*-*-gnueabihf } }
+! XFAIL because of PR libfortran/78449.
 
 module foo
   use :: ieee_exceptions

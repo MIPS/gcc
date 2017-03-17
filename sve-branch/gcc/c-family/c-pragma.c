@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -893,7 +893,7 @@ handle_pragma_target(cpp_reader *ARG_UNUSED(dummy))
       args = nreverse (args);
 
       if (targetm.target_option.pragma_parse (args, NULL_TREE))
-	current_target_pragma = args;
+	current_target_pragma = chainon (current_target_pragma, args);
     }
 }
 

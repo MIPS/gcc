@@ -14,7 +14,6 @@
 #include "malloc.h"
 #include "mgc0.h"
 #include "go-type.h"
-#include "go-panic.h"
 
 #define hash __hash
 #define KindNoPointers GO_NO_POINTERS
@@ -284,7 +283,7 @@ dumpgoroutine(G *gp)
 	// runtime_gentraceback(pc, sp, lr, gp, 0, nil, 0x7fffffff, dumpframe, &child, false);
 
 	// dump defer & panic records
-	for(d = gp->_defer; d != nil; d = d->next) {
+	for(d = gp->_defer; d != nil; d = d->link) {
 		dumpint(TagDefer);
 		dumpint((uintptr)d);
 		dumpint((uintptr)gp);
@@ -292,16 +291,16 @@ dumpgoroutine(G *gp)
 		dumpint((uintptr)d->frame);
 		dumpint((uintptr)d->pfn);
 		dumpint((uintptr)0);
-		dumpint((uintptr)d->next);
+		dumpint((uintptr)d->link);
 	}
-	for (p = gp->_panic; p != nil; p = p->next) {
+	for (p = gp->_panic; p != nil; p = p->link) {
 		dumpint(TagPanic);
 		dumpint((uintptr)p);
 		dumpint((uintptr)gp);
 		dumpint((uintptr)p->arg._type);
 		dumpint((uintptr)p->arg.data);
 		dumpint((uintptr)0);
-		dumpint((uintptr)p->next);
+		dumpint((uintptr)p->link);
 	}
 }
 
@@ -312,8 +311,8 @@ dumpgs(void)
 	uint32 i;
 
 	// goroutines & stacks
-	for(i = 0; i < runtime_allglen; i++) {
-		gp = runtime_allg[i];
+	for(i = 0; i < runtime_getallglen(); i++) {
+		gp = runtime_getallg(i);
 		switch(gp->atomicstatus){
 		default:
 			runtime_printf("unexpected G.status %d\n", gp->atomicstatus);
@@ -475,7 +474,7 @@ dumpms(void)
 {
 	M *mp;
 
-	for(mp = runtime_allm; mp != nil; mp = mp->alllink) {
+	for(mp = runtime_getallm(); mp != nil; mp = mp->alllink) {
 		dumpint(TagOSThread);
 		dumpint((uintptr)mp);
 		dumpint(mp->id);
@@ -619,8 +618,7 @@ runtime_debug_WriteHeapDump(uintptr fd)
 	// Stop the world.
 	runtime_acquireWorldsema();
 	m = runtime_m();
-	m->gcing = 1;
-	m->locks++;
+	m->preemptoff = runtime_gostringnocopy((const byte*)"write heap dump");
 	runtime_stopTheWorldWithSema();
 
 	// Update stats so we can dump them.
@@ -641,10 +639,9 @@ runtime_debug_WriteHeapDump(uintptr fd)
 	dumpfd = 0;
 
 	// Start up the world again.
-	m->gcing = 0;
-	runtime_releaseWorldsema();
 	runtime_startTheWorldWithSema();
-	m->locks--;
+	runtime_releaseWorldsema();
+	m->preemptoff = runtime_gostringnocopy(nil);
 }
 
 // Runs the specified gc program.  Calls the callback for every

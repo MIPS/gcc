@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2017 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -921,6 +921,8 @@ sign-extend the result to 64 bits.  On such machines, set
 Do not define this macro if it would never modify @var{m}.
 @end defmac
 
+@hook TARGET_C_EXCESS_PRECISION
+
 @hook TARGET_PROMOTE_FUNCTION_MODE
 
 @defmac PARM_BOUNDARY
@@ -988,13 +990,15 @@ structure and union fields only, unless the field alignment has been set
 by the @code{__attribute__ ((aligned (@var{n})))} construct.
 @end defmac
 
-@defmac ADJUST_FIELD_ALIGN (@var{field}, @var{computed})
-An expression for the alignment of a structure field @var{field} if the
-alignment computed in the usual way (including applying of
-@code{BIGGEST_ALIGNMENT} and @code{BIGGEST_FIELD_ALIGNMENT} to the
+@defmac ADJUST_FIELD_ALIGN (@var{field}, @var{type}, @var{computed})
+An expression for the alignment of a structure field @var{field} of
+type @var{type} if the alignment computed in the usual way (including
+applying of @code{BIGGEST_ALIGNMENT} and @code{BIGGEST_FIELD_ALIGNMENT} to the
 alignment) is @var{computed}.  It overrides alignment only if the
 field alignment has not been set by the
-@code{__attribute__ ((aligned (@var{n})))} construct.
+@code{__attribute__ ((aligned (@var{n})))} construct.  Note that @var{field}
+may be @code{NULL_TREE} in case we just query for the minimum alignment
+of a field of type @var{type} in structure context.
 @end defmac
 
 @defmac MAX_STACK_ALIGNMENT
@@ -1398,13 +1402,6 @@ causes function names in libgcc to be changed to use a @code{__gnu_}
 prefix for their name rather than the default @code{__}.  A port which
 uses this macro should also arrange to use @file{t-gnu-prefix} in
 the libgcc @file{config.host}.
-@end defmac
-
-@defmac TARGET_FLT_EVAL_METHOD
-A C expression for the value for @code{FLT_EVAL_METHOD} in @file{float.h},
-assuming, if applicable, that the floating-point control word is in its
-default state.  If you do not define this macro the value of
-@code{FLT_EVAL_METHOD} will be zero.
 @end defmac
 
 @defmac WIDEST_HARDWARE_FP_SIZE
@@ -2429,7 +2426,11 @@ value that the middle-end intended.
 
 @hook TARGET_SPILL_CLASS
 
+@hook TARGET_ADDITIONAL_ALLOCNO_CLASS_P
+
 @hook TARGET_CSTORE_MODE
+
+@hook TARGET_COMPUTE_PRESSURE_CLASSES
 
 @node Stack and Calling
 @section Stack Layout and Calling Conventions
@@ -3733,6 +3734,8 @@ generic code.
 
 @hook TARGET_STACK_PROTECT_FAIL
 
+@hook TARGET_STACK_PROTECT_RUNTIME_ENABLED_P
+
 @hook TARGET_SUPPORTS_SPLIT_STACK
 
 @node Miscellaneous Register Hooks
@@ -4017,8 +4020,6 @@ In either case, it remains possible to select code-generation for the alternate
 scheme, by means of compiler command line switches.
 @end defmac
 
-@hook TARGET_PRINTF_POINTER_FORMAT
-
 @node Addressing Modes
 @section Addressing Modes
 @cindex addressing modes
@@ -4206,6 +4207,8 @@ address;  but often a machine-dependent strategy can generate better code.
 @hook TARGET_SIMD_CLONE_ADJUST
 
 @hook TARGET_SIMD_CLONE_USABLE
+
+@hook TARGET_SIMT_VF
 
 @hook TARGET_GOACC_VALIDATE_DIMS
 
@@ -4783,6 +4786,8 @@ them: try the first ones in this list first.
 
 @hook TARGET_SCHED_SET_SCHED_FLAGS
 
+@hook TARGET_SCHED_CAN_SPECULATE_INSN
+
 @hook TARGET_SCHED_SMS_RES_MII
 
 @hook TARGET_SCHED_DISPATCH
@@ -4794,6 +4799,8 @@ them: try the first ones in this list first.
 @hook TARGET_SCHED_REASSOCIATION_WIDTH
 
 @hook TARGET_SCHED_FUSION_PRIORITY
+
+@hook TARGET_EXPAND_DIVMOD_LIBFUNC
 
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
@@ -7478,6 +7485,8 @@ smaller than a word are always performed on the entire register.
 Most RISC machines have this property and most CISC machines do not.
 @end defmac
 
+@hook TARGET_MIN_ARITHMETIC_PRECISION
+
 @defmac LOAD_EXTEND_OP (@var{mem_mode})
 Define this macro to be a C expression indicating when insns that read
 memory in @var{mem_mode}, an integral mode narrower than a word, set the
@@ -8210,3 +8219,5 @@ All and all it does not take long to convert ports that the
 maintainer is familiar with.
 
 @end defmac
+
+@hook TARGET_RUN_TARGET_SELFTESTS

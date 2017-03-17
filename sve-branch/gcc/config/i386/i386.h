@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2016 Free Software Foundation, Inc.
+   Copyright (C) 1988-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -81,6 +81,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_AVX512VBMI_P(x)	TARGET_ISA_AVX512VBMI_P(x)
 #define TARGET_AVX512IFMA	TARGET_ISA_AVX512IFMA
 #define TARGET_AVX512IFMA_P(x)	TARGET_ISA_AVX512IFMA_P(x)
+#define TARGET_AVX5124FMAPS	TARGET_ISA_AVX5124FMAPS
+#define TARGET_AVX5124FMAPS_P(x) TARGET_ISA_AVX5124FMAPS_P(x)
+#define TARGET_AVX5124VNNIW	TARGET_ISA_AVX5124VNNIW
+#define TARGET_AVX5124VNNIW_P(x) TARGET_ISA_AVX5124VNNIW_P(x)
+#define TARGET_AVX512VPOPCNTDQ	TARGET_ISA_AVX512VPOPCNTDQ
+#define TARGET_AVX512VPOPCNTDQ_P(x) TARGET_ISA_AVX512VPOPCNTDQ_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
@@ -94,6 +100,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_ROUND	TARGET_ISA_ROUND
 #define TARGET_ABM	TARGET_ISA_ABM
 #define TARGET_ABM_P(x)	TARGET_ISA_ABM_P(x)
+#define TARGET_SGX	TARGET_ISA_SGX
+#define TARGET_SGX_P(x)	TARGET_ISA_SGX_P(x)
+#define TARGET_RDPID	TARGET_ISA_RDPID
+#define TARGET_RDPID_P(x)	TARGET_ISA_RDPID_P(x)
 #define TARGET_BMI	TARGET_ISA_BMI
 #define TARGET_BMI_P(x)	TARGET_ISA_BMI_P(x)
 #define TARGET_BMI2	TARGET_ISA_BMI2
@@ -158,7 +168,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_MWAITX_P(x)	TARGET_ISA_MWAITX_P(x)
 #define TARGET_PKU	TARGET_ISA_PKU
 #define TARGET_PKU_P(x)	TARGET_ISA_PKU_P(x)
-
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
@@ -686,27 +695,19 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
   SUBTARGET_EXTRA_SPECS
 
 
-/* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
-   FPU, assume that the fpcw is set to extended precision; when using
-   only SSE, rounding is correct; when using both SSE and the FPU,
-   the rounding precision is indeterminate, since either may be chosen
-   apparently at random.  */
-#define TARGET_FLT_EVAL_METHOD						\
-  (TARGET_80387								\
-   ? (TARGET_MIX_SSE_I387 ? -1						\
-      : (TARGET_SSE_MATH ? (TARGET_SSE2 ? 0 : -1) : 2))			\
-   : 0)
-
 /* Whether to allow x87 floating-point arithmetic on MODE (one of
    SFmode, DFmode and XFmode) in the current excess precision
    configuration.  */
-#define X87_ENABLE_ARITH(MODE) \
-  (flag_excess_precision == EXCESS_PRECISION_FAST || (MODE) == XFmode)
+#define X87_ENABLE_ARITH(MODE)				\
+  (flag_unsafe_math_optimizations			\
+   || flag_excess_precision == EXCESS_PRECISION_FAST	\
+   || (MODE) == XFmode)
 
 /* Likewise, whether to allow direct conversions from integer mode
    IMODE (HImode, SImode or DImode) to MODE.  */
 #define X87_ENABLE_FLOAT(MODE, IMODE)			\
-  (flag_excess_precision == EXCESS_PRECISION_FAST	\
+  (flag_unsafe_math_optimizations			\
+   || flag_excess_precision == EXCESS_PRECISION_FAST	\
    || (MODE) == XFmode					\
    || ((MODE) == DFmode && (IMODE) == SImode)		\
    || (IMODE) == HImode)
@@ -847,8 +848,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define BIGGEST_FIELD_ALIGNMENT 32
 #endif
 #else
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  x86_field_alignment ((FIELD), (COMPUTED))
+#define ADJUST_FIELD_ALIGN(FIELD, TYPE, COMPUTED) \
+  x86_field_alignment ((TYPE), (COMPUTED))
 #endif
 
 /* If defined, a C expression to compute the alignment given to a
@@ -1087,21 +1088,19 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    applied to them.  */
 
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
-  (STACK_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
-   || MASK_REGNO_P (REGNO) || BND_REGNO_P (REGNO)			\
-   ? (COMPLEX_MODE_P (MODE) ? 2 : 1)					\
-   : ((MODE) == XFmode							\
+  (GENERAL_REGNO_P (REGNO)						\
+   ? ((MODE) == XFmode							\
       ? (TARGET_64BIT ? 2 : 3)						\
       : ((MODE) == XCmode						\
 	 ? (TARGET_64BIT ? 4 : 6)					\
-	 : CEIL (GET_MODE_SIZE (MODE), UNITS_PER_WORD))))
+	 : CEIL (GET_MODE_SIZE (MODE), UNITS_PER_WORD)))		\
+   : (COMPLEX_MODE_P (MODE) ? 2 :					\
+      (((MODE == V64SFmode) || (MODE == V64SImode)) ? 4 : 1)))
 
 #define HARD_REGNO_NREGS_HAS_PADDING(REGNO, MODE)			\
-  ((TARGET_128BIT_LONG_DOUBLE && !TARGET_64BIT)				\
-   ? (STACK_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO) \
-      ? 0								\
-      : ((MODE) == XFmode || (MODE) == XCmode))				\
-   : 0)
+  (TARGET_128BIT_LONG_DOUBLE && !TARGET_64BIT				\
+   && GENERAL_REGNO_P (REGNO)						\
+   && ((MODE) == XFmode || (MODE) == XCmode))
 
 #define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
@@ -1213,9 +1212,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
   (CC_REGNO_P (REGNO) ? VOIDmode					\
    : (MODE) == VOIDmode && (NREGS) != 1 ? VOIDmode			\
    : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS), false) \
-   : (MODE) == HImode && !(TARGET_PARTIAL_REG_STALL			\
+   : (MODE) == HImode && !((GENERAL_REGNO_P (REGNO)			\
+			    && TARGET_PARTIAL_REG_STALL)		\
 			   || MASK_REGNO_P (REGNO)) ? SImode		\
-   : (MODE) == QImode && !(TARGET_64BIT || QI_REGNO_P (REGNO)		\
+   : (MODE) == QImode && !(ANY_QI_REGNO_P (REGNO)			\
 			   || MASK_REGNO_P (REGNO)) ? SImode		\
    : (MODE))
 
@@ -1365,6 +1365,7 @@ enum reg_class
   FLOAT_INT_SSE_REGS,
   MASK_EVEX_REGS,
   MASK_REGS,
+  MOD4_SSE_REGS,
   ALL_REGS, LIM_REG_CLASSES
 };
 
@@ -1378,6 +1379,8 @@ enum reg_class
   reg_class_subset_p ((CLASS), ALL_SSE_REGS)
 #define MMX_CLASS_P(CLASS) \
   ((CLASS) == MMX_REGS)
+#define MASK_CLASS_P(CLASS) \
+  reg_class_subset_p ((CLASS), MASK_REGS)
 #define MAYBE_INTEGER_CLASS_P(CLASS) \
   reg_classes_intersect_p ((CLASS), GENERAL_REGS)
 #define MAYBE_FLOAT_CLASS_P(CLASS) \
@@ -1425,6 +1428,7 @@ enum reg_class
    "FLOAT_INT_SSE_REGS",		\
    "MASK_EVEX_REGS",			\
    "MASK_REGS",				\
+   "MOD4_SSE_REGS",			\
    "ALL_REGS" }
 
 /* Define which registers fit in which classes.  This is an initializer
@@ -1465,9 +1469,10 @@ enum reg_class
 {   0x11ffff,    0x1fe0,    0x0 },       /* FLOAT_INT_REGS */            \
 { 0x1ff100ff,0xffffffe0,   0x1f },       /* INT_SSE_REGS */              \
 { 0x1ff1ffff,0xffffffe0,   0x1f },       /* FLOAT_INT_SSE_REGS */        \
-       { 0x0,       0x0, 0x1fc0 },       /* MASK_EVEX_REGS */           \
+       { 0x0,       0x0, 0x1fc0 },       /* MASK_EVEX_REGS */            \
        { 0x0,       0x0, 0x1fe0 },       /* MASK_REGS */                 \
-{ 0xffffffff,0xffffffff,0x1ffff }                                        \
+{ 0x1fe00000,0xffffe000,   0x1f },       /* MOD4_SSE_REGS */		 \
+{ 0xffffffff,0xffffffff,0x1ffff }		\
 }
 
 /* The same information, inverted:
@@ -1533,6 +1538,16 @@ enum reg_class
 #define BND_REG_P(X) (REG_P (X) && BND_REGNO_P (REGNO (X)))
 #define BND_REGNO_P(N) IN_RANGE ((N), FIRST_BND_REG, LAST_BND_REG)
 
+#define MOD4_SSE_REG_P(X) (REG_P (X) && MOD4_SSE_REGNO_P (REGNO (X)))
+#define MOD4_SSE_REGNO_P(N) ((N) == XMM0_REG  \
+			     || (N) == XMM4_REG  \
+			     || (N) == XMM8_REG  \
+			     || (N) == XMM12_REG \
+			     || (N) == XMM16_REG \
+			     || (N) == XMM20_REG \
+			     || (N) == XMM24_REG \
+			     || (N) == XMM28_REG)
+
 /* First floating point reg */
 #define FIRST_FLOAT_REG FIRST_STACK_REG
 #define STACK_TOP_P(X) (REG_P (X) && REGNO (X) == FIRST_FLOAT_REG)
@@ -1546,30 +1561,6 @@ enum reg_class
 
 #define INDEX_REG_CLASS INDEX_REGS
 #define BASE_REG_CLASS GENERAL_REGS
-
-/* Place additional restrictions on the register class to use when it
-   is necessary to be able to hold a value of mode MODE in a reload
-   register for which class CLASS would ordinarily be used.
-
-   We avoid classes containing registers from multiple units due to
-   the limitation in ix86_secondary_memory_needed.  We limit these
-   classes to their "natural mode" single unit register class, depending
-   on the unit availability.
-
-   Please note that reg_class_subset_p is not commutative, so these
-   conditions mean "... if (CLASS) includes ALL registers from the
-   register set."  */
-
-#define LIMIT_RELOAD_CLASS(MODE, CLASS)					\
-  (((MODE) == QImode && !TARGET_64BIT					\
-    && reg_class_subset_p (Q_REGS, (CLASS))) ? Q_REGS			\
-   : (((MODE) == SImode || (MODE) == DImode)				\
-      && reg_class_subset_p (GENERAL_REGS, (CLASS))) ? GENERAL_REGS	\
-   : (SSE_FLOAT_MODE_P (MODE) && TARGET_SSE_MATH			\
-      && reg_class_subset_p (SSE_REGS, (CLASS))) ? SSE_REGS		\
-   : (X87_FLOAT_MODE_P (MODE)						\
-      && reg_class_subset_p (FLOAT_REGS, (CLASS))) ? FLOAT_REGS		\
-   : (CLASS))
 
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.  */
@@ -2393,6 +2384,7 @@ enum ix86_stack_slot
   SLOT_CW_FLOOR,
   SLOT_CW_CEIL,
   SLOT_CW_MASK_PM,
+  SLOT_STV_TEMP,
   MAX_386_STACK_LOCALS
 };
 

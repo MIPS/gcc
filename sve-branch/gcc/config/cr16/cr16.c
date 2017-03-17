@@ -1,5 +1,5 @@
 /* Output routines for CR16 processor.
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
    Contributed by KPIT Cummins Infosystems Limited.
   
    This file is part of GCC.
@@ -1479,6 +1479,7 @@ cr16_print_operand (FILE * file, rtx x, int code)
     case 'g':
       /* 'g' is used for implicit mem: dereference.  */
       ptr_dereference = 1;
+      /* FALLTHRU */
     case 'f':
     case 0:
       /* default.  */
@@ -1531,6 +1532,7 @@ cr16_print_operand (FILE * file, rtx x, int code)
 	  cr16_print_operand_address (file, VOIDmode, x);
 	  return;
 	}
+      gcc_unreachable ();
     default:
       output_operand_lossage ("invalid %%xn code");
     }

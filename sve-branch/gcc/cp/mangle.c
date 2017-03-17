@@ -1,5 +1,5 @@
 /* Name mangling for the 3.0 -*- C++ -*- ABI.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
    Written by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -114,6 +114,9 @@ struct GTY(()) globals {
   /* True if the mangling will be different in a future version of the
      ABI.  */
   bool need_abi_warning;
+
+  /* True if the mangling will be different in C++17 mode.  */
+  bool need_cxx1z_warning;
 };
 
 static GTY (()) globals G;
@@ -344,6 +347,45 @@ dump_substitution_candidates (void)
     }
 }
 
+/* <exception-spec> ::=
+      Do  -- non-throwing exception specification
+      DO <expression> E  -- computed (instantiation-dependent) noexcept
+      Dw <type>* E  -- throw (types)  */
+
+static void
+write_exception_spec (tree spec)
+{
+
+  if (!spec || spec == noexcept_false_spec)
+    /* Nothing.  */
+    return;
+
+  if (!flag_noexcept_type)
+    {
+      G.need_cxx1z_warning = true;
+      return;
+    }
+
+  if (spec == noexcept_true_spec || spec == empty_except_spec)
+    write_string ("Do");
+  else if (tree expr = TREE_PURPOSE (spec))
+    {
+      /* noexcept (expr)  */
+      gcc_assert (uses_template_parms (expr));
+      write_string ("DO");
+      write_expression (expr);
+      write_char ('E');
+    }
+  else
+    {
+      /* throw (type-list) */
+      write_string ("Dw");
+      for (tree t = spec; t; t = TREE_CHAIN (t))
+	write_type (TREE_VALUE (t));
+      write_char ('E');
+    }
+}
+
 /* Both decls and types can be substitution candidates, but sometimes
    they refer to the same thing.  For instance, a TYPE_DECL and
    RECORD_TYPE for the same class refer to the same thing, and should
@@ -375,7 +417,15 @@ canonicalize_for_substitution (tree node)
 					cp_type_quals (node));
       if (TREE_CODE (node) == FUNCTION_TYPE
 	  || TREE_CODE (node) == METHOD_TYPE)
-	node = build_ref_qualified_type (node, type_memfn_rqual (orig));
+	{
+	  node = build_ref_qualified_type (node, type_memfn_rqual (orig));
+	  tree r = canonical_eh_spec (TYPE_RAISES_EXCEPTIONS (orig));
+	  if (flag_noexcept_type)
+	    node = build_exception_variant (node, r);
+	  else
+	    /* Set the warning flag if appropriate.  */
+	    write_exception_spec (r);
+	}
     }
   return node;
 }
@@ -777,8 +827,9 @@ write_encoding (const tree decl)
     {
       tree fn_type;
       tree d;
+      bool tmpl = decl_is_template_id (decl, NULL);
 
-      if (decl_is_template_id (decl, NULL))
+      if (tmpl)
 	{
 	  fn_type = get_mostly_instantiated_function_type (decl);
 	  /* FN_TYPE will not have parameter types for in-charge or
@@ -1786,18 +1837,25 @@ write_identifier (const char *identifier)
 static void
 write_special_name_constructor (const tree ctor)
 {
+  write_char ('C');
+  bool new_inh = (flag_new_inheriting_ctors
+		  && DECL_INHERITED_CTOR (ctor));
+  if (new_inh)
+    write_char ('I');
   if (DECL_BASE_CONSTRUCTOR_P (ctor))
-    write_string ("C2");
+    write_char ('2');
   /* This is the old-style "[unified]" constructor.
      In some cases, we may emit this function and call
      it from the clones in order to share code and save space.  */
   else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (ctor))
-    write_string ("C4");
+    write_char ('4');
   else
     {
       gcc_assert (DECL_COMPLETE_CONSTRUCTOR_P (ctor));
-      write_string ("C1");
+      write_char ('1');
     }
+  if (new_inh)
+    write_type (DECL_INHERITED_CTOR_BASE (ctor));
 }
 
 /* Handle destructor productions of non-terminal <special-name>.
@@ -1892,7 +1950,8 @@ discriminator_for_string_literal (tree /*function*/,
   return 0;
 }
 
-/*   <discriminator> := _ <number>
+/*   <discriminator> := _ <number>    # when number < 10
+                     := __ <number> _ # when number >= 10
 
    The discriminator is used only for the second and later occurrences
    of the same name within a single function. In this case <number> is
@@ -1905,7 +1964,16 @@ write_discriminator (const int discriminator)
   if (discriminator > 0)
     {
       write_char ('_');
+      if (discriminator - 1 >= 10)
+	{
+	  if (abi_warn_or_compat_version_crosses (11))
+	    G.need_abi_warning = 1;
+	  if (abi_version_at_least (11))
+	    write_char ('_');
+	}
       write_unsigned_number (discriminator - 1);
+      if (abi_version_at_least (11) && discriminator - 1 >= 10)
+	write_char ('_');
     }
 }
 
@@ -2057,7 +2125,11 @@ write_type (tree type)
       type = TYPE_MAIN_VARIANT (type);
       if (TREE_CODE (type) == FUNCTION_TYPE
 	  || TREE_CODE (type) == METHOD_TYPE)
-	type = build_ref_qualified_type (type, type_memfn_rqual (type_orig));
+	{
+	  type = build_ref_qualified_type (type, type_memfn_rqual (type_orig));
+	  type = build_exception_variant (type,
+					  TYPE_RAISES_EXCEPTIONS (type_orig));
+	}
 
       /* According to the C++ ABI, some library classes are passed the
 	 same as the scalar type of their single member and use the same
@@ -2583,6 +2655,8 @@ write_function_type (const tree type)
       write_CV_qualifiers_for_type (this_type);
     }
 
+  write_exception_spec (TYPE_RAISES_EXCEPTIONS (type));
+
   if (tx_safe_fn_type_p (type))
     write_string ("Dx");
 
@@ -2667,6 +2741,10 @@ write_method_parms (tree parm_types, const int method_p, const tree decl)
 	  parm_types = TREE_CHAIN (parm_types);
 	  parm_decl = DECL_CHAIN (parm_decl);
 	}
+
+      if (decl && ctor_omit_inherited_parms (decl))
+	/* Bring back parameters omitted from an inherited ctor.  */
+	parm_types = FUNCTION_FIRST_USER_PARMTYPE (DECL_ORIGIN (decl));
     }
 
   for (first_parm_type = parm_types;
@@ -2743,6 +2821,12 @@ write_template_args (tree args)
 static void
 write_member_name (tree member)
 {
+  if (abi_version_at_least (11) && IDENTIFIER_OPNAME_P (member))
+    {
+      write_string ("on");
+      if (abi_warn_or_compat_version_crosses (11))
+	G.need_abi_warning = 1;
+    }
   if (identifier_p (member))
     write_unqualified_id (member);
   else if (DECL_P (member))
@@ -3584,6 +3668,7 @@ start_mangling (const tree entity)
 {
   G.entity = entity;
   G.need_abi_warning = false;
+  G.need_cxx1z_warning = false;
   obstack_free (&name_obstack, name_base);
   mangle_obstack = &name_obstack;
   name_base = obstack_alloc (&name_obstack, 0);
@@ -3770,6 +3855,13 @@ mangle_decl (const tree decl)
     }
   SET_DECL_ASSEMBLER_NAME (decl, id);
 
+  if (G.need_cxx1z_warning
+      && (TREE_PUBLIC (decl) || DECL_REALLY_EXTERN (decl)))
+    warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wc__1z_compat,
+		"mangled name for %qD will change in C++17 because the "
+		"exception specification is part of a function type",
+		decl);
+
   if (id != DECL_NAME (decl)
       /* Don't do this for a fake symbol we aren't going to emit anyway.  */
       && TREE_CODE (decl) != TYPE_DECL
@@ -3920,6 +4012,53 @@ tree
 mangle_vtt_for_type (const tree type)
 {
   return mangle_special_for_type (type, "TT");
+}
+
+/* Returns an identifier for the mangled name of the decomposition
+   artificial variable DECL.  DECLS is the vector of the VAR_DECLs
+   for the identifier-list.  */
+
+tree
+mangle_decomp (const tree decl, vec<tree> &decls)
+{
+  gcc_assert (!type_dependent_expression_p (decl));
+
+  location_t saved_loc = input_location;
+  input_location = DECL_SOURCE_LOCATION (decl);
+
+  start_mangling (decl);
+  write_string ("_Z");
+
+  tree context = decl_mangling_context (decl);
+  gcc_assert (context != NULL_TREE);
+
+  bool nested = false;
+  if (DECL_NAMESPACE_STD_P (context))
+    write_string ("St");
+  else if (context != global_namespace)
+    {
+      nested = true;
+      write_char ('N');
+      write_prefix (decl_mangling_context (decl));
+    }
+
+  write_string ("DC");
+  unsigned int i;
+  tree d;
+  FOR_EACH_VEC_ELT (decls, i, d)
+    write_unqualified_name (d);
+  write_char ('E');
+
+  if (nested)
+    write_char ('E');
+
+  tree id = finish_mangling_get_identifier ();
+  if (DEBUG_MANGLE)
+    fprintf (stderr, "mangle_decomp = '%s'\n\n",
+             IDENTIFIER_POINTER (id));
+
+  input_location = saved_loc;
+  return id;
 }
 
 /* Return an identifier for a construction vtable group.  TYPE is
@@ -4140,8 +4279,9 @@ maybe_check_abi_tags (tree t, tree for_decl, int ver)
 		    for_decl, flag_abi_version, warn_abi_version);
       else
 	warning_at (DECL_SOURCE_LOCATION (t), OPT_Wabi,
-		    "the mangled name of the initialization guard variable for"
-		    "%qD changes between -fabi-version=%d and -fabi-version=%d",
+		    "the mangled name of the initialization guard variable "
+		    "for %qD changes between -fabi-version=%d and "
+		    "-fabi-version=%d",
 		    t, flag_abi_version, warn_abi_version);
     }
 }
@@ -4181,6 +4321,7 @@ mangle_guard_variable (const tree variable)
 tree
 mangle_tls_init_fn (const tree variable)
 {
+  check_abi_tags (variable);
   start_mangling (variable);
   write_string ("_ZTH");
   write_guarded_var_name (variable);
@@ -4195,6 +4336,7 @@ mangle_tls_init_fn (const tree variable)
 tree
 mangle_tls_wrapper_fn (const tree variable)
 {
+  check_abi_tags (variable);
   start_mangling (variable);
   write_string (TLS_WRAPPER_PREFIX);
   write_guarded_var_name (variable);

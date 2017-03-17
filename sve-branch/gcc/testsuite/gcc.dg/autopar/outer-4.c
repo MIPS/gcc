@@ -26,5 +26,5 @@ parloop (int N)
 
 
 /* { dg-final { scan-tree-dump-times "parallelizing inner loop" 0 "parloops2" } } */
-/* { dg-final { scan-tree-dump-times "parallelizing outer loop" 1 "parloops2" { xfail *-*-* } } } */
-/* { dg-final { scan-tree-dump-times "loopfn" 4 "optimized" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "parallelizing outer loop" 1 "parloops2" } } */
+/* { dg-final { scan-tree-dump-times "loopfn" 4 "optimized" } } */

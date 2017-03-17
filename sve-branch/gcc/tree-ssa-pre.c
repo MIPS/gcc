@@ -1,5 +1,5 @@
 /* Full and partial redundancy elimination and code hoisting on SSA GIMPLE.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org> and Steven Bosscher
    <stevenb@suse.de>
 
@@ -3986,21 +3986,21 @@ compute_avail (void)
 			{
 			  ref->set = set;
 			  if (ref1->opcode == MEM_REF)
-			    ref1->op0 = fold_convert (TREE_TYPE (ref2->op0),
-						      ref1->op0);
+			    ref1->op0 = wide_int_to_tree (TREE_TYPE (ref2->op0),
+							  ref1->op0);
 			  else
-			    ref1->op2 = fold_convert (TREE_TYPE (ref2->op2),
-						      ref1->op2);
+			    ref1->op2 = wide_int_to_tree (TREE_TYPE (ref2->op2),
+							  ref1->op2);
 			}
 		      else
 			{
 			  ref->set = 0;
 			  if (ref1->opcode == MEM_REF)
-			    ref1->op0 = fold_convert (ptr_type_node,
-						      ref1->op0);
+			    ref1->op0 = wide_int_to_tree (ptr_type_node,
+							  ref1->op0);
 			  else
-			    ref1->op2 = fold_convert (ptr_type_node,
-						      ref1->op2);
+			    ref1->op2 = wide_int_to_tree (ptr_type_node,
+							  ref1->op2);
 			}
 		      operands.release ();
 
@@ -4103,7 +4103,9 @@ eliminate_insert (gimple_stmt_iterator *gsi, tree val)
   if (!is_gimple_assign (stmt)
       || (!CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
 	  && gimple_assign_rhs_code (stmt) != VIEW_CONVERT_EXPR
-	  && gimple_assign_rhs_code (stmt) != BIT_FIELD_REF))
+	  && gimple_assign_rhs_code (stmt) != BIT_FIELD_REF
+	  && (gimple_assign_rhs_code (stmt) != BIT_AND_EXPR
+	      || TREE_CODE (gimple_assign_rhs2 (stmt)) != INTEGER_CST)))
     return NULL_TREE;
 
   tree op = gimple_assign_rhs1 (stmt);
@@ -4121,6 +4123,9 @@ eliminate_insert (gimple_stmt_iterator *gsi, tree val)
 			TREE_TYPE (val), leader,
 			TREE_OPERAND (gimple_assign_rhs1 (stmt), 1),
 			TREE_OPERAND (gimple_assign_rhs1 (stmt), 2));
+  else if (gimple_assign_rhs_code (stmt) == BIT_AND_EXPR)
+    res = gimple_build (&stmts, BIT_AND_EXPR,
+			TREE_TYPE (val), leader, gimple_assign_rhs2 (stmt));
   else
     res = gimple_build (&stmts, gimple_assign_rhs_code (stmt),
 			TREE_TYPE (val), leader);
