@@ -12025,7 +12025,7 @@ output_one_line_info_table (dw_line_info_table *table)
   size_t i;
   unsigned int view;
 
-  RESET_NEXT_VIEW (view);
+  view = 0;
 
   FOR_EACH_VEC_SAFE_ELT (table->entries, i, ent)
     {
@@ -12040,12 +12040,13 @@ output_one_line_info_table (dw_line_info_table *table)
 	     to determine when it is safe to use DW_LNS_fixed_advance_pc.  */
 	  ASM_GENERATE_INTERNAL_LABEL (line_label, LINE_CODE_LABEL, ent->val);
 
+	  view = 0;
+
 	  /* This can handle any delta.  This takes
 	     4+DWARF2_ADDR_SIZE bytes.  */
 	  dw2_asm_output_data (1, 0, "set address %s%s", line_label,
 			       debug_variable_location_views
 			       ? ", reset view to 0" : "");
-	  view = 0;
 	  dw2_asm_output_data_uleb128 (1 + DWARF2_ADDR_SIZE, NULL);
 	  dw2_asm_output_data (1, DW_LNE_set_address, NULL);
 	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, line_label, NULL);
@@ -12059,8 +12060,10 @@ output_one_line_info_table (dw_line_info_table *table)
 	    char prev_label[MAX_ARTIFICIAL_LABEL_BYTES];
 	    ASM_GENERATE_INTERNAL_LABEL (prev_label, LINE_CODE_LABEL, prev_addr->val);
 	  
-	    gcc_assert (!RESETTING_VIEW_P (view));
-	    dw2_asm_output_data (1, DW_LNS_fixed_advance_pc, "fixed advance PC, increment view to %i", ++view);
+
+	    view++;
+
+	    dw2_asm_output_data (1, DW_LNS_fixed_advance_pc, "fixed advance PC, increment view to %i", view);
 	    dw2_asm_output_delta (2, line_label, prev_label,
 				  "from %s to %s", prev_label, line_label);
 
