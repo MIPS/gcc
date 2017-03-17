@@ -2547,8 +2547,7 @@ vect_analyze_group_access_1 (struct data_reference *dr)
 	 size.  */
       if (DR_IS_READ (dr)
 	  && (dr_step % type_size) == 0
-	  && groupsize > 0
-	  && pow2p_hwi (groupsize))
+	  && groupsize > 0)
 	{
 	  GROUP_FIRST_ELEMENT (stmt_info) = stmt;
 	  GROUP_SIZE (stmt_info) = groupsize;

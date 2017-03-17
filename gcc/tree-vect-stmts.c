@@ -3308,7 +3308,9 @@ get_load_store_type (gimple *stmt, tree vectype, bool slp, bool masked_p,
      cost of using elementwise accesses.  This check preserves the
      traditional behavior until that can be fixed.  */
   if (*memory_access_type == VMAT_ELEMENTWISE
-      && !STMT_VINFO_STRIDED_P (stmt_info))
+      && !STMT_VINFO_STRIDED_P (stmt_info)
+      && !(stmt == GROUP_FIRST_ELEMENT (stmt_info)
+	   && GROUP_NUM_STMTS (stmt_info) == 1))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
