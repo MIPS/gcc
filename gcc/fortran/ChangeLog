@@ -1,3 +1,52 @@
+2017-03-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/79676
+	* module.c (mio_symbol_attribute): Remove reset of the flag
+	'no_module_procedures'.
+	(check_for_module_procedures): New function. Move declaration
+	of 'no_module_procedures' to above it.
+	(gfc_dump_module): Traverse namespace calling new function.
+
+2017-03-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/71838
+	* symbol.c (check_conflict): A dummy procedure in a submodule,
+	module procedure is not an error.
+	(gfc_add_flavor): Ditto.
+
+2017-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/79841
+	* openmp.c (check_symbol_not_pointer): Adjust diagnostics.
+
+2017-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/80010
+	* parse.c (gfc_ascii_statement): Use !$ACC for ST_OACC_ATOMIC
+	and ST_OACC_END_ATOMIC, instead of !ACC.
+	* trans-decl.c (finish_oacc_declare): Use !$ACC instead of $!ACC.
+	* openmp.c (gfc_match_oacc_declare, gfc_match_oacc_wait,
+	gfc_resolve_oacc_declare): Likewise.
+
+	PR fortran/79886
+	* error.c (gfc_format_decoder): Rename plus argument to set_locus,
+	remove ATTRIBUTE_UNUSED from all arguments, call default_tree_printer
+	if not a Fortran specific spec.
+	* trans-io.c: Include options.h.
+	(gfc_build_st_parameter): Temporarily disable -Wpadded around layout
+	of artificial IO data structures.
+
+2017-03-15  David Malcolm  <dmalcolm@redhat.com>
+
+	PR fortran/79860
+	* resolve.c (resolve_contained_fntype): Make error messages more
+	amenable to translation.
+
+2017-03-06  Richard Biener  <rguenther@suse.de>
+
+	PR fortran/79894
+	* trans.c (gfc_add_modify_loc): Weaken assert.
+
 2017-03-05  Andre Vehreschild  <vehre@gcc.gnu.org>,
 	    Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
 
@@ -13,7 +62,7 @@
 	* gfortran.texi: Added description for the new API functions. Updated
 	coverage of gfortran of TS18508.
 	* intrinsic.c (add_functions): Added symbols to resolve new intrinsic
-	functions. 
+	functions.
 	* intrinsic.h: Added prototypes.
 	* iresolve.c (gfc_resolve_failed_images): Resolve the failed_images
 	intrinsic.
