@@ -565,3 +565,7 @@ Target Undocumented Var(TARGET_RESTORE_JRC) Init(1)
 
 madd-addiupc32
 Target Undocumented Var(TARGET_ADDIUPC32) Init(0)
+
+mjumptable-density=
+Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init(0)
+-mjumptable-density=DENSITY	Percentage of non default target labels.
