@@ -2804,17 +2804,26 @@ typedef struct mips_args {
    PC-relative offsets grow too large, 32-bit offsets are used instead.  */
 #define TARGET_MIPS16_SHORT_JUMP_TABLES (TARGET_MIPS16 && TARGET_MIPS16_TEXT_LOADS)
 
+#define TARGET_MICROMIPS_R7_JUMPTABLE_OPT \
+  (TARGET_MICROMIPS_R7 && TARGET_JUMPTABLE_OPT)
+
 #define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16_SHORT_JUMP_TABLES
 
-#define CASE_VECTOR_MODE (TARGET_MIPS16_SHORT_JUMP_TABLES ? SImode : ptr_mode)
+#define CASE_VECTOR_MODE ((TARGET_MIPS16_SHORT_JUMP_TABLES	\
+			  || TARGET_MICROMIPS_R7_JUMPTABLE_OPT)	\
+			    ? SImode : ptr_mode)
 
 /* Only use short offsets if their range will not overflow.  */
-#define CASE_VECTOR_SHORTEN_MODE(MIN, MAX, BODY) \
-  (!TARGET_MIPS16_SHORT_JUMP_TABLES ? ptr_mode \
-   : ((MIN) >= -32768 && (MAX) < 32768) ? HImode \
-   : SImode)
+#define CASE_VECTOR_SHORTEN_MODE(MIN, MAX, BODY)			    \
+  (!(TARGET_MIPS16_SHORT_JUMP_TABLES || TARGET_MICROMIPS_R7_JUMPTABLE_OPT)  \
+   ? ptr_mode								    \
+   : (((MIN) >= -128 && (MAX) < 128) && TARGET_MICROMIPS_R7_JUMPTABLE_OPT)  \
+      ? QImode								    \
+      : ((MIN) >= -32768 && (MAX) < 32768)				    \
+	 ? HImode : SImode)
 
-#define CASE_VECTOR_PC_RELATIVE TARGET_MIPS16_SHORT_JUMP_TABLES
+#define CASE_VECTOR_PC_RELATIVE (TARGET_MIPS16_SHORT_JUMP_TABLES  \
+				 || TARGET_MICROMIPS_R7_JUMPTABLE_OPT)
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #ifndef DEFAULT_SIGNED_CHAR
@@ -3122,6 +3131,10 @@ while (0)
 	   LOCAL_LABEL_PREFIX,						\
 	   VALUE)
 
+/* A tweak to output case label before any assembler directive so that the case
+   label is immediately after a brsc/brc in .text instead of in .rdata.  */
+#define ASM_OUTPUT_CASE_LABEL_BEFORE_SECTION TARGET_MICROMIPS_R7_JUMPTABLE_OPT
+
 /* This is how to output an element of a case-vector.  We can make the
    entries PC-relative in MIPS16 code and GP-relative when .gp(d)word
    is supported.  */
@@ -3132,6 +3145,19 @@ do {									\
     {									\
       if (GET_MODE (BODY) == HImode)					\
 	fprintf (STREAM, "\t.half\t%sL%d-%sL%d\n",			\
+		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
+      else								\
+	fprintf (STREAM, "\t.word\t%sL%d-%sL%d\n",			\
+		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
+    }									\
+  else if (TARGET_MICROMIPS_R7_JUMPTABLE_OPT)				\
+    {									\
+      /* TODO: Add shift '>>' support for BRSC.  */			\
+      if (GET_MODE (BODY) == HImode)					\
+	fprintf (STREAM, "\t.half\t%sL%d-%sL%d\n",			\
+		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
+      else if (GET_MODE (BODY) == QImode)				\
+	fprintf (STREAM, "\t.byte\t%sL%d-%sL%d\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
       else								\
 	fprintf (STREAM, "\t.word\t%sL%d-%sL%d\n",			\
@@ -3161,15 +3187,19 @@ do {									\
    simplicity embed the jump table's label number in the local symbol
    produced so that multiple jump tables within a single function end
    up marked with unique symbols.  Retain the alignment setting from
-   `elfos.h' as we are replacing the definition from there.  */
+   `elfos.h' as we are replacing the definition from there.
+   Don't want alignment from `elfos.h' if TARGET_MICROMIPS_R7_JUMPTABLE_OPT.  */
 
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(STREAM, PREFIX, NUM, TABLE)	\
   do									\
     {									\
-      ASM_OUTPUT_ALIGN ((STREAM), 2);					\
-      if (JUMP_TABLES_IN_TEXT_SECTION)					\
-	mips_set_text_contents_type (STREAM, "__jump_", NUM, FALSE);	\
+      if (!TARGET_MICROMIPS_R7_JUMPTABLE_OPT)				\
+	{								\
+	  ASM_OUTPUT_ALIGN ((STREAM), 2);				\
+	  if (JUMP_TABLES_IN_TEXT_SECTION)				\
+	    mips_set_text_contents_type (STREAM, "__jump_", NUM, FALSE);\
+	}								\
     }									\
   while (0);
 

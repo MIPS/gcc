@@ -2422,6 +2422,34 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	     target, so don't output the label at all.  Leave that
 	     to the back end macros.  */
 #else
+#ifdef ASM_OUTPUT_CASE_LABEL_BEFORE_SECTION
+/* Output the case label in the current section and before any align adjustment
+   is done.  */
+#ifdef ASM_OUTPUT_CASE_LABEL
+	  ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
+				 next);
+#else
+	  targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
+#endif
+
+	  if (! JUMP_TABLES_IN_TEXT_SECTION)
+	    {
+	      int log_align;
+
+	      switch_to_section (targetm.asm_out.function_rodata_section
+				 (current_function_decl));
+
+#ifdef ADDR_VEC_ALIGN
+	      log_align = ADDR_VEC_ALIGN (next);
+#else
+	      log_align = exact_log2 (BIGGEST_ALIGNMENT / BITS_PER_UNIT);
+#endif
+	      ASM_OUTPUT_ALIGN (file, log_align);
+	    }
+	  else
+	    switch_to_section (current_function_section ());
+
+#else /* ASM_OUTPUT_CASE_LABEL_BEFORE_SECTION.  */
 	  if (! JUMP_TABLES_IN_TEXT_SECTION)
 	    {
 	      int log_align;
@@ -2445,6 +2473,7 @@ final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 #else
 	  targetm.asm_out.internal_label (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
+#endif /* ASM_OUTPUT_CASE_LABEL_BEFORE_SECTION.*/
 #endif
 	  break;
 	}
