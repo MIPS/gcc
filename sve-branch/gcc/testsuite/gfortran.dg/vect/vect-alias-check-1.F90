@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-ftree-vectorize -fno-inline" }
+! { dg-additional-options "-fno-inline" }
 
 #define N 200
 
@@ -10,15 +10,13 @@ subroutine setup(a)
   do i = 1, N
      a(i) = TEST_VALUE(i)
   end do
-  write(*,*) a
 end subroutine
 
 subroutine check(a, x, gap)
   real :: a(N), temp, x
   integer :: gap
-  write(*,*) a
   do i = 1, N - gap
-     temp = a(i + gap) * 4 + x
+     temp = a(i + gap) + x
      if (a(i) /= temp) call abort
   end do
   do i = N - gap + 1, N
@@ -31,7 +29,7 @@ subroutine testa(a, x, base, n)
   real :: a(n), x
   integer :: base, n
   do i = n, 2, -1
-     a(base + i - 1) = a(base + i) * 4 + x
+     a(base + i - 1) = a(base + i) + x
   end do
 end subroutine testa
 
@@ -39,7 +37,7 @@ subroutine testb(a, x, base, n)
   real :: a(n), x
   integer :: base
   do i = n, 4, -1
-     a(base + i - 3) = a(base + i) * 4 + x
+     a(base + i - 3) = a(base + i) + x
   end do
 end subroutine testb
 
@@ -47,7 +45,7 @@ subroutine testc(a, x, base, n)
   real :: a(n), x
   integer :: base
   do i = n, 8, -1
-     a(base + i - 7) = a(base + i) * 4 + x
+     a(base + i - 7) = a(base + i) + x
   end do
 end subroutine testc
 
@@ -55,7 +53,7 @@ subroutine testd(a, x, base, n)
   real :: a(n), x
   integer :: base
   do i = n, 16, -1
-     a(base + i - 15) = a(base + i) * 4 + x
+     a(base + i - 15) = a(base + i) + x
   end do
 end subroutine testd
 
@@ -63,7 +61,7 @@ subroutine teste(a, x, base, n)
   real :: a(n), x
   integer :: base
   do i = n, 32, -1
-     a(base + i - 31) = a(base + i) * 4 + x
+     a(base + i - 31) = a(base + i) + x
   end do
 end subroutine teste
 
@@ -71,7 +69,7 @@ subroutine testf(a, x, base, n)
   real :: a(n), x
   integer :: base
   do i = n, 64, -1
-     a(base + i - 63) = a(base + i) * 4 + x
+     a(base + i - 63) = a(base + i) + x
   end do
 end subroutine testf
 
