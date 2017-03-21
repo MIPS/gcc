@@ -74,15 +74,23 @@ irange::set_range (tree t)
 {
   if (TYPE_P (t))
     {
-      gcc_assert (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type));
-      wide_int min = wi::min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
-      wide_int max = wi::max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
-      set_range (type, min, max);
+      gcc_assert (INTEGRAL_TYPE_P (t) || POINTER_TYPE_P (t));
+      wide_int min = wi::min_value (TYPE_PRECISION (t), TYPE_SIGN (t));
+      wide_int max = wi::max_value (TYPE_PRECISION (t), TYPE_SIGN (t));
+      set_range (t, min, max);
       return;
     }
 
   // Otherwise process as an SSA_NAME
   gcc_assert (TREE_CODE (t) == SSA_NAME);
+
+  // Until tree-ssanames.c::get_range_info () supports pointer types....
+  if (POINTER_TYPE_P (TREE_TYPE (t)))
+    {
+      set_range (TREE_TYPE (t));
+      return;
+    }
+    
   wide_int min, max;
   value_range_type rtype = get_range_info (t, &min, &max);
 
