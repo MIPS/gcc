@@ -7518,6 +7518,8 @@ is in effect.
 
 @hook TARGET_CASE_VALUES_THRESHOLD
 
+@hook TARGET_CASE_JUMPTABLE_DENSITY
+
 @defmac WORD_REGISTER_OPERATIONS
 Define this macro to 1 if operations between registers with integral mode
 smaller than a word are always performed on the entire register.

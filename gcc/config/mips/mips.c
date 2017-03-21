@@ -27334,6 +27334,18 @@ mips_case_values_threshold (void)
     return default_case_values_threshold ();
 }
 
+/* Implement TARGET_CASE_JUMPTABLE_DENSITY.  */
+
+unsigned int
+mips_case_jumptable_density (bool speed_p)
+{
+  /* Experimental densities on compile-time for now.  */
+  if (mips_jumptable_density)
+    return mips_jumptable_density;
+  else
+    return default_case_jumptable_density (speed_p);
+}
+
 /* Implement TARGET_ATOMIC_ASSIGN_EXPAND_FENV.  */
 
 static void
@@ -27945,6 +27957,9 @@ mips_reg_parm_stack_space (tree fun, bool incoming)
 
 #undef TARGET_CASE_VALUES_THRESHOLD
 #define TARGET_CASE_VALUES_THRESHOLD mips_case_values_threshold
+
+#undef TARGET_CASE_JUMPTABLE_DENSITY
+#define TARGET_CASE_JUMPTABLE_DENSITY mips_case_jumptable_density
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV mips_atomic_assign_expand_fenv

@@ -10473,6 +10473,12 @@ The default is four for machines with a @code{casesi} instruction and
 five otherwise.  This is best for most machines.
 @end deftypefn
 
+@deftypefn {Target Hook} {unsigned int} TARGET_CASE_JUMPTABLE_DENSITY (bool @var{speed_p})
+This function returns the density, a value between 0 and 100 which is
+the minimum percentage of non-default labels allowed in a jump table.
+The default is 40 when optimizing for size and 10 for optimizing for speed.
+@end deftypefn
+
 @defmac WORD_REGISTER_OPERATIONS
 Define this macro to 1 if operations between registers with integral mode
 smaller than a word are always performed on the entire register.
