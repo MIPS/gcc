@@ -212,7 +212,8 @@ struct mips_cpu_info {
 
 /* True if indirect calls must use register class PIC_FN_ADDR_REG.
    This is true for both the PIC and non-PIC VxWorks RTP modes.  */
-#define TARGET_USE_PIC_FN_ADDR_REG (TARGET_ABICALLS || TARGET_VXWORKS_RTP)
+#define TARGET_USE_PIC_FN_ADDR_REG (!TARGET_NANOMIPS \
+				    && (TARGET_ABICALLS || TARGET_VXWORKS_RTP))
 
 /* True if .gpword or .gpdword should be used for switch tables.  */
 #define TARGET_GPWORD				\
@@ -2255,6 +2256,7 @@ enum reg_class
   M16_STORE_REGS,		/* microMIPS store registers  */
   N16_STORE_REGS,		/* nanoMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
+  N16_TAIL_REGS,		/* nanoMIPS sibling call registers */
   N16_REGS,			/* nanoMIPS directly accessible registers */
   N16_4X4_REGS,			/* nanoMIPS registers $0-$7,$16-$23 */
   M16_SP_REGS,			/* mips16 + $sp */
@@ -2298,6 +2300,7 @@ enum reg_class
   "M16_STORE_REGS",							\
   "N16_STORE_REGS",							\
   "M16_REGS",								\
+  "N16_TAIL_REGS",							\
   "N16_REGS",								\
   "N16_4X4_REGS",							\
   "M16_SP_REGS",							\
@@ -2344,6 +2347,7 @@ enum reg_class
   { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
   { 0x000e00f1, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* N16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
+  { 0x0700fffc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* N16_TAIL_REGS */	\
   { 0x000f00f0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* N16_REGS */	\
   { 0x00ff0ff0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* N16_4X4_REGS */	\
   { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */	\
