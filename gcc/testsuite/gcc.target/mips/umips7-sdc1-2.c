@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=32 -mhard-float isa_rev>=7" } */
+/* { dg-options "-mabi=32 -mhard-float isa_rev>=7 -mxlp" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 void
