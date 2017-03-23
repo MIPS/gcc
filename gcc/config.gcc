@@ -2124,7 +2124,7 @@ mips*-mti-elf*)
 mips*-img-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/img-elf.h"
 	tmake_file="mips/t-mips-multi"
-	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_32"
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_P32"
 	with_arch_32="mips32r7"
 	with_arch_64="mips64r7"
 	with_micromips="yes"
