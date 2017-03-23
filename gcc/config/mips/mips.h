@@ -206,7 +206,8 @@ struct mips_cpu_info {
 
 /* True if indirect calls must use register class PIC_FN_ADDR_REG.
    This is true for both the PIC and non-PIC VxWorks RTP modes.  */
-#define TARGET_USE_PIC_FN_ADDR_REG (TARGET_ABICALLS || TARGET_VXWORKS_RTP)
+#define TARGET_USE_PIC_FN_ADDR_REG (!TARGET_MICROMIPS_R7 \
+				    && (TARGET_ABICALLS || TARGET_VXWORKS_RTP))
 
 /* True if .gpword or .gpdword should be used for switch tables.  */
 #define TARGET_GPWORD				\
