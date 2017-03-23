@@ -7220,6 +7220,8 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 
     case ABI_N32:
     case ABI_64:
+    case ABI_P32:
+    case ABI_P64:
       /* Scalar, complex and vector floating-point types are passed in
 	 floating-point registers, as long as this is a named rather
 	 than a variable argument.  */
@@ -7311,7 +7313,7 @@ mips_arg_regno (const struct mips_arg_info *info, bool hard_float_p)
 static bool
 mips_strict_argument_naming (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
-  return !TARGET_OLDABI;
+  return !TARGET_OABI;
 }
 
 /* Implement TARGET_FUNCTION_ARG.  */
@@ -7344,7 +7346,7 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
   /* The n32 and n64 ABIs say that if any 64-bit chunk of the structure
      contains a double in its entirety, then that 64-bit chunk is passed
      in a floating-point register.  */
-  if (TARGET_NEWABI
+  if (TARGET_NABI
       && TARGET_HARD_FLOAT
       && named
       && type != 0
@@ -7408,7 +7410,7 @@ mips_function_arg (cumulative_args_t cum_v, machine_mode mode,
   /* Handle the n32/n64 conventions for passing complex floating-point
      arguments in FPR pairs.  The real part goes in the lower register
      and the imaginary part goes in the upper register.  */
-  if (TARGET_NEWABI
+  if ((TARGET_NABI || TARGET_PABI)
       && info.fpr_p
       && GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
     {
@@ -7624,7 +7626,7 @@ mips_fpr_return_fields (const_tree valtype, tree *fields)
   tree field;
   int i;
 
-  if (!TARGET_NEWABI)
+  if (!TARGET_NABI)
     return 0;
 
   if (TREE_CODE (valtype) != RECORD_TYPE)
@@ -7662,7 +7664,7 @@ mips_return_in_msb (const_tree valtype)
 {
   tree fields[2];
 
-  return (TARGET_NEWABI
+  return (TARGET_NABI
 	  && TARGET_BIG_ENDIAN
 	  && AGGREGATE_TYPE_P (valtype)
 	  && mips_fpr_return_fields (valtype, fields) == 0);
@@ -7721,7 +7723,7 @@ mips_return_fpr_pair (machine_mode mode,
 {
   int inc;
 
-  inc = (TARGET_NEWABI || mips_abi == ABI_32 ? 2 : MAX_FPRS_PER_FMT);
+  inc = (TARGET_NABI || mips_abi == ABI_32 ? 2 : MAX_FPRS_PER_FMT);
   return gen_rtx_PARALLEL
     (mode,
      gen_rtvec (2,
@@ -7874,7 +7876,7 @@ mips_function_value_regno_p (const unsigned int regno)
 static bool
 mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
-  return (TARGET_OLDABI
+  return (TARGET_OABI
 	  ? TYPE_MODE (type) == BLKmode
 	  : !IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
 }
@@ -8619,7 +8621,7 @@ mips_output_args_xfer (int fp_code, char direction)
   CUMULATIVE_ARGS cum;
 
   /* This code only works for o32 and o64.  */
-  gcc_assert (TARGET_OLDABI);
+  gcc_assert (TARGET_OABI);
 
   mips_init_cumulative_args (&cum, NULL);
 
@@ -8840,7 +8842,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 
   /* This code will only work for o32 and o64 abis.  The other ABI's
      require more sophisticated support.  */
-  gcc_assert (TARGET_OLDABI);
+  gcc_assert (TARGET_OABI);
 
   /* If we're calling via a function pointer, use one of the magic
      libgcc.a stubs provided for each (FP_CODE, FP_RET_P) combination.
@@ -10254,7 +10256,7 @@ mips_init_relocs (void)
   if (TARGET_EXPLICIT_RELOCS)
     {
       mips_split_p[SYMBOL_GOT_PAGE_OFST] = true;
-      if (TARGET_NEWABI)
+      if (TARGET_NABI)
 	{
 	  mips_lo_relocs[SYMBOL_GOTOFF_PAGE] = "%got_page(";
 	  mips_lo_relocs[SYMBOL_GOT_PAGE_OFST] = "%got_ofst(";
@@ -10283,7 +10285,7 @@ mips_init_relocs (void)
 	}
       else
 	{
-	  if (TARGET_NEWABI)
+	  if (TARGET_NABI)
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got_disp(";
 	  else
 	    mips_lo_relocs[SYMBOL_GOTOFF_DISP] = "%got(";
@@ -10294,7 +10296,7 @@ mips_init_relocs (void)
 	}
     }
 
-  if (TARGET_NEWABI)
+  if (TARGET_NABI)
     {
       mips_split_p[SYMBOL_GOTOFF_LOADGP] = true;
       mips_hi_relocs[SYMBOL_GOTOFF_LOADGP] = "%hi(%neg(%gp_rel(";
@@ -11608,6 +11610,10 @@ mips_mdebug_abi_name (void)
       return "abiN32";
     case ABI_64:
       return "abi64";
+    case ABI_P32:
+      return "abiP32";
+    case ABI_P64:
+      return "abiP64";
     case ABI_EABI:
       return TARGET_64BIT ? "eabi64" : "eabi32";
     default:
@@ -13269,7 +13275,7 @@ mips_compute_frame_info (void)
      to allocate stack space so that we can eliminate the instructions
      that modify the stack pointer.  */
 
-  if (TARGET_OLDABI
+  if (TARGET_OABI
       && optimize > 0
       && flag_frame_header_optimization
       && !MAIN_NAME_P (DECL_NAME (current_function_decl))
@@ -13355,7 +13361,7 @@ mips_current_loadgp_style (void)
   if (TARGET_ABSOLUTE_ABICALLS)
     return LOADGP_ABSOLUTE;
 
-  return TARGET_NEWABI ? LOADGP_NEWABI : LOADGP_OLDABI;
+  return TARGET_NABI ? LOADGP_NEWABI : LOADGP_OLDABI;
 }
 
 /* Implement TARGET_FRAME_POINTER_REQUIRED.  */
@@ -13579,7 +13585,7 @@ mips_save_gp_to_cprestore_slot (rtx mem, rtx offset, rtx gp, rtx temp)
 void
 mips_restore_gp_from_cprestore_slot (rtx temp)
 {
-  gcc_assert (TARGET_ABICALLS && TARGET_OLDABI && epilogue_completed);
+  gcc_assert (TARGET_ABICALLS && TARGET_OABI && epilogue_completed);
 
   if (!cfun->machine->must_restore_gp_when_clobbered_p)
     {
@@ -23049,13 +23055,13 @@ mips_set_compression_mode (unsigned int compression_mode)
 	 mutually exclusive.  */
       target_flags &= ~MASK_FIX_R4000;
 
-      if (flag_pic && !TARGET_OLDABI)
+      if (flag_pic && !TARGET_OABI)
 	sorry ("MIPS16 PIC for ABIs other than o32 and o64");
 
       if (TARGET_XGOT)
 	sorry ("MIPS16 -mxgot code");
 
-      if (TARGET_HARD_FLOAT_ABI && !TARGET_OLDABI)
+      if (TARGET_HARD_FLOAT_ABI && !TARGET_OABI)
 	sorry ("hard-float MIPS16 code for ABIs other than o32 and o64");
 
       if (TARGET_MSA)
@@ -23953,6 +23959,10 @@ mips_option_override (void)
   if (mips_isa_rev == 7 && !is_micromips)
     error ("unsupported combination: %s", "-mips32r7 -mno-micromips");
 
+  if (mips_isa_rev == 7 && is_micromips
+      && !(mips_abi == ABI_P32 || mips_abi == ABI_P64))
+    error ("microMIPS R7 is only compatible with p32 or p64 ABI");
+
   if (ABI_NEEDS_64BIT_REGS && !ISA_HAS_64BIT_REGS)
     error ("%<-march=%s%> is not compatible with the selected ABI",
 	   mips_arch_info->name);
@@ -24043,7 +24053,7 @@ mips_option_override (void)
     {
       if (TARGET_LONG64)
 	{
-	  if (mips_abi == ABI_N32)
+	  if (mips_abi == ABI_N32 || mips_abi == ABI_P32)
 	    error ("%qs is incompatible with %qs", "-mabi=n32", "-mlong64");
 	  else if (mips_abi == ABI_32)
 	    error ("%qs is incompatible with %qs", "-mabi=32", "-mlong64");
@@ -24058,7 +24068,7 @@ mips_option_override (void)
 	}
       else
 	{
-	  if (mips_abi == ABI_64)
+	  if (mips_abi == ABI_64 || mips_abi == ABI_P64)
 	    error ("%qs is incompatible with %qs", "-mabi=64", "-mlong32");
 	}
     }
@@ -24070,7 +24080,7 @@ mips_option_override (void)
 	target_flags &= ~MASK_LONG64;
     }
 
-  if (!TARGET_OLDABI)
+  if (!TARGET_OABI)
     flag_pcc_struct_return = 0;
 
   /* Decide which rtx_costs structure to use.  */
@@ -24644,6 +24654,17 @@ mips_conditional_register_usage (void)
       int regno;
       for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
 	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+    }
+  /* $f8-$f15 are callee-saved registers. */
+  if (mips_abi == ABI_P32)
+    {
+      int regno;
+      /* Overwrite the defaults.  */
+      for (regno = FP_REG_FIRST; regno <= FP_REG_FIRST + 31; regno+=1)
+	call_really_used_regs[regno] = call_used_regs[regno] = 1;
+      /* Mark callee-saved registers.  */
+      for (regno = FP_REG_FIRST + 8; regno <= FP_REG_FIRST + 15; regno+=1)
+	call_really_used_regs[regno] = call_used_regs[regno] = 0;
     }
   /* Make sure that double-register accumulator values are correctly
      ordered for the current endianness.  */
@@ -25625,7 +25646,7 @@ void mips_function_profiler (FILE *file)
 		 cfun->machine->frame.ra_fp_offset,
 		 reg_names[STACK_POINTER_REGNUM]);
     }
-  if (!TARGET_NEWABI)
+  if (!TARGET_NABI)
     fprintf (file,
 	     "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n",
 	     TARGET_64BIT ? "dsubu" : "subu",

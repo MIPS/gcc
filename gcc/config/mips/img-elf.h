@@ -37,12 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 									\
   /* If no ABI option is specified, infer one from the ISA level	\
      or -mgp setting.  */						\
-  "%{!mabi=*: %{" MIPS_32BIT_OPTION_SPEC ": -mabi=32;: -mabi=n32}}",	\
-									\
-  /* If no FP ABI option is specified, infer one from the		\
-     ABI/ISA level.  */							\
-  "%{!msoft-float: %{!msingle-float: %{!mfp*: %{!mmsa: %{mabi=32: %{"	\
-  MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}}}}",				\
+  "%{!mabi=*: %{" MIPS_32BIT_OPTION_SPEC ": -mabi=p32;: -mabi=p64}}",	\
 									\
   /* Make sure that an endian option is always present.  This makes	\
      things like LINK_SPEC easier to write.  */				\
@@ -83,16 +78,3 @@ along with GCC; see the file COPYING3.  If not see
 #define SIZE_TYPE "long unsigned int"
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "long int"
-
-/* Force all .init and .fini entries to be 32-bit, not mips16, so that
-   in a mixed environment they are all the same mode. The crti.asm and
-   crtn.asm files will also be compiled as 32-bit due to the
-   -no-mips16 flag in SUBTARGET_ASM_SPEC above. */
-#undef CRT_CALL_STATIC_FUNCTION
-#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC) \
-   asm (SECTION_OP "\n\
-	.set push\n\
-	.set nomips16\n\
-	jal " USER_LABEL_PREFIX #FUNC "\n\
-	.set pop\n\
-	" TEXT_SECTION_ASM_OP);

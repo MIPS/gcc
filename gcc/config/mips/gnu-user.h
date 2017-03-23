@@ -146,4 +146,4 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
   GNU_USER_TARGET_ENDFILE_SPEC
 
 #undef LOCAL_LABEL_PREFIX
-#define LOCAL_LABEL_PREFIX (TARGET_OLDABI ? "$" : ".")
+#define LOCAL_LABEL_PREFIX (TARGET_OABI ? "$" : ".")
