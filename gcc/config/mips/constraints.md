@@ -57,7 +57,8 @@
 (define_register_constraint "e" "LEA_REGS"
   "@internal")
 
-(define_register_constraint "j" "PIC_FN_ADDR_REG"
+(define_register_constraint "j" "TARGET_NANOMIPS ? N16_TAIL_REGS
+						 : PIC_FN_ADDR_REG"
   "@internal")
 
 ;; FIXME: Remove this comment and below once the MIPS backend can
