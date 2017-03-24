@@ -25372,7 +25372,7 @@ umips_movep_target_p (rtx reg1, rtx reg2)
     0x00000180, /* 7, 8 */
   };
 
-  if (!ISA_HAS_XLP)
+  if (!ISA_HAS_XLP && !TARGET_MOVEP_NOXLP)
     return false;
 
   if (!REG_P (reg1) || !REG_P (reg2))
@@ -25403,7 +25403,7 @@ umips_movep_target_p (rtx reg1, rtx reg2)
 bool
 umips_move_balc_p (rtx *operands)
 {
-  if (!ISA_HAS_XLP)
+  if (!ISA_HAS_XLP && !TARGET_MOVEBALC_NOXLP)
     return false;
   if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
     return false;
