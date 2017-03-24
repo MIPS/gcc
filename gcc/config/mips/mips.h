@@ -3160,7 +3160,7 @@ do {									\
 	fprintf (STREAM, "\t.half\t(%sL%d-%sL%d)>>1\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
       else if (GET_MODE (BODY) == QImode)				\
-	fprintf (STREAM, "\t.byte\t%sL%d-%sL%d\n",			\
+	fprintf (STREAM, "\t.byte\t(%sL%d-%sL%d)>>1\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
       else								\
 	fprintf (STREAM, "\t.word\t(%sL%d-%sL%d)>>1\n",			\
