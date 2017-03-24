@@ -600,3 +600,9 @@ Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init (0)
 
 mjumptable-opt
 Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(0)
+
+mmovep-noxlp
+Target Undocumented Var(TARGET_MOVEP_NOXLP) Init (0)
+
+mmovebalc-noxlp
+Target Undocumented Var(TARGET_MOVEBALC_NOXLP) init (0)
