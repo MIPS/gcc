@@ -7543,10 +7543,14 @@
   switch (GET_MODE (diff_vec))
     {
       case QImode:
-	output_asm_insn ("lbx\t%2, %0(%2)", operands);
+	ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
+	  ? output_asm_insn ("lbux\t%2, %0(%2)", operands)
+	  : output_asm_insn ("lbx\t%2, %0(%2)", operands);
 	break;
       case HImode:
-	output_asm_insn ("lhxs\t%2, %0(%2)", operands);
+	ADDR_DIFF_VEC_FLAGS (diff_vec).offset_unsigned
+	  ? output_asm_insn ("lhuxs\t%2, %0(%2)", operands)
+	  : output_asm_insn ("lhxs\t%2, %0(%2)", operands);
 	break;
       case SImode:
 	output_asm_insn ("lwxs\t%2, %0(%2)", operands);
@@ -7555,7 +7559,7 @@
 	gcc_unreachable ();
     }
 
-  return "brc\t%2";
+  return "brsc\t%2";
 }
   [(set_attr "insn_count" "4")])
 

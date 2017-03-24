@@ -2816,12 +2816,19 @@ typedef struct mips_args {
 
 /* Only use short offsets if their range will not overflow.  */
 #define CASE_VECTOR_SHORTEN_MODE(MIN, MAX, BODY)			    \
-  (!(TARGET_MIPS16_SHORT_JUMP_TABLES || TARGET_MICROMIPS_R7_JUMPTABLE_OPT)  \
-   ? ptr_mode								    \
-   : (((MIN) >= -128 && (MAX) < 128) && TARGET_MICROMIPS_R7_JUMPTABLE_OPT)  \
-      ? QImode								    \
-      : ((MIN) >= -32768 && (MAX) < 32768)				    \
-	 ? HImode : SImode)
+  (TARGET_MIPS16_SHORT_JUMP_TABLES					    \
+   ? (((MIN) >= -32768 && (MAX) < 32768) ? HImode : SImode)		    \
+   : TARGET_MICROMIPS_R7_JUMPTABLE_OPT					    \
+    ? (((MIN) >= -256 && (MAX) < 256)					    \
+      ? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 0, QImode)	    \
+      : ((MIN) >= 0 && (MAX) < 512)					    \
+	? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 1, QImode)	    \
+	: ((MIN) >= -32768 && (MAX) < 32768)				    \
+	  ? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 0, HImode)	    \
+	  : ((MIN) >= 0 && (MAX) < 65536)				    \
+	    ? (ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned = 1, HImode)	    \
+	    : SImode)							    \
+    : ptr_mode)
 
 #define CASE_VECTOR_PC_RELATIVE (TARGET_MIPS16_SHORT_JUMP_TABLES  \
 				 || TARGET_MICROMIPS_R7_JUMPTABLE_OPT)
@@ -3132,10 +3139,6 @@ while (0)
 	   LOCAL_LABEL_PREFIX,						\
 	   VALUE)
 
-/* A tweak to output case label before any assembler directive so that the case
-   label is immediately after a brsc/brc in .text instead of in .rdata.  */
-#define ASM_OUTPUT_CASE_LABEL_BEFORE_SECTION TARGET_MICROMIPS_R7_JUMPTABLE_OPT
-
 /* This is how to output an element of a case-vector.  We can make the
    entries PC-relative in MIPS16 code and GP-relative when .gp(d)word
    is supported.  */
@@ -3153,15 +3156,14 @@ do {									\
     }									\
   else if (TARGET_MICROMIPS_R7_JUMPTABLE_OPT)				\
     {									\
-      /* TODO: Add shift '>>' support for BRSC.  */			\
       if (GET_MODE (BODY) == HImode)					\
-	fprintf (STREAM, "\t.half\t%sL%d-%sL%d\n",			\
+	fprintf (STREAM, "\t.half\t(%sL%d-%sL%d)>>1\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
       else if (GET_MODE (BODY) == QImode)				\
 	fprintf (STREAM, "\t.byte\t%sL%d-%sL%d\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
       else								\
-	fprintf (STREAM, "\t.word\t%sL%d-%sL%d\n",			\
+	fprintf (STREAM, "\t.word\t(%sL%d-%sL%d)>>1\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
     }									\
   else if (TARGET_GPWORD)						\
