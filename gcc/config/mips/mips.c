@@ -23710,7 +23710,8 @@ class pass_optimize_multi_refs : public rtl_opt_pass
   virtual bool gate (function *)
     {
       return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS
-	     && TARGET_LI48 && (ISA_HAS_XLP || TARGET_LI48_NOXLP);
+	     && ((TARGET_LI48 && (ISA_HAS_XLP || TARGET_LI48_NOXLP))
+		 || (TARGET_ADDIUPC32 && ISA_HAS_XLP));
     }
 
   virtual unsigned int execute (function *);
@@ -23723,6 +23724,7 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
   rtx_insn *insn;
   rtx set;
   refs_and_sregs_info_t ras_info;
+  enum mips_symbol_type type;
 
   hash_table <reference_entry_hasher_t> *ref_table =
    new hash_table<reference_entry_hasher_t> (10);
@@ -23746,8 +23748,10 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
 	{
 	  rtx src = SET_SRC (set);
 	  rtx dest = SET_DEST (set);
+	  mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &type);
 	  if (REG_P (dest)
-	      && absolute_symbolic_operand (src, VOIDmode))
+	      && symbolic_operand (src, VOIDmode)
+	      && (type == SYMBOL_ABSOLUTE || type == SYMBOL_PC_RELATIVE))
 	    {
 	      reference_entry **slot;
 	      reference_entry *entry;
@@ -23786,8 +23790,10 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
 	{
 	  rtx *src = &SET_SRC (set);
 	  rtx *dest = &SET_DEST (set);
+	  mips_symbolic_constant_p (*src, SYMBOL_CONTEXT_LEA, &type);
 	  if (REG_P (*dest)
-	      && absolute_symbolic_operand (*src, VOIDmode))
+	      && symbolic_operand (*src, VOIDmode)
+	      && (type == SYMBOL_ABSOLUTE || type == SYMBOL_PC_RELATIVE))
 	    {
 	      ref_info r;
 
