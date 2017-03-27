@@ -17736,8 +17736,8 @@ generic MIPS ISA, or the name of a particular processor.
 The ISA names are:
 @samp{mips1}, @samp{mips2}, @samp{mips3}, @samp{mips4},
 @samp{mips32}, @samp{mips32r2}, @samp{mips32r3}, @samp{mips32r5},
-@samp{mips32r6}, @samp{mips64}, @samp{mips64r2}, @samp{mips64r3},
-@samp{mips64r5} and @samp{mips64r6}.
+@samp{mips32r6}, @samp{mips32r7}, @samp{mips64}, @samp{mips64r2},
+@samp{mips64r3}, @samp{mips64r5} and @samp{mips64r6}.
 The processor names are:
 @samp{4kc}, @samp{4km}, @samp{4kp}, @samp{4ksc},
 @samp{4kec}, @samp{4kem}, @samp{4kep}, @samp{4ksd},
@@ -17749,6 +17749,7 @@ The processor names are:
 @samp{74kc}, @samp{74kf2_1}, @samp{74kf1_1}, @samp{74kf3_2},
 @samp{1004kc}, @samp{1004kf2_1}, @samp{1004kf1_1},
 @samp{i6400}, @samp{i6500},
+@samp{i7001}, @samp{m7001},
 @samp{interaptiv}, @samp{interaptiv-mr2},
 @samp{loongson2e}, @samp{loongson2f}, @samp{loongson3a},
 @samp{m4k},

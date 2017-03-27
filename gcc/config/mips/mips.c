@@ -1774,6 +1774,26 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (8),            /* int_div_di */
 		    2,            /* branch_cost */
 		    4             /* memory_latency */
+  },
+  { /* I7001 */
+    /* FORNOW: Only placeholder.  */
+    SOFT_FP_COSTS,
+    COSTS_N_INSNS (4),            /* int_mult_si */
+    COSTS_N_INSNS (6),            /* int_mult_di */
+    COSTS_N_INSNS (42),           /* int_div_si */
+    COSTS_N_INSNS (42),           /* int_div_di */
+                     1,           /* branch_cost */
+                     4            /* memory_latency */
+  },
+  { /* M7001 */
+    /* FORNOW: Only placeholder.  */
+    SOFT_FP_COSTS,
+    COSTS_N_INSNS (4),            /* int_mult_si */
+    COSTS_N_INSNS (6),            /* int_mult_di */
+    COSTS_N_INSNS (42),           /* int_div_si */
+    COSTS_N_INSNS (42),           /* int_div_di */
+                     1,           /* branch_cost */
+                     4            /* memory_latency */
   }
 };
 
