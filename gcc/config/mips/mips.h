@@ -817,7 +817,7 @@ struct mips_cpu_info {
      %{march=mips32r3: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
      %{march=mips32r6|march=m6201: -mips32r6} \
-     %{march=mips32r7: -mips32r7} \
+     %{march=mips32r7|march=i7001|march=m7001: -mips32r7} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
        |march=xlr: -mips64} \
      %{march=mips64r2|march=loongson3a|march=octeon|march=xlp: -mips64r2} \
@@ -925,6 +925,7 @@ struct mips_cpu_info {
 	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
 	       %{!mcheck-zero-division: -mno-check-zero-division} \
 	       %{!-fuse-ld=*: -fuse-ld=gold}}" \
+  "%{!mno-xlp: %{mips32r7: %{!march=m7001: -mxlp}}}"  \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
