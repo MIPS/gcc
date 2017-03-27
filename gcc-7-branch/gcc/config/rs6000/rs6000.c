@@ -2468,6 +2468,7 @@ rs6000_debug_reg_global (void)
 	   "wx reg_class = %s\n"
 	   "wy reg_class = %s\n"
 	   "wz reg_class = %s\n"
+	   "wA reg_class = %s\n"
 	   "wH reg_class = %s\n"
 	   "wI reg_class = %s\n"
 	   "wJ reg_class = %s\n"
@@ -2500,6 +2501,7 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wx]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wy]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wA]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wH]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wI]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wJ]],
@@ -3182,7 +3184,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       else
 	rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
 
-      if (TARGET_UPPER_REGS_DF)					/* DImode  */
+      if (TARGET_UPPER_REGS_DI)					/* DImode  */
 	rs6000_constraints[RS6000_CONSTRAINT_wi] = VSX_REGS;
       else
 	rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;
@@ -3210,7 +3212,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     }
 
   if (TARGET_POWERPC64)
-    rs6000_constraints[RS6000_CONSTRAINT_wr] = GENERAL_REGS;
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_wr] = GENERAL_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wA] = BASE_REGS;
+    }
 
   if (TARGET_P8_VECTOR && TARGET_UPPER_REGS_SF)			/* SFmode  */
     {
@@ -3820,8 +3825,72 @@ rs6000_md_asm_adjust (vec<rtx> &/*outputs*/, vec<rtx> &/*inputs*/,
   return NULL;
 }
 
-/* Override command line options.  Mostly we process the processor type and
-   sometimes adjust other TARGET_ options.  */
+/* Override command line options.
+
+   Combine build-specific configuration information with options
+   specified on the command line to set various state variables which
+   influence code generation, optimization, and expansion of built-in
+   functions.  Assure that command-line configuration preferences are
+   compatible with each other and with the build configuration; issue
+   warnings while adjusting configuration or error messages while
+   rejecting configuration.
+
+   Upon entry to this function:
+
+     This function is called once at the beginning of
+     compilation, and then again at the start and end of compiling
+     each section of code that has a different configuration, as
+     indicated, for example, by adding the
+
+       __attribute__((__target__("cpu=power9")))
+
+     qualifier to a function definition or, for example, by bracketing
+     code between
+
+       #pragma GCC target("altivec")
+
+     and
+
+       #pragma GCC reset_options
+
+     directives.  Parameter global_init_p is true for the initial
+     invocation, which initializes global variables, and false for all
+     subsequent invocations.
+
+
+     Various global state information is assumed to be valid.  This
+     includes OPTION_TARGET_CPU_DEFAULT, representing the name of the
+     default CPU specified at build configure time, TARGET_DEFAULT,
+     representing the default set of option flags for the default
+     target, and global_options_set.x_rs6000_isa_flags, representing
+     which options were requested on the command line.
+
+   Upon return from this function:
+
+     rs6000_isa_flags_explicit has a non-zero bit for each flag that
+     was set by name on the command line.  Additionally, if certain
+     attributes are automatically enabled or disabled by this function
+     in order to assure compatibility between options and
+     configuration, the flags associated with those attributes are
+     also set.  By setting these "explicit bits", we avoid the risk
+     that other code might accidentally overwrite these particular
+     attributes with "default values".
+
+     The various bits of rs6000_isa_flags are set to indicate the
+     target options that have been selected for the most current
+     compilation efforts.  This has the effect of also turning on the
+     associated TARGET_XXX values since these are macros which are
+     generally defined to test the corresponding bit of the
+     rs6000_isa_flags variable.
+
+     The variable rs6000_builtin_mask is set to represent the target
+     options for the most current compilation efforts, consistent with
+     the current contents of rs6000_isa_flags.  This variable controls
+     expansion of built-in functions.
+
+     Various other global variables and fields of global structures
+     (over 50 in all) are initialized to reflect the desired options
+     for the most current compilation efforts.  */
 
 static bool
 rs6000_option_override_internal (bool global_init_p)
@@ -4246,9 +4315,22 @@ rs6000_option_override_internal (bool global_init_p)
 
   if (TARGET_P8_VECTOR && !TARGET_VSX)
     {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR)
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR)
+	  && (rs6000_isa_flags_explicit & OPTION_MASK_VSX))
 	error ("-mpower8-vector requires -mvsx");
-      rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
+      else if ((rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR) == 0)
+	{
+	  rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
+	  if (rs6000_isa_flags_explicit & OPTION_MASK_VSX)
+	    rs6000_isa_flags_explicit |= OPTION_MASK_P8_VECTOR;
+	}
+      else
+	{
+	  /* OPTION_MASK_P8_VECTOR is explicit, and OPTION_MASK_VSX is
+	     not explicit.  */
+	  rs6000_isa_flags |= OPTION_MASK_VSX;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_VSX;
+	}
     }
 
   if (TARGET_VSX_TIMODE && !TARGET_VSX)
@@ -4320,9 +4402,9 @@ rs6000_option_override_internal (bool global_init_p)
 
   if (TARGET_UPPER_REGS_DI && !TARGET_VSX)
     {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
+      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DI)
 	error ("-mupper-regs-di requires -mvsx");
-      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
+      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DI;
     }
 
   if (TARGET_UPPER_REGS_SF && !TARGET_P8_VECTOR)
@@ -4448,9 +4530,22 @@ rs6000_option_override_internal (bool global_init_p)
 	 error messages.  However, if users have managed to select
 	 power9-vector without selecting power8-vector, they
 	 already know about undocumented flags.  */
-      if (rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR)
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR) &&
+	  (rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR))
 	error ("-mpower9-vector requires -mpower8-vector");
-      rs6000_isa_flags &= ~OPTION_MASK_P9_VECTOR;
+      else if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR) == 0)
+	{
+	  rs6000_isa_flags &= ~OPTION_MASK_P9_VECTOR;
+	  if (rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR)
+	    rs6000_isa_flags_explicit |= OPTION_MASK_P9_VECTOR;
+	}
+      else
+	{
+	  /* OPTION_MASK_P9_VECTOR is explicit and
+	     OPTION_MASK_P8_VECTOR is not explicit.  */
+	  rs6000_isa_flags |= OPTION_MASK_P8_VECTOR;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_P8_VECTOR;
+	}
     }
 
   /* -mpower9-dform turns on both -mpower9-dform-scalar and
@@ -4479,10 +4574,25 @@ rs6000_option_override_internal (bool global_init_p)
 	 error messages.  However, if users have managed to select
 	 power9-dform without selecting power9-vector, they
 	 already know about undocumented flags.  */
-      if (rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)
+	  && (rs6000_isa_flags_explicit & (OPTION_MASK_P9_DFORM_SCALAR
+					   | OPTION_MASK_P9_DFORM_VECTOR)))
 	error ("-mpower9-dform requires -mpower9-vector");
-      rs6000_isa_flags &= ~(OPTION_MASK_P9_DFORM_SCALAR
-			    | OPTION_MASK_P9_DFORM_VECTOR);
+      else if (rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)
+	{
+	  rs6000_isa_flags &=
+	    ~(OPTION_MASK_P9_DFORM_SCALAR | OPTION_MASK_P9_DFORM_VECTOR);
+	  rs6000_isa_flags_explicit |=
+	    (OPTION_MASK_P9_DFORM_SCALAR | OPTION_MASK_P9_DFORM_VECTOR);
+	}
+      else
+	{
+	  /* We know that OPTION_MASK_P9_VECTOR is not explicit and
+	     OPTION_MASK_P9_DFORM_SCALAR or OPTION_MASK_P9_DORM_VECTOR
+	     may be explicit.  */
+	  rs6000_isa_flags |= OPTION_MASK_P9_VECTOR;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_P9_VECTOR;
+	}
     }
 
   if (TARGET_P9_DFORM_SCALAR && !TARGET_UPPER_REGS_DF)
@@ -4682,6 +4792,14 @@ rs6000_option_override_internal (bool global_init_p)
     {
       if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_HW) != 0)
 	error ("-mfloat128-hardware requires full ISA 3.0 support");
+
+      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_HW;
+    }
+
+  if (TARGET_FLOAT128_HW && !TARGET_64BIT)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_HW) != 0)
+	error ("-mfloat128-hardware requires -m64");
 
       rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_HW;
     }
@@ -5245,7 +5363,9 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_single_float = rs6000_double_float = 1;
 
   /* If not explicitly specified via option, decide whether to generate indexed
-     load/store instructions.  */
+     load/store instructions.  A value of -1 indicates that the
+     initial value of this variable has not been overwritten. During
+     compilation, TARGET_AVOID_XFORM is either 0 or 1. */
   if (TARGET_AVOID_XFORM == -1)
     /* Avoid indexed addressing when targeting Power6 in order to avoid the
      DERAT mispredict penalty.  However the LVE and STVE altivec instructions
@@ -10420,7 +10540,7 @@ rs6000_gen_le_vsx_permute (rtx source, machine_mode mode)
 {
   /* Use ROTATE instead of VEC_SELECT on IEEE 128-bit floating point, and
      128-bit integers if they are allowed in VSX registers.  */
-  if (FLOAT128_VECTOR_P (mode) || mode == TImode)
+  if (FLOAT128_VECTOR_P (mode) || mode == TImode || mode == V1TImode)
     return gen_rtx_ROTATE (mode, source, GEN_INT (64));
   else
     {
@@ -18526,10 +18646,10 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
       break;
 
       /* unsigned 2 argument functions.  */
-    case ALTIVEC_BUILTIN_VMULEUB_UNS:
-    case ALTIVEC_BUILTIN_VMULEUH_UNS:
-    case ALTIVEC_BUILTIN_VMULOUB_UNS:
-    case ALTIVEC_BUILTIN_VMULOUH_UNS:
+    case ALTIVEC_BUILTIN_VMULEUB:
+    case ALTIVEC_BUILTIN_VMULEUH:
+    case ALTIVEC_BUILTIN_VMULOUB:
+    case ALTIVEC_BUILTIN_VMULOUH:
     case CRYPTO_BUILTIN_VCIPHER:
     case CRYPTO_BUILTIN_VCIPHERLAST:
     case CRYPTO_BUILTIN_VNCIPHER:
@@ -39213,7 +39333,10 @@ rs6000_inner_target_options (tree args, bool attr_p)
     }
 
   else
-    gcc_unreachable ();
+    {
+      error ("attribute %<target%> argument not a string");
+      return false;
+    }
 
   return ret;
 }

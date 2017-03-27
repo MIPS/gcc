@@ -1478,7 +1478,8 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  else
 	    op = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (op)), op);
 	  tree set = build2 (MODIFY_EXPR, TREE_TYPE (op), op, init);
-	  return cxx_eval_constant_expression (ctx, set, lval,
+	  new_ctx.call = &new_call;
+	  return cxx_eval_constant_expression (&new_ctx, set, lval,
 					       non_constant_p, overflow_p);
 	}
     }
@@ -1496,7 +1497,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
     }
 
   /* If in direct recursive call, optimize definition search.  */
-  if (ctx && ctx->call && ctx->call->fundef->decl == fun)
+  if (ctx && ctx->call && ctx->call->fundef && ctx->call->fundef->decl == fun)
     new_call.fundef = ctx->call->fundef;
   else
     {
@@ -3832,13 +3833,16 @@ cxx_eval_switch_expr (const constexpr_ctx *ctx, tree t,
 static tree
 lookup_placeholder (const constexpr_ctx *ctx, bool lval, tree type)
 {
-  if (!ctx || !ctx->ctor || (lval && !ctx->object))
+  if (!ctx)
     return NULL_TREE;
 
   /* We could use ctx->object unconditionally, but using ctx->ctor when we
      can is a minor optimization.  */
-  if (!lval && same_type_p (TREE_TYPE (ctx->ctor), type))
+  if (!lval && ctx->ctor && same_type_p (TREE_TYPE (ctx->ctor), type))
     return ctx->ctor;
+
+  if (!ctx->object)
+    return NULL_TREE;
 
   /* Since an object cannot have a field of its own type, we can search outward
      from ctx->object to find the unique containing object of TYPE.  */
