@@ -1,3 +1,16 @@
+2017-03-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/data-default-1.c: Remove file.
+	* c-c++-common/goacc/default-1.c: New file.
+	* c-c++-common/goacc/default-2.c: Likewise.
+	* c-c++-common/goacc/default-3.c: Likewise.
+	* c-c++-common/goacc/default-4.c: Likewise.
+	* gfortran.dg/goacc/default.f95: Remove file.
+	* gfortran.dg/goacc/default-1.f95: New file.
+	* gfortran.dg/goacc/default-2.f: Likewise.
+	* gfortran.dg/goacc/default-3.f95: Likewise.
+	* gfortran.dg/goacc/default-4.f: Likewise.
+
 2017-02-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/note-parallelism.c: New test.
