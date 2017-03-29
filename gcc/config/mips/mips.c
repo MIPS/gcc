@@ -17753,7 +17753,8 @@ mips_evaluation_hook (rtx_insn *head, rtx_insn *tail)
 static void
 mips_set_sched_flags (spec_info_t spec_info ATTRIBUTE_UNUSED)
 {
-  if (!reload_completed && TARGET_SCHED_WEIGHT)
+  if ((!reload_completed && TARGET_SCHED_WEIGHT)
+       || TARGET_MICROMIPS_R7)
     {
       unsigned int *flags = &(current_sched_info->flags);
       *flags |= DONT_BREAK_DEPENDENCIES;
