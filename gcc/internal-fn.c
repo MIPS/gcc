@@ -86,6 +86,7 @@ init_internal_fns ()
 #define binary_direct { 0, 0, true }
 #define ternary_direct { 0, 0, true }
 #define cond_binary_direct { 1, 1, true }
+#define cond_ternary_direct { 1, 1, true }
 #define while_direct { 0, 2, false }
 #define clastb_direct { 2, 2, false }
 #define firstfault_load_direct { -1, -1, false }
@@ -2867,6 +2868,9 @@ expand_while_optab_fn (internal_fn, gcall *stmt, convert_optab optab)
 #define expand_cond_binary_optab_fn(FN, STMT, OPTAB) \
   expand_direct_optab_fn (FN, STMT, OPTAB, 3)
 
+#define expand_cond_ternary_optab_fn(FN, STMT, OPTAB) \
+  expand_direct_optab_fn (FN, STMT, OPTAB, 4)
+
 #define expand_clastb_optab_fn(FN, STMT, OPTAB) \
   expand_direct_optab_fn (FN, STMT, OPTAB, 3)
 
@@ -2945,6 +2949,7 @@ multi_vector_optab_supported_p (convert_optab optab, tree_pair types,
 #define direct_binary_optab_supported_p direct_optab_supported_p
 #define direct_ternary_optab_supported_p direct_optab_supported_p
 #define direct_cond_binary_optab_supported_p direct_optab_supported_p
+#define direct_cond_ternary_optab_supported_p direct_optab_supported_p
 #define direct_mask_load_optab_supported_p direct_optab_supported_p
 #define direct_load_lanes_optab_supported_p multi_vector_optab_supported_p
 #define direct_mask_load_lanes_optab_supported_p multi_vector_optab_supported_p
