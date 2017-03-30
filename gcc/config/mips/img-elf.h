@@ -78,3 +78,21 @@ along with GCC; see the file COPYING3.  If not see
 #define SIZE_TYPE "long unsigned int"
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "long int"
+
+/* We are using array initializers and don't want calls in the INIT
+   and FINI sections.  */
+#undef CRT_CALL_STATIC_FUNCTION
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)
+
+#define CTORS_SECTION_ASM_OP "\t.section\t.init_array,\"aw\",@init_array"
+#define DTORS_SECTION_ASM_OP "\t.section\t.fini_array,\"aw\",@fini_array"
+
+#undef INIT_SECTION_ASM_OP
+#undef FINI_SECTION_ASM_OP
+#define INIT_ARRAY_SECTION_ASM_OP CTORS_SECTION_ASM_OP
+#define FINI_ARRAY_SECTION_ASM_OP DTORS_SECTION_ASM_OP
+
+#define CTOR_LIST_BEGIN asm (CTORS_SECTION_ASM_OP)
+#define CTOR_LIST_END	/* empty */
+#define DTOR_LIST_BEGIN asm (DTORS_SECTION_ASM_OP)
+#define DTOR_LIST_END	/* empty */

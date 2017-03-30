@@ -3412,31 +3412,6 @@ while (0)
 	jalr $25\n\
 	.set pop\n\
 	" TEXT_SECTION_ASM_OP);
-/* FIXME: copied, not revised */
-#elif (defined _ABIP32 && _MIPS_SIM == _ABIP32)
-#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
-   asm (SECTION_OP "\n\
-	.set push\n\
-	.set nomips16\n\
-	bal 1f\n\
-	.set noreorder\n\
-1:	.cpload $31\n\
-	.set reorder\n\
-	la $25, " USER_LABEL_PREFIX #FUNC "\n\
-	jalr $25\n\
-	.set pop\n\
-	" TEXT_SECTION_ASM_OP);
-#elif (defined _ABIP64 && _MIPS_SIM == _ABIP64)
-#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)	\
-   asm (SECTION_OP "\n\
-	.set push\n\
-	.set nomips16\n\
-	bal 1f\n\
-1:	.cpsetup $31, $2, 1b\n\
-	dla $25, " USER_LABEL_PREFIX #FUNC "\n\
-	jalr $25\n\
-	.set pop\n\
-	" TEXT_SECTION_ASM_OP);
 #endif
 
 #ifndef HAVE_AS_TLS
