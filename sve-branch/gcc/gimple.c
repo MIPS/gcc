@@ -2052,8 +2052,7 @@ get_gimple_rhs_num_ops (enum tree_code code)
       || (SYM) == REALIGN_LOAD_EXPR					    \
       || (SYM) == VEC_COND_EXPR						    \
       || (SYM) == VEC_PERM_EXPR                                             \
-      || (SYM) == BIT_INSERT_EXPR					    \
-      || (SYM) == FMA_EXPR) ? GIMPLE_TERNARY_RHS			    \
+      || (SYM) == BIT_INSERT_EXPR) ? GIMPLE_TERNARY_RHS			    \
    : ((SYM) == CONSTRUCTOR						    \
       || (SYM) == VEC_DUPLICATE_EXPR					    \
       || (SYM) == VEC_SERIES_EXPR					    \

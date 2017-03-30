@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
    - mask_store_lanes: currently just vec_mask_store_lanes
 
    - binary: a normal binary optab, such as add<mode>3
+   - ternary: a normal ternary optab, such as fma<mode>4
 
    - cond_binary: a conditional binary optab, such as add<mode>cc
 
@@ -144,6 +145,10 @@ DEF_INTERNAL_OPTAB_FN (VEC_EXTRACT_ODD, ECF_CONST, vec_extract_odd, binary)
 DEF_INTERNAL_OPTAB_FN (VEC_REVERSE, ECF_CONST, vec_reverse, unary)
 DEF_INTERNAL_OPTAB_FN (VEC_SHL_INSERT, ECF_CONST, vec_shl_insert, binary)
 
+DEF_INTERNAL_OPTAB_FN (FMS, ECF_CONST, fms, ternary)
+DEF_INTERNAL_OPTAB_FN (FNMA, ECF_CONST, fnma, ternary)
+DEF_INTERNAL_OPTAB_FN (FNMS, ECF_CONST, fnms, ternary)
+
 DEF_INTERNAL_COND_OPTAB_FN (ADD, ECF_CONST, add, binary)
 DEF_INTERNAL_COND_OPTAB_FN (SUB, ECF_CONST, sub, binary)
 DEF_INTERNAL_COND_OPTAB_FN (SMIN, ECF_CONST, smin, binary)
@@ -207,6 +212,9 @@ DEF_INTERNAL_FLT_FN (FMAX, ECF_CONST, fmax, binary)
 
 /* FP scales.  */
 DEF_INTERNAL_FLT_FN (LDEXP, ECF_CONST, ldexp, binary)
+
+/* Ternary math functions.  */
+DEF_INTERNAL_FLT_FN (FMA, ECF_CONST, fma, ternary)
 
 /* Unary integer ops.  */
 DEF_INTERNAL_INT_FN (CLRSB, ECF_CONST, clrsb, unary)

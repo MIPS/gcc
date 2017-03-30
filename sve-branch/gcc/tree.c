@@ -8071,7 +8071,6 @@ commutative_ternary_tree_code (enum tree_code code)
     case WIDEN_MULT_PLUS_EXPR:
     case WIDEN_MULT_MINUS_EXPR:
     case DOT_PROD_EXPR:
-    case FMA_EXPR:
       return true;
 
     default:
@@ -8351,7 +8350,6 @@ add_expr (const_tree t, inchash::hash &hstate, unsigned int flags)
 	      flags &= ~OEP_ADDRESS_OF;
 	      break;
 
-	    case FMA_EXPR:
 	    case WIDEN_MULT_PLUS_EXPR:
 	    case WIDEN_MULT_MINUS_EXPR:
 	      {

@@ -143,9 +143,6 @@ optab_for_tree_code (enum tree_code code, const_tree type,
 	      : (TYPE_SATURATING (type)
 		 ? ssmsub_widen_optab : smsub_widen_optab));
 
-    case FMA_EXPR:
-      return fma_optab;
-
     case REDUC_MAX_EXPR:
       return TYPE_UNSIGNED (type)
 	     ? reduc_umax_scal_optab : reduc_smax_scal_optab;
