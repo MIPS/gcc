@@ -401,6 +401,8 @@
     UNSPEC_COND_AND	; Used in aarch64-sve.md.
     UNSPEC_COND_ORR	; Used in aarch64-sve.md.
     UNSPEC_COND_EOR	; Used in aarch64-sve.md.
+    UNSPEC_COND_FMLA	; Used in aarch64-sve.md.
+    UNSPEC_COND_FMLS	; Used in aarch64-sve.md.
     UNSPEC_COND_LT	; Used in aarch64-sve.md.
     UNSPEC_COND_LE	; Used in aarch64-sve.md.
     UNSPEC_COND_EQ	; Used in aarch64-sve.md.
@@ -1350,14 +1352,16 @@
 
 (define_int_iterator UNPACK_UNSIGNED [UNSPEC_UNPACKULO UNSPEC_UNPACKUHI])
 
-(define_int_iterator SVE_COND_INT_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB
-				      UNSPEC_COND_SMAX UNSPEC_COND_UMAX
-				      UNSPEC_COND_SMIN UNSPEC_COND_UMIN
-				      UNSPEC_COND_AND
-				      UNSPEC_COND_ORR
-				      UNSPEC_COND_EOR])
+(define_int_iterator SVE_COND_INT2_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB
+				       UNSPEC_COND_SMAX UNSPEC_COND_UMAX
+				       UNSPEC_COND_SMIN UNSPEC_COND_UMIN
+				       UNSPEC_COND_AND
+				       UNSPEC_COND_ORR
+				       UNSPEC_COND_EOR])
 
-(define_int_iterator SVE_COND_FP_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB])
+(define_int_iterator SVE_COND_FP2_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB])
+
+(define_int_iterator SVE_COND_FP3_OP [UNSPEC_COND_FMLA UNSPEC_COND_FMLS])
 
 (define_int_iterator SVE_COND_INT_CMP [UNSPEC_COND_LT UNSPEC_COND_LE
 				       UNSPEC_COND_EQ UNSPEC_COND_NE
@@ -1394,7 +1398,9 @@
 			(UNSPEC_COND_UMIN "umin")
 			(UNSPEC_COND_AND "and")
 			(UNSPEC_COND_ORR "ior")
-			(UNSPEC_COND_EOR "xor")])
+			(UNSPEC_COND_EOR "xor")
+			(UNSPEC_COND_FMLA "fma_rev")
+			(UNSPEC_COND_FMLS "fnma_rev")])
 
 (define_int_attr  maxmin_uns [(UNSPEC_UMAXV "umax")
 			      (UNSPEC_UMINV "umin")
@@ -1617,4 +1623,6 @@
 			     (UNSPEC_COND_EOR "eor")])
 
 (define_int_attr sve_fp_op [(UNSPEC_COND_ADD "fadd")
-			    (UNSPEC_COND_SUB "fsub")])
+			    (UNSPEC_COND_SUB "fsub")
+			    (UNSPEC_COND_FMLA "fmla")
+			    (UNSPEC_COND_FMLS "fmls")])
