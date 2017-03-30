@@ -1285,6 +1285,12 @@ aarch64_hard_regno_caller_save_mode (unsigned regno, unsigned nregs,
       else
 	return SImode;
     }
+  /* The predicate mode determines which bits are significant and
+     which are "don't care".  Decreasing the number of lanes would
+     lose data while increasing the number of lanes would make bits
+     unnecessarily significant.  */
+  else if (PR_REGNUM_P (regno))
+    return mode;
   /* Fall back to generic for multi-reg and very large modes.  */
   else
     return choose_hard_reg_mode (regno, nregs, false);
