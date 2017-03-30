@@ -2513,8 +2513,7 @@ operation_could_trap_p (enum tree_code op, bool fp_operation, bool honor_trapv,
 
   if (TREE_CODE_CLASS (op) != tcc_comparison
       && TREE_CODE_CLASS (op) != tcc_unary
-      && TREE_CODE_CLASS (op) != tcc_binary
-      && op != FMA_EXPR)
+      && TREE_CODE_CLASS (op) != tcc_binary)
     return false;
 
   return operation_could_trap_helper_p (op, fp_operation, honor_trapv,
@@ -2739,8 +2738,7 @@ stmt_could_throw_1_p (gassign *stmt)
 
   if (TREE_CODE_CLASS (code) == tcc_comparison
       || TREE_CODE_CLASS (code) == tcc_unary
-      || TREE_CODE_CLASS (code) == tcc_binary
-      || code == FMA_EXPR)
+      || TREE_CODE_CLASS (code) == tcc_binary)
     {
       if (TREE_CODE_CLASS (code) == tcc_comparison)
 	t = TREE_TYPE (gimple_assign_rhs1 (stmt));

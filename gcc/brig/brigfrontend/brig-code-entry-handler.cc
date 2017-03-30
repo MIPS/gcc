@@ -746,6 +746,7 @@ brig_code_entry_handler::get_builtin_for_hsa_opcode
     case BRIG_OPCODE_NEXP2:
       builtin = mathfn_built_in (builtin_type, BUILT_IN_EXP2);
       break;
+    case BRIG_OPCODE_FMA:
     case BRIG_OPCODE_NFMA:
       builtin = mathfn_built_in (builtin_type, BUILT_IN_FMA);
       break;
