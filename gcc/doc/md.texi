@@ -6367,6 +6367,32 @@ be in a normal C @samp{?:} condition.
 Operands 0, 2 and 3 all have mode @var{m}, while operand 1 has the mode
 returned by @code{TARGET_VECTORIZE_GET_MASK_MODE}.
 
+@cindex @code{cond_fma_rev@var{mode}} instruction pattern
+@item @samp{cond_fma_rev@var{mode}}
+Similar to @samp{cond_add@var{m}}, but compute:
+@smallexample
+op0 = op1 ? fma (op3, op4, op2) : op2;
+@end smallexample
+for scalars and:
+@smallexample
+op0[I] = op1[I] ? fma (op3[I], op4[I], op2[I]) : op2[I];
+@end smallexample
+for vectors.  The @samp{_rev} indicates that the addend (operand 2)
+comes first.
+
+@cindex @code{cond_fnma_rev@var{mode}} instruction pattern
+@item @samp{cond_fnma_rev@var{mode}}
+Similar to @samp{cond_fma_rev@var{m}}, but negate operand 3 before
+multiplying it.  That is, the instruction performs:
+@smallexample
+op0 = op1 ? fma (-op3, op4, op2) : op2;
+@end smallexample
+for scalars and:
+@smallexample
+op0[I] = op1[I] ? fma (-op3[I], op4[I], op2[I]) : op2[I];
+@end smallexample
+for vectors.
+
 @cindex @code{neg@var{mode}cc} instruction pattern
 @item @samp{neg@var{mode}cc}
 Similar to @samp{mov@var{mode}cc} but for conditional negation.  Conditionally

@@ -59,7 +59,8 @@ along with GCC; see the file COPYING3.  If not see
    - binary: a normal binary optab, such as vec_interleave_lo_<mode>
    - ternary: a normal ternary optab, such as fma<mode>4
 
-   - cond_binary: a conditional binary optab, such as add<mode>cc
+   - cond_binary: a conditional binary optab, such as cond_add<mode>
+   - cond_ternary: a conditional ternary optab, such as cond_fma_rev<mode>
 
    - fold_left: for scalar = FN (scalar, vector), keyed off the vector mode
 
@@ -142,6 +143,9 @@ DEF_INTERNAL_OPTAB_FN (VEC_SHL_INSERT, ECF_CONST | ECF_NOTHROW,
 DEF_INTERNAL_OPTAB_FN (FMS, ECF_CONST, fms, ternary)
 DEF_INTERNAL_OPTAB_FN (FNMA, ECF_CONST, fnma, ternary)
 DEF_INTERNAL_OPTAB_FN (FNMS, ECF_CONST, fnms, ternary)
+
+DEF_INTERNAL_OPTAB_FN (COND_FMA_REV, ECF_CONST, cond_fma_rev, cond_ternary)
+DEF_INTERNAL_OPTAB_FN (COND_FNMA_REV, ECF_CONST, cond_fnma_rev, cond_ternary)
 
 DEF_INTERNAL_OPTAB_FN (COND_ADD, ECF_CONST, cond_add, cond_binary)
 DEF_INTERNAL_OPTAB_FN (COND_SUB, ECF_CONST, cond_sub, cond_binary)

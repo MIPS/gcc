@@ -485,6 +485,10 @@ commutative_op (id_base *id)
       case CFN_FNMS:
 	return 0;
 
+      case CFN_COND_FMA_REV:
+      case CFN_COND_FNMA_REV:
+	return 2;
+
       default:
 	return -1;
       }
