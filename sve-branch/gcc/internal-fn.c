@@ -2988,6 +2988,8 @@ get_conditional_internal_fn (tree_code code, tree type)
     {
     case PLUS_EXPR:
       return IFN_COND_ADD;
+    case MINUS_EXPR:
+      return IFN_COND_SUB;
     case MIN_EXPR:
       return TYPE_UNSIGNED (type) ? IFN_COND_UMIN : IFN_COND_SMIN;
     case MAX_EXPR:

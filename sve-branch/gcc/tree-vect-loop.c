@@ -7361,11 +7361,12 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
                   ? vec_oprnds1[i] : NULL);
 	  if (mask)
 	    {
-	      /* The original operation was commutative but the conditional
+	      /* The original operation may be commutative but the conditional
 		 version isn't: if element I of MASK is false, we want element
 		 I of the cumulative operand rather than element I of DEF0.  */
 	      gcc_assert (op_type == binary_op);
-	      gcc_assert (commutative_tree_code (code));
+	      gcc_assert (commutative_tree_code (code)
+			  || reduc_index == 0);
 	      new_stmt = gimple_build_call_internal (cond_fn, 3, mask,
 						     reduc_def, def0);
 	      new_temp = make_ssa_name (vec_dest, new_stmt);

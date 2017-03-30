@@ -6150,6 +6150,7 @@ In this case, operand 1 must have the same mode as the type
 returned by @code{TARGET_VECTORIZE_GET_MASK_MODE}.
 
 @cindex @code{cond_add@var{mode}} instruction pattern
+@cindex @code{cond_sub@var{mode}} instruction pattern
 @cindex @code{cond_and@var{m}} instruction pattern
 @cindex @code{cond_ior@var{m}} instruction pattern
 @cindex @code{cond_xor@var{m}} instruction pattern
@@ -6158,6 +6159,7 @@ returned by @code{TARGET_VECTORIZE_GET_MASK_MODE}.
 @cindex @code{cond_umin@var{m}} instruction pattern
 @cindex @code{cond_umax@var{m}} instruction pattern
 @item @samp{cond_add@var{mode}}
+@itemx @samp{cond_sub@var{mode}}
 @itemx @samp{cond_and@var{m}}
 @itemx @samp{cond_ior@var{m}}
 @itemx @samp{cond_xor@var{m}}
