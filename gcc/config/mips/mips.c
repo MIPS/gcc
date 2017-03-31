@@ -13061,7 +13061,7 @@ mips_safe_to_use_save_restore_p (struct mips_frame_info *frame)
    hard_frame_pointer_rtx unchanged.  */
 
 static void
-mips_compute_frame_info (void)
+mips_compute_frame_info_oabi_nabi (void)
 {
   struct mips_frame_info *frame;
   HOST_WIDE_INT offset, size;
@@ -13344,6 +13344,266 @@ mips_compute_frame_info (void)
 	    cfun->machine->epi_suffix = mips_epi;
 	}
     }
+}
+
+/* Populate the current function's mips_frame_info structure.
+
+   MIPS stack frames look like:
+
+     |             . . .              |
+     +--------------------------------+
+     |  incoming stack arguments      |
+     +--------------------------------+ <-- incoming stack pointer
+   A |  callee-allocated save area    |
+     |  for arguments that are        |
+     |  split between registers and   |
+     |  the stack                     |
+     +--------------------------------+ <-- arg_pointer_rtx
+   B |  callee-allocated save area    |
+     |  for register varargs          |
+     +--------------------------------+ <-- stack_pointer_rtx + gp_sp_offset
+     |  GPR save area  | $ra          |     + UNITS_PER_WORD
+     |                 | $fp          |
+     |                 |--------------| <-- hard_frame_pointer_rtx
+     |                 | $gp, $s7-$s0 |
+     +--------------------------------+ <-- stack_pointer_rtx + fp_sp_offset
+     |  FPR save area                 |
+     +--------------------------------+ <-- frame_pointer_rtx + cop0_sp_offset
+     |  COP0 reg save area            |	    + UNITS_PER_WORD
+     +--------------------------------+ <-- frame_pointer_rtx + acc_sp_offset
+     |  accumulator save area         |     + UNITS_PER_WORD
+     +--------------------------------+ \
+     |  local variables               |  | var_size
+     +--------------------------------+ /
+     |  spill slots                   |
+     +--------------------------------+ <-- frame_pointer_rtx
+   P |  optional: dynamic allocation  |
+     +--------------------------------+
+     |  outgoing stack arguments      |
+     +--------------------------------+ <-- stack_pointer_rtx
+     |  caller-allocated save area    |
+     |  for register arguments        |
+     +--------------------------------+
+     |             . . .              |
+
+   Either A or B will be empty.
+
+   Dynamic stack allocations such as alloca insert data at point P.
+   They decrease stack_pointer_rtx but leave frame_pointer_rtx and
+   hard_frame_pointer_rtx unchanged.  */
+
+static void
+mips_compute_frame_info_pabi (void)
+{
+  struct mips_frame_info *frame;
+  HOST_WIDE_INT offset, size;
+  unsigned int regno, i;
+
+  /* Skip re-computing the frame info after reload completed.  */
+  if (reload_completed)
+    return;
+
+  /* Set this function's interrupt properties.  */
+  if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
+    {
+      cfun->machine->interrupt_handler_p = true;
+      cfun->machine->int_mask =
+	mips_interrupt_mask (TREE_TYPE (current_function_decl));
+      cfun->machine->use_shadow_register_set =
+	mips_use_shadow_register_set (TREE_TYPE (current_function_decl));
+      cfun->machine->keep_interrupts_masked_p =
+	mips_keep_interrupts_masked_p (TREE_TYPE (current_function_decl));
+      cfun->machine->use_debug_exception_return_p =
+	mips_use_debug_exception_return_p (TREE_TYPE
+					   (current_function_decl));
+    }
+
+  frame = &cfun->machine->frame;
+  memset (frame, 0, sizeof (*frame));
+  size = get_frame_size ();
+
+  /* The first two blocks contain the outgoing argument area and the $gp save
+     slot.  This area isn't needed in leaf functions.  We can also skip it
+     if we know that none of the called functions will use this space.
+
+     But if the target-independent frame size is nonzero, we have already
+     committed to allocating these in STARTING_FRAME_OFFSET for
+     !FRAME_GROWS_DOWNWARD.  */
+
+  if ((size == 0 || FRAME_GROWS_DOWNWARD)
+      && (crtl->is_leaf || (cfun->machine->optimize_call_stack && !flag_pic)))
+    {
+      /* The MIPS 3.0 linker does not like functions that dynamically
+	 allocate the stack and have 0 for STACK_DYNAMIC_OFFSET, since it
+	 looks like we are trying to create a second frame pointer to the
+	 function, so allocate some stack space to make it happy.  */
+      if (cfun->calls_alloca)
+	frame->args_size = REG_PARM_STACK_SPACE (cfun->decl);
+      else
+	frame->args_size = 0;
+      frame->cprestore_size = 0;
+    }
+  else
+    {
+      frame->args_size = crtl->outgoing_args_size;
+      frame->cprestore_size = MIPS_GP_SAVE_AREA_SIZE;
+    }
+
+  cfun->machine->global_pointer = mips_global_pointer ();
+
+  offset = frame->args_size + frame->cprestore_size;
+
+  /* Move above the local variables.  */
+  frame->var_size = MIPS_STACK_ALIGN (size);
+  offset += frame->var_size;
+
+  /* Find out which GPRs we need to save.  */
+  for (regno = GP_REG_FIRST; regno <= GP_REG_LAST; regno++)
+    if (mips_save_reg_p (regno))
+      {
+	frame->num_gp++;
+	frame->mask |= 1 << (regno - GP_REG_FIRST);
+      }
+
+  /* If this function calls eh_return, we must also save and restore the
+     EH data registers.  */
+  if (crtl->calls_eh_return)
+    for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM; i++)
+      {
+	frame->num_gp++;
+	frame->mask |= 1 << (EH_RETURN_DATA_REGNO (i) - GP_REG_FIRST);
+      }
+
+  /* The SAVE and RESTORE instructions have two ranges of registers:
+     $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
+     save all later registers too.  This can cause problems if the user has
+     placed a global value into a register that falls into one of these
+     ranges and the function uses a callee saved register that also in the
+     same range.  In this case the global value could be accidently saved
+     and restored on function entry and exit which means any changes made to
+     its value in the function will be lost.
+
+     mips_safe_to_use_save_restore_p checks for this case, and if it is found
+     it turns off the use of the SAVE/RESTORE instruction in this function.
+
+     This approach is not optimal because it should really just check that
+     the number of the register used for the global value occurs before
+     one of the callee saved registers.  However as the use of forcing global
+     values into a register is small it is fine to use the unoptimal version
+     of the code for the moment.  */
+
+  cfun->machine->safe_to_use_save_restore =
+    mips_safe_to_use_save_restore_p (frame);
+
+  /* The MIPS16e SAVE and RESTORE instructions have two ranges of registers:
+     $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
+     save all later registers too.  */
+  if (GENERATE_MIPS16E_SAVE_RESTORE
+      && cfun->machine->safe_to_use_save_restore)
+    {
+      mips_mask_registers (&frame->mask, mips16e_s2_s8_regs,
+			   ARRAY_SIZE (mips16e_s2_s8_regs), &frame->num_gp);
+      mips_mask_registers (&frame->mask, mips16e_a0_a3_regs,
+			   ARRAY_SIZE (mips16e_a0_a3_regs), &frame->num_gp);
+    }
+  else if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7
+	   && cfun->machine->safe_to_use_save_restore)
+    {
+      mips_mask_registers (&frame->mask, umipsr7_s0_s7_regs,
+			   ARRAY_SIZE (umipsr7_s0_s7_regs), &frame->num_gp);
+    }
+
+  /* Move above the GPR save area.  */
+  if (frame->num_gp > 0)
+    {
+      offset += MIPS_STACK_ALIGN (frame->num_gp * UNITS_PER_WORD);
+      frame->gp_sp_offset = offset - UNITS_PER_WORD;
+    }
+
+  /* Find out which FPRs we need to save.  This loop must iterate over
+     the same space as its companion in mips_for_each_saved_gpr_and_fpr.  */
+  if (TARGET_HARD_FLOAT)
+    for (regno = FP_REG_FIRST; regno <= FP_REG_LAST; regno += MAX_FPRS_PER_FMT)
+      if (mips_save_reg_p (regno))
+	{
+	  frame->num_fp += MAX_FPRS_PER_FMT;
+	  frame->fmask |= ~(~0U << MAX_FPRS_PER_FMT) << (regno - FP_REG_FIRST);
+	}
+
+  /* Move above the FPR save area.  */
+  if (frame->num_fp > 0)
+    {
+      offset += MIPS_STACK_ALIGN (frame->num_fp * UNITS_PER_FPREG);
+      frame->fp_sp_offset = offset - UNITS_PER_HWFPVALUE;
+    }
+
+  /* Add in space for the interrupt context information.  */
+  if (cfun->machine->interrupt_handler_p)
+    {
+      /* Check HI/LO.  */
+      if (mips_save_reg_p (LO_REGNUM) || mips_save_reg_p (HI_REGNUM))
+	{
+	  frame->num_acc++;
+	  frame->acc_mask |= (1 << 0);
+	}
+
+      /* Check accumulators 1, 2, 3.  */
+      for (i = DSP_ACC_REG_FIRST; i <= DSP_ACC_REG_LAST; i += 2)
+	if (mips_save_reg_p (i) || mips_save_reg_p (i + 1))
+	  {
+	    frame->num_acc++;
+	    frame->acc_mask |= 1 << (((i - DSP_ACC_REG_FIRST) / 2) + 1);
+	  }
+
+      /* All interrupt context functions need space to preserve STATUS.  */
+      frame->num_cop0_regs++;
+
+      /* We need to save EPC regardless of whether interrupts remain masked
+	 as exceptions will corrupt EPC.  */
+      frame->num_cop0_regs++;
+    }
+
+  /* Move above the accumulator save area.  */
+  if (frame->num_acc > 0)
+    {
+      /* Each accumulator needs 2 words.  */
+      offset += frame->num_acc * 2 * UNITS_PER_WORD;
+      frame->acc_sp_offset = offset - UNITS_PER_WORD;
+    }
+
+  /* Move above the COP0 register save area.  */
+  if (frame->num_cop0_regs > 0)
+    {
+      offset += frame->num_cop0_regs * UNITS_PER_WORD;
+      frame->cop0_sp_offset = offset - UNITS_PER_WORD;
+    }
+
+  /* Move above the callee-allocated varargs save area.  */
+  offset += MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+  frame->arg_pointer_offset = offset;
+
+  /* Move above the callee-allocated area for pretend stack arguments.  */
+  offset += crtl->args.pretend_args_size;
+  frame->total_size = offset;
+
+  /* Work out the offsets of the save areas from the top of the frame.  */
+  if (frame->gp_sp_offset > 0)
+    frame->gp_save_offset = frame->gp_sp_offset - offset;
+  if (frame->fp_sp_offset > 0)
+    frame->fp_save_offset = frame->fp_sp_offset - offset;
+  if (frame->acc_sp_offset > 0)
+    frame->acc_save_offset = frame->acc_sp_offset - offset;
+  if (frame->num_cop0_regs > 0)
+    frame->cop0_save_offset = frame->cop0_sp_offset - offset;
+}
+
+static void
+mips_compute_frame_info (void)
+{
+  if (TARGET_PABI)
+    mips_compute_frame_info_pabi ();
+  else
+    mips_compute_frame_info_oabi_nabi ();
 }
 
 /* Return the style of GP load sequence that is being used for the
