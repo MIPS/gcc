@@ -1,3 +1,8 @@
+2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Update handling of
+	subarrays with derived types elements.
+
 2017-03-14  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-stmt.h: Remove stale reference to trans-openacc.c.

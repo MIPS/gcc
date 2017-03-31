@@ -2101,7 +2101,9 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		  && (n->expr->ref->next == NULL
 		      || (n->expr->ref->next != NULL
 			  && n->expr->ref->next->type == REF_ARRAY
-			  && n->expr->ref->next->u.ar.type == AR_FULL)))
+			  && n->expr->ref->next->u.ar.type == AR_FULL))
+		  && (n->expr->ref->type == REF_ARRAY
+		      && n->expr->ref->u.ar.type != AR_SECTION))
 		{
 		  gfc_ref *ref = n->expr->ref;
 		  gfc_component *c = ref->u.c.component;
