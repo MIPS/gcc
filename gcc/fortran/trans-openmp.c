@@ -3072,6 +3072,12 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
       //TODO
       gcc_unreachable();
     }
+  if (clauses->bind)
+    {
+      c = build_omp_clause (where.lb->location, OMP_CLAUSE_BIND);
+      OMP_CLAUSE_BIND_NAME (c) = get_identifier (clauses->bind_name);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
 
   return nreverse (omp_clauses);
 }

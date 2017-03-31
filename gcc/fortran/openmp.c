@@ -737,6 +737,26 @@ cleanup:
   return MATCH_ERROR;
 }
 
+static match
+gfc_match_oacc_bind_clause (gfc_omp_clauses *clauses)
+{
+  if (gfc_match (" %n )", clauses->bind_name) == MATCH_YES)
+    {
+      gfc_symbol *sym;
+      gfc_symtree *st;
+      bool exit;
+      match m = gfc_match_call_name (clauses->bind_name, &sym, &st, exit);
+
+      if (exit)
+	return m;
+    }
+  else if (gfc_match (" \"%n\" )", clauses->bind_name) != MATCH_YES)
+    return MATCH_ERROR;
+
+  clauses->bind = 1;
+  return MATCH_YES;
+}
+
 /* OpenMP 4.5 clauses.  */
 enum omp_mask1
 {
@@ -1028,11 +1048,9 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	  break;
 	case 'b':
 	  if ((mask & OMP_CLAUSE_BIND) && c->routine_bind == NULL
-	      && gfc_match ("bind ( %s )", &c->routine_bind) == MATCH_YES)
-	    {
-	      c->bind = 1;
-	      continue;
-	    }
+	      && gfc_match ("bind (") == MATCH_YES
+	      && gfc_match_oacc_bind_clause (c))
+	    continue;
 	  break;
 	case 'c':
 	  if ((mask & OMP_CLAUSE_COLLAPSE)

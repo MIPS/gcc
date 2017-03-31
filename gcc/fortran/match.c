@@ -4598,6 +4598,52 @@ match_typebound_call (gfc_symtree* varst)
   return MATCH_YES;
 }
 
+match
+gfc_match_call_name (char *name, gfc_symbol **sym, gfc_symtree **st, bool &exit)
+{
+  exit = true;
+
+  if (gfc_get_ha_sym_tree (name, st))
+    return MATCH_ERROR;
+
+  *sym = (*st)->n.sym;
+
+  /* If this is a variable of derived-type, it probably starts a type-bound
+     procedure call.  */
+  if (((*sym)->attr.flavor != FL_PROCEDURE
+       || gfc_is_function_return_value (*sym, gfc_current_ns))
+      && ((*sym)->ts.type == BT_DERIVED || (*sym)->ts.type == BT_CLASS))
+    return match_typebound_call (*st);
+
+  /* If it does not seem to be callable (include functions so that the
+     right association is made.  They are thrown out in resolution.)
+     ...  */
+  if (!(*sym)->attr.generic
+      && !(*sym)->attr.subroutine
+      && !(*sym)->attr.function)
+    {
+      if (!((*sym)->attr.external && !(*sym)->attr.referenced))
+	{
+	  /* ...create a symbol in this scope...  */
+	  if ((*sym)->ns != gfc_current_ns
+	        && gfc_get_sym_tree (name, NULL, st, false) == 1)
+            return MATCH_ERROR;
+
+	  if (*sym != (*st)->n.sym)
+	    *sym = (*st)->n.sym;
+	}
+
+      /* ...and then to try to make the symbol into a subroutine.  */
+      if (!gfc_add_subroutine (&(*sym)->attr, (*sym)->name, NULL))
+	return MATCH_ERROR;
+    }
+
+  gfc_set_sym_referenced (*sym);
+  exit = false;
+
+  return MATCH_YES;
+}
+
 
 /* Match a CALL statement.  The tricky part here are possible
    alternate return specifiers.  We handle these by having all
@@ -4617,6 +4663,7 @@ gfc_match_call (void)
   gfc_code *c;
   match m;
   int i;
+  bool exit;
 
   arglist = NULL;
 
@@ -4626,42 +4673,9 @@ gfc_match_call (void)
   if (m != MATCH_YES)
     return m;
 
-  if (gfc_get_ha_sym_tree (name, &st))
-    return MATCH_ERROR;
-
-  sym = st->n.sym;
-
-  /* If this is a variable of derived-type, it probably starts a type-bound
-     procedure call.  */
-  if ((sym->attr.flavor != FL_PROCEDURE
-       || gfc_is_function_return_value (sym, gfc_current_ns))
-      && (sym->ts.type == BT_DERIVED || sym->ts.type == BT_CLASS))
-    return match_typebound_call (st);
-
-  /* If it does not seem to be callable (include functions so that the
-     right association is made.  They are thrown out in resolution.)
-     ...  */
-  if (!sym->attr.generic
-	&& !sym->attr.subroutine
-	&& !sym->attr.function)
-    {
-      if (!(sym->attr.external && !sym->attr.referenced))
-	{
-	  /* ...create a symbol in this scope...  */
-	  if (sym->ns != gfc_current_ns
-	        && gfc_get_sym_tree (name, NULL, &st, false) == 1)
-            return MATCH_ERROR;
-
-	  if (sym != st->n.sym)
-	    sym = st->n.sym;
-	}
-
-      /* ...and then to try to make the symbol into a subroutine.  */
-      if (!gfc_add_subroutine (&sym->attr, sym->name, NULL))
-	return MATCH_ERROR;
-    }
-
-  gfc_set_sym_referenced (sym);
+  m = gfc_match_call_name (name, &sym, &st, exit);
+  if (exit)
+    return m;
 
   if (gfc_match_eos () != MATCH_YES)
     {

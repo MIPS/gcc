@@ -1,5 +1,14 @@
 2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* gfortran.h (struct gfc_omp_clauses): Add bind_name member.
+	* match.c (gfc_match_call_name): New function.
+	(gfc_match_call): Break out function name parsing to
+	gfc_match_call_name.  Call it.
+	* match.h (gfc_match_call_named): Declare.
+	* openmp.c (gfc_match_oacc_bind_clause): New function.
+	(gfc_match_omp_clauses): Call it to parse the bind clause.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Lower OMP_CLAUSE_BIND.
+
 	* trans-openmp.c (gfc_trans_omp_clauses_1): Update handling of
 	subarrays with derived types elements.
 

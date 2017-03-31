@@ -1,6 +1,8 @@
+! Test the bind clause.  Note that bind is currently unimplemented in
+! the middle end.
 
 ! { dg-do run } 
-! { dg-error "Invalid" "TODO" { xfail *-*-* } 51 }
+! { dg-xfail-if "TODO" { *-*-* } }
 
 program main
   integer, parameter :: n = 10
