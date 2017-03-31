@@ -1,3 +1,7 @@
+2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/routine-8.f90: Adjust xfails.
+
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/routine-bind-nohost-1.c: New

@@ -100,6 +100,7 @@ match gfc_match_nullify (void);
 match gfc_match_deallocate (void);
 match gfc_match_return (void);
 match gfc_match_call (void);
+match gfc_match_call_name (char *, gfc_symbol **, gfc_symtree **, bool &);
 
 /* We want to use this function to check for a common-block-name
    that can exist in a bind statement, so removed the "static"
