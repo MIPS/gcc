@@ -484,8 +484,8 @@ static const struct cpu_vector_cost thunderx2t99_vector_cost =
 /* Generic costs for branch instructions.  */
 static const struct cpu_branch_cost generic_branch_cost =
 {
-  2,  /* Predictable.  */
-  2   /* Unpredictable.  */
+  1,  /* Predictable.  */
+  3   /* Unpredictable.  */
 };
 
 /* Branch costs for Cortex-A57.  */
@@ -536,7 +536,7 @@ static const struct tune_params generic_tunings =
   &generic_approx_modes,
   4, /* memmov_cost  */
   2, /* issue_rate  */
-  AARCH64_FUSE_NOTHING, /* fusible_ops  */
+  (AARCH64_FUSE_AES_AESMC), /* fusible_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */

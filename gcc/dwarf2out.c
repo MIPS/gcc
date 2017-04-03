@@ -6633,6 +6633,7 @@ struct checksum_attributes
   dw_attr_node *at_friend;
   dw_attr_node *at_accessibility;
   dw_attr_node *at_address_class;
+  dw_attr_node *at_alignment;
   dw_attr_node *at_allocated;
   dw_attr_node *at_artificial;
   dw_attr_node *at_associated;
@@ -6706,6 +6707,9 @@ collect_checksum_attributes (struct checksum_attributes *attrs, dw_die_ref die)
         case DW_AT_address_class:
           attrs->at_address_class = a;
           break;
+	case DW_AT_alignment:
+	  attrs->at_alignment = a;
+	  break;
         case DW_AT_allocated:
           attrs->at_allocated = a;
           break;
@@ -6912,6 +6916,7 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
   CHECKSUM_ATTR (attrs.at_vtable_elem_location);
   CHECKSUM_ATTR (attrs.at_type);
   CHECKSUM_ATTR (attrs.at_friend);
+  CHECKSUM_ATTR (attrs.at_alignment);
 
   /* Checksum the child DIEs.  */
   c = die->die_child;
@@ -24856,8 +24861,13 @@ decls_for_scope (tree stmt, dw_die_ref context_die)
 	 if we've done it once already.  */
       if (! early_dwarf)
 	for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (stmt); i++)
-	  process_scope_var (stmt, NULL, BLOCK_NONLOCALIZED_VAR (stmt, i),
-			     context_die);
+	  {
+	    decl = BLOCK_NONLOCALIZED_VAR (stmt, i);
+	    if (TREE_CODE (decl) == FUNCTION_DECL)
+	      process_scope_var (stmt, decl, NULL_TREE, context_die);
+	    else
+	      process_scope_var (stmt, NULL_TREE, decl, context_die);
+	  }
     }
 
   /* Even if we're at -g1, we need to process the subblocks in order to get

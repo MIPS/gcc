@@ -8098,6 +8098,9 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Mop up any left-over bytes.  */
   if (leftover)
     mips_block_move_straight (dest, src, leftover);
+  else
+    /* Temporary fix for PR79150.  */
+    emit_insn (gen_nop ());
 }
 
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
@@ -21754,11 +21757,12 @@ mips_expand_vector_init (rtx target, rtx vals)
 		case V8HImode:
 		case V4SImode:
 		case V2DImode:
-		  emit_move_insn (target, same);
+		  temp = gen_rtx_CONST_VECTOR (vmode, XVEC (vals, 0));
+		  emit_move_insn (target, temp);
 		  return;
 
 		default:
-		  break;
+		  gcc_unreachable ();
 		}
 	    }
 	  temp = gen_reg_rtx (imode);
