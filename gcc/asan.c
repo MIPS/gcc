@@ -1868,7 +1868,8 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
       tree repr = DECL_BIT_FIELD_REPRESENTATIVE (TREE_OPERAND (t, 1));
       instrument_derefs (iter, build3 (COMPONENT_REF, TREE_TYPE (repr),
 				       TREE_OPERAND (t, 0), repr,
-				       NULL_TREE), location, is_store);
+				       TREE_OPERAND (t, 2)),
+			 location, is_store);
       return;
     }
 
@@ -2567,10 +2568,12 @@ initialize_sanitizer_builtins (void)
 #define DEF_BUILTIN_STUB(ENUM, NAME)
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
-  decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
-			       BUILT_IN_NORMAL, NAME, NULL_TREE);	\
-  set_call_expr_flags (decl, ATTRS);					\
-  set_builtin_decl (ENUM, decl, true);
+  do {									\
+    decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
+				 BUILT_IN_NORMAL, NAME, NULL_TREE);	\
+    set_call_expr_flags (decl, ATTRS);					\
+    set_builtin_decl (ENUM, decl, true);				\
+  } while (0);
 
 #include "sanitizer.def"
 
