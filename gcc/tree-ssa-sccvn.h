@@ -179,6 +179,9 @@ typedef struct vn_ssa_aux
   /* Saved SSA name info.  */
   tree_ssa_name::ssa_name_info_type info;
 
+  /* Saved SSA name nonzero bits info.  */
+  struct nonzero_bits_def *nonzero_bits;
+
   /* Unique identifier that all expressions with the same value have. */
   unsigned int value_id;
 
@@ -198,9 +201,6 @@ typedef struct vn_ssa_aux
      insertion of such with EXPR as definition is required before
      a use can be created of it.  */
   unsigned needs_insertion : 1;
-
-  /* Whether range-info is anti-range.  */
-  unsigned range_info_anti_range_p : 1;
 } *vn_ssa_aux_t;
 
 enum vn_lookup_kind { VN_NOWALK, VN_WALK, VN_WALKREWRITE };
@@ -258,12 +258,22 @@ vn_valueize (tree name)
 
 /* Get at the original range info for NAME.  */
 
-inline range_info_def *
+inline irange *
 VN_INFO_RANGE_INFO (tree name)
 {
   return (VN_INFO (name)->info.range_info
 	  ? VN_INFO (name)->info.range_info
 	  : SSA_NAME_RANGE_INFO (name));
+}
+
+/* Get at the original nonzero bits info for NAME.  */
+
+inline struct nonzero_bits_def *
+VN_INFO_NONZERO_BITS (tree name)
+{
+  return (VN_INFO (name)->nonzero_bits
+	  ? VN_INFO (name)->nonzero_bits
+	  : SSA_NAME_NONZERO_BITS (name));
 }
 
 /* Whether the original range info of NAME is an anti-range.  */
@@ -272,7 +282,7 @@ inline bool
 VN_INFO_ANTI_RANGE_P (tree name)
 {
   return (VN_INFO (name)->info.range_info
-	  ? VN_INFO (name)->range_info_anti_range_p
+	  ? VN_INFO (name)->info.range_info->anti_range_p ()
 	  : SSA_NAME_ANTI_RANGE_P (name));
 }
 

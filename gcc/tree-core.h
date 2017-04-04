@@ -33,7 +33,7 @@ struct function;
 struct real_value;
 struct fixed_value;
 struct ptr_info_def;
-struct range_info_def;
+class irange;
 struct die_struct;
 
 
@@ -1042,9 +1042,6 @@ struct GTY(()) tree_base {
        TRANSACTION_EXPR_OUTER in
 	   TRANSACTION_EXPR
 
-       SSA_NAME_ANTI_RANGE_P in
-	   SSA_NAME
-
        MUST_TAIL_CALL in
 	   CALL_EXPR
 
@@ -1411,10 +1408,14 @@ struct GTY(()) tree_ssa_name {
   union ssa_name_info_type {
     /* Pointer attributes used for alias analysis.  */
     struct GTY ((tag ("0"))) ptr_info_def *ptr_info;
-    /* Value range attributes used for zero/sign extension elimination.  */
-    struct GTY ((tag ("1"))) range_info_def *range_info;
+    /* Value range attributes.  */
+    class GTY ((tag ("1"))) irange *range_info;
   } GTY ((desc ("%1.typed.type ?" \
 		"!POINTER_TYPE_P (TREE_TYPE ((tree)&%1)) : 2"))) info;
+
+  /* For non-pointer types, this specifies a mask for the bits that
+     are known to be set.  */
+  struct nonzero_bits_def *nonzero_bits;
 
   /* Immediate uses list for this SSA_NAME.  */
   struct ssa_use_operand_t imm_uses;

@@ -311,7 +311,10 @@ make_ssa_name_fn (struct function *fn, tree var, gimple *stmt,
   if (POINTER_TYPE_P (TREE_TYPE (t)))
     SSA_NAME_PTR_INFO (t) = NULL;
   else
-    SSA_NAME_RANGE_INFO (t) = NULL;
+    {
+      SSA_NAME_RANGE_INFO (t) = NULL;
+      SSA_NAME_NONZERO_BITS (t) = NULL;
+    }
 
   SSA_NAME_IN_FREE_LIST (t) = 0;
   SSA_NAME_IS_DEFAULT_DEF (t) = 0;
@@ -332,35 +335,39 @@ set_range_info (tree name, enum value_range_type range_type,
 {
   gcc_assert (!POINTER_TYPE_P (TREE_TYPE (name)));
   gcc_assert (range_type == VR_RANGE || range_type == VR_ANTI_RANGE);
-  range_info_def *ri = SSA_NAME_RANGE_INFO (name);
+  irange *ri = SSA_NAME_RANGE_INFO (name);
   unsigned int precision = TYPE_PRECISION (TREE_TYPE (name));
 
   /* Allocate if not available.  */
   if (ri == NULL)
     {
-      size_t size = (sizeof (range_info_def)
-		     + trailing_wide_ints <3>::extra_size (precision));
-      ri = static_cast<range_info_def *> (ggc_internal_alloc (size));
-      ri->ints.set_precision (precision);
+      ri = static_cast<irange *> (ggc_internal_alloc (sizeof (irange)));
       SSA_NAME_RANGE_INFO (name) = ri;
-      ri->set_nonzero_bits (wi::shwi (-1, precision));
+
+      size_t size = (sizeof (nonzero_bits_def)
+		     + trailing_wide_ints <1>::extra_size (precision));
+      SSA_NAME_NONZERO_BITS (name)
+	= static_cast<nonzero_bits_def *> (ggc_internal_alloc (size));
+      SSA_NAME_NONZERO_BITS (name)->ints.set_precision (precision);
+      SSA_NAME_NONZERO_BITS (name)->set_nonzero_bits (wi::shwi (-1, precision));
     }
 
-  /* Record the range type.  */
-  if (SSA_NAME_RANGE_TYPE (name) != range_type)
-    SSA_NAME_ANTI_RANGE_P (name) = (range_type == VR_ANTI_RANGE);
+  gcc_assert (SSA_NAME_NONZERO_BITS (name) != NULL);
 
-  /* Set the values.  */
-  ri->set_min (min);
-  ri->set_max (max);
+  signop sign = TYPE_SIGN (TREE_TYPE (name));
+  ri->set_range (TREE_TYPE (name),
+		 wide_int::from (min, precision, sign),
+		 wide_int::from (max, precision, sign),
+		 range_type == VR_ANTI_RANGE ? RANGE_INVERT : RANGE_PLAIN);
 
   /* If it is a range, try to improve nonzero_bits from the min/max.  */
   if (range_type == VR_RANGE)
     {
-      wide_int xorv = ri->get_min () ^ ri->get_max ();
+      wide_int xorv = min ^ max;
       if (xorv != 0)
 	xorv = wi::mask (precision - wi::clz (xorv), false, precision);
-      ri->set_nonzero_bits (ri->get_nonzero_bits () & (ri->get_min () | xorv));
+      wide_int nzb = SSA_NAME_NONZERO_BITS (name)->get_nonzero_bits ();
+      SSA_NAME_NONZERO_BITS (name)->set_nonzero_bits (nzb & (min | xorv));
     }
 }
 
@@ -374,7 +381,7 @@ get_range_info (const_tree name, wide_int *min, wide_int *max)
 {
   gcc_assert (!POINTER_TYPE_P (TREE_TYPE (name)));
   gcc_assert (min && max);
-  range_info_def *ri = SSA_NAME_RANGE_INFO (name);
+  irange *ri = SSA_NAME_RANGE_INFO (name);
 
   /* Return VR_VARYING for SSA_NAMEs with NULL RANGE_INFO or SSA_NAMEs
      with integral types width > 2 * HOST_BITS_PER_WIDE_INT precision.  */
@@ -382,9 +389,7 @@ get_range_info (const_tree name, wide_int *min, wide_int *max)
 	      > 2 * HOST_BITS_PER_WIDE_INT))
     return VR_VARYING;
 
-  *min = ri->get_min ();
-  *max = ri->get_max ();
-  return SSA_NAME_RANGE_TYPE (name);
+  return ri->get_simple_min_max (min, max);
 }
 
 /* Set nonnull attribute to pointer NAME.  */
@@ -426,8 +431,7 @@ set_nonzero_bits (tree name, const wide_int_ref &mask)
     set_range_info (name, VR_RANGE,
 		    TYPE_MIN_VALUE (TREE_TYPE (name)),
 		    TYPE_MAX_VALUE (TREE_TYPE (name)));
-  range_info_def *ri = SSA_NAME_RANGE_INFO (name);
-  ri->set_nonzero_bits (mask);
+  SSA_NAME_NONZERO_BITS (name)->set_nonzero_bits (mask);
 }
 
 /* Return a widest_int with potentially non-zero bits in SSA_NAME
@@ -446,11 +450,14 @@ get_nonzero_bits (const_tree name)
       return wi::shwi (-1, precision);
     }
 
-  range_info_def *ri = SSA_NAME_RANGE_INFO (name);
+  irange *ri = SSA_NAME_RANGE_INFO (name);
   if (!ri)
-    return wi::shwi (-1, precision);
+    {
+      gcc_assert (!SSA_NAME_NONZERO_BITS (name));
+      return wi::shwi (-1, precision);
+    }
 
-  return ri->get_nonzero_bits ();
+  return SSA_NAME_NONZERO_BITS (name)->get_nonzero_bits ();
 }
 
 /* Return TRUE is OP, an SSA_NAME has a range of values [0..1], false
@@ -680,28 +687,32 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   SSA_NAME_PTR_INFO (name) = new_ptr_info;
 }
 
-/* Creates a duplicate of the range_info_def at RANGE_INFO of type
-   RANGE_TYPE for use by the SSA name NAME.  */
+/* Creates a duplicate of the range info at RANGE_INFO for use by the 
+   SSA name NAME.  */
 void
-duplicate_ssa_name_range_info (tree name, enum value_range_type range_type,
-			       struct range_info_def *range_info)
+duplicate_ssa_name_range_info (tree name, irange *range_info,
+			       struct nonzero_bits_def *nonzero_bits)
 {
-  struct range_info_def *new_range_info;
-
   gcc_assert (!POINTER_TYPE_P (TREE_TYPE (name)));
   gcc_assert (!SSA_NAME_RANGE_INFO (name));
+  gcc_assert (!SSA_NAME_NONZERO_BITS (name));
 
   if (!range_info)
     return;
 
+  /* Copy the non-zero bits information over.  */
   unsigned int precision = TYPE_PRECISION (TREE_TYPE (name));
-  size_t size = (sizeof (range_info_def)
-		 + trailing_wide_ints <3>::extra_size (precision));
-  new_range_info = static_cast<range_info_def *> (ggc_internal_alloc (size));
-  memcpy (new_range_info, range_info, size);
+  size_t size = (sizeof (nonzero_bits_def)
+		 + trailing_wide_ints <1>::extra_size (precision));
+  struct nonzero_bits_def *nzb
+    = static_cast<nonzero_bits_def *> (ggc_internal_alloc (size));
+  memcpy (nzb, nonzero_bits, size);
+  SSA_NAME_NONZERO_BITS (name) = nzb;
 
-  gcc_assert (range_type == VR_RANGE || range_type == VR_ANTI_RANGE);
-  SSA_NAME_ANTI_RANGE_P (name) = (range_type == VR_ANTI_RANGE);
+  /* Copy the range info over.  */
+  size = sizeof (irange);
+  irange *new_range_info = static_cast<irange *> (ggc_internal_alloc (size));
+  *new_range_info = *range_info;
   SSA_NAME_RANGE_INFO (name) = new_range_info;
 }
 
@@ -723,11 +734,11 @@ duplicate_ssa_name_fn (struct function *fn, tree name, gimple *stmt)
     }
   else
     {
-      struct range_info_def *old_range_info = SSA_NAME_RANGE_INFO (name);
+      irange *old_range_info = SSA_NAME_RANGE_INFO (name);
+      struct nonzero_bits_def *old_nzb = SSA_NAME_NONZERO_BITS (name);
 
       if (old_range_info)
-	duplicate_ssa_name_range_info (new_name, SSA_NAME_RANGE_TYPE (name),
-				       old_range_info);
+	duplicate_ssa_name_range_info (new_name, old_range_info, old_nzb);
     }
 
   return new_name;
@@ -747,7 +758,10 @@ reset_flow_sensitive_info (tree name)
 	mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (name));
     }
   else
-    SSA_NAME_RANGE_INFO (name) = NULL;
+    {
+      SSA_NAME_RANGE_INFO (name) = NULL;
+      SSA_NAME_NONZERO_BITS (name) = NULL;
+    }
 }
 
 /* Clear all flow sensitive data from all statements and PHI definitions

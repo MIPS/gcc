@@ -3335,12 +3335,11 @@ set_ssa_val_to (tree from, tree to)
 		  if (! VN_INFO (to)->info.range_info)
 		    {
 		      VN_INFO (to)->info.range_info = SSA_NAME_RANGE_INFO (to);
-		      VN_INFO (to)->range_info_anti_range_p
-			= SSA_NAME_ANTI_RANGE_P (to);
+		      VN_INFO (to)->nonzero_bits = SSA_NAME_NONZERO_BITS (to);
 		    }
 		  /* Use that from the dominator.  */
 		  SSA_NAME_RANGE_INFO (to) = SSA_NAME_RANGE_INFO (from);
-		  SSA_NAME_ANTI_RANGE_P (to) = SSA_NAME_ANTI_RANGE_P (from);
+		  SSA_NAME_NONZERO_BITS (to) = SSA_NAME_NONZERO_BITS (from);
 		}
 	      else
 		{
@@ -3348,12 +3347,12 @@ set_ssa_val_to (tree from, tree to)
 		  if (! VN_INFO (to)->info.range_info)
 		    {
 		      VN_INFO (to)->info.range_info = SSA_NAME_RANGE_INFO (to);
-		      VN_INFO (to)->range_info_anti_range_p
-			= SSA_NAME_ANTI_RANGE_P (to);
+		      VN_INFO (to)->nonzero_bits = SSA_NAME_NONZERO_BITS (to);
 		    }
 		  /* Rather than allocating memory and unioning the info
 		     just clear it.  */
 		  SSA_NAME_RANGE_INFO (to) = NULL;
+		  SSA_NAME_NONZERO_BITS (to) = NULL;
 		}
 	    }
 	  else if (POINTER_TYPE_P (TREE_TYPE (to))
@@ -4590,8 +4589,7 @@ scc_vn_restore_ssa_info (void)
 		   && VN_INFO (name)->info.range_info)
 	    {
 	      SSA_NAME_RANGE_INFO (name) = VN_INFO (name)->info.range_info;
-	      SSA_NAME_ANTI_RANGE_P (name)
-		= VN_INFO (name)->range_info_anti_range_p;
+	      SSA_NAME_NONZERO_BITS (name) = VN_INFO (name)->nonzero_bits;
 	    }
 	}
     }

@@ -1736,7 +1736,7 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* True if SSA_NAME_RANGE_INFO describes an anti-range.  */
 #define SSA_NAME_ANTI_RANGE_P(N) \
-    SSA_NAME_CHECK (N)->base.static_flag
+    SSA_NAME_RANGE_INFO (N)->anti_range_p ()
 
 /* The type of range described by SSA_NAME_RANGE_INFO.  */
 #define SSA_NAME_RANGE_TYPE(N) \
@@ -1745,6 +1745,15 @@ extern void protected_set_expr_location (tree, location_t);
 /* Value range info attributes for SSA_NAMEs of non pointer-type variables.  */
 #define SSA_NAME_RANGE_INFO(N) \
     SSA_NAME_CHECK (N)->ssa_name.info.range_info
+
+/* Known used bits for a non pointer-type variable.
+
+   Actual wide_int value is accessed with:
+     SSA_NAME_NONZERO_BITS(x)->get_nonzero_bits()
+   and set with:
+     SSA_NAME_NONZERO_BITS(x)->set_nonzero_bits().  */
+#define SSA_NAME_NONZERO_BITS(N) \
+  SSA_NAME_CHECK (N)->ssa_name.nonzero_bits
 
 /* Return the immediate_use information for an SSA_NAME. */
 #define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses

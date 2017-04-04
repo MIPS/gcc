@@ -356,7 +356,7 @@ irange::Union (wide_int x, wide_int y)
       n = 2;
       return;
     }
-    
+
   // If [X,Y] comes before, put it at the front.
   if (wi::lt_p (y, bounds[0], TYPE_SIGN (type)))
     {
@@ -634,7 +634,7 @@ irange::Not (const irange& r)
   return n != 0;
 }
 
-// Calculate the inverse of THIS in-place.
+// THIS = Not (THIS).
 
 bool
 irange::Not ()
@@ -676,6 +676,51 @@ irange::dump (FILE *f)
       }
   if (overflow)
     fprintf (f, "(ov)");
+}
+
+/* Return TRUE if the current range is an ANTI_RANGE.  This is a
+   temporary measure offering backward compatibility with
+   range_info_def, and will go away.  */
+
+bool
+irange::anti_range_p (void)
+{
+  // Remember: VR_ANTI_RANGE([3,10]) ==> [-MIN,2][11,MAX]
+  unsigned int precision = TYPE_PRECISION (type);
+  wide_int min = wi::min_value (precision, TYPE_SIGN (type));
+  wide_int max = wi::max_value (precision, TYPE_SIGN (type));
+  return (n == 4
+	  && bounds[0] == min
+	  && bounds[3] == max);
+}
+
+/* Convert the current range into a simple min/max.  This is a
+   temporary measure while we remove all uses of range_info_def.
+
+   Returns VR_RANGE or VR_ANTI_RANGE depending on whether it is a
+   regular range, or an inverse range.  */
+
+enum value_range_type
+irange::get_simple_min_max (wide_int *min, wide_int *max)
+{
+  gcc_assert (!overflow); // FIXME: Maybe figure this out later.
+
+  if (anti_range_p ())
+    {
+      irange tmp (*this);
+      tmp.Not ();
+      gcc_assert (tmp.n == 2);
+      gcc_assert (!tmp.overflow);
+      *min = tmp.bounds[0];
+      *max = tmp.bounds[1];
+      return VR_ANTI_RANGE;
+    }
+
+  /* We chop off any middle ranges, because old school range_info_def
+     has no use for such granularity.  */
+  *min = bounds[0];
+  *max = bounds[n - 1];
+  return VR_RANGE;
 }
 
 bool
@@ -954,7 +999,7 @@ irange_tests ()
 
   // [15,20][30,40][50,60] ^ [15,35][40,90][100,200] => [15,20][30,35][40,60]
   r0 = RANGE3 (15,20,30,40,50,60);
-  r1 = RANGE3 (15,35,40,90,100,20);
+  r1 = RANGE3 (15,35,40,90,100,200);
   r0.Intersect (r1);
   ASSERT_TRUE (r0 == RANGE3 (15,20,30,35,40,60));
 
@@ -963,7 +1008,6 @@ irange_tests ()
   r1 = RANGE1 (40,50);
   r0.Intersect (r1);
   ASSERT_TRUE (r0 == RANGE1 (40,40));
-
 }
 
 } // namespace selftest

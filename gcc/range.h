@@ -26,23 +26,31 @@ along with GCC; see the file COPYING3.  If not see
 typedef class irange *irange_p;
 enum irange_type { RANGE_PLAIN, RANGE_INVERT };
 
-class irange {
-private:
+class GTY(()) irange
+{
+ private:
   bool overflow;
-  tree type;
   size_t n;
-  wide_int bounds[MAX_RANGES];
   void prepend (wide_int x, wide_int y);
   void append (wide_int x, wide_int y);
   void remove (unsigned i, unsigned j);
   void canonicalize ();
+  /* This is stupid.  These two should be private, but the GTY
+     machinery can't look inside an irange.  */
+ public:
+  tree type;
+  wide_int bounds[MAX_RANGES];
 
 public:
-  irange () { type = NULL_TREE; n = 0; };
+  irange () { type = NULL_TREE; n = 0; }
   irange (tree t);
   irange (tree t, wide_int lbound, wide_int ubound,
 	  irange_type rt = RANGE_PLAIN);
   irange (const irange &r);
+
+  /* Convenience functions to simulate old range_info_def.  */
+  enum value_range_type get_simple_min_max (wide_int *, wide_int *);
+  bool anti_range_p (void);
 
   void set_range (tree t);
   void set_range (tree t, wide_int lbound, wide_int ubound,

@@ -7216,9 +7216,9 @@ remove_range_assertions (void)
 		    && all_imm_uses_in_stmt_or_feed_cond (var, stmt,
 							  single_pred (bb)))
 		  {
-		    set_range_info (var, SSA_NAME_RANGE_TYPE (lhs),
-				    SSA_NAME_RANGE_INFO (lhs)->get_min (),
-				    SSA_NAME_RANGE_INFO (lhs)->get_max ());
+		    wide_int min, max;
+		    SSA_NAME_RANGE_INFO (lhs)->get_simple_min_max (&min, &max);
+		    set_range_info (var, SSA_NAME_RANGE_TYPE (lhs), min, max);
 		    maybe_set_nonzero_bits (bb, var);
 		  }
 	      }

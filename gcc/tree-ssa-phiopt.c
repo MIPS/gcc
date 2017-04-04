@@ -1063,13 +1063,14 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 	     <bb 4>:
 	     # u_3 = PHI <u_6(3), 4294967295(2)>  */
 	  SSA_NAME_RANGE_INFO (lhs) = NULL;
+	  SSA_NAME_NONZERO_BITS (lhs) = NULL;
 	  /* If available, we can use VR of phi result at least.  */
 	  tree phires = gimple_phi_result (phi);
-	  struct range_info_def *phires_range_info
-	    = SSA_NAME_RANGE_INFO (phires);
-	  if (phires_range_info)
-	    duplicate_ssa_name_range_info (lhs, SSA_NAME_RANGE_TYPE (phires),
-					   phires_range_info);
+	  if (irange *phires_range_info = SSA_NAME_RANGE_INFO (phires))
+	    {
+	      struct nonzero_bits_def *nzb = SSA_NAME_NONZERO_BITS (phires);
+	      duplicate_ssa_name_range_info (lhs, phires_range_info, nzb);
+	    }
 	}
       gimple_stmt_iterator gsi_from = gsi_for_stmt (assign);
       gsi_move_before (&gsi_from, &gsi);

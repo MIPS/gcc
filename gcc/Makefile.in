@@ -2489,6 +2489,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/gimple.h \
   $(srcdir)/gimple-ssa.h \
   $(srcdir)/tree-chkp.c \
+  $(srcdir)/range.h $(srcdir)/range.c \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
   $(srcdir)/tree-cfg.c \
   $(srcdir)/tree-dfa.c \
