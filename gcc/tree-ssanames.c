@@ -687,7 +687,7 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   SSA_NAME_PTR_INFO (name) = new_ptr_info;
 }
 
-/* Creates a duplicate of the range info at RANGE_INFO for use by the 
+/* Creates a duplicate of the range info at RANGE_INFO for use by the
    SSA name NAME.  */
 void
 duplicate_ssa_name_range_info (tree name, irange *range_info,

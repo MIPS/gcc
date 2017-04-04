@@ -44,18 +44,34 @@ irange::set_range (tree t, wide_int lbound, wide_int ubound,
   gcc_assert (wi::le_p (lbound, ubound, TYPE_SIGN (type)));
   if (rt == RANGE_INVERT)
     {
+      // We calculate INVERSE([I,J]) as [-MIN, I-1][J+1, +MAX].
       bool ovf;
       n = 0;
-      // INVERSE([I,J]) is [-MIN, I-1][J+1, +MAX]
-      bounds[n++] = wi::min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
-      bounds[n++] = wi::sub (lbound, 1, TYPE_SIGN (type), &ovf);
-      if (ovf)
-	n = 0;
-      bounds[n++] = wi::add (ubound, 1, TYPE_SIGN (type), &ovf);
-      if (ovf)
-	n--;
-      else
-	bounds[n++] = wi::max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+      wide_int min = wi::min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+      wide_int max = wi::max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+
+      // If we will overflow, don't bother.  This will handle unsigned
+      // underflow which doesn't set the overflow bit.
+      //
+      // Note: Perhaps all these &ovf checks are unecessary since we
+      // are manually checking for overflow with the if() below.
+      if (lbound != min)
+	{
+	  bounds[n++] = min;
+	  bounds[n++] = wi::sub (lbound, 1, TYPE_SIGN (type), &ovf);
+	  if (ovf)
+	    n = 0;
+	}
+      // If we will overflow, don't bother.  This will handle unsigned
+      // overflow which doesn't set the overflow bit.
+      if (ubound != max)
+	{
+	  bounds[n++] = wi::add (ubound, 1, TYPE_SIGN (type), &ovf);
+	  if (ovf)
+	    n--;
+	  else
+	    bounds[n++] = max;
+	}
 
       // If we get here with N==0, it means we tried to calculate the
       // inverse of [-MIN, +MAX] which is actually the empty set, and
@@ -279,8 +295,10 @@ irange::canonicalize ()
     {
       bool ovf;
       wide_int x = wi::add (bounds[i], 1, TYPE_SIGN (type), &ovf);
-      if (ovf)
-	continue;
+      /* No need to check for overflow in the +1, since the middle
+	 ranges cannot have MAXINT.  */
+      //if (ovf)
+      //  continue;
       if (x == bounds[i + 1])
 	{
 	  bounds[i] = bounds[i + 2];
@@ -608,16 +626,26 @@ irange::Not (const irange& r)
 
   // Construct leftmost range.
   n = 0;
-  bounds[n++] = wi::min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
-  bounds[n++] = wi::sub (r.bounds[i++], 1, TYPE_SIGN (type), &ovf);
-  if (ovf)
-    n = 0;
+  wide_int min = wi::min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+  // If this is going to underflow on the MINUS 1, don't even bother
+  // checking.  This also handles subtracting one from an unsigned 0,
+  // which doesn't set the underflow bit.
+  if (bounds[0] != min)
+    {
+      bounds[n++] = min;
+      bounds[n++] = wi::sub (r.bounds[i], 1, TYPE_SIGN (type), &ovf);
+      if (ovf)
+	n = 0;
+    }
+  i++;
   // Construct middle ranges if applicable.
   if (r.n > 2)
     {
       unsigned j = i;
       for (; j < r.n - 2; j += 2)
 	{
+	  /* The middle ranges cannot have MAX/MIN, so there's no need
+	     to check for unsigned overflow on the +1 and -1 here.  */
 	  bounds[n++] = wi::add (r.bounds[j], 1, TYPE_SIGN (type), &ovf);
 	  bounds[n++] = wi::sub (r.bounds[j + 1], 1, TYPE_SIGN (type), &ovf);
 	  if (ovf)
@@ -626,10 +654,17 @@ irange::Not (const irange& r)
       i = j;
     }
   // Construct rightmost range.
-  bounds[n++] = wi::add (r.bounds[i], 1, TYPE_SIGN (type), &ovf);
-  bounds[n++] = wi::max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
-  if (ovf)
-    n -= 2;
+  wide_int max = wi::max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+  // If this will overflow on the PLUS 1, don't even bother.  This
+  // also handles adding one to an unsigned MAX, which doesn't set the
+  // overflow bit.
+  if (max != r.bounds[i])
+    {
+      bounds[n++] = wi::add (r.bounds[i], 1, TYPE_SIGN (type), &ovf);
+      bounds[n++] = max;
+      if (ovf)
+	n -= 2;
+    }
 
   return n != 0;
 }
@@ -709,8 +744,20 @@ irange::get_simple_min_max (wide_int *min, wide_int *max)
     {
       irange tmp (*this);
       tmp.Not ();
-      gcc_assert (tmp.n == 2);
       gcc_assert (!tmp.overflow);
+      if (tmp.n != 2)
+	{
+	  fprintf (stderr, "Inverse of anti range does not have 2 elements.\n");
+	  fprintf (stderr, "Type: ");
+	  debug_generic_stmt (type);
+	  fprintf (stderr, "Original anti range:\n");
+	  dump (stderr);
+	  fprintf (stderr, "\n");
+	  fprintf (stderr, "Supposed inverse of anti range:\n");
+	  tmp.dump (stderr);
+	  fprintf (stderr, "\n");
+	  gcc_unreachable ();
+	}
       *min = tmp.bounds[0];
       *max = tmp.bounds[1];
       return VR_ANTI_RANGE;
@@ -780,6 +827,9 @@ namespace selftest {
 
 
 #define INT(N) build_int_cst (integer_type_node, (N))
+#define UINT(N) build_int_cstu (unsigned_type_node, (N))
+#define UINT128(N) build_int_cstu (u128_type, (N))
+
 #define RANGE1(A,B) irange (integer_type_node, INT(A), INT(B))
 
 #define RANGE2(A,B,C,D)					\
@@ -804,6 +854,7 @@ namespace selftest {
 void
 irange_tests ()
 {
+  tree u128_type = build_nonstandard_integer_type (128, /*unsigned=*/1);
   irange i1, i2, i3;
   irange r0, r1;
   ASSERT_FALSE (r0.valid_p ());
@@ -818,6 +869,23 @@ irange_tests ()
   range_non_zero (&not_zero, unsigned_char_type_node);
   ASSERT_TRUE (not_zero == irange (unsigned_char_type_node, UCHAR_INT(1), UCHAR_INT(255)));
 
+  // Check that [0,127][0x..ffffff80,0x..ffffff] == ~[128, 0x..ffffff7f]
+  r0 = irange (u128_type, UINT128(0), UINT128(127), RANGE_PLAIN);
+  tree high = build_minus_one_cst (u128_type);
+  // low = -1 - 127 => 0x..ffffff80
+  tree low = fold_build2 (MINUS_EXPR, u128_type, high, UINT128(127));
+  r1 = irange (u128_type, low, high); // [0x..ffffff80, 0x..ffffffff]
+  // r0 = [0,127][0x..ffffff80,0x..fffffff]
+  r0.Union (r1);
+  // r1 = [128, 0x..ffffff7f]
+  r1 = irange (u128_type,
+	       UINT128(128),
+	       fold_build2 (MINUS_EXPR, u128_type,
+			    build_minus_one_cst (u128_type),
+			    UINT128(128)));
+  r0.Not ();
+  ASSERT_TRUE (r0 == r1);
+
   r0.set_range (integer_type_node);
   tree minint = wide_int_to_tree (integer_type_node, r0.lbound ());
   tree maxint = wide_int_to_tree (integer_type_node, r0.ubound ());
@@ -825,6 +893,24 @@ irange_tests ()
   r0.set_range (short_integer_type_node);
   tree minshort = wide_int_to_tree (short_integer_type_node, r0.lbound ());
   tree maxshort = wide_int_to_tree (short_integer_type_node, r0.ubound ());
+
+  r0.set_range (unsigned_type_node);
+  tree maxuint = wide_int_to_tree (unsigned_type_node, r0.ubound ());
+
+  // Check that ~[0,5] => [6,MAX] for unsigned int.
+  r0 = irange (unsigned_type_node, UINT(0), UINT(5), RANGE_PLAIN);
+  r0.Not ();
+  ASSERT_TRUE (r0 == irange (unsigned_type_node, UINT(6), maxuint));
+
+  // Check that ~[10,MAX] => [0,9] for unsigned int.
+  r0 = irange (unsigned_type_node, UINT(10), maxuint, RANGE_PLAIN);
+  r0.Not ();
+  ASSERT_TRUE (r0 == irange (unsigned_type_node, UINT(0), UINT(9)));
+
+  // Check that ~[0,5] => [6,MAX] for unsigned 128-bit numbers.
+  r0.set_range (u128_type, UINT128(0), UINT128(5), RANGE_INVERT);
+  r1 = irange (u128_type, UINT128(6), build_minus_one_cst (u128_type));
+  ASSERT_TRUE (r0 == r1);
 
   // Check that [~5] is really [-MIN,4][6,MAX]
   r0 = irange (integer_type_node, INT(5), INT(5), RANGE_INVERT);
