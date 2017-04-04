@@ -22157,7 +22157,7 @@ gen_movep (rtx dest1, rtx src1, rtx dest2, rtx src2)
 static int
 movep_dest_operand (rtx dest, enum machine_mode mode)
 {
-  return (REG_P (dest) && IN_RANGE (REGNO (dest), 4, 7));
+  return (REG_P (dest) && IN_RANGE (REGNO (dest), 4, 8));
 }
 
 /* Helper function to generate movep insn.
@@ -22177,6 +22177,109 @@ umips_movep_no_overlap_p (rtx dest1, rtx dest2, rtx src1, rtx src2)
   return true;
 }
 
+/* Helper function to micromips_movep_opt.
+
+   MOVEP[REV] can be safely generated at one of the following locations without
+   violating data flow.
+
+   (1). MOVE1 or MOVE2 both possible (currently return MOVE1)
+   (2). Only at MOVE1
+   (3). Only at MOVE2
+   (4). After USE(DEST2)/DEF(SRC2) but before USE(DEST1)/DEF(SRC1)
+   (5). If USE(DEST1)/DEF(SRC1) appears BEFORE USE(DEST2)/DEF(SRC2) attempt to
+	rearrange the sequence and convert into one of above categories.
+
+   Return preferable location obrained from the above possibilities and NULL if
+   no safe sequence can be obtained for (5).  */
+
+static rtx_insn *
+get_movep_insn_location (rtx_insn *move1, rtx_insn *move2)
+{
+  rtx dest1, dest2, src1, src2;
+
+  src1 = SET_SRC (PATTERN (move1));
+  dest1 = SET_DEST (PATTERN (move1));
+  src2 = SET_SRC (PATTERN (move2));
+  dest2 = SET_DEST (PATTERN (move2));
+
+  /* Works for movep_rev as well.  */
+  if (! umips_movep_no_overlap_p (dest1, dest2, src1, src2))
+    return NULL;
+
+  if (! reg_used_between_p (dest2, move1, move2)
+      && ! reg_set_between_p (src2, move1, move2))
+    /* (1) and (2): Emit movep at MOVE1.  */
+    return move1;
+
+  if (! reg_used_between_p (dest1, move1, move2)
+      && ! reg_set_between_p (src1, move1, move2))
+    /* (3): Emit movep at MOVE2.  */
+    return move2;
+
+  rtx_insn *insn, *move1_use = NULL, *move2_use = NULL;
+  int curr_pp = 0, move1_pp = 0, move2_pp = 0;
+
+  /* MOVE1_USE is the first insn to USE(dest1) or DEF(src1) and MOVE2_USE is the
+     last insn to USE(dest2) or DEF(src1).  Both exclusive of MOVE1 and MOVE2.
+     MOVE1_PP is the program point at MOVE1_USE while MOVE2_PP is the program
+     point at MOVE2_USE.  */
+
+  for (insn = NEXT_INSN (move1); insn != move2; insn = NEXT_INSN (insn))
+    {
+      if (!NONDEBUG_INSN_P (insn))
+	continue;
+
+      if (!move1_use
+	  && (reg_set_p (src1, insn)
+	      || reg_overlap_mentioned_p (dest1, PATTERN (insn))))
+	{
+	  move1_use = insn;
+	  move1_pp = curr_pp;
+	}
+      if (reg_set_p (src2, insn)
+	  || reg_overlap_mentioned_p (dest2, PATTERN (insn)))
+	{
+	  move2_use = insn;
+	  move2_pp = curr_pp;
+	}
+      curr_pp++;
+    }
+
+  /* (4): After USE(dest2)/DEF(src2) but before USE(dest1)/DEF(src1).
+
+     Neither of move1_pp and move2_pp could be zero.  Already handled that
+     in (1) to (3).  */
+  if (move1_pp > move2_pp)
+    return move2_use;
+
+  /* (5):  Not supported yet.
+     Notes:
+     if (move1_pp == move2_pp) --> cannot be generated ever
+         return NULL;
+
+     Record rtx_insn *use_dest1, *set_src1, *use_dest2, *set_src2 from the loop
+     above.
+     if (can_safley_swap (move1_use and move2_use)
+         swap (move1_use, move2_use);
+
+     else if (can_safely_swap (use_dest1/set_src1, use_dest2/set_src2))
+         if (try_change_sequence ()) to maintain legitamate order
+	     move2_use = last insn use'ing/def'ing move2 operands;
+
+     else
+         Build dep gragh the same way done in scheduling proper.  Only include
+	 chain related to insns recorded above.
+	 if (try_change_sequence ()) --> details to be finalized
+	    move2_use = last insn use'ing/def'ing move2 operands;
+	 else
+	    return NULL;
+
+     return move2_use;
+  */
+
+  return NULL;
+}
+
 /* Function for TARGET_MACHINE_DEPENDENT_REORG.
 
    Find opportunities missed by peephole2 for movep
@@ -22187,12 +22290,12 @@ micromips_movep_opt ()
 {
   basic_block bb;
   rtx_insn *insn, *prev;
-  int num_src_regs = 4, i, i1, i2, p, m;
-  rtx_insn *move[4], *rmove[4];
-  rtx dest1, dest2, src1, src2, reg;
-  int a[4] = {1,1,1,-3}, s[4] = {-3,1,1,1};
+  rtx_insn *move[5], *rmove[5];
+  rtx dest1, dest2, src1, src2;
+  int num_src_regs = 5;
+  int i, i1, i2;
 
-  /* FORNOW: Keep seperate from move.balc optimization even both could be
+  /* FORNOW: Keep seperate from move.balc optimization even when both could be
      done in the same pass.  */
 
   if (dump_file)
@@ -22208,136 +22311,131 @@ micromips_movep_opt ()
 	  if (!INSN_P (insn))
 	    continue;
 
-	  rtx pattern = PATTERN (insn);
-
-	  /* Confirm $Arg is being used but not being set.  */
 	  if (CALL_P (insn))
-	    for (i = 0; i < num_src_regs; i++)
-	      if (!find_regno_fusage (insn, USE, i+GP_ARG_FIRST))
-		move[i] = rmove[i] = NULL;
-
-	  if (GET_CODE (pattern) == SET)
 	    {
-	      rtx src = SET_SRC (pattern);
-	      rtx dest = SET_DEST (pattern);
+	      for (i = 0; i < num_src_regs; i++)
+		move[i] = rmove[i] = NULL;
+	      continue;
+	    }
 
-	      if (movep_operand (src, GET_MODE (src))
-		  && movep_dest_operand (dest, GET_MODE (dest)))
+	  rtx pattern = PATTERN (insn);
+	  if (GET_CODE (pattern) != SET)
+	    continue;
+
+	  rtx src = SET_SRC (pattern);
+	  rtx dest = SET_DEST (pattern);
+	  rtx_insn *loc_insn = NULL;
+
+	  if (movep_operand (src, GET_MODE (src))
+	      && movep_dest_operand (dest, GET_MODE (dest)))
+	    {
+	      /* MOVEP.  */
+	      i = REGNO (dest) - GP_ARG_FIRST;
+	      move[i] = insn;
+
+	      /* TODO: The order of trying for i,i+1 first followed by i-1,i is
+		 not intentional and could be reversed.  However, deciding on
+		 the best pair if both are possible, so that more opportunities
+		 are created for other instrcutions (movep/move.balc) is not
+		 possible without lookahead/backtacking and multiple
+		 bidirectional passes over instructions.  */
+	      i1 = i;
+	      i2 = i + 1;
+
+	      if ((i + 1) < num_src_regs && move[i+1])
+		loc_insn = get_movep_insn_location (move[i], move[i+1]);
+
+	      if (!loc_insn && (i - 1) >= 0 && move[i-1])
 		{
-		  /* MOVEP.  */
-		  i = REGNO (dest) - GP_ARG_FIRST;
-		  move[i] = insn;
-
-		  p = a[i];
-		  m = s[i];
-
-		  if (move[i+p]
-		      && (!reg_used_between_p
-			  (SET_DEST (PATTERN (move[i+p])), move[i], move[i+p]))
-		      && (!reg_set_between_p
-			  (SET_SRC (PATTERN (move[i+p])), move[i], move[i+p])))
-		    {
-		      i1 = i;
-		      i2 = i + p;
-		    }
-		  else if (move[i-m]
-			   && (!reg_used_between_p
-			    (SET_DEST (PATTERN (move[i-m])), move[i], move[i-m]))
-			   && (!reg_set_between_p
-			    (SET_SRC (PATTERN (move[i-m])), move[i], move[i-m])))
-		    {
-		      i1 = i - m;
-		      i2 = i;
-		    }
-		  else
-		   continue;
-
-		  src1 = SET_SRC (PATTERN (move[i1]));
-		  dest1 = SET_DEST (PATTERN (move[i1]));
-		  src2 = SET_SRC (PATTERN (move[i2]));
-		  dest2 = SET_DEST (PATTERN (move[i2]));
-
-		  /* Redundent though fool proof.  */
-		  if (umips_movep_target_p (dest1, dest2)
-		      && movep_operand (src1, GET_MODE (src1))
-		      && movep_operand (src2, GET_MODE (src2))
-		      && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
-		    {
-		      rtx movep_insn = gen_movep (dest1, src1, dest2,
-						  src2);
-
-		      rtx last = emit_insn_after_setloc (movep_insn, insn,
-							 INSN_LOCATION (insn));
-		      if (dump_file)
-			{
-			  print_rtl_single (dump_file, move[i1]);
-			  print_rtl_single (dump_file, move[i2]);
-			  fprintf (dump_file, "MOVEP INSN\n");
-			  print_rtl_single (dump_file, last);
-			}
-		      delete_insn (move[i1]);
-		      delete_insn (move[i2]);
-		      move[i1] = NULL;
-		      move[i2] = NULL;
-		    }
+		  i1 = i - 1;
+		  i2 = i;
+		  loc_insn = get_movep_insn_location (move[i], move[i-1]);
 		}
-	      else if (movep_rev_operand (dest, GET_MODE (dest))
-		      && movep_dest_operand (src, GET_MODE (src)))
+
+	      /* Don't generate movep if we can't find a suitable location.  */
+	      if (!loc_insn)
+		continue;
+
+	      src1 = SET_SRC (PATTERN (move[i1]));
+	      dest1 = SET_DEST (PATTERN (move[i1]));
+	      src2 = SET_SRC (PATTERN (move[i2]));
+	      dest2 = SET_DEST (PATTERN (move[i2]));
+
+	      /* Redundent though fool proof.  */
+	      if (umips_movep_target_p (dest1, dest2)
+		  && movep_operand (src1, GET_MODE (src1))
+		  && movep_operand (src2, GET_MODE (src2))
+		  && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
 		{
-		  /* Reverse MOVEP.  */
-		  i = REGNO (src) - GP_ARG_FIRST;
-		  rmove[i] = insn;
-		  p = a[i];
-		  m = s[i];
-		  if (rmove[i+p]
-		      && (!reg_set_between_p
-			  (SET_SRC (PATTERN (rmove[i+p])), rmove[i], rmove[i+p]))
-		      && (!reg_used_between_p
-			  (SET_DEST (PATTERN (rmove[i+p])), rmove[i], rmove[i+p])))
-		    {
-		      i1 = i;
-		      i2 = i + p;
-		    }
-		  else if (rmove[i-m]
-			   && (!reg_set_between_p
-			    (SET_SRC (PATTERN (rmove[i-m])), rmove[i], rmove[i-m]))
-			   && (!reg_used_between_p
-			    (SET_DEST (PATTERN (rmove[i-m])), rmove[i], rmove[i-m])))
-		    {
-		      i1 = i - m;
-		      i2 = i;
-		    }
-		  else
-		    continue;
+		  rtx movep_insn = gen_movep (dest1, src1, dest2,
+					      src2);
 
-		  src1 = SET_SRC (PATTERN (rmove[i1]));
-		  dest1 = SET_DEST (PATTERN (rmove[i1]));
-		  src2 = SET_SRC (PATTERN (rmove[i2]));
-		  dest2 = SET_DEST (PATTERN (rmove[i2]));
-
-		  /* Redundent though fool proof.  */
-		  if (umips_movep_target_p (src1, src2)
-		      && movep_rev_operand (dest1, GET_MODE (dest1))
-		      && movep_rev_operand (dest2, GET_MODE (dest2))
-		      && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
+		  rtx last = emit_insn_after_setloc (movep_insn, loc_insn,
+						     INSN_LOCATION (loc_insn));
+		  if (dump_file)
 		    {
-		      rtx movep_insn = gen_movep (dest1, src1, dest2,
-						  src2);
-
-		      rtx last = emit_insn_after_setloc (movep_insn, insn,
-							 INSN_LOCATION (insn));
-		      if (dump_file)
-			{
-			  print_rtl_single (dump_file, rmove[i1]);
-			  print_rtl_single (dump_file, rmove[i2]);
-			  fprintf (dump_file, "REV MOVEP INSN\n");
-			  print_rtl_single (dump_file, last);
-			}
-		      delete_insn (rmove[i1]);
-		      delete_insn (rmove[i2]);
-		      rmove[i1] = NULL;
-		      rmove[i2] = NULL;
+		      print_rtl_single (dump_file, move[i1]);
+		      print_rtl_single (dump_file, move[i2]);
+		      fprintf (dump_file, "MOVEP INSN\n");
+		      print_rtl_single (dump_file, last);
 		    }
+		  delete_insn (move[i1]);
+		  delete_insn (move[i2]);
+		  move[i1] = NULL;
+		  move[i2] = NULL;
+		}
+	    }
+	  else if (movep_rev_operand (dest, GET_MODE (dest))
+		   && movep_dest_operand (src, GET_MODE (src)))
+	    {
+	      /* Reverse MOVEP.  */
+	      i = REGNO (src) - GP_ARG_FIRST;
+	      rmove[i] = insn;
+
+	      i1 = i;
+	      i2 = i + 1;
+
+	      if ((i + 1) < num_src_regs && rmove[i+1])
+		loc_insn = get_movep_insn_location (rmove[i], rmove[i+1]);
+
+	      if (!loc_insn && (i - 1) >= 0 && rmove[i-1])
+		{
+		  i1 = i - 1;
+		  i2 = i;
+		  loc_insn = get_movep_insn_location (rmove[i], rmove[i-1]);
+		}
+
+	      /* Don't generate movep if we can't find a suitable location.  */
+	      if (!loc_insn)
+		continue;
+
+	      src1 = SET_SRC (PATTERN (rmove[i1]));
+	      dest1 = SET_DEST (PATTERN (rmove[i1]));
+	      src2 = SET_SRC (PATTERN (rmove[i2]));
+	      dest2 = SET_DEST (PATTERN (rmove[i2]));
+
+	      /* Redundent though fool proof.  */
+	      if (umips_movep_target_p (src1, src2)
+		  && movep_rev_operand (dest1, GET_MODE (dest1))
+		  && movep_rev_operand (dest2, GET_MODE (dest2))
+		  && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
+		{
+		  rtx movep_insn = gen_movep (dest1, src1, dest2,
+					      src2);
+
+		  rtx last = emit_insn_after_setloc (movep_insn, loc_insn,
+						     INSN_LOCATION (loc_insn));
+		  if (dump_file)
+		    {
+		      print_rtl_single (dump_file, rmove[i1]);
+		      print_rtl_single (dump_file, rmove[i2]);
+		      fprintf (dump_file, "REV MOVEP INSN\n");
+		      print_rtl_single (dump_file, last);
+		    }
+		  delete_insn (rmove[i1]);
+		  delete_insn (rmove[i2]);
+		  rmove[i1] = NULL;
+		  rmove[i2] = NULL;
 		}
 	    }
 	}
