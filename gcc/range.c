@@ -1,4 +1,4 @@
-/* SSA range analysis implementation.
+/* SSA range analysis implementation. -*- C++ -*-
    Copyright (C) 2017 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
    and Andrew Macleod <amacleod@redhat.com>.
@@ -222,47 +222,76 @@ irange::valid_p ()
 // range for the new type.
 //
 // The type of the original range is changed to the new type.
-//
-// Converting between types of different signs is a hard failure.
 
 bool
-irange::cast(tree new_type)
+irange::cast (tree new_type)
 {
-  if (TYPE_SIGN (new_type) != TYPE_SIGN (type))
-    return false;
-
-  // Converting to a higher precision is easy because things always fit.
+  // If converting to a lower precision, make things fit if necessary.
   unsigned new_precision = TYPE_PRECISION (new_type);
-  if (TYPE_PRECISION (type) <= TYPE_PRECISION (new_type))
+  if (new_precision < TYPE_PRECISION (type))
     {
-      for (unsigned i = 0; i < n; ++i)
-	bounds[i] = wide_int::from (bounds[i], new_precision,
-				    TYPE_SIGN (type));
-      type = new_type;
-      return true;
+      // Get the extreme bounds for the new type, but within the old type,
+      // so we can properly compare them.
+      irange new_bounds (new_type);
+      wide_int lbound = wide_int_to_tree (type, new_bounds.lbound ());
+      wide_int ubound = wide_int_to_tree (type, new_bounds.ubound ());
+
+      // If any of the old bounds are outside of the representable
+      // range for the new type, conservatively default to the entire
+      // range of the new type.
+      if (wi::lt_p (bounds[0], lbound, TYPE_SIGN (type))
+	  || wi::gt_p (bounds[n - 1], ubound, TYPE_SIGN (type)))
+	{
+	  bounds[0] = wide_int::from (lbound, new_precision, TYPE_SIGN (type));
+	  bounds[1] = wide_int::from (ubound, new_precision, TYPE_SIGN (type));
+	  n = 2;
+	  return false;
+	}
     }
 
-  // Get the extreme bounds for the new type, but within the old type,
-  // so we can properly compare them.
-  irange new_bounds (new_type);
-  wide_int lbound = wide_int_to_tree (type, new_bounds.lbound ());
-  wide_int ubound = wide_int_to_tree (type, new_bounds.ubound ());
-
-  // If any of the old bounds are outside of the representable range
-  // for the new type, conservatively default to the entire range of
-  // the new type.
-  if (wi::lt_p (bounds[0], lbound, TYPE_SIGN (type))
-      || wi::gt_p (bounds[n - 1], ubound, TYPE_SIGN (type)))
+  bool sign_change = TYPE_SIGN (new_type) != TYPE_SIGN (type);
+  for (unsigned i = 0; i < n; i += 2)
     {
-      bounds[0] = wide_int::from (lbound, new_precision, TYPE_SIGN (type));
-      bounds[1] = wide_int::from (ubound, new_precision, TYPE_SIGN (type));
-      n = 2;
-      return false;
-    }
+      wide_int b0, b1;
+      b0 = wide_int::from (bounds[i], new_precision, TYPE_SIGN (new_type));
+      b1 = wide_int::from (bounds[i + 1], new_precision, TYPE_SIGN (new_type));
+      bool sbit0 = b0.sign_mask () < 0;
+      bool sbit1 = b1.sign_mask () < 0;
+      if (!sign_change || sbit0 == sbit1)
+	{
+	  bounds[i] = b0;
+	  bounds[i + 1] = b1;
+	}
+      else
+	{
+	  // FIXME: We're about to go over.  Handle this
+	  // gracefully by merging.
+	  gcc_assert (n < MAX_RANGES);
 
-  for (unsigned i = 0; i < n; ++i)
-    bounds[i] = wide_int::from (bounds[i], new_precision, TYPE_SIGN (type));
+	  wide_int min = wi::min_value (new_precision, TYPE_SIGN (new_type));
+	  wide_int max = wi::max_value (new_precision, TYPE_SIGN (new_type));
+
+	  // From no sign bit to sign bit: [15, 150] => [15,127][-128,-106]
+	  if (!sbit0 && sbit1)
+	    {
+	      bounds[i] = min;
+	      bounds[i + 1] = b1;
+	      bounds[n++] = b0;
+	      bounds[n++] = max;
+	    }
+	  // From sign bit to no sign bit: [-5, 5] => [251,255][0,5]
+	  else
+	    {
+	      bounds[i] = min;
+	      bounds[i + 1] = b1;
+	      bounds[n++] = b0;
+	      bounds[n++] = max;
+	    }
+	}
+    }
   type = new_type;
+  if (sign_change)
+    canonicalize ();
   gcc_assert (valid_p ());
   return true;
 }
@@ -279,9 +308,7 @@ irange::contains (wide_int element)
   return false;
 }
 
-// Canonicalize and clean up the current range.  Ideally we shouldn't
-// need this function, and any cleanups should be done in place where
-// the range was altered.
+// Canonicalize the current range.
 
 void
 irange::canonicalize ()
@@ -289,16 +316,31 @@ irange::canonicalize ()
   if (n < 2)
     return;
 
+  // Fix any out of order ranges: [10,20][-5,5] into [-5,5][10,20].
+  //
+  // This is not a true sort by design because I *think* we won't
+  // create any truly wacky ranges during casting.  As a temporary
+  // measure, check assert(valid_p()) afterwards and if we catch
+  // anything, rewrite this into a bubble sort.
+  for (unsigned i = 0; i < n - 2; i += 2)
+    if (wi::gt_p (bounds[i], bounds[i + 2], TYPE_SIGN (type)))
+      {
+	wide_int x = bounds[i], y = bounds[i + 1];
+	bounds[i] = bounds[i + 2];
+	bounds[i + 1] = bounds[i + 3];
+	bounds[i + 2] = x;
+	bounds[i + 3] = y;
+      }
+  gcc_assert (valid_p ()); // See note before for(;;).
+
   // Merge any edges that touch.
   // [9,10][11,20] => [9,20]
   for (unsigned i = 1; i < n - 2; i += 2)
     {
       bool ovf;
       wide_int x = wi::add (bounds[i], 1, TYPE_SIGN (type), &ovf);
-      /* No need to check for overflow in the +1, since the middle
-	 ranges cannot have MAXINT.  */
-      //if (ovf)
-      //  continue;
+      // No need to check for overflow here for the +1, since the
+      // middle ranges cannot have MAXINT.
       if (x == bounds[i + 1])
 	{
 	  bounds[i] = bounds[i + 2];
@@ -829,6 +871,8 @@ namespace selftest {
 #define INT(N) build_int_cst (integer_type_node, (N))
 #define UINT(N) build_int_cstu (unsigned_type_node, (N))
 #define UINT128(N) build_int_cstu (u128_type, (N))
+#define UCHAR(N) build_int_cst (unsigned_char_type_node, (N))
+#define SCHAR(N) build_int_cst (signed_char_type_node, (N))
 
 #define RANGE1(A,B) irange (integer_type_node, INT(A), INT(B))
 
@@ -846,9 +890,6 @@ namespace selftest {
   i1.Union (i3),					\
   i1 )
 
-#define SHORT_INT(N) build_int_cst (short_integer_type_node, (N))
-#define UCHAR_INT(N) build_int_cst (unsigned_char_type_node, (N))
-
 // Run all of the selftests within this file.
 
 void
@@ -856,18 +897,20 @@ irange_tests ()
 {
   tree u128_type = build_nonstandard_integer_type (128, /*unsigned=*/1);
   irange i1, i2, i3;
-  irange r0, r1;
+  irange r0, r1, rold;
   ASSERT_FALSE (r0.valid_p ());
 
   // Test that NOT(255) is [0..254] in 8-bit land.
   irange not_255;
-  make_irange_not (&not_255, UCHAR_INT(255), unsigned_char_type_node);
-  ASSERT_TRUE (not_255 == irange (unsigned_char_type_node, UCHAR_INT(0), UCHAR_INT(254)));
+  make_irange_not (&not_255, UCHAR(255), unsigned_char_type_node);
+  ASSERT_TRUE (not_255 == irange (unsigned_char_type_node,
+				  UCHAR(0), UCHAR(254)));
 
   // Test that NOT(0) is [1..255] in 8-bit land.
   irange not_zero;
   range_non_zero (&not_zero, unsigned_char_type_node);
-  ASSERT_TRUE (not_zero == irange (unsigned_char_type_node, UCHAR_INT(1), UCHAR_INT(255)));
+  ASSERT_TRUE (not_zero == irange (unsigned_char_type_node,
+				   UCHAR(1), UCHAR(255)));
 
   // Check that [0,127][0x..ffffff80,0x..ffffff] == ~[128, 0x..ffffff7f]
   r0 = irange (u128_type, UINT128(0), UINT128(127), RANGE_PLAIN);
@@ -936,6 +979,34 @@ irange_tests ()
   r1 = irange (integer_type_node, integer_zero_node, maxint);
   ASSERT_FALSE (r1.cast (short_integer_type_node));
   ASSERT_TRUE (r1.lbound () == minshort && r1.ubound() == maxshort);
+
+  // (unsigned char)[-5,-1] => [251,255]
+  r0 = rold = irange (signed_char_type_node, SCHAR (-5), SCHAR(-1));
+  r0.cast (unsigned_char_type_node);
+  ASSERT_TRUE (r0 == irange (unsigned_char_type_node,
+			     UCHAR(251), UCHAR(255)));
+  r0.cast (signed_char_type_node);
+  ASSERT_TRUE (r0 == rold);
+
+  // (signed char)[15, 150] => [128,-106][15,127]
+  r0 = rold = irange (unsigned_char_type_node, UCHAR(15), UCHAR(150));
+  r0.cast (signed_char_type_node);
+  r1 = irange (signed_char_type_node, SCHAR(15), SCHAR(127));
+  r2 = irange (signed_char_type_node, SCHAR(-128), SCHAR(-106));
+  r1.Union (r2);
+  ASSERT_TRUE (r1 == r0);
+  r0.cast (unsigned_char_type_node);
+  ASSERT_TRUE (r0 == rold);
+
+  // (unsigned char)[-5, 5] => [0,5][251,255]
+  r0 = rold = irange (signed_char_type_node, SCHAR(-5), SCHAR(5));
+  r0.cast (unsigned_char_type_node);
+  r1 = irange (unsigned_char_type_node, UCHAR(251), UCHAR(255));
+  r2 = irange (unsigned_char_type_node, UCHAR(0), UCHAR(5));
+  r1.Union (r2);
+  ASSERT_TRUE (r0 == r1);
+  r0.cast (signed_char_type_node);
+  ASSERT_TRUE (r0 == rold);
 
   // NOT([10,20]) ==> [-MIN,9][21,MAX]
   r0 = r1 = irange (integer_type_node, INT(10), INT(20));

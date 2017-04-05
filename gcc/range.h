@@ -72,7 +72,8 @@ public:
   bool range_for_type_p () const;
   bool simple_range_p () const { return n == 2; }
 
-  void dump (FILE *f = stderr);
+  void dump (FILE *f);
+  void debug () { dump (stderr); fputc ('\n', stderr); }
 
   bool valid_p ();
   bool cast (tree type);
