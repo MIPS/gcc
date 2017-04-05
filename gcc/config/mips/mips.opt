@@ -648,3 +648,9 @@ Target Undocumented Var(TARGET_MOVEP_NOXLP) Init (0)
 
 mmovebalc-noxlp
 Target Undocumented Var(TARGET_MOVEBALC_NOXLP) init (0)
+
+mldst16-lp
+Target Undocumented UInteger Var(TARGET_LDST_LP) Init(0)
+
+mldst16-lp=
+Target Undocumented Joined UInteger Var(TARGET_LDST_LP) Init(0)

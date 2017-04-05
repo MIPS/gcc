@@ -2060,7 +2060,10 @@ FP_ASM_SPEC "\
 #define M16_4X4_REG_P(REGNO) \
   (((REGNO) >= 0 && (REGNO) <= 7) || ((REGNO) >= 16 && (REGNO) <= 23))
 #define M16STORE_REG_P(REGNO) \
-  (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 0 || (REGNO) == 17)
+  (TARGET_MICROMIPS_R7 \
+   ? (REGNO) == 0 || ((REGNO) >= 17 && (REGNO) <= 19) \
+     || ((REGNO) >= 4 && (REGNO) <= 7) \
+   : ((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 0 || (REGNO) == 17)
 #define FP_REG_P(REGNO)  \
   ((unsigned int) ((int) (REGNO) - FP_REG_FIRST) < FP_REG_NUM)
 #define MD_REG_P(REGNO) \

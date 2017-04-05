@@ -6258,7 +6258,8 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 	  && symbol_type == SYMBOL_GP_RELATIVE
 	  && CONSTANT_POOL_ADDRESS_P (x));
 }
-
+static GTY (()) int lp_low = 64;
+static GTY (()) int lp_high = 508;
 #define GPR3_SRC_STORE_REG_P(REGNO) \
   (((REGNO) >= 4 && (REGNO) <= 7) || ((REGNO) >= 17 && (REGNO) <= 19))
 const char *
@@ -6315,6 +6316,32 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
       && M16_REG_P (REGNO (XEXP (addr, 1))))
     {
       s += sprintf (s, "sdbbp16 3 #");
+    }
+
+  if (TARGET_LDST_LP >= 1
+      && !indexed_p && !indexed_scaled_p
+      && ((TARGET_LDST_LP == 1
+	   && (load_p ? M16_REG_P (REGNO (dest))
+		      : (CONST_INT_P (dest) && INTVAL (dest) == 0
+			 || M16STORE_REG_P (REGNO (dest)))))
+	  || (TARGET_LDST_LP == 2
+	      && (load_p ? M16_4X4_REG_P (REGNO (dest))
+			   || (CONST_INT_P (dest) && INTVAL (dest) == 0)
+			 : M16_4X4_REG_P (REGNO (src))
+			    || (CONST_INT_P (src) && INTVAL (src) == 0)))
+	  || (TARGET_LDST_LP == 3
+	      && (load_p ? REG_P (dest)
+			   || (CONST_INT_P (dest) && INTVAL (dest) == 0)
+			 : REG_P (src)
+			    || (CONST_INT_P (src) && INTVAL (src) == 0))))
+      && ((GET_CODE (addr) == PLUS
+          && REGNO (XEXP (addr, 0)) == 30
+	  && CONST_INT_P (XEXP (addr, 1))
+	  && IN_RANGE (INTVAL (XEXP (addr, 1)), 0, lp_high))
+          || (GET_CODE (addr) == REG
+              && REGNO (addr) == 30)))
+    {
+      s += sprintf (s, "sdbbp16 6 #");
     }
 
   if ((TARGET_LWGP16 || TARGET_SWGP16)
@@ -23950,6 +23977,106 @@ process_symbol_stats (reference_entry_t **slot,
   return 1;
 }
 
+typedef struct lp_entry : free_ptr_hash <lp_entry>
+{
+  int base_regno;
+
+  int size_reduction = 2;
+  rtx_insn *first;
+  vec<rtx_insn *> insns;
+
+  static inline hashval_t hash (lp_entry *v)
+    { return (hashval_t) (v->base_regno); };
+  static bool equal (lp_entry *v, lp_entry *c)
+    { return v->base_regno == c->base_regno; };
+  static void remove (lp_entry *)
+    {};
+} lp_entry_t;
+
+static void
+mark_mem_lp (rtx_insn *insn, rtx rt, rtx mem, bool load_p,
+	     hash_table <lp_entry> * lp_cand_table)
+{
+  rtx base;
+  HOST_WIDE_INT offset;
+  lp_entry **slot;
+  lp_entry *info;
+  lp_entry xinfo;
+  mem_offset_info oi;
+
+  if (TARGET_LDST_LP == 1)
+    lp_high = 508;
+  if (TARGET_LDST_LP == 2)
+    lp_high = 252;
+  if (TARGET_LDST_LP == 3)
+    lp_high = 124;
+
+  mips_split_plus (XEXP (mem, 0), &base, &offset);
+  if (REG_P (base) && GET_MODE (mem) == SImode && offset < 512
+      && ((TARGET_LDST_LP == 1
+	   && (load_p ? M16_REG_P (REGNO (base))
+		      : M16STORE_REG_P (REGNO (base))))
+	  || (TARGET_LDST_LP == 2 && M16_4X4_REG_P (REGNO (base)))
+	  || (TARGET_LDST_LP == 3 && REG_P (base)))
+      && !frame_pointer_needed)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "LP: Marking r%d in insn %d", REGNO (base),
+		   INSN_UID (insn));
+	}
+      xinfo.base_regno = REGNO (base);
+      slot = lp_cand_table->find_slot (&xinfo, INSERT);
+      info = *slot;
+      if (!info)
+	{
+	  /* Make new entry.  */
+	  *slot = info = XNEW (lp_entry_t);
+	  info->base_regno = REGNO (base);
+	  info->insns = vNULL;
+	  info->size_reduction = 2;
+	  info->first = NULL;
+	}
+      /* Since we have 16-bit insns targeting range of 0..60 then consider
+	 only the new cases.  */
+      if (IN_RANGE (offset, lp_low, lp_high))
+	{
+	  info->size_reduction -= 2;
+	  if (info->first == NULL)
+	    info->first = insn;
+	}
+      if (dump_file)
+	{
+	  fprintf (dump_file, ", current_cost=%d\n", info->size_reduction);
+	  dump_rtl_slim (dump_file, insn, NULL, 1, 0);
+	}
+      info->insns.safe_push (insn);
+    }
+}
+
+typedef struct lp_cand
+{
+  int base_regno;
+  int size_reduction;
+  lp_entry_t *cand;
+} lp_cand_t;
+
+int
+pick_best_lp (lp_entry **slot, lp_cand_t *lp_cand)
+{
+  int i;
+  lp_entry *info = *slot;
+
+  if (info->size_reduction < lp_cand->size_reduction)
+    {
+      lp_cand->base_regno = info->base_regno;
+      lp_cand->size_reduction = info->size_reduction;
+      lp_cand->cand = info;
+    }
+
+  return 1;
+}
+
 namespace {
 
 const pass_data pass_data_optimize_multi_refs =
@@ -24132,6 +24259,67 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
     }
   delete ref_table;
 
+  /* Try to find opportunities to use loads/stores using local pointer
+     register (e.g. $fp).  */
+
+  hash_table <lp_entry_t> *lp_cand_table = new hash_table<lp_entry_t> (10);
+
+  for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
+    {
+      set = single_set (insn);
+      if (TARGET_LDST_LP > 0 && set)
+	{
+	  rtx src = SET_SRC (set);
+	  rtx dest = SET_DEST (set);
+
+	  if (GET_CODE (src) == ZERO_EXTEND)
+	    src = XEXP (src, 0);
+	  if (GET_CODE (dest) == ZERO_EXTEND)
+	    dest = XEXP (dest, 0);
+
+	  if (MEM_P (src))
+	    mark_mem_lp (insn, dest/*rt*/, src, true, lp_cand_table);
+	  if (MEM_P (dest))
+	    mark_mem_lp (insn, src/*rt*/, dest, false, lp_cand_table);
+	}
+    }
+
+  lp_cand_t lp_cand = {-1, NULL, 0};
+  lp_cand_table->traverse <lp_cand_t *, pick_best_lp> (&lp_cand);
+
+  if (dump_file)
+    {
+      if (lp_cand.base_regno != -1)
+      fprintf (dump_file, "LP: choosing %d because of savings of %d\n",
+	       lp_cand.base_regno, lp_cand.size_reduction);
+    }
+
+  if (lp_cand.cand && lp_cand.cand->insns.length () > 1)
+    {
+      rtx move;
+      rtx old_base = gen_rtx_REG (SImode, lp_cand.base_regno);
+      rtx new_base = gen_rtx_REG (SImode, 30);
+
+      move = gen_rtx_SET (new_base, old_base);
+
+      emit_insn_before (move, lp_cand.cand->first);
+
+      for (int i = 0; lp_cand.cand->insns.iterate (i, &insn); i++)
+	{
+	  if (1||!reg_set_between_p (new_base, lp_cand.cand->first, insn))
+	    {
+	      PATTERN (insn) =
+	       simplify_replace_rtx (copy_rtx (PATTERN (insn)), old_base,
+				     new_base);
+	      df_insn_rescan (insn);
+	      cfun->machine->frame.mask |= 1 << 30;
+	      df_set_regs_ever_live (30, true);
+	      mips_compute_frame_info ();
+	    }
+	}
+    }
+
+  delete lp_cand_table;
   return 0;
 }
 
