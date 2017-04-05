@@ -1,3 +1,10 @@
+2017-04-05  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (scan_sharing_clauses): Update handling of OpenACC declare
+	create, copyin and deviceptr to have local lifetimes.
+	(lower_omp_target): Handle GOMP_MAP_DECLARE_{ALLOCATE,DEALLOCATE}.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+
 2017-02-27  Chung-Lin Tang  <cltang@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
 

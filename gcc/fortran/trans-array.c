@@ -88,6 +88,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-types.h"
 #include "trans-array.h"
 #include "trans-const.h"
+#include "trans-stmt.h"
 #include "dependency.h"
 
 static bool gfc_get_array_constructor_size (mpz_t *, gfc_constructor_base);
@@ -5471,6 +5472,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   gfc_ref *ref, *prev_ref = NULL, *coref;
   bool allocatable, coarray, dimension, alloc_w_e3_arr_spec = false,
       non_ulimate_coarray_ptr_comp;
+  bool oacc_declare = false;
 
   ref = expr->ref;
 
@@ -5485,6 +5487,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
       allocatable = expr->symtree->n.sym->attr.allocatable;
       dimension = expr->symtree->n.sym->attr.dimension;
       non_ulimate_coarray_ptr_comp = false;
+      oacc_declare = expr->symtree->n.sym->attr.oacc_declare_create;
     }
   else
     {
@@ -5646,7 +5649,12 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
   /* Update the array descriptors.  */
   if (dimension)
-    gfc_conv_descriptor_offset_set (&set_descriptor_block, se->expr, offset);
+    {
+      gfc_conv_descriptor_offset_set (&set_descriptor_block, se->expr, offset);
+
+      if (oacc_declare)
+	gfc_trans_oacc_declare_allocate (&set_descriptor_block, expr, true);
+    }
 
   set_descriptor = gfc_finish_block (&set_descriptor_block);
   if (status != NULL_TREE)

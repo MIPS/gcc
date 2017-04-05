@@ -6589,6 +6589,10 @@ gfc_trans_deallocate (gfc_code *code)
 
 	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)))
 	    {
+	      if (!is_coarray
+		  && expr->symtree->n.sym->attr.oacc_declare_create)
+		gfc_trans_oacc_declare_allocate (&se.pre, expr, false);
+
 	      gfc_coarray_deregtype caf_dtype;
 
 	      if (is_coarray)

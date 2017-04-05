@@ -990,6 +990,8 @@ enum gomp_map_vars_kind
 
 extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);
 extern void gomp_acc_remove_pointer (void *, bool, int, int);
+extern void gomp_acc_declare_allocate (bool, size_t, void **, size_t *,
+				       unsigned short *);
 
 extern struct target_mem_desc *gomp_map_vars (struct gomp_device_descr *,
 					      size_t, void **, void **,

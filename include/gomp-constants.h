@@ -41,6 +41,7 @@
 #define GOMP_MAP_FLAG_SPECIAL_1		(1 << 3)
 #define GOMP_MAP_FLAG_SPECIAL_2		(1 << 4)
 #define GOMP_MAP_FLAG_SPECIAL_3		(1 << 5)
+#define GOMP_MAP_FLAG_SPECIAL_4		(1 << 6)
 #define GOMP_MAP_FLAG_SPECIAL		(GOMP_MAP_FLAG_SPECIAL_1 \
 					 | GOMP_MAP_FLAG_SPECIAL_0)
 /* Flag to force a specific behavior (or else, trigger a run-time error).  */
@@ -149,6 +150,12 @@ enum gomp_map_kind
 						 | GOMP_MAP_FORCE_ALLOC),
     GOMP_MAP_DYNAMIC_ARRAY_FORCE_PRESENT =	(GOMP_MAP_DYNAMIC_ARRAY
 						 | GOMP_MAP_FORCE_PRESENT),
+    /* Mapping kinds for allocatable arrays.  */
+    GOMP_MAP_DECLARE =			(GOMP_MAP_FLAG_SPECIAL_4),
+    GOMP_MAP_DECLARE_ALLOCATE =		(GOMP_MAP_DECLARE
+					 | GOMP_MAP_FORCE_TO),
+    GOMP_MAP_DECLARE_DEALLOCATE =	(GOMP_MAP_DECLARE
+					 | GOMP_MAP_FORCE_FROM),
 
     /* Internal to GCC, not used in libgomp.  */
     /* Do not map, but pointer assign a pointer instead.  */

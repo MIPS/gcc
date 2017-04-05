@@ -1376,7 +1376,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
 	      && varpool_node::get_create (decl)->offloadable
 	      && !lookup_attribute ("omp declare target link",
-				    DECL_ATTRIBUTES (decl)))
+				    DECL_ATTRIBUTES (decl))
+	      && !(is_gimple_omp_oacc (ctx->stmt)))
 	    break;
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
@@ -7953,6 +7954,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case GOMP_MAP_FORCE_PRESENT:
 	  case GOMP_MAP_FORCE_DEVICEPTR:
 	  case GOMP_MAP_DEVICE_RESIDENT:
+	  case GOMP_MAP_DECLARE_ALLOCATE:
+	  case GOMP_MAP_DECLARE_DEALLOCATE:
 	  case GOMP_MAP_DYNAMIC_ARRAY_TO:
 	  case GOMP_MAP_DYNAMIC_ARRAY_FROM:
 	  case GOMP_MAP_DYNAMIC_ARRAY_TOFROM:

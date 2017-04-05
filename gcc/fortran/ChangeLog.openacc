@@ -1,3 +1,29 @@
+2017-07-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* trans-stmt.c (gfc_trans_deallocate): Call
+	gfc_trans_oacc_declare_allocate for decls with oacc_declare_create
+	attributes set.
+
+2017-04-05  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (enum gfc_omp_map_op): Add OMP_MAP_DECLARE_ALLOCATE,
+	OMP_MAP_DECLARE_DEALLOCATE.
+	* openmp.c (gfc_match_oacc_declare): Add support for OMP_MAP_ALLOC and
+	OMP_MAP_TO, as those match the OpenACC 2.5 semantics.
+	* trans-array.c (gfc_array_allocate): Call
+	gfc_trans_oacc_declare_allocate for decls with oacc_declare_create
+	attributes set.
+	* trans-decl.c (add_attributes_to_decl): Enable lowering of OpenACC
+	declared create, copyin and deviceptr clauses.
+	(add_clause): Don't duplicate OpenACC declare clauses.
+	(find_module_oacc_declare_clauses): Relax oacc_declare_create to
+	OMP_MAP_ALLOC, and oacc_declare_copying to OMP_MAP_TO.  This matches
+	the OpenACC 2.5 semantics.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Handle
+	OMP_MAP_DECLARE_{ALLOCATE,DEALLOCATE}.
+	(gfc_trans_oacc_declare_allocate): New function.
+	* trans-stmt.h: Declare gfc_trans_oacc_declare_allocate.
+
 2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.h (struct gfc_omp_clauses): Add bind_name member.
