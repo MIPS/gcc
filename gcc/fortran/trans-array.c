@@ -88,6 +88,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-types.h"
 #include "trans-array.h"
 #include "trans-const.h"
+#include "trans-stmt.h"
 #include "dependency.h"
 
 static bool gfc_get_array_constructor_size (mpz_t *, gfc_constructor_base);
@@ -5394,6 +5395,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   gfc_expr **upper;
   gfc_ref *ref, *prev_ref = NULL;
   bool allocatable, coarray, dimension, alloc_w_e3_arr_spec = false;
+  bool oacc_declare = false;
 
   ref = expr->ref;
 
@@ -5408,6 +5410,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
       allocatable = expr->symtree->n.sym->attr.allocatable;
       coarray = expr->symtree->n.sym->attr.codimension;
       dimension = expr->symtree->n.sym->attr.dimension;
+      oacc_declare = expr->symtree->n.sym->attr.oacc_declare_create;
     }
   else
     {
@@ -5540,7 +5543,12 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
   /* Update the array descriptors.  */
   if (dimension)
-    gfc_conv_descriptor_offset_set (&set_descriptor_block, se->expr, offset);
+    {
+      gfc_conv_descriptor_offset_set (&set_descriptor_block, se->expr, offset);
+
+      if (oacc_declare)
+	gfc_trans_oacc_declare_allocate (&set_descriptor_block, expr, true);
+    }
 
   set_descriptor = gfc_finish_block (&set_descriptor_block);
   if (status != NULL_TREE)
@@ -5581,12 +5589,16 @@ gfc_array_deallocate (tree descriptor, tree pstat, tree errmsg, tree errlen,
   tree tmp;
   stmtblock_t block;
   bool coarray = gfc_is_coarray (expr);
+  gfc_symbol *sym = expr->symtree->n.sym;
 
   gfc_start_block (&block);
 
   /* Get a pointer to the data.  */
   var = gfc_conv_descriptor_data_get (descriptor);
   STRIP_NOPS (var);
+
+  if (!coarray && sym->attr.oacc_declare_create)
+    gfc_trans_oacc_declare_allocate (&block, expr, false);
 
   /* Parameter is the address of the data component.  */
   tmp = gfc_deallocate_with_status (coarray ? descriptor : var, pstat, errmsg,

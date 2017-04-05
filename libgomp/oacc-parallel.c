@@ -484,14 +484,16 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  || kind == GOMP_MAP_FORCE_PRESENT
 	  || kind == GOMP_MAP_FORCE_TO
 	  || kind == GOMP_MAP_TO
-	  || kind == GOMP_MAP_ALLOC)
+	  || kind == GOMP_MAP_ALLOC
+	  || kind == GOMP_MAP_DECLARE_ALLOCATE)
 	{
 	  data_enter = true;
 	  break;
 	}
 
       if (kind == GOMP_MAP_DELETE
-	  || kind == GOMP_MAP_FORCE_FROM)
+	  || kind == GOMP_MAP_FORCE_FROM
+	  || kind == GOMP_MAP_DECLARE_DEALLOCATE)
 	break;
 
       gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
@@ -540,7 +542,10 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	    }
 	  else
 	    {
-	      if (!acc_is_present (hostaddrs[i], sizes[i]))
+	      if (kind == GOMP_MAP_DECLARE_ALLOCATE)
+		gomp_acc_declare_allocate (true, pointer, &hostaddrs[i],
+					   &sizes[i], &kinds[i]);
+	      else if (!acc_is_present (hostaddrs[i], sizes[i]))
 		{
 		  gomp_acc_insert_pointer (pointer, &hostaddrs[i],
 					   &sizes[i], &kinds[i]);
@@ -579,7 +584,10 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  }
 	else
 	  {
-	    if (acc_is_present (hostaddrs[i], sizes[i]))
+	    if (kind == GOMP_MAP_DECLARE_DEALLOCATE)
+	      gomp_acc_declare_allocate (false, pointer, &hostaddrs[i],
+					 &sizes[i], &kinds[i]);
+	    else if (acc_is_present (hostaddrs[i], sizes[i]))
 	      {
 		gomp_acc_remove_pointer (hostaddrs[i], (kinds[i] & 0xff)
 					 == GOMP_MAP_FORCE_FROM, async,

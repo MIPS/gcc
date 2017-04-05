@@ -1,3 +1,7 @@
+2017-04-05  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/declare-allocatable-1.f90: New test.
+
 2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/routine-bind-1.f90: New test.
