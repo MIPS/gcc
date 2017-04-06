@@ -21,5 +21,5 @@ program allocate
   deallocate (a)
 end program allocate
 
-! { dg-final { scan-tree-dump-times "pragma acc enter data map.declare_allocate" 1 "gimple" } }
-! { dg-final { scan-tree-dump-times "pragma acc exit data map.declare_deallocate" 1 "gimple" } }
+! { dg-final { scan-tree-dump-times "pragma acc enter data map.declare_allocate" 1 "original" } }
+! { dg-final { scan-tree-dump-times "pragma acc exit data map.declare_deallocate" 1 "original" } }
