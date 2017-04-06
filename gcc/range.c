@@ -218,8 +218,8 @@ irange::valid_p ()
 
 // Convert the current range in place into a range of type NEW_TYPE,
 // and return TRUE if successful.  If the current range does not fit
-// in the new range, return FALSE and convert the range to the maximum
-// range for the new type.
+// in the new range, return FALSE and convert the range to something
+// conservative.
 //
 // The type of the original range is changed to the new type.
 
@@ -254,6 +254,8 @@ irange::cast (tree new_type)
 	}
     }
 
+  wide_int orig_low = lbound ();
+  wide_int orig_high = ubound ();
   for (unsigned i = 0; i < n; i += 2)
     {
       tree b0 = fold_convert (new_type, wide_int_to_tree (type, bounds[i]));
@@ -274,9 +276,16 @@ irange::cast (tree new_type)
 	}
       else
 	{
-	  // FIXME: We're about to go over.  Handle this
-	  // gracefully by merging.
-	  gcc_assert (n < MAX_RANGES);
+	  // If we're about to go over the maximum number of ranges
+	  // allowed, convert to something conservative and cast again.
+	  if (n >= MAX_RANGES)
+	    {
+	      bounds[0] = orig_low;
+	      bounds[1] = orig_high;
+	      n = 2;
+	      cast (new_type);
+	      return false;
+	    }
 
 	  wide_int min = wi::min_value (new_precision, TYPE_SIGN (new_type));
 	  wide_int max = wi::max_value (new_precision, TYPE_SIGN (new_type));
@@ -608,9 +617,8 @@ irange::Intersect (const irange &r1, const irange &r2)
   // Step 3: [10,20][30,40][50,60] ^ [55,70] => [55,60]
   // Final:  [15,20] U [38,40] U [55,60] => [15,20][38,40][55,60]
 
-  // FIXME: Eventually this needs to be rewritten more efficiently.
-  // We should probably accumulate into a new range instead of joining
-  // at each step, and stop making a copy of R1 at every step.
+  // ?? We should probably accumulate into a new range instead of
+  // joining at each step, and stop making a copy of R1 at every step.
 
   for (unsigned i = 0; i < r2.n; i += 2)
     {
@@ -1068,12 +1076,31 @@ irange_tests ()
   // unsigned char -> signed short
   //    (signed short)[(unsigned char)25, (unsigned char)250]
   // => [(signed short)25, (signed short)250]
-  r0 = rold = irange (unsigned_char_type_node, UCHAR(25), SCHAR(250));
+  r0 = rold = irange (unsigned_char_type_node, UCHAR(25), UCHAR(250));
   r0.cast (short_integer_type_node);
   r1 = irange (short_integer_type_node, INT16(25), INT16(250));
   ASSERT_TRUE (r0 == r1);
   r0.cast (unsigned_char_type_node);
   ASSERT_TRUE (r0 == rold);
+
+  // Test that casting a range with MAX_RANGES that changes sign is
+  // done conservatively.
+  //
+  //    (unsigned short)[-5,5][20,30][40,50]...
+  // => (unsigned short)[-5,50]
+  // => [0,50][65531,65535]
+  r0 = irange (short_integer_type_node, INT16(-5), INT16(5));
+  gcc_assert (MAX_RANGES * 10 + 10 < 32767);
+  for (unsigned i = 2; i < MAX_RANGES; i += 2)
+    {
+      r1 = irange (short_integer_type_node, INT16(i * 10), INT16(i * 10 + 10));
+      r0.Union (r1);
+    }
+  r0.cast(short_unsigned_type_node);
+  r1 = irange (short_unsigned_type_node, INT16(0), INT16(50));
+  r2 = irange (short_unsigned_type_node, INT16(65531), INT16(65535));
+  r1.Union (r2);
+  ASSERT_TRUE (r0 == r1);
 
   // NOT([10,20]) ==> [-MIN,9][21,MAX]
   r0 = r1 = irange (integer_type_node, INT(10), INT(20));
