@@ -1,3 +1,7 @@
+2017-04-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimplify.c (oacc_default_clause): Clarify.
+
 2017-04-05  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (scan_sharing_clauses): Update handling of OpenACC declare
