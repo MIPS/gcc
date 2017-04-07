@@ -99,6 +99,9 @@ enum gimplify_omp_var_data
   /* Flag for GOVD_MAP, if it is a forced mapping.  */
   GOVD_MAP_FORCE = 262144,
 
+  /* Flag for GOVD_MAP: must be present already.  */
+  GOVD_MAP_FORCE_PRESENT = 524288,
+
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
 			   | GOVD_LOCAL)
@@ -6901,6 +6904,7 @@ omp_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
     found_outer:
       break;
 
+    case OMP_CLAUSE_DEFAULT_PRESENT:
     default:
       gcc_unreachable ();
     }
@@ -6944,8 +6948,13 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
       if (is_private)
 	flags |= GOVD_MAP;
       else if (AGGREGATE_TYPE_P (type))
-	/* Aggregates default to 'present_or_copy'.  */
-	flags |= GOVD_MAP;
+	{
+	  /* Aggregates default to 'present_or_copy', or 'present'.  */
+	  if (ctx->default_kind != OMP_CLAUSE_DEFAULT_PRESENT)
+	    flags |= GOVD_MAP;
+	  else
+	    flags |= GOVD_MAP | GOVD_MAP_FORCE_PRESENT;
+	}
       else
 	/* Scalars default to 'copy'.  */
 	flags |= GOVD_MAP | GOVD_MAP_FORCE;
@@ -6960,8 +6969,13 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
       else if (on_device || declared)
 	flags |= GOVD_MAP;
       else if (AGGREGATE_TYPE_P (type))
-	/* Aggregates default to 'present_or_copy'.  */
-	flags |= GOVD_MAP;
+	{
+	  /* Aggregates default to 'present_or_copy', or 'present'.  */
+	  if (ctx->default_kind != OMP_CLAUSE_DEFAULT_PRESENT)
+	    flags |= GOVD_MAP;
+	  else
+	    flags |= GOVD_MAP | GOVD_MAP_FORCE_PRESENT;
+	}
       else
 	/* Scalars default to 'firstprivate'.  */
 	flags |= GOVD_FIRSTPRIVATE;
@@ -6981,6 +6995,8 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 	     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rkind);
       inform (ctx->location, "enclosing OpenACC %qs construct", rkind);
     }
+  else if (ctx->default_kind == OMP_CLAUSE_DEFAULT_PRESENT)
+    ; /* Handled above.  */
   else
     gcc_checking_assert (ctx->default_kind == OMP_CLAUSE_DEFAULT_SHARED);
 
@@ -8816,14 +8832,32 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     }
   else if (code == OMP_CLAUSE_MAP)
     {
-      int kind = (flags & GOVD_MAP_TO_ONLY
-		  ? GOMP_MAP_TO
-		  : GOMP_MAP_TOFROM);
-      tree c2 = NULL_TREE;
-      if (flags & GOVD_MAP_FORCE)
-	kind |= GOMP_MAP_FLAG_FORCE;
+      int kind;
+      /* Not all combinations of these GOVD_MAP flags are actually valid.  */
+      switch (flags & (GOVD_MAP_TO_ONLY
+		       | GOVD_MAP_FORCE
+		       | GOVD_MAP_FORCE_PRESENT))
+	{
+	case 0:
+	  kind = GOMP_MAP_TOFROM;
+	  break;
+	case 0 | GOVD_MAP_FORCE:
+	  kind = GOMP_MAP_TOFROM | GOMP_MAP_FLAG_FORCE;
+	  break;
+	case GOVD_MAP_TO_ONLY:
+	  kind = GOMP_MAP_TO;
+	  break;
+	case GOVD_MAP_TO_ONLY | GOVD_MAP_FORCE:
+	  kind = GOMP_MAP_TO | GOMP_MAP_FLAG_FORCE;
+	  break;
+	case GOVD_MAP_FORCE_PRESENT:
+	  kind = GOMP_MAP_FORCE_PRESENT;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
       OMP_CLAUSE_SET_MAP_KIND (clause, kind);
-      c2 = gomp_needs_data_present (decl);
+      tree c2 = gomp_needs_data_present (decl);
       /* Handle OpenACC pointers that were declared inside acc data
 	 regions.  */
       if (c2 != NULL && OMP_CLAUSE_MAP_KIND (c2) == GOMP_MAP_POINTER)
