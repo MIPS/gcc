@@ -9062,7 +9062,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
       tree arg = TREE_VALUE (args);
       if (arg && TREE_CODE (arg) != IDENTIFIER_NODE
 	  && TREE_CODE (arg) != FUNCTION_DECL)
-	arg = default_conversion (arg);
+	TREE_VALUE (args) = arg = default_conversion (arg);
 
       if (!get_nonnull_operand (arg, &arg_num))
 	{
@@ -10678,6 +10678,8 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 void 
 c_common_mark_addressable_vec (tree t)
 {   
+  if (TREE_CODE (t) == C_MAYBE_CONST_EXPR)
+    t = C_MAYBE_CONST_EXPR_EXPR (t);
   while (handled_component_p (t))
     t = TREE_OPERAND (t, 0);
   if (!VAR_P (t)
@@ -12027,7 +12029,12 @@ set_underlying_type (tree x)
       tt = build_variant_type_copy (tt);
       TYPE_STUB_DECL (tt) = TYPE_STUB_DECL (DECL_ORIGINAL_TYPE (x));
       TYPE_NAME (tt) = x;
-      TREE_USED (tt) = TREE_USED (x);
+
+      /* Mark the type as used only when its type decl is decorated
+	 with attribute unused.  */
+      if (lookup_attribute ("unused", DECL_ATTRIBUTES (x)))
+	TREE_USED (tt) = 1;
+
       TREE_TYPE (x) = tt;
     }
 }
