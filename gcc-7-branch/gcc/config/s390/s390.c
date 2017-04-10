@@ -9512,6 +9512,12 @@ s390_register_info_gprtofpr ()
   if (!TARGET_Z10 || !TARGET_HARD_FLOAT || !crtl->is_leaf)
     return;
 
+  /* builtin_eh_return needs to be able to modify the return address
+     on the stack.  It could also adjust the FPR save slot instead but
+     is it worth the trouble?!  */
+  if (crtl->calls_eh_return)
+    return;
+
   for (i = 15; i >= 6; i--)
     {
       if (cfun_gpr_save_slot (i) == SAVE_SLOT_NONE)
@@ -13968,7 +13974,7 @@ s390_fpload_toreg (rtx_insn *insn, unsigned int regno)
 }
 
 /* This value describes the distance to be avoided between an
-   aritmetic fp instruction and an fp load writing the same register.
+   arithmetic fp instruction and an fp load writing the same register.
    Z10_EARLYLOAD_DISTANCE - 1 as well as Z10_EARLYLOAD_DISTANCE + 1 is
    fine but the exact value has to be avoided. Otherwise the FP
    pipeline will throw an exception causing a major penalty.  */

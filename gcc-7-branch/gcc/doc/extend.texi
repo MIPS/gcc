@@ -15427,14 +15427,14 @@ The following built-in functions are available for the PowerPC family
 of processors when hardware decimal floating point
 (@option{-mhard-dfp}) is available:
 @smallexample
-_Decimal64 __builtin_dxex (_Decimal64);
-_Decimal128 __builtin_dxexq (_Decimal128);
+long long __builtin_dxex (_Decimal64);
+long long __builtin_dxexq (_Decimal128);
 _Decimal64 __builtin_ddedpd (int, _Decimal64);
 _Decimal128 __builtin_ddedpdq (int, _Decimal128);
 _Decimal64 __builtin_denbcd (int, _Decimal64);
 _Decimal128 __builtin_denbcdq (int, _Decimal128);
-_Decimal64 __builtin_diex (_Decimal64, _Decimal64);
-_Decimal128 _builtin_diexq (_Decimal128, _Decimal128);
+_Decimal64 __builtin_diex (long long, _Decimal64);
+_Decimal128 _builtin_diexq (long long, _Decimal128);
 _Decimal64 __builtin_dscli (_Decimal64, int);
 _Decimal128 __builtin_dscliq (_Decimal128, int);
 _Decimal64 __builtin_dscri (_Decimal64, int);
@@ -15538,6 +15538,15 @@ parentheses for this to work.
 Internally, GCC uses built-in functions to achieve the functionality in
 the aforementioned header file, but they are not supported and are
 subject to change without notice.
+
+GCC complies with the OpenPOWER 64-Bit ELF V2 ABI Specification,
+which may be found at
+@uref{http://openpowerfoundation.org/wp-content/uploads/resources/leabi-prd/content/index.html}.
+Appendix A of this document lists the vector API interfaces that must be
+provided by compliant compilers.  Programmers should preferentially use
+the interfaces described therein.  However, historically GCC has provided
+additional interfaces for access to vector instructions.  These are
+briefly described below.
 
 The following interfaces are supported for the generic and specific
 AltiVec operations and the AltiVec predicates.  In cases where there

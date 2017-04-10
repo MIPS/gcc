@@ -728,6 +728,7 @@ enum cp_trait_kind
   CPTK_HAS_UNIQUE_OBJ_REPRESENTATIONS,
   CPTK_HAS_VIRTUAL_DESTRUCTOR,
   CPTK_IS_ABSTRACT,
+  CPTK_IS_AGGREGATE,
   CPTK_IS_BASE_OF,
   CPTK_IS_CLASS,
   CPTK_IS_EMPTY,
@@ -6715,7 +6716,7 @@ extern void cxx_print_error_function		(diagnostic_context *,
 						 struct diagnostic_info *);
 
 /* in typeck.c */
-extern bool cxx_mark_addressable		(tree);
+extern bool cxx_mark_addressable		(tree, bool = false);
 extern int string_conv_p			(const_tree, const_tree, int);
 extern tree cp_truthvalue_conversion		(tree);
 extern tree condition_conversion		(tree);

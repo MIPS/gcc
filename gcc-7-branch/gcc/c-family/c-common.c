@@ -403,6 +403,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__inline",		RID_INLINE,	0 },
   { "__inline__",	RID_INLINE,	0 },
   { "__is_abstract",	RID_IS_ABSTRACT, D_CXXONLY },
+  { "__is_aggregate",	RID_IS_AGGREGATE, D_CXXONLY },
   { "__is_base_of",	RID_IS_BASE_OF, D_CXXONLY },
   { "__is_class",	RID_IS_CLASS,	D_CXXONLY },
   { "__is_empty",	RID_IS_EMPTY,	D_CXXONLY },
@@ -6542,7 +6543,8 @@ c_common_mark_addressable_vec (tree t)
       && TREE_CODE (t) != PARM_DECL
       && TREE_CODE (t) != COMPOUND_LITERAL_EXPR)
     return;
-  TREE_ADDRESSABLE (t) = 1;
+  if (!VAR_P (t) || !DECL_HARD_REGISTER (t))
+    TREE_ADDRESSABLE (t) = 1;
 }
 
 

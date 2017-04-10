@@ -493,7 +493,9 @@ is_gimple_mem_rhs_or_call (tree t)
   if (is_gimple_reg_type (TREE_TYPE (t)))
     return is_gimple_val (t);
   else
-    return (is_gimple_val (t) || is_gimple_lvalue (t)
+    return (is_gimple_val (t)
+	    || is_gimple_lvalue (t)
+	    || TREE_CLOBBER_P (t)
 	    || TREE_CODE (t) == CALL_EXPR);
 }
 
@@ -6847,9 +6849,9 @@ omp_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 	else
 	  gcc_unreachable ();
 	
-	error ("%qE not specified in enclosing %s",
+	error ("%qE not specified in enclosing %qs",
 	       DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rtype);
-	error_at (ctx->location, "enclosing %s", rtype);
+	error_at (ctx->location, "enclosing %qs", rtype);
       }
       /* FALLTHRU */
     case OMP_CLAUSE_DEFAULT_SHARED:
