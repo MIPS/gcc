@@ -595,3 +595,10 @@ Target Undocumented Var(TARGET_MOVEBALC_NOXLP) init (0)
 
 mbranch-on-bit
 Target Undocumented Var(TARGET_BRANCH_ON_BIT) Init (0)
+
+mmemcpy-interleave=
+Target RejectNegative Joined UInteger Var(mips_memcpy_interleave) Init(16)
+Document this
+
+mmulti-memcpy
+Target Undocumented Var(mips_use_multi_memcpy) Init (0)

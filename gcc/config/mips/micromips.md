@@ -21,7 +21,7 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "memory_operand")
 	     (match_operand:SI 2 "register_operand"))])]
-  "ISA_HAS_LWM_SWM && umips_word_multiple_pattern_p (true, operands[0])"
+  "(ISA_HAS_LWM_SWM || TARGET_LWP_SWP) && umips_word_multiple_pattern_p (true, operands[0])"
   { return umips_output_word_multiple (true, operands[0]); }
   [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
@@ -40,7 +40,9 @@
   int i;
 
   if (GET_CODE (operands[2]) != CONST_INT
-      || INTVAL (operands[2]) != 2
+      || (!TARGET_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (TARGET_LWP_SWP && INTVAL (operands[2]) > 8)
+      || (TARGET_LWP_SWP && INTVAL (operands[2]) < 2)
       || GET_CODE (operands[0]) != MEM
       || GET_CODE (operands[1]) != REG)
     FAIL;
@@ -65,7 +67,7 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "register_operand")
 	     (match_operand:SI 2 "memory_operand"))])]
-  "ISA_HAS_LWM_SWM && umips_word_multiple_pattern_p (false, operands[0])"
+  "(ISA_HAS_LWM_SWM || TARGET_LWP_SWP) && umips_word_multiple_pattern_p (false, operands[0])"
   { return umips_output_word_multiple (false, operands[0]); }
   [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
@@ -84,7 +86,9 @@
   int i;
 
   if (GET_CODE (operands[2]) != CONST_INT
-      || INTVAL (operands[2]) != 2
+      || (!TARGET_LWP_SWP && INTVAL (operands[2]) != 2)
+      || (TARGET_LWP_SWP && INTVAL (operands[2]) > 8)
+      || (TARGET_LWP_SWP && INTVAL (operands[2]) < 2)
       || GET_CODE (operands[1]) != MEM
       || GET_CODE (operands[0]) != REG)
     FAIL;
