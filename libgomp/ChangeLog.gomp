@@ -1,3 +1,8 @@
+2017-04-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/nested-2.c: Respect that
+	"char" might mean "unsigned char".
+
 2017-04-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/template-reduction.C: Update.

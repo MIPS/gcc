@@ -143,28 +143,28 @@ main (int argc, char *argv[])
 #pragma acc parallel default (present)
     {
       for (int j = 0; j < N; ++j)
-	a[j] = j - 1;
+	a[j] = j + 1;
     }
 
 #pragma acc update host (a)
 
     for (i = 0; i < N; ++i)
       {
-        if (a[i] != i - 1)
+        if (a[i] != i + 1)
 	  abort ();
       }
 
 #pragma acc kernels default (present)
     {
       for (int j = 0; j < N; ++j)
-	a[j] = j - 2;
+	a[j] = j + 2;
     }
 
 #pragma acc exit data copyout (a)
 
     for (i = 0; i < N; ++i)
       {
-        if (a[i] != i - 2)
+        if (a[i] != i + 2)
 	  abort ();
       }
 
