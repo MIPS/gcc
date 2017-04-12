@@ -544,6 +544,8 @@ read_gcda_file (const char *filename)
 
   read_gcda_finalize (obj_info);
   free (zero_fixup_flags);
+  zero_fixup_flags = NULL;
+  set_gcov_fn_fixed_up (0);
   gcov_close ();
 
   return obj_info;
