@@ -27883,7 +27883,7 @@ mips_get_two_reg_insns_allocnos ()
 
 /* Threshold for recoloring if not all related allocnos can be recolored.  */
 #define MAX_RECOLOR_ALLOCNO_NUM 1000
-#define SMALL_REGNO_NO 8
+#define SMALL_REGNO_TRASHOLD 11
 
 /* Entry function for post ira recoloring.  */
 
@@ -27905,7 +27905,8 @@ mips_adjust_costs (void *p, int func)
      large.  */
 
   if (!TARGET_MICROMIPS_R7 || !ira_allocnos || !ira_conflicts_p
-      || ira_allocnos_num > MAX_RECOLOR_ALLOCNO_NUM)
+      || ira_allocnos_num > MAX_RECOLOR_ALLOCNO_NUM
+      || ira_allocnos_num < SMALL_REGNO_TRASHOLD)
     return;
 
   if (func == 2)
@@ -27953,7 +27954,7 @@ mips_adjust_costs (void *p, int func)
 	{
 	  if (sorted_allocno_data[j]->allocno == ALLOCNO_NUM (allocno))
 	    {
-	      if (j < SMALL_REGNO_NO)
+	      if (j < SMALL_REGNO_TRASHOLD)
 		/* Decrease costs of small registers.  */
 		val = -4;
 	      break;
