@@ -1,3 +1,7 @@
+2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gimplify.c (gimplify_oacc_declare_1): Remove GOMP_MAP_FORCE_* cases.
+
 2017-04-05  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (scan_sharing_clauses): Update handling of OpenACC declare

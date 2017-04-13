@@ -20,5 +20,5 @@ int main(int argc, char *argv[])
  return 0;
 }
 
-// { dg-final { scan-tree-dump-times "omp target oacc_data map.force_from:b.0. .len: 400.. map.force_to:a.0. .len: 400.." 1 "gimple" } }
+// { dg-final { scan-tree-dump-times "omp target oacc_data map.from:b.0. .len: 400.. map.to:a.0. .len: 400.." 1 "gimple" } }
 // { dg-final { scan-tree-dump-times "omp target oacc_parallel map.force_present:b.0. .len: 400.. map.firstprivate:b .pointer assign, bias: 0.. map.force_present:a.0. .len: 400.. map.firstprivate:a .pointer assign, bias: 0.." 1 "gimple" } }
