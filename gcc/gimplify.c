@@ -9426,21 +9426,7 @@ gimplify_oacc_declare_1 (tree clause)
   switch (kind)
     {
       case GOMP_MAP_ALLOC:
-      case GOMP_MAP_FORCE_ALLOC:
-      case GOMP_MAP_FORCE_TO:
 	new_op = GOMP_MAP_DELETE;
-	ret = true;
-	break;
-
-      case GOMP_MAP_FORCE_FROM:
-	OMP_CLAUSE_SET_MAP_KIND (clause, GOMP_MAP_FORCE_ALLOC);
-	new_op = GOMP_MAP_FORCE_FROM;
-	ret = true;
-	break;
-
-      case GOMP_MAP_FORCE_TOFROM:
-	OMP_CLAUSE_SET_MAP_KIND (clause, GOMP_MAP_FORCE_TO);
-	new_op = GOMP_MAP_FORCE_FROM;
 	ret = true;
 	break;
 

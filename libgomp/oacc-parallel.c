@@ -492,6 +492,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	}
 
       if (kind == GOMP_MAP_DELETE
+	  || kind == GOMP_MAP_FROM
 	  || kind == GOMP_MAP_FORCE_FROM
 	  || kind == GOMP_MAP_DECLARE_DEALLOCATE)
 	break;
@@ -573,6 +574,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		if (acc_is_present (hostaddrs[i], sizes[i]))
 		  acc_delete (hostaddrs[i], sizes[i]);
 		break;
+	      case GOMP_MAP_FROM:
 	      case GOMP_MAP_FORCE_FROM:
 		acc_copyout (hostaddrs[i], sizes[i]);
 		break;
@@ -589,9 +591,9 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 					 &sizes[i], &kinds[i]);
 	    else if (acc_is_present (hostaddrs[i], sizes[i]))
 	      {
-		gomp_acc_remove_pointer (hostaddrs[i], (kinds[i] & 0xff)
-					 == GOMP_MAP_FORCE_FROM, async,
-					 pointer);
+		bool copyfrom = (kind == GOMP_MAP_FORCE_FROM
+				 || kind == GOMP_MAP_FROM);
+		gomp_acc_remove_pointer (hostaddrs[i], copyfrom, async, pointer);
 		/* See the above comment.  */
 	      }
 	    i += pointer - 1;

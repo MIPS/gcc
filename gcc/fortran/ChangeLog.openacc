@@ -1,3 +1,15 @@
+2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* openmp.c (enum omp_mask2):
+	Remove OMP_CLAUSE_PRESENT_OR_COPY/COPYIN/COPYOUT/CREATE.
+	(gfc_match_omp_clauses): Remove FORCE flag from OpenACC OMP_MAP_* cases,
+	adjust and remove PRESENT_OR_ values.
+	(OACC_PARALLEL_CLAUSES): Remove OMP_CLAUSE_PRESENT_OR_*.
+	(OACC_KERNELS_CLAUSES): Likewise.
+	(OACC_DATA_CLAUSES): Likewise.
+	(OACC_DECLARE_CLAUSES): Likewise.
+	(OACC_ENTER_DATA_CLAUSES): Likewise.
+
 2017-04-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gfortran.h (enum gfc_omp_default_sharing): Add

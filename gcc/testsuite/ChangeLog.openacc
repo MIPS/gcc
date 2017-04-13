@@ -1,3 +1,18 @@
+2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gfortran.dg/goacc/data-tree.f95: Remove "force_" from dump scan.
+	* gfortran.dg/goacc/kernels-tree.f95: Likewise.
+	* gfortran.dg/goacc/data-tree.f95: Likewise.
+	* gfortran.dg/goacc/reduction-promotions.f90: Likewise.
+	* gfortran.dg/goacc/combined-directives.f90: Likewise.
+	* gfortran.dg/goacc/default-4.f: Likewise.
+	* gfortran.dg/declare-2.f95: Adjust error scan.
+	* c-c++-common/goacc/acc-data-chain.c: Remove "force_" from dump scan.
+	* c-c++-common/goacc/default-4.c: Likewise.
+	* c-c++-common/goacc/declare-2.c: Move present_or_copyin/create tests
+	from here to...
+	* c-c++-common/goacc/declare-1.c: ...here.
+
 2017-04-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/default-1.c: Update.

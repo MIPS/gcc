@@ -819,10 +819,6 @@ enum omp_mask2
   OMP_CLAUSE_COPYOUT,
   OMP_CLAUSE_CREATE,
   OMP_CLAUSE_PRESENT,
-  OMP_CLAUSE_PRESENT_OR_COPY,
-  OMP_CLAUSE_PRESENT_OR_COPYIN,
-  OMP_CLAUSE_PRESENT_OR_COPYOUT,
-  OMP_CLAUSE_PRESENT_OR_CREATE,
   OMP_CLAUSE_DEVICEPTR,
   OMP_CLAUSE_GANG,
   OMP_CLAUSE_WORKER,
@@ -1079,7 +1075,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	  if ((mask & OMP_CLAUSE_COPY)
 	      && gfc_match ("copy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_TOFROM, openacc,
+					   OMP_MAP_TOFROM, openacc,
 					   allow_derived))
 	    continue;
 	  if (mask & OMP_CLAUSE_COPYIN)
@@ -1088,7 +1084,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 		{
 		  if (gfc_match ("copyin ( ") == MATCH_YES
 		      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-						   OMP_MAP_FORCE_TO, true,
+						   OMP_MAP_TO, true,
 						   allow_derived))
 		    continue;
 		}
@@ -1100,7 +1096,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	  if ((mask & OMP_CLAUSE_COPYOUT)
 	      && gfc_match ("copyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_FROM, true,
+					   OMP_MAP_FROM, true,
 					   allow_derived))
 	    continue;
 	  if ((mask & OMP_CLAUSE_COPYPRIVATE)
@@ -1111,7 +1107,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	  if ((mask & OMP_CLAUSE_CREATE)
 	      && gfc_match ("create ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_FORCE_ALLOC, true,
+					   OMP_MAP_ALLOC, true,
 					   allow_derived))
 	    continue;
 	  break;
@@ -1610,22 +1606,22 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	    }
 	  break;
 	case 'p':
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPY)
+	  if ((mask & OMP_CLAUSE_COPY)
 	      && gfc_match ("pcopy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_TOFROM, true, allow_derived))
 	    continue;
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYIN)
+	  if ((mask & OMP_CLAUSE_COPYIN)
 	      && gfc_match ("pcopyin ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_TO, true, allow_derived))
 	    continue;
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYOUT)
+	  if ((mask & OMP_CLAUSE_COPYOUT)
 	      && gfc_match ("pcopyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_FROM, true, allow_derived))
 	    continue;
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_CREATE)
+	  if ((mask & OMP_CLAUSE_CREATE)
 	      && gfc_match ("pcreate ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_ALLOC, true, allow_derived))
@@ -1636,22 +1632,22 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 					   OMP_MAP_FORCE_PRESENT, false,
 					   allow_derived))
 	    continue;
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPY)
+	  if ((mask & OMP_CLAUSE_COPY)
 	      && gfc_match ("present_or_copy ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_TOFROM, true, allow_derived))
 	    continue;
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYIN)
+	  if ((mask & OMP_CLAUSE_COPYIN)
 	      && gfc_match ("present_or_copyin ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_TO, true, allow_derived))
 	    continue;
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_COPYOUT)
+	  if ((mask & OMP_CLAUSE_COPYOUT)
 	      && gfc_match ("present_or_copyout ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_FROM, true, allow_derived))
 	    continue;
-	  if ((mask & OMP_CLAUSE_PRESENT_OR_CREATE)
+	  if ((mask & OMP_CLAUSE_CREATE)
 	      && gfc_match ("present_or_create ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
 					   OMP_MAP_ALLOC, true, allow_derived))
@@ -2039,8 +2035,6 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_REDUCTION						\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
-   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
-   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
    | OMP_CLAUSE_DEVICEPTR						\
    | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE			\
    | OMP_CLAUSE_DEFAULT)
@@ -2050,16 +2044,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_IF							\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
-   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
-   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
    | OMP_CLAUSE_DEVICEPTR						\
    | OMP_CLAUSE_DEFAULT)
 #define OACC_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_IF)						\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
-   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
-   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
    | OMP_CLAUSE_DEVICEPTR)
 #define OACC_HOST_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_USE_DEVICE))
@@ -2076,8 +2066,6 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 #define OACC_DECLARE_CLAUSES \
   (omp_mask (OMP_CLAUSE_COPY) | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT	\
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT				\
-   | OMP_CLAUSE_PRESENT_OR_COPY | OMP_CLAUSE_PRESENT_OR_COPYIN		\
-   | OMP_CLAUSE_PRESENT_OR_COPYOUT | OMP_CLAUSE_PRESENT_OR_CREATE	\
    | OMP_CLAUSE_DEVICEPTR						\
    | OMP_CLAUSE_DEVICE_RESIDENT						\
    | OMP_CLAUSE_LINK)
@@ -2091,8 +2079,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 #define OACC_ENTER_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_IF)						\
    | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT					\
-   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_CREATE				\
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_CREATE)
+   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_CREATE)
 #define OACC_EXIT_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_IF)						\
    | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT					\
@@ -2226,8 +2213,7 @@ gfc_match_oacc_declare (void)
 
       if (s->ns->proc_name && s->ns->proc_name->attr.proc == PROC_MODULE)
 	{
-	  if (n->u.map_op != OMP_MAP_FORCE_ALLOC
-	      && n->u.map_op != OMP_MAP_FORCE_TO)
+	  if (n->u.map_op != OMP_MAP_ALLOC && n->u.map_op != OMP_MAP_TO)
 	    {
 	      gfc_error ("Invalid clause in module with !$ACC DECLARE at %L",
 			 &where);

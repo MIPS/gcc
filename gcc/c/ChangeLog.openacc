@@ -1,3 +1,21 @@
+2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Remove occurences of
+	PRAGMA_OACC_CLAUSE_PRESENT_OR_COPY/COPYIN/COPYOUT/CREATE, adjust
+	them to non-PRESENT_OR values.
+	(c_parser_oacc_data_clause): Remove PRAGMA_OACC_CLAUSE_PRESENT_OR_*
+	cases, remove FORCE from PRAGMA_OACC_CLAUSE_COPY/COPYIN/COPYOUT/CREATE
+	kinds, update comment description.
+	(c_parser_oacc_all_clauses): Remove PRAGMA_OACC_CLAUSE_PRESENT_OR_*
+	cases.
+	(OACC_DATA_CLAUSE_MASK): Remove PRAGMA_OACC_CLAUSE_PRESENT_OR_*.
+	(OACC_DECLARE_CLAUSE_MASK): Likewise.
+	(c_parser_oacc_declare): Remove GOMP_MAP_FORCE_ALLOC/TO, change to
+	COMP_MAP_ALLOC/TO.
+	(OACC_ENTER_DATA_CLAUSE_MASK): Remove PRAGMA_OACC_CLAUSE_PRESENT_OR_*.
+	(OACC_KERNELS_CLAUSE_MASK): Likewise.
+	(OACC_PARALLEL_CLAUSE_MASK): Likewise.
+
 2017-04-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c (c_parser_omp_clause_default): Handle

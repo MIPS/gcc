@@ -524,39 +524,49 @@ present_create_copy (unsigned f, void *h, size_t s, int async)
 void *
 acc_create (void *h, size_t s)
 {
-  return present_create_copy (FLAG_CREATE, h, s, acc_async_sync);
+  return present_create_copy (FLAG_PRESENT | FLAG_CREATE, h, s, acc_async_sync);
 }
 
 void
 acc_create_async (void *h, size_t s, int async)
 {
-  present_create_copy (FLAG_CREATE, h, s, async);
+  present_create_copy (FLAG_PRESENT | FLAG_CREATE, h, s, async);
 }
+
+#ifdef HAVE_ATTRIBUTE_ALIAS
+extern void *acc_present_or_create (void *, size_t)
+  __attribute__((alias ("acc_create")));
+#else
+void *
+acc_present_or_create (void *h, size_t s)
+{
+  return acc_create (h, s);
+}
+#endif
 
 void *
 acc_copyin (void *h, size_t s)
 {
-  return present_create_copy (FLAG_CREATE | FLAG_COPY, h, s, acc_async_sync);
+  return present_create_copy (FLAG_PRESENT | FLAG_CREATE | FLAG_COPY, h, s,
+			      acc_async_sync);
 }
 
 void
 acc_copyin_async (void *h, size_t s, int async)
 {
-  present_create_copy (FLAG_CREATE | FLAG_COPY, h, s, async);
+  present_create_copy (FLAG_PRESENT | FLAG_CREATE | FLAG_COPY, h, s, async);
 }
 
-void *
-acc_present_or_create (void *h, size_t s)
-{
-  return present_create_copy (FLAG_PRESENT | FLAG_CREATE, h, s, acc_async_sync);
-}
-
+#ifdef HAVE_ATTRIBUTE_ALIAS
+extern void *acc_present_or_copyin (void *, size_t)
+  __attribute__((alias ("acc_copyin")));
+#else
 void *
 acc_present_or_copyin (void *h, size_t s)
 {
-  return present_create_copy (FLAG_PRESENT | FLAG_CREATE | FLAG_COPY, h, s,
-			      acc_async_sync);
+  return acc_copyin (h, s);
 }
+#endif
 
 #define FLAG_COPYOUT (1 << 0)
 
