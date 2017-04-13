@@ -1,4 +1,4 @@
-/* Test if duplicate data mappings with acc_copy_in.  */
+/* Test if acc_copyin has present_or_ behavior.  */
 
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
 
@@ -31,5 +31,3 @@ main (int argc, char **argv)
 }
 
 /* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
-/* { dg-output "\\\[\[0-9a-fA-FxX\]+,\\\+256\\\] already mapped to \\\[\[0-9a-fA-FxX\]+,\\\+256\\\]" } */
-/* { dg-shouldfail "" } */

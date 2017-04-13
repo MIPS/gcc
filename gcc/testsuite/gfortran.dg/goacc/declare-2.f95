@@ -11,9 +11,9 @@ subroutine asubr (b)
   !$acc declare copyout (b) ! { dg-error "Invalid clause in module" }
   !$acc declare present (b) ! { dg-error "Invalid clause in module" }
   !$acc declare present_or_copy (b) ! { dg-error "Invalid clause in module" }
-  !$acc declare present_or_copyin (b) ! { dg-error "Invalid clause in module" }
+  !$acc declare present_or_copyin (b) ! { dg-error "present on multiple clauses" }
   !$acc declare present_or_copyout (b) ! { dg-error "Invalid clause in module" }
-  !$acc declare present_or_create (b) ! { dg-error "Invalid clause in module" }
+  !$acc declare present_or_create (b) ! { dg-error "present on multiple clauses" }
   !$acc declare deviceptr (b) ! { dg-error "Invalid clause in module" }
   !$acc declare create (b) copyin (b) ! { dg-error "present on multiple clauses" }
 
