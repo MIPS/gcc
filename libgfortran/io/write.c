@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist output contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -31,8 +31,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
-#include <stdlib.h>
-#include <errno.h>
+
 #define star_fill(p, n) memset(p, '*', n)
 
 typedef unsigned char uchar;
@@ -228,6 +227,138 @@ write_utf8_char4 (st_parameter_dt *dtp, gfc_char4_t *source,
 }
 
 
+/* Check the first character in source if we are using CC_FORTRAN
+   and set the cc.type appropriately.   The cc.type is used later by write_cc
+   to determine the output start-of-record, and next_record_cc to determine the
+   output end-of-record.
+   This function is called before the output buffer is allocated, so alloc_len
+   is set to the appropriate size to allocate.  */
+
+static void
+write_check_cc (st_parameter_dt *dtp, const char **source, int *alloc_len)
+{
+  /* Only valid for CARRIAGECONTROL=FORTRAN.  */
+  if (dtp->u.p.current_unit->flags.cc != CC_FORTRAN
+      || alloc_len == NULL || source == NULL)
+    return;
+
+  /* Peek at the first character.  */
+  int c = (*alloc_len > 0) ? (*source)[0] : EOF;
+  if (c != EOF)
+    {
+      /* The start-of-record character which will be printed.  */
+      dtp->u.p.cc.u.start = '\n';
+      /* The number of characters to print at the start-of-record.
+	 len  > 1 means copy the SOR character multiple times.
+	 len == 0 means no SOR will be output.  */
+      dtp->u.p.cc.len = 1;
+
+      switch (c)
+	{
+	case '+':
+	  dtp->u.p.cc.type = CCF_OVERPRINT;
+	  dtp->u.p.cc.len = 0;
+	  break;
+	case '-':
+	  dtp->u.p.cc.type = CCF_ONE_LF;
+	  dtp->u.p.cc.len = 1;
+	  break;
+	case '0':
+	  dtp->u.p.cc.type = CCF_TWO_LF;
+	  dtp->u.p.cc.len = 2;
+	  break;
+	case '1':
+	  dtp->u.p.cc.type = CCF_PAGE_FEED;
+	  dtp->u.p.cc.len = 1;
+	  dtp->u.p.cc.u.start = '\f';
+	  break;
+	case '$':
+	  dtp->u.p.cc.type = CCF_PROMPT;
+	  dtp->u.p.cc.len = 1;
+	  break;
+	case '\0':
+	  dtp->u.p.cc.type = CCF_OVERPRINT_NOA;
+	  dtp->u.p.cc.len = 0;
+	  break;
+	default:
+	  /* In the default case we copy ONE_LF.  */
+	  dtp->u.p.cc.type = CCF_DEFAULT;
+	  dtp->u.p.cc.len = 1;
+	  break;
+      }
+
+      /* We add n-1 to alloc_len so our write buffer is the right size.
+	 We are replacing the first character, and possibly prepending some
+	 additional characters.  Note for n==0, we actually subtract one from
+	 alloc_len, which is correct, since that character is skipped.  */
+      if (*alloc_len > 0)
+	{
+	  *source += 1;
+	  *alloc_len += dtp->u.p.cc.len - 1;
+	}
+      /* If we have no input, there is no first character to replace.  Make
+	 sure we still allocate enough space for the start-of-record string.  */
+      else
+	*alloc_len = dtp->u.p.cc.len;
+    }
+}
+
+
+/* Write the start-of-record character(s) for CC_FORTRAN.
+   Also adjusts the 'cc' struct to contain the end-of-record character
+   for next_record_cc.
+   The source_len is set to the remaining length to copy from the source,
+   after the start-of-record string was inserted.  */
+
+static char *
+write_cc (st_parameter_dt *dtp, char *p, int *source_len)
+{
+  /* Only valid for CARRIAGECONTROL=FORTRAN.  */
+  if (dtp->u.p.current_unit->flags.cc != CC_FORTRAN || source_len == NULL)
+    return p;
+
+  /* Write the start-of-record string to the output buffer.  Note that len is
+     never more than 2.  */
+  if (dtp->u.p.cc.len > 0)
+    {
+      *(p++) = dtp->u.p.cc.u.start;
+      if (dtp->u.p.cc.len > 1)
+	  *(p++) = dtp->u.p.cc.u.start;
+
+      /* source_len comes from write_check_cc where it is set to the full
+	 allocated length of the output buffer. Therefore we subtract off the
+	 length of the SOR string to obtain the remaining source length.  */
+      *source_len -= dtp->u.p.cc.len;
+    }
+
+  /* Common case.  */
+  dtp->u.p.cc.len = 1;
+  dtp->u.p.cc.u.end = '\r';
+
+  /* Update end-of-record character for next_record_w.  */
+  switch (dtp->u.p.cc.type)
+    {
+    case CCF_PROMPT:
+    case CCF_OVERPRINT_NOA:
+      /* No end-of-record.  */
+      dtp->u.p.cc.len = 0;
+      dtp->u.p.cc.u.end = '\0';
+      break;
+    case CCF_OVERPRINT:
+    case CCF_ONE_LF:
+    case CCF_TWO_LF:
+    case CCF_PAGE_FEED:
+    case CCF_DEFAULT:
+    default:
+      /* Carriage return.  */
+      dtp->u.p.cc.len = 1;
+      dtp->u.p.cc.u.end = '\r';
+      break;
+    }
+
+  return p;
+}
+
 void
 write_a (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
 {
@@ -296,9 +427,15 @@ write_a (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
   else
     {
 #endif
+      if (dtp->u.p.current_unit->flags.cc == CC_FORTRAN)
+	write_check_cc (dtp, &source, &wlen);
+
       p = write_block (dtp, wlen);
       if (p == NULL)
 	return;
+
+      if (dtp->u.p.current_unit->flags.cc == CC_FORTRAN)
+	p = write_cc (dtp, p, &wlen);
 
       if (unlikely (is_char4_unit (dtp)))
 	{
@@ -726,7 +863,7 @@ write_decimal (st_parameter_dt *dtp, const fnode *f, const char *source,
 
   if (unlikely (is_char4_unit (dtp)))
     {
-      gfc_char4_t * p4 = (gfc_char4_t *) p;
+      gfc_char4_t *p4 = (gfc_char4_t *)p;
       if (nblank < 0)
 	{
 	  memset4 (p4, '*', w);
@@ -1726,7 +1863,8 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   if (dtp->u.p.first_item)
     {
       dtp->u.p.first_item = 0;
-      write_char (dtp, ' ');
+      if (dtp->u.p.current_unit->flags.cc != CC_FORTRAN)
+	write_char (dtp, ' ');
     }
   else
     {
@@ -1902,8 +2040,8 @@ namelist_write_newline (st_parameter_dt *dtp)
 
 
 static namelist_info *
-nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
-	       namelist_info * base, char * base_name)
+nml_write_obj (st_parameter_dt *dtp, namelist_info *obj, index_type offset,
+	       namelist_info *base, char *base_name)
 {
   int rep_ctr;
   int num;
@@ -1915,15 +2053,15 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   size_t clen;
   index_type elem_ctr;
   size_t obj_name_len;
-  void * p;
+  void *p;
   char cup;
-  char * obj_name;
-  char * ext_name;
-  char * q;
+  char *obj_name;
+  char *ext_name;
+  char *q;
   size_t ext_name_len;
   char rep_buff[NML_DIGITS];
-  namelist_info * cmp;
-  namelist_info * retval = obj->next;
+  namelist_info *cmp;
+  namelist_info *retval = obj->next;
   size_t base_name_len;
   size_t base_var_name_len;
   size_t tot_len;
@@ -1937,7 +2075,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   /* Write namelist variable names in upper case. If a derived type,
      nothing is output.  If a component, base and base_name are set.  */
 
-  if (obj->type != BT_DERIVED)
+  if (obj->type != BT_DERIVED || obj->dtio_sub != NULL)
     {
       namelist_write_newline (dtp);
       write_character (dtp, " ", 1, 1, NODELIM);
@@ -2018,7 +2156,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 
       if ((elem_ctr < (nelem - 1)) &&
 	  (obj->type != BT_DERIVED) &&
-	  !memcmp (p, (void*)(p + obj_size ), obj_size ))
+	  !memcmp (p, (void *)(p + obj_size ), obj_size ))
 	{
 	  rep_ctr++;
 	}
@@ -2089,14 +2227,9 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 		  int noiostat;
 		  int *child_iostat = NULL;
 		  gfc_array_i4 vlist;
-		  gfc_class list_obj;
 		  formatted_dtio dtio_ptr = (formatted_dtio)obj->dtio_sub;
 
 		  GFC_DIMENSION_SET(vlist.dim[0],1, 0, 0);
-
-		  list_obj.data = p;
-		  list_obj.vptr = obj->vtable;
-		  list_obj.len = 0;
 
 		  /* Set iostat, intent(out).  */
 		  noiostat = 0;
@@ -2114,12 +2247,31 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 		      child_iomsg = tmp_iomsg;
 		      child_iomsg_len = IOMSG_LEN;
 		    }
-		  namelist_write_newline (dtp);
+
+		  /* If writing to an internal unit, stash it to allow
+		     the child procedure to access it.  */
+		  if (is_internal_unit (dtp))
+		    stash_internal_unit (dtp);
+		      
 		  /* Call the user defined formatted WRITE procedure.  */
 		  dtp->u.p.current_unit->child_dtio++;
-		  dtio_ptr ((void *)&list_obj, &unit, iotype, &vlist,
-			    child_iostat, child_iomsg,
-			    iotype_len, child_iomsg_len);
+		  if (obj->type == BT_DERIVED)
+		    {
+		      // build a class container
+		      gfc_class list_obj;
+		      list_obj.data = p;
+		      list_obj.vptr = obj->vtable;
+		      list_obj.len = 0;
+		      dtio_ptr ((void *)&list_obj, &unit, iotype, &vlist,
+				child_iostat, child_iomsg,
+				iotype_len, child_iomsg_len);
+		    }
+		  else
+		    {
+		      dtio_ptr (p, &unit, iotype, &vlist,
+				child_iostat, child_iomsg,
+				iotype_len, child_iomsg_len);
+		    }
 		  dtp->u.p.current_unit->child_dtio--;
 
 		  goto obj_loop;
@@ -2241,11 +2393,11 @@ obj_loop:
 void
 namelist_write (st_parameter_dt *dtp)
 {
-  namelist_info * t1, *t2, *dummy = NULL;
+  namelist_info *t1, *t2, *dummy = NULL;
   index_type i;
   index_type dummy_offset = 0;
   char c;
-  char * dummy_name = NULL;
+  char *dummy_name = NULL;
 
   /* Set the delimiter for namelist output.  */
   switch (dtp->u.p.current_unit->delim_status)

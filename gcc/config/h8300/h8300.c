@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Renesas H8/300.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "optabs.h"
@@ -1740,10 +1741,12 @@ h8300_print_operand (FILE *file, rtx x, int code)
 		      break;
 		    }
 
-		  /* Fall through.  We should not get here if we are
-		     processing bit operations on H8/300 or H8/300H
-		     because 'U' constraint does not allow bit
-		     operations on the tiny area on these machines.  */
+		  /* FALLTHRU */
+
+		  /* We should not get here if we are processing bit
+		     operations on H8/300 or H8/300H because 'U'
+		     constraint does not allow bit operations on the
+		     tiny area on these machines.  */
 
 		case 'X':
 		case 'T':

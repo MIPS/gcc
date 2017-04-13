@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "predict.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "regs.h"
@@ -1791,8 +1792,15 @@ assemble_start_function (tree decl, const char *fnname)
       && optimize_function_for_speed_p (cfun))
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
-      ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file,
-				 align_functions_log, align_functions - 1);
+      int align_log = align_functions_log;
+#endif
+      int max_skip = align_functions - 1;
+      if (flag_limit_function_alignment && crtl->max_insn_address > 0
+	  && max_skip >= crtl->max_insn_address)
+	max_skip = crtl->max_insn_address - 1;
+
+#ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
+      ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file, align_log, max_skip);
 #else
       ASM_OUTPUT_ALIGN (asm_out_file, align_functions_log);
 #endif
@@ -2546,7 +2554,7 @@ assemble_name (FILE *file, const char *name)
 rtx
 assemble_static_space (unsigned HOST_WIDE_INT size)
 {
-  char name[16];
+  char name[17];
   const char *namestring;
   rtx x;
 
@@ -2982,7 +2990,7 @@ const_hash_1 (const tree exp)
 
 	  case LABEL_REF:
 	    hi = (value.offset
-		  + CODE_LABEL_NUMBER (LABEL_REF_LABEL (value.base)) * 13);
+		  + CODE_LABEL_NUMBER (label_ref_label (value.base)) * 13);
 	    break;
 
 	  default:
@@ -3171,8 +3179,8 @@ compare_constant (const tree t1, const tree t2)
 	    break;
 
 	  case LABEL_REF:
-	    ret = (CODE_LABEL_NUMBER (LABEL_REF_LABEL (value1.base))
-	           == CODE_LABEL_NUMBER (LABEL_REF_LABEL (value2.base)));
+	    ret = (CODE_LABEL_NUMBER (label_ref_label (value1.base))
+		   == CODE_LABEL_NUMBER (label_ref_label (value2.base)));
 	    break;
 
 	  default:
@@ -3287,6 +3295,10 @@ build_constant_desc (tree exp)
   rtl = gen_const_mem (TYPE_MODE (TREE_TYPE (exp)), symbol);
   set_mem_attributes (rtl, exp, 1);
   set_mem_alias_set (rtl, 0);
+
+  /* Putting EXP into the literal pool might have imposed a different
+     alignment which should be visible in the RTX as well.  */
+  set_mem_align (rtl, DECL_ALIGN (decl));
 
   /* We cannot share RTX'es in pool entries.
      Mark this piece of RTL as required for unsharing.  */
@@ -3610,7 +3622,7 @@ const_rtx_hash_1 (const_rtx x)
       break;
 
     case LABEL_REF:
-      h = h * 251 + CODE_LABEL_NUMBER (LABEL_REF_LABEL (x));
+      h = h * 251 + CODE_LABEL_NUMBER (label_ref_label (x));
       break;
 
     case UNSPEC:
@@ -3800,12 +3812,14 @@ get_pool_mode (const_rtx addr)
   return SYMBOL_REF_CONSTANT (addr)->mode;
 }
 
-/* Return the size of the constant pool.  */
+/* Return TRUE if and only if the constant pool has no entries.  Note
+   that even entries we might end up choosing not to emit are counted
+   here, so there is the potential for missed optimizations.  */
 
-int
-get_pool_size (void)
+bool
+constant_pool_empty_p (void)
 {
-  return crtl->varasm.pool->offset;
+  return crtl->varasm.pool->first == NULL;
 }
 
 /* Worker function for output_constant_pool_1.  Emit assembly for X
@@ -3892,11 +3906,13 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
       /* FALLTHRU  */
 
     case LABEL_REF:
-      tmp = LABEL_REF_LABEL (tmp);
-      gcc_assert (!as_a<rtx_insn *> (tmp)->deleted ());
-      gcc_assert (!NOTE_P (tmp)
-		  || NOTE_KIND (tmp) != NOTE_INSN_DELETED);
-      break;
+      {
+	rtx_insn *insn = label_ref_label (tmp);
+	gcc_assert (!insn->deleted ());
+	gcc_assert (!NOTE_P (insn)
+		    || NOTE_KIND (insn) != NOTE_INSN_DELETED);
+	break;
+      }
 
     default:
       break;
@@ -3930,6 +3946,29 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
  done:
 #endif
   return;
+}
+
+/* Recompute the offsets of entries in POOL, and the overall size of
+   POOL.  Do this after calling mark_constant_pool to ensure that we
+   are computing the offset values for the pool which we will actually
+   emit.  */
+
+static void
+recompute_pool_offsets (struct rtx_constant_pool *pool)
+{
+  struct constant_descriptor_rtx *desc;
+  pool->offset = 0;
+
+  for (desc = pool->first; desc ; desc = desc->next)
+    if (desc->mark)
+      {
+	  /* Recalculate offset.  */
+	unsigned int align = desc->align;
+	pool->offset += (align / BITS_PER_UNIT) - 1;
+	pool->offset &= ~ ((align / BITS_PER_UNIT) - 1);
+	desc->offset = pool->offset;
+	pool->offset += GET_MODE_SIZE (desc->mode);
+      }
 }
 
 /* Mark all constants that are referenced by SYMBOL_REFs in X.
@@ -4049,6 +4088,11 @@ output_constant_pool (const char *fnname ATTRIBUTE_UNUSED,
      discard the instructions which refer to the constant.  In such a
      case we do not need to output the constant.  */
   mark_constant_pool ();
+
+  /* Having marked the constant pool entries we'll actually emit, we
+     now need to rebuild the offset information, which may have become
+     stale.  */
+  recompute_pool_offsets (pool);
 
 #ifdef ASM_OUTPUT_POOL_PROLOGUE
   ASM_OUTPUT_POOL_PROLOGUE (asm_out_file, fnname, fndecl, pool->offset);
@@ -4428,8 +4472,15 @@ initializer_constant_valid_p_1 (tree value, tree endtype, tree *cache)
 	  return initializer_constant_valid_p_1 (src, endtype, cache);
 
 	/* Allow conversions between other integer types only if
-	   explicit value.  */
-	if (INTEGRAL_TYPE_P (dest_type) && INTEGRAL_TYPE_P (src_type))
+	   explicit value.  Don't allow sign-extension to a type larger
+	   than word and pointer, there aren't relocations that would
+	   allow to sign extend it to a wider type.  */
+	if (INTEGRAL_TYPE_P (dest_type)
+	    && INTEGRAL_TYPE_P (src_type)
+	    && (TYPE_UNSIGNED (src_type)
+		|| TYPE_PRECISION (dest_type) <= TYPE_PRECISION (src_type)
+		|| TYPE_PRECISION (dest_type) <= BITS_PER_WORD
+		|| TYPE_PRECISION (dest_type) <= POINTER_SIZE))
 	  {
 	    tree inner = initializer_constant_valid_p_1 (src, endtype, cache);
 	    if (inner == null_pointer_node)
@@ -6801,11 +6852,12 @@ default_use_anchors_for_symbol_p (const_rtx symbol)
 	return false;
 
       /* Don't use section anchors for decls that won't fit inside a single
-	 anchor range to reduce the amount of instructions require to refer
+	 anchor range to reduce the amount of instructions required to refer
 	 to the entire declaration.  */
-      if (decl && DECL_SIZE (decl)
-	 && tree_to_shwi (DECL_SIZE (decl))
-	    >= (targetm.max_anchor_offset * BITS_PER_UNIT))
+      if (DECL_SIZE_UNIT (decl) == NULL_TREE
+	  || !tree_fits_uhwi_p (DECL_SIZE_UNIT (decl))
+	  || (tree_to_uhwi (DECL_SIZE_UNIT (decl))
+	      >= (unsigned HOST_WIDE_INT) targetm.max_anchor_offset))
 	return false;
 
     }
@@ -6856,8 +6908,8 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
      FIXME: We can resolve the weakref case more curefuly by looking at the
      weakref alias.  */
   if (lookup_attribute ("weakref", DECL_ATTRIBUTES (exp))
-	   || (TREE_CODE (exp) == FUNCTION_DECL
-	       && lookup_attribute ("ifunc", DECL_ATTRIBUTES (exp))))
+      || (TREE_CODE (exp) == FUNCTION_DECL
+	  && lookup_attribute ("ifunc", DECL_ATTRIBUTES (exp))))
     return false;
 
   /* Static variables are always local.  */
@@ -7624,7 +7676,7 @@ make_debug_expr_from_rtl (const_rtx exp)
     TREE_TYPE (ddecl) = type;
   else
     TREE_TYPE (ddecl) = lang_hooks.types.type_for_mode (mode, 1);
-  DECL_MODE (ddecl) = mode;
+  SET_DECL_MODE (ddecl, mode);
   dval = gen_rtx_DEBUG_EXPR (mode);
   DEBUG_EXPR_TREE_DECL (dval) = ddecl;
   SET_DECL_RTL (ddecl, dval);

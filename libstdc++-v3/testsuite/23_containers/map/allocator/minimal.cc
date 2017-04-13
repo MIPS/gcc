@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,7 +36,6 @@ template class std::map<T, U, Cmp, SimpleAllocator<std::pair<const T, U>>>;
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   typedef SimpleAllocator<std::pair<const T, U>> alloc_type;
   typedef std::allocator_traits<alloc_type> traits_type;
   typedef std::map<T, U, Cmp, alloc_type> test_type;

@@ -1,5 +1,5 @@
 /* Check calls to formatted I/O functions (-Wformat).
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -207,7 +207,7 @@ check_format_string (tree fntype, unsigned HOST_WIDE_INT format_num,
 	{
 	  /* We expected a char but found an extended string type.  */
 	  if (is_objc_sref)
-	    error ("found a %<%s%> reference but the format argument should"
+	    error ("found a %qs reference but the format argument should"
 		   " be a string", format_name (gcc_objc_string_format_type));
 	  else
 	    error ("found a %qT but the format argument should be a string",
@@ -220,7 +220,7 @@ check_format_string (tree fntype, unsigned HOST_WIDE_INT format_num,
   /* We expect a string object type as the format arg.  */
   if (is_char_ref)
     {
-      error ("format argument should be a %<%s%> reference but"
+      error ("format argument should be a %qs reference but"
 	     " a string was found", format_name (expected_format_type));
       *no_add_attrs = true;
       return false;
@@ -242,7 +242,7 @@ check_format_string (tree fntype, unsigned HOST_WIDE_INT format_num,
     return true;
   else
     {
-      error ("format argument should be a %<%s%> reference", 
+      error ("format argument should be a %qs reference",
 	      format_name (expected_format_type));
       *no_add_attrs = true;
       return false;
@@ -713,6 +713,7 @@ static const format_char_info gcc_tdiag_char_table[] =
   { "r",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",    "cR",   NULL },
   { "<>'R",0, STD_C89, NOARGUMENTS, "",      "",   NULL },
   { "m",   0, STD_C89, NOARGUMENTS, "q",     "",   NULL },
+  { "Z",   1, STD_C89, { T89_I,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",    "", &gcc_tdiag_char_table[0] },
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
@@ -736,6 +737,7 @@ static const format_char_info gcc_cdiag_char_table[] =
   { "r",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",    "cR",   NULL },
   { "<>'R",0, STD_C89, NOARGUMENTS, "",      "",   NULL },
   { "m",   0, STD_C89, NOARGUMENTS, "q",     "",   NULL },
+  { "Z",   1, STD_C89, { T89_I,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",    "", &gcc_tdiag_char_table[0] },
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 
@@ -762,6 +764,7 @@ static const format_char_info gcc_cxxdiag_char_table[] =
   { "r",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",    "cR",   NULL },
   { "<>'R",0, STD_C89, NOARGUMENTS, "",      "",   NULL },
   { "m",   0, STD_C89, NOARGUMENTS, "q",     "",   NULL },
+  { "Z",   1, STD_C89, { T89_I,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "",    "", &gcc_tdiag_char_table[0] },
   { NULL,  0, STD_C89, NOLENGTHS, NULL, NULL, NULL }
 };
 

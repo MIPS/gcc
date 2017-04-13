@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2008-2016 Free Software Foundation, Inc.
+   Copyright (C) 2008-2017 Free Software Foundation, Inc.
    Contributed by Martin Jambor <mjambor@suse.cz>
 
 This file is part of GCC.
@@ -1637,6 +1637,13 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
   HOST_WIDE_INT base_offset;
   unsigned HOST_WIDE_INT misalign;
   unsigned int align;
+
+  /* Preserve address-space information.  */
+  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (base));
+  if (as != TYPE_ADDR_SPACE (exp_type))
+    exp_type = build_qualified_type (exp_type,
+				     TYPE_QUALS (exp_type)
+				     | ENCODE_QUAL_ADDR_SPACE (as));
 
   gcc_checking_assert (offset % BITS_PER_UNIT == 0);
   get_object_alignment_1 (base, &align, &misalign);
@@ -5000,7 +5007,7 @@ sra_ipa_reset_debug_stmts (ipa_parm_adjustment_vec adjustments)
 							   NULL);
 		DECL_ARTIFICIAL (vexpr) = 1;
 		TREE_TYPE (vexpr) = TREE_TYPE (name);
-		DECL_MODE (vexpr) = DECL_MODE (adj->base);
+		SET_DECL_MODE (vexpr, DECL_MODE (adj->base));
 		gsi_insert_before (gsip, def_temp, GSI_SAME_STMT);
 	      }
 	    if (vexpr)

@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
 This file is part of GCC.
@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "optabs.h"
 #include "regs.h"
 #include "emit-rtl.h"
@@ -804,7 +805,7 @@ schedule_reg_moves (partial_schedule_ptr ps)
   return true;
 }
 
-/* Emit the moves associatied with PS.  Apply the substitutions
+/* Emit the moves associated with PS.  Apply the substitutions
    associated with them.  */
 static void
 apply_reg_moves (partial_schedule_ptr ps)
@@ -1712,7 +1713,8 @@ sms_schedule (void)
 			       * REG_BR_PROB_BASE) / 100;
 
 	      loop_version (loop, comp_rtx, &condition_bb,
-	  		    prob, prob, REG_BR_PROB_BASE - prob,
+	  		    prob, REG_BR_PROB_BASE - prob,
+			    prob, REG_BR_PROB_BASE - prob,
 			    true);
 	     }
 

@@ -1,5 +1,5 @@
 /* Common subexpression elimination library for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "emit-rtl.h"
@@ -124,7 +125,7 @@ cselib_hasher::equal (const cselib_val *v, const key *x_arg)
   /* We don't guarantee that distinct rtx's have different hash values,
      so we need to do a comparison.  */
   for (l = v->locs; l; l = l->next)
-    if (rtx_equal_for_cselib_1 (l->loc, x, memmode))
+    if (rtx_equal_for_cselib_1 (l->loc, x, memmode, 0))
       {
 	promote_debug_loc (l);
 	return true;
@@ -833,7 +834,7 @@ autoinc_split (rtx x, rtx *off, machine_mode memmode)
    addresses, MEMMODE should be VOIDmode.  */
 
 int
-rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
+rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode, int depth)
 {
   enum rtx_code code;
   const char *fmt;
@@ -866,6 +867,9 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
       if (GET_CODE (y) == VALUE)
 	return e == canonical_cselib_val (CSELIB_VAL_PTR (y));
 
+      if (depth == 128)
+	return 0;
+
       for (l = e->locs; l; l = l->next)
 	{
 	  rtx t = l->loc;
@@ -875,7 +879,7 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
 	     list.  */
 	  if (REG_P (t) || MEM_P (t) || GET_CODE (t) == VALUE)
 	    continue;
-	  else if (rtx_equal_for_cselib_1 (t, y, memmode))
+	  else if (rtx_equal_for_cselib_1 (t, y, memmode, depth + 1))
 	    return 1;
 	}
 
@@ -886,13 +890,16 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
       cselib_val *e = canonical_cselib_val (CSELIB_VAL_PTR (y));
       struct elt_loc_list *l;
 
+      if (depth == 128)
+	return 0;
+
       for (l = e->locs; l; l = l->next)
 	{
 	  rtx t = l->loc;
 
 	  if (REG_P (t) || MEM_P (t) || GET_CODE (t) == VALUE)
 	    continue;
-	  else if (rtx_equal_for_cselib_1 (x, t, memmode))
+	  else if (rtx_equal_for_cselib_1 (x, t, memmode, depth + 1))
 	    return 1;
 	}
 
@@ -913,12 +920,12 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
       if (!xoff != !yoff)
 	return 0;
 
-      if (xoff && !rtx_equal_for_cselib_1 (xoff, yoff, memmode))
+      if (xoff && !rtx_equal_for_cselib_1 (xoff, yoff, memmode, depth))
 	return 0;
 
       /* Don't recurse if nothing changed.  */
       if (x != xorig || y != yorig)
-	return rtx_equal_for_cselib_1 (x, y, memmode);
+	return rtx_equal_for_cselib_1 (x, y, memmode, depth);
 
       return 0;
     }
@@ -944,7 +951,7 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
       return rtx_equal_p (ENTRY_VALUE_EXP (x), ENTRY_VALUE_EXP (y));
 
     case LABEL_REF:
-      return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
+      return label_ref_label (x) == label_ref_label (y);
 
     case REG:
       return REGNO (x) == REGNO (y);
@@ -952,7 +959,8 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
     case MEM:
       /* We have to compare any autoinc operations in the addresses
 	 using this MEM's mode.  */
-      return rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 0), GET_MODE (x));
+      return rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 0), GET_MODE (x),
+				     depth);
 
     default:
       break;
@@ -987,17 +995,20 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, machine_mode memmode)
 	  /* And the corresponding elements must match.  */
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    if (! rtx_equal_for_cselib_1 (XVECEXP (x, i, j),
-					  XVECEXP (y, i, j), memmode))
+					  XVECEXP (y, i, j), memmode, depth))
 	      return 0;
 	  break;
 
 	case 'e':
 	  if (i == 1
 	      && targetm.commutative_p (x, UNKNOWN)
-	      && rtx_equal_for_cselib_1 (XEXP (x, 1), XEXP (y, 0), memmode)
-	      && rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 1), memmode))
+	      && rtx_equal_for_cselib_1 (XEXP (x, 1), XEXP (y, 0), memmode,
+					 depth)
+	      && rtx_equal_for_cselib_1 (XEXP (x, 0), XEXP (y, 1), memmode,
+					 depth))
 	    return 1;
-	  if (! rtx_equal_for_cselib_1 (XEXP (x, i), XEXP (y, i), memmode))
+	  if (! rtx_equal_for_cselib_1 (XEXP (x, i), XEXP (y, i), memmode,
+					depth))
 	    return 0;
 	  break;
 
@@ -1153,7 +1164,7 @@ cselib_hash_rtx (rtx x, int create, machine_mode memmode)
       /* We don't hash on the address of the CODE_LABEL to avoid bootstrap
 	 differences and differences between each stage's debugging dumps.  */
       hash += (((unsigned int) LABEL_REF << 7)
-	       + CODE_LABEL_NUMBER (LABEL_REF_LABEL (x)));
+	       + CODE_LABEL_NUMBER (label_ref_label (x)));
       return hash ? hash : (unsigned int) LABEL_REF;
 
     case SYMBOL_REF:

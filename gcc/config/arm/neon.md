@@ -1,5 +1,5 @@
 ;; ARM NEON coprocessor Machine Description
-;; Copyright (C) 2006-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2017 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -1143,12 +1143,12 @@
 )
 
 (define_insn_and_split "ashldi3_neon"
-  [(set (match_operand:DI 0 "s_register_operand"	    "= w, w,?&r,?r, ?w,w")
-	(ashift:DI (match_operand:DI 1 "s_register_operand" " 0w, w, 0r, r, 0w,w")
-		   (match_operand:SI 2 "general_operand"    "rUm, i,  r, i,rUm,i")))
-   (clobber (match_scratch:SI 3				    "= X, X,?&r, X,  X,X"))
-   (clobber (match_scratch:SI 4				    "= X, X,?&r, X,  X,X"))
-   (clobber (match_scratch:DI 5				    "=&w, X,  X, X, &w,X"))
+  [(set (match_operand:DI 0 "s_register_operand"	    "= w, w,?&r,?r,?&r, ?w,w")
+	(ashift:DI (match_operand:DI 1 "s_register_operand" " 0w, w, 0r, 0,  r, 0w,w")
+		   (match_operand:SI 2 "general_operand"    "rUm, i,  r, i,  i,rUm,i")))
+   (clobber (match_scratch:SI 3				    "= X, X,?&r, X,  X,  X,X"))
+   (clobber (match_scratch:SI 4				    "= X, X,?&r, X,  X,  X,X"))
+   (clobber (match_scratch:DI 5				    "=&w, X,  X, X,  X, &w,X"))
    (clobber (reg:CC_C CC_REGNUM))]
   "TARGET_NEON"
   "#"
@@ -1180,9 +1180,11 @@
       }
     else
       {
-	if (operands[2] == CONST1_RTX (SImode)
-	    && (!reg_overlap_mentioned_p (operands[0], operands[1])
-		|| REGNO (operands[0]) == REGNO (operands[1])))
+	/* The shift expanders support either full overlap or no overlap.  */
+	gcc_assert (!reg_overlap_mentioned_p (operands[0], operands[1])
+		    || REGNO (operands[0]) == REGNO (operands[1]));
+
+	if (operands[2] == CONST1_RTX (SImode))
 	  /* This clobbers CC.  */
 	  emit_insn (gen_arm_ashldi3_1bit (operands[0], operands[1]));
 	else
@@ -1191,8 +1193,8 @@
       }
     DONE;
   }"
-  [(set_attr "arch" "neon_for_64bits,neon_for_64bits,*,*,avoid_neon_for_64bits,avoid_neon_for_64bits")
-   (set_attr "opt" "*,*,speed,speed,*,*")
+  [(set_attr "arch" "neon_for_64bits,neon_for_64bits,*,*,*,avoid_neon_for_64bits,avoid_neon_for_64bits")
+   (set_attr "opt" "*,*,speed,speed,speed,*,*")
    (set_attr "type" "multiple")]
 )
 
@@ -1241,12 +1243,12 @@
 ;; ashrdi3_neon
 ;; lshrdi3_neon
 (define_insn_and_split "<shift>di3_neon"
-  [(set (match_operand:DI 0 "s_register_operand"	     "= w, w,?&r,?r,?w,?w")
-	(RSHIFTS:DI (match_operand:DI 1 "s_register_operand" " 0w, w, 0r, r,0w, w")
-		    (match_operand:SI 2 "reg_or_int_operand" "  r, i,  r, i, r, i")))
-   (clobber (match_scratch:SI 3				     "=2r, X, &r, X,2r, X"))
-   (clobber (match_scratch:SI 4				     "= X, X, &r, X, X, X"))
-   (clobber (match_scratch:DI 5				     "=&w, X,  X, X,&w, X"))
+  [(set (match_operand:DI 0 "s_register_operand"	     "= w, w,?&r,?r,?&r,?w,?w")
+	(RSHIFTS:DI (match_operand:DI 1 "s_register_operand" " 0w, w, 0r, 0,  r,0w, w")
+		    (match_operand:SI 2 "reg_or_int_operand" "  r, i,  r, i,  i, r, i")))
+   (clobber (match_scratch:SI 3				     "=2r, X, &r, X,  X,2r, X"))
+   (clobber (match_scratch:SI 4				     "= X, X, &r, X,  X, X, X"))
+   (clobber (match_scratch:DI 5				     "=&w, X,  X, X, X,&w, X"))
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_NEON"
   "#"
@@ -1282,9 +1284,11 @@
       }
     else
       {
-	if (operands[2] == CONST1_RTX (SImode)
-	    && (!reg_overlap_mentioned_p (operands[0], operands[1])
-		|| REGNO (operands[0]) == REGNO (operands[1])))
+	/* The shift expanders support either full overlap or no overlap.  */
+	gcc_assert (!reg_overlap_mentioned_p (operands[0], operands[1])
+		    || REGNO (operands[0]) == REGNO (operands[1]));
+
+	if (operands[2] == CONST1_RTX (SImode))
 	  /* This clobbers CC.  */
 	  emit_insn (gen_arm_<shift>di3_1bit (operands[0], operands[1]));
 	else
@@ -1295,8 +1299,8 @@
 
     DONE;
   }"
-  [(set_attr "arch" "neon_for_64bits,neon_for_64bits,*,*,avoid_neon_for_64bits,avoid_neon_for_64bits")
-   (set_attr "opt" "*,*,speed,speed,*,*")
+  [(set_attr "arch" "neon_for_64bits,neon_for_64bits,*,*,*,avoid_neon_for_64bits,avoid_neon_for_64bits")
+   (set_attr "opt" "*,*,speed,speed,speed,*,*")
    (set_attr "type" "multiple")]
 )
 
@@ -1331,14 +1335,14 @@
   }
 )
 
-(define_insn "vec_sel_widen_ssum_lo<VQI:mode><VW:mode>3"
-  [(set (match_operand:<VW:V_widen> 0 "s_register_operand" "=w")
-	(plus:<VW:V_widen>
-	 (sign_extend:<VW:V_widen>
-	  (vec_select:VW
+(define_insn "vec_sel_widen_ssum_lo<mode><V_half>3"
+  [(set (match_operand:<V_double_width> 0 "s_register_operand" "=w")
+	(plus:<V_double_width>
+	 (sign_extend:<V_double_width>
+	  (vec_select:<V_HALF>
 	   (match_operand:VQI 1 "s_register_operand" "%w")
 	   (match_operand:VQI 2 "vect_par_constant_low" "")))
-	 (match_operand:<VW:V_widen> 3 "s_register_operand" "0")))]
+	 (match_operand:<V_double_width> 3 "s_register_operand" "0")))]
   "TARGET_NEON"
 {
   return BYTES_BIG_ENDIAN ?  "vaddw.<V_s_elem>\t%q0, %q3, %f1" :
@@ -1346,13 +1350,14 @@
 }
   [(set_attr "type" "neon_add_widen")])
 
-(define_insn "vec_sel_widen_ssum_hi<VQI:mode><VW:mode>3"
-  [(set (match_operand:<VW:V_widen> 0 "s_register_operand" "=w")
-	(plus:<VW:V_widen>
-	 (sign_extend:<VW:V_widen>
-	  (vec_select:VW (match_operand:VQI 1 "s_register_operand" "%w")
+(define_insn "vec_sel_widen_ssum_hi<mode><V_half>3"
+  [(set (match_operand:<V_double_width> 0 "s_register_operand" "=w")
+	(plus:<V_double_width>
+	 (sign_extend:<V_double_width>
+	  (vec_select:<V_HALF>
+			 (match_operand:VQI 1 "s_register_operand" "%w")
 			 (match_operand:VQI 2 "vect_par_constant_high" "")))
-	 (match_operand:<VW:V_widen> 3 "s_register_operand" "0")))]
+	 (match_operand:<V_double_width> 3 "s_register_operand" "0")))]
   "TARGET_NEON"
 {
   return BYTES_BIG_ENDIAN ?  "vaddw.<V_s_elem>\t%q0, %q3, %e1" :
@@ -1400,14 +1405,14 @@
   }
 )
 
-(define_insn "vec_sel_widen_usum_lo<VQI:mode><VW:mode>3"
-  [(set (match_operand:<VW:V_widen> 0 "s_register_operand" "=w")
-	(plus:<VW:V_widen>
-	 (zero_extend:<VW:V_widen>
-	  (vec_select:VW
+(define_insn "vec_sel_widen_usum_lo<mode><V_half>3"
+  [(set (match_operand:<V_double_width> 0 "s_register_operand" "=w")
+	(plus:<V_double_width>
+	 (zero_extend:<V_double_width>
+	  (vec_select:<V_HALF>
 	   (match_operand:VQI 1 "s_register_operand" "%w")
 	   (match_operand:VQI 2 "vect_par_constant_low" "")))
-	 (match_operand:<VW:V_widen> 3 "s_register_operand" "0")))]
+	 (match_operand:<V_double_width> 3 "s_register_operand" "0")))]
   "TARGET_NEON"
 {
   return BYTES_BIG_ENDIAN ?  "vaddw.<V_u_elem>\t%q0, %q3, %f1" :
@@ -1415,13 +1420,14 @@
 }
   [(set_attr "type" "neon_add_widen")])
 
-(define_insn "vec_sel_widen_usum_hi<VQI:mode><VW:mode>3"
-  [(set (match_operand:<VW:V_widen> 0 "s_register_operand" "=w")
-	(plus:<VW:V_widen>
-	 (zero_extend:<VW:V_widen>
-	  (vec_select:VW (match_operand:VQI 1 "s_register_operand" "%w")
+(define_insn "vec_sel_widen_usum_hi<mode><V_half>3"
+  [(set (match_operand:<V_double_width> 0 "s_register_operand" "=w")
+	(plus:<V_double_width>
+	 (zero_extend:<V_double_width>
+	  (vec_select:<V_HALF>
+			 (match_operand:VQI 1 "s_register_operand" "%w")
 			 (match_operand:VQI 2 "vect_par_constant_high" "")))
-	 (match_operand:<VW:V_widen> 3 "s_register_operand" "0")))]
+	 (match_operand:<V_double_width> 3 "s_register_operand" "0")))]
   "TARGET_NEON"
 {
  return BYTES_BIG_ENDIAN ?  "vaddw.<V_u_elem>\t%q0, %q3, %e1" :
@@ -2841,6 +2847,17 @@
  [(set_attr "type" "neon_fp_minmax_s<q>")]
 )
 
+;; v<maxmin>nm intrinsics.
+(define_insn "neon_<fmaxmin_op><mode>"
+  [(set (match_operand:VCVTF 0 "s_register_operand" "=w")
+	(unspec:VCVTF [(match_operand:VCVTF 1 "s_register_operand" "w")
+		       (match_operand:VCVTF 2 "s_register_operand" "w")]
+		       VMAXMINFNM))]
+  "TARGET_NEON && TARGET_FPU_ARMV8"
+  "<fmaxmin_op>.<V_s_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
+  [(set_attr "type" "neon_fp_minmax_s<q>")]
+)
+
 ;; Vector forms for the IEEE-754 fmax()/fmin() functions
 (define_insn "<fmaxmin><mode>3"
   [(set (match_operand:VCVTF 0 "s_register_operand" "=w")
@@ -3639,7 +3656,7 @@ if (BYTES_BIG_ENDIAN)
 			  VCVT_US_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vcvt.<sup>%#32.f32\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_fp_to_int_<V_elem_ch><q>")]
@@ -3653,7 +3670,7 @@ if (BYTES_BIG_ENDIAN)
     VCVT_US_N))]
   "TARGET_NEON_FP16INST"
 {
-  neon_const_bounds (operands[2], 0, 17);
+  arm_const_bounds (operands[2], 0, 17);
   return "vcvt.<sup>%#16.f16\t%<V_reg>0, %<V_reg>1, %2";
 }
  [(set_attr "type" "neon_fp_to_int_<VH_elem_ch><q>")]
@@ -3666,7 +3683,7 @@ if (BYTES_BIG_ENDIAN)
 			  VCVT_US_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, 33);
+  arm_const_bounds (operands[2], 1, 33);
   return "vcvt.f32.<sup>%#32\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_int_to_fp_<V_elem_ch><q>")]
@@ -3680,7 +3697,7 @@ if (BYTES_BIG_ENDIAN)
     VCVT_US_N))]
  "TARGET_NEON_FP16INST"
 {
-  neon_const_bounds (operands[2], 0, 17);
+  arm_const_bounds (operands[2], 0, 17);
   return "vcvt.f16.<sup>%#16\t%<V_reg>0, %<V_reg>1, %2";
 }
  [(set_attr "type" "neon_int_to_fp_<VH_elem_ch><q>")]
@@ -4285,7 +4302,7 @@ if (BYTES_BIG_ENDIAN)
                      UNSPEC_VEXT))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 0, GET_MODE_NUNITS (<MODE>mode));
+  arm_const_bounds (operands[3], 0, GET_MODE_NUNITS (<MODE>mode));
   return "vext.<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_ext<q>")]
@@ -4382,7 +4399,7 @@ if (BYTES_BIG_ENDIAN)
                       VSHR_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) + 1);
   return "v<shift_op>.<sup>%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_shift_imm<q>")]
@@ -4396,7 +4413,7 @@ if (BYTES_BIG_ENDIAN)
                            VSHRN_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
   return "v<shift_op>.<V_if_elem>\t%P0, %q1, %2";
 }
   [(set_attr "type" "neon_shift_imm_narrow_q")]
@@ -4410,7 +4427,7 @@ if (BYTES_BIG_ENDIAN)
                            VQSHRN_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
   return "v<shift_op>.<sup>%#<V_sz_elem>\t%P0, %q1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm_narrow_q")]
@@ -4424,7 +4441,7 @@ if (BYTES_BIG_ENDIAN)
                            VQSHRUN_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
+  arm_const_bounds (operands[2], 1, neon_element_bits (<MODE>mode) / 2 + 1);
   return "v<shift_op>.<V_s_elem>\t%P0, %q1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm_narrow_q")]
@@ -4437,7 +4454,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VSHL_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
   return "vshl.<V_if_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_shift_imm<q>")]
@@ -4450,7 +4467,7 @@ if (BYTES_BIG_ENDIAN)
                       VQSHL_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
   return "vqshl.<sup>%#<V_sz_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm<q>")]
@@ -4463,7 +4480,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VQSHLU_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode));
   return "vqshlu.<V_s_elem>\t%<V_reg>0, %<V_reg>1, %2";
 }
   [(set_attr "type" "neon_sat_shift_imm<q>")]
@@ -4477,7 +4494,7 @@ if (BYTES_BIG_ENDIAN)
   "TARGET_NEON"
 {
   /* The boundaries are: 0 < imm <= size.  */
-  neon_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[2], 0, neon_element_bits (<MODE>mode) + 1);
   return "vshll.<sup>%#<V_sz_elem>\t%q0, %P1, %2";
 }
   [(set_attr "type" "neon_shift_imm_long")]
@@ -4492,7 +4509,7 @@ if (BYTES_BIG_ENDIAN)
                       VSRA_N))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
   return "v<shift_op>.<sup>%#<V_sz_elem>\t%<V_reg>0, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_shift_acc<q>")]
@@ -4506,7 +4523,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VSRI))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
+  arm_const_bounds (operands[3], 1, neon_element_bits (<MODE>mode) + 1);
   return "vsri.<V_sz_elem>\t%<V_reg>0, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_shift_reg<q>")]
@@ -4520,7 +4537,7 @@ if (BYTES_BIG_ENDIAN)
                       UNSPEC_VSLI))]
   "TARGET_NEON"
 {
-  neon_const_bounds (operands[3], 0, neon_element_bits (<MODE>mode));
+  arm_const_bounds (operands[3], 0, neon_element_bits (<MODE>mode));
   return "vsli.<V_sz_elem>\t%<V_reg>0, %<V_reg>2, %3";
 }
   [(set_attr "type" "neon_shift_reg<q>")]

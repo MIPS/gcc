@@ -1,4 +1,4 @@
-// Copyright (C) 2011-2016 Free Software Foundation, Inc.
+// Copyright (C) 2011-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,11 +33,13 @@ void test01()
   const auto b0 = std::bind(X());
   VERIFY( b0() == 0 );
 
+#if __cplusplus <= 201402L
   volatile auto b1 = std::bind(X());
   VERIFY( b1() == 1 );
 
   const volatile auto b2 = std::bind(X());
   VERIFY( b2() == 2 );
+#endif
 }
 
 int main()

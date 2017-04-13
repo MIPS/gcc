@@ -1,4 +1,4 @@
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,8 +26,6 @@ using __gnu_test::uneq_allocator;
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
-
   typedef uneq_allocator<std::pair<const int, int> > alloc_type;
   typedef __gnu_debug::map<int, int, std::less<int>, alloc_type> test_type;
 

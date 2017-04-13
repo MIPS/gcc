@@ -1,4 +1,4 @@
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,7 +30,6 @@ template class std::deque<T, CustomPointerAlloc<T>>;
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   typedef CustomPointerAlloc<T> alloc_type;
   typedef std::deque<T, alloc_type> test_type;
   test_type v(1);

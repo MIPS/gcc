@@ -1,6 +1,6 @@
 // Stack implementation -*- C++ -*-
 
-// Copyright (C) 2001-2016 Free Software Foundation, Inc.
+// Copyright (C) 2001-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -98,21 +98,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp, typename _Sequence = deque<_Tp> >
     class stack
     {
+#ifdef _GLIBCXX_CONCEPT_CHECKS
       // concept requirements
       typedef typename _Sequence::value_type _Sequence_value_type;
-#if __cplusplus < 201103L
+# if __cplusplus < 201103L
       __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
       __glibcxx_class_requires(_Sequence, _BackInsertionSequenceConcept)
-#endif
+# endif
       __glibcxx_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
+#endif
 
       template<typename _Tp1, typename _Seq1>
-        friend bool
-        operator==(const stack<_Tp1, _Seq1>&, const stack<_Tp1, _Seq1>&);
+	friend bool
+	operator==(const stack<_Tp1, _Seq1>&, const stack<_Tp1, _Seq1>&);
 
       template<typename _Tp1, typename _Seq1>
-        friend bool
-        operator<(const stack<_Tp1, _Seq1>&, const stack<_Tp1, _Seq1>&);
+	friend bool
+	operator<(const stack<_Tp1, _Seq1>&, const stack<_Tp1, _Seq1>&);
 
 #if __cplusplus >= 201103L
       template<typename _Alloc>
@@ -121,11 +123,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #endif
 
     public:
-      typedef typename _Sequence::value_type                value_type;
-      typedef typename _Sequence::reference                 reference;
-      typedef typename _Sequence::const_reference           const_reference;
-      typedef typename _Sequence::size_type                 size_type;
-      typedef          _Sequence                            container_type;
+      typedef typename _Sequence::value_type		value_type;
+      typedef typename _Sequence::reference		reference;
+      typedef typename _Sequence::const_reference	const_reference;
+      typedef typename _Sequence::size_type		size_type;
+      typedef	       _Sequence			container_type;
 
     protected:
       //  See queue::c for notes on this name.
@@ -141,12 +143,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       stack(const _Sequence& __c = _Sequence())
       : c(__c) { }
 #else
+      template<typename _Seq = _Sequence, typename _Requires = typename
+	       enable_if<is_default_constructible<_Seq>::value>::type>
+	stack()
+	: c() { }
+
       explicit
       stack(const _Sequence& __c)
       : c(__c) { }
 
       explicit
-      stack(_Sequence&& __c = _Sequence())
+      stack(_Sequence&& __c)
       : c(std::move(__c)) { }
 
       template<typename _Alloc, typename _Requires = _Uses<_Alloc>>
@@ -223,10 +230,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       push(value_type&& __x)
       { c.push_back(std::move(__x)); }
 
+#if __cplusplus > 201402L
       template<typename... _Args>
-        void
-        emplace(_Args&&... __args)
+	decltype(auto)
+	emplace(_Args&&... __args)
+	{ return c.emplace_back(std::forward<_Args>(__args)...); }
+#else
+      template<typename... _Args>
+	void
+	emplace(_Args&&... __args)
 	{ c.emplace_back(std::forward<_Args>(__args)...); }
+#endif
 #endif
 
       /**

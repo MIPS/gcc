@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,7 +31,6 @@ using __gnu_test::propagating_allocator;
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   typedef propagating_allocator<T, false> alloc_type;
   typedef std::set<T, Cmp, alloc_type> test_type;
   test_type v1(alloc_type(1));
@@ -43,7 +42,6 @@ void test01()
 
 void test02()
 {
-  bool test __attribute__((unused)) = true;
   typedef propagating_allocator<T, true> alloc_type;
   typedef std::set<T, Cmp, alloc_type> test_type;
   test_type v1(alloc_type(1));
@@ -55,7 +53,6 @@ void test02()
 
 void test03()
 {
-  bool test __attribute__((unused)) = true;
   typedef propagating_allocator<T, true> alloc_type;
   typedef std::set<T, Cmp, alloc_type> test_type;
   test_type v1(alloc_type(1));

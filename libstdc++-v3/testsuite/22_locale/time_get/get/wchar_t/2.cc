@@ -3,7 +3,7 @@
 
 // 2014-04-14 Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
 
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,7 +38,6 @@
 void test02()
 {
   using namespace std;
-  bool test __attribute__((unused)) = true;
 
   locale loc_c = locale::classic();
   locale loc_de = locale("de_DE.UTF-8");

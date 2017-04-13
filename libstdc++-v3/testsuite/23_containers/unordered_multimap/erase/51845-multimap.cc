@@ -2,7 +2,7 @@
 
 // 2012-01-19  Jakub Jelinek  <jakub@redhat.com>
 //
-// Copyright (C) 2012-2016 Free Software Foundation, Inc.
+// Copyright (C) 2012-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,8 +25,6 @@
 // libstdc++/51845
 void test01()
 {
-  bool test __attribute__((unused)) = true;
-
   typedef std::unordered_multimap<int, int> Mmap;
   typedef Mmap::iterator       iterator;
   typedef Mmap::const_iterator const_iterator;

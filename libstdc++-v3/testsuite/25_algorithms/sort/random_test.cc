@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,8 +37,6 @@ struct testSort
   template<typename Container, typename RandomGen>
   void operator()(Container con, RandomGen&)
   {
-    bool test __attribute__((unused)) = true;
-
     std::sort(con.begin(), con.end());
     VERIFY( std::is_sorted(con.begin(), con.end()) );
   }

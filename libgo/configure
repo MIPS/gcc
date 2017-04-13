@@ -624,6 +624,7 @@ GO_SPLIT_STACK
 USING_SPLIT_STACK_FALSE
 USING_SPLIT_STACK_TRUE
 SPLIT_STACK
+HWCAP_CFLAGS
 OSCFLAGS
 GO_SYSCALL_OS_ARCH_FILE
 GO_SYSCALL_OS_FILE
@@ -665,6 +666,8 @@ LIBGO_IS_DARWIN_FALSE
 LIBGO_IS_DARWIN_TRUE
 go_include
 LIBATOMIC
+USE_LIBFFI_FALSE
+USE_LIBFFI_TRUE
 LIBFFIINCS
 LIBFFI
 nover_glibgo_toolexeclibdir
@@ -2489,7 +2492,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 ac_config_headers="$ac_config_headers config.h"
 
 
-libtool_VERSION=10:0:0
+libtool_VERSION=11:0:0
 
 
 # Default to --enable-multilib
@@ -11101,7 +11104,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11104 "configure"
+#line 11107 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11207,7 +11210,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11210 "configure"
+#line 11213 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -13469,6 +13472,14 @@ $as_echo "#define USE_LIBFFI 1" >>confdefs.h
 fi
 
 
+ if test "$with_liffi" != "no"; then
+  USE_LIBFFI_TRUE=
+  USE_LIBFFI_FALSE='#'
+else
+  USE_LIBFFI_TRUE='#'
+  USE_LIBFFI_FALSE=
+fi
+
 
 # See if the user wants to configure without libatomic. This is useful if we are
 # on an architecture for which libgo does not need an atomic support library and
@@ -13614,7 +13625,7 @@ esac
 # supported by the gofrontend and all architectures supported by the
 # gc toolchain.
 # N.B. Keep in sync with gcc/testsuite/go.test/go-test.exp (go-set-goarch).
-ALLGOARCH="386 alpha amd64 amd64p32 arm armbe arm64 arm64be ia64 m68k mipso32 mipsn32 mipso64 mipsn64 mips mipsle mips64 mips64le mips64p32 mips64pe32le ppc ppc64 ppc64le s390 s390x sparc sparc64"
+ALLGOARCH="386 alpha amd64 amd64p32 arm armbe arm64 arm64be ia64 m68k mipso32 mipsn32 mipso64 mipsn64 mips mipsle mips64 mips64le mips64p32 mips64p32le ppc ppc64 ppc64le s390 s390x sparc sparc64"
 
 # All known GOARCH_FAMILY values.
 ALLGOARCHFAMILY="I386 ALPHA AMD64 ARM ARM64 IA64 M68K MIPS MIPS64 PPC PPC64 S390 S390X SPARC SPARC64"
@@ -13648,7 +13659,6 @@ case ${host} in
     GOARCH_FAMILY=ARM
     GOARCH_CACHELINESIZE=32
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
     GOARCH_MINFRAMESIZE=4
     ;;
   i[34567]86-*-* | x86_64-*-*)
@@ -13677,7 +13687,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     GOARCH=ia64
     GOARCH_FAMILY=IA64
     GOARCH_CACHELINESIZE=16384
-    GOARCH_PHYSPAGESIZE=8192
+    GOARCH_PHYSPAGESIZE=65536
     ;;
   m68k*-*-*)
     GOARCH=m68k
@@ -13685,7 +13695,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     GOARCH_BIGENDIAN=1
     GOARCH_CACHELINESIZE=16
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
+    GOARCH_INT64ALIGN=2
     ;;
   mips*-*-*)
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -13747,7 +13757,6 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     case "$mips_abi" in
     "o32" | "n32")
         GOARCH_FAMILY=MIPS
-	GOARCH_INT64ALIGN=4
 	GOARCH_MINFRAMESIZE=4
         ;;
     "n64" | "o64")
@@ -13778,7 +13787,6 @@ if ac_fn_c_try_compile "$LINENO"; then :
   GOARCH=ppc
 GOARCH_FAMILY=PPC
 GOARCH_BIGENDIAN=1
-GOARCH_INT64ALIGN=4
 
 else
 
@@ -13816,7 +13824,6 @@ _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   GOARCH=s390
 GOARCH_FAMILY=S390
-GOARCH_INT64ALIGN=4
 GOARCH_MINFRAMESIZE=4
 
 else
@@ -13841,7 +13848,6 @@ _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   GOARCH=sparc
 GOARCH_FAMILY=SPARC
-GOARCH_INT64ALIGN=4
 
 else
   GOARCH=sparc64
@@ -13901,6 +13907,48 @@ case "$target" in
 	OSCFLAGS="$OSCFLAGS -std=gnu99 -D_XOPEN_SOURCE=600 -D__EXTENSIONS__"
 	;;
 esac
+
+
+
+  test -z "$HWCAP_CFLAGS" && HWCAP_CFLAGS=''
+
+  # Restrict the test to Solaris, other assemblers (e.g. AIX as) have -nH
+  # with a different meaning.
+  case ${target_os} in
+    solaris2*)
+      ac_save_CFLAGS="$CFLAGS"
+      CFLAGS="$CFLAGS -Wa,-nH"
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for as that supports -Wa,-nH" >&5
+$as_echo_n "checking for as that supports -Wa,-nH... " >&6; }
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_hwcap_flags=yes
+else
+  ac_hwcap_flags=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      if test "$ac_hwcap_flags" = "yes"; then
+	HWCAP_CFLAGS="-Wa,-nH $HWCAP_CFLAGS"
+      fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_hwcap_flags" >&5
+$as_echo "$ac_hwcap_flags" >&6; }
+
+      CFLAGS="$ac_save_CFLAGS"
+      ;;
+  esac
+
+
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether -fsplit-stack is supported" >&5
@@ -14714,7 +14762,7 @@ $as_echo "#define HAVE_GETIPINFO 1" >>confdefs.h
   fi
 
 
-for ac_header in sched.h semaphore.h sys/file.h sys/mman.h syscall.h sys/epoll.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h
+for ac_header in port.h sched.h semaphore.h sys/file.h sys/mman.h syscall.h sys/epoll.h sys/event.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h
 do :
   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
 ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
@@ -15435,6 +15483,32 @@ $as_echo "#define HAVE_AS_X86_64_UNWIND_SECTION_TYPE 1" >>confdefs.h
 
 fi
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler supports AES instructions" >&5
+$as_echo_n "checking assembler supports AES instructions... " >&6; }
+if test "${libgo_cv_as_x86_aes+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+
+libgo_cv_as_x86_aes=yes
+echo 'aesenc %xmm0, %xmm1' > conftest.s
+CFLAGS_hold=$CFLAGS
+if test "$libgo_cv_c_unused_arguments" = yes; then
+  CFLAGS="$CFLAGS -Qunused-arguments"
+fi
+if $CC $CFLAGS -c conftest.s 2>&1 | grep -i error > /dev/null; then
+    libgo_cv_as_x86_aes=no
+fi
+CFLAGS=$CFLAGS_hold
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libgo_cv_as_x86_aes" >&5
+$as_echo "$libgo_cv_as_x86_aes" >&6; }
+if test "x$libgo_cv_as_x86_aes" = xyes; then
+
+$as_echo "#define HAVE_AS_X86_AES 1" >>confdefs.h
+
+fi
+
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -15637,6 +15711,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${MAINTAINER_MODE_TRUE}" && test -z "${MAINTAINER_MODE_FALSE}"; then
   as_fn_error "conditional \"MAINTAINER_MODE\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${USE_LIBFFI_TRUE}" && test -z "${USE_LIBFFI_FALSE}"; then
+  as_fn_error "conditional \"USE_LIBFFI\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${LIBGO_IS_DARWIN_TRUE}" && test -z "${LIBGO_IS_DARWIN_FALSE}"; then
@@ -16300,7 +16378,6 @@ CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 CC="$CC"
 CXX="$CXX"
 GFORTRAN="$GFORTRAN"
-GCJ="$GCJ"
 AMDEP_TRUE="$AMDEP_TRUE" ac_aux_dir="$ac_aux_dir"
 
 

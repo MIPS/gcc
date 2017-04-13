@@ -1,5 +1,5 @@
 /* UndefinedBehaviorSanitizer, undefined behavior detector.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Marek Polacek <polacek@redhat.com>
 
 This file is part of GCC.
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "cfghooks.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "ssa.h"
 #include "cgraph.h"
@@ -144,6 +145,7 @@ ubsan_encode_value (tree t, bool in_expand_p)
 	     code by making vars unnecessarily addressable.  */
 	  tree var = create_tmp_var (type);
 	  tree tem = build2 (MODIFY_EXPR, void_type_node, var, t);
+	  mark_addressable (var);
 	  if (in_expand_p)
 	    {
 	      rtx mem
@@ -408,7 +410,9 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
 	{
 	  pp_left_bracket (&pretty_name);
 	  tree dom = TYPE_DOMAIN (t);
-	  if (dom && TREE_CODE (TYPE_MAX_VALUE (dom)) == INTEGER_CST)
+	  if (dom != NULL_TREE
+	      && TYPE_MAX_VALUE (dom) != NULL_TREE
+	      && TREE_CODE (TYPE_MAX_VALUE (dom)) == INTEGER_CST)
 	    {
 	      if (tree_fits_uhwi_p (TYPE_MAX_VALUE (dom))
 		  && tree_to_uhwi (TYPE_MAX_VALUE (dom)) + 1 != 0)
@@ -669,7 +673,7 @@ ubsan_expand_bounds_ifn (gimple_stmt_iterator *gsi)
   /* Pick up the arguments of the UBSAN_BOUNDS call.  */
   tree type = TREE_TYPE (TREE_TYPE (gimple_call_arg (stmt, 0)));
   tree index = gimple_call_arg (stmt, 1);
-  tree orig_index_type = TREE_TYPE (index);
+  tree orig_index = index;
   tree bound = gimple_call_arg (stmt, 2);
 
   gimple_stmt_iterator gsi_orig = *gsi;
@@ -696,7 +700,7 @@ ubsan_expand_bounds_ifn (gimple_stmt_iterator *gsi)
       tree data
 	= ubsan_create_data ("__ubsan_out_of_bounds_data", 1, &loc,
 			     ubsan_type_descriptor (type, UBSAN_PRINT_ARRAY),
-			     ubsan_type_descriptor (orig_index_type),
+			     ubsan_type_descriptor (TREE_TYPE (orig_index)),
 			     NULL_TREE, NULL_TREE);
       data = build_fold_addr_expr_loc (loc, data);
       enum built_in_function bcode
@@ -704,9 +708,9 @@ ubsan_expand_bounds_ifn (gimple_stmt_iterator *gsi)
 	  ? BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS
 	  : BUILT_IN_UBSAN_HANDLE_OUT_OF_BOUNDS_ABORT;
       tree fn = builtin_decl_explicit (bcode);
-      tree val = force_gimple_operand_gsi (gsi, ubsan_encode_value (index),
-					   true, NULL_TREE, true,
-					   GSI_SAME_STMT);
+      tree val
+	= force_gimple_operand_gsi (gsi, ubsan_encode_value (orig_index), true,
+				    NULL_TREE, true, GSI_SAME_STMT);
       g = gimple_build_call (fn, 2, data, val);
     }
   gimple_set_location (g, loc);
@@ -1218,14 +1222,20 @@ instrument_null (gimple_stmt_iterator gsi, bool is_lhs)
 
 tree
 ubsan_build_overflow_builtin (tree_code code, location_t loc, tree lhstype,
-			      tree op0, tree op1)
+			      tree op0, tree op1, tree *datap)
 {
   if (flag_sanitize_undefined_trap_on_error)
     return build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
 
-  tree data = ubsan_create_data ("__ubsan_overflow_data", 1, &loc,
-				 ubsan_type_descriptor (lhstype), NULL_TREE,
-				 NULL_TREE);
+  tree data;
+  if (datap && *datap)
+    data = *datap;
+  else
+    data = ubsan_create_data ("__ubsan_overflow_data", 1, &loc,
+			      ubsan_type_descriptor (lhstype), NULL_TREE,
+			      NULL_TREE);
+  if (datap)
+    *datap = data;
   enum built_in_function fn_code;
 
   switch (code)
@@ -1271,14 +1281,15 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
   tree_code code = gimple_assign_rhs_code (stmt);
   tree lhs = gimple_assign_lhs (stmt);
   tree lhstype = TREE_TYPE (lhs);
+  tree lhsinner = VECTOR_TYPE_P (lhstype) ? TREE_TYPE (lhstype) : lhstype;
   tree a, b;
   gimple *g;
 
   /* If this is not a signed operation, don't instrument anything here.
      Also punt on bit-fields.  */
-  if (!INTEGRAL_TYPE_P (lhstype)
-      || TYPE_OVERFLOW_WRAPS (lhstype)
-      || GET_MODE_BITSIZE (TYPE_MODE (lhstype)) != TYPE_PRECISION (lhstype))
+  if (!INTEGRAL_TYPE_P (lhsinner)
+      || TYPE_OVERFLOW_WRAPS (lhsinner)
+      || GET_MODE_BITSIZE (TYPE_MODE (lhsinner)) != TYPE_PRECISION (lhsinner))
     return;
 
   switch (code)
@@ -1304,7 +1315,7 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
       /* Represent i = -u;
 	 as
 	 i = UBSAN_CHECK_SUB (0, u);  */
-      a = build_int_cst (lhstype, 0);
+      a = build_zero_cst (lhstype);
       b = gimple_assign_rhs1 (stmt);
       g = gimple_build_call_internal (IFN_UBSAN_CHECK_SUB, 2, a, b);
       gimple_call_set_lhs (g, lhs);
@@ -1315,7 +1326,7 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
 	 into
 	 _N = UBSAN_CHECK_SUB (0, u);
 	 i = ABS_EXPR<_N>;  */
-      a = build_int_cst (lhstype, 0);
+      a = build_zero_cst (lhstype);
       b = gimple_assign_rhs1 (stmt);
       g = gimple_build_call_internal (IFN_UBSAN_CHECK_SUB, 2, a, b);
       a = make_ssa_name (lhstype);
@@ -1761,7 +1772,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
 	{
 	  tree repr = DECL_BIT_FIELD_REPRESENTATIVE (TREE_OPERAND (t, 1));
 	  t = build3 (COMPONENT_REF, TREE_TYPE (repr), TREE_OPERAND (t, 0),
-		      repr, NULL_TREE);
+		      repr, TREE_OPERAND (t, 2));
 	}
       break;
     case ARRAY_REF:
@@ -1795,7 +1806,11 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
   bool decl_p = DECL_P (inner);
   tree base;
   if (decl_p)
-    base = inner;
+    {
+      if (DECL_REGISTER (inner))
+	return;
+      base = inner;
+    }
   else if (TREE_CODE (inner) == MEM_REF)
     base = TREE_OPERAND (inner, 0);
   else

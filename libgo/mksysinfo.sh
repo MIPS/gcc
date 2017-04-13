@@ -185,7 +185,15 @@ fi
 
 # epoll constants.
 grep '^const _EPOLL' gen-sysinfo.go |
+  grep -v EPOLLET |
   sed -e 's/^\(const \)_\(EPOLL[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
+# Make sure EPOLLET is positive.
+if grep '^const _EPOLLET = [0-9]' gen-sysinfo.go >/dev/null 2>&1; then
+  grep '^const _EPOLLET ' gen-sysinfo.go |
+    sed -e 's/^\(const \)_\(EPOLL[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
+else
+  echo "const EPOLLET = 0x80000000" >> ${OUT}
+fi
 # Make sure EPOLLRDHUP and EPOLL_CLOEXEC are defined.
 if ! grep '^const EPOLLRDHUP' ${OUT} >/dev/null 2>&1; then
   echo "const EPOLLRDHUP = 0x2000" >> ${OUT}
@@ -260,7 +268,7 @@ fi
 # is not empty, the structure or type is renamed to $2.
 upcase_fields () {
   name="$1"
-  def=`grep "^type $name" gen-sysinfo.go`
+  def=`grep "^type $name " gen-sysinfo.go`
   fields=`echo $def | sed -e 's/^[^{]*{\(.*\)}$/\1/'`
   prefix=`echo $def | sed -e 's/{.*//'`
   if test "$2" != ""; then

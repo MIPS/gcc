@@ -1,6 +1,6 @@
 # Makefile.in
 
-# Copyright (C) 2005-2016 Free Software Foundation, Inc.
+# Copyright (C) 2005-2017 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -165,8 +165,13 @@ configure_deps = \
 	$(srcdir)/../config/tls.m4 \
 	$(srcdir)/../config/acx.m4 \
 	$(srcdir)/../config/no-executables.m4 \
+	$(srcdir)/../config/lib-ld.m4 \
 	$(srcdir)/../config/override.m4 \
+	$(srcdir)/../config/picflag.m4 \
 	$(srcdir)/../config/dfp.m4 \
+	$(srcdir)/../config/unwind_ipinfo.m4 \
+	$(srcdir)/../config/gthr.m4 \
+	$(srcdir)/../config/sjlj.m4
 
 $(srcdir)/configure: @MAINT@ $(srcdir)/configure.ac $(configure_deps)
 	cd $(srcdir) && $(AUTOCONF)
@@ -219,7 +224,7 @@ export slibdir
 export toolexecdir
 export toolexeclibdir
 
-version := $(shell cat $(srcdir)/../gcc/BASE-VER)
+version := $(shell @get_gcc_base_ver@ $(srcdir)/../gcc/BASE-VER)
 
 ifeq ($(decimal_float),yes)
 ifeq ($(enable_decimal_float),bid)
@@ -254,10 +259,6 @@ LIB2FUNCS_ST = _eprintf __gcc_bcmp
 
 # List of functions not to build from libgcc2.c.
 LIB2FUNCS_EXCLUDE =
-
-# These might cause a divide overflow trap and so are compiled with
-# unwinder info.
-LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 
 # List of extra C and assembler files to add to static and shared libgcc2.
 # Assembler files should have names ending in `.S'.
@@ -347,8 +348,6 @@ LIBUNWIND =
 SHLIBUNWIND_LINK =
 SHLIBUNWIND_INSTALL =
 
-tmake_file = @tmake_file@
-include $(srcdir)/empty.mk $(tmake_file)
 
 # Create links to files specified in config.host.
 LIBGCC_LINKS = enable-execute-stack.c unwind.h md-unwind-support.h \
@@ -364,6 +363,9 @@ sfp-machine.h: $(srcdir)/config/$(sfp_machine_header)
 	-$(LN_S) $< $@
 gthr-default.h: $(srcdir)/$(thread_header)
 	-$(LN_S) $< $@
+
+tmake_file = @tmake_file@
+include $(srcdir)/empty.mk $(tmake_file)
 
 # Collect target defines and headers from config.host.
 libgcc_tm_defines = @tm_defines@
@@ -455,7 +457,8 @@ endif
 
 # These might cause a divide overflow trap and so are compiled with
 # unwinder info.
-LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
+LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _divmoddi4 \
+		    _udivdi3 _umoddi3 _udivmoddi4 _udiv_w_sdiv
 
 # Remove any objects from lib2funcs and LIB2_DIVMOD_FUNCS that are
 # defined as optimized assembly code in LIB1ASMFUNCS or as C code

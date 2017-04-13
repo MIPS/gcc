@@ -3,7 +3,7 @@
 //
 // 2014-07-11  Edward M. Smith-Rowland  <3dw4rd@verizon.net>
 //
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,8 +30,6 @@
 void
 test01()
 {
-  bool test [[gnu::unused]] = true;
-
   std::stringstream str;
   __gnu_cxx::logistic_distribution<double> u(1.5, 3.0), v;
   std::minstd_rand0 rng;

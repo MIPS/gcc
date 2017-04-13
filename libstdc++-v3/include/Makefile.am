@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001-2016 Free Software Foundation, Inc.
+## Copyright (C) 2001-2017 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -99,15 +99,10 @@ bits_headers = \
 	${bits_srcdir}/c++17_warning.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
-	${bits_srcdir}/complex128.h \
-	${bits_srcdir}/complex_util.h \
-	${bits_srcdir}/complex_util.tcc \
 	${bits_srcdir}/concept_check.h \
 	${bits_srcdir}/cpp_type_traits.h \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/enable_special_members.h \
-	${bits_srcdir}/float128.h \
-	${bits_srcdir}/float128.tcc \
 	${bits_srcdir}/forward_list.h \
 	${bits_srcdir}/forward_list.tcc \
 	${bits_srcdir}/fstream.tcc \
@@ -131,11 +126,10 @@ bits_headers = \
 	${bits_srcdir}/locale_facets_nonio.tcc \
 	${bits_srcdir}/localefwd.h \
 	${bits_srcdir}/mask_array.h \
+	${bits_srcdir}/specfun.h \
 	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
-	${bits_srcdir}/std_mutex.h \
 	${bits_srcdir}/node_handle.h \
-	${bits_srcdir}/numeric_limits.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/parse_numbers.h \
@@ -146,6 +140,7 @@ bits_headers = \
 	${bits_srcdir}/random.h \
 	${bits_srcdir}/random.tcc \
 	${bits_srcdir}/range_access.h \
+	${bits_srcdir}/refwrap.h \
 	${bits_srcdir}/regex.h \
 	${bits_srcdir}/regex.tcc \
 	${bits_srcdir}/regex_constants.h \
@@ -158,41 +153,13 @@ bits_headers = \
 	${bits_srcdir}/regex_compiler.tcc \
 	${bits_srcdir}/regex_executor.h \
 	${bits_srcdir}/regex_executor.tcc \
-	${bits_srcdir}/sf_airy.tcc \
-	${bits_srcdir}/sf_bessel.tcc \
-	${bits_srcdir}/sf_beta.tcc \
-	${bits_srcdir}/sf_cardinal.tcc \
-	${bits_srcdir}/sf_chebyshev.tcc \
-	${bits_srcdir}/sf_dawson.tcc \
-	${bits_srcdir}/sf_distributions.tcc \
-	${bits_srcdir}/sf_ellint.tcc \
-	${bits_srcdir}/sf_expint.tcc \
-	${bits_srcdir}/sf_fresnel.tcc \
-	${bits_srcdir}/sf_gamma.tcc \
-	${bits_srcdir}/sf_gegenbauer.tcc \
-	${bits_srcdir}/sf_hankel.tcc \
-	${bits_srcdir}/sf_hermite.tcc \
-	${bits_srcdir}/sf_hydrogen.tcc \
-	${bits_srcdir}/sf_hyperg.tcc \
-	${bits_srcdir}/sf_hypint.tcc \
-	${bits_srcdir}/sf_jacobi.tcc \
-	${bits_srcdir}/sf_laguerre.tcc \
-	${bits_srcdir}/sf_legendre.tcc \
-	${bits_srcdir}/sf_mod_bessel.tcc \
-	${bits_srcdir}/sf_owens_t.tcc \
-	${bits_srcdir}/sf_polylog.tcc \
-	${bits_srcdir}/sf_theta.tcc \
-	${bits_srcdir}/sf_trig.tcc \
-	${bits_srcdir}/sf_trigint.tcc \
-	${bits_srcdir}/sf_zeta.tcc \
 	${bits_srcdir}/shared_ptr.h \
 	${bits_srcdir}/shared_ptr_atomic.h \
 	${bits_srcdir}/shared_ptr_base.h \
 	${bits_srcdir}/slice_array.h \
-	${bits_srcdir}/specfun.h \
-	${bits_srcdir}/specfun_util.h \
 	${bits_srcdir}/sstream.tcc \
 	${bits_srcdir}/std_abs.h \
+	${bits_srcdir}/std_function.h \
 	${bits_srcdir}/std_mutex.h \
 	${bits_srcdir}/stl_algo.h \
 	${bits_srcdir}/stl_algobase.h \
@@ -224,8 +191,6 @@ bits_headers = \
 	${bits_srcdir}/streambuf.tcc \
 	${bits_srcdir}/stringfwd.h \
 	${bits_srcdir}/string_view.tcc \
-	${bits_srcdir}/summation.h \
-	${bits_srcdir}/summation.tcc \
 	${bits_srcdir}/uniform_int_dist.h \
 	${bits_srcdir}/unique_ptr.h \
 	${bits_srcdir}/unordered_map.h \
@@ -576,8 +541,6 @@ ext_headers = \
 	${ext_srcdir}/functional \
 	${ext_srcdir}/iterator \
 	${ext_srcdir}/malloc_allocator.h \
-	${ext_srcdir}/math_const.h \
-	${ext_srcdir}/math_util.h \
 	${ext_srcdir}/memory \
 	${ext_srcdir}/mt_allocator.h \
 	${ext_srcdir}/new_allocator.h \
@@ -585,8 +548,6 @@ ext_headers = \
 	${ext_srcdir}/numeric_traits.h \
 	${ext_srcdir}/pod_char_traits.h \
 	${ext_srcdir}/pointer.h \
-	${ext_srcdir}/polynomial.h \
-	${ext_srcdir}/polynomial.tcc \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
 	${ext_srcdir}/random \
@@ -645,9 +606,9 @@ tr1_headers = \
 	${tr1_srcdir}/functional \
 	${tr1_srcdir}/functional_hash.h \
 	${tr1_srcdir}/gamma.tcc \
+	${tr1_srcdir}/hypergeometric.tcc \
 	${tr1_srcdir}/hashtable.h \
 	${tr1_srcdir}/hashtable_policy.h \
-	${tr1_srcdir}/hypergeometric.tcc \
 	${tr1_srcdir}/inttypes.h \
 	${tr1_srcdir}/limits.h \
 	${tr1_srcdir}/math.h \
@@ -1277,6 +1238,7 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 			      stamp-cxx11-abi \
 			      stamp-allocator-new
 	@date=`cat ${toplevel_srcdir}/gcc/DATESTAMP` ;\
+	release=`sed 's/^\([0-9]*\).*$$/\1/' ${toplevel_srcdir}/gcc/BASE-VER` ;\
 	ns_version=`cat stamp-namespace-version` ;\
 	visibility=`cat stamp-visibility` ;\
 	externtemplate=`cat stamp-extern-template` ;\
@@ -1288,6 +1250,7 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	${CONFIG_HEADER} > /dev/null 2>&1 \
 	&& ldbl_compat='s,^#undef _GLIBCXX_LONG_DOUBLE_COMPAT$$,#define _GLIBCXX_LONG_DOUBLE_COMPAT 1,' ;\
 	sed -e "s,define __GLIBCXX__,define __GLIBCXX__ $$date," \
+	-e "s,define _GLIBCXX_RELEASE,define _GLIBCXX_RELEASE $$release," \
 	-e "s,define _GLIBCXX_INLINE_VERSION, define _GLIBCXX_INLINE_VERSION $$ns_version," \
 	-e "s,define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY, define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY $$visibility," \
 	-e "s,define _GLIBCXX_EXTERN_TEMPLATE$$, define _GLIBCXX_EXTERN_TEMPLATE $$externtemplate," \

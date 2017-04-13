@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.  Selective scheduler and pipeliner.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "cfgbuild.h"
@@ -2528,6 +2529,7 @@ moveup_expr_cached (expr_t expr, insn_t insn, bool inside_insn_group)
     }
 
   if (DEBUG_INSN_P (EXPR_INSN_RTX (expr))
+      && BLOCK_FOR_INSN (EXPR_INSN_RTX (expr))
       && (sel_bb_head (BLOCK_FOR_INSN (EXPR_INSN_RTX (expr)))
 	  == EXPR_INSN_RTX (expr)))
     /* Don't use cached information for debug insns that are heads of

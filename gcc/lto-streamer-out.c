@@ -1,6 +1,6 @@
 /* Write the GIMPLE representation to a file stream.
 
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    Re-implemented by Diego Novillo <dnovillo@google.com>
 
@@ -1143,6 +1143,8 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
 	}
       else if (code == ARRAY_TYPE)
 	hstate.add_flag (TYPE_NONALIASED_COMPONENT (t));
+      if (AGGREGATE_TYPE_P (t))
+	hstate.add_flag (TYPE_TYPELESS_STORAGE (t));
       hstate.commit_flag ();
       hstate.add_int (TYPE_PRECISION (t));
       hstate.add_int (TYPE_ALIGN (t));
@@ -2720,8 +2722,9 @@ lto_write_mode_table (void)
     if (streamer_mode_table[i])
       {
 	machine_mode m = (machine_mode) i;
-	if (GET_MODE_INNER (m) != m)
-	  streamer_mode_table[(int) GET_MODE_INNER (m)] = 1;
+	machine_mode inner_m = GET_MODE_INNER (m);
+	if (inner_m != m)
+	  streamer_mode_table[(int) inner_m] = 1;
       }
   /* First stream modes that have GET_MODE_INNER (m) == m,
      so that we can refer to them afterwards.  */

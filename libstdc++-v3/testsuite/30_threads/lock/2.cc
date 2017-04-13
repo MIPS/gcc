@@ -4,7 +4,7 @@
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
 
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2010-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,12 +24,11 @@
 
 #include <mutex>
 #include <thread>
+#include <functional>
 #include <testsuite_hooks.h>
 
 void locker(std::mutex& m1, std::mutex& m2, std::mutex& m3)
 {
-  bool test __attribute__((unused)) = true;
-
   typedef std::unique_lock<std::mutex> lock_type;
 
   lock_type l1(m1, std::defer_lock);

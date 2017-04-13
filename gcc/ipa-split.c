@@ -1,5 +1,5 @@
 /* Function splitting pass
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Jan Hubicka  <jh@suse.cz>
 
 This file is part of GCC.
@@ -1359,6 +1359,15 @@ split_function (basic_block return_bb, struct split_point *split_point,
      split_point->split_bbs, split_point->entry_bb, "part");
 
   node->split_part = true;
+
+  if (cur_node->same_comdat_group)
+    {
+      /* TODO: call is versionable if we make sure that all
+	 callers are inside of a comdat group.  */
+      cur_node->calls_comdat_local = 1;
+      node->add_to_same_comdat_group (cur_node);
+    }
+
 
   /* Let's take a time profile for splitted function.  */
   node->tp_first_run = cur_node->tp_first_run + 1;

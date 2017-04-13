@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -130,6 +130,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -932,9 +933,10 @@ static bitmap region_ref_regs;
 /* Effective number of available registers of a given class (see comment
    in sched_pressure_start_bb).  */
 static int sched_class_regs_num[N_REG_CLASSES];
-/* Number of call_used_regs.  This is a helper for calculating of
+/* Number of call_saved_regs and fixed_regs.  Helpers for calculating of
    sched_class_regs_num.  */
-static int call_used_regs_num[N_REG_CLASSES];
+static int call_saved_regs_num[N_REG_CLASSES];
+static int fixed_regs_num[N_REG_CLASSES];
 
 /* Initiate register pressure relative info for scheduling the current
    region.  Currently it is only clearing register mentioned in the
@@ -3896,17 +3898,19 @@ sched_pressure_start_bb (basic_block bb)
      * If the basic block executes much more often than the prologue/epilogue
      (e.g., inside a hot loop), then cost of spill in the prologue is close to
      nil, so the effective number of available registers is
-     (ira_class_hard_regs_num[cl] - 0).
+     (ira_class_hard_regs_num[cl] - fixed_regs_num[cl] - 0).
      * If the basic block executes as often as the prologue/epilogue,
      then spill in the block is as costly as in the prologue, so the effective
      number of available registers is
-     (ira_class_hard_regs_num[cl] - call_used_regs_num[cl]).
+     (ira_class_hard_regs_num[cl] - fixed_regs_num[cl]
+      - call_saved_regs_num[cl]).
      Note that all-else-equal, we prefer to spill in the prologue, since that
      allows "extra" registers for other basic blocks of the function.
      * If the basic block is on the cold path of the function and executes
      rarely, then we should always prefer to spill in the block, rather than
      in the prologue/epilogue.  The effective number of available register is
-     (ira_class_hard_regs_num[cl] - call_used_regs_num[cl]).  */
+     (ira_class_hard_regs_num[cl] - fixed_regs_num[cl]
+      - call_saved_regs_num[cl]).  */
   {
     int i;
     int entry_freq = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
@@ -3923,9 +3927,10 @@ sched_pressure_start_bb (basic_block bb)
     for (i = 0; i < ira_pressure_classes_num; ++i)
       {
 	enum reg_class cl = ira_pressure_classes[i];
-	sched_class_regs_num[cl] = ira_class_hard_regs_num[cl];
+	sched_class_regs_num[cl] = ira_class_hard_regs_num[cl]
+				   - fixed_regs_num[cl];
 	sched_class_regs_num[cl]
-	  -= (call_used_regs_num[cl] * entry_freq) / bb_freq;
+	  -= (call_saved_regs_num[cl] * entry_freq) / bb_freq;
       }
   }
 
@@ -6490,7 +6495,7 @@ dump_insn_stream (rtx_insn *head, rtx_insn *tail)
 
       if (sched_verbose >= 4)
 	{
-	  if (NOTE_P (insn) || recog_memoized (insn) < 0)
+	  if (NOTE_P (insn) || LABEL_P (insn) || recog_memoized (insn) < 0)
 	    fprintf (sched_dump, "nothing");
 	  else
 	    print_reservation (sched_dump, insn);
@@ -7237,17 +7242,20 @@ alloc_global_sched_pressure_data (void)
 	  region_ref_regs = BITMAP_ALLOC (NULL);
 	}
 
-      /* Calculate number of CALL_USED_REGS in register classes that
-	 we calculate register pressure for.  */
+      /* Calculate number of CALL_SAVED_REGS and FIXED_REGS in register classes
+	 that we calculate register pressure for.  */
       for (int c = 0; c < ira_pressure_classes_num; ++c)
 	{
 	  enum reg_class cl = ira_pressure_classes[c];
 
-	  call_used_regs_num[cl] = 0;
+	  call_saved_regs_num[cl] = 0;
+	  fixed_regs_num[cl] = 0;
 
 	  for (int i = 0; i < ira_class_hard_regs_num[cl]; ++i)
-	    if (call_used_regs[ira_class_hard_regs[cl][i]])
-	      ++call_used_regs_num[cl];
+	    if (!call_used_regs[ira_class_hard_regs[cl][i]])
+	      ++call_saved_regs_num[cl];
+	    else if (fixed_regs[ira_class_hard_regs[cl][i]])
+	      ++fixed_regs_num[cl];
 	}
     }
 }

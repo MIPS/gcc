@@ -1,5 +1,5 @@
 /* C-compiler utilities for types and variables storage layout
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "regs.h"
@@ -615,7 +616,7 @@ layout_decl (tree decl, unsigned int known_align)
 
   DECL_UNSIGNED (decl) = TYPE_UNSIGNED (type);
   if (DECL_MODE (decl) == VOIDmode)
-    DECL_MODE (decl) = TYPE_MODE (type);
+    SET_DECL_MODE (decl, TYPE_MODE (type));
 
   if (DECL_SIZE (decl) == 0)
     {
@@ -681,7 +682,7 @@ layout_decl (tree decl, unsigned int known_align)
 		  && (known_align == 0 || known_align >= xalign))
 		{
 		  SET_DECL_ALIGN (decl, MAX (xalign, DECL_ALIGN (decl)));
-		  DECL_MODE (decl) = xmode;
+		  SET_DECL_MODE (decl, xmode);
 		  DECL_BIT_FIELD (decl) = 0;
 		}
 	    }
@@ -717,7 +718,8 @@ layout_decl (tree decl, unsigned int known_align)
 				     (unsigned) BIGGEST_FIELD_ALIGNMENT));
 #endif
 #ifdef ADJUST_FIELD_ALIGN
-	  SET_DECL_ALIGN (decl, ADJUST_FIELD_ALIGN (decl, DECL_ALIGN (decl)));
+	  SET_DECL_ALIGN (decl, ADJUST_FIELD_ALIGN (decl, TREE_TYPE (decl),
+						    DECL_ALIGN (decl)));
 #endif
 	}
 
@@ -775,7 +777,7 @@ void
 relayout_decl (tree decl)
 {
   DECL_SIZE (decl) = DECL_SIZE_UNIT (decl) = 0;
-  DECL_MODE (decl) = VOIDmode;
+  SET_DECL_MODE (decl, VOIDmode);
   if (!DECL_USER_ALIGN (decl))
     SET_DECL_ALIGN (decl, 0);
   if (DECL_RTL_SET_P (decl))
@@ -1031,7 +1033,7 @@ update_alignment_for_field (record_layout_info rli, tree field,
 
 #ifdef ADJUST_FIELD_ALIGN
 	  if (! TYPE_USER_ALIGN (type))
-	    type_align = ADJUST_FIELD_ALIGN (field, type_align);
+	    type_align = ADJUST_FIELD_ALIGN (field, type, type_align);
 #endif
 
 	  /* Targets might chose to handle unnamed and hence possibly
@@ -1088,6 +1090,10 @@ place_union_field (record_layout_info rli, tree field)
      invalid fields. */
   if (TREE_CODE (TREE_TYPE (field)) == ERROR_MARK)
     return;
+
+  if (AGGREGATE_TYPE_P (TREE_TYPE (field))
+      && TYPE_TYPELESS_STORAGE (TREE_TYPE (field)))
+    TYPE_TYPELESS_STORAGE (rli->t) = 1;
 
   /* We assume the union's size will be a multiple of a byte so we don't
      bother with BITPOS.  */
@@ -1165,6 +1171,10 @@ place_field (record_layout_info rli, tree field)
       SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
       return;
     }
+
+  if (AGGREGATE_TYPE_P (type)
+      && TYPE_TYPELESS_STORAGE (type))
+    TYPE_TYPELESS_STORAGE (rli->t) = 1;
 
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
@@ -1259,7 +1269,7 @@ place_field (record_layout_info rli, tree field)
 
 #ifdef ADJUST_FIELD_ALIGN
       if (! TYPE_USER_ALIGN (type))
-	type_align = ADJUST_FIELD_ALIGN (field, type_align);
+	type_align = ADJUST_FIELD_ALIGN (field, type, type_align);
 #endif
 
       /* A bit field may not span more units of alignment of its type
@@ -1302,7 +1312,7 @@ place_field (record_layout_info rli, tree field)
 
 #ifdef ADJUST_FIELD_ALIGN
       if (! TYPE_USER_ALIGN (type))
-	type_align = ADJUST_FIELD_ALIGN (field, type_align);
+	type_align = ADJUST_FIELD_ALIGN (field, type, type_align);
 #endif
 
       if (maximum_field_alignment != 0)
@@ -1863,13 +1873,14 @@ finish_bitfield_representative (tree repr, tree field)
     }
   else
     {
-      /* ???  If you consider that tail-padding of this struct might be
-         re-used when deriving from it we cannot really do the following
-	 and thus need to set maxsize to bitsize?  Also we cannot
-	 generally rely on maxsize to fold to an integer constant, so
-	 use bitsize as fallback for this case.  */
-      tree maxsize = size_diffop (TYPE_SIZE_UNIT (DECL_CONTEXT (field)),
-				  DECL_FIELD_OFFSET (repr));
+      /* Note that if the C++ FE sets up tail-padding to be re-used it
+         creates a as-base variant of the type with TYPE_SIZE adjusted
+	 accordingly.  So it is safe to include tail-padding here.  */
+      tree aggsize = lang_hooks.types.unit_size_without_reusable_padding
+							(DECL_CONTEXT (field));
+      tree maxsize = size_diffop (aggsize, DECL_FIELD_OFFSET (repr));
+      /* We cannot generally rely on maxsize to fold to an integer constant,
+	 so use bitsize as fallback for this case.  */
       if (tree_fits_uhwi_p (maxsize))
 	maxbitsize = (tree_to_uhwi (maxsize) * BITS_PER_UNIT
 		      - tree_to_uhwi (DECL_FIELD_BIT_OFFSET (repr)));
@@ -1905,7 +1916,7 @@ finish_bitfield_representative (tree repr, tree field)
 	 [0, 15] HImode for a and b, [8, 23] HImode for c.  */
       DECL_SIZE (repr) = bitsize_int (bitsize);
       DECL_SIZE_UNIT (repr) = size_int (bitsize / BITS_PER_UNIT);
-      DECL_MODE (repr) = BLKmode;
+      SET_DECL_MODE (repr, BLKmode);
       TREE_TYPE (repr) = build_array_type_nelts (unsigned_char_type_node,
 						 bitsize / BITS_PER_UNIT);
     }
@@ -1914,7 +1925,7 @@ finish_bitfield_representative (tree repr, tree field)
       unsigned HOST_WIDE_INT modesize = GET_MODE_BITSIZE (mode);
       DECL_SIZE (repr) = bitsize_int (modesize);
       DECL_SIZE_UNIT (repr) = size_int (modesize / BITS_PER_UNIT);
-      DECL_MODE (repr) = mode;
+      SET_DECL_MODE (repr, mode);
       TREE_TYPE (repr) = lang_hooks.types.type_for_mode (mode, 1);
     }
 
@@ -2134,8 +2145,11 @@ layout_type (tree type)
       break;
 
     case REAL_TYPE:
-      SET_TYPE_MODE (type,
-		     mode_for_size (TYPE_PRECISION (type), MODE_FLOAT, 0));
+      /* Allow the caller to choose the type mode, which is how decimal
+	 floats are distinguished from binary ones.  */
+      if (TYPE_MODE (type) == VOIDmode)
+	SET_TYPE_MODE (type,
+		       mode_for_size (TYPE_PRECISION (type), MODE_FLOAT, 0));
       TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
       TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
@@ -2334,6 +2348,8 @@ layout_type (tree type)
 		SET_TYPE_MODE (type, BLKmode);
 	      }
 	  }
+	if (AGGREGATE_TYPE_P (element))
+	  TYPE_TYPELESS_STORAGE (type) = TYPE_TYPELESS_STORAGE (element);
 	/* When the element size is constant, check that it is at least as
 	   large as the element alignment.  */
 	if (TYPE_SIZE_UNIT (element)
@@ -2406,9 +2422,7 @@ min_align_of_type (tree type)
 #endif
       unsigned int field_align = align;
 #ifdef ADJUST_FIELD_ALIGN
-      tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE, type);
-      field_align = ADJUST_FIELD_ALIGN (field, field_align);
-      ggc_free (field);
+      field_align = ADJUST_FIELD_ALIGN (NULL_TREE, type, field_align);
 #endif
       align = MIN (align, field_align);
     }

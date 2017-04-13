@@ -24,7 +24,7 @@
 
 /** @file bits/complex128.h
  *  This is an internal header file, included by other library headers.
- *  Do not attempt to use it directly. @headername{xxxxx}
+ *  Do not attempt to use it directly. @headername{complex}
  */
 
 #ifndef _GLIBCXX_BITS_COMPLEX128_H
@@ -33,9 +33,6 @@
 #pragma GCC system_header
 
 #if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
-
-#include <bits/float128.h>
-#include <complex>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -220,120 +217,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _ComplexT _M_value;
     };
 
-  // @todo Ctors from larger types are marked explicit in the smaller classes.
-  //inline _GLIBCXX_CONSTEXPR
-  //complex<float>::complex(const complex<__float128>& __z)
-  //: _M_value(__z.__rep()) { }
+  inline _GLIBCXX_CONSTEXPR
+  complex<float>::complex(const complex<__float128>& __z)
+  : _M_value(__z.__rep()) { }
 
-  //inline _GLIBCXX_CONSTEXPR
-  //complex<double>::complex(const complex<__float128>& __z)
-  //: _M_value(__z.__rep()) { }
+  inline _GLIBCXX_CONSTEXPR
+  complex<double>::complex(const complex<__float128>& __z)
+  : _M_value(__z.__rep()) { }
 
-  //inline _GLIBCXX_CONSTEXPR
-  //complex<long double>::complex(const complex<__float128>& __z)
-  //: _M_value(__z.__rep()) { }
-
-} // namespace std
-
-  inline __float128
-  cabsq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return cabsq(z.__rep()); }
-
-  inline __float128
-  cargq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return cargq(z.__rep()); }
-
-  inline __float128
-  cimagq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return cimagq(z.__rep()); }
-
-  inline __float128
-  crealq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return crealq(z.__rep()); }
-
-  inline __complex128
-  cacosq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return cacosq(z.__rep()); }
-
-  inline __complex128
-  cacoshq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return cacoshq(z.__rep()); }
-
-  inline __complex128
-  casinq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return casinq(z.__rep()); }
-
-  inline __complex128
-  casinhq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return casinhq(z.__rep()); }
-
-  inline __complex128
-  catanq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return catanq(z.__rep()); }
-
-  inline __complex128
-  catanhq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return catanhq(z.__rep()); }
-
-  inline __complex128
-  ccosq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return ccosq(z.__rep()); }
-
-  inline __complex128
-  ccoshq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return ccoshq(z.__rep()); }
-
-  inline __complex128
-  cexpq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return cexpq(z.__rep()); }
-
-  inline __complex128
-  cexpiq(__float128 x) _GLIBCXX_USE_NOEXCEPT
-  { return cexpiq(x); }
-
-  inline __complex128
-  clogq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return clogq(z.__rep()); }
-
-  inline __complex128
-  clog10q(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return clog10q(z.__rep()); }
-
-  inline __complex128
-  conjq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return conjq(z.__rep()); }
-
-  inline __complex128
-  cpowq(const std::complex<__float128>& z, const std::complex<__float128>& w)
-  _GLIBCXX_USE_NOEXCEPT
-  { return cpowq(z.__rep(), w.__rep()); }
-
-  inline __complex128
-  cprojq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return cprojq(z.__rep()); }
-
-  inline __complex128
-  csinq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return csinq(z.__rep()); }
-
-  inline __complex128
-  csinhq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return csinhq(z.__rep()); }
-
-  inline __complex128
-  csqrtq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return csqrtq(z.__rep()); }
-
-  inline __complex128
-  ctanq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return ctanq(z.__rep()); }
-
-  inline __complex128
-  ctanhq(const std::complex<__float128>& z) _GLIBCXX_USE_NOEXCEPT
-  { return ctanhq(z.__rep()); };
-
-namespace std
-{
+  inline _GLIBCXX_CONSTEXPR
+  complex<long double>::complex(const complex<__float128>& __z)
+  : _M_value(__z.__rep()) { }
 
   inline __float128
   abs(const __complex128& __z) _GLIBCXX_USE_NOEXCEPT
@@ -388,10 +282,6 @@ namespace std
   { return cexpq(__z); }
 
   inline __complex128
-  expi(__float128 __x) _GLIBCXX_USE_NOEXCEPT
-  { return cexpiq(__x); }
-
-  inline __complex128
   log(const __complex128& __z) _GLIBCXX_USE_NOEXCEPT
   { return clogq(__z); }
 
@@ -433,55 +323,55 @@ namespace std
 
 #if _GLIBCXX_USE_C99_COMPLEX
 
-  inline __float128
-  __complex_abs(const __complex128& __z)
-  { return cabsq(__z); }
-
-  inline __float128
-  __complex_arg(const __complex128& __z)
-  { return cargq(__z); }
-
-  inline __complex128
-  __complex_cos(const __complex128& __z)
-  { return ccosq(__z); }
-
-  inline __complex128
-  __complex_cosh(const __complex128& __z)
-  { return ccoshq(__z); }
-
-  inline __complex128
-  __complex_exp(const __complex128& __z)
-  { return cexpq(__z); }
-
-  inline __complex128
-  __complex_log(const __complex128& __z)
-  { return clogq(__z); }
-
-  inline __complex128
-  __complex_sin(const __complex128& __z)
-  { return csinq(__z); }
-
-  inline __complex128
-  __complex_sinh(const __complex128& __z)
-  { return csinhq(__z); }      
-
-  inline __complex128
-  __complex_sqrt(const __complex128& __z)
-  { return csqrtq(__z); }
-
-  inline __complex128
-  __complex_tan(const __complex128& __z)
-  { return ctanq(__z); }
-
-  inline __complex128
-  __complex_tanh(const __complex128& __z)
-  { return ctanhq(__z); }
-
-  inline __complex128
-  __complex_pow(const __complex128& __x, const __complex128& __y)
-  { return cpowq(__x, __y); }
-
 #endif  
+
+  inline __complex128
+  fabs(const __complex128& __z)
+  { return std::abs(__z); }
+
+  /// Additional overloads.
+
+  inline __float128
+  arg(__float128 __x) _GLIBCXX_USE_NOEXCEPT
+  { return __x < 0.0Q ? M_PIq : 0.0Q; }
+
+  inline _GLIBCXX_USE_CONSTEXPR __float128
+  imag(__float128) _GLIBCXX_USE_NOEXCEPT
+  { return 0.0Q; }
+
+  inline _GLIBCXX_USE_CONSTEXPR __float128
+  real(__float128 __x) _GLIBCXX_USE_NOEXCEPT
+  { return __x; }
+
+  inline __float128
+  norm(__float128 __x) _GLIBCXX_USE_NOEXCEPT
+  { return __x * __x; }
+
+/* FIXME: Can't find __promote_fp_t for some reason.
+  template<typename _Up>
+    inline std::complex<__gnu_cxx::__promote_fp_t<__float128, _Up>>
+    pow(const __complex128& __x, const _Up& __y)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<__float128, _Up>;
+      return std::pow(std::complex<__type>(__x), __type(__y));
+    }
+
+  template<typename _Tp>
+    inline std::complex<__gnu_cxx::__promote_fp_t<_Tp, __float128>>
+    pow(const _Tp& __x, const __complex128& __y)
+    {
+      using __type = __gnu_cxx::__promote_fp_t<_Tp, __float128>;
+      return std::pow(__type(__x), std::complex<__type>(__y));
+    }
+*/
+  // DR 1137.
+  inline _GLIBCXX_USE_CONSTEXPR __float128
+  proj(__float128 __x)
+  { return __x; }
+
+  inline _GLIBCXX_USE_CONSTEXPR __float128
+  conj(__float128 __x)
+  { return __x; }
 
 _GLIBCXX_END_NAMESPACE_VERSION
 
@@ -491,7 +381,7 @@ inline namespace literals {
 inline namespace complex_literals {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
-  std::complex<__float128>
+  inline std::complex<__float128>
   operator""iq(const char* __str)
   { return complex<__float128>(0.0Q, strtoflt128(__str, 0)); }
 

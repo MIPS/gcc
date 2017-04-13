@@ -2,7 +2,7 @@
 
 // 2007-03-12  Stephen M. Webb  <stephen.webb@bregmasoft.com>
 //
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2010-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,13 +22,11 @@
 // [28.8.3] class template basic_regex assign()
 
 #include <regex>
-#include <testsuite_hooks.h>
 
 // Tests range assign of the basic_regex class.  
 void test01()
 {
   typedef std::basic_regex<wchar_t> test_type;
-  bool test __attribute__((unused)) = true;
 
   wchar_t s[] = L"a+b|c";
   test_type re;

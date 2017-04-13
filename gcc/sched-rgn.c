@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "emit-rtl.h"
@@ -2146,12 +2147,19 @@ static int
 can_schedule_ready_p (rtx_insn *insn)
 {
   /* An interblock motion?  */
-  if (INSN_BB (insn) != target_bb
-      && IS_SPECULATIVE_INSN (insn)
-      && !check_live (insn, INSN_BB (insn)))
-    return 0;
-  else
-    return 1;
+  if (INSN_BB (insn) != target_bb && IS_SPECULATIVE_INSN (insn))
+    {
+      /* Cannot schedule this insn unless all operands are live.  */
+      if (!check_live (insn, INSN_BB (insn)))
+	return 0;
+
+      /* Should not move expensive instructions speculatively.  */
+      if (GET_CODE (PATTERN (insn)) != CLOBBER
+	  && !targetm.sched.can_speculate_insn (insn))
+	return 0;
+    }
+
+  return 1;
 }
 
 /* Updates counter and other information.  Split from can_schedule_ready_p ()

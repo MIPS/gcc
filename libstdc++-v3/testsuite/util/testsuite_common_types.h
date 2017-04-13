@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // typelist for the C++ library testsuite.
 //
-// Copyright (C) 2005-2016 Free Software Foundation, Inc.
+// Copyright (C) 2005-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -842,7 +842,6 @@ namespace __gnu_test
 	    _Ttype __a(__v1);
 	    __v0 = __a;
 
-	    bool test __attribute__((unused)) = true;
 	    VERIFY( __v1 == __v0 );
 	  }
 	};
@@ -869,7 +868,6 @@ namespace __gnu_test
 	    __a = __v1;
 	    _Tvalue __vr = __a;
 
-	    bool test __attribute__((unused)) = true;
 	    VERIFY( __v1 == __vr );
 	  }
 	};

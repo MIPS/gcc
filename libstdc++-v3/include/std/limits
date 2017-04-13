@@ -1,6 +1,6 @@
 // The template and inlines for the numeric_limits classes. -*- C++ -*-
 
-// Copyright (C) 1999-2016 Free Software Foundation, Inc.
+// Copyright (C) 1999-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -122,6 +122,24 @@
 #ifndef __glibcxx_long_double_tinyness_before
 #  define __glibcxx_long_double_tinyness_before false
 #endif
+
+#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+
+// __float128
+
+// Default values.  Should be overridden in configuration files if necessary.
+
+#  ifndef __glibcxx_float128_has_denorm_loss
+#    define __glibcxx_float128_has_denorm_loss false
+#  endif
+#  ifndef __glibcxx_float128_traps
+#    define __glibcxx_float128_traps false
+#  endif
+#  ifndef __glibcxx_float128_tinyness_before
+#    define __glibcxx_float128_tinyness_before false
+#  endif
+
+#  endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
 
 // You should not need to define any macros below this point.
 
@@ -1816,6 +1834,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
+
+#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+
+#  include <bits/float128_limits.h>
+
+#  undef __glibcxx_float128_has_denorm_loss
+#  undef __glibcxx_float128_traps
+#  undef __glibcxx_float128_tinyness_before
+
+#endif // __STRICT_ANSI__ && _GLIBCXX_USE_FLOAT128
 
 #undef __glibcxx_signed
 #undef __glibcxx_min

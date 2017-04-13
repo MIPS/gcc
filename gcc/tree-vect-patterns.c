@@ -1,5 +1,5 @@
 /* Analysis Utilities for Loop Vectorization.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by Dorit Nuzman <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -3073,7 +3073,7 @@ vect_recog_mixed_size_cond_pattern (vec<gimple *> *stmts, tree *type_in,
   if (vectype == NULL_TREE)
     return NULL;
 
-  if (expand_vec_cond_expr_p (vectype, comp_vectype))
+  if (expand_vec_cond_expr_p (vectype, comp_vectype, TREE_CODE (cond_expr)))
     return NULL;
 
   if (itype == NULL_TREE)
@@ -3088,7 +3088,7 @@ vect_recog_mixed_size_cond_pattern (vec<gimple *> *stmts, tree *type_in,
   if (vecitype == NULL_TREE)
     return NULL;
 
-  if (!expand_vec_cond_expr_p (vecitype, comp_vectype))
+  if (!expand_vec_cond_expr_p (vecitype, comp_vectype, TREE_CODE (cond_expr)))
     return NULL;
 
   if (GET_MODE_BITSIZE (TYPE_MODE (type)) > cmp_mode_size)
@@ -3158,9 +3158,7 @@ check_bool_pattern (tree var, vec_info *vinfo, hash_set<gimple *> &stmts)
       break;
 
     CASE_CONVERT:
-      if ((TYPE_PRECISION (TREE_TYPE (rhs1)) != 1
-	   || !TYPE_UNSIGNED (TREE_TYPE (rhs1)))
-	  && TREE_CODE (TREE_TYPE (rhs1)) != BOOLEAN_TYPE)
+      if (!VECT_SCALAR_BOOLEAN_TYPE_P (TREE_TYPE (rhs1)))
 	return false;
       if (! check_bool_pattern (rhs1, vinfo, stmts))
 	return false;
@@ -3195,7 +3193,7 @@ check_bool_pattern (tree var, vec_info *vinfo, hash_set<gimple *> &stmts)
 
 	  tree mask_type = get_mask_type_for_scalar_type (TREE_TYPE (rhs1));
 	  if (mask_type
-	      && expand_vec_cmp_expr_p (comp_vectype, mask_type))
+	      && expand_vec_cmp_expr_p (comp_vectype, mask_type, rhs_code))
 	    return false;
 
 	  if (TREE_CODE (TREE_TYPE (rhs1)) != INTEGER_TYPE)
@@ -3209,7 +3207,7 @@ check_bool_pattern (tree var, vec_info *vinfo, hash_set<gimple *> &stmts)
 	    }
 	  else
 	    vecitype = comp_vectype;
-	  if (! expand_vec_cond_expr_p (vecitype, comp_vectype))
+	  if (! expand_vec_cond_expr_p (vecitype, comp_vectype, rhs_code))
 	    return false;
 	}
       else
@@ -3474,9 +3472,7 @@ search_type_for_mask_1 (tree var, vec_info *vinfo,
   if (TREE_CODE (var) != SSA_NAME)
     return NULL_TREE;
 
-  if ((TYPE_PRECISION (TREE_TYPE (var)) != 1
-       || !TYPE_UNSIGNED (TREE_TYPE (var)))
-      && TREE_CODE (TREE_TYPE (var)) != BOOLEAN_TYPE)
+  if (!VECT_SCALAR_BOOLEAN_TYPE_P (TREE_TYPE (var)))
     return NULL_TREE;
 
   if (!vect_is_simple_use (var, vinfo, &def_stmt, &dt))
@@ -3518,7 +3514,7 @@ search_type_for_mask_1 (tree var, vec_info *vinfo,
 	{
 	  tree comp_vectype, mask_type;
 
-	  if (TREE_CODE (TREE_TYPE (rhs1)) == BOOLEAN_TYPE)
+	  if (VECT_SCALAR_BOOLEAN_TYPE_P (TREE_TYPE (rhs1)))
 	    {
 	      res = search_type_for_mask_1 (rhs1, vinfo, cache);
 	      res2 = search_type_for_mask_1 (gimple_assign_rhs2 (def_stmt),
@@ -3537,7 +3533,7 @@ search_type_for_mask_1 (tree var, vec_info *vinfo,
 
 	  mask_type = get_mask_type_for_scalar_type (TREE_TYPE (rhs1));
 	  if (!mask_type
-	      || !expand_vec_cmp_expr_p (comp_vectype, mask_type))
+	      || !expand_vec_cmp_expr_p (comp_vectype, mask_type, rhs_code))
 	    {
 	      res = NULL_TREE;
 	      break;
@@ -3637,9 +3633,7 @@ vect_recog_bool_pattern (vec<gimple *> *stmts, tree *type_in,
   var = gimple_assign_rhs1 (last_stmt);
   lhs = gimple_assign_lhs (last_stmt);
 
-  if ((TYPE_PRECISION (TREE_TYPE (var)) != 1
-       || !TYPE_UNSIGNED (TREE_TYPE (var)))
-      && TREE_CODE (TREE_TYPE (var)) != BOOLEAN_TYPE)
+  if (!VECT_SCALAR_BOOLEAN_TYPE_P (TREE_TYPE (var)))
     return NULL;
 
   hash_set<gimple *> bool_stmts;
@@ -4023,7 +4017,7 @@ vect_recog_mask_conversion_pattern (vec<gimple *> *stmts, tree *type_in,
 
   /* Now check for binary boolean operations requiring conversion for
      one of operands.  */
-  if (TREE_CODE (TREE_TYPE (lhs)) != BOOLEAN_TYPE)
+  if (!VECT_SCALAR_BOOLEAN_TYPE_P (TREE_TYPE (lhs)))
     return NULL;
 
   if (rhs_code != BIT_IOR_EXPR

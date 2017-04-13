@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2016 Free Software Foundation, Inc.
+   Copyright (C) 2016-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,7 +24,7 @@ enum value_range_type { VR_UNDEFINED, VR_RANGE,
 
 /* Range of values that can be associated with an SSA_NAME after VRP
    has executed.  */
-struct GTY(()) value_range
+struct GTY((for_user)) value_range
 {
   /* Lattice value represented by this range.  */
   enum value_range_type type;

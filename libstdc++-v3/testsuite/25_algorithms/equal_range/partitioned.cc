@@ -1,4 +1,4 @@
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,6 +17,7 @@
 
 // { dg-options "-D_GLIBCXX_DEBUG" }
 // { dg-do run { target c++11 } }
+// { dg-skip-if "" { *-*-* } { "-D_GLIBCXX_PROFILE" } }
 
 #include <algorithm>
 #include <functional>
@@ -39,8 +40,6 @@ struct X
 void
 test01()
 {
-  bool test __attribute((unused)) = true;
-
   // Test with range that is partitioned, but not sorted.
   X seq[] = { 1, 3, 5, 7, 1, 6, 4, 2 };
   test_container<X, forward_iterator_wrapper> c(seq);

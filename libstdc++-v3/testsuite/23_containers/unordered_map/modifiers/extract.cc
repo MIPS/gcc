@@ -1,4 +1,4 @@
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,6 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-options "-std=gnu++17" }
+// { dg-skip-if "" { *-*-* } { "-D_GLIBCXX_PROFILE" } }
 
 #include <unordered_map>
 #include <testsuite_hooks.h>
@@ -25,8 +26,6 @@ using test_type = std::unordered_map<int, int>;
 void
 test01()
 {
-  bool test __attribute__((unused)) = true;
-
   test_type c{ {1, 10}, {2, 20}, {3, 30} };
   test_type::node_type node;
   test_type::insert_return_type ins;
@@ -100,8 +99,6 @@ test01()
 void
 test02()
 {
-  bool test __attribute__((unused)) = true;
-
   test_type c{ {1, 10}, {2, 20}, {3, 30} };
   test_type::node_type node;
   test_type::insert_return_type ins;

@@ -1,5 +1,5 @@
 /* Output dbx-format symbol table information from GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "insn-config.h"
@@ -331,8 +332,9 @@ static void debug_free_queue (void);
 /* The debug hooks structure.  */
 #if defined (DBX_DEBUGGING_INFO)
 
-static void dbxout_source_line (unsigned int, const char *, int, bool);
-static void dbxout_begin_prologue (unsigned int, const char *);
+static void dbxout_source_line (unsigned int, unsigned int, const char *,
+				int, bool);
+static void dbxout_begin_prologue (unsigned int, unsigned int, const char *);
 static void dbxout_source_file (const char *);
 static void dbxout_function_end (tree);
 static void dbxout_begin_function (tree);
@@ -1240,7 +1242,9 @@ dbxout_source_file (const char *filename)
    function scope  */
 
 static void
-dbxout_begin_prologue (unsigned int lineno, const char *filename)
+dbxout_begin_prologue (unsigned int lineno,
+		       unsigned int column ATTRIBUTE_UNUSED,
+		       const char *filename)
 {
   if (use_gnu_debug_info_extensions
       && !NO_DBX_FUNCTION_END
@@ -1251,7 +1255,7 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
   /* pre-increment the scope counter */
   scope_labelno++;
 
-  dbxout_source_line (lineno, filename, 0, true);
+  dbxout_source_line (lineno, 0, filename, 0, true);
   /* Output function begin block at function scope, referenced
      by dbxout_block, dbxout_source_line and dbxout_function_end.  */
   emit_pending_bincls_if_required ();
@@ -1262,8 +1266,8 @@ dbxout_begin_prologue (unsigned int lineno, const char *filename)
    number LINENO.  */
 
 static void
-dbxout_source_line (unsigned int lineno, const char *filename,
-                    int discriminator ATTRIBUTE_UNUSED,
+dbxout_source_line (unsigned int lineno, unsigned int column ATTRIBUTE_UNUSED,
+		    const char *filename, int discriminator ATTRIBUTE_UNUSED,
                     bool is_stmt ATTRIBUTE_UNUSED)
 {
   dbxout_source_file (filename);
@@ -1478,6 +1482,7 @@ dbxout_type_fields (tree type)
 
       /* Omit here local type decls until we know how to support them.  */
       if (TREE_CODE (tem) == TYPE_DECL
+	  || TREE_CODE (tem) == TEMPLATE_DECL
 	  /* Omit here the nameless fields that are used to skip bits.  */
 	  || DECL_IGNORED_P (tem)
 	  /* Omit fields whose position or size are variable or too large to

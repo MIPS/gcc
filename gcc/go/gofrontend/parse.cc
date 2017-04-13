@@ -1515,7 +1515,7 @@ Parse::type_decl()
   this->decl(&Parse::type_spec, NULL);
 }
 
-// TypeSpec = identifier Type .
+// TypeSpec = identifier ["="] Type .
 
 void
 Parse::type_spec(void*)
@@ -1531,6 +1531,13 @@ Parse::type_spec(void*)
   Location location = token->location();
   token = this->advance_token();
 
+  bool is_alias = false;
+  if (token->is_op(OPERATOR_EQ))
+    {
+      is_alias = true;
+      token = this->advance_token();
+    }
+
   // The scope of the type name starts at the point where the
   // identifier appears in the source code.  We implement this by
   // declaring the type before we read the type definition.
@@ -1542,13 +1549,13 @@ Parse::type_spec(void*)
     }
 
   Type* type;
-  if (name == "_" && this->peek_token()->is_keyword(KEYWORD_INTERFACE))
+  if (name == "_" && token->is_keyword(KEYWORD_INTERFACE))
     {
       // We call Parse::interface_type explicity here because we do not want
       // to record an interface with a blank type name.
       type = this->interface_type(false);
     }
-  else if (!this->peek_token()->is_op(OPERATOR_SEMICOLON))
+  else if (!token->is_op(OPERATOR_SEMICOLON))
     type = this->type();
   else
     {
@@ -1579,9 +1586,11 @@ Parse::type_spec(void*)
 	      type = Type::make_error_type();
 	    }
 
-	  this->gogo_->define_type(named_type,
-				   Type::make_named_type(named_type, type,
-							 location));
+	  Named_type* nt = Type::make_named_type(named_type, type, location);
+	  if (is_alias)
+	    nt->set_is_alias();
+
+	  this->gogo_->define_type(named_type, nt);
 	  go_assert(named_type->package() == NULL);
 	}
       else
@@ -3026,6 +3035,21 @@ Parse::create_closure(Named_object* function, Enclosing_vars* enclosing_vars,
   Struct_type* st = closure_var->var_value()->type()->deref()->struct_type();
   Expression* cv = Expression::make_struct_composite_literal(st, initializer,
 							     location);
+
+  // When compiling the runtime, closures do not escape.  When escape
+  // analysis becomes the default, and applies to closures, this
+  // should be changed to make it an error if a closure escapes.
+  if (this->gogo_->compiling_runtime()
+      && this->gogo_->package_name() == "runtime")
+    {
+      Temporary_statement* ctemp = Statement::make_temporary(st, cv, location);
+      this->gogo_->add_statement(ctemp);
+      Expression* ref = Expression::make_temporary_reference(ctemp, location);
+      Expression* addr = Expression::make_unary(OPERATOR_AND, ref, location);
+      addr->unary_expression()->set_does_not_escape();
+      return addr;
+    }
+
   return Expression::make_heap_expression(cv, location);
 }
 
@@ -5707,7 +5731,7 @@ Parse::import_spec(void*)
     }
 
   this->gogo_->import_package(token->string_value(), local_name,
-			      is_local_name_exported, location);
+			      is_local_name_exported, true, location);
 
   this->advance_token();
 }

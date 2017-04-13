@@ -1,5 +1,5 @@
 /* Pass computing data for optimizing stdarg functions.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -1058,7 +1058,7 @@ expand_ifn_va_arg_1 (function *fun)
 	    gimplify_assign (lhs, expr, &pre);
 	  }
 	else
-	  gimplify_expr (&expr, &pre, &post, is_gimple_lvalue, fb_lvalue);
+	  gimplify_and_add (expr, &pre);
 
 	input_location = saved_location;
 	pop_gimplify_context (NULL);

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for SPARC.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -639,6 +639,7 @@ static const char *sparc_mangle_type (const_tree);
 static void sparc_trampoline_init (rtx, tree, rtx);
 static machine_mode sparc_preferred_simd_mode (machine_mode);
 static reg_class_t sparc_preferred_reload_class (rtx x, reg_class_t rclass);
+static bool sparc_lra_p (void);
 static bool sparc_print_operand_punct_valid_p (unsigned char);
 static void sparc_print_operand (FILE *, rtx, int);
 static void sparc_print_operand_address (FILE *, machine_mode, rtx);
@@ -648,6 +649,7 @@ static reg_class_t sparc_secondary_reload (bool, rtx, reg_class_t,
 static machine_mode sparc_cstore_mode (enum insn_code icode);
 static void sparc_atomic_assign_expand_fenv (tree *, tree *, tree *);
 static bool sparc_fixed_condition_code_regs (unsigned int *, unsigned int *);
+static unsigned int sparc_min_arithmetic_precision (void);
 
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 /* Table of valid machine attributes.  */
@@ -798,6 +800,11 @@ char sparc_hard_reg_printed[8];
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE sparc_option_override
 
+#ifdef TARGET_THREAD_SSP_OFFSET
+#undef TARGET_STACK_PROTECT_GUARD
+#define TARGET_STACK_PROTECT_GUARD hook_tree_void_null
+#endif
+
 #if TARGET_GNU_TLS && defined(HAVE_AS_SPARC_UA_PCREL)
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL sparc_output_dwarf_dtprel
@@ -830,7 +837,7 @@ char sparc_hard_reg_printed[8];
 #endif
 
 #undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_false
+#define TARGET_LRA_P sparc_lra_p
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P sparc_legitimate_address_p
@@ -861,6 +868,12 @@ char sparc_hard_reg_printed[8];
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS sparc_fixed_condition_code_regs
 
+#undef TARGET_MIN_ARITHMETIC_PRECISION
+#define TARGET_MIN_ARITHMETIC_PRECISION sparc_min_arithmetic_precision
+
+#undef TARGET_CUSTOM_FUNCTION_DESCRIPTORS
+#define TARGET_CUSTOM_FUNCTION_DESCRIPTORS 1
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return the memory reference contained in X if any, zero otherwise.  */
@@ -878,10 +891,10 @@ mem_ref (rtx x)
 }
 
 /* We use a machine specific pass to enable workarounds for errata.
+
    We need to have the (essentially) final form of the insn stream in order
    to properly detect the various hazards.  Therefore, this machine specific
-   pass runs as late as possible.  The pass is inserted in the pass pipeline
-   at the end of sparc_option_override.  */
+   pass runs as late as possible.  */
 
 static unsigned int
 sparc_do_work_around_errata (void)
@@ -1376,13 +1389,13 @@ sparc_option_override (void)
 
 #ifndef SPARC_BI_ARCH
   /* Check for unsupported architecture size.  */
-  if (! TARGET_64BIT != DEFAULT_ARCH32_P)
+  if (!TARGET_64BIT != DEFAULT_ARCH32_P)
     error ("%s is not supported by this configuration",
 	   DEFAULT_ARCH32_P ? "-m64" : "-m32");
 #endif
 
   /* We force all 64bit archs to use 128 bit long double */
-  if (TARGET_64BIT && ! TARGET_LONG_DOUBLE_128)
+  if (TARGET_ARCH64 && !TARGET_LONG_DOUBLE_128)
     {
       error ("-mlong-double-64 not allowed with -m64");
       target_flags |= MASK_LONG_DOUBLE_128;
@@ -1509,6 +1522,10 @@ sparc_option_override (void)
   /* Don't use stack biasing in 32 bit mode.  */
   if (TARGET_ARCH32)
     target_flags &= ~MASK_STACK_BIAS;
+
+  /* Use LRA instead of reload, unless otherwise instructed.  */
+  if (!(target_flags_explicit & MASK_LRA))
+    target_flags |= MASK_LRA;
 
   /* Supply a default value for align_functions.  */
   if (align_functions == 0
@@ -1702,20 +1719,10 @@ sparc_option_override (void)
   if (!global_options_set.x_flag_ira_share_save_slots)
     flag_ira_share_save_slots = 0;
 
-  /* We register a machine specific pass to work around errata, if any.
-     The pass mut be scheduled as late as possible so that we have the
-     (essentially) final form of the insn stream to work on.
-     Registering the pass must be done at start up.  It's convenient to
-     do it here.  */
-  opt_pass *errata_pass = make_pass_work_around_errata (g);
-  struct register_pass_info insert_pass_work_around_errata =
-    {
-      errata_pass,		/* pass */
-      "dbr",			/* reference_pass_name */
-      1,			/* ref_pass_instance_number */
-      PASS_POS_INSERT_AFTER	/* po_op */
-    };
-  register_pass (&insert_pass_work_around_errata);
+  /* Only enable REE by default in 64-bit mode where it helps to eliminate
+     redundant 32-to-64-bit extensions.  */
+  if (!global_options_set.x_flag_ree && TARGET_ARCH32)
+    flag_ree = 0;
 }
 
 /* Miscellaneous utilities.  */
@@ -2756,6 +2763,14 @@ sparc_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
   return true;
 }
 
+/* Implement TARGET_MIN_ARITHMETIC_PRECISION.  */
+
+static unsigned int
+sparc_min_arithmetic_precision (void)
+{
+  return 32;
+}
+
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
    CCFP[E]mode is used.  CCNZmode should be used when the first operand
@@ -2791,8 +2806,9 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	  gcc_unreachable ();
 	}
     }
-  else if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
-	   || GET_CODE (x) == NEG || GET_CODE (x) == ASHIFT)
+  else if ((GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
+	    || GET_CODE (x) == NEG || GET_CODE (x) == ASHIFT)
+	   && y == const0_rtx)
     {
       if (TARGET_ARCH64 && GET_MODE (x) == DImode)
 	return CCXNZmode;
@@ -2806,6 +2822,18 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	{
 	  if (TARGET_ARCH64 && GET_MODE (x) == DImode)
 	    return CCXCmode;
+	  else
+	    return CCCmode;
+	}
+
+      /* This is for the [u]addvdi4_sp32 and [u]subvdi4_sp32 patterns.  */
+      if (!TARGET_ARCH64 && GET_MODE (x) == DImode)
+	{
+	  if (GET_CODE (y) == UNSPEC
+	      && (XINT (y, 1) == UNSPEC_ADDV
+		 || XINT (y, 1) == UNSPEC_SUBV
+	         || XINT (y, 1) == UNSPEC_NEGV))
+	    return CCVmode;
 	  else
 	    return CCCmode;
 	}
@@ -4764,7 +4792,7 @@ enum sparc_mode_class {
   ((1 << (int) H_MODE) | (1 << (int) S_MODE) | (1 << (int) SF_MODE))
 
 /* Modes for double-word and smaller quantities.  */
-#define D_MODES (S_MODES | (1 << (int) D_MODE) | (1 << DF_MODE))
+#define D_MODES (S_MODES | (1 << (int) D_MODE) | (1 << (int) DF_MODE))
 
 /* Modes for quad-word and smaller quantities.  */
 #define T_MODES (D_MODES | (1 << (int) T_MODE) | (1 << (int) TF_MODE))
@@ -4776,7 +4804,7 @@ enum sparc_mode_class {
 #define SF_MODES ((1 << (int) S_MODE) | (1 << (int) SF_MODE))
 
 /* Modes for double-float and smaller quantities.  */
-#define DF_MODES (SF_MODES | (1 << (int) D_MODE) | (1 << DF_MODE))
+#define DF_MODES (SF_MODES | (1 << (int) D_MODE) | (1 << (int) DF_MODE))
 
 /* Modes for quad-float and smaller quantities.  */
 #define TF_MODES (DF_MODES | (1 << (int) TF_MODE))
@@ -7731,10 +7759,16 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
       switch (code)
 	{
 	case NE:
-	  branch = "bne";
+	  if (mode == CCVmode || mode == CCXVmode)
+	    branch = "bvs";
+	  else
+	    branch = "bne";
 	  break;
 	case EQ:
-	  branch = "be";
+	  if (mode == CCVmode || mode == CCXVmode)
+	    branch = "bvc";
+	  else
+	    branch = "be";
 	  break;
 	case GE:
 	  if (mode == CCNZmode || mode == CCXNZmode)
@@ -7801,6 +7835,7 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
 	case CCmode:
 	case CCNZmode:
 	case CCCmode:
+	case CCVmode:
 	  labelno = "%%icc, ";
 	  if (v8)
 	    labelno = "";
@@ -7808,6 +7843,7 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
 	case CCXmode:
 	case CCXNZmode:
 	case CCXCmode:
+	case CCXVmode:
 	  labelno = "%%xcc, ";
 	  gcc_assert (!v8);
 	  break;
@@ -8452,46 +8488,82 @@ order_regs_for_local_alloc (void)
 }
 
 /* Return 1 if REG and MEM are legitimate enough to allow the various
-   mem<-->reg splits to be run.  */
+   MEM<-->REG splits to be run.  */
 
 int
-sparc_splitdi_legitimate (rtx reg, rtx mem)
+sparc_split_reg_mem_legitimate (rtx reg, rtx mem)
 {
   /* Punt if we are here by mistake.  */
   gcc_assert (reload_completed);
 
   /* We must have an offsettable memory reference.  */
-  if (! offsettable_memref_p (mem))
+  if (!offsettable_memref_p (mem))
     return 0;
 
   /* If we have legitimate args for ldd/std, we do not want
      the split to happen.  */
-  if ((REGNO (reg) % 2) == 0
-      && mem_min_alignment (mem, 8))
+  if ((REGNO (reg) % 2) == 0 && mem_min_alignment (mem, 8))
     return 0;
 
   /* Success.  */
   return 1;
 }
 
-/* Like sparc_splitdi_legitimate but for REG <--> REG moves.  */
+/* Split a REG <-- MEM move into a pair of moves in MODE.  */
+
+void
+sparc_split_reg_mem (rtx dest, rtx src, machine_mode mode)
+{
+  rtx high_part = gen_highpart (mode, dest);
+  rtx low_part = gen_lowpart (mode, dest);
+  rtx word0 = adjust_address (src, mode, 0);
+  rtx word1 = adjust_address (src, mode, 4);
+
+  if (reg_overlap_mentioned_p (high_part, word1))
+    {
+      emit_move_insn_1 (low_part, word1);
+      emit_move_insn_1 (high_part, word0);
+    }
+  else
+    {
+      emit_move_insn_1 (high_part, word0);
+      emit_move_insn_1 (low_part, word1);
+    }
+}
+
+/* Split a MEM <-- REG move into a pair of moves in MODE.  */
+
+void
+sparc_split_mem_reg (rtx dest, rtx src, machine_mode mode)
+{
+  rtx word0 = adjust_address (dest, mode, 0);
+  rtx word1 = adjust_address (dest, mode, 4);
+  rtx high_part = gen_highpart (mode, src);
+  rtx low_part = gen_lowpart (mode, src);
+
+  emit_move_insn_1 (word0, high_part);
+  emit_move_insn_1 (word1, low_part);
+}
+
+/* Like sparc_split_reg_mem_legitimate but for REG <--> REG moves.  */
 
 int
-sparc_split_regreg_legitimate (rtx reg1, rtx reg2)
+sparc_split_reg_reg_legitimate (rtx reg1, rtx reg2)
 {
-  int regno1, regno2;
+  /* Punt if we are here by mistake.  */
+  gcc_assert (reload_completed);
 
   if (GET_CODE (reg1) == SUBREG)
     reg1 = SUBREG_REG (reg1);
   if (GET_CODE (reg1) != REG)
     return 0;
-  regno1 = REGNO (reg1);
+  const int regno1 = REGNO (reg1);
 
   if (GET_CODE (reg2) == SUBREG)
     reg2 = SUBREG_REG (reg2);
   if (GET_CODE (reg2) != REG)
     return 0;
-  regno2 = REGNO (reg2);
+  const int regno2 = REGNO (reg2);
 
   if (SPARC_INT_REG_P (regno1) && SPARC_INT_REG_P (regno2))
     return 1;
@@ -8504,6 +8576,30 @@ sparc_split_regreg_legitimate (rtx reg1, rtx reg2)
     }
 
   return 0;
+}
+
+/* Split a REG <--> REG move into a pair of moves in MODE.  */
+
+void
+sparc_split_reg_reg (rtx dest, rtx src, machine_mode mode)
+{
+  rtx dest1 = gen_highpart (mode, dest);
+  rtx dest2 = gen_lowpart (mode, dest);
+  rtx src1 = gen_highpart (mode, src);
+  rtx src2 = gen_lowpart (mode, src);
+
+  /* Now emit using the real source and destination we found, swapping
+     the order if we detect overlap.  */
+  if (reg_overlap_mentioned_p (dest1, src2))
+    {
+      emit_move_insn_1 (dest2, src2);
+      emit_move_insn_1 (dest1, src1);
+    }
+  else
+    {
+      emit_move_insn_1 (dest1, src1);
+      emit_move_insn_1 (dest2, src2);
+    }
 }
 
 /* Return 1 if REGNO (reg1) is even and REGNO (reg1) == REGNO (reg2) - 1.
@@ -8811,11 +8907,13 @@ sparc_print_operand (FILE *file, rtx x, int code)
 	    case CCmode:
 	    case CCNZmode:
 	    case CCCmode:
+	    case CCVmode:
 	      s = "%icc";
 	      break;
 	    case CCXmode:
 	    case CCXNZmode:
 	    case CCXCmode:
+	    case CCXVmode:
 	      s = "%xcc";
 	      break;
 	    default:
@@ -8890,10 +8988,16 @@ sparc_print_operand (FILE *file, rtx x, int code)
 	switch (GET_CODE (x))
 	  {
 	  case NE:
-	    s = "ne";
+	    if (mode == CCVmode || mode == CCXVmode)
+	      s = "vs";
+	    else
+	      s = "ne";
 	    break;
 	  case EQ:
-	    s = "e";
+	    if (mode == CCVmode || mode == CCXVmode)
+	      s = "vc";
+	    else
+	      s = "e";
 	    break;
 	  case GE:
 	    if (mode == CCNZmode || mode == CCXNZmode)
@@ -11717,7 +11821,7 @@ sparc_file_end (void)
 static const char *
 sparc_mangle_type (const_tree type)
 {
-  if (!TARGET_64BIT
+  if (TARGET_ARCH32
       && TYPE_MAIN_VARIANT (type) == long_double_type_node
       && TARGET_LONG_DOUBLE_128)
     return "g";
@@ -12054,7 +12158,7 @@ sparc_expand_vec_perm_bmask (machine_mode vmode, rtx sel)
     }
 
   /* Always perform the final addition/merge within the bmask insn.  */
-  emit_insn (gen_bmasksi_vis (gen_rtx_REG (SImode, 0), sel, t_1));
+  emit_insn (gen_bmasksi_vis (gen_reg_rtx (SImode), sel, t_1));
 }
 
 /* Implement TARGET_FRAME_POINTER_REQUIRED.  */
@@ -12076,8 +12180,9 @@ sparc_frame_pointer_required (void)
   if (TARGET_FLAT)
     return false;
 
-  /* Otherwise, the frame pointer is required if the function isn't leaf.  */
-  return !(crtl->is_leaf && only_leaf_regs_used ());
+  /* Otherwise, the frame pointer is required if the function isn't leaf, but
+     we cannot use sparc_leaf_function_p since it hasn't been computed yet.  */
+  return !(optimize > 0 && crtl->is_leaf && only_leaf_regs_used ());
 }
 
 /* The way this is structured, we can't eliminate SFP in favor of SP
@@ -12209,6 +12314,14 @@ sparc_preferred_reload_class (rtx x, reg_class_t rclass)
   return rclass;
 }
 
+/* Return true if we use LRA instead of reload pass.  */
+
+static bool
+sparc_lra_p (void)
+{
+  return TARGET_LRA;
+}
+
 /* Output a wide multiply instruction in V8+ mode.  INSN is the instruction,
    OPERANDS are its operands and OPCODE is the mnemonic to be used.  */
 
@@ -12320,7 +12433,7 @@ vector_init_bshuffle (rtx target, rtx elt, machine_mode mode,
     }
 
   sel = force_reg (SImode, GEN_INT (bmask));
-  emit_insn (gen_bmasksi_vis (gen_rtx_REG (SImode, 0), sel, const0_rtx));
+  emit_insn (gen_bmasksi_vis (gen_reg_rtx (SImode), sel, const0_rtx));
   emit_insn (final_insn);
 }
 
@@ -12376,14 +12489,13 @@ sparc_expand_vector_init (rtx target, rtx vals)
   const machine_mode inner_mode = GET_MODE_INNER (mode);
   const int n_elts = GET_MODE_NUNITS (mode);
   int i, n_var = 0;
-  bool all_same;
+  bool all_same = true;
   rtx mem;
 
-  all_same = true;
   for (i = 0; i < n_elts; i++)
     {
       rtx x = XVECEXP (vals, 0, i);
-      if (!CONSTANT_P (x))
+      if (!(CONST_SCALAR_INT_P (x) || CONST_DOUBLE_P (x) || CONST_FIXED_P (x)))
 	n_var++;
 
       if (i > 0 && !rtx_equal_p (x, XVECEXP (vals, 0, 0)))

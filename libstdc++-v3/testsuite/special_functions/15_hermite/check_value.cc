@@ -1,7 +1,7 @@
 // { dg-do run { target c++11 } }
 // { dg-options "-D__STDCPP_WANT_MATH_SPEC_FUNCS__" }
 //
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,7 +39,7 @@
 
 
 // Test data for n=0.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -252,7 +252,7 @@ data001[201] =
 const double toler001 = 2.5000000000000020e-13;
 
 // Test data for n=1.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -465,7 +465,7 @@ data002[201] =
 const double toler002 = 2.5000000000000020e-13;
 
 // Test data for n=2.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -678,7 +678,7 @@ data003[201] =
 const double toler003 = 2.5000000000000020e-13;
 
 // Test data for n=5.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -891,7 +891,7 @@ data004[201] =
 const double toler004 = 2.5000000000000020e-13;
 
 // Test data for n=10.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1104,7 +1104,7 @@ data005[201] =
 const double toler005 = 2.5000000000000020e-13;
 
 // Test data for n=20.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1317,7 +1317,7 @@ data006[201] =
 const double toler006 = 2.5000000000000020e-13;
 
 // Test data for n=50.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1530,7 +1530,7 @@ data007[201] =
 const double toler007 = 2.5000000000000020e-13;
 
 // Test data for n=100.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1744,7 +1744,7 @@ const double toler008 = 2.5000000000000020e-13;
 //  hermite
 
 // Test data for n=8.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1765,7 +1765,7 @@ data009[9] =
 const double toler009 = 2.5000000000000020e-13;
 
 // Test data for n=18.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1786,7 +1786,7 @@ data010[9] =
 const double toler010 = 2.5000000000000020e-13;
 
 // Test data for n=32.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1807,7 +1807,7 @@ data011[9] =
 const double toler011 = 2.5000000000000020e-13;
 
 // Test data for n=50.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1828,7 +1828,7 @@ data012[9] =
 const double toler012 = 2.5000000000000020e-13;
 
 // Test data for n=72.
-// max(|f - f_GSL|): 0.0000000000000000
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
 // max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
 // mean(f - f_GSL): 0.0000000000000000
 // variance(f - f_GSL): 0.0000000000000000
@@ -1849,11 +1849,11 @@ data013[9] =
 const double toler013 = 2.5000000000000020e-13;
 
 // Test data for n=128.
-// max(|f - f_GSL|): 5.6801914568161683e+287
-// max(|f - f_GSL| / |f_GSL|): 0.067467347247752898
-// mean(f - f_GSL): 6.3113238409068540e+286
-// variance(f - f_GSL): inf
-// stddev(f - f_GSL): inf
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
+// max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
+// mean(f - f_GSL): 0.0000000000000000
+// variance(f - f_GSL): 0.0000000000000000
+// stddev(f - f_GSL): 0.0000000000000000
 const testcase_hermite<double>
 data014[9] =
 {
@@ -1867,17 +1867,17 @@ data014[9] =
   { 1.8851953794407319e+255, 128, 50.000000000000000, 0.0 },
   { 2.2605490449873036e+294, 128, 100.00000000000000, 0.0 },
 };
-const double toler014 = 0.050000000000000003;
+const double toler014 = 2.5000000000000020e-13;
 
-// Divergence at n=200 x=50.000000000000000 f=inf f_GSL=inf
-// Divergence at n=200 x=100.00000000000000 f=inf f_GSL=inf
-// Divergence at n=200 x=100.00000000000000 f=inf f_GSL=inf
+// Divergence at n=200 x=50.000000000000000 f=-nan f_GSL=inf
+// Divergence at n=200 x=100.00000000000000 f=-nan f_GSL=inf
+// Divergence at n=200 x=100.00000000000000 f=-nan f_GSL=inf
 // Test data for n=200.
-// max(|f - f_GSL|): 5.7956400402179068e+302
-// max(|f - f_GSL| / |f_GSL|): 0.058685552817367669
-// mean(f - f_GSL): -8.2794857717398666e+301
-// variance(f - f_GSL): inf
-// stddev(f - f_GSL): inf
+// max(|f - f_GSL|): 0.0000000000000000 at index 0
+// max(|f - f_GSL| / |f_GSL|): 0.0000000000000000
+// mean(f - f_GSL): 0.0000000000000000
+// variance(f - f_GSL): 0.0000000000000000
+// stddev(f - f_GSL): 0.0000000000000000
 const testcase_hermite<double>
 data015[7] =
 {
@@ -1889,23 +1889,22 @@ data015[7] =
   { 2.8932855639383936e+272, 200, 16.000000000000000, 0.0 },
   { 9.8757526545830183e+303, 200, 20.000000000000000, 0.0 },
 };
-const double toler015 = 0.050000000000000003;
+const double toler015 = 2.5000000000000020e-13;
 
-// Divergence at n=1250 x=4.0000000000000000 f=-inf f_GSL=-inf
-// Divergence at n=1250 x=6.0000000000000000 f=inf f_GSL=inf
-// Divergence at n=1250 x=8.0000000000000000 f=inf f_GSL=inf
+// Divergence at n=1250 x=4.0000000000000000 f=-nan f_GSL=-inf
+// Divergence at n=1250 x=6.0000000000000000 f=-nan f_GSL=inf
+// Divergence at n=1250 x=8.0000000000000000 f=-nan f_GSL=inf
 // ...
-// Divergence at n=1250 x=100.00000000000000 f=inf f_GSL=inf
-// Divergence at n=5000 x=4.0000000000000000 f=-inf f_GSL=-inf
-// Divergence at n=5000 x=6.0000000000000000 f=-inf f_GSL=-inf
-// Divergence at n=5000 x=8.0000000000000000 f=inf f_GSL=inf
+// Divergence at n=1250 x=100.00000000000000 f=-nan f_GSL=inf
+// Divergence at n=5000 x=4.0000000000000000 f=-nan f_GSL=-inf
+// Divergence at n=5000 x=6.0000000000000000 f=-nan f_GSL=-inf
+// Divergence at n=5000 x=8.0000000000000000 f=-nan f_GSL=inf
 // ...
-// Divergence at n=5000 x=100.00000000000000 f=inf f_GSL=inf
+// Divergence at n=5000 x=100.00000000000000 f=-nan f_GSL=inf
 template<typename Ret, unsigned int Num>
   void
   test(const testcase_hermite<Ret> (&data)[Num], Ret toler)
   {
-    bool test __attribute__((unused)) = true;
     const Ret eps = std::numeric_limits<Ret>::epsilon();
     Ret max_abs_diff = -Ret(1);
     Ret max_abs_frac = -Ret(1);

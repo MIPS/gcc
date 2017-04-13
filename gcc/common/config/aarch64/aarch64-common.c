@@ -1,5 +1,5 @@
 /* Common hooks for AArch64.
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -23,6 +23,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "common/common-target.h"
 #include "common/common-target-def.h"
@@ -144,7 +145,7 @@ struct arch_to_arch_name
    the default set of architectural feature flags they support.  */
 static const struct processor_name_to_arch all_cores[] =
 {
-#define AARCH64_CORE(NAME, X, IDENT, ARCH_IDENT, FLAGS, COSTS, IMP, PART) \
+#define AARCH64_CORE(NAME, X, IDENT, ARCH_IDENT, FLAGS, COSTS, IMP, PART, VARIANT) \
   {NAME, AARCH64_ARCH_##ARCH_IDENT, FLAGS},
 #include "config/aarch64/aarch64-cores.def"
   {"generic", AARCH64_ARCH_8A, AARCH64_FL_FOR_ARCH8},

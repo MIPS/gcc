@@ -1,5 +1,5 @@
 /* Target Code for moxie
-   Copyright (C) 2008-2016 Free Software Foundation, Inc.
+   Copyright (C) 2008-2017 Free Software Foundation, Inc.
    Contributed by Anthony Green.
 
    This file is part of GCC.
@@ -27,6 +27,7 @@
 #include "tree.h"
 #include "df.h"
 #include "regs.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "diagnostic-core.h"
 #include "output.h"

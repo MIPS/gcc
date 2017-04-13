@@ -4,7 +4,7 @@
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
 
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2010-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,7 +38,6 @@ struct unreliable_lock
 
   ~unreliable_lock()
   {
-    bool test __attribute__((unused)) = true;
     VERIFY( !l.owns_lock() );
   }
 
@@ -62,7 +61,6 @@ struct unreliable_lock
 
   void unlock()
   {
-    bool test __attribute__((unused)) = true;
     VERIFY( l.owns_lock() );
     l.unlock();
   }
@@ -75,8 +73,6 @@ int unreliable_lock::lock_on = -1;
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
-
   unreliable_lock l1, l2, l3;
 
   try
@@ -97,8 +93,6 @@ void test01()
 
 void test02()
 {
-  bool test __attribute__((unused)) = true;
-
   unreliable_lock l1, l2, l3;
 
   try
@@ -121,8 +115,6 @@ void test02()
 
 void test03()
 {
-  bool test __attribute__((unused)) = true;
-
   unreliable_lock l1, l2, l3;
 
   try

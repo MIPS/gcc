@@ -1,5 +1,5 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfghooks.h"
 #include "tree-pass.h"
 #include "ssa.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "cgraph.h"
 #include "coverage.h"
@@ -794,7 +795,7 @@ set_even_probabilities (basic_block bb,
 			hash_set<edge> *unlikely_edges = NULL)
 {
   unsigned nedges = 0;
-  edge e;
+  edge e = NULL;
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -2511,6 +2512,21 @@ tree_predict_by_opcode (basic_block bb)
       }
 }
 
+/* Returns TRUE if the STMT is exit(0) like statement. */
+
+static bool
+is_exit_with_zero_arg (const gimple *stmt)
+{
+  /* This is not exit, _exit or _Exit. */
+  if (!gimple_call_builtin_p (stmt, BUILT_IN_EXIT)
+      && !gimple_call_builtin_p (stmt, BUILT_IN__EXIT)
+      && !gimple_call_builtin_p (stmt, BUILT_IN__EXIT2))
+    return false;
+
+  /* Argument is an interger zero. */
+  return integer_zerop (gimple_call_arg (stmt, 0));
+}
+
 /* Try to guess whether the value of return means error code.  */
 
 static enum br_predictor
@@ -2637,7 +2653,9 @@ tree_bb_level_predictions (void)
 
 	  if (is_gimple_call (stmt))
 	    {
-	      if (gimple_call_noreturn_p (stmt) && has_return_edges)
+	      if (gimple_call_noreturn_p (stmt)
+		  && has_return_edges
+		  && !is_exit_with_zero_arg (stmt))
 		predict_paths_leading_to (bb, PRED_NORETURN,
 					  NOT_TAKEN);
 	      decl = gimple_call_fndecl (stmt);
@@ -2768,7 +2786,12 @@ tree_estimate_probability_bb (basic_block bb)
 		     something exceptional.  */
 		  && gimple_has_side_effects (stmt))
 		{
-		  predict_edge_def (e, PRED_CALL, NOT_TAKEN);
+		  if (gimple_call_fndecl (stmt))
+		    predict_edge_def (e, PRED_CALL, NOT_TAKEN);
+		  else if (virtual_method_call_p (gimple_call_fn (stmt)))
+		    predict_edge_def (e, PRED_POLYMORPHIC_CALL, NOT_TAKEN);
+		  else
+		    predict_edge_def (e, PRED_INDIR_CALL, TAKEN);
 		  break;
 		}
 	    }

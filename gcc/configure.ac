@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997-2016 Free Software Foundation, Inc.
+# Copyright (C) 1997-2017 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -274,6 +274,11 @@ AC_ARG_WITH(gnu-ld,
 gnu_ld_flag="$with_gnu_ld",
 gnu_ld_flag=no)
 
+case $target in
+    *darwin*) ld64_flag=yes;; # Darwin can only use a ld64-compatible linker.
+    *) ld64_flag=no;;
+esac
+
 # With pre-defined ld
 AC_ARG_WITH(ld,
 [AS_HELP_STRING([--with-ld], [arrange to use the specified ld (full pathname)])],
@@ -283,6 +288,8 @@ if test x"${DEFAULT_LINKER+set}" = x"set"; then
     AC_MSG_ERROR([cannot execute: $DEFAULT_LINKER: check --with-ld or env. var. DEFAULT_LINKER])
   elif $DEFAULT_LINKER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
     gnu_ld_flag=yes
+  elif $DEFAULT_LINKER -v < /dev/null 2>&1 | grep ld64- > /dev/null; then
+    ld64_flag=yes
   fi
   AC_DEFINE_UNQUOTED(DEFAULT_LINKER,"$DEFAULT_LINKER",
 	[Define to enable the use of a default linker.])
@@ -923,7 +930,7 @@ AC_ARG_WITH(specs,
 AC_SUBST(CONFIGURE_SPECS)
 
 ACX_PKGVERSION([GCC])
-ACX_BUGURL([http://gcc.gnu.org/bugs.html])
+ACX_BUGURL([https://gcc.gnu.org/bugs/])
 
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
@@ -1787,6 +1794,9 @@ static struct plugin_gcc_version gcc_version = {basever, datestamp,
 EOF
 changequote([,])dnl
 
+# Determine what GCC version number to use in filesystem paths.
+GCC_BASE_VER
+
 # Internationalization
 ZW_GNU_GETTEXT_SISTER_DIR
 
@@ -2003,27 +2013,6 @@ then
 	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
 	ALL=all.cross
 	SYSTEM_HEADER_DIR=$build_system_header_dir
-	case "$host","$target" in
-	# Darwin crosses can use the host system's libraries and headers,
-	# because of the fat library support.  Of course, it must be the
-	# same version of Darwin on both sides.  Allow the user to
-	# just say --target=foo-darwin without a version number to mean
-	# "the version on this system".
-	    *-*-darwin*,*-*-darwin*)
-		hostos=`echo $host | sed 's/.*-darwin/darwin/'`
-		targetos=`echo $target | sed 's/.*-darwin/darwin/'`
-		if test $hostos = $targetos -o $targetos = darwin ; then
-		    CROSS=
-		    SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
-		    with_headers=yes
-		fi
-		;;
-
-	    i?86-*-*,x86_64-*-* \
-	    | powerpc*-*-*,powerpc64*-*-*)
-		CROSS="$CROSS -DNATIVE_CROSS" ;;
-	esac
-
 	case $target in
 		*-*-mingw*)
 			if test "x$with_headers" = x; then
@@ -2537,10 +2526,17 @@ gcc_GAS_CHECK_FEATURE([.nsubspa comdat], gcc_cv_as_nsubspa_comdat,
 # ld, we don't know its patchlevel version, so we set the baseline at 2.13
 # to be safe.
 # The gcc_GAS_CHECK_FEATURE call just sets a cache variable.
+case "${target}" in
+  *-*-aix*)
+    conftest_s='	.globl foobar,hidden'
+    ;;
+  *)
+    conftest_s='	.hidden foobar
+foobar:'
+    ;;
+esac
 gcc_GAS_CHECK_FEATURE([.hidden], gcc_cv_as_hidden,
- [elf,2,13,0],,
-[	.hidden foobar
-foobar:])
+ [elf,2,13,0],, [$conftest_s])
 case "${target}" in
   *-*-darwin*)
     # Darwin as has some visibility support, though with a different syntax.
@@ -2649,6 +2645,9 @@ else
     fi
   else
     case "${target}" in
+      *-*-aix[789]*)
+        gcc_cv_ld_hidden=yes
+        ;;
       *-*-darwin*)
 	# Darwin ld has some visibility support.
 	gcc_cv_ld_hidden=yes
@@ -2743,6 +2742,8 @@ L2:],
     fi
   fi]],
   [AC_DEFINE(HAVE_AS_LEB128, 1,
+    [Define if your assembler supports .sleb128 and .uleb128.])],
+  [AC_DEFINE(HAVE_AS_LEB128, 0,
     [Define if your assembler supports .sleb128 and .uleb128.])])
 
 # Check if we have assembler support for unwind directives.
@@ -3392,6 +3393,17 @@ x3:	.space 4
 	tls_first_minor=14
 	tls_as_opt="-a32 --fatal-warnings"
 	;;
+  riscv*-*-*)
+    conftest_s='
+	.section .tdata,"awT",@progbits
+x:	.word 2
+	.text
+	la.tls.gd a0,x
+        call __tls_get_addr'
+	tls_first_major=2
+	tls_first_minor=21
+	tls_as_opt='--fatal-warnings'
+	;;
   s390-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -3669,6 +3681,20 @@ fi
 AC_DEFINE_UNQUOTED(HAVE_LTO_PLUGIN, $gcc_cv_lto_plugin,
   [Define to the level of your linker's plugin support.])
 AC_MSG_RESULT($gcc_cv_lto_plugin)
+
+# Target OS-specific assembler checks.
+
+case "$target_os" in
+  darwin*)
+    gcc_GAS_CHECK_FEATURE([-mmacosx-version-min option],
+      gcc_cv_as_mmacosx_version_min,,
+      [-mmacosx-version-min=10.1], [.text],,
+      [AC_DEFINE(HAVE_AS_MMACOSX_VERSION_MIN_OPTION, 1,
+	[Define if your Mac OS X assembler supports the -mmacos-version-min option.])])
+    ;;
+esac
+
+# Target CPU-specific assembler checks.
 
 case "$target" in
   aarch64*-*-*)
@@ -4729,8 +4755,8 @@ esac
 # version to the per-target configury.
 case "$cpu_type" in
   aarch64 | alpha | arm | avr | bfin | cris | i386 | m32c | m68k | microblaze \
-  | mips | nios2 | pa | rs6000 | score | sparc | spu | tilegx | tilepro \
-  | visium | xstormy16 | xtensa)
+  | mips | nios2 | pa | riscv | rs6000 | score | sparc | spu | tilegx \
+  | tilepro | visium | xstormy16 | xtensa)
     insn="nop"
     ;;
   ia64 | s390)
@@ -5253,6 +5279,59 @@ AC_DEFINE_UNQUOTED(HAVE_LD_COMPRESS_DEBUG, $gcc_cv_ld_compress_debug,
 AC_DEFINE_UNQUOTED(LD_COMPRESS_DEBUG_OPTION, "$gcc_cv_ld_compress_debug_option",
 [Define to the linker option to enable compressed debug sections.])
 AC_MSG_RESULT($gcc_cv_ld_compress_debug)
+
+if test x"$ld64_flag" = x"yes"; then
+
+  # Set defaults for possibly untestable items.
+  gcc_cv_ld64_export_dynamic=0
+
+  if test "$build" = "$host"; then
+    darwin_try_test=1
+  else
+    darwin_try_test=0
+  fi
+
+  # On Darwin, because of FAT library support, it is often possible to execute
+  # exes from compatible archs even when the host differs from the build system.
+  case "$build","$host" in
+    x86_64-*-darwin*,i?86-*-darwin* | powerpc64*-*-darwin*,powerpc*-*-darwin*)
+	darwin_try_test=1;;
+    *) ;;
+  esac
+
+  # If the configurer specified a minimum ld64 version to be supported, then use
+  # that to determine feature support.
+  if test x"${gcc_cv_ld64_version}" != x; then
+    AC_MSG_CHECKING(ld64 specified version)
+    gcc_cv_ld64_major=`echo "$gcc_cv_ld64_version" | sed -e 's/\..*//'`
+    AC_MSG_RESULT($gcc_cv_ld64_major)
+   if test "$gcc_cv_ld64_major" -ge 236; then
+      gcc_cv_ld64_export_dynamic=1
+    fi
+  elif test -x "$gcc_cv_ld" -a "$darwin_try_test" -eq 1; then
+    # If the version was not specified, try to find it.
+    AC_MSG_CHECKING(linker version)
+    if test x"${gcc_cv_ld64_version}" = x; then
+      gcc_cv_ld64_version=`$gcc_cv_ld -v 2>&1 | grep ld64 | sed s/.*ld64-// | awk '{print $1}'`
+    fi
+    AC_MSG_RESULT($gcc_cv_ld64_version)
+
+    AC_MSG_CHECKING(linker for -export_dynamic support)
+    gcc_cv_ld64_export_dynamic=1
+    if $gcc_cv_ld -export_dynamic < /dev/null 2>&1 | grep 'unknown option' > /dev/null; then
+      gcc_cv_ld64_export_dynamic=0
+    fi
+    AC_MSG_RESULT($gcc_cv_ld64_export_dynamic)
+  fi
+
+  if test x"${gcc_cv_ld64_version}" != x; then
+    AC_DEFINE_UNQUOTED(LD64_VERSION, "${gcc_cv_ld64_version}",
+      [Define to ld64 version.])
+  fi
+
+  AC_DEFINE_UNQUOTED(LD64_HAS_EXPORT_DYNAMIC, $gcc_cv_ld64_export_dynamic,
+  [Define to 1 if ld64 supports '-export_dynamic'.])
+fi
 
 # --------
 # UNSORTED
@@ -6112,30 +6191,6 @@ AC_ARG_VAR(ISLLIBS,[How to link isl])
 AC_ARG_VAR(ISLINC,[How to find isl include files])
 if test "x${ISLLIBS}" != "x" ; then 
    AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
-fi
-
-# Check whether isl_options_set_schedule_serialize_sccs is available;
-# it's new in isl 0.15.
-if test "x${ISLLIBS}" != "x" ; then
-  saved_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS $ISLINC $GMPINC"
-  saved_LIBS="$LIBS"
-  LIBS="$LIBS $ISLLIBS $GMPLIBS"
-
-  AC_MSG_CHECKING([Checking for isl_options_set_schedule_serialize_sccs])
-  AC_TRY_LINK([#include <isl/schedule.h>],
-              [isl_options_set_schedule_serialize_sccs (NULL, 0);],
-              [ac_has_isl_options_set_schedule_serialize_sccs=yes],
-              [ac_has_isl_options_set_schedule_serialize_sccs=no])
-  AC_MSG_RESULT($ac_has_isl_options_set_schedule_serialize_sccs)
-
-  LIBS="$saved_LIBS"
-  CXXFLAGS="$saved_CXXFLAGS"
-
-  if test x"$ac_has_isl_options_set_schedule_serialize_sccs" = x"yes"; then
-     AC_DEFINE(HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS, 1,
-               [Define if isl_options_set_schedule_serialize_sccs exists.])
-  fi
 fi
 
 GCC_ENABLE_PLUGINS

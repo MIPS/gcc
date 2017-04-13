@@ -1,6 +1,6 @@
 /* Read the GIMPLE representation from a file stream.
 
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    Re-implemented by Diego Novillo <dnovillo@google.com>
 
@@ -889,13 +889,16 @@ static void
 fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple **stmts,
 			 struct function *fn)
 {
+#define STMT_UID_NOT_IN_RANGE(uid) \
+  (gimple_stmt_max_uid (fn) < uid || uid == 0)
+
   struct cgraph_edge *cedge;
   struct ipa_ref *ref = NULL;
   unsigned int i;
 
   for (cedge = node->callees; cedge; cedge = cedge->next_callee)
     {
-      if (gimple_stmt_max_uid (fn) < cedge->lto_stmt_uid)
+      if (STMT_UID_NOT_IN_RANGE (cedge->lto_stmt_uid))
         fatal_error (input_location,
 		     "Cgraph edge statement index out of range");
       cedge->call_stmt = as_a <gcall *> (stmts[cedge->lto_stmt_uid - 1]);
@@ -905,7 +908,7 @@ fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple **stmts,
     }
   for (cedge = node->indirect_calls; cedge; cedge = cedge->next_callee)
     {
-      if (gimple_stmt_max_uid (fn) < cedge->lto_stmt_uid)
+      if (STMT_UID_NOT_IN_RANGE (cedge->lto_stmt_uid))
         fatal_error (input_location,
 		     "Cgraph edge statement index out of range");
       cedge->call_stmt = as_a <gcall *> (stmts[cedge->lto_stmt_uid - 1]);
@@ -915,7 +918,7 @@ fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple **stmts,
   for (i = 0; node->iterate_reference (i, ref); i++)
     if (ref->lto_stmt_uid)
       {
-	if (gimple_stmt_max_uid (fn) < ref->lto_stmt_uid)
+	if (STMT_UID_NOT_IN_RANGE (ref->lto_stmt_uid))
 	  fatal_error (input_location,
 		       "Reference statement index out of range");
 	ref->stmt = stmts[ref->lto_stmt_uid - 1];
@@ -937,7 +940,8 @@ fixup_call_stmt_edges (struct cgraph_node *orig, gimple **stmts)
     orig = orig->clone_of;
   fn = DECL_STRUCT_FUNCTION (orig->decl);
 
-  fixup_call_stmt_edges_1 (orig, stmts, fn);
+  if (!orig->thunk.thunk_p)
+    fixup_call_stmt_edges_1 (orig, stmts, fn);
   if (orig->clones)
     for (node = orig->clones; node != orig;)
       {
@@ -1106,15 +1110,59 @@ input_function (tree fn_decl, struct data_in *data_in,
       while (!gsi_end_p (bsi))
 	{
 	  gimple *stmt = gsi_stmt (bsi);
+	  bool remove = false;
 	  /* If we're recompiling LTO objects with debug stmts but
 	     we're not supposed to have debug stmts, remove them now.
 	     We can't remove them earlier because this would cause uid
 	     mismatches in fixups, but we can do it at this point, as
-	     long as debug stmts don't require fixups.  */
-	  if (!MAY_HAVE_DEBUG_STMTS && !flag_wpa && is_gimple_debug (stmt))
+	     long as debug stmts don't require fixups.
+	     Similarly remove all IFN_*SAN_* internal calls   */
+	  if (!flag_wpa)
+	    {
+	      if (!MAY_HAVE_DEBUG_STMTS && is_gimple_debug (stmt))
+		remove = true;
+	      if (is_gimple_call (stmt)
+		  && gimple_call_internal_p (stmt))
+		{
+		  switch (gimple_call_internal_fn (stmt))
+		    {
+		    case IFN_UBSAN_NULL:
+		      if ((flag_sanitize
+			  & (SANITIZE_NULL | SANITIZE_ALIGNMENT)) == 0)
+			remove = true;
+		      break;
+		    case IFN_UBSAN_BOUNDS:
+		      if ((flag_sanitize & SANITIZE_BOUNDS) == 0)
+			remove = true;
+		      break;
+		    case IFN_UBSAN_VPTR:
+		      if ((flag_sanitize & SANITIZE_VPTR) == 0)
+			remove = true;
+		      break;
+		    case IFN_UBSAN_OBJECT_SIZE:
+		      if ((flag_sanitize & SANITIZE_OBJECT_SIZE) == 0)
+			remove = true;
+		      break;
+		    case IFN_ASAN_MARK:
+		      if ((flag_sanitize & SANITIZE_ADDRESS) == 0)
+			remove = true;
+		      break;
+		    case IFN_TSAN_FUNC_EXIT:
+		      if ((flag_sanitize & SANITIZE_THREAD) == 0)
+			remove = true;
+		      break;
+		    default:
+		      break;
+		    }
+		  gcc_assert (!remove || gimple_call_lhs (stmt) == NULL_TREE);
+		}
+	    }
+	  if (remove)
 	    {
 	      gimple_stmt_iterator gsi = bsi;
 	      gsi_next (&bsi);
+	      unlink_stmt_vdef (stmt);
+	      release_defs (stmt);
 	      gsi_remove (&gsi, true);
 	    }
 	  else

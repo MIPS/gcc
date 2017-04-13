@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Tilera TILEPro.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Walter Lee (walt@tilera.com)
 
    This file is part of GCC.
@@ -27,6 +27,7 @@
 #include "tree.h"
 #include "gimple.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "expmed.h"
@@ -3532,8 +3533,11 @@ tilepro_expand_prologue (void)
   /* Save lr first in its special location because code after this
      might use the link register as a scratch register.  */
   if (df_regs_ever_live_p (TILEPRO_LINK_REGNUM) || crtl->calls_eh_return)
-    FRP (frame_emit_store (TILEPRO_LINK_REGNUM, TILEPRO_LINK_REGNUM,
-			   stack_pointer_rtx, stack_pointer_rtx, 0));
+    {
+      FRP (frame_emit_store (TILEPRO_LINK_REGNUM, TILEPRO_LINK_REGNUM,
+			     stack_pointer_rtx, stack_pointer_rtx, 0));
+      emit_insn (gen_blockage ());
+    }
 
   if (total_size == 0)
     {
@@ -4947,6 +4951,11 @@ tilepro_file_end (void)
 
 #undef  TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE tilepro_option_override
+
+#ifdef TARGET_THREAD_SSP_OFFSET
+#undef TARGET_STACK_PROTECT_GUARD
+#define TARGET_STACK_PROTECT_GUARD hook_tree_void_null
+#endif
 
 #undef  TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P tilepro_scalar_mode_supported_p

@@ -1,5 +1,5 @@
 /* Array prefetching.
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -47,10 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "tree-data-ref.h"
-
-
-/* FIXME: Needed for optabs, but this should all be moved to a TBD interface
-   between the GIMPLE and RTL worlds.  */
+#include "diagnostic-core.h"
 
 /* This pass inserts prefetch instructions to optimize cache usage during
    accesses to arrays in loops.  It processes loops sequentially and:
@@ -704,9 +701,9 @@ ddown (HOST_WIDE_INT x, unsigned HOST_WIDE_INT by)
   gcc_assert (by > 0);
 
   if (x >= 0)
-    return x / by;
+    return x / (HOST_WIDE_INT) by;
   else
-    return (x + by - 1) / by;
+    return (x + (HOST_WIDE_INT) by - 1) / (HOST_WIDE_INT) by;
 }
 
 /* Given a CACHE_LINE_SIZE and two inductive memory references
@@ -1981,10 +1978,6 @@ tree_ssa_prefetch_arrays (void)
       set_builtin_decl (BUILT_IN_PREFETCH, decl, false);
     }
 
-  /* We assume that size of cache line is a power of two, so verify this
-     here.  */
-  gcc_assert ((PREFETCH_BLOCK & (PREFETCH_BLOCK - 1)) == 0);
-
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2041,6 +2034,20 @@ pass_loop_prefetch::execute (function *fun)
 {
   if (number_of_loops (fun) <= 1)
     return 0;
+
+  if ((PREFETCH_BLOCK & (PREFETCH_BLOCK - 1)) != 0)
+    {
+      static bool warned = false;
+
+      if (!warned)
+	{
+	  warning (OPT_Wdisabled_optimization,
+		   "%<l1-cache-size%> parameter is not a power of two %d",
+		   PREFETCH_BLOCK);
+	  warned = true;
+	}
+      return 0;
+    }
 
   return tree_ssa_prefetch_arrays ();
 }

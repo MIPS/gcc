@@ -1,5 +1,5 @@
 /* RTL dead store elimination.
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
 
    Contributed by Richard Sandiford <rsandifor@codesourcery.com>
    and Kenneth Zadeck <zadeck@naturalbridge.com>
@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "predict.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "gimple-ssa.h"
 #include "expmed.h"
@@ -3297,12 +3298,19 @@ dse_step5 (void)
 		  bitmap_clear (v);
 		}
 	      else if (insn_info->read_rec
-                       || insn_info->non_frame_wild_read)
+		       || insn_info->non_frame_wild_read
+		       || insn_info->frame_read)
 		{
-		  if (dump_file && !insn_info->non_frame_wild_read)
-		    fprintf (dump_file, "regular read\n");
-                  else if (dump_file && (dump_flags & TDF_DETAILS))
-		    fprintf (dump_file, "non-frame wild read\n");
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      if (!insn_info->non_frame_wild_read
+			  && !insn_info->frame_read)
+			fprintf (dump_file, "regular read\n");
+		      if (insn_info->non_frame_wild_read)
+			fprintf (dump_file, "non-frame wild read\n");
+		      if (insn_info->frame_read)
+			fprintf (dump_file, "frame read\n");
+		    }
 		  scan_reads (insn_info, v, NULL);
 		}
 	    }

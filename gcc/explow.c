@@ -1,5 +1,5 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "rtl.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "expmed.h"
 #include "optabs.h"
@@ -97,8 +98,7 @@ plus_constant (machine_mode mode, rtx x, HOST_WIDE_INT c,
   switch (code)
     {
     CASE_CONST_SCALAR_INT:
-      return immed_wide_int_const (wi::add (std::make_pair (x, mode), c),
-				   mode);
+      return immed_wide_int_const (wi::add (rtx_mode_t (x, mode), c), mode);
     case MEM:
       /* If this is a reference to the constant pool, try replacing it with
 	 a reference to a new constant.  If the resulting address isn't
@@ -320,7 +320,7 @@ convert_memory_address_addr_space_1 (machine_mode to_mode ATTRIBUTE_UNUSED,
       break;
 
     case LABEL_REF:
-      temp = gen_rtx_LABEL_REF (to_mode, LABEL_REF_LABEL (x));
+      temp = gen_rtx_LABEL_REF (to_mode, label_ref_label (x));
       LABEL_REF_NONLOCAL_P (temp) = LABEL_REF_NONLOCAL_P (x);
       return temp;
 
@@ -495,9 +495,8 @@ memory_address_addr_space (machine_mode mode, rtx x, addr_space_t as)
   return x;
 }
 
-/* If REF is a MEM with an invalid address, change it into a valid address.
-   Pass through anything else unchanged.  REF must be an unshared rtx and
-   the function may modify it in-place.  */
+/* Convert a mem ref into one with a valid memory address.
+   Pass through anything else unchanged.  */
 
 rtx
 validize_mem (rtx ref)
@@ -509,7 +508,8 @@ validize_mem (rtx ref)
 				   MEM_ADDR_SPACE (ref)))
     return ref;
 
-  return replace_equiv_address (ref, XEXP (ref, 0), true);
+  /* Don't alter REF itself, since that is probably a stack slot.  */
+  return replace_equiv_address (ref, XEXP (ref, 0));
 }
 
 /* If X is a memory reference to a member of an object block, try rewriting

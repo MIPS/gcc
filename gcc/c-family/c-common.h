@@ -1,5 +1,5 @@
 /* Definitions for c-common.c.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -118,6 +118,15 @@ enum rid
 
   RID_FRACT, RID_ACCUM, RID_AUTO_TYPE, RID_BUILTIN_CALL_WITH_STATIC_CHAIN,
 
+  /* "__GIMPLE", for the GIMPLE-parsing extension to the C frontend. */
+  RID_GIMPLE,
+
+  /* "__PHI", for parsing PHI function in GIMPLE FE.  */
+  RID_PHI,
+
+  /* "__RTL", for the RTL-parsing extension to the C frontend.  */
+  RID_RTL,
+
   /* C11 */
   RID_ALIGNAS, RID_GENERIC,
 
@@ -146,15 +155,15 @@ enum rid
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
   /* C++ extensions */
-  RID_ADDRESSOF,
-  RID_BASES,                   RID_DIRECT_BASES,
+  RID_ADDRESSOF,               RID_BASES,
+  RID_BUILTIN_LAUNDER,         RID_DIRECT_BASES,
   RID_HAS_NOTHROW_ASSIGN,      RID_HAS_NOTHROW_CONSTRUCTOR,
   RID_HAS_NOTHROW_COPY,        RID_HAS_TRIVIAL_ASSIGN,
   RID_HAS_TRIVIAL_CONSTRUCTOR, RID_HAS_TRIVIAL_COPY,
   RID_HAS_TRIVIAL_DESTRUCTOR,  RID_HAS_UNIQUE_OBJ_REPRESENTATIONS,
   RID_HAS_VIRTUAL_DESTRUCTOR,
-  RID_IS_ABSTRACT,             RID_IS_BASE_OF,
-  RID_IS_CLASS,
+  RID_IS_ABSTRACT,             RID_IS_AGGREGATE,
+  RID_IS_BASE_OF,              RID_IS_CLASS,
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
@@ -798,7 +807,8 @@ extern const char *fname_as_string (int);
 extern tree fname_decl (location_t, unsigned, tree);
 
 extern int check_user_alignment (const_tree, bool);
-extern void check_function_arguments (location_t loc, const_tree, int, tree *);
+extern bool check_function_arguments (location_t loc, const_tree, const_tree,
+				      int, tree *);
 extern void check_function_arguments_recurse (void (*)
 					      (void *, tree,
 					       unsigned HOST_WIDE_INT),
@@ -808,10 +818,8 @@ extern bool check_builtin_function_arguments (location_t, vec<location_t>,
 					      tree, int, tree *);
 extern void check_function_format (tree, int, tree *);
 extern bool attribute_fallthrough_p (tree);
-extern tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
-extern bool attribute_takes_identifier_p (const_tree);
 extern bool c_common_handle_option (size_t, const char *, int, int, location_t,
 				    const struct cl_option_handlers *);
 extern bool default_handle_c_option (size_t, const char *, int);
@@ -857,6 +865,7 @@ extern bool pointer_to_zero_sized_aggr_p (tree);
 extern bool bool_promoted_to_int_p (tree);
 extern tree fold_for_warn (tree);
 extern tree c_common_get_narrower (tree, int *);
+extern bool get_nonnull_operand (tree, unsigned HOST_WIDE_INT *);
 
 #define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, false, 1)
 #define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, false, 1)
@@ -1315,8 +1324,6 @@ c_tree_chain_next (tree t)
 #define TM_STMT_ATTR_ATOMIC	4
 #define TM_STMT_ATTR_RELAXED	8
 
-extern int parse_tm_stmt_attr (tree, int);
-
 /* Mask used by tm_attr_to_mask and tm_mask_to_attr.  Note that these
    are ordered specifically such that more restrictive attributes are
    at lower bit positions.  This fact is known by the C++ tm attribute
@@ -1327,10 +1334,6 @@ extern int parse_tm_stmt_attr (tree, int);
 #define TM_ATTR_PURE			4
 #define TM_ATTR_IRREVOCABLE		8
 #define TM_ATTR_MAY_CANCEL_OUTER	16
-
-extern int tm_attr_to_mask (tree);
-extern tree tm_mask_to_attr (int);
-extern tree find_tm_attribute (tree);
 
 /* A suffix-identifier value doublet that represents user-defined literals
    for C++-0x.  */
@@ -1499,6 +1502,7 @@ extern void warnings_for_convert_and_check (location_t, tree, tree, tree);
 extern void c_do_switch_warnings (splay_tree, location_t, tree, tree, bool,
 				  bool);
 extern void warn_for_omitted_condop (location_t, tree);
+extern void warn_for_restrict (unsigned, tree *, unsigned);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
    Used to select diagnostic messages in lvalue_error and
@@ -1537,6 +1541,20 @@ extern void maybe_warn_bool_compare (location_t, enum tree_code, tree, tree);
 extern bool maybe_warn_shift_overflow (location_t, tree, tree);
 extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
 extern bool diagnose_mismatched_attributes (tree, tree);
+extern tree do_warn_duplicated_branches_r (tree *, int *, void *);
+
+/* In c-attribs.c.  */
+extern bool attribute_takes_identifier_p (const_tree);
+extern tree handle_unused_attribute (tree *, tree, tree, int, bool *);
+extern int parse_tm_stmt_attr (tree, int);
+extern int tm_attr_to_mask (tree);
+extern tree tm_mask_to_attr (int);
+extern tree find_tm_attribute (tree);
+
+extern enum flt_eval_method
+excess_precision_mode_join (enum flt_eval_method, enum flt_eval_method);
+
+extern int c_flt_eval_method (bool ts18661_p);
 
 #if CHECKING_P
 namespace selftest {

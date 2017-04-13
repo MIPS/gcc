@@ -1,5 +1,5 @@
 /* Variable tracking routines for the GNU compiler.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -95,6 +95,7 @@
 #include "cfghooks.h"
 #include "alloc-pool.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -2554,7 +2555,7 @@ val_reset (dataflow_set *set, decl_or_value dv)
     {
       decl_or_value cdv = dv_from_value (cval);
 
-      /* Keep the remaining values connected, accummulating links
+      /* Keep the remaining values connected, accumulating links
 	 in the canonical value.  */
       for (node = var->var_part[0].loc_chain; node; node = node->next)
 	{

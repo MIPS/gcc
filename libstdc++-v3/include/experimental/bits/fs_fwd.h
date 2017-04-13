@@ -1,6 +1,6 @@
 // Filesystem declarations -*- C++ -*-
 
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -162,7 +162,7 @@ _GLIBCXX_END_NAMESPACE_CXX11
       unknown		=  0xFFFF,
       add_perms		= 0x10000,
       remove_perms	= 0x20000,
-      resolve_symlinks	= 0x40000
+      symlink_nofollow	= 0x40000
   };
 
   constexpr perms

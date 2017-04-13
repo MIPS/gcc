@@ -1,6 +1,6 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -523,8 +523,14 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
 
     case TEMPLATE_TYPE_PARM:
       if (is_auto (type))
-	emit_diagnostic (diag_kind, loc, 0,
-			 "invalid use of %<auto%>");
+	{
+	  if (CLASS_PLACEHOLDER_TEMPLATE (type))
+	    emit_diagnostic (diag_kind, loc, 0,
+			     "invalid use of placeholder %qT", type);
+	  else
+	    emit_diagnostic (diag_kind, loc, 0,
+			     "invalid use of %qT", type);
+	}
       else
 	emit_diagnostic (diag_kind, loc, 0,
 			 "invalid use of template type parameter %qT", type);
@@ -743,6 +749,10 @@ split_nonconstant_init (tree dest, tree init)
       DECL_INITIAL (dest) = init;
       TREE_READONLY (dest) = 0;
     }
+  else if (TREE_CODE (init) == STRING_CST
+	   && array_of_runtime_bound_p (TREE_TYPE (dest)))
+    code = build_vec_init (dest, NULL_TREE, init, /*value-init*/false,
+			   /*from array*/1, tf_warning_or_error);
   else
     code = build2 (INIT_EXPR, TREE_TYPE (dest), dest, init);
 
@@ -794,7 +804,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
     value = init;
   else
     /* Digest the specified initializer into an expression.  */
-    value = digest_init_flags (type, init, flags);
+    value = digest_init_flags (type, init, flags, tf_warning_or_error);
 
   value = extend_ref_init_temps (decl, value, cleanups);
 
@@ -807,7 +817,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
       bool const_init;
       value = instantiate_non_dependent_expr (value);
       if (DECL_DECLARED_CONSTEXPR_P (decl)
-	  || DECL_IN_AGGR_P (decl))
+	  || (DECL_IN_AGGR_P (decl) && !DECL_VAR_DECLARED_INLINE_P (decl)))
 	{
 	  /* Diagnose a non-constant initializer for constexpr.  */
 	  if (processing_template_decl
@@ -824,13 +834,14 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
       const_init = (reduced_constant_expression_p (value)
 		    || error_operand_p (value));
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = const_init;
-      TREE_CONSTANT (decl) = const_init && decl_maybe_constant_var_p (decl);
+      /* FIXME setting TREE_CONSTANT on refs breaks the back end.  */
+      if (TREE_CODE (type) != REFERENCE_TYPE)
+	TREE_CONSTANT (decl) = const_init && decl_maybe_constant_var_p (decl);
     }
   value = cp_fully_fold (value);
 
-  if (cxx_dialect >= cxx14 && CLASS_TYPE_P (strip_array_types (type)))
-    /* Handle aggregate NSDMI in non-constant initializers, too.  */
-    value = replace_placeholders (value, decl);
+  /* Handle aggregate NSDMI in non-constant initializers, too.  */
+  value = replace_placeholders (value, decl);
 
   /* DECL may change value; purge caches.  */
   clear_cv_and_fold_caches ();
@@ -1058,7 +1069,8 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 		}
 	    }
 
-	  if (type != TREE_TYPE (init))
+	  if (type != TREE_TYPE (init)
+	      && !variably_modified_type_p (type, NULL_TREE))
 	    {
 	      init = copy_node (init);
 	      TREE_TYPE (init) = type;
@@ -1163,9 +1175,9 @@ digest_init (tree type, tree init, tsubst_flags_t complain)
 }
 
 tree
-digest_init_flags (tree type, tree init, int flags)
+digest_init_flags (tree type, tree init, int flags, tsubst_flags_t complain)
 {
-  return digest_init_r (type, init, false, flags, tf_warning_or_error);
+  return digest_init_r (type, init, false, flags, complain);
 }
 
 /* Process the initializer INIT for an NSDMI DECL (a FIELD_DECL).  */
@@ -1181,7 +1193,7 @@ digest_nsdmi_init (tree decl, tree init)
   if (BRACE_ENCLOSED_INITIALIZER_P (init)
       && CP_AGGREGATE_TYPE_P (type))
     init = reshape_init (type, init, tf_warning_or_error);
-  init = digest_init_flags (type, init, flags);
+  init = digest_init_flags (type, init, flags, tf_warning_or_error);
   if (TREE_CODE (init) == TARGET_EXPR)
     /* This represents the whole initialization.  */
     TARGET_EXPR_DIRECT_INIT_P (init) = true;
@@ -1352,6 +1364,7 @@ process_init_constructor_record (tree type, tree init,
   gcc_assert (TREE_CODE (type) == RECORD_TYPE);
   gcc_assert (!CLASSTYPE_VBASECLASSES (type));
   gcc_assert (!TYPE_BINFO (type)
+	      || cxx_dialect >= cxx1z
 	      || !BINFO_N_BASE_BINFOS (TYPE_BINFO (type)));
   gcc_assert (!TYPE_POLYMORPHIC_P (type));
 
@@ -1369,7 +1382,9 @@ process_init_constructor_record (tree type, tree init,
       if (!DECL_NAME (field) && DECL_C_BIT_FIELD (field))
 	continue;
 
-      if (TREE_CODE (field) != FIELD_DECL || DECL_ARTIFICIAL (field))
+      if (TREE_CODE (field) != FIELD_DECL
+	  || (DECL_ARTIFICIAL (field)
+	      && !(cxx_dialect >= cxx1z && DECL_FIELD_IS_BASE (field))))
 	continue;
 
       /* If this is a bitfield, first convert to the declared type.  */
@@ -1505,7 +1520,8 @@ process_init_constructor_union (tree type, tree init,
     {
       for (tree field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	{
-	  if (DECL_INITIAL (field))
+	  if (TREE_CODE (field) == FIELD_DECL
+	      && DECL_INITIAL (field) != NULL_TREE)
 	    {
 	      CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (init),
 				      field,

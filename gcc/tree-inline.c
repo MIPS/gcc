@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -214,7 +214,7 @@ remap_ssa_name (tree name, copy_body_data *id)
 	  def_temp = gimple_build_debug_source_bind (vexpr, val, NULL);
 	  DECL_ARTIFICIAL (vexpr) = 1;
 	  TREE_TYPE (vexpr) = TREE_TYPE (name);
-	  DECL_MODE (vexpr) = DECL_MODE (SSA_NAME_VAR (name));
+	  SET_DECL_MODE (vexpr, DECL_MODE (SSA_NAME_VAR (name)));
 	  gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 	  gsi_insert_before (&gsi, def_temp, GSI_SAME_STMT);
 	  return vexpr;
@@ -1860,7 +1860,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	  call_stmt = dyn_cast <gcall *> (stmt);
 	  if (call_stmt
 	      && gimple_call_va_arg_pack_p (call_stmt)
-	      && id->call_stmt)
+	      && id->call_stmt
+	      && ! gimple_call_va_arg_pack_p (id->call_stmt))
 	    {
 	      /* __builtin_va_arg_pack () should be replaced by
 		 all arguments corresponding to ... in the caller.  */
@@ -1940,7 +1941,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		   && id->call_stmt
 		   && (decl = gimple_call_fndecl (stmt))
 		   && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-		   && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_ARG_PACK_LEN)
+		   && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_ARG_PACK_LEN
+		   && ! gimple_call_va_arg_pack_p (id->call_stmt))
 	    {
 	      /* __builtin_va_arg_pack_len () should be replaced by
 		 the number of anonymous arguments.  */
@@ -2342,50 +2344,60 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
       if (!virtual_operand_p (res))
 	{
 	  walk_tree (&new_res, copy_tree_body_r, id, NULL);
-	  new_phi = create_phi_node (new_res, new_bb);
-	  FOR_EACH_EDGE (new_edge, ei, new_bb->preds)
+	  if (EDGE_COUNT (new_bb->preds) == 0)
 	    {
-	      edge old_edge = find_edge ((basic_block) new_edge->src->aux, bb);
-	      tree arg;
-	      tree new_arg;
-	      edge_iterator ei2;
-	      location_t locus;
-
-	      /* When doing partial cloning, we allow PHIs on the entry block
-		 as long as all the arguments are the same.  Find any input
-		 edge to see argument to copy.  */
-	      if (!old_edge)
-		FOR_EACH_EDGE (old_edge, ei2, bb->preds)
-		  if (!old_edge->src->aux)
-		    break;
-
-	      arg = PHI_ARG_DEF_FROM_EDGE (phi, old_edge);
-	      new_arg = arg;
-	      walk_tree (&new_arg, copy_tree_body_r, id, NULL);
-	      gcc_assert (new_arg);
-	      /* With return slot optimization we can end up with
-	         non-gimple (foo *)&this->m, fix that here.  */
-	      if (TREE_CODE (new_arg) != SSA_NAME
-		  && TREE_CODE (new_arg) != FUNCTION_DECL
-		  && !is_gimple_val (new_arg))
+	      /* Technically we'd want a SSA_DEFAULT_DEF here... */
+	      SSA_NAME_DEF_STMT (new_res) = gimple_build_nop ();
+	    }
+	  else
+	    {
+	      new_phi = create_phi_node (new_res, new_bb);
+	      FOR_EACH_EDGE (new_edge, ei, new_bb->preds)
 		{
-		  gimple_seq stmts = NULL;
-		  new_arg = force_gimple_operand (new_arg, &stmts, true, NULL);
-		  gsi_insert_seq_on_edge (new_edge, stmts);
-		  inserted = true;
-		}
-	      locus = gimple_phi_arg_location_from_edge (phi, old_edge);
-	      if (LOCATION_BLOCK (locus))
-		{
-		  tree *n;
-		  n = id->decl_map->get (LOCATION_BLOCK (locus));
-		  gcc_assert (n);
-		  locus = set_block (locus, *n);
-		}
-	      else
-		locus = LOCATION_LOCUS (locus);
+		  edge old_edge = find_edge ((basic_block) new_edge->src->aux,
+					     bb);
+		  tree arg;
+		  tree new_arg;
+		  edge_iterator ei2;
+		  location_t locus;
 
-	      add_phi_arg (new_phi, new_arg, new_edge, locus);
+		  /* When doing partial cloning, we allow PHIs on the entry
+		     block as long as all the arguments are the same.
+		     Find any input edge to see argument to copy.  */
+		  if (!old_edge)
+		    FOR_EACH_EDGE (old_edge, ei2, bb->preds)
+		      if (!old_edge->src->aux)
+			break;
+
+		  arg = PHI_ARG_DEF_FROM_EDGE (phi, old_edge);
+		  new_arg = arg;
+		  walk_tree (&new_arg, copy_tree_body_r, id, NULL);
+		  gcc_assert (new_arg);
+		  /* With return slot optimization we can end up with
+		     non-gimple (foo *)&this->m, fix that here.  */
+		  if (TREE_CODE (new_arg) != SSA_NAME
+		      && TREE_CODE (new_arg) != FUNCTION_DECL
+		      && !is_gimple_val (new_arg))
+		    {
+		      gimple_seq stmts = NULL;
+		      new_arg = force_gimple_operand (new_arg, &stmts, true,
+						      NULL);
+		      gsi_insert_seq_on_edge (new_edge, stmts);
+		      inserted = true;
+		    }
+		  locus = gimple_phi_arg_location_from_edge (phi, old_edge);
+		  if (LOCATION_BLOCK (locus))
+		    {
+		      tree *n;
+		      n = id->decl_map->get (LOCATION_BLOCK (locus));
+		      gcc_assert (n);
+		      locus = set_block (locus, *n);
+		    }
+		  else
+		    locus = LOCATION_LOCUS (locus);
+
+		  add_phi_arg (new_phi, new_arg, new_edge, locus);
+		}
 	    }
 	}
     }
@@ -4382,6 +4394,12 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
   bool purge_dead_abnormal_edges;
   gcall *call_stmt;
   unsigned int i;
+  unsigned int prop_mask, src_properties;
+  struct function *dst_cfun;
+  tree simduid;
+  use_operand_p use;
+  gimple *simtenter_stmt = NULL;
+  vec<tree> *simtvars_save;
 
   /* The gimplifier uses input_location in too many places, such as
      internal_get_tmp_var ().  */
@@ -4583,15 +4601,28 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
   /* Record the function we are about to inline.  */
   id->src_fn = fn;
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
-  id->call_stmt = stmt;
+  id->call_stmt = call_stmt;
+
+  /* When inlining into an OpenMP SIMD-on-SIMT loop, arrange for new automatic
+     variables to be added to IFN_GOMP_SIMT_ENTER argument list.  */
+  dst_cfun = DECL_STRUCT_FUNCTION (id->dst_fn);
+  simtvars_save = id->dst_simt_vars;
+  if (!(dst_cfun->curr_properties & PROP_gimple_lomp_dev)
+      && (simduid = bb->loop_father->simduid) != NULL_TREE
+      && (simduid = ssa_default_def (dst_cfun, simduid)) != NULL_TREE
+      && single_imm_use (simduid, &use, &simtenter_stmt)
+      && is_gimple_call (simtenter_stmt)
+      && gimple_call_internal_p (simtenter_stmt, IFN_GOMP_SIMT_ENTER))
+    vec_alloc (id->dst_simt_vars, 0);
+  else
+    id->dst_simt_vars = NULL;
 
   /* If the src function contains an IFN_VA_ARG, then so will the dst
-     function after inlining.  */
-  if ((id->src_cfun->curr_properties & PROP_gimple_lva) == 0)
-    {
-      struct function *dst_cfun = DECL_STRUCT_FUNCTION (id->dst_fn);
-      dst_cfun->curr_properties &= ~PROP_gimple_lva;
-    }
+     function after inlining.  Likewise for IFN_GOMP_USE_SIMT.  */
+  prop_mask = PROP_gimple_lva | PROP_gimple_lomp_dev;
+  src_properties = id->src_cfun->curr_properties & prop_mask;
+  if (src_properties != prop_mask)
+    dst_cfun->curr_properties &= src_properties | ~prop_mask;
 
   gcc_assert (!id->src_cfun->after_inlining);
 
@@ -4725,6 +4756,27 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
   if (cfun->gimple_df)
     pt_solution_reset (&cfun->gimple_df->escaped);
 
+  /* Add new automatic variables to IFN_GOMP_SIMT_ENTER arguments.  */
+  if (id->dst_simt_vars && id->dst_simt_vars->length () > 0)
+    {
+      size_t nargs = gimple_call_num_args (simtenter_stmt);
+      vec<tree> *vars = id->dst_simt_vars;
+      auto_vec<tree> newargs (nargs + vars->length ());
+      for (size_t i = 0; i < nargs; i++)
+	newargs.quick_push (gimple_call_arg (simtenter_stmt, i));
+      for (tree *pvar = vars->begin (); pvar != vars->end (); pvar++)
+	{
+	  tree ptrtype = build_pointer_type (TREE_TYPE (*pvar));
+	  newargs.quick_push (build1 (ADDR_EXPR, ptrtype, *pvar));
+	}
+      gcall *g = gimple_build_call_internal_vec (IFN_GOMP_SIMT_ENTER, newargs);
+      gimple_call_set_lhs (g, gimple_call_lhs (simtenter_stmt));
+      gimple_stmt_iterator gsi = gsi_for_stmt (simtenter_stmt);
+      gsi_replace (&gsi, g, false);
+    }
+  vec_free (id->dst_simt_vars);
+  id->dst_simt_vars = simtvars_save;
+
   /* Clean up.  */
   if (id->debug_map)
     {
@@ -4779,7 +4831,7 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 	    {
 	      if (!var)
 		{
-		  tree var = create_tmp_reg_fn (cfun, TREE_TYPE (name), NULL);
+		  var = create_tmp_reg_fn (cfun, TREE_TYPE (name), NULL);
 		  SET_SSA_NAME_VAR_OR_IDENTIFIER (name, var);
 		}
 	      /* Otherwise make this variable undefined.  */
@@ -5415,7 +5467,7 @@ declare_inline_vars (tree block, tree vars)
    but now it will be in the TO_FN.  PARM_TO_VAR means enable PARM_DECL to
    VAR_DECL translation.  */
 
-static tree
+tree
 copy_decl_for_dup_finish (copy_body_data *id, tree decl, tree copy)
 {
   /* Don't generate debug information for the copy if we wouldn't have
@@ -5448,9 +5500,19 @@ copy_decl_for_dup_finish (copy_body_data *id, tree decl, tree copy)
        function.  */
     ;
   else
-    /* Ordinary automatic local variables are now in the scope of the
-       new function.  */
-    DECL_CONTEXT (copy) = id->dst_fn;
+    {
+      /* Ordinary automatic local variables are now in the scope of the
+	 new function.  */
+      DECL_CONTEXT (copy) = id->dst_fn;
+      if (VAR_P (copy) && id->dst_simt_vars && !is_gimple_reg (copy))
+	{
+	  if (!lookup_attribute ("omp simt private", DECL_ATTRIBUTES (copy)))
+	    DECL_ATTRIBUTES (copy)
+	      = tree_cons (get_identifier ("omp simt private"), NULL,
+			   DECL_ATTRIBUTES (copy));
+	  id->dst_simt_vars->safe_push (copy);
+	}
+    }
 
   return copy;
 }
@@ -6039,7 +6101,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	    ddecl = make_node (DEBUG_EXPR_DECL);
 	    DECL_ARTIFICIAL (ddecl) = 1;
 	    TREE_TYPE (ddecl) = TREE_TYPE (parm);
-	    DECL_MODE (ddecl) = DECL_MODE (parm);
+	    SET_DECL_MODE (ddecl, DECL_MODE (parm));
 	    vec_safe_push (*debug_args, DECL_ORIGIN (parm));
 	    vec_safe_push (*debug_args, ddecl);
 	  }
@@ -6071,7 +6133,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	      parm = (**debug_args)[i];
 	      DECL_ARTIFICIAL (vexpr) = 1;
 	      TREE_TYPE (vexpr) = TREE_TYPE (parm);
-	      DECL_MODE (vexpr) = DECL_MODE (parm);
+	      SET_DECL_MODE (vexpr, DECL_MODE (parm));
 	      def_temp = gimple_build_debug_bind (var, vexpr, NULL);
 	      gsi_insert_before (&cgsi, def_temp, GSI_NEW_STMT);
 	      def_temp = gimple_build_debug_source_bind (vexpr, parm, NULL);

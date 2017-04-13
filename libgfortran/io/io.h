@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -269,8 +269,34 @@ typedef enum
 unit_async;
 
 typedef enum
+{ SHARE_DENYRW, SHARE_DENYNONE,
+  SHARE_UNSPECIFIED
+}
+unit_share;
+
+typedef enum
+{ CC_LIST, CC_FORTRAN, CC_NONE,
+  CC_UNSPECIFIED
+}
+unit_cc;
+
+/* End-of-record types for CC_FORTRAN.  */
+typedef enum
+{ CCF_DEFAULT=0x0,
+  CCF_OVERPRINT=0x1,
+  CCF_ONE_LF=0x2,
+  CCF_TWO_LF=0x4,
+  CCF_PAGE_FEED=0x8,
+  CCF_PROMPT=0x10,
+  CCF_OVERPRINT_NOA=0x20,
+} /* 6 bits */
+cc_fortran;
+
+typedef enum
 { SIGN_S, SIGN_SS, SIGN_SP }
 unit_sign_s;
+
+/* Make sure to keep st_parameter_* in sync with gcc/fortran/ioparm.def.  */
 
 #define CHARACTER1(name) \
 	      char * name; \
@@ -299,6 +325,9 @@ typedef struct
   CHARACTER1 (sign);
   CHARACTER2 (asynchronous);
   GFC_INTEGER_4 *newunit;
+  GFC_INTEGER_4 readonly;
+  CHARACTER2 (cc);
+  CHARACTER1 (share);
 }
 st_parameter_open;
 
@@ -352,6 +381,8 @@ st_parameter_filepos;
 #define IOPARM_INQUIRE_HAS_SIZE		(1 << 6)
 #define IOPARM_INQUIRE_HAS_ID		(1 << 7)
 #define IOPARM_INQUIRE_HAS_IQSTREAM	(1 << 8)
+#define IOPARM_INQUIRE_HAS_SHARE	(1 << 9)
+#define IOPARM_INQUIRE_HAS_CC		(1 << 10)
 
 typedef struct
 {
@@ -386,6 +417,8 @@ typedef struct
   GFC_IO_INT *size;
   GFC_INTEGER_4 *id;
   CHARACTER1 (iqstream);
+  CHARACTER2 (share);
+  CHARACTER1 (cc);
 }
 st_parameter_inquire;
 
@@ -410,6 +443,7 @@ st_parameter_inquire;
 #define IOPARM_DT_HAS_SIGN			(1 << 24)
 #define IOPARM_DT_HAS_F2003                     (1 << 25)
 #define IOPARM_DT_HAS_UDTIO                     (1 << 26)
+#define IOPARM_DT_DEFAULT_EXP			(1 << 27)
 /* Internal use bit.  */
 #define IOPARM_DT_IONML_SET			(1u << 31)
 
@@ -424,6 +458,15 @@ typedef struct st_parameter_dt
   CHARACTER2 (advance);
   CHARACTER1 (internal_unit);
   CHARACTER2 (namelist_name);
+  GFC_INTEGER_4 *id;
+  GFC_IO_INT pos;
+  CHARACTER1 (asynchronous);
+  CHARACTER2 (blank);
+  CHARACTER1 (decimal);
+  CHARACTER2 (delim);
+  CHARACTER1 (pad);
+  CHARACTER2 (round);
+  CHARACTER1 (sign);
   /* Private part of the structure.  The compiler just needs
      to reserve enough space.  */
   union
@@ -440,7 +483,8 @@ typedef struct st_parameter_dt
 	  unit_blank blank_status;
 	  unit_sign sign_status;
 	  int scale_factor;
-	  int max_pos; /* Maximum righthand column written to.  */
+	  /* Maximum righthand column written to.  */
+	  int max_pos;
 	  /* Number of skips + spaces to be done for T and X-editing.  */
 	  int skips;
 	  /* Number of spaces to be done for T and X-editing.  */
@@ -490,12 +534,8 @@ typedef struct st_parameter_dt
 	  unsigned expanded_read : 1;
 	  /* 13 unused bits.  */
 
-	  /* Used for ungetc() style functionality. Possible values
-	     are an unsigned char, EOF, or EOF - 1 used to mark the
-	     field as not valid.  */
-	  int last_char; /* No longer used, moved to gfc_unit.  */
-	  char nml_delim;
-
+	  int child_saved_iostat;
+	  int nml_delim;
 	  int repeat_count;
 	  int saved_length;
 	  int saved_used;
@@ -514,24 +554,30 @@ typedef struct st_parameter_dt
 	     large enough to hold a complex value (two reals) of the
 	     largest kind.  */
 	  char value[32];
-	  GFC_IO_INT size_used;
+	  GFC_IO_INT not_used; /* Needed for alignment. */
 	  formatted_dtio fdtio_ptr;
 	  unformatted_dtio ufdtio_ptr;
+	  /* With CC_FORTRAN, the first character of a record determines the
+	     style of record end (and start) to use. We must mark down the type
+	     when we write first in write_a so we remember the end type later in
+	     next_record_w.  */
+	  struct
+	    {
+	      unsigned type : 6; /* See enum cc_fortran.  */
+	      unsigned len  : 2; /* Always 0, 1, or 2.  */
+	      /* The union is updated after start-of-record is written.  */
+	      union
+		{
+		  char start; /* Output character for start of record.  */
+		  char end;   /* Output character for end of record.  */
+		} u;
+	    } cc;
 	} p;
       /* This pad size must be equal to the pad_size declared in
 	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
 	 must be smaller or equal to this array.  */
       char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
-  GFC_INTEGER_4 *id;
-  GFC_IO_INT pos;
-  CHARACTER1 (asynchronous);
-  CHARACTER2 (blank);
-  CHARACTER1 (decimal);
-  CHARACTER2 (delim);
-  CHARACTER1 (pad);
-  CHARACTER2 (round);
-  CHARACTER1 (sign);
 }
 st_parameter_dt;
 
@@ -571,6 +617,9 @@ typedef struct
   unit_round round;
   unit_sign sign;
   unit_async async;
+  unit_share share;
+  unit_cc cc;
+  int readonly;
 }
 unit_flags;
 
@@ -649,7 +698,13 @@ typedef struct gfc_unit
 
   /* DTIO Parent/Child procedure, 0 = parent, >0 = child level.  */
   int child_dtio;
+
+  /* Used for ungetc() style functionality. Possible values
+     are an unsigned char, EOF, or EOF - 1 used to mark the
+     field as not valid.  */
   int last_char;
+  bool has_size;
+  GFC_IO_INT size_used;
 }
 gfc_unit;
 
@@ -715,8 +770,9 @@ internal_proto (finish_last_advance_record);
 extern int unit_truncate (gfc_unit *, gfc_offset, st_parameter_common *);
 internal_proto (unit_truncate);
 
-extern GFC_INTEGER_4 get_unique_unit_number (st_parameter_common *);
-internal_proto(get_unique_unit_number);
+extern int newunit_alloc (void);
+internal_proto(newunit_alloc);
+
 
 /* open.c */
 

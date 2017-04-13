@@ -1,7 +1,7 @@
 // { dg-do run { target c++11 } }
 // { dg-options "-D__STDCPP_WANT_MATH_SPEC_FUNCS__" }
 //
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -39,11 +39,11 @@
 #include <specfun_testcase.h>
 
 // Test data.
-// max(|f - f_GSL|): 4.4408920985006262e-16
-// max(|f - f_GSL| / |f_GSL|): 2.7985267365680201e-16
-// mean(f - f_GSL): -1.5192525600133721e-16
-// variance(f - f_GSL): 5.0056658723514899e-33
-// stddev(f - f_GSL): 7.0750730542881954e-17
+// max(|f - f_GSL|): 4.4408920985006262e-16 at index 2
+// max(|f - f_GSL| / |f_GSL|): 2.4060825371980270e-16
+// mean(f - f_GSL): -9.3492465231592125e-17
+// variance(f - f_GSL): 5.1258018532879257e-34
+// stddev(f - f_GSL): 2.2640233773722228e-17
 const testcase_comp_ellint_1<double>
 data001[19] =
 {
@@ -73,7 +73,6 @@ template<typename Ret, unsigned int Num>
   void
   test(const testcase_comp_ellint_1<Ret> (&data)[Num], Ret toler)
   {
-    bool test __attribute__((unused)) = true;
     const Ret eps = std::numeric_limits<Ret>::epsilon();
     Ret max_abs_diff = -Ret(1);
     Ret max_abs_frac = -Ret(1);

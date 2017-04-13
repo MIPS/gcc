@@ -11,7 +11,7 @@ AC_INIT(package-unused, version-unused,, libgo)
 AC_CONFIG_SRCDIR(Makefile.am)
 AC_CONFIG_HEADER(config.h)
 
-libtool_VERSION=10:0:0
+libtool_VERSION=11:0:0
 AC_SUBST(libtool_VERSION)
 
 AM_ENABLE_MULTILIB(, ..)
@@ -121,6 +121,7 @@ if test "$with_libffi" != no; then
 fi
 AC_SUBST(LIBFFI)
 AC_SUBST(LIBFFIINCS)
+AM_CONDITIONAL(USE_LIBFFI, test "$with_liffi" != "no")
 
 # See if the user wants to configure without libatomic. This is useful if we are
 # on an architecture for which libgo does not need an atomic support library and
@@ -196,7 +197,7 @@ AC_SUBST(USE_DEJAGNU)
 # supported by the gofrontend and all architectures supported by the
 # gc toolchain.
 # N.B. Keep in sync with gcc/testsuite/go.test/go-test.exp (go-set-goarch).
-ALLGOARCH="386 alpha amd64 amd64p32 arm armbe arm64 arm64be ia64 m68k mipso32 mipsn32 mipso64 mipsn64 mips mipsle mips64 mips64le mips64p32 mips64pe32le ppc ppc64 ppc64le s390 s390x sparc sparc64"
+ALLGOARCH="386 alpha amd64 amd64p32 arm armbe arm64 arm64be ia64 m68k mipso32 mipsn32 mipso64 mipsn64 mips mipsle mips64 mips64le mips64p32 mips64p32le ppc ppc64 ppc64le s390 s390x sparc sparc64"
 
 # All known GOARCH_FAMILY values.
 ALLGOARCHFAMILY="I386 ALPHA AMD64 ARM ARM64 IA64 M68K MIPS MIPS64 PPC PPC64 S390 S390X SPARC SPARC64"
@@ -230,7 +231,6 @@ case ${host} in
     GOARCH_FAMILY=ARM
     GOARCH_CACHELINESIZE=32
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
     GOARCH_MINFRAMESIZE=4
     ;;
 changequote(,)dnl
@@ -254,7 +254,7 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     GOARCH=ia64
     GOARCH_FAMILY=IA64
     GOARCH_CACHELINESIZE=16384
-    GOARCH_PHYSPAGESIZE=8192
+    GOARCH_PHYSPAGESIZE=65536
     ;;
   m68k*-*-*)
     GOARCH=m68k
@@ -262,7 +262,7 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     GOARCH_BIGENDIAN=1
     GOARCH_CACHELINESIZE=16
     GOARCH_PCQUANTUM=4
-    GOARCH_INT64ALIGN=4
+    GOARCH_INT64ALIGN=2
     ;;
   mips*-*-*)
     AC_COMPILE_IFELSE([
@@ -296,7 +296,6 @@ GOARCH_HUGEPAGESIZE="1 << 21"
     case "$mips_abi" in
     "o32" | "n32")
         GOARCH_FAMILY=MIPS
-	GOARCH_INT64ALIGN=4
 	GOARCH_MINFRAMESIZE=4
         ;;
     "n64" | "o64")
@@ -323,7 +322,6 @@ GOARCH_HUGEPAGESIZE="1 << 21"
 [GOARCH=ppc
 GOARCH_FAMILY=PPC
 GOARCH_BIGENDIAN=1
-GOARCH_INT64ALIGN=4
 ],
     [
 GOARCH_FAMILY=PPC64
@@ -347,7 +345,6 @@ GOARCH_BIGENDIAN=1
 #endif],
 [GOARCH=s390
 GOARCH_FAMILY=S390
-GOARCH_INT64ALIGN=4
 GOARCH_MINFRAMESIZE=4
 ], [GOARCH=s390x
 GOARCH_FAMILY=S390X
@@ -364,7 +361,6 @@ GOARCH_MINFRAMESIZE=8
 #endif],
 [GOARCH=sparc
 GOARCH_FAMILY=SPARC
-GOARCH_INT64ALIGN=4
 ],
 [GOARCH=sparc64
 GOARCH_FAMILY=SPARC64
@@ -424,6 +420,9 @@ case "$target" in
 	;;
 esac
 AC_SUBST(OSCFLAGS)
+
+dnl Check if assembler supports disabling hardware capability support.
+GCC_CHECK_ASSEMBLER_HWCAP
 
 dnl Use -fsplit-stack when compiling C code if available.
 AC_CACHE_CHECK([whether -fsplit-stack is supported],
@@ -570,7 +569,7 @@ AC_C_BIGENDIAN
 
 GCC_CHECK_UNWIND_GETIPINFO
 
-AC_CHECK_HEADERS(sched.h semaphore.h sys/file.h sys/mman.h syscall.h sys/epoll.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h)
+AC_CHECK_HEADERS(port.h sched.h semaphore.h sys/file.h sys/mman.h syscall.h sys/epoll.h sys/event.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h)
 
 AC_CHECK_HEADERS([linux/filter.h linux/if_addr.h linux/if_ether.h linux/if_tun.h linux/netlink.h linux/rtnetlink.h], [], [],
 [#ifdef HAVE_SYS_SOCKET_H
@@ -933,6 +932,24 @@ CFLAGS=$CFLAGS_hold
 if test "x$libgo_cv_as_x86_64_unwind_section_type" = xyes; then
   AC_DEFINE(HAVE_AS_X86_64_UNWIND_SECTION_TYPE, 1,
 	    [Define if your assembler supports unwind section type.])
+fi
+
+AC_CACHE_CHECK([assembler supports AES instructions],
+libgo_cv_as_x86_aes, [
+libgo_cv_as_x86_aes=yes
+echo 'aesenc %xmm0, %xmm1' > conftest.s
+CFLAGS_hold=$CFLAGS
+if test "$libgo_cv_c_unused_arguments" = yes; then
+  CFLAGS="$CFLAGS -Qunused-arguments"
+fi
+if $CC $CFLAGS -c conftest.s 2>&1 | grep -i error > /dev/null; then
+    libgo_cv_as_x86_aes=no
+fi
+CFLAGS=$CFLAGS_hold
+])
+if test "x$libgo_cv_as_x86_aes" = xyes; then
+  AC_DEFINE(HAVE_AS_X86_AES, 1,
+	    [Define if your assembler supports AES instructions.])
 fi
 
 AC_CACHE_SAVE

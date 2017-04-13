@@ -40,6 +40,15 @@ namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
+   * A function to return the max of the absolute values of two numbers
+   * ... so we won't include everything.
+   */
+  template<typename _Tp>
+    inline _Tp
+    __fpmaxabs(_Tp __a, _Tp __b)
+    { std::abs(__a) < std::abs(__b) ? std::abs(__a) : std::abs(__b); }
+
+  /**
    * A function to reliably compare two floating point numbers.
    *
    * @param __a The left hand side
@@ -50,17 +59,55 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
   template<typename _Tp>
     inline bool
-    __fpequal(_Tp __a, _Tp __b, _Tp __mul = _Tp{5})
+    __fp_is_equal(_Tp __a, _Tp __b, _Tp __mul = _Tp{1})
     {
-      const auto _S_eps = std::numeric_limits<_Tp>::epsilon();
-      const auto _S_tol = __mul * _S_eps;
+      const auto _S_tol = __mul * std::numeric_limits<_Tp>::epsilon();
       bool __retval = true;
       if ((__a != _Tp{0}) || (__b != _Tp{0}))
 	// Looks mean, but is necessary that the next line has sense.
-	__retval = (std::abs(__a - __b) < std::max(std::abs(__a),
-						   std::abs(__b)) * _S_tol);
+	__retval = (std::abs(__a - __b) < __fpmaxabs(__a, __b) * _S_tol);
       return __retval;
     }
+
+  /**
+   * A function to reliably compare a floating point number with zero.
+   *
+   * @param __a The floating point number
+   * @param __mul The multiplier for numeric epsilon for comparison
+   * @return @c true if a and b are equal to zero
+   *         or differ only by @f$ max(a,b) * mul * epsilon @f$
+   */
+  template<typename _Tp>
+    inline bool
+    __fp_is_zero(_Tp __a, _Tp __mul = _Tp{1})
+    {
+      const auto _S_tol = __mul * std::numeric_limits<_Tp>::epsilon();
+      if (__a != _Tp{0})
+	return (std::abs(__a) < _S_tol);
+      else
+        return true;
+    }
+
+  /**
+   * A struct returned by floating point integer queries.
+   */
+  struct __fp_is_integer_t
+  {
+    // A flag indicating whether the floating point number is integralish.
+    bool __is_integral;
+
+    // An integer related to the floating point integral value.
+    int __value;
+
+    // Return __is_integral in a boolean context.
+    operator bool() const
+    { return this->__is_integral; }
+
+    // Return __value.
+    int
+    operator()() const
+    { return this->__value; }
+  };
 
   /**
    * A function to reliably detect if a floating point number is an integer.
@@ -69,11 +116,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @return @c true if a is an integer within mul * epsilon.
    */
   template<typename _Tp>
-    inline bool
-    __fpinteger(_Tp __a, _Tp __mul = _Tp{5})
+    inline __fp_is_integer_t
+    __fp_is_integer(_Tp __a, _Tp __mul = _Tp{1})
     {
-      auto __n = std::nearbyint(__a);
-      return __fpequal(__a, _Tp(__n), __mul);
+      auto __n = static_cast<int>(std::nearbyint(__a));
+      return __fp_is_integer_t{__fp_is_equal(__a, _Tp(__n), __mul), __n};
     }
 
   /**
@@ -83,11 +130,28 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @return @c true if 2*a is an integer within mul * epsilon.
    */
   template<typename _Tp>
-    inline bool
-    __fp_half_integer(_Tp __a, _Tp __mul = _Tp{5})
+    inline __fp_is_integer_t
+    __fp_is_half_integer(_Tp __a, _Tp __mul = _Tp{1})
     {
-      auto __n = std::nearbyint(_Tp(2) * __a);
-      return __fpequal(_Tp(2) * __a, _Tp(__n), __mul);
+      auto __n = static_cast<int>(std::nearbyint(_Tp{2} * __a));
+      return __fp_is_integer_t{__fp_is_equal(_Tp{2} * __a, _Tp(__n), __mul), __n / 2};
+    }
+
+  /**
+   * A function to reliably detect if a floating point number is a
+   * half-odd-integer.
+   *
+   * @param __a The floating point number
+   * @return @c true if 2*a is an odd integer within mul * epsilon.
+   */
+  template<typename _Tp>
+    inline __fp_is_integer_t
+    __fp_is_half_odd_integer(_Tp __a, _Tp __mul = _Tp{1})
+    {
+      auto __n = static_cast<int>(std::nearbyint(_Tp{2} * __a));
+      bool __halfodd = (__n & 1 == 1)
+		      && __fp_is_equal(_Tp{2} * __a, _Tp(__n), __mul);
+      return __fp_is_integer_t{__halfodd, (__n - 1) / 2};
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

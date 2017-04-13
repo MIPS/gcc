@@ -56,19 +56,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       using _Val = std::__detail::__num_traits_t<_Tp>;
 
-      _Tp z;
-      _Tp Ai;
-      _Tp Aip;
-      _Tp Bi;
-      _Tp Bip;
+      _Tp __z;
+      _Tp __Ai_value;
+      _Tp __Ai_deriv;
+      _Tp __Bi_value;
+      _Tp __Bi_deriv;
 
       constexpr _Tp
       Wronskian() const
-      { return Ai * Bip - Bi * Aip; }
+      { return __Ai_value * __Bi_deriv - __Bi_value * __Ai_deriv; }
 
       static constexpr _Val
       true_Wronskian()
-      { return _Val{1} / __gnu_cxx::__math_constants<_Val>::__pi; }
+      { return _Val{1} / __gnu_cxx::__const_pi(_Val{}); }
     };
 
 
@@ -81,13 +81,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       using _Val = std::__detail::__num_traits_t<_Tp>;
 
-      _Tp z;
-      _Tp fai;
-      _Tp faip;
-      _Tp gai;
-      _Tp gaip;
-      _Tp hai;
-      _Tp haip;
+      _Tp __z;
+      _Tp __fai_value;
+      _Tp __fai_deriv;
+      _Tp __gai_value;
+      _Tp __gai_deriv;
+      _Tp __hai_value;
+      _Tp __hai_deriv;
     };
 
 
@@ -122,9 +122,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
 
       static constexpr _Tp _S_eps = __gnu_cxx::__epsilon(_Tp{});
-      static constexpr _Tp _S_pi = __gnu_cxx::__math_constants<_Tp>::__pi;
+      static constexpr _Tp _S_pi = __gnu_cxx::__const_pi(_Tp{});
       static constexpr _Tp _S_sqrt_pi
-      		 = __gnu_cxx::__math_constants<_Tp>::__root_pi;
+      		 = __gnu_cxx::__const_root_pi(_Tp{});
       static constexpr _Tp _S_Ai0
       		 = _Tp{3.550280538878172392600631860041831763980e-1L};
       static constexpr _Tp _S_Aip0
@@ -381,8 +381,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _AiryAuxilliaryState<std::complex<_Tp>>
     _Airy_series<_Tp>::_S_FGH(std::complex<_Tp> __t)
     {
-      const _Tp _S_log10min = __gnu_cxx::__log10_min(_Tp{});
-      const auto _S_min = std::numeric_limits<_Tp>::min();
+      const _Tp _S_log10min = __gnu_cxx::__log10_min(__t);
+      const auto _S_min = __gnu_cxx::__min(__t);
       const auto __log10t = std::log10(std::abs(__t));
       const auto __tt = __t * __t;
       const auto __ttt = __t * __tt;
@@ -465,7 +465,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       auto __aux = FGH(__t);
 
-      auto _Hi = _S_Hi0 * (__aux.fai + __aux.gai + __aux.hai);
+      auto _Hi = _S_Hi0 * (__aux.__fai + __aux.__gai + __aux.__hai_value);
       auto _Hip = _S_Hip0 * (__aux.faip + __aux.gaip + __aux.haip);
       auto _Bi = _S_Bi0 * __aux.fai + _S_Bip0 * __aux.gai;
       auto _Bip = _S_Bi0 * __aux.faip + _S_Bip0 * __aux.gaip;
@@ -500,10 +500,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _AiryState<std::complex<_Tp>>
     _Airy_series<_Tp>::_S_Scorer2(std::complex<_Tp> __t)
     {
-      //constexpr auto _S_cbrt3 = __gnu_cxx::__math_constants<_Tp>::__cbrt_3;
-      constexpr auto _S_cbrt3 = std::cbrt(_Tp{3});
-      constexpr auto _S_1d3 = _Tp{1} / _Tp{3};
-      constexpr auto _S_2d3 = _Tp{2} / _Tp{3};
+      const auto _S_cbrt3 = __gnu_cxx::__const_cbrt_3(__t);
+      const auto _S_1d3 = _Tp{1} / _Tp{3};
+      const auto _S_2d3 = _Tp{2} / _Tp{3};
       const auto __s = _S_cbrt3 * __t;
       const std::array<_Tp, 3>
 	__cos{ _Tp{1} / _Tp{2}, _Tp{-1}, _Tp{1} / _Tp{2} };
@@ -550,7 +549,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     std::pair<std::complex<_Tp>, std::complex<_Tp>>
     _Airy_series<_Tp>::_S_AiBi(std::complex<_Tp> __t, std::pair<_Tp, _Tp> _Z0)
     {
-      const _Tp _S_log10min = __gnu_cxx::__log10_min(_Tp{});
+      const _Tp _S_log10min = __gnu_cxx::__log10_min(__t.real());
       const auto __log10t = std::log10(std::abs(__t));
       const auto __ttt = __t * __t * __t;
 
@@ -625,7 +624,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * A class encapsulating data for the asymptotic expansions of Airy functions
-   * and thier derivatives.
+   * and their derivatives.
    *
    * @tparam _Tp A real type
    */
@@ -1991,7 +1990,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * A class encapsulating the asymptotic expansions of Airy functions
-   * and thier derivatives.
+   * and their derivatives.
    *
    * @tparam _Tp A real type
    */
@@ -2030,9 +2029,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Airy_asymp<_Tp>::operator()(std::complex<_Tp> __t,
 				 bool __return_fock_airy) const
     {
-      constexpr auto _S_pi = __gnu_cxx::__math_constants<_Tp>::__pi;
-      constexpr auto _S_sqrt_pi = __gnu_cxx::__math_constants<_Tp>::__root_pi;
-      constexpr auto _S_i = __cmplx(_Tp{0}, _Tp{1});
+      const auto _S_pi = __gnu_cxx::__const_pi(__t);
+      const auto _S_sqrt_pi = __gnu_cxx::__const_root_pi(__t);
+      const auto _S_i = __cmplx(_Tp{0}, _Tp{1});
       if (std::real(__t) > _Tp{0})
 	{
 	  auto __zeta0 = _Tp{2} * std::pow(__t, _Tp{1.5L}) / _Tp{3};
@@ -2214,8 +2213,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Airy_asymp<_Tp>::_S_absarg_ge_pio3_help(std::complex<_Tp> __z,
 					     int __sign) const
     {
-      constexpr auto _S_sqrt_pi = __gnu_cxx::__math_constants<_Tp>::__root_pi;
-      constexpr _Tp _S_pmhd2 = _Tp{1} / (_Tp{2} * _S_sqrt_pi);
+      const auto _S_sqrt_pi = __gnu_cxx::__const_root_pi(std::real(__z));
+      const auto _S_pmhd2 = _Tp{1} / (_Tp{2} * _S_sqrt_pi);
+
       constexpr int _S_num_nterms = 5;
       constexpr int _S_max_nterms = 40;
       static_assert(_Airy_asymp_data<_Tp>::_S_max_cd > _S_max_nterms, "");
@@ -2301,11 +2301,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _AiryState<std::complex<_Tp>>
     _Airy_asymp<_Tp>::_S_absarg_lt_pio3(std::complex<_Tp> __z) const
     {
-      constexpr _Tp _S_pimh
-	= _Tp{1} / __gnu_cxx::__math_constants<_Tp>::__root_pi;
-      constexpr _Tp _S_pid4 = __gnu_cxx::__math_constants<_Tp>::__pi_quarter;
+      const _Tp _S_pimh = _Tp{1} / __gnu_cxx::__const_root_pi(_Tp{});
+      const _Tp _S_pid4 = __gnu_cxx::__const_pi_quarter(_Tp{});
 
-      constexpr std::complex<_Tp> _S_zone{1};
+      const std::complex<_Tp> _S_zone{1};
+
       /// @todo Revisit these numbers of terms for the Airy asymptotic
       /// expansions.
       constexpr int _S_num_nterms = 5;
@@ -2369,7 +2369,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       using value_type = typename _Sum::value_type;
       using scalar_type = std::__detail::__num_traits_t<value_type>;
       static constexpr scalar_type _S_sqrt_pi
-	   = __gnu_cxx::__math_constants<scalar_type>::__root_pi;
+	   = __gnu_cxx::__const_root_pi(scalar_type{});
 
       _Airy_asymp_series(_Sum __proto)
       : _M_Asum(__proto),
@@ -2472,22 +2472,22 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<>
     struct _Airy_default_radii<float>
     {
-      constexpr static float inner_radius{2.0F};
-      constexpr static float outer_radius{6.0F};
+      static constexpr float inner_radius{2.0F};
+      static constexpr float outer_radius{6.0F};
     };
 
   template<>
     struct _Airy_default_radii<double>
     {
-      constexpr static double inner_radius{4.0};
-      constexpr static double outer_radius{12.0};
+      static constexpr double inner_radius{4.0};
+      static constexpr double outer_radius{12.0};
     };
 
   template<>
     struct _Airy_default_radii<long double>
     {
-      constexpr static long double inner_radius{5.0L};
-      constexpr static long double outer_radius{15.0L};
+      static constexpr long double inner_radius{5.0L};
+      static constexpr long double outer_radius{15.0L};
     };
 
   /**
@@ -2501,19 +2501,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       using value_type = _Tp;
       using scalar_type = std::__detail::__num_traits_t<value_type>;
-      static constexpr scalar_type _S_pi
-	   = __gnu_cxx::__math_constants<scalar_type>::__pi;
-      static constexpr scalar_type _S_sqrt_pi
-	   = __gnu_cxx::__math_constants<scalar_type>::__root_pi;
-      static constexpr scalar_type _S_pi_3
-	   = __gnu_cxx::__math_constants<scalar_type>::__pi_third;
-      static constexpr scalar_type _S_2pi_3 = scalar_type{2} * _S_pi_3;
-      static constexpr scalar_type _S_pi_6 = _S_pi_3 / scalar_type{2};
-      static constexpr scalar_type _S_5pi_6 = scalar_type{5} * _S_pi_6;
-      static constexpr value_type _S_i = value_type{0, 1};
-
-      static constexpr auto _S_NaN = __gnu_cxx::__quiet_NaN<scalar_type>();
-      static constexpr auto _S_cNaN = value_type(_S_NaN, _S_NaN);
 
       constexpr _Airy() = default;
       _Airy(const _Airy&) = default;
@@ -2526,22 +2513,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       scalar_type outer_radius{_Airy_default_radii<scalar_type>::outer_radius};
     };
 
-  template<typename _Tp>
-    constexpr typename _Airy<_Tp>::scalar_type
-    _Airy<_Tp>::_S_sqrt_pi;
-
-  template<typename _Tp>
-    constexpr typename _Airy<_Tp>::scalar_type
-    _Airy<_Tp>::_S_pi_3;
-
-  template<typename _Tp>
-    constexpr typename _Airy<_Tp>::scalar_type
-    _Airy<_Tp>::_S_pi_6;
-
-  template<typename _Tp>
-    constexpr typename _Airy<_Tp>::value_type
-    _Airy<_Tp>::_S_i;
-
   /**
    * Return the Airy functions for complex argument.
    */
@@ -2551,6 +2522,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       using __cmplx = value_type;
       using __scal = scalar_type;
+      const auto _S_NaN = __gnu_cxx::__quiet_NaN(__y.real());
+      const auto _S_cNaN = value_type(_S_NaN, _S_NaN);
+      const auto _S_pi = __gnu_cxx::__const_pi(__y.real());
+      const auto _S_sqrt_pi = __gnu_cxx::__const_root_pi(__y.real());
+      const auto _S_pi_3 = __gnu_cxx::__const_pi_third(__y.real());
+      const auto _S_2pi_3 = __scal{2} * _S_pi_3;
+      const auto _S_pi_6 = _S_pi_3 / __scal{2};
+      const auto _S_5pi_6 = __scal{5} * _S_pi_6;
+      const auto _S_i = __cmplx{0, 1};
 
       using _OuterSum = __gnu_cxx::_KahanSum<__cmplx>;
       using _InnerSum = __gnu_cxx::_WenigerDeltaSum<_OuterSum>;
@@ -2584,27 +2564,29 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	std::tie(_Bi, _Bip) = _Airy_series<__scal>::_S_Bi(__y);
       else if (__absy < outer_radius)
 	{
-	  _Bi = __scal{2} * __sums.Bi + __sign * _S_i * __sums.Ai;
-	  _Bip = __scal{2} * __sums.Bip + __sign * _S_i * __sums.Aip;
+	  _Bi = __scal{2} * __sums.__Bi_value
+	      + __sign * _S_i * __sums.__Ai_value;
+	  _Bip = __scal{2} * __sums.__Bi_deriv
+	       + __sign * _S_i * __sums.__Ai_deriv;
 	  if (__absargy > _S_5pi_6)
 	    {
-	      _Bi -= __sums.Bi;
-	      _Bip -= __sums.Bip;
+	      _Bi -= __sums.__Bi_value;
+	      _Bip -= __sums.__Bi_deriv;
 	    }
 	}
       else
 	{
-	  _Bi = __scal{2} * __sums.Bi;
-	  _Bip = __scal{2} * __sums.Bip;
+	  _Bi = __scal{2} * __sums.__Bi_value;
+	  _Bip = __scal{2} * __sums.__Bi_deriv;
 	  if (__absargy > _S_pi_6)
 	    {
-	      _Bi += __sign * _S_i * __sums.Ai;
-	      _Bip += __sign * _S_i * __sums.Aip;
+	      _Bi += __sign * _S_i * __sums.__Ai_value;
+	      _Bip += __sign * _S_i * __sums.__Ai_deriv;
 	    }
 	  if (__absargy > _S_5pi_6)
 	    {
-	      _Bi -= __sums.Bi;
-	      _Bip -= __sums.Bip;
+	      _Bi -= __sums.__Bi_value;
+	      _Bip -= __sums.__Bi_deriv;
 	    }
 	}
 
@@ -2615,17 +2597,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	std::tie(_Ai, _Aip) = _Airy_series<__scal>::_S_Ai(__y);
       else if (__absy < outer_radius)
 	{
-	  _Ai = __sums.Ai;
-	  _Aip = __sums.Aip;
+	  _Ai = __sums.__Ai_value;
+	  _Aip = __sums.__Ai_deriv;
 	}
       else
 	{
-	  _Ai = __sums.Ai;
-	  _Aip = __sums.Aip;
+	  _Ai = __sums.__Ai_value;
+	  _Aip = __sums.__Ai_deriv;
 	  if (__absargy >= _S_5pi_6)
 	    {
-	      _Ai += __sign * _S_i * __sums.Bi;
-	      _Aip += __sign * _S_i * __sums.Bip;
+	      _Ai += __sign * _S_i * __sums.__Bi_value;
+	      _Aip += __sign * _S_i * __sums.__Bi_deriv;
 	    }
 	}
 

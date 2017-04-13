@@ -1,6 +1,6 @@
 /* Generate from machine description:
    - some #define configuration flags.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -94,8 +94,8 @@ walk_insn_part (rtx part, int recog_p, int non_pc_set_src)
       break;
 
     case LABEL_REF:
-      if (GET_CODE (LABEL_REF_LABEL (part)) == MATCH_OPERAND
-	  || GET_CODE (LABEL_REF_LABEL (part)) == MATCH_DUP)
+      if (GET_CODE (XEXP (part, 0)) == MATCH_OPERAND
+	  || GET_CODE (XEXP (part, 0)) == MATCH_DUP)
 	break;
       return;
 

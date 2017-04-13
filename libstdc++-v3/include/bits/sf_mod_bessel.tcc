@@ -80,14 +80,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *                   modified Bessel function.
    */
   template<typename _Tp>
-    void
-    __cyl_bessel_ik_asymp(_Tp __nu, _Tp __x,
-			  _Tp & _Inu, _Tp & _Knu,
-			  _Tp & _Ipnu, _Tp & _Kpnu)
+    __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>
+    __cyl_bessel_ik_asymp(_Tp __nu, _Tp __x)
     {
-      constexpr auto _S_eps = __gnu_cxx::__epsilon<_Tp>();
-      constexpr auto _S_pi = __gnu_cxx::__math_constants<_Tp>::__pi;
-      constexpr auto _S_pi_2 = __gnu_cxx::__math_constants<long double>::__pi_half;
+      using __bess_t = __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>;
+      const auto _S_eps = __gnu_cxx::__epsilon(__x);
+      const auto _S_pi = __gnu_cxx::__const_pi(__x);
+      const auto _S_pi_2 = __gnu_cxx::__const_pi_half(__x);
       const auto __2nu = _Tp{2} * __nu;
       const auto __4nu2 = __2nu * __2nu;
       const auto __8x = _Tp{8} * __x;
@@ -126,12 +125,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       while (__k < _Tp{100} * __nu);
 
       auto __coef = std::sqrt(_Tp{1} / (_Tp{2} * _S_pi * __x));
-      _Inu = __coef * std::exp(__x) * (_Psum - _Qsum);
-      _Knu = _S_pi * __coef * std::exp(-__x) * (_Psum + _Qsum);
-      _Ipnu = __coef * std::exp(__x) * (_Rsum - _Ssum);
-      _Kpnu =  -_S_pi * __coef * std::exp(-__x) * (_Rsum + _Ssum);
+      auto _Inu = __coef * std::exp(__x) * (_Psum - _Qsum);
+      auto _Ipnu = __coef * std::exp(__x) * (_Rsum - _Ssum);
+      auto _Knu = _S_pi * __coef * std::exp(-__x) * (_Psum + _Qsum);
+      auto _Kpnu =  -_S_pi * __coef * std::exp(-__x) * (_Rsum + _Ssum);
 
-      return;
+      return __bess_t{__nu, __x, _Inu, _Ipnu, _Knu, _Kpnu};
     }
 
   /**
@@ -151,16 +150,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *                   modified Bessel function.
    */
   template<typename _Tp>
-    void
-    __cyl_bessel_ik_steed(_Tp __nu, _Tp __x,
-			  _Tp & _Inu, _Tp & _Knu, _Tp & _Ipnu, _Tp & _Kpnu)
+    __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>
+    __cyl_bessel_ik_steed(_Tp __nu, _Tp __x)
     {
-      constexpr auto _S_inf = __gnu_cxx::__infinity<_Tp>();
-      constexpr auto _S_eps = __gnu_cxx::__epsilon<_Tp>();
-      constexpr auto _S_pi = __gnu_cxx::__math_constants<_Tp>::__pi;
-      constexpr auto _S_fp_min = _Tp{10} * _S_eps;
+      using __bess_t = __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>;
+      const auto _S_inf = __gnu_cxx::__infinity(__x);
+      const auto _S_eps = __gnu_cxx::__epsilon(__x);
+      const auto _S_pi = __gnu_cxx::__const_pi(__x);
+      const auto _S_fp_min = _Tp{10} * _S_eps;
       constexpr int _S_max_iter = 15000;
-      constexpr auto _S_x_min = _Tp{2};
+      const auto _S_x_min = _Tp{2};
 
       const int __n = std::nearbyint(__nu);
 
@@ -186,11 +185,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    break;
 	}
       if (__i > _S_max_iter)
-	{
-	  // Don't throw with message "try asymptotic expansion" - Just do it!
-	  __cyl_bessel_ik_asymp(__nu, __x, _Inu, _Knu, _Ipnu, _Kpnu);
-	  return;
-	}
+	return __cyl_bessel_ik_asymp(__nu, __x);
 
       auto _Inul = _S_fp_min;
       auto _Ipnul = __h * _Inul;
@@ -219,14 +214,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  const auto __fact2 = (std::abs(__e) < _S_eps
 			     ? _Tp{1}
 			     : std::sinh(__e) / __e);
-	  _Tp __gam1, __gam2, __gampl, __gammi;
-	  __gamma_temme(__mu, __gam1, __gam2, __gampl, __gammi);
+	  auto __gamt = __gamma_temme(__mu);
 	  auto __ff = __fact
-		    * (__gam1 * std::cosh(__e) + __gam2 * __fact2 * __d);
+		    * (__gamt.__gamma_1_value * std::cosh(__e)
+		     + __gamt.__gamma_2_value * __fact2 * __d);
 	  auto __sum = __ff;
 	  __e = std::exp(__e);
-	  auto __p = __e / (_Tp{2} * __gampl);
-	  auto __q = _Tp{1} / (_Tp{2} * __e * __gammi);
+	  auto __p = __e / (_Tp{2} * __gamt.__gamma_plus_value);
+	  auto __q = _Tp{1} / (_Tp{2} * __e * __gamt.__gamma_minus_value);
 	  auto __c = _Tp{1};
 	  __d = __x2 * __x2;
 	  auto __sum1 = __p;
@@ -291,14 +286,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       auto _Kpmu = __mu * __xi * _Kmu - _Knu1;
       auto _Inumu = __xi / (__f * _Kmu - _Kpmu);
-      _Inu = _Inumu * _Inul1 / _Inul;
-      _Ipnu = _Inumu * _Ipnu1 / _Inul;
+      auto _Inu = _Inumu * _Inul1 / _Inul;
+      auto _Ipnu = _Inumu * _Ipnu1 / _Inul;
       for (int __i = 1; __i <= __n; ++__i)
 	_Kmu = std::exchange(_Knu1, (__mu + _Tp(__i)) * __xi2 * _Knu1 + _Kmu);
-      _Knu = _Kmu;
-      _Kpnu = __nu * __xi * _Kmu - _Knu1;
+      auto _Knu = _Kmu;
+      auto _Kpnu = __nu * __xi * _Kmu - _Knu1;
 
-      return;
+      return __bess_t{__nu, __x, _Inu, _Ipnu, _Knu, _Kpnu};
     }
 
   /**
@@ -315,36 +310,30 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *                   modified Bessel function.
    */
   template<typename _Tp>
-    void
-    __cyl_bessel_ik(_Tp __nu, _Tp __x,
-		    _Tp & _Inu, _Tp & _Knu, _Tp & _Ipnu, _Tp & _Kpnu)
+    __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>
+    __cyl_bessel_ik(_Tp __nu, _Tp __x)
     {
-      constexpr auto _S_eps = __gnu_cxx::__epsilon<_Tp>();
-      constexpr auto _S_inf = __gnu_cxx::__infinity<_Tp>();
-      constexpr auto _S_pi = __gnu_cxx::__math_constants<_Tp>::__pi;
+      using __bess_t = __gnu_cxx::__cyl_mod_bessel_t<_Tp, _Tp, _Tp>;
+      const auto _S_eps = __gnu_cxx::__epsilon(__x);
+      const auto _S_inf = __gnu_cxx::__infinity(__x);
+      const auto _S_pi = __gnu_cxx::__const_pi(__x);
       if (__nu < _Tp{0})
 	{
-	  _Tp _I_mnu, _K_mnu, _Ip_mnu, _Kp_mnu;
-	  __cyl_bessel_ik(-__nu, __x, _I_mnu, _K_mnu, _Ip_mnu, _Kp_mnu);
+	  auto _Bessm = __cyl_bessel_ik(-__nu, __x);
 	  auto __arg = -__nu * _S_pi;
-	  auto __sinnupi = std::sin(__arg);
-	  if (std::abs(__sinnupi) < _S_eps)
-	    { // Carefully preserve +-inf.
-	      _Inu = _I_mnu;
-	      _Knu = _K_mnu;
-	      _Ipnu = _Ip_mnu;
-	      _Kpnu = _Kp_mnu;
-	    }
+	  auto __sinnupi = __sin_pi(-__nu);
+	  if (std::abs(__sinnupi) < _S_eps) // Carefully preserve +-inf.
+	    return __bess_t{__nu, __x, _Bessm.__I_value, _Bessm.__I_deriv,
+					_Bessm.__K_value, _Bessm.__K_deriv};
 	  else
-	    {
-	      _Inu = _I_mnu + _Tp{2} * __sinnupi * _K_mnu / _S_pi;
-	      _Knu = _K_mnu;
-	      _Ipnu = _Ip_mnu + _Tp{2} * __sinnupi * _Kp_mnu / _S_pi;
-	      _Kpnu = _Kp_mnu;
-	    }
+	    return __bess_t{__nu, __x,
+	      _Bessm.__I_value + _Tp{2} * __sinnupi * _Bessm.__K_value / _S_pi,
+	      _Bessm.__I_deriv + _Tp{2} * __sinnupi * _Bessm.__K_deriv / _S_pi,
+	      _Bessm.__K_value, _Bessm.__K_deriv};
 	}
       else if (__x == _Tp{0})
 	{
+	  _Tp _Inu, _Ipnu;
 	  if (__nu == _Tp{0})
 	    {
 	      _Inu = _Tp{1};
@@ -360,14 +349,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      _Inu = _Tp{0};
 	      _Ipnu = _Tp{0};
 	    }
-	  _Knu = _S_inf;
-	  _Kpnu = -_S_inf;
-	  return;
+	  return __bess_t{__nu, __x, _Inu, _Ipnu, _S_inf, -_S_inf};
 	}
       else if (__x > _Tp{1000})
-	__cyl_bessel_ik_asymp(__nu, __x, _Inu, _Knu, _Ipnu, _Kpnu);
+	return __cyl_bessel_ik_asymp(__nu, __x);
       else
-	__cyl_bessel_ik_steed(__nu, __x, _Inu, _Knu, _Ipnu, _Kpnu);
+	return __cyl_bessel_ik_steed(__nu, __x);
     }
 
   /**
@@ -391,15 +378,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (__x < _Tp{0})
 	std::__throw_domain_error(__N("__cyl_bessel_i: bad argument"));
       else if (__isnan(__nu) || __isnan(__x))
-	return __gnu_cxx::__quiet_NaN<_Tp>();
+	return __gnu_cxx::__quiet_NaN(__x);
       else if (__nu >= _Tp{0} && __x * __x < _Tp{10} * (__nu + _Tp{1}))
 	return __cyl_bessel_ij_series(__nu, __x, +_Tp{1}, 200);
       else
-	{
-	  _Tp _I_nu, _K_nu, _Ip_nu, _Kp_nu;
-	  __cyl_bessel_ik(__nu, __x, _I_nu, _K_nu, _Ip_nu, _Kp_nu);
-	  return _I_nu;
-	}
+	return __cyl_bessel_ik(__nu, __x).__I_value;
     }
 
   /**
@@ -429,13 +412,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (__x < _Tp{0})
 	std::__throw_domain_error(__N("__cyl_bessel_k: Bad argument"));
       else if (__isnan(__nu) || __isnan(__x))
-	return __gnu_cxx::__quiet_NaN<_Tp>();
+	return __gnu_cxx::__quiet_NaN(__x);
       else
-	{
-	  _Tp _I_nu, _K_nu, _Ip_nu, _Kp_nu;
-	  __cyl_bessel_ik(__nu, __x, _I_nu, _K_nu, _Ip_nu, _Kp_nu);
-	  return _K_nu;
-	}
+	return __cyl_bessel_ik(__nu, __x).__K_value;
     }
 
   /**
@@ -455,29 +434,29 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *                   spherical Bessel function.
    */
   template<typename _Tp>
-    void
-    __sph_bessel_ik(unsigned int __n, _Tp __x,
-		    _Tp & __i_n, _Tp & __k_n, _Tp & __ip_n, _Tp & __kp_n)
+    __gnu_cxx::__sph_mod_bessel_t<unsigned int, _Tp, _Tp>
+    __sph_bessel_ik(unsigned int __n, _Tp __x)
     {
-      constexpr auto _S_NaN = __gnu_cxx::__quiet_NaN<_Tp>();
+      using __sph_t = __gnu_cxx::__sph_mod_bessel_t<unsigned int, _Tp, _Tp>;
+      const auto _S_NaN = __gnu_cxx::__quiet_NaN(__x);
 
       if (__isnan(__x))
-	__i_n = __k_n = __ip_n = __kp_n = _S_NaN;
+	return __sph_t{__n, __x, _S_NaN, _S_NaN, _S_NaN, _S_NaN};
       else
 	{
 	  const auto __nu = _Tp(__n + 0.5L);
-	  _Tp _I_nu, _Ip_nu, _K_nu, _Kp_nu;
-	  __cyl_bessel_ik(__nu, __x, _I_nu, _K_nu, _Ip_nu, _Kp_nu);
+	  auto _Bess = __cyl_bessel_ik(__nu, __x);
 
-	  const auto __factor = __gnu_cxx::__math_constants<_Tp>::__root_pi_div_2
+	  const auto __factor = __gnu_cxx::__const_root_pi_div_2(_Tp{})
 			      / std::sqrt(__x);
 
-	  __i_n = __factor * _I_nu;
-	  __k_n = __factor * _K_nu;
-	  __ip_n = __factor * _Ip_nu - __i_n / (_Tp{2} * __x);
-	  __kp_n = __factor * _Kp_nu - __k_n / (_Tp{2} * __x);
+	  auto __i_n = __factor * _Bess.__I_value;
+	  auto __ip_n = __factor * _Bess.__I_deriv - __i_n / (_Tp{2} * __x);
+	  auto __k_n = __factor * _Bess.__K_value;
+	  auto __kp_n = __factor * _Bess.__K_deriv - __k_n / (_Tp{2} * __x);
+
+	  return __sph_t{__n, __x, __i_n, __ip_n, __k_n, __kp_n};
 	}
-      return;
     }
 
 
@@ -496,66 +475,70 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *                  of the second kind.
    */
   template<typename _Tp>
-    void
-    __airy(_Tp __z, _Tp & _Ai, _Tp & _Bi, _Tp & _Aip, _Tp & _Bip)
+    __gnu_cxx::__airy_t<_Tp, _Tp>
+    __airy(_Tp __z)
     {
-      constexpr auto _S_NaN = __gnu_cxx::__quiet_NaN<_Tp>();
-      constexpr auto _S_inf = __gnu_cxx::__infinity<_Tp>();
-      constexpr auto _S_pi = __gnu_cxx::__math_constants<_Tp>::__pi;
-      constexpr auto _S_sqrt3 = __gnu_cxx::__math_constants<_Tp>::__root_3;
+      using __ai_t = __gnu_cxx::__airy_t<_Tp, _Tp>;
+      const auto _S_NaN = __gnu_cxx::__quiet_NaN(__z);
+      const auto _S_inf = __gnu_cxx::__infinity(__z);
+      const auto _S_pi = __gnu_cxx::__const_pi(__z);
+      const auto _S_sqrt3 = __gnu_cxx::__const_root_3(__z);
       const auto __absz = std::abs(__z);
       const auto __rootz = std::sqrt(__absz);
       const auto __xi = _Tp{2} * __absz * __rootz / _Tp{3};
 
       if (__isnan(__z))
-	_Ai = _Bi = _Aip = _Bip = _S_NaN;
+	return __ai_t{__z, _S_NaN, _S_NaN, _S_NaN, _S_NaN};
       else if (__z == _S_inf)
-	{
-	  _Ai = _Aip = _Tp{0};
-	  _Bi = _Bip = _S_inf;
-	}
+	return __ai_t{__z, _Tp{0}, _Tp{0}, _S_inf, _S_inf};
       else if (__z == -_S_inf)
-	_Ai = _Bi = _Aip = _Bip = _Tp{0};
+	return __ai_t{__z, _Tp{0}, _Tp{0}, _Tp{0}, _Tp{0}};
       else if (__z > _Tp{0})
 	{
-	  _Tp _I_nu, _K_nu, _Ip_nu, _Kp_nu;
+	  auto _Bess13 = __cyl_bessel_ik(_Tp{1} / _Tp{3}, __xi);
+	  auto _Ai = __rootz * _Bess13.__K_value / (_S_sqrt3 * _S_pi);
+	  auto _Bi = __rootz * (_Bess13.__K_value / _S_pi
+		     + _Tp{2} * _Bess13.__I_value / _S_sqrt3);
 
-	  __cyl_bessel_ik(_Tp{1} / _Tp{3}, __xi, _I_nu, _K_nu, _Ip_nu, _Kp_nu);
-	  _Ai = __rootz * _K_nu / (_S_sqrt3 * _S_pi);
-	  _Bi = __rootz * (_K_nu / _S_pi + _Tp{2} * _I_nu / _S_sqrt3);
+	  auto _Bess23 = __cyl_bessel_ik(_Tp{2} / _Tp{3}, __xi);
+	  auto _Aip = -__z * _Bess23.__K_value / (_S_sqrt3 * _S_pi);
+	  auto _Bip = __z * (_Bess23.__K_value / _S_pi
+		  + _Tp{2} * _Bess23.__I_value / _S_sqrt3);
 
-	  __cyl_bessel_ik(_Tp{2} / _Tp{3}, __xi, _I_nu, _Ip_nu, _K_nu, _Kp_nu);
-	  _Aip = -__z * _K_nu / (_S_sqrt3 * _S_pi);
-	  _Bip = __z * (_K_nu / _S_pi + _Tp{2} * _I_nu / _S_sqrt3);
+	  return __ai_t{__z, _Ai, _Aip, _Bi, _Bip};
 	}
       else if (__z < _Tp{0})
 	{
-	  _Tp _J_nu, _N_nu, _Jp_nu, _Np_nu;
+	  auto _Bess13 = __cyl_bessel_jn(_Tp{1} / _Tp{3}, __xi);
+	  auto _Ai = +__rootz * (_Bess13.__J_value
+			       - _Bess13.__N_value / _S_sqrt3) / _Tp{2};
+	  auto _Bi = -__rootz * (_Bess13.__N_value
+			       + _Bess13.__J_value / _S_sqrt3) / _Tp{2};
 
-	  __cyl_bessel_jn(_Tp{1} / _Tp{3}, __xi, _J_nu, _N_nu, _Jp_nu, _Np_nu);
-	  _Ai = +__rootz * (_J_nu - _N_nu / _S_sqrt3) / _Tp{2};
-	  _Bi = -__rootz * (_N_nu + _J_nu / _S_sqrt3) / _Tp{2};
+	  auto _Bess23 = __cyl_bessel_jn(_Tp{2} / _Tp{3}, __xi);
+	  auto _Aip = __absz * (_Bess23.__N_value / _S_sqrt3
+			      + _Bess23.__J_value) / _Tp{2};
+	  auto _Bip = __absz * (_Bess23.__J_value / _S_sqrt3
+			      - _Bess23.__N_value) / _Tp{2};
 
-	  __cyl_bessel_jn(_Tp{2} / _Tp{3}, __xi, _J_nu, _N_nu, _Jp_nu, _Np_nu);
-	  _Aip = __absz * (_N_nu / _S_sqrt3 + _J_nu) / _Tp{2};
-	  _Bip = __absz * (_J_nu / _S_sqrt3 - _N_nu) / _Tp{2};
+	  return __ai_t{__z, _Ai, _Aip, _Bi, _Bip};
 	}
       else
 	{
 	  // Reference:
 	  //  Abramowitz & Stegun, page 446 section 10.4.4 on Airy functions.
 	  // The number is Ai(0) = 3^{-2/3}/\Gamma(2/3).
-	  _Ai = _Tp{0.3550280538878172392600631860041831763979791741991772L};
-	  _Bi = _Ai * _S_sqrt3;
+	  auto _Ai = _Tp{0.3550280538878172392600631860041831763979791741991772L};
+	  auto _Bi = _Ai * _S_sqrt3;
 
 	  // Reference:
 	  //  Abramowitz & Stegun, page 446 section 10.4.5 on Airy functions.
 	  // The number is Ai'(0) = -3^{-1/3}/\Gamma(1/3).
-	  _Aip = -_Tp{0.25881940379280679840518356018920396347909113835493L};
-	  _Bip = -_Aip * _S_sqrt3;
-	}
+	  auto _Aip = -_Tp{0.25881940379280679840518356018920396347909113835493L};
+	  auto _Bip = -_Aip * _S_sqrt3;
 
-      return;
+	  return __ai_t{__z, _Ai, _Aip, _Bi, _Bip};
+	}
     }
 
   /**
@@ -571,28 +554,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @f]
    *
    * @param  __x   The argument of the Airy functions.
-   * @param  __w1  The output Fock-type Airy function of the first kind.
-   * @param  __w2  The output Fock-type Airy function of the second kind.
-   * @param  __w1p  The output derivative of the Fock-type Airy function
-   * 		    of the first kind.
-   * @param  __w2p  The output derivative of the Fock-type Airy function
-   * 		    of the second kind.
+   * @return  A struct containing all the values and derivatives.
    */
   template<typename _Tp>
-    void
-    __fock_airy(_Tp __x,
-		std::complex<_Tp>& __w1, std::complex<_Tp>& __w2,
-		std::complex<_Tp>& __w1p, std::complex<_Tp>& __w2p)
+    __gnu_cxx::__fock_airy_t<_Tp, std::complex<_Tp>>
+    __fock_airy(_Tp __x)
     {
-      constexpr auto _S_sqrtpi = __gnu_cxx::__math_constants<_Tp>::__root_pi;
+      using __fock_t = __gnu_cxx::__fock_airy_t<_Tp, std::complex<_Tp>>;
+      const auto _S_sqrtpi = __gnu_cxx::__const_root_pi(__x);
 
-      _Tp _Ai, _Bi, _Aip, _Bip;
-      airy(__x, &_Ai, &_Bi, &_Aip, &_Bip);
+      auto _Ai = __airy(__x);
 
-      __w1 = _S_sqrtpi * std::complex<_Tp>(_Ai, _Bi);
-      __w2 = _S_sqrtpi * std::complex<_Tp>(_Ai, -_Bi);
-      __w1p = _S_sqrtpi * std::complex<_Tp>(_Aip, _Bip);
-      __w2p = _S_sqrtpi * std::complex<_Tp>(_Aip, -_Bip);
+      auto __w1 = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_value, _Ai.__Bi_value);
+      auto __w1p = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_deriv, _Ai.__Bi_deriv);
+      auto __w2 = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_value, -_Ai.__Bi_value);
+      auto __w2p = _S_sqrtpi * std::complex<_Tp>(_Ai.__Ai_deriv, -_Ai.__Bi_deriv);
+
+      return __fock_t{__x, __w1, __w1p, __w2, __w2p};
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION

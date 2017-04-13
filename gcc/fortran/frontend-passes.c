@@ -1,5 +1,5 @@
 /* Pass manager for Fortran front end.
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Thomas König.
 
 This file is part of GCC.
@@ -47,6 +47,10 @@ static int inline_matmul_assign (gfc_code **, int *, void *);
 static gfc_code * create_do_loop (gfc_expr *, gfc_expr *, gfc_expr *,
 				  locus *, gfc_namespace *,
 				  char *vname=NULL);
+
+#ifdef CHECKING_P
+static void check_locus (gfc_namespace *);
+#endif
 
 /* How deep we are inside an argument list.  */
 
@@ -127,6 +131,10 @@ gfc_run_passes (gfc_namespace *ns)
   doloop_list.release ();
   int w, e;
 
+#ifdef CHECKING_P
+  check_locus (ns);
+#endif
+
   if (flag_frontend_optimize)
     {
       optimize_namespace (ns);
@@ -144,6 +152,53 @@ gfc_run_passes (gfc_namespace *ns)
   if (flag_realloc_lhs)
     realloc_strings (ns);
 }
+
+#ifdef CHECKING_P
+
+/* Callback function: Warn if there is no location information in a
+   statement.  */
+
+static int
+check_locus_code (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
+		  void *data ATTRIBUTE_UNUSED)
+{
+  current_code = c;
+  if (c && *c && (((*c)->loc.nextc == NULL) || ((*c)->loc.lb == NULL)))
+    gfc_warning_internal (0, "No location in statement");
+
+  return 0;
+}
+
+
+/* Callback function: Warn if there is no location information in an
+   expression.  */
+
+static int
+check_locus_expr (gfc_expr **e, int *walk_subtrees ATTRIBUTE_UNUSED,
+		  void *data ATTRIBUTE_UNUSED)
+{
+
+  if (e && *e && (((*e)->where.nextc == NULL || (*e)->where.lb == NULL)))
+    gfc_warning_internal (0, "No location in expression near %L",
+			  &((*current_code)->loc));
+  return 0;
+}
+
+/* Run check for missing location information.  */
+
+static void
+check_locus (gfc_namespace *ns)
+{
+  gfc_code_walker (&ns->code, check_locus_code, check_locus_expr, NULL);
+
+  for (ns = ns->contained; ns; ns = ns->sibling)
+    {
+      if (ns->code == NULL || ns->code->op != EXEC_BLOCK)
+	check_locus (ns);
+    }
+}
+
+#endif
 
 /* Callback for each gfc_code node invoked from check_realloc_strings.
    For an allocatable LHS string which also appears as a variable on
@@ -747,10 +802,12 @@ do_warn_function_elimination (gfc_expr *e)
   if (e->expr_type != EXPR_FUNCTION)
     return;
   if (e->value.function.esym)
-    gfc_warning (0, "Removing call to function %qs at %L",
+    gfc_warning (OPT_Wfunction_elimination,
+		 "Removing call to function %qs at %L",
 		 e->value.function.esym->name, &(e->where));
   else if (e->value.function.isym)
-    gfc_warning (0, "Removing call to function %qs at %L",
+    gfc_warning (OPT_Wfunction_elimination,
+		 "Removing call to function %qs at %L",
 		 e->value.function.isym->name, &(e->where));
 }
 /* Callback function for the code walker for doing common function
@@ -1324,7 +1381,7 @@ combine_array_constructor (gfc_expr *e)
       new_expr->ts = e->ts;
       new_expr->expr_type = EXPR_OP;
       new_expr->rank = c->expr->rank;
-      new_expr->where = c->where;
+      new_expr->where = c->expr->where;
       new_expr->value.op.op = e->value.op.op;
 
       if (scalar_first)
@@ -1854,7 +1911,7 @@ optimize_minmaxloc (gfc_expr **e)
   strcpy (name, fn->value.function.name);
   p = strstr (name, "loc0");
   p[3] = '1';
-  fn->value.function.name = gfc_get_string (name);
+  fn->value.function.name = gfc_get_string ("%s", name);
   if (fn->value.function.actual->next)
     {
       a = fn->value.function.actual->next;
@@ -3540,6 +3597,8 @@ gfc_code_walker (gfc_code **c, walk_code_fn_t codefn, walk_expr_fn_t exprfn,
 	      WALK_SUBEXPR (co->ext.open->asynchronous);
 	      WALK_SUBEXPR (co->ext.open->id);
 	      WALK_SUBEXPR (co->ext.open->newunit);
+	      WALK_SUBEXPR (co->ext.open->share);
+	      WALK_SUBEXPR (co->ext.open->cc);
 	      break;
 
 	    case EXEC_CLOSE:
@@ -3643,18 +3702,28 @@ gfc_code_walker (gfc_code **c, walk_code_fn_t codefn, walk_expr_fn_t exprfn,
 
 	      /* Fall through  */
 
+	    case EXEC_OMP_CRITICAL:
 	    case EXEC_OMP_DISTRIBUTE:
 	    case EXEC_OMP_DISTRIBUTE_PARALLEL_DO:
 	    case EXEC_OMP_DISTRIBUTE_PARALLEL_DO_SIMD:
 	    case EXEC_OMP_DISTRIBUTE_SIMD:
 	    case EXEC_OMP_DO:
 	    case EXEC_OMP_DO_SIMD:
+	    case EXEC_OMP_ORDERED:
 	    case EXEC_OMP_SECTIONS:
 	    case EXEC_OMP_SINGLE:
 	    case EXEC_OMP_END_SINGLE:
 	    case EXEC_OMP_SIMD:
+	    case EXEC_OMP_TASKLOOP:
+	    case EXEC_OMP_TASKLOOP_SIMD:
 	    case EXEC_OMP_TARGET:
 	    case EXEC_OMP_TARGET_DATA:
+	    case EXEC_OMP_TARGET_ENTER_DATA:
+	    case EXEC_OMP_TARGET_EXIT_DATA:
+	    case EXEC_OMP_TARGET_PARALLEL:
+	    case EXEC_OMP_TARGET_PARALLEL_DO:
+	    case EXEC_OMP_TARGET_PARALLEL_DO_SIMD:
+	    case EXEC_OMP_TARGET_SIMD:
 	    case EXEC_OMP_TARGET_TEAMS:
 	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
 	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO:
@@ -3690,6 +3759,12 @@ gfc_code_walker (gfc_code **c, walk_code_fn_t codefn, walk_expr_fn_t exprfn,
 		  WALK_SUBEXPR (co->ext.omp_clauses->device);
 		  WALK_SUBEXPR (co->ext.omp_clauses->thread_limit);
 		  WALK_SUBEXPR (co->ext.omp_clauses->dist_chunk_size);
+		  WALK_SUBEXPR (co->ext.omp_clauses->grainsize);
+		  WALK_SUBEXPR (co->ext.omp_clauses->hint);
+		  WALK_SUBEXPR (co->ext.omp_clauses->num_tasks);
+		  WALK_SUBEXPR (co->ext.omp_clauses->priority);
+		  for (idx = 0; idx < OMP_IF_LAST; idx++)
+		    WALK_SUBEXPR (co->ext.omp_clauses->if_exprs[idx]);
 		  for (idx = 0;
 		       idx < sizeof (list_types) / sizeof (list_types[0]);
 		       idx++)

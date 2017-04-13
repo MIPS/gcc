@@ -1,5 +1,5 @@
 /* Print RTL functions for GCC.
-   Copyright (C) 2016 Free Software Foundation, Inc.
+   Copyright (C) 2016-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,7 +31,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "print-rtl.h"
 #include "langhooks.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
+#include "varasm.h"
 
 /* Print an "(edge-from)" or "(edge-to)" directive describing E
    to OUTFILE.  */
@@ -57,9 +59,11 @@ print_edge (FILE *outfile, edge e, bool from)
 
   /* Express edge flags as a string with " | " separator.
      e.g. (flags "FALLTHRU | DFS_BACK").  */
-  fprintf (outfile, " (flags \"");
-  bool seen_flag = false;
-#define DEF_EDGE_FLAG(NAME,IDX) \
+  if (e->flags)
+    {
+      fprintf (outfile, " (flags \"");
+      bool seen_flag = false;
+#define DEF_EDGE_FLAG(NAME,IDX)			\
   do {						\
     if (e->flags & EDGE_##NAME)			\
       {						\
@@ -72,7 +76,10 @@ print_edge (FILE *outfile, edge e, bool from)
 #include "cfg-flags.def"
 #undef DEF_EDGE_FLAG
 
-  fprintf (outfile, "\"))\n");
+      fprintf (outfile, "\")");
+    }
+
+  fprintf (outfile, ")\n");
 }
 
 /* If BB is non-NULL, print the start of a "(block)" directive for it
@@ -121,65 +128,113 @@ can_have_basic_block_p (const rtx_insn *insn)
   return true;
 }
 
+/* Subroutine of print_param.  Write the name of ARG, if any, to OUTFILE.  */
+
+static void
+print_any_param_name (FILE *outfile, tree arg)
+{
+  if (DECL_NAME (arg))
+    fprintf (outfile, " \"%s\"", IDENTIFIER_POINTER (DECL_NAME (arg)));
+}
+
+/* Print a "(param)" directive for ARG to OUTFILE.  */
+
+static void
+print_param (FILE *outfile, rtx_writer &w, tree arg)
+{
+  fprintf (outfile, "  (param");
+  print_any_param_name (outfile, arg);
+  fprintf (outfile, "\n");
+
+  /* Print the value of DECL_RTL (without lazy-evaluation).  */
+  fprintf (outfile, "    (DECL_RTL ");
+  w.print_rtx (DECL_RTL_IF_SET (arg));
+  w.finish_directive ();
+
+  /* Print DECL_INCOMING_RTL.  */
+  fprintf (outfile, "    (DECL_RTL_INCOMING ");
+  w.print_rtx (DECL_INCOMING_RTL (arg));
+  fprintf (outfile, ")");
+
+  w.finish_directive ();
+}
+
 /* Write FN to OUTFILE in a form suitable for parsing, with indentation
    and comments to make the structure easy for a human to grok.  Track
    the basic blocks of insns in the chain, wrapping those that are within
    blocks within "(block)" directives.
 
-   Example output:
+   If COMPACT, then instructions are printed in a compact form:
+   - INSN_UIDs are omitted, except for jumps and CODE_LABELs,
+   - INSN_CODEs are omitted,
+   - register numbers are omitted for hard and virtual regs, and
+     non-virtual pseudos are offset relative to the first such reg, and
+     printed with a '%' sigil e.g. "%0" for (LAST_VIRTUAL_REGISTER + 1),
+   - insn names are prefixed with "c" (e.g. "cinsn", "cnote", etc)
+
+   Example output (with COMPACT==true):
 
    (function "times_two"
+     (param "i"
+       (DECL_RTL (mem/c:SI (plus:DI (reg/f:DI virtual-stack-vars)
+	   (const_int -4)) [1 i+0 S4 A32]))
+       (DECL_RTL_INCOMING (reg:SI di [ i ])))
      (insn-chain
-       (note 1 0 4 (nil) NOTE_INSN_DELETED)
+       (cnote 1 NOTE_INSN_DELETED)
        (block 2
 	 (edge-from entry (flags "FALLTHRU"))
-	 (note 4 1 2 2 [bb 2] NOTE_INSN_BASIC_BLOCK)
-	 (insn 2 4 3 2 (set (mem/c:SI (plus:DI (reg/f:DI 82 virtual-stack-vars)
-			     (const_int -4 [0xfffffffffffffffc])) [1 i+0 S4 A32])
-		     (reg:SI 5 di [ i ])) t.c:2 -1
-		  (nil))
-	 (note 3 2 6 2 NOTE_INSN_FUNCTION_BEG)
-	 (insn 6 3 7 2 (set (reg:SI 89)
-		     (mem/c:SI (plus:DI (reg/f:DI 82 virtual-stack-vars)
-			     (const_int -4 [0xfffffffffffffffc])) [1 i+0 S4 A32])) t.c:3 -1
-		  (nil))
-	 (insn 7 6 10 2 (parallel [
-			 (set (reg:SI 87 [ _2 ])
-			     (ashift:SI (reg:SI 89)
-				 (const_int 1 [0x1])))
-			 (clobber (reg:CC 17 flags))
-		     ]) t.c:3 -1
-		  (expr_list:REG_EQUAL (ashift:SI (mem/c:SI (plus:DI (reg/f:DI 82 virtual-stack-vars)
-				 (const_int -4 [0xfffffffffffffffc])) [1 i+0 S4 A32])
-			 (const_int 1 [0x1]))
-		     (nil)))
-	 (insn 10 7 14 2 (set (reg:SI 88 [ <retval> ])
-		     (reg:SI 87 [ _2 ])) t.c:3 -1
-		  (nil))
-	 (insn 14 10 15 2 (set (reg/i:SI 0 ax)
-		     (reg:SI 88 [ <retval> ])) t.c:4 -1
-		  (nil))
-	 (insn 15 14 0 2 (use (reg/i:SI 0 ax)) t.c:4 -1
-		  (nil))
+	 (cnote 4 [bb 2] NOTE_INSN_BASIC_BLOCK)
+	 (cinsn 2 (set (mem/c:SI (plus:DI (reg/f:DI virtual-stack-vars)
+			       (const_int -4)) [1 i+0 S4 A32])
+		       (reg:SI di [ i ])) "t.c":2)
+	 (cnote 3 NOTE_INSN_FUNCTION_BEG)
+	 (cinsn 6 (set (reg:SI <2>)
+		       (mem/c:SI (plus:DI (reg/f:DI virtual-stack-vars)
+			       (const_int -4)) [1 i+0 S4 A32])) "t.c":3)
+	 (cinsn 7 (parallel [
+			   (set (reg:SI <0> [ _2 ])
+			       (ashift:SI (reg:SI <2>)
+				   (const_int 1)))
+			   (clobber (reg:CC flags))
+		       ]) "t.c":3
+		    (expr_list:REG_EQUAL (ashift:SI (mem/c:SI (plus:DI (reg/f:DI virtual-stack-vars)
+				   (const_int -4)) [1 i+0 S4 A32])
+			   (const_int 1))))
+	 (cinsn 10 (set (reg:SI <1> [ <retval> ])
+		       (reg:SI <0> [ _2 ])) "t.c":3)
+	 (cinsn 14 (set (reg/i:SI ax)
+		       (reg:SI <1> [ <retval> ])) "t.c":4)
+	 (cinsn 15 (use (reg/i:SI ax)) "t.c":4)
 	 (edge-to exit (flags "FALLTHRU"))
        ) ;; block 2
      ) ;; insn-chain
      (crtl
        (return_rtx
-	  (reg/i:SI 0 ax)
+	 (reg/i:SI ax)
        ) ;; return_rtx
      ) ;; crtl
    ) ;; function "times_two"
 */
 
 DEBUG_FUNCTION void
-print_rtx_function (FILE *outfile, function *fn)
+print_rtx_function (FILE *outfile, function *fn, bool compact)
 {
+  rtx_reuse_manager r;
+  rtx_writer w (outfile, 0, false, compact, &r);
+
+  /* Support "reuse_rtx" in the dump.  */
+  for (rtx_insn *insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    r.preprocess (insn);
+
   tree fdecl = fn->decl;
 
   const char *dname = lang_hooks.decl_printable_name (fdecl, 2);
 
   fprintf (outfile, "(function \"%s\"\n", dname);
+
+  /* Params.  */
+  for (tree arg = DECL_ARGUMENTS (fdecl); arg; arg = DECL_CHAIN (arg))
+    print_param (outfile, w, arg);
 
   /* The instruction chain.  */
   fprintf (outfile, "  (insn-chain\n");
@@ -197,7 +252,7 @@ print_rtx_function (FILE *outfile, function *fn)
 	  curr_bb = insn_bb;
 	  begin_any_block (outfile, curr_bb);
 	}
-      print_rtl_single_with_indent (outfile, insn, curr_bb ? 6 : 4);
+      w.print_rtl_single_with_indent (insn, curr_bb ? 6 : 4);
     }
   end_any_block (outfile, curr_bb);
   fprintf (outfile, "  ) ;; insn-chain\n");
@@ -205,7 +260,7 @@ print_rtx_function (FILE *outfile, function *fn)
   /* Additional RTL state.  */
   fprintf (outfile, "  (crtl\n");
   fprintf (outfile, "    (return_rtx \n");
-  print_rtl_single_with_indent (outfile, crtl->return_rtx, 6);
+  w.print_rtl_single_with_indent (crtl->return_rtx, 6);
   fprintf (outfile, "    ) ;; return_rtx\n");
   fprintf (outfile, "  ) ;; crtl\n");
 

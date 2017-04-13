@@ -1,5 +1,5 @@
 /* SCC value numbering for trees
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa.h"
 #include "expmed.h"
 #include "insn-config.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "cgraph.h"
 #include "gimple-pretty-print.h"
@@ -1232,8 +1233,8 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	      && tem[tem.length () - 2].opcode == MEM_REF)
 	    {
 	      vn_reference_op_t new_mem_op = &tem[tem.length () - 2];
-	      new_mem_op->op0 = fold_convert (TREE_TYPE (mem_op->op0),
-					      new_mem_op->op0);
+	      new_mem_op->op0 = wide_int_to_tree (TREE_TYPE (mem_op->op0),
+						  new_mem_op->op0);
 	    }
 	  else
 	    gcc_assert (tem.last ().opcode == STRING_CST);
@@ -2023,7 +2024,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  /* ???  We can't handle bitfield precision extracts without
 	     either using an alternate type for the BIT_FIELD_REF and
 	     then doing a conversion or possibly adjusting the offset
-	     according to endianess.  */
+	     according to endianness.  */
 	  && (! INTEGRAL_TYPE_P (vr->type)
 	      || ref->size == TYPE_PRECISION (vr->type))
 	  && ref->size % BITS_PER_UNIT == 0)
@@ -2579,10 +2580,10 @@ vn_nary_op_compute_hash (const vn_nary_op_t vno1)
 	&& commutative_tree_code (vno1->opcode))
        || (vno1->length == 3
 	   && commutative_ternary_tree_code (vno1->opcode)))
-      && tree_swap_operands_p (vno1->op[0], vno1->op[1], false))
+      && tree_swap_operands_p (vno1->op[0], vno1->op[1]))
     std::swap (vno1->op[0], vno1->op[1]);
   else if (TREE_CODE_CLASS (vno1->opcode) == tcc_comparison
-	   && tree_swap_operands_p (vno1->op[0], vno1->op[1], false))
+	   && tree_swap_operands_p (vno1->op[0], vno1->op[1]))
     {
       std::swap (vno1->op[0], vno1->op[1]);
       vno1->opcode = swap_tree_comparison  (vno1->opcode);
@@ -2819,6 +2820,15 @@ vn_nary_op_insert_into (vn_nary_op_t vno, vn_nary_op_table_type *table,
     vno->hashcode = vn_nary_op_compute_hash (vno);
 
   slot = table->find_slot_with_hash (vno, vno->hashcode, INSERT);
+  /* While we do not want to insert things twice it's awkward to
+     avoid it in the case where visit_nary_op pattern-matches stuff
+     and ends up simplifying the replacement to itself.  We then
+     get two inserts, one from visit_nary_op and one from
+     vn_nary_build_or_lookup.
+     So allow inserts with the same value number.  */
+  if (*slot && (*slot)->result == vno->result)
+    return *slot;
+
   gcc_assert (!*slot);
 
   *slot = vno;
@@ -3446,23 +3456,133 @@ visit_copy (tree lhs, tree rhs)
   return set_ssa_val_to (lhs, rhs);
 }
 
+/* Lookup a value for OP in type WIDE_TYPE where the value in type of OP
+   is the same.  */
+
+static tree
+valueized_wider_op (tree wide_type, tree op)
+{
+  if (TREE_CODE (op) == SSA_NAME)
+    op = SSA_VAL (op);
+
+  /* Either we have the op widened available.  */
+  tree ops[3] = {};
+  ops[0] = op;
+  tree tem = vn_nary_op_lookup_pieces (1, NOP_EXPR,
+				       wide_type, ops, NULL);
+  if (tem)
+    return tem;
+
+  /* Or the op is truncated from some existing value.  */
+  if (TREE_CODE (op) == SSA_NAME)
+    {
+      gimple *def = SSA_NAME_DEF_STMT (op);
+      if (is_gimple_assign (def)
+	  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def)))
+	{
+	  tem = gimple_assign_rhs1 (def);
+	  if (useless_type_conversion_p (wide_type, TREE_TYPE (tem)))
+	    {
+	      if (TREE_CODE (tem) == SSA_NAME)
+		tem = SSA_VAL (tem);
+	      return tem;
+	    }
+	}
+    }
+
+  /* For constants simply extend it.  */
+  if (TREE_CODE (op) == INTEGER_CST)
+    return wide_int_to_tree (wide_type, op);
+
+  return NULL_TREE;
+}
+
 /* Visit a nary operator RHS, value number it, and return true if the
    value number of LHS has changed as a result.  */
 
 static bool
-visit_nary_op (tree lhs, gimple *stmt)
+visit_nary_op (tree lhs, gassign *stmt)
 {
-  bool changed = false;
   tree result = vn_nary_op_lookup_stmt (stmt, NULL);
-
   if (result)
-    changed = set_ssa_val_to (lhs, result);
-  else
+    return set_ssa_val_to (lhs, result);
+
+  /* Do some special pattern matching for redundancies of operations
+     in different types.  */
+  enum tree_code code = gimple_assign_rhs_code (stmt);
+  tree type = TREE_TYPE (lhs);
+  tree rhs1 = gimple_assign_rhs1 (stmt);
+  switch (code)
     {
-      changed = set_ssa_val_to (lhs, lhs);
-      vn_nary_op_insert_stmt (stmt, lhs);
+    CASE_CONVERT:
+      /* Match arithmetic done in a different type where we can easily
+         substitute the result from some earlier sign-changed or widened
+	 operation.  */
+      if (INTEGRAL_TYPE_P (type)
+	  && TREE_CODE (rhs1) == SSA_NAME
+	  /* We only handle sign-changes or zero-extension -> & mask.  */
+	  && ((TYPE_UNSIGNED (TREE_TYPE (rhs1))
+	       && TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (rhs1)))
+	      || TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (rhs1))))
+	{
+	  gassign *def = dyn_cast <gassign *> (SSA_NAME_DEF_STMT (rhs1));
+	  if (def
+	      && (gimple_assign_rhs_code (def) == PLUS_EXPR
+		  || gimple_assign_rhs_code (def) == MINUS_EXPR
+		  || gimple_assign_rhs_code (def) == MULT_EXPR))
+	    {
+	      tree ops[3] = {};
+	      /* Either we have the op widened available.  */
+	      ops[0] = valueized_wider_op (type,
+					   gimple_assign_rhs1 (def));
+	      if (ops[0])
+		ops[1] = valueized_wider_op (type,
+					     gimple_assign_rhs2 (def));
+	      if (ops[0] && ops[1])
+		{
+		  ops[0] = vn_nary_op_lookup_pieces
+		      (2, gimple_assign_rhs_code (def), type, ops, NULL);
+		  /* We have wider operation available.  */
+		  if (ops[0])
+		    {
+		      unsigned lhs_prec = TYPE_PRECISION (type);
+		      unsigned rhs_prec = TYPE_PRECISION (TREE_TYPE (rhs1));
+		      if (lhs_prec == rhs_prec)
+			{
+			  ops[1] = NULL_TREE;
+			  result = vn_nary_build_or_lookup (NOP_EXPR,
+							    type, ops);
+			  if (result)
+			    {
+			      bool changed = set_ssa_val_to (lhs, result);
+			      vn_nary_op_insert_stmt (stmt, result);
+			      return changed;
+			    }
+			}
+		      else
+			{
+			  ops[1] = wide_int_to_tree (type,
+						     wi::mask (rhs_prec, false,
+							       lhs_prec));
+			  result = vn_nary_build_or_lookup (BIT_AND_EXPR,
+							    TREE_TYPE (lhs),
+							    ops);
+			  if (result)
+			    {
+			      bool changed = set_ssa_val_to (lhs, result);
+			      vn_nary_op_insert_stmt (stmt, result);
+			      return changed;
+			    }
+			}
+		    }
+		}
+	    }
+	}
+    default:;
     }
 
+  bool changed = set_ssa_val_to (lhs, lhs);
+  vn_nary_op_insert_stmt (stmt, lhs);
   return changed;
 }
 
@@ -3683,7 +3803,7 @@ visit_reference_op_store (tree lhs, tree op, gimple *stmt)
 	 number of the vuse it came from.  */
 
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Store matched earlier value,"
+	fprintf (dump_file, "Store matched earlier value, "
 		 "value numbering store vdefs to matching vuses.\n");
 
       changed |= set_ssa_val_to (vdef, SSA_VAL (vuse));
@@ -4843,6 +4963,7 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
   walker.walk (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   if (walker.fail)
     {
+      scc_vn_restore_ssa_info ();
       free_scc_vn ();
       return false;
     }

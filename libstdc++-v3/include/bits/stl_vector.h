@@ -1,6 +1,6 @@
 // Vector implementation -*- C++ -*-
 
-// Copyright (C) 2001-2016 Free Software Foundation, Inc.
+// Copyright (C) 2001-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -78,7 +78,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       typedef typename __gnu_cxx::__alloc_traits<_Tp_alloc_type>::pointer
        	pointer;
 
-      struct _Vector_impl 
+      struct _Vector_impl
       : public _Tp_alloc_type
       {
 	pointer _M_start;
@@ -107,7 +107,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	  std::swap(_M_end_of_storage, __x._M_end_of_storage);
 	}
       };
-      
+
     public:
       typedef _Alloc allocator_type;
 
@@ -215,13 +215,15 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
   template<typename _Tp, typename _Alloc = std::allocator<_Tp> >
     class vector : protected _Vector_base<_Tp, _Alloc>
     {
+#ifdef _GLIBCXX_CONCEPT_CHECKS
       // Concept requirements.
       typedef typename _Alloc::value_type		_Alloc_value_type;
-#if __cplusplus < 201103L
+# if __cplusplus < 201103L
       __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
-#endif
+# endif
       __glibcxx_class_requires2(_Tp, _Alloc_value_type, _SameTypeConcept)
-      
+#endif
+
       typedef _Vector_base<_Tp, _Alloc>			_Base;
       typedef typename _Base::_Tp_alloc_type		_Tp_alloc_type;
       typedef __gnu_cxx::__alloc_traits<_Tp_alloc_type>	_Alloc_traits;
@@ -842,7 +844,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       at(size_type __n)
       {
 	_M_range_check(__n);
-	return (*this)[__n]; 
+	return (*this)[__n];
       }
 
       /**
@@ -895,7 +897,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	__glibcxx_requires_nonempty();
 	return *(end() - 1);
       }
-      
+
       /**
        *  Returns a read-only (constant) reference to the data at the
        *  last element of the %vector.
@@ -914,19 +916,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *   Returns a pointer such that [data(), data() + size()) is a valid
        *   range.  For a non-empty %vector, data() == &front().
        */
-#if __cplusplus >= 201103L
       _Tp*
-#else
-      pointer
-#endif
       data() _GLIBCXX_NOEXCEPT
       { return _M_data_ptr(this->_M_impl._M_start); }
 
-#if __cplusplus >= 201103L
       const _Tp*
-#else
-      const_pointer
-#endif
       data() const _GLIBCXX_NOEXCEPT
       { return _M_data_ptr(this->_M_impl._M_start); }
 
@@ -960,7 +954,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       { emplace_back(std::move(__x)); }
 
       template<typename... _Args>
+#if __cplusplus > 201402L
+	reference
+#else
 	void
+#endif
 	emplace_back(_Args&&... __args);
 #endif
 
@@ -1049,7 +1047,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  @param  __position  An iterator into the %vector.
        *  @param  __l  An initializer_list.
        *
-       *  This function will insert copies of the data in the 
+       *  This function will insert copies of the data in the
        *  initializer_list @a l into the %vector before the location
        *  specified by @a position.
        *
@@ -1554,21 +1552,31 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       }
 #endif
 
-#if __cplusplus >= 201103L
       template<typename _Up>
 	_Up*
-	_M_data_ptr(_Up* __ptr) const
+	_M_data_ptr(_Up* __ptr) const _GLIBCXX_NOEXCEPT
 	{ return __ptr; }
 
+#if __cplusplus >= 201103L
       template<typename _Ptr>
 	typename std::pointer_traits<_Ptr>::element_type*
 	_M_data_ptr(_Ptr __ptr) const
 	{ return empty() ? nullptr : std::__addressof(*__ptr); }
 #else
-      template<typename _Ptr>
-	_Ptr
-	_M_data_ptr(_Ptr __ptr) const
+      template<typename _Up>
+	_Up*
+	_M_data_ptr(_Up* __ptr) _GLIBCXX_NOEXCEPT
 	{ return __ptr; }
+
+      template<typename _Ptr>
+	value_type*
+	_M_data_ptr(_Ptr __ptr)
+	{ return __ptr.operator->(); }
+
+      template<typename _Ptr>
+	const value_type*
+	_M_data_ptr(_Ptr __ptr) const
+	{ return __ptr.operator->(); }
 #endif
     };
 

@@ -1,6 +1,6 @@
 // vector<bool> specialization -*- C++ -*-
 
-// Copyright (C) 2001-2016 Free Software Foundation, Inc.
+// Copyright (C) 2001-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -1056,9 +1056,18 @@ template<typename _Alloc>
 
 #if __cplusplus >= 201103L
     template<typename... _Args>
+#if __cplusplus > 201402L
+      reference
+#else
       void
+#endif
       emplace_back(_Args&&... __args)
-      { push_back(bool(__args...)); }
+      {
+	push_back(bool(__args...));
+#if __cplusplus > 201402L
+	return back();
+#endif
+      }
 
     template<typename... _Args>
       iterator

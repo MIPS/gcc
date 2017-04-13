@@ -1,5 +1,5 @@
 /* Output sdb-format symbol table information from GNU compiler.
-   Copyright (C) 1988-2016 Free Software Foundation, Inc.
+   Copyright (C) 1988-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -69,6 +69,7 @@ static GTY(()) bool sdbout_initialized;
 #include "rtl.h"
 #include "regs.h"
 #include "function.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "flags.h"
 #include "insn-config.h"
@@ -115,11 +116,13 @@ static void sdbout_start_source_file	(unsigned int, const char *);
 static void sdbout_end_source_file	(unsigned int);
 static void sdbout_begin_block		(unsigned int, unsigned int);
 static void sdbout_end_block		(unsigned int, unsigned int);
-static void sdbout_source_line		(unsigned int, const char *, int, bool);
+static void sdbout_source_line		(unsigned int, unsigned int,
+					 const char *, int, bool);
 static void sdbout_end_epilogue		(unsigned int, const char *);
 static void sdbout_early_global_decl	(tree);
 static void sdbout_late_global_decl	(tree);
-static void sdbout_begin_prologue	(unsigned int, const char *);
+static void sdbout_begin_prologue	(unsigned int, unsigned int,
+					 const char *);
 static void sdbout_end_prologue		(unsigned int, const char *);
 static void sdbout_begin_function	(tree);
 static void sdbout_end_function		(unsigned int);
@@ -1518,7 +1521,8 @@ sdbout_end_block (unsigned int line, unsigned int n ATTRIBUTE_UNUSED)
    number LINE.  */
 
 static void
-sdbout_source_line (unsigned int line, const char *filename ATTRIBUTE_UNUSED,
+sdbout_source_line (unsigned int line, unsigned int column ATTRIBUTE_UNUSED,
+		    const char *filename ATTRIBUTE_UNUSED,
                     int discriminator ATTRIBUTE_UNUSED,
                     bool is_stmt ATTRIBUTE_UNUSED)
 {
@@ -1550,7 +1554,8 @@ sdbout_begin_function (tree decl ATTRIBUTE_UNUSED)
    describe the parameter list.  */
 
 static void
-sdbout_begin_prologue (unsigned int line, const char *file ATTRIBUTE_UNUSED)
+sdbout_begin_prologue (unsigned int line, unsigned int column ATTRIBUTE_UNUSED,
+		       const char *file ATTRIBUTE_UNUSED)
 {
   sdbout_end_prologue (line, file);
 }

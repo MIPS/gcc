@@ -3,9 +3,8 @@
 // { dg-require-effective-target c++11 }
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
-// { dg-require-atomic-builtins "" }
 
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2010-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,8 +32,6 @@
 void
 test01()
 {
-  bool test __attribute__((unused)) = true;
-
   std::shared_future<int> f;
   try
   {
@@ -50,8 +47,6 @@ test01()
 void
 test02()
 {
-  bool test __attribute__((unused)) = true;
-
   std::shared_future<int&> f;
   try
   {
@@ -67,8 +62,6 @@ test02()
 void
 test03()
 {
-  bool test __attribute__((unused)) = true;
-
   std::shared_future<void> f;
   try
   {

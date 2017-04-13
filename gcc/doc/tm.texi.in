@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2017 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -921,6 +921,8 @@ sign-extend the result to 64 bits.  On such machines, set
 Do not define this macro if it would never modify @var{m}.
 @end defmac
 
+@hook TARGET_C_EXCESS_PRECISION
+
 @hook TARGET_PROMOTE_FUNCTION_MODE
 
 @defmac PARM_BOUNDARY
@@ -988,13 +990,15 @@ structure and union fields only, unless the field alignment has been set
 by the @code{__attribute__ ((aligned (@var{n})))} construct.
 @end defmac
 
-@defmac ADJUST_FIELD_ALIGN (@var{field}, @var{computed})
-An expression for the alignment of a structure field @var{field} if the
-alignment computed in the usual way (including applying of
-@code{BIGGEST_ALIGNMENT} and @code{BIGGEST_FIELD_ALIGNMENT} to the
+@defmac ADJUST_FIELD_ALIGN (@var{field}, @var{type}, @var{computed})
+An expression for the alignment of a structure field @var{field} of
+type @var{type} if the alignment computed in the usual way (including
+applying of @code{BIGGEST_ALIGNMENT} and @code{BIGGEST_FIELD_ALIGNMENT} to the
 alignment) is @var{computed}.  It overrides alignment only if the
 field alignment has not been set by the
-@code{__attribute__ ((aligned (@var{n})))} construct.
+@code{__attribute__ ((aligned (@var{n})))} construct.  Note that @var{field}
+may be @code{NULL_TREE} in case we just query for the minimum alignment
+of a field of type @var{type} in structure context.
 @end defmac
 
 @defmac MAX_STACK_ALIGNMENT
@@ -1398,13 +1402,6 @@ causes function names in libgcc to be changed to use a @code{__gnu_}
 prefix for their name rather than the default @code{__}.  A port which
 uses this macro should also arrange to use @file{t-gnu-prefix} in
 the libgcc @file{config.host}.
-@end defmac
-
-@defmac TARGET_FLT_EVAL_METHOD
-A C expression for the value for @code{FLT_EVAL_METHOD} in @file{float.h},
-assuming, if applicable, that the floating-point control word is in its
-default state.  If you do not define this macro the value of
-@code{FLT_EVAL_METHOD} will be zero.
 @end defmac
 
 @defmac WIDEST_HARDWARE_FP_SIZE
@@ -2307,7 +2304,7 @@ force @var{x} into a memory location.  For example, rs6000 can load
 immediate values into general-purpose registers, but does not have an
 instruction for loading an immediate value into a floating-point
 register, so @code{PREFERRED_RELOAD_CLASS} returns @code{NO_REGS} when
-@var{x} is a floating-point constant.  If the constant can't be loaded
+@var{x} is a floating-point constant.  If the constant cannot be loaded
 into any kind of register, code generation will be better if
 @code{TARGET_LEGITIMATE_CONSTANT_P} makes the constant illegitimate instead
 of using @code{TARGET_PREFERRED_RELOAD_CLASS}.
@@ -2329,7 +2326,7 @@ to use when it is necessary to be able to hold a value of mode
 ordinarily be used.
 
 Unlike @code{PREFERRED_RELOAD_CLASS}, this macro should be used when
-there are certain modes that simply can't go in certain reload classes.
+there are certain modes that simply cannot go in certain reload classes.
 
 The value is a register class; perhaps @var{class}, or perhaps another,
 smaller class.
@@ -2507,7 +2504,11 @@ value that the middle-end intended.
 
 @hook TARGET_SPILL_CLASS
 
+@hook TARGET_ADDITIONAL_ALLOCNO_CLASS_P
+
 @hook TARGET_CSTORE_MODE
+
+@hook TARGET_COMPUTE_PRESSURE_CLASSES
 
 @node Stack and Calling
 @section Stack Layout and Calling Conventions
@@ -3821,6 +3822,8 @@ generic code.
 
 @hook TARGET_STACK_PROTECT_FAIL
 
+@hook TARGET_STACK_PROTECT_RUNTIME_ENABLED_P
+
 @hook TARGET_SUPPORTS_SPLIT_STACK
 
 @node Miscellaneous Register Hooks
@@ -3971,6 +3974,8 @@ is used for aligning trampolines.
 
 @hook TARGET_TRAMPOLINE_ADJUST_ADDRESS
 
+@hook TARGET_CUSTOM_FUNCTION_DESCRIPTORS
+
 Implementing trampolines is difficult on many machines because they have
 separate instruction and data caches.  Writing into a stack location
 fails to clear the memory in the instruction cache, so when the program
@@ -4102,8 +4107,6 @@ selector to the method-lookup function, which returns a pointer to the method.
 In either case, it remains possible to select code-generation for the alternate
 scheme, by means of compiler command line switches.
 @end defmac
-
-@hook TARGET_PRINTF_POINTER_FORMAT
 
 @node Addressing Modes
 @section Addressing Modes
@@ -4288,6 +4291,8 @@ address;  but often a machine-dependent strategy can generate better code.
 @hook TARGET_SIMD_CLONE_ADJUST
 
 @hook TARGET_SIMD_CLONE_USABLE
+
+@hook TARGET_SIMT_VF
 
 @hook TARGET_GOACC_VALIDATE_DIMS
 
@@ -4648,7 +4653,8 @@ other fields in the same word of the structure, but to different bytes.
 Define this macro to be the value 1 if memory accesses described by the
 @var{mode} and @var{alignment} parameters have a cost many times greater
 than aligned accesses, for example if they are emulated in a trap
-handler.
+handler.  This macro is invoked only for unaligned accesses, i.e. when
+@code{@var{alignment} < GET_MODE_ALIGNMENT (@var{mode})}.
 
 When this macro is nonzero, the compiler will act as if
 @code{STRICT_ALIGNMENT} were nonzero when generating code for block
@@ -4790,6 +4796,8 @@ Define this macro if a non-short-circuit operation produced by
 
 @hook TARGET_MAX_NOCE_IFCVT_SEQ_COST
 
+@hook TARGET_NOCE_CONVERSION_PROFITABLE_P
+
 @hook TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P
 
 @node Scheduling
@@ -4878,6 +4886,8 @@ them: try the first ones in this list first.
 
 @hook TARGET_SCHED_SET_SCHED_FLAGS
 
+@hook TARGET_SCHED_CAN_SPECULATE_INSN
+
 @hook TARGET_SCHED_SMS_RES_MII
 
 @hook TARGET_SCHED_DISPATCH
@@ -4889,6 +4899,8 @@ them: try the first ones in this list first.
 @hook TARGET_SCHED_REASSOCIATION_WIDTH
 
 @hook TARGET_SCHED_FUSION_PRIORITY
+
+@hook TARGET_EXPAND_DIVMOD_LIBFUNC
 
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
@@ -7082,8 +7094,6 @@ tables, and hence is desirable if it works.
 
 @hook TARGET_WANT_DEBUG_PUB_SECTIONS
 
-@hook TARGET_FORCE_AT_COMP_DIR
-
 @hook TARGET_DELAY_SCHED2
 
 @hook TARGET_DELAY_VARTRACK
@@ -7258,7 +7268,7 @@ floating point operations, but to perform a single precision operation,
 the FPSCR PR bit has to be cleared, while for a double precision
 operation, this bit has to be set.  Changing the PR bit requires a general
 purpose register as a scratch register, hence these FPSCR sets have to
-be inserted before reload, i.e.@: you can't put this into instruction emitting
+be inserted before reload, i.e.@: you cannot put this into instruction emitting
 or @code{TARGET_MACHINE_DEPENDENT_REORG}.
 
 You can have multiple entities that are mode-switched, and select at run time
@@ -7574,6 +7584,8 @@ Define this macro to 1 if operations between registers with integral mode
 smaller than a word are always performed on the entire register.
 Most RISC machines have this property and most CISC machines do not.
 @end defmac
+
+@hook TARGET_MIN_ARITHMETIC_PRECISION
 
 @defmac LOAD_EXTEND_OP (@var{mem_mode})
 Define this macro to be a C expression indicating when insns that read
@@ -8305,3 +8317,5 @@ All and all it does not take long to convert ports that the
 maintainer is familiar with.
 
 @end defmac
+
+@hook TARGET_RUN_TARGET_SELFTESTS

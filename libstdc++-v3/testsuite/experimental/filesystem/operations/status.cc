@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2016 Free Software Foundation, Inc.
+// Copyright (C) 2015-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,8 +28,6 @@ namespace fs = std::experimental::filesystem;
 void
 test01()
 {
-  bool test __attribute__((unused)) = false;
-
   std::error_code ec;
   fs::file_status st1 = fs::status(".", ec);
   VERIFY( !ec );
@@ -42,8 +40,6 @@ test01()
 void
 test02()
 {
-  bool test __attribute__((unused)) = false;
-
   fs::path p = __gnu_test::nonexistent_path();
 
   std::error_code ec;

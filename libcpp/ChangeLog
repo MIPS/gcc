@@ -1,3 +1,103 @@
+2017-04-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/line-map.h (LINEMAPS_MACRO_MAPS): Fix typo in comment.
+	* lex.c (search_line_fast): Likewise.
+	* pch.h (cpp_valid_state): Likewise.
+
+2017-03-21  Andreas Schwab  <schwab@suse.de>
+
+	* lex.c (search_line_fast) [__ARM_NEON && __ARM_64BIT_STATE]:
+	Convert 64-bit value to boolean before passing to
+	__builtin_expect.
+
+2017-03-16  Jason Merrill  <jason@redhat.com>
+
+	* init.c (cpp_init_builtins): Update __cplusplus for C++17.
+
+2017-02-09  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* Makefile.in (po/$(PACKAGE).pot): Adjust bug reporting URL.
+
+2017-01-10  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/77949
+	* line-map.c (linemap_position_for_column): When calling
+	linemap_start_line, detect if a new linemap was created with
+	0 column bits, and bail out early if this is the case.
+	(linemap_position_for_loc_and_offset): Replace overzealous
+	linemap_assert_fails with a simple conditional; use correct
+	bit count.
+
+2017-01-07  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/72803
+	* line-map.c (linemap_line_start): When determining if the highest
+	column given out so far will fit into a proposed change to the
+	current map, use the effective number of column bits, rather than
+	the total number of column + range bits.
+
+2017-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2016-12-15  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/78680
+	PR preprocessor/78811
+	* lex.c (_cpp_lex_direct): Only determine the end-location of
+	the token and build a range for non-reserved start locations.
+	Do not do it for EOF tokens.
+
+2016-12-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/78680
+	* lex.c (_cpp_lex_direct): Ensure line notes are processed before
+	computing the end-point of the token.
+
+2016-11-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* include/cpplib.h (struct cpp_options): Add new member
+	warn_expansion_to_defined.
+	(CPP_W_EXPANSION_TO_DEFINED): New enum member.
+	* expr.c (parse_defined): Warn for all uses of "defined"
+	in macros, and tie warning to CPP_W_EXPANSION_TO_DEFINED.
+	Make it a pedwarning instead of a warning.
+	* system.h (HAVE_DESIGNATED_INITIALIZERS): Do not use
+	"defined" in macros.
+
+2016-11-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* charset.c (cpp_interpret_string_1): Skip locations from
+	loc_reader when advancing 'p' when handling raw strings.
+
+2016-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/72823
+	* configure.ac (ENABLE_ASSERT_CHECKING): Define if gcc configure
+	would define that macro.
+	* configure: Regenerated.
+	* config.in: Regenerated.
+
+2016-11-08  Richard Earnshaw  <rearnsha@arm.com>
+
+	* lex.c (search_line_fast): New implementation for AArch64.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* files.c (destroy_cpp_file): Free file->path.
+
+2016-10-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (line_maps::~line_maps): New dtor.
+	(location_adhoc_data_fini): Delete decl.
+	* line-map.c (line_maps::~line_maps): New dtor.
+	(location_adhoc_data_fini): Delete.
+
+2016-10-21  Andris Pavenis  <andris.pavenis@iki.fi>
+
+	PR preprocessor/71681
+	* files.c (remap_filename): Fix handling -remap in subdirectories.
+
 2016-10-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* include/cpplib.h (struct cpp_options): Add
@@ -4928,7 +5028,7 @@
 	* include/symtab.h: Moved from gcc/hashtable.h.  Change header
 	guard name.
 
-Copyright (C) 2004-2016 Free Software Foundation, Inc.
+Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

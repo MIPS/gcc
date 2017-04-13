@@ -1,5 +1,5 @@
 /* Subroutines used for code generation of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -28,6 +28,7 @@
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "optabs.h"		/* For GEN_FCN.  */
 #include "regs.h"
@@ -2703,7 +2704,7 @@ nds32_option_override (void)
 
   /* Currently, we don't support PIC code generation yet.  */
   if (flag_pic)
-    sorry ("not support -fpic");
+    sorry ("position-independent code not supported");
 }
 
 

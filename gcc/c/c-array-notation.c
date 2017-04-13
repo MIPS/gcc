@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains routines to handle Array Notation expression
    handling routines in the C Compiler.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
                   Intel Corporation.
 
@@ -26,7 +26,7 @@
    An array notation expression has 4 major components:
    1. The array name
    2. Start Index
-   3. Number of elements we need to acess (we call it length)
+   3. Number of elements we need to access (we call it length)
    4. Stride
 
    For example, A[0:5:2], implies that we are accessing A[0], A[2], A[4],

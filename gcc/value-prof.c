@@ -1,5 +1,5 @@
 /* Transformations based on profile information for values.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -100,7 +100,7 @@ along with GCC; see the file COPYING3.  If not see
    * The value profiling code could be used to record analysis results
      from non-profiling (e.g. VRP).
    * Adding new profilers should be simplified, starting with a cleanup
-     of what-happens-where andwith making gimple_find_values_to_profile
+     of what-happens-where and with making gimple_find_values_to_profile
      and gimple_value_profile_transformations table-driven, perhaps...
 */
 
@@ -365,7 +365,17 @@ stream_out_histogram_value (struct output_block *ob, histogram_value hist)
       break;
     }
   for (i = 0; i < hist->n_counters; i++)
-    streamer_write_gcov_count (ob, hist->hvalue.counters[i]);
+    {
+      /* When user uses an unsigned type with a big value, constant converted
+	 to gcov_type (a signed type) can be negative.  */
+      gcov_type value = hist->hvalue.counters[i];
+      if (hist->type == HIST_TYPE_SINGLE_VALUE && i == 0)
+	;
+      else
+	gcc_assert (value >= 0);
+
+      streamer_write_gcov_count (ob, value);
+    }
   if (hist->hvalue.next)
     stream_out_histogram_value (ob, hist->hvalue.next);
 }
@@ -1358,7 +1368,8 @@ gimple_ic (gcall *icall_stmt, struct cgraph_node *direct_call,
   dcall_stmt = as_a <gcall *> (gimple_copy (icall_stmt));
   gimple_call_set_fndecl (dcall_stmt, direct_call->decl);
   dflags = flags_from_decl_or_type (direct_call->decl);
-  if ((dflags & ECF_NORETURN) != 0)
+  if ((dflags & ECF_NORETURN) != 0
+      && should_remove_lhs_p (gimple_call_lhs (dcall_stmt)))
     gimple_call_set_lhs (dcall_stmt, NULL_TREE);
   gsi_insert_before (&gsi, dcall_stmt, GSI_SAME_STMT);
 
@@ -1878,12 +1889,12 @@ stringop_block_profile (gimple *stmt, unsigned int *expected_align,
   else
     {
       gcov_type count;
-      int alignment;
+      unsigned int alignment;
 
       count = histogram->hvalue.counters[0];
       alignment = 1;
       while (!(count & alignment)
-	     && (alignment * 2 * BITS_PER_UNIT))
+	     && (alignment <= UINT_MAX / 2 / BITS_PER_UNIT))
 	alignment <<= 1;
       *expected_align = alignment * BITS_PER_UNIT;
       gimple_remove_histogram_value (cfun, stmt, histogram);

@@ -1,5 +1,5 @@
 /* Generate the machine mode enumeration and associated tables.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -973,10 +973,10 @@ inline __attribute__((__always_inline__))\n\
 #else\n\
 extern __inline__ __attribute__((__always_inline__, __gnu_inline__))\n\
 #endif\n\
-unsigned char\n\
+unsigned short\n\
 mode_size_inline (machine_mode mode)\n\
 {\n\
-  extern %sunsigned char mode_size[NUM_MACHINE_MODES];\n\
+  extern %sunsigned short mode_size[NUM_MACHINE_MODES];\n\
   gcc_assert (mode >= 0 && mode < NUM_MACHINE_MODES);\n\
   switch (mode)\n\
     {\n", adj_bytesize ? "" : "const ");
@@ -1301,7 +1301,7 @@ emit_mode_size (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("%sunsigned char", "mode_size",
+  print_maybe_const_decl ("%sunsigned short", "mode_size",
 			  "NUM_MACHINE_MODES", bytesize);
 
   for_all_modes (c, m)
@@ -1492,7 +1492,7 @@ emit_mode_base_align (void)
   int c;
   struct mode_data *m;
 
-  print_maybe_const_decl ("%sunsigned char",
+  print_maybe_const_decl ("%sunsigned short",
 			  "mode_base_align", "NUM_MACHINE_MODES",
 			  alignment);
 
@@ -1789,7 +1789,9 @@ emit_min_insn_modes_c (void)
   emit_min_insn_modes_c_header ();
   emit_mode_name ();
   emit_mode_class ();
+  emit_mode_nunits ();
   emit_mode_wider ();
+  emit_mode_inner ();
   emit_class_narrowest_mode ();
 }
 

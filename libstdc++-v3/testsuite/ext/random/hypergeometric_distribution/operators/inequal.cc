@@ -3,7 +3,7 @@
 //
 // 2013-11-18  Edward M. Smith-Rowland  <3dw4rd@verizon.net>
 //
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,8 +28,6 @@
 void
 test01()
 {
-  bool test [[gnu::unused]] = true;
-
   __gnu_cxx::hypergeometric_distribution<unsigned int> u(20, 3, 5), v, w;
 
   VERIFY( u != v );

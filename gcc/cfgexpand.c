@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "cfghooks.h"
 #include "tree-pass.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "ssa.h"
 #include "optabs.h"
@@ -867,18 +868,6 @@ union_stack_vars (size_t a, size_t b)
     }
 }
 
-/* Return true if the current function should have its stack frame
-   protected by address sanitizer.  */
-
-static inline bool
-asan_sanitize_stack_p (void)
-{
-  return ((flag_sanitize & SANITIZE_ADDRESS)
-	  && ASAN_STACK
-	  && !lookup_attribute ("no_sanitize_address",
-				DECL_ATTRIBUTES (current_function_decl)));
-}
-
 /* A subroutine of expand_used_vars.  Binpack the variables into
    partitions constrained by the interference graph.  The overall
    algorithm used is as follows:
@@ -940,7 +929,8 @@ partition_stack_vars (void)
 	     sizes, as the shorter vars wouldn't be adequately protected.
 	     Don't do that for "large" (unsupported) alignment objects,
 	     those aren't protected anyway.  */
-	  if (asan_sanitize_stack_p () && isize != jsize
+	  if ((asan_sanitize_stack_p ())
+	      && isize != jsize
 	      && ialign * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	    break;
 
@@ -1127,7 +1117,8 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
       if (alignb * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	{
 	  base = virtual_stack_vars_rtx;
-	  if (asan_sanitize_stack_p () && pred)
+	  if ((asan_sanitize_stack_p ())
+	      && pred)
 	    {
 	      HOST_WIDE_INT prev_offset
 		= align_base (frame_offset,
@@ -2641,6 +2632,7 @@ expand_call_stmt (gcall *stmt)
   else
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
   CALL_EXPR_VA_ARG_PACK (exp) = gimple_call_va_arg_pack_p (stmt);
+  CALL_EXPR_BY_DESCRIPTOR (exp) = gimple_call_by_descriptor_p (stmt);
   SET_EXPR_LOCATION (exp, gimple_location (stmt));
   CALL_WITH_BOUNDS_P (exp) = gimple_call_with_bounds_p (stmt);
 
@@ -3997,7 +3989,7 @@ convert_debug_memory_address (machine_mode mode, rtx x,
 	    return SUBREG_REG (x);
 	  break;
 	case LABEL_REF:
-	  temp = gen_rtx_LABEL_REF (mode, LABEL_REF_LABEL (x));
+	  temp = gen_rtx_LABEL_REF (mode, label_ref_label (x));
 	  LABEL_REF_NONLOCAL_P (temp) = LABEL_REF_NONLOCAL_P (x);
 	  return temp;
 	case SYMBOL_REF:
@@ -4061,7 +4053,7 @@ avoid_deep_ter_for_debug (gimple *stmt, int depth)
 	  gimple *def_temp = gimple_build_debug_bind (vexpr, use, g);
 	  DECL_ARTIFICIAL (vexpr) = 1;
 	  TREE_TYPE (vexpr) = TREE_TYPE (use);
-	  DECL_MODE (vexpr) = TYPE_MODE (TREE_TYPE (use));
+	  SET_DECL_MODE (vexpr, TYPE_MODE (TREE_TYPE (use)));
 	  gimple_stmt_iterator gsi = gsi_for_stmt (g);
 	  gsi_insert_after (&gsi, def_temp, GSI_NEW_STMT);
 	  avoid_deep_ter_for_debug (def_temp, 0);
@@ -5589,7 +5581,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		      mode = DECL_MODE (value);
 		    else
 		      mode = TYPE_MODE (TREE_TYPE (value));
-		    DECL_MODE (vexpr) = mode;
+		    SET_DECL_MODE (vexpr, mode);
 
 		    val = gen_rtx_VAR_LOCATION
 			(mode, vexpr, (rtx)value, VAR_INIT_STATUS_INITIALIZED);
@@ -5775,7 +5767,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   if (single_succ_p (bb)
       && (single_succ_edge (bb)->flags & EDGE_FALLTHRU)
       && (last = get_last_insn ())
-      && JUMP_P (last))
+      && (JUMP_P (last)
+	  || (DEBUG_INSN_P (last)
+	      && JUMP_P (prev_nondebug_insn (last)))))
     {
       rtx dummy = gen_reg_rtx (SImode);
       emit_insn_after_noloc (gen_move_insn (dummy, dummy), last, NULL);
@@ -6100,7 +6094,10 @@ stack_protect_prologue (void)
   rtx x, y;
 
   x = expand_normal (crtl->stack_protect_guard);
-  y = expand_normal (guard_decl);
+  if (guard_decl)
+    y = expand_normal (guard_decl);
+  else
+    y = const0_rtx;
 
   /* Allow the target to copy from Y to X without leaking Y into a
      register.  */
@@ -6218,10 +6215,7 @@ pass_expand::execute (function *fun)
   discover_nonconstant_array_refs ();
 
   targetm.expand_to_rtl_hook ();
-  crtl->stack_alignment_needed = STACK_BOUNDARY;
-  crtl->max_used_stack_slot_alignment = STACK_BOUNDARY;
-  crtl->stack_alignment_estimated = 0;
-  crtl->preferred_stack_boundary = STACK_BOUNDARY;
+  crtl->init_stack_alignment ();
   fun->cfg->max_jumptable_ents = 0;
 
   /* Resovle the function section.  Some targets, like ARM EABI rely on knowledge
@@ -6339,7 +6333,7 @@ pass_expand::execute (function *fun)
 
   /* Initialize the stack_protect_guard field.  This must happen after the
      call to __main (if any) so that the external decl is initialized.  */
-  if (crtl->stack_protect_guard)
+  if (crtl->stack_protect_guard && targetm.stack_protect_runtime_enabled_p ())
     stack_protect_prologue ();
 
   expand_phi_nodes (&SA);

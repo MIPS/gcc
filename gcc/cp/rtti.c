@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995-2016 Free Software Foundation, Inc.
+   Copyright (C) 1995-2017 Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
 This file is part of GCC.
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "cp-tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "intl.h"
@@ -983,6 +984,14 @@ ptr_initializer (tinfo_s *ti, tree target)
     {
       flags |= 0x20;
       to = tx_unsafe_fn_variant (to);
+    }
+  if (flag_noexcept_type
+      && (TREE_CODE (to) == FUNCTION_TYPE
+	  || TREE_CODE (to) == METHOD_TYPE)
+      && TYPE_NOTHROW_P (to))
+    {
+      flags |= 0x40;
+      to = build_exception_variant (to, NULL_TREE);
     }
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, init);
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (NULL_TREE, flags));

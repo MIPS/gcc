@@ -1,5 +1,5 @@
 /* Map (unsigned int) keys to (source file, line, column) triples.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -699,6 +699,8 @@ struct GTY(()) location_adhoc_data_map {
 
 /* A set of chronological line_map structures.  */
 struct GTY(()) line_maps {
+
+  ~line_maps ();
   
   maps_info_ordinary info_ordinary;
 
@@ -906,7 +908,7 @@ LINEMAPS_LAST_ALLOCATED_ORDINARY_MAP (const line_maps *set)
 }
 
 /* Returns a pointer to the beginning of the region where macro maps
-   are allcoated.  */
+   are allocated.  */
 inline line_map_macro *
 LINEMAPS_MACRO_MAPS (const line_maps *set)
 {
@@ -977,7 +979,6 @@ LINEMAPS_LAST_ALLOCATED_MACRO_MAP (const line_maps *set)
   return (line_map_macro *)LINEMAPS_LAST_ALLOCATED_MAP (set, true);
 }
 
-extern void location_adhoc_data_fini (struct line_maps *);
 extern source_location get_combined_adhoc_loc (struct line_maps *,
 					       source_location,
 					       source_range,

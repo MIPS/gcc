@@ -1,5 +1,5 @@
 /* Top-level LTO routines.
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -373,7 +373,9 @@ hash_canonical_type (tree type)
       tree f;
 
       for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
-	if (TREE_CODE (f) == FIELD_DECL)
+	if (TREE_CODE (f) == FIELD_DECL
+	    && (! DECL_SIZE (f)
+		|| ! integer_zerop (DECL_SIZE (f))))
 	  {
 	    iterative_hash_canonical_type (TREE_TYPE (f), hstate);
 	    nf++;
@@ -1160,6 +1162,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
 	}
       else if (code == ARRAY_TYPE)
 	compare_values (TYPE_NONALIASED_COMPONENT);
+      if (AGGREGATE_TYPE_P (t1))
+	compare_values (TYPE_TYPELESS_STORAGE);
       compare_values (TYPE_PACKED);
       compare_values (TYPE_RESTRICT);
       compare_values (TYPE_USER_ALIGN);
@@ -2286,6 +2290,8 @@ do_stream_out (char *temp_filename, lto_symtab_encoder_t encoder)
 
   ipa_write_optimization_summaries (encoder);
 
+  free (CONST_CAST (char *, file->filename));
+
   lto_set_current_out_file (NULL);
   lto_obj_file_close (file);
   free (file);
@@ -3092,6 +3098,10 @@ do_whole_program_analysis (void)
 
   execute_ipa_pass_list (g->get_passes ()->all_regular_ipa_passes);
 
+  /* When WPA analysis raises errors, do not bother to output anything.  */
+  if (seen_error ())
+    return;
+
   if (symtab->dump_file)
     {
       fprintf (symtab->dump_file, "Optimized ");
@@ -3238,7 +3248,7 @@ offload_handle_link_vars (void)
 	TREE_TYPE (link_ptr_var) = type;
 	TREE_USED (link_ptr_var) = 1;
 	TREE_STATIC (link_ptr_var) = 1;
-	DECL_MODE (link_ptr_var) = TYPE_MODE (type);
+	SET_DECL_MODE (link_ptr_var, TYPE_MODE (type));
 	DECL_SIZE (link_ptr_var) = TYPE_SIZE (type);
 	DECL_SIZE_UNIT (link_ptr_var) = TYPE_SIZE_UNIT (type);
 	DECL_ARTIFICIAL (link_ptr_var) = 1;

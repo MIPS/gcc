@@ -1,6 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001-2016 Free Software Foundation, Inc.
+// Copyright (C) 2001-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -583,6 +583,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   _Predicate __pred)
     {
       __first = std::find_if_not(__first, __last, __pred);
+      if (__first == __last)
+	return true;
+      ++__first;
       return std::none_of(__first, __last, __pred);
     }
 
@@ -3741,6 +3744,37 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 #ifdef _GLIBCXX_USE_C99_STDINT_TR1
   /**
+   *  @brief Generate two uniformly distributed integers using a
+   *         single distribution invocation.
+   *  @param  __b0    The upper bound for the first integer.
+   *  @param  __b1    The upper bound for the second integer.
+   *  @param  __g     A UniformRandomBitGenerator.
+   *  @return  A pair (i, j) with i and j uniformly distributed
+   *           over [0, __b0) and [0, __b1), respectively.
+   *
+   *  Requires: __b0 * __b1 <= __g.max() - __g.min().
+   *
+   *  Using uniform_int_distribution with a range that is very
+   *  small relative to the range of the generator ends up wasting
+   *  potentially expensively generated randomness, since
+   *  uniform_int_distribution does not store leftover randomness
+   *  between invocations.
+   *
+   *  If we know we want two integers in ranges that are sufficiently
+   *  small, we can compose the ranges, use a single distribution
+   *  invocation, and significantly reduce the waste.
+  */
+  template<typename _IntType, typename _UniformRandomBitGenerator>
+    pair<_IntType, _IntType>
+    __gen_two_uniform_ints(_IntType __b0, _IntType __b1,
+			   _UniformRandomBitGenerator&& __g)
+    {
+      _IntType __x
+	= uniform_int_distribution<_IntType>{0, (__b0 * __b1) - 1}(__g);
+      return std::make_pair(__x / __b1, __x % __b1);
+    }
+
+  /**
    *  @brief Shuffle the elements of a sequence using a uniform random
    *         number generator.
    *  @ingroup mutating_algorithms
@@ -3772,6 +3806,48 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef typename std::make_unsigned<_DistanceType>::type __ud_type;
       typedef typename std::uniform_int_distribution<__ud_type> __distr_type;
       typedef typename __distr_type::param_type __p_type;
+
+      typedef typename remove_reference<_UniformRandomNumberGenerator>::type
+	_Gen;
+      typedef typename common_type<typename _Gen::result_type, __ud_type>::type
+	__uc_type;
+
+      const __uc_type __urngrange = __g.max() - __g.min();
+      const __uc_type __urange = __uc_type(__last - __first);
+
+      if (__urngrange / __urange >= __urange)
+        // I.e. (__urngrange >= __urange * __urange) but without wrap issues.
+      {
+	_RandomAccessIterator __i = __first + 1;
+
+	// Since we know the range isn't empty, an even number of elements
+	// means an uneven number of elements /to swap/, in which case we
+	// do the first one up front:
+
+	if ((__urange % 2) == 0)
+	{
+	  __distr_type __d{0, 1};
+	  std::iter_swap(__i++, __first + __d(__g));
+	}
+
+	// Now we know that __last - __i is even, so we do the rest in pairs,
+	// using a single distribution invocation to produce swap positions
+	// for two successive elements at a time:
+
+	while (__i != __last)
+	{
+	  const __uc_type __swap_range = __uc_type(__i - __first) + 1;
+
+	  const pair<__uc_type, __uc_type> __pospos =
+	    __gen_two_uniform_ints(__swap_range, __swap_range + 1, __g);
+
+	  std::iter_swap(__i++, __first + __pospos.first);
+	  std::iter_swap(__i++, __first + __pospos.second);
+	}
+
+	return;
+      }
+
       __distr_type __d;
 
       for (_RandomAccessIterator __i = __first + 1; __i != __last; ++__i)
@@ -5654,9 +5730,52 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
     {
       using __distrib_type = uniform_int_distribution<_Size>;
       using __param_type = typename __distrib_type::param_type;
+      using _USize = make_unsigned_t<_Size>;
+      using _Gen = remove_reference_t<_UniformRandomBitGenerator>;
+      using __uc_type = common_type_t<typename _Gen::result_type, _USize>;
+
       __distrib_type __d{};
       _Size __unsampled_sz = std::distance(__first, __last);
-      for (__n = std::min(__n, __unsampled_sz); __n != 0; ++__first)
+      __n = std::min(__n, __unsampled_sz);
+
+      // If possible, we use __gen_two_uniform_ints to efficiently produce
+      // two random numbers using a single distribution invocation:
+
+      const __uc_type __urngrange = __g.max() - __g.min();
+      if (__urngrange / __uc_type(__unsampled_sz) >= __uc_type(__unsampled_sz))
+        // I.e. (__urngrange >= __unsampled_sz * __unsampled_sz) but without
+	// wrapping issues.
+        {
+	  while (__n != 0 && __unsampled_sz >= 2)
+	    {
+	      const pair<_Size, _Size> __p =
+		__gen_two_uniform_ints(__unsampled_sz, __unsampled_sz - 1, __g);
+
+	      --__unsampled_sz;
+	      if (__p.first < __n)
+		{
+		  *__out++ = *__first;
+		  --__n;
+		}
+
+	      ++__first;
+
+	      if (__n == 0) break;
+
+	      --__unsampled_sz;
+	      if (__p.second < __n)
+		{
+		  *__out++ = *__first;
+		  --__n;
+		}
+
+	      ++__first;
+	    }
+        }
+
+      // The loop above is otherwise equivalent to this one-at-a-time version:
+
+      for (; __n != 0; ++__first)
 	if (__d(__g, __param_type{0, --__unsampled_sz}) < __n)
 	  {
 	    *__out++ = *__first;
@@ -5689,8 +5808,9 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
       static_assert(is_integral<_Distance>::value,
 		    "sample size must be an integer type");
 
+      typename iterator_traits<_PopulationIterator>::difference_type __d = __n;
       return std::__sample(__first, __last, __pop_cat{}, __out, __samp_cat{},
-			   __n, std::forward<_UniformRandomBitGenerator>(__g));
+			   __d, std::forward<_UniformRandomBitGenerator>(__g));
     }
 #endif // C++17
 #endif // C++14

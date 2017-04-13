@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,7 +27,6 @@ using __gnu_test::counter_type;
 
 void test01()
 {
-  bool test __attribute__((unused)) = true;
   typedef propagating_allocator<counter_type, false> alloc_type;
   typedef __gnu_test::counter_type_hasher hash;
   typedef std::unordered_map<counter_type, counter_type, hash,
@@ -55,7 +54,6 @@ void test01()
 
 void test02()
 {
-  bool test __attribute__((unused)) = true;
   typedef propagating_allocator<counter_type, true> alloc_type;
   typedef __gnu_test::counter_type_hasher hash;
   typedef std::unordered_map<counter_type, counter_type, hash,

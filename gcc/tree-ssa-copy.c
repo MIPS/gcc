@@ -1,5 +1,5 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -550,7 +550,7 @@ fini_copy_prop (void)
 	}
     }
 
-  bool changed = substitute_and_fold (get_value, NULL, true);
+  bool changed = substitute_and_fold (get_value, NULL);
   if (changed)
     {
       free_numbers_of_iterations_estimates (cfun);

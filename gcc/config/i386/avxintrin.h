@@ -1,4 +1,4 @@
-/* Copyright (C) 2008-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2008-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -489,6 +489,20 @@ extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __arti
 _mm256_cvttps_epi32 (__m256 __A)
 {
   return (__m256i)__builtin_ia32_cvttps2dq256 ((__v8sf) __A);
+}
+
+extern __inline double
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cvtsd_f64 (__m256d __A)
+{
+  return __A[0];
+}
+
+extern __inline float
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_cvtss_f32 (__m256 __A)
+{
+  return __A[0];
 }
 
 #ifdef __OPTIMIZE__

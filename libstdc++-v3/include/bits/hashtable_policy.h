@@ -1,6 +1,6 @@
 // Internal policy header for unordered_set and unordered_map -*- C++ -*-
 
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2010-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -521,24 +521,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// Compute closest power of 2.
   _GLIBCXX14_CONSTEXPR
   inline std::size_t
-  __clp2(std::size_t n) noexcept
+  __clp2(std::size_t __n) noexcept
   {
 #if __SIZEOF_SIZE_T__ >= 8
-    std::uint_fast64_t x = n;
+    std::uint_fast64_t __x = __n;
 #else
-    std::uint_fast32_t x = n;
+    std::uint_fast32_t __x = __n;
 #endif
     // Algorithm from Hacker's Delight, Figure 3-3.
-    x = x - 1;
-    x = x | (x >> 1);
-    x = x | (x >> 2);
-    x = x | (x >> 4);
-    x = x | (x >> 8);
-    x = x | (x >>16);
+    __x = __x - 1;
+    __x = __x | (__x >> 1);
+    __x = __x | (__x >> 2);
+    __x = __x | (__x >> 4);
+    __x = __x | (__x >> 8);
+    __x = __x | (__x >>16);
 #if __SIZEOF_SIZE_T__ >= 8
-    x = x | (x >>32);
+    __x = __x | (__x >>32);
 #endif
-    return x + 1;
+    return __x + 1;
   }
 
   /// Rehash policy providing power of 2 bucket numbers. Avoids modulo

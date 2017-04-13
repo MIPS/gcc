@@ -1,5 +1,5 @@
 /* Language hooks common to C and ObjC front ends.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
@@ -91,7 +91,7 @@ along with GCC; see the file COPYING3.  If not see
    This means it must also provide its own write_globals.  */
 
 #undef LANG_HOOKS_GETDECLS
-#define LANG_HOOKS_GETDECLS lhd_return_null_tree_v
+#define LANG_HOOKS_GETDECLS hook_tree_void_null
 
 /* Hooks for tree gimplification.  */
 #undef LANG_HOOKS_GIMPLIFY_EXPR

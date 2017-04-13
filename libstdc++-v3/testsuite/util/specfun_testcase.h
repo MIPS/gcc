@@ -1,4 +1,4 @@
-// Copyright (C) 2015-2016 Free Software Foundation, Inc.
+// Copyright (C) 2015-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -416,9 +416,18 @@ template<typename _Tp>
     _Tp f;
   };
 
-// Digamma functions.
+// Gamma function.
 template<typename _Tp>
   struct testcase_gamma
+  {
+    _Tp f0;
+    _Tp x;
+    _Tp f;
+  };
+
+// Reciprocal Gamma function.
+template<typename _Tp>
+  struct testcase_gamma_reciprocal
   {
     _Tp f0;
     _Tp x;
@@ -697,7 +706,7 @@ template<typename _Tp>
 
 // Binomial coefficient.
 template<typename _Tp>
-  struct testcase_bincoef
+  struct testcase_binomial
   {
     _Tp f0;
     unsigned int n;
@@ -707,7 +716,7 @@ template<typename _Tp>
 
 // Log binomial coefficient.
 template<typename _Tp>
-  struct testcase_lbincoef
+  struct testcase_lbinomial
   {
     _Tp f0;
     unsigned int n;
@@ -932,9 +941,9 @@ template<typename _Tp>
     _Tp f;
   };
 
-// Clausen Cl_2 function.
+// Clausen Cl_m function.
 template<typename _Tp>
-  struct testcase_clausen_c
+  struct testcase_clausen_cl
   {
     _Tp f0;
     unsigned int m;
@@ -1014,6 +1023,180 @@ template<typename _Tp>
   struct testcase_tan_pi
   {
     _Tp f0;
+    _Tp x;
+    _Tp f;
+  };
+
+// Log gamma functions.
+template<typename _Tp>
+  struct testcase_lgamma
+  {
+    _Tp f0;
+    _Tp a;
+    _Tp f;
+  };
+
+// Log gamma functions.
+template<typename _Tp>
+  struct testcase_bernoulli
+  {
+    _Tp f0;
+    unsigned int n;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_boltzmann_cdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_boltzmann_pdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_laplace_cdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp sigma;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_laplace_pdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp sigma;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_maxwell_cdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_maxwell_pdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_normal_cdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp sigma;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_normal_pdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp sigma;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_rayleigh_cdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_rayleigh_pdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_lognormal_cdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp sigma;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_lognormal_pdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp sigma;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_logistic_cdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp s;
+    _Tp x;
+    _Tp f;
+  };
+
+//
+template<typename _Tp>
+  struct testcase_logistic_pdf
+  {
+    _Tp f0;
+    _Tp mu;
+    _Tp s;
+    _Tp x;
+    _Tp f;
+  };
+
+// Debye integrals.
+template<typename _Tp>
+  struct testcase_debye
+  {
+    _Tp f0;
+    unsigned int n;
     _Tp x;
     _Tp f;
   };

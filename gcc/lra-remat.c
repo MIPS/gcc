@@ -1,5 +1,5 @@
 /* Rematerialize pseudos values.
-   Copyright (C) 2014-2016 Free Software Foundation, Inc.
+   Copyright (C) 2014-2017 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "df.h"
 #include "insn-config.h"
 #include "regs.h"
+#include "memmodel.h"
 #include "ira.h"
 #include "recog.h"
 #include "lra.h"
@@ -93,10 +94,10 @@ struct cand
 {
   /* Index of the candidates in all_cands. */
   int index;
-  /* The candidate insn.  */
-  rtx_insn *insn;
   /* Insn pseudo regno for rematerialization.  */
   int regno;
+  /* The candidate insn.  */
+  rtx_insn *insn;
   /* Non-negative if a reload pseudo is in the insn instead of the
      pseudo for rematerialization.  */
   int reload_regno;
@@ -1023,6 +1024,7 @@ get_hard_regs (struct lra_insn_reg *reg, int &nregs)
 static void
 update_scratch_ops (rtx_insn *remat_insn)
 {
+  int hard_regno;
   lra_insn_recog_data_t id = lra_get_insn_recog_data (remat_insn);
   struct lra_static_insn_data *static_id = id->insn_static_data;
   for (int i = 0; i < static_id->n_operands; i++)
@@ -1033,9 +1035,17 @@ update_scratch_ops (rtx_insn *remat_insn)
       int regno = REGNO (*loc);
       if (! lra_former_scratch_p (regno))
 	continue;
+      hard_regno = reg_renumber[regno];
       *loc = lra_create_new_reg (GET_MODE (*loc), *loc,
 				 lra_get_allocno_class (regno),
 				 "scratch pseudo copy");
+      if (hard_regno >= 0)
+	{
+	  reg_renumber[REGNO (*loc)] = hard_regno;
+	  if (lra_dump_file)
+	    fprintf (lra_dump_file, "	 Assigning the same %d to r%d\n",
+		     REGNO (*loc), hard_regno);
+	}
       lra_register_new_scratch_op (remat_insn, i);
     }
   
@@ -1046,6 +1056,7 @@ update_scratch_ops (rtx_insn *remat_insn)
 static bool
 do_remat (void)
 {
+  unsigned regno;
   rtx_insn *insn;
   basic_block bb;
   bitmap_head avail_cands;
@@ -1053,12 +1064,21 @@ do_remat (void)
   bool changed_p = false;
   /* Living hard regs and hard registers of living pseudos.  */
   HARD_REG_SET live_hard_regs;
+  bitmap_iterator bi;
 
   bitmap_initialize (&avail_cands, &reg_obstack);
   bitmap_initialize (&active_cands, &reg_obstack);
   FOR_EACH_BB_FN (bb, cfun)
     {
-      REG_SET_TO_HARD_REG_SET (live_hard_regs, df_get_live_out (bb));
+      CLEAR_HARD_REG_SET (live_hard_regs);
+      EXECUTE_IF_SET_IN_BITMAP (df_get_live_in (bb), 0, regno, bi)
+	{
+	  int hard_regno = regno < FIRST_PSEUDO_REGISTER
+			   ? regno
+			   : reg_renumber[regno];
+	  if (hard_regno >= 0)
+	    SET_HARD_REG_BIT (live_hard_regs, hard_regno);
+	}
       bitmap_and (&avail_cands, &get_remat_bb_data (bb)->avin_cands,
 		  &get_remat_bb_data (bb)->livein_cands);
       /* Activating insns are always in the same block as their corresponding

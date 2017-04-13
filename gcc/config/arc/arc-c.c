@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 Free Software Foundation, Inc.
+/* Copyright (C) 2016-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,6 +22,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "cpplib.h"
 #include "c-family/c-common.h"

@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-mem.h"
 #include "gimple-fold.h"
 #include "tree-scalar-evolution.h"
+#include "tree-ssa-loop-niter.h"
 
 /* TODO:  Support for predicated code motion.  I.e.
 
@@ -2144,9 +2145,21 @@ ref_indep_loop_p_1 (int safelen, struct loop *loop, im_mem_ref *ref,
 	  fprintf (dump_file, "\n");
 	}
 
+      /* We need to recurse to properly handle UNANALYZABLE_MEM_ID.  */
+      struct loop *inner = loop->inner;
+      while (inner)
+	{
+	  if (!ref_indep_loop_p_1 (safelen, inner, ref, stored_p, ref_loop))
+	    {
+	      indep_p = false;
+	      break;
+	    }
+	  inner = inner->next;
+	}
+
       /* Avoid caching here as safelen depends on context and refs
          are shared between different contexts.  */
-      return true;
+      return indep_p;
     }
   else
     {
@@ -2369,8 +2382,16 @@ fill_always_executed_in_1 (struct loop *loop, sbitmap contains_call)
 	    break;
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (!flow_bb_inside_loop_p (loop, e->dest))
-	      break;
+	    {
+	      /* If there is an exit from this BB.  */
+	      if (!flow_bb_inside_loop_p (loop, e->dest))
+		break;
+	      /* Or we enter a possibly non-finite loop.  */
+	      if (flow_loop_nested_p (bb->loop_father,
+				      e->dest->loop_father)
+		  && ! finite_loop_p (e->dest->loop_father))
+		break;
+	    }
 	  if (e)
 	    break;
 

@@ -1,5 +1,5 @@
 /* Pointer Bounds Checker optimization pass.
-   Copyright (C) 2014-2016 Free Software Foundation, Inc.
+   Copyright (C) 2014-2017 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
 
 This file is part of GCC.
@@ -239,9 +239,11 @@ chkp_is_constant_addr (const address_t &addr, int *sign)
     return false;
   else if (addr.pol[0].var)
     return false;
+  else if (TREE_CODE (addr.pol[0].cst) != INTEGER_CST)
+    return false;
   else if (integer_zerop (addr.pol[0].cst))
     *sign = 0;
-  else if  (tree_int_cst_sign_bit (addr.pol[0].cst))
+  else if (tree_int_cst_sign_bit (addr.pol[0].cst))
     *sign = -1;
   else
     *sign = 1;
@@ -964,15 +966,12 @@ chkp_optimize_string_function_calls (void)
 	  gimple *stmt = gsi_stmt (i);
 	  tree fndecl;
 
-	  if (gimple_code (stmt) != GIMPLE_CALL
-	      || !gimple_call_with_bounds_p (stmt))
+	  if (!is_gimple_call (stmt)
+	      || !gimple_call_with_bounds_p (stmt)
+	      || !gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
 	    continue;
 
 	  fndecl = gimple_call_fndecl (stmt);
-
-	  if (!fndecl || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
-	    continue;
-
 	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMCPY_CHKP
 	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMPCPY_CHKP
 	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMMOVE_CHKP

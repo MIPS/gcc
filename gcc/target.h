@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -139,6 +139,9 @@ struct ddg;
 
 /* This is defined in cfgloop.h .  */
 struct loop;
+
+/* This is defined in ifcvt.h.  */
+struct noce_if_info;
 
 /* This is defined in tree-ssa-alias.h.  */
 struct ao_ref;

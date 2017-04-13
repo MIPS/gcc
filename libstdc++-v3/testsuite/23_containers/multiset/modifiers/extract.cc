@@ -1,4 +1,4 @@
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,6 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-options "-std=gnu++17" }
+// { dg-skip-if "" { *-*-* } { "-D_GLIBCXX_PROFILE" } }
 
 #include <set>
 #include <algorithm>
@@ -26,8 +27,6 @@ using test_type = std::multiset<int>;
 void
 test01()
 {
-  bool test __attribute__((unused)) = true;
-
   test_type c{ 1, 1, 2, 2, 3, 3 };
   test_type::node_type node;
   test_type::iterator pos;
@@ -87,8 +86,6 @@ test01()
 void
 test02()
 {
-  bool test __attribute__((unused)) = true;
-
   test_type c{ 1, 1, 2, 2, 3, 3 };
   test_type::node_type node;
   test_type::iterator pos;

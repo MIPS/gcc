@@ -1,5 +1,5 @@
 /* Perform instruction reorganizations for delay slot filling.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu).
    Hacked by Michael Tiemann (tiemann@cygnus.com).
 
@@ -108,6 +108,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "predict.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "expmed.h"
 #include "insn-config.h"
@@ -221,11 +222,11 @@ static void steal_delay_list_from_fallthrough (rtx_insn *, rtx, rtx_sequence *,
 static void try_merge_delay_insns (rtx_insn *, rtx_insn *);
 static rtx_insn *redundant_insn (rtx, rtx_insn *, const vec<rtx_insn *> &);
 static int own_thread_p (rtx, rtx, int);
-static void update_block (rtx_insn *, rtx);
+static void update_block (rtx_insn *, rtx_insn *);
 static int reorg_redirect_jump (rtx_jump_insn *, rtx);
 static void update_reg_dead_notes (rtx_insn *, rtx_insn *);
 static void fix_reg_dead_note (rtx_insn *, rtx);
-static void update_reg_unused_notes (rtx, rtx);
+static void update_reg_unused_notes (rtx_insn *, rtx);
 static void fill_simple_delay_slots (int);
 static void fill_slots_from_thread (rtx_jump_insn *, rtx, rtx, rtx,
 				    int, int, int, int,
@@ -877,20 +878,20 @@ get_branch_condition (const rtx_insn *insn, rtx target)
     return 0;
 
   src = SET_SRC (pat);
-  if (GET_CODE (src) == LABEL_REF && LABEL_REF_LABEL (src) == target)
+  if (GET_CODE (src) == LABEL_REF && label_ref_label (src) == target)
     return const_true_rtx;
 
   else if (GET_CODE (src) == IF_THEN_ELSE
 	   && XEXP (src, 2) == pc_rtx
 	   && ((GET_CODE (XEXP (src, 1)) == LABEL_REF
-	        && LABEL_REF_LABEL (XEXP (src, 1)) == target)
+		&& label_ref_label (XEXP (src, 1)) == target)
 	       || (ANY_RETURN_P (XEXP (src, 1)) && XEXP (src, 1) == target)))
     return XEXP (src, 0);
 
   else if (GET_CODE (src) == IF_THEN_ELSE
 	   && XEXP (src, 1) == pc_rtx
 	   && ((GET_CODE (XEXP (src, 2)) == LABEL_REF
-		&& LABEL_REF_LABEL (XEXP (src, 2)) == target)
+		&& label_ref_label (XEXP (src, 2)) == target)
 	       || (ANY_RETURN_P (XEXP (src, 2)) && XEXP (src, 2) == target)))
     {
       enum rtx_code rev;
@@ -1702,7 +1703,7 @@ own_thread_p (rtx thread, rtx label, int allow_fallthrough)
    BARRIER in relax_delay_slots.  */
 
 static void
-update_block (rtx_insn *insn, rtx where)
+update_block (rtx_insn *insn, rtx_insn *where)
 {
   /* Ignore if this was in a delay slot and it came from the target of
      a branch.  */
@@ -1804,7 +1805,7 @@ fix_reg_dead_note (rtx_insn *start_insn, rtx stop_insn)
    does.  */
 
 static void
-update_reg_unused_notes (rtx insn, rtx redundant_insn)
+update_reg_unused_notes (rtx_insn *insn, rtx redundant_insn)
 {
   rtx link, next;
 
@@ -3117,7 +3118,6 @@ relax_delay_slots (rtx_insn *first)
 {
   rtx_insn *insn, *next;
   rtx_sequence *pat;
-  rtx trial;
   rtx_insn *delay_insn;
   rtx target_label;
 
@@ -3270,10 +3270,10 @@ relax_delay_slots (rtx_insn *first)
 	  for (i = 0; i < XVECLEN (pat, 0); i++)
 	    INSN_FROM_TARGET_P (XVECEXP (pat, 0, i)) = 0;
 
-	  trial = PREV_INSN (insn);
+	  rtx_insn *prev = PREV_INSN (insn);
 	  delete_related_insns (insn);
 	  gcc_assert (GET_CODE (pat) == SEQUENCE);
-	  add_insn_after (delay_insn, trial, NULL);
+	  add_insn_after (delay_insn, prev, NULL);
 	  after = delay_insn;
 	  for (i = 1; i < pat->len (); i++)
 	    after = emit_copy_of_insn_after (pat->insn (i), after);
@@ -3294,9 +3294,9 @@ relax_delay_slots (rtx_insn *first)
 
       /* If this jump goes to another unconditional jump, thread it, but
 	 don't convert a jump into a RETURN here.  */
-      trial = skip_consecutive_labels (follow_jumps (target_label,
-						     delay_jump_insn,
-						     &crossing));
+      rtx trial = skip_consecutive_labels (follow_jumps (target_label,
+							 delay_jump_insn,
+							 &crossing));
       if (ANY_RETURN_P (trial))
 	trial = find_end_label (trial);
 
@@ -3400,10 +3400,10 @@ relax_delay_slots (rtx_insn *first)
 	  for (i = 0; i < XVECLEN (pat, 0); i++)
 	    INSN_FROM_TARGET_P (XVECEXP (pat, 0, i)) = 0;
 
-	  trial = PREV_INSN (insn);
+	  rtx_insn *prev = PREV_INSN (insn);
 	  delete_related_insns (insn);
 	  gcc_assert (GET_CODE (pat) == SEQUENCE);
-	  add_insn_after (delay_jump_insn, trial, NULL);
+	  add_insn_after (delay_jump_insn, prev, NULL);
 	  after = delay_jump_insn;
 	  for (i = 1; i < pat->len (); i++)
 	    after = emit_copy_of_insn_after (pat->insn (i), after);

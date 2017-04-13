@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -44,12 +44,12 @@ along with GCC; see the file COPYING3.  If not see
 #endif /* sparc64 */
 #else
 #ifdef SPARC_BI_ARCH
-#define TARGET_ARCH32 (! TARGET_64BIT)
+#define TARGET_ARCH32 (!TARGET_64BIT)
 #else
 #define TARGET_ARCH32 (DEFAULT_ARCH32_P)
 #endif /* SPARC_BI_ARCH */
 #endif /* IN_LIBGCC2 */
-#define TARGET_ARCH64 (! TARGET_ARCH32)
+#define TARGET_ARCH64 (!TARGET_ARCH32)
 
 /* Code model selection in 64-bit environment.
 

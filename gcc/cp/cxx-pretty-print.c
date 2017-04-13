@@ -1,5 +1,5 @@
 /* Implementation of subroutines for the GNU C++ pretty-printer.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -1112,6 +1112,7 @@ cxx_pretty_printer::expression (tree t)
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:
     case NOEXCEPT_EXPR:
+    case UNARY_PLUS_EXPR:
       unary_expression (t);
       break;
 
@@ -2585,6 +2586,9 @@ pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)
     case CPTK_IS_ABSTRACT:
       pp_cxx_ws_string (pp, "__is_abstract");
       break;
+    case CPTK_IS_AGGREGATE:
+      pp_cxx_ws_string (pp, "__is_aggregate");
+      break;
     case CPTK_IS_BASE_OF:
       pp_cxx_ws_string (pp, "__is_base_of");
       break;
@@ -2788,7 +2792,7 @@ pp_cxx_check_constraint (cxx_pretty_printer *pp, tree t)
   tree args = CHECK_CONSTR_ARGS (t);
   tree id = build_nt (TEMPLATE_ID_EXPR, tmpl, args);
 
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     pp->expression (id);
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     {

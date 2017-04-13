@@ -1,5 +1,5 @@
 /* Output routines for GCC for Renesas / SuperH SH.
-   Copyright (C) 1993-2016 Free Software Foundation, Inc.
+   Copyright (C) 1993-2017 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "optabs.h"
@@ -2151,7 +2152,6 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
     }
   operands[1] = op1h;
   operands[2] = op2h;
-  operands[4] = NULL_RTX;
 
   if (msw_taken != LAST_AND_UNUSED_RTX_CODE)
     expand_cbranchsi4 (operands, msw_taken, msw_taken_prob);
@@ -2664,6 +2664,7 @@ output_branch (int logic, rtx_insn *insn, rtx *operands)
 
 	  return "";
 	}
+      /* FALLTHRU */
       /* When relaxing, handle this like a short branch.  The linker
 	 will fix it up if it still doesn't fit after relaxation.  */
     case 2:
@@ -2689,7 +2690,7 @@ output_branch (int logic, rtx_insn *insn, rtx *operands)
 
 	  return "";
 	}
-      /* When relaxing, fall through.  */
+      /* FALLTHRU */
     case 4:
       {
 	char buffer[10];
@@ -3258,7 +3259,7 @@ sh_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
       return false;
 
     /* The cost of a sign or zero extend depends on whether the source is a
-       reg or a mem.  In case of a mem take the address into acount.  */
+       reg or a mem.  In case of a mem take the address into account.  */
     case SIGN_EXTEND:
       if (arith_reg_operand (XEXP (x, 0), GET_MODE (XEXP (x, 0))))
 	{
@@ -3460,7 +3461,7 @@ sh_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
-      /* Fall through to shiftcosts.  */
+      /* FALLTHRU */
     case ASHIFT:
     case ASHIFTRT:
       {
@@ -4068,12 +4069,14 @@ gen_shl_and (rtx dest, rtx left_rtx, rtx mask_rtx, rtx source)
       }
     case 4:
       shift_gen_fun = gen_shifty_op;
+      /* FALLTHRU */
     case 3:
       /* If the topmost bit that matters is set, set the topmost bits
 	 that don't matter.  This way, we might be able to get a shorter
 	 signed constant.  */
       if (mask & ((HOST_WIDE_INT) 1 << (31 - total_shift)))
 	mask |= (HOST_WIDE_INT) ((HOST_WIDE_INT_M1U) << (31 - total_shift));
+      /* FALLTHRU */
     case 2:
       /* Don't expand fine-grained when combining, because that will
          make the pattern fail.  */
@@ -4646,6 +4649,7 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 		  align_insn = scan;
 		  need_align = false;
 		}
+	      /* FALLTHRU */
 	    case DImode:
 	      for (lab = p->label; lab; lab = LABEL_REFS (lab))
 		scan = emit_label_after (lab, scan);

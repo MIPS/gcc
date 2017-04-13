@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 AdvSIMD architecture.
-;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -77,8 +77,8 @@
 )
 
 (define_insn "aarch64_dup_lane_<vswap_width_name><mode>"
-  [(set (match_operand:VALL_F16 0 "register_operand" "=w")
-	(vec_duplicate:VALL_F16
+  [(set (match_operand:VALL_F16_NO_V2Q 0 "register_operand" "=w")
+	(vec_duplicate:VALL_F16_NO_V2Q
 	  (vec_select:<VEL>
 	    (match_operand:<VSWAP_WIDTH> 1 "register_operand" "w")
 	    (parallel [(match_operand:SI 2 "immediate_operand" "i")])
@@ -107,7 +107,7 @@
      case 1: return "str\\t%d1, %0";
      case 2: return "orr\t%0.<Vbtype>, %1.<Vbtype>, %1.<Vbtype>";
      case 3: return "umov\t%0, %1.d[0]";
-     case 4: return "ins\t%0.d[0], %1";
+     case 4: return "fmov\t%d0, %1";
      case 5: return "mov\t%0, %1";
      case 6:
 	return aarch64_output_simd_mov_immediate (operands[1],
@@ -116,8 +116,8 @@
      }
 }
   [(set_attr "type" "neon_load1_1reg<q>, neon_store1_1reg<q>,\
-                     neon_logic<q>, neon_to_gp<q>, neon_from_gp<q>,\
-                     mov_reg, neon_move<q>")]
+		     neon_logic<q>, neon_to_gp<q>, f_mcr,\
+		     mov_reg, neon_move<q>")]
 )
 
 (define_insn "*aarch64_simd_mov<mode>"
@@ -336,6 +336,24 @@
      emit_insn (gen_clz<mode>2 (operands[0], operands[0]));
      DONE;
   }
+)
+
+(define_expand "copysign<mode>3"
+  [(match_operand:VHSDF 0 "register_operand")
+   (match_operand:VHSDF 1 "register_operand")
+   (match_operand:VHSDF 2 "register_operand")]
+  "TARGET_FLOAT && TARGET_SIMD"
+{
+  rtx v_bitmask = gen_reg_rtx (<V_cmp_result>mode);
+  int bits = GET_MODE_UNIT_BITSIZE (<MODE>mode) - 1;
+
+  emit_move_insn (v_bitmask,
+		  aarch64_simd_gen_const_vector_dup (<V_cmp_result>mode,
+						     HOST_WIDE_INT_M1U << bits));
+  emit_insn (gen_aarch64_simd_bsl<mode> (operands[0], v_bitmask,
+					 operands[2], operands[1]));
+  DONE;
+}
 )
 
 (define_insn "*aarch64_mul3_elt<mode>"
@@ -568,14 +586,14 @@
 )
 
 (define_insn "*aarch64_simd_vec_copy_lane_<vswap_width_name><mode>"
-  [(set (match_operand:VALL 0 "register_operand" "=w")
-	(vec_merge:VALL
-	    (vec_duplicate:VALL
+  [(set (match_operand:VALL_F16_NO_V2Q 0 "register_operand" "=w")
+	(vec_merge:VALL_F16_NO_V2Q
+	    (vec_duplicate:VALL_F16_NO_V2Q
 	      (vec_select:<VEL>
 		(match_operand:<VSWAP_WIDTH> 3 "register_operand" "w")
 		(parallel
 		  [(match_operand:SI 4 "immediate_operand" "i")])))
-	    (match_operand:VALL 1 "register_operand" "0")
+	    (match_operand:VALL_F16_NO_V2Q 1 "register_operand" "0")
 	    (match_operand:SI 2 "immediate_operand" "i")))]
   "TARGET_SIMD"
   {
@@ -1629,7 +1647,7 @@
   [(set (match_operand:VMUL 0 "register_operand" "=w")
     (fma:VMUL
       (vec_duplicate:VMUL
-	  (match_operand:<VEL> 1 "register_operand" "w"))
+	  (match_operand:<VEL> 1 "register_operand" "<h_con>"))
       (match_operand:VMUL 2 "register_operand" "w")
       (match_operand:VMUL 3 "register_operand" "0")))]
   "TARGET_SIMD"
@@ -1708,7 +1726,7 @@
       (neg:VMUL
         (match_operand:VMUL 2 "register_operand" "w"))
       (vec_duplicate:VMUL
-	(match_operand:<VEL> 1 "register_operand" "w"))
+	(match_operand:<VEL> 1 "register_operand" "<h_con>"))
       (match_operand:VMUL 3 "register_operand" "0")))]
   "TARGET_SIMD"
   "fmls\t%0.<Vtype>, %2.<Vtype>, %1.<Vetype>[0]"
@@ -3160,7 +3178,7 @@
 	(unspec:VHSDF
 	 [(match_operand:VHSDF 1 "register_operand" "w")
 	  (vec_duplicate:VHSDF
-	    (match_operand:<VEL> 2 "register_operand" "w"))]
+	    (match_operand:<VEL> 2 "register_operand" "<h_con>"))]
 	 UNSPEC_FMULX))]
   "TARGET_SIMD"
   "fmulx\t%0.<Vtype>, %1.<Vtype>, %2.<Vetype>[0]";
@@ -3176,7 +3194,7 @@
 	(unspec:<VEL>
 	 [(match_operand:<VEL> 1 "register_operand" "w")
 	  (vec_select:<VEL>
-	   (match_operand:VDQF_DF 2 "register_operand" "w")
+	   (match_operand:VDQF 2 "register_operand" "w")
 	    (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
 	 UNSPEC_FMULX))]
   "TARGET_SIMD"
@@ -5701,6 +5719,26 @@
                        "register_operand" "w")]
          UNSPEC_SHA1H))]
   "TARGET_SIMD && TARGET_CRYPTO"
+  "sha1h\\t%s0, %s1"
+  [(set_attr "type" "crypto_sha1_fast")]
+)
+
+(define_insn "aarch64_crypto_sha1hv4si"
+  [(set (match_operand:SI 0 "register_operand" "=w")
+	(unspec:SI [(vec_select:SI (match_operand:V4SI 1 "register_operand" "w")
+		     (parallel [(const_int 0)]))]
+	 UNSPEC_SHA1H))]
+  "TARGET_SIMD && TARGET_CRYPTO && !BYTES_BIG_ENDIAN"
+  "sha1h\\t%s0, %s1"
+  [(set_attr "type" "crypto_sha1_fast")]
+)
+
+(define_insn "aarch64_be_crypto_sha1hv4si"
+  [(set (match_operand:SI 0 "register_operand" "=w")
+	(unspec:SI [(vec_select:SI (match_operand:V4SI 1 "register_operand" "w")
+		     (parallel [(const_int 3)]))]
+	 UNSPEC_SHA1H))]
+  "TARGET_SIMD && TARGET_CRYPTO && BYTES_BIG_ENDIAN"
   "sha1h\\t%s0, %s1"
   [(set_attr "type" "crypto_sha1_fast")]
 )

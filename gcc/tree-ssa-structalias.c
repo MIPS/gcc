@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -39,6 +39,8 @@
 #include "tree-dfa.h"
 #include "params.h"
 #include "gimple-walk.h"
+#include "varasm.h"
+
 
 /* The idea behind this analyzer is to generate set constraints from the
    program, then solve the resulting constraints in order to generate the
@@ -2562,7 +2564,7 @@ rewrite_constraints (constraint_graph_t graph,
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 
-	      fprintf (dump_file, "%s is a non-pointer variable,"
+	      fprintf (dump_file, "%s is a non-pointer variable, "
 		       "ignoring constraint:",
 		       get_varinfo (lhs.var)->name);
 	      dump_constraint (dump_file, c);
@@ -2577,7 +2579,7 @@ rewrite_constraints (constraint_graph_t graph,
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 
-	      fprintf (dump_file, "%s is a non-pointer variable,"
+	      fprintf (dump_file, "%s is a non-pointer variable, "
 		       "ignoring constraint:",
 		       get_varinfo (rhs.var)->name);
 	      dump_constraint (dump_file, c);
@@ -2944,6 +2946,16 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
 	  DECL_PT_UID (t) = DECL_UID (node->decl);
 	  t = node->decl;
 	}
+
+      /* If this is decl may bind to NULL note that.  */
+      if (address_p
+	  && (! node || ! node->nonzero_address ()))
+	{
+	  cexpr.var = nothing_id;
+	  cexpr.type = SCALAR;
+	  cexpr.offset = 0;
+	  results->safe_push (cexpr);
+	}
     }
 
   vi = get_vi_for_tree (t);
@@ -3213,6 +3225,12 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
   /* Pretend to take the address of the base, we'll take care of
      adding the required subset of sub-fields below.  */
   get_constraint_for_1 (t, results, true, lhs_p);
+  /* Strip off nothing_id.  */
+  if (results->length () == 2)
+    {
+      gcc_assert ((*results)[0].var == nothing_id);
+      results->unordered_remove (0);
+    }
   gcc_assert (results->length () == 1);
   struct constraint_expr &result = results->last ();
 
@@ -3277,7 +3295,7 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
       else if (bitmaxsize == 0)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "Access to zero-sized part of variable,"
+	    fprintf (dump_file, "Access to zero-sized part of variable, "
 		     "ignoring\n");
 	}
       else
@@ -4926,14 +4944,14 @@ find_func_aliases (struct function *fn, gimple *origt)
 	    make_escape_constraint (build_fold_addr_expr (op));
 
 	  /* The asm may read global memory, so outputs may point to
-	     any global memory.  */
+	     any global or escaped memory.  */
 	  if (op)
 	    {
 	      auto_vec<ce_s, 2> lhsc;
 	      struct constraint_expr rhsc, *lhsp;
 	      unsigned j;
 	      get_constraint_for (op, &lhsc);
-	      rhsc.var = nonlocal_id;
+	      rhsc.var = escaped_id;
 	      rhsc.offset = 0;
 	      rhsc.type = SCALAR;
 	      FOR_EACH_VEC_ELT (lhsc, j, lhsp)
@@ -5550,7 +5568,7 @@ push_fields_onto_fieldstack (tree type, vec<fieldoff_s> *fieldstack,
 		&& offset + foff != 0)
 	      {
 		fieldoff_s e
-		  = {0, offset + foff, false, false, false, false, NULL_TREE};
+		  = {0, offset + foff, false, false, true, false, NULL_TREE};
 		pair = fieldstack->safe_push (e);
 	      }
 
@@ -6344,6 +6362,13 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
 		  && fndecl
 		  && ! auto_var_in_fn_p (vi->decl, fndecl)))
 	    pt->vars_contains_nonlocal = true;
+
+	  /* If we have a variable that is interposable record that fact
+	     for pointer comparison simplification.  */
+	  if (VAR_P (vi->decl)
+	      && (TREE_STATIC (vi->decl) || DECL_EXTERNAL (vi->decl))
+	      && ! decl_binds_to_current_def_p (vi->decl))
+	    pt->vars_contains_interposable = true;
 	}
 
       else if (TREE_CODE (vi->decl) == FUNCTION_DECL
@@ -6451,6 +6476,7 @@ find_what_p_points_to (tree fndecl, tree p)
   struct ptr_info_def *pi;
   tree lookup_p = p;
   varinfo_t vi;
+  bool nonnull = get_ptr_nonnull (p);
 
   /* For parameters, get at the points-to set for the actual parm
      decl.  */
@@ -6466,6 +6492,12 @@ find_what_p_points_to (tree fndecl, tree p)
 
   pi = get_ptr_info (p);
   pi->pt = find_what_var_points_to (fndecl, vi);
+  /* Conservatively set to NULL from PTA (to true). */
+  pi->pt.null = 1;
+  /* Preserve pointer nonnull computed by VRP.  See get_ptr_nonnull
+     in gcc/tree-ssaname.c for more information.  */
+  if (nonnull)
+    set_ptr_nonnull (p);
 }
 
 
@@ -6505,6 +6537,7 @@ pt_solution_reset (struct pt_solution *pt)
 {
   memset (pt, 0, sizeof (struct pt_solution));
   pt->anything = true;
+  pt->null = true;
 }
 
 /* Set the points-to solution *PT to point only to the variables
@@ -6599,10 +6632,10 @@ pt_solution_empty_p (struct pt_solution *pt)
    return the var uid in *UID.  */
 
 bool
-pt_solution_singleton_p (struct pt_solution *pt, unsigned *uid)
+pt_solution_singleton_or_null_p (struct pt_solution *pt, unsigned *uid)
 {
   if (pt->anything || pt->nonlocal || pt->escaped || pt->ipa_escaped
-      || pt->null || pt->vars == NULL
+      || pt->vars == NULL
       || !bitmap_single_bit_set_p (pt->vars))
     return false;
 
@@ -7263,9 +7296,15 @@ visit_loadstore (gimple *, tree base, tree ref, void *data)
       || TREE_CODE (base) == TARGET_MEM_REF)
     {
       tree ptr = TREE_OPERAND (base, 0);
-      if (TREE_CODE (ptr) == SSA_NAME
-	  && ! SSA_NAME_IS_DEFAULT_DEF (ptr))
+      if (TREE_CODE (ptr) == SSA_NAME)
 	{
+	  /* For parameters, get at the points-to set for the actual parm
+	     decl.  */
+	  if (SSA_NAME_IS_DEFAULT_DEF (ptr)
+	      && (TREE_CODE (SSA_NAME_VAR (ptr)) == PARM_DECL
+		  || TREE_CODE (SSA_NAME_VAR (ptr)) == RESULT_DECL))
+	    ptr = SSA_NAME_VAR (ptr);
+
 	  /* We need to make sure 'ptr' doesn't include any of
 	     the restrict tags we added bases for in its points-to set.  */
 	  varinfo_t vi = lookup_vi_for_tree (ptr);
@@ -7568,14 +7607,17 @@ make_pass_build_ealias (gcc::context *ctxt)
 
 /* IPA PTA solutions for ESCAPED.  */
 struct pt_solution ipa_escaped_pt
-  = { true, false, false, false, false, false, false, false, false, NULL };
+  = { true, false, false, false, false,
+      false, false, false, false, false, NULL };
 
 /* Associate node with varinfo DATA. Worker for
    cgraph_for_symbol_thunks_and_aliases.  */
 static bool
 associate_varinfo_to_alias (struct cgraph_node *node, void *data)
 {
-  if ((node->alias || node->thunk.thunk_p)
+  if ((node->alias
+       || (node->thunk.thunk_p
+	   && ! node->global.inlined_to))
       && node->analyzed)
     insert_vi_for_tree (node->decl, (varinfo_t)data);
   return false;

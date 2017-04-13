@@ -76,20 +76,34 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Tp
     __beta_gamma(_Tp __a, _Tp __b)
     {
-
-      _Tp __bet;
-      if (__a > __b)
+      auto __na = int(std::nearbyint(__a));
+      auto __nb = int(std::nearbyint(__b));
+      auto __nab = int(std::nearbyint(__a + __b));
+      if (__nab <= 0 && __nab == __a + __b)
 	{
-	  __bet = __gamma(__a) / __gamma(__a + __b);
-	  __bet *= __gamma(__b);
+	  if (__na != __a || __na > 0)
+	    return _Tp{0};
+	  else if (__nb != __b || __nb > 0)
+	    return _Tp{0};
+	  else
+	    return __gnu_cxx::__quiet_NaN<_Tp>();
 	}
       else
 	{
-	  __bet = __gamma(__b) / __gamma(__a + __b);
-	  __bet *= __gamma(__a);
-	}
+	  _Tp __bet;
+	  if (std::abs(__b) > std::abs(__a))
+	    {
+	      __bet = __gamma(__b) / __gamma(__a + __b);
+	      __bet *= __gamma(__a);
+	    }
+	  else
+	    {
+	      __bet = __gamma(__a) / __gamma(__a + __b);
+	      __bet *= __gamma(__b);
+	    }
 
-      return __bet;
+	  return __bet;
+	}
     }
 
   /**
@@ -110,19 +124,32 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Tp
     __beta_lgamma(_Tp __a, _Tp __b)
     {
-      _Tp __bet = __log_gamma(__a)
-		+ __log_gamma(__b)
-		- __log_gamma(__a + __b);
-      _Tp __sign = __log_gamma_sign(__a)
-		 * __log_gamma_sign(__b)
-		 * __log_gamma_sign(__a + __b);
-
-      if (__sign == _Tp{0})
-        return __gnu_cxx::__quiet_NaN<_Tp>();
-      else if (__bet > __gnu_cxx::__log_max<_Tp>())
-        return __sign * __gnu_cxx::__infinity<_Tp>();
+      auto __na = int(std::nearbyint(__a));
+      auto __nb = int(std::nearbyint(__b));
+      auto __nab = int(std::nearbyint(__a + __b));
+      if (__nab <= 0 && __nab == __a + __b)
+	{
+	  if (__na != __a || __na > 0)
+	    return _Tp{0};
+	  else if (__nb != __b || __nb > 0)
+	    return _Tp{0};
+	  else
+	    return __gnu_cxx::__quiet_NaN<_Tp>(__a);
+	}
       else
-	return __sign * std::exp(__bet);
+	{
+	  auto __bet = __log_gamma(__a)
+		     + __log_gamma(__b)
+		     - __log_gamma(__a + __b);
+	  auto __sign = __log_gamma_sign(__a)
+		      * __log_gamma_sign(__b)
+		      * __log_gamma_sign(__a + __b);
+
+	  if (__bet > __gnu_cxx::__log_max<_Tp>())
+            return __sign * __gnu_cxx::__infinity<_Tp>(__a);
+	  else
+	    return __sign * std::exp(__bet);
+	}
     }
 
 
@@ -189,6 +216,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       if (__isnan(__a) || __isnan(__b))
 	return __gnu_cxx::__quiet_NaN<_Tp>();
+      else if (std::abs(__a) < _S_num_factorials<_Tp>
+	    && std::abs(__b) < _S_num_factorials<_Tp>
+	    && std::abs(__a + __b) < _S_num_factorials<_Tp>)
+	return __beta_gamma(__a, __b);
       else
 	return __beta_lgamma(__a, __b);
     }
@@ -208,8 +239,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __ibeta_cont_frac(_Tp __a, _Tp __b, _Tp __x)
     {
       constexpr unsigned int _S_itmax = 100;
-      constexpr auto _S_fpmin = 1000 * __gnu_cxx::__min<_Tp>();
-      constexpr auto _S_eps = __gnu_cxx::__epsilon<_Tp>();
+      const auto _S_fpmin = 1000 * __gnu_cxx::__min<_Tp>();
+      const auto _S_eps = __gnu_cxx::__epsilon<_Tp>();
 
       auto __apb = __a + __b;
       auto __ap1 = __a + _Tp{1};
@@ -279,7 +310,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Tp
     __beta_inc(_Tp __a, _Tp __b, _Tp __x)
     {
-      constexpr auto _S_NaN = __gnu_cxx::__quiet_NaN<_Tp>();
+      const auto _S_NaN = __gnu_cxx::__quiet_NaN(__x);
 
 
       if (__x < _Tp{0} || __x > _Tp{1})

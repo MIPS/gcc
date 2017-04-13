@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -120,7 +120,7 @@ struct lang_hooks_for_types
   /* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
      Called only after doing all language independent checks.
      At present, this function is only called when both TYPE1 and TYPE2 are
-     FUNCTION_TYPEs.  */
+     FUNCTION_TYPE or METHOD_TYPE.  */
   bool (*type_hash_eq) (const_tree, const_tree);
 
   /* Return TRUE if TYPE uses a hidden descriptor and fills in information
@@ -162,6 +162,14 @@ struct lang_hooks_for_types
      for the debugger about scale factor, etc.  */
   bool (*get_fixed_point_type_info) (const_tree,
 				     struct fixed_point_type_info *);
+
+  /* Returns -1 if dwarf ATTR shouldn't be added for TYPE, or the attribute
+     value otherwise.  */
+  int (*type_dwarf_attribute) (const_tree, int);
+
+  /* Returns a tree for the unit size of T excluding tail padding that
+     might be used by objects inheriting from T.  */
+  tree (*unit_size_without_reusable_padding) (tree);
 };
 
 /* Language hooks related to decls and the symbol table.  */
@@ -182,16 +190,9 @@ struct lang_hooks_for_decls
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) (void);
 
-  /* Returns true if DECL is explicit member function.  */
-  bool (*function_decl_explicit_p) (const_tree);
-
-  /* Returns true if DECL is C++11 deleted special member function.  */
-  bool (*function_decl_deleted_p) (const_tree);
-
-  /* Returns 0 if DECL is NOT a C++11 defaulted special member
-     function, 1 if it is explicitly defaulted within the class body,
-     or 2 if it is explicitly defaulted outside the class body.  */
-  int (*function_decl_defaulted) (const_tree);
+  /* Returns -1 if dwarf ATTR shouldn't be added for DECL, or the attribute
+     value otherwise.  */
+  int (*decl_dwarf_attribute) (const_tree, int);
 
   /* Returns True if the parameter is a generic parameter decl
      of a generic type, e.g a template template parameter for the C++ FE.  */
@@ -264,6 +265,10 @@ struct lang_hooks_for_decls
 
   /* Do language specific checking on an implicitly determined clause.  */
   void (*omp_finish_clause) (tree clause, gimple_seq *pre_p);
+
+  /* Return true if DECL is a scalar variable (for the purpose of
+     implicit firstprivatization).  */
+  bool (*omp_scalar_p) (tree decl);
 };
 
 /* Language hooks related to LTO serialization.  */
@@ -511,6 +516,10 @@ struct lang_hooks
   /* True if this language requires deep unsharing of tree nodes prior to
      gimplification.  */
   bool deep_unsharing;
+
+  /* True if this language may use custom descriptors for nested functions
+     instead of trampolines.  */
+  bool custom_function_descriptors;
 
   /* Run all lang-specific selftests.  */
   void (*run_lang_selftests) (void);

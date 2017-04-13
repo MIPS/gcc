@@ -1,6 +1,6 @@
 // 2003-05-03  Loren J. Rittle <rittle@labs.mot.com> <ljrittle@acm.org>
 //
-// Copyright (C) 2003-2016 Free Software Foundation, Inc.
+// Copyright (C) 2003-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -44,7 +44,6 @@ void* thread_main(void *)
 
   // Please note that the memory leak in the rope implementation with
   // this test case, existed before and after fixing this bug...
-  bool test __attribute__((unused)) = true;
   VERIFY( !std::strcmp (data4, "barbazbonglehellohellohello") );
   return 0;
 }
@@ -52,8 +51,6 @@ void* thread_main(void *)
 int
 main()
 {
-  bool test __attribute__((unused)) = true;
-
   pthread_t tid[max_thread_count];
 
 #if defined(__sun) && defined(__svr4__) && _XOPEN_VERSION >= 500

@@ -1,7 +1,7 @@
 /* Miscellaneous utilities for GIMPLE streaming.  Things that are used
    in both input and output are here.
 
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by Doug Kwan <dougkwan@google.com>
 
 This file is part of GCC.
@@ -380,7 +380,7 @@ lto_check_version (int major, int minor, const char *file_name)
 {
   if (major != LTO_major_version || minor != LTO_minor_version)
     fatal_error (input_location,
-		 "bytecode stream in file '%s' generated with LTO version "
+		 "bytecode stream in file %qs generated with LTO version "
 		 "%d.%d instead of the expected %d.%d",
 		 file_name,
 		 major, minor,

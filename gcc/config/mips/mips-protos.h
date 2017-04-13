@@ -1,5 +1,5 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
    64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
@@ -271,6 +271,8 @@ extern void mips_declare_object (FILE *, const char *, const char *,
 				 const char *, ...) ATTRIBUTE_PRINTF_4;
 extern void mips_declare_object_name (FILE *, const char *, tree);
 extern void mips_finish_declare_object (FILE *, tree, int, int);
+extern void mips_set_text_contents_type (FILE *, const char *,
+					 unsigned long, bool);
 
 extern bool mips_small_data_pattern_p (rtx);
 extern rtx mips_rewrite_small_data (rtx);
@@ -292,7 +294,7 @@ extern bool mips_const_vector_shuffle_set_p (rtx, machine_mode);
 extern bool mips_const_vector_bitimm_set_p (rtx, machine_mode);
 extern bool mips_const_vector_bitimm_clr_p (rtx, machine_mode);
 extern rtx mips_msa_vec_parallel_const_half (machine_mode, bool);
-extern rtx mips_gen_const_int_vector (machine_mode, int);
+extern rtx mips_gen_const_int_vector (machine_mode, HOST_WIDE_INT);
 extern bool mips_secondary_memory_needed (enum reg_class, enum reg_class,
 					  machine_mode);
 extern bool mips_cannot_change_mode_class (machine_mode,

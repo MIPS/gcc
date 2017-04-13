@@ -1,4 +1,4 @@
-// Copyright (C) 2006-2016 Free Software Foundation, Inc.
+// Copyright (C) 2006-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -145,7 +145,6 @@ void* thread_hammer(void* opaque_weak)
 int
 test01()
 {
-  bool test __attribute__((unused)) = true;
   sp_vector_t obj_pool(POOL_SIZE);
 
   for(sp_vector_t::iterator cur = obj_pool.begin(); cur != obj_pool.end(); ++cur)

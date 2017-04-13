@@ -1,6 +1,6 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
@@ -38,7 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 
 static tree cp_genericize_r (tree *, int *, void *);
 static tree cp_fold_r (tree *, int *, void *);
-static void cp_genericize_tree (tree*);
+static void cp_genericize_tree (tree*, bool);
 static tree cp_fold (tree);
 
 /* Local declarations.  */
@@ -496,9 +496,8 @@ cp_gimplify_init_expr (tree *expr_p)
 	    TREE_TYPE (from) = void_type_node;
 	}
 
-      if (cxx_dialect >= cxx14 && TREE_CODE (sub) == CONSTRUCTOR)
-	/* Handle aggregate NSDMI.  */
-	replace_placeholders (sub, to);
+      /* Handle aggregate NSDMI.  */
+      replace_placeholders (sub, to);
 
       if (t == sub)
 	break;
@@ -549,6 +548,7 @@ simple_empty_class_p (tree type, tree op)
   return
     ((TREE_CODE (op) == COMPOUND_EXPR
       && simple_empty_class_p (type, TREE_OPERAND (op, 1)))
+     || TREE_CODE (op) == EMPTY_CLASS_EXPR
      || is_gimple_lvalue (op)
      || INDIRECT_REF_P (op)
      || (TREE_CODE (op) == CONSTRUCTOR
@@ -623,7 +623,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 				  tf_warning_or_error);
 	hash_set<tree> pset;
 	cp_walk_tree (expr_p, cp_fold_r, &pset, NULL);
-	cp_genericize_tree (expr_p);
+	cp_genericize_tree (expr_p, false);
 	ret = GS_OK;
 	input_location = loc;
       }
@@ -995,6 +995,7 @@ struct cp_genericize_data
   struct cp_genericize_omp_taskreg *omp_ctx;
   tree try_block;
   bool no_sanitize_p;
+  bool handle_invisiref_parm_p;
 };
 
 /* Perform any pre-gimplification folding of C++ front end trees to
@@ -1102,18 +1103,11 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       && omp_var_to_track (stmt))
     omp_cxx_notice_variable (wtd->omp_ctx, stmt);
 
-  /* Don't dereference parms in a thunk, pass the references through. */
-  if ((TREE_CODE (stmt) == CALL_EXPR && CALL_FROM_THUNK_P (stmt))
-      || (TREE_CODE (stmt) == AGGR_INIT_EXPR && AGGR_INIT_FROM_THUNK_P (stmt)))
-    {
-      *walk_subtrees = 0;
-      return NULL;
-    }
-
-  /* Otherwise, do dereference invisible reference parms.  */
-  if (is_invisiref_parm (stmt))
+  /* Dereference invisible reference parms.  */
+  if (wtd->handle_invisiref_parm_p && is_invisiref_parm (stmt))
     {
       *stmt_p = convert_from_reference (stmt);
+      p_set->add (*stmt_p);
       *walk_subtrees = 0;
       return NULL;
     }
@@ -1132,6 +1126,19 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	  *stmt_p = h->to;
 	  *walk_subtrees = 0;
 	  return NULL;
+	}
+    }
+
+  if (TREE_CODE (stmt) == INTEGER_CST
+      && TREE_CODE (TREE_TYPE (stmt)) == REFERENCE_TYPE
+      && (flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
+      && !wtd->no_sanitize_p)
+    {
+      ubsan_maybe_instrument_reference (stmt_p);
+      if (*stmt_p != stmt)
+	{
+	  *walk_subtrees = 0;
+	  return NULL_TREE;
 	}
     }
 
@@ -1350,7 +1357,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
   else if (TREE_CODE (stmt) == DECL_EXPR)
     {
       tree d = DECL_EXPR_DECL (stmt);
-      if (TREE_CODE (d) == VAR_DECL)
+      if (VAR_P (d))
 	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL
@@ -1482,7 +1489,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       if ((flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
 	  && TREE_CODE (stmt) == NOP_EXPR
 	  && TREE_CODE (TREE_TYPE (stmt)) == REFERENCE_TYPE)
-	ubsan_maybe_instrument_reference (stmt);
+	ubsan_maybe_instrument_reference (stmt_p);
       else if (TREE_CODE (stmt) == CALL_EXPR)
 	{
 	  tree fn = CALL_EXPR_FN (stmt);
@@ -1511,7 +1518,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 /* Lower C++ front end trees to GENERIC in T_P.  */
 
 static void
-cp_genericize_tree (tree* t_p)
+cp_genericize_tree (tree* t_p, bool handle_invisiref_parm_p)
 {
   struct cp_genericize_data wtd;
 
@@ -1520,6 +1527,7 @@ cp_genericize_tree (tree* t_p)
   wtd.omp_ctx = NULL;
   wtd.try_block = NULL_TREE;
   wtd.no_sanitize_p = false;
+  wtd.handle_invisiref_parm_p = handle_invisiref_parm_p;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
   delete wtd.p_set;
   wtd.bind_expr_stack.release ();
@@ -1639,12 +1647,12 @@ cp_genericize (tree fndecl)
   /* Expand all the array notations here.  */
   if (flag_cilkplus 
       && contains_array_notation_expr (DECL_SAVED_TREE (fndecl)))
-    DECL_SAVED_TREE (fndecl) = 
-      expand_array_notation_exprs (DECL_SAVED_TREE (fndecl));
+    DECL_SAVED_TREE (fndecl)
+      = expand_array_notation_exprs (DECL_SAVED_TREE (fndecl));
 
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */
-  cp_genericize_tree (&DECL_SAVED_TREE (fndecl));
+  cp_genericize_tree (&DECL_SAVED_TREE (fndecl), true);
 
   if (flag_sanitize & SANITIZE_RETURN
       && do_ubsan_in_current_function ())
@@ -1977,7 +1985,8 @@ cp_fold_maybe_rvalue (tree x, bool rval)
   while (true)
     {
       x = cp_fold (x);
-      if (rval && DECL_P (x))
+      if (rval && DECL_P (x)
+	  && TREE_CODE (TREE_TYPE (x)) != REFERENCE_TYPE)
 	{
 	  tree v = decl_constant_value (x);
 	  if (v != x && v != error_mark_node)
@@ -2059,6 +2068,14 @@ cp_fold (tree x)
   code = TREE_CODE (x);
   switch (code)
     {
+    case CLEANUP_POINT_EXPR:
+      /* Strip CLEANUP_POINT_EXPR if the expression doesn't have side
+	 effects.  */
+      r = cp_fold_rvalue (TREE_OPERAND (x, 0));
+      if (!TREE_SIDE_EFFECTS (r))
+	x = r;
+      break;
+
     case SIZEOF_EXPR:
       x = fold_sizeof_expr (x);
       break;
@@ -2337,11 +2354,18 @@ cp_fold (tree x)
 	   constant, but the call followed by an INDIRECT_REF is.  */
 	if (callee && DECL_DECLARED_CONSTEXPR_P (callee)
 	    && !flag_no_inline)
-          r = maybe_constant_value (x);
+	  r = maybe_constant_value (x);
 	optimize = sv;
 
         if (TREE_CODE (r) != CALL_EXPR)
 	  {
+	    if (DECL_CONSTRUCTOR_P (callee))
+	      {
+		loc = EXPR_LOCATION (x);
+		tree s = build_fold_indirect_ref_loc (loc,
+						      CALL_EXPR_ARG (x, 0));
+		r = build2_loc (loc, INIT_EXPR, TREE_TYPE (s), s, r);
+	      }
 	    x = r;
 	    break;
 	  }
@@ -2355,30 +2379,26 @@ cp_fold (tree x)
       {
 	unsigned i;
 	constructor_elt *p;
-	bool changed = false;
 	vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (x);
 	vec<constructor_elt, va_gc> *nelts = NULL;
-	vec_safe_reserve (nelts, vec_safe_length (elts));
 	FOR_EACH_VEC_SAFE_ELT (elts, i, p)
 	  {
 	    tree op = cp_fold (p->value);
-	    constructor_elt e = { p->index, op };
-	    nelts->quick_push (e);
 	    if (op != p->value)
 	      {
 		if (op == error_mark_node)
 		  {
 		    x = error_mark_node;
-		    changed = false;
+		    vec_free (nelts);
 		    break;
 		  }
-		changed = true;
+		if (nelts == NULL)
+		  nelts = elts->copy ();
+		(*nelts)[i].value = op;
 	      }
 	  }
-	if (changed)
+	if (nelts)
 	  x = build_constructor (TREE_TYPE (x), nelts);
-	else
-	  vec_free (nelts);
 	break;
       }
     case TREE_VEC:

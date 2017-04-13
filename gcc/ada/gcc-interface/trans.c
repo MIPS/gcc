@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2016, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -1702,6 +1702,17 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 
 	  if (TREE_CODE (gnu_expr) == ADDR_EXPR)
 	    TREE_NO_TRAMPOLINE (gnu_expr) = TREE_CONSTANT (gnu_expr) = 1;
+
+	  /* On targets for which function symbols denote a descriptor, the
+	     code address is stored within the first slot of the descriptor
+	     so we do an additional dereference:
+	       result = *((result_type *) result)
+	     where we expect result to be of some pointer type already.  */
+	  if (targetm.calls.custom_function_descriptors == 0)
+	    gnu_result
+	      = build_unary_op (INDIRECT_REF, NULL_TREE,
+				convert (build_pointer_type (gnu_result_type),
+					 gnu_result));
 	}
 
       /* For 'Access, issue an error message if the prefix is a C++ method
@@ -1728,10 +1739,19 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	      /* Also check the inlining status.  */
 	      check_inlining_for_nested_subprog (TREE_OPERAND (gnu_expr, 0));
 
-	      /* Check that we're not violating the No_Implicit_Dynamic_Code
-		 restriction.  Be conservative if we don't know anything
-		 about the trampoline strategy for the target.  */
-	      Check_Implicit_Dynamic_Code_Allowed (gnat_node);
+	      /* Moreover, for 'Access or 'Unrestricted_Access with non-
+		 foreign-compatible representation, mark the ADDR_EXPR so
+		 that we can build a descriptor instead of a trampoline.  */
+	      if ((attribute == Attr_Access
+		   || attribute == Attr_Unrestricted_Access)
+		  && targetm.calls.custom_function_descriptors > 0
+		  && Can_Use_Internal_Rep (Etype (gnat_node)))
+		FUNC_ADDR_BY_DESCRIPTOR (gnu_expr) = 1;
+
+	      /* Otherwise, we need to check that we are not violating the
+		 No_Implicit_Dynamic_Code restriction.  */
+	      else if (targetm.calls.custom_function_descriptors != 0)
+	        Check_Implicit_Dynamic_Code_Allowed (gnat_node);
 	    }
 	}
       break;
@@ -3594,7 +3614,14 @@ return_value_ok_for_nrv_p (tree ret_obj, tree ret_val)
   if (TREE_ADDRESSABLE (ret_val))
     return false;
 
+  /* For the constrained case, test for overalignment.  */
   if (ret_obj && DECL_ALIGN (ret_val) > DECL_ALIGN (ret_obj))
+    return false;
+
+  /* For the unconstrained case, test for bogus initialization.  */
+  if (!ret_obj
+      && DECL_INITIAL (ret_val)
+      && TREE_CODE (DECL_INITIAL (ret_val)) == NULL_EXPR)
     return false;
 
   return true;
@@ -4228,6 +4255,7 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
   tree gnu_after_list = NULL_TREE;
   tree gnu_retval = NULL_TREE;
   tree gnu_call, gnu_result;
+  bool by_descriptor = false;
   bool went_into_elab_proc = false;
   bool pushed_binding_level = false;
   Entity_Id gnat_formal;
@@ -4267,7 +4295,15 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
      type the access type is pointing to.  Otherwise, get the formals from the
      entity being called.  */
   if (Nkind (Name (gnat_node)) == N_Explicit_Dereference)
-    gnat_formal = First_Formal_With_Extras (Etype (Name (gnat_node)));
+    {
+      gnat_formal = First_Formal_With_Extras (Etype (Name (gnat_node)));
+
+      /* If the access type doesn't require foreign-compatible representation,
+	 be prepared for descriptors.  */
+      if (targetm.calls.custom_function_descriptors > 0
+	  && Can_Use_Internal_Rep (Etype (Prefix (Name (gnat_node)))))
+	by_descriptor = true;
+    }
   else if (Nkind (Name (gnat_node)) == N_Attribute_Reference)
     /* Assume here that this must be 'Elab_Body or 'Elab_Spec.  */
     gnat_formal = Empty;
@@ -4670,6 +4706,7 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 
   gnu_call
     = build_call_vec (gnu_result_type, gnu_subprog_addr, gnu_actual_vec);
+  CALL_EXPR_BY_DESCRIPTOR (gnu_call) = by_descriptor;
   set_expr_location_from_node (gnu_call, gnat_node);
 
   /* If we have created a temporary for the return value, initialize it.  */
@@ -4935,10 +4972,6 @@ Handled_Sequence_Of_Statements_to_gnu (Node_Id gnat_node)
   tree gnu_result;
   tree gnu_expr;
   Node_Id gnat_temp;
-  /* Node providing the sloc for the cleanup actions.  */
-  Node_Id gnat_cleanup_loc_node = (Present (End_Label (gnat_node)) ?
-                                   End_Label (gnat_node) :
-                                   gnat_node);
 
   /* The GCC exception handling mechanism can handle both ZCX and SJLJ schemes
      and we have our own SJLJ mechanism.  To call the GCC mechanism, we call
@@ -4988,7 +5021,8 @@ Handled_Sequence_Of_Statements_to_gnu (Node_Id gnat_node)
 
       /* When we exit this block, restore the saved value.  */
       add_cleanup (build_call_n_expr (set_jmpbuf_decl, 1, gnu_jmpsave_decl),
-		   gnat_cleanup_loc_node);
+		   Present (End_Label (gnat_node))
+		   ? End_Label (gnat_node) : gnat_node);
     }
 
   /* If we are to call a function when exiting this block, add a cleanup
@@ -4997,11 +5031,18 @@ Handled_Sequence_Of_Statements_to_gnu (Node_Id gnat_node)
   if (at_end)
     {
       tree proc_decl = gnat_to_gnu (At_End_Proc (gnat_node));
+
       /* When not optimizing, disable inlining of finalizers as this can
 	 create a more complex CFG in the parent function.  */
       if (!optimize)
 	DECL_DECLARED_INLINE_P (proc_decl) = 0;
-      add_cleanup (build_call_n_expr (proc_decl, 0), gnat_cleanup_loc_node);
+
+      /* If there is no end label attached, we use the location of the At_End
+	 procedure because Expand_Cleanup_Actions might reset the location of
+	 the enclosing construct to that of an inner statement.  */
+      add_cleanup (build_call_n_expr (proc_decl, 0),
+		   Present (End_Label (gnat_node))
+		   ? End_Label (gnat_node) : At_End_Proc (gnat_node));
     }
 
   /* Now build the tree for the declarations and statements inside this block.
@@ -7718,7 +7759,6 @@ gnat_to_gnu (Node_Id gnat_node)
       && (kind == N_Identifier
 	  || kind == N_Expanded_Name
 	  || kind == N_Explicit_Dereference
-	  || kind == N_Function_Call
 	  || kind == N_Indexed_Component
 	  || kind == N_Selected_Component)
       && TREE_CODE (get_base_type (gnu_result_type)) == BOOLEAN_TYPE
