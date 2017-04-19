@@ -6089,6 +6089,9 @@ add_clause (gfc_symbol *sym, gfc_omp_map_op map_op)
   if (!module_oacc_clauses)
     module_oacc_clauses = gfc_get_omp_clauses ();
 
+  if (sym->backend_decl == NULL)
+    gfc_get_symbol_decl (sym);
+
   for (n = module_oacc_clauses->lists[OMP_LIST_MAP]; n != NULL; n = n->next)
     if (n->sym->backend_decl == sym->backend_decl)
       return;

@@ -1,3 +1,14 @@
+2017-04-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (lower_omp_target): Don't privatize firstprivate VLAs.
+
+2017-04-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (convert_to_firstprivate_int): Handle pointer types.
+	(convert_from_firstprivate_int): Likewise.  Create local storage for
+	the values being pointed too.  Add new argument orig_type.
+	(lower_omp_target): Allow pointer types with GOMP_MAP_FIRSTPRIVATE_INT.
+
 2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* gimplify.c (gimplify_oacc_declare_1): Remove GOMP_MAP_FORCE_* cases.

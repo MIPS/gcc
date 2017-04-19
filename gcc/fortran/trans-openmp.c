@@ -3373,6 +3373,17 @@ gfc_trans_oacc_executable_directive (gfc_code *code)
   gfc_start_block (&block);
   oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
 					code->loc);
+
+  /* Promote GOMP_MAP_FIRSTPRIVATE_POINTER to GOMP_MAP_ALWAYS_POINTER for
+     variables inside OpenACC update directives.  */
+  if (code->op == EXEC_OACC_UPDATE)
+    for (tree c = oacc_clauses; c; c = OMP_CLAUSE_CHAIN (c))
+      {
+        if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+	    && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+	  OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_ALWAYS_POINTER);
+      }
+
   stmt = build1_loc (input_location, construct_code, void_type_node,
 		     oacc_clauses);
   gfc_add_expr_to_block (&block, stmt);
