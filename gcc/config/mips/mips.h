@@ -1356,6 +1356,8 @@ struct mips_cpu_info {
 %{meva} %{mno-eva} \
 %{mvirt} %{mno-virt} \
 %{mxpa} %{mno-xpa} \
+%{mcrc} %{mno-crc} \
+%{mginv} %{mno-ginv} \
 %{mmsa} %{mno-msa} \
 %{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
