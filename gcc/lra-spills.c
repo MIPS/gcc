@@ -574,7 +574,7 @@ lra_spill (void)
 	/* We do not want to assign memory for former scratches.  */
 	&& ! lra_former_scratch_p (i))
       pseudo_regnos[n++] = i;
-  lra_assert (n > 0);
+
   pseudo_slots = XNEWVEC (struct pseudo_slot, regs_num);
   for (i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
     {
