@@ -1,3 +1,13 @@
+2017-04-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-decl.c (add_clause): Populate sym->backend_decl so that it
+	can be used to determine if two symbols are unique.
+	* trans-openmp.c (gfc_trans_oacc_executable_directive): Use
+	GOMP_MAP_ALWAYS_POINTER for fortran allocatable pointers.
+	* trans-stmt.c (gfc_trans_allocate): Call
+	gfc_trans_oacc_declare_allocate for declared allocatable pointers.
+	(gfc_trans_deallocate): Likewise.
+
 2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* openmp.c (enum omp_mask2):

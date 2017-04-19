@@ -523,6 +523,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	    {
 	      switch (kind)
 		{
+		case GOMP_MAP_DECLARE_ALLOCATE:
 		case GOMP_MAP_ALLOC:
 		  acc_present_or_create (hostaddrs[i], sizes[i]);
 		  break;
@@ -574,6 +575,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 		if (acc_is_present (hostaddrs[i], sizes[i]))
 		  acc_delete (hostaddrs[i], sizes[i]);
 		break;
+	      case GOMP_MAP_DECLARE_DEALLOCATE:
 	      case GOMP_MAP_FROM:
 	      case GOMP_MAP_FORCE_FROM:
 		acc_copyout (hostaddrs[i], sizes[i]);
@@ -655,6 +657,7 @@ GOACC_update (int device, size_t mapnum,
 
   acc_dev->openacc.async_set_async_func (async);
 
+  bool update_device = false;
   for (i = 0; i < mapnum; ++i)
     {
       unsigned char kind = kinds[i] & 0xff;
@@ -665,11 +668,31 @@ GOACC_update (int device, size_t mapnum,
 	case GOMP_MAP_TO_PSET:
 	  break;
 
+	case GOMP_MAP_ALWAYS_POINTER:
+	  if (update_device)
+	    {
+	      /* Save the contents of the host pointer.  */
+	      void *dptr = acc_deviceptr (hostaddrs[i-1]);
+	      uintptr_t t = *(uintptr_t *) hostaddrs[i];
+
+	      /* Update the contents of the host pointer to reflect
+		 the value of the allocated device memory in the
+		 previous pointer.  */
+	      *(uintptr_t *) hostaddrs[i] = (uintptr_t)dptr;
+	      acc_update_device (hostaddrs[i], sizeof (uintptr_t));
+
+	      /* Restore the host pointer.  */
+	      *(uintptr_t *) hostaddrs[i] = t;
+	    }
+	  break;
+
 	case GOMP_MAP_FORCE_TO:
+	  update_device = true;
 	  acc_update_device (hostaddrs[i], sizes[i]);
 	  break;
 
 	case GOMP_MAP_FORCE_FROM:
+	  update_device = false;
 	  acc_update_self (hostaddrs[i], sizes[i]);
 	  break;
 

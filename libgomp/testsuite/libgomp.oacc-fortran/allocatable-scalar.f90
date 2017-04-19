@@ -1,0 +1,30 @@
+program main
+  implicit none
+  integer, parameter :: n = 100
+  integer, allocatable :: a, c
+  integer :: i, b(n)
+
+  allocate (a)
+
+  a = 50
+
+  !$acc parallel loop
+  do i = 1, n;
+     b(i) = a
+  end do
+
+  do i = 1, n
+     if (b(i) /= a) call abort
+  end do
+
+  allocate (c)
+
+  print *, loc (c)
+  !$acc parallel copyout(c) num_gangs(1)
+  c = a
+  !$acc end parallel
+
+  if (c /= a) call abort
+
+  deallocate (a, c)
+end program main

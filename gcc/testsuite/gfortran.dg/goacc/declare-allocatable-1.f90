@@ -6,20 +6,20 @@
 
 program allocate
   implicit none
-  integer, allocatable :: a(:)
+  integer, allocatable :: a(:), b
   integer, parameter :: n = 100
   integer i
-  !$acc declare create(a)
+  !$acc declare create(a,b)
 
-  allocate (a(n))
+  allocate (a(n), b)
 
-  !$acc parallel loop copyout(a)
+  !$acc parallel loop copyout(a, b)
   do i = 1, n
-     a(i) = i
+     a(i) = b
   end do
 
-  deallocate (a)
+  deallocate (a, b)
 end program allocate
 
-! { dg-final { scan-tree-dump-times "pragma acc enter data map.declare_allocate" 1 "original" } }
-! { dg-final { scan-tree-dump-times "pragma acc exit data map.declare_deallocate" 1 "original" } }
+! { dg-final { scan-tree-dump-times "pragma acc enter data map.declare_allocate" 2 "original" } }
+! { dg-final { scan-tree-dump-times "pragma acc exit data map.declare_deallocate" 2 "original" } }

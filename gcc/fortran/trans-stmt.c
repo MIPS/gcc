@@ -5883,6 +5883,10 @@ gfc_trans_allocate (gfc_code * code)
 	      tmp = gfc_nullify_alloc_comp (expr->ts.u.derived, tmp, 0);
 	      gfc_add_expr_to_block (&se.pre, tmp);
 	    }
+
+	  /* Allocate memory for OpenACC declared variables.  */
+	  if (expr->symtree->n.sym->attr.oacc_declare_create)
+	    gfc_trans_oacc_declare_allocate (&se.pre, expr, true);
 	}
       else
 	{
@@ -6360,6 +6364,10 @@ gfc_trans_deallocate (gfc_code *code)
 	}
       else
 	{
+	  /* Deallocate memory for OpenACC declared variables.  */
+	  if (expr->symtree->n.sym->attr.oacc_declare_create)
+	    gfc_trans_oacc_declare_allocate (&se.pre, expr, false);
+
 	  tmp = gfc_deallocate_scalar_with_status (se.expr, pstat, false,
 						   al->expr, al->expr->ts);
 	  gfc_add_expr_to_block (&se.pre, tmp);
