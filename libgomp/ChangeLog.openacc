@@ -1,3 +1,13 @@
+2017-04-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_enter_exit_data): Add support for
+	GOMP_MAP_DECLARE_{ALLOCATE,DEALLOCATE}.
+	(GOACC_update): Add support for GOMP_MAP_ALWAYS_POINTER.
+	* testsuite/libgomp.oacc-fortran/allocatable-scalar.f90: New test.
+	* testsuite/libgomp.oacc-fortran/declare-allocatable-2.f90: New test.
+	* testsuite/libgomp.oacc-fortran/declare-allocatable-3.f90: New test.
+	* testsuite/libgomp.oacc-fortran/declare-allocatable-4.f90: New test.
+
 2017-07-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/lib-16.c: Update.
