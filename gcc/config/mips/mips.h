@@ -594,7 +594,7 @@ struct mips_cpu_info {
 	  break;							\
 									\
 	case ABI_P64:							\
-	  builtin_define ("_ABIP32=6");					\
+	  builtin_define ("_ABIP64=6");					\
 	  builtin_define ("_MIPS_SIM=_ABIP64");				\
 	  break;							\
 	}								\
