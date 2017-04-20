@@ -567,9 +567,6 @@ Enum(mips_return_setting) String(optimal) Value(MIPS_RETURN_OPTIMAL)
 EnumValue
 Enum(mips_return_setting) String(always) Value(MIPS_RETURN_ALWAYS)
 
-mseq-sne-sge
-Target Undocumented Var(TARGET_SEQ_SNE_SGE) Init(0)
-
 mli48
 Target Undocumented UInteger Var(TARGET_LI48) Init(0)
 
