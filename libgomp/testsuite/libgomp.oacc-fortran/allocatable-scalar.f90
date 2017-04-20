@@ -1,3 +1,7 @@
+! Test non-declared allocatable scalars in OpenACC data clauses. 
+
+! { dg-do run }
+
 program main
   implicit none
   integer, parameter :: n = 100
@@ -19,7 +23,6 @@ program main
 
   allocate (c)
 
-  print *, loc (c)
   !$acc parallel copyout(c) num_gangs(1)
   c = a
   !$acc end parallel
