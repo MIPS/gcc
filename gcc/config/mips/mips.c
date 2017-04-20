@@ -3062,8 +3062,7 @@ bool
 mips_string_constant_p (rtx x)
 {
   tree decl, exp;
-  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48
-      || !(ISA_HAS_XLP || TARGET_LI48_NOXLP))
+  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48 || !ISA_HAS_XLP)
     return false;
 
   if (GET_CODE (x) == CONST
@@ -3211,8 +3210,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	     ? 6
 	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
 	       ? 3
-	       : (TARGET_MICROMIPS_R7 && TARGET_LI48
-		  && (ISA_HAS_XLP || TARGET_LI48_NOXLP))
+	       : (TARGET_MICROMIPS_R7 && TARGET_LI48 && ISA_HAS_XLP)
 		 ? 1
 		 : 2;
 
@@ -6503,13 +6501,8 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	     targets.  */
 	  if (TARGET_MICROMIPS_R7 && TARGET_LI48 && ISA_HAS_XLP)
 	    {
-	      if (LI32_INT (src))
+	      if (!LUI_INT (src) && !SMALL_OPERAND_UNSIGNED (INTVAL (src)) && !SMALL_INT (src))
 		return "li\t%0,%1 # LI48";
-	    }
-	  if (TARGET_MICROMIPS_R7 && TARGET_LI48 && TARGET_LI48_NOXLP)
-	    {
-	      if (LI32_INT (src))
-		return "nop16; sdbbp32 20 # li\t%0,%1 # LI48";
 	    }
 
 	  if (!TARGET_MIPS16)
@@ -6559,8 +6552,6 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
 	  if (mips_string_constant_p (src) && ISA_HAS_XLP)
 	    return "li\t%0,%1 # LI48";
-	  if (mips_string_constant_p (src) && TARGET_LI48_NOXLP)
-	    return "nop16; sdbbp32 21 # li\t%0,%1 # LI48";
 	  else
 	    {
 	      gcc_assert (TARGET_MIPS16
@@ -23758,7 +23749,7 @@ class pass_optimize_multi_refs : public rtl_opt_pass
   virtual bool gate (function *)
     {
       return TARGET_MICROMIPS && TARGET_OPTIMIZE_MULTIPLE_REFS
-	     && ((TARGET_LI48 && (ISA_HAS_XLP || TARGET_LI48_NOXLP))
+	     && ((TARGET_LI48 && ISA_HAS_XLP)
 		 || (TARGET_ADDIUPC32 && ISA_HAS_XLP));
     }
 

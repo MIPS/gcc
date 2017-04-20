@@ -7483,7 +7483,7 @@
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
-  if (TARGET_LI48 && (ISA_HAS_XLP || TARGET_LI48_NOXLP))
+  if (TARGET_LI48 && ISA_HAS_XLP)
     output_asm_insn ("li\t$2, %1\t#li48", operands);
   else
     {
