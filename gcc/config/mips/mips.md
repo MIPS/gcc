@@ -6333,57 +6333,6 @@
    (set (attr "insn_count")
 	(symbol_ref "mips_load_store_insns (operands[1], insn) + 2"))])
 
-(define_special_predicate "shiftable_operator"
-  (and (match_code "ior,xor,and,plus,minus")
-       (match_test "mode == GET_MODE (op)")))
-
-(define_code_attr arith_shift_insn
-  [(plus "add") (minus "sub") (ior "or") (xor "xor") (and "and")])
-
-(define_code_iterator SHIFTABLE_OPS [plus minus ior xor and])
-
-(define_special_predicate "shift_operator"
-  (and (ior (and (match_code "rotate")
-		 (match_test "CONST_INT_P (XEXP (op, 1))
-			      && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32"))
-	    (and (match_code "ashift,ashiftrt,lshiftrt,rotatert")
-		 (match_test "!CONST_INT_P (XEXP (op, 1))
-			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
-       (match_test "mode == GET_MODE (op)")))
-
-(define_special_predicate "shift_operator2"
-  (and (ior (and (match_code "rotate")
-		 (match_test "0&&CONST_INT_P (XEXP (op, 1))
-			      && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32"))
-	    (and (match_code "ashift,rotatert")
-		 (match_test "!CONST_INT_P (XEXP (op, 1))
-			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
-       (match_test "mode == GET_MODE (op)")))
-
-(define_insn "*<arith_shift_insn>_arith_shiftsi"
-  [(set (match_operand:SI 0 "register_operand" "=d,d")
-	(SHIFTABLE_OPS:SI
-	    (match_operator:SI 2 "shift_operator"
-		[(match_operand:SI 3 "register_operand" "d,d")
-		 (match_operand:SI 4 "reg_or_uimm5_operand" "I,d")])
-		(match_operand:SI 1 "register_operand" "d,d")))]
-  "TARGET_MICROMIPS_R7 && TARGET_FLEXOP2"
-  "sdbbp32 300 # <arith_shift_insn> %0,%1,<%S2,%3,%4>"
-  [(set_attr "type" "shift")
-   (set_attr "mode" "SI")])
-
-(define_insn "*<arith_shift_insn>_arith_shiftsi2"
-  [(set (match_operand:SI 0 "register_operand" "=d,r")
-	(SHIFTABLE_OPS:SI
-	    (match_operator:SI 2 "shift_operator2"
-		[(match_operand:SI 3 "register_operand" "d,r")
-		 (match_operand:SI 4 "reg_or_uimm5_operand" "I,r")])
-		(match_operand:SI 1 "register_operand" "r,r")))]
-  "TARGET_MICROMIPS_R7 && TARGET_FLEXOP2_2"
-  "sdbbp32 300 # <arith_shift_insn> %0,%1,<%S2,%3,%4>"
-  [(set_attr "type" "shift")
-   (set_attr "mode" "SI")])
-
 (define_insn "*rot.xor"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(xor:SI	(rotate:SI (match_operand:SI 1 "register_operand" "d")
