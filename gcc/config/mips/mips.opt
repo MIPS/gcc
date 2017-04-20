@@ -600,9 +600,6 @@ Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
 mxlp
 Target Var(TARGET_EXLP) Init(0)
 
-mli48-noxlp
-Target Undocumented Var(TARGET_LI48_NOXLP) Init (0)
-
 madd-lwp-swp
 Target Undocumented Var(TARGET_LWP_SWP) Init (0)
 
