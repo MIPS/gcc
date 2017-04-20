@@ -600,15 +600,6 @@ Target Undocumented Var(TARGET_LWP_SWP) Init (0)
 mopt-restorejrc
 Target Undocumented Var(TARGET_RESTORE_JRC) Init(1)
 
-mlwgp16
-Target Undocumented Var(TARGET_LWGP16) Init (0)
-
-mswgp16
-Target Undocumented Var(TARGET_SWGP16) Init (0)
-
-mgp16-opt-list=
-Target Undocumented RejectNegative Joined Var(mips_gp16_opt_list_file)
-
 madd-addiupc32
 Target Undocumented Var(TARGET_ADDIUPC32) Init (0)
 

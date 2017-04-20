@@ -668,7 +668,6 @@ struct mips_sdata_entry
 };
 
 static struct mips_sdata_entry *mips_sdata_opt_list;
-static struct mips_sdata_entry *mips_gp16_opt_list;
 
 static struct mips_sdata_entry *
 mips_read_list (const char * filename)
@@ -6308,36 +6307,6 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
 			   ? "sdbbp32 10 # "
 			   : (M16_REG_P (REGNO (dest))
 			      ? "sdbbp16 7 # " : "sdbbp32 4 # "));
-
-  if ((TARGET_LWGP16 || TARGET_SWGP16)
-      && !indexed_p && !indexed_scaled_p
-      && mode == SImode
-      && GET_CODE (addr) == LO_SUM
-      && (load_p && TARGET_LWGP16
-	  ? M16_REG_P (REGNO (dest))
-	  : TARGET_SWGP16
-	    && (CONST_INT_P (src) && INTVAL (src) == 0
-		|| GPR3_SRC_STORE_REG_P (REGNO (src))))
-      && REG_P (XEXP (addr, 0))
-      && REGNO (XEXP (addr, 0)) == GLOBAL_POINTER_REGNUM
-      && ((GET_CODE (XEXP (addr, 1)) == SYMBOL_REF
-	   && mips_classify_symbol (XEXP (addr, 1),
-				    SYMBOL_CONTEXT_MEM) == SYMBOL_GP_RELATIVE
-	   && ((SYMBOL_REF_DECL (XEXP (addr, 1))
-		&& mips_find_list (IDENTIFIER_POINTER (TREE_VALUE (
-		    SYMBOL_REF_DECL (XEXP (addr, 1)))), mips_gp16_opt_list))
-	       || mips_gp16_opt_list == NULL))
-	  || (GET_CODE (XEXP (addr, 1)) == CONST
-	      && GET_CODE (XEXP (XEXP (addr, 1), 0)) == SYMBOL_REF
-	      && mips_classify_symbol (XEXP (XEXP (addr, 1), 0),
-				       SYMBOL_CONTEXT_MEM)
-		 == SYMBOL_GP_RELATIVE)
-	      && ((SYMBOL_REF_DECL (XEXP (XEXP (addr, 1), 0))
-		   && mips_find_list (IDENTIFIER_POINTER (TREE_VALUE (
-			SYMBOL_REF_DECL (XEXP (XEXP (addr, 1), 0)))),
-			mips_gp16_opt_list))
-		  || mips_gp16_opt_list == NULL)))
-    s += sprintf (s, "sdbbp16 5 #");
 
   s += sprintf (s, "%s", load_p ? "l" : "s");
   s += sprintf (s, "%s", sz[pos]);
@@ -23958,7 +23927,6 @@ mips_option_override (void)
     TARGET_INTERLINK_COMPRESSED = 1;
 
   mips_sdata_opt_list = mips_read_list (mips_sdata_opt_list_file);
-  mips_gp16_opt_list = mips_read_list (mips_gp16_opt_list_file);
 
   if (mips_func_opt_list_file)
     mips_func_opt_list_read ();
