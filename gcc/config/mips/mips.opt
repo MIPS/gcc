@@ -600,12 +600,6 @@ Target Var(TARGET_EXLP) Init(0)
 mli48-noxlp
 Target Undocumented Var(TARGET_LI48_NOXLP) Init (0)
 
-midx-ldst-x16
-Target Undocumented Var(TARGET_IDX_LDST_X16) Init (0)
-
-midx-ldst-xs16
-Target Undocumented Var(TARGET_IDX_LDST_XS16) Init (0)
-
 madd-lwp-swp
 Target Undocumented Var(TARGET_LWP_SWP) Init (0)
 

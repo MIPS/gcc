@@ -6311,32 +6311,6 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
 			   : (M16_REG_P (REGNO (dest))
 			      ? "sdbbp16 7 # " : "sdbbp32 4 # "));
 
-  if (TARGET_IDX_LDST_X16
-      && indexed_p
-      && (load_p
-	  ? M16_REG_P (REGNO (dest))
-	  : (CONST_INT_P (src) && INTVAL (src) == 0
-	     || GPR3_SRC_STORE_REG_P (REGNO (src))))
-      && M16_REG_P (REGNO (XEXP (addr, 0)))
-      && M16_REG_P (REGNO (XEXP (addr, 1))))
-    {
-      s += sprintf (s, "sdbbp16 2 #");
-    }
-
-  if (TARGET_IDX_LDST_XS16
-      && indexed_scaled_p
-      && (load_p
-	  ? M16_REG_P (REGNO (dest))
-	  : (CONST_INT_P (src) && INTVAL (src) == 0
-	     || GPR3_SRC_STORE_REG_P (REGNO (src))))
-      && M16_REG_P (REGNO (XEXP (XEXP (addr, 0), 0)))
-      && CONST_INT_P (XEXP (XEXP (addr, 0), 1))
-      && IN_RANGE (exact_log2 (INTVAL (XEXP (XEXP (addr, 0), 1))), 0, 3)
-      && M16_REG_P (REGNO (XEXP (addr, 1))))
-    {
-      s += sprintf (s, "sdbbp16 3 #");
-    }
-
   if ((TARGET_LWGP16 || TARGET_SWGP16)
       && !indexed_p && !indexed_scaled_p
       && mode == SImode
