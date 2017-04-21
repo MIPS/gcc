@@ -22773,7 +22773,7 @@ micromips_movep_opt ()
 	  rtx dest = SET_DEST (pattern);
 	  rtx_insn *loc_insn = NULL;
 
-	  if (movep_operand (src, GET_MODE (src))
+	  if (movep_or_0_operand (src, GET_MODE (src))
 	      && movep_dest_operand (dest, GET_MODE (dest)))
 	    {
 	      /* MOVEP.  */
@@ -22810,8 +22810,8 @@ micromips_movep_opt ()
 
 	      /* Redundent though fool proof.  */
 	      if (umips_movep_target_p (dest1, dest2)
-		  && movep_operand (src1, GET_MODE (src1))
-		  && movep_operand (src2, GET_MODE (src2))
+		  && movep_or_0_operand (src1, GET_MODE (src1))
+		  && movep_or_0_operand (src2, GET_MODE (src2))
 		  && umips_movep_no_overlap_p (dest1, dest2, src1, src2))
 		{
 		  rtx movep_insn = gen_movep (dest1, src1, dest2,
@@ -23167,8 +23167,8 @@ micromips_move_balc_opt ()
 	      rtx dest2 = SET_DEST (set2);
 
 	      if (!umips_movep_target_p (dest1, dest2)
-		  && !movep_operand (src1, GET_MODE (src1))
-		  && !movep_operand (src2, GET_MODE (src2)))
+		  && !movep_or_0_operand (src1, GET_MODE (src1))
+		  && !movep_or_0_operand (src2, GET_MODE (src2)))
 		continue;
 
 	      if (find_reg_fusage (call_insn, USE, dest1)

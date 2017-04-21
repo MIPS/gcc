@@ -408,15 +408,22 @@
 		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
 		      (match_test ("IN_RANGE (REGNO (op), 16, 20)"))))
 	    (and (match_test "TARGET_MICROMIPS_R7")
-		 (ior (match_test ("IN_RANGE (REGNO (op), 0, 7)"))
+		 ;; We may come across register zero instead of a constant
+		 (ior (match_test ("REGNO (op) == 0"))
+		      (match_test ("IN_RANGE (REGNO (op), 4, 10)"))
 		      (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))))
 
-(define_predicate "movep_operand"
+(define_predicate "movep_rev_register"
+  (and (match_code "reg")
+       (ior (match_test ("IN_RANGE (REGNO (op), 4, 11)"))
+	    (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))
+
+(define_predicate "movep_or_0_operand"
   (ior (match_operand 0 "const_0_operand")
        (match_operand 0 "movep_register")))
 
 (define_predicate "movep_rev_operand"
-  (match_operand 0 "movep_register"))
+  (match_operand 0 "movep_rev_register"))
 
 (define_predicate "lo_operand"
   (and (match_code "reg")
