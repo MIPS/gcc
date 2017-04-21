@@ -13248,10 +13248,10 @@ mips_compute_frame_info_oabi_nabi (void)
    B |  callee-allocated save area    |
      |  for register varargs          |
      +--------------------------------+ <-- frame_pointer_rtx + gp_sp_offset
-     |  GPR save area  | $ra          |     + UNITS_PER_WORD
-     |                 | $fp          |
+     |  GPR save area  | $fp          |     + UNITS_PER_WORD
+     |                 | $ra          |
      |                 |--------------| <-- hard_frame_pointer_rtx
-     |                 | $gp, $s7-$s0 |
+     |                 | $s0-$s7, $gp |
      +--------------------------------+ <-- frame_pointer_rtx + fp_sp_offset
      |  FPR save area                 |     + UNITS_PER_HWFPVALUE
      +--------------------------------+ <-- frame_pointer_rtx + cop0_sp_offset
