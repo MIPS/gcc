@@ -169,9 +169,9 @@
 ;; For MOVEP.
 (define_peephole2
   [(set (match_operand 0 "register_operand" "")
-	(match_operand 1 "movep_operand" ""))
+	(match_operand 1 "movep_or_0_operand" ""))
    (set (match_operand 2 "register_operand" "")
-	(match_operand 3 "movep_operand" ""))]
+	(match_operand 3 "movep_or_0_operand" ""))]
   "TARGET_MICROMIPS
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
@@ -182,9 +182,9 @@
 ;; The behavior of the MOVEP insn is undefined if placed in a delay slot.
 (define_insn "*movep"
   [(set (match_operand 0 "register_operand")
-	(match_operand 1 "movep_operand"))
+	(match_operand 1 "movep_or_0_operand"))
    (set (match_operand 2 "register_operand")
-	(match_operand 3 "movep_operand"))]
+	(match_operand 3 "movep_or_0_operand"))]
   "TARGET_MICROMIPS
    && umips_movep_no_overlap_p (operands[0], operands[2], operands[1],
       operands[3])
@@ -264,9 +264,9 @@
 		   (call (mem:SI (match_operand 4 "" ""))
 			 (match_operand 5 "" "")))
 	      (set (match_operand 0 "register_operand")
-		   (match_operand 1 "movep_operand"))
+		   (match_operand 1 "movep_or_0_operand"))
 	      (set (match_operand 2 "register_operand")
-		   (match_operand 3 "movep_operand"))
+		   (match_operand 3 "movep_or_0_operand"))
 	      (use (match_dup 0))
 	      (use (match_dup 2))
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
@@ -286,9 +286,9 @@
   [(parallel [(call (mem:SI (match_operand 4 "" ""))
 		    (match_operand 5 "" ""))
 	      (set (match_operand 0 "register_operand")
-		   (match_operand 1 "movep_operand"))
+		   (match_operand 1 "movep_or_0_operand"))
 	      (set (match_operand 2 "register_operand")
-		   (match_operand 3 "movep_operand"))
+		   (match_operand 3 "movep_or_0_operand"))
 	      (use (match_dup 0))
 	      (use (match_dup 2))
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
