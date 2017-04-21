@@ -198,7 +198,7 @@
 (define_attr "jal" "unset,direct,indirect"
   (const_string "unset"))
 
-(define_attr "cbranch_cmp_op" "unset,reg,imm,zero,c1zero,zero_ineq"
+(define_attr "cbranch_cmp_op" "unset,reg,imm,zero,c1zero"
   (const_string "unset"))
 
 ;; This attribute is YES if the instruction is a jal macro (not a
@@ -637,16 +637,10 @@
 		 (and (match_test "TARGET_MICROMIPS_R7")
 		      (ior (and (match_test "TARGET_HARD_FLOAT")
 				(eq_attr "cbranch_cmp_op" "c1zero"))
-			   (eq_attr "cbranch_cmp_op" "zero_ineq")
+			   (eq_attr "cbranch_cmp_op" "zero")
 			   (eq_attr "cbranch_cmp_op" "reg"))
 		      (and (le (minus (match_dup 0) (pc)) (const_int 16382))
 			   (le (minus (pc) (match_dup 0)) (const_int 16384))))
-		   (const_int 4)
-		 ;; Variant that can handle 20-bit range.
-		 (and (match_test "TARGET_MICROMIPS_R7")
-		      (eq_attr "cbranch_cmp_op" "zero")
-		      (and (le (minus (match_dup 0) (pc)) (const_int 1048574))
-			   (le (minus (pc) (match_dup 0)) (const_int 1048576))))
 		   (const_int 4)
 
 		 ;; Any variant can handle the 17-bit range.
@@ -6476,7 +6470,7 @@
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
-   (set_attr "cbranch_cmp_op" "zero_ineq,reg,imm")
+   (set_attr "cbranch_cmp_op" "zero,reg,imm")
    (set_attr "compact_form" "maybe,always,always")
    (set_attr "has_16bit_ver" "rri_beqzc")
    (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
@@ -6495,7 +6489,7 @@
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
-   (set_attr "cbranch_cmp_op" "zero_ineq,reg,imm")
+   (set_attr "cbranch_cmp_op" "zero,reg,imm")
    (set_attr "compact_form" "maybe,always,always")
    (set_attr "has_16bit_ver" "rri_beqzc")
    (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
