@@ -1,3 +1,90 @@
+2017-04-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/80473
+	* init.c (build_new_1): Suppress notes about over-aligned new when
+	the warning is suppressed.
+
+2017-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/80423
+	* tree.c (build_cplus_array_type): Call build_array_type
+	with the intended TYPE_TYPELESS_STORAGE flag value, instead
+	of calling build_array_type and modifying later TYPE_TYPELESS_STORAGE
+	on the shared type.
+
+2017-04-18  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/80244 - ICE with attribute in template alias.
+	* tree.c (strip_typedefs): Handle UNDERLYING_TYPE.
+
+	PR c++/80241 - ICE with alignas pack expansion.
+	* error.c (dump_expr): Handle TREE_LIST.
+	* parser.c (cp_parser_std_attribute_list): Return error_mark if
+	make_pack_expansion returns an error.
+
+2017-04-17  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/80287
+	* class.c (fixup_may_alias): Fix all type variants.
+
+2017-04-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/80415 - wrong error with default arg and array reference.
+	* tree.c (lvalue_kind): Return clk_class for an array prvalue.
+
+	* pt.c (tsubst_init): Set TARGET_EXPR_DIRECT_INIT_P.
+
+2017-04-15  Alexandre Oliva <aoliva@redhat.com>
+
+	* decl.c (name_unnamed_type): Split out of...
+	(grokdeclarator): ... this.
+	* decl.h (name_unnamed_type): Declare.
+
+2017-04-12  Richard Biener  <rguenther@suse.de>
+	Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/79671
+	* tree.c (build_cplus_array_type): Set TYPE_TYPELESS_STORAGE
+	for arrays of character or std::byte type.
+
+2017-04-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/80294 - ICE with constexpr and inheritance.
+	* constexpr.c (reduced_constant_expression_p):
+	A null constructor element is non-constant.
+	(cxx_eval_indirect_ref): Don't VERIFY_CONSTANT before
+	returning an empty base.
+
+2017-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/80370
+	* decl.c (cp_finish_decomp): If processing_template_decl on
+	non-dependent decl, only set TREE_TYPE on the v[i] decls, but don't
+	change their DECL_VALUE_EXPR nor cp_finish_decl them.  Instead make
+	sure DECL_VALUE_EXPR is the canonical NULL type ARRAY_REF for tsubst
+	processing.
+	* pt.c (value_dependent_expression_p) <case VAR_DECL>: For variables
+	with DECL_VALUE_EXPR, return true if DECL_VALUE_EXPR is type
+	dependent.
+
+2017-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/80363
+	* error.c (dump_expr): Handle VEC_COND_EXPR like COND_EXPR.
+
+2017-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/80176
+	* tree.c (lvalue_kind): For COMPONENT_REF with BASELINK second
+	operand, if it is a static member function, recurse on the
+	BASELINK.
+
+2017-04-10  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/80348
+	* typeck.c (cp_build_binary_op): Use NULL_TREE instead of NULL.  Set
+	ORIG_TYPE earlier and not only when shortening.
+
 2017-04-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/80356 - ICE with reference to function template argument.

@@ -1171,7 +1171,7 @@ alloc_iv (struct ivopts_data *data, tree base, tree step,
       || contain_complex_addr_expr (expr))
     {
       aff_tree comb;
-      tree_to_aff_combination (expr, TREE_TYPE (base), &comb);
+      tree_to_aff_combination (expr, TREE_TYPE (expr), &comb);
       base = fold_convert (TREE_TYPE (base), aff_combination_to_tree (&comb));
     }
 
@@ -3335,41 +3335,20 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
     }
 
   /* Record common candidate with base_object removed in base.  */
-  if (iv->base_object != NULL)
+  base = iv->base;
+  STRIP_NOPS (base);
+  if (iv->base_object != NULL && TREE_CODE (base) == POINTER_PLUS_EXPR)
     {
-      unsigned i;
-      aff_tree aff_base;
-      tree step, base_object = iv->base_object;
+      tree step = iv->step;
 
-      base = iv->base;
-      step = iv->step;
-      STRIP_NOPS (base);
       STRIP_NOPS (step);
-      STRIP_NOPS (base_object);
-      tree_to_aff_combination (base, TREE_TYPE (base), &aff_base);
-      for (i = 0; i < aff_base.n; i++)
-	{
-	  if (aff_base.elts[i].coef != 1)
-	    continue;
-
-	  if (operand_equal_p (aff_base.elts[i].val, base_object, 0))
-	    break;
-	}
-      if (i < aff_base.n)
-	{
-	  aff_combination_remove_elt (&aff_base, i);
-	  base = aff_combination_to_tree (&aff_base);
-	  basetype = TREE_TYPE (base);
-	  if (POINTER_TYPE_P (basetype))
-	    basetype = sizetype;
-
-	  step = fold_convert (basetype, step);
-	  record_common_cand (data, base, step, use);
-	  /* Also record common candidate with offset stripped.  */
-	  base = strip_offset (base, &offset);
-	  if (offset)
-	    record_common_cand (data, base, step, use);
-	}
+      base = TREE_OPERAND (base, 1);
+      step = fold_convert (sizetype, step);
+      record_common_cand (data, base, step, use);
+      /* Also record common candidate with offset stripped.  */
+      base = strip_offset (base, &offset);
+      if (offset)
+	record_common_cand (data, base, step, use);
     }
 
   /* At last, add auto-incremental candidates.  Make such variables
@@ -7183,7 +7162,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 			    struct iv_use *use, struct iv_cand *cand)
 {
   tree comp;
-  tree op, tgt;
+  tree tgt;
   gassign *ass;
   gimple_stmt_iterator bsi;
 
@@ -7194,6 +7173,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
   if (cand->pos == IP_ORIGINAL
       && cand->incremented_at == use->stmt)
     {
+      tree op = NULL_TREE;
       enum tree_code stmt_code;
 
       gcc_assert (is_gimple_assign (use->stmt));
@@ -7213,14 +7193,19 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	    op = gimple_assign_rhs2 (use->stmt);
 	  else if (gimple_assign_rhs2 (use->stmt) == cand->var_before)
 	    op = gimple_assign_rhs1 (use->stmt);
-	  else
-	    op = NULL_TREE;
 	}
-      else
-	op = NULL_TREE;
 
-      if (op && expr_invariant_in_loop_p (data->current_loop, op))
-	return;
+      if (op != NULL_TREE)
+	{
+	  if (expr_invariant_in_loop_p (data->current_loop, op))
+	    return;
+	  if (TREE_CODE (op) == SSA_NAME)
+	    {
+	      struct iv *iv = get_iv (data, op);
+	      if (iv != NULL && integer_zerop (iv->step))
+		return;
+	    }
+	}
     }
 
   comp = get_computation (data->current_loop, use, cand);

@@ -3098,15 +3098,15 @@ arm_configure_build_target (struct arm_build_target *target,
 		arm_selected_tune = arm_selected_cpu;
 
 	      arm_selected_cpu = arm_selected_arch;
+	      target->arch_name = arm_selected_arch->name;
 	    }
 	  else
 	    {
 	      /* Architecture and CPU are essentially the same.
 		 Prefer the CPU setting.  */
 	      arm_selected_arch = NULL;
+	      target->core_name = arm_selected_cpu->name;
 	    }
-
-	  target->core_name = arm_selected_cpu->name;
 	}
       else
 	{
@@ -22593,7 +22593,7 @@ arm_elf_asm_cdtor (rtx symbol, int priority, bool is_ctor)
       sprintf (buf, "%s.%.5u",
 	       is_ctor ? ".init_array" : ".fini_array",
 	       priority);
-      s = get_section (buf, SECTION_WRITE, NULL_TREE);
+      s = get_section (buf, SECTION_WRITE | SECTION_NOTYPE, NULL_TREE);
     }
   else if (is_ctor)
     s = ctors_section;

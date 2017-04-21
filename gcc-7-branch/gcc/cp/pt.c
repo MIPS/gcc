@@ -14413,6 +14413,8 @@ tsubst_init (tree init, tree decl, tree args,
 			       complain);
       if (TREE_CODE (init) == AGGR_INIT_EXPR)
 	init = get_target_expr_sfinae (init, complain);
+      if (TREE_CODE (init) == TARGET_EXPR)
+	TARGET_EXPR_DIRECT_INIT_P (init) = true;
     }
 
   return init;
@@ -23576,6 +23578,12 @@ value_dependent_expression_p (tree expression)
 	      || type_dependent_expression_p (DECL_INITIAL (expression))
 	      || value_dependent_expression_p (DECL_INITIAL (expression))))
 	return true;
+      if (DECL_HAS_VALUE_EXPR_P (expression))
+	{
+	  tree value_expr = DECL_VALUE_EXPR (expression);
+	  if (type_dependent_expression_p (value_expr))
+	    return true;
+	}
       return false;
 
     case DYNAMIC_CAST_EXPR:
