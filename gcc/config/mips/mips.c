@@ -11903,32 +11903,43 @@ mips_save_restore_insn_reg (machine_mode mode, bool restore_p, bool reg_parm_p,
   return mips_frame_set (mem, reg);
 }
 
+/* Check if mask MASK has valid registers for SAVE/RESTORE[.JRC] instructions.
+   Return the number of registers being saved, 0 otherwise.  COMPRESSED_P
+   to check 16-bit version of SAVE/RESTORE.
+
+   It is caller's responsibility check the stack adjustments.  */
+
 static int
 mips_valid_save_restore_p (unsigned int mask, bool compressed_p)
 {
-  int n, nregs = 0;
+  int n, nregs;
 
-  for (unsigned int i = 0; i < ARRAY_SIZE (umipsr7_save_restore_regs); i++)
-    if (BITSET_P (mask, umipsr7_save_restore_regs[i]))
-      nregs++;
+  n = nregs = popcount_hwi (mask);
 
-  n = nregs;
-
-  if (n == 0)
+  /* 16-bit SAVE/RESTORE.JRC always saves $31, optionally $30.  */
+  if (compressed_p && !BITSET_P (mask, RETURN_ADDR_REGNUM))
     return false;
 
+  /* $gp cannot be saved in non-XLP core and 16-bit SAVE/RESTORE.  */
+  if ((!ISA_HAS_XLP || compressed_p)
+      && BITSET_P (mask, GLOBAL_POINTER_REGNUM))
+    return false;
+
+  /* We can adjust the stack only if no registers are being saved.  */
+  if (!compressed_p && n == 0)
+    return true;
+
   if (BITSET_P (mask, RETURN_ADDR_REGNUM)) n--;
-  if (!compressed_p && BITSET_P (mask, GLOBAL_POINTER_REGNUM)) n--;
-  /* Frame pointer may still be saved/restored in 16-bit instruction.  */
-  if (((compressed_p && n == 9) || !compressed_p)
-      && BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)) n--;
+  if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)) n--;
+  if (BITSET_P (mask, GLOBAL_POINTER_REGNUM)) n--;
 
   if (n > (int) ARRAY_SIZE (umipsr7_s0_s7_regs))
     return false;
 
-  for (unsigned int i = ARRAY_SIZE (umipsr7_s0_s7_regs) - n;
-       i < ARRAY_SIZE (umipsr7_s0_s7_regs); i++)
-    if (BITSET_P (mask, umipsr7_s0_s7_regs[i]))
+  /* Walk backwards to check if we save the registers consecutively
+     beginning from $16.  */
+  for (unsigned int i = ARRAY_SIZE (umipsr7_s0_s7_regs); i > 0; i--)
+    if (BITSET_P (mask, umipsr7_s0_s7_regs[i-1]))
       n--;
     else
       break;
@@ -12189,20 +12200,11 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 		if (i == ARRAY_SIZE (mips16e_save_restore_regs))
 		  return false;
 	    }
-	  else
+	  else if (fp_p)
 	    {
-	      if (fp_p)
-		{
-		  while (umipsr7_savef_restoref_regs[i++] != REGNO (reg))
-		    if (i == ARRAY_SIZE (umipsr7_savef_restoref_regs))
-		     return false;
-		}
-	      else
-		{
-		  while (umipsr7_save_restore_regs[i++] != REGNO (reg))
-		    if (i == ARRAY_SIZE (umipsr7_save_restore_regs))
-		      return false;
-		}
+	      while (umipsr7_savef_restoref_regs[i++] != REGNO (reg))
+		if (i == ARRAY_SIZE (umipsr7_savef_restoref_regs))
+		 return false;
 	    }
 
 	  mask |= 1 << REGNO (reg);
@@ -12224,9 +12226,9 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
   else if (fp_p)
     mips_mask_registers (&mask, umipsr7_savef_restoref_regs,
 			    ARRAY_SIZE (umipsr7_savef_restoref_regs), &extra);
-  else
-    mips_mask_registers (&mask, umipsr7_s0_s7_regs,
-			    ARRAY_SIZE (umipsr7_s0_s7_regs), &extra);
+  /* Ignore the 16-bit version here.  */
+  else if (!mips_valid_save_restore_p (mask, false))
+    return false;
 
   if (extra != 0)
     return false;
@@ -12290,7 +12292,6 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
   struct mips_save_restore_info info;
   unsigned int i;
   char *s;
-  bool insn16_p = false;
   int nregs = 0;
   bool restore_p = MEM_P (SET_SRC (XVECEXP (pattern, 0,
 					     XVECLEN (pattern, 0) - 1)))
@@ -12300,28 +12301,6 @@ mips_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
   /* Parse the pattern.  */
   if (!mips_save_restore_pattern_p (pattern, adjust, &info, &fp_p, jrc_p))
     gcc_unreachable ();
-
-  if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7 && !fp_p)
-    {
-      for (i = 0; i < ARRAY_SIZE (umipsr7_s0_s7_regs); i++)
-	if (BITSET_P (info.mask, umipsr7_s0_s7_regs[i]))
-	  nregs++;
-
-      if (ISA_HAS_XLP
-	  && (BITSET_P (info.mask, RETURN_ADDR_REGNUM)
-	      && info.size <= 120 // u4 << 3 bytes
-	      && !BITSET_P (info.mask, GLOBAL_POINTER_REGNUM)
-	      && (!restore_p || (restore_p && jrc_p))
-	      && ((nregs >= 0 && !BITSET_P (info.mask,
-					    HARD_FRAME_POINTER_REGNUM))
-		  || (nregs == 8 && BITSET_P (info.mask,
-					      HARD_FRAME_POINTER_REGNUM))))
-	      || (!BITSET_P (info.mask, RETURN_ADDR_REGNUM)
-		  && info.size <= 120 // u4 << 3 bytes
-		  && !BITSET_P (info.mask, GLOBAL_POINTER_REGNUM)
-		  && restore_p && nregs == 0 && !jrc_p))
-	insn16_p = true;
-    }
 
   /* Add the mnemonic.  */
   if (GENERATE_MIPS16E_SAVE_RESTORE)
@@ -13918,6 +13897,7 @@ mips_for_each_saved_gpr (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
   if (TARGET_MICROMIPS_R7
       && ISA_HAS_SAVE_RESTORE
       && cfun->machine->safe_to_use_save_restore
+      && step != 0
       && mips_valid_save_restore_p (mask, false))
     {
       if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
@@ -15842,24 +15822,20 @@ bool
 mips_can_use_return_insn (void)
 {
   HOST_WIDE_INT size = cfun->machine->frame.total_size;
+  /* For optimal code size, we only consider RESTORE.JRC[16] here.
+     We then catch remaining cases in the reorg pass.  */
   return !mips_can_use_simple_return_insn ()
 	 && cfun->machine->frame.num_fp == 0
 	 && cfun->machine->frame.num_acc == 0
 	 && cfun->machine->frame.num_cop0_regs == 0
-	 && TARGET_MICROMIPS_R7
-	 && ISA_HAS_SAVE_RESTORE
-	 && ((mips_return == MIPS_RETURN_OPTIMAL
-	      && mips_unsigned_immediate_p (size, 4, 3))
-	     || (mips_return == MIPS_RETURN_ALWAYS
-		 && mips_unsigned_immediate_p (size, 9, 3)))
-	 && ((cfun->machine->frame.num_gp == 0
-	      && mips_unsigned_immediate_p (size, 4, 3))
+	 && ISA_HAS_RESTORE_JRC
+	 && mips_unsigned_immediate_p (size, SAVE16_RESTORE16_BITS,
+				       SAVE_RESTORE_SHIFT)
+	 && (cfun->machine->frame.num_gp == 0
 	     || BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
 	 && !cfun->machine->interrupt_handler_p
 	 && !frame_pointer_needed
-	 && mips_valid_save_restore_p (cfun->machine->frame.mask,
-				       mips_return == MIPS_RETURN_OPTIMAL
-				       ? true : false);
+	 && mips_valid_save_restore_p (cfun->machine->frame.mask, true);
 }
 
 /* Return true if register REGNO can store a value of mode MODE.
