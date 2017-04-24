@@ -408,6 +408,10 @@ mtune=
 Target RejectNegative Joined Var(mips_tune_option) ToLower Enum(mips_arch_opt_value)
 -mtune=PROCESSOR	Optimize the output for PROCESSOR.
 
+munaligned-scalars
+Target Rerport Var(TARGET_UNALIGNED_SCALARS) Init(0)
+Allow use of ordinary scalar loads or stores with unaligned addresses.
+
 muninit-const-in-rodata
 Target Report Var(TARGET_UNINIT_CONST_IN_RODATA)
 Put uninitialized constants in ROM (needs -membedded-data).
