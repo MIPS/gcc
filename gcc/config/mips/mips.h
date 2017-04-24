@@ -1024,6 +1024,7 @@ struct mips_cpu_info {
 
 /* ISA has ADDIU48 instruction.  */
 #define ISA_HAS_ADDIU48		(TARGET_MICROMIPS_R7 && ISA_HAS_XLP)
+#define ISA_HAS_ADDU4X4		(TARGET_MICROMIPS_R7 && ISA_HAS_XLP)
 
 /* ISA has a three-operand multiplication instruction (usually spelt "mul").  */
 #define ISA_HAS_MUL3		((TARGET_MIPS3900                       \
