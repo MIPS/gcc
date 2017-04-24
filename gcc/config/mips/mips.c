@@ -6010,9 +6010,15 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	switch (GET_MODE_SIZE (mode))
 	  {
 	  case 1: return "sb\t%z1,%0";
-	  case 2: return "sh\t%z1,%0";
-	  case 4: return "sw\t%z1,%0";
-	  case 8: return "sd\t%z1,%0";
+	  case 2: return ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 2)
+			  ? "sh\t%z1,%0"
+			  : "sh\t%z1,%0 # unaligned");
+	  case 4: return ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 4)
+			  ? "sw\t%z1,%0"
+			  : "sw\t%z1,%0 # unaligned");
+	  case 8: return ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 8)
+			  ? "sd\t%z1,%0"
+			  : "sd\t%z1,%0 # unaligned");
 	  default: gcc_unreachable ();
 	  }
     }
@@ -6068,18 +6074,30 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	    switch (GET_MODE_SIZE (mode))
 	      {
 	      case 1: return "lbu\t$0,%1";
-	      case 2: return "lhu\t$0,%1";
-	      case 4: return "lw\t$0,%1";
-	      case 8: return "ld\t$0,%1";
+	      case 2: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 2)
+			      ? "lhu\t$0,%1"
+			      : "lhu\t$0,%1 # unaligned");
+	      case 4: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 4)
+			      ? "lw\t$0,%1"
+			      : "lw\t$0,%1 # unaligned");
+	      case 8: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 8)
+			      ? "ld\t$0,%1"
+			      : "ld\t$0,%1 # unaligned");
 	      default: gcc_unreachable ();
 	      }
 	  else
 	    switch (GET_MODE_SIZE (mode))
 	      {
 	      case 1: return "lbu\t%0,%1";
-	      case 2: return "lhu\t%0,%1";
-	      case 4: return "lw\t%0,%1";
-	      case 8: return "ld\t%0,%1";
+	      case 2: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 2)
+			      ? "lhu\t%0,%1"
+			      : "lhu\t%0,%1 # unaligned");
+	      case 4: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 4)
+			      ? "lw\t%0,%1"
+			      : "lw\t%0,%1 # unaligned");
+	      case 8: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 8)
+			      ? "ld\t%0,%1"
+			      : "ld\t%0,%1 # unaligned");
 	      default: gcc_unreachable ();
 	      }
 	}
