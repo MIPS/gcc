@@ -1691,10 +1691,11 @@
 })
 
 (define_insn "mul<mode>3_mul3_nohilo"
-  [(set (match_operand:GPR 0 "register_operand" "=d")
-        (mult:GPR (match_operand:GPR 1 "register_operand" "d")
-                  (match_operand:GPR 2 "register_operand" "d")))]
-  "TARGET_LOONGSON_2EF || TARGET_LOONGSON_3A || ISA_HAS_R6<D>MUL"
+  [(set (match_operand:GPR 0 "register_operand" "=d,kd")
+	(mult:GPR (match_operand:GPR 1 "register_operand" "d,0")
+		  (match_operand:GPR 2 "register_operand" "d,kd")))]
+  "TARGET_LOONGSON_2EF || TARGET_LOONGSON_3A || ISA_HAS_R6<D>MUL
+   || ISA_HAS_MUL4X4"
 {
   if (TARGET_LOONGSON_2EF)
     return "<d>multu.g\t%0,%1,%2";
@@ -1704,7 +1705,19 @@
     return "<d>mul\t%0,%1,%2";
 }
   [(set_attr "type" "imul3nc")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "has_16bit_ver" "no,yes")
+   (set_attr "mode" "<MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "0")
+		    (ior (match_test "TARGET_LOONGSON_2EF")
+			 (match_test "TARGET_LOONGSON_3A")
+			 (match_test "ISA_HAS_R6<D>MUL")))
+		  (const_string "yes")
+	       (and (eq_attr "alternative" "1")
+		    (match_test "ISA_HAS_MUL4X4")
+		    (not (match_test "TARGET_64BIT")))
+		  (const_string "yes")]
+	      (const_string "no")))])
 
 (define_insn "mul<mode>3_mul3"
   [(set (match_operand:GPR 0 "register_operand" "=d,l")
