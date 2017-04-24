@@ -16867,7 +16867,11 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  x = convert_from_firstprivate_int (x, TREE_TYPE (new_var),
 						     is_reference (var),
 						     &fplist);
-		else if (is_reference (new_var))
+		/* Accelerators may not have alloca, so it's not
+		   possible to privatize local storage for those
+		   objects.  */
+		else if (is_reference (new_var)
+			 && TREE_CONSTANT (TYPE_SIZE (TREE_TYPE (var_type))))
 		  {
 		    /* Create a local object to hold the instance
 		       value.  */
