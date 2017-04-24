@@ -912,6 +912,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mdivide-traps  -mdivide-breaks @gol
 -mload-store-pairs  -mno-load-store-pairs @gol
+-munaligned-scalars  -mno-unaligned-scalars @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mimadd  -mno-imadd  -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-24k  -mno-fix-24k @gol
@@ -20915,6 +20916,15 @@ Enable (disable) an optimization that pairs consecutive load or store
 instructions to enable load/store bonding.  This option is enabled by
 default but only takes effect when the selected architecture is known
 to support bonding.
+
+@item -munaligned-scalars
+@itemx -mno-unaligned-scalars
+@opindex munaligned-scalar
+@opindex mno-unaligned-scalars
+Allow (disallow) use of ordinary scalar load or store instructions
+with unaligned addresses.  This option is disabled by default and
+only takes effect when the selected architecture is based on MIPS32R6
+or MIPS64R6.
 
 @item -mmemcpy
 @itemx -mno-memcpy
