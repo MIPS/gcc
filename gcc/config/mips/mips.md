@@ -4498,6 +4498,20 @@
    (set_attr "mode" "<MODE>")
    (set_attr "extended_mips16" "yes")])
 
+;; On MIPS32R6 and MIPS64R6 architectures, implementations should support
+;; unaligned access but may choose not to and just rely on ADEL or ADES
+;; exceptions to perform the unaligned load or store.  For cores that do
+;; support unaligned access then we allow ordinary loads and stores to
+;; be used irrespective of alignment.
+(define_expand "movmisalign<mode>"
+  [(set (match_operand:JOIN_MODE 0)
+	(match_operand:JOIN_MODE 1))]
+  "ISA_HAS_UNALIGNED_SCALARS"
+{
+  if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
+    DONE;
+})
+
 ;; An instruction to calculate the high part of a 64-bit SYMBOL_ABSOLUTE.
 ;; The required value is:
 ;;
