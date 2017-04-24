@@ -10620,7 +10620,7 @@
   [(set (match_operand:VI24_AVX512BW_1 0 "register_operand" "=v,v")
 	(ashiftrt:VI24_AVX512BW_1
 	  (match_operand:VI24_AVX512BW_1 1 "nonimmediate_operand" "v,vm")
-	  (match_operand:SI 2 "nonmemory_operand" "v,N")))]
+	  (match_operand:DI 2 "nonmemory_operand" "v,N")))]
   "TARGET_AVX512VL"
   "vpsra<ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}"
   [(set_attr "type" "sseishft")
@@ -10634,7 +10634,7 @@
   [(set (match_operand:VI24_AVX2 0 "register_operand" "=x,x")
 	(ashiftrt:VI24_AVX2
 	  (match_operand:VI24_AVX2 1 "register_operand" "0,x")
-	  (match_operand:SI 2 "nonmemory_operand" "xN,xN")))]
+	  (match_operand:DI 2 "nonmemory_operand" "xN,xN")))]
   "TARGET_SSE2"
   "@
    psra<ssemodesuffix>\t{%2, %0|%0, %2}
@@ -10667,7 +10667,7 @@
   [(set (match_operand:VI248_AVX512BW_AVX512VL 0 "register_operand" "=v,v")
 	(ashiftrt:VI248_AVX512BW_AVX512VL
 	  (match_operand:VI248_AVX512BW_AVX512VL 1 "nonimmediate_operand" "v,vm")
-	  (match_operand:SI 2 "nonmemory_operand" "v,N")))]
+	  (match_operand:DI 2 "nonmemory_operand" "v,N")))]
   "TARGET_AVX512F"
   "vpsra<ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}"
   [(set_attr "type" "sseishft")
@@ -10681,7 +10681,7 @@
   [(set (match_operand:VI2_AVX2_AVX512BW 0 "register_operand" "=x,v")
 	(any_lshift:VI2_AVX2_AVX512BW
 	  (match_operand:VI2_AVX2_AVX512BW 1 "register_operand" "0,v")
-	  (match_operand:SI 2 "nonmemory_operand" "xN,vN")))]
+	  (match_operand:DI 2 "nonmemory_operand" "xN,vN")))]
   "TARGET_SSE2 && <mask_mode512bit_condition> && <mask_avx512bw_condition>"
   "@
    p<vshift><ssemodesuffix>\t{%2, %0|%0, %2}
@@ -10700,7 +10700,7 @@
   [(set (match_operand:VI48_AVX2 0 "register_operand" "=x,x,v")
 	(any_lshift:VI48_AVX2
 	  (match_operand:VI48_AVX2 1 "register_operand" "0,x,v")
-	  (match_operand:SI 2 "nonmemory_operand" "xN,xN,vN")))]
+	  (match_operand:DI 2 "nonmemory_operand" "xN,xN,vN")))]
   "TARGET_SSE2 && <mask_mode512bit_condition>"
   "@
    p<vshift><ssemodesuffix>\t{%2, %0|%0, %2}
@@ -10720,7 +10720,7 @@
   [(set (match_operand:VI48_512 0 "register_operand" "=v,v")
 	(any_lshift:VI48_512
 	  (match_operand:VI48_512 1 "nonimmediate_operand" "v,m")
-	  (match_operand:SI 2 "nonmemory_operand" "vN,N")))]
+	  (match_operand:DI 2 "nonmemory_operand" "vN,N")))]
   "TARGET_AVX512F && <mask_mode512bit_condition>"
   "vp<vshift><ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}"
   [(set_attr "isa" "avx512f")
@@ -13516,18 +13516,6 @@
   "#"
   [(set_attr "isa" "*,sse4,*,*")])
 
-(define_insn_and_split "*vec_extractv4si_0_zext"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(zero_extend:DI
-	  (vec_select:SI
-	    (match_operand:V4SI 1 "register_operand" "v")
-	    (parallel [(const_int 0)]))))]
-  "TARGET_64BIT && TARGET_SSE2 && TARGET_INTER_UNIT_MOVES_FROM_VEC"
-  "#"
-  "&& reload_completed"
-  [(set (match_dup 0) (zero_extend:DI (match_dup 1)))]
-  "operands[1] = gen_lowpart (SImode, operands[1]);")
-
 (define_insn "*vec_extractv2di_0_sse"
   [(set (match_operand:DI 0 "nonimmediate_operand"     "=v,m")
 	(vec_select:DI
@@ -13545,6 +13533,35 @@
   "TARGET_SSE && reload_completed"
   [(set (match_dup 0) (match_dup 1))]
   "operands[1] = gen_lowpart (<MODE>mode, operands[1]);")
+
+(define_insn "*vec_extractv4si_0_zext_sse4"
+  [(set (match_operand:DI 0 "register_operand" "=r,x,v")
+	(zero_extend:DI
+	  (vec_select:SI
+	    (match_operand:V4SI 1 "register_operand" "Yj,x,v")
+	    (parallel [(const_int 0)]))))]
+  "TARGET_SSE4_1"
+  "#"
+  [(set_attr "isa" "x64,*,avx512f")])
+
+(define_insn "*vec_extractv4si_0_zext"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (vec_select:SI
+	    (match_operand:V4SI 1 "register_operand" "x")
+	    (parallel [(const_int 0)]))))]
+  "TARGET_64BIT && TARGET_SSE2 && TARGET_INTER_UNIT_MOVES_FROM_VEC"
+  "#")
+
+(define_split
+  [(set (match_operand:DI 0 "register_operand")
+	(zero_extend:DI
+	  (vec_select:SI
+	    (match_operand:V4SI 1 "register_operand")
+	    (parallel [(const_int 0)]))))]
+  "TARGET_SSE2 && reload_completed"
+  [(set (match_dup 0) (zero_extend:DI (match_dup 1)))]
+  "operands[1] = gen_lowpart (SImode, operands[1]);")
 
 (define_insn "*vec_extractv4si"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=rm,rm,Yr,*x,x,Yv")
