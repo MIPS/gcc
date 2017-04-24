@@ -1419,6 +1419,7 @@ insert_move_for_subreg (rtx_insn **before, rtx_insn **after, rtx origreg,
 }
 
 static int valid_address_p (machine_mode mode, rtx addr, addr_space_t as);
+static bool process_address (int, bool, rtx_insn **, rtx_insn **);
 
 /* Make reloads for subreg in operand NOP with internal subreg mode
    REG_MODE, add new reloads for further processing.  Return true if
@@ -1443,58 +1444,110 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
   reg = SUBREG_REG (operand);
   innermode = GET_MODE (reg);
   type = curr_static_id->operand[nop].type;
-  /* If we change address for paradoxical subreg of memory, the
-     address might violate the necessary alignment or the access might
-     be slow.  So take this into consideration.  We should not worry
-     about access beyond allocated memory for paradoxical memory
-     subregs as we don't substitute such equiv memory (see processing
-     equivalences in function lra_constraints) and because for spilled
-     pseudos we allocate stack memory enough for the biggest
-     corresponding paradoxical subreg.
-
-     However, do not blindly simplify a (subreg (mem ...)) for
-     WORD_REGISTER_OPERATIONS targets as this may lead to loading junk
-     data into a register when the inner is narrower than outer or
-     missing important data from memory when the inner is wider than
-     outer.  This rule only applies to modes that are no wider than
-     a word.  */
-  if (MEM_P (reg)
-      && (! SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (reg))
-	  || MEM_ALIGN (reg) >= GET_MODE_ALIGNMENT (mode))
-      && ! (GET_MODE_PRECISION (mode) != GET_MODE_PRECISION (innermode)
-	    && GET_MODE_SIZE (mode) <= UNITS_PER_WORD
-	    && GET_MODE_SIZE (innermode) <= UNITS_PER_WORD
-	    && WORD_REGISTER_OPERATIONS))
+  if (MEM_P (reg))
     {
-      rtx subst, old = *curr_id->operand_loc[nop];
-
+      const bool addr_was_valid
+	= valid_address_p (innermode, XEXP (reg, 0), MEM_ADDR_SPACE (reg));
       alter_subreg (curr_id->operand_loc[nop], false);
-      subst = *curr_id->operand_loc[nop];
+      rtx subst = *curr_id->operand_loc[nop];
       lra_assert (MEM_P (subst));
-      if (! valid_address_p (innermode, XEXP (reg, 0),
-			     MEM_ADDR_SPACE (reg))
+
+      if (!addr_was_valid
 	  || valid_address_p (GET_MODE (subst), XEXP (subst, 0),
-			      MEM_ADDR_SPACE (subst)))
-	return true;
-      else if ((get_constraint_type (lookup_constraint
-				     (curr_static_id->operand[nop].constraint))
-		!= CT_SPECIAL_MEMORY)
-	       /* We still can reload address and if the address is
-		  valid, we can remove subreg without reloading its
-		  inner memory.  */
-	       && valid_address_p (GET_MODE (subst),
-				   regno_reg_rtx
-				   [ira_class_hard_regs
-				    [base_reg_class (GET_MODE (subst),
-						     MEM_ADDR_SPACE (subst),
-						     ADDRESS, SCRATCH)][0]],
-				   MEM_ADDR_SPACE (subst)))
-	return true;
+			      MEM_ADDR_SPACE (subst))
+	  || ((get_constraint_type (lookup_constraint
+				    (curr_static_id->operand[nop].constraint))
+	       != CT_SPECIAL_MEMORY)
+	      /* We still can reload address and if the address is
+		 valid, we can remove subreg without reloading its
+		 inner memory.  */
+	      && valid_address_p (GET_MODE (subst),
+				  regno_reg_rtx
+				  [ira_class_hard_regs
+				   [base_reg_class (GET_MODE (subst),
+						    MEM_ADDR_SPACE (subst),
+						    ADDRESS, SCRATCH)][0]],
+				  MEM_ADDR_SPACE (subst))))
+	{
+	  /* If we change the address for a paradoxical subreg of memory, the
+	     new address might violate the necessary alignment or the access
+	     might be slow; take this into consideration.  We need not worry
+	     about accesses beyond allocated memory for paradoxical memory
+	     subregs as we don't substitute such equiv memory (see processing
+	     equivalences in function lra_constraints) and because for spilled
+	     pseudos we allocate stack memory enough for the biggest
+	     corresponding paradoxical subreg.
+
+	     However, do not blindly simplify a (subreg (mem ...)) for
+	     WORD_REGISTER_OPERATIONS targets as this may lead to loading junk
+	     data into a register when the inner is narrower than outer or
+	     missing important data from memory when the inner is wider than
+	     outer.  This rule only applies to modes that are no wider than
+	     a word.  */
+	  if (!(GET_MODE_PRECISION (mode) != GET_MODE_PRECISION (innermode)
+		&& GET_MODE_SIZE (mode) <= UNITS_PER_WORD
+		&& GET_MODE_SIZE (innermode) <= UNITS_PER_WORD
+		&& WORD_REGISTER_OPERATIONS)
+	      && (!(MEM_ALIGN (subst) < GET_MODE_ALIGNMENT (mode)
+		    && SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (subst)))
+		  || (MEM_ALIGN (reg) < GET_MODE_ALIGNMENT (innermode)
+		      && SLOW_UNALIGNED_ACCESS (innermode, MEM_ALIGN (reg)))))
+	    return true;
+
+	  *curr_id->operand_loc[nop] = operand;
+
+	  /* But if the address was not valid, we cannot reload the MEM without
+	     reloading the address first.  */
+	  if (!addr_was_valid)
+	    process_address (nop, false, &before, &after);
+
+	  /* INNERMODE is fast, MODE slow.  Reload the mem in INNERMODE.  */
+	  enum reg_class rclass
+	    = (enum reg_class) targetm.preferred_reload_class (reg, ALL_REGS);
+	  if (get_reload_reg (curr_static_id->operand[nop].type, innermode,
+			      reg, rclass, TRUE, "slow mem", &new_reg))
+	    {
+	      bool insert_before, insert_after;
+	      bitmap_set_bit (&lra_subreg_reload_pseudos, REGNO (new_reg));
+
+	      insert_before = (type != OP_OUT
+			       || GET_MODE_SIZE (innermode)
+				    > GET_MODE_SIZE (mode));
+	      insert_after = type != OP_IN;
+	      insert_move_for_subreg (insert_before ? &before : NULL,
+				      insert_after ? &after : NULL,
+				      reg, new_reg);
+	    }
+	  SUBREG_REG (operand) = new_reg;
+
+	  /* Convert to MODE.  */
+	  reg = operand;
+	  rclass
+	    = (enum reg_class) targetm.preferred_reload_class (reg, ALL_REGS);
+	  if (get_reload_reg (curr_static_id->operand[nop].type, mode, reg,
+			      rclass, TRUE, "slow mem", &new_reg))
+	    {
+	      bool insert_before, insert_after;
+	      bitmap_set_bit (&lra_subreg_reload_pseudos, REGNO (new_reg));
+
+	      insert_before = type != OP_OUT;
+	      insert_after = type != OP_IN;
+	      insert_move_for_subreg (insert_before ? &before : NULL,
+				      insert_after ? &after : NULL,
+				      reg, new_reg);
+	    }
+	  *curr_id->operand_loc[nop] = new_reg;
+	  lra_process_new_insns (curr_insn, before, after,
+				 "Inserting slow mem reload");
+	  return true;
+	}
 
       /* If the address was valid and became invalid, prefer to reload
 	 the memory.  Typical case is when the index scale should
 	 correspond the memory.  */
-      *curr_id->operand_loc[nop] = old;
+      *curr_id->operand_loc[nop] = operand;
+      /* Do not return false here as the MEM_P (reg) will be processed
+	 later in this function.  */
     }
   else if (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER)
     {
