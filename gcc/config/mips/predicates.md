@@ -334,6 +334,10 @@
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 0)")))
 
+(define_predicate "ubp_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 16, 0)")))
+
 (define_predicate "uh2_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 1)")))
@@ -361,6 +365,10 @@
 (define_predicate "uw8_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 2)")))
+
+(define_predicate "unbc_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -0xfff, 0)")))
 
 (define_predicate "addiur2_operand"
   (and (match_code "const_int")

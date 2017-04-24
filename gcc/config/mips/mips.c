@@ -4978,6 +4978,8 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
 
     case MINUS:
     case PLUS:
+      if (TARGET_MICROMIPS_R7 && IN_RANGE (x, -0xfff, 0xffff))
+	return true;
       /* These instructions take 16-bit signed immediates.  */
       return SMALL_OPERAND (x);
 
