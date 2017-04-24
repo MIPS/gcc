@@ -1584,7 +1584,7 @@ make_ptrmem_declarator (cp_cv_quals cv_qualifiers, tree class_type,
 }
 
 /* Make a declarator for the function given by TARGET, with the
-   indicated PARMS.  The CV_QUALIFIERS aply to the function, as in
+   indicated PARMS.  The CV_QUALIFIERS apply to the function, as in
    "const"-qualified member function.  The EXCEPTION_SPECIFICATION
    indicates what exceptions can be thrown.  */
 
@@ -23386,7 +23386,15 @@ cp_parser_member_declaration (cp_parser* parser)
 		  token = cp_lexer_peek_token (parser->lexer);
 		  /* If the next token is a semicolon, consume it.  */
 		  if (token->type == CPP_SEMICOLON)
-		    cp_lexer_consume_token (parser->lexer);
+		    {
+		      location_t semicolon_loc
+			= cp_lexer_consume_token (parser->lexer)->location;
+		      gcc_rich_location richloc (semicolon_loc);
+		      richloc.add_fixit_remove ();
+		      warning_at_rich_loc (&richloc, OPT_Wextra_semi,
+					   "extra %<;%> after in-class "
+					   "function definition");
+		    }
 		  goto out;
 		}
 	      else
@@ -24846,8 +24854,12 @@ cp_parser_std_attribute_list (cp_parser *parser, tree attr_ns)
 	    error_at (token->location,
 		      "expected attribute before %<...%>");
 	  else
-	    TREE_VALUE (attribute)
-	      = make_pack_expansion (TREE_VALUE (attribute));
+	    {
+	      tree pack = make_pack_expansion (TREE_VALUE (attribute));
+	      if (pack == error_mark_node)
+		return error_mark_node;
+	      TREE_VALUE (attribute) = pack;
+	    }
 	  token = cp_lexer_peek_token (parser->lexer);
 	}
       if (token->type != CPP_COMMA)
