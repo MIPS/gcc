@@ -1313,9 +1313,9 @@
   "")
 
 (define_insn "*add<mode>3"
-  [(set (match_operand:GPR 0 "register_operand" "=!u,d,!u,!u,!ks,!d,d,d,d")
-	(plus:GPR (match_operand:GPR 1 "register_operand" "!u,d,!u,!ks,!ks,0,d,d,d")
-		  (match_operand:GPR 2 "arith_operand" "!u,d,Uead,Uuw6,Uesp,Usb4,Q,Unbc,Uubp")))]
+  [(set (match_operand:GPR 0 "register_operand" "=!u,d,!u,!u,!ks,!d,d,d,d,kd")
+	(plus:GPR (match_operand:GPR 1 "register_operand" "!u,d,!u,!ks,!ks,0,d,d,d,0")
+		  (match_operand:GPR 2 "arith_operand" "!u,d,Uead,Uuw6,Uesp,Usb4,Q,Unbc,Uubp,kd")))]
   "!TARGET_MIPS16"
 {
   if (which_alternative == 0 
@@ -1325,16 +1325,19 @@
     return "<d>addiu\t%0,%1,%2";
 }
   [(set_attr "alu_type" "add")
-   (set_attr "compression" "micromips32,*,micromips32,micromips32,micromips32,micromips32,*,micromips32,micromips32")
+   (set_attr "compression" "micromips32,*,micromips32,micromips32,micromips32,micromips32,*,micromips32,micromips32,micromips")
    (set_attr "mode" "<MODE>")
-   (set_attr "has_16bit_ver" "yes,yes,yes,rri_add,yes,no,rri_add,no,no")
+   (set_attr "has_16bit_ver" "yes,yes,yes,rri_add,yes,no,rri_add,no,no,yes")
    (set (attr "enabled")
-	(cond [(and (eq_attr "alternative" "4,7")
+	(cond [(and (eq_attr "alternative" "4,7,9")
 		    (match_test "TARGET_MICROMIPS_R7")
 		    (match_test "TARGET_64BIT"))
 		  (const_string "no")
 	       (and (eq_attr "alternative" "7,8")
 		    (not (match_test "TARGET_MICROMIPS_R7")))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "9")
+		    (not (match_test "ISA_HAS_ADDU4X4")))
 		  (const_string "no")]
 	      (const_string "yes")))])
 
