@@ -1142,6 +1142,10 @@ struct mips_cpu_info {
 
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
 
+#define ISA_HAS_UNALIGNED_SCALARS					\
+				(TARGET_UNALIGNED_SCALARS		\
+				 && mips_isa_rev >= 6)
+
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 
 #define ISA_HAS_IEEE_754_2008	(mips_isa_rev >= 2)
