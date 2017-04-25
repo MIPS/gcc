@@ -3933,7 +3933,7 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (sign_extend:HI
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
-  "!ISA_HAS_SEH && !GENERATE_MIPS16E"
+  "!ISA_HAS_SEB && !GENERATE_MIPS16E"
   "@
    #
    lb\t%0,%1"
@@ -3953,7 +3953,7 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (sign_extend:HI
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
-  "ISA_HAS_SEH"
+  "ISA_HAS_SEB"
 {
   switch (which_alternative)
     {
