@@ -5436,6 +5436,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
       new_reg = lra_create_new_reg (mode, original_reg, rclass, "split");
       reg_renumber[REGNO (new_reg)] = hard_regno;
     }
+  int new_regno = REGNO (new_reg);
   save = emit_spill_move (true, new_reg, original_reg);
   if (NEXT_INSN (save) != NULL_RTX && !call_save_p)
     {
@@ -5444,7 +5445,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	  fprintf
 	    (lra_dump_file,
 	     "	  Rejecting split %d->%d resulting in > 2 save insns:\n",
-	     original_regno, REGNO (new_reg));
+	     original_regno, new_regno);
 	  dump_rtl_slim (lra_dump_file, save, NULL, -1, 0);
 	  fprintf (lra_dump_file,
 		   "	))))))))))))))))))))))))))))))))))))))))))))))))\n");
@@ -5459,18 +5460,37 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	  fprintf (lra_dump_file,
 		   "	Rejecting split %d->%d "
 		   "resulting in > 2 restore insns:\n",
-		   original_regno, REGNO (new_reg));
+		   original_regno, new_regno);
 	  dump_rtl_slim (lra_dump_file, restore, NULL, -1, 0);
 	  fprintf (lra_dump_file,
 		   "	))))))))))))))))))))))))))))))))))))))))))))))))\n");
 	}
       return false;
     }
+  /* Transfer equivalence information to the spill register, so that
+     if we fail to allocate the spill register, we have the option of
+     rematerializing the original value instead of spilling to the stack.  */
+  if (!HARD_REGISTER_NUM_P (original_regno)
+      && ira_reg_equiv[original_regno].defined_p
+      && mode == PSEUDO_REGNO_MODE (original_regno))
+    {
+      ira_expand_reg_equiv ();
+      ira_reg_equiv[new_regno].defined_p = true;
+      if (ira_reg_equiv[original_regno].memory)
+	ira_reg_equiv[new_regno].memory
+	  = copy_rtx (ira_reg_equiv[original_regno].memory);
+      if (ira_reg_equiv[original_regno].constant)
+	ira_reg_equiv[new_regno].constant
+	  = copy_rtx (ira_reg_equiv[original_regno].constant);
+      if (ira_reg_equiv[original_regno].invariant)
+	ira_reg_equiv[new_regno].invariant
+	  = copy_rtx (ira_reg_equiv[original_regno].invariant);
+    }
   after_p = usage_insns[original_regno].after_p;
-  lra_reg_info[REGNO (new_reg)].restore_rtx = regno_reg_rtx[original_regno];
-  bitmap_set_bit (&check_only_regs, REGNO (new_reg));
+  lra_reg_info[new_regno].restore_rtx = regno_reg_rtx[original_regno];
+  bitmap_set_bit (&check_only_regs, new_regno);
   bitmap_set_bit (&check_only_regs, original_regno);
-  bitmap_set_bit (&lra_split_regs, REGNO (new_reg));
+  bitmap_set_bit (&lra_split_regs, new_regno);
   for (;;)
     {
       if (GET_CODE (next_usage_insns) != INSN_LIST)
@@ -5486,7 +5506,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
       if (lra_dump_file != NULL)
 	{
 	  fprintf (lra_dump_file, "    Split reuse change %d->%d:\n",
-		   original_regno, REGNO (new_reg));
+		   original_regno, new_regno);
 	  dump_insn_slim (lra_dump_file, as_a <rtx_insn *> (usage_insn));
 	}
     }
