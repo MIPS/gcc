@@ -25396,7 +25396,7 @@ umips_move_balc_p (rtx *operands)
   if (!IN_RANGE (REGNO (operands[1]), 16, 23)
       && !(REGNO (operands[1]) == 0
 	  || const_0_operand (operands[1], GET_MODE (operands[1])))
-      && !IN_RANGE (REGNO (operands[1]), 2, 7))
+      && !IN_RANGE (REGNO (operands[1]), 4, 10))
     return false;
   if (!satisfies_constraint_S (operands[2]))
     return false;
