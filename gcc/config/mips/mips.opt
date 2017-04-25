@@ -592,3 +592,6 @@ Target Undocumented Var(TARGET_MOVEP_NOXLP) Init (0)
 
 mmovebalc-noxlp
 Target Undocumented Var(TARGET_MOVEBALC_NOXLP) init (0)
+
+mbranch-on-bit
+Target Undocumented Var(TARGET_BRANCH_ON_BIT) Init (0)
