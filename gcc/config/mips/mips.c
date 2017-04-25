@@ -12159,7 +12159,7 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
   int n;
   bool fp_p = false;
 
-  if (!ISA_HAS_SAVE_RESTORE)
+  if (!ISA_HAS_SAVE_RESTORE && !(ISA_HAS_RESTORE_JRC && jrc_p))
     return false;
 
   /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
