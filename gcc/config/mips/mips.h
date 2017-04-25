@@ -248,7 +248,7 @@ struct mips_cpu_info {
 					|| (TARGET_USE_SAVE_RESTORE && TARGET_SOFT_FLOAT)) \
 				       && mips_abi == ABI_32)
 #define ISA_HAS_SAVE_RESTORE	(GENERATE_MIPS16E_SAVE_RESTORE \
-				 || (TARGET_MICROMIPS_R7 && ISA_HAS_XLP))
+				 || TARGET_MICROMIPS_R7)
 /* ISA has RESTORE.JRC and RESTORE.JRC[16] instructions.  */
 #define ISA_HAS_RESTORE_JRC	TARGET_MICROMIPS_R7
 /* It is assumed that RESTORE.JRC/RESTORE.JRC[16] has the same number of bits
