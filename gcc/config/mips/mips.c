@@ -11947,6 +11947,11 @@ mips_valid_save_restore_p (unsigned int mask, bool compressed_p)
   if (compressed_p && !BITSET_P (mask, RETURN_ADDR_REGNUM))
     return false;
 
+  /* If we save $fp then we must save $ra.  */
+  if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)
+      && !BITSET_P (mask, RETURN_ADDR_REGNUM))
+    return false;
+
   /* $gp cannot be saved in non-XLP core and 16-bit SAVE/RESTORE.  */
   if ((!ISA_HAS_XLP || compressed_p)
       && BITSET_P (mask, GLOBAL_POINTER_REGNUM))
