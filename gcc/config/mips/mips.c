@@ -27588,7 +27588,7 @@ static const int umipsr7_alloc_order[] =
   /* Call-saved GPRs.  */
   16, 17, 18, 19, 20, 21, 22, 23, 30,
   /* Call-clobbered GPRs.  */
-  2,   3,  8,  9, 10, 11, 12, 13, 14, 15,
+  8,   9, 10, 11,  2,  3, 12, 13, 14, 15,
   24, 25,
 };
 
