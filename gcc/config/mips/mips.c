@@ -10485,6 +10485,17 @@ mips_init_print_operand_punct (void)
 static void
 mips_print_int_branch_condition (FILE *file, enum rtx_code code, int letter)
 {
+  const char *code_name = "";
+
+  if (letter == 'i' || letter == 'I')
+    switch (code)
+      {
+      case GEU: code_name = "geiu"; break;
+      case LTU: code_name = "ltiu"; break;
+      default:
+	break;
+      }
+
   switch (code)
     {
     case EQ:
@@ -10497,9 +10508,17 @@ mips_print_int_branch_condition (FILE *file, enum rtx_code code, int letter)
     case GEU:
     case LTU:
     case LEU:
-      /* Conveniently, the MIPS names for these conditions are the same
-	 as their RTL equivalents.  */
-      fputs (GET_RTX_NAME (code), file);
+      if ((code == GEU || code == LTU)
+	  && (letter == 'i' || letter == 'I'))
+	fputs (code_name, file);
+      else
+	{
+	  /* Conveniently, the MIPS names for these conditions are the same
+	     as their RTL equivalents.  */
+	  fputs (GET_RTX_NAME (code), file);
+	  if (letter == 'i' || letter == 'I')
+	    fputs ("i", file);
+	}
       break;
 
     default:
@@ -10558,6 +10577,9 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'R'	Print the low-part relocation associated with OP.
    'C'	Print the integer branch condition for comparison OP.
    'N'	Print the inverse of the integer branch condition for comparison OP.
+   'i'	Print the integer branch condition for comparison OP with immediate.
+   'I'	Print the inverse of the integer branch condition for comparison OP
+	  with immediate.
    'F'	Print the FPU branch condition for comparison OP.
    'W'	Print the inverse of the FPU branch condition for comparison OP.
    'w'	Print a MSA register.
@@ -10685,10 +10707,12 @@ mips_print_operand (FILE *file, rtx op, int letter)
       break;
 
     case 'C':
+    case 'i':
       mips_print_int_branch_condition (file, code, letter);
       break;
 
     case 'N':
+    case 'I':
       mips_print_int_branch_condition (file, reverse_condition (code), letter);
       break;
 
@@ -16986,8 +17010,8 @@ mips_output_order_conditional_branch (rtx_insn *insn, rtx *operands,
 	}
       else if (CONST_INT_P (operands[3]) && TARGET_MICROMIPS_R7)
 	{
-	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1i", "%2,%3,%0");
-	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1i", "%2,%3,%0");
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%i1", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%I1", "%2,%3,%0");
 	}
       else
 	{
