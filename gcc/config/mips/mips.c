@@ -27718,8 +27718,10 @@ mips_insn_has_short_form_r7_p_attr (rtx_insn *insn)
 
   extract_insn (insn);
 
-  switch (has_16bit_ver
-	  && get_attr_enabled (insn) == ENABLED_YES)
+  if (get_attr_enabled (insn) == ENABLED_NO)
+    return false;
+
+  switch (has_16bit_ver)
     {
       case HAS_16BIT_VER_YES:
 	return true;
