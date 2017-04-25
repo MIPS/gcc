@@ -148,7 +148,7 @@
 (define_attr "jal" "unset,direct,indirect"
   (const_string "unset"))
 
-(define_attr "cbranch_cmp_op" "unset,reg,imm,zero,c1zero"
+(define_attr "cbranch_cmp_op" "unset,reg,imm,zero,c1zero,bit"
   (const_string "unset"))
 
 ;; This attribute is YES if the instruction is a jal macro (not a
@@ -615,7 +615,8 @@
 	  (cond [;; Variant that can handle 11-bit range when the second
 		 ;; operand is an immediate.
 		 (and (match_test "TARGET_NANOMIPS")
-		      (eq_attr "cbranch_cmp_op" "imm")
+		      (ior (eq_attr "cbranch_cmp_op" "imm")
+			   (eq_attr "cbranch_cmp_op" "bit"))
 		      (and (le (minus (match_dup 0) (pc)) (const_int 2046))
 			   (le (minus (pc) (match_dup 0)) (const_int 2048))))
 		   (const_int 4)
@@ -1102,9 +1103,11 @@
 ;; The value of the bit when the branch is taken for branch_bit patterns.
 ;; Comparison is always against zero so this depends on the operator.
 (define_code_attr bbv [(eq "0") (ne "1")])
+(define_code_attr bbeq [(eq "eq") (ne "ne")])
 
 ;; This is the inverse value of bbv.
 (define_code_attr bbinv [(eq "1") (ne "0")])
+(define_code_attr bbeqinv [(eq "ne") (ne "eq")])
 
 ;; The sel mnemonic to use depending on the condition test.
 (define_code_attr sel [(eq "seleqz") (ne "selnez")])
@@ -6662,13 +6665,26 @@
 	 (pc)))]
   "ISA_HAS_BBIT && UINTVAL (operands[2]) < GET_MODE_BITSIZE (<MODE>mode)"
 {
-  return
-    mips_output_conditional_branch (insn, operands,
-				    MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"),
-				    MIPS_BRANCH ("bbit<bbinv>", "%1,%2,%0"));
+  if (TARGET_NANOMIPS)
+    return
+      mips_output_conditional_branch (insn, operands,
+				      MIPS_BRANCH_C ("bb<bbeq>z", "%1,%2,%0"),
+				      MIPS_BRANCH_C ("bb<bbeqinv>z",
+						   "%1,%2,%0"));
+  else
+    return
+      mips_output_conditional_branch (insn, operands,
+				      MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"),
+				      MIPS_BRANCH ("bbit<bbinv>",
+						   "%1,%2,%0"));
 }
   [(set_attr "type"	     "branch")
-   (set_attr "branch_likely" "no")])
+   (set_attr "cbranch_cmp_op" "bit")
+   (set_attr "branch_likely" "no")
+   (set (attr "compact_form")
+	(cond [(match_test "TARGET_NANOMIPS")
+		 (const_string "always")]
+	      (const_string "*")))])
 
 (define_insn "*branch_bit<bbv><mode>_inverted"
   [(set (pc)
@@ -6682,13 +6698,25 @@
 	 (label_ref (match_operand 0 ""))))]
   "ISA_HAS_BBIT && UINTVAL (operands[2]) < GET_MODE_BITSIZE (<MODE>mode)"
 {
-  return
-    mips_output_conditional_branch (insn, operands,
-				    MIPS_BRANCH ("bbit<bbinv>", "%1,%2,%0"),
-				    MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"));
+  if (TARGET_NANOMIPS)
+    return
+      mips_output_conditional_branch (insn, operands,
+				      MIPS_BRANCH_C ("bb<bbeqinv>z",
+						   "%1,%2,%0"),
+				      MIPS_BRANCH_C ("bb<bbeq>z", "%1,%2,%0"));
+  else
+    return
+      mips_output_conditional_branch (insn, operands,
+				      MIPS_BRANCH ("bbit<bbinv>", "%1,%2,%0"),
+				      MIPS_BRANCH ("bbit<bbv>", "%1,%2,%0"));
 }
   [(set_attr "type"	     "branch")
-   (set_attr "branch_likely" "no")])
+   (set_attr "cbranch_cmp_op" "bit")
+   (set_attr "branch_likely" "no")
+   (set (attr "compact_form")
+	(cond [(match_test "TARGET_NANOMIPS")
+		 (const_string "always")]
+	      (const_string "*")))])
 
 ;;
 ;;  ....................

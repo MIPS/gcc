@@ -575,3 +575,6 @@ Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init(0)
 
 mjumptable-opt
 Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(0)
+
+mbranch-on-bit
+Target Undocumented Var(TARGET_BRANCH_ON_BIT) Init(1)
