@@ -29,8 +29,19 @@
   (and (match_code "const_int")
        (match_test "SMALL_OPERAND (INTVAL (op))")))
 
+(define_predicate "const_arith_operand_r7"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -0xfff, 0xffff)")))
+
 (define_predicate "arith_operand"
   (ior (match_operand 0 "const_arith_operand")
+       (match_operand 0 "register_operand")))
+
+(define_predicate "arith_operand_add"
+  (ior (and (match_test "TARGET_MICROMIPS_R7")
+	    (match_operand 0 "const_arith_operand_r7"))
+       (and (match_test "!TARGET_MICROMIPS_R7")
+	    (match_operand 0 "const_arith_operand"))
        (match_operand 0 "register_operand")))
 
 (define_predicate "const_immlsa_operand"
