@@ -1411,7 +1411,9 @@ struct mips_cpu_info {
 #define ISA_HAS_BADDU		(TARGET_OCTEON && !TARGET_MIPS16)
 
 /* ISA includes the bbit* instructions.  */
-#define ISA_HAS_BBIT		(TARGET_OCTEON && !TARGET_MIPS16)
+#define ISA_HAS_BBIT		((TARGET_OCTEON && !TARGET_MIPS16)	\
+				 || (TARGET_NANOMIPS		\
+				     && TARGET_BRANCH_ON_BIT))
 
 /* ISA includes the cins instruction.  */
 #define ISA_HAS_CINS		(TARGET_OCTEON && !TARGET_MIPS16)
