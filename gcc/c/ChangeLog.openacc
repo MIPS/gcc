@@ -1,3 +1,15 @@
+2017-04-26  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_variable_list): New c_omp_region_type
+	argument.  Use it to specialize handling of OMP_CLAUSE_REDUCTION for
+	OpenACC.
+	(c_parser_omp_clause_reduction): Update call to
+	c_parser_omp_variable_list.  Propage OpenACC errors as necessary.
+	(c_parser_oacc_all_clauses): Update call to
+	p_parser_omp_clause_reduction.
+	(c_parser_omp_all_clauses): Likewise.
+	(c_parser_cilk_all_clauses): Likewise.
+
 2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* c-parser.c (c_parser_omp_clause_name): Remove occurences of

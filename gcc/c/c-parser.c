@@ -965,12 +965,13 @@ class token_pair
 
   /* Like token_pair::require_close, except that tokens will be skipped
      until the desired token is found.  An error message is still produced
-     if the next token is not as expected.  */
+     if the next token is not as expected, unless QUIET is set.  */
 
-  void skip_until_found_close (c_parser *parser) const
+  void skip_until_found_close (c_parser *parser, bool quiet = false) const
   {
     c_parser_skip_until_found (parser, traits_t::close_token_type,
-			       traits_t::close_gmsgid, m_open_loc);
+			       quiet ? NULL : traits_t::close_gmsgid,
+			       m_open_loc);
   }
 
  private:
@@ -11504,7 +11505,8 @@ c_parser_oacc_wait_list (c_parser *parser, location_t clause_loc, tree list)
 static tree
 c_parser_omp_variable_list (c_parser *parser,
 			    location_t clause_loc,
-			    enum omp_clause_code kind, tree list)
+			    enum omp_clause_code kind, tree list,
+			    enum c_omp_region_type ort = C_ORT_OMP)
 {
   if (c_parser_next_token_is_not (parser, CPP_NAME)
       || c_parser_peek_token (parser)->id_kind != C_ID_ID)
@@ -11563,6 +11565,22 @@ c_parser_omp_variable_list (c_parser *parser,
 	      /* FALLTHROUGH  */
 	    case OMP_CLAUSE_DEPEND:
 	    case OMP_CLAUSE_REDUCTION:
+	      if (kind == OMP_CLAUSE_REDUCTION && ort == C_ORT_ACC)
+		{
+		  switch (c_parser_peek_token (parser)->type)
+		    {
+		    case CPP_OPEN_PAREN:
+		    case CPP_OPEN_SQUARE:
+		    case CPP_DOT:
+		    case CPP_DEREF:
+		      error ("invalid reduction variable");
+		      t = error_mark_node;
+		    default:;
+		      break;
+		    }
+		  if (t == error_mark_node)
+		    break;
+		}
 	      while (c_parser_next_token_is (parser, CPP_OPEN_SQUARE))
 		{
 		  tree low_bound = NULL_TREE, length = NULL_TREE;
@@ -12916,9 +12934,12 @@ c_parser_omp_clause_private (c_parser *parser, tree list)
      identifier  */
 
 static tree
-c_parser_omp_clause_reduction (c_parser *parser, tree list)
+c_parser_omp_clause_reduction (c_parser *parser, tree list,
+			       enum c_omp_region_type ort)
 {
   location_t clause_loc = c_parser_peek_token (parser)->location;
+  bool seen_error = false;
+
   matching_parens parens;
   if (parens.require_open (parser))
     {
@@ -12982,7 +13003,13 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 	  tree nl, c;
 
 	  nl = c_parser_omp_variable_list (parser, clause_loc,
-					   OMP_CLAUSE_REDUCTION, list);
+					   OMP_CLAUSE_REDUCTION, list, ort);
+	  if (c_parser_peek_token (parser)->type != CPP_CLOSE_PAREN)
+	    {
+	      seen_error = true;
+	      goto cleanup;
+	    }
+
 	  for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
 	    {
 	      tree d = OMP_CLAUSE_DECL (c), type;
@@ -13018,7 +13045,8 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 
 	  list = nl;
 	}
-      parens.skip_until_found_close (parser);
+    cleanup:
+      parens.skip_until_found_close (parser, seen_error);
     }
   return list;
 }
@@ -14145,7 +14173,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "private";
 	  break;
 	case PRAGMA_OACC_CLAUSE_REDUCTION:
-	  clauses = c_parser_omp_clause_reduction (parser, clauses);
+	  clauses = c_parser_omp_clause_reduction (parser, clauses, C_ORT_ACC);
 	  c_name = "reduction";
 	  break;
 	case PRAGMA_OACC_CLAUSE_SEQ:
@@ -14307,7 +14335,7 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "private";
 	  break;
 	case PRAGMA_OMP_CLAUSE_REDUCTION:
-	  clauses = c_parser_omp_clause_reduction (parser, clauses);
+	  clauses = c_parser_omp_clause_reduction (parser, clauses, C_ORT_OMP);
 	  c_name = "reduction";
 	  break;
 	case PRAGMA_OMP_CLAUSE_SCHEDULE:
