@@ -30845,7 +30845,8 @@ check_no_duplicate_clause (tree clauses, enum omp_clause_code code,
 
 static tree
 cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
-				tree list, bool *colon)
+				tree list, bool *colon,
+				enum c_omp_region_type ort = C_ORT_OMP)
 {
   cp_token *token;
   bool saved_colon_corrects_to_scope_p = parser->colon_corrects_to_scope_p;
@@ -30918,6 +30919,21 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	      /* FALLTHROUGH.  */
 	    case OMP_CLAUSE_DEPEND:
 	    case OMP_CLAUSE_REDUCTION:
+	      if (kind == OMP_CLAUSE_REDUCTION && ort == C_ORT_ACC)
+		{
+		  switch (cp_lexer_peek_token (parser->lexer)->type)
+		    {
+		    case CPP_OPEN_PAREN:
+		    case CPP_OPEN_SQUARE:
+		    case CPP_DOT:
+		    case CPP_DEREF:
+		      error ("invalid reduction variable");
+		      decl = error_mark_node;
+		      goto skip_comma;
+		    default:;
+		      break;
+		    }
+		}
 	      while (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SQUARE))
 		{
 		  tree low_bound = NULL_TREE, length = NULL_TREE;
@@ -32051,7 +32067,8 @@ cp_parser_omp_clause_ordered (cp_parser *parser,
      id-expression  */
 
 static tree
-cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
+cp_parser_omp_clause_reduction (cp_parser *parser, tree list,
+				enum c_omp_region_type ort)
 {
   enum tree_code code = ERROR_MARK;
   tree nlist, c, id = NULL_TREE;
@@ -32132,7 +32149,7 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
     goto resync_fail;
 
   nlist = cp_parser_omp_var_list_no_open (parser, OMP_CLAUSE_REDUCTION, list,
-					  NULL);
+					  NULL, ort);
   for (c = nlist; c != list; c = OMP_CLAUSE_CHAIN (c))
     {
       OMP_CLAUSE_REDUCTION_CODE (c) = code;
@@ -33262,7 +33279,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "private";
 	  break;
 	case PRAGMA_OACC_CLAUSE_REDUCTION:
-	  clauses = cp_parser_omp_clause_reduction (parser, clauses);
+	  clauses = cp_parser_omp_clause_reduction (parser, clauses, C_ORT_ACC);
 	  c_name = "reduction";
 	  break;
 	case PRAGMA_OACC_CLAUSE_SEQ:
@@ -33454,7 +33471,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "private";
 	  break;
 	case PRAGMA_OMP_CLAUSE_REDUCTION:
-	  clauses = cp_parser_omp_clause_reduction (parser, clauses);
+	  clauses = cp_parser_omp_clause_reduction (parser, clauses, C_ORT_OMP);
 	  c_name = "reduction";
 	  break;
 	case PRAGMA_OMP_CLAUSE_SCHEDULE:
@@ -38915,7 +38932,7 @@ cp_parser_cilk_simd_all_clauses (cp_parser *parser, cp_token *pragma_token)
 					  clauses);
       else if (c_kind == PRAGMA_CILK_CLAUSE_REDUCTION)
 	/* Use the OMP 4.0 equivalent function.  */
-	clauses = cp_parser_omp_clause_reduction (parser, clauses);
+	clauses = cp_parser_omp_clause_reduction (parser, clauses, C_ORT_CILK);
       else
 	{
 	  clauses = error_mark_node;
