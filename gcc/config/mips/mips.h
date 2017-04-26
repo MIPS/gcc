@@ -3168,12 +3168,14 @@ do {									\
     }									\
   else if (TARGET_MICROMIPS_R7_JUMPTABLE_OPT)				\
     {									\
+      const char *s							\
+       = ADDR_DIFF_VEC_FLAGS (BODY).offset_unsigned ? "" : "s";		\
       if (GET_MODE (BODY) == HImode)					\
-	fprintf (STREAM, "\t.half\t(%sL%d-%sL%d)>>1\n",			\
-		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
+	fprintf (STREAM, "\t.%shword\t(%sL%d-%sL%d)>>1\n",		\
+		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);\
       else if (GET_MODE (BODY) == QImode)				\
-	fprintf (STREAM, "\t.byte\t(%sL%d-%sL%d)>>1\n",			\
-		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
+	fprintf (STREAM, "\t.%sbyte\t(%sL%d-%sL%d)>>1\n",		\
+		 s, LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);\
       else								\
 	fprintf (STREAM, "\t.word\t(%sL%d-%sL%d)>>1\n",			\
 		 LOCAL_LABEL_PREFIX, VALUE, LOCAL_LABEL_PREFIX, REL);	\
