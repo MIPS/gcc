@@ -5597,10 +5597,10 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       tree arg1 = (*arglist)[1];
       tree arg1_type = TREE_TYPE (arg1);
 
-      /* Both arguments must be vectors and the types must match.  */
-      if (arg0_type != arg1_type)
-	goto bad;
+      /* Both arguments must be vectors and the types must be compatible.  */
       if (TREE_CODE (arg0_type) != VECTOR_TYPE)
+	goto bad;
+      if (!lang_hooks.types_compatible_p (arg0_type, arg1_type))
 	goto bad;
 
       switch (TYPE_MODE (TREE_TYPE (arg0_type)))
@@ -5612,8 +5612,8 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  case E_TImode:
 	    {
 	      /* For scalar types just use a multiply expression.  */
-	      return fold_build2_loc (loc, MULT_EXPR, TREE_TYPE (arg0),
-					arg0, arg1);
+	      return fold_build2_loc (loc, MULT_EXPR, TREE_TYPE (arg0), arg0,
+				      fold_convert (TREE_TYPE (arg0), arg1));
 	    }
 	  case E_SFmode:
 	    {
@@ -5657,12 +5657,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == SFmode)
 	  || (TYPE_MODE (TREE_TYPE (arg0_type)) == DFmode))
 	{
-	  /* Both arguments must be vectors and the types must match.  */
-	  if (arg0_type != arg1_type)
-	    goto bad;
+	  /* Both arguments must be vectors and the types must be compatible.  */
 	  if (TREE_CODE (arg0_type) != VECTOR_TYPE)
 	    goto bad;
-
+	  if (!lang_hooks.types_compatible_p (arg0_type, arg1_type))
+	    goto bad;
 
 	  switch (TYPE_MODE (TREE_TYPE (arg0_type)))
 	    {
@@ -5722,10 +5721,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       tree arg2_type = TREE_TYPE (arg2);
 
       /* All 3 arguments must be vectors of (signed or unsigned) (int or
-	  __int128) and the types must match.  */
-      if ((arg0_type != arg1_type) || (arg1_type != arg2_type))
-	goto bad;
+	 __int128) and the types must be compatible.  */
       if (TREE_CODE (arg0_type) != VECTOR_TYPE)
+	goto bad;
+      if (!lang_hooks.types_compatible_p (arg0_type, arg1_type) ||
+	  !lang_hooks.types_compatible_p (arg1_type, arg2_type))
 	goto bad;
 
       switch (TYPE_MODE (TREE_TYPE (arg0_type)))
@@ -5785,10 +5785,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       tree arg2_type = TREE_TYPE (arg2);
 
       /* All 3 arguments must be vectors of (signed or unsigned) (int or
-	__int128) and the types must match.  */
-      if (arg0_type != arg1_type || arg1_type != arg2_type)
-	goto bad;
+	 __int128) and the types must be compatible.  */
       if (TREE_CODE (arg0_type) != VECTOR_TYPE)
+	goto bad;
+      if (!lang_hooks.types_compatible_p (arg0_type, arg1_type) ||
+	  !lang_hooks.types_compatible_p (arg1_type, arg2_type))
 	goto bad;
 
       switch (TYPE_MODE (TREE_TYPE (arg0_type)))

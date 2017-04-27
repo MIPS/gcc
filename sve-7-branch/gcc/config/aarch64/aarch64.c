@@ -3001,6 +3001,7 @@ aarch64_function_arg_alignment (machine_mode mode, const_tree type)
 {
   if (!type)
     return GET_MODE_ALIGNMENT (mode);
+
   if (integer_zerop (TYPE_SIZE (type)))
     return 0;
 
@@ -3013,9 +3014,9 @@ aarch64_function_arg_alignment (machine_mode mode, const_tree type)
     return TYPE_ALIGN (TREE_TYPE (type));
 
   unsigned int alignment = 0;
-
   for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-    alignment = std::max (alignment, DECL_ALIGN (field));
+    if (TREE_CODE (field) == FIELD_DECL)
+      alignment = std::max (alignment, DECL_ALIGN (field));
 
   return alignment;
 }
@@ -3107,24 +3108,28 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
      entirely general registers.  */
   if (allocate_ncrn && (ncrn + nregs <= NUM_ARG_REGS))
     {
-      unsigned int alignment = aarch64_function_arg_alignment (mode, type);
 
       gcc_assert (nregs == 0 || nregs == 1 || nregs == 2);
 
       /* C.8 if the argument has an alignment of 16 then the NGRN is
          rounded up to the next even number.  */
-      if (nregs == 2 && alignment == 16 * BITS_PER_UNIT && ncrn % 2)
+      if (nregs == 2
+	  && ncrn % 2
+	  /* The == 16 * BITS_PER_UNIT instead of >= 16 * BITS_PER_UNIT
+	     comparison is there because for > 16 * BITS_PER_UNIT
+	     alignment nregs should be > 2 and therefore it should be
+	     passed by reference rather than value.  */
+	  && aarch64_function_arg_alignment (mode, type) == 16 * BITS_PER_UNIT)
 	{
 	  ++ncrn;
 	  gcc_assert (ncrn + nregs <= NUM_ARG_REGS);
 	}
+
       /* NREGS can be 0 when e.g. an empty structure is to be passed.
          A reg is still generated for it, but the caller should be smart
 	 enough not to use it.  */
       if (nregs == 0 || nregs == 1 || GET_MODE_CLASS (mode) == MODE_INT)
-	{
-	  pcum->aapcs_reg = gen_rtx_REG (mode, R0_REGNUM + ncrn);
-	}
+	pcum->aapcs_reg = gen_rtx_REG (mode, R0_REGNUM + ncrn);
       else
 	{
 	  rtx par;
@@ -3152,6 +3157,7 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
      this argument and align the total size if necessary.  */
 on_stack:
   pcum->aapcs_stack_words = size / UNITS_PER_WORD;
+
   if (aarch64_function_arg_alignment (mode, type) == 16 * BITS_PER_UNIT)
     pcum->aapcs_stack_size = ROUND_UP (pcum->aapcs_stack_size,
 				       16 / UNITS_PER_WORD);
@@ -3244,12 +3250,7 @@ static unsigned int
 aarch64_function_arg_boundary (machine_mode mode, const_tree type)
 {
   unsigned int alignment = aarch64_function_arg_alignment (mode, type);
-
-  if (alignment < PARM_BOUNDARY)
-    alignment = PARM_BOUNDARY;
-  if (alignment > STACK_BOUNDARY)
-    alignment = STACK_BOUNDARY;
-  return alignment;
+  return MIN (MAX (alignment, PARM_BOUNDARY), STACK_BOUNDARY);
 }
 
 /* Implement TARGET_GET_RAW_RESULT_MODE and TARGET_GET_RAW_ARG_MODE.  */
