@@ -542,8 +542,8 @@ static const struct cpu_vector_cost thunderx2t99_vector_cost =
 /* Generic costs for branch instructions.  */
 static const struct cpu_branch_cost generic_branch_cost =
 {
-  2,  /* Predictable.  */
-  2   /* Unpredictable.  */
+  1,  /* Predictable.  */
+  3   /* Unpredictable.  */
 };
 
 /* Branch costs for Cortex-A57.  */
@@ -594,7 +594,7 @@ static const struct tune_params generic_tunings =
   &generic_approx_modes,
   4, /* memmov_cost  */
   2, /* issue_rate  */
-  AARCH64_FUSE_NOTHING, /* fusible_ops  */
+  (AARCH64_FUSE_AES_AESMC), /* fusible_ops  */
   8,	/* function_align.  */
   8,	/* jump_align.  */
   4,	/* loop_align.  */
@@ -3367,7 +3367,7 @@ aarch64_libgcc_cmp_return_mode (void)
 static void
 aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 {
-  rtx reg1 = gen_rtx_REG (ptr_mode, PROBE_STACK_FIRST_REG);
+  rtx reg1 = gen_rtx_REG (Pmode, PROBE_STACK_FIRST_REG);
 
   /* See the same assertion on PROBE_INTERVAL above.  */
   gcc_assert ((first % ARITH_FACTOR) == 0);
@@ -3379,9 +3379,9 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       const HOST_WIDE_INT base = ROUND_UP (size, ARITH_FACTOR);
 
       emit_set_insn (reg1,
-		     plus_constant (ptr_mode,
+		     plus_constant (Pmode,
 				    stack_pointer_rtx, -(first + base)));
-      emit_stack_probe (plus_constant (ptr_mode, reg1, base - size));
+      emit_stack_probe (plus_constant (Pmode, reg1, base - size));
     }
 
   /* The run-time loop is made up of 8 insns in the generic case while the
@@ -3391,7 +3391,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       HOST_WIDE_INT i, rem;
 
       emit_set_insn (reg1,
-		     plus_constant (ptr_mode,
+		     plus_constant (Pmode,
 				    stack_pointer_rtx,
 				    -(first + PROBE_INTERVAL)));
       emit_stack_probe (reg1);
@@ -3402,7 +3402,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       for (i = 2 * PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
 	{
 	  emit_set_insn (reg1,
-			 plus_constant (ptr_mode, reg1, -PROBE_INTERVAL));
+			 plus_constant (Pmode, reg1, -PROBE_INTERVAL));
 	  emit_stack_probe (reg1);
 	}
 
@@ -3411,11 +3411,11 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 	{
 	  const HOST_WIDE_INT base = ROUND_UP (rem, ARITH_FACTOR);
 
-	  emit_set_insn (reg1, plus_constant (ptr_mode, reg1, -base));
-	  emit_stack_probe (plus_constant (ptr_mode, reg1, base - rem));
+	  emit_set_insn (reg1, plus_constant (Pmode, reg1, -base));
+	  emit_stack_probe (plus_constant (Pmode, reg1, base - rem));
 	}
       else
-	emit_stack_probe (plus_constant (ptr_mode, reg1, -rem));
+	emit_stack_probe (plus_constant (Pmode, reg1, -rem));
     }
 
   /* Otherwise, do the same as above, but in a loop.  Note that we must be
@@ -3425,7 +3425,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
      equality test for the loop condition.  */
   else
     {
-      rtx reg2 = gen_rtx_REG (ptr_mode, PROBE_STACK_SECOND_REG);
+      rtx reg2 = gen_rtx_REG (Pmode, PROBE_STACK_SECOND_REG);
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
@@ -3436,11 +3436,11 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* TEST_ADDR = SP + FIRST.  */
       emit_set_insn (reg1,
-		     plus_constant (ptr_mode, stack_pointer_rtx, -first));
+		     plus_constant (Pmode, stack_pointer_rtx, -first));
 
       /* LAST_ADDR = SP + FIRST + ROUNDED_SIZE.  */
       emit_set_insn (reg2,
-		     plus_constant (ptr_mode, stack_pointer_rtx,
+		     plus_constant (Pmode, stack_pointer_rtx,
 				    -(first + rounded_size)));
 
 
@@ -3456,10 +3456,7 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 	 probes at FIRST + N * PROBE_INTERVAL for values of N from 1
 	 until it is equal to ROUNDED_SIZE.  */
 
-      if (ptr_mode == DImode)
-	emit_insn (gen_probe_stack_range_di (reg1, reg1, reg2));
-      else
-	emit_insn (gen_probe_stack_range_si (reg1, reg1, reg2));
+      emit_insn (gen_probe_stack_range (reg1, reg1, reg2));
 
 
       /* Step 4: probe at FIRST + SIZE if we cannot assert at compile-time
@@ -3473,11 +3470,11 @@ aarch64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 	    {
 	      const HOST_WIDE_INT base = ROUND_UP (rem, ARITH_FACTOR);
 
-	      emit_set_insn (reg2, plus_constant (ptr_mode, reg2, -base));
-	      emit_stack_probe (plus_constant (ptr_mode, reg2, base - rem));
+	      emit_set_insn (reg2, plus_constant (Pmode, reg2, -base));
+	      emit_stack_probe (plus_constant (Pmode, reg2, base - rem));
 	    }
 	  else
-	    emit_stack_probe (plus_constant (ptr_mode, reg2, -rem));
+	    emit_stack_probe (plus_constant (Pmode, reg2, -rem));
 	}
     }
 
@@ -9899,14 +9896,14 @@ aarch64_validate_mcpu (const char *str, const struct processor **res,
   switch (parse_res)
     {
       case AARCH64_PARSE_MISSING_ARG:
-	error ("missing cpu name in -mcpu=%qs", str);
+	error ("missing cpu name in %<-mcpu=%s%>", str);
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for -mcpu", str);
 	aarch64_print_hint_for_core (str);
 	break;
       case AARCH64_PARSE_INVALID_FEATURE:
-	error ("invalid feature modifier in -mcpu=%qs", str);
+	error ("invalid feature modifier in %<-mcpu=%s%>", str);
 	break;
       default:
 	gcc_unreachable ();
@@ -9933,14 +9930,14 @@ aarch64_validate_march (const char *str, const struct processor **res,
   switch (parse_res)
     {
       case AARCH64_PARSE_MISSING_ARG:
-	error ("missing arch name in -march=%qs", str);
+	error ("missing arch name in %<-march=%s%>", str);
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for -march", str);
 	aarch64_print_hint_for_arch (str);
 	break;
       case AARCH64_PARSE_INVALID_FEATURE:
-	error ("invalid feature modifier in -march=%qs", str);
+	error ("invalid feature modifier in %<-march=%s%>", str);
 	break;
       default:
 	gcc_unreachable ();
@@ -9966,7 +9963,7 @@ aarch64_validate_mtune (const char *str, const struct processor **res)
   switch (parse_res)
     {
       case AARCH64_PARSE_MISSING_ARG:
-	error ("missing cpu name in -mtune=%qs", str);
+	error ("missing cpu name in %<-mtune=%s%>", str);
 	break;
       case AARCH64_PARSE_INVALID_ARG:
 	error ("unknown value %qs for -mtune", str);
@@ -10702,8 +10699,12 @@ aarch64_process_target_attr (tree args, const char* pragma_or_attr)
 
       return true;
     }
-  /* We expect to find a string to parse.  */
-  gcc_assert (TREE_CODE (args) == STRING_CST);
+
+  if (TREE_CODE (args) != STRING_CST)
+    {
+      error ("attribute %<target%> argument not a string");
+      return false;
+    }
 
   size_t len = strlen (TREE_STRING_POINTER (args));
   char *str_to_check = (char *) alloca (len + 1);
@@ -13975,7 +13976,7 @@ aarch64_float_const_representable_p (rtx x)
 
   /* If the low part of the mantissa has bits set we cannot represent
      the value.  */
-  if (w.elt (0) != 0)
+  if (w.ulow () != 0)
     return false;
   /* We have rejected the lower HOST_WIDE_INT, so update our
      understanding of how many bits lie in the mantissa and

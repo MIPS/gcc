@@ -819,6 +819,24 @@ vect_data_ref_required_alignment (struct data_reference *dr)
   return ret;
 }
 
+/* Return the minimum alignment in elements of load or store statement
+   STMT.  */
+
+unsigned int
+vect_known_alignment_in_elements (gimple *stmt)
+{
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
+  tree elem_type = TREE_TYPE (STMT_VINFO_VECTYPE (stmt_info));
+  unsigned int unit_size = tree_to_uhwi (TYPE_SIZE_UNIT (elem_type));
+  unsigned int alignment = DR_MISALIGNMENT (dr);
+  if (alignment == 0)
+    alignment = DR_TARGET_ALIGNMENT (dr);
+  else
+    alignment &= -alignment;
+  return alignment / unit_size;
+}
+
 /* Function vect_compute_data_ref_alignment
 
    Compute the misalignment of the data reference DR.
@@ -863,6 +881,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   vectype = STMT_VINFO_VECTYPE (stmt_info);
   bit_alignment = vect_data_ref_required_alignment (dr);
   byte_alignment = bit_alignment / BITS_PER_UNIT;
+  DR_TARGET_ALIGNMENT (dr) = byte_alignment;
 
   /* In case the dataref is in an inner-loop of the loop that is being
      vectorized (LOOP), we use the base and misalignment information
@@ -919,7 +938,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base = ref;
   while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
-  unsigned int base_alignment;
+  unsigned int base_alignment = 0;
   unsigned HOST_WIDE_INT base_bitpos;
   get_object_alignment_1 (base, &base_alignment, &base_bitpos);
   /* As data-ref analysis strips the MEM_REF down to its base operand
@@ -928,7 +947,16 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
      DR_BASE_ADDRESS.  */
   poly_int64 diff = base_bitpos;
   if (TREE_CODE (base) == MEM_REF)
-    diff -= mem_ref_offset (base).force_shwi () * BITS_PER_UNIT;
+    {
+      /* Note all this only works if DR_BASE_ADDRESS is the same as
+	 MEM_REF operand zero, otherwise DR/SCEV analysis might have factored
+	 in other offsets.  We need to rework DR to compute the alingment
+	 of DR_BASE_ADDRESS as long as all information is still available.  */
+      if (operand_equal_p (TREE_OPERAND (base, 0), base_addr, 0))
+	diff -= mem_ref_offset (base).force_shwi () * BITS_PER_UNIT;
+      else
+	diff = TYPE_ALIGN (TREE_TYPE (DR_REF (dr)));
+    }
   if (may_ne (diff, 0))
     base_alignment = MIN (base_alignment, known_alignment (diff));
   /* Also look at the alignment of the base address DR analysis
@@ -1083,7 +1111,7 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
       bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
       int misal = DR_MISALIGNMENT (dr);
       misal += negative ? -npeel * dr_size : npeel * dr_size;
-      misal &= (vect_data_ref_required_alignment (dr) / BITS_PER_UNIT) - 1;
+      misal &= DR_TARGET_ALIGNMENT (dr) - 1;
       SET_DR_MISALIGNMENT (dr, misal);
       return;
     }
@@ -1286,8 +1314,8 @@ vect_get_data_access_cost (struct data_reference *dr,
 
 typedef struct _vect_peel_info
 {
-  int npeel;
   struct data_reference *dr;
+  int npeel;
   unsigned int count;
 } *vect_peel_info;
 
@@ -1748,16 +1776,16 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         {
           if (known_alignment_for_access_p (dr))
             {
-	      unsigned int npeel_tmp, vecalign, dr_size;
+	      unsigned int npeel_tmp, target_align, dr_size;
 	      bool negative = tree_int_cst_compare (DR_STEP (dr),
 						    size_zero_node) < 0;
 
 	      /* Save info about DR in the hash table.  */
 	      vectype = STMT_VINFO_VECTYPE (stmt_info);
-	      vecalign = vect_data_ref_required_alignment (dr) / BITS_PER_UNIT;
+	      target_align = DR_TARGET_ALIGNMENT (dr);
 	      dr_size = vect_get_dr_size (dr);
 	      mis = (negative ? DR_MISALIGNMENT (dr) : -DR_MISALIGNMENT (dr));
-	      npeel_tmp = (mis & (vecalign - 1)) / dr_size;
+	      npeel_tmp = (mis & (target_align - 1)) / dr_size;
 
               /* For multiple types, it is possible that the bigger type access
                  will have more than one peeling option.  E.g., a loop with two
@@ -1770,7 +1798,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  Hence, except for the immediate peeling amount, we also want
                  to try to add full vector size, while we don't exceed
                  vectorization factor.
-                 We do this automtically for cost model, since we calculate cost
+                 We do this automatically for cost model, since we calculate cost
                  for every peeling option.  */
               if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
 		{
@@ -1793,7 +1821,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                 {
                   vect_peeling_hash_insert (&peeling_htab, loop_vinfo,
 					    dr, npeel_tmp);
-		  npeel_tmp += vecalign / dr_size;
+		  npeel_tmp += target_align / dr_size;
                 }
 
               all_misalignments_unknown = false;
@@ -1983,9 +2011,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  vectorization factor minus the misalignment as an element
                  count.  */
 	      mis = negative ? DR_MISALIGNMENT (dr0) : -DR_MISALIGNMENT (dr0);
-	      unsigned int vecalign
-		= vect_data_ref_required_alignment (dr0) / BITS_PER_UNIT;
-	      npeel = (mis & (vecalign - 1)) / vect_get_dr_size (dr0);
+	      unsigned int target_align = DR_TARGET_ALIGNMENT (dr0);
+	      npeel = (mis & (target_align - 1)) / vect_get_dr_size (dr0);
             }
 
 	  /* For interleaved data access every iteration accesses all the
@@ -2056,9 +2083,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               unsigned max_peel = npeel;
               if (max_peel == 0)
                 {
-		  unsigned int vecalign
-		    = vect_data_ref_required_alignment (dr0) / BITS_PER_UNIT;
-		  max_peel = (vecalign / vect_get_dr_size (dr0)) - 1;
+		  unsigned int target_align = DR_TARGET_ALIGNMENT (dr0);
+		  max_peel = (target_align / vect_get_dr_size (dr0)) - 1;
                 }
               if (max_peel > max_allowed_peel)
                 {
@@ -2386,6 +2412,8 @@ vect_analyze_data_refs_alignment (loop_vec_info vinfo)
 		    }
 
 		  SET_DR_MISALIGNMENT (dr, -1);
+		  DR_TARGET_ALIGNMENT (dr)
+		    = TYPE_ALIGN_UNIT (TREE_TYPE (DR_REF (dr)));
 		  LOOP_VINFO_FIRSTFAULTING_EXECUTION (vinfo) = true;
 		}
 	      else
@@ -4795,8 +4823,7 @@ vect_duplicate_ssa_name_ptr_info (tree name, data_reference *dr)
     mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (name));
   else
     {
-      unsigned int align = (vect_data_ref_required_alignment (dr)
-			    / BITS_PER_UNIT);
+      unsigned int align = DR_TARGET_ALIGNMENT (dr);
       set_ptr_info_alignment (SSA_NAME_PTR_INFO (name), align, misalign);
     }
 }
@@ -6092,8 +6119,7 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
 	new_temp = copy_ssa_name (ptr);
       else
 	new_temp = make_ssa_name (TREE_TYPE (ptr));
-      unsigned int align = (vect_data_ref_required_alignment (dr)
-			    / BITS_PER_UNIT);
+      unsigned int align = DR_TARGET_ALIGNMENT (dr);
       new_stmt = gimple_build_assign
 		   (new_temp, BIT_AND_EXPR, ptr,
 		    build_int_cst (TREE_TYPE (ptr), -(HOST_WIDE_INT) align));

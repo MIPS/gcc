@@ -116,6 +116,9 @@ s390_host_detect_local_cpu (int argc, const char **argv)
 	    case 0x2964:
 	      cpu = "z13";
 	      break;
+	    default:
+	      cpu = "arch12";
+	      break;
 	    }
 	}
       if (has_features == 0 && strncmp (buf, "features", 8) == 0)

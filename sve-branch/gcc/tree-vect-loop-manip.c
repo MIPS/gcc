@@ -873,12 +873,13 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop,
 /* Given the condition expression COND, put it as the last statement of
    GUARD_BB; set both edges' probability; set dominator of GUARD_TO to
    DOM_BB; return the skip edge.  GUARD_TO is the target basic block to
-   skip the loop.  PROBABILITY is the skip edge's probability.  */
+   skip the loop.  PROBABILITY is the skip edge's probability.  Mark the
+   new edge as irreducible if IRREDUCIBLE_P is true.  */
 
 static edge
 slpeel_add_loop_guard (basic_block guard_bb, tree cond,
 		       basic_block guard_to, basic_block dom_bb,
-		       int probability)
+		       int probability, bool irreducible_p)
 {
   gimple_stmt_iterator gsi;
   edge new_e, enter_e;
@@ -905,9 +906,17 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond,
   new_e->count = guard_bb->count;
   new_e->probability = probability;
   new_e->count = apply_probability (enter_e->count, probability);
+  if (irreducible_p)
+    new_e->flags |= EDGE_IRREDUCIBLE_LOOP;
+
   enter_e->count -= new_e->count;
   enter_e->probability = inverse_probability (probability);
   set_immediate_dominator (CDI_DOMINATORS, guard_to, dom_bb);
+
+  /* Split enter_e to preserve LOOPS_HAVE_PREHEADERS.  */
+  if (enter_e->dest->loop_father->header == enter_e->dest)
+    split_edge (enter_e);
+
   return new_e;
 }
 
@@ -1257,9 +1266,8 @@ get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
 
   /* For speculative loops we need to align to the vector size.  */
-  unsigned int vectype_align = (vect_data_ref_required_alignment (dr)
-				/ BITS_PER_UNIT);
-  gcc_assert (vectype_align != 0);
+  unsigned int target_align = DR_TARGET_ALIGNMENT (dr);
+  gcc_assert (target_align != 0);
 
   bool negative = tree_int_cst_compare (DR_STEP (dr), size_zero_node) < 0;
   tree offset = (negative
@@ -1268,16 +1276,16 @@ get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
   tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt, seq,
 							  offset, loop);
   tree type = unsigned_type_for (TREE_TYPE (start_addr));
-  tree vectype_align_minus_1 = build_int_cst (type, vectype_align - 1);
+  tree target_align_minus_1 = build_int_cst (type, target_align - 1);
   HOST_WIDE_INT elem_size
     = int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
   tree elem_size_log = build_int_cst (type, exact_log2 (elem_size));
 
-  /* Create:  misalign_in_bytes = addr & (vectype_align - 1).  */
+  /* Create:  misalign_in_bytes = addr & (target_align - 1).  */
   tree int_start_addr = gimple_convert (seq, type, start_addr);
   tree misalign_in_bytes = gimple_build (seq, BIT_AND_EXPR, type,
 					 int_start_addr,
-					 vectype_align_minus_1);
+					 target_align_minus_1);
 
   /* Create:  misalign_in_elems = misalign_in_bytes / element_size.  */
   tree misalign_in_elems = gimple_build (seq, RSHIFT_EXPR, type,
@@ -1298,7 +1306,7 @@ get_misalign_in_elems (gimple_seq *seq, loop_vec_info loop_vinfo)
    If the misalignment of DR is known at compile time:
      addr_mis = int mis = DR_MISALIGNMENT (dr);
    Else, compute address misalignment in bytes:
-     addr_mis = addr & (vectype_align - 1)
+     addr_mis = addr & (target_align - 1)
 
    prolog_niters = ((VF - addr_mis/elem_size)&(VF-1))/step
 
@@ -1329,8 +1337,7 @@ vect_gen_prolog_loop_niters (loop_vec_info loop_vinfo,
   gimple *dr_stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
-  unsigned int vectype_align = (vect_data_ref_required_alignment (dr)
-				/ BITS_PER_UNIT);
+  unsigned int target_align = DR_TARGET_ALIGNMENT (dr);
   tree niters_type = (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
 		      ? size_type_node
 		      : TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)));
@@ -1352,7 +1359,7 @@ vect_gen_prolog_loop_niters (loop_vec_info loop_vinfo,
       tree type = TREE_TYPE (misalign_in_elems);
       HOST_WIDE_INT elem_size
 	= int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
-      HOST_WIDE_INT align_in_elems = vectype_align / elem_size;
+      HOST_WIDE_INT align_in_elems = target_align / elem_size;
       tree align_in_elems_minus_1 = build_int_cst (type, align_in_elems - 1);
       tree align_in_elems_tree = build_int_cst (type, align_in_elems);
 
@@ -2121,6 +2128,7 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 
   struct loop *prolog, *epilog = NULL, *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *first_loop = loop;
+  bool irred_flag = loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP;
   create_lcssa_for_virtual_phi (loop);
   update_ssa (TODO_update_ssa_only_virtuals);
 
@@ -2213,7 +2221,8 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_to = split_edge (loop_preheader_edge (loop));
 	  guard_e = slpeel_add_loop_guard (guard_bb, guard_cond,
 					   guard_to, guard_bb,
-					   inverse_probability (prob_prolog));
+					   inverse_probability (prob_prolog),
+					   irred_flag);
 	  e = EDGE_PRED (guard_to, 0);
 	  e = (e != guard_e ? e : EDGE_PRED (guard_to, 1));
 	  slpeel_update_phi_nodes_for_guard1 (prolog, loop, guard_e, e);
@@ -2276,7 +2285,8 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_to = split_edge (loop_preheader_edge (epilog));
 	  guard_e = slpeel_add_loop_guard (guard_bb, guard_cond,
 					   guard_to, guard_bb,
-					   inverse_probability (prob_vector));
+					   inverse_probability (prob_vector),
+					   irred_flag);
 	  e = EDGE_PRED (guard_to, 0);
 	  e = (e != guard_e ? e : EDGE_PRED (guard_to, 1));
 	  slpeel_update_phi_nodes_for_guard1 (first_loop, epilog, guard_e, e);
@@ -2320,7 +2330,8 @@ vect_do_peeling (loop_vec_info loop_vinfo, tree niters, tree nitersm1,
 	  guard_to = split_edge (single_exit (epilog));
 	  guard_e = slpeel_add_loop_guard (guard_bb, guard_cond, guard_to,
 					   skip_vector ? anchor : guard_bb,
-					   inverse_probability (prob_epilog));
+					   inverse_probability (prob_epilog),
+					   irred_flag);
 	  slpeel_update_phi_nodes_for_guard2 (loop, epilog, guard_e,
 					      single_exit (epilog));
 	  /* Only need to handle basic block before epilog loop if it's not

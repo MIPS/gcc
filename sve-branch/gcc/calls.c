@@ -242,6 +242,9 @@ prepare_call_address (tree fndecl_or_type, rtx funexp, rtx static_chain_value,
 	  DECL_STATIC_CHAIN (fndecl_or_type) = 1;
 	  rtx chain = targetm.calls.static_chain (fndecl_or_type, false);
 
+	  if (GET_MODE (funexp) != Pmode)
+	    funexp = convert_memory_address (Pmode, funexp);
+
 	  /* Avoid long live ranges around function calls.  */
 	  funexp = copy_to_mode_reg (Pmode, funexp);
 
@@ -5705,3 +5708,6 @@ must_pass_in_stack_var_size_or_pad (machine_mode mode, const_tree type)
 
   return false;
 }
+
+/* Tell the garbage collector about GTY markers in this source file.  */
+#include "gt-calls.h"

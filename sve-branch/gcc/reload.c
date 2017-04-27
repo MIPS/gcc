@@ -1077,7 +1077,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       && !CANNOT_CHANGE_MODE_CLASS (MACRO_MODE (GET_MODE (SUBREG_REG (in))),
 				    MACRO_MODE (inmode), rclass)
 #endif
-      && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (in))]
+      && contains_allocatable_reg_of_mode[rclass][GET_MODE (SUBREG_REG (in))]
       && (CONSTANT_P (SUBREG_REG (in))
 	  || GET_CODE (SUBREG_REG (in)) == PLUS
 	  || strict_low
@@ -1181,7 +1181,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       && !CANNOT_CHANGE_MODE_CLASS (MACRO_MODE (GET_MODE (SUBREG_REG (out))),
 				    MACRO_MODE (outmode), rclass)
 #endif
-      && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (out))]
+      && contains_allocatable_reg_of_mode[rclass][GET_MODE (SUBREG_REG (out))]
       && (CONSTANT_P (SUBREG_REG (out))
 	  || strict_low
 	  || (((REG_P (SUBREG_REG (out))
@@ -4030,14 +4030,14 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 			     &XEXP (recog_data.operand[i], 0), (rtx*) 0,
 			     base_reg_class (VOIDmode, as, MEM, SCRATCH),
 			     address_mode,
-			     VOIDmode, 0, 0, i, RELOAD_FOR_INPUT);
+			     VOIDmode, 0, 0, i, RELOAD_OTHER);
 	    rld[operand_reloadnum[i]].inc
 	      = GET_MODE_SIZE (GET_MODE (recog_data.operand[i]));
 
 	    /* If this operand is an output, we will have made any
 	       reloads for its address as RELOAD_FOR_OUTPUT_ADDRESS, but
 	       now we are treating part of the operand as an input, so
-	       we must change these to RELOAD_FOR_INPUT_ADDRESS.  */
+	       we must change these to RELOAD_FOR_OTHER_ADDRESS.  */
 
 	    if (modified[i] == RELOAD_WRITE)
 	      {
@@ -4046,10 +4046,10 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 		    if (rld[j].opnum == i)
 		      {
 			if (rld[j].when_needed == RELOAD_FOR_OUTPUT_ADDRESS)
-			  rld[j].when_needed = RELOAD_FOR_INPUT_ADDRESS;
+			  rld[j].when_needed = RELOAD_FOR_OTHER_ADDRESS;
 			else if (rld[j].when_needed
 				 == RELOAD_FOR_OUTADDR_ADDRESS)
-			  rld[j].when_needed = RELOAD_FOR_INPADDR_ADDRESS;
+			  rld[j].when_needed = RELOAD_FOR_OTHER_ADDRESS;
 		      }
 		  }
 	      }

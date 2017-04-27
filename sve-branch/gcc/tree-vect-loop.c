@@ -8168,6 +8168,50 @@ vect_populate_mask_array (loop_vec_info loop_vinfo, vec<tree> &masks,
 }
 
 
+/* Scale profiling counters by estimation for LOOP which is vectorized
+   by factor VF.  */
+
+static void
+scale_profile_for_vect_loop (struct loop *loop, unsigned vf)
+{
+  edge preheader = loop_preheader_edge (loop);
+  /* Reduce loop iterations by the vectorization factor.  */
+  gcov_type new_est_niter = niter_for_unrolled_loop (loop, vf);
+  gcov_type freq_h = loop->header->count, freq_e = preheader->count;
+
+  /* Use frequency only if counts are zero.  */
+  if (freq_h == 0 && freq_e == 0)
+    {
+      freq_h = loop->header->frequency;
+      freq_e = EDGE_FREQUENCY (preheader);
+    }
+  if (freq_h != 0)
+    {
+      gcov_type scale;
+
+      /* Avoid dropping loop body profile counter to 0 because of zero count
+	 in loop's preheader.  */
+      freq_e = MAX (freq_e, 1);
+      /* This should not overflow.  */
+      scale = GCOV_COMPUTE_SCALE (freq_e * (new_est_niter + 1), freq_h);
+      scale_loop_frequencies (loop, scale, REG_BR_PROB_BASE);
+    }
+
+  basic_block exit_bb = single_pred (loop->latch);
+  edge exit_e = single_exit (loop);
+  exit_e->count = loop_preheader_edge (loop)->count;
+  exit_e->probability = REG_BR_PROB_BASE / (new_est_niter + 1);
+
+  edge exit_l = single_pred_edge (loop->latch);
+  int prob = exit_l->probability;
+  exit_l->probability = REG_BR_PROB_BASE - exit_e->probability;
+  exit_l->count = exit_bb->count - exit_e->count;
+  if (exit_l->count < 0)
+    exit_l->count = 0;
+  if (prob > 0)
+    scale_bbs_frequencies_int (&loop->latch, 1, exit_l->probability, prob);
+}
+
 /* Function vect_transform_loop.
 
    The analysis phase has determined that the loop is vectorizable.
@@ -8194,18 +8238,12 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   bool transform_pattern_stmt = false;
   bool check_profitability = false;
   unsigned int th;
-  /* Record number of iterations before we started tampering with the profile. */
-  gcov_type expected_iterations = expected_loop_iterations_unbounded (loop);
 
   lowest_vf = constant_lower_bound (vf);
   lowest_vf = MIN (lowest_vf, LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo));
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location, "=== vec_transform_loop ===\n");
-
-  /* If profile is inprecise, we have chance to fix it up.  */
-  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
-    expected_iterations = LOOP_VINFO_INT_NITERS (loop_vinfo);
 
   /* Use the more conservative vectorization threshold.  If the number
      of iterations is constant assume the cost check has been performed
@@ -8593,10 +8631,9 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   slpeel_finalize_loop_iterations (loop, loop_vinfo, niters_vector,
 				   niters_minus_gap);
 
-  /* Reduce loop iterations by the vectorization factor.  */
   unsigned int assumed_vf = vect_vf_for_cost (loop_vinfo);
-  scale_loop_profile (loop, GCOV_COMPUTE_SCALE (1, assumed_vf),
-		      expected_iterations / assumed_vf);
+  scale_profile_for_vect_loop (loop, assumed_vf);
+
   /* The minimum number of iterations performed by the epilogue.  This
      is 1 when peeling for gaps because we always need a final scalar
      iteration.  */
@@ -8753,6 +8790,7 @@ optimize_mask_stores (struct loop *loop)
   unsigned nbbs = loop->num_nodes;
   unsigned i;
   basic_block bb;
+  struct loop *bb_loop;
   gimple_stmt_iterator gsi;
   gimple *stmt;
   auto_vec<gimple *> worklist;
@@ -8791,11 +8829,16 @@ optimize_mask_stores (struct loop *loop)
       last = worklist.pop ();
       mask = gimple_call_arg (last, 2);
       bb = gimple_bb (last);
-      /* Create new bb.  */
+      /* Create then_bb and if-then structure in CFG, then_bb belongs to
+	 the same loop as if_bb.  It could be different to LOOP when two
+	 level loop-nest is vectorized and mask_store belongs to the inner
+	 one.  */
       e = split_block (bb, last);
+      bb_loop = bb->loop_father;
+      gcc_assert (loop == bb_loop || flow_loop_nested_p (loop, bb_loop));
       join_bb = e->dest;
       store_bb = create_empty_bb (bb);
-      add_bb_to_loop (store_bb, loop);
+      add_bb_to_loop (store_bb, bb_loop);
       e->flags = EDGE_TRUE_VALUE;
       efalse = make_edge (bb, store_bb, EDGE_FALSE_VALUE);
       /* Put STORE_BB to likely part.  */

@@ -4166,10 +4166,10 @@ struct set
      The size of this field should match the size of the mode
      field of struct rtx_def (see rtl.h).  */
   machine_mode_enum mode : 8;
-  /* A constant equivalent for SET_SRC, if any.  */
-  rtx src_const;
   /* Hash value of constant equivalent for SET_SRC.  */
   unsigned src_const_hash;
+  /* A constant equivalent for SET_SRC, if any.  */
+  rtx src_const;
   /* Table entry for constant equivalent for SET_SRC, if any.  */
   struct table_elt *src_const_elt;
   /* Table entry for the destination address.  */

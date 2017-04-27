@@ -682,7 +682,7 @@ change_subst_attribute (struct queue_elem *elem,
    represented by SUBST_ELEM and this attribute has value SUBST_TRUE.
    DEFINE_SUBST isn't applied to patterns without such attribute.  In other
    words, we suppose the default value of the attribute to be 'no' since it is
-   always generated automaticaly in read-rtl.c.  */
+   always generated automatically in read-rtl.c.  */
 static bool
 has_subst_attribute (struct queue_elem *elem, struct queue_elem *subst_elem)
 {
@@ -2265,7 +2265,7 @@ htab_eq_string (const void *s1, const void *s2)
 }
 
 /* Add mnemonic STR with length LEN to the mnemonic hash table
-   MNEMONIC_HTAB.  A trailing zero end character is appendend to STR
+   MNEMONIC_HTAB.  A trailing zero end character is appended to STR
    and a permanent heap copy of STR is created.  */
 
 static void
@@ -3011,6 +3011,10 @@ get_pattern_stats_1 (struct pattern_stats *stats, rtx x)
       break;
 
     case MATCH_SCRATCH:
+      if (stats->min_scratch_opno == -1)
+	stats->min_scratch_opno = XINT (x, 0);
+      else
+	stats->min_scratch_opno = MIN (stats->min_scratch_opno, XINT (x, 0));
       stats->max_scratch_opno = MAX (stats->max_scratch_opno, XINT (x, 0));
       break;
 
@@ -3040,6 +3044,7 @@ init_pattern_stats (struct pattern_stats *stats)
 {
   stats->max_opno = -1;
   stats->max_dup_opno = -1;
+  stats->min_scratch_opno = -1;
   stats->max_scratch_opno = -1;
   stats->num_dups = 0;
 }

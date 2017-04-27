@@ -838,8 +838,12 @@ split_tree (location_t loc, tree in, tree type, enum tree_code code,
       /* Now do any needed negations.  */
       if (neg_litp_p)
 	*minus_litp = *litp, *litp = 0;
-      if (neg_conp_p)
-	*conp = negate_expr (*conp);
+      if (neg_conp_p && *conp)
+	{
+	  /* Convert to TYPE before negating.  */
+	  *conp = fold_convert_loc (loc, type, *conp);
+	  *conp = negate_expr (*conp);
+	}
       if (neg_var_p && var)
 	{
 	  /* Convert to TYPE before negating.  */
@@ -866,7 +870,12 @@ split_tree (location_t loc, tree in, tree type, enum tree_code code,
 	*minus_litp = *litp, *litp = 0;
       else if (*minus_litp)
 	*litp = *minus_litp, *minus_litp = 0;
-      *conp = negate_expr (*conp);
+      if (*conp)
+	{
+	  /* Convert to TYPE before negating.  */
+	  *conp = fold_convert_loc (loc, type, *conp);
+	  *conp = negate_expr (*conp);
+	}
       if (var)
 	{
 	  /* Convert to TYPE before negating.  */
@@ -1298,7 +1307,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
 	      return NULL_TREE;
 	    wide_int w2 = arg2;
 	    f2.data.high = w2.elt (1);
-	    f2.data.low = w2.elt (0);
+	    f2.data.low = w2.ulow ();
 	    f2.mode = SImode;
 	  }
 	  break;
@@ -4012,10 +4021,33 @@ distribute_real_division (location_t loc, enum tree_code code, tree type,
 
 static tree
 make_bit_field_ref (location_t loc, tree inner, tree orig_inner, tree type,
-		    HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
+		    HOST_WIDE_INT bitsize, poly_int64 bitpos,
 		    int unsignedp, int reversep)
 {
   tree result, bftype;
+
+  /* Attempt not to lose the access path if possible.  */
+  if (TREE_CODE (orig_inner) == COMPONENT_REF)
+    {
+      tree ninner = TREE_OPERAND (orig_inner, 0);
+      machine_mode nmode;
+      poly_int64 nbitsize, nbitpos;
+      tree noffset;
+      int nunsignedp, nreversep, nvolatilep = 0;
+      tree base = get_inner_reference (ninner, &nbitsize, &nbitpos,
+				       &noffset, &nmode, &nunsignedp,
+				       &nreversep, &nvolatilep);
+      if (base == inner
+	  && noffset == NULL_TREE
+	  && known_subrange_p (bitpos, bitsize, nbitpos, nbitsize)
+	  && !reversep
+	  && !nreversep
+	  && !nvolatilep)
+	{
+	  inner = ninner;
+	  bitpos -= nbitpos;
+	}
+    }
 
   alias_set_type iset = get_alias_set (orig_inner);
   if (iset == 0 && get_alias_set (inner) != iset)
@@ -4023,7 +4055,7 @@ make_bit_field_ref (location_t loc, tree inner, tree orig_inner, tree type,
 			 build_fold_addr_expr (inner),
 			 build_int_cst (ptr_type_node, 0));
 
-  if (bitpos == 0 && !reversep)
+  if (must_eq (bitpos, 0) && !reversep)
     {
       tree size = TYPE_SIZE (TREE_TYPE (inner));
       if ((INTEGRAL_TYPE_P (TREE_TYPE (inner))
@@ -4304,7 +4336,11 @@ decode_field_reference (location_t loc, tree *exp_, HOST_WIDE_INT *pbitsize,
       || !poly_bitpos.is_constant (pbitpos)
       || *pbitsize < 0
       || offset != 0
-      || TREE_CODE (inner) == PLACEHOLDER_EXPR)
+      || TREE_CODE (inner) == PLACEHOLDER_EXPR
+      /* Reject out-of-bound accesses (PR79731).  */
+      || (! AGGREGATE_TYPE_P (TREE_TYPE (inner))
+	  && compare_tree_int (TYPE_SIZE (TREE_TYPE (inner)),
+			       *pbitpos + *pbitsize) < 0))
     return 0;
 
   *exp_ = exp;
@@ -8213,7 +8249,7 @@ fold_truth_andor (location_t loc, enum tree_code code, tree type,
 	  return fold_build2_loc (loc, icode, type, TREE_OPERAND (arg0, 0),
 				  tem);
 	}
-	/* Same as abouve but for (A AND[-IF] (B AND-IF C)) -> ((A AND B) AND-IF C),
+	/* Same as above but for (A AND[-IF] (B AND-IF C)) -> ((A AND B) AND-IF C),
 	   or (A OR[-IF] (B OR-IF C) -> ((A OR B) OR-IF C).  */
       else if (TREE_CODE (arg1) == icode
 	  && simple_operand_p_2 (arg0)
@@ -8867,7 +8903,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      if (save_p)
 		{
 		  tem = save_expr (build2 (code, type, cval1, cval2));
-		  SET_EXPR_LOCATION (tem, loc);
+		  protected_set_expr_location (tem, loc);
 		  return tem;
 		}
 	      return fold_build2_loc (loc, code, type, cval1, cval2);
@@ -10082,12 +10118,12 @@ fold_binary_loc (location_t loc,
 	    }
 
 	  if (c3 != c1)
-	    return fold_build2_loc (loc, BIT_IOR_EXPR, type,
-				    fold_build2_loc (loc, BIT_AND_EXPR, type,
-						     TREE_OPERAND (arg0, 0),
-						     wide_int_to_tree (type,
-								       c3)),
-				    arg1);
+	    {
+	      tem = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
+	      tem = fold_build2_loc (loc, BIT_AND_EXPR, type, tem,
+				     wide_int_to_tree (type, c3));
+	      return fold_build2_loc (loc, BIT_IOR_EXPR, type, tem, arg1);
+	    }
 	}
 
       /* See if this can be simplified into a rotate first.  If that
@@ -10371,7 +10407,7 @@ fold_binary_loc (location_t loc,
       /* Convert -A / -B to A / B when the type is signed and overflow is
 	 undefined.  */
       if ((!INTEGRAL_TYPE_P (type) || TYPE_OVERFLOW_UNDEFINED (type))
-	  && TREE_CODE (arg0) == NEGATE_EXPR
+	  && TREE_CODE (op0) == NEGATE_EXPR
 	  && negate_expr_p (op1))
 	{
 	  if (INTEGRAL_TYPE_P (type))
@@ -11674,10 +11710,12 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	  STRIP_NOPS (tem);
 	  if (TREE_CODE (tem) == RSHIFT_EXPR
 	      && tree_fits_uhwi_p (TREE_OPERAND (tem, 1))
-              && (unsigned HOST_WIDE_INT) tree_log2 (arg1) ==
-	         tree_to_uhwi (TREE_OPERAND (tem, 1)))
+              && (unsigned HOST_WIDE_INT) tree_log2 (arg1)
+		 == tree_to_uhwi (TREE_OPERAND (tem, 1)))
 	    return fold_build2_loc (loc, BIT_AND_EXPR, type,
-				TREE_OPERAND (tem, 0), arg1);
+				    fold_convert_loc (loc, type,
+						      TREE_OPERAND (tem, 0)),
+				    op1);
 	}
 
       /* A & N ? N : 0 is simply A & N if N is a power of two.  This
@@ -11708,7 +11746,7 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	  && (code == VEC_COND_EXPR || !VECTOR_TYPE_P (type)))
 	return fold_build2_loc (loc, code == VEC_COND_EXPR ? BIT_AND_EXPR
 							   : TRUTH_ANDIF_EXPR,
-				type, fold_convert_loc (loc, type, arg0), arg1);
+				type, fold_convert_loc (loc, type, arg0), op1);
 
       /* Convert A ? B : 1 into !A || B if A and B are truth values.  */
       if (code == VEC_COND_EXPR ? integer_all_onesp (op2) : integer_onep (op2)
@@ -11724,7 +11762,7 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 					 ? BIT_IOR_EXPR
 					 : TRUTH_ORIF_EXPR,
 				    type, fold_convert_loc (loc, type, tem),
-				    arg1);
+				    op1);
 	}
 
       /* Convert A ? 0 : B into !A && B if A and B are truth values.  */
@@ -14190,7 +14228,8 @@ fold_indirect_ref_1 (location_t loc, tree type, tree op0)
 
   STRIP_NOPS (sub);
   subtype = TREE_TYPE (sub);
-  if (!POINTER_TYPE_P (subtype))
+  if (!POINTER_TYPE_P (subtype)
+      || TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (op0)))
     return NULL_TREE;
 
   if (TREE_CODE (sub) == ADDR_EXPR)
@@ -14430,7 +14469,7 @@ round_up_loc (location_t loc, tree value, unsigned int divisor)
 
 	  overflow_p = TREE_OVERFLOW (value);
 	  val += divisor - 1;
-	  val &= - (int) divisor;
+	  val &= (int) -divisor;
 	  if (val == 0)
 	    overflow_p = true;
 
@@ -14519,6 +14558,24 @@ split_address_to_core_and_offset (tree exp,
 				  poffset, &mode, &unsignedp, &reversep,
 				  &volatilep);
       core = build_fold_addr_expr_loc (loc, core);
+    }
+  else if (TREE_CODE (exp) == POINTER_PLUS_EXPR)
+    {
+      core = TREE_OPERAND (exp, 0);
+      STRIP_NOPS (core);
+      *pbitpos = 0;
+      *poffset = TREE_OPERAND (exp, 1);
+      if (TREE_CODE (*poffset) == INTEGER_CST)
+	{
+	  offset_int tem = wi::sext (wi::to_offset (*poffset),
+				     TYPE_PRECISION (TREE_TYPE (*poffset)));
+	  tem <<= LOG2_BITS_PER_UNIT;
+	  if (wi::fits_shwi_p (tem))
+	    {
+	      *pbitpos = tem.to_shwi ();
+	      *poffset = NULL_TREE;
+	    }
+	}
     }
   else
     {

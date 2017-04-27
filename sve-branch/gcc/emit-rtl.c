@@ -1739,6 +1739,15 @@ wider_subreg_mode (const_rtx x)
   return wider_subreg_mode (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
 }
 
+/* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
+   return the smaller of the two modes if they are different sizes,
+   otherwise return the outer mode.  */
+machine_mode
+narrower_subreg_mode (machine_mode outermode, machine_mode innermode)
+{
+  return paradoxical_subreg_p (outermode, innermode) ? innermode : outermode;
+}
+
 /* Return true if a subreg with the given outer and inner modes is
    paradoxical.  */
 bool

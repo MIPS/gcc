@@ -350,12 +350,12 @@ struct cost_pair
 {
   struct iv_cand *cand;	/* The candidate.  */
   comp_cost cost;	/* The cost.  */
+  enum tree_code comp;	/* For iv elimination, the comparison.  */
   bitmap depends_on;	/* The list of invariants that have to be
 			   preserved.  */
   tree value;		/* For final value elimination, the expression for
 			   the final value of the iv.  For iv elimination,
 			   the new bound to compare with.  */
-  enum tree_code comp;	/* For iv elimination, the comparison.  */
   iv_inv_expr_ent *inv_expr; /* Loop invariant expression.  */
 };
 
@@ -1188,7 +1188,7 @@ alloc_iv (struct ivopts_data *data, tree base, tree step,
       || contain_complex_addr_expr (expr))
     {
       aff_tree comb;
-      tree_to_aff_combination (expr, TREE_TYPE (base), &comb);
+      tree_to_aff_combination (expr, TREE_TYPE (expr), &comb);
       base = fold_convert (TREE_TYPE (base), aff_combination_to_tree (&comb));
     }
 
@@ -2369,6 +2369,10 @@ find_interesting_uses_address (struct ivopts_data *data, gimple *stmt,
     }
 
   civ = alloc_iv (data, base, step);
+  /* Fail if base object of this memory reference is unknown.  */
+  if (civ->base_object == NULL_TREE)
+    goto fail;
+
   record_group_use (data, op_p, civ, stmt, USE_REF_ADDRESS, TREE_TYPE (*op_p));
   return;
 
@@ -3495,41 +3499,20 @@ add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
     }
 
   /* Record common candidate with base_object removed in base.  */
-  if (iv->base_object != NULL)
+  base = iv->base;
+  STRIP_NOPS (base);
+  if (iv->base_object != NULL && TREE_CODE (base) == POINTER_PLUS_EXPR)
     {
-      unsigned i;
-      aff_tree aff_base;
-      tree step, base_object = iv->base_object;
+      tree step = iv->step;
 
-      base = iv->base;
-      step = iv->step;
-      STRIP_NOPS (base);
       STRIP_NOPS (step);
-      STRIP_NOPS (base_object);
-      tree_to_aff_combination (base, TREE_TYPE (base), &aff_base);
-      for (i = 0; i < aff_base.n; i++)
-	{
-	  if (aff_base.elts[i].coef != 1)
-	    continue;
-
-	  if (operand_equal_p (aff_base.elts[i].val, base_object, 0))
-	    break;
-	}
-      if (i < aff_base.n)
-	{
-	  aff_combination_remove_elt (&aff_base, i);
-	  base = aff_combination_to_tree (&aff_base);
-	  basetype = TREE_TYPE (base);
-	  if (POINTER_TYPE_P (basetype))
-	    basetype = sizetype;
-
-	  step = fold_convert (basetype, step);
-	  record_common_cand (data, base, step, use);
-	  /* Also record common candidate with offset stripped.  */
-	  base = strip_offset (base, &offset);
-	  if (may_ne (offset, 0U))
-	    record_common_cand (data, base, step, use);
-	}
+      base = TREE_OPERAND (base, 1);
+      step = fold_convert (sizetype, step);
+      record_common_cand (data, base, step, use);
+      /* Also record common candidate with offset stripped.  */
+      base = strip_offset (base, &offset);
+      if (may_ne (offset, 0U))
+	record_common_cand (data, base, step, use);
     }
 
   /* At last, add auto-incremental candidates.  Make such variables
@@ -5677,7 +5660,7 @@ may_eliminate_iv (struct ivopts_data *data,
     return false;
 
   /* Sometimes, it is possible to handle the situation that the number of
-     iterations may be zero unless additional assumtions by using <
+     iterations may be zero unless additional assumptions by using <
      instead of != in the exit condition.
 
      TODO: we could also calculate the value MAY_BE_ZERO ? 0 : NITER and
@@ -7318,7 +7301,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 			    struct iv_use *use, struct iv_cand *cand)
 {
   tree comp;
-  tree op, tgt;
+  tree tgt;
   gassign *ass;
   gimple_stmt_iterator bsi;
 
@@ -7329,6 +7312,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
   if (cand->pos == IP_ORIGINAL
       && cand->incremented_at == use->stmt)
     {
+      tree op = NULL_TREE;
       enum tree_code stmt_code;
 
       gcc_assert (is_gimple_assign (use->stmt));
@@ -7348,14 +7332,19 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	    op = gimple_assign_rhs2 (use->stmt);
 	  else if (gimple_assign_rhs2 (use->stmt) == cand->var_before)
 	    op = gimple_assign_rhs1 (use->stmt);
-	  else
-	    op = NULL_TREE;
 	}
-      else
-	op = NULL_TREE;
 
-      if (op && expr_invariant_in_loop_p (data->current_loop, op))
-	return;
+      if (op != NULL_TREE)
+	{
+	  if (expr_invariant_in_loop_p (data->current_loop, op))
+	    return;
+	  if (TREE_CODE (op) == SSA_NAME)
+	    {
+	      struct iv *iv = get_iv (data, op);
+	      if (iv != NULL && integer_zerop (iv->step))
+		return;
+	    }
+	}
     }
 
   comp = get_computation (data->current_loop, use, cand);
@@ -7554,14 +7543,18 @@ rewrite_use_address (struct ivopts_data *data,
     base_hint = var_at_stmt (data->current_loop, cand, use->stmt);
 
   iv = var_at_stmt (data->current_loop, cand, use->stmt);
+  tree type = use->mem_type;
   if (use->type == USE_PTR_ADDRESS)
     alias_ptr_type = get_alias_ptr_type_for_ptr_address (use);
   else
     {
-      gcc_assert (use->mem_type == TREE_TYPE (*use->op_p));
+      gcc_assert (type == TREE_TYPE (*use->op_p));
+      unsigned int align = get_object_alignment (*use->op_p);
+      if (align != TYPE_ALIGN (type))
+	type = build_aligned_type (type, align);
       alias_ptr_type = reference_alias_ptr_type (*use->op_p);
     }
-  ref = create_mem_ref (&bsi, use->mem_type, &aff, alias_ptr_type,
+  ref = create_mem_ref (&bsi, type, &aff, alias_ptr_type,
 			iv, base_hint, data->speed);
   if (use->type == USE_PTR_ADDRESS)
     {

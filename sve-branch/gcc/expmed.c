@@ -992,8 +992,14 @@ store_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
     }
 
   /* If OP0 is a multi-word register, narrow it to the affected word.
-     If the region spans two words, defer to store_split_bit_field.  */
-  if (!MEM_P (op0) && GET_MODE_SIZE (*op0_mode) > UNITS_PER_WORD)
+     If the region spans two words, defer to store_split_bit_field.
+     Don't do this if op0 is a single hard register wider than word
+     such as a float or vector register.  */
+  if (!MEM_P (op0)
+      && GET_MODE_SIZE (*op0_mode) > UNITS_PER_WORD
+      && (!REG_P (op0)
+	  || !HARD_REGISTER_P (op0)
+	  || HARD_REGNO_NREGS (REGNO (op0), *op0_mode) != 1))
     {
       if (bitnum % BITS_PER_WORD + bitsize > BITS_PER_WORD)
 	{

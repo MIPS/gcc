@@ -85,6 +85,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "selftest.h"
 #include "selftest-rtl.h"
 #include "print-rtl.h"
+#include "intl.h"
+#include "ifcvt.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -3407,7 +3409,7 @@ dimode_scalar_chain::compute_convert_gain ()
       else if (GET_CODE (src) == ASHIFT
 	       || GET_CODE (src) == LSHIFTRT)
 	{
-	  gain += ix86_cost->add;
+	  gain += ix86_cost->shift_const;
     	  if (CONST_INT_P (XEXP (src, 0)))
 	    gain -= vector_const_cost (XEXP (src, 0));
 	  if (CONST_INT_P (XEXP (src, 1))
@@ -5267,11 +5269,11 @@ ix86_option_override_internal (bool main_args_p,
       else if (!strcmp (opts->x_ix86_tune_string, "x86-64"))
         warning (OPT_Wdeprecated,
 		 main_args_p
-		 ? "%<-mtune=x86-64%> is deprecated; use %<-mtune=k8%> "
-		   "or %<-mtune=generic%> instead as appropriate"
-		 : "%<target(\"tune=x86-64\")%> is deprecated; use "
-		   "%<target(\"tune=k8\")%> or %<target(\"tune=generic\")%> "
-		   "instead as appropriate");
+		 ? G_("%<-mtune=x86-64%> is deprecated; use %<-mtune=k8%> "
+		      "or %<-mtune=generic%> instead as appropriate")
+		 : G_("%<target(\"tune=x86-64\")%> is deprecated; use "
+		      "%<target(\"tune=k8\")%> or %<target(\"tune=generic\")%>"
+		      " instead as appropriate"));
     }
   else
     {
@@ -5420,17 +5422,19 @@ ix86_option_override_internal (bool main_args_p,
 	if (!strcmp (opts->x_ix86_arch_string, "generic"))
 	  {
 	    error (main_args_p
-		  ? "%<generic%> CPU can be used only for %<-mtune=%> switch"
-		  : "%<generic%> CPU can be used only for "
-		    "%<target(\"tune=\")%> attribute");
+		   ? G_("%<generic%> CPU can be used only for %<-mtune=%> "
+			"switch")
+		   : G_("%<generic%> CPU can be used only for "
+			"%<target(\"tune=\")%> attribute"));
 	    return false;
 	  }
 	else if (!strcmp (opts->x_ix86_arch_string, "intel"))
 	  {
 	    error (main_args_p
-		  ? "%<intel%> CPU can be used only for %<-mtune=%> switch"
-		  : "%<intel%> CPU can be used only for "
-		    "%<target(\"tune=\")%> attribute");
+		   ? G_("%<intel%> CPU can be used only for %<-mtune=%> "
+			"switch")
+		   : G_("%<intel%> CPU can be used only for "
+			"%<target(\"tune=\")%> attribute"));
 	    return false;
 	  }
 
@@ -5658,8 +5662,8 @@ ix86_option_override_internal (bool main_args_p,
   if (i == pta_size)
     {
       error (main_args_p
-	     ? "bad value (%qs) for %<-march=%> switch"
-	     : "bad value (%qs) for %<target(\"arch=\")%> attribute",
+	     ? G_("bad value (%qs) for %<-march=%> switch")
+	     : G_("bad value (%qs) for %<target(\"arch=\")%> attribute"),
 	     opts->x_ix86_arch_string);
 
       auto_vec <const char *> candidates;
@@ -5676,16 +5680,16 @@ ix86_option_override_internal (bool main_args_p,
       if (hint)
 	inform (input_location,
 		main_args_p
-		? "valid arguments to %<-march=%> switch are: "
-		  "%s; did you mean %qs?"
-		: "valid arguments to %<target(\"arch=\")%> attribute are: "
-		  "%s; did you mean %qs?", s, hint);
+		? G_("valid arguments to %<-march=%> switch are: "
+		     "%s; did you mean %qs?")
+		: G_("valid arguments to %<target(\"arch=\")%> attribute are: "
+		     "%s; did you mean %qs?"), s, hint);
       else
 	inform (input_location,
 		main_args_p
-		? "valid arguments to %<-march=%> switch are: %s"
-		: "valid arguments to %<target(\"arch=\")%> attribute are: %s",
-		s);
+		? G_("valid arguments to %<-march=%> switch are: %s")
+		: G_("valid arguments to %<target(\"arch=\")%> attribute "
+		     "are: %s"), s);
       XDELETEVEC (s);
     }
 
@@ -5731,8 +5735,8 @@ ix86_option_override_internal (bool main_args_p,
   if (ix86_tune_specified && i == pta_size)
     {
       error (main_args_p
-	     ? "bad value (%qs) for %<-mtune=%> switch"
-	     : "bad value (%qs) for %<target(\"tune=\")%> attribute",
+	     ? G_("bad value (%qs) for %<-mtune=%> switch")
+	     : G_("bad value (%qs) for %<target(\"tune=\")%> attribute"),
 	     opts->x_ix86_tune_string);
 
       auto_vec <const char *> candidates;
@@ -5747,16 +5751,16 @@ ix86_option_override_internal (bool main_args_p,
       if (hint)
 	inform (input_location,
 		main_args_p
-		? "valid arguments to %<-mtune=%> switch are: "
-		  "%s; did you mean %qs?"
-		: "valid arguments to %<target(\"tune=\")%> attribute are: "
-		  "%s; did you mean %qs?", s, hint);
+		? G_("valid arguments to %<-mtune=%> switch are: "
+		     "%s; did you mean %qs?")
+		: G_("valid arguments to %<target(\"tune=\")%> attribute are: "
+		     "%s; did you mean %qs?"), s, hint);
       else
 	inform (input_location,
 		main_args_p
-		? "valid arguments to %<-mtune=%> switch are: %s"
-		: "valid arguments to %<target(\"tune=\")%> attribute are: %s",
-		s);
+		? G_("valid arguments to %<-mtune=%> switch are: %s")
+		: G_("valid arguments to %<target(\"tune=\")%> attribute "
+		     "are: %s"), s);
       XDELETEVEC (s);
     }
 
@@ -5858,8 +5862,9 @@ ix86_option_override_internal (bool main_args_p,
 
       if (TARGET_RTD_P (opts->x_target_flags))
 	warning (0,
-		 main_args_p ? "%<-mrtd%> is ignored in 64bit mode"
-			     : "%<target(\"rtd\")%> is ignored in 64bit mode");
+		 main_args_p
+		 ? G_("%<-mrtd%> is ignored in 64bit mode")
+		 : G_("%<target(\"rtd\")%> is ignored in 64bit mode"));
     }
   else
     {
@@ -5925,9 +5930,8 @@ ix86_option_override_internal (bool main_args_p,
   ix86_preferred_stack_boundary = PREFERRED_STACK_BOUNDARY_DEFAULT;
   if (opts_set->x_ix86_preferred_stack_boundary_arg)
     {
-      int min = (TARGET_64BIT_P (opts->x_ix86_isa_flags)
-		 ? (TARGET_SSE_P (opts->x_ix86_isa_flags) ? 4 : 3) : 2);
-      int max = (TARGET_SEH ? 4 : 12);
+      int min = TARGET_64BIT_P (opts->x_ix86_isa_flags)? 3 : 2;
+      int max = TARGET_SEH ? 4 : 12;
 
       if (opts->x_ix86_preferred_stack_boundary_arg < min
 	  || opts->x_ix86_preferred_stack_boundary_arg > max)
@@ -5981,8 +5985,8 @@ ix86_option_override_internal (bool main_args_p,
   if (TARGET_SSEREGPARM_P (opts->x_target_flags)
       && ! TARGET_SSE_P (opts->x_ix86_isa_flags))
     error (main_args_p
-	   ? "%<-msseregparm%> used without SSE enabled"
-	   : "%<target(\"sseregparm\")%> used without SSE enabled");
+	   ? G_("%<-msseregparm%> used without SSE enabled")
+	   : G_("%<target(\"sseregparm\")%> used without SSE enabled"));
 
   if (opts_set->x_ix86_fpmath)
     {
@@ -6049,10 +6053,11 @@ ix86_option_override_internal (bool main_args_p,
       if (opts_set->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS)
 	warning (0,
 		 main_args_p
-		 ? "stack probing requires %<-maccumulate-outgoing-args%> "
-		   "for correctness"
-		 : "stack probing requires "
-		   "%<target(\"accumulate-outgoing-args\")%> for correctness");
+		 ? G_("stack probing requires %<-maccumulate-outgoing-args%> "
+		      "for correctness")
+		 : G_("stack probing requires "
+		      "%<target(\"accumulate-outgoing-args\")%> for "
+		      "correctness"));
       opts->x_target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
@@ -6064,9 +6069,10 @@ ix86_option_override_internal (bool main_args_p,
       if (opts_set->x_target_flags & MASK_ACCUMULATE_OUTGOING_ARGS)
 	warning (0,
 		 main_args_p
-		 ? "fixed ebp register requires %<-maccumulate-outgoing-args%>"
-		 : "fixed ebp register requires "
-		   "%<target(\"accumulate-outgoing-args\")%>");
+		 ? G_("fixed ebp register requires "
+		      "%<-maccumulate-outgoing-args%>")
+		 : G_("fixed ebp register requires "
+		      "%<target(\"accumulate-outgoing-args\")%>"));
       opts->x_target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
@@ -6100,13 +6106,6 @@ ix86_option_override_internal (bool main_args_p,
 			 ix86_tune_cost->l2_cache_size,
 			 opts->x_param_values,
 			 opts_set->x_param_values);
-
-  /* Restrict number of if-converted SET insns to 1.  */
-  if (TARGET_ONE_IF_CONV_INSN)
-    maybe_set_param_value (PARAM_MAX_RTL_IF_CONVERSION_INSNS,
-			   1,
-			   opts->x_param_values,
-			   opts_set->x_param_values);
 
   /* Enable sw prefetching at -O3 for CPUS that prefetching is helpful.  */
   if (opts->x_flag_prefetch_loop_arrays < 0
@@ -7971,8 +7970,14 @@ ix86_function_regparm (const_tree type, const_tree decl)
 		local_regparm = 2;
 
 	      /* Save a register for the split stack.  */
-	      if (local_regparm == 3 && flag_split_stack)
-		local_regparm = 2;
+	      if (flag_split_stack)
+		{
+		  if (local_regparm == 3)
+		    local_regparm = 2;
+		  else if (local_regparm == 2
+			   && DECL_STATIC_CHAIN (target->decl))
+		    local_regparm = 1;
+		}
 
 	      /* Each fixed register usage increases register pressure,
 		 so less registers should be used for argument passing.
@@ -13052,10 +13057,10 @@ ix86_minimum_incoming_stack_boundary (bool sibcall)
 {
   unsigned int incoming_stack_boundary;
 
-  /* Stack of interrupt handler is always aligned to MIN_STACK_BOUNDARY.
-   */
+  /* Stack of interrupt handler is aligned to 128 bits in 64bit
+     mode.  */
   if (cfun->machine->func_type != TYPE_NORMAL)
-    incoming_stack_boundary = MIN_STACK_BOUNDARY;
+    incoming_stack_boundary = TARGET_64BIT ? 128 : MIN_STACK_BOUNDARY;
   /* Prefer the one specified at command line. */
   else if (ix86_user_incoming_stack_boundary)
     incoming_stack_boundary = ix86_user_incoming_stack_boundary;
@@ -16706,7 +16711,7 @@ get_dllimport_decl (tree decl, bool beimport)
   return to;
 }
 
-/* Expand SYMBOL into its corresponding far-addresse symbol.
+/* Expand SYMBOL into its corresponding far-address symbol.
    WANT_REG is true if we require the result be a register.  */
 
 static rtx
@@ -17253,10 +17258,16 @@ ix86_delegitimize_tls_address (rtx orig_x)
    has a different PIC label for each routine but the DWARF debugging
    information is not associated with any particular routine, so it's
    necessary to remove references to the PIC label from RTL stored by
-   the DWARF output code.  */
+   the DWARF output code.
 
-static rtx
-ix86_delegitimize_address (rtx x)
+   This helper is used in the normal ix86_delegitimize_address
+   entrypoint (e.g. used in the target delegitimization hook) and
+   in ix86_find_base_term.  As compile time memory optimization, we
+   avoid allocating rtxes that will not change anything on the outcome
+   of the callers (find_base_value and find_base_term).  */
+
+static inline rtx
+ix86_delegitimize_address_1 (rtx x, bool base_term_p)
 {
   rtx orig_x = delegitimize_mem_from_attrs (x);
   /* addend is NULL or some rtx if x is something+GOTOFF where
@@ -17283,6 +17294,10 @@ ix86_delegitimize_address (rtx x)
           && GET_CODE (XEXP (XEXP (x, 0), 0)) == UNSPEC
           && XINT (XEXP (XEXP (x, 0), 0), 1) == UNSPEC_PCREL)
         {
+	  /* find_base_{value,term} only care about MEMs with arg_pointer_rtx
+	     base.  A CONST can't be arg_pointer_rtx based.  */
+	  if (base_term_p && MEM_P (orig_x))
+	    return orig_x;
 	  rtx x2 = XVECEXP (XEXP (XEXP (x, 0), 0), 0, 0);
 	  x = gen_rtx_PLUS (Pmode, XEXP (XEXP (x, 0), 1), x2);
 	  if (MEM_P (orig_x))
@@ -17359,7 +17374,9 @@ ix86_delegitimize_address (rtx x)
   if (! result)
     return ix86_delegitimize_tls_address (orig_x);
 
-  if (const_addend)
+  /* For (PLUS something CONST_INT) both find_base_{value,term} just
+     recurse on the first operand.  */
+  if (const_addend && !base_term_p)
     result = gen_rtx_CONST (Pmode, gen_rtx_PLUS (Pmode, result, const_addend));
   if (reg_addend)
     result = gen_rtx_PLUS (Pmode, reg_addend, result);
@@ -17397,6 +17414,14 @@ ix86_delegitimize_address (rtx x)
   return result;
 }
 
+/* The normal instantiation of the above template.  */
+
+static rtx
+ix86_delegitimize_address (rtx x)
+{
+  return ix86_delegitimize_address_1 (x, false);
+}
+
 /* If X is a machine specific address (i.e. a symbol or label being
    referenced as a displacement from the GOT implemented using an
    UNSPEC), then return the base term.  Otherwise return X.  */
@@ -17422,7 +17447,7 @@ ix86_find_base_term (rtx x)
       return XVECEXP (term, 0, 0);
     }
 
-  return ix86_delegitimize_address (x);
+  return ix86_delegitimize_address_1 (x, true);
 }
 
 static void
@@ -17644,13 +17669,16 @@ print_reg (rtx x, int code, FILE *file)
 
   switch (msize)
     {
-    case 8:
-    case 4:
-      if (LEGACY_INT_REGNO_P (regno))
-	putc (msize == 8 && TARGET_64BIT ? 'r' : 'e', file);
-      /* FALLTHRU */
     case 16:
     case 12:
+    case 8:
+      if (GENERAL_REGNO_P (regno) && msize > GET_MODE_SIZE (word_mode))
+	warning (0, "unsupported size for integer register");
+      /* FALLTHRU */
+    case 4:
+      if (LEGACY_INT_REGNO_P (regno))
+	putc (msize > 4 && TARGET_64BIT ? 'r' : 'e', file);
+      /* FALLTHRU */
     case 2:
     normal:
       reg = hi_reg_name[regno];
@@ -17658,6 +17686,8 @@ print_reg (rtx x, int code, FILE *file)
     case 1:
       if (regno >= ARRAY_SIZE (qi_reg_name))
 	goto normal;
+      if (!ANY_QI_REGNO_P (regno))
+	error ("unsupported size for integer register");
       reg = qi_reg_name[regno];
       break;
     case 0:
@@ -18232,7 +18262,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	      fputs ("{rz-sae}", file);
 	      break;
 	    default:
-	      gcc_unreachable ();
+	      output_operand_lossage ("operand is not a specific integer, "
+				      "invalid operand code 'R'");
 	    }
 
 	  if (ASSEMBLER_DIALECT == ASM_ATT)
@@ -30460,7 +30491,7 @@ ix86_local_alignment (tree exp, machine_mode mode,
 		  != TYPE_MAIN_VARIANT (va_list_type_node)))
 	  && TYPE_SIZE (type)
 	  && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-	  && wi::geu_p (TYPE_SIZE (type), 16)
+	  && wi::geu_p (TYPE_SIZE (type), 128)
 	  && align < 128)
 	return 128;
     }
@@ -34242,6 +34273,8 @@ ix86_expand_multi_arg_builtin (enum insn_code icode, tree exp, rtx target,
       || GET_MODE (target) != tmode
       || !insn_data[icode].operand[0].predicate (target, tmode))
     target = gen_reg_rtx (tmode);
+  else if (memory_operand (target, tmode))
+    num_memory++;
 
   gcc_assert (nargs <= 4);
 
@@ -34829,7 +34862,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
       rtx op;
       machine_mode mode;
     } args[6];
-  bool last_arg_count = false;
+  bool second_arg_count = false;
   enum insn_code icode = d->icode;
   const struct insn_data_d *insn_p = &insn_data[icode];
   machine_mode tmode = insn_p->operand[0].mode;
@@ -35065,7 +35098,28 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V1DI_FTYPE_V1DI_V1DI_COUNT:
     case V1DI_FTYPE_V1DI_SI_COUNT:
       nargs = 2;
-      last_arg_count = true;
+      second_arg_count = true;
+      break;
+    case V16HI_FTYPE_V16HI_INT_V16HI_UHI_COUNT:
+    case V16HI_FTYPE_V16HI_V8HI_V16HI_UHI_COUNT:
+    case V16SI_FTYPE_V16SI_INT_V16SI_UHI_COUNT:
+    case V16SI_FTYPE_V16SI_V4SI_V16SI_UHI_COUNT:
+    case V2DI_FTYPE_V2DI_INT_V2DI_UQI_COUNT:
+    case V2DI_FTYPE_V2DI_V2DI_V2DI_UQI_COUNT:
+    case V32HI_FTYPE_V32HI_INT_V32HI_USI_COUNT:
+    case V32HI_FTYPE_V32HI_V8HI_V32HI_USI_COUNT:
+    case V4DI_FTYPE_V4DI_INT_V4DI_UQI_COUNT:
+    case V4DI_FTYPE_V4DI_V2DI_V4DI_UQI_COUNT:
+    case V4SI_FTYPE_V4SI_INT_V4SI_UQI_COUNT:
+    case V4SI_FTYPE_V4SI_V4SI_V4SI_UQI_COUNT:
+    case V8DI_FTYPE_V8DI_INT_V8DI_UQI_COUNT:
+    case V8DI_FTYPE_V8DI_V2DI_V8DI_UQI_COUNT:
+    case V8HI_FTYPE_V8HI_INT_V8HI_UQI_COUNT:
+    case V8HI_FTYPE_V8HI_V8HI_V8HI_UQI_COUNT:
+    case V8SI_FTYPE_V8SI_INT_V8SI_UQI_COUNT:
+    case V8SI_FTYPE_V8SI_V4SI_V8SI_UQI_COUNT:
+      nargs = 4;
+      second_arg_count = true;
       break;
     case UINT64_FTYPE_UINT64_UINT64:
     case UINT_FTYPE_UINT_UINT:
@@ -35527,6 +35581,8 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 	  || GET_MODE (target) != tmode
 	  || !insn_p->operand[0].predicate (target, tmode))
 	target = gen_reg_rtx (tmode);
+      else if (memory_operand (target, tmode))
+	num_memory++;
       real_target = target;
     }
   else
@@ -35542,14 +35598,21 @@ ix86_expand_args_builtin (const struct builtin_description *d,
       machine_mode mode = insn_p->operand[i + 1].mode;
       bool match = insn_p->operand[i + 1].predicate (op, mode);
 
-      if (last_arg_count && (i + 1) == nargs)
+      if (second_arg_count && i == 1)
 	{
 	  /* SIMD shift insns take either an 8-bit immediate or
 	     register as count.  But builtin functions take int as
-	     count.  If count doesn't match, we put it in register.  */
+	     count.  If count doesn't match, we put it in register.
+	     The instructions are using 64-bit count, if op is just
+	     32-bit, zero-extend it, as negative shift counts
+	     are undefined behavior and zero-extension is more
+	     efficient.  */
 	  if (!match)
 	    {
-	      op = lowpart_subreg (SImode, op, GET_MODE (op));
+	      if (SCALAR_INT_MODE_P (GET_MODE (op)))
+		op = convert_modes (mode, GET_MODE (op), op, 1);
+	      else
+		op = lowpart_subreg (mode, op, GET_MODE (op));
 	      if (!insn_p->operand[i + 1].predicate (op, mode))
 		op = copy_to_reg (op);
 	    }
@@ -37535,9 +37598,6 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       mode0 = DImode;
 
 rdrand_step:
-      op0 = gen_reg_rtx (mode0);
-      emit_insn (GEN_FCN (icode) (op0));
-
       arg0 = CALL_EXPR_ARG (exp, 0);
       op1 = expand_normal (arg0);
       if (!address_operand (op1, VOIDmode))
@@ -37545,6 +37605,10 @@ rdrand_step:
 	  op1 = convert_memory_address (Pmode, op1);
 	  op1 = copy_addr_to_reg (op1);
 	}
+
+      op0 = gen_reg_rtx (mode0);
+      emit_insn (GEN_FCN (icode) (op0));
+
       emit_move_insn (gen_rtx_MEM (mode0, op1), op0);
 
       op1 = gen_reg_rtx (SImode);
@@ -37553,8 +37617,20 @@ rdrand_step:
       /* Emit SImode conditional move.  */
       if (mode0 == HImode)
 	{
-	  op2 = gen_reg_rtx (SImode);
-	  emit_insn (gen_zero_extendhisi2 (op2, op0));
+	  if (TARGET_ZERO_EXTEND_WITH_AND
+	      && optimize_function_for_speed_p (cfun))
+	    {
+	      op2 = force_reg (SImode, const0_rtx);
+
+	      emit_insn (gen_movstricthi
+			 (gen_lowpart (HImode, op2), op0));
+	    }
+	  else
+	    {
+	      op2 = gen_reg_rtx (SImode);
+
+	      emit_insn (gen_zero_extendhisi2 (op2, op0));
+	    }
 	}
       else if (mode0 == SImode)
 	op2 = op0;
@@ -37586,9 +37662,6 @@ rdrand_step:
       mode0 = DImode;
 
 rdseed_step:
-      op0 = gen_reg_rtx (mode0);
-      emit_insn (GEN_FCN (icode) (op0));
-
       arg0 = CALL_EXPR_ARG (exp, 0);
       op1 = expand_normal (arg0);
       if (!address_operand (op1, VOIDmode))
@@ -37596,6 +37669,10 @@ rdseed_step:
 	  op1 = convert_memory_address (Pmode, op1);
 	  op1 = copy_addr_to_reg (op1);
 	}
+
+      op0 = gen_reg_rtx (mode0);
+      emit_insn (GEN_FCN (icode) (op0));
+
       emit_move_insn (gen_rtx_MEM (mode0, op1), op0);
 
       op2 = gen_reg_rtx (QImode);
@@ -37701,98 +37778,82 @@ rdseed_step:
 
     case IX86_BUILTIN_KTESTC8:
       icode = CODE_FOR_ktestqi;
-      mode0 = QImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KTESTZ8:
       icode = CODE_FOR_ktestqi;
-      mode0 = QImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
       goto kortest;
 
     case IX86_BUILTIN_KTESTC16:
       icode = CODE_FOR_ktesthi;
-      mode0 = HImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KTESTZ16:
       icode = CODE_FOR_ktesthi;
-      mode0 = HImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
       goto kortest;
 
     case IX86_BUILTIN_KTESTC32:
       icode = CODE_FOR_ktestsi;
-      mode0 = SImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KTESTZ32:
       icode = CODE_FOR_ktestsi;
-      mode0 = SImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
       goto kortest;
 
     case IX86_BUILTIN_KTESTC64:
       icode = CODE_FOR_ktestdi;
-      mode0 = DImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KTESTZ64:
       icode = CODE_FOR_ktestdi;
-      mode0 = DImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTC8:
       icode = CODE_FOR_kortestqi;
-      mode0 = QImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTZ8:
       icode = CODE_FOR_kortestqi;
-      mode0 = QImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTC16:
       icode = CODE_FOR_kortesthi;
-      mode0 = HImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTZ16:
       icode = CODE_FOR_kortesthi;
-      mode0 = HImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTC32:
       icode = CODE_FOR_kortestsi;
-      mode0 = SImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTZ32:
       icode = CODE_FOR_kortestsi;
-      mode0 = SImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTC64:
       icode = CODE_FOR_kortestdi;
-      mode0 = DImode;
-      mode1 = CCCmode;
+      mode3 = CCCmode;
       goto kortest;
 
     case IX86_BUILTIN_KORTESTZ64:
       icode = CODE_FOR_kortestdi;
-      mode0 = DImode;
-      mode1 = CCZmode;
+      mode3 = CCZmode;
 
     kortest:
       arg0 = CALL_EXPR_ARG (exp, 0); /* Mask reg src1.  */
@@ -37800,19 +37861,32 @@ rdseed_step:
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
 
-      op0 = copy_to_reg (op0);
-      op0 = lowpart_subreg (mode0, op0, GET_MODE (op0));
-      op1 = copy_to_reg (op1);
-      op1 = lowpart_subreg (mode0, op1, GET_MODE (op1));
+      mode0 = insn_data[icode].operand[0].mode;
+      mode1 = insn_data[icode].operand[1].mode;
+
+      if (GET_MODE (op0) != VOIDmode)
+	op0 = force_reg (GET_MODE (op0), op0);
+
+      op0 = gen_lowpart (mode0, op0);
+
+      if (!insn_data[icode].operand[0].predicate (op0, mode0))
+	op0 = copy_to_mode_reg (mode0, op0);
+
+      if (GET_MODE (op1) != VOIDmode)
+	op1 = force_reg (GET_MODE (op1), op1);
+
+      op1 = gen_lowpart (mode1, op1);
+
+      if (!insn_data[icode].operand[1].predicate (op1, mode1))
+	op1 = copy_to_mode_reg (mode1, op1);
 
       target = gen_reg_rtx (QImode);
-      emit_insn (gen_rtx_SET (target, const0_rtx));
 
       /* Emit kortest.  */
       emit_insn (GEN_FCN (icode) (op0, op1));
       /* And use setcc to return result from flags.  */
       ix86_expand_setcc (target, EQ,
-			 gen_rtx_REG (mode1, FLAGS_REG), const0_rtx);
+			 gen_rtx_REG (mode3, FLAGS_REG), const0_rtx);
       return target;
 
     case IX86_BUILTIN_GATHERSIV2DF:
@@ -42560,10 +42634,16 @@ ix86_vector_duplicate_value (machine_mode mode, rtx target, rtx val)
   if (recog_memoized (insn) < 0)
     {
       rtx_insn *seq;
+      machine_mode innermode = GET_MODE_INNER (mode);
+      rtx reg;
+
       /* If that fails, force VAL into a register.  */
 
       start_sequence ();
-      XEXP (dup, 0) = force_reg (GET_MODE_INNER (mode), val);
+      reg = force_reg (innermode, val);
+      if (GET_MODE (reg) != innermode)
+	reg = gen_lowpart (innermode, reg);
+      XEXP (dup, 0) = reg;
       seq = get_insns ();
       end_sequence ();
       if (seq)
@@ -50572,6 +50652,41 @@ ix86_max_noce_ifcvt_seq_cost (edge e)
     return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (2);
 }
 
+/* Return true if SEQ is a good candidate as a replacement for the
+   if-convertible sequence described in IF_INFO.  */
+
+static bool
+ix86_noce_conversion_profitable_p (rtx_insn *seq, struct noce_if_info *if_info)
+{
+  if (TARGET_ONE_IF_CONV_INSN && if_info->speed_p)
+    {
+      int cmov_cnt = 0;
+      /* Punt if SEQ contains more than one CMOV or FCMOV instruction.
+	 Maybe we should allow even more conditional moves as long as they
+	 are used far enough not to stall the CPU, or also consider
+	 IF_INFO->TEST_BB succ edge probabilities.  */
+      for (rtx_insn *insn = seq; insn; insn = NEXT_INSN (insn))
+	{
+	  rtx set = single_set (insn);
+	  if (!set)
+	    continue;
+	  if (GET_CODE (SET_SRC (set)) != IF_THEN_ELSE)
+	    continue;
+	  rtx src = SET_SRC (set);
+	  machine_mode mode = GET_MODE (src);
+	  if (GET_MODE_CLASS (mode) != MODE_INT
+	      && GET_MODE_CLASS (mode) != MODE_FLOAT)
+	    continue;
+	  if ((!REG_P (XEXP (src, 1)) && !MEM_P (XEXP (src, 1)))
+	      || (!REG_P (XEXP (src, 2)) && !MEM_P (XEXP (src, 2))))
+	    continue;
+	  /* insn is CMOV or FCMOV.  */
+	  if (++cmov_cnt > 1)
+	    return false;
+	}
+    }
+  return default_noce_conversion_profitable_p (seq, if_info);
+}
 
 /* Implement targetm.vectorize.init_cost.  */
 
@@ -52124,6 +52239,10 @@ ix86_run_selftests (void)
 
 #undef TARGET_MAX_NOCE_IFCVT_SEQ_COST
 #define TARGET_MAX_NOCE_IFCVT_SEQ_COST ix86_max_noce_ifcvt_seq_cost
+
+#undef TARGET_NOCE_CONVERSION_PROFITABLE_P
+#define TARGET_NOCE_CONVERSION_PROFITABLE_P ix86_noce_conversion_profitable_p
+
 #if CHECKING_P
 #undef TARGET_RUN_TARGET_SELFTESTS
 #define TARGET_RUN_TARGET_SELFTESTS selftest::ix86_run_selftests

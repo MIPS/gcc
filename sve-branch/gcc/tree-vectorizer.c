@@ -664,6 +664,7 @@ vectorize_loops (void)
 				     "basic block vectorized\n");
 		    fold_loop_vectorized_call (loop_vectorized_call,
 					       boolean_true_node);
+		    loop_vectorized_call = NULL;
 		    ret |= TODO_cleanup_cfg;
 		  }
 	      }
@@ -719,6 +720,7 @@ vectorize_loops (void)
 	if (loop_vectorized_call)
 	  {
 	    fold_loop_vectorized_call (loop_vectorized_call, boolean_true_node);
+	    loop_vectorized_call = NULL;
 	    ret |= TODO_cleanup_cfg;
 	  }
 

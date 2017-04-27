@@ -213,4 +213,4 @@ Target RejectNegative Joined Enum(sve_vector_bits) Var(aarch64_sve_vector_bits) 
 
 mverbose-cost-dump
 Common Undocumented Var(flag_aarch64_verbose_cost)
-Enables verbose cost model dummping in the debug dump files.
+Enables verbose cost model dumping in the debug dump files.

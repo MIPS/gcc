@@ -126,15 +126,6 @@ struct GTY(()) alias_set_entry {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
   alias_set_type alias_set;
 
-  /* The children of the alias set.  These are not just the immediate
-     children, but, in fact, all descendants.  So, if we have:
-
-       struct T { struct S s; float f; }
-
-     continuing our example above, the children here will be all of
-     `int', `double', `float', and `struct S'.  */
-  hash_map<alias_set_hash, int> *children;
-
   /* Nonzero if would have a child of zero: this effectively makes this
      alias set the same as alias set zero.  */
   bool has_zero_child;
@@ -145,6 +136,15 @@ struct GTY(()) alias_set_entry {
   bool is_pointer;
   /* Nonzero if is_pointer or if one of childs have has_pointer set.  */
   bool has_pointer;
+
+  /* The children of the alias set.  These are not just the immediate
+     children, but, in fact, all descendants.  So, if we have:
+
+       struct T { struct S s; float f; }
+
+     continuing our example above, the children here will be all of
+     `int', `double', `float', and `struct S'.  */
+  hash_map<alias_set_hash, int> *children;
 };
 
 static int rtx_equal_for_memref_p (const_rtx, const_rtx);
@@ -711,6 +711,10 @@ component_uses_parent_alias_set_from (const_tree t)
 {
   const_tree found = NULL_TREE;
 
+  if (AGGREGATE_TYPE_P (TREE_TYPE (t))
+      && TYPE_TYPELESS_STORAGE (TREE_TYPE (t)))
+    return const_cast <tree> (t);
+
   while (handled_component_p (t))
     {
       switch (TREE_CODE (t))
@@ -980,6 +984,10 @@ get_alias_set (tree t)
   /* Variant qualifiers don't affect the alias set, so get the main
      variant.  */
   t = TYPE_MAIN_VARIANT (t);
+
+  if (AGGREGATE_TYPE_P (t)
+      && TYPE_TYPELESS_STORAGE (t))
+    return 0;
 
   /* Always use the canonical type as well.  If this is a type that
      requires structural comparisons to identify compatible types
@@ -2260,7 +2268,7 @@ base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
   /* The base addresses are different expressions.  If they are not accessed
      via AND, there is no conflict.  We can bring knowledge of object
      alignment into play here.  For example, on alpha, "char a, b;" can
-     alias one another, though "char a; long b;" cannot.  AND addesses may
+     alias one another, though "char a; long b;" cannot.  AND addresses may
      implicitly alias surrounding objects; i.e. unaligned access in DImode
      via AND address can alias all surrounding object types except those
      with aligment 8 or higher.  */

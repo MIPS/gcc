@@ -4575,12 +4575,13 @@ mips_multi_start (void)
   mips_multi_num_insns = 0;
 }
 
-/* Add a new, uninitialized member to the current multi-insn sequence.  */
+/* Add a new, zero initialized member to the current multi-insn sequence.  */
 
 static struct mips_multi_member *
 mips_multi_add (void)
 {
   mips_multi_member empty;
+  memset (&empty, 0, sizeof (empty));
   return mips_multi_members.safe_push (empty);
 }
 
@@ -8099,6 +8100,9 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Mop up any left-over bytes.  */
   if (leftover)
     mips_block_move_straight (dest, src, leftover);
+  else
+    /* Temporary fix for PR79150.  */
+    emit_insn (gen_nop ());
 }
 
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
@@ -11412,7 +11416,7 @@ mips_save_restore_reg (machine_mode mode, int regno,
   fn (gen_rtx_REG (mode, regno), mem);
 }
 
-/* Call FN for each accumlator that is saved by the current function.
+/* Call FN for each accumulator that is saved by the current function.
    SP_OFFSET is the offset of the current stack pointer from the start
    of the frame.  */
 
@@ -21354,6 +21358,9 @@ mips_expand_vec_perm_const (rtx operands[4])
   d.nelt = nelt = GET_MODE_NUNITS (d.vmode);
   d.testing_p = false;
 
+  /* This is overly conservative, but ensures we don't get an
+     uninitialized warning on ORIG_PERM.  */
+  memset (&orig_perm[nelt], 0, MAX_VECT_LEN);
   for (i = which = 0; i < nelt; ++i)
     {
       rtx e = XVECEXP (sel, 0, i);
@@ -21632,7 +21639,7 @@ mips_expand_vi_broadcast (machine_mode vmode, rtx target, rtx elt)
 /* Return a const_int vector of VAL with mode MODE.  */
 
 rtx
-mips_gen_const_int_vector (machine_mode mode, int val)
+mips_gen_const_int_vector (machine_mode mode, HOST_WIDE_INT val)
 {
   int nunits = GET_MODE_NUNITS (mode);
   rtvec v = rtvec_alloc (nunits);
@@ -21756,11 +21763,12 @@ mips_expand_vector_init (rtx target, rtx vals)
 		case E_V8HImode:
 		case E_V4SImode:
 		case E_V2DImode:
-		  emit_move_insn (target, same);
+		  temp = gen_rtx_CONST_VECTOR (vmode, XVEC (vals, 0));
+		  emit_move_insn (target, temp);
 		  return;
 
 		default:
-		  break;
+		  gcc_unreachable ();
 		}
 	    }
 	  temp = gen_reg_rtx (imode);

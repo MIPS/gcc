@@ -22,22 +22,17 @@ int loop_counts[] = LOOP_COUNTS;
    Then refill at the correct strided accesses with fill data up to the end of
    the loop count.  */
 
-#define TEST_SPEC_LOOP_FUNC(DATATYPE, ARGTYPE)\
-void test_spec_loop_##DATATYPE##_##ARGTYPE (ARGTYPE num_elements)\
-{\
-  int i;\
-  for (i=0; i<MAX_ARRAY_SIZE; i++)\
-    {\
-      a##DATATYPE[i] = EXIT_CONDITION;\
-    }\
-  for (i=0; (i<num_elements-1)*STRIDE_LEVEL; i++)\
-    {\
-      a##DATATYPE[i*STRIDE_LEVEL] = FILL_DATA;\
-      a##DATATYPE[i*STRIDE_LEVEL+1] = FILL_DATA;\
-    }\
-  ARGTYPE ret = spec_loop_##DATATYPE##_##ARGTYPE (EXIT_CONDITION);\
-  if (ret != num_elements - 1)\
-    abort ();\
+#define TEST_SPEC_LOOP_FUNC(DATATYPE, ARGTYPE)				\
+void									\
+test_spec_loop_##DATATYPE##_##ARGTYPE (ARGTYPE num_elements)		\
+{									\
+  for (int i = 0; i < MAX_ARRAY_SIZE; ++i)				\
+    a##DATATYPE[i] = EXIT_CONDITION;					\
+  for (int i = 0; i < (num_elements - 1) * STRIDE_LEVEL; ++i)		\
+    a##DATATYPE[i] = FILL_DATA;						\
+  ARGTYPE ret = spec_loop_##DATATYPE##_##ARGTYPE (EXIT_CONDITION);	\
+  if (ret != num_elements - 1)						\
+    abort ();								\
 }
 
 TEST_SPEC_LOOP_FUNC (int8_t, int8_t)

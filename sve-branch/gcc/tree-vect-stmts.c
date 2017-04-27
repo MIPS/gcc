@@ -3063,9 +3063,7 @@ get_group_load_store_type (gimple *stmt, tree vectype, bool slp,
 	      return false;
 	    }
 	  /* If the access is aligned an overrun is fine.  */
-	  if (overrun_p
-	      && aligned_access_p
-		   (STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt))))
+	  if (overrun_p && gap < vect_known_alignment_in_elements (first_stmt))
 	    overrun_p = false;
 	  if (overrun_p && !can_overrun_p)
 	    {
@@ -3086,6 +3084,14 @@ get_group_load_store_type (gimple *stmt, tree vectype, bool slp,
       /* We can always handle this case using elementwise accesses,
 	 but see if something more efficient is available.  */
       *memory_access_type = VMAT_ELEMENTWISE;
+
+      /* If the access is aligned an overrun is fine, but only if the
+         overrun is not inside an unused vector (if the gap is as large
+	 or larger than a vector).  */
+      if (would_overrun_p
+	  && vls_type == VLS_LOAD
+	  && gap < vect_known_alignment_in_elements (first_stmt))
+	would_overrun_p = false;
 
       /* First try using LOAD/STORE_LANES.  */
       if (!STMT_VINFO_STRIDED_P (stmt_info)
@@ -3737,7 +3743,7 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 	    }
 	  else
 	    {
-	      align = vect_data_ref_required_alignment (dr) / BITS_PER_UNIT;
+	      align = DR_TARGET_ALIGNMENT (dr);
 	      if (aligned_access_p (dr))
 		misalign = 0;
 	      else if (DR_MISALIGNMENT (dr) == -1)
@@ -3825,7 +3831,7 @@ vectorizable_mask_load_store (gimple *stmt, gimple_stmt_iterator *gsi,
 	    }
 	  else
 	    {
-	      align = vect_data_ref_required_alignment (dr) / BITS_PER_UNIT;
+	      align = DR_TARGET_ALIGNMENT (dr);
 	      if (aligned_access_p (dr))
 		misalign = 0;
 	      else if (DR_MISALIGNMENT (dr) == -1)
@@ -4499,8 +4505,8 @@ struct simd_call_arg_info
 {
   tree vectype;
   tree op;
-  enum vect_def_type dt;
   HOST_WIDE_INT linear_step;
+  enum vect_def_type dt;
   unsigned int align;
   bool simd_lane_linear;
 };
@@ -6879,7 +6885,7 @@ ensure_base_align (struct data_reference *dr)
     {
       tree base_decl = DR_VECT_AUX (dr)->base_decl;
 
-      unsigned int align_base_to = vect_data_ref_required_alignment (dr);
+      unsigned int align_base_to = DR_TARGET_ALIGNMENT (dr) * BITS_PER_UNIT;
 
       if (decl_in_symtab_p (base_decl))
 	symtab_node::get (base_decl)->increase_alignment (align_base_to);
@@ -7349,6 +7355,8 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  if (slp)
 	    break;
 	}
+
+      vec_oprnds.release ();
       return true;
     }
 
@@ -7531,8 +7539,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 				      dataref_offset
 				      ? dataref_offset
 				      : build_int_cst (ref_type, 0));
-	      align = (vect_data_ref_required_alignment (first_dr)
-		       / BITS_PER_UNIT);
+	      align = DR_TARGET_ALIGNMENT (first_dr);
 	      if (aligned_access_p (first_dr))
 		misalign = 0;
 	      else if (DR_MISALIGNMENT (first_dr) == -1)
@@ -8501,8 +8508,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		    if (alignment_support_scheme == dr_aligned)
 		      {
 			gcc_assert (aligned_access_p (first_dr));
-			align = (vect_data_ref_required_alignment (first_dr)
-				 / BITS_PER_UNIT);
+			align = DR_TARGET_ALIGNMENT (first_dr);
 			misalign = 0;
 		      }
 		    else if (DR_MISALIGNMENT (first_dr) == -1)
@@ -8516,8 +8522,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		      }
 		    else
 		      {
-			align = (vect_data_ref_required_alignment (first_dr)
-				 / BITS_PER_UNIT);
+			align = DR_TARGET_ALIGNMENT (first_dr);
 			misalign = DR_MISALIGNMENT (first_dr);
 		      }
 		    if (dataref_offset == NULL_TREE
@@ -8570,9 +8575,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		      ptr = copy_ssa_name (dataref_ptr);
 		    else
 		      ptr = make_ssa_name (TREE_TYPE (dataref_ptr));
-		    unsigned int align
-		      = (vect_data_ref_required_alignment (first_dr)
-			 / BITS_PER_UNIT);
+		    unsigned int align = DR_TARGET_ALIGNMENT (first_dr);
 		    new_stmt = gimple_build_assign
 				 (ptr, BIT_AND_EXPR, dataref_ptr,
 				  build_int_cst
@@ -8615,9 +8618,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		      new_temp = copy_ssa_name (dataref_ptr);
 		    else
 		      new_temp = make_ssa_name (TREE_TYPE (dataref_ptr));
-		    unsigned int align
-		      = (vect_data_ref_required_alignment (first_dr)
-			 / BITS_PER_UNIT);
+		    unsigned int align = DR_TARGET_ALIGNMENT (first_dr);
 		    new_stmt = gimple_build_assign
 		      (new_temp, BIT_AND_EXPR, dataref_ptr,
 		       build_int_cst (TREE_TYPE (dataref_ptr),
@@ -10252,6 +10253,7 @@ free_stmt_vec_info (gimple *stmt)
 static tree
 get_vectype_for_scalar_type_and_size (tree scalar_type, poly_uint64 size)
 {
+  tree orig_scalar_type = scalar_type;
   scalar_mode inner_mode;
   machine_mode simd_mode;
   poly_uint64 nunits;
@@ -10313,6 +10315,12 @@ get_vectype_for_scalar_type_and_size (tree scalar_type, poly_uint64 size)
   if (!VECTOR_MODE_P (TYPE_MODE (vectype))
       && !INTEGRAL_MODE_P (TYPE_MODE (vectype)))
     return NULL_TREE;
+
+  /* Re-attach the address-space qualifier if we canonicalized the scalar
+     type.  */
+  if (TYPE_ADDR_SPACE (orig_scalar_type) != TYPE_ADDR_SPACE (vectype))
+    return build_qualified_type
+	     (vectype, KEEP_QUAL_ADDR_SPACE (TYPE_QUALS (orig_scalar_type)));
 
   return vectype;
 }
