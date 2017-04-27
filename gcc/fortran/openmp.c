@@ -2596,7 +2596,9 @@ gfc_match_oacc_routine (void)
 	goto cleanup;
     }
   else
-    gcc_unreachable ();
+    /* Something has gone wrong.  Perhaps there was a syntax error
+       in the program-stmt.  */
+    goto cleanup;
 
   if (n)
     n->clauses = c;

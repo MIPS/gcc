@@ -1,3 +1,8 @@
+2017-04-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_oacc_routine): Don't match OpenACC routines
+	when the current function failed to parse due to a syntax error.
+
 2017-04-19  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-decl.c (add_clause): Populate sym->backend_decl so that it
