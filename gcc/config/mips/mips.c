@@ -3102,14 +3102,11 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
   if (GET_CODE (x) == LABEL_REF)
     {
-      /* Only return SYMBOL_PC_RELATIVE if we are generating MIPS16
-	 code and if we know that the label is in the current function's
-	 text section.  LABEL_REFs are used for jump tables as well as
-	 text labels, so we must check whether jump tables live in the
-	 text section.  */
-      if (TARGET_MIPS16_SHORT_JUMP_TABLES
-	  && !LABEL_REF_NONLOCAL_P (x))
-	return SYMBOL_PC_RELATIVE;
+      /* Do not return SYMBOL_PC_RELATIVE even for MIPS16 code where
+	 code is readable because the LA instruction does not correctly
+	 obtain the address of a true code label.  For the case of a
+	 LABEL_REF in a text section jump table the LA is currently
+	 explicitly emitted at the final stage.  */
 
       if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
 	return SYMBOL_GOT_PAGE_OFST;
