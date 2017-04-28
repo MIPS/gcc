@@ -17,3 +17,24 @@
 ; You should have received a copy of the GNU General Public License
 ; along with GCC; see the file COPYING3.  If not see
 ; <http://www.gnu.org/licenses/>.
+
+HeaderInclude
+config/gcn/gcn-opts.h
+
+Enum
+Name(gpu_type) Type(enum processor_type)
+GCN GPU type to use:
+
+EnumValue
+Enum(gpu_type) String(carrizo) Value(PROCESSOR_CARRIZO)
+
+EnumValue
+Enum(gpu_type) String(fiji) Value(PROCESSOR_FIJI)
+
+march=
+Target RejectNegative Joined ToLower Enum(gpu_type) Var(gcn_arch) Init(PROCESSOR_CARRIZO)
+Specify the name of the target GPU.
+
+mtune=
+Target RejectNegative Joined ToLower Enum(gpu_type) Var(gcn_tune) Init(PROCESSOR_CARRIZO)
+Specify the name of the target GPU.

@@ -14,18 +14,22 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
+#include "config/gcn/gcn-opts.h"
+
 
 /* FIXME */
 #define TARGET_CPU_CPP_BUILTINS()
 
-/* Which processor to generate code or schedule for.  */
-enum processor_type
-{
-  PROCESSOR_CARRIZO,
-};
+/* Temporarily disable libgcc until one actually exists.  */
+#undef  LIBGCC_SPEC
+#define LIBGCC_SPEC ""
 
-extern GTY(()) int gcn_arch;
-extern GTY(()) int gcn_tune;
+/* Use LLVM assembler options.  */
+#undef ASM_SPEC
+#define ASM_SPEC "-triple=amdgcn--amdhsa %{march=*:-mcpu=%*} -filetype=obj"
+
+#undef LINK_SPEC
+#define LINK_SPEC ""
 
 /* Support for a compile-time default architecture and tuning.  The rules are:
    --with-arch is ignored if -march is specified.

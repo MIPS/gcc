@@ -60,11 +60,6 @@
 /* This file should be included last.  */
 #include "target-def.h"
 
-/* Which instruction set architecture to use.  */
-int gcn_arch;
-/* Which cpu are we tuning for.  */
-int gcn_tune;
-
 static REAL_VALUE_TYPE dconst4, dconst1over2pi;
 static bool ext_gcn_constants_init = 0;
 
@@ -2006,8 +2001,8 @@ static void
 output_file_start (void)
 {
   fprintf (asm_out_file, "\t.hsatext\n");
-  fprintf (asm_out_file, "\t.hsa_code_object_version 1,0\n");
-  fprintf (asm_out_file, "\t.hsa_code_object_isa 8,0,1,\"AMD\",\"AMDGPU\"\n");
+  fprintf (asm_out_file, "\t.hsa_code_object_version 2,0\n");
+  fprintf (asm_out_file, "\t.hsa_code_object_isa\n");  /* Autodetect.  */
   fprintf (asm_out_file, "\t.section\t.AMDGPU.config\n");
   fprintf (asm_out_file, "\t.hsatext\n");
 }

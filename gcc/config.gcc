@@ -3930,7 +3930,7 @@ case "${target}" in
 		for which in arch tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | fiji)
+			"" | carrizo | fiji)
 				# OK
 				;;
 			*)
@@ -3939,6 +3939,7 @@ case "${target}" in
 				;;
 			esac
 		done
+		[ "x$with_arch" = x ] && with_arch=carrizo
 		;;
 
 	hppa*-*-*)
