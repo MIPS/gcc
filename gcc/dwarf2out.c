@@ -1319,6 +1319,31 @@ dwarf_stack_op_name (unsigned int op)
   return "OP_<unknown>";
 }
 
+/* Return TRUE iff we're to output location view lists as a separate
+   attribute next to the location lists, as an extension compatible
+   with DWARF 2 and above.  */
+
+static inline bool
+dwarf2out_locviews_in_attribute ()
+{
+  return debug_variable_location_views
+    && dwarf_version <= 5;
+}
+
+/* Return TRUE iff we're to output location view lists as part of the
+   location lists, as proposed for standardization after DWARF 5.  */
+
+static inline bool
+dwarf2out_locviews_in_loclist ()
+{
+#ifndef DW_LLE_view_pair
+  return false;
+#else
+  return debug_variable_location_views
+    && dwarf_version >= 6;
+#endif
+}
+
 /* Return a pointer to a newly allocated location description.  Location
    descriptions are simple expression terms that can be strung
    together to form more complicated location (address) descriptions.  */
@@ -9751,9 +9776,14 @@ gen_llsym (dw_loc_list_ref list)
   if (!loc_list_has_views (list))
     return;
 
-  /* Use the same label_num for the view list.  */
-  label_num--;
-  list->vl_symbol = gen_internal_sym ("LVUS");
+  if (dwarf2out_locviews_in_attribute ())
+    {
+      /* Use the same label_num for the view list.  */
+      label_num--;
+      list->vl_symbol = gen_internal_sym ("LVUS");
+    }
+  else
+    list->vl_symbol = list->ll_symbol;
 }
 
 /* Generate a symbol for the list, but only if we really want to emit
@@ -9795,6 +9825,43 @@ skip_loc_list_entry (dw_loc_list_ref curr, unsigned long *sizep = 0)
   return false;
 }
 
+/* Output a view pair loclist entry for CURR, if it requires one.  */
+
+static void
+dwarf2out_maybe_output_loclist_view_pair (dw_loc_list_ref curr)
+{
+  if (!dwarf2out_locviews_in_loclist ())
+    return;
+
+  if (ZERO_VIEW_P (curr->vbegin) && ZERO_VIEW_P (curr->vend))
+    return;
+
+#ifdef DW_LLE_view_pair
+  dw2_asm_output_data (1, DW_LLE_view_pair,
+		       "DW_LLE_view_pair");
+
+  if (ZERO_VIEW_P (curr->vbegin))
+    dw2_asm_output_data_uleb128 (0, "Location view begin");
+  else
+    {
+      char label[MAX_ARTIFICIAL_LABEL_BYTES];
+      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", curr->vbegin);
+      dw2_asm_output_symname_uleb128 (label, "Location view begin");
+    }
+
+  if (ZERO_VIEW_P (curr->vend))
+    dw2_asm_output_data_uleb128 (0, "Location view end");
+  else
+    {
+      char label[MAX_ARTIFICIAL_LABEL_BYTES];
+      ASM_GENERATE_INTERNAL_LABEL (label, "LVU", curr->vend);
+      dw2_asm_output_symname_uleb128 (label, "Location view end");
+    }
+#endif
+
+  return;
+}
+
 /* Output the location list given to us.  */
 
 static void
@@ -9806,7 +9873,7 @@ output_loc_list (dw_loc_list_ref list_head)
     return;
   list_head->emitted = true;
 
-  if (list_head->vl_symbol)
+  if (list_head->vl_symbol && dwarf2out_locviews_in_attribute ())
     {
       ASM_OUTPUT_LABEL (asm_out_file, list_head->vl_symbol);
 
@@ -9878,6 +9945,7 @@ output_loc_list (dw_loc_list_ref list_head)
 	{
 	  if (dwarf_split_debug_info)
 	    {
+	      dwarf2out_maybe_output_loclist_view_pair (curr);
 	      /* For -gsplit-dwarf, emit DW_LLE_starx_length, which has
 		 uleb128 index into .debug_addr and uleb128 length.  */
 	      dw2_asm_output_data (1, DW_LLE_startx_length,
@@ -9895,6 +9963,7 @@ output_loc_list (dw_loc_list_ref list_head)
 	    }
 	  else if (!have_multiple_function_sections && HAVE_AS_LEB128)
 	    {
+	      dwarf2out_maybe_output_loclist_view_pair (curr);
 	      /* If all code is in .text section, the base address is
 		 already provided by the CU attributes.  Use
 		 DW_LLE_offset_pair where both addresses are uleb128 encoded
@@ -9945,6 +10014,7 @@ output_loc_list (dw_loc_list_ref list_head)
 		 length.  */
 	      if (last_section == NULL)
 		{
+		  dwarf2out_maybe_output_loclist_view_pair (curr);
 		  dw2_asm_output_data (1, DW_LLE_start_length,
 				       "DW_LLE_start_length (%s)",
 				       list_head->ll_symbol);
@@ -9959,6 +10029,7 @@ output_loc_list (dw_loc_list_ref list_head)
 		 DW_LLE_base_address.  */
 	      else
 		{
+		  dwarf2out_maybe_output_loclist_view_pair (curr);
 		  dw2_asm_output_data (1, DW_LLE_offset_pair,
 				       "DW_LLE_offset_pair (%s)",
 				       list_head->ll_symbol);
@@ -9974,6 +10045,7 @@ output_loc_list (dw_loc_list_ref list_head)
 	     DW_LLE_start_end with a pair of absolute addresses.  */
 	  else
 	    {
+	      dwarf2out_maybe_output_loclist_view_pair (curr);
 	      dw2_asm_output_data (1, DW_LLE_start_end,
 				   "DW_LLE_start_end (%s)",
 				   list_head->ll_symbol);
@@ -10053,7 +10125,8 @@ output_loc_list (dw_loc_list_ref list_head)
 			   list_head->ll_symbol);
     }
 
-  gcc_assert (!list_head->vl_symbol || vcount == lcount);
+  gcc_assert (!list_head->vl_symbol
+	      || vcount == lcount * (dwarf2out_locviews_in_attribute () ? 1 : 0));
 }
 
 /* Output a range_list offset into the .debug_ranges or .debug_rnglists
@@ -18481,7 +18554,8 @@ add_AT_location_description (dw_die_ref die, enum dwarf_attribute attr_kind,
     {
       add_AT_loc_list (die, attr_kind, descr);
       gcc_assert (descr->ll_symbol);
-      if (attr_kind == DW_AT_location && descr->vl_symbol)
+      if (attr_kind == DW_AT_location && descr->vl_symbol
+	  && dwarf2out_locviews_in_attribute ())
 	add_AT_view_list (die, DW_AT_GNU_locviews);
     }
 }
@@ -27591,7 +27665,7 @@ init_sections_and_labels (void)
 					SECTION_DEBUG, NULL);
   debug_str_section = get_section (DEBUG_STR_SECTION,
 				   DEBUG_STR_SECTION_FLAGS, NULL);
-  if (!dwarf_split_debug_info && !DWARF2_ASM_LINE_DEBUG_INFO)
+  if (!dwarf_split_debug_info && !output_asm_line_debug_info ())
     debug_line_str_section = get_section (DEBUG_LINE_STR_SECTION,
 					  DEBUG_STR_SECTION_FLAGS, NULL);
 
@@ -29146,6 +29220,7 @@ resolve_addr (dw_die_ref die)
       case dw_val_class_view_list:
 	{
 	  gcc_checking_assert (a->dw_attr == DW_AT_GNU_locviews);
+	  gcc_checking_assert (dwarf2out_locviews_in_attribute ());
 	  if (!view_list_to_loc_list_val_node (&a->dw_attr_val))
 	    {
 	      remove_AT (die, a->dw_attr);
