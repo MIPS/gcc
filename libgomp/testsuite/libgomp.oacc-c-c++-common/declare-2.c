@@ -5,7 +5,7 @@
 float c[N];
 #pragma acc declare device_resident (c)
 
-#pragma acc routine
+#pragma acc routine seq
 float
 subr2 (float a)
 {
@@ -23,7 +23,7 @@ subr2 (float a)
 float b[N];
 #pragma acc declare copyin (b)
 
-#pragma acc routine
+#pragma acc routine seq
 float
 subr1 (float a)
 {

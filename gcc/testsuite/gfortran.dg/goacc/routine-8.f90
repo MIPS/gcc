@@ -4,7 +4,7 @@ program main
   interface
      function s_1 (a)
        integer a
-       !$acc routine
+       !$acc routine seq
      end function s_1
   end interface
 
@@ -18,7 +18,7 @@ program main
   interface
      function s_3 (a)
        integer a
-       !$acc routine (s_3) ! { dg-error "Only the ..ACC ROUTINE form without list is allowed in interface block" }
+       !$acc routine (s_3) seq ! { dg-error "Only the ..ACC ROUTINE form without list is allowed in interface block" }
      end function s_3
   end interface
 

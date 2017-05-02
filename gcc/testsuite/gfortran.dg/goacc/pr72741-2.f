@@ -1,5 +1,5 @@
       SUBROUTINE v_1
-!$ACC ROUTINE
+!$ACC ROUTINE SEQ
 !$ACC ROUTINE ! { dg-error "ACC ROUTINE already applied" }
 !$ACC ROUTINE GANG ! { dg-error "ACC ROUTINE already applied" }
 !$ACC ROUTINE SEQ ! { dg-error "ACC ROUTINE already applied" }
@@ -13,7 +13,7 @@
 !$ACC ROUTINE (g_1) GANG
 !$ACC ROUTINE (g_1) VECTOR ! { dg-error "ACC ROUTINE already applied" }
 !$ACC ROUTINE (g_1) SEQ ! { dg-error "ACC ROUTINE already applied" }
-!$ACC ROUTINE (g_1) ! { dg-error "ACC ROUTINE already applied" }
+!$ACC ROUTINE (g_1) WORKER! { dg-error "ACC ROUTINE already applied" }
 !$ACC ROUTINE (g_1) ! { dg-error "ACC ROUTINE already applied" }
 
       CALL v_1

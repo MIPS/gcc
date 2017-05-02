@@ -15,7 +15,7 @@ program main
 contains
 
     function func (n) result (rc)
-    !$acc routine
+    !$acc routine seq
     integer, intent (in) :: n
     integer :: rc
 

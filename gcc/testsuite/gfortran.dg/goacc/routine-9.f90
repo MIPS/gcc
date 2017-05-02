@@ -7,9 +7,9 @@ contains
   subroutine subr5 (x)
     implicit none
     integer extfunc
-    !$acc routine (subr5)
-    !$acc routine (extfunc)
-    !$acc routine (m1int) ! { dg-error "invalid function name" }
+    !$acc routine (subr5) seq
+    !$acc routine (extfunc) seq
+    !$acc routine (m1int) seq ! { dg-error "invalid function name" }
     integer, intent(inout) :: x
     if (x < 1) then
        x = 1
@@ -29,13 +29,13 @@ program main
   end interface
   integer, parameter :: n = 10
   integer :: a(n), i
-  !$acc routine (subr1) ! { dg-error "invalid function name" }
+  !$acc routine (subr1) seq ! { dg-error "invalid function name" }
   external :: subr2
-  !$acc routine (subr2)
+  !$acc routine (subr2) seq
 
   external :: R1, R2
-  !$acc routine (R1)
-  !$acc routine (R2)
+  !$acc routine (R1) seq
+  !$acc routine (R2) seq
 
   !$acc parallel
   !$acc loop
@@ -47,7 +47,7 @@ program main
 end program main
 
 subroutine subr1 (x)
-  !$acc routine
+  !$acc routine seq
   integer, intent(inout) :: x
   if (x < 1) then
      x = 1
@@ -66,7 +66,7 @@ subroutine subr2 (x)
 end subroutine subr2
 
 subroutine subr3 (x)
-  !$acc routine (subr3)
+  !$acc routine (subr3) seq
   integer, intent(inout) :: x
   if (x < 1) then
      x = 1
@@ -76,7 +76,7 @@ subroutine subr3 (x)
 end subroutine subr3
 
 subroutine subr4 (x)
-  !$acc routine (subr4)
+  !$acc routine (subr4) seq
   integer, intent(inout) :: x
   if (x < 1) then
      x = 1
@@ -86,7 +86,7 @@ subroutine subr4 (x)
 end subroutine subr4
 
 subroutine subr10 (x)
-  !$acc routine (subr10) device ! { dg-error "Unclassifiable OpenACC directive" }
+  !$acc routine (subr10) seq device ! { dg-error "Unclassifiable OpenACC directive" }
   integer, intent(inout) :: x
   if (x < 1) then
      x = 1

@@ -1122,7 +1122,7 @@ void t27()
 
 /* Check if worker-single variables get broadcastd to vectors.  */
 
-#pragma acc routine
+#pragma acc routine seq
 float t28_routine ()
 {
   return 2.71;

@@ -57,7 +57,7 @@ f_acc_data (void)
   }
 }
 
-#pragma acc routine
+#pragma acc routine seq
 void
 f_acc_routine (void)
 {

@@ -108,63 +108,63 @@ end program dtype
 !! ACC ROUTINE:
 
 subroutine sr1 ()
-  !$acc routine device_type (nvidia) gang
+  !$acc routine seq device_type (nvidia) gang
 end subroutine sr1
 
 subroutine sr2 ()
-  !$acc routine dtype (nvidia) worker
+  !$acc routine seq dtype (nvidia) worker
 end subroutine sr2
 
 subroutine sr3 ()
-  !$acc routine device_type (nvidia) vector
+  !$acc routine seq device_type (nvidia) vector
 end subroutine sr3
 
 subroutine sr4 ()
-  !$acc routine device_type (nvidia) seq
+  !$acc routine seq device_type (nvidia) seq
 end subroutine sr4
 
 subroutine sr5 ()
-  !$acc routine dtype (nvidia) bind (foo)
+  !$acc routine seq dtype (nvidia) bind (foo)
 end subroutine sr5
 
 subroutine sr1a ()
-  !$acc routine device_type (nvidia) gang device_type (*) seq
+  !$acc routine seq device_type (nvidia) gang device_type (*) seq
 end subroutine sr1a
 
 subroutine sr2a ()
-  !$acc routine dtype (nvidia) worker dtype (*) seq
+  !$acc routine seq dtype (nvidia) worker dtype (*) seq
 end subroutine sr2a
 
 subroutine sr3a ()
-  !$acc routine dtype (nvidia) vector device_type (*) seq
+  !$acc routine seq dtype (nvidia) vector device_type (*) seq
 end subroutine sr3a
 
 subroutine sr4a ()
-  !$acc routine device_type (nvidia) seq device_type (*) worker
+  !$acc routine seq device_type (nvidia) seq device_type (*) worker
 end subroutine sr4a
 
 subroutine sr5a ()
-  !$acc routine device_type (nvidia) bind (foo) dtype (*) seq
+  !$acc routine seq device_type (nvidia) bind (foo) dtype (*) seq
 end subroutine sr5a
 
 subroutine sr1b ()
-  !$acc routine dtype (gpu) gang dtype (*) seq
+  !$acc routine seq dtype (gpu) gang dtype (*) seq
 end subroutine sr1b
 
 subroutine sr2b ()
-  !$acc routine dtype (gpu) worker device_type (*) seq
+  !$acc routine seq dtype (gpu) worker device_type (*) seq
 end subroutine sr2b
 
 subroutine sr3b ()
-  !$acc routine device_type (gpu) vector device_type (*) seq
+  !$acc routine seq device_type (gpu) vector device_type (*) seq
 end subroutine sr3b
 
 subroutine sr4b ()
-  !$acc routine device_type (gpu) seq device_type (*) worker
+  !$acc routine seq device_type (gpu) seq device_type (*) worker
 end subroutine sr4b
 
 subroutine sr5b ()
-  !$acc routine dtype (gpu) bind (foo) device_type (*) seq
+  !$acc routine seq dtype (gpu) bind (foo) device_type (*) seq
 end subroutine sr5b
 
 ! { dg-final { scan-tree-dump-times "oacc_parallel device_type\\(nvidia\\) \\\[ async\\(1\\) wait\\(1\\) num_gangs\\(100\\) num_workers\\(100\\) vector_length\\(32\\) \\\]" 1 "omplower" } }

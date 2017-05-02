@@ -13,7 +13,7 @@
 /* "MINUS_TWO" is the device variant for function "TWO".  Similar for "THREE",
    and "FOUR".  Exercising different variants for declaring routines.  */
 
-#pragma acc routine nohost
+#pragma acc routine nohost seq
 extern int MINUS_TWO(void);
 
 int MINUS_TWO(void)
@@ -24,7 +24,7 @@ int MINUS_TWO(void)
 }
 
 extern int TWO(void);
-#pragma acc routine (TWO) bind(MINUS_TWO)
+#pragma acc routine (TWO) bind(MINUS_TWO) seq
 
 int TWO(void)
 {
@@ -34,7 +34,7 @@ int TWO(void)
 }
 
 
-#pragma acc routine nohost
+#pragma acc routine nohost seq
 int MINUS_THREE(void)
 {
   if (!acc_on_device(acc_device_not_host))
@@ -42,7 +42,7 @@ int MINUS_THREE(void)
   return -3;
 }
 
-#pragma acc routine bind(MINUS_THREE)
+#pragma acc routine bind(MINUS_THREE) seq
 extern int THREE(void);
 
 int THREE(void)
@@ -55,7 +55,7 @@ int THREE(void)
 
 /* Due to using a string in the bind clause, we don't need "MINUS_FOUR" in
    scope here.  */
-#pragma acc routine bind("MINUS_FOUR")
+#pragma acc routine bind("MINUS_FOUR") seq
 int FOUR(void)
 {
   if (acc_on_device(acc_device_not_host))
@@ -64,7 +64,7 @@ int FOUR(void)
 }
 
 extern int MINUS_FOUR(void);
-#pragma acc routine (MINUS_FOUR) nohost
+#pragma acc routine (MINUS_FOUR) nohost seq
 
 int MINUS_FOUR(void)
 {

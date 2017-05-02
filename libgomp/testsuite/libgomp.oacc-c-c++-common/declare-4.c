@@ -4,7 +4,7 @@
 float b;
 #pragma acc declare create (b)
 
-#pragma acc routine
+#pragma acc routine seq
 int
 func (int a)
 {
