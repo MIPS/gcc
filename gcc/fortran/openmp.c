@@ -6124,6 +6124,18 @@ resolve_oacc_loop_blocks (gfc_code *code)
 	  break;
       }
 
+  if (code->op == EXEC_OACC_LOOP
+      && code->ext.omp_clauses->lists[OMP_LIST_REDUCTION]
+      && code->ext.omp_clauses->gang)
+    {
+      for (c = omp_current_ctx; c; c = c->previous)
+	if (!oacc_is_loop (c->code))
+	  break;
+      if (c == NULL || !(oacc_is_parallel (c->code)
+			 || oacc_is_kernels (c->code)))
+      gfc_error ("gang reduction on an orphan loop at %L", &code->loc);
+    }
+
   if (code->ext.omp_clauses->seq)
     {
       if (code->ext.omp_clauses->independent)

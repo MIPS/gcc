@@ -1,5 +1,10 @@
 2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* openmp.c (resolve_oacc_loop_blocks): Emit an error on orphan
+	OpenACC gang reductions.
+
+2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gfortran.h (enum oacc_function): Add OACC_FUNCTION_AUTO.
 	* openmp.c (gfc_oacc_routine_dims): Return OACC_FUNCTION_AUTO when no
 	parallelism was detected.

@@ -1,5 +1,14 @@
 2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* c-c++-common/goacc/orphan-reductions-1.c: New test.
+	* c-c++-common/goacc/orphan-reductions-2.c: New test.
+	* c-c++-common/goacc/routine-4.c: Update test case.
+	* gcc.dg/goacc/loop-processing-1.c: Likewise.
+	* gfortran.dg/goacc/orphan-reductions-1.f90: New test.
+	* gfortran.dg/goacc/orphan-reductions-2.f90: New test.
+
+2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* c-c++-common/goacc-gomp/nesting-fail-1.c: Update usage and expected
 	output of OpenACC routines.
 	* c-c++-common/goacc/Wparentheses-1.c: Likewise.

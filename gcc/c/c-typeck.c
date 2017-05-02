@@ -12872,6 +12872,14 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_REDUCTION:
+	  if (ort == C_ORT_ACC && oacc_get_fn_attrib (current_function_decl)
+	      && omp_find_clause (clauses, OMP_CLAUSE_GANG))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"gang reduction on an orphan loop");
+	      remove = true;
+	      break;
+	    }
 	  need_implicitly_determined = true;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
