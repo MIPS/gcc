@@ -6,7 +6,7 @@
 float *b;
 #pragma acc declare deviceptr (b)
 
-#pragma acc routine
+#pragma acc routine seq
 float *
 subr2 (void)
 {

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#pragma acc routine
+#pragma acc routine seq
 static int __attribute__ ((noinline)) coord ()
 {
   int res = 0;

@@ -8,7 +8,7 @@
 #include <cuda_runtime_api.h>
 #include <cublas_v2.h>
 
-#pragma acc routine
+#pragma acc routine seq
 void
 saxpy (int n, float a, float *x, float *y)
 {

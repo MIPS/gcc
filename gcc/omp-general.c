@@ -627,8 +627,10 @@ oacc_verify_routine_clauses (tree fndecl, tree *clauses, location_t loc,
       }
   if (c_level == NULL_TREE)
     {
-      /* OpenACC 2.5 makes this an error; for the current OpenACC 2.0a
-	 implementation add an implicit "seq" clause.  */
+      /* OpenACC 2.5 expects the user to supply one parallelism clause.  */
+      warning_at (loc, 0, "expecting one of %<gang%>, %<worker%>, %<vector%> "
+		  "or %<seq%> clauses");
+      inform (loc, "assigning %<seq%> parallelism to this routine");
       c_level = build_omp_clause (loc, OMP_CLAUSE_SEQ);
       OMP_CLAUSE_CHAIN (c_level) = *clauses;
       *clauses = c_level;

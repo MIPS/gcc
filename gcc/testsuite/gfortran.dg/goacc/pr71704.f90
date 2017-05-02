@@ -2,7 +2,7 @@
 ! { dg-do compile }
 
 real function f1 ()
-!$acc routine (f1)
+!$acc routine (f1) seq
   f1 = 1
 end
 

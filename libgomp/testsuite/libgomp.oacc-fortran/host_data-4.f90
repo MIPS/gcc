@@ -21,7 +21,7 @@ contains
     integer :: nn
     real*4 :: aa, xx(nn), yy(nn)
     integer i
-    !$acc routine
+    !$acc routine seq
 
     do i = 1, nn
        yy(i) = yy(i) + aa * xx(i)

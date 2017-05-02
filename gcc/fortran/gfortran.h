@@ -320,7 +320,8 @@ enum oacc_function
   OACC_FUNCTION_GANG,
   OACC_FUNCTION_WORKER,
   OACC_FUNCTION_VECTOR,
-  OACC_FUNCTION_SEQ
+  OACC_FUNCTION_SEQ,
+  OACC_FUNCTION_AUTO
 };
 
 /* Strings for all symbol attributes.  We use these for dumping the

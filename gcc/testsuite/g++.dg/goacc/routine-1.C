@@ -4,10 +4,10 @@ namespace N
 {
   extern void foo1();
   extern void foo2();
-#pragma acc routine (foo1)
-#pragma acc routine
+#pragma acc routine (foo1) seq
+#pragma acc routine seq
   void foo3()
   {
   }
 }
-#pragma acc routine (N::foo2)
+#pragma acc routine (N::foo2) seq

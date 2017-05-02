@@ -428,20 +428,20 @@ extern void s_7 (void);
 void g_8 (void)
 {
 }
-#pragma acc routine (g_8) /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*g_8\[\\(\\)\]*., which has already been marked as an accelerator routine" } */
+#pragma acc routine (g_8) seq /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*g_8\[\\(\\)\]*., which has already been marked as an accelerator routine" } */
 
 #pragma acc routine \
   worker
 extern void w_8 (void);
-#pragma acc routine (w_8) /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*w_8\[\\(\\)\]*., which has already been marked as an accelerator routine" } */
+#pragma acc routine (w_8) seq /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*w_8\[\\(\\)\]*., which has already been marked as an accelerator routine" } */
 
 #pragma acc routine \
   vector
 extern void v_8 (void);
-#pragma acc routine (v_8) /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*v_8\[\\(\\)\]*., which has already been marked as an accelerator routine" } */
+#pragma acc routine (v_8) seq /* { dg-error "incompatible .seq. clause when applying .#pragma acc routine. to .\[void \]*v_8\[\\(\\)\]*., which has already been marked as an accelerator routine" } */
 
 extern void s_8 (void);
-#pragma acc routine (s_8)
+#pragma acc routine (s_8) /* { dg-warning "expecting one of" } */
 #pragma acc routine (s_8) \
   vector /* { dg-error "incompatible .vector. clause when applying .#pragma acc routine. to .\[void \]*s_8\[\\(\\)\]*., which has already been marked as an accelerator routine" } */
 #pragma acc routine (s_8) \
