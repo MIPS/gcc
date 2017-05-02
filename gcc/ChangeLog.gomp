@@ -3,6 +3,10 @@
 	* omp-low.c (verify_oacc_routine_clauses): Emit a warning when the
 	user doesn't supply a gang, worker, vector or seq clause to an
 	OpenACC routine construct.
+	(enum oacc_loop_flags): Add OLF_REDUCTION enum.
+	(lower_oacc_head_mark): Use it to mark OpenACC reductions.
+	(oacc_loop_auto_partitions): Don't assign gang level parallelism
+	to orphan reductions.
 
 2017-04-24  Cesar Philippidis  <cesar@codesourcery.com>
 

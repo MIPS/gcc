@@ -272,9 +272,10 @@ enum oacc_loop_flags {
   OLF_INDEPENDENT = 1u << 2,	/* Iterations are known independent.  */
   OLF_GANG_STATIC = 1u << 3,	/* Gang partitioning is static (has op). */
   OLF_TILE	= 1u << 4,	/* Tiled loop. */
+  OLF_REDUCTION = 1u << 5,	/* Reduction loop.  */
   
   /* Explicitly specified loop axes.  */
-  OLF_DIM_BASE = 5,
+  OLF_DIM_BASE = 6,
   OLF_DIM_GANG   = 1u << (OLF_DIM_BASE + GOMP_DIM_GANG),
   OLF_DIM_WORKER = 1u << (OLF_DIM_BASE + GOMP_DIM_WORKER),
   OLF_DIM_VECTOR = 1u << (OLF_DIM_BASE + GOMP_DIM_VECTOR),
@@ -6614,6 +6615,10 @@ lower_oacc_head_mark (location_t loc, tree ddvar, tree clauses,
 
 	case OMP_CLAUSE_TILE:
 	  tag |= OLF_TILE;
+	  break;
+
+	case OMP_CLAUSE_REDUCTION:
+	  tag |= OLF_REDUCTION;
 	  break;
 
 	case OMP_CLAUSE_DEVICE_TYPE:
@@ -20944,7 +20949,14 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
       /* Allocate outermost and non-innermost loops at the outermost
 	 non-innermost available level.  */
       unsigned this_mask = GOMP_DIM_MASK (GOMP_DIM_GANG);
-      
+
+      /* Orphan reductions cannot have gang partitioning.  */
+      if ((loop->flags & OLF_REDUCTION)
+	  && get_oacc_fn_attrib (current_function_decl)
+	  && !lookup_attribute ("omp target entrypoint",
+				DECL_ATTRIBUTES (current_function_decl)))
+	this_mask = GOMP_DIM_MASK (GOMP_DIM_WORKER);
+
       /* Find the first outermost available partition. */
       while (this_mask <= outer_mask)
 	this_mask <<= 1;

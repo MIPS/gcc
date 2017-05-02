@@ -6,6 +6,8 @@
 	(gfc_match_oacc_routine): Emit a warning when the user doesn't
 	supply a gang, worker, vector or seq clause to an OpenACC routine
 	construct.
+	(resolve_oacc_loop_blocks): Emit an error on orphan OpenACC
+	gang reductions.
 
 2017-04-27  Cesar Philippidis  <cesar@codesourcery.com>
 
