@@ -1,5 +1,13 @@
 2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* omp-general.h (enum oacc_loop_flags): Add OLF_REDUCTION enum.
+	* omp-low.c (lower_oacc_head_mark): Use it to mark OpenACC
+	reductions.
+	* omp-offload.c (oacc_loop_auto_partitions): Don't assign gang
+	level parallelism to orphan reductions.
+
+2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* omp-general.c (oacc_verify_routine_clauses): Emit a warning when
 	the user doesn't supply a gang, worker, vector or seq clause to an
 	OpenACC routine construct.

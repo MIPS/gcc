@@ -1,3 +1,8 @@
+2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* semantics.c (finish_omp_clauses): Emit an error on orphan OpenACC
+	gang reductions.
+
 2017-04-26  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* parser.c (cp_parser_omp_var_list_no_open): New c_omp_region_type
