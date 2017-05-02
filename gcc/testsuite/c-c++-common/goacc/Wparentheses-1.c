@@ -4,9 +4,9 @@
 int a, b, c;
 void bar (void);
 void baz (void);
-#pragma acc routine
+#pragma acc routine seq
 void bar2 (void);
-#pragma acc routine
+#pragma acc routine seq
 void baz2 (void);
 
 void

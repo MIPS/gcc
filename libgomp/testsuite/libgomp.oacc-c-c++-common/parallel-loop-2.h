@@ -2,7 +2,7 @@
 #define VARS
 int a[1500];
 float b[10][15][10];
-#pragma acc routine
+#pragma acc routine seq
 __attribute__((noreturn)) void
 noreturn (void)
 {

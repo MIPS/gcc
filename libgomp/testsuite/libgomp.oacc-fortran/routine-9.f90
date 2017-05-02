@@ -6,7 +6,7 @@ program main
   integer, parameter :: n = 10
   integer :: a(n), i
   integer, external :: fact
-  !$acc routine (fact)
+  !$acc routine (fact) seq
   !$acc parallel
   !$acc loop
   do i = 1, n
@@ -20,7 +20,7 @@ end program main
 
 recursive function fact (x) result (res)
   implicit none
-  !$acc routine (fact)
+  !$acc routine (fact) seq
   integer, intent(in) :: x
   integer :: res
   if (x < 1) then

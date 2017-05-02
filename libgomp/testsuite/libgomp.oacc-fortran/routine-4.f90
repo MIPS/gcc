@@ -17,7 +17,7 @@
   end do
 end
 subroutine incr (x)
-  !$acc routine
+  !$acc routine seq
   integer, intent(inout) :: x
   x = x + 1
 end subroutine incr

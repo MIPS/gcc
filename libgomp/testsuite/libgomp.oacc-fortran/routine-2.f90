@@ -4,7 +4,7 @@
   module m1
     contains
     recursive function fact (x) result (res)
-      !$acc routine
+      !$acc routine seq
       integer, intent(in) :: x
       integer :: res
       if (x < 1) then

@@ -8,13 +8,13 @@ struct Iter
   int *point () const asm("_ZNK4Iter5pointEv");
 };
 
-#pragma acc routine
+#pragma acc routine seq
 void  Iter::ctor (int *cursor_)
 {
   cursor = cursor_;
 }
 
-#pragma acc routine
+#pragma acc routine seq
 int *Iter::point () const
 {
   return cursor;
@@ -22,7 +22,7 @@ int *Iter::point () const
 
 void apply (int (*fn)(), Iter out) asm ("_ZN5Apply5applyEPFivE4Iter");
 
-#pragma acc routine
+#pragma acc routine seq
 void apply (int (*fn)(), struct Iter out)
 { *out.point() = fn (); }
 

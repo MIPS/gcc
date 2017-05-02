@@ -3,7 +3,7 @@
 
   interface
     recursive function fact (x)
-      !$acc routine
+      !$acc routine seq
       integer, intent(in) :: x
       integer :: fact
     end function fact
@@ -21,7 +21,7 @@
   end do
 end
 recursive function fact (x) result (res)
-  !$acc routine
+  !$acc routine seq
   integer, intent(in) :: x
   integer :: res
   if (x < 1) then

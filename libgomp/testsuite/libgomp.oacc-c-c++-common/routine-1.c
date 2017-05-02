@@ -8,7 +8,7 @@
 
 #include <stdlib.h>
 
-#pragma acc routine
+#pragma acc routine seq
 TEMPLATE
 RETURN_1 fact(TYPE n) RETURN_2
 {

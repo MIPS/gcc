@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-#pragma acc routine nohost
+#pragma acc routine nohost seq
 int
 foo (int n)
 {

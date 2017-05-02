@@ -4,7 +4,7 @@
   integer, parameter :: n = 10
   integer :: a(n), i
   integer, external :: fact
-  !$acc routine (fact)
+  !$acc routine (fact) seq
   !$acc parallel
   !$acc loop
   do i = 1, n
@@ -16,7 +16,7 @@
   end do
 end
 recursive function fact (x) result (res)
-  !$acc routine
+  !$acc routine seq
   integer, intent(in) :: x
   integer :: res
   if (x < 1) then
