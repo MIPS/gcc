@@ -1,3 +1,8 @@
+2017-05-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (lower_oacc_head_mark): Don't mark OpenACC auto
+	loops as independent inside acc parallel regions.
+
 2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-general.h (enum oacc_loop_flags): Add OLF_REDUCTION enum.

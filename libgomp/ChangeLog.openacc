@@ -1,3 +1,8 @@
+2017-05-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/loop-auto-1.c: Adjust test case
+	to conform to the new behavior of the auto clause in OpenACC 2.5.
+
 2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/pr71959-a.C: Adjust test case conform
