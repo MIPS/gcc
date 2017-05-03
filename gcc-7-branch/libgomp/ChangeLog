@@ -1,3 +1,13 @@
+2017-05-02  Release Manager
+
+	* GCC 7.1.0 released.
+
+2017-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/80531
+	* configure.tgt (*-*-aix*): Add -frandom-seed=$@ to XCFLAGS to avoid
+	bootstrap compare failures.
+
 2017-04-20  Alexander Monakov  <amonakov@ispras.ru>
 
 	Backport from mainline

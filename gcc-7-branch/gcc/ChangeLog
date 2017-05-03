@@ -1,3 +1,75 @@
+2017-05-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2017-05-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/68491
+	* config/i386/cpuid.h (__get_cpuid): Always return 0 when
+	__get_cpuid_max returns 0.
+	(__get_cpuid_count): Ditto.
+
+2017-05-02  Jakub Jelinek <jakub@redhat.com>
+
+	Backported from mainline
+	2017-04-25 Jakub Jelinek <jakub@redhat.com>
+
+	* Makefile.in (s-options): Invoke opt-gather.awk with LC_ALL=C in the
+	environment.
+
+2017-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 7.1.1.
+
+2017-05-02  Release Manager
+
+	* GCC 7.1.0 released.
+
+2017-05-02  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80591
+	Revert
+	2017-04-10  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (find_func_aliases): Properly handle
+	asm inputs.
+
+2017-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/80531
+	* cgraph.h (symtab_node::debug_symtab): No longer inline.
+	* symtab.c (symtab_node::debug_symtab): Move definition here.
+
+2017-04-27  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/80530
+	* config/aarch64/aarch64.c (aarch64_emit_approx_sqrt): Ensure
+	that the logic for permitting reciprocal estimates matches that
+	in use_rsqrt_p.
+
+2017-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/80534
+	* tree.c (type_cache_hasher::equal): Only compare
+	TYPE_TYPELESS_STORAGE flag on non-aggregate element types.
+	(build_array_type_1): Only hash TYPE_TYPELESS_STORAGE flag on
+	non-aggregate element types.
+	* tree.h (TYPE_TYPELESS_STORAGE): Fix comment typo, add more details
+	about the flag on ARRAY_TYPEs in the comment, formatting fix.
+
+	PR target/79430
+	* reg-stack.c (emit_swap_insn): If i1src mentions the stack pointer,
+	punt if tmp contains autoinc of stack pointer.
+
+	PR target/77728
+	* config/aarch64/aarch64.c (struct aarch64_fn_arg_alignment): Remove.
+	(aarch64_function_arg_alignment): Return unsigned int again, but still
+	ignore TYPE_FIELDS chain decls other than FIELD_DECLs.
+	(aarch64_layout_arg): Adjust aarch64_function_arg_alignment caller.
+	Don't emit -Wpsabi note.
+	(aarch64_function_arg_boundary): Likewise.
+	(aarch64_gimplify_va_arg_expr): Adjust aarch64_function_arg_alignment
+	caller.
+
 2017-04-25  Martin Sebor  <msebor@redhat.com>
 
 	PR tree-optimization/80497
