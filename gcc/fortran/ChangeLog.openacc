@@ -1,3 +1,12 @@
+2017-05-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (gfc_omp_clauses): Add if_present member.
+	* openmp.c (enum omp_mask2): Add OMP_CLAUSE_IF_PRESENT.
+	(gfc_match_omp_clauses): Handle it.
+	(OACC_UPDATE_CLAUSES): Add OMP_CLAUSE_IF_PRESENT.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Generate an omp clause for
+	if_present.
+
 2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (resolve_oacc_loop_blocks): Emit an error on orphan
