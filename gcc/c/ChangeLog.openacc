@@ -1,3 +1,11 @@
+2017-05-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Add support for if_present.
+	(c_parser_oacc_all_clauses): Likewise.
+	(c_finish_oacc_routine): Likewise.
+	(OACC_UPDATE_CLAUSE_MASK): Add PRAGMA_OACC_CLAUSE_IF_PRESENT.
+	* c-typeck.c (c_finish_omp_clauses): Add support for if_present.
+
 2017-05-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Emit an error on orphan OpenACC

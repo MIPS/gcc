@@ -1289,6 +1289,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_IF_PRESENT:
 	  break;
 
 	  /* OpenACC bind and nohost clauses are not yet handled here.  */
@@ -2001,6 +2002,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_IF_PRESENT:
 	  break;
 
 	  /* OpenACC bind and nohost clauses are not yet handled here.  */

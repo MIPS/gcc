@@ -30669,7 +30669,9 @@ cp_parser_omp_clause_name (cp_parser *parser, bool consume_token = true)
 	    result = PRAGMA_OACC_CLAUSE_HOST;
 	  break;
 	case 'i':
-	  if (!strcmp ("inbranch", p))
+	  if (!strcmp ("if_present", p))
+	    result = PRAGMA_OACC_CLAUSE_IF_PRESENT;
+	  else if (!strcmp ("inbranch", p))
 	    result = PRAGMA_OMP_CLAUSE_INBRANCH;
 	  else if (!strcmp ("independent", p))
 	    result = PRAGMA_OACC_CLAUSE_INDEPENDENT;
@@ -33241,6 +33243,12 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	case PRAGMA_OACC_CLAUSE_IF:
 	  clauses = cp_parser_omp_clause_if (parser, clauses, here, false);
 	  c_name = "if";
+	  break;
+	case PRAGMA_OACC_CLAUSE_IF_PRESENT:
+	  clauses = cp_parser_oacc_simple_clause (parser,
+						  OMP_CLAUSE_IF_PRESENT,
+						  clauses, here);
+	  c_name = "if_present";
 	  break;
 	case PRAGMA_OACC_CLAUSE_INDEPENDENT:
 	  clauses = cp_parser_oacc_simple_clause (parser,
@@ -36696,6 +36704,7 @@ cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICE_TYPE)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_HOST)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_IF)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_IF_PRESENT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT))
 
 #define OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK				\

@@ -834,6 +834,7 @@ enum omp_mask2
   OMP_CLAUSE_TILE,
   OMP_CLAUSE_BIND,
   OMP_CLAUSE_NOHOST,
+  OMP_CLAUSE_IF_PRESENT,
   OMP_CLAUSE_DEVICE_TYPE,
   /* This must come last.  */
   OMP_MASK2_LAST
@@ -1367,6 +1368,14 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 		    continue;
 		}
 	      gfc_current_locus = old_loc;
+	    }
+	  if ((mask & OMP_CLAUSE_IF_PRESENT)
+	      && !c->if_present
+	      && gfc_match ("if_present") == MATCH_YES)
+	    {
+	      c->if_present = true;
+	      needs_space = true;
+	      continue;
 	    }
 	  if ((mask & OMP_CLAUSE_INBRANCH)
 	      && !c->inbranch
@@ -2073,6 +2082,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
   (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
    | OMP_CLAUSE_DEVICE_TYPE						\
    | OMP_CLAUSE_IF							\
+   | OMP_CLAUSE_IF_PRESENT						\
    | OMP_CLAUSE_HOST_SELF | OMP_CLAUSE_DEVICE)
 #define OACC_WAIT_CLAUSES \
   (omp_mask (OMP_CLAUSE_ASYNC))

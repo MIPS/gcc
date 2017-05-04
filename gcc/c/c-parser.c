@@ -10520,7 +10520,9 @@ c_parser_omp_clause_name (c_parser *parser, bool consume_token = true)
 	    result = PRAGMA_OACC_CLAUSE_HOST;
 	  break;
 	case 'i':
-	  if (!strcmp ("inbranch", p))
+	  if (!strcmp ("if_present", p))
+	    result = PRAGMA_OACC_CLAUSE_IF_PRESENT;
+	  else if (!strcmp ("inbranch", p))
 	    result = PRAGMA_OMP_CLAUSE_INBRANCH;
 	  else if (!strcmp ("independent", p))
 	    result = PRAGMA_OACC_CLAUSE_INDEPENDENT;
@@ -13444,6 +13446,12 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_omp_clause_if (parser, clauses, false);
 	  c_name = "if";
 	  break;
+	case PRAGMA_OACC_CLAUSE_IF_PRESENT:
+	  clauses = c_parser_oacc_simple_clause (parser, here,
+						 OMP_CLAUSE_IF_PRESENT,
+						 clauses);
+	  c_name = "if_present";
+	  break;
 	case PRAGMA_OACC_CLAUSE_INDEPENDENT:
 	  clauses = c_parser_oacc_simple_clause (parser, here,
 						 OMP_CLAUSE_INDEPENDENT,
@@ -14520,6 +14528,7 @@ c_finish_oacc_routine (struct oacc_routine_data *data, tree fndecl,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICE_TYPE)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_HOST)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_IF)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_IF_PRESENT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT) )
 
 #define OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK				\

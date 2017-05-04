@@ -1540,6 +1540,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__SIMT_:
+	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
@@ -1715,6 +1716,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE__GRIDDIM_:
 	case OMP_CLAUSE__SIMT_:
+	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 

@@ -479,6 +479,9 @@ enum omp_clause_code {
      kernel.  */
   OMP_CLAUSE__GRIDDIM_,
 
+  /* OpenACC clause: if_present.  */
+  OMP_CLAUSE_IF_PRESENT,
+
   /* OpenACC clause: device_type ( device-type-list).  */
   OMP_CLAUSE_DEVICE_TYPE
 };

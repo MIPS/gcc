@@ -8478,6 +8478,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
+	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
@@ -9367,6 +9368,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_TILE:
+	case OMP_CLAUSE_IF_PRESENT:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
@@ -10872,6 +10874,26 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 			     ort, TREE_CODE (expr));
   gimplify_adjust_omp_clauses (pre_p, NULL, &OMP_STANDALONE_CLAUSES (expr),
 			       TREE_CODE (expr));
+  if (TREE_CODE (expr) == OACC_UPDATE
+      && omp_find_clause (OMP_STANDALONE_CLAUSES (expr),
+			  OMP_CLAUSE_IF_PRESENT))
+    {
+      /* The runtime uses GOMP_MAP_{TO,FROM} to denote the if_present
+	 clause.  */
+      for (tree c = OMP_STANDALONE_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP)
+	  switch (OMP_CLAUSE_MAP_KIND (c))
+	    {
+	    case GOMP_MAP_FORCE_TO:
+	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TO);
+	      break;
+	    case GOMP_MAP_FORCE_FROM:
+	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FROM);
+	      break;
+	    default:
+	      break;
+	    }
+    }
   stmt = gimple_build_omp_target (NULL, kind, OMP_STANDALONE_CLAUSES (expr));
 
   gimplify_seq_add_stmt (pre_p, stmt);

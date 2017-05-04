@@ -1,3 +1,21 @@
+2017-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/update-if_present-1.c: Update test case.
+
+2017-05-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* g++.dg/goacc/update-1.C: Update.
+	* gcc.dg/goacc/nested-function-1.c: Likewise.
+	* gfortran.dg/goacc/nested-function-1.f90: Likewise.
+
+2017-05-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/update-if_present-1.c: New test.
+	* c-c++-common/goacc/update-if_present-2.c: New test.
+	* g++.dg/goacc/update-1.C: New test.
+	* gfortran.dg/goacc/update-if_present-1.f90: New test.
+	* gfortran.dg/goacc/update-if_present-2.f90: New test.
+
 2017-05-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/loop-auto-1.c: Adjust test case to conform to
