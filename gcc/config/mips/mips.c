@@ -26018,6 +26018,9 @@ umips_move_balc_p (rtx *operands)
 {
   if (!ISA_HAS_XLP && !TARGET_MOVEBALC_NOXLP)
     return false;
+  if (GET_MODE (operands[1]) != ptr_mode
+      || GET_MODE (operands[0]) != GET_MODE (operands[1]))
+    return false;
   if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
     return false;
   if (!IN_RANGE (REGNO (operands[1]), 16, 23)
