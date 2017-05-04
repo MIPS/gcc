@@ -117,7 +117,7 @@ static int *consumer_luid = NULL;
    part of the frame.  */
 #define MIPS_MAX_FIRST_STACK_STEP					\
   (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0		\
-   : (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7) ? 0xff8		\
+   : (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7) ? 0xff0		\
    : TARGET_MICROMIPS || GENERATE_MIPS16E_SAVE_RESTORE ? 0x7f8		\
    : TARGET_64BIT ? 0x100 : 0x400)
 
@@ -11936,12 +11936,13 @@ mips_save_restore_insn_reg (machine_mode mode, bool restore_p, bool reg_parm_p,
 
    It is caller's responsibility check the stack adjustments.  */
 
-static int
-mips_valid_save_restore_p (unsigned int mask, bool compressed_p)
+static bool
+mips_valid_save_restore_p (unsigned int mask, bool compressed_p,
+			   int *valid_regs)
 {
   int n, nregs;
 
-  n = nregs = popcount_hwi (mask);
+  n = nregs = popcount_hwi (mask & 0xd0ff0000);
 
   /* 16-bit SAVE/RESTORE.JRC always saves $31, optionally $30.  */
   if (compressed_p && !BITSET_P (mask, RETURN_ADDR_REGNUM))
@@ -11959,7 +11960,11 @@ mips_valid_save_restore_p (unsigned int mask, bool compressed_p)
 
   /* We can adjust the stack only if no registers are being saved.  */
   if (!compressed_p && n == 0)
-    return true;
+    {
+      if (valid_regs)
+	*valid_regs = n == 0 ? nregs : 0;
+      return true;
+    }
 
   if (BITSET_P (mask, RETURN_ADDR_REGNUM)) n--;
   if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM)) n--;
@@ -11976,7 +11981,10 @@ mips_valid_save_restore_p (unsigned int mask, bool compressed_p)
     else
       break;
 
-  return n == 0 ? nregs : 0;
+  if (valid_regs)
+    *valid_regs = n == 0 ? nregs : 0;
+
+  return n == 0;
 }
 
 static int
@@ -12053,7 +12061,8 @@ mips_build_save_restore (bool restore_p, unsigned int *mask_ptr,
     n = mips_valid_savef_restoref_p (*mask_ptr);
   else
     {
-      n = mips_valid_save_restore_p (*mask_ptr, false) + 1;
+      if (mips_valid_save_restore_p (*mask_ptr, false, &n));
+	n++;
       if (restore_p && restore_jrc_p)
 	n++;
     }
@@ -12260,7 +12269,7 @@ mips_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
     mips_mask_registers (&mask, umipsr7_savef_restoref_regs,
 			    ARRAY_SIZE (umipsr7_savef_restoref_regs), &extra);
   /* Ignore the 16-bit version here.  */
-  else if (!mips_valid_save_restore_p (mask, false))
+  else if (!mips_valid_save_restore_p (mask, false, NULL))
     return false;
 
   if (extra != 0)
@@ -13280,8 +13289,8 @@ mips_compute_frame_info_oabi_nabi (void)
      +--------------------------------+ <-- arg_pointer_rtx
    B |  callee-allocated save area    |
      |  for register varargs          |
-     +--------------------------------+ <-- frame_pointer_rtx + gp_sp_offset
-     |  GPR save area  | $fp          |     + UNITS_PER_WORD
+     +--------------------------------+ <-- frame_pointer_rtx
+     |  GPR save area  | $fp          |
      |                 | $ra          |
      |                 |--------------| <-- hard_frame_pointer_rtx
      |                 | $s0-$s7, $gp |
@@ -13328,7 +13337,7 @@ mips_compute_frame_info_pabi (void)
   frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
 
-  frame->args_size = crtl->outgoing_args_size;
+  offset = frame->args_size = crtl->outgoing_args_size;
 
   /* Move above the local variables.  */
   frame->var_size = get_frame_size ();
@@ -13433,26 +13442,22 @@ mips_compute_frame_info_pabi (void)
   if (frame->num_gp > 0)
     {
       offset += frame->num_gp * UNITS_PER_WORD;
+      /* We need the stack adjusted by multiple of 16 bytes.
+	 GPRs are saved at the top, hence, the padding is actually below
+	 GPRs.  */
+      offset += MIPS_STACK_ALIGN (offset) - offset;
       frame->gp_sp_offset = offset - UNITS_PER_WORD;
     }
 
   /* Move above the callee-allocated varargs save area.  */
-  offset += cfun->machine->varargs_size;
+  offset += MIPS_STACK_ALIGN (cfun->machine->varargs_size);
   frame->arg_pointer_offset = offset;
 
   /* Move above the callee-allocated area for pretend stack arguments.  */
+  /* Offset should be already aligned to 16 bytes and the pretend args
+     size also.  */
   offset += crtl->args.pretend_args_size;
-  /* We increment the stack by multiple of 16 bytes.  */
-  padding = MIPS_STACK_ALIGN (offset) - offset;
-  frame->total_size = offset + padding;
-
-  if (padding > 0)
-    {
-      frame->gp_save_offset += padding;
-      frame->fp_save_offset += padding;
-      frame->acc_save_offset += padding;
-      frame->cop0_save_offset += padding;
-    }
+  frame->total_size = offset;
 
   /* Work out the offsets of the save areas from the top of the frame.  */
   if (frame->gp_sp_offset > 0)
@@ -13466,7 +13471,18 @@ mips_compute_frame_info_pabi (void)
   if (frame_pointer_needed
       && BITSET_P (frame->mask, RETURN_ADDR_REGNUM)
       && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM))
-    frame->hard_frame_pointer_offset = frame->total_size - 2 * UNITS_PER_WORD;
+    {
+      frame->hard_frame_pointer_offset = frame->total_size;
+      /* The hard frame pointer points to the $fp and $ra pair.  */
+      frame->hard_frame_pointer_offset -= 2 * UNITS_PER_WORD;
+      /* For now we need to do a separate stack adjustment before
+	 using SAVE/RESTORE for variadic functions and/or when we need to
+	 save argument registers.  */
+      frame->hard_frame_pointer_offset -=
+	MIPS_STACK_ALIGN (cfun->machine->varargs_size);
+      /* This is aligned to STACK_BYTES.  */
+      frame->hard_frame_pointer_offset -= crtl->args.pretend_args_size;
+    }
 }
 
 static void
@@ -13909,14 +13925,21 @@ umips_build_word_multiple (mips_save_restore_fn fn, unsigned *mask,
 }
 
 static void
-mips_for_each_saved_gpr (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
-			 mips_save_restore_fn fn, bool restore_jrc_p,
-			 rtx *restore)
+mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
+				      HOST_WIDE_INT step,
+				      mips_save_restore_fn fn,
+				      bool *restore_jrc_p,
+				      rtx *restore, bool sibcall_p)
 {
   int regno;
-  HOST_WIDE_INT offset;
+  HOST_WIDE_INT offset, first_step = 0;
   unsigned int mask = cfun->machine->frame.mask;
   bool restore_p = (fn == mips_save_reg) ? false : true;
+  bool used_save_restore_p = false;
+
+  /* Let's limit the use of this function to nanoMIPS for now to avoid
+     accidental use for other ISAs.  */
+  gcc_assert (TARGET_MICROMIPS_R7);
 
   /* Save registers starting from high to low.  The debuggers prefer at least
      the return register be stored at func+4, and also it allows us not to
@@ -13924,21 +13947,44 @@ mips_for_each_saved_gpr (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
      addition to return address.  */
   offset = cfun->machine->frame.gp_sp_offset - sp_offset;
 
-  if (ISA_HAS_LWM_SWM)
-    umips_build_word_multiple (fn, &mask, stack_pointer_rtx, &offset);
-
-  if (TARGET_MICROMIPS_R7
-      && ISA_HAS_SAVE_RESTORE
-      && cfun->machine->safe_to_use_save_restore
-      && step != 0
-      && mips_valid_save_restore_p (mask, false))
+  if (cfun->machine->varargs_size > 0
+      || crtl->args.pretend_args_size > 0)
     {
+      first_step = MIPS_STACK_ALIGN (cfun->machine->varargs_size
+				     + crtl->args.pretend_args_size);
+      step -= first_step;
+      if (!restore)
+	{
+	  rtx insn = gen_add3_insn (stack_pointer_rtx,
+				    stack_pointer_rtx,
+				    GEN_INT (-first_step));
+	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+	  offset -= first_step;
+	  mips_frame_barrier ();
+	}
+    }
+
+  if (ISA_HAS_SAVE_RESTORE
+      && cfun->machine->safe_to_use_save_restore
+      && !cfun->machine->interrupt_handler_p
+      && step != 0
+      && mips_valid_save_restore_p (mask, false, NULL))
+    {
+      if (restore_jrc_p)
+	{
+	  if (!sibcall_p
+	      && mips_can_use_return_insn ())
+	    *restore_jrc_p = true;
+	}
+
       if (BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
 	cfun->machine->frame.ra_fp_offset = offset + sp_offset;
       rtx save_restore = mips_build_save_restore (restore_p, &mask, &offset,
 						  0/*nargs*/, step,
-						  false, restore_jrc_p);
-      if (!restore_jrc_p)
+						  false, restore_jrc_p
+							 ? *restore_jrc_p
+							 : false);
+      if (!restore_jrc_p || !*restore_jrc_p)
 	{
 	  RTX_FRAME_RELATED_P (emit_insn (save_restore)) = 1;
 	  mips_frame_barrier ();
@@ -13947,17 +13993,64 @@ mips_for_each_saved_gpr (HOST_WIDE_INT sp_offset, HOST_WIDE_INT step,
       offset -= cfun->machine->frame.num_gp * UNITS_PER_WORD;
       if (restore_p && restore)
 	*restore = save_restore;
+      used_save_restore_p = true;
+    }
+  else if (restore_jrc_p)
+    *restore_jrc_p = false;
+
+  /* We want to use mostly the positive offsets when saving/restoring,
+     hence, the stack adjustment is deferred when restoring.  */
+  if (!used_save_restore_p && !restore)
+    {
+      step = -step;
+      rtx insn = gen_add3_insn (stack_pointer_rtx,
+				stack_pointer_rtx,
+				GEN_INT (step));
+      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+      offset = cfun->machine->frame.gp_sp_offset;
+      mips_frame_barrier ();
     }
 
-  for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
+  /* Make sure that we save/restore to the same stack slots as SAVE/RESTORE
+     would as we can potentially have a mix of SAVE/RESTORE and expanded
+     SAVE/RESTORE for whatever reason.  */
+
+  if (BITSET_P (mask, HARD_FRAME_POINTER_REGNUM))
+    {
+      mips_save_restore_reg (word_mode, HARD_FRAME_POINTER_REGNUM, offset, fn);
+      offset -= UNITS_PER_WORD;
+    }
+
+  if (BITSET_P (mask, RETURN_ADDR_REGNUM))
+    {
+      /* Record the ra offset for use by mips_function_profiler.  */
+      cfun->machine->frame.ra_fp_offset = offset + sp_offset;
+      mips_save_restore_reg (word_mode, RETURN_ADDR_REGNUM, offset, fn);
+      offset -= UNITS_PER_WORD;
+    }
+
+  for (regno = GP_REG_FIRST + 16; regno <= GP_REG_FIRST + 23; regno++)
     if (BITSET_P (mask, regno - GP_REG_FIRST))
       {
-	/* Record the ra offset for use by mips_function_profiler.  */
-	if (regno == RETURN_ADDR_REGNUM)
-	  cfun->machine->frame.ra_fp_offset = offset + sp_offset;
 	mips_save_restore_reg (word_mode, regno, offset, fn);
 	offset -= UNITS_PER_WORD;
       }
+
+  if (BITSET_P (mask, GLOBAL_POINTER_REGNUM))
+    {
+      mips_save_restore_reg (word_mode, GLOBAL_POINTER_REGNUM, offset, fn);
+      offset -= UNITS_PER_WORD;
+    }
+
+  if ((cfun->machine->varargs_size > 0
+       || crtl->args.pretend_args_size > 0) && restore)
+    {
+      rtx insn = gen_add3_insn (stack_pointer_rtx,
+				stack_pointer_rtx,
+				GEN_INT (first_step));
+      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+      mips_frame_barrier ();
+    }
 }
 
 /* Called while generating common epilogue.
@@ -13973,6 +14066,10 @@ mips_for_each_saved_fpr (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
   HOST_WIDE_INT offset;
   unsigned int fmask = cfun->machine->frame.fmask;
   bool restore_p = (fn == mips_save_reg) ? false : true;
+
+  /* Let's limit the use of this function to nanoMIPS for now to avoid
+     accidental use for other ISAs.  */
+  gcc_assert (TARGET_MICROMIPS_R7);
 
   offset = cfun->machine->frame.fp_sp_offset - sp_offset;
   fpr_mode = (TARGET_SINGLE_FLOAT ? SFmode : DFmode);
@@ -14234,6 +14331,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	       "# vars= " HOST_WIDE_INT_PRINT_DEC
 	       ", regs= %d/%d"
 	       ", args= " HOST_WIDE_INT_PRINT_DEC
+	       ", pretend_args= " HOST_WIDE_INT_PRINT_DEC
 	       ", gp= " HOST_WIDE_INT_PRINT_DEC "\n",
 	       reg_names[frame_pointer_needed
 			 ? HARD_FRAME_POINTER_REGNUM
@@ -14245,6 +14343,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 	       frame->var_size,
 	       frame->num_gp, frame->num_fp,
 	       frame->args_size,
+	       crtl->args.pretend_args_size,
 	       frame->cprestore_size);
 
       /* .mask MASK, OFFSET.  */
@@ -14899,20 +14998,7 @@ mips_expand_prologue_pabi (void)
   if (((frame->mask | frame->fmask | frame->acc_mask) != 0)
       || frame->num_cop0_regs > 0)
     {
-      HOST_WIDE_INT step;
-      bool use_save_p = false;
-      bool use_savef_p = false;
-
-      if (ISA_HAS_SAVE_RESTORE
-	  && cfun->machine->safe_to_use_save_restore
-	  && mips_valid_save_restore_p (frame->mask, false))
-	use_save_p = true;
-
-      if (ISA_HAS_SAVEF_RESTOREF
-	  && mips_valid_savef_restoref_p (frame->fmask))
-	use_savef_p = true;
-
-      step = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
+      HOST_WIDE_INT step = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
 
       if (cfun->machine->interrupt_handler_p)
 	{
@@ -15014,21 +15100,12 @@ mips_expand_prologue_pabi (void)
 				   GEN_INT (SR_COP1),
 				   gen_rtx_REG (SImode, GP_REG_FIRST)));
 	}
-      else
-	{
-	  if (!use_save_p && step != 0)
-	    {
-	      rtx insn = gen_add3_insn (stack_pointer_rtx,
-					stack_pointer_rtx,
-					GEN_INT (-step));
-	      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
-	      mips_frame_barrier ();
-	      size -= step;
-	    }
-	}
 
+      mips_save_restore_gprs_and_adjust_sp (size, step, mips_save_reg,
+					    false, NULL, false);
+      /* We ensure that the above does adjust the stack pointer, thus, take
+	 into account the remaining size.  */
       size -= step;
-      mips_for_each_saved_gpr (size, step, mips_save_reg, false, NULL);
       mips_for_each_saved_fpr (size, mips_save_reg);
       mips_for_each_saved_acc (size, mips_save_reg);
     }
@@ -15632,7 +15709,7 @@ static void
 mips_expand_epilogue_pabi (bool sibcall_p)
 {
   const struct mips_frame_info *frame;
-  HOST_WIDE_INT step1, step2;
+  HOST_WIDE_INT step1, step2, step3 = 0;
   rtx base, adjust;
   rtx_insn *insn;
   rtx restore;
@@ -15659,12 +15736,9 @@ mips_expand_epilogue_pabi (bool sibcall_p)
   if (TARGET_MICROMIPS_R7
       && ISA_HAS_SAVE_RESTORE
       && cfun->machine->safe_to_use_save_restore
-      && mips_valid_save_restore_p (frame->mask, false))
+      && mips_valid_save_restore_p (frame->mask, false, NULL))
     {
       use_restore_p = true;
-      if (!sibcall_p
-	  && mips_can_use_return_insn ())
-	use_restore_jrc_p = true;
     }
 
   /* Work out which register holds the frame address.  */
@@ -15687,11 +15761,16 @@ mips_expand_epilogue_pabi (bool sibcall_p)
       step2 = MIN (frame->total_size, MIPS_MAX_FIRST_STACK_STEP);
       if (!frame_pointer_needed)
 	step1 -= step2;
+      if (cfun->machine->varargs_size > 0 || crtl->args.pretend_args_size > 0)
+	step3 = MIPS_STACK_ALIGN (cfun->machine->varargs_size
+				  + crtl->args.pretend_args_size);
     }
 
   /* Get an rtx for STEP that we can add to BASE.  */
-  adjust = GEN_INT (frame_pointer_needed && use_restore_p ? -step1 : step1);
-  if (!SMALL_OPERAND (step1))
+  adjust = GEN_INT (frame_pointer_needed && use_restore_p
+		    ? - (step2 - step3 - 2 * UNITS_PER_WORD)
+		    : step1);
+  if (!SMALL_OPERAND (INTVAL (adjust)))
     {
       mips_emit_move (MIPS_EPILOGUE_TEMP (Pmode), adjust);
       adjust = MIPS_EPILOGUE_TEMP (Pmode);
@@ -15711,8 +15790,9 @@ mips_expand_epilogue_pabi (bool sibcall_p)
   mips_for_each_saved_fpr (frame->total_size - step2, mips_restore_reg);
 
   /* Restore the registers.  */
-  mips_for_each_saved_gpr (frame->total_size - step2, step2,
-			   mips_restore_reg, use_restore_jrc_p, &restore);
+  mips_save_restore_gprs_and_adjust_sp (frame->total_size - step2, step2,
+					mips_restore_reg, &use_restore_jrc_p,
+					&restore, sibcall_p);
 
   if (cfun->machine->interrupt_handler_p)
     {
@@ -15858,6 +15938,8 @@ mips_can_use_return_insn (void)
   /* For optimal code size, we only consider RESTORE.JRC[16] here.
      We then catch remaining cases in the reorg pass.  */
   return !mips_can_use_simple_return_insn ()
+	 && cfun->machine->varargs_size == 0
+	 && crtl->args.pretend_args_size == 0
 	 && cfun->machine->frame.num_fp == 0
 	 && cfun->machine->frame.num_acc == 0
 	 && cfun->machine->frame.num_cop0_regs == 0
@@ -15868,7 +15950,7 @@ mips_can_use_return_insn (void)
 	     || BITSET_P (cfun->machine->frame.mask, RETURN_ADDR_REGNUM))
 	 && !cfun->machine->interrupt_handler_p
 	 && !frame_pointer_needed
-	 && mips_valid_save_restore_p (cfun->machine->frame.mask, true);
+	 && mips_valid_save_restore_p (cfun->machine->frame.mask, true, NULL);
 }
 
 /* Return true if register REGNO can store a value of mode MODE.

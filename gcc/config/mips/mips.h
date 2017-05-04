@@ -457,6 +457,8 @@ struct mips_cpu_info {
       builtin_assert ("cpu=mips");					\
       builtin_define ("__mips__");     					\
       builtin_define ("_mips");						\
+      builtin_define ("_nanomips");					\
+      builtin_define_std ("_nanomips");					\
 									\
       /* We do this here because __mips is defined below and so we	\
 	 can't use builtin_define_std.  We don't ever want to define	\
