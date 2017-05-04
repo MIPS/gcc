@@ -71,6 +71,7 @@ public:
 
   void dump ();
   void dump (pretty_printer *pp);
+  void dump (FILE *);
 
   bool valid_p ();
   bool cast (tree type);

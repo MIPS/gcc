@@ -752,15 +752,28 @@ irange::dump (pretty_printer *buffer)
     pp_string (buffer, "(overflow)");
 }
 
-/* Dump the current range onto stderr.  */
+/* Dump the current range onto FILE F.  */
+
+void
+irange::dump (FILE *f)
+{
+  pretty_printer buffer;
+  buffer.buffer->stream = f;
+  dump (&buffer);
+  pp_newline_and_flush (&buffer);
+}
+
+/* Like above but dump to STDERR.
+
+   ?? You'd think we could have a default parameter for dump(FILE),
+   but gdb currently doesn't do default parameters gracefully-- or at
+   all, and since this is a function we need to be callable from the
+   debugger... */
 
 void
 irange::dump ()
 {
-  pretty_printer buffer;
-  buffer.buffer->stream = stderr;
-  dump (&buffer);
-  pp_newline_and_flush (&buffer);
+  dump (stderr);
 }
 
 /* Return TRUE if W is inside a given range.  */
