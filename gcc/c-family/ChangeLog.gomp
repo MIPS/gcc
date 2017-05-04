@@ -1,3 +1,8 @@
+2017-05-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Add
+	PRAGMA_OACC_CLAUSE_IF_PRESENT.
+
 2017-04-13  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* c-pragma.h (enum pragma_omp_clauses):
