@@ -86,46 +86,13 @@ irange::set_range (tree t, wide_int lbound, wide_int ubound,
 }
 
 void
-irange::set_range (tree t)
+irange::set_range (tree type)
 {
-  if (TYPE_P (t))
-    {
-      gcc_assert (INTEGRAL_TYPE_P (t) || POINTER_TYPE_P (t));
-      wide_int min = wi::min_value (TYPE_PRECISION (t), TYPE_SIGN (t));
-      wide_int max = wi::max_value (TYPE_PRECISION (t), TYPE_SIGN (t));
-      set_range (t, min, max);
-      return;
-    }
-
-  // Otherwise process as an SSA_NAME
-  gcc_assert (TREE_CODE (t) == SSA_NAME);
-
-  // Until tree-ssanames.c::get_range_info () supports pointer types....
-  if (POINTER_TYPE_P (TREE_TYPE (t)))
-    {
-      set_range (TREE_TYPE (t));
-      return;
-    }
-    
-  wide_int min, max;
-  value_range_type rtype = get_range_info (t, &min, &max);
-
-  switch (rtype)
-    {
-    case VR_UNDEFINED:
-    case VR_VARYING:
-      set_range (TREE_TYPE (t));
-      break;
-    case VR_RANGE:
-      set_range (TREE_TYPE (t), min, max, RANGE_PLAIN);
-      break;
-    case VR_ANTI_RANGE:
-      set_range (TREE_TYPE (t), min, max, RANGE_INVERT);
-      break;
-    default:
-      gcc_unreachable ();
-      break;
-    }
+  gcc_assert (TYPE_P (type));
+  gcc_assert (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type));
+  wide_int min = wi::min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+  wide_int max = wi::max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+  set_range (type, min, max);
 }
 
 irange::irange (tree t, wide_int lbound, wide_int ubound,
@@ -143,13 +110,12 @@ irange::irange (const irange &r)
     bounds[i] = r.bounds[i];
 }
 
-// Constructor using the traditional GCC range info if available.  If
-// no range info is available, use the range for the domain for the
-// underlying type.
+// Build a range for the entire domain for TYPE.
 
-irange::irange (tree t)
+irange::irange (tree type)
 {
-  set_range (t);
+  gcc_assert (TYPE_P (type));
+  set_range (type);
 }
 
 bool
@@ -227,9 +193,17 @@ bool
 irange::cast (tree new_type)
 {
   bool sign_change = TYPE_SIGN (new_type) != TYPE_SIGN (type);
+  unsigned new_precision = TYPE_PRECISION (new_type);
+
+  // If nothing changed, this may be a useless type conversion between
+  // two variants of the same type.
+  if (!sign_change && TYPE_PRECISION (type) == new_precision)
+    {
+      type = new_type;
+      return true;
+    }
 
   // If converting to a lower precision, make things fit if necessary.
-  unsigned new_precision = TYPE_PRECISION (new_type);
   if (!sign_change && new_precision < TYPE_PRECISION (type))
     {
       // Get the extreme bounds for the new type, but within the old type,
@@ -569,7 +543,7 @@ irange::Union (const irange &r)
 
 // THIS = THIS ^ [X,Y]
 
-void
+bool
 irange::Intersect (wide_int x, wide_int y)
 {
   unsigned pos = 0;
@@ -590,6 +564,7 @@ irange::Intersect (wide_int x, wide_int y)
 	}
     }
   n = pos;
+  return n != 0;
 }
 
 // THIS = R1 ^ R2
@@ -629,7 +604,7 @@ irange::Intersect (const irange &r1, const irange &r2)
 
   // Overflow is sticky only if both ranges overflowed.
   overflow = (r1.overflow && r2.overflow);
-  return true;
+  return n != 0;
 }
 
 // THIS = THIS ^ R
@@ -752,82 +727,53 @@ irange::ubound (unsigned index)
   return bounds[index * 2 + 1];
 }
 
+/* Dump the current range onto BUFFER.  */
+
 void
-irange::dump (FILE *f)
+irange::dump (pretty_printer *buffer)
 {
   if (!n)
-    fprintf (f, "[]");
-  else
-    for (unsigned i = 0; i < n; ++i)
-      {
-	if (i % 2 == 0)
-	  fputc ('[', f);
-	tree x = wide_int_to_tree (type, bounds[i]);
-	print_generic_expr (f, x, 0);
-	if (i % 2 == 0)
-	  fprintf (f, ",");
-	else
-	  fprintf (f, "]");
-      }
+    {
+      pp_string (buffer, "[]");
+      return;
+    }
+  for (unsigned i = 0; i < n; ++i)
+    {
+      if (i % 2 == 0)
+	pp_character (buffer, '[');
+      tree x = wide_int_to_tree (type, bounds[i]);
+      dump_generic_node (buffer, x, 0, 0, false);
+      if (i % 2 == 0)
+	pp_string (buffer, ", ");
+      else
+	pp_character (buffer, ']');
+    }
   if (overflow)
-    fprintf (f, "(ov)");
+    pp_string (buffer, "(overflow)");
 }
 
-/* Return TRUE if the current range is an ANTI_RANGE.  This is a
-   temporary measure offering backward compatibility with
-   range_info_def, and will go away.  */
+/* Dump the current range onto stderr.  */
+
+void
+irange::dump ()
+{
+  pretty_printer buffer;
+  buffer.buffer->stream = stderr;
+  dump (&buffer);
+  pp_newline_and_flush (&buffer);
+}
+
+/* Return TRUE if W is inside a given range.  */
 
 bool
-irange::anti_range_p (void)
+irange::inside_range_p (wide_int w)
 {
-  // Remember: VR_ANTI_RANGE([3,10]) ==> [-MIN,2][11,MAX]
-  unsigned int precision = TYPE_PRECISION (type);
-  wide_int min = wi::min_value (precision, TYPE_SIGN (type));
-  wide_int max = wi::max_value (precision, TYPE_SIGN (type));
-  return (n == 4
-	  && bounds[0] == min
-	  && bounds[3] == max);
-}
-
-/* Convert the current range into a simple min/max.  This is a
-   temporary measure while we remove all uses of range_info_def.
-
-   Returns VR_RANGE or VR_ANTI_RANGE depending on whether it is a
-   regular range, or an inverse range.  */
-
-enum value_range_type
-irange::get_simple_min_max (wide_int *min, wide_int *max)
-{
-  gcc_assert (!overflow); // FIXME: Maybe figure this out later.
-
-  if (anti_range_p ())
-    {
-      irange tmp (*this);
-      tmp.Not ();
-      gcc_assert (!tmp.overflow);
-      if (tmp.n != 2)
-	{
-	  fprintf (stderr, "Inverse of anti range does not have 2 elements.\n");
-	  fprintf (stderr, "Type: ");
-	  debug_generic_stmt (type);
-	  fprintf (stderr, "Original anti range:\n");
-	  dump (stderr);
-	  fprintf (stderr, "\n");
-	  fprintf (stderr, "Supposed inverse of anti range:\n");
-	  tmp.dump (stderr);
-	  fprintf (stderr, "\n");
-	  gcc_unreachable ();
-	}
-      *min = tmp.bounds[0];
-      *max = tmp.bounds[1];
-      return VR_ANTI_RANGE;
-    }
-
-  /* We chop off any middle ranges, because old school range_info_def
-     has no use for such granularity.  */
-  *min = bounds[0];
-  *max = bounds[n - 1];
-  return VR_RANGE;
+  signop sign = TYPE_SIGN (type);
+  for (unsigned i = 0; i < n; i += 2)
+    if (wi::ge_p (w, bounds[i], sign)
+	&& wi::le_p (w, bounds[i + 1], sign))
+      return true;
+  return false;
 }
 
 bool
@@ -858,21 +804,18 @@ make_irange_not (irange_p result, tree not_exp, tree type)
   return false;
 }
 
-
-bool
+void
 range_one (irange_p r, tree type)
 {
   tree one = build_int_cst (type, 1);
   r->set_range (type, one, one);
-  return true;
 }
 
-bool
+void
 range_zero (irange_p r, tree type)
 {
   tree zero = build_int_cst (type, 0);
   r->set_range (type, zero, zero);
-  return true;
 }
 
 bool
@@ -880,6 +823,14 @@ range_non_zero (irange_p r, tree type)
 {
   tree zero = build_int_cst (type, 0);
   return make_irange_not (r, zero, type);
+}
+
+/* Set the range of R to the set of positive numbers starting at START.  */
+
+void
+range_positives (irange_p r, tree type, unsigned int start)
+{
+  r->set_range (type, build_int_cst (type, start), TYPE_MAX_VALUE (type));
 }
 
 #ifdef CHECKING_P

@@ -625,6 +625,69 @@ abs_extent_range (value_range *vr, tree min, tree max)
   set_and_canonicalize_value_range (vr, VR_RANGE, min, max, NULL);
 }
 
+/* Return TRUE if an irange is an ANTI_RANGE.  This is a temporary
+   measure offering backward compatibility with range_info_def, and
+   will go away.  */
+
+static bool
+irange_is_anti_range (irange r)
+{
+  tree type = r.get_type ();
+  // Remember: VR_ANTI_RANGE([3,10]) ==> [-MIN,2][11,MAX]
+  unsigned int precision = TYPE_PRECISION (type);
+  wide_int min = wi::min_value (precision, TYPE_SIGN (type));
+  wide_int max = wi::max_value (precision, TYPE_SIGN (type));
+  return (r.num_ranges () == 2
+          && r.lbound () == min
+          && r.ubound () == max);
+}
+
+/* Convert the range info of an SSA name into VRP's internal
+   value_range representation.  Return VR_RANGE/VR_ANTI_RANGE if range
+   info is available for the SSA name, otherwise VR_VARYING is
+   returned.  MIN/MAX is set if range info is available.
+
+   FIXME: Any use of this function outside of tree-vrp must be
+   converted.  For instnace, ipa-prop.c.  */
+
+enum value_range_type
+get_range_info_as_value_range (const_tree ssa, wide_int *min, wide_int *max)
+{
+  irange *ri = SSA_NAME_RANGE_INFO (ssa);
+  if (!ri || (GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (ssa)))
+              > 2 * HOST_BITS_PER_WIDE_INT))
+    return VR_VARYING;
+
+  if (irange_is_anti_range (*ri))
+    {
+      irange tmp (*ri);
+      tmp.Not ();
+      gcc_assert (!tmp.overflow_p ());
+      if (tmp.num_ranges () != 1)
+       {
+         fprintf (stderr, "Inverse of anti range does not have 2 elements.\n");
+         fprintf (stderr, "Type: ");
+         debug_generic_stmt (ri->get_type ());
+         fprintf (stderr, "Original anti range:\n");
+         ri->dump ();
+         fprintf (stderr, "\n");
+         fprintf (stderr, "Supposed inverse of anti range:\n");
+         tmp.dump ();
+         fprintf (stderr, "\n");
+         gcc_unreachable ();
+       }
+      *min = tmp.lbound ();
+      *max = tmp.ubound ();
+      return VR_ANTI_RANGE;
+    }
+
+  /* We chop off any middle ranges, because range_info_def has no use
+     for such granularity.  */
+  *min = ri->lbound ();
+  *max = ri->ubound ();
+  return VR_RANGE;
+}
+
 
 /* Return value range information for VAR.
 
@@ -682,7 +745,8 @@ get_value_range (const_tree var)
 	  else if (INTEGRAL_TYPE_P (TREE_TYPE (sym)))
 	    {
 	      wide_int min, max;
-	      value_range_type rtype = get_range_info (var, &min, &max);
+	      value_range_type rtype
+		= get_range_info_as_value_range (var, &min, &max);
 	      if (rtype == VR_RANGE || rtype == VR_ANTI_RANGE)
 		set_value_range (vr, rtype,
 				 wide_int_to_tree (TREE_TYPE (var), min),
@@ -764,7 +828,7 @@ update_value_range (const_tree var, value_range *new_vr)
   if (INTEGRAL_TYPE_P (TREE_TYPE (var)))
     {
       wide_int min, max;
-      value_range_type rtype = get_range_info (var, &min, &max);
+      value_range_type rtype = get_range_info_as_value_range (var, &min, &max);
       if (rtype == VR_RANGE || rtype == VR_ANTI_RANGE)
 	{
 	  tree nr_min, nr_max;
@@ -7217,8 +7281,9 @@ remove_range_assertions (void)
 							  single_pred (bb)))
 		  {
 		    wide_int min, max;
-		    SSA_NAME_RANGE_INFO (lhs)->get_simple_min_max (&min, &max);
-		    set_range_info (var, SSA_NAME_RANGE_TYPE (lhs), min, max);
+		    enum value_range_type rtype
+		      = get_range_info_as_value_range (lhs, &min, &max);
+		    set_range_info (var, rtype, min, max);
 		    maybe_set_nonzero_bits (bb, var);
 		  }
 	      }
@@ -10265,7 +10330,7 @@ simplify_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple *stmt)
      case innerop was created during substitute-and-fold.  */
   wide_int imin, imax;
   if (!INTEGRAL_TYPE_P (TREE_TYPE (innerop))
-      || get_range_info (innerop, &imin, &imax) != VR_RANGE)
+      || !get_range_info (innerop, &imin, &imax))
     return false;
   innermin = widest_int::from (imin, TYPE_SIGN (TREE_TYPE (innerop)));
   innermax = widest_int::from (imax, TYPE_SIGN (TREE_TYPE (innerop)));

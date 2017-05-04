@@ -372,11 +372,12 @@ set_range_info (tree name, enum value_range_type range_type,
 }
 
 
-/* Gets range information MIN, MAX and returns enum value_range_type
-   corresponding to tree ssa_name NAME.  enum value_range_type returned
-   is used to determine if MIN and MAX are valid values.  */
+/* If there is range information available for the given ssa_name
+   NAME, returns the range and sets MIN, MAX accordingly.  If no range
+   information is available, returns NULL and MIN, MAX is
+   untouched.  */
 
-enum value_range_type
+irange *
 get_range_info (const_tree name, wide_int *min, wide_int *max)
 {
   gcc_assert (!POINTER_TYPE_P (TREE_TYPE (name)));
@@ -385,11 +386,15 @@ get_range_info (const_tree name, wide_int *min, wide_int *max)
 
   /* Return VR_VARYING for SSA_NAMEs with NULL RANGE_INFO or SSA_NAMEs
      with integral types width > 2 * HOST_BITS_PER_WIDE_INT precision.  */
+  // FIXME: ?? Do we need this precision stuff ??
   if (!ri || (GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (name)))
 	      > 2 * HOST_BITS_PER_WIDE_INT))
-    return VR_VARYING;
+    return NULL;
 
-  return ri->get_simple_min_max (min, max);
+  gcc_assert (ri->valid_p ());
+  *min = ri->lbound ();
+  *max = ri->ubound ();
+  return ri;
 }
 
 /* Set nonnull attribute to pointer NAME.  */
@@ -713,6 +718,18 @@ duplicate_ssa_name_range_info (tree name, irange *range_info,
   size = sizeof (irange);
   irange *new_range_info = static_cast<irange *> (ggc_internal_alloc (size));
   *new_range_info = *range_info;
+
+  /* If NAME was created with copy_ssa_name_fn(), we may have gotten
+     the TYPE_MAIN_VARIANT for the original type, which may be a
+     different typedef of the original type.  If so, convert the range
+     to be consistent.
+
+     NOTE: I have also seen tree-ssa-pre.c copy the range of an
+     'unsigned long long' onto the range of a 'unsigned long'.  So the
+     two types are not necessarily of the same size.  */
+  if (TREE_TYPE (name) != range_info->get_type ())
+    range_info->cast (TREE_TYPE (name));
+
   SSA_NAME_RANGE_INFO (name) = new_range_info;
 }
 

@@ -276,24 +276,6 @@ VN_INFO_NONZERO_BITS (tree name)
 	  : SSA_NAME_NONZERO_BITS (name));
 }
 
-/* Whether the original range info of NAME is an anti-range.  */
-
-inline bool
-VN_INFO_ANTI_RANGE_P (tree name)
-{
-  return (VN_INFO (name)->info.range_info
-	  ? VN_INFO (name)->info.range_info->anti_range_p ()
-	  : SSA_NAME_ANTI_RANGE_P (name));
-}
-
-/* Get at the original range info kind for NAME.  */
-
-inline value_range_type
-VN_INFO_RANGE_TYPE (tree name)
-{
-  return VN_INFO_ANTI_RANGE_P (name) ? VR_ANTI_RANGE : VR_RANGE;
-}
-
 /* Get at the original pointer info for NAME.  */
 
 inline ptr_info_def *

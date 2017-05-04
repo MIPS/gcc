@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "md5.h"
 #include "case-cfn-macros.h"
 #include "stringpool.h"
+#include "range.h"
 #include "tree-vrp.h"
 #include "tree-ssanames.h"
 #include "selftest.h"
@@ -9049,7 +9050,7 @@ bool
 expr_not_equal_to (tree t, const wide_int &w)
 {
   wide_int min, max, nz;
-  value_range_type rtype;
+  irange *ri;
   switch (TREE_CODE (t))
     {
     case INTEGER_CST:
@@ -9058,17 +9059,8 @@ expr_not_equal_to (tree t, const wide_int &w)
     case SSA_NAME:
       if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
 	return false;
-      rtype = get_range_info (t, &min, &max);
-      if (rtype == VR_RANGE)
-	{
-	  if (wi::lt_p (max, w, TYPE_SIGN (TREE_TYPE (t))))
-	    return true;
-	  if (wi::lt_p (w, min, TYPE_SIGN (TREE_TYPE (t))))
-	    return true;
-	}
-      else if (rtype == VR_ANTI_RANGE
-	       && wi::le_p (min, w, TYPE_SIGN (TREE_TYPE (t)))
-	       && wi::le_p (w, max, TYPE_SIGN (TREE_TYPE (t))))
+      ri = SSA_NAME_RANGE_INFO (t);
+      if (ri && !ri->inside_range_p (w))
 	return true;
       /* If T has some known zero bits and W has any of those bits set,
 	 then T is known not to be equal to W.  */

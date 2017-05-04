@@ -48,10 +48,6 @@ public:
 	  irange_type rt = RANGE_PLAIN);
   irange (const irange &r);
 
-  /* Convenience functions to simulate old range_info_def.  */
-  enum value_range_type get_simple_min_max (wide_int *, wide_int *);
-  bool anti_range_p (void);
-
   void set_range (tree t);
   void set_range (tree t, wide_int lbound, wide_int ubound,
 		  irange_type rt = RANGE_PLAIN);
@@ -66,14 +62,15 @@ public:
   wide_int ubound () const { return bounds[n - 1]; }
   wide_int ubound (unsigned index);
 
+  void chop () { if (n > 2) n -= 2; else n = 0; }
   void clear () { n = 0; }
   void clear (tree t) { type = t; n = 0; overflow = false; }
   bool empty_p () const { return !n; }
   bool range_for_type_p () const;
   bool simple_range_p () const { return n == 2; }
 
-  void dump (FILE *f);
-  void debug () { dump (stderr); fputc ('\n', stderr); }
+  void dump ();
+  void dump (pretty_printer *pp);
 
   bool valid_p ();
   bool cast (tree type);
@@ -91,16 +88,22 @@ public:
   bool Union (const irange &r);
   bool Union (const irange &r1, const irange &r2);
 
-  void Intersect (wide_int x, wide_int y);
+  // THIS = THIS ^ [X,Y].  Return TRUE if result is non-empty.
+  bool Intersect (wide_int x, wide_int y);
+  // THIS = THIS ^ R.  Return TRUE if result is non-empty.
   bool Intersect (const irange &r);
+  // THIS = R1 ^ R2.  Return TRUE if result is non-empty.
   bool Intersect (const irange &r1, const irange &r2);
 
   bool Not ();
   bool Not (const irange& r);
+
+  bool inside_range_p (wide_int);
 };
 
-bool range_zero (irange_p r, tree type);
-bool range_one (irange_p r, tree type);
+void range_zero (irange_p r, tree type);
+void range_one (irange_p r, tree type);
 bool range_non_zero (irange_p r, tree type);
+void range_positives (irange_p r, tree type, unsigned int);
 
 #endif /* GCC_RANGE_H */

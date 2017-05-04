@@ -68,8 +68,8 @@ struct GTY ((variable_size)) nonzero_bits_def {
 extern void set_range_info (tree, enum value_range_type, const wide_int_ref &,
 			    const wide_int_ref &);
 /* Gets the value range from SSA.  */
-extern enum value_range_type get_range_info (const_tree, wide_int *,
-					     wide_int *);
+extern irange *get_range_info (const_tree, wide_int *,
+			       wide_int *);
 extern void set_nonzero_bits (tree, const wide_int_ref &);
 extern wide_int get_nonzero_bits (const_tree);
 extern bool ssa_name_has_boolean_range (tree);

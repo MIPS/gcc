@@ -3112,12 +3112,11 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
       && SSA_NAME_RANGE_INFO (expr->u.nary->op[0]))
     {
       wide_int min, max;
-      if (get_range_info (expr->u.nary->op[0], &min, &max) == VR_RANGE
+      if (get_range_info (expr->u.nary->op[0], &min, &max)
 	  && !wi::neg_p (min, SIGNED)
 	  && !wi::neg_p (max, SIGNED))
 	/* Just handle extension and sign-changes of all-positive ranges.  */
-	set_range_info (temp,
-			SSA_NAME_RANGE_TYPE (expr->u.nary->op[0]),
+	set_range_info (temp, VR_RANGE,
 			wide_int_storage::from (min, TYPE_PRECISION (type),
 						TYPE_SIGN (type)),
 			wide_int_storage::from (max, TYPE_PRECISION (type),

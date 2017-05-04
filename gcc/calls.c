@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-iter.h"
 #include "tree-chkp.h"
 #include "tree-vrp.h"
+#include "range.h"
 #include "tree-ssanames.h"
 #include "rtl-chkp.h"
 #include "intl.h"
@@ -1253,10 +1254,12 @@ alloc_max_size (void)
    after adjusting it if necessary to make EXP a valid size argument to
    an allocation function declared with attribute alloc_size (whose
    argument may be signed), or to a string manipulation function like
-   memset.  */
+   memset.
+
+   INCLUDE_ZERO is TRUE if 0 should be included in a valid range.  */
 
 bool
-get_size_range (tree exp, tree range[2])
+get_size_range (tree exp, tree range[2], bool allow_zero)
 {
   if (tree_fits_uhwi_p (exp))
     {
@@ -1266,11 +1269,8 @@ get_size_range (tree exp, tree range[2])
     }
 
   wide_int min, max;
-  enum value_range_type range_type
-    = (TREE_CODE (exp) == SSA_NAME
-       ? get_range_info (exp, &min, &max) : VR_VARYING);
-
-  if (range_type == VR_VARYING)
+  irange *ir = get_range_info (exp, &min, &max);
+  if (TREE_CODE (exp) != SSA_NAME || !ir)
     {
       /* No range information available.  */
       range[0] = NULL_TREE;
@@ -1279,61 +1279,29 @@ get_size_range (tree exp, tree range[2])
     }
 
   tree exptype = TREE_TYPE (exp);
-  unsigned expprec = TYPE_PRECISION (exptype);
-  wide_int wzero = wi::zero (expprec);
-  wide_int wmaxval = wide_int (TYPE_MAX_VALUE (exptype));
 
-  bool signed_p = !TYPE_UNSIGNED (exptype);
-
-  if (range_type == VR_ANTI_RANGE)
+  /* Remove negative numbers from the range.  */
+  irange positives;
+  range_positives (&positives, exptype, allow_zero ? 0 : 1);
+  if (positives.Intersect (*ir))
     {
-      if (signed_p)
-	{
-	  if (wi::les_p (max, wzero))
-	    {
-	      /* EXP is not in a strictly negative range.  That means
-		 it must be in some (not necessarily strictly) positive
-		 range which includes zero.  Since in signed to unsigned
-		 conversions negative values end up converted to large
-		 positive values, and otherwise they are not valid sizes,
-		 the resulting range is in both cases [0, TYPE_MAX].  */
-	      min = wzero;
-	      max = wmaxval;
-	    }
-	  else if (wi::les_p (min - 1, wzero))
-	    {
-	      /* EXP is not in a negative-positive range.  That means EXP
-		 is either negative, or greater than max.  Since negative
-		 sizes are invalid make the range [MAX + 1, TYPE_MAX].  */
-	      min = max + 1;
-	      max = wmaxval;
-	    }
-	  else
-	    {
-	      max = min - 1;
-	      min = wzero;
-	    }
-	}
-      else if (wi::eq_p (wzero, min - 1))
-	{
-	  /* EXP is unsigned and not in the range [1, MAX].  That means
-	     it's either zero or greater than MAX.  Even though 0 would
-	     normally be detected by -Walloc-zero set the range to
-	     [MAX, TYPE_MAX] so that when MAX is greater than the limit
-	     the whole range is diagnosed.  */
-	  min = max + 1;
-	  max = wmaxval;
-	}
-      else
-	{
-	  max = min - 1;
-	  min = wzero;
-	}
+      /* Remove the unknown parts of a multi-range.
+	 This will transform [5,10][20,MAX] into [5,10].  */
+      if (positives.num_ranges () > 1
+	  && positives.ubound () == wide_int (TYPE_MAX_VALUE (exptype)))
+	positives.chop ();
+
+      range[0] = wide_int_to_tree (exptype, positives.lbound ());
+      range[1] = wide_int_to_tree (exptype, positives.ubound ());
     }
-
-  range[0] = wide_int_to_tree (exptype, min);
-  range[1] = wide_int_to_tree (exptype, max);
-
+  else
+    {
+      /* If removing the negative numbers didn't give us anything
+	 back, the entire range was negative. Leave things as they
+	 were, and let the caller sort it out.  */
+      range[0] = wide_int_to_tree (exptype, min);
+      range[1] = wide_int_to_tree (exptype, max);
+    }
   return true;
 }
 
