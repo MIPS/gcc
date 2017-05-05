@@ -262,6 +262,25 @@ extern int num_passes;
     ::selftest::fail ((LOC), desc);			       \
   SELFTEST_END_STMT
 
+/* Evaluate EXPECTED and ACTUAL and compare them with must_eq, calling
+   ::selftest::pass if they are always equal,
+   ::selftest::fail if they might be non-equal.  */
+
+#define ASSERT_MUST_EQ(EXPECTED, ACTUAL) \
+  ASSERT_MUST_EQ_AT ((SELFTEST_LOCATION), (EXPECTED), (ACTUAL))
+
+/* Like ASSERT_MUST_EQ, but treat LOC as the effective location of the
+   selftest.  */
+
+#define ASSERT_MUST_EQ_AT(LOC, EXPECTED, ACTUAL)			\
+  SELFTEST_BEGIN_STMT							\
+  const char *desc = "ASSERT_MUST_EQ (" #EXPECTED ", " #ACTUAL ")";	\
+  if (must_eq (EXPECTED, ACTUAL))					\
+    ::selftest::pass ((LOC), desc);					\
+  else									\
+    ::selftest::fail ((LOC), desc);					\
+  SELFTEST_END_STMT
+
 /* Evaluate EXPECTED and ACTUAL and compare them with !=, calling
    ::selftest::pass if they are non-equal,
    ::selftest::fail if they are equal.  */

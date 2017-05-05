@@ -390,8 +390,16 @@ struct variable
 /* Pointer to the BB's information specific to variable tracking pass.  */
 #define VTI(BB) ((variable_tracking_info *) (BB)->aux)
 
-/* Macro to access MEM_OFFSET as an HOST_WIDE_INT.  Evaluates MEM twice.  */
-#define INT_MEM_OFFSET(mem) (MEM_OFFSET_KNOWN_P (mem) ? MEM_OFFSET (mem) : 0)
+/* Return MEM_OFFSET (MEM) as a HOST_WIDE_INT.  */
+
+static inline HOST_WIDE_INT
+int_mem_offset (const_rtx mem)
+{
+  int64_t offset;
+  if (MEM_OFFSET_KNOWN_P (mem) && MEM_OFFSET (mem).is_constant (&offset))
+    return offset;
+  return 0;
+}
 
 #if CHECKING_P && (GCC_VERSION >= 2007)
 
@@ -2360,7 +2368,7 @@ var_mem_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
 	     rtx set_src)
 {
   tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
+  HOST_WIDE_INT offset = int_mem_offset (loc);
 
   var_mem_decl_set (set, loc, initialized,
 		    dv_from_decl (decl), offset, set_src, INSERT);
@@ -2378,7 +2386,7 @@ var_mem_delete_and_set (dataflow_set *set, rtx loc, bool modify,
 			enum var_init_status initialized, rtx set_src)
 {
   tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
+  HOST_WIDE_INT offset = int_mem_offset (loc);
 
   clobber_overlapping_mems (set, loc);
   decl = var_debug_decl (decl);
@@ -2399,7 +2407,7 @@ static void
 var_mem_delete (dataflow_set *set, rtx loc, bool clobber)
 {
   tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
+  HOST_WIDE_INT offset = int_mem_offset (loc);
 
   clobber_overlapping_mems (set, loc);
   decl = var_debug_decl (decl);
@@ -4642,7 +4650,7 @@ find_mem_expr_in_1pdv (tree expr, rtx val, variable_table_type *vars)
   for (node = var->var_part[0].loc_chain; node; node = node->next)
     if (MEM_P (node->loc)
 	&& MEM_EXPR (node->loc) == expr
-	&& INT_MEM_OFFSET (node->loc) == 0)
+	&& int_mem_offset (node->loc) == 0)
       {
 	where = node;
 	break;
@@ -4707,7 +4715,7 @@ dataflow_set_preserve_mem_locs (variable **slot, dataflow_set *set)
 	      /* We want to remove dying MEMs that don't refer to DECL.  */
 	      if (GET_CODE (loc->loc) == MEM
 		  && (MEM_EXPR (loc->loc) != decl
-		      || INT_MEM_OFFSET (loc->loc) != 0)
+		      || int_mem_offset (loc->loc) != 0)
 		  && mem_dies_at_call (loc->loc))
 		break;
 	      /* We want to move here MEMs that do refer to DECL.  */
@@ -4751,7 +4759,7 @@ dataflow_set_preserve_mem_locs (variable **slot, dataflow_set *set)
 
 	  if (GET_CODE (loc->loc) != MEM
 	      || (MEM_EXPR (loc->loc) == decl
-		  && INT_MEM_OFFSET (loc->loc) == 0)
+		  && int_mem_offset (loc->loc) == 0)
 	      || !mem_dies_at_call (loc->loc))
 	    {
 	      if (old_loc != loc->loc && emit_notes)
@@ -5248,7 +5256,7 @@ track_expr_p (tree expr, bool need_rtl)
 	  || AGGREGATE_TYPE_P (TREE_TYPE (realdecl)))
 	return 0;
       if (MEM_SIZE_KNOWN_P (decl_rtl)
-	  && MEM_SIZE (decl_rtl) > MAX_VAR_PARTS)
+	  && may_gt (MEM_SIZE (decl_rtl), MAX_VAR_PARTS))
 	return 0;
     }
 
@@ -5277,7 +5285,7 @@ same_variable_part_p (rtx loc, tree expr, poly_int64 offset)
   else if (MEM_P (loc))
     {
       expr2 = MEM_EXPR (loc);
-      offset2 = INT_MEM_OFFSET (loc);
+      offset2 = int_mem_offset (loc);
     }
   else
     return false;
@@ -5546,7 +5554,7 @@ use_type (rtx loc, struct count_use_info *cui, machine_mode *modep)
 	return MO_CLOBBER;
       else if (target_for_debug_bind (var_debug_decl (expr)))
 	return MO_CLOBBER;
-      else if (track_loc_p (loc, expr, INT_MEM_OFFSET (loc),
+      else if (track_loc_p (loc, expr, int_mem_offset (loc),
 			    false, modep, NULL)
 	       /* Multi-part variables shouldn't refer to one-part
 		  variable names such as VALUEs (never happens) or
@@ -6041,7 +6049,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	      rtx xexpr = gen_rtx_SET (loc, src);
 	      if (same_variable_part_p (SET_SRC (xexpr),
 					MEM_EXPR (loc),
-					INT_MEM_OFFSET (loc)))
+					int_mem_offset (loc)))
 		mo.type = MO_COPY;
 	      else
 		mo.type = MO_SET;
@@ -9605,7 +9613,7 @@ vt_get_decl_and_offset (rtx rtl, tree *declp, poly_int64 *offsetp)
       if (MEM_ATTRS (rtl))
 	{
 	  *declp = MEM_EXPR (rtl);
-	  *offsetp = INT_MEM_OFFSET (rtl);
+	  *offsetp = int_mem_offset (rtl);
 	  return true;
 	}
     }
