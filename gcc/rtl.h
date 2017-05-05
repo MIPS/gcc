@@ -3882,6 +3882,21 @@ load_extend_op (machine_mode mode)
   return UNKNOWN;
 }
 
+/* If X is a PLUS of a base and a constant offset, add the constant to *OFFSET
+   and return the base.  Return X otherwise.  */
+
+inline rtx
+strip_offset_and_add (rtx x, poly_int64 *offset)
+{
+  if (GET_CODE (x) == PLUS)
+    {
+      poly_int64 suboffset;
+      x = strip_offset (x, &suboffset);
+      *offset += suboffset;
+    }
+  return x;
+}
+
 /* gtype-desc.c.  */
 extern void gt_ggc_mx (rtx &);
 extern void gt_pch_nx (rtx &);
