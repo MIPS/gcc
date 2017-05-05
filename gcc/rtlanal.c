@@ -1686,7 +1686,7 @@ set_noop_p (const_rtx set)
 
   if (GET_CODE (src) == SUBREG && GET_CODE (dst) == SUBREG)
     {
-      if (SUBREG_BYTE (src) != SUBREG_BYTE (dst))
+      if (may_ne (SUBREG_BYTE (src), SUBREG_BYTE (dst)))
 	return 0;
       src = SUBREG_REG (src);
       dst = SUBREG_REG (dst);
@@ -3654,48 +3654,49 @@ loc_mentioned_in_p (rtx *loc, const_rtx in)
    and SUBREG_BYTE, return the bit offset where the subreg begins
    (counting from the least significant bit of the operand).  */
 
-unsigned int
+poly_int64
 subreg_lsb_1 (machine_mode outer_mode,
 	      machine_mode inner_mode,
-	      unsigned int subreg_byte)
+	      poly_int64 subreg_byte)
 {
-  unsigned int bitpos;
-  unsigned int byte;
-  unsigned int word;
+  poly_int64 subreg_end, trailing_bytes, byte_pos;
 
   /* A paradoxical subreg begins at bit position 0.  */
   if (paradoxical_subreg_p (outer_mode, inner_mode))
     return 0;
 
-  if (WORDS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
-    /* If the subreg crosses a word boundary ensure that
-       it also begins and ends on a word boundary.  */
-    gcc_assert (!((subreg_byte % UNITS_PER_WORD
-		  + GET_MODE_SIZE (outer_mode)) > UNITS_PER_WORD
-		  && (subreg_byte % UNITS_PER_WORD
-		      || GET_MODE_SIZE (outer_mode) % UNITS_PER_WORD)));
-
-  if (WORDS_BIG_ENDIAN)
-    word = (GET_MODE_SIZE (inner_mode)
-	    - (subreg_byte + GET_MODE_SIZE (outer_mode))) / UNITS_PER_WORD;
+  subreg_end = subreg_byte + GET_MODE_SIZE (outer_mode);
+  trailing_bytes = GET_MODE_SIZE (inner_mode) - subreg_end;
+  if (WORDS_BIG_ENDIAN && BYTES_BIG_ENDIAN)
+    byte_pos = trailing_bytes;
+  else if (!WORDS_BIG_ENDIAN && !BYTES_BIG_ENDIAN)
+    byte_pos = subreg_byte;
   else
-    word = subreg_byte / UNITS_PER_WORD;
-  bitpos = word * BITS_PER_WORD;
+    {
+      /* When bytes and words have oppposite endianness, we must be able
+	 to split offsets into words and bytes at compile time.  */
+      poly_int64 leading_word_part
+	= force_align_down (subreg_byte, UNITS_PER_WORD);
+      poly_int64 trailing_word_part
+	= force_align_down (trailing_bytes, UNITS_PER_WORD);
+      /* If the subreg crosses a word boundary ensure that
+	 it also begins and ends on a word boundary.  */
+      gcc_assert (must_le (subreg_end - leading_word_part, UNITS_PER_WORD)
+		  || (must_eq (leading_word_part, subreg_byte)
+		      && must_eq (trailing_word_part, trailing_bytes)));
+      if (WORDS_BIG_ENDIAN)
+	byte_pos = trailing_word_part + (subreg_byte - leading_word_part);
+      else
+	byte_pos = leading_word_part + (trailing_bytes - trailing_word_part);
+    }
 
-  if (BYTES_BIG_ENDIAN)
-    byte = (GET_MODE_SIZE (inner_mode)
-	    - (subreg_byte + GET_MODE_SIZE (outer_mode))) % UNITS_PER_WORD;
-  else
-    byte = subreg_byte % UNITS_PER_WORD;
-  bitpos += byte * BITS_PER_UNIT;
-
-  return bitpos;
+  return byte_pos * BITS_PER_UNIT;
 }
 
 /* Given a subreg X, return the bit offset where the subreg begins
    (counting from the least significant bit of the reg).  */
 
-unsigned int
+poly_int64
 subreg_lsb (const_rtx x)
 {
   return subreg_lsb_1 (GET_MODE (x), GET_MODE (SUBREG_REG (x)),
@@ -3708,29 +3709,32 @@ subreg_lsb (const_rtx x)
    lsb of the inner value.  This is the inverse of the calculation
    performed by subreg_lsb_1 (which converts byte offsets to bit shifts).  */
 
-unsigned int
+poly_int64
 subreg_size_offset_from_lsb (unsigned int outer_bytes,
 			     unsigned int inner_bytes,
-			     unsigned int lsb_shift)
+			     poly_int64 lsb_shift)
 {
   /* A paradoxical subreg begins at bit position 0.  */
   if (outer_bytes > inner_bytes)
     {
-      gcc_checking_assert (lsb_shift == 0);
+      gcc_checking_assert (must_eq (lsb_shift, 0));
       return 0;
     }
 
-  gcc_assert (lsb_shift % BITS_PER_UNIT == 0);
-  unsigned int lower_bytes = lsb_shift / BITS_PER_UNIT;
-  unsigned int upper_bytes = inner_bytes - (lower_bytes + outer_bytes);
+  poly_int64 lower_bytes = exact_div (lsb_shift, BITS_PER_UNIT);
+  poly_int64 upper_bytes = inner_bytes - (lower_bytes + outer_bytes);
   if (WORDS_BIG_ENDIAN && BYTES_BIG_ENDIAN)
     return upper_bytes;
   else if (!WORDS_BIG_ENDIAN && !BYTES_BIG_ENDIAN)
     return lower_bytes;
   else
     {
-      unsigned int lower_word_part = lower_bytes & -UNITS_PER_WORD;
-      unsigned int upper_word_part = upper_bytes & -UNITS_PER_WORD;
+      /* When bytes and words have oppposite endianness, we must be able
+	 to split offsets into words and bytes at compile time.  */
+      poly_int64 lower_word_part = force_align_down (lower_bytes,
+						     UNITS_PER_WORD);
+      poly_int64 upper_word_part = force_align_down (upper_bytes,
+						     UNITS_PER_WORD);
       if (WORDS_BIG_ENDIAN)
 	return upper_word_part + (lower_bytes - lower_word_part);
       else
@@ -3759,7 +3763,7 @@ subreg_size_offset_from_lsb (unsigned int outer_bytes,
 
 void
 subreg_get_info (unsigned int xregno, machine_mode xmode,
-		 unsigned int offset, machine_mode ymode,
+		 poly_int64 offset, machine_mode ymode,
 		 struct subreg_info *info)
 {
   unsigned int nregs_xmode, nregs_ymode;
@@ -3776,6 +3780,9 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
      at least one register.  */
   if (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode))
     {
+      /* As a consequence, we must be dealing with a constant number of
+	 scalars, and thus a constant offset.  */
+      HOST_WIDE_INT coffset = offset.to_constant ();
       nregs_xmode = HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode);
       unsigned int nunits = GET_MODE_NUNITS (xmode);
       scalar_mode xmode_unit = GET_MODE_INNER (xmode);
@@ -3794,9 +3801,9 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	 3 for each part, but in memory it's two 128-bit parts.
 	 Padding is assumed to be at the end (not necessarily the 'high part')
 	 of each unit.  */
-      if ((offset / GET_MODE_SIZE (xmode_unit) + 1 < nunits)
-	  && (offset / GET_MODE_SIZE (xmode_unit)
-	      != ((offset + ysize - 1) / GET_MODE_SIZE (xmode_unit))))
+      if ((coffset / GET_MODE_SIZE (xmode_unit) + 1 < nunits)
+	  && (coffset / GET_MODE_SIZE (xmode_unit)
+	      != ((coffset + ysize - 1) / GET_MODE_SIZE (xmode_unit))))
 	{
 	  info->representable_p = false;
 	  rknown = true;
@@ -3808,7 +3815,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
   nregs_ymode = hard_regno_nregs[xregno][ymode];
 
   /* Paradoxical subregs are otherwise valid.  */
-  if (!rknown && offset == 0 && ysize > xsize)
+  if (!rknown && must_eq (offset, 0) && ysize > xsize)
     {
       info->representable_p = true;
       /* If this is a big endian paradoxical subreg, which uses more
@@ -3843,16 +3850,18 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 	{
 	  info->representable_p = false;
 	  info->nregs = CEIL (ysize, regsize_xmode);
-	  info->offset = offset / regsize_xmode;
+	  if (!can_div_trunc_p (offset, regsize_xmode, &info->offset))
+	    gcc_unreachable ();
 	  return;
 	}
       /* It's not valid to extract a subreg of mode YMODE at OFFSET that
 	 would go outside of XMODE.  */
-      if (!rknown && ysize + offset > xsize)
+      if (!rknown && may_gt (ysize + offset, xsize))
 	{
 	  info->representable_p = false;
 	  info->nregs = nregs_ymode;
-	  info->offset = offset / regsize_xmode;
+	  if (!can_div_trunc_p (offset, regsize_xmode, &info->offset))
+	    gcc_unreachable ();
 	  return;
 	}
       /* Quick exit for the simple and common case of extracting whole
@@ -3860,26 +3869,27 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       /* ??? It would be better to integrate this into the code below,
 	 if we can generalize the concept enough and figure out how
 	 odd-sized modes can coexist with the other weird cases we support.  */
+      HOST_WIDE_INT count;
       if (!rknown
 	  && WORDS_BIG_ENDIAN == REG_WORDS_BIG_ENDIAN
 	  && regsize_xmode == regsize_ymode
-	  && (offset % regsize_ymode) == 0)
+	  && constant_multiple_p (offset, regsize_ymode, &count))
 	{
 	  info->representable_p = true;
 	  info->nregs = nregs_ymode;
-	  info->offset = offset / regsize_ymode;
+	  info->offset = count;
 	  gcc_assert (info->offset + info->nregs <= (int) nregs_xmode);
 	  return;
 	}
     }
 
   /* Lowpart subregs are otherwise valid.  */
-  if (!rknown && offset == subreg_lowpart_offset (ymode, xmode))
+  if (!rknown && must_eq (offset, subreg_lowpart_offset (ymode, xmode)))
     {
       info->representable_p = true;
       rknown = true;
 
-      if (offset == 0 || nregs_xmode == nregs_ymode)
+      if (must_eq (offset, 0) || nregs_xmode == nregs_ymode)
 	{
 	  info->offset = 0;
 	  info->nregs = nregs_ymode;
@@ -3904,15 +3914,18 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
 
   /* Get the number of the first block that contains the subreg and the byte
      offset of the subreg from the start of that block.  */
-  unsigned int block_number = offset / bytes_per_block;
-  unsigned int subblock_offset = offset % bytes_per_block;
+  unsigned int block_number;
+  poly_int64 subblock_offset;
+  if (!can_div_trunc_p (offset, poly_int64 (bytes_per_block), &block_number,
+			&subblock_offset))
+    gcc_unreachable ();
 
   if (!rknown)
     {
       /* Only the lowpart of each block is representable.  */
       info->representable_p
-	= (subblock_offset
-	   == subreg_size_lowpart_offset (ysize, bytes_per_block));
+	= must_eq (subblock_offset,
+		   subreg_size_lowpart_offset (ysize, bytes_per_block));
       rknown = true;
     }
 
@@ -3939,7 +3952,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
    RETURN - The regno offset which would be used.  */
 unsigned int
 subreg_regno_offset (unsigned int xregno, machine_mode xmode,
-		     unsigned int offset, machine_mode ymode)
+		     poly_int64 offset, machine_mode ymode)
 {
   struct subreg_info info;
   subreg_get_info (xregno, xmode, offset, ymode, &info);
@@ -3955,7 +3968,7 @@ subreg_regno_offset (unsigned int xregno, machine_mode xmode,
    RETURN - Whether the offset is representable.  */
 bool
 subreg_offset_representable_p (unsigned int xregno, machine_mode xmode,
-			       unsigned int offset, machine_mode ymode)
+			       poly_int64 offset, machine_mode ymode)
 {
   struct subreg_info info;
   subreg_get_info (xregno, xmode, offset, ymode, &info);
@@ -3972,7 +3985,7 @@ subreg_offset_representable_p (unsigned int xregno, machine_mode xmode,
 
 int
 simplify_subreg_regno (unsigned int xregno, machine_mode xmode,
-		       unsigned int offset, machine_mode ymode)
+		       poly_int64 offset, machine_mode ymode)
 {
   struct subreg_info info;
   unsigned int yregno;

@@ -226,8 +226,9 @@ go_through_subreg (rtx x, int *offset)
   if (REGNO (reg) < FIRST_PSEUDO_REGISTER)
     *offset = subreg_regno_offset (REGNO (reg), GET_MODE (reg),
 				   SUBREG_BYTE (x), GET_MODE (x));
-  else
-    *offset = (SUBREG_BYTE (x) / REGMODE_NATURAL_SIZE (GET_MODE (x)));
+  else if (!can_div_trunc_p (SUBREG_BYTE (x),
+			     REGMODE_NATURAL_SIZE (GET_MODE (x)), offset))
+    gcc_unreachable ();
   return reg;
 }
 
