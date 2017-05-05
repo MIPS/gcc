@@ -177,6 +177,23 @@ print_mem_expr (FILE *outfile, const_tree expr)
   fputc (' ', outfile);
   print_generic_expr (outfile, CONST_CAST_TREE (expr), dump_flags);
 }
+
+/* Print X to FILE.  */
+
+static void
+print_poly_int (FILE *file, poly_int64 x)
+{
+  HOST_WIDE_INT const_x;
+  if (x.is_constant (&const_x))
+    fprintf (file, HOST_WIDE_INT_PRINT_DEC, const_x);
+  else
+    {
+      fprintf (file, "[");
+      for (int i = 0; i < NUM_POLY_INT_COEFFS; ++i)
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC "%c",
+		 x.coeffs[i], i == NUM_POLY_INT_COEFFS - 1 ? ']' : ',');
+    }
+}
 #endif
 
 /* Subroutine of print_rtx_operand for handling code '0'.
@@ -498,9 +515,11 @@ rtx_writer::print_rtx_operand_code_r (const_rtx in_rtx)
       if (REG_EXPR (in_rtx))
 	print_mem_expr (m_outfile, REG_EXPR (in_rtx));
 
-      if (REG_OFFSET (in_rtx))
-	fprintf (m_outfile, "+" HOST_WIDE_INT_PRINT_DEC,
-		 REG_OFFSET (in_rtx));
+      if (may_ne (REG_OFFSET (in_rtx), 0))
+	{
+	  fprintf (m_outfile, "+");
+	  print_poly_int (m_outfile, REG_OFFSET (in_rtx));
+	}
       fputs (" ]", m_outfile);
     }
   if (regno != ORIGINAL_REGNO (in_rtx))
