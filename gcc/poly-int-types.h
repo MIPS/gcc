@@ -59,4 +59,15 @@ typedef poly_int<NUM_POLY_INT_COEFFS, widest_int> poly_widest_int;
    of bytes in size.  */
 #define num_trailing_bits(X) force_get_misalignment (X, BITS_PER_UNIT)
 
+/* Wrapper for poly_int arguments to target macros, so that if a target
+   doesn't need polynomial-sized modes, its header file can continue to
+   treat the argument as a normal constant.  This should go away once
+   macros are moved to target hooks.  It shouldn't be used in other
+   contexts.  */
+#if NUM_POLY_INT_COEFFS == 1
+#define MACRO_INT(X) ((X).to_constant ())
+#else
+#define MACRO_INT(X) (X)
+#endif
+
 #endif
