@@ -4235,7 +4235,7 @@ struct ainc_cost_data
 };
 
 static comp_cost
-get_address_cost_ainc (HOST_WIDE_INT ainc_step, HOST_WIDE_INT ainc_offset,
+get_address_cost_ainc (HOST_WIDE_INT ainc_step, poly_int64 ainc_offset,
 		       machine_mode addr_mode, machine_mode mem_mode,
 		       addr_space_t as, bool speed)
 {
@@ -4309,13 +4309,13 @@ get_address_cost_ainc (HOST_WIDE_INT ainc_step, HOST_WIDE_INT ainc_offset,
     }
 
   HOST_WIDE_INT msize = GET_MODE_SIZE (mem_mode);
-  if (ainc_offset == 0 && msize == ainc_step)
+  if (must_eq (ainc_offset, 0) && msize == ainc_step)
     return comp_cost (data->costs[AINC_POST_INC], 0);
-  if (ainc_offset == 0 && msize == -ainc_step)
+  if (must_eq (ainc_offset, 0) && msize == -ainc_step)
     return comp_cost (data->costs[AINC_POST_DEC], 0);
-  if (ainc_offset == msize && msize == ainc_step)
+  if (must_eq (ainc_offset, msize) && msize == ainc_step)
     return comp_cost (data->costs[AINC_PRE_INC], 0);
-  if (ainc_offset == -msize && msize == -ainc_step)
+  if (must_eq (ainc_offset, -msize) && msize == -ainc_step)
     return comp_cost (data->costs[AINC_PRE_DEC], 0);
 
   return infinite_cost;
@@ -4358,9 +4358,10 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 	  if (ratio != 1 && !valid_mem_ref_p (mem_mode, as, &parts))
 	    parts.step = NULL_TREE;
 
-	  if (aff_inv->offset != 0)
+	  if (may_ne (aff_inv->offset, 0))
 	    {
-	      parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
+	      parts.offset = poly_widest_int_to_tree (sizetype,
+						      aff_inv->offset);
 	      /* Addressing mode "base + index [<< scale] + offset".  */
 	      if (!valid_mem_ref_p (mem_mode, as, &parts))
 		parts.offset = NULL_TREE;
@@ -4394,7 +4395,7 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
       if (can_autoinc && ratio == 1 && cst_and_fits_in_hwi (cand->iv->step))
 	{
 	  HOST_WIDE_INT ainc_step = int_cst_value (cand->iv->step);
-	  HOST_WIDE_INT ainc_offset = (aff_inv->offset).to_shwi ();
+	  poly_int64 ainc_offset = (aff_inv->offset).force_shwi ();
 
 	  if (stmt_after_increment (data->current_loop, cand, use->stmt))
 	    ainc_offset += ainc_step;
@@ -4409,7 +4410,7 @@ get_address_cost (struct ivopts_data *data, struct iv_use *use,
 	}
       if (!aff_combination_zero_p (aff_inv))
 	{
-	  parts.offset = wide_int_to_tree (sizetype, aff_inv->offset);
+	  parts.offset = poly_widest_int_to_tree (sizetype, aff_inv->offset);
 	  /* Addressing mode "base + offset".  */
 	  if (!valid_mem_ref_p (mem_mode, as, &parts))
 	    parts.offset = NULL_TREE;
@@ -6820,7 +6821,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
   unshare_aff_combination (&aff_var);
   /* Prefer CSE opportunity than loop invariant by adding offset at last
      so that iv_uses have different offsets can be CSEed.  */
-  widest_int offset = aff_inv.offset;
+  poly_widest_int offset = aff_inv.offset;
   aff_inv.offset = 0;
 
   gimple_seq stmt_list = NULL, seq = NULL;
@@ -6841,14 +6842,16 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       comp = fold_build_pointer_plus (comp_op1,
 				      fold_convert (sizetype, comp_op2));
       comp = fold_build_pointer_plus (comp,
-				      wide_int_to_tree (sizetype, offset));
+				      poly_widest_int_to_tree (sizetype,
+							       offset));
     }
   else
     {
       comp = fold_build2 (PLUS_EXPR, TREE_TYPE (comp_op1), comp_op1,
 			  fold_convert (TREE_TYPE (comp_op1), comp_op2));
       comp = fold_build2 (PLUS_EXPR, TREE_TYPE (comp_op1), comp,
-			  wide_int_to_tree (TREE_TYPE (comp_op1), offset));
+			  poly_widest_int_to_tree (TREE_TYPE (comp_op1),
+						   offset));
     }
 
   comp = fold_convert (type, comp);

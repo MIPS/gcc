@@ -123,7 +123,7 @@ inline bool
 aff_combination_singleton_var_p (aff_tree *aff)
 {
   return (aff->n == 1
-	  && aff->offset == 0
+	  && must_eq (aff->offset, 0)
 	  && (aff->elts[0].coef == 1 || aff->elts[0].coef == -1));
 }
 #endif /* GCC_TREE_AFFINE_H */

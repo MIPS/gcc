@@ -1389,7 +1389,7 @@ pass_store_merging::execute (function *fun)
 	      tree lhs = gimple_assign_lhs (stmt);
 	      tree rhs = gimple_assign_rhs1 (stmt);
 
-	      HOST_WIDE_INT bitsize, bitpos;
+	      poly_int64 bitsize, bitpos;
 	      machine_mode mode;
 	      int unsignedp = 0, reversep = 0, volatilep = 0;
 	      tree offset, base_addr;
@@ -1399,8 +1399,6 @@ pass_store_merging::execute (function *fun)
 	      /* As a future enhancement we could handle stores with the same
 		 base and offset.  */
 	      bool invalid = reversep
-			     || ((bitsize > MAX_BITSIZE_MODE_ANY_INT)
-				  && (TREE_CODE (rhs) != INTEGER_CST))
 			     || !rhs_valid_for_store_merging_p (rhs);
 
 	      /* We do not want to rewrite TARGET_MEM_REFs.  */
@@ -1413,23 +1411,17 @@ pass_store_merging::execute (function *fun)
 		 PR 23684 and this way we can catch more chains.  */
 	      else if (TREE_CODE (base_addr) == MEM_REF)
 		{
-		  offset_int bit_off, byte_off = mem_ref_offset (base_addr);
-		  bit_off = byte_off << LOG2_BITS_PER_UNIT;
+		  poly_offset_int byte_off = mem_ref_offset (base_addr);
+		  poly_offset_int bit_off = byte_off << LOG2_BITS_PER_UNIT;
 		  bit_off += bitpos;
-		  if (!wi::neg_p (bit_off) && wi::fits_shwi_p (bit_off))
-		    bitpos = bit_off.to_shwi ();
-		  else
+		  if (!bit_off.to_shwi (&bitpos))
 		    invalid = true;
 		  base_addr = TREE_OPERAND (base_addr, 0);
 		}
 	      /* get_inner_reference returns the base object, get at its
 	         address now.  */
 	      else
-		{
-		  if (bitpos < 0)
-		    invalid = true;
-		  base_addr = build_fold_addr_expr (base_addr);
-		}
+		base_addr = build_fold_addr_expr (base_addr);
 
 	      if (! invalid
 		  && offset != NULL_TREE)
@@ -1455,13 +1447,19 @@ pass_store_merging::execute (function *fun)
 	      struct imm_store_chain_info **chain_info
 		= m_stores.get (base_addr);
 
-	      if (!invalid)
+	      HOST_WIDE_INT const_bitsize, const_bitpos;
+	      if (!invalid
+		  && bitsize.is_constant (&const_bitsize)
+		  && bitpos.is_constant (&const_bitpos)
+		  && (const_bitsize <= MAX_BITSIZE_MODE_ANY_INT
+		      || TREE_CODE (rhs) == INTEGER_CST)
+		  && const_bitpos >= 0)
 		{
 		  store_immediate_info *info;
 		  if (chain_info)
 		    {
 		      info = new store_immediate_info (
-			bitsize, bitpos, stmt,
+			const_bitsize, const_bitpos, stmt,
 			(*chain_info)->m_store_info.length ());
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			{
@@ -1490,7 +1488,7 @@ pass_store_merging::execute (function *fun)
 		  /* Start a new chain.  */
 		  struct imm_store_chain_info *new_chain
 		    = new imm_store_chain_info (m_stores_head, base_addr);
-		  info = new store_immediate_info (bitsize, bitpos,
+		  info = new store_immediate_info (const_bitsize, const_bitpos,
 						   stmt, 0);
 		  new_chain->m_store_info.safe_push (info);
 		  m_stores.put (base_addr, new_chain);

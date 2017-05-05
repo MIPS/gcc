@@ -611,7 +611,7 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
     case ADDR_EXPR:
       {
 	tree base, poffset;
-	HOST_WIDE_INT pbitsize, pbitpos;
+	poly_int64 pbitsize, pbitpos, pbytepos;
 	machine_mode pmode;
 	int punsignedp, preversep, pvolatilep;
 
@@ -620,10 +620,10 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 	  = get_inner_reference (op0, &pbitsize, &pbitpos, &poffset, &pmode,
 				 &punsignedp, &preversep, &pvolatilep);
 
-	if (pbitpos % BITS_PER_UNIT != 0)
+	if (!multiple_p (pbitpos, BITS_PER_UNIT, &pbytepos))
 	  return false;
 	base = build_fold_addr_expr (base);
-	off0 = ssize_int (pbitpos / BITS_PER_UNIT);
+	off0 = ssize_int (pbytepos);
 
 	if (poffset)
 	  {
@@ -759,7 +759,7 @@ dr_analyze_innermost (struct data_reference *dr, struct loop *nest)
   gimple *stmt = DR_STMT (dr);
   struct loop *loop = loop_containing_stmt (stmt);
   tree ref = DR_REF (dr);
-  HOST_WIDE_INT pbitsize, pbitpos;
+  poly_int64 pbitsize, pbitpos;
   tree base, poffset;
   machine_mode pmode;
   int punsignedp, preversep, pvolatilep;
@@ -774,7 +774,8 @@ dr_analyze_innermost (struct data_reference *dr, struct loop *nest)
 			      &punsignedp, &preversep, &pvolatilep);
   gcc_assert (base != NULL_TREE);
 
-  if (pbitpos % BITS_PER_UNIT != 0)
+  poly_int64 pbytepos;
+  if (!multiple_p (pbitpos, BITS_PER_UNIT, &pbytepos))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "failed: bit offset alignment.\n");
@@ -862,7 +863,7 @@ dr_analyze_innermost (struct data_reference *dr, struct loop *nest)
         }
     }
 
-  init = ssize_int (pbitpos / BITS_PER_UNIT);
+  init = ssize_int (pbytepos);
   split_constant_offset (base_iv.base, &base_iv.base, &dinit);
   init =  size_binop (PLUS_EXPR, init, dinit);
   split_constant_offset (offset_iv.base, &offset_iv.base, &dinit);

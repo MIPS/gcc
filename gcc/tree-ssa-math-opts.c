@@ -2099,7 +2099,7 @@ find_bswap_or_nop_load (gimple *stmt, tree ref, struct symbolic_number *n)
 {
   /* Leaf node is an array or component ref. Memorize its base and
      offset from base to compare to other such leaf node.  */
-  HOST_WIDE_INT bitsize, bitpos;
+  poly_int64 bitsize, bitpos, bytepos;
   machine_mode mode;
   int unsignedp, reversep, volatilep;
   tree offset, base_addr;
@@ -2147,9 +2147,9 @@ find_bswap_or_nop_load (gimple *stmt, tree ref, struct symbolic_number *n)
       bitpos += bit_offset.to_shwi ();
     }
 
-  if (bitpos % BITS_PER_UNIT)
+  if (!multiple_p (bitpos, BITS_PER_UNIT, &bytepos))
     return false;
-  if (bitsize % BITS_PER_UNIT)
+  if (!multiple_p (bitsize, BITS_PER_UNIT))
     return false;
   if (reversep)
     return false;
@@ -2158,7 +2158,7 @@ find_bswap_or_nop_load (gimple *stmt, tree ref, struct symbolic_number *n)
     return false;
   n->base_addr = base_addr;
   n->offset = offset;
-  n->bytepos = bitpos / BITS_PER_UNIT;
+  n->bytepos = bytepos;
   n->alias_set = reference_alias_ptr_type (ref);
   n->vuse = gimple_vuse (stmt);
   return true;
