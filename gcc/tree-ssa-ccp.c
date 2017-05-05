@@ -2995,7 +2995,7 @@ optimize_memcpy (gimple_stmt_iterator *gsip, tree dest, tree src, tree len)
 
   gimple *defstmt = SSA_NAME_DEF_STMT (vuse);
   tree src2 = NULL_TREE, len2 = NULL_TREE;
-  HOST_WIDE_INT offset, offset2;
+  poly_int64 offset, offset2;
   tree val = integer_zero_node;
   if (gimple_store_p (defstmt)
       && gimple_assign_single_p (defstmt)
@@ -3036,7 +3036,7 @@ optimize_memcpy (gimple_stmt_iterator *gsip, tree dest, tree src, tree len)
   src2 = get_addr_base_and_unit_offset (src2, &offset2);
   if (src == NULL_TREE
       || src2 == NULL_TREE
-      || offset < offset2)
+      || may_lt (offset, offset2))
     return;
 
   if (!operand_equal_p (src, src2, 0))
@@ -3045,7 +3045,7 @@ optimize_memcpy (gimple_stmt_iterator *gsip, tree dest, tree src, tree len)
   /* [ src + offset2, src + offset2 + len2 - 1 ] is set to val.
      Make sure that
      [ src + offset, src + offset + len - 1 ] is a subset of that.  */
-  if (wi::to_offset (len) + (offset - offset2) > wi::to_offset (len2))
+  if (may_gt (wi::to_offset (len) + (offset - offset2), wi::to_offset (len2)))
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
