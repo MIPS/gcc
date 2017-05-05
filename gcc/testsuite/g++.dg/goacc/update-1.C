@@ -15,4 +15,24 @@ t ()
 #pragma acc update self(c) device(b) host (a) async(10) if (a == 5) if_present
 }
 
+class
+C
+{
+private:
+  bool a;
+  float b;
+
+public:
+  bool operator== (int x)
+  {
+    return a == x;
+  }
+};
+
+void
+f ()
+{
+  t<C> ();
+}
+
 /* { dg-final { scan-tree-dump-times "pragma omp target oacc_update if_present" 4 "omplower" } } */

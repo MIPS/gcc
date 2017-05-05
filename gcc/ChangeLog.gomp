@@ -1,3 +1,8 @@
+2017-05-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-nested.c (convert_nonlocal_omp_clauses)
+	(convert_local_omp_clauses): Handle OMP_CLAUSE_IF_PRESENT.
+
 2017-05-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Handle OMP_CLAUSE_IF_PRESENT.

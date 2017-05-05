@@ -25,6 +25,8 @@ int main ()
       local_a[i] = 5;
     local_arg = 5;
 
+#pragma acc update device(local_a) if_present
+
 #pragma acc kernels loop \
   gang(num:local_arg) worker(local_arg) vector(local_arg) \
   wait async(local_arg)
@@ -61,6 +63,8 @@ int main ()
     for (int i = 0; i < N; ++i)
       nonlocal_a[i] = 5;
     nonlocal_arg = 5;
+
+#pragma acc update device(nonlocal_a) if_present
 
 #pragma acc kernels loop \
   gang(num:nonlocal_arg) worker(nonlocal_arg) vector(nonlocal_arg) \
