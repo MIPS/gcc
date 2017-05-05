@@ -128,35 +128,11 @@ static bool
 valid_ao_ref_for_dse (ao_ref *ref)
 {
   return (ao_ref_base (ref)
-	  && ref->max_size != -1
-	  && ref->size != 0
-	  && ref->max_size == ref->size
-	  && (ref->offset % BITS_PER_UNIT) == 0
-	  && (ref->size % BITS_PER_UNIT) == 0
-	  && (ref->size != -1));
-}
-
-/* Normalize COPY (an ao_ref) relative to REF.  Essentially when we are
-   done COPY will only refer bytes found within REF.
-
-   We have already verified that COPY intersects at least one
-   byte with REF.  */
-
-static void
-normalize_ref (ao_ref *copy, ao_ref *ref)
-{
-  /* If COPY starts before REF, then reset the beginning of
-     COPY to match REF and decrease the size of COPY by the
-     number of bytes removed from COPY.  */
-  if (copy->offset < ref->offset)
-    {
-      copy->size -= (ref->offset - copy->offset);
-      copy->offset = ref->offset;
-    }
-
-  /* If COPY extends beyond REF, chop off its size appropriately.  */
-  if (copy->offset + copy->size > ref->offset + ref->size)
-    copy->size -= (copy->offset + copy->size - (ref->offset + ref->size));
+	  && may_ne (ref->max_size, -1)
+	  && must_ne (ref->size, 0)
+	  && must_eq (ref->max_size, ref->size)
+	  && multiple_p (ref->offset, BITS_PER_UNIT)
+	  && multiple_p (ref->size, BITS_PER_UNIT));
 }
 
 /* Clear any bytes written by STMT from the bitmap LIVE_BYTES.  The base
@@ -175,18 +151,31 @@ clear_bytes_written_by (sbitmap live_bytes, gimple *stmt, ao_ref *ref)
 
   /* Verify we have the same base memory address, the write
      has a known size and overlaps with REF.  */
+  HOST_WIDE_INT rel_offset, write_size, ref_size;
   if (valid_ao_ref_for_dse (&write)
       && operand_equal_p (write.base, ref->base, OEP_ADDRESS_OF)
-      && write.size == write.max_size
-      && ((write.offset < ref->offset
-	   && write.offset + write.size > ref->offset)
-	  || (write.offset >= ref->offset
-	      && write.offset < ref->offset + ref->size)))
+      && must_eq (write.size, write.max_size)
+      && (write.offset - ref->offset).is_constant (&rel_offset)
+      && write.size.is_constant (&write_size)
+      && ref->size.is_constant (&ref_size)
+      && rel_offset >= -write_size
+      && rel_offset < ref_size)
     {
-      normalize_ref (&write, ref);
-      bitmap_clear_range (live_bytes,
-			  (write.offset - ref->offset) / BITS_PER_UNIT,
-			  write.size / BITS_PER_UNIT);
+      /* If COPY starts before REF, then reset the beginning of
+	 COPY to match REF and decrease the size of COPY by the
+	 number of bytes removed from COPY.  */
+      if (rel_offset < 0)
+	{
+	  write_size += rel_offset;
+	  rel_offset = 0;
+	}
+
+      /* If COPY extends beyond REF, chop off its size appropriately.  */
+      if (rel_offset + write_size > ref_size)
+	write_size = ref_size - rel_offset;
+
+      bitmap_clear_range (live_bytes, rel_offset / BITS_PER_UNIT,
+			  write_size / BITS_PER_UNIT);
     }
 }
 
@@ -197,12 +186,13 @@ clear_bytes_written_by (sbitmap live_bytes, gimple *stmt, ao_ref *ref)
 static bool
 setup_live_bytes_from_ref (ao_ref *ref, sbitmap live_bytes)
 {
+  HOST_WIDE_INT size;
   if (valid_ao_ref_for_dse (ref)
-      && (ref->size / BITS_PER_UNIT
-	  <= PARAM_VALUE (PARAM_DSE_MAX_OBJECT_SIZE)))
+      && ref->size.is_constant (&size)
+      && size / BITS_PER_UNIT <= PARAM_VALUE (PARAM_DSE_MAX_OBJECT_SIZE))
     {
       bitmap_clear (live_bytes);
-      bitmap_set_range (live_bytes, 0, ref->size / BITS_PER_UNIT);
+      bitmap_set_range (live_bytes, 0, size / BITS_PER_UNIT);
       return true;
     }
   return false;
@@ -218,8 +208,8 @@ setup_live_bytes_from_ref (ao_ref *ref, sbitmap live_bytes)
    output only.  */
 
 static void
-compute_trims (ao_ref *ref, sbitmap live, int *trim_head, int *trim_tail,
-	       gimple *stmt)
+compute_trims (ao_ref *ref, sbitmap live, poly_int64 *trim_head,
+	       poly_int64 *trim_tail, gimple *stmt)
 {
   /* We use sbitmaps biased such that ref->offset is bit zero and the bitmap
      extends through ref->size.  So we know that in the original bitmap
@@ -227,20 +217,23 @@ compute_trims (ao_ref *ref, sbitmap live, int *trim_head, int *trim_tail,
      the REF to compute the trims.  */
 
   /* Now identify how much, if any of the tail we can chop off.  */
-  int last_orig = (ref->size / BITS_PER_UNIT) - 1;
+  poly_int64 last_orig = exact_div (ref->size, BITS_PER_UNIT) - 1;
   int last_live = bitmap_last_set_bit (live);
-  *trim_tail = (last_orig - last_live) & ~0x1;
+  *trim_tail = last_orig - last_live;
 
   /* Identify how much, if any of the head we can chop off.  */
   int first_orig = 0;
   int first_live = bitmap_first_set_bit (live);
-  *trim_head = (first_live - first_orig) & ~0x1;
+  *trim_head = first_live - first_orig;
 
-  if ((*trim_head || *trim_tail)
+  if ((may_ne (*trim_head, 0) || may_ne (*trim_tail, 0))
       && dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "  Trimming statement (head = %d, tail = %d): ",
-	       *trim_head, *trim_tail);
+      fprintf (dump_file, "  Trimming statement (head = ");
+      print_dec (*trim_head, dump_file, SIGNED);
+      fprintf (dump_file, ", tail = ");
+      print_dec (*trim_tail, dump_file, SIGNED);
+      fprintf (dump_file, "): ");
       print_gimple_stmt (dump_file, stmt, 0, dump_flags);
       fprintf (dump_file, "\n");
     }
@@ -256,14 +249,14 @@ compute_trims (ao_ref *ref, sbitmap live, int *trim_head, int *trim_tail,
 static void
 maybe_trim_complex_store (ao_ref *ref, sbitmap live, gimple *stmt)
 {
-  int trim_head, trim_tail;
+  poly_int64 trim_head, trim_tail;
   compute_trims (ref, live, &trim_head, &trim_tail, stmt);
 
   /* The amount of data trimmed from the head or tail must be at
      least half the size of the object to ensure we're trimming
      the entire real or imaginary half.  By writing things this
      way we avoid more O(n) bitmap operations.  */
-  if (trim_tail * 2 >= ref->size / BITS_PER_UNIT)
+  if (must_ge (trim_tail * 2, exact_div (ref->size, BITS_PER_UNIT)))
     {
       /* TREE_REALPART is live */
       tree x = TREE_REALPART (gimple_assign_rhs1 (stmt));
@@ -272,7 +265,7 @@ maybe_trim_complex_store (ao_ref *ref, sbitmap live, gimple *stmt)
       gimple_assign_set_lhs (stmt, y);
       gimple_assign_set_rhs1 (stmt, x);
     }
-  else if (trim_head * 2 >= ref->size / BITS_PER_UNIT)
+  else if (must_ge (trim_head * 2, exact_div (ref->size, BITS_PER_UNIT)))
     {
       /* TREE_IMAGPART is live */
       tree x = TREE_IMAGPART (gimple_assign_rhs1 (stmt));
@@ -307,13 +300,13 @@ maybe_trim_constructor_store (ao_ref *ref, sbitmap live, gimple *stmt)
      catch most cases of actual interest.  */
   gcc_assert (CONSTRUCTOR_NELTS (ctor) == 0);
 
-  int head_trim = 0;
-  int tail_trim = 0;
+  poly_int64 head_trim = 0;
+  poly_int64 tail_trim = 0;
   compute_trims (ref, live, &head_trim, &tail_trim, stmt);
 
   /* Now we want to replace the constructor initializer
      with memset (object + head_trim, 0, size - head_trim - tail_trim).  */
-  if (head_trim || tail_trim)
+  if (may_ne (head_trim, 0) || may_ne (tail_trim, 0))
     {
       /* We want &lhs for the MEM_REF expression.  */
       tree lhs_addr = build_fold_addr_expr (gimple_assign_lhs (stmt));
@@ -322,7 +315,9 @@ maybe_trim_constructor_store (ao_ref *ref, sbitmap live, gimple *stmt)
 	return;
 
       /* The number of bytes for the new constructor.  */
-      int count = (ref->size / BITS_PER_UNIT) - head_trim - tail_trim;
+      poly_int64 count = (exact_div (ref->size, BITS_PER_UNIT)
+			  - head_trim
+			  - tail_trim);
 
       /* And the new type for the CONSTRUCTOR.  Essentially it's just
 	 a char array large enough to cover the non-trimmed parts of
@@ -349,17 +344,16 @@ maybe_trim_constructor_store (ao_ref *ref, sbitmap live, gimple *stmt)
 /* STMT is a memcpy, memmove or memset.  Decrement the number of bytes
    copied/set by DECREMENT.  */
 static void
-decrement_count (gimple *stmt, int decrement)
+decrement_count (gimple *stmt, poly_int64 decrement)
 {
   tree *countp = gimple_call_arg_ptr (stmt, 2);
-  gcc_assert (TREE_CODE (*countp) == INTEGER_CST);
-  *countp = wide_int_to_tree (TREE_TYPE (*countp), (TREE_INT_CST_LOW (*countp)
-						    - decrement));
-
+  *countp = poly_offset_int_to_tree (TREE_TYPE (*countp),
+				     tree_to_poly_offset_int (*countp)
+				     - decrement);
 }
 
 static void
-increment_start_addr (gimple *stmt, tree *where, int increment)
+increment_start_addr (gimple *stmt, tree *where, poly_int64 increment)
 {
   if (TREE_CODE (*where) == SSA_NAME)
     {
@@ -396,15 +390,15 @@ maybe_trim_memstar_call (ao_ref *ref, sbitmap live, gimple *stmt)
     case BUILT_IN_MEMCPY:
     case BUILT_IN_MEMMOVE:
       {
-	int head_trim, tail_trim;
+	poly_int64 head_trim, tail_trim;
 	compute_trims (ref, live, &head_trim, &tail_trim, stmt);
 
 	/* Tail trimming is easy, we can just reduce the count.  */
-        if (tail_trim)
+        if (may_ne (tail_trim, 0))
 	  decrement_count (stmt, tail_trim);
 
 	/* Head trimming requires adjusting all the arguments.  */
-        if (head_trim)
+        if (may_ne (head_trim, 0))
           {
 	    tree *dst = gimple_call_arg_ptr (stmt, 0);
 	    increment_start_addr (stmt, dst, head_trim);
@@ -417,15 +411,15 @@ maybe_trim_memstar_call (ao_ref *ref, sbitmap live, gimple *stmt)
 
     case BUILT_IN_MEMSET:
       {
-	int head_trim, tail_trim;
+	poly_int64 head_trim, tail_trim;
 	compute_trims (ref, live, &head_trim, &tail_trim, stmt);
 
 	/* Tail trimming is easy, we can just reduce the count.  */
-        if (tail_trim)
+        if (may_ne (tail_trim, 0))
 	  decrement_count (stmt, tail_trim);
 
 	/* Head trimming requires adjusting all the arguments.  */
-        if (head_trim)
+        if (may_ne (head_trim, 0))
           {
 	    tree *dst = gimple_call_arg_ptr (stmt, 0);
 	    increment_start_addr (stmt, dst, head_trim);
