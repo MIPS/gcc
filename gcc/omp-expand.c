@@ -205,8 +205,8 @@ omp_adjust_chunk_size (tree chunk_size, bool simd_schedule)
   if (!simd_schedule)
     return chunk_size;
 
-  int vf = omp_max_vf ();
-  if (vf == 1)
+  poly_uint64 vf = omp_max_vf ();
+  if (must_eq (vf, 1U))
     return chunk_size;
 
   tree type = TREE_TYPE (chunk_size);
