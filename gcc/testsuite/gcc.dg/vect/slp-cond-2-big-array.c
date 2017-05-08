@@ -123,4 +123,4 @@ main ()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" { xfail { vect_variable_length && vect_load_lanes } } } } */

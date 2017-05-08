@@ -57,5 +57,4 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect"  } } */
 /* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
-/* Needs store_lanes for SVE, otherwise falls back to Advanced SIMD.  */
-/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 2 "vect" { xfail { { { ! vect_unaligned_possible } || { ! vect_natural_alignment } } && { ! { aarch64_sve && vect_variable_length } } } } } } */
+/* { dg-final { scan-tree-dump-times "Alignment of access forced using peeling" 2 "vect" { xfail { { ! vect_unaligned_possible } || { ! vect_natural_alignment } } } } } */
