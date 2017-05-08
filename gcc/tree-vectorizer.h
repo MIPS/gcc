@@ -240,12 +240,27 @@ typedef struct _loop_vec_info : public vec_info {
      PARAM_MIN_VECT_LOOP_BOUND.  */
   unsigned int th;
 
+  /* Records whether we still have the option of using a fully-masked loop.  */
+  bool can_fully_mask_p;
+
   /* Unrolling factor  */
   poly_uint64 vectorization_factor;
 
   /* Maximum runtime vectorization factor, or MAX_VECTORIZATION_FACTOR
      if there is no particular limit.  */
   unsigned HOST_WIDE_INT max_vectorization_factor;
+
+  /* The mask type used to control the vectorized loop, or null if we
+     haven't yet decided to use a fully-masked loop.  */
+  tree mask_type;
+
+  /* A balanced tree of masks, in the form described by
+     vect_get_loop_mask.  */
+  vec<tree> mask_array;
+
+  /* Type of the variables to use in the WHILE_ULT call for fully-masked
+     loops.  */
+  tree mask_compare_type;
 
   /* Unknown DRs according to which loop was peeled.  */
   struct data_reference *unaligned_dr;
@@ -357,8 +372,12 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_NITERS_ASSUMPTIONS(L)   (L)->num_iters_assumptions
 #define LOOP_VINFO_COST_MODEL_THRESHOLD(L) (L)->th
 #define LOOP_VINFO_VECTORIZABLE_P(L)       (L)->vectorizable
+#define LOOP_VINFO_CAN_FULLY_MASK_P(L)     (L)->can_fully_mask_p
 #define LOOP_VINFO_VECT_FACTOR(L)          (L)->vectorization_factor
 #define LOOP_VINFO_MAX_VECT_FACTOR(L)      (L)->max_vectorization_factor
+#define LOOP_VINFO_MASK_TYPE(L)            (L)->mask_type
+#define LOOP_VINFO_MASK_ARRAY(L)           (L)->mask_array
+#define LOOP_VINFO_MASK_COMPARE_TYPE(L)    (L)->mask_compare_type
 #define LOOP_VINFO_PTR_MASK(L)             (L)->ptr_mask
 #define LOOP_VINFO_LOOP_NEST(L)            (L)->loop_nest
 #define LOOP_VINFO_DATAREFS(L)             (L)->datarefs
@@ -1095,6 +1114,17 @@ vect_nunits_for_cost (tree vec_type)
   return estimated_poly_value (TYPE_VECTOR_SUBPARTS (vec_type));
 }
 
+/* Return the maximum possible vectorization factor for LOOP_VINFO.  */
+
+static inline unsigned HOST_WIDE_INT
+vect_max_vf (loop_vec_info loop_vinfo)
+{
+  unsigned HOST_WIDE_INT vf;
+  if (LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&vf))
+    return vf;
+  return MAX_VECTORIZATION_FACTOR;
+}
+
 /* Source location */
 extern source_location vect_location;
 
@@ -1104,7 +1134,8 @@ extern source_location vect_location;
 
 /* Simple loop peeling and versioning utilities for vectorizer's purposes -
    in tree-vect-loop-manip.c.  */
-extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
+extern void slpeel_finalize_loop_iterations (struct loop *, loop_vec_info,
+					     tree, tree);
 extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
 struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *,
 						     struct loop *, edge);
@@ -1119,6 +1150,7 @@ extern poly_uint64 current_vector_size;
 extern tree get_vectype_for_scalar_type (tree);
 extern tree get_mask_type_for_scalar_type (tree);
 extern tree get_same_sized_vectype (tree, tree);
+extern tree vect_get_loop_mask_type (loop_vec_info, tree *);
 extern bool vect_is_simple_use (tree, vec_info *, gimple **,
                                 enum vect_def_type *);
 extern bool vect_is_simple_use (tree, vec_info *, gimple **,
@@ -1227,6 +1259,10 @@ extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *, bool,
 extern loop_vec_info vect_analyze_loop (struct loop *, loop_vec_info);
 extern tree vect_build_loop_niters (loop_vec_info);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *, bool);
+extern tree vect_get_loop_mask (loop_vec_info, vec<tree> &, unsigned int);
+extern void vect_populate_mask_array (loop_vec_info, vec<tree> &,
+				      unsigned int, gimple_stmt_iterator *);
+
 /* Drive for loop transformation stage.  */
 extern struct loop *vect_transform_loop (loop_vec_info);
 extern loop_vec_info vect_analyze_loop_form (struct loop *);
