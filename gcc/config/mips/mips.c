@@ -22889,7 +22889,9 @@ micromips_movep_opt ()
 	  rtx_insn *loc_insn = NULL;
 
 	  if (movep_or_0_operand (src, GET_MODE (src))
-	      && movep_dest_operand (dest, GET_MODE (dest)))
+	      && movep_dest_operand (dest, GET_MODE (dest))
+	      && GET_MODE_SIZE (GET_MODE (src)) == GET_MODE_SIZE (ptr_mode)
+	      && GET_MODE_SIZE (GET_MODE (dest)) == GET_MODE_SIZE (ptr_mode))
 	    {
 	      /* MOVEP.  */
 	      i = REGNO (dest) - GP_ARG_FIRST;
