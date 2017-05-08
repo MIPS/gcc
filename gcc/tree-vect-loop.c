@@ -1961,6 +1961,7 @@ vect_analyze_loop_2 (loop_vec_info loop_vinfo, bool &fatal)
 			     "bad data dependence.\n");
       return false;
     }
+  LOOP_VINFO_MAX_VECT_FACTOR (loop_vinfo) = max_vf;
 
   ok = vect_determine_vectorization_factor (loop_vinfo);
   if (!ok)
