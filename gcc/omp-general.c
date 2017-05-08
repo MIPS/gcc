@@ -433,17 +433,21 @@ omp_max_vf (void)
 	      || global_options_set.x_flag_tree_vectorize)))
     return 1;
 
-  int vf = 1;
-  int vs = targetm.vectorize.autovectorize_vector_sizes ();
-  if (vs)
-    vf = 1 << floor_log2 (vs);
-  else
+  auto_vec<poly_uint64, 8> sizes;
+  targetm.vectorize.autovectorize_vector_sizes (sizes);
+  if (!sizes.is_empty ())
     {
-      machine_mode vqimode = targetm.vectorize.preferred_simd_mode (QImode);
-      if (GET_MODE_CLASS (vqimode) == MODE_VECTOR_INT)
-	vf = GET_MODE_NUNITS (vqimode);
+      poly_uint64 vs = 0;
+      for (unsigned int i = 0; i < sizes.length (); ++i)
+	vs = ordered_max (vs, sizes[i]);
+      return vs;
     }
-  return vf;
+
+  machine_mode vqimode = targetm.vectorize.preferred_simd_mode (QImode);
+  if (GET_MODE_CLASS (vqimode) == MODE_VECTOR_INT)
+    return GET_MODE_NUNITS (vqimode);
+
+  return 1;
 }
 
 /* Return maximum SIMT width if offloading may target SIMT hardware.  */
