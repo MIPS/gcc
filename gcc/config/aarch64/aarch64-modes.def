@@ -30,6 +30,27 @@ FLOAT_MODE (HF, 2, 0);
 ADJUST_FLOAT_FORMAT (HF, &ieee_half_format);
 
 /* Vector modes.  */
+
+VECTOR_BOOL_MODE (32);
+VECTOR_BOOL_MODE (16);
+VECTOR_BOOL_MODE (8);
+VECTOR_BOOL_MODE (4);
+
+ADJUST_BYTESIZE (V32BI, aarch64_sve_vg);
+ADJUST_BYTESIZE (V16BI, aarch64_sve_vg);
+ADJUST_BYTESIZE (V8BI, aarch64_sve_vg);
+ADJUST_BYTESIZE (V4BI, aarch64_sve_vg);
+
+ADJUST_NUNITS (V32BI, aarch64_sve_vg * 8);
+ADJUST_NUNITS (V16BI, aarch64_sve_vg * 4);
+ADJUST_NUNITS (V8BI, aarch64_sve_vg * 2);
+ADJUST_NUNITS (V4BI, aarch64_sve_vg);
+
+ADJUST_ALIGNMENT (V32BI, 2);
+ADJUST_ALIGNMENT (V16BI, 2);
+ADJUST_ALIGNMENT (V8BI, 2);
+ADJUST_ALIGNMENT (V4BI, 2);
+
 VECTOR_MODES (INT, 8);        /*       V8QI V4HI V2SI.  */
 VECTOR_MODES (INT, 16);       /* V16QI V8HI V4SI V2DI.  */
 VECTOR_MODES (FLOAT, 8);      /*                 V2SF.  */
@@ -44,8 +65,25 @@ INT_MODE (OI, 32);
 INT_MODE (CI, 48);
 INT_MODE (XI, 64);
 
+#define SVE_MODES(NVECS, VB, VH, VS, VD) \
+  VECTOR_MODES (INT, 32 * NVECS); \
+  VECTOR_MODES (FLOAT, 32 * NVECS); \
+  \
+  ADJUST_NUNITS (VB##QI, aarch64_sve_vg * NVECS * 8); \
+  ADJUST_NUNITS (VH##HI, aarch64_sve_vg * NVECS * 4); \
+  ADJUST_NUNITS (VS##SI, aarch64_sve_vg * NVECS * 2); \
+  ADJUST_NUNITS (VD##DI, aarch64_sve_vg * NVECS); \
+  ADJUST_NUNITS (VS##SF, aarch64_sve_vg * NVECS * 2); \
+  ADJUST_NUNITS (VD##DF, aarch64_sve_vg * NVECS);
+
+SVE_MODES (1, V32, V16, V8, V4)
+
 /* Quad float: 128-bit floating mode for long doubles.  */
 FLOAT_MODE (TF, 16, ieee_quad_format);
+
+/* A 4-tuple of SVE vectors.  This should only matter when SVE modes
+   have a fixed rather than variable size.  */
+#define MAX_BITSIZE_MODE_ANY_MODE (2048 * 4)
 
 /* Coefficient 1 is multiplied by the number of 128-bit chunks in an
    SVE vector (referred to as "VQ") minus one.  */

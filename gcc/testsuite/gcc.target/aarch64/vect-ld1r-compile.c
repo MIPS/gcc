@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -fno-vect-cost-model" } */
+/* { dg-options "-O3 -fno-vect-cost-model -march=armv8-a" } */
 
 #include "stdint.h"
 #include "vect-ld1r.x"

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-all -fno-unroll-loops --save-temps -fno-inline" } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-all -fno-unroll-loops --save-temps -fno-inline -march=armv8-a" } */
 
 #define FTYPE float
 #define ITYPE int

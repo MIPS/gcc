@@ -39,12 +39,12 @@
    that are required.  Their order is not important.  */
 
 /* Enabling "fp" just enables "fp".
-   Disabling "fp" also disables "simd", "crypto" and "fp16".  */
-AARCH64_OPT_EXTENSION("fp", AARCH64_FL_FP, 0, AARCH64_FL_SIMD | AARCH64_FL_CRYPTO | AARCH64_FL_F16, "fp")
+   Disabling "fp" also disables "simd", "crypto", "fp16" and "sve".  */
+AARCH64_OPT_EXTENSION("fp", AARCH64_FL_FP, 0, AARCH64_FL_SIMD | AARCH64_FL_CRYPTO | AARCH64_FL_F16 | AARCH64_FL_SVE, "fp")
 
 /* Enabling "simd" also enables "fp".
-   Disabling "simd" also disables "crypto".  */
-AARCH64_OPT_EXTENSION("simd", AARCH64_FL_SIMD, AARCH64_FL_FP, AARCH64_FL_CRYPTO, "asimd")
+   Disabling "simd" also disables "crypto" and "sve".  */
+AARCH64_OPT_EXTENSION("simd", AARCH64_FL_SIMD, AARCH64_FL_FP, AARCH64_FL_CRYPTO | AARCH64_FL_SVE, "asimd")
 
 /* Enabling "crypto" also enables "fp", "simd".
    Disabling "crypto" just disables "crypto".  */
@@ -60,4 +60,7 @@ AARCH64_OPT_EXTENSION("lse", AARCH64_FL_LSE, 0, 0, "atomics")
    Disabling "fp16" just disables "fp16".  */
 AARCH64_OPT_EXTENSION("fp16", AARCH64_FL_F16, AARCH64_FL_FP, 0, "fp16")
 
+/* Enabling "sve" also enables "fp" and "simd".
+   Disabling "sve" just disables "sve".  */
+AARCH64_OPT_EXTENSION("sve", AARCH64_FL_SVE, AARCH64_FL_FP | AARCH64_FL_SIMD, 0, "sve")
 #undef AARCH64_OPT_EXTENSION
