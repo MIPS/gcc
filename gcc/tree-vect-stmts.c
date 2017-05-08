@@ -3315,6 +3315,16 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
       arginfo.quick_push (thisarginfo);
     }
 
+  unsigned HOST_WIDE_INT vf;
+  if (!LOOP_VINFO_VECT_FACTOR (loop_vinfo).is_constant (&vf))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "not considering SIMD clones; not yet supported"
+			 " for variable-width vectors.\n");
+      return NULL;
+    }
+
   unsigned int badness = 0;
   struct cgraph_node *bestn = NULL;
   if (STMT_VINFO_SIMD_CLONE_INFO (stmt_info).exists ())
@@ -3324,13 +3334,11 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
 	 n = n->simdclone->next_clone)
       {
 	unsigned int this_badness = 0;
-	if (n->simdclone->simdlen
-	    > (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	if (n->simdclone->simdlen > vf
 	    || n->simdclone->nargs != nargs)
 	  continue;
-	if (n->simdclone->simdlen
-	    < (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo))
-	  this_badness += (exact_log2 (LOOP_VINFO_VECT_FACTOR (loop_vinfo))
+	if (n->simdclone->simdlen < vf)
+	  this_badness += (exact_log2 (vf)
 			   - exact_log2 (n->simdclone->simdlen)) * 1024;
 	if (n->simdclone->inbranch)
 	  this_badness += 2048;
@@ -3419,7 +3427,7 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
 
   fndecl = bestn->decl;
   nunits = bestn->simdclone->simdlen;
-  ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
+  ncopies = vf / nunits;
 
   /* If the function isn't const, only allow it in simd loops where user
      has asserted that at least nunits consecutive iterations can be
@@ -5629,7 +5637,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   gather_scatter_info gs_info;
   enum vect_def_type scatter_src_dt = vect_unknown_def_type;
   gimple *new_stmt;
-  int vf;
+  poly_uint64 vf;
   vec_load_store_type vls_type;
   tree ref_type;
 
@@ -6551,7 +6559,8 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   tree dataref_offset = NULL_TREE;
   gimple *ptr_incr = NULL;
   int ncopies;
-  int i, j, group_size, group_gap_adj;
+  int i, j, group_size;
+  poly_uint64 group_gap_adj;
   tree msq = NULL_TREE, lsq;
   tree offset = NULL_TREE;
   tree byte_offset = NULL_TREE;
@@ -6569,7 +6578,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   bool slp_perm = false;
   enum tree_code code;
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
-  int vf;
+  poly_uint64 vf;
   tree aggr_type;
   gather_scatter_info gs_info;
   vec_info *vinfo = stmt_info->vinfo;
@@ -6639,8 +6648,8 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
      on the unrolled body effectively re-orders stmts.  */
   if (ncopies > 1
       && STMT_VINFO_MIN_NEG_DIST (stmt_info) != 0
-      && ((unsigned)LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	  > STMT_VINFO_MIN_NEG_DIST (stmt_info)))
+      && may_gt (LOOP_VINFO_VECT_FACTOR (loop_vinfo),
+		 STMT_VINFO_MIN_NEG_DIST (stmt_info)))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6680,8 +6689,8 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	 on the unrolled body effectively re-orders stmts.  */
       if (!PURE_SLP_STMT (stmt_info)
 	  && STMT_VINFO_MIN_NEG_DIST (stmt_info) != 0
-	  && ((unsigned)LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	      > STMT_VINFO_MIN_NEG_DIST (stmt_info)))
+	  && may_gt (LOOP_VINFO_VECT_FACTOR (loop_vinfo),
+		     STMT_VINFO_MIN_NEG_DIST (stmt_info)))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -7025,7 +7034,10 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	     fits in.  */
 	  if (slp_perm)
 	    {
-	      ncopies = (group_size * vf + nunits - 1) / nunits;
+	      if (!can_div_away_from_zero_p (group_size * vf,
+					     poly_uint64 (nunits),
+					     &ncopies))
+		gcc_unreachable ();
 	      dr_chain.create (ncopies);
 	    }
 	  else
@@ -7142,7 +7154,12 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	     not only the number of vector stmts the permutation result
 	     fits in.  */
 	  if (slp_perm)
-	    vec_num = (group_size * vf + nunits - 1) / nunits;
+	    {
+	      if (!can_div_away_from_zero_p (group_size * vf,
+					     poly_uint64 (nunits),
+					     &vec_num))
+		gcc_unreachable ();
+	    }
 	  else
 	    vec_num = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
 	  group_gap_adj = vf * group_size - nunits * vec_num;
@@ -7602,13 +7619,11 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	    }
 	  /* Bump the vector pointer to account for a gap or for excess
 	     elements loaded for a permuted SLP load.  */
-	  if (group_gap_adj != 0)
+	  if (may_ne (group_gap_adj, 0U))
 	    {
-	      bool ovf;
-	      tree bump
-		= wide_int_to_tree (sizetype,
-				    wi::smul (TYPE_SIZE_UNIT (elem_type),
-					      group_gap_adj, &ovf));
+	      tree bump = size_binop (MULT_EXPR,
+				      TYPE_SIZE_UNIT (elem_type),
+				      size_int (group_gap_adj));
 	      dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, gsi,
 					     stmt, bump);
 	    }
