@@ -501,6 +501,20 @@
   }
 )
 
+(define_expand "<perm_optab>_<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand")
+	(unspec:SVE_ALL [(match_operand:SVE_ALL 1 "register_operand")
+			  (match_operand:SVE_ALL 2 "register_operand")]
+			 OPTAB_PERMUTE))]
+  "TARGET_SVE")
+
+(define_insn "vec_reverse_<mode>"
+  [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
+	(unspec:SVE_ALL [(match_operand:SVE_ALL 1 "register_operand" "w")]
+			 UNSPEC_REV))]
+  "TARGET_SVE"
+  "rev\t%0.<Vetype>, %1.<Vetype>")
+
 (define_insn "sve_tbl1<mode>"
   [(set (match_operand:SVE_ALL 0 "register_operand" "=w")
 	(unspec:SVE_ALL
