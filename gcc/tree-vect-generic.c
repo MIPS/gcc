@@ -254,7 +254,8 @@ expand_vector_piecewise (gimple_stmt_iterator *gsi, elem_op_func f,
   vec<constructor_elt, va_gc> *v;
   tree part_width = TYPE_SIZE (inner_type);
   tree index = bitsize_int (0);
-  int nunits = TYPE_VECTOR_SUBPARTS (type);
+  /* We don't support piecewise expansion for variable-length vectors.  */
+  int nunits = TYPE_VECTOR_SUBPARTS (type).to_constant ();
   int delta = tree_to_uhwi (part_width)
 	      / tree_to_uhwi (TYPE_SIZE (TREE_TYPE (type)));
   int i;
@@ -338,7 +339,8 @@ expand_vector_addition (gimple_stmt_iterator *gsi,
 
   if (INTEGRAL_TYPE_P (TREE_TYPE (type))
       && parts_per_word >= 4
-      && TYPE_VECTOR_SUBPARTS (type) >= 4)
+      /* We don't support piecewise expansion for variable-length vectors.  */
+      && TYPE_VECTOR_SUBPARTS (type).to_constant () >= 4)
     return expand_vector_parallel (gsi, f_parallel,
 				   type, a, b, code);
   else
@@ -373,7 +375,8 @@ static tree
 add_rshift (gimple_stmt_iterator *gsi, tree type, tree op0, int *shiftcnts)
 {
   optab op;
-  unsigned int i, nunits = TYPE_VECTOR_SUBPARTS (type);
+  /* Enforced by the caller.  */
+  unsigned int i, nunits = TYPE_VECTOR_SUBPARTS (type).to_constant ();
   bool scalar_shift = true;
 
   for (i = 1; i < nunits; i++)
@@ -418,7 +421,8 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
   bool has_vector_shift = true;
   int mode = -1, this_mode;
   int pre_shift = -1, post_shift;
-  unsigned int nunits = TYPE_VECTOR_SUBPARTS (type);
+  /* We don't support piecewise expansion for variable-length vectors.  */
+  unsigned int nunits = TYPE_VECTOR_SUBPARTS (type).to_constant ();
   int *shifts = XALLOCAVEC (int, nunits * 4);
   int *pre_shifts = shifts + nunits;
   int *post_shifts = pre_shifts + nunits;
@@ -867,7 +871,6 @@ expand_vector_condition (gimple_stmt_iterator *gsi)
   tree index = bitsize_int (0);
   tree comp_width = width;
   tree comp_index = index;
-  int nunits = TYPE_VECTOR_SUBPARTS (type);
   int i;
   location_t loc = gimple_location (gsi_stmt (*gsi));
 
@@ -897,9 +900,9 @@ expand_vector_condition (gimple_stmt_iterator *gsi)
      Similarly for vbfld_10 instead of x_2 < y_3.  */
   if (VECTOR_BOOLEAN_TYPE_P (type)
       && SCALAR_INT_MODE_P (TYPE_MODE (type))
-      && (GET_MODE_BITSIZE (TYPE_MODE (type))
-	  < (TYPE_VECTOR_SUBPARTS (type)
-	     * GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (type)))))
+      && must_lt (GET_MODE_BITSIZE (TYPE_MODE (type)),
+		  TYPE_VECTOR_SUBPARTS (type)
+		  * GET_MODE_BITSIZE (SCALAR_TYPE_MODE (TREE_TYPE (type))))
       && (a_is_comparison
 	  ? useless_type_conversion_p (type, TREE_TYPE (a))
 	  : expand_vec_cmp_expr_p (TREE_TYPE (a1), type, TREE_CODE (a))))
@@ -920,6 +923,8 @@ expand_vector_condition (gimple_stmt_iterator *gsi)
   warning_at (loc, OPT_Wvector_operation_performance,
 	      "vector condition will be expanded piecewise");
 
+  /* We don't support piecewise expansion for variable-length vectors.  */
+  int nunits = TYPE_VECTOR_SUBPARTS (type).to_constant ();
   vec_alloc (v, nunits);
   for (i = 0; i < nunits; i++)
     {
@@ -1063,7 +1068,8 @@ optimize_vector_constructor (gimple_stmt_iterator *gsi)
   tree lhs = gimple_assign_lhs (stmt);
   tree rhs = gimple_assign_rhs1 (stmt);
   tree type = TREE_TYPE (rhs);
-  unsigned int i, j, nelts = TYPE_VECTOR_SUBPARTS (type);
+  /* We don't support piecewise expansion for variable-length vectors.  */
+  unsigned int i, j, nelts = TYPE_VECTOR_SUBPARTS (type).to_constant ();
   bool all_same = true;
   constructor_elt *elt;
   tree *cst;
@@ -1189,7 +1195,8 @@ vector_element (gimple_stmt_iterator *gsi, tree vect, tree idx, tree *ptmpvec)
 
   vect_type = TREE_TYPE (vect);
   vect_elt_type = TREE_TYPE (vect_type);
-  elements = TYPE_VECTOR_SUBPARTS (vect_type);
+  /* We don't support piecewise expansion for variable-length vectors.  */
+  elements = TYPE_VECTOR_SUBPARTS (vect_type).to_constant ();
 
   if (TREE_CODE (idx) == INTEGER_CST)
     {
@@ -1282,7 +1289,8 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
   tree mask_type = TREE_TYPE (mask);
   tree vect_elt_type = TREE_TYPE (vect_type);
   tree mask_elt_type = TREE_TYPE (mask_type);
-  unsigned int elements = TYPE_VECTOR_SUBPARTS (vect_type);
+  /* We don't support piecewise expansion for variable-length vectors.  */
+  unsigned int elements = TYPE_VECTOR_SUBPARTS (vect_type).to_constant ();
   vec<constructor_elt, va_gc> *v;
   tree constr, t, si, i_val;
   tree vec0tmp = NULL_TREE, vec1tmp = NULL_TREE, masktmp = NULL_TREE;
@@ -1445,9 +1453,9 @@ get_compute_type (enum tree_code code, optab op, tree type)
       tree vector_compute_type
 	= type_for_widest_vector_mode (TREE_TYPE (type), op);
       if (vector_compute_type != NULL_TREE
-	  && (TYPE_VECTOR_SUBPARTS (vector_compute_type)
-	      < TYPE_VECTOR_SUBPARTS (compute_type))
-	  && TYPE_VECTOR_SUBPARTS (vector_compute_type) > 1
+	  && may_ne (TYPE_VECTOR_SUBPARTS (vector_compute_type), 1U)
+	  && multiple_p (TYPE_VECTOR_SUBPARTS (compute_type),
+			 TYPE_VECTOR_SUBPARTS (vector_compute_type))
 	  && (optab_handler (op, TYPE_MODE (vector_compute_type))
 	      != CODE_FOR_nothing))
 	compute_type = vector_compute_type;
@@ -1475,13 +1483,18 @@ get_compute_type (enum tree_code code, optab op, tree type)
   return compute_type;
 }
 
-/* Helper function of expand_vector_operations_1.  Return number of
-   vector elements for vector types or 1 for other types.  */
+/* Helper function of expand_vector_operations_1.  Return true if
+   TYPE1 has more elements than TYPE2.  */
 
-static inline int
-count_type_subparts (tree type)
+static inline bool
+subparts_gt (tree type1, tree type2)
 {
-  return VECTOR_TYPE_P (type) ? TYPE_VECTOR_SUBPARTS (type) : 1;
+  poly_uint64 n1 = VECTOR_TYPE_P (type1) ? TYPE_VECTOR_SUBPARTS (type1) : 1;
+  poly_uint64 n2 = VECTOR_TYPE_P (type2) ? TYPE_VECTOR_SUBPARTS (type2) : 1;
+  if (multiple_p (n1, n2))
+    return true;
+  gcc_checking_assert (multiple_p (n2, n1));
+  return false;
 }
 
 static tree
@@ -1694,8 +1707,7 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
 	  /* The rtl expander will expand vector/scalar as vector/vector
 	     if necessary.  Pick one with wider vector type.  */
 	  tree compute_vtype = get_compute_type (code, opv, type);
-	  if (count_type_subparts (compute_vtype)
-	      > count_type_subparts (compute_type))
+	  if (subparts_gt (compute_vtype, compute_type))
 	    {
 	      compute_type = compute_vtype;
 	      op = opv;
@@ -1725,14 +1737,12 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
 	      tree compute_rtype = get_compute_type (RSHIFT_EXPR, opr, type);
 	      /* The rtl expander will expand vector/scalar as vector/vector
 		 if necessary.  Pick one with wider vector type.  */
-	      if (count_type_subparts (compute_lvtype)
-		  > count_type_subparts (compute_ltype))
+	      if (subparts_gt (compute_lvtype, compute_ltype))
 		{
 		  compute_ltype = compute_lvtype;
 		  opl = oplv;
 		}
-	      if (count_type_subparts (compute_rvtype)
-		  > count_type_subparts (compute_rtype))
+	      if (subparts_gt (compute_rvtype, compute_rtype))
 		{
 		  compute_rtype = compute_rvtype;
 		  opr = oprv;
@@ -1740,11 +1750,9 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
 	      /* Pick the narrowest type from LSHIFT_EXPR, RSHIFT_EXPR and
 		 BIT_IOR_EXPR.  */
 	      compute_type = compute_ltype;
-	      if (count_type_subparts (compute_type)
-		  > count_type_subparts (compute_rtype))
+	      if (subparts_gt (compute_type, compute_rtype))
 		compute_type = compute_rtype;
-	      if (count_type_subparts (compute_type)
-		  > count_type_subparts (compute_otype))
+	      if (subparts_gt (compute_type, compute_otype))
 		compute_type = compute_otype;
 	      /* Verify all 3 operations can be performed in that type.  */
 	      if (compute_type != TREE_TYPE (type))
