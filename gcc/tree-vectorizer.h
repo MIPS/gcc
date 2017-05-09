@@ -765,7 +765,11 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_SLP_TYPE(S)                   (S)->slp_type
 
 struct dataref_aux {
+  /* The misalignment in bytes of the reference, or -1 if not known.  */
   int misalignment;
+  /* The byte alignment that we'd ideally like the reference to have,
+     and the value that misalignment is measured against.  */
+  int target_alignment;
   /* If true the alignment of base_decl needs to be increased.  */
   bool base_misaligned;
   /* If true we know the base is at least vector element alignment aligned.  */
@@ -1013,7 +1017,11 @@ dr_misalignment (struct data_reference *dr)
 #define DR_MISALIGNMENT(DR) dr_misalignment (DR)
 #define SET_DR_MISALIGNMENT(DR, VAL) set_dr_misalignment (DR, VAL)
 
-/* Return TRUE if the data access is aligned, and FALSE otherwise.  */
+/* Only defined once DR_MISALIGNMENT is defined.  */
+#define DR_TARGET_ALIGNMENT(DR) DR_VECT_AUX (DR)->target_alignment
+
+/* Return true if data access DR is aligned to its target alignment
+   (which may be less than a full vector).  */
 
 static inline bool
 aligned_access_p (struct data_reference *data_ref_info)
@@ -1175,6 +1183,8 @@ extern tree vect_get_new_ssa_name (tree, enum vect_var_kind,
 extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 						  tree, struct loop *,
 						  tree = NULL_TREE);
+extern unsigned int vect_data_ref_required_alignment (struct data_reference *);
+extern unsigned int vect_known_alignment_in_elements (gimple *);
 
 /* In tree-vect-loop.c.  */
 /* FORNOW: Used in tree-parloops.c.  */

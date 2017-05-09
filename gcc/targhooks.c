@@ -1137,6 +1137,14 @@ default_vector_alignment (const_tree type)
   return align;
 }
 
+/* The default implementation of TARGET_PREFERRED_VECTOR_ALIGNMENT.  */
+
+HOST_WIDE_INT
+default_preferred_vector_alignment (const_tree type)
+{
+  return TYPE_ALIGN (type);
+}
+
 /* By default assume vectors of element TYPE require a multiple of the natural
    alignment of TYPE.  TYPE is naturally aligned if IS_PACKED is false.  */
 bool
