@@ -827,6 +827,26 @@ find_reusable_reload (rtx *p_in, rtx out, enum reg_class rclass,
   return n_reloads;
 }
 
+/* Return true if:
+
+   (a) (subreg:OUTER_MODE (reg:INNER_MODE INNER_REGNO) ...)
+       represents a word or subword subreg of a multiword value; and
+
+   (b) the number of words in INNER_MODE does not match the number of
+       registers in (reg:INNER_MODE INNER_REGNO).  */
+
+static bool
+complex_word_subreg_p (machine_mode outer_mode, machine_mode inner_mode,
+		       unsigned int inner_regno)
+{
+  return (must_le (GET_MODE_SIZE (outer_mode), UNITS_PER_WORD)
+	  && may_gt (GET_MODE_SIZE (inner_mode), UNITS_PER_WORD)
+	  && may_ne (aligned_upper_bound (GET_MODE_SIZE (inner_mode),
+					  UNITS_PER_WORD),
+		     hard_regno_nregs[inner_regno][inner_mode]
+		     * UNITS_PER_WORD));
+}
+
 /* Return true if X is a SUBREG that will need reloading of its SUBREG_REG
    expression.  MODE is the mode that X will be used in.  OUTPUT is true if
    the function is invoked for the output part of an enclosing reload.  */
@@ -859,10 +879,7 @@ reload_inner_reg_of_subreg (rtx x, machine_mode mode, bool output)
      not the same as the number of words in INNER, then INNER will need
      reloading (with an in-out reload).  */
   return (output
-	  && GET_MODE_SIZE (mode) <= UNITS_PER_WORD
-	  && GET_MODE_SIZE (GET_MODE (inner)) > UNITS_PER_WORD
-	  && ((GET_MODE_SIZE (GET_MODE (inner)) / UNITS_PER_WORD)
-	      != (int) hard_regno_nregs[REGNO (inner)][GET_MODE (inner)]));
+	  && complex_word_subreg_p (mode, GET_MODE (inner), REGNO (inner)));
 }
 
 /* Return nonzero if IN can be reloaded into REGNO with mode MODE without
@@ -1066,7 +1083,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 		&& REGNO (SUBREG_REG (in)) >= FIRST_PSEUDO_REGISTER)
 	       || MEM_P (SUBREG_REG (in)))
 	      && (paradoxical_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
-		  || (GET_MODE_SIZE (inmode) <= UNITS_PER_WORD
+		  || (must_le (GET_MODE_SIZE (inmode), UNITS_PER_WORD)
 		      && is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (in)),
 						 &inner_int_mode)
 		      && GET_MODE_SIZE (inner_int_mode) <= UNITS_PER_WORD
@@ -1074,21 +1091,17 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 		      && LOAD_EXTEND_OP (inner_int_mode) != UNKNOWN)
 		  || (WORD_REGISTER_OPERATIONS
 		      && partial_subreg_p (inmode, GET_MODE (SUBREG_REG (in)))
-		      && ((GET_MODE_SIZE (inmode) - 1) / UNITS_PER_WORD ==
-			  ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))) - 1)
-			   / UNITS_PER_WORD)))))
+		      && (known_equal_after_align_down
+			  (GET_MODE_SIZE (inmode) - 1,
+			   GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))) - 1,
+			   UNITS_PER_WORD)))))
 	  || (REG_P (SUBREG_REG (in))
 	      && REGNO (SUBREG_REG (in)) < FIRST_PSEUDO_REGISTER
 	      /* The case where out is nonzero
 		 is handled differently in the following statement.  */
 	      && (out == 0 || subreg_lowpart_p (in))
-	      && ((GET_MODE_SIZE (inmode) <= UNITS_PER_WORD
-		   && (GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))
-		       > UNITS_PER_WORD)
-		   && ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))
-			/ UNITS_PER_WORD)
-		       != (int) hard_regno_nregs[REGNO (SUBREG_REG (in))]
-						[GET_MODE (SUBREG_REG (in))]))
+	      && (complex_word_subreg_p (inmode, GET_MODE (SUBREG_REG (in)),
+					 REGNO (SUBREG_REG (in)))
 		  || !targetm.hard_regno_mode_ok (subreg_regno (in), inmode)))
 	  || (secondary_reload_class (1, rclass, inmode, in) != NO_REGS
 	      && (secondary_reload_class (1, rclass, GET_MODE (SUBREG_REG (in)),
@@ -1113,7 +1126,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	  && MEM_P (in))
 	/* This is supposed to happen only for paradoxical subregs made by
 	   combine.c.  (SUBREG (MEM)) isn't supposed to occur other ways.  */
-	gcc_assert (GET_MODE_SIZE (GET_MODE (in)) <= GET_MODE_SIZE (inmode));
+	gcc_assert (must_le (GET_MODE_SIZE (GET_MODE (in)),
+			     GET_MODE_SIZE (inmode)));
 
       inmode = GET_MODE (in);
     }
@@ -1174,16 +1188,17 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	      && (paradoxical_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
 		  || (WORD_REGISTER_OPERATIONS
 		      && partial_subreg_p (outmode, GET_MODE (SUBREG_REG (out)))
-		      && ((GET_MODE_SIZE (outmode) - 1) / UNITS_PER_WORD ==
-			  ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))) - 1)
-			   / UNITS_PER_WORD)))))
+		      && (known_equal_after_align_down
+			  (GET_MODE_SIZE (outmode) - 1,
+			   GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))) - 1,
+			   UNITS_PER_WORD)))))
 	  || (REG_P (SUBREG_REG (out))
 	      && REGNO (SUBREG_REG (out)) < FIRST_PSEUDO_REGISTER
 	      /* The case of a word mode subreg
 		 is handled differently in the following statement.  */
-	      && ! (GET_MODE_SIZE (outmode) <= UNITS_PER_WORD
-		    && (GET_MODE_SIZE (GET_MODE (SUBREG_REG (out)))
-		        > UNITS_PER_WORD))
+	      && ! (must_le (GET_MODE_SIZE (outmode), UNITS_PER_WORD)
+		    && may_gt (GET_MODE_SIZE (GET_MODE (SUBREG_REG (out))),
+			       UNITS_PER_WORD))
 	      && !targetm.hard_regno_mode_ok (subreg_regno (out), outmode))
 	  || (secondary_reload_class (0, rclass, outmode, out) != NO_REGS
 	      && (secondary_reload_class (0, rclass, GET_MODE (SUBREG_REG (out)),
@@ -1204,8 +1219,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
       outloc = &SUBREG_REG (out);
       out = *outloc;
       gcc_assert (WORD_REGISTER_OPERATIONS || !MEM_P (out)
-		  || GET_MODE_SIZE (GET_MODE (out))
-		     <= GET_MODE_SIZE (outmode));
+		  || must_le (GET_MODE_SIZE (GET_MODE (out)),
+			      GET_MODE_SIZE (outmode)));
       outmode = GET_MODE (out);
     }
 
@@ -1618,13 +1633,13 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	       What's going on here.  */
 	    && (in != out
 		|| (GET_CODE (in) == SUBREG
-		    && (((GET_MODE_SIZE (GET_MODE (in)) + (UNITS_PER_WORD - 1))
-			 / UNITS_PER_WORD)
-			== ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))
-			     + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD))))
+		    && (known_equal_after_align_up
+			(GET_MODE_SIZE (GET_MODE (in)),
+			 GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))),
+			 UNITS_PER_WORD))))
 	    /* Make sure the operand fits in the reg that dies.  */
-	    && (GET_MODE_SIZE (rel_mode)
-		<= GET_MODE_SIZE (GET_MODE (XEXP (note, 0))))
+	    && must_le (GET_MODE_SIZE (rel_mode),
+			GET_MODE_SIZE (GET_MODE (XEXP (note, 0))))
 	    && targetm.hard_regno_mode_ok (regno, inmode)
 	    && targetm.hard_regno_mode_ok (regno, outmode))
 	  {
@@ -1966,9 +1981,9 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 
   /* If operands exceed a word, we can't use either of them
      unless they have the same size.  */
-  if (GET_MODE_SIZE (outmode) != GET_MODE_SIZE (inmode)
-      && (GET_MODE_SIZE (outmode) > UNITS_PER_WORD
-	  || GET_MODE_SIZE (inmode) > UNITS_PER_WORD))
+  if (may_ne (GET_MODE_SIZE (outmode), GET_MODE_SIZE (inmode))
+      && (may_gt (GET_MODE_SIZE (outmode), UNITS_PER_WORD)
+	  || may_gt (GET_MODE_SIZE (inmode), UNITS_PER_WORD)))
     return 0;
 
   /* Note that {in,out}_offset are needed only when 'in' or 'out'
@@ -2915,8 +2930,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 	  if (replace
 	      && MEM_P (op)
 	      && REG_P (reg)
-	      && (GET_MODE_SIZE (GET_MODE (reg))
-		  >= GET_MODE_SIZE (GET_MODE (op)))
+	      && must_ge (GET_MODE_SIZE (GET_MODE (reg)),
+			  GET_MODE_SIZE (GET_MODE (op)))
 	      && reg_equiv_constant (REGNO (reg)) == 0)
 	    set_unique_reg_note (emit_insn_before (gen_rtx_USE (VOIDmode, reg),
 						   insn),
@@ -3157,8 +3172,8 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 				   && (paradoxical_subreg_p
 				       (operand_mode[i], GET_MODE (operand)))))
 			      || BYTES_BIG_ENDIAN
-			      || ((GET_MODE_SIZE (operand_mode[i])
-				   <= UNITS_PER_WORD)
+			      || (must_le (GET_MODE_SIZE (operand_mode[i]),
+					   UNITS_PER_WORD)
 				  && (is_a <scalar_int_mode>
 				      (GET_MODE (operand), &int_mode))
 				  && (GET_MODE_SIZE (int_mode)
@@ -3655,7 +3670,7 @@ find_reloads (rtx_insn *insn, int replace, int ind_levels, int live_known,
 
 	      if (! win && ! did_match
 		  && this_alternative[i] != NO_REGS
-		  && GET_MODE_SIZE (operand_mode[i]) <= UNITS_PER_WORD
+		  && must_le (GET_MODE_SIZE (operand_mode[i]), UNITS_PER_WORD)
 		  && reg_class_size [(int) preferred_class[i]] > 0
 		  && ! small_register_class_p (preferred_class[i]))
 		{
@@ -6176,8 +6191,9 @@ find_reloads_subreg_address (rtx x, int opnum, enum reload_type type,
 
   if (WORD_REGISTER_OPERATIONS
       && partial_subreg_p (outer_mode, inner_mode)
-      && ((GET_MODE_SIZE (outer_mode) - 1) / UNITS_PER_WORD
-          == (GET_MODE_SIZE (inner_mode) - 1) / UNITS_PER_WORD))
+      && known_equal_after_align_down (GET_MODE_SIZE (outer_mode) - 1,
+				       GET_MODE_SIZE (inner_mode) - 1,
+				       UNITS_PER_WORD))
     return NULL;
 
   /* Since we don't attempt to handle paradoxical subregs, we can just

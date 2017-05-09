@@ -631,14 +631,16 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
 
   /* We first look for the largest integer mode that can be validly
      held in REGNO.  If none, we look for the largest floating-point mode.
-     If we still didn't find a valid mode, try CCmode.  */
+     If we still didn't find a valid mode, try CCmode.
 
+     The tests use may_gt rather than must_gt because we want N V4SFs to
+     win over plain V4SF even though N might be 1.  */
   FOR_EACH_MODE_IN_CLASS (mode, MODE_INT)
     if ((unsigned) hard_regno_nregs[regno][mode] == nregs
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
-	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
+	&& may_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_FLOAT)
@@ -646,7 +648,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
-	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
+	&& may_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_FLOAT)
@@ -654,7 +656,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
-	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
+	&& may_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
   FOR_EACH_MODE_IN_CLASS (mode, MODE_VECTOR_INT)
@@ -662,7 +664,7 @@ choose_hard_reg_mode (unsigned int regno ATTRIBUTE_UNUSED,
 	&& targetm.hard_regno_mode_ok (regno, mode)
 	&& (!call_saved
 	    || !targetm.hard_regno_call_part_clobbered (regno, mode))
-	&& GET_MODE_SIZE (mode) > GET_MODE_SIZE (found_mode))
+	&& may_gt (GET_MODE_SIZE (mode), GET_MODE_SIZE (found_mode)))
       found_mode = mode;
 
   if (found_mode != VOIDmode)
@@ -1295,9 +1297,9 @@ record_subregs_of_mode (rtx subreg, bool partial_def)
 
 	 This relies on the fact that we've already been passed
 	 SUBREG with PARTIAL_DEF set to false.  */
-      unsigned int size = MAX (REGMODE_NATURAL_SIZE (shape.inner_mode),
-			       GET_MODE_SIZE (shape.outer_mode));
-      gcc_checking_assert (size < GET_MODE_SIZE (shape.inner_mode));
+      poly_int64 size = ordered_max (REGMODE_NATURAL_SIZE (shape.inner_mode),
+				     GET_MODE_SIZE (shape.outer_mode));
+      gcc_checking_assert (must_lt (size, GET_MODE_SIZE (shape.inner_mode)));
       if (must_ge (shape.offset, size))
 	shape.offset -= size;
       else

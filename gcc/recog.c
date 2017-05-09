@@ -1259,33 +1259,35 @@ nonmemory_operand (rtx op, machine_mode mode)
 int
 push_operand (rtx op, machine_mode mode)
 {
-  unsigned int rounded_size = GET_MODE_SIZE (mode);
-
-#ifdef PUSH_ROUNDING
-  rounded_size = PUSH_ROUNDING (rounded_size);
-#endif
-
   if (!MEM_P (op))
     return 0;
 
   if (mode != VOIDmode && GET_MODE (op) != mode)
     return 0;
 
+  poly_int64 rounded_size = GET_MODE_SIZE (mode);
+
+#ifdef PUSH_ROUNDING
+  rounded_size = PUSH_ROUNDING (MACRO_INT (rounded_size));
+#endif
+
   op = XEXP (op, 0);
 
-  if (rounded_size == GET_MODE_SIZE (mode))
+  if (must_eq (rounded_size, GET_MODE_SIZE (mode)))
     {
       if (GET_CODE (op) != STACK_PUSH_CODE)
 	return 0;
     }
   else
     {
+      poly_int64 offset;
       if (GET_CODE (op) != PRE_MODIFY
 	  || GET_CODE (XEXP (op, 1)) != PLUS
 	  || XEXP (XEXP (op, 1), 0) != XEXP (op, 0)
-	  || !CONST_INT_P (XEXP (XEXP (op, 1), 1))
-	  || INTVAL (XEXP (XEXP (op, 1), 1))
-	     != ((STACK_GROWS_DOWNWARD ? -1 : 1) * (int) rounded_size))
+	  || !poly_int_const_p (XEXP (XEXP (op, 1), 1), &offset)
+	  || (STACK_GROWS_DOWNWARD
+	      ? may_ne (offset, -rounded_size)
+	      : may_ne (offset, rounded_size)))
 	return 0;
     }
 
@@ -1945,7 +1947,7 @@ offsettable_address_addr_space_p (int strictp, machine_mode mode, rtx y,
   int (*addressp) (machine_mode, rtx, addr_space_t) =
     (strictp ? strict_memory_address_addr_space_p
 	     : memory_address_addr_space_p);
-  unsigned int mode_sz = GET_MODE_SIZE (mode);
+  poly_int64 mode_sz = GET_MODE_SIZE (mode);
 
   if (CONSTANT_ADDRESS_P (y))
     return 1;
@@ -1967,7 +1969,7 @@ offsettable_address_addr_space_p (int strictp, machine_mode mode, rtx y,
      Clearly that depends on the situation in which it's being used.
      However, the current situation in which we test 0xffffffff is
      less than ideal.  Caveat user.  */
-  if (mode_sz == 0)
+  if (must_eq (mode_sz, 0))
     mode_sz = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
 
   /* If the expression contains a constant term,
@@ -1998,7 +2000,7 @@ offsettable_address_addr_space_p (int strictp, machine_mode mode, rtx y,
      go inside a LO_SUM here, so we do so as well.  */
   if (GET_CODE (y) == LO_SUM
       && mode != BLKmode
-      && mode_sz <= GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT)
+      && must_le (mode_sz, GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT))
     z = gen_rtx_LO_SUM (address_mode, XEXP (y, 0),
 			plus_constant (address_mode, XEXP (y, 1),
 				       mode_sz - 1));

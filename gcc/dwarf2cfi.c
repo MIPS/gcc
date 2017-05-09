@@ -263,17 +263,17 @@ struct init_one_dwarf_reg_state
    use for the size entry to initialize, and INIT_STATE is the communication
    datastructure conveying what we're doing to our caller.  */
 
-static
-void init_one_dwarf_reg_size (int regno, machine_mode regmode,
-			      rtx table, machine_mode slotmode,
-			      init_one_dwarf_reg_state *init_state)
+static void
+init_one_dwarf_reg_size (int regno, machine_mode regmode,
+			 rtx table, machine_mode slotmode,
+			 init_one_dwarf_reg_state *init_state)
 {
   const unsigned int dnum = DWARF_FRAME_REGNUM (regno);
   const unsigned int rnum = DWARF2_FRAME_REG_OUT (dnum, 1);
   const unsigned int dcol = DWARF_REG_TO_UNWIND_COLUMN (rnum);
   
-  const HOST_WIDE_INT slotoffset = dcol * GET_MODE_SIZE (slotmode);
-  const HOST_WIDE_INT regsize = GET_MODE_SIZE (regmode);
+  poly_int64 slotoffset = dcol * GET_MODE_SIZE (slotmode);
+  poly_int64 regsize = GET_MODE_SIZE (regmode);
 
   init_state->processed_regno[regno] = true;
 
@@ -287,7 +287,8 @@ void init_one_dwarf_reg_size (int regno, machine_mode regmode,
       init_state->wrote_return_column = true;
     }
 
-  if (slotoffset < 0)
+  /* ??? When is this true?  Should it be a test based on DCOL instead?  */
+  if (may_lt (slotoffset, 0))
     return;
 
   emit_move_insn (adjust_address (table, slotmode, slotoffset),

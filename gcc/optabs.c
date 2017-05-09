@@ -5453,7 +5453,6 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
   if (!target || GET_MODE (target) != mode)
     target = gen_reg_rtx (mode);
 
-  w = GET_MODE_SIZE (mode);
   u = GET_MODE_UNIT_SIZE (mode);
 
   /* Set QIMODE to a different vector mode with byte elements.
@@ -5461,7 +5460,7 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
   qimode = VOIDmode;
   if (GET_MODE_INNER (mode) != QImode)
     {
-      qimode = mode_for_vector (QImode, w);
+      qimode = mode_for_vector (QImode, GET_MODE_SIZE (mode));
       if (!VECTOR_MODE_P (qimode))
 	qimode = VOIDmode;
     }
@@ -5518,7 +5517,7 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
 	}
 
       /* Fall back to a constant byte-based permutation.  */
-      if (qimode != VOIDmode)
+      if (qimode != VOIDmode && GET_MODE_SIZE (mode).is_constant (&w))
 	{
 	  vec = rtvec_alloc (w);
 	  for (i = 0; i < e; ++i)
@@ -5565,6 +5564,9 @@ expand_vec_perm (machine_mode mode, rtx v0, rtx v1, rtx sel, rtx target)
 
   if (sel_qi == NULL)
     {
+      if (!GET_MODE_SIZE (mode).is_constant (&w))
+	return NULL_RTX;
+
       /* Multiply each element by its byte size.  */
       machine_mode selmode = GET_MODE (sel);
       if (u == 2)
@@ -5686,7 +5688,7 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
   unsignedp = TYPE_UNSIGNED (TREE_TYPE (op0a));
 
 
-  gcc_assert (GET_MODE_SIZE (mode) == GET_MODE_SIZE (cmp_op_mode)
+  gcc_assert (must_eq (GET_MODE_SIZE (mode), GET_MODE_SIZE (cmp_op_mode))
 	      && must_eq (GET_MODE_NUNITS (mode),
 			  GET_MODE_NUNITS (cmp_op_mode)));
 
@@ -5815,7 +5817,7 @@ expand_mult_highpart (machine_mode mode, rtx op0, rtx op1,
   wmode = insn_data[icode].operand[0].mode;
   gcc_checking_assert (must_eq (2 * GET_MODE_NUNITS (wmode),
 				GET_MODE_NUNITS (mode)));
-  gcc_checking_assert (GET_MODE_SIZE (wmode) == GET_MODE_SIZE (mode));
+  gcc_checking_assert (must_eq (GET_MODE_SIZE (wmode), GET_MODE_SIZE (mode)));
 
   create_output_operand (&eops[0], gen_reg_rtx (wmode), wmode);
   create_input_operand (&eops[1], op0, mode);
@@ -6939,10 +6941,12 @@ bool
 valid_multiword_target_p (rtx target)
 {
   machine_mode mode;
-  int i;
+  int i, size;
 
   mode = GET_MODE (target);
-  for (i = 0; i < GET_MODE_SIZE (mode); i += UNITS_PER_WORD)
+  if (!GET_MODE_SIZE (mode).is_constant (&size))
+    return false;
+  for (i = 0; i < size; i += UNITS_PER_WORD)
     if (!validate_subreg (word_mode, mode, target, i))
       return false;
   return true;

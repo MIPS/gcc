@@ -3151,10 +3151,10 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
   mem_mode = TYPE_MODE (TREE_TYPE (*use->op_p));
   if (((USE_LOAD_PRE_INCREMENT (mem_mode)
 	|| USE_STORE_PRE_INCREMENT (mem_mode))
-       && GET_MODE_SIZE (mem_mode) == cstepi)
+       && must_eq (GET_MODE_SIZE (mem_mode), cstepi))
       || ((USE_LOAD_PRE_DECREMENT (mem_mode)
 	   || USE_STORE_PRE_DECREMENT (mem_mode))
-	  && GET_MODE_SIZE (mem_mode) == -cstepi))
+	  && must_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
     {
       enum tree_code code = MINUS_EXPR;
       tree new_base;
@@ -3173,10 +3173,10 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
     }
   if (((USE_LOAD_POST_INCREMENT (mem_mode)
 	|| USE_STORE_POST_INCREMENT (mem_mode))
-       && GET_MODE_SIZE (mem_mode) == cstepi)
+       && must_eq (GET_MODE_SIZE (mem_mode), cstepi))
       || ((USE_LOAD_POST_DECREMENT (mem_mode)
 	   || USE_STORE_POST_DECREMENT (mem_mode))
-	  && GET_MODE_SIZE (mem_mode) == -cstepi))
+	  && must_eq (GET_MODE_SIZE (mem_mode), -cstepi)))
     {
       add_candidate_1 (data, base, step, important, IP_AFTER_USE, use,
 		       use->stmt);

@@ -905,8 +905,8 @@ bool
 validate_subreg (machine_mode omode, machine_mode imode,
 		 const_rtx reg, poly_int64 offset)
 {
-  unsigned int isize = GET_MODE_SIZE (imode);
-  unsigned int osize = GET_MODE_SIZE (omode);
+  poly_int64 isize = GET_MODE_SIZE (imode);
+  poly_int64 osize = GET_MODE_SIZE (omode);
 
   /* All subregs must be aligned.  */
   if (!multiple_p (offset, osize))
@@ -914,6 +914,10 @@ validate_subreg (machine_mode omode, machine_mode imode,
 
   /* The subreg offset cannot be outside the inner object.  */
   if (may_ge (offset, isize))
+    return false;
+
+  /* The relationship between the mode sizes must be known.  */
+  if (!ordered_p (isize, osize))
     return false;
 
   /* ??? This should not be here.  Temporarily continue to allow word_mode
@@ -924,7 +928,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
     ;
   /* ??? Similarly, e.g. with (subreg:DF (reg:TI)).  Though store_bit_field
      is the culprit here, and not the backends.  */
-  else if (osize >= UNITS_PER_WORD && isize >= osize)
+  else if (must_ge (osize, UNITS_PER_WORD) && must_ge (isize, osize))
     ;
   /* Allow component subregs of complex and vector.  Though given the below
      extraction rules, it's not always clear what that means.  */
@@ -943,7 +947,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
      (subreg:SI (reg:DF) 0) isn't.  */
   else if (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))
     {
-      if (! (isize == osize
+      if (! (must_eq (isize, osize)
 	     /* LRA can use subreg to store a floating point value in
 		an integer mode.  Although the floating point and the
 		integer modes need the same number of hard registers,
@@ -955,7 +959,7 @@ validate_subreg (machine_mode omode, machine_mode imode,
     }
 
   /* Paradoxical subregs must have offset zero.  */
-  if (osize > isize)
+  if (may_gt (osize, isize))
     return must_eq (offset, 0);
 
   /* This is a normal subreg.  Verify that the offset is representable.  */
@@ -983,10 +987,12 @@ validate_subreg (machine_mode omode, machine_mode imode,
      of a subword.  A subreg does *not* perform arbitrary bit extraction.
      Given that we've already checked mode/offset alignment, we only have
      to check subword subregs here.  */
-  if (osize < UNITS_PER_WORD
+  if (!ordered_p (osize, UNITS_PER_WORD))
+    return false;
+  if (may_lt (osize, UNITS_PER_WORD)
       && ! (lra_in_progress && (FLOAT_MODE_P (imode) || FLOAT_MODE_P (omode))))
     {
-      poly_int64 block_size = MIN (isize, UNITS_PER_WORD);
+      poly_int64 block_size = ordered_min (isize, UNITS_PER_WORD);
       HOST_WIDE_INT start_reg;
       poly_int64 offset_within_reg;
       if (!can_div_trunc_p (offset, block_size, &start_reg, &offset_within_reg)
@@ -1525,34 +1531,42 @@ maybe_set_max_label_num (rtx_code_label *x)
 rtx
 gen_lowpart_common (machine_mode mode, rtx x)
 {
-  int msize = GET_MODE_SIZE (mode);
-  int xsize;
+  poly_int64 msize = GET_MODE_SIZE (mode);
   machine_mode innermode;
 
   /* Unfortunately, this routine doesn't take a parameter for the mode of X,
      so we have to make one up.  Yuk.  */
   innermode = GET_MODE (x);
   if (CONST_INT_P (x)
-      && msize * BITS_PER_UNIT <= HOST_BITS_PER_WIDE_INT)
+      && must_le (msize * BITS_PER_UNIT, HOST_BITS_PER_WIDE_INT))
     innermode = mode_for_size (HOST_BITS_PER_WIDE_INT, MODE_INT, 0);
   else if (innermode == VOIDmode)
     innermode = mode_for_size (HOST_BITS_PER_DOUBLE_INT, MODE_INT, 0);
-
-  xsize = GET_MODE_SIZE (innermode);
 
   gcc_assert (innermode != VOIDmode && innermode != BLKmode);
 
   if (innermode == mode)
     return x;
 
-  /* MODE must occupy no more words than the mode of X.  */
-  if ((msize + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD
-      > ((xsize + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD))
-    return 0;
+  poly_int64 xsize = GET_MODE_SIZE (innermode);
+  gcc_checking_assert (ordered_p (msize, xsize));
 
-  /* Don't allow generating paradoxical FLOAT_MODE subregs.  */
-  if (SCALAR_FLOAT_MODE_P (mode) && msize > xsize)
-    return 0;
+  if (SCALAR_FLOAT_MODE_P (mode))
+    {
+      /* Don't allow paradoxical FLOAT_MODE subregs.  */
+      if (may_gt (msize, xsize))
+	return 0;
+    }
+  else
+    {
+      /* MODE must occupy no more words than the mode of X.  */
+      poly_int64 word_size = UNITS_PER_WORD;
+      unsigned int mwords, xwords;
+      if (!can_div_away_from_zero_p (msize, word_size, &mwords)
+	  || !can_div_away_from_zero_p (xsize, word_size, &xwords)
+	  || mwords > xwords)
+	return 0;
+    }
 
   scalar_int_mode int_mode, int_innermode, from_mode;
   if ((GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND)
@@ -1587,13 +1601,13 @@ gen_lowpart_common (machine_mode mode, rtx x)
 rtx
 gen_highpart (machine_mode mode, rtx x)
 {
-  unsigned int msize = GET_MODE_SIZE (mode);
+  poly_int64 msize = GET_MODE_SIZE (mode);
   rtx result;
 
   /* This case loses if X is a subreg.  To catch bugs early,
      complain if an invalid MODE is used even in other cases.  */
-  gcc_assert (msize <= UNITS_PER_WORD
-	      || msize == (unsigned int) GET_MODE_UNIT_SIZE (GET_MODE (x)));
+  gcc_assert (must_le (msize, UNITS_PER_WORD)
+	      || must_eq (msize, GET_MODE_UNIT_SIZE (GET_MODE (x))));
 
   result = simplify_gen_subreg (mode, x, GET_MODE (x),
 				subreg_highpart_offset (mode, GET_MODE (x)));
@@ -1629,9 +1643,10 @@ gen_highpart_mode (machine_mode outermode, machine_mode innermode, rtx exp)
    OUTER_BYTES bytes and whose inner mode has INNER_BYTES bytes.  */
 
 poly_int64
-subreg_size_lowpart_offset (unsigned int outer_bytes, unsigned int inner_bytes)
+subreg_size_lowpart_offset (poly_int64 outer_bytes, poly_int64 inner_bytes)
 {
-  if (outer_bytes > inner_bytes)
+  gcc_checking_assert (ordered_p (outer_bytes, inner_bytes));
+  if (may_gt (outer_bytes, inner_bytes))
     /* Paradoxical subregs always have a SUBREG_BYTE of 0.  */
     return 0;
 
@@ -1647,10 +1662,9 @@ subreg_size_lowpart_offset (unsigned int outer_bytes, unsigned int inner_bytes)
    OUTER_BYTES bytes and whose inner mode has INNER_BYTES bytes.  */
 
 poly_int64
-subreg_size_highpart_offset (unsigned int outer_bytes,
-			     unsigned int inner_bytes)
+subreg_size_highpart_offset (poly_int64 outer_bytes, poly_int64 inner_bytes)
 {
-  gcc_assert (inner_bytes >= outer_bytes);
+  gcc_assert (must_ge (inner_bytes, outer_bytes));
 
   if (BYTES_BIG_ENDIAN && WORDS_BIG_ENDIAN)
     return 0;
@@ -1720,6 +1734,15 @@ machine_mode
 wider_subreg_mode (const_rtx x)
 {
   return wider_subreg_mode (GET_MODE (x), GET_MODE (SUBREG_REG (x)));
+}
+
+/* Given that a subreg has outer mode OUTERMODE and inner mode INNERMODE,
+   return the smaller of the two modes if they are different sizes,
+   otherwise return the outer mode.  */
+machine_mode
+narrower_subreg_mode (machine_mode outermode, machine_mode innermode)
+{
+  return paradoxical_subreg_p (outermode, innermode) ? innermode : outermode;
 }
 
 /* Return true if a subreg with the given outer and inner modes is
@@ -2628,7 +2651,7 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 {
   rtx new_rtx = adjust_address_1 (memref, mode, offset, 1, 1, 0, 0);
   struct mem_attrs attrs;
-  unsigned int size = GET_MODE_SIZE (mode);
+  poly_uint64 size = GET_MODE_SIZE (mode);
 
   /* If there are no changes, just return the original memory reference.  */
   if (new_rtx == memref)
@@ -2643,6 +2666,7 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 
   while (attrs.expr)
     {
+      poly_uint64 decl_size;
       if (TREE_CODE (attrs.expr) == COMPONENT_REF)
 	{
 	  tree field = TREE_OPERAND (attrs.expr, 1);
@@ -2656,8 +2680,9 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
 
 	  /* Is the field at least as large as the access?  If so, ok,
 	     otherwise strip back to the containing structure.  */
-	  if (TREE_CODE (DECL_SIZE_UNIT (field)) == INTEGER_CST
-	      && compare_tree_int (DECL_SIZE_UNIT (field), size) >= 0
+	  poly_uint64 field_size;
+	  if (poly_tree_p (DECL_SIZE_UNIT (field), &field_size)
+	      && must_ge (field_size, size)
 	      && must_ge (attrs.offset, 0))
 	    break;
 
@@ -2675,8 +2700,8 @@ widen_memory_access (rtx memref, machine_mode mode, poly_int64 offset)
       /* Similarly for the decl.  */
       else if (DECL_P (attrs.expr)
 	       && DECL_SIZE_UNIT (attrs.expr)
-	       && TREE_CODE (DECL_SIZE_UNIT (attrs.expr)) == INTEGER_CST
-	       && compare_tree_int (DECL_SIZE_UNIT (attrs.expr), size) >= 0
+	       && poly_tree_p (DECL_SIZE_UNIT (attrs.expr), &decl_size)
+	       && must_ge (decl_size, size)
 	       && must_ge (attrs.offset, 0))
 	break;
       else
