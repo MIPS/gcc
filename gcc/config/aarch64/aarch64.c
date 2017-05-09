@@ -10930,7 +10930,7 @@ aarch64_vector_mode_supported_p (machine_mode mode)
 /* Return appropriate SIMD container
    for MODE within a vector of WIDTH bits.  */
 static machine_mode
-aarch64_simd_container_mode (machine_mode mode, unsigned width)
+aarch64_simd_container_mode (scalar_mode mode, unsigned width)
 {
   gcc_assert (width == 64 || width == 128);
   if (TARGET_SIMD)
@@ -11696,7 +11696,7 @@ void
 aarch64_expand_vector_init (rtx target, rtx vals)
 {
   machine_mode mode = GET_MODE (target);
-  machine_mode inner_mode = GET_MODE_INNER (mode);
+  scalar_mode inner_mode = GET_MODE_INNER (mode);
   /* The number of vector elements.  */
   int n_elts = GET_MODE_NUNITS (mode);
   /* The number of vector elements which are not constant.  */
@@ -14367,7 +14367,7 @@ aarch64_operands_ok_for_ldpstp (rtx *operands, bool load,
 
 bool
 aarch64_operands_adjust_ok_for_ldpstp (rtx *operands, bool load,
-				       machine_mode mode)
+				       scalar_mode mode)
 {
   enum reg_class rclass_1, rclass_2, rclass_3, rclass_4;
   HOST_WIDE_INT offval_1, offval_2, offval_3, offval_4, msize;
@@ -14501,7 +14501,7 @@ aarch64_operands_adjust_ok_for_ldpstp (rtx *operands, bool load,
 
 bool
 aarch64_gen_adjusted_ldpstp (rtx *operands, bool load,
-			     machine_mode mode, RTX_CODE code)
+			     scalar_mode mode, RTX_CODE code)
 {
   rtx base, offset, t1, t2;
   rtx mem_1, mem_2, mem_3, mem_4;
