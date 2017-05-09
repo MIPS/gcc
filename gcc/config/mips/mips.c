@@ -13227,7 +13227,7 @@ mips_compute_frame_info_oabi_nabi (void)
       && !mips_cfun_has_cprestore_slot_p ())
     {
       offset = 0;
-      frame->gp_sp_offset = REG_PARM_STACK_SPACE(cfun) - UNITS_PER_WORD;
+      frame->gp_sp_offset = REG_PARM_STACK_SPACE(cfun->decl) - UNITS_PER_WORD;
       cfun->machine->use_frame_header_for_callee_saved_regs = true;
     }
 
@@ -13293,22 +13293,22 @@ mips_compute_frame_info_oabi_nabi (void)
      +--------------------------------+ <-- arg_pointer_rtx
    B |  callee-allocated save area    |
      |  for register varargs          |
-     +--------------------------------+ <-- frame_pointer_rtx
-     |  GPR save area  | $fp          |
-     |                 | $ra          |
+     +--------------------------------+ <-- frame_pointer_rtx /
+     |  GPR save area  | $fp          |     stack_pointer_rtx + gp_sp_offset
+     |                 | $ra          |     + UNITS_PER_WORD
      |                 |--------------| <-- hard_frame_pointer_rtx
      |                 | $s0-$s7, $gp |
-     +--------------------------------+ <-- frame_pointer_rtx + fp_sp_offset
+     +--------------------------------+ <-- stack_pointer_rtx + fp_sp_offset
      |  FPR save area                 |     + UNITS_PER_HWFPVALUE
-     +--------------------------------+ <-- frame_pointer_rtx + cop0_sp_offset
+     +--------------------------------+ <-- stack_pointer_rtx + cop0_sp_offset
      |  COP0 reg save area            |	    + UNITS_PER_WORD
-     +--------------------------------+ <-- frame_pointer_rtx + acc_sp_offset
+     +--------------------------------+ <-- stack_pointer_rtx + acc_sp_offset
      |  accumulator save area         |     + UNITS_PER_WORD
      +--------------------------------+
      |  local variables               | \
      +--------------------------------+  | var_size
      |  spill slots                   | /
-     +--------------------------------+ <-- frame_pointer_rtx
+     +--------------------------------+
    P |  optional: dynamic allocation  |
      +--------------------------------+
      |  outgoing stack arguments      | \
@@ -13438,6 +13438,13 @@ mips_compute_frame_info_pabi (void)
   if (ISA_HAS_SAVE_RESTORE
       && cfun->machine->safe_to_use_save_restore)
     {
+      /* Optimization opportunity: if we save $fp then force to save $ra.  */
+      if (BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM)
+	  && !BITSET_P (frame->mask, RETURN_ADDR_REGNUM))
+	{
+	  frame->num_gp++;
+	  frame->mask |= 1 << RETURN_ADDR_REGNUM;
+	}
       mips_mask_registers (&frame->mask, umipsr7_s0_s7_regs,
 			   ARRAY_SIZE (umipsr7_s0_s7_regs), &frame->num_gp);
     }
@@ -13951,23 +13958,6 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
      addition to return address.  */
   offset = cfun->machine->frame.gp_sp_offset - sp_offset;
 
-  if (cfun->machine->varargs_size > 0
-      || crtl->args.pretend_args_size > 0)
-    {
-      first_step = MIPS_STACK_ALIGN (cfun->machine->varargs_size
-				     + crtl->args.pretend_args_size);
-      step -= first_step;
-      if (!restore)
-	{
-	  rtx insn = gen_add3_insn (stack_pointer_rtx,
-				    stack_pointer_rtx,
-				    GEN_INT (-first_step));
-	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
-	  offset -= first_step;
-	  mips_frame_barrier ();
-	}
-    }
-
   if (ISA_HAS_SAVE_RESTORE
       && cfun->machine->safe_to_use_save_restore
       && !cfun->machine->interrupt_handler_p
@@ -14044,16 +14034,6 @@ mips_save_restore_gprs_and_adjust_sp (HOST_WIDE_INT sp_offset,
     {
       mips_save_restore_reg (word_mode, GLOBAL_POINTER_REGNUM, offset, fn);
       offset -= UNITS_PER_WORD;
-    }
-
-  if ((cfun->machine->varargs_size > 0
-       || crtl->args.pretend_args_size > 0) && restore)
-    {
-      rtx insn = gen_add3_insn (stack_pointer_rtx,
-				stack_pointer_rtx,
-				GEN_INT (first_step));
-      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
-      mips_frame_barrier ();
     }
 }
 
@@ -15002,7 +14982,20 @@ mips_expand_prologue_pabi (void)
   if (((frame->mask | frame->fmask | frame->acc_mask) != 0)
       || frame->num_cop0_regs > 0)
     {
-      HOST_WIDE_INT step = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
+      HOST_WIDE_INT step;
+      bool use_save_p = false;
+      bool use_savef_p = false;
+
+      if (ISA_HAS_SAVE_RESTORE
+	  && cfun->machine->safe_to_use_save_restore
+	  && mips_valid_save_restore_p (frame->mask, false, NULL))
+	use_save_p = true;
+
+      if (ISA_HAS_SAVEF_RESTOREF
+	  && mips_valid_savef_restoref_p (frame->fmask))
+	use_savef_p = true;
+
+      step = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
 
       if (cfun->machine->interrupt_handler_p)
 	{
@@ -15114,10 +15107,34 @@ mips_expand_prologue_pabi (void)
       mips_for_each_saved_acc (size, mips_save_reg);
     }
 
+  /* Set up the frame pointer, if we're using one.  */
+  if (frame_pointer_needed)
+    {
+      HOST_WIDE_INT offset;
+
+      offset = frame->hard_frame_pointer_offset;
+      if (offset == 0)
+	{
+	  rtx insn = mips_emit_move (hard_frame_pointer_rtx,
+				     stack_pointer_rtx);
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+      else
+	{
+	  rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
+				    stack_pointer_rtx,
+				    GEN_INT (MIN (frame->total_size,
+						  MIPS_MAX_FIRST_STACK_STEP)
+					     - 2 * UNITS_PER_WORD));
+	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+	}
+    }
+
   /* Allocate the rest of the frame.  */
   if (size > 0)
     {
-      if (SMALL_OPERAND (-size))
+      /* FIXME, use macro.  */
+      if (IN_RANGE (-size, -0xfff, 0))
 	RTX_FRAME_RELATED_P (emit_insn (gen_add3_insn (stack_pointer_rtx,
 						       stack_pointer_rtx,
 						       GEN_INT (-size)))) = 1;
@@ -15134,37 +15151,6 @@ mips_expand_prologue_pabi (void)
 			  plus_constant (Pmode, stack_pointer_rtx, -size)));
 	}
       mips_frame_barrier ();
-    }
-
-  /* Set up the frame pointer, if we're using one.  */
-  if (frame_pointer_needed)
-    {
-      HOST_WIDE_INT offset;
-
-      offset = frame->hard_frame_pointer_offset;
-      if (offset == 0)
-	{
-	  rtx insn = mips_emit_move (hard_frame_pointer_rtx,
-				     stack_pointer_rtx);
-	  RTX_FRAME_RELATED_P (insn) = 1;
-	}
-      else if (SMALL_OPERAND (offset))
-	{
-	  rtx insn = gen_add3_insn (hard_frame_pointer_rtx,
-				    stack_pointer_rtx, GEN_INT (offset));
-	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
-	}
-      else
-	{
-	  mips_emit_move (MIPS_PROLOGUE_TEMP (Pmode), GEN_INT (offset));
-	  mips_emit_move (hard_frame_pointer_rtx, stack_pointer_rtx);
-	  emit_insn (gen_add3_insn (hard_frame_pointer_rtx,
-				    hard_frame_pointer_rtx,
-				    MIPS_PROLOGUE_TEMP (Pmode)));
-	  mips_set_frame_expr
-	    (gen_rtx_SET (hard_frame_pointer_rtx,
-			  plus_constant (Pmode, stack_pointer_rtx, offset)));
-	}
     }
 
   mips_emit_loadgp ();
@@ -15713,7 +15699,7 @@ static void
 mips_expand_epilogue_pabi (bool sibcall_p)
 {
   const struct mips_frame_info *frame;
-  HOST_WIDE_INT step1, step2, step3 = 0;
+  HOST_WIDE_INT step1 = 0, step2 = 0, reg_area_size = 0;
   rtx base, adjust;
   rtx_insn *insn;
   rtx restore;
@@ -15728,30 +15714,31 @@ mips_expand_epilogue_pabi (bool sibcall_p)
     }
 
   frame = &cfun->machine->frame;
-  step1 = frame->total_size;
-  step2 = 0;
 
-  if (TARGET_MICROMIPS_R7
-      && ISA_HAS_SAVEF_RESTOREF
+  /* Check if we can use RESTORE or RESTORE.JRC.  */
+  if (ISA_HAS_SAVE_RESTORE
+      && cfun->machine->safe_to_use_save_restore
+      && mips_valid_save_restore_p (frame->mask, false, NULL))
+    use_restore_p = true;
+
+  if (ISA_HAS_SAVEF_RESTOREF
       && mips_valid_savef_restoref_p (frame->fmask))
     use_restoref_p = true;
 
-  /* Check if we can use RESTORE or RESTORE.JRC.  */
-  if (TARGET_MICROMIPS_R7
-      && ISA_HAS_SAVE_RESTORE
-      && cfun->machine->safe_to_use_save_restore
-      && mips_valid_save_restore_p (frame->mask, false, NULL))
-    {
-      use_restore_p = true;
-    }
+  reg_area_size = MIPS_STACK_ALIGN (frame->num_gp * UNITS_PER_WORD
+				    + frame->num_fp * UNITS_PER_HWFPVALUE
+				    + frame->num_acc * 2 * UNITS_PER_WORD);
 
   /* Work out which register holds the frame address.  */
   if (!frame_pointer_needed)
-    base = stack_pointer_rtx;
+    {
+      base = stack_pointer_rtx;
+      step1 = frame->total_size;
+    }
   else
     {
       base = hard_frame_pointer_rtx;
-      step1 = frame->hard_frame_pointer_offset;
+      step1 = frame->hard_frame_pointer_offset - reg_area_size;
     }
   mips_epilogue.cfa_reg = base;
   mips_epilogue.cfa_offset = step1;
@@ -15762,19 +15749,20 @@ mips_expand_epilogue_pabi (bool sibcall_p)
   if ((frame->mask | frame->fmask | frame->acc_mask) != 0
       || frame->num_cop0_regs > 0)
     {
-      step2 = MIN (frame->total_size, MIPS_MAX_FIRST_STACK_STEP);
-      if (!frame_pointer_needed)
-	step1 -= step2;
-      if (cfun->machine->varargs_size > 0 || crtl->args.pretend_args_size > 0)
-	step3 = MIPS_STACK_ALIGN (cfun->machine->varargs_size
-				  + crtl->args.pretend_args_size);
+      if (frame_pointer_needed
+	  || (!frame_pointer_needed
+	      && frame->total_size > MIPS_MAX_FIRST_STACK_STEP))
+	step2 = reg_area_size;
+      else
+	step2 = step1;
+      step1 -= step2;
     }
 
   /* Get an rtx for STEP that we can add to BASE.  */
-  adjust = GEN_INT (frame_pointer_needed && use_restore_p
-		    ? - (step2 - step3 - 2 * UNITS_PER_WORD)
-		    : step1);
-  if (!SMALL_OPERAND (INTVAL (adjust)))
+  adjust = GEN_INT (frame_pointer_needed ? - (reg_area_size
+					      - 2 * UNITS_PER_WORD)
+					 : step1);
+  if (!IN_RANGE (INTVAL (adjust), -0xfff, 0xffff))
     {
       mips_emit_move (MIPS_EPILOGUE_TEMP (Pmode), adjust);
       adjust = MIPS_EPILOGUE_TEMP (Pmode);
@@ -28556,6 +28544,163 @@ mips_adjust_costs (void *p, int func)
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].rating = rating;
     static_recolor_allocnos_data[ALLOCNO_NUM (allocno)].s_regs_used
       = s_regs_used;
+}
+
+static bool
+mips_parm_needs_stack (cumulative_args_t args_so_far, tree type)
+{
+  machine_mode mode;
+  int unsignedp;
+  rtx entry_parm;
+
+  /* Catch errors.  */
+  if (type == NULL || type == error_mark_node)
+    return true;
+
+  /* Handle types with no storage requirement.  */
+  if (TYPE_MODE (type) == VOIDmode)
+    return false;
+
+  /* Handle complex types.  */
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    return (mips_parm_needs_stack (args_so_far, TREE_TYPE (type))
+	    || mips_parm_needs_stack (args_so_far, TREE_TYPE (type)));
+
+  /* Handle transparent aggregates.  */
+  if ((TREE_CODE (type) == UNION_TYPE || TREE_CODE (type) == RECORD_TYPE)
+      && TYPE_TRANSPARENT_AGGR (type))
+    type = TREE_TYPE (first_field (type));
+
+  /* See if this arg was passed by invisible reference.  */
+  if (pass_by_reference (get_cumulative_args (args_so_far),
+			 TYPE_MODE (type), type, true))
+    type = build_pointer_type (type);
+
+  /* Find mode as it is passed by the ABI.  */
+  unsignedp = TYPE_UNSIGNED (type);
+  mode = promote_mode (type, TYPE_MODE (type), &unsignedp);
+
+  /* If we must pass in stack, we need a stack.  */
+  if (must_pass_in_stack_var_size (mode, type))
+    return true;
+
+  /* If there is no incoming register, we need a stack.  */
+  entry_parm = mips_function_arg (args_so_far, mode, type, true);
+  if (entry_parm == NULL)
+    return true;
+
+  /* Likewise if we need to pass both in registers and on the stack.  */
+  if (GET_CODE (entry_parm) == PARALLEL
+      && XEXP (XVECEXP (entry_parm, 0, 0), 0) == NULL_RTX)
+    return true;
+
+  /* Also true if we're partially in registers and partially not.  */
+  if (mips_arg_partial_bytes (args_so_far, mode, type, true) != 0)
+    return true;
+
+  /* Update info on where next arg arrives in registers.  */
+  mips_function_arg_advance (args_so_far, mode, type, true);
+  return false;
+}
+
+/* Return true if FUN has no prototype, has a variable argument
+   list, or passes any parameter in memory.  */
+
+static bool
+mips_function_parms_need_stack (tree fun, bool incoming)
+{
+  tree fntype, result;
+  CUMULATIVE_ARGS args_so_far_v;
+  cumulative_args_t args_so_far;
+
+  if (!fun)
+    /* Must be a libcall, all of which only use reg parms.  */
+    return false;
+
+  fntype = fun;
+  if (!TYPE_P (fun))
+    fntype = TREE_TYPE (fun);
+
+  /* Varargs functions need the parameter save area.  */
+  if ((!incoming && !prototype_p (fntype)) || stdarg_p (fntype))
+    return true;
+
+  mips_init_cumulative_args (&args_so_far_v, fntype);
+  args_so_far = pack_cumulative_args (&args_so_far_v);
+
+  /* When incoming, we will have been passed the function decl.
+     It is necessary to use the decl to handle K&R style functions,
+     where TYPE_ARG_TYPES may not be available.  */
+  if (incoming)
+    {
+      gcc_assert (DECL_P (fun));
+      result = DECL_RESULT (fun);
+    }
+  else
+    result = TREE_TYPE (fntype);
+
+  if (result && aggregate_value_p (result, fntype))
+    {
+      if (!TYPE_P (result))
+	result = TREE_TYPE (result);
+      result = build_pointer_type (result);
+      mips_parm_needs_stack (args_so_far, result);
+    }
+
+  if (incoming)
+    {
+      tree parm;
+
+      for (parm = DECL_ARGUMENTS (fun);
+	   parm && parm != void_list_node;
+	   parm = TREE_CHAIN (parm))
+	if (mips_parm_needs_stack (args_so_far, TREE_TYPE (parm)))
+	  return true;
+    }
+  else
+    {
+      function_args_iterator args_iter;
+      tree arg_type;
+
+      FOREACH_FUNCTION_ARGS (fntype, arg_type, args_iter)
+	if (mips_parm_needs_stack (args_so_far, arg_type))
+	  return true;
+    }
+
+  return false;
+}
+
+/* Return the size of the REG_PARM_STACK_SPACE are for FUN.  This is
+   usually a constant depending on the ABI.  However, in the P32/P64 ABI
+   the register parameter area is optional when calling a function that
+   has a prototype is scope, has no variable argument list, and passes
+   all parameters in registers.  */
+
+int
+mips_reg_parm_stack_space (tree fun, bool incoming)
+{
+  int reg_parm_stack_space;
+
+  switch (mips_abi)
+    {
+    case ABI_32:
+      reg_parm_stack_space = MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD;
+      break;
+
+    case ABI_P32:
+    case ABI_P64:
+      if (mips_function_parms_need_stack (fun, incoming))
+	reg_parm_stack_space = TARGET_64BIT ? 64 : 32;
+      else
+	reg_parm_stack_space = 0;
+      break;
+
+    default:
+      reg_parm_stack_space = 0;
+      break;
+    }
+
+  return reg_parm_stack_space;
 }
 
 /* Initialize the GCC target structure.  */
