@@ -1,3 +1,8 @@
+2017-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_omp_target_update): Relax OpenACC update data
+	mappings to GOMP_MAP_{TO,FROM} when the user specifies if_present.
+
 2017-05-05  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-nested.c (convert_nonlocal_omp_clauses)

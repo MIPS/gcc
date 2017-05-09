@@ -1,3 +1,7 @@
+2017-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/update-if_present-1.c: Update test case.
+
 2017-05-05  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* g++.dg/goacc/update-1.C: Update.

@@ -683,14 +683,29 @@ GOACC_update (int device, size_t mapnum,
 
 	      /* Restore the host pointer.  */
 	      *(uintptr_t *) hostaddrs[i] = t;
+	      update_device = false;
 	    }
 	  break;
 
+	case GOMP_MAP_TO:
+	  if (!acc_is_present (hostaddrs[i], sizes[i]))
+	    {
+	      update_device = false;
+	      break;
+	    }
+	  /* Fallthru  */
 	case GOMP_MAP_FORCE_TO:
 	  update_device = true;
 	  acc_update_device (hostaddrs[i], sizes[i]);
 	  break;
 
+	case GOMP_MAP_FROM:
+	  if (!acc_is_present (hostaddrs[i], sizes[i]))
+	    {
+	      update_device = false;
+	      break;
+	    }
+	  /* Fallthru  */
 	case GOMP_MAP_FORCE_FROM:
 	  update_device = false;
 	  acc_update_self (hostaddrs[i], sizes[i]);
