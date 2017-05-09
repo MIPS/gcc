@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_SSA_RANGE_GEN_H
 
 #include "range.h"
+#include "range-op.h"
+#include "ssa-def-chain.h"
 
 /* This class is used summarize expressions that are supported by the
    irange_operator class.  
@@ -58,6 +60,7 @@ public:
   range_stmt (gimple *stmt);
 
   bool valid () const;
+  tree_code get_code () const;
   bool is_relational ();
   class irange_operator *handler();
   range_stmt &operator= (gimple *stmt);
@@ -69,10 +72,49 @@ public:
   void dump (FILE *f);
 };
 
+class gori
+{
+  vec<bitmap> gori_map; 	/* Generates Outgoing Range Info.  */
+  ssa_define_chain def_chain;
+  bool remove_from_gori_map (basic_block bb, tree name);
+
+  bool get_operand_range (irange& r, tree op);
+
+  bool adjust_back (irange &r, tree def, tree name, sro_truth truth);
+  bool evaluate_bool_op (tree op, irange& op_range, tree name, sro_truth truth);
+  bool handle_boolean_mix (range_stmt& stmt, irange& r, tree name,
+                           sro_truth truth, tree name_op, tree non_name_op);
+  bool get_range_from_stmt (range_stmt& stmt, irange& r, tree name,
+			    sro_truth truth);
+
+  bool get_derived_range_stmt (range_stmt& stmt, tree name, basic_block bb);
+  gimple *last_stmt_gori (basic_block bb);
+
+public:
+  gori ();
+  void build ();
+  void build (basic_block bb);
+
+  /* True if NAME Generates range info on one or more outgoing edges of BB.  */
+  bool range_p (basic_block bb, tree name);
+  /* What is the static calculated range of NAME on outgoing edge E.  */
+  bool get_range (irange& r, tree name, edge e);
+
+  void dump (FILE *f);
+  void exercise (FILE *f);   /* do a full mapping pass, dump if provided.  */
+};
+
+
 inline bool
 range_stmt::valid () const
 {
   return state != RS_INV;
+}
+
+inline tree_code
+range_stmt::get_code () const
+{
+  return code;
 }
 
 inline tree

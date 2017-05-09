@@ -48,30 +48,33 @@ along with GCC; see the file COPYING3.  If not see
 
 
 
-ssa_define_chain::ssa_define_chain ()
+ssa_define_chain::ssa_define_chain (bool within_bb)
 {
   def_chain.create (0);
   def_chain.safe_grow_cleared (num_ssa_names);
   terminal.create (0);
   terminal.safe_grow_cleared (num_ssa_names);
+  bb_exclusive = within_bb;
+}
+
+bitmap
+ssa_define_chain::operator[] (tree name)
+{
+  unsigned index = SSA_NAME_VERSION (name);
+
+  /* Dynamically calculate defintion chain if it hasnt been done yet.  */
+  if (!def_chain[index])
+    generate_def_chain (name);
+  return def_chain[index];
 }
 
 bitmap
 ssa_define_chain::operator[] (unsigned index)
 {
   gcc_assert (index < num_ssa_names);
-
-      /* Dynamically calculate defintion chain if it hasnt been done yet.  */
-  if (!def_chain[index])
-    generate_def_chain (index);
-  return def_chain[index];
+  return operator[] (ssa_name (index));
 }
 
-bitmap
-ssa_define_chain::operator[] (tree name)
-{
-  return operator[] (SSA_NAME_VERSION (name));
-}
 
 tree 
 ssa_define_chain::terminal_name (unsigned index)
@@ -98,23 +101,30 @@ ssa_define_chain::in_chain_p (tree def, tree name)
 }
 
 
-/* If operand is an SSA_NAME, try to generate info for it and update the 
-   bitmaps.  */
+/* Generate def info for OPERAND if needed, and update the def map for VERSION
+   to incorporate it.  */
 tree
-ssa_define_chain::process_op (tree operand, unsigned version)
+ssa_define_chain::process_op (tree operand, unsigned version, basic_block bb)
 {
   bitmap ret;
-  tree term;
+  tree term = operand;
   unsigned op_index = SSA_NAME_VERSION (operand);
+  
+  if (!SSA_NAME_IS_DEFAULT_DEF (operand))
+    {
+      /* Make sure we dont look outside the require BB if approriate.  */
+      if (bb_exclusive && (gimple_bb (SSA_NAME_DEF_STMT (operand)) != bb))
+	return operand;
 
-  /* Make sure defintion chain exists for operand. */
-  term = generate_def_chain (op_index);
-  terminal[op_index] = term;
+      /* Make sure defintion chain exists for operand. */
+      term = generate_def_chain (operand);
+    //    terminal[op_index] = term;    set by generate isnt it?
 
-  /* If it has a chain, add them to this one. */
-  ret = def_chain [op_index];
-  if (!bitmap_empty_p (ret))
-    bitmap_ior_into (def_chain[version], ret);
+      /* If it has a chain, add them to this one. */
+      ret = def_chain [op_index];
+      if (!bitmap_empty_p (ret))
+	bitmap_ior_into (def_chain[version], ret);
+    }
 
   /* Finally add operand itself to the chain.  */
   bitmap_set_bit (def_chain[version], op_index);
@@ -123,34 +133,35 @@ ssa_define_chain::process_op (tree operand, unsigned version)
 
 
 tree
-ssa_define_chain::generate_def_chain (unsigned index)
+ssa_define_chain::generate_def_chain (tree name)
 {
   gimple *stmt;
   range_stmt rn;
   tree ssa1, ssa2, tmp = NULL_TREE;
-  tree index_name = ssa_name(index);
-  tree ret = index_name;
+  unsigned index = SSA_NAME_VERSION (name);
+  tree ret = name;
 
   /* If bitmap has been allocated, version has already been processed.  */
   if (def_chain[index])
     return terminal[index];
 
   def_chain[index] = BITMAP_ALLOC (NULL);
-  
-  stmt = SSA_NAME_DEF_STMT (index_name);
+
+  stmt = SSA_NAME_DEF_STMT (name);
   rn = stmt;
 
   /* If a valid range stmt and there are ssa names, process args.  */
   if (rn.valid () && rn.ssa_required (&ssa1, &ssa2))
     {
+      basic_block bb = gimple_bb (stmt);
       if (rn.is_relational ())
         {
 	  /* Can look thru both operators  */
 	  if (ssa1)
-	    ret = process_op (ssa1, index);
+	    ret = process_op (ssa1, index, bb);
 	  if (ssa2)
-	    tmp = process_op (ssa2, index);
-	  /* If there are 2 terminal results, dont bother tracking it.  */
+	    tmp = process_op (ssa2, index, bb);
+	  /* If there are 2 terminal results, there is no terminal. */
 	  if (ret && tmp)
 	    ret = NULL_TREE;
 	  else
@@ -161,12 +172,12 @@ ssa_define_chain::generate_def_chain (unsigned index)
         {
 	  /* Look back until there are 2 ssa names.  */
 	  if (ssa1 && ssa2)
-	    ret = index_name;
+	    ret = name;
 	  else
 	    if (ssa1)
-	      ret = process_op (ssa1, index);
+	      ret = process_op (ssa1, index, bb);
 	    else
-	      ret = process_op (ssa2, index);
+	      ret = process_op (ssa2, index, bb);
 	}
     }
   terminal[index] = ret;
