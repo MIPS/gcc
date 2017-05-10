@@ -1,6 +1,6 @@
 /* Analyze functions to determine if callers need to allocate a frame header
    on the stack.  The frame header is used by callees to save their arguments.
-   This optimization is specific to TARGET_OLDABI targets.  For TARGET_NEWABI
+   This optimization is specific to TARGET_OABI targets.  For TARGET_NABI
    targets, if a frame header is required, it is allocated by the callee.
 
 
@@ -76,10 +76,10 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      /* This optimization has no affect if TARGET_NEWABI.   If optimize
+      /* This optimization has no affect if TARGET_NABI.   If optimize
          is not at least 1 then the data needed for the optimization is
          not available and nothing will be done anyway.  */
-      return TARGET_OLDABI && flag_frame_header_optimization && optimize > 0;
+      return TARGET_OABI && flag_frame_header_optimization && optimize > 0;
     }
 
   virtual unsigned int execute (function *) { return frame_header_opt (); }
