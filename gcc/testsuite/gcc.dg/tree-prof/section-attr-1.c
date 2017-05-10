@@ -2,8 +2,12 @@
    all later functions from being partitioned into hot and cold blocks.  */
 /* { dg-require-effective-target freorder } */
 /* { dg-options "-O2 -fno-profile-reorder-functions -freorder-blocks-and-partition -save-temps" } */
+/* { dg-options "-O2 -fno-profile-reorder-functions -freorder-blocks-and-partition -save-temps -DN=20000" { target simulator } } */
 
 #define SIZE 10000
+#ifndef N
+#define N 1000000
+#endif
 
 #define NOINLINE __attribute__((noinline)) __attribute__ ((noclone))
 
@@ -20,7 +24,7 @@ main (int argc, char *argv[])
   int i;
   buf_hot =  "hello";
   buf_cold = "world";
-  for (i = 0; i < 1000000; i++)
+  for (i = 0; i < N; i++)
     foo (argc);
   return 0;
 }
