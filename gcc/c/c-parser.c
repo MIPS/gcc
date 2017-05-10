@@ -1478,7 +1478,7 @@ static void c_finish_oacc_routine (struct oacc_routine_data *, tree, bool);
 static void
 add_debug_begin_stmt (location_t loc)
 {
-  if (!MAY_HAVE_DEBUG_STMTS)
+  if (!debug_statement_frontiers)
     return;
 
   tree stmt = build0 (DEBUG_BEGIN_STMT, void_type_node);
