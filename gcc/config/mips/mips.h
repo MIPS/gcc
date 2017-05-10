@@ -185,7 +185,7 @@ struct mips_cpu_info {
 #define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
 
 /* True if TARGET_USE_GOT and if $gp is a call-clobbered register.  */
-#define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OLDABI)
+#define TARGET_CALL_CLOBBERED_GP (TARGET_ABICALLS && TARGET_OABI)
 
 /* True if TARGET_USE_GOT and if $gp is a call-saved register.  */
 #define TARGET_CALL_SAVED_GP (TARGET_USE_GOT && !TARGET_CALL_CLOBBERED_GP)
@@ -384,8 +384,9 @@ struct mips_cpu_info {
 				     || TUNE_24K		\
 				     || TUNE_P5600)
 
-#define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
-#define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
+#define TARGET_OABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
+#define TARGET_NABI		    (mips_abi == ABI_N32	\
+				     || mips_abi == ABI_64)
 
 /* TARGET_HARD_FLOAT and TARGET_SOFT_FLOAT reflect whether the FPU is
    directly accessible, while the command-line options select
@@ -930,7 +931,7 @@ struct mips_cpu_info {
 /* True if the ABI can only work with 64-bit integer registers.  We
    generally allow ad-hoc variations for TARGET_SINGLE_FLOAT, but
    otherwise floating-point registers must also be 64-bit.  */
-#define ABI_NEEDS_64BIT_REGS	(TARGET_NEWABI || mips_abi == ABI_O64)
+#define ABI_NEEDS_64BIT_REGS	(TARGET_NABI || mips_abi == ABI_O64)
 
 /* Likewise for 32-bit regs.  */
 #define ABI_NEEDS_32BIT_REGS	(mips_abi == ABI_32)
@@ -1611,7 +1612,7 @@ FP_ASM_SPEC "\
 
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_NEWABI ? 128 : 64)
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_NABI ? 128 : 64)
 
 /* Define the sizes of fixed-point types.  */
 #define SHORT_FRACT_TYPE_SIZE 8
@@ -2476,7 +2477,7 @@ enum reg_class
 
 /* o32 and o64 reserve stack space for all argument registers.  */
 #define REG_PARM_STACK_SPACE(FNDECL) 			\
-  (TARGET_OLDABI					\
+  (TARGET_OABI					\
    ? (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD)		\
    : 0)
 
@@ -2487,7 +2488,7 @@ enum reg_class
    `crtl->outgoing_args_size'.  */
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
-#define STACK_BOUNDARY (TARGET_NEWABI ? 128 : 64)
+#define STACK_BOUNDARY (TARGET_NABI ? 128 : 64)
 
 /* Symbolic macros for the registers used to return integer and floating
    point values.  */
@@ -2495,7 +2496,7 @@ enum reg_class
 #define GP_RETURN (GP_REG_FIRST + 2)
 #define FP_RETURN ((TARGET_SOFT_FLOAT) ? GP_RETURN : (FP_REG_FIRST + 0))
 
-#define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
+#define MAX_ARGS_IN_REGISTERS (TARGET_OABI ? 4 : 8)
 
 /* Symbolic macros for the first/last argument registers.  */
 
@@ -2617,7 +2618,7 @@ typedef struct mips_args {
 /* Treat LOC as a byte offset from the stack pointer and round it up
    to the next fully-aligned offset.  */
 #define MIPS_STACK_ALIGN(LOC) \
-  (TARGET_NEWABI ? ROUND_UP ((LOC), 16) : ROUND_UP ((LOC), 8))
+  (TARGET_NABI ? ROUND_UP ((LOC), 16) : ROUND_UP ((LOC), 8))
 
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
