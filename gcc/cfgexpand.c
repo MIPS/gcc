@@ -6383,7 +6383,8 @@ pass_expand::execute (function *fun)
     e->flags &= ~EDGE_EXECUTABLE;
 
   /* If the function has too many markers, drop them while expanding.  */
-  if (cfun->debug_marker_count >= PARAM_MAX_DEBUG_MARKER_COUNT)
+  if (cfun->debug_marker_count
+      >= PARAM_VALUE (PARAM_MAX_DEBUG_MARKER_COUNT))
     cfun->begin_stmt_markers = false;
 
   lab_rtx_for_bb = new hash_map<basic_block, rtx_code_label *>;

@@ -1636,7 +1636,8 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	{
 	  /* If the inlined function is has too many debug markers,
 	     don't copy them.  */
-	  if (id->src_cfun->debug_marker_count > PARAM_MAX_DEBUG_MARKER_COUNT)
+	  if (id->src_cfun->debug_marker_count
+	      > PARAM_VALUE (PARAM_MAX_DEBUG_MARKER_COUNT))
 	    return stmts;
 
 	  gdebug *copy
