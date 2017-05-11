@@ -43,7 +43,7 @@
 (define_register_constraint "b" "ALL_REGS"
   "@internal")
 
-(define_register_constraint "u" "M16_REGS"
+(define_register_constraint "u" "TARGET_NANOMIPS ? N16_REGS : M16_REGS"
   "@internal")
 
 ;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
@@ -92,7 +92,11 @@
 ;; but the DSP version allows any accumulator target.
 (define_register_constraint "ka" "ISA_HAS_DSP_MULT ? ACC_REGS : MD_REGS")
 
-(define_register_constraint "kb" "M16_STORE_REGS"
+(define_register_constraint "kb" "TARGET_NANOMIPS ? N16_STORE_REGS
+				  : M16_STORE_REGS"
+  "@internal")
+
+(define_register_constraint "kd" "TARGET_NANOMIPS ? N16_4X4_REGS : GR_REGS"
   "@internal")
 
 (define_constraint "kf"
