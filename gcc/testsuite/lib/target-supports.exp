@@ -6246,6 +6246,12 @@ proc available_vector_sizes { } {
     return $result
 }
 
+# Return true if variable-length vectors are supported.
+
+proc check_effective_target_vect_variable_length { } {
+    return [expr { [lindex [available_vector_sizes] 0] == 0 }]
+}
+
 # Return true if exactly 3 distinct vector sizes are supported.
 
 proc check_effective_target_vect_3_sizes { } {
