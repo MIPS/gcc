@@ -190,6 +190,7 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+extern int mips_reg_parm_stack_space (tree, bool);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
 				      enum mips_symbol_type *);
 extern int mips_regno_mode_ok_for_base_p (int, machine_mode, bool);
