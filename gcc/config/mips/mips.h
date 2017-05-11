@@ -463,10 +463,29 @@ struct mips_cpu_info {
 #define TARGET_CPU_CPP_BUILTINS()					\
   do									\
     {									\
-      builtin_assert ("machine=mips");                        		\
-      builtin_assert ("cpu=mips");					\
-      builtin_define ("__mips__");     					\
-      builtin_define ("_mips");						\
+      if (TARGET_NANOMIPS)						\
+	builtin_define ("__nanomips__");				\
+      else								\
+	{								\
+	  builtin_assert ("machine=mips");                        	\
+	  builtin_assert ("cpu=mips");					\
+	  builtin_define ("__mips__");				        \
+	  builtin_define ("_mips");					\
+									\
+	  /* Treat _R3000 and _R4000 like register-size			\
+	     defines, which is how they've historically			\
+	     been used.  */						\
+	  if (TARGET_64BIT)						\
+	    {								\
+	      builtin_define_std ("R4000");				\
+	      builtin_define ("_R4000");				\
+	    }								\
+	  else								\
+	    {								\
+	      builtin_define_std ("R3000");				\
+	      builtin_define ("_R3000");				\
+	    }								\
+	}								\
 									\
       /* We do this here because __mips is defined below and so we	\
 	 can't use builtin_define_std.  We don't ever want to define	\
@@ -480,20 +499,6 @@ struct mips_cpu_info {
 									\
       if (TARGET_64BIT)							\
 	builtin_define ("__mips64");					\
-									\
-      /* Treat _R3000 and _R4000 like register-size			\
-	 defines, which is how they've historically			\
-	 been used.  */							\
-      if (TARGET_64BIT)							\
-	{								\
-	  builtin_define_std ("R4000");					\
-	  builtin_define ("_R4000");					\
-	}								\
-      else								\
-	{								\
-	  builtin_define_std ("R3000");					\
-	  builtin_define ("_R3000");					\
-	}								\
 									\
       if (TARGET_FLOAT64)						\
 	builtin_define ("__mips_fpr=64");				\
@@ -579,6 +584,8 @@ struct mips_cpu_info {
 	  builtin_define ("__mips=64");					\
 	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS64");		\
 	}								\
+      if (TARGET_NANOMIPS == NANOMIPS_NMS)				\
+	  builtin_define ("__nanomips_subset");				\
       if (mips_isa_rev > 0)						\
 	builtin_define_with_int_value ("__mips_isa_rev",		\
 				       mips_isa_rev);			\
@@ -653,59 +660,67 @@ struct mips_cpu_info {
 									\
       if (TARGET_BIG_ENDIAN)						\
 	{								\
-	  builtin_define_std ("MIPSEB");				\
+	  if (TARGET_NANOMIPS)						\
+	    builtin_define ("__MIPSEB__");				\
+	  else								\
+	    builtin_define_std ("MIPSEB");				\
 	  builtin_define ("_MIPSEB");					\
 	}								\
       else								\
 	{								\
-	  builtin_define_std ("MIPSEL");				\
+	  if (TARGET_NANOMIPS)						\
+	    builtin_define ("__MIPSEL__");				\
+	  else								\
+	    builtin_define_std ("MIPSEL");				\
 	  builtin_define ("_MIPSEL");					\
 	}								\
-                                                                        \
-      /* Whether calls should go through $25.  The separate __PIC__	\
-	 macro indicates whether abicalls code might use a GOT.  */	\
-      if (TARGET_ABICALLS)						\
-	builtin_define ("__mips_abicalls");				\
-									\
-      /* Whether Loongson vector modes are enabled.  */                 \
-      if (TARGET_LOONGSON_VECTORS)					\
-        builtin_define ("__mips_loongson_vector_rev");                  \
-									\
-      /* Historical Octeon macro.  */					\
-      if (TARGET_OCTEON)						\
-	builtin_define ("__OCTEON__");					\
 									\
       if (TARGET_SYNCI)							\
 	builtin_define ("__mips_synci");				\
 									\
-      /* Macros dependent on the C dialect.  */				\
-      if (preprocessing_asm_p ())					\
+      if (!TARGET_NANOMIPS)						\
 	{								\
-	  builtin_define_std ("LANGUAGE_ASSEMBLY");			\
-	  builtin_define ("_LANGUAGE_ASSEMBLY");			\
-	}								\
-      else if (c_dialect_cxx ())					\
-	{								\
-	  builtin_define ("_LANGUAGE_C_PLUS_PLUS");			\
-	  builtin_define ("__LANGUAGE_C_PLUS_PLUS");			\
-	  builtin_define ("__LANGUAGE_C_PLUS_PLUS__");			\
-	}								\
-      else								\
-	{								\
-	  builtin_define_std ("LANGUAGE_C");				\
-	  builtin_define ("_LANGUAGE_C");				\
-	}								\
-      if (c_dialect_objc ())						\
-	{								\
-	  builtin_define ("_LANGUAGE_OBJECTIVE_C");			\
-	  builtin_define ("__LANGUAGE_OBJECTIVE_C");			\
-	  /* Bizarre, but retained for backwards compatibility.  */	\
-	  builtin_define_std ("LANGUAGE_C");				\
-	  builtin_define ("_LANGUAGE_C");				\
-	}								\
+	  /* Whether calls should go through $25.  The separate __PIC__	\
+	     macro indicates whether abicalls code might use a GOT.  */	\
+	  if (TARGET_ABICALLS)						\
+	    builtin_define ("__mips_abicalls");				\
 									\
-      if (mips_abi == ABI_EABI)						\
-	builtin_define ("__mips_eabi");					\
+	  /* Whether Loongson vector modes are enabled.  */		\
+	  if (TARGET_LOONGSON_VECTORS)					\
+	    builtin_define ("__mips_loongson_vector_rev");              \
+									\
+	  /* Historical Octeon macro.  */				\
+	  if (TARGET_OCTEON)						\
+	    builtin_define ("__OCTEON__");				\
+	  /* Macros dependent on the C dialect.  */			\
+	  if (preprocessing_asm_p ())					\
+	    {								\
+	      builtin_define_std ("LANGUAGE_ASSEMBLY");			\
+	      builtin_define ("_LANGUAGE_ASSEMBLY");			\
+	    }								\
+	  else if (c_dialect_cxx ())					\
+	    {								\
+	      builtin_define ("_LANGUAGE_C_PLUS_PLUS");			\
+	      builtin_define ("__LANGUAGE_C_PLUS_PLUS");		\
+	      builtin_define ("__LANGUAGE_C_PLUS_PLUS__");		\
+	    }								\
+	  else								\
+	    {								\
+	      builtin_define_std ("LANGUAGE_C");			\
+	      builtin_define ("_LANGUAGE_C");				\
+	    }								\
+	  if (c_dialect_objc ())					\
+	    {								\
+	      builtin_define ("_LANGUAGE_OBJECTIVE_C");			\
+	      builtin_define ("__LANGUAGE_OBJECTIVE_C");		\
+	      /* Bizarre, but retained for backwards compatibility.  */	\
+	      builtin_define_std ("LANGUAGE_C");			\
+	      builtin_define ("_LANGUAGE_C");				\
+	    }								\
+									\
+	  if (mips_abi == ABI_EABI)					\
+	    builtin_define ("__mips_eabi");				\
+	}								\
 									\
       if (TARGET_CACHE_BUILTIN)						\
 	builtin_define ("__GCC_HAVE_BUILTIN_MIPS_CACHE");		\
