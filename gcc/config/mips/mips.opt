@@ -50,6 +50,12 @@ Enum(mips_abi) String(64) Value(ABI_64)
 EnumValue
 Enum(mips_abi) String(eabi) Value(ABI_EABI)
 
+EnumValue
+Enum(mips_abi) String(p32) Value(ABI_P32)
+
+EnumValue
+Enum(mips_abi) String(p64) Value(ABI_P64)
+
 mabicalls
 Target Report Mask(ABICALLS)
 Generate code that can be used in SVR4-style dynamic objects.
