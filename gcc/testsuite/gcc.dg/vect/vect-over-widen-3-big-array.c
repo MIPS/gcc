@@ -59,7 +59,9 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vect_recog_over_widening_pattern: detected" 2 "vect" { target { ! vect_widen_shift } } } } */
+/* Requires LD4 for variable-length SVE.  Until that's supported we fall
+   back to Advanced SIMD, which does have widening shifts.  */
+/* { dg-final { scan-tree-dump-times "vect_recog_over_widening_pattern: detected" 2 "vect" { target { ! vect_widen_shift } xfail { aarch64_sve && vect_variable_length } } } } */
 /* { dg-final { scan-tree-dump-times "vect_recog_over_widening_pattern: detected" 1 "vect" { target vect_widen_shift } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
 

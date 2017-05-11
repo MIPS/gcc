@@ -25,4 +25,7 @@ unsigned int foo (const unsigned int x[OUTER][INNER][2])
   return sum;
 }
 
-/* { dg-final { scan-tree-dump-times "Detected interleaving load of size 2" 1 "vect" } } */
+/* Requires load-lanes for SVE, which is implemented by a later patch.
+   Until then we report it twice, once for SVE and once for 128-bit
+   Advanced SIMD.  */
+/* { dg-final { scan-tree-dump-times "Detected interleaving load of size 2" 1 "vect" { xfail { aarch64_sve && vect_variable_length } } } } */

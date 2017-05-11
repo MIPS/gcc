@@ -83,4 +83,6 @@ main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { ! vect_masked_store } xfail { { vect_no_align && { ! vect_hw_misalign } } || { ! vect_strided2 } } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target { vect_masked_store } } } } */
+/* Fails for variable-length SVE because we can't yet handle the
+   interleaved load.  This is fixed by a later patch.  */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target vect_masked_store xfail { aarch64_sve && vect_variable_length } } } } */
