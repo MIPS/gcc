@@ -247,6 +247,10 @@
   (and (match_code "mem")
        (match_test "m16_based_address_p (XEXP (op, 0), mode, uw4_operand)")))
 
+(define_predicate "lw4x4_sw4x4_operand"
+  (and (match_code "mem")
+       (match_test "n16_4x4_based_address_p (XEXP (op, 0), mode, uw2_operand)")))
+
 (define_predicate "lhu16_sh16_operand"
   (and (match_code "mem")
        (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_NANOMIPS ? uh2_operand : uh4_operand)")))
@@ -314,6 +318,10 @@
 (define_predicate "uh4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 4, 1)")))
+
+(define_predicate "uw2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 2)")))
 
 (define_predicate "uw4_operand"
   (and (match_code "const_int")
