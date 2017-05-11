@@ -68,8 +68,6 @@ int main (int argc, const char* argv[])
   for (i = 0; i < N; i++)
     {
       input[i] = i%256;
-      if (input[i] > 200)
-        abort();
       output[i] = 0;
       __asm__ volatile ("");
     }
