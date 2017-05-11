@@ -448,3 +448,8 @@
   (and (match_code "mem")
        (match_operand 0 "lbu16_operand")))
 
+(define_memory_constraint "ZY"
+  "@internal
+   A nanoMIPS memory operand for use with the LW4X4/SW4X4 insn."
+  (and (match_code "mem")
+       (match_operand 0 "lw4x4_sw4x4_operand")))
