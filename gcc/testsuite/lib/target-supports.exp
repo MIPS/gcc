@@ -5917,12 +5917,20 @@ proc check_effective_target_vect_natural_alignment { } {
     return $et_vect_natural_alignment
 }
 
+# Return 1 if the target doesn't prefer any alignment beyond element
+# alignment during vectorization.
+
+proc check_effective_target_vect_element_align_preferred { } {
+    return [check_effective_target_vect_variable_length]
+}
+
 # Return 1 if vector alignment (for types of size 32 bit or less) is reachable, 0 otherwise.
 
 proc check_effective_target_vector_alignment_reachable { } {
     set et_vector_alignment_reachable 0
-    if { [check_effective_target_vect_aligned_arrays]
-	 || [check_effective_target_natural_alignment_32] } {
+    if { ![check_effective_target_vect_element_align_preferred]
+	 && ([check_effective_target_vect_aligned_arrays]
+	     || [check_effective_target_natural_alignment_32]) } {
 	set et_vector_alignment_reachable 1
     }
     verbose "check_effective_target_vector_alignment_reachable:\
@@ -5934,8 +5942,9 @@ proc check_effective_target_vector_alignment_reachable { } {
 
 proc check_effective_target_vector_alignment_reachable_for_64bit { } {
     set et_vector_alignment_reachable_for_64bit 0
-    if { [check_effective_target_vect_aligned_arrays] 
-	 || [check_effective_target_natural_alignment_64] } {
+    if { ![check_effective_target_vect_element_align_preferred]
+	 && ([check_effective_target_vect_aligned_arrays] 
+	     || [check_effective_target_natural_alignment_64]) } {
 	set et_vector_alignment_reachable_for_64bit 1
     }
     verbose "check_effective_target_vector_alignment_reachable_for_64bit:\
