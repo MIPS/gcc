@@ -51,6 +51,8 @@ extern int target_flags_explicit;
 #define ABI_64  2
 #define ABI_EABI 3
 #define ABI_O64  4
+#define ABI_P32  5
+#define ABI_P64  6
 
 /* Masks that affect tuning.
 
@@ -404,6 +406,8 @@ struct mips_cpu_info {
 
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
 #define TARGET_NEWABI		    (mips_abi == ABI_N32 || mips_abi == ABI_64)
+#define TARGET_PABI		    (mips_abi == ABI_P32 	\
+				     || mips_abi == ABI_P64)
 
 /* TARGET_HARD_FLOAT and TARGET_SOFT_FLOAT reflect whether the FPU is
    directly accessible, while the command-line options select
@@ -598,6 +602,16 @@ struct mips_cpu_info {
 	  builtin_define ("_ABIO64=4");					\
 	  builtin_define ("_MIPS_SIM=_ABIO64");				\
 	  break;							\
+									\
+	case ABI_P32:							\
+	  builtin_define ("_ABIP32=5");					\
+	  builtin_define ("_MIPS_SIM=_ABIP32");				\
+	  break;							\
+									\
+	case ABI_P64:							\
+	  builtin_define ("_ABIP64=6");					\
+	  builtin_define ("_MIPS_SIM=_ABIP64");				\
+	  break;							\
 	}								\
 									\
       builtin_define_with_int_value ("_MIPS_SZINT", INT_TYPE_SIZE);	\
@@ -787,6 +801,10 @@ struct mips_cpu_info {
 #define MULTILIB_ABI_DEFAULT "mabi=64"
 #elif MIPS_ABI_DEFAULT == ABI_EABI
 #define MULTILIB_ABI_DEFAULT "mabi=eabi"
+#elif MIPS_ABI_DEFAULT == ABI_P32
+#define MULTILIB_ABI_DEFAULT "mabi=p32"
+#elif MIPS_ABI_DEFAULT == ABI_P64
+#define MULTILIB_ABI_DEFAULT "mabi=p64"
 #endif
 
 #ifndef MULTILIB_DEFAULTS
@@ -884,9 +902,10 @@ struct mips_cpu_info {
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
      || MIPS_ABI_DEFAULT == ABI_N32 \
-     || MIPS_ABI_DEFAULT == ABI_64)
-#define OPT_ARCH64 "mabi=32|mgp32:;"
-#define OPT_ARCH32 "mabi=32|mgp32"
+     || MIPS_ABI_DEFAULT == ABI_64 \
+     || MIPS_ABI_DEFAULT == ABI_P64)
+#define OPT_ARCH64 "mabi=32|mabi=p32|mgp32:;"
+#define OPT_ARCH32 "mabi=32|mabi=p32|mgp32"
 #else
 #define OPT_ARCH64 "mabi=o64|mabi=n32|mabi=64|mgp64"
 #define OPT_ARCH32 "mabi=o64|mabi=n32|mabi=64|mgp64:;"
@@ -957,14 +976,14 @@ struct mips_cpu_info {
 /* True if the ABI can only work with 64-bit integer registers.  We
    generally allow ad-hoc variations for TARGET_SINGLE_FLOAT, but
    otherwise floating-point registers must also be 64-bit.  */
-#define ABI_NEEDS_64BIT_REGS	(TARGET_NEWABI || mips_abi == ABI_O64)
+#define ABI_NEEDS_64BIT_REGS	(TARGET_NEWABI || mips_abi == ABI_O64	\
+				 || mips_abi == ABI_P64)
 
 /* Likewise for 32-bit regs.  */
-#define ABI_NEEDS_32BIT_REGS	(mips_abi == ABI_32)
+#define ABI_NEEDS_32BIT_REGS	(mips_abi == ABI_32 || mips_abi == ABI_P32)
 
-/* True if the file format uses 64-bit symbols.  At present, this is
-   only true for n64, which uses 64-bit ELF.  */
-#define FILE_HAS_64BIT_SYMBOLS	(mips_abi == ABI_64)
+/* True if the file format uses 64-bit symbols.  */
+#define FILE_HAS_64BIT_SYMBOLS	(mips_abi == ABI_64 || mips_abi == ABI_P64)
 
 /* True if symbols are 64 bits wide.  This is usually determined by
    the ABI's file format, but it can be overridden by -msym32.  Note that
@@ -1666,7 +1685,8 @@ FP_ASM_SPEC "\
 
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_NEWABI ? 128 : 64)
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_NEWABI \
+			       || (TARGET_64BIT && TARGET_PABI) ? 128 : 64)
 
 /* Define the sizes of fixed-point types.  */
 #define SHORT_FRACT_TYPE_SIZE 8
@@ -1707,7 +1727,8 @@ FP_ASM_SPEC "\
    LONG_DOUBLE_TYPE_SIZE, unless under MSA the bigggest alignment is
    BITS_PER_MSA_REG.  */
 #define BIGGEST_ALIGNMENT \
-  (ISA_HAS_MSA ? BITS_PER_MSA_REG : LONG_DOUBLE_TYPE_SIZE)
+  (TARGET_PABI ? 128 : (ISA_HAS_MSA					  \
+			? BITS_PER_MSA_REG : LONG_DOUBLE_TYPE_SIZE))
 
 /* All accesses must be aligned.  */
 #define STRICT_ALIGNMENT 1
@@ -2472,6 +2493,8 @@ enum reg_class
 
 #define RETURN_ADDR_RTX mips_return_addr
 
+#define MIPS_FRAME_BIAS 0
+
 /* Mask off the MIPS16 ISA bit in unwind addresses.
 
    The reason for this is a little subtle.  When unwinding a call,
@@ -2539,12 +2562,12 @@ enum reg_class
    `crtl->outgoing_args_size'.  */
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
-#define STACK_BOUNDARY (TARGET_NEWABI ? 128 : 64)
+#define STACK_BOUNDARY (TARGET_NEWABI || TARGET_PABI ? 128 : 64)
 
 /* Symbolic macros for the registers used to return integer and floating
    point values.  */
 
-#define GP_RETURN (GP_REG_FIRST + 2)
+#define GP_RETURN (GP_REG_FIRST + TARGET_PABI ? 4 : 2)
 #define FP_RETURN ((TARGET_SOFT_FLOAT) ? GP_RETURN : (FP_REG_FIRST + 0))
 
 #define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
@@ -2553,7 +2576,7 @@ enum reg_class
 
 #define GP_ARG_FIRST (GP_REG_FIRST + 4)
 #define GP_ARG_LAST  (GP_ARG_FIRST + MAX_ARGS_IN_REGISTERS - 1)
-#define FP_ARG_FIRST (FP_REG_FIRST + 12)
+#define FP_ARG_FIRST (FP_REG_FIRST + (TARGET_PABI ? 0 : 12))
 #define FP_ARG_LAST  (FP_ARG_FIRST + MAX_ARGS_IN_REGISTERS - 1)
 
 /* True if MODE is vector and supported in a MSA vector register.  */
@@ -2575,6 +2598,7 @@ enum reg_class
    is required for O32 where only even numbered registers are used for
    O32-FPXX and O32-FP64.  */
 
+/* FIXME */
 #define FUNCTION_ARG_REGNO_P(N)					\
   ((IN_RANGE((N), GP_ARG_FIRST, GP_ARG_LAST)			\
     || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST) 		\
@@ -2660,8 +2684,9 @@ typedef struct mips_args {
 /* True if using EABI and varargs can be passed in floating-point
    registers.  Under these conditions, we need a more complex form
    of va_list, which tracks GPR, FPR and stack arguments separately.  */
-#define EABI_FLOAT_VARARGS_P \
-	(mips_abi == ABI_EABI && UNITS_PER_FPVALUE >= UNITS_PER_DOUBLE)
+#define FLOAT_VARARGS_P \
+	((TARGET_PABI || mips_abi == ABI_EABI)				\
+	 && UNITS_PER_FPVALUE >= UNITS_PER_DOUBLE)
 
 
 #define EPILOGUE_USES(REGNO)	mips_epilogue_uses (REGNO)
@@ -2669,8 +2694,8 @@ typedef struct mips_args {
 /* Treat LOC as a byte offset from the stack pointer and round it up
    to the next fully-aligned offset.  */
 #define MIPS_STACK_ALIGN(LOC) \
-  (TARGET_NEWABI ? ROUND_UP ((LOC), 16) : ROUND_UP ((LOC), 8))
-
+  (TARGET_NEWABI || TARGET_PABI ? ROUND_UP ((LOC), 16) \
+				: ROUND_UP ((LOC), 8))
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -3454,6 +3479,9 @@ struct GTY(())  machine_function {
      This area is allocated by the callee at the very top of the frame.  */
   int varargs_size;
 
+  /* Size of register parameters pushed on stack by callee.  */
+  int reg_param_stack_space;
+
   /* The current frame information, calculated by mips_compute_frame_info.  */
   struct mips_frame_info frame;
 
@@ -3578,6 +3606,7 @@ struct GTY(())  machine_function {
 
 /* If we are *not* using multilibs and the default ABI is not ABI_32 we
    need to change these from /lib and /usr/lib.  */
+/* FIXME */
 #if MIPS_ABI_DEFAULT == ABI_N32
 #define STANDARD_STARTFILE_PREFIX_1 "/lib32/"
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib32/"
