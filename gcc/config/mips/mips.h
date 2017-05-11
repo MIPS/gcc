@@ -451,6 +451,8 @@ struct mips_cpu_info {
       builtin_assert ("cpu=mips");					\
       builtin_define ("__mips__");     					\
       builtin_define ("_mips");						\
+      builtin_define ("_nanomips");					\
+      builtin_define ("__nanomips");					\
 									\
       /* We do this here because __mips is defined below and so we	\
 	 can't use builtin_define_std.  We don't ever want to define	\
@@ -563,6 +565,8 @@ struct mips_cpu_info {
 	  builtin_define ("__mips=64");					\
 	  builtin_define ("_MIPS_ISA=_MIPS_ISA_MIPS64");		\
 	}								\
+      if (ISA_HAS_XLP && TARGET_EXLP)					\
+	  builtin_define ("__mips_xlp");				\
       if (mips_isa_rev > 0)						\
 	builtin_define_with_int_value ("__mips_isa_rev",		\
 				       mips_isa_rev);			\
