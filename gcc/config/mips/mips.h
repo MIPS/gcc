@@ -2083,9 +2083,13 @@ FP_ASM_SPEC "\
 #define GP_REG_P(REGNO)	\
   ((unsigned int) ((int) (REGNO) - GP_REG_FIRST) < GP_REG_NUM)
 #define M16_REG_P(REGNO) \
-  (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 16 || (REGNO) == 17)
+  (TARGET_NANOMIPS \
+   ? IN_RANGE ((REGNO), 4, 7) || IN_RANGE ((REGNO), 16, 19) \
+   : IN_RANGE ((REGNO), 2, 7) || (REGNO) == 16 || (REGNO) == 17)
+#define N16_4X4_REG_P(REGNO) \
+  (IN_RANGE ((REGNO), 4, 11) || IN_RANGE ((REGNO), 16, 23))
 #define M16STORE_REG_P(REGNO) \
-  (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 0 || (REGNO) == 17)
+  ((REGNO) == 0 || IN_RANGE ((REGNO), 4, 10) || IN_RANGE ((REGNO), 16, 23))
 #define FP_REG_P(REGNO)  \
   ((unsigned int) ((int) (REGNO) - FP_REG_FIRST) < FP_REG_NUM)
 #define MD_REG_P(REGNO) \
@@ -2248,7 +2252,10 @@ enum reg_class
 {
   NO_REGS,			/* no registers in set */
   M16_STORE_REGS,		/* microMIPS store registers  */
+  N16_STORE_REGS,		/* nanoMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
+  N16_REGS,			/* nanoMIPS directly accessible registers */
+  N16_4X4_REGS,			/* nanoMIPS registers $0-$7,$16-$23 */
   M16_SP_REGS,			/* mips16 + $sp */
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
@@ -2288,8 +2295,11 @@ enum reg_class
 {									\
   "NO_REGS",								\
   "M16_STORE_REGS",							\
+  "N16_STORE_REGS",							\
   "M16_REGS",								\
-  "M16_SP_REGS",								\
+  "N16_REGS",								\
+  "N16_4X4_REGS",							\
+  "M16_SP_REGS",							\
   "T_REG",								\
   "M16_T_REGS",								\
   "PIC_FN_ADDR_REG",							\
@@ -2331,8 +2341,11 @@ enum reg_class
 {									                                \
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
   { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
+  { 0x000e00f1, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* N16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
-  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */		\
+  { 0x000f00f0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* N16_REGS */	\
+  { 0x00ff0ff0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* N16_4X4_REGS */	\
+  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */	\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_T_REGS */	\
   { 0x02000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* PIC_FN_ADDR_REG */	\
@@ -2426,6 +2439,8 @@ enum reg_class
   160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,	\
   182,183,184,185,186,187						\
 }
+
+#define ADJUST_REG_ALLOC_ORDER mips_adjust_reg_alloc_order ()
 
 /* True if VALUE is an unsigned 6-bit number.  */
 
