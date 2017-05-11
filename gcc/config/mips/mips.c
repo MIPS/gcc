@@ -3854,6 +3854,17 @@ m16_based_address_p (rtx x, machine_mode mode,
 	  && offset_predicate (addr.offset, mode));
 }
 
+bool
+n16_4x4_based_address_p (rtx x, machine_mode mode,
+			 insn_operand_predicate_fn offset_predicate)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && N16_4X4_REG_P (REGNO (addr.reg))
+	  && offset_predicate (addr.offset, mode));
+}
 /* Return true if X is a legitimate address that conforms to the requirements
    for a microMIPS LWSP or SWSP insn.  */
 
