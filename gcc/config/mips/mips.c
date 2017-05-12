@@ -652,6 +652,24 @@ static const struct attribute_spec mips_attribute_table[] = {
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
 
+/* The value of TARGET_ATTRIBUTE_TABLE.  */
+static const struct attribute_spec nanomips_attribute_table[] = {
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
+       om_diagnostic } */
+  { "long_call",   0, 0, false, true,  true,  NULL, false },
+  { "far",     	   0, 0, false, true,  true,  NULL, false },
+  { "near",        0, 0, false, true,  true,  NULL, false },
+  /* Allow functions to be specified as interrupt handlers */
+  { "interrupt",   0, 1, false, true,  true, mips_handle_interrupt_attr,
+    false },
+  { "use_shadow_register_set",	0, 1, false, true,  true,
+    mips_handle_use_shadow_register_set_attr, false },
+  { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
+  { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
+  { "use_hazard_barrier_return", 0, 0, true, false, false, NULL, false },
+  { NULL,	   0, 0, false, false, false, NULL, false }
+};
+
 struct mips_sdata_entry
 {
   char *var;
@@ -1226,7 +1244,11 @@ mips_func_opt_list_read ()
 static const struct mips_cpu_info mips_cpu_info_table[] = {
 #define MIPS_CPU(NAME, CPU, ISA, FLAGS) \
   { NAME, CPU, ISA, FLAGS },
+#ifdef NANOMIPS_SUPPORT
+#include "nanomips-cpus.def"
+#else
 #include "mips-cpus.def"
+#endif
 #undef MIPS_CPU
 };
 
@@ -1267,6 +1289,30 @@ static const struct mips_rtx_cost_data mips_rtx_cost_optimize_size = {
 		   4            /* memory_latency */
 };
 
+#ifdef NANOMIPS_SUPPORT
+/* Costs to use when optimizing for speed, indexed by processor.  */
+static const struct mips_rtx_cost_data
+  mips_rtx_cost_data[NUM_PROCESSOR_VALUES] = {
+  { /* I7200 */
+    SOFT_FP_COSTS,
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* M7000 */
+    SOFT_FP_COSTS,
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  }
+};
+#else
 /* Costs to use when optimizing for speed, indexed by processor.  */
 static const struct mips_rtx_cost_data
   mips_rtx_cost_data[NUM_PROCESSOR_VALUES] = {
@@ -1767,6 +1813,7 @@ static const struct mips_rtx_cost_data
 		    4             /* memory_latency */
   }
 };
+#endif
 
 static rtx mips_find_pic_call_symbol (rtx_insn *, rtx, bool);
 static int mips_register_move_cost (machine_mode, reg_class_t,
@@ -8092,18 +8139,21 @@ mips_start_unique_function (const char *name)
    function contains MIPS16 code.  */
 
 static void
-mips_start_function_definition (const char *name, bool mips16_p)
+mips_start_function_definition (const char *name,
+				bool mips16_p ATTRIBUTE_UNUSED)
 {
-  if (mips16_p)
-    fprintf (asm_out_file, "\t.set\tmips16\n");
-  else
-    fprintf (asm_out_file, "\t.set\tnomips16\n");
+#ifndef HAVE_GAS_NANOMIPS
+    if (mips16_p)
+      fprintf (asm_out_file, "\t.set\tmips16\n");
+    else
+      fprintf (asm_out_file, "\t.set\tnomips16\n");
 
-  if (TARGET_MICROMIPS)
-    fprintf (asm_out_file, "\t.set\tmicromips\n");
+    if (TARGET_MICROMIPS)
+      fprintf (asm_out_file, "\t.set\tmicromips\n");
 #ifdef HAVE_GAS_MICROMIPS
-  else
-    fprintf (asm_out_file, "\t.set\tnomicromips\n");
+    else
+      fprintf (asm_out_file, "\t.set\tnomicromips\n");
+#endif
 #endif
 
   if (!flag_inhibit_size_directive)
@@ -8923,7 +8973,7 @@ mips_call_may_need_jalx_p (tree decl)
   /* When -minterlink-compressed is in effect, assume that functions
      could use a different encoding mode unless an attribute explicitly
      tells us otherwise.  */
-  if (TARGET_INTERLINK_COMPRESSED)
+  if (!TARGET_NANOMIPS && TARGET_INTERLINK_COMPRESSED)
     {
       if (!TARGET_COMPRESSION
 	  && mips_get_compress_off_flags (DECL_ATTRIBUTES (decl)) ==0)
@@ -11207,6 +11257,9 @@ mips_file_start (void)
   /* Generate a special section to describe the ABI switches used to
      produce the resultant binary.  */
 
+#ifdef NANOMIPS_SUPPORT
+  fprintf (asm_out_file, "\t.linkrelax\n");
+#else
   /* Record the ABI itself.  Modern versions of binutils encode
      this information in the ELF header flags, but GDB needs the
      information in order to correctly debug binaries produced by
@@ -11214,6 +11267,7 @@ mips_file_start (void)
      gdb/mips-tdep.c.  */
   fprintf (asm_out_file, "\t.section .mdebug.%s\n\t.previous\n",
 	   mips_mdebug_abi_name ());
+#endif
 
   /* There is no ELF header flag to distinguish long32 forms of the
      EABI from long64 forms.  Emit a special section to help tools
@@ -11224,7 +11278,8 @@ mips_file_start (void)
 	     "\t.previous\n", TARGET_LONG64 ? 64 : 32);
 
   /* Record the NaN encoding.  */
-  if (HAVE_AS_NAN || mips_nan != MIPS_IEEE_754_DEFAULT)
+  if (!(TARGET_NANOMIPS)
+      && (HAVE_AS_NAN || mips_nan != MIPS_IEEE_754_DEFAULT))
     fprintf (asm_out_file, "\t.nan\t%s\n",
 	     mips_nan == MIPS_IEEE_754_2008 ? "2008" : "legacy");
 
@@ -11238,6 +11293,7 @@ mips_file_start (void)
 #endif
   else if (!TARGET_HARD_FLOAT_ABI)
     fputs ("\t.module\tsoftfloat\n", asm_out_file);
+#ifndef HAVE_GAS_NANOMIPS
   else if (!TARGET_DOUBLE_FLOAT)
     fputs ("\t.module\tsinglefloat\n", asm_out_file);
   else if (TARGET_FLOATXX)
@@ -11246,13 +11302,16 @@ mips_file_start (void)
     fputs ("\t.module\tfp=64\n", asm_out_file);
   else
     fputs ("\t.module\tfp=32\n", asm_out_file);
+#endif
 
+#ifndef HAVE_GAS_NANOMIPS
   if (TARGET_ODD_SPREG)
     fputs ("\t.module\toddspreg\n", asm_out_file);
   else
     fputs ("\t.module\tnooddspreg\n", asm_out_file);
+#endif
 
-#else
+#elif ! defined (NANOMIPS_SUPPORT)
 #ifdef HAVE_AS_GNU_ATTRIBUTE
   {
     int attr;
@@ -17244,6 +17303,16 @@ mips_adjust_cost (rtx_insn *insn ATTRIBUTE_UNUSED, rtx link,
 static int
 mips_issue_rate (void)
 {
+#ifdef NANOMIPS_SUPPORT
+  switch (mips_tune)
+    {
+    case PROCESSOR_I7200:
+      return 2;
+
+    default:
+      return 1;
+    }
+#else
   switch (mips_tune)
     {
     case PROCESSOR_74KC:
@@ -17294,6 +17363,7 @@ mips_issue_rate (void)
     default:
       return 1;
     }
+#endif
 }
 
 #ifdef MIPS_SUPPORT_LOONGSON
@@ -17427,6 +17497,9 @@ mips_multipass_dfa_lookahead (void)
     return 2;
 
   if (TUNE_P5600 || TUNE_P6600 || TUNE_I6400)
+    return 4;
+
+  if (TUNE_I7200)
     return 4;
 
   return 0;
@@ -22605,7 +22678,7 @@ mips_set_compression_mode (unsigned int compression_mode)
 }
 
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
-   function should use the MIPS16 or microMIPS ISA and switch modes
+   function should use the MIPS16, microMIPS ISA and switch modes
    accordingly.  Also set the current code_readable mode.  */
 
 static void
@@ -22710,7 +22783,7 @@ mips_set_architecture (const struct mips_cpu_info *info)
       if (mips_isa < 32)
 	mips_isa_rev = 0;
       else
-	mips_isa_rev = (mips_isa & 31) + 1;
+	mips_isa_rev = (mips_isa & 31) + 1 - (TARGET_NANOMIPS ? 1 : 0);
     }
 }
 
@@ -23095,7 +23168,7 @@ static void
 mips_option_override (void)
 {
   int i, start, regno, mode;
-  unsigned int is_micromips, is_nanomips;
+  unsigned int is_micromips;
 
   if (global_options_set.x_mips_isa_option)
     mips_isa_option_info = &mips_cpu_info_table[mips_isa_option];
@@ -23113,11 +23186,44 @@ mips_option_override (void)
   if (ISA_HAS_MSA && TARGET_PAIRED_SINGLE_FLOAT)
     error ("unsupported combination: %s", "-mmsa -mpaired-single");
 
+#ifdef NANOMIPS_SUPPORT
+  if (TARGET_NANOMIPS)
+    {
+      /* Imply 64-bit FP registers.  */
+      target_flags |= MASK_FLOAT64;
+
+      /* Imply SYNCI availability.  */
+      target_flags |= MASK_SYNCI;
+
+      /* There are no forbidden slots.  */
+      TARGET_FORBIDDEN_SLOTS = 0;
+
+      /* Explicit relocs by default.  */
+      target_flags |= MASK_EXPLICIT_RELOCS;
+
+      if (TARGET_NANOMIPS == NANOMIPS_NMS
+	  && GENERATE_DIVIDE_TRAPS)
+	error ("-mdivide-traps cannot be used with the nanoMIPS Subset");
+
+      mips_code_readable = CODE_READABLE_NO;
+
+      if (nanomips_abi != ABI_P32 && nanomips_abi != ABI_P64)
+	error ("unsupported ABI: only -m32 or -m64 can be used");
+      else
+	mips_abi = nanomips_abi;
+
+      /* Disable trapping when dividing by zero if the user does not
+	 request this.  */
+      if (optimize_size
+	  && (target_flags_explicit & MASK_CHECK_ZERO_DIV) == 0)
+	target_flags &= ~MASK_CHECK_ZERO_DIV;
+    }
+#endif
+
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
   is_micromips = TARGET_MICROMIPS;
-  is_nanomips = TARGET_NANOMIPS;
   target_flags &= ~TARGET_COMPRESSION;
   mips_base_code_readable = mips_code_readable;
 
@@ -23166,7 +23272,7 @@ mips_option_override (void)
   if (mips_arch_info == 0)
     mips_set_architecture (mips_default_arch ());
 
-  if (mips_isa_rev == 6 && is_nanomips
+  if (mips_isa_rev == 6 && TARGET_NANOMIPS
       && !(mips_abi == ABI_P32 || mips_abi == ABI_P64))
     error ("microMIPS R7 is only compatible with p32 or p64 ABI");
 
@@ -23397,7 +23503,7 @@ mips_option_override (void)
   if (is_micromips && TARGET_MSA)
     error ("unsupported combination: %s", "-mmicromips -mmsa");
 
-  if (is_nanomips && TARGET_MSA)
+  if (TARGET_NANOMIPS && TARGET_MSA)
     error ("unsupported combination: %s", "-mnanomips -mmsa");
 
   /* Enable the use of interAptiv MIPS32 SAVE/RESTORE instructions.  */
@@ -23447,8 +23553,10 @@ mips_option_override (void)
       if (mips_abi == ABI_EABI)
 	error ("cannot generate position-independent code for %qs",
 	       "-mabi=eabi");
-      else if (!TARGET_ABICALLS)
+      else if (!TARGET_NANOMIPS && !TARGET_ABICALLS)
 	error ("position-independent code requires %qs", "-mabicalls");
+      if (TARGET_NANOMIPS)
+	sorry ("PIC not currently supported");
     }
 
   if (TARGET_ABICALLS_PIC2)
@@ -26091,7 +26199,7 @@ mips_spill_class (reg_class_t rclass ATTRIBUTE_UNUSED,
 static bool
 mips_lra_p (void)
 {
-  return mips_lra_flag;
+  return mips_lra_flag | TARGET_NANOMIPS;
 }
 
 /* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.  */
@@ -26418,7 +26526,11 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 #define TARGET_ENCODE_SECTION_INFO mips_encode_section_info
 
 #undef TARGET_ATTRIBUTE_TABLE
-#define TARGET_ATTRIBUTE_TABLE mips_attribute_table
+#ifdef NANOMIPS_SUPPORT
+# define TARGET_ATTRIBUTE_TABLE nanomips_attribute_table
+#else
+# define TARGET_ATTRIBUTE_TABLE mips_attribute_table
+#endif
 
 #undef TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P mips_function_attr_inlinable_p

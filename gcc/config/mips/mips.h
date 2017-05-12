@@ -286,12 +286,12 @@ struct mips_cpu_info {
 #define ISA_MIPS32R2		    (mips_isa == 33)
 #define ISA_MIPS32R3		    (mips_isa == 34)
 #define ISA_MIPS32R5		    (mips_isa == 36)
-#define ISA_MIPS32R6		    (mips_isa == 37)
+#define ISA_MIPS32R6		    (mips_isa == 37 || mips_isa == 38)
 #define ISA_MIPS64                  (mips_isa == 64)
 #define ISA_MIPS64R2		    (mips_isa == 65)
 #define ISA_MIPS64R3		    (mips_isa == 66)
 #define ISA_MIPS64R5		    (mips_isa == 68)
-#define ISA_MIPS64R6		    (mips_isa == 69)
+#define ISA_MIPS64R6		    (mips_isa == 69 || mips_isa == 70)
 
 /* Architecture target defines.  */
 #define TARGET_LOONGSON_2E          (mips_arch == PROCESSOR_LOONGSON_2E)
@@ -359,6 +359,7 @@ struct mips_cpu_info {
 #define TUNE_P5600                  (mips_tune == PROCESSOR_P5600)
 #define TUNE_I6400                  (mips_tune == PROCESSOR_I6400)
 #define TUNE_P6600                  (mips_tune == PROCESSOR_P6600)
+#define TUNE_NANOMIPS64R6	    0
 
 /* Whether vector modes and intrinsics for ST Microelectronics
    Loongson-2E/2F processors should be enabled.  In o32 pairs of
@@ -774,12 +775,16 @@ struct mips_cpu_info {
 #define MULTILIB_ISA_DEFAULT "mips32r2"
 #elif MIPS_ISA_DEFAULT == 37
 #define MULTILIB_ISA_DEFAULT "mips32r6"
+#elif MIPS_ISA_DEFAULT == 38
+#define MULTILIB_ISA_DEFAULT "32r6"
 #elif MIPS_ISA_DEFAULT == 64
 #define MULTILIB_ISA_DEFAULT "mips64"
 #elif MIPS_ISA_DEFAULT == 65
 #define MULTILIB_ISA_DEFAULT "mips64r2"
 #elif MIPS_ISA_DEFAULT == 69
 #define MULTILIB_ISA_DEFAULT "mips64r6"
+#elif MIPS_ISA_DEFAULT == 70
+#define MULTILIB_ISA_DEFAULT "64r6"
 #else
 #define MULTILIB_ISA_DEFAULT "mips1"
 #endif
@@ -802,9 +807,9 @@ struct mips_cpu_info {
 #elif MIPS_ABI_DEFAULT == ABI_EABI
 #define MULTILIB_ABI_DEFAULT "mabi=eabi"
 #elif MIPS_ABI_DEFAULT == ABI_P32
-#define MULTILIB_ABI_DEFAULT "mabi=p32"
+#define MULTILIB_ABI_DEFAULT "m32"
 #elif MIPS_ABI_DEFAULT == ABI_P64
-#define MULTILIB_ABI_DEFAULT "mabi=p64"
+#define MULTILIB_ABI_DEFAULT "m64"
 #endif
 
 #ifndef MULTILIB_DEFAULTS
@@ -902,10 +907,9 @@ struct mips_cpu_info {
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
      || MIPS_ABI_DEFAULT == ABI_N32 \
-     || MIPS_ABI_DEFAULT == ABI_64 \
-     || MIPS_ABI_DEFAULT == ABI_P64)
-#define OPT_ARCH64 "mabi=32|mabi=p32|mgp32:;"
-#define OPT_ARCH32 "mabi=32|mabi=p32|mgp32"
+     || MIPS_ABI_DEFAULT == ABI_64)
+#define OPT_ARCH64 "mabi=32|mgp32:;"
+#define OPT_ARCH32 "mabi=32|mgp32"
 #else
 #define OPT_ARCH64 "mabi=o64|mabi=n32|mabi=64|mgp64"
 #define OPT_ARCH32 "mabi=o64|mabi=n32|mabi=64|mgp64:;"
@@ -1005,7 +1009,8 @@ struct mips_cpu_info {
 #define ISA_HAS_JR		(mips_isa_rev <= 5)
 
 #define ISA_HAS_DELAY_SLOTS	(mips_isa_rev <= 5			\
-				 || !TARGET_MICROMIPS)
+				 || (!TARGET_MICROMIPS			\
+				     && !TARGET_NANOMIPS))
 
 #define ISA_HAS_COMPACT_BRANCHES (mips_isa_rev >= 6)
 
@@ -1330,7 +1335,8 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS3900			\
 				 && !TARGET_MIPS5900			\
 				 && !TARGET_MIPS16			\
-				 && !TARGET_MICROMIPS)
+				 && !TARGET_MICROMIPS			\
+				 && !TARGET_NANOMIPS)
 
 /* Likewise mtc1 and mfc1.  */
 #define ISA_HAS_XFER_DELAY	(mips_isa <= 3			\
