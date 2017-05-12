@@ -1012,7 +1012,10 @@ struct mips_cpu_info {
 				 || (!TARGET_MICROMIPS			\
 				     && !TARGET_NANOMIPS))
 
-#define ISA_HAS_COMPACT_BRANCHES (mips_isa_rev >= 6)
+#define ISA_HAS_COMPACT_BRANCHES ((TARGET_MICROMIPS_R6			\
+				   || TARGET_NANOMIPS)			\
+				  ? 2					\
+				  : (mips_isa_rev >= 6) ? 1 : 0)
 
 /* ISA has branch likely instructions (e.g. mips2).  */
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
