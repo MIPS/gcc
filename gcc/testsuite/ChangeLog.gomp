@@ -1,3 +1,14 @@
+2017-05-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/classify-kernels-unparallelized.c: New file.
+	* c-c++-common/goacc/classify-kernels.c: Likewise.
+	* c-c++-common/goacc/classify-parallel.c: Likewise.
+	* c-c++-common/goacc/classify-routine.c: Likewise.
+	* gfortran.dg/goacc/classify-kernels-unparallelized.f95: Likewise.
+	* gfortran.dg/goacc/classify-kernels.f95: Likewise.
+	* gfortran.dg/goacc/classify-parallel.f95: Likewise.
+	* gfortran.dg/goacc/classify-routine.f95: Likewise.
+
 2017-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/update-if_present-1.c: Update test case.
