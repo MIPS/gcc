@@ -5029,11 +5029,16 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
       /* These instructions take 16-bit unsigned immediates.  */
       return SMALL_OPERAND_UNSIGNED (x);
 
+    case MINUS:
     case PLUS:
       if (TARGET_NANOMIPS && IN_RANGE (x, -0xfff, 0xffff))
 	return true;
       /* These instructions take 16-bit signed immediates.  */
       return SMALL_OPERAND (x);
+
+    case MULT:
+      /* Let the immediate be valid for cheap multiplication.  */
+      return TARGET_COST_TWEAK && exact_log2 (x) >= 0 && exact_log2 (x) <= 31;
 
     case LTU:
     case LT:
@@ -5093,7 +5098,9 @@ mips_binary_cost (rtx x, int single_cost, int double_cost, bool speed)
   else
     cost = single_cost;
   return (cost
-	  + set_src_cost (XEXP (x, 0), GET_MODE (x), speed)
+	  + (TARGET_COST_TWEAK
+	     ? rtx_cost (XEXP (x, 0), GET_MODE (x), GET_CODE (x), 0, speed)
+	     : set_src_cost (XEXP (x, 0), GET_MODE (x), speed))
 	  + rtx_cost (XEXP (x, 1), GET_MODE (x), GET_CODE (x), 1, speed));
 }
 
@@ -5283,6 +5290,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	     an FPR at other times.  Also, moves between floating-point
 	     registers are sometimes cheaper than (D)MTC1 $0.  */
 	  if (cost == 1
+	      && (!TARGET_COST_TWEAK || speed)
 	      && outer_code == SET
 	      && !(float_mode_p && TARGET_HARD_FLOAT))
 	    cost = 0;
@@ -5299,7 +5307,26 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  else if (!TARGET_MIPS16
 		   && (outer_code == SET || GET_MODE (x) == VOIDmode))
 	    cost = 1;
-	  *total = COSTS_N_INSNS (cost);
+
+	  if ((CONST_INT_P (x)
+	       || mips_string_constant_p (x))
+	      && TARGET_COST_TWEAK
+	      && TARGET_NANOMIPS
+	      && LI32_INT (x))
+	    *total = outer_code == PLUS ? 0 : COSTS_N_INSNS (1) + 2;
+	  else if (cost == 1
+		   && TARGET_COST_TWEAK
+		   && !speed
+		   && TARGET_NANOMIPS
+		   && CONST_INT_P (x)
+		      /* LI[16] */
+		      && (IN_RANGE (INTVAL (x), 0, 127)
+			  || x == constm1_rtx)
+		   && outer_code == SET
+		   && !(float_mode_p && TARGET_HARD_FLOAT))
+	    *total = 2;
+	  else
+	    *total = COSTS_N_INSNS (cost);
 	  return true;
 	}
       /* The value will need to be fetched from the constant pool.  */
@@ -5313,7 +5340,10 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
       cost = mips_address_insns (addr, mode, true);
       if (cost > 0)
 	{
-	  *total = COSTS_N_INSNS (cost + 1);
+	  if (TARGET_COST_TWEAK)
+	    *total = COSTS_N_INSNS (cost);
+	  else
+	    *total = COSTS_N_INSNS (cost + 1);
 	  return true;
 	}
       /* Check for a scaled indexed address.  */
@@ -5368,6 +5398,14 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
           *total = (COSTS_N_INSNS (cost)
 		    + set_src_cost (XEXP (XEXP (x, 0), 0), mode, speed)
 		    + set_src_cost (XEXP (XEXP (x, 1), 0), mode, speed));
+	  return true;
+	}
+
+      if (low_bitmask_operand (XEXP (x, 1), mode)
+	  || bit_clear_operand (XEXP (x, 1), mode))
+	{
+	  *total = (COSTS_N_INSNS (1)
+		    + set_src_cost (XEXP (x, 0), mode, speed));
 	  return true;
 	}
 	    
@@ -5473,10 +5511,25 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	  return false;
 	}
 
+      if (code == PLUS
+	  && (CONST_INT_P (XEXP (x, 1))
+	      || mips_string_constant_p (XEXP (x, 1)))
+	  && LI32_INT (XEXP (x, 1))
+	  && TARGET_COST_TWEAK
+	  && TARGET_NANOMIPS
+	  /* Let's ignore here small immediates as we may use 16-bit ADD.  */
+	  && !IN_RANGE (INTVAL (XEXP (x, 1)), -8, 7))
+	{
+	  *total = (COSTS_N_INSNS (1) + 2
+		    + set_src_cost (XEXP (x, 0), mode, speed));
+	  return true;
+	}
+
       /* If it's an add + mult (which is equivalent to shift left) and
          it's immediate operand satisfies const_immlsa_operand predicate.  */
-      if (((ISA_HAS_LSA && mode == SImode)
-	   || (ISA_HAS_DLSA && mode == DImode))
+      if (code == PLUS
+	  && ((ISA_HAS_LSA && mode == SImode)
+	      || (ISA_HAS_DLSA && mode == DImode))
 	  && GET_CODE (XEXP (x, 0)) == MULT)
 	{
 	  rtx op2 = XEXP (XEXP (x, 0), 1);
@@ -5487,18 +5540,6 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 			+ set_src_cost (XEXP (x, 1), mode, speed));
 	      return true;
 	    }
-	}
-
-      if (TARGET_NANOMIPS
-	  && mips_valid_base_register_p (XEXP (x, 1), mode, false)
-	  && ((mips_index_scaled_address_p (x, mode)
-	       && mips_valid_index_register_p (XEXP (XEXP (x, 0), 0), false))
-	       || (mips_index_address_p (x, mode)
-		   && mips_valid_index_register_p (XEXP (x, 0), false))))
-	{
-	  /* Treat indexed (scaled) addresses as free.  */
-	  *total = 0;
-	  return true;
 	}
 
       /* Double-word operations require three single-word operations and
