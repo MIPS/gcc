@@ -31,8 +31,8 @@
 # the ones we don't want to ship but this would massively increase
 # build times in situations where only a few are required immediately.
 
-MULTILIB_OPTIONS = mclib=small/mclib=tiny/muclibc mips32/mips32r2/mips32r6/mips64/mips64r2/mips64r6 mips16/mmicromips mabi=32/mabi=n32/mabi=64 EB/EL msoft-float mnan=2008
-MULTILIB_DIRNAMES = small tiny uclibc mips32 mips32r2 mips32r6 mips64 mips64r2 mips64r6 mips16 micromips 32 n32 64 eb el sof nan2008
+MULTILIB_OPTIONS = mclib=small/mclib=tiny/muclibc mips32/mips32r2/mips32r6/mips32r7/mips64/mips64r2/mips64r6/mips64r7 mips16/mmicromips/mnanomips mabi=32/mabi=n32/mabi=64/mabi=p32/mabi=p64 EB/EL msoft-float mnan=2008 mno-xlp
+MULTILIB_DIRNAMES = small tiny uclibc mips32 mips32r2 mips32r6 mips32r7 mips64 mips64r2 mips64r6 mips32r7 mips16 micromips nanomips 32 n32 64 p32 p64 eb el sof nan2008 noxlp
 MULTILIB_MATCHES = EL=mel EB=meb mips32r2=mips32r3 mips32r2=mips32r5 mips64r2=mips64r3 mips64r2=mips64r5
 
 # Allow the exceptions list to be controlled by configure time options
@@ -41,7 +41,7 @@ MULTILIB_EXCEPTIONS = $(TM_MULTILIB_EXCEPTIONS_CONFIG)
 # Determine if this is a bare metal target with a newlib default library
 is_newlib = $(if $(filter elf, $(lastword $(subst -, ,$(target)))),-newlib)
 
-MULTILIB_EXCLUSIONS = !mclib=small/!mclib=tiny/!muclibc/!mips32/!mips32r2/!mips32r6/!mips64/!mips64r2/!mips64r6/!mips16/!mmicromips/!mabi=32/!mabi=n32/!mabi=64/!EB/!EL/!msoft-float/!mnan=2008
+MULTILIB_EXCLUSIONS = !mclib=small/!mclib=tiny/!muclibc/!mips32/!mips32r2/!mips32r6/!mips64/!mips64r2/!mips64r6/!mips16/!mmicromips/!mnanomips/!mabi=32/!mabi=n32/!mabi=64/!mabi=p32/!mabi=p64/!EB/!EL/!msoft-float/!mnan=2008/!mno-xlp
 
 # MIPS32R6/MIPS64R6
 MULTILIB_REQUIRED   = mips32r6/mabi=32/EB/mnan=2008
@@ -76,16 +76,40 @@ MULTILIB_OSDIRNAMES += mips64r6/mabi.n32/EL/msoft-float/mnan.2008=!mipsel-r6-sof
 MULTILIB_REQUIRED   += mips64r6/mabi=64/EL/msoft-float/mnan=2008
 MULTILIB_OSDIRNAMES += mips64r6/mabi.64/EL/msoft-float/mnan.2008=!mipsel-r6-soft$(is_newlib)/lib64
 
-# microMIPS32R6 - We will not include any 64 bit microMIPS combinations
-MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EB/mnan=2008
-MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EB/mnan.2008=!micromips-r6-hard$(is_newlib)/lib
-MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EB/msoft-float/mnan=2008
-MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EB/msoft-float/mnan.2008=!micromips-r6-soft$(is_newlib)/lib
+# nanoMIPS32R6 - We will not include any 64 bit nanoMIPS combinations
+MULTILIB_REQUIRED   += mips32r6/mnanomips/mabi=p32/EB/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mnanomips/mabi.p32/EB/mnan.2008=!nanomips-r7-hard$(is_newlib)/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mnanomips/mabi=p32/EB/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mnanomips/mabi.p32/EB/mnan.2008=!nanomips-r7-hard-small/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mnanomips/mabi=p32/EB/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mnanomips/mabi.p32/EB/mnan.2008=!nanomips-r7-hard-tiny/lib
 
-MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EL/mnan=2008
-MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EL/mnan.2008=!micromipsel-r6-hard$(is_newlib)/lib
-MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EL/msoft-float/mnan=2008
-MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EL/msoft-float/mnan.2008=!micromipsel-r6-soft$(is_newlib)/lib
+MULTILIB_REQUIRED   += mips32r6/mnanomips/mabi=p32/EB/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mnanomips/mabi.p32/EB/msoft-float/mnan.2008=!nanomips-r7-soft$(is_newlib)/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mnanomips/mabi=p32/EB/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mnanomips/mabi.p32/EB/msoft-float/mnan.2008=!nanomips-r7-soft-small/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mnanomips/mabi=p32/EB/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mnanomips/mabi.p32/EB/msoft-float/mnan.2008=!nanomips-r7-soft-tiny/lib
+
+MULTILIB_REQUIRED   += mips32r6/mnanomips/mabi=p32/EL/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mnanomips/mabi.p32/EL/mnan.2008=!nanomipsel-r7-hard$(is_newlib)/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mnanomips/mabi=p32/EL/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mnanomips/mabi.p32/EL/mnan.2008=!nanomipsel-r7-hard-small/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mnanomips/mabi=p32/EL/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mnanomips/mabi.p32/EL/mnan.2008=!nanomipsel-r7-hard-tiny/lib
+
+MULTILIB_REQUIRED   += mips32r6/mnanomips/mabi=p32/EL/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mnanomips/mabi.p32/EL/msoft-float/mnan.2008=!nanomipsel-r7-soft$(is_newlib)/lib
+MULTILIB_REQUIRED   += mips32r6/mnanomips/mabi=p32/EL/msoft-float/mnan=2008/mno-xlp
+MULTILIB_OSDIRNAMES += mips32r6/mnanomips/mabi.p32/EL/msoft-float/mnan.2008/mno-xlp=!nanomipsel-r7-soft$(is_newlib)-noxlp/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mnanomips/mabi=p32/EL/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mnanomips/mabi.p32/EL/msoft-float/mnan.2008=!nanomipsel-r7-soft-small/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mnanomips/mabi=p32/EL/msoft-float/mnan=2008/mno-xlp
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mnanomips/mabi.p32/EL/msoft-float/mnan.2008/mno-xlp=!nanomipsel-r7-soft-small-noxlp/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mnanomips/mabi=p32/EL/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mnanomips/mabi.p32/EL/msoft-float/mnan.2008=!nanomipsel-r7-soft-tiny/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mnanomips/mabi=p32/EL/msoft-float/mnan=2008/mno-xlp
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mnanomips/mabi.p32/EL/msoft-float/mnan.2008/mno-xlp=!nanomipsel-r7-soft-tiny-noxlp/lib
 
 # MIPS32R2/MIPS64R2
 MULTILIB_REQUIRED   += mips32r2/mabi=32/EB
