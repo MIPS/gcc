@@ -347,6 +347,48 @@ m68*-*-*)
 	  done
 	fi
 	;;
+nanomips*-*-*)
+	if [ x$enable_biendian = xno ]
+	then
+	  old_multidirs="${multidirs}"
+	  multidirs=""
+	  for x in ${old_multidirs}; do
+	    case "$x" in
+	      *el* ) : ;;
+	      *eb* ) : ;;
+	      *) multidirs="${multidirs} ${x}" ;;
+	    esac
+	  done
+	fi
+	if [ x$enable_softfloat = xno ]
+	then
+	  old_multidirs="${multidirs}"
+	  multidirs=""
+	  for x in ${old_multidirs}; do
+	    case "$x" in
+	      *soft-float* ) : ;;
+	      *) multidirs="${multidirs} ${x}" ;;
+	    esac
+	  done
+	fi
+	if [ x$with_multi_buildlist != x ]
+	then
+	  old_multidirs="${multidirs}"
+	  if [ ! -f $with_multi_buildlist ]
+	  then
+	    echo "config-ml.in: Failed to find $with_multi_buildlist"
+	    exit 1
+	  fi
+	  multidirs=""
+	  for x in ${old_multidirs}; do
+	    found=`grep "^${x}$" $with_multi_buildlist`
+	    if [ -n "$found" ]
+	    then
+	      multidirs="${multidirs} ${x}"
+	    fi
+	  done
+	fi
+	;;
 mips*-*-*)
 	if [ x$enable_single_float = xno ]
 	then
