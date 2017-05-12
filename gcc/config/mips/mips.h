@@ -1029,6 +1029,11 @@ struct mips_cpu_info {
 				 || TARGET_FLOAT64			\
 				 || TARGET_MIPS5900)
 
+/* ISA has ADDIU48 instruction.  */
+#define ISA_HAS_ADDIU48		(TARGET_NANOMIPS == NANOMIPS_NMF)
+/* ISA has ADDU[4X4] instruction.  */
+#define ISA_HAS_ADDU4X4		(TARGET_NANOMIPS == NANOMIPS_NMF)
+
 /* ISA has a three-operand multiplication instruction (usually spelt "mul").  */
 #define ISA_HAS_MUL3		((TARGET_MIPS3900                       \
 				  || TARGET_MIPS5400			\
