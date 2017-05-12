@@ -13136,11 +13136,10 @@ replace_oacc_fn_attrib (tree fn, tree dims)
 
 /* Scan CLAUSES for launch dimensions and attach them to the oacc
    function attribute.  Push any that are non-constant onto the ARGS
-   list, along with an appropriate GOMP_LAUNCH_DIM tag.  IS_KERNEL is
-   true, if these are for a kernels region offload function.  */
+   list, along with an appropriate GOMP_LAUNCH_DIM tag.  */
 
 void
-set_oacc_fn_attrib (tree fn, tree clauses, bool is_kernel, vec<tree> *args)
+set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
 {
   /* Must match GOMP_DIM ordering.  */
   static const omp_clause_code ids[]
@@ -13165,9 +13164,6 @@ set_oacc_fn_attrib (tree fn, tree clauses, bool is_kernel, vec<tree> *args)
 	  non_const |= GOMP_DIM_MASK (ix);
 	}
       attr = tree_cons (NULL_TREE, dim, attr);
-      /* Note kernelness with TREE_PUBLIC.  */
-      if (is_kernel)
-	TREE_PUBLIC (attr) = 1;
     }
 
   replace_oacc_fn_attrib (fn, attr);
@@ -13421,16 +13417,6 @@ tree
 get_oacc_fn_attrib (tree fn)
 {
   return lookup_attribute (OACC_FN_ATTRIB, DECL_ATTRIBUTES (fn));
-}
-
-/* Return true if this oacc fn attrib is for a kernels offload
-   region.  We use the TREE_PUBLIC flag of each dimension -- only
-   need to check the first one.  */
-
-bool
-oacc_fn_attrib_kernels_p (tree attr)
-{
-  return TREE_PUBLIC (TREE_VALUE (attr));
 }
 
 /* Return level at which oacc routine may spawn a partitioned loop, or
@@ -13815,7 +13801,16 @@ expand_omp_target (struct omp_region *region)
   exit_bb = region->exit;
 
   if (gimple_omp_target_kind (entry_stmt) == GF_OMP_TARGET_KIND_OACC_KERNELS)
-    mark_loops_in_oacc_kernels_region (region->entry, region->exit);
+    {
+      mark_loops_in_oacc_kernels_region (region->entry, region->exit);
+
+      /* Further down, both OpenACC kernels and OpenACC parallel constructs
+	 will be mappted to BUILT_IN_GOACC_PARALLEL, and to distinguish the
+	 two, there is an "oacc kernels" attribute set for OpenACC kernels.  */
+      DECL_ATTRIBUTES (child_fn)
+	= tree_cons (get_identifier ("oacc kernels"),
+		     NULL_TREE, DECL_ATTRIBUTES (child_fn));
+    }
 
   if (offloaded)
     {
@@ -13995,7 +13990,6 @@ expand_omp_target (struct omp_region *region)
   enum built_in_function start_ix;
   location_t clause_loc;
   unsigned int flags_i = 0;
-  bool oacc_kernels_p = false;
 
   switch (gimple_omp_target_kind (entry_stmt))
     {
@@ -14016,8 +14010,6 @@ expand_omp_target (struct omp_region *region)
       flags_i |= GOMP_TARGET_FLAG_EXIT_DATA;
       break;
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
-      oacc_kernels_p = true;
-      /* FALLTHROUGH */
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
       start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
@@ -14179,10 +14171,8 @@ expand_omp_target (struct omp_region *region)
 	args.quick_push (get_target_arguments (&gsi, entry_stmt));
       break;
     case BUILT_IN_GOACC_PARALLEL:
-      {
-	set_oacc_fn_attrib (child_fn, clauses, oacc_kernels_p, &args);
-	tagging = true;
-      }
+      set_oacc_fn_attrib (child_fn, clauses, &args);
+      tagging = true;
       /* FALLTHRU */
     case BUILT_IN_GOACC_ENTER_EXIT_DATA:
     case BUILT_IN_GOACC_UPDATE:
@@ -20249,7 +20239,6 @@ oacc_validate_dims (tree fn, tree attrs, int *dims, int level, unsigned used)
   tree purpose[GOMP_DIM_MAX];
   unsigned ix;
   tree pos = TREE_VALUE (attrs);
-  bool is_kernel = oacc_fn_attrib_kernels_p (attrs);
 
   /* Make sure the attribute creator attached the dimension
      information.  */
@@ -20270,7 +20259,8 @@ oacc_validate_dims (tree fn, tree attrs, int *dims, int level, unsigned used)
      and/or dimensions.  */
   check = false;
 #endif
-  if (!is_kernel && check)
+  if (check
+      && !lookup_attribute ("oacc kernels", DECL_ATTRIBUTES (fn)))
     {
       static char const *const axes[] =
       /* Must be kept in sync with GOMP_DIM enumeration.  */
@@ -20326,13 +20316,8 @@ oacc_validate_dims (tree fn, tree attrs, int *dims, int level, unsigned used)
       /* Replace the attribute with new values.  */
       pos = NULL_TREE;
       for (ix = GOMP_DIM_MAX; ix--;)
-	{
-	  pos = tree_cons (purpose[ix],
-			   build_int_cst (integer_type_node, dims[ix]),
-			   pos);
-	  if (is_kernel)
-	    TREE_PUBLIC (pos) = 1;
-	}
+	pos = tree_cons (purpose[ix],
+			 build_int_cst (integer_type_node, dims[ix]), pos);
       replace_oacc_fn_attrib (fn, pos);
     }
 }
@@ -21191,10 +21176,16 @@ execute_oacc_device_lower ()
   int fn_level = oacc_fn_attrib_level (attrs);
 
   if (dump_file)
-    fprintf (dump_file, oacc_fn_attrib_kernels_p (attrs)
-	     ? "Function is kernels offload\n"
-	     : fn_level < 0 ? "Function is parallel offload\n"
-	     : "Function is routine level %d\n", fn_level);
+    {
+      if (fn_level >= 0)
+	fprintf (dump_file, "Function is OpenACC routine level %d\n",
+		 fn_level);
+      else if (lookup_attribute ("oacc kernels",
+				 DECL_ATTRIBUTES (current_function_decl)))
+	fprintf (dump_file, "Function is OpenACC kernels offload\n");
+      else
+	fprintf (dump_file, "Function is OpenACC parallel offload\n");
+    }
 
   unsigned outer_mask = fn_level >= 0 ? GOMP_DIM_MASK (fn_level) - 1 : 0;
   unsigned used_mask = oacc_loop_partition (loops, outer_mask);
