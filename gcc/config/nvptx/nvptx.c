@@ -4799,10 +4799,8 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 	 construct could not be parallelized, but only do that for -O2 and
 	 higher, as otherwise we're not expecting any parallelization to
 	 happen.  */
-      tree oacc_function_attr = oacc_get_fn_attrib (decl);
       if (optimize >= 2
-	  && oacc_function_attr
-	  && oacc_fn_attrib_kernels_p (oacc_function_attr))
+	  && lookup_attribute ("oacc kernels", DECL_ATTRIBUTES (decl)))
 	{
 	  bool avoid_offloading_p = true;
 	  for (unsigned ix = 0; ix != GOMP_DIM_MAX; ix++)

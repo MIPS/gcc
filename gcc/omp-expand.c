@@ -7142,7 +7142,16 @@ expand_omp_target (struct omp_region *region)
   exit_bb = region->exit;
 
   if (gimple_omp_target_kind (entry_stmt) == GF_OMP_TARGET_KIND_OACC_KERNELS)
-    mark_loops_in_oacc_kernels_region (region->entry, region->exit);
+    {
+      mark_loops_in_oacc_kernels_region (region->entry, region->exit);
+
+      /* Further down, both OpenACC kernels and OpenACC parallel constructs
+	 will be mappted to BUILT_IN_GOACC_PARALLEL, and to distinguish the
+	 two, there is an "oacc kernels" attribute set for OpenACC kernels.  */
+      DECL_ATTRIBUTES (child_fn)
+	= tree_cons (get_identifier ("oacc kernels"),
+		     NULL_TREE, DECL_ATTRIBUTES (child_fn));
+    }
 
   if (offloaded)
     {
@@ -7325,7 +7334,6 @@ expand_omp_target (struct omp_region *region)
   enum built_in_function start_ix;
   location_t clause_loc;
   unsigned int flags_i = 0;
-  bool oacc_kernels_p = false;
 
   switch (gimple_omp_target_kind (entry_stmt))
     {
@@ -7346,8 +7354,6 @@ expand_omp_target (struct omp_region *region)
       flags_i |= GOMP_TARGET_FLAG_EXIT_DATA;
       break;
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
-      oacc_kernels_p = true;
-      /* FALLTHROUGH */
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
       start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
@@ -7509,10 +7515,8 @@ expand_omp_target (struct omp_region *region)
 	args.quick_push (get_target_arguments (&gsi, entry_stmt));
       break;
     case BUILT_IN_GOACC_PARALLEL:
-      {
-	oacc_set_fn_attrib (child_fn, clauses, oacc_kernels_p, &args);
-	tagging = true;
-      }
+      oacc_set_fn_attrib (child_fn, clauses, &args);
+      tagging = true;
       /* FALLTHRU */
     case BUILT_IN_GOACC_ENTER_EXIT_DATA:
     case BUILT_IN_GOACC_UPDATE:
