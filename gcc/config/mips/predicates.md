@@ -29,8 +29,19 @@
   (and (match_code "const_int")
        (match_test "SMALL_OPERAND (INTVAL (op))")))
 
+(define_predicate "const_arith_operand_nu12_u16"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -0xfff, 0xffff)")))
+
 (define_predicate "arith_operand"
   (ior (match_operand 0 "const_arith_operand")
+       (match_operand 0 "register_operand")))
+
+(define_predicate "arith_operand_add"
+  (ior (and (match_test "TARGET_NANOMIPS")
+	    (match_operand 0 "const_arith_operand_nu12_u16"))
+       (and (match_test "!TARGET_NANOMIPS")
+	    (match_operand 0 "const_arith_operand"))
        (match_operand 0 "register_operand")))
 
 (define_predicate "const_immlsa_operand"
@@ -295,6 +306,10 @@
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 8, 3)")))
 
+(define_predicate "s32_operand"
+  (and (match_code "const_int")
+       (match_test "LI32_INT (op)")))
+
 (define_predicate "ub2_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 0)")))
@@ -310,6 +325,10 @@
 (define_predicate "ub8_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 0)")))
+
+(define_predicate "ubp_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 16, 0)")))
 
 (define_predicate "uh2_operand"
   (and (match_code "const_int")
@@ -338,6 +357,10 @@
 (define_predicate "uw8_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 2)")))
+
+(define_predicate "unbc_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -0xfff, 0)")))
 
 (define_predicate "addiur2_operand"
   (and (match_code "const_int")
