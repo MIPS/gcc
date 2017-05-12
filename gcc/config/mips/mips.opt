@@ -303,6 +303,10 @@ mmicromips
 Target Report Mask(MICROMIPS)
 Use microMIPS instructions.
 
+mnanomips
+Target Report Mask(NANOMIPS)
+Use nanoMIPS instructions.
+
 mmsa
 Target Report Var(TARGET_MSA)
 Use MIPS MSA Extension instructions.
