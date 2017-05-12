@@ -295,6 +295,15 @@ struct mips_cpu_info {
 #define TARGET_XLP                  (mips_arch == PROCESSOR_XLP)
 #define TARGET_INTERAPTIV_MR2	    (mips_arch == PROCESSOR_INTERAPTIV_MR2)
 
+/* TARGET_NANOMIPS specifies the ISA level:
+   0 - non-nanoMIPS target
+   1 - nanoMIPS Subset (NMS)
+   2 - full nanoMIPS (NMF)
+*/
+#define TARGET_NANOMIPS		    0
+#define NANOMIPS_NMS		    1
+#define NANOMIPS_NMF		    2
+
 /* Scheduling target defines.  */
 #define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
 #define TUNE_24K		    (mips_tune == PROCESSOR_24KC	\
