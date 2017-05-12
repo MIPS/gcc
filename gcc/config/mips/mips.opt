@@ -116,11 +116,11 @@ Target Report RejectNegative InverseMask(SINGLE_FLOAT, DOUBLE_FLOAT)
 Allow hardware floating-point instructions to cover both 32-bit and 64-bit operations.
 
 mdsp
-Target Report Var(TARGET_DSP) Condition(MIPS_SUPPORT_DSP)
+Target Report Var(TARGET_DSP)
 Use MIPS-DSP instructions.
 
 mdspr2
-Target Report Var(TARGET_DSPR2) Condition(MIPS_SUPPORT_DSP)
+Target Report Var(TARGET_DSPR2) Condition({defined (MIPS_SUPPORT_DSP) && !defined (NANOMIPS_SUPPORT)})
 Use MIPS-DSP REV 2 instructions.
 
 mdspr3

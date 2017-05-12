@@ -141,7 +141,7 @@ mep*-*-*)
 microblaze*-*-*)
 	cpu_type=microblaze
 	;;
-mips*-*-*)
+mips*-*-* | nanomips*-*-*)
 	# All MIPS targets provide a full set of FP routines.
 	cpu_type=mips
 	tmake_file="mips/t-mips"
@@ -945,6 +945,10 @@ moxie-*-elf | moxie-*-moxiebox* | moxie-*-uclinux* | moxie-*-rtems*)
 msp430*-*-elf)
 	tmake_file="$tm_file t-crtstuff t-fdpbit msp430/t-msp430"
         extra_parts="$extra_parts libmul_none.a libmul_16.a libmul_32.a libmul_f5.a"
+	;;
+nanomips*-img-elf*)
+	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff"
+	extra_parts="$extra_parts crti.o crtn.o"
 	;;
 nds32*-elf*)
 	# Basic makefile fragment and extra_parts for crt stuff.
