@@ -6122,10 +6122,16 @@
    (clobber (match_scratch:P 0 "=d"))]
   "ISA_HAS_SYNCI && TARGET_MICROMIPS_R6"
 {
-  return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
-	 "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
-	 "\tjrc.hb\t%0\n"
-	 "1:%>%)";
+  if(TARGET_MICROMIPS_R7)
+    return "%(%<aluipc\t%0,%%pcrel_hi(1f)\n"
+		 "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
+		 "\tjrc.hb\t%0\n"
+		 "1:%>%)";
+  else
+    return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
+		 "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
+		 "\tjrc.hb\t%0\n"
+		 "1:%>%)";
 }
   [(set_attr "insn_count" "3")])
 
