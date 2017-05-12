@@ -303,6 +303,7 @@ OPTAB_D (reduc_umin_scal_optab, "reduc_umin_scal_$a")
 OPTAB_D (reduc_and_scal_optab,  "reduc_and_scal_$a")
 OPTAB_D (reduc_ior_scal_optab,  "reduc_ior_scal_$a")
 OPTAB_D (reduc_xor_scal_optab,  "reduc_xor_scal_$a")
+OPTAB_D (strict_reduc_plus_scal_optab, "strict_reduc_plus_scal_$a")
 
 OPTAB_D (break_after_optab, "break_after_$a")
 OPTAB_D (extract_last_optab, "extract_last_$a")

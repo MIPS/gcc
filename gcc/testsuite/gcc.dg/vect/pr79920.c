@@ -41,4 +41,5 @@ int main()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_double && { vect_perm && vect_hw_misalign } } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { { vect_double && { ! vect_ieee_add_reduc } } && { vect_perm && vect_hw_misalign } } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect" { target { { vect_double && vect_ieee_add_reduc } && { vect_perm && vect_hw_misalign } } } } } */

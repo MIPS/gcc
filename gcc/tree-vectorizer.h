@@ -1260,6 +1260,7 @@ extern void vect_model_load_cost (stmt_vec_info, int, vect_memory_access_type,
 extern unsigned record_stmt_cost (stmt_vector_for_cost *, int,
 				  enum vect_cost_for_stmt, stmt_vec_info,
 				  int, enum vect_cost_model_location);
+extern void vect_finish_replace_stmt (gimple *, gimple *);
 extern void vect_finish_stmt_generation (gimple *, gimple *,
                                          gimple_stmt_iterator *);
 extern bool vect_mark_stmts_to_be_vectorized (loop_vec_info);
@@ -1339,7 +1340,7 @@ extern unsigned int vect_known_alignment_in_elements (gimple *);
 /* FORNOW: Used in tree-parloops.c.  */
 extern void destroy_loop_vec_info (loop_vec_info, bool);
 extern gimple *vect_force_simple_reduction (loop_vec_info, gimple *, bool,
-					    bool *, bool);
+					    bool *, bool *, bool);
 /* Drive for loop analysis stage.  */
 extern loop_vec_info vect_analyze_loop (struct loop *, loop_vec_info);
 extern tree vect_build_loop_niters (loop_vec_info);
