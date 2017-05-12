@@ -472,8 +472,26 @@
 		(const_string "yes")
 		(const_string "no")))
 
-(define_attr "compression" "none,all,micromips32,micromips"
+(define_attr "compress_as" "none,all,micro_or_nano32,micro_or_nano"
   (const_string "none"))
+
+(define_attr "compression" "none,all,micromips32,micromips,
+			    nanomips48,nanomips32,nanomips"
+  (cond [(and (eq_attr "compress_as" "micro_or_nano")
+	      (match_test "TARGET_MICROMIPS"))
+	 (const_string "micromips")
+	 (and (eq_attr "compress_as" "micro_or_nano")
+	      (match_test "TARGET_NANOMIPS"))
+	 (const_string "nanomips")
+	 (and (eq_attr "compress_as" "micro_or_nano32")
+	      (match_test "TARGET_MICROMIPS"))
+	 (const_string "micromips32")
+	 (and (eq_attr "compress_as" "micro_or_nano32")
+	      (match_test "TARGET_NANOMIPS"))
+	 (const_string "nanomips32")
+	 (eq_attr "compress_as" "all")
+	 (const_string "all")]
+	(const_string "none")))
 
 (define_attr "enabled" "no,yes"
   (cond [;; The o32 FPXX and FP64A ABI extensions prohibit direct moves between
@@ -485,6 +503,9 @@
 	 (const_string "no")
 	 (and (eq_attr "compression" "micromips32,micromips")
 	      (match_test "!TARGET_MICROMIPS"))
+	 (const_string "no")
+	 (and (eq_attr "compression" "nanomips32,nanomips")
+	      (match_test "!TARGET_NANOMIPS"))
 	 (const_string "no")]
 	(const_string "yes")))
 
@@ -581,6 +602,9 @@
 	       (eq_attr "dword_mode" "no")
 	       (match_test "TARGET_MICROMIPS"))
 	  (const_int 2)
+	  (and (eq_attr "compression" "nanomips48")
+	       (match_test "TARGET_NANOMIPS"))
+	  (const_int 6)
 
 	  ;; Direct microMIPS branch instructions have a range of
 	  ;; [-0x10000,0xfffe], otherwise the range is [-0x20000,0x1fffc].
@@ -1059,8 +1083,8 @@
 				  (xor "xori")
 				  (and "andi")])
 
-(define_code_attr shift_compression [(ashift "micromips32")
-				     (lshiftrt "micromips32")
+(define_code_attr shift_compression [(ashift "micro_or_nano32")
+				     (lshiftrt "micro_or_nano32")
 				     (ashiftrt "none")])
 
 ;; <fcond> is the c.cond.fmt condition associated with a particular code.
@@ -1497,7 +1521,7 @@
   ""
   "<d>subu\t%0,%1,%2"
   [(set_attr "alu_type" "sub")
-   (set_attr "compression" "micromips32,*")
+   (set_attr "compress_as" "micro_or_nano32,*")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*subsi3_extended"
@@ -3247,7 +3271,7 @@
     return "nor\t%0,%.,%1";
 }
   [(set_attr "alu_type" "not")
-   (set_attr "compression" "micromips,*")
+   (set_attr "compress_as" "micro_or_nano,*")
    (set_attr "mode" "<MODE>")])
 
 ;;
@@ -3331,7 +3355,7 @@
     }
 }
   [(set_attr "move_type" "load,load,load,andi,andi,andi,andi,ext_ins,shift_shift,logical,logical,ext_ins")
-   (set_attr "compression" "*,*,*,micromips,micromips,micromips,*,*,*,micromips,*,*")
+   (set_attr "compress_as" "*,*,*,micro_or_nano,micro_or_nano,micro_or_nano,*,*,*,micro_or_nano,*,*")
    (set_attr "mode" "<MODE>")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "3,4")
@@ -3414,7 +3438,7 @@
    or\t%0,%1,%2
    ori\t%0,%1,%x2"
   [(set_attr "alu_type" "or")
-   (set_attr "compression" "micromips,*,*")
+   (set_attr "compress_as" "micro_or_nano,*,*")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*ior<mode>3_mips16_asmacro"
@@ -3455,7 +3479,7 @@
    xor\t%0,%1,%2
    xori\t%0,%1,%x2"
   [(set_attr "alu_type" "xor")
-   (set_attr "compression" "micromips,*,*")
+   (set_attr "compress_as" "micro_or_nano,*,*")
    (set_attr "mode" "<MODE>")])
 
 ;; We increase statically the cost of the output register for XORI
@@ -3659,7 +3683,7 @@
     }
 }
   [(set_attr "move_type" "andi,andi,andi,load")
-   (set_attr "compression" "micromips,micromips,*,*")
+   (set_attr "compress_as" "micro_or_nano,micro_or_nano,*,*")
    (set_attr "mode" "<GPR:MODE>")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "1")
@@ -4989,7 +5013,7 @@
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,move")
-   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*,*")
+   (set_attr "compress_as" "all,micro_or_nano,micro_or_nano,*,*,micro_or_nano,micro_or_nano,*,micro_or_nano,micro_or_nano,*,*,*,*,*,*,*,*,*,*,*,*,*,*")
    (set_attr "mode" "SI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "23")
@@ -5136,7 +5160,7 @@
        || reg_or_0_operand (operands[1], HImode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo,move")
-   (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*,*")
+   (set_attr "compress_as" "all,micro_or_nano,*,micro_or_nano,*,micro_or_nano,*,*,*,*")
    (set_attr "mode" "HI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "9")
@@ -5218,7 +5242,7 @@
        || reg_or_0_operand (operands[1], QImode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo")
-   (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*")
+   (set_attr "compress_as" "all,micro_or_nano,*,micro_or_nano,*,micro_or_nano,*,*,*")
    (set_attr "mode" "QI")])
 
 (define_insn "*movqi_mips16"
@@ -5925,7 +5949,7 @@
   return "<d><insn>\t%0,%1,%2";
 }
   [(set_attr "type" "shift")
-   (set_attr "compression" "<shift_compression>,none")
+   (set_attr "compress_as" "<shift_compression>,none")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*<optab>si3_extend"

@@ -347,7 +347,7 @@ m68*-*-*)
 	  done
 	fi
 	;;
-mips*-*-*)
+mips*-*-* | nanomips*-*-*)
 	if [ x$enable_single_float = xno ]
 	then
 	  old_multidirs="${multidirs}"

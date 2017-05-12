@@ -232,7 +232,8 @@ struct mips_cpu_info {
 				     || ISA_HAS_MSA))
 
 /* The ISA compression flags that are currently in effect.  */
-#define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS))
+#define TARGET_COMPRESSION (target_flags & (MASK_MIPS16 | MASK_MICROMIPS \
+					    | MASK_NANOMIPS))
 
 /* Generate mips16 code */
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
@@ -276,12 +277,12 @@ struct mips_cpu_info {
 #define ISA_MIPS32R2		    (mips_isa == 33)
 #define ISA_MIPS32R3		    (mips_isa == 34)
 #define ISA_MIPS32R5		    (mips_isa == 36)
-#define ISA_MIPS32R6		    (mips_isa == 37)
+#define ISA_MIPS32R6		    (mips_isa == 37 || mips_isa == 38)
 #define ISA_MIPS64                  (mips_isa == 64)
 #define ISA_MIPS64R2		    (mips_isa == 65)
 #define ISA_MIPS64R3		    (mips_isa == 66)
 #define ISA_MIPS64R5		    (mips_isa == 68)
-#define ISA_MIPS64R6		    (mips_isa == 69)
+#define ISA_MIPS64R6		    (mips_isa == 69 || mips_isa == 70)
 
 /* Architecture target defines.  */
 #define TARGET_LOONGSON_2E          (mips_arch == PROCESSOR_LOONGSON_2E)
@@ -873,8 +874,8 @@ struct mips_cpu_info {
 /* Infer a -msynci setting from a -mips argument, on the assumption that
    -msynci is desired where possible.  */
 #define MIPS_ISA_SYNCI_SPEC \
-  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6|mips64r2 \
-			  |mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
+  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6 \
+     |mips64r2|mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
 
 /* Infer a -mnan=2008 setting from a -mips argument.  */
 #define MIPS_ISA_NAN2008_SPEC \
@@ -936,12 +937,17 @@ struct mips_cpu_info {
    -mdsp setting from a -march argument.  */
 #define BASE_DRIVER_SELF_SPECS \
   MIPS_ISA_NAN2008_SPEC,       \
+  "%{mips32r6: %{!mno-nanomips: -mnanomips} \
+	       %{!mcheck-zero-division: -mno-check-zero-division} \
+	       %{!mno-explicit-relocs: -mexplicit-relocs} \
+	       %{!-fuse-ld=*: -fuse-ld=gold}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mforbidden-slots: \
-     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}" \
+     %{mips32r6|mips64r6: \
+       %{mmicromips|mnanomips:-mno-forbidden-slots}}}" \
   "%{!mno-mips16e2: \
      %{march=interaptiv-mr2: -mmips16e2}}"
 
@@ -986,7 +992,8 @@ struct mips_cpu_info {
 #define ISA_HAS_JR		(mips_isa_rev <= 5)
 
 #define ISA_HAS_DELAY_SLOTS	(mips_isa_rev <= 5			\
-				 || !TARGET_MICROMIPS)
+				 || (!TARGET_MICROMIPS			\
+				     && !TARGET_NANOMIPS))
 
 #define ISA_HAS_COMPACT_BRANCHES (mips_isa_rev >= 6)
 
@@ -1307,7 +1314,8 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS3900			\
 				 && !TARGET_MIPS5900			\
 				 && !TARGET_MIPS16			\
-				 && !TARGET_MICROMIPS)
+				 && !TARGET_MICROMIPS			\
+				 && !TARGET_NANOMIPS)
 
 /* Likewise mtc1 and mfc1.  */
 #define ISA_HAS_XFER_DELAY	(mips_isa <= 3			\
@@ -1435,6 +1443,7 @@ struct mips_cpu_info {
 %{mips32*} %{mips64*} \
 %{mips16} %{mno-mips16:-no-mips16} \
 %{mmicromips} %{mno-micromips} \
+%{mnanomips} %{mno-nanomips} \
 %{mips3d} %{mno-mips3d:-no-mips3d} \
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
@@ -3362,6 +3371,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 extern unsigned int mips_base_compression_flags;
 extern GTY(()) struct target_globals *mips16_globals;
 extern GTY(()) struct target_globals *micromips_globals;
+extern GTY(()) struct target_globals *nanomips_globals;
 
 /* Information about a function's frame layout.  */
 struct GTY(())  mips_frame_info {
