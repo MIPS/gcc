@@ -6701,29 +6701,40 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	      *op0 = mips_zero_if_equal (cmp_op0, cmp_op1);
 	      *op1 = const0_rtx;
 	    }
+	  else if (TARGET_NANOMIPS
+		   && const_uimm7_operand (cmp_op1, GET_MODE (cmp_op1)))
+	    ;
 	  else
 	    *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
 	}
       else if (!need_eq_ne_p && TARGET_CB_MAYBE)
 	{
 	  bool swap = false;
+	  bool const_add_one = false;
+	  bool force_reg_p = true;
 	  switch (*code)
 	    {
 	    case LE:
-	      swap = true;
-	      *code = GE;
-	      break;
 	    case GT:
-	      swap = true;
-	      *code = LT;
-	      break;
 	    case LEU:
-	      swap = true;
-	      *code = GEU;
-	      break;
 	    case GTU:
-	      swap = true;
-	      *code = LTU;
+	      if (TARGET_NANOMIPS
+		  && const_uimm7_operand (cmp_op1, GET_MODE (cmp_op1)))
+		{
+		  const_add_one = true;
+		  switch (*code)
+		    {
+		    case LE: *code = LT; break;
+		    case LEU: *code = LTU; break;
+		    case GT: *code = GE; break;
+		    case GTU: *code = GEU; break;
+		    }
+		}
+	      else
+		{
+		  swap = true;
+		  *code = swap_condition (*code);
+		}
 	      break;
 	    case GE:
 	    case LT:
@@ -6734,7 +6745,29 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	    default:
 	      gcc_unreachable ();
 	    }
-	  *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
+	  if (TARGET_NANOMIPS
+	      && !swap
+	      && const_uimm7_operand (cmp_op1, GET_MODE (cmp_op1)))
+	    {
+	      if (const_add_one)
+		{
+		  rtx val_plus_one = GEN_INT (INTVAL (cmp_op1) + 1);
+
+		  if (const_uimm7_operand (val_plus_one,
+					   GET_MODE (val_plus_one)))
+		    {
+		      *op1 = val_plus_one;
+		      force_reg_p = false;
+		    }
+		  else
+		    cmp_op1 = val_plus_one;
+		}
+	      else
+		force_reg_p = false;
+	    }
+
+	  if (force_reg_p)
+	    *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
 	  if (swap)
 	    {
 	      rtx tmp = *op1;
@@ -10304,6 +10337,17 @@ mips_init_print_operand_punct (void)
 static void
 mips_print_int_branch_condition (FILE *file, enum rtx_code code, int letter)
 {
+  const char *code_name = "";
+
+  if (letter == 'i' || letter == 'I')
+    switch (code)
+      {
+      case GEU: code_name = "geiu"; break;
+      case LTU: code_name = "ltiu"; break;
+      default:
+	break;
+      }
+
   switch (code)
     {
     case EQ:
@@ -10316,9 +10360,17 @@ mips_print_int_branch_condition (FILE *file, enum rtx_code code, int letter)
     case GEU:
     case LTU:
     case LEU:
-      /* Conveniently, the MIPS names for these conditions are the same
-	 as their RTL equivalents.  */
-      fputs (GET_RTX_NAME (code), file);
+      if ((code == GEU || code == LTU)
+	  && (letter == 'i' || letter == 'I'))
+	fputs (code_name, file);
+      else
+	{
+	  /* Conveniently, the MIPS names for these conditions are the same
+	     as their RTL equivalents.  */
+	  fputs (GET_RTX_NAME (code), file);
+	  if (letter == 'i' || letter == 'I')
+	    fputs ("i", file);
+	}
       break;
 
     default:
@@ -10377,6 +10429,9 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'R'	Print the low-part relocation associated with OP.
    'C'	Print the integer branch condition for comparison OP.
    'N'	Print the inverse of the integer branch condition for comparison OP.
+   'i'	Print the integer branch condition for comparison OP with immediate.
+   'I'	Print the inverse of the integer branch condition for comparison OP
+	  with immediate.
    'F'	Print the FPU branch condition for comparison OP.
    'W'	Print the inverse of the FPU branch condition for comparison OP.
    'w'	Print a MSA register.
@@ -10504,10 +10559,12 @@ mips_print_operand (FILE *file, rtx op, int letter)
       break;
 
     case 'C':
+    case 'i':
       mips_print_int_branch_condition (file, code, letter);
       break;
 
     case 'N':
+    case 'I':
       mips_print_int_branch_condition (file, reverse_condition (code), letter);
       break;
 
@@ -16474,7 +16531,9 @@ mips_adjust_insn_length (rtx_insn *insn, int length)
   /* A unconditional jump has an unfilled delay slot if it is not part
      of a sequence.  A conditional jump normally has a delay slot, but
      does not on MIPS16.  */
-  if (CALL_P (insn) || (TARGET_MIPS16 ? simplejump_p (insn) : JUMP_P (insn)))
+  if (CALL_P (insn)
+      || (TARGET_MIPS16 ? simplejump_p (insn)
+			: (TARGET_NANOMIPS ? false : JUMP_P (insn))))
     length += TARGET_MIPS16 ? 2 : 4;
 
   /* See how many nops might be needed to avoid hardware hazards.  */
@@ -16588,7 +16647,8 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   gcc_assert (LABEL_P (operands[0]));
 
   length = get_attr_length (insn);
-  if (length <= 8)
+  if ((!TARGET_NANOMIPS && length <= 8)
+      || (TARGET_NANOMIPS && length <= 4))
     {
       /* Just a simple conditional branch.  */
       mips_branch_likely = (final_sequence && INSN_ANNULLED_BRANCH_P (insn));
@@ -16627,7 +16687,7 @@ mips_output_conditional_branch (rtx_insn *insn, rtx *operands,
   if (TARGET_ABSOLUTE_JUMPS && TARGET_CB_MAYBE)
     {
       /* Add a hazard nop.  */
-      if (!final_sequence)
+      if (!final_sequence && get_attr_hazard (insn) != HAZARD_NONE)
 	{
 	  output_asm_insn ("nop\t\t# hazard nop", 0);
 	  fprintf (asm_out_file, "\n");
@@ -16702,6 +16762,11 @@ mips_output_equal_conditional_branch (rtx_insn* insn, rtx *operands,
 	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1z", "%2,%0");
 	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1z", "%2,%0");
 	}
+      else if (CONST_INT_P (operands[3]) && TARGET_NANOMIPS)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1i", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1i", "%2,%3,%0");
+	}
       else if (REGNO (operands[2]) != REGNO (operands[3]))
 	{
 	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1", "%2,%3,%0");
@@ -16743,8 +16808,10 @@ mips_output_order_conditional_branch (rtx_insn *insn, rtx *operands,
   if (operands[3] != const0_rtx)
     {
       /* Handle degenerate cases that should not, but do, occur.  */
-      if (REGNO (operands[2]) == REGNO (operands[3]))
+      if (REG_P (operands[3])
+	  && REGNO (operands[2]) == REGNO (operands[3]))
 	{
+	  gcc_assert (REG_P (operands[2]));
 	  switch (GET_CODE (operands[1]))
 	    {
 	    case LT:
@@ -16759,6 +16826,11 @@ mips_output_order_conditional_branch (rtx_insn *insn, rtx *operands,
 	   default:
 	      gcc_unreachable ();
 	    }
+	}
+      else if (CONST_INT_P (operands[3]) && TARGET_NANOMIPS)
+	{
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%i1", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%I1", "%2,%3,%0");
 	}
       else
 	{
@@ -17283,7 +17355,12 @@ mips_output_division (const char *division, rtx *operands)
 	}
       else
 	{
-	  if (flag_delayed_branch)
+	  if (ISA_HAS_COMPACT_BRANCHES)
+	    {
+	      output_asm_insn (s, operands);
+	      s = "bnec\t%2,%.,1f\n\tbreak\t7\n1:";
+	    }
+	  else if (flag_delayed_branch)
 	    {
 	      output_asm_insn ("%(bne\t%2,%.,1f", operands);
 	      output_asm_insn (s, operands);

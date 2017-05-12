@@ -146,6 +146,9 @@
 (define_attr "jal" "unset,direct,indirect"
   (const_string "unset"))
 
+(define_attr "cbranch_cmp_op" "unset,reg,imm,zero,c1zero"
+  (const_string "unset"))
+
 ;; This attribute is YES if the instruction is a jal macro (not a
 ;; real jal instruction).
 ;;
@@ -599,17 +602,39 @@
 	  ;; from the shorten_branches reference address.
 	  (and (eq_attr "type" "branch")
 	       (not (match_test "TARGET_MIPS16")))
-	  (cond [;; Any variant can handle the 17-bit range.
-		 (and (le (minus (match_dup 0) (pc)) (const_int 65532))
+	  (cond [;; Variant that can handle 11-bit range when the second
+		 ;; operand is an immediate.
+		 (and (match_test "TARGET_NANOMIPS")
+		      (eq_attr "cbranch_cmp_op" "imm")
+		      (and (le (minus (match_dup 0) (pc)) (const_int 2046))
+			   (le (minus (pc) (match_dup 0)) (const_int 2048))))
+		   (const_int 4)
+		 ;; Variant that can handle 14-bit range.
+		 (and (match_test "TARGET_NANOMIPS")
+		      (ior (and (match_test "TARGET_HARD_FLOAT")
+				(eq_attr "cbranch_cmp_op" "c1zero"))
+			   (eq_attr "cbranch_cmp_op" "zero")
+			   (eq_attr "cbranch_cmp_op" "reg"))
+		      (and (le (minus (match_dup 0) (pc)) (const_int 16382))
+			   (le (minus (pc) (match_dup 0)) (const_int 16384))))
+		   (const_int 4)
+
+		 ;; Any variant can handle the 17-bit range.
+		 (and (not (match_test "TARGET_NANOMIPS"))
+		      (le (minus (match_dup 0) (pc)) (const_int 65532))
 		      (le (minus (pc) (match_dup 0)) (const_int 65534)))
 		   (const_int 4)
 
 		 ;; The 18-bit range is OK other than for microMIPS.
-		 (and (not (match_test "TARGET_MICROMIPS"))
+		 (and (not (match_test "TARGET_MICROMIPS || TARGET_NANOMIPS"))
 		      (and (le (minus (match_dup 0) (pc)) (const_int 131064))
 		      	   (le (minus (pc) (match_dup 0)) (const_int 131068))))
 		   (const_int 4)
 
+		 ;; The non-PIC case: branch, and J.
+		 (and (match_test "TARGET_NANOMIPS")
+		      (match_test "TARGET_ABSOLUTE_JUMPS"))
+		   (const_int 8)
 		 ;; The non-PIC case: branch, first delay slot, and J.
 		 (match_test "TARGET_ABSOLUTE_JUMPS")
 		   (const_int 12)]
@@ -6273,7 +6298,7 @@
 	 (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  if (TARGET_MICROMIPS_R6)
+  if (ISA_HAS_COMPACT_BRANCHES == 2)
     return mips_output_conditional_branch (insn, operands,
 					   MIPS_BRANCH_C ("b%F1", "%Z2%0"),
 					   MIPS_BRANCH_C ("b%W1", "%Z2%0"));
@@ -6283,9 +6308,11 @@
 					   MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
   [(set_attr "type" "branch")
-   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
-					    (const_string "always")
-					    (const_string "never")))
+   (set_attr "cbranch_cmp_op" "c1zero")
+   (set (attr "compact_form") (if_then_else
+				(match_test "ISA_HAS_COMPACT_BRANCHES == 2")
+				(const_string "always")
+				(const_string "never")))
    (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
 				      (const_string "forbidden_slot")
 				      (const_string "none")))])
@@ -6300,7 +6327,7 @@
 	 (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  if (TARGET_MICROMIPS_R6)
+  if (ISA_HAS_COMPACT_BRANCHES == 2)
     return mips_output_conditional_branch (insn, operands,
 					   MIPS_BRANCH_C ("b%W1", "%Z2%0"),
 					   MIPS_BRANCH_C ("b%F1", "%Z2%0"));
@@ -6310,9 +6337,11 @@
 					   MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
   [(set_attr "type" "branch")
-   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
-					    (const_string "always")
-					    (const_string "never")))
+   (set_attr "cbranch_cmp_op" "c1zero")
+   (set (attr "compact_form") (if_then_else
+				(match_test "ISA_HAS_COMPACT_BRANCHES == 2")
+				(const_string "always")
+				(const_string "never")))
    (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
 				      (const_string "forbidden_slot")
 				      (const_string "none")))])
@@ -6323,29 +6352,47 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "order_operator"
-			 [(match_operand:GPR 2 "register_operand" "d,d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "J,d")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "J,d,Uub7")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
-   (set_attr "compact_form" "maybe,always")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "cbranch_cmp_op" "zero,reg,imm")
+   (set_attr "compact_form" "maybe,always,always")
+   (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
+					   (match_test "TARGET_NANOMIPS"))
+				      (const_string "none")
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*branch_order<mode>_inverted"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "order_operator"
-			 [(match_operand:GPR 2 "register_operand" "d,d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "J,d")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "J,d,Uub7")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
-   (set_attr "compact_form" "maybe,always")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "cbranch_cmp_op" "zero,reg,imm")
+   (set_attr "compact_form" "maybe,always,always")
+   (set (attr "hazard") (if_then_else (ior (match_test "TARGET_MICROMIPS_R6")
+					   (match_test "TARGET_NANOMIPS"))
+				      (const_string "none")
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 ;; Conditional branch on equality comparison.
 
@@ -6353,29 +6400,46 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "equality_operator"
-			 [(match_operand:GPR 2 "register_operand" "d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "d,J,Uub7")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
   { return mips_output_equal_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "reg,zero,imm")
    (set_attr "compact_form" "maybe")
-   (set_attr "hazard" "forbidden_slot")])
+   (set (attr "hazard") (if_then_else (match_test "TARGET_NANOMIPS")
+				      (const_string "none")
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "equality_operator"
-			 [(match_operand:GPR 2 "register_operand" "d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_0_or_uimm7_operand" "d,J,Uub7")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
   { return mips_output_equal_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
+   (set_attr "cbranch_cmp_op" "reg,zero,imm")
    (set_attr "compact_form" "maybe")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "hazard" "forbidden_slot")
+   (set (attr "hazard") (if_then_else (match_test "TARGET_NANOMIPS")
+				      (const_string "none")
+				      (const_string "forbidden_slot")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 ;; MIPS16 branches
 
@@ -6406,6 +6470,59 @@
    b%N1z\t%2,%0
    bt%N1z\t%0"
   [(set_attr "type" "branch")])
+
+;; Peepholes to combine scc and branch instructions where combine
+;; does not see the XORI/SEQ/BEQ sequence as an BNEI.
+
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+	(xor:SI (match_operand:SI 1 "register_operand")
+		(match_operand:SI 2 "const_uimm7_operand")))
+   (set (match_operand:SI 3 "register_operand")
+	(eq:SI (match_dup 0)
+	       (const_int 0)))
+   (set (pc)
+	(if_then_else
+	 (eq
+			 (match_dup 3)
+			  (const_int 0))
+	 (label_ref (match_operand 5 ""))
+	 (pc)))]
+  "TARGET_NANOMIPS
+   && peep2_reg_dead_p (3, operands[0])
+   && peep2_reg_dead_p (3, operands[3])"
+  [(set (pc)
+	(if_then_else
+	 (ne
+			 (match_dup 1)
+			  (match_dup 2))
+	 (label_ref (match_dup 5))
+	 (pc)))])
+
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+	(xor:SI (match_operand:SI 1 "register_operand")
+		(match_operand:SI 2 "const_uimm7_operand")))
+   (set (match_operand:SI 3 "register_operand")
+	(ne:SI (match_dup 0)
+	       (const_int 0)))
+   (set (pc)
+	(if_then_else
+	 (eq
+			 (match_dup 3)
+			  (const_int 0))
+	 (label_ref (match_operand 5 ""))
+	 (pc)))]
+  "TARGET_NANOMIPS
+   && peep2_reg_dead_p (3, operands[0])
+   && peep2_reg_dead_p (3, operands[3])"
+  [(set (pc)
+	(if_then_else
+	 (eq
+			 (match_dup 1)
+			  (match_dup 2))
+	 (label_ref (match_dup 5))
+	 (pc)))])
 
 (define_expand "cbranch<mode>4"
   [(set (pc)

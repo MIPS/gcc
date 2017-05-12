@@ -60,6 +60,10 @@
   (and (match_code "const_int")
        (match_test "UIMM6_OPERAND (INTVAL (op))")))
 
+(define_predicate "const_uimm7_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 127)")))
+
 (define_predicate "const_uimm8_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 255)")))
@@ -138,6 +142,11 @@
   (ior (and (match_operand 0 "const_0_operand")
 	    (not (match_test "TARGET_MIPS16")))
        (match_operand 0 "nonimmediate_operand")))
+
+(define_predicate "reg_0_or_uimm7_operand"
+  (ior (and (match_test "TARGET_NANOMIPS")
+	    (match_operand 0 "const_uimm7_operand"))
+       (match_operand 0 "reg_or_0_operand")))
 
 (define_predicate "const_1_operand"
   (and (match_code "const_int,const_double,const_vector")
@@ -289,6 +298,10 @@
 (define_predicate "ub4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 4, 0)")))
+
+(define_predicate "ub7_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 7, 0)")))
 
 (define_predicate "ub8_operand"
   (and (match_code "const_int")
@@ -609,6 +622,15 @@
 {
   if (XEXP (op, 1) == const0_rtx)
     return true;
+
+  if (TARGET_NANOMIPS
+      && const_uimm7_operand (XEXP (op, 1), mode)
+      && (GET_CODE (op) == LT || GET_CODE (op) == LTU
+	  || GET_CODE (op) == GE || GET_CODE (op) == GEU))
+    return true;
+
+  if (CONST_INT_P (XEXP (op, 1)))
+    return false;
 
   if (TARGET_CB_MAYBE
       && (GET_CODE (op) == LT || GET_CODE (op) == LTU
