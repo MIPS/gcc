@@ -226,6 +226,11 @@
    A signed constant of 8 bits, shifted left three places."
   (match_operand 0 "sd8_operand"))
 
+(define_constraint "Uub7"
+  "@internal
+   An unsigned constant of 7 bits."
+  (match_operand 0 "ub7_operand"))
+
 (define_constraint "Uub8"
   "@internal
    An unsigned constant of 8 bits."
