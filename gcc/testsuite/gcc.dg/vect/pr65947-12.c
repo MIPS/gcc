@@ -42,4 +42,5 @@ main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "LOOP VECTORIZED" 2 "vect" { xfail { ! vect_max_reduc } } } } */
-/* { dg-final { scan-tree-dump-not "condition expression based on integer induction." "vect" } } */
+/* { dg-final { scan-tree-dump-times "Optimizing condition reduction with CLASTB" 4 "vect" { target vect_last_reduc } } } */
+/* { dg-final { scan-tree-dump-not "Optimizing condition reduction" "vect" { target { ! vect_last_reduc } } } } */
