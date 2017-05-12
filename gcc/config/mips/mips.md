@@ -5730,9 +5730,9 @@
   "ISA_HAS_SYNCI && TARGET_MICROMIPS_R6"
 {
   return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
-	 "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
-	 "\tjrc.hb\t%0\n"
-	 "1:%>%)";
+	       "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
+	       "\tjrc.hb\t%0\n"
+	       "1:%>%)";
 }
   [(set_attr "insn_count" "3")])
 
@@ -5741,11 +5741,17 @@
    (clobber (match_scratch:P 0 "=d"))]
   "ISA_HAS_SYNCI && ISA_HAS_R6MUL && !TARGET_MICROMIPS_R6"
 {
-  return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
-	 "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
-	 "\tjr.hb\t%0\n"
-	 "\tnop\n"
-	 "1:%>%)";
+  if (TARGET_NANOMIPS)
+    return "%(%<aluipc\t%0,%%pcrel_hi(1f)\n"
+	   "\t<d>addiu\t%0,%0,%%lo(1f)\n"
+	   "\tjrc.hb\t%0\n"
+	   "1:%>%)";
+  else
+    return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
+	   "\t<d>addiu\t%0,%0,%%pcrel_lo(1f+4)\n"
+	   "\tjr.hb\t%0\n"
+	   "\tnop\n"
+	   "1:%>%)";
 }
   [(set_attr "insn_count" "4")])
 
