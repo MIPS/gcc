@@ -1,3 +1,7 @@
+2017-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/implicit_copy.f90: New test.
+
 2017-07-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/update-2.c: Update.

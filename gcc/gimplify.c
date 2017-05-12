@@ -8696,10 +8696,15 @@ gomp_needs_data_present (tree decl)
 	break;
 
       for (c = ctx->clauses; c; c = OMP_CLAUSE_CHAIN (c))
-	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-	    && (omp_clause_matching_array_ref (c, decl)
-		|| OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER))
+	{
+	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+	    continue;
+	  if (omp_clause_matching_array_ref (c, decl))
+	    return c;
+	  else if (OMP_CLAUSE_DECL (c) == decl
+	      && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
 	  return c;
+	}
     }
 
   return NULL_TREE;
