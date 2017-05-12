@@ -367,6 +367,15 @@
    "@internal"
    (match_operand 0 "bit_clear_operand"))
 
+(define_memory_constraint "ZE"
+  "@internal
+  A non-indexed memory address."
+  (and (match_code "mem")
+       (match_test "mips_legitimate_address_p (mode, XEXP (op, 0), 0)")
+       (not (and (match_test "GET_CODE (XEXP (op, 0)) == PLUS")
+		 (ior (match_test "mips_index_address_p (XEXP (op, 0), mode)")
+		      (match_test "mips_index_scaled_address_p (XEXP (op, 0), mode)"))))))
+
 (define_memory_constraint "ZC"
   "When compiling R6 code, this constraint matches a memory operand whose
    address is formed from a base register and a 9-bit offset.
