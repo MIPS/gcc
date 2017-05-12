@@ -6180,6 +6180,43 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 }
 
 const char *
+mips_output_load_store (rtx dest, rtx src, machine_mode mode,
+			bool zero_extend_p, bool load_p)
+{
+  const char *sz[] = { "b", "h", "w", "d" };
+  bool fp_p = load_p ? FP_REG_P (REGNO (dest)) : FP_REG_P (REGNO (src));
+  rtx addr = load_p ? XEXP (src, 0) : XEXP (dest, 0);
+  bool indexed_scaled_p = mips_index_scaled_address_p (addr, mode);
+  bool indexed_p = mips_index_address_p (addr, mode);
+
+  static char buffer[50];
+  char *s;
+  int pos;
+
+  pos = exact_log2 (GET_MODE_SIZE (mode));
+  gcc_assert (IN_RANGE (pos, 0, 3));
+
+  s = buffer;
+
+  s += sprintf (s, "%s", load_p ? "l" : "s");
+  s += sprintf (s, "%s", sz[pos]);
+  if (fp_p)
+    s += sprintf (s, "%s", "c1");
+  if (load_p && zero_extend_p && !fp_p)
+    s += sprintf (s, "u");
+  s += sprintf (s, "%s", indexed_scaled_p ? "xs" : (indexed_p ? "x" : ""));
+  s += sprintf (s, "%s", load_p ? "\t%0,%1" : (fp_p ? "\t%1,%0" : "\t%z1,%0"));
+  if (!indexed_p
+      && !indexed_scaled_p
+      && GET_MODE_SIZE (mode) > 1
+      && MEM_ALIGN (load_p ? src : dest)
+	 < BITS_PER_UNIT * GET_MODE_SIZE (mode))
+    s += sprintf (s, " # unaligned");
+
+  return buffer;
+}
+
+const char *
 mips_output_move (rtx insn, rtx dest, rtx src)
 {
   enum rtx_code dest_code = GET_CODE (dest);
@@ -6255,30 +6292,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	    }
 	}
       if (dest_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  case 1: return mips_index_address_p (XEXP (dest, 0), mode)
-			 ? "sbx\t%z1,%0"
-			 : "sb\t%z1,%0";
-	  case 2: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
-			 ? "shxs\t%z1,%0"
-			 : mips_index_address_p (XEXP (dest, 0), mode)
-			   ? "shx\t%z1,%0"
-			   : ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 2)
-			      ? "sh\t%z1,%0"
-			      : "sh\t%z1,%0 # unaligned");
-	  case 4: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
-			 ? "swxs\t%z1,%0"
-			 : mips_index_address_p (XEXP (dest, 0), mode)
-			   ? "swx\t%z1,%0"
-			   : ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 4)
-			      ? "sw\t%z1,%0"
-			      : "sw\t%z1,%0 # unaligned");
-	  case 8: return ((MEM_ALIGN (dest) >= BITS_PER_UNIT * 8)
-			  ? "sd\t%z1,%0"
-			  : "sd\t%z1,%0 # unaligned");
-	  default: gcc_unreachable ();
-	  }
+	return mips_output_load_store (dest, src, mode, false, false);
     }
   if (dest_code == REG && GP_REG_P (REGNO (dest)))
     {
@@ -6344,30 +6358,9 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      default: gcc_unreachable ();
 	      }
 	  else
-	    switch (GET_MODE_SIZE (mode))
-	      {
-	      case 1: return mips_index_address_p (XEXP (src, 0), mode)
-			     ? "lbux\t%0,%1"
-			     : "lbu\t%0,%1";
-	      case 2: return mips_index_scaled_address_p (XEXP (src, 0), mode)
-			     ? "lhuxs\t%0,%1"
-			     : mips_index_address_p (XEXP (src, 0), mode)
-			       ? "lhux\t%0,%1"
-			       : ((MEM_ALIGN (src) >= BITS_PER_UNIT * 2)
-				  ? "lhu\t%0,%1"
-				  : "lhu\t%0,%1 # unaligned");
-	      case 4: return mips_index_scaled_address_p (XEXP (src, 0), mode)
-			     ? "lwxs\t%0,%1"
-			     : mips_index_address_p (XEXP (src, 0), mode)
-			       ? "lwx\t%0,%1"
-			       : ((MEM_ALIGN (src) >= BITS_PER_UNIT * 4)
-				  ? "lw\t%0,%1"
-				  : "lw\t%0,%1 # unaligned");
-	      case 8: return ((MEM_ALIGN (src) >= BITS_PER_UNIT * 8)
-			      ? "ld\t%0,%1"
-			      : "ld\t%0,%1 # unaligned");
-	      default: gcc_unreachable ();
-	      }
+	    return mips_output_load_store (dest, src, mode,
+					   (GET_MODE_SIZE (mode) < 4
+					   ? true : false), true);
 	}
 
       if (src_code == CONST_INT)
@@ -6435,7 +6428,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (msa_p)
 	    return "st.%v1\t%w1,%0";
 
-	  return dbl_p ? "sdc1\t%1,%0" : "swc1\t%1,%0";
+	  return mips_output_load_store (dest, src, mode, false, false);
 	}
     }
   if (dest_code == REG && FP_REG_P (REGNO (dest)))
@@ -6445,7 +6438,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (msa_p)
 	    return "ld.%v0\t%w0,%1";
 
-	  return dbl_p ? "ldc1\t%0,%1" : "lwc1\t%0,%1";
+	  return mips_output_load_store (dest, src, mode, false, true);
 	}
     }
   if (dest_code == REG && ALL_COP_REG_P (REGNO (dest)) && src_code == MEM)

@@ -3602,12 +3602,9 @@
 	return "ext\t%0,%1,0,16";
       else
 	return "andi\t%0,%1,<SHORT:mask>";
-    case 3: return mips_index_address_p (XEXP (operands[1], 0), <MODE>mode)
-		   ? "l<SHORT:size>ux\t%0,%1"
-		   : mips_index_scaled_address_p (XEXP (operands[1], 0),
-						  <MODE>mode)
-		   ? "l<SHORT:size>uxs\t%0,%1"
-		   : "l<SHORT:size>u\t%0,%1";
+    case 3: return mips_output_load_store (operands[0], operands[1],
+					   <MODE>mode, true/*zero_extend_p*/,
+					   true/*load_p*/);
     default:
       gcc_unreachable ();
     }
@@ -3662,9 +3659,9 @@
   switch (which_alternative)
     {
     case 0: return "andi\t%0,%1,0x00ff";
-    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
-		   ? "lbux\t%0,%1"
-		   : "lbu\t%0,%1";
+    case 1: return mips_output_load_store (operands[0], operands[1], QImode,
+					   true/*zero_extend_p*/,
+					   true/*load_p*/);
     default:
       gcc_unreachable ();
     }
@@ -3785,12 +3782,9 @@
 {
   if (which_alternative == 0)
     return "se<SHORT:size>\t%0,%1";
-  else if (mips_index_address_p (XEXP (operands[1], 0), <MODE>mode))
-    return "l<SHORT:size>x\t%0,%1";
-  else if (mips_index_scaled_address_p (XEXP (operands[1], 0), <MODE>mode))
-    return "l<SHORT:size>xs\t%0,%1";
   else
-    return "l<SHORT:size>\t%0,%1";
+    return mips_output_load_store (operands[0], operands[1], <MODE>mode,
+				   false/*zero_extend_p*/, true/*load_p*/);
 }
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "<GPR:MODE>")])
@@ -3839,9 +3833,9 @@
   switch (which_alternative)
     {
     case 0: return "seb\t%0,%1";
-    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
-		   ? "lbx\t%0,%1"
-		   : "lb\t%0,%1";
+    case 1: return mips_output_load_store (operands[0], operands[1], QImode,
+					   false/*zero_extend_p*/,
+					   true/*load_p*/);
     default:
       gcc_unreachable ();
     }
