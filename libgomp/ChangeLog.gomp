@@ -1,3 +1,7 @@
+2017-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/implicit_copy.f90: New test.
+
 2017-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* oacc-parallel.c (GOACC_update): Handle GOMP_MAP_{TO,FROM} for the
