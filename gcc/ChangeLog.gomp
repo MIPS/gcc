@@ -1,5 +1,13 @@
 2017-05-12  Thomas Schwinge  <thomas@codesourcery.com>
 
+	PR middle-end/69921
+	* tree-parloops.c (create_parallel_loop): Set "oacc kernels
+	parallelized" attribute for parallelized OpenACC kernels.
+	* omp-low.c (execute_oacc_device_lower): Use it.
+	* config/nvptx/nvptx.c (nvptx_goacc_validate_dims): Likewise.
+	* omp-low.c (set_oacc_fn_attrib): Make it "static".
+	* omp-low.h (set_oacc_fn_attrib): Remove prototype.
+
 	* omp-low.c (expand_omp_target) <GF_OMP_TARGET_KIND_OACC_KERNELS>:
 	Set "oacc kernels" attribute.
 	(set_oacc_fn_attrib): Remove is_kernel formal parameter.  Adjust
