@@ -5450,7 +5450,11 @@ nvptx_goacc_reduction_init (gcall *call)
 	    init = var;
 	}
 
-      gimplify_assign (lhs, init, &seq);
+      /* The LHS may be NULL if a reduction variable on a parallel
+	 construct is initialized to some constant inside the parallel
+	 region.  */
+      if (lhs)
+	gimplify_assign (lhs, init, &seq);
     }
 
   pop_gimplify_context (NULL);

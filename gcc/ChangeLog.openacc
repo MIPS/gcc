@@ -1,3 +1,8 @@
+2017-05-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_goacc_reduction_init): Don't update
+	LHS if it doesn't exist.
+
 2017-05-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR middle-end/69921
