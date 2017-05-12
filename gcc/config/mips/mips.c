@@ -552,6 +552,9 @@ struct target_globals *mips16_globals;
 /* Target state for MICROMIPS.  */
 struct target_globals *micromips_globals;
 
+/* Target state for NANOMIPS.  */
+struct target_globals *nanomips_globals;
+
 /* Cached value of can_issue_more. This is cached in mips_variable_issue hook
    and returned from mips_sched_reorder2.  */
 static int cached_can_issue_more;
@@ -636,6 +639,8 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "nomips16",    0, 0, true,  false, false, NULL, false },
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
+  { "nanomips",   0, 0, true,  false, false, NULL, false },
+  { "nonanomips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
   { "code_readable", 0, 1, true,  false, false, mips_handle_code_readable_attr,
     false },
@@ -2043,6 +2048,9 @@ mips_get_compress_on_flags (tree attributes)
   if (lookup_attribute ("micromips", attributes) != NULL)
     flags |= MASK_MICROMIPS;
 
+  if (lookup_attribute ("nanomips", attributes) != NULL)
+    flags |= MASK_NANOMIPS;
+
   return flags;
 }
 
@@ -2055,13 +2063,16 @@ mips_get_compress_off_flags (tree attributes)
   unsigned int flags = 0;
 
   if (lookup_attribute ("nocompression", attributes) != NULL)
-    flags |= MASK_MIPS16 | MASK_MICROMIPS;
+    flags |= MASK_MIPS16 | MASK_MICROMIPS | MASK_NANOMIPS;
 
   if (lookup_attribute ("nomips16", attributes) != NULL)
     flags |= MASK_MIPS16;
 
   if (lookup_attribute ("nomicromips", attributes) != NULL)
     flags |= MASK_MICROMIPS;
+
+  if (lookup_attribute ("nonanomips", attributes) != NULL)
+    flags |= MASK_NANOMIPS;
 
   return flags;
 }
@@ -2090,19 +2101,23 @@ mips_get_compress_mode (tree decl)
   return flags;
 }
 
-/* Return the attribute name associated with MASK_MIPS16 and MASK_MICROMIPS
-   flags FLAGS.  */
+/* Return the attribute name associated with MASK_MIPS16, MASK_MICROMIPS and
+   MASK_NANOMIPS flags FLAGS.  */
 
 static const char *
 mips_get_compress_on_name (unsigned int flags)
 {
   if (flags == MASK_MIPS16)
     return "mips16";
-  return "micromips";
+  if (flags == MASK_MICROMIPS)
+    return "micromips";
+  if (flags == MASK_NANOMIPS)
+    return "nanomips";
+  return "";
 }
 
-/* Return the attribute name that forbids MASK_MIPS16 and MASK_MICROMIPS
-   flags FLAGS.  */
+/* Return the attribute name that forbids MASK_MIPS16, MASK_MICROMIPS and
+   MASK_NANOMIPS flags FLAGS.  */
 
 static const char *
 mips_get_compress_off_name (unsigned int flags)
@@ -2111,6 +2126,8 @@ mips_get_compress_off_name (unsigned int flags)
     return "nomips16";
   if (flags == MASK_MICROMIPS)
     return "nomicromips";
+  if (flags == MASK_NANOMIPS)
+    return "nonanomips";
   return "nocompression";
 }
 
@@ -7956,16 +7973,18 @@ mips_start_unique_function (const char *name)
 static void
 mips_start_function_definition (const char *name, bool mips16_p)
 {
-  if (mips16_p)
-    fprintf (asm_out_file, "\t.set\tmips16\n");
-  else
-    fprintf (asm_out_file, "\t.set\tnomips16\n");
+#ifndef HAVE_GAS_NANOMIPS
+    if (mips16_p)
+      fprintf (asm_out_file, "\t.set\tmips16\n");
+    else
+      fprintf (asm_out_file, "\t.set\tnomips16\n");
 
-  if (TARGET_MICROMIPS)
-    fprintf (asm_out_file, "\t.set\tmicromips\n");
+    if (TARGET_MICROMIPS)
+      fprintf (asm_out_file, "\t.set\tmicromips\n");
 #ifdef HAVE_GAS_MICROMIPS
-  else
-    fprintf (asm_out_file, "\t.set\tnomicromips\n");
+    else
+      fprintf (asm_out_file, "\t.set\tnomicromips\n");
+#endif
 #endif
 
   if (!flag_inhibit_size_directive)
@@ -11124,7 +11143,8 @@ mips_file_start (void)
 	     "\t.previous\n", TARGET_LONG64 ? 64 : 32);
 
   /* Record the NaN encoding.  */
-  if (HAVE_AS_NAN || mips_nan != MIPS_IEEE_754_DEFAULT)
+  if (!(mips_base_compression_flags & MASK_NANOMIPS)
+      && (HAVE_AS_NAN || mips_nan != MIPS_IEEE_754_DEFAULT))
     fprintf (asm_out_file, "\t.nan\t%s\n",
 	     mips_nan == MIPS_IEEE_754_2008 ? "2008" : "legacy");
 
@@ -11138,6 +11158,7 @@ mips_file_start (void)
 #endif
   else if (!TARGET_HARD_FLOAT_ABI)
     fputs ("\t.module\tsoftfloat\n", asm_out_file);
+#ifndef HAVE_GAS_NANOMIPS
   else if (!TARGET_DOUBLE_FLOAT)
     fputs ("\t.module\tsinglefloat\n", asm_out_file);
   else if (TARGET_FLOATXX)
@@ -11146,11 +11167,19 @@ mips_file_start (void)
     fputs ("\t.module\tfp=64\n", asm_out_file);
   else
     fputs ("\t.module\tfp=32\n", asm_out_file);
+#endif
 
+#ifdef HAVE_GAS_NANOMIPS
+  if (TARGET_64BIT)
+    fputs ("\t.module\tnanomips64r6\n", asm_out_file);
+  else
+    fputs ("\t.module\tnanomips32r6\n", asm_out_file);
+#else
   if (TARGET_ODD_SPREG)
     fputs ("\t.module\toddspreg\n", asm_out_file);
   else
     fputs ("\t.module\tnooddspreg\n", asm_out_file);
+#endif
 
 #else
 #ifdef HAVE_AS_GNU_ATTRIBUTE
@@ -22410,7 +22439,7 @@ mips_set_compression_mode (unsigned int compression_mode)
   align_loops = mips_base_align_loops;
   align_jumps = mips_base_align_jumps;
   align_functions = mips_base_align_functions;
-  target_flags &= ~(MASK_MIPS16 | MASK_MICROMIPS);
+  target_flags &= ~(MASK_MIPS16 | MASK_MICROMIPS | MASK_NANOMIPS);
   target_flags |= compression_mode;
 
   if (compression_mode & MASK_MIPS16)
@@ -22510,6 +22539,13 @@ mips_set_compression_mode (unsigned int compression_mode)
       else
 	restore_target_globals (micromips_globals);
     }
+  else if (compression_mode & MASK_NANOMIPS)
+    {
+      if (!nanomips_globals)
+	nanomips_globals = save_target_globals_default_opts ();
+      else
+	restore_target_globals (nanomips_globals);
+    }
   else
     restore_target_globals (&default_target_globals);
 
@@ -22517,7 +22553,7 @@ mips_set_compression_mode (unsigned int compression_mode)
 }
 
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
-   function should use the MIPS16 or microMIPS ISA and switch modes
+   function should use the MIPS16, microMIPS or nanoMIPS ISA and switch modes
    accordingly.  Also set the current code_readable mode.  */
 
 static void
@@ -23400,6 +23436,8 @@ mips_option_override (void)
   if (mips_nan == MIPS_IEEE_754_DEFAULT && !ISA_HAS_IEEE_754_LEGACY)
     mips_nan = MIPS_IEEE_754_2008;
   if (mips_abs == MIPS_IEEE_754_DEFAULT && !ISA_HAS_IEEE_754_LEGACY)
+    mips_abs = MIPS_IEEE_754_2008;
+  if (is_nanomips)
     mips_abs = MIPS_IEEE_754_2008;
 
   /* Check for IEEE 754 legacy/2008 support.  */
@@ -24754,24 +24792,26 @@ mips_prepare_pch_save (void)
 
      The PCH is loaded before the first token is read.  We should never have
      switched into a compression mode by that point, and thus should not have
-     populated mips16_globals or micromips_globals.  Nor can we load the
-     entire contents of mips16_globals or micromips_globals from the PCH file,
+     populated mips16_globals, micromips_globals or nanomips_globals.
+     Nor can we load the entire contents of mips16_globals, micromips_globals
+     or nanomips_globals from the PCH file,
      because they contain a combination of GGC and non-GGC data.
 
      There is therefore no point in trying save the GGC part of
-     mips16_globals/micromips_globals to the PCH file, or to preserve a
-     compression setting across the PCH save and load.  The loading compiler
-     would not have access to the non-GGC parts of mips16_globals or
-     micromips_globals (either from the PCH file, or from a copy that the
-     loading compiler generated itself) and would have to call target_reinit
-     anyway.
+     mips16_globals/micromips_globals/nanomips_globals to the PCH file, or to
+     preserve a compression setting across the PCH save and load.
+     The loading compiler would not have access to the non-GGC parts of
+     mips16_globals, micromips_globals or nanomips_globals (either from
+     the PCH file, or from a copy that the loading compiler generated itself)
+     and would have to call target_reinit anyway.
 
      It therefore seems best to switch back to non-MIPS16 mode and
-     non-microMIPS mode to save time, and to ensure that mips16_globals and
-     micromips_globals remain null after a PCH load.  */
+     non-microMIPS mode to save time, and to ensure that mips16_globals,
+     micromips_globals and nanomips_globals remain null after a PCH load.  */
   mips_set_compression_mode (0);
   mips16_globals = 0;
   micromips_globals = 0;
+  nanomips_globals = 0;
 }
 
 /* Generate or test for an insn that supports a constant permutation.  */
