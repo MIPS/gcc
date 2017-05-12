@@ -541,3 +541,6 @@ Target Undocumented Var(TARGET_SAVEF_RESTOREF) Init(0)
 
 mli48
 Target Undocumented UInteger Var(TARGET_LI48) Init(1)
+
+mcost-tweak
+Target Undocumented Var(TARGET_COST_TWEAK) Init(1)
