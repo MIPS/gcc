@@ -4995,6 +4995,8 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
       return SMALL_OPERAND_UNSIGNED (x);
 
     case PLUS:
+      if (TARGET_NANOMIPS && IN_RANGE (x, -0xfff, 0xffff))
+	return true;
       /* These instructions take 16-bit signed immediates.  */
       return SMALL_OPERAND (x);
 

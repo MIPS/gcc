@@ -1237,14 +1237,14 @@
 (define_expand "add<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(plus:GPR (match_operand:GPR 1 "register_operand")
-		  (match_operand:GPR 2 "arith_operand")))]
+		  (match_operand:GPR 2 "arith_operand_add")))]
   "")
 
 (define_insn "*add<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=!u,d,!u,!u,!ks,!d,d")
 	(plus:GPR (match_operand:GPR 1 "register_operand" "!u,d,!u,!ks,!ks,0,d")
 		  (match_operand:GPR 2 "arith_operand" "!u,d,Uead,Uuw6,Uesp,Usb4,Q")))]
-  "!TARGET_MIPS16"
+  "!TARGET_MIPS16 && !TARGET_NANOMIPS"
 {
   if (which_alternative == 0 
       || which_alternative == 1)

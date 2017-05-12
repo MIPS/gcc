@@ -241,6 +241,11 @@
    An unsigned constant of 8 bits."
   (match_operand 0 "ub8_operand"))
 
+(define_constraint "Uubp"
+  "@internal
+   An unsigned constant of 16 bits."
+  (match_operand 0 "ubp_operand"))
+
 (define_constraint "Uuw5"
   "@internal
    An unsigned constant of 5 bits, shifted left two places."
@@ -255,6 +260,11 @@
   "@internal
    An unsigned constant of 8 bits, shifted left two places."
   (match_operand 0 "uw8_operand"))
+
+(define_constraint "Unbc"
+  "@internal
+   A negated unsigned constant of 12 bits."
+  (match_operand 0 "unbc_operand"))
 
 (define_memory_constraint "W"
   "@internal
