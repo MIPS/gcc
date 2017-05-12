@@ -3685,8 +3685,14 @@ mips_index_scaled_address_p (rtx addr, machine_mode mode)
   if ((ISA_HAS_LWXS || ISA_HAS_LWUXS || ISA_HAS_SWXS)
       && shift == 2 && mode == SImode)
     return true;
+  if ((ISA_HAS_LWC1XS || ISA_HAS_SWC1XS)
+      && shift == 2 && mode == SFmode)
+    return true;
   if ((ISA_HAS_LDXS || ISA_HAS_SDXS)
       && shift == 3 && mode == DImode)
+    return true;
+  if ((ISA_HAS_LDC1XS || ISA_HAS_SDC1XS)
+      && shift == 3 && mode == DFmode)
     return true;
 
   return false;
@@ -3710,7 +3716,11 @@ mips_index_address_p (rtx addr, machine_mode mode)
     return true;
   if ((ISA_HAS_LWX || ISA_HAS_LWUX || ISA_HAS_LWX) && mode == SImode)
     return true;
+  if ((ISA_HAS_LWC1X || ISA_HAS_SWC1X) && mode == SFmode)
+    return true;
   if ((ISA_HAS_LDX || ISA_HAS_SDX) && mode == DImode)
+    return true;
+  if ((ISA_HAS_LDC1X || ISA_HAS_SDC1X) && mode == DFmode)
     return true;
   if (MSA_SUPPORTED_MODE_P (mode))
     return true;
