@@ -4507,6 +4507,12 @@ LCF0:
       [AC_DEFINE(HAVE_GAS_MICROMIPS, 1,
           [Define if your assembler supports the .set micromips directive])])
 
+    gcc_GAS_CHECK_FEATURE([.nanomips support],
+      gcc_cv_as_nanomips_support,,[--fatal-warnings],
+      [.set nanomips],,
+      [AC_DEFINE(HAVE_GAS_NANOMIPS, 1,
+          [Define if your assembler supports the .set nanomips directive])])
+
     gcc_GAS_CHECK_FEATURE([.dtprelword support],
       gcc_cv_as_mips_dtprelword, [2,18,0],,
       [.section .tdata,"awT",@progbits

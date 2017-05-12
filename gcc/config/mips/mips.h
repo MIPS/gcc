@@ -872,8 +872,8 @@ struct mips_cpu_info {
 /* Infer a -msynci setting from a -mips argument, on the assumption that
    -msynci is desired where possible.  */
 #define MIPS_ISA_SYNCI_SPEC \
-  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6|mips64r2 \
-			  |mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
+  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6 \
+     |mips64r2|mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
 
 /* Infer a -mnan=2008 setting from a -mips argument.  */
 #define MIPS_ISA_NAN2008_SPEC \
@@ -933,12 +933,16 @@ struct mips_cpu_info {
    -mdsp setting from a -march argument.  */
 #define BASE_DRIVER_SELF_SPECS \
   MIPS_ISA_NAN2008_SPEC,       \
+  "%{mips32r6: %{!mno-nanomips: -mnanomips} \
+	       %{!mcheck-zero-division: -mno-check-zero-division} \
+	       %{!-fuse-ld=*: -fuse-ld=gold}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mforbidden-slots: \
-     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}" \
+     %{mips32r6|mips64r6: \
+       %{mmicromips:-mno-forbidden-slots}}}" \
   "%{!mno-mips16e2: \
      %{march=interaptiv-mr2: -mmips16e2}}"
 
@@ -1410,6 +1414,7 @@ struct mips_cpu_info {
 %{mips32*} %{mips64*} \
 %{mips16} %{mno-mips16:-no-mips16} \
 %{mmicromips} %{mno-micromips} \
+%{mnanomips} %{mno-nanomips} \
 %{mips3d} %{mno-mips3d:-no-mips3d} \
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
@@ -3337,6 +3342,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 extern unsigned int mips_base_compression_flags;
 extern GTY(()) struct target_globals *mips16_globals;
 extern GTY(()) struct target_globals *micromips_globals;
+extern GTY(()) struct target_globals *nanomips_globals;
 
 /* Information about a function's frame layout.  */
 struct GTY(())  mips_frame_info {

@@ -26992,6 +26992,7 @@ $as_echo "$gcc_cv_as_micromips_support" >&6; }
 if test $gcc_cv_as_micromips_support = yes; then
 
 $as_echo "#define HAVE_GAS_MICROMIPS 1" >>confdefs.h
+$as_echo "#define HAVE_GAS_NANOMIPS 1" >>confdefs.h
 
 fi
 
