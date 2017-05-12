@@ -1,3 +1,9 @@
+2017-05-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gomp_needs_data_present): Ensure that the
+	correct decl is matched when scanning clauses in the enclosing
+	acc data constructs.
+
 2017-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (gimplify_omp_target_update): Relax OpenACC update data
