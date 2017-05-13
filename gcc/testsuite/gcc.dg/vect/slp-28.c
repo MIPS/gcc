@@ -3,18 +3,26 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
-#define N 32 
+#if VECTOR_BITS > 128
+#define N (VECTOR_BITS * 4 / 16)
+#else
+#define N 32
+#endif
 
-unsigned short in[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31};
-unsigned short in2[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31};
-unsigned short in3[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31};
-unsigned short check[N] = {0,1,2,3,5,6,7,8,10,11,12,13,15,16,17,18,20,21,22,23,25,26,27,28,30,31,32,33,35,36,37,38};
-unsigned short check3[N] = {0,1,2,3,4,5,6,7,8,9,10,11,5,6,7,8,9,10,11,12,13,14,15,16,10,11,12,13,14,15,16,17};
+unsigned short in[N] = {};
+unsigned short in2[N] = {};
+unsigned short in3[N] = {};
 
 int
 main1 ()
 {
   int i;
+
+  for (i = 0; i < N; i++)
+    {
+      in[i] = in2[i] = in3[i] = i;
+      asm volatile ("" ::: "memory");
+    }
 
   for (i = 0; i < N/4; i++)
     {
@@ -43,14 +51,13 @@ main1 ()
     }
 
   /* check results:  */
-  for (i = 4; i < N; i++)
+  for (i = 0; i < N; i++)
     {
-      if (in2[i] != check[i])
+      if (in2[i] != (i % 4) + (i / 4) * 5)
         abort ();
     }
   
-  /* Not vectorizable because of data dependencies: distance 3 is greater than 
-     the actual VF with SLP (2), but the analysis fail to detect that for now.  */
+  /* Vectorizable with a fully-masked loop or if VF==8.  */
   for (i = 3; i < N/4; i++)
     {
       in3[i*4] = in3[(i-3)*4] + 5;
@@ -61,9 +68,9 @@ main1 ()
     }
 
   /* check results:  */
-  for (i = 12; i < N; i++)
+  for (i = 0; i < N; i++)
     {
-      if (in3[i] != check3[i])
+      if (in3[i] != (i % 12) + (i / 12) * 5)
         abort ();
     }
 
