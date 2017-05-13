@@ -319,6 +319,39 @@ slpeel_insert_peeled_mask (gimple **seq, loop_vec_info loop_vinfo,
   return gimple_build (seq, BIT_NOT_EXPR, mask_type, peel_mask);
 }
 
+/* Set up the controlling mask for vectorized loop LOOP, which uses
+   speculative execution.  LOOP_VINFO describes the vectorization of LOOP.  */
+
+static void
+slpeel_set_speculative_mask (struct loop *loop, loop_vec_info loop_vinfo)
+{
+  gimple_seq seq = NULL;
+  tree compare_type = LOOP_VINFO_MASK_COMPARE_TYPE (loop_vinfo);
+  tree mask_type = LOOP_VINFO_MASK_TYPE (loop_vinfo);
+
+  tree skip_elems = LOOP_VINFO_MASKED_SKIP_ELEMS (loop_vinfo);
+  if (skip_elems)
+    {
+      /* Convert skip_elems to the right type.  */
+      skip_elems = gimple_convert (&seq, compare_type, skip_elems);
+      tree init_mask = slpeel_insert_peeled_mask (&seq, loop_vinfo,
+						  skip_elems);
+
+      /* For subsequent iterations of the loop, always use a full mask.  */
+      slpeel_setup_loop_masks (loop, loop_vinfo, init_mask,
+			       build_minus_one_cst (mask_type));
+    }
+  else
+    gcc_assert (LOOP_VINFO_MASK_ARRAY (loop_vinfo).is_empty ());
+
+  if (seq)
+    {
+      edge pe = loop_preheader_edge (loop);
+      basic_block new_bb = gsi_insert_seq_on_edge_immediate (pe, seq);
+      gcc_assert (!new_bb);
+    }
+}
+
 
 /* Make LOOP iterate NITERS times using masking and WHILE_ULT calls.
    LOOP_VINFO describes the vectorization of LOOP.  NSCALARITERS is the
@@ -546,18 +579,32 @@ slpeel_iterate_loop_ntimes_unmasked (struct loop *loop, tree niters,
    the vectorization and NSCALARITERS is the number of times that the
    original scalar loop iterated.
 
-   Finalize the loop by making it iterate NITERS times.
+   If LOOP_VINFO is null or if it describes a normal non-speculative loop,
+   LOOP should iterate NTIERS times.
+
    Assumption: the exit-condition of LOOP is the last stmt in the loop.  */
 
 void
 slpeel_finalize_loop_iterations (struct loop *loop, loop_vec_info loop_vinfo,
 				 tree niters, tree nscalariters)
 {
-  gcond *cond_stmt;
+  gcond *cond_stmt = NULL;
   gcond *orig_cond = get_loop_exit_condition (loop);
   gimple_stmt_iterator loop_cond_gsi = gsi_for_stmt (orig_cond);
+  bool masked_p
+    = (loop_vinfo && LOOP_VINFO_MASK_TYPE (loop_vinfo) != NULL_TREE);
+  bool speculation_p
+    = (loop_vinfo && LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
 
-  if (loop_vinfo && LOOP_VINFO_MASK_TYPE (loop_vinfo) != NULL_TREE)
+  if (speculation_p)
+    {
+      gimple_seq late_seq = LOOP_VINFO_NONSPECULATIVE_SEQ (loop_vinfo);
+      if (late_seq)
+	gsi_insert_seq_before (&loop_cond_gsi, late_seq, GSI_SAME_STMT);
+      if (masked_p)
+	slpeel_set_speculative_mask (loop, loop_vinfo);
+    }
+  else if (masked_p)
     cond_stmt = slpeel_iterate_loop_ntimes_while (loop, loop_vinfo,
 						  niters, nscalariters,
 						  loop_cond_gsi);
@@ -565,19 +612,23 @@ slpeel_finalize_loop_iterations (struct loop *loop, loop_vec_info loop_vinfo,
     cond_stmt = slpeel_iterate_loop_ntimes_unmasked (loop, niters,
 						     loop_cond_gsi);
 
-  /* Remove old loop exit test.  */
-  gsi_remove (&loop_cond_gsi, true);
-  free_stmt_vec_info (orig_cond);
+  if (!speculation_p)
+    {
+      /* Remove old loop exit test.  */
+      gsi_remove (&loop_cond_gsi, true);
+      free_stmt_vec_info (orig_cond);
+    }
 
-  if (dump_enabled_p ())
+  if (dump_enabled_p () && cond_stmt)
     {
       dump_printf_loc (MSG_NOTE, vect_location, "New loop exit condition: ");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, cond_stmt, 0);
     }
 
   /* Record the number of latch iterations.  */
-  loop->nb_iterations = fold_build2 (MINUS_EXPR, TREE_TYPE (niters), niters,
-				     build_int_cst (TREE_TYPE (niters), 1));
+  if (!speculation_p)
+    loop->nb_iterations = fold_build2 (MINUS_EXPR, TREE_TYPE (niters), niters,
+				       build_int_cst (TREE_TYPE (niters), 1));
 }
 
 /* Helper routine of slpeel_tree_duplicate_loop_to_edge_cfg.
@@ -1268,13 +1319,15 @@ vect_gen_prolog_loop_niters (loop_vec_info loop_vinfo,
 {
   struct data_reference *dr = LOOP_VINFO_UNALIGNED_DR (loop_vinfo);
   tree var;
-  tree niters_type = TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo));
   gimple_seq stmts = NULL, new_stmts = NULL;
   tree iters, iters_name;
   gimple *dr_stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   unsigned int target_align = DR_TARGET_ALIGNMENT (dr);
+  tree niters_type = (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo)
+		      ? size_type_node
+		      : TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)));
 
   if (LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) > 0)
     {
@@ -1453,6 +1506,12 @@ vect_prepare_for_masked_peels (loop_vec_info loop_vinfo)
 tree
 vect_build_loop_niters (loop_vec_info loop_vinfo)
 {
+  if (!LOOP_VINFO_NITERS (loop_vinfo))
+    {
+      gcc_assert (LOOP_VINFO_SPECULATIVE_EXECUTION (loop_vinfo));
+      return NULL;
+    }
+
   tree ni = unshare_expr (LOOP_VINFO_NITERS (loop_vinfo));
   if (TREE_CODE (ni) == INTEGER_CST)
     return ni;

@@ -954,7 +954,7 @@
   "<logical_nn>\t%0.b, %1/z, %2.b, %3.b"
 )
 
-(define_insn "aarch64_brka_<mode>"
+(define_insn "break_after_<mode>"
   [(set (match_operand:PRED_ALL 0 "register_operand" "=Upa")
 	(unspec:PRED_ALL
 	  [(match_operand:PRED_ALL 1 "register_operand" "Upa")
@@ -962,18 +962,6 @@
 	  UNSPEC_BRKA))]
   "TARGET_SVE"
   "brka\t%0.b, %1/z, %2.b"
-)
-
-(define_expand "break_after_<mode>"
-  [(set (match_operand:PRED_ALL 0 "register_operand")
-	(unspec:PRED_ALL
-	  [(match_dup 2)
-	   (match_operand:PRED_ALL 1 "register_operand")]
-	  UNSPEC_BRKA))]
-  "TARGET_SVE"
-  {
-    operands[2] = force_reg (<MODE>mode, CONSTM1_RTX (<MODE>mode));
-  }
 )
 
 (define_expand "v<optab><mode>3"

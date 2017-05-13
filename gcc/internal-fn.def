@@ -153,10 +153,14 @@ DEF_INTERNAL_COND_OPTAB_FN (XOR, ECF_CONST, xor, binary)
 
 DEF_INTERNAL_OPTAB_FN (RSQRT, ECF_CONST, rsqrt, unary)
 
-/* For a given mask, find the first bit set to TRUE, then:
-     1.  Set all bits up to and including that first bit to TRUE.
-     2.  Set all subsequent bits to FALSE.  */
-DEF_INTERNAL_OPTAB_FN (BREAK_AFTER, ECF_CONST, break_after, unary)
+/* IFN_BREAK_AFTER (A, B):
+
+   - If A & B is all false, return A.
+   - Otherwise find the first true bit in A & B.  Copy bits of A up
+     to and including that bit and set the remaining bits to false.
+
+   A, B and the return value are all vector masks.  */
+DEF_INTERNAL_OPTAB_FN (BREAK_AFTER, ECF_CONST, break_after, binary)
 
 /* Extract the last active element from a vector.  */
 DEF_INTERNAL_OPTAB_FN (EXTRACT_LAST, ECF_CONST, extract_last, binary)

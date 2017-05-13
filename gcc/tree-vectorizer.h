@@ -462,6 +462,34 @@ typedef struct _loop_vec_info : public vec_info {
   /* A map from X to a precomputed gimple_val containing
      CAPPED_VECTORIZATION_FACTOR * X.  */
   hash_map<tree, tree> *vf_mult_map;
+
+  /* All data references for sunk stmts.  */
+  vec<data_reference_p> sunk_datarefs;
+
+  /* Is this a speculative loop?  */
+  bool speculative_execution;
+
+  /* A balanced tree of masks representing the exit condition of a
+     speculative loop, in the form described by vect_get_loop_mask.
+     The loop exits when at least one element from at least one mask
+     is true.  More than one element may be true, in which case the
+     first true element represents the actual stop point.  */
+  vec<tree> exit_masks;
+
+  /* The loop exit value of the speculative mask.  */
+  gphi *speculative_exit_phi;
+
+  /* True if at least one statement needs the nonspeculative masks.  */
+  bool needs_nonspeculative_masks;
+
+  /* A balanced tree of masks for instructions that cannot be executed
+     speculatively, in the form described by vect_get_loop_mask.  */
+  vec<tree> nonspeculative_masks;
+
+  /* Statements in a speculative loop that depend on nonspeculative masks.
+     These statements can only be executed after the exit condition has
+     been evaluated.  */
+  gimple_seq nonspeculative_seq;
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -515,6 +543,14 @@ typedef struct _loop_vec_info : public vec_info {
 #define LOOP_VINFO_ADDR_CACHE(L)	   (L)->vect_addr_base_htab
 #define LOOP_VINFO_GATHER_SCATTER_CACHE(L) (L)->gather_scatter_htab
 #define LOOP_VINFO_VF_MULT_MAP(L)          (L)->vf_mult_map
+#define LOOP_VINFO_SUNK_DATAREFS(L)        (L)->sunk_datarefs
+#define LOOP_VINFO_SPECULATIVE_EXECUTION(L) (L)->speculative_execution
+#define LOOP_VINFO_SPECULATIVE_EXIT_PHI(L)  (L)->speculative_exit_phi
+#define LOOP_VINFO_EXIT_MASKS(L)            (L)->exit_masks
+#define LOOP_VINFO_NEEDS_NONSPECULATIVE_MASKS(L) \
+  (L)->needs_nonspeculative_masks
+#define LOOP_VINFO_NONSPECULATIVE_MASKS(L)    (L)->nonspeculative_masks
+#define LOOP_VINFO_NONSPECULATIVE_SEQ(L)      (L)->nonspeculative_seq
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L)	\
   ((L)->may_misalign_stmts.length () > 0)
@@ -1447,6 +1483,8 @@ extern tree vect_create_addr_base_for_vector_ref (gimple *, gimple_seq *,
 						  tree, struct loop *,
 						  tree = NULL_TREE);
 extern tree get_copy_for_caching (tree);
+extern bool can_get_vect_data_ref_required_alignment (struct data_reference *,
+						      unsigned int *);
 extern unsigned int vect_data_ref_required_alignment (struct data_reference *);
 extern unsigned int vect_known_alignment_in_elements (gimple *);
 
@@ -1460,6 +1498,7 @@ extern loop_vec_info vect_analyze_loop (struct loop *, loop_vec_info);
 extern tree vect_build_loop_niters (loop_vec_info);
 extern void vect_gen_vector_loop_niters (loop_vec_info, tree, tree *, bool);
 extern tree vect_get_loop_mask (loop_vec_info, vec<tree> &, unsigned int);
+extern tree vect_get_load_mask (loop_vec_info, unsigned int);
 extern void vect_populate_mask_array (loop_vec_info, vec<tree> &,
 				      unsigned int, gimple_stmt_iterator *);
 
