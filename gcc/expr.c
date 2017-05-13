@@ -10630,6 +10630,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	   to a larger size.  */
 	must_force_mem = (offset
 			  || mode1 == BLKmode
+			  || (mode1 == VOIDmode
+			      && !int_mode_for_size (bitsize, 1).exists ())
 			  || maybe_gt (bitpos + bitsize,
 				       GET_MODE_BITSIZE (mode2)));
 
