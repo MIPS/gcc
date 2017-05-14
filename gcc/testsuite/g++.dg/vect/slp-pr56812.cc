@@ -17,4 +17,6 @@ void mydata::Set (float x)
     data[i] = x;
 }
 
-/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" } } */
+/* 256-bit vectors will be handled by loop vectorisation instead, since there
+   is no prologue or epilogue that would raise the cost.  */
+/* { dg-final { scan-tree-dump-times "basic block vectorized" 1 "slp1" { xfail vect256 } } } */
