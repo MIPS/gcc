@@ -5190,6 +5190,52 @@ proc check_effective_target_vect_perm { } {
     return $et_vect_perm_saved($et_index)
 }
 
+# Return 1 if, for some VF:
+#
+# - the target's default vector size is VF * ELEMENT_BITS bits
+#
+# - it is possible to implement the equivalent of:
+#
+#      int<ELEMENT_BITS>_t s1[COUNT][COUNT * VF], s2[COUNT * VF];
+#      for (int i = 0; i < COUNT; ++i)
+#        for (int j = 0; j < COUNT * VF; ++j)
+#          s1[i][j] = s2[J - j % COUNT + i % COUNT]
+#
+#   using only a single 2-vector permute for each vector in s1.
+#
+# E.g. for COUNT == 3 and vector length 4, the two arrays would be:
+#
+#  s2    | a0 a1 a2 a3 | b0 b1 b2 b3 | c0 c1 c2 c3
+#  ------+-------------+-------------+------------
+#  s1[0] | a0 a0 a0 a3 | a3 a3 b2 b2 | b2 c1 c1 c1
+#  s1[1] | a1 a1 a1 b0 | b0 b0 b3 b3 | b3 c2 c2 c3
+#  s1[2] | a2 a2 a2 b1 | b1 b1 c0 c0 | c0 c3 c3 c3
+#
+# Each s1 permute requires only two of a, b and c.
+#
+# In general, this is possible for a VF if VF <= COUNT or if
+# (VF - gcd (VF, COUNT)) is a multiple of COUNT.
+
+proc vect_perm_supported { count element_bits } {
+    set vector_bits [lindex [available_vector_sizes] 0]
+    if { $vector_bits <= 0 } {
+	return 0
+    }
+    set vf [expr { $vector_bits / $element_bits }]
+    # Since VF is a power of 2, gcd (VF, COUNT) == (COUNT & -COUNT)
+    # when COUNT < VF.
+    return [expr { $vf <= $count
+		   || $vf % $count == ($count & -$count) }]
+}
+
+# Return 1 if the target supports SLP permutation of 3 vectors when each
+# element has 32 bits.
+
+proc check_effective_target_vect_perm3_int { } {
+    return [expr { [check_effective_target_vect_perm]
+		   && [vect_perm_supported 3 32] }]
+}
+
 # Return 1 if the target plus current options supports vector permutation
 # on byte-sized elements, 0 otherwise.
 #
@@ -5219,6 +5265,14 @@ proc check_effective_target_vect_perm_byte { } {
     return $et_vect_perm_byte_saved($et_index)
 }
 
+# Return 1 if the target supports SLP permutation of 3 vectors when each
+# element has 8 bits.
+
+proc check_effective_target_vect_perm3_byte { } {
+    return [expr { [check_effective_target_vect_perm_byte]
+		   && [vect_perm_supported 3 8] }]
+}
+
 # Return 1 if the target plus current options supports vector permutation
 # on short-sized elements, 0 otherwise.
 #
@@ -5246,6 +5300,14 @@ proc check_effective_target_vect_perm_short { } {
     verbose "check_effective_target_vect_perm_short:\
 	     returning $et_vect_perm_short_saved($et_index)" 2
     return $et_vect_perm_short_saved($et_index)
+}
+
+# Return 1 if the target supports SLP permutation of 3 vectors when each
+# element has 16 bits.
+
+proc check_effective_target_vect_perm3_short { } {
+    return [expr { [check_effective_target_vect_perm_short]
+		   && [vect_perm_supported 3 16] }]
 }
 
 # Return 1 if the target plus current options supports a vector
