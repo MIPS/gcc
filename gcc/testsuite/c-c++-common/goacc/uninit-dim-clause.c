@@ -1,7 +1,6 @@
 /* { dg-additional-options "-Wuninitialized" } */
 
-int
-main (void)
+void acc_parallel()
 {
   int i, j, k;
 
@@ -16,6 +15,18 @@ main (void)
   #pragma acc parallel loop vector vector_length(k) /* { dg-warning "is used uninitialized in this function" } */
   for (k = 0; k < 1; k++)
     ;
+}
 
-  return 0;
+void acc_kernels()
+{
+  int i, j, k;
+
+  #pragma acc kernels num_gangs(i) /* { dg-warning "is used uninitialized in this function" } */
+  ;
+
+  #pragma acc kernels num_workers(j) /* { dg-warning "is used uninitialized in this function" } */
+  ;
+
+  #pragma acc kernels vector_length(k) /* { dg-warning "is used uninitialized in this function" } */
+  ;
 }

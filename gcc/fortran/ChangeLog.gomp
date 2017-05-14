@@ -1,3 +1,10 @@
+2017-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* openmp.c (OACC_KERNELS_CLAUSES)
+	(OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK): Add
+	"OMP_CLAUSE_NUM_GANGS", "OMP_CLAUSE_NUM_WORKERS",
+	"OMP_CLAUSE_VECTOR_LENGTH".
+
 2017-05-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.h (gfc_omp_clauses): Add if_present member.
