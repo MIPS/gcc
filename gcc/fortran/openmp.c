@@ -2049,6 +2049,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_DEFAULT)
 #define OACC_KERNELS_CLAUSES \
   (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_NUM_GANGS | OMP_CLAUSE_NUM_WORKERS			\
+   | OMP_CLAUSE_VECTOR_LENGTH						\
    | OMP_CLAUSE_DEVICE_TYPE						\
    | OMP_CLAUSE_IF							\
    | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		\
@@ -2108,6 +2110,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_DEVICE_TYPE)
 #define OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK \
   (omp_mask (OMP_CLAUSE_ASYNC) | OMP_CLAUSE_WAIT			\
+   | OMP_CLAUSE_NUM_GANGS | OMP_CLAUSE_NUM_WORKERS			\
+   | OMP_CLAUSE_VECTOR_LENGTH						\
    | OMP_CLAUSE_DEVICE_TYPE)
 #define OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK \
   (omp_mask (OMP_CLAUSE_COLLAPSE)					\

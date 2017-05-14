@@ -91,6 +91,19 @@ extern void nohost (void);
 
 int main ()
 {
+#pragma acc kernels num_gangs (32) num_workers (32) vector_length (32)
+  {
+    gang ();
+    worker ();
+    vector ();
+    seq ();
+    bind_f_1 ();
+    bind_f_1_1 ();
+    bind_f_2 ();
+    bind_f_2_1 ();
+    nohost ();
+  }
+
 #pragma acc parallel num_gangs (32) num_workers (32) vector_length (32)
   {
     gang ();
