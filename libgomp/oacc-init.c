@@ -220,8 +220,23 @@ acc_dev_num_out_of_range (acc_device_t d, int ord, int ndevs)
 static struct gomp_device_descr *
 acc_init_1 (acc_device_t d, acc_construct_t parent_construct, int implicit)
 {
+  bool check_not_nested_p;
+  if (implicit)
+    {
+      /* In the implicit case, there should (TODO: must?) already be something
+	 have been set up for an outer construct.  */
+      check_not_nested_p = false;
+    }
+  else
+    {
+      check_not_nested_p = true;
+      /* TODO: should we set "thr->prof_info" etc. in this case (acc_init)?
+	 The problem is, that we don't have "thr" yet?  (So,
+	 "check_not_nested_p = true" also is pointless actually.)  */
+    }
   bool profiling_dispatch_p
-    = __builtin_expect (goacc_profiling_dispatch_p (), false);
+    = __builtin_expect (goacc_profiling_dispatch_p (check_not_nested_p),
+			false);
 
   acc_prof_info prof_info;
   if (profiling_dispatch_p)
@@ -536,11 +551,21 @@ ialias (acc_shutdown)
 int
 acc_get_num_devices (acc_device_t d)
 {
+#if 0 //TODO
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    prof_info.device_type = d; //TODO
+#endif
+
   int n = 0;
   struct gomp_device_descr *acc_dev;
 
   if (d == acc_device_none)
-    return 0;
+    goto out;
 
   gomp_init_targets_once ();
 
@@ -549,11 +574,20 @@ acc_get_num_devices (acc_device_t d)
   gomp_mutex_unlock (&acc_device_lock);
 
   if (!acc_dev)
-    return 0;
+    goto out;
 
   n = acc_dev->get_num_devices_func ();
   if (n < 0)
     n = 0;
+
+ out:
+#if 0 //TODO
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
+#endif
 
   return n;
 }
@@ -569,6 +603,14 @@ acc_set_device_type (acc_device_t d)
 {
   struct gomp_device_descr *base_dev, *acc_dev;
   struct goacc_thread *thr = goacc_thread ();
+
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    prof_info.device_type = d; //TODO
 
   gomp_init_targets_once ();
 
@@ -594,6 +636,12 @@ acc_set_device_type (acc_device_t d)
     }
 
   goacc_attach_host_thread_to_device (-1);
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 ialias (acc_set_device_type)
@@ -609,12 +657,25 @@ acc_get_device_type (void)
     res = acc_device_type (thr->base_dev->type);
   else
     {
+      acc_prof_info prof_info;
+      acc_api_info api_info;
+      bool profiling_setup_p
+	= __builtin_expect (goacc_profiling_setup_p (thr,
+						     &prof_info, &api_info),
+			    false);
+
       gomp_init_targets_once ();
 
       gomp_mutex_lock (&acc_device_lock);
       dev = resolve_device (acc_device_default, true);
       gomp_mutex_unlock (&acc_device_lock);
       res = acc_device_type (dev->type);
+
+      if (profiling_setup_p)
+	{
+	  thr->prof_info = NULL;
+	  thr->api_info = NULL;
+	}
     }
 
   assert (res != acc_device_default
@@ -631,6 +692,14 @@ acc_get_device_num (acc_device_t d)
   const struct gomp_device_descr *dev;
   struct goacc_thread *thr = goacc_thread ();
 
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    prof_info.device_type = d; //TODO
+
   if (d >= _ACC_device_hwm)
     gomp_fatal ("unknown device type %u", (unsigned) d);
 
@@ -639,6 +708,12 @@ acc_get_device_num (acc_device_t d)
   gomp_mutex_lock (&acc_device_lock);
   dev = resolve_device (d, true);
   gomp_mutex_unlock (&acc_device_lock);
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 
   if (thr && thr->base_dev == dev && thr->dev)
     return thr->dev->target_id;
@@ -651,6 +726,19 @@ ialias (acc_get_device_num)
 void
 acc_set_device_num (int ord, acc_device_t d)
 {
+#if 0 //TODO
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    {
+      prof_info.device_type = d; //TODO
+      prof_info.device_type = ord; //TODO
+    }
+#endif
+
   struct gomp_device_descr *base_dev, *acc_dev;
   int num_devices;
 
@@ -688,6 +776,14 @@ acc_set_device_num (int ord, acc_device_t d)
     }
   
   goacc_device_num = ord;
+
+#if 0 //TODO
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
+#endif
 }
 
 ialias (acc_set_device_num)

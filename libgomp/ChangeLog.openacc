@@ -1,3 +1,29 @@
+2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* oacc-async.c (acc_async_test, acc_async_test_all, acc_wait)
+	(acc_wait_async, acc_wait_all, acc_wait_all_async): Set up
+	profiling.
+	* oacc-cuda.c (acc_get_current_cuda_device)
+	(acc_get_current_cuda_context, acc_get_cuda_stream)
+	(acc_set_cuda_stream): Likewise.
+	* oacc-init.c (acc_set_device_type, acc_get_device_type)
+	(acc_get_device_num): Likewise.
+	* oacc-mem.c (acc_malloc, acc_free, memcpy_tofrom_device)
+	(acc_map_data, acc_unmap_data, present_create_copy)
+	(delete_copyout, update_dev_host): Likewise.
+	* oacc-parallel.c (GOACC_data_start, GOACC_data_end)
+	(GOACC_enter_exit_data, GOACC_update, GOACC_wait): Likewise.
+	* oacc-profiling.c (goacc_profiling_setup_p): New function.
+	(goacc_profiling_dispatch_p): Add a "bool" formal parameter.
+	Adjust all users.
+	* oacc-int.h (goacc_profiling_setup_p)
+	(goacc_profiling_dispatch_p): Update.
+	* plugin/plugin-nvptx.c (nvptx_exec, nvptx_wait, nvptx_wait_all):
+	Generate more profiling events.
+	* libgomp.texi (OpenACC Environment Variables): Mention
+	"ACC_PROFLIB".
+	(OpenACC Profiling Interface): Update.
+
 2017-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/acc_prof-kernels-1.c: New

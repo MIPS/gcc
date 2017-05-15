@@ -2840,11 +2840,14 @@ A.2.1.4.
 
 The variables @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM}
 are defined by section 4 of the OpenACC specification in version 2.0.
+The variable @code{ACC_PROFLIB} is defined by section 4 of the OpenACC
+specification in version 2.5.
 The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 
 @menu
 * ACC_DEVICE_TYPE::
 * ACC_DEVICE_NUM::
+* ACC_PROFLIB::
 * GCC_ACC_NOTIFY::
 @end menu
 
@@ -2866,6 +2869,19 @@ The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 @item @emph{Reference}:
 @uref{http://www.openacc.org/, OpenACC specification v2.0}, section
 4.2.
+@end table
+
+
+
+@node ACC_PROFLIB
+@section @code{ACC_PROFLIB}
+@table @asis
+@item @emph{See also}:
+@ref{OpenACC Profiling Interface}
+
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.5}, section
+4.3.
 @end table
 
 
@@ -3094,8 +3110,8 @@ Application Programming Interface”, Version 2.0.}
 
 @section Implementation Status and Implementation-Defined Behavior
 
-We're not yet implementing the whole Profiling Interface as defined by
-the OpenACC 2.5 specification.  Also, the specification doesn't
+We're implementing most of the Profiling Interface as defined by
+the OpenACC 2.5 specification.  The specification doesn't
 clearly define some aspects of its Profiling Interface, so we're
 clarifying these as @emph{implementation-defined behavior} here.  We
 already have reported to the OpenACC Technical Committee some issues,
@@ -3207,12 +3223,19 @@ Will be @code{acc_construct_parallel} for OpenACC kernels constructs;
 should be @code{acc_construct_kernels}.
 
 @item
+Will be @code{acc_construct_enter_data} or
+@code{acc_construct_exit_data} when processing variable mappings
+specified in OpenACC declare directives; should be
+@code{acc_construct_declare}.
+
+@item
 For implicit @code{acc_ev_device_init_start},
 @code{acc_ev_device_init_end}, and explicit as well as implicit
 @code{acc_ev_alloc}, @code{acc_ev_free},
 @code{acc_ev_enqueue_upload_start}, @code{acc_ev_enqueue_upload_end},
-@code{acc_ev_enqueue_download_start}, and
-@code{acc_ev_enqueue_download_end}, will be
+@code{acc_ev_enqueue_download_start},
+@code{acc_ev_enqueue_download_end}, @code{acc_ev_wait_start}, and
+@code{acc_ev_wait_end}, will be
 @code{acc_construct_parallel}; should reflect the real parent
 construct.
 
@@ -3221,8 +3244,9 @@ construct.
 @item @code{acc_event_info.*.implicit}
 For @code{acc_ev_alloc}, @code{acc_ev_free},
 @code{acc_ev_enqueue_upload_start}, @code{acc_ev_enqueue_upload_end},
-@code{acc_ev_enqueue_download_start}, and
-@code{acc_ev_enqueue_download_end}, this currently will be @code{1}
+@code{acc_ev_enqueue_download_start},
+@code{acc_ev_enqueue_download_end}, @code{acc_ev_wait_start}, and
+@code{acc_ev_wait_end}, this currently will be @code{1}
 also for explicit usage.
 
 @item @code{acc_event_info.data_event.var_name}
@@ -3289,6 +3313,20 @@ it's not clear if they should be.
 
 @end itemize
 
+@item @code{acc_ev_enter_data_start}, @code{acc_ev_enter_data_end}, @code{acc_ev_exit_data_start}, @code{acc_ev_exit_data_end}
+@itemize
+
+@item
+Callbacks for these event types will also be invoked for OpenACC
+host_data constructs; it's not clear if they should be.
+
+@item
+Callbacks for these event types will also be invoked when processing
+variable mappings specified in OpenACC declare directives; it's not
+clear if they should be.
+
+@end itemize
+
 @end table
 
 Callbacks for the following event types will be invoked, but dispatch
@@ -3297,8 +3335,10 @@ and information provided therein has not yet been thoroughly reviewed:
 @itemize
 @item @code{acc_ev_alloc}
 @item @code{acc_ev_free}
+@item @code{acc_ev_update_start}, @code{acc_ev_update_end}
 @item @code{acc_ev_enqueue_upload_start}, @code{acc_ev_enqueue_upload_end}
 @item @code{acc_ev_enqueue_download_start}, @code{acc_ev_enqueue_download_end}
+@item @code{acc_ev_wait_start}, @code{acc_ev_wait_end}
 @end itemize
 
 During device initialization, and finalization, respectively,
@@ -3309,14 +3349,6 @@ callbacks for the following event types will not yet be invoked:
 @item @code{acc_ev_free}
 @end itemize
 
-Callbacks for the following event types will currently only be invoked
-for (implicit) events within compute constructs:
-
-@itemize
-@item @code{acc_ev_enter_data_start}, @code{acc_ev_enter_data_end}
-@item @code{acc_ev_exit_data_start}, @code{acc_ev_exit_data_end}
-@end itemize
-
 Callbacks for the following event types have not yet been implemented,
 so currently won't be invoked:
 
@@ -3324,8 +3356,38 @@ so currently won't be invoked:
 @item @code{acc_ev_device_shutdown_start}, @code{acc_ev_device_shutdown_end}
 @item @code{acc_ev_runtime_shutdown}
 @item @code{acc_ev_create}, @code{acc_ev_delete}
-@item @code{acc_ev_update_start}, @code{acc_ev_update_end}
-@item @code{acc_ev_wait_start}, @code{acc_ev_wait_end}
+@end itemize
+
+For the following runtime library functions, not all expected
+callbacks will be invoked (mostly concerning implicit device
+initialization):
+
+@itemize
+@item @code{acc_get_num_devices}
+@item @code{acc_set_device_type}
+@item @code{acc_get_device_type}
+@item @code{acc_set_device_num}
+@item @code{acc_get_device_num}
+@item @code{acc_init}
+@item @code{acc_shutdown}
+@end itemize
+
+Aside from implicit device initialization, for the following runtime
+library functions, no callbacks will be invoked for shared-memory
+offloading devices (it's not clear if they should be):
+
+@itemize
+@item @code{acc_malloc}
+@item @code{acc_free}
+@item @code{acc_copyin}, @code{acc_present_or_copyin}, @code{acc_copyin_async}
+@item @code{acc_create}, @code{acc_present_or_create}, @code{acc_create_async}
+@item @code{acc_copyout}, @code{acc_copyout_async}
+@item @code{acc_delete}, @code{acc_delete_async}
+@item @code{acc_update_device}, @code{acc_update_device_async}
+@item @code{acc_update_self}, @code{acc_update_self_async}
+@item @code{acc_map_data}, @code{acc_unmap_data}
+@item @code{acc_memcpy_to_device}, @code{acc_memcpy_to_device_async}
+@item @code{acc_memcpy_from_device}, @code{acc_memcpy_from_device_async}
 @end itemize
 
 

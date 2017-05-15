@@ -1402,10 +1402,38 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 					    api_info);
     }
 
+  acc_event_info wait_event_info;
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_wait_start;
+
+      wait_event_info.other_event.event_type = prof_info->event_type;
+      wait_event_info.other_event.valid_bytes
+	= _ACC_OTHER_EVENT_INFO_VALID_BYTES;
+      wait_event_info.other_event.parent_construct
+	/* TODO = compute_construct_event_info.other_event.parent_construct */
+	= acc_construct_parallel; //TODO: kernels...
+      wait_event_info.other_event.implicit = 1;
+      wait_event_info.other_event.tool_info = NULL;
+
+      api_info->device_api = acc_device_api_cuda;
+    }
 #ifndef DISABLE_ASYNC
   if (async < acc_async_noval)
     {
+      if (profiling_dispatch_p)
+	{
+	  GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &wait_event_info,
+						api_info);
+	}
       r = CUDA_CALL_NOCHECK (cuStreamSynchronize, dev_str->stream);
+      if (profiling_dispatch_p)
+	{
+	  prof_info->event_type = acc_ev_wait_end;
+	  wait_event_info.other_event.event_type = prof_info->event_type;
+	  GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &wait_event_info,
+						api_info);
+	}
       if (r == CUDA_ERROR_LAUNCH_FAILED)
 	GOMP_PLUGIN_fatal ("cuStreamSynchronize error: %s %s\n", cuda_error (r),
 			   maybe_abort_msg);
@@ -1432,7 +1460,19 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
       event_add (PTX_EVT_KNL, e, (void *)dev_str, 0);
     }
 #else
+  if (profiling_dispatch_p)
+    {
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &wait_event_info,
+					    api_info);
+    }
   r = CUDA_CALL_NOCHECK (cuCtxSynchronize, );
+  if (profiling_dispatch_p)
+    {
+      prof_info->event_type = acc_ev_wait_end;
+      wait_event_info.other_event.event_type = prof_info->event_type;
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &wait_event_info,
+					    api_info);
+    }
   if (r == CUDA_ERROR_LAUNCH_FAILED)
     GOMP_PLUGIN_fatal ("cuCtxSynchronize error: %s %s\n", cuda_error (r),
 		       maybe_abort_msg);
@@ -1810,7 +1850,44 @@ nvptx_wait (int async)
 
   GOMP_PLUGIN_debug (0, "  %s: waiting on async=%d\n", __FUNCTION__, async);
 
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  bool profiling_dispatch_p
+    = __builtin_expect (thr != NULL && thr->prof_info != NULL, false);
+  acc_event_info wait_event_info;
+  if (profiling_dispatch_p)
+    {
+      acc_prof_info *prof_info = thr->prof_info;
+      acc_api_info *api_info = thr->api_info;
+
+      prof_info->event_type = acc_ev_wait_start;
+
+      wait_event_info.other_event.event_type = prof_info->event_type;
+      wait_event_info.other_event.valid_bytes
+	= _ACC_OTHER_EVENT_INFO_VALID_BYTES;
+      wait_event_info.other_event.parent_construct
+	/* TODO = compute_construct_event_info.other_event.parent_construct */
+	= acc_construct_parallel; //TODO: kernels...
+      wait_event_info.other_event.implicit = 1;
+      wait_event_info.other_event.tool_info = NULL;
+
+      api_info->device_api = acc_device_api_cuda;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &wait_event_info,
+					    api_info);
+    }
   CUDA_CALL_ASSERT (cuStreamSynchronize, s->stream);
+  if (profiling_dispatch_p)
+    {
+      acc_prof_info *prof_info = thr->prof_info;
+      acc_api_info *api_info = thr->api_info;
+
+      prof_info->event_type = acc_ev_wait_end;
+
+      wait_event_info.other_event.event_type = prof_info->event_type;
+
+      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info, &wait_event_info,
+					    api_info);
+    }
 
   event_gc (true);
 }
@@ -1852,9 +1929,27 @@ nvptx_wait_all (void)
   CUresult r;
   struct ptx_stream *s;
   pthread_t self = pthread_self ();
-  struct nvptx_thread *nvthd = nvptx_thread ();
+  struct goacc_thread *thr = GOMP_PLUGIN_goacc_thread ();
+  struct nvptx_thread *nvthd = (struct nvptx_thread *) thr->target_tls;
 
   pthread_mutex_lock (&nvthd->ptx_dev->stream_lock);
+
+  acc_prof_info *prof_info = thr->prof_info;
+  acc_event_info wait_event_info;
+  acc_api_info *api_info = thr->api_info;
+  bool profiling_dispatch_p = __builtin_expect (prof_info != NULL, false);
+  if (profiling_dispatch_p)
+    {
+      wait_event_info.other_event.valid_bytes
+	= _ACC_OTHER_EVENT_INFO_VALID_BYTES;
+      wait_event_info.other_event.parent_construct
+	/* TODO = compute_construct_event_info.other_event.parent_construct */
+	= acc_construct_parallel; //TODO: kernels...
+      wait_event_info.other_event.implicit = 1;
+      wait_event_info.other_event.tool_info = NULL;
+
+      api_info->device_api = acc_device_api_cuda;
+    }
 
   /* Wait for active streams initiated by this thread (or by multiple threads)
      to complete.  */
@@ -1868,7 +1963,23 @@ nvptx_wait_all (void)
 	  else if (r != CUDA_ERROR_NOT_READY)
 	    GOMP_PLUGIN_fatal ("cuStreamQuery error: %s", cuda_error (r));
 
+	  if (profiling_dispatch_p)
+	    {
+	      prof_info->event_type = acc_ev_wait_start;
+	      wait_event_info.other_event.event_type = prof_info->event_type;
+	      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info,
+						    &wait_event_info,
+						    api_info);
+	    }
 	  CUDA_CALL_ASSERT (cuStreamSynchronize, s->stream);
+	  if (profiling_dispatch_p)
+	    {
+	      prof_info->event_type = acc_ev_wait_end;
+	      wait_event_info.other_event.event_type = prof_info->event_type;
+	      GOMP_PLUGIN_goacc_profiling_dispatch (prof_info,
+						    &wait_event_info,
+						    api_info);
+	    }
 	}
     }
 
