@@ -1,3 +1,7 @@
+2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Update "_OPENACC" to "201510".
+
 2017-05-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-pragma.h (enum pragma_omp_clause): Add

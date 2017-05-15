@@ -1,3 +1,10 @@
+2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* cpp.c (cpp_define_builtins): Update "_OPENACC" to "201510".
+	* gfortran.texi: Update for OpenACC 2.5.
+	* Intrinsic.texi: Likewise.
+	* invoke.texi: Likewise.
+
 2017-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* openmp.c (OACC_KERNELS_CLAUSES)

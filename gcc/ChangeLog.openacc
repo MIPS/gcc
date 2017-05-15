@@ -1,3 +1,7 @@
+2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* doc/invoke.texi: Update for OpenACC 2.5.
+
 2017-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-offload.c (execute_oacc_device_lower): Remove the

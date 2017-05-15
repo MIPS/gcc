@@ -1837,11 +1837,9 @@ good practice then to initialize the runtime with an explicit
 
 A complete description of all OpenACC directives accepted may be found in 
 the @uref{http://www.openacc.org/, OpenACC} Application Programming
-Interface manual, version 2.0.
+Interface manual, version 2.5.
 
-Note that this is an experimental feature and subject to
-change in future versions of GCC.  See
-@uref{https://gcc.gnu.org/wiki/OpenACC} for more information.
+See @uref{https://gcc.gnu.org/wiki/OpenACC} for more information.
 
 
 
@@ -1853,11 +1851,14 @@ change in future versions of GCC.  See
 @chapter OpenACC Runtime Library Routines
 
 The runtime routines described here are defined by section 3 of the OpenACC
-specifications in version 2.0.
+specification in version 2.0.
 They have C linkage, and do not throw exceptions.
 Generally, they are available only for the host, with the exception of
 @code{acc_on_device}, which is available for both the host and the
 acceleration device.
+
+This list has not yet been updated for the OpenACC specification in
+version 2.5.
 
 @menu
 * acc_get_num_devices::         Get number of devices for the given device
@@ -2838,10 +2839,9 @@ A.2.1.4.
 @node OpenACC Environment Variables
 @chapter OpenACC Environment Variables
 
-The variables @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM}
-are defined by section 4 of the OpenACC specification in version 2.0.
-The variable @code{ACC_PROFLIB} is defined by section 4 of the OpenACC
-specification in version 2.5.
+The variables @env{ACC_DEVICE_TYPE}, @env{ACC_DEVICE_NUM},
+and @code{ACC_PROFLIB}
+are defined by section 4 of the OpenACC specification in version 2.5.
 The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 
 @menu
@@ -2857,7 +2857,7 @@ The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 @section @code{ACC_DEVICE_TYPE}
 @table @asis
 @item @emph{Reference}:
-@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+@uref{http://www.openacc.org/, OpenACC specification v2.5}, section
 4.1.
 @end table
 
@@ -2867,7 +2867,7 @@ The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 @section @code{ACC_DEVICE_NUM}
 @table @asis
 @item @emph{Reference}:
-@uref{http://www.openacc.org/, OpenACC specification v2.0}, section
+@uref{http://www.openacc.org/, OpenACC specification v2.5}, section
 4.2.
 @end table
 
@@ -3096,8 +3096,8 @@ is called prior to a call to @code{cudaCreate()}. If @code{cudaCreate()}
 is called prior to a call to an OpenACC function, then you must call
 @code{acc_set_device_num()}@footnote{More complete information
 about @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM} can be found in
-sections 4.1 and 4.2 of the @uref{http://www.openacc.org/, OpenACC}
-Application Programming Interface”, Version 2.0.}
+sections 4.1 and 4.2 of the @uref{http://www.openacc.org/, OpenACC
+Application Programming Interface}, version 2.5.}
 
 
 
