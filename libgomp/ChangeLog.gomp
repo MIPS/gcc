@@ -1,5 +1,9 @@
 2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.texi (OpenACC Environment Variables): Mention
+	"ACC_PROFLIB".
+	(OpenACC Profiling Interface): Update.
+
 	* libgomp.texi: Update for OpenACC 2.5.
 	* openacc.f90 (openacc_version): Update to "201510".
 	* openacc_lib.h (openacc_version): Likewise.

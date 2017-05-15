@@ -2839,13 +2839,15 @@ A.2.1.4.
 @node OpenACC Environment Variables
 @chapter OpenACC Environment Variables
 
-The variables @env{ACC_DEVICE_TYPE} and @env{ACC_DEVICE_NUM}
+The variables @env{ACC_DEVICE_TYPE}, @env{ACC_DEVICE_NUM},
+and @code{ACC_PROFLIB}
 are defined by section 4 of the OpenACC specification in version 2.5.
 The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 
 @menu
 * ACC_DEVICE_TYPE::
 * ACC_DEVICE_NUM::
+* ACC_PROFLIB::
 * GCC_ACC_NOTIFY::
 @end menu
 
@@ -2867,6 +2869,19 @@ The variable @env{GCC_ACC_NOTIFY} is used for diagnostic purposes.
 @item @emph{Reference}:
 @uref{http://www.openacc.org/, OpenACC specification v2.5}, section
 4.2.
+@end table
+
+
+
+@node ACC_PROFLIB
+@section @code{ACC_PROFLIB}
+@table @asis
+@item @emph{See also}:
+@ref{OpenACC Profiling Interface}
+
+@item @emph{Reference}:
+@uref{http://www.openacc.org/, OpenACC specification v2.5}, section
+4.3.
 @end table
 
 
@@ -3095,8 +3110,8 @@ Application Programming Interface}, version 2.5.}
 
 @section Implementation Status and Implementation-Defined Behavior
 
-We're not yet implementing the whole Profiling Interface as defined by
-the OpenACC 2.5 specification.  Also, the specification doesn't
+We're implementing most of the Profiling Interface as defined by
+the OpenACC 2.5 specification.  The specification doesn't
 clearly define some aspects of its Profiling Interface, so we're
 clarifying these as @emph{implementation-defined behavior} here.  We
 already have reported to the OpenACC Technical Committee some issues,
