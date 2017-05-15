@@ -810,8 +810,8 @@
 ;; modes.
 (define_mode_iterator GPR2 [SI (DI "TARGET_64BIT")])
 
-(define_mode_iterator MOVEP1 [SI SF])
-(define_mode_iterator MOVEP2 [SI SF])
+(define_mode_iterator MOVEP1 [QI HI SI SF])
+(define_mode_iterator MOVEP2 [QI HI SI SF])
 (define_mode_iterator JOIN_MODE [HI
 				 SI
 				 (DI "TARGET_64BIT")
