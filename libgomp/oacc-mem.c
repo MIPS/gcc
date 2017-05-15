@@ -103,12 +103,30 @@ acc_malloc (size_t s)
 
   struct goacc_thread *thr = goacc_thread ();
 
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+
   assert (thr->dev);
 
+  void *ret;
   if (thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
-    return malloc (s);
+    {
+      /* TODO: Should we also generate acc_ev_alloc here?  */
+      ret = malloc (s);
+    }
+  else
+    ret = thr->dev->alloc_func (thr->dev->target_id, s);
 
-  return thr->dev->alloc_func (thr->dev->target_id, s);
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
+
+  return ret;
 }
 
 /* OpenACC 2.0a (3.2.16) doesn't specify what to do in the event
@@ -124,12 +142,23 @@ acc_free (void *d)
 
   struct goacc_thread *thr = goacc_thread ();
 
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+
   assert (thr && thr->dev);
 
   struct gomp_device_descr *acc_dev = thr->dev;
 
   if (acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
-    return free (d);
+    {
+      /* TODO: Should we also generate acc_ev_free here?  */
+      free (d);
+
+      goto out;
+    }
 
   gomp_mutex_lock (&acc_dev->lock);
 
@@ -151,6 +180,13 @@ acc_free (void *d)
 
   if (!acc_dev->free_func (acc_dev->target_id, d))
     gomp_fatal ("error in freeing device memory in %s", __FUNCTION__);
+
+ out:
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 static void
@@ -161,15 +197,31 @@ memcpy_tofrom_device (bool from, void *d, void *h, size_t s, int async,
      been obtained from a routine that did that.  */
   struct goacc_thread *thr = goacc_thread ();
 
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    {
+      prof_info.async = async; //TODO
+      /* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+      prof_info.async_queue = prof_info.async;
+    }
+
   assert (thr && thr->dev);
 
   if (thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     {
+      /* TODO: Should we also generate
+	 acc_ev_enqueue_upload_start/acc_ev_enqueue_upload_end or
+	 acc_ev_enqueue_download_start/acc_ev_enqueue_download_end here?  */
       if (from)
 	memmove (h, d, s);
       else
 	memmove (d, h, s);
-      return;
+
+      goto out;
     }
 
   if (async > acc_async_sync)
@@ -184,6 +236,13 @@ memcpy_tofrom_device (bool from, void *d, void *h, size_t s, int async,
 
   if (!ret)
     gomp_fatal ("error in %s", libfnname);
+
+ out:
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 void
@@ -228,6 +287,9 @@ acc_deviceptr (void *h)
   if (thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return h;
 
+  /* In the following, no OpenACC Profiling Interface events can possibly be
+     generated.  */
+
   gomp_mutex_lock (&dev->lock);
 
   n = lookup_host (dev, h, 1);
@@ -264,6 +326,9 @@ acc_hostptr (void *d)
 
   if (thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return d;
+
+  /* In the following, no OpenACC Profiling Interface events can possibly be
+     generated.  */
 
   gomp_mutex_lock (&acc_dev->lock);
 
@@ -302,6 +367,9 @@ acc_is_present (void *h, size_t s)
   if (thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return h != NULL;
 
+  /* In the following, no OpenACC Profiling Interface events can possibly be
+     generated.  */
+
   gomp_mutex_lock (&acc_dev->lock);
 
   n = lookup_host (acc_dev, h, s);
@@ -332,6 +400,12 @@ acc_map_data (void *h, void *d, size_t s)
 
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
+
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
 
   if (acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     {
@@ -372,6 +446,12 @@ acc_map_data (void *h, void *d, size_t s)
   tgt->prev = acc_dev->openacc.data_environ;
   acc_dev->openacc.data_environ = tgt;
   gomp_mutex_unlock (&acc_dev->lock);
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 void
@@ -385,6 +465,12 @@ acc_unmap_data (void *h)
   /* This is a no-op on shared-memory targets.  */
   if (acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return;
+
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
 
   size_t host_size;
 
@@ -436,6 +522,12 @@ acc_unmap_data (void *h)
   gomp_mutex_unlock (&acc_dev->lock);
 
   gomp_unmap_vars (t, true);
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 #define FLAG_PRESENT (1 << 0)
@@ -458,6 +550,18 @@ present_create_copy (unsigned f, void *h, size_t s, int async)
 
   if (acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return h;
+
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    {
+      prof_info.async = async; //TODO
+      /* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+      prof_info.async_queue = prof_info.async;
+    }
 
   gomp_mutex_lock (&acc_dev->lock);
 
@@ -516,6 +620,12 @@ present_create_copy (unsigned f, void *h, size_t s, int async)
       acc_dev->openacc.data_environ = tgt;
 
       gomp_mutex_unlock (&acc_dev->lock);
+    }
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
     }
 
   return d;
@@ -582,6 +692,18 @@ delete_copyout (unsigned f, void *h, size_t s, int async, const char *libfnname)
   if (acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return;
 
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    {
+      prof_info.async = async; //TODO
+      /* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+      prof_info.async_queue = prof_info.async;
+    }
+
   gomp_mutex_lock (&acc_dev->lock);
 
   n = lookup_host (acc_dev, h, s);
@@ -622,6 +744,12 @@ delete_copyout (unsigned f, void *h, size_t s, int async, const char *libfnname)
 
   if (!acc_dev->free_func (acc_dev->target_id, d))
     gomp_fatal ("error in freeing device memory in %s", libfnname);
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 void
@@ -664,6 +792,18 @@ update_dev_host (int is_dev, void *h, size_t s, int async)
 
   gomp_mutex_lock (&acc_dev->lock);
 
+  acc_prof_info prof_info;
+  acc_api_info api_info;
+  bool profiling_setup_p
+    = __builtin_expect (goacc_profiling_setup_p (thr, &prof_info, &api_info),
+			false);
+  if (profiling_setup_p)
+    {
+      prof_info.async = async; //TODO
+      /* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+      prof_info.async_queue = prof_info.async;
+    }
+
   n = lookup_host (acc_dev, h, s);
 
   if (!n)
@@ -687,6 +827,12 @@ update_dev_host (int is_dev, void *h, size_t s, int async)
     acc_dev->openacc.async_set_async_func (acc_async_sync);
 
   gomp_mutex_unlock (&acc_dev->lock);
+
+  if (profiling_setup_p)
+    {
+      thr->prof_info = NULL;
+      thr->api_info = NULL;
+    }
 }
 
 void

@@ -110,7 +110,9 @@ void goacc_lazy_initialize (void);
 void goacc_host_init (void);
 
 void goacc_profiling_initialize (void);
-bool goacc_profiling_dispatch_p (void);
+bool goacc_profiling_setup_p (struct goacc_thread *,
+			      acc_prof_info *, acc_api_info *);
+bool goacc_profiling_dispatch_p (bool);
 void goacc_profiling_dispatch (acc_prof_info *, acc_event_info *,
 			       acc_api_info *);
 

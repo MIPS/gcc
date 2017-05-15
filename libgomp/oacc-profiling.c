@@ -485,10 +485,90 @@ acc_prof_unregister (acc_event_t ev, acc_prof_callback cb, acc_register_t reg)
   gomp_mutex_unlock (&goacc_prof_lock);
 }
 
+/* Set up to dispatch events?  */
+
+bool
+goacc_profiling_setup_p (struct goacc_thread *thr,
+			 acc_prof_info *prof_info, acc_api_info *api_info)
+{
+  //TODO
+  gomp_debug (0, "%s (%p)\n", __FUNCTION__, thr);
+
+  /* If we don't have any per-thread state yet, we can't register prof_info and
+     api_info.  */
+  /* TODO: In this case, should we actually call goacc_lazy_initialize here,
+     and return the "thr" from goacc_profiling_setup_p?  */
+  if (__builtin_expect (thr == NULL, false))
+    {
+      //TODO
+      gomp_debug (0, "Can't generate OpenACC Profiling Interface events for"
+		  " the current call, construct, or directive\n");
+      return false;
+    }
+
+  bool profiling_dispatch_p
+    = __builtin_expect (goacc_profiling_dispatch_p (false), false);
+  if (thr->prof_info != NULL)
+    {
+      assert (profiling_dispatch_p); //TODO
+      /* Profiling has already been set up for an outer construct.  In this
+	 case, we continue to use the existing information, and thus return
+	 "false" here.
+
+	 This can happen, for example, for an enter data directive, which sets
+	 up profiling, then calls into acc_copyin, which should not again set
+	 up profiling, should not overwrite the existing information.  */
+      //TODO: Is this all kosher?
+      return false;
+    }
+
+  if (profiling_dispatch_p)
+    {
+      thr->prof_info = prof_info;
+
+      prof_info->event_type = -1; /* Must be set later.  */
+      prof_info->valid_bytes = _ACC_PROF_INFO_VALID_BYTES;
+      prof_info->version = _ACC_PROF_INFO_VERSION;
+      //TODO
+      if (thr->dev)
+	{
+	  prof_info->device_type = acc_device_type (thr->dev->type);
+	  prof_info->device_number = thr->dev->target_id;
+	}
+      else
+	{
+	  prof_info->device_type = -1;
+	  prof_info->device_number = -1;
+	}
+      prof_info->thread_id = -1; //TODO
+      prof_info->async = acc_async_sync; //TODO
+      /* See <https://github.com/OpenACC/openacc-spec/issues/71>.  */
+      prof_info->async_queue = prof_info->async;
+      prof_info->src_file = NULL; //TODO
+      prof_info->func_name = NULL; //TODO
+      prof_info->line_no = -1; //TODO
+      prof_info->end_line_no = -1; //TODO
+      prof_info->func_line_no = -1; //TODO
+      prof_info->func_end_line_no = -1; //TODO
+
+      thr->api_info = api_info;
+
+      api_info->device_api = acc_device_api_none; //TODO
+      api_info->valid_bytes = _ACC_API_INFO_VALID_BYTES;
+      api_info->device_type = prof_info->device_type;
+      api_info->vendor = -1; //TODO
+      api_info->device_handle = NULL; //TODO
+      api_info->context_handle = NULL; //TODO
+      api_info->async_handle = NULL; //TODO
+    }
+
+  return profiling_dispatch_p;
+}
+
 /* Prepare to dispatch events?  */
 
 bool
-goacc_profiling_dispatch_p (void)
+goacc_profiling_dispatch_p (bool check_not_nested_p)
 {
   //TODO
   gomp_debug (0, "%s\n", __FUNCTION__);
@@ -504,11 +584,21 @@ goacc_profiling_dispatch_p (void)
       //TODO
       gomp_debug (0, "  %s: don't have any per-thread state yet\n", __FUNCTION__);
     }
-  else if (__builtin_expect (!thr->prof_callbacks_enabled, true))
+  else
     {
-      //TODO
-      gomp_debug (0, "  %s: disabled for this thread\n", __FUNCTION__);
-      return false;
+      if (check_not_nested_p)
+	{
+	  /* No nesting.  */
+	  assert (thr->prof_info == NULL);
+	  assert (thr->api_info == NULL);
+	}
+
+      if (__builtin_expect (!thr->prof_callbacks_enabled, true))
+	{
+	  //TODO
+	  gomp_debug (0, "  %s: disabled for this thread\n", __FUNCTION__);
+	  return false;
+	}
     }
 
   gomp_mutex_lock (&goacc_prof_lock);
