@@ -5114,7 +5114,7 @@
    (set_attr "mode" "SI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "23")
-		    (match_test "!TARGET_NANOMIPS"))
+		    (match_test "!(TARGET_NANOMIPS /*&& TARGET_LI48*/)"))
 		  (const_string "no")]
 	      (const_string "yes")))])
 
@@ -5423,10 +5423,9 @@
    (set_attr "mode" "HI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "9")
-		    (match_test "!TARGET_NANOMIPS"))
+		    (match_test "!(TARGET_NANOMIPS /*&& TARGET_LI48*/)"))
 		  (const_string "no")]
 	      (const_string "yes")))])
-
 
 (define_insn "*movhi_mips16"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=d,y,d,d,d,d,m,*d")
