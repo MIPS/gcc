@@ -1,5 +1,11 @@
 2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.texi: Update for OpenACC 2.5.
+	* openacc.f90 (openacc_version): Update to "201510".
+	* openacc_lib.h (openacc_version): Likewise.
+	* testsuite/libgomp.oacc-fortran/openacc_version-1.f: Update.
+	* testsuite/libgomp.oacc-fortran/openacc_version-2.f90: Update.
+
 	* oacc-async.c (acc_async_test, acc_async_test_all, acc_wait)
 	(acc_wait_async, acc_wait_all, acc_wait_all_async): Set up
 	profiling.

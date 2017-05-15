@@ -1,3 +1,8 @@
+2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/cpp/openacc-define-3.c: Update.
+	* gfortran.dg/openacc-define-3.f90: Likewise.
+
 2017-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/parallel-dims-1.c: Update.
