@@ -192,6 +192,7 @@ enum mips_split_type {
 
 extern int mips_reg_parm_stack_space (tree, bool);
 extern void mips_adjust_reg_alloc_order (void);
+extern bool mips_string_constant_p (rtx);
 bool mips_call_may_need_jalx_p (tree);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
 				      enum mips_symbol_type *);
