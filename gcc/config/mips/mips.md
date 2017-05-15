@@ -8436,6 +8436,9 @@
 ; microMIPS patterns.
 (include "micromips.md")
 
+; nanoMIPS patterns.
+(include "nanomips.md")
+
 ; ST-Microelectronics Loongson-2E/2F-specific patterns.
 (include "loongson.md")
 
