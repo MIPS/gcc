@@ -2615,7 +2615,8 @@ mips_build_integer (struct mips_integer_op *codes,
 {
   if (SMALL_OPERAND (value)
       || SMALL_OPERAND_UNSIGNED (value)
-      || LUI_OPERAND (value))
+      || LUI_OPERAND (value)
+      || (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48))
     {
       /* The value can be loaded with a single instruction.  */
       codes[0].code = UNKNOWN;
@@ -3127,6 +3128,29 @@ mips_offset_within_alignment_p (rtx x, HOST_WIDE_INT offset)
   return IN_RANGE (offset, 0, align - 1);
 }
 
+bool
+mips_string_constant_p (rtx x)
+{
+  tree decl, exp;
+  if (TARGET_NANOMIPS != NANOMIPS_NMF
+      || !TARGET_LI48)
+    return false;
+
+  if (GET_CODE (x) == CONST
+      && GET_CODE (XEXP (x, 0)) == PLUS)
+    x = XEXP (XEXP (x, 0), 0);
+
+  if (TARGET_LI48 && GET_CODE (x) == SYMBOL_REF)
+    return true;
+
+  if (GET_CODE (x) == SYMBOL_REF
+      && (decl = SYMBOL_REF_DECL (x))
+      && TREE_CODE (decl) == VAR_DECL
+      && (exp = DECL_INITIAL (decl))
+      && TREE_CODE (exp) == STRING_CST)
+    return true;
+  return false;
+}
 /* Return true if X is a symbolic constant that can be used in context
    CONTEXT.  If it is, store the type of the symbol in *SYMBOL_TYPE.  */
 
@@ -3252,7 +3276,11 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 a preparatory LI and SLL for MIPS16.  */
       return ABI_HAS_64BIT_SYMBOLS
 	     ? 6
-	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? 3 : 2;
+	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
+	       ? 3
+	       : (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48)
+		 ? 1
+		 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -4448,6 +4476,13 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
 
+	      case SYMBOL_ABSOLUTE:
+		if (mips_string_constant_p (addr))
+		  {
+		    *low_out = addr;
+		    break;
+		  }
+		/* Otherwise, fall through to the default.  */
 	      default:
 		high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
 		high = mips_force_temporary (temp, high);
@@ -6381,6 +6416,10 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  /* Don't use the X format for the operand itself, because that
 	     will give out-of-range numbers for 64-bit hosts and 32-bit
 	     targets.  */
+	  if (TARGET_NANOMIPS == NANOMIPS_NMF && TARGET_LI48
+	      && LI32_INT (src))
+	    return "li\t%0,%1 # LI48";
+
 	  if (!TARGET_MIPS16)
 	    return "li\t%0,%1\t\t\t# %X1";
 
@@ -6408,7 +6447,8 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	return "move\t%0,%1";
 
       if (mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
-	  && mips_lo_relocs[symbol_type] != 0)
+	  && mips_lo_relocs[symbol_type] != 0
+	  && !mips_string_constant_p (src))
 	{
 	  /* A signed 16-bit constant formed by applying a relocation
 	     operator to a symbolic address.  */
@@ -6418,10 +6458,15 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (symbolic_operand (src, VOIDmode))
 	{
-	  gcc_assert (TARGET_MIPS16
-		      ? TARGET_MIPS16_TEXT_LOADS
-		      : !TARGET_EXPLICIT_RELOCS);
-	  return dbl_p ? "dla\t%0,%1" : "la\t%0,%1";
+	  if (mips_string_constant_p (src))
+	    return "li\t%0,%1 # LI48";
+	  else
+	    {
+	      gcc_assert (TARGET_MIPS16
+			  ? TARGET_MIPS16_TEXT_LOADS
+			  : !TARGET_EXPLICIT_RELOCS);
+	      return dbl_p ? "dla\t%0,%1" : "la\t%0,%1";
+	    }
 	}
     }
   if (src_code == REG && FP_REG_P (REGNO (src)))
