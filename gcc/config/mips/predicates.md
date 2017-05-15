@@ -413,14 +413,32 @@
 		      (match_test "INTVAL (op) == 0xff")
 		      (match_test "INTVAL (op) == 0xffff"))))))
 
-(define_predicate "movep_src_register"
+(define_predicate "movep_register"
   (and (match_code "reg")
-       (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
-	    (match_test ("IN_RANGE (REGNO (op), 16, 20)")))))
+       (match_test ("mode == SImode || mode == HImode || mode == QImode
+		    || mode == SFmode"))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
+		      (match_test ("IN_RANGE (REGNO (op), 16, 20)"))))
+	    (and (match_test "TARGET_NANOMIPS")
+		 ;; We may come across register zero instead of a constant
+		 (ior (match_test ("REGNO (op) == 0"))
+		      (match_test ("IN_RANGE (REGNO (op), 4, 10)"))
+		      (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))))
 
-(define_predicate "movep_src_operand"
+(define_predicate "movep_rev_register"
+  (and (match_code "reg")
+       (match_test ("mode == SImode || mode == HImode || mode == QImode
+		    || mode == SFmode"))
+       (ior (match_test ("IN_RANGE (REGNO (op), 4, 11)"))
+	    (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))
+
+(define_predicate "movep_or_0_operand"
   (ior (match_operand 0 "const_0_operand")
-       (match_operand 0 "movep_src_register")))
+       (match_operand 0 "movep_register")))
+
+(define_predicate "movep_rev_operand"
+  (match_operand 0 "movep_rev_register"))
 
 (define_predicate "lo_operand"
   (and (match_code "reg")

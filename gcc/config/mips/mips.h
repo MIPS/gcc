@@ -1169,6 +1169,8 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
+#define ISA_HAS_MOVEP		(TARGET_MICROMIPS || TARGET_NANOMIPS)
+#define ISA_HAS_MOVEP_REV	TARGET_NANOMIPS
 #define ISA_HAS_UALW_UASW	TARGET_NANOMIPS
 
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
