@@ -24780,7 +24780,7 @@ umips_output_load_store_pair (bool load_p, rtx *operands)
 /* Return true if REG1 and REG2 match the criteria for a movep insn.  */
 
 bool
-umips_movep_target_p (rtx reg1, rtx reg2)
+mips_movep_target_p (rtx reg1, rtx reg2)
 {
   int regno1, regno2, pair;
   unsigned int i;
@@ -24794,6 +24794,12 @@ umips_movep_target_p (rtx reg1, rtx reg2)
     0x00000050, /* 4, 6 */
     0x00000090  /* 4, 7 */
   };
+  static const int matchr7[10] = {
+    0x00000030, /* 4, 5 */
+    0x00000060, /* 5, 6 */
+    0x000000c0, /* 6, 7 */
+    0x00000180, /* 7, 8 */
+  };
 
   if (!REG_P (reg1) || !REG_P (reg2))
     return false;
@@ -24806,9 +24812,16 @@ umips_movep_target_p (rtx reg1, rtx reg2)
 
   pair = (1 << regno1) | (1 << regno2);
 
-  for (i = 0; i < ARRAY_SIZE (match); i++)
-    if (pair == match[i])
-      return true;
+ if (TARGET_NANOMIPS)
+    {
+      for (i = 0; i < ARRAY_SIZE (matchr7); i++)
+	if (pair == matchr7[i])
+	  return true;
+    }
+  else
+    for (i = 0; i < ARRAY_SIZE (match); i++)
+      if (pair == match[i])
+	return true;
 
   return false;
 }
