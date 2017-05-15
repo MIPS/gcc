@@ -423,6 +423,8 @@
 
 (define_predicate "movep_register"
   (and (match_code "reg")
+       (match_test ("mode == SImode || mode == HImode || mode == QImode
+		    || mode == SFmode"))
        (ior (and (not (match_test "TARGET_MICROMIPS_R7"))
 		 (ior (match_test ("IN_RANGE (REGNO (op), 2, 3)"))
 		      (match_test ("IN_RANGE (REGNO (op), 16, 20)"))))
@@ -434,6 +436,8 @@
 
 (define_predicate "movep_rev_register"
   (and (match_code "reg")
+       (match_test ("mode == SImode || mode == HImode || mode == QImode
+		    || mode == SFmode"))
        (ior (match_test ("IN_RANGE (REGNO (op), 4, 11)"))
 	    (match_test ("IN_RANGE (REGNO (op), 16, 23)")))))
 
