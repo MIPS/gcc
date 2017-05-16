@@ -233,6 +233,24 @@ module openacc_internal
       type (*), dimension (..), contiguous :: a
     end subroutine
 
+    subroutine acc_copyout_finalize_32_h (a, len)
+      use iso_c_binding, only: c_int32_t
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int32_t) len
+    end subroutine
+
+    subroutine acc_copyout_finalize_64_h (a, len)
+      use iso_c_binding, only: c_int64_t
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int64_t) len
+    end subroutine
+
+    subroutine acc_copyout_finalize_array_h (a)
+      type (*), dimension (..), contiguous :: a
+    end subroutine
+
     subroutine acc_delete_32_h (a, len)
       use iso_c_binding, only: c_int32_t
       !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
@@ -248,6 +266,24 @@ module openacc_internal
     end subroutine
 
     subroutine acc_delete_array_h (a)
+      type (*), dimension (..), contiguous :: a
+    end subroutine
+
+    subroutine acc_delete_finalize_32_h (a, len)
+      use iso_c_binding, only: c_int32_t
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int32_t) len
+    end subroutine
+
+    subroutine acc_delete_finalize_64_h (a, len)
+      use iso_c_binding, only: c_int64_t
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int64_t) len
+    end subroutine
+
+    subroutine acc_delete_finalize_array_h (a)
       type (*), dimension (..), contiguous :: a
     end subroutine
 
@@ -380,6 +416,30 @@ module openacc_internal
       integer (acc_handle_kind) async
     end subroutine
 
+    subroutine acc_copyout_finalize_async_32_h (a, len, async)
+      use iso_c_binding, only: c_int32_t
+      use openacc_kinds, only: acc_handle_kind
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int32_t) len
+      integer (acc_handle_kind) async
+    end subroutine
+
+    subroutine acc_copyout_finalize_async_64_h (a, len, async)
+      use iso_c_binding, only: c_int64_t
+      use openacc_kinds, only: acc_handle_kind
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int64_t) len
+      integer (acc_handle_kind) async
+    end subroutine
+
+    subroutine acc_copyout_finalize_async_array_h (a, async)
+      use openacc_kinds, only: acc_handle_kind
+      type (*), dimension (..), contiguous :: a
+      integer (acc_handle_kind) async
+    end subroutine
+
     subroutine acc_delete_async_32_h (a, len, async)
       use iso_c_binding, only: c_int32_t
       use openacc_kinds, only: acc_handle_kind
@@ -399,6 +459,30 @@ module openacc_internal
     end subroutine
 
     subroutine acc_delete_async_array_h (a, async)
+      use openacc_kinds, only: acc_handle_kind
+      type (*), dimension (..), contiguous :: a
+      integer (acc_handle_kind) async
+    end subroutine
+
+    subroutine acc_delete_finalize_async_32_h (a, len, async)
+      use iso_c_binding, only: c_int32_t
+      use openacc_kinds, only: acc_handle_kind
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int32_t) len
+      integer (acc_handle_kind) async
+    end subroutine
+
+    subroutine acc_delete_finalize_async_64_h (a, len, async)
+      use iso_c_binding, only: c_int64_t
+      use openacc_kinds, only: acc_handle_kind
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_int64_t) len
+      integer (acc_handle_kind) async
+    end subroutine
+
+    subroutine acc_delete_finalize_async_array_h (a, async)
       use openacc_kinds, only: acc_handle_kind
       type (*), dimension (..), contiguous :: a
       integer (acc_handle_kind) async
@@ -581,8 +665,24 @@ module openacc_internal
       integer (c_size_t), value :: len
     end subroutine
 
+    subroutine acc_copyout_finalize_l (a, len) &
+        bind (C, name = "acc_copyout_finalize")
+      use iso_c_binding, only: c_size_t
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_size_t), value :: len
+    end subroutine
+
     subroutine acc_delete_l (a, len) &
         bind (C, name = "acc_delete")
+      use iso_c_binding, only: c_size_t
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_size_t), value :: len
+    end subroutine
+
+    subroutine acc_delete_finalize_l (a, len) &
+        bind (C, name = "acc_delete_finalize")
       use iso_c_binding, only: c_size_t
       !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
       type (*), dimension (*) :: a
@@ -641,8 +741,26 @@ module openacc_internal
       integer (c_int), value :: async
     end subroutine
 
+    subroutine acc_copyout_finalize_async_l (a, len, async) &
+        bind (C, name = "acc_copyout_finalize_async")
+      use iso_c_binding, only: c_size_t, c_int
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_size_t), value :: len
+      integer (c_int), value :: async
+    end subroutine
+
     subroutine acc_delete_async_l (a, len, async) &
         bind (C, name = "acc_delete_async")
+      use iso_c_binding, only: c_size_t, c_int
+      !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+      type (*), dimension (*) :: a
+      integer (c_size_t), value :: len
+      integer (c_int), value :: async
+    end subroutine
+
+    subroutine acc_delete_finalize_async_l (a, len, async) &
+        bind (C, name = "acc_delete_finalize_async")
       use iso_c_binding, only: c_size_t, c_int
       !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
       type (*), dimension (*) :: a
@@ -806,10 +924,22 @@ module openacc
     procedure :: acc_copyout_array_h
   end interface
 
+  interface acc_copyout_finalize
+    procedure :: acc_copyout_finalize_32_h
+    procedure :: acc_copyout_finalize_64_h
+    procedure :: acc_copyout_finalize_array_h
+  end interface
+
   interface acc_delete
     procedure :: acc_delete_32_h
     procedure :: acc_delete_64_h
     procedure :: acc_delete_array_h
+  end interface
+
+  interface acc_delete_finalize
+    procedure :: acc_delete_finalize_32_h
+    procedure :: acc_delete_finalize_64_h
+    procedure :: acc_delete_finalize_array_h
   end interface
 
   interface acc_update_device
@@ -856,10 +986,22 @@ module openacc
     procedure :: acc_copyout_async_array_h
   end interface
 
+  interface acc_copyout_finalize_async
+    procedure :: acc_copyout_finalize_async_32_h
+    procedure :: acc_copyout_finalize_async_64_h
+    procedure :: acc_copyout_finalize_async_array_h
+  end interface
+
   interface acc_delete_async
     procedure :: acc_delete_async_32_h
     procedure :: acc_delete_async_64_h
     procedure :: acc_delete_async_array_h
+  end interface
+
+  interface acc_delete_finalize_async
+    procedure :: acc_delete_finalize_async_32_h
+    procedure :: acc_delete_finalize_async_64_h
+    procedure :: acc_delete_finalize_async_array_h
   end interface
 
   interface acc_update_device_async
@@ -1104,6 +1246,30 @@ subroutine acc_copyout_array_h (a)
   call acc_copyout_l (a, sizeof (a))
 end subroutine
 
+subroutine acc_copyout_finalize_32_h (a, len)
+  use iso_c_binding, only: c_int32_t, c_size_t
+  use openacc_internal, only: acc_copyout_finalize_l
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int32_t) len
+  call acc_copyout_finalize_l (a, int (len, kind = c_size_t))
+end subroutine
+
+subroutine acc_copyout_finalize_64_h (a, len)
+  use iso_c_binding, only: c_int64_t, c_size_t
+  use openacc_internal, only: acc_copyout_finalize_l
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int64_t) len
+  call acc_copyout_finalize_l (a, int (len, kind = c_size_t))
+end subroutine
+
+subroutine acc_copyout_finalize_array_h (a)
+  use openacc_internal, only: acc_copyout_finalize_l
+  type (*), dimension (..), contiguous :: a
+  call acc_copyout_finalize_l (a, sizeof (a))
+end subroutine
+
 subroutine acc_delete_32_h (a, len)
   use iso_c_binding, only: c_int32_t, c_size_t
   use openacc_internal, only: acc_delete_l
@@ -1126,6 +1292,30 @@ subroutine acc_delete_array_h (a)
   use openacc_internal, only: acc_delete_l
   type (*), dimension (..), contiguous :: a
   call acc_delete_l (a, sizeof (a))
+end subroutine
+
+subroutine acc_delete_finalize_32_h (a, len)
+  use iso_c_binding, only: c_int32_t, c_size_t
+  use openacc_internal, only: acc_delete_finalize_l
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int32_t) len
+  call acc_delete_finalize_l (a, int (len, kind = c_size_t))
+end subroutine
+
+subroutine acc_delete_finalize_64_h (a, len)
+  use iso_c_binding, only: c_int64_t, c_size_t
+  use openacc_internal, only: acc_delete_finalize_l
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int64_t) len
+  call acc_delete_finalize_l (a, int (len, kind = c_size_t))
+end subroutine
+
+subroutine acc_delete_finalize_array_h (a)
+  use openacc_internal, only: acc_delete_finalize_l
+  type (*), dimension (..), contiguous :: a
+  call acc_delete_finalize_l (a, sizeof (a))
 end subroutine
 
 subroutine acc_update_device_32_h (a, len)
@@ -1304,6 +1494,37 @@ subroutine acc_copyout_async_array_h (a, async)
   call acc_copyout_async_l (a, sizeof (a), int (async, kind = c_int))
 end subroutine
 
+subroutine acc_copyout_finalize_async_32_h (a, len, async)
+  use iso_c_binding, only: c_int32_t, c_size_t, c_int
+  use openacc_internal, only: acc_copyout_finalize_async_l
+  use openacc_kinds, only: acc_handle_kind
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int32_t) len
+  integer (acc_handle_kind) async
+  call acc_copyout_finalize_async_l (a, int (len, kind = c_size_t), int (async, kind = c_int))
+end subroutine
+
+subroutine acc_copyout_finalize_async_64_h (a, len, async)
+  use iso_c_binding, only: c_int64_t, c_size_t, c_int
+  use openacc_internal, only: acc_copyout_finalize_async_l
+  use openacc_kinds, only: acc_handle_kind
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int64_t) len
+  integer (acc_handle_kind) async
+  call acc_copyout_finalize_async_l (a, int (len, kind = c_size_t), int (async, kind = c_int))
+end subroutine
+
+subroutine acc_copyout_finalize_async_array_h (a, async)
+  use iso_c_binding, only: c_int
+  use openacc_internal, only: acc_copyout_finalize_async_l
+  use openacc_kinds, only: acc_handle_kind
+  type (*), dimension (..), contiguous :: a
+  integer (acc_handle_kind) async
+  call acc_copyout_finalize_async_l (a, sizeof (a), int (async, kind = c_int))
+end subroutine
+
 subroutine acc_delete_async_32_h (a, len, async)
   use iso_c_binding, only: c_int32_t, c_size_t, c_int
   use openacc_internal, only: acc_delete_async_l
@@ -1333,6 +1554,37 @@ subroutine acc_delete_async_array_h (a, async)
   type (*), dimension (..), contiguous :: a
   integer (acc_handle_kind) async
   call acc_delete_async_l (a, sizeof (a), int (async, kind = c_int))
+end subroutine
+
+subroutine acc_delete_finalize_async_32_h (a, len, async)
+  use iso_c_binding, only: c_int32_t, c_size_t, c_int
+  use openacc_internal, only: acc_delete_finalize_async_l
+  use openacc_kinds, only: acc_handle_kind
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int32_t) len
+  integer (acc_handle_kind) async
+  call acc_delete_finalize_async_l (a, int (len, kind = c_size_t), int (async, kind = c_int))
+end subroutine
+
+subroutine acc_delete_finalize_async_64_h (a, len, async)
+  use iso_c_binding, only: c_int64_t, c_size_t, c_int
+  use openacc_internal, only: acc_delete_finalize_async_l
+  use openacc_kinds, only: acc_handle_kind
+  !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+  type (*), dimension (*) :: a
+  integer (c_int64_t) len
+  integer (acc_handle_kind) async
+  call acc_delete_finalize_async_l (a, int (len, kind = c_size_t), int (async, kind = c_int))
+end subroutine
+
+subroutine acc_delete_finalize_async_array_h (a, async)
+  use iso_c_binding, only: c_int
+  use openacc_internal, only: acc_delete_finalize_async_l
+  use openacc_kinds, only: acc_handle_kind
+  type (*), dimension (..), contiguous :: a
+  integer (acc_handle_kind) async
+  call acc_delete_finalize_async_l (a, sizeof (a), int (async, kind = c_int))
 end subroutine
 
 subroutine acc_update_device_async_32_h (a, len, async)

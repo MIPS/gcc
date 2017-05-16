@@ -835,6 +835,7 @@ enum omp_mask2
   OMP_CLAUSE_NOHOST,
   OMP_CLAUSE_IF_PRESENT,
   OMP_CLAUSE_DEVICE_TYPE,
+  OMP_CLAUSE_FINALIZE,
   /* This must come last.  */
   OMP_MASK2_LAST
 };
@@ -1304,6 +1305,14 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	      && c->final_expr == NULL
 	      && gfc_match ("final ( %e )", &c->final_expr) == MATCH_YES)
 	    continue;
+	  if ((mask & OMP_CLAUSE_FINALIZE)
+	      && !c->finalize
+	      && gfc_match ("finalize") == MATCH_YES)
+	    {
+	      c->finalize = true;
+	      needs_space = true;
+	      continue;
+	    }
 	  if ((mask & OMP_CLAUSE_FIRSTPRIVATE)
 	      && gfc_match_omp_variable_list ("firstprivate (",
 					      &c->lists[OMP_LIST_FIRSTPRIVATE],
@@ -2081,7 +2090,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
    | OMP_CLAUSE_COPYIN | OMP_CLAUSE_CREATE)
 #define OACC_EXIT_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT	      \
-   | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_DELETE)
+   | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_DELETE | OMP_CLAUSE_FINALIZE)
 #define OACC_WAIT_CLAUSES \
   omp_mask (OMP_CLAUSE_ASYNC)
 #define OACC_ROUTINE_CLAUSES \

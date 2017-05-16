@@ -331,7 +331,8 @@ unsigned const char omp_clause_num_ops[] =
   3, /* OMP_CLAUSE_TILE  */
   2, /* OMP_CLAUSE__GRIDDIM_  */
   0, /* OMP_CLAUSE_IF_PRESENT */
-  2  /* OMP_CLAUSE_DEVICE_TYPE */
+  2, /* OMP_CLAUSE_DEVICE_TYPE */
+  0  /* OMP_CLAUSE_FINALIZE  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -406,7 +407,8 @@ const char * const omp_clause_code_name[] =
   "tile",
   "_griddim_",
   "if_present",
-  "device_type"
+  "device_type",
+  "finalize"
 };
 
 
@@ -11723,6 +11725,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_NOHOST:
 	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_IF_PRESENT:
+	case OMP_CLAUSE_FINALIZE:
 	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
 	case OMP_CLAUSE_DEVICE_TYPE:

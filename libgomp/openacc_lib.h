@@ -303,6 +303,26 @@
         end subroutine
       end interface
 
+      interface acc_copyout_finalize
+        subroutine acc_copyout_finalize_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_copyout_finalize_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_copyout_finalize_array_h (a)
+          type (*), dimension (..), contiguous :: a
+        end subroutine
+      end interface
+
       interface acc_delete
         subroutine acc_delete_32_h (a, len)
           use iso_c_binding, only: c_int32_t
@@ -319,6 +339,26 @@
         end subroutine
 
         subroutine acc_delete_array_h (a)
+          type (*), dimension (..), contiguous :: a
+        end subroutine
+      end interface
+
+      interface acc_delete_finalize
+        subroutine acc_delete_finalize_32_h (a, len)
+          use iso_c_binding, only: c_int32_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+        end subroutine
+
+        subroutine acc_delete_finalize_64_h (a, len)
+          use iso_c_binding, only: c_int64_t
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+        end subroutine
+
+        subroutine acc_delete_finalize_array_h (a)
           type (*), dimension (..), contiguous :: a
         end subroutine
       end interface
@@ -472,6 +512,32 @@
         end subroutine
       end interface
 
+      interface acc_copyout_finalize_async
+        subroutine acc_copyout_finalize_async_32_h (a, len, async)
+          use iso_c_binding, only: c_int32_t
+          import acc_handle_kind
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+          integer (acc_handle_kind) async
+        end subroutine
+
+        subroutine acc_copyout_finalize_async_64_h (a, len, async)
+          use iso_c_binding, only: c_int64_t
+          import acc_handle_kind
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+          integer (acc_handle_kind) async
+        end subroutine
+
+        subroutine acc_copyout_finalize_async_array_h (a, async_)
+          import acc_handle_kind
+          type (*), dimension (..), contiguous :: a
+          integer (acc_handle_kind) async_
+        end subroutine
+      end interface
+
       interface acc_delete_async
         subroutine acc_delete_async_32_h (a, len, async)
           use iso_c_binding, only: c_int32_t
@@ -492,6 +558,32 @@
         end subroutine
 
         subroutine acc_delete_async_array_h (a, async_)
+          import acc_handle_kind
+          type (*), dimension (..), contiguous :: a
+          integer (acc_handle_kind) async_
+        end subroutine
+      end interface
+
+      interface acc_delete_finalize_async
+        subroutine acc_delete_finalize_async_32_h (a, len, async)
+          use iso_c_binding, only: c_int32_t
+          import acc_handle_kind
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int32_t) len
+          integer (acc_handle_kind) async
+        end subroutine
+
+        subroutine acc_delete_finalize_async_64_h (a, len, async)
+          use iso_c_binding, only: c_int64_t
+          import acc_handle_kind
+          !GCC$ ATTRIBUTES NO_ARG_CHECK :: a
+          type (*), dimension (*) :: a
+          integer (c_int64_t) len
+          integer (acc_handle_kind) async
+        end subroutine
+
+        subroutine acc_delete_finalize_async_array_h (a, async_)
           import acc_handle_kind
           type (*), dimension (..), contiguous :: a
           integer (acc_handle_kind) async_

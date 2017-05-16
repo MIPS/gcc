@@ -473,7 +473,10 @@ enum omp_clause_code {
   OMP_CLAUSE_IF_PRESENT,
 
   /* OpenACC clause: device_type ( device-type-list).  */
-  OMP_CLAUSE_DEVICE_TYPE
+  OMP_CLAUSE_DEVICE_TYPE,
+
+  /* OpenACC clause: finalize.  */
+  OMP_CLAUSE_FINALIZE  
 };
 
 #undef DEFTREESTRUCT

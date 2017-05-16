@@ -38,7 +38,7 @@ main (int argc, char **argv)
 
   memset (&h[0], 0, N);
 
-  acc_copyout (h, N);
+  acc_copyout_finalize (h, N);
 
   for (i = 0; i < N; i++)
     {
