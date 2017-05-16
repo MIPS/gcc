@@ -482,6 +482,9 @@ enum omp_clause_code {
   /* OpenACC clause: if_present.  */
   OMP_CLAUSE_IF_PRESENT,
 
+  /* OpenACC clause: finalize.  */
+  OMP_CLAUSE_FINALIZE,
+
   /* OpenACC clause: device_type ( device-type-list).  */
   OMP_CLAUSE_DEVICE_TYPE
 };

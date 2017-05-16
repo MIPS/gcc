@@ -15243,6 +15243,7 @@ tsubst_omp_clauses (tree clauses, enum c_omp_region_type ort,
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_IF_PRESENT:
+	case OMP_CLAUSE_FINALIZE:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 	case OMP_CLAUSE_BIND:

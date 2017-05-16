@@ -333,8 +333,10 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 			      async, dims, tgt);
 
   /* If running synchronously, unmap immediately.  */
+  bool copyfrom = true;
   if (async < acc_async_noval)
     {
+    unmap:
       if (profiling_dispatch_p)
 	{
 	  prof_info.event_type = acc_ev_exit_data_start;
@@ -344,7 +346,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 	  goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
 				    &api_info);
 	}
-      gomp_unmap_vars (tgt, true);
+      gomp_unmap_vars (tgt, copyfrom);
       if (profiling_dispatch_p)
 	{
 	  prof_info.event_type = acc_ev_exit_data_end;
@@ -355,7 +357,25 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 	}
     }
   else
-    tgt->device_descr->openacc.register_async_cleanup_func (tgt, async);
+    {
+      bool async_unmap = false;
+      for (size_t i = 0; i < tgt->list_count; i++)
+	{
+	  splay_tree_key k = tgt->list[i].key;
+	  if (k && k->refcount == 1)
+	    {
+	      async_unmap = true;
+	      break;
+	    }
+	}
+      if (async_unmap)
+	tgt->device_descr->openacc.register_async_cleanup_func (tgt, async);
+      else
+	{
+	  copyfrom = false;
+	  goto unmap;
+	}
+    }
 
   acc_dev->openacc.async_set_async_func (acc_async_sync);
 
@@ -594,6 +614,17 @@ GOACC_enter_exit_data (int device, size_t mapnum,
   bool data_enter = false;
   size_t i;
 
+  /* Determine whether "finalize" semantics apply to all mappings of this
+     OpenACC directive.  */
+  bool finalize = false;
+  if (mapnum > 0)
+    {
+      unsigned char kind = kinds[0] & 0xff;
+      if (kind == GOMP_MAP_DELETE
+	  || kind == GOMP_MAP_FORCE_FROM)
+	finalize = true;
+    }
+
   /* Determine if this is an "acc enter data".  */
   for (i = 0; i < mapnum; ++i)
     {
@@ -613,7 +644,8 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  break;
 	}
 
-      if (kind == GOMP_MAP_DELETE
+      if (kind == GOMP_MAP_RELEASE
+	  || kind == GOMP_MAP_DELETE
 	  || kind == GOMP_MAP_FROM
 	  || kind == GOMP_MAP_FORCE_FROM
 	  || kind == GOMP_MAP_DECLARE_DEALLOCATE)
@@ -749,11 +781,9 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	      if (kind == GOMP_MAP_DECLARE_ALLOCATE)
 		gomp_acc_declare_allocate (true, pointer, &hostaddrs[i],
 					   &sizes[i], &kinds[i]);
-	      else if (!acc_is_present (hostaddrs[i], sizes[i]))
-		{
-		  gomp_acc_insert_pointer (pointer, &hostaddrs[i],
-					   &sizes[i], &kinds[i]);
-		}
+	      else
+		gomp_acc_insert_pointer (pointer, &hostaddrs[i],
+					 &sizes[i], &kinds[i]);
 	      /* Increment 'i' by two because OpenACC requires fortran
 		 arrays to be contiguous, so each PSET is associated with
 		 one of MAP_FORCE_ALLOC/MAP_FORCE_PRESET/MAP_FORCE_TO, and
@@ -773,14 +803,23 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  {
 	    switch (kind)
 	      {
+	      case GOMP_MAP_RELEASE:
 	      case GOMP_MAP_DELETE:
 		if (acc_is_present (hostaddrs[i], sizes[i]))
-		  acc_delete (hostaddrs[i], sizes[i]);
+		  {
+		    if (finalize)
+		      acc_delete_finalize (hostaddrs[i], sizes[i]);
+		    else
+		      acc_delete (hostaddrs[i], sizes[i]);
+		  }
 		break;
 	      case GOMP_MAP_DECLARE_DEALLOCATE:
 	      case GOMP_MAP_FROM:
 	      case GOMP_MAP_FORCE_FROM:
-		acc_copyout (hostaddrs[i], sizes[i]);
+		if (finalize)
+		  acc_copyout_finalize (hostaddrs[i], sizes[i]);
+		else
+		  acc_copyout (hostaddrs[i], sizes[i]);
 		break;
 	      default:
 		gomp_fatal (">>>> GOACC_enter_exit_data UNHANDLED kind 0x%.2x",
@@ -793,11 +832,12 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	    if (kind == GOMP_MAP_DECLARE_DEALLOCATE)
 	      gomp_acc_declare_allocate (false, pointer, &hostaddrs[i],
 					 &sizes[i], &kinds[i]);
-	    else if (acc_is_present (hostaddrs[i], sizes[i]))
+	    else
 	      {
 		bool copyfrom = (kind == GOMP_MAP_FORCE_FROM
 				 || kind == GOMP_MAP_FROM);
-		gomp_acc_remove_pointer (hostaddrs[i], copyfrom, async, pointer);
+		gomp_acc_remove_pointer (hostaddrs[i], sizes[i], copyfrom, async,
+					 finalize, pointer);
 		/* See the above comment.  */
 	      }
 	    i += pointer - 1;
@@ -1075,6 +1115,7 @@ GOACC_declare (int device, size_t mapnum,
 	  case GOMP_MAP_FORCE_FROM:
 	  case GOMP_MAP_FORCE_TO:
 	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_RELEASE:
 	  case GOMP_MAP_DELETE:
 	    GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
 				   &kinds[i], 0, 0);
@@ -1096,7 +1137,6 @@ GOACC_declare (int device, size_t mapnum,
 	    break;
 
 	  case GOMP_MAP_FROM:
-	    kinds[i] = GOMP_MAP_FORCE_FROM;
 	    GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
 				   &kinds[i], 0, 0);
 	    break;

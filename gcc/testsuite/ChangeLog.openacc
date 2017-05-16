@@ -1,3 +1,14 @@
+2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/finalize-1.c: New file.
+	* gfortran.dg/goacc/finalize-1.f: Likewise.
+
+	* c-c++-common/goacc/data-2.c: Update.
+	* g++.dg/goacc/template.C: Likewise.
+	* gcc.dg/goacc/nested-function-1.c: Likewise.
+	* gfortran.dg/goacc/enter-exit-data.f95: Likewise.
+	* gfortran.dg/goacc/nested-function-1.f90: Likewise.
+
 2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/cpp/openacc-define-3.c: Update.

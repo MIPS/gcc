@@ -1,3 +1,7 @@
+2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OACC_CLAUSE_FINALIZE.
+
 2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): Update "_OPENACC" to "201510".

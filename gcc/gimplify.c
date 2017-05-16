@@ -8479,6 +8479,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_IF_PRESENT:
+	case OMP_CLAUSE_FINALIZE:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
@@ -9374,6 +9375,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_IF_PRESENT:
+	case OMP_CLAUSE_FINALIZE:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
@@ -9433,7 +9435,7 @@ gimplify_oacc_declare_1 (tree clause)
   switch (kind)
     {
       case GOMP_MAP_ALLOC:
-	new_op = GOMP_MAP_DELETE;
+	new_op = GOMP_MAP_RELEASE;
 	ret = true;
 	break;
 
@@ -10896,6 +10898,33 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FROM);
 	      break;
 	    default:
+	      break;
+	    }
+    }
+  else if (TREE_CODE (expr) == OACC_EXIT_DATA
+	   && omp_find_clause (OMP_STANDALONE_CLAUSES (expr),
+			       OMP_CLAUSE_FINALIZE))
+    {
+      /* Use GOMP_MAP_DELETE/GOMP_MAP_FORCE_FROM to denote that "finalize"
+	 semantics apply to all mappings of this OpenACC directive.  */
+      bool finalize_marked = false;
+      for (tree c = OMP_STANDALONE_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP)
+	  switch (OMP_CLAUSE_MAP_KIND (c))
+	    {
+	    case GOMP_MAP_FROM:
+	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_FROM);
+	      finalize_marked = true;
+	      break;
+	    case GOMP_MAP_RELEASE:
+	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_DELETE);
+	      finalize_marked = true;
+	      break;
+	    default:
+	      /* Check consistency: libgomp relies on the very first data
+		 mapping clause being marked, so make sure we did that before
+		 any other mapping clauses.  */
+	      gcc_assert (finalize_marked);
 	      break;
 	    }
     }

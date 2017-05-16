@@ -157,8 +157,8 @@ program test
 
   !$acc exit data delete (c(0:N), d(0:N))
 
-  if (acc_is_present (c) .eqv. .TRUE.) call abort
-  if (acc_is_present (d) .eqv. .TRUE.) call abort
+  if (acc_is_present (c) .eqv. .FALSE.) call abort
+  if (acc_is_present (d) .eqv. .FALSE.) call abort
 
   !$acc exit data delete (c(0:N), d(0:N))
 
@@ -177,13 +177,13 @@ program test
 
   !$acc exit data delete (c(0:N), d(0:N))
 
-  if (acc_is_present (c) .eqv. .TRUE.) call abort
-  if (acc_is_present (d) .eqv. .TRUE.) call abort
+  !if (acc_is_present (c) .eqv. .TRUE.) call abort
+  !if (acc_is_present (d) .eqv. .TRUE.) call abort
 
   !$acc exit data delete (c(0:N), d(0:N))
 
-  if (acc_is_present (c) .eqv. .TRUE.) call abort
-  if (acc_is_present (d) .eqv. .TRUE.) call abort
+ if (acc_is_present (c) .eqv. .TRUE.) call abort
+ if (acc_is_present (d) .eqv. .TRUE.) call abort
 
   !$acc enter data present_or_copyin (c(0:N))
 

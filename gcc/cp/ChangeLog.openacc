@@ -1,3 +1,18 @@
+2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* pt.c (tsubst_omp_clauses): Handle "OMP_CLAUSE_FINALIZE".
+
+	* parser.c (cp_parser_oacc_data_clause)
+	<PRAGMA_OACC_CLAUSE_DELETE>: Use "GOMP_MAP_RELEASE".
+
+2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* parser.c (cp_parser_omp_clause_name): Handle 'finalize' clause.
+	(cp_parser_oacc_simple_clause): Add 'finalize' to comments.
+	(cp_parser_oacc_all_clauses): Handle PRAGMA_OACC_CLAUSE_FINALIZE.
+	(OACC_EXIT_DATA_CLAUSE_MASK): Add PRAGMA_OACC_CLAUSE_FINALIZE.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_FINALIZE.
+
 2017-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* parser.c (OACC_KERNELS_CLAUSE_MASK)

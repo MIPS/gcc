@@ -1,5 +1,7 @@
-/* Test if acc_copyin has present_or_ and reference counting behavior.  */
+/* { dg-do run } */
+/* { dg-skip-if "" { *-*-* } { "*" } { "-DACC_MEM_SHARED=0" } } */
 
+#include <string.h>
 #include <stdlib.h>
 #include <openacc.h>
 
@@ -9,6 +11,7 @@ main (int argc, char **argv)
   const int N = 256;
   int i;
   unsigned char *h;
+  void *d1, *d2;
 
   h = (unsigned char *) malloc (N);
 
@@ -17,22 +20,19 @@ main (int argc, char **argv)
       h[i] = i;
     }
 
-  (void) acc_copyin (h, N);
-  (void) acc_copyin (h, N);
-
-  acc_copyout (h, N);
+#pragma acc data create (h[0:N])
+  {
+    #pragma acc enter data create (h[0:N])
+  }
 
   if (!acc_is_present (h, N))
     abort ();
 
-  acc_copyout (h, N);
+#pragma acc exit data delete (h[0:N])
 
-#if !ACC_MEM_SHARED
   if (acc_is_present (h, N))
     abort ();
-#endif
 
   free (h);
-
   return 0;
 }

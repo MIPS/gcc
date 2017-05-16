@@ -2973,6 +2973,11 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_IF_PRESENT);
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
+  if (clauses->finalize)
+    {
+      c = build_omp_clause (where.lb->location, OMP_CLAUSE_FINALIZE);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
   if (clauses->independent)
     {
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_INDEPENDENT);

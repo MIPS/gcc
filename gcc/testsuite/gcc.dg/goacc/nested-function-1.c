@@ -56,6 +56,8 @@ int main ()
 	for (local_j = 0; local_j < N; ++local_j)
 	  ;
       }
+
+#pragma acc exit data copyout(local_a) delete(local_i) finalize
   }
 
   void nonlocal ()
@@ -95,6 +97,8 @@ int main ()
 	for (nonlocal_j = 0; nonlocal_j < N; ++nonlocal_j)
 	  ;
       }
+
+#pragma acc exit data copyout(nonlocal_a) delete(nonlocal_i) finalize
   }
 
   local ();

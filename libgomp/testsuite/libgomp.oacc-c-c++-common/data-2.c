@@ -268,10 +268,10 @@ main (int argc, char **argv)
 
 #pragma acc exit data delete (a[0:N], b[0:N])
 
-  if (acc_is_present (a, nbytes))
+  if (!acc_is_present (a, nbytes))
     abort ();
 
-  if (acc_is_present (b, nbytes))
+  if (!acc_is_present (b, nbytes))
     abort ();
 
 #pragma acc exit data delete (a[0:N], b[0:N])
@@ -300,10 +300,10 @@ main (int argc, char **argv)
 
 #pragma acc exit data delete (a[0:N], b[0:N])
 
-  if (acc_is_present (a, nbytes))
+  if (!acc_is_present (a, nbytes))
     abort ();
 
-  if (acc_is_present (b, nbytes))
+  if (!acc_is_present (b, nbytes))
     abort ();
 
 #pragma acc exit data delete (a[0:N], b[0:N])

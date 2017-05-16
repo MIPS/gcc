@@ -1098,6 +1098,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
     case OMP_CLAUSE_IF_PRESENT:
       pp_string (pp, "if_present");
       break;
+    case OMP_CLAUSE_FINALIZE:
+      pp_string (pp, "finalize");
+      break;
 
     default:
       pp_string (pp, "unknown");

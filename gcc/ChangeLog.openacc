@@ -1,3 +1,29 @@
+2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-expand.c (expand_omp_target): Revert GOACC_enter_exit_data
+	ABI change.
+	* gimplify.c (gimplify_omp_target_update): Handle
+	OMP_CLAUSE_FINALIZE for OACC_EXIT_DATA.
+
+	* tree-nested.c (convert_nonlocal_omp_clauses)
+	(convert_local_omp_clauses): Handle "OMP_CLAUSE_FINALIZE".
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	"OMP_CLAUSE_FINALIZE".
+
+	* gimplify.c (gimplify_oacc_declare_1) <GOMP_MAP_ALLOC>: Use
+	"GOMP_MAP_RELEASE".
+
+2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_FINALIZE.
+	* tree.c (omp_clause_num_ops): Add entry for OMP_CLAUSE_FINALIZE.
+	(omp_clause_code_name): Add "finalize" entry.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE_FINALIZE.
+	* omp-expand.c (expand_omp_target): Add finalize argument for
+	GOACC_enter_exit_data call.
+	* gimplify.c (gimplify_scan_omp_clauses): Handle OMP_CLAUSE_FINALIZE.
+	(gimplify_adjust_omp_clauses): Likewise.
+
 2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* doc/invoke.texi: Update for OpenACC 2.5.

@@ -118,6 +118,12 @@ void acc_update_self_async (void *, size_t, int) __GOACC_NOTHROW;
 void acc_memcpy_to_device_async (void *, void *, size_t, int) __GOACC_NOTHROW;
 void acc_memcpy_from_device_async (void *, void *, size_t, int) __GOACC_NOTHROW;
 
+/* Finalize versions of copyout/delete functions, specified in OpenACC 2.5.  */
+void acc_copyout_finalize (void *, size_t) __GOACC_NOTHROW;
+void acc_copyout_finalize_async (void *, size_t, int) __GOACC_NOTHROW;
+void acc_delete_finalize (void *, size_t) __GOACC_NOTHROW;
+void acc_delete_finalize_async (void *, size_t, int) __GOACC_NOTHROW;
+
 /* Old names.  OpenACC does not specify whether these can or must
    not be macros, inlines or aliases for the new names.  */
 #define acc_pcreate acc_present_or_create

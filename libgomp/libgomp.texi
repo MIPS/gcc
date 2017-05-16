@@ -3381,8 +3381,8 @@ offloading devices (it's not clear if they should be):
 @item @code{acc_free}
 @item @code{acc_copyin}, @code{acc_present_or_copyin}, @code{acc_copyin_async}
 @item @code{acc_create}, @code{acc_present_or_create}, @code{acc_create_async}
-@item @code{acc_copyout}, @code{acc_copyout_async}
-@item @code{acc_delete}, @code{acc_delete_async}
+@item @code{acc_copyout}, @code{acc_copyout_async}, @code{acc_copyout_finalize}, @code{acc_copyout_finalize_async}
+@item @code{acc_delete}, @code{acc_delete_async}, @code{acc_delete_finalize}, @code{acc_delete_finalize_async}
 @item @code{acc_update_device}, @code{acc_update_device_async}
 @item @code{acc_update_self}, @code{acc_update_self_async}
 @item @code{acc_map_data}, @code{acc_unmap_data}
