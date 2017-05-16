@@ -182,16 +182,17 @@ irange::valid_p ()
   return true;
 }
 
-// Convert the current range in place into a range of type NEW_TYPE,
-// and return TRUE if successful.  If the current range does not fit
-// in the new range, return FALSE and convert the range to something
-// conservative.
-//
+// Convert the current range in place into a range of type NEW_TYPE.
 // The type of the original range is changed to the new type.
 
-bool
+void
 irange::cast (tree new_type)
 {
+  if (!n)
+    {
+      type = new_type;
+      return;
+    }
   bool sign_change = TYPE_SIGN (new_type) != TYPE_SIGN (type);
   unsigned new_precision = TYPE_PRECISION (new_type);
 
@@ -200,21 +201,19 @@ irange::cast (tree new_type)
   if (!sign_change && TYPE_PRECISION (type) == new_precision)
     {
       type = new_type;
-      return true;
+      return;
     }
 
-  // If converting to a lower precision, make things fit if necessary.
-  if (!sign_change && new_precision < TYPE_PRECISION (type))
+  // If any of the old bounds are outside of the representable range
+  // for the new type, conservatively default to the entire range of
+  // the new type.
+  if (new_precision < TYPE_PRECISION (type))
     {
       // Get the extreme bounds for the new type, but within the old type,
       // so we can properly compare them.
-      irange new_bounds (new_type);
-      wide_int lbound = wide_int_to_tree (type, new_bounds.lbound ());
-      wide_int ubound = wide_int_to_tree (type, new_bounds.ubound ());
+      wide_int lbound = fold_convert (type, TYPE_MIN_VALUE (new_type));
+      wide_int ubound = fold_convert (type, TYPE_MAX_VALUE (new_type));
 
-      // If any of the old bounds are outside of the representable
-      // range for the new type, conservatively default to the entire
-      // range of the new type.
       if (wi::lt_p (bounds[0], lbound, TYPE_SIGN (type))
 	  || wi::gt_p (bounds[n - 1], ubound, TYPE_SIGN (type)))
 	{
@@ -224,12 +223,14 @@ irange::cast (tree new_type)
 				      TYPE_SIGN (new_type));
 	  type = new_type;
 	  n = 2;
-	  return false;
+	  return;
 	}
     }
 
   wide_int orig_low = lbound ();
   wide_int orig_high = ubound ();
+  wide_int min = wi::min_value (new_precision, TYPE_SIGN (new_type));
+  wide_int max = wi::max_value (new_precision, TYPE_SIGN (new_type));
   for (unsigned i = 0; i < n; i += 2)
     {
       tree b0 = fold_convert (new_type, wide_int_to_tree (type, bounds[i]));
@@ -258,12 +259,19 @@ irange::cast (tree new_type)
 	      bounds[1] = orig_high;
 	      n = 2;
 	      cast (new_type);
-	      return false;
+	      return;
 	    }
 
-	  wide_int min = wi::min_value (new_precision, TYPE_SIGN (new_type));
-	  wide_int max = wi::max_value (new_precision, TYPE_SIGN (new_type));
-
+	  //  If we're about to construct [MIN, b1==MAX].  That's just
+	  //  the entire range.
+	  if ((wide_int) b1 == max)
+	    {
+	      bounds[0] = min;
+	      bounds[1] = max;
+	      n = 2;
+	      type = new_type;
+	      return;
+	    }
 	  // From no sign bit to sign bit: [15, 150] => [15,127][-128,-106]
 	  if (!sbit0 && sbit1)
 	    {
@@ -286,7 +294,6 @@ irange::cast (tree new_type)
   if (sign_change)
     canonicalize ();
   gcc_assert (valid_p ());
-  return true;
 }
 
 // Return TRUE if the current range contains ELEMENT.
@@ -741,8 +748,9 @@ irange::dump (pretty_printer *buffer)
     {
       if (i % 2 == 0)
 	pp_character (buffer, '[');
-      tree x = wide_int_to_tree (type, bounds[i]);
-      dump_generic_node (buffer, x, 0, 0, false);
+      wide_int val = bounds[i];
+      print_hex (val, pp_buffer (buffer)->digit_buffer);
+      pp_string (buffer, pp_buffer (buffer)->digit_buffer);
       if (i % 2 == 0)
 	pp_string (buffer, ", ");
       else
@@ -750,6 +758,9 @@ irange::dump (pretty_printer *buffer)
     }
   if (overflow)
     pp_string (buffer, "(overflow)");
+
+  pp_string (buffer, " precision = ");
+  pp_decimal_int (buffer, TYPE_PRECISION (type));
 }
 
 /* Dump the current range onto FILE F.  */
@@ -854,6 +865,8 @@ namespace selftest {
 #define UINT(N) build_int_cstu (unsigned_type_node, (N))
 #define INT16(N) build_int_cst (short_integer_type_node, (N))
 #define UINT16(N) build_int_cstu (short_unsigned_type_node, (N))
+#define INT64(N) build_int_cstu (long_long_integer_type_node, (N))
+#define UINT64(N) build_int_cstu (long_long_unsigned_type_node, (N))
 #define UINT128(N) build_int_cstu (u128_type, (N))
 #define UCHAR(N) build_int_cst (unsigned_char_type_node, (N))
 #define SCHAR(N) build_int_cst (signed_char_type_node, (N))
@@ -958,10 +971,10 @@ irange_tests ()
   ASSERT_TRUE (r1.valid_p ());
   ASSERT_TRUE (r1.contains (INT (7)));
 
-  // If a range is in any way is outside of the range for the
-  // converted to range, default to the range for the new type.
+  // If a range is in any way outside of the range for the converted
+  // to range, default to the range for the new type.
   r1 = irange (integer_type_node, integer_zero_node, maxint);
-  ASSERT_FALSE (r1.cast (short_integer_type_node));
+  r1.cast (short_integer_type_node);
   ASSERT_TRUE (r1.lbound () == minshort && r1.ubound() == maxshort);
 
   // (unsigned char)[-5,-1] => [251,255]
@@ -992,16 +1005,13 @@ irange_tests ()
   r0.cast (signed_char_type_node);
   ASSERT_TRUE (r0 == rold);
 
-  // (unsigned char)[-5,5] => [0,5][251,255]
-  r0 = rold = irange (integer_type_node, INT(-5), INT(5));
+  // (unsigned char)[-5,5] => [0,255]
+  r0 = irange (integer_type_node, INT(-5), INT(5));
   r0.cast (unsigned_char_type_node);
-  r1 = irange (unsigned_char_type_node, UCHAR(0), UCHAR(5));
-  r2 = irange (unsigned_char_type_node, UCHAR(251), UCHAR(255));
-  r1.Union (r2);
+  r1 = irange (unsigned_char_type_node,
+	       TYPE_MIN_VALUE (unsigned_char_type_node),
+	       TYPE_MAX_VALUE (unsigned_char_type_node));
   ASSERT_TRUE (r0 == r1);
-  r0.cast (integer_type_node);
-  // Going to a wider range should maintain sanity.
-  ASSERT_TRUE (r0 == RANGE2 (0, 5, 251, 255));
 
   // (unsigned char)[5U,1974U] => [0,255]
   r0 = irange (unsigned_type_node, UINT(5), UINT(1974));
@@ -1011,31 +1021,29 @@ irange_tests ()
   // Going to a wider range should not sign extend.
   ASSERT_TRUE (r0 == RANGE1 (0, 255));
 
-  //    (unsigned char)[-350,15]
-  // => (unsigned char)[-350,-1][0,15]
-  // => (unsigned char)[0xfffffea2,0xffffffff][0x0, 0xf]
-  // => [0x0, 0xf][0xa2,0xff]
+  // (unsigned char)[-350,15] => [0,255]
   r0 = irange (integer_type_node, INT(-350), INT(15));
   r0.cast (unsigned_char_type_node);
-  r1 = irange (unsigned_char_type_node, UCHAR(0), UCHAR(0xf));
-  r2 = irange (unsigned_char_type_node, UCHAR(0xa2), UCHAR(0xff));
-  r1.Union (r2);
-  ASSERT_TRUE (r0 == r1);
-  r0.cast (integer_type_node);
-  // Going to a wider range should maintain sanity.
-  ASSERT_TRUE (r0 == RANGE2 (0, 0xf, 0xa2, 0xff));
+  ASSERT_TRUE (r0 == irange (unsigned_char_type_node,
+			     TYPE_MIN_VALUE (unsigned_char_type_node),
+			     TYPE_MAX_VALUE (unsigned_char_type_node)));
 
+  // Casting [-120,20] from signed char to unsigned short.
   //    (unsigned)[(signed char)-120, (signed char)20]
-  // => (unsigned)[(signed char)0x88, (signed char)0x14]
+  // => (unsigned)[0, 0x14][0x88, 0xff]
   // => [0,0x14][0xff88,0xffff]
-  r0 = rold = irange (signed_char_type_node, SCHAR(-120), SCHAR(20));
+  r0 = irange (signed_char_type_node, SCHAR(-120), SCHAR(20));
   r0.cast (short_unsigned_type_node);
   r1 = irange (short_unsigned_type_node, UINT16(0), UINT16(0x14));
   r2 = irange (short_unsigned_type_node, UINT16(0xff88), UINT16(0xffff));
   r1.Union (r2);
   ASSERT_TRUE (r0 == r1);
+  // Casting back to signed char (a smaller type), would be outside of the
+  // range, we it'll be the entire range of the signed char.
   r0.cast (signed_char_type_node);
-  ASSERT_TRUE (r0 == rold);
+  ASSERT_TRUE (r0 == irange (signed_char_type_node,
+			     TYPE_MIN_VALUE (signed_char_type_node),
+			     TYPE_MAX_VALUE (signed_char_type_node)));
 
   // unsigned char -> signed short
   //    (signed short)[(unsigned char)25, (unsigned char)250]
@@ -1046,6 +1054,16 @@ irange_tests ()
   ASSERT_TRUE (r0 == r1);
   r0.cast (unsigned_char_type_node);
   ASSERT_TRUE (r0 == rold);
+
+  // Test casting a wider signed [-MIN,MAX] to a narrower unsigned.
+  r0 = irange (long_long_integer_type_node,
+	       TYPE_MIN_VALUE (long_long_integer_type_node),
+	       TYPE_MAX_VALUE (long_long_integer_type_node));
+  r0.cast (short_unsigned_type_node);
+  r1 = irange (short_unsigned_type_node,
+	       TYPE_MIN_VALUE (short_unsigned_type_node),
+	       TYPE_MAX_VALUE (short_unsigned_type_node));
+  ASSERT_TRUE (r0 == r1);
 
   // Test that casting a range with MAX_RANGES that changes sign is
   // done conservatively.
@@ -1092,6 +1110,30 @@ irange_tests ()
   ASSERT_TRUE (r0 == irange (boolean_type_node,
 			     build_int_cst (boolean_type_node, 1),
 			     build_int_cst (boolean_type_node, 1)));
+
+  // Casting NONZERO to a narrower type will wrap/overflow so
+  // it's just the entire range for the narrower type.
+  //
+  // "NOT 0 at signed 32-bits" ==> [-MIN_32,-1][1, +MAX_32].  This is
+  // is outside of the range of a smaller range, return the full
+  // smaller range.
+  range_non_zero (&r0, integer_type_node);
+  r0.cast (short_integer_type_node);
+  r1 = irange (short_integer_type_node,
+	       TYPE_MIN_VALUE (short_integer_type_node),
+	       TYPE_MAX_VALUE (short_integer_type_node));
+  ASSERT_TRUE (r0 == r1);
+
+  // Casting NONZERO from a narrower signed to a wider signed.
+  //
+  // NONZERO signed 16-bits is [-MIN_16,-1][1, +MAX_16].
+  // Converting this to 32-bits signed is [-MIN_16,-1][1, +MAX_16]
+  range_non_zero (&r0, short_integer_type_node);
+  r0.cast (integer_type_node);
+  r1 = RANGE1 (-32768, -1);
+  r2 = RANGE1 (1, 32767);
+  r1.Union (r2);
+  ASSERT_TRUE (r0 == r1);
 
   // ([10,20] U [5,8]) U [1,3] ==> [1,3][5,8][10,20]
   r0 = RANGE1 (10, 20);

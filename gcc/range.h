@@ -74,7 +74,7 @@ public:
   void dump (FILE *);
 
   bool valid_p ();
-  bool cast (tree type);
+  void cast (tree type);
   bool contains (wide_int element);
 
   tree get_type () { return type; }

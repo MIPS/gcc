@@ -763,13 +763,18 @@ operator_cast::op1_range (irange& r, irange& val,
   return true;
 }
 
+// FIXME: Always returns TRUE.
+
 bool
 operator_cast::op1_adjust (irange& r, irange& val,
 			   sro_truth truth ATTRIBUTE_UNUSED)
 {
   gcc_assert (!val.empty_p ());
   if (r.get_type () != val.get_type ())
-    return r.cast (val.get_type ());
+    {
+      r.cast (val.get_type ());
+      return true;
+    }
 
   /* If the types are the same, we shouldnt have to do anything.  */
   return true;
