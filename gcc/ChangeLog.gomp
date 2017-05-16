@@ -1,3 +1,8 @@
+2017-05-16  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* doc/include/texinfo.tex: Backport @title linewrap changes from
+	texinfo 6.3.
+
 2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_FINALIZE.
