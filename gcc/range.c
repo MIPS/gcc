@@ -707,7 +707,7 @@ irange::Not (const irange& r)
   // If this is going to underflow on the MINUS 1, don't even bother
   // checking.  This also handles subtracting one from an unsigned 0,
   // which doesn't set the underflow bit.
-  if (bounds[0] != min)
+  if (min != r.bounds[i])
     {
       bounds[n++] = min;
       bounds[n++] = wi::sub (r.bounds[i], 1, TYPE_SIGN (type), &ovf);
@@ -1126,6 +1126,15 @@ irange_tests ()
   ASSERT_FALSE (r0.Not ());
   r1.clear ();
   ASSERT_TRUE (r0 == r1);
+
+  // Test uninitialized.Not(xxx).
+  r0 = RANGE1 (10, 20);
+  {
+    irange uninitialized;
+    uninitialized.Not(r0);
+    r1 = irange (integer_type_node, INT(10), INT(20), RANGE_INVERT);
+    ASSERT_TRUE (uninitialized == r1);
+  }
 
   // Test that booleans and their inverse work as expected.
   range_zero (&r0, boolean_type_node);
