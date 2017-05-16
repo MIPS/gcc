@@ -638,8 +638,8 @@ irange_is_anti_range (irange r)
   wide_int min = wi::min_value (precision, TYPE_SIGN (type));
   wide_int max = wi::max_value (precision, TYPE_SIGN (type));
   return (r.num_ranges () == 2
-          && r.lbound () == min
-          && r.ubound () == max);
+          && r.lower_bound () == min
+          && r.upper_bound () == max);
 }
 
 /* Convert the range info of an SSA name into VRP's internal
@@ -676,15 +676,15 @@ get_range_info_as_value_range (const_tree ssa, wide_int *min, wide_int *max)
          fprintf (stderr, "\n");
          gcc_unreachable ();
        }
-      *min = tmp.lbound ();
-      *max = tmp.ubound ();
+      *min = tmp.lower_bound ();
+      *max = tmp.upper_bound ();
       return VR_ANTI_RANGE;
     }
 
   /* We chop off any middle ranges, because range_info_def has no use
      for such granularity.  */
-  *min = ri->lbound ();
-  *max = ri->ubound ();
+  *min = ri->lower_bound ();
+  *max = ri->upper_bound ();
   return VR_RANGE;
 }
 

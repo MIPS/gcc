@@ -392,8 +392,8 @@ get_range_info (const_tree name, wide_int *min, wide_int *max)
     return NULL;
 
   gcc_assert (ri->valid_p ());
-  *min = ri->lbound ();
-  *max = ri->ubound ();
+  *min = ri->lower_bound ();
+  *max = ri->upper_bound ();
   return ri;
 }
 

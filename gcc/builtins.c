@@ -2913,7 +2913,7 @@ range_may_have_wrapped (irange ir,
      Produce a range allowing negative values of N.  We can still use
      the information and make a guess that N is not negative.  */
   if (ir.num_ranges () != 2
-      || ir.lbound () != 0)
+      || ir.lower_bound () != 0)
     return false;
 
   tree type = ir.get_type ();
@@ -2929,7 +2929,7 @@ range_may_have_wrapped (irange ir,
   ir.Intersect (negatives);
   if (ir == negatives)
     {
-      wide_int max = orig_range.ubound (0); // Get the 99 in [0, 99].
+      wide_int max = orig_range.upper_bound (0); // Get the 99 in [0, 99].
       if (!wi::fits_uhwi_p (max))
 	return false;
       *probable_max_size = max.to_uhwi ();

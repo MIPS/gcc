@@ -14245,8 +14245,8 @@ get_range_pos_neg (tree arg)
   wide_int arg_min, arg_max;
   irange *ir;
   while (!(ir = get_range_info (arg, &arg_min, &arg_max))
-	 || (ir->lbound () == TYPE_MIN_VALUE (TREE_TYPE (arg))
-	     && ir->ubound () == TYPE_MAX_VALUE (TREE_TYPE (arg))))
+	 || (ir->lower_bound () == TYPE_MIN_VALUE (TREE_TYPE (arg))
+	     && ir->upper_bound () == TYPE_MAX_VALUE (TREE_TYPE (arg))))
     {
       gimple *g = SSA_NAME_DEF_STMT (arg);
       if (is_gimple_assign (g)

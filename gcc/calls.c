@@ -1288,11 +1288,11 @@ get_size_range (tree exp, tree range[2], bool allow_zero)
       /* Remove the unknown parts of a multi-range.
 	 This will transform [5,10][20,MAX] into [5,10].  */
       if (positives.num_ranges () > 1
-	  && positives.ubound () == wide_int (TYPE_MAX_VALUE (exptype)))
+	  && positives.upper_bound () == wide_int (TYPE_MAX_VALUE (exptype)))
 	positives.chop ();
 
-      range[0] = wide_int_to_tree (exptype, positives.lbound ());
-      range[1] = wide_int_to_tree (exptype, positives.ubound ());
+      range[0] = wide_int_to_tree (exptype, positives.lower_bound ());
+      range[1] = wide_int_to_tree (exptype, positives.upper_bound ());
     }
   else
     {

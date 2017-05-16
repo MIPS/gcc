@@ -57,10 +57,10 @@ public:
   void clear_overflow () { overflow = false; }
 
   unsigned num_ranges () { return n / 2; }
-  wide_int lbound () const { return bounds[0]; }
-  wide_int lbound (unsigned index);
-  wide_int ubound () const { return bounds[n - 1]; }
-  wide_int ubound (unsigned index);
+  wide_int lower_bound () const { return bounds[0]; }
+  wide_int lower_bound (unsigned index);
+  wide_int upper_bound () const { return bounds[n - 1]; }
+  wide_int upper_bound (unsigned index);
 
   void chop () { if (n > 2) n -= 2; else n = 0; }
   void clear () { n = 0; }

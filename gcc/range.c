@@ -227,8 +227,8 @@ irange::cast (tree new_type)
 	}
     }
 
-  wide_int orig_low = lbound ();
-  wide_int orig_high = ubound ();
+  wide_int orig_low = lower_bound ();
+  wide_int orig_high = upper_bound ();
   wide_int min = wi::min_value (new_precision, TYPE_SIGN (new_type));
   wide_int max = wi::max_value (new_precision, TYPE_SIGN (new_type));
   for (unsigned i = 0; i < n; i += 2)
@@ -721,14 +721,14 @@ irange::Not ()
 }
 
 wide_int
-irange::lbound (unsigned index)
+irange::lower_bound (unsigned index)
 {
   gcc_assert (n != 0 && index <= n/2);
   return bounds[index * 2];
 }
 
 wide_int
-irange::ubound (unsigned index)
+irange::upper_bound (unsigned index)
 {
   gcc_assert (n != 0 && index <= n/2);
   return bounds[index * 2 + 1];
@@ -927,15 +927,15 @@ irange_tests ()
   ASSERT_TRUE (r0 == r1);
 
   r0.set_range (integer_type_node);
-  tree minint = wide_int_to_tree (integer_type_node, r0.lbound ());
-  tree maxint = wide_int_to_tree (integer_type_node, r0.ubound ());
+  tree minint = wide_int_to_tree (integer_type_node, r0.lower_bound ());
+  tree maxint = wide_int_to_tree (integer_type_node, r0.upper_bound ());
 
   r0.set_range (short_integer_type_node);
-  tree minshort = wide_int_to_tree (short_integer_type_node, r0.lbound ());
-  tree maxshort = wide_int_to_tree (short_integer_type_node, r0.ubound ());
+  tree minshort = wide_int_to_tree (short_integer_type_node, r0.lower_bound ());
+  tree maxshort = wide_int_to_tree (short_integer_type_node, r0.upper_bound ());
 
   r0.set_range (unsigned_type_node);
-  tree maxuint = wide_int_to_tree (unsigned_type_node, r0.ubound ());
+  tree maxuint = wide_int_to_tree (unsigned_type_node, r0.upper_bound ());
 
   // Check that ~[0,5] => [6,MAX] for unsigned int.
   r0 = irange (unsigned_type_node, UINT(0), UINT(5), RANGE_PLAIN);
@@ -975,7 +975,7 @@ irange_tests ()
   // to range, default to the range for the new type.
   r1 = irange (integer_type_node, integer_zero_node, maxint);
   r1.cast (short_integer_type_node);
-  ASSERT_TRUE (r1.lbound () == minshort && r1.ubound() == maxshort);
+  ASSERT_TRUE (r1.lower_bound () == minshort && r1.upper_bound() == maxshort);
 
   // (unsigned char)[-5,-1] => [251,255]
   r0 = rold = irange (signed_char_type_node, SCHAR (-5), SCHAR(-1));

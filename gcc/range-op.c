@@ -203,10 +203,10 @@ operator_equal::fold_range (irange& r, irange& lh, irange& rh)
 {
   /* We can be sure the values are always equal or not if both ranges
      consist of a single value, and then compare them.  */
-  if (wi::eq_p (lh.lbound (), lh.ubound ())
-      && wi::eq_p (rh.lbound (), rh.ubound ()))
+  if (wi::eq_p (lh.lower_bound (), lh.upper_bound ())
+      && wi::eq_p (rh.lower_bound (), rh.upper_bound ()))
     {
-      if (wi::eq_p (lh.lbound (), rh.ubound()))
+      if (wi::eq_p (lh.lower_bound (), rh.upper_bound()))
 	set_boolean_range_one (r);
       else
 	set_boolean_range_zero (r);
@@ -234,7 +234,7 @@ operator_equal::op1_range (irange& r, irange& val, sro_truth truth)
      otherwise it's the full range of the type of val.. */
   if (truth != SRO_NON_ZERO_DEF)
     {
-      if (r.lbound() == r.ubound())
+      if (r.lower_bound() == r.upper_bound())
 	r.Not ();
       else
 	r.set_range (val.get_type());
@@ -276,10 +276,10 @@ operator_not_equal::fold_range (irange& r, irange& lh, irange& rh)
 {
   /* We can be sure the values are always equal or not if both ranges
      consist of a single value, and then compare them.  */
-  if (wi::eq_p (lh.lbound (), lh.ubound ())
-      && wi::eq_p (rh.lbound (), rh.ubound ()))
+  if (wi::eq_p (lh.lower_bound (), lh.upper_bound ())
+      && wi::eq_p (rh.lower_bound (), rh.upper_bound ()))
     {
-      if (wi::ne_p (lh.lbound (), rh.ubound()))
+      if (wi::ne_p (lh.lower_bound (), rh.upper_bound()))
 	set_boolean_range_one (r);
       else
 	set_boolean_range_zero (r);
@@ -308,7 +308,7 @@ operator_not_equal::op1_range (irange& r, irange& val, sro_truth truth)
      entire range of the type of val..  */
   if (truth == SRO_NON_ZERO_DEF)
     {
-      if (r.lbound() == r.ubound())
+      if (r.lower_bound() == r.upper_bound())
 	r.Not ();
       else
 	r.set_range (val.get_type());
@@ -450,10 +450,10 @@ bool operator_relational::fold_range (irange& r, irange& lh,
     {
       case LT_EXPR:
       case LE_EXPR:
-	if (eval_true (lh.ubound (), rh.lbound (), sign))
+	if (eval_true (lh.upper_bound (), rh.lower_bound (), sign))
 	  set_boolean_range_one (r);
 	else
-	  if (!eval_true (lh.lbound (), rh.ubound (), sign))
+	  if (!eval_true (lh.lower_bound (), rh.upper_bound (), sign))
 	    set_boolean_range_zero (r);
 	  else 
 	    set_boolean_range (r);
@@ -461,10 +461,10 @@ bool operator_relational::fold_range (irange& r, irange& lh,
 
       case GT_EXPR:
       case GE_EXPR:
-	if (eval_true (lh.lbound (), rh.ubound (), sign))
+	if (eval_true (lh.lower_bound (), rh.upper_bound (), sign))
 	  set_boolean_range_one (r);
 	else
-	  if (!eval_true (lh.ubound (), rh.lbound (), sign))
+	  if (!eval_true (lh.upper_bound (), rh.lower_bound (), sign))
 	    set_boolean_range_zero (r);
 	  else 
 	    set_boolean_range (r);
@@ -485,19 +485,19 @@ operator_relational::op1_range (irange& r, irange& val, sro_truth truth)
     switch (code)
       {
 	case LT_EXPR:
-	  build_lt (r, val.get_type (), val.ubound ());
+	  build_lt (r, val.get_type (), val.upper_bound ());
 	  break;
 
 	case LE_EXPR:
-	  build_le (r, val.get_type (), val.ubound ());
+	  build_le (r, val.get_type (), val.upper_bound ());
 	  break;
 
 	case GT_EXPR:
-	  build_gt (r, val.get_type (), val.lbound ());
+	  build_gt (r, val.get_type (), val.lower_bound ());
 	  break;
 
 	case GE_EXPR:
-	  build_ge (r, val.get_type (), val.lbound ());
+	  build_ge (r, val.get_type (), val.lower_bound ());
 	  break;
 
 	default:
@@ -507,19 +507,19 @@ operator_relational::op1_range (irange& r, irange& val, sro_truth truth)
     switch (code)
       {
 	case LT_EXPR:
-	  build_ge (r, val.get_type (), val.lbound ());
+	  build_ge (r, val.get_type (), val.lower_bound ());
 	  break;
 
 	case LE_EXPR:
-	  build_gt (r, val.get_type (), val.lbound ());
+	  build_gt (r, val.get_type (), val.lower_bound ());
 	  break;
 
 	case GT_EXPR:
-	  build_le (r, val.get_type (), val.ubound ());
+	  build_le (r, val.get_type (), val.upper_bound ());
 	  break;
 
 	case GE_EXPR:
-	  build_lt (r, val.get_type (), val.ubound ());
+	  build_lt (r, val.get_type (), val.upper_bound ());
 	  break;
 
 	default:
@@ -563,8 +563,8 @@ operator_plus_minus::op_ir (opm_mode mode, irange& r, wide_int lh,
   r.clear (type);
   for (x = 0; x < rh.num_ranges () ; x++)
     {
-      lb = rh.lbound (x);
-      ub = rh.ubound (x);
+      lb = rh.lower_bound (x);
+      ub = rh.upper_bound (x);
       if (mode == OPM_ADD)
         {
 	  lb = wi::add (lh, lb, s, &ov_lb);
@@ -592,8 +592,8 @@ operator_plus_minus::op_ri (opm_mode mode, irange& r, irange& lh,
   r.clear (type);
   for (x = 0; x < lh.num_ranges () ; x++)
     {
-      lb = lh.lbound (x);
-      ub = lh.ubound (x);
+      lb = lh.lower_bound (x);
+      ub = lh.upper_bound (x);
       if (mode == OPM_ADD)
         {
 	  lb = wi::add (lb, rh, s, &ov_lb);
@@ -613,11 +613,11 @@ void
 operator_plus_minus::op_rr (opm_mode mode, irange& r, irange& lh,
 			    irange& rh)
 {
-  if (lh.ubound () == lh.lbound ())
-    op_ir (mode, r, lh.ubound (), rh);
+  if (lh.upper_bound () == lh.lower_bound ())
+    op_ir (mode, r, lh.upper_bound (), rh);
   else
-    if (rh.ubound () == rh.lbound ())
-      op_ri (mode, r, lh, rh.ubound ());
+    if (rh.upper_bound () == rh.lower_bound ())
+      op_ri (mode, r, lh, rh.upper_bound ());
     else
       {
 	wide_int lb, ub;
@@ -629,14 +629,14 @@ operator_plus_minus::op_rr (opm_mode mode, irange& r, irange& lh,
 	if (mode == OPM_ADD)
 	  {
 	    /* Add the 2 lower and upper bounds togther and see what we get.  */
-	    lb = wi::add (lh.lbound (), rh.lbound (), s, &ov_lb);
-	    ub = wi::add (lh.ubound (), rh.ubound (), s, &ov_ub);
+	    lb = wi::add (lh.lower_bound (), rh.lower_bound (), s, &ov_lb);
+	    ub = wi::add (lh.upper_bound (), rh.upper_bound (), s, &ov_ub);
 	  }
 	else
 	  {
 	    /* New possible range is [lb1-ub2, ub1-lb2].  */
-	    lb = wi::sub (lh.lbound (), rh.ubound (), s, &ov_lb);
-	    lb = wi::sub (lh.ubound (), rh.lbound (), s, &ov_ub);
+	    lb = wi::sub (lh.lower_bound (), rh.upper_bound (), s, &ov_lb);
+	    lb = wi::sub (lh.upper_bound (), rh.lower_bound (), s, &ov_ub);
 	  }
 
 	/* If both overflow, we can't be sure of the final range. */
