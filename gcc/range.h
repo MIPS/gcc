@@ -91,11 +91,14 @@ public:
   bool Union (const irange &r1, const irange &r2);
 
   // THIS = THIS ^ [X,Y].  Return TRUE if result is non-empty.
-  bool Intersect (wide_int x, wide_int y);
+  bool Intersect (wide_int x, wide_int y, bool readonly = false);
   // THIS = THIS ^ R.  Return TRUE if result is non-empty.
-  bool Intersect (const irange &r);
+  bool Intersect (const irange &r, bool readonly = false);
   // THIS = R1 ^ R2.  Return TRUE if result is non-empty.
-  bool Intersect (const irange &r1, const irange &r2);
+  bool Intersect (const irange &r1, const irange &r2, bool readonly = false);
+  // Return TRUE if THIS ^ R will be non-empty.
+  bool Intersect_p (const irange &r)
+    { return Intersect (r, /*readonly=*/true); }
 
   bool Not ();
   bool Not (const irange& r);

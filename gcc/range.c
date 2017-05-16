@@ -562,9 +562,14 @@ irange::Union (const irange &r)
 }
 
 // THIS = THIS ^ [X,Y]
+//
+// Returns TRUE if the result of the intersection is non-empty.
+//
+// If READONLY is TRUE, we are only interested in determining if the
+// operation will yield a non-empty value.  THIS is left unchanged.
 
 bool
-irange::Intersect (wide_int x, wide_int y)
+irange::Intersect (wide_int x, wide_int y, bool readonly)
 {
   unsigned pos = 0;
 
@@ -579,6 +584,8 @@ irange::Intersect (wide_int x, wide_int y)
 	}
       else
 	{
+	  if (readonly)
+	    return true;
 	  bounds[pos++] = newlo;
 	  bounds[pos++] = newhi;
 	}
@@ -588,17 +595,23 @@ irange::Intersect (wide_int x, wide_int y)
 }
 
 // THIS = R1 ^ R2
+//
+// Returns TRUE if the result of the intersection is non-empty.
+//
+// If READONLY is TRUE, we are only interested in determining if the
+// operation will yield a non-empty value.  THIS is left unchanged.
 
 bool
-irange::Intersect (const irange &r1, const irange &r2)
+irange::Intersect (const irange &r1, const irange &r2, bool readonly)
 {
   gcc_assert (r1.type == r2.type);
 
-  clear (r1.type);
+  if (!readonly)
+    clear (r1.type);
 
-  // Intertsection with an empty range is an empty range.
+  // Intersection with an empty range is an empty range.
   if (r1.empty_p () || r2.empty_p ())
-    return true;
+    return false;
 
   // The general algorithm is as follows.
   //
@@ -618,8 +631,12 @@ irange::Intersect (const irange &r1, const irange &r2)
   for (unsigned i = 0; i < r2.n; i += 2)
     {
       irange chunk (r1);
-      chunk.Intersect (r2.bounds[i], r2.bounds[i + 1]);
-      Union (chunk);
+      if (chunk.Intersect (r2.bounds[i], r2.bounds[i + 1]))
+	{
+	  if (readonly)
+	    return true;
+	  Union (chunk);
+	}
     }
 
   // Overflow is sticky only if both ranges overflowed.
@@ -628,12 +645,17 @@ irange::Intersect (const irange &r1, const irange &r2)
 }
 
 // THIS = THIS ^ R
+//
+// Returns TRUE if the result of the intersection is non-empty.
+//
+// If READONLY is TRUE, we are only interested in determining if the
+// operation will yield a non-empty value.  THIS is left unchanged.
 
 bool
-irange::Intersect (const irange &r)
+irange::Intersect (const irange &r, bool readonly)
 {
   irange q = *this;
-  return Intersect (q, r);
+  return Intersect (q, r, readonly);
 }
 
 // THIS = NOT(R).
@@ -1269,6 +1291,11 @@ irange_tests ()
   r1 = RANGE1 (40,50);
   r0.Intersect (r1);
   ASSERT_TRUE (r0 == RANGE1 (40,40));
+
+  // Test non-destructive intersection.
+  r0 = rold = RANGE1 (10, 20);
+  ASSERT_TRUE (r0.Intersect_p (RANGE1 (15, 30)));
+  ASSERT_TRUE (r0 == rold);
 }
 
 } // namespace selftest
