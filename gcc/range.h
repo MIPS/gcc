@@ -62,7 +62,7 @@ public:
   wide_int upper_bound () const { return bounds[n - 1]; }
   wide_int upper_bound (unsigned index);
 
-  void chop () { if (n > 2) n -= 2; else n = 0; }
+  void remove_uppermost_subrange () { if (n > 2) n -= 2; else n = 0; }
   void clear () { n = 0; }
   void clear (tree t) { type = t; n = 0; overflow = false; }
   bool empty_p () const { return !n; }
