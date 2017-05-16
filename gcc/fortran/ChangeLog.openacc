@@ -1,3 +1,16 @@
+2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_clauses) <OMP_CLAUSE_DELETE>: Use
+	"OMP_MAP_RELEASE".
+
+2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gfortran.h (struct gfc_omp_clauses): Add 'finalize:1' bitfield.
+	* openmp.c (enum omp_mask2): Add OMP_CLAUSE_FINALIZE.
+	(gfc_match_omp_clauses): Handle 'finalize' clause.
+	(OACC_EXIT_DATA_CLAUSES): Add OMP_CLAUSE_FINALIZE.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Handle finalize bit.
+
 2017-05-15  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* cpp.c (cpp_define_builtins): Update "_OPENACC" to "201510".

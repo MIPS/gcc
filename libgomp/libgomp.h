@@ -851,6 +851,8 @@ struct splay_tree_key_s {
   uintptr_t tgt_offset;
   /* Reference count.  */
   uintptr_t refcount;
+  /* Dynamic reference count.  */
+  uintptr_t dynamic_refcount;
   /* Pointer to the original mapping of "omp declare target link" object.  */
   splay_tree_key link_key;
 };
@@ -989,7 +991,7 @@ enum gomp_map_vars_kind
 };
 
 extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);
-extern void gomp_acc_remove_pointer (void *, bool, int, int);
+extern void gomp_acc_remove_pointer (void *, size_t, bool, int, int, int);
 extern void gomp_acc_declare_allocate (bool, size_t, void **, size_t *,
 				       unsigned short *);
 
@@ -1001,6 +1003,7 @@ extern void gomp_unmap_vars (struct target_mem_desc *, bool);
 extern void gomp_init_device (struct gomp_device_descr *);
 extern void gomp_unload_device (struct gomp_device_descr *);
 extern bool gomp_offload_target_available_p (int);
+extern bool gomp_remove_var (struct gomp_device_descr *, splay_tree_key);
 
 /* work.c */
 

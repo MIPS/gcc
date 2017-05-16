@@ -86,6 +86,8 @@ oacc_parallel_copy (T a)
 #pragma acc update self (b)
 #pragma acc update device (b)
 #pragma acc exit data delete (b)
+#pragma acc exit data finalize copyout (b)
+#pragma acc exit data delete (b) finalize
 
   return b;
 }
@@ -132,6 +134,13 @@ oacc_kernels_copy (T a)
   {
     b = a;
   }
+
+#pragma acc update host (b)
+#pragma acc update self (b)
+#pragma acc update device (b)
+#pragma acc exit data delete (b)
+#pragma acc exit data finalize copyout (b)
+#pragma acc exit data delete (b) finalize
 
   return b;
 }

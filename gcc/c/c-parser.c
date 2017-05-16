@@ -11267,6 +11267,8 @@ c_parser_omp_clause_name (c_parser *parser, bool consume_token = true)
 	case 'f':
 	  if (!strcmp ("final", p))
 	    result = PRAGMA_OMP_CLAUSE_FINAL;
+	  else if (!strcmp ("finalize", p))
+	    result = PRAGMA_OACC_CLAUSE_FINALIZE;
 	  else if (!strcmp ("firstprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_FIRSTPRIVATE;
 	  else if (!strcmp ("from", p))
@@ -11700,7 +11702,7 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
       kind = GOMP_MAP_ALLOC;
       break;
     case PRAGMA_OACC_CLAUSE_DELETE:
-      kind = GOMP_MAP_DELETE;
+      kind = GOMP_MAP_RELEASE;
       break;
     case PRAGMA_OACC_CLAUSE_DEVICE:
       kind = GOMP_MAP_FORCE_TO;
@@ -12608,8 +12610,9 @@ c_parser_oacc_shape_clause (c_parser *parser, location_t loc,
   return list;
 }
 
-/* OpenACC:
+/* OpenACC 2.5:
    auto
+   finalize
    independent
    nohost
    seq */
@@ -14122,6 +14125,11 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "device_type";
 	  seen_dtype = true;
 	  break;
+	case PRAGMA_OACC_CLAUSE_FINALIZE:
+	  clauses = c_parser_oacc_simple_clause (parser, here,
+						 OMP_CLAUSE_FINALIZE, clauses);
+	  c_name = "finalize";
+	  break;
 	case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
 	  clauses = c_parser_omp_clause_firstprivate (parser, clauses);
 	  c_name = "firstprivate";
@@ -14766,6 +14774,7 @@ c_parser_oacc_declare (c_parser *parser)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_ASYNC)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPYOUT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DELETE) 		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_FINALIZE) 		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_WAIT) )
 
 static void

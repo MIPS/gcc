@@ -22,6 +22,11 @@ main (int argc, char **argv)
 
   acc_delete (h, N);
 
+  if (!acc_is_present (h, N))
+    abort ();
+
+  acc_delete (h, N);
+
 #if !ACC_MEM_SHARED
   if (acc_is_present (h, N))
     abort ();

@@ -11,6 +11,9 @@ foo (void)
 #pragma acc exit data delete (a) if (0)
 #pragma acc exit data copyout (b) if (a)
 #pragma acc exit data delete (b)
+#pragma acc exit data delete (a) if (!0) finalize
+#pragma acc exit data copyout (b) finalize if (!a)
+#pragma acc exit data finalize delete (b)
 #pragma acc enter /* { dg-error "expected 'data' after" } */
 #pragma acc exit /* { dg-error "expected 'data' after" } */
 #pragma acc enter data /* { dg-error "has no data movement clause" } */
