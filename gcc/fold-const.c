@@ -9060,7 +9060,7 @@ expr_not_equal_to (tree t, const wide_int &w)
       if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
 	return false;
       ri = SSA_NAME_RANGE_INFO (t);
-      if (ri && !ri->inside_range_p (w))
+      if (ri && !ri->contains_p (w))
 	return true;
       /* If T has some known zero bits and W has any of those bits set,
 	 then T is known not to be equal to W.  */

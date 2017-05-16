@@ -299,13 +299,26 @@ irange::cast (tree new_type)
 // Return TRUE if the current range contains ELEMENT.
 
 bool
-irange::contains (wide_int element)
+irange::contains_p (wide_int element)
 {
   for (unsigned i = 0; i < n; i += 2)
     if (wi::ge_p (element, bounds[i], TYPE_SIGN (type))
 	&& wi::le_p (element, bounds[i + 1], TYPE_SIGN (type)))
       return true;
   return false;
+}
+
+// Like above, but ELEMENT can be an INTEGER_CST of any type.
+
+bool
+irange::contains_p (tree element)
+{
+  gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (element)));
+  element = fold_convert (type, element);
+  if (TREE_OVERFLOW (element))
+    return false;
+  wide_int wi = element;
+  return contains_p (wi);
 }
 
 // Canonicalize the current range.
@@ -787,19 +800,6 @@ irange::dump ()
   dump (stderr);
 }
 
-/* Return TRUE if W is inside a given range.  */
-
-bool
-irange::inside_range_p (wide_int w)
-{
-  signop sign = TYPE_SIGN (type);
-  for (unsigned i = 0; i < n; i += 2)
-    if (wi::ge_p (w, bounds[i], sign)
-	&& wi::le_p (w, bounds[i + 1], sign))
-      return true;
-  return false;
-}
-
 bool
 make_irange (irange_p result, tree lb, tree ub, tree type)
 {
@@ -969,7 +969,11 @@ irange_tests ()
 
   r1 = irange (integer_type_node, (wide_int) INT(5), (wide_int) INT(10));
   ASSERT_TRUE (r1.valid_p ());
-  ASSERT_TRUE (r1.contains (INT (7)));
+  ASSERT_TRUE (r1.contains_p (INT (7)));
+
+  r1 = irange (signed_char_type_node, SCHAR(0), SCHAR(20));
+  ASSERT_TRUE (r1.contains_p (INT(15)));
+  ASSERT_FALSE (r1.contains_p (INT(300)));
 
   // If a range is in any way outside of the range for the converted
   // to range, default to the range for the new type.

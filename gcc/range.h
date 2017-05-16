@@ -75,7 +75,8 @@ public:
 
   bool valid_p ();
   void cast (tree type);
-  bool contains (wide_int element);
+  bool contains_p (wide_int element);
+  bool contains_p (tree);
 
   tree get_type () { return type; }
 
@@ -98,8 +99,6 @@ public:
 
   bool Not ();
   bool Not (const irange& r);
-
-  bool inside_range_p (wide_int);
 };
 
 void range_zero (irange_p r, tree type);

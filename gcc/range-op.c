@@ -822,7 +822,7 @@ logical_and_operator::fold_range (irange& r, irange& lh, irange& rh)
   // To reach this point, there must be a logical 1 on each side, and the only
   // remaining question is whether there is a zero or not.
 
-  if (lh.contains (zero) || rh.contains (zero))
+  if (lh.contains_p (zero) || rh.contains_p (zero))
     r.set_range (boolean_type_node, boolean_false_node, boolean_true_node);
   else
     r.set_range (boolean_type_node, boolean_true_node, boolean_true_node);
@@ -877,9 +877,9 @@ logical_or_operator::fold_range (irange& r, irange& lh, irange& rh)
   irange zero_range (lh.get_type (), zero, zero);
 
   bool lh_has_true = (!lh.empty_p () && lh != zero_range);
-  bool lh_has_false = lh.contains (zero);
+  bool lh_has_false = lh.contains_p (zero);
   bool rh_has_true = (!rh.empty_p () && rh != zero_range);
-  bool rh_has_false = rh.contains (zero);
+  bool rh_has_false = rh.contains_p (zero);
 
   // Empty ranges are viral only if both are empty.
   if (lh.empty_p () && rh.empty_p ())
@@ -957,7 +957,7 @@ logical_not_operator::fold_range (irange& r, irange& lh,
   // the rhs is ignored for NOT operations.
 
   bool lh_has_true = (!lh.empty_p () && lh != zero_range);
-  bool lh_has_false = lh.contains (zero);
+  bool lh_has_false = lh.contains_p (zero);
 
 
   // Empty ranges are viral 
