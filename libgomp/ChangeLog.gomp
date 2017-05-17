@@ -1,5 +1,9 @@
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.texi (OpenACC Profiling Interface): Update.
+	* oacc-parallel.c (GOACC_parallel_keyed): Update profiling event
+	generation.
+
 	* oacc-parallel.c (GOACC_enter_exit_data): Locally compute
 	"finalize", and remove the formal parameter.  Adjust all users.
 	(GOACC_declare): Don't replace GOMP_MAP_FROM with

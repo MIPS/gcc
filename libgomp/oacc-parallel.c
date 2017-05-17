@@ -333,8 +333,10 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 			      async, dims, tgt);
 
   /* If running synchronously, unmap immediately.  */
+  bool copyfrom = true;
   if (async < acc_async_noval)
     {
+    unmap:
       if (profiling_dispatch_p)
 	{
 	  prof_info.event_type = acc_ev_exit_data_start;
@@ -344,7 +346,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
 	  goacc_profiling_dispatch (&prof_info, &enter_exit_data_event_info,
 				    &api_info);
 	}
-      gomp_unmap_vars (tgt, true);
+      gomp_unmap_vars (tgt, copyfrom);
       if (profiling_dispatch_p)
 	{
 	  prof_info.event_type = acc_ev_exit_data_end;
@@ -369,7 +371,10 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
       if (async_unmap)
 	tgt->device_descr->openacc.register_async_cleanup_func (tgt, async);
       else
-	gomp_unmap_vars (tgt, false);
+	{
+	  copyfrom = false;
+	  goto unmap;
+	}
     }
 
   acc_dev->openacc.async_set_async_func (acc_async_sync);
