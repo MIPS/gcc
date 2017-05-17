@@ -1,5 +1,10 @@
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* tree-nested.c (convert_nonlocal_omp_clauses)
+	(convert_local_omp_clauses): Handle "OMP_CLAUSE_FINALIZE".
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	"OMP_CLAUSE_FINALIZE".
+
 	* gimplify.c (gimplify_oacc_declare_1) <GOMP_MAP_ALLOC>: Use
 	"GOMP_MAP_RELEASE".
 

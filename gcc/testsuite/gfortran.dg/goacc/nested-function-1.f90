@@ -56,6 +56,8 @@ contains
        enddo
     enddo
     !$acc end kernels loop
+
+    !$acc exit data copyout(local_a) delete(local_i) finalize
   end subroutine local
 
   subroutine nonlocal ()
@@ -93,5 +95,7 @@ contains
        enddo
     enddo
     !$acc end kernels loop
+
+    !$acc exit data copyout(nonlocal_a) delete(nonlocal_i) finalize
   end subroutine nonlocal
 end program main

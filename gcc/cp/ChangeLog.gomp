@@ -1,5 +1,7 @@
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* pt.c (tsubst_omp_clauses): Handle "OMP_CLAUSE_FINALIZE".
+
 	* parser.c (cp_parser_oacc_data_clause)
 	<PRAGMA_OACC_CLAUSE_DELETE>: Use "GOMP_MAP_RELEASE".
 
