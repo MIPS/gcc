@@ -1117,11 +1117,6 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	    continue;
 	  break;
 	case 'd':
-	  if ((mask & OMP_CLAUSE_DELETE)
-	      && gfc_match ("delete ( ") == MATCH_YES
-	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_DELETE, true, allow_derived))
-	    continue;
 	  if ((mask & OMP_CLAUSE_DEFAULT)
 	      && c->default_sharing == OMP_DEFAULT_UNKNOWN)
 	    {
@@ -1154,7 +1149,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, omp_mask mask,
 	  if ((mask & OMP_CLAUSE_DELETE)
 	      && gfc_match ("delete ( ") == MATCH_YES
 	      && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					   OMP_MAP_DELETE, openacc,
+					   OMP_MAP_DELETE, true,
 					   allow_derived))
 	    continue;
 	  if ((mask & OMP_CLAUSE_DEPEND)

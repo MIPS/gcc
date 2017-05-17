@@ -1,3 +1,8 @@
+2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_clauses): Handle "OMP_CLAUSE_DELETE"
+	just once.
+
 2017-05-16  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* gfortran.h (struct gfc_omp_clauses): Add 'finalize:1' bitfield.
