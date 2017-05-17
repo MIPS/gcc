@@ -14218,13 +14218,6 @@ expand_omp_target (struct omp_region *region)
 	if (t_async)
 	  args.safe_push (t_async);
 
-	if (start_ix == BUILT_IN_GOACC_ENTER_EXIT_DATA)
-	  {
-	    c = find_omp_clause (clauses, OMP_CLAUSE_FINALIZE);
-	    tree t_finalize = c ? integer_one_node : integer_zero_node;
-	    args.safe_push (t_finalize);
-	  }
-
 	/* Save the argument index, and ... */
 	unsigned t_wait_idx = args.length ();
 	unsigned num_waits = 0;

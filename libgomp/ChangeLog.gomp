@@ -1,5 +1,10 @@
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* oacc-parallel.c (GOACC_enter_exit_data): Locally compute
+	"finalize", and remove the formal parameter.  Adjust all users.
+	(GOACC_declare): Don't replace GOMP_MAP_FROM with
+	GOMP_MAP_FORCE_FROM.
+
 	* oacc-parallel.c (GOACC_enter_exit_data, GOACC_declare): Handle
 	"GOMP_MAP_RELEASE".
 

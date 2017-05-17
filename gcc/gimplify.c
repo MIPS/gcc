@@ -10060,6 +10060,33 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 	      break;
 	    }
     }
+  else if (TREE_CODE (expr) == OACC_EXIT_DATA
+	   && find_omp_clause (OMP_STANDALONE_CLAUSES (expr),
+			       OMP_CLAUSE_FINALIZE))
+    {
+      /* Use GOMP_MAP_DELETE/GOMP_MAP_FORCE_FROM to denote that "finalize"
+	 semantics apply to all mappings of this OpenACC directive.  */
+      bool finalize_marked = false;
+      for (tree c = OMP_STANDALONE_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP)
+	  switch (OMP_CLAUSE_MAP_KIND (c))
+	    {
+	    case GOMP_MAP_FROM:
+	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_FROM);
+	      finalize_marked = true;
+	      break;
+	    case GOMP_MAP_RELEASE:
+	      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_DELETE);
+	      finalize_marked = true;
+	      break;
+	    default:
+	      /* Check consistency: libgomp relies on the very first data
+		 mapping clause being marked, so make sure we did that before
+		 any other mapping clauses.  */
+	      gcc_assert (finalize_marked);
+	      break;
+	    }
+    }
   stmt = gimple_build_omp_target (NULL, kind, OMP_STANDALONE_CLAUSES (expr));
 
   gimplify_seq_add_stmt (pre_p, stmt);

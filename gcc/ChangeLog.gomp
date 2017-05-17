@@ -1,5 +1,10 @@
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (expand_omp_target): Revert GOACC_enter_exit_data ABI
+	change.
+	* gimplify.c (gimplify_omp_target_update): Handle
+	OMP_CLAUSE_FINALIZE for OACC_EXIT_DATA.
+
 	* tree-nested.c (convert_nonlocal_omp_clauses)
 	(convert_local_omp_clauses): Handle "OMP_CLAUSE_FINALIZE".
 	* tree-pretty-print.c (dump_omp_clause): Handle
