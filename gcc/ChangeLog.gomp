@@ -1,3 +1,8 @@
+2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimplify.c (gimplify_oacc_declare_1) <GOMP_MAP_ALLOC>: Use
+	"GOMP_MAP_RELEASE".
+
 2017-05-16  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* doc/include/texinfo.tex: Backport @title linewrap changes from

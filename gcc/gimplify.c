@@ -8593,7 +8593,7 @@ gimplify_oacc_declare_1 (tree clause)
   switch (kind)
     {
       case GOMP_MAP_ALLOC:
-	new_op = GOMP_MAP_DELETE;
+	new_op = GOMP_MAP_RELEASE;
 	ret = true;
 	break;
 

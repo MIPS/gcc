@@ -628,7 +628,8 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  break;
 	}
 
-      if (kind == GOMP_MAP_DELETE
+      if (kind == GOMP_MAP_RELEASE
+	  || kind == GOMP_MAP_DELETE
 	  || kind == GOMP_MAP_FROM
 	  || kind == GOMP_MAP_FORCE_FROM
 	  || kind == GOMP_MAP_DECLARE_DEALLOCATE)
@@ -786,6 +787,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	  {
 	    switch (kind)
 	      {
+	      case GOMP_MAP_RELEASE:
 	      case GOMP_MAP_DELETE:
 		if (acc_is_present (hostaddrs[i], sizes[i]))
 		  {
@@ -1097,6 +1099,7 @@ GOACC_declare (int device, size_t mapnum,
 	  case GOMP_MAP_FORCE_FROM:
 	  case GOMP_MAP_FORCE_TO:
 	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_RELEASE:
 	  case GOMP_MAP_DELETE:
 	    GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
 				   &kinds[i], 0, 0, 0);

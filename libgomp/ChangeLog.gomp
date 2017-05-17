@@ -1,3 +1,8 @@
+2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_enter_exit_data, GOACC_declare): Handle
+	"GOMP_MAP_RELEASE".
+
 2017-05-16  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* libgomp.texi: Update OpenACC references to version 2.5. Add entries

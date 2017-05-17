@@ -1,5 +1,8 @@
 2017-05-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* openmp.c (gfc_match_omp_clauses) <OMP_CLAUSE_DELETE>: Use
+	"OMP_MAP_RELEASE".
+
 	* openmp.c (gfc_match_omp_clauses): Handle "OMP_CLAUSE_DELETE"
 	just once.
 
