@@ -402,9 +402,9 @@
 
 (define_memory_constraint "ZA"
   "@internal
-   A microMIPS memory operand for use with the UALW/UASW insns."
+   A memory operand for use with the LWM/SWM insns."
   (and (match_code "mem")
-       (match_operand 0 "ualw_uasw_operand")))
+       (match_operand 0 "lwm_swm_operand")))
 
 (define_memory_constraint "ZE"
   "@internal

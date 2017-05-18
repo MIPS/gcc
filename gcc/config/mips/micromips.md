@@ -19,8 +19,8 @@
 
 (define_insn "*store_word_multiple"
   [(match_parallel 0 ""
-       [(set (match_operand:SI 1 "memory_operand")
-	     (match_operand:SI 2 "register_operand"))])]
+       [(set (match_operand:SI 1 "memory_operand" "=ZA")
+	     (match_operand:SI 2 "register_operand" "r"))])]
   "(ISA_HAS_LWM_SWM || TARGET_LWP_SWP) && umips_word_multiple_pattern_p (true, operands[0])"
   { return umips_output_word_multiple (true, operands[0]); }
   [(set_attr "type" "multimem")
@@ -65,8 +65,8 @@
 
 (define_insn "*load_word_multiple"
   [(match_parallel 0 ""
-       [(set (match_operand:SI 1 "register_operand")
-	     (match_operand:SI 2 "memory_operand"))])]
+       [(set (match_operand:SI 1 "register_operand" "=r")
+	     (match_operand:SI 2 "memory_operand" "ZA"))])]
   "(ISA_HAS_LWM_SWM || TARGET_LWP_SWP) && umips_word_multiple_pattern_p (false, operands[0])"
   { return umips_output_word_multiple (false, operands[0]); }
   [(set_attr "type" "multimem")

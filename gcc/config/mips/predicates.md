@@ -265,9 +265,12 @@
 		    ? M16_REG_P (REGNO (op))
 		    : GP_REG_P (REGNO (op))")))
 
-(define_predicate "ualw_uasw_operand"
+(define_predicate "lwm_swm_operand"
   (and (match_code "mem")
-       (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")))
+       (ior (match_test "TARGET_MICROMIPS_R7
+			 && mips_9bit_offset_address_p (XEXP (op, 0), mode)")
+	    (match_test "!TARGET_MICROMIPS_R7
+			 && memory_operand (op, mode)"))))
 
 (define_predicate "lwsp_swsp_operand"
   (and (match_code "mem")
