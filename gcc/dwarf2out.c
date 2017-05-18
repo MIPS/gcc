@@ -27052,7 +27052,10 @@ dwarf2out_source_line (unsigned int line, unsigned int column,
 	    }
 	  if (RESETTING_VIEW_P (table->view))
 	    {
-	      fputs (" view 0", asm_out_file);
+	      if (!table->in_use)
+		fputs (" view -0", asm_out_file);
+	      else
+		fputs (" view 0", asm_out_file);
 	      bitmap_set_bit (zero_view_p, lvugid);
 	      table->view = ++lvugid;
 	    }
@@ -27080,8 +27083,10 @@ dwarf2out_source_line (unsigned int line, unsigned int column,
       if (debug_variable_location_views)
 	{
 	  if (flag_debug_asm)
-	    fprintf (asm_out_file, "\t%s view %d\n",
-		     ASM_COMMENT_START, table->view);
+	    fprintf (asm_out_file, "\t%s view %s%d\n",
+		     ASM_COMMENT_START,
+		     table->in_use ? "" : "-",
+		     table->view);
 	  table->view++;
 	}
       if (file_num != table->file_num)
