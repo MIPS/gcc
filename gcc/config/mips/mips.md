@@ -7127,9 +7127,17 @@
       rtx reg = gen_reg_rtx (SImode);
       rtx offset = gen_int_mode (-INTVAL (operands[1]), SImode);
 
-      if (!arith_operand (offset, SImode))
-        offset = force_reg (SImode, offset);
-
+      if (TARGET_MICROMIPS_R7_JUMPTABLE_OPT)
+	{
+	  if (!const_arith_operand_r7 (offset, SImode)
+	      && !register_operand (offset, SImode))
+	    offset = force_reg (SImode, offset);
+	}
+      else
+	{
+	  if (!arith_operand (offset, SImode))
+	    offset = force_reg (SImode, offset);
+	}
       emit_insn (gen_addsi3 (reg, operands[0], offset));
       operands[0] = reg;
     }
