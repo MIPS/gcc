@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=32 -fpeephole2 isa_rev>=7" } */
+/* { dg-options "-mabi=p32 -fpeephole2 isa_rev>=7" } */
 
 int bar (int);
 void bar2 (int);

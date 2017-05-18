@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=32 -mxlp isa_rev>=7" } */
+/* { dg-options "-mabi=p32 -mxlp isa_rev>=7" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 struct S
@@ -15,4 +15,4 @@ foo (struct S *s)
   return a;
 }
 
-/* { dg-final { scan-assembler "\tualw\\s\\\$2,5\\\(\\\$4\\\)\n" } } */
+/* { dg-final { scan-assembler "\tualw\\s\\\$4,5\\\(\\\$4\\\)\n" } } */

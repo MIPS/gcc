@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=32 -mxlp -fpeephole2 isa_rev>=7" } */
+/* { dg-options "-mabi=p32 -mxlp -fpeephole2 isa_rev>=7" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 void

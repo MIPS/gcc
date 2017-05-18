@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=32 -mhard-float isa_rev>=7" } */
+/* { dg-options "-mabi=p32 -mhard-float isa_rev>=7" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 void
@@ -11,4 +11,4 @@ foo (float a[], float b, float c, float d)
   a[1024] = a2;
 }
 /* { dg-final { scan-assembler "\tswc1\t\\\$f1,(4092|-4)\\\(\\\$4\\\)\n" } } */
-/* { dg-final { scan-assembler "\tswc1\t\\\$f0,0\\\(\\\$.\\\)\n" } } */
+/* { dg-final { scan-assembler "\tswc1\t\\\$f2,0\\\(\\\$.\\\)\n" } } */

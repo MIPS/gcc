@@ -1,5 +1,5 @@
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
-/* { dg-options "-mabi=32 -mhard-float isa_rev>=7" } */
+/* { dg-options "-mabi=p32 -mhard-float isa_rev>=7" } */
 
 float
 foo (float a[])

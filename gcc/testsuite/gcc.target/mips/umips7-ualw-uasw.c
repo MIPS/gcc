@@ -1,4 +1,4 @@
-/* { dg-options "-mabi=32 -mxlp isa_rev>=7 (REQUIRES_STDLIB)" } */
+/* { dg-options "-mabi=p32 -mxlp isa_rev>=7 (REQUIRES_STDLIB)" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-Os"} { "" } } */
 
 #include <string.h>
