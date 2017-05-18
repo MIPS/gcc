@@ -1289,7 +1289,7 @@ get_size_range (tree exp, tree range[2], bool allow_zero)
 	 This will transform [5,10][20,MAX] into [5,10].  */
       if (positives.num_ranges () > 1
 	  && positives.upper_bound () == wide_int (TYPE_MAX_VALUE (exptype)))
-	positives.remove_uppermost_subrange ();
+	positives.remove_range (positives.num_ranges () - 1);
 
       range[0] = wide_int_to_tree (exptype, positives.lower_bound ());
       range[1] = wide_int_to_tree (exptype, positives.upper_bound ());

@@ -407,9 +407,7 @@ irange::append (wide_int x, wide_int y)
 void
 irange::remove (unsigned i, unsigned j)
 {
-  if (i >= n || i > j)
-    return;
-  gcc_assert (i <= j);
+  gcc_assert (i < n && i < j);
   unsigned dst = i;
   unsigned ndeleted = j - i + 1;
   for (++j; j < n; ++j)
@@ -458,6 +456,12 @@ irange::Union (wide_int x, wide_int y)
   if (wi::lt_p (x, bounds[0], TYPE_SIGN (type)))
     {
       bounds[0] = x;
+
+      //    Y
+      // X[a,b]   => [X,b]
+      if (n == 2)
+	return;
+
       for (unsigned i = 1; i < n; i += 2)
 	if (wi::le_p (y, bounds[i], TYPE_SIGN (type)))
 	  {
@@ -476,7 +480,6 @@ irange::Union (wide_int x, wide_int y)
   // ==> [a,b][c,d][e,Y]
   if (wi::gt_p (y, bounds[n - 1], TYPE_SIGN (type)))
     {
-      //gcc_assert (n > 2);
       for (unsigned i = 0; i < n; i += 2)
 	if (wi::ge_p (bounds[i + 1], x, TYPE_SIGN (type)))
 	  {
@@ -518,6 +521,10 @@ irange::Union (wide_int x, wide_int y)
 	break;
       }
   gcc_assert (ypos != ~0U);
+
+  // If [x,y] is inside of subrange [xpos,ypos], there's nothing to do.
+  if (xpos + 1 == ypos)
+    return;
 
   // Merge the sub-ranges in between xpos and ypos.
   y = bounds[ypos];
