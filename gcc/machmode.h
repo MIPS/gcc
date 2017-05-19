@@ -29,6 +29,16 @@ extern const unsigned short mode_unit_precision[NUM_MACHINE_MODES];
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
 
+/* Allow direct conversion of enums to specific mode classes only
+   when USE_ENUM_MODES is defined.  This is only intended for use
+   by gencondmd, so that it can tell more easily when .md conditions
+   are always false.  */
+#ifdef USE_ENUM_MODES
+#define PROTECT_ENUM_CONVERSION public
+#else
+#define PROTECT_ENUM_CONVERSION protected
+#endif
+
 /* Get the name of mode MODE as a string.  */
 
 extern const char * const mode_name[NUM_MACHINE_MODES];
@@ -235,6 +245,85 @@ opt_mode<T>::exists (U *mode) const
       return true;
     }
   return false;
+}
+
+/* Return true if mode M has type T.  */
+
+template<typename T>
+inline bool
+is_a (machine_mode_enum m)
+{
+  return T::includes_p (m);
+}
+
+/* Assert that mode M has type T, and return it in that form.  */
+
+template<typename T>
+inline T
+as_a (machine_mode_enum m)
+{
+  gcc_checking_assert (T::includes_p (m));
+  return T::from_int (m);
+}
+
+/* Convert M to an opt_mode<T>.  */
+
+template<typename T>
+inline opt_mode<T>
+dyn_cast (machine_mode_enum m)
+{
+  if (T::includes_p (m))
+    return T::from_int (m);
+  return opt_mode<T> ();
+}
+
+/* Return true if mode M has type T, storing it as a T in *RESULT
+   if so.  */
+
+template<typename T, typename U>
+inline bool
+is_a (machine_mode_enum m, U *result)
+{
+  if (T::includes_p (m))
+    {
+      *result = T::from_int (m);
+      return true;
+    }
+  return false;
+}
+
+/* Represents a machine mode that is known to be a SCALAR_FLOAT_MODE_P.  */
+class scalar_float_mode
+{
+public:
+  ALWAYS_INLINE scalar_float_mode () {}
+  ALWAYS_INLINE operator machine_mode_enum () const { return m_mode; }
+
+  static bool includes_p (machine_mode_enum);
+  static scalar_float_mode from_int (int i);
+
+PROTECT_ENUM_CONVERSION:
+  ALWAYS_INLINE scalar_float_mode (machine_mode_enum m) : m_mode (m) {}
+
+protected:
+  machine_mode_enum m_mode;
+};
+
+/* Return true if M is a scalar_float_mode.  */
+
+inline bool
+scalar_float_mode::includes_p (machine_mode_enum m)
+{
+  return SCALAR_FLOAT_MODE_P (m);
+}
+
+/* Return M as a scalar_float_mode.  This function should only be used by
+   utility functions; general code should use as_a<T> instead.  */
+
+ALWAYS_INLINE scalar_float_mode
+scalar_float_mode::from_int (int i)
+{
+  return machine_mode_enum (i);
 }
 
 /* Represents a general machine mode (scalar or non-scalar).  */
@@ -525,6 +614,21 @@ struct int_n_data_t {
    smallest bitsize to largest bitsize. */
 extern bool int_n_enabled_p[NUM_INT_N_ENTS];
 extern const int_n_data_t int_n_data[NUM_INT_N_ENTS];
+
+/* Return true if MODE has class MODE_FLOAT, storing it as a
+   scalar_float_mode in *FLOAT_MODE if so.  */
+
+template<typename T>
+inline bool
+is_float_mode (machine_mode mode, T *float_mode)
+{
+  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+    {
+      *float_mode = scalar_float_mode::from_int (mode);
+      return true;
+    }
+  return false;
+}
 
 namespace mode_iterator
 {
