@@ -11559,20 +11559,20 @@
       tmp = "pandn";
       switch (<MODE>mode)
 	{
-	case V64QImode:
-	case V32HImode:
+	case E_V64QImode:
+	case E_V32HImode:
 	  /* There is no vpandnb or vpandnw instruction, nor vpandn for
 	     512-bit vectors. Use vpandnq instead.  */
 	  ssesuffix = "q";
 	  break;
-	case V16SImode:
-	case V8DImode:
+	case E_V16SImode:
+	case E_V8DImode:
 	  ssesuffix = "<ssemodesuffix>";
 	  break;
-	case V8SImode:
-	case V4DImode:
-	case V4SImode:
-	case V2DImode:
+	case E_V8SImode:
+	case E_V4DImode:
+	case E_V4SImode:
+	case E_V2DImode:
 	  ssesuffix = TARGET_AVX512VL ? "<ssemodesuffix>" : "";
 	  break;
 	default:
@@ -11689,14 +11689,14 @@
       tmp = "p<logic>";
       switch (<MODE>mode)
 	{
-	case V16SImode:
-	case V8DImode:
+	case E_V16SImode:
+	case E_V8DImode:
 	  ssesuffix = "<ssemodesuffix>";
 	  break;
-	case V8SImode:
-	case V4DImode:
-	case V4SImode:
-	case V2DImode:
+	case E_V8SImode:
+	case E_V4DImode:
+	case E_V4SImode:
+	case E_V2DImode:
 	  ssesuffix = TARGET_AVX512VL ? "<ssemodesuffix>" : "";
 	  break;
 	default:
@@ -11786,14 +11786,14 @@
       tmp = "p<logic>";
       switch (<MODE>mode)
 	{
-	case V64QImode:
-	case V32HImode:
+	case E_V64QImode:
+	case E_V32HImode:
 	  ssesuffix = "q";
 	  break;
-	case V32QImode:
-	case V16HImode:
-	case V16QImode:
-	case V8HImode:
+	case E_V32QImode:
+	case E_V16HImode:
+	case E_V16QImode:
+	case E_V8HImode:
 	  ssesuffix = TARGET_AVX512VL ? "q" : "";
 	  break;
 	default:
