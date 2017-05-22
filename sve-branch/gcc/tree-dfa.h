@@ -38,7 +38,7 @@ extern tree get_addr_base_and_unit_offset_1 (tree, poly_int64 *,
 extern tree get_addr_base_and_unit_offset (tree, poly_int64 *);
 extern bool stmt_references_abnormal_ssa_name (gimple *);
 extern void replace_abnormal_ssa_names (gimple *);
-extern void dump_enumerated_decls (FILE *, int);
+extern void dump_enumerated_decls (FILE *, dump_flags_t);
 
 
 #endif /* GCC_TREE_DFA_H */

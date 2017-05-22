@@ -321,6 +321,7 @@ extern struct tune_params aarch64_tune_params;
 
 poly_int64 aarch64_initial_elimination_offset (unsigned, unsigned);
 int aarch64_get_condition_code (rtx);
+bool aarch64_address_valid_for_prefetch_p (rtx, bool);
 bool aarch64_bitmask_imm (HOST_WIDE_INT val, machine_mode);
 unsigned HOST_WIDE_INT aarch64_and_split_imm1 (HOST_WIDE_INT val_in);
 unsigned HOST_WIDE_INT aarch64_and_split_imm2 (HOST_WIDE_INT val_in);
@@ -333,6 +334,7 @@ bool aarch64_const_vec_all_same_in_range_p (rtx, HOST_WIDE_INT,
 bool aarch64_constant_address_p (rtx);
 bool aarch64_emit_approx_div (rtx, rtx, rtx);
 bool aarch64_emit_approx_sqrt (rtx, rtx, bool);
+void aarch64_expand_call (rtx, rtx, bool);
 bool aarch64_expand_movmem (rtx *);
 bool aarch64_float_const_zero_rtx_p (rtx);
 bool aarch64_function_arg_regno_p (unsigned);

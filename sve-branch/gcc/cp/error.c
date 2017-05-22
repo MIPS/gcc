@@ -1208,7 +1208,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 
       /* If there's only one function, just treat it like an ordinary
 	 FUNCTION_DECL.  */
-      t = OVL_CURRENT (t);
+      t = OVL_FIRST (t);
       /* Fall through.  */
 
     case FUNCTION_DECL:
@@ -1235,10 +1235,8 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 	tree name = TREE_OPERAND (t, 0);
 	tree args = TREE_OPERAND (t, 1);
 
-	if (is_overloaded_fn (name))
-	  name = get_first_fn (name);
-	if (DECL_P (name))
-	  name = DECL_NAME (name);
+	if (!identifier_p (name))
+	  name = OVL_NAME (name);
 	dump_decl (pp, name, flags);
 	pp_cxx_begin_template_argument_list (pp);
 	if (args == error_mark_node)
@@ -2498,7 +2496,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      /* A::f */
 	      dump_expr (pp, t, flags | TFF_EXPR_IN_PARENS);
 	    else if (BASELINK_P (t))
-	      dump_expr (pp, OVL_CURRENT (BASELINK_FUNCTIONS (t)),
+	      dump_expr (pp, OVL_FIRST (BASELINK_FUNCTIONS (t)),
 			 flags | TFF_EXPR_IN_PARENS);
 	    else
 	      dump_decl (pp, t, flags);
@@ -3004,7 +3002,7 @@ location_of (tree t)
 	return input_location;
     }
   else if (TREE_CODE (t) == OVERLOAD)
-    t = OVL_FUNCTION (t);
+    t = OVL_FIRST (t);
 
   if (DECL_P (t))
     return DECL_SOURCE_LOCATION (t);
@@ -3134,6 +3132,10 @@ type_to_string (tree typ, int verbose)
       if (len == aka_len && memcmp (p, p+aka_start, len) == 0)
 	p[len] = '\0';
     }
+
+  if (typ && TYPE_P (typ) && TREE_CODE (typ) == ENUMERAL_TYPE)
+    pp_string (cxx_pp, M_(" {enum}"));
+
   return pp_ggc_formatted_text (cxx_pp);
 }
 
@@ -3751,7 +3753,7 @@ pedwarn_cxx98 (location_t location, int opt, const char *gmsgid, ...)
   diagnostic_set_info (&diagnostic, gmsgid, &ap, &richloc,
 		       (cxx_dialect == cxx98) ? DK_PEDWARN : DK_WARNING);
   diagnostic.option_index = opt;
-  ret = report_diagnostic (&diagnostic);
+  ret = diagnostic_report_diagnostic (global_dc, &diagnostic);
   va_end (ap);
   return ret;
 }

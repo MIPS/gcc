@@ -14,4 +14,4 @@ void foo (void) {
     }
 }
 
-/* { dg-final { scan-assembler "ld1r\\t\{v\[0-9\]+\."} } */
+/* { dg-final { scan-assembler "ld1r\\t\{v\[0-9\]+\." { xfail *-*-* } } } */

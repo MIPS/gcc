@@ -805,8 +805,11 @@ split_tree (location_t loc, tree in, tree type, enum tree_code code,
 		  though the C standard doesn't say so) for integers because
 		  the value is not affected.  For reals, the value might be
 		  affected, so we can't.  */
-	       && ((code == PLUS_EXPR && TREE_CODE (in) == MINUS_EXPR)
-		   || (code == MINUS_EXPR && TREE_CODE (in) == PLUS_EXPR))))
+	       && ((code == PLUS_EXPR && TREE_CODE (in) == POINTER_PLUS_EXPR)
+		   || (code == PLUS_EXPR && TREE_CODE (in) == MINUS_EXPR)
+		   || (code == MINUS_EXPR
+		       && (TREE_CODE (in) == PLUS_EXPR
+			   || TREE_CODE (in) == POINTER_PLUS_EXPR)))))
     {
       tree op0 = TREE_OPERAND (in, 0);
       tree op1 = TREE_OPERAND (in, 1);
@@ -10097,8 +10100,10 @@ fold_binary_loc (location_t loc,
 
 	  /* If (C1|C2) == ~0 then (X&C1)|C2 becomes X|C2.  */
 	  if (msk.and_not (c1 | c2) == 0)
-	    return fold_build2_loc (loc, BIT_IOR_EXPR, type,
-				    TREE_OPERAND (arg0, 0), arg1);
+	    {
+	      tem = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
+	      return fold_build2_loc (loc, BIT_IOR_EXPR, type, tem, arg1);
+	    }
 
 	  /* Minimize the number of bits set in C1, i.e. C1 := C1 & ~C2,
 	     unless (C1 & ~C2) | (C2 & C3) for some C3 is a mask of some
@@ -10994,40 +10999,37 @@ fold_binary_loc (location_t loc,
 	  tree itype = TREE_TYPE (arg0);
 
 	  if (operand_equal_p (arg01, arg11, 0))
-	    return fold_build2_loc (loc, code, type,
-				fold_build2_loc (loc, BIT_AND_EXPR, itype,
-					     fold_build2_loc (loc,
-							  BIT_XOR_EXPR, itype,
-							  arg00, arg10),
-					     arg01),
-				build_zero_cst (itype));
-
+	    {
+	      tem = fold_convert_loc (loc, itype, arg10);
+	      tem = fold_build2_loc (loc, BIT_XOR_EXPR, itype, arg00, tem);
+	      tem = fold_build2_loc (loc, BIT_AND_EXPR, itype, tem, arg01);
+	      return fold_build2_loc (loc, code, type, tem,
+				      build_zero_cst (itype));
+	    }
 	  if (operand_equal_p (arg01, arg10, 0))
-	    return fold_build2_loc (loc, code, type,
-				fold_build2_loc (loc, BIT_AND_EXPR, itype,
-					     fold_build2_loc (loc,
-							  BIT_XOR_EXPR, itype,
-							  arg00, arg11),
-					     arg01),
-				build_zero_cst (itype));
-
+	    {
+	      tem = fold_convert_loc (loc, itype, arg11);
+	      tem = fold_build2_loc (loc, BIT_XOR_EXPR, itype, arg00, tem);
+	      tem = fold_build2_loc (loc, BIT_AND_EXPR, itype, tem, arg01);
+	      return fold_build2_loc (loc, code, type, tem,
+				      build_zero_cst (itype));
+	    }
 	  if (operand_equal_p (arg00, arg11, 0))
-	    return fold_build2_loc (loc, code, type,
-				fold_build2_loc (loc, BIT_AND_EXPR, itype,
-					     fold_build2_loc (loc,
-							  BIT_XOR_EXPR, itype,
-							  arg01, arg10),
-					     arg00),
-				build_zero_cst (itype));
-
+	    {
+	      tem = fold_convert_loc (loc, itype, arg10);
+	      tem = fold_build2_loc (loc, BIT_XOR_EXPR, itype, arg01, tem);
+	      tem = fold_build2_loc (loc, BIT_AND_EXPR, itype, tem, arg00);
+	      return fold_build2_loc (loc, code, type, tem,
+				      build_zero_cst (itype));
+	    }
 	  if (operand_equal_p (arg00, arg10, 0))
-	    return fold_build2_loc (loc, code, type,
-				fold_build2_loc (loc, BIT_AND_EXPR, itype,
-					     fold_build2_loc (loc,
-							  BIT_XOR_EXPR, itype,
-							  arg01, arg11),
-					     arg00),
-				build_zero_cst (itype));
+	    {
+	      tem = fold_convert_loc (loc, itype, arg11);
+	      tem = fold_build2_loc (loc, BIT_XOR_EXPR, itype, arg01, tem);
+	      tem = fold_build2_loc (loc, BIT_AND_EXPR, itype, tem, arg00);
+	      return fold_build2_loc (loc, code, type, tem,
+				      build_zero_cst (itype));
+	    }
 	}
 
       if (TREE_CODE (arg0) == BIT_XOR_EXPR
@@ -13608,6 +13610,11 @@ tree_single_nonzero_warnv_p (tree t, bool *strict_overflow_p)
 	  return true;
 	}
       break;
+
+    case SSA_NAME:
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	break;
+      return expr_not_equal_to (t, wi::zero (TYPE_PRECISION (TREE_TYPE (t))));
 
     default:
       break;

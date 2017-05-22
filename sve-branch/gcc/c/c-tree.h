@@ -113,6 +113,10 @@ along with GCC; see the file COPYING3.  If not see
    subexpression meaning it is not a constant expression.  */
 #define CONSTRUCTOR_NON_CONST(EXPR) TREE_LANG_FLAG_1 (CONSTRUCTOR_CHECK (EXPR))
 
+/* For a SAVE_EXPR, nonzero if the operand of the SAVE_EXPR has already
+   been folded.  */
+#define SAVE_EXPR_FOLDED_P(EXP)	TREE_LANG_FLAG_1 (SAVE_EXPR_CHECK (EXP))
+
 /* Record parser information about an expression that is irrelevant
    for code generation alongside a tree representing its value.  */
 struct c_expr
@@ -506,6 +510,7 @@ extern tree c_break_label;
 extern tree c_cont_label;
 
 extern bool global_bindings_p (void);
+extern tree pushdecl (tree);
 extern void push_scope (void);
 extern tree pop_scope (void);
 extern void c_bindings_start_stmt_expr (struct c_spot_bindings *);

@@ -1596,7 +1596,8 @@ extract_bit_field_as_subreg (machine_mode mode, rtx op0,
 static rtx
 extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 		     int unsignedp, rtx target, machine_mode mode,
-		     machine_mode tmode, bool reverse, bool fallback_p)
+		     machine_mode tmode, bool reverse, bool fallback_p,
+		     rtx *alt_rtl)
 {
   rtx op0 = str_rtx;
   machine_mode mode1;
@@ -1674,10 +1675,13 @@ extract_bit_field_1 (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 	  unsigned HOST_WIDE_INT pos = ibitnum / GET_MODE_BITSIZE (innermode);
 
 	  create_output_operand (&ops[0], target, innermode);
+	  ops[0].target = 1;
 	  create_input_operand (&ops[1], op0, outermode);
 	  create_integer_operand (&ops[2], pos);
 	  if (maybe_expand_insn (icode, 3, ops))
 	    {
+	      if (alt_rtl && ops[0].target)
+		*alt_rtl = target;
 	      target = ops[0].value;
 	      if (GET_MODE (target) != mode)
 		return gen_lowpart (tmode, target);
@@ -1836,7 +1840,7 @@ extract_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	    = extract_bit_field_1 (op0, MIN (BITS_PER_WORD,
 					     bitsize - i * BITS_PER_WORD),
 				   bitnum + bit_offset, 1, target_part,
-				   mode, word_mode, reverse, fallback_p);
+				   mode, word_mode, reverse, fallback_p, NULL);
 
 	  gcc_assert (target_part);
 	  if (!result_part)
@@ -1940,7 +1944,7 @@ extract_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 	  xop0 = copy_to_reg (xop0);
 	  rtx result = extract_bit_field_1 (xop0, bitsize, bitpos,
 					    unsignedp, target,
-					    mode, tmode, reverse, false);
+					    mode, tmode, reverse, false, NULL);
 	  if (result)
 	    return result;
 	  delete_insns_since (last);
@@ -1996,7 +2000,7 @@ extract_integral_bit_field (rtx op0, opt_scalar_int_mode op0_mode,
 rtx
 extract_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
 		   int unsignedp, rtx target, machine_mode mode,
-		   machine_mode tmode, bool reverse)
+		   machine_mode tmode, bool reverse, rtx *alt_rtl)
 {
   machine_mode mode1;
 
@@ -2035,11 +2039,11 @@ extract_bit_field (rtx str_rtx, poly_uint64 bitsize, poly_uint64 bitnum,
       gcc_assert (ibitnum + ibitsize <= GET_MODE_BITSIZE (int_mode));
       str_rtx = copy_to_reg (str_rtx);
       return extract_bit_field_1 (str_rtx, ibitsize, ibitnum, unsignedp,
-				  target, mode, tmode, reverse, true);
+				  target, mode, tmode, reverse, true, alt_rtl);
     }
 
   return extract_bit_field_1 (str_rtx, bitsize, bitnum, unsignedp,
-			      target, mode, tmode, reverse, true);
+			      target, mode, tmode, reverse, true, alt_rtl);
 }
 
 /* Use shifts and boolean operations to extract a field of BITSIZE bits

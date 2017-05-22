@@ -514,6 +514,8 @@ const struct c_common_resword c_common_reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",		RID_WCHAR,	D_CXXONLY },
   { "while",		RID_WHILE,	0 },
+  { "__is_assignable", RID_IS_ASSIGNABLE, D_CXXONLY },
+  { "__is_constructible", RID_IS_CONSTRUCTIBLE, D_CXXONLY },
 
   /* C++ transactional memory.  */
   { "synchronized",	RID_SYNCHRONIZED, D_CXX_OBJC | D_TRANSMEM },
@@ -2600,7 +2602,7 @@ c_register_builtin_type (tree type, const char* name)
   DECL_ARTIFICIAL (decl) = 1;
   if (!TYPE_NAME (type))
     TYPE_NAME (type) = decl;
-  pushdecl (decl);
+  lang_hooks.decls.pushdecl (decl);
 
   registered_builtin_types = tree_cons (0, type, registered_builtin_types);
 }
@@ -2998,7 +3000,7 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
       if (!real1 && !real2 && integer_zerop (primop1)
 	  && TYPE_UNSIGNED (*restype_ptr))
 	{
-	  tree value = 0;
+	  tree value = NULL_TREE;
 	  /* All unsigned values are >= 0, so we warn.  However,
 	     if OP0 is a constant that is >= 0, the signedness of
 	     the comparison isn't an issue, so suppress the
@@ -3031,7 +3033,7 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	      break;
 	    }
 
-	  if (value != 0)
+	  if (value != NULL_TREE)
 	    {
 	      /* Don't forget to evaluate PRIMOP0 if it has side effects.  */
 	      if (TREE_SIDE_EFFECTS (primop0))
@@ -3172,24 +3174,6 @@ c_wrap_maybe_const (tree expr, bool non_const)
     TREE_NO_WARNING (expr) = 1;
   protected_set_expr_location (expr, loc);
 
-  return expr;
-}
-
-/* Wrap a SAVE_EXPR around EXPR, if appropriate.  Like save_expr, but
-   for C folds the inside expression and wraps a C_MAYBE_CONST_EXPR
-   around the SAVE_EXPR if needed so that c_fully_fold does not need
-   to look inside SAVE_EXPRs.  */
-
-tree
-c_save_expr (tree expr)
-{
-  bool maybe_const = true;
-  if (c_dialect_cxx ())
-    return save_expr (expr);
-  expr = c_fully_fold (expr, false, &maybe_const);
-  expr = save_expr (expr);
-  if (!maybe_const)
-    expr = c_wrap_maybe_const (expr, true);
   return expr;
 }
 
@@ -3447,7 +3431,7 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 
   if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
     {
-      tree t = (in_late_binary_op ? save_expr (expr) : c_save_expr (expr));
+      tree t = save_expr (expr);
       expr = (build_binary_op
 	      (EXPR_LOCATION (expr),
 	       (TREE_SIDE_EFFECTS (expr)
@@ -3519,67 +3503,6 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
     }
 }
 
-struct c_type_hasher : ggc_ptr_hash<tree_node>
-{
-  static hashval_t hash (tree);
-  static bool equal (tree, tree);
-};
-
-/* Hash function for the problem of multiple type definitions in
-   different files.  This must hash all types that will compare
-   equal via comptypes to the same value.  In practice it hashes
-   on some of the simple stuff and leaves the details to comptypes.  */
-
-hashval_t
-c_type_hasher::hash (tree t)
-{
-  int n_elements;
-  int shift, size;
-  tree t2;
-  switch (TREE_CODE (t))
-    {
-    /* For pointers, hash on pointee type plus some swizzling.  */
-    case POINTER_TYPE:
-      return hash (TREE_TYPE (t)) ^ 0x3003003;
-    /* Hash on number of elements and total size.  */
-    case ENUMERAL_TYPE:
-      shift = 3;
-      t2 = TYPE_VALUES (t);
-      break;
-    case RECORD_TYPE:
-      shift = 0;
-      t2 = TYPE_FIELDS (t);
-      break;
-    case QUAL_UNION_TYPE:
-      shift = 1;
-      t2 = TYPE_FIELDS (t);
-      break;
-    case UNION_TYPE:
-      shift = 2;
-      t2 = TYPE_FIELDS (t);
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  /* FIXME: We want to use a DECL_CHAIN iteration method here, but
-     TYPE_VALUES of ENUMERAL_TYPEs is stored as a TREE_LIST.  */
-  n_elements = list_length (t2);
-  /* We might have a VLA here.  */
-  if (TREE_CODE (TYPE_SIZE (t)) != INTEGER_CST)
-    size = 0;
-  else
-    size = TREE_INT_CST_LOW (TYPE_SIZE (t));
-  return ((size << 24) | (n_elements << shift));
-}
-
-bool
-c_type_hasher::equal (tree t1, tree t2)
-{
-  return lang_hooks.types_compatible_p (t1, t2);
-}
-
-static GTY(()) hash_table<c_type_hasher> *type_hash_table;
-
 /* Return the typed-based alias set for T, which may be an expression
    or a type.  Return -1 if we don't do anything special.  */
 
@@ -3617,60 +3540,6 @@ c_common_get_alias_set (tree t)
       if (t1 != t)
 	return get_alias_set (t1);
     }
-
-  /* Handle the case of multiple type nodes referring to "the same" type,
-     which occurs with IMA.  These share an alias set.  FIXME:  Currently only
-     C90 is handled.  (In C99 type compatibility is not transitive, which
-     complicates things mightily. The alias set splay trees can theoretically
-     represent this, but insertion is tricky when you consider all the
-     different orders things might arrive in.) */
-
-  if (c_language != clk_c || flag_isoc99)
-    return -1;
-
-  /* Save time if there's only one input file.  */
-  if (num_in_fnames == 1)
-    return -1;
-
-  /* Pointers need special handling if they point to any type that
-     needs special handling (below).  */
-  if (TREE_CODE (t) == POINTER_TYPE)
-    {
-      tree t2;
-      /* Find bottom type under any nested POINTERs.  */
-      for (t2 = TREE_TYPE (t);
-	   TREE_CODE (t2) == POINTER_TYPE;
-	   t2 = TREE_TYPE (t2))
-	;
-      if (!RECORD_OR_UNION_TYPE_P (t2)
-	  && TREE_CODE (t2) != ENUMERAL_TYPE)
-	return -1;
-      if (TYPE_SIZE (t2) == 0)
-	return -1;
-    }
-  /* These are the only cases that need special handling.  */
-  if (!RECORD_OR_UNION_TYPE_P (t)
-      && TREE_CODE (t) != ENUMERAL_TYPE
-      && TREE_CODE (t) != POINTER_TYPE)
-    return -1;
-  /* Undefined? */
-  if (TYPE_SIZE (t) == 0)
-    return -1;
-
-  /* Look up t in hash table.  Only one of the compatible types within each
-     alias set is recorded in the table.  */
-  if (!type_hash_table)
-    type_hash_table = hash_table<c_type_hasher>::create_ggc (1021);
-  tree *slot = type_hash_table->find_slot (t, INSERT);
-  if (*slot != NULL)
-    {
-      TYPE_ALIAS_SET (t) = TYPE_ALIAS_SET ((tree)*slot);
-      return TYPE_ALIAS_SET ((tree)*slot);
-    }
-  else
-    /* Our caller will assign and record (in t) a new alias set; all we need
-       to do is remember t in the hash table.  */
-    *slot = t;
 
   return -1;
 }
@@ -4793,10 +4662,10 @@ self_promoting_args_p (const_tree parms)
       if (type == error_mark_node)
 	continue;
 
-      if (TREE_CHAIN (t) == 0 && type != void_type_node)
+      if (TREE_CHAIN (t) == NULL_TREE && type != void_type_node)
 	return 0;
 
-      if (type == 0)
+      if (type == NULL_TREE)
 	return 0;
 
       if (TYPE_MAIN_VARIANT (type) == float_type_node)
@@ -5721,7 +5590,7 @@ check_function_arguments_recurse (void (*callback)
 	    format_num = tree_to_uhwi (format_num_expr);
 
 	    for (inner_arg = first_call_expr_arg (param, &iter), i = 1;
-		 inner_arg != 0;
+		 inner_arg != NULL_TREE;
 		 inner_arg = next_call_expr_arg (&iter), i++)
 	      if (i == format_num)
 		{
@@ -6235,7 +6104,7 @@ c_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level, int reason,
 				  richloc, dlevel);
   diagnostic_override_option_index (&diagnostic,
                                     c_option_controlling_cpp_error (reason));
-  ret = report_diagnostic (&diagnostic);
+  ret = diagnostic_report_diagnostic (global_dc, &diagnostic);
   if (level == CPP_DL_WARNING_SYSHDR)
     global_dc->dc_warn_system_headers = save_warn_system_headers;
   return ret;
@@ -6494,11 +6363,8 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
   layout_type (main_type);
 
   /* Make sure we have the canonical MAIN_TYPE. */
-  inchash::hash hstate;
-  hstate.add_object (TYPE_HASH (unqual_elt));
-  hstate.add_object (TYPE_HASH (TYPE_DOMAIN (main_type)));
-  hstate.add_flag (TYPE_TYPELESS_STORAGE (main_type));
-  main_type = type_hash_canon (hstate.end (), main_type);
+  hashval_t hashcode = type_hash_canon_hash (main_type);
+  main_type = type_hash_canon (hashcode, main_type);
 
   /* Fix the canonical type.  */
   if (TYPE_STRUCTURAL_EQUALITY_P (TREE_TYPE (main_type))

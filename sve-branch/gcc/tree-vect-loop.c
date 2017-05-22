@@ -3023,7 +3023,7 @@ reduction_identity_for_code (enum tree_code code, tree type)
    STMT is printed with a message MSG. */
 
 static void
-report_vect_op (int msg_type, gimple *stmt, const char *msg)
+report_vect_op (dump_flags_t msg_type, gimple *stmt, const char *msg)
 {
   dump_printf_loc (msg_type, vect_location, "%s", msg);
   dump_gimple_stmt (msg_type, TDF_SLIM, stmt, 0);

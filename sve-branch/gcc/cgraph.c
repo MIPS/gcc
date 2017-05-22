@@ -1169,7 +1169,7 @@ cgraph_edge::resolve_speculation (tree callee_decl)
 		       edge->caller->order,
 		       xstrdup_for_dump (e2->callee->name ()),
 		       e2->callee->order);
-	      print_generic_expr (dump_file, callee_decl, 0);
+	      print_generic_expr (dump_file, callee_decl);
 	      fprintf (dump_file, "\n");
 	    }
 	  else
@@ -3652,7 +3652,7 @@ cgraph_node::get_body (void)
       opt_pass *saved_current_pass = current_pass;
       FILE *saved_dump_file = dump_file;
       const char *saved_dump_file_name = dump_file_name;
-      int saved_dump_flags = dump_flags;
+      dump_flags_t saved_dump_flags = dump_flags;
       dump_file_name = NULL;
       dump_file = NULL;
 

@@ -494,8 +494,7 @@ do_friend (tree ctype, tree declarator, tree decl,
   if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
     {
       declarator = TREE_OPERAND (declarator, 0);
-      if (is_overloaded_fn (declarator))
-	declarator = DECL_NAME (get_first_fn (declarator));
+      declarator = OVL_NAME (declarator);
     }
 
   if (ctype)
@@ -620,7 +619,7 @@ do_friend (tree ctype, tree declarator, tree decl,
 		 declaration, the program is ill-formed.  */
 	      tree t = lookup_name_innermost_nonclass_level (DECL_NAME (decl));
 	      if (t)
-		decl = pushdecl_maybe_friend (decl, /*is_friend=*/true);
+		decl = pushdecl (decl, /*is_friend=*/true);
 	      else
 		{
 		  error ("friend declaration %qD in local class without "

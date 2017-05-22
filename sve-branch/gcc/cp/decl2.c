@@ -608,18 +608,12 @@ check_classfn (tree ctype, tree function, tree template_parms)
   if (ix >= 0)
     {
       vec<tree, va_gc> *methods = CLASSTYPE_METHOD_VEC (ctype);
-      tree fndecls, fndecl = 0;
-      bool is_conv_op;
-      const char *format = NULL;
 
-      for (fndecls = (*methods)[ix];
-	   fndecls; fndecls = OVL_NEXT (fndecls))
+      for (ovl_iterator iter ((*methods)[ix]); iter; ++iter)
 	{
-	  tree p1, p2;
-
-	  fndecl = OVL_CURRENT (fndecls);
-	  p1 = TYPE_ARG_TYPES (TREE_TYPE (function));
-	  p2 = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+	  tree fndecl = *iter;
+	  tree p1 = TYPE_ARG_TYPES (TREE_TYPE (function));
+	  tree p2 = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
 
 	  /* We cannot simply call decls_match because this doesn't
 	     work for static member functions that are pretending to
@@ -662,49 +656,47 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      && (!DECL_TEMPLATE_SPECIALIZATION (function)
 		  || (DECL_TI_TEMPLATE (function)
 		      == DECL_TI_TEMPLATE (fndecl))))
-	    break;
+	    {
+	      if (pushed_scope)
+		pop_scope (pushed_scope);
+	      return fndecl;
+	    }
 	}
-      if (fndecls)
-	{
-	  if (pushed_scope)
-	    pop_scope (pushed_scope);
-	  return OVL_CURRENT (fndecls);
-	}
-      
+
       error_at (DECL_SOURCE_LOCATION (function),
 		"prototype for %q#D does not match any in class %qT",
 		function, ctype);
-      is_conv_op = DECL_CONV_FN_P (fndecl);
+
+      const char *format = NULL;
+      tree first = OVL_FIRST ((*methods)[ix]);
+      bool is_conv_op = DECL_CONV_FN_P (first);
+      tree prev = NULL_TREE;
 
       if (is_conv_op)
 	ix = CLASSTYPE_FIRST_CONVERSION_SLOT;
-      fndecls = (*methods)[ix];
-      while (fndecls)
+      do
 	{
-	  fndecl = OVL_CURRENT (fndecls);
-	  fndecls = OVL_NEXT (fndecls);
-
-	  if (!fndecls && is_conv_op)
+	  ovl_iterator iter ((*methods)[ix++]);
+	  if (is_conv_op && !DECL_CONV_FN_P (*iter))
+	    break;
+	  for (; iter; ++iter)
 	    {
-	      if (methods->length () > (size_t) ++ix)
+	      if (prev)
 		{
-		  fndecls = (*methods)[ix];
-		  if (!DECL_CONV_FN_P (OVL_CURRENT (fndecls)))
-		    {
-		      fndecls = NULL_TREE;
-		      is_conv_op = false;
-		    }
+		  if (!format)
+		    format = N_("candidates are: %+#D");
+		  error (format, prev);
+		  format = "                %+#D";
 		}
-	      else
-		is_conv_op = false;
+	      prev = *iter;
 	    }
-	  if (format)
-	    format = "                %+#D";
-	  else if (fndecls)
-	    format = N_("candidates are: %+#D");
-	  else
+	}
+      while (is_conv_op && size_t (ix) < methods->length ());
+      if (prev)
+	{
+	  if (!format)
 	    format = N_("candidate is: %+#D");
-	  error (format, fndecl);
+	  error (format, prev);
 	}
     }
   else if (!COMPLETE_TYPE_P (ctype))
@@ -4369,7 +4361,7 @@ generate_mangling_aliases ()
 static void
 dump_tu (void)
 {
-  int flags;
+  dump_flags_t flags;
   FILE *stream = dump_begin (TDI_tu, &flags);
 
   if (stream)
@@ -4390,10 +4382,10 @@ maybe_warn_sized_delete (enum tree_code code)
   tree sized = NULL_TREE;
   tree unsized = NULL_TREE;
 
-  for (tree ovl = IDENTIFIER_GLOBAL_VALUE (cp_operator_id (code));
-       ovl; ovl = OVL_NEXT (ovl))
+  for (ovl_iterator iter (IDENTIFIER_GLOBAL_VALUE (cp_operator_id (code)));
+       iter; ++iter)
     {
-      tree fn = OVL_CURRENT (ovl);
+      tree fn = *iter;
       /* We're only interested in usual deallocation functions.  */
       if (!usual_deallocation_fn_p (fn))
 	continue;
@@ -4724,7 +4716,7 @@ c_parse_final_cleanups (void)
 	    }
 	}
 
-      if (walk_namespaces (wrapup_globals_for_namespace, /*data=*/0))
+      if (wrapup_namespace_globals ())
 	reconsider = true;
 
       /* Static data members are just like namespace-scope globals.  */
@@ -4748,8 +4740,6 @@ c_parse_final_cleanups (void)
       retries++;
     }
   while (reconsider);
-
-  walk_namespaces (diagnose_inline_vars_for_namespace, /*data=*/0);
 
   lower_var_init ();
 
@@ -5031,7 +5021,7 @@ mark_used (tree decl, tsubst_flags_t complain)
       decl = BASELINK_FUNCTIONS (decl);
       if (really_overloaded_fn (decl))
 	return true;
-      decl = OVL_CURRENT (decl);
+      decl = OVL_FIRST (decl);
     }
 
   /* Set TREE_USED for the benefit of -Wunused.  */

@@ -2063,7 +2063,7 @@ build_offset_ref (tree type, tree member, bool address_p,
       if (TREE_CODE (t) != TEMPLATE_ID_EXPR && !really_overloaded_fn (t))
 	{
 	  /* Get rid of a potential OVERLOAD around it.  */
-	  t = OVL_CURRENT (t);
+	  t = OVL_FIRST (t);
 
 	  /* Unique functions are handled easily.  */
 
@@ -2402,10 +2402,16 @@ diagnose_uninitialized_cst_or_ref_member (tree type, bool using_new, bool compla
 tree
 throw_bad_array_new_length (void)
 {
-  tree fn = get_identifier ("__cxa_throw_bad_array_new_length");
-  if (!get_global_value_if_present (fn, &fn))
-    fn = push_throw_library_fn (fn, build_function_type_list (sizetype,
-							      NULL_TREE));
+  static tree fn;
+  if (!fn)
+    {
+      tree name = get_identifier ("__cxa_throw_bad_array_new_length");
+
+      fn = IDENTIFIER_GLOBAL_VALUE (name);
+      if (!fn)
+	fn = push_throw_library_fn
+	  (name, build_function_type_list (sizetype, NULL_TREE));
+    }
 
   return build_cxx_call (fn, 0, NULL, tf_warning_or_error);
 }
@@ -3126,13 +3132,15 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	  || CP_DECL_CONTEXT (alloc_fn) == global_namespace)
       && !aligned_allocation_fn_p (alloc_fn))
     {
-      warning (OPT_Waligned_new_, "%<new%> of type %qT with extended "
-	       "alignment %d", elt_type, TYPE_ALIGN_UNIT (elt_type));
-      inform (input_location, "uses %qD, which does not have an alignment "
-	      "parameter", alloc_fn);
-      if (!aligned_new_threshold)
-	inform (input_location, "use %<-faligned-new%> to enable C++17 "
-				"over-aligned new support");
+      if (warning (OPT_Waligned_new_, "%<new%> of type %qT with extended "
+		   "alignment %d", elt_type, TYPE_ALIGN_UNIT (elt_type)))
+	{
+	  inform (input_location, "uses %qD, which does not have an alignment "
+		  "parameter", alloc_fn);
+	  if (!aligned_new_threshold)
+	    inform (input_location, "use %<-faligned-new%> to enable C++17 "
+				    "over-aligned new support");
+	}
     }
 
   /* If we found a simple case of PLACEMENT_EXPR above, then copy it

@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "gimple-pretty-print.h" /* FIXME */
 #include "tree-cfg.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "print-tree.h"
 
 /* Define the hash table of nodes already seen.
@@ -1021,7 +1021,7 @@ debug_raw (const tree_node *ptr)
 }
 
 static void
-dump_tree_via_hooks (const tree_node *ptr, int options)
+dump_tree_via_hooks (const tree_node *ptr, dump_flags_t options)
 {
   if (DECL_P (ptr))
     lang_hooks.print_decl (stderr, const_cast <tree_node*> (ptr), 0);

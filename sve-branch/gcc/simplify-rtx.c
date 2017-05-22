@@ -3412,19 +3412,21 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	  && UINTVAL (trueop0) == GET_MODE_MASK (mode)
 	  && ! side_effects_p (op1))
 	return op0;
+
+    canonicalize_shift:
       /* Given:
 	 scalar modes M1, M2
 	 scalar constants c1, c2
 	 size (M2) > size (M1)
 	 c1 == size (M2) - size (M1)
 	 optimize:
-	 (ashiftrt:M1 (subreg:M1 (lshiftrt:M2 (reg:M2) (const_int <c1>))
+	 ([a|l]shiftrt:M1 (subreg:M1 (lshiftrt:M2 (reg:M2) (const_int <c1>))
 				 <low_part>)
 		      (const_int <c2>))
 	 to:
-	 (subreg:M1 (ashiftrt:M2 (reg:M2) (const_int <c1 + c2>))
+	 (subreg:M1 ([a|l]shiftrt:M2 (reg:M2) (const_int <c1 + c2>))
 		    <low_part>).  */
-      if (code == ASHIFTRT
+      if ((code == ASHIFTRT || code == LSHIFTRT)
 	  && is_a <scalar_int_mode> (mode, &int_mode)
 	  && SUBREG_P (op0)
 	  && CONST_INT_P (op1)
@@ -3439,12 +3441,12 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	{
 	  rtx tmp = gen_int_shift_amount
 	    (inner_mode, INTVAL (XEXP (SUBREG_REG (op0), 1)) + INTVAL (op1));
-	  tmp = simplify_gen_binary (ASHIFTRT, inner_mode,
+	  tmp = simplify_gen_binary (code, inner_mode,
 				     XEXP (SUBREG_REG (op0), 0),
 				     tmp);
 	  return lowpart_subreg (int_mode, tmp, inner_mode);
 	}
-    canonicalize_shift:
+
       if (SHIFT_COUNT_TRUNCATED && CONST_INT_P (op1))
 	{
 	  val = INTVAL (op1) & (GET_MODE_UNIT_PRECISION (mode) - 1);
@@ -5401,34 +5403,14 @@ simplify_const_relational_operation (enum rtx_code code,
 	{
 	case LT:
 	  /* Optimize abs(x) < 0.0.  */
-	  if (!HONOR_SNANS (mode)
-	      && (!INTEGRAL_MODE_P (mode)
-		  || (!flag_wrapv && !flag_trapv && flag_strict_overflow)))
-	    {
-	      if (INTEGRAL_MODE_P (mode)
-		  && (issue_strict_overflow_warning
-		      (WARN_STRICT_OVERFLOW_CONDITIONAL)))
-		warning (OPT_Wstrict_overflow,
-			 ("assuming signed overflow does not occur when "
-			  "assuming abs (x) < 0 is false"));
-	       return const0_rtx;
-	    }
+	  if (!INTEGRAL_MODE_P (mode) && !HONOR_SNANS (mode))
+	    return const0_rtx;
 	  break;
 
 	case GE:
 	  /* Optimize abs(x) >= 0.0.  */
-	  if (!HONOR_NANS (mode)
-	      && (!INTEGRAL_MODE_P (mode)
-		  || (!flag_wrapv && !flag_trapv && flag_strict_overflow)))
-	    {
-	      if (INTEGRAL_MODE_P (mode)
-	          && (issue_strict_overflow_warning
-	    	  (WARN_STRICT_OVERFLOW_CONDITIONAL)))
-	        warning (OPT_Wstrict_overflow,
-			 ("assuming signed overflow does not occur when "
-			  "assuming abs (x) >= 0 is true"));
-	      return const_true_rtx;
-	    }
+	  if (!INTEGRAL_MODE_P (mode) && !HONOR_NANS (mode))
+	    return const_true_rtx;
 	  break;
 
 	case UNGE:

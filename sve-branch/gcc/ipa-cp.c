@@ -427,10 +427,10 @@ print_ipcp_constant_value (FILE * f, tree v)
       && TREE_CODE (TREE_OPERAND (v, 0)) == CONST_DECL)
     {
       fprintf (f, "& ");
-      print_generic_expr (f, DECL_INITIAL (TREE_OPERAND (v, 0)), 0);
+      print_generic_expr (f, DECL_INITIAL (TREE_OPERAND (v, 0)));
     }
   else
-    print_generic_expr (f, v, 0);
+    print_generic_expr (f, v);
 }
 
 /* Print V which is extracted from a value in a lattice to F.  */
@@ -2792,16 +2792,20 @@ static void
 perform_estimation_of_a_value (cgraph_node *node, vec<tree> known_csts,
 			       vec<ipa_polymorphic_call_context> known_contexts,
 			       vec<ipa_agg_jump_function_p> known_aggs_ptrs,
-			       int base_time, int removable_params_cost,
+			       int removable_params_cost,
 			       int est_move_cost, ipcp_value_base *val)
 {
-  int time, size, time_benefit;
+  int size, time_benefit;
+  sreal time, base_time;
   inline_hints hints;
 
   estimate_ipcp_clone_size_and_time (node, known_csts, known_contexts,
 				     known_aggs_ptrs, &size, &time,
-				     &hints);
-  time_benefit = base_time - time
+				     &base_time, &hints);
+  base_time -= time;
+  if (base_time > 65535)
+    base_time = 65535;
+  time_benefit = base_time.to_int ()
     + devirtualization_time_bonus (node, known_csts, known_contexts,
 				   known_aggs_ptrs)
     + hint_time_bonus (hints)
@@ -2832,15 +2836,14 @@ estimate_local_effects (struct cgraph_node *node)
   vec<ipa_agg_jump_function> known_aggs;
   vec<ipa_agg_jump_function_p> known_aggs_ptrs;
   bool always_const;
-  int base_time = inline_summaries->get (node)->time;
   int removable_params_cost;
 
   if (!count || !ipcp_versionable_function_p (node))
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nEstimating effects for %s/%i, base_time: %i.\n",
-	     node->name (), node->order, base_time);
+    fprintf (dump_file, "\nEstimating effects for %s/%i.\n",
+	     node->name (), node->order);
 
   always_const = gather_context_independent_values (info, &known_csts,
 						    &known_contexts, &known_aggs,
@@ -2853,13 +2856,15 @@ estimate_local_effects (struct cgraph_node *node)
     {
       struct caller_statistics stats;
       inline_hints hints;
-      int time, size;
+      sreal time, base_time;
+      int size;
 
       init_caller_stats (&stats);
       node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats,
 					      false);
       estimate_ipcp_clone_size_and_time (node, known_csts, known_contexts,
-					 known_aggs_ptrs, &size, &time, &hints);
+					 known_aggs_ptrs, &size, &time,
+					 &base_time, &hints);
       time -= devirt_bonus;
       time -= hint_time_bonus (hints);
       time -= removable_params_cost;
@@ -2867,25 +2872,25 @@ estimate_local_effects (struct cgraph_node *node)
 
       if (dump_file)
 	fprintf (dump_file, " - context independent values, size: %i, "
-		 "time_benefit: %i\n", size, base_time - time);
+		 "time_benefit: %f\n", size, (base_time - time).to_double ());
 
       if (size <= 0 || node->local.local)
 	{
 	  info->do_clone_for_all_contexts = true;
-	  base_time = time;
 
 	  if (dump_file)
 	    fprintf (dump_file, "     Decided to specialize for all "
 		     "known contexts, code not going to grow.\n");
 	}
-      else if (good_cloning_opportunity_p (node, base_time - time,
+      else if (good_cloning_opportunity_p (node,
+					   MAX ((base_time - time).to_int (),
+						65536),
 					   stats.freq_sum, stats.count_sum,
 					   size))
 	{
 	  if (size + overall_size <= max_new_size)
 	    {
 	      info->do_clone_for_all_contexts = true;
-	      base_time = time;
 	      overall_size += size;
 
 	      if (dump_file)
@@ -2921,7 +2926,7 @@ estimate_local_effects (struct cgraph_node *node)
 
 	  int emc = estimate_move_cost (TREE_TYPE (val->value), true);
 	  perform_estimation_of_a_value (node, known_csts, known_contexts,
-					 known_aggs_ptrs, base_time,
+					 known_aggs_ptrs,
 					 removable_params_cost, emc, val);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2956,7 +2961,7 @@ estimate_local_effects (struct cgraph_node *node)
 	{
 	  known_contexts[i] = val->value;
 	  perform_estimation_of_a_value (node, known_csts, known_contexts,
-					 known_aggs_ptrs, base_time,
+					 known_aggs_ptrs,
 					 removable_params_cost, 0, val);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3000,7 +3005,7 @@ estimate_local_effects (struct cgraph_node *node)
 	      vec_safe_push (ajf->items, item);
 
 	      perform_estimation_of_a_value (node, known_csts, known_contexts,
-					     known_aggs_ptrs, base_time,
+					     known_aggs_ptrs,
 					     removable_params_cost, 0, val);
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3240,10 +3245,6 @@ ipcp_propagate_stage (struct ipa_topo_info *topo)
 
   if (dump_file)
     fprintf (dump_file, "\n Propagating constants:\n\n");
-
-  if (in_lto_p)
-    ipa_update_after_lto_read ();
-
 
   FOR_EACH_DEFINED_FUNCTION (node)
   {
@@ -3593,7 +3594,7 @@ get_replacement_map (struct ipa_node_params *info, tree value, int parm_num)
       ipa_dump_param (dump_file, info, parm_num);
 
       fprintf (dump_file, " with const ");
-      print_generic_expr (dump_file, value, 0);
+      print_generic_expr (dump_file, value);
       fprintf (dump_file, "\n");
     }
   replace_map->old_tree = NULL;

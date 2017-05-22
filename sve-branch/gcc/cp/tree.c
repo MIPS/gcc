@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "gimplify.h"
 #include "attribs.h"
+#include "flags.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -2093,6 +2094,111 @@ build_ref_qualified_type (tree type, cp_ref_qualifier rqual)
   return t;
 }
 
+/* Cache of free ovl nodes.  Uses OVL_FUNCTION for chaining.  */
+static GTY((deletable)) tree ovl_cache;
+
+/* Make a raw overload node containing FN.  */
+
+tree
+ovl_make (tree fn, tree next)
+{
+  tree result = ovl_cache;
+
+  if (result)
+    {
+      ovl_cache = OVL_FUNCTION (result);
+      /* Zap the flags.  */
+      memset (result, 0, sizeof (tree_base));
+      TREE_SET_CODE (result, OVERLOAD);
+    }
+  else
+    result = make_node (OVERLOAD);
+
+  if (TREE_CODE (fn) == OVERLOAD)
+    OVL_NESTED_P (result) = true;
+
+  TREE_TYPE (result) = (next || TREE_CODE (fn) == TEMPLATE_DECL
+			? unknown_type_node : TREE_TYPE (fn));
+  OVL_FUNCTION (result) = fn;
+  OVL_CHAIN (result) = next;
+  return result;
+}
+
+/* Add FN to the (potentially NULL) overload set OVL.  USING_P is
+   true, if FN is via a using declaration.  Overloads are ordered as
+   using, regular.  */
+
+tree
+ovl_insert (tree fn, tree maybe_ovl, bool using_p)
+{
+  int weight = using_p;
+
+  tree result = NULL_TREE;
+  tree insert_after = NULL_TREE;
+
+  /* Find insertion point.  */
+  while (maybe_ovl && TREE_CODE (maybe_ovl) == OVERLOAD
+	 && (weight < OVL_USED (maybe_ovl)))
+    {
+      if (!result)
+	result = maybe_ovl;
+      insert_after = maybe_ovl;
+      maybe_ovl = OVL_CHAIN (maybe_ovl);
+    }
+
+  tree trail = fn;
+  if (maybe_ovl || using_p || TREE_CODE (fn) == TEMPLATE_DECL)
+    {
+      trail = ovl_make (fn, maybe_ovl);
+      if (using_p)
+	OVL_USED (trail) = true;
+    }
+
+  if (insert_after)
+    {
+      TREE_CHAIN (insert_after) = trail;
+      TREE_TYPE (insert_after) = unknown_type_node;
+    }
+  else
+    result = trail;
+
+  return result;
+}
+
+/* NODE is on the overloads of OVL.  Remove it.  */
+
+tree
+ovl_iterator::remove_node (tree overload, tree node)
+{
+  tree *slot = &overload;
+  while (*slot != node)
+    slot = &OVL_CHAIN (*slot);
+
+  /* Stitch out NODE.  We don't have to worry about now making a
+     singleton overload (and consequently maybe setting its type),
+     because all uses of this function will be followed by inserting a
+     new node that must follow the place we've cut this out from.  */
+  *slot = OVL_CHAIN (node);
+
+  return overload;
+}
+
+/* Add a potential overload into a lookup set.  */
+
+tree
+lookup_add (tree lookup, tree ovl)
+{
+  if (lookup || TREE_CODE (ovl) == TEMPLATE_DECL)
+    {
+      lookup = ovl_make (ovl, lookup);
+      OVL_LOOKUP_P (lookup) = true;
+    }
+  else
+    lookup = ovl;
+
+  return lookup;
+}
+
 /* Returns nonzero if X is an expression for a (possibly overloaded)
    function.  If "f" is a function or function template, "f", "c->f",
    "c.f", "C::f", and "f<int>" will all be considered possibly
@@ -2145,10 +2251,11 @@ really_overloaded_fn (tree x)
   return is_overloaded_fn (x) == 2;
 }
 
+/* Get the overload set FROM refers to.  */
+
 tree
 get_fns (tree from)
 {
-  gcc_assert (is_overloaded_fn (from));
   /* A baselink is also considered an overloaded function.  */
   if (TREE_CODE (from) == OFFSET_REF
       || TREE_CODE (from) == COMPONENT_REF)
@@ -2157,13 +2264,17 @@ get_fns (tree from)
     from = BASELINK_FUNCTIONS (from);
   if (TREE_CODE (from) == TEMPLATE_ID_EXPR)
     from = TREE_OPERAND (from, 0);
+  gcc_assert (TREE_CODE (from) == OVERLOAD
+	      || TREE_CODE (from) == FUNCTION_DECL);
   return from;
 }
+
+/* Return the first function of the overload set FROM refers to.  */
 
 tree
 get_first_fn (tree from)
 {
-  return OVL_CURRENT (get_fns (from));
+  return OVL_FIRST (get_fns (from));
 }
 
 /* Return a new OVL node, concatenating it with the old one.  */
@@ -3397,9 +3508,16 @@ cp_tree_equal (tree t1, tree t2)
       return same_type_p (PTRMEM_CST_CLASS (t1), PTRMEM_CST_CLASS (t2));
 
     case OVERLOAD:
-      if (OVL_FUNCTION (t1) != OVL_FUNCTION (t2))
-	return false;
-      return cp_tree_equal (OVL_CHAIN (t1), OVL_CHAIN (t2));
+      {
+	/* Two overloads. Must be exactly the same set of decls.  */
+	lkp_iterator first (t1);
+	lkp_iterator second (t2);
+
+	for (; first && second; ++first, ++second)
+	  if (*first != *second)
+	    return false;
+	return !(first || second);
+      }
 
     case TRAIT_EXPR:
       if (TRAIT_EXPR_KIND (t1) != TRAIT_EXPR_KIND (t2))
@@ -3596,21 +3714,112 @@ type_has_nontrivial_default_init (const_tree t)
     return 0;
 }
 
+/* Track classes with only deleted copy/move constructors so that we can warn
+   if they are used in call/return by value.  */
+
+static GTY(()) hash_set<tree>* deleted_copy_types;
+static void
+remember_deleted_copy (const_tree t)
+{
+  if (!deleted_copy_types)
+    deleted_copy_types = hash_set<tree>::create_ggc(37);
+  deleted_copy_types->add (CONST_CAST_TREE (t));
+}
+void
+maybe_warn_parm_abi (tree t, location_t loc)
+{
+  if (!deleted_copy_types
+      || !deleted_copy_types->contains (t))
+    return;
+
+  warning_at (loc, OPT_Wabi, "the calling convention for %qT changes in "
+	      "-fabi-version=12 (GCC 8)", t);
+  static bool explained = false;
+  if (!explained)
+    {
+      inform (loc, " because all of its copy and move constructors "
+	      "are deleted");
+      explained = true;
+    }
+}
+
 /* Returns true iff copying an object of type T (including via move
    constructor) is non-trivial.  That is, T has no non-trivial copy
-   constructors and no non-trivial move constructors.  */
+   constructors and no non-trivial move constructors, and not all copy/move
+   constructors are deleted.  This function implements the ABI notion of
+   non-trivial copy, which has diverged from the one in the standard.  */
 
 bool
-type_has_nontrivial_copy_init (const_tree t)
+type_has_nontrivial_copy_init (const_tree type)
 {
-  t = strip_array_types (CONST_CAST_TREE (t));
+  tree t = strip_array_types (CONST_CAST_TREE (type));
 
   if (CLASS_TYPE_P (t))
     {
       gcc_assert (COMPLETE_TYPE_P (t));
-      return ((TYPE_HAS_COPY_CTOR (t)
-	       && TYPE_HAS_COMPLEX_COPY_CTOR (t))
-	      || TYPE_HAS_COMPLEX_MOVE_CTOR (t));
+
+      if (TYPE_HAS_COMPLEX_COPY_CTOR (t)
+	  || TYPE_HAS_COMPLEX_MOVE_CTOR (t))
+	/* Nontrivial.  */
+	return true;
+
+      if (cxx_dialect < cxx11)
+	/* No deleted functions before C++11.  */
+	return false;
+
+      /* Before ABI v12 we did a bitwise copy of types with only deleted
+	 copy/move constructors.  */
+      if (!abi_version_at_least (12)
+	  && !(warn_abi && abi_version_crosses (12)))
+	return false;
+
+      bool saw_copy = false;
+      bool saw_non_deleted = false;
+
+      if (CLASSTYPE_LAZY_MOVE_CTOR (t))
+	saw_copy = saw_non_deleted = true;
+      else if (CLASSTYPE_LAZY_COPY_CTOR (t))
+	{
+	  saw_copy = true;
+	  if (type_has_user_declared_move_constructor (t)
+	      || type_has_user_declared_move_assign (t))
+	    /* [class.copy]/8 If the class definition declares a move
+	       constructor or move assignment operator, the implicitly declared
+	       copy constructor is defined as deleted.... */;
+	  else
+	    /* Any other reason the implicitly-declared function would be
+	       deleted would also cause TYPE_HAS_COMPLEX_COPY_CTOR to be
+	       set.  */
+	    saw_non_deleted = true;
+	}
+
+      if (!saw_non_deleted && CLASSTYPE_METHOD_VEC (t))
+	for (ovl_iterator iter (CLASSTYPE_CONSTRUCTORS (t)); iter; ++iter)
+	  {
+	    tree fn = *iter;
+	    if (copy_fn_p (fn))
+	      {
+		saw_copy = true;
+		if (!DECL_DELETED_FN (fn))
+		  {
+		    /* Not deleted, therefore trivial.  */
+		    saw_non_deleted = true;
+		    break;
+		  }
+	      }
+	  }
+
+      gcc_assert (saw_copy);
+
+      if (saw_copy && !saw_non_deleted)
+	{
+	  if (warn_abi && abi_version_crosses (12))
+	    remember_deleted_copy (t);
+	  if (abi_version_at_least (12))
+	    return true;
+	}
+
+      return false;
     }
   else
     return 0;
@@ -4027,7 +4236,7 @@ check_abi_tag_redeclaration (const_tree decl, const_tree old, const_tree new_)
 	  if (cp_tree_equal (str, ostr))
 	    goto found;
 	}
-      error ("redeclaration of %qD adds abi tag %E", decl, str);
+      error ("redeclaration of %qD adds abi tag %qE", decl, str);
       err = true;
     found:;
     }
