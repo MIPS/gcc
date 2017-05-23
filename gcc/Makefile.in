@@ -1382,6 +1382,7 @@ OBJS = \
 	loop-iv.o \
 	loop-unroll.o \
 	lower-subreg.o \
+	lsp.o \
 	lra.o \
 	lra-assigns.o \
 	lra-coalesce.o \
