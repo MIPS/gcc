@@ -779,7 +779,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base = ref;
   while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
-  unsigned int base_alignment;
+  unsigned int base_alignment = 0;
   unsigned HOST_WIDE_INT base_bitpos;
   get_object_alignment_1 (base, &base_alignment, &base_bitpos);
   /* As data-ref analysis strips the MEM_REF down to its base operand
@@ -788,8 +788,17 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
      DR_BASE_ADDRESS.  */
   if (TREE_CODE (base) == MEM_REF)
     {
-      base_bitpos -= mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
-      base_bitpos &= (base_alignment - 1);
+      /* Note all this only works if DR_BASE_ADDRESS is the same as
+	 MEM_REF operand zero, otherwise DR/SCEV analysis might have factored
+	 in other offsets.  We need to rework DR to compute the alingment
+	 of DR_BASE_ADDRESS as long as all information is still available.  */
+      if (operand_equal_p (TREE_OPERAND (base, 0), base_addr, 0))
+	{
+	  base_bitpos -= mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
+	  base_bitpos &= (base_alignment - 1);
+	}
+      else
+	base_bitpos = BITS_PER_UNIT;
     }
   if (base_bitpos != 0)
     base_alignment = base_bitpos & -base_bitpos;
@@ -1137,8 +1146,8 @@ vect_get_data_access_cost (struct data_reference *dr,
 
 typedef struct _vect_peel_info
 {
-  int npeel;
   struct data_reference *dr;
+  int npeel;
   unsigned int count;
 } *vect_peel_info;
 
@@ -1541,7 +1550,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  Hence, except for the immediate peeling amount, we also want
                  to try to add full vector size, while we don't exceed
                  vectorization factor.
-                 We do this automtically for cost model, since we calculate cost
+                 We do this automatically for cost model, since we calculate cost
                  for every peeling option.  */
               if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
 		{
@@ -1706,18 +1715,18 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
             dr0 = first_store;
         }
 
-      /* In case there are only loads with different unknown misalignments, use
-         peeling only if it may help to align other accesses in the loop or
+      /* Use peeling only if it may help to align other accesses in the loop or
 	 if it may help improving load bandwith when we'd end up using
 	 unaligned loads.  */
       tree dr0_vt = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr0)));
-      if (!first_store
-	  && !STMT_VINFO_SAME_ALIGN_REFS (
-		  vinfo_for_stmt (DR_STMT (dr0))).length ()
+      if (STMT_VINFO_SAME_ALIGN_REFS
+	    (vinfo_for_stmt (DR_STMT (dr0))).length () == 0
 	  && (vect_supportable_dr_alignment (dr0, false)
 	      != dr_unaligned_supported
-	      || (builtin_vectorization_cost (vector_load, dr0_vt, 0)
-		  == builtin_vectorization_cost (unaligned_load, dr0_vt, -1))))
+	      || (DR_IS_READ (dr0)
+		  && (builtin_vectorization_cost (vector_load, dr0_vt, 0)
+		      == builtin_vectorization_cost (unaligned_load,
+						     dr0_vt, -1)))))
         do_peeling = false;
     }
 

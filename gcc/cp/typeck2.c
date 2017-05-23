@@ -384,7 +384,7 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
       FOR_EACH_VEC_ELT (*pure, ix, fn)
 	if (! DECL_CLONED_FUNCTION_P (fn)
 	    || DECL_COMPLETE_DESTRUCTOR_P (fn))
-	  inform (DECL_SOURCE_LOCATION (fn), "\t%#D", fn);
+	  inform (DECL_SOURCE_LOCATION (fn), "\t%#qD", fn);
 
       /* Now truncate the vector.  This leaves it non-null, so we know
 	 there are pure virtuals, but empty so we don't list them out
@@ -523,8 +523,14 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
 
     case TEMPLATE_TYPE_PARM:
       if (is_auto (type))
-	emit_diagnostic (diag_kind, loc, 0,
-			 "invalid use of %<auto%>");
+	{
+	  if (CLASS_PLACEHOLDER_TEMPLATE (type))
+	    emit_diagnostic (diag_kind, loc, 0,
+			     "invalid use of placeholder %qT", type);
+	  else
+	    emit_diagnostic (diag_kind, loc, 0,
+			     "invalid use of %qT", type);
+	}
       else
 	emit_diagnostic (diag_kind, loc, 0,
 			 "invalid use of template type parameter %qT", type);
@@ -743,6 +749,10 @@ split_nonconstant_init (tree dest, tree init)
       DECL_INITIAL (dest) = init;
       TREE_READONLY (dest) = 0;
     }
+  else if (TREE_CODE (init) == STRING_CST
+	   && array_of_runtime_bound_p (TREE_TYPE (dest)))
+    code = build_vec_init (dest, NULL_TREE, init, /*value-init*/false,
+			   /*from array*/1, tf_warning_or_error);
   else
     code = build2 (INIT_EXPR, TREE_TYPE (dest), dest, init);
 
@@ -830,9 +840,8 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
     }
   value = cp_fully_fold (value);
 
-  if (cxx_dialect >= cxx14 && CLASS_TYPE_P (strip_array_types (type)))
-    /* Handle aggregate NSDMI in non-constant initializers, too.  */
-    value = replace_placeholders (value, decl);
+  /* Handle aggregate NSDMI in non-constant initializers, too.  */
+  value = replace_placeholders (value, decl);
 
   /* DECL may change value; purge caches.  */
   clear_cv_and_fold_caches ();
@@ -1060,7 +1069,8 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 		}
 	    }
 
-	  if (type != TREE_TYPE (init))
+	  if (type != TREE_TYPE (init)
+	      && !variably_modified_type_p (type, NULL_TREE))
 	    {
 	      init = copy_node (init);
 	      TREE_TYPE (init) = type;

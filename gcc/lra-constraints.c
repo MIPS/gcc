@@ -1852,6 +1852,42 @@ prohibited_class_reg_set_mode_p (enum reg_class rclass,
 	  (temp, ira_prohibited_class_mode_regs[rclass][mode]));
 }
 
+
+/* Used to check validity info about small class input operands.  It
+   should be incremented at start of processing an insn
+   alternative.  */
+static unsigned int curr_small_class_check = 0;
+
+/* Update number of used inputs of class OP_CLASS for operand NOP.
+   Return true if we have more such class operands than the number of
+   available regs.  */
+static bool
+update_and_check_small_class_inputs (int nop, enum reg_class op_class)
+{
+  static unsigned int small_class_check[LIM_REG_CLASSES];
+  static int small_class_input_nums[LIM_REG_CLASSES];
+  
+  if (SMALL_REGISTER_CLASS_P (op_class)
+      /* We are interesting in classes became small because of fixing
+	 some hard regs, e.g. by an user through GCC options.  */
+      && hard_reg_set_intersect_p (reg_class_contents[op_class],
+				   ira_no_alloc_regs)
+      && (curr_static_id->operand[nop].type != OP_OUT
+	  || curr_static_id->operand[nop].early_clobber))
+    {
+      if (small_class_check[op_class] == curr_small_class_check)
+	small_class_input_nums[op_class]++;
+      else
+	{
+	  small_class_check[op_class] = curr_small_class_check;
+	  small_class_input_nums[op_class] = 1;
+	}
+      if (small_class_input_nums[op_class] > ira_class_hard_regs_num[op_class])
+	return true;
+    }
+  return false;
+}
+
 /* Major function to choose the current insn alternative and what
    operands should be reloaded and how.	 If ONLY_ALTERNATIVE is not
    negative we should consider only this alternative.  Return false if
@@ -1867,11 +1903,15 @@ process_alt_operands (int only_alternative)
   /* LOSERS counts the operands that don't fit this alternative and
      would require loading.  */
   int losers;
+  int addr_losers;
   /* REJECT is a count of how undesirable this alternative says it is
      if any reloading is required.  If the alternative matches exactly
      then REJECT is ignored, but otherwise it gets this much counted
      against it in addition to the reloading needed.  */
   int reject;
+  /* This is defined by '!' or '?' alternative constraint and added to
+     reject.  But in some cases it can be ignored.  */
+  int static_reject;
   int op_reject;
   /* The number of elements in the following array.  */
   int early_clobbered_regs_num;
@@ -1948,7 +1988,9 @@ process_alt_operands (int only_alternative)
       if (!TEST_BIT (preferred, nalt))
 	continue;
 
-      overall = losers = reject = reload_nregs = reload_sum = 0;
+      curr_small_class_check++;
+      overall = losers = addr_losers = 0;
+      static_reject = reject = reload_nregs = reload_sum = 0;
       for (nop = 0; nop < n_operands; nop++)
 	{
 	  int inc = (curr_static_id
@@ -1956,8 +1998,9 @@ process_alt_operands (int only_alternative)
 	  if (lra_dump_file != NULL && inc != 0)
 	    fprintf (lra_dump_file,
 		     "            Staticly defined alt reject+=%d\n", inc);
-	  reject += inc;
+	  static_reject += inc;
 	}
+      reject += static_reject;
       early_clobbered_regs_num = 0;
 
       for (nop = 0; nop < n_operands; nop++)
@@ -2679,6 +2722,23 @@ process_alt_operands (int only_alternative)
 		    }
 		}
 
+	      /* When we use an operand requiring memory in given
+		 alternative, the insn should write *and* read the
+		 value to/from memory it is costly in comparison with
+		 an insn alternative which does not use memory
+		 (e.g. register or immediate operand).  We exclude
+		 memory operand for such case as we can satisfy the
+		 memory constraints by reloading address.  */
+	      if (no_regs_p && offmemok && !MEM_P (op))
+		{
+		  if (lra_dump_file != NULL)
+		    fprintf
+		      (lra_dump_file,
+		       "            Using memory insn operand %d: reject+=3\n",
+		       nop);
+		  reject += 3;
+		}
+	      
 #ifdef SECONDARY_MEMORY_NEEDED
 	      /* If reload requires moving value through secondary
 		 memory, it will need one more insn at least.  */
@@ -2704,6 +2764,18 @@ process_alt_operands (int only_alternative)
 		       nop);
 		  reject++;
 		}
+
+	      if (MEM_P (op) && offmemok)
+		addr_losers++;
+	      else if (curr_static_id->operand[nop].type == OP_INOUT)
+		{
+		  if (lra_dump_file != NULL)
+		    fprintf
+		      (lra_dump_file,
+		       "            %d Input/Output reload: reject+=%d\n",
+		       nop, LRA_LOSER_COST_FACTOR);
+		  reject += LRA_LOSER_COST_FACTOR;
+		}
 	    }
 
 	  if (early_clobber_p && ! scratch_p)
@@ -2718,7 +2790,8 @@ process_alt_operands (int only_alternative)
 	     Should we update the cost (may be approximately) here
 	     because of early clobber register reloads or it is a rare
 	     or non-important thing to be worth to do it.  */
-	  overall = losers * LRA_LOSER_COST_FACTOR + reject;
+	  overall = (losers * LRA_LOSER_COST_FACTOR + reject
+		     - (addr_losers == losers ? static_reject : 0));
 	  if ((best_losers == 0 || losers != 0) && best_overall < overall)
             {
               if (lra_dump_file != NULL)
@@ -2728,6 +2801,14 @@ process_alt_operands (int only_alternative)
               goto fail;
             }
 
+	  if (update_and_check_small_class_inputs (nop, this_alternative))
+	    {
+	      if (lra_dump_file != NULL)
+		fprintf (lra_dump_file,
+			 "            alt=%d, not enough small class regs -- refuse\n",
+			 nalt);
+	      goto fail;
+	    }
 	  curr_alt[nop] = this_alternative;
 	  COPY_HARD_REG_SET (curr_alt_set[nop], this_alternative_set);
 	  curr_alt_win[nop] = this_alternative_win;
@@ -2742,6 +2823,7 @@ process_alt_operands (int only_alternative)
 	  if (early_clobber_p && operand_reg[nop] != NULL_RTX)
 	    early_clobbered_nops[early_clobbered_regs_num++] = nop;
 	}
+
       if (curr_insn_set != NULL_RTX && n_operands == 2
 	  /* Prevent processing non-move insns.  */
 	  && (GET_CODE (SET_SRC (curr_insn_set)) == SUBREG
@@ -2753,9 +2835,17 @@ process_alt_operands (int only_alternative)
 		   || reg_in_class_p (no_subreg_reg_operand[1], curr_alt[0])))
 	      || (! curr_alt_win[0] && curr_alt_win[1]
 		  && REG_P (no_subreg_reg_operand[1])
+		  /* Check that we reload memory not the memory
+		     address.  */
+		  && ! (curr_alt_offmemok[0]
+			&& MEM_P (no_subreg_reg_operand[0]))
 		  && reg_in_class_p (no_subreg_reg_operand[1], curr_alt[0]))
 	      || (curr_alt_win[0] && ! curr_alt_win[1]
 		  && REG_P (no_subreg_reg_operand[0])
+		  /* Check that we reload memory not the memory
+		     address.  */
+		  && ! (curr_alt_offmemok[1]
+			&& MEM_P (no_subreg_reg_operand[1]))
 		  && reg_in_class_p (no_subreg_reg_operand[0], curr_alt[1])
 		  && (! CONST_POOL_OK_P (curr_operand_mode[1],
 					 no_subreg_reg_operand[1])
@@ -2768,8 +2858,11 @@ process_alt_operands (int only_alternative)
 		  && GET_CODE (no_subreg_reg_operand[1]) != PLUS)))
 	{
 	  /* We have a move insn and a new reload insn will be similar
-	     to the current insn.  We should avoid such situation as it
-	     results in LRA cycling.  */
+	     to the current insn.  We should avoid such situation as
+	     it results in LRA cycling.  */
+	  if (lra_dump_file != NULL)
+	    fprintf (lra_dump_file,
+		     "            Cycle danger: overall += LRA_MAX_REJECT\n");
 	  overall += LRA_MAX_REJECT;
 	}
       ok_p = true;
@@ -2927,18 +3020,18 @@ base_to_reg (struct address_info *ad)
   rtx_insn *insn;
   rtx_insn *last_insn = get_last_insn();
 
-  lra_assert (ad->base == ad->base_term && ad->disp == ad->disp_term);
+  lra_assert (ad->disp == ad->disp_term);
   cl = base_reg_class (ad->mode, ad->as, ad->base_outer_code,
                        get_index_code (ad));
-  new_reg = lra_create_new_reg (GET_MODE (*ad->base_term), NULL_RTX,
+  new_reg = lra_create_new_reg (GET_MODE (*ad->base), NULL_RTX,
                                 cl, "base");
   new_inner = simplify_gen_binary (PLUS, GET_MODE (new_reg), new_reg,
                                    ad->disp_term == NULL
-                                   ? gen_int_mode (0, ad->mode)
+                                   ? const0_rtx
                                    : *ad->disp_term);
   if (!valid_address_p (ad->mode, new_inner, ad->as))
     return NULL_RTX;
-  insn = emit_insn (gen_rtx_SET (new_reg, *ad->base_term));
+  insn = emit_insn (gen_rtx_SET (new_reg, *ad->base));
   code = recog_memoized (insn);
   if (code < 0)
     {
@@ -5302,6 +5395,29 @@ choose_split_class (enum reg_class allocno_class,
 #endif
 }
 
+/* Copy any equivalence information from ORIGINAL_REGNO to NEW_REGNO.
+   It only makes sense to call this function if NEW_REGNO is always
+   equal to ORIGINAL_REGNO.  */
+
+static void
+lra_copy_reg_equiv (unsigned int new_regno, unsigned int original_regno)
+{
+  if (!ira_reg_equiv[original_regno].defined_p)
+    return;
+
+  ira_expand_reg_equiv ();
+  ira_reg_equiv[new_regno].defined_p = true;
+  if (ira_reg_equiv[original_regno].memory)
+    ira_reg_equiv[new_regno].memory
+      = copy_rtx (ira_reg_equiv[original_regno].memory);
+  if (ira_reg_equiv[original_regno].constant)
+    ira_reg_equiv[new_regno].constant
+      = copy_rtx (ira_reg_equiv[original_regno].constant);
+  if (ira_reg_equiv[original_regno].invariant)
+    ira_reg_equiv[new_regno].invariant
+      = copy_rtx (ira_reg_equiv[original_regno].invariant);
+}
+
 /* Do split transformations for insn INSN, which defines or uses
    ORIGINAL_REGNO.  NEXT_USAGE_INSNS specifies which instruction in
    the EBB next uses ORIGINAL_REGNO; it has the same form as the
@@ -5423,6 +5539,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
       new_reg = lra_create_new_reg (mode, original_reg, rclass, "split");
       reg_renumber[REGNO (new_reg)] = hard_regno;
     }
+  int new_regno = REGNO (new_reg);
   save = emit_spill_move (true, new_reg, original_reg);
   if (NEXT_INSN (save) != NULL_RTX && !call_save_p)
     {
@@ -5431,7 +5548,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	  fprintf
 	    (lra_dump_file,
 	     "	  Rejecting split %d->%d resulting in > 2 save insns:\n",
-	     original_regno, REGNO (new_reg));
+	     original_regno, new_regno);
 	  dump_rtl_slim (lra_dump_file, save, NULL, -1, 0);
 	  fprintf (lra_dump_file,
 		   "	))))))))))))))))))))))))))))))))))))))))))))))))\n");
@@ -5446,18 +5563,24 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
 	  fprintf (lra_dump_file,
 		   "	Rejecting split %d->%d "
 		   "resulting in > 2 restore insns:\n",
-		   original_regno, REGNO (new_reg));
+		   original_regno, new_regno);
 	  dump_rtl_slim (lra_dump_file, restore, NULL, -1, 0);
 	  fprintf (lra_dump_file,
 		   "	))))))))))))))))))))))))))))))))))))))))))))))))\n");
 	}
       return false;
     }
+  /* Transfer equivalence information to the spill register, so that
+     if we fail to allocate the spill register, we have the option of
+     rematerializing the original value instead of spilling to the stack.  */
+  if (!HARD_REGISTER_NUM_P (original_regno)
+      && mode == PSEUDO_REGNO_MODE (original_regno))
+    lra_copy_reg_equiv (new_regno, original_regno);
   after_p = usage_insns[original_regno].after_p;
-  lra_reg_info[REGNO (new_reg)].restore_rtx = regno_reg_rtx[original_regno];
-  bitmap_set_bit (&check_only_regs, REGNO (new_reg));
+  lra_reg_info[new_regno].restore_rtx = regno_reg_rtx[original_regno];
+  bitmap_set_bit (&check_only_regs, new_regno);
   bitmap_set_bit (&check_only_regs, original_regno);
-  bitmap_set_bit (&lra_split_regs, REGNO (new_reg));
+  bitmap_set_bit (&lra_split_regs, new_regno);
   for (;;)
     {
       if (GET_CODE (next_usage_insns) != INSN_LIST)
@@ -5473,7 +5596,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
       if (lra_dump_file != NULL)
 	{
 	  fprintf (lra_dump_file, "    Split reuse change %d->%d:\n",
-		   original_regno, REGNO (new_reg));
+		   original_regno, new_regno);
 	  dump_insn_slim (lra_dump_file, as_a <rtx_insn *> (usage_insn));
 	}
     }

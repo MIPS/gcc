@@ -138,10 +138,11 @@ struct type_pair
 };
 
 template <>
-struct default_hash_traits <type_pair> : typed_noop_remove <type_pair>
+struct default_hash_traits <type_pair>
+  : typed_noop_remove <type_pair>
 {
-  typedef type_pair value_type;
-  typedef type_pair compare_type;
+  GTY((skip)) typedef type_pair value_type;
+  GTY((skip)) typedef type_pair compare_type;
   static hashval_t
   hash (type_pair p)
   {
@@ -1139,7 +1140,7 @@ warn_types_mismatch (tree t1, tree t2, location_t loc1, location_t loc2)
       if (name1 && name2 && strcmp (name1, name2))
 	{
 	  inform (loc_t1,
-		  "type name %<%s%> should match type name %<%s%>",
+		  "type name %qs should match type name %qs",
 		  name1, name2);
 	  if (loc_t2_useful)
 	    inform (loc_t2,
@@ -2462,10 +2463,19 @@ maybe_record_node (vec <cgraph_node *> &nodes,
 	  nodes.safe_push (target_node);
 	}
     }
-  else if (completep
-	   && (!type_in_anonymous_namespace_p
-		 (DECL_CONTEXT (target))
-	       || flag_ltrans))
+  else if (!completep)
+    ;
+  /* We have definition of __cxa_pure_virtual that is not accessible (it is
+     optimized out or partitioned to other unit) so we can not add it.  When
+     not sanitizing, there is nothing to do.
+     Otherwise declare the list incomplete.  */
+  else if (pure_virtual)
+    {
+      if (flag_sanitize & SANITIZE_UNREACHABLE)
+	*completep = false;
+    }
+  else if (flag_ltrans
+	   || !type_in_anonymous_namespace_p (DECL_CONTEXT (target)))
     *completep = false;
 }
 
@@ -3358,7 +3368,13 @@ dump_possible_polymorphic_call_targets (FILE *f,
       fprintf (f, "  Speculative targets:");
       dump_targets (f, targets);
     }
-  gcc_assert (targets.length () <= len);
+  /* Ugly: during callgraph construction the target cache may get populated
+     before all targets are found.  While this is harmless (because all local
+     types are discovered and only in those case we devirtualize fully and we
+     don't do speculative devirtualization before IPA stage) it triggers
+     assert here when dumping at that stage also populates the case with
+     speculative targets.  Quietly ignore this.  */
+  gcc_assert (symtab->state < IPA_SSA || targets.length () <= len);
   fprintf (f, "\n");
 }
 

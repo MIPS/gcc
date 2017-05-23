@@ -415,10 +415,7 @@ public:
   static void dump_table (FILE *);
 
   /* Dump symbol table to stderr.  */
-  static inline DEBUG_FUNCTION void debug_symtab (void)
-  {
-    dump_table (stderr);
-  }
+  static void DEBUG_FUNCTION debug_symtab (void);
 
   /* Verify symbol table for internal consistency.  */
   static DEBUG_FUNCTION void verify_symtab_nodes (void);
@@ -1511,7 +1508,7 @@ public:
      Return true if resulting context is valid.
 
      When CONSIDER_PLACEMENT_NEW is false, reject contexts that may be made
-     valid only via alocation of new polymorphic type inside by means
+     valid only via allocation of new polymorphic type inside by means
      of placement new.
 
      When CONSIDER_BASES is false, only look for actual fields, not base types
@@ -2326,6 +2323,8 @@ void tree_function_versioning (tree, tree, vec<ipa_replace_map *, va_gc> *,
 void dump_callgraph_transformation (const cgraph_node *original,
 				    const cgraph_node *clone,
 				    const char *suffix);
+tree cgraph_build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
+					   bool skip_return);
 
 /* In cgraphbuild.c  */
 int compute_call_stmt_bb_frequency (tree, basic_block bb);

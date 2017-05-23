@@ -2080,6 +2080,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case COND_EXPR:
+    case VEC_COND_EXPR:
       pp_cxx_left_paren (pp);
       dump_expr (pp, TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
       pp_string (pp, " ? ");
@@ -2821,6 +2822,10 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       pp_string (pp, M_("*this"));
       break;
 
+    case TREE_LIST:
+      dump_expr_list (pp, t, flags);
+      break;
+
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call
 	  `report_error_function'.  That could cause an infinite loop.  */
@@ -3129,6 +3134,10 @@ type_to_string (tree typ, int verbose)
       if (len == aka_len && memcmp (p, p+aka_start, len) == 0)
 	p[len] = '\0';
     }
+
+  if (typ && TYPE_P (typ) && TREE_CODE (typ) == ENUMERAL_TYPE)
+    pp_string (cxx_pp, M_(" {enum}"));
+
   return pp_ggc_formatted_text (cxx_pp);
 }
 
@@ -3746,7 +3755,7 @@ pedwarn_cxx98 (location_t location, int opt, const char *gmsgid, ...)
   diagnostic_set_info (&diagnostic, gmsgid, &ap, &richloc,
 		       (cxx_dialect == cxx98) ? DK_PEDWARN : DK_WARNING);
   diagnostic.option_index = opt;
-  ret = report_diagnostic (&diagnostic);
+  ret = diagnostic_report_diagnostic (global_dc, &diagnostic);
   va_end (ap);
   return ret;
 }

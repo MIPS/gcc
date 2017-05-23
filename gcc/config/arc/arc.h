@@ -1,14 +1,6 @@
 /* Definitions of target machine for GNU compiler, Synopsys DesignWare ARC cpu.
    Copyright (C) 1994-2017 Free Software Foundation, Inc.
 
-   Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
-   behalf of Synopsys Inc.
-
-   Position Independent Code support added,Code cleaned up,
-   Comments and Support For ARC700 instructions added by
-   Saurabh Verma (saurabh.verma@codito.com)
-   Ramana Radhakrishnan(ramana.radhakrishnan@codito.com)
-
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -57,31 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #define SYMBOL_REF_SHORT_CALL_P(X)	\
 	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_SHORT_CALL) != 0)
 
-#undef ASM_SPEC
-#undef LINK_SPEC
-#undef STARTFILE_SPEC
-#undef ENDFILE_SPEC
-#undef SIZE_TYPE
-#undef PTRDIFF_TYPE
-#undef WCHAR_TYPE
-#undef WCHAR_TYPE_SIZE
-#undef ASM_APP_ON
-#undef ASM_APP_OFF
-#undef CC1_SPEC
-
 /* Names to predefine in the preprocessor for this target machine.  */
 #define TARGET_CPU_CPP_BUILTINS() arc_cpu_cpp_builtins (pfile)
-
-#if DEFAULT_LIBC == LIBC_UCLIBC
-
-#define TARGET_OS_CPP_BUILTINS() \
-  do \
-    { \
-      GNU_USER_TARGET_OS_CPP_BUILTINS (); \
-    } \
-  while (0)
-
-#endif /* DEFAULT_LIBC == LIBC_UCLIBC */
 
 /* Macros enabled by specific command line option.  FIXME: to be
    deprecatd.  */
@@ -92,8 +61,10 @@ along with GCC; see the file COPYING3.  If not see
 %{mmac-d16:-D__Xxmac_d16} %{mmac-24:-D__Xxmac_24} \
 %{mdsp-packa:-D__Xdsp_packa} %{mcrc:-D__Xcrc} %{mdvbf:-D__Xdvbf} \
 %{mtelephony:-D__Xtelephony} %{mxy:-D__Xxy} %{mmul64: -D__Xmult32} \
-%{mlock:-D__Xlock} %{mswape:-D__Xswape} %{mrtsc:-D__Xrtsc}"
+%{mlock:-D__Xlock} %{mswape:-D__Xswape} %{mrtsc:-D__Xrtsc} \
+%(subtarget_cpp_spec)"
 
+#undef CC1_SPEC
 #define CC1_SPEC "\
 %{EB:%{EL:%emay not use both -EB and -EL}} \
 %{EB:-mbig-endian} %{EL:-mlittle-endian} \
@@ -103,70 +74,36 @@ extern const char *arc_cpu_to_as (int argc, const char **argv);
 #define EXTRA_SPEC_FUNCTIONS			\
   { "cpu_to_as", arc_cpu_to_as },
 
+/* This macro defines names of additional specifications to put in the specs
+   that can be used in various specifications like CC1_SPEC.  Its definition
+   is an initializer with a subgrouping for each command option.
+
+   Each subgrouping contains a string constant, that defines the
+   specification name, and a string constant that used by the GCC driver
+   program.
+
+   Do not define this macro if it does not need to do anything.  */
+#define EXTRA_SPECS				      \
+  { "subtarget_cpp_spec",	SUBTARGET_CPP_SPEC }, \
+  SUBTARGET_EXTRA_SPECS
+
+#ifndef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS
+#endif
+
+#ifndef SUBTARGET_CPP_SPEC
+#define SUBTARGET_CPP_SPEC ""
+#endif
+
+#undef ASM_SPEC
 #define ASM_SPEC  "%{mbig-endian|EB:-EB} %{EL} "			\
   "%:cpu_to_as(%{mcpu=*:%*}) %{mspfp*} %{mdpfp*} %{mfpu=fpuda*:-mfpuda}"
 
 #define OPTION_DEFAULT_SPECS						\
   {"cpu", "%{!mcpu=*:%{!mARC*:%{!marc*:%{!mA7:%{!mA6:-mcpu=%(VALUE)}}}}}" }
 
-#if DEFAULT_LIBC == LIBC_UCLIBC
-/* Note that the default is to link against dynamic libraries, if they are
-   available.  Override with -static.  */
-#define LINK_SPEC "%{h*} \
-		   %{static:-Bstatic} \
-		   %{symbolic:-Bsymbolic} \
-		   %{rdynamic:-export-dynamic}\
-		   -dynamic-linker /lib/ld-uClibc.so.0 \
-		   -X %{mbig-endian:-EB} \
-		   %{EB} %{EL} \
-		   %{marclinux*} \
-		   %{!marclinux*: %{mcpu=nps400:-marclinux_nps; :-marclinux}} \
-		   %{!z:-z max-page-size=0x2000 -z common-page-size=0x2000} \
-		   %{shared:-shared}"
-#else
-#define LINK_SPEC "%{mbig-endian:-EB} %{EB} %{EL}"
-#endif
-
-#if DEFAULT_LIBC != LIBC_UCLIBC
-#define ARC_TLS_EXTRA_START_SPEC "crttls.o%s"
-
-#define EXTRA_SPECS \
-  { "arc_tls_extra_start_spec", ARC_TLS_EXTRA_START_SPEC }, \
-
-#define STARTFILE_SPEC "%{pg|p:gcrt0.o%s}%{!pg:%{!p:crt0.o%s}} crti%O%s " \
-  "%(arc_tls_extra_start_spec) crtbegin.o%s"
-#else
-#define STARTFILE_SPEC							\
-  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_STARTFILE_SPEC, ANDROID_STARTFILE_SPEC)
-#endif
-
-#if DEFAULT_LIBC != LIBC_UCLIBC
-#define ENDFILE_SPEC "crtend.o%s crtn%O%s"
-#else
-#define ENDFILE_SPEC							\
-  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_ENDFILE_SPEC, ANDROID_ENDFILE_SPEC)
-#endif
-
-#if DEFAULT_LIBC == LIBC_UCLIBC
-#undef LIB_SPEC
-#define LIB_SPEC  \
-  "%{pthread:-lpthread} \
-   %{shared:-lc} \
-   %{!shared:%{profile:-lc_p}%{!profile:-lc}}"
-#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
-#else
-#undef LIB_SPEC
-#define LIB_SPEC "%{!shared:%{g*:-lg} -lc}"
-#endif
-
 #ifndef DRIVER_ENDIAN_SELF_SPECS
 #define DRIVER_ENDIAN_SELF_SPECS ""
-#endif
-#ifndef TARGET_SDATA_DEFAULT
-#define TARGET_SDATA_DEFAULT 1
-#endif
-#ifndef TARGET_MMEDIUM_CALLS_DEFAULT
-#define TARGET_MMEDIUM_CALLS_DEFAULT 0
 #endif
 
 #define DRIVER_SELF_SPECS DRIVER_ENDIAN_SELF_SPECS		   \
@@ -231,12 +168,6 @@ extern const char *arc_cpu_to_as (int argc, const char **argv);
 #define TARGET_EM (arc_selected_cpu->arch_info->arch_id == BASE_ARCH_em)
 #define TARGET_HS (arc_selected_cpu->arch_info->arch_id == BASE_ARCH_hs)
 #define TARGET_V2 (TARGET_EM || TARGET_HS)
-
-#ifdef ARC_MULTILIB_CPU_DEFAULT
-# ifndef MULTILIB_DEFAULTS
-#  define MULTILIB_DEFAULTS { "mcpu=" ARC_MULTILIB_CPU_DEFAULT }
-# endif
-#endif
 
 #ifndef UNALIGNED_ACCESS_DEFAULT
 #define UNALIGNED_ACCESS_DEFAULT 0
@@ -379,13 +310,18 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
 
+#undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
+
+#undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE "int"
+
+#undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
+
+#undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-
-/* ashwin : shifted from arc.c:102 */
 #define PROGRAM_COUNTER_REGNO 63
 
 /* Standard register usage.  */
@@ -704,7 +640,8 @@ extern enum reg_class arc_regno_reg_class[];
 #define REGNO_OK_FOR_BASE_P(REGNO)					\
   ((REGNO) < 29 || ((REGNO) == ARG_POINTER_REGNUM) || ((REGNO) == 63)	\
    || ((unsigned) reg_renumber[REGNO] < 29)				\
-   || ((unsigned) (REGNO) == (unsigned) arc_tp_regno))
+   || ((unsigned) (REGNO) == (unsigned) arc_tp_regno)			\
+   || (fixed_regs[REGNO] == 0 && IN_RANGE (REGNO, 32, 59)))
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) REGNO_OK_FOR_BASE_P(REGNO)
 
@@ -986,18 +923,15 @@ extern int arc_initial_elimination_offset(int from, int to);
 
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P_NONSTRICT(X) \
-((unsigned) REGNO (X) >= FIRST_PSEUDO_REGISTER || \
- (unsigned) REGNO (X) < 29 || \
- (unsigned) REGNO (X) == 63 || \
- (unsigned) REGNO (X) == ARG_POINTER_REGNUM)
+#define REG_OK_FOR_INDEX_P_NONSTRICT(X)			\
+  ((unsigned) REGNO (X) >= FIRST_PSEUDO_REGISTER	\
+   || REGNO_OK_FOR_BASE_P (REGNO (X)))
+
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
-#define REG_OK_FOR_BASE_P_NONSTRICT(X) \
-((unsigned) REGNO (X) >= FIRST_PSEUDO_REGISTER || \
- (unsigned) REGNO (X) < 29 || \
- (unsigned) REGNO (X) == 63 || \
- (unsigned) REGNO (X) == ARG_POINTER_REGNUM)
+#define REG_OK_FOR_BASE_P_NONSTRICT(X)			\
+  ((unsigned) REGNO (X) >= FIRST_PSEUDO_REGISTER	\
+   || REGNO_OK_FOR_BASE_P (REGNO (X)))
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
 #define REG_OK_FOR_INDEX_P_STRICT(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
@@ -1168,10 +1102,12 @@ arc_select_cc_mode (OP, X, Y)
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
+#undef ASM_APP_ON
 #define ASM_APP_ON ""
 
 /* Output to assembler file text saying following lines
    no longer contain unusual constructs.  */
+#undef ASM_APP_OFF
 #define ASM_APP_OFF ""
 
 /* Globalizing directive for a label.  */
@@ -1428,7 +1364,7 @@ do { \
 
 /* To translate the return value of arc_function_type into a register number
    to jump through for function return.  */
-extern int arc_return_address_regs[4];
+extern int arc_return_address_regs[5];
 
 /* Debugging information.  */
 
@@ -1466,15 +1402,6 @@ extern int arc_return_address_regs[4];
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, 31)
 
 /* Frame info.  */
-
-/* Define this macro to 0 if your target supports DWARF 2 frame unwind
-   information, but it does not yet work with exception handling.  */
-/* N.B. the below test is valid in an #if, but not in a C expression.  */
-#if DEFAULT_LIBC == LIBC_UCLIBC
-#define DWARF2_UNWIND_INFO 1
-#else
-#define DWARF2_UNWIND_INFO 0
-#endif
 
 #define EH_RETURN_DATA_REGNO(N)	\
   ((N) < 4 ? (N) : INVALID_REGNUM)
@@ -1574,10 +1501,15 @@ enum arc_function_type {
   ARC_FUNCTION_UNKNOWN, ARC_FUNCTION_NORMAL,
   /* These are interrupt handlers.  The name corresponds to the register
      name that contains the return address.  */
-  ARC_FUNCTION_ILINK1, ARC_FUNCTION_ILINK2
+  ARC_FUNCTION_ILINK1, ARC_FUNCTION_ILINK2,
+  /* Fast interrupt is only available on ARCv2 processors.  */
+  ARC_FUNCTION_FIRQ
 };
-#define ARC_INTERRUPT_P(TYPE) \
-((TYPE) == ARC_FUNCTION_ILINK1 || (TYPE) == ARC_FUNCTION_ILINK2)
+#define ARC_INTERRUPT_P(TYPE)						\
+  (((TYPE) == ARC_FUNCTION_ILINK1) || ((TYPE) == ARC_FUNCTION_ILINK2)	\
+   || ((TYPE) == ARC_FUNCTION_FIRQ))
+
+#define ARC_FAST_INTERRUPT_P(TYPE) ((TYPE) == ARC_FUNCTION_FIRQ)
 
 /* Compute the type of a function from its DECL.  Needed for EPILOGUE_USES.  */
 struct function;
@@ -1586,10 +1518,11 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
 /* Called by crtstuff.c to make calls to function FUNCTION that are defined in
    SECTION_OP, and then to switch back to text section.  */
 #undef CRT_CALL_STATIC_FUNCTION
-#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC) \
-    asm (SECTION_OP "\n\t"				\
-	"bl @" USER_LABEL_PREFIX #FUNC "\n"		\
-	TEXT_SECTION_ASM_OP);
+#define CRT_CALL_STATIC_FUNCTION(SECTION_OP, FUNC)		\
+  asm (SECTION_OP "\n\t"					\
+       "add r12,pcl,@" USER_LABEL_PREFIX #FUNC "@pcl\n\t"	\
+       "jl  [r12]\n"						\
+       TEXT_SECTION_ASM_OP);
 
 /* This macro expands to the name of the scratch register r12, used for
    temporary calculations according to the ABI.  */
@@ -1651,11 +1584,6 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C,STR) ((C) == '`')
 
 #define INIT_EXPANDERS arc_init_expanders ()
-
-#define CFA_FRAME_BASE_OFFSET(FUNDECL) (-arc_decl_pretend_args ((FUNDECL)))
-
-#define ARG_POINTER_CFA_OFFSET(FNDECL) \
-  (FIRST_PARM_OFFSET (FNDECL) + arc_decl_pretend_args ((FNDECL)))
 
 enum
 {

@@ -3,12 +3,12 @@
 // { dg-do compile }
 
 namespace M {
-  struct S {}; // { dg-message "struct M::S" "candidate 2" }
+  struct S {}; // { dg-message ".struct M::S." "candidate 2" }
 }
 
 int S;
-struct S {}; // { dg-message "candidates are: struct S" "candidate 1" }
+struct S {}; // { dg-message "candidates are: .struct S." "candidate 1" }
 
 using namespace M;
 
-struct S s; // { dg-error "reference to 'S' is ambiguous|invalid type in declaration" "" }
+struct S s; // { dg-error "reference to 'S' is ambiguous|invalid type in declaration" }

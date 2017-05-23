@@ -74,9 +74,6 @@ extern void matmul_c8 (gfc_array_c8 * const restrict retarray,
 	int blas_limit, blas_call gemm);
 export_proto(matmul_c8);
 
-
-
-
 /* Put exhaustive list of possible architectures here here, ORed together.  */
 
 #if defined(HAVE_AVX) || defined(HAVE_AVX2) || defined(HAVE_AVX512F)
@@ -289,8 +286,7 @@ matmul_c8_avx (gfc_array_c8 * const restrict retarray,
 		 i1, i2, i3, i4, i5, i6;
 
       /* Local variables */
-      GFC_COMPLEX_8 t1[65536], /* was [256][256] */
-		 f11, f12, f21, f22, f31, f32, f41, f42,
+      GFC_COMPLEX_8 f11, f12, f21, f22, f31, f32, f41, f42,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
@@ -313,6 +309,17 @@ matmul_c8_avx (gfc_array_c8 * const restrict retarray,
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
+
+      /* Adjust size of t1 to what is needed.  */
+      index_type t1_dim;
+      t1_dim = (a_dim1-1) * 256 + b_dim1;
+      if (t1_dim > 65536)
+	t1_dim = 65536;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvla"
+      GFC_COMPLEX_8 t1[t1_dim]; /* was [256][256] */
+#pragma GCC diagnostic pop
 
       /* Empty c first.  */
       for (j=1; j<=n; j++)
@@ -628,7 +635,7 @@ matmul_c8_avx (gfc_array_c8 * const restrict retarray,
 static void
 matmul_c8_avx2 (gfc_array_c8 * const restrict retarray, 
 	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b, int try_blas,
-	int blas_limit, blas_call gemm) __attribute__((__target__("avx2")));
+	int blas_limit, blas_call gemm) __attribute__((__target__("avx2,fma")));
 static void
 matmul_c8_avx2 (gfc_array_c8 * const restrict retarray, 
 	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b, int try_blas,
@@ -832,8 +839,7 @@ matmul_c8_avx2 (gfc_array_c8 * const restrict retarray,
 		 i1, i2, i3, i4, i5, i6;
 
       /* Local variables */
-      GFC_COMPLEX_8 t1[65536], /* was [256][256] */
-		 f11, f12, f21, f22, f31, f32, f41, f42,
+      GFC_COMPLEX_8 f11, f12, f21, f22, f31, f32, f41, f42,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
@@ -856,6 +862,17 @@ matmul_c8_avx2 (gfc_array_c8 * const restrict retarray,
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
+
+      /* Adjust size of t1 to what is needed.  */
+      index_type t1_dim;
+      t1_dim = (a_dim1-1) * 256 + b_dim1;
+      if (t1_dim > 65536)
+	t1_dim = 65536;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvla"
+      GFC_COMPLEX_8 t1[t1_dim]; /* was [256][256] */
+#pragma GCC diagnostic pop
 
       /* Empty c first.  */
       for (j=1; j<=n; j++)
@@ -1375,8 +1392,7 @@ matmul_c8_avx512f (gfc_array_c8 * const restrict retarray,
 		 i1, i2, i3, i4, i5, i6;
 
       /* Local variables */
-      GFC_COMPLEX_8 t1[65536], /* was [256][256] */
-		 f11, f12, f21, f22, f31, f32, f41, f42,
+      GFC_COMPLEX_8 f11, f12, f21, f22, f31, f32, f41, f42,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
@@ -1399,6 +1415,17 @@ matmul_c8_avx512f (gfc_array_c8 * const restrict retarray,
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
+
+      /* Adjust size of t1 to what is needed.  */
+      index_type t1_dim;
+      t1_dim = (a_dim1-1) * 256 + b_dim1;
+      if (t1_dim > 65536)
+	t1_dim = 65536;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvla"
+      GFC_COMPLEX_8 t1[t1_dim]; /* was [256][256] */
+#pragma GCC diagnostic pop
 
       /* Empty c first.  */
       for (j=1; j<=n; j++)
@@ -1914,8 +1941,7 @@ matmul_c8_vanilla (gfc_array_c8 * const restrict retarray,
 		 i1, i2, i3, i4, i5, i6;
 
       /* Local variables */
-      GFC_COMPLEX_8 t1[65536], /* was [256][256] */
-		 f11, f12, f21, f22, f31, f32, f41, f42,
+      GFC_COMPLEX_8 f11, f12, f21, f22, f31, f32, f41, f42,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
@@ -1938,6 +1964,17 @@ matmul_c8_vanilla (gfc_array_c8 * const restrict retarray,
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
+
+      /* Adjust size of t1 to what is needed.  */
+      index_type t1_dim;
+      t1_dim = (a_dim1-1) * 256 + b_dim1;
+      if (t1_dim > 65536)
+	t1_dim = 65536;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvla"
+      GFC_COMPLEX_8 t1[t1_dim]; /* was [256][256] */
+#pragma GCC diagnostic pop
 
       /* Empty c first.  */
       for (j=1; j<=n; j++)
@@ -2259,28 +2296,34 @@ void matmul_c8 (gfc_array_c8 * const restrict retarray,
 {
   static void (*matmul_p) (gfc_array_c8 * const restrict retarray, 
 	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b, int try_blas,
-	int blas_limit, blas_call gemm) = NULL;
+	int blas_limit, blas_call gemm);
 
-  if (matmul_p == NULL)
+  void (*matmul_fn) (gfc_array_c8 * const restrict retarray, 
+	gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b, int try_blas,
+	int blas_limit, blas_call gemm);
+
+  matmul_fn = __atomic_load_n (&matmul_p, __ATOMIC_RELAXED);
+  if (matmul_fn == NULL)
     {
-      matmul_p = matmul_c8_vanilla;
+      matmul_fn = matmul_c8_vanilla;
       if (__cpu_model.__cpu_vendor == VENDOR_INTEL)
 	{
           /* Run down the available processors in order of preference.  */
 #ifdef HAVE_AVX512F
       	  if (__cpu_model.__cpu_features[0] & (1 << FEATURE_AVX512F))
 	    {
-	      matmul_p = matmul_c8_avx512f;
-	      goto tailcall;
+	      matmul_fn = matmul_c8_avx512f;
+	      goto store;
 	    }
 
 #endif  /* HAVE_AVX512F */
 
 #ifdef HAVE_AVX2
-      	  if (__cpu_model.__cpu_features[0] & (1 << FEATURE_AVX2))
+      	  if ((__cpu_model.__cpu_features[0] & (1 << FEATURE_AVX2))
+	     && (__cpu_model.__cpu_features[0] & (1 << FEATURE_FMA)))
 	    {
-	      matmul_p = matmul_c8_avx2;
-	      goto tailcall;
+	      matmul_fn = matmul_c8_avx2;
+	      goto store;
 	    }
 
 #endif
@@ -2288,15 +2331,16 @@ void matmul_c8 (gfc_array_c8 * const restrict retarray,
 #ifdef HAVE_AVX
       	  if (__cpu_model.__cpu_features[0] & (1 << FEATURE_AVX))
  	    {
-              matmul_p = matmul_c8_avx;
-	      goto tailcall;
+              matmul_fn = matmul_c8_avx;
+	      goto store;
 	    }
 #endif  /* HAVE_AVX */
         }
+   store:
+      __atomic_store_n (&matmul_p, matmul_fn, __ATOMIC_RELAXED);
    }
 
-tailcall:
-   (*matmul_p) (retarray, a, b, try_blas, blas_limit, gemm);
+   (*matmul_fn) (retarray, a, b, try_blas, blas_limit, gemm);
 }
 
 #else  /* Just the vanilla function.  */
@@ -2504,8 +2548,7 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
 		 i1, i2, i3, i4, i5, i6;
 
       /* Local variables */
-      GFC_COMPLEX_8 t1[65536], /* was [256][256] */
-		 f11, f12, f21, f22, f31, f32, f41, f42,
+      GFC_COMPLEX_8 f11, f12, f21, f22, f31, f32, f41, f42,
 		 f13, f14, f23, f24, f33, f34, f43, f44;
       index_type i, j, l, ii, jj, ll;
       index_type isec, jsec, lsec, uisec, ujsec, ulsec;
@@ -2528,6 +2571,17 @@ matmul_c8 (gfc_array_c8 * const restrict retarray,
       /* Early exit if possible */
       if (m == 0 || n == 0 || k == 0)
 	return;
+
+      /* Adjust size of t1 to what is needed.  */
+      index_type t1_dim;
+      t1_dim = (a_dim1-1) * 256 + b_dim1;
+      if (t1_dim > 65536)
+	t1_dim = 65536;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvla"
+      GFC_COMPLEX_8 t1[t1_dim]; /* was [256][256] */
+#pragma GCC diagnostic pop
 
       /* Empty c first.  */
       for (j=1; j<=n; j++)

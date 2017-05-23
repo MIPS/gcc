@@ -1911,9 +1911,8 @@ sparc_expand_move (machine_mode mode, rtx *operands)
 	  /* We are able to build any SF constant in integer registers
 	     with at most 2 instructions.  */
 	  && (mode == SFmode
-	      /* And any DF constant in integer registers.  */
-	      || (mode == DFmode
-		  && ! can_create_pseudo_p ())))
+	      /* And any DF constant in integer registers if needed.  */
+	      || (mode == DFmode && !can_create_pseudo_p ())))
 	return false;
 
       operands[1] = force_const_mem (mode, operands[1]);
@@ -12180,8 +12179,9 @@ sparc_frame_pointer_required (void)
   if (TARGET_FLAT)
     return false;
 
-  /* Otherwise, the frame pointer is required if the function isn't leaf.  */
-  return !(crtl->is_leaf && only_leaf_regs_used ());
+  /* Otherwise, the frame pointer is required if the function isn't leaf, but
+     we cannot use sparc_leaf_function_p since it hasn't been computed yet.  */
+  return !(optimize > 0 && crtl->is_leaf && only_leaf_regs_used ());
 }
 
 /* The way this is structured, we can't eliminate SFP in favor of SP

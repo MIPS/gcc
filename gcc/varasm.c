@@ -320,15 +320,15 @@ get_section (const char *name, unsigned int flags, tree decl)
 	      && decl != sect->named.decl)
 	    {
 	      if (decl != NULL && DECL_P (decl))
-		error ("%+D causes a section type conflict with %D",
+		error ("%+qD causes a section type conflict with %qD",
 		       decl, sect->named.decl);
 	      else
-		error ("section type conflict with %D", sect->named.decl);
+		error ("section type conflict with %qD", sect->named.decl);
 	      inform (DECL_SOURCE_LOCATION (sect->named.decl),
 		      "%qD was declared here", sect->named.decl);
 	    }
 	  else if (decl != NULL && DECL_P (decl))
-	    error ("%+D causes a section type conflict", decl);
+	    error ("%+qD causes a section type conflict", decl);
 	  else
 	    error ("section type conflict");
 	  /* Make sure we don't error about one section multiple times.  */
@@ -4472,8 +4472,15 @@ initializer_constant_valid_p_1 (tree value, tree endtype, tree *cache)
 	  return initializer_constant_valid_p_1 (src, endtype, cache);
 
 	/* Allow conversions between other integer types only if
-	   explicit value.  */
-	if (INTEGRAL_TYPE_P (dest_type) && INTEGRAL_TYPE_P (src_type))
+	   explicit value.  Don't allow sign-extension to a type larger
+	   than word and pointer, there aren't relocations that would
+	   allow to sign extend it to a wider type.  */
+	if (INTEGRAL_TYPE_P (dest_type)
+	    && INTEGRAL_TYPE_P (src_type)
+	    && (TYPE_UNSIGNED (src_type)
+		|| TYPE_PRECISION (dest_type) <= TYPE_PRECISION (src_type)
+		|| TYPE_PRECISION (dest_type) <= BITS_PER_WORD
+		|| TYPE_PRECISION (dest_type) <= POINTER_SIZE))
 	  {
 	    tree inner = initializer_constant_valid_p_1 (src, endtype, cache);
 	    if (inner == null_pointer_node)
@@ -5376,7 +5383,7 @@ mark_weak (tree decl)
 
   struct symtab_node *n = symtab_node::get (decl);
   if (n && n->refuse_visibility_changes)
-    error ("%+D declared weak after being used", decl);
+    error ("%+qD declared weak after being used", decl);
   DECL_WEAK (decl) = 1;
 
   if (DECL_RTL_SET_P (decl)

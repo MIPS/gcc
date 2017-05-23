@@ -62,7 +62,10 @@ namespace std _GLIBCXX_VISIBILITY(default)
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 #if _GLIBCXX_USE_DEPRECATED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   template<typename> class auto_ptr;
+#pragma GCC diagnostic pop
 #endif
 
  /**
@@ -639,10 +642,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
 #if _GLIBCXX_USE_DEPRECATED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       // Special case for auto_ptr<_Tp> to provide the strong guarantee.
       template<typename _Tp>
         explicit
 	__shared_count(std::auto_ptr<_Tp>&& __r);
+#pragma GCC diagnostic pop
 #endif
 
       // Special case for unique_ptr<_Tp,_Del> to provide the strong guarantee.
@@ -1085,7 +1091,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	__shared_ptr(_Yp* __p, _Deleter __d)
 	: _M_ptr(__p), _M_refcount(__p, __d)
 	{
-	  static_assert(__is_callable<_Deleter&(_Yp*&)>::value,
+	  static_assert(__is_invocable<_Deleter&, _Yp*&>::value,
 	      "deleter expression d(p) is well-formed");
 	  _M_enable_shared_from_this_with(__p);
 	}
@@ -1095,7 +1101,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	__shared_ptr(_Yp* __p, _Deleter __d, _Alloc __a)
 	: _M_ptr(__p), _M_refcount(__p, __d, std::move(__a))
 	{
-	  static_assert(__is_callable<_Deleter&(_Yp*&)>::value,
+	  static_assert(__is_invocable<_Deleter&, _Yp*&>::value,
 	      "deleter expression d(p) is well-formed");
 	  _M_enable_shared_from_this_with(__p);
 	}
@@ -1179,9 +1185,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #endif
 
 #if _GLIBCXX_USE_DEPRECATED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       // Postcondition: use_count() == 1 and __r.get() == 0
       template<typename _Yp, typename = _Compatible<_Yp>>
 	__shared_ptr(auto_ptr<_Yp>&& __r);
+#pragma GCC diagnostic pop
 #endif
 
       constexpr __shared_ptr(nullptr_t) noexcept : __shared_ptr() { }
@@ -1196,6 +1205,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
 #if _GLIBCXX_USE_DEPRECATED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       template<typename _Yp>
 	_Assignable<_Yp>
 	operator=(auto_ptr<_Yp>&& __r)
@@ -1203,6 +1214,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  __shared_ptr(std::move(__r)).swap(*this);
 	  return *this;
 	}
+#pragma GCC diagnostic pop
 #endif
 
       __shared_ptr&
@@ -1363,17 +1375,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	struct __has_esft_base<_Yp, __void_t<__esft_base_t<_Yp>>>
 	: __not_<is_array<_Tp>> { }; // No enable shared_from_this for arrays
 
-      template<typename _Yp>
-	typename enable_if<__has_esft_base<_Yp>::value>::type
-	_M_enable_shared_from_this_with(const _Yp* __p) noexcept
+      template<typename _Yp, typename _Yp2 = typename remove_cv<_Yp>::type>
+	typename enable_if<__has_esft_base<_Yp2>::value>::type
+	_M_enable_shared_from_this_with(_Yp* __p) noexcept
 	{
 	  if (auto __base = __enable_shared_from_this_base(_M_refcount, __p))
-	    __base->_M_weak_assign(const_cast<_Yp*>(__p), _M_refcount);
+	    __base->_M_weak_assign(const_cast<_Yp2*>(__p), _M_refcount);
 	}
 
-      template<typename _Yp>
-	typename enable_if<!__has_esft_base<_Yp>::value>::type
-	_M_enable_shared_from_this_with(const _Yp*) noexcept
+      template<typename _Yp, typename _Yp2 = typename remove_cv<_Yp>::type>
+	typename enable_if<!__has_esft_base<_Yp2>::value>::type
+	_M_enable_shared_from_this_with(_Yp*) noexcept
 	{ }
 
       void*

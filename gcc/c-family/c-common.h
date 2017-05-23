@@ -162,8 +162,8 @@ enum rid
   RID_HAS_TRIVIAL_CONSTRUCTOR, RID_HAS_TRIVIAL_COPY,
   RID_HAS_TRIVIAL_DESTRUCTOR,  RID_HAS_UNIQUE_OBJ_REPRESENTATIONS,
   RID_HAS_VIRTUAL_DESTRUCTOR,
-  RID_IS_ABSTRACT,             RID_IS_BASE_OF,
-  RID_IS_CLASS,
+  RID_IS_ABSTRACT,             RID_IS_AGGREGATE,
+  RID_IS_BASE_OF,              RID_IS_CLASS,
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
@@ -588,8 +588,7 @@ extern tree push_stmt_list (void);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
-extern tree pushdecl_top_level (tree);
-extern tree pushdecl (tree);
+
 extern tree build_modify_expr (location_t, tree, tree, enum tree_code,
 			       location_t, tree, tree);
 extern tree build_array_notation_expr (location_t, tree, tree, enum tree_code,
@@ -1463,7 +1462,6 @@ extern bool is_cilkplus_vector_p (tree);
 extern tree insert_cilk_frame (tree);
 extern void cilk_init_builtins (void);
 extern int gimplify_cilk_spawn (tree *);
-extern void cilk_gimplify_call_params_in_spawned_fn (tree *, gimple_seq *);
 extern void cilk_install_body_with_frame_cleanup (tree, tree, void *);
 extern bool cilk_detect_spawn_and_unwrap (tree *);
 extern bool cilk_set_spawn_marker (location_t, tree);
@@ -1471,7 +1469,6 @@ extern tree build_cilk_sync (void);
 extern tree build_cilk_spawn (location_t, tree);
 extern tree make_cilk_frame (tree);
 extern tree create_cilk_function_exit (tree, bool, bool);
-extern tree cilk_install_body_pedigree_operations (tree);
 extern void cilk_outline (tree, tree *, void *);
 extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);

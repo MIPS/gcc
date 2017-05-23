@@ -3457,26 +3457,26 @@ print_z_candidate (location_t loc, const char *msgstr,
     {
       cloc = loc;
       if (candidate->num_convs == 3)
-	inform (cloc, "%s%D(%T, %T, %T) <built-in>", msg, fn,
+	inform (cloc, "%s%<%D(%T, %T, %T)%> <built-in>", msg, fn,
 		candidate->convs[0]->type,
 		candidate->convs[1]->type,
 		candidate->convs[2]->type);
       else if (candidate->num_convs == 2)
-	inform (cloc, "%s%D(%T, %T) <built-in>", msg, fn,
+	inform (cloc, "%s%<%D(%T, %T)%> <built-in>", msg, fn,
 		candidate->convs[0]->type,
 		candidate->convs[1]->type);
       else
-	inform (cloc, "%s%D(%T) <built-in>", msg, fn,
+	inform (cloc, "%s%<%D(%T)%> <built-in>", msg, fn,
 		candidate->convs[0]->type);
     }
   else if (TYPE_P (fn))
-    inform (cloc, "%s%T <conversion>", msg, fn);
+    inform (cloc, "%s%qT <conversion>", msg, fn);
   else if (candidate->viable == -1)
-    inform (cloc, "%s%#D <near match>", msg, fn);
+    inform (cloc, "%s%#qD <near match>", msg, fn);
   else if (DECL_DELETED_FN (fn))
-    inform (cloc, "%s%#D <deleted>", msg, fn);
+    inform (cloc, "%s%#qD <deleted>", msg, fn);
   else
-    inform (cloc, "%s%#D", msg, fn);
+    inform (cloc, "%s%#qD", msg, fn);
   if (fn != candidate->fn)
     {
       cloc = location_of (candidate->fn);
@@ -4426,7 +4426,8 @@ build_op_call_1 (tree obj, vec<tree, va_gc> **args, tsubst_flags_t complain)
       if (complain & tf_error)
         /* It's no good looking for an overloaded operator() on a
            pointer-to-member-function.  */
-        error ("pointer-to-member function %E cannot be called without an object; consider using .* or ->*", obj);
+	error ("pointer-to-member function %qE cannot be called without "
+	       "an object; consider using %<.*%> or %<->*%>", obj);
       return error_mark_node;
     }
 
@@ -6225,10 +6226,10 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	 allocation function, the program is ill-formed."  */
       if (second_parm_is_size_t (fn))
 	{
-	  const char *msg1
+	  const char *const msg1
 	    = G_("exception cleanup for this placement new selects "
 		 "non-placement operator delete");
-	  const char *msg2
+	  const char *const msg2
 	    = G_("%qD is a usual (non-placement) deallocation "
 		 "function in C++14 (or with -fsized-deallocation)");
 
@@ -6764,7 +6765,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       if (complain & tf_error)
 	{
 	  /* Call build_user_type_conversion again for the error.  */
-	  build_user_type_conversion (totype, convs->u.expr, LOOKUP_NORMAL,
+	  build_user_type_conversion (totype, convs->u.expr, LOOKUP_IMPLICIT,
 				      complain);
 	  if (fn)
 	    inform (DECL_SOURCE_LOCATION (fn),
@@ -7351,17 +7352,21 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
 	   && COMPLETE_TYPE_P (type)
 	   && tree_int_cst_lt (TYPE_SIZE (type), TYPE_SIZE (integer_type_node)))
     val = cp_perform_integral_promotions (val, complain);
-  if ((complain & tf_warning)
-      && warn_suggest_attribute_format)
+  if (complain & tf_warning)
     {
-      tree rhstype = TREE_TYPE (val);
-      const enum tree_code coder = TREE_CODE (rhstype);
-      const enum tree_code codel = TREE_CODE (type);
-      if ((codel == POINTER_TYPE || codel == REFERENCE_TYPE)
-	  && coder == codel
-	  && check_missing_format_attribute (type, rhstype))
-	warning (OPT_Wsuggest_attribute_format,
-		 "argument of function call might be a candidate for a format attribute");
+      if (warn_suggest_attribute_format)
+	{
+	  tree rhstype = TREE_TYPE (val);
+	  const enum tree_code coder = TREE_CODE (rhstype);
+	  const enum tree_code codel = TREE_CODE (type);
+	  if ((codel == POINTER_TYPE || codel == REFERENCE_TYPE)
+	      && coder == codel
+	      && check_missing_format_attribute (type, rhstype))
+	    warning (OPT_Wsuggest_attribute_format,
+		     "argument of function call might be a candidate "
+		     "for a format attribute");
+	}
+      maybe_warn_parm_abi (type, EXPR_LOC_OR_LOC (val, input_location));
     }
   return val;
 }
@@ -8047,6 +8052,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	{
 	  arg = cp_build_indirect_ref (arg, RO_NULL, complain);
 	  val = build2 (MODIFY_EXPR, TREE_TYPE (to), to, arg);
+	  /* Handle NSDMI that refer to the object being initialized.  */
+	  replace_placeholders (arg, to);
 	}
       else
 	{
@@ -8231,7 +8238,10 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
 	return error_mark_node;
 
       if (MAYBE_CLASS_TYPE_P (TREE_TYPE (fn)))
-	fn = build_cplus_new (TREE_TYPE (fn), fn, complain);
+	{
+	  fn = build_cplus_new (TREE_TYPE (fn), fn, complain);
+	  maybe_warn_parm_abi (TREE_TYPE (fn), loc);
+	}
     }
   return convert_from_reference (fn);
 }
@@ -8772,8 +8782,8 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 	      else if (DECL_CONSTRUCTOR_P (current_function_decl)
 		       || DECL_DESTRUCTOR_P (current_function_decl))
 		warning (0, (DECL_CONSTRUCTOR_P (current_function_decl)
-			     ? "pure virtual %q#D called from constructor"
-			     : "pure virtual %q#D called from destructor"),
+			     ? G_("pure virtual %q#D called from constructor")
+			     : G_("pure virtual %q#D called from destructor")),
 			 fn);
 	    }
 
@@ -9670,18 +9680,6 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	return winner;
     }
 
-  /* F1 is generated from a deduction-guide (13.3.1.8) and F2 is not */
-  if (deduction_guide_p (cand1->fn))
-    {
-      gcc_assert (deduction_guide_p (cand2->fn));
-      /* We distinguish between candidates from an explicit deduction guide and
-	 candidates built from a constructor based on DECL_ARTIFICIAL.  */
-      int art1 = DECL_ARTIFICIAL (cand1->fn);
-      int art2 = DECL_ARTIFICIAL (cand2->fn);
-      if (art1 != art2)
-	return art2 - art1;
-    }
-
   /* or, if not that,
      F1 is a non-template function and F2 is a template function
      specialization.  */
@@ -9719,20 +9717,54 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	return winner;
     }
 
-  /* or, if not that, F2 is from a using-declaration, F1 is not, and the
-     conversion sequences are equivalent.
-     (proposed in http://lists.isocpp.org/core/2016/10/1142.php) */
+  /* F1 is generated from a deduction-guide (13.3.1.8) and F2 is not */
+  if (deduction_guide_p (cand1->fn))
+    {
+      gcc_assert (deduction_guide_p (cand2->fn));
+      /* We distinguish between candidates from an explicit deduction guide and
+	 candidates built from a constructor based on DECL_ARTIFICIAL.  */
+      int art1 = DECL_ARTIFICIAL (cand1->fn);
+      int art2 = DECL_ARTIFICIAL (cand2->fn);
+      if (art1 != art2)
+	return art2 - art1;
+
+      if (art1)
+	{
+	  /* Prefer the special copy guide over a declared copy/move
+	     constructor.  */
+	  if (copy_guide_p (cand1->fn))
+	    return 1;
+	  if (copy_guide_p (cand2->fn))
+	    return -1;
+
+	  /* Prefer a candidate generated from a non-template constructor.  */
+	  int tg1 = template_guide_p (cand1->fn);
+	  int tg2 = template_guide_p (cand2->fn);
+	  if (tg1 != tg2)
+	    return tg2 - tg1;
+	}
+    }
+
+  /* F1 is a member of a class D, F2 is a member of a base class B of D, and
+     for all arguments the corresponding parameters of F1 and F2 have the same
+     type (CWG 2273/2277). */
   if (DECL_P (cand1->fn) && DECL_CLASS_SCOPE_P (cand1->fn)
       && !DECL_CONV_FN_P (cand1->fn)
       && DECL_P (cand2->fn) && DECL_CLASS_SCOPE_P (cand2->fn)
       && !DECL_CONV_FN_P (cand2->fn))
     {
-      bool used1 = (DECL_INHERITED_CTOR (cand1->fn)
-		    || (BINFO_TYPE (cand1->access_path)
-			!= DECL_CONTEXT (cand1->fn)));
-      bool used2 = (DECL_INHERITED_CTOR (cand2->fn)
-		    || (BINFO_TYPE (cand2->access_path)
-			!= DECL_CONTEXT (cand2->fn)));
+      tree base1 = DECL_CONTEXT (strip_inheriting_ctors (cand1->fn));
+      tree base2 = DECL_CONTEXT (strip_inheriting_ctors (cand2->fn));
+
+      bool used1 = false;
+      bool used2 = false;
+      if (base1 == base2)
+	/* No difference.  */;
+      else if (DERIVED_FROM_P (base1, base2))
+	used1 = true;
+      else if (DERIVED_FROM_P (base2, base1))
+	used2 = true;
+
       if (int diff = used2 - used1)
 	{
 	  for (i = 0; i < len; ++i)
@@ -10209,10 +10241,7 @@ perform_direct_initialization_if_possible (tree type,
 tree
 make_temporary_var_for_ref_to_temp (tree decl, tree type)
 {
-  tree var;
-
-  /* Create the variable.  */
-  var = create_temporary_var (type);
+  tree var = create_temporary_var (type);
 
   /* Register the variable.  */
   if (VAR_P (decl)
@@ -10220,15 +10249,16 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
     {
       /* Namespace-scope or local static; give it a mangled name.  */
       /* FIXME share comdat with decl?  */
-      tree name;
 
       TREE_STATIC (var) = TREE_STATIC (decl);
       CP_DECL_THREAD_LOCAL_P (var) = CP_DECL_THREAD_LOCAL_P (decl);
       set_decl_tls_model (var, DECL_TLS_MODEL (decl));
-      name = mangle_ref_init_variable (decl);
+
+      tree name = mangle_ref_init_variable (decl);
       DECL_NAME (var) = name;
       SET_DECL_ASSEMBLER_NAME (var, name);
-      var = pushdecl_top_level (var);
+
+      var = pushdecl (var);
     }
   else
     /* Create a new cleanup level if necessary.  */
@@ -10486,6 +10516,9 @@ extend_ref_init_temps (tree decl, tree init, vec<tree, va_gc> **cleanups)
 	      FOR_EACH_VEC_SAFE_ELT (elts, i, p)
 		p->value = extend_ref_init_temps (decl, p->value, cleanups);
 	    }
+	  recompute_constructor_flags (ctor);
+	  if (decl_maybe_constant_var_p (decl) && TREE_CONSTANT (ctor))
+	    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = true;
 	}
     }
 
@@ -10519,15 +10552,15 @@ type_has_extended_temps (tree type)
 bool
 is_std_init_list (tree type)
 {
-  /* Look through typedefs.  */
   if (!TYPE_P (type))
     return false;
   if (cxx_dialect == cxx98)
     return false;
+  /* Look through typedefs.  */
   type = TYPE_MAIN_VARIANT (type);
   return (CLASS_TYPE_P (type)
 	  && CP_TYPE_CONTEXT (type) == std_node
-	  && strcmp (TYPE_NAME_STRING (type), "initializer_list") == 0);
+	  && init_list_identifier == DECL_NAME (TYPE_NAME (type)));
 }
 
 /* Returns true iff DECL is a list constructor: i.e. a constructor which

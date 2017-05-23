@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "gimplify.h"
 #include "attribs.h"
+#include "flags.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -105,6 +106,17 @@ lvalue_kind (const_tree ref)
       return op1_lvalue_kind;
 
     case COMPONENT_REF:
+      if (BASELINK_P (TREE_OPERAND (ref, 1)))
+	{
+	  tree fn = BASELINK_FUNCTIONS (TREE_OPERAND (ref, 1));
+
+	  /* For static member function recurse on the BASELINK, we can get
+	     here e.g. from reference_binding.  If BASELINK_FUNCTIONS is
+	     OVERLOAD, the overload is resolved first if possible through
+	     resolve_address_of_overloaded_function.  */
+	  if (TREE_CODE (fn) == FUNCTION_DECL && DECL_STATIC_FUNCTION_P (fn))
+	    return lvalue_kind (TREE_OPERAND (ref, 1));
+	}
       op1_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 0));
       /* Look at the member designator.  */
       if (!op1_lvalue_kind)
@@ -232,7 +244,8 @@ lvalue_kind (const_tree ref)
     default:
       if (!TREE_TYPE (ref))
 	return clk_none;
-      if (CLASS_TYPE_P (TREE_TYPE (ref)))
+      if (CLASS_TYPE_P (TREE_TYPE (ref))
+	  || TREE_CODE (TREE_TYPE (ref)) == ARRAY_TYPE)
 	return clk_class;
       break;
     }
@@ -937,7 +950,14 @@ build_cplus_array_type (tree elt_type, tree index_type)
     }
   else
     {
-      t = build_array_type (elt_type, index_type);
+      bool typeless_storage
+	= (elt_type == unsigned_char_type_node
+	   || elt_type == signed_char_type_node
+	   || elt_type == char_type_node
+	   || (TREE_CODE (elt_type) == ENUMERAL_TYPE
+	       && TYPE_CONTEXT (elt_type) == std_node
+	       && !strcmp ("byte", TYPE_NAME_STRING (elt_type))));
+      t = build_array_type (elt_type, index_type, typeless_storage);
     }
 
   /* Now check whether we already have this array variant.  */
@@ -961,6 +981,7 @@ build_cplus_array_type (tree elt_type, tree index_type)
 		 as it will overwrite alignment etc. of all variants.  */
 	      TYPE_SIZE (t) = TYPE_SIZE (m);
 	      TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (m);
+	      TYPE_TYPELESS_STORAGE (t) = TYPE_TYPELESS_STORAGE (m);
 	    }
 
 	  TYPE_MAIN_VARIANT (t) = m;
@@ -1531,6 +1552,10 @@ strip_typedefs (tree t, bool *remove_attributes)
 		   DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t),
 		   tf_none));
       break;
+    case UNDERLYING_TYPE:
+      type = strip_typedefs (UNDERLYING_TYPE_TYPE (t), remove_attributes);
+      result = finish_underlying_type (type);
+      break;
     default:
       break;
     }
@@ -1548,29 +1573,40 @@ strip_typedefs (tree t, bool *remove_attributes)
 	result = TYPE_MAIN_VARIANT (t);
     }
   gcc_assert (!typedef_variant_p (result));
-  if (TYPE_USER_ALIGN (t) != TYPE_USER_ALIGN (result)
-      || TYPE_ALIGN (t) != TYPE_ALIGN (result))
+
+  if (COMPLETE_TYPE_P (result) && !COMPLETE_TYPE_P (t))
+  /* If RESULT is complete and T isn't, it's likely the case that T
+     is a variant of RESULT which hasn't been updated yet.  Skip the
+     attribute handling.  */;
+  else
     {
-      gcc_assert (TYPE_USER_ALIGN (t));
-      if (remove_attributes)
-	*remove_attributes = true;
-      else
+      if (TYPE_USER_ALIGN (t) != TYPE_USER_ALIGN (result)
+	  || TYPE_ALIGN (t) != TYPE_ALIGN (result))
 	{
-	  if (TYPE_ALIGN (t) == TYPE_ALIGN (result))
-	    result = build_variant_type_copy (result);
+	  gcc_assert (TYPE_USER_ALIGN (t));
+	  if (remove_attributes)
+	    *remove_attributes = true;
 	  else
-	    result = build_aligned_type (result, TYPE_ALIGN (t));
-	  TYPE_USER_ALIGN (result) = true;
+	    {
+	      if (TYPE_ALIGN (t) == TYPE_ALIGN (result))
+		result = build_variant_type_copy (result);
+	      else
+		result = build_aligned_type (result, TYPE_ALIGN (t));
+	      TYPE_USER_ALIGN (result) = true;
+	    }
+	}
+
+      if (TYPE_ATTRIBUTES (t))
+	{
+	  if (remove_attributes)
+	    result = apply_identity_attributes (result, TYPE_ATTRIBUTES (t),
+						remove_attributes);
+	  else
+	    result = cp_build_type_attribute_variant (result,
+						      TYPE_ATTRIBUTES (t));
 	}
     }
-  if (TYPE_ATTRIBUTES (t))
-    {
-      if (remove_attributes)
-	result = apply_identity_attributes (result, TYPE_ATTRIBUTES (t),
-					    remove_attributes);
-      else
-	result = cp_build_type_attribute_variant (result, TYPE_ATTRIBUTES (t));
-    }
+
   return cp_build_qualified_type (result, cp_type_quals (t));
 }
 
@@ -2802,9 +2838,23 @@ replace_placeholders_r (tree* t, int* walk_subtrees, void* data_)
   return NULL_TREE;
 }
 
+/* Replace PLACEHOLDER_EXPRs in EXP with object OBJ.  SEEN_P is set if
+   a PLACEHOLDER_EXPR has been encountered.  */
+
 tree
 replace_placeholders (tree exp, tree obj, bool *seen_p)
 {
+  /* This is only relevant for C++14.  */
+  if (cxx_dialect < cxx14)
+    return exp;
+
+  /* If the object isn't a (member of a) class, do nothing.  */
+  tree op0 = obj;
+  while (TREE_CODE (op0) == COMPONENT_REF)
+    op0 = TREE_OPERAND (op0, 0);
+  if (!CLASS_TYPE_P (strip_array_types (TREE_TYPE (op0))))
+    return exp;
+
   tree *tp = &exp;
   replace_placeholders_t data = { obj, false };
   if (TREE_CODE (exp) == TARGET_EXPR)
@@ -3547,21 +3597,112 @@ type_has_nontrivial_default_init (const_tree t)
     return 0;
 }
 
+/* Track classes with only deleted copy/move constructors so that we can warn
+   if they are used in call/return by value.  */
+
+static GTY(()) hash_set<tree>* deleted_copy_types;
+static void
+remember_deleted_copy (const_tree t)
+{
+  if (!deleted_copy_types)
+    deleted_copy_types = hash_set<tree>::create_ggc(37);
+  deleted_copy_types->add (CONST_CAST_TREE (t));
+}
+void
+maybe_warn_parm_abi (tree t, location_t loc)
+{
+  if (!deleted_copy_types
+      || !deleted_copy_types->contains (t))
+    return;
+
+  warning_at (loc, OPT_Wabi, "the calling convention for %qT changes in "
+	      "-fabi-version=12 (GCC 8)", t);
+  static bool explained = false;
+  if (!explained)
+    {
+      inform (loc, " because all of its copy and move constructors "
+	      "are deleted");
+      explained = true;
+    }
+}
+
 /* Returns true iff copying an object of type T (including via move
    constructor) is non-trivial.  That is, T has no non-trivial copy
-   constructors and no non-trivial move constructors.  */
+   constructors and no non-trivial move constructors, and not all copy/move
+   constructors are deleted.  This function implements the ABI notion of
+   non-trivial copy, which has diverged from the one in the standard.  */
 
 bool
-type_has_nontrivial_copy_init (const_tree t)
+type_has_nontrivial_copy_init (const_tree type)
 {
-  t = strip_array_types (CONST_CAST_TREE (t));
+  tree t = strip_array_types (CONST_CAST_TREE (type));
 
   if (CLASS_TYPE_P (t))
     {
       gcc_assert (COMPLETE_TYPE_P (t));
-      return ((TYPE_HAS_COPY_CTOR (t)
-	       && TYPE_HAS_COMPLEX_COPY_CTOR (t))
-	      || TYPE_HAS_COMPLEX_MOVE_CTOR (t));
+
+      if (TYPE_HAS_COMPLEX_COPY_CTOR (t)
+	  || TYPE_HAS_COMPLEX_MOVE_CTOR (t))
+	/* Nontrivial.  */
+	return true;
+
+      if (cxx_dialect < cxx11)
+	/* No deleted functions before C++11.  */
+	return false;
+
+      /* Before ABI v12 we did a bitwise copy of types with only deleted
+	 copy/move constructors.  */
+      if (!abi_version_at_least (12)
+	  && !(warn_abi && abi_version_crosses (12)))
+	return false;
+
+      bool saw_copy = false;
+      bool saw_non_deleted = false;
+
+      if (CLASSTYPE_LAZY_MOVE_CTOR (t))
+	saw_copy = saw_non_deleted = true;
+      else if (CLASSTYPE_LAZY_COPY_CTOR (t))
+	{
+	  saw_copy = true;
+	  if (type_has_user_declared_move_constructor (t)
+	      || type_has_user_declared_move_assign (t))
+	    /* [class.copy]/8 If the class definition declares a move
+	       constructor or move assignment operator, the implicitly declared
+	       copy constructor is defined as deleted.... */;
+	  else
+	    /* Any other reason the implicitly-declared function would be
+	       deleted would also cause TYPE_HAS_COMPLEX_COPY_CTOR to be
+	       set.  */
+	    saw_non_deleted = true;
+	}
+
+      if (!saw_non_deleted && CLASSTYPE_METHOD_VEC (t))
+	for (tree fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+	  {
+	    tree fn = OVL_CURRENT (fns);
+	    if (copy_fn_p (fn))
+	      {
+		saw_copy = true;
+		if (!DECL_DELETED_FN (fn))
+		  {
+		    /* Not deleted, therefore trivial.  */
+		    saw_non_deleted = true;
+		    break;
+		  }
+	      }
+	  }
+
+      gcc_assert (saw_copy);
+
+      if (saw_copy && !saw_non_deleted)
+	{
+	  if (warn_abi && abi_version_crosses (12))
+	    remember_deleted_copy (t);
+	  if (abi_version_at_least (12))
+	    return true;
+	}
+
+      return false;
     }
   else
     return 0;
@@ -3978,7 +4119,7 @@ check_abi_tag_redeclaration (const_tree decl, const_tree old, const_tree new_)
 	  if (cp_tree_equal (str, ostr))
 	    goto found;
 	}
-      error ("redeclaration of %qD adds abi tag %E", decl, str);
+      error ("redeclaration of %qD adds abi tag %qE", decl, str);
       err = true;
     found:;
     }

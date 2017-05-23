@@ -193,7 +193,7 @@ public:
 };
 
 /* Lattice describing potential values of a formal parameter of a function, or
-   a part of an aggreagate.  TOP is represented by a lattice with zero values
+   a part of an aggregate.  TOP is represented by a lattice with zero values
    and with contains_variable and bottom flags cleared.  BOTTOM is represented
    by a lattice with the bottom flag set.  In that case, values and
    contains_variable flag should be disregarded.  */
@@ -614,6 +614,12 @@ determine_versionability (struct cgraph_node *node,
      decloned constructors, inlining is always better anyway.  */
   else if (node->comdat_local_p ())
     reason = "comdat-local function";
+  else if (node->calls_comdat_local)
+    {
+      /* TODO: call is versionable if we make sure that all
+	 callers are inside of a comdat group.  */
+      reason = "calls comdat-local function";
+    }
 
   if (reason && dump_file && !node->alias && !node->thunk.thunk_p)
     fprintf (dump_file, "Function %s/%i is not versionable, reason: %s.\n",
@@ -1819,8 +1825,8 @@ propagate_bits_across_jump_function (cgraph_edge *cs, int idx,
 	 and we store it in jump function during analysis stage.  */
 
       if (src_lats->bits_lattice.bottom_p ()
-	  && jfunc->bits.known)
-	return dest_lattice->meet_with (jfunc->bits.value, jfunc->bits.mask,
+	  && jfunc->bits)
+	return dest_lattice->meet_with (jfunc->bits->value, jfunc->bits->mask,
 					precision);
       else
 	return dest_lattice->meet_with (src_lats->bits_lattice, precision, sgn,
@@ -1829,10 +1835,9 @@ propagate_bits_across_jump_function (cgraph_edge *cs, int idx,
 
   else if (jfunc->type == IPA_JF_ANCESTOR)
     return dest_lattice->set_to_bottom ();
-
-  else if (jfunc->bits.known)
-    return dest_lattice->meet_with (jfunc->bits.value, jfunc->bits.mask, precision);
-
+  else if (jfunc->bits)
+    return dest_lattice->meet_with (jfunc->bits->value, jfunc->bits->mask,
+				    precision);
   else
     return dest_lattice->set_to_bottom ();
 }
@@ -1903,19 +1908,21 @@ propagate_vr_across_jump_function (cgraph_edge *cs, ipa_jump_func *jfunc,
 	  val = fold_convert (param_type, val);
 	  if (TREE_OVERFLOW_P (val))
 	    val = drop_tree_overflow (val);
-	  jfunc->vr_known = true;
-	  jfunc->m_vr.type = VR_RANGE;
-	  jfunc->m_vr.min = val;
-	  jfunc->m_vr.max = val;
-	  return dest_lat->meet_with (&jfunc->m_vr);
+
+	  value_range tmpvr;
+	  memset (&tmpvr, 0, sizeof (tmpvr));
+	  tmpvr.type = VR_RANGE;
+	  tmpvr.min = val;
+	  tmpvr.max = val;
+	  return dest_lat->meet_with (&tmpvr);
 	}
     }
 
   value_range vr;
-  if (jfunc->vr_known
-      && ipa_vr_operation_and_type_effects (&vr, &jfunc->m_vr, NOP_EXPR,
+  if (jfunc->m_vr
+      && ipa_vr_operation_and_type_effects (&vr, jfunc->m_vr, NOP_EXPR,
 					    param_type,
-					    TREE_TYPE (jfunc->m_vr.min)))
+					    TREE_TYPE (jfunc->m_vr->min)))
     return dest_lat->meet_with (&vr);
   else
     return dest_lat->set_to_bottom ();
@@ -2785,16 +2792,20 @@ static void
 perform_estimation_of_a_value (cgraph_node *node, vec<tree> known_csts,
 			       vec<ipa_polymorphic_call_context> known_contexts,
 			       vec<ipa_agg_jump_function_p> known_aggs_ptrs,
-			       int base_time, int removable_params_cost,
+			       int removable_params_cost,
 			       int est_move_cost, ipcp_value_base *val)
 {
-  int time, size, time_benefit;
+  int size, time_benefit;
+  sreal time, base_time;
   inline_hints hints;
 
   estimate_ipcp_clone_size_and_time (node, known_csts, known_contexts,
 				     known_aggs_ptrs, &size, &time,
-				     &hints);
-  time_benefit = base_time - time
+				     &base_time, &hints);
+  base_time -= time;
+  if (base_time > 65535)
+    base_time = 65535;
+  time_benefit = base_time.to_int ()
     + devirtualization_time_bonus (node, known_csts, known_contexts,
 				   known_aggs_ptrs)
     + hint_time_bonus (hints)
@@ -2825,15 +2836,14 @@ estimate_local_effects (struct cgraph_node *node)
   vec<ipa_agg_jump_function> known_aggs;
   vec<ipa_agg_jump_function_p> known_aggs_ptrs;
   bool always_const;
-  int base_time = inline_summaries->get (node)->time;
   int removable_params_cost;
 
   if (!count || !ipcp_versionable_function_p (node))
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nEstimating effects for %s/%i, base_time: %i.\n",
-	     node->name (), node->order, base_time);
+    fprintf (dump_file, "\nEstimating effects for %s/%i.\n",
+	     node->name (), node->order);
 
   always_const = gather_context_independent_values (info, &known_csts,
 						    &known_contexts, &known_aggs,
@@ -2846,13 +2856,15 @@ estimate_local_effects (struct cgraph_node *node)
     {
       struct caller_statistics stats;
       inline_hints hints;
-      int time, size;
+      sreal time, base_time;
+      int size;
 
       init_caller_stats (&stats);
       node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats,
 					      false);
       estimate_ipcp_clone_size_and_time (node, known_csts, known_contexts,
-					 known_aggs_ptrs, &size, &time, &hints);
+					 known_aggs_ptrs, &size, &time,
+					 &base_time, &hints);
       time -= devirt_bonus;
       time -= hint_time_bonus (hints);
       time -= removable_params_cost;
@@ -2860,25 +2872,25 @@ estimate_local_effects (struct cgraph_node *node)
 
       if (dump_file)
 	fprintf (dump_file, " - context independent values, size: %i, "
-		 "time_benefit: %i\n", size, base_time - time);
+		 "time_benefit: %f\n", size, (base_time - time).to_double ());
 
       if (size <= 0 || node->local.local)
 	{
 	  info->do_clone_for_all_contexts = true;
-	  base_time = time;
 
 	  if (dump_file)
 	    fprintf (dump_file, "     Decided to specialize for all "
 		     "known contexts, code not going to grow.\n");
 	}
-      else if (good_cloning_opportunity_p (node, base_time - time,
+      else if (good_cloning_opportunity_p (node,
+					   MAX ((base_time - time).to_int (),
+						65536),
 					   stats.freq_sum, stats.count_sum,
 					   size))
 	{
 	  if (size + overall_size <= max_new_size)
 	    {
 	      info->do_clone_for_all_contexts = true;
-	      base_time = time;
 	      overall_size += size;
 
 	      if (dump_file)
@@ -2914,7 +2926,7 @@ estimate_local_effects (struct cgraph_node *node)
 
 	  int emc = estimate_move_cost (TREE_TYPE (val->value), true);
 	  perform_estimation_of_a_value (node, known_csts, known_contexts,
-					 known_aggs_ptrs, base_time,
+					 known_aggs_ptrs,
 					 removable_params_cost, emc, val);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2949,7 +2961,7 @@ estimate_local_effects (struct cgraph_node *node)
 	{
 	  known_contexts[i] = val->value;
 	  perform_estimation_of_a_value (node, known_csts, known_contexts,
-					 known_aggs_ptrs, base_time,
+					 known_aggs_ptrs,
 					 removable_params_cost, 0, val);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2993,7 +3005,7 @@ estimate_local_effects (struct cgraph_node *node)
 	      vec_safe_push (ajf->items, item);
 
 	      perform_estimation_of_a_value (node, known_csts, known_contexts,
-					     known_aggs_ptrs, base_time,
+					     known_aggs_ptrs,
 					     removable_params_cost, 0, val);
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3233,10 +3245,6 @@ ipcp_propagate_stage (struct ipa_topo_info *topo)
 
   if (dump_file)
     fprintf (dump_file, "\n Propagating constants:\n\n");
-
-  if (in_lto_p)
-    ipa_update_after_lto_read ();
-
 
   FOR_EACH_DEFINED_FUNCTION (node)
   {
@@ -4013,7 +4021,7 @@ intersect_with_plats (struct ipcp_param_lattices *plats,
     }
 }
 
-/* Copy agggregate replacement values of NODE (which is an IPA-CP clone) to the
+/* Copy aggregate replacement values of NODE (which is an IPA-CP clone) to the
    vector result while subtracting OFFSET from the individual value offsets.  */
 
 static vec<ipa_agg_jf_item>
@@ -4275,7 +4283,7 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
   return res;
 }
 
-/* Turn KNOWN_AGGS into a list of aggreate replacement values.  */
+/* Turn KNOWN_AGGS into a list of aggregate replacement values.  */
 
 static struct ipa_agg_replacement_value *
 known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
@@ -4870,19 +4878,17 @@ ipcp_store_bits_results (void)
       for (unsigned i = 0; i < count; i++)
 	{
 	  ipcp_param_lattices *plats = ipa_get_parm_lattices (info, i);
-	  ipa_bits bits_jfunc;
+	  ipa_bits *jfbits;
 
 	  if (plats->bits_lattice.constant_p ())
-	    {
-	      bits_jfunc.known = true;
-	      bits_jfunc.value = plats->bits_lattice.get_value ();
-	      bits_jfunc.mask = plats->bits_lattice.get_mask ();
-	    }
+	    jfbits
+	      = ipa_get_ipa_bits_for_value (plats->bits_lattice.get_value (),
+					    plats->bits_lattice.get_mask ());
 	  else
-	    bits_jfunc.known = false;
+	    jfbits = NULL;
 
-	  ts->bits->quick_push (bits_jfunc);
-	  if (!dump_file || !bits_jfunc.known)
+	  ts->bits->quick_push (jfbits);
+	  if (!dump_file || !jfbits)
 	    continue;
 	  if (!dumped_sth)
 	    {
@@ -4891,9 +4897,9 @@ ipcp_store_bits_results (void)
 	      dumped_sth = true;
 	    }
 	  fprintf (dump_file, " param %i: value = ", i);
-	  print_hex (bits_jfunc.value, dump_file);
+	  print_hex (jfbits->value, dump_file);
 	  fprintf (dump_file, ", mask = ");
-	  print_hex (bits_jfunc.mask, dump_file);
+	  print_hex (jfbits->mask, dump_file);
 	  fprintf (dump_file, "\n");
 	}
     }

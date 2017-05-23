@@ -1305,8 +1305,7 @@ alter_access (tree t, tree fdecl, tree access)
 {
   tree elem;
 
-  if (!DECL_LANG_SPECIFIC (fdecl))
-    retrofit_lang_decl (fdecl);
+  retrofit_lang_decl (fdecl);
 
   gcc_assert (!DECL_DISCRIMINATOR_P (fdecl));
 
@@ -1861,7 +1860,9 @@ check_bases (tree t,
 	       members */
 	    for (basefield = TYPE_FIELDS (basetype); basefield;
 		 basefield = DECL_CHAIN (basefield))
-	      if (TREE_CODE (basefield) == FIELD_DECL)
+	      if (TREE_CODE (basefield) == FIELD_DECL
+		  && DECL_SIZE (basefield)
+		  && !integer_zerop (DECL_SIZE (basefield)))
 		{
 		  if (field)
 		    CLASSTYPE_NON_STD_LAYOUT (t) = 1;
@@ -2060,12 +2061,14 @@ fixup_type_variants (tree t)
 static void
 fixup_may_alias (tree klass)
 {
-  tree t;
+  tree t, v;
 
   for (t = TYPE_POINTER_TO (klass); t; t = TYPE_NEXT_PTR_TO (t))
-    TYPE_REF_CAN_ALIAS_ALL (t) = true;
+    for (v = TYPE_MAIN_VARIANT (t); v; v = TYPE_NEXT_VARIANT (v))
+      TYPE_REF_CAN_ALIAS_ALL (v) = true;
   for (t = TYPE_REFERENCE_TO (klass); t; t = TYPE_NEXT_REF_TO (t))
-    TYPE_REF_CAN_ALIAS_ALL (t) = true;
+    for (v = TYPE_MAIN_VARIANT (t); v; v = TYPE_NEXT_VARIANT (v))
+      TYPE_REF_CAN_ALIAS_ALL (v) = true;
 }
 
 /* Early variant fixups: we apply attributes at the beginning of the class
@@ -2789,7 +2792,7 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
      determined by which bases the function overrides, so we need to be
      sure that we're using a thunk for some overridden base; even if we
      know that the necessary this adjustment is zero, there may not be an
-     appropriate zero-this-adjusment thunk for us to use since thunks for
+     appropriate zero-this-adjustment thunk for us to use since thunks for
      overriding virtual bases always use the vcall offset.
 
      Furthermore, just choosing any base that overrides this function isn't
@@ -5751,12 +5754,16 @@ finalize_literal_type_property (tree t)
   if (cxx_dialect < cxx11
       || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
     CLASSTYPE_LITERAL_P (t) = false;
+  else if (CLASSTYPE_LITERAL_P (t) && LAMBDA_TYPE_P (t))
+    CLASSTYPE_LITERAL_P (t) = (cxx_dialect >= cxx1z);
   else if (CLASSTYPE_LITERAL_P (t) && !TYPE_HAS_TRIVIAL_DFLT (t)
 	   && CLASSTYPE_NON_AGGREGATE (t)
 	   && !TYPE_HAS_CONSTEXPR_CTOR (t))
     CLASSTYPE_LITERAL_P (t) = false;
 
-  if (!CLASSTYPE_LITERAL_P (t))
+  /* C++14 DR 1684 removed this restriction.  */
+  if (cxx_dialect < cxx14
+      && !CLASSTYPE_LITERAL_P (t) && !LAMBDA_TYPE_P (t))
     for (fn = TYPE_METHODS (t); fn; fn = DECL_CHAIN (fn))
       if (DECL_DECLARED_CONSTEXPR_P (fn)
 	  && TREE_CODE (fn) != TEMPLATE_DECL
@@ -5764,12 +5771,11 @@ finalize_literal_type_property (tree t)
 	  && !DECL_CONSTRUCTOR_P (fn))
 	{
 	  DECL_DECLARED_CONSTEXPR_P (fn) = false;
-	  if (!DECL_GENERATED_P (fn) && !LAMBDA_TYPE_P (t))
-	    {
-	      error ("enclosing class of constexpr non-static member "
-		     "function %q+#D is not a literal type", fn);
-	      explain_non_literal_class (t);
-	    }
+	  if (!DECL_GENERATED_P (fn)
+	      && pedwarn (DECL_SOURCE_LOCATION (fn), OPT_Wpedantic,
+			  "enclosing class of constexpr non-static member "
+			  "function %q+#D is not a literal type", fn))
+	    explain_non_literal_class (t);
 	}
 }
 
@@ -5792,10 +5798,14 @@ explain_non_literal_class (tree t)
     return;
 
   inform (0, "%q+T is not literal because:", t);
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
+  if (cxx_dialect < cxx1z && LAMBDA_TYPE_P (t))
+    inform (0, "  %qT is a closure type, which is only literal in "
+	    "C++1z and later", t);
+  else if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
     inform (0, "  %q+T has a non-trivial destructor", t);
   else if (CLASSTYPE_NON_AGGREGATE (t)
 	   && !TYPE_HAS_TRIVIAL_DFLT (t)
+	   && !LAMBDA_TYPE_P (t)
 	   && !TYPE_HAS_CONSTEXPR_CTOR (t))
     {
       inform (0, "  %q+T is not an aggregate, does not have a trivial "
@@ -9768,11 +9778,19 @@ build_vtbl_initializer (tree binfo,
 	  /* Likewise for deleted virtuals.  */
 	  else if (DECL_DELETED_FN (fn_original))
 	    {
-	      fn = get_identifier ("__cxa_deleted_virtual");
-	      if (!get_global_value_if_present (fn, &fn))
-		fn = push_library_fn (fn, (build_function_type_list
-					   (void_type_node, NULL_TREE)),
-				      NULL_TREE, ECF_NORETURN);
+	      static tree dvirt_fn;
+
+	      if (!dvirt_fn)
+		{
+		  tree name = get_identifier ("__cxa_deleted_virtual");
+		  dvirt_fn = IDENTIFIER_GLOBAL_VALUE (name);
+		  if (!dvirt_fn)
+		    dvirt_fn = push_library_fn
+		      (name,
+		       build_function_type_list (void_type_node, NULL_TREE),
+		       NULL_TREE, ECF_NORETURN);
+		}
+	      fn = dvirt_fn;
 	      if (!TARGET_VTABLE_USES_DESCRIPTORS)
 		init = fold_convert (vfunc_ptr_type_node,
 				     build_fold_addr_expr (fn));
@@ -9781,7 +9799,8 @@ build_vtbl_initializer (tree binfo,
 	    {
 	      if (!integer_zerop (delta) || vcall_index)
 		{
-		  fn = make_thunk (fn, /*this_adjusting=*/1, delta, vcall_index);
+		  fn = make_thunk (fn, /*this_adjusting=*/1,
+				   delta, vcall_index);
 		  if (!DECL_NAME (fn))
 		    finish_thunk (fn);
 		}

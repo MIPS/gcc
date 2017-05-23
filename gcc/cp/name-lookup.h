@@ -191,9 +191,6 @@ struct GTY(()) cp_binding_level {
   /* A chain of NAMESPACE_DECL nodes.  */
   tree namespaces;
 
-  /* An array of static functions and variables (for namespaces only) */
-  vec<tree, va_gc> *static_decls;
-
   /* A list of USING_DECL nodes.  */
   tree usings;
 
@@ -278,15 +275,6 @@ struct GTY(()) cp_binding_level {
 
 #define class_binding_level scope_chain->class_bindings
 
-/* The tree node representing the global scope.  */
-extern GTY(()) tree global_namespace;
-extern GTY(()) tree global_scope_name;
-
-/* Indicates that there is a type value in some namespace, although
-   that is not necessarily in scope at the moment.  */
-
-extern GTY(()) tree global_type_node;
-
 /* True if SCOPE designates the global scope binding contour.  */
 #define global_scope_p(SCOPE) \
   ((SCOPE) == NAMESPACE_LEVEL (global_namespace))
@@ -312,6 +300,7 @@ extern tree push_inner_scope (tree);
 extern void pop_inner_scope (tree, tree);
 extern void push_binding_level (cp_binding_level *);
 
+extern tree pushdecl_outermost_localscope (tree);
 extern bool push_namespace (tree);
 extern void pop_namespace (void);
 extern void push_nested_namespace (tree);
@@ -319,12 +308,11 @@ extern void pop_nested_namespace (tree);
 extern bool handle_namespace_attrs (tree, tree);
 extern void pushlevel_class (void);
 extern void poplevel_class (void);
-extern tree pushdecl_with_scope (tree, cp_binding_level *, bool);
 extern tree lookup_name_prefer_type (tree, int);
 extern tree lookup_name_real (tree, int, int, bool, int, int);
 extern tree lookup_type_scope (tree, tag_scope);
-extern tree namespace_binding (tree, tree);
-extern void set_namespace_binding (tree, tree, tree);
+extern tree get_namespace_binding (tree ns, tree id);
+extern void set_global_binding (tree id, tree val);
 extern bool hidden_name_p (tree);
 extern tree remove_hidden_names (tree);
 extern tree lookup_qualified_name (tree, tree, int, bool, /*hidden*/bool = false);
@@ -354,26 +342,6 @@ extern tree innermost_non_namespace_value (tree);
 extern cxx_binding *outer_binding (tree, cxx_binding *, bool);
 extern void cp_emit_debug_info_for_using (tree, tree);
 
-/* Set *DECL to the (non-hidden) declaration for ID at global scope,
-   if present and return true; otherwise return false.  */
-
-inline bool
-get_global_value_if_present (tree id, tree *decl)
-{
-  tree global_value = namespace_binding (id, global_namespace);
-  if (global_value)
-    *decl = global_value;
-  return global_value != NULL;
-}
-
-/* True is the binding of IDENTIFIER at global scope names a type.  */
-
-inline bool
-is_typename_at_global_scope (tree id)
-{
-  tree global_value = namespace_binding (id, global_namespace);
-
-  return global_value && TREE_CODE (global_value) == TYPE_DECL;
-}
+extern tree pushdecl_top_level			(tree);
 
 #endif /* GCC_CP_NAME_LOOKUP_H */

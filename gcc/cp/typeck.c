@@ -1430,14 +1430,14 @@ comptypes (tree t1, tree t2, int strict)
 	       canonical types were different. This is a failure of the
 	       canonical type propagation code.*/
 	    internal_error 
-	      ("canonical types differ for identical types %T and %T", 
+	      ("canonical types differ for identical types %qT and %qT",
 	       t1, t2);
 	  else if (!result && TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2))
 	    /* Two types are structurally different, but the canonical
 	       types are the same. This means we were over-eager in
 	       assigning canonical types. */
 	    internal_error 
-	      ("same canonical type node for different types %T and %T",
+	      ("same canonical type node for different types %qT and %qT",
 	       t1, t2);
 	  
 	  return result;
@@ -2175,8 +2175,7 @@ string_conv_p (const_tree totype, const_tree exp, int warn)
   if (warn)
     {
       if (cxx_dialect >= cxx11)
-	pedwarn (input_location,
-		 pedantic ? OPT_Wpedantic : OPT_Wwrite_strings,
+	pedwarn (input_location, OPT_Wwrite_strings,
 		 "ISO C++ forbids converting a string constant to %qT",
 		 totype);
       else
@@ -3218,7 +3217,7 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 	      && (TREE_CODE (TYPE_SIZE (TREE_TYPE (TREE_TYPE (array))))
 		  != INTEGER_CST)))
 	{
-	  if (!cxx_mark_addressable (array))
+	  if (!cxx_mark_addressable (array, true))
 	    return error_mark_node;
 	}
 
@@ -4106,7 +4105,7 @@ cp_build_binary_op (location_t location,
 
   /* Data type in which the computation is to be performed.
      In the simplest cases this is the common type of the arguments.  */
-  tree result_type = NULL;
+  tree result_type = NULL_TREE;
 
   /* Nonzero means operands have already been type-converted
      in whatever way is necessary.
@@ -4122,7 +4121,6 @@ cp_build_binary_op (location_t location,
   tree final_type = 0;
 
   tree result, result_ovl;
-  tree orig_type = NULL;
 
   /* Nonzero if this is an operation like MIN or MAX which can
      safely be computed in short if both args are promoted shorts.
@@ -4154,7 +4152,7 @@ cp_build_binary_op (location_t location,
   bool doing_shift = false;
 
   /* Tree holding instrumentation expression.  */
-  tree instrument_expr = NULL;
+  tree instrument_expr = NULL_TREE;
 
   if (code == TRUTH_AND_EXPR || code == TRUTH_ANDIF_EXPR
       || code == TRUTH_OR_EXPR || code == TRUTH_ORIF_EXPR
@@ -5043,6 +5041,10 @@ cp_build_binary_op (location_t location,
       return tmp;
     }
 
+  /* Remember the original type; RESULT_TYPE might be changed later on
+     by shorten_binary_op.  */
+  tree orig_type = result_type;
+
   if (arithmetic_types_p)
     {
       bool first_complex = (code0 == COMPLEX_TYPE);
@@ -5139,7 +5141,6 @@ cp_build_binary_op (location_t location,
 
       if (shorten && none_complex)
 	{
-	  orig_type = result_type;
 	  final_type = result_type;
 	  result_type = shorten_binary_op (result_type, op0, op1,
 					   shorten == -1);
@@ -5219,11 +5220,10 @@ cp_build_binary_op (location_t location,
 	     original result_type.  */
 	  tree cop0 = op0;
 	  tree cop1 = op1;
-	  if (orig_type != NULL && result_type != orig_type)
-	    {
-	      cop0 = cp_convert (orig_type, op0, complain);
-	      cop1 = cp_convert (orig_type, op1, complain);
-	    }
+	  if (TREE_TYPE (cop0) != orig_type)
+	    cop0 = cp_convert (orig_type, op0, complain);
+	  if (TREE_TYPE (cop1) != orig_type)
+	    cop1 = cp_convert (orig_type, op1, complain);
 	  instrument_expr = ubsan_instrument_division (location, cop0, cop1);
 	}
       else if (doing_shift && (flag_sanitize & SANITIZE_SHIFT))
@@ -6270,18 +6270,28 @@ unary_complex_lvalue (enum tree_code code, tree arg)
 
 /* Mark EXP saying that we need to be able to take the
    address of it; it should not be allocated in a register.
-   Value is true if successful.
+   Value is true if successful.  ARRAY_REF_P is true if this
+   is for ARRAY_REF construction - in that case we don't want
+   to look through VIEW_CONVERT_EXPR from VECTOR_TYPE to ARRAY_TYPE,
+   it is fine to use ARRAY_REFs for vector subscripts on vector
+   register variables.
 
    C++: we do not allow `current_class_ptr' to be addressable.  */
 
 bool
-cxx_mark_addressable (tree exp)
+cxx_mark_addressable (tree exp, bool array_ref_p)
 {
   tree x = exp;
 
   while (1)
     switch (TREE_CODE (x))
       {
+      case VIEW_CONVERT_EXPR:
+	if (array_ref_p
+	    && TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
+	    && VECTOR_TYPE_P (TREE_TYPE (TREE_OPERAND (x, 0))))
+	  return true;
+	/* FALLTHRU */
       case ADDR_EXPR:
       case COMPONENT_REF:
       case ARRAY_REF:
@@ -8487,7 +8497,12 @@ convert_for_assignment (tree type, tree rhs,
 		 overloaded function.  Call instantiate_type to get error
 		 messages.  */
 	      if (rhstype == unknown_type_node)
-		instantiate_type (type, rhs, tf_warning_or_error);
+		{
+		  tree r = instantiate_type (type, rhs, tf_warning_or_error);
+		  /* -fpermissive might allow this.  */
+		  if (!seen_error ())
+		    return r;
+		}
 	      else if (fndecl)
 		error ("cannot convert %qT to %qT for argument %qP to %qD",
 		       rhstype, type, parmnum, fndecl);

@@ -1194,6 +1194,10 @@ struct GTY(()) tree_base {
        SSA_NAME_OCCURS_IN_ABNORMAL_PHI in
            SSA_NAME
 
+       EXPR_CILK_SPAWN in
+           CALL_EXPR
+           AGGR_INIT_EXPR
+
    used_flag:
 
        TREE_USED in
@@ -1511,7 +1515,9 @@ struct GTY(()) tree_type_common {
      so we need to store the value 32 (not 31, as we need the zero
      as well), hence six bits.  */
   unsigned align : 6;
-  unsigned spare : 25;
+  unsigned typeless_storage : 1;
+  unsigned spare : 24;
+
   alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;

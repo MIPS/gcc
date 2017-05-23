@@ -327,7 +327,9 @@ read_counts_file (void)
       gcov_sync (offset, length);
       if ((is_error = gcov_is_error ()))
 	{
-	  error (is_error < 0 ? "%qs has overflowed" : "%qs is corrupted",
+	  error (is_error < 0
+		 ? G_("%qs has overflowed")
+		 : G_("%qs is corrupted"),
 		 da_file_name);
 	  delete counts_hash;
 	  counts_hash = NULL;
@@ -726,6 +728,18 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	}
       prg_ctr_mask |= fn_ctr_mask;
       fn_ctr_mask = 0;
+    }
+}
+
+/* Remove coverage file if opened.  */
+
+void
+coverage_remove_note_file (void)
+{
+  if (bbg_file_name)
+    {
+      gcov_close ();
+      unlink (bbg_file_name);
     }
 }
 

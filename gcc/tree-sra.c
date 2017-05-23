@@ -158,6 +158,10 @@ struct access
      the representative.  */
   struct access *group_representative;
 
+  /* After access tree has been constructed, this points to the parent of the
+     current access, if there is one.  NULL for roots.  */
+  struct access *parent;
+
   /* If this access has any children (in terms of the definition above), this
      points to the first one.  */
   struct access *first_child;
@@ -690,6 +694,19 @@ static bool constant_decl_p (tree decl)
   return VAR_P (decl) && DECL_IN_CONSTANT_POOL (decl);
 }
 
+
+/* Mark LHS of assign links out of ACCESS and its children as written to.  */
+
+static void
+process_subtree_disqualification (struct access *access)
+{
+  struct access *child;
+  for (struct assign_link *link = access->first_link; link; link = link->next)
+    link->lacc->grp_write = true;
+  for (child = access->first_child; child; child = child->next_sibling)
+    process_subtree_disqualification (child);
+}
+
 /* Remove DECL from candidates for SRA and write REASON to the dump file if
    there is one.  */
 static void
@@ -705,6 +722,13 @@ disqualify_candidate (tree decl, const char *reason)
       fprintf (dump_file, "! Disqualifying ");
       print_generic_expr (dump_file, decl, 0);
       fprintf (dump_file, " - %s\n", reason);
+    }
+
+  struct access *access = get_first_repr_for_decl (decl);
+  while (access)
+    {
+      process_subtree_disqualification (access);
+      access = access->next_grp;
     }
 }
 
@@ -949,10 +973,12 @@ create_access (tree expr, gimple *stmt, bool write)
 
 /* Return true iff TYPE is scalarizable - i.e. a RECORD_TYPE or fixed-length
    ARRAY_TYPE with fields that are either of gimple register types (excluding
-   bit-fields) or (recursively) scalarizable types.  */
+   bit-fields) or (recursively) scalarizable types.  CONST_DECL must be true if
+   we are considering a decl from constant pool.  If it is false, char arrays
+   will be refused.  */
 
 static bool
-scalarizable_type_p (tree type)
+scalarizable_type_p (tree type, bool const_decl)
 {
   gcc_assert (!is_gimple_reg_type (type));
   if (type_contains_placeholder_p (type))
@@ -970,7 +996,7 @@ scalarizable_type_p (tree type)
 	    return false;
 
 	  if (!is_gimple_reg_type (ft)
-	      && !scalarizable_type_p (ft))
+	      && !scalarizable_type_p (ft, const_decl))
 	    return false;
 	}
 
@@ -978,10 +1004,16 @@ scalarizable_type_p (tree type)
 
   case ARRAY_TYPE:
     {
+      HOST_WIDE_INT min_elem_size;
+      if (const_decl)
+	min_elem_size = 0;
+      else
+	min_elem_size = BITS_PER_UNIT;
+
       if (TYPE_DOMAIN (type) == NULL_TREE
 	  || !tree_fits_shwi_p (TYPE_SIZE (type))
 	  || !tree_fits_shwi_p (TYPE_SIZE (TREE_TYPE (type)))
-	  || (tree_to_shwi (TYPE_SIZE (TREE_TYPE (type))) <= 0)
+	  || (tree_to_shwi (TYPE_SIZE (TREE_TYPE (type))) <= min_elem_size)
 	  || !tree_fits_shwi_p (TYPE_MIN_VALUE (TYPE_DOMAIN (type))))
 	return false;
       if (tree_to_shwi (TYPE_SIZE (type)) == 0
@@ -995,7 +1027,7 @@ scalarizable_type_p (tree type)
 
       tree elem = TREE_TYPE (type);
       if (!is_gimple_reg_type (elem)
-	 && !scalarizable_type_p (elem))
+	  && !scalarizable_type_p (elem, const_decl))
 	return false;
       return true;
     }
@@ -1273,6 +1305,15 @@ disqualify_if_bad_bb_terminating_stmt (gimple *stmt, tree lhs, tree rhs)
   return false;
 }
 
+/* Return true if the nature of BASE is such that it contains data even if
+   there is no write to it in the function.  */
+
+static bool
+comes_initialized_p (tree base)
+{
+  return TREE_CODE (base) == PARM_DECL || constant_decl_p (base);
+}
+
 /* Scan expressions occurring in STMT, create access structures for all accesses
    to candidates for scalarization and remove those candidates which occur in
    statements or expressions that prevent them from being split apart.  Return
@@ -1330,8 +1371,12 @@ build_accesses_from_assign (gimple *stmt)
 
       link->lacc = lacc;
       link->racc = racc;
-
       add_link_to_rhs (racc, link);
+      /* Let's delay marking the areas as written until propagation of accesses
+	 across link, unless the nature of rhs tells us that its data comes
+	 from elsewhere.  */
+      if (!comes_initialized_p (racc->base))
+	lacc->write = false;
     }
 
   return lacc || racc;
@@ -1637,6 +1682,13 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
   HOST_WIDE_INT base_offset;
   unsigned HOST_WIDE_INT misalign;
   unsigned int align;
+
+  /* Preserve address-space information.  */
+  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (base));
+  if (as != TYPE_ADDR_SPACE (exp_type))
+    exp_type = build_qualified_type (exp_type,
+				     TYPE_QUALS (exp_type)
+				     | ENCODE_QUAL_ADDR_SPACE (as));
 
   gcc_checking_assert (offset % BITS_PER_UNIT == 0);
   get_object_alignment_1 (base, &align, &misalign);
@@ -2237,6 +2289,8 @@ build_access_subtree (struct access **access)
       else
 	last_child->next_sibling = *access;
       last_child = *access;
+      (*access)->parent = root;
+      (*access)->grp_write |= root->grp_write;
 
       if (!build_access_subtree (access))
 	return false;
@@ -2429,8 +2483,7 @@ analyze_access_subtree (struct access *root, struct access *parent,
 
   if (!hole || root->grp_total_scalarization)
     root->grp_covered = 1;
-  else if (root->grp_write || TREE_CODE (root->base) == PARM_DECL
-	   || constant_decl_p (root->base))
+  else if (root->grp_write || comes_initialized_p (root->base))
     root->grp_unscalarized_data = 1; /* not covered and written to */
   return sth_created;
 }
@@ -2480,13 +2533,15 @@ child_would_conflict_in_lacc (struct access *lacc, HOST_WIDE_INT norm_offset,
 
 /* Create a new child access of PARENT, with all properties just like MODEL
    except for its offset and with its grp_write false and grp_read true.
-   Return the new access or NULL if it cannot be created.  Note that this access
-   is created long after all splicing and sorting, it's not located in any
-   access vector and is automatically a representative of its group.  */
+   Return the new access or NULL if it cannot be created.  Note that this
+   access is created long after all splicing and sorting, it's not located in
+   any access vector and is automatically a representative of its group.  Set
+   the gpr_write flag of the new accesss if SET_GRP_WRITE is true.  */
 
 static struct access *
 create_artificial_child_access (struct access *parent, struct access *model,
-				HOST_WIDE_INT new_offset)
+				HOST_WIDE_INT new_offset,
+				bool set_grp_write)
 {
   struct access **child;
   tree expr = parent->base;
@@ -2508,7 +2563,7 @@ create_artificial_child_access (struct access *parent, struct access *model,
   access->offset = new_offset;
   access->size = model->size;
   access->type = model->type;
-  access->grp_write = true;
+  access->grp_write = set_grp_write;
   access->grp_read = false;
   access->reverse = model->reverse;
 
@@ -2534,10 +2589,26 @@ propagate_subaccesses_across_link (struct access *lacc, struct access *racc)
   HOST_WIDE_INT norm_delta = lacc->offset - racc->offset;
   bool ret = false;
 
+  /* IF the LHS is still not marked as being written to, we only need to do so
+     if the RHS at this level actually was.  */
+  if (!lacc->grp_write)
+    {
+      gcc_checking_assert (!comes_initialized_p (racc->base));
+      if (racc->grp_write)
+	{
+	  lacc->grp_write = true;
+	  ret = true;
+	}
+    }
+
   if (is_gimple_reg_type (lacc->type)
       || lacc->grp_unscalarizable_region
       || racc->grp_unscalarizable_region)
-    return false;
+    {
+      ret |= !lacc->grp_write;
+      lacc->grp_write = true;
+      return ret;
+    }
 
   if (is_gimple_reg_type (racc->type))
     {
@@ -2557,7 +2628,7 @@ propagate_subaccesses_across_link (struct access *lacc, struct access *racc)
 	      lacc->grp_no_warning = true;
 	    }
 	}
-      return false;
+      return ret;
     }
 
   for (rchild = racc->first_child; rchild; rchild = rchild->next_sibling)
@@ -2566,23 +2637,37 @@ propagate_subaccesses_across_link (struct access *lacc, struct access *racc)
       HOST_WIDE_INT norm_offset = rchild->offset + norm_delta;
 
       if (rchild->grp_unscalarizable_region)
-	continue;
+	{
+	  lacc->grp_write = true;
+	  continue;
+	}
 
       if (child_would_conflict_in_lacc (lacc, norm_offset, rchild->size,
 					&new_acc))
 	{
 	  if (new_acc)
 	    {
+	      if (!new_acc->grp_write
+		  && (lacc->grp_write || rchild->grp_write))
+		{
+		  new_acc ->grp_write = true;
+		  ret = true;
+		}
+
 	      rchild->grp_hint = 1;
 	      new_acc->grp_hint |= new_acc->grp_read;
 	      if (rchild->first_child)
 		ret |= propagate_subaccesses_across_link (new_acc, rchild);
 	    }
+	  else
+	    lacc->grp_write = true;
 	  continue;
 	}
 
       rchild->grp_hint = 1;
-      new_acc = create_artificial_child_access (lacc, rchild, norm_offset);
+      new_acc = create_artificial_child_access (lacc, rchild, norm_offset,
+						lacc->grp_write
+						|| rchild->grp_write);
       if (new_acc)
 	{
 	  ret = true;
@@ -2613,9 +2698,17 @@ propagate_all_subaccesses (void)
 	  if (!bitmap_bit_p (candidate_bitmap, DECL_UID (lacc->base)))
 	    continue;
 	  lacc = lacc->group_representative;
-	  if (propagate_subaccesses_across_link (lacc, racc)
-	      && lacc->first_link)
-	    add_access_to_work_queue (lacc);
+	  if (propagate_subaccesses_across_link (lacc, racc))
+	    do
+	      {
+		if (lacc->first_link)
+		  {
+		    add_access_to_work_queue (lacc);
+		    break;
+		  }
+		lacc = lacc->parent;
+	      }
+	    while (lacc);
 	}
     }
 }
@@ -2653,13 +2746,16 @@ analyze_all_variable_accesses (void)
       {
 	tree var = candidate (i);
 
-	if (VAR_P (var) && scalarizable_type_p (TREE_TYPE (var)))
+	if (VAR_P (var) && scalarizable_type_p (TREE_TYPE (var),
+						constant_decl_p (var)))
 	  {
 	    if (tree_to_uhwi (TYPE_SIZE (TREE_TYPE (var)))
 		<= max_scalarization_size)
 	      {
 		create_total_scalarization_access (var);
 		completely_scalarize (var, TREE_TYPE (var), 0, var);
+		statistics_counter_event (cfun,
+					  "Totally-scalarized aggregates", 1);
 		if (dump_file && (dump_flags & TDF_DETAILS))
 		  {
 		    fprintf (dump_file, "Will attempt to totally scalarize ");
