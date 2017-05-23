@@ -569,3 +569,6 @@ Target Undocumented Var(TARGET_ADDIUPC32) Init(0)
 mjumptable-density=
 Target RejectNegative Joined UInteger Var(mips_jumptable_density) Init(0)
 -mjumptable-density=DENSITY	Percentage of non default target labels.
+
+mjumptable-opt
+Target Undocumented Var(TARGET_JUMPTABLE_OPT) Init(0)
