@@ -1454,6 +1454,7 @@ OBJS = \
 	sel-sched.o \
 	selftest-rtl.o \
 	selftest-run-tests.o \
+	server.o \
 	sese.o \
 	shrink-wrap.o \
 	simplify-rtx.o \
