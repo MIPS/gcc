@@ -483,7 +483,7 @@ static void reg_dead_at_p_1 (rtx, const_rtx, void *);
 static int reg_dead_at_p (rtx, rtx_insn *);
 static void move_deaths (rtx, rtx, int, rtx_insn *, rtx *);
 static int reg_bitfield_target_p (rtx, rtx);
-static void distribute_notes (rtx, rtx_insn *, rtx, rtx_insn *, rtx_insn *, rtx, rtx, rtx);
+static void distribute_notes (rtx, rtx_insn *, rtx_insn *, rtx_insn *, rtx, rtx, rtx);
 static void distribute_links (struct insn_link *);
 static void mark_used_regs_combine (rtx);
 static void record_promoted_value (rtx_insn *, rtx);
@@ -4170,7 +4170,7 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 	    remove_note (undobuf.other_insn, note);
 	}
 
-      distribute_notes  (new_other_notes, undobuf.other_insn, NULL_RTX,
+      distribute_notes  (new_other_notes, undobuf.other_insn,
 			undobuf.other_insn, NULL, NULL_RTX, NULL_RTX,
 			NULL_RTX);
     }
@@ -4424,19 +4424,19 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
 
     /* Distribute all the LOG_LINKS and REG_NOTES from I1, I2, and I3.  */
     if (i3notes)
-      distribute_notes (i3notes, i3, NULL_RTX, i3, newi2pat ? i2 : NULL,
+      distribute_notes (i3notes, i3, i3, newi2pat ? i2 : NULL,
 			elim_i2, elim_i1, elim_i0);
     if (i2notes)
-      distribute_notes (i2notes, i2, i2dest, i3, newi2pat ? i2 : NULL,
+      distribute_notes (i2notes, i2, i3, newi2pat ? i2 : NULL,
 			elim_i2, elim_i1, elim_i0);
     if (i1notes)
-      distribute_notes (i1notes, i1, i1dest, i3, newi2pat ? i2 : NULL,
+      distribute_notes (i1notes, i1, i3, newi2pat ? i2 : NULL,
 			elim_i2, local_elim_i1, local_elim_i0);
     if (i0notes)
-      distribute_notes (i0notes, i0, i0dest, i3, newi2pat ? i2 : NULL,
+      distribute_notes (i0notes, i0, i3, newi2pat ? i2 : NULL,
 			elim_i2, elim_i1, local_elim_i0);
     if (midnotes)
-      distribute_notes (midnotes, NULL, NULL_RTX, i3, newi2pat ? i2 : NULL,
+      distribute_notes (midnotes, NULL, i3, newi2pat ? i2 : NULL,
 			elim_i2, elim_i1, elim_i0);
 
     /* Distribute any notes added to I2 or I3 by recog_for_combine.  We
@@ -4444,12 +4444,12 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
        so we always pass it as i3.  */
 
     if (newi2pat && new_i2_notes)
-      distribute_notes (new_i2_notes, i2, NULL_RTX, i2, NULL,
-			NULL_RTX, NULL_RTX, NULL_RTX);
+      distribute_notes (new_i2_notes, i2, i2, NULL, NULL_RTX, NULL_RTX,
+			NULL_RTX);
 
     if (new_i3_notes)
-      distribute_notes (new_i3_notes, i3, NULL_RTX, i3, NULL,
-			NULL_RTX, NULL_RTX, NULL_RTX);
+      distribute_notes (new_i3_notes, i3, i3, NULL, NULL_RTX, NULL_RTX,
+			NULL_RTX);
 
     /* If I3DEST was used in I3SRC, it really died in I3.  We may need to
        put a REG_DEAD note for it somewhere.  If NEWI2PAT exists and sets
@@ -4462,10 +4462,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       {
 	rtx new_note = alloc_reg_note (REG_DEAD, i3dest_killed, NULL_RTX);
 	if (newi2pat && reg_set_p (i3dest_killed, newi2pat))
-	  distribute_notes (new_note, NULL, NULL_RTX, i2, NULL, elim_i2,
+	  distribute_notes (new_note, NULL, i2, NULL, elim_i2,
 			    elim_i1, elim_i0);
 	else
-	  distribute_notes (new_note, NULL, NULL_RTX, i3, newi2pat ? i2 : NULL,
+	  distribute_notes (new_note, NULL, i3, newi2pat ? i2 : NULL,
 			    elim_i2, elim_i1, elim_i0);
       }
 
@@ -4473,10 +4473,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       {
 	rtx new_note = alloc_reg_note (REG_DEAD, i2dest, NULL_RTX);
 	if (newi2pat && reg_set_p (i2dest, newi2pat))
-	  distribute_notes (new_note,  NULL, NULL_RTX, i2, NULL, NULL_RTX,
+	  distribute_notes (new_note,  NULL, i2, NULL, NULL_RTX,
 			    NULL_RTX, NULL_RTX);
 	else
-	  distribute_notes (new_note, NULL, NULL_RTX, i3, newi2pat ? i2 : NULL,
+	  distribute_notes (new_note, NULL, i3, newi2pat ? i2 : NULL,
 			    NULL_RTX, NULL_RTX, NULL_RTX);
       }
 
@@ -4484,10 +4484,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       {
 	rtx new_note = alloc_reg_note (REG_DEAD, i1dest, NULL_RTX);
 	if (newi2pat && reg_set_p (i1dest, newi2pat))
-	  distribute_notes (new_note, NULL, NULL_RTX, i2, NULL, NULL_RTX,
+	  distribute_notes (new_note, NULL, i2, NULL, NULL_RTX,
 			    NULL_RTX, NULL_RTX);
 	else
-	  distribute_notes (new_note, NULL, NULL_RTX, i3, newi2pat ? i2 : NULL,
+	  distribute_notes (new_note, NULL, i3, newi2pat ? i2 : NULL,
 			    NULL_RTX, NULL_RTX, NULL_RTX);
       }
 
@@ -4495,10 +4495,10 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
       {
 	rtx new_note = alloc_reg_note (REG_DEAD, i0dest, NULL_RTX);
 	if (newi2pat && reg_set_p (i0dest, newi2pat))
-	  distribute_notes (new_note, NULL, NULL_RTX, i2, NULL, NULL_RTX,
+	  distribute_notes (new_note, NULL, i2, NULL, NULL_RTX,
 			    NULL_RTX, NULL_RTX);
 	else
-	  distribute_notes (new_note, NULL, NULL_RTX, i3, newi2pat ? i2 : NULL,
+	  distribute_notes (new_note, NULL, i3, newi2pat ? i2 : NULL,
 			    NULL_RTX, NULL_RTX, NULL_RTX);
       }
 
@@ -13938,11 +13938,9 @@ reg_bitfield_target_p (rtx x, rtx body)
   return 0;
 }
 
-/* Given a chain of REG_NOTES originally from FROM_INSN, try to place
-   them as appropriate.  IDEST is the dest in FROM_INSN used for
-   substitution (other dests in it are just dropped on the floor).  I3
-   and I2 are the insns resulting from the combination insns including
-   FROM (I2 may be zero).
+/* Given a chain of REG_NOTES originally from FROM_INSN, try to place them
+   as appropriate.  I3 and I2 are the insns resulting from the combination
+   insns including FROM (I2 may be zero).
 
    ELIM_I2 and ELIM_I1 are either zero or registers that we know will
    not need REG_DEAD notes because they are being substituted for.  This
@@ -13952,8 +13950,7 @@ reg_bitfield_target_p (rtx x, rtx body)
    on the type of note.  */
 
 static void
-distribute_notes (rtx notes, rtx_insn *from_insn, rtx idest,
-		  rtx_insn *i3, rtx_insn *i2,
+distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 		  rtx elim_i2, rtx elim_i1, rtx elim_i0)
 {
   rtx note, next_note;
@@ -14090,26 +14087,6 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx idest,
 	      PUT_REG_NOTE_KIND (note, REG_DEAD);
 	      place = i3;
 	    }
-
-	  /* If there were any parallel sets in FROM_INSN other than
-	     the one setting IDEST, it must be REG_UNUSED, otherwise
-	     we could not have used FROM_INSN in combine.  Since this
-	     combine attempt succeeded, we know this unused SET was
-	     dropped on the floor, because the insn was either deleted
-	     or created from a new pattern that does not use its
-	     SET_DEST.  We must forget whatever we knew about the
-	     value that was stored by that SET, since the prior value
-	     may still be present in IDEST's src expression or
-	     elsewhere, and we do not want to use properties of the
-	     dropped value as if they applied to the prior one when
-	     simplifying e.g. subsequent combine attempts.  */
-	  if (idest && XEXP (note, 0) != idest)
-	    {
-	      gcc_assert (REG_P (XEXP (note, 0)));
-	      record_value_for_reg (XEXP (note, 0), NULL, NULL_RTX);
-	      INC_REG_N_SETS (REGNO (XEXP (note, 0)), -1);
-	    }
-
 	  break;
 
 	case REG_EQUAL:
@@ -14318,8 +14295,7 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx idest,
 			  PATTERN (tem_insn) = pc_rtx;
 			  REG_NOTES (tem_insn) = NULL;
 
-			  distribute_notes (old_notes, tem_insn, NULL_RTX,
-					    tem_insn, NULL,
+			  distribute_notes (old_notes, tem_insn, tem_insn, NULL,
 					    NULL_RTX, NULL_RTX, NULL_RTX);
 			  distribute_links (LOG_LINKS (tem_insn));
 
@@ -14340,7 +14316,7 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx idest,
 			      REG_NOTES (cc0_setter) = NULL;
 
 			      distribute_notes (old_notes, cc0_setter,
-						NULL_RTX, cc0_setter, NULL,
+						cc0_setter, NULL,
 						NULL_RTX, NULL_RTX, NULL_RTX);
 			      distribute_links (LOG_LINKS (cc0_setter));
 
@@ -14461,9 +14437,9 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx idest,
 			      rtx new_note = alloc_reg_note (REG_DEAD, piece,
 							     NULL_RTX);
 
-			      distribute_notes (new_note, place, NULL_RTX,
-						place, NULL, NULL_RTX,
-						NULL_RTX, NULL_RTX);
+			      distribute_notes (new_note, place, place,
+						NULL, NULL_RTX, NULL_RTX,
+						NULL_RTX);
 			    }
 			  else if (! refers_to_regno_p (i, PATTERN (place))
 				   && ! find_regno_fusage (place, USE, i))
