@@ -1371,6 +1371,7 @@ OBJS = \
 	ira-emit.o \
 	ira-lives.o \
 	json.o \
+	json-rpc.o \
 	jump.o \
 	langhooks.o \
 	lcm.o \
