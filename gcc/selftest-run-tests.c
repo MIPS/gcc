@@ -67,6 +67,7 @@ selftest::run_tests ()
   fibonacci_heap_c_tests ();
   typed_splay_tree_c_tests ();
   blt_c_tests ();
+  json_c_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();
