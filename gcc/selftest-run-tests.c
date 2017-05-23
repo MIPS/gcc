@@ -70,6 +70,7 @@ selftest::run_tests ()
   json_c_tests ();
   http_server_c_tests ();
   json_rpc_c_tests ();
+  lsp_c_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();
