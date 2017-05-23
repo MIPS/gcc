@@ -80,6 +80,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hsa-common.h"
 #include "edit-context.h"
 #include "tree-pass.h"
+#include "lsp-main.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -469,6 +470,9 @@ compile_file (void)
 
   timevar_pop (TV_PARSE_GLOBAL);
   timevar_stop (TV_PHASE_PARSING);
+
+  if (flag_lsp != -1)
+    serve_lsp (flag_lsp);
 
   if (flag_dump_locations)
     dump_location_info (stderr);
