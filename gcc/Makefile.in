@@ -1332,6 +1332,7 @@ OBJS = \
 	hsa-regalloc.o \
 	hsa-brig.o \
 	hsa-dump.o \
+	http-server.o \
 	hw-doloop.o \
 	hwint.o \
 	ifcvt.o \
