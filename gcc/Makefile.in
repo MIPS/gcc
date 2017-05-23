@@ -1383,6 +1383,7 @@ OBJS = \
 	loop-unroll.o \
 	lower-subreg.o \
 	lsp.o \
+	lsp-main.o \
 	lra.o \
 	lra-assigns.o \
 	lra-coalesce.o \

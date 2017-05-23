@@ -1746,6 +1746,10 @@ flra-remat
 Common Report Var(flag_lra_remat) Optimization
 Do CFG-sensitive rematerialization in LRA.
 
+flsp=
+Common Joined RejectNegative UInteger Var(flag_lsp) Init(-1)
+-flsp=<port-number>	Serve the Language Server Protocol on the given port.
+
 flto
 Common
 Enable link-time optimization.
