@@ -23380,6 +23380,36 @@ nanomips_restore_jrc_opt ()
     }
 }
 
+/* If TARGET_NANOMIPS_JUMPTABLE_OPT, which outputs a offset difference
+   jumptable:
+   Output an anchor label in the text section which will act as base for
+   ADDR_DIFF_VEC while the actual jumptable label would be output in rodata.  */
+
+static void
+nanomips_emit_label_anchor_before_jumptable ()
+{
+  rtx_insn *insn, *next, *label_insn;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      if (!LABEL_P (insn))
+	continue;
+
+      next = next_nonnote_insn (insn);
+      if (! next || ! JUMP_TABLE_DATA_P (next)
+	  || GET_CODE (PATTERN (next)) != ADDR_DIFF_VEC)
+	continue;
+
+      rtx label = gen_label_rtx ();
+
+      label_insn = safe_as_a <rtx_insn *> (XEXP (XEXP (PATTERN (next), 0), 0));
+      gcc_assert (CODE_LABEL_NUMBER (label_insn) == CODE_LABEL_NUMBER (insn));
+
+      XEXP (PATTERN (next), 0) = gen_rtx_LABEL_REF (Pmode, label);
+      emit_label_before (label, insn);
+    }
+}
+
 /* Implement TARGET_MACHINE_DEPENDENT_REORG.  */
 
 static void
@@ -23405,6 +23435,9 @@ mips_reorg (void)
 
   if (ISA_HAS_RESTORE_JRC && TARGET_RESTORE_JRC)
     nanomips_restore_jrc_opt ();
+
+  if (TARGET_NANOMIPS_JUMPTABLE_OPT)
+    nanomips_emit_label_anchor_before_jumptable ();
 }
 
 /* We use a machine specific pass to do a second machine dependent reorg
