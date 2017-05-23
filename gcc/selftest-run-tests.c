@@ -69,6 +69,7 @@ selftest::run_tests ()
   blt_cc_tests ();
   json_cc_tests ();
   http_server_cc_tests ();
+  json_rpc_cc_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();

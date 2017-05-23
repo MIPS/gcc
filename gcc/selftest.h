@@ -186,6 +186,7 @@ extern void hash_set_tests_c_tests ();
 extern void http_server_cc_tests ();
 extern void input_c_tests ();
 extern void json_cc_tests ();
+extern void json_rpc_cc_tests ();
 extern void pretty_print_c_tests ();
 extern void read_rtl_function_c_tests ();
 extern void rtl_tests_c_tests ();
