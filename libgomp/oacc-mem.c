@@ -654,12 +654,20 @@ acc_create_async (void *h, size_t s, int async)
   present_create_copy (FLAG_PRESENT | FLAG_CREATE, h, s, async);
 }
 
+/* acc_present_or_create used to be what acc_create is now.  */
+/* acc_pcreate is acc_present_or_create by a different name.  */
 #ifdef HAVE_ATTRIBUTE_ALIAS
-extern void *acc_present_or_create (void *, size_t)
-  __attribute__((alias ("acc_create")));
+strong_alias (acc_create, acc_present_or_create)
+strong_alias (acc_create, acc_pcreate)
 #else
 void *
 acc_present_or_create (void *h, size_t s)
+{
+  return acc_create (h, s);
+}
+
+void *
+acc_pcreate (void *h, size_t s)
 {
   return acc_create (h, s);
 }
@@ -678,12 +686,20 @@ acc_copyin_async (void *h, size_t s, int async)
   present_create_copy (FLAG_PRESENT | FLAG_CREATE | FLAG_COPY, h, s, async);
 }
 
+/* acc_present_or_copyin used to be what acc_copyin is now.  */
+/* acc_pcopyin is acc_present_or_copyin by a different name.  */
 #ifdef HAVE_ATTRIBUTE_ALIAS
-extern void *acc_present_or_copyin (void *, size_t)
-  __attribute__((alias ("acc_copyin")));
+strong_alias (acc_copyin, acc_present_or_copyin)
+strong_alias (acc_copyin, acc_pcopyin)
 #else
 void *
 acc_present_or_copyin (void *h, size_t s)
+{
+  return acc_copyin (h, s);
+}
+
+void *
+acc_pcopyin (void *h, size_t s)
 {
   return acc_copyin (h, s);
 }
