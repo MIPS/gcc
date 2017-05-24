@@ -1,3 +1,8 @@
+2017-05-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_get_num_devices): Debugging output
+	when disabling nvptx offloading.
+
 2017-07-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/lib-16.c: Update.
