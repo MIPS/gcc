@@ -22806,12 +22806,14 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2)
     return NULL;
 
   if (! reg_used_between_p (dest2, move1, move2)
-      && ! reg_set_between_p (src2, move1, move2))
+      && ! reg_set_between_p (src2, move1, move2)
+      && ! reg_set_between_p (dest2, move1, move2))
     /* (1) and (2): Emit movep at MOVE1.  */
     return move1;
 
   if (! reg_used_between_p (dest1, move1, move2)
-      && ! reg_set_between_p (src1, move1, move2))
+      && ! reg_set_between_p (src1, move1, move2)
+      && ! reg_set_between_p (dest1, move1, move2))
     /* (3): Emit movep at MOVE2.  */
     return move2;
 
@@ -22830,13 +22832,15 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2)
 
       if (!move1_use
 	  && (reg_set_p (src1, insn)
-	      || reg_overlap_mentioned_p (dest1, PATTERN (insn))))
+	      || reg_overlap_mentioned_p (dest1, PATTERN (insn)))
+	      || reg_set_p (dest1, insn))
 	{
 	  move1_use = insn;
 	  move1_pp = curr_pp;
 	}
       if (reg_set_p (src2, insn)
-	  || reg_overlap_mentioned_p (dest2, PATTERN (insn)))
+	  || reg_overlap_mentioned_p (dest2, PATTERN (insn))
+	  || reg_set_p (dest2, insn))
 	{
 	  move2_use = insn;
 	  move2_pp = curr_pp;
