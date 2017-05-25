@@ -433,8 +433,7 @@ mips*-*-*)
 	;;
 nanomips*-*-*)
 	cpu_type=mips
-	extra_objs="frame-header-opt.o"
-	extra_options="${extra_options} g.opt mips/mips-tables.opt"
+	extra_options="${extra_options} g.opt mips/nanomips-tables.opt"
 	;;
 nds32*)
 	cpu_type=nds32
@@ -2285,9 +2284,11 @@ msp430*-*-*)
 nanomips*-img-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/nanomips.h"
 	tmake_file="mips/t-nanomips-multi"
-	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37 MIPS_ABI_DEFAULT=ABI_P32"
-	with_arch_32="mips32r6"
-	with_arch_64="mips64r6"
+	md_file=mips/nanomips.md
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=38 MIPS_ABI_DEFAULT=ABI_P32"
+	extra_options="${extra_options} mips/nanomips.opt"
+	with_arch_32="32r6"
+	with_arch_64="64r6"
 	with_nanomips="yes"
 	TM_MULTILIB_EXCEPTIONS_CONFIG="*mglibc* *muclibc* *mandroid*"
 	;;
@@ -4571,14 +4572,14 @@ case ${target} in
 			default_mips_abi=$with_abi
 		fi
 		case ${default_mips_arch} in
-		    mips32r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=37" ;;
-		    mips64r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=69" ;;
+		    32r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=38" ;;
+		    64r6) tm_defines="$tm_defines MIPS_ISA_DEFAULT=70" ;;
 		esac
 		case ${default_mips_abi} in
 		    p32)  tm_defines="$tm_defines MIPS_ABI_DEFAULT=ABI_P32" ;;
 		    p64)  tm_defines="$tm_defines MIPS_ABI_DEFAULT=ABI_P64" ;;
 		esac
-		tmake_file="mips/t-mips $tmake_file"
+		tmake_file="mips/t-nanomips $tmake_file"
 		;;
 
 	powerpc*-*-* | rs6000-*-*)

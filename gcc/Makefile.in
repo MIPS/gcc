@@ -2853,7 +2853,7 @@ s-fixinc_list : $(GCC_PASSES)
 	    multi_dir=`echo $${ml} | sed -e 's/;.*$$//'`; \
 	    flags=`echo $${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`; \
 	    case "$(target)" in \
-	    mips*-*-*) \
+	    mips*-*-* | nanomips*-*-*) \
 	      if [ x$(with_multi_buildlist) != x ]; then \
 		if [ ! -f $(with_multi_buildlist) ]; then \
 		  echo "fixinc_list: Failed to find $(with_multi_buildlist)"; \
