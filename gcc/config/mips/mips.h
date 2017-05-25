@@ -1484,7 +1484,6 @@ struct mips_cpu_info {
 #undef ASM_SPEC
 #define ASM_SPEC "\
 %{G*} %(endian_spec) %{mips1} %{mips2} %{mips3} %{mips4} \
-%{mips32*} %{mips64*} \
 %{mips16} %{mno-mips16:-no-mips16} \
 %{mmicromips} %{mno-micromips} \
 %{mnanomips} %{mno-nanomips} \
@@ -1508,7 +1507,7 @@ struct mips_cpu_info {
 %{noasmopt:-O0; O0|fno-delayed-branch:-O1; O*:-O2; :-O1} \
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi=*: %(asm_abi_default_spec)} \
-%{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
+%{mgp32} %{mgp64} %{mxgot:-xgot} \
 %{mfp32} %{mfpxx} %{mfp64} %{mnan=*} \
 %{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
