@@ -6448,7 +6448,7 @@
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  if (TARGET_MICROMIPS_R6)
+  if (ISA_HAS_COMPACT_BRANCHES == 2)
     return mips_output_conditional_branch (insn, operands,
 					   MIPS_BRANCH_C ("b%F1", "%Z2%0"),
 					   MIPS_BRANCH_C ("b%W1", "%Z2%0"));
@@ -6459,9 +6459,10 @@
 }
   [(set_attr "type" "branch")
    (set_attr "cbranch_cmp_op" "c1zero")
-   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
-					    (const_string "always")
-					    (const_string "never")))
+   (set (attr "compact_form") (if_then_else
+				(match_test "ISA_HAS_COMPACT_BRANCHES == 2")
+				(const_string "always")
+				(const_string "never")))
    (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
 				      (const_string "forbidden_slot")
 				      (const_string "none")))])
@@ -6476,7 +6477,7 @@
          (label_ref (match_operand 0 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  if (TARGET_MICROMIPS_R6)
+  if (ISA_HAS_COMPACT_BRANCHES == 2)
     return mips_output_conditional_branch (insn, operands,
 					   MIPS_BRANCH_C ("b%W1", "%Z2%0"),
 					   MIPS_BRANCH_C ("b%F1", "%Z2%0"));
@@ -6487,9 +6488,10 @@
 }
   [(set_attr "type" "branch")
    (set_attr "cbranch_cmp_op" "c1zero")
-   (set (attr "compact_form") (if_then_else (match_test "TARGET_MICROMIPS_R6")
-					    (const_string "always")
-					    (const_string "never")))
+   (set (attr "compact_form") (if_then_else
+				(match_test "ISA_HAS_COMPACT_BRANCHES == 2")
+				(const_string "always")
+				(const_string "never")))
    (set (attr "hazard") (if_then_else (match_test "TARGET_MICROMIPS_R6")
 				      (const_string "forbidden_slot")
 				      (const_string "none")))])
