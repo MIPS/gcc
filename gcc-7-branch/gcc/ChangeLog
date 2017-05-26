@@ -1,3 +1,232 @@
+2017-05-26  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2017-05-26  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/80875
+	* fold-const.c (fold_binary_loc) <case MULT_EXPR>: Check if OP1
+	can be negated.
+
+2017-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2017-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/80809
+	* omp-low.c (finish_taskreg_remap): New function.
+	(finish_taskreg_scan): If unit size of ctx->record_type
+	is non-constant, unshare the size expression and replace
+	decls in it with possible outer var refs.
+
+	PR middle-end/80809
+	* gimplify.c (omp_add_variable): For GOVD_DEBUG_PRIVATE use
+	GOVD_SHARED rather than GOVD_PRIVATE with it.
+	(gimplify_adjust_omp_clauses_1, gimplify_adjust_omp_clauses): Expect
+	GOVD_SHARED rather than GOVD_PRIVATE with GOVD_DEBUG_PRIVATE.
+
+	PR middle-end/80853
+	* omp-low.c (lower_reduction_clauses): Pass OMP_CLAUSE_PRIVATE
+	as last argument to build_outer_var_ref for pointer bases of array
+	section reductions.
+
+2017-05-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2017-05-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/80510
+	* config/rs6000/predicates.md (simple_offsettable_mem_operand):
+	New predicate.
+
+	* config/rs6000/rs6000.md (ALTIVEC_DFORM): New iterator.
+	(define_peephole2 for Altivec d-form load): Add peepholes to catch
+	cases where the register allocator uses a move and an offsettable
+	memory operation to/from a FPR register on ISA 2.06/2.07.
+	(define_peephole2 for Altivec d-form store): Likewise.
+
+	Backport from trunk
+	2017-05-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/68163
+	* config/rs6000/rs6000.md (f32_lr): Delete mode attributes that
+	are now unused after splitting mov{sf,sd}_hardfloat.
+	(f32_lr2): Likewise.
+	(f32_lm): Likewise.
+	(f32_lm2): Likewise.
+	(f32_li): Likewise.
+	(f32_li2): Likewise.
+	(f32_lv): Likewise.
+	(f32_sr): Likewise.
+	(f32_sr2): Likewise.
+	(f32_sm): Likewise.
+	(f32_sm2): Likewise.
+	(f32_si): Likewise.
+	(f32_si2): Likewise.
+	(f32_sv): Likewise.
+	(f32_dm): Likewise.
+	(f32_vsx): Likewise.
+	(f32_av): Likewise.
+	(mov<mode>_hardfloat): Split into separate movsf and movsd pieces.
+	For movsf, order stores so the VSX stores occur before the GPR
+	store which encourages the register allocator to use a traditional
+	FPR instead of a GPR.  For movsd, order the stores so that the GPR
+	store comes before the VSX stores to allow the power6 to work.
+	This is due to the power6 not having a 32-bit integer store
+	instruction from a FPR.
+	(movsf_hardfloat): Likewise.
+	(movsd_hardfloat): Likewise.
+
+2017-05-25  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	Backport from mainlin
+	PR rtl-optimization/80754
+	* lra-remat.c (do_remat): Add overlap checks for dst_regno.
+
+2017-05-25  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	Backport from mainline
+	PR target/80671
+	* config/aarch64/cortex-a57-fma-steering.c (merge_forest):
+	Move member access before delete.
+
+2017-05-23  Sheldon Lobo  <sheldon.lobo@oracle.com>
+
+	Backport from mainline
+	2017-05-18  Sheldon Lobo  <sheldon.lobo@oracle.com>
+
+	* config/sparc/sparc.c (sparc_option_override): Set function
+	alignment for -mcpu=niagara7 to 64 to match the I$ line.
+	* config/sparc/sparc.h (BRANCH_COST): Set the SPARC M7 branch
+	latency to 1.
+	* config/sparc/sparc.h (BRANCH_COST): Set the SPARC T4 branch
+	latency to 2.
+	* config/sparc/sol2.h: Fix a ASM_CPU32_DEFAULT_SPEC typo.
+
+2017-05-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2017-05-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/80799
+	* config/i386/mmx.md (*mov<mode>_internal): Enable
+	alternatives 11, 12, 13 and 14 also for 32bit targets.
+	Remove alternatives 15, 16, 17 and 18.
+	* config/i386/sse.md (vec_concatv2di): Change
+	alternative (!x, *y) to (x, ?!*Yn).
+
+2017-05-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2017-05-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/80706
+	* config/i386/sync.md (UNSPEC_LDX_ATOMIC): New unspec.
+	(UNSPEC_STX_ATOMIC): Ditto.
+	(loaddi_via_sse): New insn.
+	(storedi_via_sse): Ditto.
+	(atomic_loaddi_fpu): Emit loaddi_via_sse and storedi_via_sse.
+	Update corresponding peephole2 patterns.
+	(atomic_storedi_fpu): Ditto.
+
+2017-05-13  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-05-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_vect_nonmem): New static var.
+	(rs6000_init_cost): Initialize rs6000_vect_nonmem.
+	(rs6000_add_stmt_cost): Update rs6000_vect_nonmem.
+	(rs6000_finish_cost): Avoid vectorizing simple copy loops with
+	VF=2 that require versioning.
+
+2017-05-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2017-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_init_builtins): Define POWER8
+	built-ins for vec_xl and vec_xst with short and char pointer
+	arguments.
+
+2017-05-10  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/80090
+	* config/pa/pa.c (pa_assemble_integer): When outputting a SYMBOL_REF,
+	handle calling assemble_external ourself.
+
+	PR target/79027
+	* config/pa/pa.c (pa_cannot_change_mode_class): Reject changes to/from
+	modes with zero size.  Enhance comment.
+
+2017-05-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2017-05-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/79038
+	PR target/79202
+	PR target/79203
+	* config/rs6000/rs6000.md (u code attribute): Add FIX and
+	UNSIGNED_FIX.
+	(extendsi<mode>2): Add support for doing sign extension via
+	VUPKHSW and XXPERMDI if the value is in Altivec registers and we
+	don't have ISA 3.0 instructions.
+	(extendsi<mode>2 splitter): Likewise.
+	(fix_trunc<mode>si2): If we are at ISA 2.07 (VSX small integer),
+	generate the normal insns since SImode can now go in vector
+	registers.  Disallow the special UNSPECs needed for previous
+	machines to hide SImode being used.  Add new insns
+	fctiw{,w}_<mode>_smallint if SImode can go in vector registers.
+	(fix_trunc<mode>si2_stfiwx): Likewise.
+	(fix_trunc<mode>si2_internal): Likewise.
+	(fixuns_trunc<mode>si2): Likewise.
+	(fixuns_trunc<mode>si2_stfiwx): Likewise.
+	(fctiw<u>z_<mode>_smallint): Likewise.
+	(fctiw<u>z_<mode>_mem): New combiner pattern to prevent conversion
+	of floating point to 32-bit integer from doing a direct move to
+	the GPR registers to do a store.
+	(fctiwz_<mode>): Break long line.
+
+2017-05-08  Tamar Christina  <tamar.christina@arm.com>
+
+	PR middle-end/79665
+	* expr.c (expand_expr_real_2): Move TRUNC_MOD_EXPR, FLOOR_MOD_EXPR,
+	CEIL_MOD_EXPR, ROUND_MOD_EXPR cases.
+
+2017-05-03  Jan Beulich  <jbeulich@suse.com>
+
+	Backport from mainline
+	2017-05-01  Jan Beulich  <jbeulich@suse.com>
+
+	* config/i386/sse.md (xop_vpermil2<mode>3): Do not allow operand
+	swapping, add (x,x,m,x,n) alternative.
+
+2017-05-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2017-04-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80453
+	* tree-ssa-sccvn.h (struct vn_phi_s): Add cclhs and ccrhs members.
+	* tree-ssa-sccvn.c (cond_stmts_equal_p): Use recorded lhs and rhs
+	from the conditions.
+	(vn_phi_eq): Pass them down.
+	(vn_phi_lookup): Record them.
+	(vn_phi_insert): Likewise.
+
+	2017-04-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/80492
+	* alias.c (compare_base_decls): Handle registers with asm
+	specification conservatively.
+
+	2017-04-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/80539
+	* tree-chrec.c (chrec_fold_plus_poly_poly): Deal with not
+	being in loop-closed SSA form conservatively.
+	(chrec_fold_multiply_poly_poly): Likewise.
+
 2017-05-02  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline
