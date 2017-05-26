@@ -22832,8 +22832,8 @@ get_movep_insn_location (rtx_insn *move1, rtx_insn *move2)
 
       if (!move1_use
 	  && (reg_set_p (src1, insn)
-	      || reg_overlap_mentioned_p (dest1, PATTERN (insn)))
-	      || reg_set_p (dest1, insn))
+	      || reg_overlap_mentioned_p (dest1, PATTERN (insn))
+	      || reg_set_p (dest1, insn)))
 	{
 	  move1_use = insn;
 	  move1_pp = curr_pp;
