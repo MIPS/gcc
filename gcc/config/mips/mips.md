@@ -6118,7 +6118,7 @@
   if (TARGET_NANOMIPS)
     return "%(%<aluipc\t%0,%%pcrel_hi(1f)\n"
 	      "\t<d>addiu\t%0,%0,%%lo(1f)\n"
-	      "\tjr.hb\t%0\n"
+	      "\tjrc.hb\t%0\n"
 	      "1:%>%)";
   else
     return "%(%<auipc\t%0,%%pcrel_hi(1f)\n"
