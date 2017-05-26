@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                     Copyright (C) 2008-2015, AdaCore                     *
+ *                     Copyright (C) 2008-2016, AdaCore                     *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -32,7 +32,7 @@
 /* First all usupported platforms. Add stubs for exported routines. */
 
 #if defined (VMS) || defined (__vxworks) || defined (__Lynx__) \
-  || defined (__ANDROID__) || defined (__PikeOS__)
+  || defined (__ANDROID__) || defined (__PikeOS__) || defined(__DJGPP__)
 
 #define ATTRIBUTE_UNUSED __attribute__((unused))
 
@@ -85,6 +85,12 @@ __gnat_setup_child_communication (void *d ATTRIBUTE_UNUSED,
 
 int
 __gnat_terminate_process (void *desc ATTRIBUTE_UNUSED)
+{
+  return -1;
+}
+
+int
+__gnat_terminate_pid (int pid ATTRIBUTE_UNUSED)
 {
   return -1;
 }
@@ -289,34 +295,27 @@ is_gui_app (char *exe)
     {
     case IMAGE_SUBSYSTEM_UNKNOWN:
         return 1;
-        break;
 
     case IMAGE_SUBSYSTEM_NATIVE:
         return 1;
-        break;
 
     case IMAGE_SUBSYSTEM_WINDOWS_GUI:
         return 1;
-        break;
 
     case IMAGE_SUBSYSTEM_WINDOWS_CUI:
         return 0;
-        break;
 
     case IMAGE_SUBSYSTEM_OS2_CUI:
         return 0;
-        break;
 
     case IMAGE_SUBSYSTEM_POSIX_CUI:
         return 0;
-        break;
 
     default:
         /* Unknown, return GUI app to be preservative: if yes, it will be
            correctly launched, if no, it will be launched, and a console will
            be also displayed, which is not a big deal */
         return 1;
-        break;
     }
 
 }
@@ -969,6 +968,47 @@ __gnat_terminate_process (struct TTY_Process* p)
     return 0;
 }
 
+typedef struct {
+  DWORD dwProcessId;
+  HANDLE hwnd;
+} pid_struct;
+
+static BOOL CALLBACK
+find_process_handle (HWND hwnd, pid_struct * ps)
+{
+  DWORD thread_id;
+  DWORD process_id;
+
+  thread_id = GetWindowThreadProcessId (hwnd, &process_id);
+  if (process_id == ps->dwProcessId)
+    {
+      ps->hwnd = hwnd;
+      return FALSE;
+    }
+  /* keep looking */
+  return TRUE;
+}
+
+int
+__gnat_terminate_pid (int pid)
+{
+  pid_struct ps;
+
+  ps.dwProcessId = pid;
+  ps.hwnd = 0;
+  EnumWindows ((WNDENUMPROC) find_process_handle, (LPARAM) &ps);
+
+  if (ps.hwnd)
+    {
+      if (!TerminateProcess (ps.hwnd, 1))
+	return -1;
+      else
+	return 0;
+    }
+
+  return -1;
+}
+
 /* wait for process pid to terminate and return the process status. This
    implementation is different from the adaint.c one for Windows as it uses
    the Win32 API instead of the C one. */
@@ -1417,7 +1457,8 @@ __gnat_setup_child_communication
 
 #ifdef TIOCSCTTY
   /* make the tty the controlling terminal */
-  status = ioctl (desc->slave_fd, TIOCSCTTY, 0);
+  if ((status = ioctl (desc->slave_fd, TIOCSCTTY, 0)) == -1)
+    return -1;
 #endif
 
   /* adjust tty settings */
@@ -1431,8 +1472,10 @@ __gnat_setup_child_communication
   if (desc->slave_fd > 2) close (desc->slave_fd);
 
   /* adjust process group settings */
-  status = setpgid (pid, pid);
-  status = tcsetpgrp (0, pid);
+  /* ignore failures of the following two commands as the context might not
+   * allow making those changes. */
+  setpgid (pid, pid);
+  tcsetpgrp (0, pid);
 
   /* launch the program */
   execvp (new_argv[0], new_argv);
@@ -1504,6 +1547,17 @@ int __gnat_terminate_process (pty_desc *desc)
   return kill (desc->child_pid, SIGKILL);
 }
 
+/* __gnat_terminate_pid - kill a process
+ *
+ * PARAMETERS
+ *   pid unix process id
+ */
+int
+__gnat_terminate_pid (int pid)
+{
+  return kill (pid, SIGKILL);
+}
+
 /* __gnat_tty_waitpid - wait for the child process to die
  *
  * PARAMETERS
@@ -1569,9 +1623,9 @@ pty_desc *
 __gnat_new_tty (void)
 {
   int status;
-  pty_desc* desc;
-  status = allocate_pty_desc (&desc);
-  child_setup_tty (desc->master_fd);
+  pty_desc* desc = NULL;
+  if ((status = allocate_pty_desc (&desc)))
+    child_setup_tty (desc->master_fd);
   return desc;
 }
 

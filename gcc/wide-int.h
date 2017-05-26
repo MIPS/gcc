@@ -1,5 +1,5 @@
 /* Operations with very long integers.  -*- C++ -*-
-   Copyright (C) 2012-2016 Free Software Foundation, Inc.
+   Copyright (C) 2012-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -158,10 +158,10 @@ along with GCC; see the file COPYING3.  If not see
    However, a little more syntax is required for rtl constants since
    they do not have an explicit precision.  To make an rtl into a
    wide_int, you have to pair it with a mode.  The canonical way to do
-   this is with std::make_pair as in:
+   this is with rtx_mode_t as in:
 
 	     rtx r = ...
-	     wide_int x = std::make_pair (r, mode);
+	     wide_int x = rtx_mode_t (r, mode);
 
    Similarly, a wide_int can only be constructed from a host value if
    the target precision is given explicitly, such as in:
@@ -1019,6 +1019,9 @@ public:
   HOST_WIDE_INT *write_val ();
   void set_len (unsigned int, bool = false);
 
+  template <typename T>
+  wide_int_storage &operator = (const T &);
+
   static wide_int from (const wide_int_ref &, unsigned int, signop);
   static wide_int from_array (const HOST_WIDE_INT *, unsigned int,
 			      unsigned int, bool = true);
@@ -1056,6 +1059,18 @@ inline wide_int_storage::wide_int_storage (const T &x)
   WIDE_INT_REF_FOR (T) xi (x);
   precision = xi.precision;
   wi::copy (*this, xi);
+}
+
+template <typename T>
+inline wide_int_storage&
+wide_int_storage::operator = (const T &x)
+{
+  { STATIC_ASSERT (!wi::int_traits<T>::host_dependent_precision); }
+  { STATIC_ASSERT (wi::int_traits<T>::precision_type != wi::CONST_PRECISION); }
+  WIDE_INT_REF_FOR (T) xi (x);
+  precision = xi.precision;
+  wi::copy (*this, xi);
+  return *this;
 }
 
 inline unsigned int

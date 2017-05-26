@@ -1,17 +1,17 @@
 # Makefile.am -- Backtrace Makefile.
-# Copyright (C) 2012-2016 Free Software Foundation, Inc.
+# Copyright (C) 2012-2017 Free Software Foundation, Inc.
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
 # met:
 
 #     (1) Redistributions of source code must retain the above copyright
-#     notice, this list of conditions and the following disclaimer. 
+#     notice, this list of conditions and the following disclaimer.
 
 #     (2) Redistributions in binary form must reproduce the above copyright
 #     notice, this list of conditions and the following disclaimer in
 #     the documentation and/or other materials provided with the
-#     distribution.  
+#     distribution.
 
 #     (3) The name of the author may not be used to
 #     endorse or promote products derived from this software without
@@ -99,6 +99,17 @@ stest_SOURCES = stest.c
 stest_LDADD = libbacktrace.la
 
 check_PROGRAMS += stest
+
+edtest_SOURCES = edtest.c edtest2_build.c
+edtest_LDADD = libbacktrace.la
+
+check_PROGRAMS += edtest
+
+edtest2_build.c: gen_edtest2_build; @true
+gen_edtest2_build: $(srcdir)/edtest2.c
+	cat $(srcdir)/edtest2.c > tmp-edtest2_build.c
+	$(SHELL) $(srcdir)/../move-if-change tmp-edtest2_build.c edtest2_build.c
+	echo timestamp > $@
 
 endif NATIVE
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -410,8 +410,7 @@ package body Inline is
 
       if not Comes_From_Source (N)
         and then In_Extended_Main_Source_Unit (N)
-        and then
-          Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (E)))
+        and then Is_Predefined_Unit (Get_Source_Unit (E))
       then
          Set_Needs_Debug_Info (E, False);
       end if;
@@ -668,57 +667,6 @@ package body Inline is
          Table_Name           => "Pending_Inlined");
       --  The workpile used to compute the transitive closure
 
-      function Is_Ancestor_Of_Main
-        (U_Name : Entity_Id;
-         Nam    : Node_Id) return Boolean;
-      --  Determine whether the unit whose body is loaded is an ancestor of
-      --  the main unit, and has a with_clause on it. The body is not
-      --  analyzed yet, so the check is purely lexical: the name of the with
-      --  clause is a selected component, and names of ancestors must match.
-
-      -------------------------
-      -- Is_Ancestor_Of_Main --
-      -------------------------
-
-      function Is_Ancestor_Of_Main
-        (U_Name : Entity_Id;
-         Nam    : Node_Id) return Boolean
-      is
-         Pref : Node_Id;
-
-      begin
-         if Nkind (Nam) /= N_Selected_Component then
-            return False;
-
-         else
-            if Chars (Selector_Name (Nam)) /=
-               Chars (Cunit_Entity (Main_Unit))
-            then
-               return False;
-            end if;
-
-            Pref := Prefix (Nam);
-            if Nkind (Pref) = N_Identifier then
-
-               --  Par is an ancestor of Par.Child.
-
-               return Chars (Pref) = Chars (U_Name);
-
-            elsif Nkind (Pref) = N_Selected_Component
-              and then Chars (Selector_Name (Pref)) = Chars (U_Name)
-            then
-               --  Par.Child is an ancestor of Par.Child.Grand.
-
-               return True;   --  should check that ancestor match
-
-            else
-               --  A is an ancestor of A.B.C if it is an ancestor of A.B
-
-               return Is_Ancestor_Of_Main (U_Name, Pref);
-            end if;
-         end if;
-      end Is_Ancestor_Of_Main;
-
    --  Start of processing for Analyze_Inlined_Bodies
 
    begin
@@ -744,14 +692,19 @@ package body Inline is
                Comp_Unit := Parent (Comp_Unit);
             end loop;
 
-            --  Load the body, unless it is the main unit, or is an instance
-            --  whose body has already been analyzed.
+            --  Load the body if it exists and contains inlineable entities,
+            --  unless it is the main unit, or is an instance whose body has
+            --  already been analyzed.
 
             if Present (Comp_Unit)
               and then Comp_Unit /= Cunit (Main_Unit)
               and then Body_Required (Comp_Unit)
-              and then (Nkind (Unit (Comp_Unit)) /= N_Package_Declaration
-                         or else No (Corresponding_Body (Unit (Comp_Unit))))
+              and then
+                (Nkind (Unit (Comp_Unit)) /= N_Package_Declaration
+                  or else
+                    (No (Corresponding_Body (Unit (Comp_Unit)))
+                      and then Body_Needed_For_Inlining
+                                 (Defining_Entity (Unit (Comp_Unit)))))
             then
                declare
                   Bname : constant Unit_Name_Type :=
@@ -762,7 +715,7 @@ package body Inline is
                begin
                   if not Is_Loaded (Bname) then
                      Style_Check := False;
-                     Load_Needed_Body (Comp_Unit, OK, Do_Analyze => False);
+                     Load_Needed_Body (Comp_Unit, OK);
 
                      if not OK then
 
@@ -776,43 +729,6 @@ package body Inline is
                         Error_Msg_File_1 :=
                           Get_File_Name (Bname, Subunit => False);
                         Error_Msg_N ("\but file{ was not found!??", Comp_Unit);
-
-                     else
-                        --  If the package to be inlined is an ancestor unit of
-                        --  the main unit, and it has a semantic dependence on
-                        --  it, the inlining cannot take place to prevent an
-                        --  elaboration circularity. The desired body is not
-                        --  analyzed yet, to prevent the completion of Taft
-                        --  amendment types that would lead to elaboration
-                        --  circularities in gigi.
-
-                        declare
-                           U_Id      : constant Entity_Id :=
-                                         Defining_Entity (Unit (Comp_Unit));
-                           Body_Unit : constant Node_Id :=
-                                         Library_Unit (Comp_Unit);
-                           Item      : Node_Id;
-
-                        begin
-                           Item := First (Context_Items (Body_Unit));
-                           while Present (Item) loop
-                              if Nkind (Item) = N_With_Clause
-                                and then
-                                  Is_Ancestor_Of_Main (U_Id, Name (Item))
-                              then
-                                 Set_Is_Inlined (U_Id, False);
-                                 exit;
-                              end if;
-
-                              Next (Item);
-                           end loop;
-
-                           --  If no suspicious with_clauses, analyze the body.
-
-                           if Is_Inlined (U_Id) then
-                              Semantics (Body_Unit);
-                           end if;
-                        end;
                      end if;
                   end if;
                end;
@@ -958,6 +874,7 @@ package body Inline is
       -----------------------------------------
 
       function Has_Single_Return_In_GNATprove_Mode return Boolean is
+         Body_To_Inline : constant Node_Id := N;
          Last_Statement : Node_Id := Empty;
 
          function Check_Return (N : Node_Id) return Traverse_Result;
@@ -970,18 +887,29 @@ package body Inline is
 
          function Check_Return (N : Node_Id) return Traverse_Result is
          begin
-            if Nkind_In (N, N_Simple_Return_Statement,
-                            N_Extended_Return_Statement)
-            then
-               if N = Last_Statement then
-                  return OK;
-               else
-                  return Abandon;
-               end if;
+            case Nkind (N) is
+               when N_Extended_Return_Statement
+                  | N_Simple_Return_Statement
+               =>
+                  if N = Last_Statement then
+                     return OK;
+                  else
+                     return Abandon;
+                  end if;
 
-            else
-               return OK;
-            end if;
+               --  Skip locally declared subprogram bodies inside the body to
+               --  inline, as the return statements inside those do not count.
+
+               when N_Subprogram_Body =>
+                  if N = Body_To_Inline then
+                     return OK;
+                  else
+                     return Skip;
+                  end if;
+
+               when others =>
+                  return OK;
+            end case;
          end Check_Return;
 
          function Check_All_Returns is new Traverse_Func (Check_Return);
@@ -1149,7 +1077,7 @@ package body Inline is
          Make_Defining_Identifier (Sloc (N), Name_uParent));
       Set_Corresponding_Spec (Original_Body, Empty);
 
-      --  Remove all aspects/pragmas that have no meaining in an inlined body
+      --  Remove all aspects/pragmas that have no meaning in an inlined body
 
       Remove_Aspects_And_Pragmas (Original_Body);
 
@@ -1204,138 +1132,36 @@ package body Inline is
       Set_Is_Inlined (Spec_Id);
    end Build_Body_To_Inline;
 
-   -------------------
-   -- Cannot_Inline --
-   -------------------
+   -------------------------------------------
+   -- Call_Can_Be_Inlined_In_GNATprove_Mode --
+   -------------------------------------------
 
-   procedure Cannot_Inline
-     (Msg        : String;
-      N          : Node_Id;
-      Subp       : Entity_Id;
-      Is_Serious : Boolean := False)
+   function Call_Can_Be_Inlined_In_GNATprove_Mode
+    (N    : Node_Id;
+     Subp : Entity_Id) return Boolean
    is
+      F : Entity_Id;
+      A : Node_Id;
+
    begin
-      --  In GNATprove mode, inlining is the technical means by which the
-      --  higher-level goal of contextual analysis is reached, so issue
-      --  messages about failure to apply contextual analysis to a
-      --  subprogram, rather than failure to inline it.
-
-      if GNATprove_Mode
-        and then Msg (Msg'First .. Msg'First + 12) = "cannot inline"
-      then
-         declare
-            Len1 : constant Positive :=
-              String (String'("cannot inline"))'Length;
-            Len2 : constant Positive :=
-              String (String'("info: no contextual analysis of"))'Length;
-
-            New_Msg : String (1 .. Msg'Length + Len2 - Len1);
-
-         begin
-            New_Msg (1 .. Len2) := "info: no contextual analysis of";
-            New_Msg (Len2 + 1 .. Msg'Length + Len2 - Len1) :=
-              Msg (Msg'First + Len1 .. Msg'Last);
-            Cannot_Inline (New_Msg, N, Subp, Is_Serious);
-            return;
-         end;
-      end if;
-
-      pragma Assert (Msg (Msg'Last) = '?');
-
-      --  Legacy front end inlining model
-
-      if not Back_End_Inlining then
-
-         --  Do not emit warning if this is a predefined unit which is not
-         --  the main unit. With validity checks enabled, some predefined
-         --  subprograms may contain nested subprograms and become ineligible
-         --  for inlining.
-
-         if Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (Subp)))
-           and then not In_Extended_Main_Source_Unit (Subp)
+      F := First_Formal (Subp);
+      A := First_Actual (N);
+      while Present (F) loop
+         if Ekind (F) /= E_Out_Parameter
+           and then not Same_Type (Etype (F), Etype (A))
+           and then
+             (Is_By_Reference_Type (Etype (A))
+               or else Is_Limited_Type (Etype (A)))
          then
-            null;
-
-         --  In GNATprove mode, issue a warning, and indicate that the
-         --  subprogram is not always inlined by setting flag Is_Inlined_Always
-         --  to False.
-
-         elsif GNATprove_Mode then
-            Set_Is_Inlined_Always (Subp, False);
-            Error_Msg_NE (Msg & "p?", N, Subp);
-
-         elsif Has_Pragma_Inline_Always (Subp) then
-
-            --  Remove last character (question mark) to make this into an
-            --  error, because the Inline_Always pragma cannot be obeyed.
-
-            Error_Msg_NE (Msg (Msg'First .. Msg'Last - 1), N, Subp);
-
-         elsif Ineffective_Inline_Warnings then
-            Error_Msg_NE (Msg & "p?", N, Subp);
+            return False;
          end if;
 
-      --  New semantics relying on back end inlining
+         Next_Formal (F);
+         Next_Actual (A);
+      end loop;
 
-      elsif Is_Serious then
-
-         --  Remove last character (question mark) to make this into an error.
-
-         Error_Msg_NE (Msg (Msg'First .. Msg'Last - 1), N, Subp);
-
-      --  In GNATprove mode, issue a warning, and indicate that the subprogram
-      --  is not always inlined by setting flag Is_Inlined_Always to False.
-
-      elsif GNATprove_Mode then
-         Set_Is_Inlined_Always (Subp, False);
-         Error_Msg_NE (Msg & "p?", N, Subp);
-
-      else
-
-         --  Do not emit warning if this is a predefined unit which is not
-         --  the main unit. This behavior is currently provided for backward
-         --  compatibility but it will be removed when we enforce the
-         --  strictness of the new rules.
-
-         if Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (Subp)))
-           and then not In_Extended_Main_Source_Unit (Subp)
-         then
-            null;
-
-         elsif Has_Pragma_Inline_Always (Subp) then
-
-            --  Emit a warning if this is a call to a runtime subprogram
-            --  which is located inside a generic. Previously this call
-            --  was silently skipped.
-
-            if Is_Generic_Instance (Subp) then
-               declare
-                  Gen_P : constant Entity_Id := Generic_Parent (Parent (Subp));
-               begin
-                  if Is_Predefined_File_Name
-                       (Unit_File_Name (Get_Source_Unit (Gen_P)))
-                  then
-                     Set_Is_Inlined (Subp, False);
-                     Error_Msg_NE (Msg & "p?", N, Subp);
-                     return;
-                  end if;
-               end;
-            end if;
-
-            --  Remove last character (question mark) to make this into an
-            --  error, because the Inline_Always pragma cannot be obeyed.
-
-            Error_Msg_NE (Msg (Msg'First .. Msg'Last - 1), N, Subp);
-
-         else
-            Set_Is_Inlined (Subp, False);
-
-            if Ineffective_Inline_Warnings then
-               Error_Msg_NE (Msg & "p?", N, Subp);
-            end if;
-         end if;
-      end if;
-   end Cannot_Inline;
+      return True;
+   end Call_Can_Be_Inlined_In_GNATprove_Mode;
 
    --------------------------------------
    -- Can_Be_Inlined_In_GNATprove_Mode --
@@ -1406,8 +1232,8 @@ package body Inline is
          Formal     : Entity_Id;
          Formal_Typ : Entity_Id;
 
-         --  Start of processing for
-         --  Has_Formal_With_Discriminant_Dependent_Component
+      --  Start of processing for
+      --  Has_Formal_With_Discriminant_Dependent_Fields
 
       begin
          --  Inspect all parameters of the subprogram looking for a formal
@@ -1490,7 +1316,8 @@ package body Inline is
 
       --  Local declarations
 
-      Id : Entity_Id;  --  Procedure or function entity for the subprogram
+      Id : Entity_Id;
+      --  Procedure or function entity for the subprogram
 
    --  Start of processing for Can_Be_Inlined_In_GNATprove_Mode
 
@@ -1592,6 +1419,137 @@ package body Inline is
          return True;
       end if;
    end Can_Be_Inlined_In_GNATprove_Mode;
+
+   -------------------
+   -- Cannot_Inline --
+   -------------------
+
+   procedure Cannot_Inline
+     (Msg        : String;
+      N          : Node_Id;
+      Subp       : Entity_Id;
+      Is_Serious : Boolean := False)
+   is
+   begin
+      --  In GNATprove mode, inlining is the technical means by which the
+      --  higher-level goal of contextual analysis is reached, so issue
+      --  messages about failure to apply contextual analysis to a
+      --  subprogram, rather than failure to inline it.
+
+      if GNATprove_Mode
+        and then Msg (Msg'First .. Msg'First + 12) = "cannot inline"
+      then
+         declare
+            Len1 : constant Positive :=
+              String (String'("cannot inline"))'Length;
+            Len2 : constant Positive :=
+              String (String'("info: no contextual analysis of"))'Length;
+
+            New_Msg : String (1 .. Msg'Length + Len2 - Len1);
+
+         begin
+            New_Msg (1 .. Len2) := "info: no contextual analysis of";
+            New_Msg (Len2 + 1 .. Msg'Length + Len2 - Len1) :=
+              Msg (Msg'First + Len1 .. Msg'Last);
+            Cannot_Inline (New_Msg, N, Subp, Is_Serious);
+            return;
+         end;
+      end if;
+
+      pragma Assert (Msg (Msg'Last) = '?');
+
+      --  Legacy front end inlining model
+
+      if not Back_End_Inlining then
+
+         --  Do not emit warning if this is a predefined unit which is not
+         --  the main unit. With validity checks enabled, some predefined
+         --  subprograms may contain nested subprograms and become ineligible
+         --  for inlining.
+
+         if Is_Predefined_Unit (Get_Source_Unit (Subp))
+           and then not In_Extended_Main_Source_Unit (Subp)
+         then
+            null;
+
+         --  In GNATprove mode, issue a warning, and indicate that the
+         --  subprogram is not always inlined by setting flag Is_Inlined_Always
+         --  to False.
+
+         elsif GNATprove_Mode then
+            Set_Is_Inlined_Always (Subp, False);
+            Error_Msg_NE (Msg & "p?", N, Subp);
+
+         elsif Has_Pragma_Inline_Always (Subp) then
+
+            --  Remove last character (question mark) to make this into an
+            --  error, because the Inline_Always pragma cannot be obeyed.
+
+            Error_Msg_NE (Msg (Msg'First .. Msg'Last - 1), N, Subp);
+
+         elsif Ineffective_Inline_Warnings then
+            Error_Msg_NE (Msg & "p?", N, Subp);
+         end if;
+
+      --  New semantics relying on back end inlining
+
+      elsif Is_Serious then
+
+         --  Remove last character (question mark) to make this into an error.
+
+         Error_Msg_NE (Msg (Msg'First .. Msg'Last - 1), N, Subp);
+
+      --  In GNATprove mode, issue a warning, and indicate that the subprogram
+      --  is not always inlined by setting flag Is_Inlined_Always to False.
+
+      elsif GNATprove_Mode then
+         Set_Is_Inlined_Always (Subp, False);
+         Error_Msg_NE (Msg & "p?", N, Subp);
+
+      else
+
+         --  Do not emit warning if this is a predefined unit which is not
+         --  the main unit. This behavior is currently provided for backward
+         --  compatibility but it will be removed when we enforce the
+         --  strictness of the new rules.
+
+         if Is_Predefined_Unit (Get_Source_Unit (Subp))
+           and then not In_Extended_Main_Source_Unit (Subp)
+         then
+            null;
+
+         elsif Has_Pragma_Inline_Always (Subp) then
+
+            --  Emit a warning if this is a call to a runtime subprogram
+            --  which is located inside a generic. Previously this call
+            --  was silently skipped.
+
+            if Is_Generic_Instance (Subp) then
+               declare
+                  Gen_P : constant Entity_Id := Generic_Parent (Parent (Subp));
+               begin
+                  if Is_Predefined_Unit (Get_Source_Unit (Gen_P)) then
+                     Set_Is_Inlined (Subp, False);
+                     Error_Msg_NE (Msg & "p?", N, Subp);
+                     return;
+                  end if;
+               end;
+            end if;
+
+            --  Remove last character (question mark) to make this into an
+            --  error, because the Inline_Always pragma cannot be obeyed.
+
+            Error_Msg_NE (Msg (Msg'First .. Msg'Last - 1), N, Subp);
+
+         else
+            Set_Is_Inlined (Subp, False);
+
+            if Ineffective_Inline_Warnings then
+               Error_Msg_NE (Msg & "p?", N, Subp);
+            end if;
+         end if;
+      end if;
+   end Cannot_Inline;
 
    --------------------------------------------
    -- Check_And_Split_Unconstrained_Function --
@@ -2234,8 +2192,7 @@ package body Inline is
    is
       Loc       : constant Source_Ptr := Sloc (N);
       Is_Predef : constant Boolean :=
-                    Is_Predefined_File_Name
-                      (Unit_File_Name (Get_Source_Unit (Subp)));
+                    Is_Predefined_Unit (Get_Source_Unit (Subp));
       Orig_Bod  : constant Node_Id :=
                     Body_To_Inline (Unit_Declaration_Node (Subp));
 
@@ -2256,7 +2213,7 @@ package body Inline is
       --  this is the left-hand side of the assignment, else it is a temporary
       --  to which the return value is assigned prior to rewriting the call.
 
-      Targ1 : Node_Id;
+      Targ1 : Node_Id := Empty;
       --  A separate target used when the return type is unconstrained
 
       Temp     : Entity_Id;
@@ -2426,6 +2383,7 @@ package body Inline is
 
          elsif Nkind (N) = N_Simple_Return_Statement then
             if No (Expression (N)) then
+               Num_Ret := Num_Ret + 1;
                Make_Exit_Label;
                Rewrite (N,
                  Make_Goto_Statement (Loc, Name => New_Copy (Lab_Id)));
@@ -2450,13 +2408,12 @@ package body Inline is
                --  errors, e.g. when the expression is a numeric literal and
                --  the context is private. If the expression is an aggregate,
                --  use a qualified expression, because an aggregate is not a
-               --  legal argument of a conversion. Ditto for numeric literals,
-               --  which must be resolved to a specific type.
+               --  legal argument of a conversion. Ditto for numeric literals
+               --  and attributes that yield a universal type, because those
+               --  must be resolved to a specific type.
 
-               if Nkind_In (Expression (N), N_Aggregate,
-                                            N_Null,
-                                            N_Real_Literal,
-                                            N_Integer_Literal)
+               if Nkind_In (Expression (N), N_Aggregate, N_Null)
+                 or else Yields_Universal_Type (Expression (N))
                then
                   Ret :=
                     Make_Qualified_Expression (Sloc (N),
@@ -3054,8 +3011,10 @@ package body Inline is
 
          elsif Base_Type (Etype (F)) = Base_Type (Etype (A))
            and then Etype (F) /= Base_Type (Etype (F))
+           and then Is_Constrained (Etype (F))
          then
             Temp_Typ := Etype (F);
+
          else
             Temp_Typ := Etype (A);
          end if;
@@ -3065,19 +3024,26 @@ package body Inline is
 
          --  If the actual is a literal and the formal has its address taken,
          --  we cannot pass the literal itself as an argument, so its value
-         --  must be captured in a temporary.
+         --  must be captured in a temporary. Skip this optimization in
+         --  GNATprove mode, to make sure any check on a type conversion
+         --  will be issued.
 
          if (Is_Entity_Name (A)
               and then
-               (not Is_Scalar_Type (Etype (A))
-                 or else Ekind (Entity (A)) = E_Enumeration_Literal))
+                (not Is_Scalar_Type (Etype (A))
+                  or else Ekind (Entity (A)) = E_Enumeration_Literal)
+              and then not GNATprove_Mode)
 
          --  When the actual is an identifier and the corresponding formal is
          --  used only once in the original body, the formal can be substituted
-         --  directly with the actual parameter.
+         --  directly with the actual parameter. Skip this optimization in
+         --  GNATprove mode, to make sure any check on a type conversion
+         --  will be issued.
 
-           or else (Nkind (A) = N_Identifier
-             and then Formal_Is_Used_Once (F))
+           or else
+             (Nkind (A) = N_Identifier
+               and then Formal_Is_Used_Once (F)
+               and then not GNATprove_Mode)
 
            or else
              (Nkind_In (A, N_Real_Literal,
@@ -3110,8 +3076,17 @@ package body Inline is
                    Subtype_Mark => New_Occurrence_Of (Etype (F), Loc),
                    Expression   => Relocate_Node (Expression (A)));
 
-            elsif Etype (F) /= Etype (A) then
-               New_A := Unchecked_Convert_To (Etype (F), Relocate_Node (A));
+            --  In GNATprove mode, keep the most precise type of the actual for
+            --  the temporary variable, when the formal type is unconstrained.
+            --  Otherwise, the AST may contain unexpected assignment statements
+            --  to a temporary variable of unconstrained type renaming a local
+            --  variable of constrained type, which is not expected by
+            --  GNATprove.
+
+            elsif Etype (F) /= Etype (A)
+              and then (not GNATprove_Mode or else Is_Constrained (Etype (F)))
+            then
+               New_A    := Unchecked_Convert_To (Etype (F), Relocate_Node (A));
                Temp_Typ := Etype (F);
 
             else
@@ -3147,7 +3122,29 @@ package body Inline is
                    Constant_Present    => True,
                    Object_Definition   => New_Occurrence_Of (Temp_Typ, Loc),
                    Expression          => New_A);
+
             else
+               --  In GNATprove mode, make an explicit copy of input
+               --  parameters when formal and actual types differ, to make
+               --  sure any check on the type conversion will be issued.
+               --  The legality of the copy is ensured by calling first
+               --  Call_Can_Be_Inlined_In_GNATprove_Mode.
+
+               if GNATprove_Mode
+                 and then Ekind (F) /= E_Out_Parameter
+                 and then not Same_Type (Etype (F), Etype (A))
+               then
+                  pragma Assert (not (Is_By_Reference_Type (Etype (A))));
+                  pragma Assert (not (Is_Limited_Type (Etype (A))));
+
+                  Append_To (Decls,
+                    Make_Object_Declaration (Loc,
+                      Defining_Identifier => Make_Temporary (Loc, 'C'),
+                      Constant_Present    => True,
+                      Object_Definition   => New_Occurrence_Of (Temp_Typ, Loc),
+                      Expression          => New_Copy_Tree (New_A)));
+               end if;
+
                Decl :=
                  Make_Object_Renaming_Declaration (Loc,
                    Defining_Identifier => Temp,
@@ -3336,8 +3333,9 @@ package body Inline is
 
       elsif Present (Exit_Lab) then
 
-         --  If the body was a single expression, the single return statement
-         --  and the corresponding label are useless.
+         --  If there's a single return statement at the end of the subprogram,
+         --  the corresponding goto statement and the corresponding label are
+         --  useless.
 
          if Num_Ret = 1
            and then
@@ -3475,8 +3473,7 @@ package body Inline is
          end if;
 
          return Present (Conv)
-           and then Is_Predefined_File_Name
-                      (Unit_File_Name (Get_Source_Unit (Conv)))
+           and then Is_Predefined_Unit (Get_Source_Unit (Conv))
            and then Is_Intrinsic_Subprogram (Conv);
       end Is_Unchecked_Conversion;
 
@@ -4094,14 +4091,14 @@ package body Inline is
 
    procedure Lock is
    begin
-      Pending_Instantiations.Locked := True;
-      Inlined_Bodies.Locked := True;
-      Successors.Locked := True;
-      Inlined.Locked := True;
       Pending_Instantiations.Release;
+      Pending_Instantiations.Locked := True;
       Inlined_Bodies.Release;
+      Inlined_Bodies.Locked := True;
       Successors.Release;
+      Successors.Locked := True;
       Inlined.Release;
+      Inlined.Locked := True;
    end Lock;
 
    --------------------------------
@@ -4147,7 +4144,8 @@ package body Inline is
                                                 Name_Refined_Post,
                                                 Name_Test_Case,
                                                 Name_Unmodified,
-                                                Name_Unreferenced)
+                                                Name_Unreferenced,
+                                                Name_Unused)
             then
                Remove (Item);
             end if;
@@ -4161,6 +4159,11 @@ package body Inline is
    begin
       Remove_Items (Aspect_Specifications (Body_Decl));
       Remove_Items (Declarations          (Body_Decl));
+
+      --  Pragmas Unmodified, Unreferenced, and Unused may additionally appear
+      --  in the body of the subprogram.
+
+      Remove_Items (Statements (Handled_Statement_Sequence (Body_Decl)));
    end Remove_Aspects_And_Pragmas;
 
    --------------------------

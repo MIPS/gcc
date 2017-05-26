@@ -108,6 +108,7 @@ typedef long OS_Time;
 #endif
 
 #define __int64 long long
+GNAT_STRUCT_STAT;
 
 /* A lazy cache for the attributes of a file. On some systems, a single call to
    stat() will give all this information, so it is better than doing a system
@@ -232,6 +233,7 @@ extern int    __gnat_is_symbolic_link		   (char *name);
 extern int    __gnat_portable_spawn                (char *[]);
 extern int    __gnat_portable_no_block_spawn       (char *[]);
 extern int    __gnat_portable_wait                 (int *);
+extern int    __gnat_portable_no_block_wait        (int *);
 extern int    __gnat_current_process_id            (void);
 extern char  *__gnat_locate_exec                   (char *, char *);
 extern char  *__gnat_locate_exec_on_path           (char *);

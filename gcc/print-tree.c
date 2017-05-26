@@ -1,5 +1,5 @@
 /* Prints out tree in human readable form - GCC
-   Copyright (C) 1990-2016 Free Software Foundation, Inc.
+   Copyright (C) 1990-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,20 +32,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "gimple-pretty-print.h" /* FIXME */
 #include "tree-cfg.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
+#include "print-tree.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
 
 #define HASH_SIZE 37
 
-struct bucket
-{
-  tree node;
-  struct bucket *next;
-};
-
-static struct bucket **table;
+static hash_set<tree> *table = NULL;
 
 /* Print PREFIX and ADDR to FILE.  */
 void
@@ -176,10 +171,9 @@ indent_to (FILE *file, int column)
    starting in column INDENT.  */
 
 void
-print_node (FILE *file, const char *prefix, tree node, int indent)
+print_node (FILE *file, const char *prefix, tree node, int indent,
+	    bool brief_for_visited)
 {
-  int hash;
-  struct bucket *b;
   machine_mode mode;
   enum tree_code_class tclass;
   int len;
@@ -219,21 +213,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   /* Allow this function to be called if the table is not there.  */
   if (table)
     {
-      hash = ((uintptr_t) node) % HASH_SIZE;
-
       /* If node is in the table, just mention its address.  */
-      for (b = table[hash]; b; b = b->next)
-	if (b->node == node)
-	  {
-	    print_node_brief (file, prefix, node, indent);
-	    return;
-	  }
+      if (table->contains (node) && brief_for_visited)
+	{
+	  print_node_brief (file, prefix, node, indent);
+	  return;
+	}
 
-      /* Add this node to the table.  */
-      b = XNEW (struct bucket);
-      b->node = node;
-      b->next = table[hash];
-      table[hash] = b;
+      table->add (node);
     }
 
   /* Indent to the specified column, since this is the long form.  */
@@ -413,6 +400,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fputs (" in-constant-pool", file);
       if (code == VAR_DECL && DECL_COMMON (node))
 	fputs (" common", file);
+      if ((code == VAR_DECL || code == PARM_DECL) && DECL_READ_P (node))
+	fputs (" read", file);
       if (code == VAR_DECL && DECL_THREAD_LOCAL_P (node))
 	{
 	  fputs (" ", file);
@@ -694,8 +683,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  i = 0;
 	  FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
 	    {
-	      char temp[10];
-	      sprintf (temp, "arg %d", i);
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+	      char temp[15];
+	      sprintf (temp, "arg %u", i);
 	      print_node (file, temp, arg, indent + 4);
 	      i++;
 	    }
@@ -706,7 +697,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	  for (i = 0; i < len; i++)
 	    {
-	      char temp[10];
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+	      char temp[15];
 
 	      sprintf (temp, "arg %d", i);
 	      print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
@@ -765,13 +758,24 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case VECTOR_CST:
 	  {
-	    char buf[10];
+	    /* Big enough for 2 UINT_MAX plus the string below.  */
+	    char buf[32];
 	    unsigned i;
 
 	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
 	      {
-		sprintf (buf, "elt%u: ", i);
+		unsigned j;
+		/* Coalesce the output of identical consecutive elements.  */
+		for (j = i + 1; j < VECTOR_CST_NELTS (node); j++)
+		  if (VECTOR_CST_ELT (node, j) != VECTOR_CST_ELT (node, i))
+		    break;
+		j--;
+		if (i == j)
+		  sprintf (buf, "elt%u: ", i);
+		else
+		  sprintf (buf, "elt%u...elt%u: ", i, j);
 		print_node (file, buf, VECTOR_CST_ELT (node, i), indent + 4);
+		i = j;
 	      }
 	  }
 	  break;
@@ -814,7 +818,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  for (i = 0; i < len; i++)
 	    if (TREE_VEC_ELT (node, i))
 	      {
-		char temp[10];
+	      /* Buffer big enough to format a 32-bit UINT_MAX into, plus
+		 the text.  */
+		char temp[15];
 		sprintf (temp, "elt %d", i);
 		print_node (file, temp, TREE_VEC_ELT (node, i), indent + 4);
 	      }
@@ -824,13 +830,13 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  {
 	    unsigned HOST_WIDE_INT cnt;
 	    tree index, value;
-	    len = vec_safe_length (CONSTRUCTOR_ELTS (node));
+	    len = CONSTRUCTOR_NELTS (node);
 	    fprintf (file, " lngt %d", len);
 	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (node),
 				      cnt, index, value)
 	      {
-		print_node (file, "idx", index, indent + 4);
-		print_node (file, "val", value, indent + 4);
+		print_node (file, "idx", index, indent + 4, false);
+		print_node (file, "val", value, indent + 4, false);
 	      }
 	  }
 	  break;
@@ -869,8 +875,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case SSA_NAME:
 	  print_node_brief (file, "var", SSA_NAME_VAR (node), indent + 4);
+	  indent_to (file, indent + 4);
 	  fprintf (file, "def_stmt ");
-	  print_gimple_stmt (file, SSA_NAME_DEF_STMT (node), indent + 4, 0);
+	  {
+	    pretty_printer buffer;
+	    buffer.buffer->stream = file;
+	    pp_gimple_stmt_1 (&buffer, SSA_NAME_DEF_STMT (node), indent + 4, 0);
+	    pp_flush (&buffer);
+	  }
 
 	  indent_to (file, indent + 4);
 	  fprintf (file, "version %u", SSA_NAME_VERSION (node));
@@ -974,10 +986,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 DEBUG_FUNCTION void
 debug_tree (tree node)
 {
-  table = XCNEWVEC (struct bucket *, HASH_SIZE);
+  table = new hash_set<tree> (HASH_SIZE);
   print_node (stderr, "", node, 0);
-  free (table);
-  table = 0;
+  delete table;
+  table = NULL;
   putc ('\n', stderr);
 }
 
@@ -997,7 +1009,7 @@ debug_raw (const tree_node *ptr)
 }
 
 static void
-dump_tree_via_hooks (const tree_node *ptr, int options)
+dump_tree_via_hooks (const tree_node *ptr, dump_flags_t options)
 {
   if (DECL_P (ptr))
     lang_hooks.print_decl (stderr, const_cast <tree_node*> (ptr), 0);

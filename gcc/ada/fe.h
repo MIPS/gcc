@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -219,6 +219,7 @@ extern void Check_Elaboration_Code_Allowed (Node_Id);
 extern void Check_Implicit_Dynamic_Code_Allowed (Node_Id);
 
 /* sem_aggr:  */
+
 #define Is_Others_Aggregate    sem_aggr__is_others_aggregate
 
 extern Boolean Is_Others_Aggregate (Node_Id);
@@ -226,6 +227,7 @@ extern Boolean Is_Others_Aggregate (Node_Id);
 /* sem_aux:  */
 
 #define Ancestor_Subtype               sem_aux__ancestor_subtype
+#define Constant_Value                 sem_aux__constant_value
 #define First_Discriminant             sem_aux__first_discriminant
 #define First_Stored_Discriminant      sem_aux__first_stored_discriminant
 #define First_Subtype                  sem_aux__first_subtype
@@ -233,6 +235,7 @@ extern Boolean Is_Others_Aggregate (Node_Id);
 #define Is_Derived_Type                sem_aux__is_derived_type
 
 extern Entity_Id  Ancestor_Subtype             (Entity_Id);
+extern Node_Id    Constant_Value               (Entity_Id);
 extern Entity_Id  First_Discriminant           (Entity_Id);
 extern Entity_Id  First_Stored_Discriminant    (Entity_Id);
 extern Entity_Id  First_Subtype                (Entity_Id);
@@ -294,6 +297,12 @@ extern Boolean Machine_Overflows_On_Target;
 extern Boolean Signed_Zeros_On_Target;
 extern Boolean Stack_Check_Probes_On_Target;
 extern Boolean Stack_Check_Limits_On_Target;
+
+/* warnsw: */
+
+#define Warn_On_Questionable_Layout warnsw__warn_on_questionable_layout
+
+extern Boolean Warn_On_Questionable_Layout;
 
 #ifdef __cplusplus
 }

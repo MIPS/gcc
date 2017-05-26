@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -504,7 +504,7 @@ package body Exp_Dist is
             --  An expression whose value is a PolyORB reference to the target
             --  object.
 
-         when others           =>
+         when others =>
             Partition : Entity_Id;
             --  A variable containing the Partition_ID of the target partition
 
@@ -996,6 +996,7 @@ package body Exp_Dist is
             when others =>
                null;
          end case;
+
          Next (Decl);
       end loop;
    end Build_Package_Stubs;
@@ -1363,10 +1364,10 @@ package body Exp_Dist is
       RPC_Receiver                   : Entity_Id;
       RPC_Receiver_Statements        : List_Id;
       RPC_Receiver_Case_Alternatives : constant List_Id := New_List;
-      RPC_Receiver_Elsif_Parts       : List_Id;
-      RPC_Receiver_Request           : Entity_Id;
-      RPC_Receiver_Subp_Id           : Entity_Id;
-      RPC_Receiver_Subp_Index        : Entity_Id;
+      RPC_Receiver_Elsif_Parts       : List_Id          := No_List;
+      RPC_Receiver_Request           : Entity_Id        := Empty;
+      RPC_Receiver_Subp_Id           : Entity_Id        := Empty;
+      RPC_Receiver_Subp_Index        : Entity_Id        := Empty;
 
       Subp_Str : String_Id;
 
@@ -2658,6 +2659,7 @@ package body Exp_Dist is
       case Get_PCS_Name is
          when Name_PolyORB_DSA =>
             return Make_String_Literal (Loc, Get_Subprogram_Id (E));
+
          when others =>
             return Make_Integer_Literal (Loc, Get_Subprogram_Id (E));
       end case;
@@ -2761,8 +2763,9 @@ package body Exp_Dist is
       end if;
 
       case Nkind (Spec) is
-
-         when N_Function_Specification | N_Access_Function_Definition =>
+         when N_Access_Function_Definition
+            | N_Function_Specification
+         =>
             return
               Make_Function_Specification (Loc,
                 Defining_Unit_Name       =>
@@ -2772,7 +2775,9 @@ package body Exp_Dist is
                 Result_Definition        =>
                   New_Occurrence_Of (Entity (Result_Definition (Spec)), Loc));
 
-         when N_Procedure_Specification | N_Access_Procedure_Definition =>
+         when N_Access_Procedure_Definition
+            | N_Procedure_Specification
+         =>
             return
               Make_Procedure_Specification (Loc,
                 Defining_Unit_Name       =>
@@ -9429,7 +9434,7 @@ package body Exp_Dist is
             Stms   : List_Id;
 
             Expr_Formal : Entity_Id;
-            Cstr_Formal : Entity_Id;
+            Cstr_Formal : Entity_Id := Empty;  -- initialize to prevent warning
             Any         : Entity_Id;
             Result_TC   : Node_Id;
 
@@ -11347,6 +11352,7 @@ package body Exp_Dist is
          when Name_PolyORB_DSA =>
             PolyORB_Support.Add_Obj_RPC_Receiver_Completion
               (Loc, Decls, RPC_Receiver, Stub_Elements);
+
          when others =>
             GARLIC_Support.Add_Obj_RPC_Receiver_Completion
               (Loc, Decls, RPC_Receiver, Stub_Elements);
@@ -11398,6 +11404,7 @@ package body Exp_Dist is
       case Get_PCS_Name is
          when Name_PolyORB_DSA =>
             PolyORB_Support.Add_RAST_Features (Vis_Decl, RAS_Type);
+
          when others =>
             GARLIC_Support.Add_RAST_Features (Vis_Decl, RAS_Type);
       end case;
@@ -11417,6 +11424,7 @@ package body Exp_Dist is
          when Name_PolyORB_DSA =>
             PolyORB_Support.Add_Receiving_Stubs_To_Declarations
               (Pkg_Spec, Decls, Stmts);
+
          when others =>
             GARLIC_Support.Add_Receiving_Stubs_To_Declarations
               (Pkg_Spec, Decls, Stmts);

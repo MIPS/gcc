@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -44,12 +44,12 @@ along with GCC; see the file COPYING3.  If not see
 #endif /* sparc64 */
 #else
 #ifdef SPARC_BI_ARCH
-#define TARGET_ARCH32 (! TARGET_64BIT)
+#define TARGET_ARCH32 (!TARGET_64BIT)
 #else
 #define TARGET_ARCH32 (DEFAULT_ARCH32_P)
 #endif /* SPARC_BI_ARCH */
 #endif /* IN_LIBGCC2 */
-#define TARGET_ARCH64 (! TARGET_ARCH32)
+#define TARGET_ARCH64 (!TARGET_ARCH32)
 
 /* Code model selection in 64-bit environment.
 
@@ -603,7 +603,8 @@ extern enum cmodel sparc_cmodel;
    (e.g.: in CLASS_MAX_NREGS).  There are also 4 fp condition code registers, so
    32+32+32+4 == 100.
    Register 100 is used as the integer condition code register.
-   Register 101 is used as the soft frame pointer register.  */
+   Register 101 is used as the soft frame pointer register.
+   Register 102 is used as the general status register by VIS instructions.  */
 
 #define FIRST_PSEUDO_REGISTER 103
 
@@ -678,7 +679,7 @@ extern enum cmodel sparc_cmodel;
   0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0,	\
 				\
-  0, 0, 0, 0, 0, 1, 1}
+  0, 0, 0, 0, 1, 1, 1}
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -885,12 +886,7 @@ extern int sparc_mode_class[];
    have a class that is the union of FPCC_REGS with either of the others,
    it is important that it appear first.  Otherwise the compiler will die
    trying to compile _fixunsdfsi because fix_truncdfsi2 won't match its
-   constraints.
-
-   It is important that SPARC_ICC_REG have class NO_REGS.  Otherwise combine
-   may try to use it to hold an SImode value.  See register_operand.
-   ??? Should %fcc[0123] be handled similarly?
-*/
+   constraints.  */
 
 enum reg_class { NO_REGS, FPCC_REGS, I64_REGS, GENERAL_REGS, FP_REGS,
 		 EXTRA_FP_REGS, GENERAL_OR_FP_REGS, GENERAL_OR_EXTRA_FP_REGS,
@@ -1521,7 +1517,7 @@ do {									   \
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
-   CCFP[E]mode is used.  CC_NOOVmode should be used when the first operand
+   CCFP[E]mode is used.  CCNZmode should be used when the first operand
    is a PLUS, MINUS, NEG, or ASHIFT.  CCmode should be used when no special
    processing is needed.  */
 #define SELECT_CC_MODE(OP,X,Y)  select_cc_mode ((OP), (X), (Y))
@@ -1570,7 +1566,10 @@ do {									   \
    and annulled branches insert 4 bubbles.
 
    On Niagara-2 and Niagara-3, a not-taken branch costs 1 cycle whereas
-   a taken branch costs 6 cycles.  */
+   a taken branch costs 6 cycles.
+
+   The T4 Supplement specifies the branch latency at 2 cycles.
+   The M7 Supplement specifies the branch latency at 1 cycle. */
 
 #define BRANCH_COST(speed_p, predictable_p) \
 	((sparc_cpu == PROCESSOR_V9 \
@@ -1583,7 +1582,11 @@ do {									   \
 	 : ((sparc_cpu == PROCESSOR_NIAGARA2 \
 	     || sparc_cpu == PROCESSOR_NIAGARA3) \
 	    ? 5 \
-	 : 3))))
+	 : (sparc_cpu == PROCESSOR_NIAGARA4 \
+	    ? 2 \
+	 : (sparc_cpu == PROCESSOR_NIAGARA7 \
+	    ? 1 \
+	 : 3))))))
 
 /* Control the assembler format that we output.  */
 

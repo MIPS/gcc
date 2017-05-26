@@ -1,5 +1,5 @@
 /* Target-dependent costs for expmed.c.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -618,8 +618,10 @@ static inline int *
 mul_highpart_cost_ptr (bool speed, machine_mode mode)
 {
   gcc_assert (GET_MODE_CLASS (mode) == MODE_INT);
+  int m = mode - MIN_MODE_INT;
+  gcc_assert (m < NUM_MODE_INT);
 
-  return &this_target_expmed->x_mul_highpart_cost[speed][mode - MIN_MODE_INT];
+  return &this_target_expmed->x_mul_highpart_cost[speed][m];
 }
 
 /* Set the COST for computing the high part of a multiplication in MODE
@@ -723,7 +725,7 @@ extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
 			     machine_mode, rtx, bool);
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, rtx,
-			      machine_mode, machine_mode, bool);
+			      machine_mode, machine_mode, bool, rtx *);
 extern rtx extract_low_bits (machine_mode, machine_mode, rtx);
 extern rtx expand_mult (machine_mode, rtx, rtx, rtx, int);
 extern rtx expand_mult_highpart_adjust (machine_mode, rtx, rtx, rtx, rtx, int);

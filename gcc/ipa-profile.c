@@ -1,5 +1,5 @@
 /* Basic IPA optimizations based on profile.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -62,8 +62,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "tree-inline.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
-#include "ipa-inline.h"
+#include "ipa-fnsummary.h"
 
 /* Entry in the histogram.  */
 
@@ -347,7 +348,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	    fprintf (dump_file, "  Called by %s that is executed once\n",
 		     edge->caller->name ());
 	  d->maybe_unlikely_executed = false;
-	  if (inline_edge_summary (edge)->loop_depth)
+	  if (ipa_call_summaries->get (edge)->loop_depth)
 	    {
 	      d->maybe_executed_once = false;
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -589,9 +590,9 @@ ipa_profile (void)
 		  if (dump_file)
 		    {
 		      fprintf (dump_file, "Indirect call -> direct call from"
-			       " other module %s/%i => %s/%i, prob %3.2f\n",
-			       xstrdup_for_dump (n->name ()), n->order,
-			       xstrdup_for_dump (n2->name ()), n2->order,
+			       " other module %s => %s, prob %3.2f\n",
+			       n->dump_name (),
+			       n2->dump_name (),
 			       e->indirect_info->common_target_probability
 			       / (float)REG_BR_PROB_BASE);
 		    }
@@ -619,8 +620,9 @@ ipa_profile (void)
 				 "Not speculating: target is overwritable "
 				 "and can be discarded.\n");
 		    }
-		  else if (ipa_node_params_sum && ipa_edge_args_vector
-			   && !IPA_NODE_REF (n2)->descriptors.is_empty ()
+		  else if (ipa_node_params_sum && ipa_edge_args_sum
+			   && (!vec_safe_is_empty
+			       (IPA_NODE_REF (n2)->descriptors))
 			   && ipa_get_param_count (IPA_NODE_REF (n2))
 			      != ipa_get_cs_argument_count (IPA_EDGE_REF (e))
 			    && (ipa_get_param_count (IPA_NODE_REF (n2))
@@ -677,7 +679,7 @@ ipa_profile (void)
 	    }
 	 }
        if (update)
-	 inline_update_overall_summary (n);
+	 ipa_update_overall_fn_summary (n);
      }
   if (node_map_initialized)
     del_node_map ();

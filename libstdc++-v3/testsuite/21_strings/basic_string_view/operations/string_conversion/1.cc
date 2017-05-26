@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++17" }
 
-// Copyright (C) 2014-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,11 +25,9 @@
 #include <testsuite_hooks.h>
 #include <testsuite_allocator.h>
 
-bool
+void
 test01()
 {
-  bool test [[gnu::unused]] = true;
-
   const char str_lit[] = "123456789A";
   const std::string_view sv(str_lit);
   char buffer[4] = { 0 };
@@ -44,8 +42,6 @@ test01()
   VERIFY( std::equal(s1.begin(), s1.end(), s2.begin(), s2.end()) );
   auto s3 = static_cast<std::string>(sv);
   VERIFY( s3 == s1 );
-
-  return test;
 }
 
 int

@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "predict.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "ssa.h"
 #include "optabs-tree.h"
@@ -479,9 +480,15 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo, int *max_vf)
 				LOOP_VINFO_LOOP_NEST (loop_vinfo), true))
     return false;
 
-  FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
-    if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, max_vf))
-      return false;
+  /* For epilogues we either have no aliases or alias versioning
+     was applied to original loop.  Therefore we may just get max_vf
+     using VF of original loop.  */
+  if (LOOP_VINFO_EPILOGUE_P (loop_vinfo))
+    *max_vf = LOOP_VINFO_ORIG_VECT_FACTOR (loop_vinfo);
+  else
+    FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
+      if (vect_analyze_data_ref_dependence (ddr, loop_vinfo, max_vf))
+	return false;
 
   return true;
 }
@@ -582,6 +589,7 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
 	  if (!dr_b)
 	    return false;
 
+	  bool dependent = false;
 	  /* If we run into a store of this same instance (we've just
 	     marked those) then delay dependence checking until we run
 	     into the last store because this is where it will have
@@ -598,22 +606,21 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node,
 		    = STMT_VINFO_DATA_REF (vinfo_for_stmt (store));
 		  ddr_p ddr = initialize_data_dependence_relation
 				(dr_a, store_dr, vNULL);
-		  if (vect_slp_analyze_data_ref_dependence (ddr))
-		    {
-		      free_dependence_relation (ddr);
-		      return false;
-		    }
+		  dependent = vect_slp_analyze_data_ref_dependence (ddr);
 		  free_dependence_relation (ddr);
+		  if (dependent)
+		    break;
 		}
 	    }
-
-	  ddr_p ddr = initialize_data_dependence_relation (dr_a, dr_b, vNULL);
-	  if (vect_slp_analyze_data_ref_dependence (ddr))
+	  else
 	    {
+	      ddr_p ddr = initialize_data_dependence_relation (dr_a,
+							       dr_b, vNULL);
+	      dependent = vect_slp_analyze_data_ref_dependence (ddr);
 	      free_dependence_relation (ddr);
-	      return false;
 	    }
-	  free_dependence_relation (ddr);
+	  if (dependent)
+	    return false;
 	}
     }
   return true;
@@ -772,10 +779,34 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   base = ref;
   while (handled_component_p (base))
     base = TREE_OPERAND (base, 0);
+  unsigned int base_alignment = 0;
+  unsigned HOST_WIDE_INT base_bitpos;
+  get_object_alignment_1 (base, &base_alignment, &base_bitpos);
+  /* As data-ref analysis strips the MEM_REF down to its base operand
+     to form DR_BASE_ADDRESS and adds the offset to DR_INIT we have to
+     adjust things to make base_alignment valid as the alignment of
+     DR_BASE_ADDRESS.  */
   if (TREE_CODE (base) == MEM_REF)
-    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
-		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
-  unsigned int base_alignment = get_object_alignment (base);
+    {
+      /* Note all this only works if DR_BASE_ADDRESS is the same as
+	 MEM_REF operand zero, otherwise DR/SCEV analysis might have factored
+	 in other offsets.  We need to rework DR to compute the alingment
+	 of DR_BASE_ADDRESS as long as all information is still available.  */
+      if (operand_equal_p (TREE_OPERAND (base, 0), base_addr, 0))
+	{
+	  base_bitpos -= mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
+	  base_bitpos &= (base_alignment - 1);
+	}
+      else
+	base_bitpos = BITS_PER_UNIT;
+    }
+  if (base_bitpos != 0)
+    base_alignment = base_bitpos & -base_bitpos;
+  /* Also look at the alignment of the base address DR analysis
+     computed.  */
+  unsigned int base_addr_alignment = get_pointer_alignment (base_addr);
+  if (base_addr_alignment > base_alignment)
+    base_alignment = base_addr_alignment;
 
   if (base_alignment >= TYPE_ALIGN (TREE_TYPE (vectype)))
     DR_VECT_AUX (dr)->base_element_aligned = true;
@@ -797,12 +828,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 
   if (base_alignment < TYPE_ALIGN (vectype))
     {
-      /* Strip an inner MEM_REF to a bare decl if possible.  */
-      if (TREE_CODE (base) == MEM_REF
-	  && integer_zerop (TREE_OPERAND (base, 1))
-	  && TREE_CODE (TREE_OPERAND (base, 0)) == ADDR_EXPR)
-	base = TREE_OPERAND (TREE_OPERAND (base, 0), 0);
-
+      base = base_addr;
+      if (TREE_CODE (base) == ADDR_EXPR)
+	base = TREE_OPERAND (base, 0);
       if (!vect_can_force_dr_alignment_p (base, TYPE_ALIGN (vectype)))
 	{
 	  if (dump_enabled_p ())
@@ -810,6 +838,19 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	      dump_printf_loc (MSG_NOTE, vect_location,
 	                       "can't force alignment of ref: ");
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, ref);
+	      dump_printf (MSG_NOTE, "\n");
+	    }
+	  return true;
+	}
+
+      if (DECL_USER_ALIGN (base))
+	{
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "not forcing alignment of user-aligned "
+			       "variable: ");
+	      dump_generic_expr (MSG_NOTE, TDF_SLIM, base);
 	      dump_printf (MSG_NOTE, "\n");
 	    }
 	  return true;
@@ -1066,12 +1107,9 @@ vector_alignment_reachable_p (struct data_reference *dr)
       bool is_packed = not_size_aligned (DR_REF (dr));
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-	                 "Unknown misalignment, is_packed = %d\n",is_packed);
-      if ((TYPE_USER_ALIGN (type) && !is_packed)
-	  || targetm.vectorize.vector_alignment_reachable (type, is_packed))
-	return true;
-      else
-	return false;
+	                 "Unknown misalignment, %snaturally aligned\n",
+			 is_packed ? "not " : "");
+      return targetm.vectorize.vector_alignment_reachable (type, is_packed);
     }
 
   return true;
@@ -1108,8 +1146,8 @@ vect_get_data_access_cost (struct data_reference *dr,
 
 typedef struct _vect_peel_info
 {
-  int npeel;
   struct data_reference *dr;
+  int npeel;
   unsigned int count;
 } *vect_peel_info;
 
@@ -1512,7 +1550,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  Hence, except for the immediate peeling amount, we also want
                  to try to add full vector size, while we don't exceed
                  vectorization factor.
-                 We do this automtically for cost model, since we calculate cost
+                 We do this automatically for cost model, since we calculate cost
                  for every peeling option.  */
               if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
 		{
@@ -1677,18 +1715,18 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
             dr0 = first_store;
         }
 
-      /* In case there are only loads with different unknown misalignments, use
-         peeling only if it may help to align other accesses in the loop or
+      /* Use peeling only if it may help to align other accesses in the loop or
 	 if it may help improving load bandwith when we'd end up using
 	 unaligned loads.  */
       tree dr0_vt = STMT_VINFO_VECTYPE (vinfo_for_stmt (DR_STMT (dr0)));
-      if (!first_store
-	  && !STMT_VINFO_SAME_ALIGN_REFS (
-		  vinfo_for_stmt (DR_STMT (dr0))).length ()
+      if (STMT_VINFO_SAME_ALIGN_REFS
+	    (vinfo_for_stmt (DR_STMT (dr0))).length () == 0
 	  && (vect_supportable_dr_alignment (dr0, false)
 	      != dr_unaligned_supported
-	      || (builtin_vectorization_cost (vector_load, dr0_vt, 0)
-		  == builtin_vectorization_cost (unaligned_load, dr0_vt, -1))))
+	      || (DR_IS_READ (dr0)
+		  && (builtin_vectorization_cost (vector_load, dr0_vt, 0)
+		      == builtin_vectorization_cost (unaligned_load,
+						     dr0_vt, -1)))))
         do_peeling = false;
     }
 
@@ -2241,7 +2279,7 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       if (DR_IS_READ (dr)
 	  && (dr_step % type_size) == 0
 	  && groupsize > 0
-	  && exact_log2 (groupsize) != -1)
+	  && pow2p_hwi (groupsize))
 	{
 	  GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = stmt;
 	  GROUP_SIZE (vinfo_for_stmt (stmt)) = groupsize;
@@ -2358,7 +2396,9 @@ vect_analyze_group_access_1 (struct data_reference *dr)
       if (groupsize == 0)
         groupsize = count + gaps;
 
-      if (groupsize > UINT_MAX)
+      /* This could be UINT_MAX but as we are generating code in a very
+         inefficient way we have to cap earlier.  See PR78699 for example.  */
+      if (groupsize > 4096)
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -2711,10 +2751,17 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
       data_reference_p dra = datarefs_copy[i];
       stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra));
       stmt_vec_info lastinfo = NULL;
+      if (! STMT_VINFO_VECTORIZABLE (stmtinfo_a))
+	{
+	  ++i;
+	  continue;
+	}
       for (i = i + 1; i < datarefs_copy.length (); ++i)
 	{
 	  data_reference_p drb = datarefs_copy[i];
 	  stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
+	  if (! STMT_VINFO_VECTORIZABLE (stmtinfo_b))
+	    break;
 
 	  /* ???  Imperfect sorting (non-compatible types, non-modulo
 	     accesses, same accesses) can lead to a group to be artificially
@@ -3910,6 +3957,27 @@ again:
 	  datarefs[i] = dr;
 	}
 
+      if (TREE_CODE (DR_BASE_ADDRESS (dr)) == ADDR_EXPR
+	  && VAR_P (TREE_OPERAND (DR_BASE_ADDRESS (dr), 0))
+	  && DECL_NONALIASED (TREE_OPERAND (DR_BASE_ADDRESS (dr), 0)))
+	{
+          if (dump_enabled_p ())
+            {
+              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+                               "not vectorized: base object not addressable "
+			       "for stmt: ");
+              dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
+            }
+          if (is_a <bb_vec_info> (vinfo))
+	    {
+	      /* In BB vectorization the ref can still participate
+	         in dependence analysis, we just can't vectorize it.  */
+	      STMT_VINFO_VECTORIZABLE (stmt_info) = false;
+	      continue;
+	    }
+	  return false;
+	}
+
       /* Set vectype for STMT.  */
       scalar_type = TREE_TYPE (DR_REF (dr));
       STMT_VINFO_VECTYPE (stmt_info)
@@ -4736,7 +4804,7 @@ vect_grouped_store_supported (tree vectype, unsigned HOST_WIDE_INT count)
       else
 	{
 	  /* If length is not equal to 3 then only power of 2 is supported.  */
-	  gcc_assert (exact_log2 (count) != -1);
+	  gcc_assert (pow2p_hwi (count));
 
 	  for (i = 0; i < nelt / 2; i++)
 	    {
@@ -4914,7 +4982,7 @@ vect_permute_store_chain (vec<tree> dr_chain,
   else
     {
       /* If length is not equal to 3 then only power of 2 is supported.  */
-      gcc_assert (exact_log2 (length) != -1);
+      gcc_assert (pow2p_hwi (length));
 
       for (i = 0, n = nelt / 2; i < n; i++)
 	{
@@ -5309,7 +5377,7 @@ vect_grouped_load_supported (tree vectype, bool single_element_p,
       else
 	{
 	  /* If length is not equal to 3 then only power of 2 is supported.  */
-	  gcc_assert (exact_log2 (count) != -1);
+	  gcc_assert (pow2p_hwi (count));
 	  for (i = 0; i < nelt; i++)
 	    sel[i] = i * 2;
 	  if (can_vec_perm_p (mode, false, sel))
@@ -5483,7 +5551,7 @@ vect_permute_load_chain (vec<tree> dr_chain,
   else
     {
       /* If length is not equal to 3 then only power of 2 is supported.  */
-      gcc_assert (exact_log2 (length) != -1);
+      gcc_assert (pow2p_hwi (length));
 
       for (i = 0; i < nelt; ++i)
 	sel[i] = i * 2;
@@ -5632,7 +5700,7 @@ vect_shift_permute_load_chain (vec<tree> dr_chain,
   memcpy (result_chain->address (), dr_chain.address (),
 	  length * sizeof (tree));
 
-  if (exact_log2 (length) != -1 && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
+  if (pow2p_hwi (length) && LOOP_VINFO_VECT_FACTOR (loop_vinfo) > 4)
     {
       unsigned int j, log_length = exact_log2 (length);
       for (i = 0; i < nelt / 2; ++i)
@@ -5880,7 +5948,7 @@ vect_transform_grouped_load (gimple *stmt, vec<tree> dr_chain, int size,
      get chain for loads group using vect_shift_permute_load_chain.  */
   mode = TYPE_MODE (STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt)));
   if (targetm.sched.reassociation_width (VEC_PERM_EXPR, mode) > 1
-      || exact_log2 (size) != -1
+      || pow2p_hwi (size)
       || !vect_shift_permute_load_chain (dr_chain, size, stmt,
 					 gsi, &result_chain))
     vect_permute_load_chain (dr_chain, size, stmt, gsi, &result_chain);
@@ -5970,7 +6038,7 @@ vect_record_grouped_load_vectors (gimple *stmt, vec<tree> result_chain)
 bool
 vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 {
-  if (TREE_CODE (decl) != VAR_DECL)
+  if (!VAR_P (decl))
     return false;
 
   if (decl_in_symtab_p (decl)
@@ -6112,10 +6180,8 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-      if ((TYPE_USER_ALIGN (type) && !is_packed)
-	  || targetm.vectorize.
-	       support_vector_misalignment (mode, type,
-					    DR_MISALIGNMENT (dr), is_packed))
+      if (targetm.vectorize.support_vector_misalignment
+	    (mode, type, DR_MISALIGNMENT (dr), is_packed))
 	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
@@ -6127,10 +6193,8 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-     if ((TYPE_USER_ALIGN (type) && !is_packed)
-	 || targetm.vectorize.
-	      support_vector_misalignment (mode, type,
-					   DR_MISALIGNMENT (dr), is_packed))
+     if (targetm.vectorize.support_vector_misalignment
+	   (mode, type, DR_MISALIGNMENT (dr), is_packed))
        return dr_unaligned_supported;
     }
 

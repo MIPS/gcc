@@ -1,5 +1,5 @@
 /* Generate code from machine description to recognize rtl as insns.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -732,9 +732,35 @@ validate_pattern (rtx pattern, md_rtx_info *info, rtx set, int set_code)
       return;
 
     case LABEL_REF:
-      if (GET_MODE (LABEL_REF_LABEL (pattern)) != VOIDmode)
+      if (GET_MODE (XEXP (pattern, 0)) != VOIDmode)
 	error_at (info->loc, "operand to label_ref %smode not VOIDmode",
-		  GET_MODE_NAME (GET_MODE (LABEL_REF_LABEL (pattern))));
+		  GET_MODE_NAME (GET_MODE (XEXP (pattern, 0))));
+      break;
+
+    case VEC_SELECT:
+      if (GET_MODE (pattern) != VOIDmode)
+	{
+	  enum machine_mode mode = GET_MODE (pattern);
+	  enum machine_mode imode = GET_MODE (XEXP (pattern, 0));
+	  enum machine_mode emode
+	    = VECTOR_MODE_P (mode) ? GET_MODE_INNER (mode) : mode;
+	  if (GET_CODE (XEXP (pattern, 1)) == PARALLEL)
+	    {
+	      int expected = VECTOR_MODE_P (mode) ? GET_MODE_NUNITS (mode) : 1;
+	      if (XVECLEN (XEXP (pattern, 1), 0) != expected)
+		error_at (info->loc,
+			  "vec_select parallel with %d elements, expected %d",
+			  XVECLEN (XEXP (pattern, 1), 0), expected);
+	    }
+	  if (imode != VOIDmode && !VECTOR_MODE_P (imode))
+	    error_at (info->loc, "%smode of first vec_select operand is not a "
+				 "vector mode", GET_MODE_NAME (imode));
+	  else if (imode != VOIDmode && GET_MODE_INNER (imode) != emode)
+	    error_at (info->loc, "element mode mismatch between vec_select "
+				 "%smode and its operand %smode",
+		      GET_MODE_NAME (emode),
+		      GET_MODE_NAME (GET_MODE_INNER (imode)));
+	}
       break;
 
     default:
@@ -1381,14 +1407,16 @@ struct int_set : public auto_vec <uint64_t, 1>
   iterator end ();
 };
 
-int_set::int_set () {}
+int_set::int_set () : auto_vec<uint64_t, 1> () {}
 
-int_set::int_set (uint64_t label)
+int_set::int_set (uint64_t label) :
+  auto_vec<uint64_t, 1> ()
 {
   safe_push (label);
 }
 
-int_set::int_set (const int_set &other)
+int_set::int_set (const int_set &other) :
+  auto_vec<uint64_t, 1> ()
 {
   safe_splice (other);
 }
@@ -4181,6 +4209,7 @@ write_header (void)
 #include \"backend.h\"\n\
 #include \"predict.h\"\n\
 #include \"rtl.h\"\n\
+#include \"memmodel.h\"\n\
 #include \"tm_p.h\"\n\
 #include \"emit-rtl.h\"\n\
 #include \"insn-config.h\"\n\
@@ -4658,7 +4687,7 @@ print_test (output_state *os, const rtx_test &test, bool is_param,
       gcc_assert (!is_param && value == 1);
       if (invert_p)
 	printf ("!");
-      print_c_condition (test.u.string);
+      rtx_reader_ptr->print_c_condition (test.u.string);
       break;
 
     case rtx_test::ACCEPT:
@@ -5098,11 +5127,6 @@ print_pattern (output_state *os, pattern_routine *routine)
 static void
 print_subroutine (output_state *os, state *s, int proc_id)
 {
-  /* For now, the top-level "recog" takes a plain "rtx", and performs a
-     checked cast to "rtx_insn *" for use throughout the rest of the
-     function and the code it calls.  */
-  const char *insn_param
-    = proc_id > 0 ? "rtx_insn *insn" : "rtx uncast_insn";
   printf ("\n");
   switch (os->type)
     {
@@ -5115,8 +5139,8 @@ print_subroutine (output_state *os, state *s, int proc_id)
       else
 	printf ("int\nrecog");
       printf (" (rtx x1 ATTRIBUTE_UNUSED,\n"
-	      "\t%s ATTRIBUTE_UNUSED,\n"
-	      "\tint *pnum_clobbers ATTRIBUTE_UNUSED)\n", insn_param);
+	      "\trtx_insn *insn ATTRIBUTE_UNUSED,\n"
+	      "\tint *pnum_clobbers ATTRIBUTE_UNUSED)\n");
       break;
 
     case SPLIT:
@@ -5141,11 +5165,6 @@ print_subroutine (output_state *os, state *s, int proc_id)
   if (proc_id == 0)
     {
       printf ("  recog_data.insn = NULL;\n");
-      if (os->type == RECOG)
-	{
-	  printf ("  rtx_insn *insn ATTRIBUTE_UNUSED;\n");
-	  printf ("  insn = safe_as_a <rtx_insn *> (uncast_insn);\n");
-	}
     }
   print_state (os, s, 2, true);
   printf ("}\n");

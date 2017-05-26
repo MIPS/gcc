@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -74,29 +74,32 @@ package body Lib.Writ is
    begin
       Units.Increment_Last;
       Units.Table (Units.Last) :=
-        (Unit_File_Name    => File_Name (S),
-         Unit_Name         => No_Unit_Name,
-         Expected_Unit     => No_Unit_Name,
-         Source_Index      => S,
-         Cunit             => Empty,
-         Cunit_Entity      => Empty,
-         Dependency_Num    => 0,
-         Dynamic_Elab      => False,
-         Fatal_Error       => None,
-         Generate_Code     => False,
-         Has_RACW          => False,
-         Filler            => False,
-         Ident_String      => Empty,
-         Loading           => False,
-         Main_Priority     => -1,
-         Main_CPU          => -1,
-         Munit_Index       => 0,
-         No_Elab_Code_All  => False,
-         Serial_Number     => 0,
-         Version           => 0,
-         Error_Location    => No_Location,
-         OA_Setting        => 'O',
-         SPARK_Mode_Pragma => Empty);
+        (Unit_File_Name         => File_Name (S),
+         Unit_Name              => No_Unit_Name,
+         Expected_Unit          => No_Unit_Name,
+         Source_Index           => S,
+         Cunit                  => Empty,
+         Cunit_Entity           => Empty,
+         Dependency_Num         => 0,
+         Dynamic_Elab           => False,
+         Fatal_Error            => None,
+         Generate_Code          => False,
+         Has_RACW               => False,
+         Filler                 => False,
+         Ident_String           => Empty,
+         Is_Predefined_Renaming => False,
+         Is_Internal_Unit       => False,
+         Is_Predefined_Unit     => False,
+         Filler2                => False,
+         Loading                => False,
+         Main_Priority          => -1,
+         Main_CPU               => -1,
+         Munit_Index            => 0,
+         No_Elab_Code_All       => False,
+         Serial_Number          => 0,
+         Version                => 0,
+         Error_Location         => No_Location,
+         OA_Setting             => 'O');
    end Add_Preprocessing_Dependency;
 
    ------------------------------
@@ -131,30 +134,33 @@ package body Lib.Writ is
       System_Fname := File_Name (System_Source_File_Index);
 
       Units.Increment_Last;
-      Units.Table (Units.Last) := (
-        Unit_File_Name    => System_Fname,
-        Unit_Name         => System_Uname,
-        Expected_Unit     => System_Uname,
-        Source_Index      => System_Source_File_Index,
-        Cunit             => Empty,
-        Cunit_Entity      => Empty,
-        Dependency_Num    => 0,
-        Dynamic_Elab      => False,
-        Fatal_Error       => None,
-        Generate_Code     => False,
-        Has_RACW          => False,
-        Filler            => False,
-        Ident_String      => Empty,
-        Loading           => False,
-        Main_Priority     => -1,
-        Main_CPU          => -1,
-        Munit_Index       => 0,
-        No_Elab_Code_All  => False,
-        Serial_Number     => 0,
-        Version           => 0,
-        Error_Location    => No_Location,
-        OA_Setting        => 'O',
-        SPARK_Mode_Pragma => Empty);
+      Units.Table (Units.Last) :=
+        (Unit_File_Name         => System_Fname,
+         Unit_Name              => System_Uname,
+         Expected_Unit          => System_Uname,
+         Source_Index           => System_Source_File_Index,
+         Cunit                  => Empty,
+         Cunit_Entity           => Empty,
+         Dependency_Num         => 0,
+         Dynamic_Elab           => False,
+         Fatal_Error            => None,
+         Generate_Code          => False,
+         Has_RACW               => False,
+         Filler                 => False,
+         Ident_String           => Empty,
+         Is_Predefined_Renaming => False,
+         Is_Internal_Unit       => True,
+         Is_Predefined_Unit     => True,
+         Filler2                => False,
+         Loading                => False,
+         Main_Priority          => -1,
+         Main_CPU               => -1,
+         Munit_Index            => 0,
+         No_Elab_Code_All       => False,
+         Serial_Number          => 0,
+         Version                => 0,
+         Error_Location         => No_Location,
+         OA_Setting             => 'O');
 
       --  Parse system.ads so that the checksum is set right. Style checks are
       --  not applied. The Ekind is set to ensure that this reference is always
@@ -535,7 +541,7 @@ package body Lib.Writ is
             Write_Info_Str (" GE");
          end if;
 
-         if not Is_Internal_File_Name (Unit_File_Name (Unit_Num), True) then
+         if not Is_Internal_Unit (Unit_Num) then
             case Identifier_Casing (Source_Index (Unit_Num)) is
                when All_Lower_Case => Write_Info_Str (" IL");
                when All_Upper_Case => Write_Info_Str (" IU");
@@ -620,8 +626,7 @@ package body Lib.Writ is
             --  parameters (see Lib_Writ spec for an explanation).
 
             if Is_Generic_Unit (Cunit_Entity (Main_Unit))
-              and then
-                Is_Predefined_File_Name (Unit_File_Name (Current_Sem_Unit))
+              and then Is_Predefined_Unit (Current_Sem_Unit)
               and then Linker_Option_Lines.Table (J).Unit = Unit_Num
             then
                Set_Standard_Error;
@@ -672,7 +677,7 @@ package body Lib.Writ is
                   Write_Info_Initiate ('N');
                   Write_Info_Char (' ');
 
-                  case Chars (Pragma_Identifier (N)) is
+                  case Pragma_Name_Unmapped (N) is
                      when Name_Annotate =>
                         C := 'A';
                      when Name_Comment =>
@@ -860,7 +865,7 @@ package body Lib.Writ is
             if not ((Nkind (Unit (Cunit)) in N_Generic_Declaration
                       or else
                      Nkind (Unit (Cunit)) in N_Generic_Renaming_Declaration)
-                    and then Generic_May_Lack_ALI (Fname))
+                    and then Generic_May_Lack_ALI (Unum))
 
               --  In SPARK mode, always generate the dependencies on ALI
               --  files, which are required to compute frame conditions
@@ -990,8 +995,27 @@ package body Lib.Writ is
          if Cunit_Entity (Unum) = Empty
            or else not From_Limited_With (Cunit_Entity (Unum))
          then
-            Num_Sdep := Num_Sdep + 1;
-            Sdep_Table (Num_Sdep) := Unum;
+            --  Units that are not analyzed need not appear in the dependency
+            --  list. These units are either units appearing in limited_with
+            --  clauses of other units, or units loaded for inlining that end
+            --  up not inlined by a later decision of the inlining code, to
+            --  prevent circularities. We want to exclude these files from the
+            --  list of dependencies, so that the dependency number of other
+            --  is correctly set, as that number is used by cross-reference
+            --  tools to relate entity information to the unit in which they
+            --  are declared.
+
+            if Present (Cunit_Entity (Unum))
+              and then Ekind (Cunit_Entity (Unum)) = E_Void
+              and then Nkind (Unit (Cunit (Unum))) /= N_Subunit
+              and then Serious_Errors_Detected = 0
+            then
+               null;
+
+            else
+               Num_Sdep := Num_Sdep + 1;
+               Sdep_Table (Num_Sdep) := Unum;
+            end if;
          end if;
       end loop;
 
@@ -1143,9 +1167,7 @@ package body Lib.Writ is
          Write_Info_Str (" DB");
       end if;
 
-      if Tasking_Used
-        and then not Is_Predefined_File_Name (Unit_File_Name (Main_Unit))
-      then
+      if Tasking_Used and then not Is_Predefined_Unit (Main_Unit) then
          if Locking_Policy /= ' ' then
             Write_Info_Str  (" L");
             Write_Info_Char (Locking_Policy);
@@ -1433,20 +1455,6 @@ package body Lib.Writ is
             Units.Table (Unum).Dependency_Num := J;
             Sind := Units.Table (Unum).Source_Index;
 
-            --  The dependency table also contains units that appear in the
-            --  context of a unit loaded through a limited_with clause. These
-            --  units are never analyzed, and thus the main unit does not
-            --  really have a dependency on them. Subunits are always compiled
-            --  in the context of the parent, and their file table entries are
-            --  not properly decorated, they are recognized syntactically.
-
-            if Present (Cunit_Entity (Unum))
-              and then Ekind (Cunit_Entity (Unum)) = E_Void
-              and then Nkind (Unit (Cunit (Unum))) /= N_Subunit
-            then
-               goto Next_Unit;
-            end if;
-
             Write_Info_Initiate ('D');
             Write_Info_Char (' ');
 
@@ -1522,9 +1530,6 @@ package body Lib.Writ is
             end if;
 
             Write_Info_EOL;
-
-         <<Next_Unit>>
-            null;
          end loop;
       end;
 

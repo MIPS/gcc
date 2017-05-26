@@ -1,5 +1,5 @@
 /* Loop manipulation code for GNU compiler.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -298,15 +298,19 @@ fix_bb_placements (basic_block from,
    and update loop structures and dominators.  Return true if we were able
    to remove the path, false otherwise (and nothing is affected then).  */
 bool
-remove_path (edge e)
+remove_path (edge e, bool *irred_invalidated,
+	     bitmap loop_closed_ssa_invalidated)
 {
   edge ae;
   basic_block *rem_bbs, *bord_bbs, from, bb;
   vec<basic_block> dom_bbs;
   int i, nrem, n_bord_bbs;
-  bool irred_invalidated = false;
+  bool local_irred_invalidated = false;
   edge_iterator ei;
   struct loop *l, *f;
+
+  if (! irred_invalidated)
+    irred_invalidated = &local_irred_invalidated;
 
   if (!can_remove_branch_p (e))
     return false;
@@ -317,7 +321,7 @@ remove_path (edge e)
      that is inside an irreducible region is changed, or if such a loop is
      removed.  */
   if (e->flags & EDGE_IRREDUCIBLE_LOOP)
-    irred_invalidated = true;
+    *irred_invalidated = true;
 
   /* We need to check whether basic blocks are dominated by the edge
      e, but we only have basic block dominators.  This is easy to
@@ -334,7 +338,7 @@ remove_path (edge e)
     {
       f = loop_outer (l);
       if (dominated_by_p (CDI_DOMINATORS, l->latch, e->dest))
-        unloop (l, &irred_invalidated, NULL);
+        unloop (l, irred_invalidated, loop_closed_ssa_invalidated);
     }
 
   /* Identify the path.  */
@@ -348,13 +352,13 @@ remove_path (edge e)
   /* Find "border" hexes -- i.e. those with predecessor in removed path.  */
   for (i = 0; i < nrem; i++)
     bitmap_set_bit (seen, rem_bbs[i]->index);
-  if (!irred_invalidated)
+  if (!*irred_invalidated)
     FOR_EACH_EDGE (ae, ei, e->src->succs)
       if (ae != e && ae->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	  && !bitmap_bit_p (seen, ae->dest->index)
 	  && ae->flags & EDGE_IRREDUCIBLE_LOOP)
 	{
-	  irred_invalidated = true;
+	  *irred_invalidated = true;
 	  break;
 	}
 
@@ -369,7 +373,7 @@ remove_path (edge e)
 	    bord_bbs[n_bord_bbs++] = ae->dest;
 
 	    if (ae->flags & EDGE_IRREDUCIBLE_LOOP)
-	      irred_invalidated = true;
+	      *irred_invalidated = true;
 	  }
     }
 
@@ -411,10 +415,10 @@ remove_path (edge e)
 
   /* Fix placements of basic blocks inside loops and the placement of
      loops in the loop tree.  */
-  fix_bb_placements (from, &irred_invalidated, NULL);
-  fix_loop_placements (from->loop_father, &irred_invalidated);
+  fix_bb_placements (from, irred_invalidated, loop_closed_ssa_invalidated);
+  fix_loop_placements (from->loop_father, irred_invalidated);
 
-  if (irred_invalidated
+  if (local_irred_invalidated
       && loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS))
     mark_irreducible_loops ();
 
@@ -1276,10 +1280,13 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	}
       else
 	{
+	  int preheader_freq = EDGE_FREQUENCY (e);
 	  scale_main = REG_BR_PROB_BASE;
 	  for (i = 0; i < ndupl; i++)
 	    scale_main = combine_probabilities (scale_main, scale_step[i]);
-	  scale_act = REG_BR_PROB_BASE - prob_pass_thru;
+	  if (preheader_freq > freq_in)
+	    preheader_freq = freq_in;
+	  scale_act = GCOV_COMPUTE_SCALE (preheader_freq, freq_in);
 	}
       for (i = 0; i < ndupl; i++)
 	gcc_assert (scale_step[i] >= 0 && scale_step[i] <= REG_BR_PROB_BASE);
@@ -1497,7 +1504,7 @@ has_preds_from_loop (basic_block block, struct loop *loop)
 basic_block
 create_preheader (struct loop *loop, int flags)
 {
-  edge e, fallthru;
+  edge e;
   basic_block dummy;
   int nentry = 0;
   bool irred = false;
@@ -1544,9 +1551,14 @@ create_preheader (struct loop *loop, int flags)
 
   mfb_kj_edge = loop_latch_edge (loop);
   latch_edge_was_fallthru = (mfb_kj_edge->flags & EDGE_FALLTHRU) != 0;
-  fallthru = make_forwarder_block (loop->header, mfb_keep_just, NULL);
-  dummy = fallthru->src;
-  loop->header = fallthru->dest;
+  if (nentry == 1)
+    dummy = split_edge (single_entry);
+  else
+    {
+      edge fallthru = make_forwarder_block (loop->header, mfb_keep_just, NULL);
+      dummy = fallthru->src;
+      loop->header = fallthru->dest;
+    }
 
   /* Try to be clever in placing the newly created preheader.  The idea is to
      avoid breaking any "fallthruness" relationship between blocks.
@@ -1633,11 +1645,14 @@ force_single_succ_latches (void)
 			|
 			+---------> [second_head]
 
-  THEN_PROB is the probability of then branch of the condition.  */
+  THEN_PROB is the probability of then branch of the condition.
+  ELSE_PROB is the probability of else branch. Note that they may be both
+  REG_BR_PROB_BASE when condition is IFN_LOOP_VECTORIZED.  */
 
 static basic_block
 lv_adjust_loop_entry_edge (basic_block first_head, basic_block second_head,
-			   edge e, void *cond_expr, unsigned then_prob)
+			   edge e, void *cond_expr, unsigned then_prob,
+			   unsigned else_prob)
 {
   basic_block new_head = NULL;
   edge e1;
@@ -1656,7 +1671,7 @@ lv_adjust_loop_entry_edge (basic_block first_head, basic_block second_head,
   e1 = make_edge (new_head, first_head,
 		  current_ir_type () == IR_GIMPLE ? EDGE_TRUE_VALUE : 0);
   e1->probability = then_prob;
-  e->probability = REG_BR_PROB_BASE - then_prob;
+  e->probability = else_prob;
   e1->count = apply_probability (e->count, e1->probability);
   e->count = apply_probability (e->count, e->probability);
 
@@ -1674,9 +1689,12 @@ lv_adjust_loop_entry_edge (basic_block first_head, basic_block second_head,
    This transformation given a condition and a loop, creates
    -if (condition) { loop_copy1 } else { loop_copy2 },
    where loop_copy1 is the loop transformed in one way, and loop_copy2
-   is the loop transformed in another way (or unchanged). 'condition'
+   is the loop transformed in another way (or unchanged). COND_EXPR
    may be a run time test for things that were not resolved by static
    analysis (overlapping ranges (anti-aliasing), alignment, etc.).
+
+   If non-NULL, CONDITION_BB is set to the basic block containing the
+   condition.
 
    THEN_PROB is the probability of the then edge of the if.  THEN_SCALE
    is the ratio by that the frequencies in the original loop should
@@ -1689,7 +1707,8 @@ lv_adjust_loop_entry_edge (basic_block first_head, basic_block second_head,
 struct loop *
 loop_version (struct loop *loop,
 	      void *cond_expr, basic_block *condition_bb,
-	      unsigned then_prob, unsigned then_scale, unsigned else_scale,
+	      unsigned then_prob, unsigned else_prob,
+	      unsigned then_scale, unsigned else_scale,
 	      bool place_after)
 {
   basic_block first_head, second_head;
@@ -1720,7 +1739,7 @@ loop_version (struct loop *loop,
 
   /* Split loop entry edge and insert new block with cond expr.  */
   cond_bb =  lv_adjust_loop_entry_edge (first_head, second_head,
-					entry, cond_expr, then_prob);
+					entry, cond_expr, then_prob, else_prob);
   if (condition_bb)
     *condition_bb = cond_bb;
 

@@ -1,5 +1,5 @@
 /* LTO symbol table.
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -45,11 +45,10 @@ lto_cgraph_replace_node (struct cgraph_node *node,
 
   if (symtab->dump_file)
     {
-      fprintf (symtab->dump_file, "Replacing cgraph node %s/%i by %s/%i"
+      fprintf (symtab->dump_file, "Replacing cgraph node %s by %s"
  	       " for symbol %s\n",
-	       node->name (), node->order,
-	       prevailing_node->name (),
-	       prevailing_node->order,
+	       node->dump_name (),
+	       prevailing_node->dump_name (),
 	       IDENTIFIER_POINTER ((*targetm.asm_out.mangle_assembler_name)
 		 (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->decl)))));
     }
@@ -655,6 +654,14 @@ lto_symtab_merge_decls_2 (symtab_node *first, bool diagnosed_p)
   /* Diagnose all mismatched re-declarations.  */
   FOR_EACH_VEC_ELT (mismatches, i, decl)
     {
+      /* Do not diagnose two built-in declarations, there is no useful
+         location in that case.  It also happens for AVR if two built-ins
+         use the same asm name because their libgcc assembler code is the
+         same, see PR78562.  */
+      if (DECL_IS_BUILTIN (prevailing->decl)
+	  && DECL_IS_BUILTIN (decl))
+	continue;
+
       int level = warn_type_compatibility_p (TREE_TYPE (prevailing->decl),
 					     TREE_TYPE (decl),
 					     DECL_COMDAT (decl));
@@ -960,7 +967,7 @@ lto_symtab_merge_symbols (void)
 
 	      /* The user defined assembler variables are also not unified by their
 		 symbol name (since it is irrelevant), but we need to unify symbol
-		 nodes if tree merging occured.  */
+		 nodes if tree merging occurred.  */
 	      if ((vnode = dyn_cast <varpool_node *> (node))
 		  && DECL_HARD_REGISTER (vnode->decl)
 		  && (node2 = symtab_node::get (vnode->decl))

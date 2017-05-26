@@ -1,5 +1,5 @@
 /* Separate lexical analyzer for GNU C++.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -37,7 +37,6 @@ static void handle_pragma_vtable (cpp_reader *);
 static void handle_pragma_unit (cpp_reader *);
 static void handle_pragma_interface (cpp_reader *);
 static void handle_pragma_implementation (cpp_reader *);
-static void handle_pragma_java_exceptions (cpp_reader *);
 
 static void init_operators (void);
 static void copy_lang_type (tree);
@@ -71,9 +70,6 @@ struct impl_files
 };
 
 static struct impl_files *impl_file_chain;
-
-/* True if we saw "#pragma GCC java_exceptions".  */
-bool pragma_java_exceptions;
 
 void
 cxx_finish (void)
@@ -210,7 +206,6 @@ init_cp_pragma (void)
   c_register_pragma (0, "implementation", handle_pragma_implementation);
   c_register_pragma ("GCC", "interface", handle_pragma_interface);
   c_register_pragma ("GCC", "implementation", handle_pragma_implementation);
-  c_register_pragma ("GCC", "java_exceptions", handle_pragma_java_exceptions);
 }
 
 /* TRUE if a code represents a statement.  */
@@ -427,18 +422,6 @@ handle_pragma_implementation (cpp_reader* /*dfile*/)
     }
 }
 
-/* Indicate that this file uses Java-personality exception handling.  */
-static void
-handle_pragma_java_exceptions (cpp_reader* /*dfile*/)
-{
-  tree x;
-  if (pragma_lex (&x) != CPP_EOF)
-    warning (0, "junk at end of #pragma GCC java_exceptions");
-
-  choose_personality_routine (lang_java);
-  pragma_java_exceptions = true;
-}
-
 /* Issue an error message indicating that the lookup of NAME (an
    IDENTIFIER_NODE) failed.  Returns the ERROR_MARK_NODE.  */
 
@@ -450,7 +433,7 @@ unqualified_name_lookup_error (tree name, location_t loc)
 
   if (IDENTIFIER_OPNAME_P (name))
     {
-      if (name != ansi_opname (ERROR_MARK))
+      if (name != cp_operator_id (ERROR_MARK))
 	error_at (loc, "%qD not defined", name);
     }
   else
@@ -458,19 +441,15 @@ unqualified_name_lookup_error (tree name, location_t loc)
       if (!objc_diagnose_private_ivar (name))
 	{
 	  error_at (loc, "%qD was not declared in this scope", name);
-	  suggest_alternatives_for (loc, name);
+	  suggest_alternatives_for (loc, name, true);
 	}
       /* Prevent repeated error messages by creating a VAR_DECL with
 	 this NAME in the innermost block scope.  */
       if (local_bindings_p ())
 	{
-	  tree decl;
-	  decl = build_decl (loc, VAR_DECL, name, error_mark_node);
-	  DECL_CONTEXT (decl) = current_function_decl;
-	  push_local_binding (name, decl, 0);
-	  /* Mark the variable as used so that we do not get warnings
-	     about it being unused later.  */
-	  TREE_USED (decl) = 1;
+	  tree decl = build_decl (loc, VAR_DECL, name, error_mark_node);
+	  TREE_USED (decl) = true;
+	  pushdecl (decl);
 	}
     }
 
@@ -580,8 +559,6 @@ retrofit_lang_decl (tree t)
     SET_DECL_LANGUAGE (t, lang_cplusplus);
   else if (current_lang_name == lang_name_c)
     SET_DECL_LANGUAGE (t, lang_c);
-  else if (current_lang_name == lang_name_java)
-    SET_DECL_LANGUAGE (t, lang_java);
   else
     gcc_unreachable ();
 
@@ -626,11 +603,11 @@ cxx_dup_lang_specific_decl (tree node)
 /* Copy DECL, including any language-specific parts.  */
 
 tree
-copy_decl (tree decl)
+copy_decl (tree decl MEM_STAT_DECL)
 {
   tree copy;
 
-  copy = copy_node (decl);
+  copy = copy_node_stat (decl PASS_MEM_STAT);
   cxx_dup_lang_specific_decl (copy);
   return copy;
 }
@@ -664,11 +641,11 @@ copy_lang_type (tree node)
 /* Copy TYPE, including any language-specific parts.  */
 
 tree
-copy_type (tree type)
+copy_type (tree type MEM_STAT_DECL)
 {
   tree copy;
 
-  copy = copy_node (type);
+  copy = copy_node_stat (type PASS_MEM_STAT);
   copy_lang_type (copy);
   return copy;
 }

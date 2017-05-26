@@ -1,4 +1,4 @@
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2010-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -48,8 +48,6 @@ void isunordered() { }
 template <typename _Tp, typename _Up = _Tp>
   void test_c99_classify()
   {
-    bool test __attribute__((unused)) = true;
-
     typedef _Tp fp_type_one;
     typedef _Up fp_type_two;
     fp_type_one f1 = 1.0;

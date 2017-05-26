@@ -1,5 +1,5 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -344,14 +344,17 @@ c_pretty_printer::simple_type_specifier (tree t)
       else
 	{
 	  int prec = TYPE_PRECISION (t);
+	  tree common_t;
 	  if (ALL_FIXED_POINT_MODE_P (TYPE_MODE (t)))
-	    t = c_common_type_for_mode (TYPE_MODE (t), TYPE_SATURATING (t));
+	    common_t = c_common_type_for_mode (TYPE_MODE (t),
+					       TYPE_SATURATING (t));
 	  else
-	    t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
-	  if (TYPE_NAME (t))
+	    common_t = c_common_type_for_mode (TYPE_MODE (t),
+					       TYPE_UNSIGNED (t));
+	  if (common_t && TYPE_NAME (common_t))
 	    {
-	      simple_type_specifier (t);
-	      if (TYPE_PRECISION (t) != prec)
+	      simple_type_specifier (common_t);
+	      if (TYPE_PRECISION (common_t) != prec)
 		{
 		  pp_colon (this);
 		  pp_decimal_int (this, prec);
@@ -901,15 +904,6 @@ pp_c_void_constant (c_pretty_printer *pp)
 static void
 pp_c_integer_constant (c_pretty_printer *pp, tree i)
 {
-  int idx;
-
-  /* We are going to compare the type of I to other types using
-     pointer comparison so we need to use its canonical type.  */
-  tree type =
-    TYPE_CANONICAL (TREE_TYPE (i))
-    ? TYPE_CANONICAL (TREE_TYPE (i))
-    : TREE_TYPE (i);
-
   if (tree_fits_shwi_p (i))
     pp_wide_integer (pp, tree_to_shwi (i));
   else if (tree_fits_uhwi_p (i))
@@ -926,24 +920,6 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
       print_hex (wi, pp_buffer (pp)->digit_buffer);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
-  if (TYPE_UNSIGNED (type))
-    pp_character (pp, 'u');
-  if (type == long_integer_type_node || type == long_unsigned_type_node)
-    pp_character (pp, 'l');
-  else if (type == long_long_integer_type_node
-	   || type == long_long_unsigned_type_node)
-    pp_string (pp, "ll");
-  else for (idx = 0; idx < NUM_INT_N_ENTS; idx ++)
-    if (int_n_enabled_p[idx])
-      {
-	char buf[2+20];
-	if (type == int_n_trees[idx].signed_type
-	    || type == int_n_trees[idx].unsigned_type)
-	  {
-	    sprintf (buf, "I%d", int_n_data[idx].bitsize);
-	    pp_string (pp, buf);
-	  }
-      }
 }
 
 /* Print out a CHARACTER literal.  */
@@ -1045,6 +1021,16 @@ pp_c_floating_constant (c_pretty_printer *pp, tree r)
     pp_string (pp, "dd");
   else if (TREE_TYPE (r) == dfloat32_type_node)
     pp_string (pp, "df");
+  else if (TREE_TYPE (r) != double_type_node)
+    for (int i = 0; i < NUM_FLOATN_NX_TYPES; i++)
+      if (TREE_TYPE (r) == FLOATN_NX_TYPE_NODE (i))
+	{
+	  pp_character (pp, 'f');
+	  pp_decimal_int (pp, floatn_nx_types[i].n);
+	  if (floatn_nx_types[i].extended)
+	    pp_character (pp, 'x');
+	  break;
+	}
 }
 
 /* Print out a FIXED value as a decimal-floating-constant.  */
@@ -1565,6 +1551,14 @@ c_pretty_printer::postfix_expression (tree e)
 			   : "__builtin_islessgreater");
       goto two_args_fun;
 
+    case MAX_EXPR:
+      pp_c_ws_string (this, "max");
+      goto two_args_fun;
+
+    case MIN_EXPR:
+      pp_c_ws_string (this, "min");
+      goto two_args_fun;
+
     two_args_fun:
       pp_c_left_paren (this);
       expression (TREE_OPERAND (e, 0));
@@ -1662,7 +1656,7 @@ c_pretty_printer::postfix_expression (tree e)
           id_expression (TREE_OPERAND (e, 0));
 	  break;
 	}
-      /* else fall through.  */
+      /* fall through.  */
 
     default:
       primary_expression (e);
@@ -1843,6 +1837,8 @@ c_pretty_printer::multiplicative_expression (tree e)
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
+    case EXACT_DIV_EXPR:
+    case RDIV_EXPR:
       multiplicative_expression (TREE_OPERAND (e, 0));
       pp_c_whitespace (this);
       if (code == MULT_EXPR)
@@ -1904,9 +1900,13 @@ pp_c_shift_expression (c_pretty_printer *pp, tree e)
     {
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
       pp_c_shift_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
-      pp_string (pp, code == LSHIFT_EXPR ? "<<" : ">>");
+      pp_string (pp, code == LSHIFT_EXPR ? "<<" :
+		     code == RSHIFT_EXPR ? ">>" :
+		     code == LROTATE_EXPR ? "<<<" : ">>>");
       pp_c_whitespace (pp);
       pp_c_additive_expression (pp, TREE_OPERAND (e, 1));
       break;
@@ -2200,6 +2200,8 @@ c_pretty_printer::expression (tree e)
     case UNLT_EXPR:
     case UNGE_EXPR:
     case UNGT_EXPR:
+    case MAX_EXPR:
+    case MIN_EXPR:
     case ABS_EXPR:
     case CONSTRUCTOR:
     case COMPOUND_LITERAL_EXPR:
@@ -2231,11 +2233,15 @@ c_pretty_printer::expression (tree e)
     case MULT_EXPR:
     case TRUNC_MOD_EXPR:
     case TRUNC_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case RDIV_EXPR:
       multiplicative_expression (e);
       break;
 
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
       pp_c_shift_expression (this, e);
       break;
 
@@ -2390,7 +2396,8 @@ pp_c_tree_decl_identifier (c_pretty_printer *pp, tree t)
   else
     {
       static char xname[8];
-      sprintf (xname, "<U%4x>", ((unsigned)((uintptr_t)(t) & 0xffff)));
+      sprintf (xname, "<U%4hx>", ((unsigned short) ((uintptr_t) (t)
+						    & 0xffff)));
       name = xname;
     }
 

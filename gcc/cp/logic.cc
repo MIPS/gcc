@@ -1,5 +1,5 @@
 /* Derivation and subsumption rules for constraints.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Andrew Sutton (andrew.n.sutton@gmail.com)
 
 This file is part of GCC.
@@ -305,6 +305,9 @@ non_atomic_constraint_p (tree t)
     case ICONV_CONSTR:
     case DEDUCT_CONSTR:
     case EXCEPT_CONSTR:
+      /* A pack expansion isn't atomic, but it can't decompose to prove an
+	 atom, so it shouldn't cause analyze_atom to return undecided.  */
+    case EXPR_PACK_EXPANSION:
       return false;
     case CHECK_CONSTR:
     case PARM_CONSTR:

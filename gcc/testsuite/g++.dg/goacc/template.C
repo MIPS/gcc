@@ -5,7 +5,7 @@ accDouble(int val)
   return val * 2;
 }
 
-template<typename T> T
+template<typename T, int I> T
 oacc_parallel_copy (T a)
 {
   T b = 0;
@@ -36,7 +36,7 @@ oacc_parallel_copy (T a)
       for (int j = 0; j < 5; j++)
 	b = a;
 
-#pragma acc loop auto tile (a, 3)
+#pragma acc loop auto tile (I, 3)
     for (int i = 0; i < a; i++)
       for (int j = 0; j < 5; j++)
 	b = a;
@@ -100,6 +100,10 @@ oacc_kernels_copy (T a)
   float y = 3;
   double z = 4;
 
+#pragma acc kernels num_gangs (a) num_workers (a) vector_length (a) default (none) copyout (b) copyin (a)
+  for (int i = 0; i < 1; i++)
+    b = a;
+
 #pragma acc kernels copy (w, x, y, z)
   {
     w = accDouble<char>(w);
@@ -135,7 +139,7 @@ oacc_kernels_copy (T a)
 int
 main ()
 {
-  int b = oacc_parallel_copy<int> (5);
+  int b = oacc_parallel_copy<int, 4> (5);
   int c = oacc_kernels_copy<int> (5);
 
   return b + c;

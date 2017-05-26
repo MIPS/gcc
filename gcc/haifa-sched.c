@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -130,6 +130,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -401,13 +402,13 @@ const struct common_sched_info_def haifa_common_sched_info =
   };
 
 /* Mapping from instruction UID to its Logical UID.  */
-vec<int> sched_luids = vNULL;
+vec<int> sched_luids;
 
 /* Next LUID to assign to an instruction.  */
 int sched_max_luid = 1;
 
 /* Haifa Instruction Data.  */
-vec<haifa_insn_data_def> h_i_d = vNULL;
+vec<haifa_insn_data_def> h_i_d;
 
 void (* sched_init_only_bb) (basic_block, basic_block);
 
@@ -929,12 +930,16 @@ static bitmap saved_reg_live;
 /* Registers mentioned in the current region.  */
 static bitmap region_ref_regs;
 
+/* Temporary bitmap used for SCHED_PRESSURE_MODEL.  */
+static bitmap tmp_bitmap;
+
 /* Effective number of available registers of a given class (see comment
    in sched_pressure_start_bb).  */
 static int sched_class_regs_num[N_REG_CLASSES];
-/* Number of call_used_regs.  This is a helper for calculating of
+/* Number of call_saved_regs and fixed_regs.  Helpers for calculating of
    sched_class_regs_num.  */
-static int call_used_regs_num[N_REG_CLASSES];
+static int call_saved_regs_num[N_REG_CLASSES];
+static int fixed_regs_num[N_REG_CLASSES];
 
 /* Initiate register pressure relative info for scheduling the current
    region.  Currently it is only clearing register mentioned in the
@@ -2133,10 +2138,11 @@ model_recompute (rtx_insn *insn)
      registers that will be born in the range [model_curr_point, POINT).  */
   num_uses = 0;
   num_pending_births = 0;
+  bitmap_clear (tmp_bitmap);
   for (use = INSN_REG_USE_LIST (insn); use != NULL; use = use->next_insn_use)
     {
       new_last = model_last_use_except (use);
-      if (new_last < point)
+      if (new_last < point && bitmap_set_bit (tmp_bitmap, use->regno))
 	{
 	  gcc_assert (num_uses < ARRAY_SIZE (uses));
 	  uses[num_uses].last_use = new_last;
@@ -3896,17 +3902,19 @@ sched_pressure_start_bb (basic_block bb)
      * If the basic block executes much more often than the prologue/epilogue
      (e.g., inside a hot loop), then cost of spill in the prologue is close to
      nil, so the effective number of available registers is
-     (ira_class_hard_regs_num[cl] - 0).
+     (ira_class_hard_regs_num[cl] - fixed_regs_num[cl] - 0).
      * If the basic block executes as often as the prologue/epilogue,
      then spill in the block is as costly as in the prologue, so the effective
      number of available registers is
-     (ira_class_hard_regs_num[cl] - call_used_regs_num[cl]).
+     (ira_class_hard_regs_num[cl] - fixed_regs_num[cl]
+      - call_saved_regs_num[cl]).
      Note that all-else-equal, we prefer to spill in the prologue, since that
      allows "extra" registers for other basic blocks of the function.
      * If the basic block is on the cold path of the function and executes
      rarely, then we should always prefer to spill in the block, rather than
      in the prologue/epilogue.  The effective number of available register is
-     (ira_class_hard_regs_num[cl] - call_used_regs_num[cl]).  */
+     (ira_class_hard_regs_num[cl] - fixed_regs_num[cl]
+      - call_saved_regs_num[cl]).  */
   {
     int i;
     int entry_freq = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
@@ -3923,9 +3931,10 @@ sched_pressure_start_bb (basic_block bb)
     for (i = 0; i < ira_pressure_classes_num; ++i)
       {
 	enum reg_class cl = ira_pressure_classes[i];
-	sched_class_regs_num[cl] = ira_class_hard_regs_num[cl];
+	sched_class_regs_num[cl] = ira_class_hard_regs_num[cl]
+				   - fixed_regs_num[cl];
 	sched_class_regs_num[cl]
-	  -= (call_used_regs_num[cl] * entry_freq) / bb_freq;
+	  -= (call_saved_regs_num[cl] * entry_freq) / bb_freq;
       }
   }
 
@@ -4834,14 +4843,12 @@ estimate_insn_tick (bitmap processed, rtx_insn *insn, int budget)
 static int
 estimate_shadow_tick (struct delay_pair *p)
 {
-  bitmap_head processed;
+  auto_bitmap processed;
   int t;
   bool cutoff;
-  bitmap_initialize (&processed, 0);
 
-  cutoff = !estimate_insn_tick (&processed, p->i2,
+  cutoff = !estimate_insn_tick (processed, p->i2,
 				max_insn_queue_index + pair_delay (p));
-  bitmap_clear (&processed);
   if (cutoff)
     return max_insn_queue_index;
   t = INSN_TICK_ESTIMATE (p->i2) - (clock_var + pair_delay (p) + 1);
@@ -6490,7 +6497,7 @@ dump_insn_stream (rtx_insn *head, rtx_insn *tail)
 
       if (sched_verbose >= 4)
 	{
-	  if (NOTE_P (insn) || recog_memoized (insn) < 0)
+	  if (NOTE_P (insn) || LABEL_P (insn) || recog_memoized (insn) < 0)
 	    fprintf (sched_dump, "nothing");
 	  else
 	    print_reservation (sched_dump, insn);
@@ -7236,18 +7243,23 @@ alloc_global_sched_pressure_data (void)
 	  saved_reg_live = BITMAP_ALLOC (NULL);
 	  region_ref_regs = BITMAP_ALLOC (NULL);
 	}
+      if (sched_pressure == SCHED_PRESSURE_MODEL)
+	tmp_bitmap = BITMAP_ALLOC (NULL);
 
-      /* Calculate number of CALL_USED_REGS in register classes that
-	 we calculate register pressure for.  */
+      /* Calculate number of CALL_SAVED_REGS and FIXED_REGS in register classes
+	 that we calculate register pressure for.  */
       for (int c = 0; c < ira_pressure_classes_num; ++c)
 	{
 	  enum reg_class cl = ira_pressure_classes[c];
 
-	  call_used_regs_num[cl] = 0;
+	  call_saved_regs_num[cl] = 0;
+	  fixed_regs_num[cl] = 0;
 
 	  for (int i = 0; i < ira_class_hard_regs_num[cl]; ++i)
-	    if (call_used_regs[ira_class_hard_regs[cl][i]])
-	      ++call_used_regs_num[cl];
+	    if (!call_used_regs[ira_class_hard_regs[cl][i]])
+	      ++call_saved_regs_num[cl];
+	    else if (fixed_regs[ira_class_hard_regs[cl][i]])
+	      ++fixed_regs_num[cl];
 	}
     }
 }
@@ -7266,6 +7278,8 @@ free_global_sched_pressure_data (void)
 	  BITMAP_FREE (region_ref_regs);
 	  BITMAP_FREE (saved_reg_live);
 	}
+      if (sched_pressure == SCHED_PRESSURE_MODEL)
+	BITMAP_FREE (tmp_bitmap);
       BITMAP_FREE (curr_reg_live);
       free (sched_regno_pressure_class);
     }
@@ -7499,14 +7513,12 @@ static void
 fix_inter_tick (rtx_insn *head, rtx_insn *tail)
 {
   /* Set of instructions with corrected INSN_TICK.  */
-  bitmap_head processed;
+  auto_bitmap processed;
   /* ??? It is doubtful if we should assume that cycle advance happens on
      basic block boundaries.  Basically insns that are unconditionally ready
      on the start of the block are more preferable then those which have
      a one cycle dependency over insn from the previous block.  */
   int next_clock = clock_var + 1;
-
-  bitmap_initialize (&processed, 0);
 
   /* Iterates over scheduled instructions and fix their INSN_TICKs and
      INSN_TICKs of dependent instructions, so that INSN_TICKs are consistent
@@ -7523,7 +7535,7 @@ fix_inter_tick (rtx_insn *head, rtx_insn *tail)
 	  gcc_assert (tick >= MIN_TICK);
 
 	  /* Fix INSN_TICK of instruction from just scheduled block.  */
-	  if (bitmap_set_bit (&processed, INSN_LUID (head)))
+	  if (bitmap_set_bit (processed, INSN_LUID (head)))
 	    {
 	      tick -= next_clock;
 
@@ -7547,7 +7559,7 @@ fix_inter_tick (rtx_insn *head, rtx_insn *tail)
 		  /* If NEXT has its INSN_TICK calculated, fix it.
 		     If not - it will be properly calculated from
 		     scratch later in fix_tick_ready.  */
-		  && bitmap_set_bit (&processed, INSN_LUID (next)))
+		  && bitmap_set_bit (processed, INSN_LUID (next)))
 		{
 		  tick -= next_clock;
 
@@ -7564,7 +7576,6 @@ fix_inter_tick (rtx_insn *head, rtx_insn *tail)
 	    }
 	}
     }
-  bitmap_clear (&processed);
 }
 
 /* Check if NEXT is ready to be added to the ready or queue list.
@@ -8600,11 +8611,8 @@ static void
 fix_recovery_deps (basic_block rec)
 {
   rtx_insn *note, *insn, *jump;
-  rtx_insn_list *ready_list = 0;
-  bitmap_head in_ready;
-  rtx_insn_list *link;
-
-  bitmap_initialize (&in_ready, 0);
+  auto_vec<rtx_insn *, 10> ready_list;
+  auto_bitmap in_ready;
 
   /* NOTE - a basic block note.  */
   note = NEXT_INSN (BB_HEAD (rec));
@@ -8627,8 +8635,8 @@ fix_recovery_deps (basic_block rec)
 	    {
 	      sd_delete_dep (sd_it);
 
-	      if (bitmap_set_bit (&in_ready, INSN_LUID (consumer)))
-		ready_list = alloc_INSN_LIST (consumer, ready_list);
+	      if (bitmap_set_bit (in_ready, INSN_LUID (consumer)))
+		ready_list.safe_push (consumer);
 	    }
 	  else
 	    {
@@ -8642,12 +8650,11 @@ fix_recovery_deps (basic_block rec)
     }
   while (insn != note);
 
-  bitmap_clear (&in_ready);
-
   /* Try to add instructions to the ready or queue list.  */
-  for (link = ready_list; link; link = link->next ())
-    try_ready (link->insn ());
-  free_INSN_LIST_list (&ready_list);
+  unsigned int i;
+  rtx_insn *temp;
+  FOR_EACH_VEC_ELT_REVERSE (ready_list, i, temp)
+    try_ready (temp);
 
   /* Fixing jump's dependences.  */
   insn = BB_HEAD (rec);

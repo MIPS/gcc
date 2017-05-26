@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++17" }
 
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,8 +25,6 @@
 bool
 test01()
 {
-  bool test [[gnu::unused]] = true;
-
   typedef std::string_view::size_type csize_type;
 
   const char str_lit01[] = "123456789A";
@@ -36,8 +34,6 @@ test01()
   csize_type len = str01.copy(buffer, sizeof(buffer), 8);
   VERIFY( 2 == len );
   VERIFY( '9' == buffer[0] );
-
-  return test;
 }
 
 int

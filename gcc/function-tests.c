@@ -1,5 +1,5 @@
 /* Unit tests for function-handling.
-   Copyright (C) 2015-2016 Free Software Foundation, Inc.
+   Copyright (C) 2015-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -78,6 +78,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "cgraph.h"
 #include "selftest.h"
+#include "print-rtl.h"
 
 #if CHECKING_P
 
@@ -420,7 +421,7 @@ verify_three_block_gimple_cfg (function *fun)
 
 /* As above, but additionally verify the RTL insns are sane.  */
 
-static void
+void
 verify_three_block_rtl_cfg (function *fun)
 {
   verify_three_block_cfg (fun);
@@ -643,6 +644,27 @@ test_expansion_to_rtl ()
 
   /* ...etc; any further checks are likely to over-specify things
      and run us into target dependencies.  */
+
+  /* Verify that print_rtl_function is sane.  */
+  named_temp_file tmp_out (".rtl");
+  FILE *outfile = fopen (tmp_out.get_filename (), "w");
+  print_rtx_function (outfile, fun, true);
+  fclose (outfile);
+
+  char *dump = read_file (SELFTEST_LOCATION, tmp_out.get_filename ());
+  ASSERT_STR_CONTAINS (dump, "(function \"test_fn\"\n");
+  ASSERT_STR_CONTAINS (dump, "  (insn-chain\n");
+  ASSERT_STR_CONTAINS (dump, "    (block 2\n");
+  ASSERT_STR_CONTAINS (dump, "      (edge-from entry (flags \"FALLTHRU\"))\n");
+  ASSERT_STR_CONTAINS (dump, "      (cinsn "); /* ...etc.  */
+  ASSERT_STR_CONTAINS (dump, "      (edge-to exit (flags \"FALLTHRU\"))\n");
+  ASSERT_STR_CONTAINS (dump, "    ) ;; block 2\n");
+  ASSERT_STR_CONTAINS (dump, "  ) ;; insn-chain\n");
+  ASSERT_STR_CONTAINS (dump, "  (crtl\n");
+  ASSERT_STR_CONTAINS (dump, "  ) ;; crtl\n");
+  ASSERT_STR_CONTAINS (dump, ") ;; function \"test_fn\"\n");
+
+  free (dump);
 }
 
 /* Run all of the selftests within this file.  */

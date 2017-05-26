@@ -1,5 +1,5 @@
 ;; Predicate definitions for ATMEL AVR micro controllers.
-;; Copyright (C) 2006-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2017 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -177,6 +177,10 @@
 (define_predicate "simple_comparison_operator"
   (and (match_operand 0 "comparison_operator")
        (not (match_code "gt,gtu,le,leu"))))
+
+;; True for SIGN_EXTEND, ZERO_EXTEND.
+(define_predicate "extend_operator"
+  (match_code "sign_extend,zero_extend"))
 
 ;; Return true if OP is a valid call operand.
 (define_predicate "call_insn_operand"

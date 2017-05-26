@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2016, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -88,7 +88,6 @@ extern void mark_visited (tree t);
 
 /* This macro calls the above function but short-circuits the common
    case of a constant to save time and also checks for NULL.  */
-
 #define MARK_VISITED(EXP)		\
 do {					\
   if((EXP) && !CONSTANT_CLASS_P (EXP))	\
@@ -98,12 +97,10 @@ do {					\
 /* Finalize the processing of From_Limited_With incomplete types.  */
 extern void finalize_from_limited_with (void);
 
-/* Return the equivalent type to be used for GNAT_ENTITY, if it's a
-   kind of type (such E_Task_Type) that has a different type which Gigi
-   uses for its representation.  If the type does not have a special type
-   for its representation, return GNAT_ENTITY.  If a type is supposed to
-   exist, but does not, abort unless annotating types, in which case
-   return Empty.   If GNAT_ENTITY is Empty, return Empty.  */
+/* Return the equivalent type to be used for GNAT_ENTITY, if it's a kind
+   of type (such E_Task_Type) that has a different type which Gigi uses
+   for its representation.  If the type does not have a special type for
+   its representation, return GNAT_ENTITY.  */
 extern Entity_Id Gigi_Equivalent_Type (Entity_Id gnat_entity);
 
 /* Given GNAT_ENTITY, elaborate all expressions that are required to
@@ -173,10 +170,6 @@ enum alias_set_op
    - ALIAS_SET_SUBSET:   the new set is made a subset of the old one.  */
 extern void relate_alias_sets (tree gnu_new_type, tree gnu_old_type,
 			       enum alias_set_op op);
-
-/* Given a GNU tree and a GNAT list of choices, generate an expression to test
-   the value passed against the list of choices.  */
-extern tree choices_to_gnu (tree operand, Node_Id choices);
 
 /* Given GNAT_ENTITY, an object (constant, variable, parameter, exception)
    and GNU_TYPE, its corresponding GCC type, set Esize and Alignment to the
@@ -322,9 +315,6 @@ extern void post_error_ne_tree_2 (const char *msg, Node_Id node, Entity_Id ent,
 /* Return a label to branch to for the exception type in KIND or NULL_TREE
    if none.  */
 extern tree get_exception_label (char kind);
-
-/* Return the decl for the current elaboration procedure.  */
-extern tree get_elaboration_procedure (void);
 
 /* If nonzero, pretend we are allocating at global level.  */
 extern int force_global;
@@ -860,9 +850,11 @@ extern tree build_load_modify_store (tree dest, tree src, Node_Id gnat_node);
 /* Make a binary operation of kind OP_CODE.  RESULT_TYPE is the type
    desired for the result.  Usually the operation is to be performed
    in that type.  For MODIFY_EXPR and ARRAY_REF, RESULT_TYPE may be 0
-   in which case the type to be used will be derived from the operands.  */
+   in which case the type to be used will be derived from the operands.
+   Don't fold the result if NO_FOLD is true.  */
 extern tree build_binary_op (enum tree_code op_code, tree result_type,
-                             tree left_operand, tree right_operand);
+			     tree left_operand, tree right_operand,
+			     bool no_fold=false);
 
 /* Similar, but make unary operation.  */
 extern tree build_unary_op (enum tree_code op_code, tree result_type,
@@ -1015,6 +1007,11 @@ extern void process_deferred_decl_context (bool force);
    the debug info, or Empty if there is no such scope.  If not NULL, set
    IS_SUBPROGRAM to whether the returned entity is a subprogram.  */
 extern Entity_Id get_debug_scope (Node_Id gnat_node, bool *is_subprogram);
+
+/* Return whether EXPR, which is the renamed object in an object renaming
+   declaration, can be materialized as a reference (REFERENCE_TYPE).  This
+   should be synchronized with Exp_Dbug.Debug_Renaming_Declaration.  */
+extern bool can_materialize_object_renaming_p (Node_Id expr);
 
 #ifdef __cplusplus
 extern "C" {

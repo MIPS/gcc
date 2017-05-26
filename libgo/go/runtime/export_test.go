@@ -7,6 +7,8 @@
 package runtime
 
 import (
+	"runtime/internal/atomic"
+	"runtime/internal/sys"
 	"unsafe"
 )
 
@@ -21,103 +23,35 @@ import (
 //var F64toint = f64toint
 //var Sqrt = sqrt
 
-func entersyscall(int32)
-func exitsyscall(int32)
-func golockedOSThread() bool
-
 var Entersyscall = entersyscall
 var Exitsyscall = exitsyscall
-var LockedOSThread = golockedOSThread
+var LockedOSThread = lockedOSThread
+var Xadduintptr = atomic.Xadduintptr
 
-// var Xadduintptr = xadduintptr
+var FuncPC = funcPC
 
-// var FuncPC = funcPC
+var Fastlog2 = fastlog2
+
+var Atoi = atoi
+var Atoi32 = atoi32
 
 type LFNode struct {
 	Next    uint64
 	Pushcnt uintptr
 }
 
-func lfstackpush_go(head *uint64, node *LFNode)
-func lfstackpop_go(head *uint64) *LFNode
-
-var LFStackPush = lfstackpush_go
-var LFStackPop = lfstackpop_go
-
-type ParFor struct {
-	body   func(*ParFor, uint32)
-	done   uint32
-	Nthr   uint32
-	thrseq uint32
-	Cnt    uint32
-	wait   bool
+func LFStackPush(head *uint64, node *LFNode) {
+	lfstackpush(head, (*lfnode)(unsafe.Pointer(node)))
 }
 
-func newParFor(nthrmax uint32) *ParFor
-func parForSetup(desc *ParFor, nthr, n uint32, wait bool, body func(*ParFor, uint32))
-func parForDo(desc *ParFor)
-func parForIters(desc *ParFor, tid uintptr) (uintptr, uintptr)
-
-var NewParFor = newParFor
-var ParForSetup = parForSetup
-var ParForDo = parForDo
-
-func ParForIters(desc *ParFor, tid uint32) (uint32, uint32) {
-	begin, end := parForIters(desc, uintptr(tid))
-	return uint32(begin), uint32(end)
+func LFStackPop(head *uint64) *LFNode {
+	return (*LFNode)(unsafe.Pointer(lfstackpop(head)))
 }
 
 func GCMask(x interface{}) (ret []byte) {
 	return nil
 }
 
-//func testSchedLocalQueue()
-//func testSchedLocalQueueSteal()
-//
-//func RunSchedLocalQueueTest() {
-//	testSchedLocalQueue()
-//}
-//
-//func RunSchedLocalQueueStealTest() {
-//	testSchedLocalQueueSteal()
-//}
-
-//var StringHash = stringHash
-//var BytesHash = bytesHash
-//var Int32Hash = int32Hash
-//var Int64Hash = int64Hash
-//var EfaceHash = efaceHash
-//var IfaceHash = ifaceHash
-//var MemclrBytes = memclrBytes
-
-// var HashLoad = &hashLoad
-
-// entry point for testing
-//func GostringW(w []uint16) (s string) {
-//	s = gostringw(&w[0])
-//	return
-//}
-
-//var Gostringnocopy = gostringnocopy
-//var Maxstring = &maxstring
-
-//type Uintreg uintreg
-
-//extern __go_open
-func open(path *byte, mode int32, perm int32) int32
-
-func Open(path *byte, mode int32, perm int32) int32 {
-	return open(path, mode, perm)
-}
-
-//extern close
-func close(int32) int32
-
-func Close(fd int32) int32 {
-	return close(fd)
-}
-
-/*
 func RunSchedLocalQueueTest() {
 	_p_ := new(p)
 	gs := make([]g, len(_p_.runq))
@@ -221,34 +155,34 @@ var Int32Hash = int32Hash
 var Int64Hash = int64Hash
 var EfaceHash = efaceHash
 var IfaceHash = ifaceHash
-var MemclrBytes = memclrBytes
-*/
 
-//extern read
-func read(fd int32, buf unsafe.Pointer, size int32) int32
-
-func Read(fd int32, buf unsafe.Pointer, size int32) int32 {
-	return read(fd, buf, size)
+func MemclrBytes(b []byte) {
+	s := (*slice)(unsafe.Pointer(&b))
+	memclrNoHeapPointers(s.array, uintptr(s.len))
 }
 
-//extern write
-func write(fd int32, buf unsafe.Pointer, size int32) int32
+var HashLoad = &hashLoad
 
-func Write(fd uintptr, buf unsafe.Pointer, size int32) int32 {
-	return write(int32(fd), buf, size)
-}
+// entry point for testing
+//func GostringW(w []uint16) (s string) {
+//	s = gostringw(&w[0])
+//	return
+//}
 
-func envs() []string
-func setenvs([]string)
+type Uintreg sys.Uintreg
 
-var Envs = envs
-var SetEnvs = setenvs
+var Open = open
+var Close = closefd
+var Read = read
+var Write = write
+
+func Envs() []string     { return envs }
+func SetEnvs(e []string) { envs = e }
 
 //var BigEndian = sys.BigEndian
 
 // For benchmarking.
 
-/*
 func BenchSetType(n int, x interface{}) {
 	e := *efaceOf(&x)
 	t := e._type
@@ -278,18 +212,16 @@ func BenchSetType(n int, x interface{}) {
 
 const PtrSize = sys.PtrSize
 
-var TestingAssertE2I2GC = &testingAssertE2I2GC
-var TestingAssertE2T2GC = &testingAssertE2T2GC
-
 var ForceGCPeriod = &forcegcperiod
-*/
 
 // SetTracebackEnv is like runtime/debug.SetTraceback, but it raises
 // the "environment" traceback level, so later calls to
 // debug.SetTraceback (e.g., from testing timeouts) can't lower it.
-func SetTracebackEnv(level string)
+func SetTracebackEnv(level string) {
+	setTraceback(level)
+	traceback_env = traceback_cache
+}
 
-/*
 var ReadUnaligned32 = readUnaligned32
 var ReadUnaligned64 = readUnaligned64
 
@@ -298,7 +230,7 @@ func CountPagesInUse() (pagesInUse, counted uintptr) {
 
 	pagesInUse = uintptr(mheap_.pagesInUse)
 
-	for _, s := range h_allspans {
+	for _, s := range mheap_.allspans {
 		if s.state == mSpanInUse {
 			counted += s.npages
 		}
@@ -308,4 +240,16 @@ func CountPagesInUse() (pagesInUse, counted uintptr) {
 
 	return
 }
-*/
+
+// BlockOnSystemStack switches to the system stack, prints "x\n" to
+// stderr, and blocks in a stack containing
+// "runtime.blockOnSystemStackInternal".
+func BlockOnSystemStack() {
+	systemstack(blockOnSystemStackInternal)
+}
+
+func blockOnSystemStackInternal() {
+	print("x\n")
+	lock(&deadlock)
+	lock(&deadlock)
+}

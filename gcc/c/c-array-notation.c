@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains routines to handle Array Notation expression
    handling routines in the C Compiler.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
                   Intel Corporation.
 
@@ -26,7 +26,7 @@
    An array notation expression has 4 major components:
    1. The array name
    2. Start Index
-   3. Number of elements we need to acess (we call it length)
+   3. Number of elements we need to access (we call it length)
    4. Stride
 
    For example, A[0:5:2], implies that we are accessing A[0], A[2], A[4],
@@ -104,7 +104,7 @@ create_cmp_incr (location_t loc, vec<an_loop_parts> *node, size_t rank,
     {
       tree var = (*node)[ii].var;
       tree length = an_info[0][ii].length;
-      (*node)[ii].incr = build_unary_op (loc, POSTINCREMENT_EXPR, var, 0);
+      (*node)[ii].incr = build_unary_op (loc, POSTINCREMENT_EXPR, var, false);
       (*node)[ii].cmp = build2 (LT_EXPR, boolean_type_node, var, length);
     }
 }
@@ -1088,7 +1088,7 @@ fix_array_notation_expr (location_t location, enum tree_code code,
 
   arg = default_function_array_read_conversion (location, arg);
   if (code == POSTINCREMENT_EXPR || code == POSTDECREMENT_EXPR)
-    arg.value = build_unary_op (location, code, arg.value, 0);
+    arg.value = build_unary_op (location, code, arg.value, false);
   else if (code == PREINCREMENT_EXPR || code == PREDECREMENT_EXPR)
     arg = parser_build_unary_op (location, code, arg);
 

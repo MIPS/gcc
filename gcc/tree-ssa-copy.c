@@ -1,5 +1,5 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -168,7 +168,7 @@ dump_copy_of (FILE *file, tree var)
 
   val = copy_of[SSA_NAME_VERSION (var)].value;
   fprintf (file, " copy-of chain: ");
-  print_generic_expr (file, var, 0);
+  print_generic_expr (file, var);
   fprintf (file, " ");
   if (!val)
     fprintf (file, "[UNDEFINED]");
@@ -177,7 +177,7 @@ dump_copy_of (FILE *file, tree var)
   else
     {
       fprintf (file, "-> ");
-      print_generic_expr (file, val, 0);
+      print_generic_expr (file, val);
       fprintf (file, " ");
       fprintf (file, "[COPY]");
     }
@@ -231,7 +231,7 @@ copy_prop_visit_cond_stmt (gimple *stmt, edge *taken_edge_p)
     {
       fprintf (dump_file, "Trying to determine truth value of ");
       fprintf (dump_file, "predicate ");
-      print_gimple_stmt (dump_file, stmt, 0, 0);
+      print_gimple_stmt (dump_file, stmt, 0);
     }
 
   /* Fold COND and see whether we get a useful result.  */
@@ -503,14 +503,13 @@ static bool
 fini_copy_prop (void)
 {
   unsigned i;
+  tree var;
 
   /* Set the final copy-of value for each variable by traversing the
      copy-of chains.  */
-  for (i = 1; i < num_ssa_names; i++)
+  FOR_EACH_SSA_NAME (i, var, cfun)
     {
-      tree var = ssa_name (i);
-      if (!var
-	  || !copy_of[i].value
+      if (!copy_of[i].value
 	  || copy_of[i].value == var)
 	continue;
 
@@ -551,7 +550,7 @@ fini_copy_prop (void)
 	}
     }
 
-  bool changed = substitute_and_fold (get_value, NULL, true);
+  bool changed = substitute_and_fold (get_value, NULL);
   if (changed)
     {
       free_numbers_of_iterations_estimates (cfun);

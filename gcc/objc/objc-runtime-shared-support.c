@@ -1,5 +1,5 @@
 /* Support routines shared by all runtimes.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Iain Sandoe (partially split from objc-act.c)
 
 This file is part of GCC.
@@ -500,11 +500,7 @@ build_module_descriptor (long vers, tree attr)
   objc_finish_struct (objc_module_template, decls);
 
   /* Create an instance of "_objc_module".  */
-  UOBJC_MODULES_decl = start_var_decl (objc_module_template,
-				       /* FIXME - why the conditional
-					  if the symbol is the
-					  same.  */
-				       flag_next_runtime ? "_OBJC_Module" :  "_OBJC_Module");
+  UOBJC_MODULES_decl = start_var_decl (objc_module_template, "_OBJC_Module");
 
   /* This is the root of the metadata for defined classes and categories, it
      is referenced by the runtime and, therefore, needed.  */

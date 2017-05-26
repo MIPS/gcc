@@ -1,5 +1,5 @@
 /* Perform doloop optimizations
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Based on code by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "cfghooks.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "dojump.h"
 #include "expr.h"
@@ -70,7 +71,7 @@ along with GCC; see the file COPYING3.  If not see
    if it is not a decrement and branch jump insn.  */
 
 rtx
-doloop_condition_get (rtx doloop_pat)
+doloop_condition_get (rtx_insn *doloop_pat)
 {
   rtx cmp;
   rtx inc;
@@ -152,10 +153,13 @@ doloop_condition_get (rtx doloop_pat)
 	}
       else
         inc = PATTERN (prev_insn);
-      /* We expect the condition to be of the form (reg != 0)  */
-      cond = XEXP (SET_SRC (cmp), 0);
-      if (GET_CODE (cond) != NE || XEXP (cond, 1) != const0_rtx)
-        return 0;
+      if (GET_CODE (cmp) == SET && GET_CODE (SET_SRC (cmp)) == IF_THEN_ELSE)
+	{
+	  /* We expect the condition to be of the form (reg != 0)  */
+	  cond = XEXP (SET_SRC (cmp), 0);
+	  if (GET_CODE (cond) != NE || XEXP (cond, 1) != const0_rtx)
+	    return 0;
+	}
     }
   else
     {
@@ -478,9 +482,13 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 
   /* Insert initialization of the count register into the loop header.  */
   start_sequence ();
+  /* count has been already copied through copy_rtx.  */
+  reset_used_flags (count);
+  set_used_flags (condition);
   tmp = force_operand (count, counter_reg);
   convert_move (counter_reg, tmp, 1);
   sequence = get_insns ();
+  unshare_all_rtl_in_chain (sequence);
   end_sequence ();
   emit_insn_after (sequence, BB_END (loop_preheader_edge (loop)->src));
 
@@ -488,10 +496,8 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
     {
       rtx ass = copy_rtx (desc->noloop_assumptions);
       basic_block preheader = loop_preheader_edge (loop)->src;
-      basic_block set_zero
-	      = split_edge (loop_preheader_edge (loop));
-      basic_block new_preheader
-	      = split_edge (loop_preheader_edge (loop));
+      basic_block set_zero = split_edge (loop_preheader_edge (loop));
+      basic_block new_preheader = split_edge (loop_preheader_edge (loop));
       edge te;
 
       /* Expand the condition testing the assumptions and if it does not pass,
@@ -661,7 +667,7 @@ doloop_optimize (struct loop *loop)
     }
 
   if (desc->const_iter)
-    iterations = widest_int::from (std::make_pair (desc->niter_expr, mode),
+    iterations = widest_int::from (rtx_mode_t (desc->niter_expr, mode),
 				   UNSIGNED);
   else
     iterations = 0;
@@ -687,8 +693,7 @@ doloop_optimize (struct loop *loop)
   rtx_insn *doloop_seq = targetm.gen_doloop_end (doloop_reg, start_label);
 
   word_mode_size = GET_MODE_PRECISION (word_mode);
-  word_mode_max
-	  = (HOST_WIDE_INT_1U << (word_mode_size - 1) << 1) - 1;
+  word_mode_max = (HOST_WIDE_INT_1U << (word_mode_size - 1) << 1) - 1;
   if (! doloop_seq
       && mode != word_mode
       /* Before trying mode different from the one in that # of iterations is

@@ -1,5 +1,5 @@
 /* Array prefetching.
-   Copyright (C) 2005-2016 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
+#include "ssa.h"
 #include "tree-into-ssa.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
@@ -46,10 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "tree-data-ref.h"
-
-
-/* FIXME: Needed for optabs, but this should all be moved to a TBD interface
-   between the GIMPLE and RTL worlds.  */
+#include "diagnostic-core.h"
 
 /* This pass inserts prefetch instructions to optimize cache usage during
    accesses to arrays in loops.  It processes loops sequentially and:
@@ -290,7 +288,7 @@ dump_mem_details (FILE *file, tree base, tree step,
   if (cst_and_fits_in_hwi (step))
     fprintf (file, HOST_WIDE_INT_PRINT_DEC, int_cst_value (step));
   else
-    print_generic_expr (file, step, TDF_TREE);
+    print_generic_expr (file, step, TDF_SLIM);
   fprintf (file, ")\n");
   fprintf (file, "  delta ");
   fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
@@ -555,8 +553,8 @@ gather_memory_references_ref (struct loop *loop, struct mem_ref_group **refs,
           if (dump_file && (dump_flags & TDF_DETAILS))
             {
               fprintf (dump_file, "Memory expression %p\n",(void *) ref ); 
-              print_generic_expr (dump_file, ref, TDF_TREE); 
-              fprintf (dump_file,":");
+	      print_generic_expr (dump_file, ref, TDF_SLIM);
+	      fprintf (dump_file,":");
               dump_mem_details (dump_file, base, step, delta, write_p);
               fprintf (dump_file, 
                        "Ignoring %p, non-constant step prefetching is "
@@ -572,7 +570,7 @@ gather_memory_references_ref (struct loop *loop, struct mem_ref_group **refs,
             if (dump_file && (dump_flags & TDF_DETAILS))
               {
                 fprintf (dump_file, "Memory expression %p\n",(void *) ref );
-                print_generic_expr (dump_file, ref, TDF_TREE);
+		print_generic_expr (dump_file, ref, TDF_SLIM);
                 fprintf (dump_file,":");
                 dump_mem_details (dump_file, base, step, delta, write_p);
                 fprintf (dump_file, 
@@ -703,9 +701,9 @@ ddown (HOST_WIDE_INT x, unsigned HOST_WIDE_INT by)
   gcc_assert (by > 0);
 
   if (x >= 0)
-    return x / by;
+    return x / (HOST_WIDE_INT) by;
   else
-    return (x + by - 1) / by;
+    return (x + (HOST_WIDE_INT) by - 1) / (HOST_WIDE_INT) by;
 }
 
 /* Given a CACHE_LINE_SIZE and two inductive memory references
@@ -1160,6 +1158,18 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
           addr = force_gimple_operand_gsi (&bsi, unshare_expr (addr), true,
 					   NULL, true, GSI_SAME_STMT);
       }
+
+      if (addr_base != addr
+	  && TREE_CODE (addr_base) == SSA_NAME
+	  && TREE_CODE (addr) == SSA_NAME)
+	{
+	  duplicate_ssa_name_ptr_info (addr, SSA_NAME_PTR_INFO (addr_base));
+	  /* As this isn't a plain copy we have to reset alignment
+	     information.  */
+	  if (SSA_NAME_PTR_INFO (addr))
+	    mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (addr));
+	}
+
       /* Create the prefetch instruction.  */
       prefetch = gimple_build_call (builtin_decl_explicit (BUILT_IN_PREFETCH),
 				    3, addr, write_p, local);
@@ -1968,10 +1978,6 @@ tree_ssa_prefetch_arrays (void)
       set_builtin_decl (BUILT_IN_PREFETCH, decl, false);
     }
 
-  /* We assume that size of cache line is a power of two, so verify this
-     here.  */
-  gcc_assert ((PREFETCH_BLOCK & (PREFETCH_BLOCK - 1)) == 0);
-
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2028,6 +2034,20 @@ pass_loop_prefetch::execute (function *fun)
 {
   if (number_of_loops (fun) <= 1)
     return 0;
+
+  if ((PREFETCH_BLOCK & (PREFETCH_BLOCK - 1)) != 0)
+    {
+      static bool warned = false;
+
+      if (!warned)
+	{
+	  warning (OPT_Wdisabled_optimization,
+		   "%<l1-cache-size%> parameter is not a power of two %d",
+		   PREFETCH_BLOCK);
+	  warned = true;
+	}
+      return 0;
+    }
 
   return tree_ssa_prefetch_arrays ();
 }

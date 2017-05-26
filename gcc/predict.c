@@ -1,5 +1,5 @@
 /* Branch prediction routines for the GNU compiler.
-   Copyright (C) 2000-2016 Free Software Foundation, Inc.
+   Copyright (C) 2000-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfghooks.h"
 #include "tree-pass.h"
 #include "ssa.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "cgraph.h"
 #include "coverage.h"
@@ -794,7 +795,7 @@ set_even_probabilities (basic_block bb,
 			hash_set<edge> *unlikely_edges = NULL)
 {
   unsigned nedges = 0;
-  edge e;
+  edge e = NULL;
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -2024,9 +2025,7 @@ predict_loops (void)
 		   && gimple_expr_code (call_stmt) == NOP_EXPR
 		   && TREE_CODE (gimple_assign_rhs1 (call_stmt)) == SSA_NAME)
 		 call_stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (call_stmt));
-	       if (gimple_code (call_stmt) == GIMPLE_CALL
-		   && gimple_call_internal_p (call_stmt)
-		   && gimple_call_internal_fn (call_stmt) == IFN_BUILTIN_EXPECT
+	       if (gimple_call_internal_p (call_stmt, IFN_BUILTIN_EXPECT)
 		   && TREE_CODE (gimple_call_arg (call_stmt, 2)) == INTEGER_CST
 		   && tree_fits_uhwi_p (gimple_call_arg (call_stmt, 2))
 		   && tree_to_uhwi (gimple_call_arg (call_stmt, 2))
@@ -2397,7 +2396,6 @@ tree_predict_by_opcode (basic_block bb)
   tree type;
   tree val;
   enum tree_code cmp;
-  bitmap visited;
   edge_iterator ei;
   enum br_predictor predictor;
 
@@ -2410,10 +2408,8 @@ tree_predict_by_opcode (basic_block bb)
   op1 = gimple_cond_rhs (stmt);
   cmp = gimple_cond_code (stmt);
   type = TREE_TYPE (op0);
-  visited = BITMAP_ALLOC (NULL);
-  val = expr_expected_value_1 (boolean_type_node, op0, cmp, op1, visited,
+  val = expr_expected_value_1 (boolean_type_node, op0, cmp, op1, auto_bitmap (),
 			       &predictor);
-  BITMAP_FREE (visited);
   if (val && TREE_CODE (val) == INTEGER_CST)
     {
       if (predictor == PRED_BUILTIN_EXPECT)
@@ -2511,6 +2507,21 @@ tree_predict_by_opcode (basic_block bb)
       default:
 	break;
       }
+}
+
+/* Returns TRUE if the STMT is exit(0) like statement. */
+
+static bool
+is_exit_with_zero_arg (const gimple *stmt)
+{
+  /* This is not exit, _exit or _Exit. */
+  if (!gimple_call_builtin_p (stmt, BUILT_IN_EXIT)
+      && !gimple_call_builtin_p (stmt, BUILT_IN__EXIT)
+      && !gimple_call_builtin_p (stmt, BUILT_IN__EXIT2))
+    return false;
+
+  /* Argument is an interger zero. */
+  return integer_zerop (gimple_call_arg (stmt, 0));
 }
 
 /* Try to guess whether the value of return means error code.  */
@@ -2639,8 +2650,9 @@ tree_bb_level_predictions (void)
 
 	  if (is_gimple_call (stmt))
 	    {
-	      if ((gimple_call_flags (stmt) & ECF_NORETURN)
-	          && has_return_edges)
+	      if (gimple_call_noreturn_p (stmt)
+		  && has_return_edges
+		  && !is_exit_with_zero_arg (stmt))
 		predict_paths_leading_to (bb, PRED_NORETURN,
 					  NOT_TAKEN);
 	      decl = gimple_call_fndecl (stmt);
@@ -2771,7 +2783,12 @@ tree_estimate_probability_bb (basic_block bb)
 		     something exceptional.  */
 		  && gimple_has_side_effects (stmt))
 		{
-		  predict_edge_def (e, PRED_CALL, NOT_TAKEN);
+		  if (gimple_call_fndecl (stmt))
+		    predict_edge_def (e, PRED_CALL, NOT_TAKEN);
+		  else if (virtual_method_call_p (gimple_call_fn (stmt)))
+		    predict_edge_def (e, PRED_POLYMORPHIC_CALL, NOT_TAKEN);
+		  else
+		    predict_edge_def (e, PRED_INDIR_CALL, TAKEN);
 		  break;
 		}
 	    }
@@ -2897,9 +2914,7 @@ static void
 predict_paths_leading_to (basic_block bb, enum br_predictor pred,
 			  enum prediction taken, struct loop *in_loop)
 {
-  bitmap visited = BITMAP_ALLOC (NULL);
-  predict_paths_for_bb (bb, bb, pred, taken, visited, in_loop);
-  BITMAP_FREE (visited);
+  predict_paths_for_bb (bb, bb, pred, taken, auto_bitmap (), in_loop);
 }
 
 /* Like predict_paths_leading_to but take edge instead of basic block.  */
@@ -2923,9 +2938,7 @@ predict_paths_leading_to_edge (edge e, enum br_predictor pred,
       }
   if (!has_nonloop_edge)
     {
-      bitmap visited = BITMAP_ALLOC (NULL);
-      predict_paths_for_bb (bb, bb, pred, taken, visited, in_loop);
-      BITMAP_FREE (visited);
+      predict_paths_for_bb (bb, bb, pred, taken, auto_bitmap (), in_loop);
     }
   else
     predict_edge_def (e, pred, taken);
@@ -3099,7 +3112,7 @@ estimate_loops_at_level (struct loop *first_loop)
       edge e;
       basic_block *bbs;
       unsigned i;
-      bitmap tovisit = BITMAP_ALLOC (NULL);
+      auto_bitmap tovisit;
 
       estimate_loops_at_level (loop->inner);
 
@@ -3112,7 +3125,6 @@ estimate_loops_at_level (struct loop *first_loop)
 	bitmap_set_bit (tovisit, bbs[i]->index);
       free (bbs);
       propagate_freq (loop->header, tovisit);
-      BITMAP_FREE (tovisit);
     }
 }
 
@@ -3121,7 +3133,7 @@ estimate_loops_at_level (struct loop *first_loop)
 static void
 estimate_loops (void)
 {
-  bitmap tovisit = BITMAP_ALLOC (NULL);
+  auto_bitmap tovisit;
   basic_block bb;
 
   /* Start by estimating the frequencies in the loops.  */
@@ -3134,7 +3146,6 @@ estimate_loops (void)
       bitmap_set_bit (tovisit, bb->index);
     }
   propagate_freq (ENTRY_BLOCK_PTR_FOR_FN (cfun), tovisit);
-  BITMAP_FREE (tovisit);
 }
 
 /* Drop the profile for NODE to guessed, and update its frequency based on
@@ -3152,9 +3163,9 @@ drop_profile (struct cgraph_node *node, gcov_type call_count)
 
   if (dump_file)
     fprintf (dump_file,
-             "Dropping 0 profile for %s/%i. %s based on calls.\n",
-             node->name (), node->order,
-             hot ? "Function is hot" : "Function is normal");
+	     "Dropping 0 profile for %s. %s based on calls.\n",
+	     node->dump_name (),
+	     hot ? "Function is hot" : "Function is normal");
   /* We only expect to miss profiles for functions that are reached
      via non-zero call edges in cases where the function may have
      been linked from another module or library (COMDATs and extern
@@ -3170,12 +3181,12 @@ drop_profile (struct cgraph_node *node, gcov_type call_count)
         {
           if (dump_file)
             fprintf (dump_file,
-                     "Missing counts for called function %s/%i\n",
-                     node->name (), node->order);
+		     "Missing counts for called function %s\n",
+		     node->dump_name ());
         }
       else
-        warning (0, "Missing counts for called function %s/%i",
-                 node->name (), node->order);
+	warning (0, "Missing counts for called function %s",
+		 node->dump_name ());
     }
 
   profile_status_for_fn (fn)
@@ -3724,7 +3735,7 @@ force_edge_cold (edge e, bool impossible)
   int prob_scale = REG_BR_PROB_BASE;
 
   /* If edge is already improbably or cold, just return.  */
-  if (e->probability <= impossible ? PROB_VERY_UNLIKELY : 0
+  if (e->probability <= (impossible ? PROB_VERY_UNLIKELY : 0)
       && (!impossible || !e->count))
     return;
   FOR_EACH_EDGE (e2, ei, e->src->succs)

@@ -1,5 +1,5 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -127,7 +127,7 @@ verify_ssaname_freelists (struct function *fun)
   if (!gimple_in_ssa_p (fun))
     return;
 
-  bitmap names_in_il = BITMAP_ALLOC (NULL);
+  auto_bitmap names_in_il;
 
   /* Walk the entire IL noting every SSA_NAME we see.  */
   basic_block bb;
@@ -165,7 +165,7 @@ verify_ssaname_freelists (struct function *fun)
 
   /* Now walk the free list noting what we find there and verifying
      there are no duplicates.  */
-  bitmap names_in_freelists = BITMAP_ALLOC (NULL);
+  auto_bitmap names_in_freelists;
   if (FREE_SSANAMES (fun))
     {
       for (unsigned int i = 0; i < FREE_SSANAMES (fun)->length (); i++)
@@ -221,7 +221,7 @@ verify_ssaname_freelists (struct function *fun)
 
   unsigned int i;
   bitmap_iterator bi;
-  bitmap all_names = BITMAP_ALLOC (NULL);
+  auto_bitmap all_names;
   bitmap_set_range (all_names, UNUSED_NAME_VERSION + 1, num_ssa_names - 1);
   bitmap_ior_into (names_in_il, names_in_freelists);
 
@@ -230,10 +230,6 @@ verify_ssaname_freelists (struct function *fun)
   EXECUTE_IF_AND_COMPL_IN_BITMAP(all_names, names_in_il,
 				 UNUSED_NAME_VERSION + 1, i, bi)
     gcc_assert (!ssa_name (i));
-
-  BITMAP_FREE (all_names);
-  BITMAP_FREE (names_in_freelists);
-  BITMAP_FREE (names_in_il);
 }
 
 /* Move all SSA_NAMEs from FREE_SSA_NAMES_QUEUE to FREE_SSA_NAMES.
@@ -252,21 +248,34 @@ flush_ssaname_freelist (void)
 /* Return an SSA_NAME node for variable VAR defined in statement STMT
    in function FN.  STMT may be an empty statement for artificial
    references (e.g., default definitions created when a variable is
-   used without a preceding definition).  */
+   used without a preceding definition).  If VERISON is not zero then
+   allocate the SSA name with that version.  */
 
 tree
-make_ssa_name_fn (struct function *fn, tree var, gimple *stmt)
+make_ssa_name_fn (struct function *fn, tree var, gimple *stmt,
+		  unsigned int version)
 {
   tree t;
   use_operand_p imm;
 
-  gcc_assert (TREE_CODE (var) == VAR_DECL
+  gcc_assert (VAR_P (var)
 	      || TREE_CODE (var) == PARM_DECL
 	      || TREE_CODE (var) == RESULT_DECL
 	      || (TYPE_P (var) && is_gimple_reg_type (var)));
 
+  /* Get the specified SSA name version.  */
+  if (version != 0)
+    {
+      t = make_node (SSA_NAME);
+      SSA_NAME_VERSION (t) = version;
+      if (version >= SSANAMES (fn)->length ())
+	vec_safe_grow_cleared (SSANAMES (fn), version + 1);
+      gcc_assert ((*SSANAMES (fn))[version] == NULL);
+      (*SSANAMES (fn))[version] = t;
+      ssa_name_nodes_created++;
+    }
   /* If our free list has an element, then use it.  */
-  if (!vec_safe_is_empty (FREE_SSANAMES (fn)))
+  else if (!vec_safe_is_empty (FREE_SSANAMES (fn)))
     {
       t = FREE_SSANAMES (fn)->pop ();
       ssa_name_nodes_reused++;
@@ -374,6 +383,35 @@ get_range_info (const_tree name, wide_int *min, wide_int *max)
   return SSA_NAME_RANGE_TYPE (name);
 }
 
+/* Set nonnull attribute to pointer NAME.  */
+
+void
+set_ptr_nonnull (tree name)
+{
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (name)));
+  struct ptr_info_def *pi = get_ptr_info (name);
+  pi->pt.null = 0;
+}
+
+/* Return nonnull attribute of pointer NAME.  */
+bool
+get_ptr_nonnull (const_tree name)
+{
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (name)));
+  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (name);
+  if (pi == NULL)
+    return false;
+  /* TODO Now pt->null is conservatively set to true in PTA
+     analysis. vrp is the only pass (including ipa-vrp)
+     that clears pt.null via set_ptr_nonull when it knows
+     for sure. PTA will preserves the pt.null value set by VRP.
+
+     When PTA analysis is improved, pt.anything, pt.nonlocal
+     and pt.escaped may also has to be considered before
+     deciding that pointer cannot point to NULL.  */
+  return !pi->pt.null;
+}
+
 /* Change non-zero bits bitmask of NAME.  */
 
 void
@@ -389,11 +427,14 @@ set_nonzero_bits (tree name, const wide_int_ref &mask)
 }
 
 /* Return a widest_int with potentially non-zero bits in SSA_NAME
-   NAME, or -1 if unknown.  */
+   NAME, the constant for INTEGER_CST, or -1 if unknown.  */
 
 wide_int
 get_nonzero_bits (const_tree name)
 {
+  if (TREE_CODE (name) == INTEGER_CST)
+    return name;
+
   unsigned int precision = TYPE_PRECISION (TREE_TYPE (name));
   if (POINTER_TYPE_P (TREE_TYPE (name)))
     {

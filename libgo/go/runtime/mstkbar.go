@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build ignore
+
 // Garbage collector: stack barriers
 //
 // Stack barriers enable the garbage collector to determine how much
@@ -148,6 +150,10 @@ var firstStackBarrierOffset = 1024
 // gcMaxStackBarriers returns the maximum number of stack barriers
 // that can be installed in a stack of stackSize bytes.
 func gcMaxStackBarriers(stackSize int) (n int) {
+	if debug.gcstackbarrieroff > 0 {
+		return 0
+	}
+
 	if firstStackBarrierOffset == 0 {
 		// Special debugging case for inserting stack barriers
 		// at every frame. Steal half of the stack for the

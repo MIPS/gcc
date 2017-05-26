@@ -1,5 +1,5 @@
 /* Next Runtime (ABI-0/1) private.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Iain Sandoe (split from objc-act.c)
 
 This file is part of GCC.
@@ -2812,7 +2812,7 @@ objc_eh_runtime_type (tree type)
 	 we use c++'s typeinfo decl. */
       return build_eh_type_type (type);
 #else
-      error ("non-objective-c type '%T' cannot be caught", type);
+      error ("non-objective-c type %qT cannot be caught", type);
       ident = get_identifier ("ErrorMarkNode");
       goto make_err_class;
 #endif

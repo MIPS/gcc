@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-mem.h"
 #include "gimple-fold.h"
 #include "tree-scalar-evolution.h"
+#include "tree-ssa-loop-niter.h"
 
 /* TODO:  Support for predicated code motion.  I.e.
 
@@ -196,7 +197,7 @@ static struct
 static bitmap_obstack lim_bitmap_obstack;
 static obstack mem_ref_obstack;
 
-static bool ref_indep_loop_p (struct loop *, im_mem_ref *);
+static bool ref_indep_loop_p (struct loop *, im_mem_ref *, struct loop *);
 
 /* Minimum cost of an expensive expression.  */
 #define LIM_EXPENSIVE ((unsigned) PARAM_VALUE (PARAM_LIM_EXPENSIVE))
@@ -544,10 +545,10 @@ outermost_indep_loop (struct loop *outer, struct loop *loop, im_mem_ref *ref)
        aloop != loop;
        aloop = superloop_at_depth (loop, loop_depth (aloop) + 1))
     if ((!ref->stored || !bitmap_bit_p (ref->stored, aloop->num))
-	&& ref_indep_loop_p (aloop, ref))
+	&& ref_indep_loop_p (aloop, ref, loop))
       return aloop;
 
-  if (ref_indep_loop_p (loop, ref))
+  if (ref_indep_loop_p (loop, ref, loop))
     return loop;
   else
     return NULL;
@@ -1009,7 +1010,7 @@ invariantness_dom_walker::before_dom_children (basic_block bb)
 
 	if (dump_file && (dump_flags & TDF_DETAILS))
 	  {
-	    print_gimple_stmt (dump_file, stmt, 2, 0);
+	    print_gimple_stmt (dump_file, stmt, 2);
 	    fprintf (dump_file, "  invariant up to level %d, cost %d.\n\n",
 		     loop_depth (lim_data->max_loop),
 		     lim_data->cost);
@@ -1085,7 +1086,7 @@ invariantness_dom_walker::before_dom_children (basic_block bb)
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  print_gimple_stmt (dump_file, stmt, 2, 0);
+	  print_gimple_stmt (dump_file, stmt, 2);
 	  fprintf (dump_file, "  invariant up to level %d, cost %d.\n\n",
 		   loop_depth (lim_data->max_loop),
 		   lim_data->cost);
@@ -1148,7 +1149,7 @@ move_computations_worker (basic_block bb)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Moving PHI node\n");
-	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  print_gimple_stmt (dump_file, stmt, 0);
 	  fprintf (dump_file, "(cost %u) out of loop %d.\n\n",
 		   cost, level->num);
 	}
@@ -1217,7 +1218,7 @@ move_computations_worker (basic_block bb)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Moving statement\n");
-	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  print_gimple_stmt (dump_file, stmt, 0);
 	  fprintf (dump_file, "(cost %u) out of loop %d.\n\n",
 		   cost, level->num);
 	}
@@ -1949,7 +1950,7 @@ execute_sm (struct loop *loop, vec<edge> exits, im_mem_ref *ref)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Executing store motion of ");
-      print_generic_expr (dump_file, ref->mem.ref, 0);
+      print_generic_expr (dump_file, ref->mem.ref);
       fprintf (dump_file, " from loop %d\n", loop->num);
     }
 
@@ -2109,17 +2110,23 @@ record_dep_loop (struct loop *loop, im_mem_ref *ref, bool stored_p)
     loop = loop_outer (loop);
 }
 
-/* Returns true if REF in REF_LOOP is independent on all other memory
-   references in LOOP.  */
+/* Returns true if REF is independent on all other memory
+   references in LOOP.  REF_LOOP is where REF is accessed, SAFELEN is the
+   safelen to apply.  */
 
 static bool
-ref_indep_loop_p_1 (int safelen, struct loop *loop,
-		    im_mem_ref *ref, bool stored_p)
+ref_indep_loop_p_1 (int safelen, struct loop *loop, im_mem_ref *ref,
+		    bool stored_p, struct loop *ref_loop)
 {
+  stored_p |= (ref->stored && bitmap_bit_p (ref->stored, loop->num));
+
+  if (loop->safelen > safelen
+      /* Check that REF is accessed inside LOOP.  */
+      && (loop == ref_loop || flow_loop_nested_p (loop, ref_loop)))
+    safelen = loop->safelen;
+
+  bool indep_p = true;
   bitmap refs_to_check;
-  unsigned i;
-  bitmap_iterator bi;
-  im_mem_ref *aref;
 
   if (stored_p)
     refs_to_check = &memory_accesses.refs_in_loop[loop->num];
@@ -2127,9 +2134,8 @@ ref_indep_loop_p_1 (int safelen, struct loop *loop,
     refs_to_check = &memory_accesses.refs_stored_in_loop[loop->num];
 
   if (bitmap_bit_p (refs_to_check, UNANALYZABLE_MEM_ID))
-    return false;
-
-  if (safelen > 1)
+    indep_p = false;
+  else if (safelen > 1)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -2138,46 +2144,56 @@ ref_indep_loop_p_1 (int safelen, struct loop *loop,
 	  print_generic_expr (dump_file, ref->mem.ref, TDF_SLIM);
 	  fprintf (dump_file, "\n");
 	}
-      return true;
-    }
 
-  EXECUTE_IF_SET_IN_BITMAP (refs_to_check, 0, i, bi)
+      /* We need to recurse to properly handle UNANALYZABLE_MEM_ID.  */
+      struct loop *inner = loop->inner;
+      while (inner)
+	{
+	  if (!ref_indep_loop_p_1 (safelen, inner, ref, stored_p, ref_loop))
+	    {
+	      indep_p = false;
+	      break;
+	    }
+	  inner = inner->next;
+	}
+
+      /* Avoid caching here as safelen depends on context and refs
+         are shared between different contexts.  */
+      return indep_p;
+    }
+  else
     {
-      aref = memory_accesses.refs_list[i];
-      if (!refs_independent_p (ref, aref))
+      if (bitmap_bit_p (&ref->indep_loop, LOOP_DEP_BIT (loop->num, stored_p)))
+	return true;
+      if (bitmap_bit_p (&ref->dep_loop, LOOP_DEP_BIT (loop->num, stored_p)))
 	return false;
+
+      struct loop *inner = loop->inner;
+      while (inner)
+	{
+	  if (!ref_indep_loop_p_1 (safelen, inner, ref, stored_p, ref_loop))
+	    {
+	      indep_p = false;
+	      break;
+	    }
+	  inner = inner->next;
+	}
+
+      if (indep_p)
+	{
+	  unsigned i;
+	  bitmap_iterator bi;
+	  EXECUTE_IF_SET_IN_BITMAP (refs_to_check, 0, i, bi)
+	    {
+	      im_mem_ref *aref = memory_accesses.refs_list[i];
+	      if (!refs_independent_p (ref, aref))
+		{
+		  indep_p = false;
+		  break;
+		}
+	    }
+	}
     }
-
-  return true;
-}
-
-/* Returns true if REF in REF_LOOP is independent on all other memory
-   references in LOOP.  Wrapper over ref_indep_loop_p_1, caching its
-   results.  */
-
-static bool
-ref_indep_loop_p_2 (int safelen, struct loop *loop,
-		    im_mem_ref *ref, bool stored_p)
-{
-  stored_p |= (ref->stored && bitmap_bit_p (ref->stored, loop->num));
-
-  if (bitmap_bit_p (&ref->indep_loop, LOOP_DEP_BIT (loop->num, stored_p)))
-    return true;
-  if (bitmap_bit_p (&ref->dep_loop, LOOP_DEP_BIT (loop->num, stored_p)))
-    return false;
-
-  if (loop->safelen > safelen)
-    safelen = loop->safelen;
-
-  struct loop *inner = loop->inner;
-  while (inner)
-    {
-      if (!ref_indep_loop_p_2 (safelen, inner, ref, stored_p))
-	return false;
-      inner = inner->next;
-    }
-
-  bool indep_p = ref_indep_loop_p_1 (safelen, loop, ref, stored_p);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Querying dependencies of ref %u in loop %d: %s\n",
@@ -2209,14 +2225,14 @@ ref_indep_loop_p_2 (int safelen, struct loop *loop,
 }
 
 /* Returns true if REF is independent on all other memory references in
-   LOOP.  */
+   LOOP.  REF_LOOP is the loop where REF is accessed.  */
 
 static bool
-ref_indep_loop_p (struct loop *loop, im_mem_ref *ref)
+ref_indep_loop_p (struct loop *loop, im_mem_ref *ref, struct loop *ref_loop)
 {
   gcc_checking_assert (MEM_ANALYZABLE (ref));
 
-  return ref_indep_loop_p_2 (0, loop, ref, false);
+  return ref_indep_loop_p_1 (0, loop, ref, false, ref_loop);
 }
 
 /* Returns true if we can perform store motion of REF from LOOP.  */
@@ -2252,7 +2268,7 @@ can_sm_ref_p (struct loop *loop, im_mem_ref *ref)
 
   /* And it must be independent on all other memory references
      in LOOP.  */
-  if (!ref_indep_loop_p (loop, ref))
+  if (!ref_indep_loop_p (loop, ref, loop))
     return false;
 
   return true;
@@ -2366,8 +2382,16 @@ fill_always_executed_in_1 (struct loop *loop, sbitmap contains_call)
 	    break;
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (!flow_bb_inside_loop_p (loop, e->dest))
-	      break;
+	    {
+	      /* If there is an exit from this BB.  */
+	      if (!flow_bb_inside_loop_p (loop, e->dest))
+		break;
+	      /* Or we enter a possibly non-finite loop.  */
+	      if (flow_loop_nested_p (bb->loop_father,
+				      e->dest->loop_father)
+		  && ! finite_loop_p (e->dest->loop_father))
+		break;
+	    }
 	  if (e)
 	    break;
 

@@ -1,6 +1,6 @@
 /* Routines for emitting trees to a file stream.
 
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -214,7 +214,7 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
       bp_pack_value (bp, expr->decl_common.off_align, 8);
     }
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       bp_pack_value (bp, DECL_HAS_DEBUG_EXPR_P (expr), 1);
       bp_pack_value (bp, DECL_NONLOCAL_FRAME (expr), 1);
@@ -222,11 +222,10 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 
   if (TREE_CODE (expr) == RESULT_DECL
       || TREE_CODE (expr) == PARM_DECL
-      || TREE_CODE (expr) == VAR_DECL)
+      || VAR_P (expr))
     {
       bp_pack_value (bp, DECL_BY_REFERENCE (expr), 1);
-      if (TREE_CODE (expr) == VAR_DECL
-	  || TREE_CODE (expr) == PARM_DECL)
+      if (VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
 	bp_pack_value (bp, DECL_HAS_VALUE_EXPR_P (expr), 1);
     }
 }
@@ -256,7 +255,7 @@ pack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, DECL_VISIBILITY (expr),  2);
   bp_pack_value (bp, DECL_VISIBILITY_SPECIFIED (expr),  1);
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       bp_pack_value (bp, DECL_HARD_REGISTER (expr), 1);
       /* DECL_IN_TEXT_SECTION is set during final asm output only. */
@@ -329,6 +328,8 @@ pack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
     }
   else if (TREE_CODE (expr) == ARRAY_TYPE)
     bp_pack_value (bp, TYPE_NONALIASED_COMPONENT (expr), 1);
+  if (AGGREGATE_TYPE_P (expr))
+    bp_pack_value (bp, TYPE_TYPELESS_STORAGE (expr), 1);
   bp_pack_var_len_unsigned (bp, TYPE_PRECISION (expr));
   bp_pack_var_len_unsigned (bp, TYPE_ALIGN (expr));
 }
@@ -589,12 +590,11 @@ write_ts_decl_common_tree_pointers (struct output_block *ob, tree expr,
      for early inlining so drop it on the floor instead of ICEing in
      dwarf2out.c.  */
 
-  if ((TREE_CODE (expr) == VAR_DECL
-       || TREE_CODE (expr) == PARM_DECL)
+  if ((VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
       && DECL_HAS_VALUE_EXPR_P (expr))
     stream_write_tree (ob, DECL_VALUE_EXPR (expr), ref_p);
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     stream_write_tree (ob, DECL_DEBUG_EXPR (expr), ref_p);
 }
 
@@ -951,16 +951,6 @@ streamer_write_tree_header (struct output_block *ob, tree expr)
      variable sized nodes).  */
   tag = lto_tree_code_to_tag (code);
   streamer_write_record_start (ob, tag);
-
-  /* The following will cause bootstrap miscomparisons.  Enable with care.  */
-#ifdef LTO_STREAMER_DEBUG
-  /* This is used mainly for debugging purposes.  When the reader
-     and the writer do not agree on a streamed node, the pointer
-     value for EXPR can be used to track down the differences in
-     the debugger.  */
-  gcc_assert ((HOST_WIDE_INT) (intptr_t) expr == (intptr_t) expr);
-  streamer_write_hwi (ob, (HOST_WIDE_INT) (intptr_t) expr);
-#endif
 
   /* The text in strings and identifiers are completely emitted in
      the header.  */

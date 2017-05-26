@@ -1,5 +1,5 @@
 /* Perform branch target register load optimizations.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "insn-config.h"
 #include "regs.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "recog.h"
 #include "diagnostic-core.h"
@@ -1057,7 +1058,7 @@ combine_btr_defs (btr_def *def, HARD_REG_SET *btrs_live_in_range)
 	     target registers live over the merged range.  */
 	  int btr;
 	  HARD_REG_SET combined_btrs_live;
-	  bitmap combined_live_range = BITMAP_ALLOC (NULL);
+	  auto_bitmap combined_live_range;
 	  btr_user *user;
 
 	  if (other_def->live_range == NULL)
@@ -1115,7 +1116,6 @@ combine_btr_defs (btr_def *def, HARD_REG_SET *btrs_live_in_range)
 	      delete_insn (other_def->insn);
 
 	    }
-	  BITMAP_FREE (combined_live_range);
 	}
     }
 }
@@ -1254,7 +1254,6 @@ can_move_up (const_basic_block bb, const rtx_insn *insn, int n_insns)
 static int
 migrate_btr_def (btr_def *def, int min_cost)
 {
-  bitmap live_range;
   HARD_REG_SET btrs_live_in_range;
   int btr_used_near_def = 0;
   int def_basic_block_freq;
@@ -1288,7 +1287,7 @@ migrate_btr_def (btr_def *def, int min_cost)
     }
 
   btr_def_live_range (def, &btrs_live_in_range);
-  live_range = BITMAP_ALLOC (NULL);
+  auto_bitmap live_range;
   bitmap_copy (live_range, def->live_range);
 
 #ifdef INSN_SCHEDULING
@@ -1372,7 +1371,7 @@ migrate_btr_def (btr_def *def, int min_cost)
       if (dump_file)
 	fprintf (dump_file, "failed to move\n");
     }
-  BITMAP_FREE (live_range);
+
   return !give_up;
 }
 

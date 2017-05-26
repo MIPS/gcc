@@ -1,5 +1,5 @@
 /* Loop unrolling.
-   Copyright (C) 2002-2016 Free Software Foundation, Inc.
+   Copyright (C) 2002-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "cfghooks.h"
+#include "memmodel.h"
 #include "optabs.h"
 #include "emit-rtl.h"
 #include "recog.h"
@@ -190,7 +191,7 @@ static rtx get_expansion (struct var_to_expand *);
 static void
 report_unroll (struct loop *loop, location_t locus)
 {
-  int report_flags = MSG_OPTIMIZED_LOCATIONS | TDF_RTL | TDF_DETAILS;
+  dump_flags_t report_flags = MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS;
 
   if (loop->lpt_decision.decision == LPT_NONE)
     return;
@@ -222,7 +223,7 @@ decide_unrolling (int flags)
       location_t locus = get_loop_location (loop);
 
       if (dump_enabled_p ())
-	dump_printf_loc (TDF_RTL, locus,
+	dump_printf_loc (MSG_NOTE, locus,
                          ";; *** Considering loop %d at BB %d for "
                          "unrolling ***\n",
                          loop->num, loop->header->index);
@@ -857,8 +858,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
   rtx old_niter, niter, tmp;
   rtx_insn *init_code, *branch_code;
   unsigned i, j, p;
-  basic_block preheader, *body, swtch, ezc_swtch;
-  int may_exit_copy;
+  basic_block preheader, *body, swtch, ezc_swtch = NULL;
+  int may_exit_copy, iter_freq, new_freq;
+  gcov_type iter_count, new_count;
   unsigned n_peel;
   edge e;
   bool extra_zero_check, last_may_exit;
@@ -916,6 +918,17 @@ unroll_loop_runtime_iterations (struct loop *loop)
   if (tmp != niter)
     emit_move_insn (niter, tmp);
 
+  /* For loops that exit at end and whose number of iterations is reliable,
+     add one to niter to account for first pass through loop body before
+     reaching exit test. */
+  if (exit_at_end && !desc->noloop_assumptions)
+    {
+      niter = expand_simple_binop (desc->mode, PLUS,
+				   niter, const1_rtx,
+				   NULL_RTX, 0, OPTAB_LIB_WIDEN);
+      old_niter = niter;
+    }
+
   /* Count modulo by ANDing it with max_unroll; we use the fact that
      the number of unrollings is a power of two, and thus this is correct
      even if there is overflow in the computation.  */
@@ -934,23 +947,33 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   auto_sbitmap wont_exit (max_unroll + 2);
 
-  /* Peel the first copy of loop body (almost always we must leave exit test
-     here; the only exception is when we have extra zero check and the number
-     of iterations is reliable.  Also record the place of (possible) extra
-     zero check.  */
-  bitmap_clear (wont_exit);
-  if (extra_zero_check
-      && !desc->noloop_assumptions)
-    bitmap_set_bit (wont_exit, 1);
-  ezc_swtch = loop_preheader_edge (loop)->src;
-  ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-				      1, wont_exit, desc->out_edge,
-				      &remove_edges,
-				      DLTHE_FLAG_UPDATE_FREQ);
-  gcc_assert (ok);
+  if (extra_zero_check || desc->noloop_assumptions)
+    {
+      /* Peel the first copy of loop body.  Leave the exit test if the number
+	 of iterations is not reliable.  Also record the place of the extra zero
+	 check.  */
+      bitmap_clear (wont_exit);
+      if (!desc->noloop_assumptions)
+	bitmap_set_bit (wont_exit, 1);
+      ezc_swtch = loop_preheader_edge (loop)->src;
+      ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+					  1, wont_exit, desc->out_edge,
+					  &remove_edges,
+					  DLTHE_FLAG_UPDATE_FREQ);
+      gcc_assert (ok);
+    }
 
   /* Record the place where switch will be built for preconditioning.  */
   swtch = split_edge (loop_preheader_edge (loop));
+
+  /* Compute frequency/count increments for each switch block and initialize
+     innermost switch block.  Switch blocks and peeled loop copies are built
+     from innermost outward.  */
+  iter_freq = new_freq = swtch->frequency / (max_unroll + 1);
+  iter_count = new_count = swtch->count / (max_unroll + 1);
+  swtch->frequency = new_freq;
+  swtch->count = new_count;
+  single_succ_edge (swtch)->count = new_count;
 
   for (i = 0; i < n_peel; i++)
     {
@@ -969,6 +992,10 @@ unroll_loop_runtime_iterations (struct loop *loop)
       p = REG_BR_PROB_BASE / (i + 2);
 
       preheader = split_edge (loop_preheader_edge (loop));
+      /* Add in frequency/count of edge from switch block.  */
+      preheader->frequency += iter_freq;
+      preheader->count += iter_count;
+      single_succ_edge (preheader)->count = preheader->count;
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p,
 					  NULL);
@@ -979,10 +1006,15 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
       swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-      single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
+      single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
+      single_succ_edge (swtch)->count = new_count;
+      new_freq += iter_freq;
+      new_count += iter_count;
+      swtch->frequency = new_freq;
+      swtch->count = new_count;
       e = make_edge (swtch, preheader,
 		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
-      e->count = RDIV (preheader->count * REG_BR_PROB_BASE, p);
+      e->count = iter_count;
       e->probability = p;
     }
 
@@ -992,6 +1024,14 @@ unroll_loop_runtime_iterations (struct loop *loop)
       p = REG_BR_PROB_BASE / (max_unroll + 1);
       swtch = ezc_swtch;
       preheader = split_edge (loop_preheader_edge (loop));
+      /* Recompute frequency/count adjustments since initial peel copy may
+	 have exited and reduced those values that were computed above.  */
+      iter_freq = swtch->frequency / (max_unroll + 1);
+      iter_count = swtch->count / (max_unroll + 1);
+      /* Add in frequency/count of edge from switch block.  */
+      preheader->frequency += iter_freq;
+      preheader->count += iter_count;
+      single_succ_edge (preheader)->count = preheader->count;
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
 					  block_label (preheader), p,
 					  NULL);
@@ -1000,9 +1040,10 @@ unroll_loop_runtime_iterations (struct loop *loop)
       swtch = split_edge_and_insert (single_succ_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
       single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
+      single_succ_edge (swtch)->count -= iter_count;
       e = make_edge (swtch, preheader,
 		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
-      e->count = RDIV (preheader->count * REG_BR_PROB_BASE, p);
+      e->count = iter_count;
       e->probability = p;
     }
 
@@ -1413,7 +1454,7 @@ analyze_insn_to_expand_var (struct loop *loop, rtx_insn *insn)
   if (debug_uses)
     /* Instead of resetting the debug insns, we could replace each
        debug use in the loop with the sum or product of all expanded
-       accummulators.  Since we'll only know of all expansions at the
+       accumulators.  Since we'll only know of all expansions at the
        end, we'd have to keep track of which vars_to_expand a debug
        insn in the loop references, take note of each copy of the
        debug insn during unrolling, and when it's all done, compute
@@ -1872,6 +1913,9 @@ combine_var_copies_in_loop_exit (struct var_to_expand *ve, basic_block place)
   if (ve->var_expansions.length () == 0)
     return;
 
+  /* ve->reg might be SUBREG or some other non-shareable RTL, and we use
+     it both here and as the destination of the assignment.  */
+  sum = copy_rtx (sum);
   start_sequence ();
   switch (ve->op)
     {

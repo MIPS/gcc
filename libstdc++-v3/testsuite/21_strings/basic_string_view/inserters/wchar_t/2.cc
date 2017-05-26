@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++17" }
 
-// Copyright (C) 2013-2016 Free Software Foundation, Inc.
+// Copyright (C) 2013-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,7 +35,7 @@
 void
 test05(std::size_t size)
 {
-  bool test [[gnu::unused]] = true;
+  bool test = true;
 
   const char filename[] = "inserters_extractors-2.txt";
   const wchar_t fillc = L'f';

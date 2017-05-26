@@ -1,5 +1,5 @@
 /* Passes for transactional memory support.
-   Copyright (C) 2008-2016 Free Software Foundation, Inc.
+   Copyright (C) 2008-2017 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
    and Aldy Hernandez <aldyh@redhat.com>.
 
@@ -165,7 +165,6 @@ get_attrs_for (const_tree x)
     {
     case FUNCTION_DECL:
       return TYPE_ATTRIBUTES (TREE_TYPE (x));
-      break;
 
     default:
       if (TYPE_P (x))
@@ -457,7 +456,7 @@ build_tm_abort_call (location_t loc, bool is_outer)
 					     | (is_outer ? AR_OUTERABORT : 0)));
 }
 
-/* Map for aribtrary function replacement under TM, as created
+/* Map for arbitrary function replacement under TM, as created
    by the tm_wrap attribute.  */
 
 struct tm_wrapper_hasher : ggc_cache_ptr_hash<tree_map>
@@ -621,7 +620,7 @@ diagnose_tm_1_op (tree *tp, int *walk_subtrees, void *data)
 		  "invalid use of volatile lvalue inside transaction");
       else if (d->func_flags & DIAG_TM_SAFE)
 	error_at (gimple_location (d->stmt),
-		  "invalid use of volatile lvalue inside %<transaction_safe%>"
+		  "invalid use of volatile lvalue inside %<transaction_safe%> "
 		  "function");
     }
 
@@ -1276,7 +1275,7 @@ tm_log_emit (void)
       if (dump_file)
 	{
 	  fprintf (dump_file, "TM thread private mem logging: ");
-	  print_generic_expr (dump_file, lp->addr, 0);
+	  print_generic_expr (dump_file, lp->addr);
 	  fprintf (dump_file, "\n");
 	}
 
@@ -1546,7 +1545,7 @@ requires_barrier (basic_block entry_block, tree x, gimple *stmt)
       x = TREE_OPERAND (TMR_BASE (x), 0);
       if (TREE_CODE (x) == PARM_DECL)
 	return false;
-      gcc_assert (TREE_CODE (x) == VAR_DECL);
+      gcc_assert (VAR_P (x));
       /* FALLTHRU */
 
     case PARM_DECL:
@@ -3370,6 +3369,8 @@ pass_tm_edges::execute (function *fun)
      must be rebuilt completely.  Otherwise we'll crash trying to update
      the SSA web in the TODO section following this pass.  */
   free_dominance_info (CDI_DOMINATORS);
+  /* We'ge also wrecked loops badly with inserting of abnormal edges.  */
+  loops_state_set (LOOPS_NEED_FIXUP);
   bitmap_obstack_release (&tm_obstack);
   all_tm_regions = NULL;
 
@@ -3581,7 +3582,7 @@ tm_memopt_accumulate_memops (basic_block bb)
 	  fprintf (dump_file, "TM memopt (%s): value num=%d, BB=%d, addr=",
 		   is_tm_load (stmt) ? "LOAD" : "STORE", loc,
 		   gimple_bb (stmt)->index);
-	  print_generic_expr (dump_file, gimple_call_arg (stmt, 0), 0);
+	  print_generic_expr (dump_file, gimple_call_arg (stmt, 0));
 	  fprintf (dump_file, "\n");
 	}
     }
@@ -3609,7 +3610,7 @@ dump_tm_memopt_set (const char *set_name, bitmap bits)
       gcc_assert (mem->value_id == i);
       fprintf (dump_file, "%s", comma);
       comma = ", ";
-      print_generic_expr (dump_file, mem->addr, 0);
+      print_generic_expr (dump_file, mem->addr);
     }
   fprintf (dump_file, "]\n");
 }
@@ -3909,7 +3910,7 @@ dump_tm_memopt_transform (gimple *stmt)
   if (dump_file)
     {
       fprintf (dump_file, "TM memopt: transforming: ");
-      print_gimple_stmt (dump_file, stmt, 0, 0);
+      print_gimple_stmt (dump_file, stmt, 0);
       fprintf (dump_file, "\n");
     }
 }

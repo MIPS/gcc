@@ -1,5 +1,5 @@
 /* Tail merging for gimple.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Tom de Vries (tom@codesourcery.com)
 
 This file is part of GCC.
@@ -204,6 +204,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-ssa-sccvn.h"
 #include "cfgloop.h"
+#include "tree-eh.h"
+#include "tree-cfgcleanup.h"
 
 /* Describes a group of bbs with the same successors.  The successor bbs are
    cached in succs, and the successor edge flags are cached in succ_flags.
@@ -1222,6 +1224,10 @@ merge_stmts_p (gimple *stmt1, gimple *stmt2)
   if (is_tm_ending (stmt1))
     return false;
 
+  /* Verify EH landing pads.  */
+  if (lookup_stmt_eh_lp_fn (cfun, stmt1) != lookup_stmt_eh_lp_fn (cfun, stmt2))
+    return false;
+
   if (is_gimple_call (stmt1)
       && gimple_call_internal_p (stmt1))
     switch (gimple_call_internal_fn (stmt1))
@@ -1711,6 +1717,16 @@ tail_merge_optimize (unsigned int todo)
     return 0;
 
   timevar_push (TV_TREE_TAIL_MERGE);
+
+  /* We enter from PRE which has critical edges split.  Elimination
+     does not process trivially dead code so cleanup the CFG if we
+     are told so.  And re-split critical edges then.  */
+  if (todo & TODO_cleanup_cfg)
+    {
+      cleanup_tree_cfg ();
+      todo &= ~TODO_cleanup_cfg;
+      split_critical_edges ();
+    }
 
   if (!dom_info_available_p (CDI_DOMINATORS))
     {

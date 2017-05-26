@@ -1,5 +1,5 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -402,6 +402,7 @@ static const char *compare_debug_auxbase_opt_spec_function (int, const char **);
 static const char *pass_through_libs_spec_func (int, const char **);
 static const char *replace_extension_spec_func (int, const char **);
 static const char *greater_than_spec_func (int, const char **);
+static const char *debug_level_greater_than_spec_func (int, const char **);
 static char *convert_white_space (char *);
 
 /* The Specs Language
@@ -582,6 +583,12 @@ or with constant text in a single argument.
           This may be combined with '.', '!', ',', '|', and '*' as above.
 
  %(Spec) processes a specification defined in a specs file as *Spec:
+
+The switch matching text S in a %{S}, %{S:X}, or similar construct can use
+a backslash to ignore the special meaning of the character following it,
+thus allowing literal matching of a character that is otherwise specially
+treated.  For example, %{std=iso9899\:1999:X} substitutes X if the
+-std=iso9899:1999 option is given.
 
 The conditional text X in a %{S:X} or similar construct may contain
 other nested % constructs or spaces, or even newlines.  They are
@@ -833,14 +840,16 @@ proper position among the other output files.  */
      && defined(HAVE_AS_GDWARF2_DEBUG_FLAG) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
 #  define ASM_DEBUG_SPEC						\
       (PREFERRED_DEBUGGING_TYPE == DBX_DEBUG				\
-       ? "%{!g0:%{gdwarf*:--gdwarf2}%{!gdwarf*:%{g*:--gstabs}}}" ASM_MAP	\
-       : "%{!g0:%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}}" ASM_MAP)
+       ? "%{%:debug-level-gt(0):"					\
+	 "%{gdwarf*:--gdwarf2}%{!gdwarf*:%{g*:--gstabs}}}" ASM_MAP	\
+       : "%{%:debug-level-gt(0):"					\
+	 "%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}}" ASM_MAP)
 # else
 #  if defined(DBX_DEBUGGING_INFO) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
-#   define ASM_DEBUG_SPEC "%{g*:%{!g0:--gstabs}}" ASM_MAP
+#   define ASM_DEBUG_SPEC "%{g*:%{%:debug-level-gt(0):--gstabs}}" ASM_MAP
 #  endif
 #  if defined(DWARF2_DEBUGGING_INFO) && defined(HAVE_AS_GDWARF2_DEBUG_FLAG)
-#   define ASM_DEBUG_SPEC "%{g*:%{!g0:--gdwarf2}}" ASM_MAP
+#   define ASM_DEBUG_SPEC "%{g*:%{%:debug-level-gt(0):--gdwarf2}}" ASM_MAP
 #  endif
 # endif
 #endif
@@ -1119,7 +1128,8 @@ static const char *cpp_unique_options =
    in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
 "%(cpp_unique_options) %1 %{m*} %{std*&ansi&trigraphs} %{W*&pedantic*} %{w}\
- %{f*} %{g*:%{!g0:%{g*} %{!fno-working-directory:-fworking-directory}}} %{O*}\
+ %{f*} %{g*:%{%:debug-level-gt(0):%{g*}\
+ %{!fno-working-directory:-fworking-directory}}} %{O*}\
  %{undef} %{save-temps*:-fpch-preprocess}";
 
 /* This contains cpp options which are not passed when the preprocessor
@@ -1141,7 +1151,10 @@ static const char *cc1_options =
  %{-help=*:--help=%*}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{coverage:-fprofile-arcs -ftest-coverage}";
+ %{coverage:-fprofile-arcs -ftest-coverage}\
+ %{fprofile-arcs|fprofile-generate*|coverage:\
+   %{!fprofile-update=single:\
+     %{pthread:-fprofile-update=prefer-atomic}}}";
 
 static const char *asm_options =
 "%{-target-help:%:print-asm-header()} "
@@ -1325,7 +1338,7 @@ static const struct compiler default_compilers[] =
 		%(cpp_options) -o %{save-temps*:%b.i} %{!save-temps*:%g.i} \n\
 		    cc1 -fpreprocessed %{save-temps*:%b.i} %{!save-temps*:%g.i} \
 			%(cc1_options)\
-			%{!fsyntax-only:-o %g.s \
+			%{!fsyntax-only:%{!S:-o %g.s} \
 			    %{!fdump-ada-spec*:%{!o*:--output-pch=%i.gch}\
 					       %W{o*:--output-pch=%*}}%V}}\
 	  %{!save-temps*:%{!traditional-cpp:%{!no-integrated-cpp:\
@@ -1636,6 +1649,7 @@ static const struct spec_function static_spec_functions[] =
   { "pass-through-libs",	pass_through_libs_spec_func },
   { "replace-extension",	replace_extension_spec_func },
   { "gt",			greater_than_spec_func },
+  { "debug-level-gt",		debug_level_greater_than_spec_func },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -1927,6 +1941,9 @@ static int have_c = 0;
 
 /* Was the option -o passed.  */
 static int have_o = 0;
+
+/* Was the option -E passed.  */
+static int have_E = 0;
 
 /* Pointer to output file name passed in with -o. */
 static const char *output_file = 0;
@@ -3767,6 +3784,10 @@ driver_handle_option (struct gcc_options *opts,
       printf ("%s\n", spec_machine);
       exit (0);
 
+    case OPT_dumpfullversion:
+      printf ("%s\n", BASEVER);
+      exit (0);
+
     case OPT__version:
       print_version = 1;
 
@@ -4062,6 +4083,10 @@ driver_handle_option (struct gcc_options *opts,
 		    PREFIX_PRIORITY_B_OPT, 0, 0);
       }
       validated = true;
+      break;
+
+    case OPT_E:
+      have_E = true;
       break;
 
     case OPT_x:
@@ -4417,7 +4442,12 @@ process_command (unsigned int decoded_options_count,
 	    fname = xstrdup (arg);
 
           if (strcmp (fname, "-") != 0 && access (fname, F_OK) < 0)
-	    perror_with_name (fname);
+	    {
+	      if (fname[0] == '@' && access (fname + 1, F_OK) < 0)
+		perror_with_name (fname + 1);
+	      else
+		perror_with_name (fname);
+	    }
           else
 	    add_infile (arg, spec_lang);
 
@@ -4447,6 +4477,9 @@ process_command (unsigned int decoded_options_count,
 		       "input file %qs is the same as output file",
 		       output_file);
     }
+
+  if (output_file != NULL && output_file[0] == '\0')
+    fatal_error (input_location, "output filename may not be empty");
 
   /* If -save-temps=obj and -o name, create the prefix to use for %b.
      Otherwise just make -save-temps=obj the same as -save-temps=cwd.  */
@@ -5420,8 +5453,9 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 			if (files_differ)
 #endif
 			  {
-			    temp_filename = save_string (temp_filename,
-							 temp_filename_length + 1);
+			    temp_filename
+			      = save_string (temp_filename,
+					     temp_filename_length - 1);
 			    obstack_grow (&obstack, temp_filename,
 						    temp_filename_length);
 			    arg_going = 1;
@@ -6212,6 +6246,8 @@ handle_braces (const char *p)
 {
   const char *atom, *end_atom;
   const char *d_atom = NULL, *d_end_atom = NULL;
+  char *esc_buf = NULL, *d_esc_buf = NULL;
+  int esc;
   const char *orig = p;
 
   bool a_is_suffix;
@@ -6262,10 +6298,41 @@ handle_braces (const char *p)
 	    p++, a_is_spectype = true;
 
 	  atom = p;
+	  esc = 0;
 	  while (ISIDNUM (*p) || *p == '-' || *p == '+' || *p == '='
-		 || *p == ',' || *p == '.' || *p == '@')
-	    p++;
+		 || *p == ',' || *p == '.' || *p == '@' || *p == '\\')
+	    {
+	      if (*p == '\\')
+		{
+		  p++;
+		  if (!*p)
+		    fatal_error (input_location,
+				 "braced spec %qs ends in escape", orig);
+		  esc++;
+		}
+	      p++;
+	    }
 	  end_atom = p;
+
+	  if (esc)
+	    {
+	      const char *ap;
+	      char *ep;
+
+	      if (esc_buf && esc_buf != d_esc_buf)
+		free (esc_buf);
+	      esc_buf = NULL;
+	      ep = esc_buf = (char *) xmalloc (end_atom - atom - esc + 1);
+	      for (ap = atom; ap != end_atom; ap++, ep++)
+		{
+		  if (*ap == '\\')
+		    ap++;
+		  *ep = *ap;
+		}
+	      *ep = '\0';
+	      atom = esc_buf;
+	      end_atom = ep;
+	    }
 
 	  if (*p == '*')
 	    p++, a_is_starred = 1;
@@ -6333,6 +6400,7 @@ handle_braces (const char *p)
 		      disj_matched = true;
 		      d_atom = atom;
 		      d_end_atom = end_atom;
+		      d_esc_buf = esc_buf;
 		    }
 		}
 	    }
@@ -6344,7 +6412,7 @@ handle_braces (const char *p)
 	      p = process_brace_body (p + 1, d_atom, d_end_atom, disj_starred,
 				      disj_matched && !n_way_matched);
 	      if (p == 0)
-		return 0;
+		goto done;
 
 	      /* If we have an N-way choice, reset state for the next
 		 disjunction.  */
@@ -6364,6 +6432,12 @@ handle_braces (const char *p)
 	}
     }
   while (*p++ != '}');
+
+ done:
+  if (d_esc_buf && d_esc_buf != esc_buf)
+    free (d_esc_buf);
+  if (esc_buf)
+    free (esc_buf);
 
   return p;
 
@@ -7724,6 +7798,17 @@ driver::build_option_suggestions (void)
 	  {
 	    for (int j = 0; sanitizer_opts[j].name != NULL; ++j)
 	      {
+		struct cl_option optb;
+		/* -fsanitize=all is not valid, only -fno-sanitize=all.
+		   So don't register the positive misspelling candidates
+		   for it.  */
+		if (sanitizer_opts[j].flag == ~0U && i == OPT_fsanitize_)
+		  {
+		    optb = *option;
+		    optb.opt_text = opt_text = "-fno-sanitize=";
+		    optb.cl_reject_negative = true;
+		    option = &optb;
+		  }
 		/* Get one arg at a time e.g. "-fsanitize=address".  */
 		char *with_arg = concat (opt_text,
 					 sanitizer_opts[j].name,
@@ -7930,7 +8015,7 @@ driver::maybe_print_and_exit () const
     {
       printf (_("%s %s%s\n"), progname, pkgversion_string,
 	      version_string);
-      printf ("Copyright %s 2016 Free Software Foundation, Inc.\n",
+      printf ("Copyright %s 2017 Free Software Foundation, Inc.\n",
 	      _("(C)"));
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -8305,7 +8390,17 @@ lookup_compiler (const char *name, size_t length, const char *language)
     {
       for (cp = compilers + n_compilers - 1; cp >= compilers; cp--)
 	if (cp->suffix[0] == '@' && !strcmp (cp->suffix + 1, language))
-	  return cp;
+	  {
+	    if (name != NULL && strcmp (name, "-") == 0
+		&& (strcmp (cp->suffix, "@c-header") == 0
+		    || strcmp (cp->suffix, "@c++-header") == 0)
+		&& !have_E)
+	      fatal_error (input_location,
+			   "cannot use %<-%> as input filename for a "
+			   "precompiled header");
+
+	    return cp;
+	  }
 
       error ("language %s not recognized", language);
       return 0;
@@ -8362,6 +8457,7 @@ save_string (const char *s, int len)
 {
   char *result = XNEWVEC (char, len + 1);
 
+  gcc_checking_assert (strlen (s) >= (unsigned int) len);
   memcpy (result, s, len);
   result[len] = 0;
   return result;
@@ -9820,6 +9916,27 @@ greater_than_spec_func (int argc, const char **argv)
   gcc_assert (converted != argv[argc - 1]);
 
   if (arg > lim)
+    return "";
+
+  return NULL;
+}
+
+/* Returns "" if debug_info_level is greater than ARGV[ARGC-1].
+   Otherwise, return NULL.  */
+
+static const char *
+debug_level_greater_than_spec_func (int argc, const char **argv)
+{
+  char *converted;
+
+  if (argc != 1)
+    fatal_error (input_location,
+		 "wrong number of arguments to %%:debug-level-gt");
+
+  long arg = strtol (argv[0], &converted, 10);
+  gcc_assert (converted != argv[0]);
+
+  if (debug_info_level > arg)
     return "";
 
   return NULL;

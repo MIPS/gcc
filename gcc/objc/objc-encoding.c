@@ -1,5 +1,5 @@
 /* Routines dealing with ObjC encoding of types
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -622,6 +622,7 @@ encode_type (tree type, int curtype, int format)
 	}
       /* Else, they are encoded exactly like the integer type that is
 	 used by the compiler to store them.  */
+      /* FALLTHRU */
     case INTEGER_TYPE:
       {
 	char c;

@@ -1,5 +1,5 @@
 /* Top-level LTO routines.
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "stor-layout.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
@@ -45,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-partition.h"
 #include "context.h"
 #include "pass_manager.h"
-#include "ipa-inline.h"
+#include "ipa-fnsummary.h"
 #include "params.h"
 #include "ipa-utils.h"
 #include "gomp-constants.h"
@@ -372,7 +373,9 @@ hash_canonical_type (tree type)
       tree f;
 
       for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
-	if (TREE_CODE (f) == FIELD_DECL)
+	if (TREE_CODE (f) == FIELD_DECL
+	    && (! DECL_SIZE (f)
+		|| ! integer_zerop (DECL_SIZE (f))))
 	  {
 	    iterative_hash_canonical_type (TREE_TYPE (f), hstate);
 	    nf++;
@@ -1159,6 +1162,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
 	}
       else if (code == ARRAY_TYPE)
 	compare_values (TYPE_NONALIASED_COMPONENT);
+      if (AGGREGATE_TYPE_P (t1))
+	compare_values (TYPE_TYPELESS_STORAGE);
       compare_values (TYPE_PACKED);
       compare_values (TYPE_RESTRICT);
       compare_values (TYPE_USER_ALIGN);
@@ -2285,6 +2290,8 @@ do_stream_out (char *temp_filename, lto_symtab_encoder_t encoder)
 
   ipa_write_optimization_summaries (encoder);
 
+  free (CONST_CAST (char *, file->filename));
+
   lto_set_current_out_file (NULL);
   lto_obj_file_close (file);
   free (file);
@@ -2920,7 +2927,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   if (symtab->dump_file)
     {
       fprintf (symtab->dump_file, "Before merging:\n");
-      symtab_node::dump_table (symtab->dump_file);
+      symtab->dump (symtab->dump_file);
     }
   if (!flag_ltrans)
     {
@@ -3085,16 +3092,20 @@ do_whole_program_analysis (void)
   symtab->function_flags_ready = true;
 
   if (symtab->dump_file)
-    symtab_node::dump_table (symtab->dump_file);
+    symtab->dump (symtab->dump_file);
   bitmap_obstack_initialize (NULL);
   symtab->state = IPA_SSA;
 
   execute_ipa_pass_list (g->get_passes ()->all_regular_ipa_passes);
 
+  /* When WPA analysis raises errors, do not bother to output anything.  */
+  if (seen_error ())
+    return;
+
   if (symtab->dump_file)
     {
       fprintf (symtab->dump_file, "Optimized ");
-      symtab_node::dump_table (symtab->dump_file);
+      symtab->dump (symtab->dump_file);
     }
 
   symtab_node::checking_verify_symtab_nodes ();
@@ -3118,7 +3129,7 @@ do_whole_program_analysis (void)
 
   /* Inline summaries are needed for balanced partitioning.  Free them now so
      the memory can be used for streamer caches.  */
-  inline_free_summary ();
+  ipa_free_fn_summary ();
 
   /* AUX pointers are used by partitioning code to bookkeep number of
      partitions symbol is in.  This is no longer needed.  */
@@ -3237,7 +3248,7 @@ offload_handle_link_vars (void)
 	TREE_TYPE (link_ptr_var) = type;
 	TREE_USED (link_ptr_var) = 1;
 	TREE_STATIC (link_ptr_var) = 1;
-	DECL_MODE (link_ptr_var) = TYPE_MODE (type);
+	SET_DECL_MODE (link_ptr_var, TYPE_MODE (type));
 	DECL_SIZE (link_ptr_var) = TYPE_SIZE (type);
 	DECL_SIZE_UNIT (link_ptr_var) = TYPE_SIZE_UNIT (type);
 	DECL_ARTIFICIAL (link_ptr_var) = 1;
@@ -3314,6 +3325,9 @@ lto_main (void)
 	  materialize_cgraph ();
 	  if (!flag_ltrans)
 	    lto_promote_statics_nonwpa ();
+
+	  /* Annotate the CU DIE and mark the early debug phase as finished.  */
+	  debug_hooks->early_finish ("<artificial>");
 
 	  /* Let the middle end know that we have read and merged all of
 	     the input files.  */ 

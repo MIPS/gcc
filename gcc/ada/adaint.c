@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2017, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -112,13 +112,24 @@
 extern "C" {
 #endif
 
-#if defined (__MINGW32__) || defined (__CYGWIN__)
+#if defined (__DJGPP__)
+
+/* For isalpha-like tests in the compiler, we're expected to resort to
+   safe-ctype.h/ISALPHA.  This isn't available for the runtime library
+   build, so we fallback on ctype.h/isalpha there.  */
+
+#ifdef IN_RTS
+#include <ctype.h>
+#define ISALPHA isalpha
+#endif
+
+#elif defined (__MINGW32__) || defined (__CYGWIN__)
 
 #include "mingw32.h"
 
 /* Current code page and CCS encoding to use, set in initialize.c.  */
-UINT CurrentCodePage;
-UINT CurrentCCSEncoding;
+UINT __gnat_current_codepage;
+UINT __gnat_current_ccs_encoding;
 
 #include <sys/utime.h>
 
@@ -165,15 +176,21 @@ UINT CurrentCCSEncoding;
 #include <sys/wait.h>
 #endif
 
-#if defined (_WIN32)
-
+#if defined (__DJGPP__)
 #include <process.h>
 #include <signal.h>
 #include <dir.h>
+#include <utime.h>
+#undef DIR_SEPARATOR
+#define DIR_SEPARATOR '\\'
+
+#elif defined (_WIN32)
+
 #include <windows.h>
 #include <accctrl.h>
 #include <aclapi.h>
 #include <tlhelp32.h>
+#include <signal.h>
 #undef DIR_SEPARATOR
 #define DIR_SEPARATOR '\\'
 
@@ -554,7 +571,7 @@ __gnat_get_file_names_case_sensitive (void)
 	{
 	  /* By default, we suppose filesystems aren't case sensitive on
 	     Windows and Darwin (but they are on arm-darwin).  */
-#if defined (WINNT) \
+#if defined (WINNT) || defined (__DJGPP__) \
   || (defined (__APPLE__) && !(defined (__arm__) || defined (__arm64__)))
 	  file_names_case_sensitive_cache = 0;
 #else
@@ -570,7 +587,7 @@ __gnat_get_file_names_case_sensitive (void)
 int
 __gnat_get_env_vars_case_sensitive (void)
 {
-#if defined (WINNT)
+#if defined (WINNT) || defined (__DJGPP__)
  return 0;
 #else
  return 1;
@@ -596,7 +613,16 @@ __gnat_get_current_dir (char *dir, int *length)
   WS2SC (dir, wdir, GNAT_MAX_PATH_LEN);
 
 #else
-   getcwd (dir, *length);
+   char* result = getcwd (dir, *length);
+   /* If the current directory does not exist, set length = 0
+      to indicate error. That can't happen on windows, where
+      you can't delete a directory if it is the current
+      directory of some process. */
+   if (!result)
+     {
+       *length = 0;
+       return;
+     }
 #endif
 
    *length = strlen (dir);
@@ -1640,7 +1666,7 @@ __gnat_is_absolute_path (char *name, int length)
 #else
   return (length != 0) &&
      (*name == '/' || *name == DIR_SEPARATOR
-#if defined (WINNT)
+#if defined (WINNT) || defined(__DJGPP__)
       || (length > 1 && ISALPHA (name[0]) && name[1] == ':')
 #endif
 	  );
@@ -2228,7 +2254,7 @@ __gnat_portable_spawn (char *args[] ATTRIBUTE_UNUSED)
 #if defined (__vxworks) || defined(__PikeOS__)
   return -1;
 
-#elif defined (_WIN32)
+#elif defined (__DJGPP__) || defined (_WIN32)
   /* args[0] must be quotes as it could contain a full pathname with spaces */
   char *args_0 = args[0];
   args[0] = (char *)xmalloc (strlen (args_0) + 3);
@@ -2298,7 +2324,7 @@ __gnat_dup2 (int oldfd ATTRIBUTE_UNUSED, int newfd ATTRIBUTE_UNUSED)
      RTPs.  */
   return -1;
 #elif defined (__PikeOS__)
-  /* Not supported.  */
+  /* Not supported. */
   return -1;
 #elif defined (_WIN32)
   /* Special case when oldfd and newfd are identical and are the standard
@@ -2600,6 +2626,12 @@ __gnat_portable_no_block_spawn (char *args[] ATTRIBUTE_UNUSED)
   /* Not supported.  */
   return -1;
 
+#elif defined(__DJGPP__)
+  if (spawnvp (P_WAIT, args[0], args) != 0)
+    return -1;
+  else
+    return 0;
+
 #elif defined (_WIN32)
 
   HANDLE h = NULL;
@@ -2643,9 +2675,32 @@ __gnat_portable_wait (int *process_status)
 
   pid = win32_wait (&status);
 
+#elif defined (__DJGPP__)
+  /* Child process has already ended in case of DJGPP.
+     No need to do anything. Just return success. */
 #else
 
   pid = waitpid (-1, &status, 0);
+  status = status & 0xffff;
+#endif
+
+  *process_status = status;
+  return pid;
+}
+
+int
+__gnat_portable_no_block_wait (int *process_status)
+{
+  int status = 0;
+  int pid = 0;
+
+#if defined (__vxworks) || defined (__PikeOS__) || defined (_WIN32)
+  /* Not supported. */
+  status = -1;
+
+#else
+
+  pid = waitpid (-1, &status, WNOHANG);
   status = status & 0xffff;
 #endif
 
@@ -3370,14 +3425,16 @@ void __gnat_killprocesstree (int pid, int sig_num)
     {
       if ((d->d_type & DT_DIR) == DT_DIR)
         {
-          char statfile[64] = { 0 };
+          char statfile[64];
           int _pid, _ppid;
 
           /* read /proc/<PID>/stat */
 
-          strncpy (statfile, "/proc/", sizeof(statfile));
-          strncat (statfile, d->d_name, sizeof(statfile));
-          strncat (statfile, "/stat", sizeof(statfile));
+          if (strlen (d->d_name) >= sizeof (statfile) - strlen ("/proc//stat"))
+            continue;
+          strcpy (statfile, "/proc/");
+          strcat (statfile, d->d_name);
+          strcat (statfile, "/stat");
 
           FILE *fd = fopen (statfile, "r");
 

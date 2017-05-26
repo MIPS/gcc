@@ -1,5 +1,5 @@
 /* CFG cleanup for trees.
-   Copyright (C) 2001-2016 Free Software Foundation, Inc.
+   Copyright (C) 2001-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "gimple-match.h"
 #include "gimple-fold.h"
+#include "tree-ssa-loop-niter.h"
 
 
 /* The set of blocks in that at least one of the following changes happened:
@@ -230,6 +231,8 @@ cleanup_control_flow_bb (basic_block bb, bool first_p)
 	 edges which do not go to the right block.  For the one
 	 edge which goes to the right block, fix up its flags.  */
       label = TREE_OPERAND (gimple_goto_dest (stmt), 0);
+      if (DECL_CONTEXT (label) != cfun->decl)
+	return retval;
       target_block = label_to_block (label);
       for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
 	{
@@ -602,9 +605,14 @@ fixup_noreturn_call (gimple *stmt)
   /* If there is an LHS, remove it, but only if its type has fixed size.
      The LHS will need to be recreated during RTL expansion and creating
      temporaries of variable-sized types is not supported.  Also don't
-     do this with TREE_ADDRESSABLE types, as assign_temp will abort.  */
+     do this with TREE_ADDRESSABLE types, as assign_temp will abort.
+     Drop LHS regardless of TREE_ADDRESSABLE, if the function call
+     has been changed into a call that does not return a value, like
+     __builtin_unreachable or __cxa_pure_virtual.  */
   tree lhs = gimple_call_lhs (stmt);
-  if (should_remove_lhs_p (lhs))
+  if (lhs
+      && (should_remove_lhs_p (lhs)
+	  || VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (stmt)))))
     {
       gimple_call_set_lhs (stmt, NULL_TREE);
 
@@ -641,24 +649,25 @@ cleanup_tree_cfg_bb (basic_block bb)
       && remove_forwarder_block (bb))
     return true;
 
+  /* If there is a merge opportunity with the predecessor
+     do nothing now but wait until we process the predecessor.
+     This happens when we visit BBs in a non-optimal order and
+     avoids quadratic behavior with adjusting stmts BB pointer.  */
+  if (single_pred_p (bb)
+      && can_merge_blocks_p (single_pred (bb), bb))
+    /* But make sure we _do_ visit it.  When we remove unreachable paths
+       ending in a backedge we fail to mark the destinations predecessors
+       as changed.  */
+    bitmap_set_bit (cfgcleanup_altered_bbs, single_pred (bb)->index);
+
   /* Merging the blocks may create new opportunities for folding
      conditional branches (due to the elimination of single-valued PHI
      nodes).  */
-  if (single_succ_p (bb)
-      && can_merge_blocks_p (bb, single_succ (bb)))
+  else if (single_succ_p (bb)
+	   && can_merge_blocks_p (bb, single_succ (bb)))
     {
-      /* If there is a merge opportunity with the predecessor
-         do nothing now but wait until we process the predecessor.
-	 This happens when we visit BBs in a non-optimal order and
-	 avoids quadratic behavior with adjusting stmts BB pointer.  */
-      if (single_pred_p (bb)
-	  && can_merge_blocks_p (single_pred (bb), bb))
-	;
-      else
-	{
-	  merge_blocks (bb, single_succ (bb));
-	  return true;
-	}
+      merge_blocks (bb, single_succ (bb));
+      return true;
     }
 
   return false;
@@ -730,6 +739,11 @@ cleanup_tree_cfg_1 (void)
   return retval;
 }
 
+static bool
+mfb_keep_latches (edge e)
+{
+  return ! dominated_by_p (CDI_DOMINATORS, e->src, e->dest);
+}
 
 /* Remove unreachable blocks and other miscellaneous clean up work.
    Return true if the flowgraph was modified, false otherwise.  */
@@ -755,6 +769,64 @@ cleanup_tree_cfg_noloop (void)
     {
       checking_verify_dominators (CDI_DOMINATORS);
       changed = false;
+    }
+
+  /* Ensure that we have single entries into loop headers.  Otherwise
+     if one of the entries is becoming a latch due to CFG cleanup
+     (from formerly being part of an irreducible region) then we mess
+     up loop fixup and associate the old loop with a different region
+     which makes niter upper bounds invalid.  See for example PR80549.
+     This needs to be done before we remove trivially dead edges as
+     we need to capture the dominance state before the pending transform.  */
+  if (current_loops)
+    {
+      loop_p loop;
+      unsigned i;
+      FOR_EACH_VEC_ELT (*get_loops (cfun), i, loop)
+	if (loop && loop->header)
+	  {
+	    basic_block bb = loop->header;
+	    edge_iterator ei;
+	    edge e;
+	    bool found_latch = false;
+	    bool any_abnormal = false;
+	    unsigned n = 0;
+	    /* We are only interested in preserving existing loops, but
+	       we need to check whether they are still real and of course
+	       if we need to add a preheader at all.  */
+	    FOR_EACH_EDGE (e, ei, bb->preds)
+	      {
+		if (e->flags & EDGE_ABNORMAL)
+		  {
+		    any_abnormal = true;
+		    break;
+		  }
+		if (dominated_by_p (CDI_DOMINATORS, e->src, bb))
+		  {
+		    found_latch = true;
+		    continue;
+		  }
+		n++;
+	      }
+	    /* If we have more than one entry to the loop header
+	       create a forwarder.  */
+	    if (found_latch && ! any_abnormal && n > 1)
+	      {
+		edge fallthru = make_forwarder_block (bb, mfb_keep_latches,
+						      NULL);
+		loop->header = fallthru->dest;
+		if (! loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+		  {
+		    /* The loop updating from the CFG hook is incomplete
+		       when we have multiple latches, fixup manually.  */
+		    remove_bb_from_loops (fallthru->src);
+		    loop_p cloop = loop;
+		    FOR_EACH_EDGE (e, ei, fallthru->src->preds)
+		      cloop = find_common_loop (cloop, e->src->loop_father);
+		    add_bb_to_loop (fallthru->src, cloop);
+		  }
+	      }
+	  }
     }
 
   changed |= cleanup_tree_cfg_1 ();
@@ -834,6 +906,11 @@ remove_forwarder_block_with_phi (basic_block bb)
   if (dest == bb)
     return false;
 
+  /* Removal of forwarders may expose new natural loops and thus
+     a block may turn into a loop header.  */
+  if (current_loops && bb_loop_header_p (bb))
+    return false;
+
   /* If the destination block consists of a nonlocal label, do not
      merge it.  */
   label = first_stmt (dest);
@@ -871,6 +948,19 @@ remove_forwarder_block_with_phi (basic_block bb)
 	     splitting E so that we can merge PHI arguments on E to
 	     DEST.  */
 	  e = single_succ_edge (split_edge (e));
+	}
+      else
+	{
+	  /* If we merge the forwarder into a loop header verify if we
+	     are creating another loop latch edge.  If so, reset
+	     number of iteration information of the loop.  */
+	  if (dest->loop_father->header == dest
+	      && dominated_by_p (CDI_DOMINATORS, e->src, dest))
+	    {
+	      dest->loop_father->any_upper_bound = false;
+	      dest->loop_father->any_likely_upper_bound = false;
+	      free_numbers_of_iterations_estimates_loop (dest->loop_father);
+	    }
 	}
 
       s = redirect_edge_and_branch (e, dest);

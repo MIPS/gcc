@@ -1,5 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfghooks.h"
 #include "df.h"
 #include "insn-config.h"
+#include "memmodel.h"
 #include "emit-rtl.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
@@ -85,7 +86,7 @@ static void rtl_delete_block (basic_block);
 static basic_block rtl_redirect_edge_and_branch_force (edge, basic_block);
 static edge rtl_redirect_edge_and_branch (edge, basic_block);
 static basic_block rtl_split_block (basic_block, void *);
-static void rtl_dump_bb (FILE *, basic_block, int, int);
+static void rtl_dump_bb (FILE *, basic_block, int, dump_flags_t);
 static int rtl_verify_flow_info_1 (void);
 static void rtl_make_forwarder_block (edge);
 
@@ -115,15 +116,15 @@ can_delete_label_p (const rtx_code_label *label)
   return (!LABEL_PRESERVE_P (label)
 	  /* User declared labels must be preserved.  */
 	  && LABEL_NAME (label) == 0
-	  && !in_insn_list_p (forced_labels, label));
+	  && !vec_safe_contains<rtx_insn *> (forced_labels,
+					     const_cast<rtx_code_label *> (label)));
 }
 
 /* Delete INSN by patching it out.  */
 
 void
-delete_insn (rtx uncast_insn)
+delete_insn (rtx_insn *insn)
 {
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
   rtx note;
   bool really_delete = true;
 
@@ -238,17 +239,15 @@ delete_insn_and_edges (rtx_insn *insn)
    insns that cannot be removed to NULL.  */
 
 void
-delete_insn_chain (rtx start, rtx finish, bool clear_bb)
+delete_insn_chain (rtx start, rtx_insn *finish, bool clear_bb)
 {
-  rtx_insn *prev, *current;
-
   /* Unchain the insns one by one.  It would be quicker to delete all of these
      with a single unchaining, rather than one at a time, but we need to keep
      the NOTE's.  */
-  current = safe_as_a <rtx_insn *> (finish);
+  rtx_insn *current = finish;
   while (1)
     {
-      prev = PREV_INSN (current);
+      rtx_insn *prev = PREV_INSN (current);
       if (NOTE_P (current) && !can_delete_note_p (as_a <rtx_note *> (current)))
 	;
       else
@@ -1099,7 +1098,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
     {
       rtx_code_label *target_label = block_label (target);
       rtx_insn *barrier;
-      rtx label;
+      rtx_insn *label;
       rtx_jump_table_data *table;
 
       emit_jump_insn_after_noloc (targetm.gen_jump (target_label), insn);
@@ -1199,7 +1198,7 @@ patch_jump_insn (rtx_insn *insn, rtx_insn *old_label, basic_block new_bb)
 	  && SET_DEST (tmp) == pc_rtx
 	  && GET_CODE (SET_SRC (tmp)) == IF_THEN_ELSE
 	  && GET_CODE (XEXP (SET_SRC (tmp), 2)) == LABEL_REF
-	  && LABEL_REF_LABEL (XEXP (SET_SRC (tmp), 2)) == old_label)
+	  && label_ref_label (XEXP (SET_SRC (tmp), 2)) == old_label)
 	{
 	  XEXP (SET_SRC (tmp), 2) = gen_rtx_LABEL_REF (Pmode,
 						       new_label);
@@ -1771,7 +1770,7 @@ rtl_tidy_fallthru_edge (edge e)
       && (any_uncondjump_p (q)
 	  || single_succ_p (b)))
     {
-      rtx label;
+      rtx_insn *label;
       rtx_jump_table_data *table;
 
       if (tablejump_p (q, &label, &table))
@@ -1784,8 +1783,7 @@ rtl_tidy_fallthru_edge (edge e)
 	  PUT_CODE (label, NOTE);
 	  NOTE_KIND (label) = NOTE_INSN_DELETED_LABEL;
 	  NOTE_DELETED_LABEL_NAME (label) = name;
-	  rtx_insn *lab = safe_as_a <rtx_insn *> (label);
-	  reorder_insns (lab, lab, PREV_INSN (q));
+	  reorder_insns (label, label, PREV_INSN (q));
 	  delete_insn (table);
 	}
 
@@ -1796,6 +1794,10 @@ rtl_tidy_fallthru_edge (edge e)
 
       q = PREV_INSN (q);
     }
+  /* Unconditional jumps with side-effects (i.e. which we can't just delete
+     together with the barrier) should never have a fallthru edge.  */
+  else if (JUMP_P (q) && any_uncondjump_p (q))
+    return;
 
   /* Selectively unlink the sequence.  */
   if (q != PREV_INSN (BB_HEAD (c)))
@@ -1933,7 +1935,8 @@ rtl_split_edge (edge edge_in)
 	  if (last
 	      && JUMP_P (last)
 	      && edge_in->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	      && extract_asm_operands (PATTERN (last)) != NULL_RTX
+	      && (extract_asm_operands (PATTERN (last))
+		  || JUMP_LABEL (last) == before)
 	      && patch_jump_insn (last, before, bb))
 	    df_set_bb_dirty (edge_in->src);
 	}
@@ -2109,7 +2112,7 @@ commit_edge_insertions (void)
    documented in dumpfile.h.  */
 
 static void
-rtl_dump_bb (FILE *outf, basic_block bb, int indent, int flags)
+rtl_dump_bb (FILE *outf, basic_block bb, int indent, dump_flags_t flags)
 {
   rtx_insn *insn;
   rtx_insn *last;
@@ -2152,7 +2155,7 @@ rtl_dump_bb (FILE *outf, basic_block bb, int indent, int flags)
    in dumpfile.h.  */
 
 void
-print_rtl_with_bb (FILE *outf, const rtx_insn *rtx_first, int flags)
+print_rtl_with_bb (FILE *outf, const rtx_insn *rtx_first, dump_flags_t flags)
 {
   const rtx_insn *tmp_rtx;
   if (rtx_first == 0)
@@ -2524,7 +2527,7 @@ rtl_verify_edges (void)
 	    && JUMP_P (BB_END (bb))
 	    && CROSSING_JUMP_P (BB_END (bb)))
           {
-            print_rtl_with_bb (stderr, get_insns (), TDF_RTL | TDF_BLOCKS | TDF_DETAILS);
+	    print_rtl_with_bb (stderr, get_insns (), TDF_BLOCKS | TDF_DETAILS);
             error ("Region crossing jump across same section in bb %i",
                    bb->index);
             err = 1;
@@ -3648,7 +3651,8 @@ relink_block_chain (bool stay_in_cfglayout_mode)
   /* Maybe reset the original copy tables, they are not valid anymore
      when we renumber the basic blocks in compact_blocks.  If we are
      are going out of cfglayout mode, don't re-allocate the tables.  */
-  free_original_copy_tables ();
+  if (original_copy_tables_initialized_p ())
+    free_original_copy_tables ();
   if (stay_in_cfglayout_mode)
     initialize_original_copy_tables ();
 
@@ -3818,7 +3822,7 @@ fixup_reorder_chain (void)
 		  update_br_prob_note (bb);
 		  if (LABEL_NUSES (ret_label) == 0
 		      && single_pred_p (e_taken->dest))
-		    delete_insn (ret_label);
+		    delete_insn (as_a<rtx_insn *> (ret_label));
 		  continue;
 		}
 	    }
@@ -4238,7 +4242,7 @@ cfg_layout_duplicate_bb (basic_block bb)
    FLAGS is a set of additional flags to pass to cleanup_cfg().  */
 
 void
-cfg_layout_initialize (unsigned int flags)
+cfg_layout_initialize (int flags)
 {
   rtx_insn_list *x;
   basic_block bb;

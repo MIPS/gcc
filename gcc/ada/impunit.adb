@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2000-2015, Free Software Foundation, Inc.        --
+--           Copyright (C) 2000-2017, Free Software Foundation, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -351,6 +351,7 @@ package body Impunit is
     ("i-java  ", F),  -- Interfaces.Java
     ("i-javjni", F),  -- Interfaces.Java.JNI
     ("i-pacdec", F),  -- Interfaces.Packed_Decimal
+    ("i-vxinco", F),  -- Interfaces.VxWorks.Int_Connection
     ("i-vxwoio", F),  -- Interfaces.VxWorks.IO
     ("i-vxwork", F),  -- Interfaces.VxWorks
 
@@ -589,6 +590,9 @@ package body Impunit is
     ("a-cfinve", F),  -- Ada.Containers.Formal_Indefinite_Vectors
     ("a-coboho", F),  -- Ada.Containers.Bounded_Holders
     ("a-cofove", F),  -- Ada.Containers.Formal_Vectors
+    ("a-cofuma", F),  -- Ada.Containers.Functional_Maps
+    ("a-cofuse", F),  -- Ada.Containers.Functional_Sets
+    ("a-cofuve", F),  -- Ada.Containers.Functional_Vectors
     ("a-cfdlli", F),  -- Ada.Containers.Formal_Doubly_Linked_Lists
     ("a-cforse", F),  -- Ada.Containers.Formal_Ordered_Sets
     ("a-cforma", F),  -- Ada.Containers.Formal_Ordered_Maps

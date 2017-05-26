@@ -1,5 +1,5 @@
 /* Target Definitions for ft32.
-   Copyright (C) 2015-2016 Free Software Foundation, Inc.
+   Copyright (C) 2015-2017 Free Software Foundation, Inc.
    Contributed by FTDI <support@ftdi.com>
 
    This file is part of GCC.
@@ -250,8 +250,6 @@ enum reg_class
    pointer to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-#define INITIAL_FRAME_POINTER_OFFSET(DEPTH) (DEPTH) = 0
-
 /* Offset from the frame pointer to the first local variable slot to
    be allocated.  */
 #define STARTING_FRAME_OFFSET 0
@@ -426,10 +424,8 @@ do { \
  {FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
 
 
-/* This macro is similar to `INITIAL_FRAME_POINTER_OFFSET'.  It
-   specifies the initial difference between the specified pair of
-   registers.  This macro must be defined if `ELIMINABLE_REGS' is
-   defined.  */
+/* This macro returns the initial difference between the specified pair
+   of registers.  */
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)                    \
   do {                                                                  \
     (OFFSET) = ft32_initial_elimination_offset ((FROM), (TO));            \

@@ -160,7 +160,7 @@ For example on x86-linux::
 
   .. image:: rtlibrary-structure.png
 
-.. only:: not (html or latex) 
+.. only:: not (html or latex)
 
    ::
 
@@ -235,6 +235,20 @@ To specify `SCHED_RR`,
 you should use `pragma Time_Slice` with a
 value greater than 0.0, or else use the corresponding *-T*
 binder option.
+
+
+To make sure a program is running as root, you can put something like
+this in a library package body in your application:
+
+  .. code-block:: ada
+
+     function geteuid return Integer;
+     pragma Import (C, geteuid, "geteuid");
+     Ignore : constant Boolean :=
+       (if geteuid = 0 then True else raise Program_Error with "must be root");
+
+It gets the effective user id, and if it's not 0 (i.e. root), it raises
+Program_Error.
 
 
 .. index:: Solaris Sparc threads libraries
@@ -562,7 +576,7 @@ and::
 
    Ada.Command_Line.Argument (1) -> "'*.txt'"
 
-   
+
 .. _Mixed-Language_Programming_on_Windows:
 
 Mixed-Language Programming on Windows
@@ -1944,7 +1958,7 @@ cookbook-style sequence of steps to follow:
      $ gprbuild -p mylib.gpr
 
 2. Produce a .def file for the symbols you need to interface with, either by
-   hand or automatically with possibly some manual adjustments 
+   hand or automatically with possibly some manual adjustments
    (see :ref:`Creating Definition File Automatically <Create_Def_File_Automatically>`):
 
   ::
@@ -2215,7 +2229,7 @@ This setting can be done with *gnatlink* using either of the following:
 
   This sets the stack reserve size to 0x1000000 bytes. Note that with
   *-Wl* option it is not possible to set the stack commit size
-  because the coma is a separator for this option.
+  because the comma is a separator for this option.
 
 
 .. _Setting_Heap_Size_from_gnatlink:
@@ -2244,7 +2258,7 @@ Under Windows systems, it is possible to specify the program heap size from
 
   This sets the heap reserve size to 0x1000000 bytes. Note that with
   *-Wl* option it is not possible to set the heap commit size
-  because the coma is a separator for this option.
+  because the comma is a separator for this option.
 
 
 .. _Win32_Specific_Addons:

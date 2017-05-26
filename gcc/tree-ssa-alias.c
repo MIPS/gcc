@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004-2016 Free Software Foundation, Inc.
+   Copyright (C) 2004-2017 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -32,12 +32,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "alias.h"
 #include "fold-const.h"
-
 #include "langhooks.h"
 #include "dumpfile.h"
 #include "tree-eh.h"
 #include "tree-dfa.h"
 #include "ipa-reference.h"
+#include "varasm.h"
 
 /* Broad overview of how alias analysis on gimple works:
 
@@ -167,7 +167,7 @@ ptr_deref_may_alias_decl_p (tree ptr, tree decl)
        && TREE_CODE (ptr) != ADDR_EXPR
        && TREE_CODE (ptr) != POINTER_PLUS_EXPR)
       || !POINTER_TYPE_P (TREE_TYPE (ptr))
-      || (TREE_CODE (decl) != VAR_DECL
+      || (!VAR_P (decl)
 	  && TREE_CODE (decl) != PARM_DECL
 	  && TREE_CODE (decl) != RESULT_DECL))
     return true;
@@ -338,7 +338,7 @@ ptrs_compare_unequal (tree ptr1, tree ptr2)
       tree tem = get_base_address (TREE_OPERAND (ptr1, 0));
       if (! tem)
 	return false;
-      if (TREE_CODE (tem) == VAR_DECL
+      if (VAR_P (tem)
 	  || TREE_CODE (tem) == PARM_DECL
 	  || TREE_CODE (tem) == RESULT_DECL)
 	obj1 = tem;
@@ -350,12 +350,19 @@ ptrs_compare_unequal (tree ptr1, tree ptr2)
       tree tem = get_base_address (TREE_OPERAND (ptr2, 0));
       if (! tem)
 	return false;
-      if (TREE_CODE (tem) == VAR_DECL
+      if (VAR_P (tem)
 	  || TREE_CODE (tem) == PARM_DECL
 	  || TREE_CODE (tem) == RESULT_DECL)
 	obj2 = tem;
       else if (TREE_CODE (tem) == MEM_REF)
 	ptr2 = TREE_OPERAND (tem, 0);
+    }
+
+  /* Canonicalize ptr vs. object.  */
+  if (TREE_CODE (ptr1) == SSA_NAME && obj2)
+    {
+      std::swap (ptr1, ptr2);
+      std::swap (obj1, obj2);
     }
 
   if (obj1 && obj2)
@@ -366,16 +373,21 @@ ptrs_compare_unequal (tree ptr1, tree ptr2)
       /* We may not use restrict to optimize pointer comparisons.
          See PR71062.  So we have to assume that restrict-pointed-to
 	 may be in fact obj1.  */
-      if (!pi || pi->pt.vars_contains_restrict)
+      if (!pi
+	  || pi->pt.vars_contains_restrict
+	  || pi->pt.vars_contains_interposable)
 	return false;
+      if (VAR_P (obj1)
+	  && (TREE_STATIC (obj1) || DECL_EXTERNAL (obj1)))
+	{
+	  varpool_node *node = varpool_node::get (obj1);
+	  /* If obj1 may bind to NULL give up (see below).  */
+	  if (! node
+	      || ! node->nonzero_address ()
+	      || ! decl_binds_to_current_def_p (obj1))
+	    return false;
+	}
       return !pt_solution_includes (&pi->pt, obj1);
-    }
-  else if (TREE_CODE (ptr1) == SSA_NAME && obj2)
-    {
-      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr1);
-      if (!pi || pi->pt.vars_contains_restrict)
-	return false;
-      return !pt_solution_includes (&pi->pt, obj2);
     }
 
   /* ???  We'd like to handle ptr1 != NULL and ptr1 != ptr2
@@ -450,6 +462,7 @@ void
 dump_alias_info (FILE *file)
 {
   unsigned i;
+  tree ptr;
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
   tree var;
@@ -471,13 +484,11 @@ dump_alias_info (FILE *file)
 
   fprintf (file, "\n\nFlow-insensitive points-to information\n\n");
 
-  for (i = 1; i < num_ssa_names; i++)
+  FOR_EACH_SSA_NAME (i, ptr, cfun)
     {
-      tree ptr = ssa_name (i);
       struct ptr_info_def *pi;
 
-      if (ptr == NULL_TREE
-	  || !POINTER_TYPE_P (TREE_TYPE (ptr))
+      if (!POINTER_TYPE_P (TREE_TYPE (ptr))
 	  || SSA_NAME_IN_FREE_LIST (ptr))
 	continue;
 
@@ -546,7 +557,12 @@ dump_points_to_solution (FILE *file, struct pt_solution *pt)
 	      comma = ", ";
 	    }
 	  if (pt->vars_contains_restrict)
-	    fprintf (file, "%srestrict", comma);
+	    {
+	      fprintf (file, "%srestrict", comma);
+	      comma = ", ";
+	    }
+	  if (pt->vars_contains_interposable)
+	    fprintf (file, "%sinterposable", comma);
 	  fprintf (file, ")");
 	}
     }
@@ -1339,7 +1355,10 @@ indirect_refs_may_alias_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
       && same_type_for_tbaa (TREE_TYPE (base1), TREE_TYPE (ptrtype1)) == 1
       && same_type_for_tbaa (TREE_TYPE (base2), TREE_TYPE (ptrtype2)) == 1
       && same_type_for_tbaa (TREE_TYPE (ptrtype1),
-			     TREE_TYPE (ptrtype2)) == 1)
+			     TREE_TYPE (ptrtype2)) == 1
+      /* But avoid treating arrays as "objects", instead assume they
+         can overlap by an exact multiple of their element size.  */
+      && TREE_CODE (TREE_TYPE (ptrtype1)) != ARRAY_TYPE)
     return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
 
   /* Do type-based disambiguation.  */
@@ -1820,9 +1839,7 @@ ref_maybe_used_by_call_p_1 (gcall *call, ao_ref *ref)
 
   /* Check if base is a global static variable that is not read
      by the function.  */
-  if (callee != NULL_TREE
-      && TREE_CODE (base) == VAR_DECL
-      && TREE_STATIC (base))
+  if (callee != NULL_TREE && VAR_P (base) && TREE_STATIC (base))
     {
       struct cgraph_node *node = cgraph_node::get (callee);
       bitmap not_read;
@@ -2209,9 +2226,7 @@ call_may_clobber_ref_p_1 (gcall *call, ao_ref *ref)
 
   /* Check if base is a global static variable that is not written
      by the function.  */
-  if (callee != NULL_TREE
-      && TREE_CODE (base) == VAR_DECL
-      && TREE_STATIC (base))
+  if (callee != NULL_TREE && VAR_P (base) && TREE_STATIC (base))
     {
       struct cgraph_node *node = cgraph_node::get (callee);
       bitmap not_written;
@@ -2301,6 +2316,81 @@ stmt_may_clobber_ref_p (gimple *stmt, tree ref)
   return stmt_may_clobber_ref_p_1 (stmt, &r);
 }
 
+/* Return true if store1 and store2 described by corresponding tuples
+   <BASE, OFFSET, SIZE, MAX_SIZE> have the same size and store to the same
+   address.  */
+
+static bool
+same_addr_size_stores_p (tree base1, HOST_WIDE_INT offset1, HOST_WIDE_INT size1,
+			 HOST_WIDE_INT max_size1,
+			 tree base2, HOST_WIDE_INT offset2, HOST_WIDE_INT size2,
+			 HOST_WIDE_INT max_size2)
+{
+  /* Offsets need to be 0.  */
+  if (offset1 != 0
+      || offset2 != 0)
+    return false;
+
+  bool base1_obj_p = SSA_VAR_P (base1);
+  bool base2_obj_p = SSA_VAR_P (base2);
+
+  /* We need one object.  */
+  if (base1_obj_p == base2_obj_p)
+    return false;
+  tree obj = base1_obj_p ? base1 : base2;
+
+  /* And we need one MEM_REF.  */
+  bool base1_memref_p = TREE_CODE (base1) == MEM_REF;
+  bool base2_memref_p = TREE_CODE (base2) == MEM_REF;
+  if (base1_memref_p == base2_memref_p)
+    return false;
+  tree memref = base1_memref_p ? base1 : base2;
+
+  /* Sizes need to be valid.  */
+  if (max_size1 == -1 || max_size2 == -1
+      || size1 == -1 || size2 == -1)
+    return false;
+
+  /* Max_size needs to match size.  */
+  if (max_size1 != size1
+      || max_size2 != size2)
+    return false;
+
+  /* Sizes need to match.  */
+  if (size1 != size2)
+    return false;
+
+
+  /* Check that memref is a store to pointer with singleton points-to info.  */
+  if (!integer_zerop (TREE_OPERAND (memref, 1)))
+    return false;
+  tree ptr = TREE_OPERAND (memref, 0);
+  if (TREE_CODE (ptr) != SSA_NAME)
+    return false;
+  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+  unsigned int pt_uid;
+  if (pi == NULL
+      || !pt_solution_singleton_or_null_p (&pi->pt, &pt_uid))
+    return false;
+
+  /* Be conservative with non-call exceptions when the address might
+     be NULL.  */
+  if (flag_non_call_exceptions && pi->pt.null)
+    return false;
+
+  /* Check that ptr points relative to obj.  */
+  unsigned int obj_uid = DECL_PT_UID (obj);
+  if (obj_uid != pt_uid)
+    return false;
+
+  /* Check that the object size is the same as the store size.  That ensures us
+     that ptr points to the start of obj.  */
+  if (!tree_fits_shwi_p (DECL_SIZE (obj)))
+    return false;
+  HOST_WIDE_INT obj_size = tree_to_shwi (DECL_SIZE (obj));
+  return obj_size == size1;
+}
+
 /* If STMT kills the memory reference REF return true, otherwise
    return false.  */
 
@@ -2378,6 +2468,11 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 	 so base == ref->base does not always hold.  */
       if (base != ref->base)
 	{
+	  /* Try using points-to info.  */
+	  if (same_addr_size_stores_p (base, offset, size, max_size, ref->base,
+				       ref->offset, ref->size, ref->max_size))
+	    return true;
+
 	  /* If both base and ref->base are MEM_REFs, only compare the
 	     first operand, and if the second operand isn't equal constant,
 	     try to add the offsets into offset and ref_offset.  */
@@ -2440,6 +2535,8 @@ stmt_kills_ref_p (gimple *stmt, ao_ref *ref)
 	  case BUILT_IN_MEMPCPY_CHK:
 	  case BUILT_IN_MEMMOVE_CHK:
 	  case BUILT_IN_MEMSET_CHK:
+	  case BUILT_IN_STRNCPY:
+	  case BUILT_IN_STPNCPY:
 	    {
 	      /* For a must-alias check we need to be able to constrain
 		 the access properly.  */
@@ -2566,70 +2663,6 @@ maybe_skip_until (gimple *phi, tree target, ao_ref *ref,
   return true;
 }
 
-/* For two PHI arguments ARG0 and ARG1 try to skip non-aliasing code
-   until we hit the phi argument definition that dominates the other one.
-   Return that, or NULL_TREE if there is no such definition.  */
-
-static tree
-get_continuation_for_phi_1 (gimple *phi, tree arg0, tree arg1,
-			    ao_ref *ref, unsigned int *cnt,
-			    bitmap *visited, bool abort_on_visited,
-			    void *(*translate)(ao_ref *, tree, void *, bool *),
-			    void *data)
-{
-  gimple *def0 = SSA_NAME_DEF_STMT (arg0);
-  gimple *def1 = SSA_NAME_DEF_STMT (arg1);
-  tree common_vuse;
-
-  if (arg0 == arg1)
-    return arg0;
-  else if (gimple_nop_p (def0)
-	   || (!gimple_nop_p (def1)
-	       && dominated_by_p (CDI_DOMINATORS,
-				  gimple_bb (def1), gimple_bb (def0))))
-    {
-      if (maybe_skip_until (phi, arg0, ref, arg1, cnt,
-			    visited, abort_on_visited, translate, data))
-	return arg0;
-    }
-  else if (gimple_nop_p (def1)
-	   || dominated_by_p (CDI_DOMINATORS,
-			      gimple_bb (def0), gimple_bb (def1)))
-    {
-      if (maybe_skip_until (phi, arg1, ref, arg0, cnt,
-			    visited, abort_on_visited, translate, data))
-	return arg1;
-    }
-  /* Special case of a diamond:
-       MEM_1 = ...
-       goto (cond) ? L1 : L2
-       L1: store1 = ...    #MEM_2 = vuse(MEM_1)
-	   goto L3
-       L2: store2 = ...    #MEM_3 = vuse(MEM_1)
-       L3: MEM_4 = PHI<MEM_2, MEM_3>
-     We were called with the PHI at L3, MEM_2 and MEM_3 don't
-     dominate each other, but still we can easily skip this PHI node
-     if we recognize that the vuse MEM operand is the same for both,
-     and that we can skip both statements (they don't clobber us).
-     This is still linear.  Don't use maybe_skip_until, that might
-     potentially be slow.  */
-  else if ((common_vuse = gimple_vuse (def0))
-	   && common_vuse == gimple_vuse (def1))
-    {
-      bool disambiguate_only = true;
-      *cnt += 2;
-      if ((!stmt_may_clobber_ref_p_1 (def0, ref)
-	   || (translate
-	       && (*translate) (ref, arg0, data, &disambiguate_only) == NULL))
-	  && (!stmt_may_clobber_ref_p_1 (def1, ref)
-	      || (translate
-		  && (*translate) (ref, arg1, data, &disambiguate_only) == NULL)))
-	return common_vuse;
-    }
-
-  return NULL_TREE;
-}
-
 
 /* Starting from a PHI node for the virtual operand of the memory reference
    REF find a continuation virtual operand that allows to continue walking
@@ -2652,44 +2685,73 @@ get_continuation_for_phi (gimple *phi, ao_ref *ref,
 
   /* For two or more arguments try to pairwise skip non-aliasing code
      until we hit the phi argument definition that dominates the other one.  */
-  else if (nargs >= 2)
+  basic_block phi_bb = gimple_bb (phi);
+  tree arg0, arg1;
+  unsigned i;
+
+  /* Find a candidate for the virtual operand which definition
+     dominates those of all others.  */
+  /* First look if any of the args themselves satisfy this.  */
+  for (i = 0; i < nargs; ++i)
     {
-      tree arg0, arg1;
-      unsigned i;
-
-      /* Find a candidate for the virtual operand which definition
-	 dominates those of all others.  */
-      arg0 = PHI_ARG_DEF (phi, 0);
-      if (!SSA_NAME_IS_DEFAULT_DEF (arg0))
-	for (i = 1; i < nargs; ++i)
+      arg0 = PHI_ARG_DEF (phi, i);
+      if (SSA_NAME_IS_DEFAULT_DEF (arg0))
+	break;
+      basic_block def_bb = gimple_bb (SSA_NAME_DEF_STMT (arg0));
+      if (def_bb != phi_bb
+	  && dominated_by_p (CDI_DOMINATORS, phi_bb, def_bb))
+	break;
+      arg0 = NULL_TREE;
+    }
+  /* If not, look if we can reach such candidate by walking defs
+     of a PHI arg without crossing other PHIs.  */
+  if (! arg0)
+    for (i = 0; i < nargs; ++i)
+      {
+	arg0 = PHI_ARG_DEF (phi, i);
+	gimple *def = SSA_NAME_DEF_STMT (arg0);
+	/* Backedges can't work.  */
+	if (dominated_by_p (CDI_DOMINATORS,
+			    gimple_bb (def), phi_bb))
+	  continue;
+	/* See below.  */
+	if (gimple_code (def) == GIMPLE_PHI)
+	  continue;
+	while (! dominated_by_p (CDI_DOMINATORS,
+				 phi_bb, gimple_bb (def)))
 	  {
-	    arg1 = PHI_ARG_DEF (phi, i);
-	    if (SSA_NAME_IS_DEFAULT_DEF (arg1))
+	    arg0 = gimple_vuse (def);
+	    if (SSA_NAME_IS_DEFAULT_DEF (arg0))
+	      break;
+	    def = SSA_NAME_DEF_STMT (arg0);
+	    if (gimple_code (def) == GIMPLE_PHI)
 	      {
-		arg0 = arg1;
-		break;
+		/* Do not try to look through arbitrarily complicated
+		   CFGs.  For those looking for the first VUSE starting
+		   from the end of the immediate dominator of phi_bb
+		   is likely faster.  */
+		arg0 = NULL_TREE;
+		goto next;
 	      }
-	    if (dominated_by_p (CDI_DOMINATORS,
-				gimple_bb (SSA_NAME_DEF_STMT (arg0)),
-				gimple_bb (SSA_NAME_DEF_STMT (arg1))))
-	      arg0 = arg1;
 	  }
+	break;
+next:;
+      }
+  if (! arg0)
+    return NULL_TREE;
 
-      /* Then pairwise reduce against the found candidate.  */
-      for (i = 0; i < nargs; ++i)
-	{
-	  arg1 = PHI_ARG_DEF (phi, i);
-	  arg0 = get_continuation_for_phi_1 (phi, arg0, arg1, ref,
-					     cnt, visited, abort_on_visited,
-					     translate, data);
-	  if (!arg0)
-	    return NULL_TREE;
-	}
-
-      return arg0;
+  /* Then check against the found candidate.  */
+  for (i = 0; i < nargs; ++i)
+    {
+      arg1 = PHI_ARG_DEF (phi, i);
+      if (arg1 == arg0)
+	;
+      else if (! maybe_skip_until (phi, arg0, ref, arg1, cnt, visited,
+				   abort_on_visited, translate, data))
+	return NULL_TREE;
     }
 
-  return NULL_TREE;
+  return arg0;
 }
 
 /* Based on the memory reference REF and its virtual use VUSE call
@@ -2802,13 +2864,15 @@ walk_non_aliased_vuses (ao_ref *ref, tree vuse,
    PHI argument (but only one walk continues on merge points), the
    return value is true if any of the walks was successful.
 
-   The function returns the number of statements walked.  */
+   The function returns the number of statements walked or -1 if
+   LIMIT stmts were walked and the walk was aborted at this point.
+   If LIMIT is zero the walk is not aborted.  */
 
-static unsigned int
+static int
 walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
 		      bool (*walker)(ao_ref *, tree, void *), void *data,
 		      bitmap *visited, unsigned int cnt,
-		      bool *function_entry_reached)
+		      bool *function_entry_reached, unsigned limit)
 {
   do
     {
@@ -2830,14 +2894,22 @@ walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
 	  if (!*visited)
 	    *visited = BITMAP_ALLOC (NULL);
 	  for (i = 0; i < gimple_phi_num_args (def_stmt); ++i)
-	    cnt += walk_aliased_vdefs_1 (ref, gimple_phi_arg_def (def_stmt, i),
-					 walker, data, visited, 0,
-					 function_entry_reached);
+	    {
+	      int res = walk_aliased_vdefs_1 (ref,
+					      gimple_phi_arg_def (def_stmt, i),
+					      walker, data, visited, cnt,
+					      function_entry_reached, limit);
+	      if (res == -1)
+		return -1;
+	      cnt = res;
+	    }
 	  return cnt;
 	}
 
       /* ???  Do we want to account this to TV_ALIAS_STMT_WALK?  */
       cnt++;
+      if (cnt == limit)
+	return -1;
       if ((!ref
 	   || stmt_may_clobber_ref_p_1 (def_stmt, ref))
 	  && (*walker) (ref, vdef, data))
@@ -2848,14 +2920,14 @@ walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
   while (1);
 }
 
-unsigned int
+int
 walk_aliased_vdefs (ao_ref *ref, tree vdef,
 		    bool (*walker)(ao_ref *, tree, void *), void *data,
 		    bitmap *visited,
-		    bool *function_entry_reached)
+		    bool *function_entry_reached, unsigned int limit)
 {
   bitmap local_visited = NULL;
-  unsigned int ret;
+  int ret;
 
   timevar_push (TV_ALIAS_STMT_WALK);
 
@@ -2864,7 +2936,7 @@ walk_aliased_vdefs (ao_ref *ref, tree vdef,
 
   ret = walk_aliased_vdefs_1 (ref, vdef, walker, data,
 			      visited ? visited : &local_visited, 0,
-			      function_entry_reached);
+			      function_entry_reached, limit);
   if (local_visited)
     BITMAP_FREE (local_visited);
 

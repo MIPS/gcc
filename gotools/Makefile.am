@@ -38,6 +38,7 @@ endif
 GOCFLAGS = $(CFLAGS_FOR_TARGET)
 GOCOMPILE = $(GOCOMPILER) $(GOCFLAGS)
 
+AM_GOCFLAGS = -I $(libgodir)
 AM_LDFLAGS = -L $(libgodir) -L $(libgodir)/.libs
 GOLINK = $(GOCOMPILER) $(GOCFLAGS) $(AM_GOCFLAGS) $(LDFLAGS) $(AM_LDFLAGS) -o $@
 
@@ -45,6 +46,7 @@ cmdsrcdir = $(srcdir)/../libgo/go/cmd
 
 go_cmd_go_files = \
 	$(cmdsrcdir)/go/alldocs.go \
+	$(cmdsrcdir)/go/bug.go \
 	$(cmdsrcdir)/go/build.go \
 	$(cmdsrcdir)/go/clean.go \
 	$(cmdsrcdir)/go/context.go \
@@ -99,6 +101,7 @@ s-zdefaultcc: Makefile
 	echo 'const defaultGCCGO = "$(bindir)/$(GCCGO_INSTALL_NAME)"' >> zdefaultcc.go.tmp
 	echo 'const defaultCC = "$(bindir)/$(GCC_INSTALL_NAME)"' >> zdefaultcc.go.tmp
 	echo 'const defaultCXX = "$(bindir)/$(GXX_INSTALL_NAME)"' >> zdefaultcc.go.tmp
+	echo 'const defaultPkgConfig = "pkg-config"' >> zdefaultcc.go.tmp
 	$(SHELL) $(srcdir)/../move-if-change zdefaultcc.go.tmp zdefaultcc.go
 	$(STAMP) $@ 
 

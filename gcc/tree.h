@@ -1,5 +1,5 @@
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
-   Copyright (C) 1989-2016 Free Software Foundation, Inc.
+   Copyright (C) 1989-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -234,6 +234,9 @@ as_internal_fn (combined_fn code)
 /* Helper macros for math builtins.  */
 
 #define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
+#define CASE_FLT_FN_FLOATN_NX(FN)			   \
+  case FN##F16: case FN##F32: case FN##F64: case FN##F128: \
+  case FN##F32X: case FN##F64X: case FN##F128X
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
@@ -771,6 +774,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    computed gotos.  */
 #define FORCED_LABEL(NODE) (LABEL_DECL_CHECK (NODE)->base.side_effects_flag)
 
+/* Whether a case or a user-defined label is allowed to fall through to.
+   This is used to implement -Wimplicit-fallthrough.  */
+#define FALLTHROUGH_LABEL_P(NODE) \
+  (LABEL_DECL_CHECK (NODE)->base.private_flag)
+
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
@@ -838,7 +846,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    caller decide whether a warning is appropriate or not.  */
 #define TYPE_OVERFLOW_UNDEFINED(TYPE)				\
   (!ANY_INTEGRAL_TYPE_CHECK(TYPE)->base.u.bits.unsigned_flag	\
-   && !flag_wrapv && !flag_trapv && flag_strict_overflow)
+   && !flag_wrapv && !flag_trapv)
 
 /* True if overflow for the given integral type should issue a
    trap.  */
@@ -852,7 +860,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    && (flag_sanitize & SANITIZE_SI_OVERFLOW))
 
 /* True if pointer types have undefined overflow.  */
-#define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
+#define POINTER_TYPE_OVERFLOW_UNDEFINED (!flag_wrapv)
 
 /* Nonzero in a VAR_DECL or STRING_CST means assembler code has been written.
    Nonzero in a FUNCTION_DECL means that the function has been compiled.
@@ -885,6 +893,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Cilk keywords accessors.  */
 #define CILK_SPAWN_FN(NODE) TREE_OPERAND (CILK_SPAWN_STMT_CHECK (NODE), 0)
+
+/* If this is true, we should insert a __cilk_detach call just before
+   this function call.  */
+#define EXPR_CILK_SPAWN(NODE) \
+  (TREE_CHECK2 (NODE, CALL_EXPR, \
+                AGGR_INIT_EXPR)->base.u.bits.unsigned_flag)
 
 /* In a RESULT_DECL, PARM_DECL and VAR_DECL, means that it is
    passed by invisible reference (and the TREE_TYPE is a pointer to the true
@@ -958,6 +972,16 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    themselves are rewritten or transformed.  */
 #define REF_REVERSE_STORAGE_ORDER(NODE) \
   (TREE_CHECK2 (NODE, BIT_FIELD_REF, MEM_REF)->base.default_def_flag)
+
+  /* In an ADDR_EXPR, indicates that this is a pointer to nested function
+   represented by a descriptor instead of a trampoline.  */
+#define FUNC_ADDR_BY_DESCRIPTOR(NODE) \
+  (TREE_CHECK (NODE, ADDR_EXPR)->base.default_def_flag)
+
+/* In a CALL_EXPR, indicates that this is an indirect call for which
+   pointers to nested function are descriptors instead of trampolines.  */
+#define CALL_EXPR_BY_DESCRIPTOR(NODE) \
+  (TREE_CHECK (NODE, CALL_EXPR)->base.default_def_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) \
@@ -1636,6 +1660,10 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_CLAUSE_TILE_LIST(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 0)
+#define OMP_CLAUSE_TILE_ITERVAR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 1)
+#define OMP_CLAUSE_TILE_COUNT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 2)
 
 #define OMP_CLAUSE__GRIDDIM__DIMENSION(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_)\
@@ -1646,6 +1674,11 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_), 1)
 
 /* SSA_NAME accessors.  */
+
+/* Whether SSA_NAME NODE is a virtual operand.  This simply caches the
+   information in the underlying SSA_NAME_VAR for efficiency.  */
+#define SSA_NAME_IS_VIRTUAL_OPERAND(NODE) \
+  SSA_NAME_CHECK (NODE)->base.public_flag
 
 /* Returns the IDENTIFIER_NODE giving the SSA name a name or NULL_TREE
    if there is no name associated with it.  */
@@ -1665,7 +1698,16 @@ extern void protected_set_expr_location (tree, location_t);
    ? NULL_TREE : (NODE)->ssa_name.var)
 
 #define SET_SSA_NAME_VAR_OR_IDENTIFIER(NODE,VAR) \
-  do { SSA_NAME_CHECK (NODE)->ssa_name.var = (VAR); } while (0)
+  do \
+    { \
+      tree var_ = (VAR); \
+      SSA_NAME_CHECK (NODE)->ssa_name.var = var_; \
+      SSA_NAME_IS_VIRTUAL_OPERAND (NODE) \
+	= (var_ \
+	   && TREE_CODE (var_) == VAR_DECL \
+	   && VAR_DECL_IS_VIRTUAL_OPERAND (var_)); \
+    } \
+  while (0)
 
 /* Returns the statement which defines this SSA name.  */
 #define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
@@ -1738,6 +1780,10 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* True if BLOCK has the same ranges as its BLOCK_SUPERCONTEXT.  */
 #define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->base.u.bits.nameless_flag)
+
+/* True if BLOCK appears in cold section.  */
+#define BLOCK_IN_COLD_SECTION_P(NODE) \
+  (BLOCK_CHECK (NODE)->base.u.bits.atomic_flag)
 
 /* An index number for this block.  These values are not guaranteed to
    be unique across functions -- whether or not they are depends on
@@ -1994,6 +2040,19 @@ extern machine_mode element_mode (const_tree t);
    DECL_NONADDRESSABLE_P for arrays, see the definition of this flag.  */
 #define TYPE_NONALIASED_COMPONENT(NODE) \
   (ARRAY_TYPE_CHECK (NODE)->type_common.transparent_aggr_flag)
+
+/* For an ARRAY_TYPE, a RECORD_TYPE, a UNION_TYPE or a QUAL_UNION_TYPE
+   whether the array is typeless storage or the type contains a member
+   with this flag set.  Such types are exempt from type-based alias
+   analysis.  For ARRAY_TYPEs with AGGREGATE_TYPE_P element types
+   the flag should be inherited from the element type, can change
+   when type is finalized and because of that should not be used in
+   type hashing.  For ARRAY_TYPEs with non-AGGREGATE_TYPE_P element types
+   the flag should not be changed after the array is created and should
+   be used in type hashing.  */
+#define TYPE_TYPELESS_STORAGE(NODE) \
+  (TREE_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, \
+		ARRAY_TYPE)->type_common.typeless_storage)
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
@@ -2328,6 +2387,8 @@ extern machine_mode element_mode (const_tree t);
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
 #define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.mode)
+#define SET_DECL_MODE(NODE, MODE) \
+  (DECL_COMMON_CHECK (NODE)->decl_common.mode = (MODE))
 
 /* For FUNCTION_DECL, if it is built-in, this identifies which built-in
    operation it is.  Note, however, that this field is overloaded, with
@@ -2435,8 +2496,7 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
    if transformations have made this more complicated than evaluating the
-   decl itself.  This should only be used for debugging; once this field has
-   been set, the decl itself may not legitimately appear in the function.  */
+   decl itself.  */
 #define DECL_HAS_VALUE_EXPR_P(NODE) \
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, RESULT_DECL) \
    ->decl_common.decl_flag_2)
@@ -3605,6 +3665,22 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define double_type_node		global_trees[TI_DOUBLE_TYPE]
 #define long_double_type_node		global_trees[TI_LONG_DOUBLE_TYPE]
 
+/* Nodes for particular _FloatN and _FloatNx types in sequence.  */
+#define FLOATN_TYPE_NODE(IDX)		global_trees[TI_FLOATN_TYPE_FIRST + (IDX)]
+#define FLOATN_NX_TYPE_NODE(IDX)	global_trees[TI_FLOATN_NX_TYPE_FIRST + (IDX)]
+#define FLOATNX_TYPE_NODE(IDX)		global_trees[TI_FLOATNX_TYPE_FIRST + (IDX)]
+
+/* Names for individual types (code should normally iterate over all
+   such types; these are only for back-end use, or in contexts such as
+   *.def where iteration is not possible).  */
+#define float16_type_node		global_trees[TI_FLOAT16_TYPE]
+#define float32_type_node		global_trees[TI_FLOAT32_TYPE]
+#define float64_type_node		global_trees[TI_FLOAT64_TYPE]
+#define float128_type_node		global_trees[TI_FLOAT128_TYPE]
+#define float32x_type_node		global_trees[TI_FLOAT32X_TYPE]
+#define float64x_type_node		global_trees[TI_FLOAT64X_TYPE]
+#define float128x_type_node		global_trees[TI_FLOAT128X_TYPE]
+
 #define float_ptr_type_node		global_trees[TI_FLOAT_PTR_TYPE]
 #define double_ptr_type_node		global_trees[TI_DOUBLE_PTR_TYPE]
 #define long_double_ptr_type_node	global_trees[TI_LONG_DOUBLE_PTR_TYPE]
@@ -3614,6 +3690,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define complex_float_type_node		global_trees[TI_COMPLEX_FLOAT_TYPE]
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
+
+#define COMPLEX_FLOATN_NX_TYPE_NODE(IDX)	global_trees[TI_COMPLEX_FLOATN_NX_TYPE_FIRST + (IDX)]
 
 #define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
 
@@ -3631,6 +3709,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
 #define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
+/* The C type `const struct tm *'.  */
+#define const_tm_ptr_type_node		global_trees[TI_CONST_TM_PTR_TYPE]
 #define pointer_sized_int_node		global_trees[TI_POINTER_SIZED_TYPE]
 
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
@@ -4000,7 +4080,7 @@ extern tree build_truth_vector_type (unsigned, unsigned);
 extern tree build_same_sized_truth_vector_type (tree vectype);
 extern tree build_opaque_vector_type (tree innertype, int nunits);
 extern tree build_index_type (tree);
-extern tree build_array_type (tree, tree);
+extern tree build_array_type (tree, tree, bool = false);
 extern tree build_nonshared_array_type (tree, tree);
 extern tree build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
 extern tree build_function_type (tree, tree);
@@ -4016,7 +4096,7 @@ extern tree build_varargs_function_type_array (tree, int, tree *);
 extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
-extern tree build_complex_type (tree);
+extern tree build_complex_type (tree, bool named = false);
 extern tree array_type_nelts (const_tree);
 
 extern tree value_member (tree, tree);
@@ -4029,15 +4109,9 @@ extern int attribute_list_contained (const_tree, const_tree);
 extern int tree_int_cst_equal (const_tree, const_tree);
 
 extern bool tree_fits_shwi_p (const_tree)
-#ifndef ENABLE_TREE_CHECKING
-  ATTRIBUTE_PURE /* tree_fits_shwi_p is pure only when checking is disabled.  */
-#endif
-  ;
+  ATTRIBUTE_PURE;
 extern bool tree_fits_uhwi_p (const_tree)
-#ifndef ENABLE_TREE_CHECKING
-  ATTRIBUTE_PURE /* tree_fits_uhwi_p is pure only when checking is disabled.  */
-#endif
-  ;
+  ATTRIBUTE_PURE;
 extern HOST_WIDE_INT tree_to_shwi (const_tree);
 extern unsigned HOST_WIDE_INT tree_to_uhwi (const_tree);
 #if !defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 4003)
@@ -4174,6 +4248,11 @@ extern tree merge_dllimport_decl_attributes (tree, tree);
 /* Handle a "dllimport" or "dllexport" attribute.  */
 extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
 
+/* Returns true iff CAND and BASE have equivalent language-specific
+   qualifiers.  */
+
+extern bool check_lang_type (const_tree cand, const_tree base);
+
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
 extern bool check_base_type (const_tree cand, const_tree base);
@@ -4192,7 +4271,7 @@ extern tree get_qualified_type (tree, int);
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
 
-extern tree build_qualified_type (tree, int);
+extern tree build_qualified_type (tree, int CXX_MEM_STAT_INFO);
 
 /* Create a variant of type T with alignment ALIGN.  */
 
@@ -4210,14 +4289,15 @@ extern tree build_aligned_type (tree, unsigned int);
 
 /* Make a copy of a type node.  */
 
-extern tree build_distinct_type_copy (tree);
-extern tree build_variant_type_copy (tree);
+extern tree build_distinct_type_copy (tree CXX_MEM_STAT_INFO);
+extern tree build_variant_type_copy (tree CXX_MEM_STAT_INFO);
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
    return a canonicalized ..._TYPE node, so that duplicates are not made.
    How the hash code is computed is up to the caller, as long as any two
    callers that could hash identical-looking type nodes agree.  */
 
+extern hashval_t type_hash_canon_hash (tree);
 extern tree type_hash_canon (unsigned int, tree);
 
 extern tree convert (tree, tree);
@@ -4615,9 +4695,18 @@ inlined_function_outer_scope_p (const_tree block)
        function_args_iter_next (&(ITER)))
 
 /* In tree.c */
+extern unsigned crc32_unsigned_n (unsigned, unsigned, unsigned);
 extern unsigned crc32_string (unsigned, const char *);
-extern unsigned crc32_byte (unsigned, char);
-extern unsigned crc32_unsigned (unsigned, unsigned);
+inline unsigned
+crc32_unsigned (unsigned chksum, unsigned value)
+{
+  return crc32_unsigned_n (chksum, value, 4);
+}
+inline unsigned
+crc32_byte (unsigned chksum, char byte)
+{
+  return crc32_unsigned_n (chksum, byte, 1);
+}
 extern void clean_symbol_name (char *);
 extern tree get_file_function_name (const char *);
 extern tree get_callee_fndecl (const_tree);
@@ -4644,73 +4733,10 @@ extern tree tree_strip_nop_conversions (tree);
 extern tree tree_strip_sign_nop_conversions (tree);
 extern const_tree strip_invariant_refs (const_tree);
 extern tree lhd_gcc_personality (void);
-extern void assign_assembler_name_if_neeeded (tree);
+extern void assign_assembler_name_if_needed (tree);
 extern void warn_deprecated_use (tree, tree);
 extern void cache_integer_cst (tree);
 extern const char *combined_fn_name (combined_fn);
-
-/* Return the memory model from a host integer.  */
-static inline enum memmodel
-memmodel_from_int (unsigned HOST_WIDE_INT val)
-{
-  return (enum memmodel) (val & MEMMODEL_MASK);
-}
-
-/* Return the base memory model from a host integer.  */
-static inline enum memmodel
-memmodel_base (unsigned HOST_WIDE_INT val)
-{
-  return (enum memmodel) (val & MEMMODEL_BASE_MASK);
-}
-
-/* Return TRUE if the memory model is RELAXED.  */
-static inline bool
-is_mm_relaxed (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELAXED;
-}
-
-/* Return TRUE if the memory model is CONSUME.  */
-static inline bool
-is_mm_consume (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_CONSUME;
-}
-
-/* Return TRUE if the memory model is ACQUIRE.  */
-static inline bool
-is_mm_acquire (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQUIRE;
-}
-
-/* Return TRUE if the memory model is RELEASE.  */
-static inline bool
-is_mm_release (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_RELEASE;
-}
-
-/* Return TRUE if the memory model is ACQ_REL.  */
-static inline bool
-is_mm_acq_rel (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_ACQ_REL;
-}
-
-/* Return TRUE if the memory model is SEQ_CST.  */
-static inline bool
-is_mm_seq_cst (enum memmodel model)
-{
-  return (model & MEMMODEL_BASE_MASK) == MEMMODEL_SEQ_CST;
-}
-
-/* Return TRUE if the memory model is a SYNC variant.  */
-static inline bool
-is_mm_sync (enum memmodel model)
-{
-  return (model & MEMMODEL_SYNC);
-}
 
 /* Compare and hash for any structure which begins with a canonical
    pointer.  Assumes all pointers are interchangeable, which is sort
@@ -4854,9 +4880,9 @@ extern tree array_ref_up_bound (tree);
    EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 extern tree array_ref_low_bound (tree);
 
-/* Returns true if REF is an array reference to an array at the end of
-   a structure.  If this is the case, the array may be allocated larger
-   than its upper bound implies.  */
+/* Returns true if REF is an array reference or a component reference
+   to an array at the end of a structure.  If this is the case, the array
+   may be allocated larger than its upper bound implies.  */
 extern bool array_at_struct_end_p (tree);
 
 /* Return a tree representing the offset, in bytes, of the field referenced
@@ -4870,6 +4896,8 @@ extern void DEBUG_FUNCTION verify_type (const_tree t);
 extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
 						 bool trust_type_canonical = true);
 extern bool type_with_interoperable_signedness (const_tree);
+extern bitmap get_nonnull_args (const_tree);
+extern int get_range_pos_neg (tree);
 
 /* Return simplified tree code of type that is used for canonical type
    merging.  */
@@ -5311,6 +5339,9 @@ wi::extended_tree <N>::get_len () const
 namespace wi
 {
   template <typename T>
+  bool fits_to_boolean_p (const T &x, const_tree);
+
+  template <typename T>
   bool fits_to_tree_p (const T &x, const_tree);
 
   wide_int min_value (const_tree);
@@ -5320,9 +5351,21 @@ namespace wi
 
 template <typename T>
 bool
+wi::fits_to_boolean_p (const T &x, const_tree type)
+{
+  return eq_p (x, 0) || eq_p (x, TYPE_UNSIGNED (type) ? 1 : -1);
+}
+
+template <typename T>
+bool
 wi::fits_to_tree_p (const T &x, const_tree type)
 {
-  if (TYPE_SIGN (type) == UNSIGNED)
+  /* Non-standard boolean types can have arbitrary precision but various
+     transformations assume that they can only take values 0 and +/-1.  */
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
+    return fits_to_boolean_p (x, type);
+
+  if (TYPE_UNSIGNED (type))
     return eq_p (x, zext (x, TYPE_PRECISION (type)));
   else
     return eq_p (x, sext (x, TYPE_PRECISION (type)));

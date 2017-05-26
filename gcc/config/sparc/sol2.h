@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC, for SPARC running Solaris 2
-   Copyright (C) 1992-2016 Free Software Foundation, Inc.
+   Copyright (C) 1992-2017 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@netcom.com).
    Additional changes by David V. Henkel-Wallace (gumby@cygnus.com).
 
@@ -169,7 +169,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef CPP_CPU64_DEFAULT_SPEC
 #define CPP_CPU64_DEFAULT_SPEC ""
 #undef ASM_CPU32_DEFAULT_SPEC
-#define ASM_CPU32_DEFAUILT_SPEC AS_SPARC32_FLAG AS_NIAGARA7_FLAG
+#define ASM_CPU32_DEFAULT_SPEC AS_SPARC32_FLAG AS_NIAGARA7_FLAG
 #undef ASM_CPU64_DEFAULT_SPEC
 #define ASM_CPU64_DEFAULT_SPEC AS_SPARC64_FLAG AS_NIAGARA7_FLAG
 #endif

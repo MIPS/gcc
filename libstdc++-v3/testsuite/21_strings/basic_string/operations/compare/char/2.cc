@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++17" }
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,7 +25,6 @@
 void
 test03()
 {
-  bool test __attribute__((unused)) = true;
   std::string_view str1("foobar");
   std::string str2("foobar");
 
@@ -49,8 +48,36 @@ test03()
   VERIFY (x == 0);
 }
 
+// PR libstdc++/77264
+void
+test04()
+{
+  const std::string str("a");
+  char c = 'a';
+  int res = str.compare(0, 1, &c, 1);
+  VERIFY ( !res );
+
+  char arr[] = "a";
+  res = str.compare(0, 1, arr, 1);
+  VERIFY ( !res );
+
+  const char carr[] = "a";
+  res = str.compare(0, 1, carr, 1);
+  VERIFY ( !res );
+
+  struct S {
+    operator char*() { return &c; }
+    operator std::string_view() { return "!"; }
+    char c = 'a';
+  };
+
+  res = str.compare(0, 1, S{}, 1);
+  VERIFY ( !res );
+}
+
 int main()
 { 
   test03();
+  test04();
   return 0;
 }

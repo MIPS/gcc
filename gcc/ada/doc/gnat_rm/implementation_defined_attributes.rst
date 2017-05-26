@@ -404,6 +404,21 @@ Attribute Fast_Math
 prefix) yields a static Boolean value that is True if pragma
 `Fast_Math` is active, and False otherwise.
 
+Attribute Finalization_Size
+===========================
+.. index:: Finalization_Size
+
+The prefix of attribute `Finalization_Size` must be an object or
+a non-class-wide type. This attribute returns the size of any hidden data
+reserved by the compiler to handle finalization-related actions. The type of
+the attribute is `universal_integer`.
+
+`Finalization_Size` yields a value of zero for a type with no controlled
+parts, an object whose type has no controlled parts, or an object of a
+class-wide type whose tag denotes a type with no controlled parts.
+
+Note that only heap-allocated objects contain finalization data.
+
 Attribute Fixed_Value
 =====================
 .. index:: Fixed_Value
@@ -1153,7 +1168,7 @@ used in contexts (e.g., preelaborable packages) which require a
 static expression and where the function call could not be used
 (since the function call is always nonstatic, even if its
 argument is static). The argument must be in the range
--(2**(m-1) .. 2**m-1, where m is the memory size
+-(2**(m-1)) .. 2**m-1, where m is the memory size
 (typically 32 or 64). Negative values are intepreted in a
 modular manner (e.g., -1 means the same as 16#FFFF_FFFF# on
 a 32 bits machine).

@@ -1,5 +1,5 @@
 ;; Constraints definitions belonging to the gcc backend for IBM S/390.
-;; Copyright (C) 2006-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2017 Free Software Foundation, Inc.
 ;; Written by Wolfgang Gellerich, using code and information found in
 ;; files s390.md, s390.h, and s390.c.
 ;;
@@ -55,7 +55,12 @@
 ;;         D,S,H:   mode of the containing operand
 ;;         0,F:     value of the other parts (F - all bits set)
 ;;         --
-;;         xx[DS]q  satisfies s390_contiguous_bitmask_p for DImode or SImode
+;;         xxDq     satisfies s390_contiguous_bitmask_p for DImode
+;;                  (with possible wraparound of the one-bit range)
+;;         xxSw     satisfies s390_contiguous_bitmask_p for SImode
+;;                  (with possible wraparound of the one-bit range)
+;;         xxSq     satisfies s390_contiguous_bitmask_nowrap_p for SImode
+;;                  (without wraparound of the one-bit range)
 ;;
 ;;         The constraint matches if the specified part of a constant
 ;;         has a value different from its other parts.  If the letter x
@@ -346,15 +351,20 @@
   (and (match_code "const_int")
        (match_test "s390_N_constraint_str (\"xQH0\", ival)")))
 
-(define_constraint "NxxDq"
+(define_constraint "NxxDw"
   "@internal"
   (and (match_code "const_int")
-       (match_test "s390_contiguous_bitmask_p (ival, 64, NULL, NULL)")))
+       (match_test "s390_contiguous_bitmask_p (ival, true, 64, NULL, NULL)")))
 
 (define_constraint "NxxSq"
   "@internal"
   (and (match_code "const_int")
-       (match_test "s390_contiguous_bitmask_p (ival, 32, NULL, NULL)")))
+       (match_test "s390_contiguous_bitmask_p (ival, false, 32, NULL, NULL)")))
+
+(define_constraint "NxxSw"
+  "@internal"
+  (and (match_code "const_int")
+       (match_test "s390_contiguous_bitmask_p (ival, true, 32, NULL, NULL)")))
 
 ;;
 ;; Double-letter constraints starting with O follow.
@@ -400,20 +410,26 @@
   "All one bit scalar or vector constant"
   (match_test "op == CONSTM1_RTX (GET_MODE (op))"))
 
+; vector generate mask operand - support for up to 64 bit elements
 (define_constraint "jxx"
   "@internal"
   (and (match_code "const_vector")
        (match_test "s390_contiguous_bitmask_vector_p (op, NULL, NULL)")))
 
+; vector generate byte mask operand - this is only supposed to deal
+; with real vectors 128 bit values of being either 0 or -1 are handled
+; with j00 and jm1
 (define_constraint "jyy"
   "@internal"
   (and (match_code "const_vector")
        (match_test "s390_bytemask_vector_p (op, NULL)")))
 
+; vector replicate immediate operand - support for up to 64 bit elements
 (define_constraint "jKK"
   "@internal"
-  (and (and (match_code "const_vector")
-	    (match_test "const_vec_duplicate_p (op)"))
+  (and (and (and (match_code "const_vector")
+		 (match_test "const_vec_duplicate_p (op)"))
+	    (match_test "GET_MODE_UNIT_SIZE (GET_MODE (op)) <= 8"))
        (match_test "satisfies_constraint_K (XVECEXP (op, 0, 0))")))
 
 (define_constraint "jm6"

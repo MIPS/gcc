@@ -1,5 +1,5 @@
 /* File format for coverage information
-   Copyright (C) 1996-2016 Free Software Foundation, Inc.
+   Copyright (C) 1996-2017 Free Software Foundation, Inc.
    Contributed by Bob Manson <manson@cygnus.com>.
    Completely remangled by Nathan Sidwell <nathan@codesourcery.com>.
 
@@ -177,8 +177,6 @@ typedef uint64_t gcov_type_unsigned;
 #if IN_GCOV > 0
 #include <sys/types.h>
 #endif
-#else /*!IN_GCOV */
-#define GCOV_TYPE_SIZE (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32)
 #endif
 
 #if defined (HOST_HAS_F_SETLKW)
@@ -232,7 +230,6 @@ typedef uint64_t gcov_type_unsigned;
 #define GCOV_TAG_FUNCTION_LENGTH (3)
 #define GCOV_TAG_BLOCKS		 ((gcov_unsigned_t)0x01410000)
 #define GCOV_TAG_BLOCKS_LENGTH(NUM) (NUM)
-#define GCOV_TAG_BLOCKS_NUM(LENGTH) (LENGTH)
 #define GCOV_TAG_ARCS		 ((gcov_unsigned_t)0x01430000)
 #define GCOV_TAG_ARCS_LENGTH(NUM)  (1 + (NUM) * 2)
 #define GCOV_TAG_ARCS_NUM(LENGTH)  (((LENGTH) - 1) / 2)

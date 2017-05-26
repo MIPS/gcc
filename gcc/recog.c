@@ -1,5 +1,5 @@
 /* Subroutines used by or related to instruction recognition.
-   Copyright (C) 1987-2016 Free Software Foundation, Inc.
+   Copyright (C) 1987-2017 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -181,9 +182,9 @@ struct change_t
 {
   rtx object;
   int old_code;
+  bool unshare;
   rtx *loc;
   rtx old;
-  bool unshare;
 };
 
 static change_t *changes;
@@ -1792,6 +1793,7 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 
 	     Match any memory and hope things are resolved after reload.  */
 	  incdec_ok = true;
+	  /* FALLTHRU */
 	default:
 	  cn = lookup_constraint (constraint);
 	  switch (get_constraint_type (cn))
@@ -3900,17 +3902,6 @@ make_pass_split_all_insns (gcc::context *ctxt)
   return new pass_split_all_insns (ctxt);
 }
 
-static unsigned int
-rest_of_handle_split_after_reload (void)
-{
-  /* If optimizing, then go ahead and split insns now.  */
-#ifndef STACK_REGS
-  if (optimize > 0)
-#endif
-    split_all_insns ();
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_split_after_reload =
@@ -3934,9 +3925,23 @@ public:
   {}
 
   /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      /* If optimizing, then go ahead and split insns now.  */
+      if (optimize > 0)
+	return true;
+
+#ifdef STACK_REGS
+      return true;
+#else
+      return false;
+#endif
+    }
+
   virtual unsigned int execute (function *)
     {
-      return rest_of_handle_split_after_reload ();
+      split_all_insns ();
+      return 0;
     }
 
 }; // class pass_split_after_reload

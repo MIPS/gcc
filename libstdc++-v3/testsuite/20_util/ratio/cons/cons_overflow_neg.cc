@@ -1,8 +1,7 @@
-// { dg-do compile }
-// { dg-options "-std=gnu++11" }
+// { dg-do compile { target c++11 } }
 // { dg-require-cstdint "" }
 
-// Copyright (C) 2008-2016 Free Software Foundation, Inc.
+// Copyright (C) 2008-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,13 +36,13 @@ test02()
 void
 test03()
 {
-  std::ratio<1, INTMAX_MIN> r1 __attribute__((unused)); // { dg-error "required from here"
+  std::ratio<1, INTMAX_MIN> r1 __attribute__((unused)); // { dg-error "required from here" }
 }
 
 void
 test04()
 {
-  std::ratio<1,0> r1 __attribute__((unused)); // { dg-error "required from here"
+  std::ratio<1,0> r1 __attribute__((unused)); // { dg-error "required from here" }
 }
 
 // { dg-error "denominator cannot be zero" "" { target *-*-* } 265 }

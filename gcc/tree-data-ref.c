@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003-2016 Free Software Foundation, Inc.
+   Copyright (C) 2003-2017 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -203,16 +203,16 @@ dump_data_reference (FILE *outf,
   fprintf (outf, "#(Data Ref: \n");
   fprintf (outf, "#  bb: %d \n", gimple_bb (DR_STMT (dr))->index);
   fprintf (outf, "#  stmt: ");
-  print_gimple_stmt (outf, DR_STMT (dr), 0, 0);
+  print_gimple_stmt (outf, DR_STMT (dr), 0);
   fprintf (outf, "#  ref: ");
-  print_generic_stmt (outf, DR_REF (dr), 0);
+  print_generic_stmt (outf, DR_REF (dr));
   fprintf (outf, "#  base_object: ");
-  print_generic_stmt (outf, DR_BASE_OBJECT (dr), 0);
+  print_generic_stmt (outf, DR_BASE_OBJECT (dr));
 
   for (i = 0; i < DR_NUM_DIMENSIONS (dr); i++)
     {
       fprintf (outf, "#  Access function %d: ", i);
-      print_generic_stmt (outf, DR_ACCESS_FN (dr, i), 0);
+      print_generic_stmt (outf, DR_ACCESS_FN (dr, i));
     }
   fprintf (outf, "#)\n");
 }
@@ -290,7 +290,7 @@ dump_subscript (FILE *outf, struct subscript *subscript)
     {
       tree last_iteration = SUB_LAST_CONFLICT (subscript);
       fprintf (outf, "\n  last_conflict: ");
-      print_generic_expr (outf, last_iteration, 0);
+      print_generic_expr (outf, last_iteration);
     }
 
   cf = SUB_CONFLICTS_IN_B (subscript);
@@ -300,11 +300,11 @@ dump_subscript (FILE *outf, struct subscript *subscript)
     {
       tree last_iteration = SUB_LAST_CONFLICT (subscript);
       fprintf (outf, "\n  last_conflict: ");
-      print_generic_expr (outf, last_iteration, 0);
+      print_generic_expr (outf, last_iteration);
     }
 
   fprintf (outf, "\n  (Subscript distance: ");
-  print_generic_expr (outf, SUB_DISTANCE (subscript), 0);
+  print_generic_expr (outf, SUB_DISTANCE (subscript));
   fprintf (outf, " ))\n");
 }
 
@@ -436,9 +436,9 @@ dump_data_dependence_relation (FILE *outf,
       for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
 	{
 	  fprintf (outf, "  access_fn_A: ");
-	  print_generic_stmt (outf, DR_ACCESS_FN (dra, i), 0);
+	  print_generic_stmt (outf, DR_ACCESS_FN (dra, i));
 	  fprintf (outf, "  access_fn_B: ");
-	  print_generic_stmt (outf, DR_ACCESS_FN (drb, i), 0);
+	  print_generic_stmt (outf, DR_ACCESS_FN (drb, i));
 	  dump_subscript (outf, DDR_SUBSCRIPT (ddr, i));
 	}
 
@@ -1685,6 +1685,7 @@ siv_subscript_p (const_tree chrec_a, const_tree chrec_b)
 	    case POLYNOMIAL_CHREC:
 	      if (CHREC_VARIABLE (chrec_a) != CHREC_VARIABLE (chrec_b))
 		return false;
+	      /* FALLTHRU */
 
 	    default:
 	      return true;
@@ -2117,8 +2118,6 @@ initialize_matrix_A (lambda_matrix A, tree chrec, unsigned index, int mult)
   switch (TREE_CODE (chrec))
     {
     case POLYNOMIAL_CHREC:
-      gcc_assert (TREE_CODE (CHREC_RIGHT (chrec)) == INTEGER_CST);
-
       A[index][0] = mult * int_cst_value (CHREC_RIGHT (chrec));
       return initialize_matrix_A (A, CHREC_LEFT (chrec), index + 1, mult);
 
@@ -2165,7 +2164,9 @@ initialize_matrix_A (lambda_matrix A, tree chrec, unsigned index, int mult)
    constructed as evolutions in dimension DIM.  */
 
 static void
-compute_overlap_steps_for_affine_univar (int niter, int step_a, int step_b,
+compute_overlap_steps_for_affine_univar (HOST_WIDE_INT niter,
+					 HOST_WIDE_INT step_a,
+					 HOST_WIDE_INT step_b,
 					 affine_fn *overlaps_a,
 					 affine_fn *overlaps_b,
 					 tree *last_conflicts, int dim)
@@ -2173,8 +2174,8 @@ compute_overlap_steps_for_affine_univar (int niter, int step_a, int step_b,
   if (((step_a > 0 && step_b > 0)
        || (step_a < 0 && step_b < 0)))
     {
-      int step_overlaps_a, step_overlaps_b;
-      int gcd_steps_a_b, last_conflict, tau2;
+      HOST_WIDE_INT step_overlaps_a, step_overlaps_b;
+      HOST_WIDE_INT gcd_steps_a_b, last_conflict, tau2;
 
       gcd_steps_a_b = gcd (step_a, step_b);
       step_overlaps_a = step_b / gcd_steps_a_b;
@@ -2228,7 +2229,7 @@ compute_overlap_steps_for_affine_1_2 (tree chrec_a, tree chrec_b,
 				      tree *last_conflicts)
 {
   bool xz_p, yz_p, xyz_p;
-  int step_x, step_y, step_z;
+  HOST_WIDE_INT step_x, step_y, step_z;
   HOST_WIDE_INT niter_x, niter_y, niter_z, niter;
   affine_fn overlaps_a_xz, overlaps_b_xz;
   affine_fn overlaps_a_yz, overlaps_b_yz;
@@ -2685,13 +2686,13 @@ analyze_subscript_affine_affine (tree chrec_a,
 
 	      if (niter > 0)
 		{
-		  HOST_WIDE_INT tau2 = MIN (FLOOR_DIV (niter - i0, i1),
-					    FLOOR_DIV (niter - j0, j1));
+		  HOST_WIDE_INT tau2 = MIN (FLOOR_DIV (niter_a - i0, i1),
+					    FLOOR_DIV (niter_b - j0, j1));
 		  HOST_WIDE_INT last_conflict = tau2 - (x1 - i0)/i1;
 
 		  /* If the overlap occurs outside of the bounds of the
 		     loop, there is no dependence.  */
-		  if (x1 >= niter || y1 >= niter)
+		  if (x1 >= niter_a || y1 >= niter_b)
 		    {
 		      *overlaps_a = conflict_fn_no_dependence ();
 		      *overlaps_b = conflict_fn_no_dependence ();
@@ -3036,9 +3037,9 @@ analyze_overlapping_iterations (tree chrec_a,
     {
       fprintf (dump_file, "(analyze_overlapping_iterations \n");
       fprintf (dump_file, "  (chrec_a = ");
-      print_generic_expr (dump_file, chrec_a, 0);
+      print_generic_expr (dump_file, chrec_a);
       fprintf (dump_file, ")\n  (chrec_b = ");
-      print_generic_expr (dump_file, chrec_b, 0);
+      print_generic_expr (dump_file, chrec_b);
       fprintf (dump_file, ")\n");
     }
 
@@ -3193,7 +3194,8 @@ build_classic_dist_vector_1 (struct data_dependence_relation *ddr,
       if (TREE_CODE (access_fn_a) == POLYNOMIAL_CHREC
 	  && TREE_CODE (access_fn_b) == POLYNOMIAL_CHREC)
 	{
-	  int dist, index;
+	  HOST_WIDE_INT dist;
+	  int index;
 	  int var_a = CHREC_VARIABLE (access_fn_a);
 	  int var_b = CHREC_VARIABLE (access_fn_b);
 
@@ -3267,7 +3269,7 @@ add_multivariate_self_dist (struct data_dependence_relation *ddr, tree c_2)
   tree c_1 = CHREC_LEFT (c_2);
   tree c_0 = CHREC_LEFT (c_1);
   lambda_vector dist_v;
-  int v1, v2, cd;
+  HOST_WIDE_INT v1, v2, cd;
 
   /* Polynomials with more than 2 variables are not handled yet.  When
      the evolution steps are parameters, it is not possible to
@@ -3890,6 +3892,7 @@ get_references_in_stmt (gimple *stmt, vec<data_ref_loc, va_heap> *references)
 	    if (gimple_call_lhs (stmt) == NULL_TREE)
 	      break;
 	    ref.is_read = true;
+	    /* FALLTHRU */
 	  case IFN_MASK_STORE:
 	    ptr = build_int_cst (TREE_TYPE (gimple_call_arg (stmt, 1)), 0);
 	    align = tree_to_shwi (gimple_call_arg (stmt, 1));

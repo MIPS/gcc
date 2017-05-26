@@ -1,5 +1,5 @@
 /* Standard problems for dataflow support routines.
-   Copyright (C) 1999-2016 Free Software Foundation, Inc.
+   Copyright (C) 1999-2017 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "rtl.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "cfganal.h"
@@ -460,19 +461,17 @@ df_rd_confluence_n (edge e)
       bitmap dense_invalidated = &problem_data->dense_invalidated_by_call;
       bitmap_iterator bi;
       unsigned int regno;
-      bitmap_head tmp;
 
-      bitmap_initialize (&tmp, &df_bitmap_obstack);
-      bitmap_and_compl (&tmp, op2, dense_invalidated);
+      auto_bitmap tmp (&df_bitmap_obstack);
+      bitmap_and_compl (tmp, op2, dense_invalidated);
 
       EXECUTE_IF_SET_IN_BITMAP (sparse_invalidated, 0, regno, bi)
  	{
- 	  bitmap_clear_range (&tmp,
+	  bitmap_clear_range (tmp,
  			      DF_DEFS_BEGIN (regno),
  			      DF_DEFS_COUNT (regno));
 	}
-      changed |= bitmap_ior_into (op1, &tmp);
-      bitmap_clear (&tmp);
+      changed |= bitmap_ior_into (op1, tmp);
       return changed;
     }
   else

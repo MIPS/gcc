@@ -15,7 +15,17 @@ const (
 	BestSpeed          = 1
 	BestCompression    = 9
 	DefaultCompression = -1
-	HuffmanOnly        = -2 // Disables match search and only does Huffman entropy reduction.
+
+	// HuffmanOnly disables Lempel-Ziv match searching and only performs Huffman
+	// entropy encoding. This mode is useful in compressing data that has
+	// already been compressed with an LZ style algorithm (e.g. Snappy or LZ4)
+	// that lacks an entropy encoder. Compression gains are achieved when
+	// certain bytes in the input stream occur more frequently than others.
+	//
+	// Note that HuffmanOnly produces a compressed output that is
+	// RFC 1951 compliant. That is, any valid DEFLATE decompressor will
+	// continue to be able to decompress this output.
+	HuffmanOnly = -2
 )
 
 const (
@@ -74,9 +84,10 @@ type compressor struct {
 	bulkHasher func([]byte, []uint32)
 
 	// compression algorithm
-	fill func(*compressor, []byte) int // copy data to window
-	step func(*compressor)             // process window
-	sync bool                          // requesting flush
+	fill      func(*compressor, []byte) int // copy data to window
+	step      func(*compressor)             // process window
+	sync      bool                          // requesting flush
+	bestSpeed *deflateFast                  // Encoder for BestSpeed
 
 	// Input hash chains
 	// hashHead[hashValue] contains the largest inputIndex with the specified hash value
@@ -125,14 +136,17 @@ func (d *compressor) fillDeflate(b []byte) int {
 			delta := d.hashOffset - 1
 			d.hashOffset -= delta
 			d.chainHead -= delta
-			for i, v := range d.hashPrev {
+
+			// Iterate over slices instead of arrays to avoid copying
+			// the entire table onto the stack (Issue #18625).
+			for i, v := range d.hashPrev[:] {
 				if int(v) > delta {
 					d.hashPrev[i] = uint32(int(v) - delta)
 				} else {
 					d.hashPrev[i] = 0
 				}
 			}
-			for i, v := range d.hashHead {
+			for i, v := range d.hashHead[:] {
 				if int(v) > delta {
 					d.hashHead[i] = uint32(int(v) - delta)
 				} else {
@@ -336,12 +350,13 @@ func (d *compressor) encSpeed() {
 				d.err = d.w.err
 			}
 			d.windowEnd = 0
+			d.bestSpeed.reset()
 			return
 		}
 
 	}
 	// Encode the block.
-	d.tokens = encodeBestSpeed(d.tokens[:0], d.window[:d.windowEnd])
+	d.tokens = d.bestSpeed.encode(d.tokens[:0], d.window[:d.windowEnd])
 
 	// If we removed less than 1/16th, Huffman compress the block.
 	if len(d.tokens) > d.windowEnd-(d.windowEnd>>4) {
@@ -509,10 +524,10 @@ func (d *compressor) fillStore(b []byte) int {
 }
 
 func (d *compressor) store() {
-	if d.windowEnd > 0 {
+	if d.windowEnd > 0 && (d.windowEnd == maxStoreBlockSize || d.sync) {
 		d.err = d.writeStoredBlock(d.window[:d.windowEnd])
+		d.windowEnd = 0
 	}
-	d.windowEnd = 0
 }
 
 // storeHuff compresses and stores the currently added data
@@ -574,6 +589,7 @@ func (d *compressor) init(w io.Writer, level int) (err error) {
 		d.window = make([]byte, maxStoreBlockSize)
 		d.fill = (*compressor).fillStore
 		d.step = (*compressor).encSpeed
+		d.bestSpeed = newDeflateFast()
 		d.tokens = make([]token, maxStoreBlockSize)
 	case level == DefaultCompression:
 		level = 6
@@ -599,6 +615,7 @@ func (d *compressor) reset(w io.Writer) {
 	case BestSpeed:
 		d.windowEnd = 0
 		d.tokens = d.tokens[:0]
+		d.bestSpeed.reset()
 	default:
 		d.chainHead = -1
 		for i := range d.hashHead {
@@ -643,7 +660,6 @@ func (d *compressor) close() error {
 // Level -2 (HuffmanOnly) will use Huffman compression only, giving
 // a very fast compression for all types of input, but sacrificing considerable
 // compression efficiency.
-//
 //
 // If level is in the range [-2, 9] then the error returned will be nil.
 // Otherwise the error returned will be non-nil.
@@ -693,10 +709,12 @@ func (w *Writer) Write(data []byte) (n int, err error) {
 	return w.d.write(data)
 }
 
-// Flush flushes any pending compressed data to the underlying writer.
+// Flush flushes any pending data to the underlying writer.
 // It is useful mainly in compressed network protocols, to ensure that
 // a remote reader has enough data to reconstruct a packet.
 // Flush does not return until the data has been written.
+// Calling Flush when there is no pending data still causes the Writer
+// to emit a sync marker of at least 4 bytes.
 // If the underlying writer returns an error, Flush returns that error.
 //
 // In the terminology of the zlib library, Flush is equivalent to Z_SYNC_FLUSH.
@@ -715,7 +733,7 @@ func (w *Writer) Close() error {
 // the result of NewWriter or NewWriterDict called with dst
 // and w's level and dictionary.
 func (w *Writer) Reset(dst io.Writer) {
-	if dw, ok := w.d.w.w.(*dictWriter); ok {
+	if dw, ok := w.d.w.writer.(*dictWriter); ok {
 		// w was created with NewWriterDict
 		dw.w = dst
 		w.d.reset(dw)

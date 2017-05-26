@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995-2016 Free Software Foundation, Inc.
+   Copyright (C) 1995-2017 Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
 This file is part of GCC.
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "cp-tree.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "stringpool.h"
 #include "intl.h"
@@ -201,10 +202,15 @@ build_headof (tree exp)
 static tree
 throw_bad_cast (void)
 {
-  tree fn = get_identifier ("__cxa_bad_cast");
-  if (!get_global_value_if_present (fn, &fn))
-    fn = push_throw_library_fn (fn, build_function_type_list (ptr_type_node,
-							      NULL_TREE));
+  static tree fn;
+  if (!fn)
+    {
+      tree name = get_identifier ("__cxa_bad_cast");
+      fn = IDENTIFIER_GLOBAL_VALUE (name);
+      if (!fn)
+	fn = push_throw_library_fn
+	  (name, build_function_type_list (ptr_type_node, NULL_TREE));
+    }
 
   return build_cxx_call (fn, 0, NULL, tf_warning_or_error);
 }
@@ -215,14 +221,17 @@ throw_bad_cast (void)
 static tree
 throw_bad_typeid (void)
 {
-  tree fn = get_identifier ("__cxa_bad_typeid");
-  if (!get_global_value_if_present (fn, &fn))
+  static tree fn;
+  if (!fn)
     {
-      tree t;
-
-      t = build_reference_type (const_type_info_type_node);
-      t = build_function_type_list (t, NULL_TREE);
-      fn = push_throw_library_fn (fn, t);
+      tree name = get_identifier ("__cxa_bad_typeid");
+      fn = IDENTIFIER_GLOBAL_VALUE (name);
+      if (!fn)
+	{
+	  tree t = build_reference_type (const_type_info_type_node);
+	  t = build_function_type_list (t, NULL_TREE);
+	  fn = push_throw_library_fn (name, t);
+	}
     }
 
   return build_cxx_call (fn, 0, NULL, tf_warning_or_error);
@@ -855,7 +864,7 @@ involves_incomplete_p (tree type)
     case UNION_TYPE:
       if (!COMPLETE_TYPE_P (type))
 	return true;
-
+      /* Fall through.  */
     default:
       /* All other types do not involve incomplete class types.  */
       return false;
@@ -983,6 +992,14 @@ ptr_initializer (tinfo_s *ti, tree target)
     {
       flags |= 0x20;
       to = tx_unsafe_fn_variant (to);
+    }
+  if (flag_noexcept_type
+      && (TREE_CODE (to) == FUNCTION_TYPE
+	  || TREE_CODE (to) == METHOD_TYPE)
+      && TYPE_NOTHROW_P (to))
+    {
+      flags |= 0x40;
+      to = build_exception_variant (to, NULL_TREE);
     }
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, init);
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (NULL_TREE, flags));
@@ -1293,7 +1310,8 @@ get_pseudo_ti_index (tree type)
 	  ix = TK_CLASS_TYPE;
 	  break;
 	}
-      else if (!BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
+      else if (!TYPE_BINFO (type)
+	       || !BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
 	{
 	  ix = TK_CLASS_TYPE;
 	  break;

@@ -52,7 +52,7 @@ package body System.Memory is
    use System.Soft_Links;
 
    function c_malloc (Size : System.CRTL.size_t) return System.Address
-    renames System.CRTL.malloc;
+     renames System.CRTL.malloc;
 
    procedure c_free (Ptr : System.Address)
      renames System.CRTL.free;
@@ -73,6 +73,8 @@ package body System.Memory is
       --  return Null_Address, and then we can check for that special value.
       --  However, that doesn't work on VxWorks, because malloc(size_t'Last)
       --  prints an unwanted warning message before returning Null_Address.
+      --  Note that the branch is correctly predicted on modern hardware, so
+      --  there is negligible overhead.
 
       if Size = size_t'Last then
          raise Storage_Error with "object too large";

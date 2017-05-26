@@ -1,5 +1,5 @@
 /* Integrated Register Allocator (IRA) entry point.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -371,6 +371,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "regs.h"
@@ -791,78 +792,85 @@ setup_pressure_classes (void)
   HARD_REG_SET temp_hard_regset2;
   bool insert_p;
 
-  n = 0;
-  for (cl = 0; cl < N_REG_CLASSES; cl++)
-    {
-      if (ira_class_hard_regs_num[cl] == 0)
-	continue;
-      if (ira_class_hard_regs_num[cl] != 1
-	  /* A register class without subclasses may contain a few
-	     hard registers and movement between them is costly
-	     (e.g. SPARC FPCC registers).  We still should consider it
-	     as a candidate for a pressure class.  */
-	  && alloc_reg_class_subclasses[cl][0] < cl)
+  if (targetm.compute_pressure_classes)
+    n = targetm.compute_pressure_classes (pressure_classes);
+  else
+    { 
+      n = 0;
+      for (cl = 0; cl < N_REG_CLASSES; cl++)
 	{
-	  /* Check that the moves between any hard registers of the
-	     current class are not more expensive for a legal mode
-	     than load/store of the hard registers of the current
-	     class.  Such class is a potential candidate to be a
-	     register pressure class.  */
-	  for (m = 0; m < NUM_MACHINE_MODES; m++)
+	  if (ira_class_hard_regs_num[cl] == 0)
+	    continue;
+	  if (ira_class_hard_regs_num[cl] != 1
+	      /* A register class without subclasses may contain a few
+		 hard registers and movement between them is costly
+		 (e.g. SPARC FPCC registers).  We still should consider it
+		 as a candidate for a pressure class.  */
+	      && alloc_reg_class_subclasses[cl][0] < cl)
 	    {
-	      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
-	      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-	      AND_COMPL_HARD_REG_SET (temp_hard_regset,
-				      ira_prohibited_class_mode_regs[cl][m]);
-	      if (hard_reg_set_empty_p (temp_hard_regset))
+	      /* Check that the moves between any hard registers of the
+		 current class are not more expensive for a legal mode
+		 than load/store of the hard registers of the current
+		 class.  Such class is a potential candidate to be a
+		 register pressure class.  */
+	      for (m = 0; m < NUM_MACHINE_MODES; m++)
+		{
+		  COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
+		  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+		  AND_COMPL_HARD_REG_SET (temp_hard_regset,
+					  ira_prohibited_class_mode_regs[cl][m]);
+		  if (hard_reg_set_empty_p (temp_hard_regset))
+		    continue;
+		  ira_init_register_move_cost_if_necessary ((machine_mode) m);
+		  cost = ira_register_move_cost[m][cl][cl];
+		  if (cost <= ira_max_memory_move_cost[m][cl][1]
+		      || cost <= ira_max_memory_move_cost[m][cl][0])
+		    break;
+		}
+	      if (m >= NUM_MACHINE_MODES)
 		continue;
-	      ira_init_register_move_cost_if_necessary ((machine_mode) m);
-	      cost = ira_register_move_cost[m][cl][cl];
-	      if (cost <= ira_max_memory_move_cost[m][cl][1]
-		  || cost <= ira_max_memory_move_cost[m][cl][0])
-		break;
 	    }
-	  if (m >= NUM_MACHINE_MODES)
-	    continue;
-	}
-      curr = 0;
-      insert_p = true;
-      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
-      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-      /* Remove so far added pressure classes which are subset of the
-	 current candidate class.  Prefer GENERAL_REGS as a pressure
-	 register class to another class containing the same
-	 allocatable hard registers.  We do this because machine
-	 dependent cost hooks might give wrong costs for the latter
-	 class but always give the right cost for the former class
-	 (GENERAL_REGS).  */
-      for (i = 0; i < n; i++)
-	{
-	  cl2 = pressure_classes[i];
-	  COPY_HARD_REG_SET (temp_hard_regset2, reg_class_contents[cl2]);
-	  AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
-	  if (hard_reg_set_subset_p (temp_hard_regset, temp_hard_regset2)
-	      && (! hard_reg_set_equal_p (temp_hard_regset, temp_hard_regset2)
-		  || cl2 == (int) GENERAL_REGS))
+	  curr = 0;
+	  insert_p = true;
+	  COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
+	  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	  /* Remove so far added pressure classes which are subset of the
+	     current candidate class.  Prefer GENERAL_REGS as a pressure
+	     register class to another class containing the same
+	     allocatable hard registers.  We do this because machine
+	     dependent cost hooks might give wrong costs for the latter
+	     class but always give the right cost for the former class
+	     (GENERAL_REGS).  */
+	  for (i = 0; i < n; i++)
 	    {
+	      cl2 = pressure_classes[i];
+	      COPY_HARD_REG_SET (temp_hard_regset2, reg_class_contents[cl2]);
+	      AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
+	      if (hard_reg_set_subset_p (temp_hard_regset, temp_hard_regset2)
+		  && (! hard_reg_set_equal_p (temp_hard_regset,
+					      temp_hard_regset2)
+		      || cl2 == (int) GENERAL_REGS))
+		{
+		  pressure_classes[curr++] = (enum reg_class) cl2;
+		  insert_p = false;
+		  continue;
+		}
+	      if (hard_reg_set_subset_p (temp_hard_regset2, temp_hard_regset)
+		  && (! hard_reg_set_equal_p (temp_hard_regset2,
+					      temp_hard_regset)
+		      || cl == (int) GENERAL_REGS))
+		continue;
+	      if (hard_reg_set_equal_p (temp_hard_regset2, temp_hard_regset))
+		insert_p = false;
 	      pressure_classes[curr++] = (enum reg_class) cl2;
-	      insert_p = false;
-	      continue;
 	    }
-	  if (hard_reg_set_subset_p (temp_hard_regset2, temp_hard_regset)
-	      && (! hard_reg_set_equal_p (temp_hard_regset2, temp_hard_regset)
-		  || cl == (int) GENERAL_REGS))
-	    continue;
-	  if (hard_reg_set_equal_p (temp_hard_regset2, temp_hard_regset))
-	    insert_p = false;
-	  pressure_classes[curr++] = (enum reg_class) cl2;
+	  /* If the current candidate is a subset of a so far added
+	     pressure class, don't add it to the list of the pressure
+	     classes.  */
+	  if (insert_p)
+	    pressure_classes[curr++] = (enum reg_class) cl;
+	  n = curr;
 	}
-      /* If the current candidate is a subset of a so far added
-	 pressure class, don't add it to the list of the pressure
-	 classes.  */
-      if (insert_p)
-	pressure_classes[curr++] = (enum reg_class) cl;
-      n = curr;
     }
 #ifdef ENABLE_IRA_CHECKING
   {
@@ -1004,7 +1012,7 @@ setup_allocno_and_important_classes (void)
 				    temp_hard_regset2))
 	    break;
 	}
-      if (j >= n)
+      if (j >= n || targetm.additional_allocno_class_p (i))
 	classes[n++] = (enum reg_class) i;
       else if (i == GENERAL_REGS)
 	/* Prefer general regs.  For i386 example, it means that
@@ -1665,6 +1673,8 @@ ira_init_once (void)
 {
   ira_init_costs_once ();
   lra_init_once ();
+
+  ira_use_lra_p = targetm.lra_p ();
 }
 
 /* Free ira_max_register_move_cost, ira_may_move_in_cost and
@@ -1832,6 +1842,7 @@ ira_setup_alts (rtx_insn *insn, HARD_REG_SET &alts)
 		  case '#':
 		  case ',':
 		    c = '\0';
+		    /* FALLTHRU */
 		  case '\0':
 		    len = 0;
 		    break;
@@ -2252,10 +2263,13 @@ compute_regs_asm_clobbered (void)
 void
 ira_setup_eliminable_regset (void)
 {
-#ifdef ELIMINABLE_REGS
   int i;
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
-#endif
+
+  /* Setup is_leaf as frame_pointer_required may use it.  This function
+     is called by sched_init before ira if scheduling is enabled.  */
+  crtl->is_leaf = leaf_function_p ();
+
   /* FIXME: If EXIT_IGNORE_STACK is set, we will not save and restore
      sp for alloca.  So we can't eliminate the frame pointer in that
      case.  At some point, we should improve this by emitting the
@@ -2291,7 +2305,6 @@ ira_setup_eliminable_regset (void)
 
   /* Build the regset of all eliminable registers and show we can't
      use those that we already know won't be eliminated.  */
-#ifdef ELIMINABLE_REGS
   for (i = 0; i < (int) ARRAY_SIZE (eliminables); i++)
     {
       bool cannot_elim
@@ -2325,19 +2338,6 @@ ira_setup_eliminable_regset (void)
       else
 	df_set_regs_ever_live (HARD_FRAME_POINTER_REGNUM, true);
     }
-
-#else
-  if (!TEST_HARD_REG_BIT (crtl->asm_clobbers, HARD_FRAME_POINTER_REGNUM))
-    {
-      SET_HARD_REG_BIT (eliminable_regset, FRAME_POINTER_REGNUM);
-      if (frame_pointer_needed)
-	SET_HARD_REG_BIT (ira_no_alloc_regs, FRAME_POINTER_REGNUM);
-    }
-  else if (frame_pointer_needed)
-    error ("%s cannot be used in asm here", reg_names[FRAME_POINTER_REGNUM]);
-  else
-    df_set_regs_ever_live (FRAME_POINTER_REGNUM, true);
-#endif
 }
 
 
@@ -2651,7 +2651,7 @@ ira_update_equiv_info_by_shuffle_insn (int to_regno, int from_regno, rtx_insn *i
 	}
       if (find_reg_note (insn, REG_EQUIV, x) == NULL_RTX)
 	{
-	  note = set_unique_reg_note (insn, REG_EQUIV, x);
+	  note = set_unique_reg_note (insn, REG_EQUIV, copy_rtx (x));
 	  gcc_assert (note != NULL_RTX);
 	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	    {
@@ -3300,6 +3300,49 @@ adjust_cleared_regs (rtx loc, const_rtx old_rtx ATTRIBUTE_UNUSED, void *data)
   return NULL_RTX;
 }
 
+/* Given register REGNO is set only once, return true if the defining
+   insn dominates all uses.  */
+
+static bool
+def_dominates_uses (int regno)
+{
+  df_ref def = DF_REG_DEF_CHAIN (regno);
+
+  struct df_insn_info *def_info = DF_REF_INSN_INFO (def);
+  /* If this is an artificial def (eh handler regs, hard frame pointer
+     for non-local goto, regs defined on function entry) then def_info
+     is NULL and the reg is always live before any use.  We might
+     reasonably return true in that case, but since the only call
+     of this function is currently here in ira.c when we are looking
+     at a defining insn we can't have an artificial def as that would
+     bump DF_REG_DEF_COUNT.  */
+  gcc_assert (DF_REG_DEF_COUNT (regno) == 1 && def_info != NULL);
+
+  rtx_insn *def_insn = DF_REF_INSN (def);
+  basic_block def_bb = BLOCK_FOR_INSN (def_insn);
+
+  for (df_ref use = DF_REG_USE_CHAIN (regno);
+       use;
+       use = DF_REF_NEXT_REG (use))
+    {
+      struct df_insn_info *use_info = DF_REF_INSN_INFO (use);
+      /* Only check real uses, not artificial ones.  */
+      if (use_info)
+	{
+	  rtx_insn *use_insn = DF_REF_INSN (use);
+	  if (!DEBUG_INSN_P (use_insn))
+	    {
+	      basic_block use_bb = BLOCK_FOR_INSN (use_insn);
+	      if (use_bb != def_bb
+		  ? !dominated_by_p (CDI_DOMINATORS, use_bb, def_bb)
+		  : DF_INSN_INFO_LUID (use_info) < DF_INSN_INFO_LUID (def_info))
+		return false;
+	    }
+	}
+    }
+  return true;
+}
+
 /* Find registers that are equivalent to a single value throughout the
    compilation (either because they can be referenced in memory or are
    set once from a single constant).  Lower their priority for a
@@ -3498,9 +3541,17 @@ update_equiv_regs (void)
 	    = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv[regno].init_insns);
 
 	  /* If this register is known to be equal to a constant, record that
-	     it is always equivalent to the constant.  */
+	     it is always equivalent to the constant.
+	     Note that it is possible to have a register use before
+	     the def in loops (see gcc.c-torture/execute/pr79286.c)
+	     where the reg is undefined on first use.  If the def insn
+	     won't trap we can use it as an equivalence, effectively
+	     choosing the "undefined" value for the reg to be the
+	     same as the value set by the def.  */
 	  if (DF_REG_DEF_COUNT (regno) == 1
-	      && note && ! rtx_varies_p (XEXP (note, 0), 0))
+	      && note
+	      && !rtx_varies_p (XEXP (note, 0), 0)
+	      && def_dominates_uses (regno))
 	    {
 	      rtx note_value = XEXP (note, 0);
 	      remove_note (insn, note);
@@ -3584,16 +3635,15 @@ update_equiv_regs (void)
 static void
 add_store_equivs (void)
 {
-  bitmap_head seen_insns;
+  auto_bitmap seen_insns;
 
-  bitmap_initialize (&seen_insns, NULL);
   for (rtx_insn *insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       rtx set, src, dest;
       unsigned regno;
       rtx_insn *init_insn;
 
-      bitmap_set_bit (&seen_insns, INSN_UID (insn));
+      bitmap_set_bit (seen_insns, INSN_UID (insn));
 
       if (! INSN_P (insn))
 	continue;
@@ -3614,7 +3664,7 @@ add_store_equivs (void)
 	  && ! reg_equiv[regno].pdx_subregs
 	  && reg_equiv[regno].init_insns != NULL
 	  && (init_insn = reg_equiv[regno].init_insns->insn ()) != 0
-	  && bitmap_bit_p (&seen_insns, INSN_UID (init_insn))
+	  && bitmap_bit_p (seen_insns, INSN_UID (init_insn))
 	  && ! find_reg_note (init_insn, REG_EQUIV, NULL_RTX)
 	  && validate_equiv_mem (init_insn, src, dest) == valid_reload
 	  && ! memref_used_between_p (dest, init_insn, insn)
@@ -3634,7 +3684,6 @@ add_store_equivs (void)
 		     INSN_UID (insn));
 	}
     }
-  bitmap_clear (&seen_insns);
 }
 
 /* Scan all regs killed in an insn to see if any of them are registers
@@ -3647,7 +3696,7 @@ add_store_equivs (void)
 static void
 combine_and_move_insns (void)
 {
-  bitmap cleared_regs = BITMAP_ALLOC (NULL);
+  auto_bitmap cleared_regs;
   int max = max_reg_num ();
 
   for (int regno = FIRST_PSEUDO_REGISTER; regno < max; regno++)
@@ -3671,6 +3720,11 @@ combine_and_move_insns (void)
       /* Don't substitute into jumps.  indirect_jump_optimize does
 	 this for anything we are prepared to handle.  */
       if (JUMP_P (use_insn))
+	continue;
+
+      /* Also don't substitute into a conditional trap insn -- it can become
+	 an unconditional trap, and that is a flow control insn.  */
+      if (GET_CODE (PATTERN (use_insn)) == TRAP_IF)
 	continue;
 
       df_ref def = DF_REG_DEF_CHAIN (regno);
@@ -3709,6 +3763,14 @@ combine_and_move_insns (void)
 	  remove_death (regno, use_insn);
 	  SET_REG_N_REFS (regno, 0);
 	  REG_FREQ (regno) = 0;
+	  df_ref use;
+	  FOR_EACH_INSN_USE (use, def_insn)
+	    {
+	      unsigned int use_regno = DF_REF_REGNO (use);
+	      if (!HARD_REGISTER_NUM_P (use_regno))
+		reg_equiv[use_regno].replace = 0;
+	    }
+
 	  delete_insn (def_insn);
 
 	  reg_equiv[regno].init_insns = NULL;
@@ -3751,7 +3813,7 @@ combine_and_move_insns (void)
 	     use_insn, when regno was seen as non-local.  Now that
 	     regno is local to this block, and dies, such an
 	     equivalence is invalid.  */
-	  if (find_reg_note (use_insn, REG_EQUIV, NULL_RTX))
+	  if (find_reg_note (use_insn, REG_EQUIV, regno_reg_rtx[regno]))
 	    {
 	      rtx set = single_set (use_insn);
 	      if (set && REG_P (SET_DEST (set)))
@@ -3792,8 +3854,6 @@ combine_and_move_insns (void)
 		df_insn_rescan (insn);
 	    }
     }
-
-  BITMAP_FREE (cleared_regs);
 }
 
 /* A pass over indirect jumps, converting simple cases to direct jumps.
@@ -4019,8 +4079,8 @@ build_insn_chain (void)
   basic_block bb;
   struct insn_chain *c = NULL;
   struct insn_chain *next = NULL;
-  bitmap live_relevant_regs = BITMAP_ALLOC (NULL);
-  bitmap elim_regset = BITMAP_ALLOC (NULL);
+  auto_bitmap live_relevant_regs;
+  auto_bitmap elim_regset;
   /* live_subregs is a vector used to keep accurate information about
      which hardregs are live in multiword pseudos.  live_subregs and
      live_subregs_used are indexed by pseudo number.  The live_subreg
@@ -4029,7 +4089,7 @@ build_insn_chain (void)
      live_subreg[allocno] is number of bytes that the pseudo can
      occupy.  */
   sbitmap *live_subregs = XCNEWVEC (sbitmap, max_regno);
-  bitmap live_subregs_used = BITMAP_ALLOC (NULL);
+  auto_bitmap live_subregs_used;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (eliminable_regset, i))
@@ -4272,9 +4332,6 @@ build_insn_chain (void)
     if (live_subregs[i] != NULL)
       sbitmap_free (live_subregs[i]);
   free (live_subregs);
-  BITMAP_FREE (live_subregs_used);
-  BITMAP_FREE (live_relevant_regs);
-  BITMAP_FREE (elim_regset);
 
   if (dump_file)
     print_insn_chains (dump_file);
@@ -4426,9 +4483,8 @@ find_moveable_pseudos (void)
      moved freely downwards, but are otherwise transparent to a block.  */
   bitmap_head *bb_moveable_reg_sets = XNEWVEC (bitmap_head,
 					       last_basic_block_for_fn (cfun));
-  bitmap_head live, used, set, interesting, unusable_as_input;
+  auto_bitmap live, used, set, interesting, unusable_as_input;
   bitmap_iterator bi;
-  bitmap_initialize (&interesting, 0);
 
   first_moveable_pseudo = max_regs;
   pseudo_replaced_reg.release ();
@@ -4438,10 +4494,6 @@ find_moveable_pseudos (void)
   calculate_dominance_info (CDI_DOMINATORS);
 
   i = 0;
-  bitmap_initialize (&live, 0);
-  bitmap_initialize (&used, 0);
-  bitmap_initialize (&set, 0);
-  bitmap_initialize (&unusable_as_input, 0);
   FOR_EACH_BB_FN (bb, cfun)
     {
       rtx_insn *insn;
@@ -4452,13 +4504,13 @@ find_moveable_pseudos (void)
       bitmap_initialize (local, 0);
       bitmap_initialize (transp, 0);
       bitmap_initialize (moveable, 0);
-      bitmap_copy (&live, df_get_live_out (bb));
-      bitmap_and_into (&live, df_get_live_in (bb));
-      bitmap_copy (transp, &live);
+      bitmap_copy (live, df_get_live_out (bb));
+      bitmap_and_into (live, df_get_live_in (bb));
+      bitmap_copy (transp, live);
       bitmap_clear (moveable);
-      bitmap_clear (&live);
-      bitmap_clear (&used);
-      bitmap_clear (&set);
+      bitmap_clear (live);
+      bitmap_clear (used);
+      bitmap_clear (set);
       FOR_BB_INSNS (bb, insn)
 	if (NONDEBUG_INSN_P (insn))
 	  {
@@ -4472,20 +4524,20 @@ find_moveable_pseudos (void)
 	    if (use
 		&& def
 		&& DF_REF_REGNO (use) == DF_REF_REGNO (def)
-		&& !bitmap_bit_p (&set, DF_REF_REGNO (use))
+		&& !bitmap_bit_p (set, DF_REF_REGNO (use))
 		&& rtx_moveable_p (&PATTERN (insn), OP_IN))
 	      {
 		unsigned regno = DF_REF_REGNO (use);
 		bitmap_set_bit (moveable, regno);
-		bitmap_set_bit (&set, regno);
-		bitmap_set_bit (&used, regno);
+		bitmap_set_bit (set, regno);
+		bitmap_set_bit (used, regno);
 		bitmap_clear_bit (transp, regno);
 		continue;
 	      }
 	    FOR_EACH_INSN_INFO_USE (use, insn_info)
 	      {
 		unsigned regno = DF_REF_REGNO (use);
-		bitmap_set_bit (&used, regno);
+		bitmap_set_bit (used, regno);
 		if (bitmap_clear_bit (moveable, regno))
 		  bitmap_clear_bit (transp, regno);
 	      }
@@ -4493,16 +4545,12 @@ find_moveable_pseudos (void)
 	    FOR_EACH_INSN_INFO_DEF (def, insn_info)
 	      {
 		unsigned regno = DF_REF_REGNO (def);
-		bitmap_set_bit (&set, regno);
+		bitmap_set_bit (set, regno);
 		bitmap_clear_bit (transp, regno);
 		bitmap_clear_bit (moveable, regno);
 	      }
 	  }
     }
-
-  bitmap_clear (&live);
-  bitmap_clear (&used);
-  bitmap_clear (&set);
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -4546,7 +4594,7 @@ find_moveable_pseudos (void)
 		if (dump_file)
 		  fprintf (dump_file, "Ignoring reg %d, has equiv memory\n",
 			   regno);
-		bitmap_set_bit (&unusable_as_input, regno);
+		bitmap_set_bit (unusable_as_input, regno);
 		continue;
 	      }
 
@@ -4606,7 +4654,7 @@ find_moveable_pseudos (void)
 		continue;
 	      }
 
-	    bitmap_set_bit (&interesting, regno);
+	    bitmap_set_bit (interesting, regno);
 	    /* If we get here, we know closest_use is a non-NULL insn
 	       (as opposed to const_0_rtx).  */
 	    closest_uses[regno] = as_a <rtx_insn *> (closest_use);
@@ -4625,7 +4673,7 @@ find_moveable_pseudos (void)
 	  }
     }
 
-  EXECUTE_IF_SET_IN_BITMAP (&interesting, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (interesting, 0, i, bi)
     {
       df_ref def = DF_REG_DEF_CHAIN (i);
       rtx_insn *def_insn = DF_REF_INSN (def);
@@ -4669,7 +4717,7 @@ find_moveable_pseudos (void)
       FOR_EACH_INSN_USE (use, def_insn)
 	{
 	  unsigned regno = DF_REF_REGNO (use);
-	  if (bitmap_bit_p (&unusable_as_input, regno))
+	  if (bitmap_bit_p (unusable_as_input, regno))
 	    {
 	      all_ok = false;
 	      if (dump_file)
@@ -4735,8 +4783,6 @@ find_moveable_pseudos (void)
       bitmap_clear (bb_transp_live + bb->index);
       bitmap_clear (bb_moveable_reg_sets + bb->index);
     }
-  bitmap_clear (&interesting);
-  bitmap_clear (&unusable_as_input);
   free (uid_luid);
   free (closest_uses);
   free (bb_local);
@@ -4816,14 +4862,12 @@ split_live_ranges_for_shrink_wrap (void)
   basic_block bb, call_dom = NULL;
   basic_block first = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   rtx_insn *insn, *last_interesting_insn = NULL;
-  bitmap_head need_new, reachable;
+  auto_bitmap need_new, reachable;
   vec<basic_block> queue;
 
   if (!SHRINK_WRAPPING_ENABLED)
     return false;
 
-  bitmap_initialize (&need_new, 0);
-  bitmap_initialize (&reachable, 0);
   queue.create (n_basic_blocks_for_fn (cfun));
 
   FOR_EACH_BB_FN (bb, cfun)
@@ -4832,22 +4876,18 @@ split_live_ranges_for_shrink_wrap (void)
 	{
 	  if (bb == first)
 	    {
-	      bitmap_clear (&need_new);
-	      bitmap_clear (&reachable);
 	      queue.release ();
 	      return false;
 	    }
 
-	  bitmap_set_bit (&need_new, bb->index);
-	  bitmap_set_bit (&reachable, bb->index);
+	  bitmap_set_bit (need_new, bb->index);
+	  bitmap_set_bit (reachable, bb->index);
 	  queue.quick_push (bb);
 	  break;
 	}
 
   if (queue.is_empty ())
     {
-      bitmap_clear (&need_new);
-      bitmap_clear (&reachable);
       queue.release ();
       return false;
     }
@@ -4860,7 +4900,7 @@ split_live_ranges_for_shrink_wrap (void)
       bb = queue.pop ();
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	    && bitmap_set_bit (&reachable, e->dest->index))
+	    && bitmap_set_bit (reachable, e->dest->index))
 	  queue.quick_push (e->dest);
     }
   queue.release ();
@@ -4872,32 +4912,23 @@ split_live_ranges_for_shrink_wrap (void)
 	continue;
 
       if (DF_REG_DEF_COUNT (REGNO (dest)) > 1)
-	{
-	  bitmap_clear (&need_new);
-	  bitmap_clear (&reachable);
-	  return false;
-	}
+	return false;
 
       for (df_ref use = DF_REG_USE_CHAIN (REGNO(dest));
 	   use;
 	   use = DF_REF_NEXT_REG (use))
 	{
 	  int ubbi = DF_REF_BB (use)->index;
-	  if (bitmap_bit_p (&reachable, ubbi))
-	    bitmap_set_bit (&need_new, ubbi);
+	  if (bitmap_bit_p (reachable, ubbi))
+	    bitmap_set_bit (need_new, ubbi);
 	}
       last_interesting_insn = insn;
     }
 
-  bitmap_clear (&reachable);
   if (!last_interesting_insn)
-    {
-      bitmap_clear (&need_new);
-      return false;
-    }
+    return false;
 
-  call_dom = nearest_common_dominator_for_set (CDI_DOMINATORS, &need_new);
-  bitmap_clear (&need_new);
+  call_dom = nearest_common_dominator_for_set (CDI_DOMINATORS, need_new);
   if (call_dom == first)
     return false;
 
@@ -4928,25 +4959,40 @@ split_live_ranges_for_shrink_wrap (void)
       if (!dest || dest == pic_offset_table_rtx)
 	continue;
 
-      rtx newreg = NULL_RTX;
+      bool need_newreg = false;
       df_ref use, next;
       for (use = DF_REG_USE_CHAIN (REGNO (dest)); use; use = next)
 	{
 	  rtx_insn *uin = DF_REF_INSN (use);
 	  next = DF_REF_NEXT_REG (use);
 
+	  if (DEBUG_INSN_P (uin))
+	    continue;
+
 	  basic_block ubb = BLOCK_FOR_INSN (uin);
 	  if (ubb == call_dom
 	      || dominated_by_p (CDI_DOMINATORS, ubb, call_dom))
 	    {
-	      if (!newreg)
-		newreg = ira_create_new_reg (dest);
-	      validate_change (uin, DF_REF_REAL_LOC (use), newreg, true);
+	      need_newreg = true;
+	      break;
 	    }
 	}
 
-      if (newreg)
+      if (need_newreg)
 	{
+	  rtx newreg = ira_create_new_reg (dest);
+
+	  for (use = DF_REG_USE_CHAIN (REGNO (dest)); use; use = next)
+	    {
+	      rtx_insn *uin = DF_REF_INSN (use);
+	      next = DF_REF_NEXT_REG (use);
+
+	      basic_block ubb = BLOCK_FOR_INSN (uin);
+	      if (ubb == call_dom
+		  || dominated_by_p (CDI_DOMINATORS, ubb, call_dom))
+		validate_change (uin, DF_REF_REAL_LOC (use), newreg, true);
+	    }
+
 	  rtx_insn *new_move = gen_move_insn (newreg, dest);
 	  emit_insn_after (new_move, bb_note (call_dom));
 	  if (dump_file)
@@ -5076,12 +5122,20 @@ ira (FILE *f)
   bool saved_flag_caller_saves = flag_caller_saves;
   enum ira_region saved_flag_ira_region = flag_ira_region;
 
+  clear_bb_flags ();
+
+  /* Determine if the current function is a leaf before running IRA
+     since this can impact optimizations done by the prologue and
+     epilogue thus changing register elimination offsets.
+     Other target callbacks may use crtl->is_leaf too, including
+     SHRINK_WRAPPING_ENABLED, so initialize as early as possible.  */
+  crtl->is_leaf = leaf_function_p ();
+
   /* Perform target specific PIC register initialization.  */
   targetm.init_pic_reg ();
 
   ira_conflicts_p = optimize > 0;
 
-  ira_use_lra_p = targetm.lra_p ();
   /* If there are too many pseudos and/or basic blocks (e.g. 10K
      pseudos and 10K blocks or 100K pseudos and 1K blocks), we will
      use simplified and faster algorithms in LRA.  */
@@ -5161,11 +5215,6 @@ ira (FILE *f)
      to generate these warnings.  */
   if (warn_clobbered)
     generate_setjmp_warnings ();
-
-  /* Determine if the current function is a leaf before running IRA
-     since this can impact optimizations done by the prologue and
-     epilogue thus changing register elimination offsets.  */
-  crtl->is_leaf = leaf_function_p ();
 
   if (resize_reg_info () && flag_ira_loop_pressure)
     ira_set_pseudo_classes (true, ira_dump_file);
@@ -5267,7 +5316,6 @@ ira (FILE *f)
                                        reg_alternate_class (old_regno),
                                        reg_allocno_class (old_regno));
                 }
-
 	    }
 	  else
 	    {
@@ -5303,7 +5351,14 @@ ira (FILE *f)
   calculate_allocation_cost ();
 
 #ifdef ENABLE_IRA_CHECKING
-  if (ira_conflicts_p)
+  if (ira_conflicts_p && ! ira_use_lra_p)
+    /* Opposite to reload pass, LRA does not use any conflict info
+       from IRA.  We don't rebuild conflict info for LRA (through
+       ira_flattening call) and can not use the check here.  We could
+       rebuild this info for LRA in the check mode but there is a risk
+       that code generated with the check and without it will be a bit
+       different.  Calling ira_flattening in any mode would be a
+       wasting CPU time.  So do not check the allocation for LRA.  */
     check_allocation ();
 #endif
 

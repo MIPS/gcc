@@ -1,5 +1,5 @@
 /* Optimization statistics functions.
-   Copyright (C) 2008-2016 Free Software Foundation, Inc.
+   Copyright (C) 2008-2017 Free Software Foundation, Inc.
    Contributed by Richard Guenther  <rguenther@suse.de>
 
 This file is part of GCC.
@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 
 static int statistics_dump_nr;
-static int statistics_dump_flags;
+static dump_flags_t statistics_dump_flags;
 static FILE *statistics_dump_file;
 
 /* Statistics entry.  A integer counter associated to a string ID
@@ -259,7 +259,7 @@ statistics_early_init (void)
 {
   gcc::dump_manager *dumps = g->get_dumps ();
   statistics_dump_nr = dumps->dump_register (".statistics", "statistics",
-					     "statistics", TDF_TREE,
+					     "statistics", DK_tree,
 					     OPTGROUP_NONE,
 					     false);
 }
@@ -312,7 +312,8 @@ statistics_counter_event (struct function *fn, const char *id, int incr)
       || incr == 0)
     return;
 
-  if (current_pass->static_pass_number != -1)
+  if (current_pass
+      && current_pass->static_pass_number != -1)
     {
       counter = lookup_or_add_counter (curr_statistics_hash (), id, 0, false);
       gcc_assert (!counter->histogram_p);
@@ -325,8 +326,8 @@ statistics_counter_event (struct function *fn, const char *id, int incr)
 
   fprintf (statistics_dump_file,
 	   "%d %s \"%s\" \"%s\" %d\n",
-	   current_pass->static_pass_number,
-	   current_pass->name,
+	   current_pass ? current_pass->static_pass_number : -1,
+	   current_pass ? current_pass->name : "none",
 	   id,
 	   function_name (fn),
 	   incr);

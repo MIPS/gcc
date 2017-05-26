@@ -1,5 +1,5 @@
 ;; Predicate definitions for Synopsys DesignWare ARC.
-;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2017 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -148,6 +148,11 @@
       {
 	rtx x = XEXP (op, 1);
 
+	if ((GET_CODE (XEXP (op, 0)) == MULT)
+	    && REG_P (XEXP (XEXP (op, 0), 0))
+	    && CONSTANT_P (x))
+	  return 1;
+
 	if (GET_CODE (x) == CONST)
 	  {
 	    x = XEXP (x, 0);
@@ -181,6 +186,19 @@
       return (GET_CODE (op) == REG)
       && (REGNO (op) >= FIRST_PSEUDO_REGISTER
 		|| COMPACT_GP_REG_P (REGNO (op))) ;
+  }
+)
+
+(define_predicate "compact_hreg_operand"
+  (match_code "reg, subreg")
+  {
+     if ((GET_MODE (op) != mode) && (mode != VOIDmode))
+	 return 0;
+
+      return (GET_CODE (op) == REG)
+      && (REGNO (op) >= FIRST_PSEUDO_REGISTER
+		|| (TARGET_V2 && REGNO (op) <= 31 && REGNO (op) != 30)
+		|| !TARGET_V2);
   }
 )
 
@@ -266,6 +284,7 @@
     case SYMBOL_REF :
       if (SYMBOL_REF_TLS_MODEL (op))
 	return 0;
+      return 1;
     case LABEL_REF :
       return 1;
     case CONST :
@@ -312,7 +331,7 @@
       /* (subreg (mem ...) ...) can occur here if the inner part was once a
 	 pseudo-reg and is now a stack slot.  */
       if (GET_CODE (SUBREG_REG (op)) == MEM)
-	return move_double_src_operand (SUBREG_REG (op), mode);
+	return address_operand (XEXP (SUBREG_REG (op), 0), mode);
       else
 	return register_operand (op, mode);
     case MEM :
@@ -451,11 +470,16 @@
 (define_predicate "equality_comparison_operator"
   (match_code "eq, ne"))
 
+(define_predicate "ge_lt_comparison_operator"
+  (match_code "ge, lt"))
+
 (define_predicate "brcc_nolimm_operator"
   (ior (match_test "REG_P (XEXP (op, 1))")
        (and (match_code "eq, ne, lt, ge, ltu, geu")
+	    (match_test "CONST_INT_P (XEXP (op, 1))")
 	    (match_test "u6_immediate_operand (XEXP (op, 1), SImode)"))
        (and (match_code "le, gt, leu, gtu")
+	    (match_test "CONST_INT_P (XEXP (op, 1))")
 	    (match_test "UNSIGNED_INT6 (INTVAL (XEXP (op, 1)) + 1)"))))
 
 ;; Return TRUE if this is the condition code register, if we aren't given
@@ -672,6 +696,11 @@
 (define_predicate "mhi_operand"
   (and (match_code "reg")
        (match_test "REGNO (op) == (TARGET_BIG_ENDIAN ? 58 : 59)")))
+
+(define_predicate "accl_operand"
+  (and (match_code "reg")
+       (match_test "REGNO (op) == (TARGET_BIG_ENDIAN ? 59 : 58)")
+       (match_test "TARGET_V2")))
 
 ; Unfortunately, we can not allow a const_int_operand before reload, because
 ; reload needs a non-void mode to guide it how to reload the inside of a

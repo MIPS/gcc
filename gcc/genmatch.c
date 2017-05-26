@@ -1,7 +1,7 @@
 /* Generate pattern matching and transform code shared between
    GENERIC and GIMPLE folding code from match-and-simplify description.
 
-   Copyright (C) 2014-2016 Free Software Foundation, Inc.
+   Copyright (C) 2014-2017 Free Software Foundation, Inc.
    Contributed by Richard Biener <rguenther@suse.de>
    and Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
@@ -192,6 +192,11 @@ output_line_directive (FILE *f, source_location location,
     {
       /* When writing to a dumpfile only dump the filename.  */
       const char *file = strrchr (loc.file, DIR_SEPARATOR);
+#if defined(DIR_SEPARATOR_2)
+      const char *pos2 = strrchr (loc.file, DIR_SEPARATOR_2);
+      if (pos2 && (!file || (pos2 > file)))
+	file = pos2;
+#endif
       if (!file)
 	file = loc.file;
       else
@@ -693,10 +698,15 @@ struct c_expr : public operand
 
 struct capture : public operand
 {
-  capture (source_location loc, unsigned where_, operand *what_)
-      : operand (OP_CAPTURE, loc), where (where_), what (what_) {}
+  capture (source_location loc, unsigned where_, operand *what_, bool value_)
+      : operand (OP_CAPTURE, loc), where (where_), value_match (value_),
+        what (what_) {}
   /* Identifier index for the value.  */
   unsigned where;
+  /* Whether in a match of two operands the compare should be for
+     equal values rather than equal atoms (boils down to a type
+     check or not).  */
+  bool value_match;
   /* The captured value.  */
   operand *what;
   virtual void gen_transform (FILE *f, int, const char *, bool, int,
@@ -895,7 +905,8 @@ commutate (operand *op, vec<vec<user_id *> > &for_vec)
       vec<operand *> v = commutate (c->what, for_vec);
       for (unsigned i = 0; i < v.length (); ++i)
 	{
-	  capture *nc = new capture (c->location, c->where, v[i]);
+	  capture *nc = new capture (c->location, c->where, v[i],
+				     c->value_match);
 	  ret.safe_push (nc);
 	}
       return ret;
@@ -1013,7 +1024,8 @@ lower_opt_convert (operand *o, enum tree_code oper,
     {
       if (c->what)
 	return new capture (c->location, c->where,
-			    lower_opt_convert (c->what, oper, to_oper, strip));
+			    lower_opt_convert (c->what, oper, to_oper, strip),
+			    c->value_match);
       else
 	return c;
     }
@@ -1146,7 +1158,8 @@ lower_cond (operand *o)
 	  lop = lower_cond (c->what);
 
 	  for (unsigned i = 0; i < lop.length (); ++i)
-	    ro.safe_push (new capture (c->location, c->where, lop[i]));
+	    ro.safe_push (new capture (c->location, c->where, lop[i],
+				       c->value_match));
 	  return ro;
 	}
     }
@@ -1196,7 +1209,8 @@ lower_cond (operand *o)
 	      for (unsigned j = 0; j < ocmp->ops.length (); ++j)
 		cmp->append_op (ocmp->ops[j]);
 	      cmp->is_generic = true;
-	      ne->ops[0] = new capture (c->location, c->where, cmp);
+	      ne->ops[0] = new capture (c->location, c->where, cmp,
+					c->value_match);
 	    }
 	  else
 	    {
@@ -1275,7 +1289,7 @@ replace_id (operand *o, user_id *id, id_base *with)
       if (!c->what)
 	return c;
       return new capture (c->location, c->where,
-			  replace_id (c->what, id, with));
+			  replace_id (c->what, id, with), c->value_match);
     }
   else if (expr *e = dyn_cast<expr *> (o))
     {
@@ -1554,15 +1568,16 @@ struct dt_operand : public dt_node
   dt_operand *match_dop;
   dt_operand *parent;
   unsigned pos;
+  bool value_match;
 
   dt_operand (enum dt_type type, operand *op_, dt_operand *match_dop_,
 	      dt_operand *parent_ = 0, unsigned pos_ = 0)
       : dt_node (type), op (op_), match_dop (match_dop_),
-      parent (parent_), pos (pos_) {}
+      parent (parent_), pos (pos_), value_match (false) {}
 
   void gen (FILE *, int, bool);
   unsigned gen_predicate (FILE *, int, const char *, bool);
-  unsigned gen_match_op (FILE *, int, const char *);
+  unsigned gen_match_op (FILE *, int, const char *, bool);
 
   unsigned gen_gimple_expr (FILE *, int);
   unsigned gen_generic_expr (FILE *, int, const char *);
@@ -1670,8 +1685,10 @@ decision_tree::cmp_node (dt_node *n1, dt_node *n2)
     return cmp_operand ((as_a<dt_operand *> (n1))->op,
 			(as_a<dt_operand *> (n2))->op);
   else if (n1->type == dt_node::DT_MATCH)
-    return ((as_a<dt_operand *> (n1))->match_dop
-	    == (as_a<dt_operand *> (n2))->match_dop);
+    return (((as_a<dt_operand *> (n1))->match_dop
+	     == (as_a<dt_operand *> (n2))->match_dop)
+	    && ((as_a<dt_operand *> (n1))->value_match
+		== (as_a<dt_operand *> (n2))->value_match));
   return false;
 }
 
@@ -1841,6 +1858,7 @@ decision_tree::insert_operand (dt_node *p, operand *o, dt_operand **indexes,
 	      if (elm == 0)
 		{
 		  dt_operand temp (dt_node::DT_MATCH, 0, match_op);
+		  temp.value_match = c->value_match;
 		  elm = decision_tree::find_node (p->kids, &temp);
 		}
 	    }
@@ -1860,6 +1878,7 @@ at_assert_elm:
       else
 	{
 	  p = p->append_match_op (indexes[capt_index], parent, pos);
+	  as_a <dt_operand *>(p)->value_match = c->value_match;
 	  if (c->what)
 	    return insert_operand (p, c->what, indexes, 0, p);
 	  else
@@ -2194,8 +2213,10 @@ capture_info::walk_c_expr (c_expr *e)
 	    id = (const char *)n->val.str.text;
 	  else
 	    id = (const char *)CPP_HASHNODE (n->val.node.node)->ident.str;
-	  unsigned where = *e->capture_ids->get(id);
-	  info[info[where].same_as].force_no_side_effects_p = true;
+	  unsigned *where = e->capture_ids->get(id);
+	  if (! where)
+	    fatal_at (n, "unknown capture id '%s'", id);
+	  info[info[*where].same_as].force_no_side_effects_p = true;
 	  if (verbose >= 1
 	      && !gimple)
 	    warning_at (t, "capture escapes");
@@ -2216,11 +2237,12 @@ is_conversion (id_base *op)
 	  || *op == VIEW_CONVERT_EXPR);
 }
 
-/* Get the type to be used for generating operands of OP from the
+/* Get the type to be used for generating operand POS of OP from the
    various sources.  */
 
 static const char *
-get_operand_type (id_base *op, const char *in_type,
+get_operand_type (id_base *op, unsigned pos,
+		  const char *in_type,
 		  const char *expr_type,
 		  const char *other_oprnd_type)
 {
@@ -2235,6 +2257,9 @@ get_operand_type (id_base *op, const char *in_type,
   else if (is_a <operator_id *> (op)
 	   && strcmp (as_a <operator_id *> (op)->tcc, "tcc_comparison") == 0)
     return other_oprnd_type;
+  else if (*op == COND_EXPR
+	   && pos == 0)
+    return "boolean_type_node";
   else
     {
       /* Otherwise all types should match - choose one in order of
@@ -2319,7 +2344,7 @@ expr::gen_transform (FILE *f, int indent, const char *dest, bool gimple,
       char dest[32];
       snprintf (dest, 32, "ops%d[%u]", depth, i);
       const char *optype
-	= get_operand_type (opr, in_type, expr_type,
+	= get_operand_type (opr, i, in_type, expr_type,
 			    i == 0 ? NULL : op0type);
       ops[i]->gen_transform (f, indent, dest, gimple, depth + 1, optype,
 			     cinfo, indexes,
@@ -2500,7 +2525,18 @@ capture::gen_transform (FILE *f, int indent, const char *dest, bool gimple,
 	}
     }
 
-  fprintf_indent (f, indent, "%s = captures[%u];\n", dest, where);
+  /* If in GENERIC some capture is used multiple times, unshare it except
+     when emitting the last use.  */
+  if (!gimple
+      && cinfo->info.exists ()
+      && cinfo->info[cinfo->info[where].same_as].result_use_count > 1)
+    {
+      fprintf_indent (f, indent, "%s = unshare_expr (captures[%u]);\n",
+		      dest, where);
+      cinfo->info[cinfo->info[where].same_as].result_use_count--;
+    }
+  else
+    fprintf_indent (f, indent, "%s = captures[%u];\n", dest, where);
 
   /* ???  Stupid tcc_comparison GENERIC trees in COND_EXPRs.  Deal
      with substituting a capture of that.  */
@@ -2585,12 +2621,18 @@ dt_operand::gen_predicate (FILE *f, int indent, const char *opname, bool gimple)
    a capture-match.  */
 
 unsigned
-dt_operand::gen_match_op (FILE *f, int indent, const char *opname)
+dt_operand::gen_match_op (FILE *f, int indent, const char *opname, bool)
 {
   char match_opname[20];
   match_dop->get_name (match_opname);
-  fprintf_indent (f, indent, "if (%s == %s || operand_equal_p (%s, %s, 0))\n",
-		  opname, match_opname, opname, match_opname);
+  if (value_match)
+    fprintf_indent (f, indent, "if (%s == %s || operand_equal_p (%s, %s, 0))\n",
+		    opname, match_opname, opname, match_opname);
+  else
+    fprintf_indent (f, indent, "if (%s == %s || (operand_equal_p (%s, %s, 0) "
+		    "&& types_match (%s, %s)))\n",
+		    opname, match_opname, opname, match_opname,
+		    opname, match_opname);
   fprintf_indent (f, indent + 2, "{\n");
   return 1;
 }
@@ -2618,9 +2660,19 @@ dt_operand::gen_gimple_expr (FILE *f, int indent)
 	      /* ???  If this is a memory operation we can't (and should not)
 		 match this.  The only sensible operand types are
 		 SSA names and invariants.  */
-	      fprintf_indent (f, indent,
-			      "tree %s = TREE_OPERAND (gimple_assign_rhs1 (def), %i);\n",
-			      child_opname, i);
+	      if (e->is_generic)
+		{
+		  char opname[20];
+		  get_name (opname);
+		  fprintf_indent (f, indent,
+				  "tree %s = TREE_OPERAND (%s, %i);\n",
+				  child_opname, opname, i);
+		}
+	      else
+		fprintf_indent (f, indent,
+				"tree %s = TREE_OPERAND "
+				"(gimple_assign_rhs1 (def), %i);\n",
+				child_opname, i);
 	      fprintf_indent (f, indent,
 			      "if ((TREE_CODE (%s) == SSA_NAME\n",
 			      child_opname);
@@ -2665,7 +2717,7 @@ dt_operand::gen_gimple_expr (FILE *f, int indent)
 	  gen_opname (child_opname0, 0);
 	  gen_opname (child_opname1, 1);
 	  fprintf_indent (f, indent,
-			  "if (tree_swap_operands_p (%s, %s, false))\n",
+			  "if (tree_swap_operands_p (%s, %s))\n",
 			  child_opname0, child_opname1);
 	  fprintf_indent (f, indent,
 			  "  std::swap (%s, %s);\n",
@@ -2877,6 +2929,20 @@ dt_node::gen_kids_1 (FILE *f, int indent, bool gimple,
 
       indent -= 6;
       fprintf_indent (f, indent, "    }\n");
+      /* See if there is SSA_NAME among generic_exprs and if yes, emit it
+	 here rather than in the next loop.  */
+      for (unsigned i = 0; i < generic_exprs.length (); ++i)
+	{
+	  expr *e = as_a <expr *>(generic_exprs[i]->op);
+	  id_base *op = e->operation;
+	  if (*op == SSA_NAME && (exprs_len || fns_len))
+	    {
+	      fprintf_indent (f, indent + 4, "{\n");
+	      generic_exprs[i]->gen (f, indent + 6, gimple);
+	      fprintf_indent (f, indent + 4, "}\n");
+	    }
+	}
+
       fprintf_indent (f, indent, "  break;\n");
     }
 
@@ -2886,6 +2952,9 @@ dt_node::gen_kids_1 (FILE *f, int indent, bool gimple,
       id_base *op = e->operation;
       if (*op == CONVERT_EXPR || *op == NOP_EXPR)
 	fprintf_indent (f, indent, "CASE_CONVERT:\n");
+      else if (*op == SSA_NAME && (exprs_len || fns_len))
+	/* Already handled above.  */
+	continue;
       else
 	fprintf_indent (f, indent, "case %s:\n", op->id);
       fprintf_indent (f, indent, "  {\n");
@@ -2936,6 +3005,8 @@ dt_node::gen_kids_1 (FILE *f, int indent, bool gimple,
       expr *e = as_a <expr *> (preds[i]->op);
       predicate_id *p = as_a <predicate_id *> (e->operation);
       preds[i]->get_name (kid_opname);
+      fprintf_indent (f, indent, "{\n");
+      indent += 2;
       fprintf_indent (f, indent, "tree %s_pops[%d];\n", kid_opname, p->nargs);
       fprintf_indent (f, indent, "if (%s_%s (%s, %s_pops%s))\n",
 	       gimple ? "gimple" : "tree",
@@ -2951,6 +3022,8 @@ dt_node::gen_kids_1 (FILE *f, int indent, bool gimple,
 	}
       preds[i]->gen_kids (f, indent + 4, gimple);
       fprintf (f, "}\n");
+      indent -= 2;
+      fprintf_indent (f, indent, "}\n");
     }
 
   for (unsigned i = 0; i < others.length (); ++i)
@@ -2987,7 +3060,7 @@ dt_operand::gen (FILE *f, int indent, bool gimple)
   else if (type == DT_TRUE)
     ;
   else if (type == DT_MATCH)
-    n_braces = gen_match_op (f, indent, opname);
+    n_braces = gen_match_op (f, indent, opname, gimple);
   else
     gcc_unreachable ();
 
@@ -3118,7 +3191,7 @@ dt_simplify::gen_1 (FILE *f, int indent, bool gimple, operand *result)
 	}
     }
 
-  fprintf_indent (f, indent, "if (dump_file && (dump_flags & TDF_DETAILS)) "
+  fprintf_indent (f, indent, "if (dump_file && (dump_flags & TDF_FOLDING)) "
 	   "fprintf (dump_file, \"Applying pattern ");
   output_line_directive (f,
 			 result ? result->location : s->match->location, true);
@@ -3157,7 +3230,7 @@ dt_simplify::gen_1 (FILE *f, int indent, bool gimple, operand *result)
 	      char dest[32];
 	      snprintf (dest, 32, "res_ops[%d]", j);
 	      const char *optype
-		= get_operand_type (opr,
+		= get_operand_type (opr, j,
 				    "type", e->expr_type,
 				    j == 0 ? NULL : "TREE_TYPE (res_ops[0])");
 	      /* We need to expand GENERIC conditions we captured from
@@ -3247,7 +3320,7 @@ dt_simplify::gen_1 (FILE *f, int indent, bool gimple, operand *result)
 		  snprintf (dest, 32, "res_op%d", j);
 		}
 	      const char *optype
-	        = get_operand_type (opr,
+	        = get_operand_type (opr, j,
 				    "type", e->expr_type,
 				    j == 0
 				    ? NULL : "TREE_TYPE (res_op0)");
@@ -3719,6 +3792,8 @@ private:
   const cpp_token *eat_ident (const char *);
   const char *get_number ();
 
+  unsigned get_internal_capture_id ();
+
   id_base *parse_operation ();
   operand *parse_capture (operand *, bool);
   operand *parse_expr ();
@@ -3737,6 +3812,8 @@ private:
   void parse_if (source_location);
   void parse_predicates (source_location);
   void parse_operator_list (source_location);
+
+  void finish_match_operand (operand *);
 
   cpp_reader *r;
   vec<c_expr *> active_ifs;
@@ -3764,8 +3841,7 @@ parser::next ()
     {
       token = cpp_get_token (r);
     }
-  while (token->type == CPP_PADDING
-	 && token->type != CPP_EOF);
+  while (token->type == CPP_PADDING);
   return token;
 }
 
@@ -3780,8 +3856,7 @@ parser::peek (unsigned num)
     {
       token = cpp_peek_token (r, i++);
     }
-  while ((token->type == CPP_PADDING
-	  && token->type != CPP_EOF)
+  while (token->type == CPP_PADDING
 	 || (--num > 0));
   /* If we peek at EOF this is a fatal error as it leaves the
      cpp_reader in unusable state.  Assume we really wanted a
@@ -3874,6 +3949,21 @@ parser::get_number ()
   return (const char *)token->val.str.text;
 }
 
+/* Return a capture ID that can be used internally.  */
+
+unsigned
+parser::get_internal_capture_id ()
+{
+  unsigned newid = capture_ids->elements ();
+  /* Big enough for a 32-bit UINT_MAX plus prefix.  */
+  char id[13];
+  bool existed;
+  sprintf (id, "__%u", newid);
+  capture_ids->get_or_insert (xstrdup (id), &existed);
+  if (existed)
+    fatal ("reserved capture id '%s' already used", id);
+  return newid;
+}
 
 /* Record an operator-list use for transparent for handling.  */
 
@@ -3955,6 +4045,16 @@ parser::parse_capture (operand *op, bool require_existing)
   source_location src_loc = eat_token (CPP_ATSIGN)->src_loc;
   const cpp_token *token = peek ();
   const char *id = NULL;
+  bool value_match = false;
+  /* For matches parse @@ as a value-match denoting the prevailing operand.  */
+  if (token->type == CPP_ATSIGN
+      && ! (token->flags & PREV_WHITE)
+      && parsing_match_operand)
+    {
+      eat_token (CPP_ATSIGN);
+      token = peek ();
+      value_match = true;
+    }
   if (token->type == CPP_NUMBER)
     id = get_number ();
   else if (token->type == CPP_NAME)
@@ -3970,7 +4070,7 @@ parser::parse_capture (operand *op, bool require_existing)
 	fatal_at (src_loc, "unknown capture id");
       num = next_id;
     }
-  return new capture (src_loc, num, op);
+  return new capture (src_loc, num, op, value_match);
 }
 
 /* Parse an expression
@@ -4050,14 +4150,8 @@ parser::parse_expr ()
     op = parse_capture (e, false);
   else if (force_capture)
     {
-      unsigned num = capture_ids->elements ();
-      char id[8];
-      bool existed;
-      sprintf (id, "__%u", num);
-      capture_ids->get_or_insert (xstrdup (id), &existed);
-      if (existed)
-	fatal_at (token, "reserved capture id '%s' already used", id);
-      op = new capture (token->src_loc, num, e);
+      unsigned num = get_internal_capture_id ();
+      op = new capture (token->src_loc, num, e, false);
     }
   else
     op = e;
@@ -4119,6 +4213,8 @@ parser::parse_c_expr (cpp_ttype start)
       else if (token->type == end
 	       && --opencnt == 0)
 	break;
+      else if (token->type == CPP_EOF)
+	fatal_at (token, "unexpected end of file");
 
       /* This is a lame way of counting the number of statements.  */
       if (token->type == CPP_SEMICOLON)
@@ -4369,6 +4465,7 @@ parser::parse_simplify (simplify::simplify_kind kind,
   const cpp_token *loc = peek ();
   parsing_match_operand = true;
   struct operand *match = parse_op ();
+  finish_match_operand (match);
   parsing_match_operand = false;
   if (match->type == operand::OP_CAPTURE && !matcher)
     fatal_at (loc, "outermost expression cannot be captured");
@@ -4707,6 +4804,69 @@ parser::parse_pattern ()
 	      ? "'define_predicates', " : "");
 
   eat_token (CPP_CLOSE_PAREN);
+}
+
+/* Helper for finish_match_operand, collecting captures of OP in CPTS
+   recursively.  */
+
+static void
+walk_captures (operand *op, vec<vec<capture *> > cpts)
+{
+  if (! op)
+    return;
+
+  if (capture *c = dyn_cast <capture *> (op))
+    {
+      cpts[c->where].safe_push (c);
+      walk_captures (c->what, cpts);
+    }
+  else if (expr *e = dyn_cast <expr *> (op))
+    for (unsigned i = 0; i < e->ops.length (); ++i)
+      walk_captures (e->ops[i], cpts);
+}
+
+/* Finish up OP which is a match operand.  */
+
+void
+parser::finish_match_operand (operand *op)
+{
+  /* Look for matching captures, diagnose mis-uses of @@ and apply
+     early lowering and distribution of value_match.  */
+  auto_vec<vec<capture *> > cpts;
+  cpts.safe_grow_cleared (capture_ids->elements ());
+  walk_captures (op, cpts);
+  for (unsigned i = 0; i < cpts.length (); ++i)
+    {
+      capture *value_match = NULL;
+      for (unsigned j = 0; j < cpts[i].length (); ++j)
+	{
+	  if (cpts[i][j]->value_match)
+	    {
+	      if (value_match)
+		fatal_at (cpts[i][j]->location, "duplicate @@");
+	      value_match = cpts[i][j];
+	    }
+	}
+      if (cpts[i].length () == 1 && value_match)
+	fatal_at (value_match->location, "@@ without a matching capture");
+      if (value_match)
+	{
+	  /* Duplicate prevailing capture with the existing ID, create
+	     a fake ID and rewrite all captures to use it.  This turns
+	     @@1 into @__<newid>@1 and @1 into @__<newid>.  */
+	  value_match->what = new capture (value_match->location,
+					   value_match->where,
+					   value_match->what, false);
+	  /* Create a fake ID and rewrite all captures to use it.  */
+	  unsigned newid = get_internal_capture_id ();
+	  for (unsigned j = 0; j < cpts[i].length (); ++j)
+	    {
+	      cpts[i][j]->where = newid;
+	      cpts[i][j]->value_match = true;
+	    }
+	}
+      cpts[i].release ();
+    }
 }
 
 /* Main entry of the parser.  Repeatedly parse outer control structures.  */

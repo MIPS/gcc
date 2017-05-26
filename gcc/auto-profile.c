@@ -1,5 +1,5 @@
 /* Read and annotate call graph profile from the auto profile data file.
-   Copyright (C) 2014-2016 Free Software Foundation, Inc.
+   Copyright (C) 2014-2017 Free Software Foundation, Inc.
    Contributed by Dehao Chen (dehao@google.com)
 
 This file is part of GCC.
@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
+#include "ipa-fnsummary.h"
 #include "ipa-inline.h"
 #include "tree-inline.h"
 #include "auto-profile.h"
@@ -344,7 +345,7 @@ get_combined_location (location_t loc, tree decl)
 {
   /* TODO: allow more bits for line and less bits for discriminator.  */
   if (LOCATION_LINE (loc) - DECL_SOURCE_LINE (decl) >= (1<<16))
-    warning_at (loc, OPT_Woverflow, "Offset exceeds 16 bytes.");
+    warning_at (loc, OPT_Woverflow, "offset exceeds 16 bytes");
   return ((LOCATION_LINE (loc) - DECL_SOURCE_LINE (decl)) << 16);
 }
 
@@ -917,13 +918,13 @@ read_profile (void)
 {
   if (gcov_open (auto_profile_file, 1) == 0)
     {
-      error ("Cannot open profile file %s.", auto_profile_file);
+      error ("cannot open profile file %s", auto_profile_file);
       return;
     }
 
   if (gcov_read_unsigned () != GCOV_DATA_MAGIC)
     {
-      error ("AutoFDO profile magic number does not match.");
+      error ("AutoFDO profile magic number does not match");
       return;
     }
 
@@ -931,7 +932,7 @@ read_profile (void)
   unsigned version = gcov_read_unsigned ();
   if (version != AUTO_PROFILE_VERSION)
     {
-      error ("AutoFDO profile version %u does match %u.",
+      error ("AutoFDO profile version %u does match %u",
 	     version, AUTO_PROFILE_VERSION);
       return;
     }
@@ -943,7 +944,7 @@ read_profile (void)
   afdo_string_table = new string_table ();
   if (!afdo_string_table->read())
     {
-      error ("Cannot read string table from %s.", auto_profile_file);
+      error ("cannot read string table from %s", auto_profile_file);
       return;
     }
 
@@ -951,7 +952,7 @@ read_profile (void)
   afdo_source_profile = autofdo_source_profile::create ();
   if (afdo_source_profile == NULL)
     {
-      error ("Cannot read function profile from %s.", auto_profile_file);
+      error ("cannot read function profile from %s", auto_profile_file);
       return;
     }
 
@@ -961,7 +962,7 @@ read_profile (void)
   /* Read in the working set.  */
   if (gcov_read_unsigned () != GCOV_TAG_AFDO_WORKING_SET)
     {
-      error ("Cannot read working set from %s.", auto_profile_file);
+      error ("cannot read working set from %s", auto_profile_file);
       return;
     }
 
@@ -1376,7 +1377,7 @@ afdo_propagate (bb_set *annotated_bb, edge_set *annotated_edge)
   FOR_ALL_BB_FN (bb, cfun)
   {
     bb->count = ((basic_block)bb->aux)->count;
-    if (is_bb_annotated ((const basic_block)bb->aux, *annotated_bb))
+    if (is_bb_annotated ((basic_block)bb->aux, *annotated_bb))
       set_bb_annotated (bb, annotated_bb);
   }
 
@@ -1467,7 +1468,7 @@ afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
           current_function_decl) == NULL)
     return false;
 
-  compute_inline_parameters (cgraph_node::get (current_function_decl), true);
+  compute_fn_summary (cgraph_node::get (current_function_decl), true);
 
   bool has_vpt = false;
   FOR_EACH_BB_FN (bb, cfun)
@@ -1511,7 +1512,9 @@ afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
 
   if (has_vpt)
     {
-      optimize_inline_calls (current_function_decl);
+      unsigned todo = optimize_inline_calls (current_function_decl);
+      if (todo & TODO_update_ssa_any)
+       update_ssa (TODO_update_ssa);
       return true;
     }
 
@@ -1589,7 +1592,7 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
 static void
 early_inline ()
 {
-  compute_inline_parameters (cgraph_node::get (current_function_decl), true);
+  compute_fn_summary (cgraph_node::get (current_function_decl), true);
   unsigned todo = early_inliner (cfun);
   if (todo & TODO_update_ssa_any)
     update_ssa (TODO_update_ssa);
@@ -1667,7 +1670,7 @@ auto_profile (void)
     free_dominance_info (CDI_DOMINATORS);
     free_dominance_info (CDI_POST_DOMINATORS);
     cgraph_edge::rebuild_edges ();
-    compute_inline_parameters (cgraph_node::get (current_function_decl), true);
+    compute_fn_summary (cgraph_node::get (current_function_decl), true);
     pop_cfun ();
   }
 

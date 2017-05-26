@@ -1,5 +1,5 @@
 /* Next Runtime (ABI-2) private.
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
    Contributed by Iain Sandoe and based, in part, on an implementation in
    'branches/apple/trunk' contributed by Apple Computer Inc.
@@ -3584,7 +3584,7 @@ next_runtime_02_eh_type (tree type)
 	 case, we use c++'s typeinfo decl.  */
       return build_eh_type_type (type);
 #else
-      error ("non-objective-c type '%T' cannot be caught", type);
+      error ("non-objective-c type %qT cannot be caught", type);
       goto err_mark_in;
 #endif
     }

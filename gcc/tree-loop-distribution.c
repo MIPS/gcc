@@ -1,5 +1,5 @@
 /* Loop distribution.
-   Copyright (C) 2006-2016 Free Software Foundation, Inc.
+   Copyright (C) 2006-2017 Free Software Foundation, Inc.
    Contributed by Georges-Andre Silber <Georges-Andre.Silber@ensmp.fr>
    and Sebastian Pop <sebastian.pop@amd.com>.
 
@@ -466,7 +466,7 @@ build_rdg (vec<loop_p> loop_nest, control_dependences *cd)
 
 
 enum partition_kind {
-    PKIND_NORMAL, PKIND_MEMSET, PKIND_MEMCPY
+    PKIND_NORMAL, PKIND_MEMSET, PKIND_MEMCPY, PKIND_MEMMOVE
 };
 
 struct partition
@@ -474,12 +474,12 @@ struct partition
   bitmap stmts;
   bitmap loops;
   bool reduction_p;
+  bool plus_one;
   enum partition_kind kind;
   /* data-references a kind != PKIND_NORMAL partition is about.  */
   data_reference_p main_dr;
   data_reference_p secondary_dr;
   tree niter;
-  bool plus_one;
 };
 
 
@@ -750,11 +750,39 @@ const_with_all_bytes_same (tree val)
   int i, len;
 
   if (integer_zerop (val)
-      || real_zerop (val)
       || (TREE_CODE (val) == CONSTRUCTOR
           && !TREE_CLOBBER_P (val)
           && CONSTRUCTOR_NELTS (val) == 0))
     return 0;
+
+  if (real_zerop (val))
+    {
+      /* Only return 0 for +0.0, not for -0.0, which doesn't have
+	 an all bytes same memory representation.  Don't transform
+	 -0.0 stores into +0.0 even for !HONOR_SIGNED_ZEROS.  */
+      switch (TREE_CODE (val))
+	{
+	case REAL_CST:
+	  if (!real_isneg (TREE_REAL_CST_PTR (val)))
+	    return 0;
+	  break;
+	case COMPLEX_CST:
+	  if (!const_with_all_bytes_same (TREE_REALPART (val))
+	      && !const_with_all_bytes_same (TREE_IMAGPART (val)))
+	    return 0;
+	  break;
+	case VECTOR_CST:
+	  unsigned int j;
+	  for (j = 0; j < VECTOR_CST_NELTS (val); ++j)
+	    if (const_with_all_bytes_same (VECTOR_CST_ELT (val, j)))
+	      break;
+	  if (j == VECTOR_CST_NELTS (val))
+	    return 0;
+	  break;
+	default:
+	  break;
+	}
+    }
 
   if (CHAR_BIT != 8 || BITS_PER_UNIT != 8)
     return -1;
@@ -847,10 +875,11 @@ generate_memcpy_builtin (struct loop *loop, partition *partition)
 				       false, GSI_CONTINUE_LINKING);
   dest = build_addr_arg_loc (loc, partition->main_dr, nb_bytes);
   src = build_addr_arg_loc (loc, partition->secondary_dr, nb_bytes);
-  if (ptr_derefs_may_alias_p (dest, src))
-    kind = BUILT_IN_MEMMOVE;
-  else
+  if (partition->kind == PKIND_MEMCPY
+      || ! ptr_derefs_may_alias_p (dest, src))
     kind = BUILT_IN_MEMCPY;
+  else
+    kind = BUILT_IN_MEMMOVE;
 
   dest = force_gimple_operand_gsi (&gsi, dest, true, NULL_TREE,
 				   false, GSI_CONTINUE_LINKING);
@@ -942,6 +971,7 @@ generate_code_for_partition (struct loop *loop,
       break;
 
     case PKIND_MEMCPY:
+    case PKIND_MEMMOVE:
       generate_memcpy_builtin (loop, partition);
       break;
 
@@ -1042,6 +1072,13 @@ classify_partition (loop_p loop, struct graph *rdg, partition *partition)
       /* But exactly one store and/or load.  */
       for (j = 0; RDG_DATAREFS (rdg, i).iterate (j, &dr); ++j)
 	{
+	  tree type = TREE_TYPE (DR_REF (dr));
+
+	  /* The memset, memcpy and memmove library calls are only
+	     able to deal with generic address space.  */
+	  if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (type)))
+	    return;
+
 	  if (DR_IS_READ (dr))
 	    {
 	      if (single_load != NULL)
@@ -1138,10 +1175,12 @@ classify_partition (loop_p loop, struct graph *rdg, partition *partition)
 		  return;
 		}
 	    }
+	  partition->kind = PKIND_MEMMOVE;
 	}
+      else
+	partition->kind = PKIND_MEMCPY;
       free_dependence_relation (ddr);
       loops.release ();
-      partition->kind = PKIND_MEMCPY;
       partition->main_dr = single_store;
       partition->secondary_dr = single_load;
       partition->niter = nb_iter;
@@ -1212,7 +1251,7 @@ rdg_build_partitions (struct graph *rdg,
 		      vec<gimple *> starting_stmts,
 		      vec<partition *> *partitions)
 {
-  bitmap processed = BITMAP_ALLOC (NULL);
+  auto_bitmap processed;
   int i;
   gimple *stmt;
 
@@ -1243,8 +1282,6 @@ rdg_build_partitions (struct graph *rdg,
 
   /* All vertices should have been assigned to at least one partition now,
      other than vertices belonging to dead code.  */
-
-  BITMAP_FREE (processed);
 }
 
 /* Dump to FILE the PARTITIONS.  */
@@ -1380,9 +1417,11 @@ pg_add_dependence_edges (struct graph *rdg, vec<loop_p> loops, int dir,
 	else
 	  this_dir = 0;
 	free_dependence_relation (ddr);
-	if (dir == 0)
+	if (this_dir == 2)
+	  return 2;
+	else if (dir == 0)
 	  dir = this_dir;
-	else if (dir != this_dir)
+	else if (this_dir != 0 && dir != this_dir)
 	  return 2;
 	/* Shuffle "back" dr1.  */
 	dr1 = saved_dr1;
@@ -1514,8 +1553,7 @@ distribute_loop (struct loop *loop, vec<gimple *> stmts,
       for (int j = i + 1;
 	   partitions.iterate (j, &partition); ++j)
 	{
-	  if (!partition_builtin_p (partition)
-	      && similar_memory_accesses (rdg, into, partition))
+	  if (similar_memory_accesses (rdg, into, partition))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{

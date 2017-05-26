@@ -1,7 +1,7 @@
 /* Test -Wsizeof-pointer-memaccess warnings.  */
 /* { dg-do compile } */
-/* { dg-options "-Wall -O2 -Wno-sizeof-array-argument" } */
-/* { dg-options "-Wall -O2 -Wno-sizeof-array-argument -Wno-c++-compat" {target c} } */
+/* { dg-options "-Wall -O2 -Wno-sizeof-array-argument -ftrack-macro-expansion=0" } */
+/* { dg-options "-Wall -O2 -Wno-sizeof-array-argument -Wno-c++-compat -ftrack-macro-expansion=0" {target c} } */
 /* { dg-require-effective-target alloca } */
 
 #define bos(ptr) __builtin_object_size (ptr, 1)
@@ -481,4 +481,5 @@ f4 (char *x, char **y, int z, char w[64])
   stpncpy (x, s3, sizeof (s3));
 }
 
-/* { dg-prune-output "\[\n\r\]*will always overflow\[\n\r\]*" } */
+/* { dg-prune-output "\[\n\r\]*writing\[\n\r\]*" } */
+/* { dg-prune-output "\[\n\r\]*reading\[\n\r\]*" } */

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
+// +build aix darwin dragonfly freebsd linux nacl netbsd openbsd solaris windows
 
 package net
 
@@ -10,18 +10,6 @@ import (
 	"context"
 	"syscall"
 )
-
-// BUG(mikio): On every POSIX platform, reads from the "ip4" network
-// using the ReadFrom or ReadFromIP method might not return a complete
-// IPv4 packet, including its header, even if there is space
-// available. This can occur even in cases where Read or ReadMsgIP
-// could return a complete packet. For this reason, it is recommended
-// that you do not uses these methods if it is important to receive a
-// full packet.
-//
-// The Go 1 compatibility guidelines make it impossible for us to
-// change the behavior of these methods; use Read or ReadMsgIP
-// instead.
 
 func sockaddrToIP(sa syscall.Sockaddr) Addr {
 	switch sa := sa.(type) {
@@ -48,6 +36,10 @@ func (a *IPAddr) sockaddr(family int) (syscall.Sockaddr, error) {
 		return nil, nil
 	}
 	return ipToSockaddr(family, a.IP, 0, a.Zone)
+}
+
+func (a *IPAddr) toLocal(net string) sockaddr {
+	return &IPAddr{loopbackIP(net), a.Zone}
 }
 
 func (c *IPConn) readFrom(b []byte) (int, *IPAddr, error) {

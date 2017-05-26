@@ -1,5 +1,5 @@
 /* Decompose multiword subregs.
-   Copyright (C) 2007-2016 Free Software Foundation, Inc.
+   Copyright (C) 2007-2017 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 		  Ian Lance Taylor <iant@google.com>
 
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cfghooks.h"
 #include "df.h"
+#include "memmodel.h"
 #include "tm_p.h"
 #include "expmed.h"
 #include "insn-config.h"
@@ -404,10 +405,7 @@ find_pseudo_copy (rtx set)
 static void
 propagate_pseudo_copies (void)
 {
-  bitmap queue, propagate;
-
-  queue = BITMAP_ALLOC (NULL);
-  propagate = BITMAP_ALLOC (NULL);
+  auto_bitmap queue, propagate;
 
   bitmap_copy (queue, decomposable_context);
   do
@@ -428,9 +426,6 @@ propagate_pseudo_copies (void)
       bitmap_ior_into (decomposable_context, propagate);
     }
   while (!bitmap_empty_p (queue));
-
-  BITMAP_FREE (queue);
-  BITMAP_FREE (propagate);
 }
 
 /* A pointer to one of these values is passed to
@@ -934,7 +929,7 @@ resolve_simple_move (rtx set, rtx_insn *insn)
 
       if (AUTO_INC_DEC)
 	{
-	  rtx move = emit_move_insn (reg, src);
+	  rtx_insn *move = emit_move_insn (reg, src);
 	  if (MEM_P (src))
 	    {
 	      rtx note = find_reg_note (insn, REG_INC, NULL_RTX);

@@ -1,6 +1,6 @@
 /* LTO IL options.
 
-   Copyright (C) 2009-2016 Free Software Foundation, Inc.
+   Copyright (C) 2009-2017 Free Software Foundation, Inc.
    Contributed by Simon Baldwin <simonb@google.com>
 
 This file is part of GCC.
@@ -133,10 +133,6 @@ lto_write_options (void)
   if (!global_options_set.x_flag_trapv
       && !global_options.x_flag_trapv)
     append_to_collect_gcc_options (&temporary_obstack, &first_p, "-fno-trapv");
-  if (!global_options_set.x_flag_strict_overflow
-      && !global_options.x_flag_strict_overflow)
-    append_to_collect_gcc_options (&temporary_obstack, &first_p,
-			       "-fno-strict-overflow");
 
   if (!global_options_set.x_flag_openmp
       && !global_options.x_flag_openmp)

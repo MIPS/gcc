@@ -1,6 +1,6 @@
 /* Basic IPA utilities for type inheritance graph construction and
    devirtualization.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -122,8 +122,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "gimple-fold.h"
 #include "symbol-summary.h"
+#include "tree-vrp.h"
 #include "ipa-prop.h"
-#include "ipa-inline.h"
+#include "ipa-fnsummary.h"
 #include "demangle.h"
 #include "dbgcnt.h"
 #include "gimple-pretty-print.h"
@@ -137,10 +138,11 @@ struct type_pair
 };
 
 template <>
-struct default_hash_traits <type_pair> : typed_noop_remove <type_pair>
+struct default_hash_traits <type_pair>
+  : typed_noop_remove <type_pair>
 {
-  typedef type_pair value_type;
-  typedef type_pair compare_type;
+  GTY((skip)) typedef type_pair value_type;
+  GTY((skip)) typedef type_pair compare_type;
   static hashval_t
   hash (type_pair p)
   {
@@ -876,9 +878,9 @@ compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
 	  if (TREE_CODE (ref1->referred->decl)
 	      != TREE_CODE (ref2->referred->decl))
 	    {
-	      if (TREE_CODE (ref1->referred->decl) == VAR_DECL)
+	      if (VAR_P (ref1->referred->decl))
 		end1 = true;
-	      else if (TREE_CODE (ref2->referred->decl) == VAR_DECL)
+	      else if (VAR_P (ref2->referred->decl))
 		end2 = true;
 	    }
 	}
@@ -1138,7 +1140,7 @@ warn_types_mismatch (tree t1, tree t2, location_t loc1, location_t loc2)
       if (name1 && name2 && strcmp (name1, name2))
 	{
 	  inform (loc_t1,
-		  "type name %<%s%> should match type name %<%s%>",
+		  "type name %qs should match type name %qs",
 		  name1, name2);
 	  if (loc_t2_useful)
 	    inform (loc_t2,
@@ -1225,7 +1227,7 @@ warn_types_mismatch (tree t1, tree t2, location_t loc1, location_t loc2)
   if (types_odr_comparable (t1, t2, true)
       && types_same_for_odr (t1, t2, true))
     inform (loc_t1,
-	    "type %qT itself violate the C++ One Definition Rule", t1);
+	    "type %qT itself violates the C++ One Definition Rule", t1);
   /* Prevent pointless warnings like "struct aa" should match "struct aa".  */
   else if (TYPE_NAME (t1) == TYPE_NAME (t2)
 	   && TREE_CODE (t1) == TREE_CODE (t2) && !loc_t2_useful)
@@ -1572,7 +1574,7 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
 		    if (DECL_ARTIFICIAL (f1))
 		      break;
 		    warn_odr (t1, t2, f1, f2, warn, warned,
-			      G_("fields has different layout "
+			      G_("fields have different layout "
 				 "in another translation unit"));
 		    return false;
 		  }
@@ -1627,7 +1629,7 @@ odr_types_equivalent_p (tree t1, tree t2, bool warn, bool *warned,
 		      if (DECL_VIRTUAL_P (f1) != DECL_VIRTUAL_P (f2))
 			{
 			  warn_odr (t1, t2, f1, f2, warn, warned,
-				    G_("s definition that differs by virtual "
+				    G_("a definition that differs by virtual "
 				       "keyword in another translation unit"));
 			  return false;
 			}
@@ -2136,8 +2138,7 @@ get_odr_type (tree type, bool insert)
       /* Be sure we did not recorded any derived types; these may need
 	 renumbering too.  */
       gcc_assert (val->derived_types.length() == 0);
-      if (odr_types_ptr)
-	val->id = odr_types.length ();
+      val->id = odr_types.length ();
       vec_safe_push (odr_types_ptr, val);
     }
   return val;
@@ -2259,7 +2260,7 @@ build_type_inheritance_graph (void)
 {
   struct symtab_node *n;
   FILE *inheritance_dump_file;
-  int flags;
+  dump_flags_t flags;
 
   if (odr_hash)
     return;
@@ -2342,7 +2343,7 @@ referenced_from_vtable_p (struct cgraph_node *node)
     if ((ref->use == IPA_REF_ALIAS
 	 && referenced_from_vtable_p (dyn_cast<cgraph_node *> (ref->referring)))
 	|| (ref->use == IPA_REF_ADDR
-	    && TREE_CODE (ref->referring->decl) == VAR_DECL
+	    && VAR_P (ref->referring->decl)
 	    && DECL_VIRTUAL_P (ref->referring->decl)))
       {
 	found = true;
@@ -2462,10 +2463,19 @@ maybe_record_node (vec <cgraph_node *> &nodes,
 	  nodes.safe_push (target_node);
 	}
     }
-  else if (completep
-	   && (!type_in_anonymous_namespace_p
-		 (DECL_CONTEXT (target))
-	       || flag_ltrans))
+  else if (!completep)
+    ;
+  /* We have definition of __cxa_pure_virtual that is not accessible (it is
+     optimized out or partitioned to other unit) so we can not add it.  When
+     not sanitizing, there is nothing to do.
+     Otherwise declare the list incomplete.  */
+  else if (pure_virtual)
+    {
+      if (flag_sanitize & SANITIZE_UNREACHABLE)
+	*completep = false;
+    }
+  else if (flag_ltrans
+	   || !type_in_anonymous_namespace_p (DECL_CONTEXT (target)))
     *completep = false;
 }
 
@@ -3306,7 +3316,8 @@ dump_targets (FILE *f, vec <cgraph_node *> targets)
       char *name = NULL;
       if (in_lto_p)
 	name = cplus_demangle_v3 (targets[i]->asm_name (), 0);
-      fprintf (f, " %s/%i", name ? name : targets[i]->name (), targets[i]->order);
+      fprintf (f, " %s/%i", name ? name : targets[i]->name (),
+	       targets[i]->order);
       if (in_lto_p)
 	free (name);
       if (!targets[i]->definition)
@@ -3358,7 +3369,13 @@ dump_possible_polymorphic_call_targets (FILE *f,
       fprintf (f, "  Speculative targets:");
       dump_targets (f, targets);
     }
-  gcc_assert (targets.length () <= len);
+  /* Ugly: during callgraph construction the target cache may get populated
+     before all targets are found.  While this is harmless (because all local
+     types are discovered and only in those case we devirtualize fully and we
+     don't do speculative devirtualization before IPA stage) it triggers
+     assert here when dumping at that stage also populates the case with
+     speculative targets.  Quietly ignore this.  */
+  gcc_assert (symtab->state < IPA_SSA || targets.length () <= len);
   fprintf (f, "\n");
 }
 
@@ -3580,8 +3597,8 @@ ipa_devirt (void)
       if (!opt_for_fn (n->decl, flag_devirtualize))
 	continue;
       if (dump_file && n->indirect_calls)
-	fprintf (dump_file, "\n\nProcesing function %s/%i\n",
-		 n->name (), n->order);
+	fprintf (dump_file, "\n\nProcesing function %s\n",
+		 n->dump_name ());
       for (e = n->indirect_calls; e; e = e->next_callee)
 	if (e->indirect_info->polymorphic)
 	  {
@@ -3736,10 +3753,10 @@ ipa_devirt (void)
                   {
                     location_t locus = gimple_location_safe (e->call_stmt);
                     dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
-                                     "speculatively devirtualizing call in %s/%i to %s/%i\n",
-                                     n->name (), n->order,
-                                     likely_target->name (),
-                                     likely_target->order);
+				     "speculatively devirtualizing call "
+				     "in %s to %s\n",
+				     n->dump_name (),
+				     likely_target->dump_name ());
                   }
 		if (!likely_target->can_be_discarded_p ())
 		  {
@@ -3755,7 +3772,7 @@ ipa_devirt (void)
 	      }
 	  }
       if (update)
-	inline_update_overall_summary (n);
+	ipa_update_overall_fn_summary (n);
     }
   if (warn_suggest_final_methods || warn_suggest_final_types)
     {

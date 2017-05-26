@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2017, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -525,9 +525,10 @@ package body Lib.Xref is
                P := Parent (P);
 
                if Nkind (P) = N_Pragma then
-                  if Nam_In (Pragma_Name (P), Name_Warnings,
-                                              Name_Unmodified,
-                                              Name_Unreferenced)
+                  if Nam_In (Pragma_Name_Unmapped (P),
+                             Name_Warnings,
+                             Name_Unmodified,
+                             Name_Unreferenced)
                   then
                      return False;
                   end if;
@@ -847,8 +848,8 @@ package body Lib.Xref is
          if Has_Unreferenced (E)
            and then In_Same_Extended_Unit (E, N)
          then
-            --  A reference as a named parameter in a call does not count
-            --  as a violation of pragma Unreferenced for this purpose...
+            --  A reference as a named parameter in a call does not count as a
+            --  violation of pragma Unreferenced for this purpose...
 
             if Nkind (N) = N_Identifier
               and then Nkind (Parent (N)) = N_Parameter_Association
@@ -856,10 +857,28 @@ package body Lib.Xref is
             then
                null;
 
-            --  ... Neither does a reference to a variable on the left side
-            --  of an assignment.
+            --  ... Neither does a reference to a variable on the left side of
+            --  an assignment.
 
             elsif Is_On_LHS (N) then
+               null;
+
+            --  Do not consider F'Result as a violation of pragma Unreferenced
+            --  since the attribute acts as an anonymous alias of the function
+            --  result and not as a real reference to the function.
+
+            elsif Ekind_In (E, E_Function, E_Generic_Function)
+              and then Is_Entity_Name (N)
+              and then Is_Attribute_Result (Parent (N))
+            then
+               null;
+
+            --  No warning if the reference is in a call that does not come
+            --  from source (e.g. a call to a controlled type primitive).
+
+            elsif not Comes_From_Source (Parent (N))
+              and then Nkind (Parent (N)) = N_Procedure_Call_Statement
+            then
                null;
 
             --  For entry formals, we want to place the warning message on the
@@ -1508,6 +1527,14 @@ package body Lib.Xref is
                           Entity (Original_Node (Object_Definition (Decl)));
                      end if;
                   end;
+
+               --  For a function that returns a class-wide type, Tref is
+               --  already correct.
+
+               elsif Is_Overloadable (Ent)
+                 and then Is_Class_Wide_Type (Tref)
+               then
+                  return;
                end if;
 
             --  For anything else, exit

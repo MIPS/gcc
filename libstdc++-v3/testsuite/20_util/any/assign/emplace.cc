@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++17" }
 // { dg-do run }
 
-// Copyright (C) 2016 Free Software Foundation, Inc.
+// Copyright (C) 2016-2017 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -14,7 +14,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a moved_to of the GNU General Public License along
+// You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
@@ -59,4 +59,21 @@ int main()
   combined& c2 = std::any_cast<combined&>(o5);
   VERIFY(c2.v[0] == 1 && c2.v[1] == 2
 	 && std::get<0>(c2.t) == 3 && std::get<1>(c2.t) == 4 );
+  std::any o6;
+  o6.emplace<const int&>(i);
+  VERIFY(o6.type() == o.type());
+  std::any o7;
+  o7.emplace<void()>(nullptr);
+  std::any o8;
+  o8.emplace<void(*)()>(nullptr);
+  VERIFY(o7.type() == o8.type());
+  std::any o9;
+  o9.emplace<char(&)[42]>(nullptr);
+  std::any o10;
+  o10.emplace<char*>(nullptr);
+  VERIFY(o9.type() == o10.type());
+  std::any o11;
+  VERIFY(&o11.emplace<int>(42) == &std::any_cast<int&>(o11));
+  VERIFY(&o11.emplace<std::vector<int>>({1,2,3}) ==
+	 &std::any_cast<std::vector<int>&>(o11));
 }

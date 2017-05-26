@@ -1,6 +1,6 @@
 /* Routines for reading trees from a file stream.
 
-   Copyright (C) 2011-2016 Free Software Foundation, Inc.
+   Copyright (C) 2011-2017 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -220,7 +220,7 @@ unpack_ts_fixed_cst_value_fields (struct bitpack_d *bp, tree expr)
 static void
 unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 {
-  DECL_MODE (expr) = bp_unpack_machine_mode (bp);
+  SET_DECL_MODE (expr, bp_unpack_machine_mode (bp));
   DECL_NONLOCAL (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_VIRTUAL_P (expr) = (unsigned) bp_unpack_value (bp, 1);
   DECL_IGNORED_P (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -251,7 +251,7 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
       expr->decl_common.off_align = bp_unpack_value (bp, 8);
     }
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       DECL_HAS_DEBUG_EXPR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_NONLOCAL_FRAME (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -259,11 +259,10 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
 
   if (TREE_CODE (expr) == RESULT_DECL
       || TREE_CODE (expr) == PARM_DECL
-      || TREE_CODE (expr) == VAR_DECL)
+      || VAR_P (expr))
     {
       DECL_BY_REFERENCE (expr) = (unsigned) bp_unpack_value (bp, 1);
-      if (TREE_CODE (expr) == VAR_DECL
-	  || TREE_CODE (expr) == PARM_DECL)
+      if (VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
 	DECL_HAS_VALUE_EXPR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
     }
 }
@@ -293,7 +292,7 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
   DECL_VISIBILITY (expr) = (enum symbol_visibility) bp_unpack_value (bp,  2);
   DECL_VISIBILITY_SPECIFIED (expr) = (unsigned) bp_unpack_value (bp,  1);
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       DECL_HARD_REGISTER (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_IN_CONSTANT_POOL (expr) = (unsigned) bp_unpack_value (bp, 1);
@@ -377,6 +376,8 @@ unpack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
     }
   else if (TREE_CODE (expr) == ARRAY_TYPE)
     TYPE_NONALIASED_COMPONENT (expr) = (unsigned) bp_unpack_value (bp, 1);
+  if (AGGREGATE_TYPE_P (expr))
+    TYPE_TYPELESS_STORAGE (expr) = (unsigned) bp_unpack_value (bp, 1);
   TYPE_PRECISION (expr) = bp_unpack_var_len_unsigned (bp);
   SET_TYPE_ALIGN (expr, bp_unpack_var_len_unsigned (bp));
 #ifdef ACCEL_COMPILER
@@ -565,19 +566,8 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
 {
   enum tree_code code;
   tree result;
-#ifdef LTO_STREAMER_DEBUG
-  HOST_WIDE_INT orig_address_in_writer;
-#endif
 
   result = NULL_TREE;
-
-#ifdef LTO_STREAMER_DEBUG
-  /* Read the word representing the memory address for the tree
-     as it was written by the writer.  This is useful when
-     debugging differences between the writer and reader.  */
-  orig_address_in_writer = streamer_read_hwi (ib);
-  gcc_assert ((intptr_t) orig_address_in_writer == orig_address_in_writer);
-#endif
 
   code = lto_tag_to_tree_code (tag);
 
@@ -628,15 +618,6 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
 	 make_node call.  */
       result = make_node (code);
     }
-
-#ifdef LTO_STREAMER_DEBUG
-  /* Store the original address of the tree as seen by the writer
-     in RESULT's aux field.  This is useful when debugging streaming
-     problems.  This way, a debugging session can be started on
-     both writer and reader with a breakpoint using this address
-     value in both.  */
-  lto_orig_address_map (result, (intptr_t) orig_address_in_writer);
-#endif
 
   return result;
 }
@@ -712,12 +693,11 @@ lto_input_ts_decl_common_tree_pointers (struct lto_input_block *ib,
      for early inlining so drop it on the floor instead of ICEing in
      dwarf2out.c.  */
 
-  if ((TREE_CODE (expr) == VAR_DECL
-       || TREE_CODE (expr) == PARM_DECL)
+  if ((VAR_P (expr) || TREE_CODE (expr) == PARM_DECL)
       && DECL_HAS_VALUE_EXPR_P (expr))
     SET_DECL_VALUE_EXPR (expr, stream_read_tree (ib, data_in));
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_P (expr))
     {
       tree dexpr = stream_read_tree (ib, data_in);
       if (dexpr)

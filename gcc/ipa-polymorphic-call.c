@@ -1,5 +1,5 @@
 /* Analysis of polymorphic call context.
-   Copyright (C) 2013-2016 Free Software Foundation, Inc.
+   Copyright (C) 2013-2017 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -117,7 +117,7 @@ possible_placement_new (tree type, tree expected_type,
    Return true when lookup was sucesful.
 
    When CONSIDER_PLACEMENT_NEW is false, reject contexts that may be made
-   valid only via alocation of new polymorphic type inside by means
+   valid only via allocation of new polymorphic type inside by means
    of placement new.
 
    When CONSIDER_BASES is false, only look for actual fields, not base types
@@ -463,12 +463,12 @@ contains_type_p (tree outer_type, HOST_WIDE_INT offset,
   /* Check that type is within range.  */
   if (offset < 0)
     return false;
-  if (TYPE_SIZE (outer_type) && TYPE_SIZE (otr_type)
-      && TREE_CODE (TYPE_SIZE (outer_type)) == INTEGER_CST
-      && TREE_CODE (TYPE_SIZE (otr_type)) == INTEGER_CST
-      && wi::ltu_p (wi::to_offset (TYPE_SIZE (outer_type)),
-		    (wi::to_offset (TYPE_SIZE (otr_type)) + offset)))
-    return false;
+
+  /* PR ipa/71207
+     As OUTER_TYPE can be a type which has a diamond virtual inheritance,
+     it's not necessary that INNER_TYPE will fit within OUTER_TYPE with
+     a given offset.  It can happen that INNER_TYPE also contains a base object,
+     however it would point to the same instance in the OUTER_TYPE.  */
 
   context.offset = offset;
   context.outer_type = TYPE_MAIN_VARIANT (outer_type);
@@ -575,7 +575,7 @@ decl_maybe_in_construction_p (tree base, tree outer_type,
 	  return true;
       }
 
-  if (!base || (TREE_CODE (base) == VAR_DECL && is_global_var (base)))
+  if (!base || (VAR_P (base) && is_global_var (base)))
     {
       if (TREE_CODE (TREE_TYPE (function)) != METHOD_TYPE
 	  || (!DECL_CXX_CONSTRUCTOR_P (function)
@@ -1398,7 +1398,7 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
 	if (dump_file)
 	  {
 	    fprintf (dump_file, "  Checking constructor call: ");
-	    print_gimple_stmt (dump_file, stmt, 0, 0);
+	    print_gimple_stmt (dump_file, stmt, 0);
 	  }
 
 	/* See if THIS parameter seems like instance pointer.  */
@@ -1460,7 +1460,7 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
      if (dump_file)
 	{
           fprintf (dump_file, "  Function call may change dynamic type:");
-	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  print_gimple_stmt (dump_file, stmt, 0);
 	}
      tci->speculative++;
      return csftc_abort_walking_p (tci->speculative);
@@ -1473,7 +1473,7 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
       if (dump_file)
 	{
 	  fprintf (dump_file, "  Checking vtbl store: ");
-	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  print_gimple_stmt (dump_file, stmt, 0);
 	}
 
       type = extr_type_from_vtbl_ptr_store (stmt, tci, &offset);
@@ -1542,6 +1542,11 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
     }
 
   if (!maybe_in_construction && !maybe_derived_type)
+    return false;
+
+  /* If we are in fact not looking at any object object or the instance is
+     some placement new into a random load, give up straight away.  */
+  if (TREE_CODE (instance) == MEM_REF)
     return false;
 
   /* We need to obtain refernce to virtual table pointer.  It is better
@@ -1648,9 +1653,9 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
   if (dump_file)
     {
       fprintf (dump_file, "Determining dynamic type for call: ");
-      print_gimple_stmt (dump_file, call, 0, 0);
+      print_gimple_stmt (dump_file, call, 0);
       fprintf (dump_file, "  Starting walk at: ");
-      print_gimple_stmt (dump_file, stmt, 0, 0);
+      print_gimple_stmt (dump_file, stmt, 0);
       fprintf (dump_file, "  instance pointer: ");
       print_generic_expr (dump_file, otr_object, TDF_SLIM);
       fprintf (dump_file, "  Outer instance pointer: ");
@@ -1664,7 +1669,6 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
   tci.offset = instance_offset;
   tci.instance = instance;
   tci.vtbl_ptr_ref = instance_ref;
-  gcc_assert (TREE_CODE (instance) != MEM_REF);
   tci.known_current_type = NULL_TREE;
   tci.known_current_offset = 0;
   tci.otr_type = otr_type;

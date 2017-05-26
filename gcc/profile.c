@@ -1,5 +1,5 @@
 /* Calculate branch probabilities, and basic block execution counts.
-   Copyright (C) 1990-2016 Free Software Foundation, Inc.
+   Copyright (C) 1990-2017 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -179,10 +179,6 @@ instrument_values (histogram_values values)
 	  gimple_gen_one_value_profiler (hist, t, 0);
 	  break;
 
-	case HIST_TYPE_CONST_DELTA:
-	  gimple_gen_const_delta_profiler (hist, t, 0);
-	  break;
-
  	case HIST_TYPE_INDIR_CALL:
  	case HIST_TYPE_INDIR_CALL_TOPN:
  	  gimple_gen_ic_profiler (hist, t, 0);
@@ -196,15 +192,9 @@ instrument_values (histogram_values values)
 	  gimple_gen_ior_profiler (hist, t, 0);
 	  break;
 
-  case HIST_TYPE_TIME_PROFILE:
-    {
-      basic_block bb =
-     split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
-      gimple_stmt_iterator gsi = gsi_start_bb (bb);
-
-      gimple_gen_time_profiler (t, 0, gsi);
-      break;
-    }
+	case HIST_TYPE_TIME_PROFILE:
+	  gimple_gen_time_profiler (t, 0);
+	  break;
 
 	default:
 	  gcc_unreachable ();
@@ -951,29 +941,26 @@ output_location (char const *file_name, int line,
   name_differs = !prev_file_name || filename_cmp (file_name, prev_file_name);
   line_differs = prev_line != line;
 
-  if (name_differs || line_differs)
+  if (!*offset)
     {
-      if (!*offset)
-	{
-	  *offset = gcov_write_tag (GCOV_TAG_LINES);
-	  gcov_write_unsigned (bb->index);
-	  name_differs = line_differs=true;
-	}
+      *offset = gcov_write_tag (GCOV_TAG_LINES);
+      gcov_write_unsigned (bb->index);
+      name_differs = line_differs = true;
+    }
 
-      /* If this is a new source file, then output the
-	 file's name to the .bb file.  */
-      if (name_differs)
-	{
-	  prev_file_name = file_name;
-	  gcov_write_unsigned (0);
-	  gcov_write_string (prev_file_name);
-	}
-      if (line_differs)
-	{
-	  gcov_write_unsigned (line);
-	  prev_line = line;
-	}
-     }
+  /* If this is a new source file, then output the
+     file's name to the .bb file.  */
+  if (name_differs)
+    {
+      prev_file_name = file_name;
+      gcov_write_unsigned (0);
+      gcov_write_string (prev_file_name);
+    }
+  if (line_differs)
+    {
+      gcov_write_unsigned (line);
+      prev_line = line;
+    }
 }
 
 /* Instrument and/or analyze program behavior based on program the CFG.
@@ -1046,7 +1033,7 @@ branch_prob (void)
 	       gsi_prev_nondebug (&gsi))
 	    {
 	      last = gsi_stmt (gsi);
-	      if (gimple_has_location (last))
+	      if (!RESERVED_LOCATION_P (gimple_location (last)))
 		break;
 	    }
 
@@ -1057,7 +1044,7 @@ branch_prob (void)
 	     is not computed twice.  */
 	  if (last
 	      && gimple_has_location (last)
-	      && LOCATION_LOCUS (e->goto_locus) != UNKNOWN_LOCATION
+	      && !RESERVED_LOCATION_P (e->goto_locus)
 	      && !single_succ_p (bb)
 	      && (LOCATION_FILE (e->goto_locus)
 	          != LOCATION_FILE (gimple_location (last))
@@ -1205,8 +1192,7 @@ branch_prob (void)
 
       /* Basic block flags */
       offset = gcov_write_tag (GCOV_TAG_BLOCKS);
-      for (i = 0; i != (unsigned) (n_basic_blocks_for_fn (cfun)); i++)
-	gcov_write_unsigned (0);
+      gcov_write_unsigned (n_basic_blocks_for_fn (cfun));
       gcov_write_length (offset);
 
       /* Arcs */
@@ -1266,15 +1252,14 @@ branch_prob (void)
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
 	      gimple *stmt = gsi_stmt (gsi);
-	      if (gimple_has_location (stmt))
+	      if (!RESERVED_LOCATION_P (gimple_location (stmt)))
 		output_location (gimple_filename (stmt), gimple_lineno (stmt),
 				 &offset, bb);
 	    }
 
 	  /* Notice GOTO expressions eliminated while constructing the CFG.  */
 	  if (single_succ_p (bb)
-	      && LOCATION_LOCUS (single_succ_edge (bb)->goto_locus)
-		 != UNKNOWN_LOCATION)
+	      && !RESERVED_LOCATION_P (single_succ_edge (bb)->goto_locus))
 	    {
 	      expanded_location curr_location
 		= expand_location (single_succ_edge (bb)->goto_locus);
@@ -1310,7 +1295,7 @@ branch_prob (void)
     {
       unsigned n_instrumented;
 
-      gimple_init_edge_profiler ();
+      gimple_init_gcov_profiler ();
 
       n_instrumented = instrument_edges (el);
 

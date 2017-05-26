@@ -1,5 +1,5 @@
 /* Pass manager for Fortran front end.
-   Copyright (C) 2010-2016 Free Software Foundation, Inc.
+   Copyright (C) 2010-2017 Free Software Foundation, Inc.
    Contributed by Thomas König.
 
 This file is part of GCC.
@@ -43,10 +43,16 @@ static void optimize_reduction (gfc_namespace *);
 static int callback_reduction (gfc_expr **, int *, void *);
 static void realloc_strings (gfc_namespace *);
 static gfc_expr *create_var (gfc_expr *, const char *vname=NULL);
+static int matmul_to_var_expr (gfc_expr **, int *, void *);
+static int matmul_to_var_code (gfc_code **, int *, void *);
 static int inline_matmul_assign (gfc_code **, int *, void *);
 static gfc_code * create_do_loop (gfc_expr *, gfc_expr *, gfc_expr *,
 				  locus *, gfc_namespace *,
 				  char *vname=NULL);
+
+#ifdef CHECKING_P
+static void check_locus (gfc_namespace *);
+#endif
 
 /* How deep we are inside an argument list.  */
 
@@ -106,7 +112,7 @@ static int var_num = 1;
 
 /* What sort of matrix we are dealing with when inlining MATMUL.  */
 
-enum matrix_case { none=0, A2B2, A2B1, A1B2, A2B2T };
+enum matrix_case { none=0, A2B2, A2B1, A1B2, A2B2T, A2TB2 };
 
 /* Keep track of the number of expressions we have inserted so far
    using create_var.  */
@@ -127,6 +133,10 @@ gfc_run_passes (gfc_namespace *ns)
   doloop_list.release ();
   int w, e;
 
+#ifdef CHECKING_P
+  check_locus (ns);
+#endif
+
   if (flag_frontend_optimize)
     {
       optimize_namespace (ns);
@@ -144,6 +154,53 @@ gfc_run_passes (gfc_namespace *ns)
   if (flag_realloc_lhs)
     realloc_strings (ns);
 }
+
+#ifdef CHECKING_P
+
+/* Callback function: Warn if there is no location information in a
+   statement.  */
+
+static int
+check_locus_code (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
+		  void *data ATTRIBUTE_UNUSED)
+{
+  current_code = c;
+  if (c && *c && (((*c)->loc.nextc == NULL) || ((*c)->loc.lb == NULL)))
+    gfc_warning_internal (0, "No location in statement");
+
+  return 0;
+}
+
+
+/* Callback function: Warn if there is no location information in an
+   expression.  */
+
+static int
+check_locus_expr (gfc_expr **e, int *walk_subtrees ATTRIBUTE_UNUSED,
+		  void *data ATTRIBUTE_UNUSED)
+{
+
+  if (e && *e && (((*e)->where.nextc == NULL || (*e)->where.lb == NULL)))
+    gfc_warning_internal (0, "No location in expression near %L",
+			  &((*current_code)->loc));
+  return 0;
+}
+
+/* Run check for missing location information.  */
+
+static void
+check_locus (gfc_namespace *ns)
+{
+  gfc_code_walker (&ns->code, check_locus_code, check_locus_expr, NULL);
+
+  for (ns = ns->contained; ns; ns = ns->sibling)
+    {
+      if (ns->code == NULL || ns->code->op != EXEC_BLOCK)
+	check_locus (ns);
+    }
+}
+
+#endif
 
 /* Callback for each gfc_code node invoked from check_realloc_strings.
    For an allocatable LHS string which also appears as a variable on
@@ -164,17 +221,32 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
   gfc_expr *expr1, *expr2;
   gfc_code *co = *c;
   gfc_expr *n;
+  gfc_ref *ref;
+  bool found_substr;
 
   if (co->op != EXEC_ASSIGN)
     return 0;
 
   expr1 = co->expr1;
   if (expr1->ts.type != BT_CHARACTER || expr1->rank != 0
-      || !expr1->symtree->n.sym->attr.allocatable)
+      || !gfc_expr_attr(expr1).allocatable
+      || !expr1->ts.deferred)
     return 0;
 
   expr2 = gfc_discard_nops (co->expr2);
   if (expr2->expr_type != EXPR_VARIABLE)
+    return 0;
+
+  found_substr = false;
+  for (ref = expr2->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_SUBSTRING)
+	{
+	  found_substr = true;
+	  break;
+	}
+    }
+  if (!found_substr)
     return 0;
 
   if (!gfc_check_dependency (expr1, expr2, true))
@@ -190,7 +262,7 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
   current_code = c;
   inserted_block = NULL;
   changed_statement = NULL;
-  n = create_var (expr2, "trim");
+  n = create_var (expr2, "realloc_string");
   co->expr2 = n;
   return 0;
 }
@@ -616,6 +688,7 @@ create_var (gfc_expr * e, const char *vname)
   gfc_code *n;
   gfc_namespace *ns;
   int i;
+  bool deferred;
 
   if (e->expr_type == EXPR_CONSTANT || is_fe_temp (e))
     return gfc_copy_expr (e);
@@ -666,6 +739,7 @@ create_var (gfc_expr * e, const char *vname)
 	}
     }
 
+  deferred = 0;
   if (e->ts.type == BT_CHARACTER && e->rank == 0)
     {
       gfc_expr *length;
@@ -675,7 +749,10 @@ create_var (gfc_expr * e, const char *vname)
       if (length)
 	symbol->ts.u.cl->length = length;
       else
-	symbol->attr.allocatable = 1;
+	{
+	  symbol->attr.allocatable = 1;
+	  deferred = 1;
+	}
     }
 
   symbol->attr.flavor = FL_VARIABLE;
@@ -687,6 +764,7 @@ create_var (gfc_expr * e, const char *vname)
   result = gfc_get_expr ();
   result->expr_type = EXPR_VARIABLE;
   result->ts = e->ts;
+  result->ts.deferred = deferred;
   result->rank = e->rank;
   result->shape = gfc_copy_shape (e->shape, e->rank);
   result->symtree = symtree;
@@ -726,10 +804,12 @@ do_warn_function_elimination (gfc_expr *e)
   if (e->expr_type != EXPR_FUNCTION)
     return;
   if (e->value.function.esym)
-    gfc_warning (0, "Removing call to function %qs at %L",
+    gfc_warning (OPT_Wfunction_elimination,
+		 "Removing call to function %qs at %L",
 		 e->value.function.esym->name, &(e->where));
   else if (e->value.function.isym)
-    gfc_warning (0, "Removing call to function %qs at %L",
+    gfc_warning (OPT_Wfunction_elimination,
+		 "Removing call to function %qs at %L",
 		 e->value.function.isym->name, &(e->where));
 }
 /* Callback function for the code walker for doing common function
@@ -998,9 +1078,20 @@ optimize_namespace (gfc_namespace *ns)
   gfc_code_walker (&ns->code, cfe_code, cfe_expr_0, NULL);
   gfc_code_walker (&ns->code, optimize_code, optimize_expr, NULL);
   if (flag_inline_matmul_limit != 0)
-    gfc_code_walker (&ns->code, inline_matmul_assign, dummy_expr_callback,
-		     NULL);
-
+    {
+      bool found;
+      do
+	{
+	  found = false;
+	  gfc_code_walker (&ns->code, matmul_to_var_code, matmul_to_var_expr,
+			   (void *) &found);
+	}
+      while (found);
+	
+      gfc_code_walker (&ns->code, inline_matmul_assign, dummy_expr_callback,
+		       NULL);
+    }
+  
   /* BLOCKs are handled in the expression walker below.  */
   for (ns = ns->contained; ns; ns = ns->sibling)
     {
@@ -1054,6 +1145,9 @@ static bool
 optimize_binop_array_assignment (gfc_code *c, gfc_expr **rhs, bool seen_op)
 {
   gfc_expr *e;
+
+  if (!*rhs)
+    return false;
 
   e = *rhs;
   if (e->expr_type == EXPR_OP)
@@ -1131,6 +1225,8 @@ remove_trim (gfc_expr *rhs)
   bool ret;
 
   ret = false;
+  if (!rhs)
+    return ret;
 
   /* Check for a // b // trim(c).  Looping is probably not
      necessary because the parser usually generates
@@ -1268,6 +1364,9 @@ combine_array_constructor (gfc_expr *e)
   op1 = e->value.op.op1;
   op2 = e->value.op.op2;
 
+  if (!op1 || !op2)
+    return false;
+
   if (op1->expr_type == EXPR_ARRAY && op2->rank == 0)
     scalar_first = false;
   else if (op2->expr_type == EXPR_ARRAY && op1->rank == 0)
@@ -1295,7 +1394,7 @@ combine_array_constructor (gfc_expr *e)
       new_expr->ts = e->ts;
       new_expr->expr_type = EXPR_OP;
       new_expr->rank = c->expr->rank;
-      new_expr->where = c->where;
+      new_expr->where = c->expr->where;
       new_expr->value.op.op = e->value.op.op;
 
       if (scalar_first)
@@ -1452,7 +1551,7 @@ optimize_op (gfc_expr *e)
     case INTRINSIC_LT:
       changed = optimize_comparison (e, op);
 
-      /* Fall through */
+      gcc_fallthrough ();
       /* Look at array constructors.  */
     case INTRINSIC_PLUS:
     case INTRINSIC_MINUS:
@@ -1462,7 +1561,6 @@ optimize_op (gfc_expr *e)
 
     case INTRINSIC_POWER:
       return optimize_power (e);
-      break;
 
     default:
       break;
@@ -1826,7 +1924,7 @@ optimize_minmaxloc (gfc_expr **e)
   strcpy (name, fn->value.function.name);
   p = strstr (name, "loc0");
   p[3] = '1';
-  fn->value.function.name = gfc_get_string (name);
+  fn->value.function.name = gfc_get_string ("%s", name);
   if (fn->value.function.actual->next)
     {
       a = fn->value.function.actual->next;
@@ -2001,6 +2099,64 @@ doloop_warn (gfc_namespace *ns)
 
 /* This selction deals with inlining calls to MATMUL.  */
 
+/* Replace calls to matmul outside of straight assignments with a temporary
+   variable so that later inlining will work.  */
+
+static int
+matmul_to_var_expr (gfc_expr **ep, int *walk_subtrees ATTRIBUTE_UNUSED,
+		    void *data)
+{
+  gfc_expr *e, *n;
+  bool *found = (bool *) data;
+  
+  e = *ep;
+
+  if (e->expr_type != EXPR_FUNCTION
+      || e->value.function.isym == NULL
+      || e->value.function.isym->id != GFC_ISYM_MATMUL)
+    return 0;
+
+  if (forall_level > 0 || iterator_level > 0 || in_omp_workshare
+      || in_where)
+    return 0;
+
+  /* Check if this is already in the form c = matmul(a,b).  */
+  
+  if ((*current_code)->expr2 == e)
+    return 0;
+
+  n = create_var (e, "matmul");
+  
+  /* If create_var is unable to create a variable (for example if
+     -fno-realloc-lhs is in force with a variable that does not have bounds
+     known at compile-time), just return.  */
+
+  if (n == NULL)
+    return 0;
+  
+  *ep = n;
+  *found = true;
+  return 0;
+}
+
+/* Set current_code and associated variables so that matmul_to_var_expr can
+   work.  */
+
+static int
+matmul_to_var_code (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
+		    void *data ATTRIBUTE_UNUSED)
+{
+  if (current_code != c)
+    {
+      current_code = c;
+      inserted_block = NULL;
+      changed_statement = NULL;
+    }
+  
+  return 0;
+}
+
+
 /* Auxiliary function to build and simplify an array inquiry function.
    dim is zero-based.  */
 
@@ -2096,7 +2252,7 @@ inline_limit_check (gfc_expr *a, gfc_expr *b, enum matrix_case m_case)
   gfc_typespec ts;
   gfc_expr *cond;
 
-  gcc_assert (m_case == A2B2 || m_case == A2B2T);
+  gcc_assert (m_case == A2B2 || m_case == A2B2T || m_case == A2TB2);
 
   /* Calculation is done in real to avoid integer overflow.  */
 
@@ -2266,6 +2422,20 @@ matmul_lhs_realloc (gfc_expr *c, gfc_expr *a, gfc_expr *b,
       ne2 = build_logical_expr (INTRINSIC_NE,
 				get_array_inq_function (GFC_ISYM_SIZE, c, 2),
 				get_array_inq_function (GFC_ISYM_SIZE, b, 1));
+      cond = build_logical_expr (INTRINSIC_OR, ne1, ne2);
+      break;
+
+    case A2TB2:
+
+      ar->start[0] = get_array_inq_function (GFC_ISYM_SIZE, a, 2);
+      ar->start[1] = get_array_inq_function (GFC_ISYM_SIZE, b, 2);
+
+      ne1 = build_logical_expr (INTRINSIC_NE,
+				get_array_inq_function (GFC_ISYM_SIZE, c, 1),
+				get_array_inq_function (GFC_ISYM_SIZE, a, 2));
+      ne2 = build_logical_expr (INTRINSIC_NE,
+				get_array_inq_function (GFC_ISYM_SIZE, c, 2),
+				get_array_inq_function (GFC_ISYM_SIZE, b, 2));
       cond = build_logical_expr (INTRINSIC_OR, ne1, ne2);
       break;
 
@@ -2829,6 +2999,11 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
   if (in_where)
     return 0;
 
+  /* The BLOCKS generated for the temporary variables and FORALL don't
+     mix.  */
+  if (forall_level > 0)
+    return 0;
+
   /* For now don't do anything in OpenMP workshare, it confuses
      its translation, which expects only the allowed statements in there.
      We should figure out how to parallelize this eventually.  */
@@ -2848,7 +3023,7 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
 
   a = expr2->value.function.actual;
   matrix_a = check_conjg_transpose_variable (a->expr, &conjg_a, &transpose_a);
-  if (transpose_a || matrix_a == NULL)
+  if (matrix_a == NULL)
     return 0;
 
   b = a->next;
@@ -2865,27 +3040,36 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
       || gfc_check_dependency (expr1, matrix_b, true))
     return 0;
 
+  m_case = none;
   if (matrix_a->rank == 2)
     {
-      if (matrix_b->rank == 1)
-	m_case = A2B1;
+      if (transpose_a)
+	{
+	  if (matrix_b->rank == 2 && !transpose_b)
+	    m_case = A2TB2;
+	}
       else
 	{
-	  if (transpose_b)
-	    m_case = A2B2T;
-	  else
-	    m_case = A2B2;
+	  if (matrix_b->rank == 1)
+	    m_case = A2B1;
+	  else /* matrix_b->rank == 2 */
+	    {
+	      if (transpose_b)
+		m_case = A2B2T;
+	      else
+		m_case = A2B2;
+	    }
 	}
     }
-  else
+  else /* matrix_a->rank == 1 */
     {
-      /* Vector * Transpose(B) not handled yet.  */
-      if (transpose_b)
-	m_case = none;
-      else
-	m_case = A1B2;
+      if (matrix_b->rank == 2)
+	{
+	  if (!transpose_b)
+	    m_case = A1B2;
+	}
     }
-
+    
   if (m_case == none)
     return 0;
 
@@ -2976,9 +3160,10 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
       gfc_code *lhs_alloc;
 
       /* Only need to check a single dimension for the A2B2 case for
-	 bounds checking, the rest will be allocated.  */
+	 bounds checking, the rest will be allocated.  Also check this
+	 for A2B1.   */
 
-      if (gfc_option.rtcheck & GFC_RTCHECK_BOUNDS && m_case == A2B2)
+      if ((gfc_option.rtcheck & GFC_RTCHECK_BOUNDS) && (m_case == A2B2 || m_case == A2B1))
 	{
 	  gfc_code *test;
 	  gfc_expr *a2, *b1;
@@ -3088,6 +3273,37 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
 	  next_code_point = &test->next;
 
 	}
+
+      if (m_case == A2TB2)
+	{
+	  c1 = get_array_inq_function (GFC_ISYM_SIZE, expr1, 1);
+	  a2 = get_array_inq_function (GFC_ISYM_SIZE, matrix_a, 2);
+
+	  test = runtime_error_ne (c1, a2, "Incorrect extent in return array in "
+				   "MATMUL intrinsic for dimension 1: "
+				   "is %ld, should be %ld");
+
+	  *next_code_point = test;
+	  next_code_point = &test->next;
+
+	  c2 = get_array_inq_function (GFC_ISYM_SIZE, expr1, 2);
+	  b2 = get_array_inq_function (GFC_ISYM_SIZE, matrix_b, 2);
+	  test = runtime_error_ne (c2, b2, "Incorrect extent in return array in "
+				   "MATMUL intrinsic for dimension 2: "
+				   "is %ld, should be %ld");
+	  *next_code_point = test;
+	  next_code_point = &test->next;
+
+	  a1 = get_array_inq_function (GFC_ISYM_SIZE, matrix_a, 1);
+	  b1 = get_array_inq_function (GFC_ISYM_SIZE, matrix_b, 1);
+
+	  test = runtime_error_ne (b1, a1, "Incorrect extent in argument B in "
+				   "MATMUL intrnisic for dimension 2: "
+				   "is %ld, should be %ld");
+	  *next_code_point = test;
+	  next_code_point = &test->next;
+
+	}
     }
 
   *next_code_point = assign_zero;
@@ -3164,6 +3380,39 @@ inline_matmul_assign (gfc_code **c, int *walk_subtrees,
       ascalar = scalarized_expr (matrix_a, list, 2);
 
       list[0] = var_1;
+      list[1] = var_2;
+      bscalar = scalarized_expr (matrix_b, list, 2);
+
+      break;
+
+    case A2TB2:
+      inline_limit_check (matrix_a, matrix_b, m_case);
+
+      u1 = get_size_m1 (matrix_a, 2);
+      u2 = get_size_m1 (matrix_b, 2);
+      u3 = get_size_m1 (matrix_a, 1);
+
+      do_1 = create_do_loop (gfc_copy_expr (zero), u1, NULL, &co->loc, ns);
+      do_2 = create_do_loop (gfc_copy_expr (zero), u2, NULL, &co->loc, ns);
+      do_3 = create_do_loop (gfc_copy_expr (zero), u3, NULL, &co->loc, ns);
+
+      do_1->block->next = do_2;
+      do_2->block->next = do_3;
+      do_3->block->next = assign_matmul;
+
+      var_1 = do_1->ext.iterator->var;
+      var_2 = do_2->ext.iterator->var;
+      var_3 = do_3->ext.iterator->var;
+
+      list[0] = var_1;
+      list[1] = var_2;
+      cscalar = scalarized_expr (co->expr1, list, 2);
+
+      list[0] = var_3;
+      list[1] = var_1;
+      ascalar = scalarized_expr (matrix_a, list, 2);
+
+      list[0] = var_3;
       list[1] = var_2;
       bscalar = scalarized_expr (matrix_b, list, 2);
 
@@ -3320,6 +3569,7 @@ gfc_expr_walker (gfc_expr **e, walk_expr_fn_t exprfn, void *data)
 
 	    /* Fall through to the variable case in order to walk the
 	       reference.  */
+	    gcc_fallthrough ();
 
 	  case EXPR_SUBSTRING:
 	  case EXPR_VARIABLE:
@@ -3506,6 +3756,8 @@ gfc_code_walker (gfc_code **c, walk_code_fn_t codefn, walk_expr_fn_t exprfn,
 	      WALK_SUBEXPR (co->ext.open->asynchronous);
 	      WALK_SUBEXPR (co->ext.open->id);
 	      WALK_SUBEXPR (co->ext.open->newunit);
+	      WALK_SUBEXPR (co->ext.open->share);
+	      WALK_SUBEXPR (co->ext.open->cc);
 	      break;
 
 	    case EXEC_CLOSE:
@@ -3609,18 +3861,28 @@ gfc_code_walker (gfc_code **c, walk_code_fn_t codefn, walk_expr_fn_t exprfn,
 
 	      /* Fall through  */
 
+	    case EXEC_OMP_CRITICAL:
 	    case EXEC_OMP_DISTRIBUTE:
 	    case EXEC_OMP_DISTRIBUTE_PARALLEL_DO:
 	    case EXEC_OMP_DISTRIBUTE_PARALLEL_DO_SIMD:
 	    case EXEC_OMP_DISTRIBUTE_SIMD:
 	    case EXEC_OMP_DO:
 	    case EXEC_OMP_DO_SIMD:
+	    case EXEC_OMP_ORDERED:
 	    case EXEC_OMP_SECTIONS:
 	    case EXEC_OMP_SINGLE:
 	    case EXEC_OMP_END_SINGLE:
 	    case EXEC_OMP_SIMD:
+	    case EXEC_OMP_TASKLOOP:
+	    case EXEC_OMP_TASKLOOP_SIMD:
 	    case EXEC_OMP_TARGET:
 	    case EXEC_OMP_TARGET_DATA:
+	    case EXEC_OMP_TARGET_ENTER_DATA:
+	    case EXEC_OMP_TARGET_EXIT_DATA:
+	    case EXEC_OMP_TARGET_PARALLEL:
+	    case EXEC_OMP_TARGET_PARALLEL_DO:
+	    case EXEC_OMP_TARGET_PARALLEL_DO_SIMD:
+	    case EXEC_OMP_TARGET_SIMD:
 	    case EXEC_OMP_TARGET_TEAMS:
 	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
 	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO:
@@ -3656,6 +3918,12 @@ gfc_code_walker (gfc_code **c, walk_code_fn_t codefn, walk_expr_fn_t exprfn,
 		  WALK_SUBEXPR (co->ext.omp_clauses->device);
 		  WALK_SUBEXPR (co->ext.omp_clauses->thread_limit);
 		  WALK_SUBEXPR (co->ext.omp_clauses->dist_chunk_size);
+		  WALK_SUBEXPR (co->ext.omp_clauses->grainsize);
+		  WALK_SUBEXPR (co->ext.omp_clauses->hint);
+		  WALK_SUBEXPR (co->ext.omp_clauses->num_tasks);
+		  WALK_SUBEXPR (co->ext.omp_clauses->priority);
+		  for (idx = 0; idx < OMP_IF_LAST; idx++)
+		    WALK_SUBEXPR (co->ext.omp_clauses->if_exprs[idx]);
 		  for (idx = 0;
 		       idx < sizeof (list_types) / sizeof (list_types[0]);
 		       idx++)
