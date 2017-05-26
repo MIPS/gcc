@@ -480,7 +480,7 @@ proc mips_arch_info { arch prop } {
     set arch [mips_canonicalize_option $arch]
     if { ![info exists mips_arch_info($arch,$prop)] } {
 	mips_push_test_options saved_options {}
-	set output [mips_preprocess [list "additional_flags=$arch"] {
+	set output [mips_preprocess [list "additional_flags=$arch -mabi=32"] {
 	    int isa = __mips;
 	    #ifdef __mips_isa_rev
 	    int isa_rev = __mips_isa_rev;
@@ -624,8 +624,7 @@ proc mips_64bit_arch_p { option } {
 # Return true if the given abi-group option implicitly requires -mgp32.
 proc mips_32bit_abi_p { option } {
     switch -glob -- $option {
-	-mabi=32 -
-	-mabi=p32 {
+	-mabi=32 {
 	    return 1
 	}
     }
@@ -637,8 +636,7 @@ proc mips_64bit_abi_p { option } {
     switch -glob -- $option {
 	-mabi=o64 -
 	-mabi=n32 -
-	-mabi=64 -
-	-mabi=p64 {
+	-mabi=64 {
 	    return 1
 	}
     }
@@ -730,10 +728,6 @@ proc mips-dg-init {} {
 	    "-mabi=o64",
 	    #elif _MIPS_SIM==_ABIN32
 	    "-mabi=n32",
-	    #elif _MIPS_SIM==_ABIP32
-	    "-mabi=p32",
-	    #elif _MIPS_SIM==_ABIP64
-	    "-mabi=p64",
 	    #else
 	    "-mabi=64",
 	    #endif
