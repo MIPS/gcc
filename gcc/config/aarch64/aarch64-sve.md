@@ -1452,6 +1452,17 @@
   "<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
 )
 
+(define_insn "cond_<optab><mode>"
+  [(set (match_operand:SVE_SDI 0 "register_operand" "=w")
+	(unspec:SVE_SDI
+	  [(match_operand:<VPRED> 1 "register_operand" "Upl")
+	   (match_operand:SVE_SDI 2 "register_operand" "0")
+	   (match_operand:SVE_SDI 3 "register_operand" "w")]
+	  SVE_COND_INT2_SD_OP))]
+  "TARGET_SVE"
+  "<sve_int_op>\t%0.<Vetype>, %1/m, %0.<Vetype>, %3.<Vetype>"
+)
+
 (define_insn "*<optab><mode>3_cond"
   [(set (match_operand:SVE_I 0 "register_operand" "=w")
 	(sve_predicated_comm_int_op:SVE_I

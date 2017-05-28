@@ -4042,7 +4042,8 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   int ndts = 3;
   gimple *new_stmt = NULL;
   int ncopies, j;
-  vec<tree> vargs = vNULL;
+  auto_vec<tree, 8> vargs;
+  auto_vec<tree, 8> orig_vargs;
   enum { NARROW, NONE, WIDEN } modifier;
   size_t i, nargs;
   tree lhs;
@@ -4059,9 +4060,8 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   if (!stmt)
     return false;
 
-  if (gimple_call_internal_p (stmt)
-      && (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
-	  || gimple_call_internal_fn (stmt) == IFN_MASK_STORE))
+  combined_fn cfn = gimple_call_combined_fn (stmt);
+  if (cfn == CFN_MASK_LOAD || cfn == CFN_MASK_STORE)
     return vectorizable_mask_load_store (stmt, gsi, vec_stmt,
 					 slp_node);
 
@@ -4085,18 +4085,33 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
     return false;
 
   /* Ignore the argument of IFN_GOMP_SIMD_LANE, it is magic.  */
-  if (gimple_call_internal_p (stmt)
-      && gimple_call_internal_fn (stmt) == IFN_GOMP_SIMD_LANE)
+  if (cfn == CFN_GOMP_SIMD_LANE)
     {
       nargs = 0;
       rhs_type = unsigned_type_node;
     }
+
+  bool conditional_p
+    = (internal_fn_p (cfn)
+       && vectorizable_conditional_fn_p (as_internal_fn (cfn)));
 
   for (i = 0; i < nargs; i++)
     {
       tree opvectype;
 
       op = gimple_call_arg (stmt, i);
+      if (!vect_is_simple_use (op, vinfo, &def_stmt, &dt[i], &opvectype))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "use not simple.\n");
+	  return false;
+	}
+
+      /* The first parameter to a conditional internal function is the
+	 mask, which has been converted via a pattern if necessary.  */
+      if (conditional_p && i == 0)
+	continue;
 
       /* We can only handle calls with arguments of the same type.  */
       if (rhs_type
@@ -4109,14 +4124,6 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	}
       if (!rhs_type)
 	rhs_type = TREE_TYPE (op);
-
-      if (!vect_is_simple_use (op, vinfo, &def_stmt, &dt[i], &opvectype))
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                             "use not simple.\n");
-	  return false;
-	}
 
       if (!vectype_in)
 	vectype_in = opvectype;
@@ -4175,7 +4182,6 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
      to vectorize other operations in the loop.  */
   fndecl = NULL_TREE;
   internal_fn ifn = IFN_LAST;
-  combined_fn cfn = gimple_call_combined_fn (stmt);
   tree callee = gimple_call_fndecl (stmt);
 
   /* First try using an internal function.  */
@@ -4262,25 +4268,24 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   scalar_dest = gimple_call_lhs (stmt);
   vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
 
+  bool masked_loop_p = loop_vinfo && LOOP_VINFO_MASK_TYPE (loop_vinfo);
+
   prev_stmt_info = NULL;
   if (modifier == NONE || ifn != IFN_LAST)
     {
       tree prev_res = NULL_TREE;
+      vargs.safe_grow (nargs);
+      orig_vargs.safe_grow (nargs);
       for (j = 0; j < ncopies; ++j)
 	{
 	  /* Build argument list for the vectorized call.  */
-	  if (j == 0)
-	    vargs.create (nargs);
-	  else
-	    vargs.truncate (0);
-
 	  if (slp_node)
 	    {
 	      auto_vec<vec<tree> > vec_defs (nargs);
 	      vec<tree> vec_oprnds0;
 
 	      for (i = 0; i < nargs; i++)
-		vargs.quick_push (gimple_call_arg (stmt, i));
+		vargs[i] = gimple_call_arg (stmt, i);
 	      vect_get_slp_defs (vargs, slp_node, &vec_defs, -1);
 	      vec_oprnds0 = vec_defs[0];
 
@@ -4295,6 +4300,9 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		    }
 		  if (modifier == NARROW)
 		    {
+		      /* We don't define any narrowing conditional functions
+			 at present.  */
+		      gcc_assert (!conditional_p);
 		      tree half_res = make_ssa_name (vectype_in);
 		      new_stmt = gimple_build_call_internal_vec (ifn, vargs);
 		      gimple_call_set_lhs (new_stmt, half_res);
@@ -4336,17 +4344,21 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		vec_oprnd0
 		  = vect_get_vec_def_for_operand (op, stmt);
 	      else
-		{
-		  vec_oprnd0 = gimple_call_arg (new_stmt, i);
-		  vec_oprnd0
-                    = vect_get_vec_def_for_stmt_copy (dt[i], vec_oprnd0);
-		}
+		vec_oprnd0
+		  = vect_get_vec_def_for_stmt_copy (dt[i], orig_vargs[i]);
 
-	      vargs.quick_push (vec_oprnd0);
+	      orig_vargs[i] = vargs[i] = vec_oprnd0;
 	    }
 
-	  if (gimple_call_internal_p (stmt)
-	      && gimple_call_internal_fn (stmt) == IFN_GOMP_SIMD_LANE)
+	  if (conditional_p && masked_loop_p)
+	    {
+	      tree mask = vect_get_loop_mask
+		(loop_vinfo, LOOP_VINFO_MASK_ARRAY (loop_vinfo), ncopies + j);
+	      vargs[0] = prepare_load_store_mask (TREE_TYPE (mask),
+						  mask, vargs[0], gsi);
+	    }
+
+	  if (cfn == CFN_GOMP_SIMD_LANE)
 	    {
 	      tree cst = build_index_vector (vectype_out, j * nunits_out, 1);
 	      tree new_var
@@ -4358,6 +4370,9 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	    }
 	  else if (modifier == NARROW)
 	    {
+	      /* We don't define any narrowing conditional functions at
+		 present.  */
+	      gcc_assert (!conditional_p);
 	      tree half_res = make_ssa_name (vectype_in);
 	      new_stmt = gimple_build_call_internal_vec (ifn, vargs);
 	      gimple_call_set_lhs (new_stmt, half_res);
@@ -4392,6 +4407,8 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
     }
   else if (modifier == NARROW)
     {
+      /* We don't define any narrowing conditional functions at present.  */
+      gcc_assert (!conditional_p);
       for (j = 0; j < ncopies; ++j)
 	{
 	  /* Build argument list for the vectorized call.  */
