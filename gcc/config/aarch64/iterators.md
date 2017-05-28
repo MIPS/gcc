@@ -442,6 +442,9 @@
     UNSPEC_UMUL_HIGHPART ; Used in aarch64-sve.md.
     UNSPEC_COND_ADD	; Used in aarch64-sve.md.
     UNSPEC_COND_SUB	; Used in aarch64-sve.md.
+    UNSPEC_COND_MUL	; Used in aarch64-sve.md.
+    UNSPEC_COND_SDIV	; Used in aarch64-sve.md.
+    UNSPEC_COND_UDIV	; Used in aarch64-sve.md.
     UNSPEC_COND_SMAX	; Used in aarch64-sve.md.
     UNSPEC_COND_UMAX	; Used in aarch64-sve.md.
     UNSPEC_COND_SMIN	; Used in aarch64-sve.md.
@@ -1502,13 +1505,17 @@
 (define_int_iterator MUL_HIGHPART [UNSPEC_SMUL_HIGHPART UNSPEC_UMUL_HIGHPART])
 
 (define_int_iterator SVE_COND_INT2_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB
+				       UNSPEC_COND_MUL
 				       UNSPEC_COND_SMAX UNSPEC_COND_UMAX
 				       UNSPEC_COND_SMIN UNSPEC_COND_UMIN
 				       UNSPEC_COND_AND
 				       UNSPEC_COND_ORR
 				       UNSPEC_COND_EOR])
 
-(define_int_iterator SVE_COND_FP2_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB])
+(define_int_iterator SVE_COND_INT2_SD_OP [UNSPEC_COND_SDIV UNSPEC_COND_UDIV])
+
+(define_int_iterator SVE_COND_FP2_OP [UNSPEC_COND_ADD UNSPEC_COND_SUB
+				      UNSPEC_COND_MUL UNSPEC_COND_SDIV])
 
 (define_int_iterator SVE_COND_FP3_OP [UNSPEC_COND_FMLA UNSPEC_COND_FMLS])
 
@@ -1541,6 +1548,9 @@
 			(UNSPEC_XORV "xor")
 			(UNSPEC_COND_ADD "add")
 			(UNSPEC_COND_SUB "sub")
+			(UNSPEC_COND_MUL "mul")
+			(UNSPEC_COND_SDIV "div")
+			(UNSPEC_COND_UDIV "udiv")
 			(UNSPEC_COND_SMAX "smax")
 			(UNSPEC_COND_UMAX "umax")
 			(UNSPEC_COND_SMIN "smin")
@@ -1759,6 +1769,9 @@
 
 (define_int_attr sve_int_op [(UNSPEC_COND_ADD "add")
 			     (UNSPEC_COND_SUB "sub")
+			     (UNSPEC_COND_MUL "mul")
+			     (UNSPEC_COND_SDIV "sdiv")
+			     (UNSPEC_COND_UDIV "udiv")
 			     (UNSPEC_COND_SMAX "smax")
 			     (UNSPEC_COND_UMAX "umax")
 			     (UNSPEC_COND_SMIN "smin")
@@ -1769,5 +1782,7 @@
 
 (define_int_attr sve_fp_op [(UNSPEC_COND_ADD "fadd")
 			    (UNSPEC_COND_SUB "fsub")
+			    (UNSPEC_COND_MUL "fmul")
+			    (UNSPEC_COND_SDIV "fdiv")
 			    (UNSPEC_COND_FMLA "fmla")
 			    (UNSPEC_COND_FMLS "fmls")])

@@ -79,24 +79,28 @@ init_internal_fns ()
 
 /* Create static initializers for the information returned by
    direct_internal_fn.  */
-#define not_direct { -2, -2, false }
-#define mask_load_direct { -1, 2, false }
-#define load_lanes_direct { -1, -1, false }
-#define mask_load_lanes_direct { -1, -1, false }
-#define gather_load_direct { -1, -1, false }
-#define mask_store_direct { 3, 2, false }
-#define store_lanes_direct { 0, 0, false }
-#define mask_store_lanes_direct { 0, 0, false }
-#define scatter_store_direct { 3, 3, false }
-#define unary_direct { 0, 0, true }
-#define binary_direct { 0, 0, true }
-#define ternary_direct { 0, 0, true }
-#define cond_unary_direct { 1, 1, true }
-#define cond_binary_direct { 1, 1, true }
-#define cond_ternary_direct { 1, 1, true }
-#define while_direct { 0, 2, false }
-#define fold_extract_direct { 2, 2, false }
-#define fold_left_direct { 1, 1, false }
+#define NOT_VECTORIZABLE false, false, 0
+#define VECTORIZABLE true, false, 0
+#define VECTORIZABLE_COND true, true, 0
+
+#define not_direct { -2, -2, NOT_VECTORIZABLE }
+#define mask_load_direct { -1, 2, NOT_VECTORIZABLE }
+#define load_lanes_direct { -1, -1, NOT_VECTORIZABLE }
+#define mask_load_lanes_direct { -1, -1, NOT_VECTORIZABLE }
+#define gather_load_direct { -1, -1, NOT_VECTORIZABLE }
+#define mask_store_direct { 3, 2, NOT_VECTORIZABLE }
+#define store_lanes_direct { 0, 0, NOT_VECTORIZABLE }
+#define mask_store_lanes_direct { 0, 0, NOT_VECTORIZABLE }
+#define scatter_store_direct { 3, 3, NOT_VECTORIZABLE }
+#define unary_direct { 0, 0, VECTORIZABLE }
+#define binary_direct { 0, 0, VECTORIZABLE }
+#define ternary_direct { 0, 0, VECTORIZABLE }
+#define cond_unary_direct { 1, 1, VECTORIZABLE_COND }
+#define cond_binary_direct { 1, 1, VECTORIZABLE_COND }
+#define cond_ternary_direct { 1, 1, VECTORIZABLE_COND }
+#define while_direct { 0, 2, NOT_VECTORIZABLE }
+#define fold_extract_direct { 2, 2, NOT_VECTORIZABLE }
+#define fold_left_direct { 1, 1, NOT_VECTORIZABLE }
 
 const direct_internal_fn_info direct_internal_fn_array[IFN_LAST + 1] = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) not_direct,
@@ -106,6 +110,10 @@ const direct_internal_fn_info direct_internal_fn_array[IFN_LAST + 1] = {
 #include "internal-fn.def"
   not_direct
 };
+
+#undef VECTORIZABLE_COND
+#undef VECTORIZABLE
+#undef NOT_VECTORIZABLE
 
 /* ARRAY_TYPE is an array of vector modes.  Return the associated insn
    for load-lanes-style optab OPTAB, or CODE_FOR_nothing if none.  */
@@ -3174,6 +3182,14 @@ set_edom_supported_p (void)
 #endif
 }
 
+/* Mapping of internal functions to optabs.  */
+
+static const optab internal_fn_to_optab[] = {
+#define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) unknown_optab,
+#define DEF_INTERNAL_OPTAB_FN(CODE, FLAGS, OPTAB, TYPE) OPTAB##_optab,
+#include "internal-fn.def"
+};
+
 #define DEF_INTERNAL_OPTAB_FN(CODE, FLAGS, OPTAB, TYPE) \
   static void						\
   expand_##CODE (internal_fn fn, gcall *stmt)		\
@@ -3219,6 +3235,13 @@ get_conditional_internal_fn (tree_code code)
       return IFN_COND_ADD;
     case MINUS_EXPR:
       return IFN_COND_SUB;
+    case MULT_EXPR:
+      return IFN_COND_MUL;
+    case RDIV_EXPR:
+    case TRUNC_DIV_EXPR:
+      return IFN_COND_DIV;
+    case TRUNC_MOD_EXPR:
+      return IFN_COND_MOD;
     case MIN_EXPR:
       return IFN_COND_MIN;
     case MAX_EXPR:
@@ -3374,6 +3397,26 @@ void
 expand_internal_call (gcall *stmt)
 {
   expand_internal_call (gimple_call_internal_fn (stmt), stmt);
+}
+
+/* If TYPE is a vector type, return true if IFN is a direct internal
+   function that is supported for that type.  If TYPE is a scalar type,
+   return true if IFN is a direct internal function that is supported for
+   the target's preferred vector version of TYPE.  */
+
+bool
+vectorized_internal_fn_supported_p (internal_fn ifn, tree type)
+{
+  scalar_mode smode;
+  if (!VECTOR_TYPE_P (type) && is_a <scalar_mode> (TYPE_MODE (type), &smode))
+    {
+      machine_mode vmode = targetm.vectorize.preferred_simd_mode (smode);
+      if (VECTOR_MODE_P (vmode))
+	type = build_vector_type_for_mode (type, vmode);
+    }
+
+  return (VECTOR_MODE_P (TYPE_MODE (type))
+	  && direct_internal_fn_supported_p (ifn, type, OPTIMIZE_FOR_SPEED));
 }
 
 void

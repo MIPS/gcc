@@ -141,11 +141,12 @@ struct direct_internal_fn_info
   /* True if the function is pointwise, so that it can be vectorized by
      converting the return type and all argument types to vectors of the
      same number of elements.  E.g. we can vectorize an IFN_SQRT on
-     floats as an IFN_SQRT on vectors of N floats.
-
-     This only needs 1 bit, but occupies the full 16 to ensure a nice
-     layout.  */
-  unsigned int vectorizable : 16;
+     floats as an IFN_SQRT on vectors of N floats.  */
+  unsigned int vectorizable : 1;
+  /* True if VECTORIZABLE, and if the first argument is a mask that
+     predicates the operation.  */
+  unsigned int conditional : 1;
+  unsigned int unused : 14;
 };
 
 extern const direct_internal_fn_info direct_internal_fn_array[IFN_LAST + 1];
@@ -167,6 +168,27 @@ inline bool
 vectorizable_internal_fn_p (internal_fn fn)
 {
   return direct_internal_fn_array[fn].vectorizable;
+}
+
+/* Return true if FN is a vectorizable conditional function, i.e. if:
+
+     R = IFN_FOO (COND, A1, A2...);
+
+   is equivalent to:
+
+     R = COND ? FOO (A1, A2, ...) : A1;
+
+   for scalars and:
+
+     for (int i = 0; i < nunits; ++i)
+       R[i] = COND[i] ? FOO (A1[i], A2[i], ...) : A1[i];
+
+   for vectors.  */
+
+inline bool
+vectorizable_conditional_fn_p (internal_fn fn)
+{
+  return direct_internal_fn_array[fn].conditional;
 }
 
 /* Return optab information about internal function FN.  Only meaningful
@@ -214,5 +236,7 @@ extern bool internal_gather_scatter_fn_supported_p (internal_fn, tree,
 extern void expand_internal_call (gcall *);
 extern void expand_internal_call (internal_fn, gcall *);
 extern void expand_PHI (internal_fn, gcall *);
+
+extern bool vectorized_internal_fn_supported_p (internal_fn, tree);
 
 #endif

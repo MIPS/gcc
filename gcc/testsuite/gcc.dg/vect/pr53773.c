@@ -14,5 +14,6 @@ foo (int integral, int decimal, int power_ten)
   return integral+decimal;
 }
 
-/* { dg-final { scan-tree-dump-times "\\* 10" 2 "optimized" } } */
+/* { dg-final { scan-tree-dump-times "\\* 10" 2 "optimized" { target { { ! vect_fully_masked } || vect_variable_length } } } } */
+/* { dg-final { scan-tree-dump-times "\\* 10" 0 "optimized" { target { vect_fully_masked && { ! vect_variable_length } } } } } */
 
