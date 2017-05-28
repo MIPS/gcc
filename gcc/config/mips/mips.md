@@ -675,7 +675,7 @@
 		   (const_int 4)
 
 		 ;; The 18-bit range is OK other than for microMIPS.
-		 (and (not (match_test "TARGET_MICROMIPS"))
+		 (and (not (match_test "TARGET_MICROMIPS || TARGET_NANOMIPS"))
 		      (and (le (minus (match_dup 0) (pc)) (const_int 131064))
 		      	   (le (minus (pc) (match_dup 0)) (const_int 131068))))
 		   (const_int 4)
