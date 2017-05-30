@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-walk.h"
 #include "dbgcnt.h"
 #include "gimple-fold.h"
-
+#include "internal-fn.h"
 
 /* Recursively free the memory allocated for the SLP tree rooted at NODE.  */
 
@@ -533,6 +533,40 @@ again:
   return 0;
 }
 
+/* Return true if call statements STMT1 and STMT2 are similar enough
+   to be combined into the same SLP group.  */
+
+static bool
+compatible_calls_p (gimple *stmt1, gimple *stmt2)
+{
+  unsigned int nargs = gimple_call_num_args (stmt1);
+  if (nargs != gimple_call_num_args (stmt2))
+    return false;
+
+  if (gimple_call_combined_fn (stmt1) != gimple_call_combined_fn (stmt2))
+    return false;
+
+  if (gimple_call_internal_p (stmt1))
+    {
+      if (TREE_TYPE (gimple_call_lhs (stmt1))
+	  != TREE_TYPE (gimple_call_lhs (stmt2)))
+	return false;
+      for (unsigned int i = 0; i < nargs; ++i)
+	if (TREE_TYPE (gimple_call_arg (stmt1, i))
+	    != TREE_TYPE (gimple_call_arg (stmt2, i)))
+	  return false;
+    }
+  else
+    {
+      if (!operand_equal_p (gimple_call_fn (stmt1),
+			    gimple_call_fn (stmt2), 0))
+	return false;
+
+      if (gimple_call_fntype (stmt1) != gimple_call_fntype (stmt2))
+	return false;
+    }
+  return true;
+}
 
 /* Return the vector type associated with the smallest scalar type in STMT.  */
 
@@ -586,8 +620,8 @@ get_vectype_for_smallest_scalar_type (gimple *stmt)
 static bool
 vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
 		       vec<gimple *> stmts, unsigned int group_size,
-		       unsigned nops, poly_uint64 *max_nunits,
-		       bool *matches, bool *two_operators)
+		       poly_uint64 *max_nunits, bool *matches,
+		       bool *two_operators)
 {
   unsigned int i;
   gimple *first_stmt = stmts[0], *stmt = stmts[0];
@@ -682,7 +716,9 @@ vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
       if (gcall *call_stmt = dyn_cast <gcall *> (stmt))
 	{
 	  rhs_code = CALL_EXPR;
-	  if (gimple_call_internal_p (call_stmt)
+	  if ((gimple_call_internal_p (call_stmt)
+	       && (!vectorizable_internal_fn_p
+		   (gimple_call_internal_fn (call_stmt))))
 	      || gimple_call_tail_p (call_stmt)
 	      || gimple_call_noreturn_p (call_stmt)
 	      || !gimple_call_nothrow_p (call_stmt)
@@ -817,11 +853,7 @@ vect_build_slp_tree_1 (vec_info *vinfo, unsigned char *swap,
 	  if (rhs_code == CALL_EXPR)
 	    {
 	      gimple *first_stmt = stmts[0];
-	      if (gimple_call_num_args (stmt) != nops
-		  || !operand_equal_p (gimple_call_fn (first_stmt),
-				       gimple_call_fn (stmt), 0)
-		  || gimple_call_fntype (first_stmt)
-		     != gimple_call_fntype (stmt))
+	      if (!compatible_calls_p (first_stmt, stmt))
 		{
 		  if (dump_enabled_p ())
 		    {
@@ -1038,8 +1070,7 @@ vect_build_slp_tree (vec_info *vinfo,
 
   bool two_operators = false;
   unsigned char *swap = XALLOCAVEC (unsigned char, group_size);
-  if (!vect_build_slp_tree_1 (vinfo, swap,
-			      stmts, group_size, nops,
+  if (!vect_build_slp_tree_1 (vinfo, swap, stmts, group_size,
 			      &this_max_nunits, matches, &two_operators))
     return NULL;
 
