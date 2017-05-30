@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include <dirent.h> // for selftests
 #include "json.h"
 #include "pretty-print.h"
 #include "math.h"
@@ -1888,6 +1889,95 @@ test_error_missing_comma ()
   free (err);
 }
 
+/* FIXME.  */
+
+static int
+is_json_file (const struct dirent *entry)
+{
+  // FIXME: should be a regular file, ending in ".json"
+  if (!strstr (entry->d_name, ".json"))
+    return 0;
+  return 1;
+}
+
+/* FIXME.  */
+
+static void
+test_file (const char *path, const char *filename, bool verbose)
+{
+  if (verbose)
+    fprintf (stderr, "%s\n", filename);
+
+  /* This selftest routine can't yet cope with embedded NIL characters,
+     since it calls selftest::read_file and then parses up to the first
+     embedded NIL.   Skip such tests for now.  */
+  if (0 == strcmp (filename, "n_multidigit_number_then_00.json"))
+    return;
+
+  const char *full_path = ACONCAT ((path, "/", filename, NULL)); // FIXME
+
+  char *content = read_file (SELFTEST_LOCATION, full_path);
+  if (verbose)
+    fprintf (stderr, "  content: %s\n", content);
+
+  char *err = NULL;
+  json::value *jv = parse_utf8_string (content, &err);
+
+  if (verbose && err)
+    fprintf (stderr, "  err: %s\n", err);
+
+  if (filename[0] == 'y')
+    {
+      /* We expect filenames starting with "y_" to be successfully parsed.  */
+      ASSERT_NE (NULL, jv);
+      ASSERT_EQ (NULL, err);
+
+      /* Verify that we can dump the value.  */
+      char *json = jv->to_str ();
+      free (json);
+
+      delete jv;
+    }
+  else if (filename[0] == 'n')
+    {
+      /* We expect filenames starting with "n_" to be rejected, with an
+	 error message.  */
+      ASSERT_EQ (NULL, jv);
+      ASSERT_NE (NULL, err);
+    }
+  else if (filename[0] == 'i')
+    {
+      /* Filenames that start with "i_" have implementation-defined
+	 results; we may or may not cope with them.  */
+      delete jv;
+    }
+  free (err);
+
+  free (content);
+}
+
+/* FIXME.  */
+
+static void
+test_seriot_testsuite (bool verbose)
+{
+  struct dirent **json_files;
+  const char *path = "../../JSONTestSuite/test_parsing"; // FIXME
+  int num_entries = scandir (path, &json_files, is_json_file, alphasort);
+  if (num_entries < 0)
+    {
+      perror ("scandir");
+      fail (SELFTEST_LOCATION, "scandir failed");
+    }
+
+  for (int i = 0; i < num_entries; i++)
+    {
+      test_file (path, json_files[i]->d_name, verbose);
+      free (json_files[i]);
+    }
+  free (json_files);
+}
+
 /* Run all of the selftests within this file.  */
 
 void
@@ -1907,6 +1997,7 @@ json_cc_tests ()
      object key ordering).  */
 
   /* FIXME: cloning.  */
+  test_seriot_testsuite (false);
 }
 
 } // namespace selftest
