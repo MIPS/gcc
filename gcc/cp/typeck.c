@@ -162,15 +162,6 @@ complete_type_or_else (tree type, tree value)
   return complete_type_or_maybe_complain (type, value, tf_warning_or_error);
 }
 
-/* Return truthvalue of whether type of EXP is instantiated.  */
-
-int
-type_unknown_p (const_tree exp)
-{
-  return (TREE_CODE (exp) == TREE_LIST
-	  || TREE_TYPE (exp) == unknown_type_node);
-}
-
 
 /* Return the common type of two parameter lists.
    We assume that comptypes has already been done and returned 1;
@@ -1430,14 +1421,14 @@ comptypes (tree t1, tree t2, int strict)
 	       canonical types were different. This is a failure of the
 	       canonical type propagation code.*/
 	    internal_error 
-	      ("canonical types differ for identical types %T and %T", 
+	      ("canonical types differ for identical types %qT and %qT",
 	       t1, t2);
 	  else if (!result && TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2))
 	    /* Two types are structurally different, but the canonical
 	       types are the same. This means we were over-eager in
 	       assigning canonical types. */
 	    internal_error 
-	      ("same canonical type node for different types %T and %T",
+	      ("same canonical type node for different types %qT and %qT",
 	       t1, t2);
 	  
 	  return result;
@@ -2628,26 +2619,63 @@ check_template_keyword (tree decl)
 	permerror (input_location, "%qD is not a template", decl);
       else
 	{
-	  tree fns;
-	  fns = decl;
-	  if (BASELINK_P (fns))
-	    fns = BASELINK_FUNCTIONS (fns);
-	  while (fns)
+	  bool found = false;
+
+	  for (lkp_iterator iter (MAYBE_BASELINK_FUNCTIONS (decl));
+	       !found && iter; ++iter)
 	    {
-	      tree fn = OVL_CURRENT (fns);
+	      tree fn = *iter;
 	      if (TREE_CODE (fn) == TEMPLATE_DECL
-		  || TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-		break;
-	      if (TREE_CODE (fn) == FUNCTION_DECL
-		  && DECL_USE_TEMPLATE (fn)
-		  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (fn)))
-		break;
-	      fns = OVL_NEXT (fns);
+		  || TREE_CODE (fn) == TEMPLATE_ID_EXPR
+		  || (TREE_CODE (fn) == FUNCTION_DECL
+		      && DECL_USE_TEMPLATE (fn)
+		      && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (fn))))
+		found = true;
 	    }
-	  if (!fns)
+	  if (!found)
 	    permerror (input_location, "%qD is not a template", decl);
 	}
     }
+}
+
+/* Record that an access failure occurred on BASETYPE_PATH attempting
+   to access FIELD_DECL.  */
+
+void
+access_failure_info::record_access_failure (tree basetype_path,
+					    tree field_decl)
+{
+  m_was_inaccessible = true;
+  m_basetype_path = basetype_path;
+  m_field_decl = field_decl;
+}
+
+/* If an access failure was recorded, then attempt to locate an
+   accessor function for the pertinent field, and if one is
+   available, add a note and fix-it hint suggesting using it.  */
+
+void
+access_failure_info::maybe_suggest_accessor (bool const_p) const
+{
+  if (!m_was_inaccessible)
+    return;
+
+  tree accessor
+    = locate_field_accessor (m_basetype_path, m_field_decl, const_p);
+  if (!accessor)
+    return;
+
+  /* The accessor must itself be accessible for it to be a reasonable
+     suggestion.  */
+  if (!accessible_p (m_basetype_path, accessor, true))
+    return;
+
+  rich_location richloc (line_table, input_location);
+  pretty_printer pp;
+  pp_printf (&pp, "%s()", IDENTIFIER_POINTER (DECL_NAME (accessor)));
+  richloc.add_fixit_replace (pp_formatted_text (&pp));
+  inform_at_rich_loc (&richloc, "field %q#D can be accessed via %q#D",
+		      m_field_decl, accessor);
 }
 
 /* This function is called by the parser to process a class member
@@ -2764,10 +2792,8 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
 	  template_args = TREE_OPERAND (name, 1);
 	  name = TREE_OPERAND (name, 0);
 
-	  if (TREE_CODE (name) == OVERLOAD)
-	    name = DECL_NAME (get_first_fn (name));
-	  else if (DECL_P (name))
-	    name = DECL_NAME (name);
+	  if (!identifier_p (name))
+	    name = OVL_NAME (name);
 	}
 
       if (scope)
@@ -2834,8 +2860,11 @@ finish_class_member_access_expr (cp_expr object, tree name, bool template_p,
       else
 	{
 	  /* Look up the member.  */
+	  access_failure_info afi;
 	  member = lookup_member (access_path, name, /*protect=*/1,
-				  /*want_type=*/false, complain);
+				  /*want_type=*/false, complain,
+				  &afi);
+	  afi.maybe_suggest_accessor (TYPE_READONLY (object_type));
 	  if (member == NULL_TREE)
 	    {
 	      if (dependent_type_p (object_type))
@@ -5481,7 +5510,7 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
 		 pointer-to-member.  */
 	      xarg = build2 (OFFSET_REF, TREE_TYPE (xarg),
 			     TREE_OPERAND (xarg, 0),
-			     ovl_cons (TREE_OPERAND (xarg, 1), NULL_TREE));
+			     ovl_make (TREE_OPERAND (xarg, 1)));
 	      PTRMEM_OK_P (xarg) = ptrmem;
 	    }
 	}
@@ -5603,7 +5632,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
   gcc_assert (!identifier_p (arg) || !IDENTIFIER_OPNAME_P (arg));
 
   if (TREE_CODE (arg) == COMPONENT_REF && type_unknown_p (arg)
-      && !really_overloaded_fn (TREE_OPERAND (arg, 1)))
+      && !really_overloaded_fn (arg))
     {
       /* They're trying to take the address of a unique non-static
 	 member function.  This is ill-formed (except in MS-land),
@@ -5746,7 +5775,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
       /* Fall through.  */
 
     case OVERLOAD:
-      arg = OVL_CURRENT (arg);
+      arg = OVL_FIRST (arg);
       break;
 
     case OFFSET_REF:
@@ -6617,9 +6646,7 @@ check_for_casting_away_constness (tree src_type, tree dest_type,
     }
 }
 
-/*
-  Warns if the cast from expression EXPR to type TYPE is useless.
- */
+/* Warns if the cast from expression EXPR to type TYPE is useless.  */
 void
 maybe_warn_about_useless_cast (tree type, tree expr, tsubst_flags_t complain)
 {
@@ -6632,6 +6659,20 @@ maybe_warn_about_useless_cast (tree type, tree expr, tsubst_flags_t complain)
 	   && same_type_p (TREE_TYPE (expr), TREE_TYPE (type)))
 	  || same_type_p (TREE_TYPE (expr), type))
 	warning (OPT_Wuseless_cast, "useless cast to type %qT", type);
+    }
+}
+
+/* Warns if the cast ignores cv-qualifiers on TYPE.  */
+void
+maybe_warn_about_cast_ignoring_quals (tree type, tsubst_flags_t complain)
+{
+  if (warn_ignored_qualifiers
+      && complain & tf_warning
+      && !CLASS_TYPE_P (type)
+      && (cp_type_quals (type) & (TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE)))
+    {
+      warning (OPT_Wignored_qualifiers, "type qualifiers ignored on cast "
+	       "result type");
     }
 }
 
@@ -6707,6 +6748,10 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 
   /* Save casted types in the function's used types hash table.  */
   used_types_insert (type);
+
+  /* A prvalue of non-class type is cv-unqualified.  */
+  if (!CLASS_TYPE_P (type))
+    type = cv_unqualified (type);
 
   /* [expr.static.cast]
 
@@ -6997,7 +7042,10 @@ build_static_cast (tree type, tree expr, tsubst_flags_t complain)
   if (valid_p)
     {
       if (result != error_mark_node)
-	maybe_warn_about_useless_cast (type, expr, complain);
+	{
+	  maybe_warn_about_useless_cast (type, expr, complain);
+	  maybe_warn_about_cast_ignoring_quals (type, complain);
+	}
       return result;
     }
 
@@ -7069,6 +7117,10 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 
   /* Save casted types in the function's used types hash table.  */
   used_types_insert (type);
+
+  /* A prvalue of non-class type is cv-unqualified.  */
+  if (!CLASS_TYPE_P (type))
+    type = cv_unqualified (type);
 
   /* [expr.reinterpret.cast]
      An lvalue expression of type T1 can be cast to the type
@@ -7251,7 +7303,10 @@ build_reinterpret_cast (tree type, tree expr, tsubst_flags_t complain)
   r = build_reinterpret_cast_1 (type, expr, /*c_cast_p=*/false,
 				/*valid_p=*/NULL, complain);
   if (r != error_mark_node)
-    maybe_warn_about_useless_cast (type, expr, complain);
+    {
+      maybe_warn_about_useless_cast (type, expr, complain);
+      maybe_warn_about_cast_ignoring_quals (type, complain);
+    }
   return r;
 }
 
@@ -7296,6 +7351,9 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
 	       "or reference to a function type", dst_type);
       return error_mark_node;
     }
+
+  /* A prvalue of non-class type is cv-unqualified.  */
+  dst_type = cv_unqualified (dst_type);
 
   /* Save casted types in the function's used types hash table.  */
   used_types_insert (dst_type);
@@ -7417,7 +7475,10 @@ build_const_cast (tree type, tree expr, tsubst_flags_t complain)
 
   r = build_const_cast_1 (type, expr, complain, /*valid_p=*/NULL);
   if (r != error_mark_node)
-    maybe_warn_about_useless_cast (type, expr, complain);
+    {
+      maybe_warn_about_useless_cast (type, expr, complain);
+      maybe_warn_about_cast_ignoring_quals (type, complain);
+    }
   return r;
 }
 
@@ -7520,7 +7581,10 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
   if (valid_p)
     {
       if (result != error_mark_node)
-	maybe_warn_about_useless_cast (type, value, complain);
+	{
+	  maybe_warn_about_useless_cast (type, value, complain);
+	  maybe_warn_about_cast_ignoring_quals (type, complain);
+	}
       return result;
     }
 
@@ -7541,6 +7605,7 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
       tree result_type;
 
       maybe_warn_about_useless_cast (type, value, complain);
+      maybe_warn_about_cast_ignoring_quals (type, complain);
 
       /* Non-class rvalues always have cv-unqualified type.  */
       if (!CLASS_TYPE_P (type))
