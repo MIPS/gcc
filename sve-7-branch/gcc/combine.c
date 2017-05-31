@@ -13134,7 +13134,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	  if (REG_P (SUBREG_REG (op0)))
 	    {
 	      op0 = SUBREG_REG (op0);
-	      op1 = gen_lowpart (mode, op1);
+	      op1 = gen_lowpart (inner_mode, op1);
 	    }
 	}
       else if (GET_MODE_PRECISION (inner_mode) <= HOST_BITS_PER_WIDE_INT
