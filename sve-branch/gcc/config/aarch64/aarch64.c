@@ -14618,6 +14618,7 @@ static bool
 aarch64_evpc_rev (struct expand_vec_perm_d *d)
 {
   unsigned int i, j, diff, size, unspec, nelt = d->nelt;
+  machine_mode pred_mode;
 
   if (!d->one_vector_p)
     return false;
@@ -14625,11 +14626,20 @@ aarch64_evpc_rev (struct expand_vec_perm_d *d)
   diff = d->perm[0];
   size = (diff + 1) * GET_MODE_UNIT_SIZE (d->vmode);
   if (size == 8)
-    unspec = UNSPEC_REV64;
+    {
+      unspec = UNSPEC_REV64;
+      pred_mode = V4BImode;
+    }
   else if (size == 4)
-    unspec = UNSPEC_REV32;
+    {
+      unspec = UNSPEC_REV32;
+      pred_mode = V8BImode;
+    }
   else if (size == 2)
-    unspec = UNSPEC_REV16;
+    {
+      unspec = UNSPEC_REV16;
+      pred_mode = V16BImode;
+    }
   else
     return false;
 
@@ -14650,8 +14660,14 @@ aarch64_evpc_rev (struct expand_vec_perm_d *d)
   if (d->testing_p)
     return true;
 
-  emit_set_insn (d->target, gen_rtx_UNSPEC (d->vmode, gen_rtvec (1, d->op0),
-					    unspec));
+  rtx src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (1, d->op0), unspec);
+  if (d->vec_flags == VEC_SVE_DATA)
+    {
+      rtx pred = force_reg (pred_mode, CONSTM1_RTX (pred_mode));
+      src = gen_rtx_UNSPEC (d->vmode, gen_rtvec (2, pred, src),
+			    UNSPEC_MERGE_PTRUE);
+    }
+  emit_set_insn (d->target, src);
   return true;
 }
 

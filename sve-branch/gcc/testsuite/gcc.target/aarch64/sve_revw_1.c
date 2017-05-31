@@ -1,5 +1,5 @@
-/* { dg-do compile } */
-/* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256" } */
+/* { dg-do assemble } */
+/* { dg-options "-O -march=armv8-a+sve -msve-vector-bits=256 --save-temps" } */
 
 typedef unsigned int v8si __attribute__((vector_size (32)));
 typedef float v8sf __attribute__((vector_size (32)));
@@ -26,4 +26,4 @@ TEST_ALL (PERMUTE)
 
 /* { dg-final { scan-assembler-not {\ttbl\t} } } */
 
-/* { dg-final { scan-assembler-times {\trevw\tz[0-9]+\.d, z[0-9]+\.d} 2 } } */
+/* { dg-final { scan-assembler-times {\trevw\tz[0-9]+\.d, p[0-7]/m, z[0-9]+\.d} 2 } } */
