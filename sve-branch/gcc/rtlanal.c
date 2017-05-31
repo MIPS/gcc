@@ -5148,32 +5148,35 @@ num_sign_bit_copies1 (const_rtx x, scalar_int_mode mode, const_rtx known_x,
 	  return MAX ((int) bitwidth - (int) xmode_width + 1, num0);
 	}
 
-      /* For a smaller object, just ignore the high bits.  */
-      if (is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (x)), &inner_mode)
-	  && bitwidth <= GET_MODE_PRECISION (inner_mode))
+      if (is_a <scalar_int_mode> (GET_MODE (SUBREG_REG (x)), &inner_mode))
 	{
-	  num0 = cached_num_sign_bit_copies (SUBREG_REG (x), inner_mode,
-					     known_x, known_mode, known_ret);
-	  return
-	    MAX (1, num0 - (int) (GET_MODE_PRECISION (inner_mode) - bitwidth));
+	  /* For a smaller object, just ignore the high bits.  */
+	  if (bitwidth <= GET_MODE_PRECISION (inner_mode))
+	    {
+	      num0 = cached_num_sign_bit_copies (SUBREG_REG (x), inner_mode,
+						 known_x, known_mode,
+						 known_ret);
+	      return MAX (1, num0 - (int) (GET_MODE_PRECISION (inner_mode)
+					   - bitwidth));
+	    }
+
+	  /* For paradoxical SUBREGs on machines where all register operations
+	     affect the entire register, just look inside.  Note that we are
+	     passing MODE to the recursive call, so the number of sign bit
+	     copies will remain relative to that mode, not the inner mode.  */
+
+	  /* This works only if loads sign extend.  Otherwise, if we get a
+	     reload for the inner part, it may be loaded from the stack, and
+	     then we lose all sign bit copies that existed before the store
+	     to the stack.  */
+
+	  if (WORD_REGISTER_OPERATIONS
+	      && load_extend_op (inner_mode) == SIGN_EXTEND
+	      && paradoxical_subreg_p (x)
+	      && (MEM_P (SUBREG_REG (x)) || REG_P (SUBREG_REG (x))))
+	    return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
+					       known_x, known_mode, known_ret);
 	}
-
-      /* For paradoxical SUBREGs on machines where all register operations
-	 affect the entire register, just look inside.  Note that we are
-	 passing MODE to the recursive call, so the number of sign bit copies
-	 will remain relative to that mode, not the inner mode.  */
-
-      /* This works only if loads sign extend.  Otherwise, if we get a
-	 reload for the inner part, it may be loaded from the stack, and
-	 then we lose all sign bit copies that existed before the store
-	 to the stack.  */
-
-      if (WORD_REGISTER_OPERATIONS
-	  && load_extend_op (inner_mode) == SIGN_EXTEND
-	  && paradoxical_subreg_p (x)
-	  && (MEM_P (SUBREG_REG (x)) || REG_P (SUBREG_REG (x))))
-	return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
-					   known_x, known_mode, known_ret);
       break;
 
     case SIGN_EXTRACT:
