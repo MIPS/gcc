@@ -3637,16 +3637,15 @@ update_equiv_regs (void)
 static void
 add_store_equivs (void)
 {
-  bitmap_head seen_insns;
+  auto_bitmap seen_insns;
 
-  bitmap_initialize (&seen_insns, NULL);
   for (rtx_insn *insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       rtx set, src, dest;
       unsigned regno;
       rtx_insn *init_insn;
 
-      bitmap_set_bit (&seen_insns, INSN_UID (insn));
+      bitmap_set_bit (seen_insns, INSN_UID (insn));
 
       if (! INSN_P (insn))
 	continue;
@@ -3667,7 +3666,7 @@ add_store_equivs (void)
 	  && ! reg_equiv[regno].pdx_subregs
 	  && reg_equiv[regno].init_insns != NULL
 	  && (init_insn = reg_equiv[regno].init_insns->insn ()) != 0
-	  && bitmap_bit_p (&seen_insns, INSN_UID (init_insn))
+	  && bitmap_bit_p (seen_insns, INSN_UID (init_insn))
 	  && ! find_reg_note (init_insn, REG_EQUIV, NULL_RTX)
 	  && validate_equiv_mem (init_insn, src, dest) == valid_reload
 	  && ! memref_used_between_p (dest, init_insn, insn)
@@ -3687,7 +3686,6 @@ add_store_equivs (void)
 		     INSN_UID (insn));
 	}
     }
-  bitmap_clear (&seen_insns);
 }
 
 /* Scan all regs killed in an insn to see if any of them are registers
@@ -3700,7 +3698,7 @@ add_store_equivs (void)
 static void
 combine_and_move_insns (void)
 {
-  bitmap cleared_regs = BITMAP_ALLOC (NULL);
+  auto_bitmap cleared_regs;
   int max = max_reg_num ();
 
   for (int regno = FIRST_PSEUDO_REGISTER; regno < max; regno++)
@@ -3858,8 +3856,6 @@ combine_and_move_insns (void)
 		df_insn_rescan (insn);
 	    }
     }
-
-  BITMAP_FREE (cleared_regs);
 }
 
 /* A pass over indirect jumps, converting simple cases to direct jumps.
@@ -4085,8 +4081,8 @@ build_insn_chain (void)
   basic_block bb;
   struct insn_chain *c = NULL;
   struct insn_chain *next = NULL;
-  bitmap live_relevant_regs = BITMAP_ALLOC (NULL);
-  bitmap elim_regset = BITMAP_ALLOC (NULL);
+  auto_bitmap live_relevant_regs;
+  auto_bitmap elim_regset;
   /* live_subregs is a vector used to keep accurate information about
      which hardregs are live in multiword pseudos.  live_subregs and
      live_subregs_used are indexed by pseudo number.  The live_subreg
@@ -4095,7 +4091,7 @@ build_insn_chain (void)
      live_subreg[allocno] is number of bytes that the pseudo can
      occupy.  */
   sbitmap *live_subregs = XCNEWVEC (sbitmap, max_regno);
-  bitmap live_subregs_used = BITMAP_ALLOC (NULL);
+  auto_bitmap live_subregs_used;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (eliminable_regset, i))
@@ -4338,9 +4334,6 @@ build_insn_chain (void)
     if (live_subregs[i] != NULL)
       sbitmap_free (live_subregs[i]);
   free (live_subregs);
-  BITMAP_FREE (live_subregs_used);
-  BITMAP_FREE (live_relevant_regs);
-  BITMAP_FREE (elim_regset);
 
   if (dump_file)
     print_insn_chains (dump_file);
@@ -4492,9 +4485,8 @@ find_moveable_pseudos (void)
      moved freely downwards, but are otherwise transparent to a block.  */
   bitmap_head *bb_moveable_reg_sets = XNEWVEC (bitmap_head,
 					       last_basic_block_for_fn (cfun));
-  bitmap_head live, used, set, interesting, unusable_as_input;
+  auto_bitmap live, used, set, interesting, unusable_as_input;
   bitmap_iterator bi;
-  bitmap_initialize (&interesting, 0);
 
   first_moveable_pseudo = max_regs;
   pseudo_replaced_reg.release ();
@@ -4504,10 +4496,6 @@ find_moveable_pseudos (void)
   calculate_dominance_info (CDI_DOMINATORS);
 
   i = 0;
-  bitmap_initialize (&live, 0);
-  bitmap_initialize (&used, 0);
-  bitmap_initialize (&set, 0);
-  bitmap_initialize (&unusable_as_input, 0);
   FOR_EACH_BB_FN (bb, cfun)
     {
       rtx_insn *insn;
@@ -4518,13 +4506,13 @@ find_moveable_pseudos (void)
       bitmap_initialize (local, 0);
       bitmap_initialize (transp, 0);
       bitmap_initialize (moveable, 0);
-      bitmap_copy (&live, df_get_live_out (bb));
-      bitmap_and_into (&live, df_get_live_in (bb));
-      bitmap_copy (transp, &live);
+      bitmap_copy (live, df_get_live_out (bb));
+      bitmap_and_into (live, df_get_live_in (bb));
+      bitmap_copy (transp, live);
       bitmap_clear (moveable);
-      bitmap_clear (&live);
-      bitmap_clear (&used);
-      bitmap_clear (&set);
+      bitmap_clear (live);
+      bitmap_clear (used);
+      bitmap_clear (set);
       FOR_BB_INSNS (bb, insn)
 	if (NONDEBUG_INSN_P (insn))
 	  {
@@ -4538,20 +4526,20 @@ find_moveable_pseudos (void)
 	    if (use
 		&& def
 		&& DF_REF_REGNO (use) == DF_REF_REGNO (def)
-		&& !bitmap_bit_p (&set, DF_REF_REGNO (use))
+		&& !bitmap_bit_p (set, DF_REF_REGNO (use))
 		&& rtx_moveable_p (&PATTERN (insn), OP_IN))
 	      {
 		unsigned regno = DF_REF_REGNO (use);
 		bitmap_set_bit (moveable, regno);
-		bitmap_set_bit (&set, regno);
-		bitmap_set_bit (&used, regno);
+		bitmap_set_bit (set, regno);
+		bitmap_set_bit (used, regno);
 		bitmap_clear_bit (transp, regno);
 		continue;
 	      }
 	    FOR_EACH_INSN_INFO_USE (use, insn_info)
 	      {
 		unsigned regno = DF_REF_REGNO (use);
-		bitmap_set_bit (&used, regno);
+		bitmap_set_bit (used, regno);
 		if (bitmap_clear_bit (moveable, regno))
 		  bitmap_clear_bit (transp, regno);
 	      }
@@ -4559,16 +4547,12 @@ find_moveable_pseudos (void)
 	    FOR_EACH_INSN_INFO_DEF (def, insn_info)
 	      {
 		unsigned regno = DF_REF_REGNO (def);
-		bitmap_set_bit (&set, regno);
+		bitmap_set_bit (set, regno);
 		bitmap_clear_bit (transp, regno);
 		bitmap_clear_bit (moveable, regno);
 	      }
 	  }
     }
-
-  bitmap_clear (&live);
-  bitmap_clear (&used);
-  bitmap_clear (&set);
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -4612,7 +4596,7 @@ find_moveable_pseudos (void)
 		if (dump_file)
 		  fprintf (dump_file, "Ignoring reg %d, has equiv memory\n",
 			   regno);
-		bitmap_set_bit (&unusable_as_input, regno);
+		bitmap_set_bit (unusable_as_input, regno);
 		continue;
 	      }
 
@@ -4672,7 +4656,7 @@ find_moveable_pseudos (void)
 		continue;
 	      }
 
-	    bitmap_set_bit (&interesting, regno);
+	    bitmap_set_bit (interesting, regno);
 	    /* If we get here, we know closest_use is a non-NULL insn
 	       (as opposed to const_0_rtx).  */
 	    closest_uses[regno] = as_a <rtx_insn *> (closest_use);
@@ -4691,7 +4675,7 @@ find_moveable_pseudos (void)
 	  }
     }
 
-  EXECUTE_IF_SET_IN_BITMAP (&interesting, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (interesting, 0, i, bi)
     {
       df_ref def = DF_REG_DEF_CHAIN (i);
       rtx_insn *def_insn = DF_REF_INSN (def);
@@ -4735,7 +4719,7 @@ find_moveable_pseudos (void)
       FOR_EACH_INSN_USE (use, def_insn)
 	{
 	  unsigned regno = DF_REF_REGNO (use);
-	  if (bitmap_bit_p (&unusable_as_input, regno))
+	  if (bitmap_bit_p (unusable_as_input, regno))
 	    {
 	      all_ok = false;
 	      if (dump_file)
@@ -4801,8 +4785,6 @@ find_moveable_pseudos (void)
       bitmap_clear (bb_transp_live + bb->index);
       bitmap_clear (bb_moveable_reg_sets + bb->index);
     }
-  bitmap_clear (&interesting);
-  bitmap_clear (&unusable_as_input);
   free (uid_luid);
   free (closest_uses);
   free (bb_local);
@@ -4882,14 +4864,12 @@ split_live_ranges_for_shrink_wrap (void)
   basic_block bb, call_dom = NULL;
   basic_block first = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   rtx_insn *insn, *last_interesting_insn = NULL;
-  bitmap_head need_new, reachable;
+  auto_bitmap need_new, reachable;
   vec<basic_block> queue;
 
   if (!SHRINK_WRAPPING_ENABLED)
     return false;
 
-  bitmap_initialize (&need_new, 0);
-  bitmap_initialize (&reachable, 0);
   queue.create (n_basic_blocks_for_fn (cfun));
 
   FOR_EACH_BB_FN (bb, cfun)
@@ -4898,22 +4878,18 @@ split_live_ranges_for_shrink_wrap (void)
 	{
 	  if (bb == first)
 	    {
-	      bitmap_clear (&need_new);
-	      bitmap_clear (&reachable);
 	      queue.release ();
 	      return false;
 	    }
 
-	  bitmap_set_bit (&need_new, bb->index);
-	  bitmap_set_bit (&reachable, bb->index);
+	  bitmap_set_bit (need_new, bb->index);
+	  bitmap_set_bit (reachable, bb->index);
 	  queue.quick_push (bb);
 	  break;
 	}
 
   if (queue.is_empty ())
     {
-      bitmap_clear (&need_new);
-      bitmap_clear (&reachable);
       queue.release ();
       return false;
     }
@@ -4926,7 +4902,7 @@ split_live_ranges_for_shrink_wrap (void)
       bb = queue.pop ();
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	    && bitmap_set_bit (&reachable, e->dest->index))
+	    && bitmap_set_bit (reachable, e->dest->index))
 	  queue.quick_push (e->dest);
     }
   queue.release ();
@@ -4938,32 +4914,23 @@ split_live_ranges_for_shrink_wrap (void)
 	continue;
 
       if (DF_REG_DEF_COUNT (REGNO (dest)) > 1)
-	{
-	  bitmap_clear (&need_new);
-	  bitmap_clear (&reachable);
-	  return false;
-	}
+	return false;
 
       for (df_ref use = DF_REG_USE_CHAIN (REGNO(dest));
 	   use;
 	   use = DF_REF_NEXT_REG (use))
 	{
 	  int ubbi = DF_REF_BB (use)->index;
-	  if (bitmap_bit_p (&reachable, ubbi))
-	    bitmap_set_bit (&need_new, ubbi);
+	  if (bitmap_bit_p (reachable, ubbi))
+	    bitmap_set_bit (need_new, ubbi);
 	}
       last_interesting_insn = insn;
     }
 
-  bitmap_clear (&reachable);
   if (!last_interesting_insn)
-    {
-      bitmap_clear (&need_new);
-      return false;
-    }
+    return false;
 
-  call_dom = nearest_common_dominator_for_set (CDI_DOMINATORS, &need_new);
-  bitmap_clear (&need_new);
+  call_dom = nearest_common_dominator_for_set (CDI_DOMINATORS, need_new);
   if (call_dom == first)
     return false;
 

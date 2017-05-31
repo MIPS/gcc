@@ -128,7 +128,7 @@ static basic_block
 nearest_common_dominator_of_uses (def_operand_p def_p, bool *debug_stmts)
 {
   tree var = DEF_FROM_PTR (def_p);
-  bitmap blocks = BITMAP_ALLOC (NULL);
+  auto_bitmap blocks;
   basic_block commondom;
   unsigned int j;
   bitmap_iterator bi;
@@ -158,17 +158,14 @@ nearest_common_dominator_of_uses (def_operand_p def_p, bool *debug_stmts)
 
       /* Short circuit. Nothing dominates the entry block.  */
       if (useblock == ENTRY_BLOCK_PTR_FOR_FN (cfun))
-	{
-	  BITMAP_FREE (blocks);
-	  return NULL;
-	}
+	return NULL;
+
       bitmap_set_bit (blocks, useblock->index);
     }
   commondom = BASIC_BLOCK_FOR_FN (cfun, bitmap_first_set_bit (blocks));
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, j, bi)
     commondom = nearest_common_dominator (CDI_DOMINATORS, commondom,
 					  BASIC_BLOCK_FOR_FN (cfun, j));
-  BITMAP_FREE (blocks);
   return commondom;
 }
 
@@ -256,8 +253,12 @@ statement_sink_location (gimple *stmt, basic_block frombb,
 
   *zero_uses_p = false;
 
-  /* We only can sink assignments.  */
-  if (!is_gimple_assign (stmt))
+  /* We only can sink assignments and non-looping const/pure calls.  */
+  int cf;
+  if (!is_gimple_assign (stmt)
+      && (!is_gimple_call (stmt)
+	  || !((cf = gimple_call_flags (stmt)) & (ECF_CONST|ECF_PURE))
+	  || (cf & ECF_LOOPING_CONST_OR_PURE)))
     return false;
 
   /* We only can sink stmts with a single definition.  */
@@ -291,7 +292,7 @@ statement_sink_location (gimple *stmt, basic_block frombb,
   if (stmt_ends_bb_p (stmt)
       || gimple_has_side_effects (stmt)
       || (cfun->has_local_explicit_reg_vars
-	  && TYPE_MODE (TREE_TYPE (gimple_assign_lhs (stmt))) == BLKmode))
+	  && TYPE_MODE (TREE_TYPE (gimple_get_lhs (stmt))) == BLKmode))
     return false;
 
   /* Return if there are no immediate uses of this stmt.  */
@@ -323,15 +324,15 @@ statement_sink_location (gimple *stmt, basic_block frombb,
 
 	  /* A killing definition is not a use.  */
 	  if ((gimple_has_lhs (use_stmt)
-	       && operand_equal_p (gimple_assign_lhs (stmt),
+	       && operand_equal_p (gimple_get_lhs (stmt),
 				   gimple_get_lhs (use_stmt), 0))
-	      || stmt_kills_ref_p (use_stmt, gimple_assign_lhs (stmt)))
+	      || stmt_kills_ref_p (use_stmt, gimple_get_lhs (stmt)))
 	    {
 	      /* If use_stmt is or might be a nop assignment then USE_STMT
 	         acts as a use as well as definition.  */
 	      if (stmt != use_stmt
 		  && ref_maybe_used_by_stmt_p (use_stmt,
-					       gimple_assign_lhs (stmt)))
+					       gimple_get_lhs (stmt)))
 		return false;
 	      continue;
 	    }

@@ -357,7 +357,7 @@ enum omp_clause_code {
   /* OpenMP clause: ordered [(constant-integer-expression)].  */
   OMP_CLAUSE_ORDERED,
 
-  /* OpenMP clause: default.  */
+  /* OpenACC/OpenMP clause: default.  */
   OMP_CLAUSE_DEFAULT,
 
   /* OpenACC/OpenMP clause: collapse (constant-integer-expression).  */
@@ -499,6 +499,7 @@ enum omp_clause_default_kind {
   OMP_CLAUSE_DEFAULT_NONE,
   OMP_CLAUSE_DEFAULT_PRIVATE,
   OMP_CLAUSE_DEFAULT_FIRSTPRIVATE,
+  OMP_CLAUSE_DEFAULT_PRESENT,
   OMP_CLAUSE_DEFAULT_LAST
 };
 
@@ -1193,6 +1194,10 @@ struct GTY(()) tree_base {
 
        SSA_NAME_OCCURS_IN_ABNORMAL_PHI in
            SSA_NAME
+
+       EXPR_CILK_SPAWN in
+           CALL_EXPR
+           AGGR_INIT_EXPR
 
    used_flag:
 
