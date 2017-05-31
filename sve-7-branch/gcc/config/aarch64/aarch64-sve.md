@@ -684,26 +684,35 @@
 
 (define_insn "sve_rev64<mode>"
   [(set (match_operand:SVE_BHS 0 "register_operand" "=w")
-	(unspec:SVE_BHS [(match_operand:SVE_BHS 1 "register_operand" "w")]
-			UNSPEC_REV64))]
+	(unspec:SVE_BHS
+	  [(match_operand:V4BI 1 "register_operand" "Upl")
+	   (unspec:SVE_BHS [(match_operand:SVE_BHS 2 "register_operand" "w")]
+			   UNSPEC_REV64)]
+	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
-  "rev<Vesize>\t%0.d, %1.d"
+  "rev<Vesize>\t%0.d, %1/m, %2.d"
 )
 
 (define_insn "sve_rev32<mode>"
   [(set (match_operand:SVE_BH 0 "register_operand" "=w")
-	(unspec:SVE_BH [(match_operand:SVE_BH 1 "register_operand" "w")]
-		       UNSPEC_REV32))]
+	(unspec:SVE_BH
+	  [(match_operand:V8BI 1 "register_operand" "Upl")
+	   (unspec:SVE_BH [(match_operand:SVE_BH 2 "register_operand" "w")]
+			  UNSPEC_REV32)]
+	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
-  "rev<Vesize>\t%0.s, %1.s"
+  "rev<Vesize>\t%0.s, %1/m, %2.s"
 )
 
 (define_insn "sve_rev16v32qi"
   [(set (match_operand:V32QI 0 "register_operand" "=w")
-	(unspec:V32QI [(match_operand:V32QI 1 "register_operand" "w")]
-		      UNSPEC_REV16))]
+	(unspec:V32QI
+	  [(match_operand:V16BI 1 "register_operand" "Upl")
+	   (unspec:V32QI [(match_operand:V32QI 2 "register_operand" "w")]
+			 UNSPEC_REV16)]
+	  UNSPEC_MERGE_PTRUE))]
   "TARGET_SVE"
-  "revb\t%0.h, %1.h"
+  "revb\t%0.h, %1/m, %2.h"
 )
 
 (define_insn "sve_dup_lane<mode>"
